@@ -4,6 +4,8 @@ package motionplan
 
 import (
 	"context"
+	"fmt"
+	"math"
 	"math/rand"
 	"testing"
 
@@ -11,6 +13,7 @@ import (
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -63,8 +66,9 @@ func TestPtgWithObstacle(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	ctx := context.Background()
+	fmt.Println("type,X,Y")
 
-	goalPos := spatialmath.NewPoseFromPoint(r3.Vector{X: 2000, Y: 0, Z: 0})
+	goalPos := spatialmath.NewPoseFromPoint(r3.Vector{X: 5000, Y: 0, Z: 0})
 
 	fs := referenceframe.NewEmptyFrameSystem("test")
 	fs.AddFrame(ackermanFrame, fs.World())
@@ -78,12 +82,25 @@ func TestPtgWithObstacle(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	obstacle2, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{2500, 2000, 0}), r3.Vector{180, 1800, 1}, "")
 	test.That(t, err, test.ShouldBeNil)
-	obstacle3, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{2500, -1400, 0}), r3.Vector{50000, 10, 1}, "")
+	obstacle3, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{2500, -1400, 0}), r3.Vector{50000, 30, 1}, "")
 	test.That(t, err, test.ShouldBeNil)
-	obstacle4, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{2500, 2400, 0}), r3.Vector{50000, 10, 1}, "")
+	obstacle4, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{2500, 2400, 0}), r3.Vector{50000, 30, 1}, "")
+	test.That(t, err, test.ShouldBeNil)
+	obstacle5, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{1500, 750, 0}), r3.Vector{180, 1500, 1}, "")
+	test.That(t, err, test.ShouldBeNil)
+	obstacle6, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{3500, 750, 0}), r3.Vector{180, 1500, 1}, "")
 	test.That(t, err, test.ShouldBeNil)
 
-	geoms := []spatialmath.Geometry{obstacle1, obstacle2, obstacle3, obstacle4}
+	//~ geoms := []spatialmath.Geometry{obstacle1, obstacle2, obstacle3, obstacle4}
+	geoms := []spatialmath.Geometry{obstacle1, obstacle2, obstacle3, obstacle4, obstacle5, obstacle6}
+	for _, geom := range geoms {
+	pts := geom.ToPoints(1.)
+	for _, pt := range pts {
+	if math.Abs(pt.Z) < 0.1 {
+	fmt.Printf("OBS,%f,%f\n", pt.X, pt.Y)
+	}
+	}
+	}
 
 	worldState, err := referenceframe.NewWorldState(
 		[]*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)},
@@ -106,4 +123,18 @@ func TestPtgWithObstacle(t *testing.T) {
 	plan, err := tp.plan(ctx, goalPos, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(plan), test.ShouldBeGreaterThan, 2)
+	allPtgs := ackermanFrame.(tpspace.PTGProvider).PTGs()
+	lastPose := spatialmath.NewZeroPose()
+	for _, mynode := range plan {
+		trajPts := allPtgs[int(mynode[0].Value)].Trajectory(uint(mynode[1].Value))
+		for _, pt := range trajPts {
+			//~ fmt.Println("pt", pt)
+			intPose := spatialmath.Compose(lastPose, pt.Pose)
+			fmt.Printf("FINALPATH,%f,%f\n", intPose.Point().X, intPose.Point().Y)
+			if pt.Dist >= mynode[2].Value {
+				lastPose = spatialmath.Compose(lastPose, pt.Pose)
+				break
+			}
+		}
+	}
 }

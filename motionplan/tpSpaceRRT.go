@@ -164,6 +164,7 @@ func (mp *tpSpaceRRTMotionPlanner) planRunner(
 	var successNode node
 	var randPos spatialmath.Pose
 	for iter := 0; iter < mp.algOpts.PlanIter; iter++ {
+		fmt.Println("iter", iter)
 		if ctx.Err() != nil {
 			mp.logger.Debugf("TP Space RRT timed out after %d iterations", iter)
 			rrt.solutionChan <- &rrtPlanReturn{planerr: fmt.Errorf("TP Space RRT timeout %w", ctx.Err()), maps: rrt.maps}
@@ -187,12 +188,12 @@ func (mp *tpSpaceRRTMotionPlanner) planRunner(
 		}
 		randPosNode := &basicNode{nil, 0, randPos}
 
-		candidates := []*candidate{}
 		// Find the best traj point for each traj family, and store for later comparison
 		// TODO: run in parallel
 		reiter := true
 		var reseed node
 		for reiter {
+			candidates := []*candidate{}
 			for ptgNum, curPtg := range tpFrame.PTGs() {
 				cand := mp.getExtensionCandidate(ctx, randPosNode, ptgNum, curPtg, rrt, reseed)
 				if cand != nil {
@@ -220,6 +221,7 @@ func (mp *tpSpaceRRTMotionPlanner) planRunner(
 			if reseed == nil {
 				reiter = false
 			}
+			fmt.Println("reseed", reseed)
 		}
 	}
 	rrt.solutionChan <- &rrtPlanReturn{maps: rrt.maps, planerr: errors.New("tpspace RRT unable to create valid path")}
@@ -370,7 +372,10 @@ func (mp *tpSpaceRRTMotionPlanner) extendMap(
 		lastDist = trajPt.Dist
 	}
 	rrt.maps.startMap[newNode] = treeNode
-	return newNode
+	if bestCand.lastInTraj {
+		return newNode
+	}
+	return nil
 }
 
 func (mp *tpSpaceRRTMotionPlanner) setupTPSpaceOptions(tpFrame tpspace.PTGProvider) {
@@ -451,4 +456,49 @@ func (mp *tpSpaceRRTMotionPlanner) make2DTPSpaceDistanceOptions(ptg tpspace.PTG,
 	}
 	opts.DistanceFunc = segMet
 	return opts
+}
+
+func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) []node {
+	opts := newBasicPlannerOptions()
+	opts.DistanceFunc = SquaredNormSegmentMetric
+
+	mp.logger.Debugf("running simple PTG smoother on path of len %d", len(path))
+	if mp.planOpts == nil {
+		mp.logger.Debug("nil opts, cannot shortcut")
+		return path
+	}
+	if len(path) <= 2 {
+		mp.logger.Debug("path too short, cannot shortcut")
+		return path
+	}
+
+	// Randomly pick which quarter of motion to check from; this increases flexibility of smoothing.
+	waypoints := []float64{0.25, 0.5, 0.75}
+
+	for i := 0; i < mp.planOpts.SmoothIter; i++ {
+		select {
+		case <-ctx.Done():
+			return path
+		default:
+		}
+		// get start node of first edge. Cannot be either the last or second-to-last node.
+		// Intn will return an int in the half-open interval half-open interval [0,n)
+		firstEdge := mp.randseed.Intn(len(path) - 2)
+		secondEdge := firstEdge + 1 + mp.randseed.Intn((len(path)-2)-firstEdge)
+		mp.logger.Debugf("checking shortcut between nodes %d and %d", firstEdge, secondEdge+1)
+
+		wayPoint1 := frame.InterpolateInputs(path[firstEdge].Q(), path[firstEdge+1].Q(), waypoints[mp.randseed.Intn(3)])
+		wayPoint2 := frame.InterpolateInputs(path[secondEdge].Q(), path[secondEdge+1].Q(), waypoints[mp.randseed.Intn(3)])
+
+		if mp.checkPath(wayPoint1, wayPoint2) {
+			newpath := []node{}
+			newpath = append(newpath, path[:firstEdge+1]...)
+			newpath = append(newpath, newConfigurationNode(wayPoint1), newConfigurationNode(wayPoint2))
+			// have to split this up due to go compiler quirk where elipses operator can't be mixed with other vars in append
+			newpath = append(newpath, path[secondEdge+1:]...)
+			path = newpath
+		}
+	}
+	return path
+}
 }
