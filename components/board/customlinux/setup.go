@@ -26,7 +26,7 @@ type GenericLinuxPins struct {
 }
 
 // UnmarshalJSON handles setting defaults for pin configs.
-func (config *GenericLinuxPin) UnmarshalJSON(text []byte) error {
+func (conf *GenericLinuxPin) UnmarshalJSON(text []byte) error {
 	type TempPin GenericLinuxPin
 	aux := TempPin{
 		Ngpio:      -1,
@@ -36,29 +36,29 @@ func (config *GenericLinuxPin) UnmarshalJSON(text []byte) error {
 	if err := json.Unmarshal(text, &aux); err != nil {
 		return err
 	}
-	*config = GenericLinuxPin(aux)
+	*conf = GenericLinuxPin(aux)
 	return nil
 }
 
 // Validate ensures all parts of the config are valid.
-func (config *GenericLinuxPin) Validate(path string) error {
-	if config.Name == "" {
+func (conf *GenericLinuxPin) Validate(path string) error {
+	if conf.Name == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "name")
 	}
 
-	if config.Ngpio == -1 {
+	if conf.Ngpio == -1 {
 		return utils.NewConfigValidationFieldRequiredError(path, "ngpio")
 	}
 
-	if config.RelativeID == -1 {
+	if conf.RelativeID == -1 {
 		return utils.NewConfigValidationFieldRequiredError(path, "relative_id")
 	}
 
-	if config.RelativeID > config.Ngpio {
+	if conf.RelativeID > conf.Ngpio {
 		return utils.NewConfigValidationError(path, errors.New("relative id on gpio chip must be less than ngpio"))
 	}
 
-	if config.PWMChipSysFSDir != "" && config.PWMID == -1 {
+	if conf.PWMChipSysFSDir != "" && conf.PWMID == -1 {
 		return utils.NewConfigValidationError(path, errors.New("must supply pwm_id for the pwm chip"))
 	}
 	return nil
