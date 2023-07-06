@@ -76,14 +76,23 @@ export const getSLAMPosition = async (robotClient: Client, name: string) => {
   return response?.getPose();
 };
 
-export const getSLAMMapInfo = (client: Client, name: string) => {
+export const getSLAMMapInfo = async (robotClient: Client, name: string) => {
+  console.log('hello 1');
   const request = new slamApi.GetLatestMapInfoRequest();
   request.setName(name);
-
-  return new Promise<Timestamp>((resolve, reject) => {
-    client.slamService.getLatestMapInfo(request, new grpc.Metadata(), (error, response) => (
-      error ? reject(error) : resolve(response?.latest_map_timestamp)
-    ));
+  console.log("hello 2");
+  console.log(request);
+  const response = await new Promise<slamApi.GetLatestMapInfoResponse | Timestamp() >((resolve, reject) => {
+    robotClient.slamService.getLatestMapInfo(request, (error, res) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(res);
+      }
+    });
   });
+  console.log(response?.getLastMapUpdate());
+  return response?.getLastMapUpdate();
 };
+
 

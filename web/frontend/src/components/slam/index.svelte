@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { commonApi, type ServiceError } from '@viamrobotics/sdk';
 import { copyToClipboard } from '@/lib/copy-to-clipboard';
 import { filterSubtype } from '@/lib/resource';
-import { getPointCloudMap, getSLAMPosition } from '@/api/slam';
+import { getPointCloudMap, getSLAMPosition, getSLAMMapInfo } from '@/api/slam';
 import { moveOnMap, stopMoveOnMap } from '@/api/motion';
 import { notify } from '@viamrobotics/prime';
 import { setAsyncInterval } from '@/lib/schedule';
@@ -13,7 +13,7 @@ import Collapse from '@/lib/components/collapse.svelte';
 import PCD from '@/components/pcd/pcd-view.svelte';
 import Slam2dRenderer from './2d-renderer.svelte';
 import { useRobotClient, useDisconnect } from '@/hooks/robot-client';
-
+import { Timestamp } from 'google-protobuf/google/protobuf/timestamp_pb';
 export let name: string;
 
 const { robotClient, operations } = useRobotClient();
@@ -29,6 +29,8 @@ let refresh2dRate = 'manual';
 let refresh3dRate = 'manual';
 let pointcloud: Uint8Array | undefined;
 let pose: commonApi.Pose | undefined;
+
+let timestamp = new Timestamp();
 let show2d = false;
 let show3d = false;
 let showAxes = true;
@@ -50,12 +52,22 @@ const deleteDestinationMarker = () => {
 };
 
 const refresh2d = async () => {
+  
   try {
-    const [map, nextPose] = await Promise.all([
-      getPointCloudMap($robotClient, name),
-      getSLAMPosition($robotClient, name),
-    ]);
-
+   
+    const mapTimestamp = await getSLAMMapInfo($robotClient, name);
+    var nextPose;
+    if (mapTimestamp != timestamp) {
+      [pointcloud, nextPose] = await Promise.all([
+        getPointCloudMap($robotClient, name),
+        getSLAMPosition($robotClient, name),
+        console.log("successfully re-loaded SLAM map")
+      ]);
+    } else {
+      nextPose = await getSLAMPosition($robotClient, name);
+      console.log("successfully DID NOT re-load SLAM map")
+    }
+   
     /*
      * The pose is returned in millimeters, but we need
      * to convert to meters to display on the frontend.
@@ -63,9 +75,9 @@ const refresh2d = async () => {
     nextPose?.setX(nextPose.getX() / 1000);
     nextPose?.setY(nextPose.getY() / 1000);
     nextPose?.setZ(nextPose.getZ() / 1000);
-
-    pointcloud = map;
     pose = nextPose;
+    timestamp = mapTimestamp;
+    console.log(timestamp);
   } catch (error) {
     refreshErrorMessage2d = error !== null && typeof error === 'object' && 'message' in error
       ? `${refreshErrorMessage} ${error.message}`
