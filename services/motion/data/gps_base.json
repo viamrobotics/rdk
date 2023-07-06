@@ -83,7 +83,15 @@
       "name": "test-gps",
       "type": "movement_sensor",
       "model": "fake",
-      "depends_on": []
+      "depends_on": [],
+      "frame": {
+        "parent": "test-base",
+        "translation": {
+            "x": -10,
+            "y": 0,
+            "z": 0
+        }
+      }
     }
   ]
 }
