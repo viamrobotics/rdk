@@ -15,7 +15,6 @@ import (
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/motor"
-	"go.viam.com/rdk/components/motor/fake"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
@@ -337,7 +336,7 @@ func sBaseTestConfig(msNames, lmotors, rmotors []string) resource.Config {
 	}
 }
 
-func msDependencies(t *testing.T, lmotors, rmotors, msNames []string, logger golog.Logger,
+func msDependencies(t *testing.T, lmotors, rmotors, msNames []string,
 ) (resource.Dependencies, resource.Config) {
 	t.Helper()
 
@@ -346,19 +345,11 @@ func msDependencies(t *testing.T, lmotors, rmotors, msNames []string, logger gol
 	deps := make(resource.Dependencies)
 
 	for _, lm := range lmotors {
-		deps[motor.Named(lm)] = &fake.Motor{
-			Named:  motor.Named(lm).AsNamed(),
-			MaxRPM: 60,
-			Logger: logger,
-		}
+		deps[motor.Named(lm)] = inject.NewMotor(lm)
 	}
 
 	for _, rm := range rmotors {
-		deps[motor.Named(rm)] = &fake.Motor{
-			Named:  motor.Named(rm).AsNamed(),
-			MaxRPM: 60,
-			Logger: logger,
-		}
+		deps[motor.Named(rm)] = inject.NewMotor(rm)
 	}
 
 	for _, msName := range msNames {
@@ -371,6 +362,7 @@ func msDependencies(t *testing.T, lmotors, rmotors, msNames []string, logger gol
 				}, nil
 			}
 			deps[movementsensor.Named(msName)] = ms
+
 		case strings.Contains(msName, "setvel"):
 			ms.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
 				return &movementsensor.Properties{
@@ -389,6 +381,7 @@ func msDependencies(t *testing.T, lmotors, rmotors, msNames []string, logger gol
 				}, errors.New("bad sensor")
 			}
 			deps[movementsensor.Named(msName)] = ms
+
 		default:
 		}
 	}
@@ -401,7 +394,7 @@ func TestReconfig(t *testing.T) {
 	lmNames := []string{"l-m"}
 	rmNames := []string{"r-m"}
 
-	deps, cfg := msDependencies(t, lmNames, rmNames, []string{"orientation"}, logger)
+	deps, cfg := msDependencies(t, lmNames, rmNames, []string{"orientation"})
 
 	b, err := createWheeledBase(ctx, deps, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -409,39 +402,39 @@ func TestReconfig(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, sb.orientation.Name().ShortName(), test.ShouldResemble, "orientation")
 
-	deps, cfg = msDependencies(t, lmNames, rmNames, []string{"orientation1"}, logger)
+	deps, cfg = msDependencies(t, lmNames, rmNames, []string{"orientation1"})
 	err = b.Reconfigure(ctx, deps, cfg)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, sb.orientation.Name().ShortName(), test.ShouldResemble, "orientation1")
 
-	deps, cfg = msDependencies(t, lmNames, rmNames, []string{"orientation2"}, logger)
+	deps, cfg = msDependencies(t, lmNames, rmNames, []string{"orientation2"})
 	err = b.Reconfigure(ctx, deps, cfg)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, sb.orientation.Name().ShortName(), test.ShouldResemble, "orientation2")
 
-	deps, cfg = msDependencies(t, lmNames, rmNames, []string{"setvel1"}, logger)
+	deps, cfg = msDependencies(t, lmNames, rmNames, []string{"setvel1"})
 	err = b.Reconfigure(ctx, deps, cfg)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, sb.velocities.Name().ShortName(), test.ShouldResemble, "setvel1")
 
-	deps, cfg = msDependencies(t, lmNames, rmNames, []string{"setvel2"}, logger)
+	deps, cfg = msDependencies(t, lmNames, rmNames, []string{"setvel2"})
 	err = b.Reconfigure(ctx, deps, cfg)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, sb.velocities.Name().ShortName(), test.ShouldResemble, "setvel2")
 
-	deps, cfg = msDependencies(t, lmNames, rmNames, []string{"orientation3", "setvel3", "Bad"}, logger)
+	deps, cfg = msDependencies(t, lmNames, rmNames, []string{"orientation3", "setvel3", "Bad"})
 	err = b.Reconfigure(ctx, deps, cfg)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, sb.orientation.Name().ShortName(), test.ShouldResemble, "orientation3")
 	test.That(t, sb.velocities.Name().ShortName(), test.ShouldResemble, "setvel3")
 
-	deps, cfg = msDependencies(t, lmNames, rmNames, []string{"Bad", "orientation4", "setvel4"}, logger)
+	deps, cfg = msDependencies(t, lmNames, rmNames, []string{"Bad", "orientation4", "setvel4"})
 	err = b.Reconfigure(ctx, deps, cfg)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, sb.orientation.Name().ShortName(), test.ShouldResemble, "orientation4")
 	test.That(t, sb.velocities.Name().ShortName(), test.ShouldResemble, "setvel4")
 
-	deps, cfg = msDependencies(t, lmNames, rmNames, []string{"Bad"}, logger)
+	deps, cfg = msDependencies(t, lmNames, rmNames, []string{"Bad"})
 	err = b.Reconfigure(ctx, deps, cfg)
 	test.That(t, sb.orientation, test.ShouldBeNil)
 	test.That(t, sb.velocities, test.ShouldBeNil)

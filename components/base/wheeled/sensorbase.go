@@ -407,11 +407,13 @@ func (sb *sensorBase) pollsensors(ctx context.Context, extra map[string]interfac
 				linvel, err := sb.velocities.LinearVelocity(ctx, extra)
 				if err != nil {
 					sb.logger.Error(err)
+					return
 				}
 
 				angvel, err := sb.velocities.AngularVelocity(ctx, extra)
 				if err != nil {
 					sb.logger.Error(err)
+					return
 				}
 
 				if sensorDebug {
