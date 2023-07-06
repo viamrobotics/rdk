@@ -26,6 +26,7 @@ func main() {
 	if err != nil {
 		logger.Fatal(err)
 	}
+	//nolint:errcheck
 	defer robot.Close(context.Background())
 
 	logger.Info("---- Testing gizmo1 (gizmoapi) -----")

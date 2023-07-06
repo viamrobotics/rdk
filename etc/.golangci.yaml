@@ -5,10 +5,6 @@ run:
   modules-download-mode: readonly
   skip-dirs-use-default: false
   skip-dirs:
-    - genfiles$
-    - gen$
-    - vendor$
-    - test$
     # TFlite uses FlatBuffer generated code that's ugly
     - ml/inference/tflite_metadata$
     - ml/inference/tflite$
@@ -85,7 +81,7 @@ issues:
   exclude:
     - composites
   exclude-rules:
-    - path: _test\.go$|^tests/|^examples/
+    - path: _test\.go$
       linters:
         - dupword
         - errcheck

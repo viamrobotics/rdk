@@ -24,6 +24,7 @@ func main() {
 	if err != nil {
 		logger.Fatal(err)
 	}
+	//nolint:errcheck
 	defer robot.Close(context.Background())
 
 	// Get the two counter components.
@@ -50,6 +51,7 @@ func main() {
 		logger.Infof("---- Adding random values to counter%d -----", name+1)
 		logger.Infof("start\t=%.0f", ret["total"]) // numeric values are floats by default
 		for n := 0; n < 20; n++ {
+			//nolint:gosec
 			val := rand.Intn(100)
 			ret, err := c.DoCommand(context.Background(), map[string]interface{}{"command": "add", "value": val})
 			if err != nil {

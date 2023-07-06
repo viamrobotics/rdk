@@ -45,6 +45,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 	if err != nil {
 		return err
 	}
+	//nolint:errcheck
 	defer myRobot.Close(ctx)
 
 	<-ctx.Done()

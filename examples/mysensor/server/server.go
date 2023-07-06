@@ -61,6 +61,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	if err != nil {
 		return err
 	}
+	//nolint:errcheck
 	defer myRobot.Close(ctx)
 	o := weboptions.New()
 	// the default bind address is localhost:8080, specifying a different bind address to avoid collisions.
