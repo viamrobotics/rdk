@@ -36,8 +36,8 @@ func (config *GenericLinuxPin) Validate(path string) error {
 
 // A Config describes the configuration of a board and all of its connected parts.
 type Config struct {
-	PinConfigFilePath string              `json:"pin_config_filepath"`
-	BoardConfig       genericlinux.Config `json:"board_config,omitempty"`
+	PinConfigFilePath string `json:"pin_config_filepath"`
+	genericlinux.Config
 }
 
 // Validate ensures all parts of the config are valid.
@@ -46,7 +46,7 @@ func (conf *Config) Validate(path string) ([]string, error) {
 		return nil, err
 	}
 
-	if _, err := conf.BoardConfig.Validate(path); err != nil {
+	if _, err := conf.Config.Validate(path); err != nil {
 		return nil, err
 	}
 	return nil, nil
