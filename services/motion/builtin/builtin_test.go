@@ -10,6 +10,8 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
+	// register.
+	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
@@ -19,19 +21,15 @@ import (
 	"go.viam.com/rdk/components/base/fake"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/gripper"
-	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/testutils/inject"
-
-	// register.
-	commonpb "go.viam.com/api/common/v1"
 	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/resource"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/motion"
-
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/testutils/inject"
 )
 
 func setupMotionServiceFromConfig(t *testing.T, configFilename string) (motion.Service, func()) {
@@ -220,6 +218,7 @@ func TestMoveSingleComponent(t *testing.T) {
 }
 
 func TestMoveOnMap(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 	injectSlam := inject.NewSLAMService("test_slam")
@@ -309,6 +308,7 @@ func TestMoveOnMap(t *testing.T) {
 }
 
 func TestInjectedMoveOnGlobe(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 
@@ -359,10 +359,15 @@ func TestInjectedMoveOnGlobe(t *testing.T) {
 
 	// need to create an injected framesystem service
 	injectedFS := inject.NewFrameSystemService("fake-FS")
-	injectedFS.FrameSystemFunc = func(ctx context.Context, additionalTransforms []*referenceframe.LinkInFrame) (referenceframe.FrameSystem, error) {
+	injectedFS.FrameSystemFunc = func(ctx context.Context,
+		additionalTransforms []*referenceframe.LinkInFrame,
+	) (referenceframe.FrameSystem, error) {
 		return newFS, nil
 	}
-	injectedFS.CurrentInputsFunc = func(ctx context.Context) (map[string][]referenceframe.Input, map[string]referenceframe.InputEnabled, error) {
+	injectedFS.CurrentInputsFunc = func(ctx context.Context) (map[string][]referenceframe.Input,
+		map[string]referenceframe.InputEnabled,
+		error,
+	) {
 		return referenceframe.StartPositions(newFS), nil, nil
 	}
 
@@ -408,7 +413,12 @@ func TestInjectedMoveOnGlobe(t *testing.T) {
 
 		localizer, ok := ms.(*builtIn).localizers[injectedMovementSensor.Name()]
 		test.That(t, ok, test.ShouldBeTrue)
-		currentPosition, dstPIF, err := ms.(*builtIn).getRelativePositionAndDestination(context.Background(), localizer, fakeBase.Name(), injectedMovementSensor.Name(), *destGP)
+		currentPosition, dstPIF, err := ms.(*builtIn).getRelativePositionAndDestination(context.Background(),
+			localizer,
+			fakeBase.Name(),
+			injectedMovementSensor.Name(),
+			*destGP,
+		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, currentPosition, test.ShouldResemble, r3.Vector{-10, 0, 0})
 		test.That(t, spatialmath.R3VectorAlmostEqual(dstPIF.Pose().Point(), r3.Vector{110, 0, 0}, 0.1), test.ShouldBeTrue)
@@ -427,10 +437,24 @@ func TestInjectedMoveOnGlobe(t *testing.T) {
 		localizer, err := motion.NewLocalizer(context.Background(), injectedMovementSensor)
 		test.That(t, err, test.ShouldBeNil)
 
-		currentPosition, dstPIF, err := ms.(*builtIn).getRelativePositionAndDestination(context.Background(), localizer, fakeBase.Name(), injectedMovementSensor.Name(), *destGP)
+		currentPosition, dstPIF, err := ms.(*builtIn).getRelativePositionAndDestination(context.Background(),
+			localizer,
+			fakeBase.Name(),
+			injectedMovementSensor.Name(),
+			*destGP,
+		)
 		test.That(t, err, test.ShouldBeNil)
 
-		plan, _, err := ms.(*builtIn).planMoveOnGlobe(context.Background(), fakeBase.Name(), currentPosition, dstPIF, localizer, []*spatialmath.GeoObstacle{geoObstacle}, defaultLinearVelocityMillisPerSec, defaultAngularVelocityDegsPerSec, motionCfg)
+		plan, _, err := ms.(*builtIn).planMoveOnGlobe(context.Background(),
+			fakeBase.Name(),
+			currentPosition,
+			dstPIF,
+			localizer,
+			[]*spatialmath.GeoObstacle{geoObstacle},
+			defaultLinearVelocityMillisPerSec,
+			defaultAngularVelocityDegsPerSec,
+			motionCfg,
+		)
 		test.That(t, len(plan), test.ShouldBeGreaterThan, 2)
 		test.That(t, err, test.ShouldBeNil)
 	})
