@@ -56,5 +56,5 @@ func (m movementSensorLocalizer) CurrentPosition(ctx context.Context) (reference
 		return pif, err
 	}
 	pose := spatialmath.GeoPointToPose(gp)
-	return *referenceframe.NewPoseInFrame(referenceframe.World, pose), nil
+	return *referenceframe.NewPoseInFrame(m.Name().Name, pose), nil
 }
