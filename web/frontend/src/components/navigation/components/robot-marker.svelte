@@ -5,16 +5,18 @@ import { getLocation } from '@/api/navigation';
 import type { ServiceError } from '@viamrobotics/sdk';
 import { robotPosition, centerMap } from '../stores';
 import { setAsyncInterval } from '@/lib/schedule';
-import { useDisconnect } from '@/hooks/use-disconnect';
+import { useRobotClient, useDisconnect } from '@/hooks/robot-client';
 import MapMarker from './marker.svelte';
 
 export let name: string;
+
+const { robotClient } = useRobotClient();
 
 let centered = false;
 
 const updateLocation = async () => {
   try {
-    const position = await getLocation(name);
+    const position = await getLocation($robotClient, name);
 
     if (!centered) {
       centerMap(position);

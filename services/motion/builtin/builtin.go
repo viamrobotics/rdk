@@ -387,6 +387,7 @@ func (ms *builtIn) planMoveOnGlobeNick(
 		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
 		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
 	}
+	ms.logger.Debugf("base limits: %v", limits)
 
 	// create a KinematicBase from the componentName
 	baseComponent, ok := ms.components[componentName]
