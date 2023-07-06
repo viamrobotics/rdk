@@ -48,7 +48,7 @@ func registerObstaclePointCloud(
 	}
 	err := conf.CheckValid()
 	if err != nil {
-		return nil, errors.Wrap(err, "radius clustering segmenter config error")
+		return nil, errors.Wrap(err, "obstacle point cloud detector config error")
 	}
 	segmenter := segmentation.Segmenter(conf.RadiusClustering)
 	return vision.NewService(name, r, nil, nil, nil, segmenter)
