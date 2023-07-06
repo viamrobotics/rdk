@@ -364,7 +364,7 @@ func (ms *builtIn) planMoveOnGlobeNick(
 		return nil, nil, resource.DependencyNotFoundError(movementSensorName)
 	}
 
-	currentPosition, dstPIF, err := ms.getRelativePositionAndDestination(ctx, localizer, componentName, movementSensorName, *destination)
+	currentPosition, dstPIF, err := ms.getRelativePositionAndDestination(ctx, localizer, componentName, movementSensorName, destination)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -444,7 +444,7 @@ func (ms *builtIn) getRelativePositionAndDestination(
 	localizer motion.Localizer,
 	componentName resource.Name,
 	movementSensorName resource.Name,
-	destination geo.Point,
+	destination *geo.Point,
 ) (r3.Vector, *referenceframe.PoseInFrame, error) {
 	var currentPosition r3.Vector
 
@@ -480,7 +480,7 @@ func (ms *builtIn) getRelativePositionAndDestination(
 	}
 
 	// convert destination into spatialmath.Pose with respect to lat = 0 = lng
-	dstPose := spatialmath.GeoPointToPose(&destination)
+	dstPose := spatialmath.GeoPointToPose(destination)
 
 	// convert the destination to be relative to the currentPosition
 	relativeDestinationPt := r3.Vector{

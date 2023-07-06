@@ -405,17 +405,6 @@ func TestMoveOnGlobe(t *testing.T) {
 		test.That(t, len(plan), test.ShouldEqual, 2)
 	})
 
-	t.Run("relative position and distance are calculated properly", func(t *testing.T) {
-		t.Parallel()
-
-		localizer, ok := ms.(*builtIn).localizers[injectedMovementSensor.Name()]
-		test.That(t, ok, test.ShouldBeTrue)
-		currentPosition, dstPIF, err := ms.(*builtIn).getRelativePositionAndDestination(context.Background(), localizer, fakeBase.Name(), injectedMovementSensor.Name(), *destGP)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, currentPosition, test.ShouldResemble, r3.Vector{-10, 0, 0})
-		test.That(t, spatialmath.R3VectorAlmostEqual(dstPIF.Pose().Point(), r3.Vector{110, 0, 0}, 0.1), test.ShouldBeTrue)
-		test.That(t, dstPIF.Parent(), test.ShouldEqual, referenceframe.World)
-	})
 	t.Run("go around an obstacle", func(t *testing.T) {
 		t.Parallel()
 		boxPose := spatialmath.NewPoseFromPoint(r3.Vector{50, 0, 0})
@@ -464,9 +453,9 @@ func TestMoveOnGlobe(t *testing.T) {
 	t.Run("relative position and distance are properly calculated", func(t *testing.T) {
 		localizer, err := motion.NewLocalizer(ctx, injectedMovementSensor)
 		test.That(t, err, test.ShouldBeNil)
-		currentPosition, dstPIF, err := ms.(*builtIn).getRelativePositionAndDestination(ctx, localizer, fakeBase.Name(), injectedMovementSensor.Name(), *destGP)
+		pt, dstPIF, err := ms.(*builtIn).getRelativePositionAndDestination(ctx, localizer, fakeBase.Name(), injectedMovementSensor.Name(), destGP)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, currentPosition, test.ShouldResemble, r3.Vector{-10, 0, 0})
+		test.That(t, pt, test.ShouldResemble, spatialmath.GeoPointToPose(gpsPoint).Point().Add(r3.Vector{-10, 0, 0}))
 		test.That(t, spatialmath.R3VectorAlmostEqual(dstPIF.Pose().Point(), r3.Vector{110, 0, 0}, 0.1), test.ShouldBeTrue)
 		test.That(t, dstPIF.Parent(), test.ShouldEqual, referenceframe.World)
 	})
