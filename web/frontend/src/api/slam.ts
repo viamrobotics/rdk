@@ -25,6 +25,7 @@ export const getPointCloudMap = (robotClient: Client, name: string) => {
 
   stream.on('data', (response) => {
     const chunk = response.getPointCloudPcdChunk_asU8();
+    console.log(chunk)
     chunks.push(chunk);
   });
 
