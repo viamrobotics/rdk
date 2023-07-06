@@ -19,7 +19,7 @@ import (
 
 // segmenterConfig is the attribute struct for segementers (their name as found in the vision service).
 type segmenterConfig struct {
-	SegmenterName string `json:"segementer_name"`
+	SegmenterName string `json:"segmenter_name"`
 	CameraName    string `json:"camera_name"`
 }
 
