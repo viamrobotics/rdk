@@ -17,7 +17,7 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
-func TestObstacleDistDetector(t *testing.T) {
+func TestObstacleDist(t *testing.T) {
 	inp := DistanceDetectorConfig{
 		NumQueries: 10,
 	}
@@ -92,17 +92,17 @@ func TestObstacleDistDetector(t *testing.T) {
 	test.That(t, isPoint, test.ShouldBeTrue)
 
 	// error more than one point in cloud
+	count = 0
 	cam.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
 		cloud := pc.New()
 		err = cloud.Set(pc.NewVector(0, 0, nums[count]), pc.NewColoredData(color.NRGBA{255, 0, 0, 255}))
 		test.That(t, err, test.ShouldBeNil)
 		err = cloud.Set(pc.NewVector(0, 0, 6.0), pc.NewColoredData(color.NRGBA{255, 0, 0, 255}))
 		test.That(t, err, test.ShouldBeNil)
-		count++
 		return cloud, err
 	}
 	_, err = srv.GetObjectPointClouds(ctx, "fakeCamera", nil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "obstacles_distance expects only one point in the point cloud")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "obstacles_distance expects one point in the point cloud")
 
 	inp.NumQueries = 0 // value out of range
 	_, err = inp.Validate("path")
