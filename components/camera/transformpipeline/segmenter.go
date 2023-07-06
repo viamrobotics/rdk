@@ -65,7 +65,11 @@ func newSegmentationsTransform(
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
 	}
-	return src, camera.ColorStream, err
+	// if props.ImageType == "color" {
+	// 	return src, camera.ColorStream, err
+	// }
+	// return src, camera.DepthStream, err
+	return src, props.ImageType, err
 }
 
 func (ss *segmenterSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
