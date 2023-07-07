@@ -4,20 +4,20 @@ package customlinux
 import (
 	"encoding/json"
 	"os"
+	"strconv"
 
 	"github.com/pkg/errors"
-	"go.viam.com/utils"
-
 	"go.viam.com/rdk/components/board/genericlinux"
+	"go.viam.com/utils"
 )
 
 // GenericLinuxPin describes a gpio pin on a linux board.
 type GenericLinuxPin struct {
 	Name            string `json:"name"`
-	Ngpio           int    `json:"ngpio"`
+	Ngpio           int    `json:"ngpio"`  // this is the ngpio number of the chip the pin is attached to
 	RelativeID      int    `json:"relative_id"`
-	PWMChipSysFSDir string `json:"pwm_chip_dir,omitempty"`
-	PWMID           int    `json:"pwm_id,omitempty"`
+	PwmChipSysfsDir string `json:"pwm_chip_sysfs_dir,omitempty"`
+	PwmId         int    `json:"pwm_id,omitempty"`
 }
 
 // GenericLinuxPins describes a list of pins on a linux board.
@@ -27,11 +27,11 @@ type GenericLinuxPins struct {
 
 // UnmarshalJSON handles setting defaults for pin configs.
 func (conf *GenericLinuxPin) UnmarshalJSON(text []byte) error {
-	type TempPin GenericLinuxPin
+	type TempPin GenericLinuxPin // needed to prevent infinite recursive calls to UnmarshalJSON
 	aux := TempPin{
 		Ngpio:      -1,
 		RelativeID: -1,
-		PWMID:      -1,
+		PwmId:      -1,
 	}
 	if err := json.Unmarshal(text, &aux); err != nil {
 		return err
@@ -54,14 +54,51 @@ func (conf *GenericLinuxPin) Validate(path string) error {
 		return utils.NewConfigValidationFieldRequiredError(path, "relative_id")
 	}
 
-	if conf.RelativeID > conf.Ngpio {
+	if conf.RelativeID < 0 {
+		return utils.NewConfigValidationError(path, errors.New("relative id on gpio chip must be greater than zero"))
+	}
+
+	if conf.RelativeID >= conf.Ngpio {
 		return utils.NewConfigValidationError(path, errors.New("relative id on gpio chip must be less than ngpio"))
 	}
 
-	if conf.PWMChipSysFSDir != "" && conf.PWMID == -1 {
+	if conf.PwmChipSysfsDir != "" && conf.PwmId == -1 {
 		return utils.NewConfigValidationError(path, errors.New("must supply pwm_id for the pwm chip"))
 	}
 	return nil
+}
+
+func parsePinConfig(filePath string) ([]genericlinux.PinDefinition, error) {
+	pinData, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, err
+	}
+	var parsedPinData GenericLinuxPins
+	if err := json.Unmarshal(pinData, &parsedPinData); err != nil {
+		return nil, err
+	}
+
+	pinDefs := make([]genericlinux.PinDefinition, len(parsedPinData.Pins))
+	for i, pin := range parsedPinData.Pins {
+		err = pin.Validate(filePath)
+		if err != nil {
+			return nil, err
+		}
+
+		pinName, err := strconv.Atoi(pin.Name)
+		if err != nil {
+			return nil, err
+		}
+
+		pinDefs[i] = genericlinux.PinDefinition{
+			GPIOChipRelativeIDs: map[int]int{pin.Ngpio: pin.RelativeID}, // ngpio: relative id map
+			PinNumberBoard:      pinName,
+			PWMChipSysFSDir:     pin.PwmChipSysfsDir,
+			PWMID:               pin.PwmId,
+		}
+	}
+
+	return pinDefs, nil
 }
 
 // A Config describes the configuration of a board and all of its connected parts.
