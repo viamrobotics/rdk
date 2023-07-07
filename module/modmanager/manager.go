@@ -655,7 +655,7 @@ func (m *module) startProcess(
 		return errors.WithMessage(err, "module startup failed")
 	}
 
-	ctxTimeout, cancel := context.WithTimeout(ctx, time.Second*30)
+	ctxTimeout, cancel := context.WithTimeout(ctx, time.Second*60)
 	defer cancel()
 	for {
 		select {
