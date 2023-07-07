@@ -19,6 +19,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/utils"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
@@ -319,7 +320,7 @@ func TestSensorBase(t *testing.T) {
 		},
 		OrientationFunc: func(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
 			counter++
-			return &spatialmath.EulerAngles{Roll: 0, Pitch: 0, Yaw: float64(counter)}, nil
+			return &spatialmath.EulerAngles{Roll: 0, Pitch: 0, Yaw: utils.RadToDeg(float64(counter))}, nil
 		},
 	}
 
