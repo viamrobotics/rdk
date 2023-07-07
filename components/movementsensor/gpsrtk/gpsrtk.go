@@ -193,7 +193,7 @@ func (cfg *SerialConfig) ValidateSerial(path string) error {
 // ValidateNtrip ensures all parts of the config are valid.
 func (cfg *NtripConfig) ValidateNtrip(path string) error {
 	if cfg.NtripURL == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "ntrip_addr")
+		return utils.NewConfigValidationFieldRequiredError(path, "ntrip_url")
 	}
 	if cfg.NtripInputProtocol == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "ntrip_input_protocol")

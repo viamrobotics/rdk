@@ -109,9 +109,9 @@ type rtkI2C struct {
 	Nmeamovementsensor gpsnmea.NmeaMovementSensor
 	CorrectionWriter   io.ReadWriteCloser
 
-	Bus   board.I2C
-	Wbaud int
-	Addr  byte
+	bus   board.I2C
+	wbaud int
+	addr  byte
 }
 
 func newRTKI2C(
@@ -163,7 +163,7 @@ func newRTKI2C(
 		return nil, err
 	}
 
-	g.Addr = byte(newConf.I2cAddr)
+	g.addr = byte(newConf.I2cAddr)
 
 	b, err := board.FromDependencies(deps, newConf.Board)
 	if err != nil {
@@ -178,7 +178,7 @@ func newRTKI2C(
 	if !ok {
 		return nil, fmt.Errorf("gps init: failed to find i2c bus %s", newConf.I2CBus)
 	}
-	g.Bus = i2cbus
+	g.bus = i2cbus
 
 	if err := g.start(); err != nil {
 		return nil, err
@@ -220,8 +220,8 @@ func (g *rtkI2C) connect(casterAddr, user, pwd string, maxAttempts int) error {
 	return errors.New(errMsg)
 }
 
-// GetStream attempts to connect to ntrip streak until successful connection or timeout.
-func (g *rtkI2C) GetStream(mountPoint string, maxAttempts int) error {
+// getStream attempts to connect to ntrip stream until successful connection or timeout.
+func (g *rtkI2C) getStream(mountPoint string, maxAttempts int) error {
 	success := false
 	attempts := 0
 
@@ -278,7 +278,7 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 	}
 
 	// establish I2C connection
-	handle, err := g.Bus.OpenHandle(g.Addr)
+	handle, err := g.bus.OpenHandle(g.addr)
 	if err != nil {
 		g.logger.Errorf("can't open gps i2c %s", err)
 		g.err.Set(err)
@@ -286,7 +286,7 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 	}
 
 	// Send GLL, RMC, VTG, GGA, GSA, and GSV sentences each 1000ms
-	baudcmd := fmt.Sprintf("PMTK251,%d", g.Wbaud)
+	baudcmd := fmt.Sprintf("PMTK251,%d", g.wbaud)
 	cmd251 := movementsensor.PMTKAddChk([]byte(baudcmd))
 	cmd314 := movementsensor.PMTKAddChk([]byte("PMTK314,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0"))
 	cmd220 := movementsensor.PMTKAddChk([]byte("PMTK220,1000"))
@@ -310,7 +310,7 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 		return
 	}
 
-	err = g.GetStream(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
+	err = g.getStream(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
 	if err != nil {
 		g.err.Set(err)
 		return
@@ -354,7 +354,7 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 		}
 
 		// establish I2C connection
-		handle, err := g.Bus.OpenHandle(g.Addr)
+		handle, err := g.bus.OpenHandle(g.addr)
 		if err != nil {
 			g.logger.Errorf("can't open gps i2c %s", err)
 			g.err.Set(err)
@@ -369,7 +369,7 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 
 			if msg == nil {
 				g.logger.Debug("No message... reconnecting to stream...")
-				err = g.GetStream(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
+				err = g.getStream(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
 				if err != nil {
 					g.err.Set(err)
 					return
