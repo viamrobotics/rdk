@@ -57,7 +57,7 @@ const refresh2d = async () => {
    
     const mapTimestamp = await getSLAMMapInfo($robotClient, name);
     var nextPose;
-    if (mapTimestamp != timestamp) {
+    if (mapTimestamp?.getSeconds() != timestamp.getSeconds()) {
       [pointcloud, nextPose] = await Promise.all([
         getPointCloudMap($robotClient, name),
         getSLAMPosition($robotClient, name),
@@ -76,8 +76,7 @@ const refresh2d = async () => {
     nextPose?.setY(nextPose.getY() / 1000);
     nextPose?.setZ(nextPose.getZ() / 1000);
     pose = nextPose;
-    timestamp = mapTimestamp;
-    console.log(timestamp);
+    timestamp = mapTimestamp ?? timestamp;
   } catch (error) {
     refreshErrorMessage2d = error !== null && typeof error === 'object' && 'message' in error
       ? `${refreshErrorMessage} ${error.message}`
@@ -87,7 +86,11 @@ const refresh2d = async () => {
 
 const refresh3d = async () => {
   try {
-    pointcloud = await getPointCloudMap($robotClient, name);
+    const mapTimestamp = await getSLAMMapInfo($robotClient, name);
+    if (mapTimestamp?.getSeconds() != timestamp.getSeconds()) {
+      pointcloud = await getPointCloudMap($robotClient, name);
+    }
+    timestamp = mapTimestamp ?? timestamp; 
   } catch (error) {
     refreshErrorMessage3d = error !== null && typeof error === 'object' && 'message' in error
       ? `${refreshErrorMessage} ${error.message}`
