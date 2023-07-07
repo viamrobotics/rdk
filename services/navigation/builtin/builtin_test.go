@@ -24,6 +24,7 @@ import (
 	"go.viam.com/rdk/services/slam"
 	fakeslam "go.viam.com/rdk/services/slam/fake"
 	_ "go.viam.com/rdk/services/vision"
+	_ "go.viam.com/rdk/services/vision/colordetector"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 )
