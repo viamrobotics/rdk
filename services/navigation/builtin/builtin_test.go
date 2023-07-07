@@ -23,6 +23,7 @@ import (
 	"go.viam.com/rdk/services/navigation"
 	"go.viam.com/rdk/services/slam"
 	fakeslam "go.viam.com/rdk/services/slam/fake"
+	_ "go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 )
