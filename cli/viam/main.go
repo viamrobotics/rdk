@@ -805,11 +805,11 @@ func main() {
 			},
 			{
 				Name:  "module",
-				Usage: "manage your hosted modules",
+				Usage: "manage your modules in Viam's registry",
 				Subcommands: []*cli.Command{
 					{
-						Name:        "create",
-						Usage:       "create & register a module on app.viam.com",
+						Name:  "create",
+						Usage: "create & register a module on app.viam.com",
 						Description: `Creates a module in app.viam.com using a public_namespace and a module name.
 Ex: 'viam module create --name my-great-module --public_namespace my-registered-namespace'
 Will create the 'my-registered-namespace:my-great-module' module and a corresponding meta.json file
@@ -828,7 +828,7 @@ Next, update your meta.json and use 'viam module update' to push those changes t
 							},
 							&cli.StringFlag{
 								Name:  "org_id",
-								Usage: "use namespace of given organization (alternative way of providing the public_namespace)",
+								Usage: "id of the organization that will host the module (alternative way of providing the public_namespace)",
 							},
 						},
 						Action: rdkcli.CreateModuleCommand,

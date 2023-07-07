@@ -71,9 +71,6 @@ func CreateModuleCommand(c *cli.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to register the module on app.viam.com")
 	}
-	if response.GetModuleId() == "" {
-		return errors.New("empty module id returned. Please report this")
-	}
 
 	fmt.Fprintf(c.App.Writer, "Successfully created '%s'.\n", response.GetModuleId())
 	if response.GetUrl() != "" {
