@@ -29,8 +29,10 @@ var fakeFrame = &referenceframe.LinkConfig{
 
 var badFrame = &referenceframe.LinkConfig{}
 
-var count = 0
-var pinValues = []int{1, 1, 0}
+var (
+	count     = 0
+	pinValues = []int{1, 1, 0}
+)
 
 func createFakeMotor() motor.Motor {
 	return &inject.Motor{
