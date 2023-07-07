@@ -808,8 +808,14 @@ func main() {
 				Usage: "manage your hosted modules",
 				Subcommands: []*cli.Command{
 					{
-						Name:  "create",
-						Usage: "create & register a module",
+						Name:        "create",
+						Usage:       "create & register a module on app.viam.com",
+						Description: `Creates a module in app.viam.com using a public_namespace and a module name.
+Ex: 'viam module create --name my-great-module --public_namespace my-registered-namespace'
+Will create the 'my-registered-namespace:my-great-module' module and a corresponding meta.json file
+in the current directory.
+
+Next, update your meta.json and use 'viam module update' to push those changes to app.viam.com`,
 						Flags: []cli.Flag{
 							&cli.StringFlag{
 								Name:     "name",
@@ -818,11 +824,11 @@ func main() {
 							},
 							&cli.StringFlag{
 								Name:  "public_namespace",
-								Usage: "namespace to publish this module under",
+								Usage: "the public namespace where the module will reside",
 							},
 							&cli.StringFlag{
 								Name:  "org_id",
-								Usage: "alternative way of providing the public_namespace",
+								Usage: "use namespace of given organization (alternative way of providing the public_namespace)",
 							},
 						},
 						Action: rdkcli.CreateModuleCommand,
