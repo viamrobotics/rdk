@@ -76,7 +76,7 @@ const refresh2d = async () => {
     nextPose?.setY(nextPose.getY() / 1000);
     nextPose?.setZ(nextPose.getZ() / 1000);
     pose = nextPose;
-    timestamp = mapTimestamp ?? timestamp;
+    timestamp = mapTimestamp;
   } catch (error) {
     refreshErrorMessage2d = error !== null && typeof error === 'object' && 'message' in error
       ? `${refreshErrorMessage} ${error.message}`
@@ -90,7 +90,7 @@ const refresh3d = async () => {
     if (mapTimestamp?.getSeconds() != timestamp.getSeconds()) {
       pointcloud = await getPointCloudMap($robotClient, name);
     }
-    timestamp = mapTimestamp ?? timestamp; 
+    timestamp = mapTimestamp; 
   } catch (error) {
     refreshErrorMessage3d = error !== null && typeof error === 'object' && 'message' in error
       ? `${refreshErrorMessage} ${error.message}`
