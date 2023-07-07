@@ -7,12 +7,14 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/gantry"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 var model = resource.DefaultModelFamily.WithModel("multi-axis")
@@ -121,6 +123,7 @@ func (g *multiAxis) MoveToPosition(ctx context.Context, positions, speeds []floa
 		)
 	}
 
+	fs := []rdkutils.SimpleFunc{}
 	idx := 0
 	for _, subAx := range g.subAxes {
 		subAxNum, err := subAx.Lengths(ctx, extra)
@@ -138,11 +141,21 @@ func (g *multiAxis) MoveToPosition(ctx context.Context, positions, speeds []floa
 		}
 		idx += len(subAxNum)
 
-		err = subAx.MoveToPosition(ctx, pos, speed, extra)
-		if err != nil && !errors.Is(err, context.Canceled) {
-			return err
+		if g.moveSimultaneously {
+			fs = append(fs, func(ctx context.Context) error { return subAx.MoveToPosition(ctx, pos, speed, nil) })
+		} else {
+			err = subAx.MoveToPosition(ctx, pos, speed, extra)
+			if err != nil && !errors.Is(err, context.Canceled) {
+				return err
+			}
 		}
 	}
+	if g.moveSimultaneously {
+		if _, err := rdkutils.RunInParallel(ctx, fs); err != nil {
+			return multierr.Combine(err, g.Stop(ctx, nil))
+		}
+	}
+
 	return nil
 }
 
