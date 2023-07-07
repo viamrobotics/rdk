@@ -224,8 +224,8 @@ func (g *RTKSerial) start() error {
 	return g.err.Get()
 }
 
-// Connect attempts to connect to ntrip client until successful connection or timeout.
-func (g *RTKSerial) Connect(casterAddr, user, pwd string, maxAttempts int) error {
+// connect attempts to connect to ntrip client until successful connection or timeout.
+func (g *RTKSerial) connect(casterAddr, user, pwd string, maxAttempts int) error {
 	attempts := 0
 
 	var c *ntrip.Client
@@ -259,8 +259,8 @@ func (g *RTKSerial) Connect(casterAddr, user, pwd string, maxAttempts int) error
 	return g.err.Get()
 }
 
-// GetStream attempts to connect to ntrip streak until successful connection or timeout.
-func (g *RTKSerial) GetStream(mountPoint string, maxAttempts int) error {
+// getStream attempts to connect to ntrip streak until successful connection or timeout.
+func (g *RTKSerial) getStream(mountPoint string, maxAttempts int) error {
 	success := false
 	attempts := 0
 
@@ -306,7 +306,7 @@ func (g *RTKSerial) receiveAndWriteSerial() {
 	if err := g.cancelCtx.Err(); err != nil {
 		return
 	}
-	err := g.Connect(g.ntripClient.URL, g.ntripClient.Username, g.ntripClient.Password, g.ntripClient.MaxConnectAttempts)
+	err := g.connect(g.ntripClient.URL, g.ntripClient.Username, g.ntripClient.Password, g.ntripClient.MaxConnectAttempts)
 	if err != nil {
 		g.err.Set(err)
 		return
@@ -340,7 +340,7 @@ func (g *RTKSerial) receiveAndWriteSerial() {
 
 	w := bufio.NewWriter(g.CorrectionWriter)
 
-	err = g.GetStream(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
+	err = g.getStream(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
 	if err != nil {
 		g.err.Set(err)
 		return
@@ -370,7 +370,7 @@ func (g *RTKSerial) receiveAndWriteSerial() {
 
 			if msg == nil {
 				g.logger.Debug("No message... reconnecting to stream...")
-				err = g.GetStream(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
+				err = g.getStream(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
 				if err != nil {
 					g.err.Set(err)
 					return

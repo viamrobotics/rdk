@@ -203,8 +203,8 @@ func (g *RTKI2C) start() error {
 	return g.err.Get()
 }
 
-// Connect attempts to connect to ntrip client until successful connection or timeout.
-func (g *RTKI2C) Connect(casterAddr, user, pwd string, maxAttempts int) error {
+// connect attempts to connect to ntrip client until successful connection or timeout.
+func (g *RTKI2C) connect(casterAddr, user, pwd string, maxAttempts int) error {
 	for attempts := 0; attempts < maxAttempts; attempts++ {
 		ntripclient, err := ntrip.NewClient(casterAddr, ntrip.Options{Username: user, Password: pwd})
 		if err == nil {
@@ -267,7 +267,7 @@ func (g *RTKI2C) receiveAndWriteI2C(ctx context.Context) {
 	if err := g.cancelCtx.Err(); err != nil {
 		return
 	}
-	err := g.Connect(g.ntripClient.URL, g.ntripClient.Username, g.ntripClient.Password, g.ntripClient.MaxConnectAttempts)
+	err := g.connect(g.ntripClient.URL, g.ntripClient.Username, g.ntripClient.Password, g.ntripClient.MaxConnectAttempts)
 	if err != nil {
 		g.err.Set(err)
 		return
