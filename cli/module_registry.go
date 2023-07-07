@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/pkg/errors"
-	apppb "go.viam.com/api/app/v1"
+	"github.com/urfave/cli/v2"
 )
 
 // These types mirror app's internal representations of modules
@@ -38,36 +38,51 @@ type ModuleManifest struct {
 }
 
 const (
-	defaultManifestFilename = "manifest.json"
+	defaultManifestFilename = "meta.json"
 )
 
-// CreateModule will call the gRPC method to create a module and then will create a manifest.json with the resulting info.
-func (c *AppClient) CreateModule(moduleName, publicNamespace string) error {
+// CreateModuleCommand runs the command to create a module
+// This includes both a gRPC call to register the module on app.viam.com and creating the manifest file.
+func CreateModuleCommand(c *cli.Context) error {
+	moduleNameArg := c.String("name")
+	orgIDArg := c.String("org_id")
+	publicNamespaceArg := c.String("public_namespace")
+
+	client, err := NewAppClient(c)
+	if err != nil {
+		return err
+	}
+	publicNamespace, err := resolvePublicNamespace(client, orgIDArg, publicNamespaceArg)
+	if err != nil {
+		return err
+	}
+
 	cwd, err := os.Getwd()
 	if err != nil {
-		return errors.Wrap(err, "failed to get current directory")
+		return errors.Wrap(err, "failed to find the current directory")
 	}
 	// Check to make sure the user doesn't accidentally overwrite a module manifest
 	manifestFilepath := filepath.Join(cwd, defaultManifestFilename)
 	if _, err := os.Stat(manifestFilepath); err == nil {
-		return errors.Errorf("A module's %v already exists in the current directory. Delete it and try again", defaultManifestFilename)
+		return errors.Errorf("Another module's %v already exists in the current directory. Delete it and try again", defaultManifestFilename)
 	}
 
-	if err := c.ensureLoggedIn(); err != nil {
-		return err
-	}
-	req := apppb.CreateModuleRequest{
-		Name:            moduleName,
-		PublicNamespace: publicNamespace,
-	}
-	resp, err := c.client.CreateModule(c.c.Context, &req)
+	response, err := client.CreateModule(moduleNameArg, publicNamespace)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "failed to register the module on app.viam.com")
 	}
-	fmt.Fprintf(c.c.App.Writer, "Successfully created '%s'.\n", resp.GetModuleId())
+	if response.GetModuleId() == "" {
+		return errors.New("empty module id returned. Please report this")
+	}
+
+	fmt.Fprintf(c.App.Writer, "Successfully created '%s'.\n", response.GetModuleId())
+	if response.GetUrl() != "" {
+		fmt.Fprintf(c.App.Writer, "You can view it here: %s \n", response.GetUrl())
+	}
 
 	emptyManifest := ModuleManifest{
-		Name: resp.GetModuleId(),
+		Name:       response.GetModuleId(),
+		Visibility: ModuleVisibilityPrivate,
 		// This is done so that the json has an empty example
 		Models: []ModuleComponent{
 			{},
@@ -77,7 +92,6 @@ func (c *AppClient) CreateModule(moduleName, publicNamespace string) error {
 	if err != nil {
 		return err
 	}
-
 	//nolint:gosec
 	manifestFile, err := os.Create(manifestFilepath)
 	if err != nil {
@@ -86,6 +100,32 @@ func (c *AppClient) CreateModule(moduleName, publicNamespace string) error {
 	if _, err := manifestFile.Write(emptyManifestBytes); err != nil {
 		return errors.Wrapf(err, "failed to write manifest to %s", defaultManifestFilename)
 	}
-	fmt.Fprintf(c.c.App.Writer, "Configuration for the module has been written to %s\n", defaultManifestFilename)
+	fmt.Fprintf(c.App.Writer, "Configuration for the module has been written to %s\n", defaultManifestFilename)
 	return nil
+}
+
+// resolvePublicNamespace accepts either an orgID or a publicNamespace (one must be an empty string).
+// If publicNamespace is an empty string, it will use the orgID to resolve it.
+func resolvePublicNamespace(client *AppClient, orgID, publicNamespace string) (string, error) {
+	if publicNamespace != "" {
+		if orgID != "" {
+			return "", errors.New("cannot specify both org id and public namespace")
+		}
+		return publicNamespace, nil
+	}
+	// Use orgID to back-derive what the public namespace is
+	if orgID == "" {
+		return "", errors.New("must specify either org id or public namespace")
+	}
+	if err := client.selectOrganization(orgID); err != nil {
+		return "", err
+	}
+	selectedOrg := client.selectedOrg
+	if selectedOrg == nil {
+		return "", errors.New("unable to find specified organization")
+	}
+	if selectedOrg.PublicNamespace == "" {
+		return "", errors.New("you must claim a public namespace for your org on the settings page on app.viam.com")
+	}
+	return selectedOrg.PublicNamespace, nil
 }

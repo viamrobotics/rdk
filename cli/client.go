@@ -251,6 +251,9 @@ func (c *AppClient) loadOrganizations() error {
 }
 
 func (c *AppClient) selectOrganization(orgStr string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
 	if orgStr != "" && (c.selectedOrg.Id == orgStr || c.selectedOrg.Name == orgStr) {
 		return nil
 	}
@@ -301,32 +304,6 @@ func (c *AppClient) ListOrganizations() ([]*apppb.Organization, error) {
 		return nil, err
 	}
 	return (*c.orgs), nil
-}
-
-// GetPublicNamespace returns the public namespace of a given organization.
-func (c *AppClient) GetPublicNamespace(orgID string) (string, error) {
-	if err := c.ensureLoggedIn(); err != nil {
-		return "", err
-	}
-	if err := c.selectOrganization(orgID); err != nil {
-		return "", err
-	}
-	return c.selectedOrg.PublicNamespace, nil
-}
-
-// SetPublicNamespace updates an org to have a public namespace.
-func (c *AppClient) SetPublicNamespace(orgID, publicNamespace string) (*apppb.UpdateOrganizationResponse, error) {
-	if err := c.ensureLoggedIn(); err != nil {
-		return nil, err
-	}
-	if err := c.selectOrganization(orgID); err != nil {
-		return nil, err
-	}
-	req := apppb.UpdateOrganizationRequest{
-		OrganizationId:  orgID,
-		PublicNamespace: &publicNamespace,
-	}
-	return c.client.UpdateOrganization(c.c.Context, &req)
 }
 
 func (c *AppClient) loadLocations() error {
@@ -821,4 +798,16 @@ func (c *AppClient) StartRobotPartShell(
 
 	outputLoop()
 	return nil
+}
+
+// CreateModule wraps the grpc CreateModule request.
+func (c *AppClient) CreateModule(moduleName, publicNamespace string) (*apppb.CreateModuleResponse, error) {
+	if err := c.ensureLoggedIn(); err != nil {
+		return nil, err
+	}
+	req := apppb.CreateModuleRequest{
+		Name:            moduleName,
+		PublicNamespace: publicNamespace,
+	}
+	return c.client.CreateModule(c.c.Context, &req)
 }
