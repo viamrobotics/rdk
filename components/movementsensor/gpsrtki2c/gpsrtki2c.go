@@ -149,7 +149,9 @@ func newRTKI2C(
 	}
 
 	// Init NMEAMovementSensor
-
+	if newConf.I2CBaudRate == 0 {
+		newConf.I2CBaudRate = 115200
+	}
 	nmeaConf.Board = newConf.Board
 	nmeaConf.I2CConfig = &gpsnmea.I2CConfig{I2CBus: newConf.I2CBus, I2CBaudRate: newConf.I2CBaudRate, I2cAddr: newConf.I2cAddr}
 	g.nmeamovementsensor, err = gpsnmea.NewPmtkI2CGPSNMEA(ctx, deps, conf.ResourceName(), nmeaConf, logger)
@@ -163,6 +165,7 @@ func newRTKI2C(
 		return nil, err
 	}
 
+	g.wbaud = newConf.I2CBaudRate
 	g.addr = byte(newConf.I2cAddr)
 
 	b, err := board.FromDependencies(deps, newConf.Board)
