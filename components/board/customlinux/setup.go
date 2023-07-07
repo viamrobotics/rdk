@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.viam.com/rdk/components/board/genericlinux"
 	"go.viam.com/utils"
@@ -65,6 +66,11 @@ func (conf *GenericLinuxPin) Validate(path string) error {
 	if conf.PwmChipSysfsDir != "" && conf.PwmID == -1 {
 		return utils.NewConfigValidationError(path, errors.New("must supply pwm_id for the pwm chip"))
 	}
+
+	if conf.PwmChipSysfsDir == "" && conf.PwmID != -1 {
+		golog.Global().Warnf("No pwm sysfs directory provided for pin %s", conf.Name)
+	}
+
 	return nil
 }
 
