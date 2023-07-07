@@ -14,10 +14,10 @@ import (
 // GenericLinuxPin describes a gpio pin on a linux board.
 type GenericLinuxPin struct {
 	Name            string `json:"name"`
-	Ngpio           int    `json:"ngpio"`  // this is the ngpio number of the chip the pin is attached to
+	Ngpio           int    `json:"ngpio"` // this is the ngpio number of the chip the pin is attached to
 	RelativeID      int    `json:"relative_id"`
 	PwmChipSysfsDir string `json:"pwm_chip_sysfs_dir,omitempty"`
-	PwmId         int    `json:"pwm_id,omitempty"`
+	PwmID           int    `json:"pwm_id,omitempty"`
 }
 
 // GenericLinuxPins describes a list of pins on a linux board.
@@ -31,7 +31,7 @@ func (conf *GenericLinuxPin) UnmarshalJSON(text []byte) error {
 	aux := TempPin{
 		Ngpio:      -1,
 		RelativeID: -1,
-		PwmId:      -1,
+		PwmID:      -1,
 	}
 	if err := json.Unmarshal(text, &aux); err != nil {
 		return err
@@ -62,7 +62,7 @@ func (conf *GenericLinuxPin) Validate(path string) error {
 		return utils.NewConfigValidationError(path, errors.New("relative id on gpio chip must be less than ngpio"))
 	}
 
-	if conf.PwmChipSysfsDir != "" && conf.PwmId == -1 {
+	if conf.PwmChipSysfsDir != "" && conf.PwmID == -1 {
 		return utils.NewConfigValidationError(path, errors.New("must supply pwm_id for the pwm chip"))
 	}
 	return nil
@@ -73,6 +73,12 @@ func parsePinConfig(filePath string) ([]genericlinux.PinDefinition, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	return parseRawPinData(pinData, filePath)
+}
+
+// filePath passed in for logging purposes
+func parseRawPinData(pinData []byte, filePath string) ([]genericlinux.PinDefinition, error) {
 	var parsedPinData GenericLinuxPins
 	if err := json.Unmarshal(pinData, &parsedPinData); err != nil {
 		return nil, err
@@ -80,7 +86,7 @@ func parsePinConfig(filePath string) ([]genericlinux.PinDefinition, error) {
 
 	pinDefs := make([]genericlinux.PinDefinition, len(parsedPinData.Pins))
 	for i, pin := range parsedPinData.Pins {
-		err = pin.Validate(filePath)
+		err := pin.Validate(filePath)
 		if err != nil {
 			return nil, err
 		}
@@ -94,7 +100,7 @@ func parsePinConfig(filePath string) ([]genericlinux.PinDefinition, error) {
 			GPIOChipRelativeIDs: map[int]int{pin.Ngpio: pin.RelativeID}, // ngpio: relative id map
 			PinNumberBoard:      pinName,
 			PWMChipSysFSDir:     pin.PwmChipSysfsDir,
-			PWMID:               pin.PwmId,
+			PWMID:               pin.PwmID,
 		}
 	}
 
