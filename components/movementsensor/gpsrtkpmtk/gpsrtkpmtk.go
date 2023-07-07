@@ -1,5 +1,5 @@
-// Package gpsrtki2c implements a gps using serial connection
-package gpsrtki2c
+// Package gpsrtkpmtk implements a gps using serial connection
+package gpsrtkpmtk
 
 import (
 	"bytes"
@@ -414,7 +414,7 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 	}
 }
 
-//nolint
+// nolint
 // getNtripConnectionStatus returns true if connection to NTRIP stream is OK, false if not.
 func (g *rtkI2C) getNtripConnectionStatus() (bool, error) {
 	g.ntripMu.Lock()

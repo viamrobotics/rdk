@@ -7,7 +7,7 @@ import (
 	_ "go.viam.com/rdk/components/movementsensor/cameramono"
 	_ "go.viam.com/rdk/components/movementsensor/fake"
 	_ "go.viam.com/rdk/components/movementsensor/gpsnmea"
-	_ "go.viam.com/rdk/components/movementsensor/gpsrtki2c"
+	_ "go.viam.com/rdk/components/movementsensor/gpsrtkpmtk"
 	_ "go.viam.com/rdk/components/movementsensor/gpsrtkserial"
 	_ "go.viam.com/rdk/components/movementsensor/imuvectornav"
 	_ "go.viam.com/rdk/components/movementsensor/imuwit"
