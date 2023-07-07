@@ -303,6 +303,32 @@ func (c *AppClient) ListOrganizations() ([]*apppb.Organization, error) {
 	return (*c.orgs), nil
 }
 
+// GetPublicNamespace returns the public namespace of a given organization.
+func (c *AppClient) GetPublicNamespace(orgID string) (string, error) {
+	if err := c.ensureLoggedIn(); err != nil {
+		return "", err
+	}
+	if err := c.selectOrganization(orgID); err != nil {
+		return "", err
+	}
+	return c.selectedOrg.PublicNamespace, nil
+}
+
+// SetPublicNamespace updates an org to have a public namespace.
+func (c *AppClient) SetPublicNamespace(orgID, publicNamespace string) (*apppb.UpdateOrganizationResponse, error) {
+	if err := c.ensureLoggedIn(); err != nil {
+		return nil, err
+	}
+	if err := c.selectOrganization(orgID); err != nil {
+		return nil, err
+	}
+	req := apppb.UpdateOrganizationRequest{
+		OrganizationId:  orgID,
+		PublicNamespace: &publicNamespace,
+	}
+	return c.client.UpdateOrganization(c.c.Context, &req)
+}
+
 func (c *AppClient) loadLocations() error {
 	if c.selectedOrg.Id == "" {
 		return errors.New("must select organization first")

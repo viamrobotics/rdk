@@ -803,6 +803,60 @@ func main() {
 					},
 				},
 			},
+			{
+				Name:  "module",
+				Usage: "manage your hosted modules",
+				Subcommands: []*cli.Command{
+					{
+						Name:  "create",
+						Usage: "create a module and register it",
+						Flags: []cli.Flag{
+							&cli.StringFlag{
+								Name:     "name",
+								Usage:    "name of your module (cannot be changed once set)",
+								Required: true,
+							},
+							&cli.StringFlag{
+								Name:  "public_namespace",
+								Usage: "namespace to publish this module under",
+							},
+							&cli.StringFlag{
+								Name:  "org_id",
+								Usage: "alternative way of providing the public_namespace",
+							},
+						},
+						Action: func(c *cli.Context) error {
+							client, err := rdkcli.NewAppClient(c)
+							if err != nil {
+								return err
+							}
+							moduleName := c.String("name")
+							orgID := c.String("org_id")
+							publicNamespaceArg := c.String("public_namespace")
+							var publicNamespace string
+							if publicNamespaceArg == "" {
+								if orgID == "" {
+									return errors.New("must specify either org id or public namespace")
+								}
+								orgPublicNamespace, err := client.GetPublicNamespace(orgID)
+								if err != nil {
+									return err
+								}
+								if orgPublicNamespace == "" {
+									return errors.New("you must claim a public namespace for your org on the settings page on app.viam.com")
+								}
+								publicNamespace = orgPublicNamespace
+							} else {
+								if orgID != "" {
+									return errors.New("cannot specify both org id and public namespace")
+								}
+								publicNamespace = publicNamespaceArg
+							}
+							return client.CreateModule(moduleName, publicNamespace)
+						},
+					},
+				},
+			},
 		},
 	}
 
