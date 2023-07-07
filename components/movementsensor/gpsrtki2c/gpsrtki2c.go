@@ -75,7 +75,7 @@ func (cfg *Config) validateI2C(path string) error {
 // validateNtrip ensures all parts of the config are valid.
 func (cfg *Config) validateNtrip(path string) error {
 	if cfg.NtripURL == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "ntrip_addr")
+		return utils.NewConfigValidationFieldRequiredError(path, "ntrip_url")
 	}
 	return nil
 }
