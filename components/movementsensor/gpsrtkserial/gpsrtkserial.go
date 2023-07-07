@@ -119,8 +119,8 @@ func init() {
 		})
 }
 
-// RTKSerial is an nmea movementsensor model that can intake RTK correction data.
-type RTKSerial struct {
+// rtkSerial is an nmea movementsensor model that can intake RTK correction data.
+type rtkSerial struct {
 	resource.Named
 	resource.AlwaysRebuild
 	logger     golog.Logger
@@ -155,7 +155,7 @@ func newRTKSerial(
 	}
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
-	g := &RTKSerial{
+	g := &rtkSerial{
 		Named:        conf.ResourceName().AsNamed(),
 		cancelCtx:    cancelCtx,
 		cancelFunc:   cancelFunc,
@@ -214,7 +214,7 @@ func newRTKSerial(
 	return g, g.err.Get()
 }
 
-func (g *RTKSerial) start() error {
+func (g *rtkSerial) start() error {
 	if err := g.Nmeamovementsensor.Start(g.cancelCtx); err != nil {
 		g.lastposition.GetLastPosition()
 		return err
@@ -225,7 +225,7 @@ func (g *RTKSerial) start() error {
 }
 
 // connect attempts to connect to ntrip client until successful connection or timeout.
-func (g *RTKSerial) connect(casterAddr, user, pwd string, maxAttempts int) error {
+func (g *rtkSerial) connect(casterAddr, user, pwd string, maxAttempts int) error {
 	attempts := 0
 
 	var c *ntrip.Client
@@ -260,7 +260,7 @@ func (g *RTKSerial) connect(casterAddr, user, pwd string, maxAttempts int) error
 }
 
 // getStream attempts to connect to ntrip streak until successful connection or timeout.
-func (g *RTKSerial) getStream(mountPoint string, maxAttempts int) error {
+func (g *rtkSerial) getStream(mountPoint string, maxAttempts int) error {
 	success := false
 	attempts := 0
 
@@ -301,7 +301,7 @@ func (g *RTKSerial) getStream(mountPoint string, maxAttempts int) error {
 }
 
 // receiveAndWriteSerial connects to NTRIP receiver and sends correction stream to the MovementSensor through serial.
-func (g *RTKSerial) receiveAndWriteSerial() {
+func (g *rtkSerial) receiveAndWriteSerial() {
 	defer g.activeBackgroundWorkers.Done()
 	if err := g.cancelCtx.Err(); err != nil {
 		return
@@ -388,14 +388,14 @@ func (g *RTKSerial) receiveAndWriteSerial() {
 }
 
 // NtripStatus returns true if connection to NTRIP stream is OK, false if not.
-func (g *RTKSerial) NtripStatus() (bool, error) {
+func (g *rtkSerial) NtripStatus() (bool, error) {
 	g.ntripMu.Lock()
 	defer g.ntripMu.Unlock()
 	return g.ntripStatus, g.err.Get()
 }
 
 // Position returns the current geographic location of the MOVEMENTSENSOR.
-func (g *RTKSerial) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+func (g *rtkSerial) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
 	g.ntripMu.Lock()
 	lastError := g.err.Get()
 	if lastError != nil {
@@ -435,7 +435,7 @@ func (g *RTKSerial) Position(ctx context.Context, extra map[string]interface{}) 
 }
 
 // LinearVelocity passthrough.
-func (g *RTKSerial) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+func (g *rtkSerial) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	g.ntripMu.Lock()
 	lastError := g.err.Get()
 	if lastError != nil {
@@ -448,7 +448,7 @@ func (g *RTKSerial) LinearVelocity(ctx context.Context, extra map[string]interfa
 }
 
 // LinearAcceleration passthrough.
-func (g *RTKSerial) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+func (g *rtkSerial) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	lastError := g.err.Get()
 	if lastError != nil {
 		return r3.Vector{}, lastError
@@ -457,7 +457,7 @@ func (g *RTKSerial) LinearAcceleration(ctx context.Context, extra map[string]int
 }
 
 // AngularVelocity passthrough.
-func (g *RTKSerial) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
+func (g *rtkSerial) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
 	g.ntripMu.Lock()
 	lastError := g.err.Get()
 	if lastError != nil {
@@ -470,7 +470,7 @@ func (g *RTKSerial) AngularVelocity(ctx context.Context, extra map[string]interf
 }
 
 // CompassHeading passthrough.
-func (g *RTKSerial) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
+func (g *rtkSerial) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	g.ntripMu.Lock()
 	lastError := g.err.Get()
 	if lastError != nil {
@@ -483,7 +483,7 @@ func (g *RTKSerial) CompassHeading(ctx context.Context, extra map[string]interfa
 }
 
 // Orientation passthrough.
-func (g *RTKSerial) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
+func (g *rtkSerial) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
 	g.ntripMu.Lock()
 	lastError := g.err.Get()
 	if lastError != nil {
@@ -496,7 +496,7 @@ func (g *RTKSerial) Orientation(ctx context.Context, extra map[string]interface{
 }
 
 // ReadFix passthrough.
-func (g *RTKSerial) ReadFix(ctx context.Context) (int, error) {
+func (g *rtkSerial) ReadFix(ctx context.Context) (int, error) {
 	g.ntripMu.Lock()
 	lastError := g.err.Get()
 	if lastError != nil {
@@ -509,7 +509,7 @@ func (g *RTKSerial) ReadFix(ctx context.Context) (int, error) {
 }
 
 // Properties passthrough.
-func (g *RTKSerial) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+func (g *rtkSerial) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
 	lastError := g.err.Get()
 	if lastError != nil {
 		return &movementsensor.Properties{}, lastError
@@ -519,7 +519,7 @@ func (g *RTKSerial) Properties(ctx context.Context, extra map[string]interface{}
 }
 
 // Accuracy passthrough.
-func (g *RTKSerial) Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32, error) {
+func (g *rtkSerial) Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32, error) {
 	lastError := g.err.Get()
 	if lastError != nil {
 		return map[string]float32{}, lastError
@@ -529,7 +529,7 @@ func (g *RTKSerial) Accuracy(ctx context.Context, extra map[string]interface{}) 
 }
 
 // Readings will use the default MovementSensor Readings if not provided.
-func (g *RTKSerial) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+func (g *rtkSerial) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 	readings, err := movementsensor.Readings(ctx, g, extra)
 	if err != nil {
 		return nil, err
@@ -545,8 +545,8 @@ func (g *RTKSerial) Readings(ctx context.Context, extra map[string]interface{}) 
 	return readings, nil
 }
 
-// Close shuts down the RTKSerial.
-func (g *RTKSerial) Close(ctx context.Context) error {
+// Close shuts down the rtkSerial.
+func (g *rtkSerial) Close(ctx context.Context) error {
 	g.ntripMu.Lock()
 	g.cancelFunc()
 

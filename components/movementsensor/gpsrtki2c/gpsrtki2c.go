@@ -89,8 +89,8 @@ func init() {
 		})
 }
 
-// RTKI2C is an nmea movementsensor model that can intake RTK correction data via I2C.
-type RTKI2C struct {
+// rtkI2C is an nmea movementsensor model that can intake RTK correction data via I2C.
+type rtkI2C struct {
 	resource.Named
 	resource.AlwaysRebuild
 	logger     golog.Logger
@@ -126,7 +126,7 @@ func newRTKI2C(
 	}
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
-	g := &RTKI2C{
+	g := &rtkI2C{
 		Named:        conf.ResourceName().AsNamed(),
 		cancelCtx:    cancelCtx,
 		cancelFunc:   cancelFunc,
@@ -188,7 +188,7 @@ func newRTKI2C(
 }
 
 // Start begins NTRIP receiver with i2c protocol and begins reading/updating MovementSensor measurements.
-func (g *RTKI2C) start() error {
+func (g *rtkI2C) start() error {
 	// TODO(RDK-1639): Test out what happens if we call this line and then the ReceiveAndWrite*
 	// correction data goes wrong. Could anything worse than uncorrected data occur?
 
@@ -204,7 +204,7 @@ func (g *RTKI2C) start() error {
 }
 
 // connect attempts to connect to ntrip client until successful connection or timeout.
-func (g *RTKI2C) connect(casterAddr, user, pwd string, maxAttempts int) error {
+func (g *rtkI2C) connect(casterAddr, user, pwd string, maxAttempts int) error {
 	for attempts := 0; attempts < maxAttempts; attempts++ {
 		ntripclient, err := ntrip.NewClient(casterAddr, ntrip.Options{Username: user, Password: pwd})
 		if err == nil {
@@ -221,7 +221,7 @@ func (g *RTKI2C) connect(casterAddr, user, pwd string, maxAttempts int) error {
 }
 
 // GetStream attempts to connect to ntrip streak until successful connection or timeout.
-func (g *RTKI2C) GetStream(mountPoint string, maxAttempts int) error {
+func (g *rtkI2C) GetStream(mountPoint string, maxAttempts int) error {
 	success := false
 	attempts := 0
 
@@ -262,7 +262,7 @@ func (g *RTKI2C) GetStream(mountPoint string, maxAttempts int) error {
 }
 
 // receiveAndWriteI2C connects to NTRIP receiver and sends correction stream to the MovementSensor through I2C protocol.
-func (g *RTKI2C) receiveAndWriteI2C(ctx context.Context) {
+func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 	defer g.activeBackgroundWorkers.Done()
 	if err := g.cancelCtx.Err(); err != nil {
 		return
@@ -412,14 +412,14 @@ func (g *RTKI2C) receiveAndWriteI2C(ctx context.Context) {
 }
 
 // NtripStatus returns true if connection to NTRIP stream is OK, false if not.
-func (g *RTKI2C) NtripStatus() (bool, error) {
+func (g *rtkI2C) NtripStatus() (bool, error) {
 	g.ntripMu.Lock()
 	defer g.ntripMu.Unlock()
 	return g.ntripStatus, g.err.Get()
 }
 
 // Position returns the current geographic location of the MOVEMENTSENSOR.
-func (g *RTKI2C) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+func (g *rtkI2C) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
 	g.ntripMu.Lock()
 	lastError := g.err.Get()
 	if lastError != nil {
@@ -459,7 +459,7 @@ func (g *RTKI2C) Position(ctx context.Context, extra map[string]interface{}) (*g
 }
 
 // LinearVelocity passthrough.
-func (g *RTKI2C) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+func (g *rtkI2C) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	g.ntripMu.Lock()
 	lastError := g.err.Get()
 	if lastError != nil {
@@ -472,7 +472,7 @@ func (g *RTKI2C) LinearVelocity(ctx context.Context, extra map[string]interface{
 }
 
 // LinearAcceleration passthrough.
-func (g *RTKI2C) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+func (g *rtkI2C) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	lastError := g.err.Get()
 	if lastError != nil {
 		return r3.Vector{}, lastError
@@ -481,7 +481,7 @@ func (g *RTKI2C) LinearAcceleration(ctx context.Context, extra map[string]interf
 }
 
 // AngularVelocity passthrough.
-func (g *RTKI2C) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
+func (g *rtkI2C) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
 	g.ntripMu.Lock()
 	lastError := g.err.Get()
 	if lastError != nil {
@@ -494,7 +494,7 @@ func (g *RTKI2C) AngularVelocity(ctx context.Context, extra map[string]interface
 }
 
 // CompassHeading passthrough.
-func (g *RTKI2C) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
+func (g *rtkI2C) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	g.ntripMu.Lock()
 	lastError := g.err.Get()
 	if lastError != nil {
@@ -507,7 +507,7 @@ func (g *RTKI2C) CompassHeading(ctx context.Context, extra map[string]interface{
 }
 
 // Orientation passthrough.
-func (g *RTKI2C) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
+func (g *rtkI2C) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
 	g.ntripMu.Lock()
 	lastError := g.err.Get()
 	if lastError != nil {
@@ -520,7 +520,7 @@ func (g *RTKI2C) Orientation(ctx context.Context, extra map[string]interface{}) 
 }
 
 // ReadFix passthrough.
-func (g *RTKI2C) ReadFix(ctx context.Context) (int, error) {
+func (g *rtkI2C) ReadFix(ctx context.Context) (int, error) {
 	g.ntripMu.Lock()
 	lastError := g.err.Get()
 	if lastError != nil {
@@ -533,7 +533,7 @@ func (g *RTKI2C) ReadFix(ctx context.Context) (int, error) {
 }
 
 // Properties passthrough.
-func (g *RTKI2C) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+func (g *rtkI2C) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
 	lastError := g.err.Get()
 	if lastError != nil {
 		return &movementsensor.Properties{}, lastError
@@ -543,7 +543,7 @@ func (g *RTKI2C) Properties(ctx context.Context, extra map[string]interface{}) (
 }
 
 // Accuracy passthrough.
-func (g *RTKI2C) Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32, error) {
+func (g *rtkI2C) Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32, error) {
 	lastError := g.err.Get()
 	if lastError != nil {
 		return map[string]float32{}, lastError
@@ -553,7 +553,7 @@ func (g *RTKI2C) Accuracy(ctx context.Context, extra map[string]interface{}) (ma
 }
 
 // Readings will use the default MovementSensor Readings if not provided.
-func (g *RTKI2C) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+func (g *rtkI2C) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 	readings, err := movementsensor.Readings(ctx, g, extra)
 	if err != nil {
 		return nil, err
@@ -570,7 +570,7 @@ func (g *RTKI2C) Readings(ctx context.Context, extra map[string]interface{}) (ma
 }
 
 // Close shuts down the RTKMOVEMENTSENSOR.
-func (g *RTKI2C) Close(ctx context.Context) error {
+func (g *rtkI2C) Close(ctx context.Context) error {
 	g.ntripMu.Lock()
 	g.cancelFunc()
 
