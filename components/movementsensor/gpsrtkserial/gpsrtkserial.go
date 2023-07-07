@@ -28,10 +28,7 @@ import (
 
 var rtkmodel = resource.DefaultModelFamily.WithModel("gps-nmea-rtk-serial")
 
-var (
-	errConnectionTypeValidation = fmt.Errorf("only serial is supported connection types for %s", rtkmodel.Name)
-	errInputProtocolValidation  = fmt.Errorf("only serial is supported input protocols for %s", rtkmodel.Name)
-)
+var errConnectionTypeValidation = fmt.Errorf("only serial is supported connection types for %s", rtkmodel.Name)
 
 const (
 	serialStr = "serial"
@@ -49,17 +46,11 @@ type Config struct {
 	NtripMountpoint      string `json:"ntrip_mountpoint,omitempty"`
 	NtripPass            string `json:"ntrip_password,omitempty"`
 	NtripUser            string `json:"ntrip_username,omitempty"`
-	NtripInputProtocol   string `json:"ntrip_input_protocol,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
 func (cfg *Config) Validate(path string) ([]string, error) {
 	err := cfg.validateNmeaDataSource(path)
-	if err != nil {
-		return nil, err
-	}
-
-	err = cfg.validateNtripInputProtocol()
 	if err != nil {
 		return nil, err
 	}
@@ -83,14 +74,6 @@ func (cfg *Config) validateNmeaDataSource(path string) error {
 	}
 }
 
-// validateNtripInputProtocol validates protocols accepted by this package.
-func (cfg *Config) validateNtripInputProtocol() error {
-	if cfg.NtripInputProtocol == serialStr {
-		return nil
-	}
-	return errInputProtocolValidation
-}
-
 // validateSerialPath ensures all parts of the config are valid.
 func (cfg *Config) validateSerialPath(path string) error {
 	if cfg.SerialPath == "" {
@@ -103,9 +86,6 @@ func (cfg *Config) validateSerialPath(path string) error {
 func (cfg *Config) ValidateNtrip(path string) error {
 	if cfg.NtripURL == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "ntrip_url")
-	}
-	if cfg.NtripInputProtocol == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "ntrip_input_protocol")
 	}
 	return nil
 }
@@ -172,7 +152,7 @@ func newRTKSerial(
 		NtripConnectAttempts: newConf.NtripConnectAttempts,
 	}
 
-	g.InputProtocol = strings.ToLower(newConf.NtripInputProtocol)
+	g.InputProtocol = strings.ToLower("serial")
 
 	nmeaConf := &gpsnmea.Config{
 		ConnectionType: newConf.NmeaDataSource,
