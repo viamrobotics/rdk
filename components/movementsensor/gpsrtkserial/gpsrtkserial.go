@@ -311,7 +311,7 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 	g.ntripMu.Unlock()
 
 	// It's okay to skip the mutex on this next line: g.ntripStatus can only be mutated by this
-	// goroutine itself.
+	// goroutine itself
 	for g.ntripStatus {
 		select {
 		case <-g.cancelCtx.Done():
@@ -344,7 +344,7 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 	}
 }
 
-// nolint
+//nolint
 // getNtripConnectionStatus returns true if connection to NTRIP stream is OK, false if not.
 func (g *rtkSerial) getNtripConnectionStatus() (bool, error) {
 	g.ntripMu.Lock()
