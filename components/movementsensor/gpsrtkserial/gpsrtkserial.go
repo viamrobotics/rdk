@@ -5,10 +5,8 @@ import (
 	"bufio"
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"math"
-	"strings"
 	"sync"
 
 	"github.com/de-bkg/gognss/pkg/ntrip"
@@ -28,8 +26,6 @@ import (
 
 var rtkmodel = resource.DefaultModelFamily.WithModel("gps-nmea-rtk-serial")
 
-var errConnectionTypeValidation = fmt.Errorf("only serial is supported connection types for %s", rtkmodel.Name)
-
 const (
 	serialStr = "serial"
 	ntripStr  = "ntrip"
@@ -37,7 +33,6 @@ const (
 
 // Config is used for converting NMEA MovementSensor with RTK capabilities config attributes.
 type Config struct {
-	NmeaDataSource string `json:"nmea_data_source"`
 	SerialPath     string `json:"serial_path"`
 	SerialBaudRate int    `json:"serial_baud_rate,omitempty"`
 
@@ -50,28 +45,17 @@ type Config struct {
 
 // Validate ensures all parts of the config are valid.
 func (cfg *Config) Validate(path string) ([]string, error) {
-	err := cfg.validateNmeaDataSource(path)
+	err := cfg.validateNtrip(path)
 	if err != nil {
 		return nil, err
 	}
 
-	err = cfg.ValidateNtrip(path)
+	err = cfg.validateSerialPath(path)
 	if err != nil {
 		return nil, err
 	}
 
 	return nil, nil
-}
-
-func (cfg *Config) validateNmeaDataSource(path string) error {
-	switch strings.ToLower(cfg.NmeaDataSource) {
-	case serialStr:
-		return cfg.validateSerialPath(path)
-	case "":
-		return utils.NewConfigValidationFieldRequiredError(path, "nmea_data_source")
-	default:
-		return errConnectionTypeValidation
-	}
 }
 
 // validateSerialPath ensures all parts of the config are valid.
@@ -82,8 +66,8 @@ func (cfg *Config) validateSerialPath(path string) error {
 	return nil
 }
 
-// ValidateNtrip ensures all parts of the config are valid.
-func (cfg *Config) ValidateNtrip(path string) error {
+// validateNtrip ensures all parts of the config are valid.
+func (cfg *Config) validateNtrip(path string) error {
 	if cfg.NtripURL == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "ntrip_url")
 	}
@@ -154,24 +138,18 @@ func newRTKSerial(
 
 	g.InputProtocol = serialStr
 	nmeaConf := &gpsnmea.Config{
-		ConnectionType: newConf.NmeaDataSource,
+		ConnectionType: serialStr,
 	}
 
 	// Init NMEAMovementSensor
-	switch strings.ToLower(newConf.NmeaDataSource) {
-	case serialStr:
-		var err error
-		nmeaConf.SerialConfig = &gpsnmea.SerialConfig{
-			SerialPath:     newConf.SerialPath,
-			SerialBaudRate: newConf.SerialBaudRate,
-		}
-		g.nmeamovementsensor, err = gpsnmea.NewSerialGPSNMEA(ctx, conf.ResourceName(), nmeaConf, logger)
-		if err != nil {
-			return nil, err
-		}
-	default:
-		// Invalid protocol
-		return nil, fmt.Errorf("%s is not a valid connection type", newConf.NmeaDataSource)
+
+	nmeaConf.SerialConfig = &gpsnmea.SerialConfig{
+		SerialPath:     newConf.SerialPath,
+		SerialBaudRate: newConf.SerialBaudRate,
+	}
+	g.nmeamovementsensor, err = gpsnmea.NewSerialGPSNMEA(ctx, conf.ResourceName(), nmeaConf, logger)
+	if err != nil {
+		return nil, err
 	}
 
 	g.ntripClient, err = rtk.NewNtripInfo(ntripConfig, g.logger)
