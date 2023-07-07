@@ -30,6 +30,7 @@ var fakeFrame = &referenceframe.LinkConfig{
 var badFrame = &referenceframe.LinkConfig{}
 
 var count = 0
+var pinValues = []int{1, 1, 0}
 
 func createFakeMotor() motor.Motor {
 	return &inject.Motor{
@@ -59,11 +60,14 @@ func createFakeBoard() board.Board {
 	pinCount := 0
 	injectGPIOPin := &inject.GPIOPin{
 		GetFunc: func(ctx context.Context, extra map[string]interface{}) (bool, error) {
-			pinCount++
-			if pinCount%2 == 0 {
-				return false, nil
+			if pinValues[pinCount] == 1 {
+				return true, nil
 			}
-			return true, nil
+			pinCount++
+			if pinCount == len(pinValues) {
+				pinCount = 0
+			}
+			return false, nil
 		},
 		SetFunc: func(ctx context.Context, high bool, extra map[string]interface{}) error { return nil },
 	}
