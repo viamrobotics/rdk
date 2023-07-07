@@ -13,6 +13,7 @@ import (
 	"go.viam.com/utils/pexec"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/robottestutils"
 	"go.viam.com/rdk/utils"
 )
@@ -35,20 +36,12 @@ func TestNumResources(t *testing.T) {
 	cfgFilename, err = robottestutils.MakeTempConfig(t, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	buildCmd := pexec.NewManagedProcess(pexec.ProcessConfig{
-		Name:    "bash",
-		Args:    []string{"-c", "make server"},
-		CWD:     utils.ResolveFile("./"),
-		Log:     true,
-		OneShot: true,
-	}, logger)
-
-	err = buildCmd.Start(context.Background())
+	serverPath, err := testutils.BuildTempModule(t, "web/cmd/server/")
 	test.That(t, err, test.ShouldBeNil)
 
 	server := pexec.NewManagedProcess(pexec.ProcessConfig{
-		Name: "bash",
-		Args: []string{"-c", "exec bin/`uname`-`uname -m`/viam-server -config " + cfgFilename},
+		Name: serverPath,
+		Args: []string{"-config", cfgFilename},
 		CWD:  utils.ResolveFile("./"),
 		Log:  true,
 	}, logger)
