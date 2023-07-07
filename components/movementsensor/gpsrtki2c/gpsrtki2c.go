@@ -106,8 +106,8 @@ type rtkI2C struct {
 	err          movementsensor.LastError
 	lastposition movementsensor.LastPosition
 
-	Nmeamovementsensor gpsnmea.NmeaMovementSensor
-	CorrectionWriter   io.ReadWriteCloser
+	nmeamovementsensor gpsnmea.NmeaMovementSensor
+	correctionWriter   io.ReadWriteCloser
 
 	bus   board.I2C
 	wbaud int
@@ -152,7 +152,7 @@ func newRTKI2C(
 
 	nmeaConf.Board = newConf.Board
 	nmeaConf.I2CConfig = &gpsnmea.I2CConfig{I2CBus: newConf.I2CBus, I2CBaudRate: newConf.I2CBaudRate, I2cAddr: newConf.I2cAddr}
-	g.Nmeamovementsensor, err = gpsnmea.NewPmtkI2CGPSNMEA(ctx, deps, conf.ResourceName(), nmeaConf, logger)
+	g.nmeamovementsensor, err = gpsnmea.NewPmtkI2CGPSNMEA(ctx, deps, conf.ResourceName(), nmeaConf, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -192,7 +192,7 @@ func (g *rtkI2C) start() error {
 	// TODO(RDK-1639): Test out what happens if we call this line and then the ReceiveAndWrite*
 	// correction data goes wrong. Could anything worse than uncorrected data occur?
 
-	if err := g.Nmeamovementsensor.Start(g.cancelCtx); err != nil {
+	if err := g.nmeamovementsensor.Start(g.cancelCtx); err != nil {
 		g.lastposition.GetLastPosition()
 		return err
 	}
@@ -432,7 +432,7 @@ func (g *rtkI2C) Position(ctx context.Context, extra map[string]interface{}) (*g
 	}
 	g.ntripMu.Unlock()
 
-	position, alt, err := g.Nmeamovementsensor.Position(ctx, extra)
+	position, alt, err := g.nmeamovementsensor.Position(ctx, extra)
 	if err != nil {
 		// Use the last known valid position if current position is (0,0)/ NaN.
 		if position != nil && (g.lastposition.IsZeroPosition(position) || g.lastposition.IsPositionNaN(position)) {
@@ -468,7 +468,7 @@ func (g *rtkI2C) LinearVelocity(ctx context.Context, extra map[string]interface{
 	}
 	g.ntripMu.Unlock()
 
-	return g.Nmeamovementsensor.LinearVelocity(ctx, extra)
+	return g.nmeamovementsensor.LinearVelocity(ctx, extra)
 }
 
 // LinearAcceleration passthrough.
@@ -477,7 +477,7 @@ func (g *rtkI2C) LinearAcceleration(ctx context.Context, extra map[string]interf
 	if lastError != nil {
 		return r3.Vector{}, lastError
 	}
-	return g.Nmeamovementsensor.LinearAcceleration(ctx, extra)
+	return g.nmeamovementsensor.LinearAcceleration(ctx, extra)
 }
 
 // AngularVelocity passthrough.
@@ -490,7 +490,7 @@ func (g *rtkI2C) AngularVelocity(ctx context.Context, extra map[string]interface
 	}
 	g.ntripMu.Unlock()
 
-	return g.Nmeamovementsensor.AngularVelocity(ctx, extra)
+	return g.nmeamovementsensor.AngularVelocity(ctx, extra)
 }
 
 // CompassHeading passthrough.
@@ -503,7 +503,7 @@ func (g *rtkI2C) CompassHeading(ctx context.Context, extra map[string]interface{
 	}
 	g.ntripMu.Unlock()
 
-	return g.Nmeamovementsensor.CompassHeading(ctx, extra)
+	return g.nmeamovementsensor.CompassHeading(ctx, extra)
 }
 
 // Orientation passthrough.
@@ -516,7 +516,7 @@ func (g *rtkI2C) Orientation(ctx context.Context, extra map[string]interface{}) 
 	}
 	g.ntripMu.Unlock()
 
-	return g.Nmeamovementsensor.Orientation(ctx, extra)
+	return g.nmeamovementsensor.Orientation(ctx, extra)
 }
 
 // ReadFix passthrough.
@@ -529,7 +529,7 @@ func (g *rtkI2C) ReadFix(ctx context.Context) (int, error) {
 	}
 	g.ntripMu.Unlock()
 
-	return g.Nmeamovementsensor.ReadFix(ctx)
+	return g.nmeamovementsensor.ReadFix(ctx)
 }
 
 // Properties passthrough.
@@ -539,7 +539,7 @@ func (g *rtkI2C) Properties(ctx context.Context, extra map[string]interface{}) (
 		return &movementsensor.Properties{}, lastError
 	}
 
-	return g.Nmeamovementsensor.Properties(ctx, extra)
+	return g.nmeamovementsensor.Properties(ctx, extra)
 }
 
 // Accuracy passthrough.
@@ -549,7 +549,7 @@ func (g *rtkI2C) Accuracy(ctx context.Context, extra map[string]interface{}) (ma
 		return map[string]float32{}, lastError
 	}
 
-	return g.Nmeamovementsensor.Accuracy(ctx, extra)
+	return g.nmeamovementsensor.Accuracy(ctx, extra)
 }
 
 // Readings will use the default MovementSensor Readings if not provided.
@@ -574,18 +574,18 @@ func (g *rtkI2C) Close(ctx context.Context) error {
 	g.ntripMu.Lock()
 	g.cancelFunc()
 
-	if err := g.Nmeamovementsensor.Close(ctx); err != nil {
+	if err := g.nmeamovementsensor.Close(ctx); err != nil {
 		g.ntripMu.Unlock()
 		return err
 	}
 
 	// close ntrip writer
-	if g.CorrectionWriter != nil {
-		if err := g.CorrectionWriter.Close(); err != nil {
+	if g.correctionWriter != nil {
+		if err := g.correctionWriter.Close(); err != nil {
 			g.ntripMu.Unlock()
 			return err
 		}
-		g.CorrectionWriter = nil
+		g.correctionWriter = nil
 	}
 
 	// close ntrip client and stream

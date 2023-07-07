@@ -137,7 +137,7 @@ func TestValidateRTK(t *testing.T) {
 
 	fakecfg.CorrectionSource = "ntrip"
 	_, err = fakecfg.Validate(path)
-	test.That(t, err, test.ShouldBeError, utils.NewConfigValidationFieldRequiredError(path, "ntrip_addr"))
+	test.That(t, err, test.ShouldBeError, utils.NewConfigValidationFieldRequiredError(path, "ntrip_url"))
 
 	fakecfg.NtripConfig.NtripURL = "http://fakeurl"
 	_, err = fakecfg.Validate(path)

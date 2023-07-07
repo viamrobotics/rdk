@@ -117,10 +117,10 @@ type rtkSerial struct {
 	lastposition  movementsensor.LastPosition
 	InputProtocol string
 
-	Nmeamovementsensor gpsnmea.NmeaMovementSensor
-	CorrectionWriter   io.ReadWriteCloser
-	Writepath          string
-	Wbaud              int
+	nmeamovementsensor gpsnmea.NmeaMovementSensor
+	correctionWriter   io.ReadWriteCloser
+	writePath          string
+	wbaud              int
 }
 
 func newRTKSerial(
@@ -165,7 +165,7 @@ func newRTKSerial(
 			SerialPath:     newConf.SerialPath,
 			SerialBaudRate: newConf.SerialBaudRate,
 		}
-		g.Nmeamovementsensor, err = gpsnmea.NewSerialGPSNMEA(ctx, conf.ResourceName(), nmeaConf, logger)
+		g.nmeamovementsensor, err = gpsnmea.NewSerialGPSNMEA(ctx, conf.ResourceName(), nmeaConf, logger)
 		if err != nil {
 			return nil, err
 		}
@@ -184,8 +184,8 @@ func newRTKSerial(
 		newConf.SerialBaudRate = 38400
 		g.logger.Info("serial_baud_rate using default baud rate 38400")
 	}
-	g.Wbaud = newConf.SerialBaudRate
-	g.Writepath = newConf.SerialPath
+	g.wbaud = newConf.SerialBaudRate
+	g.writePath = newConf.SerialPath
 
 	if err := g.start(); err != nil {
 		return nil, err
@@ -194,7 +194,7 @@ func newRTKSerial(
 }
 
 func (g *rtkSerial) start() error {
-	if err := g.Nmeamovementsensor.Start(g.cancelCtx); err != nil {
+	if err := g.nmeamovementsensor.Start(g.cancelCtx); err != nil {
 		g.lastposition.GetLastPosition()
 		return err
 	}
@@ -296,8 +296,8 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 	}
 
 	options := slib.OpenOptions{
-		PortName:        g.Writepath,
-		BaudRate:        uint(g.Wbaud),
+		PortName:        g.writePath,
+		BaudRate:        uint(g.wbaud),
 		DataBits:        8,
 		StopBits:        1,
 		MinimumReadSize: 1,
@@ -309,7 +309,7 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 		g.ntripMu.Unlock()
 		return
 	}
-	g.CorrectionWriter, err = slib.Open(options)
+	g.correctionWriter, err = slib.Open(options)
 	g.ntripMu.Unlock()
 	if err != nil {
 		g.logger.Errorf("serial.Open: %v", err)
@@ -317,7 +317,7 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 		return
 	}
 
-	w := bufio.NewWriter(g.CorrectionWriter)
+	w := bufio.NewWriter(g.correctionWriter)
 
 	err = g.getStream(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
 	if err != nil {
@@ -387,7 +387,7 @@ func (g *rtkSerial) Position(ctx context.Context, extra map[string]interface{}) 
 	}
 	g.ntripMu.Unlock()
 
-	position, alt, err := g.Nmeamovementsensor.Position(ctx, extra)
+	position, alt, err := g.nmeamovementsensor.Position(ctx, extra)
 	if err != nil {
 		// Use the last known valid position if current position is (0,0)/ NaN.
 		if position != nil && (g.lastposition.IsZeroPosition(position) || g.lastposition.IsPositionNaN(position)) {
@@ -423,7 +423,7 @@ func (g *rtkSerial) LinearVelocity(ctx context.Context, extra map[string]interfa
 	}
 	g.ntripMu.Unlock()
 
-	return g.Nmeamovementsensor.LinearVelocity(ctx, extra)
+	return g.nmeamovementsensor.LinearVelocity(ctx, extra)
 }
 
 // LinearAcceleration passthrough.
@@ -432,7 +432,7 @@ func (g *rtkSerial) LinearAcceleration(ctx context.Context, extra map[string]int
 	if lastError != nil {
 		return r3.Vector{}, lastError
 	}
-	return g.Nmeamovementsensor.LinearAcceleration(ctx, extra)
+	return g.nmeamovementsensor.LinearAcceleration(ctx, extra)
 }
 
 // AngularVelocity passthrough.
@@ -445,7 +445,7 @@ func (g *rtkSerial) AngularVelocity(ctx context.Context, extra map[string]interf
 	}
 	g.ntripMu.Unlock()
 
-	return g.Nmeamovementsensor.AngularVelocity(ctx, extra)
+	return g.nmeamovementsensor.AngularVelocity(ctx, extra)
 }
 
 // CompassHeading passthrough.
@@ -458,7 +458,7 @@ func (g *rtkSerial) CompassHeading(ctx context.Context, extra map[string]interfa
 	}
 	g.ntripMu.Unlock()
 
-	return g.Nmeamovementsensor.CompassHeading(ctx, extra)
+	return g.nmeamovementsensor.CompassHeading(ctx, extra)
 }
 
 // Orientation passthrough.
@@ -471,7 +471,7 @@ func (g *rtkSerial) Orientation(ctx context.Context, extra map[string]interface{
 	}
 	g.ntripMu.Unlock()
 
-	return g.Nmeamovementsensor.Orientation(ctx, extra)
+	return g.nmeamovementsensor.Orientation(ctx, extra)
 }
 
 // ReadFix passthrough.
@@ -484,7 +484,7 @@ func (g *rtkSerial) ReadFix(ctx context.Context) (int, error) {
 	}
 	g.ntripMu.Unlock()
 
-	return g.Nmeamovementsensor.ReadFix(ctx)
+	return g.nmeamovementsensor.ReadFix(ctx)
 }
 
 // Properties passthrough.
@@ -494,7 +494,7 @@ func (g *rtkSerial) Properties(ctx context.Context, extra map[string]interface{}
 		return &movementsensor.Properties{}, lastError
 	}
 
-	return g.Nmeamovementsensor.Properties(ctx, extra)
+	return g.nmeamovementsensor.Properties(ctx, extra)
 }
 
 // Accuracy passthrough.
@@ -504,7 +504,7 @@ func (g *rtkSerial) Accuracy(ctx context.Context, extra map[string]interface{}) 
 		return map[string]float32{}, lastError
 	}
 
-	return g.Nmeamovementsensor.Accuracy(ctx, extra)
+	return g.nmeamovementsensor.Accuracy(ctx, extra)
 }
 
 // Readings will use the default MovementSensor Readings if not provided.
@@ -529,18 +529,18 @@ func (g *rtkSerial) Close(ctx context.Context) error {
 	g.ntripMu.Lock()
 	g.cancelFunc()
 
-	if err := g.Nmeamovementsensor.Close(ctx); err != nil {
+	if err := g.nmeamovementsensor.Close(ctx); err != nil {
 		g.ntripMu.Unlock()
 		return err
 	}
 
 	// close ntrip writer
-	if g.CorrectionWriter != nil {
-		if err := g.CorrectionWriter.Close(); err != nil {
+	if g.correctionWriter != nil {
+		if err := g.correctionWriter.Close(); err != nil {
 			g.ntripMu.Unlock()
 			return err
 		}
-		g.CorrectionWriter = nil
+		g.correctionWriter = nil
 	}
 
 	// close ntrip client and stream
