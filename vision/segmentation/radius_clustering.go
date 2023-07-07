@@ -74,7 +74,6 @@ func (rcc *RadiusClusteringConfig) RadiusClustering(ctx context.Context, src cam
 	fmt.Println("within radius clustering")
 	cloud, err := src.NextPointCloud(ctx)
 	if err != nil {
-		fmt.Println("could not get pc within radius clustering")
 		return nil, err
 	}
 	ps := NewPointCloudPlaneSegmentation(cloud, 10, rcc.MinPtsInPlane)
