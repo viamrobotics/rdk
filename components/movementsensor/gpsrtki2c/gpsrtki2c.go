@@ -414,8 +414,8 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 	}
 }
 
-// NtripStatus returns true if connection to NTRIP stream is OK, false if not.
-func (g *rtkI2C) NtripStatus() (bool, error) {
+// getNtripConnectionStatus returns true if connection to NTRIP stream is OK, false if not.
+func (g *rtkI2C) getNtripConnectionStatus() (bool, error) {
 	g.ntripMu.Lock()
 	defer g.ntripMu.Unlock()
 	return g.ntripStatus, g.err.Get()
@@ -522,8 +522,8 @@ func (g *rtkI2C) Orientation(ctx context.Context, extra map[string]interface{}) 
 	return g.nmeamovementsensor.Orientation(ctx, extra)
 }
 
-// ReadFix passthrough.
-func (g *rtkI2C) ReadFix(ctx context.Context) (int, error) {
+// readFix passthrough.
+func (g *rtkI2C) readFix(ctx context.Context) (int, error) {
 	g.ntripMu.Lock()
 	lastError := g.err.Get()
 	if lastError != nil {
@@ -562,7 +562,7 @@ func (g *rtkI2C) Readings(ctx context.Context, extra map[string]interface{}) (ma
 		return nil, err
 	}
 
-	fix, err := g.ReadFix(ctx)
+	fix, err := g.readFix(ctx)
 	if err != nil {
 		return nil, err
 	}

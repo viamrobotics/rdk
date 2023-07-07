@@ -344,8 +344,8 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 	}
 }
 
-// NtripStatus returns true if connection to NTRIP stream is OK, false if not.
-func (g *rtkSerial) NtripStatus() (bool, error) {
+// getNtripConnectionStatus returns true if connection to NTRIP stream is OK, false if not.
+func (g *rtkSerial) getNtripConnectionStatus() (bool, error) {
 	g.ntripMu.Lock()
 	defer g.ntripMu.Unlock()
 	return g.ntripStatus, g.err.Get()
@@ -452,8 +452,8 @@ func (g *rtkSerial) Orientation(ctx context.Context, extra map[string]interface{
 	return g.nmeamovementsensor.Orientation(ctx, extra)
 }
 
-// ReadFix passthrough.
-func (g *rtkSerial) ReadFix(ctx context.Context) (int, error) {
+// readFix passthrough.
+func (g *rtkSerial) readFix(ctx context.Context) (int, error) {
 	g.ntripMu.Lock()
 	lastError := g.err.Get()
 	if lastError != nil {
@@ -492,7 +492,7 @@ func (g *rtkSerial) Readings(ctx context.Context, extra map[string]interface{}) 
 		return nil, err
 	}
 
-	fix, err := g.ReadFix(ctx)
+	fix, err := g.readFix(ctx)
 	if err != nil {
 		return nil, err
 	}
