@@ -103,6 +103,7 @@ func (ss *segmenterSource) NextPointCloud(ctx context.Context) (pointcloud.Point
 	if err != nil {
 		return nil, fmt.Errorf("could not get point clouds: %w", err)
 	}
+	fmt.Println(mergedCloud)
 	return mergedCloud, nil
 }
 
