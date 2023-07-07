@@ -118,7 +118,6 @@ func newColorDepthExtrinsics(ctx context.Context, color, depth camera.VideoSourc
 		return nil, err
 	}
 	if conf.CameraParameters == nil {
-		fmt.Println("this is where the error is lol")
 		return nil, transform.ErrNoIntrinsics
 	}
 	if conf.CameraParameters.Height <= 0 || conf.CameraParameters.Width <= 0 {
