@@ -199,9 +199,7 @@ func (svc *builtIn) SetMode(ctx context.Context, mode navigation.Mode, extra map
 	// switch modes
 	svc.cancelFunc()
 	svc.activeBackgroundWorkers.Wait()
-	cancelCtx, cancelFunc := context.WithCancel(context.Background())
-	svc.cancelCtx = cancelCtx
-	svc.cancelFunc = cancelFunc
+	svc.cancelCtx, svc.cancelFunc = context.WithCancel(context.Background())
 	svc.mode = navigation.ModeManual
 	if mode == navigation.ModeWaypoint {
 		if extra != nil && extra["experimental"] == true {
@@ -245,7 +243,7 @@ func (svc *builtIn) startWaypoint(extra map[string]interface{}) error {
 				continue
 			}
 
-			if len(path) <= 1 || currentLoc.GreatCircleDistance(path[len(path)-1]) > .0001 {
+			if len(path) == 0 || currentLoc.GreatCircleDistance(path[len(path)-1]) > .0001 {
 				// gps often updates less frequently
 				path = append(path, currentLoc)
 				if len(path) > 2 {
@@ -340,6 +338,13 @@ func (svc *builtIn) AddWaypoint(ctx context.Context, point *geo.Point, extra map
 }
 
 func (svc *builtIn) RemoveWaypoint(ctx context.Context, id primitive.ObjectID, extra map[string]interface{}) error {
+	goalWaypoint, err := svc.nextWaypoint(ctx)
+	if err != nil {
+		return err
+	}
+	if goalWaypoint.ID == id {
+		svc.cancelFunc()
+	}
 	return svc.store.RemoveWaypoint(ctx, id)
 }
 
