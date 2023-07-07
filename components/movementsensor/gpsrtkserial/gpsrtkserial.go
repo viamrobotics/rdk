@@ -152,8 +152,7 @@ func newRTKSerial(
 		NtripConnectAttempts: newConf.NtripConnectAttempts,
 	}
 
-	g.InputProtocol = strings.ToLower("serial")
-
+	g.InputProtocol = serialStr
 	nmeaConf := &gpsnmea.Config{
 		ConnectionType: newConf.NmeaDataSource,
 	}
