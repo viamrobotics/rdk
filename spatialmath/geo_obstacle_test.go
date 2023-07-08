@@ -11,40 +11,27 @@ import (
 )
 
 func TestGeoPose(t *testing.T) {
-	gp := geo.NewPoint(0, 0)
-	pose := GeoPointToPose(gp)
-	fmt.Println(pose.Point())
-	test.That(t, R3VectorAlmostEqual(pose.Point(), r3.Vector{0, 0, 0}, 0.1), test.ShouldBeTrue)
+	origin := geo.NewPoint(0, 0)
+	testCases := []struct {
+		*geo.Point
+		r3.Vector
+	}{
+		{geo.NewPoint(9e-9, 9e-9), r3.Vector{1, 1, 0}},
+		{geo.NewPoint(0, 9e-9), r3.Vector{1, 0, 0}},
+		{geo.NewPoint(-9e-9, 9e-9), r3.Vector{1, -1, 0}},
+		{geo.NewPoint(9e-9, 0), r3.Vector{0, 1, 0}},
+		{geo.NewPoint(0, 0), r3.Vector{0, 0, 0}},
+		{geo.NewPoint(-9e-9, -9e-9), r3.Vector{-1, -1, 0}},
+		{geo.NewPoint(0, -9e-9), r3.Vector{-1, 0, 0}},
+		{geo.NewPoint(9e-9, -9e-9), r3.Vector{-1, 1, 0}},
+	}
 
-	gp = geo.NewPoint(0.0000009, 0.0000009)
-	pose = GeoPointToPose(gp)
-	fmt.Println(pose.Point())
-	test.That(t, R3VectorAlmostEqual(pose.Point(), r3.Vector{100, 100, 0}, 0.1), test.ShouldBeTrue)
-
-	gp = geo.NewPoint(0, 0.0000009)
-	pose = GeoPointToPose(gp)
-	fmt.Println(pose.Point())
-	test.That(t, R3VectorAlmostEqual(pose.Point(), r3.Vector{100, 0, 0}, 0.1), test.ShouldBeTrue)
-
-	gp = geo.NewPoint(-0.0000009, 0.0000009)
-	pose = GeoPointToPose(gp)
-	fmt.Println(pose.Point())
-	test.That(t, R3VectorAlmostEqual(pose.Point(), r3.Vector{100, -100, 0}, 0.1), test.ShouldBeTrue)
-
-	gp = geo.NewPoint(-0.0000009, 0)
-	pose = GeoPointToPose(gp)
-	fmt.Println(pose.Point())
-	test.That(t, R3VectorAlmostEqual(pose.Point(), r3.Vector{0, -100, 0}, 0.1), test.ShouldBeTrue)
-
-	gp = geo.NewPoint(-0.0000009, -0.0000009)
-	pose = GeoPointToPose(gp)
-	fmt.Println(pose.Point())
-	test.That(t, R3VectorAlmostEqual(pose.Point(), r3.Vector{-100, -100, 0}, 0.1), test.ShouldBeTrue)
-
-	gp = geo.NewPoint(0, -0.0000009)
-	pose = GeoPointToPose(gp)
-	fmt.Println(pose.Point())
-	test.That(t, R3VectorAlmostEqual(pose.Point(), r3.Vector{-100, 0, 0}, 0.1), test.ShouldBeTrue)
+	for i, tc := range testCases {
+		t.Run(fmt.Sprint(i), func(t *testing.T) {
+			pose := GeoPointToPose(tc.Point, origin)
+			test.That(t, R3VectorAlmostEqual(pose.Point(), tc.Vector, 0.1), test.ShouldBeTrue)
+		})
+	}
 }
 
 func TestGeoObstacles(t *testing.T) {
@@ -105,34 +92,4 @@ func TestGeoObstacles(t *testing.T) {
 		test.That(t, conv[0].location, test.ShouldResemble, testGeoObst.location)
 		test.That(t, conv[0].geometries, test.ShouldResemble, testGeoObst.geometries)
 	})
-}
-
-func TestConvertGeoPointToPose(t *testing.T) {
-	gp := geo.NewPoint(0, 0)
-	pose := GeoPointToPose(gp)
-	test.That(t, R3VectorAlmostEqual(pose.Point(), r3.Vector{0, 0, 0}, 0.1), test.ShouldBeTrue)
-
-	gp = geo.NewPoint(0.0000009, 0.0000009)
-	pose = GeoPointToPose(gp)
-	test.That(t, R3VectorAlmostEqual(pose.Point(), r3.Vector{100, 100, 0}, 0.1), test.ShouldBeTrue)
-
-	gp = geo.NewPoint(0, 0.0000009)
-	pose = GeoPointToPose(gp)
-	test.That(t, R3VectorAlmostEqual(pose.Point(), r3.Vector{100, 0, 0}, 0.1), test.ShouldBeTrue)
-
-	gp = geo.NewPoint(-0.0000009, 0.0000009)
-	pose = GeoPointToPose(gp)
-	test.That(t, R3VectorAlmostEqual(pose.Point(), r3.Vector{100, -100, 0}, 0.1), test.ShouldBeTrue)
-
-	gp = geo.NewPoint(-0.0000009, 0)
-	pose = GeoPointToPose(gp)
-	test.That(t, R3VectorAlmostEqual(pose.Point(), r3.Vector{0, -100, 0}, 0.1), test.ShouldBeTrue)
-
-	gp = geo.NewPoint(-0.0000009, -0.0000009)
-	pose = GeoPointToPose(gp)
-	test.That(t, R3VectorAlmostEqual(pose.Point(), r3.Vector{-100, -100, 0}, 0.1), test.ShouldBeTrue)
-
-	gp = geo.NewPoint(0, -0.0000009)
-	pose = GeoPointToPose(gp)
-	test.That(t, R3VectorAlmostEqual(pose.Point(), r3.Vector{-100, 0, 0}, 0.1), test.ShouldBeTrue)
 }

@@ -27,6 +27,7 @@ import (
 	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/robot/framesystem"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/motion"
 
@@ -331,16 +332,16 @@ func TestMoveOnGlobe(t *testing.T) {
 	fakeBase, err := fake.NewBase(ctx, nil, baseCfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	// create base frame
+	// create base link
 	basePose := spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0})
 	baseSphere, err := spatialmath.NewSphere(basePose, 10, "base-sphere")
 	test.That(t, err, test.ShouldBeNil)
-	baseFrame, err := referenceframe.NewStaticFrameWithGeometry(
+	baseLink := referenceframe.NewLinkInFrame(
+		referenceframe.World,
+		spatialmath.NewZeroPose(),
 		"test-base",
-		basePose,
 		baseSphere,
 	)
-	test.That(t, err, test.ShouldBeNil)
 
 	// create injected MovementSensor
 	injectedMovementSensor := inject.NewMovementSensor("test-gps")
@@ -348,42 +349,31 @@ func TestMoveOnGlobe(t *testing.T) {
 		return gpsPoint, 0, nil
 	}
 
-	// create MovementSensor frame
-	movementSensorFrame, err := referenceframe.NewStaticFrame(
-		"test-gps",
+	// create MovementSensor link
+	movementSensorLink := referenceframe.NewLinkInFrame(
+		baseLink.Name(),
 		spatialmath.NewPoseFromPoint(r3.Vector{-10, 0, 0}),
+		"test-gps",
+		nil,
 	)
-	test.That(t, err, test.ShouldBeNil)
 
-	// create a framesystem
-	newFS := referenceframe.NewEmptyFrameSystem("test-FS")
-	worldFrame, err := referenceframe.NewStaticFrame("world", spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0}))
+	// create the frame system
+	fsParts := []*referenceframe.FrameSystemPart{
+		{FrameConfig: movementSensorLink},
+		{FrameConfig: baseLink},
+	}
+	deps := resource.Dependencies{
+		fakeBase.Name():               fakeBase,
+		injectedMovementSensor.Name(): injectedMovementSensor,
+	}
+	fsSvc, err := framesystem.New(context.Background(), deps, logger)
 	test.That(t, err, test.ShouldBeNil)
-	newFS.AddFrame(baseFrame, worldFrame)
-	newFS.AddFrame(movementSensorFrame, baseFrame)
-
-	// need to create an injected framesystem service
-	injectedFS := inject.NewFrameSystemService("fake-FS")
-	injectedFS.FrameSystemFunc = func(ctx context.Context, additionalTransforms []*referenceframe.LinkInFrame) (referenceframe.FrameSystem, error) {
-		return newFS, nil
-	}
-	injectedFS.CurrentInputsFunc = func(ctx context.Context) (map[string][]referenceframe.Input, map[string]referenceframe.InputEnabled, error) {
-		return referenceframe.StartPositions(newFS), nil, nil
-	}
+	err = fsSvc.Reconfigure(context.Background(), deps, resource.Config{ConvertedAttributes: &framesystem.Config{Parts: fsParts}})
+	test.That(t, err, test.ShouldBeNil)
 
 	// create the motion service
-	ms, err := NewBuiltIn(
-		ctx,
-		resource.Dependencies{
-			fakeBase.Name():               fakeBase,
-			injectedMovementSensor.Name(): injectedMovementSensor,
-			injectedFS.Name():             injectedFS,
-		},
-		resource.Config{
-			ConvertedAttributes: &Config{},
-		},
-		logger,
-	)
+	deps[fsSvc.Name()] = fsSvc
+	ms, err := NewBuiltIn(ctx, deps, resource.Config{ConvertedAttributes: &Config{}}, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	gp, _, err := injectedMovementSensor.Position(ctx, nil)
@@ -450,14 +440,13 @@ func TestMoveOnGlobe(t *testing.T) {
 		test.That(t, len(plan), test.ShouldEqual, 0)
 	})
 
-	t.Run("relative position and distance are properly calculated", func(t *testing.T) {
-		localizer, err := motion.NewLocalizer(ctx, injectedMovementSensor)
-		test.That(t, err, test.ShouldBeNil)
-		pt, dstPIF, err := ms.(*builtIn).getRelativePositionAndDestination(ctx, localizer, fakeBase.Name(), injectedMovementSensor.Name(), destGP)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, pt, test.ShouldResemble, spatialmath.GeoPointToPose(gpsPoint).Point().Add(r3.Vector{-10, 0, 0}))
-		test.That(t, spatialmath.R3VectorAlmostEqual(dstPIF.Pose().Point(), r3.Vector{110, 0, 0}, 0.1), test.ShouldBeTrue)
-		test.That(t, dstPIF.Parent(), test.ShouldEqual, referenceframe.World)
+	t.Run("check offset constructed correctly", func(t *testing.T) {
+		baseOrigin := referenceframe.NewPoseInFrame("test-base", spatialmath.NewZeroPose())
+		movementSensorToBase, err := fsSvc.TransformPose(ctx, baseOrigin, "test-gps", nil)
+		if err != nil {
+			movementSensorToBase = baseOrigin
+		}
+		test.That(t, movementSensorToBase.Pose().Point(), test.ShouldResemble, r3.Vector{10, 0, 0})
 	})
 }
 

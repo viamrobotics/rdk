@@ -48,7 +48,7 @@ func wrapWithDifferentialDriveKinematics(
 		ddk.geometry = geometries[0]
 	}
 
-	ddk.model, err = ddk.Kinematics(limits)
+	ddk.model, err = referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits, ddk.geometry)
 	ddk.fs = referenceframe.NewEmptyFrameSystem("")
 	if err := ddk.fs.AddFrame(ddk.model, ddk.fs.World()); err != nil {
 		return nil, err
@@ -66,8 +66,8 @@ type differentialDriveKinematics struct {
 	maxAngularVelocityDegsPerSec  float64
 }
 
-func (ddk *differentialDriveKinematics) Kinematics(limits []referenceframe.Limit) (referenceframe.Frame, error) {
-	return referenceframe.New2DMobileModelFrame(ddk.Base.Name().ShortName(), limits, ddk.geometry)
+func (ddk *differentialDriveKinematics) Kinematics() referenceframe.Frame {
+	return ddk.model
 }
 
 func (ddk *differentialDriveKinematics) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {

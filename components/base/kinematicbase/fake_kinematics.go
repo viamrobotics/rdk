@@ -33,19 +33,19 @@ func WrapWithFakeKinematics(
 		localizer: localizer,
 		inputs:    []referenceframe.Input{{pt.X}, {pt.Y}, {0}},
 	}
-	fk.model, err = fk.Kinematics(limits)
+	var geometry spatialmath.Geometry
+	if fk.Base.Geometry != nil {
+		geometry = fk.Base.Geometry[0]
+	}
+	fk.model, err = referenceframe.New2DMobileModelFrame(fk.Base.Name().ShortName(), limits, geometry)
 	if err != nil {
 		return nil, err
 	}
 	return fk, nil
 }
 
-func (fk *fakeKinematics) Kinematics(limits []referenceframe.Limit) (referenceframe.Frame, error) {
-	var geometry spatialmath.Geometry
-	if fk.Base.Geometry != nil {
-		geometry = fk.Base.Geometry[0]
-	}
-	return referenceframe.New2DMobileModelFrame(fk.Base.Name().ShortName(), limits, geometry)
+func (fk *fakeKinematics) Kinematics() referenceframe.Frame {
+	return fk.model
 }
 
 func (fk *fakeKinematics) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {

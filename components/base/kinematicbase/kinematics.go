@@ -15,7 +15,7 @@ type KinematicBase interface {
 	base.Base
 	referenceframe.InputEnabled
 
-	Kinematics(limits []referenceframe.Limit) (referenceframe.Frame, error)
+	Kinematics() referenceframe.Frame
 }
 
 // WrapWithKinematics will wrap a Base with the appropriate type of kinematics, allowing it to provide a Frame which can be planned with

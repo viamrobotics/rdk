@@ -112,50 +112,45 @@ func GeoObstaclesFromConfig(config *GeoObstacleConfig) ([]*GeoObstacle, error) {
 	return gobs, nil
 }
 
-// GetCartesianDistance calculates the latitude and longitide displacement between p and q in kilometers.
+// GetCartesianDistance calculates the latitude and longitide displacement between p and q in millimeters.
+// Note that this is an approximation since we are trying to project a point on a sphere onto a plane.
+// The closer these points are the more accurate the approximation is
 func GetCartesianDistance(p, q *geo.Point) (float64, float64) {
 	mod := geo.NewPoint(p.Lat(), q.Lng())
-	// Calculates the Haversine distance between two points in kilometers
-	latDist := p.GreatCircleDistance(mod)
-	lngDist := q.GreatCircleDistance(mod)
-	return latDist, lngDist
+	// Calculate the Haversine distance between two points in kilometers, convert to mm
+	distAlongLat := 1e6 * p.GreatCircleDistance(mod)
+	distAlongLng := 1e6 * q.GreatCircleDistance(mod)
+	return distAlongLat, distAlongLng
 }
 
-// GeoPointToPose converts p into a spatialmath pose relative to lng = 0 = lat.
-func GeoPointToPose(p *geo.Point) Pose {
-	origin := geo.NewPoint(0, 0)
-	latDist, lngDist := GetCartesianDistance(origin, p)
-	azimuth := origin.BearingTo(p)
+// GeoPointToPose converts p into a Pose
+// Because the function we use to project a point on a spheroid to a plane is nonlinear, we linearize it about a specified origin point.
+func GeoPointToPose(point, origin *geo.Point) Pose {
+	latDist, lngDist := GetCartesianDistance(origin, point)
+	azimuth := origin.BearingTo(point)
 
 	switch {
 	case azimuth >= 0 && azimuth <= 90:
-		// multiply to convert km to mm
-		return NewPoseFromPoint(r3.Vector{latDist * 1e6, lngDist * 1e6, 0})
+		return NewPoseFromPoint(r3.Vector{latDist, lngDist, 0})
 	case azimuth > 90 && azimuth <= 180:
-		return NewPoseFromPoint(r3.Vector{latDist * 1e6, -lngDist * 1e6, 0})
+		return NewPoseFromPoint(r3.Vector{latDist, -lngDist, 0})
 	case azimuth >= -90 && azimuth < 0:
-		return NewPoseFromPoint(r3.Vector{-latDist * 1e6, lngDist * 1e6, 0})
+		return NewPoseFromPoint(r3.Vector{-latDist, lngDist, 0})
 	default:
-		return NewPoseFromPoint(r3.Vector{-latDist * 1e6, -lngDist * 1e6, 0})
+		return NewPoseFromPoint(r3.Vector{-latDist, -lngDist, 0})
 	}
 }
 
 // GeoObstaclesToGeometries converts a list of GeoObstacles into a list of Geometries.
-func GeoObstaclesToGeometries(obstacles []*GeoObstacle, worldOrigin r3.Vector) []Geometry {
+func GeoObstaclesToGeometries(obstacles []*GeoObstacle, origin *geo.Point) []Geometry {
 	// we note that there are two transformations to be accounted for
 	// when converting a GeoObstacle. Namely, the obstacle's pose needs to
 	// transformed by the specified in GPS coordinates.
 	geoms := []Geometry{}
 	for _, v := range obstacles {
-		obstacleOrigin := GeoPointToPose(v.location)
-		relativeDestinationPt := r3.Vector{
-			X: obstacleOrigin.Point().X - worldOrigin.X,
-			Y: obstacleOrigin.Point().Y - worldOrigin.Y,
-			Z: 0,
-		}
-		relativeDstPose := NewPoseFromPoint(relativeDestinationPt)
+		relativePose := GeoPointToPose(v.location, origin)
 		for _, geom := range v.geometries {
-			geo := geom.Transform(relativeDstPose)
+			geo := geom.Transform(relativePose)
 			geoms = append(geoms, geo)
 		}
 	}

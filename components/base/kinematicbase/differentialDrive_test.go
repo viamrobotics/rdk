@@ -121,15 +121,13 @@ func TestErrorState(t *testing.T) {
 	slam.GetPositionFunc = func(ctx context.Context) (spatialmath.Pose, string, error) {
 		return spatialmath.NewZeroPose(), "", nil
 	}
-	localizer, err := motion.NewLocalizer(ctx, slam)
-	test.That(t, err, test.ShouldBeNil)
 
 	// build base
 	logger := golog.NewTestLogger(t)
 	ddk, err := buildTestDDK(ctx, testConfig(),
 		defaultLinearVelocityMillisPerSec, defaultAngularVelocityDegsPerSec, logger)
 	test.That(t, err, test.ShouldBeNil)
-	ddk.localizer = localizer
+	ddk.localizer = motion.NewSLAMLocalizer(slam)
 
 	desiredInput := []referenceframe.Input{{3}, {4}, {utils.DegToRad(30)}}
 	distErr, headingErr, err := ddk.errorState(make([]referenceframe.Input, 3), desiredInput)
@@ -162,17 +160,11 @@ func buildTestDDK(
 		return nil, err
 	}
 
-	// construct localizer
-	localizer, err := motion.NewLocalizer(ctx, fakeSLAM)
+	// construct differential drive kinematic base
+	kb, err := wrapWithDifferentialDriveKinematics(ctx, b, motion.NewSLAMLocalizer(fakeSLAM), limits, linVel, angVel)
 	if err != nil {
 		return nil, err
 	}
-
-	kb, err := wrapWithDifferentialDriveKinematics(ctx, b, localizer, limits, linVel, angVel)
-	if err != nil {
-		return nil, err
-	}
-
 	ddk, ok := kb.(*differentialDriveKinematics)
 	if !ok {
 		return nil, err
