@@ -20,7 +20,6 @@ import (
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 func TestSpinWithMSMath(t *testing.T) {
@@ -100,7 +99,7 @@ func TestSpinWithMSMath(t *testing.T) {
 
 		ori, err := ms.Orientation(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
-		calcYaw := addAnglesInDomain(rdkutils.RadToDeg(ori.EulerAngles().Yaw), 0)
+		calcYaw := addAnglesInDomain(utils.RadToDeg(ori.EulerAngles().Yaw), 0)
 		measYaw, err := getCurrentYaw(ms)
 		test.That(t, measYaw, test.ShouldEqual, calcYaw)
 		test.That(t, measYaw > 0, test.ShouldBeTrue)
