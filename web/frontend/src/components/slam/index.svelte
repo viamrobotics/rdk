@@ -30,8 +30,8 @@ let refresh3dRate = 'manual';
 let pointcloud: Uint8Array | undefined;
 let pose: commonApi.Pose | undefined;
 
-let timestamp: Timestamp | undefined;
-timestamp = new Timestamp();
+let lastTimestamp: Timestamp | undefined;
+lastTimestamp = new Timestamp();
 
 let show2d = false;
 let show3d = false;
@@ -60,11 +60,11 @@ const refresh2d = async () => {
     let nextPose;
 
     /*
-     * The map timestamp is compared to the previously saved
-     * timestamp to see if a change has been made to the pointcloud map.
+     * The map timestamp is compared to the last timestamp
+     * to see if a change has been made to the pointcloud map.
      * A new call to getPointCloudMap is made if an update has occured.
      */
-    if (mapTimestamp?.getSeconds() === timestamp?.getSeconds()) {
+    if (mapTimestamp?.getSeconds() === lastTimestamp?.getSeconds()) {
       nextPose = await getSLAMPosition($robotClient, name);
     } else {
       [pointcloud, nextPose] = await Promise.all([
@@ -81,7 +81,7 @@ const refresh2d = async () => {
     nextPose?.setY(nextPose.getY() / 1000);
     nextPose?.setZ(nextPose.getZ() / 1000);
     pose = nextPose;
-    timestamp ??= mapTimestamp;
+    lastTimestamp ??= mapTimestamp;
   } catch (error) {
     refreshErrorMessage2d = error !== null && typeof error === 'object' && 'message' in error
       ? `${refreshErrorMessage} ${error.message}`
@@ -94,14 +94,14 @@ const refresh3d = async () => {
     const mapTimestamp = await getSLAMMapInfo($robotClient, name);
 
     /*
-     * The map timestamp is compared to the previously saved
-     * timestamp to see if a change has been made to the pointcloud map.
+     * The map timestamp is compared to the last timestamp
+     * to see if a change has been made to the pointcloud map.
      * A new call to getPointCloudMap is made if an update has occured.
      */
-    if (mapTimestamp?.getSeconds() !== timestamp?.getSeconds()) {
+    if (mapTimestamp?.getSeconds() !== lastTimestamp?.getSeconds()) {
       pointcloud = await getPointCloudMap($robotClient, name);
     }
-    timestamp ??= mapTimestamp;
+    lastTimestamp ??= mapTimestamp;
   } catch (error) {
     refreshErrorMessage3d = error !== null && typeof error === 'object' && 'message' in error
       ? `${refreshErrorMessage} ${error.message}`
