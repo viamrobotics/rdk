@@ -51,7 +51,7 @@ func NewBoard(
 	conf *Config,
 	gpioMappings map[string]GPIOBoardMapping,
 	logger golog.Logger,
-) (*SysfsBoard, error) {
+) (board.Board, error) {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	b := SysfsBoard{
 		Named:         named,

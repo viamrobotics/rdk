@@ -11,6 +11,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"periph.io/x/host/v3"
+	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/board/genericlinux"
@@ -62,8 +63,11 @@ func RegisterCustomBoard(modelName string) {
 					return nil, err
 				}
 
-				// gb, ok := genericlinux.SysfsBoard.(b)
-				return &customLinuxBoard{b}, nil
+				gb, ok := b.(*genericlinux.SysfsBoard)
+				if !ok {
+					return nil, errors.New("error creating board object")
+				}
+				return &customLinuxBoard{gb}, nil
 			},
 		})
 }
