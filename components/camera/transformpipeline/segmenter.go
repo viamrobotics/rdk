@@ -64,18 +64,21 @@ func newSegmentationsTransform(
 func (ss *segmenterSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
 	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::segmenter::NextPointCloud")
 	defer span.End()
+	fmt.Println("Called nextpointcloud")
 
 	// get the service
 	srv, err := vision.FromRobot(ss.r, ss.segmenterName)
 	if err != nil {
 		return nil, fmt.Errorf("source_segmenter cant find vision service: %w", err)
 	}
+	fmt.Println("Got service")
 
 	// apply service
 	clouds, err := srv.GetObjectPointClouds(ctx, ss.cameraName, map[string]interface{}{})
 	if err != nil {
 		return nil, fmt.Errorf("could not get point clouds: %w", err)
 	}
+	fmt.Println("Applied service")
 
 	// merge pointclouds
 	cloudsWithOffset := make([]pointcloud.CloudAndOffsetFunc, 0, len(clouds))
@@ -90,6 +93,7 @@ func (ss *segmenterSource) NextPointCloud(ctx context.Context) (pointcloud.Point
 	if err != nil {
 		return nil, fmt.Errorf("could not get point clouds: %w", err)
 	}
+	fmt.Println("merged pointclouds")
 	return mergedCloud, nil
 }
 
