@@ -63,16 +63,16 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 			return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
 		}
 		deps = append(deps, cfg.Board)
-		return deps, cfg.I2CConfig.ValidateI2C(path)
+		return deps, cfg.I2CConfig.validateI2C(path)
 	case serialStr:
-		return nil, cfg.SerialConfig.ValidateSerial(path)
+		return nil, cfg.SerialConfig.validateSerial(path)
 	default:
 		return nil, connectionTypeError(cfg.ConnectionType, serialStr, i2cStr)
 	}
 }
 
 // ValidateI2C ensures all parts of the config are valid.
-func (cfg *I2CConfig) ValidateI2C(path string) error {
+func (cfg *I2CConfig) validateI2C(path string) error {
 	if cfg.I2CBus == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "i2c_bus")
 	}
@@ -84,7 +84,7 @@ func (cfg *I2CConfig) ValidateI2C(path string) error {
 }
 
 // ValidateSerial ensures all parts of the config are valid.
-func (cfg *SerialConfig) ValidateSerial(path string) error {
+func (cfg *SerialConfig) validateSerial(path string) error {
 	if cfg.SerialPath == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "serial_path")
 	}

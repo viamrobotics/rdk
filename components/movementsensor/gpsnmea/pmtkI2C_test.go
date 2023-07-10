@@ -53,12 +53,12 @@ func TestValidateI2C(t *testing.T) {
 	fakecfg := &I2CConfig{I2CBus: "some-bus"}
 
 	path := "path"
-	err := fakecfg.ValidateI2C(path)
+	err := fakecfg.validateI2C(path)
 	test.That(t, err, test.ShouldBeError,
 		gutils.NewConfigValidationFieldRequiredError(path, "i2c_addr"))
 
 	fakecfg.I2CAddr = 66
-	err = fakecfg.ValidateI2C(path)
+	err = fakecfg.validateI2C(path)
 	test.That(t, err, test.ShouldBeNil)
 }
 
