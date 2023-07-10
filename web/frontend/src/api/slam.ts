@@ -1,6 +1,5 @@
 import { type Client, slamApi } from '@viamrobotics/sdk';
 import { rcLogConditionally } from '@/lib/log';
-import { Timestamp } from 'google-protobuf/google/protobuf/timestamp_pb';
 
 const concatArrayU8 = (arrays: Uint8Array[]) => {
   const totalLength = arrays.reduce((acc, value) => acc + value.length, 0);
