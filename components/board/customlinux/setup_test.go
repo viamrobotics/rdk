@@ -4,10 +4,12 @@
 package customlinux
 
 import (
+	"testing"
+
+	"go.viam.com/test"
+
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/board/genericlinux"
-	"go.viam.com/test"
-	"testing"
 )
 
 func TestConfigParse(t *testing.T) {
@@ -60,5 +62,4 @@ func TestConfigValidate(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "path.digital_interrupts.0")
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"pin" is required`)
-
 }

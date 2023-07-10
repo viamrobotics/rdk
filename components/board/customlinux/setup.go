@@ -4,11 +4,13 @@ package customlinux
 import (
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"strconv"
 
 	"github.com/pkg/errors"
-	"go.viam.com/rdk/components/board/genericlinux"
 	"go.viam.com/utils"
+
+	"go.viam.com/rdk/components/board/genericlinux"
 )
 
 // GenericLinuxPin describes a gpio pin on a linux board.
@@ -69,8 +71,9 @@ func (conf *GenericLinuxPin) Validate(path string) error {
 	return nil
 }
 
+//lint:ignore U1000 Ignore unused function temporarily
 func parsePinConfig(filePath string) ([]genericlinux.PinDefinition, error) {
-	pinData, err := os.ReadFile(filePath)
+	pinData, err := os.ReadFile(filepath.Clean(filePath))
 	if err != nil {
 		return nil, err
 	}
@@ -78,7 +81,7 @@ func parsePinConfig(filePath string) ([]genericlinux.PinDefinition, error) {
 	return parseRawPinData(pinData, filePath)
 }
 
-// filePath passed in for logging purposes
+// filePath passed in for logging purposes.
 func parseRawPinData(pinData []byte, filePath string) ([]genericlinux.PinDefinition, error) {
 	var parsedPinData GenericLinuxPins
 	if err := json.Unmarshal(pinData, &parsedPinData); err != nil {
