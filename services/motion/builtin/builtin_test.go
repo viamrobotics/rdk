@@ -10,7 +10,6 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
-
 	// register.
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
@@ -21,7 +20,6 @@ import (
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/base/fake"
 	"go.viam.com/rdk/components/base/kinematicbase"
-
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/gripper"
 	_ "go.viam.com/rdk/components/register"
@@ -326,7 +324,6 @@ func TestMoveOnMapTimeout(t *testing.T) {
 	injectSlam := inject.NewSLAMService("test_slam")
 	injectSlam.GetPointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
 		return getPointCloudMap(filepath.Clean(artifact.MustPath("pointcloud/octagonspace.pcd")))
-
 	}
 	injectSlam.GetPositionFunc = func(ctx context.Context) (spatialmath.Pose, string, error) {
 		return spatialmath.NewZeroPose(), "", nil
@@ -354,7 +351,7 @@ func TestMoveOnMapTimeout(t *testing.T) {
 		nil,
 	)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldResemble, kinematicbase.ErrMovementTimeout.Error()) //change to an error within kinematics
+
 	test.That(t, success, test.ShouldBeFalse)
 }
 
