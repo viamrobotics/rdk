@@ -42,9 +42,12 @@ func TestComplexModule(t *testing.T) {
 	cfgFilename, port, err := modifyCfg(t, utils.ResolveFile("examples/customresources/demos/complexmodule/module.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
 
+	serverPath, err := testutils.BuildTempModule(t, "web/cmd/server/")
+	test.That(t, err, test.ShouldBeNil)
+
 	server := pexec.NewManagedProcess(pexec.ProcessConfig{
-		Name: "bash",
-		Args: []string{"-c", "exec bin/`uname`-`uname -m`/viam-server -config " + cfgFilename},
+		Name: serverPath,
+		Args: []string{"-config", cfgFilename},
 		CWD:  utils.ResolveFile("./"),
 		Log:  true,
 	}, logger)
@@ -366,9 +369,12 @@ func TestValidationFailure(t *testing.T) {
 		utils.ResolveFile("examples/customresources/demos/complexmodule/moduletest/bad_modular_validation.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
 
+	serverPath, err := testutils.BuildTempModule(t, "web/cmd/server/")
+	test.That(t, err, test.ShouldBeNil)
+
 	server := pexec.NewManagedProcess(pexec.ProcessConfig{
-		Name: "bash",
-		Args: []string{"-c", "exec bin/`uname`-`uname -m`/viam-server -config " + cfgFilename},
+		Name: serverPath,
+		Args: []string{"-config", cfgFilename},
 		CWD:  utils.ResolveFile("./"),
 		Log:  true,
 	}, logger)
