@@ -35,7 +35,6 @@ func errInvalidFix(sentenceType, badFix, goodFix string) error {
 
 // ParseAndUpdate will attempt to parse a line to an NMEA sentence, and if valid, will try to update the given struct
 // with the values for that line. Nothing will be updated if there is not a valid gps fix.
-
 func (g *GPSData) ParseAndUpdate(line string) error {
 	// add parsing to filter out corrupted data
 	ind := strings.Index(line, "$G")
@@ -85,6 +84,7 @@ func (g *GPSData) updateData(s nmea.Sentence) error {
 	return errs
 }
 
+//nolint
 func (g *GPSData) updateGSV(gsv nmea.GSV) error {
 	// GSV provides the number of satellites in view
 	g.SatsInView = int(gsv.NumberSVsInView)
@@ -155,12 +155,14 @@ func (g *GPSData) updateGGA(gga nmea.GGA) error {
 	return err
 }
 
+//nolint
 func (g *GPSData) updateGLL(gll nmea.GLL) error {
 	now := toPoint(gll)
 	g.Location = now
 	return nil
 }
 
+//nolint
 func (g *GPSData) updateVTG(vtg nmea.VTG) error {
 	// VTG provides ground speed
 	g.Speed = vtg.GroundSpeedKPH * kphToMPerSec
