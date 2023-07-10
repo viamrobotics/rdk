@@ -90,4 +90,3 @@ export const getSLAMMapInfo = async (robotClient: Client, name: string) => {
   return response?.getLastMapUpdate();
 };
 
-

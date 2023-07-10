@@ -92,6 +92,7 @@ const refresh2d = async () => {
 const refresh3d = async () => {
   try {
     const mapTimestamp = await getSLAMMapInfo($robotClient, name);
+
     /*
      * The map timestamp is compared to the previously saved
      * timestamp to see if a change has been made to the pointcloud map.
