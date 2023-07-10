@@ -61,11 +61,9 @@ const refresh2d = async () => {
       [pointcloud, nextPose] = await Promise.all([
         getPointCloudMap($robotClient, name),
         getSLAMPosition($robotClient, name),
-        console.log("successfully re-loaded SLAM map")
       ]);
     } else {
       nextPose = await getSLAMPosition($robotClient, name);
-      console.log("successfully DID NOT re-load SLAM map")
     }
    
     /*
