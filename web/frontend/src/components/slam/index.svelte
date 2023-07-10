@@ -56,9 +56,14 @@ const deleteDestinationMarker = () => {
 const refresh2d = async () => {
 
   try {
-
     const mapTimestamp = await getSLAMMapInfo($robotClient, name);
     let nextPose;
+
+    /*
+     * The map timestamp is compared to the previously saved
+     * timestamp to see if a change has been made to the pointcloud map.
+     * A new call to getPointCloudMap is made if an update has occured.
+     */
     if (mapTimestamp?.getSeconds() === timestamp?.getSeconds()) {
       nextPose = await getSLAMPosition($robotClient, name);
     } else {
@@ -87,6 +92,11 @@ const refresh2d = async () => {
 const refresh3d = async () => {
   try {
     const mapTimestamp = await getSLAMMapInfo($robotClient, name);
+    /*
+     * The map timestamp is compared to the previously saved
+     * timestamp to see if a change has been made to the pointcloud map.
+     * A new call to getPointCloudMap is made if an update has occured.
+     */
     if (mapTimestamp?.getSeconds() !== timestamp?.getSeconds()) {
       pointcloud = await getPointCloudMap($robotClient, name);
     }
