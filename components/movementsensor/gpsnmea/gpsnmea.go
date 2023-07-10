@@ -49,9 +49,6 @@ type I2CConfig struct {
 // Validate ensures all parts of the config are valid.
 func (cfg *Config) Validate(path string) ([]string, error) {
 	var deps []string
-	if cfg.Board == "" && cfg.ConnectionType == i2cStr {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
-	}
 
 	if cfg.ConnectionType == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "connection_type")
@@ -78,6 +75,9 @@ func (cfg *I2CConfig) validateI2C(path string) error {
 	}
 	if cfg.I2CAddr == 0 {
 		return utils.NewConfigValidationFieldRequiredError(path, "i2c_addr")
+	}
+	if cfg.Board == "" {
+		return utils.NewConfigValidationFieldRequiredError(path, "board")
 	}
 
 	return nil
