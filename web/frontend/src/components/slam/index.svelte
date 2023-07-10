@@ -30,7 +30,9 @@ let refresh3dRate = 'manual';
 let pointcloud: Uint8Array | undefined;
 let pose: commonApi.Pose | undefined;
 
-let timestamp = new Timestamp();
+let timestamp: Timestamp | undefined;
+timestamp = new Timestamp();
+
 let show2d = false;
 let show3d = false;
 let showAxes = true;
@@ -52,20 +54,20 @@ const deleteDestinationMarker = () => {
 };
 
 const refresh2d = async () => {
-  
+
   try {
-   
+
     const mapTimestamp = await getSLAMMapInfo($robotClient, name);
-    var nextPose;
-    if (mapTimestamp?.getSeconds() != timestamp.getSeconds()) {
+    let nextPose;
+    if (mapTimestamp?.getSeconds() === timestamp?.getSeconds()) {
+      nextPose = await getSLAMPosition($robotClient, name);
+    } else {
       [pointcloud, nextPose] = await Promise.all([
         getPointCloudMap($robotClient, name),
         getSLAMPosition($robotClient, name),
       ]);
-    } else {
-      nextPose = await getSLAMPosition($robotClient, name);
     }
-   
+
     /*
      * The pose is returned in millimeters, but we need
      * to convert to meters to display on the frontend.
@@ -74,7 +76,7 @@ const refresh2d = async () => {
     nextPose?.setY(nextPose.getY() / 1000);
     nextPose?.setZ(nextPose.getZ() / 1000);
     pose = nextPose;
-    timestamp = mapTimestamp;
+    timestamp ??= mapTimestamp;
   } catch (error) {
     refreshErrorMessage2d = error !== null && typeof error === 'object' && 'message' in error
       ? `${refreshErrorMessage} ${error.message}`
@@ -85,10 +87,10 @@ const refresh2d = async () => {
 const refresh3d = async () => {
   try {
     const mapTimestamp = await getSLAMMapInfo($robotClient, name);
-    if (mapTimestamp?.getSeconds() != timestamp.getSeconds()) {
+    if (mapTimestamp?.getSeconds() !== timestamp?.getSeconds()) {
       pointcloud = await getPointCloudMap($robotClient, name);
     }
-    timestamp = mapTimestamp; 
+    timestamp ??= mapTimestamp;
   } catch (error) {
     refreshErrorMessage3d = error !== null && typeof error === 'object' && 'message' in error
       ? `${refreshErrorMessage} ${error.message}`
