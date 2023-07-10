@@ -140,22 +140,21 @@ func (g *multiAxis) MoveToPosition(ctx context.Context, positions, speeds []floa
 			speed = speeds[idx : idx+len(subAxNum)]
 		}
 		idx += len(subAxNum)
+		fs = append(fs, func(ctx context.Context) error { return subAx.MoveToPosition(ctx, pos, speed, nil) })
+	}
 
-		if g.moveSimultaneously {
-			fs = append(fs, func(ctx context.Context) error { return subAx.MoveToPosition(ctx, pos, speed, nil) })
-		} else {
-			err = subAx.MoveToPosition(ctx, pos, speed, extra)
-			if err != nil && !errors.Is(err, context.Canceled) {
+	if g.moveSimultaneously {
+		g.logger.Errorf("moving simultaneously")
+		if _, err := rdkutils.RunInParallel(ctx, fs); err != nil {
+			return multierr.Combine(err, g.Stop(ctx, nil))
+		}
+	} else {
+		for _, f := range fs {
+			if err := f(ctx); err != nil {
 				return err
 			}
 		}
 	}
-	if g.moveSimultaneously {
-		if _, err := rdkutils.RunInParallel(ctx, fs); err != nil {
-			return multierr.Combine(err, g.Stop(ctx, nil))
-		}
-	}
-
 	return nil
 }
 
