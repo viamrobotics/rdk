@@ -858,7 +858,7 @@ func ProcessConfig(in *Config, tlsCfg *TLSConfig) (*Config, error) {
 // Regex to match if a config is referencing a Package. Group is the package name.
 var packageReferenceRegex = regexp.MustCompile(`^\$\{packages\.([A-Za-z0-9_.\/-]+)}(.*)`)
 
-// this should match on any string with the "${packages" as the beginning of the string
+// this should match on any string with the "${packages" as the beginning of the string.
 var packageReferenceAllRegex = regexp.MustCompile(`\"\$\{packages\.([A-Za-z0-9_.\/-]+)}([A-Za-z0-9\._\/-]+)\"`)
 
 // var mlModelsReferenceRegex = regexp.MustCompile(`\$\{packages\.ml_models.([A-Za-z0-9_\/-]+)}`)
@@ -952,7 +952,7 @@ func GetPackageReference(path string) *PackageReference {
 
 // PackageReference contains the deconstructed parts of a package reference in the config.
 // Eg: ${packages.some-package}/path/a/b/c -> {"some-package", "/path/a/b/c"}.
-// packages.ml-test/effdet0.tfflite-> package: ml_test and pathInPackage is effdet0.tfflite
+// packages.ml-test/effdet0.tfflite-> package: ml_test and pathInPackage is effdet0.tfflite.
 type PackageReference struct {
 	Package       string
 	PathInPackage string

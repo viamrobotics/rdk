@@ -6,14 +6,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"path"
 	"path/filepath"
 	"runtime"
 
-	"github.com/a8m/envsubst"
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	apppb "go.viam.com/api/app/v1"
@@ -55,7 +53,7 @@ var viamDotDir = filepath.Join(os.Getenv("HOME"), ".viam")
 
 var packagesDir = filepath.Join(viamDotDir, "packages")
 
-// all expected viam sub-packages of modules
+// all expected viam sub-packages of modules.
 var mlModelsDir = filepath.Join(packagesDir, "ml_models")
 
 var modulesDir = filepath.Join(packagesDir, "modules")
@@ -64,7 +62,7 @@ func getCloudCacheFilePath(id string) string {
 	return filepath.Join(viamDotDir, fmt.Sprintf("cached_cloud_config_%s.json", id))
 }
 
-// id is the robot part id relating to the configgetCloudCacheFilePath
+// id is the robot part id relating to the configgetCloudCacheFilePath.
 func DecodeConfigFromReader(r io.Reader, id string) (*Config, error) {
 	unprocessedConfig := &Config{
 		ConfigFilePath: "",
@@ -73,7 +71,7 @@ func DecodeConfigFromReader(r io.Reader, id string) (*Config, error) {
 	// storing the entire file in memory - this is what the decoder does under the hood
 	// this replaces the Decoder Decode method with reading into a buf stream
 	// so can manipulte the JSON attributes
-	fileInBytes, err := ioutil.ReadAll(r)
+	fileInBytes, err := io.ReadAll(r)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +85,6 @@ func DecodeConfigFromReader(r io.Reader, id string) (*Config, error) {
 		return nil, errors.Wrap(err, "cannot parse the cached conifg as json")
 	}
 	return unprocessedConfig, nil
-
 }
 
 func readFromCache(id string) (*Config, error) {
@@ -310,12 +307,12 @@ func Read(
 	filePath string,
 	logger golog.Logger,
 ) (*Config, error) {
-	buf, err := envsubst.ReadFile(filePath)
+	r, err := os.Open(filePath)
 	if err != nil {
 		return nil, err
 	}
 
-	return FromReader(ctx, filePath, bytes.NewReader(buf), logger)
+	return FromReader(ctx, filePath, r, logger)
 }
 
 // ReadLocalConfig reads a config from the given file but does not fetch any config from the remote servers.
@@ -324,12 +321,12 @@ func ReadLocalConfig(
 	filePath string,
 	logger golog.Logger,
 ) (*Config, error) {
-	buf, err := envsubst.ReadFile(filePath)
+	buf, err := os.Open(filePath)
 	if err != nil {
 		return nil, err
 	}
 
-	return fromReader(ctx, filePath, bytes.NewReader(buf), logger, false)
+	return fromReader(ctx, filePath, buf, logger, false)
 }
 
 // FromReader reads a config from the given reader and specifies
@@ -343,19 +340,11 @@ func FromReader(
 	return fromReader(ctx, originalPath, r, logger, true)
 }
 
-// func GenerateDefaultPackagesDirectory(logger golog.Logger) error {
-// 	if err := os.MkdirAll(, 0o700); err != nil {
-// 		return nil, err
-// 	}
-
-// }
-
 func localNamedPath(packageName string) string {
 	return filepath.Join(packagesDir, packageName)
 }
 
 func RefPath(refPath string) string {
-
 	// right now ${packages.ml_model.ml_test} /Users/roxy/.viam/packages/ml_model.ml-test/effdetlabels.txt
 
 	ref := GetRecursivePackageReference(refPath)
@@ -372,9 +361,7 @@ func ReplacePathPlaceholders(buf []byte) ([]byte, bool) {
 	// this takes the byte version of the config and does a match on all "${package...}..."
 	// file paths that exist and transforms them to be a file root as defined by the HOME base of the
 	// the robot
-
 	var didUpdate bool
-
 	output := packageReferenceAllRegex.ReplaceAllFunc(buf, func(b []byte) []byte {
 		matchedString := string(b)
 		// this removes the quotations from the matched string
@@ -382,6 +369,7 @@ func ReplacePathPlaceholders(buf []byte) ([]byte, bool) {
 		packageRef := RefPath(matchedString)
 		byteRef := fmt.Sprintf("\"%s\"", packageRef)
 		didUpdate = true
+
 		return []byte(byteRef)
 	})
 
@@ -578,7 +566,6 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger golog.Logge
 func getFromCloudOrCache(ctx context.Context, cloudCfg *Cloud, shouldReadFromCache bool, logger golog.Logger) (*Config, bool, error) {
 	var cached bool
 	cfg, errorShouldCheckCache, err := getFromCloudGRPC(ctx, cloudCfg, logger)
-	logger.Infof("checking from cloud: ", errorShouldCheckCache, cfg)
 	if err != nil {
 		if shouldReadFromCache && errorShouldCheckCache {
 			logger.Warnw("failed to read config from cloud, checking cache", "error", err)
@@ -625,17 +612,15 @@ func getFromCloudGRPC(ctx context.Context, cloudCfg *Cloud, logger golog.Logger)
 	}
 
 	cfg, err := FromProto(res.Config, logger)
-
 	if err != nil {
 		// Check cache?
 		return nil, shouldCheckCacheOnFailure, err
 	}
 
 	bytes, err := cfg.MarshalJSON()
-
 	if err != nil {
 		logger.Error("Cannot parse config from the cloud", err)
-		return cfg, false, nil
+		return cfg, false, err
 	}
 
 	updatedConfig := &Config{}
@@ -645,7 +630,7 @@ func getFromCloudGRPC(ctx context.Context, cloudCfg *Cloud, logger golog.Logger)
 		err := updatedConfig.UnmarshalJSON(updatedBytes)
 		if err != nil {
 			logger.Error("Cannot unmarshall config with pathplaceholders")
-			return cfg, false, nil
+			return cfg, false, err
 		}
 		return updatedConfig, false, nil
 	}
