@@ -3,6 +3,7 @@ package camera
 
 import (
 	"context"
+	"fmt"
 	"image"
 	"sync"
 
@@ -234,6 +235,7 @@ func (vs *videoSource) Stream(ctx context.Context, errHandlers ...gostream.Error
 func (vs *videoSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
 	ctx, span := trace.StartSpan(ctx, "camera::videoSource::NextPointCloud")
 	defer span.End()
+	fmt.Println("running this nextpointcloud func")
 	if c, ok := vs.actualSource.(PointCloudSource); ok {
 		return c.NextPointCloud(ctx)
 	}

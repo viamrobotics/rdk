@@ -2,6 +2,7 @@ package segmentation
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/golang/geo/r3"
 	"github.com/mitchellh/mapstructure"
@@ -69,11 +70,14 @@ func NewRadiusClustering(params utils.AttributeMap) (Segmenter, error) {
 
 // RadiusClustering applies the radius clustering algorithm directly on a given point cloud.
 func (rcc *RadiusClusteringConfig) RadiusClustering(ctx context.Context, src camera.VideoSource) ([]*vision.Object, error) {
+	fmt.Println("entered rad clustering")
 	// get next point cloud
 	cloud, err := src.NextPointCloud(ctx)
 	if err != nil {
 		return nil, err
 	}
+
+	fmt.Println("finding planes")
 	ps := NewPointCloudPlaneSegmentation(cloud, 10, rcc.MinPtsInPlane)
 	// if there are found planes, remove them, and keep all the non-plane points
 	_, nonPlane, err := ps.FindPlanes(ctx)
