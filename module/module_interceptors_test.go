@@ -34,9 +34,13 @@ func TestOpID(t *testing.T) {
 	defer func() {
 		test.That(t, os.Remove(cfgFilename), test.ShouldBeNil)
 	}()
+
+	serverPath, err := rtestutils.BuildTempModule(t, "web/cmd/server/")
+	test.That(t, err, test.ShouldBeNil)
+
 	server := pexec.NewManagedProcess(pexec.ProcessConfig{
-		Name: "bash",
-		Args: []string{"-c", "make server && exec bin/`uname`-`uname -m`/viam-server -config " + cfgFilename},
+		Name: serverPath,
+		Args: []string{"-config", cfgFilename},
 		CWD:  utils.ResolveFile("./"),
 		Log:  true,
 	}, logger)

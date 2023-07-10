@@ -144,7 +144,7 @@ func (g *SerialNMEAMovementSensor) Position(ctx context.Context, extra map[strin
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 
-	currentPosition := g.data.location
+	currentPosition := g.data.Location
 
 	if currentPosition == nil {
 		return lastPosition, 0, errNilLocation
@@ -152,7 +152,7 @@ func (g *SerialNMEAMovementSensor) Position(ctx context.Context, extra map[strin
 
 	// if current position is (0,0) we will return the last non zero position
 	if g.lastposition.IsZeroPosition(currentPosition) && !g.lastposition.IsZeroPosition(lastPosition) {
-		return lastPosition, g.data.alt, g.err.Get()
+		return lastPosition, g.data.Alt, g.err.Get()
 	}
 
 	// updating lastposition if it is different from the current position
@@ -165,21 +165,21 @@ func (g *SerialNMEAMovementSensor) Position(ctx context.Context, extra map[strin
 		g.lastposition.SetLastPosition(currentPosition)
 	}
 
-	return currentPosition, g.data.alt, g.err.Get()
+	return currentPosition, g.data.Alt, g.err.Get()
 }
 
 // Accuracy returns the accuracy, hDOP and vDOP.
 func (g *SerialNMEAMovementSensor) Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return map[string]float32{"hDOP": float32(g.data.hDOP), "vDOP": float32(g.data.vDOP)}, nil
+	return map[string]float32{"hDOP": float32(g.data.HDOP), "vDOP": float32(g.data.VDOP)}, nil
 }
 
 // LinearVelocity linear velocity.
 func (g *SerialNMEAMovementSensor) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return r3.Vector{X: 0, Y: g.data.speed, Z: 0}, nil
+	return r3.Vector{X: 0, Y: g.data.Speed, Z: 0}, nil
 }
 
 // LinearAcceleration linear acceleration.
@@ -212,7 +212,7 @@ func (g *SerialNMEAMovementSensor) CompassHeading(ctx context.Context, extra map
 func (g *SerialNMEAMovementSensor) ReadFix(ctx context.Context) (int, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return g.data.fixQuality, nil
+	return g.data.FixQuality, nil
 }
 
 // Readings will use return all of the MovementSensor Readings.
