@@ -4,7 +4,6 @@
 package customlinux
 
 import (
-	"fmt"
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/board/genericlinux"
 	"go.viam.com/test"
@@ -36,7 +35,6 @@ func TestConfigParse(t *testing.T) {
 		PWMID:               -1,
 	}
 	test.That(t, err, test.ShouldBeNil)
-	fmt.Println("data", data)
 	test.That(t, data, test.ShouldResemble, correctData)
 }
 
