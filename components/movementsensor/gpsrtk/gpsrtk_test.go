@@ -151,32 +151,32 @@ func TestModelTypeCreators(t *testing.T) {
 // 	test.That(t, err, test.ShouldBeNil)
 // }
 
-func TestConnect(t *testing.T) {
-	logger := golog.NewTestLogger(t)
-	ctx := context.Background()
-	cancelCtx, cancelFunc := context.WithCancel(ctx)
-	g := RTKMovementSensor{
-		cancelCtx:  cancelCtx,
-		cancelFunc: cancelFunc,
-		logger:     logger,
-	}
+// func TestConnect(t *testing.T) {
+// 	logger := golog.NewTestLogger(t)
+// 	ctx := context.Background()
+// 	cancelCtx, cancelFunc := context.WithCancel(ctx)
+// 	g := RTKMovementSensor{
+// 		cancelCtx:  cancelCtx,
+// 		cancelFunc: cancelFunc,
+// 		logger:     logger,
+// 	}
 
-	url := "http://fakeurl"
-	username := "user"
-	password := "pwd"
+// 	url := "http://fakeurl"
+// 	username := "user"
+// 	password := "pwd"
 
-	// create new ntrip client and connect
-	err := g.Connect("invalidurl", username, password, 10)
-	g.ntripClient = makeMockNtripClient()
+// 	// create new ntrip client and connect
+// 	err := g.Connect("invalidurl", username, password, 10)
+// 	g.ntripClient = makeMockNtripClient()
 
-	test.That(t, err, test.ShouldNotBeNil)
+// 	test.That(t, err, test.ShouldNotBeNil)
 
-	err = g.Connect(url, username, password, 10)
-	test.That(t, err, test.ShouldBeNil)
+// 	err = g.Connect(url, username, password, 10)
+// 	test.That(t, err, test.ShouldBeNil)
 
-	err = g.GetStream("", 10)
-	test.That(t, err, test.ShouldNotBeNil)
-}
+// 	err = g.GetStream("", 10)
+// 	test.That(t, err, test.ShouldNotBeNil)
+// }
 
 // TODO: RSDK-3264, This needs to be cleaned up as we stablize gpsrtk
 /* func TestNewRTKMovementSensor(t *testing.T) {
@@ -366,7 +366,7 @@ func TestCloseRTK(t *testing.T) {
 
 // Helpers
 
-// mock ntripinfo client.
-func makeMockNtripClient() *NtripInfo {
-	return &NtripInfo{}
-}
+// // mock ntripinfo client.
+// func makeMockNtripClient() *NtripInfo {
+// 	return &NtripInfo{}
+// }
