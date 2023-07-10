@@ -316,7 +316,7 @@ func TestMoveOnGlobe(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 
-	gpsPoint := geo.NewPoint(10, 10)
+	gpsPoint := geo.NewPoint(-70, 40)
 
 	// create motion config
 	motionCfg := make(map[string]interface{})
@@ -378,13 +378,16 @@ func TestMoveOnGlobe(t *testing.T) {
 
 	gp, _, err := injectedMovementSensor.Position(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
-	destGP := geo.NewPoint(gp.Lat(), gp.Lng()+0.0000009)
+	dst := geo.NewPoint(gp.Lat(), gp.Lng()+1e-6)
+	expectedDst := r3.Vector{100, 0, 0}
+	// TODO(rb): look into why the epsilon is not particularly good
+	epsilon := 10 //mm
 
 	t.Run("ensure success to a nearby geo point", func(t *testing.T) {
 		plan, _, err := ms.(*builtIn).planMoveOnGlobeNick(
 			context.Background(),
 			fakeBase.Name(),
-			destGP,
+			dst,
 			injectedMovementSensor.Name(),
 			nil,
 			math.NaN(),
@@ -393,6 +396,8 @@ func TestMoveOnGlobe(t *testing.T) {
 		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(plan), test.ShouldEqual, 2)
+		test.That(t, plan[1][0].Value, test.ShouldAlmostEqual, expectedDst.X, epsilon)
+		test.That(t, plan[1][1].Value, test.ShouldAlmostEqual, expectedDst.Y, epsilon)
 	})
 
 	t.Run("go around an obstacle", func(t *testing.T) {
@@ -406,15 +411,17 @@ func TestMoveOnGlobe(t *testing.T) {
 		plan, _, err := ms.(*builtIn).planMoveOnGlobeNick(
 			context.Background(),
 			fakeBase.Name(),
-			destGP,
+			dst,
 			injectedMovementSensor.Name(),
 			[]*spatialmath.GeoObstacle{geoObstacle},
 			math.NaN(),
 			math.NaN(),
 			motionCfg,
 		)
-		test.That(t, len(plan), test.ShouldBeGreaterThan, 2)
 		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(plan), test.ShouldBeGreaterThan, 2)
+		test.That(t, plan[len(plan)-1][0].Value, test.ShouldAlmostEqual, expectedDst.X, epsilon)
+		test.That(t, plan[len(plan)-1][1].Value, test.ShouldAlmostEqual, expectedDst.Y, epsilon)
 	})
 
 	t.Run("fail because of obstacle", func(t *testing.T) {
@@ -429,7 +436,7 @@ func TestMoveOnGlobe(t *testing.T) {
 		plan, _, err := ms.(*builtIn).planMoveOnGlobeNick(
 			context.Background(),
 			fakeBase.Name(),
-			destGP,
+			dst,
 			injectedMovementSensor.Name(),
 			[]*spatialmath.GeoObstacle{geoObstacle},
 			math.NaN(),
