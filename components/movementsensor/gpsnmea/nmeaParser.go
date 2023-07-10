@@ -16,7 +16,8 @@ const (
 	kphToMPerSec   = 0.27778
 )
 
-type gpsData struct {
+// GPSData struct combines various attributes related to GPS.
+type GPSData struct {
 	location   *geo.Point
 	alt        float64
 	speed      float64 // ground speed in m per sec
@@ -32,9 +33,9 @@ func errInvalidFix(sentenceType, badFix, goodFix string) error {
 	return errors.Errorf("type %q sentence fix is not valid have: %q  want %q", sentenceType, badFix, goodFix)
 }
 
-// parseAndUpdate will attempt to parse a line to an NMEA sentence, and if valid, will try to update the given struct
+// ParseAndUpdate will attempt to parse a line to an NMEA sentence, and if valid, will try to update the given struct
 // with the values for that line. Nothing will be updated if there is not a valid gps fix.
-func (g *gpsData) parseAndUpdate(line string) error {
+func (g *GPSData) ParseAndUpdate(line string) error {
 	// add parsing to filter out corrupted data
 	ind := strings.Index(line, "$G")
 	if ind == -1 {

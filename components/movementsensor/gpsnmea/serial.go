@@ -31,7 +31,7 @@ type SerialNMEAMovementSensor struct {
 	cancelCtx               context.Context
 	cancelFunc              func()
 	logger                  golog.Logger
-	data                    gpsData
+	data                    GPSData
 	activeBackgroundWorkers sync.WaitGroup
 
 	disableNmea  bool
@@ -129,7 +129,7 @@ func (g *SerialNMEAMovementSensor) Start(ctx context.Context) error {
 				}
 				// Update our struct's gps data in-place
 				g.mu.Lock()
-				err = g.data.parseAndUpdate(line)
+				err = g.data.ParseAndUpdate(line)
 				g.mu.Unlock()
 				if err != nil {
 					g.logger.Warnf("can't parse nmea sentence: %#v", err)
