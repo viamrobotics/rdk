@@ -17,10 +17,6 @@ import (
 	"go.viam.com/rdk/components/board"
 )
 
-func TestRegisterBoard(t *testing.T) {
-	RegisterBoard("test", map[int]GPIOBoardMapping{})
-}
-
 func TestGenericLinux(t *testing.T) {
 	ctx := context.Background()
 
