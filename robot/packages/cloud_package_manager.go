@@ -76,11 +76,12 @@ func NewCloudManager(client pb.PackageServiceClient, packagesDir string, logger 
 		return nil, err
 	}
 
-	// package manager can still ensure that these
+	// modules directory ~/.viam/packages/modules
 	if err := os.MkdirAll(modules, 0o700); err != nil {
 		return nil, err
 	}
 
+	// mlModels directory ~/.viam/packages/ml-models
 	if err := os.MkdirAll(mlModelsDir, 0o700); err != nil {
 		return nil, err
 	}

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/url"
 	"os"
 	"path"
@@ -54,6 +55,7 @@ var viamDotDir = filepath.Join(os.Getenv("HOME"), ".viam")
 
 var packagesDir = filepath.Join(viamDotDir, "packages")
 
+// all expected viam sub-packages of modules
 var mlModelsDir = filepath.Join(packagesDir, "ml_models")
 
 var modulesDir = filepath.Join(packagesDir, "modules")
@@ -62,27 +64,40 @@ func getCloudCacheFilePath(id string) string {
 	return filepath.Join(viamDotDir, fmt.Sprintf("cached_cloud_config_%s.json", id))
 }
 
-func ConvertReadStreamToConfig(r io.Reader)
+// id is the robot part id relating to the configgetCloudCacheFilePath
+func DecodeConfigFromReader(r io.Reader, id string) (*Config, error) {
+	unprocessedConfig := &Config{
+		ConfigFilePath: "",
+	}
+
+	// storing the entire file in memory - this is what the decoder does under the hood
+	// this replaces the Decoder Decode method with reading into a buf stream
+	// so can manipulte the JSON attributes
+	fileInBytes, err := ioutil.ReadAll(r)
+	if err != nil {
+		return nil, err
+	}
+
+	updatedPathsBytes, _ := ReplacePathPlaceholders(fileInBytes)
+
+	if err := unprocessedConfig.UnmarshalJSON(updatedPathsBytes); err != nil {
+		if len(id) != 0 {
+			clearCache(id)
+		}
+		return nil, errors.Wrap(err, "cannot parse the cached conifg as json")
+	}
+	return unprocessedConfig, nil
+
+}
 
 func readFromCache(id string) (*Config, error) {
 	r, err := os.Open(getCloudCacheFilePath(id))
 	if err != nil {
 		return nil, err
 	}
+
 	defer utils.UncheckedErrorFunc(r.Close)
-
-	unprocessedConfig := &Config{
-		ConfigFilePath: "",
-	}
-
-	// TODO: we want to make a new function that takes in an unprocessed config and replaces
-	// it in line
-	if err := json.NewDecoder(r).Decode(unprocessedConfig); err != nil {
-		// clear the cache if we cannot parse the file.
-		clearCache(id)
-		return nil, errors.Wrap(err, "cannot parse the cached config as json")
-	}
-	return unprocessedConfig, nil
+	return DecodeConfigFromReader(r, id)
 }
 
 func storeToCache(id string, cfg *Config) error {
@@ -383,17 +398,11 @@ func fromReader(
 	shouldReadFromCloud bool,
 ) (*Config, error) {
 	// First read and processes config from disk
-	logger.Info("Should be reading from the cloud", shouldReadFromCloud)
-	unprocessedConfig := Config{
-		ConfigFilePath: originalPath,
-	}
-
-	// have to try the same thing
-	err := json.NewDecoder(r).Decode(&unprocessedConfig)
+	unprocessedConfig, err := DecodeConfigFromReader(r, "")
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to decode Config from json")
+		return nil, errors.Wrap(err, "error decoding config from file")
 	}
-	cfgFromDisk, err := processConfigLocalConfig(&unprocessedConfig, logger)
+	cfgFromDisk, err := processConfigLocalConfig(unprocessedConfig, logger)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to process Config")
 	}
@@ -569,10 +578,11 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger golog.Logge
 func getFromCloudOrCache(ctx context.Context, cloudCfg *Cloud, shouldReadFromCache bool, logger golog.Logger) (*Config, bool, error) {
 	var cached bool
 	cfg, errorShouldCheckCache, err := getFromCloudGRPC(ctx, cloudCfg, logger)
-
+	logger.Infof("checking from cloud: ", errorShouldCheckCache, cfg)
 	if err != nil {
 		if shouldReadFromCache && errorShouldCheckCache {
 			logger.Warnw("failed to read config from cloud, checking cache", "error", err)
+
 			cachedConfig, cacheErr := readFromCache(cloudCfg.ID)
 			if cacheErr != nil {
 				if os.IsNotExist(cacheErr) {
@@ -607,7 +617,6 @@ func getFromCloudGRPC(ctx context.Context, cloudCfg *Cloud, logger golog.Logger)
 	if err != nil {
 		return nil, shouldCheckCacheOnFailure, err
 	}
-
 	service := apppb.NewRobotServiceClient(conn)
 	res, err := service.Config(ctx, &apppb.ConfigRequest{Id: cloudCfg.ID, AgentInfo: agentInfo})
 	if err != nil {
@@ -623,6 +632,7 @@ func getFromCloudGRPC(ctx context.Context, cloudCfg *Cloud, logger golog.Logger)
 	}
 
 	bytes, err := cfg.MarshalJSON()
+
 	if err != nil {
 		logger.Error("Cannot parse config from the cloud", err)
 		return cfg, false, nil
@@ -639,6 +649,7 @@ func getFromCloudGRPC(ctx context.Context, cloudCfg *Cloud, logger golog.Logger)
 		}
 		return updatedConfig, false, nil
 	}
+
 	return cfg, false, nil
 }
 
