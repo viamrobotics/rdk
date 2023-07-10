@@ -8,6 +8,8 @@ import (
 
 	"github.com/edaniels/golog"
 	geo "github.com/kellydunn/golang-geo"
+	"go.viam.com/test"
+
 	"go.viam.com/rdk/components/base"
 	fakebase "go.viam.com/rdk/components/base/fake"
 	"go.viam.com/rdk/components/base/kinematicbase"
@@ -23,12 +25,6 @@ import (
 	fakeslam "go.viam.com/rdk/services/slam/fake"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
-	"go.viam.com/test"
-)
-
-const (
-	defaultAngularVelocityDegsPerSec  = 60  // degrees per second
-	defaultLinearVelocityMillisPerSec = 300 // mm per second
 )
 
 func setupNavigationServiceFromConfig(t *testing.T, configFilename string) (navigation.Service, func()) {

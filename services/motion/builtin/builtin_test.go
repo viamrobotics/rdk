@@ -10,6 +10,9 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
+
+	// register.
+	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
@@ -19,20 +22,16 @@ import (
 	"go.viam.com/rdk/components/base/fake"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/gripper"
-	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/testutils/inject"
-
-	// register.
-	commonpb "go.viam.com/api/common/v1"
 	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/framesystem"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/motion"
-
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/testutils/inject"
 )
 
 func setupMotionServiceFromConfig(t *testing.T, configFilename string) (motion.Service, func()) {
@@ -221,6 +220,7 @@ func TestMoveSingleComponent(t *testing.T) {
 }
 
 func TestMoveOnMap(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 	injectSlam := inject.NewSLAMService("test_slam")

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"math"
 
+	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 
 	"go.viam.com/rdk/components/base"
@@ -18,9 +19,9 @@ import (
 const (
 	distThresholdMM         = 100
 	headingThresholdDegrees = 15
-	defaultAngularVelocity  = 60    // degrees per second
-	defaultLinearVelocity   = 300   // mm per second
-	deviationThreshold      = 300.0 // mm
+	defaultAngularVelocity  = 60      // degrees per second
+	defaultLinearVelocity   = 300     // mm per second
+	deviationThreshold      = 30000.0 // mm
 )
 
 // wrapWithDifferentialDriveKinematics takes a wheeledBase component and adds a localizer to it
@@ -92,6 +93,9 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 	if err != nil {
 		return err
 	}
+
+	logger := golog.NewLogger("ddk")
+	logger.Debug("current %v\ndesired %v", current, desired)
 
 	// this loop polls the error state and issues a corresponding command to move the base to the objective
 	// when the base is within the positional threshold of the goal, exit the loop

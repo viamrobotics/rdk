@@ -12,8 +12,11 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
-
 	geo "github.com/kellydunn/golang-geo"
+	"go.viam.com/test"
+	goutils "go.viam.com/utils"
+	"go.viam.com/utils/pexec"
+	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/motor"
@@ -25,10 +28,6 @@ import (
 	"go.viam.com/rdk/services/navigation"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/utils"
-	"go.viam.com/test"
-	goutils "go.viam.com/utils"
-	"go.viam.com/utils/pexec"
-	"go.viam.com/utils/rpc"
 )
 
 // This test ends up being a great validation of the logical clock on resource graph node
@@ -320,9 +319,6 @@ func modifyCfg(t *testing.T, cfgIn string, logger golog.Logger) (string, string,
 		return "", "", err
 	}
 	port := strconv.Itoa(p)
-	if err != nil {
-		return "", "", err
-	}
 
 	// workaround because config.Read can't validate a module config with a "missing" ExePath
 	touchFile("./complexmodule")
