@@ -48,7 +48,7 @@ func TestObstaclePointCloudSegmentation(t *testing.T) {
 	params.ClusteringRadiusMm = -3.0
 	_, err = registerObstaclePointCloud(context.Background(), name, params, r)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "segmenter config error")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "clustering_radius_mm must be greater")
 	// successful registration
 	params.ClusteringRadiusMm = 5.0
 	seg, err := registerObstaclePointCloud(context.Background(), name, params, r)

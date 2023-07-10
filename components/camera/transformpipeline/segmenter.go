@@ -47,15 +47,6 @@ func newSegmentationsTransform(
 		return nil, camera.UnspecifiedStream, err
 	}
 
-	fmt.Println("Props:", props)
-
-	// var cameraModel transform.PinholeCameraModel
-	// cameraModel.PinholeCameraIntrinsics = props.IntrinsicParams
-
-	// if props.DistortionParams != nil {
-	// 	cameraModel.Distortion = props.DistortionParams
-	// }
-
 	segmenter := &segmenterSource{
 		gostream.NewEmbeddedVideoStream(source),
 		conf.CameraName,
@@ -66,31 +57,27 @@ func newSegmentationsTransform(
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
 	}
-	// if props.ImageType == "color" {
-	// 	return src, camera.ColorStream, err
-	// }
-	// return src, camera.DepthStream, err
+
 	return src, props.ImageType, err
 }
 
 func (ss *segmenterSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
 	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::segmenter::NextPointCloud")
-	fmt.Println("Trying to get nextpointcloud!")
 	defer span.End()
+
 	// get the service
 	srv, err := vision.FromRobot(ss.r, ss.segmenterName)
 	if err != nil {
 		return nil, fmt.Errorf("source_segmenter cant find vision service: %w", err)
 	}
+
 	// apply service
-	fmt.Println("applying service")
 	clouds, err := srv.GetObjectPointClouds(ctx, ss.cameraName, map[string]interface{}{})
 	if err != nil {
-		fmt.Println("could not get point clouds")
 		return nil, fmt.Errorf("could not get point clouds: %w", err)
 	}
+
 	// merge pointclouds
-	fmt.Println("merging pointclouds")
 	cloudsWithOffset := make([]pointcloud.CloudAndOffsetFunc, 0, len(clouds))
 	for _, cloud := range clouds {
 		cloudCopy := cloud
@@ -103,7 +90,6 @@ func (ss *segmenterSource) NextPointCloud(ctx context.Context) (pointcloud.Point
 	if err != nil {
 		return nil, fmt.Errorf("could not get point clouds: %w", err)
 	}
-	fmt.Println(mergedCloud)
 	return mergedCloud, nil
 }
 
