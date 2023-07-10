@@ -2,7 +2,7 @@ import {
   type Client,
   StreamClient,
 } from '@viamrobotics/sdk';
-import { CameraManager } from './camera-manager';
+import { CameraManager } from '@/components/camera/camera-manager';
 
 export class StreamManager {
   streamClient: StreamClient;

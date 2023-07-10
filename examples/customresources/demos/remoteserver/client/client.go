@@ -20,6 +20,7 @@ func main() {
 	if err != nil {
 		logger.Fatal(err)
 	}
+	//nolint:errcheck
 	defer robot.Close(context.Background())
 
 	res, err := robot.ResourceByName(gizmoapi.Named("gizmo1"))
@@ -62,5 +63,4 @@ func main() {
 		logger.Fatal(err)
 	}
 	logger.Info(ret3)
-
 }

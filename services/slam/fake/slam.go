@@ -4,6 +4,7 @@ package fake
 import (
 	"bytes"
 	"context"
+	"time"
 
 	"github.com/edaniels/golog"
 	"go.opencensus.io/trace"
@@ -41,16 +42,18 @@ type SLAM struct {
 	resource.Named
 	resource.TriviallyReconfigurable
 	resource.TriviallyCloseable
-	dataCount int
-	logger    golog.Logger
+	dataCount    int
+	logger       golog.Logger
+	mapTimestamp time.Time
 }
 
 // NewSLAM is a constructor for a fake slam service.
 func NewSLAM(name resource.Name, logger golog.Logger) *SLAM {
 	return &SLAM{
-		Named:     name.AsNamed(),
-		logger:    logger,
-		dataCount: -1,
+		Named:        name.AsNamed(),
+		logger:       logger,
+		dataCount:    -1,
+		mapTimestamp: time.Now().UTC(),
 	}
 }
 
@@ -74,6 +77,7 @@ func (slamSvc *SLAM) GetPointCloudMap(ctx context.Context) (func() ([]byte, erro
 	ctx, span := trace.StartSpan(ctx, "slam::fake::GetPointCloudMap")
 	defer span.End()
 	slamSvc.incrementDataCount()
+	slamSvc.mapTimestamp = time.Now().UTC()
 	return fakeGetPointCloudMap(ctx, datasetDirectory, slamSvc)
 }
 
@@ -83,6 +87,13 @@ func (slamSvc *SLAM) GetInternalState(ctx context.Context) (func() ([]byte, erro
 	ctx, span := trace.StartSpan(ctx, "slam::fake::GetInternalState")
 	defer span.End()
 	return fakeGetInternalState(ctx, datasetDirectory, slamSvc)
+}
+
+// GetLatestMapInfo returns a message indicating details regarding the latest map returned to the system.
+func (slamSvc *SLAM) GetLatestMapInfo(ctx context.Context) (time.Time, error) {
+	_, span := trace.StartSpan(ctx, "slam::fake::GetLatestMapInfo")
+	defer span.End()
+	return slamSvc.mapTimestamp, nil
 }
 
 // incrementDataCount is not thread safe but that is ok as we only intend a single user to be interacting

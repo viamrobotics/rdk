@@ -9,13 +9,13 @@ import (
 	"time"
 
 	"github.com/golang/geo/r3"
+	utils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/spatialmath"
-	utils "go.viam.com/utils"
 )
 
 const (

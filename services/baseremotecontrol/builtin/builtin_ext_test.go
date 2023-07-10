@@ -10,6 +10,8 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
+	"go.viam.com/test"
+
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/base/fake"
 	"go.viam.com/rdk/components/input"
@@ -18,7 +20,6 @@ import (
 	"go.viam.com/rdk/services/baseremotecontrol/builtin"
 	"go.viam.com/rdk/session"
 	"go.viam.com/rdk/testutils/inject"
-	"go.viam.com/test"
 )
 
 func TestSafetyMonitoring(t *testing.T) {
@@ -110,9 +111,9 @@ func TestConnectStopsBase(t *testing.T) {
 		Named: myBaseName.AsNamed(),
 	}}
 
+	//nolint:dupl
 	t.Run("connect", func(t *testing.T) {
-		// Use an injected Stop function and a channel to ensure stop is called on
-		// connect.
+		// Use an injected Stop function and a channel to ensure stop is called on connect.
 		stop := make(chan struct{})
 		injectBase.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
 			close(stop)
@@ -141,9 +142,10 @@ func TestConnectStopsBase(t *testing.T) {
 		<-stop
 		test.That(t, svc.Close(ctx), test.ShouldBeNil)
 	})
+
+	//nolint:dupl
 	t.Run("disconnect", func(t *testing.T) {
-		// Use an injected Stop function and a channel to ensure stop is called on
-		// disconnect.
+		// Use an injected Stop function and a channel to ensure stop is called on disconnect.
 		stop := make(chan struct{})
 		injectBase.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
 			close(stop)

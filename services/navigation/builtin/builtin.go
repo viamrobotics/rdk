@@ -31,14 +31,7 @@ const (
 
 func init() {
 	resource.RegisterService(navigation.API, resource.DefaultServiceModel, resource.Registration[navigation.Service, *Config]{
-		Constructor: func(
-			ctx context.Context,
-			deps resource.Dependencies,
-			conf resource.Config,
-			logger golog.Logger,
-		) (navigation.Service, error) {
-			return NewBuiltIn(ctx, deps, conf, logger)
-		},
+		Constructor: NewBuiltIn,
 		// TODO: We can move away from using AttributeMapConverter if we change the way
 		// that we allow orientations to be specified within orientation_json.go
 		AttributeMapConverter: func(attributes rdkutils.AttributeMap) (*Config, error) {
@@ -432,7 +425,6 @@ func (svc *builtIn) startWaypointExperimental(extra map[string]interface{}) erro
 				svc.logger.Infof("skipping waypoint %+v due to error while navigating towards it: %s", wp, err)
 			}
 		}
-
 	})
 	return nil
 }

@@ -597,15 +597,14 @@ func TestLengths(t *testing.T) {
 }
 
 func TestMoveToPosition(t *testing.T) {
-	// Skipping because these tests will change soon
-	t.Skip()
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 	fakegantry := &singleAxis{
-		logger:    logger,
-		board:     createFakeBoard(),
-		motor:     createFakeMotor(),
-		limitHigh: true,
+		logger:        logger,
+		board:         createFakeBoard(),
+		motor:         createFakeMotor(),
+		limitHigh:     true,
+		positionRange: 10,
 	}
 	pos := []float64{1, 2}
 	speed := []float64{100, 200}
@@ -656,6 +655,7 @@ func TestMoveToPosition(t *testing.T) {
 			return errors.New("err")
 		},
 	}
+	fakegantry.positionLimits = []float64{0, 4}
 	err = fakegantry.MoveToPosition(ctx, pos, speed, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 
