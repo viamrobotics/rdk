@@ -244,8 +244,6 @@ func TestMoveOnMap(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	injectSlam := inject.NewSLAMService("test_slam")
 
-	const chunkSizeBytes = 1 * 1024 * 1024
-
 	injectSlam.GetPointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
 		return getPointCloudMap(filepath.Clean(artifact.MustPath("pointcloud/octagonspace.pcd")))
 	}
@@ -345,6 +343,7 @@ func TestMoveOnMapTimeout(t *testing.T) {
 		},
 		logger,
 	)
+	test.That(t, err, test.ShouldBeNil)
 
 	easyGoal := spatialmath.NewPoseFromPoint(r3.Vector{X: 0.277 * 1000, Y: 0.593 * 1000})
 	success, err := ms.MoveOnMap(
