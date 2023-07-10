@@ -57,7 +57,7 @@ func TestValidateI2C(t *testing.T) {
 	test.That(t, err, test.ShouldBeError,
 		gutils.NewConfigValidationFieldRequiredError(path, "i2c_addr"))
 
-	fakecfg.I2cAddr = 66
+	fakecfg.I2CAddr = 66
 	err = fakecfg.ValidateI2C(path)
 	test.That(t, err, test.ShouldBeNil)
 }
@@ -85,9 +85,8 @@ func TestNewI2CMovementSensor(t *testing.T) {
 		API:   movementsensor.API,
 		ConvertedAttributes: &Config{
 			ConnectionType: "I2C",
-			Board:          testBoardName,
 			DisableNMEA:    false,
-			I2CConfig:      &I2CConfig{I2CBus: testBusName},
+			I2CConfig:      &I2CConfig{I2CBus: testBusName, Board: testBoardName},
 		},
 	}
 	g, err = newNMEAGPS(ctx, deps, conf, logger)

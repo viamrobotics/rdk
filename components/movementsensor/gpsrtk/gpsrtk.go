@@ -80,7 +80,7 @@ type SerialConfig struct {
 type I2CConfig struct {
 	Board       string `json:"board"`
 	I2CBus      string `json:"i2c_bus"`
-	I2cAddr     int    `json:"i2c_addr"`
+	I2CAddr     int    `json:"i2c_addr"`
 	I2CBaudRate int    `json:"i2c_baud_rate,omitempty"`
 }
 
@@ -176,7 +176,7 @@ func (cfg *I2CConfig) ValidateI2C(path string) error {
 	if cfg.I2CBus == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "i2c_bus")
 	}
-	if cfg.I2cAddr == 0 {
+	if cfg.I2CAddr == 0 {
 		return utils.NewConfigValidationFieldRequiredError(path, "i2c_addr")
 	}
 	return nil
@@ -273,7 +273,7 @@ func newRTKMovementSensor(
 	switch strings.ToLower(newConf.ConnectionType) {
 	case serialStr:
 		var err error
-		nmeaConf.SerialConfig = (*gpsnmea.SerialConfig)(newConf.SerialConfig)
+		nmeaConf.SerialConfig = &gpsnmea.SerialConfig{SerialPath: newConf.SerialPath, SerialBaudRate: newConf.SerialBaudRate}
 		g.Nmeamovementsensor, err = gpsnmea.NewSerialGPSNMEA(ctx, conf.ResourceName(), nmeaConf, logger)
 		if err != nil {
 			return nil, err
@@ -281,7 +281,7 @@ func newRTKMovementSensor(
 	case i2cStr:
 		var err error
 		nmeaConf.Board = newConf.I2CConfig.Board
-		nmeaConf.I2CConfig = &gpsnmea.I2CConfig{I2CBus: newConf.I2CBus, I2CBaudRate: newConf.I2CBaudRate, I2cAddr: newConf.I2cAddr}
+		nmeaConf.I2CConfig = &gpsnmea.I2CConfig{I2CBus: newConf.I2CBus, I2CBaudRate: newConf.I2CBaudRate, I2CAddr: newConf.I2CAddr}
 		g.Nmeamovementsensor, err = gpsnmea.NewPmtkI2CGPSNMEA(ctx, deps, conf.ResourceName(), nmeaConf, logger)
 		if err != nil {
 			return nil, err
@@ -314,7 +314,7 @@ func newRTKMovementSensor(
 			g.Writepath = newConf.NtripPath
 		}
 	case i2cStr:
-		g.Addr = byte(newConf.I2cAddr)
+		g.Addr = byte(newConf.I2CAddr)
 
 		b, err := board.FromDependencies(deps, newConf.Board)
 		if err != nil {
@@ -460,9 +460,9 @@ func (g *RTKMovementSensor) receiveAndWriteI2C(ctx context.Context) {
 	}
 	// Send GLL, RMC, VTG, GGA, GSA, and GSV sentences each 1000ms
 	baudcmd := fmt.Sprintf("PMTK251,%d", g.Wbaud)
-	cmd251 := addChk([]byte(baudcmd))
-	cmd314 := addChk([]byte("PMTK314,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0"))
-	cmd220 := addChk([]byte("PMTK220,1000"))
+	cmd251 := movementsensor.PMTKAddChk([]byte(baudcmd))
+	cmd314 := movementsensor.PMTKAddChk([]byte("PMTK314,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0"))
+	cmd220 := movementsensor.PMTKAddChk([]byte("PMTK220,1000"))
 
 	err = handle.Write(ctx, cmd251)
 	if err != nil {
@@ -497,7 +497,7 @@ func (g *RTKMovementSensor) receiveAndWriteI2C(ctx context.Context) {
 		g.err.Set(err)
 		return
 	}
-	wI2C := addChk(buf[:n])
+	wI2C := movementsensor.PMTKAddChk(buf[:n])
 
 	// port still open
 	err = handle.Write(ctx, wI2C)
@@ -554,7 +554,7 @@ func (g *RTKMovementSensor) receiveAndWriteI2C(ctx context.Context) {
 					g.err.Set(err)
 					return
 				}
-				wI2C := addChk(buf[:n])
+				wI2C := movementsensor.PMTKAddChk(buf[:n])
 
 				err = handle.Write(ctx, wI2C)
 
@@ -866,23 +866,4 @@ func (g *RTKMovementSensor) Close(ctx context.Context) error {
 		return err
 	}
 	return nil
-}
-
-// TODO: move these to utils
-// PMTK checksums commands by XORing together each byte.
-func addChk(data []byte) []byte {
-	chk := checksum(data)
-	newCmd := []byte("$")
-	newCmd = append(newCmd, data...)
-	newCmd = append(newCmd, []byte("*")...)
-	newCmd = append(newCmd, chk)
-	return newCmd
-}
-
-func checksum(data []byte) byte {
-	var chk byte
-	for _, b := range data {
-		chk ^= b
-	}
-	return chk
 }

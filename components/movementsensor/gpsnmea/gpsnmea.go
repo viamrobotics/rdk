@@ -23,7 +23,6 @@ func connectionTypeError(connType, serialConn, i2cConn string) error {
 // Config is used for converting NMEA Movement Sensor attibutes.
 type Config struct {
 	ConnectionType string `json:"connection_type"`
-	Board          string `json:"board,omitempty"`
 	DisableNMEA    bool   `json:"disable_nmea,omitempty"`
 
 	*SerialConfig `json:"serial_attributes,omitempty"`
@@ -32,10 +31,8 @@ type Config struct {
 
 // SerialConfig is used for converting Serial NMEA MovementSensor config attributes.
 type SerialConfig struct {
-	SerialPath               string `json:"serial_path"`
-	SerialBaudRate           int    `json:"serial_baud_rate,omitempty"`
-	SerialCorrectionPath     string `json:"serial_correction_path,omitempty"`
-	SerialCorrectionBaudRate int    `json:"serial_correction_baud_rate,omitempty"`
+	SerialPath     string `json:"serial_path"`
+	SerialBaudRate int    `json:"serial_baud_rate,omitempty"`
 
 	// TestChan is a fake "serial" path for test use only
 	TestChan chan []uint8 `json:"-"`
@@ -43,8 +40,9 @@ type SerialConfig struct {
 
 // I2CConfig is used for converting Serial NMEA MovementSensor config attributes.
 type I2CConfig struct {
+	Board       string `json:"board,omitempty"`
 	I2CBus      string `json:"i2c_bus"`
-	I2cAddr     int    `json:"i2c_addr"`
+	I2CAddr     int    `json:"i2c_addr"`
 	I2CBaudRate int    `json:"i2c_baud_rate,omitempty"`
 }
 
@@ -78,7 +76,7 @@ func (cfg *I2CConfig) ValidateI2C(path string) error {
 	if cfg.I2CBus == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "i2c_bus")
 	}
-	if cfg.I2cAddr == 0 {
+	if cfg.I2CAddr == 0 {
 		return utils.NewConfigValidationFieldRequiredError(path, "i2c_addr")
 	}
 

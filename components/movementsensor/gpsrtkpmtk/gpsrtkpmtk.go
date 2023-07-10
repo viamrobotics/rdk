@@ -33,7 +33,7 @@ const i2cStr = "i2c"
 type Config struct {
 	Board       string `json:"board"`
 	I2CBus      string `json:"i2c_bus"`
-	I2cAddr     int    `json:"i2c_addr"`
+	I2CAddr     int    `json:"i2c_addr"`
 	I2CBaudRate int    `json:"i2c_baud_rate,omitempty"`
 
 	NtripURL             string `json:"ntrip_url"`
@@ -66,7 +66,7 @@ func (cfg *Config) validateI2C(path string) error {
 	if cfg.I2CBus == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "i2c_bus")
 	}
-	if cfg.I2cAddr == 0 {
+	if cfg.I2CAddr == 0 {
 		return utils.NewConfigValidationFieldRequiredError(path, "i2c_addr")
 	}
 	return nil
@@ -153,7 +153,7 @@ func newRTKI2C(
 		newConf.I2CBaudRate = 115200
 	}
 	nmeaConf.Board = newConf.Board
-	nmeaConf.I2CConfig = &gpsnmea.I2CConfig{I2CBus: newConf.I2CBus, I2CBaudRate: newConf.I2CBaudRate, I2cAddr: newConf.I2cAddr}
+	nmeaConf.I2CConfig = &gpsnmea.I2CConfig{I2CBus: newConf.I2CBus, I2CBaudRate: newConf.I2CBaudRate, I2CAddr: newConf.I2CAddr}
 	g.nmeamovementsensor, err = gpsnmea.NewPmtkI2CGPSNMEA(ctx, deps, conf.ResourceName(), nmeaConf, logger)
 	if err != nil {
 		return nil, err
@@ -166,7 +166,7 @@ func newRTKI2C(
 	}
 
 	g.wbaud = newConf.I2CBaudRate
-	g.addr = byte(newConf.I2cAddr)
+	g.addr = byte(newConf.I2CAddr)
 
 	b, err := board.FromDependencies(deps, newConf.Board)
 	if err != nil {

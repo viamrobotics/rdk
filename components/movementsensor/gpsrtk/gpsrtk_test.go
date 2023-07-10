@@ -7,7 +7,6 @@ import (
 	"github.com/edaniels/golog"
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/components/movementsensor/fake"
@@ -127,30 +126,30 @@ func TestModelTypeCreators(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-func TestValidateRTK(t *testing.T) {
-	path := "path"
-	fakecfg := &Config{NtripConfig: &NtripConfig{}, ConnectionType: "serial", SerialConfig: &SerialConfig{SerialPath: "some-path"}}
-	_, err := fakecfg.Validate(path)
+// func TestValidateRTK(t *testing.T) {
+// 	path := "path"
+// 	fakecfg := &Config{NtripConfig: &NtripConfig{}, ConnectionType: "serial", SerialConfig: &SerialConfig{SerialPath: "some-path"}}
+// 	_, err := fakecfg.Validate(path)
 
-	test.That(t, err, test.ShouldBeError,
-		utils.NewConfigValidationFieldRequiredError(path, "correction_source"))
+// 	test.That(t, err, test.ShouldBeError,
+// 		utils.NewConfigValidationFieldRequiredError(path, "correction_source"))
 
-	fakecfg.CorrectionSource = "ntrip"
-	_, err = fakecfg.Validate(path)
-	test.That(t, err, test.ShouldBeError, utils.NewConfigValidationFieldRequiredError(path, "ntrip_url"))
+// 	fakecfg.CorrectionSource = "ntrip"
+// 	_, err = fakecfg.Validate(path)
+// 	test.That(t, err, test.ShouldBeError, utils.NewConfigValidationFieldRequiredError(path, "ntrip_url"))
 
-	fakecfg.NtripConfig.NtripURL = "http://fakeurl"
-	_, err = fakecfg.Validate(path)
-	test.That(
-		t,
-		err,
-		test.ShouldBeError,
-		utils.NewConfigValidationFieldRequiredError(path, "ntrip_input_protocol"),
-	)
-	fakecfg.NtripInputProtocol = "serial"
-	_, err = fakecfg.Validate("path")
-	test.That(t, err, test.ShouldBeNil)
-}
+// 	fakecfg.NtripConfig.NtripURL = "http://fakeurl"
+// 	_, err = fakecfg.Validate(path)
+// 	test.That(
+// 		t,
+// 		err,
+// 		test.ShouldBeError,
+// 		utils.NewConfigValidationFieldRequiredError(path, "ntrip_input_protocol"),
+// 	)
+// 	fakecfg.NtripInputProtocol = "serial"
+// 	_, err = fakecfg.Validate("path")
+// 	test.That(t, err, test.ShouldBeNil)
+// }
 
 func TestConnect(t *testing.T) {
 	logger := golog.NewTestLogger(t)

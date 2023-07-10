@@ -65,15 +65,12 @@ func TestNewSerialMovementSensor(t *testing.T) {
 		API:   movementsensor.API,
 		ConvertedAttributes: &Config{
 			ConnectionType: "serial",
-			Board:          "local",
 			DisableNMEA:    false,
 			SerialConfig: &SerialConfig{
-				SerialPath:               path,
-				SerialBaudRate:           0,
-				SerialCorrectionPath:     path,
-				SerialCorrectionBaudRate: 0,
+				SerialPath:     path,
+				SerialBaudRate: 0,
 			},
-			I2CConfig: &I2CConfig{},
+			I2CConfig: &I2CConfig{Board: "local"},
 		},
 	}
 	g, err = newNMEAGPS(ctx, deps, cfig, logger)
