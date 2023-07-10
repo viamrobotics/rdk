@@ -108,7 +108,7 @@ func TestReadingsI2C(t *testing.T) {
 		cancelFunc: cancelFunc,
 		logger:     logger,
 	}
-	g.data = gpsData{
+	g.data = GPSData{
 		location:   loc,
 		alt:        alt,
 		speed:      speed,

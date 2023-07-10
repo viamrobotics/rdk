@@ -25,7 +25,7 @@ type PmtkI2CNMEAMovementSensor struct {
 	cancelCtx               context.Context
 	cancelFunc              func()
 	logger                  golog.Logger
-	data                    gpsData
+	data                    GPSData
 	activeBackgroundWorkers sync.WaitGroup
 
 	disableNmea  bool
@@ -166,7 +166,7 @@ func (g *PmtkI2CNMEAMovementSensor) Start(ctx context.Context) error {
 					if b == 0x0D {
 						if strBuf != "" {
 							g.mu.Lock()
-							err = g.data.parseAndUpdate(strBuf)
+							err = g.data.ParseAndUpdate(strBuf)
 							g.mu.Unlock()
 							if err != nil {
 								g.logger.Debugf("can't parse nmea : %s, %v", strBuf, err)
