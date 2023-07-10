@@ -94,15 +94,15 @@ func TestReadingsSerial(t *testing.T) {
 		logger:     logger,
 	}
 	g.data = GPSData{
-		location:   loc,
-		alt:        alt,
-		speed:      speed,
-		vDOP:       vAcc,
-		hDOP:       hAcc,
-		satsInView: totalSats,
-		satsInUse:  activeSats,
+		Location:   loc,
+		Alt:        alt,
+		Speed:      speed,
+		VDOP:       vAcc,
+		HDOP:       hAcc,
+		SatsInView: totalSats,
+		SatsInUse:  activeSats,
 		valid:      valid,
-		fixQuality: fix,
+		FixQuality: fix,
 	}
 
 	path := "somepath"
