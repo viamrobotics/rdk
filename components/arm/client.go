@@ -48,7 +48,7 @@ func NewClientFromConn(
 	}
 	clientFrame, err := c.updateKinematics(ctx)
 	if err != nil {
-		logger.Errorw("error getting model for arm; will not allow certain methods")
+		logger.Errorw("error getting model for arm; will not allow certain methods", "err", err)
 	} else {
 		c.model = clientFrame
 	}
