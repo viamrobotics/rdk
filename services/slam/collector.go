@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"go.opencensus.io/trace"
+	pb "go.viam.com/api/service/slam/v1"
 	"google.golang.org/protobuf/types/known/anypb"
 
 	"go.viam.com/rdk/data"
@@ -27,12 +28,6 @@ func (m method) String() string {
 	return "Unknown"
 }
 
-// Position defines the struct returned by the capturer for GetPosition.
-type Position struct {
-	Pose               spatialmath.Pose
-	ComponentReference string
-}
-
 func newGetPositionCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	slam, err := assertSLAM(resource)
 	if err != nil {
@@ -47,7 +42,7 @@ func newGetPositionCollector(resource interface{}, params data.CollectorParams) 
 		if err != nil {
 			return nil, data.FailedToReadErr(params.ComponentName, getPosition.String(), err)
 		}
-		return Position{Pose: pose, ComponentReference: componentRef}, nil
+		return &pb.GetPositionResponse{Pose: spatialmath.PoseToProtobuf(pose), ComponentReference: componentRef}, nil
 	})
 	return data.NewCollector(cFunc, params)
 }
