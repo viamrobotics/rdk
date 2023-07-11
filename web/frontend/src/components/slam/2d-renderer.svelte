@@ -9,6 +9,8 @@ import type { commonApi } from '@viamrobotics/sdk';
 import DestMarker from '@/lib/images/destination-marker.txt?raw';
 import BaseMarker from '@/lib/images/base-marker.txt?raw';
 import Legend from './2d-legend.svelte';
+import Dropzone from '@/lib/components/dropzone.svelte';
+import MotionPath from './motion-path.svelte';
 
 export let pointcloud: Uint8Array | undefined;
 export let pose: commonApi.Pose | undefined;
@@ -20,6 +22,7 @@ const dispatch = createEventDispatcher();
 let points: THREE.Points | undefined;
 let pointsMaterial: THREE.PointsMaterial | undefined;
 let intersectionPlane: THREE.Mesh | undefined;
+let motionPath: string | undefined
 
 const markerColor = '#FF0047';
 const backgroundGridColor = '#cacaca';
@@ -263,6 +266,10 @@ const scaleObjects = () => {
   destMarker.scale.set(spriteSize, spriteSize, 1);
 };
 
+const handleDrop = (event: CustomEvent<string>) => {
+  motionPath = event.detail;
+}
+
 onMount(() => {
   removeUpdate = update(scaleObjects);
   container?.append(canvas);
@@ -335,17 +342,21 @@ $: {
 
 </script>
 
-<div
-  bind:this={container}
-  class="relative w-full"
->
-  {#if axesVisible}
-    <p class="absolute left-3 top-3 bg-white text-xs">
-      Grid set to 1 meter
-    </p>
-  {/if}
+<Dropzone on:drop={handleDrop}>
+  <div
+    bind:this={container}
+    class="relative w-full"
+  >
+    {#if axesVisible}
+      <p class="absolute left-3 top-3 bg-white text-xs">
+        Grid set to 1 meter
+      </p>
+    {/if}
 
-  <div class="absolute right-3 top-3">
-    <Legend />
+    <MotionPath {scene} path={motionPath} />
+
+    <div class="absolute right-3 top-3">
+      <Legend />
+    </div>
   </div>
-</div>
+</Dropzone>
