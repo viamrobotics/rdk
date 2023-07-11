@@ -3,7 +3,6 @@ package slam
 import (
 	"context"
 
-	"go.opencensus.io/trace"
 	pb "go.viam.com/api/service/slam/v1"
 	"google.golang.org/protobuf/types/known/anypb"
 
@@ -35,9 +34,6 @@ func newGetPositionCollector(resource interface{}, params data.CollectorParams) 
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
-		_, span := trace.StartSpan(ctx, "slam::data::collector::CaptureFunc::GetPosition")
-		defer span.End()
-
 		pose, componentRef, err := slam.GetPosition(ctx)
 		if err != nil {
 			return nil, data.FailedToReadErr(params.ComponentName, getPosition.String(), err)
