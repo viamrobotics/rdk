@@ -1,17 +1,18 @@
-// Package summation defines a simple number summing service API for demonstration purposes.
+// Package summationapi defines a simple number summing service API for demonstration purposes.
 package summationapi
 
 import (
 	"context"
 
 	"github.com/edaniels/golog"
-	pb "go.viam.com/rdk/examples/customresources/apis/proto/api/service/summation/v1"
-	"go.viam.com/rdk/robot"
 	"go.viam.com/utils/rpc"
 
+	pb "go.viam.com/rdk/examples/customresources/apis/proto/api/service/summation/v1"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot"
 )
 
+// API is the full API definition.
 var API = resource.APINamespace("acme").WithServiceType("summation")
 
 // Named is a helper for getting the named Summation's typed resource name.
@@ -39,7 +40,6 @@ func init() {
 			return newClientFromConn(conn, remoteName, name, logger), nil
 		},
 	})
-
 }
 
 // Summation defines the Go interface for the service (should match the protobuf methods.)
@@ -54,6 +54,7 @@ type serviceServer struct {
 	coll resource.APIResourceCollection[Summation]
 }
 
+// NewRPCServiceServer returns a new RPC server for the summation API.
 func NewRPCServiceServer(coll resource.APIResourceCollection[Summation]) interface{} {
 	return &serviceServer{coll: coll}
 }

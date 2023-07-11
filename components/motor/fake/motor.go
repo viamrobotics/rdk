@@ -77,8 +77,6 @@ func init() {
 	})
 }
 
-var _ motor.LocalMotor = &Motor{}
-
 // A Motor allows setting and reading a set power percentage and
 // direction.
 type Motor struct {
@@ -347,9 +345,20 @@ func (m *Motor) GoTo(ctx context.Context, rpm, pos float64, extra map[string]int
 	return nil
 }
 
-// GoTillStop always returns an error.
-func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
-	return motor.NewGoTillStopUnsupportedError(m.Name().ShortName())
+// Stop has the motor pretend to be off.
+func (m *Motor) Stop(ctx context.Context, extra map[string]interface{}) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.Logger.Debug("Motor Stopped")
+	m.setPowerPct(0.0)
+	if m.Encoder != nil {
+		err := m.Encoder.SetSpeed(ctx, 0.0)
+		if err != nil {
+			return errors.Wrapf(err, "error in Stop from motor (%s)", m.Name())
+		}
+	}
+	return nil
 }
 
 // ResetZeroPosition resets the zero position.
@@ -367,22 +376,6 @@ func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64, extra map
 		return errors.Wrapf(err, "error in ResetZeroPosition from motor (%s)", m.Name())
 	}
 
-	return nil
-}
-
-// Stop has the motor pretend to be off.
-func (m *Motor) Stop(ctx context.Context, extra map[string]interface{}) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	m.Logger.Debug("Motor Stopped")
-	m.setPowerPct(0.0)
-	if m.Encoder != nil {
-		err := m.Encoder.SetSpeed(ctx, 0.0)
-		if err != nil {
-			return errors.Wrapf(err, "error in Stop from motor (%s)", m.Name())
-		}
-	}
 	return nil
 }
 

@@ -10,15 +10,15 @@ import (
 
 	clk "github.com/benbjohnson/clock"
 	"github.com/golang/geo/r3"
-
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
+	"go.viam.com/test"
+
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/datamanager/datacapture"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
-	"go.viam.com/test"
 )
 
 var (
@@ -44,21 +44,21 @@ func TestDataCaptureEnabled(t *testing.T) {
 		emptyTabular                  bool
 	}{
 		{
-			name:                          "config with data capture service disabled should capture nothing",
+			name:                          "data capture service disabled, should capture nothing",
 			initialServiceDisableStatus:   true,
 			newServiceDisableStatus:       true,
 			initialCollectorDisableStatus: true,
 			newCollectorDisableStatus:     true,
 		},
 		{
-			name:                          "config with data capture service enabled and a configured collector should capture data",
+			name:                          "data capture service enabled and a configured collector, should capture data",
 			initialServiceDisableStatus:   false,
 			newServiceDisableStatus:       false,
 			initialCollectorDisableStatus: false,
 			newCollectorDisableStatus:     false,
 		},
 		{
-			name:                          "config with data capture service implicitly enabled and a configured collector should capture data",
+			name:                          "data capture service implicitly enabled and a configured collector, should capture data",
 			initialServiceDisableStatus:   false,
 			newServiceDisableStatus:       false,
 			initialCollectorDisableStatus: false,
@@ -118,13 +118,14 @@ func TestDataCaptureEnabled(t *testing.T) {
 			// Set up robot config.
 			var initConfig *Config
 			var deps []string
-			if tc.remoteCollector {
+			switch {
+			case tc.remoteCollector:
 				initConfig, deps = setupConfig(t, remoteCollectorConfigPath)
-			} else if tc.initialCollectorDisableStatus {
+			case tc.initialCollectorDisableStatus:
 				initConfig, deps = setupConfig(t, disabledTabularCollectorConfigPath)
-			} else if tc.emptyTabular {
+			case tc.emptyTabular:
 				initConfig, deps = setupConfig(t, enabledTabularCollectorEmptyConfigPath)
-			} else {
+			default:
 				initConfig, deps = setupConfig(t, enabledTabularCollectorConfigPath)
 			}
 
@@ -263,8 +264,14 @@ func TestSwitchResource(t *testing.T) {
 	initialData, err := datacapture.SensorDataFromFilePath(filePaths[0])
 	test.That(t, err, test.ShouldBeNil)
 	for _, d := range initialData {
-		// Each resource's mocked capture method outputs a different value. Assert that we see the expected data captured by the initial arm1 resource.
-		test.That(t, d.GetStruct().GetFields()["Number"].GetStructValue().GetFields()["Dual"].GetStructValue().GetFields()["Jmag"].GetNumberValue(), test.ShouldEqual, float64(1))
+		// Each resource's mocked capture method outputs a different value.
+		// Assert that we see the expected data captured by the initial arm1 resource.
+		test.That(
+			t,
+			d.GetStruct().GetFields()["Number"].GetStructValue().GetFields()["Dual"].GetStructValue().GetFields()["Jmag"].GetNumberValue(),
+			test.ShouldEqual,
+			float64(1),
+		)
 	}
 	// Assert that the initial arm1 resource isn't capturing any more data.
 	test.That(t, len(initialData), test.ShouldEqual, len(dataBeforeSwitch))
@@ -273,7 +280,12 @@ func TestSwitchResource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	for _, d := range newData {
 		// Assert that we see the expected data captured by the updated arm1 resource.
-		test.That(t, d.GetStruct().GetFields()["Number"].GetStructValue().GetFields()["Dual"].GetStructValue().GetFields()["Jmag"].GetNumberValue(), test.ShouldEqual, float64(444))
+		test.That(
+			t,
+			d.GetStruct().GetFields()["Number"].GetStructValue().GetFields()["Dual"].GetStructValue().GetFields()["Jmag"].GetNumberValue(),
+			test.ShouldEqual,
+			float64(444),
+		)
 	}
 	// Assert that the updated arm1 resource is capturing data.
 	test.That(t, len(newData), test.ShouldBeGreaterThan, 0)

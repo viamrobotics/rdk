@@ -172,30 +172,6 @@ func (m *SimpleModel) MarshalJSON() ([]byte, error) {
 	return json.Marshal(m.modelConfig)
 }
 
-// AlmostEquals returns true if the only difference between this model and another is floating point inprecision.
-func (m *SimpleModel) AlmostEquals(otherFrame Frame) bool {
-	other, ok := otherFrame.(*SimpleModel)
-	if !ok {
-		return false
-	}
-
-	if m.name != other.name {
-		return false
-	}
-
-	if len(m.OrdTransforms) != len(other.OrdTransforms) {
-		return false
-	}
-
-	for idx, f := range m.OrdTransforms {
-		if !f.AlmostEquals(other.OrdTransforms[idx]) {
-			return false
-		}
-	}
-
-	return true
-}
-
 // TODO(rb) better comment
 // takes a model and a list of joint angles in radians and computes the dual quaternion representing the
 // cartesian position of each of the links up to and including the end effector. This is useful for when conversions

@@ -326,8 +326,3 @@ func (m *Motor) GoTo(ctx context.Context, rpm, positionRevolutions float64, extr
 func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
 	return motor.NewResetZeroPositionUnsupportedError(m.Name().ShortName())
 }
-
-// GoTillStop is not supported.
-func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
-	return motor.NewGoTillStopUnsupportedError(m.Name().ShortName())
-}

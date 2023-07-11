@@ -125,7 +125,7 @@ func TestModuleFunctions(t *testing.T) {
 	gizmoConf := &v1.ComponentConfig{
 		Name: "gizmo1", Api: "acme:component:gizmo", Model: "acme:demo:mygizmo",
 	}
-	myBaseAttrs, err := protoutils.StructToStructPb(mybase.MyBaseConfig{
+	myBaseAttrs, err := protoutils.StructToStructPb(mybase.Config{
 		LeftMotor:  "motor1",
 		RightMotor: "motor2",
 	})

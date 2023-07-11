@@ -5,19 +5,17 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/base"
-	"go.viam.com/rdk/module"
-	"go.viam.com/rdk/services/navigation"
-
 	"go.viam.com/rdk/examples/customresources/apis/gizmoapi"
 	"go.viam.com/rdk/examples/customresources/apis/summationapi"
 	"go.viam.com/rdk/examples/customresources/models/mybase"
 	"go.viam.com/rdk/examples/customresources/models/mygizmo"
 	"go.viam.com/rdk/examples/customresources/models/mynavigation"
 	"go.viam.com/rdk/examples/customresources/models/mysum"
-
-	"go.viam.com/utils"
+	"go.viam.com/rdk/module"
+	"go.viam.com/rdk/services/navigation"
 )
 
 func main() {

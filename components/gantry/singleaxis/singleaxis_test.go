@@ -104,7 +104,7 @@ func TestValidate(t *testing.T) {
 	deps, err = fakecfg.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, deps, test.ShouldResemble, []string{fakecfg.Motor, fakecfg.Board})
-	test.That(t, fakecfg.GantryRPM, test.ShouldEqual, float64(0))
+	test.That(t, fakecfg.GantryMmPerSec, test.ShouldEqual, float64(0))
 }
 
 func TestNewSingleAxis(t *testing.T) {
@@ -125,7 +125,7 @@ func TestNewSingleAxis(t *testing.T) {
 			LengthMm:        1.0,
 			Board:           boardName,
 			LimitPinEnabled: &setTrue,
-			GantryRPM:       float64(300),
+			GantryMmPerSec:  float64(300),
 		},
 	}
 	fakegantry, err := newSingleAxis(ctx, deps, fakecfg, logger)
@@ -144,7 +144,7 @@ func TestNewSingleAxis(t *testing.T) {
 			Board:           boardName,
 			LimitPinEnabled: &setTrue,
 			MmPerRevolution: 0.1,
-			GantryRPM:       float64(300),
+			GantryMmPerSec:  float64(300),
 		},
 	}
 	fakegantry, err = newSingleAxis(ctx, deps, fakecfg, logger)
@@ -162,7 +162,7 @@ func TestNewSingleAxis(t *testing.T) {
 			LengthMm:        1.0,
 			Board:           boardName,
 			LimitPinEnabled: &setTrue,
-			GantryRPM:       float64(300),
+			GantryMmPerSec:  float64(300),
 		},
 	}
 	fakegantry, err = newSingleAxis(ctx, deps, fakecfg, logger)
@@ -233,7 +233,7 @@ func TestReconfigure(t *testing.T) {
 			LengthMm:        1.0,
 			Board:           boardName,
 			LimitPinEnabled: &setTrue,
-			GantryRPM:       float64(300),
+			GantryMmPerSec:  float64(300),
 		},
 	}
 	fakegantry, err := newSingleAxis(ctx, deps, fakecfg, logger)
@@ -250,7 +250,7 @@ func TestReconfigure(t *testing.T) {
 			LengthMm:        5.0,
 			Board:           boardName,
 			LimitPinEnabled: &setTrue,
-			GantryRPM:       float64(400),
+			GantryMmPerSec:  float64(400),
 			MmPerRevolution: 10,
 		},
 	}
@@ -259,7 +259,7 @@ func TestReconfigure(t *testing.T) {
 
 	test.That(t, g.limitSwitchPins, test.ShouldResemble, []string{"1", "3"})
 	test.That(t, g.lengthMm, test.ShouldEqual, 5.0)
-	test.That(t, g.rpm, test.ShouldEqual, float64(400))
+	test.That(t, g.rpm, test.ShouldEqual, float64(2400))
 	test.That(t, g.mmPerRevolution, test.ShouldEqual, 10)
 }
 
@@ -274,8 +274,9 @@ func TestHome(t *testing.T) {
 		rpm:             float64(300),
 		limitSwitchPins: []string{"1"},
 	}
-	err := fakegantry.home(ctx, len(fakegantry.limitSwitchPins))
+	homed, err := fakegantry.Home(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, homed, test.ShouldBeTrue)
 
 	goForErr := errors.New("GoFor failed")
 	posErr := errors.New("Position fail")
@@ -299,8 +300,9 @@ func TestHome(t *testing.T) {
 		motor:  fakeMotor,
 		logger: logger,
 	}
-	err = fakegantry.home(ctx, len(fakegantry.limitSwitchPins))
+	homed, err = fakegantry.Home(ctx, nil)
 	test.That(t, err, test.ShouldBeError, posErr)
+	test.That(t, homed, test.ShouldBeFalse)
 
 	fakegantry = &singleAxis{
 		motor:           createFakeMotor(),
@@ -310,14 +312,16 @@ func TestHome(t *testing.T) {
 		rpm:             float64(300),
 		limitSwitchPins: []string{"1", "2"},
 	}
-	err = fakegantry.home(ctx, len(fakegantry.limitSwitchPins))
+	homed, err = fakegantry.Home(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, homed, test.ShouldBeTrue)
 
 	fakegantry = &singleAxis{
 		motor: fakeMotor,
 	}
-	err = fakegantry.home(ctx, len(fakegantry.limitSwitchPins))
+	homed, err = fakegantry.Home(ctx, nil)
 	test.That(t, err, test.ShouldBeError, posErr)
+	test.That(t, homed, test.ShouldBeFalse)
 
 	fakegantry = &singleAxis{
 		motor:           createFakeMotor(),
@@ -327,8 +331,9 @@ func TestHome(t *testing.T) {
 		rpm:             float64(300),
 		limitSwitchPins: []string{"1", "2"},
 	}
-	err = fakegantry.home(ctx, len(fakegantry.limitSwitchPins))
+	homed, err = fakegantry.Home(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, homed, test.ShouldBeTrue)
 }
 
 func TestHomeLimitSwitch(t *testing.T) {
@@ -592,35 +597,36 @@ func TestLengths(t *testing.T) {
 }
 
 func TestMoveToPosition(t *testing.T) {
-	// Skipping because these tests will change soon
-	t.Skip()
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 	fakegantry := &singleAxis{
-		logger:    logger,
-		board:     createFakeBoard(),
-		motor:     createFakeMotor(),
-		limitHigh: true,
+		logger:        logger,
+		board:         createFakeBoard(),
+		motor:         createFakeMotor(),
+		limitHigh:     true,
+		positionRange: 10,
 	}
 	pos := []float64{1, 2}
-	err := fakegantry.MoveToPosition(ctx, pos, nil)
+	speed := []float64{100, 200}
+	err := fakegantry.MoveToPosition(ctx, pos, speed, nil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "needs 1 position to move")
 
 	pos = []float64{1}
-	err = fakegantry.MoveToPosition(ctx, pos, nil)
+	speed = []float64{100}
+	err = fakegantry.MoveToPosition(ctx, pos, speed, nil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "out of range")
 
 	fakegantry.lengthMm = float64(4)
 	fakegantry.positionLimits = []float64{0, 4}
 	fakegantry.limitSwitchPins = []string{"1", "2"}
-	err = fakegantry.MoveToPosition(ctx, pos, nil)
+	err = fakegantry.MoveToPosition(ctx, pos, speed, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	fakegantry.lengthMm = float64(4)
 	fakegantry.positionLimits = []float64{0.01, .01}
 	fakegantry.limitSwitchPins = []string{"1", "2"}
 	fakegantry.motor = &inject.Motor{StopFunc: func(ctx context.Context, extra map[string]interface{}) error { return errors.New("err") }}
-	err = fakegantry.MoveToPosition(ctx, pos, nil)
+	err = fakegantry.MoveToPosition(ctx, pos, speed, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	injectGPIOPin := &inject.GPIOPin{}
@@ -639,7 +645,7 @@ func TestMoveToPosition(t *testing.T) {
 	}
 
 	fakegantry.board = &inject.Board{GPIOPinByNameFunc: func(pin string) (board.GPIOPin, error) { return injectGPIOPin, nil }}
-	err = fakegantry.MoveToPosition(ctx, pos, nil)
+	err = fakegantry.MoveToPosition(ctx, pos, speed, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	fakegantry.board = &inject.Board{GPIOPinByNameFunc: func(pin string) (board.GPIOPin, error) { return injectGPIOPinGood, nil }}
@@ -649,13 +655,14 @@ func TestMoveToPosition(t *testing.T) {
 			return errors.New("err")
 		},
 	}
-	err = fakegantry.MoveToPosition(ctx, pos, nil)
+	fakegantry.positionLimits = []float64{0, 4}
+	err = fakegantry.MoveToPosition(ctx, pos, speed, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	fakegantry.motor = &inject.Motor{GoToFunc: func(ctx context.Context, rpm, rotations float64, extra map[string]interface{}) error {
 		return nil
 	}}
-	err = fakegantry.MoveToPosition(ctx, pos, nil)
+	err = fakegantry.MoveToPosition(ctx, pos, speed, nil)
 	test.That(t, err, test.ShouldBeNil)
 }
 
@@ -672,7 +679,7 @@ func TestModelFrame(t *testing.T) {
 			LengthMm:        1.0,
 			Board:           boardName,
 			LimitPinEnabled: &setTrue,
-			GantryRPM:       float64(300),
+			GantryMmPerSec:  float64(300),
 		},
 	}
 	fakegantry, _ := newSingleAxis(ctx, deps, fakecfg, logger)
@@ -759,6 +766,22 @@ func TestGoToInputs(t *testing.T) {
 	inputs := []referenceframe.Input{}
 	logger := golog.NewTestLogger(t)
 
+	fakecfg := resource.Config{
+		Name:  "fakeGantry",
+		Frame: fakeFrame,
+		ConvertedAttributes: &Config{
+			Motor:           motorName,
+			LengthMm:        1.0,
+			MmPerRevolution: 10,
+		},
+	}
+	deps := createFakeDepsForTestNewSingleAxis(t)
+	g, err := newSingleAxis(ctx, deps, fakecfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	err = g.GoToInputs(ctx, inputs)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "is homed")
+
 	fakegantry := &singleAxis{
 		board:           createFakeBoard(),
 		limitSwitchPins: []string{"1", "2"},
@@ -771,7 +794,9 @@ func TestGoToInputs(t *testing.T) {
 		model:           nil,
 		logger:          logger,
 	}
-	err := fakegantry.GoToInputs(ctx, inputs)
+
+	fakegantry.positionRange = 10
+	err = fakegantry.GoToInputs(ctx, inputs)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "needs 1 position to move")
 
 	inputs = []referenceframe.Input{{Value: 1.0}, {Value: 2.0}}

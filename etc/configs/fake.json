@@ -138,9 +138,54 @@
                     "type": "memory"
                 },
                 "movement_sensor": "movement_sensor1",
-                "base": "base1"
+                "base": "base1",
+                "obstacles": [
+                    {
+                        "location": {
+                            "latitude": 40.6759,
+                            "longitude": -73.958847
+                        },
+                        "geometries": [
+                            {
+                                "type": "capsule",
+                                "r": 10,
+                                "l": 30,
+                                "translation": { "x": 0, "y": 0, "z": 0 }
+                            }
+                        ]
+                    },
+                    {
+                        "location": {
+                            "latitude": 40,
+                            "longitude": -74.6
+                        },
+                        "geometries": [
+                            {
+                                "type": "sphere",
+                                "r": 1000,
+                                "translation": { "x": 0, "y": 0, "z": 0 }
+                            }
+                        ]
+                    },
+                    {
+                        "location": {
+                            "latitude": 40,
+                            "longitude": -74.7
+                        },
+                        "geometries": [
+                            {
+                                "type": "box",
+                                "x": 100,
+                                "y": 100,
+                                "z": 100,
+                                "translation": { "x": 0, "y": 0, "z": 0 }
+                            }
+                        ]
+                    }
+                ]
             }
         },
+          
         {
             "name": "slam1",
             "type": "slam",
