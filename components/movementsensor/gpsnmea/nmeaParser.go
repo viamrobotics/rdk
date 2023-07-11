@@ -61,6 +61,8 @@ func (g *GPSData) ParseAndUpdate(line string) error {
 	return nil
 }
 
+// given an NMEA sentense, updateData updates it. An error is returned if any of
+// the function calls fails.
 func (g *GPSData) updateData(s nmea.Sentence) error {
 	var errs error
 
@@ -85,12 +87,16 @@ func (g *GPSData) updateData(s nmea.Sentence) error {
 }
 
 //nolint
+// updateGSV updates g.SatsInView with the information from the provided
+// GSV (GPS Satellites in View) data.
 func (g *GPSData) updateGSV(gsv nmea.GSV) error {
 	// GSV provides the number of satellites in view
 	g.SatsInView = int(gsv.NumberSVsInView)
 	return nil
 }
 
+// updateRMC updates the GPSData object with the information from the provided
+// RMC (Recommended Minimum Navigation Information) data.
 func (g *GPSData) updateRMC(rmc nmea.RMC) error {
 	if rmc.Validity == "A" {
 		g.valid = true
@@ -108,6 +114,8 @@ func (g *GPSData) updateRMC(rmc nmea.RMC) error {
 	return nil
 }
 
+// updateGSA updates the GPSData object with the information from the provided
+// GSA (GPS DOP and Active Satellites) data.
 func (g *GPSData) updateGSA(gsa nmea.GSA) error {
 	switch gsa.FixType {
 	case "1":
@@ -133,6 +141,8 @@ func (g *GPSData) updateGSA(gsa nmea.GSA) error {
 	return nil
 }
 
+// updateGGA updates the GPSData object with the information from the provided
+// GGA (Global Positioning System Fix Data) data.
 func (g *GPSData) updateGGA(gga nmea.GGA) error {
 	var err error
 
@@ -156,6 +166,8 @@ func (g *GPSData) updateGGA(gga nmea.GGA) error {
 }
 
 //nolint
+// updateGLL updates g.Location with the location information from the provided
+// GLL (Geographic Position - Latitude/Longitude) data.
 func (g *GPSData) updateGLL(gll nmea.GLL) error {
 	now := toPoint(gll)
 	g.Location = now
@@ -163,12 +175,16 @@ func (g *GPSData) updateGLL(gll nmea.GLL) error {
 }
 
 //nolint
+// updateVTG updates g.Speed with the ground speed information from the provided
+// VTG (Velocity Made Good) data.
 func (g *GPSData) updateVTG(vtg nmea.VTG) error {
 	// VTG provides ground speed
 	g.Speed = vtg.GroundSpeedKPH * kphToMPerSec
 	return nil
 }
 
+// updateGNS updates the GPSData object with the information from the provided
+// GNS (Global Navigation Satellite System) data.
 func (g *GPSData) updateGNS(gns nmea.GNS) error {
 	for _, mode := range gns.Mode {
 		if mode == "N" {
