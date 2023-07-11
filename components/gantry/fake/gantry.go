@@ -4,6 +4,7 @@ package fake
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
@@ -13,6 +14,8 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils"
 )
+
+var logger golog.Logger
 
 func init() {
 	resource.RegisterComponent(
@@ -68,6 +71,8 @@ func (g *Gantry) Lengths(ctx context.Context, extra map[string]interface{}) ([]f
 
 // Home runs the homing sequence of the gantry and returns true once completed.
 func (g *Gantry) Home(ctx context.Context, extra map[string]interface{}) (bool, error) {
+	logger.Errorf("homing")
+	time.Sleep(5 * time.Second)
 	return true, nil
 }
 
@@ -75,6 +80,8 @@ func (g *Gantry) Home(ctx context.Context, extra map[string]interface{}) (bool, 
 func (g *Gantry) MoveToPosition(ctx context.Context, positionsMm, speedsMmPerSec []float64, extra map[string]interface{}) error {
 	g.positionsMm = positionsMm
 	g.speedsMmPerSec = speedsMmPerSec
+	logger.Errorf("moving axis")
+	time.Sleep(2 * time.Second)
 	return nil
 }
 

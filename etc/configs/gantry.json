@@ -1,0 +1,141 @@
+{
+    "components": [
+      {
+        "model": "fake",
+        "attributes": {
+          "fail_new": false
+        },
+        "depends_on": [],
+        "name": "board",
+        "type": "board"
+      },
+      {
+        "depends_on": [
+          "board"
+        ],
+        "name": "motor-x",
+        "type": "motor",
+        "model": "fake",
+        "attributes": {
+          "board": "board",
+          "max_rpm": 100,
+          "pins": {
+            "dir": "",
+            "pwm": ""
+          }
+        }
+      },
+      {
+        "model": "fake",
+        "attributes": {
+          "pins": {
+            "pwm": "",
+            "dir": ""
+          },
+          "board": "board",
+          "max_rpm": 100
+        },
+        "depends_on": [
+          "board"
+        ],
+        "name": "motor-y",
+        "type": "motor"
+      },
+      {
+        "attributes": {
+          "board": "board",
+          "max_rpm": 100,
+          "pins": {
+            "dir": "",
+            "pwm": ""
+          }
+        },
+        "depends_on": [
+          "board"
+        ],
+        "name": "motor-z",
+        "type": "motor",
+        "model": "fake"
+      },
+      {
+        "type": "gantry",
+        "model": "fake",
+        "attributes": {
+          "limit_pin_enabled_high": false,
+          "length_mm": 200,
+          "mm_per_rev": 10,
+          "motor": "motor-x",
+          "limit_pins": [
+            "1",
+            "2"
+          ]
+        },
+        "depends_on": [
+          "motor-x"
+        ],
+        "name": "x"
+      },
+      {
+        "attributes": {
+          "limit_pins": [
+            "3",
+            "4"
+          ],
+          "limit_pin_enabled_high": false,
+          "motor": "motor-y",
+          "length_mm": 200,
+          "mm_per_rev": 10
+        },
+        "depends_on": [
+          "motor-y"
+        ],
+        "name": "y",
+        "type": "gantry",
+        "model": "fake"
+      },
+      {
+        "attributes": {
+          "limit_pins": [
+            "5",
+            "6"
+          ],
+          "limit_pin_enabled_high": false,
+          "motor": "motor-z",
+          "length_mm": 200,
+          "mm_per_rev": 10
+        },
+        "depends_on": [
+          "motor-z"
+        ],
+        "name": "z",
+        "type": "gantry",
+        "model": "fake"
+      },
+      {
+        "name": "multi",
+        "type": "gantry",
+        "model": "multi-axis",
+        "attributes": {
+          "subaxes_list": [
+            "x",
+            "y",
+            "z"
+          ]
+        },
+        "depends_on": [
+          "motor-x",
+          "motor-y",
+          "motor-z"
+        ]
+      },
+      {
+        "type": "arm",
+        "model": "fake",
+        "attributes": {
+          "arm-model": "xArm6"
+        },
+        "depends_on": [],
+        "name": "arm"
+      }
+    ]
+  }

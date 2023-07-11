@@ -123,6 +123,42 @@ func (g *multiAxis) MoveToPosition(ctx context.Context, positions, speeds []floa
 		)
 	}
 
+	// fs := []rdkutils.SimpleFunc{}
+	// idx := 0
+	// for _, subAx := range g.subAxes {
+	// 	subAxNum, err := subAx.Lengths(ctx, extra)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+
+	// 	pos := positions[idx : idx+len(subAxNum)]
+	// 	var speed []float64
+	// 	// if speeds is an empty list, speed will be set to the default in the subAx MoveToPosition call
+	// 	if len(speeds) == 0 {
+	// 		speed = []float64{}
+	// 	} else {
+	// 		speed = speeds[idx : idx+len(subAxNum)]
+	// 	}
+	// 	g.logger.Errorf("axis: %v", subAx)
+	// 	fs = append(fs, func(ctx context.Context) error { return subAx.MoveToPosition(ctx, pos, speed, nil) })
+	// 	idx += len(subAxNum)
+	// }
+
+	// g.logger.Errorf("moving simultaneously: %v", g.moveSimultaneously)
+
+	// if g.moveSimultaneously {
+	// 	g.logger.Errorf("fs: %v", fs)
+	// 	if _, err := rdkutils.RunInParallel(ctx, fs); err != nil {
+	// 		return multierr.Combine(err, g.Stop(ctx, nil))
+	// 	}
+	// 	g.logger.Errorf("done run in parallel")
+	// } else {
+	// 	for _, f := range fs {
+	// 		if err := f(ctx); err != nil {
+	// 			return err
+	// 		}
+	// 	}
+	// }
 	fs := []rdkutils.SimpleFunc{}
 	idx := 0
 	for _, subAx := range g.subAxes {
@@ -140,19 +176,20 @@ func (g *multiAxis) MoveToPosition(ctx context.Context, positions, speeds []floa
 			speed = speeds[idx : idx+len(subAxNum)]
 		}
 		idx += len(subAxNum)
-		fs = append(fs, func(ctx context.Context) error { return subAx.MoveToPosition(ctx, pos, speed, nil) })
-	}
 
-	if g.moveSimultaneously {
-		g.logger.Errorf("moving simultaneously")
-		if _, err := rdkutils.RunInParallel(ctx, fs); err != nil {
-			return multierr.Combine(err, g.Stop(ctx, nil))
-		}
-	} else {
-		for _, f := range fs {
-			if err := f(ctx); err != nil {
+		if g.moveSimultaneously {
+			fs = append(fs, func(ctx context.Context) error { return subAx.MoveToPosition(ctx, pos, speed, nil) })
+		} else {
+			err = subAx.MoveToPosition(ctx, pos, speed, extra)
+			if err != nil && !errors.Is(err, context.Canceled) {
 				return err
 			}
+		}
+	}
+	if g.moveSimultaneously {
+		g.logger.Errorf("MULTIAXIS.GO, fs[0]: %v, fs[1]: %v", &(fs[0]), &(fs[1]))
+		if _, err := rdkutils.RunInParallel(ctx, fs); err != nil {
+			return multierr.Combine(err, g.Stop(ctx, nil))
 		}
 	}
 	return nil
