@@ -537,7 +537,6 @@ func (manager *resourceManager) completeConfig(
 		goutils.PanicCapturingGo(func() {
 			defer func() {
 				resChan <- struct{}{}
-				close(resChan)
 			}()
 			gNode, ok := manager.resources.Node(resName)
 			if !ok || !gNode.NeedsReconfigure() {
@@ -585,7 +584,15 @@ func (manager *resourceManager) completeConfig(
 					gNode.SetLastError(errors.Wrap(err, "resource build error"))
 					return
 				}
-				gNode.SwapResource(newRes, conf.Model)
+				// if the ctxWithTimeout has an error then that means we've timed out. This means
+				// that resource generation is running async, and we don't currently have good
+				// validation around how this might affect the resource graph. So, we avoid updating
+				// the graph to be safe.
+				if ctxWithTimeout.Err() != nil {
+					manager.logger.Errorw("error building resource", "resource", conf.ResourceName(), "model", conf.Model, "error", ctxWithTimeout.Err())
+				} else {
+					gNode.SwapResource(newRes, conf.Model)
+				}
 			default:
 				err := errors.New("config is not for a component or service")
 				manager.logger.Errorw(err.Error(), "resource", resName)

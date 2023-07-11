@@ -700,16 +700,12 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 	// For example, the framesystem should depend on all input enabled components while the web
 	// service depends on all resources.
 	// For now, we pass all resources and empty configs.
-	for resName, res := range internalResources {
-		resChan := make(chan struct{}, 1)
-		resName := resName
-		res := res
+	processInternalResources := func(resName resource.Name, res resource.Resource, resChan chan struct{}) {
 		ctxWithTimeout, timeoutCancel := context.WithTimeout(ctx, timeout)
 		defer timeoutCancel()
 		goutils.PanicCapturingGo(func() {
 			defer func() {
 				resChan <- struct{}{}
-				close(resChan)
 			}()
 			switch resName {
 			case web.InternalServiceName:
@@ -738,6 +734,13 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 		}
 	}
 
+	for resName, res := range internalResources {
+		resChan := make(chan struct{}, 1)
+		resName := resName
+		res := res
+		processInternalResources(resName, res, resChan)
+	}
+
 	updateResourceWeakDependents := func(ctx context.Context, conf resource.Config) {
 		resName := conf.ResourceName()
 		resNode, ok := r.manager.resources.Node(resName)
@@ -763,14 +766,13 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 
 	cfg := r.Config()
 	for _, conf := range append(cfg.Components, cfg.Services...) {
-		resChan := make(chan struct{}, 1)
 		conf := conf
 		ctxWithTimeout, timeoutCancel := context.WithTimeout(ctx, timeout)
 		defer timeoutCancel()
+		resChan := make(chan struct{}, 1)
 		goutils.PanicCapturingGo(func() {
 			defer func() {
 				resChan <- struct{}{}
-				close(resChan)
 			}()
 			updateResourceWeakDependents(ctxWithTimeout, conf)
 		})
