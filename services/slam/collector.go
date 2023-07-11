@@ -13,16 +13,12 @@ import (
 type method int64
 
 const (
-	getPosition      method = iota
-	getPointCloudMap method = iota
+	getPosition method = iota
 )
 
 func (m method) String() string {
-	switch m {
-	case getPosition:
+	if m == getPosition {
 		return "GetPosition"
-	case getPointCloudMap:
-		return "GetPointCloudMap"
 	}
 	return "Unknown"
 }
