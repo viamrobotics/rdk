@@ -103,11 +103,13 @@ func motionPlanInternal(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
+	if len(sf.DoF()) == 2 {
+		seed = seed[:2]
+	}
 	startPose, err := sf.Transform(seed)
 	if err != nil {
 		return nil, err
 	}
-	logger.Warn("DID TRANSFORM")
 
 	logger.Infof(
 		"planning motion for frame %s. Goal: %v Starting seed map %v, startPose %v, worldstate: %v",
