@@ -86,7 +86,7 @@ func (g *GPSData) updateData(s nmea.Sentence) error {
 	return errs
 }
 
-//nolint
+// nolint
 // updateGSV updates g.SatsInView with the information from the provided
 // GSV (GPS Satellites in View) data.
 func (g *GPSData) updateGSV(gsv nmea.GSV) error {
@@ -105,7 +105,6 @@ func (g *GPSData) updateRMC(rmc nmea.RMC) error {
 		err := errInvalidFix(rmc.Type, rmc.Validity, "A")
 		return err
 	}
-
 	if g.valid {
 		g.Speed = rmc.Speed * knotsToMPerSec
 		g.Location = geo.NewPoint(rmc.Latitude, rmc.Longitude)
@@ -165,7 +164,7 @@ func (g *GPSData) updateGGA(gga nmea.GGA) error {
 	return err
 }
 
-//nolint
+// nolint
 // updateGLL updates g.Location with the location information from the provided
 // GLL (Geographic Position - Latitude/Longitude) data.
 func (g *GPSData) updateGLL(gll nmea.GLL) error {
@@ -174,7 +173,7 @@ func (g *GPSData) updateGLL(gll nmea.GLL) error {
 	return nil
 }
 
-//nolint
+// nolint
 // updateVTG updates g.Speed with the ground speed information from the provided
 // VTG (Velocity Made Good) data.
 func (g *GPSData) updateVTG(vtg nmea.VTG) error {
