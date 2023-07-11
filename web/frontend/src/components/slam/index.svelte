@@ -82,7 +82,7 @@ const refresh2d = async () => {
     nextPose?.setZ(nextPose.getZ() / 1000);
     pose = nextPose;
     if (mapTimestamp) {
-      lastTimestamp = mapTimestamp
+      lastTimestamp = mapTimestamp;
     }
   } catch (error) {
     refreshErrorMessage2d = error !== null && typeof error === 'object' && 'message' in error
