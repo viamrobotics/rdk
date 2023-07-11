@@ -17,7 +17,7 @@ import (
 type GenericLinuxPin struct {
 	Name            string `json:"name"`
 	Ngpio           int    `json:"ngpio"` // this is the ngpio number of the chip the pin is attached to
-	RelativeID      int    `json:"relative_id"`
+	LineNumber      int    `json:"line_number"`
 	PwmChipSysfsDir string `json:"pwm_chip_sysfs_dir,omitempty"`
 	PwmID           int    `json:"pwm_id,omitempty"`
 }
@@ -32,7 +32,7 @@ func (conf *GenericLinuxPin) UnmarshalJSON(text []byte) error {
 	type TempPin GenericLinuxPin // needed to prevent infinite recursive calls to UnmarshalJSON
 	aux := TempPin{
 		Ngpio:      -1,
-		RelativeID: -1,
+		LineNumber: -1,
 		PwmID:      -1,
 	}
 	if err := json.Unmarshal(text, &aux); err != nil {
@@ -52,16 +52,16 @@ func (conf *GenericLinuxPin) Validate(path string) error {
 		return utils.NewConfigValidationFieldRequiredError(path, "ngpio")
 	}
 
-	if conf.RelativeID == -1 {
-		return utils.NewConfigValidationFieldRequiredError(path, "relative_id")
+	if conf.LineNumber == -1 {
+		return utils.NewConfigValidationFieldRequiredError(path, "line_number")
 	}
 
-	if conf.RelativeID < 0 {
-		return utils.NewConfigValidationError(path, errors.New("relative id on gpio chip must be greater than zero"))
+	if conf.LineNumber < 0 {
+		return utils.NewConfigValidationError(path, errors.New("line_number on gpio chip must be greater than zero"))
 	}
 
-	if conf.RelativeID >= conf.Ngpio {
-		return utils.NewConfigValidationError(path, errors.New("relative id on gpio chip must be less than ngpio"))
+	if conf.LineNumber >= conf.Ngpio {
+		return utils.NewConfigValidationError(path, errors.New("line_number on gpio chip must be less than ngpio"))
 	}
 
 	if conf.PwmChipSysfsDir != "" && conf.PwmID == -1 {
@@ -101,7 +101,7 @@ func parseRawPinData(pinData []byte, filePath string) ([]genericlinux.PinDefinit
 		}
 
 		pinDefs[i] = genericlinux.PinDefinition{
-			GPIOChipRelativeIDs: map[int]int{pin.Ngpio: pin.RelativeID}, // ngpio: relative id map
+			GPIOChipRelativeIDs: map[int]int{pin.Ngpio: pin.LineNumber}, // ngpio: relative id map
 			PinNumberBoard:      pinName,
 			PWMChipSysFSDir:     pin.PwmChipSysfsDir,
 			PWMID:               pin.PwmID,
