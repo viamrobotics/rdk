@@ -31,14 +31,14 @@ type Limit struct {
 
 // RestrictedRandomFrameInputs will produce a list of valid, in-bounds inputs for the frame, restricting the range to
 // `lim` percent of the limits.
-func RestrictedRandomFrameInputs(m Frame, rSeed *rand.Rand, lim float64) []Input {
+func RestrictedRandomFrameInputs(m Frame, rSeed *rand.Rand, lim float64, nodePose []Input) []Input {
 	if rSeed == nil {
 		//nolint:gosec
 		rSeed = rand.New(rand.NewSource(1))
 	}
 	dof := m.DoF()
 	pos := make([]Input, 0, len(dof))
-	for _, limit := range dof {
+	for i, limit := range dof {
 		l, u := limit.Min, limit.Max
 
 		// Default to [-999,999] as range if limits are infinite
@@ -50,6 +50,8 @@ func RestrictedRandomFrameInputs(m Frame, rSeed *rand.Rand, lim float64) []Input
 		}
 
 		span := u - l
+		l = nodePose[i].Value - span/2
+		u = nodePose[i].Value + span/2
 		pos = append(pos, Input{lim*span*rSeed.Float64() + l + (span * (1 - lim) / 2)})
 	}
 	return pos

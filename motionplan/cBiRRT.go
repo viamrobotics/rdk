@@ -278,10 +278,7 @@ func (mp *cBiRRTMotionPlanner) sample(rSeed node, sampleNum int) []referencefram
 		return referenceframe.RandomFrameInputs(mp.frame, mp.randseed)
 	}
 	// Seeding nearby to valid points results in much faster convergence in less constrained space
-	q := referenceframe.RestrictedRandomFrameInputs(mp.frame, mp.randseed, 0.1)
-	for j, v := range rSeed.Q() {
-		q[j].Value += v.Value
-	}
+	q := referenceframe.RestrictedRandomFrameInputs(mp.frame, mp.randseed, 0.1, rSeed.Q())
 	return q
 }
 
