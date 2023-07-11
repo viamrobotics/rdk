@@ -1,38 +1,37 @@
 <script lang='ts'>
 
-import { createEventDispatcher } from 'svelte'
+/* eslint-disable unicorn/prefer-blob-reading-methods */
+import { createEventDispatcher } from 'svelte';
 
-export let format: 'string' | 'arrayBuffer' = 'string'
+export let format: 'string' | 'arrayBuffer' = 'string';
 
-type $$Events = { drop: 'string' | 'arrayBuffer' }
-
-const dispatch = createEventDispatcher<$$Events>()
+const dispatch = createEventDispatcher();
 
 const handleDrop = (event: DragEvent) => {
-  const reader = new FileReader()
+  const reader = new FileReader();
 
   reader.addEventListener('load', () => {
-    dispatch('drop', reader.result as typeof format)
-  })
+    dispatch('drop', reader.result);
+  });
 
   if (event.dataTransfer === null) {
-    return
+    return;
   }
 
-  const [file] = event.dataTransfer.files
+  const [file] = event.dataTransfer.files;
 
   if (file === undefined) {
-    return
+    return;
   }
 
   if (format === 'string') {
-    reader.readAsBinaryString(file)
+    reader.readAsBinaryString(file);
   } else if (format === 'arrayBuffer') {
-    reader.readAsArrayBuffer(file)
+    reader.readAsArrayBuffer(file);
   } else {
-    throw new Error ('Unsupported dropzone format.')
+    throw new Error('Unsupported dropzone format.');
   }
-}
+};
 
 </script>
 

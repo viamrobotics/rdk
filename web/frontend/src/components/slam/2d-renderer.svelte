@@ -22,7 +22,7 @@ const dispatch = createEventDispatcher();
 let points: THREE.Points | undefined;
 let pointsMaterial: THREE.PointsMaterial | undefined;
 let intersectionPlane: THREE.Mesh | undefined;
-let motionPath: string | undefined
+let motionPath: string | undefined;
 
 const markerColor = '#FF0047';
 const backgroundGridColor = '#cacaca';
@@ -268,7 +268,7 @@ const scaleObjects = () => {
 
 const handleDrop = (event: CustomEvent<string>) => {
   motionPath = event.detail;
-}
+};
 
 onMount(() => {
   removeUpdate = update(scaleObjects);
