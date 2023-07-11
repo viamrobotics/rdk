@@ -28,6 +28,5 @@ func init() {
 		golog.Global().Debugw("error getting up board GPIO board mapping", "error", err)
 	}
 
-	// Not using Periph io for GPIO
-	genericlinux.RegisterBoard(modelName, gpioMappings, false)
+	genericlinux.RegisterBoard(modelName, gpioMappings)
 }

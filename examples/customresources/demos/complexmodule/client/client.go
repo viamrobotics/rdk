@@ -26,6 +26,7 @@ func main() {
 	if err != nil {
 		logger.Fatal(err)
 	}
+	//nolint:errcheck
 	defer robot.Close(context.Background())
 
 	logger.Info("---- Testing gizmo1 (gizmoapi) -----")
@@ -93,7 +94,6 @@ func main() {
 	}
 	logger.Info(nums, " subtract to ", retSub)
 
-
 	logger.Info("---- Testing denali (navigation) -----")
 	nav, err := navigation.FromRobot(robot, "denali")
 	if err != nil {
@@ -140,7 +140,7 @@ func main() {
 	if err != nil {
 		logger.Fatal(err)
 	}
-	logger.Infof("sent: %v recieved: %v", testCmd, ret)
+	logger.Infof("sent: %v received: %v", testCmd, ret)
 
 	logger.Info("move forward")
 	err = mybase.SetPower(context.Background(), r3.Vector{Y: 1}, r3.Vector{}, nil)
@@ -168,12 +168,11 @@ func main() {
 	if err != nil {
 		logger.Fatal(err)
 	}
-	time.Sleep(time.Second *1)
+	time.Sleep(time.Second * 1)
 
 	logger.Info("stop")
 	err = mybase.Stop(context.Background(), nil)
 	if err != nil {
 		logger.Fatal(err)
 	}
-
 }

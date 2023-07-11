@@ -25,7 +25,7 @@ type PmtkI2CNMEAMovementSensor struct {
 	cancelCtx               context.Context
 	cancelFunc              func()
 	logger                  golog.Logger
-	data                    gpsData
+	data                    GPSData
 	activeBackgroundWorkers sync.WaitGroup
 
 	disableNmea  bool
@@ -166,7 +166,7 @@ func (g *PmtkI2CNMEAMovementSensor) Start(ctx context.Context) error {
 					if b == 0x0D {
 						if strBuf != "" {
 							g.mu.Lock()
-							err = g.data.parseAndUpdate(strBuf)
+							err = g.data.ParseAndUpdate(strBuf)
 							g.mu.Unlock()
 							if err != nil {
 								g.logger.Debugf("can't parse nmea : %s, %v", strBuf, err)
@@ -197,7 +197,7 @@ func (g *PmtkI2CNMEAMovementSensor) Position(ctx context.Context, extra map[stri
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 
-	currentPosition := g.data.location
+	currentPosition := g.data.Location
 
 	if currentPosition == nil {
 		return lastPosition, 0, errNilLocation
@@ -205,7 +205,7 @@ func (g *PmtkI2CNMEAMovementSensor) Position(ctx context.Context, extra map[stri
 
 	// if current position is (0,0) we will return the last non zero position
 	if g.lastposition.IsZeroPosition(currentPosition) && !g.lastposition.IsZeroPosition(lastPosition) {
-		return lastPosition, g.data.alt, g.err.Get()
+		return lastPosition, g.data.Alt, g.err.Get()
 	}
 
 	// updating lastposition if it is different from the current position
@@ -218,21 +218,21 @@ func (g *PmtkI2CNMEAMovementSensor) Position(ctx context.Context, extra map[stri
 		g.lastposition.SetLastPosition(currentPosition)
 	}
 
-	return currentPosition, g.data.alt, g.err.Get()
+	return currentPosition, g.data.Alt, g.err.Get()
 }
 
 // Accuracy returns the accuracy, hDOP and vDOP.
 func (g *PmtkI2CNMEAMovementSensor) Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return map[string]float32{"hDOP": float32(g.data.hDOP), "vDOP": float32(g.data.vDOP)}, g.err.Get()
+	return map[string]float32{"hDOP": float32(g.data.HDOP), "vDOP": float32(g.data.HDOP)}, g.err.Get()
 }
 
 // LinearVelocity returns the current speed of the MovementSensor.
 func (g *PmtkI2CNMEAMovementSensor) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return r3.Vector{X: 0, Y: g.data.speed, Z: 0}, g.err.Get()
+	return r3.Vector{X: 0, Y: g.data.Speed, Z: 0}, g.err.Get()
 }
 
 // LinearAcceleration returns the current linear acceleration of the MovementSensor.
@@ -278,7 +278,7 @@ func (g *PmtkI2CNMEAMovementSensor) Properties(ctx context.Context, extra map[st
 func (g *PmtkI2CNMEAMovementSensor) ReadFix(ctx context.Context) (int, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return g.data.fixQuality, g.err.Get()
+	return g.data.FixQuality, g.err.Get()
 }
 
 // Readings will use return all of the MovementSensor Readings.

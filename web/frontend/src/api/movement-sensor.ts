@@ -1,96 +1,135 @@
-
-import { grpc } from '@improbable-eng/grpc-web';
 import { type Client, movementSensorApi } from '@viamrobotics/sdk';
-import type { commonApi } from '@viamrobotics/sdk';
 import { rcLogConditionally } from '@/lib/log';
 
-export const getProperties = (client: Client, name: string) => {
+export const getProperties = async (robotClient: Client, name: string) => {
   const req = new movementSensorApi.GetPropertiesRequest();
   req.setName(name);
 
   rcLogConditionally(req);
 
-  return new Promise<movementSensorApi.GetPropertiesResponse.AsObject | undefined>((resolve, reject) => {
-    client.movementSensorService.getProperties(req, new grpc.Metadata(), (error, response) => (
-      error ? reject(error) : resolve(response?.toObject())
-    ));
+  const response = await new Promise<movementSensorApi.GetPropertiesResponse | null>((resolve, reject) => {
+    robotClient.movementSensorService.getProperties(req, (error, res) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(res);
+      }
+    });
   });
+
+  return response?.toObject();
 };
 
-export const getOrientation = (client: Client, name: string) => {
+export const getOrientation = async (robotClient: Client, name: string) => {
   const req = new movementSensorApi.GetOrientationRequest();
   req.setName(name);
 
   rcLogConditionally(req);
 
-  return new Promise<commonApi.Orientation.AsObject | undefined>((resolve, reject) => {
-    client.movementSensorService.getOrientation(req, new grpc.Metadata(), (error, response) => (
-      error ? reject(error) : resolve(response?.toObject().orientation)
-    ));
+  const response = await new Promise<movementSensorApi.GetOrientationResponse | null>((resolve, reject) => {
+    robotClient.movementSensorService.getOrientation(req, (error, res) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(res);
+      }
+    });
   });
+
+  return response?.toObject().orientation;
 };
 
-export const getAngularVelocity = (client: Client, name: string) => {
+export const getAngularVelocity = async (robotClient: Client, name: string) => {
   const req = new movementSensorApi.GetAngularVelocityRequest();
   req.setName(name);
 
   rcLogConditionally(req);
 
-  return new Promise<commonApi.Vector3.AsObject | undefined>((resolve, reject) => {
-    client.movementSensorService.getAngularVelocity(req, new grpc.Metadata(), (error, response) => (
-      error ? reject(error) : resolve(response?.toObject().angularVelocity)
-    ));
+  const response = await new Promise<movementSensorApi.GetAngularVelocityResponse | null>((resolve, reject) => {
+    robotClient.movementSensorService.getAngularVelocity(req, (error, res) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(res);
+      }
+    });
   });
+
+  return response?.toObject().angularVelocity;
 };
 
-export const getLinearAcceleration = (client: Client, name: string) => {
+export const getLinearAcceleration = async (robotClient: Client, name: string) => {
   const req = new movementSensorApi.GetLinearAccelerationRequest();
   req.setName(name);
 
   rcLogConditionally(req);
 
-  return new Promise<commonApi.Vector3.AsObject | undefined>((resolve, reject) => {
-    client.movementSensorService.getLinearAcceleration(req, new grpc.Metadata(), (error, response) => (
-      error ? reject(error) : resolve(response?.toObject().linearAcceleration)
-    ));
+  const response = await new Promise<movementSensorApi.GetLinearAccelerationResponse | null>((resolve, reject) => {
+    robotClient.movementSensorService.getLinearAcceleration(req, (error, res) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(res);
+      }
+    });
   });
+
+  return response?.toObject().linearAcceleration;
 };
 
-export const getLinearVelocity = (client: Client, name: string) => {
+export const getLinearVelocity = async (robotClient: Client, name: string) => {
   const req = new movementSensorApi.GetLinearVelocityRequest();
   req.setName(name);
 
   rcLogConditionally(req);
 
-  return new Promise<commonApi.Vector3.AsObject | undefined>((resolve, reject) => {
-    client.movementSensorService.getLinearVelocity(req, new grpc.Metadata(), (error, response) => (
-      error ? reject(error) : resolve(response?.toObject().linearVelocity)
-    ));
+  const response = await new Promise<movementSensorApi.GetLinearVelocityResponse | null>((resolve, reject) => {
+    robotClient.movementSensorService.getLinearVelocity(req, (error, res) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(res);
+      }
+    });
   });
+
+  return response?.toObject().linearVelocity;
 };
 
-export const getCompassHeading = (client: Client, name: string) => {
+export const getCompassHeading = async (robotClient: Client, name: string) => {
   const req = new movementSensorApi.GetCompassHeadingRequest();
   req.setName(name);
 
   rcLogConditionally(req);
 
-  return new Promise<number | undefined>((resolve, reject) => {
-    client.movementSensorService.getCompassHeading(req, new grpc.Metadata(), (error, response) => (
-      error ? reject(error) : resolve(response?.toObject().value)
-    ));
+  const response = await new Promise<movementSensorApi.GetCompassHeadingResponse | null>((resolve, reject) => {
+    robotClient.movementSensorService.getCompassHeading(req, (error, res) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(res);
+      }
+    });
   });
+
+  return response?.toObject().value;
 };
 
-export const getPosition = (client: Client, name: string) => {
+export const getPosition = async (robotClient: Client, name: string) => {
   const req = new movementSensorApi.GetPositionRequest();
   req.setName(name);
 
   rcLogConditionally(req);
 
-  return new Promise<movementSensorApi.GetPositionResponse.AsObject | undefined>((resolve, reject) => {
-    client.movementSensorService.getPosition(req, new grpc.Metadata(), (error, response) => (
-      error ? reject(error) : resolve(response?.toObject())
-    ));
+  const response = await new Promise<movementSensorApi.GetPositionResponse | null>((resolve, reject) => {
+    robotClient.movementSensorService.getPosition(req, (error, res) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(res);
+      }
+    });
   });
+
+  return response?.toObject();
 };

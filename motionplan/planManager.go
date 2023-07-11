@@ -13,6 +13,7 @@ import (
 	pb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -29,6 +30,8 @@ type planManager struct {
 	*planner
 	frame *solverFrame
 	fs    referenceframe.FrameSystem
+
+	useTPspace bool
 }
 
 func newPlanManager(
@@ -37,12 +40,29 @@ func newPlanManager(
 	logger golog.Logger,
 	seed int,
 ) (*planManager, error) {
+	anyPTG := false     // Whether PTG frames have been observed
+	anyNonzero := false // Whether non-PTG frames
+	for _, movingFrame := range frame.frames {
+		if ptgFrame, isPTGframe := movingFrame.(tpspace.PTGProvider); isPTGframe {
+			if anyPTG {
+				return nil, errors.New("only one PTG frame can be planned for at a time")
+			}
+			anyPTG = true
+			frame.ptgs = ptgFrame.PTGs()
+		} else if len(movingFrame.DoF()) > 0 {
+			anyNonzero = true
+		}
+		if anyNonzero && anyPTG {
+			return nil, errors.New("cannot combine ptg with other nonzero DOF frames in a single planning call")
+		}
+	}
+
 	//nolint: gosec
 	p, err := newPlanner(frame, rand.New(rand.NewSource(int64(seed))), logger, newBasicPlannerOptions())
 	if err != nil {
 		return nil, err
 	}
-	return &planManager{p, frame, fs}, nil
+	return &planManager{p, frame, fs, anyPTG}, nil
 }
 
 // PlanSingleWaypoint will solve the solver frame to one individual pose. If you have multiple waypoints to hit, call this multiple times.
@@ -463,6 +483,9 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		if !ok {
 			return nil, errors.New("could not interpret planning_alg field as string")
 		}
+		if pm.useTPspace && planAlg != "" {
+			return nil, fmt.Errorf("cannot specify a planning_alg when planning for a TP-space frame. alg specified was %s", planAlg)
+		}
 		switch planAlg {
 		// TODO(pl): make these consts
 		case "cbirrt":
@@ -475,6 +498,17 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		default:
 			// use default, already set
 		}
+	}
+	if pm.useTPspace {
+		// overwrite default with TP space
+		opt.PlannerConstructor = newTPSpaceMotionPlanner
+		// Distances are computed in cartesian space rather than configuration space
+		opt.DistanceFunc = SquaredNormSegmentMetric
+
+		// TODO: instead of using a default this should be set from the TP frame as a function of the resolution of
+		// the simulated trajectories
+		opt.GoalThreshold = defaultTPSpaceGoalDist
+		planAlg = "tpspace"
 	}
 
 	switch motionProfile {

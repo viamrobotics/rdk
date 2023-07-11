@@ -3,11 +3,8 @@ service:
 run:
   deadline: 900s
   modules-download-mode: readonly
+  skip-dirs-use-default: false
   skip-dirs:
-    - genfiles$
-    - gen$
-    - vendor$
-    - test$
     # TFlite uses FlatBuffer generated code that's ugly
     - ml/inference/tflite_metadata$
     - ml/inference/tflite$
@@ -70,21 +67,17 @@ linters-settings:
   gofumpt:
     lang-version: "1.19"
     extra-rules: true
-  gosec:
-    excludes:
-      - G601
   govet:
     enable-all: true
     disable:
       - fieldalignment
       - shadow
+      - composites
   lll:
     line-length: 140
 issues:
-  exclude:
-    - composites
   exclude-rules:
-    - path: _test\.go$|^tests/|^examples/
+    - path: _test\.go$
       linters:
         - dupword
         - errcheck

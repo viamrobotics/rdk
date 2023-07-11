@@ -89,6 +89,8 @@ func (c *client) Stream(
 	ctx context.Context,
 	errHandlers ...gostream.ErrorHandler,
 ) (gostream.VideoStream, error) {
+	ctx, span := trace.StartSpan(ctx, "camera::client::Stream")
+
 	cancelCtxWithMIME := gostream.WithMIMETypeHint(c.cancelCtx, gostream.MIMETypeHint(ctx, ""))
 	streamCtx, stream, frameCh := gostream.NewMediaStreamForChannel[image.Image](cancelCtxWithMIME)
 
@@ -101,6 +103,9 @@ func (c *client) Stream(
 	c.mu.Unlock()
 
 	goutils.PanicCapturingGo(func() {
+		streamCtx = trace.NewContext(streamCtx, span)
+		defer span.End()
+
 		defer c.activeBackgroundWorkers.Done()
 		defer close(frameCh)
 

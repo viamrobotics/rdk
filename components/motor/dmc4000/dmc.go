@@ -23,7 +23,7 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-// Timeout for Home() and GoTillStop().
+// Timeout for Home().
 const homeTimeout = time.Minute
 
 var model = resource.DefaultModelFamily.WithModel("DMC4000")
@@ -99,7 +99,7 @@ func init() {
 }
 
 // NewMotor returns a DMC4000 driven motor.
-func NewMotor(ctx context.Context, c *Config, name resource.Name, logger golog.Logger) (motor.LocalMotor, error) {
+func NewMotor(ctx context.Context, c *Config, name resource.Name, logger golog.Logger) (motor.Motor, error) {
 	if c.SerialDevice == "" {
 		devs := usb.Search(usbFilter, func(vendorID, productID int) bool {
 			if vendorID == 0x403 && productID == 0x6001 {
@@ -548,50 +548,6 @@ func (m *Motor) GoTo(ctx context.Context, rpm, position float64, extra map[strin
 		time.Millisecond*10,
 		m.isStopped,
 	)
-}
-
-// GoTillStop moves a motor until stopped by the controller (due to switch or function) or stopFunc.
-func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
-	if err := m.Jog(ctx, rpm); err != nil {
-		return err
-	}
-
-	ctx, done := m.opMgr.New(ctx)
-	defer done()
-
-	defer func() {
-		if err := m.Stop(ctx, nil); err != nil {
-			m.c.logger.Error(err)
-		}
-	}()
-
-	startTime := time.Now()
-	for {
-		if !utils.SelectContextOrWait(ctx, 10*time.Millisecond) {
-			return errors.New("context cancelled during GoTillStop")
-		}
-
-		if stopFunc != nil && stopFunc(ctx) {
-			break
-		}
-
-		m.c.mu.Lock()
-		stopped, err := m.isStopped(ctx)
-		m.c.mu.Unlock()
-		if err != nil {
-			return err
-		}
-
-		if stopped {
-			break
-		}
-
-		if time.Since(startTime) >= homeTimeout {
-			return errors.New("timed out during GoTillStop")
-		}
-	}
-
-	return nil
 }
 
 // ResetZeroPosition defines the current position to be zero (+/- offset).

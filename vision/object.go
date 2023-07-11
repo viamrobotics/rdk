@@ -1,6 +1,9 @@
 package vision
 
 import (
+	"errors"
+	"math"
+
 	pc "go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -33,4 +36,15 @@ func NewObjectWithLabel(cloud pc.PointCloud, label string) (*Object, error) {
 func NewEmptyObject() *Object {
 	cloud := pc.New()
 	return &Object{PointCloud: cloud}
+}
+
+// Distance calculates and returns the distance from the center point of the object to the origin.
+func (o *Object) Distance() (float64, error) {
+	if o.Geometry == nil {
+		return -1, errors.New("no geometry object defined for distance formula to be applied")
+	}
+	point := o.Geometry.Pose().Point()
+	dist := math.Pow(point.X, 2) + math.Pow(point.Y, 2) + math.Pow(point.Z, 2)
+	dist = math.Sqrt(dist)
+	return dist, nil
 }

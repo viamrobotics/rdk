@@ -13,6 +13,7 @@ import (
 	"go.viam.com/rdk/services/navigation"
 )
 
+// Model is the full model definition.
 var Model = resource.NewModel("acme", "demo", "mynavigation")
 
 func init() {

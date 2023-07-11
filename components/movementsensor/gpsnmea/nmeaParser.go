@@ -16,25 +16,26 @@ const (
 	kphToMPerSec   = 0.27778
 )
 
-type gpsData struct {
-	location   *geo.Point
-	alt        float64
-	speed      float64 // ground speed in m per sec
-	vDOP       float64 // vertical accuracy
-	hDOP       float64 // horizontal accuracy
-	satsInView int     // quantity satellites in view
-	satsInUse  int     // quantity satellites in view
+// GPSData struct combines various attributes related to GPS.
+type GPSData struct {
+	Location   *geo.Point
+	Alt        float64
+	Speed      float64 // ground speed in m per sec
+	VDOP       float64 // vertical accuracy
+	HDOP       float64 // horizontal accuracy
+	SatsInView int     // quantity satellites in view
+	SatsInUse  int     // quantity satellites in view
 	valid      bool
-	fixQuality int
+	FixQuality int
 }
 
 func errInvalidFix(sentenceType, badFix, goodFix string) error {
 	return errors.Errorf("type %q sentence fix is not valid have: %q  want %q", sentenceType, badFix, goodFix)
 }
 
-// parseAndUpdate will attempt to parse a line to an NMEA sentence, and if valid, will try to update the given struct
+// ParseAndUpdate will attempt to parse a line to an NMEA sentence, and if valid, will try to update the given struct
 // with the values for that line. Nothing will be updated if there is not a valid gps fix.
-func (g *gpsData) parseAndUpdate(line string) error {
+func (g *GPSData) ParseAndUpdate(line string) error {
 	// add parsing to filter out corrupted data
 	ind := strings.Index(line, "$G")
 	if ind == -1 {
@@ -51,7 +52,7 @@ func (g *gpsData) parseAndUpdate(line string) error {
 	// Most receivers support at least the following sentence types: GSV, RMC, GSA, GGA, GLL, VTG, GNS
 	if gsv, ok := s.(nmea.GSV); ok {
 		// GSV provides the number of satellites in view
-		g.satsInView = int(gsv.NumberSVsInView)
+		g.SatsInView = int(gsv.NumberSVsInView)
 	} else if rmc, ok := s.(nmea.RMC); ok {
 		// RMC provides validity, lon/lat, and ground speed.
 		if rmc.Validity == "A" {
@@ -61,8 +62,8 @@ func (g *gpsData) parseAndUpdate(line string) error {
 			errs = multierr.Combine(errs, errInvalidFix(rmc.Type, rmc.Validity, "A"))
 		}
 		if g.valid {
-			g.speed = rmc.Speed * knotsToMPerSec
-			g.location = geo.NewPoint(rmc.Latitude, rmc.Longitude)
+			g.Speed = rmc.Speed * knotsToMPerSec
+			g.Location = geo.NewPoint(rmc.Latitude, rmc.Longitude)
 		}
 	} else if gsa, ok := s.(nmea.GSA); ok {
 		// GSA gives horizontal and vertical accuracy, and also describes the type of lock- invalid, 2d, or 3d.
@@ -74,19 +75,19 @@ func (g *gpsData) parseAndUpdate(line string) error {
 		case "2":
 			// 2d fix, valid lat/lon but invalid alt
 			g.valid = true
-			g.vDOP = -1
+			g.VDOP = -1
 		case "3":
 			// 3d fix
 			g.valid = true
 		}
 		if g.valid {
-			g.vDOP = gsa.VDOP
-			g.hDOP = gsa.HDOP
+			g.VDOP = gsa.VDOP
+			g.HDOP = gsa.HDOP
 		}
-		g.satsInUse = len(gsa.SV)
+		g.SatsInUse = len(gsa.SV)
 	} else if gga, ok := s.(nmea.GGA); ok {
 		// GGA provides validity, lon/lat, altitude, sats in use, and horizontal position error
-		g.fixQuality, err = strconv.Atoi(gga.FixQuality)
+		g.FixQuality, err = strconv.Atoi(gga.FixQuality)
 		if err != nil {
 			return err
 		}
@@ -95,18 +96,18 @@ func (g *gpsData) parseAndUpdate(line string) error {
 			errs = multierr.Combine(errs, errInvalidFix(gga.Type, gga.FixQuality, "1 to 6"))
 		} else {
 			g.valid = true
-			g.location = geo.NewPoint(gga.Latitude, gga.Longitude)
-			g.satsInUse = int(gga.NumSatellites)
-			g.hDOP = gga.HDOP
-			g.alt = gga.Altitude
+			g.Location = geo.NewPoint(gga.Latitude, gga.Longitude)
+			g.SatsInUse = int(gga.NumSatellites)
+			g.HDOP = gga.HDOP
+			g.Alt = gga.Altitude
 		}
 	} else if gll, ok := s.(nmea.GLL); ok {
 		// GLL provides just lat/lon
 		now := toPoint(gll)
-		g.location = now
+		g.Location = now
 	} else if vtg, ok := s.(nmea.VTG); ok {
 		// VTG provides ground speed
-		g.speed = vtg.GroundSpeedKPH * kphToMPerSec
+		g.Speed = vtg.GroundSpeedKPH * kphToMPerSec
 	} else if gns, ok := s.(nmea.GNS); ok {
 		// GNS Provides approximately the same information as GGA
 		for _, mode := range gns.Mode {
@@ -116,15 +117,15 @@ func (g *gpsData) parseAndUpdate(line string) error {
 			}
 		}
 		if g.valid {
-			g.location = geo.NewPoint(gns.Latitude, gns.Longitude)
-			g.satsInUse = int(gns.SVs)
-			g.hDOP = gns.HDOP
-			g.alt = gns.Altitude
+			g.Location = geo.NewPoint(gns.Latitude, gns.Longitude)
+			g.SatsInUse = int(gns.SVs)
+			g.HDOP = gns.HDOP
+			g.Alt = gns.Altitude
 		}
 	}
 
-	if g.location == nil {
-		g.location = geo.NewPoint(math.NaN(), math.NaN())
+	if g.Location == nil {
+		g.Location = geo.NewPoint(math.NaN(), math.NaN())
 		errs = multierr.Combine(errs, errors.New("no location parsed for nmea gps, using default value of lat: NaN, long: NaN"))
 		return errs
 	}

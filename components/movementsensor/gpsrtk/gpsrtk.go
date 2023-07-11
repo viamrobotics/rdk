@@ -55,7 +55,7 @@ type Config struct {
 
 // NtripConfig is used for converting attributes for a correction source.
 type NtripConfig struct {
-	NtripAddr            string `json:"ntrip_addr"`
+	NtripURL             string `json:"ntrip_url"`
 	NtripConnectAttempts int    `json:"ntrip_connect_attempts,omitempty"`
 	NtripMountpoint      string `json:"ntrip_mountpoint,omitempty"`
 	NtripPass            string `json:"ntrip_password,omitempty"`
@@ -192,8 +192,8 @@ func (cfg *SerialConfig) ValidateSerial(path string) error {
 
 // ValidateNtrip ensures all parts of the config are valid.
 func (cfg *NtripConfig) ValidateNtrip(path string) error {
-	if cfg.NtripAddr == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "ntrip_addr")
+	if cfg.NtripURL == "" {
+		return utils.NewConfigValidationFieldRequiredError(path, "ntrip_url")
 	}
 	if cfg.NtripInputProtocol == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "ntrip_input_protocol")
@@ -292,7 +292,7 @@ func newRTKMovementSensor(
 	}
 
 	// Init ntripInfo from attributes
-	g.ntripClient, err = newNtripInfo(newConf.NtripConfig, g.logger)
+	g.ntripClient, err = NewNtripInfo(newConf.NtripConfig, g.logger)
 	if err != nil {
 		return nil, err
 	}

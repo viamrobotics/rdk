@@ -37,9 +37,10 @@ func NewGantry(name resource.Name) gantry.Gantry {
 		resource.TriviallyReconfigurable{},
 		resource.TriviallyCloseable{},
 		[]float64{1.2},
+		[]float64{120},
 		[]float64{5},
-		r3.Vector{1, 0, 0},
 		2,
+		r3.Vector{X: 1, Y: 0, Z: 0},
 	}
 }
 
@@ -48,10 +49,11 @@ type Gantry struct {
 	resource.Named
 	resource.TriviallyReconfigurable
 	resource.TriviallyCloseable
-	positionsMm  []float64
-	lengths      []float64
-	axis         r3.Vector
-	lengthMeters float64
+	positionsMm    []float64
+	speedsMmPerSec []float64
+	lengths        []float64
+	lengthMeters   float64
+	frame          r3.Vector
 }
 
 // Position returns the position in meters.
@@ -64,9 +66,15 @@ func (g *Gantry) Lengths(ctx context.Context, extra map[string]interface{}) ([]f
 	return g.lengths, nil
 }
 
+// Home runs the homing sequence of the gantry and returns true once completed.
+func (g *Gantry) Home(ctx context.Context, extra map[string]interface{}) (bool, error) {
+	return true, nil
+}
+
 // MoveToPosition is in meters.
-func (g *Gantry) MoveToPosition(ctx context.Context, positionsMm []float64, extra map[string]interface{}) error {
+func (g *Gantry) MoveToPosition(ctx context.Context, positionsMm, speedsMmPerSec []float64, extra map[string]interface{}) error {
 	g.positionsMm = positionsMm
+	g.speedsMmPerSec = speedsMmPerSec
 	return nil
 }
 
@@ -83,7 +91,7 @@ func (g *Gantry) IsMoving(ctx context.Context) (bool, error) {
 // ModelFrame returns a Gantry frame.
 func (g *Gantry) ModelFrame() referenceframe.Model {
 	m := referenceframe.NewSimpleModel("")
-	f, err := referenceframe.NewTranslationalFrame(g.Name().ShortName(), g.axis, referenceframe.Limit{0, g.lengthMeters})
+	f, err := referenceframe.NewTranslationalFrame(g.Name().ShortName(), g.frame, referenceframe.Limit{0, g.lengthMeters})
 	if err != nil {
 		panic(fmt.Errorf("error creating frame: %w", err))
 	}
@@ -102,5 +110,5 @@ func (g *Gantry) CurrentInputs(ctx context.Context) ([]referenceframe.Input, err
 
 // GoToInputs moves using the Gantry frames..
 func (g *Gantry) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	return g.MoveToPosition(ctx, referenceframe.InputsToFloats(goal), nil)
+	return g.MoveToPosition(ctx, referenceframe.InputsToFloats(goal), g.speedsMmPerSec, nil)
 }
