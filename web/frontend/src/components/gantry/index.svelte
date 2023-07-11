@@ -6,7 +6,7 @@
   import { displayError } from '@/lib/error';
   import { rcLogConditionally } from '@/lib/log';
   import Collapse from '@/components/collapse.svelte';
-  
+
   export let name: string;
   export let client: Client;
   export let status: {
@@ -18,7 +18,9 @@
     lengths_mm: [],
     positions_mm: [],
   };
-  
+
+  let modifyAll = false;
+
   interface GantryStatus {
     pieces: {
       axis: number,
@@ -26,58 +28,56 @@
       length: number,
     }[]
   }
-  
+
   let modifyAllStatus: GantryStatus = {
     pieces: [],
   };
-  
-  const gantryModifyAllDoMoveToPosition = async () => {
+
+  const gantryModifyAllDoMoveToPosition = () => {
     const gantry = status!;
-    let newList = new Array<number>(gantry.positions_mm.values.length); 
+    const newList: number[] = Array.from({ length: gantry.positions_mm.values.length });
     const newPieces = modifyAllStatus.pieces;
 
-    for (let i = 0; i < newPieces.length; i += 1) {
-      newList[i] = newPieces[i]!.pos
+    for (const [i, newPiece] of newPieces.entries()) {
+      newList[i] = newPiece!.pos;
     }
-  
+
     try {
-      let req = new gantryApi.MoveToPositionRequest();
+      const req = new gantryApi.MoveToPositionRequest();
       req.setName(name);
       req.setPositionsMmList(newList);
-    
+
       rcLogConditionally(req);
       client.gantryService.moveToPosition(req, new grpc.Metadata(), displayError);
     } catch (error) {
       displayError(error as ServiceError);
     }
-  
+
     modifyAll = false;
   };
-  
-  const gantryHome = async () => {
+
+  const gantryHome = () => {
     try {
-      let req = new gantryApi.HomeRequest();
+      const req = new gantryApi.HomeRequest();
       req.setName(name);
-    
+
       rcLogConditionally(req);
       client.gantryService.home(req, new grpc.Metadata(), displayError);
     } catch (error) {
       displayError(error as ServiceError);
     }
   };
-  
+
   $: parts = status.lengths_mm.map((_, index) => ({
     axis: index,
     pos: status.positions_mm[index]!,
     length: status.lengths_mm[index]!,
   }));
-  
+
   $: if (status.lengths_mm.length !== status.positions_mm.length) {
     console.error('gantry lists different lengths');
   }
-  
-  var modifyAll = false
-  
+
   const gantryModifyAll = () => {
     const nextPiece = [];
 
@@ -94,44 +94,44 @@
     };
     modifyAll = true;
   };
-  
+
   const increment = (axis: number, amount: number) => {
     if (!status) {
       return;
     }
-  
+
     const pos: number[] = [];
-  
+
     for (const [i, part] of parts.entries()) {
       pos[i] = part!.pos;
     }
-  
+
     pos[axis] += amount;
-  
+
     const req = new gantryApi.MoveToPositionRequest();
     req.setName(name);
     req.setPositionsMmList(pos);
-  
+
     rcLogConditionally(req);
     client.gantryService.moveToPosition(req, new grpc.Metadata(), displayError);
   };
-  
+
   const stop = () => {
     const req = new gantryApi.StopRequest();
     req.setName(name);
-  
+
     rcLogConditionally(req);
     client.gantryService.stop(req, new grpc.Metadata(), displayError);
   };
-  
+
   </script>
-  
+
   <Collapse title={name}>
     <v-breadcrumbs
       slot="title"
       crumbs="gantry"
     />
-  
+
     <div
       slot="header"
       class="flex items-center justify-between gap-2"
@@ -171,7 +171,7 @@
                 <td class="border border-medium p-2">
                   <input
                     type='number'
-                    bind:value={modifyAllStatus.pieces[i].pos}
+                    value={modifyAllStatus.pieces[i]?.pos}
                     class="
                       w-full py-1.5 px-2 leading-tight text-xs h-[30px] border outline-none appearance-none
                       pl-2.5 bg-white border-light hover:border-medium focus:border-gray-9
@@ -250,4 +250,3 @@
       </div>
     </div>
   </Collapse>
-  
