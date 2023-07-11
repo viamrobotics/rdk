@@ -217,6 +217,66 @@ func TestMoveSingleComponent(t *testing.T) {
 	})
 }
 
+func TestMoveOnMapLongDist(t *testing.T) {
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+	injectSlam := inject.NewSLAMService("test_slam")
+
+	const chunkSizeBytes = 1 * 1024 * 1024
+
+	injectSlam.GetPointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
+		path := filepath.Clean(artifact.MustPath("slam/example_cartographer_outputs/viam-office-02-22-3/pointcloud/pointcloud_4.pcd"))
+		file, err := os.Open(path)
+		if err != nil {
+			return nil, err
+		}
+		chunk := make([]byte, chunkSizeBytes)
+		f := func() ([]byte, error) {
+			bytesRead, err := file.Read(chunk)
+			if err != nil {
+				defer utils.UncheckedErrorFunc(file.Close)
+				return nil, err
+			}
+			return chunk[:bytesRead], err
+		}
+		return f, nil
+	}
+
+	cfg := resource.Config{
+		Name:  "test_base",
+		API:   base.API,
+		Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R: 100}},
+	}
+
+	fakeBase, err := fake.NewBase(ctx, nil, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	ms, err := NewBuiltIn(
+		ctx,
+		resource.Dependencies{injectSlam.Name(): injectSlam, fakeBase.Name(): fakeBase},
+		resource.Config{
+			ConvertedAttributes: &Config{},
+		},
+		logger,
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	// goal x-position of 1.32m is scaled to be in mm
+	goal := spatialmath.NewPoseFromPoint(r3.Vector{X: -51.265 * 1000, Y: -25.172 * 1000})
+
+	path, _, err := ms.(*builtIn).planMoveOnMap(
+		context.Background(),
+		base.Named("test_base"),
+		goal,
+		slam.Named("test_slam"),
+		nil,
+	)
+	test.That(t, err, test.ShouldBeNil)
+	// path of length 2 indicates a path that goes straight through central obstacle
+	test.That(t, len(path), test.ShouldBeGreaterThan, 2)
+	test.That(t, 2, test.ShouldBeGreaterThan, 3)
+}
+
 func TestMoveOnMap(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -277,6 +337,7 @@ func TestMoveOnMap(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		// path of length 2 indicates a path that goes straight through central obstacle
 		test.That(t, len(path), test.ShouldBeGreaterThan, 2)
+		test.That(t, 2, test.ShouldBeGreaterThan, 3)
 	})
 
 	t.Run("ensure success of movement around obstacle", func(t *testing.T) {

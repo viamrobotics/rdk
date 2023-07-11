@@ -527,7 +527,7 @@ func (ms *builtIn) planMoveOnMap(
 	if extra == nil {
 		extra = make(map[string]interface{})
 	}
-	extra["planning_alg"] = "rrtstar"
+	extra["planning_alg"] = "cbirrt"
 
 	// get current position
 	inputs, err := kb.CurrentInputs(ctx)
@@ -559,5 +559,10 @@ func (ms *builtIn) planMoveOnMap(
 		return nil, nil, err
 	}
 	plan, err := motionplan.FrameStepsFromRobotPath(f.Name(), solutionMap)
+
+	for _, pt := range plan {
+		fmt.Printf("%v,%v\n", pt[0].Value, pt[1].Value)
+	}
+
 	return plan, kb, err
 }
