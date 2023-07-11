@@ -58,7 +58,7 @@ func RegisterCustomBoard(modelName string) {
 					return nil, err
 				}
 
-				b, err := genericlinux.NewBoard(ctx, conf.ResourceName().AsNamed(), &newConf.Config, gpioMappings, false, logger)
+				b, err := genericlinux.NewBoard(ctx, conf.ResourceName().AsNamed(), &newConf.Config, gpioMappings, logger)
 				if err != nil {
 					return nil, err
 				}
@@ -95,10 +95,10 @@ func parseBoardConfig(filePath string) ([]genericlinux.PinDefinition, error) {
 		}
 
 		pinDefs[i] = genericlinux.PinDefinition{
-			GPIOChipRelativeIDs: map[int]int{pin.Ngpio: pin.RelativeID}, // ngpio: relative id map
+			GPIOChipRelativeIDs: map[int]int{pin.Ngpio: pin.LineNumber}, // ngpio: relative id map
 			PinNumberBoard:      pinName,
-			PWMChipSysFSDir:     pin.PWMChipSysFSDir,
-			PWMID:               pin.PWMID,
+			PWMChipSysFSDir:     pin.PwmChipSysfsDir,
+			PWMID:               pin.PwmID,
 		}
 	}
 

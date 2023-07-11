@@ -55,7 +55,6 @@ func NewBoard(
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	b := SysfsBoard{
 		Named:         named,
-		usePeriphGpio: usePeriphGpio,
 		gpioMappings:  gpioMappings,
 		logger:        logger,
 		cancelCtx:     cancelCtx,
@@ -63,8 +62,6 @@ func NewBoard(
 
 		spis:    map[string]*spiBus{},
 		analogs: map[string]*wrappedAnalog{},
-		// this is not yet modified during reconfiguration but maybe should be
-		pwms:       map[string]pwmSetting{},
 		i2cs:       map[string]*I2cBus{},
 		gpios:      map[string]*gpioPin{},
 		interrupts: map[string]*digitalInterrupt{},
@@ -367,11 +364,6 @@ type SysfsBoard struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-type pwmSetting struct {
-	dutyCycle gpio.Duty
-	frequency physic.Frequency
-}
-
 // SPIByName returns the SPI by the given name if it exists.
 func (b *SysfsBoard) SPIByName(name string) (board.SPI, bool) {
 	s, ok := b.spis[name]
@@ -392,10 +384,6 @@ func (b *SysfsBoard) AnalogReaderByName(name string) (board.AnalogReader, bool) 
 
 // DigitalInterruptByName returns the interrupt by the given name if it exists.
 func (b *SysfsBoard) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
-	if b.usePeriphGpio {
-		return nil, false // Digital interrupts aren't supported.
-	}
-
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -404,7 +392,6 @@ func (b *SysfsBoard) DigitalInterruptByName(name string) (board.DigitalInterrupt
 		return interrupt.interrupt, true
 	}
 
-	// fmt.Println("create interrupt", b.gpios)
 	// Otherwise, the name is not something we recognize yet. If it appears to be a GPIO pin, we'll
 	// remove its GPIO capabilities and turn it into a digital interrupt.
 	gpio, ok := b.gpios[name]
