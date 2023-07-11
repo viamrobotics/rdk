@@ -1,5 +1,5 @@
 <script lang="ts">
-/* eslint no-use-before-define: 0 */  // --> OFF
+/* eslint-disable require-atomic-updates */
 
 import * as THREE from 'three';
 import { commonApi, type ServiceError } from '@viamrobotics/sdk';
