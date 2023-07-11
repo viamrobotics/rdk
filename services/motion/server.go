@@ -86,13 +86,48 @@ func (server *serviceServer) MoveOnGlobe(ctx context.Context, req *pb.MoveOnGlob
 		}
 		obstacles = append(obstacles, convObst)
 	}
+	// do stuff with motionconfiguration here
+	visionSvc := []resource.Name{}
+	positionPolling := math.NaN()
+	obstaclePolling := math.NaN()
+	planDeviation := math.NaN()
+	replanCostFactor := math.NaN()
 	linear := math.NaN()
-	if req.LinearMetersPerSec != nil {
-		linear = float64(req.GetLinearMetersPerSec())
-	}
 	angular := math.NaN()
-	if req.AngularDegPerSec != nil {
-		angular = float64(req.GetAngularDegPerSec())
+
+	if req.MotionConfiguration != nil {
+		if req.MotionConfiguration.VisionServices != nil {
+			for _, name := range req.MotionConfiguration.GetVisionServices() {
+				visionSvc = append(visionSvc, protoutils.ResourceNameFromProto(name))
+			}
+		}
+		if req.MotionConfiguration.PositionPollingFrequency != nil {
+			positionPolling = float64(req.MotionConfiguration.GetPositionPollingFrequency())
+		}
+		if req.MotionConfiguration.ObstaclePollingFrequency != nil {
+			obstaclePolling = float64(req.MotionConfiguration.GetObstaclePollingFrequency())
+		}
+		if req.MotionConfiguration.PlanDeviationMeters != nil {
+			planDeviation = float64(req.MotionConfiguration.GetPlanDeviationMeters())
+		}
+		if req.MotionConfiguration.ReplanCostFactor != nil {
+			replanCostFactor = float64(req.MotionConfiguration.GetReplanCostFactor())
+		}
+		if req.MotionConfiguration.LinearMetersPerSec != nil {
+			linear = float64(req.MotionConfiguration.GetLinearMetersPerSec())
+		}
+		if req.MotionConfiguration.AngularDegPerSec != nil {
+			angular = float64(req.MotionConfiguration.GetAngularDegPerSec())
+		}
+	}
+	motionCfg := MotionConfiguration{
+		VisionSvc:           visionSvc,
+		PositionPollingFreq: positionPolling,
+		ObstaclePollingFreq: obstaclePolling,
+		PlanDeviationMeters: planDeviation,
+		ReplanCostFactor:    replanCostFactor,
+		LinearMetersPerSec:  linear,
+		AngularMetersPerSec: angular,
 	}
 
 	success, err := svc.MoveOnGlobe(
@@ -102,8 +137,7 @@ func (server *serviceServer) MoveOnGlobe(ctx context.Context, req *pb.MoveOnGlob
 		heading,
 		protoutils.ResourceNameFromProto(req.GetMovementSensorName()),
 		obstacles,
-		linear,
-		angular,
+		motionCfg,
 		req.Extra.AsMap(),
 	)
 	return &pb.MoveOnGlobeResponse{Success: success}, err

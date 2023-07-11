@@ -211,8 +211,7 @@ func (ms *builtIn) MoveOnGlobe(
 	heading float64,
 	movementSensorName resource.Name,
 	obstacles []*spatialmath.GeoObstacle,
-	linearVelocityMillisPerSec float64,
-	angularVelocityDegsPerSec float64,
+	motionCfg motion.MotionConfiguration,
 	extra map[string]interface{},
 ) (bool, error) {
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
@@ -234,8 +233,7 @@ func (ms *builtIn) MoveOnGlobe(
 		dstPIF,
 		localizer,
 		obstacles,
-		linearVelocityMillisPerSec,
-		angularVelocityDegsPerSec,
+		motionCfg,
 		extra,
 	)
 	if err != nil {
@@ -268,8 +266,7 @@ func (ms *builtIn) planMoveOnGlobe(
 	dstPIF *referenceframe.PoseInFrame,
 	localizer motion.Localizer,
 	obstacles []*spatialmath.GeoObstacle,
-	linearVelocityMillisPerSec float64,
-	angularVelocityDegsPerSec float64,
+	motionCfg motion.MotionConfiguration,
 	extra map[string]interface{},
 ) ([]map[string][]referenceframe.Input, kinematicbase.KinematicBase, error) {
 	// create a new empty framesystem which we add our base to
@@ -305,6 +302,8 @@ func (ms *builtIn) planMoveOnGlobe(
 	if fake, ok := b.(*fake.Base); ok {
 		kb, err = kinematicbase.WrapWithFakeKinematics(ctx, fake, localizer, limits)
 	} else {
+		linearVelocityMillisPerSec := motionCfg.LinearMetersPerSec
+		angularVelocityDegsPerSec := motionCfg.AngularMetersPerSec
 		kb, err = kinematicbase.WrapWithKinematics(ctx, b, localizer, limits,
 			linearVelocityMillisPerSec, angularVelocityDegsPerSec)
 	}

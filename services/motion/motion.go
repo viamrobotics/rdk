@@ -47,8 +47,7 @@ type Service interface {
 		heading float64,
 		movementSensorName resource.Name,
 		obstacles []*spatialmath.GeoObstacle,
-		linearVelocity float64,
-		angularVelocity float64,
+		motionConfig MotionConfiguration,
 		extra map[string]interface{},
 	) (bool, error)
 	MoveSingleComponent(
@@ -65,6 +64,18 @@ type Service interface {
 		supplementalTransforms []*referenceframe.LinkInFrame,
 		extra map[string]interface{},
 	) (*referenceframe.PoseInFrame, error)
+}
+
+// TODO: say what this is and does
+type MotionConfiguration struct {
+	VisionSvc           []resource.Name
+	PositionPollingFreq float64
+	ObstaclePollingFreq float64
+	PlanDeviationMeters float64
+	ReplanCostFactor    float64
+	LinearMetersPerSec  float64
+	AngularMetersPerSec float64
+	Extra               interface{}
 }
 
 // SubtypeName is the name of the type of service.
