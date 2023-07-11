@@ -1,10 +1,11 @@
 <script lang="ts">
+/* eslint-disable require-atomic-updates */
 
 import * as THREE from 'three';
 import { commonApi, type ServiceError } from '@viamrobotics/sdk';
 import { copyToClipboard } from '@/lib/copy-to-clipboard';
 import { filterSubtype } from '@/lib/resource';
-import { getPointCloudMap, getSLAMPosition } from '@/api/slam';
+import { getPointCloudMap, getPosition, getLatestMapInfo } from '@/api/slam';
 import { moveOnMap, stopMoveOnMap } from '@/api/motion';
 import { notify } from '@viamrobotics/prime';
 import { setAsyncInterval } from '@/lib/schedule';
@@ -13,7 +14,7 @@ import Collapse from '@/lib/components/collapse.svelte';
 import PCD from '@/components/pcd/pcd-view.svelte';
 import Slam2dRenderer from './2d-renderer.svelte';
 import { useRobotClient, useDisconnect } from '@/hooks/robot-client';
-
+import { Timestamp } from 'google-protobuf/google/protobuf/timestamp_pb';
 export let name: string;
 
 const { robotClient, operations } = useRobotClient();
@@ -29,6 +30,9 @@ let refresh2dRate = 'manual';
 let refresh3dRate = 'manual';
 let pointcloud: Uint8Array | undefined;
 let pose: commonApi.Pose | undefined;
+
+let lastTimestamp = new Timestamp();
+
 let show2d = false;
 let show3d = false;
 let showAxes = true;
@@ -50,11 +54,24 @@ const deleteDestinationMarker = () => {
 };
 
 const refresh2d = async () => {
+
   try {
-    const [map, nextPose] = await Promise.all([
-      getPointCloudMap($robotClient, name),
-      getSLAMPosition($robotClient, name),
-    ]);
+    const mapTimestamp = await getLatestMapInfo($robotClient, name);
+    let nextPose;
+
+    /*
+     * The map timestamp is compared to the last timestamp
+     * to see if a change has been made to the pointcloud map.
+     * A new call to getPointCloudMap is made if an update has occured.
+     */
+    if (mapTimestamp?.getSeconds() === lastTimestamp.getSeconds()) {
+      nextPose = await getPosition($robotClient, name);
+    } else {
+      [pointcloud, nextPose] = await Promise.all([
+        getPointCloudMap($robotClient, name),
+        getPosition($robotClient, name),
+      ]);
+    }
 
     /*
      * The pose is returned in millimeters, but we need
@@ -63,9 +80,10 @@ const refresh2d = async () => {
     nextPose?.setX(nextPose.getX() / 1000);
     nextPose?.setY(nextPose.getY() / 1000);
     nextPose?.setZ(nextPose.getZ() / 1000);
-
-    pointcloud = map;
     pose = nextPose;
+    if (mapTimestamp) {
+      lastTimestamp = mapTimestamp;
+    }
   } catch (error) {
     refreshErrorMessage2d = error !== null && typeof error === 'object' && 'message' in error
       ? `${refreshErrorMessage} ${error.message}`
@@ -75,7 +93,19 @@ const refresh2d = async () => {
 
 const refresh3d = async () => {
   try {
-    pointcloud = await getPointCloudMap($robotClient, name);
+    const mapTimestamp = await getLatestMapInfo($robotClient, name);
+
+    /*
+     * The map timestamp is compared to the last timestamp
+     * to see if a change has been made to the pointcloud map.
+     * A new call to getPointCloudMap is made if an update has occured.
+     */
+    if (mapTimestamp?.getSeconds() !== lastTimestamp.getSeconds()) {
+      pointcloud = await getPointCloudMap($robotClient, name);
+    }
+    if (mapTimestamp) {
+      lastTimestamp = mapTimestamp;
+    }
   } catch (error) {
     refreshErrorMessage3d = error !== null && typeof error === 'object' && 'message' in error
       ? `${refreshErrorMessage} ${error.message}`
