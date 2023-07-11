@@ -1,4 +1,5 @@
 <script lang="ts">
+/* eslint no-use-before-define: 0 */  // --> OFF
 
 import * as THREE from 'three';
 import { commonApi, type ServiceError } from '@viamrobotics/sdk';
