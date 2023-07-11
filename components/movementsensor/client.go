@@ -135,7 +135,6 @@ func (c *client) CompassHeading(ctx context.Context, extra map[string]interface{
 }
 
 func (c *client) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-	// Does not currently go over the network, you cannot call a remote movement sensor's Readings method
 	return Readings(ctx, c, extra)
 }
 

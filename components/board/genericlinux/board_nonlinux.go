@@ -16,7 +16,7 @@ import (
 
 // RegisterBoard would register a sysfs based board of the given model. However, this one never
 // creates a board, and instead returns errors about making a Linux board on a non-Linux OS.
-func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping, usePeriphGpio bool) {
+func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping) {
 	resource.RegisterComponent(
 		board.API,
 		resource.DefaultModelFamily.WithModel(modelName),

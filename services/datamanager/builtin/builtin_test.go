@@ -27,7 +27,6 @@ import (
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 func getInjectedRobot() *inject.Robot {
@@ -96,7 +95,7 @@ func newTestDataManager(t *testing.T) (internal.DMService, robot.Robot) {
 func setupConfig(t *testing.T, relativePath string) (*Config, []string) {
 	t.Helper()
 	logger := golog.NewTestLogger(t)
-	testCfg, err := config.Read(context.Background(), rdkutils.ResolveFile(relativePath), logger)
+	testCfg, err := config.Read(context.Background(), utils.ResolveFile(relativePath), logger)
 	test.That(t, err, test.ShouldBeNil)
 	return getServiceConfig(t, testCfg)
 }
@@ -149,10 +148,9 @@ func TestUntrustedEnv(t *testing.T) {
 func getAllFileInfos(dir string) []os.FileInfo {
 	var files []os.FileInfo
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return nil
-		}
-		if info.IsDir() {
+		if err != nil || info.IsDir() {
+			// ignore errors/unreadable files and directories
+			//nolint:nilerr
 			return nil
 		}
 		files = append(files, info)

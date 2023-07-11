@@ -79,8 +79,8 @@ func GetPossibleCameraPoses(essMat *mat.Dense) ([]*mat.Dense, error) {
 	poses[3].Augment(R2, &tOpp)
 	// adjust sign of poses
 	posesOut := make([]*mat.Dense, 4)
-	for i, pose := range poses {
-		posesOut[i] = mat.DenseCopyOf(adjustPoseSign(&pose))
+	for i := range poses {
+		posesOut[i] = mat.DenseCopyOf(adjustPoseSign(&poses[i]))
 	}
 
 	return posesOut, nil
