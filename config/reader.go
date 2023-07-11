@@ -8,8 +8,11 @@ import (
 	"io"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
+	"regexp"
 	"runtime"
+	"strings"
 
 	"github.com/a8m/envsubst"
 	"github.com/edaniels/golog"
@@ -28,6 +31,11 @@ var (
 	Version     = ""
 	GitRevision = ""
 )
+var placeholderRegexp = regexp.MustCompile(`\$\{[A-Za-z0-9_\.\-]\}`)
+var viamDotDir = filepath.Join(os.Getenv("HOME"), ".viam")
+var packagesDir = filepath.Join(viamDotDir, "packages")
+
+const dataDir = ".data" //harcoded for now
 
 func getAgentInfo() (*apppb.AgentInfo, error) {
 	hostname, err := os.Hostname()
@@ -49,29 +57,150 @@ func getAgentInfo() (*apppb.AgentInfo, error) {
 	}, nil
 }
 
-var viamDotDir = filepath.Join(os.Getenv("HOME"), ".viam")
+// FileReader responsible for converting the raw file into a Config type
+type FileReader struct {
+	// filepath is the filepath of the config
+	Filepath string
+	// config is the output of the reader and what gets manipulated
+	Config *Config
 
-func getCloudCacheFilePath(id string) string {
-	return filepath.Join(viamDotDir, fmt.Sprintf("cached_cloud_config_%s.json", id))
+	fileInBytes      []byte
+	localDataDir     string
+	localPackagesDir string // path.Join(viamDotDir, "packages")
+
+	// CurrentPackages stores a list of valid packages used to try and update placeholders in the
+	// entire config
+	CurrentPackages map[string]string
 }
 
-func readFromCache(id string) (*Config, error) {
-	r, err := os.Open(getCloudCacheFilePath(id))
+// copied from package-manager
+func HashName(f PackageConfig) string {
+	// replace / to avoid a directory path in the name. This will happen with `org/package` format.
+	// also makes the path valid by replacing all the dots with _
+	return fmt.Sprintf("%s-%s", strings.ReplaceAll(f.Package, "/", "-"), HashVersion(f.Version))
+}
+
+func HashVersion(version string) string {
+	// replaces all the . if they exist with _
+	return strings.ReplaceAll(version, ".", "_")
+}
+
+// there are 2 ways that we have configs, from rawfiles or from configs from the cloud
+// these methods do similar things, but in different orders
+
+func replacePlaceholders(bytes []byte, packageMap map[string]string) []byte {
+	// updates all the filepath placeholders with what we think they should be based on the packages
+	updatedBytes := placeholderRegexp.ReplaceAllFunc(bytes, func(b []byte) []byte {
+		updatedPath, ok := packageMap[verifyPlaceholder(string(b[:]))]
+		if !ok {
+			return b
+		}
+
+		return []byte(updatedPath)
+	})
+
+	return updatedBytes
+}
+
+func UpdatePlaceholdersInConfig(config *Config) (*Config, error) {
+	packages := config.Packages
+
+	bytes, err := config.MarshalJSON()
+	if err != nil {
+		return nil, errors.Wrap(err, "cannot marshal config to bytes")
+	}
+	updatedBytes := replacePlaceholders(bytes, mapPlaceholderToSymlink(packages))
+
+	if err := config.UnmarshalJSON(updatedBytes); err != nil {
+		return nil, errors.Wrap(err, "cannot unmarshal bytes into config")
+	}
+	return config, nil
+}
+
+func mapPlaceholderToSymlink(packages []PackageConfig) map[string]string {
+
+	// stores the placeholders <> what they need to be replaced to
+	packageMap := make(map[string]string, len(packages))
+	for _, p := range packages {
+		packageMap[GetPackagePlaceholder(p)] = GenerateSymlinkDir(p)
+	}
+
+	return packageMap
+}
+
+func verifyPlaceholder(placeholder string) string {
+	// if its not a valid placeholder
+	if len(placeholder) < 3 && placeholder[0] != '$' && placeholder[1] != '{' && placeholder[len(placeholder)-1] != '}' {
+		return placeholder
+	}
+
+	// removes the ${} from the placeholder to match on it
+	cleaned := placeholder[2 : len(placeholder)-1]
+	return cleaned
+}
+
+func GenerateConfigFromFile(filepath string) (*Config, error) {
+	r, err := os.Open(filepath)
+	defer utils.UncheckedErrorFunc(r.Close)
+
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to read config from file")
+	}
+
+	bytes, err := io.ReadAll(r)
 	if err != nil {
 		return nil, err
 	}
-	defer utils.UncheckedErrorFunc(r.Close)
+
+	packages, err := GetPackagesFromFile(bytes)
+	if err != nil {
+		return nil, err
+	}
+
+	updatedBytes := replacePlaceholders(bytes, mapPlaceholderToSymlink(packages))
 
 	unprocessedConfig := &Config{
-		ConfigFilePath: "",
+		ConfigFilePath: filepath,
 	}
 
-	if err := json.NewDecoder(r).Decode(unprocessedConfig); err != nil {
-		// clear the cache if we cannot parse the file.
-		clearCache(id)
-		return nil, errors.Wrap(err, "cannot parse the cached config as json")
+	if err = unprocessedConfig.UnmarshalJSON(updatedBytes); err != nil {
+		return nil, errors.Wrap(err, "failed to decode config from json")
 	}
+
 	return unprocessedConfig, nil
+
+}
+
+// SymlinkPath is the one where the actual packages live with the correct versioning
+// if the config is {package: orgID/name, type: MLModel, version: 1} -> this will create a link of root/.viam/packages/ml_model/orgID-name-1
+func GenerateSymlinkDir(config PackageConfig) string {
+	// first get the base root
+	packageType := config.Type
+	if config.Type == "" {
+		// then this is not set and it must be an ml-model for backward compatability
+		packageType = PackageTypeMlModel
+	}
+
+	dir := path.Join(packagesDir, string(packageType), dataDir, HashName(config))
+	return dir
+}
+
+func GetPackagePlaceholder(config PackageConfig) string {
+	// dir := GenerateSymlinkDir(config)
+	// then based on what the structure of the package is, we can match what the replacement should look like
+	return strings.Join([]string{"packages", string(config.Type), config.Name}, ".")
+}
+
+func GetPackagesFromFile(file []byte) ([]PackageConfig, error) {
+	var packages []PackageConfig
+	if err := json.Unmarshal(file, &packages); err != nil {
+		return nil, err
+	}
+	return packages, nil
+}
+
+func getCloudCacheFilePath(id string) string {
+	return filepath.Join(viamDotDir, fmt.Sprintf("cached_cloud_config_%s.json", id))
 }
 
 func storeToCache(id string, cfg *Config) error {
@@ -181,6 +310,11 @@ func readFromCloud(
 		return nil, err
 	}
 
+	// before we process the config from cloud make sure we update placeholders
+	unprocessedConfig, err = UpdatePlaceholdersInConfig(unprocessedConfig)
+	if err != nil {
+		return nil, err
+	}
 	// process the config
 	cfg, err := processConfigFromCloud(unprocessedConfig, logger)
 	if err != nil {
@@ -203,7 +337,7 @@ func readFromCloud(
 		// get cached certificate data
 		// read cached config from fs.
 		// process the config with fromReader() use processed config as cachedConfig to update the cert data.
-		unproccessedCachedConfig, err := readFromCache(cloudCfg.ID)
+		unproccessedCachedConfig, err := GenerateConfigFromFile(getCloudCacheFilePath(cloudCfg.ID))
 		if err == nil {
 			cachedConfig, err := processConfigFromCloud(unproccessedCachedConfig, logger)
 			if err != nil {
@@ -284,6 +418,8 @@ func Read(
 	filePath string,
 	logger golog.Logger,
 ) (*Config, error) {
+	// TODO: This is where we need to create a file reader instead
+	// this will manage how we read the file + this will spit out the config from there
 	buf, err := envsubst.ReadFile(filePath)
 	if err != nil {
 		return nil, err
@@ -327,14 +463,11 @@ func fromReader(
 	shouldReadFromCloud bool,
 ) (*Config, error) {
 	// First read and processes config from disk
-	unprocessedConfig := Config{
-		ConfigFilePath: originalPath,
-	}
-	err := json.NewDecoder(r).Decode(&unprocessedConfig)
+	unprocessedConfig, err := GenerateConfigFromFile(originalPath)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to decode Config from json")
+		return nil, err
 	}
-	cfgFromDisk, err := processConfigLocalConfig(&unprocessedConfig, logger)
+	cfgFromDisk, err := processConfigLocalConfig(unprocessedConfig, logger)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to process Config")
 	}
@@ -513,7 +646,7 @@ func getFromCloudOrCache(ctx context.Context, cloudCfg *Cloud, shouldReadFromCac
 	if err != nil {
 		if shouldReadFromCache && errorShouldCheckCache {
 			logger.Warnw("failed to read config from cloud, checking cache", "error", err)
-			cachedConfig, cacheErr := readFromCache(cloudCfg.ID)
+			cachedConfig, cacheErr := GenerateConfigFromFile(getCloudCacheFilePath(cloudCfg.ID))
 			if cacheErr != nil {
 				if os.IsNotExist(cacheErr) {
 					// Return original http error if failed to load from cache.
@@ -529,6 +662,8 @@ func getFromCloudOrCache(ctx context.Context, cloudCfg *Cloud, shouldReadFromCac
 
 		return nil, cached, err
 	}
+
+	cfg, err = UpdatePlaceholdersInConfig(cfg)
 
 	return cfg, cached, nil
 }

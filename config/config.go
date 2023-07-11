@@ -861,6 +861,13 @@ var packageReferenceRegex = regexp.MustCompile(`^\$\{packages\.([A-Za-z0-9_\/-]+
 // DefaultPackageVersionValue default value of the package version used when empty.
 const DefaultPackageVersionValue = "latest"
 
+type PackageType string
+
+const (
+	PackageTypeMlModel PackageType = "ml_model"
+	PackageTypeModule  PackageType = "module"
+)
+
 // A PackageConfig describes the configuration of a Package.
 type PackageConfig struct {
 	// Name is the local name of the package on the RDK. Must be unique across Packages. Must not be empty.
@@ -869,6 +876,8 @@ type PackageConfig struct {
 	Package string `json:"package"`
 	// Version of the package ID hosted by a remote PackageService. If not specified "latest" is assumed.
 	Version string `json:"version,omitempty"`
+	// Type is the type of package - for backward compatability can be left empty
+	Type PackageType `json:"packageType,omitempty"`
 }
 
 // Validate package config is valid.
