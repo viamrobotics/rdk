@@ -4,9 +4,10 @@ import (
 	"context"
 
 	"go.opencensus.io/trace"
+	"google.golang.org/protobuf/types/known/anypb"
+
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/spatialmath"
-	"google.golang.org/protobuf/types/known/anypb"
 )
 
 type method int64
@@ -26,6 +27,7 @@ func (m method) String() string {
 	return "Unknown"
 }
 
+// Position defines the struct returned by the capturer for GetPosition.
 type Position struct {
 	Pose               spatialmath.Pose
 	ComponentReference string
