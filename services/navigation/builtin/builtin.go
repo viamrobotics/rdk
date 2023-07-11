@@ -428,3 +428,11 @@ func (svc *builtIn) startWaypointExperimental(extra map[string]interface{}) erro
 	})
 	return nil
 }
+
+func (svc *builtIn) GetObstacles(ctx context.Context) ([]spatialmath.GeoObstacle, error) {
+	var obs []spatialmath.GeoObstacle
+	for _, geo := range svc.obstacles {
+		obs = append(obs, *geo)
+	}
+	return obs, nil
+}

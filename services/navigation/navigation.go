@@ -10,6 +10,7 @@ import (
 
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/spatialmath"
 )
 
 func init() {
@@ -42,6 +43,8 @@ type Service interface {
 	Waypoints(ctx context.Context, extra map[string]interface{}) ([]Waypoint, error)
 	AddWaypoint(ctx context.Context, point *geo.Point, extra map[string]interface{}) error
 	RemoveWaypoint(ctx context.Context, id primitive.ObjectID, extra map[string]interface{}) error
+
+	GetObstacles(ctx context.Context) ([]spatialmath.GeoObstacle, error)
 }
 
 // SubtypeName is the name of the type of service.

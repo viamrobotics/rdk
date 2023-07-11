@@ -11,6 +11,7 @@ import (
 
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // serviceServer implements the contract from navigation.proto.
@@ -140,6 +141,25 @@ func (server *serviceServer) RemoveWaypoint(ctx context.Context, req *pb.RemoveW
 		return nil, err
 	}
 	return &pb.RemoveWaypointResponse{}, nil
+}
+
+func (server *serviceServer) GetObstacles(ctx context.Context, req *pb.GetObstaclesRequest) (
+	*pb.GetObstaclesResponse, error,
+) {
+	svc, err := server.coll.Resource(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	obs, err := svc.GetObstacles(ctx)
+	if err != nil {
+		return nil, err
+	}
+	protoObs := []*commonpb.GeoObstacle{}
+	for _, o := range obs {
+		protoO := spatialmath.GeoObstacleToProtobuf(&o)
+		protoObs = append(protoObs, protoO)
+	}
+	return &pb.GetObstaclesResponse{Obstacles: protoObs}, nil
 }
 
 // DoCommand receives arbitrary commands.
