@@ -150,7 +150,7 @@ func (server *serviceServer) GetObstacles(ctx context.Context, req *pb.GetObstac
 	if err != nil {
 		return nil, err
 	}
-	obs, err := svc.GetObstacles(ctx)
+	obs, err := svc.GetObstacles(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}

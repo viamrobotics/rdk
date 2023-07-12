@@ -162,7 +162,7 @@ func (c *client) RemoveWaypoint(ctx context.Context, id primitive.ObjectID, extr
 	return nil
 }
 
-func (c *client) GetObstacles(ctx context.Context) ([]spatialmath.GeoObstacle, error) {
+func (c *client) GetObstacles(ctx context.Context, extra map[string]interface{}) ([]spatialmath.GeoObstacle, error) {
 	req := &pb.GetObstaclesRequest{}
 	resp, err := c.client.GetObstacles(ctx, req)
 	if err != nil {
