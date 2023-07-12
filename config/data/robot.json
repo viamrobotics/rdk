@@ -9,6 +9,54 @@
             "address": "bar"
         }
     ],
+    "modules": [
+        {
+            "name": "my-module",
+            "executable_path": "${packages.modules.my-module}/exec.sh",
+            "log_level": "info"
+        }
+    ],
+    "packages": [
+        {
+            "name": "my-module",
+            "version": "latest",
+            "package": "org/my-module",
+            "type": "module"
+        },
+        {
+            "name": "my-ml-package",
+            "version": "3",
+            "package": "org/my-ml-package",
+            "type": "ml_model"
+        }, 
+        {
+            "name": "cool-package", 
+            "version": "2", 
+            "package": "org/cool-package"
+        }
+    ],
+    "services": [
+        {
+            "attributes": {
+              "label_path": "${packages.ml_models.my-ml-package}/effdetlabels.txt",
+              "num_threads": 1,
+              "model_path": "${packages.ml_models.my-ml-package}/effdet0.tflite"
+            },
+            "name": "face-detection",
+            "type": "mlmodel",
+            "model": "tflite_cpu"
+          }, 
+          {
+            "attributes": {
+              "label_path": "${packages.cool-package}/coollabels.txt",
+              "num_threads": 1,
+              "model_path": "${packages.cool-package}/cool.tflite"
+            },
+            "name": "face-detection",
+            "type": "mlmodel",
+            "model": "tflite_cpu"
+          }
+    ],
     "components": [
         {
             "name": "pieceArm",

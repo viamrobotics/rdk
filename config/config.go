@@ -878,7 +878,7 @@ type PackageConfig struct {
 	// Version of the package ID hosted by a remote PackageService. If not specified "latest" is assumed.
 	Version string `json:"version,omitempty"`
 	// Type is the type of package - for backward compatability can be left empty
-	Type PackageType `json:"packageType,omitempty"`
+	Type PackageType `json:"type,omitempty"`
 }
 
 // Hashnme
@@ -928,6 +928,17 @@ func GetPackageReference(path string) *PackageReference {
 	}
 
 	return &PackageReference{Package: match[1], PathInPackage: match[2]}
+}
+
+func GetPackageDirectoryFromType(packageType PackageType) string {
+	switch packageType {
+	case PackageTypeMlModel:
+		return "ml_models"
+	case PackageTypeModule:
+		return "modules"
+	default:
+		return ""
+	}
 }
 
 // PackageReference contains the deconstructed parts of a package reference in the config.

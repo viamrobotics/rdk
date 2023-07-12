@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -31,6 +33,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+
 	"go.viam.com/rdk/spatialmath"
 	rutils "go.viam.com/rdk/utils"
 )
@@ -988,8 +991,88 @@ func TestGetPackageReference(t *testing.T) {
 	})
 }
 
-func TestPlaceholderReplacement(t *testing.T) {
-	t.Run("Generating package placeholder", func(t *testing.T) {
+func TestReplaceConfigPlaceholders(t *testing.T) {
+	t.Run("replace placeholders in a config", func(t *testing.T) {
+
+		attributes1 := make(rutils.AttributeMap)
+		attributes1["label_path"] = "${packages.old-package}/effdetlabels.txt"
+		attributes1["model_path"] = "${packages.old-package}/effdet0.tflite"
+		attributes1["num_threads"] = 1
+
+		attributes2 := make(rutils.AttributeMap)
+		attributes2["label_path"] = "${packages.ml_models.ml-test}/effdetlabels.txt"
+		attributes2["model_path"] = "${packages.ml_models.ml-test}/effdet0.tflite"
+		attributes2["num_threads"] = 1
+
+		conf := &config.Config{
+			Packages: []config.PackageConfig{
+				{
+					Name:    "ml-test",
+					Type:    config.PackageTypeMlModel,
+					Package: "org/ml-test",
+					Version: "1",
+				},
+				{
+					Name:    "my-great-module",
+					Type:    config.PackageTypeModule,
+					Package: "org/my-great-module",
+					Version: "2",
+				},
+				{
+					Name:    "old-package",
+					Package: "org/old-packge",
+					Version: "3",
+				},
+			},
+			Services: []resource.Config{
+				{
+					Name:       "fake1",
+					API:        resource.NewAPI("rdk", "new", "myapi"),
+					Model:      resource.DefaultModelFamily.WithModel("tflite_cpu"),
+					Attributes: attributes1,
+				},
+				{
+					Name:       "fake1",
+					API:        resource.NewAPI("rdk", "new", "myapi"),
+					Model:      resource.DefaultModelFamily.WithModel("tflite_cpu"),
+					Attributes: attributes2,
+				},
+			},
+			Modules: []config.Module{
+				{
+					Name:    "my-great-module",
+					ExePath: "${packages.modules.my-great-module}/exec.sh",
+				},
+			},
+		}
+
+		err := config.UpdatePlaceholdersInConfig(conf)
+		test.That(t, err, test.ShouldBeNil)
+		var viamDotDir = filepath.Join(os.Getenv("HOME"), ".viam")
+
+		module := conf.Modules[0]
+		moduleExecPath := module.ExePath
+		expectedExecPAth := path.Clean(path.Join(viamDotDir, "packages", "modules", ".data", "org-my-great-module-2", "exec.sh"))
+		test.That(t, moduleExecPath, test.ShouldEqual, expectedExecPAth)
+
+		service := conf.Services[0]
+		test.That(t, service.Attributes.Has("label_path"), test.ShouldBeTrue)
+		test.That(t, service.Attributes.Has("model_path"), test.ShouldBeTrue)
+
+		label_path := service.Attributes.String("label_path")
+		model_path := service.Attributes.String("model_path")
+
+		test.That(t, label_path, test.ShouldEqual, path.Clean(path.Join(viamDotDir, "packages", "old-package", "effdetlabels.txt")))
+		test.That(t, model_path, test.ShouldEqual, path.Clean(path.Join(viamDotDir, "packages", "old-package", "effdet0.tflite")))
+
+		service = conf.Services[1]
+		test.That(t, service.Attributes.Has("label_path"), test.ShouldBeTrue)
+		label_path = service.Attributes.String("label_path")
+		test.That(t, label_path, test.ShouldEqual, path.Clean(path.Join(viamDotDir, "packages", "ml_models", ".data", "org-ml-test-1", "effdetlabels.txt")))
+
+		test.That(t, service.Attributes.Has("model_path"), test.ShouldBeTrue)
+		model_path = service.Attributes.String("model_path")
+		test.That(t, model_path, test.ShouldEqual, path.Clean(path.Join(viamDotDir, "packages", "ml_models", ".data", "org-ml-test-1", "effdet0.tflite")))
 
 	})
 }

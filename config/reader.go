@@ -122,10 +122,13 @@ func GenerateConfigFromFile(filepath string) (*Config, error) {
 	}
 
 	packages, err := getPackagesFromFile(bytes)
+	fmt.Printf("map: %v+\n", packages)
+
 	if err != nil {
 		return nil, err
 	}
 
+	fmt.Printf("map: %v+\n", mapPlaceholderToRealPaths(packages))
 	updatedBytes := updatePlaceholdersInFile(bytes, mapPlaceholderToRealPaths(packages))
 
 	unprocessedConfig := &Config{
@@ -146,22 +149,21 @@ func generateFilePath(config PackageConfig) string {
 
 	// for backwards compatability, packages right now don't have ml_models as a type.
 	// so if that is the case we need to join it right now to packages/../name
-	packageType := config.Type
 	var dir string
 	if config.Type == "" {
 		// then this is not set and it must be an ml-model for backward compatability -- but for now just join it without the type
-		dir = path.Clean(path.Join(viamDotDir, "packages", dataDir, HashName(config)))
+		// package manager will still create symlinks for these packages based on the packges path
+		dir = path.Clean(path.Join(viamDotDir, "packages", config.Name))
 	} else {
-		dir = path.Clean(path.Join(viamDotDir, string(packageType), dataDir, HashName(config)))
+		dir = path.Clean(path.Join(viamDotDir, "packages", GetPackageDirectoryFromType(config.Type), dataDir, HashName(config)))
 	}
 	return dir
 }
 
 func getPackagePlaceholder(config PackageConfig) string {
-	// dir := GenerateSymlinkDir(config)
 	// then based on what the structure of the package is, we can match what the replacement should look like
 	if config.Type != "" {
-		return strings.Join([]string{"packages", string(config.Type), config.Name}, ".")
+		return strings.Join([]string{"packages", GetPackageDirectoryFromType(config.Type), config.Name}, ".")
 	}
 
 	return strings.Join([]string{"packages", config.Name}, ".")
@@ -169,9 +171,19 @@ func getPackagePlaceholder(config PackageConfig) string {
 
 func getPackagesFromFile(file []byte) ([]PackageConfig, error) {
 	var packages []PackageConfig
-	if err := json.Unmarshal(file, &packages); err != nil {
+	var config map[string]json.RawMessage
+
+	if err := json.Unmarshal(file, &config); err != nil {
 		return nil, err
 	}
+
+	if packagesInMap, ok := config["packages"]; ok {
+		if err := json.Unmarshal(packagesInMap, &packages); err != nil {
+			return nil, err
+		}
+
+	}
+
 	return packages, nil
 }
 

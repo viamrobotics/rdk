@@ -3,11 +3,13 @@ package config
 import (
 	"context"
 	"os"
+	"path"
 	"strings"
 	"testing"
 
 	"github.com/edaniels/golog"
 	"github.com/google/uuid"
+
 	"go.viam.com/test"
 )
 
@@ -69,11 +71,11 @@ func TestCacheInvalidation(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// read from cache, should return parse error and remove file
-	_, err = readFromCache(id)
+	_, err = GenerateConfigFromFile(id)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot parse the cached config as json")
 
 	// read from cache again and file should not exist
-	_, err = readFromCache(id)
+	_, err = GenerateConfigFromFile(id)
 	test.That(t, os.IsNotExist(err), test.ShouldBeTrue)
 }
 
@@ -119,4 +121,218 @@ func TestProcessConfig(t *testing.T) {
 	cfg, err := processConfig(&unprocessedConfig, true, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, *cfg, test.ShouldResemble, unprocessedConfig)
+}
+
+func TestPlaceholderReplacement(t *testing.T) {
+	t.Run("Generating package placeholder", func(t *testing.T) {
+		config := PackageConfig{
+			Name: "name",
+		}
+		test.That(t, getPackagePlaceholder(config), test.ShouldEqual, "packages.name")
+
+		config.Type = PackageTypeMlModel
+		test.That(t, getPackagePlaceholder(config), test.ShouldEqual, "packages.ml_models.name")
+
+		config.Type = PackageTypeModule
+		test.That(t, getPackagePlaceholder(config), test.ShouldEqual, "packages.modules.name")
+
+	})
+
+	t.Run("Generate Expected Filepath", func(t *testing.T) {
+		config := PackageConfig{
+			Name:    "name",
+			Package: "org/name",
+			Version: "latest",
+		}
+
+		// can't test the full path because it depends on the root of OS
+		// not sure how that works in CI
+
+		// for backwards compatability will leave this for now
+		expectedPath := path.Join(viamDotDir, "packages", "name")
+		test.That(t, generateFilePath(config), test.ShouldEqual, expectedPath)
+
+		config.Type = PackageTypeMlModel
+		expectedPath = path.Join(viamDotDir, "packages", "ml_models", ".data", "org-name-latest")
+		test.That(t, generateFilePath(config), test.ShouldEqual, expectedPath)
+
+		config.Type = PackageTypeModule
+		expectedPath = path.Join(viamDotDir, "packages", "modules", ".data", "org-name-latest")
+		test.That(t, generateFilePath(config), test.ShouldEqual, expectedPath)
+
+	})
+
+	t.Run("Get Packages from file", func(t *testing.T) {
+
+		fakeConfig := string(`{
+			"services": [
+				  {
+					"type": "mlmodel",
+					"model": "tflite_cpu",
+					"attributes": {
+					  "label_path": "${packages.ml-test}/effdetlabels.txt",
+					  "num_threads": 1,
+					  "model_path": "${packages.ml-test}/effdet0.tflite"
+					},
+					"name": "face-detection"
+				  }
+			],
+			"packages": [
+				  {
+					"name": "ml-test",
+					"version": "latest",
+					"package": "org/ml-test"
+				  }
+			],
+			"components": []
+		}`)
+
+		file := []byte(fakeConfig)
+
+		packages, err := getPackagesFromFile(file)
+		test.That(t, err, test.ShouldBeNil)
+
+		test.That(t, packages, test.ShouldHaveLength, 1)
+		p := packages[0]
+
+		package1 := PackageConfig{
+			Name:    "ml-test",
+			Package: "org/ml-test",
+			Version: "latest",
+		}
+
+		test.That(t, p, test.ShouldResemble, package1)
+
+		fakeConfig = string(`{
+			"services": [
+				  {
+					"type": "mlmodel",
+					"model": "tflite_cpu",
+					"attributes": {
+					  "label_path": "${packages.ml-test}/effdetlabels.txt",
+					  "num_threads": 1,
+					  "model_path": "${packages.ml-test}/effdet0.tflite"
+					},
+					"name": "face-detection"
+				  }
+			],
+			"packages": [
+				  {
+					"name": "ml-test",
+					"version": "latest",
+					"package": "org/ml-test", 
+					"type": "ml_model"
+				  }, 
+				  {
+					"name": "great-module",
+					"version": "latest",
+					"package": "org/great-module",
+					"type": "module"
+
+				  }
+			],
+			"components": []
+		}`)
+
+		package1.Type = PackageTypeMlModel
+		file = []byte(fakeConfig)
+
+		packages, err = getPackagesFromFile(file)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, packages, test.ShouldHaveLength, 2)
+
+		package2 := packages[1]
+		test.That(t, packages[0], test.ShouldResemble, package1)
+		test.That(t, packages[1], test.ShouldResemble, package2)
+
+		// test with no packages
+
+		fakeConfig = string(`{
+			"services": [
+				  {
+					"type": "mlmodel",
+					"model": "tflite_cpu",
+					"attributes": {
+					  "label_path": "${packages.ml-test}/effdetlabels.txt",
+					  "num_threads": 1,
+					  "model_path": "${packages.ml-test}/effdet0.tflite"
+					},
+					"name": "face-detection"
+				  }
+			],
+			"components": []
+		}`)
+
+		file = []byte(fakeConfig)
+
+		packages, err = getPackagesFromFile(file)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, packages, test.ShouldHaveLength, 0)
+
+	})
+
+	t.Run("Map placeholders to paths", func(t *testing.T) {
+		packages := []PackageConfig{
+			{
+				Name:    "ml-test",
+				Type:    PackageTypeMlModel,
+				Package: "org/ml-test",
+				Version: "1",
+			},
+			{
+				Name:    "great-module",
+				Type:    PackageTypeModule,
+				Package: "org/great-module",
+				Version: "2",
+			},
+			{
+				Name:    "old-package",
+				Package: "org/old-packge",
+				Version: "3",
+			},
+		}
+
+		actualMap := mapPlaceholderToRealPaths(packages)
+		expectedMap := make(map[string]string, 3)
+		expectedMap["packages.old_package"] = path.Clean(path.Join(viamDotDir, "packages", "old_package"))
+		expectedMap["packages.ml_models.ml_test"] = path.Clean(path.Join(viamDotDir, "packages", "ml_models", ".data", "org-ml-test-1"))
+		expectedMap["packages.modules.great_module"] = path.Clean(path.Join(viamDotDir, "packages", "modules", ".data", "org-modules-great-module-2"))
+
+		test.That(t, actualMap, test.ShouldResemble, actualMap)
+	})
+
+	t.Run("ReplaceFilePlaceholders", func(t *testing.T) {
+		filepath := "./data/robot.json"
+		config, err := GenerateConfigFromFile(filepath)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, config.Modules, test.ShouldHaveLength, 1)
+		test.That(t, config.Packages, test.ShouldHaveLength, 3)
+		test.That(t, config.Services, test.ShouldHaveLength, 2)
+
+		module := config.Modules[0]
+		moduleExecPath := module.ExePath
+		expectedExecPAth := path.Clean(path.Join(viamDotDir, "packages", "modules", ".data", "org-my-module-latest", "exec.sh"))
+		test.That(t, moduleExecPath, test.ShouldEqual, expectedExecPAth)
+
+		service := config.Services[0]
+		test.That(t, service.Attributes.Has("label_path"), test.ShouldBeTrue)
+		label_path := service.Attributes.String("label_path")
+		test.That(t, label_path, test.ShouldEqual, path.Clean(path.Join(viamDotDir, "packages", "ml_models", ".data", "org-my-ml-package-3", "effdetlabels.txt")))
+
+		test.That(t, service.Attributes.Has("model_path"), test.ShouldBeTrue)
+		model_path := service.Attributes.String("model_path")
+		test.That(t, model_path, test.ShouldEqual, path.Clean(path.Join(viamDotDir, "packages", "ml_models", ".data", "org-my-ml-package-3", "effdet0.tflite")))
+
+		service = config.Services[1]
+		test.That(t, service.Attributes.Has("label_path"), test.ShouldBeTrue)
+		test.That(t, service.Attributes.Has("model_path"), test.ShouldBeTrue)
+
+		label_path = service.Attributes.String("label_path")
+		model_path = service.Attributes.String("model_path")
+
+		test.That(t, label_path, test.ShouldEqual, path.Clean(path.Join(viamDotDir, "packages", "cool-package", "coollabels.txt")))
+		test.That(t, model_path, test.ShouldEqual, path.Clean(path.Join(viamDotDir, "packages", "cool-package", "cool.tflite")))
+
+	})
+
 }
