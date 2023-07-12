@@ -1,4 +1,4 @@
-package radiusclustering
+package obstaclespointcloud
 
 import (
 	"context"
