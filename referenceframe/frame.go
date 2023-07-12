@@ -53,10 +53,10 @@ func RestrictedRandomFrameInputs(m Frame, rSeed *rand.Rand, lim float64, nodeLoc
 		}
 
 		frameSpan := u - l
-		minVal := math.Max(l, nodeLocation[i].Value - frameSpan/2)
-		maxVal := math.Min(u, nodeLocation[i].Value + frameSpan/2)
+		minVal := math.Max(l, nodeLocation[i].Value-lim*frameSpan/2)
+		maxVal := math.Min(u, nodeLocation[i].Value+lim*frameSpan/2)
 		samplingSpan := maxVal - minVal
-		pos = append(pos, Input{lim*(samplingSpan)*rSeed.Float64() + minVal + ((samplingSpan) * (1 - lim) / 2)})
+		pos = append(pos, Input{samplingSpan*rSeed.Float64() + minVal})
 	}
 	return pos, nil
 }
