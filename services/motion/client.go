@@ -108,8 +108,7 @@ func (c *client) MoveOnGlobe(
 	heading float64,
 	movementSensorName resource.Name,
 	obstacles []*spatialmath.GeoObstacle,
-	linearVelocity float64,
-	angularVelocity float64,
+	motionCfg MotionConfiguration,
 	extra map[string]interface{},
 ) (bool, error) {
 	ext, err := vprotoutils.StructToStructPb(extra)
@@ -122,11 +121,12 @@ func (c *client) MoveOnGlobe(
 	}
 
 	req := &pb.MoveOnGlobeRequest{
-		Name:               c.name,
-		ComponentName:      protoutils.ResourceNameToProto(componentName),
-		Destination:        &commonpb.GeoPoint{Latitude: destination.Lat(), Longitude: destination.Lng()},
-		MovementSensorName: protoutils.ResourceNameToProto(movementSensorName),
-		Extra:              ext,
+		Name:                c.name,
+		ComponentName:       protoutils.ResourceNameToProto(componentName),
+		Destination:         &commonpb.GeoPoint{Latitude: destination.Lat(), Longitude: destination.Lng()},
+		MovementSensorName:  protoutils.ResourceNameToProto(movementSensorName),
+		MotionConfiguration: &pb.MotionConfiguration{},
+		Extra:               ext,
 	}
 
 	// Optionals
@@ -144,13 +144,39 @@ func (c *client) MoveOnGlobe(
 		}
 		req.Obstacles = obstaclesProto
 	}
-	reqLinear := float32(linearVelocity)
-	if !math.IsNaN(linearVelocity) {
-		req.LinearMetersPerSec = &reqLinear
+
+	if !math.IsNaN(motionCfg.AngularMetersPerSec) {
+		req.MotionConfiguration.AngularDegPerSec = &motionCfg.AngularMetersPerSec
 	}
-	reqAngular := float32(angularVelocity)
-	if !math.IsNaN(angularVelocity) {
-		req.AngularDegPerSec = &reqAngular
+	if !math.IsNaN(motionCfg.LinearMetersPerSec) {
+		req.MotionConfiguration.LinearMetersPerSec = &motionCfg.LinearMetersPerSec
+	}
+	if !math.IsNaN(motionCfg.ObstaclePollingFreq) {
+		req.MotionConfiguration.ObstaclePollingFrequency = &motionCfg.ObstaclePollingFreq
+	}
+	if !math.IsNaN(motionCfg.PlanDeviationMeters) {
+		req.MotionConfiguration.PlanDeviationMeters = &motionCfg.PlanDeviationMeters
+	}
+	if !math.IsNaN(motionCfg.PositionPollingFreq) {
+		req.MotionConfiguration.PositionPollingFrequency = &motionCfg.PositionPollingFreq
+	}
+	if !math.IsNaN(motionCfg.ReplanCostFactor) {
+		req.MotionConfiguration.ReplanCostFactor = &motionCfg.ReplanCostFactor
+	}
+	if len(motionCfg.VisionSvc) > 0 {
+		svcs := []*commonpb.ResourceName{}
+		for _, name := range motionCfg.VisionSvc {
+			svcs = append(svcs, protoutils.ResourceNameToProto(name))
+		}
+		req.MotionConfiguration.VisionServices = svcs
+	}
+	if motionCfg.Extra != nil {
+		structPB, err := vprotoutils.StructToStructPb(motionCfg.Extra)
+		if err != nil {
+			return false, err
+		}
+		req.MotionConfiguration.Extra = structPB
+
 	}
 
 	resp, err := c.client.MoveOnGlobe(ctx, req)

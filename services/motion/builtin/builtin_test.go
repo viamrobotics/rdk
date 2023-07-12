@@ -10,6 +10,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
+
 	// register.
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
@@ -400,8 +401,7 @@ func TestInjectedMoveOnGlobe(t *testing.T) {
 			math.NaN(),
 			injectedMovementSensor.Name(),
 			nil,
-			math.NaN(),
-			math.NaN(),
+			motion.MotionConfiguration{},
 			motionCfg,
 		)
 		test.That(t, err, test.ShouldBeNil)
@@ -451,8 +451,7 @@ func TestInjectedMoveOnGlobe(t *testing.T) {
 			dstPIF,
 			localizer,
 			[]*spatialmath.GeoObstacle{geoObstacle},
-			defaultLinearVelocityMillisPerSec,
-			defaultAngularVelocityDegsPerSec,
+			motion.MotionConfiguration{},
 			motionCfg,
 		)
 		test.That(t, len(plan), test.ShouldBeGreaterThan, 2)
@@ -475,8 +474,7 @@ func TestInjectedMoveOnGlobe(t *testing.T) {
 			math.NaN(),
 			injectedMovementSensor.Name(),
 			[]*spatialmath.GeoObstacle{geoObstacle},
-			math.NaN(),
-			math.NaN(),
+			motion.MotionConfiguration{},
 			motionCfg,
 		)
 		test.That(t, err, test.ShouldNotBeNil)

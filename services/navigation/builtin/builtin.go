@@ -398,6 +398,10 @@ func (svc *builtIn) startWaypointExperimental(extra map[string]interface{}) erro
 			} else if _, ok := extra["motion_profile"]; !ok {
 				extra["motion_profile"] = "position_only"
 			}
+			motionCfg := motion.MotionConfiguration{
+				LinearMetersPerSec:  svc.metersPerSec,
+				AngularMetersPerSec: svc.degPerSec,
+			}
 
 			goal := wp.ToPoint()
 			_, err := svc.motion.MoveOnGlobe(
@@ -407,8 +411,7 @@ func (svc *builtIn) startWaypointExperimental(extra map[string]interface{}) erro
 				math.NaN(),
 				svc.movementSensor.Name(),
 				svc.obstacles,
-				svc.metersPerSec*1000,
-				svc.degPerSec,
+				motionCfg,
 				extra,
 			)
 			if err != nil {
