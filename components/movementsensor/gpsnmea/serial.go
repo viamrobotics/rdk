@@ -98,7 +98,7 @@ func NewSerialGPSNMEA(ctx context.Context, name resource.Name, conf *Config, log
 }
 
 // Start begins reading nmea messages from module and updates gps data.
-func (g *SerialNMEAMovementSensor) Start(ctx context.Context) error {
+func (g *SerialNMEAMovementSensor) Start(ctx context.Context) error { // doneChan chan bool
 	g.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer g.activeBackgroundWorkers.Done()
@@ -107,6 +107,8 @@ func (g *SerialNMEAMovementSensor) Start(ctx context.Context) error {
 			select {
 			case <-g.cancelCtx.Done():
 				return
+			// case <-doneChan:
+			// 	return
 			default:
 			}
 
@@ -136,7 +138,7 @@ func (g *SerialNMEAMovementSensor) GetCorrectionInfo() (string, uint) {
 	return g.correctionPath, g.correctionBaudRate
 }
 
-//nolint
+// nolint
 // Position position, altitide.
 func (g *SerialNMEAMovementSensor) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
 	lastPosition := g.lastposition.GetLastPosition()

@@ -25,7 +25,7 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-var rtkmodel = resource.DefaultModelFamily.WithModel("gps-rtk-nmea-pmtk")
+var rtkmodel = resource.DefaultModelFamily.WithModel("gps-nmea-rtk-pmtk")
 
 const i2cStr = "i2c"
 
@@ -114,6 +114,34 @@ type rtkI2C struct {
 	addr  byte
 }
 
+func (g *rtkI2C) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+
+	newConf, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return err
+	}
+
+	g.wbaud = newConf.I2CBaudRate
+	g.addr = byte(newConf.I2CAddr)
+
+	b, err := board.FromDependencies(deps, newConf.Board)
+	if err != nil {
+		return fmt.Errorf("gps init: failed to find board: %w", err)
+	}
+	localB, ok := b.(board.LocalBoard)
+	if !ok {
+		return fmt.Errorf("board %s is not local", newConf.Board)
+	}
+
+	i2cbus, ok := localB.I2CByName(newConf.I2CBus)
+	if !ok {
+		return fmt.Errorf("gps init: failed to find i2c bus %s", newConf.I2CBus)
+	}
+	g.bus = i2cbus
+
+	return nil
+}
+
 func newRTKI2C(
 	ctx context.Context,
 	deps resource.Dependencies,
@@ -165,23 +193,9 @@ func newRTKI2C(
 		return nil, err
 	}
 
-	g.wbaud = newConf.I2CBaudRate
-	g.addr = byte(newConf.I2CAddr)
-
-	b, err := board.FromDependencies(deps, newConf.Board)
-	if err != nil {
-		return nil, fmt.Errorf("gps init: failed to find board: %w", err)
+	if err = g.Reconfigure(ctx, deps, conf); err != nil {
+		return nil, err
 	}
-	localB, ok := b.(board.LocalBoard)
-	if !ok {
-		return nil, fmt.Errorf("board %s is not local", newConf.Board)
-	}
-
-	i2cbus, ok := localB.I2CByName(newConf.I2CBus)
-	if !ok {
-		return nil, fmt.Errorf("gps init: failed to find i2c bus %s", newConf.I2CBus)
-	}
-	g.bus = i2cbus
 
 	if err := g.start(); err != nil {
 		return nil, err
@@ -414,7 +428,7 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 	}
 }
 
-//nolint
+// nolint
 // getNtripConnectionStatus returns true if connection to NTRIP stream is OK, false if not.
 func (g *rtkI2C) getNtripConnectionStatus() (bool, error) {
 	g.ntripMu.Lock()
