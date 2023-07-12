@@ -19,8 +19,6 @@
     positions_mm: [],
   };
 
-  let modifyAll = false;
-
   interface GantryStatus {
     pieces: {
       axis: number,
@@ -33,9 +31,11 @@
     pieces: [],
   };
 
+  let modifyAll = false;
+
   const gantryModifyAllDoMoveToPosition = () => {
     const gantry = status!;
-    const newList: number[] = Array.from({ length: gantry.positions_mm.values.length });
+    const newList : number[] = Array.from({ length: gantry.positions_mm.values.length });
     const newPieces = modifyAllStatus.pieces;
 
     for (const [i, newPiece] of newPieces.entries()) {
@@ -163,7 +163,7 @@
         </thead>
         <tbody>
           {#if modifyAll}
-            {#each parts as part, i (part.axis)}
+            {#each modifyAllStatus.pieces as part (part.axis)}
               <tr>
                 <th class="border border-medium p-2">
                   {part.axis}
@@ -171,7 +171,7 @@
                 <td class="border border-medium p-2">
                   <input
                     type='number'
-                    value={modifyAllStatus.pieces[i]?.pos}
+                    bind:value={part.pos}
                     class="
                       w-full py-1.5 px-2 leading-tight text-xs h-[30px] border outline-none appearance-none
                       pl-2.5 bg-white border-light hover:border-medium focus:border-gray-9
