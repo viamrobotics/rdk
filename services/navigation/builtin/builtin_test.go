@@ -233,6 +233,12 @@ func TestCancelWaypoint(t *testing.T) {
 	kinematicBase, err := kinematicbase.WrapWithFakeKinematics(ctx, fake, localizer, limits)
 	test.That(t, err, test.ShouldBeNil)
 
+	injectMovementSensor := inject.NewMovementSensor("test_movement")
+	injectMovementSensor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+		inputs, err := kinematicBase.CurrentInputs(ctx)
+		return geo.NewPoint(inputs[0].Value, inputs[1].Value), 0, err
+	}
+
 	cancelledMoveFunc := false
 	manuallyCancel := make(chan int)
 	injectMS.MoveOnGlobeFunc = func(
@@ -259,72 +265,119 @@ func TestCancelWaypoint(t *testing.T) {
 		}
 	}
 
-	injectMovementSensor := inject.NewMovementSensor("test_movement")
-	injectMovementSensor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
-		inputs, err := kinematicBase.CurrentInputs(ctx)
-		return geo.NewPoint(inputs[0].Value, inputs[1].Value), 0, err
-	}
-
-	ns, err := NewBuiltIn(
-		ctx,
-		resource.Dependencies{injectMS.Name(): injectMS, fakeBase.Name(): fakeBase, injectMovementSensor.Name(): injectMovementSensor},
-		resource.Config{
-			ConvertedAttributes: &Config{
-				Store: navigation.StoreConfig{
-					Type: navigation.StoreTypeMemory,
+	t.Run("Calling SetMode cancels MoveOnGlobe", func(t *testing.T) {
+		ns, err := NewBuiltIn(
+			ctx,
+			resource.Dependencies{injectMS.Name(): injectMS, fakeBase.Name(): fakeBase, injectMovementSensor.Name(): injectMovementSensor},
+			resource.Config{
+				ConvertedAttributes: &Config{
+					Store: navigation.StoreConfig{
+						Type: navigation.StoreTypeMemory,
+					},
+					BaseName:           "test_base",
+					MovementSensorName: "test_movement",
+					MotionServiceName:  "test_motion",
+					DegPerSec:          1,
+					MetersPerSec:       1,
 				},
-				BaseName:           "test_base",
-				MovementSensorName: "test_movement",
-				MotionServiceName:  "test_motion",
-				DegPerSec:          1,
-				MetersPerSec:       1,
 			},
-		},
-		logger,
-	)
-	test.That(t, err, test.ShouldBeNil)
+			logger,
+		)
+		test.That(t, err, test.ShouldBeNil)
 
-	// Test SetMode
-	err = ns.AddWaypoint(ctx, geo.NewPoint(1, 2), nil)
-	test.That(t, err, test.ShouldBeNil)
+		cancelledMoveFunc = false
 
-	err = ns.SetMode(ctx, navigation.ModeWaypoint, map[string]interface{}{"experimental": true})
-	test.That(t, err, test.ShouldBeNil)
-	err = ns.SetMode(ctx, navigation.ModeManual, map[string]interface{}{"experimental": true})
-	test.That(t, err, test.ShouldBeNil)
-	ns.(*builtIn).activeBackgroundWorkers.Wait()
-	test.That(t, cancelledMoveFunc, test.ShouldBeTrue)
+		err = ns.AddWaypoint(ctx, geo.NewPoint(1, 2), nil)
+		test.That(t, err, test.ShouldBeNil)
 
-	// Test RemoveWaypoint
-	cancelledMoveFunc = false
-	err = ns.AddWaypoint(ctx, geo.NewPoint(1, 2), nil)
-	test.That(t, err, test.ShouldBeNil)
-	err = ns.AddWaypoint(ctx, geo.NewPoint(2, 3), nil)
-	test.That(t, err, test.ShouldBeNil)
+		// start navigation
+		err = ns.SetMode(ctx, navigation.ModeWaypoint, map[string]interface{}{"experimental": true})
+		test.That(t, err, test.ShouldBeNil)
+		// change the mode to manual
+		err = ns.SetMode(ctx, navigation.ModeManual, map[string]interface{}{"experimental": true})
+		test.That(t, err, test.ShouldBeNil)
+		ns.(*builtIn).activeBackgroundWorkers.Wait()
+		test.That(t, cancelledMoveFunc, test.ShouldBeTrue)
+	})
 
-	err = ns.SetMode(ctx, navigation.ModeWaypoint, map[string]interface{}{"experimental": true})
-	test.That(t, err, test.ShouldBeNil)
+	t.Run("Calling RemoveWaypoint on the waypoint in progress cancels MoveOnGlobe", func(t *testing.T) {
+		ns, err := NewBuiltIn(
+			ctx,
+			resource.Dependencies{injectMS.Name(): injectMS, fakeBase.Name(): fakeBase, injectMovementSensor.Name(): injectMovementSensor},
+			resource.Config{
+				ConvertedAttributes: &Config{
+					Store: navigation.StoreConfig{
+						Type: navigation.StoreTypeMemory,
+					},
+					BaseName:           "test_base",
+					MovementSensorName: "test_movement",
+					MotionServiceName:  "test_motion",
+					DegPerSec:          1,
+					MetersPerSec:       1,
+				},
+			},
+			logger,
+		)
+		test.That(t, err, test.ShouldBeNil)
 
-	goalWaypoint, err := ns.(*builtIn).nextWaypoint(ctx)
-	test.That(t, err, test.ShouldBeNil)
-	err = ns.RemoveWaypoint(ctx, goalWaypoint.ID, nil)
-	test.That(t, err, test.ShouldBeNil)
-	ns.(*builtIn).activeBackgroundWorkers.Wait()
-	test.That(t, cancelledMoveFunc, test.ShouldBeTrue)
+		cancelledMoveFunc = false
 
-	// Test RemoveWaypoint
-	cancelledMoveFunc = false
-	err = ns.AddWaypoint(ctx, geo.NewPoint(1, 2), nil)
-	test.That(t, err, test.ShouldBeNil)
-	wp, err := ns.(*builtIn).store.AddWaypoint(ctx, geo.NewPoint(99, 99))
-	test.That(t, err, test.ShouldBeNil)
+		err = ns.AddWaypoint(ctx, geo.NewPoint(3, 4), nil)
+		test.That(t, err, test.ShouldBeNil)
+		err = ns.AddWaypoint(ctx, geo.NewPoint(4, 5), nil)
+		test.That(t, err, test.ShouldBeNil)
 
-	err = ns.SetMode(ctx, navigation.ModeWaypoint, map[string]interface{}{"experimental": true})
-	test.That(t, err, test.ShouldBeNil)
+		// start navigation
+		err = ns.SetMode(ctx, navigation.ModeWaypoint, map[string]interface{}{"experimental": true})
+		test.That(t, err, test.ShouldBeNil)
 
-	err = ns.RemoveWaypoint(ctx, wp.ID, nil)
-	test.That(t, err, test.ShouldBeNil)
-	manuallyCancel <- 1
-	ns.(*builtIn).activeBackgroundWorkers.Wait()
-	test.That(t, cancelledMoveFunc, test.ShouldBeFalse)
+		// remove the waypoint in progress
+		goalWaypoint, err := ns.(*builtIn).nextWaypoint(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		err = ns.RemoveWaypoint(ctx, goalWaypoint.ID, nil)
+		test.That(t, err, test.ShouldBeNil)
+		ns.(*builtIn).activeBackgroundWorkers.Wait()
+		test.That(t, cancelledMoveFunc, test.ShouldBeTrue)
+	})
+
+	t.Run("Calling RemoveWaypoint on a waypoint that is not in progress does not cancel MoveOnGlobe", func(t *testing.T) {
+		ns, err := NewBuiltIn(
+			ctx,
+			resource.Dependencies{injectMS.Name(): injectMS, fakeBase.Name(): fakeBase, injectMovementSensor.Name(): injectMovementSensor},
+			resource.Config{
+				ConvertedAttributes: &Config{
+					Store: navigation.StoreConfig{
+						Type: navigation.StoreTypeMemory,
+					},
+					BaseName:           "test_base",
+					MovementSensorName: "test_movement",
+					MotionServiceName:  "test_motion",
+					DegPerSec:          1,
+					MetersPerSec:       1,
+				},
+			},
+			logger,
+		)
+		test.That(t, err, test.ShouldBeNil)
+		cancelledMoveFunc = false
+
+		err = ns.AddWaypoint(ctx, geo.NewPoint(5, 6), nil)
+		test.That(t, err, test.ShouldBeNil)
+		err = ns.AddWaypoint(ctx, geo.NewPoint(6, 7), nil)
+		test.That(t, err, test.ShouldBeNil)
+		wp, err := ns.(*builtIn).store.AddWaypoint(ctx, geo.NewPoint(99, 99))
+		test.That(t, err, test.ShouldBeNil)
+
+		// start navigation
+		err = ns.SetMode(ctx, navigation.ModeWaypoint, map[string]interface{}{"experimental": true})
+		test.That(t, err, test.ShouldBeNil)
+
+		// remove a waypoint that is not in progress
+		err = ns.RemoveWaypoint(ctx, wp.ID, nil)
+		test.That(t, err, test.ShouldBeNil)
+		manuallyCancel <- 1
+		manuallyCancel <- 1
+		ns.(*builtIn).activeBackgroundWorkers.Wait()
+		test.That(t, cancelledMoveFunc, test.ShouldBeFalse)
+	})
 }
