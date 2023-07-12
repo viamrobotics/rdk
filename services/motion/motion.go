@@ -77,7 +77,6 @@ type MotionConfiguration struct {
 	ReplanCostFactor    float64
 	LinearMetersPerSec  float64
 	AngularMetersPerSec float64
-	Extra               interface{}
 }
 
 // SubtypeName is the name of the type of service.

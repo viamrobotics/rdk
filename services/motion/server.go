@@ -86,49 +86,7 @@ func (server *serviceServer) MoveOnGlobe(ctx context.Context, req *pb.MoveOnGlob
 		}
 		obstacles = append(obstacles, convObst)
 	}
-	// do stuff with motionconfiguration here
-	visionSvc := []resource.Name{}
-	positionPolling := math.NaN()
-	obstaclePolling := math.NaN()
-	planDeviation := math.NaN()
-	replanCostFactor := math.NaN()
-	linear := math.NaN()
-	angular := math.NaN()
-
-	if req.MotionConfiguration != nil {
-		if req.MotionConfiguration.VisionServices != nil {
-			for _, name := range req.MotionConfiguration.GetVisionServices() {
-				visionSvc = append(visionSvc, protoutils.ResourceNameFromProto(name))
-			}
-		}
-		if req.MotionConfiguration.PositionPollingFrequency != nil {
-			positionPolling = req.MotionConfiguration.GetPositionPollingFrequency()
-		}
-		if req.MotionConfiguration.ObstaclePollingFrequency != nil {
-			obstaclePolling = req.MotionConfiguration.GetObstaclePollingFrequency()
-		}
-		if req.MotionConfiguration.PlanDeviationMeters != nil {
-			planDeviation = req.MotionConfiguration.GetPlanDeviationMeters()
-		}
-		if req.MotionConfiguration.ReplanCostFactor != nil {
-			replanCostFactor = req.MotionConfiguration.GetReplanCostFactor()
-		}
-		if req.MotionConfiguration.LinearMetersPerSec != nil {
-			linear = req.MotionConfiguration.GetLinearMetersPerSec()
-		}
-		if req.MotionConfiguration.AngularDegPerSec != nil {
-			angular = req.MotionConfiguration.GetAngularDegPerSec()
-		}
-	}
-	motionCfg := MotionConfiguration{
-		VisionSvc:           visionSvc,
-		PositionPollingFreq: positionPolling,
-		ObstaclePollingFreq: obstaclePolling,
-		PlanDeviationMeters: planDeviation,
-		ReplanCostFactor:    replanCostFactor,
-		LinearMetersPerSec:  linear,
-		AngularMetersPerSec: angular,
-	}
+	motionCfg := setupMotionConfiguration(req.MotionConfiguration)
 
 	success, err := svc.MoveOnGlobe(
 		ctx,
@@ -141,6 +99,52 @@ func (server *serviceServer) MoveOnGlobe(ctx context.Context, req *pb.MoveOnGlob
 		req.Extra.AsMap(),
 	)
 	return &pb.MoveOnGlobeResponse{Success: success}, err
+}
+
+func setupMotionConfiguration(motionCfg *pb.MotionConfiguration) MotionConfiguration {
+	visionSvc := []resource.Name{}
+	positionPolling := math.NaN()
+	obstaclePolling := math.NaN()
+	planDeviation := math.NaN()
+	replanCostFactor := math.NaN()
+	linear := math.NaN()
+	angular := math.NaN()
+
+	if motionCfg != nil {
+		if motionCfg.VisionServices != nil {
+			for _, name := range motionCfg.GetVisionServices() {
+				visionSvc = append(visionSvc, protoutils.ResourceNameFromProto(name))
+			}
+		}
+		if motionCfg.PositionPollingFrequency != nil {
+			positionPolling = motionCfg.GetPositionPollingFrequency()
+		}
+		if motionCfg.ObstaclePollingFrequency != nil {
+			obstaclePolling = motionCfg.GetObstaclePollingFrequency()
+		}
+		if motionCfg.PlanDeviationMeters != nil {
+			planDeviation = motionCfg.GetPlanDeviationMeters()
+		}
+		if motionCfg.ReplanCostFactor != nil {
+			replanCostFactor = motionCfg.GetReplanCostFactor()
+		}
+		if motionCfg.LinearMetersPerSec != nil {
+			linear = motionCfg.GetLinearMetersPerSec()
+		}
+		if motionCfg.AngularDegPerSec != nil {
+			angular = motionCfg.GetAngularDegPerSec()
+		}
+	}
+
+	return MotionConfiguration{
+		VisionSvc:           visionSvc,
+		PositionPollingFreq: positionPolling,
+		ObstaclePollingFreq: obstaclePolling,
+		PlanDeviationMeters: planDeviation,
+		ReplanCostFactor:    replanCostFactor,
+		LinearMetersPerSec:  linear,
+		AngularMetersPerSec: angular,
+	}
 }
 
 func (server *serviceServer) MoveSingleComponent(

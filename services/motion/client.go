@@ -170,13 +170,6 @@ func (c *client) MoveOnGlobe(
 		}
 		req.MotionConfiguration.VisionServices = svcs
 	}
-	if motionCfg.Extra != nil {
-		structPB, err := vprotoutils.StructToStructPb(motionCfg.Extra)
-		if err != nil {
-			return false, err
-		}
-		req.MotionConfiguration.Extra = structPB
-	}
 
 	resp, err := c.client.MoveOnGlobe(ctx, req)
 	if err != nil {
