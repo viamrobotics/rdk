@@ -29,14 +29,14 @@ const (
 	metersPerSecDefault = 0.5
 	degPerSecDefault    = 45
 
-	// how far off the path must the robot be to trigger replanning
+	// how far off the path must the robot be to trigger replanning.
 	planDeviationMetersDefault = 1.
 
 	// the allowable quality change between the new plan and the remainder
-	// of the original plan
+	// of the original plan.
 	replanCostFactorDefault = 1.
 
-	// frequency measured in hertz
+	// frequency measured in hertz.
 	obstaclePollingFrequencyDefault = 2
 	positionPollingFrequencyDefault = 2
 )
