@@ -1,22 +1,51 @@
-import { type Client, robotApi } from '@viamrobotics/sdk';
-import { grpc } from '@improbable-eng/grpc-web';
+import type { Client } from '@viamrobotics/sdk';
+import { robotApi } from '@viamrobotics/sdk';
 
-export const fetchCurrentOps = (client: Client) => {
-  const req = new robotApi.GetOperationsRequest();
+export const getOperations = async (robotClient: Client) => {
+  const request = new robotApi.GetOperationsRequest();
 
-  return new Promise<robotApi.Operation.AsObject[]>((resolve, reject) => {
-    client.robotService.getOperations(req, new grpc.Metadata(), (err, response) => {
-      if (err) {
-        reject(err);
-        return;
+  const response = await new Promise<robotApi.GetOperationsResponse | null>((resolve, reject) => {
+    robotClient.robotService.getOperations(request, (error, res) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(res);
       }
-
-      if (!response) {
-        reject(new Error('An unexpected issue occurred.'));
-        return;
-      }
-
-      resolve(response.toObject().operationsList ?? []);
     });
   });
+
+  return response?.toObject().operationsList ?? [];
+};
+
+export const getResourceNames = async (robotClient: Client) => {
+  const request = new robotApi.ResourceNamesRequest();
+
+  const response = await new Promise<robotApi.ResourceNamesResponse | null>((resolve, reject) => {
+    robotClient.robotService.resourceNames(request, (error, res) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(res);
+      }
+    });
+  });
+
+  return response?.toObject().resourcesList ?? [];
+};
+
+export const getSessions = async (robotClient: Client) => {
+  const request = new robotApi.GetSessionsRequest();
+
+  const response = await new Promise<robotApi.GetSessionsResponse | null>((resolve, reject) => {
+    robotClient.robotService.getSessions(request, (error, res) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+
+      resolve(res);
+    });
+  });
+
+  return response?.toObject().sessionsList ?? [];
 };

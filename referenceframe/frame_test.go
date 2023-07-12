@@ -160,7 +160,12 @@ func TestSerializationStatic(t *testing.T) {
 	f2, err := f2if.ToStaticFrame("")
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, f.AlmostEquals(f2), test.ShouldBeTrue)
+	test.That(t, f2.Name(), test.ShouldResemble, f.Name())
+	p1, err := f.Transform(nil)
+	test.That(t, err, test.ShouldBeNil)
+	p2, err := f2.Transform(nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, spatial.PoseAlmostEqual(p1, p2), test.ShouldBeTrue)
 }
 
 func TestSerializationTranslation(t *testing.T) {
@@ -177,7 +182,6 @@ func TestSerializationTranslation(t *testing.T) {
 	f2, err := f2Cfg.ToFrame()
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, f.AlmostEquals(f2), test.ShouldBeTrue)
 	test.That(t, f2, test.ShouldResemble, f)
 }
 
@@ -195,7 +199,6 @@ func TestSerializationRotations(t *testing.T) {
 	f2, err := f2Cfg.ToFrame()
 	test.That(t, err, test.ShouldBeNil)
 
-	// ~ test.That(t, f.AlmostEquals(f2), test.ShouldBeTrue)
 	test.That(t, f2, test.ShouldResemble, f)
 }
 

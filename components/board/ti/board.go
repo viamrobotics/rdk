@@ -22,5 +22,5 @@ func init() {
 		golog.Global().Debugw("error getting ti GPIO board mapping", "error", err)
 	}
 
-	genericlinux.RegisterBoard(modelName, gpioMappings, false)
+	genericlinux.RegisterBoard(modelName, gpioMappings)
 }

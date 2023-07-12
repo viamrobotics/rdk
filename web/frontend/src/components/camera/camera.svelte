@@ -1,24 +1,17 @@
 <script lang="ts">
 
-import { onMount, onDestroy } from 'svelte';
+import { onMount } from 'svelte';
 import { displayError } from '@/lib/error';
-import {
-  CameraClient,
-  Client,
-  type ResponseStream,
-  robotApi,
-  type ServiceError,
-} from '@viamrobotics/sdk';
+import { CameraClient, type ServiceError } from '@viamrobotics/sdk';
 import { selectedMap } from '@/lib/camera-state';
-import type { StreamManager } from './stream-manager';
+import { useRobotClient, useDisconnect } from '@/hooks/robot-client';
 
 export let cameraName: string;
-export let client: Client;
 export let showExportScreenshot: boolean;
 export let refreshRate: string | undefined;
-export let streamManager: StreamManager;
-export let statusStream: ResponseStream<robotApi.StreamStatusResponse> | null;
 export let triggerRefresh = false;
+
+const { robotClient, streamManager } = useRobotClient();
 
 let imgEl: HTMLImageElement;
 let videoEl: HTMLVideoElement;
@@ -26,7 +19,7 @@ let videoEl: HTMLVideoElement;
 let cameraFrameIntervalId = -1;
 let isLive = false;
 
-const cameraManager = streamManager.setCameraManager(cameraName);
+const cameraManager = $streamManager.setCameraManager(cameraName);
 
 const clearFrameInterval = () => {
   window.clearInterval(cameraFrameIntervalId);
@@ -51,7 +44,7 @@ const updateCameraRefreshRate = () => {
 const exportScreenshot = async () => {
   let blob;
   try {
-    blob = await new CameraClient(client, cameraName).renderFrame(
+    blob = await new CameraClient($robotClient, cameraName).renderFrame(
       'image/jpeg'
     );
   } catch (error) {
@@ -63,8 +56,6 @@ const exportScreenshot = async () => {
 };
 
 onMount(() => {
-  statusStream?.on('end', () => clearFrameInterval());
-
   videoEl.srcObject = cameraManager.videoStream;
 
   cameraManager.onOpen = () => {
@@ -72,7 +63,7 @@ onMount(() => {
   };
 });
 
-onDestroy(() => {
+useDisconnect(() => {
   if (isLive) {
     cameraManager.removeStream();
   }

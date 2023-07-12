@@ -2,6 +2,7 @@ package inject
 
 import (
 	"context"
+	"sync"
 
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
@@ -15,6 +16,7 @@ import (
 type MovementSensor struct {
 	movementsensor.MovementSensor
 	name                        resource.Name
+	Mu                          sync.RWMutex
 	PositionFuncExtraCap        map[string]interface{}
 	PositionFunc                func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error)
 	LinearVelocityFuncExtraCap  map[string]interface{}
@@ -67,6 +69,8 @@ func (i *MovementSensor) DoCommand(ctx context.Context, cmd map[string]interface
 
 // Position func or passthrough.
 func (i *MovementSensor) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+	i.Mu.Lock()
+	defer i.Mu.Unlock()
 	if i.PositionFunc == nil {
 		return i.MovementSensor.Position(ctx, extra)
 	}

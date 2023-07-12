@@ -16,14 +16,7 @@ import (
 
 func init() {
 	resource.RegisterDefaultService(sensors.API, resource.DefaultServiceModel, resource.Registration[sensors.Service, resource.NoNativeConfig]{
-		Constructor: func(
-			ctx context.Context,
-			deps resource.Dependencies,
-			conf resource.Config,
-			logger golog.Logger,
-		) (sensors.Service, error) {
-			return NewBuiltIn(ctx, deps, conf, logger)
-		},
+		Constructor: NewBuiltIn,
 		// NOTE(erd): this ideally would be a matcher on all resources that
 		// contain a Readings proto method. However, these resource types
 		// are heterogeneous and do not actually have this proto method.

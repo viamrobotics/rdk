@@ -1,29 +1,23 @@
 <script lang="ts">
+/* eslint-disable require-atomic-updates */
 
-import { onMount, onDestroy } from 'svelte';
 import * as THREE from 'three';
-import {
-  Client,
-  commonApi,
-  type ResponseStream,
-  robotApi,
-  type ServiceError,
-} from '@viamrobotics/sdk';
+import { commonApi, type ServiceError } from '@viamrobotics/sdk';
 import { copyToClipboard } from '@/lib/copy-to-clipboard';
 import { filterSubtype } from '@/lib/resource';
-import { getPointCloudMap, getSLAMPosition } from '@/api/slam';
+import { getPointCloudMap, getPosition, getLatestMapInfo } from '@/api/slam';
 import { moveOnMap, stopMoveOnMap } from '@/api/motion';
 import { notify } from '@viamrobotics/prime';
 import { setAsyncInterval } from '@/lib/schedule';
 import { components } from '@/stores/resources';
-import Collapse from '@/components/collapse.svelte';
+import Collapse from '@/lib/components/collapse.svelte';
 import PCD from '@/components/pcd/pcd-view.svelte';
 import Slam2dRenderer from './2d-renderer.svelte';
-
+import { useRobotClient, useDisconnect } from '@/hooks/robot-client';
+import { Timestamp } from 'google-protobuf/google/protobuf/timestamp_pb';
 export let name: string;
-export let client: Client;
-export let statusStream: ResponseStream<robotApi.StreamStatusResponse> | null;
-export let operations: { op: robotApi.Operation.AsObject; elapsed: number }[];
+
+const { robotClient, operations } = useRobotClient();
 
 const refreshErrorMessage = 'Error refreshing map. The map shown may be stale.';
 
@@ -36,6 +30,9 @@ let refresh2dRate = 'manual';
 let refresh3dRate = 'manual';
 let pointcloud: Uint8Array | undefined;
 let pose: commonApi.Pose | undefined;
+
+let lastTimestamp = new Timestamp();
+
 let show2d = false;
 let show3d = false;
 let showAxes = true;
@@ -43,7 +40,7 @@ let destination: THREE.Vector2 | undefined;
 let labelUnits = 'm';
 
 $: loaded2d = pointcloud !== undefined && pose !== undefined;
-$: moveClicked = operations.find(({ op }) => op.method.includes('MoveOnMap'));
+$: moveClicked = $operations.find(({ op }) => op.method.includes('MoveOnMap'));
 $: unitScale = labelUnits === 'm' ? 1 : 1000;
 
 // get all resources which are bases
@@ -57,11 +54,24 @@ const deleteDestinationMarker = () => {
 };
 
 const refresh2d = async () => {
+
   try {
-    const [map, nextPose] = await Promise.all([
-      getPointCloudMap(client, name),
-      getSLAMPosition(client, name),
-    ]);
+    const mapTimestamp = await getLatestMapInfo($robotClient, name);
+    let nextPose;
+
+    /*
+     * The map timestamp is compared to the last timestamp
+     * to see if a change has been made to the pointcloud map.
+     * A new call to getPointCloudMap is made if an update has occured.
+     */
+    if (mapTimestamp?.getSeconds() === lastTimestamp.getSeconds()) {
+      nextPose = await getPosition($robotClient, name);
+    } else {
+      [pointcloud, nextPose] = await Promise.all([
+        getPointCloudMap($robotClient, name),
+        getPosition($robotClient, name),
+      ]);
+    }
 
     /*
      * The pose is returned in millimeters, but we need
@@ -70,9 +80,10 @@ const refresh2d = async () => {
     nextPose?.setX(nextPose.getX() / 1000);
     nextPose?.setY(nextPose.getY() / 1000);
     nextPose?.setZ(nextPose.getZ() / 1000);
-
-    pointcloud = map;
     pose = nextPose;
+    if (mapTimestamp) {
+      lastTimestamp = mapTimestamp;
+    }
   } catch (error) {
     refreshErrorMessage2d = error !== null && typeof error === 'object' && 'message' in error
       ? `${refreshErrorMessage} ${error.message}`
@@ -82,7 +93,19 @@ const refresh2d = async () => {
 
 const refresh3d = async () => {
   try {
-    pointcloud = await getPointCloudMap(client, name);
+    const mapTimestamp = await getLatestMapInfo($robotClient, name);
+
+    /*
+     * The map timestamp is compared to the last timestamp
+     * to see if a change has been made to the pointcloud map.
+     * A new call to getPointCloudMap is made if an update has occured.
+     */
+    if (mapTimestamp?.getSeconds() !== lastTimestamp.getSeconds()) {
+      pointcloud = await getPointCloudMap($robotClient, name);
+    }
+    if (mapTimestamp) {
+      lastTimestamp = mapTimestamp;
+    }
   } catch (error) {
     refreshErrorMessage3d = error !== null && typeof error === 'object' && 'message' in error
       ? `${refreshErrorMessage} ${error.message}`
@@ -173,7 +196,7 @@ const toggleAxes = () => {
 
 const handleMoveClick = async () => {
   try {
-    await moveOnMap(client, name, bases[0]!.name, destination!.x, destination!.y);
+    await moveOnMap($robotClient, name, bases[0]!.name, destination!.x, destination!.y);
   } catch (error) {
     notify.danger((error as ServiceError).message);
   }
@@ -181,7 +204,7 @@ const handleMoveClick = async () => {
 
 const handleStopMoveClick = async () => {
   try {
-    await stopMoveOnMap(client, operations);
+    await stopMoveOnMap($robotClient, $operations);
   } catch (error) {
     notify.danger((error as ServiceError).message);
   }
@@ -198,14 +221,7 @@ const toggleExpand = (event: CustomEvent<{ open: boolean }>) => {
   }
 };
 
-onMount(() => {
-  statusStream?.on('end', () => {
-    clear2dRefresh?.();
-    clear3dRefresh?.();
-  });
-});
-
-onDestroy(() => {
+useDisconnect(() => {
   clear2dRefresh?.();
   clear3dRefresh?.();
 });

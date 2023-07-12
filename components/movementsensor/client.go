@@ -135,7 +135,6 @@ func (c *client) CompassHeading(ctx context.Context, extra map[string]interface{
 }
 
 func (c *client) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-	// TODO(erh): should this go over the network?
 	return Readings(ctx, c, extra)
 }
 
