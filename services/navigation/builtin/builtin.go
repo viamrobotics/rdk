@@ -344,6 +344,8 @@ func (svc *builtIn) RemoveWaypoint(ctx context.Context, id primitive.ObjectID, e
 	}
 	if goalWaypoint.ID == id {
 		svc.cancelFunc()
+		svc.activeBackgroundWorkers.Wait()
+		svc.cancelCtx, svc.cancelFunc = context.WithCancel(context.Background())
 	}
 	return svc.store.RemoveWaypoint(ctx, id)
 }
