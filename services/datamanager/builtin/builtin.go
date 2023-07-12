@@ -14,6 +14,9 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
+	goutils "go.viam.com/utils"
+	"go.viam.com/utils/rpc"
+
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/internal"
 	"go.viam.com/rdk/internal/cloud"
@@ -23,8 +26,6 @@ import (
 	"go.viam.com/rdk/services/datamanager/datacapture"
 	"go.viam.com/rdk/services/datamanager/datasync"
 	"go.viam.com/rdk/utils"
-	goutils "go.viam.com/utils"
-	"go.viam.com/utils/rpc"
 )
 
 func init() {
@@ -47,7 +48,7 @@ func init() {
 			},
 			// NOTE(erd): this would be better as a weak dependencies returned through a more
 			// typed validate or different system.
-			WeakDependencies: []internal.ResourceMatcher{internal.ComponentDependencyWildcardMatcher},
+			WeakDependencies: []internal.ResourceMatcher{internal.ComponentDependencyWildcardMatcher, internal.SLAMDependencyWildcardMatcher},
 		})
 }
 
@@ -76,7 +77,7 @@ type Config struct {
 	ResourceConfigs       []*datamanager.DataCaptureConfig `json:"resource_configs"`
 }
 
-// components will be depended upon weakly due to the above matcher.
+// Validate returns components which will be depended upon weakly due to the above matcher.
 func (c *Config) Validate(path string) ([]string, error) {
 	return []string{cloud.InternalServiceName.String()}, nil
 }
@@ -218,10 +219,9 @@ func (svc *builtIn) initializeOrUpdateCollector(
 		if storedCollectorAndConfig.Config.Equals(config) {
 			// If the attributes have not changed, do nothing and leave the existing collector.
 			return svc.collectors[md], nil
-		} else {
-			// If the attributes have changed, close the existing collector.
-			storedCollectorAndConfig.Collector.Close()
 		}
+		// If the attributes have changed, close the existing collector.
+		storedCollectorAndConfig.Collector.Close()
 	}
 
 	// Get collector constructor for the component API and method.
@@ -505,7 +505,7 @@ func (svc *builtIn) sync() {
 	}
 }
 
-// nolint
+//nolint
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {

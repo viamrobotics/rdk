@@ -1,25 +1,27 @@
 <script lang="ts">
 
-import { Client, motorApi, MotorClient, type ServiceError } from '@viamrobotics/sdk';
+import { motorApi, MotorClient, type ServiceError } from '@viamrobotics/sdk';
 import { displayError } from '@/lib/error';
 import { rcLogConditionally } from '@/lib/log';
-import Collapse from '../collapse.svelte';
-
-const motorPosFormat = new Intl.NumberFormat(undefined, {
-  maximumFractionDigits: 3,
-});
+import Collapse from '@/lib/components/collapse.svelte';
+import { useRobotClient } from '@/hooks/robot-client';
 
 export let name: string;
-export let client: Client;
 export let status: undefined | {
   is_powered?: boolean
   position?: number
   is_moving?: boolean
 };
 
+const motorPosFormat = new Intl.NumberFormat(undefined, {
+  maximumFractionDigits: 3,
+});
+
+const { robotClient } = useRobotClient();
+
 type MovementTypes = 'go' | 'goFor' | 'goTo';
 
-const motorClient = new MotorClient(client, name, {
+const motorClient = new MotorClient($robotClient, name, {
   requestLogger: rcLogConditionally,
 });
 

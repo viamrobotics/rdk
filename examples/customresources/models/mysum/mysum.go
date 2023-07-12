@@ -12,6 +12,7 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
+// Model is the full model definition.
 var Model = resource.NewModel("acme", "demo", "mysum")
 
 func init() {
@@ -28,7 +29,11 @@ type mySum struct {
 	subtract bool
 }
 
-func newMySum(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger *zap.SugaredLogger) (summationapi.Summation, error) {
+func newMySum(ctx context.Context,
+	deps resource.Dependencies,
+	conf resource.Config,
+	logger *zap.SugaredLogger,
+) (summationapi.Summation, error) {
 	summer := &mySum{
 		Named: conf.ResourceName().AsNamed(),
 	}
@@ -39,7 +44,7 @@ func newMySum(ctx context.Context, deps resource.Dependencies, conf resource.Con
 }
 
 func (m *mySum) Sum(ctx context.Context, nums []float64) (float64, error) {
-	if len(nums) <= 0 {
+	if len(nums) == 0 {
 		return 0, errors.New("must provide at least one number to sum")
 	}
 	var ret float64

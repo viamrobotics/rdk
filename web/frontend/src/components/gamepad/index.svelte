@@ -1,23 +1,17 @@
 <script lang='ts'>
 
-import { grpc } from '@improbable-eng/grpc-web';
-import { onMount, onDestroy } from 'svelte';
+import { onMount } from 'svelte';
 import { Timestamp } from 'google-protobuf/google/protobuf/timestamp_pb';
 import { ConnectionClosedError } from '@viamrobotics/rpc';
-import {
-  Client,
-  inputControllerApi as InputController,
-  type ResponseStream,
-  robotApi,
-  type ServiceError,
-} from '@viamrobotics/sdk';
+import { inputControllerApi as InputController, type ServiceError } from '@viamrobotics/sdk';
 import { notify } from '@viamrobotics/prime';
 import { rcLogConditionally } from '@/lib/log';
-import Collapse from '@/components/collapse.svelte';
+import Collapse from '@/lib/components/collapse.svelte';
+import { useRobotClient, useDisconnect } from '@/hooks/robot-client';
 
 export let name: string;
-export let client: Client;
-export let statusStream: ResponseStream<robotApi.StreamStatusResponse> | null;
+
+const { robotClient } = useRobotClient();
 
 let gamepadIdx: number | null = null;
 let gamepadConnectedPrev = false;
@@ -57,7 +51,7 @@ const sendEvent = (newEvent: InputController.Event) => {
   req.setController(name);
   req.setEvent(newEvent);
   rcLogConditionally(req);
-  client.inputControllerService.triggerEvent(req, new grpc.Metadata(), (error: ServiceError | null) => {
+  $robotClient.inputControllerService.triggerEvent(req, (error: ServiceError | null) => {
     if (error) {
       if (ConnectionClosedError.isError(error)) {
         return;
@@ -255,13 +249,10 @@ onMount(() => {
     return;
   }
   prevStates = { ...prevStates, ...curStates };
-  statusStream?.on('end', () => clearTimeout(handle));
   tick();
 });
 
-onDestroy(() => {
-  clearTimeout(handle);
-});
+useDisconnect(() => clearTimeout(handle));
 
 $: {
   connectEvent(enabled);

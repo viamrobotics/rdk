@@ -1,135 +1,147 @@
 <script lang="ts">
 
-  import { grpc } from '@improbable-eng/grpc-web';
-  import { Client, gantryApi } from '@viamrobotics/sdk';
-  import type { ServiceError } from '@viamrobotics/sdk';
-  import { displayError } from '@/lib/error';
-  import { rcLogConditionally } from '@/lib/log';
-  import Collapse from '@/components/collapse.svelte';
+import { gantryApi } from '@viamrobotics/sdk';
+import { displayError } from '@/lib/error';
+import { rcLogConditionally } from '@/lib/log';
+import Collapse from '@/lib/components/collapse.svelte';
+import { useRobotClient } from '@/hooks/robot-client';
 
-  export let name: string;
-  export let status: {
-    is_moving: boolean
-    lengths_mm: number[]
-    positions_mm: number[]
-  } = {
-    is_moving: false,
-    lengths_mm: [],
-    positions_mm: [],
-  };
-  export let client: Client;
+export let name: string;
+export let status: {
+  is_moving: boolean
+  lengths_mm: number[]
+  positions_mm: number[]
+} = {
+  is_moving: false,
+  lengths_mm: [],
+  positions_mm: [],
+};
 
-  interface GantryStatus {
+interface GantryStatus {
     pieces: {
       axis: number,
       pos: number,
       length: number,
     }[]
+
+const { robotClient } = useRobotClient();
+  
+let modifyAllStatus: GantryStatus = {
+  pieces: [],
+};
+
+let modifyAll = false;
+
+$: parts = status.lengths_mm.map((_, index) => ({
+  axis: index,
+  pos: status.positions_mm[index]!,
+  length: status.lengths_mm[index]!,
+}));
+
+$: if (status.lengths_mm.length !== status.positions_mm.length) {
+  console.error('gantry lists different lengths');
+}
+
+const increment = (axis: number, amount: number) => {
+  if (!status) {
+    return;
   }
 
-  let modifyAllStatus: GantryStatus = {
-    pieces: [],
-  };
+  const pos: number[] = [];
 
-  let modifyAll = false;
-
-  const gantryModifyAllDoMoveToPosition = () => {
-    const gantry = status!;
-    const newList : number[] = Array.from({ length: gantry.positions_mm.values.length });
-    const newPieces = modifyAllStatus.pieces;
-
-    for (const [i, newPiece] of newPieces.entries()) {
-      newList[i] = newPiece!.pos;
-    }
-
-    try {
-      const req = new gantryApi.MoveToPositionRequest();
-      req.setName(name);
-      req.setPositionsMmList(newList);
-
-      rcLogConditionally(req);
-      client.gantryService.moveToPosition(req, new grpc.Metadata(), displayError);
-    } catch (error) {
-      displayError(error as ServiceError);
-    }
-
-    modifyAll = false;
-  };
-
-  const gantryHome = () => {
-    try {
-      const req = new gantryApi.HomeRequest();
-      req.setName(name);
-
-      rcLogConditionally(req);
-      client.gantryService.home(req, new grpc.Metadata(), displayError);
-    } catch (error) {
-      displayError(error as ServiceError);
-    }
-  };
-
-  $: parts = status.lengths_mm.map((_, index) => ({
-    axis: index,
-    pos: status.positions_mm[index]!,
-    length: status.lengths_mm[index]!,
-  }));
-
-  $: if (status.lengths_mm.length !== status.positions_mm.length) {
-    console.error('gantry lists different lengths');
+  for (const [i, part] of parts.entries()) {
+    pos[i] = part!.pos;
   }
 
-  const gantryModifyAll = () => {
-    const nextPiece = [];
+  pos[axis] += amount;
 
-    for (const part of parts) {
-      nextPiece.push({
-        axis: part!.axis,
-        pos: part!.pos,
-        length: part!.length,
-      });
-    }
+  const req = new gantryApi.MoveToPositionRequest();
+  req.setName(name);
+  req.setPositionsMmList(pos);
 
-    modifyAllStatus = {
-      pieces: nextPiece,
-    };
-    modifyAll = true;
-  };
+  rcLogConditionally(req);
+  client.gantryService.moveToPosition(req, new grpc.Metadata(), displayError);
+};
 
-  const increment = (axis: number, amount: number) => {
-    if (!status) {
-      return;
-    }
+const gantryModifyAllDoMoveToPosition = () => {
+  const gantry = status!;
+  const newList : number[] = Array.from({ length: gantry.positions_mm.values.length });
+  const newPieces = modifyAllStatus.pieces;
 
-    const pos: number[] = [];
+  for (const [i, newPiece] of newPieces.entries()) {
+    newList[i] = newPiece!.pos;
+  }
 
-    for (const [i, part] of parts.entries()) {
-      pos[i] = part!.pos;
-    }
-
-    pos[axis] += amount;
-
+  try {
     const req = new gantryApi.MoveToPositionRequest();
     req.setName(name);
-    req.setPositionsMmList(pos);
+    req.setPositionsMmList(newList);
 
     rcLogConditionally(req);
     client.gantryService.moveToPosition(req, new grpc.Metadata(), displayError);
-  };
+  } catch (error) {
+    displayError(error as ServiceError);
+  }
 
-  const stop = () => {
-    const req = new gantryApi.StopRequest();
+  modifyAll = false;
+};
+
+const gantryHome = () => {
+  try {
+    const req = new gantryApi.HomeRequest();
     req.setName(name);
 
     rcLogConditionally(req);
-    client.gantryService.stop(req, new grpc.Metadata(), displayError);
+    client.gantryService.home(req, new grpc.Metadata(), displayError);
+  } catch (error) {
+    displayError(error as ServiceError);
+  }
+};
+
+const gantryModifyAll = () => {
+  const nextPiece = [];
+
+  for (const part of parts) {
+    nextPiece.push({
+      axis: part!.axis,
+      pos: part!.pos,
+      length: part!.length,
+    });
+  }
+
+  modifyAllStatus = {
+    pieces: nextPiece,
   };
+  modifyAll = true;
+};
 
-  </script>
+  
 
-  <Collapse title={name}>
-    <v-breadcrumbs
-      slot="title"
-      crumbs="gantry"
+const stop = () => {
+  const req = new gantryApi.StopRequest();
+  req.setName(name);
+
+  rcLogConditionally(req);
+  client.gantryService.stop(req, new grpc.Metadata(), displayError);
+};
+
+</script>
+
+<Collapse title={name}>
+  <v-breadcrumbs
+    slot="title"
+    crumbs="gantry"
+  />
+
+  <div
+    slot="header"
+    class="flex items-center justify-between gap-2"
+  >
+    <v-button
+      variant="danger"
+      icon="stop-circle"
+      label="Stop"
+      on:click|stopPropagation={stop}
     />
 
     <div

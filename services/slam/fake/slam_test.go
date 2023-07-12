@@ -42,6 +42,22 @@ func TestFakeSLAMGetPosition(t *testing.T) {
 	test.That(t, p, test.ShouldResemble, p2)
 }
 
+func TestFakeSLAMGetLatestMapInfo(t *testing.T) {
+	slamSvc := NewSLAM(slam.Named("test"), golog.NewTestLogger(t))
+
+	timestamp1, err := slamSvc.GetLatestMapInfo(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	timestamp2, err := slamSvc.GetLatestMapInfo(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, timestamp1, test.ShouldResemble, timestamp2)
+
+	_, err = slamSvc.GetPointCloudMap(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	timestamp3, err := slamSvc.GetLatestMapInfo(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, timestamp3.After(timestamp2), test.ShouldBeTrue)
+}
+
 func TestFakeSLAMStateful(t *testing.T) {
 	t.Run("Test getting a PCD map via streaming APIs advances the test data", func(t *testing.T) {
 		orgMaxDataCount := maxDataCount
