@@ -330,6 +330,9 @@ func (ms *builtIn) planMoveOnGlobe(
 	if err != nil {
 		return nil, nil, err
 	}
+	if len(limits) == 2 {
+		inputs = inputs[:2]
+	}
 	inputMap := map[string][]referenceframe.Input{componentName.Name: inputs}
 
 	// Add the kinematic wheeled base to the framesystem
@@ -565,6 +568,9 @@ func (ms *builtIn) planMoveOnMap(
 	inputs, err := kb.CurrentInputs(ctx)
 	if err != nil {
 		return nil, nil, err
+	}
+	if len(limits) == 2 {
+		inputs = inputs[:2]
 	}
 	ms.logger.Debugf("base position: %v", inputs)
 

@@ -35,7 +35,8 @@ func WrapWithFakeKinematics(
 		Base:      b,
 		model:     model,
 		localizer: localizer,
-		inputs:    make([]referenceframe.Input, len(model.DoF())),
+		// inputs:    make([]referenceframe.Input, len(model.DoF())),
+		inputs:    make([]referenceframe.Input, 3),
 	}, nil
 }
 
