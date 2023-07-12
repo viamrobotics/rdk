@@ -142,6 +142,26 @@ func (tp transformPipeline) Read(ctx context.Context) (image.Image, func(), erro
 func (tp transformPipeline) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
 	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::NextPointCloud")
 	defer span.End()
+	// lastElem, ok := tp.pipeline[len(tp.pipeline)-1].(camera.PointCloudSource)
+
+	// tp.pipeline[len(tp.pipeline)-1]
+	// if ok {
+	// 	return lastElem.NextPointCloud(ctx)
+	// }
+	// if lastElem.system == nil || vs.system.PinholeCameraIntrinsics == nil {
+	// 	return nil, transform.NewNoIntrinsicsError("cannot do a projection to a point cloud")
+	// }
+	// img, release, err := vs.videoStream.Next(ctx)
+	// defer release()
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// dm, err := rimage.ConvertImageToDepthMap(ctx, img)
+	// if err != nil {
+	// 	return nil, errors.Wrapf(err, "cannot project to a point cloud")
+	// }
+	// return depthadapter.ToPointCloud(dm, vs.system.PinholeCameraIntrinsics), nil
+
 	if lastElem, ok := tp.pipeline[len(tp.pipeline)-1].(camera.PointCloudSource); ok {
 		pc, err := lastElem.NextPointCloud(ctx)
 		if err != nil {
