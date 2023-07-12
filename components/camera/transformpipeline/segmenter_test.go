@@ -6,20 +6,17 @@ import (
 	"image/color"
 	"testing"
 
-	"go.viam.com/test"
-
 	"github.com/viamrobotics/gostream"
+	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/camera"
 	pc "go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
+	vizservices "go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
-
-	segment "go.viam.com/rdk/vision/segmentation"
-
-	vizservices "go.viam.com/rdk/services/vision"
 	vision "go.viam.com/rdk/vision"
+	segment "go.viam.com/rdk/vision/segmentation"
 )
 
 func TestTransformSegmenter(t *testing.T) {
@@ -28,7 +25,8 @@ func TestTransformSegmenter(t *testing.T) {
 	vizServ := &inject.VisionService{}
 
 	cam.StreamFunc = func(ctx context.Context,
-		errHandlers ...gostream.ErrorHandler) (gostream.MediaStream[image.Image], error) {
+		errHandlers ...gostream.ErrorHandler,
+	) (gostream.MediaStream[image.Image], error) {
 		return &streamTest{}, nil
 	}
 	cam.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
@@ -36,7 +34,8 @@ func TestTransformSegmenter(t *testing.T) {
 	}
 
 	vizServ.GetObjectPointCloudsFunc = func(ctx context.Context, cameraName string,
-		extra map[string]interface{}) ([]*vision.Object, error) {
+		extra map[string]interface{},
+	) ([]*vision.Object, error) {
 		segments := make([]pc.PointCloud, 3)
 		segments[0] = pc.New()
 		err := segments[0].Set(pc.NewVector(0, 0, 1), pc.NewColoredData(color.NRGBA{255, 0, 0, 255}))
@@ -105,7 +104,6 @@ func TestTransformSegmenter(t *testing.T) {
 	test.That(t, isValid, test.ShouldBeTrue)
 
 	transformConf = &transformConfig{
-		Source: "fakeCamera",
 		Pipeline: []Transformation{
 			{Type: "segmentations", Attributes: utils.AttributeMap{
 				"segmenter_name": "fakeVizService",

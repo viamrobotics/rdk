@@ -7,6 +7,7 @@ import (
 
 	"github.com/viamrobotics/gostream"
 	"go.opencensus.io/trace"
+	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/pointcloud"
@@ -15,7 +16,6 @@ import (
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
-	goutils "go.viam.com/utils"
 )
 
 // segmenterConfig is the attribute struct for segementers (their name as found in the vision service).
@@ -75,7 +75,7 @@ func (cfg *segmenterConfig) Validate(path string) ([]string, error) {
 	return deps, nil
 }
 
-// NextPointCloud function calls a segmenter service on the underlying camera and returns a pointcloud
+// NextPointCloud function calls a segmenter service on the underlying camera and returns a pointcloud.
 func (ss *segmenterSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
 	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::segmenter::NextPointCloud")
 	defer span.End()
@@ -108,7 +108,7 @@ func (ss *segmenterSource) NextPointCloud(ctx context.Context) (pointcloud.Point
 	return mergedCloud, nil
 }
 
-// Read returns the image if the stream is valid, else error
+// Read returns the image if the stream is valid, else error.
 func (ss *segmenterSource) Read(ctx context.Context) (image.Image, func(), error) {
 	img, release, err := ss.stream.Next(ctx)
 	if err != nil {
@@ -117,7 +117,7 @@ func (ss *segmenterSource) Read(ctx context.Context) (image.Image, func(), error
 	return img, release, nil
 }
 
-// Close closes the underlying stream
+// Close closes the underlying stream.
 func (ss *segmenterSource) Close(ctx context.Context) error {
 	return ss.stream.Close(ctx)
 }
