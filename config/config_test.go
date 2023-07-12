@@ -987,3 +987,9 @@ func TestGetPackageReference(t *testing.T) {
 			&config.PackageReference{Package: "some-package", PathInPackage: ""})
 	})
 }
+
+func TestPlaceholderReplacement(t *testing.T) {
+	t.Run("Generating package placeholder", func(t *testing.T) {
+
+	})
+}

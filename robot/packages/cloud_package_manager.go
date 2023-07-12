@@ -225,7 +225,7 @@ func (m *cloudManager) Cleanup(ctx context.Context) error {
 		if f.Type()&os.ModeSymlink == os.ModeSymlink {
 			// if managed skip removing package
 			if p, ok := m.managedPackages[PackageName(f.Name())]; ok {
-				knownPackages[hashName(p.thePackage)] = true
+				knownPackages[config.HashName(p.thePackage)] = true
 				continue
 			}
 
@@ -498,11 +498,11 @@ func (m *cloudManager) unpackFile(ctx context.Context, fromFile, toDir string) e
 }
 
 func (m *cloudManager) localDownloadPath(p config.PackageConfig) string {
-	return filepath.Join(m.packagesDataDir, fmt.Sprintf("%s.download", hashName(p)))
+	return filepath.Join(m.packagesDataDir, fmt.Sprintf("%s.download", config.HashName(p)))
 }
 
 func (m *cloudManager) localDataPath(p config.PackageConfig) string {
-	return filepath.Join(m.packagesDataDir, hashName(p))
+	return filepath.Join(m.packagesDataDir, config.HashName(p))
 }
 
 func (m *cloudManager) localNamedPath(p config.PackageConfig) string {
@@ -525,11 +525,6 @@ func getGoogleHash(headers http.Header, hashType string) string {
 
 func crc32Hash() hash.Hash32 {
 	return crc32.New(crc32.MakeTable(crc32.Castagnoli))
-}
-
-func hashName(f config.PackageConfig) string {
-	// replace / to avoid a directory path in the name. This will happen with `org/package` format.
-	return fmt.Sprintf("%s-%s", strings.ReplaceAll(f.Package, "/", "-"), f.Version)
 }
 
 // safeJoin performs a filepath.Join of 'parent' and 'subdir' but returns an error

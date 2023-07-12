@@ -8,6 +8,7 @@ import (
 	"net"
 	"reflect"
 	"regexp"
+	"strings"
 	"sync"
 	"time"
 
@@ -878,6 +879,18 @@ type PackageConfig struct {
 	Version string `json:"version,omitempty"`
 	// Type is the type of package - for backward compatability can be left empty
 	Type PackageType `json:"packageType,omitempty"`
+}
+
+// Hashnme
+func HashName(f PackageConfig) string {
+	// replace / to avoid a directory path in the name. This will happen with `org/package` format.
+	// also makes the path valid by replacing all the dots with _
+	return fmt.Sprintf("%s-%s", strings.ReplaceAll(f.Package, "/", "-"), HashVersion(f.Version))
+}
+
+func HashVersion(version string) string {
+	// replaces all the . if they exist with _
+	return strings.ReplaceAll(version, ".", "_")
 }
 
 // Validate package config is valid.

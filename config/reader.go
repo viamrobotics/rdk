@@ -31,9 +31,9 @@ var (
 	Version     = ""
 	GitRevision = ""
 )
-var placeholderRegexp = regexp.MustCompile(`\$\{[A-Za-z0-9_\.\-]\}`)
+var placeholderRegexp = regexp.MustCompile(`\$\{[A-Za-z0-9_\.\-]+\}`)
+var verifyPlaceholderRegexp = regexp.MustCompile(`^\$\{([A-Za-z0-9_\.\-]+)\}$`)
 var viamDotDir = filepath.Join(os.Getenv("HOME"), ".viam")
-var packagesDir = filepath.Join(viamDotDir, "packages")
 
 const dataDir = ".data" //harcoded for now
 
@@ -57,38 +57,7 @@ func getAgentInfo() (*apppb.AgentInfo, error) {
 	}, nil
 }
 
-// FileReader responsible for converting the raw file into a Config type
-type FileReader struct {
-	// filepath is the filepath of the config
-	Filepath string
-	// config is the output of the reader and what gets manipulated
-	Config *Config
-
-	fileInBytes      []byte
-	localDataDir     string
-	localPackagesDir string // path.Join(viamDotDir, "packages")
-
-	// CurrentPackages stores a list of valid packages used to try and update placeholders in the
-	// entire config
-	CurrentPackages map[string]string
-}
-
-// copied from package-manager
-func HashName(f PackageConfig) string {
-	// replace / to avoid a directory path in the name. This will happen with `org/package` format.
-	// also makes the path valid by replacing all the dots with _
-	return fmt.Sprintf("%s-%s", strings.ReplaceAll(f.Package, "/", "-"), HashVersion(f.Version))
-}
-
-func HashVersion(version string) string {
-	// replaces all the . if they exist with _
-	return strings.ReplaceAll(version, ".", "_")
-}
-
-// there are 2 ways that we have configs, from rawfiles or from configs from the cloud
-// these methods do similar things, but in different orders
-
-func replacePlaceholders(bytes []byte, packageMap map[string]string) []byte {
+func updatePlaceholdersInFile(bytes []byte, packageMap map[string]string) []byte {
 	// updates all the filepath placeholders with what we think they should be based on the packages
 	updatedBytes := placeholderRegexp.ReplaceAllFunc(bytes, func(b []byte) []byte {
 		updatedPath, ok := packageMap[verifyPlaceholder(string(b[:]))]
@@ -102,27 +71,27 @@ func replacePlaceholders(bytes []byte, packageMap map[string]string) []byte {
 	return updatedBytes
 }
 
-func UpdatePlaceholdersInConfig(config *Config) (*Config, error) {
+func UpdatePlaceholdersInConfig(config *Config) error {
 	packages := config.Packages
 
 	bytes, err := config.MarshalJSON()
 	if err != nil {
-		return nil, errors.Wrap(err, "cannot marshal config to bytes")
+		return errors.Wrap(err, "cannot marshal config to bytes")
 	}
-	updatedBytes := replacePlaceholders(bytes, mapPlaceholderToSymlink(packages))
+	updatedBytes := updatePlaceholdersInFile(bytes, mapPlaceholderToRealPaths(packages))
 
 	if err := config.UnmarshalJSON(updatedBytes); err != nil {
-		return nil, errors.Wrap(err, "cannot unmarshal bytes into config")
+		return errors.Wrap(err, "cannot unmarshal bytes into config")
 	}
-	return config, nil
+	return nil
 }
 
-func mapPlaceholderToSymlink(packages []PackageConfig) map[string]string {
+func mapPlaceholderToRealPaths(packages []PackageConfig) map[string]string {
 
 	// stores the placeholders <> what they need to be replaced to
 	packageMap := make(map[string]string, len(packages))
 	for _, p := range packages {
-		packageMap[GetPackagePlaceholder(p)] = GenerateSymlinkDir(p)
+		packageMap[getPackagePlaceholder(p)] = generateFilePath(p)
 	}
 
 	return packageMap
@@ -130,13 +99,13 @@ func mapPlaceholderToSymlink(packages []PackageConfig) map[string]string {
 
 func verifyPlaceholder(placeholder string) string {
 	// if its not a valid placeholder
-	if len(placeholder) < 3 && placeholder[0] != '$' && placeholder[1] != '{' && placeholder[len(placeholder)-1] != '}' {
+	match := verifyPlaceholderRegexp.FindStringSubmatch(placeholder)
+	if len(match) < 2 {
+		// just returns the normal one because we couldn't find a match
 		return placeholder
 	}
 
-	// removes the ${} from the placeholder to match on it
-	cleaned := placeholder[2 : len(placeholder)-1]
-	return cleaned
+	return match[1]
 }
 
 func GenerateConfigFromFile(filepath string) (*Config, error) {
@@ -152,12 +121,12 @@ func GenerateConfigFromFile(filepath string) (*Config, error) {
 		return nil, err
 	}
 
-	packages, err := GetPackagesFromFile(bytes)
+	packages, err := getPackagesFromFile(bytes)
 	if err != nil {
 		return nil, err
 	}
 
-	updatedBytes := replacePlaceholders(bytes, mapPlaceholderToSymlink(packages))
+	updatedBytes := updatePlaceholdersInFile(bytes, mapPlaceholderToRealPaths(packages))
 
 	unprocessedConfig := &Config{
 		ConfigFilePath: filepath,
@@ -171,27 +140,34 @@ func GenerateConfigFromFile(filepath string) (*Config, error) {
 
 }
 
-// SymlinkPath is the one where the actual packages live with the correct versioning
-// if the config is {package: orgID/name, type: MLModel, version: 1} -> this will create a link of root/.viam/packages/ml_model/orgID-name-1
-func GenerateSymlinkDir(config PackageConfig) string {
+// if the config is {package: orgID/name, type: module, version: 1} -> this will create a link of root/.viam/module/.data/orgID-name-1
+func generateFilePath(config PackageConfig) string {
 	// first get the base root
-	packageType := config.Type
-	if config.Type == "" {
-		// then this is not set and it must be an ml-model for backward compatability
-		packageType = PackageTypeMlModel
-	}
 
-	dir := path.Join(packagesDir, string(packageType), dataDir, HashName(config))
+	// for backwards compatability, packages right now don't have ml_models as a type.
+	// so if that is the case we need to join it right now to packages/../name
+	packageType := config.Type
+	var dir string
+	if config.Type == "" {
+		// then this is not set and it must be an ml-model for backward compatability -- but for now just join it without the type
+		dir = path.Clean(path.Join(viamDotDir, "packages", dataDir, HashName(config)))
+	} else {
+		dir = path.Clean(path.Join(viamDotDir, string(packageType), dataDir, HashName(config)))
+	}
 	return dir
 }
 
-func GetPackagePlaceholder(config PackageConfig) string {
+func getPackagePlaceholder(config PackageConfig) string {
 	// dir := GenerateSymlinkDir(config)
 	// then based on what the structure of the package is, we can match what the replacement should look like
-	return strings.Join([]string{"packages", string(config.Type), config.Name}, ".")
+	if config.Type != "" {
+		return strings.Join([]string{"packages", string(config.Type), config.Name}, ".")
+	}
+
+	return strings.Join([]string{"packages", config.Name}, ".")
 }
 
-func GetPackagesFromFile(file []byte) ([]PackageConfig, error) {
+func getPackagesFromFile(file []byte) ([]PackageConfig, error) {
 	var packages []PackageConfig
 	if err := json.Unmarshal(file, &packages); err != nil {
 		return nil, err
@@ -311,8 +287,7 @@ func readFromCloud(
 	}
 
 	// before we process the config from cloud make sure we update placeholders
-	unprocessedConfig, err = UpdatePlaceholdersInConfig(unprocessedConfig)
-	if err != nil {
+	if err = UpdatePlaceholdersInConfig(unprocessedConfig); err != nil {
 		return nil, err
 	}
 	// process the config
@@ -663,7 +638,9 @@ func getFromCloudOrCache(ctx context.Context, cloudCfg *Cloud, shouldReadFromCac
 		return nil, cached, err
 	}
 
-	cfg, err = UpdatePlaceholdersInConfig(cfg)
+	if err = UpdatePlaceholdersInConfig(cfg); err != nil {
+		return nil, cached, err
+	}
 
 	return cfg, cached, nil
 }
