@@ -849,6 +849,11 @@ func (manager *resourceManager) updateResources(
 			break
 		}
 
+		// this is done in config validation but partial start rules require us to check again
+		if err := p.Validate(""); err != nil {
+			manager.logger.Errorw("process config validation error; skipping", "process", p.Name, "error", err)
+			continue
+		}
 		_, err := manager.processManager.AddProcessFromConfig(ctx, p)
 		if err != nil {
 			manager.logger.Errorw("error while adding process; skipping", "process", p.ID, "error", err)
@@ -873,6 +878,11 @@ func (manager *resourceManager) updateResources(
 		// Remove processConfig from map in case re-addition fails.
 		delete(manager.processConfigs, p.ID)
 
+		// this is done in config validation but partial start rules require us to check again
+		if err := p.Validate(""); err != nil {
+			manager.logger.Errorw("process config validation error; skipping", "process", p.Name, "error", err)
+			continue
+		}
 		_, err := manager.processManager.AddProcessFromConfig(ctx, p)
 		if err != nil {
 			manager.logger.Errorw("error while changing process; skipping", "process", p.ID, "error", err)
@@ -883,12 +893,22 @@ func (manager *resourceManager) updateResources(
 
 	// modules are not added into the resource tree as they belong to the module manager
 	for _, mod := range conf.Added.Modules {
+		// this is done in config validation but partial start rules require us to check again
+		if err := mod.Validate(""); err != nil {
+			manager.logger.Errorw("module config validation error; skipping", "module", mod.Name, "error", err)
+			continue
+		}
 		if err := manager.moduleManager.Add(ctx, mod); err != nil {
 			manager.logger.Errorw("error adding module", "module", mod.Name, "error", err)
 			continue
 		}
 	}
 	for _, mod := range conf.Modified.Modules {
+		// this is done in config validation but partial start rules require us to check again
+		if err := mod.Validate(""); err != nil {
+			manager.logger.Errorw("module config validation error; skipping", "module", mod.Name, "error", err)
+			continue
+		}
 		orphanedResourceNames, err := manager.moduleManager.Reconfigure(ctx, mod)
 		if err != nil {
 			manager.logger.Errorw("error reconfiguring module", "module", mod.Name, "error", err)

@@ -869,10 +869,22 @@ type PackageConfig struct {
 	Package string `json:"package"`
 	// Version of the package ID hosted by a remote PackageService. If not specified "latest" is assumed.
 	Version string `json:"version,omitempty"`
+
+	alreadyValidated bool
+	cachedErr        error
 }
 
 // Validate package config is valid.
 func (p *PackageConfig) Validate(path string) error {
+	if p.alreadyValidated {
+		return p.cachedErr
+	}
+	p.cachedErr = p.validate(path)
+	p.alreadyValidated = true
+	return p.cachedErr
+}
+
+func (p *PackageConfig) validate(path string) error {
 	if p.Name == "" {
 		return utils.NewConfigValidationError(path, errors.New("empty package name"))
 	}
@@ -886,6 +898,16 @@ func (p *PackageConfig) Validate(path string) error {
 	}
 
 	return nil
+}
+
+// Equals checks if the two configs are deeply equal to each other.
+func (p PackageConfig) Equals(other PackageConfig) bool {
+	p.alreadyValidated = false
+	p.cachedErr = nil
+	other.alreadyValidated = false
+	other.cachedErr = nil
+	//nolint:govet
+	return reflect.DeepEqual(p, other)
 }
 
 // GetPackageReference a PackageReference if the given path has a Package reference eg. ${packages.some-package}/path.
