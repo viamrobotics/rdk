@@ -27,6 +27,7 @@ const (
 	transformTypeUndistort       = transformType("undistort")
 	transformTypeDetections      = transformType("detections")
 	transformTypeClassifications = transformType("classifications")
+	transformTypeSegmentations   = transformType("segmentations")
 	transformTypeDepthEdges      = transformType("depth_edges")
 	transformTypeDepthPreprocess = transformType("depth_preprocess")
 )
@@ -88,6 +89,11 @@ var registeredTransformConfigs = map[transformType]*transformRegistration{
 		&classifierConfig{},
 		"Overlays image classifications on the image. Can use any classifier registered in the vision service.",
 	},
+	transformTypeSegmentations: {
+		string(transformTypeSegmentations),
+		&segmenterConfig{},
+		"Overlays image segmentations on the image. Can use any segmentor registered in the vision service.",
+	},
 	transformTypeDepthEdges: {
 		string(transformTypeDepthEdges),
 		&depthEdgesConfig{},
@@ -148,6 +154,8 @@ func buildTransform(
 		return newDetectionsTransform(ctx, source, r, tr.Attributes)
 	case transformTypeClassifications:
 		return newClassificationsTransform(ctx, source, r, tr.Attributes)
+	case transformTypeSegmentations:
+		return newSegmentationsTransform(ctx, source, r, tr.Attributes)
 	case transformTypeDepthEdges:
 		return newDepthEdgesTransform(ctx, source, tr.Attributes)
 	case transformTypeDepthPreprocess:
