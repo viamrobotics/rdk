@@ -275,6 +275,9 @@ func TestCreation(t *testing.T) {
 	err = ms.Reconfigure(ctx, deps, conf)
 	test.That(t, err, test.ShouldBeNil)
 
+	res := ms.Name()
+	test.That(t, res, test.ShouldNotBeNil)
+
 	pos, alt, err = ms.Position(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pos, test.ShouldEqual, testgeopoint)

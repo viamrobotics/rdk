@@ -30,11 +30,11 @@ var (
 func TestValidateSerial(t *testing.T) {
 	fakecfg := &SerialConfig{}
 	path := "path"
-	err := fakecfg.ValidateSerial(path)
+	err := fakecfg.validateSerial(path)
 	test.That(t, err, test.ShouldBeError, utils.NewConfigValidationFieldRequiredError(path, "serial_path"))
 
 	fakecfg.SerialPath = "some-path"
-	err = fakecfg.ValidateSerial(path)
+	err = fakecfg.validateSerial(path)
 	test.That(t, err, test.ShouldBeNil)
 }
 
@@ -65,15 +65,12 @@ func TestNewSerialMovementSensor(t *testing.T) {
 		API:   movementsensor.API,
 		ConvertedAttributes: &Config{
 			ConnectionType: "serial",
-			Board:          "local",
 			DisableNMEA:    false,
 			SerialConfig: &SerialConfig{
-				SerialPath:               path,
-				SerialBaudRate:           0,
-				SerialCorrectionPath:     path,
-				SerialCorrectionBaudRate: 0,
+				SerialPath:     path,
+				SerialBaudRate: 0,
 			},
-			I2CConfig: &I2CConfig{},
+			I2CConfig: &I2CConfig{Board: "local"},
 		},
 	}
 	g, err = newNMEAGPS(ctx, deps, cfig, logger)
@@ -94,15 +91,15 @@ func TestReadingsSerial(t *testing.T) {
 		logger:     logger,
 	}
 	g.data = GPSData{
-		location:   loc,
-		alt:        alt,
-		speed:      speed,
-		vDOP:       vAcc,
-		hDOP:       hAcc,
-		satsInView: totalSats,
-		satsInUse:  activeSats,
+		Location:   loc,
+		Alt:        alt,
+		Speed:      speed,
+		VDOP:       vAcc,
+		HDOP:       hAcc,
+		SatsInView: totalSats,
+		SatsInUse:  activeSats,
 		valid:      valid,
-		fixQuality: fix,
+		FixQuality: fix,
 	}
 
 	path := "somepath"
