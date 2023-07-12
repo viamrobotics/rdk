@@ -92,3 +92,21 @@ func testSegmentation(t *testing.T, segments []*vision.Object, expectedLabel str
 		test.That(t, box.Label(), test.ShouldEqual, expectedLabel)
 	}
 }
+
+func BenchmarkRadiusClustering(b *testing.B) {
+	injectCamera := &inject.Camera{}
+	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
+		return pc.NewFromLASFile(artifact.MustPath("pointcloud/test.las"), nil)
+	}
+	// do segmentation
+	objConfig := utils.AttributeMap{
+		"min_points_in_plane":   50000,
+		"min_points_in_segment": 500,
+		"clustering_radius_mm":  10.0,
+		"mean_k_filtering":      50.0,
+	}
+	segmenter, _ := segmentation.NewRadiusClustering(objConfig)
+	for i := 0; i < b.N; i++ {
+		segmenter(context.Background(), injectCamera)
+	}
+}
