@@ -65,7 +65,7 @@ const increment = (axis: number, amount: number) => {
 };
 
 const gantryModifyAllDoMoveToPosition = () => {
-  const pieces = modifyAllStatus.pieces.map((piece) => piece.pos)
+  const pieces = modifyAllStatus.pieces.map((piece) => piece.pos);
 
   const req = new gantryApi.MoveToPositionRequest();
   req.setName(name);
