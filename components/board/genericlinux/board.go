@@ -18,9 +18,6 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/board/v1"
 	goutils "go.viam.com/utils"
-	"periph.io/x/conn/v3/gpio"
-	"periph.io/x/conn/v3/gpio/gpioreg"
-	"periph.io/x/conn/v3/physic"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/grpc"
@@ -28,7 +25,7 @@ import (
 )
 
 // RegisterBoard registers a sysfs based board of the given model.
-func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping, usePeriphGpio bool) {
+func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping) {
 	resource.RegisterComponent(
 		board.API,
 		resource.DefaultModelFamily.WithModel(modelName),
@@ -39,7 +36,7 @@ func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping, useP
 				conf resource.Config,
 				logger golog.Logger,
 			) (board.Board, error) {
-				return newBoard(ctx, conf, gpioMappings, usePeriphGpio, logger)
+				return newBoard(ctx, conf, gpioMappings, logger)
 			},
 		})
 }
@@ -48,23 +45,19 @@ func newBoard(
 	ctx context.Context,
 	conf resource.Config,
 	gpioMappings map[int]GPIOBoardMapping,
-	usePeriphGpio bool,
 	logger golog.Logger,
 ) (board.Board, error) {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	b := sysfsBoard{
-		Named:         conf.ResourceName().AsNamed(),
-		usePeriphGpio: usePeriphGpio,
-		gpioMappings:  gpioMappings,
-		logger:        logger,
-		cancelCtx:     cancelCtx,
-		cancelFunc:    cancelFunc,
+		Named:        conf.ResourceName().AsNamed(),
+		gpioMappings: gpioMappings,
+		logger:       logger,
+		cancelCtx:    cancelCtx,
+		cancelFunc:   cancelFunc,
 
-		spis:    map[string]*spiBus{},
-		analogs: map[string]*wrappedAnalog{},
-		// this is not yet modified during reconfiguration but maybe should be
-		pwms:       map[string]pwmSetting{},
-		i2cs:       map[string]*i2cBus{},
+		spis:       map[string]*spiBus{},
+		analogs:    map[string]*wrappedAnalog{},
+		i2cs:       map[string]*I2cBus{},
 		gpios:      map[string]*gpioPin{},
 		interrupts: map[string]*digitalInterrupt{},
 	}
@@ -152,7 +145,7 @@ func (b *sysfsBoard) reconfigureI2cs(newConf *Config) error {
 			}
 			continue
 		}
-		bus, err := newI2cBus(c.Bus)
+		bus, err := NewI2cBus(c.Bus)
 		if err != nil {
 			return err
 		}
@@ -237,16 +230,8 @@ func findNewDigIntConfig(
 }
 
 func (b *sysfsBoard) reconfigureInterrupts(newConf *Config) error {
-	if b.usePeriphGpio {
-		if len(newConf.DigitalInterrupts) != 0 {
-			return errors.New("digital interrupts on Periph GPIO pins are not yet supported")
-		}
-		return nil // No digital interrupts to reconfigure.
-	}
-
-	// If we get here, we need to reconfigure b.interrupts. Any pin that already exists in the
-	// right configuration should just be copied over; closing and re-opening it risks losing its
-	// state.
+	// Any pin that already exists in the right configuration should just be copied over; closing
+	// and re-opening it risks losing its state.
 	newInterrupts := make(map[string]*digitalInterrupt, len(newConf.DigitalInterrupts))
 
 	// Reuse any old interrupts that have new configs
@@ -362,23 +347,15 @@ type sysfsBoard struct {
 	gpioMappings map[int]GPIOBoardMapping
 	spis         map[string]*spiBus
 	analogs      map[string]*wrappedAnalog
-	pwms         map[string]pwmSetting
-	i2cs         map[string]*i2cBus
+	i2cs         map[string]*I2cBus
 	logger       golog.Logger
 
-	usePeriphGpio bool
-	// These next two are only used for non-periph.io pins
 	gpios      map[string]*gpioPin
 	interrupts map[string]*digitalInterrupt
 
 	cancelCtx               context.Context
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
-}
-
-type pwmSetting struct {
-	dutyCycle gpio.Duty
-	frequency physic.Frequency
 }
 
 func (b *sysfsBoard) SPIByName(name string) (board.SPI, bool) {
@@ -397,10 +374,6 @@ func (b *sysfsBoard) AnalogReaderByName(name string) (board.AnalogReader, bool) 
 }
 
 func (b *sysfsBoard) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
-	if b.usePeriphGpio {
-		return nil, false // Digital interrupts aren't supported.
-	}
-
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -491,84 +464,17 @@ func (b *sysfsBoard) GPIOPinNames() []string {
 	return names
 }
 
-func (b *sysfsBoard) getGPIOLine(hwPin string) (gpio.PinIO, error) {
-	pinName := hwPin
-
-	pin := gpioreg.ByName(pinName)
-	if pin == nil {
-		return nil, errors.Errorf("no global pin found for %q", pinName)
-	}
-	return pin, nil
-}
-
 func (b *sysfsBoard) GPIOPinByName(pinName string) (board.GPIOPin, error) {
-	if b.usePeriphGpio {
-		return b.periphGPIOPinByName(pinName)
-	}
-	// Otherwise, the pins are stored in b.gpios.
 	if pin, ok := b.gpios[pinName]; ok {
 		return pin, nil
 	}
 
-	// check if pin is a digital interrupt
+	// Check if pin is a digital interrupt: those can still be used as inputs.
 	if interrupt, interruptOk := b.interrupts[pinName]; interruptOk {
 		return &gpioInterruptWrapperPin{*interrupt}, nil
 	}
 
 	return nil, errors.Errorf("cannot find GPIO for unknown pin: %s", pinName)
-}
-
-func (b *sysfsBoard) periphGPIOPinByName(pinName string) (board.GPIOPin, error) {
-	pin, err := b.getGPIOLine(pinName)
-	hwPWMSupported := false
-	if err != nil {
-		return nil, err
-	}
-
-	return periphGpioPin{b, pin, pinName, hwPWMSupported}, nil
-}
-
-// expects to already have lock acquired.
-func (b *sysfsBoard) startSoftwarePWMLoop(gp periphGpioPin) {
-	b.activeBackgroundWorkers.Add(1)
-	goutils.ManagedGo(func() {
-		b.softwarePWMLoop(b.cancelCtx, gp)
-	}, b.activeBackgroundWorkers.Done)
-}
-
-func (b *sysfsBoard) softwarePWMLoop(ctx context.Context, gp periphGpioPin) {
-	for {
-		cont := func() bool {
-			b.mu.RLock()
-			defer b.mu.RUnlock()
-			pwmSetting, ok := b.pwms[gp.pinName]
-			if !ok {
-				b.logger.Debug("pwm setting deleted; stopping")
-				return false
-			}
-
-			if err := gp.set(true); err != nil {
-				b.logger.Errorw("error setting pin", "pin_name", gp.pinName, "error", err)
-				return true
-			}
-			onPeriod := time.Duration(
-				int64((float64(pwmSetting.dutyCycle) / float64(gpio.DutyMax)) * float64(pwmSetting.frequency.Period())),
-			)
-			if !goutils.SelectContextOrWait(ctx, onPeriod) {
-				return false
-			}
-			if err := gp.set(false); err != nil {
-				b.logger.Errorw("error setting pin", "pin_name", gp.pinName, "error", err)
-				return true
-			}
-			offPeriod := pwmSetting.frequency.Period() - onPeriod
-
-			return goutils.SelectContextOrWait(ctx, offPeriod)
-		}()
-		if !cont {
-			return
-		}
-	}
 }
 
 func (b *sysfsBoard) Status(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
@@ -588,11 +494,6 @@ func (b *sysfsBoard) Close(ctx context.Context) error {
 	b.cancelFunc()
 	b.mu.Unlock()
 	b.activeBackgroundWorkers.Wait()
-
-	// For non-Periph boards, shut down all our open pins so we don't leak file descriptors
-	if b.usePeriphGpio {
-		return nil
-	}
 
 	var err error
 	for _, pin := range b.gpios {

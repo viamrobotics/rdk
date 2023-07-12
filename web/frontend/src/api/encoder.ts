@@ -1,56 +1,79 @@
 import { type Client, encoderApi } from '@viamrobotics/sdk';
 import { rcLogConditionally } from '@/lib/log';
-import { grpc } from '@improbable-eng/grpc-web';
 
-export const getProperties = (client: Client, name: string) => {
+export const getProperties = async (robotClient: Client, name: string) => {
   const request = new encoderApi.GetPropertiesRequest();
   request.setName(name);
 
   rcLogConditionally(request);
 
-  return new Promise<encoderApi.GetPropertiesResponse.AsObject | undefined>((resolve, reject) => {
-    client.encoderService.getProperties(request, new grpc.Metadata(), (error, response) => (
-      error ? reject(error) : resolve(response?.toObject())
-    ));
+  const response = await new Promise<encoderApi.GetPropertiesResponse | null>((resolve, reject) => {
+    robotClient.encoderService.getProperties(request, (error, res) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(res);
+      }
+    });
   });
+
+  return response?.toObject();
 };
 
-export const getPosition = (client: Client, name: string) => {
+export const getPosition = async (robotClient: Client, name: string) => {
   const request = new encoderApi.GetPositionRequest();
   request.setName(name);
 
   rcLogConditionally(request);
 
-  return new Promise<number | undefined>((resolve, reject) => {
-    client.encoderService.getPosition(request, new grpc.Metadata(), (error, response) => (
-      error ? reject(error) : resolve(response?.toObject().value)
-    ));
+  const response = await new Promise<encoderApi.GetPositionResponse | null>((resolve, reject) => {
+    robotClient.encoderService.getPosition(request, (error, res) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(res);
+      }
+    });
   });
+
+  return response?.toObject().value;
 };
 
-export const getPositionDegrees = (client: Client, name: string) => {
+export const getPositionDegrees = async (robotClient: Client, name: string) => {
   const request = new encoderApi.GetPositionRequest();
   request.setName(name);
   request.setPositionType(2);
 
   rcLogConditionally(request);
 
-  return new Promise<number | undefined>((resolve, reject) => {
-    client.encoderService.getPosition(request, new grpc.Metadata(), (error, response) => (
-      error ? reject(error) : resolve(response?.toObject().value)
-    ));
+  const response = await new Promise<encoderApi.GetPositionResponse | null>((resolve, reject) => {
+    robotClient.encoderService.getPosition(request, (error, res) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(res);
+      }
+    });
   });
+
+  return response?.toObject().value;
 };
 
-export const reset = (client: Client, name: string) => {
+export const reset = async (robotClient: Client, name: string) => {
   const request = new encoderApi.ResetPositionRequest();
   request.setName(name);
 
   rcLogConditionally(request);
 
-  return new Promise((resolve, reject) => {
-    client.encoderService.resetPosition(request, new grpc.Metadata(), (error) => (
-      error ? reject(error) : resolve(null)
-    ));
+  const response = await new Promise<encoderApi.ResetPositionResponse | null>((resolve, reject) => {
+    robotClient.encoderService.resetPosition(request, (error, res) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(res);
+      }
+    });
   });
+
+  return response?.toObject();
 };

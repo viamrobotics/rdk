@@ -1,15 +1,10 @@
 <script lang="ts">
-  import { grpc } from '@improbable-eng/grpc-web';
-  import {
-    Client,
-    sensorsApi,
-    commonApi,
-    type ServiceError,
-  } from '@viamrobotics/sdk';
+  import { sensorsApi, commonApi, type ServiceError } from '@viamrobotics/sdk';
   import { notify } from '@viamrobotics/prime';
   import { resourceNameToString } from '@/lib/resource';
   import { rcLogConditionally } from '@/lib/log';
-  import Collapse from '../collapse.svelte';
+  import Collapse from '@/lib/components/collapse.svelte';
+  import { useRobotClient } from '@/hooks/robot-client';
 
   interface SensorName {
     name: string;
@@ -20,7 +15,8 @@
 
   export let name: string;
   export let sensorNames: SensorName[];
-  export let client: Client;
+
+  const { robotClient } = useRobotClient();
 
   interface Reading {
     _type: string;
@@ -44,9 +40,8 @@
     req.setSensorNamesList(names);
 
     rcLogConditionally(req);
-    client.sensorsService.getReadings(
+    $robotClient.sensorsService.getReadings(
       req,
-      new grpc.Metadata(),
       (
         error: ServiceError | null,
         response: sensorsApi.GetReadingsResponse | null

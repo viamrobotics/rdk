@@ -10,12 +10,11 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/module"
 	"go.viam.com/rdk/resource"
-
-	"go.viam.com/utils"
 )
 
 var myModel = resource.NewModel("acme", "demo", "mycounter")
@@ -57,7 +56,11 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 }
 
 // newCounter is used to create a new instance of our specific model. It is called for each component in the robot's config with this model.
-func newCounter(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger *zap.SugaredLogger) (resource.Resource, error) {
+func newCounter(ctx context.Context,
+	deps resource.Dependencies,
+	conf resource.Config,
+	logger *zap.SugaredLogger,
+) (resource.Resource, error) {
 	return &counter{
 		Named: conf.ResourceName().AsNamed(),
 	}, nil
@@ -76,7 +79,7 @@ func (c *counter) Reconfigure(ctx context.Context, deps resource.Dependencies, c
 }
 
 // DoCommand is the only method of this component. It looks up the "real" command from the map it's passed.
-// Because of this, any arbitrary commands can be recieved, and any data returned.
+// Because of this, any arbitrary commands can be received, and any data returned.
 func (c *counter) DoCommand(ctx context.Context, req map[string]interface{}) (map[string]interface{}, error) {
 	// We look for a map key called "command"
 	cmd, ok := req["command"]

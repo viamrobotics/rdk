@@ -6,11 +6,13 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"time"
 
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	pb "go.viam.com/api/service/slam/v1"
 
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -26,6 +28,10 @@ func init() {
 		RPCServiceDesc:              &pb.SLAMService_ServiceDesc,
 		RPCClient:                   NewClientFromConn,
 	})
+	data.RegisterCollector(data.MethodMetadata{
+		API:        API,
+		MethodName: getPosition.String(),
+	}, newGetPositionCollector)
 }
 
 // SubtypeName is the name of the type of service.
@@ -47,9 +53,10 @@ func FromRobot(r robot.Robot, name string) (Service, error) {
 // Service describes the functions that are available to the service.
 type Service interface {
 	resource.Resource
-	GetPosition(context.Context) (spatialmath.Pose, string, error)
+	GetPosition(ctx context.Context) (spatialmath.Pose, string, error)
 	GetPointCloudMap(ctx context.Context) (func() ([]byte, error), error)
 	GetInternalState(ctx context.Context) (func() ([]byte, error), error)
+	GetLatestMapInfo(ctx context.Context) (time.Time, error)
 }
 
 // HelperConcatenateChunksToFull concatenates the chunks from a streamed grpc endpoint.
