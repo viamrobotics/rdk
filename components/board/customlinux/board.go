@@ -64,7 +64,13 @@ func createNewBoard(
 		return nil, err
 	}
 
-	b, err := genericlinux.NewBoard(ctx, conf.ResourceName().AsNamed(), &newConf.Config, gpioMappings, logger)
+	boardConfig := genericlinux.Config{
+		I2Cs:              newConf.I2Cs,
+		SPIs:              newConf.SPIs,
+		Analogs:           newConf.Analogs,
+		DigitalInterrupts: newConf.DigitalInterrupts,
+	}
+	b, err := genericlinux.NewBoard(ctx, conf.ResourceName().AsNamed(), &boardConfig, gpioMappings, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -120,5 +126,11 @@ func (b *customLinuxBoard) Reconfigure(
 		return err
 	}
 
-	return b.ReconfigureParsedConfig(ctx, &newConf.Config)
+	boardConfig := genericlinux.Config{
+		I2Cs:              newConf.I2Cs,
+		SPIs:              newConf.SPIs,
+		Analogs:           newConf.Analogs,
+		DigitalInterrupts: newConf.DigitalInterrupts,
+	}
+	return b.ReconfigureParsedConfig(ctx, &boardConfig)
 }

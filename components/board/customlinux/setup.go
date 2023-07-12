@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/board/genericlinux"
 )
 
@@ -37,8 +38,11 @@ func parseRawPinData(pinData []byte, filePath string) ([]genericlinux.PinDefinit
 
 // A Config describes the configuration of a board and all of its connected parts.
 type Config struct {
-	PinConfigFilePath string `json:"pin_config_filepath"`
-	genericlinux.Config
+	PinConfigFilePath string                         `json:"pin_config_filepath"`
+	I2Cs              []board.I2CConfig              `json:"i2cs,omitempty"`
+	SPIs              []board.SPIConfig              `json:"spis,omitempty"`
+	Analogs           []board.AnalogConfig           `json:"analogs,omitempty"`
+	DigitalInterrupts []board.DigitalInterruptConfig `json:"digital_interrupts,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -47,7 +51,13 @@ func (conf *Config) Validate(path string) ([]string, error) {
 		return nil, err
 	}
 
-	if deps, err := conf.Config.Validate(path); err != nil {
+	boardConfig := genericlinux.Config{
+		I2Cs:              conf.I2Cs,
+		SPIs:              conf.SPIs,
+		Analogs:           conf.Analogs,
+		DigitalInterrupts: conf.DigitalInterrupts,
+	}
+	if deps, err := boardConfig.Validate(path); err != nil {
 		return deps, err
 	}
 	return nil, nil
