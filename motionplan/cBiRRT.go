@@ -265,21 +265,24 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 		}
 
 		// sample near map 1 and switch which map is which to keep adding to them even
-		target = mp.sample(map1reached, i)
+		target, err = mp.sample(map1reached, i)
+		if err != nil {
+			rrt.solutionChan <- &rrtPlanReturn{planerr: err, maps: rrt.maps}
+			return
+		}
 		map1, map2 = map2, map1
 	}
 	rrt.solutionChan <- &rrtPlanReturn{planerr: errPlannerFailed, maps: rrt.maps}
 }
 
-func (mp *cBiRRTMotionPlanner) sample(rSeed node, sampleNum int) []referenceframe.Input {
+func (mp *cBiRRTMotionPlanner) sample(rSeed node, sampleNum int) ([]referenceframe.Input, error) {
 	// If we have done more than 50 iterations, start seeding off completely random positions 2 at a time
 	// The 2 at a time is to ensure random seeds are added onto both the seed and goal maps.
 	if sampleNum >= mp.algOpts.IterBeforeRand && sampleNum%4 >= 2 {
-		return referenceframe.RandomFrameInputs(mp.frame, mp.randseed)
+		return referenceframe.RandomFrameInputs(mp.frame, mp.randseed), nil
 	}
 	// Seeding nearby to valid points results in much faster convergence in less constrained space
-	q := referenceframe.RestrictedRandomFrameInputs(mp.frame, mp.randseed, 0.1, rSeed.Q())
-	return q
+	return referenceframe.RestrictedRandomFrameInputs(mp.frame, mp.randseed, 0.1, rSeed.Q())
 }
 
 // constrainedExtend will try to extend the map towards the target while meeting constraints along the way. It will

@@ -31,12 +31,15 @@ type Limit struct {
 
 // RestrictedRandomFrameInputs will produce a list of valid, in-bounds inputs for the frame, restricting the range to
 // `lim` percent of the limits.
-func RestrictedRandomFrameInputs(m Frame, rSeed *rand.Rand, lim float64, nodePose []Input) []Input {
+func RestrictedRandomFrameInputs(m Frame, rSeed *rand.Rand, lim float64, nodeLocation []Input) ([]Input, error) {
 	if rSeed == nil {
 		//nolint:gosec
 		rSeed = rand.New(rand.NewSource(1))
 	}
 	dof := m.DoF()
+	if len(nodeLocation) != len(dof) {
+		return nil, NewIncorrectInputLengthError(len(nodeLocation), len(dof))
+	}
 	pos := make([]Input, 0, len(dof))
 	for i, limit := range dof {
 		l, u := limit.Min, limit.Max
@@ -49,11 +52,13 @@ func RestrictedRandomFrameInputs(m Frame, rSeed *rand.Rand, lim float64, nodePos
 			u = 999
 		}
 
-		span := u - l
-		l = nodePose[i].Value - span/2
-		pos = append(pos, Input{lim*span*rSeed.Float64() + l + (span * (1 - lim) / 2)})
+		frameSpan := u - l
+		minVal := math.Max(l, nodeLocation[i].Value - frameSpan/2)
+		maxVal := math.Min(u, nodeLocation[i].Value + frameSpan/2)
+		samplingSpan := maxVal - minVal
+		pos = append(pos, Input{lim*(samplingSpan)*rSeed.Float64() + minVal + ((samplingSpan) * (1 - lim) / 2)})
 	}
-	return pos
+	return pos, nil
 }
 
 // RandomFrameInputs will produce a list of valid, in-bounds inputs for the referenceframe.
