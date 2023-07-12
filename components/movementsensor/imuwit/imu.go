@@ -125,7 +125,7 @@ func (imu *wit) getMagnetometer(ctx context.Context) (r3.Vector, error) {
 }
 
 func (imu *wit) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
-	return 0, movementsensor.ErrMethodUnimplementedCompassHeading
+	return imu.compassheading, imu.err.Get()
 }
 
 func (imu *wit) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
