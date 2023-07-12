@@ -82,6 +82,8 @@ func TestNavSetup(t *testing.T) {
 	wayPt, err = ns.Waypoints(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(wayPt), test.ShouldEqual, 0)
+
+	test.That(t, len(ns.(*builtIn).visionServices), test.ShouldEqual, 1)
 }
 
 func TestStartWaypoint(t *testing.T) {
