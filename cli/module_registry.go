@@ -164,7 +164,7 @@ func UpdateModuleCommand(c *cli.Context) error {
 		}
 	}
 	if orgID == nil && moduleID.Namespace == "" {
-		return errors.Errorf("The module's namespace is not set in the %s."+
+		return errors.Errorf("The module's namespace is not set in %s."+
 			" You must provide a public_namespace (if you have set one) or supply your org id", defaultManifestFilename)
 	}
 	manifest.Name = moduleID.toString()
@@ -187,7 +187,7 @@ func UpdateModuleCommand(c *cli.Context) error {
 			if err := writeManifest(manifestPath, manifest); err != nil {
 				return err
 			}
-			fmt.Fprintf(c.App.Writer, "\nUpdating %s to use the public namespace of %q which is %q\n",
+			fmt.Fprintf(c.App.Writer, "\nUpdated %s to use the public namespace of %q which is %q\n",
 				manifestPath, org.Name, org.PublicNamespace)
 			fmt.Fprintf(c.App.Writer, "You no longer need to specify org_id or public_namespace\n")
 		}
@@ -235,7 +235,7 @@ func resolveOrg(client *AppClient, orgID, publicNamespace string) (*apppb.Organi
 	if publicNamespace == "" {
 		return nil, errors.New("must specify either org id or public namespace")
 	}
-	org, err := client.GetOwnedOrgByPublicNamespace(publicNamespace)
+	org, err := client.GetUserOrgByPublicNamespace(publicNamespace)
 	if err != nil {
 		return nil, err
 	}

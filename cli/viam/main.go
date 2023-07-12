@@ -810,7 +810,7 @@ func main() {
 					{
 						Name:  "create",
 						Usage: "create & register a module on app.viam.com",
-						Description: `Creates a module in app.viam.com using.
+						Description: `Creates a module in app.viam.com to simplify code deployment.
 Ex: 'viam module create --name my-great-module --org_id <my org id>'
 Will create the module and a corresponding meta.json file in the current directory. 
 

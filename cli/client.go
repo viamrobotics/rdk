@@ -323,9 +323,9 @@ func (c *AppClient) GetOrg(orgStr string) (*apppb.Organization, error) {
 	return nil, errors.Errorf("no organization found for %q", orgStr)
 }
 
-// GetOwnedOrgByPublicNamespace searches the logged in users orgs to see
+// GetUserOrgByPublicNamespace searches the logged in users orgs to see
 // if any have a matching public namespace.
-func (c *AppClient) GetOwnedOrgByPublicNamespace(publicNamespace string) (*apppb.Organization, error) {
+func (c *AppClient) GetUserOrgByPublicNamespace(publicNamespace string) (*apppb.Organization, error) {
 	if err := c.ensureLoggedIn(); err != nil {
 		return nil, err
 	}
@@ -338,7 +338,7 @@ func (c *AppClient) GetOwnedOrgByPublicNamespace(publicNamespace string) (*apppb
 			return org, nil
 		}
 	}
-	return nil, errors.Errorf("no organization (that you own) has a public_namespace of '%s'", publicNamespace)
+	return nil, errors.Errorf("none of your organizations have a public_namespace of '%s'", publicNamespace)
 }
 
 // ListOrganizations returns all organizations belonging to the currently authenticated user.
@@ -873,12 +873,12 @@ func (c *AppClient) UpdateModule(manifest ModuleManifest, organizationID *string
 	}
 	req := apppb.UpdateModuleRequest{
 		ModuleId:       manifest.Name,
+		OrganizationId: organizationID,
 		Visibility:     visibility,
 		Url:            manifest.URL,
 		Description:    manifest.Description,
 		Models:         models,
 		Entrypoint:     manifest.Entrypoint,
-		OrganizationId: organizationID,
 	}
 	return c.client.UpdateModule(c.c.Context, &req)
 }
