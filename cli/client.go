@@ -295,6 +295,52 @@ func (c *AppClient) selectOrganization(orgStr string) error {
 	return nil
 }
 
+// GetOrg gets an org by an indentifying string. If the orgStr is an
+// org UUID, then this matchs on organization ID, otherwise this will match
+// on organization name.
+func (c *AppClient) GetOrg(orgStr string) (*apppb.Organization, error) {
+	if err := c.ensureLoggedIn(); err != nil {
+		return nil, err
+	}
+	resp, err := c.client.ListOrganizations(c.c.Context, &apppb.ListOrganizationsRequest{})
+	if err != nil {
+		return nil, err
+	}
+	organizations := resp.GetOrganizations()
+	var orgIsID bool
+	if _, err := uuid.Parse(orgStr); err == nil {
+		orgIsID = true
+	}
+	for _, org := range organizations {
+		if orgIsID {
+			if org.Id == orgStr {
+				return org, nil
+			}
+		} else if org.Name == orgStr {
+			return org, nil
+		}
+	}
+	return nil, errors.Errorf("no organization found for %q", orgStr)
+}
+
+// GetOwnedOrgByPublicNamespace searches the logged in users orgs to see
+// if any have a matching public namespace.
+func (c *AppClient) GetOwnedOrgByPublicNamespace(publicNamespace string) (*apppb.Organization, error) {
+	if err := c.ensureLoggedIn(); err != nil {
+		return nil, err
+	}
+
+	if err := c.loadOrganizations(); err != nil {
+		return nil, err
+	}
+	for _, org := range *c.orgs {
+		if org.PublicNamespace == publicNamespace {
+			return org, nil
+		}
+	}
+	return nil, errors.Errorf("no organization (that you own) has a public_namespace of '%s'", publicNamespace)
+}
+
 // ListOrganizations returns all organizations belonging to the currently authenticated user.
 func (c *AppClient) ListOrganizations() ([]*apppb.Organization, error) {
 	if err := c.ensureLoggedIn(); err != nil {
@@ -801,13 +847,57 @@ func (c *AppClient) StartRobotPartShell(
 }
 
 // CreateModule wraps the grpc CreateModule request.
-func (c *AppClient) CreateModule(moduleName, publicNamespace string) (*apppb.CreateModuleResponse, error) {
+func (c *AppClient) CreateModule(moduleName, organizationID string) (*apppb.CreateModuleResponse, error) {
 	if err := c.ensureLoggedIn(); err != nil {
 		return nil, err
 	}
 	req := apppb.CreateModuleRequest{
-		Name:            moduleName,
-		PublicNamespace: publicNamespace,
+		Name:           moduleName,
+		OrganizationId: organizationID,
 	}
 	return c.client.CreateModule(c.c.Context, &req)
+}
+
+// UpdateModule wraps the grpc UpdateModule request.
+func (c *AppClient) UpdateModule(manifest ModuleManifest, organizationID *string) (*apppb.UpdateModuleResponse, error) {
+	if err := c.ensureLoggedIn(); err != nil {
+		return nil, err
+	}
+	var models []*apppb.Model
+	for _, moduleComponent := range manifest.Models {
+		models = append(models, moduleComponentToProto(moduleComponent))
+	}
+	visibility, err := visibilityToProto(manifest.Visibility)
+	if err != nil {
+		return nil, err
+	}
+	req := apppb.UpdateModuleRequest{
+		ModuleId:       manifest.Name,
+		Visibility:     visibility,
+		Url:            manifest.URL,
+		Description:    manifest.Description,
+		Models:         models,
+		Entrypoint:     manifest.Entrypoint,
+		OrganizationId: organizationID,
+	}
+	return c.client.UpdateModule(c.c.Context, &req)
+}
+
+func visibilityToProto(visibility ModuleVisibility) (apppb.Visibility, error) {
+	switch visibility {
+	case ModuleVisibilityPrivate:
+		return apppb.Visibility_VISIBILITY_PRIVATE, nil
+	case ModuleVisibilityPublic:
+		return apppb.Visibility_VISIBILITY_PUBLIC, nil
+	default:
+		return apppb.Visibility_VISIBILITY_UNSPECIFIED,
+			errors.Errorf("Invalid module visibility. Must be either '%s' or '%s'", ModuleVisibilityPublic, ModuleVisibilityPrivate)
+	}
+}
+
+func moduleComponentToProto(moduleComponent ModuleComponent) *apppb.Model {
+	return &apppb.Model{
+		Api:   moduleComponent.API,
+		Model: moduleComponent.Model,
+	}
 }

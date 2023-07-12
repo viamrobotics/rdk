@@ -810,10 +810,13 @@ func main() {
 					{
 						Name:  "create",
 						Usage: "create & register a module on app.viam.com",
-						Description: `Creates a module in app.viam.com using a public_namespace and a module name.
-Ex: 'viam module create --name my-great-module --public_namespace my-registered-namespace'
-Will create the 'my-registered-namespace:my-great-module' module and a corresponding meta.json file
-in the current directory.
+						Description: `Creates a module in app.viam.com using.
+Ex: 'viam module create --name my-great-module --org_id <my org id>'
+Will create the module and a corresponding meta.json file in the current directory. 
+
+If your org has set a namespace in app.viam.com then your module name will be 'my-namespace:my-great-module' and 
+you wont have to pass a namespace or orgid in future commands. Otherwise there we be no namespace
+and you will have to provide the org id to future cli commands and can't make your module public until you claim one.
 
 Next, update your meta.json and use 'viam module update' to push those changes to app.viam.com`,
 						Flags: []cli.Flag{
@@ -824,14 +827,34 @@ Next, update your meta.json and use 'viam module update' to push those changes t
 							},
 							&cli.StringFlag{
 								Name:  "public_namespace",
-								Usage: "the public namespace where the module will reside",
+								Usage: "the public namespace where the module will reside (alternative way of specifying the org id)",
 							},
 							&cli.StringFlag{
 								Name:  "org_id",
-								Usage: "id of the organization that will host the module (alternative way of providing the public_namespace)",
+								Usage: "id of the organization that will host the module",
 							},
 						},
 						Action: rdkcli.CreateModuleCommand,
+					},
+					{
+						Name:  "update",
+						Usage: "Update a module's metadata on app.viam.com",
+						Flags: []cli.Flag{
+							&cli.StringFlag{
+								Name:  "public_namespace",
+								Usage: "the public namespace where the module resides (alternative awy of specifying the ord id)",
+							},
+							&cli.StringFlag{
+								Name:  "org_id",
+								Usage: "id of the organization that hosts the module",
+							},
+							&cli.StringFlag{
+								Name:        "module",
+								Usage:       "path to meta.json",
+								DefaultText: "./meta.json",
+							},
+						},
+						Action: rdkcli.UpdateModuleCommand,
 					},
 				},
 			},
