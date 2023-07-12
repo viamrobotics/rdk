@@ -65,17 +65,11 @@ const increment = (axis: number, amount: number) => {
 };
 
 const gantryModifyAllDoMoveToPosition = () => {
-  const gantry = status!;
-  const newList : number[] = Array.from({ length: gantry.positions_mm.values.length });
-  const newPieces = modifyAllStatus.pieces;
-
-  for (const [i, newPiece] of newPieces.entries()) {
-    newList[i] = newPiece!.pos;
-  }
+  const pieces = modifyAllStatus.pieces.map((piece) => piece.pos)
 
   const req = new gantryApi.MoveToPositionRequest();
   req.setName(name);
-  req.setPositionsMmList(newList);
+  req.setPositionsMmList(pieces);
 
   rcLogConditionally(req);
   $robotClient.gantryService.moveToPosition(req, displayError);
@@ -96,9 +90,9 @@ const gantryModifyAll = () => {
 
   for (const part of parts) {
     nextPiece.push({
-      axis: part!.axis,
-      pos: part!.pos,
-      length: part!.length,
+      axis: part.axis,
+      pos: part.pos,
+      length: part.length,
     });
   }
 
