@@ -8,7 +8,6 @@
   import Collapse from '@/components/collapse.svelte';
 
   export let name: string;
-  export let client: Client;
   export let status: {
     is_moving: boolean
     lengths_mm: number[]
@@ -18,6 +17,7 @@
     lengths_mm: [],
     positions_mm: [],
   };
+  export let client: Client;
 
   interface GantryStatus {
     pieces: {
@@ -163,15 +163,15 @@
         </thead>
         <tbody>
           {#if modifyAll}
-            {#each modifyAllStatus.pieces as part (part.axis)}
+            {#each modifyAllStatus.pieces as piece, i (piece.axis)}
               <tr>
                 <th class="border border-medium p-2">
-                  {part.axis}
+                  {parts[i]?.axis || 0}
                 </th>
                 <td class="border border-medium p-2">
                   <input
                     type='number'
-                    bind:value={part.pos}
+                    bind:value={piece.pos}
                     class="
                       w-full py-1.5 px-2 leading-tight text-xs h-[30px] border outline-none appearance-none
                       pl-2.5 bg-white border-light hover:border-medium focus:border-gray-9
@@ -179,10 +179,10 @@
                   />
                 </td>
                 <td class="border border-medium p-2">
-                  { part.pos.toFixed(2) }
+                  { parts[i]?.pos.toFixed(2) || 0}
                 </td>
                 <td class="border border-medium p-2">
-                  { part.length }
+                  { parts[i]?.length || 0 }
                 </td>
               </tr>
             {/each}
