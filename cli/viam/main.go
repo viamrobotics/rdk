@@ -842,7 +842,7 @@ Next, update your meta.json and use 'viam module update' to push those changes t
 						Flags: []cli.Flag{
 							&cli.StringFlag{
 								Name:  "public_namespace",
-								Usage: "the public namespace where the module resides (alternative awy of specifying the ord id)",
+								Usage: "the public namespace where the module resides (alternative way of specifying the ord id)",
 							},
 							&cli.StringFlag{
 								Name:  "org_id",
