@@ -51,7 +51,6 @@ func RestrictedRandomFrameInputs(m Frame, rSeed *rand.Rand, lim float64, nodePos
 
 		span := u - l
 		l = nodePose[i].Value - span/2
-		u = nodePose[i].Value + span/2
 		pos = append(pos, Input{lim*span*rSeed.Float64() + l + (span * (1 - lim) / 2)})
 	}
 	return pos

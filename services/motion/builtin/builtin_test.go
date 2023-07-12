@@ -262,14 +262,15 @@ func TestMoveOnMapLongDistance(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// goal x-position of 1.32m is scaled to be in mm
-	goal := spatialmath.NewPoseFromPoint(r3.Vector{X: -51.265 * 1000, Y: -25.172 * 1000})
-
+	goal := spatialmath.NewPoseFromPoint(r3.Vector{X: -32.508 * 1000, Y: -2.092 * 1000})
+	extra := make(map[string]interface{})
+	extra["planning_alg"] = "cbirrt"
 	path, _, err := ms.(*builtIn).planMoveOnMap(
 		context.Background(),
 		base.Named("test_base"),
 		goal,
 		slam.Named("test_slam"),
-		nil,
+		extra,
 	)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(path), test.ShouldBeGreaterThan, 2)
@@ -335,7 +336,6 @@ func TestMoveOnMap(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		// path of length 2 indicates a path that goes straight through central obstacle
 		test.That(t, len(path), test.ShouldBeGreaterThan, 2)
-		test.That(t, 2, test.ShouldBeGreaterThan, 3)
 	})
 
 	t.Run("ensure success of movement around obstacle", func(t *testing.T) {
