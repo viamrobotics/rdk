@@ -1,4 +1,4 @@
-package radiusclustering
+package obstaclespointcloud
 
 import (
 	"context"
@@ -16,7 +16,7 @@ import (
 	"go.viam.com/rdk/vision/segmentation"
 )
 
-func TestRadiusClusteringSegmentation(t *testing.T) {
+func TestObstaclePointCloudSegmentation(t *testing.T) {
 	r := &inject.Robot{}
 	cam := &inject.Camera{}
 	cam.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
@@ -41,17 +41,17 @@ func TestRadiusClusteringSegmentation(t *testing.T) {
 	}
 	// bad registration, no parameters
 	name := vision.Named("test_rcs")
-	_, err := registerRCSegmenter(context.Background(), name, nil, r)
+	_, err := registerObstaclePointCloud(context.Background(), name, nil, r)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot be nil")
 	// bad registration, parameters out of bounds
 	params.ClusteringRadiusMm = -3.0
-	_, err = registerRCSegmenter(context.Background(), name, params, r)
+	_, err = registerObstaclePointCloud(context.Background(), name, params, r)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "segmenter config error")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "clustering_radius_mm must be greater")
 	// successful registration
 	params.ClusteringRadiusMm = 5.0
-	seg, err := registerRCSegmenter(context.Background(), name, params, r)
+	seg, err := registerObstaclePointCloud(context.Background(), name, params, r)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, seg.Name(), test.ShouldResemble, name)
 

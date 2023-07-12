@@ -1,98 +1,55 @@
+// Package obstaclespointcloud uses the 3D radius clustering algorithm as defined in the
+// RDK vision/segmentation package as vision model
 package obstaclespointcloud
 
 import (
 	"context"
-	"image/color"
-	"testing"
 
+	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-	"go.viam.com/test"
+	"go.opencensus.io/trace"
 
-	"go.viam.com/rdk/components/camera"
-	pc "go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/vision"
-	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision/segmentation"
 )
 
-func TestObstaclePointCloudSegmentation(t *testing.T) {
-	r := &inject.Robot{}
-	cam := &inject.Camera{}
-	cam.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
-		return nil, errors.New("no pointcloud")
-	}
-	r.ResourceNamesFunc = func() []resource.Name {
-		return []resource.Name{camera.Named("fakeCamera")}
-	}
-	r.ResourceByNameFunc = func(n resource.Name) (resource.Resource, error) {
-		switch n.Name {
-		case "fakeCamera":
-			return cam, nil
-		default:
-			return nil, resource.NewNotFoundError(n)
-		}
-	}
-	params := &segmentation.RadiusClusteringConfig{
-		MinPtsInPlane:      100,
-		MinPtsInSegment:    3,
-		ClusteringRadiusMm: 5.,
-		MeanKFiltering:     10.,
-	}
-	// bad registration, no parameters
-	name := vision.Named("test_rcs")
-	_, err := registerObstaclePointCloud(context.Background(), name, nil, r)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot be nil")
-	// bad registration, parameters out of bounds
-	params.ClusteringRadiusMm = -3.0
-	_, err = registerObstaclePointCloud(context.Background(), name, params, r)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "clustering_radius_mm must be greater")
-	// successful registration
-	params.ClusteringRadiusMm = 5.0
-	seg, err := registerObstaclePointCloud(context.Background(), name, params, r)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, seg.Name(), test.ShouldResemble, name)
+var model = resource.DefaultModelFamily.WithModel("obstacles_pointcloud")
 
-	// fails on not finding camera
-	_, err = seg.GetObjectPointClouds(context.Background(), "no_camera", map[string]interface{}{})
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+func init() {
+	resource.RegisterService(vision.API, model, resource.Registration[vision.Service, *segmentation.RadiusClusteringConfig]{
+		DeprecatedRobotConstructor: func(ctx context.Context, r any, c resource.Config, logger golog.Logger) (vision.Service, error) {
+			attrs, err := resource.NativeConfig[*segmentation.RadiusClusteringConfig](c)
+			if err != nil {
+				return nil, err
+			}
+			actualR, err := utils.AssertType[robot.Robot](r)
+			if err != nil {
+				return nil, err
+			}
+			return registerObstaclePointCloud(ctx, c.ResourceName(), attrs, actualR)
+		},
+	})
+}
 
-	// fails since camera cannot generate point clouds
-	_, err = seg.GetObjectPointClouds(context.Background(), "fakeCamera", map[string]interface{}{})
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no pointcloud")
-
-	// successful, creates two clusters of points
-	cam.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
-		cloud := pc.New()
-		// cluster 1
-		err = cloud.Set(pc.NewVector(1, 1, 1), pc.NewColoredData(color.NRGBA{255, 0, 0, 255}))
-		test.That(t, err, test.ShouldBeNil)
-		err = cloud.Set(pc.NewVector(1, 1, 2), pc.NewColoredData(color.NRGBA{255, 0, 0, 255}))
-		test.That(t, err, test.ShouldBeNil)
-		err = cloud.Set(pc.NewVector(1, 1, 3), pc.NewColoredData(color.NRGBA{255, 0, 0, 255}))
-		test.That(t, err, test.ShouldBeNil)
-		err = cloud.Set(pc.NewVector(1, 1, 4), pc.NewColoredData(color.NRGBA{255, 0, 0, 255}))
-		test.That(t, err, test.ShouldBeNil)
-		// cluster 2
-		err = cloud.Set(pc.NewVector(1, 1, 101), pc.NewColoredData(color.NRGBA{255, 0, 0, 255}))
-		test.That(t, err, test.ShouldBeNil)
-		err = cloud.Set(pc.NewVector(1, 1, 102), pc.NewColoredData(color.NRGBA{255, 0, 0, 255}))
-		test.That(t, err, test.ShouldBeNil)
-		err = cloud.Set(pc.NewVector(1, 1, 103), pc.NewColoredData(color.NRGBA{255, 0, 0, 255}))
-		test.That(t, err, test.ShouldBeNil)
-		err = cloud.Set(pc.NewVector(1, 1, 104), pc.NewColoredData(color.NRGBA{255, 0, 0, 255}))
-		test.That(t, err, test.ShouldBeNil)
-		return cloud, nil
+// registerObstaclePointCloud creates a new 3D radius clustering segmenter from the config.
+func registerObstaclePointCloud(
+	ctx context.Context,
+	name resource.Name,
+	conf *segmentation.RadiusClusteringConfig,
+	r robot.Robot,
+) (vision.Service, error) {
+	_, span := trace.StartSpan(ctx, "service::vision::registerObstaclePointCloud")
+	defer span.End()
+	if conf == nil {
+		return nil, errors.New("config for obstacle point cloud detector cannot be nil")
 	}
-	objects, err := seg.GetObjectPointClouds(context.Background(), "fakeCamera", map[string]interface{}{})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(objects), test.ShouldEqual, 2)
-	// does not implement detector
-	_, err = seg.Detections(context.Background(), nil, nil)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "does not implement")
+	err := conf.CheckValid()
+	if err != nil {
+		return nil, errors.Wrap(err, "obstacle point cloud detector config error")
+	}
+	segmenter := segmentation.Segmenter(conf.RadiusClustering)
+	return vision.NewService(name, r, nil, nil, nil, segmenter)
 }
