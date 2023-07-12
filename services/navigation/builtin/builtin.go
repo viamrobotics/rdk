@@ -67,12 +67,12 @@ type Config struct {
 	BaseName           string                 `json:"base"`
 	MovementSensorName string                 `json:"movement_sensor"`
 	MotionServiceName  string                 `json:"motion_service"`
+	VisionServices     []string               `json:"vision_services"`
 
 	// DegPerSec and MetersPerSec are targets and not hard limits on speed
 	DegPerSec    float64 `json:"degs_per_sec"`
 	MetersPerSec float64 `json:"meters_per_sec"`
 
-	VisionServices           []string                         `json:"vision_services,omitempty"`
 	Obstacles                []*spatialmath.GeoObstacleConfig `json:"obstacles,omitempty"`
 	PositionPollingFrequency float64                          `json:"position_polling_frequency,omitempty"`
 	ObstaclePollingFrequency float64                          `json:"obstacle_polling_frequency,omitempty"`
