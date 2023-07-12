@@ -6,10 +6,13 @@ import (
 	"context"
 	"errors"
 	"math"
+	"time"
 
 	"github.com/golang/geo/r3"
+	utils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/base"
+	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/spatialmath"
@@ -21,7 +24,12 @@ const (
 	defaultAngularVelocity  = 60    // degrees per second
 	defaultLinearVelocity   = 300   // mm per second
 	deviationThreshold      = 300.0 // mm
+	timeout                 = time.Second * 10
+	epsilon                 = 20 // mm
 )
+
+// ErrMovementTimeout is used for when a movement call times out after no movement for some time.
+var ErrMovementTimeout = errors.New("movement has timed out")
 
 // wrapWithDifferentialDriveKinematics takes a wheeledBase component and adds a localizer to it
 // It also adds kinematic model so that it can be controlled.
@@ -89,50 +97,98 @@ func (ddk *differentialDriveKinematics) CurrentInputs(ctx context.Context) ([]re
 func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired []referenceframe.Input) (err error) {
 	// create capsule which defines the valid region for a base to be when driving to desired waypoint
 	// deviationThreshold defines max distance base can be from path without error being thrown
-	current, err := ddk.CurrentInputs(ctx)
-	if err != nil {
-		return err
+	current, inputsErr := ddk.CurrentInputs(ctx)
+	if inputsErr != nil {
+		return inputsErr
 	}
-	validRegion, err := ddk.newValidRegionCapsule(current, desired)
-	if err != nil {
-		return err
+	validRegion, capsuleErr := ddk.newValidRegionCapsule(current, desired)
+	if capsuleErr != nil {
+		return capsuleErr
 	}
+	movementErr := make(chan error, 1)
+	defer close(movementErr)
 
-	// this loop polls the error state and issues a corresponding command to move the base to the objective
-	// when the base is within the positional threshold of the goal, exit the loop
-	for err = ctx.Err(); err == nil; err = ctx.Err() {
-		col, err := validRegion.CollidesWith(spatialmath.NewPoint(r3.Vector{X: current[0].Value, Y: current[1].Value}, ""))
-		if err != nil {
-			return err
-		}
-		if !col {
-			return errors.New("base has deviated too far from path")
-		}
+	cancelContext, cancel := context.WithCancel(ctx)
+	defer cancel()
 
-		// get to the x, y location first - note that from the base's perspective +y is forward
-		desiredHeading := math.Atan2(current[1].Value-desired[1].Value, current[0].Value-desired[0].Value)
-		commanded, err := ddk.issueCommand(ctx, current, []referenceframe.Input{desired[0], desired[1], {desiredHeading}})
-		if err != nil {
-			return err
-		}
+	utils.PanicCapturingGo(func() {
+		// this loop polls the error state and issues a corresponding command to move the base to the objective
+		// when the base is within the positional threshold of the goal, exit the loop
+		for err := cancelContext.Err(); err == nil; err = cancelContext.Err() {
+			utils.SelectContextOrWait(ctx, 10*time.Millisecond)
+			col, err := validRegion.CollidesWith(spatialmath.NewPoint(r3.Vector{X: current[0].Value, Y: current[1].Value}, ""))
+			if err != nil {
+				movementErr <- err
+				return
+			}
+			if !col {
+				movementErr <- errors.New("base has deviated too far from path")
+				return
+			}
 
-		if !commanded {
-			// no command to move to the x, y location was issued, correct the heading and then exit
-			if commanded, err := ddk.issueCommand(ctx, current, []referenceframe.Input{current[0], current[1], desired[2]}); err == nil {
-				if !commanded {
-					return nil
+			// get to the x, y location first - note that from the base's perspective +y is forward
+			desiredHeading := math.Atan2(current[1].Value-desired[1].Value, current[0].Value-desired[0].Value)
+			commanded, err := ddk.issueCommand(cancelContext, current, []referenceframe.Input{desired[0], desired[1], {desiredHeading}})
+			if err != nil {
+				movementErr <- err
+				return
+			}
+
+			if !commanded {
+				// no command to move to the x, y location was issued, correct the heading and then exit
+				if commanded, err := ddk.issueCommand(cancelContext, current, []referenceframe.Input{current[0], current[1], desired[2]}); err == nil {
+					if !commanded {
+						movementErr <- nil
+						return
+					}
+				} else {
+					movementErr <- err
+					return
 				}
-			} else {
-				return err
+			}
+
+			current, err = ddk.CurrentInputs(cancelContext)
+			if err != nil {
+				movementErr <- err
+				return
 			}
 		}
+		movementErr <- err
+	})
 
-		current, err = ddk.CurrentInputs(ctx)
+	// watching for movement timeout
+	lastUpdate := time.Now()
+	var prevInputs []referenceframe.Input
+
+	for {
+		utils.SelectContextOrWait(ctx, 100*time.Millisecond)
+		select {
+		case err := <-movementErr:
+			return err
+		default:
+		}
+		currentInputs, err := ddk.CurrentInputs(ctx)
 		if err != nil {
+			cancel()
+			<-movementErr
 			return err
 		}
+		if prevInputs == nil {
+			prevInputs = currentInputs
+		}
+		positionChange := motionplan.L2InputMetric(&motionplan.Segment{
+			StartConfiguration: prevInputs,
+			EndConfiguration:   currentInputs,
+		})
+		if positionChange > epsilon {
+			lastUpdate = time.Now()
+			prevInputs = currentInputs
+		} else if time.Since(lastUpdate) > timeout {
+			cancel()
+			<-movementErr
+			return ErrMovementTimeout
+		}
 	}
-	return err
 }
 
 // issueCommand issues a relevant command to move the base to the given desired inputs and returns the boolean describing
@@ -148,13 +204,13 @@ func (ddk *differentialDriveKinematics) issueCommand(ctx context.Context, curren
 		return true, ddk.Spin(ctx, -headingErr, ddk.maxAngularVelocityDegsPerSec, nil)
 	} else if distErr > distThresholdMM {
 		// base is pointed the correct direction but not there yet; forge onward
-		return true, ddk.MoveStraight(ctx, distErr, ddk.maxLinearVelocityMillisPerSec, nil)
+		return true, ddk.MoveStraight(ctx, int(distErr), ddk.maxLinearVelocityMillisPerSec, nil)
 	}
 	return false, nil
 }
 
 // create a function for the error state, which is defined as [positional error, heading error].
-func (ddk *differentialDriveKinematics) errorState(current, desired []referenceframe.Input) (int, float64, error) {
+func (ddk *differentialDriveKinematics) errorState(current, desired []referenceframe.Input) (float64, float64, error) {
 	// create a goal pose in the world frame
 	goal := referenceframe.NewPoseInFrame(
 		referenceframe.World,
@@ -176,7 +232,7 @@ func (ddk *differentialDriveKinematics) errorState(current, desired []referencef
 
 	// calculate the error state
 	headingErr := math.Mod(delta.Pose().Orientation().OrientationVectorDegrees().Theta, 360)
-	positionErr := int(delta.Pose().Point().Norm())
+	positionErr := delta.Pose().Point().Norm()
 	return positionErr, headingErr, nil
 }
 
@@ -245,7 +301,7 @@ func (ddk *differentialDriveKinematics) newValidRegionCapsule(starting, desired 
 	capsule, err := spatialmath.NewCapsule(
 		center,
 		deviationThreshold,
-		2*deviationThreshold+float64(positionErr),
+		2*deviationThreshold+positionErr,
 		"")
 	if err != nil {
 		return nil, err
