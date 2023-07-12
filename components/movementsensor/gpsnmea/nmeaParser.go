@@ -49,85 +49,156 @@ func (g *GPSData) ParseAndUpdate(line string) error {
 	if err != nil {
 		return multierr.Combine(errs, err)
 	}
-	// Most receivers support at least the following sentence types: GSV, RMC, GSA, GGA, GLL, VTG, GNS
-	if gsv, ok := s.(nmea.GSV); ok {
-		// GSV provides the number of satellites in view
-		g.SatsInView = int(gsv.NumberSVsInView)
-	} else if rmc, ok := s.(nmea.RMC); ok {
-		// RMC provides validity, lon/lat, and ground speed.
-		if rmc.Validity == "A" {
-			g.valid = true
-		} else if rmc.Validity == "V" {
-			g.valid = false
-			errs = multierr.Combine(errs, errInvalidFix(rmc.Type, rmc.Validity, "A"))
-		}
-		if g.valid {
-			g.Speed = rmc.Speed * knotsToMPerSec
-			g.Location = geo.NewPoint(rmc.Latitude, rmc.Longitude)
-		}
-	} else if gsa, ok := s.(nmea.GSA); ok {
-		// GSA gives horizontal and vertical accuracy, and also describes the type of lock- invalid, 2d, or 3d.
-		switch gsa.FixType {
-		case "1":
-			// No fix
-			g.valid = false
-			errs = multierr.Combine(errs, errInvalidFix(gsa.Type, gsa.FixType, "1 or 2"))
-		case "2":
-			// 2d fix, valid lat/lon but invalid alt
-			g.valid = true
-			g.VDOP = -1
-		case "3":
-			// 3d fix
-			g.valid = true
-		}
-		if g.valid {
-			g.VDOP = gsa.VDOP
-			g.HDOP = gsa.HDOP
-		}
-		g.SatsInUse = len(gsa.SV)
-	} else if gga, ok := s.(nmea.GGA); ok {
-		// GGA provides validity, lon/lat, altitude, sats in use, and horizontal position error
-		g.FixQuality, err = strconv.Atoi(gga.FixQuality)
-		if err != nil {
-			return err
-		}
-		if gga.FixQuality == "0" {
-			g.valid = false
-			errs = multierr.Combine(errs, errInvalidFix(gga.Type, gga.FixQuality, "1 to 6"))
-		} else {
-			g.valid = true
-			g.Location = geo.NewPoint(gga.Latitude, gga.Longitude)
-			g.SatsInUse = int(gga.NumSatellites)
-			g.HDOP = gga.HDOP
-			g.Alt = gga.Altitude
-		}
-	} else if gll, ok := s.(nmea.GLL); ok {
-		// GLL provides just lat/lon
-		now := toPoint(gll)
-		g.Location = now
-	} else if vtg, ok := s.(nmea.VTG); ok {
-		// VTG provides ground speed
-		g.Speed = vtg.GroundSpeedKPH * kphToMPerSec
-	} else if gns, ok := s.(nmea.GNS); ok {
-		// GNS Provides approximately the same information as GGA
-		for _, mode := range gns.Mode {
-			if mode == "N" {
-				g.valid = false
-				errs = multierr.Combine(errs, errInvalidFix(gns.Type, mode, " A, D, P, R, F, E, M or S"))
-			}
-		}
-		if g.valid {
-			g.Location = geo.NewPoint(gns.Latitude, gns.Longitude)
-			g.SatsInUse = int(gns.SVs)
-			g.HDOP = gns.HDOP
-			g.Alt = gns.Altitude
-		}
-	}
+
+	errs = g.updateData(s)
 
 	if g.Location == nil {
 		g.Location = geo.NewPoint(math.NaN(), math.NaN())
-		errs = multierr.Combine(errs, errors.New("no location parsed for nmea gps, using default value of lat: NaN, long: NaN"))
+		errs = multierr.Combine(errs, errors.New("no Location parsed for nmea gps, using default value of lat: NaN, long: NaN"))
 		return errs
 	}
+
+	return nil
+}
+
+// given an NMEA sentense, updateData updates it. An error is returned if any of
+// the function calls fails.
+func (g *GPSData) updateData(s nmea.Sentence) error {
+	var errs error
+
+	switch sentence := s.(type) {
+	case nmea.GSV:
+		errs = g.updateGSV(sentence)
+	case nmea.RMC:
+		errs = g.updateRMC(sentence)
+	case nmea.GSA:
+		errs = g.updateGSA(sentence)
+	case nmea.GGA:
+		errs = g.updateGGA(sentence)
+	case nmea.GLL:
+		errs = g.updateGLL(sentence)
+	case nmea.VTG:
+		errs = g.updateVTG(sentence)
+	case nmea.GNS:
+		errs = g.updateGNS(sentence)
+	}
+
+	return errs
+}
+
+//nolint
+// updateGSV updates g.SatsInView with the information from the provided
+// GSV (GPS Satellites in View) data.
+func (g *GPSData) updateGSV(gsv nmea.GSV) error {
+	// GSV provides the number of satellites in view
+	g.SatsInView = int(gsv.NumberSVsInView)
+	return nil
+}
+
+// updateRMC updates the GPSData object with the information from the provided
+// RMC (Recommended Minimum Navigation Information) data.
+func (g *GPSData) updateRMC(rmc nmea.RMC) error {
+	if rmc.Validity == "A" {
+		g.valid = true
+	} else if rmc.Validity == "V" {
+		g.valid = false
+		err := errInvalidFix(rmc.Type, rmc.Validity, "A")
+		return err
+	}
+	if g.valid {
+		g.Speed = rmc.Speed * knotsToMPerSec
+		g.Location = geo.NewPoint(rmc.Latitude, rmc.Longitude)
+	}
+
+	return nil
+}
+
+// updateGSA updates the GPSData object with the information from the provided
+// GSA (GPS DOP and Active Satellites) data.
+func (g *GPSData) updateGSA(gsa nmea.GSA) error {
+	switch gsa.FixType {
+	case "1":
+		// No fix
+		g.valid = false
+		err := errInvalidFix(gsa.Type, gsa.FixType, "1 or 2")
+		return err
+	case "2":
+		// 2d fix, valid lat/lon but invalid Alt
+		g.valid = true
+		g.VDOP = -1
+	case "3":
+		// 3d fix
+		g.valid = true
+	}
+
+	if g.valid {
+		g.VDOP = gsa.VDOP
+		g.HDOP = gsa.HDOP
+	}
+	g.SatsInUse = len(gsa.SV)
+
+	return nil
+}
+
+// updateGGA updates the GPSData object with the information from the provided
+// GGA (Global Positioning System Fix Data) data.
+func (g *GPSData) updateGGA(gga nmea.GGA) error {
+	var err error
+
+	g.FixQuality, err = strconv.Atoi(gga.FixQuality)
+	if err != nil {
+		return err
+	}
+
+	if gga.FixQuality == "0" {
+		g.valid = false
+		err = errInvalidFix(gga.Type, gga.FixQuality, "1 to 6")
+	} else {
+		g.valid = true
+		g.Location = geo.NewPoint(gga.Latitude, gga.Longitude)
+		g.SatsInUse = int(gga.NumSatellites)
+		g.HDOP = gga.HDOP
+		g.Alt = gga.Altitude
+	}
+
+	return err
+}
+
+//nolint
+// updateGLL updates g.Location with the location information from the provided
+// GLL (Geographic Position - Latitude/Longitude) data.
+func (g *GPSData) updateGLL(gll nmea.GLL) error {
+	now := toPoint(gll)
+	g.Location = now
+	return nil
+}
+
+//nolint
+// updateVTG updates g.Speed with the ground speed information from the provided
+// VTG (Velocity Made Good) data.
+func (g *GPSData) updateVTG(vtg nmea.VTG) error {
+	// VTG provides ground speed
+	g.Speed = vtg.GroundSpeedKPH * kphToMPerSec
+	return nil
+}
+
+// updateGNS updates the GPSData object with the information from the provided
+// GNS (Global Navigation Satellite System) data.
+func (g *GPSData) updateGNS(gns nmea.GNS) error {
+	for _, mode := range gns.Mode {
+		if mode == "N" {
+			g.valid = false
+			err := errInvalidFix(gns.Type, mode, " A, D, P, R, F, E, M or S")
+			return err
+		}
+	}
+
+	if g.valid {
+		g.Location = geo.NewPoint(gns.Latitude, gns.Longitude)
+		g.SatsInUse = int(gns.SVs)
+		g.HDOP = gns.HDOP
+		g.Alt = gns.Altitude
+	}
+
 	return nil
 }
