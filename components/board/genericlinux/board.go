@@ -54,14 +54,14 @@ func NewBoard(
 ) (board.Board, error) {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	b := SysfsBoard{
-		Named:         named,
-		gpioMappings:  gpioMappings,
-		logger:        logger,
-		cancelCtx:     cancelCtx,
-		cancelFunc:    cancelFunc,
+		Named:        named,
+		gpioMappings: gpioMappings,
+		logger:       logger,
+		cancelCtx:    cancelCtx,
+		cancelFunc:   cancelFunc,
 
-		spis:    map[string]*spiBus{},
-		analogs: map[string]*wrappedAnalog{},
+		spis:       map[string]*spiBus{},
+		analogs:    map[string]*wrappedAnalog{},
 		i2cs:       map[string]*I2cBus{},
 		gpios:      map[string]*gpioPin{},
 		interrupts: map[string]*digitalInterrupt{},
@@ -479,6 +479,7 @@ func (b *SysfsBoard) GPIOPinNames() []string {
 	return names
 }
 
+// GPIOPinByName returns a GPIOPin by name.
 func (b *SysfsBoard) GPIOPinByName(pinName string) (board.GPIOPin, error) {
 	if pin, ok := b.gpios[pinName]; ok {
 		return pin, nil
@@ -492,6 +493,7 @@ func (b *SysfsBoard) GPIOPinByName(pinName string) (board.GPIOPin, error) {
 	return nil, errors.Errorf("cannot find GPIO for unknown pin: %s", pinName)
 }
 
+// Status returns the current status of the board.
 func (b *SysfsBoard) Status(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
 	return &commonpb.BoardStatus{}, nil
 }
