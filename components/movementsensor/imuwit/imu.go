@@ -69,7 +69,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 
 func init() {
 	resource.RegisterComponent(movementsensor.API, model, resource.Registration[movementsensor.MovementSensor, *Config]{
-		Constructor: NewWit,
+		Constructor: newWit,
 	})
 }
 
@@ -80,6 +80,7 @@ type wit struct {
 	orientation     spatialmath.EulerAngles
 	acceleration    r3.Vector
 	magnetometer    r3.Vector
+	compassheading  float64
 	numBadReadings  uint32
 	err             movementsensor.LastError
 
@@ -116,8 +117,8 @@ func (imu *wit) LinearAcceleration(ctx context.Context, extra map[string]interfa
 	return imu.acceleration, imu.err.Get()
 }
 
-// GetMagnetometer returns magnetic field in gauss.
-func (imu *wit) GetMagnetometer(ctx context.Context) (r3.Vector, error) {
+// getMagnetometer returns magnetic field in gauss.
+func (imu *wit) getMagnetometer(ctx context.Context) (r3.Vector, error) {
 	imu.mu.Lock()
 	defer imu.mu.Unlock()
 	return imu.magnetometer, imu.err.Get()
@@ -141,7 +142,7 @@ func (imu *wit) Readings(ctx context.Context, extra map[string]interface{}) (map
 		return nil, err
 	}
 
-	mag, err := imu.GetMagnetometer(ctx)
+	mag, err := imu.getMagnetometer(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -155,11 +156,12 @@ func (imu *wit) Properties(ctx context.Context, extra map[string]interface{}) (*
 		AngularVelocitySupported:    true,
 		OrientationSupported:        true,
 		LinearAccelerationSupported: true,
+		CompassHeadingSupported:     true,
 	}, nil
 }
 
-// NewWit creates a new Wit IMU.
-func NewWit(
+// newWit creates a new Wit IMU.
+func newWit(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
@@ -306,7 +308,19 @@ func (imu *wit) parseWIT(line string) error {
 		imu.magnetometer.Z = scalemag(line[5], line[6], 1)
 	}
 
+	// this only works when the imu is level to the surface of the earth, no inclines
+	// do not let the imu near permanent magnets or things that make a strong magnetic field
+	imu.compassheading = calculateCompassHeading(imu.magnetometer.X, imu.magnetometer.Y)
+
 	return nil
+}
+
+func calculateCompassHeading(x, y float64) float64 {
+	// calculate -180 to 180 heading from radians
+	// North (y) is 0 so  the π/2 - atan2(y, x) is used
+	rad := math.Atan2(x, y) * 180 / math.Pi // -180 to 180 heading
+
+	return math.Mod(rad+360, 360) // change domain to 0 to 360
 }
 
 // Close shuts down wit and closes imu.port.
