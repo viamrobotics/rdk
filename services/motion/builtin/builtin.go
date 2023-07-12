@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -302,8 +303,18 @@ func (ms *builtIn) planMoveOnGlobe(
 	if fake, ok := b.(*fake.Base); ok {
 		kb, err = kinematicbase.WrapWithFakeKinematics(ctx, fake, localizer, limits)
 	} else {
-		linearVelocityMillisPerSec := motionCfg.LinearMetersPerSec
-		angularVelocityDegsPerSec := motionCfg.AngularMetersPerSec
+		var linearVelocityMillisPerSec, angularVelocityDegsPerSec float64
+		if !math.IsNaN(motionCfg.LinearMetersPerSec) {
+			linearVelocityMillisPerSec = motionCfg.LinearMetersPerSec
+		} else {
+			linearVelocityMillisPerSec = defaultLinearVelocityMillisPerSec
+		}
+		if !math.IsNaN(motionCfg.AngularMetersPerSec) {
+			angularVelocityDegsPerSec = motionCfg.AngularMetersPerSec
+		} else {
+			angularVelocityDegsPerSec = defaultAngularVelocityDegsPerSec
+		}
+
 		kb, err = kinematicbase.WrapWithKinematics(ctx, b, localizer, limits,
 			linearVelocityMillisPerSec, angularVelocityDegsPerSec)
 	}
