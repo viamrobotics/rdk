@@ -18,14 +18,15 @@ export let status: {
 };
 
 interface GantryStatus {
-    pieces: {
-      axis: number,
-      pos: number,
-      length: number,
-    }[]
+  pieces: {
+    axis: number,
+    pos: number,
+    length: number,
+  }[]
+}
 
 const { robotClient } = useRobotClient();
-  
+
 let modifyAllStatus: GantryStatus = {
   pieces: [],
 };
@@ -60,7 +61,7 @@ const increment = (axis: number, amount: number) => {
   req.setPositionsMmList(pos);
 
   rcLogConditionally(req);
-  client.gantryService.moveToPosition(req, new grpc.Metadata(), displayError);
+  $robotClient.gantryService.moveToPosition(req, displayError);
 };
 
 const gantryModifyAllDoMoveToPosition = () => {
@@ -72,30 +73,22 @@ const gantryModifyAllDoMoveToPosition = () => {
     newList[i] = newPiece!.pos;
   }
 
-  try {
-    const req = new gantryApi.MoveToPositionRequest();
-    req.setName(name);
-    req.setPositionsMmList(newList);
+  const req = new gantryApi.MoveToPositionRequest();
+  req.setName(name);
+  req.setPositionsMmList(newList);
 
-    rcLogConditionally(req);
-    client.gantryService.moveToPosition(req, new grpc.Metadata(), displayError);
-  } catch (error) {
-    displayError(error as ServiceError);
-  }
+  rcLogConditionally(req);
+  $robotClient.gantryService.moveToPosition(req, displayError);
 
   modifyAll = false;
 };
 
 const gantryHome = () => {
-  try {
-    const req = new gantryApi.HomeRequest();
-    req.setName(name);
+  const req = new gantryApi.HomeRequest();
+  req.setName(name);
 
-    rcLogConditionally(req);
-    client.gantryService.home(req, new grpc.Metadata(), displayError);
-  } catch (error) {
-    displayError(error as ServiceError);
-  }
+  rcLogConditionally(req);
+  $robotClient.gantryService.home(req, displayError);
 };
 
 const gantryModifyAll = () => {
@@ -115,22 +108,20 @@ const gantryModifyAll = () => {
   modifyAll = true;
 };
 
-  
-
 const stop = () => {
   const req = new gantryApi.StopRequest();
   req.setName(name);
 
   rcLogConditionally(req);
-  client.gantryService.stop(req, new grpc.Metadata(), displayError);
+  $robotClient.gantryService.stop(req, displayError);
 };
 
 </script>
 
 <Collapse title={name}>
   <v-breadcrumbs
-    slot="title"
-    crumbs="gantry"
+  slot="title"
+  crumbs="gantry"
   />
 
   <div
@@ -143,18 +134,7 @@ const stop = () => {
       label="Stop"
       on:click|stopPropagation={stop}
     />
-
-    <div
-      slot="header"
-      class="flex items-center justify-between gap-2"
-    >
-      <v-button
-        variant="danger"
-        icon="stop-circle"
-        label="Stop"
-        on:click|stopPropagation={stop}
-      />
-    </div>
+  </div>
     <div class="overflow-auto border border-t-0 border-medium p-4">
       <table class="border border-t-0 border-medium p-4">
         <thead>
