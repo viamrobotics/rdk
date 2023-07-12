@@ -217,7 +217,7 @@ func TestMoveSingleComponent(t *testing.T) {
 	})
 }
 
-func TestMoveOnMapLongDist(t *testing.T) {
+func TestMoveOnMapLongDistance(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 	injectSlam := inject.NewSLAMService("test_slam")
@@ -272,9 +272,7 @@ func TestMoveOnMapLongDist(t *testing.T) {
 		nil,
 	)
 	test.That(t, err, test.ShouldBeNil)
-	// path of length 2 indicates a path that goes straight through central obstacle
 	test.That(t, len(path), test.ShouldBeGreaterThan, 2)
-	test.That(t, 2, test.ShouldBeGreaterThan, 3)
 }
 
 func TestMoveOnMap(t *testing.T) {
