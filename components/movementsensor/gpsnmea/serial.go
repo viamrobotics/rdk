@@ -51,21 +51,13 @@ func NewSerialGPSNMEA(ctx context.Context, name resource.Name, conf *Config, log
 	if serialPath == "" {
 		return nil, fmt.Errorf("SerialNMEAMovementSensor expected non-empty string for %q", conf.SerialConfig.SerialPath)
 	}
-	correctionPath := conf.SerialConfig.SerialCorrectionPath
-	if correctionPath == "" {
-		correctionPath = serialPath
-		logger.Infof("SerialNMEAMovementSensor: correction_path using path: %s", correctionPath)
-	}
+
 	baudRate := conf.SerialConfig.SerialBaudRate
 	if baudRate == 0 {
 		baudRate = 38400
 		logger.Info("SerialNMEAMovementSensor: serial_baud_rate using default 38400")
 	}
-	correctionBaudRate := conf.SerialConfig.SerialCorrectionBaudRate
-	if correctionBaudRate == 0 {
-		correctionBaudRate = baudRate
-		logger.Infof("SerialNMEAMovementSensor: correction_baud using baud_rate: %d", baudRate)
-	}
+
 	disableNmea := conf.DisableNMEA
 	if disableNmea {
 		logger.Info("SerialNMEAMovementSensor: NMEA reading disabled")
@@ -86,18 +78,16 @@ func NewSerialGPSNMEA(ctx context.Context, name resource.Name, conf *Config, log
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
 	g := &SerialNMEAMovementSensor{
-		Named:              name.AsNamed(),
-		dev:                dev,
-		cancelCtx:          cancelCtx,
-		cancelFunc:         cancelFunc,
-		logger:             logger,
-		path:               serialPath,
-		correctionPath:     correctionPath,
-		baudRate:           uint(baudRate),
-		correctionBaudRate: uint(correctionBaudRate),
-		disableNmea:        disableNmea,
-		err:                movementsensor.NewLastError(1, 1),
-		lastposition:       movementsensor.NewLastPosition(),
+		Named:        name.AsNamed(),
+		dev:          dev,
+		cancelCtx:    cancelCtx,
+		cancelFunc:   cancelFunc,
+		logger:       logger,
+		path:         serialPath,
+		baudRate:     uint(baudRate),
+		disableNmea:  disableNmea,
+		err:          movementsensor.NewLastError(1, 1),
+		lastposition: movementsensor.NewLastPosition(),
 	}
 
 	if err := g.Start(ctx); err != nil {
