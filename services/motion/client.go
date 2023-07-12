@@ -176,7 +176,6 @@ func (c *client) MoveOnGlobe(
 			return false, err
 		}
 		req.MotionConfiguration.Extra = structPB
-
 	}
 
 	resp, err := c.client.MoveOnGlobe(ctx, req)

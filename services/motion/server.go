@@ -102,22 +102,22 @@ func (server *serviceServer) MoveOnGlobe(ctx context.Context, req *pb.MoveOnGlob
 			}
 		}
 		if req.MotionConfiguration.PositionPollingFrequency != nil {
-			positionPolling = float64(req.MotionConfiguration.GetPositionPollingFrequency())
+			positionPolling = req.MotionConfiguration.GetPositionPollingFrequency()
 		}
 		if req.MotionConfiguration.ObstaclePollingFrequency != nil {
-			obstaclePolling = float64(req.MotionConfiguration.GetObstaclePollingFrequency())
+			obstaclePolling = req.MotionConfiguration.GetObstaclePollingFrequency()
 		}
 		if req.MotionConfiguration.PlanDeviationMeters != nil {
-			planDeviation = float64(req.MotionConfiguration.GetPlanDeviationMeters())
+			planDeviation = req.MotionConfiguration.GetPlanDeviationMeters()
 		}
 		if req.MotionConfiguration.ReplanCostFactor != nil {
-			replanCostFactor = float64(req.MotionConfiguration.GetReplanCostFactor())
+			replanCostFactor = req.MotionConfiguration.GetReplanCostFactor()
 		}
 		if req.MotionConfiguration.LinearMetersPerSec != nil {
-			linear = float64(req.MotionConfiguration.GetLinearMetersPerSec())
+			linear = req.MotionConfiguration.GetLinearMetersPerSec()
 		}
 		if req.MotionConfiguration.AngularDegPerSec != nil {
-			angular = float64(req.MotionConfiguration.GetAngularDegPerSec())
+			angular = req.MotionConfiguration.GetAngularDegPerSec()
 		}
 	}
 	motionCfg := MotionConfiguration{

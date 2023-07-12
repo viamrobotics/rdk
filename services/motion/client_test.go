@@ -2,7 +2,6 @@ package motion_test
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"net"
 	"testing"
@@ -104,8 +103,6 @@ func TestClient(t *testing.T) {
 			motionCfg motion.MotionConfiguration,
 			extra map[string]interface{},
 		) (bool, error) {
-			fmt.Println(motionCfg.AngularMetersPerSec)
-			fmt.Println(math.IsNaN(motionCfg.ObstaclePollingFreq))
 			return false, errors.New("Not yet implemented")
 		}
 		injectMS.GetPoseFunc = func(

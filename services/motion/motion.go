@@ -66,7 +66,9 @@ type Service interface {
 	) (*referenceframe.PoseInFrame, error)
 }
 
-// TODO: say what this is and does
+// MotionConfiguration specifies how to configure a call
+//
+//nolint:revive
 type MotionConfiguration struct {
 	VisionSvc           []resource.Name
 	PositionPollingFreq float64
