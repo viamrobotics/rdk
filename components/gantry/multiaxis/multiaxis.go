@@ -142,7 +142,6 @@ func (g *multiAxis) MoveToPosition(ctx context.Context, positions, speeds []floa
 		idx += len(subAxNum)
 
 		if g.moveSimultaneously {
-			g.logger.Errorf("axis: %v", subAx.Name())
 			singleGantry := subAx
 			fs = append(fs, func(ctx context.Context) error { return singleGantry.MoveToPosition(ctx, pos, speed, nil) })
 		} else {
@@ -153,7 +152,6 @@ func (g *multiAxis) MoveToPosition(ctx context.Context, positions, speeds []floa
 		}
 	}
 	if g.moveSimultaneously {
-		g.logger.Errorf("MULTIAXIS.GO, fs[0]: %v, fs[1]: %v", &(fs[0]), &(fs[1]))
 		if _, err := rdkutils.RunInParallel(ctx, fs); err != nil {
 			return multierr.Combine(err, g.Stop(ctx, nil))
 		}
