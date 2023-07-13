@@ -1059,11 +1059,6 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 		allErrs = multierr.Combine(allErrs, err)
 	}
 
-	err = r.replacePackageReferencesWithPaths(newConfig)
-	if err != nil {
-		allErrs = multierr.Combine(allErrs, err)
-	}
-
 	// Now that we have the new config and all references are resolved, diff it
 	// with the current generated config to see what has changed
 	diff, err := config.DiffConfigs(*r.Config(), *newConfig, r.revealSensitiveConfigDiffs)
@@ -1140,41 +1135,6 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	if allErrs != nil {
 		r.logger.Errorw("the following errors were gathered during reconfiguration", "errors", allErrs)
 	}
-}
-
-func walkConvertedAttributes[T any](pacMan packages.ManagerSyncer, convertedAttributes T, allErrs error) (T, error) {
-	// Replace all package references with the actual path containing the package
-	// on the robot.
-	var asIfc interface{} = convertedAttributes
-	if walker, ok := asIfc.(utils.Walker); ok {
-		newAttrs, err := walker.Walk(packages.NewPackagePathVisitor(pacMan))
-		if err != nil {
-			allErrs = multierr.Combine(allErrs, err)
-			return convertedAttributes, allErrs
-		}
-		newAttrsTyped, err := utils.AssertType[T](newAttrs)
-		if err != nil {
-			var zero T
-			return zero, err
-		}
-		convertedAttributes = newAttrsTyped
-	}
-	return convertedAttributes, allErrs
-}
-
-func (r *localRobot) replacePackageReferencesWithPaths(cfg *config.Config) error {
-	var allErrs error
-	for i, s := range cfg.Services {
-		s.ConvertedAttributes, allErrs = walkConvertedAttributes(r.packageManager, s.ConvertedAttributes, allErrs)
-		cfg.Services[i] = s
-	}
-
-	for i, c := range cfg.Components {
-		c.ConvertedAttributes, allErrs = walkConvertedAttributes(r.packageManager, c.ConvertedAttributes, allErrs)
-		cfg.Components[i] = c
-	}
-
-	return allErrs
 }
 
 // checkMaxInstance checks to see if the local robot has reached the maximum number of a specific resource type that are local.

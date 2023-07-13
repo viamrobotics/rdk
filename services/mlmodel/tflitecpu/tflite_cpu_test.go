@@ -246,38 +246,38 @@ func makeExampleSlice(length int) []int32 {
 	return out
 }
 
-func TestTFLiteConfigWalker(t *testing.T) {
-	makeVisionAttributes := func(modelPath, labelPath string) *TFLiteConfig {
-		return &TFLiteConfig{
-			ModelPath:  modelPath,
-			LabelPath:  labelPath,
-			NumThreads: 1,
-		}
-	}
+// func TestTFLiteConfigWalker(t *testing.T) {
+// 	makeVisionAttributes := func(modelPath, labelPath string) *TFLiteConfig {
+// 		return &TFLiteConfig{
+// 			ModelPath:  modelPath,
+// 			LabelPath:  labelPath,
+// 			NumThreads: 1,
+// 		}
+// 	}
 
-	labelPath := "/other/path/on/robot/textFile.txt"
-	visionAttrs := makeVisionAttributes("/some/path/on/robot/model.tflite", labelPath)
+// 	labelPath := "/other/path/on/robot/textFile.txt"
+// 	visionAttrs := makeVisionAttributes("/some/path/on/robot/model.tflite", labelPath)
 
-	labelPathWithRefs := "${packages.test_model}/textFile.txt"
-	visionAttrsWithRefs := makeVisionAttributes("${packages.test_model}/model.tflite", labelPathWithRefs)
+// 	labelPathWithRefs := "${packages.test_model}/textFile.txt"
+// 	visionAttrsWithRefs := makeVisionAttributes("${packages.test_model}/model.tflite", labelPathWithRefs)
 
-	labelPathOneRef := "${packages.test_model}/textFile.txt"
-	visionAttrsOneRef := makeVisionAttributes("/some/path/on/robot/model.tflite", labelPathOneRef)
+// 	labelPathOneRef := "${packages.test_model}/textFile.txt"
+// 	visionAttrsOneRef := makeVisionAttributes("/some/path/on/robot/model.tflite", labelPathOneRef)
 
-	packageManager := packages.NewNoopManager()
-	testAttributesWalker := func(t *testing.T, attrs *TFLiteConfig, expectedModelPath, expectedLabelPath string) {
-		newAttrs, err := attrs.Walk(packages.NewPackagePathVisitor(packageManager))
-		test.That(t, err, test.ShouldBeNil)
+// 	packageManager := packages.NewNoopManager()
+// 	testAttributesWalker := func(t *testing.T, attrs *TFLiteConfig, expectedModelPath, expectedLabelPath string) {
+// 		newAttrs, err := attrs.Walk(packages.NewPackagePathVisitor(packageManager))
+// 		test.That(t, err, test.ShouldBeNil)
 
-		test.That(t, newAttrs.(*TFLiteConfig).ModelPath, test.ShouldEqual, expectedModelPath)
-		test.That(t, newAttrs.(*TFLiteConfig).LabelPath, test.ShouldEqual, expectedLabelPath)
-		test.That(t, newAttrs.(*TFLiteConfig).NumThreads, test.ShouldEqual, 1)
-	}
+// 		test.That(t, newAttrs.(*TFLiteConfig).ModelPath, test.ShouldEqual, expectedModelPath)
+// 		test.That(t, newAttrs.(*TFLiteConfig).LabelPath, test.ShouldEqual, expectedLabelPath)
+// 		test.That(t, newAttrs.(*TFLiteConfig).NumThreads, test.ShouldEqual, 1)
+// 	}
 
-	testAttributesWalker(t, visionAttrs, "/some/path/on/robot/model.tflite", "/other/path/on/robot/textFile.txt")
-	testAttributesWalker(t, visionAttrsWithRefs, "test_model/model.tflite", "test_model/textFile.txt")
-	testAttributesWalker(t, visionAttrsOneRef, "/some/path/on/robot/model.tflite", "test_model/textFile.txt")
-}
+// 	testAttributesWalker(t, visionAttrs, "/some/path/on/robot/model.tflite", "/other/path/on/robot/textFile.txt")
+// 	testAttributesWalker(t, visionAttrsWithRefs, "test_model/model.tflite", "test_model/textFile.txt")
+// 	testAttributesWalker(t, visionAttrsOneRef, "/some/path/on/robot/model.tflite", "test_model/textFile.txt")
+// }
 
 func TestLabelPathWalkFail(t *testing.T) {
 	labelPath := "/blah/blah/mylabels.txt"

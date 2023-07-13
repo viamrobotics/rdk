@@ -114,14 +114,7 @@ func verifyPlaceholder(placeholder string) string {
 // GenerateConfigFromFile converts a file to a valid robot config
 // and replaces file placeholders as part of that conversion.
 func GenerateConfigFromFile(filepath string) (*Config, error) {
-	r, err := os.Open(path.Clean(filepath))
-	defer utils.UncheckedErrorFunc(r.Close)
-
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to read config from file")
-	}
-
-	bytes, err := io.ReadAll(r)
+	bytes, err := os.ReadFile(path.Clean(filepath))
 	if err != nil {
 		return nil, err
 	}

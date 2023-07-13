@@ -289,9 +289,12 @@ func TestPlaceholderReplacement(t *testing.T) {
 
 		actualMap := mapPlaceholderToRealPaths(packages)
 		expectedMap := make(map[string]string, 3)
-		expectedMap["packages.old_package"] = path.Clean(path.Join(viamDotDir, "packages", "old_package"))
-		expectedMap["packages.ml_models.ml_test"] = path.Clean(path.Join(viamDotDir, "packages", "ml_models", ".data", "org-ml-test-1"))
-		expectedMap["packages.modules.great_module"] = path.Clean(path.Join(viamDotDir, "packages", "modules", ".data", "org-modules-great-module-2"))
+		expectedMap["packages.old_package"] = path.Clean(
+			path.Join(viamDotDir, "packages", "old_package"))
+		expectedMap["packages.ml_models.ml_test"] = path.Clean(
+			path.Join(viamDotDir, "packages", "ml_models", ".data", "org-ml-test-1"))
+		expectedMap["packages.modules.great_module"] = path.Clean(
+			path.Join(viamDotDir, "packages", "modules", ".data", "org-modules-great-module-2"))
 
 		test.That(t, actualMap, test.ShouldResemble, actualMap)
 	})
