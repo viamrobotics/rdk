@@ -9,7 +9,7 @@ import (
 const (
 	defaultMaxTime       = 15.
 	defaultDiffT         = 0.005
-	defaultMinDist       = 3.
+	defaultMinDist       = 5.
 	defaultAlphaCnt uint = 121
 
 	defaultSearchRadius = 10.
@@ -154,9 +154,9 @@ func (ptg *ptgGridSim) simulateTrajectories(simPtg PrecomputePTG) ([][]*TrajNode
 		var dist float64
 
 		// Last saved waypoints
-		var wpX float64
-		var wpY float64
-		var wpPhi float64
+		//~ var wpX float64
+		//~ var wpY float64
+		//~ var wpPhi float64
 
 		accumulatedHeadingChange := 0.
 
@@ -183,11 +183,11 @@ func (ptg *ptgGridSim) simulateTrajectories(simPtg PrecomputePTG) ([][]*TrajNode
 			dist += v * ptg.diffT
 			t += ptg.diffT
 
-			wpDist1 := math.Sqrt(math.Pow(wpX-x, 2) + math.Pow(wpY-y, 2))
-			wpDist2 := math.Abs(wpPhi - phi)
-			wpDist := math.Max(wpDist1, wpDist2)
+			//~ wpDist1 := math.Sqrt(math.Pow(wpX-x, 2) + math.Pow(wpY-y, 2))
+			//~ wpDist2 := math.Abs(wpPhi - phi)
+			//~ wpDist := math.Max(wpDist1, wpDist2)
 
-			if wpDist > ptg.minDist {
+			//~ if wpDist > ptg.minDist {
 				// If our waypoint is farther along than our minimum, update
 
 				// Update velocities of last node because reasons
@@ -196,10 +196,10 @@ func (ptg *ptgGridSim) simulateTrajectories(simPtg PrecomputePTG) ([][]*TrajNode
 
 				pose := xythetaToPose(x, y, phi)
 				alphaTraj = append(alphaTraj, &TrajNode{pose, t, dist, k, v, w, pose.Point().X, pose.Point().Y})
-				wpX = x
-				wpY = y
-				wpPhi = phi
-			}
+				//~ wpX = x
+				//~ wpY = y
+				//~ wpPhi = phi
+			//~ }
 
 			// For the grid!
 			xMin = math.Min(xMin, x)

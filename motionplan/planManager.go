@@ -271,9 +271,12 @@ func (pm *planManager) planSingleAtomicWaypoint(
 		if err != nil {
 			return nil, nil, err
 		}
+		
+		smoothedPath := nodesToInputs(pathPlanner.smoothPath(ctx, steps))
+		
 		// Update seed for the next waypoint to be the final configuration of this waypoint
-		seed = steps[len(steps)-1]
-		return seed, &resultPromise{steps: steps}, nil
+		seed = smoothedPath[len(smoothedPath)-1]
+		return seed, &resultPromise{steps: smoothedPath}, nil
 	}
 }
 

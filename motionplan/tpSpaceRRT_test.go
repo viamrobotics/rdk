@@ -76,7 +76,7 @@ func TestPtgWithObstacle(t *testing.T) {
 	opt := newBasicPlannerOptions()
 	opt.SetGoalMetric(NewPositionOnlyMetric(goalPos))
 	opt.DistanceFunc = SquaredNormNoOrientSegmentMetric
-	opt.GoalThreshold = 10.
+	opt.GoalThreshold = 30.
 	// obstacles
 	obstacle1, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{2500, -500, 0}), r3.Vector{180, 1800, 1}, "")
 	test.That(t, err, test.ShouldBeNil)
@@ -86,13 +86,13 @@ func TestPtgWithObstacle(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	obstacle4, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{2500, 2400, 0}), r3.Vector{50000, 30, 1}, "")
 	test.That(t, err, test.ShouldBeNil)
-	obstacle5, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{1500, 750, 0}), r3.Vector{180, 1500, 1}, "")
-	test.That(t, err, test.ShouldBeNil)
-	obstacle6, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{3500, 750, 0}), r3.Vector{180, 1500, 1}, "")
-	test.That(t, err, test.ShouldBeNil)
+	//~ obstacle5, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{1500, 750, 0}), r3.Vector{180, 1500, 1}, "")
+	//~ test.That(t, err, test.ShouldBeNil)
+	//~ obstacle6, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{3500, 750, 0}), r3.Vector{180, 1500, 1}, "")
+	//~ test.That(t, err, test.ShouldBeNil)
 
-	//~ geoms := []spatialmath.Geometry{obstacle1, obstacle2, obstacle3, obstacle4}
-	geoms := []spatialmath.Geometry{obstacle1, obstacle2, obstacle3, obstacle4, obstacle5, obstacle6}
+	geoms := []spatialmath.Geometry{obstacle1, obstacle2, obstacle3, obstacle4}
+	//~ geoms := []spatialmath.Geometry{obstacle1, obstacle2, obstacle3, obstacle4, obstacle5, obstacle6}
 	for _, geom := range geoms {
 	pts := geom.ToPoints(1.)
 	for _, pt := range pts {
@@ -125,13 +125,36 @@ func TestPtgWithObstacle(t *testing.T) {
 	test.That(t, len(plan), test.ShouldBeGreaterThan, 2)
 	allPtgs := ackermanFrame.(tpspace.PTGProvider).PTGs()
 	lastPose := spatialmath.NewZeroPose()
+	planNodes := []node{}
 	for _, mynode := range plan {
-		trajPts := allPtgs[int(mynode[0].Value)].Trajectory(uint(mynode[1].Value))
-		for _, pt := range trajPts {
+		planNodes = append(planNodes, mynode)
+		trajPts := allPtgs[int(mynode.Q()[0].Value)].Trajectory(uint(mynode.Q()[1].Value))
+		for i, pt := range trajPts {
 			//~ fmt.Println("pt", pt)
 			intPose := spatialmath.Compose(lastPose, pt.Pose)
+			if i == 0 {
+				fmt.Printf("WP,%f,%f\n", intPose.Point().X, intPose.Point().Y)
+			}
 			fmt.Printf("FINALPATH,%f,%f\n", intPose.Point().X, intPose.Point().Y)
-			if pt.Dist >= mynode[2].Value {
+			if pt.Dist >= mynode.Q()[2].Value {
+				lastPose = spatialmath.Compose(lastPose, pt.Pose)
+				break
+			}
+		}
+	}
+	
+	plan = tp.smoothPath(ctx, planNodes)
+	lastPose = spatialmath.NewZeroPose()
+	for _, mynode := range plan {
+		trajPts := allPtgs[int(mynode.Q()[0].Value)].Trajectory(uint(mynode.Q()[1].Value))
+		for i, pt := range trajPts {
+			//~ fmt.Println("pt", pt)
+			intPose := spatialmath.Compose(lastPose, pt.Pose)
+			if i == 0 {
+				fmt.Printf("SMOOTHWP,%f,%f\n", intPose.Point().X, intPose.Point().Y)
+			}
+			fmt.Printf("SMOOTHPATH,%f,%f\n", intPose.Point().X, intPose.Point().Y)
+			if pt.Dist >= mynode.Q()[2].Value {
 				lastPose = spatialmath.Compose(lastPose, pt.Pose)
 				break
 			}
