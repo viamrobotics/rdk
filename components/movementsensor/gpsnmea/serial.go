@@ -98,7 +98,7 @@ func NewSerialGPSNMEA(ctx context.Context, name resource.Name, conf *Config, log
 }
 
 // Start begins reading nmea messages from module and updates gps data.
-func (g *SerialNMEAMovementSensor) Start(ctx context.Context) error { // doneChan chan bool
+func (g *SerialNMEAMovementSensor) Start(ctx context.Context) error {
 	g.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer g.activeBackgroundWorkers.Done()
@@ -107,8 +107,6 @@ func (g *SerialNMEAMovementSensor) Start(ctx context.Context) error { // doneCha
 			select {
 			case <-g.cancelCtx.Done():
 				return
-			// case <-doneChan:
-			// 	return
 			default:
 			}
 

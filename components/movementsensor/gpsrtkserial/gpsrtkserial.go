@@ -174,13 +174,10 @@ func newRTKSerial(
 		return nil, err
 	}
 
-	// baud rate
-	if newConf.SerialBaudRate == 0 {
-		newConf.SerialBaudRate = 38400
-		g.logger.Info("serial_baud_rate using default baud rate 38400")
+	// reconfigure
+	if err := g.Reconfigure(ctx, deps, conf); err != nil {
+		return nil, err
 	}
-	g.wbaud = newConf.SerialBaudRate
-	g.writePath = newConf.SerialPath
 
 	if err := g.start(); err != nil {
 		return nil, err
