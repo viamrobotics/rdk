@@ -294,7 +294,13 @@ func (g *singleAxis) moveAway(ctx context.Context, pin int) error {
 	if err := g.motor.GoFor(ctx, dir*g.rpm, 0, nil); err != nil {
 		return err
 	}
+	defer utils.UncheckedErrorFunc(func() error {
+		return g.motor.Stop(ctx, nil)
+	})
 	for {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 		hit, err := g.limitHit(ctx, pin)
 		if err != nil {
 			return err
