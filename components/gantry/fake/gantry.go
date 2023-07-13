@@ -4,7 +4,6 @@ package fake
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
