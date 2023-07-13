@@ -235,6 +235,50 @@ func TestMoveSingleComponent(t *testing.T) {
 	})
 }
 
+func TestMoveOnMapLongDistance(t *testing.T) {
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+	injectSlam := inject.NewSLAMService("test_slam")
+
+	injectSlam.GetPointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
+		return getPointCloudMap(filepath.Clean(
+			artifact.MustPath("slam/example_cartographer_outputs/viam-office-02-22-3/pointcloud/pointcloud_4.pcd")))
+	}
+
+	cfg := resource.Config{
+		Name:  "test_base",
+		API:   base.API,
+		Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R: 100}},
+	}
+
+	fakeBase, err := fake.NewBase(ctx, nil, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	ms, err := NewBuiltIn(
+		ctx,
+		resource.Dependencies{injectSlam.Name(): injectSlam, fakeBase.Name(): fakeBase},
+		resource.Config{
+			ConvertedAttributes: &Config{},
+		},
+		logger,
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	// goal x-position of 1.32m is scaled to be in mm
+	goal := spatialmath.NewPoseFromPoint(r3.Vector{X: -32.508 * 1000, Y: -2.092 * 1000})
+	extra := make(map[string]interface{})
+	extra["planning_alg"] = "cbirrt"
+	path, _, err := ms.(*builtIn).planMoveOnMap(
+		context.Background(),
+		base.Named("test_base"),
+		goal,
+		slam.Named("test_slam"),
+		extra,
+	)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(path), test.ShouldBeGreaterThan, 2)
+}
+
 func TestMoveOnMap(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
