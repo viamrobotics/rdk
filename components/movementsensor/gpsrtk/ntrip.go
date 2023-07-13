@@ -19,6 +19,18 @@ type NtripInfo struct {
 	MaxConnectAttempts int
 }
 
+// NtripConfig is used for converting attributes for a correction source.
+type NtripConfig struct {
+	NtripURL             string `json:"ntrip_url"`
+	NtripConnectAttempts int    `json:"ntrip_connect_attempts,omitempty"`
+	NtripMountpoint      string `json:"ntrip_mountpoint,omitempty"`
+	NtripPass            string `json:"ntrip_password,omitempty"`
+	NtripUser            string `json:"ntrip_username,omitempty"`
+	NtripPath            string `json:"ntrip_path,omitempty"`
+	NtripBaud            int    `json:"ntrip_baud,omitempty"`
+	NtripInputProtocol   string `json:"ntrip_input_protocol,omitempty"`
+}
+
 // NewNtripInfo function validates and sets NtripConfig arributes and returns NtripInfo.
 func NewNtripInfo(cfg *NtripConfig, logger golog.Logger) (*NtripInfo, error) {
 	n := &NtripInfo{}
