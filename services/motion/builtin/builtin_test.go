@@ -10,7 +10,6 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
-
 	// register.
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
