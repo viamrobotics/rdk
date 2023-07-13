@@ -83,7 +83,7 @@ func TestNavSetup(t *testing.T) {
 	test.That(t, len(wayPt), test.ShouldEqual, 0)
 }
 
-func TestStartWaypoint(t *testing.T) {
+func TestStartWaypointExperimental(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 
@@ -115,21 +115,6 @@ func TestStartWaypoint(t *testing.T) {
 	injectMovementSensor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
 		inputs, err := kinematicBase.CurrentInputs(ctx)
 		return geo.NewPoint(inputs[0].Value, inputs[1].Value), 0, err
-	}
-
-	injectMS.MoveOnGlobeFunc = func(
-		ctx context.Context,
-		componentName resource.Name,
-		destination *geo.Point,
-		heading float64,
-		movementSensorName resource.Name,
-		obstacles []*spatialmath.GeoObstacle,
-		linearVelocityMillisPerSec float64,
-		angularVelocityDegsPerSec float64,
-		extra map[string]interface{},
-	) (bool, error) {
-		err := kinematicBase.GoToInputs(ctx, referenceframe.FloatsToInputs([]float64{destination.Lat(), destination.Lng(), 0}))
-		return true, err
 	}
 
 	ns, err := NewBuiltIn(
@@ -151,147 +136,146 @@ func TestStartWaypoint(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	pt := geo.NewPoint(1, 0)
-	err = ns.AddWaypoint(ctx, pt, nil)
-	test.That(t, err, test.ShouldBeNil)
+	t.Run("Reach waypoints successfully", func(t *testing.T) {
 
-	pt = geo.NewPoint(3, 1)
-	err = ns.AddWaypoint(ctx, pt, nil)
-	test.That(t, err, test.ShouldBeNil)
-
-	err = ns.SetMode(ctx, navigation.ModeWaypoint, map[string]interface{}{"experimental": true})
-	test.That(t, err, test.ShouldBeNil)
-	ns.(*builtIn).activeBackgroundWorkers.Wait()
-
-	inputs, err := kinematicBase.CurrentInputs(ctx)
-	test.That(t, err, test.ShouldBeNil)
-	actualPt := geo.NewPoint(inputs[0].Value, inputs[1].Value)
-	test.That(t, actualPt.Lat(), test.ShouldEqual, pt.Lat())
-	test.That(t, actualPt.Lng(), test.ShouldEqual, pt.Lng())
-
-	// setup injected MoveOnGlobe to test what extra defaults to from startWaypointExperimental function
-	injectMS.MoveOnGlobeFunc = func(
-		ctx context.Context,
-		componentName resource.Name,
-		destination *geo.Point,
-		heading float64,
-		movementSensorName resource.Name,
-		obstacles []*spatialmath.GeoObstacle,
-		linearVelocity float64,
-		angularVelocity float64,
-		extra map[string]interface{},
-	) (bool, error) {
-		if extra != nil && extra["motion_profile"] != nil {
-			return true, nil
+		injectMS.MoveOnGlobeFunc = func(
+			ctx context.Context,
+			componentName resource.Name,
+			destination *geo.Point,
+			heading float64,
+			movementSensorName resource.Name,
+			obstacles []*spatialmath.GeoObstacle,
+			linearVelocityMillisPerSec float64,
+			angularVelocityDegsPerSec float64,
+			extra map[string]interface{},
+		) (bool, error) {
+			err := kinematicBase.GoToInputs(ctx, referenceframe.FloatsToInputs([]float64{destination.Lat(), destination.Lng(), 0}))
+			return true, err
 		}
-		return false, errors.New("no motion_profile exist")
-	}
 
-	// construct new point to navigate to
-	pt = geo.NewPoint(0, 0)
-	err = ns.AddWaypoint(ctx, pt, nil)
-	test.That(t, err, test.ShouldBeNil)
+		pt := geo.NewPoint(1, 0)
+		err = ns.AddWaypoint(ctx, pt, nil)
+		test.That(t, err, test.ShouldBeNil)
 
-	err = ns.(*builtIn).startWaypointExperimental(map[string]interface{}{})
-	test.That(t, err, test.ShouldBeNil)
-	ns.(*builtIn).activeBackgroundWorkers.Wait()
+		pt = geo.NewPoint(3, 1)
+		err = ns.AddWaypoint(ctx, pt, nil)
+		test.That(t, err, test.ShouldBeNil)
 
-	// go to same point again
-	err = ns.AddWaypoint(ctx, pt, nil)
-	test.That(t, err, test.ShouldBeNil)
+		err = ns.SetMode(ctx, navigation.ModeWaypoint, map[string]interface{}{"experimental": true})
+		test.That(t, err, test.ShouldBeNil)
+		ns.(*builtIn).activeBackgroundWorkers.Wait()
 
-	err = ns.(*builtIn).startWaypointExperimental(nil)
-	test.That(t, err, test.ShouldBeNil)
-	ns.(*builtIn).activeBackgroundWorkers.Wait()
-}
-func TestSkipWaypoint(t *testing.T) {
-	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
-
-	injectMS := inject.NewMotionService("test_motion")
-	cfg := resource.Config{
-		Name:  "test_base",
-		API:   base.API,
-		Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R: 100}},
-	}
-
-	fakeBase, err := fakebase.NewBase(ctx, nil, cfg, logger)
-	test.That(t, err, test.ShouldBeNil)
-
-	fakeSlam := fakeslam.NewSLAM(slam.Named("foo"), logger)
-	limits, err := fakeSlam.GetLimits(ctx)
-	test.That(t, err, test.ShouldBeNil)
-
-	localizer, err := motion.NewLocalizer(ctx, fakeSlam)
-	test.That(t, err, test.ShouldBeNil)
-
-	// cast fakeBase
-	fake, ok := fakeBase.(*fakebase.Base)
-	test.That(t, ok, test.ShouldBeTrue)
-
-	kinematicBase, err := kinematicbase.WrapWithFakeKinematics(ctx, fake, localizer, limits)
-	test.That(t, err, test.ShouldBeNil)
-
-	injectMovementSensor := inject.NewMovementSensor("test_movement")
-	injectMovementSensor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
 		inputs, err := kinematicBase.CurrentInputs(ctx)
-		return geo.NewPoint(inputs[0].Value, inputs[1].Value), 0, err
-	}
+		test.That(t, err, test.ShouldBeNil)
+		actualPt := geo.NewPoint(inputs[0].Value, inputs[1].Value)
+		test.That(t, actualPt.Lat(), test.ShouldEqual, pt.Lat())
+		test.That(t, actualPt.Lng(), test.ShouldEqual, pt.Lng())
+	})
 
-	hitAnError := make(chan int)
-	injectMS.MoveOnGlobeFunc = func(
-		ctx context.Context,
-		componentName resource.Name,
-		destination *geo.Point,
-		heading float64,
-		movementSensorName resource.Name,
-		obstacles []*spatialmath.GeoObstacle,
-		linearVelocityMillisPerSec float64,
-		angularVelocityDegsPerSec float64,
-		extra map[string]interface{},
-	) (bool, error) {
-		for {
-			select {
-			case <-hitAnError:
-				return false, errors.New("skipped waypoint error")
-			default:
-				time.Sleep(time.Millisecond)
+	t.Run("Extra defaults to motion_profile", func(t *testing.T) {
+		// setup injected MoveOnGlobe to test what extra defaults to from startWaypointExperimental function
+		injectMS.MoveOnGlobeFunc = func(
+			ctx context.Context,
+			componentName resource.Name,
+			destination *geo.Point,
+			heading float64,
+			movementSensorName resource.Name,
+			obstacles []*spatialmath.GeoObstacle,
+			linearVelocity float64,
+			angularVelocity float64,
+			extra map[string]interface{},
+		) (bool, error) {
+			if extra != nil && extra["motion_profile"] != nil {
+				return true, nil
+			}
+			return false, errors.New("no motion_profile exist")
+		}
+
+		// construct new point to navigate to
+		pt := geo.NewPoint(0, 0)
+		err = ns.AddWaypoint(ctx, pt, nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		err = ns.(*builtIn).startWaypointExperimental(map[string]interface{}{})
+		test.That(t, err, test.ShouldBeNil)
+		ns.(*builtIn).activeBackgroundWorkers.Wait()
+
+		// go to same point again
+		err = ns.AddWaypoint(ctx, pt, nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		err = ns.(*builtIn).startWaypointExperimental(nil)
+		test.That(t, err, test.ShouldBeNil)
+		ns.(*builtIn).activeBackgroundWorkers.Wait()
+	})
+
+	t.Run("MoveOnGlobe error results in skipping the current waypoint", func(t *testing.T) {
+		hitAnError, reachWaypoint := make(chan int), make(chan int)
+		injectMS.MoveOnGlobeFunc = func(
+			ctx context.Context,
+			componentName resource.Name,
+			destination *geo.Point,
+			heading float64,
+			movementSensorName resource.Name,
+			obstacles []*spatialmath.GeoObstacle,
+			linearVelocityMillisPerSec float64,
+			angularVelocityDegsPerSec float64,
+			extra map[string]interface{},
+		) (bool, error) {
+			for {
+				select {
+				case <-reachWaypoint:
+					err := kinematicBase.GoToInputs(ctx, referenceframe.FloatsToInputs([]float64{destination.Lat(), destination.Lng(), 0}))
+					return true, err
+				case <-hitAnError:
+					return false, errors.New("skipped waypoint error")
+				default:
+					time.Sleep(time.Millisecond)
+				}
 			}
 		}
-	}
 
-	ns, err := NewBuiltIn(
-		ctx,
-		resource.Dependencies{injectMS.Name(): injectMS, fakeBase.Name(): fakeBase, injectMovementSensor.Name(): injectMovementSensor},
-		resource.Config{
-			ConvertedAttributes: &Config{
-				Store: navigation.StoreConfig{
-					Type: navigation.StoreTypeMemory,
-				},
-				BaseName:           "test_base",
-				MovementSensorName: "test_movement",
-				MotionServiceName:  "test_motion",
-				DegPerSec:          1,
-				MetersPerSec:       1,
-			},
-		},
-		logger,
-	)
-	test.That(t, err, test.ShouldBeNil)
+		pt1 := geo.NewPoint(1, 2)
+		err = ns.AddWaypoint(ctx, pt1, nil)
+		test.That(t, err, test.ShouldBeNil)
 
-	err = ns.AddWaypoint(ctx, geo.NewPoint(1, 2), nil)
-	test.That(t, err, test.ShouldBeNil)
+		pt2 := geo.NewPoint(2, 3)
+		err = ns.AddWaypoint(ctx, pt2, nil)
+		test.That(t, err, test.ShouldBeNil)
 
-	err = ns.AddWaypoint(ctx, geo.NewPoint(2, 3), nil)
-	test.That(t, err, test.ShouldBeNil)
+		pt3 := geo.NewPoint(3, 4)
+		err = ns.AddWaypoint(ctx, pt3, nil)
+		test.That(t, err, test.ShouldBeNil)
 
-	// start navigation
-	err = ns.SetMode(ctx, navigation.ModeWaypoint, map[string]interface{}{"experimental": true})
-	test.That(t, err, test.ShouldBeNil)
-	hitAnError <- 1
-	hitAnError <- 1
+		err = ns.(*builtIn).startWaypointExperimental(map[string]interface{}{"experimental": true})
+		test.That(t, err, test.ShouldBeNil)
 
-	ns.(*builtIn).activeBackgroundWorkers.Wait()
+		// Reach the first waypoint
+		reachWaypoint <- 1
+		inputs, err := kinematicBase.CurrentInputs(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		actualPt := geo.NewPoint(inputs[0].Value, inputs[1].Value)
+		test.That(t, actualPt.Lat(), test.ShouldEqual, pt1.Lat())
+		test.That(t, actualPt.Lng(), test.ShouldEqual, pt1.Lng())
+
+		// Skip the second waypoint due to an error
+		hitAnError <- 1
+		inputs, err = kinematicBase.CurrentInputs(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		actualPt = geo.NewPoint(inputs[0].Value, inputs[1].Value)
+		test.That(t, actualPt.Lat(), test.ShouldEqual, pt1.Lat())
+		test.That(t, actualPt.Lng(), test.ShouldEqual, pt1.Lng())
+
+		// Reach the third waypoint
+		reachWaypoint <- 1
+		inputs, err = kinematicBase.CurrentInputs(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		actualPt = geo.NewPoint(inputs[0].Value, inputs[1].Value)
+		test.That(t, actualPt.Lat(), test.ShouldEqual, pt3.Lat())
+		test.That(t, actualPt.Lng(), test.ShouldEqual, pt3.Lng())
+
+		ns.(*builtIn).activeBackgroundWorkers.Wait()
+	})
 }
 
 func TestCancelWaypoint(t *testing.T) {
