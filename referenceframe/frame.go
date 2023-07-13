@@ -29,16 +29,17 @@ type Limit struct {
 	Max float64
 }
 
-// RestrictedRandomFrameInputs will produce a list of valid, in-bounds inputs for the frame, restricting the range to
-// `lim` percent of the limits.
-func RestrictedRandomFrameInputs(m Frame, rSeed *rand.Rand, lim float64, nodeLocation []Input) ([]Input, error) {
+// RestrictedRandomFrameInputs will produce a list of valid, in-bounds inputs for the frame.
+// The range of selection is restricted to `restrictionPercent` percent of the limits, and the
+// selection frame is centered at reference.
+func RestrictedRandomFrameInputs(m Frame, rSeed *rand.Rand, restrictionPercent float64, reference []Input) ([]Input, error) {
 	if rSeed == nil {
 		//nolint:gosec
 		rSeed = rand.New(rand.NewSource(1))
 	}
 	dof := m.DoF()
-	if len(nodeLocation) != len(dof) {
-		return nil, NewIncorrectInputLengthError(len(nodeLocation), len(dof))
+	if len(reference) != len(dof) {
+		return nil, NewIncorrectInputLengthError(len(reference), len(dof))
 	}
 	pos := make([]Input, 0, len(dof))
 	for i, limit := range dof {
@@ -53,8 +54,8 @@ func RestrictedRandomFrameInputs(m Frame, rSeed *rand.Rand, lim float64, nodeLoc
 		}
 
 		frameSpan := u - l
-		minVal := math.Max(l, nodeLocation[i].Value-lim*frameSpan/2)
-		maxVal := math.Min(u, nodeLocation[i].Value+lim*frameSpan/2)
+		minVal := math.Max(l, reference[i].Value-restrictionPercent*frameSpan/2)
+		maxVal := math.Min(u, reference[i].Value+restrictionPercent*frameSpan/2)
 		samplingSpan := maxVal - minVal
 		pos = append(pos, Input{samplingSpan*rSeed.Float64() + minVal})
 	}

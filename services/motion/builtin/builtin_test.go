@@ -10,6 +10,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
+
 	// register.
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
@@ -240,24 +241,9 @@ func TestMoveOnMapLongDistance(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	injectSlam := inject.NewSLAMService("test_slam")
 
-	const chunkSizeBytes = 1 * 1024 * 1024
-
 	injectSlam.GetPointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
-		path := filepath.Clean(artifact.MustPath("slam/example_cartographer_outputs/viam-office-02-22-3/pointcloud/pointcloud_4.pcd"))
-		file, err := os.Open(path)
-		if err != nil {
-			return nil, err
-		}
-		chunk := make([]byte, chunkSizeBytes)
-		f := func() ([]byte, error) {
-			bytesRead, err := file.Read(chunk)
-			if err != nil {
-				defer utils.UncheckedErrorFunc(file.Close)
-				return nil, err
-			}
-			return chunk[:bytesRead], err
-		}
-		return f, nil
+		return getPointCloudMap(filepath.Clean(
+			artifact.MustPath("slam/example_cartographer_outputs/viam-office-02-22-3/pointcloud/pointcloud_4.pcd")))
 	}
 
 	cfg := resource.Config{

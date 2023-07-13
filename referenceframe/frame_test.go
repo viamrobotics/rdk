@@ -77,11 +77,14 @@ func TestPrismaticFrame(t *testing.T) {
 
 	randomInputs := RandomFrameInputs(frame, nil)
 	test.That(t, len(randomInputs), test.ShouldEqual, len(frame.DoF()))
-	restrictRandomInputs, err := RestrictedRandomFrameInputs(frame, nil, 0.001, FloatsToInputs([]float64{-10}))
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(restrictRandomInputs), test.ShouldEqual, len(frame.DoF()))
-	test.That(t, restrictRandomInputs[0].Value, test.ShouldBeLessThan, -9.07)
-	test.That(t, restrictRandomInputs[0].Value, test.ShouldBeGreaterThan, -10.03)
+
+	for i := 0; i < 10; i++ {
+		restrictRandomInputs, err := RestrictedRandomFrameInputs(frame, nil, 0.001, FloatsToInputs([]float64{-10}))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(restrictRandomInputs), test.ShouldEqual, len(frame.DoF()))
+		test.That(t, restrictRandomInputs[0].Value, test.ShouldBeLessThan, -9.07)
+		test.That(t, restrictRandomInputs[0].Value, test.ShouldBeGreaterThan, -10.03)
+	}
 }
 
 func TestRevoluteFrame(t *testing.T) {
