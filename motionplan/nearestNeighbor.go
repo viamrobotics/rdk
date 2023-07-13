@@ -111,17 +111,14 @@ func (nm *neighborManager) parallelNearestNeighbor(
 	returned := 0
 	for returned < nm.nCPU {
 		select {
-		case <-ctx.Done():
-			return nil
-		default:
-		}
-
-		select {
 		case nn := <-nm.neighbors:
 			returned++
-			if nn.dist < bestDist {
-				bestDist = nn.dist
-				best = nn.node
+			if nn != nil {
+				// nn will be nil if the ctx is cancelled
+				if nn.dist < bestDist {
+					bestDist = nn.dist
+					best = nn.node
+				}
 			}
 		default:
 		}
@@ -146,6 +143,7 @@ func (nm *neighborManager) nnWorker(ctx context.Context, planOpts *plannerOption
 	for {
 		select {
 		case <-ctx.Done():
+			nm.neighbors <- nil
 			return
 		default:
 		}
