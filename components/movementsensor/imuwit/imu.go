@@ -125,7 +125,38 @@ func (imu *wit) getMagnetometer(ctx context.Context) (r3.Vector, error) {
 }
 
 func (imu *wit) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
-	return imu.compassheading, imu.err.Get()
+	imu.mu.Lock()
+	defer imu.mu.Unlock()
+
+	var err error
+	// this only works when the imu is level to the surface of the earth, no inclines
+	// do not let the imu near permanent magnets or things that make a strong magnetic field
+	if imu.checkMagReadingsExist() {
+		imu.compassheading = calculateCompassHeading(imu.magnetometer.X, imu.magnetometer.Y)
+	} else {
+		imu.compassheading = math.NaN()
+		err = movementsensor.ErrMethodUnimplementedCompassHeading
+
+	}
+
+	return imu.compassheading, err
+}
+
+// these were not included in the busy loop as they are a stop-gap solution to obtain
+// compass heading under a very specific circumstance
+// eventually, we will implment filters that give us more robust data and check for
+// magnetometry data existing in the constructo
+func (imu *wit) checkMagReadingsExist() bool {
+	return imu.magnetometer.X != 0 && imu.magnetometer.Y != 0 && imu.magnetometer.Z != 0
+}
+
+func calculateCompassHeading(x, y float64) float64 {
+	// calculate -180 to 180 heading from radians
+	// North (y) is 0 so  the π/2 - atan2(y, x) identity is used
+	// directly
+	rad := math.Atan2(x, y) * 180 / math.Pi // -180 to 180 heading
+
+	return math.Mod(rad+360, 360) // change domain to 0 to 360
 }
 
 func (imu *wit) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
@@ -152,11 +183,14 @@ func (imu *wit) Readings(ctx context.Context, extra map[string]interface{}) (map
 }
 
 func (imu *wit) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+	imu.mu.Lock()
+	defer imu.mu.Unlock()
+
 	return &movementsensor.Properties{
 		AngularVelocitySupported:    true,
 		OrientationSupported:        true,
 		LinearAccelerationSupported: true,
-		CompassHeadingSupported:     true,
+		CompassHeadingSupported:     !math.IsNaN(imu.compassheading),
 	}, nil
 }
 
@@ -280,6 +314,11 @@ func (imu *wit) parseWIT(line string) error {
 		imu.angularVelocity.Z = scale(line[5], line[6], 2000)
 	}
 
+	imu.logger.Infof(
+		"Yaw %#v",
+		rutils.RadToDeg(imu.orientation.Yaw),
+	)
+
 	if line[0] == 0x53 {
 		if len(line) < 7 {
 			return fmt.Errorf("line is wrong for imu orientation %d %v", len(line), line)
@@ -308,19 +347,7 @@ func (imu *wit) parseWIT(line string) error {
 		imu.magnetometer.Z = scalemag(line[5], line[6], 1)
 	}
 
-	// this only works when the imu is level to the surface of the earth, no inclines
-	// do not let the imu near permanent magnets or things that make a strong magnetic field
-	imu.compassheading = calculateCompassHeading(imu.magnetometer.X, imu.magnetometer.Y)
-
 	return nil
-}
-
-func calculateCompassHeading(x, y float64) float64 {
-	// calculate -180 to 180 heading from radians
-	// North (y) is 0 so  the π/2 - atan2(y, x) is used
-	rad := math.Atan2(x, y) * 180 / math.Pi // -180 to 180 heading
-
-	return math.Mod(rad+360, 360) // change domain to 0 to 360
 }
 
 // Close shuts down wit and closes imu.port.
