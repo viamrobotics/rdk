@@ -50,6 +50,7 @@ func TestParse2(t *testing.T) {
 	test.That(t, data.HDOP, test.ShouldEqual, 4.65)
 	test.That(t, data.VDOP, test.ShouldEqual, 2.69)
 }
+
 func TestParsing(t *testing.T) {
 	var data GPSData
 	// Test a GGA sentence
