@@ -161,7 +161,7 @@ func buildTestDDK(
 	}
 
 	// construct differential drive kinematic base
-	kb, err := wrapWithDifferentialDriveKinematics(ctx, b, motion.NewSLAMLocalizer(fakeSLAM), limits, linVel, angVel)
+	kb, err := wrapWithDifferentialDriveKinematics(ctx, b, logger, motion.NewSLAMLocalizer(fakeSLAM), limits, linVel, angVel)
 	if err != nil {
 		return nil, err
 	}

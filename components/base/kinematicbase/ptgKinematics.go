@@ -8,6 +8,7 @@ import (
 	"math"
 	"time"
 
+	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"go.uber.org/multierr"
 	utils "go.viam.com/utils"
@@ -110,6 +111,9 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 	if len(inputs) != 3 {
 		return errors.New("inputs to ptg kinematic base must be length 3")
 	}
+
+	logger := golog.NewLogger("ddk")
+	logger.Debug("current inputs %v", inputs)
 
 	selectedPTG := ptgk.ptgs[int(math.Round(inputs[ptgIndex].Value))]
 	selectedTraj := selectedPTG.Trajectory(uint(math.Round(inputs[trajectoryIndexWithinPTG].Value)))

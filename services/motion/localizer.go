@@ -8,6 +8,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 )
 
 // Localizer is an interface which both slam and movementsensor can satisfy when wrapped respectively.
@@ -49,5 +50,11 @@ func (m *movementSensorLocalizer) CurrentPosition(ctx context.Context) (*referen
 	if err != nil {
 		return nil, err
 	}
-	return referenceframe.NewPoseInFrame(m.Name().Name, spatialmath.GeoPointToPose(gp, m.origin)), nil
+	heading, err := m.Orientation(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	pose := spatialmath.NewPose(spatialmath.GeoPointToPose(gp, m.origin).Point(), heading)
+	offset := spatialmath.NewPoseFromOrientation(&spatialmath.EulerAngles{Yaw: utils.DegToRad(180 + 90)}) // +90 because want to align with east
+	return referenceframe.NewPoseInFrame(m.Name().Name, spatialmath.Compose(pose, offset)), nil
 }

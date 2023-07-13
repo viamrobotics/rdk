@@ -394,7 +394,7 @@ func (ms *builtIn) planMoveOnGlobeNick(
 	if fake, ok := b.(*fake.Base); ok {
 		kb, err = kinematicbase.WrapWithFakeKinematics(ctx, fake, localizer, limits)
 	} else {
-		kb, err = kinematicbase.WrapWithKinematics(ctx, b, localizer, limits,
+		kb, err = kinematicbase.WrapWithKinematics(ctx, b, ms.logger, localizer, limits,
 			linearVelocityMillisPerSec, angularVelocityDegsPerSec)
 	}
 	if err != nil {
@@ -566,6 +566,7 @@ func (ms *builtIn) planMoveOnMap(
 		kb, err = kinematicbase.WrapWithKinematics(
 			ctx,
 			b,
+			ms.logger,
 			motion.NewSLAMLocalizer(slamSvc),
 			limits,
 			defaultLinearVelocityMillisPerSec,

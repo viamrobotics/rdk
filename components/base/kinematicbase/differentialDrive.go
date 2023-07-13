@@ -20,7 +20,7 @@ const (
 	distThresholdMM         = 100
 	headingThresholdDegrees = 15
 	defaultAngularVelocity  = 60      // degrees per second
-	defaultLinearVelocity   = 300     // mm per second
+	defaultLinearVelocity   = 3000    // mm per second
 	deviationThreshold      = 30000.0 // mm
 )
 
@@ -29,6 +29,7 @@ const (
 func wrapWithDifferentialDriveKinematics(
 	ctx context.Context,
 	b base.Base,
+	logger golog.Logger,
 	localizer motion.Localizer,
 	limits []referenceframe.Limit,
 	maxLinearVelocityMillisPerSec float64,
@@ -36,6 +37,7 @@ func wrapWithDifferentialDriveKinematics(
 ) (KinematicBase, error) {
 	ddk := &differentialDriveKinematics{
 		Base:                          b,
+		logger:                        logger,
 		localizer:                     localizer,
 		maxLinearVelocityMillisPerSec: maxLinearVelocityMillisPerSec,
 		maxAngularVelocityDegsPerSec:  maxAngularVelocityDegsPerSec,
@@ -59,6 +61,7 @@ func wrapWithDifferentialDriveKinematics(
 
 type differentialDriveKinematics struct {
 	base.Base
+	logger                        golog.Logger
 	localizer                     motion.Localizer
 	model                         referenceframe.Frame
 	geometry                      spatialmath.Geometry
@@ -78,7 +81,8 @@ func (ddk *differentialDriveKinematics) CurrentInputs(ctx context.Context) ([]re
 		return nil, err
 	}
 	pt := pif.Pose().Point()
-	theta := math.Mod(pif.Pose().Orientation().OrientationVectorRadians().Theta, 2*math.Pi) - math.Pi
+	theta := math.Mod(pif.Pose().Orientation().EulerAngles().Yaw, 2*math.Pi) - math.Pi
+	ddk.logger.Warnf("theta %f", theta)
 	return []referenceframe.Input{{Value: pt.X}, {Value: pt.Y}, {Value: theta}}, nil
 }
 
@@ -93,9 +97,6 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 	if err != nil {
 		return err
 	}
-
-	logger := golog.NewLogger("ddk")
-	logger.Debug("current %v\ndesired %v", current, desired)
 
 	// this loop polls the error state and issues a corresponding command to move the base to the objective
 	// when the base is within the positional threshold of the goal, exit the loop
@@ -142,6 +143,7 @@ func (ddk *differentialDriveKinematics) issueCommand(ctx context.Context, curren
 	if err != nil {
 		return false, err
 	}
+	ddk.logger.Warnf("distErr: %f\theadingErr %f", distErr, headingErr)
 	if distErr > distThresholdMM && math.Abs(headingErr) > headingThresholdDegrees {
 		// base is headed off course; spin to correct
 		return true, ddk.Spin(ctx, -headingErr, ddk.maxAngularVelocityDegsPerSec, nil)

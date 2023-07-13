@@ -126,7 +126,7 @@ func createLimoBase(ctx context.Context, _ resource.Dependencies, conf resource.
 		logger:             logger,
 		width:              defaultBaseTreadMm,
 		wheelbase:          200,
-		maxLinearVelocity:  1200,
+		maxLinearVelocity:  3000,
 		maxAngularVelocity: 180,
 		maxInnerAngle:      .48869, // 28 degrees in radians
 		rightAngleScale:    1.64,
