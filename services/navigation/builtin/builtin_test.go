@@ -204,6 +204,95 @@ func TestStartWaypoint(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	ns.(*builtIn).activeBackgroundWorkers.Wait()
 }
+func TestSkipWaypoint(t *testing.T) {
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+
+	injectMS := inject.NewMotionService("test_motion")
+	cfg := resource.Config{
+		Name:  "test_base",
+		API:   base.API,
+		Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R: 100}},
+	}
+
+	fakeBase, err := fakebase.NewBase(ctx, nil, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	fakeSlam := fakeslam.NewSLAM(slam.Named("foo"), logger)
+	limits, err := fakeSlam.GetLimits(ctx)
+	test.That(t, err, test.ShouldBeNil)
+
+	localizer, err := motion.NewLocalizer(ctx, fakeSlam)
+	test.That(t, err, test.ShouldBeNil)
+
+	// cast fakeBase
+	fake, ok := fakeBase.(*fakebase.Base)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	kinematicBase, err := kinematicbase.WrapWithFakeKinematics(ctx, fake, localizer, limits)
+	test.That(t, err, test.ShouldBeNil)
+
+	injectMovementSensor := inject.NewMovementSensor("test_movement")
+	injectMovementSensor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+		inputs, err := kinematicBase.CurrentInputs(ctx)
+		return geo.NewPoint(inputs[0].Value, inputs[1].Value), 0, err
+	}
+
+	hitAnError := make(chan int)
+	injectMS.MoveOnGlobeFunc = func(
+		ctx context.Context,
+		componentName resource.Name,
+		destination *geo.Point,
+		heading float64,
+		movementSensorName resource.Name,
+		obstacles []*spatialmath.GeoObstacle,
+		linearVelocityMillisPerSec float64,
+		angularVelocityDegsPerSec float64,
+		extra map[string]interface{},
+	) (bool, error) {
+		for {
+			select {
+			case <-hitAnError:
+				return false, errors.New("skipped waypoint error")
+			default:
+				time.Sleep(time.Millisecond)
+			}
+		}
+	}
+
+	ns, err := NewBuiltIn(
+		ctx,
+		resource.Dependencies{injectMS.Name(): injectMS, fakeBase.Name(): fakeBase, injectMovementSensor.Name(): injectMovementSensor},
+		resource.Config{
+			ConvertedAttributes: &Config{
+				Store: navigation.StoreConfig{
+					Type: navigation.StoreTypeMemory,
+				},
+				BaseName:           "test_base",
+				MovementSensorName: "test_movement",
+				MotionServiceName:  "test_motion",
+				DegPerSec:          1,
+				MetersPerSec:       1,
+			},
+		},
+		logger,
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	err = ns.AddWaypoint(ctx, geo.NewPoint(1, 2), nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	err = ns.AddWaypoint(ctx, geo.NewPoint(2, 3), nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	// start navigation
+	err = ns.SetMode(ctx, navigation.ModeWaypoint, map[string]interface{}{"experimental": true})
+	test.That(t, err, test.ShouldBeNil)
+	hitAnError <- 1
+	hitAnError <- 1
+
+	ns.(*builtIn).activeBackgroundWorkers.Wait()
+}
 
 func TestCancelWaypoint(t *testing.T) {
 	ctx := context.Background()
@@ -240,7 +329,7 @@ func TestCancelWaypoint(t *testing.T) {
 	}
 
 	cancelledMoveFunc := false
-	manuallyCancel := make(chan int)
+	reachWaypoint := make(chan int)
 	injectMS.MoveOnGlobeFunc = func(
 		ctx context.Context,
 		componentName resource.Name,
@@ -257,7 +346,7 @@ func TestCancelWaypoint(t *testing.T) {
 			case <-ctx.Done():
 				cancelledMoveFunc = true
 				return false, nil
-			case <-manuallyCancel:
+			case <-reachWaypoint:
 				return false, nil
 			default:
 				time.Sleep(time.Millisecond)
@@ -375,8 +464,8 @@ func TestCancelWaypoint(t *testing.T) {
 		// remove a waypoint that is not in progress
 		err = ns.RemoveWaypoint(ctx, wp.ID, nil)
 		test.That(t, err, test.ShouldBeNil)
-		manuallyCancel <- 1
-		manuallyCancel <- 1
+		reachWaypoint <- 1
+		reachWaypoint <- 1
 		ns.(*builtIn).activeBackgroundWorkers.Wait()
 		test.That(t, cancelledMoveFunc, test.ShouldBeFalse)
 	})
