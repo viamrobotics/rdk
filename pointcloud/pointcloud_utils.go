@@ -11,7 +11,7 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-var iterateMutex sync.Mutex
+// var iterateMutex sync.Mutex
 
 // BoundingBoxFromPointCloud returns a Geometry object that encompasses all the points in the given point cloud.
 func BoundingBoxFromPointCloud(cloud PointCloud) (spatialmath.Geometry, error) {
@@ -76,73 +76,96 @@ func StatisticalOutlierFilter(meanK int, stdDevThresh float64) (func(PointCloud)
 		avgDistances := make([]float64, 0, kd.Size())
 		points := make([]PointAndData, 0, kd.Size())
 		pointAsMatrix, ok := kd.points.(*matrixStorage)
-		// c1 := make(chan float64, kd.Size())
-		// c2 := make(chan PointAndData, kd.Size())
 		if ok {
-			// var newWG sync.WaitGroup
+			c1 := make(chan float64, kd.Size())
+			c2 := make(chan PointAndData, kd.Size())
+			var newWG sync.WaitGroup
 			// fmt.Println("iterating concurrently")
-			// newWG.Add(1)
-			// go func() {
-			// 	defer newWG.Done()
-			// 	distDone := false
-			// 	pointDone := false
-			// 	for {
-			// 		select {
-			// 		case newDist, isDone := <-c1:
-			// 			if isDone {
-			// 				fmt.Println("dist done")
-			// 				distDone = isDone
-			// 				continue
-			// 			}
-			// 			avgDistances = append(avgDistances, newDist)
-			// 		case newPoint, isDone := <-c2:
-			// 			if isDone {
-			// 				fmt.Println("point done")
-			// 				pointDone = isDone
-			// 				continue
-			// 			}
-			// 			points = append(points, newPoint)
-			// 		default:
-			// 			if distDone && pointDone {
-			// 				return
-			// 			}
-			// 			// case isDone := <-c3:
-			// 			// 	if isDone {
-			// 			// 		fmt.Println("done")
-			// 			// 		return
-			// 			// 	}
-			// 		}
-			// 	}
-			// }()
-			pointAsMatrix.IterateConcurrently(3, func(v r3.Vector, d Data) bool {
+			newWG.Add(1)
+			go func() {
+				defer newWG.Done()
+				distDone := false
+				pointDone := false
+				for {
+					select {
+					case newDist, isDone := <-c1:
+						if isDone {
+							// fmt.Println("dist done")
+							distDone = isDone
+							continue
+						}
+						avgDistances = append(avgDistances, newDist)
+					case newPoint, isDone := <-c2:
+						if isDone {
+							// fmt.Println("point done")
+							pointDone = isDone
+							continue
+						}
+						points = append(points, newPoint)
+					default:
+						if distDone && pointDone {
+							return
+						}
+						// case isDone := <-c3:
+						// 	if isDone {
+						// 		fmt.Println("done")
+						// 		return
+						// 	}
+					}
+				}
+			}()
+			pointAsMatrix.IterateConcurrently(4, func(v r3.Vector, d Data) bool {
 				neighbors := kd.KNearestNeighbors(v, meanK, false)
 				sumDist := 0.0
 				for _, p := range neighbors {
 					sumDist += v.Distance(p.P)
 				}
-				iterateMutex.Lock()
-				// c1 <- (sumDist / float64(len(neighbors)))
-				// c2 <- PointAndData{v, d}
+				// iterateMutex.Lock()
+				c1 <- (sumDist / float64(len(neighbors)))
+				c2 <- PointAndData{v, d}
 				// fmt.Println(len(c2))
-				avgDistances = append(avgDistances, sumDist/float64(len(neighbors)))
-				points = append(points, PointAndData{v, d})
-				iterateMutex.Unlock()
+				// avgDistances = append(avgDistances, sumDist/float64(len(neighbors)))
+				// points = append(points, PointAndData{v, d})
+				// iterateMutex.Unlock()
 				return true
 			},
 			)
-			// close(c1)
-			// close(c2)
-			// newWG.Wait()
+			close(c1)
+			close(c2)
+			newWG.Wait()
+			c1Len := len(c1)
+			c2Len := len(c2)
 			// fmt.Println("kd sis:", kd.Size(), "avgdists:", len(c1), "points", len(c2))
-			// close(c1)
-			// close(c2)
-			// for i := range c1 {
-			// 	avgDistances = append(avgDistances, i)
-			// }
+			if float64(kd.Size())*0.97 > float64(c1Len) || float64(kd.Size())*0.97 > float64(c2Len) {
+				panic("too many points lost in concurrency issues")
+			}
+			for i := range c1 {
+				avgDistances = append(avgDistances, i)
+			}
 			// for i := range c2 {
 			// 	points = append(points, i)
 			// }
+
 			// fmt.Println("kd size:", kd.Size(), "avgdists:", len(avgDistances), "points", len(points))
+			// fmt.Println("avg distances", avgDistances)
+
+			mean, stddev := stat.MeanStdDev(avgDistances, nil)
+			threshold := mean + stdDevThresh*stddev
+			filteredCloud := New()
+			i := 0
+			for curPoint := range c2 {
+				if avgDistances[i] < threshold {
+					err := filteredCloud.Set(curPoint.P, curPoint.D)
+					if err != nil {
+						return nil, err
+					}
+				}
+				i++
+				if i >= c1Len {
+					break
+				}
+			}
+			return filteredCloud, nil
 		} else {
 			// fmt.Println("iterating singularly")
 			kd.points.Iterate(0, 0, func(v r3.Vector, d Data) bool {
@@ -155,23 +178,23 @@ func StatisticalOutlierFilter(meanK int, stdDevThresh float64) (func(PointCloud)
 				points = append(points, PointAndData{v, d})
 				return true
 			})
-		}
-		// fmt.Println("avg distances", avgDistances)
+			// fmt.Println("avg distances", avgDistances)
 
-		mean, stddev := stat.MeanStdDev(avgDistances, nil)
-		threshold := mean + stdDevThresh*stddev
-		// fmt.Println(mean, stddev, threshold)
-		// filter using the statistical information
-		filteredCloud := New()
-		for i := 0; i < len(avgDistances); i++ {
-			if avgDistances[i] < threshold {
-				err := filteredCloud.Set(points[i].P, points[i].D)
-				if err != nil {
-					return nil, err
+			mean, stddev := stat.MeanStdDev(avgDistances, nil)
+			threshold := mean + stdDevThresh*stddev
+			// fmt.Println(mean, stddev, threshold)
+			// filter using the statistical information
+			filteredCloud := New()
+			for i := 0; i < len(avgDistances); i++ {
+				if avgDistances[i] < threshold {
+					err := filteredCloud.Set(points[i].P, points[i].D)
+					if err != nil {
+						return nil, err
+					}
 				}
 			}
+			return filteredCloud, nil
 		}
-		return filteredCloud, nil
 	}
 	return filterFunc, nil
 }

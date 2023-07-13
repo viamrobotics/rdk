@@ -35,8 +35,8 @@ func TestRadiusClusteringValidate(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-// get a segmentation of a pointcloud and calculate each object's center.
-func TestPixelSegmentation(t *testing.T) {
+// get a segmentation of a pointcloud with filtering and calculate each object's center.
+func TestPixelSegmentationWithFiltering(t *testing.T) {
 	t.Parallel()
 	logger := golog.NewTestLogger(t)
 	injectCamera := &inject.Camera{}
@@ -59,8 +59,19 @@ func TestPixelSegmentation(t *testing.T) {
 	segments, err := segmenter(context.Background(), injectCamera)
 	test.That(t, err, test.ShouldBeNil)
 	testSegmentation(t, segments, expectedLabel)
+}
+
+// get a segmentation of a pointcloud without filtering and calculate each object's center.
+func TestPixelSegmentationNoFiltering(t *testing.T) {
+	t.Parallel()
+	logger := golog.NewTestLogger(t)
+	injectCamera := &inject.Camera{}
+	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
+		return pc.NewFromLASFile(artifact.MustPath("pointcloud/test.las"), logger)
+	}
 	// do segmentation with no mean k filtering
-	objConfig = utils.AttributeMap{
+	expectedLabel := "test_label"
+	objConfig := utils.AttributeMap{
 		"min_points_in_plane":   50000,
 		"min_points_in_segment": 500,
 		"clustering_radius_mm":  10.0,
@@ -69,9 +80,9 @@ func TestPixelSegmentation(t *testing.T) {
 		"another_extra_one":     "hey",
 		"label":                 expectedLabel,
 	}
-	segmenter, err = segmentation.NewRadiusClustering(objConfig)
+	segmenter, err := segmentation.NewRadiusClustering(objConfig)
 	test.That(t, err, test.ShouldBeNil)
-	segments, err = segmenter(context.Background(), injectCamera)
+	segments, err := segmenter(context.Background(), injectCamera)
 	test.That(t, err, test.ShouldBeNil)
 	testSegmentation(t, segments, expectedLabel)
 }
