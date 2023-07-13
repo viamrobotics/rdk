@@ -1,6 +1,6 @@
 import { type Client, commonApi, motionApi, robotApi } from '@viamrobotics/sdk';
 import { Struct } from 'google-protobuf/google/protobuf/struct_pb';
-import { getSLAMPosition } from './slam';
+import { getPosition } from './slam';
 import { rcLogConditionally } from '@/lib/log';
 
 export const moveOnMap = async (robotClient: Client, name: string, componentName: string, x: number, y: number) => {
@@ -12,7 +12,7 @@ export const moveOnMap = async (robotClient: Client, name: string, componentName
   request.setName('builtin');
 
   // set pose in frame
-  const lastPose = await getSLAMPosition(robotClient, name);
+  const lastPose = await getPosition(robotClient, name);
 
   const destination = new commonApi.Pose();
   destination.setX(x * 1000);
