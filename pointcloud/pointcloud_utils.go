@@ -10,6 +10,8 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
+// var iterateMutex sync.Mutex
+
 // BoundingBoxFromPointCloud returns a Geometry object that encompasses all the points in the given point cloud.
 func BoundingBoxFromPointCloud(cloud PointCloud) (spatialmath.Geometry, error) {
 	return BoundingBoxFromPointCloudWithLabel(cloud, "")
@@ -69,21 +71,95 @@ func StatisticalOutlierFilter(meanK int, stdDevThresh float64) (func(PointCloud)
 			kd = ToKDTree(pc)
 		}
 		// get the statistical information
+
 		avgDistances := make([]float64, 0, kd.Size())
 		points := make([]PointAndData, 0, kd.Size())
-		kd.Iterate(0, 0, func(v r3.Vector, d Data) bool {
-			neighbors := kd.KNearestNeighbors(v, meanK, false)
-			sumDist := 0.0
-			for _, p := range neighbors {
-				sumDist += v.Distance(p.P)
+		pointAsMatrix, ok := kd.points.(*matrixStorage)
+		c1 := make(chan float64, kd.Size())
+		c2 := make(chan PointAndData, kd.Size())
+		if ok {
+			// var newWG sync.WaitGroup
+			// fmt.Println("iterating concurrently")
+			// newWG.Add(1)
+			// go func() {
+			// 	defer newWG.Done()
+			// 	distDone := false
+			// 	pointDone := false
+			// 	for {
+			// 		select {
+			// 		case newDist, isDone := <-c1:
+			// 			if isDone {
+			// 				fmt.Println("dist done")
+			// 				distDone = isDone
+			// 				continue
+			// 			}
+			// 			avgDistances = append(avgDistances, newDist)
+			// 		case newPoint, isDone := <-c2:
+			// 			if isDone {
+			// 				fmt.Println("point done")
+			// 				pointDone = isDone
+			// 				continue
+			// 			}
+			// 			points = append(points, newPoint)
+			// 		default:
+			// 			if distDone && pointDone {
+			// 				return
+			// 			}
+			// 			// case isDone := <-c3:
+			// 			// 	if isDone {
+			// 			// 		fmt.Println("done")
+			// 			// 		return
+			// 			// 	}
+			// 		}
+			// 	}
+			// }()
+			pointAsMatrix.IterateConcurrently(3, func(v r3.Vector, d Data) bool {
+				neighbors := kd.KNearestNeighbors(v, meanK, false)
+				sumDist := 0.0
+				for _, p := range neighbors {
+					sumDist += v.Distance(p.P)
+				}
+				// iterateMutex.Lock()
+				c1 <- (sumDist / float64(len(neighbors)))
+				c2 <- PointAndData{v, d}
+				// fmt.Println(len(c2))
+				// avgDistances = append(avgDistances, sumDist/float64(len(neighbors)))
+				// points = append(points, PointAndData{v, d})
+				// iterateMutex.Unlock()
+				return true
+			},
+			)
+			// close(c1)
+			// close(c2)
+			// newWG.Wait()
+			// fmt.Println("kd sis:", kd.Size(), "avgdists:", len(c1), "points", len(c2))
+			close(c1)
+			close(c2)
+			for i := range c1 {
+				avgDistances = append(avgDistances, i)
 			}
-			avgDistances = append(avgDistances, sumDist/float64(len(neighbors)))
-			points = append(points, PointAndData{v, d})
-			return true
-		})
+			for i := range c2 {
+				points = append(points, i)
+			}
+			// fmt.Println("kd size:", kd.Size(), "avgdists:", len(avgDistances), "points", len(points))
+		} else {
+			// fmt.Println("iterating singularly")
+			kd.points.Iterate(0, 0, func(v r3.Vector, d Data) bool {
+				neighbors := kd.KNearestNeighbors(v, meanK, false)
+				sumDist := 0.0
+				for _, p := range neighbors {
+					sumDist += v.Distance(p.P)
+				}
+				avgDistances = append(avgDistances, sumDist/float64(len(neighbors)))
+				points = append(points, PointAndData{v, d})
+				return true
+			})
+		}
+		// fmt.Println("avg distances", avgDistances)
 
 		mean, stddev := stat.MeanStdDev(avgDistances, nil)
 		threshold := mean + stdDevThresh*stddev
+		// fmt.Println(mean, stddev, threshold)
 		// filter using the statistical information
 		filteredCloud := New()
 		for i := 0; i < len(avgDistances); i++ {

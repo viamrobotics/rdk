@@ -63,11 +63,32 @@ func (ms *matrixStorage) Iterate(numBatches, myBatch int, fn func(p r3.Vector, d
 	if upperBound > ms.Size() {
 		upperBound = ms.Size()
 	}
+	// fmt.Println("numBatches: ", numBatches, "myBatch: ", myBatch, "lowerbound:", lowerBound, " upperbound:", upperBound)
 	for i := lowerBound; i < upperBound; i++ {
 		if cont := fn(ms.points[i].P, ms.points[i].D); !cont {
 			return
 		}
 	}
+}
+
+// Requires a thread safe function
+func (ms *matrixStorage) IterateConcurrently(numBatches int, fn func(p r3.Vector, d Data) bool) {
+	if numBatches < 0 {
+		panic("should not be using this function")
+	}
+	var wg sync.WaitGroup
+	for i := 0; i < numBatches; i++ {
+		wg.Add(1)
+		i := i
+		go func() {
+			// fmt.Println(i, " thread spawned")
+			defer wg.Done()
+			ms.Iterate(numBatches, i, fn)
+			// fmt.Println(i, " thread finished")
+		}()
+	}
+	wg.Wait()
+	// fmt.Println("all threads finished")
 }
 
 func (ms *matrixStorage) EditSupported() bool {
