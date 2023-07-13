@@ -118,7 +118,7 @@ func (imu *wit) LinearAcceleration(ctx context.Context, extra map[string]interfa
 }
 
 // getMagnetometer returns magnetic field in gauss.
-func (imu *wit) getMagnetometer(ctx context.Context) (r3.Vector, error) {
+func (imu *wit) getMagnetometer() (r3.Vector, error) {
 	imu.mu.Lock()
 	defer imu.mu.Unlock()
 	return imu.magnetometer, imu.err.Get()
@@ -136,7 +136,6 @@ func (imu *wit) CompassHeading(ctx context.Context, extra map[string]interface{}
 	} else {
 		imu.compassheading = math.NaN()
 		err = movementsensor.ErrMethodUnimplementedCompassHeading
-
 	}
 
 	return imu.compassheading, err
@@ -145,7 +144,7 @@ func (imu *wit) CompassHeading(ctx context.Context, extra map[string]interface{}
 // these were not included in the busy loop as they are a stop-gap solution to obtain
 // compass heading under a very specific circumstance
 // eventually, we will implment filters that give us more robust data and check for
-// magnetometry data existing in the constructo
+// magnetometry data existing in the construction.
 func (imu *wit) checkMagReadingsExist() bool {
 	return imu.magnetometer.X != 0 && imu.magnetometer.Y != 0 && imu.magnetometer.Z != 0
 }
@@ -173,7 +172,7 @@ func (imu *wit) Readings(ctx context.Context, extra map[string]interface{}) (map
 		return nil, err
 	}
 
-	mag, err := imu.getMagnetometer(ctx)
+	mag, err := imu.getMagnetometer()
 	if err != nil {
 		return nil, err
 	}
