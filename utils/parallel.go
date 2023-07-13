@@ -156,8 +156,10 @@ func RunInParallel(ctx context.Context, fs []SimpleFunc) (time.Duration, error) 
 		}
 	}
 
-	for _, f := range fs {
+	for i, f := range fs {
 		wg.Add(1)
+		fmt.Println(i)
+		fmt.Println(&f)
 		go helper(f)
 	}
 

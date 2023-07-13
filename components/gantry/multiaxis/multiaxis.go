@@ -178,6 +178,7 @@ func (g *multiAxis) MoveToPosition(ctx context.Context, positions, speeds []floa
 		idx += len(subAxNum)
 
 		if g.moveSimultaneously {
+			g.logger.Errorf("axis: %v", subAx.Name())
 			fs = append(fs, func(ctx context.Context) error { return subAx.MoveToPosition(ctx, pos, speed, nil) })
 		} else {
 			err = subAx.MoveToPosition(ctx, pos, speed, extra)

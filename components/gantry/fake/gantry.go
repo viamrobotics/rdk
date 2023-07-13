@@ -15,8 +15,6 @@ import (
 	"go.viam.com/rdk/testutils"
 )
 
-var logger golog.Logger
-
 func init() {
 	resource.RegisterComponent(
 		gantry.API,
@@ -28,13 +26,13 @@ func init() {
 				conf resource.Config,
 				logger golog.Logger,
 			) (gantry.Gantry, error) {
-				return NewGantry(conf.ResourceName()), nil
+				return NewGantry(conf.ResourceName(), logger), nil
 			},
 		})
 }
 
 // NewGantry returns a new fake gantry.
-func NewGantry(name resource.Name) gantry.Gantry {
+func NewGantry(name resource.Name, logger golog.Logger) gantry.Gantry {
 	return &Gantry{
 		testutils.NewUnimplementedResource(name),
 		resource.TriviallyReconfigurable{},
@@ -44,6 +42,7 @@ func NewGantry(name resource.Name) gantry.Gantry {
 		[]float64{5},
 		2,
 		r3.Vector{X: 1, Y: 0, Z: 0},
+		logger,
 	}
 }
 
@@ -57,6 +56,7 @@ type Gantry struct {
 	lengths        []float64
 	lengthMeters   float64
 	frame          r3.Vector
+	logger         golog.Logger
 }
 
 // Position returns the position in meters.
@@ -71,7 +71,7 @@ func (g *Gantry) Lengths(ctx context.Context, extra map[string]interface{}) ([]f
 
 // Home runs the homing sequence of the gantry and returns true once completed.
 func (g *Gantry) Home(ctx context.Context, extra map[string]interface{}) (bool, error) {
-	logger.Errorf("homing")
+	g.logger.Errorf("homing")
 	time.Sleep(5 * time.Second)
 	return true, nil
 }
@@ -80,7 +80,7 @@ func (g *Gantry) Home(ctx context.Context, extra map[string]interface{}) (bool, 
 func (g *Gantry) MoveToPosition(ctx context.Context, positionsMm, speedsMmPerSec []float64, extra map[string]interface{}) error {
 	g.positionsMm = positionsMm
 	g.speedsMmPerSec = speedsMmPerSec
-	logger.Errorf("moving axis")
+	g.logger.Errorf("moving axis")
 	time.Sleep(2 * time.Second)
 	return nil
 }
