@@ -862,11 +862,15 @@ var packageReferenceRegex = regexp.MustCompile(`^\$\{packages\.([A-Za-z0-9_\/-]+
 // DefaultPackageVersionValue default value of the package version used when empty.
 const DefaultPackageVersionValue = "latest"
 
+// PackageType indicates the type of the package
+// This is used to replace placeholder strings in the config.
 type PackageType string
 
 const (
+	// PackageTypeMlModel represents an ML model.
 	PackageTypeMlModel PackageType = "ml_model"
-	PackageTypeModule  PackageType = "module"
+	// PackageTypeModule represents a module type.
+	PackageTypeModule PackageType = "module"
 )
 
 // A PackageConfig describes the configuration of a Package.
@@ -877,17 +881,18 @@ type PackageConfig struct {
 	Package string `json:"package"`
 	// Version of the package ID hosted by a remote PackageService. If not specified "latest" is assumed.
 	Version string `json:"version,omitempty"`
-	// Type is the type of package - for backward compatability can be left empty
+	// Type is the type of package - for backward compatibility can be left empty
 	Type PackageType `json:"type,omitempty"`
 }
 
-// Hashnme
+// HashName forms the package name for the symlink/filepath of the package on the system.
 func HashName(f PackageConfig) string {
 	// replace / to avoid a directory path in the name. This will happen with `org/package` format.
 	// also makes the path valid by replacing all the dots with _
 	return fmt.Sprintf("%s-%s", strings.ReplaceAll(f.Package, "/", "-"), HashVersion(f.Version))
 }
 
+// HashVersion formats a version string to replace periods with dashes.
 func HashVersion(version string) string {
 	// replaces all the . if they exist with _
 	return strings.ReplaceAll(version, ".", "_")
@@ -930,6 +935,7 @@ func GetPackageReference(path string) *PackageReference {
 	return &PackageReference{Package: match[1], PathInPackage: match[2]}
 }
 
+// GetPackageDirectoryFromType determines the viam subdirectories for packages based on type.
 func GetPackageDirectoryFromType(packageType PackageType) string {
 	switch packageType {
 	case PackageTypeMlModel:

@@ -33,7 +33,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
-
 	"go.viam.com/rdk/spatialmath"
 	rutils "go.viam.com/rdk/utils"
 )
@@ -993,7 +992,6 @@ func TestGetPackageReference(t *testing.T) {
 
 func TestReplaceConfigPlaceholders(t *testing.T) {
 	t.Run("replace placeholders in a config", func(t *testing.T) {
-
 		attributes1 := make(rutils.AttributeMap)
 		attributes1["label_path"] = "${packages.old-package}/effdetlabels.txt"
 		attributes1["model_path"] = "${packages.old-package}/effdet0.tflite"
@@ -1020,7 +1018,7 @@ func TestReplaceConfigPlaceholders(t *testing.T) {
 				},
 				{
 					Name:    "old-package",
-					Package: "org/old-packge",
+					Package: "org/old-package",
 					Version: "3",
 				},
 			},
@@ -1048,7 +1046,7 @@ func TestReplaceConfigPlaceholders(t *testing.T) {
 
 		err := config.UpdatePlaceholdersInConfig(conf)
 		test.That(t, err, test.ShouldBeNil)
-		var viamDotDir = filepath.Join(os.Getenv("HOME"), ".viam")
+		viamDotDir := filepath.Join(os.Getenv("HOME"), ".viam")
 
 		module := conf.Modules[0]
 		moduleExecPath := module.ExePath
@@ -1059,20 +1057,21 @@ func TestReplaceConfigPlaceholders(t *testing.T) {
 		test.That(t, service.Attributes.Has("label_path"), test.ShouldBeTrue)
 		test.That(t, service.Attributes.Has("model_path"), test.ShouldBeTrue)
 
-		label_path := service.Attributes.String("label_path")
-		model_path := service.Attributes.String("model_path")
+		labelPath := service.Attributes.String("label_path")
+		modelPath := service.Attributes.String("model_path")
 
-		test.That(t, label_path, test.ShouldEqual, path.Clean(path.Join(viamDotDir, "packages", "old-package", "effdetlabels.txt")))
-		test.That(t, model_path, test.ShouldEqual, path.Clean(path.Join(viamDotDir, "packages", "old-package", "effdet0.tflite")))
+		test.That(t, labelPath, test.ShouldEqual, path.Clean(path.Join(viamDotDir, "packages", "old-package", "effdetlabels.txt")))
+		test.That(t, modelPath, test.ShouldEqual, path.Clean(path.Join(viamDotDir, "packages", "old-package", "effdet0.tflite")))
 
 		service = conf.Services[1]
 		test.That(t, service.Attributes.Has("label_path"), test.ShouldBeTrue)
-		label_path = service.Attributes.String("label_path")
-		test.That(t, label_path, test.ShouldEqual, path.Clean(path.Join(viamDotDir, "packages", "ml_models", ".data", "org-ml-test-1", "effdetlabels.txt")))
+		labelPath = service.Attributes.String("label_path")
+		test.That(t, labelPath, test.ShouldEqual,
+			path.Clean(path.Join(viamDotDir, "packages", "ml_models", ".data", "org-ml-test-1", "effdetlabels.txt")))
 
 		test.That(t, service.Attributes.Has("model_path"), test.ShouldBeTrue)
-		model_path = service.Attributes.String("model_path")
-		test.That(t, model_path, test.ShouldEqual, path.Clean(path.Join(viamDotDir, "packages", "ml_models", ".data", "org-ml-test-1", "effdet0.tflite")))
-
+		modelPath = service.Attributes.String("model_path")
+		test.That(t, modelPath, test.ShouldEqual,
+			path.Clean(path.Join(viamDotDir, "packages", "ml_models", ".data", "org-ml-test-1", "effdet0.tflite")))
 	})
 }

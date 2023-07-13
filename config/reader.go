@@ -31,11 +31,14 @@ var (
 	Version     = ""
 	GitRevision = ""
 )
-var placeholderRegexp = regexp.MustCompile(`\$\{[A-Za-z0-9_\.\-]+\}`)
-var verifyPlaceholderRegexp = regexp.MustCompile(`^\$\{([A-Za-z0-9_\.\-]+)\}$`)
-var viamDotDir = filepath.Join(os.Getenv("HOME"), ".viam")
 
-const dataDir = ".data" //harcoded for now
+var (
+	placeholderRegexp       = regexp.MustCompile(`\$\{[A-Za-z0-9_\.\-]+\}`)
+	verifyPlaceholderRegexp = regexp.MustCompile(`^\$\{([A-Za-z0-9_\.\-]+)\}$`)
+	viamDotDir              = filepath.Join(os.Getenv("HOME"), ".viam")
+)
+
+const dataDir = ".data" // harcoded for now
 
 func getAgentInfo() (*apppb.AgentInfo, error) {
 	hostname, err := os.Hostname()
@@ -60,7 +63,7 @@ func getAgentInfo() (*apppb.AgentInfo, error) {
 func updatePlaceholdersInFile(bytes []byte, packageMap map[string]string) []byte {
 	// updates all the filepath placeholders with what we think they should be based on the packages
 	updatedBytes := placeholderRegexp.ReplaceAllFunc(bytes, func(b []byte) []byte {
-		updatedPath, ok := packageMap[verifyPlaceholder(string(b[:]))]
+		updatedPath, ok := packageMap[verifyPlaceholder(string(b))]
 		if !ok {
 			return b
 		}
@@ -71,6 +74,7 @@ func updatePlaceholdersInFile(bytes []byte, packageMap map[string]string) []byte
 	return updatedBytes
 }
 
+// UpdatePlaceholdersInConfig is used to replace placeholders in a config struct.
 func UpdatePlaceholdersInConfig(config *Config) error {
 	packages := config.Packages
 
@@ -87,7 +91,6 @@ func UpdatePlaceholdersInConfig(config *Config) error {
 }
 
 func mapPlaceholderToRealPaths(packages []PackageConfig) map[string]string {
-
 	// stores the placeholders <> what they need to be replaced to
 	packageMap := make(map[string]string, len(packages))
 	for _, p := range packages {
@@ -108,8 +111,10 @@ func verifyPlaceholder(placeholder string) string {
 	return match[1]
 }
 
+// GenerateConfigFromFile converts a file to a valid robot config
+// and replaces file placeholders as part of that conversion.
 func GenerateConfigFromFile(filepath string) (*Config, error) {
-	r, err := os.Open(filepath)
+	r, err := os.Open(path.Clean(filepath))
 	defer utils.UncheckedErrorFunc(r.Close)
 
 	if err != nil {
@@ -122,13 +127,10 @@ func GenerateConfigFromFile(filepath string) (*Config, error) {
 	}
 
 	packages, err := getPackagesFromFile(bytes)
-	fmt.Printf("map: %v+\n", packages)
-
 	if err != nil {
 		return nil, err
 	}
 
-	fmt.Printf("map: %v+\n", mapPlaceholderToRealPaths(packages))
 	updatedBytes := updatePlaceholdersInFile(bytes, mapPlaceholderToRealPaths(packages))
 
 	unprocessedConfig := &Config{
@@ -140,18 +142,17 @@ func GenerateConfigFromFile(filepath string) (*Config, error) {
 	}
 
 	return unprocessedConfig, nil
-
 }
 
-// if the config is {package: orgID/name, type: module, version: 1} -> this will create a link of root/.viam/module/.data/orgID-name-1
+// if the config is {package: orgID/name, type: module, version: 1} -> this will create a link of root/.viam/module/.data/orgID-name-1.
 func generateFilePath(config PackageConfig) string {
 	// first get the base root
 
-	// for backwards compatability, packages right now don't have ml_models as a type.
+	// for backwards compatibility, packages right now don't have ml_models as a type.
 	// so if that is the case we need to join it right now to packages/../name
 	var dir string
 	if config.Type == "" {
-		// then this is not set and it must be an ml-model for backward compatability -- but for now just join it without the type
+		// then this is not set and it must be an ml-model for backward compatibility -- but for now just join it without the type
 		// package manager will still create symlinks for these packages based on the packges path
 		dir = path.Clean(path.Join(viamDotDir, "packages", config.Name))
 	} else {
@@ -181,7 +182,6 @@ func getPackagesFromFile(file []byte) ([]PackageConfig, error) {
 		if err := json.Unmarshal(packagesInMap, &packages); err != nil {
 			return nil, err
 		}
-
 	}
 
 	return packages, nil
@@ -421,12 +421,7 @@ func ReadLocalConfig(
 	filePath string,
 	logger golog.Logger,
 ) (*Config, error) {
-	buf, err := envsubst.ReadFile(filePath)
-	if err != nil {
-		return nil, err
-	}
-
-	return fromReader(ctx, filePath, bytes.NewReader(buf), logger, false)
+	return fromReader(ctx, filePath, logger, false)
 }
 
 // FromReader reads a config from the given reader and specifies
@@ -437,7 +432,7 @@ func FromReader(
 	r io.Reader,
 	logger golog.Logger,
 ) (*Config, error) {
-	return fromReader(ctx, originalPath, r, logger, true)
+	return fromReader(ctx, originalPath, logger, true)
 }
 
 // FromReader reads a config from the given reader and specifies
@@ -445,7 +440,6 @@ func FromReader(
 func fromReader(
 	ctx context.Context,
 	originalPath string,
-	r io.Reader,
 	logger golog.Logger,
 	shouldReadFromCloud bool,
 ) (*Config, error) {

@@ -9,7 +9,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/google/uuid"
-
 	"go.viam.com/test"
 )
 
@@ -135,7 +134,6 @@ func TestPlaceholderReplacement(t *testing.T) {
 
 		config.Type = PackageTypeModule
 		test.That(t, getPackagePlaceholder(config), test.ShouldEqual, "packages.modules.name")
-
 	})
 
 	t.Run("Generate Expected Filepath", func(t *testing.T) {
@@ -148,7 +146,7 @@ func TestPlaceholderReplacement(t *testing.T) {
 		// can't test the full path because it depends on the root of OS
 		// not sure how that works in CI
 
-		// for backwards compatability will leave this for now
+		// for backwards compatibility will leave this for now
 		expectedPath := path.Join(viamDotDir, "packages", "name")
 		test.That(t, generateFilePath(config), test.ShouldEqual, expectedPath)
 
@@ -159,11 +157,9 @@ func TestPlaceholderReplacement(t *testing.T) {
 		config.Type = PackageTypeModule
 		expectedPath = path.Join(viamDotDir, "packages", "modules", ".data", "org-name-latest")
 		test.That(t, generateFilePath(config), test.ShouldEqual, expectedPath)
-
 	})
 
 	t.Run("Get Packages from file", func(t *testing.T) {
-
 		fakeConfig := string(`{
 			"services": [
 				  {
@@ -268,7 +264,6 @@ func TestPlaceholderReplacement(t *testing.T) {
 		packages, err = getPackagesFromFile(file)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, packages, test.ShouldHaveLength, 0)
-
 	})
 
 	t.Run("Map placeholders to paths", func(t *testing.T) {
@@ -287,7 +282,7 @@ func TestPlaceholderReplacement(t *testing.T) {
 			},
 			{
 				Name:    "old-package",
-				Package: "org/old-packge",
+				Package: "org/old-package",
 				Version: "3",
 			},
 		}
@@ -316,23 +311,23 @@ func TestPlaceholderReplacement(t *testing.T) {
 
 		service := config.Services[0]
 		test.That(t, service.Attributes.Has("label_path"), test.ShouldBeTrue)
-		label_path := service.Attributes.String("label_path")
-		test.That(t, label_path, test.ShouldEqual, path.Clean(path.Join(viamDotDir, "packages", "ml_models", ".data", "org-my-ml-package-3", "effdetlabels.txt")))
+		labelPath := service.Attributes.String("label_path")
+		test.That(t, labelPath, test.ShouldEqual,
+			path.Clean(path.Join(viamDotDir, "packages", "ml_models", ".data", "org-my-ml-package-3", "effdetlabels.txt")))
 
 		test.That(t, service.Attributes.Has("model_path"), test.ShouldBeTrue)
-		model_path := service.Attributes.String("model_path")
-		test.That(t, model_path, test.ShouldEqual, path.Clean(path.Join(viamDotDir, "packages", "ml_models", ".data", "org-my-ml-package-3", "effdet0.tflite")))
+		modelPath := service.Attributes.String("model_path")
+		test.That(t, modelPath, test.ShouldEqual,
+			path.Clean(path.Join(viamDotDir, "packages", "ml_models", ".data", "org-my-ml-package-3", "effdet0.tflite")))
 
 		service = config.Services[1]
 		test.That(t, service.Attributes.Has("label_path"), test.ShouldBeTrue)
 		test.That(t, service.Attributes.Has("model_path"), test.ShouldBeTrue)
 
-		label_path = service.Attributes.String("label_path")
-		model_path = service.Attributes.String("model_path")
+		labelPath = service.Attributes.String("label_path")
+		modelPath = service.Attributes.String("model_path")
 
-		test.That(t, label_path, test.ShouldEqual, path.Clean(path.Join(viamDotDir, "packages", "cool-package", "coollabels.txt")))
-		test.That(t, model_path, test.ShouldEqual, path.Clean(path.Join(viamDotDir, "packages", "cool-package", "cool.tflite")))
-
+		test.That(t, labelPath, test.ShouldEqual, path.Clean(path.Join(viamDotDir, "packages", "cool-package", "coollabels.txt")))
+		test.That(t, modelPath, test.ShouldEqual, path.Clean(path.Join(viamDotDir, "packages", "cool-package", "cool.tflite")))
 	})
-
 }
