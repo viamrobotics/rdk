@@ -2,6 +2,7 @@ package pointcloud
 
 import (
 	"math"
+	"sync"
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
@@ -10,7 +11,7 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-// var iterateMutex sync.Mutex
+var iterateMutex sync.Mutex
 
 // BoundingBoxFromPointCloud returns a Geometry object that encompasses all the points in the given point cloud.
 func BoundingBoxFromPointCloud(cloud PointCloud) (spatialmath.Geometry, error) {
@@ -75,8 +76,8 @@ func StatisticalOutlierFilter(meanK int, stdDevThresh float64) (func(PointCloud)
 		avgDistances := make([]float64, 0, kd.Size())
 		points := make([]PointAndData, 0, kd.Size())
 		pointAsMatrix, ok := kd.points.(*matrixStorage)
-		c1 := make(chan float64, kd.Size())
-		c2 := make(chan PointAndData, kd.Size())
+		// c1 := make(chan float64, kd.Size())
+		// c2 := make(chan PointAndData, kd.Size())
 		if ok {
 			// var newWG sync.WaitGroup
 			// fmt.Println("iterating concurrently")
@@ -119,13 +120,13 @@ func StatisticalOutlierFilter(meanK int, stdDevThresh float64) (func(PointCloud)
 				for _, p := range neighbors {
 					sumDist += v.Distance(p.P)
 				}
-				// iterateMutex.Lock()
-				c1 <- (sumDist / float64(len(neighbors)))
-				c2 <- PointAndData{v, d}
+				iterateMutex.Lock()
+				// c1 <- (sumDist / float64(len(neighbors)))
+				// c2 <- PointAndData{v, d}
 				// fmt.Println(len(c2))
-				// avgDistances = append(avgDistances, sumDist/float64(len(neighbors)))
-				// points = append(points, PointAndData{v, d})
-				// iterateMutex.Unlock()
+				avgDistances = append(avgDistances, sumDist/float64(len(neighbors)))
+				points = append(points, PointAndData{v, d})
+				iterateMutex.Unlock()
 				return true
 			},
 			)
@@ -133,14 +134,14 @@ func StatisticalOutlierFilter(meanK int, stdDevThresh float64) (func(PointCloud)
 			// close(c2)
 			// newWG.Wait()
 			// fmt.Println("kd sis:", kd.Size(), "avgdists:", len(c1), "points", len(c2))
-			close(c1)
-			close(c2)
-			for i := range c1 {
-				avgDistances = append(avgDistances, i)
-			}
-			for i := range c2 {
-				points = append(points, i)
-			}
+			// close(c1)
+			// close(c2)
+			// for i := range c1 {
+			// 	avgDistances = append(avgDistances, i)
+			// }
+			// for i := range c2 {
+			// 	points = append(points, i)
+			// }
 			// fmt.Println("kd size:", kd.Size(), "avgdists:", len(avgDistances), "points", len(points))
 		} else {
 			// fmt.Println("iterating singularly")
