@@ -148,7 +148,7 @@ func Readings(ctx context.Context, g MovementSensor, extra map[string]interface{
 
 	ori, err := g.Orientation(ctx, extra)
 	if err != nil {
-		if !strings.Contains(err.Error(), ErrMethodUnimplementedLinearVelocity.Error()) {
+		if !strings.Contains(err.Error(), ErrMethodUnimplementedOrientation.Error()) {
 			return nil, err
 		}
 	} else {
