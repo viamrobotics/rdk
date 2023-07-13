@@ -313,11 +313,6 @@ func (imu *wit) parseWIT(line string) error {
 		imu.angularVelocity.Z = scale(line[5], line[6], 2000)
 	}
 
-	imu.logger.Infof(
-		"Yaw %#v",
-		rutils.RadToDeg(imu.orientation.Yaw),
-	)
-
 	if line[0] == 0x53 {
 		if len(line) < 7 {
 			return fmt.Errorf("line is wrong for imu orientation %d %v", len(line), line)
