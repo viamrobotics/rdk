@@ -193,6 +193,8 @@ func newRTKI2C(
 		return nil, err
 	}
 
+	// Ntrip
+	// users will need to restart server if ntrip attribute are modified.
 	ntripConfig := &rtk.NtripConfig{
 		NtripURL:             newConf.NtripURL,
 		NtripUser:            newConf.NtripUser,

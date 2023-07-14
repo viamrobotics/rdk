@@ -83,7 +83,7 @@ func init() {
 		})
 }
 
-// rtkSerial is an nmea movementsensor model that can intake RTK correction data
+// rtkSerial is an nmea movementsensor model that can intake RTK correction data.
 type rtkSerial struct {
 	resource.Named
 	resource.AlwaysRebuild
@@ -178,6 +178,7 @@ func newRTKSerial(
 	}
 
 	// Ntrip
+	// users will need to restart server if ntrip attribute are modified.
 	ntripConfig := &rtk.NtripConfig{
 		NtripURL:             newConf.NtripURL,
 		NtripUser:            newConf.NtripUser,
@@ -186,6 +187,7 @@ func newRTKSerial(
 		NtripConnectAttempts: newConf.NtripConnectAttempts,
 	}
 
+	// Init ntripInfo from attributes
 	g.ntripClient, err = rtk.NewNtripInfo(ntripConfig, g.logger)
 	if err != nil {
 		return nil, err
