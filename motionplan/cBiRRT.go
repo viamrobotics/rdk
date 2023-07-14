@@ -87,7 +87,6 @@ type cBiRRTMotionPlanner struct {
 	*planner
 	fastGradDescent *NloptIK
 	algOpts         *cbirrtOptions
-	corners         map[node]bool
 }
 
 // newCBiRRTMotionPlannerWithSeed creates a cBiRRTMotionPlanner object with a user specified random seed.
@@ -117,7 +116,6 @@ func newCBiRRTMotionPlanner(
 		planner:         mp,
 		fastGradDescent: nlopt,
 		algOpts:         algOpts,
-		corners:         map[node]bool{},
 	}, nil
 }
 
@@ -152,7 +150,6 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 		return
 	}
 	// initialize maps
-	corners := map[node]bool{}
 	// TODO(rb) package neighborManager better
 	nm1 := &neighborManager{nCPU: mp.planOpts.NumThreads}
 	nm2 := &neighborManager{nCPU: mp.planOpts.NumThreads}
@@ -230,8 +227,8 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 			map1reached := <-m1chan
 			map2reached := <-m2chan
 
-			corners[map1reached] = true
-			corners[map2reached] = true
+			map1reached.SetCorner(true)
+			map2reached.SetCorner(true)
 
 			return map1reached, map2reached, nil
 		}
@@ -474,7 +471,7 @@ func (mp *cBiRRTMotionPlanner) smoothPath(
 
 		i := mp.randseed.Intn(j) + 1
 
-		ok, hitCorners := smoothable(inputSteps, i, j, mp.corners)
+		ok, hitCorners := smoothable(inputSteps, i, j)
 		if !ok {
 			continue
 		}
@@ -494,10 +491,10 @@ func (mp *cBiRRTMotionPlanner) smoothPath(
 		// so we allow elongation here.
 		dist := mp.planOpts.DistanceFunc(&Segment{StartConfiguration: inputSteps[i].Q(), EndConfiguration: reached.Q()})
 		if dist < mp.algOpts.JointSolveDist && len(reached.Q()) < j-i {
-			mp.corners[iSol] = true
-			mp.corners[jSol] = true
+			iSol.SetCorner(true)
+			jSol.SetCorner(true)
 			for _, hitCorner := range hitCorners {
-				mp.corners[hitCorner] = false
+				hitCorner.SetCorner(false)
 			}
 			newInputSteps := append([]node{}, inputSteps[:i]...)
 			for reached != nil {
@@ -513,7 +510,7 @@ func (mp *cBiRRTMotionPlanner) smoothPath(
 }
 
 // Check if there is more than one joint direction change. If not, then not a good candidate for smoothing.
-func smoothable(inputSteps []node, i, j int, corners map[node]bool) (bool, []node) {
+func smoothable(inputSteps []node, i, j int) (bool, []node) {
 	startPos := inputSteps[i]
 	nextPos := inputSteps[i+1]
 	// Whether joints are increasing
@@ -550,7 +547,7 @@ func smoothable(inputSteps []node, i, j int, corners map[node]bool) (bool, []nod
 			}
 		}
 		nextPos = inputSteps[k]
-		if corners[nextPos] {
+		if nextPos.Corner() {
 			hitCorners = append(hitCorners, nextPos)
 		}
 	}

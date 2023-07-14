@@ -92,8 +92,8 @@ func (mp *tpSpaceRRTMotionPlanner) plan(ctx context.Context,
 
 	seedPos := spatialmath.NewZeroPose()
 
-	startNode := &basicNode{make([]referenceframe.Input, len(mp.frame.DoF())), 0, seedPos}
-	goalNode := &basicNode{nil, 0, goal}
+	startNode := &basicNode{make([]referenceframe.Input, len(mp.frame.DoF())), 0, seedPos, false}
+	goalNode := &basicNode{nil, 0, goal, false}
 
 	utils.PanicCapturingGo(func() {
 		mp.planRunner(ctx, seed, &rrtParallelPlannerShared{
@@ -184,7 +184,7 @@ func (mp *tpSpaceRRTMotionPlanner) planRunner(
 		} else {
 			randPos = goalPose
 		}
-		randPosNode := &basicNode{nil, 0, randPos}
+		randPosNode := &basicNode{nil, 0, randPos, false}
 
 		candidateNodes := map[float64][2]node{}
 
@@ -284,6 +284,7 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 		referenceframe.FloatsToInputs([]float64{float64(ptgNum), float64(goalK), lastNode.Dist}),
 		nearest.Cost() + lastNode.Dist,
 		lastPose,
+		false,
 	}
 
 	cand := &candidate{dist: bestDist, treeNode: nearest, newNode: successNode}
@@ -347,6 +348,7 @@ func (mp *tpSpaceRRTMotionPlanner) extendMap(
 					referenceframe.FloatsToInputs([]float64{float64(ptgNum), float64(randK), trajPt.Dist}),
 					bestNode[0].Cost() + trajPt.Dist,
 					trajState.Position,
+					false,
 				}
 				rrt.maps.startMap[addedNode] = bestNode[0]
 				sinceLastNode = 0.
