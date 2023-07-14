@@ -3,7 +3,6 @@ package packages
 import (
 	"context"
 	"errors"
-	"fmt"
 	"os"
 	"path"
 	"testing"
@@ -250,7 +249,7 @@ func validatePackageDir(t *testing.T, dir string, input []config.PackageConfig) 
 	// check all known packages exist and are linked to the correct package dir.
 	for _, p := range input {
 		logicalPath := path.Join(dir, p.Name)
-		dataPath := path.Join(dir, fmt.Sprintf(".data/%s", config.HashName(p)))
+		dataPath := path.Join(dir, ".data", config.HashName(p))
 
 		info, err := os.Stat(logicalPath)
 		test.That(t, err, test.ShouldBeNil)

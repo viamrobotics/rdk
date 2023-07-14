@@ -17,6 +17,7 @@ import (
 	"github.com/a8m/envsubst"
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
@@ -33,9 +34,8 @@ var (
 )
 
 var (
-	placeholderRegexp       = regexp.MustCompile(`\$\{[A-Za-z0-9_\.\-]+\}`)
-	verifyPlaceholderRegexp = regexp.MustCompile(`^\$\{([A-Za-z0-9_\.\-]+)\}$`)
-	viamDotDir              = filepath.Join(os.Getenv("HOME"), ".viam")
+	placeholderRegexp = regexp.MustCompile(`\$\{(packages[\.(ml_model|modules)]*\.[A-Za-z0-9_\-]+)}`)
+	viamDotDir        = filepath.Join(os.Getenv("HOME"), ".viam")
 )
 
 const dataDir = ".data" // harcoded for now
@@ -60,29 +60,42 @@ func getAgentInfo() (*apppb.AgentInfo, error) {
 	}, nil
 }
 
-func updatePlaceholdersInFile(bytes []byte, packageMap map[string]string) []byte {
+func replacePackagePlaceholdersInFile(bytes []byte, packageMap map[string]string) ([]byte, error) {
 	// updates all the filepath placeholders with what we think they should be based on the packages
+
+	var err error
+
 	updatedBytes := placeholderRegexp.ReplaceAllFunc(bytes, func(b []byte) []byte {
-		updatedPath, ok := packageMap[verifyPlaceholder(string(b))]
+		match := placeholderRegexp.FindSubmatch(b)
+		if len(match) != 2 {
+			err = multierr.Combine(err, fmt.Errorf("there is no matching package for this placeholder %s", string(b)))
+			return b
+		}
+		updatedPath, ok := packageMap[string(match[1])]
 		if !ok {
+			// if there is no matching package here we should throw an error here
+			err = multierr.Combine(err, fmt.Errorf("there is no matching package for this placeholder %s", string(b)))
 			return b
 		}
 
 		return []byte(updatedPath)
 	})
 
-	return updatedBytes
+	return updatedBytes, err
 }
 
-// UpdatePlaceholdersInConfig is used to replace placeholders in a config struct.
-func UpdatePlaceholdersInConfig(config *Config) error {
+// replacePlaceholdersInCloudConfig is used to replace placeholders in a config struct pulled from the cloud.
+func replacePlaceholdersInCloudConfig(config *Config) error {
 	packages := config.Packages
 
 	bytes, err := config.MarshalJSON()
 	if err != nil {
 		return errors.Wrap(err, "cannot marshal config to bytes")
 	}
-	updatedBytes := updatePlaceholdersInFile(bytes, mapPlaceholderToRealPaths(packages))
+	updatedBytes, err := replacePackagePlaceholdersInFile(bytes, mapPlaceholderToRealPaths(packages))
+	if err != nil {
+		return errors.Wrap(err, "err replacing pathholders in config")
+	}
 
 	if err := config.UnmarshalJSON(updatedBytes); err != nil {
 		return errors.Wrap(err, "cannot unmarshal bytes into config")
@@ -90,6 +103,7 @@ func UpdatePlaceholdersInConfig(config *Config) error {
 	return nil
 }
 
+// mapPlaceholderToRealPaths takes packages and generates expected placeholders for them.
 func mapPlaceholderToRealPaths(packages []PackageConfig) map[string]string {
 	// stores the placeholders <> what they need to be replaced to
 	packageMap := make(map[string]string, len(packages))
@@ -98,17 +112,6 @@ func mapPlaceholderToRealPaths(packages []PackageConfig) map[string]string {
 	}
 
 	return packageMap
-}
-
-func verifyPlaceholder(placeholder string) string {
-	// if its not a valid placeholder
-	match := verifyPlaceholderRegexp.FindStringSubmatch(placeholder)
-	if len(match) < 2 {
-		// just returns the normal one because we couldn't find a match
-		return placeholder
-	}
-
-	return match[1]
 }
 
 // GenerateConfigFromFile converts a file to a valid robot config
@@ -124,8 +127,10 @@ func GenerateConfigFromFile(filepath string) (*Config, error) {
 		return nil, err
 	}
 
-	updatedBytes := updatePlaceholdersInFile(bytes, mapPlaceholderToRealPaths(packages))
-
+	updatedBytes, err := replacePackagePlaceholdersInFile(bytes, mapPlaceholderToRealPaths(packages))
+	if err != nil {
+		return nil, errors.Wrap(err, "err replacing placeholders in config")
+	}
 	unprocessedConfig := &Config{
 		ConfigFilePath: filepath,
 	}
@@ -291,10 +296,6 @@ func readFromCloud(
 		return nil, err
 	}
 
-	// before we process the config from cloud make sure we update placeholders
-	if err = UpdatePlaceholdersInConfig(unprocessedConfig); err != nil {
-		return nil, err
-	}
 	// process the config
 	cfg, err := processConfigFromCloud(unprocessedConfig, logger)
 	if err != nil {
@@ -637,10 +638,6 @@ func getFromCloudOrCache(ctx context.Context, cloudCfg *Cloud, shouldReadFromCac
 		return nil, cached, err
 	}
 
-	if err = UpdatePlaceholdersInConfig(cfg); err != nil {
-		return nil, cached, err
-	}
-
 	return cfg, cached, nil
 }
 
@@ -669,6 +666,10 @@ func getFromCloudGRPC(ctx context.Context, cloudCfg *Cloud, logger golog.Logger)
 	cfg, err := FromProto(res.Config, logger)
 	if err != nil {
 		// Check cache?
+		return nil, shouldCheckCacheOnFailure, err
+	}
+
+	if err := replacePlaceholdersInCloudConfig(cfg); err != nil {
 		return nil, shouldCheckCacheOnFailure, err
 	}
 

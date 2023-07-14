@@ -4,12 +4,16 @@ import (
 	"context"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/edaniels/golog"
 	"github.com/google/uuid"
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/resource"
+	rutils "go.viam.com/rdk/utils"
 )
 
 func TestStoreToCache(t *testing.T) {
@@ -134,6 +138,35 @@ func TestPlaceholderReplacement(t *testing.T) {
 
 		config.Type = PackageTypeModule
 		test.That(t, getPackagePlaceholder(config), test.ShouldEqual, "packages.modules.name")
+	})
+
+	t.Run("MatchingPackageRegex", func(t *testing.T) {
+		placeholder := "\n\n ${packages.ml_model.my_model} \n my name is"
+		strings := placeholderRegexp.FindStringSubmatch(placeholder)
+		test.That(t, len(strings), test.ShouldEqual, 2)
+		test.That(t, strings[1], test.ShouldEqual, "packages.ml_model.my_model")
+
+		placeholder = "\n\n ${packages.modules.my_module} bleh bleh"
+		strings = placeholderRegexp.FindStringSubmatch(placeholder)
+		test.That(t, len(strings), test.ShouldEqual, 2)
+		test.That(t, strings[1], test.ShouldEqual, "packages.modules.my_module")
+
+		placeholder = "\n\n ${packages.my_ml_model}/testing bleh bleh"
+		strings = placeholderRegexp.FindStringSubmatch(placeholder)
+		test.That(t, len(strings), test.ShouldEqual, 2)
+		test.That(t, strings[1], test.ShouldEqual, "packages.my_ml_model")
+
+		// invalid ones
+
+		// no starting with packages should not match
+		placeholder = "\n\n ${HOME.viam} my random text"
+		strings = placeholderRegexp.FindStringSubmatch(placeholder)
+		test.That(t, len(strings), test.ShouldEqual, 0)
+
+		// one with a random type placeholder
+		placeholder = "\n\n ${packages.random.random-name} bleh bleh"
+		strings = placeholderRegexp.FindStringSubmatch(placeholder)
+		test.That(t, len(strings), test.ShouldEqual, 0)
 	})
 
 	t.Run("Generate Expected Filepath", func(t *testing.T) {
@@ -332,5 +365,90 @@ func TestPlaceholderReplacement(t *testing.T) {
 
 		test.That(t, labelPath, test.ShouldEqual, path.Clean(path.Join(viamDotDir, "packages", "cool-package", "coollabels.txt")))
 		test.That(t, modelPath, test.ShouldEqual, path.Clean(path.Join(viamDotDir, "packages", "cool-package", "cool.tflite")))
+	})
+
+	t.Run("replace placeholders in a config", func(t *testing.T) {
+		attributes1 := make(rutils.AttributeMap)
+		attributes1["label_path"] = "${packages.old-package}/effdetlabels.txt"
+		attributes1["model_path"] = "${packages.old-package}/effdet0.tflite"
+		attributes1["num_threads"] = 1
+
+		attributes2 := make(rutils.AttributeMap)
+		attributes2["label_path"] = "${packages.ml_models.ml-test}/effdetlabels.txt"
+		attributes2["model_path"] = "${packages.ml_models.ml-test}/effdet0.tflite"
+		attributes2["num_threads"] = 1
+
+		conf := &Config{
+			Packages: []PackageConfig{
+				{
+					Name:    "ml-test",
+					Type:    PackageTypeMlModel,
+					Package: "org/ml-test",
+					Version: "1",
+				},
+				{
+					Name:    "my-great-module",
+					Type:    PackageTypeModule,
+					Package: "org/my-great-module",
+					Version: "2",
+				},
+				{
+					Name:    "old-package",
+					Package: "org/old-package",
+					Version: "3",
+				},
+			},
+			Services: []resource.Config{
+				{
+					Name:       "fake1",
+					API:        resource.NewAPI("rdk", "new", "myapi"),
+					Model:      resource.DefaultModelFamily.WithModel("tflite_cpu"),
+					Attributes: attributes1,
+				},
+				{
+					Name:       "fake1",
+					API:        resource.NewAPI("rdk", "new", "myapi"),
+					Model:      resource.DefaultModelFamily.WithModel("tflite_cpu"),
+					Attributes: attributes2,
+				},
+			},
+			Modules: []Module{
+				{
+					Name:    "my-great-module",
+					ExePath: "${packages.modules.my-great-module}/exec.sh",
+				},
+			},
+		}
+
+		viamDotDir := filepath.Join(os.Getenv("HOME"), ".viam")
+
+		err := replacePlaceholdersInCloudConfig(conf)
+		test.That(t, err, test.ShouldBeNil)
+
+		module := conf.Modules[0]
+		moduleExecPath := module.ExePath
+		expectedExecPAth := path.Clean(path.Join(viamDotDir, "packages", "modules", ".data", "org-my-great-module-2", "exec.sh"))
+		test.That(t, moduleExecPath, test.ShouldEqual, expectedExecPAth)
+
+		service := conf.Services[0]
+		test.That(t, service.Attributes.Has("label_path"), test.ShouldBeTrue)
+		test.That(t, service.Attributes.Has("model_path"), test.ShouldBeTrue)
+
+		labelPath := service.Attributes.String("label_path")
+		modelPath := service.Attributes.String("model_path")
+
+		test.That(t, labelPath, test.ShouldEqual, path.Clean(path.Join(viamDotDir, "packages", "old-package", "effdetlabels.txt")))
+		test.That(t, modelPath, test.ShouldEqual, path.Clean(path.Join(viamDotDir, "packages", "old-package", "effdet0.tflite")))
+
+		service = conf.Services[1]
+		test.That(t, service.Attributes.Has("label_path"), test.ShouldBeTrue)
+		labelPath = service.Attributes.String("label_path")
+		test.That(t, labelPath, test.ShouldEqual,
+			path.Clean(path.Join(viamDotDir, "packages", "ml_models", ".data", "org-ml-test-1", "effdetlabels.txt")))
+
+		test.That(t, service.Attributes.Has("model_path"), test.ShouldBeTrue)
+		modelPath = service.Attributes.String("model_path")
+		test.That(t, modelPath, test.ShouldEqual,
+			path.Clean(path.Join(viamDotDir, "packages", "ml_models", ".data", "org-ml-test-1", "effdet0.tflite")))
 	})
 }

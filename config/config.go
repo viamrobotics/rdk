@@ -916,6 +916,7 @@ func (p *PackageConfig) Validate(path string) error {
 }
 
 // GetPackageReference a PackageReference if the given path has a Package reference eg. ${packages.some-package}/path.
+// Eg: ${packages.some-package}/path/a/b/c -> {"some-package", "/path/a/b/c"}.
 // Returns nil if no package reference is found.
 func GetPackageReference(path string) *PackageReference {
 	// return early before regex match
@@ -948,7 +949,6 @@ func GetPackageDirectoryFromType(packageType PackageType) string {
 }
 
 // PackageReference contains the deconstructed parts of a package reference in the config.
-// Eg: ${packages.some-package}/path/a/b/c -> {"some-package", "/path/a/b/c"}.
 type PackageReference struct {
 	Package       string
 	PathInPackage string
