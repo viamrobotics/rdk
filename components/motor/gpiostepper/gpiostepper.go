@@ -169,7 +169,11 @@ func newGPIOStepper(
 		m.minDelay = time.Duration(mc.StepperDelay * int(time.Microsecond))
 	}
 
-	m.enable(ctx, false)
+	err = m.enable(ctx, false)
+	if err != nil {
+		return nil, err
+	}
+
 	m.startThread(ctx)
 	return m, nil
 }
