@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"sync"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
@@ -31,6 +32,8 @@ func init() {
 // customLinuxBoard wraps the genericlinux board type so that both can implement their own Reconfigure function.
 type customLinuxBoard struct {
 	*genericlinux.SysfsBoard
+	mu     sync.RWMutex
+	logger golog.Logger
 }
 
 // RegisterCustomBoard registers a sysfs based board using the pin mappings.
@@ -75,12 +78,11 @@ func createNewBoard(
 		return nil, err
 	}
 
-	b, err := genericlinux.NewBoard(ctx, resourceBoardConfig, gpioMappings, logger)
 	gb, ok := b.(*genericlinux.SysfsBoard)
 	if !ok {
 		return nil, errors.New("error creating board object")
 	}
-	return &customLinuxBoard{gb}, nil
+	return &customLinuxBoard{SysfsBoard: gb, logger: logger}, nil
 }
 
 func parseBoardConfig(filePath string) ([]genericlinux.PinDefinition, error) {
@@ -122,6 +124,9 @@ func (b *customLinuxBoard) Reconfigure(
 	_ resource.Dependencies,
 	conf resource.Config,
 ) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return err
@@ -134,11 +139,5 @@ func (b *customLinuxBoard) Reconfigure(
 		DigitalInterrupts: newConf.DigitalInterrupts,
 	}
 
-	// type assert back into resource.Config to pass into genericlinux.Reconfigure
-	resourceBoardConfig, ok := boardConfig.(*resource.Config)
-	if !ok {
-		return nil, errors.New("error parsing genericlinux config from customlinux config")
-	}
-
-	return b.Reconfigure(ctx, nil, resourceBoardConfig)
+	return b.ReconfigureParsedConfig(ctx, &boardConfig)
 }

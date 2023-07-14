@@ -56,13 +56,14 @@ func newBoard(
 // NewSysfsBoard creates a new SysfsBoard.
 func NewSysfsBoard(
 	ctx context.Context,
-	conf resource.Config,
+	name resource.Named,
+	conf *Config,
 	gpioMappings map[string]GPIOBoardMapping,
 	logger golog.Logger,
 ) (board.Board, error) {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	b := SysfsBoard{
-		Named:        conf.ResourceName().AsNamed(),
+		Named:        name,
 		gpioMappings: gpioMappings,
 		logger:       logger,
 		cancelCtx:    cancelCtx,
@@ -79,7 +80,7 @@ func NewSysfsBoard(
 		b.gpios[pinName] = b.createGpioPin(mapping)
 	}
 
-	if err := b.Reconfigure(ctx, nil, conf); err != nil {
+	if err := b.ReconfigureParsedConfig(ctx, conf); err != nil {
 		return nil, err
 	}
 	return &b, nil
@@ -91,9 +92,6 @@ func (b *SysfsBoard) Reconfigure(
 	_ resource.Dependencies,
 	conf resource.Config,
 ) error {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return err
@@ -104,6 +102,9 @@ func (b *SysfsBoard) Reconfigure(
 
 // ReconfigureParsedConfig is a helper for Reconfigure.
 func (b *SysfsBoard) ReconfigureParsedConfig(ctx context.Context, conf *Config) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
 	if err := b.reconfigureSpis(conf); err != nil {
 		return err
 	}
