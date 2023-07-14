@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"reflect"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -167,7 +166,7 @@ func TestSessions(t *testing.T) {
 			}
 			`, windowSize, model, streamModel)
 
-			cfg, err := config.FromReader(context.Background(), "", strings.NewReader(roboConfig), logger)
+			cfg, err := config.FromReader(context.Background(), "", []byte(roboConfig), logger)
 			test.That(t, err, test.ShouldBeNil)
 
 			ctx := context.Background()
@@ -380,7 +379,7 @@ func TestSessionsWithRemote(t *testing.T) {
 	}
 	`, model, streamModel)
 
-	cfg, err := config.FromReader(context.Background(), "", strings.NewReader(remoteConfig), logger)
+	cfg, err := config.FromReader(context.Background(), "", []byte(remoteConfig), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	ctx := context.Background()
@@ -413,7 +412,7 @@ func TestSessionsWithRemote(t *testing.T) {
 	}
 	`, remoteAddr, model)
 
-	cfg, err = config.FromReader(context.Background(), "", strings.NewReader(roboConfig), logger)
+	cfg, err = config.FromReader(context.Background(), "", []byte(roboConfig), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	r, err := robotimpl.New(ctx, cfg, logger)
@@ -575,7 +574,7 @@ func TestSessionsMixedClients(t *testing.T) {
 	}
 	`, model)
 
-	cfg, err := config.FromReader(context.Background(), "", strings.NewReader(roboConfig), logger)
+	cfg, err := config.FromReader(context.Background(), "", []byte(roboConfig), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	ctx := context.Background()
@@ -664,7 +663,7 @@ func TestSessionsMixedOwnersNoAuth(t *testing.T) {
 	}
 	`, model)
 
-	cfg, err := config.FromReader(context.Background(), "", strings.NewReader(roboConfig), logger)
+	cfg, err := config.FromReader(context.Background(), "", []byte(roboConfig), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	ctx := context.Background()
@@ -765,7 +764,7 @@ func TestSessionsMixedOwnersImplicitAuth(t *testing.T) {
 	}
 	`, model)
 
-	cfg, err := config.FromReader(context.Background(), "", strings.NewReader(roboConfig), logger)
+	cfg, err := config.FromReader(context.Background(), "", []byte(roboConfig), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	ctx := context.Background()

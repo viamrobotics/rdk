@@ -9,7 +9,6 @@ import (
 	"net"
 	"os"
 	"path"
-	"strings"
 	"testing"
 	"time"
 
@@ -804,7 +803,7 @@ func TestStopAll(t *testing.T) {
 		resource.Deregister(arm.API, model)
 	}()
 
-	cfg, err := config.FromReader(context.Background(), "", strings.NewReader(armConfig), logger)
+	cfg, err := config.FromReader(context.Background(), "", []byte(armConfig), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	ctx := context.Background()
@@ -943,7 +942,7 @@ func TestNewTeardown(t *testing.T) {
     ]
 }
 `, model)
-	cfg, err := config.FromReader(context.Background(), "", strings.NewReader(failingConfig), logger)
+	cfg, err := config.FromReader(context.Background(), "", []byte(failingConfig), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	ctx := context.Background()

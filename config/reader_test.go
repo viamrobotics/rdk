@@ -5,7 +5,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -19,7 +18,8 @@ import (
 func TestStoreToCache(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
-	cfg, err := FromReader(ctx, "", strings.NewReader(`{}`), logger)
+
+	cfg, err := FromReader(ctx, "", []byte(`{}`), logger)
 
 	test.That(t, err, test.ShouldBeNil)
 
@@ -39,6 +39,8 @@ func TestStoreToCache(t *testing.T) {
 	// store our config to the cloud
 	err = storeToCache(cfg.Cloud.ID, cfg)
 	test.That(t, err, test.ShouldBeNil)
+
+	cfg.ConfigFilePath = getCloudCacheFilePath(cfg.Cloud.ID)
 
 	// read config from cloud, confirm consistency
 	cloudCfg, err := readFromCloud(ctx, cfg, nil, true, false, logger)
@@ -74,12 +76,12 @@ func TestCacheInvalidation(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// read from cache, should return parse error and remove file
-	_, err = GenerateConfigFromFile(id)
+	_, err = readFromCache(id)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot parse the cached config as json")
 
 	// read from cache again and file should not exist
-	_, err = GenerateConfigFromFile(id)
-	test.That(t, os.IsNotExist(err), test.ShouldBeTrue)
+	_, err = readFromCache(id)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "no such file or directory")
 }
 
 func TestShouldCheckForCert(t *testing.T) {
@@ -334,7 +336,10 @@ func TestPlaceholderReplacement(t *testing.T) {
 
 	t.Run("ReplaceFilePlaceholders", func(t *testing.T) {
 		filepath := "./data/robot.json"
-		config, err := GenerateConfigFromFile(filepath)
+		bytes, err := os.ReadFile(filepath)
+		test.That(t, err, test.ShouldBeNil)
+
+		config, err := GenerateConfigFromBytes(filepath, bytes)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, config.Modules, test.ShouldHaveLength, 1)
 		test.That(t, config.Packages, test.ShouldHaveLength, 3)

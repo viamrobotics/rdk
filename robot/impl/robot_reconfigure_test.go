@@ -1,7 +1,6 @@
 package robotimpl
 
 import (
-	"bytes"
 	"context"
 	"crypto/rand"
 	"fmt"
@@ -65,7 +64,7 @@ func TestRobotReconfigure(t *testing.T) {
 		logger := golog.NewTestLogger(t)
 		buf, err := envsubst.ReadFile(filePath)
 		test.That(t, err, test.ShouldBeNil)
-		conf, err := config.FromReader(context.Background(), filePath, bytes.NewReader(buf), logger)
+		conf, err := config.FromReader(context.Background(), filePath, buf, logger)
 		test.That(t, err, test.ShouldBeNil)
 		return conf
 	}

@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/url"
 	"os"
 	"path"
@@ -14,7 +13,6 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/a8m/envsubst"
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
@@ -58,6 +56,25 @@ func getAgentInfo() (*apppb.AgentInfo, error) {
 		Version:     Version,
 		GitRevision: GitRevision,
 	}, nil
+}
+
+// takes a config ID, tries to read it and returns the file in bytes.
+func readFromCache(id string) (*Config, error) {
+	filepath := getCloudCacheFilePath(id)
+	bytes, err := os.ReadFile(path.Clean(filepath))
+	if err != nil {
+		clearCache(id)
+		return nil, errors.Wrap(err, "cannot read the file specified by the path")
+	}
+
+	config, err := GenerateConfigFromBytes(filepath, bytes)
+	if err != nil {
+		// then clear the cache
+		clearCache(id)
+		return nil, errors.Wrap(err, "cannot parse the cached config as json")
+	}
+
+	return config, err
 }
 
 func replacePackagePlaceholdersInFile(bytes []byte, packageMap map[string]string) ([]byte, error) {
@@ -114,14 +131,9 @@ func mapPlaceholderToRealPaths(packages []PackageConfig) map[string]string {
 	return packageMap
 }
 
-// GenerateConfigFromFile converts a file to a valid robot config
+// GenerateConfigFromBytes converts a byte stream to a valid robot config
 // and replaces file placeholders as part of that conversion.
-func GenerateConfigFromFile(filepath string) (*Config, error) {
-	bytes, err := os.ReadFile(path.Clean(filepath))
-	if err != nil {
-		return nil, err
-	}
-
+func GenerateConfigFromBytes(filepath string, bytes []byte) (*Config, error) {
 	packages, err := getPackagesFromFile(bytes)
 	if err != nil {
 		return nil, err
@@ -288,6 +300,7 @@ func readFromCloud(
 ) (*Config, error) {
 	logger.Debug("reading configuration from the cloud")
 	cloudCfg := originalCfg.Cloud
+
 	unprocessedConfig, cached, err := getFromCloudOrCache(ctx, cloudCfg, shouldReadFromCache, logger)
 	if err != nil {
 		if !cached {
@@ -318,7 +331,7 @@ func readFromCloud(
 		// get cached certificate data
 		// read cached config from fs.
 		// process the config with fromReader() use processed config as cachedConfig to update the cert data.
-		unproccessedCachedConfig, err := GenerateConfigFromFile(getCloudCacheFilePath(cloudCfg.ID))
+		unproccessedCachedConfig, err := readFromCache(cloudCfg.ID)
 		if err == nil {
 			cachedConfig, err := processConfigFromCloud(unproccessedCachedConfig, logger)
 			if err != nil {
@@ -399,14 +412,12 @@ func Read(
 	filePath string,
 	logger golog.Logger,
 ) (*Config, error) {
-	// TODO: This is where we need to create a file reader instead
-	// this will manage how we read the file + this will spit out the config from there
-	buf, err := envsubst.ReadFile(filePath)
+	buf, err := os.ReadFile(path.Clean(filePath))
 	if err != nil {
 		return nil, err
 	}
 
-	return FromReader(ctx, filePath, bytes.NewReader(buf), logger)
+	return FromReader(ctx, filePath, buf, logger)
 }
 
 // ReadLocalConfig reads a config from the given file but does not fetch any config from the remote servers.
@@ -415,18 +426,22 @@ func ReadLocalConfig(
 	filePath string,
 	logger golog.Logger,
 ) (*Config, error) {
-	return fromReader(ctx, filePath, logger, false)
+	buf, err := os.ReadFile(path.Clean(filePath))
+	if err != nil {
+		return nil, errors.Wrap(err, "could not read the file")
+	}
+	return fromReader(ctx, filePath, buf, logger, false)
 }
 
-// FromReader reads a config from the given reader and specifies
+// FromReader reads a config from the given byte stream and specifies
 // where, if applicable, the file the reader originated from.
 func FromReader(
 	ctx context.Context,
 	originalPath string,
-	r io.Reader,
+	bytes []byte,
 	logger golog.Logger,
 ) (*Config, error) {
-	return fromReader(ctx, originalPath, logger, true)
+	return fromReader(ctx, originalPath, bytes, logger, true)
 }
 
 // FromReader reads a config from the given reader and specifies
@@ -434,11 +449,12 @@ func FromReader(
 func fromReader(
 	ctx context.Context,
 	originalPath string,
+	bytes []byte,
 	logger golog.Logger,
 	shouldReadFromCloud bool,
 ) (*Config, error) {
 	// First read and processes config from disk
-	unprocessedConfig, err := GenerateConfigFromFile(originalPath)
+	unprocessedConfig, err := GenerateConfigFromBytes(originalPath, bytes)
 	if err != nil {
 		return nil, err
 	}
@@ -621,7 +637,7 @@ func getFromCloudOrCache(ctx context.Context, cloudCfg *Cloud, shouldReadFromCac
 	if err != nil {
 		if shouldReadFromCache && errorShouldCheckCache {
 			logger.Warnw("failed to read config from cloud, checking cache", "error", err)
-			cachedConfig, cacheErr := GenerateConfigFromFile(getCloudCacheFilePath(cloudCfg.ID))
+			cachedConfig, cacheErr := readFromCache(cloudCfg.ID)
 			if cacheErr != nil {
 				if os.IsNotExist(cacheErr) {
 					// Return original http error if failed to load from cache.

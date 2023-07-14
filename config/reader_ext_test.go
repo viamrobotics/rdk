@@ -2,7 +2,6 @@ package config_test
 
 import (
 	"context"
-	"strings"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -15,15 +14,15 @@ import (
 
 func TestFromReaderValidate(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	_, err := config.FromReader(context.Background(), "somepath", strings.NewReader(""), logger)
+	_, err := config.FromReader(context.Background(), "somepath", []byte(""), logger)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "json: EOF")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "unexpected end of JSON input")
 
-	_, err = config.FromReader(context.Background(), "somepath", strings.NewReader(`{"cloud": 1}`), logger)
+	_, err = config.FromReader(context.Background(), "somepath", []byte(`{"cloud": 1}`), logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "unmarshal")
 
-	conf, err := config.FromReader(context.Background(), "somepath", strings.NewReader(`{}`), logger)
+	conf, err := config.FromReader(context.Background(), "somepath", []byte(`{}`), logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, conf, test.ShouldResemble, &config.Config{
 		ConfigFilePath: "somepath",
@@ -38,19 +37,19 @@ func TestFromReaderValidate(t *testing.T) {
 		},
 	})
 
-	_, err = config.FromReader(context.Background(), "somepath", strings.NewReader(`{"cloud": {}}`), logger)
+	_, err = config.FromReader(context.Background(), "somepath", []byte(`{"cloud": {}}`), logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"id" is required`)
 
 	_, err = config.FromReader(context.Background(),
-		"somepath", strings.NewReader(`{"disable_partial_start":true,"components": [{}]}`), logger)
+		"somepath", []byte(`{"disable_partial_start":true,"components": [{}]}`), logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `components.0`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
 
 	conf, err = config.FromReader(context.Background(),
 		"somepath",
-		strings.NewReader(`{"components": [{"name": "foo", "type": "arm", "model": "foo"}]}`),
+		[]byte(`{"components": [{"name": "foo", "type": "arm", "model": "foo"}]}`),
 		logger)
 	test.That(t, err, test.ShouldBeNil)
 	expected := &config.Config{

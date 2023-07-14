@@ -2,7 +2,6 @@ package gpsrtk_test
 
 import (
 	"context"
-	"strings"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -29,7 +28,7 @@ func TestGPSModels(t *testing.T) {
 			}
 					]
 		}`
-		_, err := config.FromReader(ctx, "", strings.NewReader(cfg1), logger)
+		_, err := config.FromReader(ctx, "", []byte(cfg1), logger)
 		test.That(t, err, test.ShouldBeNil)
 	})
 }
