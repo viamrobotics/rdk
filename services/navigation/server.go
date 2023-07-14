@@ -26,9 +26,10 @@ func NewRPCServiceServer(coll resource.APIResourceCollection[Service]) interface
 	return &serviceServer{coll: coll}
 }
 
-func (server *serviceServer) GetMode(ctx context.Context, req *pb.GetModeRequest) (
-	*pb.GetModeResponse, error,
-) {
+func (server *serviceServer) GetMode(
+	ctx context.Context,
+	req *pb.GetModeRequest,
+) (*pb.GetModeResponse, error) {
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
@@ -49,9 +50,10 @@ func (server *serviceServer) GetMode(ctx context.Context, req *pb.GetModeRequest
 	}, nil
 }
 
-func (server *serviceServer) SetMode(ctx context.Context, req *pb.SetModeRequest) (
-	*pb.SetModeResponse, error,
-) {
+func (server *serviceServer) SetMode(
+	ctx context.Context,
+	req *pb.SetModeRequest,
+) (*pb.SetModeResponse, error) {
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
@@ -73,9 +75,10 @@ func (server *serviceServer) SetMode(ctx context.Context, req *pb.SetModeRequest
 	return &pb.SetModeResponse{}, nil
 }
 
-func (server *serviceServer) GetLocation(ctx context.Context, req *pb.GetLocationRequest) (
-	*pb.GetLocationResponse, error,
-) {
+func (server *serviceServer) GetLocation(
+	ctx context.Context,
+	req *pb.GetLocationRequest,
+) (*pb.GetLocationResponse, error) {
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
@@ -89,9 +92,10 @@ func (server *serviceServer) GetLocation(ctx context.Context, req *pb.GetLocatio
 	}, nil
 }
 
-func (server *serviceServer) GetWaypoints(ctx context.Context, req *pb.GetWaypointsRequest) (
-	*pb.GetWaypointsResponse, error,
-) {
+func (server *serviceServer) GetWaypoints(
+	ctx context.Context,
+	req *pb.GetWaypointsRequest,
+) (*pb.GetWaypointsResponse, error) {
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
@@ -112,9 +116,10 @@ func (server *serviceServer) GetWaypoints(ctx context.Context, req *pb.GetWaypoi
 	}, nil
 }
 
-func (server *serviceServer) AddWaypoint(ctx context.Context, req *pb.AddWaypointRequest) (
-	*pb.AddWaypointResponse, error,
-) {
+func (server *serviceServer) AddWaypoint(
+	ctx context.Context,
+	req *pb.AddWaypointRequest,
+) (*pb.AddWaypointResponse, error) {
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
@@ -126,9 +131,10 @@ func (server *serviceServer) AddWaypoint(ctx context.Context, req *pb.AddWaypoin
 	return &pb.AddWaypointResponse{}, nil
 }
 
-func (server *serviceServer) RemoveWaypoint(ctx context.Context, req *pb.RemoveWaypointRequest) (
-	*pb.RemoveWaypointResponse, error,
-) {
+func (server *serviceServer) RemoveWaypoint(
+	ctx context.Context,
+	req *pb.RemoveWaypointRequest,
+) (*pb.RemoveWaypointResponse, error) {
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
@@ -143,9 +149,10 @@ func (server *serviceServer) RemoveWaypoint(ctx context.Context, req *pb.RemoveW
 	return &pb.RemoveWaypointResponse{}, nil
 }
 
-func (server *serviceServer) GetObstacles(ctx context.Context, req *pb.GetObstaclesRequest) (
-	*pb.GetObstaclesResponse, error,
-) {
+func (server *serviceServer) GetObstacles(
+	ctx context.Context,
+	req *pb.GetObstaclesRequest,
+) (*pb.GetObstaclesResponse, error) {
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
@@ -162,7 +169,8 @@ func (server *serviceServer) GetObstacles(ctx context.Context, req *pb.GetObstac
 }
 
 // DoCommand receives arbitrary commands.
-func (server *serviceServer) DoCommand(ctx context.Context,
+func (server *serviceServer) DoCommand(
+	ctx context.Context,
 	req *commonpb.DoCommandRequest,
 ) (*commonpb.DoCommandResponse, error) {
 	svc, err := server.coll.Resource(req.Name)
