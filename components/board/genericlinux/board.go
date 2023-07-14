@@ -35,11 +35,7 @@ func RegisterBoard(modelName string, gpioMappings map[string]GPIOBoardMapping) {
 				conf resource.Config,
 				logger golog.Logger,
 			) (board.Board, error) {
-				newConf, err := resource.NativeConfig[*Config](conf)
-				if err != nil {
-					return nil, err
-				}
-				return NewBoard(ctx, conf.ResourceName().AsNamed(), newConf, gpioMappings, logger)
+				return NewBoard(ctx, conf, gpioMappings, logger)
 			},
 		})
 }
@@ -47,14 +43,13 @@ func RegisterBoard(modelName string, gpioMappings map[string]GPIOBoardMapping) {
 // NewBoard creates a new SysfsBoard.
 func NewBoard(
 	ctx context.Context,
-	named resource.Named,
-	conf *Config,
+	conf resource.Config,
 	gpioMappings map[string]GPIOBoardMapping,
 	logger golog.Logger,
 ) (board.Board, error) {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	b := SysfsBoard{
-		Named:        named,
+		Named:        conf.ResourceName().AsNamed(),
 		gpioMappings: gpioMappings,
 		logger:       logger,
 		cancelCtx:    cancelCtx,
@@ -71,7 +66,7 @@ func NewBoard(
 		b.gpios[pinName] = b.createGpioPin(mapping)
 	}
 
-	if err := b.ReconfigureParsedConfig(ctx, conf); err != nil {
+	if err := b.Reconfigure(ctx, nil, conf); err != nil {
 		return nil, err
 	}
 	return &b, nil

@@ -70,11 +70,14 @@ func createNewBoard(
 		Analogs:           newConf.Analogs,
 		DigitalInterrupts: newConf.DigitalInterrupts,
 	}
-	b, err := genericlinux.NewBoard(ctx, conf.ResourceName().AsNamed(), &boardConfig, gpioMappings, logger)
-	if err != nil {
-		return nil, err
+
+	// type assert back into resource.Config to pass into genericlinux.NewBoard
+	resourceBoardConfig, ok := boardConfig.(*resource.Config)
+	if !ok {
+		return nil, errors.New("error creating genericlinux config from customlinux config")
 	}
 
+	b, err := genericlinux.NewBoard(ctx, resourceBoardConfig, gpioMappings, logger)
 	gb, ok := b.(*genericlinux.SysfsBoard)
 	if !ok {
 		return nil, errors.New("error creating board object")
@@ -132,5 +135,12 @@ func (b *customLinuxBoard) Reconfigure(
 		Analogs:           newConf.Analogs,
 		DigitalInterrupts: newConf.DigitalInterrupts,
 	}
-	return b.ReconfigureParsedConfig(ctx, &boardConfig)
+
+	// type assert back into resource.Config to pass into genericlinux.Reconfigure
+	resourceBoardConfig, ok := boardConfig.(*resource.Config)
+	if !ok {
+		return nil, errors.New("error parsing genericlinux config from customlinux config")
+	}
+
+	return b.Reconfigure(ctx, nil, resourceBoardConfig)
 }
