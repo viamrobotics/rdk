@@ -26,7 +26,6 @@ type NtripConfig struct {
 	NtripMountpoint      string `json:"ntrip_mountpoint,omitempty"`
 	NtripPass            string `json:"ntrip_password,omitempty"`
 	NtripUser            string `json:"ntrip_username,omitempty"`
-	NtripPath            string `json:"ntrip_path,omitempty"`
 }
 
 // NewNtripInfo function validates and sets NtripConfig arributes and returns NtripInfo.
