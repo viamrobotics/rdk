@@ -115,7 +115,7 @@ func StatisticalOutlierFilter(meanK int, stdDevThresh float64) (func(PointCloud)
 				}
 			}()
 			pointAsMatrix.IterateConcurrently(4, func(v r3.Vector, d Data) bool {
-				neighbors := kd.KNearestNeighborsConcurrent(v, meanK, false)
+				neighbors := kd.KNearestNeighbors(v, meanK, false)
 				sumDist := 0.0
 				for _, p := range neighbors {
 					sumDist += v.Distance(p.P)
