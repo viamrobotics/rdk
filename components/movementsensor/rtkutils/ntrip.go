@@ -1,4 +1,4 @@
-package gpsrtk
+package rtkutils
 
 import (
 	"fmt"

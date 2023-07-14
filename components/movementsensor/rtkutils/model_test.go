@@ -1,4 +1,4 @@
-package gpsrtk_test
+package rtkutils
 
 import (
 	"context"

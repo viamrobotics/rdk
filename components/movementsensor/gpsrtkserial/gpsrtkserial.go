@@ -19,7 +19,7 @@ import (
 
 	"go.viam.com/rdk/components/movementsensor"
 	gpsnmea "go.viam.com/rdk/components/movementsensor/gpsnmea"
-	rtk "go.viam.com/rdk/components/movementsensor/gpsrtk"
+	rtk "go.viam.com/rdk/components/movementsensor/rtkutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
