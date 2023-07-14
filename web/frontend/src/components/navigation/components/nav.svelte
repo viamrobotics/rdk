@@ -8,6 +8,7 @@ import { useRobotClient } from '@/hooks/robot-client';
 import LnglatInput from './lnglat-input.svelte';
 import type { LngLat } from '@/api/navigation';
 import GeometryInputs from './geometry-inputs.svelte';
+import { createObstacle } from '../lib/obstacle';
 
 export let name: string;
 
@@ -27,19 +28,7 @@ const handleRemoveWaypoint = async (id: string) => {
 };
 
 const handleAddObstacle = () => {
-  $obstacles = [...$obstacles, {
-    location: {
-      longitude: $mapCenter.lng,
-      latitude: $mapCenter.lat,
-    },
-    geometries: [{
-      type: 'box',
-      x: 100,
-      y: 100,
-      z: 100,
-      translation: { x: 0, y: 0, z: 0 }
-    }]
-  }]
+  $obstacles = [...$obstacles, createObstacle($mapCenter.lng, $mapCenter.lat)]
 }
 
 const handleLngLatInput = (index: number, event: CustomEvent<LngLat>) => {
@@ -47,16 +36,20 @@ const handleLngLatInput = (index: number, event: CustomEvent<LngLat>) => {
   $obstacles[index]!.location.longitude = event.detail.lng;
 }
 
+const handleDeleteObstacle = (index: number) => {
+  $obstacles = $obstacles.filter((_, i) => i !== index)
+}
+
 </script>
 
-<nav class='min-w-[8rem] mr-2'>
+<nav class='min-w-[10rem] mr-2'>
   <h3 class='text-xs py-1.5 mb-1.5 border-b border-light'>Obstacles</h3>
   <ul class={$mode === 'readonly' ? 'font-mono' : ''}>
     {#if $obstacles.length === 0}
       <li class='text-xs text-subtle-2 font-sans py-2'>None</li>
     {/if}
 
-    {#each $obstacles as { location }, index}
+    {#each $obstacles as { location, geometries }, index}
       {#if $mode === 'readonly'}
         <li class='flex group'>
           <v-button
@@ -82,11 +75,13 @@ const handleLngLatInput = (index: number, event: CustomEvent<LngLat>) => {
               class='invisible group-hover:visible'
               variant='icon'
               icon='trash'
-              on:click={() => {}}
+              on:click={() => handleDeleteObstacle(index)}
             />
-            
+
           </LnglatInput>
-          <GeometryInputs />
+          {#each geometries as _, geoIndex}
+            <GeometryInputs {index} {geoIndex} />
+          {/each}
         </li>
       {/if}
     {/each}

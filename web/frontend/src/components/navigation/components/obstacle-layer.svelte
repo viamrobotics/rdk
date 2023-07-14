@@ -1,14 +1,13 @@
 <script lang='ts'>
 
 import { type Map } from 'maplibre-gl';
-import { Canvas, currentWritable } from '@threlte/core';
+import { Canvas } from '@threlte/core';
 import Scene from './scene.svelte';
+import { mapCamera, mapCameraViewProjectionMatrix } from '../stores';
 import { injectLngLatPlugin } from '../lnglat-plugin';
-import type { Mat4 } from '../types';
 
 export let map: Map;
 
-const viewProjectionMatrix = currentWritable<Float32Array | Mat4>(null!);
 const canvas = map.getCanvas();
 
 let context: WebGLRenderingContext | undefined;
@@ -31,7 +30,8 @@ map.on('style.load', () => map.addLayer({
     context = newContext;
   },
   render (_ctx, nextViewProjectionMatrix) {
-    viewProjectionMatrix.set(nextViewProjectionMatrix);
+    mapCamera.projectionMatrix.fromArray(nextViewProjectionMatrix)
+    mapCameraViewProjectionMatrix.set(nextViewProjectionMatrix);
   },
 }));
 
@@ -41,12 +41,12 @@ map.on('resize', handleResize);
 
 {#if context}
   <Canvas
-    rendererParameters={{ canvas, context }}
+    rendererParameters={{ canvas, context, alpha: true, antialias: true }}
     useLegacyLights={false}
     shadows={false}
     size={{ width, height }}
     frameloop='always'
   >
-    <Scene {map} {viewProjectionMatrix} />
+    <Scene {map} />
   </Canvas>
 {/if}

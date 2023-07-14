@@ -1,4 +1,5 @@
 export type Modes = 'readonly' | 'readWrite'
+export type Views = '2D' | '3D'
 
 export type Mat4 = [
   number, number, number, number,

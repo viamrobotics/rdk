@@ -19,8 +19,6 @@ const handleLat = (event: CustomEvent) => {
   dispatch('input', { lng: lng ?? 0, lat: Number.parseFloat(event.detail.value) })
 }
 
-$: console.log($mapZoom, ($mapZoom ** 2))
-
 </script>
 
 <div class='flex flex-wrap gap-1.5 items-end'>

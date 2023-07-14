@@ -41,8 +41,8 @@ export const latLngToVector3Relative = (
 };
 
 export const createCameraTransform = (map: Map) => {
-  const centerLngLat = map.getCenter();
-  const center = MercatorCoordinate.fromLngLat(centerLngLat, 0);
+  const mapCenter = { lng: 0, lat: 0 };
+  const center = MercatorCoordinate.fromLngLat(mapCenter, 0);
   const distance = center.meterInMercatorCoordinateUnits();
   const scale = new THREE.Matrix4().makeScale(distance, distance, -distance);
   const rotation = new THREE.Matrix4().multiplyMatrices(

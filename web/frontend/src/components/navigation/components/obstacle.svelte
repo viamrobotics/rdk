@@ -3,14 +3,12 @@
 
 import { T } from '@threlte/core';
 import type { Obstacle } from '../types';
-import { zoomLevels } from '../stores';
+import { view } from '../stores';
+import FlatCapsuleGeometry from './flat-capsule-geometry.svelte'
 
 export let obstacle: Obstacle;
 
-const createZoomForObstacle = (lngLat: Obstacle['location'], geometry: THREE.BufferGeometry) => {
-  geometry.computeBoundingSphere();
-  $zoomLevels[`${lngLat.longitude},${lngLat.latitude}`] = 100 / geometry.boundingSphere!.radius;
-};
+$: console.log(obstacle)
 
 </script>
 
@@ -25,22 +23,25 @@ const createZoomForObstacle = (lngLat: Obstacle['location'], geometry: THREE.Buf
       position.z={geometry.translation.z}
     >
       {#if geometry.type === 'box'}
-        <T.BoxGeometry
-          args={[geometry.x, geometry.y, geometry.z]}
-          on:create={({ ref }) => createZoomForObstacle(obstacle.location, ref)}
-        />
+        {#if $view === '3D'}
+          <T.BoxGeometry args={[geometry.x, geometry.y, geometry.z]} />
+        {:else}
+          <T.PlaneGeometry args={[geometry.x, geometry.y]} />
+        {/if}
       {:else if geometry.type === 'sphere'}
-        <T.SphereGeometry
-          args={[geometry.r]}
-          on:create={({ ref }) => createZoomForObstacle(obstacle.location, ref)}
-        />
+        {#if $view === '3D'}
+          <T.SphereGeometry args={[geometry.r]} />
+        {:else}
+          <T.CircleGeometry args={[geometry.r]} />
+        {/if}
       {:else if geometry.type === 'capsule'}
-        <T.CapsuleGeometry
-          args={[geometry.r, geometry.l, 16, 32]}
-          on:create={({ ref }) => createZoomForObstacle(obstacle.location, ref)}
-        />
+        {#if $view === '3D'}
+          <FlatCapsuleGeometry args={[geometry.r, geometry.l]} />
+        {:else}
+          <T.CapsuleGeometry args={[geometry.r, geometry.l, 16, 32]} />
+        {/if}
       {/if}
-      <T.MeshBasicMaterial color='red' />
+      <T.MeshPhysicalMaterial color='red' />
     </T.Mesh>
   {/each}
 </T.Group>

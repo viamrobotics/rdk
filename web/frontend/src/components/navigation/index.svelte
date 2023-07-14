@@ -75,10 +75,7 @@ $: $modeStore = mode;
       <Nav {name} />
 
       <div class='grow'>
-        <Map
-          {name}
-          on:drag={(event) => centerMap(event.detail, false)}
-        />
+        <Map {name} />
       </div>
 
     </div>

@@ -6,7 +6,7 @@ export const style: StyleSpecification = {
     osm: {
       type: 'raster',
       tiles: ['https://a.tile.openstreetmap.org/{z}/{x}/{y}.png'],
-      tileSize: 256,
+      tileSize: 128,
       attribution: '&copy; OpenStreetMap Contributors',
       maxzoom: 19,
     },
