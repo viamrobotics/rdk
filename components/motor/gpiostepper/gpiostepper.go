@@ -123,6 +123,10 @@ func newGPIOStepper(
 	name resource.Name,
 	logger golog.Logger,
 ) (motor.Motor, error) {
+	if b == nil {
+		return nil, errors.New("board is required")
+	}
+
 	if mc.TicksPerRotation == 0 {
 		return nil, errors.New("expected ticks_per_rotation in config for motor")
 	}
@@ -165,6 +169,7 @@ func newGPIOStepper(
 		m.minDelay = time.Duration(mc.StepperDelay * int(time.Microsecond))
 	}
 
+	m.enable(ctx, false)
 	m.startThread(ctx)
 	return m, nil
 }
@@ -446,13 +451,14 @@ func (m *gpioStepper) IsPowered(ctx context.Context, extra map[string]interface{
 }
 
 func (m *gpioStepper) enable(ctx context.Context, on bool) error {
+	var err error
 	if m.enablePinHigh != nil {
-		return m.enablePinHigh.Set(ctx, on, nil)
+		err = multierr.Combine(err, m.enablePinHigh.Set(ctx, on, nil))
 	}
 
 	if m.enablePinLow != nil {
-		return m.enablePinLow.Set(ctx, !on, nil)
+		err = multierr.Combine(err, m.enablePinLow.Set(ctx, !on, nil))
 	}
 
-	return nil
+	return err
 }
