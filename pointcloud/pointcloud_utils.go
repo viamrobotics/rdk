@@ -166,35 +166,34 @@ func StatisticalOutlierFilter(meanK int, stdDevThresh float64) (func(PointCloud)
 				}
 			}
 			return filteredCloud, nil
-		} else {
-			// fmt.Println("iterating singularly")
-			kd.points.Iterate(0, 0, func(v r3.Vector, d Data) bool {
-				neighbors := kd.KNearestNeighbors(v, meanK, false)
-				sumDist := 0.0
-				for _, p := range neighbors {
-					sumDist += v.Distance(p.P)
-				}
-				avgDistances = append(avgDistances, sumDist/float64(len(neighbors)))
-				points = append(points, PointAndData{v, d})
-				return true
-			})
-			// fmt.Println("avg distances", avgDistances)
+		}
+		// fmt.Println("iterating singularly")
+		kd.points.Iterate(0, 0, func(v r3.Vector, d Data) bool {
+			neighbors := kd.KNearestNeighbors(v, meanK, false)
+			sumDist := 0.0
+			for _, p := range neighbors {
+				sumDist += v.Distance(p.P)
+			}
+			avgDistances = append(avgDistances, sumDist/float64(len(neighbors)))
+			points = append(points, PointAndData{v, d})
+			return true
+		})
+		// fmt.Println("avg distances", avgDistances)
 
-			mean, stddev := stat.MeanStdDev(avgDistances, nil)
-			threshold := mean + stdDevThresh*stddev
-			// fmt.Println(mean, stddev, threshold)
-			// filter using the statistical information
-			filteredCloud := New()
-			for i := 0; i < len(avgDistances); i++ {
-				if avgDistances[i] < threshold {
-					err := filteredCloud.Set(points[i].P, points[i].D)
-					if err != nil {
-						return nil, err
-					}
+		mean, stddev := stat.MeanStdDev(avgDistances, nil)
+		threshold := mean + stdDevThresh*stddev
+		// fmt.Println(mean, stddev, threshold)
+		// filter using the statistical information
+		filteredCloud := New()
+		for i := 0; i < len(avgDistances); i++ {
+			if avgDistances[i] < threshold {
+				err := filteredCloud.Set(points[i].P, points[i].D)
+				if err != nil {
+					return nil, err
 				}
 			}
-			return filteredCloud, nil
 		}
+		return filteredCloud, nil
 	}
 	return filterFunc, nil
 }

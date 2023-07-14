@@ -71,7 +71,7 @@ func (ms *matrixStorage) Iterate(numBatches, myBatch int, fn func(p r3.Vector, d
 	}
 }
 
-// Requires a thread safe function
+// Requires a thread safe function.
 func (ms *matrixStorage) IterateConcurrently(numBatches int, fn func(p r3.Vector, d Data) bool) {
 	if numBatches < 0 {
 		panic("should not be using this function")
