@@ -83,7 +83,7 @@ func init() {
 		})
 }
 
-// rtkSerial is an nmea movementsensor model that can intake RTK correction data.
+// rtkSerial is an nmea movementsensor model that can intake RTK correction data
 type rtkSerial struct {
 	resource.Named
 	resource.AlwaysRebuild
