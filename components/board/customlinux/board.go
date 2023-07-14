@@ -70,11 +70,9 @@ func createNewBoard(
 		Analogs:           newConf.Analogs,
 		DigitalInterrupts: newConf.DigitalInterrupts,
 	}
-
-	// type assert back into resource.Config to pass into genericlinux.NewBoard
-	resourceBoardConfig, ok := boardConfig.(*resource.Config)
-	if !ok {
-		return nil, errors.New("error creating genericlinux config from customlinux config")
+	b, err := genericlinux.NewSysfsBoard(ctx, conf.ResourceName().AsNamed(), &boardConfig, gpioMappings, logger)
+	if err != nil {
+		return nil, err
 	}
 
 	b, err := genericlinux.NewBoard(ctx, resourceBoardConfig, gpioMappings, logger)
