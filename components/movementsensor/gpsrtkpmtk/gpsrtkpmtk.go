@@ -156,6 +156,20 @@ func newRTKI2C(
 		return nil, err
 	}
 
+	ntripConfig := &rtk.NtripConfig{
+		NtripURL:             newConf.NtripURL,
+		NtripUser:            newConf.NtripUser,
+		NtripPass:            newConf.NtripPass,
+		NtripMountpoint:      newConf.NtripMountpoint,
+		NtripConnectAttempts: newConf.NtripConnectAttempts,
+	}
+
+	// Init ntripInfo from attributes
+	g.ntripClient, err = rtk.NewNtripInfo(ntripConfig, g.logger)
+	if err != nil {
+		return nil, err
+	}
+
 	if err := g.start(); err != nil {
 		return nil, err
 	}
@@ -193,24 +207,6 @@ func (g *rtkI2C) Reconfigure(ctx context.Context, deps resource.Dependencies, co
 		return fmt.Errorf("gps init: failed to find i2c bus %s", newConf.I2CBus)
 	}
 	g.bus = i2cbus
-
-	// NTrip
-	g.ntripMu.Lock()
-
-	ntripConfig := &rtk.NtripConfig{
-		NtripURL:             newConf.NtripURL,
-		NtripUser:            newConf.NtripUser,
-		NtripPass:            newConf.NtripPass,
-		NtripMountpoint:      newConf.NtripMountpoint,
-		NtripConnectAttempts: newConf.NtripConnectAttempts,
-	}
-
-	// Init ntripInfo from attributes
-	g.ntripClient, err = rtk.NewNtripInfo(ntripConfig, g.logger)
-	if err != nil {
-		return err
-	}
-	g.ntripMu.Unlock()
 
 	return nil
 }
@@ -439,7 +435,7 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 	}
 }
 
-//nolint
+// nolint
 // getNtripConnectionStatus returns true if connection to NTRIP stream is OK, false if not.
 func (g *rtkI2C) getNtripConnectionStatus() (bool, error) {
 	g.ntripMu.Lock()

@@ -119,33 +119,16 @@ func (g *rtkSerial) Reconfigure(ctx context.Context, deps resource.Dependencies,
 
 	if newConf.SerialPath != "" {
 		g.writePath = newConf.SerialPath
-		g.logger.Info("updated serial_path to %v", newConf.SerialPath)
+		g.logger.Infof("updated serial_path to #%v", newConf.SerialPath)
 	}
 
 	if newConf.SerialBaudRate != 0 {
 		g.wbaud = newConf.SerialBaudRate
-		g.logger.Info("updated serial_baud_rate to %v", newConf.SerialBaudRate)
+		g.logger.Infof("updated serial_baud_rate to %v", newConf.SerialBaudRate)
 	} else {
 		g.wbaud = 38400
 		g.logger.Info("serial_baud_rate using default baud rate 38400")
 	}
-
-	g.ntripMu.Lock()
-
-	ntripConfig := &rtk.NtripConfig{
-		NtripURL:             newConf.NtripURL,
-		NtripUser:            newConf.NtripUser,
-		NtripPass:            newConf.NtripPass,
-		NtripMountpoint:      newConf.NtripMountpoint,
-		NtripConnectAttempts: newConf.NtripConnectAttempts,
-	}
-
-	g.ntripClient, err = rtk.NewNtripInfo(ntripConfig, g.logger)
-	if err != nil {
-		return err
-	}
-
-	g.ntripMu.Unlock()
 
 	return nil
 }
@@ -187,6 +170,19 @@ func newRTKSerial(
 		SerialBaudRate: newConf.SerialBaudRate,
 	}
 	g.nmeamovementsensor, err = gpsnmea.NewSerialGPSNMEA(ctx, conf.ResourceName(), nmeaConf, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	ntripConfig := &rtk.NtripConfig{
+		NtripURL:             newConf.NtripURL,
+		NtripUser:            newConf.NtripUser,
+		NtripPass:            newConf.NtripPass,
+		NtripMountpoint:      newConf.NtripMountpoint,
+		NtripConnectAttempts: newConf.NtripConnectAttempts,
+	}
+
+	g.ntripClient, err = rtk.NewNtripInfo(ntripConfig, g.logger)
 	if err != nil {
 		return nil, err
 	}
@@ -378,7 +374,7 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 	}
 }
 
-//nolint
+// nolint
 // getNtripConnectionStatus returns true if connection to NTRIP stream is OK, false if not.
 func (g *rtkSerial) getNtripConnectionStatus() (bool, error) {
 	g.ntripMu.Lock()
