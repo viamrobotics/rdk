@@ -841,6 +841,37 @@ Next, update your meta.json and use 'viam module update' to push those changes t
 						Usage: "Update a module's metadata on app.viam.com",
 						Flags: []cli.Flag{
 							&cli.StringFlag{
+								Name:        "module",
+								Usage:       "path to meta.json",
+								DefaultText: "./meta.json",
+								TakesFile:   true,
+							},
+							&cli.StringFlag{
+								Name:  "public_namespace",
+								Usage: "the public namespace where the module resides (alternative way of specifying the ord id)",
+							},
+							&cli.StringFlag{
+								Name:  "org_id",
+								Usage: "id of the organization that hosts the module",
+							},
+						},
+						Action: rdkcli.UpdateModuleCommand,
+					},
+					{
+						Name:  "upload",
+						Usage: "Upload a new version of your module",
+						Description: `
+TODO
+                        `,
+						ArgsUsage: "<path to tarball>",
+						Flags: []cli.Flag{
+							&cli.StringFlag{
+								Name:        "module",
+								Usage:       "path to meta.json",
+								DefaultText: "./meta.json",
+								TakesFile:   true,
+							},
+							&cli.StringFlag{
 								Name:  "public_namespace",
 								Usage: "the public namespace where the module resides (alternative way of specifying the ord id)",
 							},
@@ -849,12 +880,26 @@ Next, update your meta.json and use 'viam module update' to push those changes t
 								Usage: "id of the organization that hosts the module",
 							},
 							&cli.StringFlag{
-								Name:        "module",
-								Usage:       "path to meta.json",
-								DefaultText: "./meta.json",
+								Name:  "name",
+								Usage: "name of the module (used if you don't have a meta.json)",
+							},
+							&cli.StringFlag{
+								Name:     "version",
+								Usage:    "version of the module to upload (semver2.0) ex: \"1.0.1\"",
+								Required: true,
+							},
+
+							&cli.StringFlag{
+								Name: "platform",
+								Usage: `Platform of the binary you are uploading. Must be one of:
+                        linux/amd64
+                        linux/arm64
+                        darwin/amd64 (for macOS)
+                        darwin/arm64 (for macOS)`,
+								Required: true,
 							},
 						},
-						Action: rdkcli.UpdateModuleCommand,
+						Action: rdkcli.UploadModuleCommand,
 					},
 				},
 			},
