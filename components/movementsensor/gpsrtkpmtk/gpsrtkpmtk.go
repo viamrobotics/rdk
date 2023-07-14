@@ -99,6 +99,7 @@ type rtkI2C struct {
 
 	activeBackgroundWorkers sync.WaitGroup
 
+	mu          sync.Mutex
 	ntripMu     sync.Mutex
 	ntripClient *rtk.NtripInfo
 	ntripStatus bool
@@ -135,12 +136,9 @@ func newRTKI2C(
 		lastposition: movementsensor.NewLastPosition(),
 	}
 
-	ntripConfig := &rtk.NtripConfig{
-		NtripURL:             newConf.NtripURL,
-		NtripUser:            newConf.NtripUser,
-		NtripPass:            newConf.NtripPass,
-		NtripMountpoint:      newConf.NtripMountpoint,
-		NtripConnectAttempts: newConf.NtripConnectAttempts,
+	// reconfigure
+	if err = g.Reconfigure(ctx, deps, conf); err != nil {
+		return nil, err
 	}
 
 	nmeaConf := &gpsnmea.Config{
@@ -158,16 +156,6 @@ func newRTKI2C(
 		return nil, err
 	}
 
-	// Init ntripInfo from attributes
-	g.ntripClient, err = rtk.NewNtripInfo(ntripConfig, g.logger)
-	if err != nil {
-		return nil, err
-	}
-
-	if err = g.Reconfigure(ctx, deps, conf); err != nil {
-		return nil, err
-	}
-
 	if err := g.start(); err != nil {
 		return nil, err
 	}
@@ -176,6 +164,9 @@ func newRTKI2C(
 }
 
 func (g *rtkI2C) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return err
@@ -204,6 +195,22 @@ func (g *rtkI2C) Reconfigure(ctx context.Context, deps resource.Dependencies, co
 	g.bus = i2cbus
 
 	// NTrip
+	g.ntripMu.Lock()
+
+	ntripConfig := &rtk.NtripConfig{
+		NtripURL:             newConf.NtripURL,
+		NtripUser:            newConf.NtripUser,
+		NtripPass:            newConf.NtripPass,
+		NtripMountpoint:      newConf.NtripMountpoint,
+		NtripConnectAttempts: newConf.NtripConnectAttempts,
+	}
+
+	// Init ntripInfo from attributes
+	g.ntripClient, err = rtk.NewNtripInfo(ntripConfig, g.logger)
+	if err != nil {
+		return err
+	}
+	g.ntripMu.Unlock()
 
 	return nil
 }

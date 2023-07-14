@@ -93,9 +93,11 @@ type rtkSerial struct {
 
 	activeBackgroundWorkers sync.WaitGroup
 
+	mu          sync.Mutex
 	ntripMu     sync.Mutex
 	ntripClient *rtk.NtripInfo
 	ntripStatus bool
+	isClosed    bool
 
 	err           movementsensor.LastError
 	lastposition  movementsensor.LastPosition
@@ -108,18 +110,42 @@ type rtkSerial struct {
 }
 
 func (g *rtkSerial) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return err
 	}
 
-	// baud rate
-	if newConf.SerialBaudRate == 0 {
-		newConf.SerialBaudRate = 38400
+	if newConf.SerialPath != "" {
+		g.writePath = newConf.SerialPath
+		g.logger.Info("updated serial_path to %v", newConf.SerialPath)
+	}
+
+	if newConf.SerialBaudRate != 0 {
+		g.wbaud = newConf.SerialBaudRate
+		g.logger.Info("updated serial_baud_rate to %v", newConf.SerialBaudRate)
+	} else {
+		g.wbaud = 38400
 		g.logger.Info("serial_baud_rate using default baud rate 38400")
 	}
-	g.wbaud = newConf.SerialBaudRate
-	g.writePath = newConf.SerialPath
+
+	g.ntripMu.Lock()
+
+	ntripConfig := &rtk.NtripConfig{
+		NtripURL:             newConf.NtripURL,
+		NtripUser:            newConf.NtripUser,
+		NtripPass:            newConf.NtripPass,
+		NtripMountpoint:      newConf.NtripMountpoint,
+		NtripConnectAttempts: newConf.NtripConnectAttempts,
+	}
+
+	g.ntripClient, err = rtk.NewNtripInfo(ntripConfig, g.logger)
+	if err != nil {
+		return err
+	}
+
+	g.ntripMu.Unlock()
 
 	return nil
 }
@@ -145,12 +171,9 @@ func newRTKSerial(
 		lastposition: movementsensor.NewLastPosition(),
 	}
 
-	ntripConfig := &rtk.NtripConfig{
-		NtripURL:             newConf.NtripURL,
-		NtripUser:            newConf.NtripUser,
-		NtripPass:            newConf.NtripPass,
-		NtripMountpoint:      newConf.NtripMountpoint,
-		NtripConnectAttempts: newConf.NtripConnectAttempts,
+	// reconfigure
+	if err := g.Reconfigure(ctx, deps, conf); err != nil {
+		return nil, err
 	}
 
 	g.InputProtocol = serialStr
@@ -159,23 +182,12 @@ func newRTKSerial(
 	}
 
 	// Init NMEAMovementSensor
-
 	nmeaConf.SerialConfig = &gpsnmea.SerialConfig{
 		SerialPath:     newConf.SerialPath,
 		SerialBaudRate: newConf.SerialBaudRate,
 	}
 	g.nmeamovementsensor, err = gpsnmea.NewSerialGPSNMEA(ctx, conf.ResourceName(), nmeaConf, logger)
 	if err != nil {
-		return nil, err
-	}
-
-	g.ntripClient, err = rtk.NewNtripInfo(ntripConfig, g.logger)
-	if err != nil {
-		return nil, err
-	}
-
-	// reconfigure
-	if err := g.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
 
@@ -191,7 +203,9 @@ func (g *rtkSerial) start() error {
 		return err
 	}
 	g.activeBackgroundWorkers.Add(1)
-	utils.PanicCapturingGo(g.receiveAndWriteSerial)
+	if !g.isClosed {
+		utils.PanicCapturingGo(g.receiveAndWriteSerial)
+	}
 	return g.err.Get()
 }
 
@@ -240,7 +254,7 @@ func (g *rtkSerial) getStream(mountPoint string, maxAttempts int) error {
 
 	g.logger.Debug("Getting NTRIP stream")
 
-	for !success && attempts < maxAttempts {
+	for !success && attempts < maxAttempts && !g.isClosed {
 		select {
 		case <-g.cancelCtx.Done():
 			return errors.New("Canceled")
@@ -263,7 +277,10 @@ func (g *rtkSerial) getStream(mountPoint string, maxAttempts int) error {
 		return err
 	}
 
-	g.logger.Debug("Connected to stream")
+	if success {
+		g.logger.Debug("Connected to stream")
+	}
+
 	g.ntripMu.Lock()
 	defer g.ntripMu.Unlock()
 
@@ -340,6 +357,9 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 			g.ntripMu.Unlock()
 
 			if msg == nil {
+				if g.isClosed {
+					return
+				}
 				g.logger.Debug("No message... reconnecting to stream...")
 				err = g.getStream(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
 				if err != nil {
@@ -530,6 +550,7 @@ func (g *rtkSerial) Close(ctx context.Context) error {
 	// close ntrip writer
 	if g.correctionWriter != nil {
 		if err := g.correctionWriter.Close(); err != nil {
+			g.isClosed = true
 			g.ntripMu.Unlock()
 			return err
 		}
