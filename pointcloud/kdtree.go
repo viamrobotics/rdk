@@ -2,6 +2,7 @@ package pointcloud
 
 import (
 	"math"
+	"sync"
 
 	"github.com/golang/geo/r3"
 	"gonum.org/v1/gonum/spatial/kdtree"
@@ -210,6 +211,58 @@ func keeperToArray(heap kdtree.Heap, points storage, p r3.Vector, includeSelf bo
 	return nearestPoints
 }
 
+// func keeperToArrayConcurrent(heap kdtree.Heap, points storage, p r3.Vector, includeSelf bool, max int, retVal []*PointAndData) {
+// 	// nearestPoints := make([]*PointAndData, 0, heap.Len())
+// 	for i := 0; i < heap.Len(); i++ {
+// 		if heap[i].Comparable == nil {
+// 			continue
+// 		}
+// 		pp, ok := heap[i].Comparable.(treeComparableR3Vector)
+// 		if !ok {
+// 			panic("impossible")
+// 		}
+// 		if !includeSelf && p.ApproxEqual(pp.vec) {
+// 			continue
+// 		}
+// 		d, ok := points.At(pp.vec.X, pp.vec.Y, pp.vec.Z)
+// 		if !ok {
+// 			panic("Mismatch between tree and point storage.")
+// 		}
+// 		retVal[i] = &PointAndData{P: pp.vec, D: d}
+// 		// nearestPoints = append(nearestPoints, &PointAndData{P: pp.vec, D: d})
+// 		if i >= max {
+// 			break
+// 		}
+// 	}
+// 	// retVal = nearestPoints
+// }
+
+func keeperToArrayConcurrent(heap kdtree.Heap, points storage, p r3.Vector, includeSelf bool, max int, c1 chan *PointAndData) {
+	// nearestPoints := make([]*PointAndData, 0, heap.Len())
+	for i := 0; i < heap.Len(); i++ {
+		if heap[i].Comparable == nil {
+			continue
+		}
+		pp, ok := heap[i].Comparable.(treeComparableR3Vector)
+		if !ok {
+			panic("impossible")
+		}
+		if !includeSelf && p.ApproxEqual(pp.vec) {
+			continue
+		}
+		d, ok := points.At(pp.vec.X, pp.vec.Y, pp.vec.Z)
+		if !ok {
+			panic("Mismatch between tree and point storage.")
+		}
+		c1 <- &PointAndData{P: pp.vec, D: d}
+		// nearestPoints = append(nearestPoints, &PointAndData{P: pp.vec, D: d})
+		if i >= max {
+			break
+		}
+	}
+	// retVal = nearestPoints
+}
+
 // KNearestNeighbors returns the k nearest points ordered by distance. if includeSelf is true and if the point p
 // is in the point cloud, point p will also be returned in the slice as the first element with distance 0.
 func (kd *KDTree) KNearestNeighbors(p r3.Vector, k int, includeSelf bool) []*PointAndData {
@@ -221,6 +274,82 @@ func (kd *KDTree) KNearestNeighbors(p r3.Vector, k int, includeSelf bool) []*Poi
 	keep := kdtree.NewNKeeper(tempK)
 	kd.tree.NearestSet(keep, &treeComparableR3Vector{p})
 	return keeperToArray(keep.Heap, kd.points, p, includeSelf, k)
+}
+
+// KNearestNeighborsConcurrent returns the k nearest points ordered by distance. if includeSelf is true and if the point p
+// is in the point cloud, point p will also be returned in the slice as the first element with distance 0. With concurrency
+func (kd *KDTree) KNearestNeighborsConcurrent(p r3.Vector, k int, includeSelf bool) []*PointAndData {
+	tempK := k
+	if !includeSelf {
+		tempK++
+	}
+
+	keep := kdtree.NewNKeeper(tempK)
+	kd.tree.NearestSet(keep, &treeComparableR3Vector{p})
+	var wg sync.WaitGroup
+	// halfLen := keep.Heap.Len() / 2
+	c1 := make(chan *PointAndData, kd.Size())
+	// points1 := make([]*PointAndData, halfLen)
+	// points2 := make([]*PointAndData, halfLen+1)
+	// if keep.Heap.Len()%2 == 1 {
+	// 	points2 = make([]*PointAndData, halfLen+1)
+	// }
+	// points3 := make([]*PointAndData, 0)
+	for i := 0; i < 4; i++ {
+		wg.Add(1)
+		go func(j int) {
+			defer wg.Done()
+			keeperToArrayConcurrent(keep.Heap[keep.Heap.Len()/6*j:keep.Heap.Len()/6*(j+1)], kd.points, p, includeSelf, k, c1)
+		}(i)
+	}
+
+	// wg.Add(1)
+	// go func() {
+	// 	defer wg.Done()
+	// 	keeperToArrayConcurrent(keep.Heap[:halfLen], kd.points, p, includeSelf, k, c1)
+	// }()
+	// wg.Add(1)
+	// go func() {
+	// 	defer wg.Done()
+	// 	// keeperToArrayConcurrent(keep.Heap[keep.Heap.Len()/3:2*keep.Heap.Len()/3], kd.points, p, includeSelf, k, points2)
+	// 	keeperToArrayConcurrent(keep.Heap[halfLen:], kd.points, p, includeSelf, k, c1)
+	// }()
+	// wg.Add(1)
+	// go func() {
+	// 	defer wg.Done()
+	// 	keeperToArrayConcurrent(keep.Heap[2*keep.Heap.Len()/3:], kd.points, p, includeSelf, k, points3)
+	// }()
+	points := make([]*PointAndData, 0)
+	for len(points) != k {
+		newPoint := <-c1
+		points = append(points, newPoint)
+	}
+	wg.Wait()
+	// return append(append(points1, points2...), points3...)
+	// points := append(points1, points2...)
+	close(c1)
+	// fmt.Println("points is this longg: ", len(points1), len(points2), len(points))
+	// for _, i := range points1 {
+	// 	if i == nil {
+	// 		break
+	// 	}
+	// 	points = append(points, i)
+	// }
+	// for _, i := range points2 {
+	// 	if i == nil {
+	// 		break
+	// 	}
+	// 	points = append(points, i)
+	// }
+	// for i := range c1 {
+	// 	if i == nil {
+	// 		continue
+	// 	}
+	// 	points = append(points, i)
+	// }
+
+	// TODO: try this shit with a channel tmrw
+	return points
 }
 
 // RadiusNearestNeighbors returns the nearest points within a radius r (inclusive) ordered by distance.

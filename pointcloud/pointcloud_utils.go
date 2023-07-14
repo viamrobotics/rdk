@@ -74,7 +74,7 @@ func StatisticalOutlierFilter(meanK int, stdDevThresh float64) (func(PointCloud)
 		// get the statistical information
 
 		avgDistances := make([]float64, 0, kd.Size())
-		points := make([]PointAndData, 0, kd.Size())
+		points := make([]PointAndData, 0)
 		pointAsMatrix, ok := kd.points.(*matrixStorage)
 		if ok {
 			c1 := make(chan float64, kd.Size())
@@ -115,7 +115,7 @@ func StatisticalOutlierFilter(meanK int, stdDevThresh float64) (func(PointCloud)
 				}
 			}()
 			pointAsMatrix.IterateConcurrently(4, func(v r3.Vector, d Data) bool {
-				neighbors := kd.KNearestNeighbors(v, meanK, false)
+				neighbors := kd.KNearestNeighborsConcurrent(v, meanK, false)
 				sumDist := 0.0
 				for _, p := range neighbors {
 					sumDist += v.Distance(p.P)
@@ -137,7 +137,7 @@ func StatisticalOutlierFilter(meanK int, stdDevThresh float64) (func(PointCloud)
 			c2Len := len(c2)
 			// fmt.Println("kd sis:", kd.Size(), "avgdists:", len(c1), "points", len(c2))
 			if float64(kd.Size())*0.97 > float64(c1Len) || float64(kd.Size())*0.97 > float64(c2Len) {
-				panic("too many points lost in concurrency issues")
+				panic("too many points lost in concurrency issues!")
 			}
 			for i := range c1 {
 				avgDistances = append(avgDistances, i)
