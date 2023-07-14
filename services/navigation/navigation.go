@@ -44,7 +44,7 @@ type Service interface {
 	AddWaypoint(ctx context.Context, point *geo.Point, extra map[string]interface{}) error
 	RemoveWaypoint(ctx context.Context, id primitive.ObjectID, extra map[string]interface{}) error
 
-	GetObstacles(ctx context.Context, extra map[string]interface{}) ([]spatialmath.GeoObstacle, error)
+	GetObstacles(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoObstacle, error)
 }
 
 // SubtypeName is the name of the type of service.

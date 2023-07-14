@@ -90,6 +90,6 @@ func (svc *navSvc) RemoveWaypoint(ctx context.Context, id primitive.ObjectID, ex
 	return nil
 }
 
-func (svc *navSvc) GetObstacles(ctx context.Context) ([]spatialmath.GeoObstacle, error) {
-	return nil, nil
+func (svc *navSvc) GetObstacles(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoObstacle, error) {
+	return []*spatialmath.GeoObstacle{}, nil
 }
