@@ -430,7 +430,5 @@ func (svc *builtIn) startWaypointExperimental(extra map[string]interface{}) erro
 }
 
 func (svc *builtIn) GetObstacles(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoObstacle, error) {
-	var obs []*spatialmath.GeoObstacle
-	obs = append(obs, svc.obstacles...)
-	return obs, nil
+	return svc.obstacles, nil
 }

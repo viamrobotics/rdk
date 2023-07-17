@@ -135,9 +135,8 @@ func (c *client) MoveOnGlobe(
 	}
 	if len(obstacles) > 0 {
 		obstaclesProto := make([]*commonpb.GeoObstacle, 0, len(obstacles))
-		for _, eachObst := range obstacles {
-			convObst := spatialmath.GeoObstacleToProtobuf(eachObst)
-			obstaclesProto = append(obstaclesProto, convObst)
+		for _, obstacle := range obstacles {
+			obstaclesProto = append(obstaclesProto, spatialmath.GeoObstacleToProtobuf(obstacle))
 		}
 		req.Obstacles = obstaclesProto
 	}
