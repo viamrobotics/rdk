@@ -96,9 +96,17 @@ func (nm *neighborManager) parallelNearestNeighbor(
 ) node {
 	nm.ready = false
 	nm.seedPos = seed
-	nm.startNNworkers(ctx, planOpts)
+
+	nm.neighbors = make(chan *neighbor, nm.nCPU)
+	nm.nnKeys = make(chan node, nm.nCPU)
 	defer close(nm.nnKeys)
 	defer close(nm.neighbors)
+
+	for i := 0; i < nm.nCPU; i++ {
+		utils.PanicCapturingGo(func() {
+			nm.nnWorker(ctx, planOpts)
+		})
+	}
 
 	for k := range rrtMap {
 		nm.nnKeys <- k
@@ -127,16 +135,6 @@ func (nm *neighborManager) parallelNearestNeighbor(
 		}
 	}
 	return best
-}
-
-func (nm *neighborManager) startNNworkers(ctx context.Context, planOpts *plannerOptions) {
-	nm.neighbors = make(chan *neighbor, nm.nCPU)
-	nm.nnKeys = make(chan node, nm.nCPU)
-	for i := 0; i < nm.nCPU; i++ {
-		utils.PanicCapturingGo(func() {
-			nm.nnWorker(ctx, planOpts)
-		})
-	}
 }
 
 func (nm *neighborManager) nnWorker(ctx context.Context, planOpts *plannerOptions) {

@@ -62,10 +62,10 @@ type tpspaceOptions struct {
 
 // candidate is putative node which could be added to an RRT tree. It includes a distance score, the new node and its future parent.
 type candidate struct {
-	dist     float64
-	treeNode node
-	newNode  node
-	err      error
+	dist       float64
+	treeNode   node
+	newNode    node
+	err        error
 	lastInTraj bool
 }
 
@@ -200,12 +200,11 @@ func (mp *tpSpaceRRTMotionPlanner) planRunner(
 			randPos = goalPose
 		}
 		randPosNode := &basicNode{nil, 0, randPos}
-		
+
 		successNode := mp.attemptExtension(ctx, nil, randPosNode, rrt)
 		// If we tried the goal and have a close-enough XY location, check if the node is good enough to be a final goal
 		if tryGoal && successNode != nil {
 			if mp.planOpts.GoalThreshold > mp.planOpts.goalMetric(&State{Position: successNode.Pose(), Frame: mp.frame}) {
-				
 				// If we've reached the goal, break out
 				path := extractPath(rrt.maps.startMap, rrt.maps.goalMap, &nodePair{a: successNode})
 				rrt.solutionChan <- &rrtPlanReturn{steps: path, maps: rrt.maps}
@@ -313,7 +312,7 @@ func (mp *tpSpaceRRTMotionPlanner) attemptExtension(
 	seedNode,
 	goalNode node,
 	rrt *rrtParallelPlannerShared,
-) node { 
+) node {
 	for {
 		select {
 		case <-ctx.Done():
@@ -336,7 +335,7 @@ func (mp *tpSpaceRRTMotionPlanner) attemptExtension(
 			return nil
 		}
 		dist := mp.planOpts.DistanceFunc(&Segment{StartPosition: reseedCandidate.newNode.Pose(), EndPosition: goalNode.Pose()})
-		if dist < mp.planOpts.GoalThreshold || !reseedCandidate.lastInTraj{
+		if dist < mp.planOpts.GoalThreshold || !reseedCandidate.lastInTraj {
 			// Reached the goal position, or otherwise failed to fully extend to the end of a trajectory
 			return reseedCandidate.newNode
 		}
@@ -344,7 +343,7 @@ func (mp *tpSpaceRRTMotionPlanner) attemptExtension(
 	}
 }
 
-// extendMap grows the rrt map to the best candidate node if it is valid to do so, returning the added candidate
+// extendMap grows the rrt map to the best candidate node if it is valid to do so, returning the added candidate.
 func (mp *tpSpaceRRTMotionPlanner) extendMap(
 	ctx context.Context,
 	candidates []*candidate,
@@ -464,57 +463,6 @@ func (mp *tpSpaceRRTMotionPlanner) make2DTPSpaceDistanceOptions(ptg tpspace.PTG,
 }
 
 func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) []node {
-	// deep copy of plan options
-	copyOpts := *mp.planOpts
-	opts := &copyOpts
-	
-	opts.DistanceFunc = SquaredNormSegmentMetric
-	smoothMP, err := newTPSpaceMotionPlanner(mp.frame, mp.randseed, mp.logger, opts)
-	if err != nil {
-		panic(err) //TODO: remove this
-	}
-	smoothTP := smoothMP.(*tpSpaceRRTMotionPlanner)
-	smoothTP.algOpts.PlanIter = 1
-
-	for i := 0; i < mp.planOpts.SmoothIter; i++ {
-		select {
-		case <-ctx.Done():
-			return path
-		default:
-		}
-		// get start node of first edge. Cannot be either the last or second-to-last node.
-		// Intn will return an int in the half-open interval half-open interval [0,n)
-		firstEdge := mp.randseed.Intn(len(path) - 2)
-		secondEdge := firstEdge + 2 + mp.randseed.Intn((len(path)-2)-firstEdge)
-		mp.logger.Debugf("checking shortcut between nodes %d and %d", firstEdge, secondEdge+1)
-		fmt.Println("smooth iter", i)
-		// Currently the goal needs to be relative to the seed position
-		goalPose := spatialmath.NewZeroPose()
-		for j := firstEdge + 1; j <= secondEdge; j++ {
-			tf, err := mp.frame.Transform(path[j].Q())
-			if err != nil {
-				// Something went badly wrong; abandon the smoothing
-				return path
-			}
-			goalPose = spatialmath.Compose(goalPose, tf)
-		}
-		opts.SetGoalMetric(NewSquaredNormMetric(goalPose))
-		subpath, err := smoothTP.plan(ctx, goalPose, nil)
-		if err == nil {
-			fmt.Println("SMOOOTH WORKED!")
-			newpath := []node{}
-			newpath = append(newpath, path[:firstEdge+1]...)
-			for i, wp := range subpath {
-				if i == 0 {
-					// first waypoint represents the starting point. Since this is defined relative to the frame, this is always the origin
-					continue
-				}
-				newpath = append(newpath, wp)
-			}
-			// have to split this up due to go compiler quirk where elipses operator can't be mixed with other vars in append
-			newpath = append(newpath, path[secondEdge+1:]...)
-			path = newpath
-		}
-	}
+	mp.logger.Info("smoothing not yet supported for tp-space")
 	return path
 }

@@ -9,7 +9,6 @@ import (
 const (
 	defaultMaxTime       = 15.
 	defaultDiffT         = 0.005
-	defaultMinDist       = 5.
 	defaultAlphaCnt uint = 121
 
 	defaultSearchRadius = 10.
@@ -25,7 +24,6 @@ type ptgGridSim struct {
 
 	maxTime float64 // secs of robot execution to simulate
 	diffT   float64 // discretize trajectory simulation to this time granularity
-	minDist float64 // Save traj points at this arc distance granularity
 
 	simPTG PrecomputePTG
 
@@ -47,7 +45,6 @@ func NewPTGGridSim(simPTG PrecomputePTG, arcs uint, simDist float64) (PTG, error
 		alphaCnt:  arcs,
 		maxTime:   defaultMaxTime,
 		diffT:     defaultDiffT,
-		minDist:   defaultMinDist,
 		searchRad: defaultSearchRadius,
 
 		trajNodeGrid: map[int]map[int][]*TrajNode{},
@@ -154,10 +151,6 @@ func (ptg *ptgGridSim) simulateTrajectories(simPtg PrecomputePTG) ([][]*TrajNode
 		var dist float64
 
 		// Last saved waypoints
-		//~ var wpX float64
-		//~ var wpY float64
-		//~ var wpPhi float64
-
 		accumulatedHeadingChange := 0.
 
 		lastVs := [2]float64{0, 0}
@@ -183,23 +176,12 @@ func (ptg *ptgGridSim) simulateTrajectories(simPtg PrecomputePTG) ([][]*TrajNode
 			dist += v * ptg.diffT
 			t += ptg.diffT
 
-			//~ wpDist1 := math.Sqrt(math.Pow(wpX-x, 2) + math.Pow(wpY-y, 2))
-			//~ wpDist2 := math.Abs(wpPhi - phi)
-			//~ wpDist := math.Max(wpDist1, wpDist2)
+			// Update velocities of last node because reasons
+			alphaTraj[len(alphaTraj)-1].LinVelMMPS = v
+			alphaTraj[len(alphaTraj)-1].AngVelRPS = w
 
-			//~ if wpDist > ptg.minDist {
-				// If our waypoint is farther along than our minimum, update
-
-				// Update velocities of last node because reasons
-				alphaTraj[len(alphaTraj)-1].LinVelMMPS = v
-				alphaTraj[len(alphaTraj)-1].AngVelRPS = w
-
-				pose := xythetaToPose(x, y, phi)
-				alphaTraj = append(alphaTraj, &TrajNode{pose, t, dist, k, v, w, pose.Point().X, pose.Point().Y})
-				//~ wpX = x
-				//~ wpY = y
-				//~ wpPhi = phi
-			//~ }
+			pose := xythetaToPose(x, y, phi)
+			alphaTraj = append(alphaTraj, &TrajNode{pose, t, dist, k, v, w, pose.Point().X, pose.Point().Y})
 
 			// For the grid!
 			xMin = math.Min(xMin, x)
