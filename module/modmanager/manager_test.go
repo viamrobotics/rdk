@@ -491,7 +491,7 @@ func TestModuleReloading(t *testing.T) {
 
 		// Assert that manager removes module after immediate crash.
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			test.That(t, len(mgr.Configs()), test.ShouldEqual, 0)
+			test.That(tb, len(mgr.Configs()), test.ShouldEqual, 0)
 		})
 
 		err = mgr.Close(ctx)
