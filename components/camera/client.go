@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"image"
 	"sync"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/viamrobotics/gostream"
@@ -134,6 +135,30 @@ func (c *client) Stream(
 	})
 
 	return stream, nil
+}
+
+func (c *client) Images(ctx context.Context) ([]image.Image, time.Time, error) {
+	ctx, span := trace.StartSpan(ctx, "camera::client::Images")
+	defer span.End()
+
+	ctx, getSpan := trace.StartSpan(ctx, "camera::client::Images::GetImages")
+	resp, err := c.client.GetImages(ctx, &pb.GetImagesRequest{
+		Name: c.name,
+	})
+	getSpan.End()
+	if err != nil {
+		return nil, time.Time{}, err
+	}
+
+	images := make([]image.Image, 0, len(resp.Images))
+	for _, img := range resp.Images {
+		decodedImage, _, err := image.Decode(bytes.NewReader(img.Image))
+		if err != nil {
+			return nil, time.Time{}, err
+		}
+		images = append(images, decodedImage)
+	}
+	return images, resp.ResponseMetadata.CapturedAt.AsTime(), nil
 }
 
 func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
