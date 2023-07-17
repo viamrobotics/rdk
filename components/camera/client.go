@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 	"github.com/viamrobotics/gostream"
 	"go.opencensus.io/trace"
 	pb "go.viam.com/api/component/camera/v1"
@@ -141,13 +142,11 @@ func (c *client) Images(ctx context.Context) ([]image.Image, time.Time, error) {
 	ctx, span := trace.StartSpan(ctx, "camera::client::Images")
 	defer span.End()
 
-	ctx, getSpan := trace.StartSpan(ctx, "camera::client::Images::GetImages")
 	resp, err := c.client.GetImages(ctx, &pb.GetImagesRequest{
 		Name: c.name,
 	})
-	getSpan.End()
 	if err != nil {
-		return nil, time.Time{}, err
+		return nil, time.Time{}, errors.Wrap(err, "camera client: could not gets images from the camera")
 	}
 
 	images := make([]image.Image, 0, len(resp.Images))
