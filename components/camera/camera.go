@@ -5,6 +5,7 @@ import (
 	"context"
 	"image"
 	"sync"
+	"time"
 
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pkg/errors"
@@ -72,6 +73,9 @@ type Camera interface {
 type VideoSource interface {
 	projectorProvider
 
+	// Images is used for getting simultaneous images from different sensors,
+	// along with associated metadata (just timestamp for now). It's not for getting a time series of images from the same sensor.
+	Images(ctx context.Context) ([]image.Image, time.Time, error)
 	// Stream returns a stream that makes a best effort to return consecutive images
 	// that may have a MIME type hint dictated in the context via gostream.WithMIMETypeHint.
 	Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error)
@@ -97,6 +101,11 @@ type projectorProvider interface {
 // A PointCloudSource is a source that can generate pointclouds.
 type PointCloudSource interface {
 	NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error)
+}
+
+// A ImagesSource is a source that can return a list of images with timestamp
+type ImagesSource interface {
+	Images(ctx context.Context) ([]image.Image, time.Time, error)
 }
 
 // FromVideoSource creates a Camera resource from a VideoSource.
@@ -228,6 +237,26 @@ type videoSource struct {
 
 func (vs *videoSource) Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
 	return vs.videoSource.Stream(ctx, errHandlers...)
+}
+
+// Images is for getting simultaneous images from different sensors
+// If the underlying source did not specify an Images function, a default is applied.
+func (vs *videoSource) Images(ctx context.Context) ([]image.Image, time.Time, error) {
+	ctx, span := trace.StartSpan(ctx, "camera::videoSource::Images")
+	defer span.End()
+	if c, ok := vs.actualSource.(ImagesSource); ok {
+		return c.Images(ctx)
+	}
+	img, release, err := ReadImage(ctx, vs.videoSource)
+	if err != nil {
+		return nil, time.Time{}, errors.Wrap(err, "videoSource: call to get Images failed")
+	}
+	defer func() {
+		if release != nil {
+			release()
+		}
+	}()
+	return []image.Image{img}, time.Now(), nil
 }
 
 // NextPointCloud returns the next PointCloud from the camera, or will error if not supported.
