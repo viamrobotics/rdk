@@ -15,6 +15,7 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 )
 
 var model = resource.DefaultModelFamily.WithModel("softrobotics")
@@ -218,4 +219,13 @@ func (g *softGripper) IsMoving(ctx context.Context) (bool, error) {
 // ModelFrame is unimplemented for softGripper.
 func (g *softGripper) ModelFrame() referenceframe.Model {
 	return nil
+}
+
+// Geometries returns TODO
+func (g *softGripper) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
+	geo, err := g.Geometries(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return geo, nil
 }

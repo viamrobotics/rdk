@@ -9,6 +9,7 @@ import (
 	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 )
 
 var model = resource.DefaultModelFamily.WithModel("fake")
@@ -58,4 +59,13 @@ func (g *Gripper) Stop(ctx context.Context, extra map[string]interface{}) error 
 // IsMoving is always false for a fake gripper.
 func (g *Gripper) IsMoving(ctx context.Context) (bool, error) {
 	return false, nil
+}
+
+// Geometries returns TODO
+func (g *Gripper) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
+	geo, err := g.Geometries(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return geo, nil
 }

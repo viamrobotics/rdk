@@ -18,6 +18,7 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 )
 
 var model = resource.DefaultModelFamily.WithModel("yahboom-dofbot")
@@ -110,4 +111,13 @@ func (g *dofGripper) IsMoving(ctx context.Context) (bool, error) {
 
 func (g *dofGripper) ModelFrame() referenceframe.Model {
 	return g.dofArm.ModelFrame()
+}
+
+// Geometries returns TODO
+func (g *dofGripper) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
+	geo, err := g.Geometries(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return geo, nil
 }

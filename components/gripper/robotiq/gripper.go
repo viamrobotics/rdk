@@ -18,6 +18,7 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 )
 
 var model = resource.DefaultModelFamily.WithModel("robotiq")
@@ -286,4 +287,13 @@ func (g *robotiqGripper) IsMoving(ctx context.Context) (bool, error) {
 // ModelFrame is unimplemented for robotiqGripper.
 func (g *robotiqGripper) ModelFrame() referenceframe.Model {
 	return nil
+}
+
+// Geometries returns TODO
+func (g *robotiqGripper) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
+	geo, err := g.Geometries(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return geo, nil
 }
