@@ -241,6 +241,7 @@ func (vs *videoSource) Stream(ctx context.Context, errHandlers ...gostream.Error
 
 // Images is for getting simultaneous images from different sensors
 // If the underlying source did not specify an Images function, a default is applied.
+// The default returns a list of 1 image from ReadImage, and the current time.
 func (vs *videoSource) Images(ctx context.Context) ([]image.Image, time.Time, error) {
 	ctx, span := trace.StartSpan(ctx, "camera::videoSource::Images")
 	defer span.End()
@@ -256,7 +257,8 @@ func (vs *videoSource) Images(ctx context.Context) ([]image.Image, time.Time, er
 			release()
 		}
 	}()
-	return []image.Image{img}, time.Now(), nil
+	ts := time.Now()
+	return []image.Image{img}, ts, nil
 }
 
 // NextPointCloud returns the next PointCloud from the camera, or will error if not supported.
