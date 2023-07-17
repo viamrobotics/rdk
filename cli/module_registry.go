@@ -133,7 +133,7 @@ func UpdateModuleCommand(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	// TODO(zaporter) This logic is duplicated in update and upload but will be refactored once we figure out what we are doing with orgid
+	// TODO(zaporter) This logic is duplicated in update and upload and should be refactored
 	if publicNamespaceArg != "" {
 		switch moduleID.Prefix {
 		case "":
@@ -201,7 +201,13 @@ func UploadModuleCommand(c *cli.Context) error {
 	versionArg := c.String("version")
 	platformArg := c.String("platform")
 	tarballPath := c.Args().First()
-	fmt.Printf("ORGID: %s\n", orgIDArg)
+	if c.Args().Len() > 1 {
+		return errors.New("Too many arguments passed to upload command. " +
+			"Make sure to specify flag and optional arguments before the required package argument")
+	}
+	if tarballPath == "" {
+		return errors.New("No package to upload -- please provide a archive containing your module. See the help for more information")
+	}
 
 	client, err := NewAppClient(c)
 	if err != nil {
@@ -238,7 +244,7 @@ func UploadModuleCommand(c *cli.Context) error {
 			return errors.Errorf("Module name %q was supplied via command line args but the %s has a module name of %q", nameArg, defaultManifestFilename, moduleID.Name)
 		}
 	}
-	// TODO(zaporter) This logic is duplicated in update and upload but will be refactored once we figure out what we are doing with orgid
+	// TODO(zaporter) This logic is duplicated in update and upload and should be refactored
 	if publicNamespaceArg != "" {
 		switch moduleID.Prefix {
 		case "":

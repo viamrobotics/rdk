@@ -20,6 +20,7 @@ import (
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
+	"go.uber.org/multierr"
 	datapb "go.viam.com/api/app/data/v1"
 	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/utils"
@@ -35,7 +36,7 @@ import (
 )
 
 // ModuleUploadChunkSize sets the number of bytes included in each chunk of the upload stream.
-var ModuleUploadChunkSize = 64 * 1024
+var ModuleUploadChunkSize = 32 * 1024
 
 // The AppClient provides all the CLI command functionality needed to talk
 // to the app service but not directly to robot parts.
@@ -911,11 +912,16 @@ func (c *AppClient) UploadModuleFile(moduleID, version, platform string, organiz
 		return nil, err
 	}
 
-	if err := sendModuleUploadRequests(ctx, stream, file, c.c.App.Writer); err != nil {
-		return nil, errors.Wrapf(err, "error syncing %s", file.Name())
+	var errs error
+	// We do not add the EOF as an error becase all server-side errors trigger and EOF on the stream
+	// This results in extra clutter to the error msg
+	if err := sendModuleUploadRequests(ctx, stream, file, c.c.App.Writer); err != nil && !errors.Is(err, io.EOF) {
+		errs = multierr.Combine(errs, errors.Wrapf(err, "error uploading %s", file.Name()))
 	}
 
-	return stream.CloseAndRecv()
+	resp, closeErr := stream.CloseAndRecv()
+	errs = multierr.Combine(errs, closeErr)
+	return resp, errs
 }
 
 func sendModuleUploadRequests(ctx context.Context, stream apppb.AppService_UploadModuleFileClient, f *os.File, stdout io.Writer) error {
@@ -925,7 +931,7 @@ func sendModuleUploadRequests(ctx context.Context, stream apppb.AppService_Uploa
 	}
 	fileSize := stat.Size()
 	uploadedBytes := 0
-	// Close the line with the progress bar
+	// Close the line with the progress reading
 	defer fmt.Fprint(stdout, "\n")
 
 	//nolint:errcheck
@@ -949,7 +955,7 @@ func sendModuleUploadRequests(ctx context.Context, stream apppb.AppService_Uploa
 			}
 
 			if err = stream.Send(uploadReq); err != nil {
-				return errors.Wrap(err, "stream sending errror")
+				return err
 			}
 			uploadedBytes += len(uploadReq.GetFile())
 			// Simple progress reading until we have a proper tui library

@@ -861,9 +861,13 @@ Next, update your meta.json and use 'viam module update' to push those changes t
 						Name:  "upload",
 						Usage: "Upload a new version of your module",
 						Description: `
-TODO
+Upload a archive containing your module's binary and required files for a specified platform
+
+Example for linux on x86 chips:
+tar -czf packaged-module.tar.gz my-binary   # meta.json should have "entrypoint" : "./my-binary"
+viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.tar.gz
                         `,
-						ArgsUsage: "<path to tarball>",
+						ArgsUsage: "<packaged-module.tar.gz>",
 						Flags: []cli.Flag{
 							&cli.StringFlag{
 								Name:        "module",
@@ -888,14 +892,13 @@ TODO
 								Usage:    "version of the module to upload (semver2.0) ex: \"1.0.1\"",
 								Required: true,
 							},
-
 							&cli.StringFlag{
 								Name: "platform",
 								Usage: `Platform of the binary you are uploading. Must be one of:
                         linux/amd64
                         linux/arm64
-                        darwin/amd64 (for macOS)
-                        darwin/arm64 (for macOS)`,
+                        darwin/amd64 (for intel macs)
+                        darwin/arm64 (for non-intel macs)`,
 								Required: true,
 							},
 						},
