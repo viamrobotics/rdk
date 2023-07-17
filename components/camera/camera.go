@@ -103,7 +103,7 @@ type PointCloudSource interface {
 	NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error)
 }
 
-// A ImagesSource is a source that can return a list of images with timestamp
+// A ImagesSource is a source that can return a list of images with timestamp.
 type ImagesSource interface {
 	Images(ctx context.Context) ([]image.Image, time.Time, error)
 }

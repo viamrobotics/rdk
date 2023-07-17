@@ -135,24 +135,29 @@ func (s *serviceServer) GetImages(
 }
 
 func encodeImageFromUnderlyingType(ctx context.Context, img image.Image) (pb.Format, []byte, error) {
-	var err error
-	format := pb.Format_FORMAT_UNSPECIFIED
-	outBytes := []byte{}
 	switch img.(type) {
 	case *rimage.DepthMap:
-		format = pb.Format_FORMAT_RAW_DEPTH
-		outBytes, err = rimage.EncodeImage(ctx, img, utils.MimeTypeRawDepth)
+		format := pb.Format_FORMAT_RAW_DEPTH
+		outBytes, err := rimage.EncodeImage(ctx, img, utils.MimeTypeRawDepth)
+		if err != nil {
+			return pb.Format_FORMAT_UNSPECIFIED, nil, err
+		}
+		return format, outBytes, nil
 	case *image.Gray16:
-		format = pb.Format_FORMAT_PNG
-		outBytes, err = rimage.EncodeImage(ctx, img, utils.MimeTypePNG)
+		format := pb.Format_FORMAT_PNG
+		outBytes, err := rimage.EncodeImage(ctx, img, utils.MimeTypePNG)
+		if err != nil {
+			return pb.Format_FORMAT_UNSPECIFIED, nil, err
+		}
+		return format, outBytes, nil
 	default:
-		format = pb.Format_FORMAT_JPEG
-		outBytes, err = rimage.EncodeImage(ctx, img, utils.MimeTypeJPEG)
+		format := pb.Format_FORMAT_JPEG
+		outBytes, err := rimage.EncodeImage(ctx, img, utils.MimeTypeJPEG)
+		if err != nil {
+			return pb.Format_FORMAT_UNSPECIFIED, nil, err
+		}
+		return format, outBytes, nil
 	}
-	if err != nil {
-		return pb.Format_FORMAT_UNSPECIFIED, nil, err
-	}
-	return format, outBytes, nil
 }
 
 // RenderFrame renders a frame from a camera of the underlying robot to an HTTP response. A specific MIME type
