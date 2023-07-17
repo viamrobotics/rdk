@@ -456,6 +456,20 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) b
 				"module", mod.name,
 				"exit_code", exitCode,
 			)
+			// Remove module and close connection. Process will already be stopped.
+			for r, m := range mgr.rMap {
+				if m == mod {
+					delete(mgr.rMap, r)
+				}
+			}
+			delete(mgr.modules, mod.name)
+			if mod.conn != nil {
+				if err := mod.conn.Close(); err != nil {
+					mgr.logger.Errorw("error while closing connection from crashed module",
+						"module", mod.name,
+						"error", err)
+				}
+			}
 			mgr.mu.Unlock()
 			return false
 		}

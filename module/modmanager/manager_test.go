@@ -489,6 +489,11 @@ func TestModuleReloading(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring,
 			"timed out waiting for module test-module to start listening")
 
+		// Assert that manager removes module after immediate crash.
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			test.That(t, len(mgr.Configs()), test.ShouldEqual, 0)
+		})
+
 		err = mgr.Close(ctx)
 		test.That(t, err, test.ShouldBeNil)
 
