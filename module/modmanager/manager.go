@@ -449,14 +449,17 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) b
 		// If mod.handles was never set, the module was never actually ready in the
 		// first place before crashing. Log an error and do not attempt a restart;
 		// something is likely wrong with the module implemenation.
+		mgr.mu.Lock()
 		if mod.handles == nil {
 			mgr.logger.Errorw(
 				"module has unexpectedly exited without responding to a ready request ",
 				"module", mod.name,
 				"exit_code", exitCode,
 			)
+			mgr.mu.Unlock()
 			return false
 		}
+		mgr.mu.Unlock()
 
 		mod.inRecovery.Store(true)
 		defer mod.inRecovery.Store(false)
