@@ -134,7 +134,7 @@ func UpdateModuleCommand(c *cli.Context) error {
 		return err
 	}
 	// TODO(zaporter) This logic is duplicated in update and upload and should be refactored
-    // TODO(APP-2230) Simplify this once we can pass org-id in ModuleID
+	// TODO(APP-2230) Simplify this once we can pass org-id in ModuleID
 	if publicNamespaceArg != "" {
 		switch moduleID.Prefix {
 		case "":
@@ -250,7 +250,7 @@ func UploadModuleCommand(c *cli.Context) error {
 		}
 	}
 	// TODO(zaporter) This logic is duplicated in update and upload and should be refactored
-    // TODO(APP-2230) Simplify this once we can pass org-id in ModuleID
+	// TODO(APP-2230) Simplify this once we can pass org-id in ModuleID
 	if publicNamespaceArg != "" {
 		switch moduleID.Prefix {
 		case "":
