@@ -69,7 +69,7 @@ type Encoder struct {
 	logger       golog.Logger
 	// TODO(RSDK-2672): This is exposed for tests and should be unexported with
 	// the constructor being used instead.
-	CancelCtx               context.Context
+	cancelCtx               context.Context
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
 }
@@ -119,7 +119,7 @@ func NewSingleEncoder(
 	e := &Encoder{
 		Named:        conf.ResourceName().AsNamed(),
 		logger:       logger,
-		CancelCtx:    cancelCtx,
+		cancelCtx:    cancelCtx,
 		cancelFunc:   cancelFunc,
 		position:     0,
 		positionType: encoder.PositionTypeTicks,
@@ -164,7 +164,7 @@ func (e *Encoder) Reconfigure(
 	}
 	utils.UncheckedError(e.Close(ctx))
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
-	e.CancelCtx = cancelCtx
+	e.cancelCtx = cancelCtx
 	e.cancelFunc = cancelFunc
 
 	e.mu.Lock()
@@ -189,13 +189,13 @@ func (e *Encoder) Start(ctx context.Context) {
 		defer e.I.RemoveCallback(encoderChannel)
 		for {
 			select {
-			case <-e.CancelCtx.Done():
+			case <-e.cancelCtx.Done():
 				return
 			default:
 			}
 
 			select {
-			case <-e.CancelCtx.Done():
+			case <-e.cancelCtx.Done():
 				return
 			case <-encoderChannel:
 			}

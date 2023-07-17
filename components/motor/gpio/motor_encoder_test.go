@@ -34,6 +34,51 @@ func (f *fakeDirectionAware) DirectionMoving() int64 {
 	return int64(f.m.Direction())
 }
 
+func MakeSingleBoard(t *testing.T) *fakeboard.Board {
+	interrupt, _ := fakeboard.NewDigitalInterruptWrapper(board.DigitalInterruptConfig{
+		Name: "10",
+		Pin:  "10",
+		Type: "basic",
+	})
+
+	interrupts := map[string]*fakeboard.DigitalInterruptWrapper{
+		"10": interrupt,
+	}
+
+	b := fakeboard.Board{
+		GPIOPins: map[string]*fakeboard.GPIOPin{},
+		Digitals: interrupts,
+	}
+
+	return &b
+}
+
+func MakeIncrementalBoard(t *testing.T) *fakeboard.Board {
+	interrupt11, _ := fakeboard.NewDigitalInterruptWrapper(board.DigitalInterruptConfig{
+		Name: "11",
+		Pin:  "11",
+		Type: "basic",
+	})
+
+	interrupt13, _ := fakeboard.NewDigitalInterruptWrapper(board.DigitalInterruptConfig{
+		Name: "13",
+		Pin:  "13",
+		Type: "basic",
+	})
+
+	interrupts := map[string]*fakeboard.DigitalInterruptWrapper{
+		"11": interrupt11,
+		"13": interrupt13,
+	}
+
+	b := fakeboard.Board{
+		GPIOPins: map[string]*fakeboard.GPIOPin{},
+		Digitals: interrupts,
+	}
+
+	return &b
+}
+
 func TestMotorEncoder1(t *testing.T) {
 	t.Skip()
 	logger := golog.NewTestLogger(t)
@@ -48,9 +93,23 @@ func TestMotorEncoder1(t *testing.T) {
 	}
 	interrupt := &board.BasicDigitalInterrupt{}
 
-	e := &single.Encoder{I: interrupt, CancelCtx: context.Background()}
-	e.AttachDirectionalAwareness(&fakeDirectionAware{m: fakeMotor})
-	e.Start(context.Background())
+	ctx := context.Background()
+	b := MakeSingleBoard(t)
+	deps := make(resource.Dependencies)
+	deps[board.Named("main")] = b
+
+	ic := single.Config{
+		BoardName: "main",
+		Pins:      single.Pin{I: "10"},
+	}
+
+	rawcfg := resource.Config{Name: "enc1", ConvertedAttributes: &ic}
+	e, err := single.NewSingleEncoder(ctx, deps, rawcfg, golog.NewTestLogger(t))
+	test.That(t, err, test.ShouldBeNil)
+	enc := e.(*single.Encoder)
+
+	enc.AttachDirectionalAwareness(&fakeDirectionAware{m: fakeMotor})
+	enc.Start(context.Background())
 	dirFMotor, err := NewEncodedMotor(resource.Config{}, cfg, fakeMotor, e, logger)
 	test.That(t, err, test.ShouldBeNil)
 	motorDep, ok := dirFMotor.(*EncodedMotor)
@@ -300,7 +359,26 @@ func TestMotorEncoderIncremental(t *testing.T) {
 		}
 		encA := &board.BasicDigitalInterrupt{}
 		encB := &board.BasicDigitalInterrupt{}
-		enc := &incremental.Encoder{A: encA, B: encB, CancelCtx: context.Background()}
+
+		ctx := context.Background()
+
+		b := MakeIncrementalBoard(t)
+
+		deps := make(resource.Dependencies)
+		deps[board.Named("main")] = b
+
+		ic := incremental.Config{
+			BoardName: "main",
+			Pins:      incremental.Pins{A: "11", B: "13"},
+		}
+
+		rawcfg := resource.Config{Name: "enc1", ConvertedAttributes: &ic}
+
+		e, err := incremental.NewIncrementalEncoder(ctx, deps, rawcfg, golog.NewTestLogger(t))
+		test.That(t, err, test.ShouldBeNil)
+		enc := e.(*incremental.Encoder)
+		enc.A = encA
+		enc.B = encB
 		enc.Start(context.Background())
 
 		motorIfc, err := NewEncodedMotor(resource.Config{}, cfg, fakeMotor, enc, logger)
@@ -598,16 +676,28 @@ func TestWrapMotorWithEncoder(t *testing.T) {
 	})
 
 	t.Run("wrap motor with single encoder", func(t *testing.T) {
-		b, err := fakeboard.NewBoard(context.Background(), resource.Config{ConvertedAttributes: &fakeboard.Config{}}, logger)
-		test.That(t, err, test.ShouldBeNil)
+		b := MakeSingleBoard(t)
 		fakeMotor := &fakemotor.Motor{}
-		b.Digitals["a"], err = fakeboard.NewDigitalInterruptWrapper(board.DigitalInterruptConfig{
+		b.Digitals["a"], _ = fakeboard.NewDigitalInterruptWrapper(board.DigitalInterruptConfig{
 			Type: "basic",
 		})
+
+		ctx := context.Background()
+		deps := make(resource.Dependencies)
+		deps[board.Named("main")] = b
+
+		ic := single.Config{
+			BoardName: "main",
+			Pins:      single.Pin{I: "10"},
+		}
+
+		rawcfg := resource.Config{Name: "enc1", ConvertedAttributes: &ic}
+		e, err := single.NewSingleEncoder(ctx, deps, rawcfg, golog.NewTestLogger(t))
 		test.That(t, err, test.ShouldBeNil)
-		e := &single.Encoder{I: b.Digitals["a"], CancelCtx: context.Background()}
-		e.AttachDirectionalAwareness(&fakeDirectionAware{m: fakeMotor})
-		e.Start(context.Background())
+		enc := e.(*single.Encoder)
+
+		enc.AttachDirectionalAwareness(&fakeDirectionAware{m: fakeMotor})
+		enc.Start(context.Background())
 
 		m, err := WrapMotorWithEncoder(
 			context.Background(),
@@ -627,19 +717,31 @@ func TestWrapMotorWithEncoder(t *testing.T) {
 	})
 
 	t.Run("wrap motor with hall encoder", func(t *testing.T) {
-		b, err := fakeboard.NewBoard(context.Background(), resource.Config{ConvertedAttributes: &fakeboard.Config{}}, logger)
-		test.That(t, err, test.ShouldBeNil)
+		b := MakeIncrementalBoard(t)
 		fakeMotor := &fakemotor.Motor{}
-		b.Digitals["a"], err = fakeboard.NewDigitalInterruptWrapper(board.DigitalInterruptConfig{
+		b.Digitals["a"], _ = fakeboard.NewDigitalInterruptWrapper(board.DigitalInterruptConfig{
 			Type: "basic",
 		})
-		test.That(t, err, test.ShouldBeNil)
-		b.Digitals["b"], err = fakeboard.NewDigitalInterruptWrapper(board.DigitalInterruptConfig{
+		b.Digitals["b"], _ = fakeboard.NewDigitalInterruptWrapper(board.DigitalInterruptConfig{
 			Type: "basic",
 		})
+
+		ctx := context.Background()
+		deps := make(resource.Dependencies)
+		deps[board.Named("main")] = b
+
+		ic := incremental.Config{
+			BoardName: "main",
+			Pins:      incremental.Pins{A: "11", B: "13"},
+		}
+
+		rawcfg := resource.Config{Name: "enc1", ConvertedAttributes: &ic}
+
+		e, err := incremental.NewIncrementalEncoder(ctx, deps, rawcfg, golog.NewTestLogger(t))
 		test.That(t, err, test.ShouldBeNil)
-		e := &incremental.Encoder{A: b.Digitals["a"], B: b.Digitals["b"], CancelCtx: context.Background()}
-		e.Start(context.Background())
+		enc := e.(*incremental.Encoder)
+
+		enc.Start(context.Background())
 
 		m, err := WrapMotorWithEncoder(
 			context.Background(),
@@ -668,11 +770,24 @@ func TestDirFlipMotor(t *testing.T) {
 		TicksPerRotation: 100,
 		DirFlip:          true,
 	}
-	interrupt := &board.BasicDigitalInterrupt{}
 
-	e := &single.Encoder{I: interrupt, CancelCtx: context.Background()}
-	e.AttachDirectionalAwareness(&fakeDirectionAware{m: dirflipFakeMotor})
-	e.Start(context.Background())
+	ctx := context.Background()
+	b := MakeSingleBoard(t)
+	deps := make(resource.Dependencies)
+	deps[board.Named("main")] = b
+
+	ic := single.Config{
+		BoardName: "main",
+		Pins:      single.Pin{I: "10"},
+	}
+
+	rawcfg := resource.Config{Name: "enc1", ConvertedAttributes: &ic}
+	e, err := single.NewSingleEncoder(ctx, deps, rawcfg, golog.NewTestLogger(t))
+	test.That(t, err, test.ShouldBeNil)
+	enc := e.(*single.Encoder)
+
+	enc.AttachDirectionalAwareness(&fakeDirectionAware{m: dirflipFakeMotor})
+	enc.Start(context.Background())
 	dirFMotor, err := NewEncodedMotor(resource.Config{}, cfg, dirflipFakeMotor, e, logger)
 	test.That(t, err, test.ShouldBeNil)
 	_dirFMotor, ok := dirFMotor.(*EncodedMotor)
