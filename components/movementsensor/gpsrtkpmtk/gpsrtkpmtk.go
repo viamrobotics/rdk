@@ -121,7 +121,6 @@ type rtkI2C struct {
 func (g *rtkI2C) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return err
@@ -177,17 +176,24 @@ func newRTKI2C(
 	if err = g.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
+	fmt.Println("out of Reconfigure, checking nmea")
 
 	nmeaConf := &gpsnmea.Config{
 		ConnectionType: i2cStr,
 	}
-
+	fmt.Println("Init NmeaMovementSensor")
 	// Init NMEAMovementSensor
 	if newConf.I2CBaudRate == 0 {
 		newConf.I2CBaudRate = 115200
 	}
-	nmeaConf.Board = newConf.Board
-	nmeaConf.I2CConfig = &gpsnmea.I2CConfig{I2CBus: newConf.I2CBus, I2CBaudRate: newConf.I2CBaudRate, I2CAddr: newConf.I2CAddr}
+
+	nmeaConf.I2CConfig = &gpsnmea.I2CConfig{
+		Board:       newConf.Board,
+		I2CBus:      newConf.I2CBus,
+		I2CBaudRate: newConf.I2CBaudRate,
+		I2CAddr:     newConf.I2CAddr,
+	}
+
 	g.nmeamovementsensor, err = gpsnmea.NewPmtkI2CGPSNMEA(ctx, deps, conf.ResourceName(), nmeaConf, logger)
 	if err != nil {
 		return nil, err
@@ -203,12 +209,13 @@ func newRTKI2C(
 		NtripConnectAttempts: newConf.NtripConnectAttempts,
 	}
 
+	fmt.Println("Creating client")
 	// Init ntripInfo from attributes
 	g.ntripClient, err = rtk.NewNtripInfo(ntripConfig, g.logger)
 	if err != nil {
 		return nil, err
 	}
-
+	fmt.Println("starting gps")
 	if err := g.start(); err != nil {
 		return nil, err
 	}
@@ -225,7 +232,7 @@ func (g *rtkI2C) start() error {
 		g.lastposition.GetLastPosition()
 		return err
 	}
-
+	g.logger.Info("starting rtk")
 	g.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() { g.receiveAndWriteI2C(g.cancelCtx) })
 
@@ -234,6 +241,7 @@ func (g *rtkI2C) start() error {
 
 // connect attempts to connect to ntrip client until successful connection or timeout.
 func (g *rtkI2C) connect(casterAddr, user, pwd string, maxAttempts int) error {
+	g.logger.Info("starting connect")
 	for attempts := 0; attempts < maxAttempts; attempts++ {
 		ntripclient, err := ntrip.NewClient(casterAddr, ntrip.Options{Username: user, Password: pwd})
 		if err == nil {
