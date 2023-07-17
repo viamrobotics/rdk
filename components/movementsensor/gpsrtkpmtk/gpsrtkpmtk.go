@@ -148,6 +148,22 @@ func (g *rtkI2C) Reconfigure(ctx context.Context, deps resource.Dependencies, co
 	}
 	g.bus = i2cbus
 
+	g.ntripMu.Lock()
+	defer g.ntripMu.Unlock()
+
+	ntripConfig := &rtk.NtripConfig{
+		NtripURL:             newConf.NtripURL,
+		NtripUser:            newConf.NtripUser,
+		NtripPass:            newConf.NtripPass,
+		NtripMountpoint:      newConf.NtripMountpoint,
+		NtripConnectAttempts: newConf.NtripConnectAttempts,
+	}
+
+	g.ntripClient, err = rtk.NewNtripInfo(ntripConfig, g.logger)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -199,23 +215,6 @@ func newRTKI2C(
 		return nil, err
 	}
 
-	// Ntrip
-	// users will need to restart server if ntrip attribute are modified.
-	ntripConfig := &rtk.NtripConfig{
-		NtripURL:             newConf.NtripURL,
-		NtripUser:            newConf.NtripUser,
-		NtripPass:            newConf.NtripPass,
-		NtripMountpoint:      newConf.NtripMountpoint,
-		NtripConnectAttempts: newConf.NtripConnectAttempts,
-	}
-
-	fmt.Println("Creating client")
-	// Init ntripInfo from attributes
-	g.ntripClient, err = rtk.NewNtripInfo(ntripConfig, g.logger)
-	if err != nil {
-		return nil, err
-	}
-	fmt.Println("starting gps")
 	if err := g.start(); err != nil {
 		return nil, err
 	}
