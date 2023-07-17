@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"image"
+	"image/color"
 	"image/png"
 	"net"
 	"sync"
@@ -198,10 +199,12 @@ func TestClient(t *testing.T) {
 		test.That(t, len(images), test.ShouldEqual, 2)
 		test.That(t, images[0].Bounds().Dx(), test.ShouldEqual, 40)
 		test.That(t, images[0].Bounds().Dy(), test.ShouldEqual, 50)
-		test.That(t, images[0], test.ShouldHaveSameTypeAs, &image.YCbCr{})
+		test.That(t, images[0], test.ShouldHaveSameTypeAs, &rimage.LazyEncodedImage{})
+		test.That(t, images[0].ColorModel(), test.ShouldHaveSameTypeAs, color.RGBAModel)
 		test.That(t, images[1].Bounds().Dx(), test.ShouldEqual, 10)
 		test.That(t, images[1].Bounds().Dy(), test.ShouldEqual, 20)
-		test.That(t, images[1], test.ShouldHaveSameTypeAs, &rimage.DepthMap{})
+		test.That(t, images[1], test.ShouldHaveSameTypeAs, &rimage.LazyEncodedImage{})
+		test.That(t, images[1].ColorModel(), test.ShouldHaveSameTypeAs, color.Gray16Model)
 
 		// Do
 		resp, err := camera1Client.DoCommand(context.Background(), testutils.TestCommand)

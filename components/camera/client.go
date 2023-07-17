@@ -151,12 +151,28 @@ func (c *client) Images(ctx context.Context) ([]image.Image, time.Time, error) {
 	}
 
 	images := make([]image.Image, 0, len(resp.Images))
+	// keep everything lazy encoded by default, if type is unknown, attempt to decode it
 	for _, img := range resp.Images {
-		decodedImage, _, err := image.Decode(bytes.NewReader(img.Image))
-		if err != nil {
-			return nil, time.Time{}, err
+		switch img.Format {
+		case pb.Format_FORMAT_RAW_RGBA:
+			rdkImage := rimage.NewLazyEncodedImage(img.Image, utils.MimeTypeRawRGBA)
+			images = append(images, rdkImage)
+		case pb.Format_FORMAT_RAW_DEPTH:
+			rdkImage := rimage.NewLazyEncodedImage(img.Image, utils.MimeTypeRawDepth)
+			images = append(images, rdkImage)
+		case pb.Format_FORMAT_JPEG:
+			rdkImage := rimage.NewLazyEncodedImage(img.Image, utils.MimeTypeJPEG)
+			images = append(images, rdkImage)
+		case pb.Format_FORMAT_PNG:
+			rdkImage := rimage.NewLazyEncodedImage(img.Image, utils.MimeTypePNG)
+			images = append(images, rdkImage)
+		default:
+			rdkImage, _, err := image.Decode(bytes.NewReader(img.Image))
+			if err != nil {
+				return nil, time.Time{}, err
+			}
+			images = append(images, rdkImage)
 		}
-		images = append(images, decodedImage)
 	}
 	return images, resp.ResponseMetadata.CapturedAt.AsTime(), nil
 }
