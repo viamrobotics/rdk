@@ -945,11 +945,11 @@ func sendModuleUploadRequests(ctx context.Context, stream apppb.AppService_Uploa
 			}
 
 			if err != nil {
-				return err
+				return errors.Wrap(err, "file reading error")
 			}
 
 			if err = stream.Send(uploadReq); err != nil {
-				return err
+				return errors.Wrap(err, "stream sending errror")
 			}
 			uploadedBytes += len(uploadReq.GetFile())
 			// Simple progress reading until we have a proper tui library

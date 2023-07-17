@@ -201,6 +201,7 @@ func UploadModuleCommand(c *cli.Context) error {
 	versionArg := c.String("version")
 	platformArg := c.String("platform")
 	tarballPath := c.Args().First()
+	fmt.Printf("ORGID: %s\n", orgIDArg)
 
 	client, err := NewAppClient(c)
 	if err != nil {
@@ -221,22 +222,21 @@ func UploadModuleCommand(c *cli.Context) error {
 		}
 		moduleID = ModuleID{Prefix: publicNamespaceArg, Name: nameArg}
 	} else {
-        // if we can find a manifest, use that
+		// if we can find a manifest, use that
 		manifest, err := loadManifest(manifestPath)
 		if err != nil {
 			fmt.Fprintf(c.App.ErrWriter, "If you want to upload a version without a %s, you must supply a module name and namespace (or module name and orgid)\n\n", defaultManifestFilename)
 			return err
 		}
 
-
 		moduleID, err = parseModuleID(manifest.Name)
 		if err != nil {
 			return err
 		}
-        if nameArg != "" && nameArg != moduleID.Name{
-            // This is almost certainly a mistake we want to catch
-            return errors.Errorf("Module name %q was supplied via command line args but the %s has a module name of %q", nameArg, defaultManifestFilename, moduleID.Name)
-        }
+		if nameArg != "" && nameArg != moduleID.Name {
+			// This is almost certainly a mistake we want to catch
+			return errors.Errorf("Module name %q was supplied via command line args but the %s has a module name of %q", nameArg, defaultManifestFilename, moduleID.Name)
+		}
 	}
 	// TODO(zaporter) This logic is duplicated in update and upload but will be refactored once we figure out what we are doing with orgid
 	if publicNamespaceArg != "" {
@@ -258,6 +258,7 @@ func UploadModuleCommand(c *cli.Context) error {
 
 	var orgID *string
 	if orgIDArg != "" {
+		orgID = &orgIDArg
 		if moduleID.Prefix == "" {
 			orgID = &orgIDArg
 		} else {
