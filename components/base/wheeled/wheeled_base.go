@@ -291,11 +291,13 @@ func (wb *wheeledBase) runAll(ctx context.Context, leftRPM, leftRotations, right
 	fs := []rdkutils.SimpleFunc{}
 
 	for _, m := range wb.left {
-		fs = append(fs, func(ctx context.Context) error { return m.GoFor(ctx, leftRPM, leftRotations, nil) })
+		motor := m
+		fs = append(fs, func(ctx context.Context) error { return motor.GoFor(ctx, leftRPM, leftRotations, nil) })
 	}
 
 	for _, m := range wb.right {
-		fs = append(fs, func(ctx context.Context) error { return m.GoFor(ctx, rightRPM, rightRotations, nil) })
+		motor := m
+		fs = append(fs, func(ctx context.Context) error { return motor.GoFor(ctx, rightRPM, rightRotations, nil) })
 	}
 
 	if _, err := rdkutils.RunInParallel(ctx, fs); err != nil {
