@@ -889,7 +889,13 @@ func (c *AppClient) UpdateModule(manifest ModuleManifest, organizationID *string
 }
 
 // UploadModuleFile wraps the grpc UploadModuleFile request.
-func (c *AppClient) UploadModuleFile(moduleID, version, platform string, organizationID *string, file *os.File) (*apppb.UploadModuleFileResponse, error) {
+func (c *AppClient) UploadModuleFile(
+	moduleID,
+	version,
+	platform string,
+	organizationID *string,
+	file *os.File,
+) (*apppb.UploadModuleFileResponse, error) {
 	if err := c.ensureLoggedIn(); err != nil {
 		return nil, err
 	}
@@ -961,7 +967,6 @@ func sendModuleUploadRequests(ctx context.Context, stream apppb.AppService_Uploa
 			// Simple progress reading until we have a proper tui library
 			uploadPercent := int(math.Ceil(100 * float64(uploadedBytes) / float64(fileSize)))
 			fmt.Fprintf(stdout, "\r\aUploading... %d%% (%d/%d bytes)", uploadPercent, uploadedBytes, fileSize)
-
 		}
 	}
 }

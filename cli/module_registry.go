@@ -27,7 +27,7 @@ type ModuleComponent struct {
 	Model string `json:"model"`
 }
 
-// ModuleID represents a prefix:name pair where prefix can be either an org id or a namespace
+// ModuleID represents a prefix:name pair where prefix can be either an org id or a namespace.
 type ModuleID struct {
 	Prefix string
 	Name   string
@@ -134,6 +134,7 @@ func UpdateModuleCommand(c *cli.Context) error {
 		return err
 	}
 	// TODO(zaporter) This logic is duplicated in update and upload and should be refactored
+    // TODO(APP-2230) Simplify this once we can pass org-id in ModuleID
 	if publicNamespaceArg != "" {
 		switch moduleID.Prefix {
 		case "":
@@ -193,6 +194,7 @@ func UpdateModuleCommand(c *cli.Context) error {
 	return nil
 }
 
+// UploadModuleCommand runs the command to upload a new version of a module.
 func UploadModuleCommand(c *cli.Context) error {
 	manifestPathArg := c.String("module")
 	publicNamespaceArg := c.String("public_namespace")
@@ -203,7 +205,7 @@ func UploadModuleCommand(c *cli.Context) error {
 	tarballPath := c.Args().First()
 	if c.Args().Len() > 1 {
 		return errors.New("Too many arguments passed to upload command. " +
-			"Make sure to specify flag and optional arguments before the required package argument")
+			"Make sure to specify flag and optional arguments before the required positional package argument")
 	}
 	if tarballPath == "" {
 		return errors.New("No package to upload -- please provide a archive containing your module. See the help for more information")
@@ -223,15 +225,17 @@ func UploadModuleCommand(c *cli.Context) error {
 	if _, err := os.Stat(manifestPath); err != nil {
 		// no manifest found.
 		if nameArg == "" || (publicNamespaceArg == "" && orgIDArg == "") {
-
-			return errors.Errorf("Unable to find %s. If you want to upload a version without a %s, you must supply a module name and namespace (or module name and orgid)\n\n", defaultManifestFilename, defaultManifestFilename)
+			return errors.Errorf("Unable to find %s. "+
+				"If you want to upload a version without a %s, you must supply a module name and namespace (or module name and orgid)\n\n",
+				defaultManifestFilename, defaultManifestFilename)
 		}
 		moduleID = ModuleID{Prefix: publicNamespaceArg, Name: nameArg}
 	} else {
 		// if we can find a manifest, use that
 		manifest, err := loadManifest(manifestPath)
 		if err != nil {
-			fmt.Fprintf(c.App.ErrWriter, "If you want to upload a version without a %s, you must supply a module name and namespace (or module name and orgid)\n\n", defaultManifestFilename)
+			fmt.Fprintf(c.App.ErrWriter, "If you want to upload a version without a %s, "+
+				"you must supply a module name and namespace (or module name and orgid)\n\n", defaultManifestFilename)
 			return err
 		}
 
@@ -241,10 +245,12 @@ func UploadModuleCommand(c *cli.Context) error {
 		}
 		if nameArg != "" && nameArg != moduleID.Name {
 			// This is almost certainly a mistake we want to catch
-			return errors.Errorf("Module name %q was supplied via command line args but the %s has a module name of %q", nameArg, defaultManifestFilename, moduleID.Name)
+			return errors.Errorf("Module name %q was supplied via command line args but the %s has a module name of %q",
+				nameArg, defaultManifestFilename, moduleID.Name)
 		}
 	}
 	// TODO(zaporter) This logic is duplicated in update and upload and should be refactored
+    // TODO(APP-2230) Simplify this once we can pass org-id in ModuleID
 	if publicNamespaceArg != "" {
 		switch moduleID.Prefix {
 		case "":
@@ -264,7 +270,6 @@ func UploadModuleCommand(c *cli.Context) error {
 
 	var orgID *string
 	if orgIDArg != "" {
-		orgID = &orgIDArg
 		if moduleID.Prefix == "" {
 			orgID = &orgIDArg
 		} else {
@@ -278,9 +283,14 @@ func UploadModuleCommand(c *cli.Context) error {
 	}
 	// end duplicated logic
 
+	//nolint:gosec
 	file, err := os.Open(tarballPath)
 	if err != nil {
 		return err
+	}
+	// TODO(APP-2226) support .tar.xz
+	if !strings.HasSuffix(file.Name(), ".tar.gz") {
+		return errors.New("You must upload your module in the form of a .tar.gz")
 	}
 	response, err := client.UploadModuleFile(moduleID.toString(), versionArg, platformArg, orgID, file)
 	if err != nil {
@@ -343,6 +353,7 @@ func loadManifest(manifestPath string) (ModuleManifest, error) {
 		return ModuleManifest{}, errors.Wrapf(err, "Cannot find %s", manifestPath)
 	}
 
+	//nolint:gosec
 	manifestBytes, err := os.ReadFile(manifestPath)
 	if err != nil {
 		return ModuleManifest{}, err

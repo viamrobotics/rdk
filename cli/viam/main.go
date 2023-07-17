@@ -838,7 +838,7 @@ Next, update your meta.json and use 'viam module update' to push those changes t
 					},
 					{
 						Name:  "update",
-						Usage: "Update a module's metadata on app.viam.com",
+						Usage: "update a module's metadata on app.viam.com",
 						Flags: []cli.Flag{
 							&cli.StringFlag{
 								Name:        "module",
@@ -859,12 +859,11 @@ Next, update your meta.json and use 'viam module update' to push those changes t
 					},
 					{
 						Name:  "upload",
-						Usage: "Upload a new version of your module",
-						Description: `
-Upload a archive containing your module's binary and required files for a specified platform
+						Usage: "upload a new version of your module",
+						Description: `Upload a archive containing your module's binary and required files for a specified platform
 
-Example for linux on x86 chips:
-tar -czf packaged-module.tar.gz my-binary   # meta.json should have "entrypoint" : "./my-binary"
+Example for linux/amd64:
+tar -czf packaged-module.tar.gz my-binary   # the meta.json entrypoint is relative to the root of the archive, so it should be "./my-binary"
 viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.tar.gz
                         `,
 						ArgsUsage: "<packaged-module.tar.gz>",
@@ -889,7 +888,7 @@ viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.ta
 							},
 							&cli.StringFlag{
 								Name:     "version",
-								Usage:    "version of the module to upload (semver2.0) ex: \"1.0.1\"",
+								Usage:    "version of the module to upload (semver2.0) ex: \"0.1.0\"",
 								Required: true,
 							},
 							&cli.StringFlag{
