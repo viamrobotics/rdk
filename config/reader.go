@@ -60,8 +60,14 @@ func getAgentInfo() (*apppb.AgentInfo, error) {
 
 // takes a config ID, tries to read it and returns the file in bytes.
 func readFromCache(id string) (*Config, error) {
-	filepath := getCloudCacheFilePath(id)
-	bytes, err := os.ReadFile(path.Clean(filepath))
+	filepath := path.Clean(getCloudCacheFilePath(id))
+	// first check the path exists
+	if _, err := os.Stat(filepath); err != nil {
+		return nil, err
+	}
+
+	//nolint:gosec
+	bytes, err := os.ReadFile(filepath)
 	if err != nil {
 		clearCache(id)
 		return nil, errors.Wrap(err, "cannot read the file specified by the path")
@@ -154,7 +160,8 @@ func GenerateConfigFromBytes(filepath string, bytes []byte) (*Config, error) {
 	return unprocessedConfig, nil
 }
 
-// if the config is {package: orgID/name, type: module, version: 1} -> this will create a link of root/.viam/module/.data/orgID-name-1.
+// if the config is {package: orgID/name, type: module, version: 1} ->
+// this will create a link of root/.viam/packages/module/.data/orgID-name-1.
 func generateFilePath(config PackageConfig) string {
 	// first get the base root
 
@@ -412,7 +419,13 @@ func Read(
 	filePath string,
 	logger golog.Logger,
 ) (*Config, error) {
-	buf, err := os.ReadFile(path.Clean(filePath))
+	cleanPath := path.Clean(filePath)
+	if _, err := os.Stat(cleanPath); err != nil {
+		return nil, err
+	}
+
+	//nolint:gosec
+	buf, err := os.ReadFile(cleanPath)
 	if err != nil {
 		return nil, err
 	}
@@ -426,7 +439,13 @@ func ReadLocalConfig(
 	filePath string,
 	logger golog.Logger,
 ) (*Config, error) {
-	buf, err := os.ReadFile(path.Clean(filePath))
+	cleanPath := path.Clean(filePath)
+	if _, err := os.Stat(cleanPath); err != nil {
+		return nil, err
+	}
+
+	//nolint:gosec
+	buf, err := os.ReadFile(cleanPath)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not read the file")
 	}
