@@ -166,7 +166,7 @@ func (c *client) Images(ctx context.Context) ([]image.Image, time.Time, error) {
 		case pb.Format_FORMAT_PNG:
 			rdkImage := rimage.NewLazyEncodedImage(img.Image, utils.MimeTypePNG)
 			images = append(images, rdkImage)
-		default:
+		case pb.Format_FORMAT_UNSPECIFIED:
 			rdkImage, _, err := image.Decode(bytes.NewReader(img.Image))
 			if err != nil {
 				return nil, time.Time{}, err
