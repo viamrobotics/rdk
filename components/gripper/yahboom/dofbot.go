@@ -51,6 +51,7 @@ func init() {
 	})
 }
 
+// newGripper instantiates a new Gripper of dofGripper type.
 func newGripper(deps resource.Dependencies, conf resource.Config) (gripper.Gripper, error) {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
@@ -70,8 +71,17 @@ func newGripper(deps resource.Dependencies, conf resource.Config) (gripper.Gripp
 		return nil, fmt.Errorf("yahboom-dofbot gripper got not a dofbot arm, got %T", myArm)
 	}
 	g := &dofGripper{
-		Named:  conf.ResourceName().AsNamed(),
-		dofArm: dofArm,
+		Named:      conf.ResourceName().AsNamed(),
+		dofArm:     dofArm,
+		geometries: []spatialmath.Geometry{},
+	}
+
+	if conf.Frame != nil && conf.Frame.Geometry != nil {
+		geometry, err := conf.Frame.Geometry.ParseConfig()
+		if err != nil {
+			return nil, err
+		}
+		g.geometries = []spatialmath.Geometry{geometry}
 	}
 
 	return g, nil
@@ -81,8 +91,9 @@ type dofGripper struct {
 	resource.Named
 	resource.AlwaysRebuild
 	resource.TriviallyCloseable
-	dofArm *yahboom.Dofbot
-	opMgr  operation.SingleOperationManager
+	dofArm     *yahboom.Dofbot
+	opMgr      operation.SingleOperationManager
+	geometries []spatialmath.Geometry
 }
 
 func (g *dofGripper) Open(ctx context.Context, extra map[string]interface{}) error {
@@ -113,11 +124,7 @@ func (g *dofGripper) ModelFrame() referenceframe.Model {
 	return g.dofArm.ModelFrame()
 }
 
-// Geometries returns TODO
+// Geometries returns the geometries associated with the dofGripper.
 func (g *dofGripper) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
-	geo, err := g.Geometries(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return geo, nil
+	return g.geometries, nil
 }

@@ -3,6 +3,7 @@ package fake
 
 import (
 	"context"
+	"sync"
 
 	"github.com/edaniels/golog"
 
@@ -21,19 +22,43 @@ type Config struct {
 
 func init() {
 	resource.RegisterComponent(gripper.API, model, resource.Registration[gripper.Gripper, *Config]{
-		Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (gripper.Gripper, error) {
-			return &Gripper{
-				Named: conf.ResourceName().AsNamed(),
-			}, nil
-		},
+		Constructor: newGripper,
 	})
 }
 
 // Gripper is a fake gripper that can simply read and set properties.
 type Gripper struct {
 	resource.Named
-	resource.TriviallyReconfigurable
 	resource.TriviallyCloseable
+	geometries []spatialmath.Geometry
+	mu         sync.Mutex
+}
+
+// NewGripper instantiates a new gripper of the fake model type.
+func newGripper(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (gripper.Gripper, error) {
+	g := &Gripper{
+		Named:      conf.ResourceName().AsNamed(),
+		geometries: []spatialmath.Geometry{},
+	}
+	if err := g.Reconfigure(ctx, deps, conf); err != nil {
+		return nil, err
+	}
+	return g, nil
+}
+
+// Reconfigure reconfigures the gripper atomically and in place.
+func (g *Gripper) Reconfigure(_ context.Context, _ resource.Dependencies, conf resource.Config) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	if conf.Frame != nil && conf.Frame.Geometry != nil {
+		geometry, err := conf.Frame.Geometry.ParseConfig()
+		if err != nil {
+			return err
+		}
+		g.geometries = []spatialmath.Geometry{geometry}
+	}
+	return nil
 }
 
 // ModelFrame returns the dynamic frame of the model.
@@ -61,11 +86,7 @@ func (g *Gripper) IsMoving(ctx context.Context) (bool, error) {
 	return false, nil
 }
 
-// Geometries returns TODO
+// Geometries returns the geometries associated with the fake base.
 func (g *Gripper) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
-	geo, err := g.Geometries(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return geo, nil
+	return g.geometries, nil
 }
