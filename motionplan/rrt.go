@@ -43,10 +43,6 @@ type rrtPlanReturn struct {
 	maps    *rrtMaps
 }
 
-func (plan *rrtPlanReturn) toInputs() [][]referenceframe.Input {
-	return nodesToInputs(plan.steps)
-}
-
 func nodesToInputs(nodes []node) [][]referenceframe.Input {
 	inputs := make([][]referenceframe.Input, 0, len(nodes))
 	for _, step := range nodes {

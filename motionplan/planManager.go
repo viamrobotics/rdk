@@ -258,7 +258,7 @@ func (pm *planManager) planSingleAtomicWaypoint(
 			if planReturn.planerr != nil {
 				return nil, nil, planReturn.planerr
 			}
-			steps := planReturn.toInputs()
+			steps := nodesToInputs(planReturn.steps)
 			return steps[len(steps)-1], &resultPromise{steps: steps}, nil
 		case <-ctx.Done():
 			return nil, nil, ctx.Err()
@@ -581,7 +581,7 @@ func goodPlan(pr *rrtPlanReturn, opt *plannerOptions) (bool, float64) {
 		if pr.maps.optNode.Cost() <= 0 {
 			return true, solutionCost
 		}
-		solutionCost = EvaluatePlan(pr.toInputs(), opt.DistanceFunc)
+		solutionCost = EvaluatePlan(nodesToInputs(pr.steps), opt.DistanceFunc)
 		if solutionCost < pr.maps.optNode.Cost()*defaultOptimalityMultiple {
 			return true, solutionCost
 		}
