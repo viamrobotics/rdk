@@ -885,15 +885,15 @@ type PackageConfig struct {
 	Type PackageType `json:"type,omitempty"`
 }
 
-// HashName forms the package name for the symlink/filepath of the package on the system.
-func HashName(f PackageConfig) string {
+// SanitizeName forms the package name for the symlink/filepath of the package on the system.
+func SanitizeName(f PackageConfig) string {
 	// replace / to avoid a directory path in the name. This will happen with `org/package` format.
 	// also makes the path valid by replacing all the dots with _
-	return fmt.Sprintf("%s-%s", strings.ReplaceAll(f.Package, "/", "-"), HashVersion(f.Version))
+	return fmt.Sprintf("%s-%s", strings.ReplaceAll(f.Package, "/", "-"), SanitizeVersion(f.Version))
 }
 
-// HashVersion formats a version string to replace periods with dashes.
-func HashVersion(version string) string {
+// SanitizeVersion formats a version string to replace periods with dashes.
+func SanitizeVersion(version string) string {
 	// replaces all the . if they exist with _
 	return strings.ReplaceAll(version, ".", "_")
 }
@@ -944,7 +944,7 @@ func GetPackageDirectoryFromType(packageType PackageType) string {
 	case PackageTypeModule:
 		return "modules"
 	default:
-		return ""
+		return "default"
 	}
 }
 

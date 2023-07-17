@@ -242,14 +242,14 @@ func validatePackageDir(t *testing.T, dir string, input []config.PackageConfig) 
 	byLogicalName := make(map[string]*config.PackageConfig)
 	for _, pI := range input {
 		p := pI
-		byPackageHash[config.HashName(p)] = &p
+		byPackageHash[config.SanitizeName(p)] = &p
 		byLogicalName[p.Name] = &p
 	}
 
 	// check all known packages exist and are linked to the correct package dir.
 	for _, p := range input {
 		logicalPath := path.Join(dir, p.Name)
-		dataPath := path.Join(dir, ".data", config.HashName(p))
+		dataPath := path.Join(dir, ".data", config.SanitizeName(p))
 
 		info, err := os.Stat(logicalPath)
 		test.That(t, err, test.ShouldBeNil)

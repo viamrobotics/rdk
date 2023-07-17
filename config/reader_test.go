@@ -143,10 +143,10 @@ func TestPlaceholderReplacement(t *testing.T) {
 	})
 
 	t.Run("MatchingPackageRegex", func(t *testing.T) {
-		placeholder := "\n\n ${packages.ml_model.my_model} \n my name is"
+		placeholder := "\n\n ${packages.ml_models.my_model} \n my name is"
 		strings := placeholderRegexp.FindStringSubmatch(placeholder)
 		test.That(t, len(strings), test.ShouldEqual, 2)
-		test.That(t, strings[1], test.ShouldEqual, "packages.ml_model.my_model")
+		test.That(t, strings[1], test.ShouldEqual, "packages.ml_models.my_model")
 
 		placeholder = "\n\n ${packages.modules.my_module} bleh bleh"
 		strings = placeholderRegexp.FindStringSubmatch(placeholder)

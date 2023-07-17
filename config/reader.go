@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"net/url"
 	"os"
 	"path"
@@ -32,7 +33,8 @@ var (
 )
 
 var (
-	placeholderRegexp = regexp.MustCompile(`\$\{(packages[\.(ml_model|modules)]*\.[A-Za-z0-9_\-]+)}`)
+	placeholderRegexp = regexp.MustCompile(`\$\{(packages(\.(ml_models|modules))?\.[\w_\-]+)\}`)
+	envRegexp         = regexp.MustCompile(`\$\{([w_\-]+)\}`)
 	viamDotDir        = filepath.Join(os.Getenv("HOME"), ".viam")
 )
 
@@ -58,16 +60,26 @@ func getAgentInfo() (*apppb.AgentInfo, error) {
 	}, nil
 }
 
+func replaceEnvVariables(bytes []byte) []byte {
+	return envRegexp.ReplaceAllFunc(bytes, func(b []byte) []byte {
+		nestedEnv := envRegexp.FindSubmatch(b)
+		if len(nestedEnv) != 2 {
+			return []byte("")
+		}
+
+		match := nestedEnv[1]
+		return []byte(os.Getenv(string(match)))
+	})
+}
+
 // takes a config ID, tries to read it and returns the file in bytes.
 func readFromCache(id string) (*Config, error) {
 	filepath := path.Clean(getCloudCacheFilePath(id))
-	// first check the path exists
-	if _, err := os.Stat(filepath); err != nil {
-		return nil, err
-	}
-
 	//nolint:gosec
 	bytes, err := os.ReadFile(filepath)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, errors.Wrap(err, "no such file or directory")
+	}
 	if err != nil {
 		clearCache(id)
 		return nil, errors.Wrap(err, "cannot read the file specified by the path")
@@ -90,7 +102,7 @@ func replacePackagePlaceholdersInFile(bytes []byte, packageMap map[string]string
 
 	updatedBytes := placeholderRegexp.ReplaceAllFunc(bytes, func(b []byte) []byte {
 		match := placeholderRegexp.FindSubmatch(b)
-		if len(match) != 2 {
+		if len(match) < 2 {
 			err = multierr.Combine(err, fmt.Errorf("there is no matching package for this placeholder %s", string(b)))
 			return b
 		}
@@ -115,6 +127,8 @@ func replacePlaceholdersInCloudConfig(config *Config) error {
 	if err != nil {
 		return errors.Wrap(err, "cannot marshal config to bytes")
 	}
+
+	bytes = replaceEnvVariables(bytes)
 	updatedBytes, err := replacePackagePlaceholdersInFile(bytes, mapPlaceholderToRealPaths(packages))
 	if err != nil {
 		return errors.Wrap(err, "err replacing pathholders in config")
@@ -140,6 +154,8 @@ func mapPlaceholderToRealPaths(packages []PackageConfig) map[string]string {
 // GenerateConfigFromBytes converts a byte stream to a valid robot config
 // and replaces file placeholders as part of that conversion.
 func GenerateConfigFromBytes(filepath string, bytes []byte) (*Config, error) {
+	bytes = replaceEnvVariables(bytes)
+
 	packages, err := getPackagesFromFile(bytes)
 	if err != nil {
 		return nil, err
@@ -149,6 +165,7 @@ func GenerateConfigFromBytes(filepath string, bytes []byte) (*Config, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "err replacing placeholders in config")
 	}
+
 	unprocessedConfig := &Config{
 		ConfigFilePath: filepath,
 	}
@@ -173,7 +190,7 @@ func generateFilePath(config PackageConfig) string {
 		// package manager will still create symlinks for these packages based on the packges path
 		dir = path.Clean(path.Join(viamDotDir, "packages", config.Name))
 	} else {
-		dir = path.Clean(path.Join(viamDotDir, "packages", GetPackageDirectoryFromType(config.Type), dataDir, HashName(config)))
+		dir = path.Clean(path.Join(viamDotDir, "packages", GetPackageDirectoryFromType(config.Type), dataDir, SanitizeName(config)))
 	}
 	return dir
 }
@@ -420,14 +437,14 @@ func Read(
 	logger golog.Logger,
 ) (*Config, error) {
 	cleanPath := path.Clean(filePath)
-	if _, err := os.Stat(cleanPath); err != nil {
-		return nil, err
-	}
 
 	//nolint:gosec
 	buf, err := os.ReadFile(cleanPath)
 	if err != nil {
-		return nil, err
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil, errors.Wrap(err, "no such file or directory")
+		}
+		return nil, errors.Wrap(err, "could not read the file")
 	}
 
 	return FromReader(ctx, filePath, buf, logger)
@@ -440,13 +457,12 @@ func ReadLocalConfig(
 	logger golog.Logger,
 ) (*Config, error) {
 	cleanPath := path.Clean(filePath)
-	if _, err := os.Stat(cleanPath); err != nil {
-		return nil, err
-	}
-
 	//nolint:gosec
 	buf, err := os.ReadFile(cleanPath)
 	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil, errors.Wrap(err, "no such file or directory")
+		}
 		return nil, errors.Wrap(err, "could not read the file")
 	}
 	return fromReader(ctx, filePath, buf, logger, false)

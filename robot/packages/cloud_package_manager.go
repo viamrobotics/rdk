@@ -225,7 +225,7 @@ func (m *cloudManager) Cleanup(ctx context.Context) error {
 		if f.Type()&os.ModeSymlink == os.ModeSymlink {
 			// if managed skip removing package
 			if p, ok := m.managedPackages[PackageName(f.Name())]; ok {
-				knownPackages[config.HashName(p.thePackage)] = true
+				knownPackages[config.SanitizeName(p.thePackage)] = true
 				continue
 			}
 
@@ -498,11 +498,11 @@ func (m *cloudManager) unpackFile(ctx context.Context, fromFile, toDir string) e
 }
 
 func (m *cloudManager) localDownloadPath(p config.PackageConfig) string {
-	return filepath.Join(m.packagesDataDir, fmt.Sprintf("%s.download", config.HashName(p)))
+	return filepath.Join(m.packagesDataDir, fmt.Sprintf("%s.download", config.SanitizeName(p)))
 }
 
 func (m *cloudManager) localDataPath(p config.PackageConfig) string {
-	return filepath.Join(m.packagesDataDir, config.HashName(p))
+	return filepath.Join(m.packagesDataDir, config.SanitizeName(p))
 }
 
 func (m *cloudManager) localNamedPath(p config.PackageConfig) string {
