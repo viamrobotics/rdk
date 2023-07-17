@@ -88,7 +88,7 @@ func (kdv kdValuesSlicer) Swap(i, j int) {
 
 // KDTree extends PointCloud and orders the points in 3D space to implement nearest neighbor algos.
 type KDTree struct {
-	tree   *kdtree.Tree
+	Tree   *kdtree.Tree
 	points storage
 	meta   MetaData
 }
@@ -101,7 +101,7 @@ func NewKDTree() *KDTree {
 // NewKDTreeWithPrealloc creates a new KDTree with preallocated storage.
 func NewKDTreeWithPrealloc(size int) *KDTree {
 	return &KDTree{
-		tree:   kdtree.New(kdValues{}, false),
+		Tree:   kdtree.New(kdValues{}, false),
 		points: &matrixStorage{points: make([]PointAndData, 0, size), indexMap: make(map[r3.Vector]uint, size)},
 		meta:   NewMetaData(),
 	}
@@ -169,7 +169,7 @@ func ToBalancedKDTree(pc PointCloud) *KDTree {
 	}
 
 	return &KDTree{
-		tree:   kdtree.New(kdVals, false),
+		Tree:   kdtree.New(kdVals, false),
 		points: storage,
 		meta:   meta,
 	}
@@ -185,9 +185,9 @@ func (kd *KDTree) Size() int {
 	return kd.points.Size()
 }
 
-// Set adds a new point to the PointCloud and tree. Does not rebalance the tree.
+// Set adds a new point to the PointCloud and Tree. Does not rebalance the Tree.
 func (kd *KDTree) Set(p r3.Vector, d Data) error {
-	kd.tree.Insert(treeComparableR3Vector{p}, false)
+	kd.Tree.Insert(treeComparableR3Vector{p}, false)
 	if err := kd.points.Set(p, d); err != nil {
 		return err
 	}
@@ -210,7 +210,7 @@ func (kd *KDTree) At(x, y, z float64) (Data, bool) {
 
 // NearestNeighbor returns the nearest point and its distance from the input point.
 func (kd *KDTree) NearestNeighbor(p r3.Vector) (r3.Vector, Data, float64, bool) {
-	c, dist := kd.tree.Nearest(&treeComparableR3Vector{p})
+	c, dist := kd.Tree.Nearest(&treeComparableR3Vector{p})
 	if c == nil {
 		return r3.Vector{}, nil, 0.0, false
 	}
@@ -220,7 +220,7 @@ func (kd *KDTree) NearestNeighbor(p r3.Vector) (r3.Vector, Data, float64, bool) 
 	}
 	d, ok := kd.points.At(p2.vec.X, p2.vec.Y, p2.vec.Z)
 	if !ok {
-		panic("Mismatch between tree and point storage.")
+		panic("Mismatch between Tree and point storage.")
 	}
 	return p2.vec, d, dist, true
 }
@@ -240,7 +240,7 @@ func keeperToArray(heap kdtree.Heap, points storage, p r3.Vector, includeSelf bo
 		}
 		d, ok := points.At(pp.vec.X, pp.vec.Y, pp.vec.Z)
 		if !ok {
-			panic("Mismatch between tree and point storage.")
+			panic("Mismatch between Tree and point storage.")
 		}
 		nearestPoints = append(nearestPoints, &PointAndData{P: pp.vec, D: d})
 		if len(nearestPoints) >= max {
@@ -259,7 +259,7 @@ func (kd *KDTree) KNearestNeighbors(p r3.Vector, k int, includeSelf bool) []*Poi
 	}
 
 	keep := kdtree.NewNKeeper(tempK)
-	kd.tree.NearestSet(keep, &treeComparableR3Vector{p})
+	kd.Tree.NearestSet(keep, &treeComparableR3Vector{p})
 	return keeperToArray(keep.Heap, kd.points, p, includeSelf, k)
 }
 
@@ -268,21 +268,32 @@ func (kd *KDTree) KNearestNeighbors(p r3.Vector, k int, includeSelf bool) []*Poi
 // as the first element with distance 0.
 func (kd *KDTree) RadiusNearestNeighbors(p r3.Vector, r float64, includeSelf bool) []*PointAndData {
 	keep := kdtree.NewDistKeeper(r)
-	kd.tree.NearestSet(keep, &treeComparableR3Vector{p})
+	kd.Tree.NearestSet(keep, &treeComparableR3Vector{p})
 	return keeperToArray(keep.Heap, kd.points, p, includeSelf, math.MaxInt)
 }
 
 // Iterate iterates over all points in the cloud.
 func (kd *KDTree) Iterate(numBatches, myBatch int, fn func(p r3.Vector, d Data) bool) {
-	kd.tree.Do(func(c kdtree.Comparable, b *kdtree.Bounding, depth int) bool {
+	kd.Tree.Do(func(c kdtree.Comparable, b *kdtree.Bounding, depth int) bool {
 		p, ok := c.(treeComparableR3Vector)
 		if !ok {
 			panic("Comparable is not a Point")
 		}
 		d, ok := kd.points.At(p.vec.X, p.vec.Y, p.vec.Z)
 		if !ok {
-			panic("Mismatch between tree and point storage.")
+			panic("Mismatch between Tree and point storage.")
 		}
 		return !fn(p.vec, d)
+	})
+}
+
+// Iterate iterates over all points in the cloud.
+func (kd *KDTree) CarelessIterate(numBatches, myBatch int, fn func(p r3.Vector) bool) {
+	kd.Tree.Do(func(c kdtree.Comparable, b *kdtree.Bounding, depth int) bool {
+		p, ok := c.(treeComparableR3Vector)
+		if !ok {
+			panic("Comparable is not a Point")
+		}
+		return !fn(p.vec)
 	})
 }

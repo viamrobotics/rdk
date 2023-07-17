@@ -2,6 +2,7 @@ package segmentation
 
 import (
 	"context"
+	"sync"
 
 	"github.com/golang/geo/r3"
 	"github.com/mitchellh/mapstructure"
@@ -12,6 +13,8 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
+
+	"gonum.org/v1/gonum/spatial/kdtree"
 )
 
 // RadiusClusteringConfig specifies the necessary parameters for 3D object finding.
@@ -118,57 +121,86 @@ func segmentPointCloudObjects(cloud pc.PointCloud, radius float64, nMin int) ([]
 func radiusBasedNearestNeighbors(cloud pc.PointCloud, radius float64) ([]pc.PointCloud, error) {
 	kdt, ok := cloud.(*pc.KDTree)
 	if !ok {
-		// kdt = pc.ToKDTree(cloud)
-		kdt = pc.ToBalancedKDTree(cloud)
+		kdt = pc.ToKDTree(cloud)
 	}
-	// altKdt := pc.ToBalancedKDTree(cloud)
+
+	numGroups := 4
+	subtrees := make([]*pc.KDTree, numGroups)
+
+	subtrees[0] = &pc.KDTree{Tree: &kdtree.Tree{Root: kdt.Tree.Root.Left.Left, Count: 0}}
+	subtrees[1] = &pc.KDTree{Tree: &kdtree.Tree{Root: kdt.Tree.Root.Left.Right, Count: 0}}
+	subtrees[2] = &pc.KDTree{Tree: &kdtree.Tree{Root: kdt.Tree.Root.Right.Left, Count: 0}}
+	subtrees[3] = &pc.KDTree{Tree: &kdtree.Tree{Root: kdt.Tree.Root.Right.Right, Count: 0}}
 	var err error
-	clusters := NewSegments()
-	c := 0
-	// fmt.Println(altKdt.Size())
-	kdt.Iterate(0, 0, func(v r3.Vector, d pc.Data) bool {
-		// skip if point already is assigned cluster
-		if _, ok := clusters.Indices[v]; ok {
-			return true
-		}
-		// if not assigned, see if any of its neighbors are assigned a cluster
-		nn := kdt.RadiusNearestNeighbors(v, radius, false)
-		for _, neighbor := range nn {
-			nv := neighbor.P
-			ptIndex, ptOk := clusters.Indices[v]
-			neighborIndex, neighborOk := clusters.Indices[nv]
-			switch {
-			case ptOk && neighborOk:
-				if ptIndex != neighborIndex {
-					err = clusters.MergeClusters(ptIndex, neighborIndex)
-				}
-			case !ptOk && neighborOk:
-				err = clusters.AssignCluster(v, d, neighborIndex)
-			case ptOk && !neighborOk:
-				err = clusters.AssignCluster(neighbor.P, neighbor.D, ptIndex)
-			}
-			if err != nil {
-				return false
-			}
-		}
-		// if none of the neighbors were assigned a cluster, create a new cluster and assign all neighbors to it
-		if _, ok := clusters.Indices[v]; !ok {
-			err = clusters.AssignCluster(v, d, c)
-			if err != nil {
-				return false
-			}
-			for _, neighbor := range nn {
-				err = clusters.AssignCluster(neighbor.P, neighbor.D, c)
-				if err != nil {
-					return false
-				}
-			}
-			c++
-		}
-		return true
-	})
-	if err != nil {
-		return nil, err
+	clusters := make([]*Segments, 0, numGroups)
+	for i := 0; i < numGroups; i++ {
+		clusters = append(clusters, NewSegments())
 	}
-	return clusters.PointClouds(), nil
+
+	var wg sync.WaitGroup
+	for i := 0; i < numGroups; i++ {
+		wg.Add(1)
+		i := i
+		go func() {
+			defer wg.Done()
+			memberNum := i
+			c := 0
+			if subtrees[memberNum] == nil {
+				return
+			}
+			subtrees[memberNum].CarelessIterate(0, 0, func(v r3.Vector) bool {
+				// skip if point already is assigned cluster
+				if _, ok := clusters[memberNum].Indices[v]; ok {
+					return true
+				}
+				// if not assigned, see if any of its neighbors are assigned a cluster
+				nn := kdt.RadiusNearestNeighbors(v, radius, false)
+				for _, neighbor := range nn {
+					nv := neighbor.P
+					ptIndex, ptOk := clusters[memberNum].Indices[v]
+					neighborIndex, neighborOk := clusters[memberNum].Indices[nv]
+					switch {
+					case ptOk && neighborOk:
+						if ptIndex != neighborIndex {
+							err = clusters[memberNum].MergeClusters(ptIndex, neighborIndex)
+						}
+					case !ptOk && neighborOk:
+						err = clusters[memberNum].AssignCluster(v, nil, neighborIndex)
+					case ptOk && !neighborOk:
+						err = clusters[memberNum].AssignCluster(neighbor.P, neighbor.D, ptIndex)
+					}
+					if err != nil {
+						return false
+					}
+				}
+				// if none of the neighbors were assigned a cluster, create a new cluster and assign all neighbors to it
+				if _, ok := clusters[memberNum].Indices[v]; !ok {
+					err = clusters[memberNum].AssignCluster(v, nil, c)
+					if err != nil {
+						return false
+					}
+					for _, neighbor := range nn {
+						err = clusters[memberNum].AssignCluster(neighbor.P, neighbor.D, c)
+						if err != nil {
+							return false
+						}
+					}
+					c++
+				}
+				return true
+			})
+		}()
+	}
+
+	wg.Wait()
+
+	clouds := make([]pc.PointCloud, 0)
+
+	for _, cluster := range clusters {
+		if cluster.PointClouds() != nil {
+			clouds = append(clouds, cluster.PointClouds()...)
+		}
+	}
+
+	return clouds, nil
 }
