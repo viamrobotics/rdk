@@ -118,11 +118,14 @@ func segmentPointCloudObjects(cloud pc.PointCloud, radius float64, nMin int) ([]
 func radiusBasedNearestNeighbors(cloud pc.PointCloud, radius float64) ([]pc.PointCloud, error) {
 	kdt, ok := cloud.(*pc.KDTree)
 	if !ok {
-		kdt = pc.ToKDTree(cloud)
+		// kdt = pc.ToKDTree(cloud)
+		kdt = pc.ToBalancedKDTree(cloud)
 	}
+	// altKdt := pc.ToBalancedKDTree(cloud)
 	var err error
 	clusters := NewSegments()
 	c := 0
+	// fmt.Println(altKdt.Size())
 	kdt.Iterate(0, 0, func(v r3.Vector, d pc.Data) bool {
 		// skip if point already is assigned cluster
 		if _, ok := clusters.Indices[v]; ok {

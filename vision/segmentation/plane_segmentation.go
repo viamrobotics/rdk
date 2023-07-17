@@ -7,6 +7,8 @@ import (
 	"math"
 	"math/rand"
 	"sort"
+	"sync"
+	"time"
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
@@ -77,34 +79,53 @@ func SegmentPlane(ctx context.Context, cloud pc.PointCloud, nIterations int, thr
 		return pc.NewEmptyPlane(), cloud, nil
 	}
 	//nolint:gosec
-	r := rand.New(rand.NewSource(1))
+	var mu sync.Mutex
+
 	pts := GetPointCloudPositions(cloud)
 	nPoints := cloud.Size()
+	var wg sync.WaitGroup
 
 	// First get all equations
 	equations := make([][4]float64, 0, nIterations)
-	for i := 0; i < nIterations; i++ {
-		// sample 3 Points from the slice of 3D Points
-		n1, n2, n3 := utils.SampleRandomIntRange(1, nPoints-1, r),
-			utils.SampleRandomIntRange(1, nPoints-1, r),
-			utils.SampleRandomIntRange(1, nPoints-1, r)
-		p1, p2, p3 := pts[n1], pts[n2], pts[n3]
 
-		// get 2 vectors that are going to define the plane
-		v1 := p2.Sub(p1)
-		v2 := p3.Sub(p1)
-		// cross product to get the normal unit vector to the plane (v1, v2)
-		cross := v1.Cross(v2)
-		vec := cross.Normalize()
-		// find current plane equation denoted as:
-		// cross[0]*x + cross[1]*y + cross[2]*z + d = 0
-		// to find d, we just need to pick a point and deduce d from the plane equation (vec orth to p1, p2, p3)
-		d := -vec.Dot(p2)
+	numThreads := 5
+	for i := 0; i < numThreads; i++ {
+		wg.Add(1)
+		r := rand.New(rand.NewSource(time.Now().UnixNano()))
+		go func() {
+			defer wg.Done()
+			// someEquations := make([][4]float64, 0, nIterations/numThreads+1)
+			for i := 0; i < nIterations/numThreads; i++ {
+				// sample 3 Points from the slice of 3D Points
+				n1, n2, n3 := utils.SampleRandomIntRange(1, nPoints-1, r),
+					utils.SampleRandomIntRange(1, nPoints-1, r),
+					utils.SampleRandomIntRange(1, nPoints-1, r)
+				p1, p2, p3 := pts[n1], pts[n2], pts[n3]
 
-		// current plane equation
-		currentEquation := [4]float64{vec.X, vec.Y, vec.Z, d}
-		equations = append(equations, currentEquation)
+				// get 2 vectors that are going to define the plane
+				v1 := p2.Sub(p1)
+				v2 := p3.Sub(p1)
+				// cross product to get the normal unit vector to the plane (v1, v2)
+				cross := v1.Cross(v2)
+				vec := cross.Normalize()
+				// find current plane equation denoted as:
+				// cross[0]*x + cross[1]*y + cross[2]*z + d = 0
+				// to find d, we just need to pick a point and deduce d from the plane equation (vec orth to p1, p2, p3)
+				d := -vec.Dot(p2)
+
+				// current plane equation
+				currentEquation := [4]float64{vec.X, vec.Y, vec.Z, d}
+				// someEquations = append(someEquations, currentEquation)
+				mu.Lock()
+				equations = append(equations, currentEquation)
+				mu.Unlock()
+			}
+			// mu.Lock()
+			// equations = append(equations, currentEquation)
+			// mu.Unlock()
+		}()
 	}
+	wg.Wait()
 
 	// Then find the best equation in parallel. It ends up being faster to loop
 	// by equations (iterations) and then points due to what I (erd) think is

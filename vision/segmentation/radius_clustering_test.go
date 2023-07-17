@@ -114,7 +114,7 @@ func BenchmarkRadiusClustering(b *testing.B) {
 		"min_points_in_plane":   50000,
 		"min_points_in_segment": 500,
 		"clustering_radius_mm":  10.0,
-		"mean_k_filtering":      50.0,
+		"mean_k_filtering":      0.0,
 	}
 	segmenter, _ := segmentation.NewRadiusClustering(objConfig)
 	for i := 0; i < b.N; i++ {

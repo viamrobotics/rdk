@@ -4,6 +4,7 @@ import (
 	"math"
 
 	"github.com/golang/geo/r3"
+	"golang.org/x/exp/slices"
 	"gonum.org/v1/gonum/spatial/kdtree"
 )
 
@@ -133,6 +134,45 @@ func ToKDTree(pc PointCloud) *KDTree {
 	}
 
 	return t
+}
+
+// ToBalancedKDTree
+func ToBalancedKDTree(pc PointCloud) *KDTree {
+	kd, ok := pc.(*KDTree)
+	if ok {
+		return kd
+	}
+	size := pc.Size()
+	storage := &matrixStorage{points: make([]PointAndData, 0, size), indexMap: make(map[r3.Vector]uint, size)}
+	meta := NewMetaData()
+	kdVals := kdValues{}
+
+	if pc != nil {
+		pc.Iterate(0, 0, func(p r3.Vector, d Data) bool {
+			newVec := treeComparableR3Vector{p}
+			exists := slices.Contains(kdVals, newVec)
+			// _, pointExists := t.At(p.X, p.Y, p.Z)
+			kdVals = append(kdVals, newVec)
+			// err := t.Set(p, d)
+			// if err != nil {
+			// 	panic(err)
+			// }
+			err := storage.Set(p, d)
+			if err != nil {
+				panic(err)
+			}
+			if !exists {
+				meta.Merge(p, d)
+			}
+			return true
+		})
+	}
+
+	return &KDTree{
+		tree:   kdtree.New(kdVals, false),
+		points: storage,
+		meta:   meta,
+	}
 }
 
 // MetaData returns the meta data.
