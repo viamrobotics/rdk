@@ -124,7 +124,7 @@ func newCBiRRTMotionPlanner(
 func (mp *cBiRRTMotionPlanner) plan(ctx context.Context,
 	goal spatialmath.Pose,
 	seed []referenceframe.Input,
-) ([][]referenceframe.Input, error) {
+) ([]node, error) {
 	solutionChan := make(chan *rrtPlanReturn, 1)
 	utils.PanicCapturingGo(func() {
 		mp.rrtBackgroundRunner(ctx, seed, &rrtParallelPlannerShared{nil, nil, solutionChan})
@@ -133,7 +133,7 @@ func (mp *cBiRRTMotionPlanner) plan(ctx context.Context,
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	case plan := <-solutionChan:
-		return plan.toInputs(), plan.err()
+		return plan.steps, plan.err()
 	}
 }
 
