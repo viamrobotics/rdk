@@ -243,6 +243,13 @@ func TestCameraWithProjector(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, depthImg.Bounds().Dx(), test.ShouldEqual, 1280)
 	test.That(t, depthImg.Bounds().Dy(), test.ShouldEqual, 720)
+	// cam2 should implement a default GetImages, that just returns the one image
+	images, _, err := cam2.Images(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(images), test.ShouldEqual, 1)
+	test.That(t, images[0], test.ShouldHaveSameTypeAs, &rimage.DepthMap{})
+	test.That(t, images[0].Bounds().Dx(), test.ShouldEqual, 1280)
+	test.That(t, images[0].Bounds().Dy(), test.ShouldEqual, 720)
 
 	test.That(t, cam2.Close(context.Background()), test.ShouldBeNil)
 }
