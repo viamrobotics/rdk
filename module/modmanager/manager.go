@@ -36,6 +36,7 @@ import (
 
 var (
 	validateConfigTimeout       = 5 * time.Second
+	readyTimeout                = 30 * time.Second
 	errMessageExitStatus143     = "exit status 143"
 	logLevelArgumentTemplate    = "--log-level=%s"
 	errModularResourcesDisabled = errors.New("modular resources disabled in untrusted environment")
@@ -444,6 +445,19 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) b
 		if mod.inRecovery.Load() {
 			return false
 		}
+
+		// If mod.handles was never set, the module was never actually ready in the
+		// first place before crashing. Log an error and do not attempt a restart;
+		// something is likely wrong with the module implemenation.
+		if mod.handles == nil {
+			mgr.logger.Errorw(
+				"module has unexpectedly exited without responding to a ready request ",
+				"module", mod.name,
+				"exit_code", exitCode,
+			)
+			return false
+		}
+
 		mod.inRecovery.Store(true)
 		defer mod.inRecovery.Store(false)
 
@@ -604,7 +618,7 @@ func (m *module) dial(conn *grpc.ClientConn) error {
 }
 
 func (m *module) checkReady(ctx context.Context, parentAddr string) error {
-	ctxTimeout, cancelFunc := context.WithTimeout(ctx, time.Second*30)
+	ctxTimeout, cancelFunc := context.WithTimeout(ctx, readyTimeout)
 	defer cancelFunc()
 
 	for {
@@ -655,7 +669,7 @@ func (m *module) startProcess(
 		return errors.WithMessage(err, "module startup failed")
 	}
 
-	ctxTimeout, cancel := context.WithTimeout(ctx, time.Second*30)
+	ctxTimeout, cancel := context.WithTimeout(ctx, readyTimeout)
 	defer cancel()
 	for {
 		select {

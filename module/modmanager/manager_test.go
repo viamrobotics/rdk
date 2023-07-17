@@ -19,6 +19,7 @@ import (
 	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
 	"go.viam.com/rdk/resource"
 	rtestutils "go.viam.com/rdk/testutils"
+	rutils "go.viam.com/rdk/utils"
 )
 
 func TestModManagerFunctions(t *testing.T) {
@@ -458,6 +459,49 @@ func TestModuleReloading(t *testing.T) {
 
 		// Assert that RemoveOrphanedResources was called once.
 		test.That(t, dummyRemoveOrphanedResourcesCallCount.Load(), test.ShouldEqual, 1)
+	})
+	t.Run("immediate crash is not restarted", func(t *testing.T) {
+		logger, logs := golog.NewObservedTestLogger(t)
+
+		modCfg.ExePath = rutils.ResolveFile("module/testmodule/fakemodule.sh")
+
+		// Lower global timeout early to avoid race with actual restart code, and
+		// lower readyTimeout to avoid waiting for 30 seconds for manager.Add to
+		// time out waiting for module to start listening.
+		defer func(oriOrigVal, rtOrigVal time.Duration) {
+			oueRestartInterval = oriOrigVal
+			readyTimeout = rtOrigVal
+		}(oueRestartInterval, readyTimeout)
+		oueRestartInterval = 10 * time.Millisecond
+		readyTimeout = 1 * time.Second
+
+		// This test neither uses a resource manager nor asserts anything about
+		// the existence of resources in the graph. Use a dummy
+		// RemoveOrphanedResources function so orphaned resource logic does not
+		// panic.
+		dummyRemoveOrphanedResources := func(context.Context, []resource.Name) {}
+		mgr := NewManager(parentAddr, logger, modmanageroptions.Options{
+			UntrustedEnv:            false,
+			RemoveOrphanedResources: dummyRemoveOrphanedResources,
+		})
+		err = mgr.Add(ctx, modCfg)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring,
+			"timed out waiting for module test-module to start listening")
+
+		err = mgr.Close(ctx)
+		test.That(t, err, test.ShouldBeNil)
+
+		// Assert that logs reflect that fakemodule exited without responding to a
+		// ready request, and the manager did not try to nor succeed in restarting
+		// it.
+		test.That(t, logs.FilterMessageSnippet(
+			"module has unexpectedly exited without responding to a ready request").Len(),
+			test.ShouldEqual, 1)
+		test.That(t, logs.FilterMessageSnippet("attempting to restart it").Len(),
+			test.ShouldEqual, 0)
+		test.That(t, logs.FilterMessageSnippet("module successfully restarted").Len(),
+			test.ShouldEqual, 0)
 	})
 }
 
