@@ -135,24 +135,38 @@ func (s *serviceServer) GetImages(
 }
 
 func encodeImageFromUnderlyingType(ctx context.Context, img image.Image) (pb.Format, []byte, error) {
-	switch img.(type) {
+	switch v := img.(type) {
+	case *rimage.LazyEncodedImage:
+		format := pb.Format_FORMAT_UNSPECIFIED
+		switch v.MIMEType() {
+		case utils.MimeTypeRawDepth:
+			format = pb.Format_FORMAT_RAW_DEPTH
+		case utils.MimeTypeRawRGBA:
+			format = pb.Format_FORMAT_RAW_RGBA
+		case utils.MimeTypeJPEG:
+			format = pb.Format_FORMAT_JPEG
+		case utils.MimeTypePNG:
+			format = pb.Format_FORMAT_PNG
+		default:
+		}
+		return format, v.RawData(), nil
 	case *rimage.DepthMap:
 		format := pb.Format_FORMAT_RAW_DEPTH
-		outBytes, err := rimage.EncodeImage(ctx, img, utils.MimeTypeRawDepth)
+		outBytes, err := rimage.EncodeImage(ctx, v, utils.MimeTypeRawDepth)
 		if err != nil {
 			return pb.Format_FORMAT_UNSPECIFIED, nil, err
 		}
 		return format, outBytes, nil
 	case *image.Gray16:
 		format := pb.Format_FORMAT_PNG
-		outBytes, err := rimage.EncodeImage(ctx, img, utils.MimeTypePNG)
+		outBytes, err := rimage.EncodeImage(ctx, v, utils.MimeTypePNG)
 		if err != nil {
 			return pb.Format_FORMAT_UNSPECIFIED, nil, err
 		}
 		return format, outBytes, nil
 	default:
 		format := pb.Format_FORMAT_JPEG
-		outBytes, err := rimage.EncodeImage(ctx, img, utils.MimeTypeJPEG)
+		outBytes, err := rimage.EncodeImage(ctx, v, utils.MimeTypeJPEG)
 		if err != nil {
 			return pb.Format_FORMAT_UNSPECIFIED, nil, err
 		}
