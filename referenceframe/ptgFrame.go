@@ -92,11 +92,10 @@ func (pf *ptgGridSimFrame) Transform(inputs []Input) (spatialmath.Pose, error) {
 	lastPose := spatialmath.NewZeroPose()
 	for _, trajNode := range traj {
 		// Walk the trajectory until we pass the specified distance
-		if trajNode.Dist < inputs[distanceAlongTrajectoryIndex].Value {
-			lastPose = trajNode.Pose
-		} else {
+		if trajNode.Dist > inputs[distanceAlongTrajectoryIndex].Value {
 			break
 		}
+		lastPose = trajNode.Pose
 	}
 
 	return lastPose, nil
