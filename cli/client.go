@@ -919,7 +919,7 @@ func (c *AppClient) UploadModuleFile(
 	}
 
 	var errs error
-	// We do not add the EOF as an error becase all server-side errors trigger and EOF on the stream
+	// We do not add the EOF as an error because all server-side errors trigger and EOF on the stream
 	// This results in extra clutter to the error msg
 	if err := sendModuleUploadRequests(ctx, stream, file, c.c.App.Writer); err != nil && !errors.Is(err, io.EOF) {
 		errs = multierr.Combine(errs, errors.Wrapf(err, "error uploading %s", file.Name()))
