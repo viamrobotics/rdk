@@ -208,7 +208,7 @@ func UploadModuleCommand(c *cli.Context) error {
 			"Make sure to specify flag and optional arguments before the required positional package argument")
 	}
 	if tarballPath == "" {
-		return errors.New("No package to upload -- please provide a archive containing your module. See the help for more information")
+		return errors.New("No package to upload -- please provide an archive containing your module. See the help for more information")
 	}
 
 	client, err := NewAppClient(c)
@@ -234,8 +234,6 @@ func UploadModuleCommand(c *cli.Context) error {
 		// if we can find a manifest, use that
 		manifest, err := loadManifest(manifestPath)
 		if err != nil {
-			fmt.Fprintf(c.App.ErrWriter, "If you want to upload a version without a %s, "+
-				"you must supply a module name and namespace (or module name and orgid)\n\n", defaultManifestFilename)
 			return err
 		}
 

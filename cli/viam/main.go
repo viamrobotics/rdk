@@ -848,7 +848,7 @@ Next, update your meta.json and use 'viam module update' to push those changes t
 							},
 							&cli.StringFlag{
 								Name:  "public_namespace",
-								Usage: "the public namespace where the module resides (alternative way of specifying the ord id)",
+								Usage: "the public namespace where the module resides (alternative way of specifying the org id)",
 							},
 							&cli.StringFlag{
 								Name:  "org_id",
@@ -860,7 +860,7 @@ Next, update your meta.json and use 'viam module update' to push those changes t
 					{
 						Name:  "upload",
 						Usage: "upload a new version of your module",
-						Description: `Upload a archive containing your module's binary and required files for a specified platform
+						Description: `Upload an archive containing your module's file(s) for a specified platform
 
 Example for linux/amd64:
 tar -czf packaged-module.tar.gz my-binary   # the meta.json entrypoint is relative to the root of the archive, so it should be "./my-binary"
@@ -876,7 +876,7 @@ viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.ta
 							},
 							&cli.StringFlag{
 								Name:  "public_namespace",
-								Usage: "the public namespace where the module resides (alternative way of specifying the ord id)",
+								Usage: "the public namespace where the module resides (alternative way of specifying the org id)",
 							},
 							&cli.StringFlag{
 								Name:  "org_id",
