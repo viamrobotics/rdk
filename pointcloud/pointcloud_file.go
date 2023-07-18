@@ -47,6 +47,12 @@ func NewFromFile(fn string, logger golog.Logger) (PointCloud, error) {
 			return nil, err
 		}
 		return ReadPCD(f)
+	case ".bin":
+		f, err := os.Open(fn)
+		if err != nil {
+			return nil, err
+		}
+		return ReadPCD(f)
 	default:
 		return nil, errors.Errorf("do not know how to read file %q", fn)
 	}
