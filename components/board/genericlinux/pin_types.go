@@ -21,7 +21,7 @@ type GPIOBoardMapping struct {
 
 // BoardInformation details pin definitions and device compatibility for a particular board.
 type BoardInformation struct {
-	PinDefinitions []GenericLinuxPin
+	PinDefinitions []PinDefinition
 	Compats        []string
 }
 
@@ -34,8 +34,8 @@ func (err NoBoardFoundError) Error() string {
 	return fmt.Sprintf("could not determine %q model", err.modelName)
 }
 
-// GenericLinuxPin describes a gpio pin on a linux board.
-type GenericLinuxPin struct {
+// PinDefinition describes a gpio pin on a linux board.
+type PinDefinition struct {
 	Name            string `json:"name"`
 	Ngpio           int    `json:"ngpio"` // this is the ngpio number of the chip the pin is attached to
 	LineNumber      int    `json:"line_number"`
@@ -43,14 +43,14 @@ type GenericLinuxPin struct {
 	PwmID           int    `json:"pwm_id,omitempty"`
 }
 
-// GenericLinuxPins describes a list of pins on a linux board.
-type GenericLinuxPins struct {
-	Pins []GenericLinuxPin `json:"pins"`
+// PinDefinitions describes a list of pins on a linux board.
+type PinDefinitions struct {
+	Pins []PinDefinition `json:"pins"`
 }
 
 // UnmarshalJSON handles setting defaults for pin configs.
-func (conf *GenericLinuxPin) UnmarshalJSON(text []byte) error {
-	type TempPin GenericLinuxPin // needed to prevent infinite recursive calls to UnmarshalJSON
+func (conf *PinDefinition) UnmarshalJSON(text []byte) error {
+	type TempPin PinDefinition // needed to prevent infinite recursive calls to UnmarshalJSON
 	aux := TempPin{
 		Ngpio:      -1,
 		LineNumber: -1,
@@ -59,12 +59,12 @@ func (conf *GenericLinuxPin) UnmarshalJSON(text []byte) error {
 	if err := json.Unmarshal(text, &aux); err != nil {
 		return err
 	}
-	*conf = GenericLinuxPin(aux)
+	*conf = PinDefinition(aux)
 	return nil
 }
 
 // Validate ensures all parts of the config are valid.
-func (conf *GenericLinuxPin) Validate(path string) error {
+func (conf *PinDefinition) Validate(path string) error {
 	if conf.Name == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "name")
 	}

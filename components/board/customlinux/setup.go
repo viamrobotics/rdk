@@ -10,7 +10,7 @@ import (
 )
 
 //lint:ignore U1000 Ignore unused function temporarily
-func parsePinConfig(filePath string) ([]genericlinux.GenericLinuxPin, error) {
+func parsePinConfig(filePath string) ([]genericlinux.PinDefinition, error) {
 	pinData, err := os.ReadFile(filepath.Clean(filePath))
 	if err != nil {
 		return nil, err
@@ -20,8 +20,8 @@ func parsePinConfig(filePath string) ([]genericlinux.GenericLinuxPin, error) {
 }
 
 // filePath passed in for logging purposes.
-func parseRawPinData(pinData []byte, filePath string) ([]genericlinux.GenericLinuxPin, error) {
-	var parsedPinData genericlinux.GenericLinuxPins
+func parseRawPinData(pinData []byte, filePath string) ([]genericlinux.PinDefinition, error) {
+	var parsedPinData genericlinux.PinDefinitions
 	if err := json.Unmarshal(pinData, &parsedPinData); err != nil {
 		return nil, err
 	}

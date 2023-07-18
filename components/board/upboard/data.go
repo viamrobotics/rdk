@@ -8,7 +8,7 @@ const upboard = "up_4000"
 
 var boardInfoMappings = map[string]genericlinux.BoardInformation{
 	upboard: {
-		[]genericlinux.GenericLinuxPin{
+		[]genericlinux.PinDefinition{
 			/*
 				pinout for up4000: https://github.com/up-board/up-community/wiki/Pinout_UP4000
 				GPIOChipRelativeIDs: {ngpio : base-linux_gpio_number}

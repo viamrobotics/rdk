@@ -18,7 +18,7 @@ const (
 )
 
 // TODO [RSDK-3596]: fix ngpio numbers in pin definitions for the jetsonTX1, jetsonNano.
-var claraAGXXavierPins = []genericlinux.GenericLinuxPin{
+var claraAGXXavierPins = []genericlinux.PinDefinition{
 	{Name: "7", Ngpio: 169, LineNumber: 106, PwmChipSysfsDir: "", PwmID: -1},
 	{Name: "11", Ngpio: 169, LineNumber: 112, PwmChipSysfsDir: "", PwmID: -1},
 	{Name: "12", Ngpio: 169, LineNumber: 51, PwmChipSysfsDir: "", PwmID: -1},
@@ -47,7 +47,7 @@ var claraAGXXavierPins = []genericlinux.GenericLinuxPin{
 }
 
 //nolint:dupl // This is not actually a duplicate of jetsonTX2NXPins despite what the linter thinks
-var jetsonNXPins = []genericlinux.GenericLinuxPin{
+var jetsonNXPins = []genericlinux.PinDefinition{
 	{Name: "7", Ngpio: 169, LineNumber: 118, PwmChipSysfsDir: "", PwmID: -1},
 	{Name: "11", Ngpio: 169, LineNumber: 112, PwmChipSysfsDir: "", PwmID: -1},
 	{Name: "12", Ngpio: 169, LineNumber: 127, PwmChipSysfsDir: "", PwmID: -1},
@@ -72,7 +72,7 @@ var jetsonNXPins = []genericlinux.GenericLinuxPin{
 	{Name: "40", Ngpio: 169, LineNumber: 128, PwmChipSysfsDir: "", PwmID: -1},
 }
 
-var jetsonXavierPins = []genericlinux.GenericLinuxPin{
+var jetsonXavierPins = []genericlinux.PinDefinition{
 	{Name: "7", Ngpio: 169, LineNumber: 106, PwmChipSysfsDir: "", PwmID: -1},
 	{Name: "11", Ngpio: 169, LineNumber: 112, PwmChipSysfsDir: "", PwmID: -1},
 	{Name: "12", Ngpio: 169, LineNumber: 51, PwmChipSysfsDir: "", PwmID: -1},
@@ -100,7 +100,7 @@ var jetsonXavierPins = []genericlinux.GenericLinuxPin{
 	{Name: "40", Ngpio: 169, LineNumber: 52, PwmChipSysfsDir: "", PwmID: -1},
 }
 
-var jetsonTX2NXPins = []genericlinux.GenericLinuxPin{
+var jetsonTX2NXPins = []genericlinux.PinDefinition{
 	{Name: "7", Ngpio: 192, LineNumber: 76, PwmChipSysfsDir: "", PwmID: -1},
 	{Name: "11", Ngpio: 64, LineNumber: 28, PwmChipSysfsDir: "", PwmID: -1},
 	{Name: "12", Ngpio: 192, LineNumber: 72, PwmChipSysfsDir: "", PwmID: -1},
@@ -125,7 +125,7 @@ var jetsonTX2NXPins = []genericlinux.GenericLinuxPin{
 	{Name: "40", Ngpio: 192, LineNumber: 73, PwmChipSysfsDir: "", PwmID: -1},
 }
 
-var jetsonTX2Pins = []genericlinux.GenericLinuxPin{
+var jetsonTX2Pins = []genericlinux.PinDefinition{
 	{Name: "7", Ngpio: 192, LineNumber: 76, PwmChipSysfsDir: "", PwmID: -1},
 	// Output-only (due to base board)
 	{Name: "11", Ngpio: 192, LineNumber: 146, PwmChipSysfsDir: "", PwmID: -1},
@@ -155,7 +155,7 @@ var jetsonTX2Pins = []genericlinux.GenericLinuxPin{
 	{Name: "40", Ngpio: 192, LineNumber: 73, PwmChipSysfsDir: "", PwmID: -1},
 }
 
-var jetsonTX1Pins = []genericlinux.GenericLinuxPin{
+var jetsonTX1Pins = []genericlinux.PinDefinition{
 	{Name: "7", Ngpio: -1, LineNumber: 216, PwmChipSysfsDir: "", PwmID: -1},
 	// Output-only (due to base board)
 	{Name: "11", Ngpio: -1, LineNumber: 162, PwmChipSysfsDir: "", PwmID: -1},
@@ -183,7 +183,7 @@ var jetsonTX1Pins = []genericlinux.GenericLinuxPin{
 	{Name: "40", Ngpio: -1, LineNumber: 10, PwmChipSysfsDir: "", PwmID: -1},
 }
 
-var jetsonNanoPins = []genericlinux.GenericLinuxPin{
+var jetsonNanoPins = []genericlinux.PinDefinition{
 	{Name: "7", Ngpio: -1, LineNumber: 216, PwmChipSysfsDir: "", PwmID: -1},
 	{Name: "11", Ngpio: -1, LineNumber: 50, PwmChipSysfsDir: "", PwmID: -1},
 	{Name: "12", Ngpio: -1, LineNumber: 79, PwmChipSysfsDir: "", PwmID: -1},
@@ -215,7 +215,7 @@ var jetsonNanoPins = []genericlinux.GenericLinuxPin{
 // https://github.com/NVIDIA/jetson-gpio/blob/master/lib/python/Jetson/GPIO/gpio_pin_data.py
 // We were unable to find the broadcom channel numbers for these pins, but (as of April
 // 2023) Viam doesn't use those values for anything anyway.
-var jetsonOrinAGXPins = []genericlinux.GenericLinuxPin{
+var jetsonOrinAGXPins = []genericlinux.PinDefinition{
 	{Name: "3", Ngpio: 32, LineNumber: 22, PwmChipSysfsDir: "", PwmID: -1},
 	{Name: "5", Ngpio: 32, LineNumber: 21, PwmChipSysfsDir: "", PwmID: -1},
 	{Name: "7", Ngpio: 164, LineNumber: 106, PwmChipSysfsDir: "", PwmID: -1},
@@ -251,7 +251,7 @@ var jetsonOrinAGXPins = []genericlinux.GenericLinuxPin{
 }
 
 // This pin mapping is used for both the Jetson Orin NX and the Jetson Orin Nano.
-var jetsonOrinNXPins = []genericlinux.GenericLinuxPin{
+var jetsonOrinNXPins = []genericlinux.PinDefinition{
 	{Name: "7", Ngpio: 164, LineNumber: 144, PwmChipSysfsDir: "", PwmID: -1},
 	{Name: "11", Ngpio: 164, LineNumber: 112, PwmChipSysfsDir: "", PwmID: -1},
 	{Name: "12", Ngpio: 164, LineNumber: 50, PwmChipSysfsDir: "", PwmID: -1},

@@ -457,7 +457,7 @@ func (b *sysfsBoard) GPIOPinNames() []string {
 	}
 	names := []string{}
 	for k := range b.gpioMappings {
-		names = append(names, fmt.Sprintf("%d", k))
+		names = append(names, k)
 	}
 	return names
 }
