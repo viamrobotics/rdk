@@ -1,16 +1,26 @@
 import * as THREE from 'three';
 import { injectPlugin, useFrame, useRender, useThrelte } from '@threlte/core';
 import { MercatorCoordinate, type LngLat, LngLatBounds } from 'maplibre-gl';
-import { map, cameraMatrix, mapSize } from './stores';
+import { map, cameraMatrix, mapSize, view } from './stores';
 
 const renderTarget = new THREE.WebGLRenderTarget(0, 0, { format: THREE.RGBAFormat });
 const renderTexture = renderTarget.texture;
 
 const scene = new THREE.Scene();
-scene.add(new THREE.AmbientLight());
-scene.add(new THREE.DirectionalLight());
+const ambient = new THREE.AmbientLight();
+const dir = new THREE.DirectionalLight();
+scene.add(ambient);
 
-const pg = new THREE.PlaneGeometry(2, 2);
+view.subscribe((value) => {
+  if (value === '2D') {
+    ambient.intensity = 2;
+    scene.remove(dir);
+  } else {
+    ambient.intensity = 1;
+    scene.add(dir);
+  }
+});
+
 const material = new THREE.ShaderMaterial({
   transparent: true,
   uniforms: { tex: { value: renderTexture } },
@@ -24,7 +34,10 @@ varying vec2 vUv;
 void main(){ gl_FragColor = texture2D(tex, vUv); }`,
 });
 
-const quad = new THREE.Mesh(pg, material);
+const quad = new THREE.Mesh(
+  new THREE.PlaneGeometry(2, 2),
+  material
+);
 
 const vecPositiveX = new THREE.Vector3(1, 0, 0);
 const vecPositiveY = new THREE.Vector3(0, 1, 0);
