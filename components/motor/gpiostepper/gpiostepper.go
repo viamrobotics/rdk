@@ -264,7 +264,7 @@ func (m *gpioStepper) doCycle(ctx context.Context) (time.Duration, error) {
 // have to be locked to call.
 func (m *gpioStepper) doStep(ctx context.Context, forward bool) error {
 	err := multierr.Combine(
-		m.enable(ctx, true),
+
 		m.dirPin.Set(ctx, forward, nil),
 		m.stepPin.Set(ctx, true, nil))
 	if err != nil {
@@ -297,13 +297,20 @@ func (m *gpioStepper) GoFor(ctx context.Context, rpm, revolutions float64, extra
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
 
-	err := m.goForInternal(ctx, rpm, revolutions)
+	err := m.enable(ctx, true)
 	if err != nil {
-		return errors.Wrapf(err, "error in GoFor from motor (%s)", m.motorName)
+		return errors.Wrapf(err, "error enabling motor in GoFor from motor (%s)", m.motorName)
+	}
+
+	err = m.goForInternal(ctx, rpm, revolutions)
+	if err != nil {
+		return multierr.Combine(
+			m.enable(ctx, false),
+			errors.Wrapf(err, "error in GoFor from motor (%s)", m.motorName))
 	}
 
 	if revolutions == 0 {
-		return nil
+		return m.enable(ctx, false)
 	}
 
 	return m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m, m.Stop)

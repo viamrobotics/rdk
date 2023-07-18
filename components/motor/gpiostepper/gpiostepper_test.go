@@ -392,6 +392,56 @@ func TestRunning(t *testing.T) {
 		test.That(t, p, test.ShouldBeBetween, 0, 100)
 	})
 
+	t.Run("enable pins handled properly during GoFor", func(t *testing.T) {
+		m, err := newGPIOStepper(ctx, &b, goodConfig, c.ResourceName(), logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		ctx := context.Background()
+		var wg sync.WaitGroup
+		ctx, cancel := context.WithCancel(ctx)
+		wg.Add(1)
+		go func() {
+			m.GoFor(ctx, 100, 100, map[string]interface{}{})
+			wg.Done()
+		}()
+
+		// Make sure it starts moving
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			on, _, err := m.IsPowered(ctx, nil)
+			test.That(tb, err, test.ShouldBeNil)
+			test.That(tb, on, test.ShouldEqual, true)
+
+			h, err := pinD.Get(ctx, nil)
+			test.That(tb, err, test.ShouldBeNil)
+			test.That(tb, h, test.ShouldBeTrue)
+
+			l, err := pinE.Get(ctx, nil)
+			test.That(tb, err, test.ShouldBeNil)
+			test.That(tb, l, test.ShouldBeFalse)
+		})
+
+		cancel()
+		wg.Wait()
+
+		// Make sure it stops moving
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			on, _, err := m.IsPowered(ctx, nil)
+			test.That(tb, err, test.ShouldBeNil)
+			test.That(tb, on, test.ShouldEqual, false)
+
+			h, err := pinD.Get(ctx, nil)
+			test.That(tb, err, test.ShouldBeNil)
+			test.That(tb, h, test.ShouldBeFalse)
+
+			l, err := pinE.Get(ctx, nil)
+			test.That(tb, err, test.ShouldBeNil)
+			test.That(tb, l, test.ShouldBeTrue)
+		})
+		test.That(t, ctx.Err(), test.ShouldNotBeNil)
+	})
+
 	t.Run("motor testing with large # of revolutions", func(t *testing.T) {
 		m, err := newGPIOStepper(ctx, &b, goodConfig, c.ResourceName(), logger)
 		s := m.(*gpioStepper)
