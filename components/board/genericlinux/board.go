@@ -7,7 +7,6 @@ package genericlinux
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 	"sync"
 	"time"
