@@ -489,7 +489,7 @@ func (mp *cBiRRTMotionPlanner) smoothPath(
 		jSol := inputSteps[j]
 		shortcutGoal[jSol] = nil
 
-		mp.constrainedExtend(ctx, mp.randseed, shortcutGoal, iSol, jSol, schan)
+		mp.constrainedExtend(ctx, mp.randseed, shortcutGoal, jSol, iSol, schan)
 		reached := <-schan
 
 		// Note this could technically replace paths with "longer" paths i.e. with more waypoints.
@@ -510,6 +510,7 @@ func (mp *cBiRRTMotionPlanner) smoothPath(
 			inputSteps = newInputSteps
 		}
 	}
+	
 	return inputSteps
 }
 
