@@ -27,7 +27,7 @@ func init() {
 				if err != nil {
 					return nil, err
 				}
-				videoSrc := &fileSource{newConf.Color, newConf.Depth, newConf.CameraParameters}
+				videoSrc := &fileSource{newConf.Color, newConf.Depth, newConf.PointCloud, newConf.CameraParameters}
 				imgType := camera.ColorStream
 				if newConf.Color == "" {
 					imgType = camera.DepthStream
@@ -49,9 +49,10 @@ func init() {
 
 // fileSource stores the paths to a color and depth image.
 type fileSource struct {
-	ColorFN    string
-	DepthFN    string
-	Intrinsics *transform.PinholeCameraIntrinsics
+	ColorFN      string
+	DepthFN      string
+	PointCloudFN string
+	Intrinsics   *transform.PinholeCameraIntrinsics
 }
 
 // fileSourceConfig is the attribute struct for fileSource.
@@ -62,6 +63,7 @@ type fileSourceConfig struct {
 	Debug                bool                               `json:"debug,omitempty"`
 	Color                string                             `json:"color_image_file_path,omitempty"`
 	Depth                string                             `json:"depth_image_file_path,omitempty"`
+	PointCloud           string                             `json:"pointcloud_file_path,omitempty"`
 }
 
 // Read returns just the RGB image if it is present, or the depth map if the RGB image is not present.
@@ -76,6 +78,9 @@ func (fs *fileSource) Read(ctx context.Context) (image.Image, func(), error) {
 
 // NextPointCloud returns the point cloud from projecting the rgb and depth image using the intrinsic parameters.
 func (fs *fileSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+	if fs.PointCloudFN != "" {
+		return pointcloud.NewFromFile(fs.PointCloudFN, nil)
+	}
 	if fs.Intrinsics == nil {
 		return nil, transform.NewNoIntrinsicsError("camera intrinsics not found in config")
 	}
