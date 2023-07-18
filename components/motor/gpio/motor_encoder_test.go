@@ -110,8 +110,8 @@ func TestMotorEncoder1(t *testing.T) {
 
 	enc.AttachDirectionalAwareness(&fakeDirectionAware{m: fakeMotor})
 	dirFMotor, err := NewEncodedMotor(resource.Config{}, cfg, fakeMotor, e, logger)
-	defer dirFMotor.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
+	defer dirFMotor.Close(context.Background())
 	motorDep, ok := dirFMotor.(*EncodedMotor)
 	defer motorDep.Close(context.Background())
 	test.That(t, ok, test.ShouldBeTrue)
@@ -668,8 +668,8 @@ func TestWrapMotorWithEncoder(t *testing.T) {
 			fakeMotor,
 			logger,
 		)
-		defer m.Close(context.Background())
 		test.That(t, err, test.ShouldBeNil)
+		defer m.Close(context.Background())
 		_, ok := m.(*EncodedMotor)
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, m.Close(context.Background()), test.ShouldBeNil)
@@ -710,8 +710,8 @@ func TestWrapMotorWithEncoder(t *testing.T) {
 			fakeMotor,
 			logger,
 		)
-		defer m.Close(context.Background())
 		test.That(t, err, test.ShouldBeNil)
+		defer m.Close(context.Background())
 		_, ok := m.(*EncodedMotor)
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, m.Close(context.Background()), test.ShouldBeNil)
@@ -747,11 +747,11 @@ func TestDirFlipMotor(t *testing.T) {
 
 	enc.AttachDirectionalAwareness(&fakeDirectionAware{m: dirflipFakeMotor})
 	dirFMotor, err := NewEncodedMotor(resource.Config{}, cfg, dirflipFakeMotor, e, logger)
-	defer dirFMotor.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
+	defer dirFMotor.Close(context.Background())
 	_dirFMotor, ok := dirFMotor.(*EncodedMotor)
-	defer _dirFMotor.Close(context.Background())
 	test.That(t, ok, test.ShouldBeTrue)
+	defer _dirFMotor.Close(context.Background())
 
 	t.Run("Direction flip RPM + | REV + ", func(t *testing.T) {
 		test.That(t, _dirFMotor.goForInternal(context.Background(), 1000, 1), test.ShouldBeNil)
