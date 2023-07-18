@@ -287,7 +287,7 @@ func (kd *KDTree) Iterate(numBatches, myBatch int, fn func(p r3.Vector, d Data) 
 	})
 }
 
-// Careless iterates over all points in the cloud, but doesn't check if the storage has the same points.
+// CarelessIterate iterates over all points in the cloud, but doesn't check if the storage has the same points.
 func (kd *KDTree) CarelessIterate(numBatches, myBatch int, fn func(p r3.Vector) bool) {
 	kd.Tree.Do(func(c kdtree.Comparable, b *kdtree.Bounding, depth int) bool {
 		p, ok := c.(treeComparableR3Vector)
