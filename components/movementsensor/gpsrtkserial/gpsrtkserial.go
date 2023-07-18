@@ -342,7 +342,6 @@ func (g *rtkSerial) closePort() {
 		err := g.correctionWriter.Close()
 		if err != nil {
 			g.logger.Errorf("Error closing port: %v", err)
-
 		}
 	}
 }
@@ -422,7 +421,7 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 	}
 }
 
-// nolint
+//nolint
 // getNtripConnectionStatus returns true if connection to NTRIP stream is OK, false if not.
 func (g *rtkSerial) getNtripConnectionStatus() (bool, error) {
 	g.ntripMu.Lock()

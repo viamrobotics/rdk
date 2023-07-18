@@ -192,12 +192,11 @@ func newRTKI2C(
 	if err = g.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
-	fmt.Println("out of Reconfigure, checking nmea")
 
 	nmeaConf := &gpsnmea.Config{
 		ConnectionType: i2cStr,
 	}
-	fmt.Println("Init NmeaMovementSensor")
+
 	// Init NMEAMovementSensor
 	if newConf.I2CBaudRate == 0 {
 		newConf.I2CBaudRate = 115200
@@ -447,7 +446,7 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 	}
 }
 
-// nolint
+//nolint
 // getNtripConnectionStatus returns true if connection to NTRIP stream is OK, false if not
 func (g *rtkI2C) getNtripConnectionStatus() (bool, error) {
 	g.ntripMu.Lock()
