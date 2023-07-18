@@ -367,12 +367,11 @@ func TestMotorEncoderIncremental(t *testing.T) {
 			BoardName: "main",
 			Pins:      incremental.Pins{A: "11", B: "13"},
 		}
-		rawcfg := resource.Config{Name: "enc1", ConvertedAttributes: &ic}
 
+		rawcfg := resource.Config{Name: "enc1", ConvertedAttributes: &ic}
 		e, err := incremental.NewIncrementalEncoder(ctx, deps, rawcfg, golog.NewTestLogger(t))
-		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldBeNil)
 		enc := e.(*incremental.Encoder)
-		defer enc.Close(context.Background())
 
 		motorIfc, err := NewEncodedMotor(resource.Config{}, cfg, fakeMotor, enc, logger)
 		test.That(t, err, test.ShouldBeNil)
@@ -399,7 +398,6 @@ func TestMotorEncoderIncremental(t *testing.T) {
 
 	t.Run("motor encoder no motion", func(t *testing.T) {
 		th := setup(t)
-		defer th.Encoder.Close(context.Background())
 		defer th.Teardown()
 
 		enc := th.Encoder
@@ -415,7 +413,6 @@ func TestMotorEncoderIncremental(t *testing.T) {
 
 	t.Run("motor encoder move forward", func(t *testing.T) {
 		th := setup(t)
-		defer th.Encoder.Close(context.Background())
 		defer th.Teardown()
 
 		enc := th.Encoder
@@ -476,7 +473,6 @@ func TestMotorEncoderIncremental(t *testing.T) {
 
 	t.Run("motor encoder move backward", func(t *testing.T) {
 		th := setup(t)
-		defer th.Encoder.Close(context.Background())
 		defer th.Teardown()
 
 		enc := th.Encoder
@@ -581,7 +577,6 @@ func TestMotorEncoderIncremental(t *testing.T) {
 
 	t.Run("motor encoder test GoFor (forward)", func(t *testing.T) {
 		th := setup(t)
-		defer th.Encoder.Close(context.Background())
 		defer th.Teardown()
 		undo := SetRPMSleepDebug(1, false)
 		defer undo()
@@ -619,7 +614,6 @@ func TestMotorEncoderIncremental(t *testing.T) {
 
 	t.Run("motor encoder test GoFor (backwards)", func(t *testing.T) {
 		th := setup(t)
-		defer th.Encoder.Close(context.Background())
 		defer th.Teardown()
 		undo := SetRPMSleepDebug(1, false)
 		defer undo()
