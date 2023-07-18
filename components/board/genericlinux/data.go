@@ -192,18 +192,17 @@ func getBoardMapping(pinDefs []PinDefinition, gpioChipsInfo map[int]string,
 	dummyPwmInfo := pwmChipData{Dir: "", Npwm: -1}
 
 	for _, pinDef := range pinDefs {
-		key := pinDef.Name
 		gpioChipDir, ok := gpioChipsInfo[pinDef.Ngpio]
 		if !ok {
 			return nil, fmt.Errorf("unknown GPIO device for chip with ngpio %d, pin %s",
-				pinDef.Ngpio, key)
+				pinDef.Ngpio, pinDef.Name)
 		}
 
 		pwmChipInfo, ok := pwmChipsInfo[pinDef.PwmChipSysfsDir]
 		if ok {
 			if pinDef.PwmID >= pwmChipInfo.Npwm {
 				return nil, fmt.Errorf("too high PWM ID %d for pin %s (npwm is %d for chip %s)",
-					pinDef.PwmID, key, pwmChipInfo.Npwm, pinDef.PwmChipSysfsDir)
+					pinDef.PwmID, pinDef.Name, pwmChipInfo.Npwm, pinDef.PwmChipSysfsDir)
 			}
 		} else {
 			if pinDef.PwmChipSysfsDir == "" {
@@ -211,12 +210,12 @@ func getBoardMapping(pinDefs []PinDefinition, gpioChipsInfo map[int]string,
 				pwmChipInfo = dummyPwmInfo
 			} else {
 				golog.Global().Errorw(
-					"cannot find expected hardware PWM chip, continuing without it", "pin", key)
+					"cannot find expected hardware PWM chip, continuing without it", "pin", pinDef.Name)
 				pwmChipInfo = dummyPwmInfo
 			}
 		}
 
-		data[key] = GPIOBoardMapping{
+		data[pinDef.Name] = GPIOBoardMapping{
 			GPIOChipDev:    gpioChipDir,
 			GPIO:           pinDef.LineNumber,
 			GPIOName:       pinDef.Name,

@@ -32,7 +32,7 @@ func TestConfigParse(t *testing.T) {
 	data, err := parseRawPinData(validConfig, "path")
 	correctData := make([]genericlinux.PinDefinition, 1)
 	correctData[0] = genericlinux.PinDefinition{
-		Name:       "7", // ngpio: relative id map
+		Name:       "7",
 		Ngpio:      86,
 		LineNumber: 80,
 		PwmID:      -1,

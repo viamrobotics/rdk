@@ -78,7 +78,7 @@ func (conf *PinDefinition) Validate(path string) error {
 	}
 
 	if conf.LineNumber < 0 {
-		return utils.NewConfigValidationError(path, errors.New("line_number on gpio chip must be greater than zero"))
+		return utils.NewConfigValidationError(path, errors.New("line_number on gpio chip must be at least zero"))
 	}
 
 	if conf.LineNumber >= conf.Ngpio {
