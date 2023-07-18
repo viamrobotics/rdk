@@ -7,14 +7,15 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 
 	pb "go.viam.com/rdk/examples/customresources/apis/proto/api/component/gizmo/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/utils/protoutils"
 )
 
+// API is the full API definition.
 var API = resource.APINamespace("acme").WithComponentType("gizmo")
 
 // Named is a helper for getting the named Gizmo's typed resource name.
@@ -43,7 +44,6 @@ func init() {
 			return NewClientFromConn(conn, remoteName, name, logger), nil
 		},
 	})
-
 }
 
 // Gizmo defines the Go interface for the component (should match the protobuf methods.)
@@ -62,6 +62,7 @@ type serviceServer struct {
 	coll resource.APIResourceCollection[Gizmo]
 }
 
+// NewRPCServiceServer returns a new RPC server for the gizmo API.
 func NewRPCServiceServer(coll resource.APIResourceCollection[Gizmo]) interface{} {
 	return &serviceServer{coll: coll}
 }
@@ -188,6 +189,7 @@ func (s *serviceServer) DoCommand(ctx context.Context, req *pb.DoCommandRequest)
 	return &pb.DoCommandResponse{Result: pbResp}, nil
 }
 
+// NewClientFromConn creates a new gizmo RPC client from an existing connection.
 func NewClientFromConn(conn rpc.ClientConn, remoteName string, name resource.Name, logger golog.Logger) Gizmo {
 	sc := newSvcClientFromConn(conn, remoteName, name, logger)
 	return clientFromSvcClient(sc, name.ShortName())

@@ -30,7 +30,6 @@ func uploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient,
 			MethodParameters: md.GetMethodParameters(),
 			FileExtension:    md.GetFileExtension(),
 			Tags:             md.GetTags(),
-			SessionId:        md.GetSessionId(),
 		},
 		SensorContents: sensorData,
 	}

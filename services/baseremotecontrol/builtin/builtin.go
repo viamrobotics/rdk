@@ -32,18 +32,9 @@ const (
 	droneControl
 )
 
-var API = baseremotecontrol.API
-
 func init() {
 	resource.RegisterService(baseremotecontrol.API, resource.DefaultServiceModel, resource.Registration[baseremotecontrol.Service, *Config]{
-		Constructor: func(
-			ctx context.Context,
-			deps resource.Dependencies,
-			conf resource.Config,
-			logger golog.Logger,
-		) (baseremotecontrol.Service, error) {
-			return NewBuiltIn(ctx, deps, conf, logger)
-		},
+		Constructor: NewBuiltIn,
 	})
 }
 
@@ -94,7 +85,7 @@ type builtIn struct {
 	instance                atomic.Int64
 }
 
-// NewDefault returns a new remote control service for the given robot.
+// NewBuiltIn returns a new remote control service for the given robot.
 func NewBuiltIn(
 	ctx context.Context,
 	deps resource.Dependencies,
@@ -219,7 +210,10 @@ func (svc *builtIn) registerCallbacks(ctx context.Context, state *throttleState)
 		// Connect and Disconnect events should both stop the base completely.
 		svc.mu.RLock()
 		defer svc.mu.RUnlock()
-		svc.base.Stop(ctx, map[string]interface{}{})
+		err := svc.base.Stop(ctx, map[string]interface{}{})
+		if err != nil {
+			svc.logger.Error(err)
+		}
 
 		if !updateLastEvent(event) {
 			return
@@ -240,12 +234,23 @@ func (svc *builtIn) registerCallbacks(ctx context.Context, state *throttleState)
 					map[string]interface{}{},
 				)
 			} else {
-				err = svc.inputController.RegisterControlCallback(ctx, control, []input.EventType{input.PositionChangeAbs}, remoteCtl, map[string]interface{}{})
+				err = svc.inputController.RegisterControlCallback(ctx,
+					control,
+					[]input.EventType{input.PositionChangeAbs},
+					remoteCtl,
+					map[string]interface{}{},
+				)
 			}
 			if err != nil {
 				return err
 			}
-			if err := svc.inputController.RegisterControlCallback(ctx, control, []input.EventType{input.Connect, input.Disconnect}, connect, map[string]interface{}{}); err != nil {
+			err = svc.inputController.RegisterControlCallback(ctx,
+				control,
+				[]input.EventType{input.Connect, input.Disconnect},
+				connect,
+				map[string]interface{}{},
+			)
+			if err != nil {
 				return err
 			}
 			return nil
@@ -362,8 +367,7 @@ func (svc *builtIn) eventProcessor() {
 }
 
 func (svc *builtIn) processEvent(ctx context.Context, state *throttleState, event input.Event) {
-
-	// Order of who processes what event is *not* guranteed. It depends on the mutex
+	// Order of who processes what event is *not* guaranteed. It depends on the mutex
 	// fairness mode. Ordering logic must be handled at a higher level in the robot.
 	// Other than that, values overwrite each other.
 	state.mu.Lock()
@@ -422,7 +426,8 @@ func triggerSpeedEvent(event input.Event, speed, angle float64) (float64, float6
 	case input.AbsoluteHat0X, input.AbsoluteHat0Y, input.AbsoluteRX, input.AbsoluteRY, input.AbsoluteY,
 		input.ButtonEStop, input.ButtonEast, input.ButtonLT, input.ButtonLT2, input.ButtonLThumb, input.ButtonMenu,
 		input.ButtonNorth, input.ButtonRT, input.ButtonRT2, input.ButtonRThumb, input.ButtonRecord,
-		input.ButtonSelect, input.ButtonSouth, input.ButtonStart, input.ButtonWest:
+		input.ButtonSelect, input.ButtonSouth, input.ButtonStart, input.ButtonWest, input.AbsolutePedalAccelerator,
+		input.AbsolutePedalBrake, input.AbsolutePedalClutch:
 		fallthrough
 	default:
 	}
@@ -489,7 +494,8 @@ func oneJoyStickEvent(event input.Event, y, x float64) (float64, float64) {
 	case input.AbsoluteHat0X, input.AbsoluteHat0Y, input.AbsoluteRX, input.AbsoluteRY, input.AbsoluteRZ,
 		input.AbsoluteZ, input.ButtonEStop, input.ButtonEast, input.ButtonLT, input.ButtonLT2, input.ButtonLThumb,
 		input.ButtonMenu, input.ButtonNorth, input.ButtonRT, input.ButtonRT2, input.ButtonRThumb,
-		input.ButtonRecord, input.ButtonSelect, input.ButtonSouth, input.ButtonStart, input.ButtonWest:
+		input.ButtonRecord, input.ButtonSelect, input.ButtonSouth, input.ButtonStart, input.ButtonWest, input.AbsolutePedalAccelerator,
+		input.AbsolutePedalBrake, input.AbsolutePedalClutch:
 		fallthrough
 	default:
 	}
@@ -512,7 +518,8 @@ func droneEvent(event input.Event, linear, angular r3.Vector) (r3.Vector, r3.Vec
 	case input.AbsoluteHat0X, input.AbsoluteHat0Y, input.AbsoluteRZ, input.AbsoluteZ, input.ButtonEStop,
 		input.ButtonEast, input.ButtonLT, input.ButtonLT2, input.ButtonLThumb, input.ButtonMenu, input.ButtonNorth,
 		input.ButtonRT, input.ButtonRT2, input.ButtonRThumb, input.ButtonRecord, input.ButtonSelect,
-		input.ButtonSouth, input.ButtonStart, input.ButtonWest:
+		input.ButtonSouth, input.ButtonStart, input.ButtonWest, input.AbsolutePedalAccelerator,
+		input.AbsolutePedalBrake, input.AbsolutePedalClutch:
 		fallthrough
 	default:
 	}
@@ -573,27 +580,4 @@ func (ts *throttleState) init() {
 		input.AbsoluteHat0X: 0.0,
 		input.AbsoluteHat0Y: 0.0,
 	}
-}
-
-func parseEvent(mode controlMode, state *throttleState, event input.Event) (r3.Vector, r3.Vector) {
-	state.mu.Lock()
-	defer state.mu.Unlock()
-
-	newLinear := state.linearThrottle
-	newAngular := state.angularThrottle
-
-	switch mode {
-	case joyStickControl:
-		newLinear.Y, newAngular.Z = oneJoyStickEvent(event, state.linearThrottle.Y, state.angularThrottle.Z)
-	case droneControl:
-		newLinear, newAngular = droneEvent(event, state.linearThrottle, state.angularThrottle)
-	case triggerSpeedControl:
-		newLinear.Y, newAngular.Z = triggerSpeedEvent(event, state.linearThrottle.Y, state.angularThrottle.Z)
-	case buttonControl:
-		newLinear.Y, newAngular.Z, state.buttons = buttonControlEvent(event, state.buttons)
-	case arrowControl:
-		newLinear.Y, newAngular.Z, state.arrows = arrowEvent(event, state.arrows)
-	}
-
-	return newLinear, newAngular
 }

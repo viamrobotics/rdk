@@ -77,10 +77,14 @@ func TestPrismaticFrame(t *testing.T) {
 
 	randomInputs := RandomFrameInputs(frame, nil)
 	test.That(t, len(randomInputs), test.ShouldEqual, len(frame.DoF()))
-	restrictRandomInputs := RestrictedRandomFrameInputs(frame, nil, 0.001)
-	test.That(t, len(restrictRandomInputs), test.ShouldEqual, len(frame.DoF()))
-	test.That(t, restrictRandomInputs[0].Value, test.ShouldBeLessThan, 0.03)
-	test.That(t, restrictRandomInputs[0].Value, test.ShouldBeGreaterThan, -0.03)
+
+	for i := 0; i < 10; i++ {
+		restrictRandomInputs, err := RestrictedRandomFrameInputs(frame, nil, 0.001, FloatsToInputs([]float64{-10}))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(restrictRandomInputs), test.ShouldEqual, len(frame.DoF()))
+		test.That(t, restrictRandomInputs[0].Value, test.ShouldBeLessThan, -9.07)
+		test.That(t, restrictRandomInputs[0].Value, test.ShouldBeGreaterThan, -10.03)
+	}
 }
 
 func TestRevoluteFrame(t *testing.T) {
@@ -160,7 +164,12 @@ func TestSerializationStatic(t *testing.T) {
 	f2, err := f2if.ToStaticFrame("")
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, f.AlmostEquals(f2), test.ShouldBeTrue)
+	test.That(t, f2.Name(), test.ShouldResemble, f.Name())
+	p1, err := f.Transform(nil)
+	test.That(t, err, test.ShouldBeNil)
+	p2, err := f2.Transform(nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, spatial.PoseAlmostEqual(p1, p2), test.ShouldBeTrue)
 }
 
 func TestSerializationTranslation(t *testing.T) {
@@ -177,7 +186,6 @@ func TestSerializationTranslation(t *testing.T) {
 	f2, err := f2Cfg.ToFrame()
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, f.AlmostEquals(f2), test.ShouldBeTrue)
 	test.That(t, f2, test.ShouldResemble, f)
 }
 
@@ -195,7 +203,6 @@ func TestSerializationRotations(t *testing.T) {
 	f2, err := f2Cfg.ToFrame()
 	test.That(t, err, test.ShouldBeNil)
 
-	// ~ test.That(t, f.AlmostEquals(f2), test.ShouldBeTrue)
 	test.That(t, f2, test.ShouldResemble, f)
 }
 
@@ -209,7 +216,9 @@ func TestRandomFrameInputs(t *testing.T) {
 
 	limitedFrame, _ := NewTranslationalFrame("", r3.Vector{X: 1}, Limit{-2, 2})
 	for i := 0; i < 100; i++ {
-		_, err := limitedFrame.Transform(RestrictedRandomFrameInputs(frame, seed, .2))
+		r, err := RestrictedRandomFrameInputs(frame, seed, .2, FloatsToInputs([]float64{0}))
+		test.That(t, err, test.ShouldBeNil)
+		_, err = limitedFrame.Transform(r)
 		test.That(t, err, test.ShouldBeNil)
 	}
 }

@@ -137,7 +137,7 @@ func (r *resultPromise) result(ctx context.Context) ([][]referenceframe.Input, e
 			if planReturn.err() != nil {
 				return nil, planReturn.err()
 			}
-			return planReturn.toInputs(), nil
+			return nodesToInputs(planReturn.steps), nil
 		default:
 		}
 	}

@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"image"
 	"sync"
 	"time"
 
@@ -62,7 +63,7 @@ type TimeInterval struct {
 // cacheEntry stores data that was downloaded from a previous operation but has not yet been passed
 // to the caller.
 type cacheEntry struct {
-	id            string
+	id            *datapb.BinaryID
 	pc            pointcloud.PointCloud
 	timeRequested *timestamppb.Timestamp
 	timeReceived  *timestamppb.Timestamp
@@ -200,7 +201,12 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 	// data in parallel and cache the results
 	replay.cache = make([]*cacheEntry, len(resp.Data))
 	for i, dataResponse := range resp.Data {
-		replay.cache[i] = &cacheEntry{id: dataResponse.GetMetadata().Id}
+		md := dataResponse.GetMetadata()
+		replay.cache[i] = &cacheEntry{id: &datapb.BinaryID{
+			FileId:         md.GetId(),
+			OrganizationId: md.GetCaptureMetadata().GetOrganizationId(),
+			LocationId:     md.GetCaptureMetadata().GetLocationId(),
+		}}
 	}
 
 	ctxTimeout, cancelTimeout := context.WithTimeout(ctx, downloadTimeout)
@@ -227,7 +233,7 @@ func (replay *pcdCamera) downloadBatch(ctx context.Context) {
 
 			var resp *datapb.BinaryDataByIDsResponse
 			resp, data.err = replay.dataClient.BinaryDataByIDs(ctx, &datapb.BinaryDataByIDsRequest{
-				FileIds:       []string{data.id},
+				BinaryIds:     []*datapb.BinaryID{data.id},
 				IncludeBinary: true,
 			})
 			if data.err != nil {
@@ -280,6 +286,11 @@ func addGRPCMetadata(ctx context.Context, timeRequested, timeReceived *timestamp
 	}
 
 	return nil
+}
+
+// Images is a part of the camera interface but is not implemented for replay.
+func (replay *pcdCamera) Images(ctx context.Context) ([]image.Image, time.Time, error) {
+	return nil, time.Time{}, errors.New("Images is unimplemented")
 }
 
 // Properties is a part of the camera interface but is not implemented for replay.

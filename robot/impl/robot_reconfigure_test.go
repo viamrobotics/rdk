@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -16,6 +17,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+	"go.uber.org/zap/zaptest/observer"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
@@ -25,12 +27,14 @@ import (
 	"go.viam.com/rdk/components/arm/fake"
 	"go.viam.com/rdk/components/audioinput"
 	"go.viam.com/rdk/components/base"
+	"go.viam.com/rdk/components/base/wheeled"
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/components/motor"
+	fakemotor "go.viam.com/rdk/components/motor/fake"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/components/servo"
@@ -3493,6 +3497,111 @@ func TestReconfigureRename(t *testing.T) {
 	test.That(t, res2.(*mockFake).createdAt, test.ShouldEqual, 3)
 	test.That(t, res2.(*mockFake).reconfCount, test.ShouldEqual, 0)
 	test.That(t, res2.(*mockFake).closeCount, test.ShouldEqual, 0)
+}
+
+func TestResourceConstructTimeout(t *testing.T) {
+	cfg := &config.Config{}
+	ctx := context.Background()
+	logger, logs := golog.NewObservedTestLogger(t)
+	fakeModel := resource.DefaultModelFamily.WithModel("fake")
+
+	timeOutErrorCount := func() int {
+		return logs.Filter(func(o observer.LoggedEntry) bool {
+			for k, v := range o.ContextMap() {
+				if k == "error" && strings.Contains(fmt.Sprint(v), "timed out during reconfigure") {
+					return true
+				}
+			}
+			return false
+		}).Len()
+	}
+
+	r, err := New(ctx, cfg, logger)
+	defer func() {
+		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+	}()
+	test.That(t, err, test.ShouldBeNil)
+
+	// test no error logging with default config
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		test.That(tb, timeOutErrorCount(), test.ShouldEqual, 0)
+	})
+
+	// create new config with resource that conceivably could time out
+	newCfg := &config.Config{
+		Components: []resource.Config{
+			{
+				Name:  "fakewheel",
+				API:   base.API,
+				Model: wheeled.Model,
+				ConvertedAttributes: &wheeled.Config{
+					Right:                []string{"left", "right"},
+					Left:                 []string{"left", "right"},
+					WheelCircumferenceMM: 1,
+					WidthMM:              2,
+				},
+				DependsOn: []string{"left", "right"},
+			},
+			{
+				Name:                "left",
+				API:                 motor.API,
+				Model:               fakeModel,
+				ConvertedAttributes: &fakemotor.Config{},
+			},
+			{
+				Name:                "right",
+				API:                 motor.API,
+				Model:               fakeModel,
+				ConvertedAttributes: &fakemotor.Config{},
+			},
+		},
+	}
+
+	r.Reconfigure(ctx, newCfg)
+	// test no error logging with default timeout window and wheeled base
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		test.That(tb, timeOutErrorCount(), test.ShouldEqual, 0)
+	})
+
+	// create new cfg with wheeled base modified to trigger Reconfigure, set timeout
+	// to the shortest possible window to ensure timeout
+
+	resourceConfigurationTimeout = time.Nanosecond
+	defer func() { resourceConfigurationTimeout = time.Minute }()
+	newestCfg := &config.Config{
+		Components: []resource.Config{
+			{
+				Name:  "fakewheel",
+				API:   base.API,
+				Model: wheeled.Model,
+				ConvertedAttributes: &wheeled.Config{
+					Right:                []string{"right"},
+					Left:                 []string{"left"},
+					WheelCircumferenceMM: 1,
+					WidthMM:              2,
+				},
+				DependsOn: []string{"left", "right"},
+			},
+			{
+				Name:                "left",
+				API:                 motor.API,
+				Model:               fakeModel,
+				ConvertedAttributes: &fakemotor.Config{},
+			},
+			{
+				Name:                "right",
+				API:                 motor.API,
+				Model:               fakeModel,
+				ConvertedAttributes: &fakemotor.Config{},
+			},
+		},
+	}
+
+	r.Reconfigure(ctx, newestCfg)
+	// test that an error is logged when using arbitrarily short timeout window
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		test.That(tb, timeOutErrorCount(), test.ShouldEqual, 1)
+	})
 }
 
 type mockFake struct {

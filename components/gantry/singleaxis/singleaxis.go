@@ -4,6 +4,7 @@ package singleaxis
 import (
 	"context"
 	"fmt"
+	"math"
 	"sync"
 	"time"
 
@@ -20,6 +21,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	spatial "go.viam.com/rdk/spatialmath"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 var model = resource.DefaultModelFamily.WithModel("single-axis")
@@ -35,7 +37,7 @@ type Config struct {
 	LimitPinEnabled *bool    `json:"limit_pin_enabled_high,omitempty"`
 	LengthMm        float64  `json:"length_mm"`
 	MmPerRevolution float64  `json:"mm_per_rev"`
-	GantryRPM       float64  `json:"gantry_rpm,omitempty"`
+	GantryMmPerSec  float64  `json:"gantry_mm_per_sec,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -120,9 +122,6 @@ func newSingleAxis(ctx context.Context, deps resource.Dependencies, conf resourc
 }
 
 func (g *singleAxis) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-
 	if g.motor != nil {
 		if err := g.motor.Stop(ctx, nil); err != nil {
 			return err
@@ -133,6 +132,9 @@ func (g *singleAxis) Reconfigure(ctx context.Context, deps resource.Dependencies
 		g.cancelFunc()
 		g.activeBackgroundWorkers.Wait()
 	}
+
+	g.mu.Lock()
+	defer g.mu.Unlock()
 
 	needsToReHome := false
 	newConf, err := resource.NativeConfig[*Config](conf)
@@ -153,8 +155,10 @@ func (g *singleAxis) Reconfigure(ctx context.Context, deps resource.Dependencies
 		g.frame = conf.Frame.Translation
 	}
 
-	g.rpm = newConf.GantryRPM
+	rpm := g.gantryToMotorSpeeds(newConf.GantryMmPerSec)
+	g.rpm = rpm
 	if g.rpm == 0 {
+		g.logger.Warn("gantry_mm_per_sec not provided, defaulting to 100 motor rpm")
 		g.rpm = 100
 	}
 
@@ -208,16 +212,33 @@ func (g *singleAxis) Reconfigure(ctx context.Context, deps resource.Dependencies
 	}
 
 	if needsToReHome {
-		if err = g.home(ctx, len(newConf.LimitSwitchPins)); err != nil {
-			g.logger.Error(err)
-		}
+		g.logger.Infof("single-axis gantry '%v' needs to re-home", g.Named.Name().ShortName())
+		g.positionRange = 0
+		g.positionLimits = []float64{0, 0}
 	}
-
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	g.cancelFunc = cancelFunc
 	g.checkHit(ctx)
 
 	return nil
+}
+
+// Home runs the homing sequence of the gantry, starts checkHit in the background, and returns true once completed.
+func (g *singleAxis) Home(ctx context.Context, extra map[string]interface{}) (bool, error) {
+	if g.cancelFunc != nil {
+		g.cancelFunc()
+		g.activeBackgroundWorkers.Wait()
+	}
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	homed, err := g.doHome(ctx)
+	if err != nil {
+		return homed, err
+	}
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	g.cancelFunc = cancelFunc
+	g.checkHit(ctx)
+	return true, nil
 }
 
 func (g *singleAxis) checkHit(ctx context.Context) {
@@ -273,7 +294,13 @@ func (g *singleAxis) moveAway(ctx context.Context, pin int) error {
 	if err := g.motor.GoFor(ctx, dir*g.rpm, 0, nil); err != nil {
 		return err
 	}
+	defer utils.UncheckedErrorFunc(func() error {
+		return g.motor.Stop(ctx, nil)
+	})
 	for {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 		hit, err := g.limitHit(ctx, pin)
 		if err != nil {
 			return err
@@ -287,7 +314,9 @@ func (g *singleAxis) moveAway(ctx context.Context, pin int) error {
 	}
 }
 
-func (g *singleAxis) home(ctx context.Context, np int) error {
+// doHome is a helper function that runs the actual homing sequence.
+func (g *singleAxis) doHome(ctx context.Context) (bool, error) {
+	np := len(g.limitSwitchPins)
 	ctx, done := g.opMgr.New(ctx)
 	defer done()
 
@@ -296,7 +325,7 @@ func (g *singleAxis) home(ctx context.Context, np int) error {
 	// based on the steps per length
 	case 0:
 		if err := g.homeEncoder(ctx); err != nil {
-			return err
+			return false, err
 		}
 	// An axis with one limit switch will go till it hits the limit switch, encode that position as the
 	// zero position of the singleAxis, and adds a second position limit based on the steps per length.
@@ -305,15 +334,15 @@ func (g *singleAxis) home(ctx context.Context, np int) error {
 	// at-length position of the singleAxis.
 	case 1, 2:
 		if err := g.homeLimSwitch(ctx); err != nil {
-			return err
+			return false, err
 		}
 	}
 
-	return nil
+	return true, nil
 }
 
 func (g *singleAxis) homeLimSwitch(ctx context.Context) error {
-	var positionA, positionB, start float64
+	var positionA, positionB float64
 	positionA, err := g.testLimit(ctx, 0)
 	if err != nil {
 		return err
@@ -325,12 +354,10 @@ func (g *singleAxis) homeLimSwitch(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		start = 0.8
 	} else {
 		// Only one limit switch, calculate positionB
 		revPerLength := g.lengthMm / g.mmPerRevolution
 		positionB = positionA + revPerLength
-		start = 0.2
 	}
 
 	g.positionLimits = []float64{positionA, positionB}
@@ -341,8 +368,9 @@ func (g *singleAxis) homeLimSwitch(ctx context.Context) error {
 		g.logger.Debugf("positionA: %0.2f positionB: %0.2f range: %0.2f", positionA, positionB, g.positionRange)
 	}
 
-	// Go to start position so limit stops are not hit.
-	if err = g.goToStart(ctx, start); err != nil {
+	// Go to start position at the middle of the axis.
+	x := g.gantryToMotorPosition(0.5 * g.lengthMm)
+	if err := g.motor.GoTo(ctx, g.rpm, x, nil); err != nil {
 		return err
 	}
 
@@ -366,28 +394,26 @@ func (g *singleAxis) homeEncoder(ctx context.Context) error {
 	return nil
 }
 
-func (g *singleAxis) goToStart(ctx context.Context, percent float64) error {
-	x := g.gantryToMotorPosition(percent * g.lengthMm)
-	if err := g.motor.GoTo(ctx, g.rpm, x, nil); err != nil {
-		return err
-	}
-	return nil
-}
-
 func (g *singleAxis) gantryToMotorPosition(positions float64) float64 {
 	x := positions / g.lengthMm
 	x = g.positionLimits[0] + (x * g.positionRange)
 	return x
 }
 
+func (g *singleAxis) gantryToMotorSpeeds(speeds float64) float64 {
+	r := (speeds / g.mmPerRevolution) * 60
+	return r
+}
+
 func (g *singleAxis) testLimit(ctx context.Context, pin int) (float64, error) {
 	defer utils.UncheckedErrorFunc(func() error {
 		return g.motor.Stop(ctx, nil)
 	})
-
+	wrongPin := 1
 	d := -1.0
 	if pin != 0 {
 		d = 1
+		wrongPin = 0
 	}
 
 	err := g.motor.GoFor(ctx, d*g.rpm, 0, nil)
@@ -407,6 +433,22 @@ func (g *singleAxis) testLimit(ctx context.Context, pin int) (float64, error) {
 				return 0, err
 			}
 			break
+		}
+
+		// check if the wrong limit switch was hit
+		wrongHit, err := g.limitHit(ctx, wrongPin)
+		if err != nil {
+			return 0, err
+		}
+		if wrongHit {
+			err = g.motor.Stop(ctx, nil)
+			if err != nil {
+				return 0, err
+			}
+			return 0, errors.Errorf(
+				"expected limit switch %v but hit limit switch %v, try switching the order in the config",
+				pin,
+				wrongPin)
 		}
 
 		elapsed := start.Sub(start)
@@ -456,41 +498,55 @@ func (g *singleAxis) Lengths(ctx context.Context, extra map[string]interface{}) 
 }
 
 // MoveToPosition moves along an axis using inputs in millimeters.
-func (g *singleAxis) MoveToPosition(ctx context.Context, positions []float64, extra map[string]interface{}) error {
+func (g *singleAxis) MoveToPosition(ctx context.Context, positions, speeds []float64, extra map[string]interface{}) error {
+	if g.positionRange == 0 {
+		return errors.Errorf("cannot move to position until gantry '%v' is homed", g.Named.Name().ShortName())
+	}
 	ctx, done := g.opMgr.New(ctx)
 	defer done()
 
 	if len(positions) != 1 {
-		return fmt.Errorf("MoveToPosition needs 1 position to move, got: %v", len(positions))
+		return fmt.Errorf("single-axis MoveToPosition needs 1 position to move, got: %v", len(positions))
+	}
+
+	if len(speeds) > 1 {
+		return fmt.Errorf("single-axis MoveToPosition needs 1 speed to move, got: %v", len(speeds))
 	}
 
 	if positions[0] < 0 || positions[0] > g.lengthMm {
 		return fmt.Errorf("out of range (%.2f) min: 0 max: %.2f", positions[0], g.lengthMm)
 	}
 
+	if len(speeds) == 0 {
+		speeds = append(speeds, g.rpm)
+		g.logger.Debug("single-axis received invalid speed, using default gantry speed")
+	} else if rdkutils.Float64AlmostEqual(math.Abs(speeds[0]), 0.0, 0.1) {
+		if err := g.motor.Stop(ctx, nil); err != nil {
+			return err
+		}
+		return fmt.Errorf("speed (%.2f) is too slow, stopping gantry", speeds[0])
+	}
+
 	x := g.gantryToMotorPosition(positions[0])
+	r := g.gantryToMotorSpeeds(speeds[0])
 	// Limit switch errors that stop the motors.
 	// Currently needs to be moved by underlying gantry motor.
 	if len(g.limitSwitchPins) > 0 {
 		// Stops if position x is past the 0 limit switch
 		if x <= (g.positionLimits[0] + limitErrorMargin) {
-			g.logger.Debugf("limit: %.2f", g.positionLimits[0]+limitErrorMargin)
-			g.logger.Debugf("position x: %.2f", x)
 			g.logger.Error("Cannot move past limit switch!")
 			return g.motor.Stop(ctx, extra)
 		}
 
 		// Stops if position x is past the at-length limit switch
 		if x >= (g.positionLimits[1] - limitErrorMargin) {
-			g.logger.Debugf("limit: %.2f", g.positionLimits[1]-limitErrorMargin)
-			g.logger.Debugf("position x: %.2f", x)
 			g.logger.Error("Cannot move past limit switch!")
 			return g.motor.Stop(ctx, extra)
 		}
 	}
 
-	g.logger.Debugf("going to %.2f at speed %.2f", x, g.rpm)
-	if err := g.motor.GoTo(ctx, g.rpm, x, extra); err != nil {
+	g.logger.Debugf("going to %.2f at speed %.2f", x, r)
+	if err := g.motor.GoTo(ctx, r, x, extra); err != nil {
 		return err
 	}
 	return nil
@@ -563,5 +619,6 @@ func (g *singleAxis) CurrentInputs(ctx context.Context) ([]referenceframe.Input,
 func (g *singleAxis) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	return g.MoveToPosition(ctx, referenceframe.InputsToFloats(goal), nil)
+	speed := []float64{}
+	return g.MoveToPosition(ctx, referenceframe.InputsToFloats(goal), speed, nil)
 }
