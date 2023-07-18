@@ -17,8 +17,8 @@ import { resourceNameToString, filterSubtype } from '@/lib/resource';
 export let webrtcEnabled: boolean;
 export let host: string;
 export let signalingAddress: string;
-export let bakedAuth: { authEntity?: string; creds?: Credentials; } | undefined = {};
-export let supportedAuthTypes: string[] | undefined = [];
+export let bakedAuth: { authEntity?: string; creds?: Credentials; } = {};
+export let supportedAuthTypes: string[] = [];
 
 const {
   robotClient,
