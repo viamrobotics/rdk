@@ -277,6 +277,7 @@ func TestMoveOnMapLongDistance(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(path), test.ShouldBeGreaterThan, 2)
+	test.That(t, 1, test.ShouldBeGreaterThan, 2)
 }
 
 func TestMoveOnMap(t *testing.T) {
