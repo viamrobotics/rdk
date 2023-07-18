@@ -99,10 +99,11 @@ type rtkI2C struct {
 
 	activeBackgroundWorkers sync.WaitGroup
 
-	mu          sync.Mutex
-	ntripMu     sync.Mutex
-	ntripClient *rtk.NtripInfo
-	ntripStatus bool
+	mu            sync.Mutex
+	ntripMu       sync.Mutex
+	ntripconfigMu sync.Mutex
+	ntripClient   *rtk.NtripInfo
+	ntripStatus   bool
 
 	err          movementsensor.LastError
 	lastposition movementsensor.LastPosition
@@ -148,9 +149,7 @@ func (g *rtkI2C) Reconfigure(ctx context.Context, deps resource.Dependencies, co
 	}
 	g.bus = i2cbus
 
-	g.ntripMu.Lock()
-	defer g.ntripMu.Unlock()
-
+	g.ntripconfigMu.Lock()
 	ntripConfig := &rtk.NtripConfig{
 		NtripURL:             newConf.NtripURL,
 		NtripUser:            newConf.NtripUser,
@@ -159,10 +158,24 @@ func (g *rtkI2C) Reconfigure(ctx context.Context, deps resource.Dependencies, co
 		NtripConnectAttempts: newConf.NtripConnectAttempts,
 	}
 
-	g.ntripClient, err = rtk.NewNtripInfo(ntripConfig, g.logger)
+	// Init ntripInfo from attributes
+	tempNtripClient, err := rtk.NewNtripInfo(ntripConfig, g.logger)
 	if err != nil {
 		return err
 	}
+
+	if g.ntripClient == nil {
+		g.ntripClient = tempNtripClient
+	} else {
+		tempNtripClient.Client = g.ntripClient.Client
+		tempNtripClient.Stream = g.ntripClient.Stream
+
+		g.ntripClient = tempNtripClient
+	}
+
+	g.ntripconfigMu.Unlock()
+
+	g.logger.Debug("done reconfiguring")
 
 	return nil
 }
@@ -446,7 +459,7 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 	}
 }
 
-//nolint
+// nolint
 // getNtripConnectionStatus returns true if connection to NTRIP stream is OK, false if not
 func (g *rtkI2C) getNtripConnectionStatus() (bool, error) {
 	g.ntripMu.Lock()
