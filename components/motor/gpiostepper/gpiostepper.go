@@ -264,7 +264,6 @@ func (m *gpioStepper) doCycle(ctx context.Context) (time.Duration, error) {
 // have to be locked to call.
 func (m *gpioStepper) doStep(ctx context.Context, forward bool) error {
 	err := multierr.Combine(
-
 		m.dirPin.Set(ctx, forward, nil),
 		m.stepPin.Set(ctx, true, nil))
 	if err != nil {
