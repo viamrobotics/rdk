@@ -136,7 +136,7 @@ func ToKDTree(pc PointCloud) *KDTree {
 	return t
 }
 
-// ToBalancedKDTree
+// ToBalancedKDTree creates a balanced KDTree from an input PointCloud.
 func ToBalancedKDTree(pc PointCloud) *KDTree {
 	kd, ok := pc.(*KDTree)
 	if ok {
@@ -287,7 +287,7 @@ func (kd *KDTree) Iterate(numBatches, myBatch int, fn func(p r3.Vector, d Data) 
 	})
 }
 
-// Iterate iterates over all points in the cloud.
+// Careless iterates over all points in the cloud, but doesn't check if the storage has the same points.
 func (kd *KDTree) CarelessIterate(numBatches, myBatch int, fn func(p r3.Vector) bool) {
 	kd.Tree.Do(func(c kdtree.Comparable, b *kdtree.Bounding, depth int) bool {
 		p, ok := c.(treeComparableR3Vector)

@@ -78,7 +78,7 @@ func SegmentPlane(ctx context.Context, cloud pc.PointCloud, nIterations int, thr
 	if cloud.Size() <= 3 { // if point cloud does not have even 3 points, return original cloud with no planes
 		return pc.NewEmptyPlane(), cloud, nil
 	}
-	//nolint:gosec
+
 	var mu sync.Mutex
 
 	pts := GetPointCloudPositions(cloud)
@@ -91,6 +91,7 @@ func SegmentPlane(ctx context.Context, cloud pc.PointCloud, nIterations int, thr
 	numThreads := 5
 	for i := 0; i < numThreads; i++ {
 		wg.Add(1)
+		// r := rand.Int(rand.Reader, big.NewInt(x int64))
 		r := rand.New(rand.NewSource(time.Now().UnixNano()))
 		go func() {
 			defer wg.Done()

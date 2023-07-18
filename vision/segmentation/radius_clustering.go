@@ -7,14 +7,13 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
+	"gonum.org/v1/gonum/spatial/kdtree"
 
 	"go.viam.com/rdk/components/camera"
 	pc "go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
-
-	"gonum.org/v1/gonum/spatial/kdtree"
 )
 
 // RadiusClusteringConfig specifies the necessary parameters for 3D object finding.
