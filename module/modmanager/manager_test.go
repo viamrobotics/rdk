@@ -65,7 +65,7 @@ func TestModManagerFunctions(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, mod.conn, test.ShouldEqual, oldConn)
 
-	err = mod.checkReady(ctx, parentAddr)
+	err = mod.checkReady(ctx, parentAddr, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	mod.registerResources(mgr, logger)
@@ -465,15 +465,20 @@ func TestModuleReloading(t *testing.T) {
 
 		modCfg.ExePath = rutils.ResolveFile("module/testmodule/fakemodule.sh")
 
-		// Lower global timeout early to avoid race with actual restart code, and
-		// lower readyTimeout to avoid waiting for 30 seconds for manager.Add to
-		// time out waiting for module to start listening.
-		defer func(oriOrigVal, rtOrigVal time.Duration) {
+		// Lower global timeout early to avoid race with actual restart code.
+		defer func(oriOrigVal time.Duration) {
 			oueRestartInterval = oriOrigVal
-			readyTimeout = rtOrigVal
-		}(oueRestartInterval, readyTimeout)
+		}(oueRestartInterval)
 		oueRestartInterval = 10 * time.Millisecond
-		readyTimeout = 1 * time.Second
+
+		// Lower resource configuration timeout to avoid waiting for 30 seconds
+		// for manager.Add to time out waiting for module to start listening.
+		defer func() {
+			test.That(t, os.Unsetenv(rutils.ResourceConfigurationTimeoutEnvVar),
+				test.ShouldBeNil)
+		}()
+		test.That(t, os.Setenv(rutils.ResourceConfigurationTimeoutEnvVar, "10ms"),
+			test.ShouldBeNil)
 
 		// This test neither uses a resource manager nor asserts anything about
 		// the existence of resources in the graph. Use a dummy

@@ -36,7 +36,6 @@ import (
 
 var (
 	validateConfigTimeout       = 5 * time.Second
-	readyTimeout                = 30 * time.Second
 	errMessageExitStatus143     = "exit status 143"
 	logLevelArgumentTemplate    = "--log-level=%s"
 	errModularResourcesDisabled = errors.New("modular resources disabled in untrusted environment")
@@ -150,7 +149,7 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, conn *grpc.Clie
 		return errors.WithMessage(err, "error while dialing module "+mod.name)
 	}
 
-	if err := mod.checkReady(ctx, mgr.parentAddr); err != nil {
+	if err := mod.checkReady(ctx, mgr.parentAddr, mgr.logger); err != nil {
 		return errors.WithMessage(err, "error while waiting for module to be ready "+mod.name)
 	}
 
@@ -597,7 +596,7 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 		return orphanedResourceNames
 	}
 
-	if err := mod.checkReady(ctx, mgr.parentAddr); err != nil {
+	if err := mod.checkReady(ctx, mgr.parentAddr, mgr.logger); err != nil {
 		mgr.logger.Errorw("error while waiting for restarted module to be ready",
 			"module", mod.name, "error", err)
 		return orphanedResourceNames
@@ -634,8 +633,10 @@ func (m *module) dial(conn *grpc.ClientConn) error {
 	return nil
 }
 
-func (m *module) checkReady(ctx context.Context, parentAddr string) error {
-	ctxTimeout, cancelFunc := context.WithTimeout(ctx, readyTimeout)
+func (m *module) checkReady(ctx context.Context, parentAddr string,
+	logger golog.Logger,
+) error {
+	ctxTimeout, cancelFunc := context.WithTimeout(ctx, rutils.GetResourceConfigurationTimeout(logger))
 	defer cancelFunc()
 
 	for {
@@ -686,7 +687,7 @@ func (m *module) startProcess(
 		return errors.WithMessage(err, "module startup failed")
 	}
 
-	ctxTimeout, cancel := context.WithTimeout(ctx, readyTimeout)
+	ctxTimeout, cancel := context.WithTimeout(ctx, rutils.GetResourceConfigurationTimeout(logger))
 	defer cancel()
 	for {
 		select {
