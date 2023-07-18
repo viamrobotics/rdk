@@ -67,8 +67,7 @@ type Encoder struct {
 
 	positionType encoder.PositionType
 	logger       golog.Logger
-	// TODO(RSDK-2672): This is exposed for tests and should be unexported with
-	// the constructor being used instead.
+
 	cancelCtx               context.Context
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup

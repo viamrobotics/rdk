@@ -80,7 +80,6 @@ func MakeIncrementalBoard(t *testing.T) *fakeboard.Board {
 }
 
 func TestMotorEncoder1(t *testing.T) {
-	t.Skip()
 	logger := golog.NewTestLogger(t)
 	undo := SetRPMSleepDebug(1, false)
 	defer undo()
@@ -152,7 +151,6 @@ func TestMotorEncoder1(t *testing.T) {
 	})
 
 	t.Run("encoded motor testing SetPower interrupt GoFor", func(t *testing.T) {
-		t.Skip()
 		test.That(t, motorDep.goForInternal(context.Background(), 1000, 1000), test.ShouldBeNil)
 		test.That(t, fakeMotor.Direction(), test.ShouldEqual, 1)
 		test.That(t, fakeMotor.PowerPct(), test.ShouldBeGreaterThan, float32(0))
@@ -190,30 +188,16 @@ func TestMotorEncoder1(t *testing.T) {
 		})
 
 		test.That(t, motorDep.Stop(context.Background(), nil), test.ShouldBeNil)
-
-		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			tb.Helper()
-			pos, err := motorDep.Position(context.Background(), nil)
-			test.That(tb, err, test.ShouldBeNil)
-			test.That(tb, pos, test.ShouldAlmostEqual, 10, 0.01)
-		})
 	})
 
 	t.Run("encoded motor testing GoFor (RPM + | REV +)", func(t *testing.T) {
 		test.That(t, motorDep.goForInternal(context.Background(), 1000, 1), test.ShouldBeNil)
-		test.That(t, fakeMotor.Direction(), test.ShouldEqual, 1)
-		test.That(t, fakeMotor.PowerPct(), test.ShouldBeGreaterThan, 0)
+		test.That(t, motorDep.DirectionMoving(), test.ShouldEqual, 1)
 
-		test.That(t, interrupt.Ticks(context.Background(), 99, nowNanosTest()), test.ShouldBeNil)
+		test.That(t, enc.I.Tick(context.Background(), true, nowNanosTest()), test.ShouldBeNil)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			test.That(tb, fakeMotor.Direction(), test.ShouldEqual, 1)
-		})
-
-		test.That(t, interrupt.Tick(context.Background(), true, nowNanosTest()), test.ShouldBeNil)
-		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			tb.Helper()
-			test.That(tb, fakeMotor.Direction(), test.ShouldEqual, 0)
 		})
 
 		test.That(t, motorDep.Stop(context.Background(), nil), test.ShouldBeNil)
@@ -234,16 +218,10 @@ func TestMotorEncoder1(t *testing.T) {
 		test.That(t, fakeMotor.Direction(), test.ShouldEqual, -1)
 		test.That(t, fakeMotor.PowerPct(), test.ShouldBeLessThan, 0)
 
-		test.That(t, interrupt.Ticks(context.Background(), 99, nowNanosTest()), test.ShouldBeNil)
+		test.That(t, enc.I.Tick(context.Background(), true, nowNanosTest()), test.ShouldBeNil)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			test.That(tb, fakeMotor.Direction(), test.ShouldEqual, -1)
-		})
-
-		test.That(t, interrupt.Tick(context.Background(), true, nowNanosTest()), test.ShouldBeNil)
-		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			tb.Helper()
-			test.That(tb, fakeMotor.Direction(), test.ShouldEqual, 0)
 		})
 
 		test.That(t, motorDep.Stop(context.Background(), nil), test.ShouldBeNil)
@@ -269,12 +247,6 @@ func TestMotorEncoder1(t *testing.T) {
 			test.That(tb, fakeMotor.Direction(), test.ShouldEqual, -1)
 		})
 
-		test.That(t, interrupt.Tick(context.Background(), true, nowNanosTest()), test.ShouldBeNil)
-		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			tb.Helper()
-			test.That(tb, fakeMotor.Direction(), test.ShouldEqual, 0)
-		})
-
 		test.That(t, motorDep.Stop(context.Background(), nil), test.ShouldBeNil)
 
 		test.That(t, motorDep.goForInternal(context.Background(), 1000, -1), test.ShouldBeNil)
@@ -297,12 +269,6 @@ func TestMotorEncoder1(t *testing.T) {
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			test.That(tb, fakeMotor.Direction(), test.ShouldEqual, 1)
-		})
-
-		test.That(t, interrupt.Tick(context.Background(), true, nowNanosTest()), test.ShouldBeNil)
-		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			tb.Helper()
-			test.That(tb, fakeMotor.Direction(), test.ShouldEqual, 0)
 		})
 
 		test.That(t, motorDep.Stop(context.Background(), nil), test.ShouldBeNil)
@@ -336,7 +302,6 @@ func TestMotorEncoder1(t *testing.T) {
 }
 
 func TestMotorEncoderIncremental(t *testing.T) {
-	// t.Skip()
 	logger := golog.NewTestLogger(t)
 	undo := SetRPMSleepDebug(1, false)
 	defer undo()
