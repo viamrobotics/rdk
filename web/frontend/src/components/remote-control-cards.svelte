@@ -27,8 +27,8 @@ import Client from '@/lib/components/robot-client.svelte';
 const { resources, components, services, statuses, sensorNames } = useRobotClient();
 
 export let host: string;
-export let bakedAuth: { authEntity: string; creds: Credentials; } | undefined;
-export let supportedAuthTypes: string[];
+export let bakedAuth: { authEntity: string; creds: Credentials; } | undefined = undefined;
+export let supportedAuthTypes: string[] | undefined = [];
 export let webrtcEnabled: boolean;
 export let signalingAddress: string;
 
