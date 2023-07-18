@@ -48,7 +48,7 @@ func init() {
 			},
 			// NOTE(erd): this would be better as a weak dependencies returned through a more
 			// typed validate or different system.
-			WeakDependencies: []internal.ResourceMatcher{internal.ComponentDependencyWildcardMatcher},
+			WeakDependencies: []internal.ResourceMatcher{internal.ComponentDependencyWildcardMatcher, internal.SLAMDependencyWildcardMatcher},
 		})
 }
 

@@ -803,6 +803,61 @@ func main() {
 					},
 				},
 			},
+			{
+				Name:  "module",
+				Usage: "manage your modules in Viam's registry",
+				Subcommands: []*cli.Command{
+					{
+						Name:  "create",
+						Usage: "create & register a module on app.viam.com",
+						Description: `Creates a module in app.viam.com to simplify code deployment.
+Ex: 'viam module create --name my-great-module --org_id <my org id>'
+Will create the module and a corresponding meta.json file in the current directory. 
+
+If your org has set a namespace in app.viam.com then your module name will be 'my-namespace:my-great-module' and 
+you wont have to pass a namespace or orgid in future commands. Otherwise there we be no namespace
+and you will have to provide the org id to future cli commands and can't make your module public until you claim one.
+
+Next, update your meta.json and use 'viam module update' to push those changes to app.viam.com`,
+						Flags: []cli.Flag{
+							&cli.StringFlag{
+								Name:     "name",
+								Usage:    "name of your module (cannot be changed once set)",
+								Required: true,
+							},
+							&cli.StringFlag{
+								Name:  "public_namespace",
+								Usage: "the public namespace where the module will reside (alternative way of specifying the org id)",
+							},
+							&cli.StringFlag{
+								Name:  "org_id",
+								Usage: "id of the organization that will host the module",
+							},
+						},
+						Action: rdkcli.CreateModuleCommand,
+					},
+					{
+						Name:  "update",
+						Usage: "Update a module's metadata on app.viam.com",
+						Flags: []cli.Flag{
+							&cli.StringFlag{
+								Name:  "public_namespace",
+								Usage: "the public namespace where the module resides (alternative way of specifying the ord id)",
+							},
+							&cli.StringFlag{
+								Name:  "org_id",
+								Usage: "id of the organization that hosts the module",
+							},
+							&cli.StringFlag{
+								Name:        "module",
+								Usage:       "path to meta.json",
+								DefaultText: "./meta.json",
+							},
+						},
+						Action: rdkcli.UpdateModuleCommand,
+					},
+				},
+			},
 		},
 	}
 

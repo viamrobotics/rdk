@@ -5,10 +5,12 @@ import (
 	"context"
 	"errors"
 	"image"
+	"image/color"
 	"image/png"
 	"net"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/viamrobotics/gostream"
@@ -73,6 +75,18 @@ func TestClient(t *testing.T) {
 	}
 	injectCamera.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
 		return projA, nil
+	}
+	injectCamera.ImagesFunc = func(ctx context.Context) ([]image.Image, time.Time, error) {
+		images := []image.Image{}
+		// one color image
+		color := rimage.NewImage(40, 50)
+		images = append(images, color)
+		// one depth image
+		depth := rimage.NewEmptyDepthMap(10, 20)
+		images = append(images, depth)
+		// a timestamp of 12345
+		ts := time.UnixMilli(12345)
+		return images, ts, nil
 	}
 	injectCamera.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
 		return gostream.NewEmbeddedVideoStreamFromReader(gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
@@ -178,6 +192,19 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, propsB.SupportsPCD, test.ShouldBeTrue)
 		test.That(t, propsB.IntrinsicParams, test.ShouldResemble, intrinsics)
+
+		images, ts, err := camera1Client.Images(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, ts, test.ShouldEqual, time.UnixMilli(12345))
+		test.That(t, len(images), test.ShouldEqual, 2)
+		test.That(t, images[0].Bounds().Dx(), test.ShouldEqual, 40)
+		test.That(t, images[0].Bounds().Dy(), test.ShouldEqual, 50)
+		test.That(t, images[0], test.ShouldHaveSameTypeAs, &rimage.LazyEncodedImage{})
+		test.That(t, images[0].ColorModel(), test.ShouldHaveSameTypeAs, color.RGBAModel)
+		test.That(t, images[1].Bounds().Dx(), test.ShouldEqual, 10)
+		test.That(t, images[1].Bounds().Dy(), test.ShouldEqual, 20)
+		test.That(t, images[1], test.ShouldHaveSameTypeAs, &rimage.LazyEncodedImage{})
+		test.That(t, images[1].ColorModel(), test.ShouldHaveSameTypeAs, color.Gray16Model)
 
 		// Do
 		resp, err := camera1Client.DoCommand(context.Background(), testutils.TestCommand)

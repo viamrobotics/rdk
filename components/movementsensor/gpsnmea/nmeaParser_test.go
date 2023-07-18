@@ -1,10 +1,55 @@
 package gpsnmea
 
 import (
+	"math"
 	"testing"
 
 	"go.viam.com/test"
 )
+
+func TestParse2(t *testing.T) {
+	var data GPSData
+	nmeaSentence := "$GBGSV,1,1,01,33,56,045,27,1*40"
+	err := data.ParseAndUpdate(nmeaSentence)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, data.Speed, test.ShouldAlmostEqual, 0)
+	test.That(t, math.IsNaN(data.Location.Lng()), test.ShouldBeTrue)
+	test.That(t, math.IsNaN(data.Location.Lat()), test.ShouldBeTrue)
+
+	nmeaSentence = "$GNGLL,4046.43133,N,07358.90383,W,203755.00,A,A*6B"
+	err = data.ParseAndUpdate(nmeaSentence)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, data.Location.Lat(), test.ShouldAlmostEqual, 40.773855499999996, 0.001)
+	test.That(t, data.Location.Lng(), test.ShouldAlmostEqual, -73.9817305, 0.001)
+
+	nmeaSentence = "$GNRMC,203756.00,A,4046.43152,N,07358.90347,W,0.059,,120723,,,A,V*0D"
+	err = data.ParseAndUpdate(nmeaSentence)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, data.Speed, test.ShouldAlmostEqual, 0.030351959999999997)
+	test.That(t, data.Location.Lat(), test.ShouldAlmostEqual, 40.77385866666667, 0.001)
+	test.That(t, data.Location.Lng(), test.ShouldAlmostEqual, -73.9817245, 0.001)
+
+	nmeaSentence = "$GNVTG,,T,,M,0.059,N,0.108,K,A*38"
+	err = data.ParseAndUpdate(nmeaSentence)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, data.Speed, test.ShouldEqual, 0.03000024)
+
+	nmeaSentence = "$GNGGA,203756.00,4046.43152,N,07358.90347,W,1,05,4.65,141.4,M,-34.4,M,,*7E"
+	err = data.ParseAndUpdate(nmeaSentence)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, data.valid, test.ShouldBeTrue)
+	test.That(t, data.Alt, test.ShouldEqual, 141.4)
+	test.That(t, data.SatsInUse, test.ShouldEqual, 5)
+	test.That(t, data.HDOP, test.ShouldEqual, 4.65)
+	test.That(t, data.Location.Lat(), test.ShouldAlmostEqual, 40.77385866666667, 0.001)
+	test.That(t, data.Location.Lng(), test.ShouldAlmostEqual, -73.9817245, 0.001)
+
+	nmeaSentence = "$GNGSA,A,3,05,23,15,18,,,,,,,,,5.37,4.65,2.69,1*03"
+	err = data.ParseAndUpdate(nmeaSentence)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, data.HDOP, test.ShouldEqual, 4.65)
+	test.That(t, data.VDOP, test.ShouldEqual, 2.69)
+}
 
 func TestParsing(t *testing.T) {
 	var data GPSData

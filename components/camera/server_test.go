@@ -8,6 +8,7 @@ import (
 	"image/png"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/viamrobotics/gostream"
 	pb "go.viam.com/api/component/camera/v1"
@@ -79,6 +80,18 @@ func TestServer(t *testing.T) {
 			SupportsPCD:     true,
 			IntrinsicParams: intrinsics,
 		}, nil
+	}
+	injectCamera.ImagesFunc = func(ctx context.Context) ([]image.Image, time.Time, error) {
+		images := []image.Image{}
+		// one color image
+		color := rimage.NewImage(40, 50)
+		images = append(images, color)
+		// one depth image
+		depth := rimage.NewEmptyDepthMap(10, 20)
+		images = append(images, depth)
+		// a timestamp of 12345
+		ts := time.UnixMilli(12345)
+		return images, ts, nil
 	}
 	injectCamera.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
 		return projA, nil
@@ -362,6 +375,18 @@ func TestServer(t *testing.T) {
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't generate next point cloud")
+	})
+	t.Run("GetImages", func(t *testing.T) {
+		_, err := cameraServer.GetImages(context.Background(), &pb.GetImagesRequest{Name: missingCameraName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+
+		resp, err := cameraServer.GetImages(context.Background(), &pb.GetImagesRequest{Name: testCameraName})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.ResponseMetadata.CapturedAt.AsTime(), test.ShouldEqual, time.UnixMilli(12345))
+		test.That(t, len(resp.Images), test.ShouldEqual, 2)
+		test.That(t, resp.Images[0].Format, test.ShouldEqual, pb.Format_FORMAT_JPEG)
+		test.That(t, resp.Images[1].Format, test.ShouldEqual, pb.Format_FORMAT_RAW_DEPTH)
 	})
 
 	t.Run("GetProperties", func(t *testing.T) {

@@ -294,7 +294,13 @@ func (g *singleAxis) moveAway(ctx context.Context, pin int) error {
 	if err := g.motor.GoFor(ctx, dir*g.rpm, 0, nil); err != nil {
 		return err
 	}
+	defer utils.UncheckedErrorFunc(func() error {
+		return g.motor.Stop(ctx, nil)
+	})
 	for {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 		hit, err := g.limitHit(ctx, pin)
 		if err != nil {
 			return err
@@ -336,7 +342,7 @@ func (g *singleAxis) doHome(ctx context.Context) (bool, error) {
 }
 
 func (g *singleAxis) homeLimSwitch(ctx context.Context) error {
-	var positionA, positionB, start float64
+	var positionA, positionB float64
 	positionA, err := g.testLimit(ctx, 0)
 	if err != nil {
 		return err
@@ -348,12 +354,10 @@ func (g *singleAxis) homeLimSwitch(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		start = 0.8
 	} else {
 		// Only one limit switch, calculate positionB
 		revPerLength := g.lengthMm / g.mmPerRevolution
 		positionB = positionA + revPerLength
-		start = 0.2
 	}
 
 	g.positionLimits = []float64{positionA, positionB}
@@ -364,8 +368,9 @@ func (g *singleAxis) homeLimSwitch(ctx context.Context) error {
 		g.logger.Debugf("positionA: %0.2f positionB: %0.2f range: %0.2f", positionA, positionB, g.positionRange)
 	}
 
-	// Go to start position so limit stops are not hit.
-	if err = g.goToStart(ctx, start); err != nil {
+	// Go to start position at the middle of the axis.
+	x := g.gantryToMotorPosition(0.5 * g.lengthMm)
+	if err := g.motor.GoTo(ctx, g.rpm, x, nil); err != nil {
 		return err
 	}
 
@@ -389,14 +394,6 @@ func (g *singleAxis) homeEncoder(ctx context.Context) error {
 	return nil
 }
 
-func (g *singleAxis) goToStart(ctx context.Context, percent float64) error {
-	x := g.gantryToMotorPosition(percent * g.lengthMm)
-	if err := g.motor.GoTo(ctx, g.rpm, x, nil); err != nil {
-		return err
-	}
-	return nil
-}
-
 func (g *singleAxis) gantryToMotorPosition(positions float64) float64 {
 	x := positions / g.lengthMm
 	x = g.positionLimits[0] + (x * g.positionRange)
@@ -412,10 +409,11 @@ func (g *singleAxis) testLimit(ctx context.Context, pin int) (float64, error) {
 	defer utils.UncheckedErrorFunc(func() error {
 		return g.motor.Stop(ctx, nil)
 	})
-
+	wrongPin := 1
 	d := -1.0
 	if pin != 0 {
 		d = 1
+		wrongPin = 0
 	}
 
 	err := g.motor.GoFor(ctx, d*g.rpm, 0, nil)
@@ -435,6 +433,22 @@ func (g *singleAxis) testLimit(ctx context.Context, pin int) (float64, error) {
 				return 0, err
 			}
 			break
+		}
+
+		// check if the wrong limit switch was hit
+		wrongHit, err := g.limitHit(ctx, wrongPin)
+		if err != nil {
+			return 0, err
+		}
+		if wrongHit {
+			err = g.motor.Stop(ctx, nil)
+			if err != nil {
+				return 0, err
+			}
+			return 0, errors.Errorf(
+				"expected limit switch %v but hit limit switch %v, try switching the order in the config",
+				pin,
+				wrongPin)
 		}
 
 		elapsed := start.Sub(start)
@@ -520,16 +534,12 @@ func (g *singleAxis) MoveToPosition(ctx context.Context, positions, speeds []flo
 	if len(g.limitSwitchPins) > 0 {
 		// Stops if position x is past the 0 limit switch
 		if x <= (g.positionLimits[0] + limitErrorMargin) {
-			g.logger.Debugf("limit: %.2f", g.positionLimits[0]+limitErrorMargin)
-			g.logger.Debugf("position x: %.2f", x)
 			g.logger.Error("Cannot move past limit switch!")
 			return g.motor.Stop(ctx, extra)
 		}
 
 		// Stops if position x is past the at-length limit switch
 		if x >= (g.positionLimits[1] - limitErrorMargin) {
-			g.logger.Debugf("limit: %.2f", g.positionLimits[1]-limitErrorMargin)
-			g.logger.Debugf("position x: %.2f", x)
 			g.logger.Error("Cannot move past limit switch!")
 			return g.motor.Stop(ctx, extra)
 		}
