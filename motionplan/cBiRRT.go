@@ -14,6 +14,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/referenceframe"
+	frame "go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -451,62 +452,58 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 // them, which will cut off randomly-chosen points with odd joint angles into something that is a more intuitive motion.
 func (mp *cBiRRTMotionPlanner) smoothPath(
 	ctx context.Context,
-	inputSteps []node,
+	path []node,
 ) []node {
-	toIter := int(math.Min(float64(len(inputSteps)*len(inputSteps)), float64(mp.planOpts.SmoothIter)))
+	mp.logger.Debugf("running simple smoother on path of len %d", len(path))
+	if mp.planOpts == nil {
+		mp.logger.Debug("nil opts, cannot shortcut")
+		return path
+	}
+	if len(path) <= 2 {
+		mp.logger.Debug("path too short, cannot shortcut")
+		return path
+	}
 
 	schan := make(chan node, 1)
 	defer close(schan)
 
-	for iter := 0; iter < toIter && len(inputSteps) > 4; iter++ {
+	// Randomly pick which quarter of motion to check from; this increases flexibility of smoothing.
+	waypoints := []float64{0.25, 0.5, 0.75}
+
+	for i := 0; i < mp.planOpts.SmoothIter; i++ {
 		select {
 		case <-ctx.Done():
-			mp.logger.Debug("CBiRRT timed out during smoothing, returning best path")
-			return inputSteps
+			return path
 		default:
 		}
-		// Pick two random non-adjacent indices, excepting the ends
+		// get start node of first edge. Cannot be either the last or second-to-last node.
+		// Intn will return an int in the half-open interval half-open interval [0,n)
+		firstEdge := mp.randseed.Intn(len(path) - 2)
+		secondEdge := firstEdge + 1 + mp.randseed.Intn((len(path)-2)-firstEdge)
+		mp.logger.Debugf("checking shortcut between nodes %d and %d", firstEdge, secondEdge+1)
 
-		j := 2 + mp.randseed.Intn(len(inputSteps)-3)
-
-		i := mp.randseed.Intn(j) + 1
-
-		ok, hitCorners := smoothable(inputSteps, i, j)
-		if !ok {
-			continue
-		}
+		wayPoint1 := newConfigurationNode(frame.InterpolateInputs(path[firstEdge].Q(), path[firstEdge+1].Q(), waypoints[mp.randseed.Intn(3)]))
+		wayPoint2 := newConfigurationNode(frame.InterpolateInputs(path[secondEdge].Q(), path[secondEdge+1].Q(), waypoints[mp.randseed.Intn(3)]))
 
 		shortcutGoal := make(map[node]node)
 
-		iSol := inputSteps[i]
-		jSol := inputSteps[j]
-		shortcutGoal[jSol] = nil
-
-		// extend backwards for convenience later. Should work equally well in both directions
-		mp.constrainedExtend(ctx, mp.randseed, shortcutGoal, jSol, iSol, schan)
+		mp.constrainedExtend(ctx, mp.randseed, shortcutGoal, wayPoint2, wayPoint1, schan)
 		reached := <-schan
 
 		// Note this could technically replace paths with "longer" paths i.e. with more waypoints.
 		// However, smoothed paths are invariably more intuitive and smooth, and lend themselves to future shortening,
 		// so we allow elongation here.
-		dist := mp.planOpts.DistanceFunc(&Segment{StartConfiguration: inputSteps[i].Q(), EndConfiguration: reached.Q()})
-		if dist < mp.algOpts.JointSolveDist && len(reached.Q()) < j-i {
-			iSol.SetCorner(true)
-			jSol.SetCorner(true)
-			for _, hitCorner := range hitCorners {
-				hitCorner.SetCorner(false)
-			}
-			newInputSteps := append([]node{}, inputSteps[:i]...)
-			for reached != nil {
-				newInputSteps = append(newInputSteps, reached)
-				reached = shortcutGoal[reached]
-			}
-			newInputSteps = append(newInputSteps, inputSteps[j+1:]...)
-			inputSteps = newInputSteps
+		dist := mp.planOpts.DistanceFunc(&Segment{StartConfiguration: wayPoint1.Q(), EndConfiguration: reached.Q()})
+		if dist < mp.algOpts.JointSolveDist{
+			newpath := []node{}
+			newpath = append(newpath, path[:firstEdge+1]...)
+			newpath = append(newpath, wayPoint1, wayPoint2)
+			// have to split this up due to go compiler quirk where elipses operator can't be mixed with other vars in append
+			newpath = append(newpath, path[secondEdge+1:]...)
+			path = newpath
 		}
 	}
-
-	return inputSteps
+	return path
 }
 
 // Check if there is more than one joint direction change. If not, then not a good candidate for smoothing.
