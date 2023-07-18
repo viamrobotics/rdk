@@ -1,7 +1,7 @@
 <script lang='ts'>
 
 import * as THREE from 'three';
-import { T, useThrelte, useRender } from '@threlte/core';
+import { T, useThrelte } from '@threlte/core';
 import { obstacles, view } from '../stores';
 import Obstacle from './obstacle.svelte';
 
@@ -12,10 +12,6 @@ THREE.Object3D.DEFAULT_MATRIX_WORLD_AUTO_UPDATE = false;
 
 renderer!.autoClear = false;
 
-// useRender(() => {
-//   renderer!.resetState();
-// }, { order: 0 })
-
 // This clips against the map so that intersecting objects will not render over the map
 $: renderer!.clippingPlanes = $view === '3D'
   ? [new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.1)]
@@ -25,14 +21,10 @@ $: flat = $view === '2D'
 
 </script>
 
-<T.PerspectiveCamera
-  makeDefault={true}
-/>
-
-<T.AmbientLight matrixAutoUpdate={true} intensity={flat ? 2 : 1} />
+<T.AmbientLight intensity={flat ? 2 : 1} />
 
 {#if !flat}
-  <T.DirectionalLight matrixAutoUpdate={true} on:create={({ ref }) => { ref.updateMatrixWorld(); }} />
+  <T.DirectionalLight matrixAutoUpdate={true} />
 {/if}
 
 <T.Group

@@ -10,20 +10,14 @@ import RobotMarker from './robot-marker.svelte';
 
 export let name: string;
 
+const minPitch = 0
+const maxPitch = 60
+
 const handleViewSelect = (event: CustomEvent) => {
   $view = event.detail.value
 }
 
-const minPitch = 5
-const maxPitch = 60
-
-const handleDrag = () => {
-  if (!map.current) return
-
-  mapCenter.set(map.current.getCenter())
-}
-
-const handleZoom = () => {
+const handleMove = () => {
   if (!map.current) return
 
   mapCenter.set(map.current.getCenter())
@@ -44,9 +38,8 @@ onMount(() => {
   let nav = new NavigationControl({ showZoom: false });
   mapInstance.addControl(nav, 'top-right');
 
-  mapInstance.on('drag', handleDrag);
-  mapInstance.on('zoom', handleZoom);
-  handleZoom();
+  mapInstance.on('move', handleMove);
+  handleMove();
 
   $map = mapInstance;
 });

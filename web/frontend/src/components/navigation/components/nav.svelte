@@ -9,10 +9,9 @@ import LnglatInput from './lnglat-input.svelte';
 import type { LngLat } from '@/api/navigation';
 import GeometryInputs from './geometry-inputs.svelte';
 import { createObstacle } from '../lib/obstacle';
+import { tab } from '../stores';
 
 export let name: string;
-
-let tab = 'Obstacles'
 
 const { robotClient } = useRobotClient();
 
@@ -30,7 +29,7 @@ const handleRemoveWaypoint = async (id: string) => {
 };
 
 setTimeout(() => {
-  for (let i = 0; i < 1000; i += 1) {
+  for (let i = 0; i < 100; i += 1) {
     const x = (i % 10) / 6500
     const y = ((i / 10) | 0) / 6500
     const name = `Obstacle ${$obstacles.length + 1}`
@@ -53,7 +52,7 @@ const handleDeleteObstacle = (index: number) => {
 }
 
 const handleTabSelect = (event: CustomEvent) => {
-  tab = event.detail.value
+  $tab = event.detail.value
 }
 
 </script>
@@ -61,11 +60,11 @@ const handleTabSelect = (event: CustomEvent) => {
 <nav class='w-80'>
   <v-tabs
     tabs="Obstacles, Waypoints"
-    selected={tab}
+    selected={$tab}
     on:input={handleTabSelect}
   />
-  {#if tab === 'Obstacles'}
-    <ul class='pl-4 max-h-[520px] overflow-y-scroll'>
+  {#if $tab === 'Obstacles'}
+    <ul class='px-4 max-h-[520px] overflow-y-scroll'>
       {#if $obstacles.length === 0}
         <li class='text-xs text-subtle-2 font-sans py-2'>None</li>
       {/if}
@@ -120,7 +119,7 @@ const handleTabSelect = (event: CustomEvent) => {
         {/if}
       {/each}
     </ul>
-  {:else if tab === 'Waypoints'}
+  {:else if $tab === 'Waypoints'}
     <ul class='max-h-[520px] overflow-y-scroll font-mono'>
       {#if $waypoints.length === 0}
         <li class='text-xs text-subtle-2 font-sans py-2'>None</li>

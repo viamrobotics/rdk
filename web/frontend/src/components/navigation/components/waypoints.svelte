@@ -6,7 +6,7 @@ import { notify } from '@viamrobotics/prime';
 import { setWaypoint, getWaypoints } from '@/api/navigation';
 import { setAsyncInterval } from '@/lib/schedule';
 import { useRobotClient, useDisconnect } from '@/hooks/robot-client';
-import { waypoints } from '../stores';
+import { waypoints, tab } from '../stores';
 import MapMarker from './marker.svelte';
 
 export let map: Map;
@@ -44,7 +44,11 @@ updateWaypoints();
 
 useDisconnect(() => clearUpdateWaypointInterval());
 
-map.on('click', handleAddMarker);
+$: if ($tab === 'Waypoints') {
+  map.on('click', handleAddMarker);
+} else {
+  map.off('click', handleAddMarker);
+}
 
 </script>
 
