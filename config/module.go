@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"reflect"
 	"regexp"
 
 	"github.com/pkg/errors"
@@ -25,10 +26,22 @@ type Module struct {
 	// value besides "" or "debug" is used for LogLevel ("log_level" in JSON). In other words, setting a LogLevel
 	// of something like "info" will ignore the debug setting on the server.
 	LogLevel string `json:"log_level"`
+
+	alreadyValidated bool
+	cachedErr        error
 }
 
 // Validate checks if the config is valid.
 func (m *Module) Validate(path string) error {
+	if m.alreadyValidated {
+		return m.cachedErr
+	}
+	m.cachedErr = m.validate(path)
+	m.alreadyValidated = true
+	return m.cachedErr
+}
+
+func (m *Module) validate(path string) error {
 	_, err := os.Stat(m.ExePath)
 	if err != nil {
 		return errors.Wrapf(err, "module %s executable path error", path)
@@ -44,4 +57,14 @@ func (m *Module) Validate(path string) error {
 	}
 
 	return nil
+}
+
+// Equals checks if the two modules are deeply equal to each other.
+func (m Module) Equals(other Module) bool {
+	m.alreadyValidated = false
+	m.cachedErr = nil
+	other.alreadyValidated = false
+	other.cachedErr = nil
+	//nolint:govet
+	return reflect.DeepEqual(m, other)
 }

@@ -446,6 +446,11 @@ func newWithResources(
 	// specified modules.
 	r.manager.startModuleManager(r.webSvc.ModuleAddress(), cfg.UntrustedEnv, logger)
 	for _, mod := range cfg.Modules {
+		// this is done in config validation but partial start rules require us to check again
+		if err := mod.Validate(""); err != nil {
+			r.logger.Errorw("module config validation error; skipping", "module", mod.Name, "error", err)
+			continue
+		}
 		if err := r.manager.moduleManager.Add(ctx, mod); err != nil {
 			r.logger.Errorw("error adding module", "module", mod.Name, "error", err)
 			continue

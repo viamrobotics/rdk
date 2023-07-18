@@ -2112,12 +2112,16 @@ func TestConfigMethod(t *testing.T) {
 	actualCfg.Components = nil
 	expectedCfg.Components = nil
 
-	// Manually inspect remote resource as Equals should be used
+	// Manually inspect remote resource and process as Equals should be used
 	// (alreadyValidated will have been set to true).
 	test.That(t, len(actualCfg.Remotes), test.ShouldEqual, 1)
 	test.That(t, actualCfg.Remotes[0].Equals(expectedCfg.Remotes[0]), test.ShouldBeTrue)
 	actualCfg.Remotes = nil
 	expectedCfg.Remotes = nil
+	test.That(t, len(actualCfg.Processes), test.ShouldEqual, 1)
+	test.That(t, actualCfg.Processes[0].Equals(expectedCfg.Processes[0]), test.ShouldBeTrue)
+	actualCfg.Processes = nil
+	expectedCfg.Processes = nil
 
 	test.That(t, actualCfg, test.ShouldResemble, &expectedCfg)
 }

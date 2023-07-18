@@ -266,10 +266,16 @@ func TestConfigEnsure(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `processes.0`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"id" is required`)
-	invalidProcesses.Processes[0].ID = "bar"
+	invalidProcesses = config.Config{
+		DisablePartialStart: true,
+		Processes:           []pexec.ProcessConfig{{ID: "bar"}},
+	}
 	err = invalidProcesses.Ensure(false, logger)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
-	invalidProcesses.Processes[0].Name = "foo"
+	invalidProcesses = config.Config{
+		DisablePartialStart: true,
+		Processes:           []pexec.ProcessConfig{{ID: "bar", Name: "foo"}},
+	}
 	test.That(t, invalidProcesses.Ensure(false, logger), test.ShouldBeNil)
 
 	invalidNetwork := config.Config{
