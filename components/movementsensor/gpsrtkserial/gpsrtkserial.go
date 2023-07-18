@@ -93,11 +93,12 @@ type rtkSerial struct {
 
 	activeBackgroundWorkers sync.WaitGroup
 
-	mu          sync.Mutex
-	ntripMu     sync.Mutex
-	ntripClient *rtk.NtripInfo
-	ntripStatus bool
-	isClosed    bool
+	mu            sync.Mutex
+	ntripMu       sync.Mutex
+	ntripconfigMu sync.Mutex
+	ntripClient   *rtk.NtripInfo
+	ntripStatus   bool
+	isClosed      bool
 
 	err           movementsensor.LastError
 	lastposition  movementsensor.LastPosition
@@ -115,6 +116,7 @@ type rtkSerial struct {
 func (g *rtkSerial) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
+
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return err
@@ -132,6 +134,34 @@ func (g *rtkSerial) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		g.wbaud = 38400
 		g.logger.Info("serial_baud_rate using default baud rate 38400")
 	}
+
+	g.ntripconfigMu.Lock()
+	ntripConfig := &rtk.NtripConfig{
+		NtripURL:             newConf.NtripURL,
+		NtripUser:            newConf.NtripUser,
+		NtripPass:            newConf.NtripPass,
+		NtripMountpoint:      newConf.NtripMountpoint,
+		NtripConnectAttempts: newConf.NtripConnectAttempts,
+	}
+
+	// Init ntripInfo from attributes
+	tempNtripClient, err := rtk.NewNtripInfo(ntripConfig, g.logger)
+	if err != nil {
+		return err
+	}
+
+	if g.ntripClient == nil {
+		g.ntripClient = tempNtripClient
+	} else {
+		tempNtripClient.Client = g.ntripClient.Client
+		tempNtripClient.Stream = g.ntripClient.Stream
+
+		g.ntripClient = tempNtripClient
+	}
+
+	g.ntripconfigMu.Unlock()
+
+	g.logger.Debug("done reconfiguring")
 
 	return nil
 }
@@ -178,20 +208,6 @@ func newRTKSerial(
 	}
 
 	// Ntrip
-	// users will need to restart server if ntrip attribute are modified.
-	ntripConfig := &rtk.NtripConfig{
-		NtripURL:             newConf.NtripURL,
-		NtripUser:            newConf.NtripUser,
-		NtripPass:            newConf.NtripPass,
-		NtripMountpoint:      newConf.NtripMountpoint,
-		NtripConnectAttempts: newConf.NtripConnectAttempts,
-	}
-
-	// Init ntripInfo from attributes
-	g.ntripClient, err = rtk.NewNtripInfo(ntripConfig, g.logger)
-	if err != nil {
-		return nil, err
-	}
 
 	if err := g.start(); err != nil {
 		return nil, err
@@ -290,6 +306,47 @@ func (g *rtkSerial) getStream(mountPoint string, maxAttempts int) error {
 	return g.err.Get()
 }
 
+// openPort opens the serial port for writing.
+func (g *rtkSerial) openPort() error {
+	options := slib.OpenOptions{
+		PortName:        g.writePath,
+		BaudRate:        uint(g.wbaud),
+		DataBits:        8,
+		StopBits:        1,
+		MinimumReadSize: 1,
+	}
+
+	g.ntripMu.Lock()
+	defer g.ntripMu.Unlock()
+
+	if err := g.cancelCtx.Err(); err != nil {
+		return err
+	}
+
+	var err error
+	g.correctionWriter, err = slib.Open(options)
+	if err != nil {
+		g.logger.Errorf("serial.Open: %v", err)
+		return err
+	}
+
+	return nil
+}
+
+// closePort closes the serial port.
+func (g *rtkSerial) closePort() {
+	g.ntripMu.Lock()
+	defer g.ntripMu.Unlock()
+
+	if g.correctionWriter != nil {
+		err := g.correctionWriter.Close()
+		if err != nil {
+			g.logger.Errorf("Error closing port: %v", err)
+
+		}
+	}
+}
+
 // receiveAndWriteSerial connects to NTRIP receiver and sends correction stream to the MovementSensor through serial.
 func (g *rtkSerial) receiveAndWriteSerial() {
 	defer g.activeBackgroundWorkers.Done()
@@ -306,30 +363,15 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 		g.logger.Infof("caster %s seems to be down", g.ntripClient.URL)
 	}
 
-	options := slib.OpenOptions{
-		PortName:        g.writePath,
-		BaudRate:        uint(g.wbaud),
-		DataBits:        8,
-		StopBits:        1,
-		MinimumReadSize: 1,
-	}
-
-	// Open the port.
-	g.ntripMu.Lock()
-	if err := g.cancelCtx.Err(); err != nil {
-		g.ntripMu.Unlock()
-		return
-	}
-	g.correctionWriter, err = slib.Open(options)
-	g.ntripMu.Unlock()
+	err = g.openPort()
 	if err != nil {
-		g.logger.Errorf("serial.Open: %v", err)
 		g.err.Set(err)
 		return
 	}
 
-	w := bufio.NewWriter(g.correctionWriter)
+	defer g.closePort()
 
+	w := bufio.NewWriter(g.correctionWriter)
 	err = g.getStream(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
 	if err != nil {
 		g.err.Set(err)
