@@ -28,7 +28,7 @@ func TestGPSModels(t *testing.T) {
 			}
 					]
 		}`
-		_, err := config.FromReader(ctx, "", []byte(cfg1), logger)
+		_, err := config.FromBytes(ctx, "", []byte(cfg1), logger)
 		test.That(t, err, test.ShouldBeNil)
 	})
 }

@@ -19,7 +19,7 @@ func TestStoreToCache(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 
-	cfg, err := FromReader(ctx, "", []byte(`{}`), logger)
+	cfg, err := FromBytes(ctx, "", []byte(`{}`), logger)
 
 	test.That(t, err, test.ShouldBeNil)
 

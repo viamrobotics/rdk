@@ -64,7 +64,7 @@ func TestRobotReconfigure(t *testing.T) {
 		logger := golog.NewTestLogger(t)
 		buf, err := envsubst.ReadFile(filePath)
 		test.That(t, err, test.ShouldBeNil)
-		conf, err := config.FromReader(context.Background(), filePath, buf, logger)
+		conf, err := config.FromBytes(context.Background(), filePath, buf, logger)
 		test.That(t, err, test.ShouldBeNil)
 		return conf
 	}

@@ -447,7 +447,7 @@ func Read(
 		return nil, errors.Wrap(err, "could not read the file")
 	}
 
-	return FromReader(ctx, filePath, buf, logger)
+	return FromBytes(ctx, filePath, buf, logger)
 }
 
 // ReadLocalConfig reads a config from the given file but does not fetch any config from the remote servers.
@@ -465,23 +465,21 @@ func ReadLocalConfig(
 		}
 		return nil, errors.Wrap(err, "could not read the file")
 	}
-	return fromReader(ctx, filePath, buf, logger, false)
+	return fromBytes(ctx, filePath, buf, logger, false)
 }
 
-// FromReader reads a config from the given byte stream and specifies
+// FromBytes reads a config from the given byte stream and specifies
 // where, if applicable, the file the reader originated from.
-func FromReader(
+func FromBytes(
 	ctx context.Context,
 	originalPath string,
 	bytes []byte,
 	logger golog.Logger,
 ) (*Config, error) {
-	return fromReader(ctx, originalPath, bytes, logger, true)
+	return fromBytes(ctx, originalPath, bytes, logger, true)
 }
 
-// FromReader reads a config from the given reader and specifies
-// where, if applicable, the file the reader originated from.
-func fromReader(
+func fromBytes(
 	ctx context.Context,
 	originalPath string,
 	bytes []byte,

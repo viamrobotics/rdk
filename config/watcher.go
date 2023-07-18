@@ -147,7 +147,7 @@ func newFSWatcher(ctx context.Context, configPath string, logger golog.Logger) (
 							return
 						}
 						lastRd = rd
-						newConfig, err := FromReader(cancelCtx, configPath, rd, logger)
+						newConfig, err := FromBytes(cancelCtx, configPath, rd, logger)
 						if err != nil {
 							logger.Errorw("error reading config after write", "error", err)
 							return

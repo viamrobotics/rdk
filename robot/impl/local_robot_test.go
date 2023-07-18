@@ -803,7 +803,7 @@ func TestStopAll(t *testing.T) {
 		resource.Deregister(arm.API, model)
 	}()
 
-	cfg, err := config.FromReader(context.Background(), "", []byte(armConfig), logger)
+	cfg, err := config.FromBytes(context.Background(), "", []byte(armConfig), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	ctx := context.Background()
@@ -942,7 +942,7 @@ func TestNewTeardown(t *testing.T) {
     ]
 }
 `, model)
-	cfg, err := config.FromReader(context.Background(), "", []byte(failingConfig), logger)
+	cfg, err := config.FromBytes(context.Background(), "", []byte(failingConfig), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	ctx := context.Background()
