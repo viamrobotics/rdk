@@ -126,6 +126,7 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, conn *grpc.Clie
 		name:      conf.Name,
 		exe:       conf.ExePath,
 		logLevel:  conf.LogLevel,
+		conn:      conn,
 		resources: map[resource.Name]*addedResource{},
 	}
 	mgr.modules[conf.Name] = mod
@@ -144,8 +145,8 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, conn *grpc.Clie
 		}
 	}()
 
-	// dial will re-use conn if it's non-nil (module being added in a Reconfigure).
-	if err := mod.dial(conn); err != nil {
+	// dial will re-use m.conn if it's non-nil (module being added in a Reconfigure).
+	if err := mod.dial(); err != nil {
 		return errors.WithMessage(err, "error while dialing module "+mod.name)
 	}
 
@@ -588,9 +589,9 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 		}
 	}()
 
-	// dial will re-use connection; old connection can still be used when module
+	// dial will re-use m.conn; old connection can still be used when module
 	// crashes.
-	if err := mod.dial(mod.conn); err != nil {
+	if err := mod.dial(); err != nil {
 		mgr.logger.Errorw("error while dialing restarted module",
 			"module", mod.name, "error", err)
 		return orphanedResourceNames
@@ -606,10 +607,9 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 	return nil
 }
 
-// dial will use the passed-in connection to make a new module service client
-// or Dial m.addr if the passed-in connection is nil.
-func (m *module) dial(conn *grpc.ClientConn) error {
-	m.conn = conn
+// dial will use m.conn to make a new module service client or Dial m.addr if
+// m.conn is nil.
+func (m *module) dial() error {
 	if m.conn == nil {
 		// TODO(PRODUCT-343): session support probably means interceptors here
 		var err error
@@ -633,9 +633,7 @@ func (m *module) dial(conn *grpc.ClientConn) error {
 	return nil
 }
 
-func (m *module) checkReady(ctx context.Context, parentAddr string,
-	logger golog.Logger,
-) error {
+func (m *module) checkReady(ctx context.Context, parentAddr string, logger golog.Logger) error {
 	ctxTimeout, cancelFunc := context.WithTimeout(ctx, rutils.GetResourceConfigurationTimeout(logger))
 	defer cancelFunc()
 

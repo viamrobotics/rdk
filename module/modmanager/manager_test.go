@@ -56,12 +56,12 @@ func TestModManagerFunctions(t *testing.T) {
 	err = mod.startProcess(ctx, parentAddr, nil, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	err = mod.dial(nil)
+	err = mod.dial()
 	test.That(t, err, test.ShouldBeNil)
 
 	// check that dial can re-use connections.
 	oldConn := mod.conn
-	err = mod.dial(mod.conn)
+	err = mod.dial()
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, mod.conn, test.ShouldEqual, oldConn)
 
@@ -471,7 +471,7 @@ func TestModuleReloading(t *testing.T) {
 		}(oueRestartInterval)
 		oueRestartInterval = 10 * time.Millisecond
 
-		// Lower resource configuration timeout to avoid waiting for 30 seconds
+		// Lower resource configuration timeout to avoid waiting for 60 seconds
 		// for manager.Add to time out waiting for module to start listening.
 		defer func() {
 			test.That(t, os.Unsetenv(rutils.ResourceConfigurationTimeoutEnvVar),

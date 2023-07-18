@@ -3100,3 +3100,73 @@ func TestResourcelessModuleRemove(t *testing.T) {
 			test.ShouldEqual, 1)
 	})
 }
+
+func TestCrashedModuleReconfigure(t *testing.T) {
+	ctx := context.Background()
+	logger, logs := golog.NewObservedTestLogger(t)
+
+	testPath, err := rtestutils.BuildTempModule(t, "module/testmodule")
+	test.That(t, err, test.ShouldBeNil)
+
+	// Lower resource configuration timeout to avoid waiting for 60 seconds
+	// for manager.Add to time out waiting for module to start listening.
+	defer func() {
+		test.That(t, os.Unsetenv(rutils.ResourceConfigurationTimeoutEnvVar),
+			test.ShouldBeNil)
+	}()
+	test.That(t, os.Setenv(rutils.ResourceConfigurationTimeoutEnvVar, "500ms"),
+		test.ShouldBeNil)
+
+	// Manually define model, as importing it can cause double registration.
+	helperModel := resource.NewModel("rdk", "test", "helper")
+
+	cfg := &config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "mod",
+				ExePath: testPath,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:  "h",
+				Model: helperModel,
+				API:   generic.API,
+			},
+		},
+	}
+	r, err := robotimpl.New(ctx, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+	}()
+
+	_, err = r.ResourceByName(generic.Named("h"))
+	test.That(t, err, test.ShouldBeNil)
+
+	// Reconfigure module to a module that immediately crashes. Assert that "h"
+	// is removed and the manager did not attempt to restart the crashed module.
+	cfg.Modules[0].ExePath = rutils.ResolveFile("module/testmodule/fakemodule.sh")
+	r.Reconfigure(ctx, cfg)
+
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		test.That(tb, logs.FilterMessageSnippet(
+			"module has unexpectedly exited without responding to a ready request").Len(),
+			test.ShouldEqual, 1)
+	})
+
+	_, err = r.ResourceByName(generic.Named("h"))
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeError,
+		resource.NewNotFoundError(generic.Named("h")))
+
+	// Reconfigure module back to testmodule. Assert that 'h' is eventually
+	// added back to the resource manager (the module recovers).
+	cfg.Modules[0].ExePath = testPath
+	r.Reconfigure(ctx, cfg)
+
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		_, err = r.ResourceByName(generic.Named("h"))
+		test.That(tb, err, test.ShouldBeNil)
+	})
+}

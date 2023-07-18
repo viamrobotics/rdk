@@ -8,7 +8,9 @@ import (
 )
 
 const (
-	defaultResourceConfigurationTimeout = time.Minute
+	// DefaultResourceConfigurationTimeout is the default resource configuration
+	// timeout.
+	DefaultResourceConfigurationTimeout = time.Minute
 
 	// ResourceConfigurationTimeoutEnvVar is the environment variable that can
 	// be set to override defaultResourceConfigurationTimeout as the duration
@@ -24,11 +26,11 @@ func GetResourceConfigurationTimeout(logger golog.Logger) time.Duration {
 	if timeoutVal := os.Getenv(ResourceConfigurationTimeoutEnvVar); timeoutVal != "" {
 		timeout, err := time.ParseDuration(timeoutVal)
 		if err != nil {
-			logger.Warn("Failed to parse %s env var, falling back to default 1 minute timeout",
-				ResourceConfigurationTimeoutEnvVar)
-			return defaultResourceConfigurationTimeout
+			logger.Warn("Failed to parse %s env var, falling back to default %v timeout",
+				ResourceConfigurationTimeoutEnvVar, DefaultResourceConfigurationTimeout)
+			return DefaultResourceConfigurationTimeout
 		}
 		return timeout
 	}
-	return defaultResourceConfigurationTimeout
+	return DefaultResourceConfigurationTimeout
 }
