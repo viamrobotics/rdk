@@ -6,8 +6,13 @@ import type { LngLat } from '@/api/navigation';
 
 export let label: string | undefined = undefined
 export let readonly: true | undefined = undefined
-export let lng: number | undefined
-export let lat: number | undefined
+export let lng = 0
+export let lat = 0
+
+const decimalFormat = new Intl.NumberFormat(undefined, { maximumFractionDigits: 6 });
+
+$: lngRounded = decimalFormat.format(lng)
+$: latRounded = decimalFormat.format(lat)
 
 const dispatch = createEventDispatcher<{ input: LngLat }>()
 
@@ -21,19 +26,15 @@ const handleLat = (event: CustomEvent) => {
 
 </script>
 
-<div class='flex flex-wrap gap-1.5 items-end'>
-  {#if label}
-    <p class='w-full m-0 text-xs text-subtle-1'>{label}</p>
-  {/if}
-
+<div class='flex gap-1.5 items-end'>
   <v-input
     type='number'
-    label={label ? '' : 'Longitude'}
+    label={label ?? 'Longitude'}
     placeholder='0'
     incrementor={readonly ? undefined : 'slider'}
-    value={lng}
+    value={lngRounded}
     step={$mapZoom ** 5}
-    class='max-w-[6rem]'
+    class='w-full'
     on:input={handleLng}
     {readonly}
   />
@@ -42,9 +43,9 @@ const handleLat = (event: CustomEvent) => {
     label={label ? '' : 'Latitude'}
     placeholder='0'
     incrementor={readonly ? undefined : 'slider'}
-    value={lat}
+    value={latRounded}
     step={$mapZoom ** 5}
-    class='max-w-[6rem]'
+    class='w-full'
     on:input={handleLat}
     {readonly}
   />

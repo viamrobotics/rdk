@@ -1,12 +1,4 @@
-export type Modes = 'readonly' | 'readWrite'
 export type Views = '2D' | '3D'
-
-export type Mat4 = [
-  number, number, number, number,
-  number, number, number, number,
-  number, number, number, number,
-  number, number, number, number
-]
 
 export interface Translation {
   x: number;
@@ -37,9 +29,10 @@ export interface BoxGeometry {
 export type Geometry = BoxGeometry | SphereGeometry | CapsuleGeometry
 
 export interface Obstacle {
+  name: string;
   location: {
-    latitude: number
-    longitude: number
+    latitude: number;
+    longitude: number;
   },
-  geometries: Geometry[]
+  geometries: Geometry[];
 }

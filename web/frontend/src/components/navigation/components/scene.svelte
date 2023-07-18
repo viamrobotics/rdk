@@ -2,40 +2,19 @@
 
 import * as THREE from 'three';
 import { T, useThrelte, useRender } from '@threlte/core';
-import { type Map } from 'maplibre-gl';
-import { obstacles, view, mapCameraViewProjectionMatrix } from '../stores';
-import { createCameraTransform } from '../utils';
+import { obstacles, view } from '../stores';
 import Obstacle from './obstacle.svelte';
 
-export let map: Map;
+const { renderer } = useThrelte();
 
-const { renderer, scene } = useThrelte();
+THREE.Object3D.DEFAULT_MATRIX_AUTO_UPDATE = false;
+THREE.Object3D.DEFAULT_MATRIX_WORLD_AUTO_UPDATE = false;
 
 renderer!.autoClear = false;
-renderer!.autoClearDepth = false;
 
-let camera: THREE.PerspectiveCamera;
-
-const handleResize = () => {
-  const { width, height } = map.getCanvas();
-  renderer!.setViewport(0, 0, width, height);
-}
-
-map.on('resize', handleResize)
-handleResize();
-
-useRender(() => {
-  const cameraTransform = createCameraTransform(map);
-  camera.projectionMatrix
-    .fromArray(mapCameraViewProjectionMatrix.current)
-    .multiply(cameraTransform);
-
-  renderer!.getContext().disable(renderer!.getContext().SCISSOR_TEST);
-  renderer!.render(scene, camera);
-  renderer!.resetState();
-
-  map.triggerRepaint();
-});
+// useRender(() => {
+//   renderer!.resetState();
+// }, { order: 0 })
 
 // This clips against the map so that intersecting objects will not render over the map
 $: renderer!.clippingPlanes = $view === '3D'
@@ -47,15 +26,13 @@ $: flat = $view === '2D'
 </script>
 
 <T.PerspectiveCamera
-  bind:ref={camera}
   makeDefault={true}
-  matrixAutoUpdate={false}
 />
 
-<T.AmbientLight intensity={flat ? 2 : 1} />
+<T.AmbientLight matrixAutoUpdate={true} intensity={flat ? 2 : 1} />
 
 {#if !flat}
-  <T.DirectionalLight />
+  <T.DirectionalLight matrixAutoUpdate={true} on:create={({ ref }) => { ref.updateMatrixWorld(); }} />
 {/if}
 
 <T.Group
@@ -66,7 +43,9 @@ $: flat = $view === '2D'
     ref.rotateX(-Math.PI / 2);
   }}
 >
-  {#each $obstacles as obstacle}
-    <Obstacle obstacle={obstacle} />
-  {/each}
+  
 </T.Group>
+
+{#each $obstacles as obstacle}
+  <Obstacle obstacle={obstacle} />
+{/each}

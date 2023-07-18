@@ -1,20 +1,21 @@
-import * as THREE from 'three'
+import * as THREE from 'three';
 import { currentWritable } from '@threlte/core';
 import { type JumpToOptions, type FlyToOptions, type Map } from 'maplibre-gl';
-import type { Modes, Views, Obstacle, Mat4 } from './types';
+import type { Views, Obstacle } from './types';
 import type { LngLat, Waypoint } from '@/api/navigation';
 
+export const mode = currentWritable<'draw' | 'navigate'>('navigate');
 export const view = currentWritable<Views>('3D');
-export const mode = currentWritable<Modes>('readonly');
+export const write = currentWritable(false);
 export const mapCenter = currentWritable<LngLat>({ lng: 0, lat: 0 });
-export const mapCameraViewProjectionMatrix = currentWritable<Float32Array | Mat4>(null!);
-export const mapZoom = currentWritable<number>(0);
+export const mapZoom = currentWritable(0);
+export const mapSize = currentWritable({ width: 0, height: 0 });
 export const robotPosition = currentWritable<LngLat | null>(null);
 export const map = currentWritable<Map | null>(null);
 export const obstacles = currentWritable<Obstacle[]>([]);
 export const waypoints = currentWritable<Waypoint[]>([]);
 
-export const mapCamera = new THREE.PerspectiveCamera();
+export const cameraMatrix = new THREE.Matrix4();
 
 export const flyToMap = (value: LngLat, options: FlyToOptions = {}) => {
   mapCenter.set(value);

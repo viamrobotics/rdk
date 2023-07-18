@@ -60,7 +60,7 @@ $: {
 
 <div
   id='navigation-map'
-  class="mb-2 h-[550px] w-full"
+  class="-mr-4 h-[550px] w-full"
 />
 
 <v-radio

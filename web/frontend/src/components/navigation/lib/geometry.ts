@@ -1,6 +1,8 @@
-export const defaultSize = 5000;
+import type { Shapes } from './types';
 
-export const createGeometry = (type: 'box' | 'sphere' | 'capsule') => {
+export const defaultSize = 5;
+
+export const createGeometry = (type: Shapes) => {
   switch (type) {
     case 'box': {
       return {

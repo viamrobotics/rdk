@@ -2,7 +2,7 @@
 
 import VectorInput from './vector-input.svelte'
 import { obstacles } from '../stores';
-    import { createGeometry } from '../lib/geometry';
+import { createGeometry } from '../lib/geometry';
 
 export let index: number
 export let geoIndex: number
@@ -17,7 +17,6 @@ const handleShapeSelect = (event: CustomEvent) => {
 const handleDimensionsInput = (event: CustomEvent<number[]>) => {
   const [x = 0, y = 0, z = 0] = event.detail
   const { type } = $obstacles[index]!.geometries[geoIndex]!
-  console.log(x, y, z)
 
   let dimensions = {}
 
@@ -46,6 +45,7 @@ const handleDimensionsInput = (event: CustomEvent<number[]>) => {
 
 <div class='flex flex-col gap-2 my-2'>
   <v-radio
+    label='Shape'
     options="Box, Sphere, Capsule"
     selected="Box"
     on:input={handleShapeSelect}
@@ -54,19 +54,19 @@ const handleDimensionsInput = (event: CustomEvent<number[]>) => {
   {#if type === 'Box'}
     <VectorInput
       label='Dimensions'
-      labels={['Length', 'Width', 'Height']}
+      labels={['Length (m)', 'Width (m)', 'Height (m)']}
       on:input={handleDimensionsInput}
     />
   {:else if type === 'Capsule'}
     <VectorInput
       label='Dimensions'
-      labels={['Radius', 'Length']}
+      labels={['Radius (m)', 'Length (m)']}
       on:input={handleDimensionsInput}
     />
   {:else if type === 'Sphere'}
     <VectorInput
       label='Dimensions'
-      labels={['Radius']}
+      labels={['Radius (m)']}
       on:input={handleDimensionsInput}
     />
   {/if}

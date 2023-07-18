@@ -3,23 +3,25 @@
 import { type Map } from 'maplibre-gl';
 import { Canvas } from '@threlte/core';
 import Scene from './scene.svelte';
-import { mapCamera, mapCameraViewProjectionMatrix } from '../stores';
-import { injectLngLatPlugin } from '../lnglat-plugin';
+import { cameraMatrix, mapSize } from '../stores';
+import { renderPlugin } from '../render-plugin';
+
+renderPlugin();
 
 export let map: Map;
 
 const canvas = map.getCanvas();
 
 let context: WebGLRenderingContext | undefined;
-let width = 0;
-let height = 0;
 
 const handleResize = () => {
-  width = canvas.clientWidth;
-  height = canvas.clientHeight;
+  mapSize.update((value) => {
+    value.width = canvas.clientWidth;
+    value.height = canvas.clientHeight;
+    return value;
+  })
 };
 
-injectLngLatPlugin();
 handleResize();
 
 map.on('style.load', () => map.addLayer({
@@ -29,9 +31,9 @@ map.on('style.load', () => map.addLayer({
   onAdd (_: Map, newContext: WebGLRenderingContext) {
     context = newContext;
   },
-  render (_ctx, nextViewProjectionMatrix) {
-    mapCamera.projectionMatrix.fromArray(nextViewProjectionMatrix)
-    mapCameraViewProjectionMatrix.set(nextViewProjectionMatrix);
+  render (_ctx, viewProjectionMatrix) {
+    cameraMatrix.fromArray(viewProjectionMatrix);
+    map.triggerRepaint();
   },
 }));
 
@@ -44,9 +46,8 @@ map.on('resize', handleResize);
     rendererParameters={{ canvas, context, alpha: true, antialias: true }}
     useLegacyLights={false}
     shadows={false}
-    size={{ width, height }}
-    frameloop='always'
+    size={mapSize.current}
   >
-    <Scene {map} />
+    <Scene />
   </Canvas>
 {/if}
