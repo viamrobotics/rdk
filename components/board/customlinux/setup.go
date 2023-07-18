@@ -5,13 +5,12 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"strconv"
 
 	"go.viam.com/rdk/components/board/genericlinux"
 )
 
 //lint:ignore U1000 Ignore unused function temporarily
-func parsePinConfig(filePath string) ([]genericlinux.PinDefinition, error) {
+func parsePinConfig(filePath string) ([]genericlinux.GenericLinuxPin, error) {
 	pinData, err := os.ReadFile(filepath.Clean(filePath))
 	if err != nil {
 		return nil, err
@@ -21,33 +20,19 @@ func parsePinConfig(filePath string) ([]genericlinux.PinDefinition, error) {
 }
 
 // filePath passed in for logging purposes.
-func parseRawPinData(pinData []byte, filePath string) ([]genericlinux.PinDefinition, error) {
+func parseRawPinData(pinData []byte, filePath string) ([]genericlinux.GenericLinuxPin, error) {
 	var parsedPinData genericlinux.GenericLinuxPins
 	if err := json.Unmarshal(pinData, &parsedPinData); err != nil {
 		return nil, err
 	}
 
-	pinDefs := make([]genericlinux.PinDefinition, len(parsedPinData.Pins))
-	for i, pin := range parsedPinData.Pins {
+	for _, pin := range parsedPinData.Pins {
 		err := pin.Validate(filePath)
 		if err != nil {
 			return nil, err
 		}
-
-		pinName, err := strconv.Atoi(pin.Name)
-		if err != nil {
-			return nil, err
-		}
-
-		pinDefs[i] = genericlinux.PinDefinition{
-			GPIOChipRelativeIDs: map[int]int{pin.Ngpio: pin.LineNumber}, // ngpio: relative id map
-			PinNumberBoard:      pinName,
-			PWMChipSysFSDir:     pin.PwmChipSysfsDir,
-			PWMID:               pin.PwmID,
-		}
 	}
-
-	return pinDefs, nil
+	return parsedPinData.Pins, nil
 }
 
 // A Config describes the configuration of a board and all of its connected parts.

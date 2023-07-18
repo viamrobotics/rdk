@@ -30,11 +30,12 @@ func TestConfigParse(t *testing.T) {
 
 	validConfig := []byte(`{"pins": [{"name": "7", "ngpio": 86, "line_number": 80}]}`)
 	data, err := parseRawPinData(validConfig, "path")
-	correctData := make([]genericlinux.PinDefinition, 1)
-	correctData[0] = genericlinux.PinDefinition{
-		GPIOChipRelativeIDs: map[int]int{86: 80}, // ngpio: relative id map
-		PinNumberBoard:      7,
-		PWMID:               -1,
+	correctData := make([]genericlinux.GenericLinuxPin, 1)
+	correctData[0] = genericlinux.GenericLinuxPin{
+		Name:       "7", // ngpio: relative id map
+		Ngpio:      86,
+		LineNumber: 80,
+		PwmID:      -1,
 	}
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, data, test.ShouldResemble, correctData)
