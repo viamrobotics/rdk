@@ -243,7 +243,7 @@ func (g *rtkI2C) start() error {
 		g.lastposition.GetLastPosition()
 		return err
 	}
-	g.logger.Info("starting rtk")
+
 	g.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() { g.receiveAndWriteI2C(g.cancelCtx) })
 
