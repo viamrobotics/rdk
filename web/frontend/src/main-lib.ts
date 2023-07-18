@@ -4,7 +4,7 @@ import RemoteControlCards from './components/remote-control-cards.svelte';
 
 export const createRcApp = (target: HTMLElement, props: {
   host: string;
-  bakedAuth?: { authEntity: string; creds: Credentials; } | undefined;
+  bakedAuth?: { authEntity: string; creds: Credentials; };
   supportedAuthTypes?: string[];
   webrtcEnabled: boolean;
   signalingAddress: string
