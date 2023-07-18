@@ -458,59 +458,64 @@ func (mp *cBiRRTMotionPlanner) smoothPath(
 	schan := make(chan node, 1)
 	defer close(schan)
 
-	for iter := 0; iter < toIter && len(inputSteps) > 4; iter++ {
-		select {
-		case <-ctx.Done():
-			return inputSteps
-		default:
-		}
-		// get start node of first edge. Cannot be either the last or second-to-last node.
-		// Intn will return an int in the half-open interval half-open interval [0,n)
-		i := mp.randseed.Intn(len(inputSteps) - 2)
-		j := i + 1
-		passedOneCorner := false
-		var hitCorner node
-		for !passedOneCorner && !inputSteps[j].Corner() && j < len(inputSteps)-1 {
-			j += 1
-			if !passedOneCorner && inputSteps[j].Corner() {
-				passedOneCorner = true
-				hitCorner = inputSteps[j]
+	for numCornersToPass := 2; numCornersToPass > 0; numCornersToPass-- {
+		for iter := 0; iter < toIter/2 && len(inputSteps) > 4; iter++ {
+			select {
+			case <-ctx.Done():
+				return inputSteps
+			default:
 			}
-		}
-		// no corners existed between i and end of inputSteps -> not good candidate for smoothing
-		if !passedOneCorner {
-			continue
-		}
-		mp.logger.Debugf("checking shortcut between nodes %d and %d", i, j)
-
-		shortcutGoal := make(map[node]node)
-
-		iSol := inputSteps[i]
-		jSol := inputSteps[j]
-		shortcutGoal[jSol] = nil
-
-		mp.constrainedExtend(ctx, mp.randseed, shortcutGoal, jSol, iSol, schan)
-		reached := <-schan
-
-		// Note this could technically replace paths with "longer" paths i.e. with more waypoints.
-		// However, smoothed paths are invariably more intuitive and smooth, and lend themselves to future shortening,
-		// so we allow elongation here.
-		dist := mp.planOpts.DistanceFunc(&Segment{StartConfiguration: inputSteps[i].Q(), EndConfiguration: reached.Q()})
-		if dist < mp.algOpts.JointSolveDist {
-			iSol.SetCorner(true)
-			jSol.SetCorner(true)
-			hitCorner.SetCorner(false)
-
-			newInputSteps := append([]node{}, inputSteps[:i]...)
-			for reached != nil {
-				newInputSteps = append(newInputSteps, reached)
-				reached = shortcutGoal[reached]
+			// get start node of first edge. Cannot be either the last or second-to-last node.
+			// Intn will return an int in the half-open interval half-open interval [0,n)
+			i := mp.randseed.Intn(len(inputSteps) - 2)
+			j := i + 1
+			cornersPassed := 0
+			hitCorners := []node{}
+			for (cornersPassed != numCornersToPass || !inputSteps[j].Corner()) && j < len(inputSteps)-1 {
+				j += 1
+				if cornersPassed < numCornersToPass && inputSteps[j].Corner() {
+					cornersPassed += 1
+					hitCorners = append(hitCorners, inputSteps[j])
+				}
 			}
-			newInputSteps = append(newInputSteps, inputSteps[j+1:]...)
-			inputSteps = newInputSteps
+			// no corners existed between i and end of inputSteps -> not good candidate for smoothing
+			if len(hitCorners) == 0 {
+				continue
+			}
+			mp.logger.Debugf("checking shortcut between nodes %d and %d", i, j)
+
+			shortcutGoal := make(map[node]node)
+
+			iSol := inputSteps[i]
+			jSol := inputSteps[j]
+			shortcutGoal[jSol] = nil
+
+			mp.constrainedExtend(ctx, mp.randseed, shortcutGoal, jSol, iSol, schan)
+			reached := <-schan
+
+			// Note this could technically replace paths with "longer" paths i.e. with more waypoints.
+			// However, smoothed paths are invariably more intuitive and smooth, and lend themselves to future shortening,
+			// so we allow elongation here.
+			dist := mp.planOpts.DistanceFunc(&Segment{StartConfiguration: inputSteps[i].Q(), EndConfiguration: reached.Q()})
+			if dist < mp.algOpts.JointSolveDist {
+				// iSol.SetCorner(true)
+				// jSol.SetCorner(true)
+				for _, hitCorner := range hitCorners {
+					hitCorner.SetCorner(false)
+				}
+
+				newInputSteps := append([]node{}, inputSteps[:i]...)
+				for reached != nil {
+					newInputSteps = append(newInputSteps, reached)
+					reached = shortcutGoal[reached]
+				}
+				newInputSteps[i].SetCorner(true)
+				newInputSteps[len(newInputSteps)-1].SetCorner(true)
+				newInputSteps = append(newInputSteps, inputSteps[j+1:]...)
+				inputSteps = newInputSteps
+			}
 		}
 	}
-	
 	return inputSteps
 }
 
