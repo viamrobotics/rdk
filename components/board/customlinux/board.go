@@ -1,6 +1,6 @@
 //go:build linux
 
-// Package customlinux implements a board running linux
+// Package customlinux implements a board running Linux.
 // This is an Experimental package
 package customlinux
 
@@ -21,29 +21,26 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
+const modelName = "customlinux"
+
 func init() {
 	if _, err := host.Init(); err != nil {
 		golog.Global().Debugw("error initializing host", "error", err)
 	}
 
-	RegisterCustomBoard("customlinux")
-}
-
-// customLinuxBoard wraps the genericlinux board type so that both can implement their own Reconfigure function.
-type customLinuxBoard struct {
-	*genericlinux.SysfsBoard
-	mu     sync.RWMutex
-	logger golog.Logger
-}
-
-// RegisterCustomBoard registers a sysfs based board using the pin mappings.
-func RegisterCustomBoard(modelName string) {
 	resource.RegisterComponent(
 		board.API,
 		resource.DefaultModelFamily.WithModel(modelName),
 		resource.Registration[board.Board, *Config]{
 			Constructor: createNewBoard,
 		})
+}
+
+// customLinuxBoard wraps the genericlinux board type so that both can implement their own Reconfigure function.
+type customLinuxBoard struct {
+	*genericlinux.SysfsBoard
+	mu     sync.Mutex
+	logger golog.Logger
 }
 
 func createNewBoard(
@@ -67,22 +64,22 @@ func createNewBoard(
 		return nil, err
 	}
 
-	boardConfig := genericlinux.Config{
-		I2Cs:              newConf.I2Cs,
-		SPIs:              newConf.SPIs,
-		Analogs:           newConf.Analogs,
-		DigitalInterrupts: newConf.DigitalInterrupts,
-	}
-	b, err := genericlinux.NewSysfsBoard(ctx, conf.ResourceName().AsNamed(), &boardConfig, gpioMappings, logger)
+	boardConfig := createGenericLinuxConfig(newConf)
+	sysfsB, err := genericlinux.NewSysfsBoard(ctx, conf.ResourceName().AsNamed(), &boardConfig, gpioMappings, logger)
 	if err != nil {
 		return nil, err
 	}
 
-	gb, ok := b.(*genericlinux.SysfsBoard)
+	gb, ok := sysfsB.(*genericlinux.SysfsBoard)
 	if !ok {
 		return nil, errors.New("error creating board object")
 	}
-	return &customLinuxBoard{SysfsBoard: gb, logger: logger}, nil
+
+	b := customLinuxBoard{SysfsBoard: gb, logger: logger}
+	if err := b.Reconfigure(ctx, nil, conf); err != nil {
+		return nil, err
+	}
+	return &b, nil
 }
 
 func parseBoardConfig(filePath string) ([]genericlinux.PinDefinition, error) {
@@ -118,6 +115,15 @@ func parseBoardConfig(filePath string) ([]genericlinux.PinDefinition, error) {
 	return pinDefs, nil
 }
 
+func createGenericLinuxConfig(conf *Config) genericlinux.Config {
+	return genericlinux.Config{
+		I2Cs:              conf.I2Cs,
+		SPIs:              conf.SPIs,
+		Analogs:           conf.Analogs,
+		DigitalInterrupts: conf.DigitalInterrupts,
+	}
+}
+
 // Reconfigure reconfigures the board with interrupt pins, spi and i2c, and analogs.
 func (b *customLinuxBoard) Reconfigure(
 	ctx context.Context,
@@ -132,12 +138,7 @@ func (b *customLinuxBoard) Reconfigure(
 		return err
 	}
 
-	boardConfig := genericlinux.Config{
-		I2Cs:              newConf.I2Cs,
-		SPIs:              newConf.SPIs,
-		Analogs:           newConf.Analogs,
-		DigitalInterrupts: newConf.DigitalInterrupts,
-	}
+	boardConfig := createGenericLinuxConfig(newConf)
 
 	return b.ReconfigureParsedConfig(ctx, &boardConfig)
 }

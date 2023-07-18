@@ -1,5 +1,5 @@
-## Configuring a custom linux board
-This component supports a board running linux and requires the user to provide a map of gpio pin names to the corresponding gpio chip and line number. The mappings should be provided in a json file in this format:
+## [EXPERIMENTAL] Configuring a custom Linux board
+This component supports a board running Linux and requires the user to provide a map of gpio pin names to the corresponding gpio chip and line number. The mappings should be provided in a json file in this format:
 ```json
 {
   "*pins": [

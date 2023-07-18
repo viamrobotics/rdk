@@ -50,7 +50,16 @@ func newBoard(
 	if err != nil {
 		return nil, err
 	}
-	return NewSysfsBoard(ctx, conf.ResourceName().AsNamed(), newConf, gpioMappings, logger)
+
+	b, err := NewSysfsBoard(ctx, conf.ResourceName().AsNamed(), newConf, gpioMappings, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := b.Reconfigure(ctx, nil, conf); err != nil {
+		return nil, err
+	}
+	return b, nil
 }
 
 // NewSysfsBoard creates a new SysfsBoard.
@@ -79,10 +88,6 @@ func NewSysfsBoard(
 	for pinName, mapping := range gpioMappings {
 		b.gpios[pinName] = b.createGpioPin(mapping)
 	}
-
-	if err := b.ReconfigureParsedConfig(ctx, conf); err != nil {
-		return nil, err
-	}
 	return &b, nil
 }
 
@@ -100,7 +105,8 @@ func (b *SysfsBoard) Reconfigure(
 	return b.ReconfigureParsedConfig(ctx, newConf)
 }
 
-// ReconfigureParsedConfig is a helper for Reconfigure.
+// ReconfigureParsedConfig is a public helper that should only be used
+// by the customlinux package.
 func (b *SysfsBoard) ReconfigureParsedConfig(ctx context.Context, conf *Config) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -515,7 +521,11 @@ func (b *SysfsBoard) ModelAttributes() board.ModelAttributes {
 // SetPowerMode sets the board to the given power mode. If provided,
 // the board will exit the given power mode after the specified
 // duration.
-func (b *SysfsBoard) SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *time.Duration) error {
+func (b *SysfsBoard) SetPowerMode(
+	ctx context.Context,
+	mode pb.PowerMode,
+	duration *time.Duration,
+) error {
 	return grpc.UnimplementedError
 }
 
