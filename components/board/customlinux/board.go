@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"strconv"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -87,32 +86,19 @@ func parseBoardConfig(filePath string) ([]genericlinux.PinDefinition, error) {
 	if err != nil {
 		return nil, err
 	}
-	var parsedPinData GenericLinuxPins
+	var parsedPinData genericlinux.PinDefinitions
 	if err := json.Unmarshal(pinData, &parsedPinData); err != nil {
 		return nil, err
 	}
 
-	pinDefs := make([]genericlinux.PinDefinition, len(parsedPinData.Pins))
-	for i, pin := range parsedPinData.Pins {
+	for _, pin := range parsedPinData.Pins {
 		err = pin.Validate(filePath)
 		if err != nil {
 			return nil, err
 		}
-
-		pinName, err := strconv.Atoi(pin.Name)
-		if err != nil {
-			return nil, err
-		}
-
-		pinDefs[i] = genericlinux.PinDefinition{
-			GPIOChipRelativeIDs: map[int]int{pin.Ngpio: pin.LineNumber}, // ngpio: relative id map
-			PinNumberBoard:      pinName,
-			PWMChipSysFSDir:     pin.PwmChipSysfsDir,
-			PWMID:               pin.PwmID,
-		}
 	}
 
-	return pinDefs, nil
+	return parsedPinData.Pins, nil
 }
 
 func createGenericLinuxConfig(conf *Config) genericlinux.Config {

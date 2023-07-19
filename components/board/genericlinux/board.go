@@ -43,7 +43,7 @@ func RegisterBoard(modelName string, gpioMappings map[string]GPIOBoardMapping) {
 func newBoard(
 	ctx context.Context,
 	conf resource.Config,
-	gpioMappings map[int]GPIOBoardMapping,
+	gpioMappings map[string]GPIOBoardMapping,
 	logger golog.Logger,
 ) (board.Board, error) {
 	newConf, err := resource.NativeConfig[*Config](conf)

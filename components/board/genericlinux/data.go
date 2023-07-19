@@ -39,7 +39,7 @@ func GetGPIOBoardMappings(modelName string, boardInfoMappings map[string]BoardIn
 }
 
 // GetGPIOBoardMappingFromPinDefs attempts to find a compatible board-pin mapping using the pin definitions.
-func GetGPIOBoardMappingFromPinDefs(pinDefs []PinDefinition) (map[int]GPIOBoardMapping, error) {
+func GetGPIOBoardMappingFromPinDefs(pinDefs []PinDefinition) (map[string]GPIOBoardMapping, error) {
 	gpioChipsInfo, err := getGpioChipDefs(pinDefs)
 	if err != nil {
 		return nil, err
