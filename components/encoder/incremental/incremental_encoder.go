@@ -310,10 +310,10 @@ func (e *Encoder) ResetPosition(ctx context.Context, extra map[string]interface{
 }
 
 // Properties returns a list of all the position types that are supported by a given encoder.
-func (e *Encoder) Properties(ctx context.Context, extra map[string]interface{}) (map[encoder.Feature]bool, error) {
-	return map[encoder.Feature]bool{
-		encoder.TicksCountSupported:   true,
-		encoder.AngleDegreesSupported: false,
+func (e *Encoder) Properties(ctx context.Context, extra map[string]interface{}) (encoder.Properties, error) {
+	return encoder.Properties{
+		TicksCountSupported:   true,
+		AngleDegreesSupported: false,
 	}, nil
 }
 

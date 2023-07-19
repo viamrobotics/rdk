@@ -68,7 +68,7 @@ type Encoder interface {
 	ResetPosition(ctx context.Context, extra map[string]interface{}) error
 
 	// Properties returns a list of all the position types that are supported by a given encoder
-	Properties(ctx context.Context, extra map[string]interface{}) (map[Feature]bool, error)
+	Properties(ctx context.Context, extra map[string]interface{}) (Properties, error)
 }
 
 // Named is a helper for getting the named Encoder's typed resource name.
