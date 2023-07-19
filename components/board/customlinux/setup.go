@@ -38,7 +38,7 @@ func parseRawPinData(pinData []byte, filePath string) ([]genericlinux.PinDefinit
 
 // A Config describes the configuration of a board and all of its connected parts.
 type Config struct {
-	PinConfigFilePath string                         `json:"pin_config_filepath"`
+	PinConfigFilePath string                         `json:"pin_config_file_path"`
 	I2Cs              []board.I2CConfig              `json:"i2cs,omitempty"`
 	SPIs              []board.SPIConfig              `json:"spis,omitempty"`
 	Analogs           []board.AnalogConfig           `json:"analogs,omitempty"`

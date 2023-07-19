@@ -2,11 +2,11 @@
 This component supports a board running Linux and requires the user to provide a map of gpio pin names to the corresponding gpio chip and line number. The mappings should be provided in a json file in this format:
 ```json
 {
-  "*pins": [
+  "pins": [
     {
-        "*name": "string",
-        "*ngpio": "int",
-        "*line_number": "int",
+        "name": "string",
+        "ngpio": "int",
+        "line_number": "int",
         "pwm_chip_sysfs_dir": "string",
         "pwm_id": "int"
     }
@@ -14,4 +14,5 @@ This component supports a board running Linux and requires the user to provide a
 }
 ```
 
-To configure a new board with these mappings, set the `pin_config_filepath` attribute to the filepath to your json configuration file.
+`pwm_chip_sysfs_dir` and `pwm_id` are optional fields.
+To configure a new board with these mappings, set the `pin_config_file_path` attribute to the filepath to your json configuration file.
