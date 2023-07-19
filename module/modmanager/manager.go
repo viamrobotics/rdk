@@ -145,7 +145,7 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, conn *grpc.Clie
 		}
 	}()
 
-	// dial will re-use m.conn if it's non-nil (module being added in a Reconfigure).
+	// dial will re-use mod.conn if it's non-nil (module being added in a Reconfigure).
 	if err := mod.dial(); err != nil {
 		return errors.WithMessage(err, "error while dialing module "+mod.name)
 	}
@@ -589,7 +589,7 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 		}
 	}()
 
-	// dial will re-use m.conn; old connection can still be used when module
+	// dial will re-use mod.conn; old connection can still be used when module
 	// crashes.
 	if err := mod.dial(); err != nil {
 		mgr.logger.Errorw("error while dialing restarted module",
