@@ -919,7 +919,7 @@ func (c *AppClient) UploadModuleFile(
 	}
 
 	var errs error
-	// We do not add the EOF as an error because all server-side errors trigger and EOF on the stream
+	// We do not add the EOF as an error because all server-side errors trigger an EOF on the stream
 	// This results in extra clutter to the error msg
 	if err := sendModuleUploadRequests(ctx, stream, file, c.c.App.Writer); err != nil && !errors.Is(err, io.EOF) {
 		errs = multierr.Combine(errs, errors.Wrapf(err, "error uploading %s", file.Name()))
@@ -930,8 +930,8 @@ func (c *AppClient) UploadModuleFile(
 	return resp, errs
 }
 
-func sendModuleUploadRequests(ctx context.Context, stream apppb.AppService_UploadModuleFileClient, f *os.File, stdout io.Writer) error {
-	stat, err := f.Stat()
+func sendModuleUploadRequests(ctx context.Context, stream apppb.AppService_UploadModuleFileClient, file *os.File, stdout io.Writer) error {
+	stat, err := file.Stat()
 	if err != nil {
 		return err
 	}
@@ -942,55 +942,48 @@ func sendModuleUploadRequests(ctx context.Context, stream apppb.AppService_Uploa
 
 	//nolint:errcheck
 	defer stream.CloseSend()
-	// Loop until there is no more content to be read from file.
+	// Loop until there is no more content to be read from file or the context expires.
 	for {
-		select {
-		case <-ctx.Done():
-			return context.Canceled
-		default:
-			// Get the next UploadRequest from the file.
-			uploadReq, err := getNextModuleUploadRequest(ctx, f)
-
-			// EOF means we've completed successfully.
-			if errors.Is(err, io.EOF) {
-				return nil
-			}
-
-			if err != nil {
-				return errors.Wrap(err, "file reading error")
-			}
-
-			if err = stream.Send(uploadReq); err != nil {
-				return err
-			}
-			uploadedBytes += len(uploadReq.GetFile())
-			// Simple progress reading until we have a proper tui library
-			uploadPercent := int(math.Ceil(100 * float64(uploadedBytes) / float64(fileSize)))
-			fmt.Fprintf(stdout, "\r\aUploading... %d%% (%d/%d bytes)", uploadPercent, uploadedBytes, fileSize)
+		if ctx.Err() != nil {
+			return ctx.Err()
 		}
+		// Get the next UploadRequest from the file.
+		uploadReq, err := getNextModuleUploadRequest(file)
+
+		// EOF means we've completed successfully.
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
+
+		if err != nil {
+			return errors.Wrap(err, "file reading error")
+		}
+
+		if err = stream.Send(uploadReq); err != nil {
+			return err
+		}
+		uploadedBytes += len(uploadReq.GetFile())
+		// Simple progress reading until we have a proper tui library
+		uploadPercent := int(math.Ceil(100 * float64(uploadedBytes) / float64(fileSize)))
+		fmt.Fprintf(stdout, "\r\aUploading... %d%% (%d/%d bytes)", uploadPercent, uploadedBytes, fileSize)
 	}
 }
 
-func getNextModuleUploadRequest(ctx context.Context, f *os.File) (*apppb.UploadModuleFileRequest, error) {
-	select {
-	case <-ctx.Done():
-		return nil, context.Canceled
-	default:
-		// get the next chunk of bytes from the file
-		byteArr := make([]byte, ModuleUploadChunkSize)
-		numBytesRead, err := f.Read(byteArr)
-		if err != nil {
-			return nil, err
-		}
-		if numBytesRead < ModuleUploadChunkSize {
-			byteArr = byteArr[:numBytesRead]
-		}
-		return &apppb.UploadModuleFileRequest{
-			ModuleFile: &apppb.UploadModuleFileRequest_File{
-				File: byteArr,
-			},
-		}, nil
+func getNextModuleUploadRequest(file *os.File) (*apppb.UploadModuleFileRequest, error) {
+	// get the next chunk of bytes from the file
+	byteArr := make([]byte, ModuleUploadChunkSize)
+	numBytesRead, err := file.Read(byteArr)
+	if err != nil {
+		return nil, err
 	}
+	if numBytesRead < ModuleUploadChunkSize {
+		byteArr = byteArr[:numBytesRead]
+	}
+	return &apppb.UploadModuleFileRequest{
+		ModuleFile: &apppb.UploadModuleFileRequest_File{
+			File: byteArr,
+		},
+	}, nil
 }
 
 func visibilityToProto(visibility ModuleVisibility) (apppb.Visibility, error) {

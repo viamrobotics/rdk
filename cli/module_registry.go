@@ -3,6 +3,7 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -72,7 +73,7 @@ func CreateModuleCommand(c *cli.Context) error {
 	// Check to make sure the user doesn't accidentally overwrite a module manifest
 	manifestFilepath := filepath.Join(cwd, defaultManifestFilename)
 	if _, err := os.Stat(manifestFilepath); err == nil {
-		return errors.Errorf("Another module's %v already exists in the current directory. Delete it and try again", defaultManifestFilename)
+		return errors.New("Another module's meta.json already exists in the current directory. Delete it and try again")
 	}
 
 	response, err := client.CreateModule(moduleNameArg, org.GetId())
@@ -103,7 +104,7 @@ func CreateModuleCommand(c *cli.Context) error {
 	if err := writeManifest(manifestFilepath, emptyManifest); err != nil {
 		return err
 	}
-	fmt.Fprintf(c.App.Writer, "Configuration for the module has been written to %s\n", defaultManifestFilename)
+	fmt.Fprintf(c.App.Writer, "Configuration for the module has been written to meta.json\n")
 	return nil
 }
 
@@ -133,7 +134,7 @@ func UpdateModuleCommand(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	// TODO(zaporter) This logic is duplicated in update and upload and should be refactored
+	// TODO(APP-2230) This logic is duplicated in update and upload and should be refactored
 	// TODO(APP-2230) Simplify this once we can pass org-id in ModuleID
 	if publicNamespaceArg != "" {
 		switch moduleID.Prefix {
@@ -141,14 +142,14 @@ func UpdateModuleCommand(c *cli.Context) error {
 			moduleID.Prefix = publicNamespaceArg
 		case publicNamespaceArg:
 			// the meta.json manifest == public_namespace arg
-			fmt.Fprintf(c.App.Writer, "The module's %s already specifies a public namespace. Ignoring\n", defaultManifestFilename)
+			fmt.Fprint(c.App.Writer, "The module's meta.json already specifies a public namespace. Ignoring\n")
 		default:
 			// the meta.json manifest != public_namespace arg
 			// we may want to investigate a better way of handling this error case
 			// For now, it seems like bad UX to ignore this error
-			return errors.Errorf("the module's %s specifies a namespace of '%s'"+
+			return errors.Errorf("the module's meta.json specifies a namespace of '%s'"+
 				" but a namespace of '%s' was provided in command line arguments",
-				defaultManifestFilename, moduleID.Prefix, publicNamespaceArg)
+				moduleID.Prefix, publicNamespaceArg)
 		}
 	}
 	var orgID *string
@@ -161,8 +162,8 @@ func UpdateModuleCommand(c *cli.Context) error {
 		}
 	}
 	if orgID == nil && moduleID.Prefix == "" {
-		return errors.Errorf("The module's namespace is not set in %s."+
-			" You must provide a public_namespace (if you have set one) or supply your org id", defaultManifestFilename)
+		return errors.New("The module's namespace is not set in the meta.json." +
+			" You must provide a public_namespace (if you have set one) or supply your org id")
 	}
 	manifest.Name = moduleID.toString()
 	// end duplicated logic
@@ -185,8 +186,8 @@ func UpdateModuleCommand(c *cli.Context) error {
 			if err := writeManifest(manifestPath, manifest); err != nil {
 				return err
 			}
-			fmt.Fprintf(c.App.Writer, "\nUpdated %s to use the public namespace of %q which is %q\n",
-				defaultManifestFilename, org.Name, org.PublicNamespace)
+			fmt.Fprintf(c.App.Writer, "\nUpdated meta.json to use the public namespace of %q which is %q\n",
+				org.Name, org.PublicNamespace)
 			fmt.Fprintf(c.App.Writer, "You no longer need to specify org_id or public_namespace\n")
 		}
 	}
@@ -225,9 +226,9 @@ func UploadModuleCommand(c *cli.Context) error {
 	if _, err := os.Stat(manifestPath); err != nil {
 		// no manifest found.
 		if nameArg == "" || (publicNamespaceArg == "" && orgIDArg == "") {
-			return errors.Errorf("Unable to find %s. "+
-				"If you want to upload a version without a %s, you must supply a module name and namespace (or module name and orgid)\n\n",
-				defaultManifestFilename, defaultManifestFilename)
+			return errors.New("Unable to find the meta.json. " +
+				"If you want to upload a version without a meta.json, you must supply a module name and namespace (or module name and orgid)",
+			)
 		}
 		moduleID = ModuleID{Prefix: publicNamespaceArg, Name: nameArg}
 	} else {
@@ -243,11 +244,11 @@ func UploadModuleCommand(c *cli.Context) error {
 		}
 		if nameArg != "" && nameArg != moduleID.Name {
 			// This is almost certainly a mistake we want to catch
-			return errors.Errorf("Module name %q was supplied via command line args but the %s has a module name of %q",
-				nameArg, defaultManifestFilename, moduleID.Name)
+			return errors.Errorf("Module name %q was supplied via command line args but the meta.json has a module name of %q",
+				nameArg, moduleID.Name)
 		}
 	}
-	// TODO(zaporter) This logic is duplicated in update and upload and should be refactored
+	// TODO(APP-2230) This logic is duplicated in update and upload and should be refactored
 	// TODO(APP-2230) Simplify this once we can pass org-id in ModuleID
 	if publicNamespaceArg != "" {
 		switch moduleID.Prefix {
@@ -255,14 +256,14 @@ func UploadModuleCommand(c *cli.Context) error {
 			moduleID.Prefix = publicNamespaceArg
 		case publicNamespaceArg:
 			// the meta.json manifest == public_namespace arg
-			fmt.Fprintf(c.App.Writer, "The module's %s already specifies a public namespace. Ignoring\n", defaultManifestFilename)
+			fmt.Fprint(c.App.Writer, "The module's meta.json already specifies a public namespace. Ignoring\n")
 		default:
 			// the meta.json manifest != public_namespace arg
 			// we may want to investigate a better way of handling this error case
 			// For now, it seems like bad UX to ignore this error
-			return errors.Errorf("the module's %s specifies a namespace of '%s'"+
+			return errors.Errorf("the module's meta.json specifies a namespace of '%s'"+
 				" but a namespace of '%s' was provided in command line arguments",
-				defaultManifestFilename, moduleID.Prefix, publicNamespaceArg)
+				moduleID.Prefix, publicNamespaceArg)
 		}
 	}
 
@@ -276,8 +277,8 @@ func UploadModuleCommand(c *cli.Context) error {
 		}
 	}
 	if orgID == nil && moduleID.Prefix == "" {
-		return errors.Errorf("The module's namespace is not set in %s."+
-			" You must provide a public_namespace (if you have set one) or supply your org id", defaultManifestFilename)
+		return errors.New("The module's namespace is not set in the meta.json." +
+			" You must provide a public_namespace (if you have set one) or supply your org id")
 	}
 	// end duplicated logic
 
@@ -347,13 +348,12 @@ func resolveOrg(client *AppClient, orgID, publicNamespace string) (*apppb.Organi
 }
 
 func loadManifest(manifestPath string) (ModuleManifest, error) {
-	if _, err := os.Stat(manifestPath); err != nil {
-		return ModuleManifest{}, errors.Wrapf(err, "Cannot find %s", manifestPath)
-	}
-
 	//nolint:gosec
 	manifestBytes, err := os.ReadFile(manifestPath)
 	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return ModuleManifest{}, errors.Wrapf(err, "Cannot find %s", manifestPath)
+		}
 		return ModuleManifest{}, err
 	}
 	var manifest ModuleManifest
