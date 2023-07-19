@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"net/url"
 	"os"
@@ -19,6 +20,7 @@ import (
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
+	"go.uber.org/multierr"
 	datapb "go.viam.com/api/app/data/v1"
 	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/utils"
@@ -32,6 +34,9 @@ import (
 	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/services/shell"
 )
+
+// ModuleUploadChunkSize sets the number of bytes included in each chunk of the upload stream.
+var ModuleUploadChunkSize = 32 * 1024
 
 // The AppClient provides all the CLI command functionality needed to talk
 // to the app service but not directly to robot parts.
@@ -881,6 +886,104 @@ func (c *AppClient) UpdateModule(manifest ModuleManifest, organizationID *string
 		Entrypoint:     manifest.Entrypoint,
 	}
 	return c.client.UpdateModule(c.c.Context, &req)
+}
+
+// UploadModuleFile wraps the grpc UploadModuleFile request.
+func (c *AppClient) UploadModuleFile(
+	moduleID,
+	version,
+	platform string,
+	organizationID *string,
+	file *os.File,
+) (*apppb.UploadModuleFileResponse, error) {
+	if err := c.ensureLoggedIn(); err != nil {
+		return nil, err
+	}
+	ctx := c.c.Context
+
+	stream, err := c.client.UploadModuleFile(ctx)
+	if err != nil {
+		return nil, err
+	}
+	moduleFileInfo := apppb.ModuleFileInfo{
+		ModuleId:       moduleID,
+		OrganizationId: organizationID,
+		Version:        version,
+		Platform:       platform,
+	}
+	req := &apppb.UploadModuleFileRequest{
+		ModuleFile: &apppb.UploadModuleFileRequest_ModuleFileInfo{ModuleFileInfo: &moduleFileInfo},
+	}
+	if err := stream.Send(req); err != nil {
+		return nil, err
+	}
+
+	var errs error
+	// We do not add the EOF as an error because all server-side errors trigger an EOF on the stream
+	// This results in extra clutter to the error msg
+	if err := sendModuleUploadRequests(ctx, stream, file, c.c.App.Writer); err != nil && !errors.Is(err, io.EOF) {
+		errs = multierr.Combine(errs, errors.Wrapf(err, "error uploading %s", file.Name()))
+	}
+
+	resp, closeErr := stream.CloseAndRecv()
+	errs = multierr.Combine(errs, closeErr)
+	return resp, errs
+}
+
+func sendModuleUploadRequests(ctx context.Context, stream apppb.AppService_UploadModuleFileClient, file *os.File, stdout io.Writer) error {
+	stat, err := file.Stat()
+	if err != nil {
+		return err
+	}
+	fileSize := stat.Size()
+	uploadedBytes := 0
+	// Close the line with the progress reading
+	defer fmt.Fprint(stdout, "\n")
+
+	//nolint:errcheck
+	defer stream.CloseSend()
+	// Loop until there is no more content to be read from file or the context expires.
+	for {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		// Get the next UploadRequest from the file.
+		uploadReq, err := getNextModuleUploadRequest(file)
+
+		// EOF means we've completed successfully.
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
+
+		if err != nil {
+			return errors.Wrap(err, "file reading error")
+		}
+
+		if err = stream.Send(uploadReq); err != nil {
+			return err
+		}
+		uploadedBytes += len(uploadReq.GetFile())
+		// Simple progress reading until we have a proper tui library
+		uploadPercent := int(math.Ceil(100 * float64(uploadedBytes) / float64(fileSize)))
+		fmt.Fprintf(stdout, "\r\aUploading... %d%% (%d/%d bytes)", uploadPercent, uploadedBytes, fileSize)
+	}
+}
+
+func getNextModuleUploadRequest(file *os.File) (*apppb.UploadModuleFileRequest, error) {
+	// get the next chunk of bytes from the file
+	byteArr := make([]byte, ModuleUploadChunkSize)
+	numBytesRead, err := file.Read(byteArr)
+	if err != nil {
+		return nil, err
+	}
+	if numBytesRead < ModuleUploadChunkSize {
+		byteArr = byteArr[:numBytesRead]
+	}
+	return &apppb.UploadModuleFileRequest{
+		ModuleFile: &apppb.UploadModuleFileRequest_File{
+			File: byteArr,
+		},
+	}, nil
 }
 
 func visibilityToProto(visibility ModuleVisibility) (apppb.Visibility, error) {
