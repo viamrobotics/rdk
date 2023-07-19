@@ -391,7 +391,7 @@ func (svc *builtIn) callCancelFunc() {
 	if svc.cancelFunc != nil {
 		svc.cancelFunc()
 	}
-	defer svc.mu.RUnlock()
+	svc.mu.RUnlock()
 	svc.activeBackgroundWorkers.Wait()
 }
 
