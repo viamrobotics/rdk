@@ -125,10 +125,7 @@ type builtIn struct {
 }
 
 func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
-	if svc.cancelFunc != nil {
-		svc.cancelFunc()
-		svc.activeBackgroundWorkers.Wait()
-	}
+	svc.callCancelFunc()
 
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
@@ -201,11 +198,7 @@ func (svc *builtIn) SetMode(ctx context.Context, mode navigation.Mode, extra map
 	}
 
 	// switch modes
-	if svc.cancelFunc != nil {
-		svc.cancelFunc()
-		svc.activeBackgroundWorkers.Wait()
-	}
-
+	svc.callCancelFunc()
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
 
@@ -311,13 +304,10 @@ func (svc *builtIn) startWaypoint(cancelCtx context.Context, extra map[string]in
 			svc.mu.Unlock()
 
 			if err := navOnce(navOnceCancelCtx); err != nil {
-				svc.mu.RLock()
-				if svc.waypointInProgress == nil {
+				if svc.waypointIsDeleted() {
 					svc.logger.Infof("skipping waypoint since it was deleted")
-					svc.mu.RUnlock()
 					continue
 				}
-				svc.mu.RUnlock()
 
 				svc.logger.Infof("skipping waypoint due to error while navigating towards it: %s", err)
 				if err := svc.waypointReached(cancelCtx); err != nil {
@@ -336,9 +326,9 @@ func (svc *builtIn) waypointDirectionAndDistanceToGo(ctx context.Context, curren
 
 	svc.mu.Lock()
 	svc.waypointInProgress = &wp
-	goal := wp.ToPoint()
 	svc.mu.Unlock()
 
+	goal := wp.ToPoint()
 	return fixAngle(currentLoc.BearingTo(goal)), currentLoc.GreatCircleDistance(goal), nil
 }
 
@@ -396,13 +386,19 @@ func (svc *builtIn) waypointReached(ctx context.Context) error {
 	return svc.store.WaypointVisited(ctx, svc.waypointInProgress.ID)
 }
 
-func (svc *builtIn) Close(ctx context.Context) error {
-	svc.mu.Lock()
-	defer svc.mu.Unlock()
+func (svc *builtIn) callCancelFunc() {
+	svc.mu.RLock()
 	if svc.cancelFunc != nil {
 		svc.cancelFunc()
 	}
+	defer svc.mu.RUnlock()
 	svc.activeBackgroundWorkers.Wait()
+}
+
+func (svc *builtIn) Close(ctx context.Context) error {
+	svc.callCancelFunc()
+	svc.mu.Lock()
+	defer svc.mu.Unlock()
 	return svc.store.Close(ctx)
 }
 
@@ -467,21 +463,14 @@ func (svc *builtIn) startWaypointExperimental(cancelCtx context.Context, extra m
 			if cancelCtx.Err() != nil {
 				return
 			}
-			svc.mu.Lock()
-			svc.waypointInProgress = &wp
-			navOnceCancelCtx, fn := context.WithCancel(cancelCtx)
-			svc.navOnceCancelFunc = fn
-			svc.mu.Unlock()
 
+			navOnceCancelCtx := svc.resetForNavOnce(cancelCtx, wp)
 			svc.logger.Infof("navigating to waypoint: %+v", wp)
 			if err := navOnce(navOnceCancelCtx, wp); err != nil {
-				svc.mu.RLock()
-				if svc.waypointInProgress == nil {
+				if svc.waypointIsDeleted() {
 					svc.logger.Infof("skipping waypoint %+v since it was deleted", wp)
-					svc.mu.RUnlock()
 					continue
 				}
-				svc.mu.RUnlock()
 
 				svc.logger.Infof("skipping waypoint %+v due to error while navigating towards it: %s", wp, err)
 				if err := svc.waypointReached(cancelCtx); err != nil {
@@ -490,6 +479,21 @@ func (svc *builtIn) startWaypointExperimental(cancelCtx context.Context, extra m
 			}
 		}
 	})
+}
+
+func (svc *builtIn) resetForNavOnce(ctx context.Context, wp navigation.Waypoint) context.Context {
+	svc.mu.Lock()
+	defer svc.mu.Unlock()
+	svc.waypointInProgress = &wp
+	navOnceCancelCtx, fn := context.WithCancel(ctx)
+	svc.navOnceCancelFunc = fn
+	return navOnceCancelCtx
+}
+
+func (svc *builtIn) waypointIsDeleted() bool {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.waypointInProgress == nil
 }
 
 func (svc *builtIn) GetObstacles(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoObstacle, error) {
