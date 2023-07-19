@@ -43,7 +43,7 @@ var boardInfoMappings = map[string]genericlinux.BoardInformation{
 			{map[int]int{28: 11}, map[int]string{}, "AANT0F04:00/upboard-pinctrl.0", 23, 0, "GPIO8", "", "", -1},
 
 			{map[int]int{28: 0}, map[int]string{}, "AANT0F04:00/upboard-pinctrl.0", 27, 0, "GPIO9", "", "", -1},
-			{map[int]int{28: 19, 78: 327}, map[int]string{}, "AANT0F04:00/upboard-pinctrl.0", 35, 0, "GPIO13", "", "", -1},
+			{map[int]int{28: 19}, map[int]string{}, "AANT0F04:00/upboard-pinctrl.0", 35, 0, "GPIO13", "", "", -1},
 
 			{map[int]int{28: 18}, map[int]string{}, "AANT0F04:00/upboard-pinctrl.0", 12, 0, "GPIO17", "", "", -1},
 			{map[int]int{28: 8}, map[int]string{}, "AANT0F04:00/upboard-pinctrl.0", 24, 0, "GPIO21", "", "", -1},
