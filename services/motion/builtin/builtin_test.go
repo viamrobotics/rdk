@@ -384,7 +384,7 @@ func TestMoveOnGlobe(t *testing.T) {
 	epsilon := 10 //mm
 
 	t.Run("ensure success to a nearby geo point", func(t *testing.T) {
-		plan, _, err := ms.(*builtIn).planMoveOnGlobeNick(
+		plan, _, err := ms.(*builtIn).planMoveOnGlobe(
 			context.Background(),
 			fakeBase.Name(),
 			dst,
@@ -408,7 +408,7 @@ func TestMoveOnGlobe(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		geoObstacle := spatialmath.NewGeoObstacle(gpsPoint, []spatialmath.Geometry{geometries})
 
-		plan, _, err := ms.(*builtIn).planMoveOnGlobeNick(
+		plan, _, err := ms.(*builtIn).planMoveOnGlobe(
 			context.Background(),
 			fakeBase.Name(),
 			dst,
@@ -433,7 +433,7 @@ func TestMoveOnGlobe(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		geoObstacle := spatialmath.NewGeoObstacle(gpsPoint, []spatialmath.Geometry{geometries})
 
-		plan, _, err := ms.(*builtIn).planMoveOnGlobeNick(
+		plan, _, err := ms.(*builtIn).planMoveOnGlobe(
 			context.Background(),
 			fakeBase.Name(),
 			dst,

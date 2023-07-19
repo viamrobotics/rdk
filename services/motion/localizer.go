@@ -2,13 +2,13 @@ package motion
 
 import (
 	"context"
+	"math"
 
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/utils"
 )
 
 // Localizer is an interface which both slam and movementsensor can satisfy when wrapped respectively.
@@ -37,11 +37,12 @@ func (s *slamLocalizer) CurrentPosition(ctx context.Context) (*referenceframe.Po
 // movementSensorLocalizer is a struct which only wraps an existing movementsensor.
 type movementSensorLocalizer struct {
 	movementsensor.MovementSensor
-	origin *geo.Point
+	origin      *geo.Point
+	calibration spatialmath.Pose
 }
 
-func NewMovementSensorLocalizer(ms movementsensor.MovementSensor, origin *geo.Point) Localizer {
-	return &movementSensorLocalizer{MovementSensor: ms, origin: origin}
+func NewMovementSensorLocalizer(ms movementsensor.MovementSensor, origin *geo.Point, calibration spatialmath.Pose) Localizer {
+	return &movementSensorLocalizer{MovementSensor: ms, origin: origin, calibration: calibration}
 }
 
 // CurrentPosition returns a movementsensor's current position.
@@ -50,11 +51,13 @@ func (m *movementSensorLocalizer) CurrentPosition(ctx context.Context) (*referen
 	if err != nil {
 		return nil, err
 	}
+	// TODO: remove me
+	gp = m.origin
 	heading, err := m.Orientation(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 	pose := spatialmath.NewPose(spatialmath.GeoPointToPose(gp, m.origin).Point(), heading)
-	offset := spatialmath.NewPoseFromOrientation(&spatialmath.EulerAngles{Yaw: utils.DegToRad(180 + 90)}) // +90 because want to align with east
-	return referenceframe.NewPoseInFrame(m.Name().Name, spatialmath.Compose(pose, offset)), nil
+	correction := spatialmath.Compose(m.calibration, spatialmath.NewPoseFromOrientation(&spatialmath.OrientationVector{OZ: 1, Theta: -math.Pi / 2}))
+	return referenceframe.NewPoseInFrame(m.Name().Name, spatialmath.Compose(pose, correction)), nil
 }
