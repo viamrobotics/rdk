@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"image"
 	"sync"
 	"time"
 
@@ -285,6 +286,11 @@ func addGRPCMetadata(ctx context.Context, timeRequested, timeReceived *timestamp
 	}
 
 	return nil
+}
+
+// Images is a part of the camera interface but is not implemented for replay.
+func (replay *pcdCamera) Images(ctx context.Context) ([]image.Image, time.Time, error) {
+	return nil, time.Time{}, errors.New("Images is unimplemented")
 }
 
 // Properties is a part of the camera interface but is not implemented for replay.

@@ -31,7 +31,7 @@ func (gob *GeoObstacle) Geometries() []Geometry {
 }
 
 // GeoObstacleToProtobuf converts the GeoObstacle struct into an equivalent Protobuf message.
-func GeoObstacleToProtobuf(geoObst *GeoObstacle) (*commonpb.GeoObstacle, error) {
+func GeoObstacleToProtobuf(geoObst *GeoObstacle) *commonpb.GeoObstacle {
 	var convGeoms []*commonpb.Geometry
 	for _, geometry := range geoObst.geometries {
 		convGeoms = append(convGeoms, geometry.ToProtobuf())
@@ -39,7 +39,7 @@ func GeoObstacleToProtobuf(geoObst *GeoObstacle) (*commonpb.GeoObstacle, error) 
 	return &commonpb.GeoObstacle{
 		Location:   &commonpb.GeoPoint{Latitude: geoObst.location.Lat(), Longitude: geoObst.location.Lng()},
 		Geometries: convGeoms,
-	}, nil
+	}
 }
 
 // GeoObstacleFromProtobuf takes a Protobuf representation of a GeoObstacle and converts back into a Go struct.
