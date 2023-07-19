@@ -298,8 +298,9 @@ func (svc *builtIn) startWaypoint(cancelCtx context.Context, extra map[string]in
 			if cancelCtx.Err() != nil {
 				return
 			}
-			navOnceCancelCtx, fn := context.WithCancel(cancelCtx)
+
 			svc.mu.Lock()
+			navOnceCancelCtx, fn := context.WithCancel(cancelCtx)
 			svc.navOnceCancelFunc = fn
 			svc.mu.Unlock()
 
