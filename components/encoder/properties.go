@@ -20,10 +20,10 @@ func ProtoFeaturesToProperties(resp *pb.GetPropertiesResponse) Properties {
 // PropertiesToProtoResponse takes a properties struct and converts it
 // to a GetPropertiesResponse.
 func PropertiesToProtoResponse(
-	features Properties,
+	props Properties,
 ) (*pb.GetPropertiesResponse, error) {
 	return &pb.GetPropertiesResponse{
-		TicksCountSupported:   features.TicksCountSupported,
-		AngleDegreesSupported: features.AngleDegreesSupported,
+		TicksCountSupported:   props.TicksCountSupported,
+		AngleDegreesSupported: props.AngleDegreesSupported,
 	}, nil
 }
