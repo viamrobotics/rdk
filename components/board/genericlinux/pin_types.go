@@ -19,26 +19,11 @@ type GPIOBoardMapping struct {
 	HWPWMSupported bool
 }
 
-// BoardInformation details pin definitions and device compatibility for a particular board.
-type BoardInformation struct {
-	PinDefinitions []PinDefinition
-	Compats        []string
-}
-
-// A NoBoardFoundError is returned when no compatible mapping is found for a board during GPIO board mapping.
-type NoBoardFoundError struct {
-	modelName string
-}
-
-func (err NoBoardFoundError) Error() string {
-	return fmt.Sprintf("could not determine %q model", err.modelName)
-}
-
 // PinDefinition describes a gpio pin on a linux board.
 type PinDefinition struct {
 	Name            string `json:"name"`
-	Ngpio           int    `json:"ngpio"` // this is the ngpio number of the chip the pin is attached to
-	LineNumber      int    `json:"line_number"`
+	Ngpio           int    `json:"ngpio"`       // ngpio number of the chip the pin is attached to
+	LineNumber      int    `json:"line_number"` // relative line number on chip
 	PwmChipSysfsDir string `json:"pwm_chip_sysfs_dir,omitempty"`
 	PwmID           int    `json:"pwm_id,omitempty"`
 }
@@ -49,6 +34,7 @@ type PinDefinitions struct {
 }
 
 // UnmarshalJSON handles setting defaults for pin configs.
+// Int values default to -1.
 func (conf *PinDefinition) UnmarshalJSON(text []byte) error {
 	type TempPin PinDefinition // needed to prevent infinite recursive calls to UnmarshalJSON
 	aux := TempPin{
@@ -90,4 +76,19 @@ func (conf *PinDefinition) Validate(path string) error {
 	}
 
 	return nil
+}
+
+// BoardInformation details pin definitions and device compatibility for a particular board.
+type BoardInformation struct {
+	PinDefinitions []PinDefinition
+	Compats        []string
+}
+
+// A NoBoardFoundError is returned when no compatible mapping is found for a board during GPIO board mapping.
+type NoBoardFoundError struct {
+	modelName string
+}
+
+func (err NoBoardFoundError) Error() string {
+	return fmt.Sprintf("could not determine %q model", err.modelName)
 }

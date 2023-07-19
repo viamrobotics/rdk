@@ -61,8 +61,8 @@ func newBoard(
 		interrupts: map[string]*digitalInterrupt{},
 	}
 
-	for pinNumber, mapping := range gpioMappings {
-		b.gpios[pinNumber] = b.createGpioPin(mapping)
+	for pinName, mapping := range gpioMappings {
+		b.gpios[pinName] = b.createGpioPin(mapping)
 	}
 
 	if err := b.Reconfigure(ctx, nil, conf); err != nil {
@@ -244,7 +244,7 @@ func (b *sysfsBoard) reconfigureInterrupts(newConf *Config) error {
 				// See gpio.go for createGpioPin.
 				b.gpios[oldInterrupt.config.Pin] = b.createGpioPin(newGpioConfig)
 			} else {
-				b.logger.Warnf("Unable to create old interrupt pin '%s' as GPIO, ignoring.",
+				b.logger.Warnf("Old interrupt pin was on nonexistent GPIO pin '%s', ignoring",
 					oldInterrupt.config.Pin)
 			}
 		} else { // The old interrupt should stick around.
