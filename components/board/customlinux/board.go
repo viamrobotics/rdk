@@ -119,6 +119,7 @@ func (b *customLinuxBoard) Reconfigure(
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
+	// TODO: implement reconfiguration when pin definitions change
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return err
