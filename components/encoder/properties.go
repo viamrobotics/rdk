@@ -2,7 +2,7 @@ package encoder
 
 import pb "go.viam.com/api/component/encoder/v1"
 
-// Properties holds the properties of the encoder
+// Properties holds the properties of the encoder.
 type Properties struct {
 	TicksCountSupported   bool
 	AngleDegreesSupported bool
