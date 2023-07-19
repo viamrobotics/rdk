@@ -22,7 +22,7 @@ type Config struct {
 
 func init() {
 	resource.RegisterComponent(gripper.API, model, resource.Registration[gripper.Gripper, *Config]{
-		Constructor: newGripper,
+		Constructor: NewGripper,
 	})
 }
 
@@ -35,7 +35,7 @@ type Gripper struct {
 }
 
 // NewGripper instantiates a new gripper of the fake model type.
-func newGripper(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (gripper.Gripper, error) {
+func NewGripper(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (gripper.Gripper, error) {
 	g := &Gripper{
 		Named:      conf.ResourceName().AsNamed(),
 		geometries: []spatialmath.Geometry{},
