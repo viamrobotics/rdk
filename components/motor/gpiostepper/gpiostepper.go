@@ -308,8 +308,9 @@ func (m *gpioStepper) GoFor(ctx context.Context, rpm, revolutions float64, extra
 			errors.Wrapf(err, "error in GoFor from motor (%s)", m.motorName))
 	}
 
+	// this is a long-running operation, do not wait for Stop, do not disable enable pins
 	if revolutions == 0 {
-		return m.enable(ctx, false)
+		return nil
 	}
 
 	return m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m, m.Stop)
