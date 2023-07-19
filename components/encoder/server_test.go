@@ -58,7 +58,7 @@ func TestServerGetPosition(t *testing.T) {
 	// Position unavailable test
 	req = pb.GetPositionRequest{Name: failEncoderName}
 	resp, err = encoderServer.GetPosition(context.Background(), &req)
-	test.That(t, resp, test.ShouldNotBeNil)
+	test.That(t, resp, test.ShouldBeNil)
 	test.That(t, err, test.ShouldBeError, errPositionUnavailable)
 
 	workingEncoder.PositionFunc = func(
