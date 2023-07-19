@@ -48,7 +48,7 @@ func NewClientFromConn(
 	}
 	clientFrame, err := c.updateKinematics(ctx)
 	if err != nil {
-		logger.Errorw("error getting model for arm; will not allow certain methods")
+		logger.Errorw("error getting model for arm; will not allow certain methods", "err", err)
 	} else {
 		c.model = clientFrame
 	}
@@ -162,15 +162,7 @@ func (c *client) Geometries(ctx context.Context) ([]spatialmath.Geometry, error)
 	if err != nil {
 		return nil, err
 	}
-	geometries := make([]spatialmath.Geometry, 0, len(resp.Geometries))
-	for _, pbGeom := range resp.Geometries {
-		geom, err := spatialmath.NewGeometryFromProto(pbGeom)
-		if err != nil {
-			return nil, err
-		}
-		geometries = append(geometries, geom)
-	}
-	return geometries, nil
+	return spatialmath.NewGeometriesFromProto(resp.GetGeometries())
 }
 
 func (c *client) updateKinematics(ctx context.Context) (referenceframe.Model, error) {

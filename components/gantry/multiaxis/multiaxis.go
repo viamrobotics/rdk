@@ -7,12 +7,14 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/gantry"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 var model = resource.DefaultModelFamily.WithModel("multi-axis")
@@ -91,8 +93,22 @@ func newMultiAxis(
 	return mAx, nil
 }
 
+// Home runs the homing sequence of the gantry and returns true once completed.
+func (g *multiAxis) Home(ctx context.Context, extra map[string]interface{}) (bool, error) {
+	for _, subAx := range g.subAxes {
+		homed, err := subAx.Home(ctx, nil)
+		if err != nil {
+			return false, err
+		}
+		if !homed {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
 // MoveToPosition moves along an axis using inputs in millimeters.
-func (g *multiAxis) MoveToPosition(ctx context.Context, positions []float64, extra map[string]interface{}) error {
+func (g *multiAxis) MoveToPosition(ctx context.Context, positions, speeds []float64, extra map[string]interface{}) error {
 	ctx, done := g.opMgr.New(ctx)
 	defer done()
 
@@ -107,6 +123,7 @@ func (g *multiAxis) MoveToPosition(ctx context.Context, positions []float64, ext
 		)
 	}
 
+	fs := []rdkutils.SimpleFunc{}
 	idx := 0
 	for _, subAx := range g.subAxes {
 		subAxNum, err := subAx.Lengths(ctx, extra)
@@ -115,11 +132,28 @@ func (g *multiAxis) MoveToPosition(ctx context.Context, positions []float64, ext
 		}
 
 		pos := positions[idx : idx+len(subAxNum)]
+		var speed []float64
+		// if speeds is an empty list, speed will be set to the default in the subAx MoveToPosition call
+		if len(speeds) == 0 {
+			speed = []float64{}
+		} else {
+			speed = speeds[idx : idx+len(subAxNum)]
+		}
 		idx += len(subAxNum)
 
-		err = subAx.MoveToPosition(ctx, pos, extra)
-		if err != nil && !errors.Is(err, context.Canceled) {
-			return err
+		if g.moveSimultaneously {
+			singleGantry := subAx
+			fs = append(fs, func(ctx context.Context) error { return singleGantry.MoveToPosition(ctx, pos, speed, nil) })
+		} else {
+			err = subAx.MoveToPosition(ctx, pos, speed, extra)
+			if err != nil && !errors.Is(err, context.Canceled) {
+				return err
+			}
+		}
+	}
+	if g.moveSimultaneously {
+		if _, err := rdkutils.RunInParallel(ctx, fs); err != nil {
+			return multierr.Combine(err, g.Stop(ctx, nil))
 		}
 	}
 	return nil
@@ -133,7 +167,9 @@ func (g *multiAxis) GoToInputs(ctx context.Context, goal []referenceframe.Input)
 	ctx, done := g.opMgr.New(ctx)
 	defer done()
 
-	return g.MoveToPosition(ctx, referenceframe.InputsToFloats(goal), nil)
+	// MoveToPosition will use the default gantry speed when an empty float is passed in
+	speeds := []float64{}
+	return g.MoveToPosition(ctx, referenceframe.InputsToFloats(goal), speeds, nil)
 }
 
 // Position returns the position in millimeters.

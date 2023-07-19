@@ -372,7 +372,3 @@ func (m *roboclawMotor) IsPowered(ctx context.Context, extra map[string]interfac
 		return false, 0.0, m.conf.wrongChannelError()
 	}
 }
-
-func (m *roboclawMotor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
-	return motor.NewGoTillStopUnsupportedError(m.Name().ShortName())
-}

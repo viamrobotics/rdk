@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
@@ -13,6 +14,7 @@ import (
 	"go.viam.com/rdk/components/base"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -21,6 +23,7 @@ func setupWorkingBase(
 	workingBase *inject.Base,
 	argsReceived map[string][]interface{},
 	expectedFeatures base.Properties,
+	geometries []spatialmath.Geometry,
 ) {
 	workingBase.MoveStraightFunc = func(
 		_ context.Context, distanceMm int,
@@ -44,6 +47,10 @@ func setupWorkingBase(
 
 	workingBase.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (base.Properties, error) {
 		return expectedFeatures, nil
+	}
+
+	workingBase.GeometriesFunc = func(ctx context.Context) ([]spatialmath.Geometry, error) {
+		return geometries, nil
 	}
 }
 
@@ -92,7 +99,8 @@ func TestClient(t *testing.T) {
 		TurningRadiusMeters: 1.2,
 		WidthMeters:         float64(100) * 0.001,
 	}
-	setupWorkingBase(workingBase, argsReceived, expectedFeatures)
+	expectedGeometries := []spatialmath.Geometry{spatialmath.NewPoint(r3.Vector{1, 2, 3}, "")}
+	setupWorkingBase(workingBase, argsReceived, expectedFeatures, expectedGeometries)
 
 	brokenBase := &inject.Base{}
 	setupBrokenBase(brokenBase)
@@ -177,6 +185,14 @@ func TestClient(t *testing.T) {
 		t.Run("working Stop", func(t *testing.T) {
 			err = workingBaseClient.Stop(context.Background(), nil)
 			test.That(t, err, test.ShouldBeNil)
+		})
+
+		t.Run("working Geometries", func(t *testing.T) {
+			geometries, err := workingBaseClient.Geometries(context.Background())
+			test.That(t, err, test.ShouldBeNil)
+			for i, geometry := range geometries {
+				test.That(t, geometry.AlmostEqual(expectedGeometries[i]), test.ShouldBeTrue)
+			}
 		})
 	})
 

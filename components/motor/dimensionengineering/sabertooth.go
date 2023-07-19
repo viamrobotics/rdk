@@ -201,7 +201,7 @@ func (cfg *Config) validateValues() error {
 }
 
 // NewMotor returns a Sabertooth driven motor.
-func NewMotor(ctx context.Context, c *Config, name resource.Name, logger golog.Logger) (motor.LocalMotor, error) {
+func NewMotor(ctx context.Context, c *Config, name resource.Name, logger golog.Logger) (motor.Motor, error) {
 	globalMu.Lock()
 	defer globalMu.Unlock()
 
@@ -414,11 +414,6 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 // towards the specified target/position.
 func (m *Motor) GoTo(ctx context.Context, rpm, position float64, extra map[string]interface{}) error {
 	return motor.NewGoToUnsupportedError(fmt.Sprintf("Channel %d on Sabertooth %d", m.Channel, m.c.address))
-}
-
-// GoTillStop moves a motor until stopped by the controller (due to switch or function) or stopFunc.
-func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
-	return motor.NewGoTillStopUnsupportedError(fmt.Sprintf("Channel %d on Sabertooth %d", m.Channel, m.c.address))
 }
 
 // ResetZeroPosition defines the current position to be zero (+/- offset).

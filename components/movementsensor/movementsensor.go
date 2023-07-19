@@ -3,7 +3,7 @@ package movementsensor
 
 import (
 	"context"
-	"errors"
+	"strings"
 
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
@@ -14,9 +14,6 @@ import (
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/spatialmath"
 )
-
-// Properties tells you what a MovementSensor supports.
-type Properties pb.GetPropertiesResponse
 
 func init() {
 	resource.RegisterAPI(API, resource.APIRegistration[MovementSensor]{
@@ -105,7 +102,7 @@ func Readings(ctx context.Context, g MovementSensor, extra map[string]interface{
 
 	pos, altitude, err := g.Position(ctx, extra)
 	if err != nil {
-		if !errors.Is(err, ErrMethodUnimplementedPosition) {
+		if !strings.Contains(err.Error(), ErrMethodUnimplementedPosition.Error()) {
 			return nil, err
 		}
 	} else {
@@ -115,7 +112,7 @@ func Readings(ctx context.Context, g MovementSensor, extra map[string]interface{
 
 	vel, err := g.LinearVelocity(ctx, extra)
 	if err != nil {
-		if !errors.Is(err, ErrMethodUnimplementedLinearVelocity) {
+		if !strings.Contains(err.Error(), ErrMethodUnimplementedLinearVelocity.Error()) {
 			return nil, err
 		}
 	} else {
@@ -124,7 +121,7 @@ func Readings(ctx context.Context, g MovementSensor, extra map[string]interface{
 
 	la, err := g.LinearAcceleration(ctx, extra)
 	if err != nil {
-		if !errors.Is(err, ErrMethodUnimplementedLinearAcceleration) {
+		if !strings.Contains(err.Error(), ErrMethodUnimplementedLinearAcceleration.Error()) {
 			return nil, err
 		}
 	} else {
@@ -133,7 +130,7 @@ func Readings(ctx context.Context, g MovementSensor, extra map[string]interface{
 
 	avel, err := g.AngularVelocity(ctx, extra)
 	if err != nil {
-		if !errors.Is(err, ErrMethodUnimplementedAngularVelocity) {
+		if !strings.Contains(err.Error(), ErrMethodUnimplementedAngularVelocity.Error()) {
 			return nil, err
 		}
 	} else {
@@ -142,7 +139,7 @@ func Readings(ctx context.Context, g MovementSensor, extra map[string]interface{
 
 	compass, err := g.CompassHeading(ctx, extra)
 	if err != nil {
-		if !errors.Is(err, ErrMethodUnimplementedCompassHeading) {
+		if !strings.Contains(err.Error(), ErrMethodUnimplementedCompassHeading.Error()) {
 			return nil, err
 		}
 	} else {
@@ -151,7 +148,7 @@ func Readings(ctx context.Context, g MovementSensor, extra map[string]interface{
 
 	ori, err := g.Orientation(ctx, extra)
 	if err != nil {
-		if !errors.Is(err, ErrMethodUnimplementedOrientation) {
+		if !strings.Contains(err.Error(), ErrMethodUnimplementedOrientation.Error()) {
 			return nil, err
 		}
 	} else {

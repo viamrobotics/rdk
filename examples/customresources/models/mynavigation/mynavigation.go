@@ -11,8 +11,10 @@ import (
 
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/navigation"
+	"go.viam.com/rdk/spatialmath"
 )
 
+// Model is the full model definition.
 var Model = resource.NewModel("acme", "demo", "mynavigation")
 
 func init() {
@@ -86,4 +88,8 @@ func (svc *navSvc) RemoveWaypoint(ctx context.Context, id primitive.ObjectID, ex
 	}
 	svc.waypoints = newWps
 	return nil
+}
+
+func (svc *navSvc) GetObstacles(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoObstacle, error) {
+	return []*spatialmath.GeoObstacle{}, nil
 }

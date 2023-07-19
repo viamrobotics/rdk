@@ -105,7 +105,7 @@ func newCBiRRTMotionPlanner(
 		return nil, err
 	}
 	// nlopt should try only once
-	nlopt, err := CreateNloptIKSolver(frame, logger, 1)
+	nlopt, err := CreateNloptIKSolver(frame, logger, 1, opt.GoalThreshold)
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +124,7 @@ func newCBiRRTMotionPlanner(
 func (mp *cBiRRTMotionPlanner) plan(ctx context.Context,
 	goal spatialmath.Pose,
 	seed []referenceframe.Input,
-) ([][]referenceframe.Input, error) {
+) ([]node, error) {
 	solutionChan := make(chan *rrtPlanReturn, 1)
 	utils.PanicCapturingGo(func() {
 		mp.rrtBackgroundRunner(ctx, seed, &rrtParallelPlannerShared{nil, nil, solutionChan})
@@ -133,7 +133,7 @@ func (mp *cBiRRTMotionPlanner) plan(ctx context.Context,
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	case plan := <-solutionChan:
-		return plan.toInputs(), plan.err()
+		return plan.steps, plan.err()
 	}
 }
 
@@ -202,10 +202,10 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 		tryExtend := func(target []referenceframe.Input) (node, node, error) {
 			// attempt to extend maps 1 and 2 towards the target
 			utils.PanicCapturingGo(func() {
-				nm1.nearestNeighbor(nmContext, mp.planOpts, target, map1, m1chan)
+				m1chan <- nm1.nearestNeighbor(nmContext, mp.planOpts, newConfigurationNode(target), map1)
 			})
 			utils.PanicCapturingGo(func() {
-				nm2.nearestNeighbor(nmContext, mp.planOpts, target, map2, m2chan)
+				m2chan <- nm2.nearestNeighbor(nmContext, mp.planOpts, newConfigurationNode(target), map2)
 			})
 			nearest1 := <-m1chan
 			nearest2 := <-m2chan
@@ -222,10 +222,10 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 			rseed2 := rand.New(rand.NewSource(int64(mp.randseed.Int())))
 
 			utils.PanicCapturingGo(func() {
-				mp.constrainedExtend(ctx, rseed1, map1, nearest1, &basicNode{q: target}, m1chan)
+				mp.constrainedExtend(ctx, rseed1, map1, nearest1, newConfigurationNode(target), m1chan)
 			})
 			utils.PanicCapturingGo(func() {
-				mp.constrainedExtend(ctx, rseed2, map2, nearest2, &basicNode{q: target}, m2chan)
+				mp.constrainedExtend(ctx, rseed2, map2, nearest2, newConfigurationNode(target), m2chan)
 			})
 			map1reached := <-m1chan
 			map2reached := <-m2chan
@@ -265,24 +265,24 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 		}
 
 		// sample near map 1 and switch which map is which to keep adding to them even
-		target = mp.sample(map1reached, i)
+		target, err = mp.sample(map1reached, i)
+		if err != nil {
+			rrt.solutionChan <- &rrtPlanReturn{planerr: err, maps: rrt.maps}
+			return
+		}
 		map1, map2 = map2, map1
 	}
 	rrt.solutionChan <- &rrtPlanReturn{planerr: errPlannerFailed, maps: rrt.maps}
 }
 
-func (mp *cBiRRTMotionPlanner) sample(rSeed node, sampleNum int) []referenceframe.Input {
+func (mp *cBiRRTMotionPlanner) sample(rSeed node, sampleNum int) ([]referenceframe.Input, error) {
 	// If we have done more than 50 iterations, start seeding off completely random positions 2 at a time
 	// The 2 at a time is to ensure random seeds are added onto both the seed and goal maps.
 	if sampleNum >= mp.algOpts.IterBeforeRand && sampleNum%4 >= 2 {
-		return referenceframe.RandomFrameInputs(mp.frame, mp.randseed)
+		return referenceframe.RandomFrameInputs(mp.frame, mp.randseed), nil
 	}
 	// Seeding nearby to valid points results in much faster convergence in less constrained space
-	q := referenceframe.RestrictedRandomFrameInputs(mp.frame, mp.randseed, 0.1)
-	for j, v := range rSeed.Q() {
-		q[j].Value += v.Value
-	}
-	return q
+	return referenceframe.RestrictedRandomFrameInputs(mp.frame, mp.randseed, 0.1, rSeed.Q())
 }
 
 // constrainedExtend will try to extend the map towards the target while meeting constraints along the way. It will

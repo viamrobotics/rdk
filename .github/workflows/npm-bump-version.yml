@@ -1,0 +1,37 @@
+name: Bump remote-control Version
+
+concurrency: 
+  group: ${{ github.workflow }}-${{ github.ref }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      sdk_version:
+        required: false
+        type: string
+        default: "rc"
+        description: "Typescript SDK Version. Default: rc"
+
+jobs:
+  bump:
+    name: Bump remote-control Version
+    runs-on: [ubuntu-latest]
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v3
+    - name: Bump Version
+      run: |
+        cd web/frontend
+        npm install --save --save-exact @viamrobotics/sdk@${{ inputs.sdk_version }}
+        npm version patch
+    - name: Add + Commit + Open PR
+      uses: peter-evans/create-pull-request@v3
+      with:
+        commit-message: '[WORKFLOW] Updating remote-control'
+        branch: 'workflow/bump-remote-control'
+        delete-branch: true
+        base: main
+        title: Automated remote-control Version Update
+        body: This is an auto-generated PR to update remote-control package versions. Check the commits to see which repos and commits are responsible for the changes.
+        assignees: ${{ github.actor }}
+        reviewers: ${{ github.actor }}

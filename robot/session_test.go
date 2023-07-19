@@ -31,6 +31,7 @@ import (
 	robotimpl "go.viam.com/rdk/robot/impl"
 	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/session"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/robottestutils"
 )
 
@@ -920,6 +921,10 @@ func (db *dummyBase) IsMoving(context.Context) (bool, error) {
 
 func (db *dummyBase) Properties(ctx context.Context, extra map[string]interface{}) (base.Properties, error) {
 	return base.Properties{}, nil
+}
+
+func (db *dummyBase) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
+	return []spatialmath.Geometry{}, nil
 }
 
 // NewClientFromConn constructs a new client from connection passed in.

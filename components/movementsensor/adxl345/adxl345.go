@@ -247,6 +247,11 @@ func NewAdxl345(
 
 		for {
 			select {
+			case <-sensor.cancelContext.Done():
+				return
+			default:
+			}
+			select {
 			case <-timer.C:
 				// The registers with data are 0x32 through 0x37: two bytes each for X, Y, and Z.
 				rawData, err := sensor.readBlock(sensor.cancelContext, 0x32, 6)
@@ -552,6 +557,9 @@ func (adxl *adxl345) Properties(ctx context.Context, extra map[string]interface{
 
 // Puts the chip into standby mode.
 func (adxl *adxl345) Close(ctx context.Context) error {
+	adxl.cancelFunc()
+	adxl.activeBackgroundWorkers.Wait()
+
 	adxl.mu.Lock()
 	defer adxl.mu.Unlock()
 

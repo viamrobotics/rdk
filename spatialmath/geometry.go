@@ -157,6 +157,28 @@ func NewGeometryFromProto(geometry *commonpb.Geometry) (Geometry, error) {
 	return nil, ErrGeometryTypeUnsupported
 }
 
+// NewGeometriesFromProto converts a list of Geometries from protobuf.
+func NewGeometriesFromProto(proto []*commonpb.Geometry) ([]Geometry, error) {
+	geometries := []Geometry{}
+	for _, geometry := range proto {
+		g, err := NewGeometryFromProto(geometry)
+		if err != nil {
+			return nil, err
+		}
+		geometries = append(geometries, g)
+	}
+	return geometries, nil
+}
+
+// NewGeometriesToProto converts a list of Geometries to profobuf.
+func NewGeometriesToProto(geometries []Geometry) []*commonpb.Geometry {
+	var proto []*commonpb.Geometry
+	for _, geometry := range geometries {
+		proto = append(proto, geometry.ToProtobuf())
+	}
+	return proto
+}
+
 // ToProtobuf converts a GeometryConfig to Protobuf.
 func (config *GeometryConfig) ToProtobuf() (*commonpb.Geometry, error) {
 	creator, err := config.ParseConfig()

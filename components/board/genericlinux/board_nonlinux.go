@@ -16,7 +16,7 @@ import (
 
 // RegisterBoard would register a sysfs based board of the given model. However, this one never
 // creates a board, and instead returns errors about making a Linux board on a non-Linux OS.
-func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping, usePeriphGpio bool) {
+func RegisterBoard(modelName string, gpioMappings map[string]GPIOBoardMapping) {
 	resource.RegisterComponent(
 		board.API,
 		resource.DefaultModelFamily.WithModel(modelName),
@@ -33,6 +33,6 @@ func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping, useP
 }
 
 // GetGPIOBoardMappings attempts to find a compatible GPIOBoardMapping for the given board.
-func GetGPIOBoardMappings(modelName string, boardInfoMappings map[string]BoardInformation) (map[int]GPIOBoardMapping, error) {
+func GetGPIOBoardMappings(modelName string, boardInfoMappings map[string]BoardInformation) (map[string]GPIOBoardMapping, error) {
 	return nil, errors.New("linux boards are not supported on non-linux OSes")
 }

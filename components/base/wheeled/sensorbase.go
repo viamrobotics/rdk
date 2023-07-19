@@ -15,21 +15,24 @@ import (
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
 const (
-	yawPollTime      = 5 * time.Millisecond
-	boundCheckTurn   = 2.0
-	boundCheckTarget = 5.0
-	oneTurn          = 360.0
-	increment        = 0.01
-	sensorDebug      = false
+	yawPollTime        = 5 * time.Millisecond
+	velocitiesPollTime = 5 * time.Millisecond
+	boundCheckTurn     = 2.0
+	boundCheckTarget   = 5.0
+	oneTurn            = 360.0
+	increment          = 0.01
+	sensorDebug        = false
 )
+
+var errNoGoodSensor = errors.New("no appropriate sensor for orientaiton or velocity feedback")
 
 type sensorBase struct {
 	resource.Named
-	// resource.AlwaysRebuild // TODO (rh) implement reconfigure
 	logger golog.Logger
 	mu     sync.Mutex
 
@@ -44,6 +47,7 @@ type sensorBase struct {
 
 	allSensors  []movementsensor.MovementSensor
 	orientation movementsensor.MovementSensor
+	velocities  movementsensor.MovementSensor
 }
 
 func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
@@ -55,40 +59,43 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 	sb.mu.Lock()
 	defer sb.mu.Unlock()
 
-	if len(sb.allSensors) != len(newConf.MovementSensor) {
-		for _, name := range newConf.MovementSensor {
-			ms, err := movementsensor.FromDependencies(deps, name)
-			if err != nil {
-				return errors.Wrapf(err, "no movement sensor named (%s)", name)
-			}
-			sb.allSensors = append(sb.allSensors, ms)
+	// reset all sensors
+	sb.allSensors = nil
+	sb.velocities = nil
+	sb.orientation = nil
+
+	for _, name := range newConf.MovementSensor {
+		ms, err := movementsensor.FromDependencies(deps, name)
+		if err != nil {
+			return errors.Wrapf(err, "no movement sensor named (%s)", name)
 		}
-	} else {
-		// Compare each element of the slices
-		for i := range sb.allSensors {
-			if sb.allSensors[i].Name().String() != newConf.MovementSensor[i] {
-				for _, name := range newConf.MovementSensor {
-					ms, err := movementsensor.FromDependencies(deps, name)
-					if err != nil {
-						return errors.Wrapf(err, "no movement sensor named (%s)", name)
-					}
-					sb.allSensors[i] = ms
-				}
-				break
-			}
-		}
+		sb.allSensors = append(sb.allSensors, ms)
 	}
 
-	var oriMsName string
 	for _, ms := range sb.allSensors {
 		props, err := ms.Properties(context.Background(), nil)
-		if props.OrientationSupported && err == nil {
+		if err == nil && props.OrientationSupported {
+			// return first sensor that does not error that satisfies the properties wanted
 			sb.orientation = ms
-			oriMsName = ms.Name().ShortName()
+			sb.logger.Infof("using sensor %s as orientation sensor for base", sb.orientation.Name().ShortName())
+			break
 		}
 	}
 
-	sb.logger.Infof("using sensor %s as orientation sensor for base", oriMsName)
+	for _, ms := range sb.allSensors {
+		props, err := ms.Properties(context.Background(), nil)
+		if err == nil && props.AngularVelocitySupported && props.LinearVelocitySupported {
+			// return first sensor that does not error that satisfies the properties wanted
+			sb.velocities = ms
+			sb.logger.Infof("using sensor %s as velocity sensor for base", sb.velocities.Name().ShortName())
+			break
+		}
+	}
+
+	if sb.orientation == nil && sb.velocities == nil {
+		return errNoGoodSensor
+	}
+
 	return nil
 }
 
@@ -354,8 +361,67 @@ func (sb *sensorBase) SetVelocity(
 	ctx context.Context, linear, angular r3.Vector, extra map[string]interface{},
 ) error {
 	sb.opMgr.CancelRunning(ctx)
-	sb.setPolling(false)
+	// check if a sensor context has been started
+	if sb.sensorLoopDone != nil {
+		sb.sensorLoopDone()
+	}
+
+	sb.setPolling(true)
+	// start a sensor context for the sensor loop based on the longstanding base
+	// creator context, and add a timeout for the context
+	timeOut := 10 * time.Second
+	var sensorCtx context.Context
+	sensorCtx, sb.sensorLoopDone = context.WithTimeout(context.Background(), timeOut)
+
+	if sb.velocities != nil {
+		sb.logger.Warn("not using sensor for SetVelocityfeedback, this feature will be implemented soon")
+		// TODO RSDK-3695 implement control loop here instead of placeholder sensor pllling function
+		sb.pollsensors(sensorCtx, extra)
+		return errors.New(
+			"setvelocity with sensor feedback not currently implemented, remove movement sensor reporting linear and angular velocity ")
+	}
 	return sb.wBase.SetVelocity(ctx, linear, angular, extra)
+}
+
+func (sb *sensorBase) pollsensors(ctx context.Context, extra map[string]interface{}) {
+	sb.activeBackgroundWorkers.Add(1)
+	utils.ManagedGo(func() {
+		ticker := time.NewTicker(velocitiesPollTime)
+		defer ticker.Stop()
+
+		for {
+			// check if we want to poll the sensor at all
+			// other API calls set this to false so that this for loop stops
+			if !sb.isPolling() {
+				ticker.Stop()
+			}
+
+			if err := ctx.Err(); err != nil {
+				return
+			}
+
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				linvel, err := sb.velocities.LinearVelocity(ctx, extra)
+				if err != nil {
+					sb.logger.Error(err)
+					return
+				}
+
+				angvel, err := sb.velocities.AngularVelocity(ctx, extra)
+				if err != nil {
+					sb.logger.Error(err)
+					return
+				}
+
+				if sensorDebug {
+					sb.logger.Infof("sensor readings: linear: %#v, angular %#v", linvel, angvel)
+				}
+			}
+		}
+	}, sb.activeBackgroundWorkers.Done)
 }
 
 func (sb *sensorBase) SetPower(
@@ -378,6 +444,10 @@ func (sb *sensorBase) IsMoving(ctx context.Context) (bool, error) {
 
 func (sb *sensorBase) Properties(ctx context.Context, extra map[string]interface{}) (base.Properties, error) {
 	return sb.wBase.Properties(ctx, extra)
+}
+
+func (sb *sensorBase) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
+	return sb.wBase.Geometries(ctx)
 }
 
 func (sb *sensorBase) Close(ctx context.Context) error {

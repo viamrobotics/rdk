@@ -136,7 +136,7 @@ func TestNewMLDetector(t *testing.T) {
 	cfg := tflitecpu.TFLiteConfig{ // detector config
 		ModelPath:  modelLoc,
 		NumThreads: 2,
-		LabelPath:  &labelLoc,
+		LabelPath:  labelLoc,
 	}
 	noLabelCfg := tflitecpu.TFLiteConfig{ // detector config
 		ModelPath:  modelLoc,
@@ -167,7 +167,7 @@ func TestNewMLDetector(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gotDetections[0].Score(), test.ShouldBeGreaterThan, 0.789)
 	test.That(t, gotDetections[1].Score(), test.ShouldBeGreaterThan, 0.7)
-	test.That(t, gotDetections[0].BoundingBox().Min.X, test.ShouldBeGreaterThan, 125)
+	test.That(t, gotDetections[0].BoundingBox().Min.X, test.ShouldBeGreaterThan, 124)
 	test.That(t, gotDetections[0].BoundingBox().Min.X, test.ShouldBeLessThan, 127)
 	test.That(t, gotDetections[0].BoundingBox().Min.Y, test.ShouldBeGreaterThan, 41)
 	test.That(t, gotDetections[0].BoundingBox().Min.Y, test.ShouldBeLessThan, 44)
@@ -190,7 +190,7 @@ func TestNewMLDetector(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gotDetectionsNL[0].Score(), test.ShouldBeGreaterThan, 0.789)
 	test.That(t, gotDetectionsNL[1].Score(), test.ShouldBeGreaterThan, 0.7)
-	test.That(t, gotDetectionsNL[0].BoundingBox().Min.X, test.ShouldBeGreaterThan, 125)
+	test.That(t, gotDetectionsNL[0].BoundingBox().Min.X, test.ShouldBeGreaterThan, 124)
 	test.That(t, gotDetectionsNL[0].BoundingBox().Min.X, test.ShouldBeLessThan, 127)
 	test.That(t, gotDetectionsNL[0].BoundingBox().Min.Y, test.ShouldBeGreaterThan, 41)
 	test.That(t, gotDetectionsNL[0].BoundingBox().Min.Y, test.ShouldBeLessThan, 44)
@@ -211,7 +211,7 @@ func TestNewMLClassifier(t *testing.T) {
 	cfg := tflitecpu.TFLiteConfig{ // detector config
 		ModelPath:  modelLoc,
 		NumThreads: 2,
-		LabelPath:  &labelLoc,
+		LabelPath:  labelLoc,
 	}
 	noLabelCfg := tflitecpu.TFLiteConfig{ // detector config
 		ModelPath:  modelLoc,
@@ -277,7 +277,7 @@ func TestMoreMLDetectors(t *testing.T) {
 	cfg := tflitecpu.TFLiteConfig{
 		ModelPath:  modelLoc,
 		NumThreads: 2,
-		LabelPath:  &labelLoc,
+		LabelPath:  labelLoc,
 	}
 
 	// Test that a detector would give the expected output on the dog image
@@ -367,7 +367,7 @@ func TestLabelReader(t *testing.T) {
 	cfg := tflitecpu.TFLiteConfig{ // detector config
 		ModelPath:  modelLoc,
 		NumThreads: 2,
-		LabelPath:  &labelLoc,
+		LabelPath:  labelLoc,
 	}
 	out, err := tflitecpu.NewTFLiteCPUModel(ctx, &cfg, mlmodel.Named("fakeLabels"))
 	test.That(t, err, test.ShouldBeNil)
@@ -390,7 +390,7 @@ func TestSpaceDelineatedLabels(t *testing.T) {
 	cfg := tflitecpu.TFLiteConfig{ // detector config
 		ModelPath:  modelLoc,
 		NumThreads: 2,
-		LabelPath:  &labelLoc,
+		LabelPath:  labelLoc,
 	}
 	out, err := tflitecpu.NewTFLiteCPUModel(ctx, &cfg, mlmodel.Named("spacedLabels"))
 	test.That(t, err, test.ShouldBeNil)

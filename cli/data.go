@@ -44,7 +44,7 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter, parallelDownlo
 		parallelDownloads = defaultParallelDownloads
 	}
 
-	ids := make(chan string, parallelDownloads)
+	ids := make(chan *datapb.BinaryID, parallelDownloads)
 	// Give channel buffer of 1+parallelDownloads because that is the number of goroutines that may be passing an
 	// error into this channel (1 get ids routine + parallelDownloads download routines).
 	errs := make(chan error, 1+parallelDownloads)
@@ -73,7 +73,7 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter, parallelDownlo
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		var nextID string
+		var nextID *datapb.BinaryID
 		var done bool
 		var numFilesDownloaded atomic.Int32
 		var downloadWG sync.WaitGroup
@@ -88,14 +88,14 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter, parallelDownlo
 
 				nextID = <-ids
 
-				// If nextID is zero value, the channel has been closed and there are no more IDs to be read.
-				if nextID == "" {
+				// If nextID is nil, the channel has been closed and there are no more IDs to be read.
+				if nextID == nil {
 					done = true
 					break
 				}
 
 				downloadWG.Add(1)
-				go func(id string) {
+				go func(id *datapb.BinaryID) {
 					defer downloadWG.Done()
 					err := downloadBinary(ctx, c.dataClient, dst, id)
 					if err != nil {
@@ -130,7 +130,7 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter, parallelDownlo
 
 // getMatchingIDs queries client for all BinaryData matching filter, and passes each of their ids into ids.
 func getMatchingBinaryIDs(ctx context.Context, client datapb.DataServiceClient, filter *datapb.Filter,
-	ids chan string, limit uint,
+	ids chan *datapb.BinaryID, limit uint,
 ) error {
 	var last string
 	defer close(ids)
@@ -158,17 +158,22 @@ func getMatchingBinaryIDs(ctx context.Context, client datapb.DataServiceClient, 
 		last = resp.GetLast()
 
 		for _, bd := range resp.GetData() {
-			ids <- bd.GetMetadata().GetId()
+			md := bd.GetMetadata()
+			ids <- &datapb.BinaryID{
+				FileId:         md.GetId(),
+				OrganizationId: md.GetCaptureMetadata().GetOrganizationId(),
+				LocationId:     md.GetCaptureMetadata().GetLocationId(),
+			}
 		}
 	}
 }
 
-func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst, id string) error {
+func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst string, id *datapb.BinaryID) error {
 	var resp *datapb.BinaryDataByIDsResponse
 	var err error
 	for count := 0; count < maxRetryCount; count++ {
 		resp, err = client.BinaryDataByIDs(ctx, &datapb.BinaryDataByIDsRequest{
-			FileIds:       []string{id},
+			BinaryIds:     []*datapb.BinaryID{id},
 			IncludeBinary: true,
 		})
 		if err == nil {
@@ -243,7 +248,7 @@ func (c *AppClient) TabularData(dst string, filter *datapb.Filter) error {
 	var resp *datapb.TabularDataByFilterResponse
 	// TODO: [DATA-640] Support export in additional formats.
 	//nolint:gosec
-	dataFile, err := os.Create(filepath.Join(dst, dataDir, "data"+".ndjson"))
+	dataFile, err := os.Create(filepath.Join(dst, dataDir, "data.ndjson"))
 	if err != nil {
 		return errors.Wrapf(err, "error creating data file")
 	}
@@ -251,7 +256,8 @@ func (c *AppClient) TabularData(dst string, filter *datapb.Filter) error {
 
 	fmt.Fprintf(c.c.App.Writer, "Downloading..")
 	var last string
-	var metadataIdx int
+	mdIndexes := make(map[string]int)
+	mdIndex := 0
 	for {
 		for count := 0; count < maxRetryCount; count++ {
 			resp, err = c.dataClient.TabularDataByFilter(context.Background(), &datapb.TabularDataByFilterRequest{
@@ -276,15 +282,25 @@ func (c *AppClient) TabularData(dst string, filter *datapb.Filter) error {
 		if len(mds) == 0 {
 			break
 		}
-		for _, md := range mds {
+		// Map the current response's metadata indexes to those combined across all responses.
+		localToGlobalMDIndex := make(map[int]int)
+		for i, md := range mds {
+			currMDIndex, ok := mdIndexes[md.String()]
+			if ok {
+				localToGlobalMDIndex[i] = currMDIndex
+				continue // Already have this metadata file, so skip creating it again.
+			}
+			mdIndexes[md.String()] = mdIndex
+			localToGlobalMDIndex[i] = mdIndex
+
 			mdJSONBytes, err := protojson.Marshal(md)
 			if err != nil {
 				return errors.Wrap(err, "error marshaling metadata")
 			}
 			//nolint:gosec
-			mdFile, err := os.Create(filepath.Join(dst, metadataDir, strconv.Itoa(metadataIdx)+".json"))
+			mdFile, err := os.Create(filepath.Join(dst, metadataDir, strconv.Itoa(mdIndex)+".json"))
 			if err != nil {
-				return errors.Wrapf(err, fmt.Sprintf("error creating metadata file for metadata index %d", metadataIdx))
+				return errors.Wrapf(err, fmt.Sprintf("error creating metadata file for metadata index %d", mdIndex))
 			}
 			if _, err := mdFile.Write(mdJSONBytes); err != nil {
 				return errors.Wrapf(err, "error writing metadata file %s", mdFile.Name())
@@ -292,8 +308,7 @@ func (c *AppClient) TabularData(dst string, filter *datapb.Filter) error {
 			if err := mdFile.Close(); err != nil {
 				return errors.Wrapf(err, "error closing metadata file %s", mdFile.Name())
 			}
-
-			metadataIdx++
+			mdIndex++
 		}
 
 		data := resp.GetData()
@@ -306,7 +321,7 @@ func (c *AppClient) TabularData(dst string, filter *datapb.Filter) error {
 			m := d.AsMap()
 			m["TimeRequested"] = datum.GetTimeRequested()
 			m["TimeReceived"] = datum.GetTimeReceived()
-			m["MetadataIndex"] = datum.GetMetadataIndex()
+			m["MetadataIndex"] = localToGlobalMDIndex[int(datum.GetMetadataIndex())]
 			j, err := json.Marshal(m)
 			if err != nil {
 				return errors.Wrap(err, "error marshaling json response")

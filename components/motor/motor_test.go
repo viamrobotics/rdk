@@ -55,7 +55,7 @@ func TestStatusValid(t *testing.T) {
 func TestCreateStatus(t *testing.T) {
 	status := &pb.Status{IsPowered: true, Position: 7.7, IsMoving: true}
 
-	injectMotor := &inject.LocalMotor{}
+	injectMotor := &inject.Motor{}
 	injectMotor.IsPoweredFunc = func(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
 		return status.IsPowered, 1.0, nil
 	}

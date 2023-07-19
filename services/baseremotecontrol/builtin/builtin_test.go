@@ -374,26 +374,3 @@ func TestSimilar(t *testing.T) {
 	test.That(t, similar(r3.Vector{Y: 2}, r3.Vector{}, 1), test.ShouldBeFalse)
 	test.That(t, similar(r3.Vector{Z: 2}, r3.Vector{}, 1), test.ShouldBeFalse)
 }
-
-func TestParseEvent(t *testing.T) {
-	state := throttleState{}
-
-	l, a := parseEvent(droneControl, &state, input.Event{Control: input.AbsoluteX, Value: .5})
-	test.That(t, similar(state.linearThrottle, r3.Vector{}, .1), test.ShouldBeTrue)
-	test.That(t, similar(state.angularThrottle, r3.Vector{}, .1), test.ShouldBeTrue)
-
-	test.That(t, similar(l, r3.Vector{}, .1), test.ShouldBeTrue)
-	test.That(t, similar(a, r3.Vector{Z: -.5}, .1), test.ShouldBeTrue)
-
-	l, a = parseEvent(droneControl, &state, input.Event{Control: input.AbsoluteY, Value: .5})
-	test.That(t, similar(l, r3.Vector{Z: -.5}, .1), test.ShouldBeTrue)
-	test.That(t, similar(a, r3.Vector{}, .1), test.ShouldBeTrue)
-
-	l, a = parseEvent(droneControl, &state, input.Event{Control: input.AbsoluteRX, Value: .5})
-	test.That(t, similar(l, r3.Vector{X: .5}, .1), test.ShouldBeTrue)
-	test.That(t, similar(a, r3.Vector{}, .1), test.ShouldBeTrue)
-
-	l, a = parseEvent(droneControl, &state, input.Event{Control: input.AbsoluteRY, Value: .5})
-	test.That(t, similar(l, r3.Vector{Y: -.5}, .1), test.ShouldBeTrue)
-	test.That(t, similar(a, r3.Vector{}, .1), test.ShouldBeTrue)
-}

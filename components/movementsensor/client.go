@@ -135,7 +135,6 @@ func (c *client) CompassHeading(ctx context.Context, extra map[string]interface{
 }
 
 func (c *client) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-	// TODO(erh): should this go over the network?
 	return Readings(ctx, c, extra)
 }
 
@@ -166,7 +165,7 @@ func (c *client) Properties(ctx context.Context, extra map[string]interface{}) (
 	if err != nil {
 		return nil, err
 	}
-	return (*Properties)(resp), nil
+	return ProtoFeaturesToProperties(resp), nil
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {

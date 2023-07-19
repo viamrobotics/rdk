@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"image"
 	"sync"
+	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 	"github.com/viamrobotics/gostream"
 	"go.opencensus.io/trace"
 	pb "go.viam.com/api/component/camera/v1"
@@ -89,6 +91,8 @@ func (c *client) Stream(
 	ctx context.Context,
 	errHandlers ...gostream.ErrorHandler,
 ) (gostream.VideoStream, error) {
+	ctx, span := trace.StartSpan(ctx, "camera::client::Stream")
+
 	cancelCtxWithMIME := gostream.WithMIMETypeHint(c.cancelCtx, gostream.MIMETypeHint(ctx, ""))
 	streamCtx, stream, frameCh := gostream.NewMediaStreamForChannel[image.Image](cancelCtxWithMIME)
 
@@ -101,6 +105,9 @@ func (c *client) Stream(
 	c.mu.Unlock()
 
 	goutils.PanicCapturingGo(func() {
+		streamCtx = trace.NewContext(streamCtx, span)
+		defer span.End()
+
 		defer c.activeBackgroundWorkers.Done()
 		defer close(frameCh)
 
@@ -129,6 +136,41 @@ func (c *client) Stream(
 	})
 
 	return stream, nil
+}
+
+func (c *client) Images(ctx context.Context) ([]image.Image, time.Time, error) {
+	ctx, span := trace.StartSpan(ctx, "camera::client::Images")
+	defer span.End()
+
+	resp, err := c.client.GetImages(ctx, &pb.GetImagesRequest{
+		Name: c.name,
+	})
+	if err != nil {
+		return nil, time.Time{}, errors.Wrap(err, "camera client: could not gets images from the camera")
+	}
+
+	images := make([]image.Image, 0, len(resp.Images))
+	// keep everything lazy encoded by default, if type is unknown, attempt to decode it
+	for _, img := range resp.Images {
+		var rdkImage image.Image
+		switch img.Format {
+		case pb.Format_FORMAT_RAW_RGBA:
+			rdkImage = rimage.NewLazyEncodedImage(img.Image, utils.MimeTypeRawRGBA)
+		case pb.Format_FORMAT_RAW_DEPTH:
+			rdkImage = rimage.NewLazyEncodedImage(img.Image, utils.MimeTypeRawDepth)
+		case pb.Format_FORMAT_JPEG:
+			rdkImage = rimage.NewLazyEncodedImage(img.Image, utils.MimeTypeJPEG)
+		case pb.Format_FORMAT_PNG:
+			rdkImage = rimage.NewLazyEncodedImage(img.Image, utils.MimeTypePNG)
+		case pb.Format_FORMAT_UNSPECIFIED:
+			rdkImage, _, err = image.Decode(bytes.NewReader(img.Image))
+			if err != nil {
+				return nil, time.Time{}, err
+			}
+		}
+		images = append(images, rdkImage)
+	}
+	return images, resp.ResponseMetadata.CapturedAt.AsTime(), nil
 }
 
 func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {

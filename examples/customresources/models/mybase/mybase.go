@@ -12,11 +12,14 @@ import (
 	"go.uber.org/multierr"
 
 	"go.viam.com/rdk/components/base"
+	"go.viam.com/rdk/components/base/kinematicbase"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 )
 
 var (
+	// Model is the full model definition.
 	Model            = resource.NewModel("acme", "demo", "mybase")
 	errUnimplemented = errors.New("unimplemented")
 )
@@ -27,13 +30,13 @@ const (
 )
 
 func init() {
-	resource.RegisterComponent(base.API, Model, resource.Registration[base.Base, *MyBaseConfig]{
+	resource.RegisterComponent(base.API, Model, resource.Registration[base.Base, *Config]{
 		Constructor: newBase,
 	})
 }
 
 func newBase(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (base.Base, error) {
-	b := &MyBase{
+	b := &myBase{
 		Named:  conf.ResourceName().AsNamed(),
 		logger: logger,
 	}
@@ -43,38 +46,48 @@ func newBase(ctx context.Context, deps resource.Dependencies, conf resource.Conf
 	return b, nil
 }
 
-func (base *MyBase) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
-	base.left = nil
-	base.right = nil
-	baseConfig, err := resource.NativeConfig[*MyBaseConfig](conf)
+// Reconfigure reconfigures with new settings.
+func (b *myBase) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+	b.left = nil
+	b.right = nil
+	baseConfig, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return err
 	}
 
-	base.left, err = motor.FromDependencies(deps, baseConfig.LeftMotor)
+	b.left, err = motor.FromDependencies(deps, baseConfig.LeftMotor)
 	if err != nil {
 		return errors.Wrapf(err, "unable to get motor %v for mybase", baseConfig.LeftMotor)
 	}
 
-	base.right, err = motor.FromDependencies(deps, baseConfig.RightMotor)
+	b.right, err = motor.FromDependencies(deps, baseConfig.RightMotor)
 	if err != nil {
 		return errors.Wrapf(err, "unable to get motor %v for mybase", baseConfig.RightMotor)
 	}
 
+	geometries, err := kinematicbase.CollisionGeometry(conf.Frame)
+	if err != nil {
+		b.logger.Warnf("base %v %s", b.Name(), err.Error())
+	}
+	b.geometries = geometries
+
 	// Good practice to stop motors, but also this effectively tests https://viam.atlassian.net/browse/RSDK-2496
-	return multierr.Combine(base.left.Stop(context.Background(), nil), base.right.Stop(context.Background(), nil))
+	return multierr.Combine(b.left.Stop(context.Background(), nil), b.right.Stop(context.Background(), nil))
 }
 
-func (base *MyBase) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+// DoCommand simply echos whatever was sent.
+func (b *myBase) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return cmd, nil
 }
 
-type MyBaseConfig struct {
+// Config contains two component (motor) names.
+type Config struct {
 	LeftMotor  string `json:"motorL"`
 	RightMotor string `json:"motorR"`
 }
 
-func (cfg *MyBaseConfig) Validate(path string) ([]string, error) {
+// Validate validates the config and returns implicit dependencies.
+func (cfg *Config) Validate(path string) ([]string, error) {
 	if cfg.LeftMotor == "" {
 		return nil, fmt.Errorf(`expected "motorL" attribute for mybase %q`, path)
 	}
@@ -85,45 +98,52 @@ func (cfg *MyBaseConfig) Validate(path string) ([]string, error) {
 	return []string{cfg.LeftMotor, cfg.RightMotor}, nil
 }
 
-type MyBase struct {
+type myBase struct {
 	resource.Named
-	left   motor.Motor
-	right  motor.Motor
-	logger golog.Logger
+	left       motor.Motor
+	right      motor.Motor
+	logger     golog.Logger
+	geometries []spatialmath.Geometry
 }
 
-func (myBase *MyBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error {
+// MoveStraight does nothing.
+func (b *myBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error {
 	return errUnimplemented
 }
 
-func (myBase *MyBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
+// Spin does nothing.
+func (b *myBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
 	return errUnimplemented
 }
 
-func (myBase *MyBase) SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
+// SetVelocity does nothing.
+func (b *myBase) SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
 	return errUnimplemented
 }
 
-func (myBase *MyBase) SetPower(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
-	myBase.logger.Debugf("SetPower Linear: %.2f Angular: %.2f", linear.Y, angular.Z)
+// SetPower computes relative power between the wheels and sets power for both motors.
+func (b *myBase) SetPower(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
+	b.logger.Debugf("SetPower Linear: %.2f Angular: %.2f", linear.Y, angular.Z)
 	if math.Abs(linear.Y) < 0.01 && math.Abs(angular.Z) < 0.01 {
-		return myBase.Stop(ctx, extra)
+		return b.Stop(ctx, extra)
 	}
 	sum := math.Abs(linear.Y) + math.Abs(angular.Z)
-	err1 := myBase.left.SetPower(ctx, (linear.Y-angular.Z)/sum, extra)
-	err2 := myBase.right.SetPower(ctx, (linear.Y+angular.Z)/sum, extra)
+	err1 := b.left.SetPower(ctx, (linear.Y-angular.Z)/sum, extra)
+	err2 := b.right.SetPower(ctx, (linear.Y+angular.Z)/sum, extra)
 	return multierr.Combine(err1, err2)
 }
 
-func (myBase *MyBase) Stop(ctx context.Context, extra map[string]interface{}) error {
-	myBase.logger.Debug("Stop")
-	err1 := myBase.left.Stop(ctx, extra)
-	err2 := myBase.right.Stop(ctx, extra)
+// Stop halts motion.
+func (b *myBase) Stop(ctx context.Context, extra map[string]interface{}) error {
+	b.logger.Debug("Stop")
+	err1 := b.left.Stop(ctx, extra)
+	err2 := b.right.Stop(ctx, extra)
 	return multierr.Combine(err1, err2)
 }
 
-func (myBase *MyBase) IsMoving(ctx context.Context) (bool, error) {
-	for _, m := range []motor.Motor{myBase.left, myBase.right} {
+// IsMoving returns true if either motor is active.
+func (b *myBase) IsMoving(ctx context.Context) (bool, error) {
+	for _, m := range []motor.Motor{b.left, b.right} {
 		isMoving, _, err := m.IsPowered(ctx, nil)
 		if err != nil {
 			return false, err
@@ -135,13 +155,20 @@ func (myBase *MyBase) IsMoving(ctx context.Context) (bool, error) {
 	return false, nil
 }
 
-func (myBase *MyBase) Properties(ctx context.Context, extra map[string]interface{}) (base.Properties, error) {
+// Properties returns details about the physics of the base.
+func (b *myBase) Properties(ctx context.Context, extra map[string]interface{}) (base.Properties, error) {
 	return base.Properties{
 		TurningRadiusMeters: myBaseTurningRadiusM,
 		WidthMeters:         myBaseWidthMm * 0.001, // converting millimeters to meters
 	}, nil
 }
 
-func (myBase *MyBase) Close(ctx context.Context) error {
-	return myBase.Stop(ctx, nil)
+// Geometries returns physical dimensions.
+func (b *myBase) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
+	return b.geometries, nil
+}
+
+// Close stops motion during shutdown.
+func (b *myBase) Close(ctx context.Context) error {
+	return b.Stop(ctx, nil)
 }

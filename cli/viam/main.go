@@ -28,7 +28,6 @@ const (
 	dataFlagRobotName         = "robot_name"
 	dataFlagPartName          = "part_name"
 	dataFlagComponentType     = "component_type"
-	dataFlagComponentModel    = "component_model"
 	dataFlagComponentName     = "component_name"
 	dataFlagMethod            = "method"
 	dataFlagMimeTypes         = "mime_types"
@@ -236,9 +235,9 @@ func main() {
 					{
 						Name:  "export",
 						Usage: "download data from Viam cloud",
-						UsageText: fmt.Sprintf("viam data export <%s> <%s> [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s]",
+						UsageText: fmt.Sprintf("viam data export <%s> <%s> [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s]",
 							dataFlagDestination, dataFlagDataType, dataFlagOrgIDs, dataFlagLocationIDs, dataFlagRobotID, dataFlagRobotName,
-							dataFlagPartID, dataFlagPartName, dataFlagComponentType, dataFlagComponentModel, dataFlagComponentName,
+							dataFlagPartID, dataFlagPartName, dataFlagComponentType, dataFlagComponentName,
 							dataFlagStart, dataFlagEnd, dataFlagMethod, dataFlagMimeTypes, dataFlagParallelDownloads, dataFlagTags),
 						Flags: []cli.Flag{
 							&cli.PathFlag{
@@ -285,11 +284,6 @@ func main() {
 								Name:     dataFlagComponentType,
 								Required: false,
 								Usage:    "component_type filter",
-							},
-							&cli.StringFlag{
-								Name:     dataFlagComponentModel,
-								Required: false,
-								Usage:    "component_model filter",
 							},
 							&cli.StringFlag{
 								Name:     dataFlagComponentName,
@@ -339,9 +333,9 @@ func main() {
 					{
 						Name:  "delete",
 						Usage: "delete data from Viam cloud",
-						UsageText: fmt.Sprintf("viam data delete [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s]",
+						UsageText: fmt.Sprintf("viam data delete [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s]",
 							dataFlagDataType, dataFlagOrgIDs, dataFlagLocationIDs, dataFlagRobotID, dataFlagRobotName,
-							dataFlagPartID, dataFlagPartName, dataFlagComponentType, dataFlagComponentModel, dataFlagComponentName,
+							dataFlagPartID, dataFlagPartName, dataFlagComponentType, dataFlagComponentName,
 							dataFlagStart, dataFlagEnd, dataFlagMethod, dataFlagMimeTypes),
 						Flags: []cli.Flag{
 							&cli.StringFlag{
@@ -383,11 +377,6 @@ func main() {
 								Name:     dataFlagComponentType,
 								Required: false,
 								Usage:    "component_type filter",
-							},
-							&cli.StringFlag{
-								Name:     dataFlagComponentModel,
-								Required: false,
-								Usage:    "component_model filter",
 							},
 							&cli.StringFlag{
 								Name:     dataFlagComponentName,
@@ -814,6 +803,108 @@ func main() {
 					},
 				},
 			},
+			{
+				Name:  "module",
+				Usage: "manage your modules in Viam's registry",
+				Subcommands: []*cli.Command{
+					{
+						Name:  "create",
+						Usage: "create & register a module on app.viam.com",
+						Description: `Creates a module in app.viam.com to simplify code deployment.
+Ex: 'viam module create --name my-great-module --org_id <my org id>'
+Will create the module and a corresponding meta.json file in the current directory. 
+
+If your org has set a namespace in app.viam.com then your module name will be 'my-namespace:my-great-module' and 
+you wont have to pass a namespace or orgid in future commands. Otherwise there we be no namespace
+and you will have to provide the org id to future cli commands and can't make your module public until you claim one.
+
+Next, update your meta.json and use 'viam module update' to push those changes to app.viam.com`,
+						Flags: []cli.Flag{
+							&cli.StringFlag{
+								Name:     "name",
+								Usage:    "name of your module (cannot be changed once set)",
+								Required: true,
+							},
+							&cli.StringFlag{
+								Name:  "public_namespace",
+								Usage: "the public namespace where the module will reside (alternative way of specifying the org id)",
+							},
+							&cli.StringFlag{
+								Name:  "org_id",
+								Usage: "id of the organization that will host the module",
+							},
+						},
+						Action: rdkcli.CreateModuleCommand,
+					},
+					{
+						Name:  "update",
+						Usage: "update a module's metadata on app.viam.com",
+						Flags: []cli.Flag{
+							&cli.StringFlag{
+								Name:        "module",
+								Usage:       "path to meta.json",
+								DefaultText: "./meta.json",
+								TakesFile:   true,
+							},
+							&cli.StringFlag{
+								Name:  "public_namespace",
+								Usage: "the public namespace where the module resides (alternative way of specifying the org id)",
+							},
+							&cli.StringFlag{
+								Name:  "org_id",
+								Usage: "id of the organization that hosts the module",
+							},
+						},
+						Action: rdkcli.UpdateModuleCommand,
+					},
+					{
+						Name:  "upload",
+						Usage: "upload a new version of your module",
+						Description: `Upload an archive containing your module's file(s) for a specified platform
+
+Example for linux/amd64:
+tar -czf packaged-module.tar.gz my-binary   # the meta.json entrypoint is relative to the root of the archive, so it should be "./my-binary"
+viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.tar.gz
+                        `,
+						ArgsUsage: "<packaged-module.tar.gz>",
+						Flags: []cli.Flag{
+							&cli.StringFlag{
+								Name:        "module",
+								Usage:       "path to meta.json",
+								DefaultText: "./meta.json",
+								TakesFile:   true,
+							},
+							&cli.StringFlag{
+								Name:  "public_namespace",
+								Usage: "the public namespace where the module resides (alternative way of specifying the org id)",
+							},
+							&cli.StringFlag{
+								Name:  "org_id",
+								Usage: "id of the organization that hosts the module",
+							},
+							&cli.StringFlag{
+								Name:  "name",
+								Usage: "name of the module (used if you don't have a meta.json)",
+							},
+							&cli.StringFlag{
+								Name:     "version",
+								Usage:    "version of the module to upload (semver2.0) ex: \"0.1.0\"",
+								Required: true,
+							},
+							&cli.StringFlag{
+								Name: "platform",
+								Usage: `Platform of the binary you are uploading. Must be one of:
+                        linux/amd64
+                        linux/arm64
+                        darwin/amd64 (for intel macs)
+                        darwin/arm64 (for non-intel macs)`,
+								Required: true,
+							},
+						},
+						Action: rdkcli.UploadModuleCommand,
+					},
+				},
+			},
 		},
 	}
 
@@ -881,7 +972,7 @@ func createDataFilter(c *cli.Context) (*datapb.Filter, error) {
 	filter := &datapb.Filter{}
 
 	if c.StringSlice(dataFlagOrgIDs) != nil {
-		filter.OrgIds = c.StringSlice(dataFlagOrgIDs)
+		filter.OrganizationIds = c.StringSlice(dataFlagOrgIDs)
 	}
 	if c.StringSlice(dataFlagLocationIDs) != nil {
 		filter.LocationIds = c.StringSlice(dataFlagLocationIDs)
@@ -900,9 +991,6 @@ func createDataFilter(c *cli.Context) (*datapb.Filter, error) {
 	}
 	if c.String(dataFlagComponentType) != "" {
 		filter.ComponentType = c.String(dataFlagComponentType)
-	}
-	if c.String(dataFlagComponentModel) != "" {
-		filter.ComponentModel = c.String(dataFlagComponentModel)
 	}
 	if c.String(dataFlagComponentName) != "" {
 		filter.ComponentName = c.String(dataFlagComponentName)

@@ -111,7 +111,7 @@ func fixOvIncrement(goal, seed spatialmath.Pose) spatialmath.Pose {
 func stepsToNodes(steps [][]referenceframe.Input) []node {
 	nodes := make([]node, 0, len(steps))
 	for _, step := range steps {
-		nodes = append(nodes, &basicNode{step})
+		nodes = append(nodes, &basicNode{q: step})
 	}
 	return nodes
 }
@@ -137,7 +137,7 @@ func (r *resultPromise) result(ctx context.Context) ([][]referenceframe.Input, e
 			if planReturn.err() != nil {
 				return nil, planReturn.err()
 			}
-			return planReturn.toInputs(), nil
+			return nodesToInputs(planReturn.steps), nil
 		default:
 		}
 	}

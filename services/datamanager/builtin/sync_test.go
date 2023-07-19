@@ -14,11 +14,12 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
+	"go.viam.com/test"
+	"google.golang.org/grpc"
+
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/datamanager/datacapture"
 	"go.viam.com/rdk/services/datamanager/datasync"
-	"go.viam.com/test"
-	"google.golang.org/grpc"
 )
 
 const (
@@ -67,7 +68,7 @@ func TestSyncEnabled(t *testing.T) {
 			// Set up data manager.
 			dmsvc, r := newTestDataManager(t)
 			defer dmsvc.Close(context.Background())
-			var mockClient = mockDataSyncServiceClient{
+			mockClient := mockDataSyncServiceClient{
 				succesfulDCRequests: make(chan *v1.DataCaptureUploadRequest, 100),
 				failedDCRequests:    make(chan *v1.DataCaptureUploadRequest, 100),
 				fail:                &atomic.Bool{},
@@ -87,7 +88,7 @@ func TestSyncEnabled(t *testing.T) {
 			})
 			test.That(t, err, test.ShouldBeNil)
 			mockClock.Add(captureInterval)
-			waitForCaptureFiles(tmpDir)
+			waitForCaptureFilesToExceedNFiles(tmpDir, 0)
 			mockClock.Add(syncInterval)
 			var sentReq bool
 			wait := time.After(time.Second)
@@ -121,7 +122,7 @@ func TestSyncEnabled(t *testing.T) {
 			}
 			var sentReqAfterUpdate bool
 			mockClock.Add(captureInterval)
-			waitForCaptureFiles(tmpDir)
+			waitForCaptureFilesToExceedNFiles(tmpDir, 0)
 			mockClock.Add(syncInterval)
 			wait = time.After(time.Second)
 			select {
@@ -250,7 +251,7 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 			// Turn dmsvc back on with capture disabled.
 			newDMSvc, r := newTestDataManager(t)
 			defer newDMSvc.Close(context.Background())
-			var mockClient = mockDataSyncServiceClient{
+			mockClient := mockDataSyncServiceClient{
 				succesfulDCRequests: make(chan *v1.DataCaptureUploadRequest, 100),
 				failedDCRequests:    make(chan *v1.DataCaptureUploadRequest, 100),
 				fail:                &atomic.Bool{},
@@ -371,7 +372,7 @@ func TestArbitraryFileUpload(t *testing.T) {
 			dmsvc, r := newTestDataManager(t)
 			dmsvc.SetWaitAfterLastModifiedMillis(0)
 			defer dmsvc.Close(context.Background())
-			var mockClient = mockDataSyncServiceClient{
+			mockClient := mockDataSyncServiceClient{
 				succesfulDCRequests: make(chan *v1.DataCaptureUploadRequest, 100),
 				failedDCRequests:    make(chan *v1.DataCaptureUploadRequest, 100),
 				fileUploads:         make(chan *mockFileUploadClient, 100),
@@ -505,7 +506,7 @@ func TestSyncConfigUpdateBehavior(t *testing.T) {
 			// Set up data manager.
 			dmsvc, r := newTestDataManager(t)
 			defer dmsvc.Close(context.Background())
-			var mockClient = mockDataSyncServiceClient{
+			mockClient := mockDataSyncServiceClient{
 				succesfulDCRequests: make(chan *v1.DataCaptureUploadRequest, 100),
 				failedDCRequests:    make(chan *v1.DataCaptureUploadRequest, 100),
 				fail:                &atomic.Bool{},
@@ -551,17 +552,15 @@ func TestSyncConfigUpdateBehavior(t *testing.T) {
 			}
 		})
 	}
-
 }
 
 func getAllFilePaths(dir string) []string {
 	var filePaths []string
 
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return nil
-		}
-		if info.IsDir() {
+		if err != nil || info.IsDir() {
+			// ignore errors/unreadable files and directories
+			//nolint:nilerr
 			return nil
 		}
 		filePaths = append(filePaths, path)
@@ -617,7 +616,7 @@ func getUploadedData(urs []*v1.DataCaptureUploadRequest) []*v1.SensorData {
 	return syncedData
 }
 
-func compareSensorData(t *testing.T, dataType v1.DataType, act []*v1.SensorData, exp []*v1.SensorData) {
+func compareSensorData(t *testing.T, dataType v1.DataType, act, exp []*v1.SensorData) {
 	if len(act) == 0 && len(exp) == 0 {
 		return
 	}
@@ -625,21 +624,23 @@ func compareSensorData(t *testing.T, dataType v1.DataType, act []*v1.SensorData,
 	// Sort both by time requested.
 	sort.SliceStable(act, func(i, j int) bool {
 		diffRequested := act[j].GetMetadata().GetTimeRequested().AsTime().Sub(act[i].GetMetadata().GetTimeRequested().AsTime())
-		if diffRequested > 0 {
+		switch {
+		case diffRequested > 0:
 			return true
-		} else if diffRequested == 0 {
+		case diffRequested == 0:
 			return act[j].GetMetadata().GetTimeReceived().AsTime().Sub(act[i].GetMetadata().GetTimeReceived().AsTime()) > 0
-		} else {
+		default:
 			return false
 		}
 	})
 	sort.SliceStable(exp, func(i, j int) bool {
 		diffRequested := exp[j].GetMetadata().GetTimeRequested().AsTime().Sub(exp[i].GetMetadata().GetTimeRequested().AsTime())
-		if diffRequested > 0 {
+		switch {
+		case diffRequested > 0:
 			return true
-		} else if diffRequested == 0 {
+		case diffRequested == 0:
 			return exp[j].GetMetadata().GetTimeReceived().AsTime().Sub(exp[i].GetMetadata().GetTimeReceived().AsTime()) > 0
-		} else {
+		default:
 			return false
 		}
 	})
@@ -663,13 +664,17 @@ type mockDataSyncServiceClient struct {
 	fail                *atomic.Bool
 }
 
-func (c mockDataSyncServiceClient) DataCaptureUpload(ctx context.Context, ur *v1.DataCaptureUploadRequest, opts ...grpc.CallOption) (*v1.DataCaptureUploadResponse, error) {
+func (c mockDataSyncServiceClient) DataCaptureUpload(
+	ctx context.Context,
+	ur *v1.DataCaptureUploadRequest,
+	opts ...grpc.CallOption,
+) (*v1.DataCaptureUploadResponse, error) {
 	if c.fail.Load() {
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		case c.failedDCRequests <- ur:
-			return nil, errors.New("oh no error!!")
+			return nil, errors.New("oh no error")
 		}
 	}
 	select {
@@ -682,7 +687,7 @@ func (c mockDataSyncServiceClient) DataCaptureUpload(ctx context.Context, ur *v1
 
 func (c mockDataSyncServiceClient) FileUpload(ctx context.Context, opts ...grpc.CallOption) (v1.DataSyncService_FileUploadClient, error) {
 	if c.fail.Load() {
-		return nil, errors.New("oh no error!!")
+		return nil, errors.New("oh no error")
 	}
 	ret := &mockFileUploadClient{closed: make(chan struct{})}
 	c.fileUploads <- ret

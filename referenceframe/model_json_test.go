@@ -40,7 +40,10 @@ func TestParseJSONFile(t *testing.T) {
 			model2, err := UnmarshalModelJSON(data, "")
 			test.That(t, err, test.ShouldBeNil)
 
-			test.That(t, model.AlmostEquals(model2), test.ShouldBeTrue)
+			data2, err := model2.MarshalJSON()
+			test.That(t, err, test.ShouldBeNil)
+
+			test.That(t, data, test.ShouldResemble, data2)
 		})
 	}
 

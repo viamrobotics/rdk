@@ -44,10 +44,11 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/base"
+	"go.viam.com/rdk/components/base/kinematicbase"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/operation"
-	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
@@ -108,6 +109,7 @@ type wheeledBase struct {
 	widthMm              int
 	wheelCircumferenceMm int
 	spinSlipFactor       float64
+	geometries           []spatialmath.Geometry
 
 	left      []motor.Motor
 	right     []motor.Motor
@@ -116,15 +118,20 @@ type wheeledBase struct {
 	opMgr  operation.SingleOperationManager
 	logger golog.Logger
 
-	mu    sync.Mutex
-	name  string
-	frame *referenceframe.LinkConfig
+	mu   sync.Mutex
+	name string
 }
 
 // Reconfigure reconfigures the base atomically and in place.
 func (wb *wheeledBase) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	wb.mu.Lock()
 	defer wb.mu.Unlock()
+
+	geometries, err := kinematicbase.CollisionGeometry(conf.Frame)
+	if err != nil {
+		wb.logger.Warnf("base %v %s", wb.Name(), err.Error())
+	}
+	wb.geometries = geometries
 
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
@@ -137,64 +144,53 @@ func (wb *wheeledBase) Reconfigure(ctx context.Context, deps resource.Dependenci
 
 	wb.spinSlipFactor = newConf.SpinSlipFactor
 
-	// Check if wb.left is different from newConf.Left before changing wb.left
-	if len(wb.left) != len(newConf.Left) {
-		// Resetting the left motor list
-		wb.left = make([]motor.Motor, 0)
-
-		for _, name := range newConf.Left {
-			m, err := motor.FromDependencies(deps, name)
-			if err != nil {
-				return errors.Wrapf(err, "no left motor named (%s)", name)
-			}
-			wb.left = append(wb.left, m)
-		}
-	} else {
-		// Compare each element of the slices
-		for i := range wb.left {
-			if wb.left[i].Name().String() != newConf.Left[i] {
-				// Resetting the left motor list
-				wb.left = make([]motor.Motor, 0)
-
-				for _, name := range newConf.Left {
-					m, err := motor.FromDependencies(deps, name)
-					if err != nil {
-						return errors.Wrapf(err, "no left motor named (%s)", name)
-					}
-					wb.left = append(wb.left, m)
+	updateMotors := func(curr []motor.Motor, fromConfig []string, whichMotor string) ([]motor.Motor, error) {
+		newMotors := make([]motor.Motor, 0)
+		if len(curr) != len(fromConfig) {
+			for _, name := range fromConfig {
+				select {
+				case <-ctx.Done():
+					return newMotors, resource.NewBuildTimeoutError(wb.Name())
+				default:
 				}
-				break
+				m, err := motor.FromDependencies(deps, name)
+				if err != nil {
+					return newMotors, errors.Wrapf(err, "no %s motor named (%s)", whichMotor, name)
+				}
+				newMotors = append(newMotors, m)
+			}
+		} else {
+			// Compare each element of the slices
+			for i := range curr {
+				select {
+				case <-ctx.Done():
+					return newMotors, resource.NewBuildTimeoutError(wb.Name())
+				default:
+				}
+				if (curr)[i].Name().String() != (fromConfig)[i] {
+					for _, name := range fromConfig {
+						m, err := motor.FromDependencies(deps, name)
+						if err != nil {
+							return newMotors, errors.Wrapf(err, "no %s motor named (%s)", whichMotor, name)
+						}
+						newMotors = append(newMotors, m)
+					}
+					break
+				}
 			}
 		}
+		return newMotors, nil
 	}
 
-	if len(wb.right) != len(newConf.Right) {
-		// Resetting the left motor list
-		wb.right = make([]motor.Motor, 0)
-
-		for _, name := range newConf.Right {
-			m, err := motor.FromDependencies(deps, name)
-			if err != nil {
-				return errors.Wrapf(err, "no right motor named (%s)", name)
-			}
-			wb.right = append(wb.right, m)
-		}
-	} else {
-		// Compare each element of the slices
-		for i := range wb.right {
-			if wb.right[i].Name().String() != newConf.Right[i] {
-				wb.right = make([]motor.Motor, 0)
-
-				for _, name := range newConf.Right {
-					m, err := motor.FromDependencies(deps, name)
-					if err != nil {
-						return errors.Wrapf(err, "no right motor named (%s)", name)
-					}
-					wb.right = append(wb.right, m)
-				}
-				break
-			}
-		}
+	left, err := updateMotors(wb.left, newConf.Left, "left")
+	wb.left = left
+	if err != nil {
+		return err
+	}
+	right, err := updateMotors(wb.right, newConf.Right, "right")
+	wb.right = right
+	if err != nil {
+		return err
 	}
 
 	wb.allMotors = append(wb.allMotors, wb.left...)
@@ -230,7 +226,6 @@ func createWheeledBase(
 		spinSlipFactor:       newConf.SpinSlipFactor,
 		logger:               logger,
 		name:                 conf.Name,
-		frame:                conf.Frame,
 	}
 
 	if err := wb.Reconfigure(ctx, deps, conf); err != nil {
@@ -239,7 +234,6 @@ func createWheeledBase(
 
 	if len(newConf.MovementSensor) != 0 {
 		sb := sensorBase{wBase: &wb, logger: logger, Named: conf.ResourceName().AsNamed()}
-
 		if err := sb.Reconfigure(ctx, deps, conf); err != nil {
 			return nil, err
 		}
@@ -297,11 +291,13 @@ func (wb *wheeledBase) runAll(ctx context.Context, leftRPM, leftRotations, right
 	fs := []rdkutils.SimpleFunc{}
 
 	for _, m := range wb.left {
-		fs = append(fs, func(ctx context.Context) error { return m.GoFor(ctx, leftRPM, leftRotations, nil) })
+		motor := m
+		fs = append(fs, func(ctx context.Context) error { return motor.GoFor(ctx, leftRPM, leftRotations, nil) })
 	}
 
 	for _, m := range wb.right {
-		fs = append(fs, func(ctx context.Context) error { return m.GoFor(ctx, rightRPM, rightRotations, nil) })
+		motor := m
+		fs = append(fs, func(ctx context.Context) error { return motor.GoFor(ctx, rightRPM, rightRotations, nil) })
 	}
 
 	if _, err := rdkutils.RunInParallel(ctx, fs); err != nil {
@@ -465,4 +461,8 @@ func (wb *wheeledBase) Properties(ctx context.Context, extra map[string]interfac
 		TurningRadiusMeters: 0.0,
 		WidthMeters:         float64(wb.widthMm) * 0.001, // convert to meters from mm
 	}, nil
+}
+
+func (wb *wheeledBase) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
+	return wb.geometries, nil
 }
