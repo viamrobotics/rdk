@@ -12,6 +12,7 @@ import (
 	"go.opencensus.io/trace"
 	pb "go.viam.com/api/service/slam/v1"
 
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -27,6 +28,10 @@ func init() {
 		RPCServiceDesc:              &pb.SLAMService_ServiceDesc,
 		RPCClient:                   NewClientFromConn,
 	})
+	data.RegisterCollector(data.MethodMetadata{
+		API:        API,
+		MethodName: getPosition.String(),
+	}, newGetPositionCollector)
 }
 
 // SubtypeName is the name of the type of service.

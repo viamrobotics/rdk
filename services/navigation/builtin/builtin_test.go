@@ -8,6 +8,8 @@ import (
 
 	"github.com/edaniels/golog"
 	geo "github.com/kellydunn/golang-geo"
+	"go.viam.com/test"
+
 	"go.viam.com/rdk/components/base"
 	fakebase "go.viam.com/rdk/components/base/fake"
 	"go.viam.com/rdk/components/base/kinematicbase"
@@ -23,12 +25,6 @@ import (
 	fakeslam "go.viam.com/rdk/services/slam/fake"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
-	"go.viam.com/test"
-)
-
-const (
-	defaultAngularVelocityDegsPerSec  = 60  // degrees per second
-	defaultLinearVelocityMillisPerSec = 300 // mm per second
 )
 
 func setupNavigationServiceFromConfig(t *testing.T, configFilename string) (navigation.Service, func()) {
@@ -84,6 +80,10 @@ func TestNavSetup(t *testing.T) {
 	wayPt, err = ns.Waypoints(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(wayPt), test.ShouldEqual, 0)
+
+	obs, err := ns.GetObstacles(ctx, nil)
+	test.That(t, len(obs), test.ShouldEqual, 1)
+	test.That(t, err, test.ShouldBeNil)
 }
 
 func TestStartWaypoint(t *testing.T) {

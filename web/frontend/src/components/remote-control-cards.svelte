@@ -32,20 +32,23 @@
     useRobotClient();
 
   export let host: string;
-  export let bakedAuth: { authEntity: string; creds: Credentials } | undefined;
-  export let supportedAuthTypes: string[];
+  export let bakedAuth:
+    | { authEntity?: string; creds?: Credentials }
+    | undefined = {};
+  export let supportedAuthTypes: string[] | undefined = [];
   export let webrtcEnabled: boolean;
   export let signalingAddress: string;
+
   let overrides: RCOverrides | undefined = {
     slam: {
-      getPointCloudMap: 'beef',
-      getSLAMPosition: 'beef',
+      getPointCloudMap: "beef",
+      getSLAMPosition: "beef",
       mappingDetails: {
-        mode: 'localize',
-        name: 'someMap',
-        version: '1235467890',
-      }
-    }
+        mode: "localize",
+        name: "someMap",
+        version: "1235467890",
+      },
+    },
   };
 
   const resourceStatusByName = (resource: commonApi.ResourceName.AsObject) => {

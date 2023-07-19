@@ -12,6 +12,7 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
+// Model is the full model definition.
 var Model = resource.NewModel("acme", "demo", "mygizmo")
 
 func init() {
@@ -35,6 +36,7 @@ type myActualGizmo struct {
 	myArg   string
 }
 
+// NewMyGizmo returns a new mygizmo.
 func NewMyGizmo(
 	deps resource.Dependencies,
 	conf resource.Config,
