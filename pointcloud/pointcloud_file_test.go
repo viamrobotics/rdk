@@ -39,6 +39,7 @@ func TestNewFromFile(t *testing.T) {
 	nextCloud, err := NewFromFile(temp.Name(), logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, nextCloud, test.ShouldResemble, cloud)
+	// want to add test for pcd here but not sure how to use artifact
 }
 
 func TestPCD(t *testing.T) {
