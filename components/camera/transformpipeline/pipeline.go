@@ -149,7 +149,7 @@ func (tp transformPipeline) NextPointCloud(ctx context.Context) (pointcloud.Poin
 		}
 		return pc, nil
 	}
-	return nil, errors.New("NextPointCloud not defined for last videosource in transform pipeline")
+	return nil, errors.New("function NextPointCloud not defined for last videosource in transform pipeline")
 }
 
 func (tp transformPipeline) Close(ctx context.Context) error {
