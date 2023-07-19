@@ -38,7 +38,7 @@ var (
 	// model is the model of a replay camera.
 	model = resource.DefaultModelFamily.WithModel("replay_pcd")
 
-	// Error that the replay sensor reports when it has reached the end of the dataset
+	// ErrEndOfDataset represents that the replay sensor has reached the end of the dataset
 	ErrEndOfDataset = errors.New("reached end of dataset")
 )
 
