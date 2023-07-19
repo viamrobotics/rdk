@@ -19,9 +19,9 @@ import (
 const (
 	distThresholdMM         = 100
 	headingThresholdDegrees = 15
-	defaultAngularVelocity  = 60      // degrees per second
-	defaultLinearVelocity   = 3000    // mm per second
-	deviationThreshold      = 30000.0 // mm
+	defaultAngularVelocity  = 60     // degrees per second
+	defaultLinearVelocity   = 3000   // mm per second
+	deviationThreshold      = 1000.0 // mm
 )
 
 // wrapWithDifferentialDriveKinematics takes a wheeledBase component and adds a localizer to it

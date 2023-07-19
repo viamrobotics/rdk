@@ -259,11 +259,10 @@ func (ms *builtIn) planMoveOnGlobe(
 	if !ok {
 		return nil, nil, resource.DependencyNotFoundError(movementSensorName)
 	}
-	// origin, _, err := movementSensor.Position(ctx, nil)
-	// if err != nil {
-	// 	return nil, nil, err
-	// }
-	origin := geo.NewPoint(40.771950, -73.983075)
+	origin, _, err := movementSensor.Position(ctx, nil)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	// add an offset between the movement sensor and the base if it is applicable
 	baseOrigin := referenceframe.NewPoseInFrame(componentName.ShortName(), spatialmath.NewZeroPose())

@@ -51,13 +51,17 @@ func (m *movementSensorLocalizer) CurrentPosition(ctx context.Context) (*referen
 	if err != nil {
 		return nil, err
 	}
-	// TODO: remove me
-	gp = m.origin
-	heading, err := m.Orientation(ctx, nil)
-	if err != nil {
-		return nil, err
+	heading, err := m.CompassHeading(ctx, nil)
+	var o spatialmath.Orientation
+	if err == nil {
+		o = &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: heading}
+	} else {
+		o, err = m.Orientation(ctx, nil)
+		if err != nil {
+			return nil, err
+		}
 	}
-	pose := spatialmath.NewPose(spatialmath.GeoPointToPose(gp, m.origin).Point(), heading)
+	pose := spatialmath.NewPose(spatialmath.GeoPointToPose(gp, m.origin).Point(), o)
 	correction := spatialmath.Compose(m.calibration, spatialmath.NewPoseFromOrientation(&spatialmath.OrientationVector{OZ: 1, Theta: -math.Pi / 2}))
 	return referenceframe.NewPoseInFrame(m.Name().Name, spatialmath.Compose(pose, correction)), nil
 }
