@@ -109,7 +109,7 @@ func newTransformPipeline(
 	pipeline := make([]gostream.VideoSource, 0, len(cfg.Pipeline))
 	lastSource := source
 	for _, tr := range cfg.Pipeline {
-		src, newStreamType, err := buildTransform(ctx, r, lastSource, streamType, tr)
+		src, newStreamType, err := buildTransform(ctx, r, lastSource, streamType, tr, cfg.Source)
 		if err != nil {
 			return nil, err
 		}
@@ -145,7 +145,7 @@ func (tp transformPipeline) NextPointCloud(ctx context.Context) (pointcloud.Poin
 	if lastElem, ok := tp.pipeline[len(tp.pipeline)-1].(camera.PointCloudSource); ok {
 		pc, err := lastElem.NextPointCloud(ctx)
 		if err != nil {
-			return nil, errors.Wrapf(err, "NextPointCloud not defined for last videosource in transform pipeline")
+			return nil, errors.Wrap(err, "function NextPointCloud not defined for last videosource in transform pipeline")
 		}
 		return pc, nil
 	}

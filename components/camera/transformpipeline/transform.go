@@ -92,7 +92,7 @@ var registeredTransformConfigs = map[transformType]*transformRegistration{
 	transformTypeSegmentations: {
 		string(transformTypeSegmentations),
 		&segmenterConfig{},
-		"Overlays image segmentations on the image. Can use any segmentor registered in the vision service.",
+		"Segments the camera's point cloud. Can use any segmenter registered in the vision service.",
 	},
 	transformTypeDepthEdges: {
 		string(transformTypeDepthEdges),
@@ -134,6 +134,7 @@ func buildTransform(
 	source gostream.VideoSource,
 	stream camera.ImageType,
 	tr Transformation,
+	sourceString string,
 ) (gostream.VideoSource, camera.ImageType, error) {
 	switch transformType(tr.Type) {
 	case transformTypeUnspecified, transformTypeIdentity:
@@ -155,7 +156,7 @@ func buildTransform(
 	case transformTypeClassifications:
 		return newClassificationsTransform(ctx, source, r, tr.Attributes)
 	case transformTypeSegmentations:
-		return newSegmentationsTransform(ctx, source, r, tr.Attributes)
+		return newSegmentationsTransform(ctx, source, r, tr.Attributes, sourceString)
 	case transformTypeDepthEdges:
 		return newDepthEdgesTransform(ctx, source, tr.Attributes)
 	case transformTypeDepthPreprocess:

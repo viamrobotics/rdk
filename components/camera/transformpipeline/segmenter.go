@@ -21,10 +21,9 @@ import (
 // segmenterConfig is the attribute struct for segementers (their name as found in the vision service).
 type segmenterConfig struct {
 	SegmenterName string `json:"segmenter_name"`
-	CameraName    string `json:"camera_name"`
 }
 
-// segmenterSource takes an image from the camera, and idk overlays?
+// segmenterSource takes a pointcloud from the camera and applies a segmenter to it.
 type segmenterSource struct {
 	stream        gostream.VideoStream
 	cameraName    string
@@ -37,6 +36,7 @@ func newSegmentationsTransform(
 	source gostream.VideoSource,
 	r robot.Robot,
 	am utils.AttributeMap,
+	sourceString string,
 ) (gostream.VideoSource, camera.ImageType, error) {
 	conf, err := resource.TransformAttributeMap[*segmenterConfig](am)
 	if err != nil {
@@ -50,7 +50,7 @@ func newSegmentationsTransform(
 
 	segmenter := &segmenterSource{
 		gostream.NewEmbeddedVideoStream(source),
-		conf.CameraName,
+		sourceString,
 		conf.SegmenterName,
 		r,
 	}
@@ -68,10 +68,6 @@ func (cfg *segmenterConfig) Validate(path string) ([]string, error) {
 	if len(cfg.SegmenterName) == 0 {
 		return nil, goutils.NewConfigValidationFieldRequiredError(path, "segmenter_name")
 	}
-	if len(cfg.CameraName) == 0 {
-		return nil, goutils.NewConfigValidationFieldRequiredError(path, "camera_name")
-	}
-	deps = append(deps, cfg.CameraName)
 	return deps, nil
 }
 
