@@ -42,7 +42,7 @@ func NewFromFile(fn string, logger golog.Logger) (PointCloud, error) {
 	case ".las":
 		return NewFromLASFile(fn, logger)
 	case ".pcd":
-		f, err := os.Open(fn)
+		f, err := os.Open(filepath.Clean(fn))
 		if err != nil {
 			return nil, err
 		}

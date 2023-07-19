@@ -47,7 +47,7 @@ func init() {
 		})
 }
 
-// fileSource stores the paths to a color and depth image.
+// fileSource stores the paths to a color and depth image and a pointcloud.
 type fileSource struct {
 	ColorFN      string
 	DepthFN      string
@@ -76,7 +76,8 @@ func (fs *fileSource) Read(ctx context.Context) (image.Image, func(), error) {
 	return img, func() {}, err
 }
 
-// NextPointCloud returns the point cloud from projecting the rgb and depth image using the intrinsic parameters.
+// NextPointCloud returns the point cloud from projecting the rgb and depth image using the intrinsic parameters,
+// or the pointcloud from file if set.
 func (fs *fileSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
 	if fs.PointCloudFN != "" {
 		return pointcloud.NewFromFile(fs.PointCloudFN, nil)
