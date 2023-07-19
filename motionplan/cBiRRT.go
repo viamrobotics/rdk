@@ -466,7 +466,7 @@ func (mp *cBiRRTMotionPlanner) smoothPath(
 			default:
 			}
 			// get start node of first edge. Cannot be either the last or second-to-last node.
-			// Intn will return an int in the half-open interval half-open interval [0,n)
+			// Intn will return an int in the half-open interval [0,n)
 			i := mp.randseed.Intn(len(inputSteps) - 2)
 			j := i + 1
 			cornersPassed := 0
@@ -482,7 +482,6 @@ func (mp *cBiRRTMotionPlanner) smoothPath(
 			if len(hitCorners) == 0 {
 				continue
 			}
-			mp.logger.Debugf("checking shortcut between nodes %d and %d", i, j)
 
 			shortcutGoal := make(map[node]node)
 
