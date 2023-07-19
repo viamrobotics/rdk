@@ -4,7 +4,6 @@ package builtin
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"math"
 	"sync"
 	"time"
@@ -281,7 +280,7 @@ func (svc *builtIn) startWaypoint(cancelCtx context.Context, extra map[string]in
 				// - Remember that we added -1*bearingDelta instead of steeringDir
 				// - Test both naval/land to prove it works
 				if err := svc.base.Spin(ctx, -1*bearingDelta, svc.degPerSec, nil); err != nil {
-					return fmt.Errorf("error turning: %w", err)
+					return errors.Wrap(err, "failed while turning")
 				}
 
 				distanceMm := distanceToGoal * 1000 * 1000
@@ -289,7 +288,7 @@ func (svc *builtIn) startWaypoint(cancelCtx context.Context, extra map[string]in
 
 				// TODO: handle swap from mm to meters
 				if err := svc.base.MoveStraight(ctx, int(distanceMm), (svc.metersPerSec * 1000), nil); err != nil {
-					return fmt.Errorf("error moving %w", err)
+					return errors.Wrap(err, "failed while moving straight")
 				}
 
 				return nil
@@ -306,7 +305,7 @@ func (svc *builtIn) startWaypoint(cancelCtx context.Context, extra map[string]in
 
 			if err := navOnce(navOnceCancelCtx); err != nil {
 				if svc.waypointIsDeleted() {
-					svc.logger.Infof("skipping waypoint since it was deleted")
+					svc.logger.Info("skipping waypoint since it was deleted")
 					continue
 				}
 
@@ -382,7 +381,7 @@ func (svc *builtIn) waypointReached(ctx context.Context) error {
 	defer svc.mu.Unlock()
 
 	if svc.waypointInProgress == nil {
-		return fmt.Errorf("can't mark waypoint reached since there is none in progress")
+		return errors.New("can't mark waypoint reached since there is none in progress")
 	}
 	return svc.store.WaypointVisited(ctx, svc.waypointInProgress.ID)
 }

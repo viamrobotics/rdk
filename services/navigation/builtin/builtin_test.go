@@ -43,7 +43,7 @@ func setupNavigationServiceFromConfig(t *testing.T, configFilename string) (navi
 	}
 }
 
-func currentInputsShouldEqual(t *testing.T, ctx context.Context, kinematicBase kinematicbase.KinematicBase, pt *geo.Point) {
+func currentInputsShouldEqual(ctx context.Context, t *testing.T, kinematicBase kinematicbase.KinematicBase, pt *geo.Point) {
 	t.Helper()
 	inputs, err := kinematicBase.CurrentInputs(ctx)
 	test.That(t, err, test.ShouldBeNil)
@@ -173,7 +173,7 @@ func TestStartWaypointExperimental(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		ns.(*builtIn).activeBackgroundWorkers.Wait()
 
-		currentInputsShouldEqual(t, ctx, kinematicBase, pt)
+		currentInputsShouldEqual(ctx, t, kinematicBase, pt)
 	})
 
 	t.Run("Extra defaults to motion_profile", func(t *testing.T) {
@@ -243,11 +243,12 @@ func TestStartWaypointExperimental(t *testing.T) {
 				}
 
 				statusChannel <- msg
-				if msg == hitAnErrorMsg {
+				switch {
+				case msg == hitAnErrorMsg:
 					return false, errors.New(hitAnErrorMsg)
-				} else if msg == arrivedAtWaypointMsg {
+				case msg == arrivedAtWaypointMsg:
 					return true, err
-				} else {
+				default:
 					// should be unreachable
 					return false, errors.New(invalidStateMsg)
 				}
@@ -268,17 +269,17 @@ func TestStartWaypointExperimental(t *testing.T) {
 			// Reach the first waypoint
 			eventChannel <- arrivedAtWaypointMsg
 			test.That(t, <-statusChannel, test.ShouldEqual, arrivedAtWaypointMsg)
-			currentInputsShouldEqual(t, ctx, kinematicBase, pt1)
+			currentInputsShouldEqual(ctx, t, kinematicBase, pt1)
 
 			// Skip the second waypoint due to an error
 			eventChannel <- hitAnErrorMsg
 			test.That(t, <-statusChannel, test.ShouldEqual, hitAnErrorMsg)
-			currentInputsShouldEqual(t, ctx, kinematicBase, pt1)
+			currentInputsShouldEqual(ctx, t, kinematicBase, pt1)
 
 			// Reach the third waypoint
 			eventChannel <- arrivedAtWaypointMsg
 			test.That(t, <-statusChannel, test.ShouldEqual, arrivedAtWaypointMsg)
-			currentInputsShouldEqual(t, ctx, kinematicBase, pt3)
+			currentInputsShouldEqual(ctx, t, kinematicBase, pt3)
 
 			// ns.(*builtIn).activeBackgroundWorkers.Wait() // TODO: Delete this
 		})
@@ -297,13 +298,13 @@ func TestStartWaypointExperimental(t *testing.T) {
 			// Reach the first waypoint
 			eventChannel <- arrivedAtWaypointMsg
 			test.That(t, <-statusChannel, test.ShouldEqual, arrivedAtWaypointMsg)
-			currentInputsShouldEqual(t, ctx, kinematicBase, pt1)
+			currentInputsShouldEqual(ctx, t, kinematicBase, pt1)
 
 			// Change the mode to manual --> stops navigation to waypoints
 			err = ns.SetMode(ctx, navigation.ModeManual, map[string]interface{}{"experimental": true})
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, <-statusChannel, test.ShouldEqual, cancelledContextMsg)
-			currentInputsShouldEqual(t, ctx, kinematicBase, pt1)
+			currentInputsShouldEqual(ctx, t, kinematicBase, pt1)
 		})
 
 		t.Run("Calling RemoveWaypoint on the waypoint in progress cancels current MoveOnGlobe call", func(t *testing.T) {
@@ -320,7 +321,7 @@ func TestStartWaypointExperimental(t *testing.T) {
 			// Reach the first waypoint
 			eventChannel <- arrivedAtWaypointMsg
 			test.That(t, <-statusChannel, test.ShouldEqual, arrivedAtWaypointMsg)
-			currentInputsShouldEqual(t, ctx, kinematicBase, pt1)
+			currentInputsShouldEqual(ctx, t, kinematicBase, pt1)
 
 			// Remove the second waypoint, which is in progress
 			currentWaypoint, err := ns.(*builtIn).nextWaypoint(ctx)
@@ -328,12 +329,12 @@ func TestStartWaypointExperimental(t *testing.T) {
 			err = ns.RemoveWaypoint(ctx, currentWaypoint.ID, nil)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, <-statusChannel, test.ShouldEqual, cancelledContextMsg)
-			currentInputsShouldEqual(t, ctx, kinematicBase, pt1)
+			currentInputsShouldEqual(ctx, t, kinematicBase, pt1)
 
 			// Reach the third waypoint
 			eventChannel <- arrivedAtWaypointMsg
 			test.That(t, <-statusChannel, test.ShouldEqual, arrivedAtWaypointMsg)
-			currentInputsShouldEqual(t, ctx, kinematicBase, pt3)
+			currentInputsShouldEqual(ctx, t, kinematicBase, pt3)
 		})
 
 		t.Run("Calling RemoveWaypoint on a waypoint that is not in progress does not cancel MoveOnGlobe", func(t *testing.T) {
@@ -356,7 +357,7 @@ func TestStartWaypointExperimental(t *testing.T) {
 			// Reach the first waypoint
 			eventChannel <- arrivedAtWaypointMsg
 			test.That(t, <-statusChannel, test.ShouldEqual, arrivedAtWaypointMsg)
-			currentInputsShouldEqual(t, ctx, kinematicBase, pt1)
+			currentInputsShouldEqual(ctx, t, kinematicBase, pt1)
 
 			// Remove the third waypoint, which is not in progress yet
 			err = ns.RemoveWaypoint(ctx, wp3.ID, nil)
@@ -365,7 +366,7 @@ func TestStartWaypointExperimental(t *testing.T) {
 			// Reach the second waypoint
 			eventChannel <- arrivedAtWaypointMsg
 			test.That(t, <-statusChannel, test.ShouldEqual, arrivedAtWaypointMsg)
-			currentInputsShouldEqual(t, ctx, kinematicBase, pt2)
+			currentInputsShouldEqual(ctx, t, kinematicBase, pt2)
 		})
 	})
 }
