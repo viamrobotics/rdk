@@ -52,7 +52,7 @@ func currentInputsShouldEqual(ctx context.Context, t *testing.T, kinematicBase k
 	test.That(t, actualPt.Lng(), test.ShouldEqual, pt.Lng())
 }
 
-func deleteAllWaypoints(ctx context.Context, t *testing.T, svc navigation.Service) error {
+func deleteAllWaypoints(ctx context.Context, svc navigation.Service) error {
 	waypoints, err := svc.(*builtIn).store.Waypoints(ctx)
 	if err != nil {
 		return err
@@ -271,7 +271,7 @@ func TestStartWaypointExperimental(t *testing.T) {
 		pt1, pt2, pt3 := geo.NewPoint(1, 2), geo.NewPoint(2, 3), geo.NewPoint(3, 4)
 		points := []*geo.Point{pt1, pt2, pt3}
 		t.Run("MoveOnGlobe error results in skipping the current waypoint", func(t *testing.T) {
-			err = deleteAllWaypoints(ctx, t, ns)
+			err = deleteAllWaypoints(ctx, ns)
 			for _, pt := range points {
 				err = ns.AddWaypoint(ctx, pt, nil)
 				test.That(t, err, test.ShouldBeNil)
@@ -297,7 +297,7 @@ func TestStartWaypointExperimental(t *testing.T) {
 			// ns.(*builtIn).activeBackgroundWorkers.Wait() // TODO: Delete this
 		})
 		t.Run("Calling SetMode cancels current and future MoveOnGlobe calls", func(t *testing.T) {
-			err = deleteAllWaypoints(ctx, t, ns)
+			err = deleteAllWaypoints(ctx, ns)
 			test.That(t, err, test.ShouldBeNil)
 			for _, pt := range points {
 				err = ns.AddWaypoint(ctx, pt, nil)
@@ -321,7 +321,7 @@ func TestStartWaypointExperimental(t *testing.T) {
 		})
 
 		t.Run("Calling RemoveWaypoint on the waypoint in progress cancels current MoveOnGlobe call", func(t *testing.T) {
-			err = deleteAllWaypoints(ctx, t, ns)
+			err = deleteAllWaypoints(ctx, ns)
 			for _, pt := range points {
 				err = ns.AddWaypoint(ctx, pt, nil)
 				test.That(t, err, test.ShouldBeNil)
@@ -351,7 +351,7 @@ func TestStartWaypointExperimental(t *testing.T) {
 		})
 
 		t.Run("Calling RemoveWaypoint on a waypoint that is not in progress does not cancel MoveOnGlobe", func(t *testing.T) {
-			err = deleteAllWaypoints(ctx, t, ns)
+			err = deleteAllWaypoints(ctx, ns)
 			var wp3 navigation.Waypoint
 			for i, pt := range points {
 				if i < 3 {
