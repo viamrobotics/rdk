@@ -503,11 +503,11 @@ func (m *cloudManager) localDownloadPath(p config.PackageConfig) string {
 }
 
 func (m *cloudManager) localDataPath(p config.PackageConfig) string {
-	return filepath.Join(m.packagesDataDir, p.SanitizeName())
+	return filepath.Join(m.packagesDataDir, p.Name)
 }
 
 func (m *cloudManager) localNamedPath(p config.PackageConfig) string {
-	return filepath.Join(m.packagesDir, p.SanitizeName())
+	return filepath.Join(m.packagesDir, p.Name)
 }
 
 func getGoogleHash(headers http.Header, hashType string) string {
