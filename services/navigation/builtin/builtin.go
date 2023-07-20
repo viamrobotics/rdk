@@ -476,6 +476,7 @@ func (svc *builtIn) startWaypointExperimental(ctx context.Context, extra map[str
 				svc.logger.Infof("skipping waypoint %+v due to error while navigating towards it: %s", wp, err)
 				if err := svc.waypointReached(ctx); err != nil {
 					svc.logger.Info("can't mark waypoint %+v as reached, exiting navigation due to error: %s", wp, err)
+					return
 				}
 			}
 		}
