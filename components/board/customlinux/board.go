@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"sync"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
@@ -39,7 +38,6 @@ func init() {
 // customLinuxBoard wraps the genericlinux board type so that both can implement their own Reconfigure function.
 type customLinuxBoard struct {
 	*genericlinux.SysfsBoard
-	mu     sync.Mutex
 	logger golog.Logger
 }
 
@@ -127,9 +125,6 @@ func (b *customLinuxBoard) Reconfigure(
 	_ resource.Dependencies,
 	conf resource.Config,
 ) error {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return err
