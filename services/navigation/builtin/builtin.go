@@ -242,7 +242,7 @@ func (svc *builtIn) startWaypoint(cancelCtx context.Context, extra map[string]in
 				continue
 			}
 
-			if len(path) == 0 || currentLoc.GreatCircleDistance(path[len(path)-1]) > .0001 {
+			if len(path) <= 1 || currentLoc.GreatCircleDistance(path[len(path)-1]) > .0001 {
 				// gps often updates less frequently
 				path = append(path, currentLoc)
 				if len(path) > 2 {
