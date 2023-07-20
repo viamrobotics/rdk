@@ -312,11 +312,11 @@ func (svc *builtIn) startWaypoint(ctx context.Context, extra map[string]interfac
 			}
 
 			svc.mu.Lock()
-			navOnceCancelCtx, fn := context.WithCancel(ctx)
-			svc.currentWaypointCancelFunc = fn
+			cancelCtx, cancelFunc := context.WithCancel(ctx)
+			svc.currentWaypointCancelFunc = cancelFunc
 			svc.mu.Unlock()
 
-			if err := navOnce(navOnceCancelCtx); err != nil {
+			if err := navOnce(cancelCtx); err != nil {
 				if svc.waypointIsDeleted() {
 					svc.logger.Info("skipping waypoint since it was deleted")
 					continue
@@ -375,8 +375,10 @@ func (svc *builtIn) AddWaypoint(ctx context.Context, point *geo.Point, extra map
 func (svc *builtIn) RemoveWaypoint(ctx context.Context, id primitive.ObjectID, extra map[string]interface{}) error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
-	if svc.waypointInProgress != nil && svc.waypointInProgress.ID == id && svc.currentWaypointCancelFunc != nil {
-		svc.currentWaypointCancelFunc()
+	if svc.waypointInProgress != nil && svc.waypointInProgress.ID == id {
+		if svc.currentWaypointCancelFunc != nil {
+			svc.currentWaypointCancelFunc()
+		}
 		svc.waypointInProgress = nil
 	}
 	return svc.store.RemoveWaypoint(ctx, id)
