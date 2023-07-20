@@ -1929,6 +1929,8 @@ func TestConfigPackageReferenceReplacement(t *testing.T) {
 	r, err := robotimpl.New(ctx, robotConfig, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+
+	// add modules + ml_models tests here too
 }
 
 // removeDefaultServices removes default services and returns the removed

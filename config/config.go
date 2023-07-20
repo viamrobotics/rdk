@@ -8,7 +8,6 @@ import (
 	"net"
 	"path"
 	"reflect"
-	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -164,7 +163,7 @@ func (c Config) GetExpectedPackagePlaceholders() map[string]string {
 	packageMap := make(map[string]string)
 	// based on the given packages, generate the expected placeholder + real filepath
 	for _, config := range c.Packages {
-		packageMap[config.getPackagePlaceholder()] = config.generateFilePath()
+		packageMap[config.GetPackagePlaceholder()] = config.GenerateFilePath()
 	}
 
 	return packageMap
@@ -868,9 +867,6 @@ func ProcessConfig(in *Config, tlsCfg *TLSConfig) (*Config, error) {
 	return &out, nil
 }
 
-// Regex to match if a config is referencing a Package. Group is the package name.
-var packageReferenceRegex = regexp.MustCompile(`^\$\{packages\.([A-Za-z0-9_\/-]+)}(.*)`)
-
 // DefaultPackageVersionValue default value of the package version used when empty.
 const DefaultPackageVersionValue = "latest"
 
@@ -921,7 +917,8 @@ func (p *PackageConfig) SanitizeVersion() string {
 	return strings.ReplaceAll(p.Version, ".", "_")
 }
 
-func (p *PackageConfig) generateFilePath() string {
+// GenerateFilePath generates what the expected filepath of the package is on the system.
+func (p *PackageConfig) GenerateFilePath() string {
 	// first get the base root
 
 	// for backwards compatibility, packages right now don't have ml_models as a type.
@@ -932,21 +929,23 @@ func (p *PackageConfig) generateFilePath() string {
 		// package manager will still create symlinks for these packages based on the packges path
 		dir = path.Clean(path.Join(viamDotDir, "packages", p.Name))
 	} else {
-		dir = path.Clean(path.Join(viamDotDir, "packages", p.getPackageDirectoryFromType(), dataDotDir, p.SanitizeName()))
+		dir = path.Clean(path.Join(viamDotDir, "packages", p.GetPackageDirectoryFromType(), dataDotDir, p.SanitizeName()))
 	}
 	return dir
 }
 
-func (p *PackageConfig) getPackagePlaceholder() string {
+// GetPackagePlaceholder returns the expected placeholder based on a package config.
+func (p *PackageConfig) GetPackagePlaceholder() string {
 	// then based on what the structure of the package is, we can match what the replacement should look like
 	if p.Type != "" {
-		return strings.Join([]string{"packages", p.getPackageDirectoryFromType(), p.Name}, ".")
+		return strings.Join([]string{"packages", p.GetPackageDirectoryFromType(), p.Name}, ".")
 	}
 
 	return strings.Join([]string{"packages", p.Name}, ".")
 }
 
-func (p *PackageConfig) getPackageDirectoryFromType() string {
+// GetPackageDirectoryFromType returns the package directory for the filepath based on type.
+func (p *PackageConfig) GetPackageDirectoryFromType() string {
 	switch p.Type {
 	case PackageTypeMlModel:
 		return "ml_models"
@@ -981,27 +980,6 @@ func (p PackageConfig) Equals(other PackageConfig) bool {
 	other.cachedErr = nil
 	//nolint:govet
 	return reflect.DeepEqual(p, other)
-}
-
-// GetPackageReference a PackageReference if the given path has a Package reference eg. ${packages.some-package}/path.
-// Eg: ${packages.some-package}/path/a/b/c -> {"some-package", "/path/a/b/c"}.
-// Returns nil if no package reference is found.
-func GetPackageReference(path string) *PackageReference {
-	// return early before regex match
-	if len(path) == 0 || path[0] != '$' {
-		return nil
-	}
-
-	match := packageReferenceRegex.FindStringSubmatch(path)
-	if match == nil {
-		return nil
-	}
-
-	if len(match) != 3 {
-		return nil
-	}
-
-	return &PackageReference{Package: match[1], PathInPackage: match[2]}
 }
 
 // PackageReference contains the deconstructed parts of a package reference in the config.

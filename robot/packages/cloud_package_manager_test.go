@@ -340,6 +340,70 @@ func TestPackageRefs(t *testing.T) {
 			test.That(t, err, test.ShouldEqual, ErrPackageMissing)
 		})
 	})
+
+	t.Run("PlaceholderPaths", func(t *testing.T) {
+		testStrings := []struct {
+			input  string
+			output *PlaceholderRef
+			err    string
+		}{
+			{
+				input: "${packages.ml_models.test}/myfile/test.txt",
+				output: &PlaceholderRef{
+					matchedPlaceholder: "${packages.ml_models.test}",
+					nestedPath:         "packages.ml_models.test",
+				},
+				err: "",
+			},
+			{
+				input: "${packages.test}/output.txt",
+				output: &PlaceholderRef{
+					matchedPlaceholder: "${packages.test}",
+					nestedPath:         "packages.test",
+				},
+				err: "",
+			},
+			{
+				input: "${packages.modules.my-great-module}/output.txt",
+				output: &PlaceholderRef{
+					matchedPlaceholder: "${packages.modules.my-great-module}",
+					nestedPath:         "packages.modules.my-great-module",
+				},
+				err: "",
+			},
+			{
+				input:  "${packages.fake-one.test-my-bad}/output.txt",
+				output: nil,
+				err:    "invalid package placeholder path: ${packages.fake-one.test-my-bad}/output.txt",
+			},
+			{
+				input:  "${test-bad.fake-one}/output.txt",
+				output: nil,
+				err:    "invalid package placeholder path: ${test-bad.fake-one}/output.txt",
+			},
+			{
+				input:  "${packages}/output.txt",
+				output: nil,
+				err:    "invalid package placeholder path: ${packages}/output.txt",
+			},
+			{
+				input:  "",
+				output: nil,
+				err:    "invalid package placeholder path: ",
+			},
+		}
+
+		for _, testString := range testStrings {
+			t.Run(fmt.Sprintf("Running PlaceholderPath for %s", testString.input), func(t *testing.T) {
+				placeholderRef, err := pm.PlaceholderPath(testString.input)
+				test.That(t, placeholderRef, test.ShouldResemble, testString.output)
+				if len(testString.err) > 0 {
+					test.That(t, err, test.ShouldNotBeNil)
+					test.That(t, err.Error(), test.ShouldEqual, testString.err)
+				}
+			})
+		}
+	})
 }
 
 func isSymLink(t *testing.T, file string) bool {

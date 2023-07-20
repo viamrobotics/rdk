@@ -1173,6 +1173,11 @@ func (r *localRobot) replacePackageReferencesWithPaths(cfg *config.Config) error
 	var allErrs error
 	packageMap := cfg.GetExpectedPackagePlaceholders()
 
+	// don't traverse if there are no packages on the config
+	// we may want to remove this if we want to do all placeholder replacement
+	if len(packageMap) == 0 {
+		return nil
+	}
 	for i, s := range cfg.Services {
 		s.ConvertedAttributes, allErrs = walkConvertedAttributes(r.packageManager, packageMap, s.ConvertedAttributes, allErrs)
 		cfg.Services[i] = s

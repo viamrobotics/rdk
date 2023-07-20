@@ -114,22 +114,6 @@ func (m *cloudManager) PlaceholderPath(path string) (*PlaceholderRef, error) {
 	return &PlaceholderRef{matchedPlaceholder: matches[0], nestedPath: matches[1]}, nil
 }
 
-func (m *cloudManager) RefPath(refPath string) (string, error) {
-	ref := config.GetPackageReference(refPath)
-
-	// If no reference just return original path.
-	if ref == nil {
-		return refPath, nil
-	}
-
-	packagePath, err := m.PackagePath(PackageName(ref.Package))
-	if err != nil {
-		return "", err
-	}
-
-	return path.Join(packagePath, path.Clean(ref.PathInPackage)), nil
-}
-
 // Close manager.
 func (m *cloudManager) Close(ctx context.Context) error {
 	m.mu.Lock()
