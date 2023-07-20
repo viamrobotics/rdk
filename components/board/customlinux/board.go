@@ -81,7 +81,6 @@ func createNewBoard(
 	return &b, nil
 }
 
-//lint:ignore U1000 Ignore unused function temporarily
 func parsePinConfig(filePath string) ([]genericlinux.PinDefinition, error) {
 	pinData, err := os.ReadFile(filepath.Clean(filePath))
 	if err != nil {
