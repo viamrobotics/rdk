@@ -7,16 +7,18 @@ package customlinux
 import (
 	"context"
 	"encoding/json"
+	"os"
+	"path/filepath"
+	"sync"
+
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	"periph.io/x/host/v3"
+
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/board/genericlinux"
 	"go.viam.com/rdk/resource"
-	"os"
-	"path/filepath"
-	"periph.io/x/host/v3"
-	"sync"
 )
 
 const modelName = "customlinux"
@@ -118,8 +120,8 @@ func createGenericLinuxConfig(conf *Config) genericlinux.Config {
 }
 
 // Reconfigure reconfigures the board with interrupt pins, spi and i2c, and analogs.
-// WARNING: does not update pin definitions when the config file changes
-// TODO[RSDK-4092]: implement reconfiguration when pin definitions change
+// WARNING: does not update pin definitions when the config file changes.
+// TODO[RSDK-4092]: implement reconfiguration when pin definitions change.
 func (b *customLinuxBoard) Reconfigure(
 	ctx context.Context,
 	_ resource.Dependencies,
