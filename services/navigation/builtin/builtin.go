@@ -104,6 +104,7 @@ func NewBuiltIn(ctx context.Context, deps resource.Dependencies, conf resource.C
 
 type builtIn struct {
 	resource.Named
+	actionMu  sync.RWMutex
 	mu        sync.RWMutex
 	store     navigation.NavStore
 	storeType string
@@ -124,10 +125,13 @@ type builtIn struct {
 }
 
 func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
-	svc.callCancelFunc()
+	svc.actionMu.Lock()
+	defer svc.actionMu.Unlock()
 
-	svc.mu.Lock()
-	defer svc.mu.Unlock()
+	if svc.wholeServiceCancelFunc != nil {
+		svc.wholeServiceCancelFunc()
+	}
+	svc.activeBackgroundWorkers.Wait()
 
 	svcConfig, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
@@ -146,6 +150,8 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		return err
 	}
 
+	svc.mu.Lock()
+	defer svc.mu.Unlock()
 	var newStore navigation.NavStore
 	if svc.storeType != string(svcConfig.Store.Type) {
 		switch svcConfig.Store.Type {
@@ -189,18 +195,23 @@ func (svc *builtIn) Mode(ctx context.Context, extra map[string]interface{}) (nav
 }
 
 func (svc *builtIn) SetMode(ctx context.Context, mode navigation.Mode, extra map[string]interface{}) error {
-	svcMode, err := svc.Mode(ctx, extra)
-	if err != nil {
-		return err
-	} else if svcMode == mode {
+	svc.actionMu.Lock()
+	defer svc.actionMu.Unlock()
+
+	svc.mu.RLock()
+	if svc.mode == mode {
 		return nil
 	}
+	svc.mu.RUnlock()
 
 	// switch modes
-	svc.callCancelFunc()
+	if svc.wholeServiceCancelFunc != nil {
+		svc.wholeServiceCancelFunc()
+	}
+	svc.activeBackgroundWorkers.Wait()
+
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
-
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	svc.wholeServiceCancelFunc = cancelFunc
 	svc.mode = mode
@@ -215,6 +226,8 @@ func (svc *builtIn) SetMode(ctx context.Context, mode navigation.Mode, extra map
 }
 
 func (svc *builtIn) computeCurrentBearing(ctx context.Context, path []*geo.Point) (float64, error) {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
 	props, err := svc.movementSensor.Properties(ctx, nil)
 	if err != nil {
 		return 0, err
@@ -387,19 +400,15 @@ func (svc *builtIn) waypointReached(ctx context.Context) error {
 	return svc.store.WaypointVisited(ctx, svc.waypointInProgress.ID)
 }
 
-func (svc *builtIn) callCancelFunc() {
-	svc.mu.RLock()
+func (svc *builtIn) Close(ctx context.Context) error {
+	svc.actionMu.Lock()
+	defer svc.actionMu.Unlock()
+
 	if svc.wholeServiceCancelFunc != nil {
 		svc.wholeServiceCancelFunc()
 	}
-	svc.mu.RUnlock()
 	svc.activeBackgroundWorkers.Wait()
-}
 
-func (svc *builtIn) Close(ctx context.Context) error {
-	svc.callCancelFunc()
-	svc.mu.Lock()
-	defer svc.mu.Unlock()
 	return svc.store.Close(ctx)
 }
 
@@ -465,9 +474,14 @@ func (svc *builtIn) startWaypointExperimental(ctx context.Context, extra map[str
 				return
 			}
 
-			navOnceCancelCtx := svc.resetForNavOnce(ctx, wp)
+			svc.mu.Lock()
+			svc.waypointInProgress = &wp
+			cancelCtx, cancelFunc := context.WithCancel(ctx)
+			svc.currentWaypointCancelFunc = cancelFunc
+			svc.mu.Unlock()
+
 			svc.logger.Infof("navigating to waypoint: %+v", wp)
-			if err := navOnce(navOnceCancelCtx, wp); err != nil {
+			if err := navOnce(cancelCtx, wp); err != nil {
 				if svc.waypointIsDeleted() {
 					svc.logger.Infof("skipping waypoint %+v since it was deleted", wp)
 					continue
@@ -481,15 +495,6 @@ func (svc *builtIn) startWaypointExperimental(ctx context.Context, extra map[str
 			}
 		}
 	})
-}
-
-func (svc *builtIn) resetForNavOnce(ctx context.Context, wp navigation.Waypoint) context.Context {
-	svc.mu.Lock()
-	defer svc.mu.Unlock()
-	svc.waypointInProgress = &wp
-	navOnceCancelCtx, fn := context.WithCancel(ctx)
-	svc.currentWaypointCancelFunc = fn
-	return navOnceCancelCtx
 }
 
 func (svc *builtIn) waypointIsDeleted() bool {
