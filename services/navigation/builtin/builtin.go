@@ -226,17 +226,17 @@ func (svc *builtIn) computeCurrentBearing(ctx context.Context, path []*geo.Point
 	return fixAngle(path[pathLen-2].BearingTo(path[pathLen-1])), nil
 }
 
-func (svc *builtIn) startWaypoint(cancelCtx context.Context, extra map[string]interface{}) {
+func (svc *builtIn) startWaypoint(ctx context.Context, extra map[string]interface{}) {
 	svc.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer svc.activeBackgroundWorkers.Done()
 
 		path := []*geo.Point{}
 		for {
-			if !utils.SelectContextOrWait(cancelCtx, 500*time.Millisecond) {
+			if !utils.SelectContextOrWait(ctx, 500*time.Millisecond) {
 				return
 			}
-			currentLoc, _, err := svc.movementSensor.Position(cancelCtx, extra)
+			currentLoc, _, err := svc.movementSensor.Position(ctx, extra)
 			if err != nil {
 				svc.logger.Errorw("failed to get gps location", "error", err)
 				continue
@@ -294,12 +294,12 @@ func (svc *builtIn) startWaypoint(cancelCtx context.Context, extra map[string]in
 				return nil
 			}
 
-			if cancelCtx.Err() != nil {
+			if ctx.Err() != nil {
 				return
 			}
 
 			svc.mu.Lock()
-			navOnceCancelCtx, fn := context.WithCancel(cancelCtx)
+			navOnceCancelCtx, fn := context.WithCancel(ctx)
 			svc.currentWaypointCancelFunc = fn
 			svc.mu.Unlock()
 
@@ -310,7 +310,7 @@ func (svc *builtIn) startWaypoint(cancelCtx context.Context, extra map[string]in
 				}
 
 				svc.logger.Infof("skipping waypoint due to error while navigating towards it: %s", err)
-				if err := svc.waypointReached(cancelCtx); err != nil {
+				if err := svc.waypointReached(ctx); err != nil {
 					svc.logger.Info("can't mark waypoint as reached, exiting navigation due to error: %s", err)
 					return
 				}
@@ -429,7 +429,7 @@ func computeBearing(a, b float64) float64 {
 	return t
 }
 
-func (svc *builtIn) startWaypointExperimental(cancelCtx context.Context, extra map[string]interface{}) {
+func (svc *builtIn) startWaypointExperimental(ctx context.Context, extra map[string]interface{}) {
 	svc.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer svc.activeBackgroundWorkers.Done()
@@ -460,12 +460,12 @@ func (svc *builtIn) startWaypointExperimental(cancelCtx context.Context, extra m
 		}
 
 		// loop until no waypoints remaining
-		for wp, err := svc.nextWaypoint(cancelCtx); err == nil; wp, err = svc.nextWaypoint(cancelCtx) {
-			if cancelCtx.Err() != nil {
+		for wp, err := svc.nextWaypoint(ctx); err == nil; wp, err = svc.nextWaypoint(ctx) {
+			if ctx.Err() != nil {
 				return
 			}
 
-			navOnceCancelCtx := svc.resetForNavOnce(cancelCtx, wp)
+			navOnceCancelCtx := svc.resetForNavOnce(ctx, wp)
 			svc.logger.Infof("navigating to waypoint: %+v", wp)
 			if err := navOnce(navOnceCancelCtx, wp); err != nil {
 				if svc.waypointIsDeleted() {
@@ -474,7 +474,7 @@ func (svc *builtIn) startWaypointExperimental(cancelCtx context.Context, extra m
 				}
 
 				svc.logger.Infof("skipping waypoint %+v due to error while navigating towards it: %s", wp, err)
-				if err := svc.waypointReached(cancelCtx); err != nil {
+				if err := svc.waypointReached(ctx); err != nil {
 					svc.logger.Info("can't mark waypoint %+v as reached, exiting navigation due to error: %s", wp, err)
 				}
 			}
