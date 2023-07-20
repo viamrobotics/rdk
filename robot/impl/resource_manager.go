@@ -13,6 +13,7 @@ import (
 	"github.com/jhump/protoreflect/desc"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	goutils "go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
 
@@ -527,58 +528,81 @@ func (manager *resourceManager) completeConfig(
 	}
 
 	resourceNames := manager.resources.ReverseTopologicalSort()
+	timeout := rutils.GetResourceConfigurationTimeout(manager.logger)
 	for _, resName := range resourceNames {
-		gNode, ok := manager.resources.Node(resName)
-		if !ok || !gNode.NeedsReconfigure() {
-			continue
-		}
-		if !(resName.API.IsComponent() || resName.API.IsService()) {
-			continue
-		}
-		var verb string
-		if gNode.IsUninitialized() {
-			verb = "configuring"
-		} else {
-			verb = "reconfiguring"
-		}
-		manager.logger.Debugw(fmt.Sprintf("now %s resource", verb), "resource", resName)
-		conf := gNode.Config()
-
-		// this is done in config validation but partial start rules require us to check again
-		if _, err := conf.Validate("", resName.API.Type.Name); err != nil {
-			manager.logger.Errorw("resource config validation error", "resource", conf.ResourceName(), "model", conf.Model, "error", err)
-			gNode.SetLastError(errors.Wrap(err, "config validation error found in resource: "+conf.ResourceName().String()))
-			continue
-		}
-		if manager.moduleManager.Provides(conf) {
-			if _, err := manager.moduleManager.ValidateConfig(ctx, conf); err != nil {
-				manager.logger.Errorw("modular resource config validation error", "resource", conf.ResourceName(), "model", conf.Model, "error", err)
-				gNode.SetLastError(errors.Wrap(err, "config validation error found in modular resource: "+conf.ResourceName().String()))
-				continue
+		resChan := make(chan struct{}, 1)
+		resName := resName
+		ctxWithTimeout, timeoutCancel := context.WithTimeout(ctx, timeout)
+		defer timeoutCancel()
+		goutils.PanicCapturingGo(func() {
+			defer func() {
+				resChan <- struct{}{}
+			}()
+			gNode, ok := manager.resources.Node(resName)
+			if !ok || !gNode.NeedsReconfigure() {
+				return
 			}
-		}
+			if !(resName.API.IsComponent() || resName.API.IsService()) {
+				return
+			}
+			var verb string
+			if gNode.IsUninitialized() {
+				verb = "configuring"
+			} else {
+				verb = "reconfiguring"
+			}
+			manager.logger.Debugw(fmt.Sprintf("now %s resource", verb), "resource", resName)
+			conf := gNode.Config()
 
-		switch {
-		case resName.API.IsComponent(), resName.API.IsService():
-			newRes, newlyBuilt, err := manager.processResource(ctx, conf, gNode, robot)
-			if newlyBuilt || err != nil {
-				if err := manager.markChildrenForUpdate(resName); err != nil {
-					manager.logger.Errorw(
-						"failed to mark children of resource for update",
-						"resource", resName,
-						"reason", err)
+			// this is done in config validation but partial start rules require us to check again
+			if _, err := conf.Validate("", resName.API.Type.Name); err != nil {
+				manager.logger.Errorw("resource config validation error", "resource", conf.ResourceName(), "model", conf.Model, "error", err)
+				gNode.SetLastError(errors.Wrap(err, "config validation error found in resource: "+conf.ResourceName().String()))
+				return
+			}
+			if manager.moduleManager.Provides(conf) {
+				if _, err := manager.moduleManager.ValidateConfig(ctxWithTimeout, conf); err != nil {
+					manager.logger.Errorw("modular resource config validation error", "resource", conf.ResourceName(), "model", conf.Model, "error", err)
+					gNode.SetLastError(errors.Wrap(err, "config validation error found in modular resource: "+conf.ResourceName().String()))
+					return
 				}
 			}
-			if err != nil {
-				manager.logger.Errorw("error building resource", "resource", conf.ResourceName(), "model", conf.Model, "error", err)
-				gNode.SetLastError(errors.Wrap(err, "resource build error"))
-				continue
+
+			switch {
+			case resName.API.IsComponent(), resName.API.IsService():
+				newRes, newlyBuilt, err := manager.processResource(ctxWithTimeout, conf, gNode, robot)
+				if newlyBuilt || err != nil {
+					if err := manager.markChildrenForUpdate(resName); err != nil {
+						manager.logger.Errorw(
+							"failed to mark children of resource for update",
+							"resource", resName,
+							"reason", err)
+					}
+				}
+				if err != nil {
+					manager.logger.Errorw("error building resource", "resource", conf.ResourceName(), "model", conf.Model, "error", err)
+					gNode.SetLastError(errors.Wrap(err, "resource build error"))
+					return
+				}
+				// if the ctxWithTimeout has an error then that means we've timed out. This means
+				// that resource generation is running async, and we don't currently have good
+				// validation around how this might affect the resource graph. So, we avoid updating
+				// the graph to be safe.
+				if ctxWithTimeout.Err() != nil {
+					manager.logger.Errorw("error building resource", "resource", conf.ResourceName(), "model", conf.Model, "error", ctxWithTimeout.Err())
+				} else {
+					gNode.SwapResource(newRes, conf.Model)
+				}
+			default:
+				err := errors.New("config is not for a component or service")
+				manager.logger.Errorw(err.Error(), "resource", resName)
+				gNode.SetLastError(err)
 			}
-			gNode.SwapResource(newRes, conf.Model)
-		default:
-			err := errors.New("config is not for a component or service")
-			manager.logger.Errorw(err.Error(), "resource", resName)
-			gNode.SetLastError(err)
+		})
+		select {
+		case <-resChan:
+		case <-ctxWithTimeout.Done():
+			robot.logger.Warn(resource.NewBuildTimeoutError(resName))
 		}
 	}
 }
@@ -849,6 +873,11 @@ func (manager *resourceManager) updateResources(
 			break
 		}
 
+		// this is done in config validation but partial start rules require us to check again
+		if err := p.Validate(""); err != nil {
+			manager.logger.Errorw("process config validation error; skipping", "process", p.Name, "error", err)
+			continue
+		}
 		_, err := manager.processManager.AddProcessFromConfig(ctx, p)
 		if err != nil {
 			manager.logger.Errorw("error while adding process; skipping", "process", p.ID, "error", err)
@@ -873,6 +902,11 @@ func (manager *resourceManager) updateResources(
 		// Remove processConfig from map in case re-addition fails.
 		delete(manager.processConfigs, p.ID)
 
+		// this is done in config validation but partial start rules require us to check again
+		if err := p.Validate(""); err != nil {
+			manager.logger.Errorw("process config validation error; skipping", "process", p.Name, "error", err)
+			continue
+		}
 		_, err := manager.processManager.AddProcessFromConfig(ctx, p)
 		if err != nil {
 			manager.logger.Errorw("error while changing process; skipping", "process", p.ID, "error", err)
@@ -883,12 +917,22 @@ func (manager *resourceManager) updateResources(
 
 	// modules are not added into the resource tree as they belong to the module manager
 	for _, mod := range conf.Added.Modules {
+		// this is done in config validation but partial start rules require us to check again
+		if err := mod.Validate(""); err != nil {
+			manager.logger.Errorw("module config validation error; skipping", "module", mod.Name, "error", err)
+			continue
+		}
 		if err := manager.moduleManager.Add(ctx, mod); err != nil {
 			manager.logger.Errorw("error adding module", "module", mod.Name, "error", err)
 			continue
 		}
 	}
 	for _, mod := range conf.Modified.Modules {
+		// this is done in config validation but partial start rules require us to check again
+		if err := mod.Validate(""); err != nil {
+			manager.logger.Errorw("module config validation error; skipping", "module", mod.Name, "error", err)
+			continue
+		}
 		orphanedResourceNames, err := manager.moduleManager.Reconfigure(ctx, mod)
 		if err != nil {
 			manager.logger.Errorw("error reconfiguring module", "module", mod.Name, "error", err)

@@ -58,7 +58,7 @@ export const getPointCloudMap = (robotClient: Client, name: string) => {
   });
 };
 
-export const getSLAMPosition = async (robotClient: Client, name: string) => {
+export const getPosition = async (robotClient: Client, name: string) => {
   const request = new slamApi.GetPositionRequest();
   request.setName(name);
 
@@ -74,3 +74,19 @@ export const getSLAMPosition = async (robotClient: Client, name: string) => {
 
   return response?.getPose();
 };
+
+export const getLatestMapInfo = async (robotClient: Client, name: string) => {
+  const request = new slamApi.GetLatestMapInfoRequest();
+  request.setName(name);
+  const response = await new Promise<slamApi.GetLatestMapInfoResponse | null >((resolve, reject) => {
+    robotClient.slamService.getLatestMapInfo(request, (error, res) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(res);
+      }
+    });
+  });
+  return response?.getLastMapUpdate();
+};
+

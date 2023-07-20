@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	defaultSimDistMM      = 1100.
+	defaultSimDistMM      = 2000.
 	defaultAlphaCnt  uint = 121
 )
 
@@ -93,10 +93,9 @@ func (pf *ptgGridSimFrame) Transform(inputs []Input) (spatialmath.Pose, error) {
 	for _, trajNode := range traj {
 		// Walk the trajectory until we pass the specified distance
 		if trajNode.Dist > inputs[distanceAlongTrajectoryIndex].Value {
-			lastPose = trajNode.Pose
-		} else {
 			break
 		}
+		lastPose = trajNode.Pose
 	}
 
 	return lastPose, nil

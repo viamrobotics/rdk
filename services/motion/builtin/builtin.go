@@ -502,11 +502,6 @@ func (ms *builtIn) planMoveOnMap(
 		return nil, nil, err
 	}
 
-	if extra == nil {
-		extra = make(map[string]interface{})
-	}
-	extra["planning_alg"] = "rrtstar"
-
 	// get current position
 	inputs, err := kb.CurrentInputs(ctx)
 	if err != nil {

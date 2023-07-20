@@ -8,6 +8,7 @@ import (
 	"context"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -57,7 +58,7 @@ type localRobot struct {
 	configTicker               *time.Ticker
 	revealSensitiveConfigDiffs bool
 
-	lastWeakDependentsRound int64
+	lastWeakDependentsRound atomic.Int64
 
 	// internal services that are in the graph but we also hold onto
 	webSvc   web.Service
@@ -442,6 +443,11 @@ func newWithResources(
 	// specified modules.
 	r.manager.startModuleManager(r.webSvc.ModuleAddress(), cfg.UntrustedEnv, logger)
 	for _, mod := range cfg.Modules {
+		// this is done in config validation but partial start rules require us to check again
+		if err := mod.Validate(""); err != nil {
+			r.logger.Errorw("module config validation error; skipping", "module", mod.Name, "error", err)
+			continue
+		}
 		if err := r.manager.moduleManager.Add(ctx, mod); err != nil {
 			r.logger.Errorw("error adding module", "module", mod.Name, "error", err)
 			continue
@@ -520,7 +526,7 @@ func (r *localRobot) getDependencies(
 	var needUpdate bool
 	for _, dep := range r.manager.resources.GetAllParentsOf(rName) {
 		if node, ok := r.manager.resources.Node(dep); ok {
-			if r.lastWeakDependentsRound <= node.UpdatedAt() {
+			if r.lastWeakDependentsRound.Load() <= node.UpdatedAt() {
 				needUpdate = true
 			}
 		}
@@ -652,7 +658,7 @@ func (r *localRobot) newResource(
 func (r *localRobot) updateWeakDependents(ctx context.Context) {
 	// track that we are current in resources up to the latest update time. This will
 	// be used to determine if this method should be called while completing a config.
-	r.lastWeakDependentsRound = r.manager.resources.LastUpdatedTime()
+	r.lastWeakDependentsRound.Store(r.manager.resources.LastUpdatedTime())
 
 	allResources := map[resource.Name]resource.Resource{}
 	internalResources := map[resource.Name]resource.Resource{}
@@ -677,34 +683,55 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 		}
 	}
 
+	timeout := utils.GetResourceConfigurationTimeout(r.logger)
 	// NOTE(erd): this is intentionally hard coded since these services are treated specially with
 	// how they request dependencies or consume the robot's config. We should make an effort to
 	// formalize these as servcices that while internal, obey the reconfigure lifecycle.
 	// For example, the framesystem should depend on all input enabled components while the web
 	// service depends on all resources.
 	// For now, we pass all resources and empty configs.
-	for resName, res := range internalResources {
-		switch resName {
-		case web.InternalServiceName:
-			if err := res.Reconfigure(ctx, allResources, resource.Config{}); err != nil {
-				r.Logger().Errorw("failed to reconfigure internal service", "service", resName, "error", err)
+	processInternalResources := func(resName resource.Name, res resource.Resource, resChan chan struct{}) {
+		ctxWithTimeout, timeoutCancel := context.WithTimeout(ctx, timeout)
+		defer timeoutCancel()
+		goutils.PanicCapturingGo(func() {
+			defer func() {
+				resChan <- struct{}{}
+			}()
+			switch resName {
+			case web.InternalServiceName:
+				if err := res.Reconfigure(ctxWithTimeout, allResources, resource.Config{}); err != nil {
+					r.Logger().Errorw("failed to reconfigure internal service", "service", resName, "error", err)
+				}
+			case framesystem.InternalServiceName:
+				fsCfg, err := r.FrameSystemConfig(ctxWithTimeout)
+				if err != nil {
+					r.Logger().Errorw("failed to reconfigure internal service", "service", resName, "error", err)
+					break
+				}
+				if err := res.Reconfigure(ctxWithTimeout, components, resource.Config{ConvertedAttributes: fsCfg}); err != nil {
+					r.Logger().Errorw("failed to reconfigure internal service", "service", resName, "error", err)
+				}
+			case packages.InternalServiceName, cloud.InternalServiceName:
+			default:
+				r.logger.Warnw("do not know how to reconfigure internal service", "service", resName)
 			}
-		case framesystem.InternalServiceName:
-			fsCfg, err := r.FrameSystemConfig(ctx)
-			if err != nil {
-				r.Logger().Errorw("failed to reconfigure internal service", "service", resName, "error", err)
-				continue
-			}
-			if err := res.Reconfigure(ctx, components, resource.Config{ConvertedAttributes: fsCfg}); err != nil {
-				r.Logger().Errorw("failed to reconfigure internal service", "service", resName, "error", err)
-			}
-		case packages.InternalServiceName, cloud.InternalServiceName:
-		default:
-			r.logger.Warnw("do not know how to reconfigure internal service", "service", resName)
+		})
+
+		select {
+		case <-resChan:
+		case <-ctxWithTimeout.Done():
+			r.logger.Warn(resource.NewBuildTimeoutError(resName))
 		}
 	}
 
-	updateResourceWeakDependents := func(conf resource.Config) {
+	for resName, res := range internalResources {
+		resChan := make(chan struct{}, 1)
+		resName := resName
+		res := res
+		processInternalResources(resName, res, resChan)
+	}
+
+	updateResourceWeakDependents := func(ctx context.Context, conf resource.Config) {
 		resName := conf.ResourceName()
 		resNode, ok := r.manager.resources.Node(resName)
 		if !ok {
@@ -726,12 +753,24 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 			r.Logger().Errorw("failed to reconfigure resource with weak dependencies", "resource", resName, "error", err)
 		}
 	}
-	conf := r.Config()
-	for _, conf := range conf.Components {
-		updateResourceWeakDependents(conf)
-	}
-	for _, conf := range conf.Services {
-		updateResourceWeakDependents(conf)
+
+	cfg := r.Config()
+	for _, conf := range append(cfg.Components, cfg.Services...) {
+		conf := conf
+		ctxWithTimeout, timeoutCancel := context.WithTimeout(ctx, timeout)
+		defer timeoutCancel()
+		resChan := make(chan struct{}, 1)
+		goutils.PanicCapturingGo(func() {
+			defer func() {
+				resChan <- struct{}{}
+			}()
+			updateResourceWeakDependents(ctxWithTimeout, conf)
+		})
+		select {
+		case <-resChan:
+		case <-ctxWithTimeout.Done():
+			r.logger.Warn(resource.NewBuildTimeoutError(conf.ResourceName()))
+		}
 	}
 }
 
@@ -1016,7 +1055,7 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	}
 
 	// Now that we have the new config and all references are resolved, diff it
-	// with the current generated config to see what has changed.
+	// with the current generated config to see what has changed
 	diff, err := config.DiffConfigs(*r.Config(), *newConfig, r.revealSensitiveConfigDiffs)
 	if err != nil {
 		r.logger.Errorw("error diffing the configs", "error", err)

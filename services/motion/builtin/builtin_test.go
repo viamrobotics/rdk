@@ -49,6 +49,24 @@ func setupMotionServiceFromConfig(t *testing.T, configFilename string) (motion.S
 	}
 }
 
+func getPointCloudMap(path string) (func() ([]byte, error), error) {
+	const chunkSizeBytes = 1 * 1024 * 1024
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	chunk := make([]byte, chunkSizeBytes)
+	f := func() ([]byte, error) {
+		bytesRead, err := file.Read(chunk)
+		if err != nil {
+			defer utils.UncheckedErrorFunc(file.Close)
+			return nil, err
+		}
+		return chunk[:bytesRead], err
+	}
+	return f, nil
+}
+
 func TestMoveFailures(t *testing.T) {
 	var err error
 	ms, teardown := setupMotionServiceFromConfig(t, "../data/arm_gantry.json")
@@ -219,30 +237,58 @@ func TestMoveSingleComponent(t *testing.T) {
 	})
 }
 
+func TestMoveOnMapLongDistance(t *testing.T) {
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+	injectSlam := inject.NewSLAMService("test_slam")
+
+	injectSlam.GetPointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
+		return getPointCloudMap(filepath.Clean(
+			artifact.MustPath("slam/example_cartographer_outputs/viam-office-02-22-3/pointcloud/pointcloud_4.pcd")))
+	}
+
+	cfg := resource.Config{
+		Name:  "test_base",
+		API:   base.API,
+		Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R: 100}},
+	}
+
+	fakeBase, err := fake.NewBase(ctx, nil, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	ms, err := NewBuiltIn(
+		ctx,
+		resource.Dependencies{injectSlam.Name(): injectSlam, fakeBase.Name(): fakeBase},
+		resource.Config{
+			ConvertedAttributes: &Config{},
+		},
+		logger,
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	// goal x-position of 1.32m is scaled to be in mm
+	goal := spatialmath.NewPoseFromPoint(r3.Vector{X: -32.508 * 1000, Y: -2.092 * 1000})
+	extra := make(map[string]interface{})
+	extra["planning_alg"] = "cbirrt"
+	path, _, err := ms.(*builtIn).planMoveOnMap(
+		context.Background(),
+		base.Named("test_base"),
+		goal,
+		slam.Named("test_slam"),
+		extra,
+	)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(path), test.ShouldBeGreaterThan, 2)
+}
+
 func TestMoveOnMap(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 	injectSlam := inject.NewSLAMService("test_slam")
 
-	const chunkSizeBytes = 1 * 1024 * 1024
-
 	injectSlam.GetPointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
-		path := filepath.Clean(artifact.MustPath("pointcloud/octagonspace.pcd"))
-		file, err := os.Open(path)
-		if err != nil {
-			return nil, err
-		}
-		chunk := make([]byte, chunkSizeBytes)
-		f := func() ([]byte, error) {
-			bytesRead, err := file.Read(chunk)
-			if err != nil {
-				defer utils.UncheckedErrorFunc(file.Close)
-				return nil, err
-			}
-			return chunk[:bytesRead], err
-		}
-		return f, nil
+		return getPointCloudMap(filepath.Clean(artifact.MustPath("pointcloud/octagonspace.pcd")))
 	}
 	injectSlam.GetPositionFunc = func(ctx context.Context) (spatialmath.Pose, string, error) {
 		return spatialmath.NewZeroPose(), "", nil
@@ -312,7 +358,53 @@ func TestMoveOnMap(t *testing.T) {
 	})
 }
 
+func TestMoveOnMapTimeout(t *testing.T) {
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+	cfg, err := config.Read(ctx, "../data/real_wheeled_base.json", logger)
+	test.That(t, err, test.ShouldBeNil)
+	myRobot, err := robotimpl.New(ctx, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, myRobot.Close(context.Background()), test.ShouldBeNil)
+	}()
+
+	injectSlam := inject.NewSLAMService("test_slam")
+	injectSlam.GetPointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
+		return getPointCloudMap(filepath.Clean(artifact.MustPath("pointcloud/octagonspace.pcd")))
+	}
+	injectSlam.GetPositionFunc = func(ctx context.Context) (spatialmath.Pose, string, error) {
+		return spatialmath.NewZeroPose(), "", nil
+	}
+
+	realBase, err := base.FromRobot(myRobot, "test_base")
+	test.That(t, err, test.ShouldBeNil)
+
+	ms, err := NewBuiltIn(
+		ctx,
+		resource.Dependencies{injectSlam.Name(): injectSlam, realBase.Name(): realBase},
+		resource.Config{
+			ConvertedAttributes: &Config{},
+		},
+		logger,
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	easyGoal := spatialmath.NewPoseFromPoint(r3.Vector{X: 0.277 * 1000, Y: 0.593 * 1000})
+	success, err := ms.MoveOnMap(
+		context.Background(),
+		base.Named("test_base"),
+		easyGoal,
+		slam.Named("test_slam"),
+		nil,
+	)
+	test.That(t, err, test.ShouldNotBeNil)
+
+	test.That(t, success, test.ShouldBeFalse)
+}
+
 func TestMoveOnGlobe(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 

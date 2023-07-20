@@ -70,7 +70,7 @@ func (s *serviceServer) GetProperties(
 	if err != nil {
 		return nil, err
 	}
-	return FeatureMapToProtoResponse(features)
+	return PropertiesToProtoResponse(features)
 }
 
 // DoCommand receives arbitrary commands.

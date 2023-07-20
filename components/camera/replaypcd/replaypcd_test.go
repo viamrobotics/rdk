@@ -268,7 +268,7 @@ func TestNextPointCloud(t *testing.T) {
 			// Confirm the end of the dataset was reached when expected
 			pc, err := replayCamera.NextPointCloud(ctx)
 			test.That(t, err, test.ShouldNotBeNil)
-			test.That(t, err.Error(), test.ShouldContainSubstring, errEndOfDataset.Error())
+			test.That(t, err.Error(), test.ShouldContainSubstring, ErrEndOfDataset.Error())
 			test.That(t, pc, test.ShouldBeNil)
 
 			err = replayCamera.Close(ctx)
@@ -303,7 +303,7 @@ func TestLiveNextPointCloud(t *testing.T) {
 		pc, err := replayCamera.NextPointCloud(ctx)
 		if i == numPCDFiles {
 			test.That(t, err, test.ShouldNotBeNil)
-			test.That(t, err.Error(), test.ShouldContainSubstring, errEndOfDataset.Error())
+			test.That(t, err.Error(), test.ShouldContainSubstring, ErrEndOfDataset.Error())
 			test.That(t, pc, test.ShouldBeNil)
 
 			// Add new files for future processing
@@ -544,7 +544,7 @@ func TestNextPointCloudTimestamps(t *testing.T) {
 		// Confirm the end of the dataset was reached when expected
 		pc, err := replayCamera.NextPointCloud(ctx)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, errEndOfDataset.Error())
+		test.That(t, err.Error(), test.ShouldContainSubstring, ErrEndOfDataset.Error())
 		test.That(t, pc, test.ShouldBeNil)
 
 		err = replayCamera.Close(ctx)
@@ -610,7 +610,7 @@ func TestReconfigure(t *testing.T) {
 	// Confirm the end of the dataset was reached when expected
 	pc, err := replayCamera.NextPointCloud(ctx)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, errEndOfDataset.Error())
+	test.That(t, err.Error(), test.ShouldContainSubstring, ErrEndOfDataset.Error())
 	test.That(t, pc, test.ShouldBeNil)
 
 	err = replayCamera.Close(ctx)
