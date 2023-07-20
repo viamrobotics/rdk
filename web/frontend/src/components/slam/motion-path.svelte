@@ -20,26 +20,29 @@ const line = new Line2(geometry, material);
 line.visible = false;
 scene.add(line);
 
-$: {
-  if (path === undefined) {
-    line.visible = false;
-  } else {
-    line.visible = true;
-
-    const points: number[] = [];
-
-    for (const xy of path.split('\n')) {
-      const [xString, yString] = xy.split(',');
-      if (xString !== undefined && yString !== undefined) {
-        const x = Number.parseFloat(xString) / 1000;
-        const y = Number.parseFloat(yString) / 1000;
-        points.push(x, y, 0);
-      }
-    }
-
-    const vertices = new Float32Array(points);
-    geometry.setPositions(vertices);
+const updatePath = (pathstr?: string) => {
+  if (pathstr === undefined) {
+    line.visible = false
+    return
   }
+
+  line.visible = true
+
+  const points: number[] = [];
+
+  for (const xy of pathstr.split('\n')) {
+    const [xString, yString] = xy.split(',');
+    if (xString !== undefined && yString !== undefined) {
+      const x = Number.parseFloat(xString) / 1000;
+      const y = Number.parseFloat(yString) / 1000;
+      points.push(x, y, 0);
+    }
+  }
+
+  const vertices = new Float32Array(points);
+  geometry.setPositions(vertices);
 }
+
+$: updatePath(path)
 
 </script>
