@@ -49,7 +49,10 @@ func getAgentInfo() (*apppb.AgentInfo, error) {
 	}, nil
 }
 
-var viamDotDir = filepath.Join(os.Getenv("HOME"), ".viam")
+var (
+	viamDotDir = filepath.Join(os.Getenv("HOME"), ".viam")
+	dataDotDir = ".data"
+)
 
 func getCloudCacheFilePath(id string) string {
 	return filepath.Join(viamDotDir, fmt.Sprintf("cached_cloud_config_%s.json", id))

@@ -6,8 +6,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"path"
 	"reflect"
 	"regexp"
+	"strings"
 	"sync"
 	"time"
 
@@ -155,6 +157,17 @@ func (c *Config) Ensure(fromCloud bool, logger golog.Logger) error {
 	}
 
 	return nil
+}
+
+// GetExpectedPackagePlaceholders returns a map of placeholder string -> real filepath for each package.
+func (c Config) GetExpectedPackagePlaceholders() map[string]string {
+	packageMap := make(map[string]string)
+	// based on the given packages, generate the expected placeholder + real filepath
+	for _, config := range c.Packages {
+		packageMap[config.getPackagePlaceholder()] = config.generateFilePath()
+	}
+
+	return packageMap
 }
 
 // FindComponent finds a particular component by name.
@@ -861,6 +874,17 @@ var packageReferenceRegex = regexp.MustCompile(`^\$\{packages\.([A-Za-z0-9_\/-]+
 // DefaultPackageVersionValue default value of the package version used when empty.
 const DefaultPackageVersionValue = "latest"
 
+// PackageType indicates the type of the package
+// This is used to replace placeholder strings in the config.
+type PackageType string
+
+const (
+	// PackageTypeMlModel represents an ML model.
+	PackageTypeMlModel PackageType = "ml_model"
+	// PackageTypeModule represents a module type.
+	PackageTypeModule PackageType = "module"
+)
+
 // A PackageConfig describes the configuration of a Package.
 type PackageConfig struct {
 	// Name is the local name of the package on the RDK. Must be unique across Packages. Must not be empty.
@@ -869,6 +893,8 @@ type PackageConfig struct {
 	Package string `json:"package"`
 	// Version of the package ID hosted by a remote PackageService. If not specified "latest" is assumed.
 	Version string `json:"version,omitempty"`
+	// Types of the Package. If not specified it is assumed to be ml_model.
+	Type PackageType `json:"omitempty"`
 
 	alreadyValidated bool
 	cachedErr        error
@@ -882,6 +908,53 @@ func (p *PackageConfig) Validate(path string) error {
 	p.cachedErr = p.validate(path)
 	p.alreadyValidated = true
 	return p.cachedErr
+}
+
+// SanitizeName forms the package name for the symlink/filepath of the package on the system.
+func (p *PackageConfig) SanitizeName() string {
+	return fmt.Sprintf("%s-%s", strings.ReplaceAll(p.Package, "/", "-"), p.SanitizeVersion())
+}
+
+// SanitizeVersion replaces the version string.
+func (p *PackageConfig) SanitizeVersion() string {
+	// replaces all the . if they exist with _
+	return strings.ReplaceAll(p.Version, ".", "_")
+}
+
+func (p *PackageConfig) generateFilePath() string {
+	// first get the base root
+
+	// for backwards compatibility, packages right now don't have ml_models as a type.
+	// so if that is the case we need to join it right now to packages/../name
+	var dir string
+	if p.Type == "" {
+		// then this is not set and it must be an ml-model for backward compatibility -- but for now just join it without the type
+		// package manager will still create symlinks for these packages based on the packges path
+		dir = path.Clean(path.Join(viamDotDir, "packages", p.Name))
+	} else {
+		dir = path.Clean(path.Join(viamDotDir, "packages", p.getPackageDirectoryFromType(), dataDotDir, p.SanitizeName()))
+	}
+	return dir
+}
+
+func (p *PackageConfig) getPackagePlaceholder() string {
+	// then based on what the structure of the package is, we can match what the replacement should look like
+	if p.Type != "" {
+		return strings.Join([]string{"packages", p.getPackageDirectoryFromType(), p.Name}, ".")
+	}
+
+	return strings.Join([]string{"packages", p.Name}, ".")
+}
+
+func (p *PackageConfig) getPackageDirectoryFromType() string {
+	switch p.Type {
+	case PackageTypeMlModel:
+		return "ml_models"
+	case PackageTypeModule:
+		return "modules"
+	default:
+		return "default"
+	}
 }
 
 func (p *PackageConfig) validate(path string) error {
@@ -911,6 +984,7 @@ func (p PackageConfig) Equals(other PackageConfig) bool {
 }
 
 // GetPackageReference a PackageReference if the given path has a Package reference eg. ${packages.some-package}/path.
+// Eg: ${packages.some-package}/path/a/b/c -> {"some-package", "/path/a/b/c"}.
 // Returns nil if no package reference is found.
 func GetPackageReference(path string) *PackageReference {
 	// return early before regex match

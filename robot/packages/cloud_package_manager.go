@@ -14,6 +14,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -41,6 +42,8 @@ type managedPackage struct {
 	thePackage config.PackageConfig
 	modtime    time.Time
 }
+
+var placeholderRegexp = regexp.MustCompile(`^\$\{(packages(\.(ml_models|modules))?\.[\w_\-]+)\}`)
 
 type cloudManager struct {
 	resource.Named
@@ -100,6 +103,15 @@ func (m *cloudManager) PackagePath(name PackageName) (string, error) {
 	}
 
 	return m.localNamedPath(p.thePackage), nil
+}
+
+func (m *cloudManager) PlaceholderPath(path string) (*PlaceholderRef, error) {
+	matches := placeholderRegexp.FindStringSubmatch(path)
+	if len(matches) == 0 {
+		return nil, fmt.Errorf("invalid package placeholder path: %s", path)
+	}
+
+	return &PlaceholderRef{matchedPlaceholder: matches[0], nestedPath: matches[1]}, nil
 }
 
 func (m *cloudManager) RefPath(refPath string) (string, error) {
@@ -230,7 +242,7 @@ func (m *cloudManager) Cleanup(ctx context.Context) error {
 		if f.Type()&os.ModeSymlink == os.ModeSymlink {
 			// if managed skip removing package
 			if p, ok := m.managedPackages[PackageName(f.Name())]; ok {
-				knownPackages[hashName(p.thePackage)] = true
+				knownPackages[p.thePackage.SanitizeName()] = true
 				continue
 			}
 
@@ -503,15 +515,15 @@ func (m *cloudManager) unpackFile(ctx context.Context, fromFile, toDir string) e
 }
 
 func (m *cloudManager) localDownloadPath(p config.PackageConfig) string {
-	return filepath.Join(m.packagesDataDir, fmt.Sprintf("%s.download", hashName(p)))
+	return filepath.Join(m.packagesDataDir, fmt.Sprintf("%s.download", p.SanitizeName()))
 }
 
 func (m *cloudManager) localDataPath(p config.PackageConfig) string {
-	return filepath.Join(m.packagesDataDir, hashName(p))
+	return filepath.Join(m.packagesDataDir, p.SanitizeName())
 }
 
 func (m *cloudManager) localNamedPath(p config.PackageConfig) string {
-	return filepath.Join(m.packagesDir, p.Name)
+	return filepath.Join(m.packagesDir, p.SanitizeName())
 }
 
 func getGoogleHash(headers http.Header, hashType string) string {
@@ -530,11 +542,6 @@ func getGoogleHash(headers http.Header, hashType string) string {
 
 func crc32Hash() hash.Hash32 {
 	return crc32.New(crc32.MakeTable(crc32.Castagnoli))
-}
-
-func hashName(f config.PackageConfig) string {
-	// replace / to avoid a directory path in the name. This will happen with `org/package` format.
-	return fmt.Sprintf("%s-%s", strings.ReplaceAll(f.Package, "/", "-"), f.Version)
 }
 
 // safeJoin performs a filepath.Join of 'parent' and 'subdir' but returns an error

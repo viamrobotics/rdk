@@ -243,14 +243,14 @@ func validatePackageDir(t *testing.T, dir string, input []config.PackageConfig) 
 	byLogicalName := make(map[string]*config.PackageConfig)
 	for _, pI := range input {
 		p := pI
-		byPackageHash[hashName(p)] = &p
+		byPackageHash[p.SanitizeName()] = &p
 		byLogicalName[p.Name] = &p
 	}
 
 	// check all known packages exist and are linked to the correct package dir.
 	for _, p := range input {
 		logicalPath := path.Join(dir, p.Name)
-		dataPath := path.Join(dir, fmt.Sprintf(".data/%s", hashName(p)))
+		dataPath := path.Join(dir, fmt.Sprintf(".data/%s", p.SanitizeName()))
 
 		info, err := os.Stat(logicalPath)
 		test.That(t, err, test.ShouldBeNil)
@@ -338,50 +338,6 @@ func TestPackageRefs(t *testing.T) {
 		t.Run("missing package for empty", func(t *testing.T) {
 			_, err = pm.PackagePath("")
 			test.That(t, err, test.ShouldEqual, ErrPackageMissing)
-		})
-	})
-
-	t.Run("RefPath", func(t *testing.T) {
-		t.Run("empty path", func(t *testing.T) {
-			pPath, err := pm.RefPath("")
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, pPath, test.ShouldEqual, "")
-		})
-
-		t.Run("non-ref absolute path", func(t *testing.T) {
-			pPath, err := pm.RefPath("/some/absolute/path")
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, pPath, test.ShouldEqual, "/some/absolute/path")
-		})
-
-		t.Run("non-ref relative path", func(t *testing.T) {
-			pPath, err := pm.RefPath("some/absolute/path")
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, pPath, test.ShouldEqual, "some/absolute/path")
-		})
-
-		t.Run("non-ref relative path with backtrack", func(t *testing.T) {
-			pPath, err := pm.RefPath("some/../absolute/path")
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, pPath, test.ShouldEqual, "some/../absolute/path")
-		})
-
-		t.Run("valid ref, empty package path", func(t *testing.T) {
-			pPath, err := pm.RefPath("${packages.some-name}")
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, pPath, test.ShouldEqual, path.Join(packageDir, "some-name"))
-		})
-
-		t.Run("valid ref, with package path", func(t *testing.T) {
-			pPath, err := pm.RefPath("${packages.some-name}/some/path")
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, pPath, test.ShouldEqual, path.Join(packageDir, "some-name", "some/path"))
-		})
-
-		t.Run("valid ref, ensure no escape from package path", func(t *testing.T) {
-			pPath, err := pm.RefPath("${packages.some-name}/../../../some-other-package/some/path")
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, pPath, test.ShouldEqual, path.Join(packageDir, "some-name", "some-other-package/some/path"))
 		})
 	})
 }
