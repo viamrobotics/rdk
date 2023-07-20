@@ -8,7 +8,6 @@ import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js';
 export let scene: THREE.Scene;
 export let path: string | undefined;
 
-
 const material = new LineMaterial({
   color: 0xFF_00_47,
   linewidth: 0.005,
@@ -16,12 +15,12 @@ const material = new LineMaterial({
   alphaToCoverage: true,
 });
 
-let line: Line2
+let line: Line2;
 
 const updatePath = (pathstr?: string) => {
   if (line !== undefined) {
-    scene.remove(line)
-    line.geometry.dispose()
+    scene.remove(line);
+    line.geometry.dispose();
   }
 
   if (pathstr === undefined) {
@@ -49,8 +48,8 @@ const updatePath = (pathstr?: string) => {
   // Render above pointcloud.
   line.renderOrder = 3;
 
-  line.computeLineDistances()
-  scene.add(line)
+  line.computeLineDistances();
+  scene.add(line);
 };
 
 $: updatePath(path);
