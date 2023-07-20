@@ -2,7 +2,6 @@ package encoder_test
 
 import (
 	"context"
-	"errors"
 	"net"
 	"testing"
 
@@ -48,26 +47,26 @@ func TestClient(t *testing.T) {
 		actualExtra = extra
 		return 42.0, encoder.PositionTypeUnspecified, nil
 	}
-	workingEncoder.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (map[encoder.Feature]bool, error) {
+	workingEncoder.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (encoder.Properties, error) {
 		actualExtra = extra
-		return map[encoder.Feature]bool{
-			encoder.TicksCountSupported:   true,
-			encoder.AngleDegreesSupported: false,
+		return encoder.Properties{
+			TicksCountSupported:   true,
+			AngleDegreesSupported: false,
 		}, nil
 	}
 
 	failingEncoder.ResetPositionFunc = func(ctx context.Context, extra map[string]interface{}) error {
-		return errors.New("set to zero failed")
+		return errSetToZeroFailed
 	}
 	failingEncoder.PositionFunc = func(
 		ctx context.Context,
 		positionType encoder.PositionType,
 		extra map[string]interface{},
 	) (float64, encoder.PositionType, error) {
-		return 0, encoder.PositionTypeUnspecified, errors.New("position unavailable")
+		return 0, encoder.PositionTypeUnspecified, errPositionUnavailable
 	}
-	failingEncoder.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (map[encoder.Feature]bool, error) {
-		return nil, errors.New("get properties failed")
+	failingEncoder.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (encoder.Properties, error) {
+		return encoder.Properties{}, errGetPropertiesFailed
 	}
 
 	resourceMap := map[resource.Name]encoder.Encoder{
@@ -91,7 +90,7 @@ func TestClient(t *testing.T) {
 		cancel()
 		_, err := viamgrpc.Dial(cancelCtx, listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
+		test.That(t, err, test.ShouldBeError, context.Canceled)
 	})
 
 	conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
@@ -132,9 +131,11 @@ func TestClient(t *testing.T) {
 	t.Run("client tests for failing encoder", func(t *testing.T) {
 		err = failingEncoderClient.ResetPosition(context.Background(), nil)
 		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errSetToZeroFailed.Error())
 
 		pos, _, err := failingEncoderClient.Position(context.Background(), encoder.PositionTypeUnspecified, nil)
 		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errPositionUnavailable.Error())
 		test.That(t, pos, test.ShouldEqual, 0.0)
 
 		test.That(t, failingEncoderClient.Close(context.Background()), test.ShouldBeNil)

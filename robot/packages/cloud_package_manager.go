@@ -145,6 +145,11 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		default:
 		}
 
+		if err := p.Validate(""); err != nil {
+			m.logger.Debugf("package config validation error; skipping", "package", p.Name, "error", err)
+			continue
+		}
+
 		start := time.Now()
 		m.logger.Debugf("Starting package sync [%d/%d] %s:%s", idx+1, len(packages), p.Package, p.Version)
 

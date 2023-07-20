@@ -497,10 +497,15 @@ type GPIOPin struct {
 	high    bool
 	pwm     float64
 	pwmFreq uint
+
+	mu sync.Mutex
 }
 
 // Set sets the pin to either low or high.
 func (gp *GPIOPin) Set(ctx context.Context, high bool, extra map[string]interface{}) error {
+	gp.mu.Lock()
+	defer gp.mu.Unlock()
+
 	gp.high = high
 	gp.pwm = 0
 	gp.pwmFreq = 0
@@ -509,27 +514,42 @@ func (gp *GPIOPin) Set(ctx context.Context, high bool, extra map[string]interfac
 
 // Get gets the high/low state of the pin.
 func (gp *GPIOPin) Get(ctx context.Context, extra map[string]interface{}) (bool, error) {
+	gp.mu.Lock()
+	defer gp.mu.Unlock()
+
 	return gp.high, nil
 }
 
 // PWM gets the pin's given duty cycle.
 func (gp *GPIOPin) PWM(ctx context.Context, extra map[string]interface{}) (float64, error) {
+	gp.mu.Lock()
+	defer gp.mu.Unlock()
+
 	return gp.pwm, nil
 }
 
 // SetPWM sets the pin to the given duty cycle.
 func (gp *GPIOPin) SetPWM(ctx context.Context, dutyCyclePct float64, extra map[string]interface{}) error {
+	gp.mu.Lock()
+	defer gp.mu.Unlock()
+
 	gp.pwm = dutyCyclePct
 	return nil
 }
 
 // PWMFreq gets the PWM frequency of the pin.
 func (gp *GPIOPin) PWMFreq(ctx context.Context, extra map[string]interface{}) (uint, error) {
+	gp.mu.Lock()
+	defer gp.mu.Unlock()
+
 	return gp.pwmFreq, nil
 }
 
 // SetPWMFreq sets the given pin to the given PWM frequency.
 func (gp *GPIOPin) SetPWMFreq(ctx context.Context, freqHz uint, extra map[string]interface{}) error {
+	gp.mu.Lock()
+	defer gp.mu.Unlock()
+
 	gp.pwmFreq = freqHz
 	return nil
 }

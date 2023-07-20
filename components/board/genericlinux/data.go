@@ -29,7 +29,7 @@ type pwmChipData struct {
 }
 
 // GetGPIOBoardMappings attempts to find a compatible GPIOBoardMapping for the given board.
-func GetGPIOBoardMappings(modelName string, boardInfoMappings map[string]BoardInformation) (map[int]GPIOBoardMapping, error) {
+func GetGPIOBoardMappings(modelName string, boardInfoMappings map[string]BoardInformation) (map[string]GPIOBoardMapping, error) {
 	pinDefs, err := getCompatiblePinDefs(modelName, boardInfoMappings)
 	if err != nil {
 		return nil, err
@@ -110,9 +110,7 @@ func getGpioChipDefs(pinDefs []PinDefinition) (map[int]string, error) {
 
 	expectedNgpios := make(map[int]struct{}, len(pinDefs))
 	for _, pinDef := range pinDefs {
-		for n := range pinDef.GPIOChipRelativeIDs {
-			expectedNgpios[n] = struct{}{} // get a "set" of all ngpio numbers on the board
-		}
+		expectedNgpios[pinDef.Ngpio] = struct{}{} // get a "set" of all ngpio numbers on the board
 	}
 
 	gpioChipsInfo := map[int]string{}
@@ -136,10 +134,10 @@ func getPwmChipDefs(pinDefs []PinDefinition) (map[string]pwmChipData, error) {
 	// native set objects, so we use a map whose values are ignored.
 	pwmChipNames := make(map[string]struct{}, len(pinDefs))
 	for _, pinDef := range pinDefs {
-		if pinDef.PWMChipSysFSDir == "" {
+		if pinDef.PwmChipSysfsDir == "" {
 			continue
 		}
-		pwmChipNames[pinDef.PWMChipSysFSDir] = struct{}{}
+		pwmChipNames[pinDef.PwmChipSysfsDir] = struct{}{}
 	}
 
 	// Now, look for all chips whose names we found.
@@ -187,56 +185,43 @@ func getPwmChipDefs(pinDefs []PinDefinition) (map[string]pwmChipData, error) {
 
 func getBoardMapping(pinDefs []PinDefinition, gpioChipsInfo map[int]string,
 	pwmChipsInfo map[string]pwmChipData,
-) (map[int]GPIOBoardMapping, error) {
-	data := make(map[int]GPIOBoardMapping, len(pinDefs))
+) (map[string]GPIOBoardMapping, error) {
+	data := make(map[string]GPIOBoardMapping, len(pinDefs))
 
 	// For "use" on pins that don't have hardware PWMs
 	dummyPwmInfo := pwmChipData{Dir: "", Npwm: -1}
 
 	for _, pinDef := range pinDefs {
-		key := pinDef.PinNumberBoard
-
-		var ngpio int
-		for n := range pinDef.GPIOChipRelativeIDs {
-			ngpio = n
-			break // each gpio pin should only be associated with one gpiochip in the config
-		}
-
-		gpioChipDir, ok := gpioChipsInfo[ngpio]
+		gpioChipDir, ok := gpioChipsInfo[pinDef.Ngpio]
 		if !ok {
-			return nil, fmt.Errorf("unknown GPIO device for chip with ngpio %d, pin %d",
-				ngpio, key)
+			return nil, fmt.Errorf("unknown GPIO device for chip with ngpio %d, pin %s",
+				pinDef.Ngpio, pinDef.Name)
 		}
 
-		pwmChipInfo, ok := pwmChipsInfo[pinDef.PWMChipSysFSDir]
+		pwmChipInfo, ok := pwmChipsInfo[pinDef.PwmChipSysfsDir]
 		if ok {
-			if pinDef.PWMID >= pwmChipInfo.Npwm {
-				return nil, fmt.Errorf("too high PWM ID %d for pin %d (npwm is %d for chip %s)",
-					pinDef.PWMID, key, pwmChipInfo.Npwm, pinDef.PWMChipSysFSDir)
+			if pinDef.PwmID >= pwmChipInfo.Npwm {
+				return nil, fmt.Errorf("too high PWM ID %d for pin %s (npwm is %d for chip %s)",
+					pinDef.PwmID, pinDef.Name, pwmChipInfo.Npwm, pinDef.PwmChipSysfsDir)
 			}
 		} else {
-			if pinDef.PWMChipSysFSDir == "" {
+			if pinDef.PwmChipSysfsDir == "" {
 				// This pin isn't supposed to have hardware PWM support; all is well.
 				pwmChipInfo = dummyPwmInfo
 			} else {
 				golog.Global().Errorw(
-					"cannot find expected hardware PWM chip, continuing without it", "pin", key)
+					"cannot find expected hardware PWM chip, continuing without it", "pin", pinDef.Name)
 				pwmChipInfo = dummyPwmInfo
 			}
 		}
 
-		chipRelativeID, ok := pinDef.GPIOChipRelativeIDs[ngpio]
-		if !ok {
-			chipRelativeID = pinDef.GPIOChipRelativeIDs[-1]
-		}
-
-		data[key] = GPIOBoardMapping{
+		data[pinDef.Name] = GPIOBoardMapping{
 			GPIOChipDev:    gpioChipDir,
-			GPIO:           chipRelativeID,
-			GPIOName:       pinDef.PinNameCVM,
+			GPIO:           pinDef.LineNumber,
+			GPIOName:       pinDef.Name,
 			PWMSysFsDir:    pwmChipInfo.Dir,
-			PWMID:          pinDef.PWMID,
-			HWPWMSupported: pinDef.PWMID != -1,
+			PWMID:          pinDef.PwmID,
+			HWPWMSupported: pinDef.PwmID != -1,
 		}
 	}
 	return data, nil

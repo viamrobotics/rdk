@@ -7,7 +7,6 @@ package genericlinux
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 	"sync"
 	"time"
@@ -25,7 +24,7 @@ import (
 )
 
 // RegisterBoard registers a sysfs based board of the given model.
-func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping) {
+func RegisterBoard(modelName string, gpioMappings map[string]GPIOBoardMapping) {
 	resource.RegisterComponent(
 		board.API,
 		resource.DefaultModelFamily.WithModel(modelName),
@@ -44,7 +43,7 @@ func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping) {
 func newBoard(
 	ctx context.Context,
 	conf resource.Config,
-	gpioMappings map[int]GPIOBoardMapping,
+	gpioMappings map[string]GPIOBoardMapping,
 	logger golog.Logger,
 ) (board.Board, error) {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
@@ -62,8 +61,8 @@ func newBoard(
 		interrupts: map[string]*digitalInterrupt{},
 	}
 
-	for pinNumber, mapping := range gpioMappings {
-		b.gpios[fmt.Sprintf("%d", pinNumber)] = b.createGpioPin(mapping)
+	for pinName, mapping := range gpioMappings {
+		b.gpios[pinName] = b.createGpioPin(mapping)
 	}
 
 	if err := b.Reconfigure(ctx, nil, conf); err != nil {
@@ -241,13 +240,11 @@ func (b *sysfsBoard) reconfigureInterrupts(newConf *Config) error {
 			if err := oldInterrupt.Close(); err != nil {
 				return err // This should never happen, but the linter worries anyway.
 			}
-			if pinInt, err := strconv.Atoi(oldInterrupt.config.Pin); err == nil {
-				if newGpioConfig, ok := b.gpioMappings[pinInt]; ok {
-					// See gpio.go for createGpioPin.
-					b.gpios[oldInterrupt.config.Pin] = b.createGpioPin(newGpioConfig)
-				}
+			if newGpioConfig, ok := b.gpioMappings[oldInterrupt.config.Pin]; ok {
+				// See gpio.go for createGpioPin.
+				b.gpios[oldInterrupt.config.Pin] = b.createGpioPin(newGpioConfig)
 			} else {
-				b.logger.Warnf("Unable to reinterpret old interrupt pin '%s' as GPIO, ignoring.",
+				b.logger.Warnf("Old interrupt pin was on nonexistent GPIO pin '%s', ignoring",
 					oldInterrupt.config.Pin)
 			}
 		} else { // The old interrupt should stick around.
@@ -344,7 +341,7 @@ func (a *wrappedAnalog) reset(ctx context.Context, chipSelect string, reader *bo
 type sysfsBoard struct {
 	resource.Named
 	mu           sync.RWMutex
-	gpioMappings map[int]GPIOBoardMapping
+	gpioMappings map[string]GPIOBoardMapping
 	spis         map[string]*spiBus
 	analogs      map[string]*wrappedAnalog
 	i2cs         map[string]*I2cBus
@@ -459,7 +456,7 @@ func (b *sysfsBoard) GPIOPinNames() []string {
 	}
 	names := []string{}
 	for k := range b.gpioMappings {
-		names = append(names, fmt.Sprintf("%d", k))
+		names = append(names, k)
 	}
 	return names
 }
