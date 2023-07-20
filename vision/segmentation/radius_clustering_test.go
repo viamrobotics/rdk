@@ -59,8 +59,18 @@ func TestPixelSegmentation(t *testing.T) {
 	segments, err := segmenter(context.Background(), injectCamera)
 	test.That(t, err, test.ShouldBeNil)
 	testSegmentation(t, segments, expectedLabel)
+}
+
+func TestPixelSegmentationNoFiltering(t *testing.T) {
+	t.Parallel()
+	logger := golog.NewTestLogger(t)
+	injectCamera := &inject.Camera{}
+	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
+		return pc.NewFromLASFile(artifact.MustPath("pointcloud/test.las"), logger)
+	}
 	// do segmentation with no mean k filtering
-	objConfig = utils.AttributeMap{
+	expectedLabel := "test_label"
+	objConfig := utils.AttributeMap{
 		"min_points_in_plane":   50000,
 		"min_points_in_segment": 500,
 		"clustering_radius_mm":  10.0,
@@ -69,9 +79,9 @@ func TestPixelSegmentation(t *testing.T) {
 		"another_extra_one":     "hey",
 		"label":                 expectedLabel,
 	}
-	segmenter, err = segmentation.NewRadiusClustering(objConfig)
+	segmenter, err := segmentation.NewRadiusClustering(objConfig)
 	test.That(t, err, test.ShouldBeNil)
-	segments, err = segmenter(context.Background(), injectCamera)
+	segments, err := segmenter(context.Background(), injectCamera)
 	test.That(t, err, test.ShouldBeNil)
 	testSegmentation(t, segments, expectedLabel)
 }
@@ -90,5 +100,29 @@ func testSegmentation(t *testing.T, segments []*vision.Object, expectedLabel str
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, box.AlmostEqual(seg.Geometry), test.ShouldBeTrue)
 		test.That(t, box.Label(), test.ShouldEqual, expectedLabel)
+	}
+}
+
+func BenchmarkRadiusClustering(b *testing.B) {
+	injectCamera := &inject.Camera{}
+	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
+		return pc.NewFromFile("/Users/vpandiarajan/viam/robotManip/pythonManip/pointcloud.pcd", nil)
+	}
+	var pts []*vision.Object
+	var err error
+	// do segmentation
+	objConfig := utils.AttributeMap{
+		"min_points_in_plane":   10000,
+		"min_points_in_segment": 500,
+		"clustering_radius_mm":  100.0,
+		"mean_k_filtering":      0.0,
+	}
+	segmenter, _ := segmentation.NewRadiusClustering(objConfig)
+	for i := 0; i < b.N; i++ {
+		pts, err = segmenter(context.Background(), injectCamera)
+	}
+	// to prevent vars from being optimized away
+	if pts == nil || err != nil {
+		panic("segmenter didn't work")
 	}
 }
