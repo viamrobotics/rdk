@@ -39,7 +39,22 @@ func TestNewFromFile(t *testing.T) {
 	nextCloud, err := NewFromFile(temp.Name(), logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, nextCloud, test.ShouldResemble, cloud)
-	// want to add test for pcd here but not sure how to use artifact
+
+	cloud, err = NewFromFile(artifact.MustNewPath("pointcloud/test.pcd"), logger)
+	test.That(t, err, test.ShouldBeNil)
+	numPoints = cloud.Size()
+	test.That(t, numPoints, test.ShouldEqual, 293363)
+
+	tempPCD, err := os.CreateTemp(t.TempDir(), "*.pcd")
+	test.That(t, err, test.ShouldBeNil)
+	defer os.Remove(tempPCD.Name())
+
+	err = ToPCD(cloud, tempPCD, PCDAscii)
+	test.That(t, err, test.ShouldBeNil)
+
+	nextCloud, err = NewFromFile(tempPCD.Name(), logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, nextCloud, test.ShouldResemble, cloud)
 }
 
 func TestPCD(t *testing.T) {
