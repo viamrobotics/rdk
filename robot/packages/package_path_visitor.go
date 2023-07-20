@@ -46,7 +46,6 @@ func (v *PackagePathVisitor) VisitAndReplaceString(s string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-
 	withReplacedRefs := strings.Replace(s, placeholderRef.matchedPlaceholder, filepath, 1)
 	return withReplacedRefs, nil
 }

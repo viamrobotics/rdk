@@ -918,6 +918,7 @@ func (p *PackageConfig) SanitizeVersion() string {
 }
 
 // GenerateFilePath generates what the expected filepath of the package is on the system.
+// based on the package name.
 func (p *PackageConfig) GenerateFilePath() string {
 	// first get the base root
 

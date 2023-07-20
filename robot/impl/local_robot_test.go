@@ -1888,13 +1888,13 @@ func TestConfigPackages(t *testing.T) {
 func TestConfigPackageReferenceReplacement(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
-
+	// N.B. if the
 	fakePackageServer, err := putils.NewFakePackageServer(ctx, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer utils.UncheckedErrorFunc(fakePackageServer.Shutdown)
 
 	packageDir := t.TempDir()
-	labelPath := "${packages.package-2}/labels.txt"
+	labelPath := "${packages.some-name-2}/labels.txt"
 
 	robotConfig := &config.Config{
 		Packages: []config.PackageConfig{
@@ -1908,6 +1908,18 @@ func TestConfigPackageReferenceReplacement(t *testing.T) {
 				Package: "package-2",
 				Version: "latest",
 			},
+			{
+				Name:    "my-module",
+				Package: "orgID/my-module",
+				Type:    config.PackageTypeModule,
+				Version: "1.2",
+			},
+			{
+				Name:    "my-ml-model",
+				Package: "orgID/my-ml-model",
+				Type:    config.PackageTypeMlModel,
+				Version: "latest",
+			},
 		},
 		PackagePath: packageDir,
 		Services: []resource.Config{
@@ -1916,10 +1928,26 @@ func TestConfigPackageReferenceReplacement(t *testing.T) {
 				API:   mlmodel.API,
 				Model: resource.DefaultModelFamily.WithModel("tflite_cpu"),
 				ConvertedAttributes: &tflitecpu.TFLiteConfig{
-					ModelPath:  "${packages.package-1}/model.tflite",
+					ModelPath:  "${packages.some-name-1}/model.tflite",
 					LabelPath:  labelPath,
 					NumThreads: 1,
 				},
+			},
+			{
+				Name:  "my-ml-model",
+				API:   mlmodel.API,
+				Model: resource.DefaultModelFamily.WithModel("tflite_cpu"),
+				ConvertedAttributes: &tflitecpu.TFLiteConfig{
+					ModelPath:  "${packages.ml_models.my-ml-model}/model.tflite",
+					LabelPath:  labelPath,
+					NumThreads: 2,
+				},
+			},
+		},
+		Modules: []config.Module{
+			{
+				Name:    "my-module",
+				ExePath: "${packages.modules.my-module}/exec.sh",
 			},
 		},
 	}
@@ -1929,8 +1957,6 @@ func TestConfigPackageReferenceReplacement(t *testing.T) {
 	r, err := robotimpl.New(ctx, robotConfig, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
-
-	// add modules + ml_models tests here too
 }
 
 // removeDefaultServices removes default services and returns the removed

@@ -1172,7 +1172,6 @@ func walkConvertedAttributes[T any](
 func (r *localRobot) replacePackageReferencesWithPaths(cfg *config.Config) error {
 	var allErrs error
 	packageMap := cfg.GetExpectedPackagePlaceholders()
-
 	// don't traverse if there are no packages on the config
 	// we may want to remove this if we want to do all placeholder replacement
 	if len(packageMap) == 0 {
@@ -1190,6 +1189,7 @@ func (r *localRobot) replacePackageReferencesWithPaths(cfg *config.Config) error
 
 	for _, c := range cfg.Modules {
 		newExecPath, err := packages.NewPackagePathVisitor(r.packageManager, packageMap).VisitAndReplaceString(c.ExePath)
+		// fmt.Print("\n\n\nhere is my new exec path: ", newExecPath, "\n\n\n")
 		allErrs = multierr.Combine(allErrs, err)
 		c.ExePath = newExecPath
 	}
