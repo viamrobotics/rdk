@@ -10,5 +10,4 @@ import (
 	_ "go.viam.com/rdk/components/board/numato"
 	_ "go.viam.com/rdk/components/board/pi"
 	_ "go.viam.com/rdk/components/board/ti"
-	_ "go.viam.com/rdk/components/board/upboard"
 )
