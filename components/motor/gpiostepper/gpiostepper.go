@@ -313,7 +313,9 @@ func (m *gpioStepper) GoFor(ctx context.Context, rpm, revolutions float64, extra
 		return nil
 	}
 
-	return m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m, m.Stop)
+	return multierr.Combine(
+		m.enable(ctx, false),
+		m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m, m.Stop))
 }
 
 func (m *gpioStepper) goForInternal(ctx context.Context, rpm, revolutions float64) error {
