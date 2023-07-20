@@ -114,13 +114,13 @@ type builtIn struct {
 	motion         motion.Service
 	obstacles      []*spatialmath.GeoObstacle
 
-	metersPerSec            float64
-	degPerSec               float64
-	logger                  golog.Logger
-	cancelFunc              func()
-	navOnceCancelFunc       func()
-	waypointInProgress      *navigation.Waypoint
-	activeBackgroundWorkers sync.WaitGroup
+	metersPerSec              float64
+	degPerSec                 float64
+	logger                    golog.Logger
+	wholeServiceCancelFunc    func()
+	currentWaypointCancelFunc func()
+	waypointInProgress        *navigation.Waypoint
+	activeBackgroundWorkers   sync.WaitGroup
 }
 
 func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
@@ -202,7 +202,7 @@ func (svc *builtIn) SetMode(ctx context.Context, mode navigation.Mode, extra map
 	defer svc.mu.Unlock()
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
-	svc.cancelFunc = cancelFunc
+	svc.wholeServiceCancelFunc = cancelFunc
 	svc.mode = mode
 	if svc.mode == navigation.ModeWaypoint {
 		if extra != nil && extra["experimental"] == true {
@@ -300,7 +300,7 @@ func (svc *builtIn) startWaypoint(cancelCtx context.Context, extra map[string]in
 
 			svc.mu.Lock()
 			navOnceCancelCtx, fn := context.WithCancel(cancelCtx)
-			svc.navOnceCancelFunc = fn
+			svc.currentWaypointCancelFunc = fn
 			svc.mu.Unlock()
 
 			if err := navOnce(navOnceCancelCtx); err != nil {
@@ -361,8 +361,8 @@ func (svc *builtIn) AddWaypoint(ctx context.Context, point *geo.Point, extra map
 func (svc *builtIn) RemoveWaypoint(ctx context.Context, id primitive.ObjectID, extra map[string]interface{}) error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
-	if svc.waypointInProgress != nil && svc.waypointInProgress.ID == id && svc.navOnceCancelFunc != nil {
-		svc.navOnceCancelFunc()
+	if svc.waypointInProgress != nil && svc.waypointInProgress.ID == id && svc.currentWaypointCancelFunc != nil {
+		svc.currentWaypointCancelFunc()
 		svc.waypointInProgress = nil
 	}
 	return svc.store.RemoveWaypoint(ctx, id)
@@ -388,8 +388,8 @@ func (svc *builtIn) waypointReached(ctx context.Context) error {
 
 func (svc *builtIn) callCancelFunc() {
 	svc.mu.RLock()
-	if svc.cancelFunc != nil {
-		svc.cancelFunc()
+	if svc.wholeServiceCancelFunc != nil {
+		svc.wholeServiceCancelFunc()
 	}
 	svc.mu.RUnlock()
 	svc.activeBackgroundWorkers.Wait()
@@ -486,7 +486,7 @@ func (svc *builtIn) resetForNavOnce(ctx context.Context, wp navigation.Waypoint)
 	defer svc.mu.Unlock()
 	svc.waypointInProgress = &wp
 	navOnceCancelCtx, fn := context.WithCancel(ctx)
-	svc.navOnceCancelFunc = fn
+	svc.currentWaypointCancelFunc = fn
 	return navOnceCancelCtx
 }
 
