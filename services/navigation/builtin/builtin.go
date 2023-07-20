@@ -503,16 +503,3 @@ func (svc *builtIn) GetObstacles(ctx context.Context, extra map[string]interface
 	defer svc.mu.RUnlock()
 	return svc.obstacles, nil
 }
-
-func (svc *builtIn) deleteAllWaypoints(ctx context.Context) error {
-	waypoints, err := svc.store.Waypoints(ctx)
-	if err != nil {
-		return err
-	}
-	for _, wp := range waypoints {
-		if err := svc.RemoveWaypoint(ctx, wp.ID, nil); err != nil {
-			return err
-		}
-	}
-	return nil
-}
