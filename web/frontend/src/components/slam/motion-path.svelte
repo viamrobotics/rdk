@@ -8,7 +8,7 @@ import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js';
 export let scene: THREE.Scene;
 export let path: string | undefined;
 
-const geometry = new LineGeometry();
+
 const material = new LineMaterial({
   color: 0xFF_00_47,
   linewidth: 0.005,
@@ -16,17 +16,19 @@ const material = new LineMaterial({
   alphaToCoverage: true,
 });
 
-const line = new Line2(geometry, material);
-line.visible = false;
-scene.add(line);
+let line: Line2
 
 const updatePath = (pathstr?: string) => {
+  if (line !== undefined) {
+    scene.remove(line)
+    line.geometry.dispose()
+  }
+
   if (pathstr === undefined) {
-    line.visible = false;
     return;
   }
 
-  line.visible = true;
+  const geometry = new LineGeometry();
 
   const points: number[] = [];
 
@@ -41,6 +43,14 @@ const updatePath = (pathstr?: string) => {
 
   const vertices = new Float32Array(points);
   geometry.setPositions(vertices);
+
+  line = new Line2(geometry, material);
+
+  // Render above pointcloud.
+  line.renderOrder = 3;
+
+  line.computeLineDistances()
+  scene.add(line)
 };
 
 $: updatePath(path);
