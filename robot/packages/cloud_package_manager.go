@@ -181,7 +181,6 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 				p.Package, p.Version, sanitizeURLForLogs(resp.Package.Url)))
 			continue
 		}
-
 		err = linkFile(m.localDataPath(p), m.localNamedPath(p))
 		if err != nil {
 			m.logger.Errorf("Failed linking package %s:%s, %s", p.Package, p.Version, err)
@@ -499,11 +498,11 @@ func (m *cloudManager) unpackFile(ctx context.Context, fromFile, toDir string) e
 }
 
 func (m *cloudManager) localDownloadPath(p config.PackageConfig) string {
-	return filepath.Join(m.packagesDataDir, fmt.Sprintf("%s.download", p.SanitizeName()))
+	return filepath.Join(m.packagesDataDir, fmt.Sprintf("%s.download", p.Name))
 }
 
 func (m *cloudManager) localDataPath(p config.PackageConfig) string {
-	return filepath.Join(m.packagesDataDir, p.Name)
+	return filepath.Join(m.packagesDataDir, p.SanitizeName())
 }
 
 func (m *cloudManager) localNamedPath(p config.PackageConfig) string {

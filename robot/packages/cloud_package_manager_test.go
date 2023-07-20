@@ -236,7 +236,7 @@ func TestCloud(t *testing.T) {
 }
 
 func validatePackageDir(t *testing.T, dir string, input []config.PackageConfig) {
-	t.Helper()
+	// t.Helper()
 
 	// create maps to make lookups easier.
 	byPackageHash := make(map[string]*config.PackageConfig)
