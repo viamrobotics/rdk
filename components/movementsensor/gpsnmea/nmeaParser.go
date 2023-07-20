@@ -19,15 +19,16 @@ const (
 
 // GPSData struct combines various attributes related to GPS.
 type GPSData struct {
-	Location   *geo.Point
-	Alt        float64
-	Speed      float64 // ground speed in m per sec
-	VDOP       float64 // vertical accuracy
-	HDOP       float64 // horizontal accuracy
-	SatsInView int     // quantity satellites in view
-	SatsInUse  int     // quantity satellites in view
-	valid      bool
-	FixQuality int
+	Location       *geo.Point
+	Alt            float64
+	Speed          float64 // ground speed in m per sec
+	VDOP           float64 // vertical accuracy
+	HDOP           float64 // horizontal accuracy
+	SatsInView     int     // quantity satellites in view
+	SatsInUse      int     // quantity satellites in view
+	valid          bool
+	FixQuality     int
+	CompassHeading float64 // true compass heading in degree
 }
 
 func errInvalidFix(sentenceType, badFix, goodFix string) error {
@@ -96,6 +97,10 @@ func (g *GPSData) updateData(s nmea.Sentence) error {
 		if gns, ok := s.(nmea.GNS); ok {
 			errs = g.updateGNS(gns)
 		}
+	case nmea.HDT:
+		if hdt, ok := s.(nmea.HDT); ok {
+			errs = g.updateHDT(hdt)
+		}
 	default:
 		// Handle the case when the sentence type is not recognized
 		errs = fmt.Errorf("unrecognized sentence type: %T", sentence)
@@ -104,7 +109,7 @@ func (g *GPSData) updateData(s nmea.Sentence) error {
 	return errs
 }
 
-//nolint
+// nolint
 // updateGSV updates g.SatsInView with the information from the provided
 // GSV (GPS Satellites in View) data.
 func (g *GPSData) updateGSV(gsv nmea.GSV) error {
@@ -183,7 +188,7 @@ func (g *GPSData) updateGGA(gga nmea.GGA) error {
 	return err
 }
 
-//nolint
+// nolint
 // updateGLL updates g.Location with the location information from the provided
 // GLL (Geographic Position - Latitude/Longitude) data.
 func (g *GPSData) updateGLL(gll nmea.GLL) error {
@@ -192,12 +197,21 @@ func (g *GPSData) updateGLL(gll nmea.GLL) error {
 	return nil
 }
 
-//nolint
+// nolint
 // updateVTG updates g.Speed with the ground speed information from the provided
 // VTG (Velocity Made Good) data.
 func (g *GPSData) updateVTG(vtg nmea.VTG) error {
 	// VTG provides ground speed
 	g.Speed = vtg.GroundSpeedKPH * kphToMPerSec
+	return nil
+}
+
+// nolint
+// updateHDT updaates g.CompassHeading with the ground speed information from the provided
+// HDT(Heading from True North) data.
+func (g *GPSData) updateHDT(hdt nmea.HDT) error {
+	// HDT provides compass heading
+	g.CompassHeading = hdt.Heading
 	return nil
 }
 
