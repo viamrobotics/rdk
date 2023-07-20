@@ -21,9 +21,7 @@ type Config struct {
 }
 
 func init() {
-	resource.RegisterComponent(gripper.API, model, resource.Registration[gripper.Gripper, *Config]{
-		Constructor: NewGripper,
-	})
+	resource.RegisterComponent(gripper.API, model, resource.Registration[gripper.Gripper, *Config]{Constructor: NewGripper})
 }
 
 // Gripper is a fake gripper that can simply read and set properties.
@@ -88,5 +86,7 @@ func (g *Gripper) IsMoving(ctx context.Context) (bool, error) {
 
 // Geometries returns the geometries associated with the fake base.
 func (g *Gripper) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
 	return g.geometries, nil
 }
