@@ -1,16 +1,16 @@
 import * as THREE from 'three';
 import { injectPlugin, useThrelte } from '@threlte/core';
 import { MercatorCoordinate } from 'maplibre-gl';
-import { map, mapCenter } from './stores';
+import { map, mapCenter } from '../stores';
 
 const EARTH_RADIUS_METERS = 6_371_010;
 const vec3 = new THREE.Vector3();
 
-let mapcenter = { lng: 0, lat: 0 };
+const center = { lng: 0, lat: 0 };
 
 mapCenter.subscribe((value) => {
-  mapcenter.lng = value.lng;
-  mapcenter.lat = value.lat;
+  center.lng = value.lng;
+  center.lat = value.lat;
 });
 
 /**
@@ -57,8 +57,8 @@ const rotationY = new THREE.Matrix4();
 
 export const createCameraTransform = () => {
   const centerLngLat = map.current!.getCenter();
-  const center = MercatorCoordinate.fromLngLat(centerLngLat, 0);
-  const distance = center.meterInMercatorCoordinateUnits();
+  const mercator = MercatorCoordinate.fromLngLat(centerLngLat, 0);
+  const distance = mercator.meterInMercatorCoordinateUnits();
   scale.makeScale(distance, distance, -distance);
   rotation.multiplyMatrices(
     rotationX.makeRotationX(-0.5 * Math.PI),
@@ -66,7 +66,7 @@ export const createCameraTransform = () => {
   );
   return new THREE.Matrix4()
     .multiplyMatrices(scale, rotation)
-    .setPosition(center.x, center.y, center.z);
+    .setPosition(mercator.x, mercator.y, mercator.z);
 };
 
 export const injectLngLatPlugin = () => injectPlugin<{
@@ -87,7 +87,7 @@ export const injectLngLatPlugin = () => injectPlugin<{
       return;
     }
 
-    latLngToVector3Relative(currentProps.lnglat, mapcenter, vec3);
+    latLngToVector3Relative(currentProps.lnglat, center, vec3);
 
     currentRef.position.set(vec3.y, -vec3.x, 0);
 

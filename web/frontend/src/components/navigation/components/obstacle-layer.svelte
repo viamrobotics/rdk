@@ -4,9 +4,7 @@ import { type Map } from 'maplibre-gl';
 import { Canvas } from '@threlte/core';
 import Scene from './scene.svelte';
 import { cameraMatrix, mapSize } from '../stores';
-import { renderPlugin } from '../render-plugin';
-
-renderPlugin();
+import { renderPlugin } from '../plugins/render';
 
 export let map: Map;
 
@@ -22,8 +20,6 @@ const handleResize = () => {
   })
 };
 
-handleResize();
-
 map.on('style.load', () => map.addLayer({
   id: 'obstacle-layer',
   type: 'custom',
@@ -38,6 +34,8 @@ map.on('style.load', () => map.addLayer({
 }));
 
 map.on('resize', handleResize);
+handleResize();
+renderPlugin();
 
 </script>
 

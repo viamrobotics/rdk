@@ -1,11 +1,18 @@
 
 <script lang='ts'>
 
+import * as THREE from 'three'
 import { T } from '@threlte/core';
 import type { Obstacle } from '../types';
-import { view } from '../stores';
+import { view, hovered } from '../stores';
 
 export let obstacle: Obstacle;
+
+let material: THREE.MeshPhongMaterial
+
+// $: {
+//   material.color.set($hovered === obstacle.name ? 'hotpink' : 'red')
+// }
 
 </script>
 
@@ -26,10 +33,20 @@ export let obstacle: Obstacle;
         />
       {/if}
     {:else if geometry.type === 'sphere'}
-      <T.SphereGeometry args={[geometry.r]} />
+      {#if $view === '3D'}
+        <T.SphereGeometry args={[geometry.r]} />
+      {:else}
+        <T.CircleGeometry
+          args={[geometry.r]}
+          on:create={({ ref }) => ref.rotateX(-Math.PI / 2)}
+        />
+      {/if}
     {:else if geometry.type === 'capsule'}
       <T.CapsuleGeometry args={[geometry.r, geometry.l, 16, 32]} />
     {/if}
-    <T.MeshPhongMaterial color='red' />
+    <T.MeshPhongMaterial
+      bind:ref={material}
+      color={$hovered === obstacle.name ? '#FFD400' : '#FF7D80'}
+    />
   </T.Mesh>
 {/each}

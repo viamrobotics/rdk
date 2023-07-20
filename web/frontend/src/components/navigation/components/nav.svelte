@@ -9,7 +9,7 @@ import LnglatInput from './lnglat-input.svelte';
 import type { LngLat } from '@/api/navigation';
 import GeometryInputs from './geometry-inputs.svelte';
 import { createObstacle } from '../lib/obstacle';
-import { tab } from '../stores';
+import { tab, hovered } from '../stores';
 
 export let name: string;
 
@@ -63,13 +63,17 @@ const handleTabSelect = (event: CustomEvent) => {
     selected={$tab}
     on:input={handleTabSelect}
   />
-  {#if $tab === 'Obstacles'}
-    <ul class='px-4 max-h-[520px] overflow-y-scroll'>
+
+  <ul
+    on:mouseleave={() => ($hovered = null)}
+    class='px-4 py-2 max-h-[520px] overflow-y-scroll'
+  >
+    {#if $tab === 'Obstacles'}
       {#if $obstacles.length === 0}
         <li class='text-xs text-subtle-2 font-sans py-2'>None</li>
       {/if}
 
-      {#if write}
+      {#if $write}
         <v-button
           class='my-4'
           icon='add'
@@ -79,7 +83,7 @@ const handleTabSelect = (event: CustomEvent) => {
       {/if}
 
       {#each $obstacles as { name, location, geometries }, index (index)}
-        {#if write}
+        {#if $write}
           <li class='group mb-8 pl-2 border-l border-l-medium'>
             <div class='flex items-end gap-1.5 pb-2'>
               <v-input class='w-full' label='Name' value={name} />
@@ -108,39 +112,50 @@ const handleTabSelect = (event: CustomEvent) => {
             {/each}
           </li>
         {:else}
-          <li class='flex group'>
+          <li
+            class='flex group justify-between items-center gap-1.5 border-b border-b-medium last:border-b-0'
+            on:mouseenter={() => ($hovered = name)}
+          >
+            <small>{name}</small>
+            <small class='text-subtle-2 opacity-60 group-hover:opacity-100'>
+              ({location.longitude.toFixed(4)}, {location.latitude.toFixed(4)})
+            </small>
             <v-button
-              variant='ghost'
-              tooltip='{location.longitude}, {location.latitude}'
+              class='invisible group-hover:visible text-subtle-1'
+              variant='icon'
+              icon='center'
               on:click={() => handleClick(location.longitude, location.latitude)}
-              label='{location.longitude.toFixed(2)}, {location.latitude.toFixed(2)}'
             />
           </li>
         {/if}
       {/each}
-    </ul>
-  {:else if $tab === 'Waypoints'}
-    <ul class='max-h-[520px] overflow-y-scroll font-mono'>
-      {#if $waypoints.length === 0}
-        <li class='text-xs text-subtle-2 font-sans py-2'>None</li>
-      {/if}
+    {:else if $tab === 'Waypoints'}
+        {#if $waypoints.length === 0}
+          <li class='text-xs text-subtle-2 font-sans py-2'>None</li>
+        {/if}
 
-      {#each $waypoints as waypoint (waypoint.id)}
-        <li class='flex group'>
-          <v-button
-            variant='ghost'
-            tooltip='{waypoint.lng.toFixed(7)}, {waypoint.lat.toFixed(7)}'
-            label='{waypoint.lng.toFixed(2)}, {waypoint.lat.toFixed(2)}'
-            on:click={() => handleClick(waypoint.lng, waypoint.lat)}
-          />
-          <v-button
-            class='invisible group-hover:visible text-subtle-2'
-            variant='icon'
-            icon='trash'
-            on:click={() => handleRemoveWaypoint(waypoint.id)}
-          />
-        </li>
-      {/each}
-    </ul>
-  {/if}
+        {#each $waypoints as waypoint, index (waypoint.id)}
+          <li class='flex group justify-between items-center gap-1.5 border-b'>
+            <small>Waypoint {index}</small>
+            <small class='text-subtle-2 opacity-60 group-hover:opacity-100'>
+              ({waypoint.lng.toFixed(4)}, {waypoint.lat.toFixed(4)})
+            </small>
+            <div class='flex items-center gap-1.5'>
+              <v-button
+                class='invisible group-hover:visible text-subtle-1'
+                variant='icon'
+                icon='center'
+                on:click={() => handleClick(waypoint.lng, waypoint.lat)}
+              />
+              <v-button
+                class='invisible group-hover:visible text-subtle-2'
+                variant='icon'
+                icon='trash'
+                on:click={() => handleRemoveWaypoint(waypoint.id)}
+              />
+            </div>
+          </li>
+        {/each}
+    {/if}
+  </ul>
 </nav>

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { injectPlugin, useFrame, useRender, useThrelte } from '@threlte/core';
 import { MercatorCoordinate, type LngLat, LngLatBounds } from 'maplibre-gl';
-import { map, cameraMatrix, mapSize, view } from './stores';
+import { map, cameraMatrix, mapSize, view } from '../stores';
 
 const renderTarget = new THREE.WebGLRenderTarget(0, 0, { format: THREE.RGBAFormat });
 const renderTexture = renderTarget.texture;
@@ -9,14 +9,15 @@ const renderTexture = renderTarget.texture;
 const scene = new THREE.Scene();
 const ambient = new THREE.AmbientLight();
 const dir = new THREE.DirectionalLight();
+dir.intensity = 1.5
 scene.add(ambient);
 
 view.subscribe((value) => {
   if (value === '2D') {
-    ambient.intensity = 2;
+    ambient.intensity = 3.5;
     scene.remove(dir);
   } else {
-    ambient.intensity = 1;
+    ambient.intensity = 2.5;
     scene.add(dir);
   }
 });

@@ -15,6 +15,7 @@ export const robotPosition = currentWritable<LngLat | null>(null);
 export const map = currentWritable<Map | null>(null);
 export const obstacles = currentWritable<Obstacle[]>([]);
 export const waypoints = currentWritable<Waypoint[]>([]);
+export const hovered = currentWritable<string | null>(null);
 
 export const cameraMatrix = new THREE.Matrix4();
 

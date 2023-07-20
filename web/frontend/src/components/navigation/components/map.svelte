@@ -57,7 +57,7 @@ $: {
 />
 
 <v-radio
-  class='absolute bottom-16 right-6'
+  class='absolute bottom-12 right-3'
   options='2D,3D'
   selected={$view}
   on:input={handleViewSelect}

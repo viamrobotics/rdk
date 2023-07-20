@@ -7,7 +7,8 @@ import { createGeometry } from '../lib/geometry';
 export let index: number
 export let geoIndex: number
 
-let type = 'Box'
+$: geometry = $obstacles[index]?.geometries[geoIndex]
+$: type = geometry?.type
 
 const handleShapeSelect = (event: CustomEvent) => {
   const type = event.detail.value.toLowerCase()
@@ -16,7 +17,6 @@ const handleShapeSelect = (event: CustomEvent) => {
 
 const handleDimensionsInput = (event: CustomEvent<number[]>) => {
   const [x = 0, y = 0, z = 0] = event.detail
-  const { type } = $obstacles[index]!.geometries[geoIndex]!
 
   let dimensions = {}
 
@@ -51,19 +51,20 @@ const handleDimensionsInput = (event: CustomEvent<number[]>) => {
     on:input={handleShapeSelect}
   />
 
-  {#if type === 'Box'}
+  {#if geometry?.type === 'box'}
     <VectorInput
       label='Dimensions'
       labels={['Length (m)', 'Width (m)', 'Height (m)']}
+      values={[geometry?.x, geometry?.y, geometry?.z]}
       on:input={handleDimensionsInput}
     />
-  {:else if type === 'Capsule'}
+  {:else if geometry?.type === 'capsule'}
     <VectorInput
       label='Dimensions'
       labels={['Radius (m)', 'Length (m)']}
       on:input={handleDimensionsInput}
     />
-  {:else if type === 'Sphere'}
+  {:else if type === 'sphere'}
     <VectorInput
       label='Dimensions'
       labels={['Radius (m)']}

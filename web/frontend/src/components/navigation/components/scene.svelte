@@ -7,9 +7,6 @@ import Obstacle from './obstacle.svelte';
 
 const { renderer } = useThrelte();
 
-THREE.Object3D.DEFAULT_MATRIX_AUTO_UPDATE = false;
-THREE.Object3D.DEFAULT_MATRIX_WORLD_AUTO_UPDATE = false;
-
 renderer!.autoClear = false;
 
 // This clips against the map so that intersecting objects will not render over the map
