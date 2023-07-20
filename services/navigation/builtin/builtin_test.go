@@ -293,8 +293,6 @@ func TestStartWaypointExperimental(t *testing.T) {
 			eventChannel <- arrivedAtWaypointMsg
 			test.That(t, <-statusChannel, test.ShouldEqual, arrivedAtWaypointMsg)
 			currentInputsShouldEqual(ctx, t, kinematicBase, pt3)
-
-			// ns.(*builtIn).activeBackgroundWorkers.Wait() // TODO: Delete this
 		})
 		t.Run("Calling SetMode cancels current and future MoveOnGlobe calls", func(t *testing.T) {
 			err = deleteAllWaypoints(ctx, ns)
