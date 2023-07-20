@@ -312,6 +312,7 @@ func (svc *builtIn) startWaypoint(cancelCtx context.Context, extra map[string]in
 				svc.logger.Infof("skipping waypoint due to error while navigating towards it: %s", err)
 				if err := svc.waypointReached(cancelCtx); err != nil {
 					svc.logger.Info("can't mark waypoint as reached, exiting navigation due to error: %s", err)
+					return
 				}
 			}
 		}
