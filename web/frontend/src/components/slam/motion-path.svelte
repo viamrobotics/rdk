@@ -22,11 +22,11 @@ scene.add(line);
 
 const updatePath = (pathstr?: string) => {
   if (pathstr === undefined) {
-    line.visible = false
-    return
+    line.visible = false;
+    return;
   }
 
-  line.visible = true
+  line.visible = true;
 
   const points: number[] = [];
 
@@ -41,8 +41,8 @@ const updatePath = (pathstr?: string) => {
 
   const vertices = new Float32Array(points);
   geometry.setPositions(vertices);
-}
+};
 
-$: updatePath(path)
+$: updatePath(path);
 
 </script>
