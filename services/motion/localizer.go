@@ -2,6 +2,7 @@ package motion
 
 import (
 	"context"
+	"errors"
 	"math"
 
 	geo "github.com/kellydunn/golang-geo"
@@ -51,15 +52,18 @@ func (m *movementSensorLocalizer) CurrentPosition(ctx context.Context) (*referen
 	if err != nil {
 		return nil, err
 	}
-	heading, err := m.CompassHeading(ctx, nil)
 	var o spatialmath.Orientation
-	if err == nil {
-		o = &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: heading}
-	} else {
+	compass, err := m.CompassHeading(ctx, nil)
+	if err != nil {
+		if !errors.Is(err, movementsensor.ErrMethodUnimplementedCompassHeading) {
+			return nil, err
+		}
 		o, err = m.Orientation(ctx, nil)
 		if err != nil {
 			return nil, err
 		}
+	} else {
+		o = &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: compass}
 	}
 	pose := spatialmath.NewPose(spatialmath.GeoPointToPose(gp, m.origin).Point(), o)
 	correction := spatialmath.Compose(m.calibration, spatialmath.NewPoseFromOrientation(&spatialmath.OrientationVector{OZ: 1, Theta: -math.Pi / 2}))

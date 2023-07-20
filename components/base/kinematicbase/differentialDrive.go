@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	distThresholdMM         = 100
+	distThresholdMM         = 1000
 	headingThresholdDegrees = 15
 	defaultAngularVelocity  = 60     // degrees per second
 	defaultLinearVelocity   = 3000   // mm per second
