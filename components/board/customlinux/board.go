@@ -7,17 +7,16 @@ package customlinux
 import (
 	"context"
 	"encoding/json"
-	"os"
-	"path/filepath"
-	"sync"
-
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-	"periph.io/x/host/v3"
-
+	"go.uber.org/multierr"
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/board/genericlinux"
 	"go.viam.com/rdk/resource"
+	"os"
+	"path/filepath"
+	"periph.io/x/host/v3"
+	"sync"
 )
 
 const modelName = "customlinux"
@@ -53,7 +52,7 @@ func createNewBoard(
 		return nil, err
 	}
 
-	pinDefs, err := parseBoardConfig(newConf.PinConfigFilePath)
+	pinDefs, err := parsePinConfig(newConf.PinConfigFilePath)
 	if err != nil {
 		return nil, err
 	}
@@ -70,8 +69,9 @@ func createNewBoard(
 	}
 
 	gb, ok := sysfsB.(*genericlinux.SysfsBoard)
+	// shouldn't happen because customLinuxBoard embeds SysfsBoard
 	if !ok {
-		return nil, errors.New("error creating board object")
+		return nil, errors.New("tried creating SysfsBoard but got non-SysfsBoard result")
 	}
 
 	b := customLinuxBoard{SysfsBoard: gb, logger: logger}
@@ -81,23 +81,30 @@ func createNewBoard(
 	return &b, nil
 }
 
-func parseBoardConfig(filePath string) ([]genericlinux.PinDefinition, error) {
+//lint:ignore U1000 Ignore unused function temporarily
+func parsePinConfig(filePath string) ([]genericlinux.PinDefinition, error) {
 	pinData, err := os.ReadFile(filepath.Clean(filePath))
 	if err != nil {
 		return nil, err
 	}
+
+	return parseRawPinData(pinData, filePath)
+}
+
+// filePath passed in for logging purposes.
+func parseRawPinData(pinData []byte, filePath string) ([]genericlinux.PinDefinition, error) {
 	var parsedPinData genericlinux.PinDefinitions
 	if err := json.Unmarshal(pinData, &parsedPinData); err != nil {
 		return nil, err
 	}
 
+	var err error
 	for _, pin := range parsedPinData.Pins {
-		err = pin.Validate(filePath)
-		if err != nil {
-			return nil, err
-		}
+		err = multierr.Combine(err, pin.Validate(filePath))
 	}
-
+	if err != nil {
+		return nil, err
+	}
 	return parsedPinData.Pins, nil
 }
 
@@ -111,6 +118,8 @@ func createGenericLinuxConfig(conf *Config) genericlinux.Config {
 }
 
 // Reconfigure reconfigures the board with interrupt pins, spi and i2c, and analogs.
+// WARNING: does not update pin definitions when the config file changes
+// TODO[RSDK-4092]: implement reconfiguration when pin definitions change
 func (b *customLinuxBoard) Reconfigure(
 	ctx context.Context,
 	_ resource.Dependencies,
@@ -119,7 +128,6 @@ func (b *customLinuxBoard) Reconfigure(
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	// TODO: implement reconfiguration when pin definitions change
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return err

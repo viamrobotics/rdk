@@ -1,40 +1,13 @@
-// Package customlinux implements a board running linux
+//go:build linux
+
+// Package customlinux implements a board running Linux
 package customlinux
 
 import (
-	"encoding/json"
 	"os"
-	"path/filepath"
 
 	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/components/board/genericlinux"
 )
-
-//lint:ignore U1000 Ignore unused function temporarily
-func parsePinConfig(filePath string) ([]genericlinux.PinDefinition, error) {
-	pinData, err := os.ReadFile(filepath.Clean(filePath))
-	if err != nil {
-		return nil, err
-	}
-
-	return parseRawPinData(pinData, filePath)
-}
-
-// filePath passed in for logging purposes.
-func parseRawPinData(pinData []byte, filePath string) ([]genericlinux.PinDefinition, error) {
-	var parsedPinData genericlinux.PinDefinitions
-	if err := json.Unmarshal(pinData, &parsedPinData); err != nil {
-		return nil, err
-	}
-
-	for _, pin := range parsedPinData.Pins {
-		err := pin.Validate(filePath)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return parsedPinData.Pins, nil
-}
 
 // A Config describes the configuration of a board and all of its connected parts.
 type Config struct {
@@ -51,12 +24,7 @@ func (conf *Config) Validate(path string) ([]string, error) {
 		return nil, err
 	}
 
-	boardConfig := genericlinux.Config{
-		I2Cs:              conf.I2Cs,
-		SPIs:              conf.SPIs,
-		Analogs:           conf.Analogs,
-		DigitalInterrupts: conf.DigitalInterrupts,
-	}
+	boardConfig := createGenericLinuxConfig(conf)
 	if deps, err := boardConfig.Validate(path); err != nil {
 		return deps, err
 	}
