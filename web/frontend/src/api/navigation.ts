@@ -1,4 +1,3 @@
-/* eslint-disable id-length */
 import * as THREE from 'three';
 import { type Client, commonApi, navigationApi } from '@viamrobotics/sdk';
 import { OrientationVector } from 'three-orientation-vector';

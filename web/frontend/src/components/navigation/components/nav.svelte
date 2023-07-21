@@ -59,8 +59,8 @@ onMount(() => {
       const x = (i % 10) / 6500;
       const y = (Math.trunc(i / 10)) / 6500;
       $obstacles = [
-        createObstacle(`Obstacle ${$obstacles.length + 1}`, $mapCenter.lng + x, $mapCenter.lat + y),
         ...$obstacles,
+        createObstacle(`Obstacle ${$obstacles.length + 1}`, $mapCenter.lng + x, $mapCenter.lat + y),
       ];
     }
   };
@@ -127,19 +127,35 @@ onMount(() => {
           </li>
         {:else}
           <li
-            class='flex group justify-between items-center gap-1.5 border-b border-b-medium last:border-b-0'
+            class='group border-b border-b-medium last:border-b-0 py-3'
             on:mouseenter={() => ($hovered = obstacleName)}
           >
-            <small>{obstacleName}</small>
-            <small class='text-subtle-2 opacity-60 group-hover:opacity-100'>
-              ({location.lng.toFixed(4)}, {location.lat.toFixed(4)})
+            <div class='flex justify-between items-center gap-1.5'>
+              <small>{obstacleName}</small>
+              <div class='flex items-center gap-1.5'>
+                <small class='text-subtle-2 opacity-60 group-hover:opacity-100'>
+                  ({location.lng.toFixed(4)}, {location.lat.toFixed(4)})
+                </small>
+                <v-button
+                  class='invisible group-hover:visible text-subtle-1'
+                  variant='icon'
+                  icon='center'
+                  on:click={() => handleClick(location.lng, location.lat)}
+                />
+              </div>
+            </div>
+            <small class='text-subtle-2'>
+              {#each geometries as geometry}
+                {#if geometry.type === 'box'}
+                  Length: {geometry.length}m, Width: {geometry.width}m, Height: {geometry.height}m
+                {:else if geometry.type === 'sphere'}
+                  Radius: {geometry.radius}m
+                {:else if geometry.type === 'capsule'}
+                  Radius: {geometry.radius}m, Length: { geometry.length}m
+                {/if}
+              {/each}
             </small>
-            <v-button
-              class='invisible group-hover:visible text-subtle-1'
-              variant='icon'
-              icon='center'
-              on:click={() => handleClick(location.lng, location.lat)}
-            />
+            
           </li>
         {/if}
       {/each}
