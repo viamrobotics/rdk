@@ -1,18 +1,14 @@
 
 <script lang='ts'>
 
-import * as THREE from 'three'
+import * as THREE from 'three';
 import { T } from '@threlte/core';
-import type { Obstacle } from '../types';
+import type { Obstacle } from '@/api/navigation';
 import { view, hovered } from '../stores';
 
 export let obstacle: Obstacle;
 
-let material: THREE.MeshPhongMaterial
-
-// $: {
-//   material.color.set($hovered === obstacle.name ? 'hotpink' : 'red')
-// }
+let material: THREE.MeshPhongMaterial;
 
 </script>
 

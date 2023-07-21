@@ -7,6 +7,7 @@ import { cameraMatrix, mapSize } from '../stores';
 import { renderPlugin } from '../plugins/render';
 
 export let map: Map;
+export let name: string;
 
 const canvas = map.getCanvas();
 
@@ -17,7 +18,7 @@ const handleResize = () => {
     value.width = canvas.clientWidth;
     value.height = canvas.clientHeight;
     return value;
-  })
+  });
 };
 
 map.on('style.load', () => map.addLayer({
@@ -46,6 +47,6 @@ renderPlugin();
     shadows={false}
     size={mapSize.current}
   >
-    <Scene />
+    <Scene {name} />
   </Canvas>
 {/if}

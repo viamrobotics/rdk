@@ -2,10 +2,9 @@
 
 import { createEventDispatcher } from 'svelte';
 
-export let label = '';
-export let readonly = false
-export let placeholders = ['0', '0', '0']
-export let labels = ['x', 'y', 'z']
+export let readonly = false;
+export let placeholders = ['0', '0', '0'];
+export let labels = ['x', 'y', 'z'];
 export let type: 'integer' | 'number' = 'number';
 export let values: number[] = [];
 export let step = 1;
@@ -14,10 +13,10 @@ const dispatch = createEventDispatcher<{ input: number[] }>();
 
 const handleInput = (index: number) => {
   return (event: CustomEvent) => {
-    values[index] = Number.parseFloat(event.detail.value)
-    dispatch('input', values)
-  }
-}
+    values[index] = Number.parseFloat(event.detail.value);
+    dispatch('input', values);
+  };
+};
 
 </script>
 

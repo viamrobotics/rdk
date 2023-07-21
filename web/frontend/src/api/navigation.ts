@@ -1,14 +1,9 @@
 import type { Client } from '@viamrobotics/sdk';
 import { commonApi, navigationApi } from '@viamrobotics/sdk';
 import { rcLogConditionally } from '@/lib/log';
+import type { NavigationModes, Obstacle, Waypoint } from './types/navigation';
 
-export type NavigationModes =
-  | typeof navigationApi.Mode.MODE_MANUAL
-  | typeof navigationApi.Mode.MODE_UNSPECIFIED
-  | typeof navigationApi.Mode.MODE_WAYPOINT
-
-export type LngLat = { lng: number, lat: number }
-export type Waypoint = LngLat & { id: string }
+export * from './types/navigation';
 
 export const setMode = async (robotClient: Client, name: string, mode: NavigationModes) => {
   const request = new navigationApi.SetModeRequest();
@@ -63,6 +58,27 @@ const formatWaypoints = (list: navigationApi.Waypoint[]) => {
       lat: location?.getLatitude() ?? 0,
     };
   });
+};
+
+export const getObstacles = async (robotClient: Client, name: string): Promise<Obstacle[]> => {
+  const req = new navigationApi.GetObstaclesRequest();
+  req.setName(name);
+
+  rcLogConditionally(req);
+
+  const response = await new Promise((resolve, reject) => {
+    robotClient.navigationService.getObstacles(req, (error, res) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(res);
+      }
+    });
+  });
+
+  console.log(response);
+
+  return [];
 };
 
 export const getWaypoints = async (robotClient: Client, name: string): Promise<Waypoint[]> => {

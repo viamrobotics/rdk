@@ -2,14 +2,13 @@
 
 import type { ServiceError } from '@viamrobotics/sdk';
 import { notify } from '@viamrobotics/prime';
-import { obstacles, waypoints, flyToMap, mapCenter, write } from '../stores';
-import { removeWaypoint } from '@/api/navigation';
+import { removeWaypoint, type LngLat } from '@/api/navigation';
 import { useRobotClient } from '@/hooks/robot-client';
 import LnglatInput from './lnglat-input.svelte';
-import type { LngLat } from '@/api/navigation';
 import GeometryInputs from './geometry-inputs.svelte';
+import { obstacles, waypoints, flyToMap, mapCenter, write, tab, hovered } from '../stores';
 import { createObstacle } from '../lib/obstacle';
-import { tab, hovered } from '../stores';
+    import { onMount } from 'svelte';
 
 export let name: string;
 
@@ -28,32 +27,40 @@ const handleRemoveWaypoint = async (id: string) => {
   }
 };
 
-setTimeout(() => {
-  for (let i = 0; i < 100; i += 1) {
-    const x = (i % 10) / 6500
-    const y = ((i / 10) | 0) / 6500
-    const name = `Obstacle ${$obstacles.length + 1}`
-    $obstacles = [createObstacle($mapCenter.lng + x, $mapCenter.lat + y, 'box', name), ...$obstacles]
-  }
-}, 1000);
-
 const handleAddObstacle = () => {
-  const name = `Obstacle ${$obstacles.length + 1}`
-  $obstacles = [createObstacle($mapCenter.lng, $mapCenter.lat, 'box', name), ...$obstacles]
-}
+  $obstacles = [
+    createObstacle(`Obstacle ${$obstacles.length + 1}`, $mapCenter.lng, $mapCenter.lat),
+    ...$obstacles,
+  ];
+};
 
 const handleLngLatInput = (index: number, event: CustomEvent<LngLat>) => {
   $obstacles[index]!.location.latitude = event.detail.lat;
   $obstacles[index]!.location.longitude = event.detail.lng;
-}
+};
 
 const handleDeleteObstacle = (index: number) => {
-  $obstacles = $obstacles.filter((_, i) => i !== index)
-}
+  $obstacles = $obstacles.filter((_, i) => i !== index);
+};
 
 const handleTabSelect = (event: CustomEvent) => {
-  $tab = event.detail.value
-}
+  $tab = event.detail.value;
+};
+
+onMount(() => {
+  // @ts-expect-error Debug function.
+
+  window.DEBUG_addObstacles = () => {
+    for (let i = 0; i < 100; i += 1) {
+      const x = (i % 10) / 6500;
+      const y = (Math.trunc(i / 10)) / 6500;
+      $obstacles = [
+        createObstacle(`Obstacle ${$obstacles.length + 1}`, $mapCenter.lng + x, $mapCenter.lat + y),
+        ...$obstacles,
+      ];
+    }
+  };
+});
 
 </script>
 
@@ -82,11 +89,11 @@ const handleTabSelect = (event: CustomEvent) => {
         />
       {/if}
 
-      {#each $obstacles as { name, location, geometries }, index (index)}
+      {#each $obstacles as { name: obstacleName, location, geometries }, index (index)}
         {#if $write}
           <li class='group mb-8 pl-2 border-l border-l-medium'>
             <div class='flex items-end gap-1.5 pb-2'>
-              <v-input class='w-full' label='Name' value={name} />
+              <v-input class='w-full' label='Name' value={obstacleName} />
               <v-button
                 class='invisible group-hover:visible text-subtle-1'
                 variant='icon'
@@ -104,7 +111,7 @@ const handleTabSelect = (event: CustomEvent) => {
                 icon='center'
                 on:click={() => flyToMap({ lng: location.longitude, lat: location.latitude })}
               />
-              
+
             </LnglatInput>
 
             {#each geometries as _, geoIndex (geoIndex)}

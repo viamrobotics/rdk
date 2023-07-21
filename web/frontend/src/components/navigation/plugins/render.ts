@@ -9,7 +9,7 @@ const renderTexture = renderTarget.texture;
 const scene = new THREE.Scene();
 const ambient = new THREE.AmbientLight();
 const dir = new THREE.DirectionalLight();
-dir.intensity = 1.5
+dir.intensity = 1.5;
 scene.add(ambient);
 
 view.subscribe((value) => {

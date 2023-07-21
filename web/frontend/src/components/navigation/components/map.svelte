@@ -10,19 +10,21 @@ import RobotMarker from './robot-marker.svelte';
 
 export let name: string;
 
-const minPitch = 0
-const maxPitch = 60
+const minPitch = 0;
+const maxPitch = 60;
 
 const handleViewSelect = (event: CustomEvent) => {
-  $view = event.detail.value
-}
+  $view = event.detail.value;
+};
 
 const handleMove = () => {
-  if (!map.current) return
+  if (!map.current) {
+    return;
+  }
 
-  mapCenter.set(map.current.getCenter())
-  mapZoom.set(map.current.getZoom() / map.current.getMaxZoom())
-}
+  mapCenter.set(map.current.getCenter());
+  mapZoom.set(map.current.getZoom() / map.current.getMaxZoom());
+};
 
 onMount(() => {
   const mapInstance = new Map({
@@ -35,7 +37,7 @@ onMount(() => {
     maxPitch: minPitch,
   });
 
-  let nav = new NavigationControl({ showZoom: false });
+  const nav = new NavigationControl({ showZoom: false });
   mapInstance.addControl(nav, 'top-right');
 
   mapInstance.on('move', handleMove);
@@ -45,8 +47,8 @@ onMount(() => {
 });
 
 $: {
-  $map?.setMinPitch(minPitch)
-  $map?.setMaxPitch($view === '3D' ? maxPitch : minPitch)
+  $map?.setMinPitch(minPitch);
+  $map?.setMaxPitch($view === '3D' ? maxPitch : minPitch);
 }
 
 </script>
@@ -66,7 +68,7 @@ $: {
 {#if $map}
   <RobotMarker {name} />
   <Waypoints {name} map={$map} />
-  <ObstacleLayer map={$map} />
+  <ObstacleLayer {name} map={$map} />
 {/if}
 
 <style>

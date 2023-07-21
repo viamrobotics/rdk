@@ -1,4 +1,12 @@
-export type Views = '2D' | '3D'
+import type { navigationApi } from '@viamrobotics/sdk';
+
+export type NavigationModes =
+  | typeof navigationApi.Mode.MODE_MANUAL
+  | typeof navigationApi.Mode.MODE_UNSPECIFIED
+  | typeof navigationApi.Mode.MODE_WAYPOINT
+
+export type LngLat = { lng: number, lat: number }
+export type Waypoint = LngLat & { id: string }
 
 export interface Translation {
   x: number;

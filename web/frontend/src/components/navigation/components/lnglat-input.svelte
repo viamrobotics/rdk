@@ -4,25 +4,25 @@ import { createEventDispatcher } from 'svelte';
 import { mapZoom } from '../stores';
 import type { LngLat } from '@/api/navigation';
 
-export let label: string | undefined = undefined
-export let readonly: true | undefined = undefined
-export let lng = 0
-export let lat = 0
+export let label: string | undefined = undefined;
+export let readonly: true | undefined = undefined;
+export let lng = 0;
+export let lat = 0;
 
 const decimalFormat = new Intl.NumberFormat(undefined, { maximumFractionDigits: 6 });
 
-$: lngRounded = decimalFormat.format(lng)
-$: latRounded = decimalFormat.format(lat)
+$: lngRounded = decimalFormat.format(lng);
+$: latRounded = decimalFormat.format(lat);
 
-const dispatch = createEventDispatcher<{ input: LngLat }>()
+const dispatch = createEventDispatcher<{ input: LngLat }>();
 
 const handleLng = (event: CustomEvent) => {
-  dispatch('input', { lat: lat ?? 0, lng: Number.parseFloat(event.detail.value) })
-}
+  dispatch('input', { lat: lat ?? 0, lng: Number.parseFloat(event.detail.value) });
+};
 
 const handleLat = (event: CustomEvent) => {
-  dispatch('input', { lng: lng ?? 0, lat: Number.parseFloat(event.detail.value) })
-}
+  dispatch('input', { lng: lng ?? 0, lat: Number.parseFloat(event.detail.value) });
+};
 
 </script>
 

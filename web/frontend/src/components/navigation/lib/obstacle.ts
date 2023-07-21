@@ -1,7 +1,7 @@
 import { createGeometry } from './geometry';
 import type { Shapes } from './types';
 
-export const createObstacle = (longitude: number, latitude: number, type: Shapes = 'box', name: string) => {
+export const createObstacle = (name: string, longitude: number, latitude: number, type: Shapes = 'box') => {
   return {
     name,
     location: {

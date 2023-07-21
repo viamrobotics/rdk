@@ -1,12 +1,11 @@
 import * as THREE from 'three';
 import { currentWritable } from '@threlte/core';
 import { type JumpToOptions, type FlyToOptions, type Map } from 'maplibre-gl';
-import type { Views, Obstacle } from './types';
-import type { LngLat, Waypoint } from '@/api/navigation';
+import type { LngLat, Waypoint, Obstacle } from '@/api/navigation';
 
 export const tab = currentWritable<'Obstacles' | 'Waypoints'>('Obstacles');
 export const mode = currentWritable<'draw' | 'navigate'>('navigate');
-export const view = currentWritable<Views>('2D');
+export const view = currentWritable<'2D' | '3D'>('2D');
 export const write = currentWritable(false);
 export const mapCenter = currentWritable<LngLat>({ lng: 0, lat: 0 });
 export const mapZoom = currentWritable(0);

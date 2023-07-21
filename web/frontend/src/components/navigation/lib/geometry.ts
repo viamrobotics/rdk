@@ -1,3 +1,4 @@
+/* eslint-disable id-length */
 import type { Shapes } from './types';
 
 export const defaultSize = 5;
