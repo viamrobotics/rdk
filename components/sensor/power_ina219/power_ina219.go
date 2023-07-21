@@ -8,7 +8,6 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
-	"log"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/utils"
@@ -158,8 +157,6 @@ func (d *ina219) calibrate() error {
 
 // Readings returns a list containing three items (voltage, current, and power).
 func (d *ina219) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-
-	d.logger.Infof("GETT READFINFS")
 	handle, err := d.bus.OpenHandle(d.addr)
 	if err != nil {
 		d.logger.Errorf("can't open ina219 i2c: %s", err)
@@ -167,11 +164,9 @@ func (d *ina219) Readings(ctx context.Context, extra map[string]interface{}) (ma
 	}
 	defer utils.UncheckedErrorFunc(handle.Close)
 
-	log.Println("here")
-
 	// use the calibration result to set the scaling factor
 	// of the current and power registers for the maximum resolution
-	/* buf := make([]byte, 2)
+	buf := make([]byte, 2)
 	binary.BigEndian.PutUint16(buf, d.cal)
 	err = handle.WriteBlockData(ctx, calibrationRegister, buf)
 	if err != nil {
@@ -183,7 +178,7 @@ func (d *ina219) Readings(ctx context.Context, extra map[string]interface{}) (ma
 	err = handle.WriteBlockData(ctx, configRegister, buf)
 	if err != nil {
 		return nil, err
-	} */
+	}
 
 	var pm powerMonitor
 
