@@ -312,8 +312,8 @@ func (svc *builtIn) startWaypoint(ctx context.Context, extra map[string]interfac
 				return
 			}
 
-			svc.mu.Lock()
 			cancelCtx, cancelFunc := context.WithCancel(ctx)
+			svc.mu.Lock()
 			svc.currentWaypointCancelFunc = cancelFunc
 			svc.mu.Unlock()
 
