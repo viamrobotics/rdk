@@ -528,7 +528,7 @@ func (manager *resourceManager) completeConfig(
 	}
 
 	resourceNames := manager.resources.ReverseTopologicalSort()
-	timeout := robot.getTimeout()
+	timeout := rutils.GetResourceConfigurationTimeout(manager.logger)
 	for _, resName := range resourceNames {
 		resChan := make(chan struct{}, 1)
 		resName := resName

@@ -70,9 +70,9 @@ func (e *mustRebuildError) Error() string {
 
 // NewBuildTimeoutError is used when a resource times out during construction or reconfiguration.
 func NewBuildTimeoutError(name Name) error {
-	envVar := "VIAM_RESOURCE_CONFIGURATION_TIMEOUT"
 	return fmt.Errorf(
-		"resource %s timed out during reconfigure. The default timeout is 1min; update %s env variable to override", name, envVar)
+		"resource %s timed out during reconfigure. The default timeout is %v; update %s env variable to override",
+		name, utils.DefaultResourceConfigurationTimeout, utils.ResourceConfigurationTimeoutEnvVar)
 }
 
 // DependencyNotFoundError is used when a resource is not found in a dependencies.

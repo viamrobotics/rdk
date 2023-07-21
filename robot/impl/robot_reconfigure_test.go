@@ -49,6 +49,7 @@ import (
 	_ "go.viam.com/rdk/services/sensors/builtin"
 	rdktestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/robottestutils"
+	rutils "go.viam.com/rdk/utils"
 )
 
 var (
@@ -3565,9 +3566,13 @@ func TestResourceConstructTimeout(t *testing.T) {
 
 	// create new cfg with wheeled base modified to trigger Reconfigure, set timeout
 	// to the shortest possible window to ensure timeout
+	defer func() {
+		test.That(t, os.Unsetenv(rutils.ResourceConfigurationTimeoutEnvVar),
+			test.ShouldBeNil)
+	}()
+	test.That(t, os.Setenv(rutils.ResourceConfigurationTimeoutEnvVar, "1ns"),
+		test.ShouldBeNil)
 
-	resourceConfigurationTimeout = time.Nanosecond
-	defer func() { resourceConfigurationTimeout = time.Minute }()
 	newestCfg := &config.Config{
 		Components: []resource.Config{
 			{

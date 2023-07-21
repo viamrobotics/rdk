@@ -19,6 +19,7 @@ import (
 	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
 	"go.viam.com/rdk/resource"
 	rtestutils "go.viam.com/rdk/testutils"
+	rutils "go.viam.com/rdk/utils"
 )
 
 func TestModManagerFunctions(t *testing.T) {
@@ -55,16 +56,16 @@ func TestModManagerFunctions(t *testing.T) {
 	err = mod.startProcess(ctx, parentAddr, nil, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	err = mod.dial(nil)
+	err = mod.dial()
 	test.That(t, err, test.ShouldBeNil)
 
 	// check that dial can re-use connections.
 	oldConn := mod.conn
-	err = mod.dial(mod.conn)
+	err = mod.dial()
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, mod.conn, test.ShouldEqual, oldConn)
 
-	err = mod.checkReady(ctx, parentAddr)
+	err = mod.checkReady(ctx, parentAddr, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	mod.registerResources(mgr, logger)
@@ -458,6 +459,59 @@ func TestModuleReloading(t *testing.T) {
 
 		// Assert that RemoveOrphanedResources was called once.
 		test.That(t, dummyRemoveOrphanedResourcesCallCount.Load(), test.ShouldEqual, 1)
+	})
+	t.Run("immediate crash is not restarted", func(t *testing.T) {
+		logger, logs := golog.NewObservedTestLogger(t)
+
+		modCfg.ExePath = rutils.ResolveFile("module/testmodule/fakemodule.sh")
+
+		// Lower global timeout early to avoid race with actual restart code.
+		defer func(oriOrigVal time.Duration) {
+			oueRestartInterval = oriOrigVal
+		}(oueRestartInterval)
+		oueRestartInterval = 10 * time.Millisecond
+
+		// Lower resource configuration timeout to avoid waiting for 60 seconds
+		// for manager.Add to time out waiting for module to start listening.
+		defer func() {
+			test.That(t, os.Unsetenv(rutils.ResourceConfigurationTimeoutEnvVar),
+				test.ShouldBeNil)
+		}()
+		test.That(t, os.Setenv(rutils.ResourceConfigurationTimeoutEnvVar, "10ms"),
+			test.ShouldBeNil)
+
+		// This test neither uses a resource manager nor asserts anything about
+		// the existence of resources in the graph. Use a dummy
+		// RemoveOrphanedResources function so orphaned resource logic does not
+		// panic.
+		dummyRemoveOrphanedResources := func(context.Context, []resource.Name) {}
+		mgr := NewManager(parentAddr, logger, modmanageroptions.Options{
+			UntrustedEnv:            false,
+			RemoveOrphanedResources: dummyRemoveOrphanedResources,
+		})
+		err = mgr.Add(ctx, modCfg)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring,
+			"timed out waiting for module test-module to start listening")
+
+		// Assert that manager removes module after immediate crash.
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			test.That(tb, len(mgr.Configs()), test.ShouldEqual, 0)
+		})
+
+		err = mgr.Close(ctx)
+		test.That(t, err, test.ShouldBeNil)
+
+		// Assert that logs reflect that fakemodule exited without responding to a
+		// ready request, and the manager did not try to nor succeed in restarting
+		// it.
+		test.That(t, logs.FilterMessageSnippet(
+			"module has unexpectedly exited without responding to a ready request").Len(),
+			test.ShouldEqual, 1)
+		test.That(t, logs.FilterMessageSnippet("attempting to restart it").Len(),
+			test.ShouldEqual, 0)
+		test.That(t, logs.FilterMessageSnippet("module successfully restarted").Len(),
+			test.ShouldEqual, 0)
 	})
 }
 
