@@ -497,8 +497,6 @@ func (mp *cBiRRTMotionPlanner) smoothPath(
 			// so we allow elongation here.
 			dist := mp.planOpts.DistanceFunc(&Segment{StartConfiguration: inputSteps[i].Q(), EndConfiguration: reached.Q()})
 			if dist < mp.algOpts.JointSolveDist {
-				// iSol.SetCorner(true)
-				// jSol.SetCorner(true)
 				for _, hitCorner := range hitCorners {
 					hitCorner.SetCorner(false)
 				}
