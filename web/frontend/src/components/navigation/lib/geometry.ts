@@ -1,4 +1,3 @@
-/* eslint-disable id-length */
 import type { Geometry, BoxGeometry, CapsuleGeometry, SphereGeometry } from '@/api/navigation';
 import type { Shapes } from './types';
 

@@ -1,5 +1,4 @@
 <script lang='ts'>
-/* eslint-disable id-length */
 import { createEventDispatcher } from 'svelte';
 import VectorInput from './vector-input.svelte';
 import { createGeometry } from '../lib/geometry';
@@ -50,21 +49,18 @@ const handleDimensionsInput = (event: CustomEvent<number[]>) => {
 
   {#if geometry.type === 'box'}
     <VectorInput
-      label='Dimensions'
       labels={['Length (m)', 'Width (m)', 'Height (m)']}
       values={[geometry.length, geometry.width, geometry.height]}
       on:input={handleDimensionsInput}
     />
   {:else if geometry.type === 'capsule'}
     <VectorInput
-      label='Dimensions'
       labels={['Radius (m)', 'Length (m)']}
       values={[geometry.radius, geometry.length]}
       on:input={handleDimensionsInput}
     />
   {:else if geometry.type === 'sphere'}
     <VectorInput
-      label='Dimensions'
       labels={['Radius (m)']}
       values={[geometry.radius]}
       on:input={handleDimensionsInput}

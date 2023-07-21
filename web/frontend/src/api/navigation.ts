@@ -98,7 +98,7 @@ export const getObstacles = async (robotClient: Client, name: string): Promise<O
         const center = geometry.getCenter();
         ov.set(center?.getOX(), center?.getOY(), center?.getOZ(), center?.getTheta());
         ov.toQuaternion(quat);
-        const quaternion = { x: quat.x, y: quat.y, z: quat.z, w: quat.w }
+        const quaternion = { x: quat.x, y: quat.y, z: quat.z, w: quat.w };
 
         if (geometry.hasBox()) {
           const dimsMm = geometry.getBox()?.getDimsMm();

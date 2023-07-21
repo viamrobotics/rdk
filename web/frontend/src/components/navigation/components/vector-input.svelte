@@ -2,7 +2,6 @@
 
 import { createEventDispatcher } from 'svelte';
 
-export let label = ''
 export let readonly = false;
 export let placeholders = ['0', '0', '0'];
 export let labels = ['x', 'y', 'z'];

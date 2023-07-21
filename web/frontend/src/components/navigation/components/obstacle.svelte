@@ -11,8 +11,8 @@ export let obstacle: Obstacle;
 let material: THREE.MeshPhongMaterial;
 
 const rotateGeometry = ({ ref }: { ref: THREE.BufferGeometry }) => {
-  ref.rotateX(-Math.PI / 2)
-}
+  ref.rotateX(-Math.PI / 2);
+};
 
 </script>
 
