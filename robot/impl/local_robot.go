@@ -1189,7 +1189,6 @@ func (r *localRobot) replacePackageReferencesWithPaths(cfg *config.Config) error
 
 	for _, c := range cfg.Modules {
 		newExecPath, err := packages.NewPackagePathVisitor(r.packageManager, packageMap).VisitAndReplaceString(c.ExePath)
-		// fmt.Print("\n\n\nhere is my new exec path: ", newExecPath, "\n\n\n")
 		allErrs = multierr.Combine(allErrs, err)
 		c.ExePath = newExecPath
 	}

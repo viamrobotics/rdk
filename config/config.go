@@ -928,9 +928,9 @@ func (p *PackageConfig) GenerateFilePath() string {
 	if p.Type == "" {
 		// then this is not set and it must be an ml-model for backward compatibility -- but for now just join it without the type
 		// package manager will still create symlinks for these packages based on the packges path
-		dir = path.Clean(path.Join(viamDotDir, "packages", p.Name))
+		dir = path.Clean(path.Join(viamDotDir, packagesDir, p.Name))
 	} else {
-		dir = path.Clean(path.Join(viamDotDir, "packages", p.GetPackageDirectoryFromType(), dataDotDir, p.SanitizeName()))
+		dir = path.Clean(path.Join(viamDotDir, packagesDir, p.GetPackageDirectoryFromType(), dataDotDir, p.SanitizeName()))
 	}
 	return dir
 }
@@ -939,10 +939,10 @@ func (p *PackageConfig) GenerateFilePath() string {
 func (p *PackageConfig) GetPackagePlaceholder() string {
 	// then based on what the structure of the package is, we can match what the replacement should look like
 	if p.Type != "" {
-		return strings.Join([]string{"packages", p.GetPackageDirectoryFromType(), p.Name}, ".")
+		return strings.Join([]string{packagesDir, p.GetPackageDirectoryFromType(), p.Name}, ".")
 	}
 
-	return strings.Join([]string{"packages", p.Name}, ".")
+	return strings.Join([]string{packagesDir, p.Name}, ".")
 }
 
 // GetPackageDirectoryFromType returns the package directory for the filepath based on type.

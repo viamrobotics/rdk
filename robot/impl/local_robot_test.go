@@ -1888,13 +1888,13 @@ func TestConfigPackages(t *testing.T) {
 func TestConfigPackageReferenceReplacement(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
-	// N.B. if the
+
 	fakePackageServer, err := putils.NewFakePackageServer(ctx, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer utils.UncheckedErrorFunc(fakePackageServer.Shutdown)
 
 	packageDir := t.TempDir()
-	labelPath := "${packages.some-name-2}/labels.txt"
+	labelPath := "${packages.orgID/some-name-2}/labels.txt"
 
 	robotConfig := &config.Config{
 		Packages: []config.PackageConfig{
@@ -1904,7 +1904,7 @@ func TestConfigPackageReferenceReplacement(t *testing.T) {
 				Version: "v1",
 			},
 			{
-				Name:    "some-name-2",
+				Name:    "orgID/some-name-2",
 				Package: "package-2",
 				Version: "latest",
 			},

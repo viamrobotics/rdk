@@ -17,15 +17,17 @@ func TestPackagePathVisitor(t *testing.T) {
 	testStringRef := "${packages.custom_package}/file_name.txt"
 	testStringMlModel := "${packages.ml_models.custom_package}/file_name.txt"
 	testStringModule := "${packages.modules.custom_package}/file_name.txt"
+	testStringOrgIDinName := "${packages.modules.orgID/test-name}/file_name.txt"
 	testBadPlaceholder := "${packages.my_model.ml.big}/file.txt"
 	testInt := 17
 
 	packageMap := make(map[string]string)
 	packageMap["packages.custom_package"] = filepath.Join(viamDotDir, "packages", "custom_package")
 	packageMap["packages.ml_models.custom_package"] = filepath.Join(
-		viamDotDir, "packages", dataDir, "ml_models", "orgID-custom_package-latest")
+		viamDotDir, "packages", "ml_models", dataDir, "orgID-custom_package-latest")
 	packageMap["packages.modules.custom_package"] = filepath.Join(
-		viamDotDir, "packages", dataDir, "modules", "orgID-custom_package-latest")
+		viamDotDir, "packages", "modules", dataDir, "orgID-custom_package-latest")
+	packageMap["packages.modules.orgID/test-name"] = filepath.Join(viamDotDir, "packages", "modules", dataDir, "orgID-test-name")
 
 	testStringRefOutput := filepath.Join(packageMap["packages.custom_package"], "file_name.txt")
 	invalidPackageErr := "invalid package placeholder path"
@@ -57,6 +59,12 @@ func TestPackagePathVisitor(t *testing.T) {
 			"visit string with package module reference",
 			testStringModule,
 			filepath.Join(packageMap["packages.modules.custom_package"], "file_name.txt"),
+			nil,
+		},
+		{
+			"visit string with orgID in the name",
+			testStringOrgIDinName,
+			filepath.Join(packageMap["packages.modules.orgID/test-name"], "file_name.txt"),
 			nil,
 		},
 		{

@@ -30,10 +30,12 @@ var ErrInvalidPackageRef = errors.New("invalid package reference")
 
 // PlaceholderRef stores the destructured info about the matched placeholder
 // if the Placeholder is ${packges.ml_model.hello} ->
-// { matchedPlaceholder: ${packges.ml_model.hello}, nestedPath: packges.ml_model.hello }.
+// { matchedPlaceholder: ${packges.ml_model.hello}, nestedPath: packges.ml_model.hello type: ml_model, name: hello}.
 type PlaceholderRef struct {
 	matchedPlaceholder string
 	nestedPath         string
+	packageType        config.PackageType
+	packageName        string
 }
 
 // Manager provides a managed interface for looking up package paths. This is separated from ManagerSyncer to avoid passing

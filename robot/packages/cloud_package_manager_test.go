@@ -352,6 +352,8 @@ func TestPackageRefs(t *testing.T) {
 				output: &PlaceholderRef{
 					matchedPlaceholder: "${packages.ml_models.test}",
 					nestedPath:         "packages.ml_models.test",
+					packageType:        config.PackageTypeMlModel,
+					packageName:        "test",
 				},
 				err: "",
 			},
@@ -360,6 +362,8 @@ func TestPackageRefs(t *testing.T) {
 				output: &PlaceholderRef{
 					matchedPlaceholder: "${packages.test}",
 					nestedPath:         "packages.test",
+					packageType:        "",
+					packageName:        "test",
 				},
 				err: "",
 			},
@@ -368,6 +372,38 @@ func TestPackageRefs(t *testing.T) {
 				output: &PlaceholderRef{
 					matchedPlaceholder: "${packages.modules.my-great-module}",
 					nestedPath:         "packages.modules.my-great-module",
+					packageType:        config.PackageTypeModule,
+					packageName:        "my-great-module",
+				},
+				err: "",
+			},
+			{
+				input: "${packages.modules.orgID/my-great-module}/output.txt",
+				output: &PlaceholderRef{
+					matchedPlaceholder: "${packages.modules.orgID/my-great-module}",
+					nestedPath:         "packages.modules.orgID/my-great-module",
+					packageType:        config.PackageTypeModule,
+					packageName:        "orgID/my-great-module",
+				},
+				err: "",
+			},
+			{
+				input: "${packages.ml_models.orgID/my-ml-model}/output.txt",
+				output: &PlaceholderRef{
+					matchedPlaceholder: "${packages.ml_models.orgID/my-ml-model}",
+					nestedPath:         "packages.ml_models.orgID/my-ml-model",
+					packageType:        config.PackageTypeMlModel,
+					packageName:        "orgID/my-ml-model",
+				},
+				err: "",
+			},
+			{
+				input: "${packages.orgID/my-ml-model}/output.txt",
+				output: &PlaceholderRef{
+					matchedPlaceholder: "${packages.orgID/my-ml-model}",
+					nestedPath:         "packages.orgID/my-ml-model",
+					packageType:        "",
+					packageName:        "orgID/my-ml-model",
 				},
 				err: "",
 			},
