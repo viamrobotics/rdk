@@ -200,6 +200,7 @@ func (svc *builtIn) SetMode(ctx context.Context, mode navigation.Mode, extra map
 
 	svc.mu.RLock()
 	if svc.mode == mode {
+		svc.mu.RUnlock()
 		return nil
 	}
 	svc.mu.RUnlock()
