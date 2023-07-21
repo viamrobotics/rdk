@@ -452,7 +452,7 @@ func (m *cloudManager) unpackFile(ctx context.Context, fromFile, toDir string) e
 
 		case tar.TypeReg:
 			// This is required because it is possible create tarballs without a directory entry
-			// but whose files names start a new directory prefix
+			// but whose files names start with a new directory prefix
 			// Ex: tar -czf package.tar.gz ./bin/module.exe
 			parent := filepath.Dir(path)
 			if err := os.MkdirAll(parent, info.Mode()); err != nil {
