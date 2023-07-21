@@ -2,8 +2,8 @@ package motion
 
 import (
 	"context"
-	"errors"
 	"math"
+	"strings"
 
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/rdk/components/movementsensor"
@@ -55,7 +55,7 @@ func (m *movementSensorLocalizer) CurrentPosition(ctx context.Context) (*referen
 	var o spatialmath.Orientation
 	compass, err := m.CompassHeading(ctx, nil)
 	if err != nil {
-		if !errors.Is(err, movementsensor.ErrMethodUnimplementedCompassHeading) {
+		if !strings.Contains(err.Error(), movementsensor.ErrMethodUnimplementedCompassHeading.Error()) {
 			return nil, err
 		}
 		o, err = m.Orientation(ctx, nil)

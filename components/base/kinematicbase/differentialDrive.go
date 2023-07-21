@@ -20,13 +20,28 @@ import (
 )
 
 const (
-	distThresholdMM         = 1000
+	// distThresholdMM is used when the base is moving to a goal. It is considered successful if it is within this radius
+	distThresholdMM = 1000 // mm
+
+	// headingThresholdDegrees is used when the base is moving to a goal.
+	// If its heading is within this angle it is considered on the correct path.
 	headingThresholdDegrees = 15
-	defaultAngularVelocity  = 60     // degrees per second
-	defaultLinearVelocity   = 300    // mm per second
-	deviationThreshold      = 1000.0 // mm
-	timeout                 = time.Second * 10
-	epsilon                 = 20 // mm
+
+	// defaultAngularVelocity is the default velocity which the base will be commanded to spin
+	defaultAngularVelocity = 60 // degrees per second
+
+	// defaultLinearVelocity is the default velocity which the base will be commanded to move straight
+	defaultLinearVelocity = 300 // mm per second
+
+	// deviationThreshold is the amount that the base is allowed to deviate from the straight line path it is intended to travel.
+	// If it ever exceeds this amount the movement will fail and an error will be returned.
+	deviationThreshold = 5000.0 // mm
+
+	// timeout is the maxiumu amount of time that the base is allowed to remain stationary during a movement, else an error is thrown.
+	timeout = time.Second * 10
+
+	// epsilon is the amount that a base needs to move for it not to be considered stationary.
+	epsilon = 20 // mm
 )
 
 // ErrMovementTimeout is used for when a movement call times out after no movement for some time.
@@ -90,7 +105,6 @@ func (ddk *differentialDriveKinematics) CurrentInputs(ctx context.Context) ([]re
 	}
 	pt := pif.Pose().Point()
 	theta := math.Mod(pif.Pose().Orientation().EulerAngles().Yaw, 2*math.Pi) - math.Pi
-	ddk.logger.Warnf("theta %f", theta)
 	return []referenceframe.Input{{Value: pt.X}, {Value: pt.Y}, {Value: theta}}, nil
 }
 
@@ -152,6 +166,7 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 				movementErr <- err
 				return
 			}
+			ddk.logger.Warnf("current %v", current)
 		}
 		movementErr <- err
 	})

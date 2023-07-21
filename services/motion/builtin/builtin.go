@@ -46,8 +46,9 @@ func init() {
 
 const (
 	builtinOpLabel                    = "motion-service"
-	defaultLinearVelocityMillisPerSec = 300 // mm per second; used for bases only
-	defaultAngularVelocityDegsPerSec  = 60  // degrees per second; used for bases only
+	defaultLinearVelocityMillisPerSec = 300  // mm per second; used for bases only
+	defaultAngularVelocityDegsPerSec  = 60   // degrees per second; used for bases only
+	maxTravelDistance                 = 5e+6 // mm (or 5km)
 )
 
 // ErrNotImplemented is thrown when an unreleased function is called.
@@ -292,6 +293,9 @@ func (ms *builtIn) planMoveOnGlobe(
 
 	// construct limits
 	straightlineDistance := goal.Point().Norm()
+	if straightlineDistance > maxTravelDistance {
+		return nil, nil, fmt.Errorf("cannot move more than %d kilometers", int(maxTravelDistance*1e-6))
+	}
 	limits := []referenceframe.Limit{
 		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
 		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
