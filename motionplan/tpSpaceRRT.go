@@ -92,8 +92,8 @@ func (mp *tpSpaceRRTMotionPlanner) plan(ctx context.Context,
 
 	seedPos := spatialmath.NewZeroPose()
 
-	startNode := &basicNode{make([]referenceframe.Input, len(mp.frame.DoF())), 0, seedPos, false}
-	goalNode := &basicNode{nil, 0, goal, false}
+	startNode := &basicNode{q: make([]referenceframe.Input, len(mp.frame.DoF())), cost: 0, pose: seedPos, corner: false}
+	goalNode := &basicNode{q: nil, cost: 0, pose: goal, corner: false}
 
 	utils.PanicCapturingGo(func() {
 		mp.planRunner(ctx, seed, &rrtParallelPlannerShared{
@@ -184,7 +184,7 @@ func (mp *tpSpaceRRTMotionPlanner) planRunner(
 		} else {
 			randPos = goalPose
 		}
-		randPosNode := &basicNode{nil, 0, randPos, false}
+		randPosNode := &basicNode{q: nil, cost: 0, pose: randPos, corner: false}
 
 		candidateNodes := map[float64][2]node{}
 
@@ -281,10 +281,10 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 	}
 	// add the last node in trajectory
 	successNode = &basicNode{
-		referenceframe.FloatsToInputs([]float64{float64(ptgNum), float64(goalK), lastNode.Dist}),
-		nearest.Cost() + lastNode.Dist,
-		lastPose,
-		false,
+		q:      referenceframe.FloatsToInputs([]float64{float64(ptgNum), float64(goalK), lastNode.Dist}),
+		cost:   nearest.Cost() + lastNode.Dist,
+		pose:   lastPose,
+		corner: false,
 	}
 
 	cand := &candidate{dist: bestDist, treeNode: nearest, newNode: successNode}
@@ -345,10 +345,10 @@ func (mp *tpSpaceRRTMotionPlanner) extendMap(
 			if mp.algOpts.addIntermediate && sinceLastNode > mp.algOpts.addNodeEvery {
 				// add the last node in trajectory
 				addedNode = &basicNode{
-					referenceframe.FloatsToInputs([]float64{float64(ptgNum), float64(randK), trajPt.Dist}),
-					bestNode[0].Cost() + trajPt.Dist,
-					trajState.Position,
-					false,
+					q:      referenceframe.FloatsToInputs([]float64{float64(ptgNum), float64(randK), trajPt.Dist}),
+					cost:   bestNode[0].Cost() + trajPt.Dist,
+					pose:   trajState.Position,
+					corner: false,
 				}
 				rrt.maps.startMap[addedNode] = bestNode[0]
 				sinceLastNode = 0.

@@ -459,7 +459,7 @@ func (mp *cBiRRTMotionPlanner) smoothPath(
 	defer close(schan)
 
 	for numCornersToPass := 2; numCornersToPass > 0; numCornersToPass-- {
-		for iter := 0; iter < toIter/2 && len(inputSteps) > 4; iter++ {
+		for iter := 0; iter < toIter/2 && len(inputSteps) > 3; iter++ {
 			select {
 			case <-ctx.Done():
 				return inputSteps
@@ -472,9 +472,9 @@ func (mp *cBiRRTMotionPlanner) smoothPath(
 			cornersPassed := 0
 			hitCorners := []node{}
 			for (cornersPassed != numCornersToPass || !inputSteps[j].Corner()) && j < len(inputSteps)-1 {
-				j += 1
+				j++
 				if cornersPassed < numCornersToPass && inputSteps[j].Corner() {
-					cornersPassed += 1
+					cornersPassed++
 					hitCorners = append(hitCorners, inputSteps[j])
 				}
 			}
@@ -516,51 +516,6 @@ func (mp *cBiRRTMotionPlanner) smoothPath(
 		}
 	}
 	return inputSteps
-}
-
-// Check if there is more than one joint direction change. If not, then not a good candidate for smoothing.
-func smoothable(inputSteps []node, i, j int) (bool, []node) {
-	startPos := inputSteps[i]
-	nextPos := inputSteps[i+1]
-	// Whether joints are increasing
-	incDir := make([]int, 0, len(startPos.Q()))
-	hitCorners := []node{}
-
-	check := func(v1, v2 float64) int {
-		if v1 > v2 {
-			return 1
-		} else if v1 < v2 {
-			return -1
-		}
-		return 0
-	}
-
-	// Get initial directionality
-	for h, v := range startPos.Q() {
-		incDir = append(incDir, check(v.Value, nextPos.Q()[h].Value))
-	}
-
-	// Check for any direction changes
-	changes := 0
-	for k := i + 1; k < j; k++ {
-		for h, v := range nextPos.Q() {
-			// Get 1, 0, or -1 depending on directionality
-			newV := check(v.Value, inputSteps[k].Q()[h].Value)
-			if incDir[h] == 0 {
-				incDir[h] = newV
-			} else if incDir[h] == newV*-1 {
-				changes++
-			}
-			if changes > 1 && len(hitCorners) > 0 {
-				return true, hitCorners
-			}
-		}
-		nextPos = inputSteps[k]
-		if nextPos.Corner() {
-			hitCorners = append(hitCorners, nextPos)
-		}
-	}
-	return false, hitCorners
 }
 
 // getFrameSteps will return a slice of positive values representing the largest amount a particular DOF of a frame should

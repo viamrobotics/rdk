@@ -133,17 +133,17 @@ type node interface {
 }
 
 type basicNode struct {
-	q    []referenceframe.Input
-	cost float64
-	pose spatialmath.Pose
+	q      []referenceframe.Input
+	cost   float64
+	pose   spatialmath.Pose
 	corner bool
 }
 
 // Special case constructors for nodes without costs to return NaN.
 func newConfigurationNode(q []referenceframe.Input) node {
 	return &basicNode{
-		q:    q,
-		cost: math.NaN(),
+		q:      q,
+		cost:   math.NaN(),
 		corner: false,
 	}
 }
