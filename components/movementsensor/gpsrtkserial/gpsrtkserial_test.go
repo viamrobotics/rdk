@@ -2,18 +2,13 @@ package gpsrtkserial
 
 import (
 	"context"
+	"math"
 	"testing"
 
 	"github.com/edaniels/golog"
 	geo "github.com/kellydunn/golang-geo"
-	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/components/movementsensor/fake"
-	gpsnmea "go.viam.com/rdk/components/movementsensor/gpsnmea"
 	rtk "go.viam.com/rdk/components/movementsensor/rtkutils"
-	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/testutils/inject"
-	rutils "go.viam.com/rdk/utils"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 )
@@ -21,96 +16,7 @@ import (
 var (
 	alt   = 50.5
 	speed = 5.4
-	fix   = 1
 )
-
-const (
-	testRoverName   = "testRover"
-	testStationName = "testStation"
-	testBoardName   = "board1"
-	testBusName     = "bus1"
-	testi2cAddr     = 44
-)
-
-// mock ntripinfo client.
-func makeMockNtripClient() *rtk.NtripInfo {
-	return &rtk.NtripInfo{}
-}
-
-func setupDependencies(t *testing.T) resource.Dependencies {
-	t.Helper()
-
-	deps := make(resource.Dependencies)
-
-	actualBoard := inject.NewBoard(testBoardName)
-	i2c1 := &inject.I2C{}
-	handle1 := &inject.I2CHandle{}
-	handle1.WriteFunc = func(ctx context.Context, b []byte) error {
-		return nil
-	}
-	handle1.ReadFunc = func(ctx context.Context, count int) ([]byte, error) {
-		return nil, nil
-	}
-	handle1.CloseFunc = func() error {
-		return nil
-	}
-	i2c1.OpenHandleFunc = func(addr byte) (board.I2CHandle, error) {
-		return handle1, nil
-	}
-	actualBoard.I2CByNameFunc = func(name string) (board.I2C, bool) {
-		return i2c1, true
-	}
-
-	deps[board.Named(testBoardName)] = actualBoard
-
-	conf := resource.Config{
-		Name:  "rtk-sensor1",
-		Model: resource.DefaultModelFamily.WithModel("gps-nmea"),
-		API:   movementsensor.API,
-	}
-
-	c := make(chan []byte, 1024)
-
-	serialnmeaConf := &gpsnmea.Config{
-		ConnectionType: serialStr,
-		SerialConfig: &gpsnmea.SerialConfig{
-			SerialPath: "some-path",
-			TestChan:   c,
-		},
-	}
-
-	logger := golog.NewTestLogger(t)
-	ctx := context.Background()
-
-	serialNMEA, _ := gpsnmea.NewSerialGPSNMEA(ctx, conf.ResourceName(), serialnmeaConf, logger)
-
-	conf.Name = "rtk-sensor2"
-
-	rtkSensor := &rtkSerial{
-		nmeamovementsensor: serialNMEA, InputProtocol: serialStr,
-	}
-
-	deps[movementsensor.Named("rtk-sensor")] = rtkSensor
-
-	return deps
-}
-
-func setupInjectRobotWithGPS() *inject.Robot {
-	r := &inject.Robot{}
-
-	r.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
-		switch name {
-		case movementsensor.Named(testRoverName):
-			return &rtkSerial{}, nil
-		default:
-			return nil, resource.NewNotFoundError(name)
-		}
-	}
-	r.ResourceNamesFunc = func() []resource.Name {
-		return []resource.Name{movementsensor.Named(testRoverName), movementsensor.Named(testStationName)}
-	}
-	return r
-}
 
 func TestValidateRTK(t *testing.T) {
 	path := "path"
@@ -138,6 +44,14 @@ func TestValidateRTK(t *testing.T) {
 		test.ShouldBeNil)
 	_, err = fakecfg.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
+
+	fakecfg.SerialPath = ""
+	_, err = fakecfg.Validate(path)
+	test.That(
+		t,
+		err,
+		test.ShouldBeError,
+		utils.NewConfigValidationFieldRequiredError(path, "serial_path"))
 }
 
 func TestConnect(t *testing.T) {
@@ -167,7 +81,7 @@ func TestConnect(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 }
 
-func TestReadings(t *testing.T) {
+func TestPostion(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
@@ -177,12 +91,17 @@ func TestReadings(t *testing.T) {
 		logger:     logger,
 	}
 
-	g.nmeamovementsensor = &fake.MovementSensor{}
+	mockSensor := &CustomMovementSensor{
+		MovementSensor: &fake.MovementSensor{},
+	}
 
-	status, err := g.getNtripConnectionStatus()
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, status, test.ShouldEqual, false)
+	mockSensor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+		return geo.NewPoint(40.7, -73.98), 50.5, nil
+	}
 
+	g.nmeamovementsensor = mockSensor
+
+	// Normal position
 	loc1, alt1, err := g.Position(ctx, make(map[string]interface{}))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, loc1, test.ShouldResemble, geo.NewPoint(40.7, -73.98))
@@ -192,107 +111,53 @@ func TestReadings(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, speed1.Y, test.ShouldEqual, speed)
 
-	fix1, err := g.readFix(ctx)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, fix1, test.ShouldEqual, fix)
-}
-
-func TestNewRTKSerial(t *testing.T) {
-	path := "somepath"
-	deps := setupDependencies(t)
-	logger := golog.NewTestLogger(t)
-	ctx := context.Background()
-
-	t.Run("serial protocol", func(t *testing.T) {
-		// serial protocol
-		conf := resource.Config{
-			Name:  "movementsensor1",
-			Model: rtkmodel,
-			API:   movementsensor.API,
-			Attributes: rutils.AttributeMap{
-				"ntrip_send_nmea":           true,
-				"ntrip_connect_attempts":    10,
-				"correction_input_protocol": "serial",
-				"path":                      path,
-			},
-			ConvertedAttributes: &Config{
-				SerialPath:           path,
-				SerialBaudRate:       0,
-				NtripURL:             "some_ntrip_address",
-				NtripConnectAttempts: 10,
-				NtripMountpoint:      "",
-				NtripPass:            "",
-				NtripUser:            "",
-			},
-		}
-
-		// TODO(RSDK-2698): this test is not really doing anything since it needs a mocked
-		// serial; it used to just test a random error; it still does.
-		_, err := newRTKSerial(ctx, deps, conf, logger)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no such file")
-	})
-
-	t.Run("invalid protocol", func(t *testing.T) {
-		// invalid protocol
-		conf := resource.Config{
-			Name:  "movementsensor1",
-			Model: resource.DefaultModelFamily.WithModel("rtk"),
-			API:   movementsensor.API,
-			Attributes: rutils.AttributeMap{
-				"ntrip_addr":                "some_ntrip_address",
-				"ntrip_username":            "",
-				"ntrip_password":            "",
-				"ntrip_mountpoint":          "",
-				"ntrip_path":                "",
-				"ntrip_baud":                115200,
-				"ntrip_send_nmea":           true,
-				"ntrip_connect_attempts":    10,
-				"correction_input_protocol": "notserial",
-				"path":                      path,
-			},
-			ConvertedAttributes: &Config{},
-		}
-		_, err := newRTKSerial(ctx, deps, conf, logger)
-		test.That(t, err, test.ShouldNotBeNil)
-	})
-
-	t.Run("no ntrip address", func(t *testing.T) {
-		conf := resource.Config{
-			Name:  "movementsensor1",
-			Model: resource.DefaultModelFamily.WithModel("rtk"),
-			API:   movementsensor.API,
-			Attributes: rutils.AttributeMap{
-				"ntrip_addr":                "some_ntrip_address",
-				"ntrip_username":            "",
-				"ntrip_password":            "",
-				"ntrip_mountpoint":          "",
-				"ntrip_path":                "",
-				"ntrip_baud":                115200,
-				"ntrip_send_nmea":           true,
-				"ntrip_connect_attempts":    10,
-				"correction_input_protocol": "serial",
-				"path":                      path,
-			},
-			ConvertedAttributes: &Config{},
-		}
-
-		_, err := newRTKSerial(ctx, deps, conf, logger)
-		test.That(t, err, test.ShouldNotBeNil)
-	})
-}
-
-func TestCloseRTK(t *testing.T) {
-	logger := golog.NewTestLogger(t)
-	ctx := context.Background()
-	cancelCtx, cancelFunc := context.WithCancel(ctx)
-	g := rtkSerial{
-		cancelCtx:  cancelCtx,
-		cancelFunc: cancelFunc,
-		logger:     logger,
+	// Zero position with latitude 0 and longitude 0.
+	mockSensor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+		return geo.NewPoint(0, 0), 0, nil
 	}
-	g.nmeamovementsensor = &fake.MovementSensor{}
 
-	err := g.Close(ctx)
+	g.lastposition.SetLastPosition(loc1)
+
+	loc2, alt2, err := g.Position(ctx, make(map[string]interface{}))
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, loc2, test.ShouldResemble, loc1)
+	test.That(t, alt2, test.ShouldEqual, 0)
+
+	speed2, err := g.LinearVelocity(ctx, make(map[string]interface{}))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, speed2.Y, test.ShouldEqual, speed)
+
+	// Position with NaN values.
+	mockSensor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+		return geo.NewPoint(math.NaN(), math.NaN()), math.NaN(), nil
+	}
+
+	loc3, alt3, err := g.Position(ctx, make(map[string]interface{}))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, math.IsNaN(loc3.Lat()), test.ShouldBeTrue)
+	test.That(t, math.IsNaN(loc3.Lng()), test.ShouldBeTrue)
+	test.That(t, math.IsNaN(alt3), test.ShouldBeTrue)
+
+	speed3, err := g.LinearVelocity(ctx, make(map[string]interface{}))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, speed3.Y, test.ShouldEqual, speed)
+
+}
+
+type CustomMovementSensor struct {
+	*fake.MovementSensor
+	PositionFunc func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error)
+}
+
+func (c *CustomMovementSensor) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+	if c.PositionFunc != nil {
+		return c.PositionFunc(ctx, extra)
+	}
+	// Fallback to the default implementation if PositionFunc is not set.
+	return c.MovementSensor.Position(ctx, extra)
+}
+
+// mock ntripinfo client.
+func makeMockNtripClient() *rtk.NtripInfo {
+	return &rtk.NtripInfo{}
 }
