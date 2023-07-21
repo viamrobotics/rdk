@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"image"
 	"sync"
 	"time"
 
@@ -35,8 +36,10 @@ const (
 
 var (
 	// model is the model of a replay camera.
-	model           = resource.DefaultModelFamily.WithModel("replay_pcd")
-	errEndOfDataset = errors.New("reached end of dataset")
+	model = resource.DefaultModelFamily.WithModel("replay_pcd")
+
+	// ErrEndOfDataset represents that the replay sensor has reached the end of the dataset.
+	ErrEndOfDataset = errors.New("reached end of dataset")
 )
 
 func init() {
@@ -177,7 +180,7 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 	}
 
 	if len(resp.GetData()) == 0 {
-		return nil, errEndOfDataset
+		return nil, ErrEndOfDataset
 	}
 	replay.lastData = resp.GetLast()
 
@@ -285,6 +288,11 @@ func addGRPCMetadata(ctx context.Context, timeRequested, timeReceived *timestamp
 	}
 
 	return nil
+}
+
+// Images is a part of the camera interface but is not implemented for replay.
+func (replay *pcdCamera) Images(ctx context.Context) ([]image.Image, time.Time, error) {
+	return nil, time.Time{}, errors.New("Images is unimplemented")
 }
 
 // Properties is a part of the camera interface but is not implemented for replay.

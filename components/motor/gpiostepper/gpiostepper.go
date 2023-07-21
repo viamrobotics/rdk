@@ -123,6 +123,10 @@ func newGPIOStepper(
 	name resource.Name,
 	logger golog.Logger,
 ) (motor.Motor, error) {
+	if b == nil {
+		return nil, errors.New("board is required")
+	}
+
 	if mc.TicksPerRotation == 0 {
 		return nil, errors.New("expected ticks_per_rotation in config for motor")
 	}
@@ -163,6 +167,11 @@ func newGPIOStepper(
 
 	if mc.StepperDelay > 0 {
 		m.minDelay = time.Duration(mc.StepperDelay * int(time.Microsecond))
+	}
+
+	err = m.enable(ctx, false)
+	if err != nil {
+		return nil, err
 	}
 
 	m.startThread(ctx)
@@ -255,7 +264,6 @@ func (m *gpioStepper) doCycle(ctx context.Context) (time.Duration, error) {
 // have to be locked to call.
 func (m *gpioStepper) doStep(ctx context.Context, forward bool) error {
 	err := multierr.Combine(
-		m.enable(ctx, true),
 		m.dirPin.Set(ctx, forward, nil),
 		m.stepPin.Set(ctx, true, nil))
 	if err != nil {
@@ -288,16 +296,26 @@ func (m *gpioStepper) GoFor(ctx context.Context, rpm, revolutions float64, extra
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
 
-	err := m.goForInternal(ctx, rpm, revolutions)
+	err := m.enable(ctx, true)
 	if err != nil {
-		return errors.Wrapf(err, "error in GoFor from motor (%s)", m.motorName)
+		return errors.Wrapf(err, "error enabling motor in GoFor from motor (%s)", m.motorName)
 	}
 
+	err = m.goForInternal(ctx, rpm, revolutions)
+	if err != nil {
+		return multierr.Combine(
+			m.enable(ctx, false),
+			errors.Wrapf(err, "error in GoFor from motor (%s)", m.motorName))
+	}
+
+	// this is a long-running operation, do not wait for Stop, do not disable enable pins
 	if revolutions == 0 {
 		return nil
 	}
 
-	return m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m, m.Stop)
+	return multierr.Combine(
+		m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m, m.Stop),
+		m.enable(ctx, false))
 }
 
 func (m *gpioStepper) goForInternal(ctx context.Context, rpm, revolutions float64) error {
@@ -420,13 +438,14 @@ func (m *gpioStepper) IsPowered(ctx context.Context, extra map[string]interface{
 }
 
 func (m *gpioStepper) enable(ctx context.Context, on bool) error {
+	var err error
 	if m.enablePinHigh != nil {
-		return m.enablePinHigh.Set(ctx, on, nil)
+		err = multierr.Combine(err, m.enablePinHigh.Set(ctx, on, nil))
 	}
 
 	if m.enablePinLow != nil {
-		return m.enablePinLow.Set(ctx, !on, nil)
+		err = multierr.Combine(err, m.enablePinLow.Set(ctx, !on, nil))
 	}
 
-	return nil
+	return err
 }

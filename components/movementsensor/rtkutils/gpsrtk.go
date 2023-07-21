@@ -1,7 +1,7 @@
-// Package gpsrtk defines a gps and an rtk correction source
+// Package rtkutils defines a gps and an rtk correction source
 // which sends rtcm data to a child gps
 // This is an Experimental package
-package gpsrtk
+package rtkutils
 
 import (
 	"context"
@@ -20,18 +20,6 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
-
-// NtripConfig is used for converting attributes for a correction source.
-type NtripConfig struct {
-	NtripURL             string `json:"ntrip_url"`
-	NtripConnectAttempts int    `json:"ntrip_connect_attempts,omitempty"`
-	NtripMountpoint      string `json:"ntrip_mountpoint,omitempty"`
-	NtripPass            string `json:"ntrip_password,omitempty"`
-	NtripUser            string `json:"ntrip_username,omitempty"`
-	NtripPath            string `json:"ntrip_path,omitempty"`
-	NtripBaud            int    `json:"ntrip_baud,omitempty"`
-	NtripInputProtocol   string `json:"ntrip_input_protocol,omitempty"`
-}
 
 // A RTKMovementSensor is an NMEA MovementSensor model that can intake RTK correction data.
 type RTKMovementSensor struct {

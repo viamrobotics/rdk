@@ -838,23 +838,70 @@ Next, update your meta.json and use 'viam module update' to push those changes t
 					},
 					{
 						Name:  "update",
-						Usage: "Update a module's metadata on app.viam.com",
+						Usage: "update a module's metadata on app.viam.com",
 						Flags: []cli.Flag{
 							&cli.StringFlag{
+								Name:        "module",
+								Usage:       "path to meta.json",
+								DefaultText: "./meta.json",
+								TakesFile:   true,
+							},
+							&cli.StringFlag{
 								Name:  "public_namespace",
-								Usage: "the public namespace where the module resides (alternative way of specifying the ord id)",
+								Usage: "the public namespace where the module resides (alternative way of specifying the org id)",
+							},
+							&cli.StringFlag{
+								Name:  "org_id",
+								Usage: "id of the organization that hosts the module",
+							},
+						},
+						Action: rdkcli.UpdateModuleCommand,
+					},
+					{
+						Name:  "upload",
+						Usage: "upload a new version of your module",
+						Description: `Upload an archive containing your module's file(s) for a specified platform
+
+Example for linux/amd64:
+tar -czf packaged-module.tar.gz my-binary   # the meta.json entrypoint is relative to the root of the archive, so it should be "./my-binary"
+viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.tar.gz
+                        `,
+						ArgsUsage: "<packaged-module.tar.gz>",
+						Flags: []cli.Flag{
+							&cli.StringFlag{
+								Name:        "module",
+								Usage:       "path to meta.json",
+								DefaultText: "./meta.json",
+								TakesFile:   true,
+							},
+							&cli.StringFlag{
+								Name:  "public_namespace",
+								Usage: "the public namespace where the module resides (alternative way of specifying the org id)",
 							},
 							&cli.StringFlag{
 								Name:  "org_id",
 								Usage: "id of the organization that hosts the module",
 							},
 							&cli.StringFlag{
-								Name:        "module",
-								Usage:       "path to meta.json",
-								DefaultText: "./meta.json",
+								Name:  "name",
+								Usage: "name of the module (used if you don't have a meta.json)",
+							},
+							&cli.StringFlag{
+								Name:     "version",
+								Usage:    "version of the module to upload (semver2.0) ex: \"0.1.0\"",
+								Required: true,
+							},
+							&cli.StringFlag{
+								Name: "platform",
+								Usage: `Platform of the binary you are uploading. Must be one of:
+                        linux/amd64
+                        linux/arm64
+                        darwin/amd64 (for intel macs)
+                        darwin/arm64 (for non-intel macs)`,
+								Required: true,
 							},
 						},
-						Action: rdkcli.UpdateModuleCommand,
+						Action: rdkcli.UploadModuleCommand,
 					},
 				},
 			},

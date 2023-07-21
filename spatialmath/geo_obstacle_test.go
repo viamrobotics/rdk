@@ -23,7 +23,7 @@ func TestGeoObstacles(t *testing.T) {
 	test.That(t, testGeoms, test.ShouldResemble, testGeoObst.Geometries())
 
 	t.Run("Conversion from GeoObstacle to Protobuf", func(t *testing.T) {
-		convGeoObstProto, err := GeoObstacleToProtobuf(testGeoObst)
+		convGeoObstProto := GeoObstacleToProtobuf(testGeoObst)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, testPoint.Lat(), test.ShouldEqual, convGeoObstProto.GetLocation().GetLatitude())
 		test.That(t, testPoint.Lng(), test.ShouldEqual, convGeoObstProto.GetLocation().GetLongitude())

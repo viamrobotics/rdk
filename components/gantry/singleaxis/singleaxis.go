@@ -294,7 +294,13 @@ func (g *singleAxis) moveAway(ctx context.Context, pin int) error {
 	if err := g.motor.GoFor(ctx, dir*g.rpm, 0, nil); err != nil {
 		return err
 	}
+	defer utils.UncheckedErrorFunc(func() error {
+		return g.motor.Stop(ctx, nil)
+	})
 	for {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 		hit, err := g.limitHit(ctx, pin)
 		if err != nil {
 			return err
@@ -528,16 +534,12 @@ func (g *singleAxis) MoveToPosition(ctx context.Context, positions, speeds []flo
 	if len(g.limitSwitchPins) > 0 {
 		// Stops if position x is past the 0 limit switch
 		if x <= (g.positionLimits[0] + limitErrorMargin) {
-			g.logger.Debugf("limit: %.2f", g.positionLimits[0]+limitErrorMargin)
-			g.logger.Debugf("position x: %.2f", x)
 			g.logger.Error("Cannot move past limit switch!")
 			return g.motor.Stop(ctx, extra)
 		}
 
 		// Stops if position x is past the at-length limit switch
 		if x >= (g.positionLimits[1] - limitErrorMargin) {
-			g.logger.Debugf("limit: %.2f", g.positionLimits[1]-limitErrorMargin)
-			g.logger.Debugf("position x: %.2f", x)
 			g.logger.Error("Cannot move past limit switch!")
 			return g.motor.Stop(ctx, extra)
 		}
