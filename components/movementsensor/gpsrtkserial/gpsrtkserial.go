@@ -207,8 +207,6 @@ func newRTKSerial(
 		return nil, err
 	}
 
-	// Ntrip
-
 	if err := g.start(); err != nil {
 		return nil, err
 	}
