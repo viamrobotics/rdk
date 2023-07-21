@@ -3,7 +3,6 @@ package motionplan
 import (
 	"context"
 	"encoding/json"
-	"math"
 	"math/rand"
 	"time"
 
@@ -109,7 +108,7 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 		rrt.solutionChan <- &rrtPlanReturn{planerr: errNoPlannerOptions}
 		return
 	}
-
+	
 	mp.start = time.Now()
 
 	if rrt.maps == nil || len(rrt.maps.goalMap) == 0 {
@@ -120,7 +119,10 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 		}
 		rrt.maps = planSeed.maps
 	}
-	target := referenceframe.InterpolateInputs(seed, rrt.maps.optNode.Q(), 0.5)
+
+	mid := referenceframe.InterpolateInputs(seed, rrt.maps.optNode.Q(), 0.5)
+	target := mid
+	map1, map2 := rrt.maps.startMap, rrt.maps.goalMap
 
 	// Keep a list of the node pairs that have the same inputs
 	shared := make([]*nodePair, 0)
@@ -149,15 +151,38 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 
 		// try to connect the target to map 1
 		utils.PanicCapturingGo(func() {
-			mp.extend(rrt.maps.startMap, target, m1chan)
+			mp.extend(map1, target, m1chan)
 		})
 		utils.PanicCapturingGo(func() {
-			mp.extend(rrt.maps.goalMap, target, m2chan)
+			mp.extend(map2, target, m2chan)
 		})
 		map1reached := <-m1chan
 		map2reached := <-m2chan
 
-		if map1reached != nil && map2reached != nil {
+		if map1reached == nil || map2reached == nil {
+			target, _ = referenceframe.RestrictedRandomFrameInputs(mp.frame, mp.randseed, 0.5, mid)
+			continue
+		}
+
+		reachedDelta := mp.planOpts.DistanceFunc(&Segment{StartConfiguration: map1reached.Q(), EndConfiguration: map2reached.Q()})
+
+		// Second iteration; extend maps 1 and 2 towards the halfway point between where they reached
+		// if reachedDelta > 0.0001 {
+		// 	target = referenceframe.InterpolateInputs(map1reached.Q(), map2reached.Q(), 0.5)
+		// 	utils.PanicCapturingGo(func() {
+		// 		mp.extend(rrt.maps.startMap, target, m1chan)
+		// 	})
+		// 	utils.PanicCapturingGo(func() {
+		// 		mp.extend(rrt.maps.goalMap, target, m2chan)
+		// 	})
+		// 	map1reached := <-m1chan
+		// 	map2reached := <-m2chan
+			
+		// 	reachedDelta = mp.planOpts.DistanceFunc(&Segment{StartConfiguration: map1reached.Q(), EndConfiguration: map2reached.Q()})
+		// }
+
+		// Solved
+		if reachedDelta <= 0.0001 {
 			// target was added to both map
 			shared = append(shared, &nodePair{map1reached, map2reached})
 
@@ -176,7 +201,8 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 		}
 
 		// get next sample, switch map pointers
-		target = referenceframe.RandomFrameInputs(mp.frame, mp.randseed)
+		target, _ = referenceframe.RestrictedRandomFrameInputs(mp.frame, mp.randseed, 0.5, mid)
+		map1, map2 = map2, map1
 	}
 	mp.logger.Debug("RRT* exceeded max iter")
 	rrt.solutionChan <- shortestPath(rrt.maps, shared)
@@ -191,49 +217,32 @@ func (mp *rrtStarConnectMotionPlanner) extend(
 		mchan <- nil
 		return
 	}
-	// iterate over the k nearest neighbors and find the minimum cost to connect the target node to the tree
-	neighbors := kNearestNeighbors(mp.planOpts, tree, &basicNode{q: target}, mp.algOpts.NeighborhoodSize)
-	minCost := math.Inf(1)
-	minIndex := -1
-	for i, thisNeighbor := range neighbors {
-		cost := thisNeighbor.node.Cost() + thisNeighbor.dist
-		if mp.checkPath(thisNeighbor.node.Q(), target) {
-			minIndex = i
-			minCost = cost
-			// Neighbors are returned ordered by their costs. The first valid one we find is best, so break here.
-			break
+
+	// find nearest neighbor and cost to connect the target node to the tree
+	neighbors := kNearestNeighbors(mp.planOpts, tree, &basicNode{q: target}, 1)
+	var targetNode node
+
+	ok, validSeg := mp.planOpts.CheckSegmentAndStateValidity(
+		&Segment{
+			StartConfiguration: neighbors[0].node.Q(),
+			EndConfiguration:   target,
+			Frame:              mp.frame,
+		},
+		mp.planOpts.Resolution,
+	)
+	if !ok {
+		if validSeg == nil {
+			mchan <- nil
+			return
 		}
+		targetNode = &basicNode{q: []referenceframe.Input{validSeg.EndConfiguration[0],
+			validSeg.EndConfiguration[1],
+			validSeg.EndConfiguration[2]},
+			cost: neighbors[0].node.Cost() + neighbors[0].dist}
+	} else {
+		targetNode = &basicNode{q: target, cost: neighbors[0].node.Cost() + neighbors[0].dist}
 	}
 
-	// add new node to tree as a child of the minimum cost neighbor node if it was reachable
-	if minIndex == -1 {
-		mchan <- nil
-		return
-	}
-	targetNode := &basicNode{q: target, cost: minCost}
-	tree[targetNode] = neighbors[minIndex].node
-
-	// rewire the tree
-	for i, thisNeighbor := range neighbors {
-		// dont need to try to rewire minIndex, so skip it
-		if i == minIndex {
-			continue
-		}
-
-		// check to see if a shortcut is possible, and rewire the node if it is
-		connectionCost := mp.planOpts.DistanceFunc(&Segment{
-			StartConfiguration: thisNeighbor.node.Q(),
-			EndConfiguration:   targetNode.Q(),
-		})
-		cost := connectionCost + targetNode.Cost()
-
-		// If 1) we have a lower cost, and 2) the putative updated path is valid
-		if cost < thisNeighbor.node.Cost() && mp.checkPath(target, thisNeighbor.node.Q()) {
-			// Alter the cost of the node
-			// This needs to edit the existing node, rather than make a new one, as there are pointers in the tree
-			thisNeighbor.node.SetCost(cost)
-			tree[thisNeighbor.node] = targetNode
-		}
-	}
+	tree[targetNode] = neighbors[0].node
 	mchan <- targetNode
 }
