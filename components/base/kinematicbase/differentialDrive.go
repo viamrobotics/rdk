@@ -10,28 +10,22 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
+	utils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/spatialmath"
-	utils "go.viam.com/utils"
 )
 
 const (
-	// distThresholdMM is used when the base is moving to a goal. It is considered successful if it is within this radius
+	// distThresholdMM is used when the base is moving to a goal. It is considered successful if it is within this radius.
 	distThresholdMM = 1000 // mm
 
 	// headingThresholdDegrees is used when the base is moving to a goal.
 	// If its heading is within this angle it is considered on the correct path.
 	headingThresholdDegrees = 15
-
-	// defaultAngularVelocity is the default velocity which the base will be commanded to spin
-	defaultAngularVelocity = 60 // degrees per second
-
-	// defaultLinearVelocity is the default velocity which the base will be commanded to move straight
-	defaultLinearVelocity = 300 // mm per second
 
 	// deviationThreshold is the amount that the base is allowed to deviate from the straight line path it is intended to travel.
 	// If it ever exceeds this amount the movement will fail and an error will be returned.
@@ -73,7 +67,7 @@ func wrapWithDifferentialDriveKinematics(
 	// RSDK-4131 will update this so it is no longer necessary
 	var geometry spatialmath.Geometry
 	if len(geometries) > 1 {
-		ddk.logger.Warnf("multiple geometries specified for differential drive kinematic base, only can use the first at this time")
+		ddk.logger.Warn("multiple geometries specified for differential drive kinematic base, only can use the first at this time")
 	}
 	if len(geometries) > 0 {
 		geometry = geometries[0]

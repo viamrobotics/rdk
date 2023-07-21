@@ -6,6 +6,7 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
+
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/motion"

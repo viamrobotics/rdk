@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	geo "github.com/kellydunn/golang-geo"
+
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/slam"
@@ -22,6 +23,7 @@ type slamLocalizer struct {
 	slam.Service
 }
 
+// NewSLAMLocalizer creates a new Localizer that relies on a slam service to report Pose.
 func NewSLAMLocalizer(slam slam.Service) Localizer {
 	return &slamLocalizer{Service: slam}
 }
@@ -42,6 +44,9 @@ type movementSensorLocalizer struct {
 	calibration spatialmath.Pose
 }
 
+// NewMovementSensorLocalizer creates a Localizer from a MovementSensor.
+// An origin point must be specified and the localizer will return Poses relative to this point.
+// A calibration pose can also be specified, which will adjust the location after it is calculated relative to the origin.
 func NewMovementSensorLocalizer(ms movementsensor.MovementSensor, origin *geo.Point, calibration spatialmath.Pose) Localizer {
 	return &movementSensorLocalizer{MovementSensor: ms, origin: origin, calibration: calibration}
 }

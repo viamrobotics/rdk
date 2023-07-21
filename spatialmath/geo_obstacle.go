@@ -114,7 +114,7 @@ func GeoObstaclesFromConfig(config *GeoObstacleConfig) ([]*GeoObstacle, error) {
 
 // GetCartesianDistance calculates the latitude and longitide displacement between p and q in millimeters.
 // Note that this is an approximation since we are trying to project a point on a sphere onto a plane.
-// The closer these points are the more accurate the approximation is
+// The closer these points are the more accurate the approximation is.
 func GetCartesianDistance(p, q *geo.Point) (float64, float64) {
 	mod := geo.NewPoint(p.Lat(), q.Lng())
 	// Calculate the Haversine distance between two points in kilometers, convert to mm

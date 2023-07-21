@@ -231,7 +231,7 @@ func (ms *builtIn) MoveOnGlobe(
 		extra,
 	)
 	if err != nil {
-		return false, fmt.Errorf("error making plan for MoveOnMap: %v", err)
+		return false, fmt.Errorf("error making plan for MoveOnMap: %w", err)
 	}
 
 	// execute the plan
@@ -244,7 +244,7 @@ func (ms *builtIn) MoveOnGlobe(
 	return true, nil
 }
 
-// planMoveOnGlobe returns the plan for MoveOnGlobe to execute
+// planMoveOnGlobe returns the plan for MoveOnGlobe to execute.
 func (ms *builtIn) planMoveOnGlobe(
 	ctx context.Context,
 	componentName resource.Name,
@@ -322,14 +322,12 @@ func (ms *builtIn) planMoveOnGlobe(
 		return nil, nil, err
 	}
 
+	// we take the zero position to be the start since in the frame of the localizer we will always be at its origin
 	inputMap := map[string][]referenceframe.Input{componentName.Name: make([]referenceframe.Input, 3)}
 
 	// create a new empty framesystem which we add the kinematic base to
 	fs := referenceframe.NewEmptyFrameSystem("")
 	kbf := kb.Kinematics()
-	if err != nil {
-		return nil, nil, err
-	}
 	if err := fs.AddFrame(kbf, fs.World()); err != nil {
 		return nil, nil, err
 	}
@@ -516,9 +514,6 @@ func (ms *builtIn) planMoveOnMap(
 	dst := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPoseFromPoint(destination.Point()))
 
 	f := kb.Kinematics()
-	if err != nil {
-		return nil, nil, err
-	}
 	fs := referenceframe.NewEmptyFrameSystem("")
 	if err := fs.AddFrame(f, fs.World()); err != nil {
 		return nil, nil, err
