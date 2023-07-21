@@ -2,7 +2,10 @@
   /* eslint-disable require-atomic-updates */
 
   import * as THREE from "three";
-  import { commonApi, type ServiceError } from "@viamrobotics/sdk";
+  import { onMount, onDestroy } from "svelte";
+  import { Timestamp } from "google-protobuf/google/protobuf/timestamp_pb";
+
+  import { commonApi, type Pose, type ServiceError } from "@viamrobotics/sdk";
   import { copyToClipboard } from "@/lib/copy-to-clipboard";
   import { filterSubtype } from "@/lib/resource";
   import { getPointCloudMap, getPosition, getLatestMapInfo } from "@/api/slam";
@@ -15,7 +18,7 @@
   import Slam2dRenderer from "./2d-renderer.svelte";
   import { useRobotClient, useDisconnect } from "@/hooks/robot-client";
   import type { SLAMOverrides } from "@/rc-override-types";
-  import { Timestamp } from "google-protobuf/google/protobuf/timestamp_pb";
+
   export let name: string;
   export let overrides: SLAMOverrides | undefined;
 
@@ -39,8 +42,11 @@
   let showAxes = true;
   let destination: THREE.Vector2 | undefined;
   let labelUnits = "m";
-  let activeSession = false;
-  let sessionDuration = "00:00:00";
+  let hasActiveSession = false;
+  let sessionId = "";
+  let mappingSessionEnded = false;
+  let sessionDuration = 0;
+  let durationInterval: number | undefined = undefined;
 
   $: loaded2d = pointcloud !== undefined && pose !== undefined;
   $: moveClicked = $operations.find(({ op }) =>
@@ -54,27 +60,73 @@
   // allowMove is only true if we have a base, there exists a destination and there is no in-flight MoveOnMap req
   $: allowMove = bases.length === 1 && destination && !moveClicked;
 
+  const startDurationTimer = (start: number) => {
+    durationInterval = setInterval(() => {
+      sessionDuration = Date.now() - start;
+    }, 1000);
+  };
+
+  const startMappingIntervals = (start: number) => {
+    updateSLAM2dRefreshFrequency();
+    if (show3d) {
+      updateSLAM3dRefreshFrequency();
+    }
+    startDurationTimer(start);
+  };
+
+  onMount(async () => {
+    if (overrides && overrides.isMapping) {
+      const activeSession = await overrides.getActiveMappingSession();
+
+      if (activeSession) {
+        hasActiveSession = true;
+        sessionId = activeSession.id;
+        const startMilliseconds =
+          activeSession.timeCloudRunJobStarted?.getSeconds() || 0 * 1000;
+        startMappingIntervals(startMilliseconds);
+      }
+    }
+  });
+
   const deleteDestinationMarker = () => {
     destination = undefined;
   };
 
+  const formatOverridePose = (pose: Pose) => {
+    const poseObject = new commonApi.Pose();
+    poseObject.setX(pose.x);
+    poseObject.setY(pose.y);
+    poseObject.setZ(pose.z);
+    poseObject.setOX(pose.oX);
+    poseObject.setOY(pose.oY);
+    poseObject.setOZ(pose.oZ);
+    poseObject.setTheta(pose.theta);
+
+    return poseObject;
+  };
+
   const refresh2d = async () => {
     try {
-      const mapTimestamp = await getLatestMapInfo($robotClient, name);
       let nextPose;
-
-      /*
-       * The map timestamp is compared to the last timestamp
-       * to see if a change has been made to the pointcloud map.
-       * A new call to getPointCloudMap is made if an update has occured.
-       */
-      if (mapTimestamp?.getSeconds() === lastTimestamp.getSeconds()) {
-        nextPose = await getPosition($robotClient, name);
+      const mapTimestamp = await getLatestMapInfo($robotClient, name);
+      if (overrides?.isMapping && overrides?.getMappingSessionPCD) {
+        const { map, pose } = await overrides.getMappingSessionPCD(sessionId);
+        nextPose = formatOverridePose(pose);
+        pointcloud = map;
       } else {
-        [pointcloud, nextPose] = await Promise.all([
-          getPointCloudMap($robotClient, name),
-          getPosition($robotClient, name),
-        ]);
+        /*
+         * The map timestamp is compared to the last timestamp
+         * to see if a change has been made to the pointcloud map.
+         * A new call to getPointCloudMap is made if an update has occured.
+         */
+        if (mapTimestamp?.getSeconds() === lastTimestamp.getSeconds()) {
+          nextPose = await getPosition($robotClient, name);
+        } else {
+          [pointcloud, nextPose] = await Promise.all([
+            getPointCloudMap($robotClient, name),
+            getPosition($robotClient, name),
+          ]);
+        }
       }
 
       /*
@@ -98,18 +150,22 @@
 
   const refresh3d = async () => {
     try {
-      const mapTimestamp = await getLatestMapInfo($robotClient, name);
-
-      /*
-       * The map timestamp is compared to the last timestamp
-       * to see if a change has been made to the pointcloud map.
-       * A new call to getPointCloudMap is made if an update has occured.
-       */
-      if (mapTimestamp?.getSeconds() !== lastTimestamp.getSeconds()) {
-        pointcloud = await getPointCloudMap($robotClient, name);
-      }
-      if (mapTimestamp) {
-        lastTimestamp = mapTimestamp;
+      if (overrides?.isMapping && overrides?.getMappingSessionPCD) {
+        const { map } = await overrides.getMappingSessionPCD(sessionId);
+        pointcloud = map;
+      } else {
+        const mapTimestamp = await getLatestMapInfo($robotClient, name);
+        /*
+         * The map timestamp is compared to the last timestamp
+         * to see if a change has been made to the pointcloud map.
+         * A new call to getPointCloudMap is made if an update has occured.
+         */
+        if (mapTimestamp?.getSeconds() !== lastTimestamp.getSeconds()) {
+          pointcloud = await getPointCloudMap($robotClient, name);
+        }
+        if (mapTimestamp) {
+          lastTimestamp = mapTimestamp;
+        }
       }
     } catch (error) {
       refreshErrorMessage3d =
@@ -122,7 +178,6 @@
   const updateSLAM2dRefreshFrequency = () => {
     clear2dRefresh?.();
     refresh2d();
-
     refreshErrorMessage2d = undefined;
 
     if (refresh2dRate !== "manual") {
@@ -242,17 +297,48 @@
     }
   };
 
-  const handleStartMapping = () => {
-    activeSession = true;
+  const handleStartMapping = async () => {
+    if (overrides) {
+      hasActiveSession = true;
+      sessionId = await overrides.startMappingSession();
+      startMappingIntervals(Date.now());
+    }
   };
 
   const handleEndMapping = () => {
-    activeSession = false;
+    hasActiveSession = false;
+    mappingSessionEnded = true;
+    clearRefresh();
+    clearInterval(durationInterval);
   };
 
-  useDisconnect(() => {
+  const formatDisplayTime = (time: number) =>
+    `${time < 10 ? "0" + time : time}`;
+
+  const formatDuration = (milliseconds: number) => {
+    let seconds = Math.floor(milliseconds / 1000);
+    const hours = Math.floor(seconds / 3600);
+    seconds = seconds % 3600;
+    const minutes = Math.floor(seconds / 60);
+    seconds = seconds % 60;
+
+    return `${formatDisplayTime(hours)}:${formatDisplayTime(
+      minutes
+    )}:${formatDisplayTime(seconds)}`;
+  };
+
+  const clearRefresh = () => {
     clear2dRefresh?.();
     clear3dRefresh?.();
+  };
+
+  const handleViewMap = () => {
+    overrides?.viewMap(sessionId);
+  };
+
+  useDisconnect(clearRefresh);
+  onDestroy(() => {
+    clearInterval(durationInterval);
   });
 </script>
 
@@ -270,27 +356,33 @@
   <div
     class="flex flex-wrap gap-4 border border-t-0 border-medium sm:flex-nowrap"
   >
-    <div class="flex min-w-fit flex-col gap-4 p-4">
+    <div class="flex min-w-fit flex-col gap-4 p-4 pr-0">
       <div class="pb-4 flex flex-col gap-6">
-        {#if overrides?.mappingDetails}
-          <header class="flex text-xs justify-between">
-            <div class="flex flex-col gap-1">
+        {#if overrides?.isMapping && overrides?.mappingDetails}
+          <header class="flex flex-col text-xs justify-between gap-3">
+            <div class="flex flex-col">
               <span class="font-bold text-gray-800">Mapping mode</span>
               <span class="capitalize text-subtle-2"
                 >{overrides.mappingDetails.mode}</span
               >
             </div>
-            <div class="flex flex-col gap-1">
-              <span class="font-bold text-gray-800">Map name</span>
-              <span class="capitalize text-subtle-2"
-                >{overrides.mappingDetails.name}</span
-              >
-            </div>
-            <div class="flex flex-col gap-1">
-              <span class="font-bold text-gray-800">Version</span>
-              <span class="capitalize text-subtle-2"
-                >{overrides.mappingDetails.version}</span
-              >
+            <div class="flex gap-8">
+              {#if overrides.mappingDetails.name}
+                <div class="flex flex-col">
+                  <span class="font-bold text-gray-800">Map name</span>
+                  <span class="capitalize text-subtle-2"
+                    >{overrides.mappingDetails.name}</span
+                  >
+                </div>
+              {/if}
+              {#if overrides.mappingDetails.version}
+                <div class="flex flex-col">
+                  <span class="font-bold text-gray-800">Version</span>
+                  <span class="capitalize text-subtle-2"
+                    >{overrides.mappingDetails.version}</span
+                  >
+                </div>
+              {/if}
             </div>
           </header>
         {/if}
@@ -324,17 +416,40 @@
             on:keydown={refresh2dMap}
           />
         </div>
-        {#if overrides?.getSLAMPosition && overrides?.getPointCloudMap}
+        {#if overrides && overrides.isMapping}
           <div class="flex">
-            {#if activeSession}
+            {#if hasActiveSession || mappingSessionEnded}
               <div class="flex justify-between w-full items-center">
-                <v-button label="End session" on:click={handleEndMapping} />
-                <span class="text-xs text-subtle-2"
-                  >Duration {sessionDuration}</span
-                >
+                <div class="flex items-center text-xs gap-1">
+                  <div
+                    class="border-success-border bg-success-bg text-success-fg px-2 py-1 rounded-full"
+                    class:border-medium={mappingSessionEnded}
+                    class:bg-3={mappingSessionEnded}
+                    class:text-default={mappingSessionEnded}
+                  >
+                    <span>{mappingSessionEnded ? "Saved" : "Running"}</span>
+                  </div>
+                  <span class="text-subtle-2"
+                    >{formatDuration(sessionDuration)}</span
+                  >
+                </div>
+                {#if hasActiveSession}
+                  <v-button label="End session" on:click={handleEndMapping} />
+                {/if}
+                {#if mappingSessionEnded}
+                  <v-button
+                    label="View map"
+                    icon="open-in-new"
+                    on:click={handleViewMap}
+                  />
+                {/if}
               </div>
             {:else}
-              <v-button label="Start session" on:click={handleStartMapping} />
+              <v-button
+                label="Start session"
+                on:click={handleStartMapping}
+                variant="inverse-primary"
+              />
             {/if}
           </div>
         {:else}

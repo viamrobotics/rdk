@@ -38,18 +38,7 @@
   export let supportedAuthTypes: string[] | undefined = [];
   export let webrtcEnabled: boolean;
   export let signalingAddress: string;
-
-  let overrides: RCOverrides | undefined = {
-    slam: {
-      getPointCloudMap: "beef",
-      getSLAMPosition: "beef",
-      mappingDetails: {
-        mode: "localize",
-        name: "someMap",
-        version: "1235467890",
-      },
-    },
-  };
+  export let overrides: RCOverrides | undefined;
 
   const resourceStatusByName = (resource: commonApi.ResourceName.AsObject) => {
     return $statuses[resourceNameToString(resource)];
