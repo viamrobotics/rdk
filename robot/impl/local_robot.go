@@ -626,7 +626,7 @@ func (r *localRobot) newResource(
 	resName := conf.ResourceName()
 	resInfo, ok := resource.LookupRegistration(resName.API, conf.Model)
 	if !ok {
-		return nil, errors.Errorf("unknown resource type: %s and/or model: %s", resName.API, conf.Model)
+		return nil, errors.Errorf("unknown resource type: API %q with model %q not registered", resName.API, conf.Model)
 	}
 
 	deps, err := r.getDependencies(ctx, resName, gNode)
