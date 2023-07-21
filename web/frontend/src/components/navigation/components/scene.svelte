@@ -24,7 +24,6 @@ $: flat = $view === '2D';
 
 onMount(async () => {
   $obstacles = await getObstacles($robotClient, name);
-  console.log($obstacles)
 });
 
 </script>

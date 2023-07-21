@@ -128,9 +128,9 @@ onMount(() => {
         {:else}
           <li
             class='flex group justify-between items-center gap-1.5 border-b border-b-medium last:border-b-0'
-            on:mouseenter={() => ($hovered = name)}
+            on:mouseenter={() => ($hovered = obstacleName)}
           >
-            <small>{name}</small>
+            <small>{obstacleName}</small>
             <small class='text-subtle-2 opacity-60 group-hover:opacity-100'>
               ({location.lng.toFixed(4)}, {location.lat.toFixed(4)})
             </small>

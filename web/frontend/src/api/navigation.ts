@@ -99,36 +99,37 @@ export const getObstacles = async (robotClient: Client, name: string): Promise<O
         const center = geometry.getCenter();
         ov.set(center?.getOX(), center?.getOY(), center?.getOZ(), center?.getTheta());
         ov.toQuaternion(quat);
+        const quaternion = { x: quat.x, y: quat.y, z: quat.z, w: quat.w }
 
         if (geometry.hasBox()) {
           const dimsMm = geometry.getBox()?.getDimsMm();
 
           return {
             type: 'box',
-            length: (dimsMm?.getX() ?? 0) * 1000,
-            width: (dimsMm?.getY() ?? 0) * 1000,
-            height: (dimsMm?.getZ() ?? 0) * 1000,
-            quaternion: { x: quat.x, y: quat.y, z: quat.z, w: quat.w },
+            length: (dimsMm?.getX() ?? 0) / 1000,
+            width: (dimsMm?.getY() ?? 0) / 1000,
+            height: (dimsMm?.getZ() ?? 0) / 1000,
+            quaternion,
           } satisfies BoxGeometry;
+
         } else if (geometry.hasSphere()) {
-          const radiusMm = geometry.getSphere()?.getRadiusMm();
 
           return {
             type: 'sphere',
-            radius: (radiusMm ?? 0) * 1000,
-            quaternion: { x: quat.x, y: quat.y, z: quat.z, w: quat.w },
+            radius: (geometry.getSphere()?.getRadiusMm() ?? 0) / 1000,
+            quaternion,
           } satisfies SphereGeometry;
+
         } else if (geometry.hasCapsule()) {
           const capsule = geometry.getCapsule();
-          const radiusMm = capsule?.getRadiusMm();
-          const lengthMm = capsule?.getLengthMm();
 
           return {
             type: 'capsule',
-            radius: (radiusMm ?? 0) * 1000,
-            length: (lengthMm ?? 0) * 1000,
-            quaternion: { x: quat.x, y: quat.y, z: quat.z, w: quat.w },
+            radius: (capsule?.getRadiusMm() ?? 0) / 1000,
+            length: (capsule?.getLengthMm() ?? 0) / 1000,
+            quaternion,
           } satisfies CapsuleGeometry;
+
         }
 
         notify.danger('An unsupported geometry was encountered in an obstacle', JSON.stringify(geometry.toObject()));
