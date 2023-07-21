@@ -389,9 +389,9 @@ func (mp *tpSpaceRRTMotionPlanner) extendMap(
 		if mp.algOpts.addIntermediate && sinceLastNode > mp.algOpts.addNodeEvery {
 			// add the last node in trajectory
 			addedNode = &basicNode{
-				q: referenceframe.FloatsToInputs([]float64{float64(ptgNum), float64(randK), trajPt.Dist}),
-				cost: treeNode.Cost() + trajPt.Dist,
-				pose: trajState.Position,
+				q:      referenceframe.FloatsToInputs([]float64{float64(ptgNum), float64(randK), trajPt.Dist}),
+				cost:   treeNode.Cost() + trajPt.Dist,
+				pose:   trajState.Position,
 				corner: false,
 			}
 			rrt.maps.startMap[addedNode] = treeNode
