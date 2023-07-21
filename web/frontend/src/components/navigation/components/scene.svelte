@@ -3,8 +3,11 @@
 import * as THREE from 'three';
 import { onMount } from 'svelte';
 import { T, useThrelte } from '@threlte/core';
-// import { useRobotClient } from '@/hooks/robot-client';
-// import { getObstacles } from '@/api/navigation';
+
+/*
+ * import { useRobotClient } from '@/hooks/robot-client';
+ * import { getObstacles } from '@/api/navigation';
+ */
 import { obstacles, view } from '../stores';
 import Obstacle from './obstacle.svelte';
 

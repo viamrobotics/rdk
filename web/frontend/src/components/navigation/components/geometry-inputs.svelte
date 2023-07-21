@@ -1,44 +1,41 @@
 <script lang='ts'>
 /* eslint-disable id-length */
+import { createEventDispatcher } from 'svelte';
 import VectorInput from './vector-input.svelte';
-import { obstacles } from '../stores';
 import { createGeometry } from '../lib/geometry';
+import type { Geometry } from '@/api/navigation';
 
-export let index: number;
-export let geoIndex: number;
+export let geometry: Geometry;
 
-$: geometry = $obstacles[index]?.geometries[geoIndex];
-$: type = geometry?.type;
+const dispatch = createEventDispatcher<{ input: Geometry }>();
 
 const handleShapeSelect = (event: CustomEvent) => {
   const nextType = event.detail.value.toLowerCase();
-  $obstacles[index]!.geometries[geoIndex]! = createGeometry(nextType);
+  dispatch('input', createGeometry(nextType));
 };
 
 const handleDimensionsInput = (event: CustomEvent<number[]>) => {
   const [x = 0, y = 0, z = 0] = event.detail;
 
-  let dimensions = {};
-
-  switch (type) {
+  switch (geometry.type) {
     case 'box': {
-      dimensions = { x, y, z };
+      geometry.x = x;
+      geometry.y = y;
+      geometry.z = z;
       break;
     }
     case 'sphere': {
-      dimensions = { r: x };
+      geometry.r = x;
       break;
     }
     case 'capsule': {
-      dimensions = { r: x, l: y };
+      geometry.r = x;
+      geometry.l = y;
       break;
     }
   }
 
-  $obstacles[index]!.geometries[geoIndex]! = {
-    ...$obstacles[index]!.geometries[geoIndex]!,
-    ...dimensions,
-  };
+  dispatch('input', geometry);
 };
 
 </script>
@@ -51,23 +48,25 @@ const handleDimensionsInput = (event: CustomEvent<number[]>) => {
     on:input={handleShapeSelect}
   />
 
-  {#if geometry?.type === 'box'}
+  {#if geometry.type === 'box'}
     <VectorInput
       label='Dimensions'
       labels={['Length (m)', 'Width (m)', 'Height (m)']}
-      values={[geometry?.x, geometry?.y, geometry?.z]}
+      values={[geometry.x, geometry.y, geometry.z]}
       on:input={handleDimensionsInput}
     />
-  {:else if geometry?.type === 'capsule'}
+  {:else if geometry.type === 'capsule'}
     <VectorInput
       label='Dimensions'
       labels={['Radius (m)', 'Length (m)']}
+      values={[geometry.r, geometry.l]}
       on:input={handleDimensionsInput}
     />
-  {:else if type === 'sphere'}
+  {:else if geometry.type === 'sphere'}
     <VectorInput
       label='Dimensions'
       labels={['Radius (m)']}
+      values={[geometry.r]}
       on:input={handleDimensionsInput}
     />
   {/if}

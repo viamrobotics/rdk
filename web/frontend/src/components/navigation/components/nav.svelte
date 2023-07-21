@@ -1,14 +1,14 @@
 <script lang='ts'>
 
+import { onMount } from 'svelte';
 import type { ServiceError } from '@viamrobotics/sdk';
 import { notify } from '@viamrobotics/prime';
-import { removeWaypoint, type LngLat } from '@/api/navigation';
+import { removeWaypoint, type LngLat, type Geometry } from '@/api/navigation';
 import { useRobotClient } from '@/hooks/robot-client';
 import LnglatInput from './lnglat-input.svelte';
 import GeometryInputs from './geometry-inputs.svelte';
 import { obstacles, waypoints, flyToMap, mapCenter, write, tab, hovered } from '../stores';
 import { createObstacle } from '../lib/obstacle';
-    import { onMount } from 'svelte';
 
 export let name: string;
 
@@ -47,9 +47,14 @@ const handleTabSelect = (event: CustomEvent) => {
   $tab = event.detail.value;
 };
 
+const handleGeometryInput = (index: number, geoIndex: number) => {
+  return (event: CustomEvent<Geometry>) => {
+    $obstacles[index]!.geometries[geoIndex] = event.detail;
+  };
+};
+
 onMount(() => {
   // @ts-expect-error Debug function.
-
   window.DEBUG_addObstacles = () => {
     for (let i = 0; i < 100; i += 1) {
       const x = (i % 10) / 6500;
@@ -114,8 +119,11 @@ onMount(() => {
 
             </LnglatInput>
 
-            {#each geometries as _, geoIndex (geoIndex)}
-              <GeometryInputs {index} {geoIndex} />
+            {#each geometries as geometry, geoIndex (geoIndex)}
+              <GeometryInputs
+                {geometry}
+                on:input={handleGeometryInput(index, geoIndex)}
+              />
             {/each}
           </li>
         {:else}
