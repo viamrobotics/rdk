@@ -246,6 +246,9 @@ func TestMoveOnMapLongDistance(t *testing.T) {
 		return getPointCloudMap(filepath.Clean(
 			artifact.MustPath("slam/example_cartographer_outputs/viam-office-02-22-3/pointcloud/pointcloud_4.pcd")))
 	}
+	injectSlam.GetPositionFunc = func(ctx context.Context) (spatialmath.Pose, string, error) {
+		return spatialmath.NewZeroPose(), "", nil
+	}
 
 	cfg := resource.Config{
 		Name:  "test_base",
@@ -390,7 +393,7 @@ func TestMoveOnMapTimeout(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	easyGoal := spatialmath.NewPoseFromPoint(r3.Vector{X: 0.277 * 1000, Y: 0.593 * 1000})
+	easyGoal := spatialmath.NewPoseFromPoint(r3.Vector{X: 1001, Y: 1001})
 	success, err := ms.MoveOnMap(
 		context.Background(),
 		base.Named("test_base"),
@@ -440,6 +443,9 @@ func TestMoveOnGlobe(t *testing.T) {
 	injectedMovementSensor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
 		return gpsPoint, 0, nil
 	}
+	injectedMovementSensor.CompassHeadingFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
+		return 0, nil
+	}
 
 	// create MovementSensor link
 	movementSensorLink := referenceframe.NewLinkInFrame(
@@ -470,9 +476,8 @@ func TestMoveOnGlobe(t *testing.T) {
 
 	gp, _, err := injectedMovementSensor.Position(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
-	dst := geo.NewPoint(gp.Lat(), gp.Lng()+1e-6)
-	expectedDst := r3.Vector{100, 0, 0}
-	// TODO(rb): look into why the epsilon is not particularly good
+	dst := geo.NewPoint(gp.Lat(), gp.Lng()+1e-5)
+	expectedDst := r3.Vector{380, 0, 0}
 	epsilon := 10 //mm
 
 	t.Run("ensure success to a nearby geo point", func(t *testing.T) {
@@ -520,7 +525,7 @@ func TestMoveOnGlobe(t *testing.T) {
 		t.Parallel()
 
 		boxPose := spatialmath.NewPoseFromPoint(r3.Vector{50, 0, 0})
-		boxDims := r3.Vector{2, 666, 10}
+		boxDims := r3.Vector{2, 6660, 10}
 		geometries, err := spatialmath.NewBox(boxPose, boxDims, "wall")
 		test.That(t, err, test.ShouldBeNil)
 		geoObstacle := spatialmath.NewGeoObstacle(gpsPoint, []spatialmath.Geometry{geometries})

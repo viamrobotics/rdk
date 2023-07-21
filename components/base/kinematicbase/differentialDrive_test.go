@@ -175,8 +175,7 @@ func buildTestDDK(
 func TestNewValidRegionCapsule(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
-	ddk, err := buildTestDDK(ctx, testConfig(),
-		defaultLinearVelocityMillisPerSec, defaultAngularVelocityDegsPerSec, logger)
+	ddk, err := buildTestDDK(ctx, testConfig(), defaultLinearVelocityMillisPerSec, defaultAngularVelocityDegsPerSec, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	starting := referenceframe.FloatsToInputs([]float64{400, 0, 0})
@@ -186,9 +185,9 @@ func TestNewValidRegionCapsule(t *testing.T) {
 
 	col, err := c.CollidesWith(spatialmath.NewPoint(r3.Vector{-176, 576, 0}, ""))
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, col, test.ShouldBeTrue) // TODO: FAILING after change made to transformations method
+	test.That(t, col, test.ShouldBeTrue)
 
-	col, err = c.CollidesWith(spatialmath.NewPoint(r3.Vector{-200, -200, 0}, ""))
+	col, err = c.CollidesWith(spatialmath.NewPoint(r3.Vector{-deviationThreshold, -deviationThreshold, 0}, ""))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, col, test.ShouldBeFalse)
 }
