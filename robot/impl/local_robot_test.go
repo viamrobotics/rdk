@@ -1782,7 +1782,7 @@ func TestResourceStartsOnReconfigure(t *testing.T) {
 		test.ShouldBeError,
 		resource.NewNotAvailableError(
 			base.Named("fake0"),
-			errors.New("resource build error: unknown resource type: rdk:component:base and/or model: rdk:builtin:random"),
+			errors.New(`resource build error: unknown resource type: API "rdk:component:base" with model "rdk:builtin:random" not registered`),
 		),
 	)
 	test.That(t, noBase, test.ShouldBeNil)
