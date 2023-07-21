@@ -35,8 +35,7 @@ const handleAddObstacle = () => {
 };
 
 const handleLngLatInput = (index: number, event: CustomEvent<LngLat>) => {
-  $obstacles[index]!.location.latitude = event.detail.lat;
-  $obstacles[index]!.location.longitude = event.detail.lng;
+  $obstacles[index]!.location = event.detail;
 };
 
 const handleDeleteObstacle = (index: number) => {
@@ -107,14 +106,14 @@ onMount(() => {
               />
             </div>
             <LnglatInput
-              lng={location.longitude}
-              lat={location.latitude}
+              lng={location.lng}
+              lat={location.lat}
               on:input={(event) => handleLngLatInput(index, event)}>
               <v-button
                 class='invisible group-hover:visible text-subtle-1'
                 variant='icon'
                 icon='center'
-                on:click={() => flyToMap({ lng: location.longitude, lat: location.latitude })}
+                on:click={() => flyToMap(location)}
               />
 
             </LnglatInput>
@@ -133,13 +132,13 @@ onMount(() => {
           >
             <small>{name}</small>
             <small class='text-subtle-2 opacity-60 group-hover:opacity-100'>
-              ({location.longitude.toFixed(4)}, {location.latitude.toFixed(4)})
+              ({location.lng.toFixed(4)}, {location.lat.toFixed(4)})
             </small>
             <v-button
               class='invisible group-hover:visible text-subtle-1'
               variant='icon'
               icon='center'
-              on:click={() => handleClick(location.longitude, location.latitude)}
+              on:click={() => handleClick(location.lng, location.lat)}
             />
           </li>
         {/if}

@@ -14,33 +14,37 @@ export interface Translation {
   z: number;
 }
 
+export interface Quaternion {
+  x: number;
+  y: number;
+  z: number;
+  w: number;
+}
+
 export interface CapsuleGeometry {
   type: 'capsule';
-  r: number;
-  l: number;
-  translation: Translation;
+  radius: number;
+  length: number;
+  quaternion: Quaternion;
 }
 export interface SphereGeometry {
   type: 'sphere';
-  r: number;
-  translation: Translation;
+  radius: number;
+  quaternion: Quaternion;
 }
 
 export interface BoxGeometry {
   type: 'box';
-  x: number;
-  y: number;
-  z: number;
-  translation: Translation;
+  length: number;
+  width: number;
+  height: number;
+  quaternion: Quaternion;
 }
 
 export type Geometry = BoxGeometry | SphereGeometry | CapsuleGeometry
 
 export interface Obstacle {
   name: string;
-  location: {
-    latitude: number;
-    longitude: number;
-  },
+  location: LngLat,
   geometries: Geometry[];
 }

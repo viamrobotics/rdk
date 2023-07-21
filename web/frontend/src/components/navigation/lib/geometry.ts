@@ -1,33 +1,34 @@
 /* eslint-disable id-length */
+import type { Geometry, BoxGeometry, CapsuleGeometry, SphereGeometry } from '@/api/navigation';
 import type { Shapes } from './types';
 
 export const defaultSize = 5;
 
-export const createGeometry = (type: Shapes) => {
+export const createGeometry = (type: Shapes): Geometry => {
   switch (type) {
     case 'box': {
       return {
         type,
-        x: defaultSize * 2,
-        y: defaultSize * 2,
-        z: defaultSize * 2,
-        translation: { x: 0, y: 0, z: 0 },
-      };
+        length: defaultSize * 2,
+        width: defaultSize * 2,
+        height: defaultSize * 2,
+        quaternion: { x: 0, y: 0, z: 0, w: 0 },
+      } satisfies BoxGeometry;
     }
     case 'sphere': {
       return {
         type,
-        r: defaultSize,
-        translation: { x: 0, y: 0, z: 0 },
-      };
+        radius: defaultSize,
+        quaternion: { x: 0, y: 0, z: 0, w: 0 },
+      } satisfies SphereGeometry;
     }
     case 'capsule': {
       return {
         type,
-        r: defaultSize,
-        l: defaultSize * 2,
-        translation: { x: 0, y: 0, z: 0 },
-      };
+        radius: defaultSize,
+        length: defaultSize * 2,
+        quaternion: { x: 0, y: 0, z: 0, w: 0 },
+      } satisfies CapsuleGeometry;
     }
   }
 };

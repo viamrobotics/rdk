@@ -1,13 +1,11 @@
+import type { Obstacle } from '@/api/navigation';
 import { createGeometry } from './geometry';
 import type { Shapes } from './types';
 
-export const createObstacle = (name: string, longitude: number, latitude: number, type: Shapes = 'box') => {
+export const createObstacle = (name: string, lng: number, lat: number, type: Shapes = 'box'): Obstacle => {
   return {
     name,
-    location: {
-      longitude,
-      latitude,
-    },
+    location: { lng, lat },
     geometries: [createGeometry(type)],
   };
 };

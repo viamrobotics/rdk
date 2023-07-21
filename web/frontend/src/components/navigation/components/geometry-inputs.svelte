@@ -19,18 +19,18 @@ const handleDimensionsInput = (event: CustomEvent<number[]>) => {
 
   switch (geometry.type) {
     case 'box': {
-      geometry.x = x;
-      geometry.y = y;
-      geometry.z = z;
+      geometry.length = x;
+      geometry.width = y;
+      geometry.height = z;
       break;
     }
     case 'sphere': {
-      geometry.r = x;
+      geometry.radius = x;
       break;
     }
     case 'capsule': {
-      geometry.r = x;
-      geometry.l = y;
+      geometry.radius = x;
+      geometry.length = y;
       break;
     }
   }
@@ -52,21 +52,21 @@ const handleDimensionsInput = (event: CustomEvent<number[]>) => {
     <VectorInput
       label='Dimensions'
       labels={['Length (m)', 'Width (m)', 'Height (m)']}
-      values={[geometry.x, geometry.y, geometry.z]}
+      values={[geometry.length, geometry.width, geometry.height]}
       on:input={handleDimensionsInput}
     />
   {:else if geometry.type === 'capsule'}
     <VectorInput
       label='Dimensions'
       labels={['Radius (m)', 'Length (m)']}
-      values={[geometry.r, geometry.l]}
+      values={[geometry.radius, geometry.length]}
       on:input={handleDimensionsInput}
     />
   {:else if geometry.type === 'sphere'}
     <VectorInput
       label='Dimensions'
       labels={['Radius (m)']}
-      values={[geometry.r]}
+      values={[geometry.radius]}
       on:input={handleDimensionsInput}
     />
   {/if}

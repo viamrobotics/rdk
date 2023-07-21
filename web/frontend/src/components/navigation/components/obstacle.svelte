@@ -13,32 +13,27 @@ let material: THREE.MeshPhongMaterial;
 </script>
 
 {#each obstacle.geometries as geometry, index (index)}
-  <T.Mesh
-    lnglat={{
-      lng: obstacle.location.longitude,
-      lat: obstacle.location.latitude,
-    }}
-  >
+  <T.Mesh lnglat={obstacle.location}>
     {#if geometry.type === 'box'}
       {#if $view === '3D'}
-        <T.BoxGeometry args={[geometry.x, geometry.y, geometry.z]} />
+        <T.BoxGeometry args={[geometry.length, geometry.width, geometry.height]} />
       {:else}
         <T.PlaneGeometry
-          args={[geometry.x, geometry.y]}
+          args={[geometry.length, geometry.width]}
           on:create={({ ref }) => ref.rotateX(-Math.PI / 2)}
         />
       {/if}
     {:else if geometry.type === 'sphere'}
       {#if $view === '3D'}
-        <T.SphereGeometry args={[geometry.r]} />
+        <T.SphereGeometry args={[geometry.radius]} />
       {:else}
         <T.CircleGeometry
-          args={[geometry.r]}
+          args={[geometry.radius]}
           on:create={({ ref }) => ref.rotateX(-Math.PI / 2)}
         />
       {/if}
     {:else if geometry.type === 'capsule'}
-      <T.CapsuleGeometry args={[geometry.r, geometry.l, 16, 32]} />
+      <T.CapsuleGeometry args={[geometry.radius, geometry.length, 16, 32]} />
     {/if}
     <T.MeshPhongMaterial
       bind:ref={material}
