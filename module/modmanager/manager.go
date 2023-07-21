@@ -748,7 +748,7 @@ func (m *module) registerResources(mgr modmaninterface.ModuleManager, logger gol
 			}
 		case api.API.IsService():
 			for _, model := range models {
-				logger.Debugf("registering service from module", "module", m.name, "API", api.API, "model", model)
+				logger.Debugw("registering service from module", "module", m.name, "API", api.API, "model", model)
 				resource.RegisterService(api.API, model, resource.Registration[resource.Resource, resource.NoNativeConfig]{
 					Constructor: func(
 						ctx context.Context,
