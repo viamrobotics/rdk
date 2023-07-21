@@ -44,7 +44,8 @@ type managedPackage struct {
 }
 
 // group 1: entire placeholder 2: type (if it exists + including the period) 3: the package name.
-var placeholderRegexp = regexp.MustCompile(`\$\{(packages(.ml_models|.modules)?\.([\w-/]+))\}`)
+// TODO:.
+var placeholderRegexp = regexp.MustCompile(`^\$\{(packages(\.(ml_models|modules))?\.([\w/-]+))\}`)
 
 type cloudManager struct {
 	resource.Named
@@ -106,6 +107,20 @@ func (m *cloudManager) PackagePath(name PackageName) (string, error) {
 	return m.localNamedPath(p.thePackage), nil
 }
 
+func (m *cloudManager) getPackageFromType(pt string) (config.PackageType, error) {
+	switch pt {
+	case "ml_models":
+		return config.PackageTypeMlModel, nil
+	case "modules":
+		return config.PackageTypeModule, nil
+	case "":
+		// valid type until type migration
+		return "", nil
+	default:
+		return "", fmt.Errorf("invalid package type %s in placeholder", pt)
+	}
+}
+
 func (m *cloudManager) PlaceholderPath(path string) (*PlaceholderRef, error) {
 	matches := placeholderRegexp.FindStringSubmatch(path)
 	if len(matches) == 0 {
@@ -114,18 +129,14 @@ func (m *cloudManager) PlaceholderPath(path string) (*PlaceholderRef, error) {
 	placeholderRef := &PlaceholderRef{
 		matchedPlaceholder: matches[0],
 		nestedPath:         matches[1],
-		packageName:        matches[len(matches)-1], // always the last in the group
+		packageName:        matches[4],
 	}
-	var packageType config.PackageType
-	if len(matches) == 4 {
-		switch strings.ReplaceAll(matches[2], ".", "") {
-		case "ml_models":
-			packageType = config.PackageTypeMlModel
-		case "modules":
-			packageType = config.PackageTypeModule
-		}
-		placeholderRef.packageType = packageType
+
+	pt, err := m.getPackageFromType(matches[3])
+	if err != nil {
+		return nil, err
 	}
+	placeholderRef.packageType = pt
 
 	return placeholderRef, nil
 }
