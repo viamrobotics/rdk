@@ -70,11 +70,18 @@ func wrapWithDifferentialDriveKinematics(
 	if err != nil {
 		return nil, err
 	}
-	if len(geometries) > 0 {
-		ddk.geometry = geometries[0]
+	// RSDK-4131 will update this so it is no longer necessary
+	var geometry spatialmath.Geometry
+	if len(geometries) > 1 {
+		ddk.logger.Warnf("multiple geometries specified for differential drive kinematic base, only can use the first at this time")
 	}
-
-	ddk.model, err = referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits, ddk.geometry)
+	if len(geometries) > 0 {
+		geometry = geometries[0]
+	}
+	ddk.model, err = referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits, geometry)
+	if err != nil {
+		return nil, err
+	}
 	ddk.fs = referenceframe.NewEmptyFrameSystem("")
 	if err := ddk.fs.AddFrame(ddk.model, ddk.fs.World()); err != nil {
 		return nil, err
@@ -87,7 +94,6 @@ type differentialDriveKinematics struct {
 	logger                        golog.Logger
 	localizer                     motion.Localizer
 	model                         referenceframe.Frame
-	geometry                      spatialmath.Geometry
 	fs                            referenceframe.FrameSystem
 	maxLinearVelocityMillisPerSec float64
 	maxAngularVelocityDegsPerSec  float64
