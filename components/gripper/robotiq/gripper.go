@@ -18,6 +18,7 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 )
 
 var model = resource.DefaultModelFamily.WithModel("robotiq")
@@ -42,7 +43,7 @@ func init() {
 			if err != nil {
 				return nil, err
 			}
-			return newGripper(ctx, conf.ResourceName(), newConf.Host, logger)
+			return newGripper(ctx, conf, newConf.Host, logger)
 		},
 	})
 }
@@ -58,22 +59,24 @@ type robotiqGripper struct {
 	closeLimit string
 	logger     golog.Logger
 	opMgr      operation.SingleOperationManager
+	geometries []spatialmath.Geometry
 }
 
-// newGripper TODO.
-func newGripper(ctx context.Context, name resource.Name, host string, logger golog.Logger) (gripper.Gripper, error) {
+// newGripper instantiates a new Gripper of robotiqGripper type.
+func newGripper(ctx context.Context, conf resource.Config, host string, logger golog.Logger) (gripper.Gripper, error) {
 	conn, err := net.Dial("tcp", host+":63352")
 	if err != nil {
 		return nil, err
 	}
 	g := &robotiqGripper{
-		name.AsNamed(),
+		conf.ResourceName().AsNamed(),
 		resource.AlwaysRebuild{},
 		conn,
 		"0",
 		"255",
 		logger,
 		operation.SingleOperationManager{},
+		[]spatialmath.Geometry{},
 	}
 
 	init := [][]string{
@@ -90,6 +93,14 @@ func newGripper(ctx context.Context, name resource.Name, host string, logger gol
 	err = g.Calibrate(ctx) // TODO(erh): should this live elsewhere?
 	if err != nil {
 		return nil, err
+	}
+
+	if conf.Frame != nil && conf.Frame.Geometry != nil {
+		geometry, err := conf.Frame.Geometry.ParseConfig()
+		if err != nil {
+			return nil, err
+		}
+		g.geometries = []spatialmath.Geometry{geometry}
 	}
 
 	return g, nil
@@ -286,4 +297,9 @@ func (g *robotiqGripper) IsMoving(ctx context.Context) (bool, error) {
 // ModelFrame is unimplemented for robotiqGripper.
 func (g *robotiqGripper) ModelFrame() referenceframe.Model {
 	return nil
+}
+
+// Geometries returns the geometries associated with robotiqGripper.
+func (g *robotiqGripper) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
+	return g.geometries, nil
 }
