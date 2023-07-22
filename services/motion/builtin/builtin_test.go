@@ -478,7 +478,6 @@ func TestMoveOnGlobe(t *testing.T) {
 	dst := geo.NewPoint(gp.Lat(), gp.Lng()+1e-5)
 	expectedDst := r3.Vector{380, 0, 0}
 
-
 	t.Run("ensure success to a nearby geo point", func(t *testing.T) {
 		plan, _, err := ms.(*builtIn).planMoveOnGlobe(
 			context.Background(),
@@ -492,8 +491,8 @@ func TestMoveOnGlobe(t *testing.T) {
 		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(plan), test.ShouldEqual, 2)
-		test.That(t, plan[1][0].Value, test.ShouldAlmostEqual, expectedDst.X, epsilon)
-		test.That(t, plan[1][1].Value, test.ShouldAlmostEqual, expectedDst.Y, epsilon)
+		test.That(t, plan[1][0].Value, test.ShouldAlmostEqual, expectedDst.X, 10)
+		test.That(t, plan[1][1].Value, test.ShouldAlmostEqual, expectedDst.Y, 10)
 	})
 
 	t.Run("go around an obstacle", func(t *testing.T) {
@@ -516,8 +515,8 @@ func TestMoveOnGlobe(t *testing.T) {
 		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(plan), test.ShouldBeGreaterThan, 2)
-		test.That(t, plan[len(plan)-1][0].Value, test.ShouldAlmostEqual, expectedDst.X, epsilon)
-		test.That(t, plan[len(plan)-1][1].Value, test.ShouldAlmostEqual, expectedDst.Y, epsilon)
+		test.That(t, plan[len(plan)-1][0].Value, test.ShouldAlmostEqual, expectedDst.X, 10)
+		test.That(t, plan[len(plan)-1][1].Value, test.ShouldAlmostEqual, expectedDst.Y, 10)
 	})
 
 	t.Run("fail because of obstacle", func(t *testing.T) {

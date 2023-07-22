@@ -71,6 +71,7 @@ func (m *movementSensorLocalizer) CurrentPosition(ctx context.Context) (*referen
 		o = &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: compass}
 	}
 	pose := spatialmath.NewPose(spatialmath.GeoPointToPose(gp, m.origin).Point(), o)
-	correction := spatialmath.Compose(m.calibration, spatialmath.NewPoseFromOrientation(&spatialmath.OrientationVector{OZ: 1, Theta: -math.Pi / 2}))
+	alignNorth := spatialmath.NewPoseFromOrientation(&spatialmath.OrientationVector{OZ: 1, Theta: -math.Pi / 2})
+	correction := spatialmath.Compose(m.calibration, alignNorth)
 	return referenceframe.NewPoseInFrame(m.Name().Name, spatialmath.Compose(pose, correction)), nil
 }
