@@ -166,7 +166,7 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 				movementErr <- err
 				return
 			}
-			ddk.logger.Warnf("current %v", current)
+			ddk.logger.Debugf("current inputs: %v", current)
 		}
 		movementErr <- err
 	})
@@ -214,7 +214,7 @@ func (ddk *differentialDriveKinematics) issueCommand(ctx context.Context, curren
 	if err != nil {
 		return false, err
 	}
-	ddk.logger.Warnf("distErr: %f\theadingErr %f", distErr, headingErr)
+	ddk.logger.Debug("distErr: %f\theadingErr %f", distErr, headingErr)
 	if distErr > distThresholdMM && math.Abs(headingErr) > headingThresholdDegrees {
 		// base is headed off course; spin to correct
 		return true, ddk.Spin(ctx, -headingErr, ddk.maxAngularVelocityDegsPerSec, nil)

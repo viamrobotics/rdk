@@ -10,7 +10,6 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
-
 	// register.
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
@@ -478,7 +477,7 @@ func TestMoveOnGlobe(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	dst := geo.NewPoint(gp.Lat(), gp.Lng()+1e-5)
 	expectedDst := r3.Vector{380, 0, 0}
-	epsilon := 10 //mm
+
 
 	t.Run("ensure success to a nearby geo point", func(t *testing.T) {
 		plan, _, err := ms.(*builtIn).planMoveOnGlobe(
