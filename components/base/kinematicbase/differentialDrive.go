@@ -21,11 +21,11 @@ import (
 
 const (
 	// distThresholdMM is used when the base is moving to a goal. It is considered successful if it is within this radius.
-	distThresholdMM = 1000 // mm
+	distThresholdMM = 5000 // mm
 
 	// headingThresholdDegrees is used when the base is moving to a goal.
 	// If its heading is within this angle it is considered on the correct path.
-	headingThresholdDegrees = 15
+	headingThresholdDegrees = 8
 
 	// deviationThreshold is the amount that the base is allowed to deviate from the straight line path it is intended to travel.
 	// If it ever exceeds this amount the movement will fail and an error will be returned.
@@ -166,7 +166,7 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 				movementErr <- err
 				return
 			}
-			ddk.logger.Debugf("current inputs: %v", current)
+			ddk.logger.Infof("current inputs: %v", current)
 		}
 		movementErr <- err
 	})
