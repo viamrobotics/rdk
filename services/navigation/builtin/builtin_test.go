@@ -104,7 +104,7 @@ func TestStartWaypoint(t *testing.T) {
 	limits, err := fakeSlam.GetLimits(ctx)
 	test.That(t, err, test.ShouldBeNil)
 
-	localizer, err := motion.NewLocalizer(ctx, fakeSlam)
+	localizer := motion.NewSLAMLocalizer(fakeSlam)
 	test.That(t, err, test.ShouldBeNil)
 
 	// cast fakeBase

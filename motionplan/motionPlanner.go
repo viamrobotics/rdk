@@ -109,7 +109,7 @@ func motionPlanInternal(ctx context.Context,
 	}
 
 	logger.Infof(
-		"planning motion for frame %s. Goal: %v Starting seed map %v, startPose %v, worldstate: %v",
+		"planning motion for frame %s\nGoal: %v\nStarting seed map %v\n, startPose %v\n, worldstate: %v\n",
 		f.Name(),
 		frame.PoseInFrameToProtobuf(goal),
 		seedMap,

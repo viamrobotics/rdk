@@ -168,6 +168,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 		}
 		rrt.maps = planSeed.maps
 	}
+	mp.logger.Infof("goal node: %v\n", rrt.maps.optNode.Q())
 	target := referenceframe.InterpolateInputs(seed, rrt.maps.optNode.Q(), 0.5)
 
 	map1, map2 := rrt.maps.startMap, rrt.maps.goalMap
