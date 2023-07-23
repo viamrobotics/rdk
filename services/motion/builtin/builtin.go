@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -271,13 +270,7 @@ func (ms *builtIn) planMoveOnGlobe(
 	if err != nil {
 		movementSensorToBase = baseOrigin
 	}
-	ms.logger.Warnf("calibration %v", movementSensorToBase.Pose().Orientation().OrientationVectorDegrees())
 	localizer := motion.NewMovementSensorLocalizer(movementSensor, origin, movementSensorToBase.Pose())
-	position, err := localizer.CurrentPosition(context.Background())
-	if err != nil {
-		ms.logger.Fatal(err)
-	}
-	ms.logger.Warnf("orientation %f", position.Pose().Orientation().EulerAngles().Yaw*180/math.Pi)
 
 	// convert destination into spatialmath.Pose with respect to where the localizer was initialized
 	goal := spatialmath.GeoPointToPose(destination, origin)

@@ -21,7 +21,7 @@ import (
 
 const (
 	// distThresholdMM is used when the base is moving to a goal. It is considered successful if it is within this radius.
-	distThresholdMM = 5000 // mm
+	distThresholdMM = 3000 // mm
 
 	// headingThresholdDegrees is used when the base is moving to a goal.
 	// If its heading is within this angle it is considered on the correct path.
@@ -104,6 +104,8 @@ func (ddk *differentialDriveKinematics) CurrentInputs(ctx context.Context) ([]re
 		return nil, err
 	}
 	pt := pif.Pose().Point()
+	// We should not have a problem with Gimbal lock by looking at yaw in the domain that most bases will be moving.
+	// This could potentially be made more robust in the future, though.
 	theta := math.Mod(pif.Pose().Orientation().EulerAngles().Yaw, 2*math.Pi) - math.Pi
 	return []referenceframe.Input{{Value: pt.X}, {Value: pt.Y}, {Value: theta}}, nil
 }
