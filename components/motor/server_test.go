@@ -14,6 +14,18 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
+var (
+	errPositionUnavailable = errors.New("position unavailable")
+	errSetToZeroFailed     = errors.New("set to zero failed")
+	errPropertiesNotFound  = errors.New("properties not found")
+	errGetPropertiesFailed = errors.New("get properties failed")
+	errSetPowerFailed      = errors.New("set power failed")
+	errGoForFailed         = errors.New("go for failed")
+	errStopFailed          = errors.New("stop failed")
+	errIsPoweredFailed     = errors.New("could not determine if motor is on")
+	errGoToFailed          = errors.New("go to failed")
+)
+
 func newServer() (pb.MotorServiceServer, *inject.Motor, *inject.Motor, error) {
 	injectMotor1 := &inject.Motor{}
 	injectMotor2 := &inject.Motor{}
@@ -41,7 +53,7 @@ func TestServerSetPower(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 
 	failingMotor.SetPowerFunc = func(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
-		return errors.New("set power failed")
+		return errSetPowerFailed
 	}
 	req = pb.SetPowerRequest{Name: failMotorName, PowerPct: 0.5}
 	resp, err = motorServer.SetPower(context.Background(), &req)
@@ -68,7 +80,7 @@ func TestServerGoFor(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 
 	failingMotor.GoForFunc = func(ctx context.Context, rpm, rotations float64, extra map[string]interface{}) error {
-		return errors.New("go for failed")
+		return errGoForFailed
 	}
 	req = pb.GoForRequest{Name: failMotorName, Rpm: 42.0, Revolutions: 42.1}
 	resp, err = motorServer.GoFor(context.Background(), &req)
@@ -94,7 +106,7 @@ func TestServerPosition(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 
 	failingMotor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
-		return 0, errors.New("position unavailable")
+		return 0, errPositionUnavailable
 	}
 	req = pb.GetPositionRequest{Name: failMotorName}
 	resp, err = motorServer.GetPosition(context.Background(), &req)
@@ -120,7 +132,7 @@ func TestServerGetProperties(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 
 	failingMotor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (motor.Properties, error) {
-		return motor.Properties{}, errors.New("unable to get supported features")
+		return motor.Properties{}, errPropertiesNotFound
 	}
 	req = pb.GetPropertiesRequest{Name: failMotorName}
 	resp, err = motorServer.GetProperties(context.Background(), &req)
@@ -148,7 +160,7 @@ func TestServerStop(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 
 	failingMotor.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
-		return errors.New("stop failed")
+		return errStopFailed
 	}
 	req = pb.StopRequest{Name: failMotorName}
 	resp, err = motorServer.Stop(context.Background(), &req)
@@ -174,7 +186,7 @@ func TestServerIsOn(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 
 	failingMotor.IsPoweredFunc = func(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
-		return false, 0.0, errors.New("could not determine if motor is on")
+		return false, 0.0, errIsPoweredFailed
 	}
 	req = pb.IsPoweredRequest{Name: failMotorName}
 	resp, err = motorServer.IsPowered(context.Background(), &req)
@@ -202,7 +214,7 @@ func TestServerGoTo(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 
 	failingMotor.GoToFunc = func(ctx context.Context, rpm, position float64, extra map[string]interface{}) error {
-		return errors.New("go to failed")
+		return errGoToFailed
 	}
 	req = pb.GoToRequest{Name: failMotorName, Rpm: 20.0, PositionRevolutions: 2.5}
 	resp, err = motorServer.GoTo(context.Background(), &req)
@@ -229,7 +241,7 @@ func TestServerResetZeroPosition(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 
 	failingMotor.ResetZeroPositionFunc = func(ctx context.Context, offset float64, extra map[string]interface{}) error {
-		return errors.New("set to zero failed")
+		return errSetToZeroFailed
 	}
 	req = pb.ResetZeroPositionRequest{Name: failMotorName, Offset: 1.1}
 	resp, err = motorServer.ResetZeroPosition(context.Background(), &req)
