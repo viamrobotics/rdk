@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
-	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
@@ -49,13 +48,13 @@ func TestClient(t *testing.T) {
 	}
 
 	failingServo.MoveFunc = func(ctx context.Context, angle uint32, extra map[string]interface{}) error {
-		return errors.New("move failed")
+		return errMoveFailed
 	}
 	failingServo.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (uint32, error) {
-		return 0, errors.New("current angle not readable")
+		return 0, errPositionUnreadable
 	}
 	failingServo.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
-		return errors.New("no stop")
+		return errStopFailed
 	}
 
 	resourceMap := map[resource.Name]servo.Servo{
@@ -79,7 +78,7 @@ func TestClient(t *testing.T) {
 		cancel()
 		_, err := viamgrpc.Dial(cancelCtx, listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
+		test.That(t, err, test.ShouldBeError, context.Canceled)
 	})
 
 	t.Run("client tests for working servo", func(t *testing.T) {
@@ -119,13 +118,15 @@ func TestClient(t *testing.T) {
 
 		err = failingServoClient.Move(context.Background(), 20, nil)
 		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errMoveFailed.Error())
 
 		_, err = failingServoClient.Position(context.Background(), nil)
 		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errPositionUnreadable.Error())
 
 		err = failingServoClient.Stop(context.Background(), nil)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no stop")
+		test.That(t, err.Error(), test.ShouldContainSubstring, errStopFailed.Error())
 
 		test.That(t, failingServoClient.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
