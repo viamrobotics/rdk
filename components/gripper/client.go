@@ -99,8 +99,15 @@ func (c *client) IsMoving(ctx context.Context) (bool, error) {
 	return resp.IsMoving, nil
 }
 
-func (c *client) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
-	resp, err := c.client.GetGeometries(ctx, &commonpb.GetGeometriesRequest{Name: c.name})
+func (c *client) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.client.GetGeometries(ctx, &commonpb.GetGeometriesRequest{
+		Name:  c.name,
+		Extra: ext,
+	})
 	if err != nil {
 		return nil, err
 	}
