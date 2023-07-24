@@ -290,6 +290,11 @@ const handleStartMapping = async () => {
   }
 };
 
+const clearRefresh = () => {
+  clear2dRefresh?.();
+  clear3dRefresh?.();
+};
+
 const handleEndMapping = () => {
   hasActiveSession = false;
   mappingSessionEnded = true;
@@ -314,11 +319,6 @@ const formatDuration = (milliseconds: number) => {
 
 const handleViewMap = () => {
   overrides?.viewMap(sessionId);
-};
-
-const clearRefresh = () => {
-  clear2dRefresh?.();
-  clear3dRefresh?.();
 };
 
 useDisconnect(clearRefresh);
