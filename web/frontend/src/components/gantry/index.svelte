@@ -124,7 +124,8 @@ const stop = () => {
   >
     <v-button
       variant="danger"
-      icon="stop-circle"
+      icon="stop-circle-outline"
+    class="fill-white"
       label="Stop"
       on:click|stopPropagation={stop}
     />

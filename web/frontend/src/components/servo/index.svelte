@@ -38,7 +38,8 @@ const handleMove = async (amount: number) => {
   <v-button
     slot="header"
     label="Stop"
-    icon="stop-circle"
+    icon="stop-circle-outline"
+    class="fill-white"
     variant="danger"
     on:click={stop}
   />
