@@ -116,11 +116,9 @@ func TestPostion(t *testing.T) {
 		return geo.NewPoint(0, 0), 0, nil
 	}
 
-	g.lastposition.SetLastPosition(loc1)
-
 	loc2, alt2, err := g.Position(ctx, make(map[string]interface{}))
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, loc2, test.ShouldResemble, loc1)
+	test.That(t, loc2, test.ShouldResemble, geo.NewPoint(0, 0))
 	test.That(t, alt2, test.ShouldEqual, 0)
 
 	speed2, err := g.LinearVelocity(ctx, make(map[string]interface{}))

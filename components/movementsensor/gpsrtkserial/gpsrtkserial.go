@@ -464,11 +464,6 @@ func (g *rtkSerial) Position(ctx context.Context, extra map[string]interface{}) 
 		g.lastposition.SetLastPosition(position)
 	}
 
-	// set lastPosition to current position if current position is zero.
-	if g.lastposition.IsZeroPosition(position) && !g.lastposition.IsZeroPosition(lastPosition) {
-		position = lastPosition
-	}
-
 	return position, alt, nil
 }
 
