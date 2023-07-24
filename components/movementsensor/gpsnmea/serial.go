@@ -136,7 +136,7 @@ func (g *SerialNMEAMovementSensor) GetCorrectionInfo() (string, uint) {
 	return g.correctionPath, g.correctionBaudRate
 }
 
-//nolint
+// nolint
 // Position position, altitide.
 func (g *SerialNMEAMovementSensor) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
 	lastPosition := g.lastposition.GetLastPosition()
@@ -205,7 +205,7 @@ func (g *SerialNMEAMovementSensor) Orientation(ctx context.Context, extra map[st
 func (g *SerialNMEAMovementSensor) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return 0, movementsensor.ErrMethodUnimplementedCompassHeading
+	return g.data.CompassHeading, nil
 }
 
 // ReadFix returns Fix quality of MovementSensor measurements.
@@ -237,6 +237,7 @@ func (g *SerialNMEAMovementSensor) Properties(ctx context.Context, extra map[str
 	return &movementsensor.Properties{
 		LinearVelocitySupported: true,
 		PositionSupported:       true,
+		CompassHeadingSupported: true,
 	}, nil
 }
 
