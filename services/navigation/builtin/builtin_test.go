@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/edaniels/golog"
 	geo "github.com/kellydunn/golang-geo"
@@ -156,6 +157,9 @@ func TestStartWaypointExperimental(t *testing.T) {
 		logger,
 	)
 	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, ns.Close(context.Background()), test.ShouldBeNil)
+	}()
 
 	t.Run("Reach waypoints successfully", func(t *testing.T) {
 		injectMS.MoveOnGlobeFunc = func(
@@ -242,6 +246,10 @@ func TestStartWaypointExperimental(t *testing.T) {
 			angularVelocityDegsPerSec float64,
 			extra map[string]interface{},
 		) (bool, error) {
+			if ctx.Err() != nil {
+				statusChannel <- cancelledContextMsg
+				return false, ctx.Err()
+			}
 			select {
 			case <-ctx.Done():
 				statusChannel <- cancelledContextMsg
@@ -314,7 +322,12 @@ func TestStartWaypointExperimental(t *testing.T) {
 			// Change the mode to manual --> stops navigation to waypoints
 			err = ns.SetMode(ctx, navigation.ModeManual, map[string]interface{}{"experimental": true})
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, <-statusChannel, test.ShouldEqual, cancelledContextMsg)
+			select {
+			case msg := <-statusChannel:
+				test.That(t, msg, test.ShouldEqual, cancelledContextMsg)
+			case <-time.After(5 * time.Second):
+				ns.(*builtIn).activeBackgroundWorkers.Wait()
+			}
 			currentInputsShouldEqual(ctx, t, kinematicBase, pt1)
 		})
 

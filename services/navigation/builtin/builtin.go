@@ -325,6 +325,10 @@ func (svc *builtIn) startWaypoint(ctx context.Context, extra map[string]interfac
 
 				svc.logger.Infof("skipping waypoint due to error while navigating towards it: %s", err)
 				if err := svc.waypointReached(ctx); err != nil {
+					if svc.waypointIsDeleted() {
+						svc.logger.Info("skipping waypoint since it was deleted")
+						continue
+					}
 					svc.logger.Info("can't mark waypoint as reached, exiting navigation due to error: %s", err)
 					return
 				}
@@ -394,9 +398,9 @@ func (svc *builtIn) waypointReached(ctx context.Context) error {
 		return ctx.Err()
 	}
 
-	svc.mu.Lock()
+	svc.mu.RLock()
 	wp := svc.waypointInProgress
-	svc.mu.Unlock()
+	svc.mu.RUnlock()
 
 	if wp == nil {
 		return errors.New("can't mark waypoint reached since there is none in progress")
@@ -443,17 +447,17 @@ func computeBearing(a, b float64) float64 {
 }
 
 func (svc *builtIn) startWaypointExperimental(ctx context.Context, extra map[string]interface{}) {
+	if extra == nil {
+		extra = map[string]interface{}{"motion_profile": "position_only"}
+	} else if _, ok := extra["motion_profile"]; !ok {
+		extra["motion_profile"] = "position_only"
+	}
+
 	svc.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer svc.activeBackgroundWorkers.Done()
 
 		navOnce := func(ctx context.Context, wp navigation.Waypoint) error {
-			if extra == nil {
-				extra = map[string]interface{}{"motion_profile": "position_only"}
-			} else if _, ok := extra["motion_profile"]; !ok {
-				extra["motion_profile"] = "position_only"
-			}
-
 			_, err := svc.motion.MoveOnGlobe(
 				ctx,
 				svc.base.Name(),
@@ -473,11 +477,15 @@ func (svc *builtIn) startWaypointExperimental(ctx context.Context, extra map[str
 		}
 
 		// loop until no waypoints remaining
-		for wp, err := svc.nextWaypoint(ctx); err == nil; wp, err = svc.nextWaypoint(ctx) {
+		for {
 			if ctx.Err() != nil {
 				return
 			}
 
+			wp, err := svc.nextWaypoint(ctx)
+			if err != nil {
+				return
+			}
 			svc.mu.Lock()
 			svc.waypointInProgress = &wp
 			cancelCtx, cancelFunc := context.WithCancel(ctx)
