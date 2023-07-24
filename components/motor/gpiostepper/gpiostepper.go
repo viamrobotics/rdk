@@ -395,9 +395,9 @@ func (m *gpioStepper) Position(ctx context.Context, extra map[string]interface{}
 }
 
 // Properties returns the status of whether the motor supports certain optional features.
-func (m *gpioStepper) Properties(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
-	return map[motor.Feature]bool{
-		motor.PositionReporting: true,
+func (m *gpioStepper) Properties(ctx context.Context, extra map[string]interface{}) (motor.Properties, error) {
+	return motor.Properties{
+		PositionReporting: true,
 	}, nil
 }
 

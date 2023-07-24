@@ -59,8 +59,8 @@ func TestCreateStatus(t *testing.T) {
 	injectMotor.IsPoweredFunc = func(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
 		return status.IsPowered, 1.0, nil
 	}
-	injectMotor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
-		return map[motor.Feature]bool{motor.PositionReporting: true}, nil
+	injectMotor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (motor.Properties, error) {
+		return motor.Properties{PositionReporting: true}, nil
 	}
 	injectMotor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
 		return status.Position, nil
@@ -103,8 +103,8 @@ func TestCreateStatus(t *testing.T) {
 	})
 
 	t.Run("position not supported", func(t *testing.T) {
-		injectMotor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
-			return map[motor.Feature]bool{motor.PositionReporting: false}, nil
+		injectMotor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (motor.Properties, error) {
+			return motor.Properties{PositionReporting: false}, nil
 		}
 
 		status1, err := motor.CreateStatus(context.Background(), injectMotor)
@@ -114,8 +114,8 @@ func TestCreateStatus(t *testing.T) {
 
 	t.Run("fail on Properties", func(t *testing.T) {
 		errFail := errors.New("can't get features")
-		injectMotor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
-			return nil, errFail
+		injectMotor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (motor.Properties, error) {
+			return motor.Properties{}, errFail
 		}
 		_, err := motor.CreateStatus(context.Background(), injectMotor)
 		test.That(t, err, test.ShouldBeError, errFail)

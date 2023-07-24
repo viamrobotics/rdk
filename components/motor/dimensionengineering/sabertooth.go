@@ -461,8 +461,8 @@ func (m *Motor) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[
 }
 
 // Properties returns the additional features supported by this motor.
-func (m *Motor) Properties(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
-	return map[motor.Feature]bool{"PositionReporting": false}, nil
+func (m *Motor) Properties(ctx context.Context, extra map[string]interface{}) (motor.Properties, error) {
+	return motor.Properties{PositionReporting: false}, nil
 }
 
 type command struct {

@@ -51,10 +51,10 @@ func TestClient(t *testing.T) {
 		actualExtra = extra
 		return 42.0, nil
 	}
-	workingMotor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
+	workingMotor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (motor.Properties, error) {
 		actualExtra = extra
-		return map[motor.Feature]bool{
-			motor.PositionReporting: true,
+		return motor.Properties{
+			PositionReporting: true,
 		}, nil
 	}
 	workingMotor.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
@@ -81,8 +81,8 @@ func TestClient(t *testing.T) {
 	failingMotor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
 		return 0, errors.New("position unavailable")
 	}
-	failingMotor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
-		return nil, errors.New("supported features unavailable")
+	failingMotor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (motor.Properties, error) {
+		return motor.Properties{}, errors.New("supported features unavailable")
 	}
 	failingMotor.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
 		return errors.New("stop failed")
@@ -143,8 +143,8 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, 42.0)
 
-		features, err := workingMotorClient.Properties(context.Background(), nil)
-		test.That(t, features[motor.PositionReporting], test.ShouldBeTrue)
+		properties, err := workingMotorClient.Properties(context.Background(), nil)
+		test.That(t, properties.PositionReporting, test.ShouldBeTrue)
 		test.That(t, err, test.ShouldBeNil)
 
 		err = workingMotorClient.Stop(context.Background(), nil)
@@ -210,8 +210,8 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, 42.0)
 
-		features, err := workingMotorDialedClient.Properties(context.Background(), nil)
-		test.That(t, features[motor.PositionReporting], test.ShouldBeTrue)
+		properties, err := workingMotorDialedClient.Properties(context.Background(), nil)
+		test.That(t, properties.PositionReporting, test.ShouldBeTrue)
 		test.That(t, err, test.ShouldBeNil)
 
 		err = workingMotorDialedClient.GoTo(context.Background(), 42.0, 42.0, nil)

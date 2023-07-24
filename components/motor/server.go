@@ -87,7 +87,7 @@ func (server *serviceServer) GetProperties(
 	if err != nil {
 		return nil, err
 	}
-	return FeatureMapToProtoResponse(features)
+	return PropertiesToProtoResponse(features)
 }
 
 // Stop turns the motor of the underlying robot off.

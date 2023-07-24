@@ -119,17 +119,17 @@ func TestServerGetProperties(t *testing.T) {
 	test.That(t, resp, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	failingMotor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
-		return nil, errors.New("unable to get supported features")
+	failingMotor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (motor.Properties, error) {
+		return motor.Properties{}, errors.New("unable to get supported features")
 	}
 	req = pb.GetPropertiesRequest{Name: failMotorName}
 	resp, err = motorServer.GetProperties(context.Background(), &req)
 	test.That(t, resp, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	workingMotor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
-		return map[motor.Feature]bool{
-			motor.PositionReporting: true,
+	workingMotor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (motor.Properties, error) {
+		return motor.Properties{
+			PositionReporting: true,
 		}, nil
 	}
 	req = pb.GetPropertiesRequest{Name: testMotorName}
