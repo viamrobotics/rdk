@@ -3,6 +3,7 @@ package motionplan
 import (
 	"context"
 	"encoding/json"
+	"math"
 	"math/rand"
 	"time"
 
@@ -23,8 +24,17 @@ const (
 )
 
 type rrtStarConnectOptions struct {
+	// The maximum percent of a joints range of motion to allow per step.
+	FrameStep float64 `json:"frame_step"`
+
 	// The number of nearest neighbors to consider when adding a new sample to the tree
 	NeighborhoodSize int `json:"neighborhood_size"`
+
+	// Number of iterations to mrun before beginning to accept randomly seeded locations.
+	IterBeforeRand int `json:"iter_before_rand"`
+
+	// This is how far cbirrt will try to extend the map towards a goal per-step. Determined from FrameStep
+	qstep []float64
 
 	// Parameters common to all RRT implementations
 	*rrtOptions
@@ -32,9 +42,11 @@ type rrtStarConnectOptions struct {
 
 // newRRTStarConnectOptions creates a struct controlling the running of a single invocation of the algorithm.
 // All values are pre-set to reasonable defaults, but can be tweaked if needed.
-func newRRTStarConnectOptions(planOpts *plannerOptions) (*rrtStarConnectOptions, error) {
+func newRRTStarConnectOptions(planOpts *plannerOptions, frame referenceframe.Frame) (*rrtStarConnectOptions, error) {
 	algOpts := &rrtStarConnectOptions{
+		FrameStep:       defaultFrameStep,
 		NeighborhoodSize: defaultNeighborhoodSize,
+		IterBeforeRand:   defaultIterBeforeRand,
 		rrtOptions:       newRRTOptions(),
 	}
 	// convert map to json
@@ -46,6 +58,8 @@ func newRRTStarConnectOptions(planOpts *plannerOptions) (*rrtStarConnectOptions,
 	if err != nil {
 		return nil, err
 	}
+
+	algOpts.qstep = getFrameSteps(frame, algOpts.FrameStep)
 	return algOpts, nil
 }
 
@@ -54,6 +68,7 @@ func newRRTStarConnectOptions(planOpts *plannerOptions) (*rrtStarConnectOptions,
 // https://ieeexplore.ieee.org/document/7419012
 type rrtStarConnectMotionPlanner struct {
 	*planner
+	fastGradDescent *NloptIK
 	algOpts *rrtStarConnectOptions
 }
 
@@ -71,11 +86,15 @@ func newRRTStarConnectMotionPlanner(
 	if err != nil {
 		return nil, err
 	}
-	algOpts, err := newRRTStarConnectOptions(opt)
+	nlopt, err := CreateNloptIKSolver(frame, logger, 1, opt.GoalThreshold)
 	if err != nil {
 		return nil, err
 	}
-	return &rrtStarConnectMotionPlanner{mp, algOpts}, nil
+	algOpts, err := newRRTStarConnectOptions(opt, frame)
+	if err != nil {
+		return nil, err
+	}
+	return &rrtStarConnectMotionPlanner{mp, nlopt, algOpts}, nil
 }
 
 func (mp *rrtStarConnectMotionPlanner) plan(ctx context.Context,
@@ -108,7 +127,11 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 		rrt.solutionChan <- &rrtPlanReturn{planerr: errNoPlannerOptions}
 		return
 	}
-	
+
+	nm1 := &neighborManager{nCPU: mp.planOpts.NumThreads}
+	nm2 := &neighborManager{nCPU: mp.planOpts.NumThreads}
+	nmContext, cancel := context.WithCancel(ctx)
+	defer cancel()
 	mp.start = time.Now()
 
 	if rrt.maps == nil || len(rrt.maps.goalMap) == 0 {
@@ -120,8 +143,7 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 		rrt.maps = planSeed.maps
 	}
 
-	mid := referenceframe.InterpolateInputs(seed, rrt.maps.optNode.Q(), 0.5)
-	target := mid
+	target := referenceframe.InterpolateInputs(seed, rrt.maps.optNode.Q(), 0.5)
 	map1, map2 := rrt.maps.startMap, rrt.maps.goalMap
 
 	// Keep a list of the node pairs that have the same inputs
@@ -149,37 +171,58 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 		default:
 		}
 
-		// try to connect the target to map 1
-		utils.PanicCapturingGo(func() {
-			mp.extend(map1, target, m1chan)
-		})
-		utils.PanicCapturingGo(func() {
-			mp.extend(map2, target, m2chan)
-		})
-		map1reached := <-m1chan
-		map2reached := <-m2chan
+		tryExtend := func(target []referenceframe.Input) (node, node, error) {
+			// attempt to extend maps 1 and 2 towards the target
+			utils.PanicCapturingGo(func() {
+				m1chan <- nm1.nearestNeighbor(nmContext, mp.planOpts, newConfigurationNode(target), map1)
+			})
+			utils.PanicCapturingGo(func() {
+				m2chan <- nm2.nearestNeighbor(nmContext, mp.planOpts, newConfigurationNode(target), map2)
+			})
+			nearest1 := <-m1chan
+			nearest2 := <-m2chan
+			// If ctx is done, nearest neighbors will be invalid and we want to return immediately
+			select {
+			case <-ctx.Done():
+				return nil, nil, ctx.Err()
+			default:
+			}
 
-		if map1reached == nil || map2reached == nil {
-			target, _ = referenceframe.RestrictedRandomFrameInputs(mp.frame, mp.randseed, 0.5, mid)
-			continue
+			//nolint: gosec
+			rseed1 := rand.New(rand.NewSource(int64(mp.randseed.Int())))
+			//nolint: gosec
+			rseed2 := rand.New(rand.NewSource(int64(mp.randseed.Int())))
+
+			utils.PanicCapturingGo(func() {
+				mp.constrainedExtend(ctx, rseed1, map1, nearest1, newConfigurationNode(target), m1chan)
+			})
+			utils.PanicCapturingGo(func() {
+				mp.constrainedExtend(ctx, rseed2, map2, nearest2, newConfigurationNode(target), m2chan)
+			})
+			map1reached := <-m1chan
+			map2reached := <-m2chan
+
+			return map1reached, map2reached, nil
+		}
+
+		map1reached, map2reached, err := tryExtend(target)
+		if err != nil {
+			rrt.solutionChan <- &rrtPlanReturn{planerr: err, maps: rrt.maps}
+			return
 		}
 
 		reachedDelta := mp.planOpts.DistanceFunc(&Segment{StartConfiguration: map1reached.Q(), EndConfiguration: map2reached.Q()})
 
 		// Second iteration; extend maps 1 and 2 towards the halfway point between where they reached
-		// if reachedDelta > 0.0001 {
-		// 	target = referenceframe.InterpolateInputs(map1reached.Q(), map2reached.Q(), 0.5)
-		// 	utils.PanicCapturingGo(func() {
-		// 		mp.extend(rrt.maps.startMap, target, m1chan)
-		// 	})
-		// 	utils.PanicCapturingGo(func() {
-		// 		mp.extend(rrt.maps.goalMap, target, m2chan)
-		// 	})
-		// 	map1reached := <-m1chan
-		// 	map2reached := <-m2chan
-			
-		// 	reachedDelta = mp.planOpts.DistanceFunc(&Segment{StartConfiguration: map1reached.Q(), EndConfiguration: map2reached.Q()})
-		// }
+		if reachedDelta > 0.0001 {
+			target = referenceframe.InterpolateInputs(map1reached.Q(), map2reached.Q(), 0.5)
+			map1reached, map2reached, err = tryExtend(target)
+			if err != nil {
+				rrt.solutionChan <- &rrtPlanReturn{planerr: err, maps: rrt.maps}
+				return
+			}
+			reachedDelta = mp.planOpts.DistanceFunc(&Segment{StartConfiguration: map1reached.Q(), EndConfiguration: map2reached.Q()})
+		}
 
 		// Solved
 		if reachedDelta <= 0.0001 {
@@ -200,49 +243,232 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 			nSolved++
 		}
 
+		// Solved!
+		// if reachedDelta <= 0.0001 {
+		// 	mp.logger.Debugf("CBiRRT found solution after %d iterations", i)
+		// 	cancel()
+		// 	path := extractPath(rrt.maps.startMap, rrt.maps.goalMap, &nodePair{map1reached, map2reached})
+		// 	rrt.solutionChan <- &rrtPlanReturn{steps: path, maps: rrt.maps}
+		// 	return
+		// }
+
 		// get next sample, switch map pointers
-		target, _ = referenceframe.RestrictedRandomFrameInputs(mp.frame, mp.randseed, 0.5, mid)
+		target, err = mp.sample(map1reached, i)
+		if err != nil {
+			rrt.solutionChan <- &rrtPlanReturn{planerr: err, maps: rrt.maps}
+			return
+		}
 		map1, map2 = map2, map1
 	}
 	mp.logger.Debug("RRT* exceeded max iter")
 	rrt.solutionChan <- shortestPath(rrt.maps, shared)
 }
 
-func (mp *rrtStarConnectMotionPlanner) extend(
-	tree rrtMap,
-	target []referenceframe.Input,
+func (mp *rrtStarConnectMotionPlanner) sample(rSeed node, sampleNum int) ([]referenceframe.Input, error) {
+	// If we have done more than 50 iterations, start seeding off completely random positions 2 at a time
+	// The 2 at a time is to ensure random seeds are added onto both the seed and goal maps.
+	if rSeed == nil || (sampleNum >= mp.algOpts.IterBeforeRand && sampleNum%4 >= 2) {
+		return referenceframe.RandomFrameInputs(mp.frame, mp.randseed), nil
+	}
+	// Seeding nearby to valid points results in much faster convergence in less constrained space
+	return referenceframe.RestrictedRandomFrameInputs(mp.frame, mp.randseed, 0.1, rSeed.Q())
+}
+
+// func (mp *rrtStarConnectMotionPlanner) extend(
+// 	tree rrtMap,
+// 	target []referenceframe.Input,
+// 	mchan chan node,
+// ) {
+// 	if validTarget := mp.checkInputs(target); !validTarget {
+// 		mchan <- nil
+// 		return
+// 	}
+
+// 	// find nearest neighbor and cost to connect the target node to the tree
+// 	neighbors := kNearestNeighbors(mp.planOpts, tree, &basicNode{q: target}, 1)
+// 	var targetNode node
+
+// 	ok, validSeg := mp.planOpts.CheckSegmentAndStateValidity(
+// 		&Segment{
+// 			StartConfiguration: neighbors[0].node.Q(),
+// 			EndConfiguration:   target,
+// 			Frame:              mp.frame,
+// 		},
+// 		mp.planOpts.Resolution,
+// 	)
+// 	if !ok {
+// 		if validSeg == nil {
+// 			mchan <- nil
+// 			return
+// 		}
+// 		targetNode = &basicNode{q: []referenceframe.Input{validSeg.EndConfiguration[0],
+// 			validSeg.EndConfiguration[1],
+// 			validSeg.EndConfiguration[2]},
+// 			cost: neighbors[0].node.Cost() + neighbors[0].dist}
+// 	} else {
+// 		targetNode = &basicNode{q: target, cost: neighbors[0].node.Cost() + neighbors[0].dist}
+// 	}
+
+// 	tree[targetNode] = neighbors[0].node
+// 	mchan <- targetNode
+// }
+
+func (mp *rrtStarConnectMotionPlanner) constrainedExtend(
+	ctx context.Context,
+	randseed *rand.Rand,
+	rrtMap map[node]node,
+	near, target node,
 	mchan chan node,
 ) {
-	if validTarget := mp.checkInputs(target); !validTarget {
-		mchan <- nil
-		return
-	}
+	// Allow qstep to be doubled as a means to escape from configurations which gradient descend to their seed
+	qstep := make([]float64, len(mp.algOpts.qstep))
+	copy(qstep, mp.algOpts.qstep)
+	doubled := false
 
-	// find nearest neighbor and cost to connect the target node to the tree
-	neighbors := kNearestNeighbors(mp.planOpts, tree, &basicNode{q: target}, 1)
-	var targetNode node
+	oldNear := near
+	// This should iterate until one of the following conditions:
+	// 1) we have reached the target
+	// 2) the request is cancelled/times out
+	// 3) we are no longer approaching the target and our "best" node is further away than the previous best
+	// 4) further iterations change our best node by close-to-zero amounts
+	// 5) we have iterated more than maxExtendIter times
+	for i := 0; i < maxExtendIter; i++ {
+		select {
+		case <-ctx.Done():
+			mchan <- oldNear
+			return
+		default:
+		}
 
-	ok, validSeg := mp.planOpts.CheckSegmentAndStateValidity(
-		&Segment{
-			StartConfiguration: neighbors[0].node.Q(),
-			EndConfiguration:   target,
-			Frame:              mp.frame,
-		},
-		mp.planOpts.Resolution,
-	)
-	if !ok {
-		if validSeg == nil {
-			mchan <- nil
+		dist := mp.planOpts.DistanceFunc(&Segment{StartConfiguration: near.Q(), EndConfiguration: target.Q()})
+		oldDist := mp.planOpts.DistanceFunc(&Segment{StartConfiguration: oldNear.Q(), EndConfiguration: target.Q()})
+		switch {
+		case dist < 0.0001:
+			mchan <- near
+			return
+		case dist > oldDist:
+			mchan <- oldNear
 			return
 		}
-		targetNode = &basicNode{q: []referenceframe.Input{validSeg.EndConfiguration[0],
-			validSeg.EndConfiguration[1],
-			validSeg.EndConfiguration[2]},
-			cost: neighbors[0].node.Cost() + neighbors[0].dist}
-	} else {
-		targetNode = &basicNode{q: target, cost: neighbors[0].node.Cost() + neighbors[0].dist}
-	}
 
-	tree[targetNode] = neighbors[0].node
-	mchan <- targetNode
+		oldNear = near
+
+		newNear := make([]referenceframe.Input, 0, len(near.Q()))
+
+		// alter near to be closer to target
+		for j, nearInput := range near.Q() {
+			if nearInput.Value == target.Q()[j].Value {
+				newNear = append(newNear, nearInput)
+			} else {
+				v1, v2 := nearInput.Value, target.Q()[j].Value
+				newVal := math.Min(qstep[j], math.Abs(v2-v1))
+				// get correct sign
+				newVal *= (v2 - v1) / math.Abs(v2-v1)
+				newNear = append(newNear, referenceframe.Input{nearInput.Value + newVal})
+			}
+		}
+		// Check whether newNear meets constraints, and if not, update it to a configuration that does meet constraints (or nil)
+		newNear = mp.constrainNear(ctx, randseed, oldNear.Q(), newNear)
+
+		if newNear != nil {
+			nearDist := mp.planOpts.DistanceFunc(&Segment{StartConfiguration: oldNear.Q(), EndConfiguration: newNear})
+			if nearDist < math.Pow(0.0001, 3) {
+				if !doubled {
+					doubled = true
+					// Check if doubling qstep will allow escape from the identical configuration
+					// If not, we terminate and return.
+					// If so, qstep will be reset to its original value after the rescue.
+					for i, q := range qstep {
+						qstep[i] = q * 2.0
+					}
+					continue
+				} else {
+					// We've arrived back at very nearly the same configuration again; stop solving and send back oldNear.
+					// Do not add the near-identical configuration to the RRT map
+					mchan <- oldNear
+					return
+				}
+			}
+			if doubled {
+				copy(qstep, mp.algOpts.qstep)
+				doubled = false
+			}
+			// constrainNear will ensure path between oldNear and newNear satisfies constraints along the way
+			near = &basicNode{q: newNear}
+			rrtMap[near] = oldNear
+		} else {
+			break
+		}
+	}
+	mchan <- oldNear
+}
+
+func (mp *rrtStarConnectMotionPlanner) constrainNear(
+	ctx context.Context,
+	randseed *rand.Rand,
+	seedInputs,
+	target []referenceframe.Input,
+) []referenceframe.Input {
+	for i := 0; i < maxNearIter; i++ {
+		select {
+		case <-ctx.Done():
+			return nil
+		default:
+		}
+
+		seedPos, err := mp.frame.Transform(seedInputs)
+		if err != nil {
+			return nil
+		}
+		goalPos, err := mp.frame.Transform(target)
+		if err != nil {
+			return nil
+		}
+
+		newArc := &Segment{
+			StartPosition:      seedPos,
+			EndPosition:        goalPos,
+			StartConfiguration: seedInputs,
+			EndConfiguration:   target,
+			Frame:              mp.frame,
+		}
+
+		// Check if the arc of "seedInputs" to "target" is valid
+		ok, _ := mp.planOpts.CheckSegmentAndStateValidity(newArc, mp.planOpts.Resolution)
+		if ok {
+			return target
+		}
+		solutionGen := make(chan []referenceframe.Input, 1)
+		// Spawn the IK solver to generate solutions until done
+		err = mp.fastGradDescent.Solve(ctx, solutionGen, target, mp.planOpts.pathMetric, randseed.Int())
+		// We should have zero or one solutions
+		var solved []referenceframe.Input
+		select {
+		case solved = <-solutionGen:
+		default:
+		}
+		close(solutionGen)
+		if err != nil {
+			return nil
+		}
+
+		ok, failpos := mp.planOpts.CheckSegmentAndStateValidity(
+			&Segment{StartConfiguration: seedInputs, EndConfiguration: solved, Frame: mp.frame},
+			mp.planOpts.Resolution,
+		)
+		if ok {
+			return solved
+		}
+		if failpos != nil {
+			dist := mp.planOpts.DistanceFunc(&Segment{StartConfiguration: target, EndConfiguration: failpos.EndConfiguration})
+			if dist > 0.0001 {
+				// If we have a first failing position, and that target is updating (no infinite loop), then recurse
+				seedInputs = failpos.StartConfiguration
+				target = failpos.EndConfiguration
+			}
+		} else {
+			return nil
+		}
+	}
+	return nil
 }
