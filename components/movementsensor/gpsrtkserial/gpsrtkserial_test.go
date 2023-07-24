@@ -71,9 +71,9 @@ func TestConnect(t *testing.T) {
 
 	// create new ntrip client and connect
 	err := g.connect("invalidurl", username, password, 10)
-	g.ntripClient = makeMockNtripClient()
-
 	test.That(t, err.Error(), test.ShouldContainSubstring, `address must start with http://`)
+
+	g.ntripClient = makeMockNtripClient()
 
 	err = g.connect(url, username, password, 10)
 	test.That(t, err, test.ShouldBeNil)
@@ -111,6 +111,8 @@ func TestReadings(t *testing.T) {
 	speed1, err := g.LinearVelocity(ctx, make(map[string]interface{}))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, speed1.Y, test.ShouldEqual, speed)
+	test.That(t, speed1.X, test.ShouldEqual, 0)
+	test.That(t, speed1.Z, test.ShouldEqual, 0)
 
 	// Zero position with latitude 0 and longitude 0.
 	mockSensor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
@@ -125,6 +127,8 @@ func TestReadings(t *testing.T) {
 	speed2, err := g.LinearVelocity(ctx, make(map[string]interface{}))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, speed2.Y, test.ShouldEqual, speed)
+	test.That(t, speed2.X, test.ShouldEqual, 0)
+	test.That(t, speed2.Z, test.ShouldEqual, 0)
 
 	// Position with NaN values.
 	mockSensor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
