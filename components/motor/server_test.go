@@ -16,7 +16,7 @@ import (
 
 var (
 	errPositionUnavailable = errors.New("position unavailable")
-	errSetToZeroFailed     = errors.New("set to zero failed")
+	errResetZeroFailed     = errors.New("set to zero failed")
 	errPropertiesNotFound  = errors.New("properties not found")
 	errGetPropertiesFailed = errors.New("get properties failed")
 	errSetPowerFailed      = errors.New("set power failed")
@@ -242,7 +242,7 @@ func TestServerResetZeroPosition(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 
 	failingMotor.ResetZeroPositionFunc = func(ctx context.Context, offset float64, extra map[string]interface{}) error {
-		return errSetToZeroFailed
+		return errResetZeroFailed
 	}
 	req = pb.ResetZeroPositionRequest{Name: failMotorName, Offset: 1.1}
 	resp, err = motorServer.ResetZeroPosition(context.Background(), &req)

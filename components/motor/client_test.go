@@ -75,7 +75,7 @@ func TestClient(t *testing.T) {
 		return errGoToFailed
 	}
 	failingMotor.ResetZeroPositionFunc = func(ctx context.Context, offset float64, extra map[string]interface{}) error {
-		return errSetToZeroFailed
+		return errResetZeroFailed
 	}
 	failingMotor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
 		return 0, errPositionUnavailable
@@ -170,31 +170,39 @@ func TestClient(t *testing.T) {
 	t.Run("client tests for failing motor", func(t *testing.T) {
 		err := failingMotorClient.GoTo(context.Background(), 42.0, 42.0, nil)
 		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGoToFailed.Error())
 
 		err = failingMotorClient.ResetZeroPosition(context.Background(), 0.5, nil)
 		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errResetZeroFailed.Error())
 
 		pos, err := failingMotorClient.Position(context.Background(), nil)
 		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errPositionUnavailable.Error())
 		test.That(t, pos, test.ShouldEqual, 0.0)
 
 		err = failingMotorClient.SetPower(context.Background(), 42.0, nil)
 		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errSetPowerFailed.Error())
 
 		err = failingMotorClient.GoFor(context.Background(), 42.0, 42.0, nil)
 		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGoForFailed.Error())
 
 		properties, err := failingMotorClient.Properties(context.Background(), nil)
 		test.That(t, properties.PositionReporting, test.ShouldBeFalse)
 		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errPropertiesNotFound.Error())
 
 		isOn, powerPct, err := failingMotorClient.IsPowered(context.Background(), nil)
 		test.That(t, isOn, test.ShouldBeFalse)
 		test.That(t, powerPct, test.ShouldEqual, 0.0)
 		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errIsPoweredFailed.Error())
 
 		err = failingMotorClient.Stop(context.Background(), nil)
 		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errStopFailed.Error())
 
 		test.That(t, failingMotorClient.Close(context.Background()), test.ShouldBeNil)
 	})
@@ -239,15 +247,18 @@ func TestClient(t *testing.T) {
 
 		err = failingMotorDialedClient.SetPower(context.Background(), 39.2, nil)
 		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errSetPowerFailed.Error())
 
 		properties, err := failingMotorDialedClient.Properties(context.Background(), nil)
 		test.That(t, properties.PositionReporting, test.ShouldBeFalse)
 		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errPropertiesNotFound.Error())
 
 		isOn, powerPct, err := failingMotorDialedClient.IsPowered(context.Background(), nil)
 		test.That(t, isOn, test.ShouldBeFalse)
 		test.That(t, powerPct, test.ShouldEqual, 0.0)
 		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errIsPoweredFailed.Error())
 
 		test.That(t, failingMotorDialedClient.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
