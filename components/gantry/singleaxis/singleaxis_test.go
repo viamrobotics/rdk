@@ -221,8 +221,8 @@ func TestNewSingleAxis(t *testing.T) {
 	deps = make(resource.Dependencies)
 	deps[motor.Named(motorName)] = injectMotor
 	deps[board.Named(boardName)] = createFakeBoard()
+	properties, _ := injectMotor.Properties(ctx, nil)
 	_, err = newSingleAxis(ctx, deps, fakecfg, logger)
-	properties, err := injectMotor.Properties(ctx, nil)
 	expectedErr := motor.NewPropertyUnsupportedError(properties, motorName)
 	test.That(t, err, test.ShouldBeError, expectedErr)
 }

@@ -111,7 +111,7 @@ func TestClient(t *testing.T) {
 		cancel()
 		_, err := viamgrpc.Dial(cancelCtx, listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
+		test.That(t, err.Error(), test.ShouldBeError, context.Canceled)
 	})
 
 	conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)

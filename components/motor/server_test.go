@@ -104,6 +104,7 @@ func TestServerPosition(t *testing.T) {
 	resp, err := motorServer.GetPosition(context.Background(), &req)
 	test.That(t, resp, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, resource.IsNotFoundError(err), test.ShouldBeTrue)
 
 	failingMotor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
 		return 0, errPositionUnavailable
@@ -132,7 +133,7 @@ func TestServerGetProperties(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 
 	failingMotor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (motor.Properties, error) {
-		return motor.Properties{}, errPropertiesNotFound
+		return motor.Properties{}, errGetPropertiesFailed
 	}
 	req = pb.GetPropertiesRequest{Name: failMotorName}
 	resp, err = motorServer.GetProperties(context.Background(), &req)
