@@ -473,8 +473,15 @@ func (m *cloudManager) unpackFile(ctx context.Context, fromFile, toDir string) e
 			}
 
 		case tar.TypeReg:
+			// This is required because it is possible create tarballs without a directory entry
+			// but whose files names start with a new directory prefix
+			// Ex: tar -czf package.tar.gz ./bin/module.exe
+			parent := filepath.Dir(path)
+			if err := os.MkdirAll(parent, info.Mode()); err != nil {
+				return errors.Wrapf(err, "failed to create directory %q", parent)
+			}
 			//nolint:gosec // path sanitized with safeJoin
-			outFile, err := os.Create(path)
+			outFile, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, info.Mode().Perm())
 			if err != nil {
 				return errors.Wrapf(err, "failed to create file %s", path)
 			}

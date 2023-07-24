@@ -39,6 +39,7 @@ func getAgentInfo() (*apppb.AgentInfo, error) {
 	if err != nil {
 		return nil, err
 	}
+	platform := fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH)
 
 	return &apppb.AgentInfo{
 		Host:        hostname,
@@ -46,6 +47,7 @@ func getAgentInfo() (*apppb.AgentInfo, error) {
 		Os:          runtime.GOOS,
 		Version:     Version,
 		GitRevision: GitRevision,
+		Platform:    &platform,
 	}, nil
 }
 
