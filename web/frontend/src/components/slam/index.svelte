@@ -336,7 +336,8 @@ onDestroy(() => {
   <v-button
     slot="header"
     variant="danger"
-    icon="stop-circle"
+    icon="stop-circle-outline"
+    class="fill-white"
     disabled={moveClicked ? 'false' : 'true'}
     label="Stop"
     on:click={handleStopMoveClick}
@@ -455,23 +456,25 @@ onDestroy(() => {
           </div>
         {:else}
           <div>
+            <hr class="my-4 border-t border-medium">
             <div class="flex gap-2 mb-1">
-              <p class="font-bold text-gray-800">End position</p>
+              <p class="font-bold text-gray-800">
+                End position
+              </p>
               <button
-                class="text-xs hover:underline"
+                class='text-xs hover:underline'
                 on:click={() => (labelUnits = labelUnits === 'mm' ? 'm' : 'mm')}
               >
                 ({labelUnits})
               </button>
+
             </div>
             <div class="flex flex-row items-end gap-2 pb-2">
               <v-input
                 type="number"
                 label="x"
                 incrementor="slider"
-                value={destination
-                  ? (destination.x * unitScale).toFixed(5)
-                  : ''}
+                value={destination ? (destination.x * unitScale).toFixed(5) : ''}
                 step={labelUnits === 'mm' ? '10' : '1'}
                 on:input={handleUpdateDestX}
               />
@@ -479,24 +482,22 @@ onDestroy(() => {
                 type="number"
                 label="y"
                 incrementor="slider"
-                value={destination
-                  ? (destination.y * unitScale).toFixed(5)
-                  : ''}
+                value={destination ? (destination.y * unitScale).toFixed(5) : ''}
                 step={labelUnits === 'mm' ? '10' : '1'}
                 on:input={handleUpdateDestY}
               />
               <v-button
-                class="pt-1"
+                class="pt-1 fill-white"
                 label="Move"
                 variant="success"
-                icon="play-circle-filled"
+                icon="play-circle-outline"
                 disabled={allowMove ? 'false' : 'true'}
                 on:click={handleMoveClick}
                 on:keydown={handleMoveClick}
               />
               <v-button
                 variant="icon"
-                icon="trash"
+                icon="trash-can-outline"
                 on:click={deleteDestinationMarker}
                 on:keydown={deleteDestinationMarker}
               />
@@ -573,7 +574,7 @@ onDestroy(() => {
               tooltip='Copy pose to clipboard'
               class="pl-4 pt-2"
               variant='icon'
-              icon='copy'
+              icon='content-copy'
               on:click={baseCopyPosition}
               on:keydown={baseCopyPosition}
             />
