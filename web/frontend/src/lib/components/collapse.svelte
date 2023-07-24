@@ -24,7 +24,9 @@ const handleClick = async (event: Event) => {
   } else {
     localStorage.removeItem(`rc.collapse.${title}.open`);
   }
+
   await tick();
+
   dispatch('toggle', { open });
 };
 
