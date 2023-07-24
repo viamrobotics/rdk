@@ -73,16 +73,16 @@ func TestConnect(t *testing.T) {
 	err := g.connect("invalidurl", username, password, 10)
 	g.ntripClient = makeMockNtripClient()
 
-	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `address must start with http://`)
 
 	err = g.connect(url, username, password, 10)
 	test.That(t, err, test.ShouldBeNil)
 
 	err = g.getStream("", 10)
-	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `no such host`)
 }
 
-func TestPostion(t *testing.T) {
+func TestReadings(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
