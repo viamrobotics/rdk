@@ -134,11 +134,11 @@ func TestReadings(t *testing.T) {
 	mockSensor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
 		return geo.NewPoint(math.NaN(), math.NaN()), math.NaN(), nil
 	}
+	g.lastposition.SetLastPosition(loc1)
 
 	loc3, alt3, err := g.Position(ctx, make(map[string]interface{}))
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, math.IsNaN(loc3.Lat()), test.ShouldBeTrue)
-	test.That(t, math.IsNaN(loc3.Lng()), test.ShouldBeTrue)
+	test.That(t, loc3, test.ShouldResemble, loc1)
 	test.That(t, math.IsNaN(alt3), test.ShouldBeTrue)
 
 	speed3, err := g.LinearVelocity(ctx, make(map[string]interface{}))
