@@ -494,7 +494,7 @@ func (g *rtkI2C) Position(ctx context.Context, extra map[string]interface{}) (*g
 	}
 	// Check if the current position is different from the last position and non-zero
 	lastPosition := g.lastposition.GetLastPosition()
-	if !g.lastposition.ArePointsEqual(position, lastPosition) && !g.lastposition.IsZeroPosition(position) {
+	if !g.lastposition.ArePointsEqual(position, lastPosition) {
 		g.lastposition.SetLastPosition(position)
 	}
 
