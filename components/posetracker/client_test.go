@@ -69,7 +69,7 @@ func TestClient(t *testing.T) {
 	failingPT.PosesFunc = func(ctx context.Context, bodyNames []string, extra map[string]interface{}) (
 		posetracker.BodyToPoseInFrame, error,
 	) {
-		return nil, poseFailureErr
+		return nil, errPoseFailed
 	}
 
 	resourceMap := map[resource.Name]posetracker.PoseTracker{
@@ -141,7 +141,7 @@ func TestClient(t *testing.T) {
 
 		bodyToPoseInFrame, err := failingPTDialedClient.Poses(context.Background(), []string{}, nil)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, poseFailureErr.Error())
+		test.That(t, err.Error(), test.ShouldContainSubstring, errPoseFailed.Error())
 		test.That(t, bodyToPoseInFrame, test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})

@@ -16,7 +16,7 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
-var poseFailureErr = errors.New("failure to get poses")
+var errPoseFailed = errors.New("failure to get poses")
 
 const (
 	workingPTName = "workingPT"
@@ -59,7 +59,7 @@ func TestGetPoses(t *testing.T) {
 	failingPT.PosesFunc = func(ctx context.Context, bodyNames []string, extra map[string]interface{}) (
 		posetracker.BodyToPoseInFrame, error,
 	) {
-		return nil, poseFailureErr
+		return nil, errPoseFailed
 	}
 
 	t.Run("get poses fails on failing pose tracker", func(t *testing.T) {
@@ -67,7 +67,7 @@ func TestGetPoses(t *testing.T) {
 			Name: failingPTName, BodyNames: []string{bodyName},
 		}
 		resp, err := ptServer.GetPoses(context.Background(), &req)
-		test.That(t, err, test.ShouldBeError, poseFailureErr)
+		test.That(t, err, test.ShouldBeError, errPoseFailed)
 		test.That(t, resp, test.ShouldBeNil)
 	})
 
