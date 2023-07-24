@@ -276,7 +276,7 @@ onMount(async () => {
       hasActiveSession = true;
       sessionId = activeSession.id;
       const startMilliseconds =
-        activeSession.timeCloudRunJobStarted?.getSeconds() || 0 * 1000;
+        (activeSession.timeCloudRunJobStarted?.seconds || 0) * 1000;
       startMappingIntervals(startMilliseconds);
     }
   }

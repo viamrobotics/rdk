@@ -6,10 +6,10 @@ export interface MappingMetadata {
   orgId: string;
   locationId: string;
   robotId: string;
-  timeStartSubmitted?: Timestamp;
-  timeCloudRunJobStarted?: Timestamp;
-  timeEndSubmitted?: Timestamp;
-  timeCloudRunJobEnded?: Timestamp;
+  timeStartSubmitted?: Timestamp.AsObject;
+  timeCloudRunJobStarted?: Timestamp.AsObject;
+  timeEndSubmitted?: Timestamp.AsObject;
+  timeCloudRunJobEnded?: Timestamp.AsObject;
   endStatus: string;
   cloudRunJobId: string;
   viamServerVersion: string;
