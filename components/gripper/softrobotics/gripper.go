@@ -231,6 +231,6 @@ func (g *softGripper) ModelFrame() referenceframe.Model {
 }
 
 // Geometries returns the geometries associated with the softGripper.
-func (g *softGripper) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
+func (g *softGripper) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
 	return g.geometries, nil
 }

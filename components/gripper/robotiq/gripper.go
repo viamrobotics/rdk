@@ -300,6 +300,6 @@ func (g *robotiqGripper) ModelFrame() referenceframe.Model {
 }
 
 // Geometries returns the geometries associated with robotiqGripper.
-func (g *robotiqGripper) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
+func (g *robotiqGripper) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
 	return g.geometries, nil
 }

@@ -112,9 +112,9 @@ func (b *Base) Properties(ctx context.Context, extra map[string]interface{}) (ba
 }
 
 // Geometries returns the base's geometries.
-func (b *Base) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
+func (b *Base) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
 	if b.GeometriesFunc == nil {
-		return b.Base.Geometries(ctx)
+		return b.Base.Geometries(ctx, extra)
 	}
 	return b.GeometriesFunc(ctx)
 }

@@ -923,7 +923,7 @@ func (db *dummyBase) Properties(ctx context.Context, extra map[string]interface{
 	return base.Properties{}, nil
 }
 
-func (db *dummyBase) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
+func (db *dummyBase) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
 	return []spatialmath.Geometry{}, nil
 }
 

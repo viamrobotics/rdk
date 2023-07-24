@@ -125,6 +125,6 @@ func (g *dofGripper) ModelFrame() referenceframe.Model {
 }
 
 // Geometries returns the geometries associated with the dofGripper.
-func (g *dofGripper) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
+func (g *dofGripper) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
 	return g.geometries, nil
 }

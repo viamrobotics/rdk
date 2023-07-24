@@ -196,7 +196,7 @@ func (x *xArm) GoToInputs(ctx context.Context, goal []referenceframe.Input) erro
 	return x.MoveToJointPositions(ctx, positionDegs, nil)
 }
 
-func (x *xArm) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
+func (x *xArm) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
 	inputs, err := x.CurrentInputs(ctx)
 	if err != nil {
 		return nil, err
