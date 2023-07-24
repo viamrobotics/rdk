@@ -2,7 +2,6 @@ package posetracker_test
 
 import (
 	"context"
-	"errors"
 	"math"
 	"net"
 	"testing"
@@ -70,7 +69,7 @@ func TestClient(t *testing.T) {
 	failingPT.PosesFunc = func(ctx context.Context, bodyNames []string, extra map[string]interface{}) (
 		posetracker.BodyToPoseInFrame, error,
 	) {
-		return nil, errors.New("failure to get poses")
+		return nil, poseFailureErr
 	}
 
 	resourceMap := map[resource.Name]posetracker.PoseTracker{
@@ -94,7 +93,7 @@ func TestClient(t *testing.T) {
 		cancel()
 		_, err := viamgrpc.Dial(cancelCtx, listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
+		test.That(t, err, test.ShouldBeError, context.Canceled)
 	})
 
 	conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
@@ -142,6 +141,7 @@ func TestClient(t *testing.T) {
 
 		bodyToPoseInFrame, err := failingPTDialedClient.Poses(context.Background(), []string{}, nil)
 		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, poseFailureErr.Error())
 		test.That(t, bodyToPoseInFrame, test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})

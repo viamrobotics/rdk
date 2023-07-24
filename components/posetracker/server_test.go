@@ -16,6 +16,8 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
+var poseFailureErr = errors.New("failure to get poses")
+
 const (
 	workingPTName = "workingPT"
 	failingPTName = "failingPT"
@@ -53,7 +55,7 @@ func TestGetPoses(t *testing.T) {
 			bodyName: referenceframe.NewPoseInFrame(bodyFrame, zeroPose),
 		}, nil
 	}
-	poseFailureErr := errors.New("failure to get poses")
+
 	failingPT.PosesFunc = func(ctx context.Context, bodyNames []string, extra map[string]interface{}) (
 		posetracker.BodyToPoseInFrame, error,
 	) {
