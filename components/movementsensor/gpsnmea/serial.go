@@ -136,7 +136,7 @@ func (g *SerialNMEAMovementSensor) GetCorrectionInfo() (string, uint) {
 	return g.correctionPath, g.correctionBaudRate
 }
 
-//nolint
+// nolint
 // Position position, altitide.
 func (g *SerialNMEAMovementSensor) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
 	lastPosition := g.lastposition.GetLastPosition()
@@ -244,7 +244,7 @@ func (g *SerialNMEAMovementSensor) Properties(ctx context.Context, extra map[str
 func (g *SerialNMEAMovementSensor) Close(ctx context.Context) error {
 	g.logger.Debug("Closing SerialNMEAMovementSensor")
 	g.cancelFunc()
-	defer g.activeBackgroundWorkers.Wait()
+	g.activeBackgroundWorkers.Wait()
 
 	g.mu.Lock()
 	defer g.mu.Unlock()
