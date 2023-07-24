@@ -85,7 +85,7 @@ func (g *Gripper) IsMoving(ctx context.Context) (bool, error) {
 }
 
 // Geometries returns the geometries associated with the fake base.
-func (g *Gripper) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
+func (g *Gripper) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	return g.geometries, nil

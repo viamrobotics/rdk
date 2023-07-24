@@ -182,7 +182,7 @@ func (wrapper *Arm) GoToInputs(ctx context.Context, goal []referenceframe.Input)
 
 // Geometries returns the list of geometries associated with the resource, in any order. The poses of the geometries reflect their
 // current location relative to the frame of the resource.
-func (wrapper *Arm) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
+func (wrapper *Arm) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
 	inputs, err := wrapper.CurrentInputs(ctx)
 	if err != nil {
 		return nil, err

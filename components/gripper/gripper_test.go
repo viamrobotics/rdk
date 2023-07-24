@@ -69,7 +69,7 @@ func TestGetGeometries(t *testing.T) {
 	gripper, err := fake.NewGripper(context.Background(), nil, cfg, nil)
 	test.That(t, err, test.ShouldBeNil)
 
-	geometries, err := gripper.Geometries(context.Background())
+	geometries, err := gripper.Geometries(context.Background(), nil)
 	expected, _ := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{X: 10, Y: 5, Z: 10}, "")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, geometries, test.ShouldResemble, []spatialmath.Geometry{expected})
