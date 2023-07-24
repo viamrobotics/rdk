@@ -3,6 +3,8 @@ import { injectPlugin, useFrame, useRender, useThrelte } from '@threlte/core';
 import { MercatorCoordinate, type LngLat, LngLatBounds } from 'maplibre-gl';
 import { map, cameraMatrix, mapSize, view } from '../stores';
 
+const { clamp } = THREE.MathUtils;
+
 const renderTarget = new THREE.WebGLRenderTarget(0, 0, { format: THREE.RGBAFormat });
 const renderTexture = renderTarget.texture;
 
@@ -65,11 +67,12 @@ const setFrameloops = () => {
   const sw = bounds.getSouthWest();
   const ne = bounds.getNorthEast();
 
-  // Add a margin
-  sw.lng -= 5;
-  sw.lat -= 5;
-  ne.lng += 5;
-  ne.lat += 5;
+  // Add margins
+  sw.lng = clamp(sw.lng - 5, -90, 90);
+  sw.lat = clamp(sw.lat - 5, -90, 90);
+
+  ne.lng = clamp(sw.lng + 5, -90, 90);
+  ne.lat = clamp(sw.lng + 5, -90, 90);
 
   const viewportBounds = new LngLatBounds(sw, ne);
 

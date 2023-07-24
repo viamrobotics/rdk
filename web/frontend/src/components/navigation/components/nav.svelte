@@ -127,7 +127,7 @@ onMount(() => {
           </li>
         {:else}
           <li
-            class='group border-b border-b-medium last:border-b-0 py-3'
+            class='group border-b border-b-medium last:border-b-0 py-3 leading-[1]'
             on:mouseenter={() => ($hovered = obstacleName)}
           >
             <div class='flex justify-between items-center gap-1.5'>

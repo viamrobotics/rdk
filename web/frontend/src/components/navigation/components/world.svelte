@@ -1,23 +1,24 @@
+<script lang='ts'>
 import * as THREE from 'three';
-import { injectPlugin, useThrelte } from '@threlte/core';
+import { T, injectPlugin, useFrame, useThrelte } from '@threlte/core';
 import { MercatorCoordinate } from 'maplibre-gl';
-import { map, mapCenter } from '../stores';
+import { map, mapCenter, cameraMatrix } from '../stores';
 
 const EARTH_RADIUS_METERS = 6_371_010;
 const vec3 = new THREE.Vector3();
 
-const center = { lng: 0, lat: 0 };
+const scale = new THREE.Matrix4();
+const rotation = new THREE.Matrix4();
+const rotationX = new THREE.Matrix4();
+const rotationY = new THREE.Matrix4();
 
-mapCenter.subscribe((value) => {
-  center.lng = value.lng;
-  center.lat = value.lat;
-});
+let world: THREE.Group;
 
 /**
  * Converts WGS84 latitude and longitude to (uncorrected) WebMercator meters.
  * (WGS84 --> WebMercator (EPSG:3857))
  */
-export const latLngToXY = (
+const latLngToXY = (
   position: { lng: number, lat: number, alt?: number }
 ): [lng: number, lat: number, alt?: number] => {
   return [
@@ -26,7 +27,7 @@ export const latLngToXY = (
   ];
 };
 
-export const latLngToVector3Relative = (
+const latLngToVector3Relative = (
   point: { lng: number, lat: number, alt?: number },
   reference?: { lng: number, lat: number, alt?: number },
   target = new THREE.Vector3()
@@ -50,26 +51,34 @@ export const latLngToVector3Relative = (
   return target;
 };
 
-const scale = new THREE.Matrix4();
-const rotation = new THREE.Matrix4();
-const rotationX = new THREE.Matrix4();
-const rotationY = new THREE.Matrix4();
-
 export const createCameraTransform = () => {
   const centerLngLat = map.current!.getCenter();
-  const mercator = MercatorCoordinate.fromLngLat(centerLngLat, 0);
-  const distance = mercator.meterInMercatorCoordinateUnits();
-  scale.makeScale(distance, distance, -distance);
-  rotation.multiplyMatrices(
-    rotationX.makeRotationX(-0.5 * Math.PI),
-    rotationY.makeRotationY(Math.PI)
+  const center = MercatorCoordinate.fromLngLat(centerLngLat, 0);
+  const distance = center.meterInMercatorCoordinateUnits();
+  const scale = new THREE.Matrix4().makeScale(distance, distance, -distance);
+  const rotation = new THREE.Matrix4().multiplyMatrices(
+    new THREE.Matrix4().makeRotationX(-0.5 * Math.PI),
+    new THREE.Matrix4().makeRotationY(Math.PI)
   );
   return new THREE.Matrix4()
     .multiplyMatrices(scale, rotation)
-    .setPosition(mercator.x, mercator.y, mercator.z);
+    .setPosition(center.x, center.y, center.z);
 };
 
-export const injectLngLatPlugin = () => injectPlugin<{
+const { camera } = useThrelte();
+
+const transform = createCameraTransform()
+
+useFrame(() => {
+  camera.current.projectionMatrix
+    .copy(cameraMatrix)
+    .multiply(transform);
+
+  latLngToVector3Relative(mapCenter.current, undefined, world.position);
+  console.log(camera.current.position, world.position)
+});
+
+injectPlugin<{
   lnglat?: undefined | { lng: number, lat: number, alt?: number }
 }>('lnglat', ({ ref, props }) => {
   // skip injection if ref is not an Object3D
@@ -77,21 +86,25 @@ export const injectLngLatPlugin = () => injectPlugin<{
     return;
   }
 
-  const { invalidate } = useThrelte();
+  //const { invalidate } = useThrelte();
 
   let currentRef = ref;
   let currentProps = props;
+
+  useFrame(() => {
+    if (!currentProps.lnglat) return
+    latLngToVector3Relative(currentProps.lnglat, mapCenter.current, vec3);
+    currentRef.position.set(vec3.y, -vec3.x, 0);
+  })
 
   const applyProps = () => {
     if (currentProps.lnglat === undefined) {
       return;
     }
 
-    latLngToVector3Relative(currentProps.lnglat, center, vec3);
+    
 
-    currentRef.position.set(vec3.y, -vec3.x, 0);
-
-    invalidate();
+    // invalidate();
   };
 
   applyProps();
@@ -108,3 +121,24 @@ export const injectLngLatPlugin = () => injectPlugin<{
     pluginProps: ['lnglat'],
   };
 });
+
+// on:create={({ ref }) => {
+//   // Rotate into Viam's coordinate system
+//   ref.rotateY(-Math.PI / 2);
+//   ref.rotateX(-Math.PI / 2);
+// }}
+
+</script>
+
+<T.Group bind:ref={world} name='world'>
+  <T.PerspectiveCamera
+    makeDefault
+  />
+
+  <slot />
+
+  <T.Mesh>
+    <T.BoxGeometry args={[100,100,100]} />
+    <T.MeshStandardMaterial color='red' />
+  </T.Mesh>
+</T.Group>

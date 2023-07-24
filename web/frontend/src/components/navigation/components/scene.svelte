@@ -34,17 +34,6 @@ onMount(async () => {
   <T.DirectionalLight matrixAutoUpdate={true} />
 {/if}
 
-<T.Group
-  name='world'
-  on:create={({ ref }) => {
-    // Rotate into Viam's coordinate system
-    ref.rotateY(-Math.PI / 2);
-    ref.rotateX(-Math.PI / 2);
-  }}
->
-
-</T.Group>
-
 {#each $obstacles as obstacle}
   <Obstacle obstacle={obstacle} />
 {/each}

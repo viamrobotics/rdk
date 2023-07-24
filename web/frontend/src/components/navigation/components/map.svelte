@@ -24,6 +24,7 @@ const handleMove = () => {
 
   mapCenter.set(map.current.getCenter());
   mapZoom.set(map.current.getZoom() / map.current.getMaxZoom());
+  console.log(mapZoom.current, map.current.getZoom())
 };
 
 onMount(() => {

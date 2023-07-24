@@ -17,7 +17,7 @@ const rotateGeometry = ({ ref }: { ref: THREE.BufferGeometry }) => {
 </script>
 
 {#each obstacle.geometries as geometry, index (index)}
-  <T.Mesh lnglat={obstacle.location}>
+  <T.Mesh obstacle={obstacle.name} lnglat={obstacle.location}>
     {#if geometry.type === 'box'}
       {#if $view === '3D'}
         <T.BoxGeometry args={[geometry.length, geometry.width, geometry.height]} />

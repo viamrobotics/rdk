@@ -16,6 +16,7 @@ export const obstacles = currentWritable<Obstacle[]>([]);
 export const waypoints = currentWritable<Waypoint[]>([]);
 export const hovered = currentWritable<string | null>(null);
 
+export const zooms: Record<string, number> = {};
 export const cameraMatrix = new THREE.Matrix4();
 
 export const flyToMap = (value: LngLat, options: FlyToOptions = {}) => {
