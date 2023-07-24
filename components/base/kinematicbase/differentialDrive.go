@@ -106,7 +106,7 @@ func (ddk *differentialDriveKinematics) CurrentInputs(ctx context.Context) ([]re
 	pt := pif.Pose().Point()
 	// We should not have a problem with Gimbal lock by looking at yaw in the domain that most bases will be moving.
 	// This could potentially be made more robust in the future, though.
-	theta := math.Mod(pif.Pose().Orientation().EulerAngles().Yaw, 2*math.Pi) - math.Pi
+	theta := math.Mod(pif.Pose().Orientation().EulerAngles().Yaw, 2*math.Pi)
 	return []referenceframe.Input{{Value: pt.X}, {Value: pt.Y}, {Value: theta}}, nil
 }
 
@@ -143,7 +143,7 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 			}
 
 			// get to the x, y location first - note that from the base's perspective +y is forward
-			desiredHeading := math.Atan2(current[1].Value-desired[1].Value, current[0].Value-desired[0].Value)
+			desiredHeading := math.Atan2(desired[1].Value-current[1].Value, desired[0].Value-current[0].Value)
 			commanded, err := ddk.issueCommand(cancelContext, current, []referenceframe.Input{desired[0], desired[1], {desiredHeading}})
 			if err != nil {
 				movementErr <- err
@@ -219,7 +219,7 @@ func (ddk *differentialDriveKinematics) issueCommand(ctx context.Context, curren
 	ddk.logger.Debug("distErr: %f\theadingErr %f", distErr, headingErr)
 	if distErr > distThresholdMM && math.Abs(headingErr) > headingThresholdDegrees {
 		// base is headed off course; spin to correct
-		return true, ddk.Spin(ctx, -headingErr, ddk.maxAngularVelocityDegsPerSec, nil)
+		return true, ddk.Spin(ctx, headingErr, ddk.maxAngularVelocityDegsPerSec, nil)
 	} else if distErr > distThresholdMM {
 		// base is pointed the correct direction but not there yet; forge onward
 		return true, ddk.MoveStraight(ctx, int(distErr), ddk.maxLinearVelocityMillisPerSec, nil)
