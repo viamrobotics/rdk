@@ -104,7 +104,7 @@ $: if (lastTriggerRefresh !== triggerRefresh) {
     <v-button
       class="mb-4"
       aria-label={`View camera: ${cameraName}`}
-      icon="camera"
+      icon="camera-outline"
       label="Export screenshot"
       on:click={exportScreenshot}
     />

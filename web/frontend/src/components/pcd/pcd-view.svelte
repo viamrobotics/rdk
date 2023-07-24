@@ -297,7 +297,7 @@ $: if (pointcloud) {
 
     <div class="flex items-center gap-1">
       <v-button
-        icon="center"
+        icon="image-filter-center-focus"
         label="Center"
         on:click={handleCenter}
       />
@@ -371,7 +371,7 @@ $: if (pointcloud) {
     <small class="flex w-20 items-center gap-1">
       Controls
       <v-tooltip location="top">
-        <v-icon name="info-outline" />
+        <v-icon name="information-outline" />
         <span slot="text">
           <p>Rotate - Left/Click + Drag</p>
           <p>Pan - Right/Two Finger Click + Drag</p>

@@ -236,7 +236,8 @@ useDisconnect(() => {
   <v-button
     slot="header"
     variant="danger"
-    icon="stop-circle"
+    icon="stop-circle-outline"
+    class="fill-white"
     disabled={moveClicked ? 'false' : 'true'}
     label="Stop"
     on:click={handleStopMoveClick}
@@ -324,17 +325,17 @@ useDisconnect(() => {
             on:input={handleUpdateDestY}
           />
           <v-button
-            class="pt-1"
+            class="pt-1 fill-white"
             label="Move"
             variant="success"
-            icon="play-circle-filled"
+            icon="play-circle-outline"
             disabled={allowMove ? 'false' : 'true'}
             on:click={handleMoveClick}
             on:keydown={handleMoveClick}
           />
           <v-button
             variant="icon"
-            icon="trash"
+            icon="trash-can-outline"
             on:click={deleteDestinationMarker}
             on:keydown={deleteDestinationMarker}
           />
@@ -410,7 +411,7 @@ useDisconnect(() => {
               tooltip='Copy pose to clipboard'
               class="pl-4 pt-2"
               variant='icon'
-              icon='copy'
+              icon='content-copy'
               on:click={baseCopyPosition}
               on:keydown={baseCopyPosition}
             />
