@@ -395,12 +395,13 @@ func (svc *builtIn) waypointReached(ctx context.Context) error {
 	}
 
 	svc.mu.Lock()
-	defer svc.mu.Unlock()
+	wp := svc.waypointInProgress
+	svc.mu.Unlock()
 
-	if svc.waypointInProgress == nil {
+	if wp == nil {
 		return errors.New("can't mark waypoint reached since there is none in progress")
 	}
-	return svc.store.WaypointVisited(ctx, svc.waypointInProgress.ID)
+	return svc.store.WaypointVisited(ctx, wp.ID)
 }
 
 func (svc *builtIn) Close(ctx context.Context) error {
@@ -492,6 +493,10 @@ func (svc *builtIn) startWaypointExperimental(ctx context.Context, extra map[str
 
 				svc.logger.Infof("skipping waypoint %+v due to error while navigating towards it: %s", wp, err)
 				if err := svc.waypointReached(ctx); err != nil {
+					if svc.waypointIsDeleted() {
+						svc.logger.Infof("skipping waypoint %+v since it was deleted", wp)
+						continue
+					}
 					svc.logger.Info("can't mark waypoint %+v as reached, exiting navigation due to error: %s", wp, err)
 					return
 				}
