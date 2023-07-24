@@ -142,6 +142,22 @@ func TestPostion(t *testing.T) {
 	test.That(t, speed3.Y, test.ShouldEqual, speed)
 }
 
+func TestCloseRTK(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	ctx := context.Background()
+	cancelCtx, cancelFunc := context.WithCancel(ctx)
+	g := rtkSerial{
+		cancelCtx:  cancelCtx,
+		cancelFunc: cancelFunc,
+		logger:     logger,
+	}
+	g.ntripClient = &rtk.NtripInfo{}
+	g.nmeamovementsensor = &fake.MovementSensor{}
+
+	err := g.Close(ctx)
+	test.That(t, err, test.ShouldBeNil)
+}
+
 type CustomMovementSensor struct {
 	*fake.MovementSensor
 	PositionFunc func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error)
