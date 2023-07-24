@@ -27,24 +27,28 @@ func init() {
 				if err != nil {
 					return nil, err
 				}
-				videoSrc := &fileSource{newConf.Color, newConf.Depth, newConf.PointCloud, newConf.CameraParameters, nil}
-				imgType := camera.ColorStream
-				if newConf.Color == "" {
-					imgType = camera.DepthStream
-				}
-				cameraModel := camera.NewPinholeModelWithBrownConradyDistortion(newConf.CameraParameters, newConf.DistortionParameters)
-				src, err := camera.NewVideoSourceFromReader(
-					ctx,
-					videoSrc,
-					&cameraModel,
-					imgType,
-				)
-				if err != nil {
-					return nil, err
-				}
-				return camera.FromVideoSource(conf.ResourceName(), src), nil
+				return newCamera(context.Background(), conf.ResourceName(), newConf)
 			},
 		})
+}
+
+func newCamera(ctx context.Context, name resource.Name, newConf *fileSourceConfig) (camera.Camera, error) {
+	videoSrc := &fileSource{newConf.Color, newConf.Depth, newConf.PointCloud, newConf.CameraParameters, nil}
+	imgType := camera.ColorStream
+	if newConf.Color == "" {
+		imgType = camera.DepthStream
+	}
+	cameraModel := camera.NewPinholeModelWithBrownConradyDistortion(newConf.CameraParameters, newConf.DistortionParameters)
+	src, err := camera.NewVideoSourceFromReader(
+		ctx,
+		videoSrc,
+		&cameraModel,
+		imgType,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return camera.FromVideoSource(name, src), nil
 }
 
 // fileSource stores the paths to a color and depth image and a pointcloud.
@@ -89,7 +93,6 @@ func (fs *fileSource) Read(ctx context.Context) (image.Image, func(), error) {
 // NextPointCloud returns the point cloud from projecting the rgb and depth image using the intrinsic parameters,
 // or the pointcloud from file if set.
 func (fs *fileSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
-
 	if fs.PointCloudFN != "" && fs.pc == nil {
 		newPc, err := pointcloud.NewFromFile(fs.PointCloudFN, nil)
 		if err != nil {
