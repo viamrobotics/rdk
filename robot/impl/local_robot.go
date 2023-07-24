@@ -1132,12 +1132,14 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	}
 }
 
-func walkConvertedAttributes[T any](pacMan packages.ManagerSyncer, convertedAttributes T, allErrs error) (T, error) {
+func walkConvertedAttributes[T any](
+	pacMan packages.ManagerSyncer, packageMap map[string]string, convertedAttributes T, allErrs error,
+) (T, error) {
 	// Replace all package references with the actual path containing the package
 	// on the robot.
 	var asIfc interface{} = convertedAttributes
 	if walker, ok := asIfc.(utils.Walker); ok {
-		newAttrs, err := walker.Walk(packages.NewPackagePathVisitor(pacMan))
+		newAttrs, err := walker.Walk(packages.NewPackagePathVisitor(pacMan, packageMap))
 		if err != nil {
 			allErrs = multierr.Combine(allErrs, err)
 			return convertedAttributes, allErrs
@@ -1154,14 +1156,26 @@ func walkConvertedAttributes[T any](pacMan packages.ManagerSyncer, convertedAttr
 
 func (r *localRobot) replacePackageReferencesWithPaths(cfg *config.Config) error {
 	var allErrs error
+	packageMap := cfg.GetExpectedPackagePlaceholders()
+	// don't traverse if there are no packages on the config
+	// we may want to remove this if we want to do all placeholder replacement
+	if len(packageMap) == 0 {
+		return nil
+	}
 	for i, s := range cfg.Services {
-		s.ConvertedAttributes, allErrs = walkConvertedAttributes(r.packageManager, s.ConvertedAttributes, allErrs)
+		s.ConvertedAttributes, allErrs = walkConvertedAttributes(r.packageManager, packageMap, s.ConvertedAttributes, allErrs)
 		cfg.Services[i] = s
 	}
 
 	for i, c := range cfg.Components {
-		c.ConvertedAttributes, allErrs = walkConvertedAttributes(r.packageManager, c.ConvertedAttributes, allErrs)
+		c.ConvertedAttributes, allErrs = walkConvertedAttributes(r.packageManager, packageMap, c.ConvertedAttributes, allErrs)
 		cfg.Components[i] = c
+	}
+
+	for _, c := range cfg.Modules {
+		newExecPath, err := packages.NewPackagePathVisitor(r.packageManager, packageMap).VisitAndReplaceString(c.ExePath)
+		allErrs = multierr.Combine(allErrs, err)
+		c.ExePath = newExecPath
 	}
 
 	return allErrs

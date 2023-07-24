@@ -14,6 +14,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -41,6 +42,10 @@ type managedPackage struct {
 	thePackage config.PackageConfig
 	modtime    time.Time
 }
+
+// group 1: entire placeholder 2: type (if it exists + including the period) 3: the package name.
+// TODO:.
+var placeholderRegexp = regexp.MustCompile(`^\$\{(packages(\.(ml_models|modules))?\.([\w/-]+))\}`)
 
 type cloudManager struct {
 	resource.Named
@@ -102,20 +107,38 @@ func (m *cloudManager) PackagePath(name PackageName) (string, error) {
 	return m.localNamedPath(p.thePackage), nil
 }
 
-func (m *cloudManager) RefPath(refPath string) (string, error) {
-	ref := config.GetPackageReference(refPath)
+func (m *cloudManager) getPackageFromType(pt string) (config.PackageType, error) {
+	switch pt {
+	case "ml_models":
+		return config.PackageTypeMlModel, nil
+	case "modules":
+		return config.PackageTypeModule, nil
+	case "":
+		// valid type until type migration
+		return "", nil
+	default:
+		return "", fmt.Errorf("invalid package type %s in placeholder", pt)
+	}
+}
 
-	// If no reference just return original path.
-	if ref == nil {
-		return refPath, nil
+func (m *cloudManager) PlaceholderPath(path string) (*PlaceholderRef, error) {
+	matches := placeholderRegexp.FindStringSubmatch(path)
+	if len(matches) == 0 {
+		return nil, fmt.Errorf("invalid package placeholder path: %s", path)
+	}
+	placeholderRef := &PlaceholderRef{
+		matchedPlaceholder: matches[0],
+		nestedPath:         matches[1],
+		packageName:        matches[4],
 	}
 
-	packagePath, err := m.PackagePath(PackageName(ref.Package))
+	pt, err := m.getPackageFromType(matches[3])
 	if err != nil {
-		return "", err
+		return nil, err
 	}
+	placeholderRef.packageType = pt
 
-	return path.Join(packagePath, path.Clean(ref.PathInPackage)), nil
+	return placeholderRef, nil
 }
 
 // Close manager.
@@ -185,7 +208,6 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 				p.Package, p.Version, sanitizeURLForLogs(resp.Package.Url)))
 			continue
 		}
-
 		err = linkFile(m.localDataPath(p), m.localNamedPath(p))
 		if err != nil {
 			m.logger.Errorf("Failed linking package %s:%s, %s", p.Package, p.Version, err)
@@ -230,7 +252,7 @@ func (m *cloudManager) Cleanup(ctx context.Context) error {
 		if f.Type()&os.ModeSymlink == os.ModeSymlink {
 			// if managed skip removing package
 			if p, ok := m.managedPackages[PackageName(f.Name())]; ok {
-				knownPackages[hashName(p.thePackage)] = true
+				knownPackages[p.thePackage.SanitizeName()] = true
 				continue
 			}
 
@@ -503,11 +525,11 @@ func (m *cloudManager) unpackFile(ctx context.Context, fromFile, toDir string) e
 }
 
 func (m *cloudManager) localDownloadPath(p config.PackageConfig) string {
-	return filepath.Join(m.packagesDataDir, fmt.Sprintf("%s.download", hashName(p)))
+	return filepath.Join(m.packagesDataDir, fmt.Sprintf("%s.download", p.Name))
 }
 
 func (m *cloudManager) localDataPath(p config.PackageConfig) string {
-	return filepath.Join(m.packagesDataDir, hashName(p))
+	return filepath.Join(m.packagesDataDir, p.SanitizeName())
 }
 
 func (m *cloudManager) localNamedPath(p config.PackageConfig) string {
@@ -530,11 +552,6 @@ func getGoogleHash(headers http.Header, hashType string) string {
 
 func crc32Hash() hash.Hash32 {
 	return crc32.New(crc32.MakeTable(crc32.Castagnoli))
-}
-
-func hashName(f config.PackageConfig) string {
-	// replace / to avoid a directory path in the name. This will happen with `org/package` format.
-	return fmt.Sprintf("%s-%s", strings.ReplaceAll(f.Package, "/", "-"), f.Version)
 }
 
 // safeJoin performs a filepath.Join of 'parent' and 'subdir' but returns an error
