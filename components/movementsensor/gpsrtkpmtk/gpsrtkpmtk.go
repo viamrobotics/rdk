@@ -116,9 +116,7 @@ type rtkI2C struct {
 	addr  byte
 }
 
-// Reconfigure reconfigures only the i2c attributes at the moment. Ntrip attributes are not reconfiured
-// since ntripClient is locked in functions such as: connect/getStream and altering the attributes can cause
-// invalid memory address.
+// Reconfigure reconfigures only the i2c attributes at the moment.
 func (g *rtkI2C) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
@@ -459,7 +457,7 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 	}
 }
 
-// nolint
+//nolint
 // getNtripConnectionStatus returns true if connection to NTRIP stream is OK, false if not
 func (g *rtkI2C) getNtripConnectionStatus() (bool, error) {
 	g.ntripMu.Lock()

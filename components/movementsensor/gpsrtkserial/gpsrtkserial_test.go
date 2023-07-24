@@ -21,38 +21,67 @@ var (
 
 func TestValidateRTK(t *testing.T) {
 	path := "path"
-	fakecfg := &Config{
-		NtripURL:             "",
-		NtripConnectAttempts: 10,
-		NtripPass:            "somepass",
-		NtripUser:            "someuser",
-		NtripMountpoint:      "NYC",
-		SerialPath:           path,
-		SerialBaudRate:       3600,
-	}
-	_, err := fakecfg.Validate(path)
-	test.That(
-		t,
-		err,
-		test.ShouldBeError,
-		utils.NewConfigValidationFieldRequiredError(path, "ntrip_url"))
+	t.Run("valid config", func(t *testing.T) {
+		cfg := Config{
+			NtripURL:             "http//fakeurl",
+			NtripConnectAttempts: 10,
+			NtripPass:            "somepass",
+			NtripUser:            "someuser",
+			NtripMountpoint:      "NYC",
+			SerialPath:           path,
+			SerialBaudRate:       115200,
+		}
+		err := cfg.validateNtrip(path)
+		test.That(t, err, test.ShouldBeNil)
+		err = cfg.validateSerialPath(path)
+		test.That(t, err, test.ShouldBeNil)
+		_, err = cfg.Validate(path)
+		test.That(t, err, test.ShouldBeNil)
+	})
 
-	fakecfg.NtripURL = "asdfg"
-	_, err = fakecfg.Validate(path)
-	test.That(
-		t,
-		err,
-		test.ShouldBeNil)
-	_, err = fakecfg.Validate("path")
-	test.That(t, err, test.ShouldBeNil)
+	t.Run("invalid config", func(t *testing.T) {
+		cfg := Config{
+			NtripURL:             "",
+			NtripConnectAttempts: 10,
+			NtripPass:            "somepass",
+			NtripUser:            "someuser",
+			NtripMountpoint:      "NYC",
+			SerialPath:           path,
+			SerialBaudRate:       115200,
+		}
+		err := cfg.validateNtrip(path)
+		test.That(t, err, test.ShouldBeError,
+			utils.NewConfigValidationFieldRequiredError(path, "ntrip_url"))
 
-	fakecfg.SerialPath = ""
-	_, err = fakecfg.Validate(path)
-	test.That(
-		t,
-		err,
-		test.ShouldBeError,
-		utils.NewConfigValidationFieldRequiredError(path, "serial_path"))
+		err = cfg.validateSerialPath(path)
+		test.That(t, err, test.ShouldBeNil)
+
+		_, err = cfg.Validate(path)
+		test.That(t, err, test.ShouldBeError,
+			utils.NewConfigValidationFieldRequiredError(path, "ntrip_url"))
+	})
+
+	t.Run("invalid config", func(t *testing.T) {
+		cfg := Config{
+			NtripURL:             "http//fakeurl",
+			NtripConnectAttempts: 10,
+			NtripPass:            "somepass",
+			NtripUser:            "someuser",
+			NtripMountpoint:      "NYC",
+			SerialPath:           "",
+			SerialBaudRate:       115200,
+		}
+		err := cfg.validateNtrip(path)
+		test.That(t, err, test.ShouldBeNil)
+
+		err = cfg.validateSerialPath(path)
+		test.That(t, err, test.ShouldBeError,
+			utils.NewConfigValidationFieldRequiredError(path, "serial_path"))
+
+		_, err = cfg.Validate(path)
+		test.That(t, err, test.ShouldBeError,
+			utils.NewConfigValidationFieldRequiredError(path, "serial_path"))
+	})
 }
 
 func TestConnect(t *testing.T) {
@@ -69,7 +98,6 @@ func TestConnect(t *testing.T) {
 	username := "user"
 	password := "pwd"
 
-	// create new ntrip client and connect
 	err := g.connect("invalidurl", username, password, 10)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `address must start with http://`)
 

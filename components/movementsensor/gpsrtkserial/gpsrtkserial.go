@@ -110,9 +110,7 @@ type rtkSerial struct {
 	wbaud              int
 }
 
-// Reconfigure reconfigures only the serial attributes at the moment. Ntrip attributes are not reconfiured
-// since ntripClient is locked in functions such as: connect/getStream and altering the attributes can cause
-// invalid memory address.
+// Reconfigure reconfigures only the serial attributes at the moment.
 func (g *rtkSerial) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
@@ -419,7 +417,7 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 	}
 }
 
-// nolint
+//nolint
 // getNtripConnectionStatus returns true if connection to NTRIP stream is OK, false if not.
 func (g *rtkSerial) getNtripConnectionStatus() (bool, error) {
 	g.ntripMu.Lock()

@@ -29,42 +29,88 @@ const (
 
 func TestValidateRTK(t *testing.T) {
 	path := "path"
-	fakecfg := &Config{
-		Board:                testBoardName,
-		I2CBus:               testBusName,
-		I2CAddr:              testi2cAddr,
-		I2CBaudRate:          4400,
-		NtripURL:             "fakeurl",
+	cfg := Config{
+		NtripURL:             "http//fakeurl",
 		NtripConnectAttempts: 10,
 		NtripPass:            "somepass",
 		NtripUser:            "someuser",
 		NtripMountpoint:      "NYC",
+		Board:                testBoardName,
+		I2CBus:               testBusName,
+		I2CAddr:              testi2cAddr,
 	}
+	t.Run("valid config", func(t *testing.T) {
+		err := cfg.validateNtrip(path)
+		test.That(t, err, test.ShouldBeNil)
+		err = cfg.validateI2C(path)
+		test.That(t, err, test.ShouldBeNil)
+		_, err = cfg.Validate(path)
+		test.That(t, err, test.ShouldBeNil)
+	})
 
-	_, err := fakecfg.Validate(path)
-	test.That(t, err, test.ShouldBeNil)
+	t.Run("invalid ntrip url", func(t *testing.T) {
+		cfg := Config{
+			NtripURL:             "",
+			NtripConnectAttempts: 10,
+			NtripPass:            "somepass",
+			NtripUser:            "someuser",
+			NtripMountpoint:      "NYC",
+			Board:                testBoardName,
+			I2CBus:               testBusName,
+			I2CAddr:              testi2cAddr,
+		}
+		err := cfg.validateNtrip(path)
+		test.That(t, err, test.ShouldBeError,
+			utils.NewConfigValidationFieldRequiredError(path, "ntrip_url"))
+		err = cfg.validateI2C(path)
+		test.That(t, err, test.ShouldBeNil)
 
-	fakecfg.NtripURL = ""
-	_, err = fakecfg.Validate(path)
-	test.That(t, err, test.ShouldBeError, utils.NewConfigValidationFieldRequiredError(path, "ntrip_url"))
+		_, err = cfg.Validate(path)
+		test.That(t, err, test.ShouldBeError,
+			utils.NewConfigValidationFieldRequiredError(path, "ntrip_url"))
+	})
 
-	fakecfg.NtripURL = "http://fakeurl"
-	fakecfg.I2CBus = ""
-	_, err = fakecfg.Validate(path)
-	test.That(
-		t,
-		err,
-		test.ShouldBeError,
-		utils.NewConfigValidationFieldRequiredError(path, "i2c_bus"),
-	)
-	fakecfg.I2CBus = testBusName
-	fakecfg.I2CAddr = 0
-	_, err = fakecfg.Validate("path")
-	test.That(
-		t,
-		err,
-		test.ShouldBeError,
-		utils.NewConfigValidationFieldRequiredError(path, "i2c_addr"))
+	t.Run("invalid i2c bus", func(t *testing.T) {
+		cfg := Config{
+			I2CBus:               "",
+			NtripURL:             "http//fakeurl",
+			NtripConnectAttempts: 10,
+			NtripPass:            "somepass",
+			NtripUser:            "someuser",
+			NtripMountpoint:      "NYC",
+			Board:                testBoardName,
+			I2CAddr:              testi2cAddr,
+		}
+		err := cfg.validateNtrip(path)
+		test.That(t, err, test.ShouldBeNil)
+		err = cfg.validateI2C(path)
+		test.That(t, err, test.ShouldBeError,
+			utils.NewConfigValidationFieldRequiredError(path, "i2c_bus"))
+		_, err = cfg.Validate(path)
+		test.That(t, err, test.ShouldBeError,
+			utils.NewConfigValidationFieldRequiredError(path, "i2c_bus"))
+	})
+
+	t.Run("invalid i2c addr", func(t *testing.T) {
+		cfg := Config{
+			I2CAddr:              0,
+			NtripURL:             "http//fakeurl",
+			NtripConnectAttempts: 10,
+			NtripPass:            "somepass",
+			NtripUser:            "someuser",
+			NtripMountpoint:      "NYC",
+			Board:                testBoardName,
+			I2CBus:               testBusName,
+		}
+		err := cfg.validateNtrip(path)
+		test.That(t, err, test.ShouldBeNil)
+		err = cfg.validateI2C(path)
+		test.That(t, err, test.ShouldBeError,
+			utils.NewConfigValidationFieldRequiredError(path, "i2c_addr"))
+		_, err = cfg.Validate(path)
+		test.That(t, err, test.ShouldBeError,
+			utils.NewConfigValidationFieldRequiredError(path, "i2c_addr"))
+	})
 }
 
 func TestConnect(t *testing.T) {
