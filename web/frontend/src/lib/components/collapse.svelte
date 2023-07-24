@@ -4,34 +4,34 @@
   Once we've completed the svelte migration it can be removed and replaced with the PRIME component.
 -->
 <script lang="ts">
-  import { onMount, createEventDispatcher, tick } from "svelte";
+  import { onMount, createEventDispatcher, tick } from 'svelte';
 
-  export let title = "";
+  export let title = '';
   export let open = Boolean(localStorage.getItem(`rc.collapse.${title}.open`));
 
   const dispatch = createEventDispatcher();
 
   const handleClick = async (event: Event) => {
-    if ((event.target as HTMLElement).getAttribute("slot") === "header") {
+    if ((event.target as HTMLElement).getAttribute('slot') === 'header') {
       return;
     }
 
     open = !open;
 
     if (open) {
-      localStorage.setItem(`rc.collapse.${title}.open`, "true");
+      localStorage.setItem(`rc.collapse.${title}.open`, 'true');
     } else {
       localStorage.removeItem(`rc.collapse.${title}.open`);
     }
 
     await tick();
 
-    dispatch("toggle", { open });
+    dispatch('toggle', { open });
   };
 
   onMount(() => {
     if (open) {
-      dispatch("toggle", { open: true });
+      dispatch('toggle', { open: true });
     }
   });
 </script>
@@ -72,9 +72,3 @@
     <slot />
   {/if}
 </div>
-
-<style>
-  .rotate-180 {
-    transform: rotate(45deg);
-  }
-</style>
