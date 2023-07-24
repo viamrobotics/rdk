@@ -37,13 +37,15 @@ const handleDimensionsInput = (event: CustomEvent<number[]>) => {
   dispatch('input', geometry);
 };
 
+const shapeMap = { box: 'Box', sphere: 'Sphere', capsule: 'Capsule' }
+
 </script>
 
 <div class='flex flex-col gap-2 my-2'>
   <v-radio
     label='Shape'
     options="Box, Sphere, Capsule"
-    selected="Box"
+    selected={shapeMap[geometry.type]}
     on:input={handleShapeSelect}
   />
 

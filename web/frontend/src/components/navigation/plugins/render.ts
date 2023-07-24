@@ -67,12 +67,12 @@ const setFrameloops = () => {
   const sw = bounds.getSouthWest();
   const ne = bounds.getNorthEast();
 
-  // Add margins
+  // Add margins, clamp to min and max lng,lat.
   sw.lng = clamp(sw.lng - 5, -90, 90);
   sw.lat = clamp(sw.lat - 5, -90, 90);
 
-  ne.lng = clamp(sw.lng + 5, -90, 90);
-  ne.lat = clamp(sw.lng + 5, -90, 90);
+  ne.lng = clamp(ne.lng + 5, -90, 90);
+  ne.lat = clamp(ne.lat + 5, -90, 90);
 
   const viewportBounds = new LngLatBounds(sw, ne);
 

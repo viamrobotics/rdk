@@ -75,7 +75,6 @@ useFrame(() => {
     .multiply(transform);
 
   latLngToVector3Relative(mapCenter.current, undefined, world.position);
-  console.log(camera.current.position, world.position)
 });
 
 injectPlugin<{
