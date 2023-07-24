@@ -65,7 +65,7 @@ type Motor interface {
 	// back into calls of GoFor.
 	Position(ctx context.Context, extra map[string]interface{}) (float64, error)
 
-	// Properties returns whether or not the motor supports certain optional features.
+	// Properties returns whether or not the motor supports certain optional properties.
 	Properties(ctx context.Context, extra map[string]interface{}) (Properties, error)
 
 	// IsPowered returns whether or not the motor is currently on, and the percent power (between 0

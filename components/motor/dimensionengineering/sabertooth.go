@@ -460,7 +460,7 @@ func (m *Motor) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[
 	return nil, fmt.Errorf("no such command: %s", name)
 }
 
-// Properties returns the additional features supported by this motor.
+// Properties returns the additional properties supported by this motor.
 func (m *Motor) Properties(ctx context.Context, extra map[string]interface{}) (motor.Properties, error) {
 	return motor.Properties{PositionReporting: false}, nil
 }

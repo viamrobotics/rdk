@@ -332,7 +332,7 @@ func (m *Ezopmp) Position(ctx context.Context, extra map[string]interface{}) (fl
 	return floatVal, err
 }
 
-// Properties returns the status of optional features on the motor.
+// Properties returns the status of optional properties on the motor.
 func (m *Ezopmp) Properties(ctx context.Context, extra map[string]interface{}) (motor.Properties, error) {
 	return motor.Properties{
 		PositionReporting: true,

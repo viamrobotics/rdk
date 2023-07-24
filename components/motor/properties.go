@@ -1,4 +1,4 @@
-// Package motor contains an enum representing optional motor features
+// Package motor contains a struct representing optional motor properties
 package motor
 
 import (
@@ -19,7 +19,7 @@ func ProtoFeaturesToProperties(resp *pb.GetPropertiesResponse) Properties {
 }
 
 // PropertiesToProtoResponse takes a Properties struct (indicating
-// whether the feature is supported) and converts it to a GetPropertiesResponse.
+// whether the property is supported) and converts it to a GetPropertiesResponse.
 func PropertiesToProtoResponse(
 	props Properties,
 ) (*pb.GetPropertiesResponse, error) {

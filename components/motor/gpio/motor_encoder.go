@@ -241,7 +241,7 @@ func (m *EncodedMotor) directionMovingInLock() int64 {
 	return sign(m.state.lastPowerPct)
 }
 
-// Properties returns the status of whether the motor supports certain optional features.
+// Properties returns the status of whether the motor supports certain optional properties.
 func (m *EncodedMotor) Properties(ctx context.Context, extra map[string]interface{}) (motor.Properties, error) {
 	return motor.Properties{
 		PositionReporting: true,

@@ -330,7 +330,7 @@ func (m *uln28byj) Position(ctx context.Context, extra map[string]interface{}) (
 	return float64(m.stepPosition) / float64(m.ticksPerRotation), nil
 }
 
-// Properties returns the status of whether the motor supports certain optional features.
+// Properties returns the status of whether the motor supports certain optional properties.
 func (m *uln28byj) Properties(ctx context.Context, extra map[string]interface{}) (motor.Properties, error) {
 	return motor.Properties{
 		PositionReporting: true,

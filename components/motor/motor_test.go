@@ -113,7 +113,7 @@ func TestCreateStatus(t *testing.T) {
 	})
 
 	t.Run("fail on Properties", func(t *testing.T) {
-		errFail := errors.New("can't get features")
+		errFail := errors.New("can't get properties")
 		injectMotor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (motor.Properties, error) {
 			return motor.Properties{}, errFail
 		}

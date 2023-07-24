@@ -391,7 +391,7 @@ func (m *Motor) Position(ctx context.Context, extra map[string]interface{}) (flo
 	return float64(rawPos) / float64(m.stepsPerRev), nil
 }
 
-// Properties returns the status of optional features on the motor.
+// Properties returns the status of optional properties on the motor.
 func (m *Motor) Properties(ctx context.Context, extra map[string]interface{}) (motor.Properties, error) {
 	return motor.Properties{
 		PositionReporting: true,

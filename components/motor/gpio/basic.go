@@ -123,7 +123,7 @@ func (m *Motor) Position(ctx context.Context, extra map[string]interface{}) (flo
 	return 0, nil
 }
 
-// Properties returns the status of whether the motor supports certain optional features.
+// Properties returns the status of whether the motor supports certain optional properties.
 func (m *Motor) Properties(ctx context.Context, extra map[string]interface{}) (motor.Properties, error) {
 	return motor.Properties{
 		PositionReporting: false,

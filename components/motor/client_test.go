@@ -111,7 +111,7 @@ func TestClient(t *testing.T) {
 		cancel()
 		_, err := viamgrpc.Dial(cancelCtx, listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldBeError, context.Canceled)
+		test.That(t, err, test.ShouldBeError, context.Canceled)
 	})
 
 	conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
@@ -184,8 +184,8 @@ func TestClient(t *testing.T) {
 		err = failingMotorClient.GoFor(context.Background(), 42.0, 42.0, nil)
 		test.That(t, err, test.ShouldNotBeNil)
 
-		features, err := failingMotorClient.Properties(context.Background(), nil)
-		test.That(t, features, test.ShouldBeNil)
+		properties, err := failingMotorClient.Properties(context.Background(), nil)
+		test.That(t, properties.PositionReporting, test.ShouldBeFalse)
 		test.That(t, err, test.ShouldNotBeNil)
 
 		isOn, powerPct, err := failingMotorClient.IsPowered(context.Background(), nil)
@@ -240,8 +240,8 @@ func TestClient(t *testing.T) {
 		err = failingMotorDialedClient.SetPower(context.Background(), 39.2, nil)
 		test.That(t, err, test.ShouldNotBeNil)
 
-		features, err := failingMotorDialedClient.Properties(context.Background(), nil)
-		test.That(t, features, test.ShouldBeNil)
+		properties, err := failingMotorDialedClient.Properties(context.Background(), nil)
+		test.That(t, properties.PositionReporting, test.ShouldBeFalse)
 		test.That(t, err, test.ShouldNotBeNil)
 
 		isOn, powerPct, err := failingMotorDialedClient.IsPowered(context.Background(), nil)
