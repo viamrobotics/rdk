@@ -27,7 +27,7 @@ func init() {
 				if err != nil {
 					return nil, err
 				}
-				videoSrc := &fileSource{newConf.Color, newConf.Depth, newConf.PointCloud, newConf.CameraParameters}
+				videoSrc := &fileSource{newConf.Color, newConf.Depth, newConf.PointCloud, newConf.CameraParameters, nil}
 				imgType := camera.ColorStream
 				if newConf.Color == "" {
 					imgType = camera.DepthStream
@@ -53,6 +53,7 @@ type fileSource struct {
 	DepthFN      string
 	PointCloudFN string
 	Intrinsics   *transform.PinholeCameraIntrinsics
+	pc           pointcloud.PointCloud
 }
 
 // fileSourceConfig is the attribute struct for fileSource.
@@ -68,19 +69,36 @@ type fileSourceConfig struct {
 
 // Read returns just the RGB image if it is present, or the depth map if the RGB image is not present.
 func (fs *fileSource) Read(ctx context.Context) (image.Image, func(), error) {
+	if fs.ColorFN == "" && fs.DepthFN == "" {
+		return nil, nil, errors.New("no image file to read")
+	}
 	if fs.ColorFN == "" { // only depth info
 		img, err := rimage.NewDepthMapFromFile(context.Background(), fs.DepthFN)
+		if err != nil {
+			return nil, nil, err
+		}
 		return img, func() {}, err
 	}
 	img, err := rimage.NewImageFromFile(fs.ColorFN)
+	if err != nil {
+		return nil, nil, err
+	}
 	return img, func() {}, err
 }
 
 // NextPointCloud returns the point cloud from projecting the rgb and depth image using the intrinsic parameters,
 // or the pointcloud from file if set.
 func (fs *fileSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
-	if fs.PointCloudFN != "" {
-		return pointcloud.NewFromFile(fs.PointCloudFN, nil)
+
+	if fs.PointCloudFN != "" && fs.pc == nil {
+		newPc, err := pointcloud.NewFromFile(fs.PointCloudFN, nil)
+		if err != nil {
+			return nil, err
+		}
+		fs.pc = newPc
+	}
+	if fs.pc != nil {
+		return fs.pc, nil
 	}
 	if fs.Intrinsics == nil {
 		return nil, transform.NewNoIntrinsicsError("camera intrinsics not found in config")
