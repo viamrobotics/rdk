@@ -7,10 +7,11 @@ import (
 
 	"github.com/edaniels/golog"
 	geo "github.com/kellydunn/golang-geo"
-	"go.viam.com/rdk/components/movementsensor/fake"
-	rtk "go.viam.com/rdk/components/movementsensor/rtkutils"
 	"go.viam.com/test"
 	"go.viam.com/utils"
+
+	"go.viam.com/rdk/components/movementsensor/fake"
+	rtk "go.viam.com/rdk/components/movementsensor/rtkutils"
 )
 
 var (
@@ -151,7 +152,6 @@ func TestPostion(t *testing.T) {
 	speed3, err := g.LinearVelocity(ctx, make(map[string]interface{}))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, speed3.Y, test.ShouldEqual, speed)
-
 }
 
 type CustomMovementSensor struct {
