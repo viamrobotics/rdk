@@ -162,7 +162,7 @@ func TestStartWaypoint(t *testing.T) {
 	err = ns.AddWaypoint(ctx, pt, nil)
 	test.That(t, err, test.ShouldBeNil)
 
-	err = ns.SetMode(ctx, navigation.ModeWaypoint, map[string]interface{}{"experimental": true})
+	err = ns.SetMode(ctx, navigation.ModeWaypoint, nil)
 	test.That(t, err, test.ShouldBeNil)
 	ns.(*builtIn).activeBackgroundWorkers.Wait()
 
@@ -172,7 +172,7 @@ func TestStartWaypoint(t *testing.T) {
 	test.That(t, actualPt.Lat(), test.ShouldEqual, pt.Lat())
 	test.That(t, actualPt.Lng(), test.ShouldEqual, pt.Lng())
 
-	// setup injected MoveOnGlobe to test what extra defaults to from startWaypointExperimental function
+	// setup injected MoveOnGlobe to test what extra defaults to from startWaypoint function
 	injectMS.MoveOnGlobeFunc = func(
 		ctx context.Context,
 		componentName resource.Name,
@@ -195,7 +195,7 @@ func TestStartWaypoint(t *testing.T) {
 	err = ns.AddWaypoint(ctx, pt, nil)
 	test.That(t, err, test.ShouldBeNil)
 
-	err = ns.(*builtIn).startWaypointExperimental(map[string]interface{}{})
+	err = ns.(*builtIn).startWaypoint(map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	ns.(*builtIn).activeBackgroundWorkers.Wait()
 
@@ -203,7 +203,7 @@ func TestStartWaypoint(t *testing.T) {
 	err = ns.AddWaypoint(ctx, pt, nil)
 	test.That(t, err, test.ShouldBeNil)
 
-	err = ns.(*builtIn).startWaypointExperimental(nil)
+	err = ns.(*builtIn).startWaypoint(nil)
 	test.That(t, err, test.ShouldBeNil)
 	ns.(*builtIn).activeBackgroundWorkers.Wait()
 }

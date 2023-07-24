@@ -3,9 +3,9 @@ package motion
 import (
 	"context"
 	"math"
-	"strings"
 
 	geo "github.com/kellydunn/golang-geo"
+	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/referenceframe"
@@ -58,18 +58,26 @@ func (m *movementSensorLocalizer) CurrentPosition(ctx context.Context) (*referen
 		return nil, err
 	}
 	var o spatialmath.Orientation
-	compass, err := m.CompassHeading(ctx, nil)
+	properties, err := m.Properties(ctx, nil)
 	if err != nil {
-		if !strings.Contains(err.Error(), movementsensor.ErrMethodUnimplementedCompassHeading.Error()) {
+		return nil, err
+	}
+	switch {
+	case properties.CompassHeadingSupported:
+		heading, err := m.CompassHeading(ctx, nil)
+		if err != nil {
 			return nil, err
 		}
+		o = &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: heading}
+	case properties.OrientationSupported:
 		o, err = m.Orientation(ctx, nil)
 		if err != nil {
 			return nil, err
 		}
-	} else {
-		o = &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: compass}
+	default:
+		return nil, errors.New("could not get orientation from Localizer")
 	}
+
 	pose := spatialmath.NewPose(spatialmath.GeoPointToPose(gp, m.origin).Point(), o)
 	alignEast := spatialmath.NewPoseFromOrientation(&spatialmath.OrientationVector{OZ: 1, Theta: -math.Pi / 2})
 	correction := spatialmath.Compose(m.calibration, alignEast)
