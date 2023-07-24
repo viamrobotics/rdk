@@ -59,9 +59,6 @@
       <v-icon
         class:rotate-0={!open}
         class:rotation-180={open}
-        style="transition-property: transform;
-          transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-          transition-duration: 0.2s;"
         name="chevron-down"
         size="2xl"
       />
