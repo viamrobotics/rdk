@@ -36,6 +36,8 @@ func TestRadiusClusteringSegmentation(t *testing.T) {
 	params := &segmentation.RadiusClusteringConfig{
 		MinPtsInPlane:      100,
 		MinPtsInSegment:    3,
+		MaxDistFromPlane:   10,
+		MaxAngleOfPlane:    0,
 		ClusteringRadiusMm: 5.,
 		MeanKFiltering:     10.,
 	}

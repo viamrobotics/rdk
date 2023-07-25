@@ -19,6 +19,8 @@ type RadiusClusteringVoxelConfig struct {
 	VoxelSize          float64 `json:"voxel_size"`
 	Lambda             float64 `json:"lambda"` // clustering parameter for making voxel planes
 	MinPtsInPlane      int     `json:"min_points_in_plane"`
+	MaxDistFromPlane   float64 `json:"max_dist_from_plane"`
+	MaxAngleOfPlane    float64 `json:"max_angle_of_plane"`
 	MinPtsInSegment    int     `json:"min_points_in_segment"`
 	ClusteringRadiusMm float64 `json:"clustering_radius_mm"`
 	WeightThresh       float64 `json:"weight_threshold"`
@@ -38,6 +40,7 @@ func (rcc *RadiusClusteringVoxelConfig) CheckValid() error {
 	}
 	radiusClustering := RadiusClusteringConfig{
 		MinPtsInPlane:      rcc.MinPtsInPlane,
+		MaxDistFromPlane:   rcc.MaxDistFromPlane,
 		MinPtsInSegment:    rcc.MinPtsInSegment,
 		ClusteringRadiusMm: rcc.ClusteringRadiusMm,
 		MeanKFiltering:     50.0,

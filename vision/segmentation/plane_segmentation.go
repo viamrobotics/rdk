@@ -72,7 +72,9 @@ func pointCloudSplit(cloud pc.PointCloud, inMap map[r3.Vector]bool) (pc.PointClo
 // threshold is the float64 value for the maximum allowed distance to the found plane for a point to belong to it
 // This function returns a Plane struct, as well as the remaining points in a pointcloud
 // It also returns the equation of the found plane: [0]x + [1]y + [2]z + [3] = 0.
-func SegmentPlane(ctx context.Context, cloud pc.PointCloud, nIterations int, threshold float64) (pc.Plane, pc.PointCloud, error) {
+func SegmentPlane(ctx context.Context, cloud pc.PointCloud, nIterations int, threshold, maxAngle float64) (pc.Plane,
+	pc.PointCloud, error,
+) {
 	if cloud.Size() <= 3 { // if point cloud does not have even 3 points, return original cloud with no planes
 		return pc.NewEmptyPlane(), cloud, nil
 	}
@@ -105,10 +107,15 @@ func SegmentPlane(ctx context.Context, cloud pc.PointCloud, nIterations int, thr
 
 		currentEquation := [4]float64{planeVec.X, planeVec.Y, planeVec.Z, d}
 
-		if math.Acos(groundVec.Dot(planeVec)) <= 30.0*math.Pi/180.0 {
+		if maxAngle != 0 {
+			if math.Acos(groundVec.Dot(planeVec)) <= maxAngle*math.Pi/180.0 {
+				equations = append(equations, currentEquation)
+			} else {
+				i--
+			}
+		} else {
 			equations = append(equations, currentEquation)
 		}
-
 	}
 
 	// Then find the best equation in parallel. It ends up being faster to loop
@@ -196,24 +203,27 @@ type PlaneSegmentation interface {
 }
 
 type pointCloudPlaneSegmentation struct {
-	cloud       pc.PointCloud
-	threshold   float64
-	minPoints   int
-	nIterations int
+	cloud             pc.PointCloud
+	distanceThreshold float64
+	minPoints         int
+	nIterations       int
+	angleThreshold    float64
 }
 
 // NewPointCloudPlaneSegmentation initializes the plane segmentation with the necessary parameters to find the planes
 // threshold is the float64 value for the maximum allowed distance to the found plane for a point to belong to it.
 // minPoints is the minimum number of points necessary to be considered a plane.
-func NewPointCloudPlaneSegmentation(cloud pc.PointCloud, threshold float64, minPoints int) PlaneSegmentation {
-	return &pointCloudPlaneSegmentation{cloud, threshold, minPoints, 2000}
+func NewPointCloudPlaneSegmentation(cloud pc.PointCloud, distanceThreshold float64, minPoints int,
+	angleThreshold float64,
+) PlaneSegmentation {
+	return &pointCloudPlaneSegmentation{cloud, distanceThreshold, minPoints, 2000, angleThreshold}
 }
 
 // FindPlanes takes in a point cloud and outputs an array of the planes and a point cloud of the leftover points.
 func (pcps *pointCloudPlaneSegmentation) FindPlanes(ctx context.Context) ([]pc.Plane, pc.PointCloud, error) {
 	planes := make([]pc.Plane, 0)
 	var err error
-	plane, nonPlaneCloud, err := SegmentPlane(ctx, pcps.cloud, pcps.nIterations, pcps.threshold)
+	plane, nonPlaneCloud, err := SegmentPlane(ctx, pcps.cloud, pcps.nIterations, pcps.distanceThreshold, pcps.angleThreshold)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -228,7 +238,7 @@ func (pcps *pointCloudPlaneSegmentation) FindPlanes(ctx context.Context) ([]pc.P
 	var lastNonPlaneCloud pc.PointCloud
 	for {
 		lastNonPlaneCloud = nonPlaneCloud
-		smallerPlane, smallerNonPlaneCloud, err := SegmentPlane(ctx, nonPlaneCloud, pcps.nIterations, pcps.threshold)
+		smallerPlane, smallerNonPlaneCloud, err := SegmentPlane(ctx, nonPlaneCloud, pcps.nIterations, pcps.distanceThreshold, pcps.angleThreshold)
 		if err != nil {
 			return nil, nil, err
 		}

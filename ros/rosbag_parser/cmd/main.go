@@ -68,7 +68,7 @@ func extractPlanes(ctx context.Context, img *rimage.Image, dm *rimage.DepthMap) 
 	}
 
 	// Extract the planes from the point cloud
-	planeSeg := segmentation.NewPointCloudPlaneSegmentation(pcl, 50, 150000)
+	planeSeg := segmentation.NewPointCloudPlaneSegmentation(pcl, 50, 150000, 0)
 	planes, _, err := planeSeg.FindPlanes(ctx)
 	if err != nil {
 		return nil, err

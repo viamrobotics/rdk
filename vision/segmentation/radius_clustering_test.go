@@ -28,9 +28,16 @@ func TestRadiusClusteringValidate(t *testing.T) {
 	cfg.MinPtsInSegment = 5
 	err = cfg.CheckValid()
 	test.That(t, err.Error(), test.ShouldContainSubstring, "clustering_radius_mm must be greater than 0")
+	// invalid threshold dist from plane
+	cfg.ClusteringRadiusMm = 5
+	cfg.MeanKFiltering = 5
+	err = cfg.CheckValid()
+	test.That(t, err.Error(), test.ShouldContainSubstring, "max_dist_from_plane must be greater than 0")
 	// valid
 	cfg.ClusteringRadiusMm = 5
 	cfg.MeanKFiltering = 5
+	cfg.MaxDistFromPlane = 4
+	cfg.MaxAngleOfPlane = 0
 	err = cfg.CheckValid()
 	test.That(t, err, test.ShouldBeNil)
 }
@@ -47,6 +54,7 @@ func TestPixelSegmentation(t *testing.T) {
 	expectedLabel := "test_label"
 	objConfig := utils.AttributeMap{
 		"min_points_in_plane":   50000,
+		"max_dist_from_plane":   10,
 		"min_points_in_segment": 500,
 		"clustering_radius_mm":  10.0,
 		"mean_k_filtering":      50.0,
@@ -66,15 +74,19 @@ func TestPixelSegmentationNoFiltering(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	injectCamera := &inject.Camera{}
 	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
-		return pc.NewFromLASFile(artifact.MustPath("pointcloud/test.las"), logger)
+		// return pc.NewFromLASFile(artifact.MustPath("pointcloud/test.las"), logger)
+		// return pc.NewFromFile("/Users/vpandiarajan/viam/robotManip/pythonManip/pointcloud.pcd", logger)
+		return pc.NewFromFile("/Users/vpandiarajan/viam/robotManip/pythonManip/densePointCloud.pcd", logger)
 	}
 	// do segmentation with no mean k filtering
 	expectedLabel := "test_label"
 	objConfig := utils.AttributeMap{
-		"min_points_in_plane":   50000,
-		"min_points_in_segment": 500,
-		"clustering_radius_mm":  10.0,
-		"mean_k_filtering":      -1.,
+		"min_points_in_plane":   9000,
+		"max_dist_from_plane":   110.0,
+		"min_points_in_segment": 350,
+		"max_angle_of_plane":    30,
+		"clustering_radius_mm":  600.0,
+		"mean_k_filtering":      0,
 		"extra_uneeded_param":   4444,
 		"another_extra_one":     "hey",
 		"label":                 expectedLabel,
@@ -113,6 +125,7 @@ func BenchmarkRadiusClustering(b *testing.B) {
 	// do segmentation
 	objConfig := utils.AttributeMap{
 		"min_points_in_plane":   10000,
+		"max_dist_from_plane":   10,
 		"min_points_in_segment": 500,
 		"clustering_radius_mm":  100.0,
 		"mean_k_filtering":      0.0,
