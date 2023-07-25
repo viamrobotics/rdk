@@ -2,7 +2,6 @@ package sensor_test
 
 import (
 	"context"
-	"errors"
 	"net"
 	"testing"
 
@@ -42,7 +41,7 @@ func TestClient(t *testing.T) {
 
 	injectSensor2 := &inject.Sensor{}
 	injectSensor2.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-		return nil, errors.New("can't get readings")
+		return nil, errReadingsFailed
 	}
 
 	sensorSvc, err := resource.NewAPIResourceCollection(
@@ -66,7 +65,7 @@ func TestClient(t *testing.T) {
 		cancel()
 		_, err := viamgrpc.Dial(cancelCtx, listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
+		test.That(t, err, test.ShouldBeError, context.Canceled)
 	})
 
 	t.Run("Sensor client 1", func(t *testing.T) {
@@ -105,7 +104,7 @@ func TestClient(t *testing.T) {
 
 		_, err = client2.Readings(context.Background(), make(map[string]interface{}))
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get readings")
+		test.That(t, err.Error(), test.ShouldContainSubstring, errReadingsFailed.Error())
 
 		test.That(t, client2.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
