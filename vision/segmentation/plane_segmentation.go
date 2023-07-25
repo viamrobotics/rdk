@@ -95,15 +95,20 @@ func SegmentPlane(ctx context.Context, cloud pc.PointCloud, nIterations int, thr
 		v2 := p3.Sub(p1)
 		// cross product to get the normal unit vector to the plane (v1, v2)
 		cross := v1.Cross(v2)
-		vec := cross.Normalize()
+		planeVec := cross.Normalize()
 		// find current plane equation denoted as:
 		// cross[0]*x + cross[1]*y + cross[2]*z + d = 0
 		// to find d, we just need to pick a point and deduce d from the plane equation (vec orth to p1, p2, p3)
-		d := -vec.Dot(p2)
+		d := -planeVec.Dot(p2)
 
-		// current plane equation
-		currentEquation := [4]float64{vec.X, vec.Y, vec.Z, d}
-		equations = append(equations, currentEquation)
+		groundVec := pc.NewVector(0, 0, 1)
+
+		currentEquation := [4]float64{planeVec.X, planeVec.Y, planeVec.Z, d}
+
+		if math.Acos(groundVec.Dot(planeVec)) <= 30.0*math.Pi/180.0 {
+			equations = append(equations, currentEquation)
+		}
+
 	}
 
 	// Then find the best equation in parallel. It ends up being faster to loop

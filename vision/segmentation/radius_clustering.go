@@ -18,6 +18,7 @@ import (
 type RadiusClusteringConfig struct {
 	resource.TriviallyValidateConfig
 	MinPtsInPlane      int     `json:"min_points_in_plane"`
+	MaxDistFromPlane   float64 `json:"max_dist_from_plane"`
 	MinPtsInSegment    int     `json:"min_points_in_segment"`
 	ClusteringRadiusMm float64 `json:"clustering_radius_mm"`
 	MeanKFiltering     int     `json:"mean_k_filtering"`
@@ -34,6 +35,9 @@ func (rcc *RadiusClusteringConfig) CheckValid() error {
 	}
 	if rcc.ClusteringRadiusMm <= 0 {
 		return errors.Errorf("clustering_radius_mm must be greater than 0, got %v", rcc.ClusteringRadiusMm)
+	}
+	if rcc.MaxDistFromPlane <= 0 {
+		return errors.Errorf("max_dist_from_plane must be greater than 0, got %v", rcc.MaxDistFromPlane)
 	}
 	return nil
 }
@@ -74,7 +78,7 @@ func (rcc *RadiusClusteringConfig) RadiusClustering(ctx context.Context, src cam
 	if err != nil {
 		return nil, err
 	}
-	ps := NewPointCloudPlaneSegmentation(cloud, 10, rcc.MinPtsInPlane)
+	ps := NewPointCloudPlaneSegmentation(cloud, rcc.MaxDistFromPlane, rcc.MinPtsInPlane)
 	// if there are found planes, remove them, and keep all the non-plane points
 	_, nonPlane, err := ps.FindPlanes(ctx)
 	if err != nil {
