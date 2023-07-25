@@ -124,9 +124,9 @@ func TestMotorEncoder1(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, isOn, test.ShouldBeFalse)
 		test.That(t, powerPct, test.ShouldEqual, 0.0)
-		features, err := motorDep.Properties(context.Background(), nil)
+		properties, err := motorDep.Properties(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, features[motor.PositionReporting], test.ShouldBeTrue)
+		test.That(t, properties.PositionReporting, test.ShouldBeTrue)
 	})
 
 	t.Run("encoded motor testing regulation", func(t *testing.T) {
