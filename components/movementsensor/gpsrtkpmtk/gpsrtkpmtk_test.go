@@ -19,11 +19,6 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
-var (
-	alt   = 50.5
-	speed = 5.4
-)
-
 const (
 	testRoverName   = "testRover"
 	testStationName = "testStation"
@@ -146,6 +141,12 @@ func TestConnect(t *testing.T) {
 }
 
 func TestReadings(t *testing.T) {
+	var (
+		alt   = 50.5
+		speed = 5.4
+		loc   = geo.NewPoint(40.7, -73.98)
+	)
+
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
@@ -160,7 +161,7 @@ func TestReadings(t *testing.T) {
 	}
 
 	mockSensor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
-		return geo.NewPoint(40.7, -73.98), 50.5, nil
+		return loc, alt, nil
 	}
 
 	g.nmeamovementsensor = mockSensor
@@ -168,7 +169,7 @@ func TestReadings(t *testing.T) {
 	// Normal position
 	loc1, alt1, err := g.Position(ctx, make(map[string]interface{}))
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, loc1, test.ShouldResemble, geo.NewPoint(40.7, -73.98))
+	test.That(t, loc1, test.ShouldResemble, loc)
 	test.That(t, alt1, test.ShouldEqual, alt)
 
 	speed1, err := g.LinearVelocity(ctx, make(map[string]interface{}))
