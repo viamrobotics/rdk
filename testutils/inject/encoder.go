@@ -17,7 +17,7 @@ type Encoder struct {
 		positionType encoder.PositionType,
 		extra map[string]interface{},
 	) (float64, encoder.PositionType, error)
-	PropertiesFunc func(ctx context.Context, extra map[string]interface{}) (map[encoder.Feature]bool, error)
+	PropertiesFunc func(ctx context.Context, extra map[string]interface{}) (encoder.Properties, error)
 }
 
 // NewEncoder returns a new injected Encoder.
@@ -51,7 +51,7 @@ func (e *Encoder) Position(
 }
 
 // Properties calls the injected Properties or the real version.
-func (e *Encoder) Properties(ctx context.Context, extra map[string]interface{}) (map[encoder.Feature]bool, error) {
+func (e *Encoder) Properties(ctx context.Context, extra map[string]interface{}) (encoder.Properties, error) {
 	if e.PropertiesFunc == nil {
 		return e.Encoder.Properties(ctx, extra)
 	}

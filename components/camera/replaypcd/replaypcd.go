@@ -36,8 +36,10 @@ const (
 
 var (
 	// model is the model of a replay camera.
-	model           = resource.DefaultModelFamily.WithModel("replay_pcd")
-	errEndOfDataset = errors.New("reached end of dataset")
+	model = resource.DefaultModelFamily.WithModel("replay_pcd")
+
+	// ErrEndOfDataset represents that the replay sensor has reached the end of the dataset.
+	ErrEndOfDataset = errors.New("reached end of dataset")
 )
 
 func init() {
@@ -178,7 +180,7 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 	}
 
 	if len(resp.GetData()) == 0 {
-		return nil, errEndOfDataset
+		return nil, ErrEndOfDataset
 	}
 	replay.lastData = resp.GetLast()
 

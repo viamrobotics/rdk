@@ -164,7 +164,7 @@ func (b *myBase) Properties(ctx context.Context, extra map[string]interface{}) (
 }
 
 // Geometries returns physical dimensions.
-func (b *myBase) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
+func (b *myBase) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
 	return b.geometries, nil
 }
 

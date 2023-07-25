@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -266,10 +268,16 @@ func TestConfigEnsure(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `processes.0`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"id" is required`)
-	invalidProcesses.Processes[0].ID = "bar"
+	invalidProcesses = config.Config{
+		DisablePartialStart: true,
+		Processes:           []pexec.ProcessConfig{{ID: "bar"}},
+	}
 	err = invalidProcesses.Ensure(false, logger)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
-	invalidProcesses.Processes[0].Name = "foo"
+	invalidProcesses = config.Config{
+		DisablePartialStart: true,
+		Processes:           []pexec.ProcessConfig{{ID: "bar", Name: "foo"}},
+	}
 	test.That(t, invalidProcesses.Ensure(false, logger), test.ShouldBeNil)
 
 	invalidNetwork := config.Config{
@@ -960,30 +968,60 @@ func keysetToAttributeMap(t *testing.T, keyset jwks.KeySet) rutils.AttributeMap 
 	return jwksAsInterface
 }
 
-func TestGetPackageReference(t *testing.T) {
-	t.Run("non reference", func(t *testing.T) {
-		test.That(t, config.GetPackageReference("/a/path"), test.ShouldBeNil)
-	})
+func TestPackageConfig(t *testing.T) {
+	viamDotDir := filepath.Join(os.Getenv("HOME"), ".viam")
 
-	t.Run("non reference with ${package.some}", func(t *testing.T) {
-		test.That(t, config.GetPackageReference("/a/path/${packages.some}"), test.ShouldBeNil)
-	})
+	packageTests := []struct {
+		config               config.PackageConfig
+		expectedPlaceholer   string
+		expectedRealFilePath string
+	}{
+		{
+			config: config.PackageConfig{
+				Name:    "my_package",
+				Package: "my_org/my_package",
+			},
+			expectedPlaceholer:   "packages.my_package",
+			expectedRealFilePath: path.Join(viamDotDir, "packages", "my_package"),
+		},
+		{
+			config: config.PackageConfig{
+				Name:    "my_module",
+				Type:    config.PackageTypeModule,
+				Package: "my_org/my_module",
+				Version: "1.2",
+			},
+			expectedPlaceholer:   "packages.modules.my_module",
+			expectedRealFilePath: path.Join(viamDotDir, "packages", "modules", ".data", "my_org-my_module-1_2"),
+		},
+		{
+			config: config.PackageConfig{
+				Name:    "my_ml_model",
+				Type:    config.PackageTypeMlModel,
+				Package: "my_org/my_ml_model",
+				Version: "latest",
+			},
+			expectedPlaceholer:   "packages.ml_models.my_ml_model",
+			expectedRealFilePath: path.Join(viamDotDir, "packages", "ml_models", ".data", "my_org-my_ml_model-latest"),
+		},
+	}
 
-	t.Run("non reference with ${package.some", func(t *testing.T) {
-		test.That(t, config.GetPackageReference("${packages.some"), test.ShouldBeNil)
-	})
+	packageMapToTest := make(map[string]string)
+	packages := make([]config.PackageConfig, 3)
+	for i, pt := range packageTests {
+		actualExpectedPlaceholder := pt.config.GetPackagePlaceholder()
+		actualFilepath := pt.config.GenerateFilePath()
 
-	t.Run("non reference with ${package.some} empty space", func(t *testing.T) {
-		test.That(t, config.GetPackageReference(" ${packages.some-package}"), test.ShouldBeNil)
-	})
+		test.That(t, actualExpectedPlaceholder, test.ShouldEqual, pt.expectedPlaceholer)
+		test.That(t, actualFilepath, test.ShouldEqual, pt.expectedRealFilePath)
 
-	t.Run("valid package reference", func(t *testing.T) {
-		test.That(t, config.GetPackageReference("${packages.some-package}/some/path"), test.ShouldResemble,
-			&config.PackageReference{Package: "some-package", PathInPackage: "/some/path"})
-	})
+		packageMapToTest[actualExpectedPlaceholder] = actualFilepath
+		packages[i] = pt.config
+	}
 
-	t.Run("valid package reference no path", func(t *testing.T) {
-		test.That(t, config.GetPackageReference("${packages.some-package}"), test.ShouldResemble,
-			&config.PackageReference{Package: "some-package", PathInPackage: ""})
-	})
+	config := &config.Config{
+		Packages: packages,
+	}
+
+	test.That(t, config.GetExpectedPackagePlaceholders(), test.ShouldResemble, packageMapToTest)
 }

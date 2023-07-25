@@ -128,19 +128,23 @@ type node interface {
 	Cost() float64
 	SetCost(float64)
 	Pose() spatialmath.Pose
+	Corner() bool
+	SetCorner(bool)
 }
 
 type basicNode struct {
-	q    []referenceframe.Input
-	cost float64
-	pose spatialmath.Pose
+	q      []referenceframe.Input
+	cost   float64
+	pose   spatialmath.Pose
+	corner bool
 }
 
 // Special case constructors for nodes without costs to return NaN.
 func newConfigurationNode(q []referenceframe.Input) node {
 	return &basicNode{
-		q:    q,
-		cost: math.NaN(),
+		q:      q,
+		cost:   math.NaN(),
+		corner: false,
 	}
 }
 
@@ -158,6 +162,14 @@ func (n *basicNode) SetCost(cost float64) {
 
 func (n *basicNode) Pose() spatialmath.Pose {
 	return n.pose
+}
+
+func (n *basicNode) Corner() bool {
+	return n.corner
+}
+
+func (n *basicNode) SetCorner(corner bool) {
+	n.corner = corner
 }
 
 // nodePair groups together nodes in a tuple

@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
@@ -62,10 +61,10 @@ func TestClient(t *testing.T) {
 
 	injectInputController2 := &inject.InputController{}
 	injectInputController2.ControlsFunc = func(ctx context.Context, extra map[string]interface{}) ([]input.Control, error) {
-		return nil, errors.New("can't get controls")
+		return nil, errControlsFailed
 	}
 	injectInputController2.EventsFunc = func(ctx context.Context, extra map[string]interface{}) (map[input.Control]input.Event, error) {
-		return nil, errors.New("can't get last events")
+		return nil, errEventsFailed
 	}
 
 	resources := map[resource.Name]input.Controller{
@@ -89,7 +88,7 @@ func TestClient(t *testing.T) {
 		cancel()
 		_, err := viamgrpc.Dial(cancelCtx, listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
+		test.That(t, err, test.ShouldBeError, context.Canceled)
 	})
 
 	t.Run("input controller client 1", func(t *testing.T) {
@@ -207,7 +206,7 @@ func TestClient(t *testing.T) {
 		test.That(t, btnEv.Time.Before(time.Now()), test.ShouldBeTrue)
 
 		injectInputController.TriggerEventFunc = func(ctx context.Context, event input.Event, extra map[string]interface{}) error {
-			return errors.New("can't inject event")
+			return errTriggerEvent
 		}
 		event1 := input.Event{
 			Time:    time.Now().UTC(),
@@ -219,7 +218,7 @@ func TestClient(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 		err = injectable.TriggerEvent(context.Background(), event1, map[string]interface{}{})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "can't inject event")
+		test.That(t, err.Error(), test.ShouldContainSubstring, errTriggerEvent.Error())
 
 		var injectedEvent input.Event
 		extra = map[string]interface{}{"foo": "TriggerEvent"}
@@ -246,11 +245,11 @@ func TestClient(t *testing.T) {
 
 		_, err = client2.Controls(context.Background(), map[string]interface{}{})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get controls")
+		test.That(t, err.Error(), test.ShouldContainSubstring, errControlsFailed.Error())
 
 		_, err = client2.Events(context.Background(), map[string]interface{}{})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get last events")
+		test.That(t, err.Error(), test.ShouldContainSubstring, errEventsFailed.Error())
 
 		event1 := input.Event{
 			Time:    time.Now().UTC(),

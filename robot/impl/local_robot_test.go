@@ -1782,7 +1782,7 @@ func TestResourceStartsOnReconfigure(t *testing.T) {
 		test.ShouldBeError,
 		resource.NewNotAvailableError(
 			base.Named("fake0"),
-			errors.New("resource build error: unknown resource type: rdk:component:base and/or model: rdk:builtin:random"),
+			errors.New(`resource build error: unknown resource type: API "rdk:component:base" with model "rdk:builtin:random" not registered`),
 		),
 	)
 	test.That(t, noBase, test.ShouldBeNil)
@@ -1894,7 +1894,7 @@ func TestConfigPackageReferenceReplacement(t *testing.T) {
 	defer utils.UncheckedErrorFunc(fakePackageServer.Shutdown)
 
 	packageDir := t.TempDir()
-	labelPath := "${packages.package-2}/labels.txt"
+	labelPath := "${packages.orgID/some-name-2}/labels.txt"
 
 	robotConfig := &config.Config{
 		Packages: []config.PackageConfig{
@@ -1904,8 +1904,20 @@ func TestConfigPackageReferenceReplacement(t *testing.T) {
 				Version: "v1",
 			},
 			{
-				Name:    "some-name-2",
+				Name:    "orgID/some-name-2",
 				Package: "package-2",
+				Version: "latest",
+			},
+			{
+				Name:    "my-module",
+				Package: "orgID/my-module",
+				Type:    config.PackageTypeModule,
+				Version: "1.2",
+			},
+			{
+				Name:    "my-ml-model",
+				Package: "orgID/my-ml-model",
+				Type:    config.PackageTypeMlModel,
 				Version: "latest",
 			},
 		},
@@ -1916,10 +1928,26 @@ func TestConfigPackageReferenceReplacement(t *testing.T) {
 				API:   mlmodel.API,
 				Model: resource.DefaultModelFamily.WithModel("tflite_cpu"),
 				ConvertedAttributes: &tflitecpu.TFLiteConfig{
-					ModelPath:  "${packages.package-1}/model.tflite",
+					ModelPath:  "${packages.some-name-1}/model.tflite",
 					LabelPath:  labelPath,
 					NumThreads: 1,
 				},
+			},
+			{
+				Name:  "my-ml-model",
+				API:   mlmodel.API,
+				Model: resource.DefaultModelFamily.WithModel("tflite_cpu"),
+				ConvertedAttributes: &tflitecpu.TFLiteConfig{
+					ModelPath:  "${packages.ml_models.my-ml-model}/model.tflite",
+					LabelPath:  labelPath,
+					NumThreads: 2,
+				},
+			},
+		},
+		Modules: []config.Module{
+			{
+				Name:    "my-module",
+				ExePath: "${packages.modules.my-module}/exec.sh",
 			},
 		},
 	}
@@ -2112,12 +2140,16 @@ func TestConfigMethod(t *testing.T) {
 	actualCfg.Components = nil
 	expectedCfg.Components = nil
 
-	// Manually inspect remote resource as Equals should be used
+	// Manually inspect remote resource and process as Equals should be used
 	// (alreadyValidated will have been set to true).
 	test.That(t, len(actualCfg.Remotes), test.ShouldEqual, 1)
 	test.That(t, actualCfg.Remotes[0].Equals(expectedCfg.Remotes[0]), test.ShouldBeTrue)
 	actualCfg.Remotes = nil
 	expectedCfg.Remotes = nil
+	test.That(t, len(actualCfg.Processes), test.ShouldEqual, 1)
+	test.That(t, actualCfg.Processes[0].Equals(expectedCfg.Processes[0]), test.ShouldBeTrue)
+	actualCfg.Processes = nil
+	expectedCfg.Processes = nil
 
 	test.That(t, actualCfg, test.ShouldResemble, &expectedCfg)
 }
@@ -3098,5 +3130,75 @@ func TestResourcelessModuleRemove(t *testing.T) {
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		test.That(tb, logs.FilterMessageSnippet("Shutting down gracefully").Len(),
 			test.ShouldEqual, 1)
+	})
+}
+
+func TestCrashedModuleReconfigure(t *testing.T) {
+	ctx := context.Background()
+	logger, logs := golog.NewObservedTestLogger(t)
+
+	testPath, err := rtestutils.BuildTempModule(t, "module/testmodule")
+	test.That(t, err, test.ShouldBeNil)
+
+	// Lower resource configuration timeout to avoid waiting for 60 seconds
+	// for manager.Add to time out waiting for module to start listening.
+	defer func() {
+		test.That(t, os.Unsetenv(rutils.ResourceConfigurationTimeoutEnvVar),
+			test.ShouldBeNil)
+	}()
+	test.That(t, os.Setenv(rutils.ResourceConfigurationTimeoutEnvVar, "500ms"),
+		test.ShouldBeNil)
+
+	// Manually define model, as importing it can cause double registration.
+	helperModel := resource.NewModel("rdk", "test", "helper")
+
+	cfg := &config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "mod",
+				ExePath: testPath,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:  "h",
+				Model: helperModel,
+				API:   generic.API,
+			},
+		},
+	}
+	r, err := robotimpl.New(ctx, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+	}()
+
+	_, err = r.ResourceByName(generic.Named("h"))
+	test.That(t, err, test.ShouldBeNil)
+
+	// Reconfigure module to a module that immediately crashes. Assert that "h"
+	// is removed and the manager did not attempt to restart the crashed module.
+	cfg.Modules[0].ExePath = rutils.ResolveFile("module/testmodule/fakemodule.sh")
+	r.Reconfigure(ctx, cfg)
+
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		test.That(tb, logs.FilterMessageSnippet(
+			"module has unexpectedly exited without responding to a ready request").Len(),
+			test.ShouldEqual, 1)
+	})
+
+	_, err = r.ResourceByName(generic.Named("h"))
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeError,
+		resource.NewNotFoundError(generic.Named("h")))
+
+	// Reconfigure module back to testmodule. Assert that 'h' is eventually
+	// added back to the resource manager (the module recovers).
+	cfg.Modules[0].ExePath = testPath
+	r.Reconfigure(ctx, cfg)
+
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		_, err = r.ResourceByName(generic.Named("h"))
+		test.That(tb, err, test.ShouldBeNil)
 	})
 }

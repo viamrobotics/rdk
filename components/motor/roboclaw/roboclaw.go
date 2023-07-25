@@ -343,9 +343,9 @@ func (m *roboclawMotor) Position(ctx context.Context, extra map[string]interface
 	return float64(ticks) / float64(m.conf.TicksPerRotation), nil
 }
 
-func (m *roboclawMotor) Properties(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
-	return map[motor.Feature]bool{
-		motor.PositionReporting: true,
+func (m *roboclawMotor) Properties(ctx context.Context, extra map[string]interface{}) (motor.Properties, error) {
+	return motor.Properties{
+		PositionReporting: true,
 	}, nil
 }
 

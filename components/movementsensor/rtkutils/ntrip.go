@@ -1,4 +1,4 @@
-package gpsrtk
+package rtkutils
 
 import (
 	"fmt"
@@ -17,6 +17,15 @@ type NtripInfo struct {
 	Client             *ntrip.Client
 	Stream             io.ReadCloser
 	MaxConnectAttempts int
+}
+
+// NtripConfig is used for converting attributes for a correction source.
+type NtripConfig struct {
+	NtripURL             string `json:"ntrip_url"`
+	NtripConnectAttempts int    `json:"ntrip_connect_attempts,omitempty"`
+	NtripMountpoint      string `json:"ntrip_mountpoint,omitempty"`
+	NtripPass            string `json:"ntrip_password,omitempty"`
+	NtripUser            string `json:"ntrip_username,omitempty"`
 }
 
 // NewNtripInfo function validates and sets NtripConfig arributes and returns NtripInfo.

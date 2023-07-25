@@ -62,7 +62,7 @@ func wrapWithPTGKinematics(
 		return nil, errors.New("can only wrap with PTG kinematics if turning radius is greater than zero")
 	}
 
-	geometries, err := b.Geometries(ctx)
+	geometries, err := b.Geometries(ctx, nil)
 	if err != nil {
 		return nil, err
 	}

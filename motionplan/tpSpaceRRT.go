@@ -114,8 +114,8 @@ func (mp *tpSpaceRRTMotionPlanner) plan(ctx context.Context,
 
 	seedPos := spatialmath.NewZeroPose()
 
-	startNode := &basicNode{make([]referenceframe.Input, len(mp.frame.DoF())), 0, seedPos}
-	goalNode := &basicNode{nil, 0, goal}
+	startNode := &basicNode{q: make([]referenceframe.Input, len(mp.frame.DoF())), cost: 0, pose: seedPos, corner: false}
+	goalNode := &basicNode{q: nil, cost: 0, pose: goal, corner: false}
 
 	utils.PanicCapturingGo(func() {
 		mp.planRunner(ctx, seed, &rrtParallelPlannerShared{
@@ -199,7 +199,7 @@ func (mp *tpSpaceRRTMotionPlanner) planRunner(
 		} else {
 			randPos = goalPose
 		}
-		randPosNode := &basicNode{nil, 0, randPos}
+		randPosNode := &basicNode{q: nil, cost: 0, pose: randPos, corner: false}
 
 		successNode := mp.attemptExtension(ctx, nil, randPosNode, rrt)
 		// If we tried the goal and have a close-enough XY location, check if the node is good enough to be a final goal
@@ -284,9 +284,10 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 	}
 	// add the last node in trajectory
 	successNode = &basicNode{
-		referenceframe.FloatsToInputs([]float64{float64(ptgNum), float64(goalK), lastNode.Dist}),
-		nearest.Cost() + lastNode.Dist,
-		lastPose,
+		q:      referenceframe.FloatsToInputs([]float64{float64(ptgNum), float64(goalK), lastNode.Dist}),
+		cost:   nearest.Cost() + lastNode.Dist,
+		pose:   lastPose,
+		corner: false,
 	}
 
 	cand := &candidate{dist: bestDist, treeNode: nearest, newNode: successNode, lastInTraj: isLastNode}
@@ -388,9 +389,10 @@ func (mp *tpSpaceRRTMotionPlanner) extendMap(
 		if mp.algOpts.addIntermediate && sinceLastNode > mp.algOpts.addNodeEvery {
 			// add the last node in trajectory
 			addedNode = &basicNode{
-				referenceframe.FloatsToInputs([]float64{float64(ptgNum), float64(randK), trajPt.Dist}),
-				treeNode.Cost() + trajPt.Dist,
-				trajState.Position,
+				q:      referenceframe.FloatsToInputs([]float64{float64(ptgNum), float64(randK), trajPt.Dist}),
+				cost:   treeNode.Cost() + trajPt.Dist,
+				pose:   trajState.Position,
+				corner: false,
 			}
 			rrt.maps.startMap[addedNode] = treeNode
 			sinceLastNode = 0.

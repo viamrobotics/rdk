@@ -75,17 +75,17 @@ func (c *client) ResetPosition(ctx context.Context, extra map[string]interface{}
 }
 
 // Properties returns a list of all the position types that are supported by a given encoder.
-func (c *client) Properties(ctx context.Context, extra map[string]interface{}) (map[Feature]bool, error) {
+func (c *client) Properties(ctx context.Context, extra map[string]interface{}) (Properties, error) {
 	ext, err := structpb.NewStruct(extra)
 	if err != nil {
-		return nil, err
+		return Properties{}, err
 	}
 	req := &pb.GetPropertiesRequest{Name: c.name, Extra: ext}
 	resp, err := c.client.GetProperties(ctx, req)
 	if err != nil {
-		return nil, err
+		return Properties{}, err
 	}
-	return ProtoFeaturesToMap(resp), nil
+	return ProtoFeaturesToProperties(resp), nil
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {

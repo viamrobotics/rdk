@@ -49,9 +49,8 @@ type Encoder struct {
 	encBName  string
 
 	logger golog.Logger
-	// TODO(RSDK-2672): This is exposed for tests and should be unexported with
-	// the constructor being used instead.
-	CancelCtx               context.Context
+
+	cancelCtx               context.Context
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
 }
@@ -98,7 +97,7 @@ func NewIncrementalEncoder(
 	e := &Encoder{
 		Named:        conf.ResourceName().AsNamed(),
 		logger:       logger,
-		CancelCtx:    cancelCtx,
+		cancelCtx:    cancelCtx,
 		cancelFunc:   cancelFunc,
 		position:     0,
 		positionType: encoder.PositionTypeTicks,
@@ -154,7 +153,7 @@ func (e *Encoder) Reconfigure(
 	}
 	utils.UncheckedError(e.Close(ctx))
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
-	e.CancelCtx = cancelCtx
+	e.cancelCtx = cancelCtx
 	e.cancelFunc = cancelFunc
 
 	e.mu.Lock()
@@ -239,7 +238,7 @@ func (e *Encoder) Start(ctx context.Context) {
 			// statement guarantees that we'll return if we're supposed to, regardless of whether
 			// there's data in the other channels.
 			select {
-			case <-e.CancelCtx.Done():
+			case <-e.cancelCtx.Done():
 				return
 			default:
 			}
@@ -247,7 +246,7 @@ func (e *Encoder) Start(ctx context.Context) {
 			var tick board.Tick
 
 			select {
-			case <-e.CancelCtx.Done():
+			case <-e.cancelCtx.Done():
 				return
 			case tick = <-chanA:
 				aLevel = 0
@@ -311,10 +310,10 @@ func (e *Encoder) ResetPosition(ctx context.Context, extra map[string]interface{
 }
 
 // Properties returns a list of all the position types that are supported by a given encoder.
-func (e *Encoder) Properties(ctx context.Context, extra map[string]interface{}) (map[encoder.Feature]bool, error) {
-	return map[encoder.Feature]bool{
-		encoder.TicksCountSupported:   true,
-		encoder.AngleDegreesSupported: false,
+func (e *Encoder) Properties(ctx context.Context, extra map[string]interface{}) (encoder.Properties, error) {
+	return encoder.Properties{
+		TicksCountSupported:   true,
+		AngleDegreesSupported: false,
 	}, nil
 }
 
