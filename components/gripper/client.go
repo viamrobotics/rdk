@@ -5,6 +5,7 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
+	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/gripper/v1"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
@@ -12,6 +13,7 @@ import (
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // client implements GripperServiceClient.
@@ -95,4 +97,19 @@ func (c *client) IsMoving(ctx context.Context) (bool, error) {
 		return false, err
 	}
 	return resp.IsMoving, nil
+}
+
+func (c *client) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.client.GetGeometries(ctx, &commonpb.GetGeometriesRequest{
+		Name:  c.name,
+		Extra: ext,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return spatialmath.NewGeometriesFromProto(resp.GetGeometries())
 }

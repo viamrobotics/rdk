@@ -37,6 +37,7 @@ func Named(name string) resource.Name {
 // A Gripper represents a physical robotic gripper.
 type Gripper interface {
 	resource.Resource
+	resource.Shaped
 	resource.Actuator
 	referenceframe.ModelFramer
 

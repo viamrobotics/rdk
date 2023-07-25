@@ -1782,7 +1782,7 @@ func TestResourceStartsOnReconfigure(t *testing.T) {
 		test.ShouldBeError,
 		resource.NewNotAvailableError(
 			base.Named("fake0"),
-			errors.New("resource build error: unknown resource type: rdk:component:base and/or model: rdk:builtin:random"),
+			errors.New(`resource build error: unknown resource type: API "rdk:component:base" with model "rdk:builtin:random" not registered`),
 		),
 	)
 	test.That(t, noBase, test.ShouldBeNil)
@@ -1894,7 +1894,7 @@ func TestConfigPackageReferenceReplacement(t *testing.T) {
 	defer utils.UncheckedErrorFunc(fakePackageServer.Shutdown)
 
 	packageDir := t.TempDir()
-	labelPath := "${packages.package-2}/labels.txt"
+	labelPath := "${packages.orgID/some-name-2}/labels.txt"
 
 	robotConfig := &config.Config{
 		Packages: []config.PackageConfig{
@@ -1904,8 +1904,20 @@ func TestConfigPackageReferenceReplacement(t *testing.T) {
 				Version: "v1",
 			},
 			{
-				Name:    "some-name-2",
+				Name:    "orgID/some-name-2",
 				Package: "package-2",
+				Version: "latest",
+			},
+			{
+				Name:    "my-module",
+				Package: "orgID/my-module",
+				Type:    config.PackageTypeModule,
+				Version: "1.2",
+			},
+			{
+				Name:    "my-ml-model",
+				Package: "orgID/my-ml-model",
+				Type:    config.PackageTypeMlModel,
 				Version: "latest",
 			},
 		},
@@ -1916,10 +1928,26 @@ func TestConfigPackageReferenceReplacement(t *testing.T) {
 				API:   mlmodel.API,
 				Model: resource.DefaultModelFamily.WithModel("tflite_cpu"),
 				ConvertedAttributes: &tflitecpu.TFLiteConfig{
-					ModelPath:  "${packages.package-1}/model.tflite",
+					ModelPath:  "${packages.some-name-1}/model.tflite",
 					LabelPath:  labelPath,
 					NumThreads: 1,
 				},
+			},
+			{
+				Name:  "my-ml-model",
+				API:   mlmodel.API,
+				Model: resource.DefaultModelFamily.WithModel("tflite_cpu"),
+				ConvertedAttributes: &tflitecpu.TFLiteConfig{
+					ModelPath:  "${packages.ml_models.my-ml-model}/model.tflite",
+					LabelPath:  labelPath,
+					NumThreads: 2,
+				},
+			},
+		},
+		Modules: []config.Module{
+			{
+				Name:    "my-module",
+				ExePath: "${packages.modules.my-module}/exec.sh",
 			},
 		},
 	}

@@ -65,8 +65,8 @@ type Motor interface {
 	// back into calls of GoFor.
 	Position(ctx context.Context, extra map[string]interface{}) (float64, error)
 
-	// Properties returns whether or not the motor supports certain optional features.
-	Properties(ctx context.Context, extra map[string]interface{}) (map[Feature]bool, error)
+	// Properties returns whether or not the motor supports certain optional properties.
+	Properties(ctx context.Context, extra map[string]interface{}) (Properties, error)
 
 	// IsPowered returns whether or not the motor is currently on, and the percent power (between 0
 	// and 1, if the motor is off then the percent power will be 0).
@@ -100,12 +100,12 @@ func CreateStatus(ctx context.Context, m Motor) (*pb.Status, error) {
 	if err != nil {
 		return nil, err
 	}
-	features, err := m.Properties(ctx, nil)
+	properties, err := m.Properties(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 	var position float64
-	if features[PositionReporting] {
+	if properties.PositionReporting {
 		position, err = m.Position(ctx, nil)
 		if err != nil {
 			return nil, err
