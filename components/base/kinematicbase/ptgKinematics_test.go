@@ -31,8 +31,9 @@ func TestPTGKinematics(t *testing.T) {
 	}
 
 	ctx := context.Background()
+	options := NewKinematicBaseOptions()
 
-	kb, err := WrapWithKinematics(ctx, b, logger, nil, nil, 0, 0)
+	kb, err := WrapWithKinematics(ctx, b, logger, nil, nil, options)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, kb, test.ShouldNotBeNil)
 	ptgBase, ok := kb.(*ptgBaseKinematics)

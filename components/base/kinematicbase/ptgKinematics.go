@@ -38,8 +38,7 @@ type ptgBaseKinematics struct {
 func wrapWithPTGKinematics(
 	ctx context.Context,
 	b base.Base,
-	maxLinearVelocityMillisPerSec float64,
-	maxAngularVelocityDegsPerSec float64,
+	options KinematicBaseOptions,
 ) (KinematicBase, error) {
 	properties, err := b.Properties(ctx, nil)
 	if err != nil {
@@ -47,14 +46,14 @@ func wrapWithPTGKinematics(
 	}
 
 	baseMillimetersPerSecond := defaultBaseMMps
-	if maxLinearVelocityMillisPerSec > 0 {
-		baseMillimetersPerSecond = maxLinearVelocityMillisPerSec
+	if options.LinearVelocityMillisPerSec > 0 {
+		baseMillimetersPerSecond = options.LinearVelocityMillisPerSec
 	}
 
 	baseTurningRadius := properties.TurningRadiusMeters
-	if maxAngularVelocityDegsPerSec > 0 {
+	if options.AngularVelocityDegsPerSec > 0 {
 		// Compute smallest allowable turning radius permitted by the given speeds. Use the greater of the two.
-		calcTurnRadius := (baseMillimetersPerSecond / rdkutils.DegToRad(maxAngularVelocityDegsPerSec)) / 1000.
+		calcTurnRadius := (baseMillimetersPerSecond / rdkutils.DegToRad(options.AngularVelocityDegsPerSec)) / 1000.
 		baseTurningRadius = math.Max(baseTurningRadius, calcTurnRadius)
 	}
 
