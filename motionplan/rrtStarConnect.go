@@ -30,6 +30,9 @@ type rrtStarConnectOptions struct {
 	// The number of nearest neighbors to consider when adding a new sample to the tree
 	NeighborhoodSize int `json:"neighborhood_size"`
 
+	// If the dot product between two sets of joint angles is less than this, consider them identical.
+	JointSolveDist float64 `json:"joint_solve_dist"`
+
 	// Number of iterations to mrun before beginning to accept randomly seeded locations.
 	IterBeforeRand int `json:"iter_before_rand"`
 
@@ -44,8 +47,9 @@ type rrtStarConnectOptions struct {
 // All values are pre-set to reasonable defaults, but can be tweaked if needed.
 func newRRTStarConnectOptions(planOpts *plannerOptions, frame referenceframe.Frame) (*rrtStarConnectOptions, error) {
 	algOpts := &rrtStarConnectOptions{
-		FrameStep:       defaultFrameStep,
+		FrameStep:        defaultFrameStep,
 		NeighborhoodSize: defaultNeighborhoodSize,
+		JointSolveDist:   defaultJointSolveDist,
 		IterBeforeRand:   defaultIterBeforeRand,
 		rrtOptions:       newRRTOptions(),
 	}
@@ -69,7 +73,7 @@ func newRRTStarConnectOptions(planOpts *plannerOptions, frame referenceframe.Fra
 type rrtStarConnectMotionPlanner struct {
 	*planner
 	fastGradDescent *NloptIK
-	algOpts *rrtStarConnectOptions
+	algOpts         *rrtStarConnectOptions
 }
 
 // NewRRTStarConnectMotionPlannerWithSeed creates a rrtStarConnectMotionPlanner object with a user specified random seed.
@@ -214,7 +218,7 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 		reachedDelta := mp.planOpts.DistanceFunc(&Segment{StartConfiguration: map1reached.Q(), EndConfiguration: map2reached.Q()})
 
 		// Second iteration; extend maps 1 and 2 towards the halfway point between where they reached
-		if reachedDelta > 0.0001 {
+		if reachedDelta > mp.algOpts.JointSolveDist {
 			target = referenceframe.InterpolateInputs(map1reached.Q(), map2reached.Q(), 0.5)
 			map1reached, map2reached, err = tryExtend(target)
 			if err != nil {
@@ -225,10 +229,9 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 		}
 
 		// Solved
-		if reachedDelta <= 0.0001 {
+		if reachedDelta <= mp.algOpts.JointSolveDist {
 			// target was added to both map
 			shared = append(shared, &nodePair{map1reached, map2reached})
-			nSolved++
 
 			// Check if we can return
 			if nSolved%defaultOptimalityCheckIter == 0 {
@@ -240,8 +243,10 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 					return
 				}
 			}
+			
+			nSolved++
 		}
-		
+
 		// get next sample, switch map pointers
 		target, err = mp.sample(map1reached, i)
 		if err != nil {
@@ -294,7 +299,7 @@ func (mp *rrtStarConnectMotionPlanner) constrainedExtend(
 		dist := mp.planOpts.DistanceFunc(&Segment{StartConfiguration: near.Q(), EndConfiguration: target.Q()})
 		oldDist := mp.planOpts.DistanceFunc(&Segment{StartConfiguration: oldNear.Q(), EndConfiguration: target.Q()})
 		switch {
-		case dist < 0.0001:
+		case dist < mp.algOpts.JointSolveDist:
 			mchan <- near
 			return
 		case dist > oldDist:
@@ -323,7 +328,7 @@ func (mp *rrtStarConnectMotionPlanner) constrainedExtend(
 
 		if newNear != nil {
 			nearDist := mp.planOpts.DistanceFunc(&Segment{StartConfiguration: oldNear.Q(), EndConfiguration: newNear})
-			if nearDist < math.Pow(0.0001, 3) {
+			if nearDist < math.Pow(mp.algOpts.JointSolveDist, 3) {
 				if !doubled {
 					doubled = true
 					// Check if doubling qstep will allow escape from the identical configuration
@@ -412,7 +417,7 @@ func (mp *rrtStarConnectMotionPlanner) constrainNear(
 		}
 		if failpos != nil {
 			dist := mp.planOpts.DistanceFunc(&Segment{StartConfiguration: target, EndConfiguration: failpos.EndConfiguration})
-			if dist > 0.0001 {
+			if dist > mp.algOpts.JointSolveDist {
 				// If we have a first failing position, and that target is updating (no infinite loop), then recurse
 				seedInputs = failpos.StartConfiguration
 				target = failpos.EndConfiguration
