@@ -103,7 +103,7 @@ func TestConnect(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	err = g.getStream("", 10)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `no such host`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `lookup fakeurl`)
 }
 
 func TestReadings(t *testing.T) {
