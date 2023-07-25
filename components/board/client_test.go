@@ -255,9 +255,6 @@ func TestClientWithoutStatus(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
 	injectBoard := &inject.Board{}
-	injectBoard.StatusFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
-		return nil, errStatusFailed
-	}
 
 	listener1, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)

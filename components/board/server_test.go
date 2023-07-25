@@ -18,7 +18,6 @@ import (
 var (
 	errFoo           = errors.New("whoops")
 	errUnimplemented = errors.New("not found")
-	errStatusFailed  = errors.New("no status")
 )
 
 func newServer() (pb.BoardServiceServer, *inject.Board, error) {
