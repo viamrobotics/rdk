@@ -83,9 +83,6 @@ type Arm interface {
 	JointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error)
 }
 
-// ErrStopUnimplemented is used for when Stop is unimplemented.
-var ErrStopUnimplemented = errors.New("Stop unimplemented")
-
 // FromDependencies is a helper for getting the named arm from a collection of
 // dependencies.
 func FromDependencies(deps resource.Dependencies, name string) (Arm, error) {
