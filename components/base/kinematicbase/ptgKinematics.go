@@ -38,7 +38,7 @@ type ptgBaseKinematics struct {
 func wrapWithPTGKinematics(
 	ctx context.Context,
 	b base.Base,
-	options KinematicBaseOptions,
+	options Options,
 ) (KinematicBase, error) {
 	properties, err := b.Properties(ctx, nil)
 	if err != nil {

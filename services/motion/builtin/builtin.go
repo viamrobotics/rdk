@@ -252,7 +252,7 @@ func (ms *builtIn) planMoveOnGlobe(
 	destination *geo.Point,
 	movementSensorName resource.Name,
 	obstacles []*spatialmath.GeoObstacle,
-	kinematicsOptions kinematicbase.KinematicBaseOptions,
+	kinematicsOptions kinematicbase.Options,
 	extra map[string]interface{},
 ) ([][]referenceframe.Input, kinematicbase.KinematicBase, error) {
 	// build the localizer from the movement sensor
@@ -445,7 +445,7 @@ func (ms *builtIn) planMoveOnMap(
 	componentName resource.Name,
 	destination spatialmath.Pose,
 	slamName resource.Name,
-	kinematicsOptions kinematicbase.KinematicBaseOptions,
+	kinematicsOptions kinematicbase.Options,
 	extra map[string]interface{},
 ) ([][]referenceframe.Input, kinematicbase.KinematicBase, error) {
 	// get the SLAM Service from the slamName

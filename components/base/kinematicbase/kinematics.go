@@ -46,8 +46,8 @@ const (
 	defaultmovementEpsilon = 20 // mm
 )
 
-// KinematicBaseOptions contains values used for execution of base movement.
-type KinematicBaseOptions struct {
+// Options contains values used for execution of base movement.
+type Options struct {
 	// LinearVelocityMillisPerSec is the linear velocity the base will drive at in mm/s
 	LinearVelocityMillisPerSec float64
 
@@ -74,8 +74,8 @@ type KinematicBaseOptions struct {
 
 // NewKinematicBaseOptions creates a struct with values used for execution of base movement.
 // all values are pre-set to reasonable default values and can be changed if desired.
-func NewKinematicBaseOptions() KinematicBaseOptions {
-	options := KinematicBaseOptions{
+func NewKinematicBaseOptions() Options {
+	options := Options{
 		LinearVelocityMillisPerSec: defaultLinearVelocityMillisPerSec,
 		AngularVelocityDegsPerSec:  defaultAngularVelocityDegsPerSec,
 		DistThresholdMM:            defaultDistThresholdMM,
@@ -95,7 +95,7 @@ func WrapWithKinematics(
 	logger golog.Logger,
 	localizer motion.Localizer,
 	limits []referenceframe.Limit,
-	options KinematicBaseOptions,
+	options Options,
 ) (KinematicBase, error) {
 	properties, err := b.Properties(ctx, nil)
 	if err != nil {
