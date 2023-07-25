@@ -1,4 +1,3 @@
-// Package builtin contains the default navigation service, along with a gRPC server and client
 package builtin
 
 import (
