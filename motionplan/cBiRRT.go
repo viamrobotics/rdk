@@ -18,15 +18,6 @@ import (
 )
 
 const (
-	// The maximum percent of a joints range of motion to allow per step.
-	defaultFrameStep = 0.015
-
-	// If the dot product between two sets of joint angles is less than this, consider them identical.
-	defaultJointSolveDist = 0.0001
-
-	// Number of iterations to run before beginning to accept randomly seeded locations.
-	defaultIterBeforeRand = 50
-
 	// Maximum number of iterations that constrainNear will run before exiting nil.
 	// Typically it will solve in the first five iterations, or not at all.
 	maxNearIter = 20
@@ -36,20 +27,8 @@ const (
 )
 
 type cbirrtOptions struct {
-	// The maximum percent of a joints range of motion to allow per step.
-	FrameStep float64 `json:"frame_step"`
-
-	// If the dot product between two sets of joint angles is less than this, consider them identical.
-	JointSolveDist float64 `json:"joint_solve_dist"`
-
 	// Number of IK solutions with which to seed the goal side of the bidirectional tree.
 	SolutionsToSeed int `json:"solutions_to_seed"`
-
-	// Number of iterations to mrun before beginning to accept randomly seeded locations.
-	IterBeforeRand int `json:"iter_before_rand"`
-
-	// This is how far cbirrt will try to extend the map towards a goal per-step. Determined from FrameStep
-	qstep []float64
 
 	// Parameters common to all RRT implementations
 	*rrtOptions
@@ -59,11 +38,7 @@ type cbirrtOptions struct {
 // defaults, but can be tweaked if needed.
 func newCbirrtOptions(planOpts *plannerOptions, frame referenceframe.Frame) (*cbirrtOptions, error) {
 	algOpts := &cbirrtOptions{
-		FrameStep:       defaultFrameStep,
-		JointSolveDist:  defaultJointSolveDist,
 		SolutionsToSeed: defaultSolutionsToSeed,
-		IterBeforeRand:  defaultIterBeforeRand,
-		rrtOptions:      newRRTOptions(),
 	}
 	// convert map to json
 	jsonString, err := json.Marshal(planOpts.extra)
@@ -75,7 +50,9 @@ func newCbirrtOptions(planOpts *plannerOptions, frame referenceframe.Frame) (*cb
 		return nil, err
 	}
 
-	algOpts.qstep = getFrameSteps(frame, algOpts.FrameStep)
+	rrtOptions := newRRTOptions()
+	rrtOptions.qstep = getFrameSteps(frame, rrtOptions.FrameStep)
+	algOpts.rrtOptions = rrtOptions
 
 	return algOpts, nil
 }

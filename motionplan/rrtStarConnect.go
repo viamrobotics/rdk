@@ -24,20 +24,8 @@ const (
 )
 
 type rrtStarConnectOptions struct {
-	// The maximum percent of a joints range of motion to allow per step.
-	FrameStep float64 `json:"frame_step"`
-
 	// The number of nearest neighbors to consider when adding a new sample to the tree
 	NeighborhoodSize int `json:"neighborhood_size"`
-
-	// If the dot product between two sets of joint angles is less than this, consider them identical.
-	JointSolveDist float64 `json:"joint_solve_dist"`
-
-	// Number of iterations to mrun before beginning to accept randomly seeded locations.
-	IterBeforeRand int `json:"iter_before_rand"`
-
-	// This is how far cbirrt will try to extend the map towards a goal per-step. Determined from FrameStep
-	qstep []float64
 
 	// Parameters common to all RRT implementations
 	*rrtOptions
@@ -47,11 +35,7 @@ type rrtStarConnectOptions struct {
 // All values are pre-set to reasonable defaults, but can be tweaked if needed.
 func newRRTStarConnectOptions(planOpts *plannerOptions, frame referenceframe.Frame) (*rrtStarConnectOptions, error) {
 	algOpts := &rrtStarConnectOptions{
-		FrameStep:        defaultFrameStep,
 		NeighborhoodSize: defaultNeighborhoodSize,
-		JointSolveDist:   defaultJointSolveDist,
-		IterBeforeRand:   defaultIterBeforeRand,
-		rrtOptions:       newRRTOptions(),
 	}
 	// convert map to json
 	jsonString, err := json.Marshal(planOpts.extra)
@@ -63,7 +47,10 @@ func newRRTStarConnectOptions(planOpts *plannerOptions, frame referenceframe.Fra
 		return nil, err
 	}
 
-	algOpts.qstep = getFrameSteps(frame, algOpts.FrameStep)
+	rrtOptions := newRRTOptions()
+	rrtOptions.qstep = getFrameSteps(frame, rrtOptions.FrameStep)
+	algOpts.rrtOptions = rrtOptions
+
 	return algOpts, nil
 }
 
@@ -243,7 +230,7 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 					return
 				}
 			}
-			
+
 			nSolved++
 		}
 
@@ -296,6 +283,9 @@ func (mp *rrtStarConnectMotionPlanner) constrainedExtend(
 		default:
 		}
 
+		// iterate over the k nearest neighbors and find the minimum cost to connect the target node to the tree
+		neighbors := kNearestNeighbors(mp.planOpts, rrtMap, &basicNode{q: target.Q()}, mp.algOpts.NeighborhoodSize)
+
 		dist := mp.planOpts.DistanceFunc(&Segment{StartConfiguration: near.Q(), EndConfiguration: target.Q()})
 		oldDist := mp.planOpts.DistanceFunc(&Segment{StartConfiguration: oldNear.Q(), EndConfiguration: target.Q()})
 		switch {
@@ -308,7 +298,6 @@ func (mp *rrtStarConnectMotionPlanner) constrainedExtend(
 		}
 
 		oldNear = near
-
 		newNear := make([]referenceframe.Input, 0, len(near.Q()))
 
 		// alter near to be closer to target
@@ -350,8 +339,31 @@ func (mp *rrtStarConnectMotionPlanner) constrainedExtend(
 				doubled = false
 			}
 			// constrainNear will ensure path between oldNear and newNear satisfies constraints along the way
-			near = &basicNode{q: newNear}
+			near = &basicNode{q: newNear, cost: neighbors[0].node.Cost() + neighbors[0].dist}
 			rrtMap[near] = oldNear
+
+			// rewire the tree
+			for i, thisNeighbor := range neighbors {
+				// dont need to try to rewire nearest neighbor, so skip it
+				if i == 0 {
+					continue
+				}
+
+				// check to see if a shortcut is possible, and rewire the node if it is
+				connectionCost := mp.planOpts.DistanceFunc(&Segment{
+					StartConfiguration: thisNeighbor.node.Q(),
+					EndConfiguration:   near.Q(),
+				})
+				cost := connectionCost + near.Cost()
+
+				// If 1) we have a lower cost, and 2) the putative updated path is valid
+				if cost < thisNeighbor.node.Cost() && mp.checkPath(target.Q(), thisNeighbor.node.Q()) {
+					// Alter the cost of the node
+					// This needs to edit the existing node, rather than make a new one, as there are pointers in the tree
+					thisNeighbor.node.SetCost(cost)
+					rrtMap[thisNeighbor.node] = near
+				}
+			}
 		} else {
 			break
 		}
