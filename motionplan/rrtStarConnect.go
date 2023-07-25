@@ -228,6 +228,7 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 		if reachedDelta <= 0.0001 {
 			// target was added to both map
 			shared = append(shared, &nodePair{map1reached, map2reached})
+			nSolved++
 
 			// Check if we can return
 			if nSolved%defaultOptimalityCheckIter == 0 {
@@ -239,19 +240,8 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 					return
 				}
 			}
-
-			nSolved++
 		}
-
-		// Solved!
-		// if reachedDelta <= 0.0001 {
-		// 	mp.logger.Debugf("CBiRRT found solution after %d iterations", i)
-		// 	cancel()
-		// 	path := extractPath(rrt.maps.startMap, rrt.maps.goalMap, &nodePair{map1reached, map2reached})
-		// 	rrt.solutionChan <- &rrtPlanReturn{steps: path, maps: rrt.maps}
-		// 	return
-		// }
-
+		
 		// get next sample, switch map pointers
 		target, err = mp.sample(map1reached, i)
 		if err != nil {
@@ -273,45 +263,6 @@ func (mp *rrtStarConnectMotionPlanner) sample(rSeed node, sampleNum int) ([]refe
 	// Seeding nearby to valid points results in much faster convergence in less constrained space
 	return referenceframe.RestrictedRandomFrameInputs(mp.frame, mp.randseed, 0.1, rSeed.Q())
 }
-
-// func (mp *rrtStarConnectMotionPlanner) extend(
-// 	tree rrtMap,
-// 	target []referenceframe.Input,
-// 	mchan chan node,
-// ) {
-// 	if validTarget := mp.checkInputs(target); !validTarget {
-// 		mchan <- nil
-// 		return
-// 	}
-
-// 	// find nearest neighbor and cost to connect the target node to the tree
-// 	neighbors := kNearestNeighbors(mp.planOpts, tree, &basicNode{q: target}, 1)
-// 	var targetNode node
-
-// 	ok, validSeg := mp.planOpts.CheckSegmentAndStateValidity(
-// 		&Segment{
-// 			StartConfiguration: neighbors[0].node.Q(),
-// 			EndConfiguration:   target,
-// 			Frame:              mp.frame,
-// 		},
-// 		mp.planOpts.Resolution,
-// 	)
-// 	if !ok {
-// 		if validSeg == nil {
-// 			mchan <- nil
-// 			return
-// 		}
-// 		targetNode = &basicNode{q: []referenceframe.Input{validSeg.EndConfiguration[0],
-// 			validSeg.EndConfiguration[1],
-// 			validSeg.EndConfiguration[2]},
-// 			cost: neighbors[0].node.Cost() + neighbors[0].dist}
-// 	} else {
-// 		targetNode = &basicNode{q: target, cost: neighbors[0].node.Cost() + neighbors[0].dist}
-// 	}
-
-// 	tree[targetNode] = neighbors[0].node
-// 	mchan <- targetNode
-// }
 
 func (mp *rrtStarConnectMotionPlanner) constrainedExtend(
 	ctx context.Context,
