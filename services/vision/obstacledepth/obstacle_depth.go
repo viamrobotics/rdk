@@ -1,44 +1,45 @@
-// Package obstacledistance uses an underlying camera to fulfill vision service methods, specifically
-// GetObjectPointClouds, which performs several queries of NextPointCloud and returns a median point.
+// Package obstacledepth uses an underlying depth camera to fulfill GetObjectPointClouds,
+// using the method outlined in ()
 package obstacledepth
 
 import (
 	"context"
-	"github.com/edaniels/golog"
-	"github.com/golang/geo/r3"
-	"github.com/muesli/clusters"
-	"github.com/muesli/kmeans"
-	"github.com/pkg/errors"
-	"go.opencensus.io/trace"
-	"go.viam.com/rdk/pointcloud"
-	"go.viam.com/rdk/rimage"
-	"go.viam.com/rdk/rimage/transform"
-	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/vision/segmentation"
 	"image"
 	"math"
 	"runtime"
 	"strconv"
 	"sync"
 
+	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
+	"github.com/muesli/clusters"
+	"github.com/muesli/kmeans"
+	"github.com/pkg/errors"
+	"go.opencensus.io/trace"
+
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
 	svision "go.viam.com/rdk/services/vision"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 	vision "go.viam.com/rdk/vision"
+	"go.viam.com/rdk/vision/segmentation"
 )
 
 var model = resource.DefaultModelFamily.WithModel("obstacle_depth")
 
-// DistanceDetectorConfig specifies the parameters for the camera to be used
+// ObstaclesDepthConfig specifies the parameters for the camera to be used
 // for the obstacle distance detection service.
 type ObstaclesDepthConfig struct {
 	K          int     `json:"k"`
 	Hmin       float64 `json:"hmin"`
 	Hmax       float64 `json:"hmax"`
 	ThetaMax   float64 `json:"theta_max"`
-	returnPCDs bool    `json:"return_pcds"`
+	ReturnPCDs bool    `json:"return_pcds"`
 	intrinsics *transform.PinholeCameraIntrinsics
 }
 
@@ -61,13 +62,13 @@ type obsDepth struct {
 }
 
 const (
-	// params from paper (def need to link paper somewhere in here shoutout them)
-	default_Hmin     = 0.0
-	default_Hmax     = 150.0
-	default_Thetamax = math.Pi / 4
-	chunkSize        = 200 // we send chunkSize points in each goroutine to speed things up
-	sampleN          = 4   // we sample 1 in every sampleN depth points to speed things up (lol)
-	maxThreads       = 300 // we will run at mos maxThreads goroutines.. to speed things up
+	// params from paper (def need to link paper somewhere in here shoutout them).
+	defaultHmin     = 0.0
+	defaultHmax     = 150.0
+	defaultThetamax = math.Pi / 4
+	chunkSize       = 200 // we send chunkSize points in each goroutine to speed things up
+	sampleN         = 4   // we sample 1 in every sampleN depth points to speed things up (lol)
+	maxThreads      = 300 // we will run at mos maxThreads goroutines.. to speed things up
 )
 
 func init() {
@@ -142,20 +143,21 @@ func registerObstacleDepth(
 
 	// Use defaults if needed
 	if conf.Hmax == 0 {
-		conf.Hmax = default_Hmax
+		conf.Hmax = defaultHmax
 	}
 	if conf.ThetaMax == 0 {
-		conf.ThetaMax = default_Thetamax
+		conf.ThetaMax = defaultThetamax
 	}
 
-	myObsDep := obsDepth{Hmin: conf.Hmin, Hmax: conf.Hmax, sinTheta: math.Sin(conf.ThetaMax),
-		intrinsics: conf.intrinsics, returnPCDs: conf.returnPCDs}
+	myObsDep := obsDepth{
+		Hmin: conf.Hmin, Hmax: conf.Hmax, sinTheta: math.Sin(conf.ThetaMax),
+		intrinsics: conf.intrinsics, returnPCDs: conf.ReturnPCDs,
+	}
 	segmenter := myObsDep.buildObsDepthWithIntrinsics() // does the thing
 	return svision.NewService(name, r, nil, nil, nil, segmenter)
 }
 
 func (o *obsDepth) buildObsDepthWithIntrinsics() segmentation.Segmenter {
-
 	return func(ctx context.Context, src camera.VideoSource) ([]*vision.Object, error) {
 		depthStream, err := src.Stream(ctx)
 		if err != nil {
@@ -180,13 +182,13 @@ func (o *obsDepth) buildObsDepthWithIntrinsics() segmentation.Segmenter {
 		var wg sync.WaitGroup
 		for i, chunk := range o.ptChunks {
 			wg.Add(1)
-			go func(chunk []obsPoint) {
+			go func(i int, chunk []obsPoint) {
 				defer wg.Done()
 				for j, p := range chunk {
 					o.ptChunks[i][j].isObstacle = o.isObstaclePoint(p.point)
 				}
 				doneCh <- true
-			}(chunk)
+			}(i, chunk)
 		}
 		go func() {
 			wg.Wait()
@@ -200,7 +202,7 @@ func (o *obsDepth) buildObsDepthWithIntrinsics() segmentation.Segmenter {
 		}
 
 		// Cluster on the 2D depth points and then project the 2D clusters into 3D boxes
-		outClusters, err := o.kMeans(o.k)
+		outClusters, err := o.performKMeans(o.k)
 		if err != nil {
 			return nil, err
 		}
@@ -232,10 +234,9 @@ func (o *obsDepth) buildObsDepthWithIntrinsics() segmentation.Segmenter {
 		}
 		return toReturn, nil
 	}
-
 }
 
-// Grab points from the depthmap. Sample every n
+// Grab points from the depthmap. Sample every n.
 func (o *obsDepth) makePointList(n int) {
 	w, h := o.dm.Width(), o.dm.Height()
 	out := make([]obsPoint, 0, w*h)
@@ -246,10 +247,9 @@ func (o *obsDepth) makePointList(n int) {
 	}
 	o.ptList = out
 	o.ptChunks = splitPtList(out, chunkSize)
-
 }
 
-// Split the pointlist into a list of lists, len(chunk) = chunkSize (not the last one)
+// Split the pointlist into a list of lists, len(chunk) = chunkSize (not the last one).
 func splitPtList(slice []obsPoint, chunkSize int) [][]obsPoint {
 	var chunks [][]obsPoint
 	for i := 0; i < len(slice); i += chunkSize {
@@ -267,7 +267,7 @@ func splitPtList(slice []obsPoint, chunkSize int) [][]obsPoint {
 	return chunks
 }
 
-// Returns true/false if compatible with another point in the depthmap
+// Returns true/false if compatible with another point in the depthmap.
 func (o *obsDepth) isObstaclePoint(point image.Point) bool {
 	for _, p := range o.ptList {
 		if point == p.point {
@@ -280,7 +280,7 @@ func (o *obsDepth) isObstaclePoint(point image.Point) bool {
 	return false
 }
 
-// Check compatability between 2 points
+// Check compatibility between 2 points.
 func (o *obsDepth) isCompatible(p1, p2 image.Point) bool {
 	// thetaMax in radians
 	xdist, ydist := math.Abs(float64(p1.X-p2.X)), math.Abs(float64(p1.Y-p2.Y))
@@ -327,7 +327,6 @@ func (o *obsDepth) clustersToBoxes(clusters clusters.Clusters) ([]spatialmath.Ge
 			if z > zmax {
 				zmax = z
 			}
-
 		}
 		// Make a box from those bounds no matter what they are and add it in
 		xdiff, ydiff, zdiff := xmax-xmin, ymax-ymin, zmax-zmin
@@ -343,8 +342,8 @@ func (o *obsDepth) clustersToBoxes(clusters clusters.Clusters) ([]spatialmath.Ge
 	return boxes, nil
 }
 
-// Do Kmeans clustering on all the 2D obstacle points
-func (o *obsDepth) kMeans(k int) (clusters.Clusters, error) {
+// Do Kmeans clustering on all the 2D obstacle points.
+func (o *obsDepth) performKMeans(k int) (clusters.Clusters, error) {
 	var d clusters.Observations
 	for _, pt := range o.ptList {
 		if pt.isObstacle {
