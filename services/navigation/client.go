@@ -14,6 +14,7 @@ import (
 
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // client implements NavigationServiceClient.
@@ -159,6 +160,24 @@ func (c *client) RemoveWaypoint(ctx context.Context, id primitive.ObjectID, extr
 		return err
 	}
 	return nil
+}
+
+func (c *client) GetObstacles(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoObstacle, error) {
+	req := &pb.GetObstaclesRequest{}
+	resp, err := c.client.GetObstacles(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	protoObs := resp.GetObstacles()
+	geos := []*spatialmath.GeoObstacle{}
+	for _, o := range protoObs {
+		obstacle, err := spatialmath.GeoObstacleFromProtobuf(o)
+		if err != nil {
+			return nil, err
+		}
+		geos = append(geos, obstacle)
+	}
+	return geos, nil
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {

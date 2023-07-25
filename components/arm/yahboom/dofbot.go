@@ -442,7 +442,7 @@ func (a *Dofbot) Close(ctx context.Context) error {
 
 // Geometries returns the list of geometries associated with the resource, in any order. The poses of the geometries reflect their
 // current location relative to the frame of the resource.
-func (a *Dofbot) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
+func (a *Dofbot) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
 	inputs, err := a.CurrentInputs(ctx)
 	if err != nil {
 		return nil, err

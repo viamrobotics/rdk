@@ -237,12 +237,12 @@ func resourcesFromDeps(t *testing.T, r robot.Robot, deps []string) resource.Depe
 func getNextDataAfterFilter(filter *datapb.Filter, last string) (int, error) {
 	// Basic component part (source) filter
 	if filter.ComponentName != "" && filter.ComponentName != "source" {
-		return 0, errEndOfDataset
+		return 0, ErrEndOfDataset
 	}
 
 	// Basic robot_id filter
 	if filter.RobotId != "" && filter.RobotId != "robot_id" {
-		return 0, errEndOfDataset
+		return 0, ErrEndOfDataset
 	}
 
 	// Apply the time-based filter based on the seconds value in the start and end fields. Because artifacts
@@ -274,7 +274,7 @@ func getFile(i, end int) (int, error) {
 	if i < end {
 		return i, nil
 	}
-	return 0, errEndOfDataset
+	return 0, ErrEndOfDataset
 }
 
 // getCompressedBytesFromArtifact will return an array of bytes from the
@@ -282,12 +282,12 @@ func getFile(i, end int) (int, error) {
 func getCompressedBytesFromArtifact(inputPath string) ([]byte, error) {
 	artifactPath, err := artifact.Path(inputPath)
 	if err != nil {
-		return nil, errEndOfDataset
+		return nil, ErrEndOfDataset
 	}
 	path := filepath.Clean(artifactPath)
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, errEndOfDataset
+		return nil, ErrEndOfDataset
 	}
 
 	var dataBuf bytes.Buffer

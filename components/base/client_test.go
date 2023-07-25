@@ -188,7 +188,7 @@ func TestClient(t *testing.T) {
 		})
 
 		t.Run("working Geometries", func(t *testing.T) {
-			geometries, err := workingBaseClient.Geometries(context.Background())
+			geometries, err := workingBaseClient.Geometries(context.Background(), nil)
 			test.That(t, err, test.ShouldBeNil)
 			for i, geometry := range geometries {
 				test.That(t, geometry.AlmostEqual(expectedGeometries[i]), test.ShouldBeTrue)
