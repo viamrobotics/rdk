@@ -265,7 +265,7 @@ func (m *ModuleID) toString() string {
 }
 
 // resolveModuleIDFromMultipleSources tries to parse the manifestNameEntry to see if it is a valid moduleID with a prefix
-// if it is not, it uses the publicNamespaceArg and orgIDArg to determine what the moduleID prefix should be
+// if it is not, it uses the publicNamespaceArg and orgIDArg to determine what the moduleID prefix should be.
 func resolveModuleIDFromMultipleSources(
 	c *cli.Context,
 	client *AppClient,
@@ -293,7 +293,6 @@ func resolveModuleIDFromMultipleSources(
 				// public_namespace so returning the ids would be frustrating
 				return ModuleID{}, errors.Errorf("The meta.json specifies a different org %q than the one provided via args %q",
 					org.GetName(), expectedOrg.GetName())
-
 			}
 			fmt.Fprintln(c.App.Writer, "The module's meta.json already specifies a full module id. Ignoring public-namespace and org-id arg")
 		}
@@ -342,12 +341,11 @@ func resolveOrg(client *AppClient, publicNamespace, orgID string) (*apppb.Organi
 func getOrgByModuleIDPrefix(client *AppClient, moduleIDPrefix string) (*apppb.Organization, error) {
 	if isValidOrgID(moduleIDPrefix) {
 		return client.GetOrg(moduleIDPrefix)
-	} else {
-		return client.GetUserOrgByPublicNamespace(moduleIDPrefix)
 	}
+	return client.GetUserOrgByPublicNamespace(moduleIDPrefix)
 }
 
-// isValidOrgID checks if the str is a valid uuid
+// isValidOrgID checks if the str is a valid uuid.
 func isValidOrgID(str string) bool {
 	_, err := uuid.Parse(str)
 	return err == nil

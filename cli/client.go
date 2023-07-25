@@ -877,12 +877,12 @@ func (c *AppClient) UpdateModule(moduleID ModuleID, manifest ModuleManifest) (*a
 		return nil, err
 	}
 	req := apppb.UpdateModuleRequest{
-		ModuleId:       moduleID.toString(),
-		Visibility:     visibility,
-		Url:            manifest.URL,
-		Description:    manifest.Description,
-		Models:         models,
-		Entrypoint:     manifest.Entrypoint,
+		ModuleId:    moduleID.toString(),
+		Visibility:  visibility,
+		Url:         manifest.URL,
+		Description: manifest.Description,
+		Models:      models,
+		Entrypoint:  manifest.Entrypoint,
 	}
 	return c.client.UpdateModule(c.c.Context, &req)
 }
@@ -904,9 +904,9 @@ func (c *AppClient) UploadModuleFile(
 		return nil, err
 	}
 	moduleFileInfo := apppb.ModuleFileInfo{
-		ModuleId:       moduleID.toString(),
-		Version:        version,
-		Platform:       platform,
+		ModuleId: moduleID.toString(),
+		Version:  version,
+		Platform: platform,
 	}
 	req := &apppb.UploadModuleFileRequest{
 		ModuleFile: &apppb.UploadModuleFileRequest_ModuleFileInfo{ModuleFileInfo: &moduleFileInfo},
