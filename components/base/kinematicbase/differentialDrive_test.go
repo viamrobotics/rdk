@@ -20,11 +20,6 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-const (
-	defaultAngularVelocityDegsPerSec  = 60  // degrees per second
-	defaultLinearVelocityMillisPerSec = 300 // mm per second
-)
-
 func testConfig() resource.Config {
 	return resource.Config{
 		Name: "test",
@@ -95,8 +90,8 @@ func TestWrapWithDifferentialDriveKinematics(t *testing.T) {
 		for _, vels := range velocities {
 			ddk, err := buildTestDDK(ctx, testConfig(), vels.linear, vels.angular, logger)
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, ddk.maxLinearVelocityMillisPerSec, test.ShouldAlmostEqual, vels.linear)
-			test.That(t, ddk.maxAngularVelocityDegsPerSec, test.ShouldAlmostEqual, vels.angular)
+			test.That(t, ddk.options.LinearVelocityMillisPerSec, test.ShouldAlmostEqual, vels.linear)
+			test.That(t, ddk.options.AngularVelocityDegsPerSec, test.ShouldAlmostEqual, vels.angular)
 		}
 	})
 }
@@ -161,7 +156,10 @@ func buildTestDDK(
 	}
 
 	// construct differential drive kinematic base
-	kb, err := wrapWithDifferentialDriveKinematics(ctx, b, logger, motion.NewSLAMLocalizer(fakeSLAM), limits, linVel, angVel)
+	options := NewKinematicBaseOptions()
+	options.LinearVelocityMillisPerSec = linVel
+	options.AngularVelocityDegsPerSec = angVel
+	kb, err := wrapWithDifferentialDriveKinematics(ctx, b, logger, motion.NewSLAMLocalizer(fakeSLAM), limits, options)
 	if err != nil {
 		return nil, err
 	}
@@ -187,7 +185,7 @@ func TestNewValidRegionCapsule(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, col, test.ShouldBeTrue)
 
-	col, err = c.CollidesWith(spatialmath.NewPoint(r3.Vector{-deviationThreshold, -deviationThreshold, 0}, ""))
+	col, err = c.CollidesWith(spatialmath.NewPoint(r3.Vector{-defaultDeviationThreshold, -defaultDeviationThreshold, 0}, ""))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, col, test.ShouldBeFalse)
 }

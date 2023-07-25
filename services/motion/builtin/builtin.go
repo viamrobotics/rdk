@@ -44,10 +44,8 @@ func init() {
 }
 
 const (
-	builtinOpLabel                    = "motion-service"
-	defaultLinearVelocityMillisPerSec = 300  // mm per second; used for bases only
-	defaultAngularVelocityDegsPerSec  = 60   // degrees per second; used for bases only
-	maxTravelDistance                 = 5e+6 // mm (or 5km)
+	builtinOpLabel    = "motion-service"
+	maxTravelDistance = 5e+6 // mm (or 5km)
 )
 
 // ErrNotImplemented is thrown when an unreleased function is called.
@@ -188,9 +186,10 @@ func (ms *builtIn) MoveOnMap(
 	extra map[string]interface{},
 ) (bool, error) {
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
+	kinematicsOptions := kinematicbase.NewKinematicBaseOptions()
 
 	// make call to motionplan
-	plan, kb, err := ms.planMoveOnMap(ctx, componentName, destination, slamName, extra)
+	plan, kb, err := ms.planMoveOnMap(ctx, componentName, destination, slamName, kinematicsOptions, extra)
 	if err != nil {
 		return false, fmt.Errorf("error making plan for MoveOnMap: %w", err)
 	}
@@ -213,11 +212,15 @@ func (ms *builtIn) MoveOnGlobe(
 	heading float64,
 	movementSensorName resource.Name,
 	obstacles []*spatialmath.GeoObstacle,
-	linearVelocityMillisPerSec float64,
-	angularVelocityDegsPerSec float64,
+	linearVelocity float64,
+	angularVelocity float64,
 	extra map[string]interface{},
 ) (bool, error) {
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
+
+	kinematicsOptions := kinematicbase.NewKinematicBaseOptions()
+	kinematicsOptions.LinearVelocityMillisPerSec = linearVelocity
+	kinematicsOptions.AngularVelocityDegsPerSec = angularVelocity
 
 	plan, kb, err := ms.planMoveOnGlobe(
 		ctx,
@@ -225,8 +228,7 @@ func (ms *builtIn) MoveOnGlobe(
 		destination,
 		movementSensorName,
 		obstacles,
-		linearVelocityMillisPerSec,
-		angularVelocityDegsPerSec,
+		kinematicsOptions,
 		extra,
 	)
 	if err != nil {
@@ -250,8 +252,7 @@ func (ms *builtIn) planMoveOnGlobe(
 	destination *geo.Point,
 	movementSensorName resource.Name,
 	obstacles []*spatialmath.GeoObstacle,
-	linearVelocityMillisPerSec float64,
-	angularVelocityDegsPerSec float64,
+	kinematicsOptions kinematicbase.KinematicBaseOptions,
 	extra map[string]interface{},
 ) ([][]referenceframe.Input, kinematicbase.KinematicBase, error) {
 	// build the localizer from the movement sensor
@@ -308,8 +309,7 @@ func (ms *builtIn) planMoveOnGlobe(
 	if fake, ok := b.(*fake.Base); ok {
 		kb, err = kinematicbase.WrapWithFakeKinematics(ctx, fake, localizer, limits)
 	} else {
-		kb, err = kinematicbase.WrapWithKinematics(ctx, b, ms.logger, localizer, limits,
-			linearVelocityMillisPerSec, angularVelocityDegsPerSec)
+		kb, err = kinematicbase.WrapWithKinematics(ctx, b, ms.logger, localizer, limits, kinematicsOptions)
 	}
 	if err != nil {
 		return nil, nil, err
@@ -445,6 +445,7 @@ func (ms *builtIn) planMoveOnMap(
 	componentName resource.Name,
 	destination spatialmath.Pose,
 	slamName resource.Name,
+	kinematicsOptions kinematicbase.KinematicBaseOptions,
 	extra map[string]interface{},
 ) ([][]referenceframe.Input, kinematicbase.KinematicBase, error) {
 	// get the SLAM Service from the slamName
@@ -478,8 +479,7 @@ func (ms *builtIn) planMoveOnMap(
 			ms.logger,
 			motion.NewSLAMLocalizer(slamSvc),
 			limits,
-			defaultLinearVelocityMillisPerSec,
-			defaultAngularVelocityDegsPerSec,
+			kinematicsOptions,
 		)
 	}
 	if err != nil {

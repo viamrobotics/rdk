@@ -19,25 +19,6 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-const (
-	// distThresholdMM is used when the base is moving to a goal. It is considered successful if it is within this radius.
-	distThresholdMM = 3000 // mm
-
-	// headingThresholdDegrees is used when the base is moving to a goal.
-	// If its heading is within this angle it is considered on the correct path.
-	headingThresholdDegrees = 8
-
-	// deviationThreshold is the amount that the base is allowed to deviate from the straight line path it is intended to travel.
-	// If it ever exceeds this amount the movement will fail and an error will be returned.
-	deviationThreshold = 5000.0 // mm
-
-	// timeout is the maxiumu amount of time that the base is allowed to remain stationary during a movement, else an error is thrown.
-	timeout = time.Second * 10
-
-	// epsilon is the amount that a base needs to move for it not to be considered stationary.
-	epsilon = 20 // mm
-)
-
 // ErrMovementTimeout is used for when a movement call times out after no movement for some time.
 var ErrMovementTimeout = errors.New("movement has timed out")
 
@@ -49,15 +30,13 @@ func wrapWithDifferentialDriveKinematics(
 	logger golog.Logger,
 	localizer motion.Localizer,
 	limits []referenceframe.Limit,
-	maxLinearVelocityMillisPerSec float64,
-	maxAngularVelocityDegsPerSec float64,
+	options KinematicBaseOptions,
 ) (KinematicBase, error) {
 	ddk := &differentialDriveKinematics{
-		Base:                          b,
-		logger:                        logger,
-		localizer:                     localizer,
-		maxLinearVelocityMillisPerSec: maxLinearVelocityMillisPerSec,
-		maxAngularVelocityDegsPerSec:  maxAngularVelocityDegsPerSec,
+		Base:      b,
+		logger:    logger,
+		localizer: localizer,
+		options:   options,
 	}
 
 	geometries, err := b.Geometries(ctx, nil)
@@ -85,12 +64,11 @@ func wrapWithDifferentialDriveKinematics(
 
 type differentialDriveKinematics struct {
 	base.Base
-	logger                        golog.Logger
-	localizer                     motion.Localizer
-	model                         referenceframe.Frame
-	fs                            referenceframe.FrameSystem
-	maxLinearVelocityMillisPerSec float64
-	maxAngularVelocityDegsPerSec  float64
+	logger    golog.Logger
+	localizer motion.Localizer
+	model     referenceframe.Frame
+	fs        referenceframe.FrameSystem
+	options   KinematicBaseOptions
 }
 
 func (ddk *differentialDriveKinematics) Kinematics() referenceframe.Frame {
@@ -197,10 +175,10 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 			StartConfiguration: prevInputs,
 			EndConfiguration:   currentInputs,
 		})
-		if positionChange > epsilon {
+		if positionChange > ddk.options.Epsilon {
 			lastUpdate = time.Now()
 			prevInputs = currentInputs
-		} else if time.Since(lastUpdate) > timeout {
+		} else if time.Since(lastUpdate) > ddk.options.Timeout {
 			cancel()
 			<-movementErr
 			return ErrMovementTimeout
@@ -217,12 +195,12 @@ func (ddk *differentialDriveKinematics) issueCommand(ctx context.Context, curren
 		return false, err
 	}
 	ddk.logger.Debug("distErr: %f\theadingErr %f", distErr, headingErr)
-	if distErr > distThresholdMM && math.Abs(headingErr) > headingThresholdDegrees {
+	if distErr > ddk.options.DistThresholdMM && math.Abs(headingErr) > ddk.options.HeadingThresholdDegrees {
 		// base is headed off course; spin to correct
-		return true, ddk.Spin(ctx, -headingErr, ddk.maxAngularVelocityDegsPerSec, nil)
-	} else if distErr > distThresholdMM {
+		return true, ddk.Spin(ctx, -headingErr, ddk.options.AngularVelocityDegsPerSec, nil)
+	} else if distErr > ddk.options.DistThresholdMM {
 		// base is pointed the correct direction but not there yet; forge onward
-		return true, ddk.MoveStraight(ctx, int(distErr), ddk.maxLinearVelocityMillisPerSec, nil)
+		return true, ddk.MoveStraight(ctx, int(distErr), ddk.options.LinearVelocityMillisPerSec, nil)
 	}
 	return false, nil
 }
@@ -318,8 +296,8 @@ func (ddk *differentialDriveKinematics) newValidRegionCapsule(starting, desired 
 	center := spatialmath.NewPose(pt, r)
 	capsule, err := spatialmath.NewCapsule(
 		center,
-		deviationThreshold,
-		2*deviationThreshold+positionErr,
+		ddk.options.DeviationThreshold,
+		2*ddk.options.DeviationThreshold+positionErr,
 		"")
 	if err != nil {
 		return nil, err
