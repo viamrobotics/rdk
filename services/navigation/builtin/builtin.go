@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"math"
 	"sync"
-	"time"
 
 	"github.com/edaniels/golog"
 	geo "github.com/kellydunn/golang-geo"
@@ -217,138 +216,9 @@ func (svc *builtIn) SetMode(ctx context.Context, mode navigation.Mode, extra map
 	svc.wholeServiceCancelFunc = cancelFunc
 	svc.mode = mode
 	if svc.mode == navigation.ModeWaypoint {
-		if extra != nil && extra["experimental"] == true {
-			svc.startWaypointExperimental(cancelCtx, extra)
-		} else {
-			svc.startWaypoint(cancelCtx, extra)
-		}
+		svc.startWaypoint(cancelCtx, extra)
 	}
 	return nil
-}
-
-func (svc *builtIn) computeCurrentBearing(ctx context.Context, path []*geo.Point) (float64, error) {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	props, err := svc.movementSensor.Properties(ctx, nil)
-	if err != nil {
-		return 0, err
-	}
-	if props.CompassHeadingSupported {
-		return svc.movementSensor.CompassHeading(ctx, nil)
-	}
-	pathLen := len(path)
-	return fixAngle(path[pathLen-2].BearingTo(path[pathLen-1])), nil
-}
-
-func (svc *builtIn) startWaypoint(ctx context.Context, extra map[string]interface{}) {
-	svc.activeBackgroundWorkers.Add(1)
-	utils.PanicCapturingGo(func() {
-		defer svc.activeBackgroundWorkers.Done()
-
-		path := []*geo.Point{}
-		for {
-			if !utils.SelectContextOrWait(ctx, 500*time.Millisecond) {
-				return
-			}
-			currentLoc, _, err := svc.movementSensor.Position(ctx, extra)
-			if err != nil {
-				svc.logger.Errorw("failed to get gps location", "error", err)
-				continue
-			}
-
-			if len(path) <= 1 || currentLoc.GreatCircleDistance(path[len(path)-1]) > .0001 {
-				// gps often updates less frequently
-				path = append(path, currentLoc)
-				if len(path) > 2 {
-					path = path[len(path)-2:]
-				}
-			}
-
-			navOnce := func(ctx context.Context) error {
-				if len(path) <= 1 {
-					return errors.New("not enough gps data")
-				}
-
-				currentBearing, err := svc.computeCurrentBearing(ctx, path)
-				if err != nil {
-					return err
-				}
-
-				bearingToGoal, distanceToGoal, err := svc.waypointDirectionAndDistanceToGo(ctx, currentLoc)
-				if err != nil {
-					return err
-				}
-
-				if distanceToGoal < .005 {
-					svc.logger.Debug("i made it")
-					return svc.waypointReached(ctx)
-				}
-
-				bearingDelta := computeBearing(bearingToGoal, currentBearing)
-				steeringDir := -bearingDelta / 180.0
-
-				svc.logger.Debugf("currentBearing: %0.0f bearingToGoal: %0.0f distanceToGoal: %0.3f bearingDelta: %0.1f steeringDir: %0.2f",
-					currentBearing, bearingToGoal, distanceToGoal, bearingDelta, steeringDir)
-
-				// TODO(erh->erd): maybe need an arc/stroke abstraction?
-				// - Remember that we added -1*bearingDelta instead of steeringDir
-				// - Test both naval/land to prove it works
-				if err := svc.base.Spin(ctx, -1*bearingDelta, svc.degPerSec, nil); err != nil {
-					return errors.Wrap(err, "failed while turning")
-				}
-
-				distanceMm := distanceToGoal * 1000 * 1000
-				distanceMm = math.Min(distanceMm, 10*1000)
-
-				// TODO: handle swap from mm to meters
-				if err := svc.base.MoveStraight(ctx, int(distanceMm), (svc.metersPerSec * 1000), nil); err != nil {
-					return errors.Wrap(err, "failed while moving straight")
-				}
-
-				return nil
-			}
-
-			if ctx.Err() != nil {
-				return
-			}
-
-			cancelCtx, cancelFunc := context.WithCancel(ctx)
-			svc.mu.Lock()
-			svc.currentWaypointCancelFunc = cancelFunc
-			svc.mu.Unlock()
-
-			if err := navOnce(cancelCtx); err != nil {
-				if svc.waypointIsDeleted() {
-					svc.logger.Info("skipping waypoint since it was deleted")
-					continue
-				}
-
-				svc.logger.Infof("skipping waypoint due to error while navigating towards it: %s", err)
-				if err := svc.waypointReached(ctx); err != nil {
-					if svc.waypointIsDeleted() {
-						svc.logger.Info("skipping waypoint since it was deleted")
-						continue
-					}
-					svc.logger.Info("can't mark waypoint as reached, exiting navigation due to error: %s", err)
-					return
-				}
-			}
-		}
-	})
-}
-
-func (svc *builtIn) waypointDirectionAndDistanceToGo(ctx context.Context, currentLoc *geo.Point) (float64, float64, error) {
-	wp, err := svc.nextWaypoint(ctx)
-	if err != nil {
-		return 0, 0, err
-	}
-
-	svc.mu.Lock()
-	svc.waypointInProgress = &wp
-	svc.mu.Unlock()
-
-	goal := wp.ToPoint()
-	return fixAngle(currentLoc.BearingTo(goal)), currentLoc.GreatCircleDistance(goal), nil
 }
 
 func (svc *builtIn) Location(ctx context.Context, extra map[string]interface{}) (*geo.Point, error) {
@@ -389,10 +259,6 @@ func (svc *builtIn) RemoveWaypoint(ctx context.Context, id primitive.ObjectID, e
 	return svc.store.RemoveWaypoint(ctx, id)
 }
 
-func (svc *builtIn) nextWaypoint(ctx context.Context) (navigation.Waypoint, error) {
-	return svc.store.NextWaypoint(ctx)
-}
-
 func (svc *builtIn) waypointReached(ctx context.Context) error {
 	if ctx.Err() != nil {
 		return ctx.Err()
@@ -420,33 +286,7 @@ func (svc *builtIn) Close(ctx context.Context) error {
 	return svc.store.Close(ctx)
 }
 
-func fixAngle(a float64) float64 {
-	for a < 0 {
-		a += 360
-	}
-	for a > 360 {
-		a -= 360
-	}
-	return a
-}
-
-func computeBearing(a, b float64) float64 {
-	a = fixAngle(a)
-	b = fixAngle(b)
-
-	t := b - a
-	if t < -180 {
-		t += 360
-	}
-
-	if t > 180 {
-		t -= 360
-	}
-
-	return t
-}
-
-func (svc *builtIn) startWaypointExperimental(ctx context.Context, extra map[string]interface{}) {
+func (svc *builtIn) startWaypoint(ctx context.Context, extra map[string]interface{}) {
 	if extra == nil {
 		extra = map[string]interface{}{"motion_profile": "position_only"}
 	} else if _, ok := extra["motion_profile"]; !ok {
@@ -482,7 +322,7 @@ func (svc *builtIn) startWaypointExperimental(ctx context.Context, extra map[str
 				return
 			}
 
-			wp, err := svc.nextWaypoint(ctx)
+			wp, err := svc.store.NextWaypoint(ctx)
 			if err != nil {
 				return
 			}

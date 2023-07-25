@@ -181,13 +181,13 @@ func (g *singleAxis) Reconfigure(ctx context.Context, deps resource.Dependencies
 		if err != nil {
 			return err
 		}
-		features, err := motorDep.Properties(ctx, nil)
+		properties, err := motorDep.Properties(ctx, nil)
 		if err != nil {
 			return err
 		}
-		ok := features[motor.PositionReporting]
+		ok := properties.PositionReporting
 		if !ok {
-			return motor.NewFeatureUnsupportedError(motor.PositionReporting, newConf.Motor)
+			return motor.NewPropertyUnsupportedError(properties, newConf.Motor)
 		}
 		g.motor = motorDep
 	}

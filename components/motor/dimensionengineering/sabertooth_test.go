@@ -59,9 +59,9 @@ func TestSabertoothMotor(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 
 	t.Run("motor supports position reporting", func(t *testing.T) {
-		features, err := motor1.Properties(ctx, nil)
+		properties, err := motor1.Properties(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, features[motor.PositionReporting], test.ShouldBeFalse)
+		test.That(t, properties.PositionReporting, test.ShouldBeFalse)
 	})
 
 	t.Run("motor SetPower testing", func(t *testing.T) {
@@ -114,9 +114,9 @@ func TestSabertoothMotor(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 
 	t.Run("motor supports position reporting", func(t *testing.T) {
-		features, err := motor2.Properties(ctx, nil)
+		properties, err := motor2.Properties(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, features[motor.PositionReporting], test.ShouldBeFalse)
+		test.That(t, properties.PositionReporting, test.ShouldBeFalse)
 	})
 
 	t.Run("motor SetPower testing", func(t *testing.T) {
@@ -232,9 +232,9 @@ func TestSabertoothMotorDirectionFlip(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 
 	t.Run("motor supports position reporting", func(t *testing.T) {
-		features, err := motor2.Properties(ctx, nil)
+		properties, err := motor2.Properties(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, features[motor.PositionReporting], test.ShouldBeFalse)
+		test.That(t, properties.PositionReporting, test.ShouldBeFalse)
 	})
 
 	t.Run("motor SetPower testing", func(t *testing.T) {

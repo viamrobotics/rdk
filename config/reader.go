@@ -39,6 +39,7 @@ func getAgentInfo() (*apppb.AgentInfo, error) {
 	if err != nil {
 		return nil, err
 	}
+	platform := fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH)
 
 	return &apppb.AgentInfo{
 		Host:        hostname,
@@ -46,10 +47,22 @@ func getAgentInfo() (*apppb.AgentInfo, error) {
 		Os:          runtime.GOOS,
 		Version:     Version,
 		GitRevision: GitRevision,
+		Platform:    &platform,
 	}, nil
 }
 
-var viamDotDir = filepath.Join(os.Getenv("HOME"), ".viam")
+var viamDotDir string
+
+func init() {
+	//nolint:errcheck
+	home, _ := os.UserHomeDir()
+	viamDotDir = filepath.Join(home, ".viam")
+}
+
+var (
+	dataDotDir  = ".data"
+	packagesDir = "packages"
+)
 
 func getCloudCacheFilePath(id string) string {
 	return filepath.Join(viamDotDir, fmt.Sprintf("cached_cloud_config_%s.json", id))

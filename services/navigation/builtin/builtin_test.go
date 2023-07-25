@@ -105,7 +105,7 @@ func TestNavSetup(t *testing.T) {
 	test.That(t, len(wayPt), test.ShouldEqual, 0)
 }
 
-func TestStartWaypointExperimental(t *testing.T) {
+func TestStartWaypoint(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 
@@ -123,7 +123,7 @@ func TestStartWaypointExperimental(t *testing.T) {
 	limits, err := fakeSlam.GetLimits(ctx)
 	test.That(t, err, test.ShouldBeNil)
 
-	localizer, err := motion.NewLocalizer(ctx, fakeSlam)
+	localizer := motion.NewSLAMLocalizer(fakeSlam)
 	test.That(t, err, test.ShouldBeNil)
 
 	// cast fakeBase
@@ -176,7 +176,6 @@ func TestStartWaypointExperimental(t *testing.T) {
 			err := kinematicBase.GoToInputs(ctx, referenceframe.FloatsToInputs([]float64{destination.Lat(), destination.Lng(), 0}))
 			return true, err
 		}
-
 		pt := geo.NewPoint(1, 0)
 		err = ns.AddWaypoint(ctx, pt, nil)
 		test.That(t, err, test.ShouldBeNil)
@@ -186,7 +185,7 @@ func TestStartWaypointExperimental(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		ns.(*builtIn).mode = navigation.ModeManual
-		err = ns.SetMode(ctx, navigation.ModeWaypoint, map[string]interface{}{"experimental": true})
+		err = ns.SetMode(ctx, navigation.ModeWaypoint, nil)
 		test.That(t, err, test.ShouldBeNil)
 		ns.(*builtIn).activeBackgroundWorkers.Wait()
 
@@ -217,14 +216,14 @@ func TestStartWaypointExperimental(t *testing.T) {
 		err = ns.AddWaypoint(ctx, pt, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		ns.(*builtIn).startWaypointExperimental(ctx, map[string]interface{}{})
+		ns.(*builtIn).startWaypoint(ctx, map[string]interface{}{})
 		ns.(*builtIn).activeBackgroundWorkers.Wait()
 
 		// go to same point again
 		err = ns.AddWaypoint(ctx, pt, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		ns.(*builtIn).startWaypointExperimental(ctx, nil)
+		ns.(*builtIn).startWaypoint(ctx, nil)
 		ns.(*builtIn).activeBackgroundWorkers.Wait()
 	})
 
@@ -285,7 +284,7 @@ func TestStartWaypointExperimental(t *testing.T) {
 				test.That(t, err, test.ShouldBeNil)
 			}
 
-			ns.(*builtIn).startWaypointExperimental(ctx, map[string]interface{}{"experimental": true})
+			ns.(*builtIn).startWaypoint(ctx, map[string]interface{}{"experimental": true})
 
 			// Reach the first waypoint
 			eventChannel <- arrivedAtWaypointMsg
@@ -348,7 +347,7 @@ func TestStartWaypointExperimental(t *testing.T) {
 			currentInputsShouldEqual(ctx, t, kinematicBase, pt1)
 
 			// Remove the second waypoint, which is in progress
-			currentWaypoint, err := ns.(*builtIn).nextWaypoint(ctx)
+			currentWaypoint, err := ns.(*builtIn).store.NextWaypoint(ctx)
 			test.That(t, err, test.ShouldBeNil)
 			err = ns.RemoveWaypoint(ctx, currentWaypoint.ID, nil)
 			test.That(t, err, test.ShouldBeNil)

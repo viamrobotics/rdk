@@ -13,7 +13,6 @@ import (
 	"go.viam.com/utils/testutils"
 
 	fakeboard "go.viam.com/rdk/components/board/fake"
-	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/resource"
 )
 
@@ -158,9 +157,9 @@ func TestConfigs(t *testing.T) {
 		m, err := newGPIOStepper(ctx, &b, goodConfig, c.ResourceName(), logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		features, err := m.Properties(ctx, nil)
+		properties, err := m.Properties(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, features[motor.PositionReporting], test.ShouldBeTrue)
+		test.That(t, properties.PositionReporting, test.ShouldBeTrue)
 	})
 }
 
