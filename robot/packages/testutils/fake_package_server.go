@@ -331,15 +331,16 @@ func ValidateContentsOfPPackage(t *testing.T, dir string) {
 		isLink     bool
 		linkTarget string
 		isDir      bool
+		perms      os.FileMode
 	}
 
 	expected := []content{
-		{path: "some-link.txt", isLink: true, linkTarget: "sub-dir/sub-file.txt"},
-		{path: "some-text.txt", checksum: "p/E54w=="},
-		{path: "some-text2.txt", checksum: "p/E54w=="},
-		{path: "sub-dir", isDir: true},
-		{path: "sub-dir/sub-file.txt", checksum: "p/E54w=="},
-		{path: "sub-dir-link", isLink: true, linkTarget: "sub-dir"},
+		{path: "some-link.txt", isLink: true, linkTarget: "sub-dir/sub-file.txt", perms: 0o777},
+		{path: "some-text.txt", checksum: "p/E54w==", perms: 0o644},
+		{path: "some-text2.txt", checksum: "p/E54w==", perms: 0o644},
+		{path: "sub-dir", isDir: true, perms: 0o755},
+		{path: "sub-dir/sub-file.txt", checksum: "p/E54w==", perms: 0o644},
+		{path: "sub-dir-link", isLink: true, linkTarget: "sub-dir", perms: 0o777},
 	}
 
 	out := make([]content, 0, len(expected))
@@ -371,6 +372,7 @@ func ValidateContentsOfPPackage(t *testing.T, dir string) {
 			isDir:      info.IsDir(),
 			isLink:     isSymLink,
 			linkTarget: symTarget,
+			perms:      info.Mode().Perm(),
 		})
 
 		return nil

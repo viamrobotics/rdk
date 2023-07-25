@@ -2,7 +2,7 @@
     "modules": [
         {
             "name": "my-module",
-            "executable_path": "new/path/to/my-module",
+            "executable_path": "..",
             "log_level": "debug"
         }
     ],

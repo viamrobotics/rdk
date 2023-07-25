@@ -80,6 +80,10 @@ func TestNavSetup(t *testing.T) {
 	wayPt, err = ns.Waypoints(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(wayPt), test.ShouldEqual, 0)
+
+	obs, err := ns.GetObstacles(ctx, nil)
+	test.That(t, len(obs), test.ShouldEqual, 1)
+	test.That(t, err, test.ShouldBeNil)
 }
 
 func TestStartWaypoint(t *testing.T) {
@@ -100,7 +104,7 @@ func TestStartWaypoint(t *testing.T) {
 	limits, err := fakeSlam.GetLimits(ctx)
 	test.That(t, err, test.ShouldBeNil)
 
-	localizer, err := motion.NewLocalizer(ctx, fakeSlam)
+	localizer := motion.NewSLAMLocalizer(fakeSlam)
 	test.That(t, err, test.ShouldBeNil)
 
 	// cast fakeBase
@@ -158,7 +162,7 @@ func TestStartWaypoint(t *testing.T) {
 	err = ns.AddWaypoint(ctx, pt, nil)
 	test.That(t, err, test.ShouldBeNil)
 
-	err = ns.SetMode(ctx, navigation.ModeWaypoint, map[string]interface{}{"experimental": true})
+	err = ns.SetMode(ctx, navigation.ModeWaypoint, nil)
 	test.That(t, err, test.ShouldBeNil)
 	ns.(*builtIn).activeBackgroundWorkers.Wait()
 
@@ -168,7 +172,7 @@ func TestStartWaypoint(t *testing.T) {
 	test.That(t, actualPt.Lat(), test.ShouldEqual, pt.Lat())
 	test.That(t, actualPt.Lng(), test.ShouldEqual, pt.Lng())
 
-	// setup injected MoveOnGlobe to test what extra defaults to from startWaypointExperimental function
+	// setup injected MoveOnGlobe to test what extra defaults to from startWaypoint function
 	injectMS.MoveOnGlobeFunc = func(
 		ctx context.Context,
 		componentName resource.Name,
@@ -191,7 +195,7 @@ func TestStartWaypoint(t *testing.T) {
 	err = ns.AddWaypoint(ctx, pt, nil)
 	test.That(t, err, test.ShouldBeNil)
 
-	err = ns.(*builtIn).startWaypointExperimental(map[string]interface{}{})
+	err = ns.(*builtIn).startWaypoint(map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	ns.(*builtIn).activeBackgroundWorkers.Wait()
 
@@ -199,7 +203,7 @@ func TestStartWaypoint(t *testing.T) {
 	err = ns.AddWaypoint(ctx, pt, nil)
 	test.That(t, err, test.ShouldBeNil)
 
-	err = ns.(*builtIn).startWaypointExperimental(nil)
+	err = ns.(*builtIn).startWaypoint(nil)
 	test.That(t, err, test.ShouldBeNil)
 	ns.(*builtIn).activeBackgroundWorkers.Wait()
 }

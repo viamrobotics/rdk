@@ -37,7 +37,7 @@ const (
 	defaultTimeout = 300.
 
 	// default number of times to try to smooth the path.
-	defaultSmoothIter = 20
+	defaultSmoothIter = 200
 
 	// default amount of closeness to get to the goal.
 	defaultGoalThreshold = defaultEpsilon * defaultEpsilon

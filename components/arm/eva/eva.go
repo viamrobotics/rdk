@@ -405,7 +405,7 @@ func MakeModelFrame(name string) (referenceframe.Model, error) {
 
 // Geometries returns the list of geometries associated with the resource, in any order. The poses of the geometries reflect their
 // current location relative to the frame of the resource.
-func (e *eva) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
+func (e *eva) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
 	inputs, err := e.CurrentInputs(ctx)
 	if err != nil {
 		return nil, err

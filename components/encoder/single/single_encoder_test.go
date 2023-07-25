@@ -225,8 +225,8 @@ func TestEncoder(t *testing.T) {
 			tb.Helper()
 			props, err := enc.Properties(ctx, nil)
 			test.That(tb, err, test.ShouldBeNil)
-			test.That(tb, props[encoder.TicksCountSupported], test.ShouldBeTrue)
-			test.That(tb, props[encoder.AngleDegreesSupported], test.ShouldBeFalse)
+			test.That(tb, props.TicksCountSupported, test.ShouldBeTrue)
+			test.That(tb, props.AngleDegreesSupported, test.ShouldBeFalse)
 		})
 	})
 }

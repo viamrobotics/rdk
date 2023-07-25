@@ -43,8 +43,6 @@ func TestSimpleLinearMotion(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	cbirrt, _ := mp.(*cBiRRTMotionPlanner)
 
-	corners := map[node]bool{}
-
 	solutions, err := mp.getSolutions(ctx, home7)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -85,8 +83,8 @@ func TestSimpleLinearMotion(t *testing.T) {
 	dist := opt.DistanceFunc(&Segment{StartConfiguration: seedReached.Q(), EndConfiguration: goalReached.Q()})
 	test.That(t, dist < cOpt.JointSolveDist, test.ShouldBeTrue)
 
-	corners[seedReached] = true
-	corners[goalReached] = true
+	seedReached.SetCorner(true)
+	goalReached.SetCorner(true)
 
 	// extract the path to the seed
 	for seedReached != nil {
@@ -107,4 +105,6 @@ func TestSimpleLinearMotion(t *testing.T) {
 	unsmoothLen := len(inputSteps)
 	finalSteps := cbirrt.smoothPath(ctx, inputSteps)
 	test.That(t, len(finalSteps), test.ShouldBeLessThanOrEqualTo, unsmoothLen)
+	// Test that path has changed after smoothing was applied
+	test.That(t, finalSteps, test.ShouldNotResemble, inputSteps)
 }

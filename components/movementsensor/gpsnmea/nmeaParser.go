@@ -1,6 +1,7 @@
 package gpsnmea
 
 import (
+	"fmt"
 	"math"
 	"strconv"
 	"strings"
@@ -68,19 +69,36 @@ func (g *GPSData) updateData(s nmea.Sentence) error {
 
 	switch sentence := s.(type) {
 	case nmea.GSV:
-		errs = g.updateGSV(sentence)
+		if gsv, ok := s.(nmea.GSV); ok {
+			errs = g.updateGSV(gsv)
+		}
 	case nmea.RMC:
-		errs = g.updateRMC(sentence)
+		if rmc, ok := s.(nmea.RMC); ok {
+			errs = g.updateRMC(rmc)
+		}
 	case nmea.GSA:
-		errs = g.updateGSA(sentence)
+		if gsa, ok := s.(nmea.GSA); ok {
+			errs = g.updateGSA(gsa)
+		}
 	case nmea.GGA:
-		errs = g.updateGGA(sentence)
+		if gga, ok := s.(nmea.GGA); ok {
+			errs = g.updateGGA(gga)
+		}
 	case nmea.GLL:
-		errs = g.updateGLL(sentence)
+		if gll, ok := s.(nmea.GLL); ok {
+			errs = g.updateGLL(gll)
+		}
 	case nmea.VTG:
-		errs = g.updateVTG(sentence)
+		if vtg, ok := s.(nmea.VTG); ok {
+			errs = g.updateVTG(vtg)
+		}
 	case nmea.GNS:
-		errs = g.updateGNS(sentence)
+		if gns, ok := s.(nmea.GNS); ok {
+			errs = g.updateGNS(gns)
+		}
+	default:
+		// Handle the case when the sentence type is not recognized
+		errs = fmt.Errorf("unrecognized sentence type: %T", sentence)
 	}
 
 	return errs
@@ -91,6 +109,7 @@ func (g *GPSData) updateData(s nmea.Sentence) error {
 // GSV (GPS Satellites in View) data.
 func (g *GPSData) updateGSV(gsv nmea.GSV) error {
 	// GSV provides the number of satellites in view
+
 	g.SatsInView = int(gsv.NumberSVsInView)
 	return nil
 }

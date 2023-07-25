@@ -111,17 +111,17 @@ func (c *client) Position(ctx context.Context, extra map[string]interface{}) (fl
 	return resp.GetPosition(), nil
 }
 
-func (c *client) Properties(ctx context.Context, extra map[string]interface{}) (map[Feature]bool, error) {
+func (c *client) Properties(ctx context.Context, extra map[string]interface{}) (Properties, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return nil, err
+		return Properties{}, err
 	}
 	req := &pb.GetPropertiesRequest{Name: c.name, Extra: ext}
 	resp, err := c.client.GetProperties(ctx, req)
 	if err != nil {
-		return nil, err
+		return Properties{}, err
 	}
-	return ProtoFeaturesToMap(resp), nil
+	return ProtoFeaturesToProperties(resp), nil
 }
 
 func (c *client) Stop(ctx context.Context, extra map[string]interface{}) error {

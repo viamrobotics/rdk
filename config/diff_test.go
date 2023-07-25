@@ -30,7 +30,7 @@ func TestDiffConfigs(t *testing.T) {
 		Modules: []config.Module{
 			{
 				Name:     "my-module",
-				ExePath:  "path/to/my-module",
+				ExePath:  ".",
 				LogLevel: "info",
 			},
 		},
@@ -103,7 +103,7 @@ func TestDiffConfigs(t *testing.T) {
 		Modules: []config.Module{
 			{
 				Name:     "my-module",
-				ExePath:  "new/path/to/my-module",
+				ExePath:  "..",
 				LogLevel: "debug",
 			},
 		},
@@ -314,7 +314,7 @@ func TestDiffConfigs(t *testing.T) {
 					Modules: []config.Module{
 						{
 							Name:     "my-module",
-							ExePath:  "path/to/my-module",
+							ExePath:  ".",
 							LogLevel: "info",
 						},
 					},
@@ -660,6 +660,12 @@ func modifiedConfigDiffValidate(c *config.ModifiedConfigDiff) error {
 
 	for idx := 0; idx < len(c.Packages); idx++ {
 		if err := c.Packages[idx].Validate(fmt.Sprintf("%s.%d", "packages", idx)); err != nil {
+			return err
+		}
+	}
+
+	for idx := 0; idx < len(c.Modules); idx++ {
+		if err := c.Modules[idx].Validate(fmt.Sprintf("%s.%d", "modules", idx)); err != nil {
 			return err
 		}
 	}

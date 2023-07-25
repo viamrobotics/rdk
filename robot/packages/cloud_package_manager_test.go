@@ -236,21 +236,21 @@ func TestCloud(t *testing.T) {
 }
 
 func validatePackageDir(t *testing.T, dir string, input []config.PackageConfig) {
-	t.Helper()
+	// t.Helper()
 
 	// create maps to make lookups easier.
 	byPackageHash := make(map[string]*config.PackageConfig)
 	byLogicalName := make(map[string]*config.PackageConfig)
 	for _, pI := range input {
 		p := pI
-		byPackageHash[hashName(p)] = &p
+		byPackageHash[p.SanitizeName()] = &p
 		byLogicalName[p.Name] = &p
 	}
 
 	// check all known packages exist and are linked to the correct package dir.
 	for _, p := range input {
 		logicalPath := path.Join(dir, p.Name)
-		dataPath := path.Join(dir, fmt.Sprintf(".data/%s", hashName(p)))
+		dataPath := path.Join(dir, fmt.Sprintf(".data/%s", p.SanitizeName()))
 
 		info, err := os.Stat(logicalPath)
 		test.That(t, err, test.ShouldBeNil)
@@ -341,48 +341,104 @@ func TestPackageRefs(t *testing.T) {
 		})
 	})
 
-	t.Run("RefPath", func(t *testing.T) {
-		t.Run("empty path", func(t *testing.T) {
-			pPath, err := pm.RefPath("")
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, pPath, test.ShouldEqual, "")
-		})
+	t.Run("PlaceholderPaths", func(t *testing.T) {
+		testStrings := []struct {
+			input  string
+			output *PlaceholderRef
+			err    string
+		}{
+			{
+				input: "${packages.ml_models.test}/myfile/test.txt",
+				output: &PlaceholderRef{
+					matchedPlaceholder: "${packages.ml_models.test}",
+					nestedPath:         "packages.ml_models.test",
+					packageType:        config.PackageTypeMlModel,
+					packageName:        "test",
+				},
+				err: "",
+			},
+			{
+				input: "${packages.test}/output.txt",
+				output: &PlaceholderRef{
+					matchedPlaceholder: "${packages.test}",
+					nestedPath:         "packages.test",
+					packageType:        "",
+					packageName:        "test",
+				},
+				err: "",
+			},
+			{
+				input: "${packages.modules.my-great-module}/output.txt",
+				output: &PlaceholderRef{
+					matchedPlaceholder: "${packages.modules.my-great-module}",
+					nestedPath:         "packages.modules.my-great-module",
+					packageType:        config.PackageTypeModule,
+					packageName:        "my-great-module",
+				},
+				err: "",
+			},
+			{
+				input: "${packages.modules.orgID/my-great-module}/output.txt",
+				output: &PlaceholderRef{
+					matchedPlaceholder: "${packages.modules.orgID/my-great-module}",
+					nestedPath:         "packages.modules.orgID/my-great-module",
+					packageType:        config.PackageTypeModule,
+					packageName:        "orgID/my-great-module",
+				},
+				err: "",
+			},
+			{
+				input: "${packages.ml_models.orgID/my-ml-model}/output.txt",
+				output: &PlaceholderRef{
+					matchedPlaceholder: "${packages.ml_models.orgID/my-ml-model}",
+					nestedPath:         "packages.ml_models.orgID/my-ml-model",
+					packageType:        config.PackageTypeMlModel,
+					packageName:        "orgID/my-ml-model",
+				},
+				err: "",
+			},
+			{
+				input: "${packages.orgID/my-ml-model}/output.txt",
+				output: &PlaceholderRef{
+					matchedPlaceholder: "${packages.orgID/my-ml-model}",
+					nestedPath:         "packages.orgID/my-ml-model",
+					packageType:        "",
+					packageName:        "orgID/my-ml-model",
+				},
+				err: "",
+			},
+			{
+				input:  "${packages.fake-one.test-my-bad}/output.txt",
+				output: nil,
+				err:    "invalid package placeholder path: ${packages.fake-one.test-my-bad}/output.txt",
+			},
+			{
+				input:  "${test-bad.fake-one}/output.txt",
+				output: nil,
+				err:    "invalid package placeholder path: ${test-bad.fake-one}/output.txt",
+			},
+			{
+				input:  "${packages}/output.txt",
+				output: nil,
+				err:    "invalid package placeholder path: ${packages}/output.txt",
+			},
+			{
+				input:  "",
+				output: nil,
+				err:    "invalid package placeholder path: ",
+			},
+		}
 
-		t.Run("non-ref absolute path", func(t *testing.T) {
-			pPath, err := pm.RefPath("/some/absolute/path")
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, pPath, test.ShouldEqual, "/some/absolute/path")
-		})
-
-		t.Run("non-ref relative path", func(t *testing.T) {
-			pPath, err := pm.RefPath("some/absolute/path")
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, pPath, test.ShouldEqual, "some/absolute/path")
-		})
-
-		t.Run("non-ref relative path with backtrack", func(t *testing.T) {
-			pPath, err := pm.RefPath("some/../absolute/path")
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, pPath, test.ShouldEqual, "some/../absolute/path")
-		})
-
-		t.Run("valid ref, empty package path", func(t *testing.T) {
-			pPath, err := pm.RefPath("${packages.some-name}")
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, pPath, test.ShouldEqual, path.Join(packageDir, "some-name"))
-		})
-
-		t.Run("valid ref, with package path", func(t *testing.T) {
-			pPath, err := pm.RefPath("${packages.some-name}/some/path")
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, pPath, test.ShouldEqual, path.Join(packageDir, "some-name", "some/path"))
-		})
-
-		t.Run("valid ref, ensure no escape from package path", func(t *testing.T) {
-			pPath, err := pm.RefPath("${packages.some-name}/../../../some-other-package/some/path")
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, pPath, test.ShouldEqual, path.Join(packageDir, "some-name", "some-other-package/some/path"))
-		})
+		for _, testString := range testStrings {
+			t.Run(fmt.Sprintf("Running PlaceholderPath for %s", testString.input), func(t *testing.T) {
+				placeholderRef, err := pm.PlaceholderPath(testString.input)
+				test.That(t, placeholderRef, test.ShouldResemble, testString.output)
+				if len(testString.err) > 0 {
+					test.That(t, err, test.ShouldNotBeNil)
+					test.That(t, err.Error(), test.ShouldEqual, testString.err)
+				}
+			})
+		}
 	})
 }
 

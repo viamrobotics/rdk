@@ -17,7 +17,7 @@ import (
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/movementsensor"
-	gpsrtk "go.viam.com/rdk/components/movementsensor/gpsrtk"
+	gpsrtk "go.viam.com/rdk/components/movementsensor/rtkutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
