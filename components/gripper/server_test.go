@@ -17,7 +17,7 @@ import (
 var (
 	errCantOpen             = errors.New("can't open")
 	errCantGrab             = errors.New("can't grab")
-	errStopUnimplemented    = errors.New("Stop unimplemented")
+	errStopUnimplemented    = errors.New("stop unimplemented")
 	errGripperUnimplemented = errors.New("not found")
 )
 
