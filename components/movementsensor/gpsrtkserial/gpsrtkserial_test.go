@@ -12,6 +12,7 @@ import (
 
 	"go.viam.com/rdk/components/movementsensor/fake"
 	rtk "go.viam.com/rdk/components/movementsensor/rtkutils"
+	"go.viam.com/rdk/resource"
 )
 
 var (
@@ -172,6 +173,33 @@ func TestReadings(t *testing.T) {
 	speed3, err := g.LinearVelocity(ctx, make(map[string]interface{}))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, speed3.Y, test.ShouldEqual, speed)
+}
+
+func TestReconfigure(t *testing.T) {
+	g := &rtkSerial{
+		writePath: "/dev/ttyUSB0",
+		wbaud:     9600,
+		logger:    golog.NewTestLogger(t),
+	}
+
+	conf := resource.Config{
+		Name: "reconfig1",
+		ConvertedAttributes: &Config{
+			SerialPath:           "/dev/ttyUSB1",
+			SerialBaudRate:       115200,
+			NtripURL:             "http//fakeurl",
+			NtripConnectAttempts: 10,
+			NtripPass:            "somepass",
+			NtripUser:            "someuser",
+			NtripMountpoint:      "NYC",
+		},
+	}
+
+	err := g.Reconfigure(context.Background(), nil, conf)
+
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, g.writePath, test.ShouldResemble, "/dev/ttyUSB1")
+	test.That(t, g.wbaud, test.ShouldEqual, 115200)
 }
 
 func TestCloseRTK(t *testing.T) {

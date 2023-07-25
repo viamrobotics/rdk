@@ -10,8 +10,13 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/components/movementsensor/fake"
+	gpsnmea "go.viam.com/rdk/components/movementsensor/gpsnmea"
 	rtk "go.viam.com/rdk/components/movementsensor/rtkutils"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/testutils/inject"
 )
 
 var (
@@ -205,6 +210,31 @@ func TestReadings(t *testing.T) {
 	test.That(t, speed3.Y, test.ShouldEqual, speed)
 }
 
+func TestReconfigure(t *testing.T) {
+	deps := setupDependencies(t)
+	logger := golog.NewTestLogger(t)
+	ctx := context.Background()
+	conf := resource.Config{
+		Name: "reconfig1",
+		ConvertedAttributes: &Config{
+			NtripURL:             "http//fakeurl",
+			NtripConnectAttempts: 10,
+			NtripPass:            "somepass",
+			NtripUser:            "someuser",
+			NtripMountpoint:      "NYC",
+			Board:                testBoardName,
+			I2CBus:               testBusName,
+			I2CAddr:              testi2cAddr,
+		},
+	}
+	g, err := newRTKI2C(ctx, deps, conf, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	err = g.Reconfigure(context.Background(), deps, conf)
+
+	test.That(t, err, test.ShouldBeNil)
+}
+
 func TestCloseRTK(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
@@ -219,6 +249,63 @@ func TestCloseRTK(t *testing.T) {
 
 	err := g.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)
+}
+
+func setupDependencies(t *testing.T) resource.Dependencies {
+	t.Helper()
+
+	deps := make(resource.Dependencies)
+
+	actualBoard := inject.NewBoard(testBoardName)
+	i2c1 := &inject.I2C{}
+	handle1 := &inject.I2CHandle{}
+	handle1.WriteFunc = func(ctx context.Context, b []byte) error {
+		return nil
+	}
+	handle1.ReadFunc = func(ctx context.Context, count int) ([]byte, error) {
+		return nil, nil
+	}
+	handle1.CloseFunc = func() error {
+		return nil
+	}
+	i2c1.OpenHandleFunc = func(addr byte) (board.I2CHandle, error) {
+		return handle1, nil
+	}
+	actualBoard.I2CByNameFunc = func(name string) (board.I2C, bool) {
+		return i2c1, true
+	}
+
+	deps[board.Named(testBoardName)] = actualBoard
+
+	conf := resource.Config{
+		Name:  "rtk-sensor1",
+		Model: resource.DefaultModelFamily.WithModel("gps-nmea"),
+		API:   movementsensor.API,
+	}
+
+	i2cnmeaConf := &gpsnmea.Config{
+		ConnectionType: i2cStr,
+		I2CConfig: &gpsnmea.I2CConfig{
+			Board:       testBoardName,
+			I2CBus:      testBusName,
+			I2CAddr:     testi2cAddr,
+			I2CBaudRate: 115200,
+		},
+	}
+
+	logger := golog.NewTestLogger(t)
+	ctx := context.Background()
+
+	conf.Name = "rtk-sensor"
+	i2cNMEA, _ := gpsnmea.NewPmtkI2CGPSNMEA(ctx, deps, conf.ResourceName(), i2cnmeaConf, logger)
+
+	rtkSensor := &rtkI2C{
+		nmeamovementsensor: i2cNMEA,
+	}
+
+	deps[movementsensor.Named("rtk-sensor")] = rtkSensor
+
+	return deps
 }
 
 type CustomMovementSensor struct {
