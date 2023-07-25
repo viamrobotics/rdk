@@ -343,7 +343,7 @@ func (c *AppClient) GetUserOrgByPublicNamespace(publicNamespace string) (*apppb.
 			return org, nil
 		}
 	}
-	return nil, errors.Errorf("none of your organizations have a public_namespace of '%s'", publicNamespace)
+	return nil, errors.Errorf("none of your organizations have a public namespace of %q", publicNamespace)
 }
 
 // ListOrganizations returns all organizations belonging to the currently authenticated user.
@@ -864,7 +864,7 @@ func (c *AppClient) CreateModule(moduleName, organizationID string) (*apppb.Crea
 }
 
 // UpdateModule wraps the grpc UpdateModule request.
-func (c *AppClient) UpdateModule(manifest ModuleManifest, organizationID *string) (*apppb.UpdateModuleResponse, error) {
+func (c *AppClient) UpdateModule(moduleID ModuleID, manifest ModuleManifest) (*apppb.UpdateModuleResponse, error) {
 	if err := c.ensureLoggedIn(); err != nil {
 		return nil, err
 	}
@@ -877,8 +877,7 @@ func (c *AppClient) UpdateModule(manifest ModuleManifest, organizationID *string
 		return nil, err
 	}
 	req := apppb.UpdateModuleRequest{
-		ModuleId:       manifest.Name,
-		OrganizationId: organizationID,
+		ModuleId:       moduleID.toString(),
 		Visibility:     visibility,
 		Url:            manifest.URL,
 		Description:    manifest.Description,
@@ -890,10 +889,9 @@ func (c *AppClient) UpdateModule(manifest ModuleManifest, organizationID *string
 
 // UploadModuleFile wraps the grpc UploadModuleFile request.
 func (c *AppClient) UploadModuleFile(
-	moduleID,
+	moduleID ModuleID,
 	version,
 	platform string,
-	organizationID *string,
 	file *os.File,
 ) (*apppb.UploadModuleFileResponse, error) {
 	if err := c.ensureLoggedIn(); err != nil {
@@ -906,8 +904,7 @@ func (c *AppClient) UploadModuleFile(
 		return nil, err
 	}
 	moduleFileInfo := apppb.ModuleFileInfo{
-		ModuleId:       moduleID,
-		OrganizationId: organizationID,
+		ModuleId:       moduleID.toString(),
 		Version:        version,
 		Platform:       platform,
 	}
