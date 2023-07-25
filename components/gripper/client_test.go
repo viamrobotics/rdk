@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
-	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
@@ -46,13 +45,13 @@ func TestClient(t *testing.T) {
 	injectGripper2 := &inject.Gripper{}
 	injectGripper2.OpenFunc = func(ctx context.Context, extra map[string]interface{}) error {
 		gripperOpen = failGripperName
-		return errors.New("can't open")
+		return errCantOpen
 	}
 	injectGripper2.GrabFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {
-		return false, errors.New("can't grab")
+		return false, errCantGrab
 	}
 	injectGripper2.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
-		return gripper.ErrStopUnimplemented
+		return errStopUnimplemented
 	}
 
 	gripperSvc, err := resource.NewAPIResourceCollection(
@@ -75,7 +74,7 @@ func TestClient(t *testing.T) {
 		cancel()
 		_, err := viamgrpc.Dial(cancelCtx, listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
+		test.That(t, err, test.ShouldBeError, context.Canceled)
 	})
 
 	// working
@@ -121,17 +120,17 @@ func TestClient(t *testing.T) {
 		extra := map[string]interface{}{}
 		err = client2.Open(context.Background(), extra)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "can't open")
+		test.That(t, err.Error(), test.ShouldContainSubstring, errCantOpen.Error())
 		test.That(t, gripperOpen, test.ShouldEqual, failGripperName)
 
 		grabbed, err := client2.Grab(context.Background(), extra)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "can't grab")
+		test.That(t, err.Error(), test.ShouldContainSubstring, errCantGrab.Error())
 		test.That(t, grabbed, test.ShouldEqual, false)
 
 		err = client2.Stop(context.Background(), extra)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, gripper.ErrStopUnimplemented.Error())
+		test.That(t, err.Error(), test.ShouldContainSubstring, errStopUnimplemented.Error())
 
 		test.That(t, client2.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
