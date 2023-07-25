@@ -100,9 +100,9 @@ func (pp *ParallelProjection) ImagePointTo3DPoint(pt image.Point, d rimage.Depth
 	return r3.Vector{X: float64(pt.X), Y: float64(pt.Y), Z: float64(d)}, nil
 }
 
-// ParallelProjectionOntoXZWithRobotMarker allows the creation of a 2D projection of a pointcloud and robot
-// position onto the XZ plane.
-type ParallelProjectionOntoXZWithRobotMarker struct {
+// ParallelProjectionOntoXYWithRobotMarker allows the creation of a 2D projection of a pointcloud and robot
+// position onto the XY plane.
+type ParallelProjectionOntoXYWithRobotMarker struct {
 	robotPose *spatialmath.Pose
 }
 
@@ -116,10 +116,10 @@ const (
 	robotMarkerRadius = 5    // radius of robot marker point
 )
 
-// PointCloudToRGBD creates an image of a pointcloud in the XZ plane, scaling the points to a standard image
+// PointCloudToRGBD creates an image of a pointcloud in the XY plane, scaling the points to a standard image
 // size. It will also add a red marker to the map to represent the location of the robot. The returned depthMap
 // is unused and so will always be nil.
-func (ppRM *ParallelProjectionOntoXZWithRobotMarker) PointCloudToRGBD(cloud pointcloud.PointCloud,
+func (ppRM *ParallelProjectionOntoXYWithRobotMarker) PointCloudToRGBD(cloud pointcloud.PointCloud,
 ) (*rimage.Image, *rimage.DepthMap, error) {
 	meta := cloud.MetaData()
 
@@ -127,15 +127,15 @@ func (ppRM *ParallelProjectionOntoXZWithRobotMarker) PointCloudToRGBD(cloud poin
 		return nil, nil, errors.New("projection point cloud is empty")
 	}
 
-	meanStdevX, meanStdevZ, err := calculatePointCloudMeanAndStdevXZ(cloud)
+	meanStdevX, meanStdevY, err := calculatePointCloudMeanAndStdevXY(cloud)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	maxX := math.Min(meanStdevX.mean+float64(sigmaLevel)*meanStdevZ.stdev, meta.MaxX)
-	minX := math.Max(meanStdevX.mean-float64(sigmaLevel)*meanStdevZ.stdev, meta.MinX)
-	maxZ := math.Min(meanStdevZ.mean+float64(sigmaLevel)*meanStdevZ.stdev, meta.MaxZ)
-	minZ := math.Max(meanStdevZ.mean-float64(sigmaLevel)*meanStdevZ.stdev, meta.MinZ)
+	maxX := math.Min(meanStdevX.mean+float64(sigmaLevel)*meanStdevY.stdev, meta.MaxX)
+	minX := math.Max(meanStdevX.mean-float64(sigmaLevel)*meanStdevY.stdev, meta.MinX)
+	maxY := math.Min(meanStdevY.mean+float64(sigmaLevel)*meanStdevY.stdev, meta.MaxY)
+	minY := math.Max(meanStdevY.mean-float64(sigmaLevel)*meanStdevY.stdev, meta.MinY)
 
 	// Change the max and min values to ensure the robot marker can be represented in the output image
 	var robotMarker spatialmath.Pose
@@ -143,19 +143,19 @@ func (ppRM *ParallelProjectionOntoXZWithRobotMarker) PointCloudToRGBD(cloud poin
 		robotMarker = *ppRM.robotPose
 		maxX = math.Max(maxX, robotMarker.Point().X)
 		minX = math.Min(minX, robotMarker.Point().X)
-		maxZ = math.Max(maxZ, robotMarker.Point().Z)
-		minZ = math.Min(minZ, robotMarker.Point().Z)
+		maxY = math.Max(maxY, robotMarker.Point().Y)
+		minY = math.Min(minY, robotMarker.Point().Y)
 	}
 
 	// Calculate the scale factors
-	scaleFactor := calculateScaleFactor(maxX-minX, maxZ-minZ)
+	scaleFactor := calculateScaleFactor(maxX-minX, maxY-minY)
 
 	// Add points in the pointcloud to a new image
 	var pointColor rimage.Color
 	im := rimage.NewImage(imageWidth, imageHeight)
 	cloud.Iterate(0, 0, func(pt r3.Vector, data pointcloud.Data) bool {
 		x := int(math.Round((pt.X - minX) * scaleFactor))
-		y := int(math.Round((pt.Z - minZ) * scaleFactor))
+		y := int(math.Round((pt.Y - minY) * scaleFactor))
 
 		// Adds a point to an image using the value to define the color. If no value is available,
 		// the default color of white is used.
@@ -176,7 +176,7 @@ func (ppRM *ParallelProjectionOntoXZWithRobotMarker) PointCloudToRGBD(cloud poin
 	// Add a red robot marker to the image
 	if ppRM.robotPose != nil {
 		x := int(math.Round((robotMarker.Point().X - minX) * scaleFactor))
-		y := int(math.Round((robotMarker.Point().Z - minZ) * scaleFactor))
+		y := int(math.Round((robotMarker.Point().Y - minY) * scaleFactor))
 		robotMarkerColor := rimage.NewColor(255, 0, 0)
 		im.Circle(image.Point{X: x, Y: y}, robotMarkerRadius, robotMarkerColor)
 	}
@@ -184,7 +184,7 @@ func (ppRM *ParallelProjectionOntoXZWithRobotMarker) PointCloudToRGBD(cloud poin
 }
 
 // RGBDToPointCloud is unimplemented and will produce an error.
-func (ppRM *ParallelProjectionOntoXZWithRobotMarker) RGBDToPointCloud(
+func (ppRM *ParallelProjectionOntoXYWithRobotMarker) RGBDToPointCloud(
 	img *rimage.Image,
 	dm *rimage.DepthMap,
 	crop ...image.Rectangle,
@@ -193,7 +193,7 @@ func (ppRM *ParallelProjectionOntoXZWithRobotMarker) RGBDToPointCloud(
 }
 
 // ImagePointTo3DPoint is unimplemented and will produce an error.
-func (ppRM *ParallelProjectionOntoXZWithRobotMarker) ImagePointTo3DPoint(pt image.Point, d rimage.Depth) (r3.Vector, error) {
+func (ppRM *ParallelProjectionOntoXYWithRobotMarker) ImagePointTo3DPoint(pt image.Point, d rimage.Depth) (r3.Vector, error) {
 	return r3.Vector{}, errors.New("converting an image point to a 3D point is currently unimplemented for this projection")
 }
 
@@ -233,10 +233,10 @@ func getColorFromProbabilityValue(d pointcloud.Data) (rimage.Color, error) {
 	return rimage.NewColor(r, g, b), nil
 }
 
-// NewParallelProjectionOntoXZWithRobotMarker creates a new ParallelProjectionOntoXZWithRobotMarker with the given
+// NewParallelProjectionOntoXYWithRobotMarker creates a new ParallelProjectionOntoXYWithRobotMarker with the given
 // robot pose.
-func NewParallelProjectionOntoXZWithRobotMarker(rp *spatialmath.Pose) ParallelProjectionOntoXZWithRobotMarker {
-	return ParallelProjectionOntoXZWithRobotMarker{robotPose: rp}
+func NewParallelProjectionOntoXYWithRobotMarker(rp *spatialmath.Pose) ParallelProjectionOntoXYWithRobotMarker {
+	return ParallelProjectionOntoXYWithRobotMarker{robotPose: rp}
 }
 
 // Struct containing the mean and stdev.
@@ -245,51 +245,51 @@ type meanStdev struct {
 	stdev float64
 }
 
-// Calculates the mean and standard deviation of the X and Z coordinates stored in the point cloud.
-func calculatePointCloudMeanAndStdevXZ(cloud pointcloud.PointCloud) (meanStdev, meanStdev, error) {
-	var X, Z []float64
-	var x, z meanStdev
+// Calculates the mean and standard deviation of the X and Y coordinates stored in the point cloud.
+func calculatePointCloudMeanAndStdevXY(cloud pointcloud.PointCloud) (meanStdev, meanStdev, error) {
+	var X, Y []float64
+	var x, y meanStdev
 
 	cloud.Iterate(0, 0, func(pt r3.Vector, data pointcloud.Data) bool {
 		X = append(X, pt.X)
-		Z = append(Z, pt.Z)
+		Y = append(Y, pt.Y)
 		return true
 	})
 
 	meanX, err := safeMath(stats.Mean(X))
 	if err != nil {
-		return x, z, errors.Wrap(err, "unable to calculate mean of X values on given point cloud")
+		return x, y, errors.Wrap(err, "unable to calculate mean of X values on given point cloud")
 	}
 	x.mean = meanX
 
 	stdevX, err := safeMath(stats.StandardDeviation(X))
 	if err != nil {
-		return x, z, errors.Wrap(err, "unable to calculate stdev of Z values on given point cloud")
+		return x, y, errors.Wrap(err, "unable to calculate stdev of Y values on given point cloud")
 	}
 	x.stdev = stdevX
 
-	meanZ, err := safeMath(stats.Mean(Z))
+	meanY, err := safeMath(stats.Mean(Y))
 	if err != nil {
-		return x, z, errors.Wrap(err, "unable to calculate mean of Z values on given point cloud")
+		return x, y, errors.Wrap(err, "unable to calculate mean of Y values on given point cloud")
 	}
-	z.mean = meanZ
+	y.mean = meanY
 
-	stdevZ, err := safeMath(stats.StandardDeviation(Z))
+	stdevY, err := safeMath(stats.StandardDeviation(Y))
 	if err != nil {
-		return x, z, errors.Wrap(err, "unable to calculate stdev of Z values on given point cloud")
+		return x, y, errors.Wrap(err, "unable to calculate stdev of Y values on given point cloud")
 	}
-	z.stdev = stdevZ
+	y.stdev = stdevY
 
-	return x, z, nil
+	return x, y, nil
 }
 
 // Calculates the scaling factor needed to fit the projected pointcloud to the desired image size, cropping it
-// if needed based on the mean and standard deviation of the X and Z coordinates.
-func calculateScaleFactor(xRange, zRange float64) float64 {
+// if needed based on the mean and standard deviation of the X and Y coordinates.
+func calculateScaleFactor(xRange, yRange float64) float64 {
 	var scaleFactor float64
-	if xRange != 0 || zRange != 0 {
+	if xRange != 0 || yRange != 0 {
 		widthScaleFactor := float64(imageWidth-1) / xRange
-		heightScaleFactor := float64(imageHeight-1) / zRange
+		heightScaleFactor := float64(imageHeight-1) / yRange
 		scaleFactor = math.Min(widthScaleFactor, heightScaleFactor)
 	}
 	return scaleFactor
