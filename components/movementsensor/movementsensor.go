@@ -29,6 +29,9 @@ func init() {
 			Lng float64
 		}
 		p, _, err := ms.Position(ctx, make(map[string]interface{}))
+		if err != nil {
+			return nil, err
+		}
 		return Position{Lat: p.Lat(), Lng: p.Lng()}, err
 	})
 	registerCollector("LinearVelocity", func(ctx context.Context, ms MovementSensor) (interface{}, error) {
@@ -44,6 +47,9 @@ func init() {
 			Heading float64
 		}
 		h, err := ms.CompassHeading(ctx, make(map[string]interface{}))
+		if err != nil {
+			return nil, err
+		}
 		return Heading{Heading: h}, err
 	})
 	registerCollector("LinearAcceleration", func(ctx context.Context, ms MovementSensor) (interface{}, error) {
