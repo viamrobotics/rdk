@@ -1,4 +1,4 @@
-package referenceframe
+package tpspace
 
 import (
 	"fmt"
@@ -6,7 +6,7 @@ import (
 
 	pb "go.viam.com/api/component/arm/v1"
 
-	"go.viam.com/rdk/motionplan/tpspace"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -21,26 +21,26 @@ const (
 	distanceAlongTrajectoryIndex
 )
 
-type ptgFactory func(float64, float64, float64) tpspace.PrecomputePTG
+type ptgFactory func(float64, float64, float64) PrecomputePTG
 
 var defaultPTGs = []ptgFactory{
-	tpspace.NewCirclePTG,
-	tpspace.NewCCPTG,
-	tpspace.NewCCSPTG,
-	tpspace.NewCSPTG,
-	tpspace.NewAlphaPTG,
+	NewCirclePTG,
+	NewCCPTG,
+	NewCCSPTG,
+	NewCSPTG,
+	NewAlphaPTG,
 }
 
 type ptgGridSimFrame struct {
 	name       string
-	limits     []Limit
+	limits     []referenceframe.Limit
 	geometries []spatialmath.Geometry
-	ptgs       []tpspace.PTG
+	ptgs       []PTG
 }
 
-// NewPTGFrameFromTurningRadius will create a new Frame which is also a tpspace.PTGProvider. It will precompute the default set of
+// NewPTGFrameFromTurningRadius will create a new Frame which is also a PTGProvider. It will precompute the default set of
 // trajectories out to a given distance, or a default distance if the given distance is <= 0.
-func NewPTGFrameFromTurningRadius(name string, velocityMMps, turnRadMeters, simDist float64, geoms []spatialmath.Geometry) (Frame, error) {
+func NewPTGFrameFromTurningRadius(name string, velocityMMps, turnRadMeters, simDist float64, geoms []spatialmath.Geometry) (referenceframe.Frame, error) {
 	if velocityMMps <= 0 {
 		return nil, fmt.Errorf("cannot create ptg frame, movement velocity %f must be >0", velocityMMps)
 	}
@@ -62,7 +62,7 @@ func NewPTGFrameFromTurningRadius(name string, velocityMMps, turnRadMeters, simD
 
 	pf.geometries = geoms
 
-	pf.limits = []Limit{
+	pf.limits = []referenceframe.Limit{
 		{Min: 0, Max: float64(len(pf.ptgs) - 1)},
 		{Min: 0, Max: float64(defaultAlphaCnt)},
 		{Min: 0, Max: simDist},
@@ -71,7 +71,7 @@ func NewPTGFrameFromTurningRadius(name string, velocityMMps, turnRadMeters, simD
 	return pf, nil
 }
 
-func (pf *ptgGridSimFrame) DoF() []Limit {
+func (pf *ptgGridSimFrame) DoF() []referenceframe.Limit {
 	return pf.limits
 }
 
@@ -85,7 +85,7 @@ func (pf *ptgGridSimFrame) MarshalJSON() ([]byte, error) {
 }
 
 // Inputs are: [0] index of PTG to use, [1] index of the trajectory within that PTG, and [2] distance to travel along that trajectory.
-func (pf *ptgGridSimFrame) Transform(inputs []Input) (spatialmath.Pose, error) {
+func (pf *ptgGridSimFrame) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {
 	ptgIdx := int(math.Round(inputs[ptgIndex].Value))
 	trajIdx := uint(math.Round(inputs[trajectoryIndexWithinPTG].Value))
 	traj := pf.ptgs[ptgIdx].Trajectory(trajIdx)
@@ -102,15 +102,15 @@ func (pf *ptgGridSimFrame) Transform(inputs []Input) (spatialmath.Pose, error) {
 	return lastPose, nil
 }
 
-func (pf *ptgGridSimFrame) InputFromProtobuf(jp *pb.JointPositions) []Input {
-	n := make([]Input, len(jp.Values))
+func (pf *ptgGridSimFrame) InputFromProtobuf(jp *pb.JointPositions) []referenceframe.Input {
+	n := make([]referenceframe.Input, len(jp.Values))
 	for idx, d := range jp.Values {
-		n[idx] = Input{d}
+		n[idx] = referenceframe.Input{d}
 	}
 	return n
 }
 
-func (pf *ptgGridSimFrame) ProtobufFromInput(input []Input) *pb.JointPositions {
+func (pf *ptgGridSimFrame) ProtobufFromInput(input []referenceframe.Input) *pb.JointPositions {
 	n := make([]float64, len(input))
 	for idx, a := range input {
 		n[idx] = a.Value
@@ -118,9 +118,9 @@ func (pf *ptgGridSimFrame) ProtobufFromInput(input []Input) *pb.JointPositions {
 	return &pb.JointPositions{Values: n}
 }
 
-func (pf *ptgGridSimFrame) Geometries(inputs []Input) (*GeometriesInFrame, error) {
+func (pf *ptgGridSimFrame) Geometries(inputs []referenceframe.Input) (*referenceframe.GeometriesInFrame, error) {
 	if len(pf.geometries) == 0 {
-		return NewGeometriesInFrame(pf.Name(), nil), nil
+		return referenceframe.NewGeometriesInFrame(pf.Name(), nil), nil
 	}
 
 	transformedPose, err := pf.Transform(inputs)
@@ -131,22 +131,22 @@ func (pf *ptgGridSimFrame) Geometries(inputs []Input) (*GeometriesInFrame, error
 	for _, geom := range pf.geometries {
 		geoms = append(geoms, geom.Transform(transformedPose))
 	}
-	return NewGeometriesInFrame(pf.name, geoms), nil
+	return referenceframe.NewGeometriesInFrame(pf.name, geoms), nil
 }
 
-func (pf *ptgGridSimFrame) PTGs() []tpspace.PTG {
+func (pf *ptgGridSimFrame) PTGs() []PTG {
 	return pf.ptgs
 }
 
 func (pf *ptgGridSimFrame) initPTGs(maxMps, maxRPS, simDist float64) error {
-	ptgs := []tpspace.PTG{}
+	ptgs := []PTG{}
 	for _, ptg := range defaultPTGs {
 		for _, k := range []float64{1., -1.} {
 			// Positive K calculates trajectories forwards, negative k calculates trajectories backwards
 			ptgGen := ptg(maxMps, maxRPS, k)
 			if ptgGen != nil {
 				// irreversible trajectories, e.g. alpha, will return nil for negative k
-				newptg, err := tpspace.NewPTGGridSim(ptgGen, defaultAlphaCnt, simDist)
+				newptg, err := NewPTGGridSim(ptgGen, defaultAlphaCnt, simDist)
 				if err != nil {
 					return err
 				}

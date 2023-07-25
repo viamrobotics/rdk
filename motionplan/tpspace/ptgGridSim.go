@@ -10,7 +10,6 @@ const (
 	defaultMaxTime       = 15.
 	defaultDiffT         = 0.005
 	defaultMinDist       = 3.
-	defaultAlphaCnt uint = 121
 
 	defaultSearchRadius = 10.
 

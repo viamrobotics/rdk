@@ -6,8 +6,11 @@ import (
 
 	"github.com/golang/geo/r3"
 
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
+
+const floatEpsilon = 0.0001 // If floats are closer than this consider them equal
 
 // PTG is a Parameterized Trajectory Generator, which defines how to map back and forth from cartesian space to TP-space
 // PTG coordinates are specified in polar coordinates (alpha, d)
@@ -24,6 +27,8 @@ type PTG interface {
 
 	// Returns the set of trajectory nodes for alpha index K
 	Trajectory(uint) []*TrajNode
+	
+	Transform([]referenceframe.Input) (spatialmath.Pose, error)
 }
 
 // PTGProvider is something able to provide a set of PTGs associsated with it. For example, a frame which precomputes
