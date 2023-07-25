@@ -315,7 +315,6 @@
       slot="header"
       variant="danger"
       icon="stop-circle-outline"
-      class="fill-white"
       label="Stop"
       on:click={stop}
     />
@@ -421,7 +420,6 @@
             {/if}
             <v-button
               icon="play-circle-outline"
-              class="fill-white"
               variant="success"
               label="Run"
               on:click={baseRun}
