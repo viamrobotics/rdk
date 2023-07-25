@@ -71,7 +71,7 @@ require (
 	github.com/urfave/cli/v2 v2.10.3
 	github.com/viam-labs/go-libjpeg v0.3.1
 	github.com/viamrobotics/evdev v0.1.3
-	github.com/viamrobotics/gostream v0.0.0-20230724182037-3e284d6b10bb
+	github.com/viamrobotics/gostream v0.0.0-20230725145737-ed58004e202e
 	github.com/xfmoulet/qoi v0.2.0
 	go-hep.org/x/hep v0.32.1
 	go.einride.tech/vlp16 v0.7.0
