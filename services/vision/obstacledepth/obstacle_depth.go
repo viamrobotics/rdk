@@ -10,6 +10,7 @@ import (
 	"github.com/muesli/kmeans"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
+	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/spatialmath"
@@ -37,6 +38,7 @@ type ObstaclesDepthConfig struct {
 	Hmin       float64 `json:"hmin"`
 	Hmax       float64 `json:"hmax"`
 	ThetaMax   float64 `json:"theta_max"`
+	returnPCDs bool    `json:"return_pcds"`
 	intrinsics *transform.PinholeCameraIntrinsics
 }
 
@@ -54,6 +56,7 @@ type obsDepth struct {
 	Hmax       float64
 	sinTheta   float64
 	intrinsics *transform.PinholeCameraIntrinsics
+	returnPCDs bool
 	k          int
 }
 
@@ -64,7 +67,7 @@ const (
 	default_Thetamax = math.Pi / 4
 	chunkSize        = 200 // we send chunkSize points in each goroutine to speed things up
 	sampleN          = 4   // we sample 1 in every sampleN depth points to speed things up (lol)
-	maxProcesses     = 300 // we will run at mos maxProcesses goroutines.. to speed things up
+	maxThreads       = 300 // we will run at mos maxThreads goroutines.. to speed things up
 )
 
 func init() {
@@ -107,18 +110,37 @@ func registerObstacleDepth(
 		return nil, errors.New("config for obstacle_depth cannot be nil")
 	}
 
-	// If you have no intrinsics, you get the dumb version of obstacles_depth
+	// If you have no intrinsics, you get the dumb, quick version of obstacles_depth
 	if conf.intrinsics == nil {
 		r.Logger().Warn("you're doing it the dumb way without intrinsics but okaaaay")
 		segmenter := func(ctx context.Context, src camera.VideoSource) ([]*vision.Object, error) {
-			// something dumb happens
-			return []*vision.Object{}, nil
+			// Return the shortest depth in the depth map as a Geometry point
+			depthStream, err := src.Stream(ctx)
+			if err != nil {
+				return nil, errors.Errorf("could not get stream from %s", src)
+			}
+			pic, release, err := depthStream.Next(ctx)
+			if err != nil {
+				return nil, errors.Errorf("could not get image from stream %s", depthStream)
+			} // maybe try again real quick somehow
+			defer release()
+			// Get the data from the depth map
+			dm, err := rimage.ConvertImageToDepthMap(ctx, pic)
+			if err != nil {
+				return nil, errors.New("could not convert image to depth map")
+			}
+			min, _ := dm.MinMax()
+
+			pt := spatialmath.NewPoint(r3.Vector{X: 0, Y: 0, Z: float64(min)}, "obstacle")
+			toReturn := make([]*vision.Object, 1)
+			toReturn[0] = &vision.Object{Geometry: pt}
+
+			return toReturn, nil
 		}
 		return svision.NewService(name, r, nil, nil, nil, segmenter)
 	}
-	// Otherwise (we have intrinsics), do the real version.
 
-	// Set the shit to default if it's not there honestly
+	// Use defaults if needed
 	if conf.Hmax == 0 {
 		conf.Hmax = default_Hmax
 	}
@@ -126,10 +148,9 @@ func registerObstacleDepth(
 		conf.ThetaMax = default_Thetamax
 	}
 
-	myObsDep := obsDepth{Hmin: conf.Hmin, Hmax: conf.Hmax, sinTheta: math.Sin(conf.ThetaMax), intrinsics: conf.intrinsics}
-
+	myObsDep := obsDepth{Hmin: conf.Hmin, Hmax: conf.Hmax, sinTheta: math.Sin(conf.ThetaMax),
+		intrinsics: conf.intrinsics, returnPCDs: conf.returnPCDs}
 	segmenter := myObsDep.buildObsDepthWithIntrinsics() // does the thing
-
 	return svision.NewService(name, r, nil, nil, nil, segmenter)
 }
 
@@ -152,8 +173,9 @@ func (o *obsDepth) buildObsDepthWithIntrinsics() segmentation.Segmenter {
 		}
 		o.dm = dm
 		o.makePointList(sampleN)
-		runtime.GOMAXPROCS(maxProcesses)
+		runtime.GOMAXPROCS(maxThreads)
 
+		// Use some goroutines to determine if each depth pixel is an obstacle
 		doneCh := make(chan bool, len(o.ptChunks))
 		var wg sync.WaitGroup
 		for i, chunk := range o.ptChunks {
@@ -177,21 +199,36 @@ func (o *obsDepth) buildObsDepthWithIntrinsics() segmentation.Segmenter {
 			}
 		}
 
-		// Every obsPoint in the struct should have a isObstacle value by now.
-		clusters, err := o.kMeans(o.k)
+		// Cluster on the 2D depth points and then project the 2D clusters into 3D boxes
+		outClusters, err := o.kMeans(o.k)
 		if err != nil {
 			return nil, err
 		}
-		boxes, err := o.clustersToBoxes(clusters)
+		boxes, err := o.clustersToBoxes(outClusters)
 		if err != nil {
 			return nil, err
 		}
 
-		toReturn := make([]*vision.Object, len(boxes))
-
-		// TODO: Khari, If they want pointclouds, give them pointclouds
-		for i, b := range boxes {
-			toReturn[i] = &vision.Object{Geometry: b}
+		// Packaging the return depending on if they want PCDs
+		n := int(math.Min(float64(len(outClusters)), float64(len(boxes)))) // should be same len but for safety
+		toReturn := make([]*vision.Object, n)
+		for i := 0; i < n; i++ { // for each cluster/box make an object
+			if o.returnPCDs {
+				pcdToReturn := pointcloud.New()
+				basicData := pointcloud.NewBasicData()
+				for _, pt := range outClusters[i].Observations {
+					if len(pt.Coordinates()) >= 3 {
+						vec := r3.Vector{X: pt.Coordinates()[0], Y: pt.Coordinates()[1], Z: pt.Coordinates()[2]}
+						err = pcdToReturn.Set(vec, basicData)
+						if err != nil {
+							return nil, err
+						}
+					}
+				}
+				toReturn[i] = &vision.Object{PointCloud: pcdToReturn, Geometry: boxes[i]}
+			} else {
+				toReturn[i] = &vision.Object{Geometry: boxes[i]}
+			}
 		}
 		return toReturn, nil
 	}
