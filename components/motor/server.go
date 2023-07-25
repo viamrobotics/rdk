@@ -73,7 +73,7 @@ func (server *serviceServer) GetPosition(
 	return &pb.GetPositionResponse{Position: pos}, nil
 }
 
-// GetProperties returns a message of booleans indicating which optional features the robot's motor supports.
+// GetProperties returns a message of booleans indicating which optional properties the robot's motor supports.
 func (server *serviceServer) GetProperties(
 	ctx context.Context,
 	req *pb.GetPropertiesRequest,
@@ -83,11 +83,11 @@ func (server *serviceServer) GetProperties(
 	if err != nil {
 		return nil, err
 	}
-	features, err := motor.Properties(ctx, req.Extra.AsMap())
+	props, err := motor.Properties(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
-	return FeatureMapToProtoResponse(features)
+	return PropertiesToProtoResponse(props)
 }
 
 // Stop turns the motor of the underlying robot off.

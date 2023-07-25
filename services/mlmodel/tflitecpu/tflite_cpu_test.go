@@ -265,8 +265,11 @@ func TestTFLiteConfigWalker(t *testing.T) {
 	visionAttrsOneRef := makeVisionAttributes("/some/path/on/robot/model.tflite", labelPathOneRef)
 
 	packageManager := packages.NewNoopManager()
+	packgeMap := make(map[string]string)
+	packgeMap["packages.test_model"] = "packages/test_model"
+
 	testAttributesWalker := func(t *testing.T, attrs *TFLiteConfig, expectedModelPath, expectedLabelPath string) {
-		newAttrs, err := attrs.Walk(packages.NewPackagePathVisitor(packageManager))
+		newAttrs, err := attrs.Walk(packages.NewPackagePathVisitor(packageManager, packgeMap))
 		test.That(t, err, test.ShouldBeNil)
 
 		test.That(t, newAttrs.(*TFLiteConfig).ModelPath, test.ShouldEqual, expectedModelPath)
@@ -275,8 +278,8 @@ func TestTFLiteConfigWalker(t *testing.T) {
 	}
 
 	testAttributesWalker(t, visionAttrs, "/some/path/on/robot/model.tflite", "/other/path/on/robot/textFile.txt")
-	testAttributesWalker(t, visionAttrsWithRefs, "test_model/model.tflite", "test_model/textFile.txt")
-	testAttributesWalker(t, visionAttrsOneRef, "/some/path/on/robot/model.tflite", "test_model/textFile.txt")
+	testAttributesWalker(t, visionAttrsWithRefs, "packages/test_model/model.tflite", "packages/test_model/textFile.txt")
+	testAttributesWalker(t, visionAttrsOneRef, "/some/path/on/robot/model.tflite", "packages/test_model/textFile.txt")
 }
 
 func TestLabelPathWalkFail(t *testing.T) {
@@ -284,7 +287,7 @@ func TestLabelPathWalkFail(t *testing.T) {
 	var oldLabelPath *string
 
 	packageManager := packages.NewNoopManager()
-	visitor := packages.NewPackagePathVisitor(packageManager)
+	visitor := packages.NewPackagePathVisitor(packageManager, make(map[string]string))
 
 	outNew, err := visitor.Visit(labelPath)
 	test.That(t, err, test.ShouldBeNil)

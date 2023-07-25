@@ -314,7 +314,7 @@
     <v-button
       slot="header"
       variant="danger"
-      icon="stop-circle"
+      icon="stop-circle-outline"
       label="Stop"
       on:click={stop}
     />
@@ -419,10 +419,11 @@
               </div>
             {/if}
             <v-button
-              icon="play-circle-filled"
+              icon="play-circle-outline"
               variant="success"
               label="Run"
               on:click={baseRun}
+              on:keyup={baseRun}
             />
           </div>
         {/if}
@@ -468,6 +469,9 @@
                 label="Refresh"
                 disabled={disableRefresh ? 'true' : 'false'}
                 on:click={() => {
+                  triggerRefresh = !triggerRefresh;
+                }}
+                on:keyup ={() => {
                   triggerRefresh = !triggerRefresh;
                 }}
               />
