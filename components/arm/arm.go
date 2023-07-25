@@ -66,8 +66,7 @@ type Arm interface {
 	resource.Resource
 	referenceframe.ModelFramer
 	resource.Shaped
-	resource.Actuator
-	referenceframe.InputEnabled
+	resource.InputEnabled
 
 	// EndPosition returns the current position of the arm.
 	EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error)
