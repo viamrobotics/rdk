@@ -10,6 +10,7 @@ import (
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/rimage"
 )
 
 func TestPCD(t *testing.T) {
@@ -41,16 +42,13 @@ func TestPCD(t *testing.T) {
 	stream, err := cam.Stream(ctx)
 	test.That(t, err, test.ShouldBeNil)
 
-	// inputFile, _ := os.Open(colorImgPath)
-	// test.That(t, err, test.ShouldBeNil)
-	// defer inputFile.Close()
-	// readInImage, _, err := image.Decode(inputFile)
-	// test.That(t, err, test.ShouldBeNil)
-
-	_, _, err = stream.Next(ctx)
+	readInImage, err := rimage.NewImageFromFile(artifact.MustPath("vision/objectdetection/detection_test.jpg"))
 	test.That(t, err, test.ShouldBeNil)
-	// TODO: add to this test with an image comparison
-	// test.That(t, strmImg, test.ShouldResemble, readInImage)
+
+	strmImg, _, err := stream.Next(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, strmImg, test.ShouldResemble, readInImage)
+	test.That(t, strmImg.Bounds(), test.ShouldResemble, readInImage.Bounds())
 
 	err = cam.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)
@@ -63,11 +61,19 @@ func TestColor(t *testing.T) {
 	cam, err := newCamera(ctx, resource.Name{API: camera.API}, cfg)
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = cam.Stream(ctx)
+	stream, err := cam.Stream(ctx)
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = cam.NextPointCloud(ctx)
 	test.That(t, err, test.ShouldNotBeNil)
+
+	readInImage, err := rimage.NewImageFromFile(artifact.MustPath("vision/objectdetection/detection_test.jpg"))
+	test.That(t, err, test.ShouldBeNil)
+
+	strmImg, _, err := stream.Next(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, strmImg, test.ShouldResemble, readInImage)
+	test.That(t, strmImg.Bounds(), test.ShouldResemble, readInImage.Bounds())
 
 	err = cam.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)

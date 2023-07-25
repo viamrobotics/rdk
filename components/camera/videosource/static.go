@@ -74,7 +74,7 @@ type fileSourceConfig struct {
 // Read returns just the RGB image if it is present, or the depth map if the RGB image is not present.
 func (fs *fileSource) Read(ctx context.Context) (image.Image, func(), error) {
 	if fs.ColorFN == "" && fs.DepthFN == "" {
-		return nil, nil, errors.New("no image file to read")
+		return nil, nil, errors.New("no image file to read, so not implemented")
 	}
 	if fs.ColorFN == "" { // only depth info
 		img, err := rimage.NewDepthMapFromFile(context.Background(), fs.DepthFN)
