@@ -67,7 +67,9 @@ func getPointCloudMap(path string) (func() ([]byte, error), error) {
 	return f, nil
 }
 
-func createEnvironment(ctx context.Context, t *testing.T, gpsPoint *geo.Point) (*inject.MovementSensor, framesystem.Service, base.Base, motion.Service) {
+func createEnvironment(ctx context.Context, t *testing.T, gpsPoint *geo.Point) (
+	*inject.MovementSensor, framesystem.Service, base.Base, motion.Service,
+) {
 	logger := golog.NewTestLogger(t)
 
 	// create fake base
