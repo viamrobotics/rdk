@@ -116,17 +116,18 @@ func testSegmentation(t *testing.T, segments []*vision.Object, expectedLabel str
 func BenchmarkRadiusClustering(b *testing.B) {
 	injectCamera := &inject.Camera{}
 	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
-		return pc.NewFromFile("/Users/vpandiarajan/viam/robotManip/pythonManip/pointcloud.pcd", nil)
+		return pc.NewFromLASFile(artifact.MustPath("pointcloud/test.las"), nil)
 	}
 	var pts []*vision.Object
 	var err error
 	// do segmentation
 	objConfig := utils.AttributeMap{
-		"min_points_in_plane":   10000,
-		"max_dist_from_plane":   10,
-		"min_points_in_segment": 500,
-		"clustering_radius_mm":  100.0,
-		"mean_k_filtering":      0.0,
+		"min_points_in_plane":   9000,
+		"max_dist_from_plane":   110.0,
+		"min_points_in_segment": 350,
+		"max_angle_of_plane":    30,
+		"clustering_radius_mm":  600.0,
+		"mean_k_filtering":      0,
 	}
 	segmenter, _ := segmentation.NewRadiusClustering(objConfig)
 	for i := 0; i < b.N; i++ {
