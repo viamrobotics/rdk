@@ -53,7 +53,7 @@ const deleteDestinationMarker = () => {
   destination = undefined;
 };
 
-const localizationMode = (mapTimestamp) => {
+const localizationMode = (mapTimestamp: Timestamp | undefined) => {
   if (mapTimestamp === undefined) {
     return false
   }
