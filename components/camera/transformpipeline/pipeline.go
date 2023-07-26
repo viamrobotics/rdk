@@ -93,18 +93,20 @@ func newTransformPipeline(
 	}
 	// check if the source produces a depth image or color image
 	img, release, err := camera.ReadImage(ctx, source)
-	if err != nil {
-		return nil, err
-	}
+
 	var streamType camera.ImageType
-	if _, ok := img.(*rimage.DepthMap); ok {
+	if err != nil {
+		streamType = camera.UnspecifiedStream
+	} else if _, ok := img.(*rimage.DepthMap); ok {
 		streamType = camera.DepthStream
 	} else if _, ok := img.(*image.Gray16); ok {
 		streamType = camera.DepthStream
 	} else {
 		streamType = camera.ColorStream
 	}
-	release()
+	if release != nil {
+		release()
+	}
 	// loop through the pipeline and create the image flow
 	pipeline := make([]gostream.VideoSource, 0, len(cfg.Pipeline))
 	lastSource := source

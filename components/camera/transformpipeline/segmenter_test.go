@@ -77,9 +77,11 @@ func TestTransformSegmenter(t *testing.T) {
 	transformConf := &transformConfig{
 		Source: "fakeCamera",
 		Pipeline: []Transformation{
-			{Type: "segmentations", Attributes: utils.AttributeMap{
-				"segmenter_name": "fakeVizService",
-			}},
+			{
+				Type: "segmentations", Attributes: utils.AttributeMap{
+					"segmenter_name": "fakeVizService",
+				},
+			},
 		},
 	}
 
@@ -104,7 +106,9 @@ func TestTransformSegmenter(t *testing.T) {
 
 	transformConf = &transformConfig{
 		Pipeline: []Transformation{
-			{Type: "segmentations", Attributes: utils.AttributeMap{}},
+			{
+				Type: "segmentations", Attributes: utils.AttributeMap{},
+			},
 		},
 	}
 
