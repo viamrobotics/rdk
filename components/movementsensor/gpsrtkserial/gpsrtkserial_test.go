@@ -45,14 +45,8 @@ func TestValidateRTK(t *testing.T) {
 			SerialPath:           path,
 			SerialBaudRate:       115200,
 		}
-		err := cfg.validateNtrip(path)
-		test.That(t, err, test.ShouldBeError,
-			utils.NewConfigValidationFieldRequiredError(path, "ntrip_url"))
 
-		err = cfg.validateSerialPath(path)
-		test.That(t, err, test.ShouldBeNil)
-
-		_, err = cfg.Validate(path)
+		_, err := cfg.Validate(path)
 		test.That(t, err, test.ShouldBeError,
 			utils.NewConfigValidationFieldRequiredError(path, "ntrip_url"))
 	})
@@ -67,14 +61,8 @@ func TestValidateRTK(t *testing.T) {
 			SerialPath:           "",
 			SerialBaudRate:       115200,
 		}
-		err := cfg.validateNtrip(path)
-		test.That(t, err, test.ShouldBeNil)
 
-		err = cfg.validateSerialPath(path)
-		test.That(t, err, test.ShouldBeError,
-			utils.NewConfigValidationFieldRequiredError(path, "serial_path"))
-
-		_, err = cfg.Validate(path)
+		_, err := cfg.Validate(path)
 		test.That(t, err, test.ShouldBeError,
 			utils.NewConfigValidationFieldRequiredError(path, "serial_path"))
 	})
@@ -101,9 +89,6 @@ func TestConnect(t *testing.T) {
 
 	err = g.connect(url, username, password, 10)
 	test.That(t, err, test.ShouldBeNil)
-
-	err = g.getStream("", 10)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `lookup fakeurl`)
 }
 
 func TestReadings(t *testing.T) {
@@ -168,6 +153,8 @@ func TestReadings(t *testing.T) {
 
 	loc3, alt3, err := g.Position(ctx, make(map[string]interface{}))
 	test.That(t, err, test.ShouldBeNil)
+
+	// last known valid position should be returned when current position is NaN()
 	test.That(t, loc3, test.ShouldResemble, loc1)
 	test.That(t, math.IsNaN(alt3), test.ShouldBeTrue)
 

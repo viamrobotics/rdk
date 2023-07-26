@@ -40,11 +40,7 @@ func TestValidateRTK(t *testing.T) {
 		I2CAddr:              testi2cAddr,
 	}
 	t.Run("valid config", func(t *testing.T) {
-		err := cfg.validateNtrip(path)
-		test.That(t, err, test.ShouldBeNil)
-		err = cfg.validateI2C(path)
-		test.That(t, err, test.ShouldBeNil)
-		_, err = cfg.Validate(path)
+		_, err := cfg.Validate(path)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -59,13 +55,7 @@ func TestValidateRTK(t *testing.T) {
 			I2CBus:               testBusName,
 			I2CAddr:              testi2cAddr,
 		}
-		err := cfg.validateNtrip(path)
-		test.That(t, err, test.ShouldBeError,
-			utils.NewConfigValidationFieldRequiredError(path, "ntrip_url"))
-		err = cfg.validateI2C(path)
-		test.That(t, err, test.ShouldBeNil)
-
-		_, err = cfg.Validate(path)
+		_, err := cfg.Validate(path)
 		test.That(t, err, test.ShouldBeError,
 			utils.NewConfigValidationFieldRequiredError(path, "ntrip_url"))
 	})
@@ -81,12 +71,7 @@ func TestValidateRTK(t *testing.T) {
 			Board:                testBoardName,
 			I2CAddr:              testi2cAddr,
 		}
-		err := cfg.validateNtrip(path)
-		test.That(t, err, test.ShouldBeNil)
-		err = cfg.validateI2C(path)
-		test.That(t, err, test.ShouldBeError,
-			utils.NewConfigValidationFieldRequiredError(path, "i2c_bus"))
-		_, err = cfg.Validate(path)
+		_, err := cfg.Validate(path)
 		test.That(t, err, test.ShouldBeError,
 			utils.NewConfigValidationFieldRequiredError(path, "i2c_bus"))
 	})
@@ -102,12 +87,7 @@ func TestValidateRTK(t *testing.T) {
 			Board:                testBoardName,
 			I2CBus:               testBusName,
 		}
-		err := cfg.validateNtrip(path)
-		test.That(t, err, test.ShouldBeNil)
-		err = cfg.validateI2C(path)
-		test.That(t, err, test.ShouldBeError,
-			utils.NewConfigValidationFieldRequiredError(path, "i2c_addr"))
-		_, err = cfg.Validate(path)
+		_, err := cfg.Validate(path)
 		test.That(t, err, test.ShouldBeError,
 			utils.NewConfigValidationFieldRequiredError(path, "i2c_addr"))
 	})
@@ -135,9 +115,6 @@ func TestConnect(t *testing.T) {
 
 	err = g.connect(url, username, password, 10)
 	test.That(t, err, test.ShouldBeNil)
-
-	err = g.getStream("", 10)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `lookup fakeurl`)
 }
 
 func TestReadings(t *testing.T) {
@@ -203,6 +180,8 @@ func TestReadings(t *testing.T) {
 
 	loc3, alt3, err := g.Position(ctx, make(map[string]interface{}))
 	test.That(t, err, test.ShouldBeNil)
+
+	// last known valid position should be returned when current position is NaN()
 	test.That(t, loc3, test.ShouldResemble, loc1)
 	test.That(t, math.IsNaN(alt3), test.ShouldBeTrue)
 
