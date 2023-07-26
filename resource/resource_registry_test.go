@@ -319,7 +319,7 @@ func TestDependencyNotReadyError(t *testing.T) {
 	human := &resource.DependencyNotReadyError{"human", leg}
 
 	test.That(t, strings.Count(human.Error(), "\\"), test.ShouldEqual, 0)
-	test.That(t, human.DebugString(), test.ShouldEqual, `Dependency "human" is not ready yet
+	test.That(t, human.PrettyPrint(), test.ShouldEqual, `Dependency "human" is not ready yet
   - Because "leg" is not ready yet
     - Because "foot" is not ready yet
       - Because "toe" is not ready yet

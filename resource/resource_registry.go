@@ -78,7 +78,7 @@ func (e *DependencyNotReadyError) Error() string {
 	return fmt.Sprintf("dependency %q is not ready yet; reason=%s", e.Name, e.Reason)
 }
 
-func (e *DependencyNotReadyError) DebugString() string {
+func (e *DependencyNotReadyError) PrettyPrint() string {
 	var leafError error
 	var indent string = ""
 	ret := strings.Builder{}
