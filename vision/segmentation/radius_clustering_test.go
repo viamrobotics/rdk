@@ -74,9 +74,7 @@ func TestPixelSegmentationNoFiltering(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	injectCamera := &inject.Camera{}
 	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
-		// return pc.NewFromLASFile(artifact.MustPath("pointcloud/test.las"), logger)
-		// return pc.NewFromFile("/Users/vpandiarajan/viam/robotManip/pythonManip/pointcloud.pcd", logger)
-		return pc.NewFromFile("/Users/vpandiarajan/viam/robotManip/pythonManip/densePointCloud.pcd", logger)
+		return pc.NewFromLASFile(artifact.MustPath("pointcloud/test.las"), logger)
 	}
 	// do segmentation with no mean k filtering
 	expectedLabel := "test_label"
