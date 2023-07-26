@@ -119,8 +119,8 @@ func TestLastPosition(t *testing.T) {
 	test.That(t, lp.lastposition, test.ShouldEqual, testPos)
 
 	lp.SetLastPosition(testPos2)
-	get_pos := lp.GetLastPosition()
-	test.That(t, get_pos, test.ShouldEqual, testPos2)
+	getPos := lp.GetLastPosition()
+	test.That(t, getPos, test.ShouldEqual, testPos2)
 }
 
 func TestPositionLogic(t *testing.T) {
