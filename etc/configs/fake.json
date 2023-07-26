@@ -148,10 +148,19 @@
                         "geometries": [
                             {
                                 "type": "capsule",
-                                "r": 10,
-                                "l": 30,
-                                "translation": { "x": 0, "y": 0, "z": 0 }
-                            }
+                                "r": 50000,
+                                "l": 300000,
+                                "translation": { "x": 0, "y": 0, "z": 0 },
+                                "orientation": {
+                                    "type": "ov_degrees",
+                                    "value": {
+                                        "x": 0,
+                                        "y": 0,
+                                        "z": 1,
+                                        "th": 0
+                                    }
+                                }
+                            }    
                         ]
                     },
                     {
@@ -162,7 +171,7 @@
                         "geometries": [
                             {
                                 "type": "sphere",
-                                "r": 1000,
+                                "r": 20000,
                                 "translation": { "x": 0, "y": 0, "z": 0 }
                             }
                         ]
@@ -175,9 +184,9 @@
                         "geometries": [
                             {
                                 "type": "box",
-                                "x": 100,
-                                "y": 100,
-                                "z": 100,
+                                "x": 50000,
+                                "y": 50000,
+                                "z": 50000,
                                 "translation": { "x": 0, "y": 0, "z": 0 }
                             }
                         ]
