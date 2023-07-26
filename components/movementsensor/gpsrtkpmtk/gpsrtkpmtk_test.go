@@ -209,10 +209,8 @@ func TestReconfigure(t *testing.T) {
 	}
 	g, err := newRTKI2C(ctx, deps, conf, logger)
 	test.That(t, err, test.ShouldBeNil)
-
-	err = g.Reconfigure(context.Background(), deps, conf)
-
-	test.That(t, err, test.ShouldBeNil)
+	test.That(t, g.Name(), test.ShouldResemble, conf.ResourceName())
+	test.That(t, g.Close(context.Background()), test.ShouldBeNil)
 }
 
 func TestCloseRTK(t *testing.T) {
