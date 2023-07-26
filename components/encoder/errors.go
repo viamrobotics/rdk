@@ -10,8 +10,8 @@ func NewPositionTypeUnsupportedError(positionType PositionType) error {
 
 // NewEncodedMotorPositionTypeUnsupportedError returns a standard error for when
 // an encoded motor tries to use an encoder that doesn't support Ticks.
-func NewEncodedMotorPositionTypeUnsupportedError(props map[Feature]bool) error {
-	if props[AngleDegreesSupported] {
+func NewEncodedMotorPositionTypeUnsupportedError(props Properties) error {
+	if props.AngleDegreesSupported {
 		return errors.New(
 			"encoder position type is Angle Degrees, need an encoder that supports Ticks")
 	}

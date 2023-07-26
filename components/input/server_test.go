@@ -17,6 +17,15 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
+var (
+	errControlsFailed = errors.New("can't get controls")
+	errEventsFailed   = errors.New("can't get last events")
+	errTriggerEvent   = errors.New("can't inject event")
+	errSendFailed     = errors.New("send fail")
+	errRegisterFailed = errors.New("can't register callbacks")
+	errNotFound       = errors.New("not found")
+)
+
 type streamServer struct {
 	grpc.ServerStream
 	ctx       context.Context
@@ -30,7 +39,7 @@ func (x *streamServer) Context() context.Context {
 
 func (x *streamServer) Send(m *pb.StreamEventsResponse) error {
 	if x.fail {
-		return errors.New("send fail")
+		return errSendFailed
 	}
 	if x.messageCh == nil {
 		return nil
@@ -83,10 +92,10 @@ func TestServer(t *testing.T) {
 	}
 
 	injectInputController2.ControlsFunc = func(ctx context.Context, extra map[string]interface{}) ([]input.Control, error) {
-		return nil, errors.New("can't get controls")
+		return nil, errControlsFailed
 	}
 	injectInputController2.EventsFunc = func(ctx context.Context, extra map[string]interface{}) (map[input.Control]input.Event, error) {
-		return nil, errors.New("can't get last events")
+		return nil, errEventsFailed
 	}
 	injectInputController2.RegisterControlCallbackFunc = func(
 		ctx context.Context,
@@ -95,7 +104,7 @@ func TestServer(t *testing.T) {
 		ctrlFunc input.ControlFunction,
 		extra map[string]interface{},
 	) error {
-		return errors.New("can't register callbacks")
+		return errRegisterFailed
 	}
 
 	t.Run("GetControls", func(t *testing.T) {
@@ -104,7 +113,7 @@ func TestServer(t *testing.T) {
 			&pb.GetControlsRequest{Controller: missingInputControllerName},
 		)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+		test.That(t, err.Error(), test.ShouldContainSubstring, errNotFound.Error())
 
 		extra := map[string]interface{}{"foo": "Controls"}
 		ext, err := protoutils.StructToStructPb(extra)
@@ -122,7 +131,7 @@ func TestServer(t *testing.T) {
 			&pb.GetControlsRequest{Controller: failInputControllerName},
 		)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get controls")
+		test.That(t, err.Error(), test.ShouldContainSubstring, errControlsFailed.Error())
 	})
 
 	t.Run("GetEvents", func(t *testing.T) {
@@ -131,7 +140,7 @@ func TestServer(t *testing.T) {
 			&pb.GetEventsRequest{Controller: missingInputControllerName},
 		)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+		test.That(t, err.Error(), test.ShouldContainSubstring, errNotFound.Error())
 
 		extra := map[string]interface{}{"foo": "Events"}
 		ext, err := protoutils.StructToStructPb(extra)
@@ -171,7 +180,7 @@ func TestServer(t *testing.T) {
 			&pb.GetEventsRequest{Controller: failInputControllerName},
 		)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get last events")
+		test.That(t, err.Error(), test.ShouldContainSubstring, errEventsFailed.Error())
 	})
 
 	t.Run("StreamEvents", func(t *testing.T) {
@@ -186,7 +195,7 @@ func TestServer(t *testing.T) {
 		startTime := time.Now()
 		err := inputControllerServer.StreamEvents(&pb.StreamEventsRequest{Controller: missingInputControllerName}, s)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+		test.That(t, err.Error(), test.ShouldContainSubstring, errNotFound.Error())
 
 		extra := map[string]interface{}{"foo": "StreamEvents"}
 		ext, err := protoutils.StructToStructPb(extra)
@@ -228,7 +237,7 @@ func TestServer(t *testing.T) {
 
 		err = inputControllerServer.StreamEvents(eventReqList, s)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "send fail")
+		test.That(t, err.Error(), test.ShouldContainSubstring, errSendFailed.Error())
 
 		var streamErr error
 		done := make(chan struct{})
@@ -255,7 +264,7 @@ func TestServer(t *testing.T) {
 		eventReqList.Controller = failInputControllerName
 		err = inputControllerServer.StreamEvents(eventReqList, s)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "can't register callbacks")
+		test.That(t, err.Error(), test.ShouldContainSubstring, errRegisterFailed.Error())
 	})
 
 	t.Run("TriggerEvent", func(t *testing.T) {
@@ -264,7 +273,7 @@ func TestServer(t *testing.T) {
 			&pb.TriggerEventRequest{Controller: missingInputControllerName},
 		)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+		test.That(t, err.Error(), test.ShouldContainSubstring, errNotFound.Error())
 
 		injectInputController.TriggerEventFunc = func(ctx context.Context, event input.Event, extra map[string]interface{}) error {
 			return errors.New("can't inject event")
@@ -290,7 +299,7 @@ func TestServer(t *testing.T) {
 			},
 		)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "can't inject event")
+		test.That(t, err.Error(), test.ShouldContainSubstring, errTriggerEvent.Error())
 
 		var injectedEvent input.Event
 

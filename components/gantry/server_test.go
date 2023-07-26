@@ -14,6 +14,15 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
+var (
+	errPositionFailed       = errors.New("couldn't get position")
+	errHomingFailed         = errors.New("homing unsuccessful")
+	errMoveToPositionFailed = errors.New("couldn't move to position")
+	errLengthsFailed        = errors.New("couldn't get lengths")
+	errStopFailed           = errors.New("couldn't stop")
+	errGantryNotFound       = errors.New("not found")
+)
+
 func newServer() (pb.GantryServiceServer, *inject.Gantry, *inject.Gantry, error) {
 	injectGantry := &inject.Gantry{}
 	injectGantry2 := &inject.Gantry{}
@@ -65,29 +74,29 @@ func TestServer(t *testing.T) {
 	pos2 := []float64{4.0, 5.0, 6.0}
 	speed2 := []float64{100.0, 80.0, 120.0}
 	injectGantry2.PositionFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
-		return nil, errors.New("can't get position")
+		return nil, errPositionFailed
 	}
 	injectGantry2.HomeFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {
 		extra1 = extra
-		return false, errors.New("homing unsuccessful")
+		return false, errHomingFailed
 	}
 	injectGantry2.MoveToPositionFunc = func(ctx context.Context, pos, speed []float64, extra map[string]interface{}) error {
 		gantryPos = pos
 		gantrySpeed = speed
-		return errors.New("can't move to position")
+		return errMoveToPositionFailed
 	}
 	injectGantry2.LengthsFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
-		return nil, errors.New("can't get lengths")
+		return nil, errLengthsFailed
 	}
 	injectGantry2.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
-		return errors.New("no stop")
+		return errStopFailed
 	}
 
 	//nolint:dupl
 	t.Run("gantry position", func(t *testing.T) {
 		_, err := gantryServer.GetPosition(context.Background(), &pb.GetPositionRequest{Name: missingGantryName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGantryNotFound.Error())
 
 		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "123", "bar": 234})
 		test.That(t, err, test.ShouldBeNil)
@@ -98,7 +107,7 @@ func TestServer(t *testing.T) {
 
 		_, err = gantryServer.GetPosition(context.Background(), &pb.GetPositionRequest{Name: failGantryName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get position")
+		test.That(t, err.Error(), test.ShouldContainSubstring, errPositionFailed.Error())
 	})
 
 	t.Run("move to position", func(t *testing.T) {
@@ -107,7 +116,7 @@ func TestServer(t *testing.T) {
 			&pb.MoveToPositionRequest{Name: missingGantryName, PositionsMm: pos2, SpeedsMmPerSec: speed2},
 		)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGantryNotFound.Error())
 
 		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "234", "bar": 345})
 		test.That(t, err, test.ShouldBeNil)
@@ -125,7 +134,7 @@ func TestServer(t *testing.T) {
 			&pb.MoveToPositionRequest{Name: failGantryName, PositionsMm: pos1, SpeedsMmPerSec: speed1},
 		)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "can't move to position")
+		test.That(t, err.Error(), test.ShouldContainSubstring, errMoveToPositionFailed.Error())
 		test.That(t, gantryPos, test.ShouldResemble, pos1)
 		test.That(t, gantrySpeed, test.ShouldResemble, speed1)
 	})
@@ -134,7 +143,7 @@ func TestServer(t *testing.T) {
 	t.Run("lengths", func(t *testing.T) {
 		_, err := gantryServer.GetLengths(context.Background(), &pb.GetLengthsRequest{Name: missingGantryName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGantryNotFound.Error())
 
 		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": 123, "bar": "234"})
 		test.That(t, err, test.ShouldBeNil)
@@ -145,13 +154,13 @@ func TestServer(t *testing.T) {
 
 		_, err = gantryServer.GetLengths(context.Background(), &pb.GetLengthsRequest{Name: failGantryName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get lengths")
+		test.That(t, err.Error(), test.ShouldContainSubstring, errLengthsFailed.Error())
 	})
 
 	t.Run("home", func(t *testing.T) {
 		_, err := gantryServer.Home(context.Background(), &pb.HomeRequest{Name: missingGantryName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGantryNotFound.Error())
 
 		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": 123, "bar": "234"})
 		test.That(t, err, test.ShouldBeNil)
@@ -163,12 +172,13 @@ func TestServer(t *testing.T) {
 		resp, err = gantryServer.Home(context.Background(), &pb.HomeRequest{Name: failGantryName})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, resp.Homed, test.ShouldBeFalse)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errHomingFailed.Error())
 	})
 
 	t.Run("stop", func(t *testing.T) {
 		_, err = gantryServer.Stop(context.Background(), &pb.StopRequest{Name: missingGantryName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGantryNotFound.Error())
 
 		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": 234, "bar": "123"})
 		test.That(t, err, test.ShouldBeNil)
@@ -178,7 +188,6 @@ func TestServer(t *testing.T) {
 
 		_, err = gantryServer.Stop(context.Background(), &pb.StopRequest{Name: failGantryName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no stop")
+		test.That(t, err.Error(), test.ShouldContainSubstring, errStopFailed.Error())
 	})
 }

@@ -126,7 +126,7 @@ func createLimoBase(ctx context.Context, _ resource.Dependencies, conf resource.
 		logger:             logger,
 		width:              defaultBaseTreadMm,
 		wheelbase:          200,
-		maxLinearVelocity:  1200,
+		maxLinearVelocity:  3000,
 		maxAngularVelocity: 180,
 		maxInnerAngle:      .48869, // 28 degrees in radians
 		rightAngleScale:    1.64,
@@ -433,7 +433,7 @@ func (lb *limoBase) Properties(ctx context.Context, extra map[string]interface{}
 	}, nil
 }
 
-func (lb *limoBase) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
+func (lb *limoBase) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
 	return lb.geometries, nil
 }
 

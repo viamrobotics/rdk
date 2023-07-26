@@ -872,8 +872,8 @@ func (dm *dummyMotor) ResetZeroPosition(ctx context.Context, offset float64, ext
 	return nil
 }
 
-func (dm *dummyMotor) Properties(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
-	return map[motor.Feature]bool{}, nil
+func (dm *dummyMotor) Properties(ctx context.Context, extra map[string]interface{}) (motor.Properties, error) {
+	return motor.Properties{}, nil
 }
 
 func (dm *dummyMotor) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
@@ -923,7 +923,7 @@ func (db *dummyBase) Properties(ctx context.Context, extra map[string]interface{
 	return base.Properties{}, nil
 }
 
-func (db *dummyBase) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
+func (db *dummyBase) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
 	return []spatialmath.Geometry{}, nil
 }
 

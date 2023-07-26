@@ -1,21 +1,30 @@
 <script lang='ts'>
 
-import { onMount, createEventDispatcher } from 'svelte';
-import { Map } from 'maplibre-gl';
-import { type LngLat } from '@/api/navigation';
-import { map } from '../stores';
+import { onMount } from 'svelte';
+import { Map, NavigationControl } from 'maplibre-gl';
+import { map, mapZoom, mapCenter, view } from '../stores';
 import { style } from '../style';
 import ObstacleLayer from './obstacle-layer.svelte';
 import Waypoints from './waypoints.svelte';
 import RobotMarker from './robot-marker.svelte';
 
-const dispatch = createEventDispatcher<{
-  drag: LngLat
-  dragstart: LngLat
-  dragend: LngLat
-}>();
-
 export let name: string;
+
+const minPitch = 0;
+const maxPitch = 60;
+
+const handleViewSelect = (event: CustomEvent) => {
+  $view = event.detail.value;
+};
+
+const handleMove = () => {
+  if (!map.current) {
+    return;
+  }
+
+  mapCenter.set(map.current.getCenter());
+  mapZoom.set(map.current.getZoom() / map.current.getMaxZoom());
+};
 
 onMount(() => {
   const mapInstance = new Map({
@@ -23,29 +32,45 @@ onMount(() => {
     style,
     center: [0, 0],
     zoom: 9,
-    pitch: 1,
     antialias: true,
-    pitchWithRotate: false,
+    minPitch,
+    maxPitch: minPitch,
   });
 
-  mapInstance.on('drag', () => dispatch('drag', mapInstance.getCenter()));
-  mapInstance.on('dragstart', () => dispatch('dragstart', mapInstance.getCenter()));
-  mapInstance.on('dragend', () => dispatch('dragend', mapInstance.getCenter()));
+  const nav = new NavigationControl({ showZoom: false });
+  mapInstance.addControl(nav, 'top-right');
+
+  mapInstance.on('move', handleMove);
+  handleMove();
 
   $map = mapInstance;
 });
+
+$: {
+  $map?.setMinPitch(minPitch);
+  $map?.setMaxPitch($view === '3D' ? maxPitch : minPitch);
+}
 
 </script>
 
 <div
   id='navigation-map'
-  class="mb-2 h-[550px] w-full"
+  class="-mr-4 h-[550px] w-full"
 />
+
+{#if localStorage.getItem('debug_3d')}
+  <v-radio
+    class='absolute bottom-12 right-3'
+    options='2D,3D'
+    selected={$view}
+    on:input={handleViewSelect}
+  />
+{/if}
 
 {#if $map}
   <RobotMarker {name} />
   <Waypoints {name} map={$map} />
-  <ObstacleLayer map={$map} />
+  <ObstacleLayer {name} map={$map} />
 {/if}
 
 <style>

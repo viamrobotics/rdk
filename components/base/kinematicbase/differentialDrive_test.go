@@ -122,15 +122,13 @@ func TestErrorState(t *testing.T) {
 	slam.GetPositionFunc = func(ctx context.Context) (spatialmath.Pose, string, error) {
 		return spatialmath.NewZeroPose(), "", nil
 	}
-	localizer, err := motion.NewLocalizer(ctx, slam)
-	test.That(t, err, test.ShouldBeNil)
 
 	// build base
 	logger := golog.NewTestLogger(t)
 	ddk, err := buildTestDDK(ctx, testConfig(),
 		defaultLinearVelocityMillisPerSec, defaultAngularVelocityDegsPerSec, logger)
 	test.That(t, err, test.ShouldBeNil)
-	ddk.localizer = localizer
+	ddk.localizer = motion.NewSLAMLocalizer(slam)
 
 	desiredInput := []referenceframe.Input{{3}, {4}, {utils.DegToRad(30)}}
 	distErr, headingErr, err := ddk.errorState(make([]referenceframe.Input, 3), desiredInput)
@@ -164,17 +162,11 @@ func buildTestDDK(
 	}
 	limits = append(limits, referenceframe.Limit{-2 * math.Pi, 2 * math.Pi})
 
-	// construct localizer
-	localizer, err := motion.NewLocalizer(ctx, fakeSLAM)
+	// construct differential drive kinematic base
+	kb, err := wrapWithDifferentialDriveKinematics(ctx, b, logger, motion.NewSLAMLocalizer(fakeSLAM), limits, linVel, angVel)
 	if err != nil {
 		return nil, err
 	}
-
-	kb, err := wrapWithDifferentialDriveKinematics(ctx, b, localizer, limits, linVel, angVel)
-	if err != nil {
-		return nil, err
-	}
-
 	ddk, ok := kb.(*differentialDriveKinematics)
 	if !ok {
 		return nil, err
@@ -185,8 +177,7 @@ func buildTestDDK(
 func TestNewValidRegionCapsule(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
-	ddk, err := buildTestDDK(ctx, testConfig(),
-		defaultLinearVelocityMillisPerSec, defaultAngularVelocityDegsPerSec, logger)
+	ddk, err := buildTestDDK(ctx, testConfig(), defaultLinearVelocityMillisPerSec, defaultAngularVelocityDegsPerSec, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	starting := referenceframe.FloatsToInputs([]float64{400, 0, 0})
@@ -196,9 +187,9 @@ func TestNewValidRegionCapsule(t *testing.T) {
 
 	col, err := c.CollidesWith(spatialmath.NewPoint(r3.Vector{-176, 576, 0}, ""))
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, col, test.ShouldBeTrue) // TODO: FAILING after change made to transformations method
+	test.That(t, col, test.ShouldBeTrue)
 
-	col, err = c.CollidesWith(spatialmath.NewPoint(r3.Vector{-200, -200, 0}, ""))
+	col, err = c.CollidesWith(spatialmath.NewPoint(r3.Vector{-deviationThreshold, -deviationThreshold, 0}, ""))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, col, test.ShouldBeFalse)
 }
