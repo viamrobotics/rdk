@@ -149,9 +149,8 @@ func (tm *testMotor) Position(_ context.Context, _ map[string]interface{}) (floa
 }
 
 // Properties trivially implements motor.Motor.
-func (tm *testMotor) Properties(_ context.Context, _ map[string]interface{}) (map[motor.Feature]bool, error) {
-	//nolint:nilnil
-	return nil, nil
+func (tm *testMotor) Properties(_ context.Context, _ map[string]interface{}) (motor.Properties, error) {
+	return motor.Properties{}, nil
 }
 
 // Stop trivially implements motor.Motor.
