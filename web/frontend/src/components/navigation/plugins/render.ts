@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { injectPlugin, useFrame, useRender, useThrelte } from '@threlte/core';
 import { MercatorCoordinate, type LngLat, LngLatBounds } from 'maplibre-gl';
+import { AxesHelper } from 'trzy';
 import { map, cameraMatrix, mapSize, view } from '../stores';
 
 const { clamp } = THREE.MathUtils;
@@ -9,18 +10,29 @@ const renderTarget = new THREE.WebGLRenderTarget(0, 0, { format: THREE.RGBAForma
 const renderTexture = renderTarget.texture;
 
 const scene = new THREE.Scene();
+const world = new THREE.Group();
+// Viam's coordinate system.
+world.rotateY(-Math.PI / 2);
+world.rotateX(-Math.PI / 2);
+world.rotateZ(Math.PI / 2);
+
+scene.add(world);
 const ambient = new THREE.AmbientLight();
 const dir = new THREE.DirectionalLight();
 dir.intensity = 1.5;
-scene.add(ambient);
+world.add(ambient);
+
+if (localStorage.getItem('debug_axes_helper')) {
+  world.add(new AxesHelper({ size: 1000 }));
+}
 
 view.subscribe((value) => {
   if (value === '2D') {
     ambient.intensity = 3.5;
-    scene.remove(dir);
+    world.remove(dir);
   } else {
     ambient.intensity = 2.5;
-    scene.add(dir);
+    world.add(dir);
   }
 });
 
@@ -29,7 +41,7 @@ const material = new THREE.ShaderMaterial({
   uniforms: { tex: { value: renderTexture } },
   vertexShader: `
 varying vec2 vUv;
-void main(){ vUv = uv; gl_Position = vec4(position,1.0);}
+void main(){ vUv = uv; gl_Position = vec4(position,1.);}
   `,
   fragmentShader: `
 uniform sampler2D tex; 
@@ -102,9 +114,9 @@ const initialize = () => {
     renderer!.clear();
 
     scenes.forEach(({ ref, camera }) => {
-      scene.add(ref);
+      world.add(ref);
       renderer!.render(scene, camera);
-      scene.remove(ref);
+      world.remove(ref);
     });
 
     renderer!.setRenderTarget(null);
@@ -154,6 +166,7 @@ export const renderPlugin = () => injectPlugin<Props>('lnglat', ({ ref, props })
 
     rotation.copy(currentRef.rotation);
     rotation.x += Math.PI / 2;
+
     rotationX.makeRotationAxis(vecPositiveX, rotation.x);
     rotationY.makeRotationAxis(vecPositiveY, rotation.y);
     rotationZ.makeRotationAxis(vecPositiveZ, rotation.z);

@@ -1,8 +1,8 @@
 <script lang='ts'>
 import { createEventDispatcher } from 'svelte';
-import VectorInput from './vector-input.svelte';
-import { createGeometry } from '../lib/geometry';
 import type { Geometry } from '@/api/navigation';
+import VectorInput from '../vector-input.svelte';
+import { createGeometry } from '../../lib/geometry';
 
 export let geometry: Geometry;
 
@@ -37,7 +37,7 @@ const handleDimensionsInput = (event: CustomEvent<number[]>) => {
   dispatch('input', geometry);
 };
 
-const shapeMap = { box: 'Box', sphere: 'Sphere', capsule: 'Capsule' }
+const shapeMap = { box: 'Box', sphere: 'Sphere', capsule: 'Capsule' };
 
 </script>
 

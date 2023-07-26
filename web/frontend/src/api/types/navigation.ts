@@ -1,4 +1,5 @@
 import type { navigationApi } from '@viamrobotics/sdk';
+import type { ViamObject3D } from '@viamrobotics/three';
 
 export type NavigationModes =
   | typeof navigationApi.Mode.MODE_MANUAL
@@ -8,37 +9,26 @@ export type NavigationModes =
 export type LngLat = { lng: number, lat: number }
 export type Waypoint = LngLat & { id: string }
 
-export interface Translation {
-  x: number;
-  y: number;
-  z: number;
+type BaseGeometry = {
+  pose: ViamObject3D
 }
 
-export interface Quaternion {
-  x: number;
-  y: number;
-  z: number;
-  w: number;
-}
-
-export interface CapsuleGeometry {
+export type CapsuleGeometry = BaseGeometry & {
   type: 'capsule';
   radius: number;
   length: number;
-  quaternion: Quaternion;
-}
-export interface SphereGeometry {
-  type: 'sphere';
-  radius: number;
-  quaternion: Quaternion;
 }
 
-export interface BoxGeometry {
+export type SphereGeometry = BaseGeometry & {
+  type: 'sphere';
+  radius: number;
+}
+
+export type BoxGeometry = BaseGeometry & {
   type: 'box';
   length: number;
   width: number;
   height: number;
-  quaternion: Quaternion;
 }
 
 export type Geometry = BoxGeometry | SphereGeometry | CapsuleGeometry

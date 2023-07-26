@@ -1,16 +1,15 @@
+/* eslint-disable no-underscore-dangle */
+
 import * as THREE from 'three';
 import { type Client, commonApi, navigationApi } from '@viamrobotics/sdk';
-import { OrientationVector } from 'three-orientation-vector';
+import { ViamObject3D } from '@viamrobotics/three';
 import { rcLogConditionally } from '@/lib/log';
 import type {
   BoxGeometry, CapsuleGeometry, NavigationModes, Obstacle, SphereGeometry, Waypoint,
 } from './types/navigation';
 import { notify } from '@viamrobotics/prime';
-
+import type { LngLat } from 'maplibre-gl';
 export * from './types/navigation';
-
-const ov = new OrientationVector();
-const quat = new THREE.Quaternion();
 
 export const setMode = async (robotClient: Client, name: string, mode: NavigationModes) => {
   const request = new navigationApi.SetModeRequest();
@@ -32,12 +31,12 @@ export const setMode = async (robotClient: Client, name: string, mode: Navigatio
   return response?.toObject();
 };
 
-export const setWaypoint = async (robotClient: Client, lat: number, lng: number, name: string) => {
+export const addWaypoint = async (robotClient: Client, lngLat: LngLat, name: string) => {
   const request = new navigationApi.AddWaypointRequest();
   const point = new commonApi.GeoPoint();
 
-  point.setLatitude(lat);
-  point.setLongitude(lng);
+  point.setLatitude(lngLat.lat);
+  point.setLongitude(lngLat.lng);
   request.setName(name);
   request.setLocation(point);
 
@@ -96,9 +95,9 @@ export const getObstacles = async (robotClient: Client, name: string): Promise<O
       },
       geometries: obstacle.getGeometriesList().map((geometry) => {
         const center = geometry.getCenter();
-        ov.set(center?.getOX(), center?.getOY(), center?.getOZ(), center?.getTheta());
-        ov.toQuaternion(quat);
-        const quaternion = { x: quat.x, y: quat.y, z: quat.z, w: quat.w };
+        const pose = new ViamObject3D();
+        const th = THREE.MathUtils.degToRad(center?.getTheta() ?? 0);
+        pose.orientationVector.set(center?.getOX(), center?.getOY(), center?.getOZ(), th);
 
         if (geometry.hasBox()) {
           const dimsMm = geometry.getBox()?.getDimsMm();
@@ -108,7 +107,7 @@ export const getObstacles = async (robotClient: Client, name: string): Promise<O
             length: (dimsMm?.getX() ?? 0) / 1000,
             width: (dimsMm?.getY() ?? 0) / 1000,
             height: (dimsMm?.getZ() ?? 0) / 1000,
-            quaternion,
+            pose,
           } satisfies BoxGeometry;
 
         } else if (geometry.hasSphere()) {
@@ -116,7 +115,7 @@ export const getObstacles = async (robotClient: Client, name: string): Promise<O
           return {
             type: 'sphere',
             radius: (geometry.getSphere()?.getRadiusMm() ?? 0) / 1000,
-            quaternion,
+            pose,
           } satisfies SphereGeometry;
 
         } else if (geometry.hasCapsule()) {
@@ -126,7 +125,7 @@ export const getObstacles = async (robotClient: Client, name: string): Promise<O
             type: 'capsule',
             radius: (capsule?.getRadiusMm() ?? 0) / 1000,
             length: (capsule?.getLengthMm() ?? 0) / 1000,
-            quaternion,
+            pose,
           } satisfies CapsuleGeometry;
 
         }

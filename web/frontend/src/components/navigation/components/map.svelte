@@ -58,12 +58,14 @@ $: {
   class="-mr-4 h-[550px] w-full"
 />
 
-<v-radio
-  class='absolute bottom-12 right-3'
-  options='2D,3D'
-  selected={$view}
-  on:input={handleViewSelect}
-/>
+{#if localStorage.getItem('debug_3d')}
+  <v-radio
+    class='absolute bottom-12 right-3'
+    options='2D,3D'
+    selected={$view}
+    on:input={handleViewSelect}
+  />
+{/if}
 
 {#if $map}
   <RobotMarker {name} />

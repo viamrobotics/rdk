@@ -1,7 +1,7 @@
 <script lang='ts'>
 
 import { createEventDispatcher } from 'svelte';
-import { mapZoom } from '../stores';
+import { mapZoom } from '../../stores';
 import type { LngLat } from '@/api/navigation';
 
 export let label: string | undefined = undefined;

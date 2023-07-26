@@ -11,7 +11,7 @@ import { useRobotClient } from '@/hooks/robot-client';
 import Collapse from '@/lib/components/collapse.svelte';
 import Map from './components/map.svelte';
 import Nav from './components/nav.svelte';
-import LngLatInput from './components/lnglat-input.svelte';
+import LngLatInput from './components/input/lnglat.svelte';
 
 export let name: string;
 export let write = false;

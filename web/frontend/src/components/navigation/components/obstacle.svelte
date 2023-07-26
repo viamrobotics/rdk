@@ -11,13 +11,19 @@ export let obstacle: Obstacle;
 let material: THREE.MeshPhongMaterial;
 
 const rotateGeometry = ({ ref }: { ref: THREE.BufferGeometry }) => {
-  ref.rotateX(-Math.PI / 2);
+  // ref.rotateX(-Math.PI / 2);
 };
 
 </script>
 
 {#each obstacle.geometries as geometry, index (index)}
-  <T.Mesh obstacle={obstacle.name} lnglat={obstacle.location}>
+  <T.Mesh
+    obstacle={obstacle.name}
+    lnglat={obstacle.location}
+    on:create={({ ref }) => {
+      ref.rotation.y = geometry.pose.orientationVector.th;
+    }}
+  >
     {#if geometry.type === 'box'}
       {#if $view === '3D'}
         <T.BoxGeometry args={[geometry.length, geometry.width, geometry.height]} />

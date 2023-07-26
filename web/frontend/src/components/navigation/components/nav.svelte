@@ -5,8 +5,9 @@ import type { ServiceError } from '@viamrobotics/sdk';
 import { notify } from '@viamrobotics/prime';
 import { removeWaypoint, type LngLat, type Geometry } from '@/api/navigation';
 import { useRobotClient } from '@/hooks/robot-client';
-import LnglatInput from './lnglat-input.svelte';
-import GeometryInputs from './geometry-inputs.svelte';
+import LnglatInput from './input/lnglat.svelte';
+import GeometryInputs from './input/geometry.svelte';
+import OrientationInput from './input/orientation.svelte';
 import { obstacles, waypoints, flyToMap, mapCenter, write, tab, hovered } from '../stores';
 import { createObstacle } from '../lib/obstacle';
 
@@ -123,6 +124,7 @@ onMount(() => {
                 {geometry}
                 on:input={handleGeometryInput(index, geoIndex)}
               />
+              <OrientationInput quaternion={geometry.pose.quaternion} />
             {/each}
           </li>
         {:else}

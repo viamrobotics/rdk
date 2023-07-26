@@ -1,5 +1,6 @@
 import type { Geometry, BoxGeometry, CapsuleGeometry, SphereGeometry } from '@/api/navigation';
 import type { Shapes } from './types';
+import { ViamObject3D } from '@viamrobotics/three';
 
 export const defaultSize = 5;
 
@@ -11,14 +12,14 @@ export const createGeometry = (type: Shapes): Geometry => {
         length: defaultSize * 2,
         width: defaultSize * 2,
         height: defaultSize * 2,
-        quaternion: { x: 0, y: 0, z: 0, w: 0 },
+        pose: new ViamObject3D(),
       } satisfies BoxGeometry;
     }
     case 'sphere': {
       return {
         type,
         radius: defaultSize,
-        quaternion: { x: 0, y: 0, z: 0, w: 0 },
+        pose: new ViamObject3D(),
       } satisfies SphereGeometry;
     }
     case 'capsule': {
@@ -26,7 +27,7 @@ export const createGeometry = (type: Shapes): Geometry => {
         type,
         radius: defaultSize,
         length: defaultSize * 2,
-        quaternion: { x: 0, y: 0, z: 0, w: 0 },
+        pose: new ViamObject3D(),
       } satisfies CapsuleGeometry;
     }
   }
