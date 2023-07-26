@@ -71,7 +71,7 @@ func TestServer(t *testing.T) {
 	t.Run("open", func(t *testing.T) {
 		_, err := gripperServer.Open(context.Background(), &pb.OpenRequest{Name: missingGripperName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, errGripperUnimplemented.Error())
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGripperNotFound.Error())
 
 		extra := map[string]interface{}{"foo": "Open"}
 		ext, err := protoutils.StructToStructPb(extra)
@@ -90,7 +90,7 @@ func TestServer(t *testing.T) {
 	t.Run("grab", func(t *testing.T) {
 		_, err := gripperServer.Grab(context.Background(), &pb.GrabRequest{Name: missingGripperName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, errGripperUnimplemented.Error())
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGripperNotFound.Error())
 
 		extra := map[string]interface{}{"foo": "Grab"}
 		ext, err := protoutils.StructToStructPb(extra)
@@ -109,7 +109,7 @@ func TestServer(t *testing.T) {
 	t.Run("stop", func(t *testing.T) {
 		_, err = gripperServer.Stop(context.Background(), &pb.StopRequest{Name: missingGripperName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, errGripperUnimplemented.Error())
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGripperNotFound.Error())
 
 		extra := map[string]interface{}{"foo": "Stop"}
 		ext, err := protoutils.StructToStructPb(extra)
