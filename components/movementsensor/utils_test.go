@@ -143,5 +143,4 @@ func TestPMTKFunctions(t *testing.T) {
 	)
 	test.That(t, PMTKChecksum(testValue), test.ShouldEqual, 31)
 	test.That(t, PMTKAddChk(testValue), test.ShouldResemble, expectedValue)
-
 }
