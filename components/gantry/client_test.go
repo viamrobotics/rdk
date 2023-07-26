@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
-	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
@@ -47,7 +46,7 @@ func TestClient(t *testing.T) {
 	}
 	injectGantry.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
 		extra1 = extra
-		return errors.New("no stop")
+		return errStopFailed
 	}
 	injectGantry.HomeFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {
 		extra1 = extra
@@ -79,7 +78,7 @@ func TestClient(t *testing.T) {
 	}
 	injectGantry2.HomeFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {
 		extra2 = extra
-		return false, errors.New("Home error")
+		return false, errHomingFailed
 	}
 
 	gantrySvc, err := resource.NewAPIResourceCollection(
@@ -103,7 +102,7 @@ func TestClient(t *testing.T) {
 		cancel()
 		_, err := viamgrpc.Dial(cancelCtx, listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
+		test.That(t, err, test.ShouldBeError, context.Canceled)
 	})
 
 	// working
@@ -142,7 +141,7 @@ func TestClient(t *testing.T) {
 
 		err = gantry1Client.Stop(context.Background(), map[string]interface{}{"foo": 456, "bar": "567"})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no stop")
+		test.That(t, err.Error(), test.ShouldContainSubstring, errStopFailed.Error())
 		test.That(t, extra1, test.ShouldResemble, map[string]interface{}{"foo": 456., "bar": "567"})
 
 		test.That(t, gantry1Client.Close(context.Background()), test.ShouldBeNil)
@@ -161,7 +160,7 @@ func TestClient(t *testing.T) {
 		test.That(t, extra2, test.ShouldResemble, map[string]interface{}{"foo": "123", "bar": 234.})
 
 		homed, err := client2.Home(context.Background(), map[string]interface{}{"foo": 345, "bar": "456"})
-		test.That(t, err.Error(), test.ShouldContainSubstring, "Home error")
+		test.That(t, err.Error(), test.ShouldContainSubstring, errHomingFailed.Error())
 		test.That(t, homed, test.ShouldBeFalse)
 		test.That(t, extra2, test.ShouldResemble, map[string]interface{}{"foo": 345., "bar": "456"})
 

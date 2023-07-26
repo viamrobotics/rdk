@@ -13,6 +13,13 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
+var (
+	errMoveStraight     = errors.New("critical failure in MoveStraight")
+	errSpinFailed       = errors.New("critical failure in Spin")
+	errPropertiesFailed = errors.New("critical failure in Properties")
+	errStopFailed       = errors.New("critical failure in Stop")
+)
+
 func newServer() (pb.BaseServiceServer, *inject.Base, *inject.Base, error) {
 	workingBase := &inject.Base{}
 	brokenBase := &inject.Base{}
@@ -53,13 +60,12 @@ func TestServer(t *testing.T) {
 		test.That(t, resp, test.ShouldResemble, &pb.MoveStraightResponse{})
 
 		// on failing move straight
-		errMsg := "move straight failed"
 		brokenBase.MoveStraightFunc = func(
 			ctx context.Context, distanceMm int,
 			mmPerSec float64,
 			extra map[string]interface{},
 		) error {
-			return errors.New(errMsg)
+			return errMoveStraight
 		}
 		req = &pb.MoveStraightRequest{
 			Name:       failBaseName,
@@ -68,7 +74,7 @@ func TestServer(t *testing.T) {
 		}
 		resp, err = server.MoveStraight(context.Background(), req)
 		test.That(t, resp, test.ShouldBeNil)
-		test.That(t, err, test.ShouldBeError, errors.New(errMsg))
+		test.That(t, err, test.ShouldBeError, errMoveStraight)
 
 		// failure on unfound base
 		req = &pb.MoveStraightRequest{
@@ -102,13 +108,12 @@ func TestServer(t *testing.T) {
 		test.That(t, resp, test.ShouldResemble, &pb.SpinResponse{})
 
 		// on failing spin
-		errMsg := "spin failed"
 		brokenBase.SpinFunc = func(
 			ctx context.Context,
 			angleDeg, degsPerSec float64,
 			extra map[string]interface{},
 		) error {
-			return errors.New(errMsg)
+			return errSpinFailed
 		}
 		req = &pb.SpinRequest{
 			Name:       failBaseName,
@@ -117,7 +122,7 @@ func TestServer(t *testing.T) {
 		}
 		resp, err = server.Spin(context.Background(), req)
 		test.That(t, resp, test.ShouldBeNil)
-		test.That(t, err, test.ShouldBeError, errors.New(errMsg))
+		test.That(t, err, test.ShouldBeError, errSpinFailed)
 
 		// failure on unfound base
 		req = &pb.SpinRequest{
@@ -146,15 +151,13 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		// on a failing get properties
-		errMsg := "properties not found"
-
 		brokenBase.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (base.Properties, error) {
-			return base.Properties{}, errors.New(errMsg)
+			return base.Properties{}, errPropertiesFailed
 		}
 		req = &pb.GetPropertiesRequest{Name: failBaseName}
 		resp, err = server.GetProperties(context.Background(), req)
 		test.That(t, resp, test.ShouldBeNil)
-		test.That(t, err, test.ShouldBeError, errors.New(errMsg))
+		test.That(t, err, test.ShouldBeError, errPropertiesFailed)
 
 		// failure on base not found
 		req = &pb.GetPropertiesRequest{Name: "dne"}
@@ -174,14 +177,13 @@ func TestServer(t *testing.T) {
 		test.That(t, resp, test.ShouldResemble, &pb.StopResponse{})
 
 		// on failing stop
-		errMsg := "stop failed"
 		brokenBase.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
-			return errors.New(errMsg)
+			return errStopFailed
 		}
 		req = &pb.StopRequest{Name: failBaseName}
 		resp, err = server.Stop(context.Background(), req)
 		test.That(t, resp, test.ShouldBeNil)
-		test.That(t, err, test.ShouldBeError, errors.New(errMsg))
+		test.That(t, err, test.ShouldBeError, errStopFailed)
 
 		// failure on base not found
 		req = &pb.StopRequest{Name: "dne"}

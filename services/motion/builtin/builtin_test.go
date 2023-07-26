@@ -67,6 +67,73 @@ func getPointCloudMap(path string) (func() ([]byte, error), error) {
 	return f, nil
 }
 
+func createEnvironment(ctx context.Context, t *testing.T, gpsPoint *geo.Point) (
+	*inject.MovementSensor, framesystem.Service, base.Base, motion.Service,
+) {
+	logger := golog.NewTestLogger(t)
+
+	// create fake base
+	baseCfg := resource.Config{
+		Name:  "test-base",
+		API:   base.API,
+		Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R: 20}},
+	}
+	fakeBase, err := fake.NewBase(ctx, nil, baseCfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	// create base link
+	basePose := spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0})
+	baseSphere, err := spatialmath.NewSphere(basePose, 10, "base-sphere")
+	test.That(t, err, test.ShouldBeNil)
+	baseLink := referenceframe.NewLinkInFrame(
+		referenceframe.World,
+		spatialmath.NewZeroPose(),
+		"test-base",
+		baseSphere,
+	)
+
+	// create injected MovementSensor
+	injectedMovementSensor := inject.NewMovementSensor("test-gps")
+	injectedMovementSensor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+		return gpsPoint, 0, nil
+	}
+	injectedMovementSensor.CompassHeadingFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
+		return 0, nil
+	}
+	injectedMovementSensor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+		return &movementsensor.Properties{CompassHeadingSupported: true}, nil
+	}
+
+	// create MovementSensor link
+	movementSensorLink := referenceframe.NewLinkInFrame(
+		baseLink.Name(),
+		spatialmath.NewPoseFromPoint(r3.Vector{-10, 0, 0}),
+		"test-gps",
+		nil,
+	)
+
+	// create the frame system
+	fsParts := []*referenceframe.FrameSystemPart{
+		{FrameConfig: movementSensorLink},
+		{FrameConfig: baseLink},
+	}
+	deps := resource.Dependencies{
+		fakeBase.Name():               fakeBase,
+		injectedMovementSensor.Name(): injectedMovementSensor,
+	}
+	fsSvc, err := framesystem.New(context.Background(), deps, logger)
+	test.That(t, err, test.ShouldBeNil)
+	err = fsSvc.Reconfigure(context.Background(), deps, resource.Config{ConvertedAttributes: &framesystem.Config{Parts: fsParts}})
+	test.That(t, err, test.ShouldBeNil)
+
+	// create the motion service
+	deps[fsSvc.Name()] = fsSvc
+	ms, err := NewBuiltIn(ctx, deps, resource.Config{ConvertedAttributes: &Config{}}, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	return injectedMovementSensor, fsSvc, fakeBase, ms
+}
+
 func TestMoveFailures(t *testing.T) {
 	var err error
 	ms, teardown := setupMotionServiceFromConfig(t, "../data/arm_gantry.json")
@@ -409,7 +476,6 @@ func TestMoveOnMapTimeout(t *testing.T) {
 func TestMoveOnGlobe(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
 
 	gpsPoint := geo.NewPoint(-70, 40)
 
@@ -418,71 +484,12 @@ func TestMoveOnGlobe(t *testing.T) {
 	motionCfg["motion_profile"] = "position_only"
 	motionCfg["timeout"] = 5.
 
-	// create fake base
-	baseCfg := resource.Config{
-		Name:  "test-base",
-		API:   base.API,
-		Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R: 20}},
-	}
-	fakeBase, err := fake.NewBase(ctx, nil, baseCfg, logger)
-	test.That(t, err, test.ShouldBeNil)
-
-	// create base link
-	basePose := spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0})
-	baseSphere, err := spatialmath.NewSphere(basePose, 10, "base-sphere")
-	test.That(t, err, test.ShouldBeNil)
-	baseLink := referenceframe.NewLinkInFrame(
-		referenceframe.World,
-		spatialmath.NewZeroPose(),
-		"test-base",
-		baseSphere,
-	)
-
-	// create injected MovementSensor
-	injectedMovementSensor := inject.NewMovementSensor("test-gps")
-	injectedMovementSensor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
-		return gpsPoint, 0, nil
-	}
-	injectedMovementSensor.CompassHeadingFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
-		return 0, nil
-	}
-	injectedMovementSensor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
-		return &movementsensor.Properties{CompassHeadingSupported: true}, nil
-	}
-
-	// create MovementSensor link
-	movementSensorLink := referenceframe.NewLinkInFrame(
-		baseLink.Name(),
-		spatialmath.NewPoseFromPoint(r3.Vector{-10, 0, 0}),
-		"test-gps",
-		nil,
-	)
-
-	// create the frame system
-	fsParts := []*referenceframe.FrameSystemPart{
-		{FrameConfig: movementSensorLink},
-		{FrameConfig: baseLink},
-	}
-	deps := resource.Dependencies{
-		fakeBase.Name():               fakeBase,
-		injectedMovementSensor.Name(): injectedMovementSensor,
-	}
-	fsSvc, err := framesystem.New(context.Background(), deps, logger)
-	test.That(t, err, test.ShouldBeNil)
-	err = fsSvc.Reconfigure(context.Background(), deps, resource.Config{ConvertedAttributes: &framesystem.Config{Parts: fsParts}})
-	test.That(t, err, test.ShouldBeNil)
-
-	// create the motion service
-	deps[fsSvc.Name()] = fsSvc
-	ms, err := NewBuiltIn(ctx, deps, resource.Config{ConvertedAttributes: &Config{}}, logger)
-	test.That(t, err, test.ShouldBeNil)
-
-	gp, _, err := injectedMovementSensor.Position(ctx, nil)
-	test.That(t, err, test.ShouldBeNil)
-	dst := geo.NewPoint(gp.Lat(), gp.Lng()+1e-5)
+	dst := geo.NewPoint(gpsPoint.Lat(), gpsPoint.Lng()+1e-5)
 	expectedDst := r3.Vector{380, 0, 0}
 
 	t.Run("ensure success to a nearby geo point", func(t *testing.T) {
+		t.Parallel()
+		injectedMovementSensor, _, fakeBase, ms := createEnvironment(ctx, t, gpsPoint)
 		plan, _, err := ms.(*builtIn).planMoveOnGlobe(
 			context.Background(),
 			fakeBase.Name(),
@@ -501,6 +508,7 @@ func TestMoveOnGlobe(t *testing.T) {
 
 	t.Run("go around an obstacle", func(t *testing.T) {
 		t.Parallel()
+		injectedMovementSensor, _, fakeBase, ms := createEnvironment(ctx, t, gpsPoint)
 		boxPose := spatialmath.NewPoseFromPoint(r3.Vector{50, 0, 0})
 		boxDims := r3.Vector{5, 50, 10}
 		geometries, err := spatialmath.NewBox(boxPose, boxDims, "wall")
@@ -525,6 +533,7 @@ func TestMoveOnGlobe(t *testing.T) {
 
 	t.Run("fail because of obstacle", func(t *testing.T) {
 		t.Parallel()
+		injectedMovementSensor, _, fakeBase, ms := createEnvironment(ctx, t, gpsPoint)
 
 		boxPose := spatialmath.NewPoseFromPoint(r3.Vector{50, 0, 0})
 		boxDims := r3.Vector{2, 6660, 10}
@@ -547,6 +556,8 @@ func TestMoveOnGlobe(t *testing.T) {
 	})
 
 	t.Run("check offset constructed correctly", func(t *testing.T) {
+		t.Parallel()
+		_, fsSvc, _, _ := createEnvironment(ctx, t, gpsPoint)
 		baseOrigin := referenceframe.NewPoseInFrame("test-base", spatialmath.NewZeroPose())
 		movementSensorToBase, err := fsSvc.TransformPose(ctx, baseOrigin, "test-gps", nil)
 		if err != nil {
