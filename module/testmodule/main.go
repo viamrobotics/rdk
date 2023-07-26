@@ -12,13 +12,15 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/generic"
+	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/module"
 	"go.viam.com/rdk/resource"
 )
 
 var (
-	myModel = resource.NewModel("rdk", "test", "helper")
-	myMod   *module.Module
+	helperModel    = resource.NewModel("rdk", "test", "helper")
+	testMotorModel = resource.NewModel("rdk", "test", "motor")
+	myMod          *module.Module
 )
 
 func main() {
@@ -33,14 +35,25 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 	if err != nil {
 		return err
 	}
+
 	resource.RegisterComponent(
 		generic.API,
-		myModel,
+		helperModel,
 		resource.Registration[resource.Resource, resource.NoNativeConfig]{Constructor: newHelper})
-	err = myMod.AddModelFromRegistry(ctx, generic.API, myModel)
+	err = myMod.AddModelFromRegistry(ctx, generic.API, helperModel)
 	if err != nil {
 		return err
 	}
+
+	resource.RegisterComponent(
+		motor.API,
+		testMotorModel,
+		resource.Registration[resource.Resource, resource.NoNativeConfig]{Constructor: newTestMotor})
+	err = myMod.AddModelFromRegistry(ctx, motor.API, testMotorModel)
+	if err != nil {
+		return err
+	}
+
 	err = myMod.Start(ctx)
 	defer myMod.Close(ctx)
 	if err != nil {
@@ -94,4 +107,69 @@ func (h *helper) DoCommand(ctx context.Context, req map[string]interface{}) (map
 	default:
 		return nil, fmt.Errorf("unknown command string %s", cmd)
 	}
+}
+
+func newTestMotor(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (resource.Resource, error) {
+	return &testMotor{
+		Named: conf.ResourceName().AsNamed(),
+	}, nil
+}
+
+type testMotor struct {
+	resource.Named
+	resource.TriviallyReconfigurable
+	resource.TriviallyCloseable
+}
+
+var _ motor.Motor = &testMotor{}
+
+// SetPower trivially implements motor.Motor.
+func (tm *testMotor) SetPower(_ context.Context, _ float64, _ map[string]interface{}) error {
+	return nil
+}
+
+// GoFor trivially implements motor.Motor.
+func (tm *testMotor) GoFor(_ context.Context, _, _ float64, _ map[string]interface{}) error {
+	return nil
+}
+
+// GoTo trivially implements motor.Motor.
+func (tm *testMotor) GoTo(_ context.Context, _, _ float64, _ map[string]interface{}) error {
+	return nil
+}
+
+// ResetZeroPosition trivially implements motor.Motor.
+func (tm *testMotor) ResetZeroPosition(_ context.Context, _ float64, _ map[string]interface{}) error {
+	return nil
+}
+
+// Position trivially implements motor.Motor.
+func (tm *testMotor) Position(_ context.Context, _ map[string]interface{}) (float64, error) {
+	return 0.0, nil
+}
+
+// Properties trivially implements motor.Motor.
+func (tm *testMotor) Properties(_ context.Context, _ map[string]interface{}) (motor.Properties, error) {
+	return motor.Properties{}, nil
+}
+
+// Stop trivially implements motor.Motor.
+func (tm *testMotor) Stop(_ context.Context, _ map[string]interface{}) error {
+	return nil
+}
+
+// IsPowered trivally implements motor.Motor.
+func (tm *testMotor) IsPowered(_ context.Context, _ map[string]interface{}) (bool, float64, error) {
+	return false, 0.0, nil
+}
+
+// DoCommand trivially implements motor.Motor.
+func (tm *testMotor) DoCommand(_ context.Context, _ map[string]interface{}) (map[string]interface{}, error) {
+	//nolint:nilnil
+	return nil, nil
+}
+
+// IsMoving trivially implements motor.Motor.
+func (tm *testMotor) IsMoving(context.Context) (bool, error) {
+	return false, nil
 }
