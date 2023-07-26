@@ -103,10 +103,10 @@ func (fs *fileSource) Read(ctx context.Context) (image.Image, func(), error) {
 		newWidth := img.Bounds().Dx()
 		newHeight := img.Bounds().Dy()
 		if oddWidth {
-			newWidth -= 1
+			newWidth--
 		}
 		if oddHeight {
-			newHeight -= 1
+			newHeight--
 		}
 		fs.colorImg = img.SubImage(image.Rect(0, 0, newWidth, newHeight))
 	} else {
