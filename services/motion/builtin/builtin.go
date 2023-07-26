@@ -4,10 +4,11 @@ package builtin
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"math"
 	"sync"
+
+	"github.com/pkg/errors"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
@@ -113,7 +114,8 @@ type builtIn struct {
 	lock            sync.Mutex
 }
 
-// Move takes a goal location and will plan and execute a movement to move a component specified by its name to that destination.
+// Move takes a goal location and will plan and execute a movement to move a component
+// specified by its name to that destination.
 func (ms *builtIn) Move(
 	ctx context.Context,
 	componentName resource.Name,
@@ -155,13 +157,13 @@ func (ms *builtIn) Move(
 	goalPose, _ := tf.(*referenceframe.PoseInFrame)
 
 	// the goal is to move the component to goalPose which is specified in coordinates of goalFrameName
-	output, err := motionplan.PlanMotion(ctx, ms.logger, goalPose, movingFrame, fsInputs, frameSys, worldState, constraints, extra)
+	steps, err := motionplan.PlanMotion(ctx, ms.logger, goalPose, movingFrame, fsInputs, frameSys, worldState, constraints, extra)
 	if err != nil {
 		return false, err
 	}
 
 	// move all the components
-	for _, step := range output {
+	for _, step := range steps {
 		// TODO(erh): what order? parallel?
 		for name, inputs := range step {
 			if len(inputs) == 0 {
@@ -169,6 +171,13 @@ func (ms *builtIn) Move(
 			}
 			err := resources[name].GoToInputs(ctx, inputs)
 			if err != nil {
+				for _, step := range steps {
+					for name := range step {
+						if stopErr := resources[name].Stop(ctx, nil); stopErr != nil {
+							return false, errors.Wrap(err, stopErr.Error())
+						}
+					}
+				}
 				return false, err
 			}
 		}
@@ -197,6 +206,7 @@ func (ms *builtIn) MoveOnMap(
 	// execute the plan
 	for i := 1; i < len(plan); i++ {
 		if err := kb.GoToInputs(ctx, plan[i]); err != nil {
+			kb.Stop(ctx, nil)
 			return false, err
 		}
 	}
