@@ -45,13 +45,11 @@ func main() {
 
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error {
 	progName := args[0]
-	if len(args) != 4 {
-		return fmt.Errorf("usage: %s <source_map_file_path.pcd> <source_position_file_path.json> <dest_file_path.jpeg>", progName)
+	if len(args) != 3 {
+		return fmt.Errorf("usage: %s <source_map_file_path.pcd> <dest_file_path.jpeg>", progName)
 	}
-	ppRM, err := newPPRM(args[2])
-	if err != nil {
-		return err
-	}
+
+	ppRM := transform.ParallelProjectionOntoXYWithRobotMarker{}
 
 	sourcePcdFilePath := args[1]
 	pcdFile, err := os.Open(sourcePcdFilePath)
@@ -63,16 +61,17 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 		return err
 	}
 
-	imageData, _, err := ppRM.PointCloudToRGBD(pc)
+	im, _, err := ppRM.PointCloudToRGBD(pc)
 	if err != nil {
 		return err
 	}
+
 	var image bytes.Buffer
-	if err := jpeg.Encode(&image, imageData, nil); err != nil {
+	if err := jpeg.Encode(&image, im, nil); err != nil {
 		return err
 	}
 
-	err = os.WriteFile(args[3], image.Bytes(), 0o640)
+	err = os.WriteFile(args[2], image.Bytes(), 0o640)
 	if err != nil {
 		return err
 	}

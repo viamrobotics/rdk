@@ -100,6 +100,55 @@ func (pp *ParallelProjection) ImagePointTo3DPoint(pt image.Point, d rimage.Depth
 	return r3.Vector{X: float64(pt.X), Y: float64(pt.Y), Z: float64(d)}, nil
 }
 
+var colorMap = []rimage.Color{
+	rimage.NewColor(240, 240, 240),
+	rimage.NewColor(220, 220, 220),
+	rimage.NewColor(200, 200, 200),
+	rimage.NewColor(190, 190, 190),
+	rimage.NewColor(170, 170, 170),
+	rimage.NewColor(150, 150, 150),
+	rimage.NewColor(40, 40, 40),
+	rimage.NewColor(20, 20, 20),
+	rimage.NewColor(10, 10, 10),
+	rimage.NewColor(0, 0, 0),
+}
+
+// /*
+//  * this color map is greyscale. The color map is being used map probability values of a PCD
+//  * into different color buckets provided by the color map.
+//  * generated with: https://grayscale.design/app
+//  */
+// const colorMapGrey = [
+//   [240, 240, 240],
+//   [220, 220, 220],
+//   [200, 200, 200],
+//   [190, 190, 190],
+//   [170, 170, 170],
+//   [150, 150, 150],
+//   [40, 40, 40],
+//   [20, 20, 20],
+//   [10, 10, 10],
+//   [0, 0, 0],
+// ].map(([red, green, blue]) =>
+//   new THREE.Vector3(red, green, blue).multiplyScalar(1 / 255));
+// /*
+//  * Find the desired color bucket for a given probability. This assumes the probability will be a value from 0 to 100
+//  * ticket to add testing: https://viam.atlassian.net/browse/RSDK-2606
+//  */
+// const probToColorMapBucket = (probability: number, numBuckets: number): number => {
+//   const prob = Math.max(Math.min(100, probability * 255), 0);
+//   return Math.floor((numBuckets - 1) * prob / 100);
+// };
+
+// /*
+//  * Map the color of a pixel to a color bucket value.
+//  * probability represents the probability value normalized by the size of a byte(255) to be between 0 to 1.
+//  * ticket to add testing: https://viam.atlassian.net/browse/RSDK-2606
+//  */
+// const colorBuckets = (probability: number): THREE.Vector3 => {
+//   return colorMapGrey[probToColorMapBucket(probability, colorMapGrey.length)]!;
+// };
+
 // ParallelProjectionOntoXYWithRobotMarker allows the creation of a 2D projection of a pointcloud and robot
 // position onto the XY plane.
 type ParallelProjectionOntoXYWithRobotMarker struct {
@@ -151,20 +200,25 @@ func (ppRM *ParallelProjectionOntoXYWithRobotMarker) PointCloudToRGBD(cloud poin
 	scaleFactor := calculateScaleFactor(maxX-minX, maxY-minY)
 
 	// Add points in the pointcloud to a new image
-	var pointColor rimage.Color
 	im := rimage.NewImage(imageWidth, imageHeight)
+	for i := 0; i < im.Width(); i++ {
+		for j := 0; j < im.Height(); j++ {
+			im.SetXY(i, j, rimage.White)
+		}
+	}
 	cloud.Iterate(0, 0, func(pt r3.Vector, data pointcloud.Data) bool {
 		x := int(math.Round((pt.X - minX) * scaleFactor))
 		y := int(math.Round((pt.Y - minY) * scaleFactor))
 
 		// Adds a point to an image using the value to define the color. If no value is available,
-		// the default color of white is used.
+		// the default color of black is used.
 		if x >= 0 && x < imageWidth && y >= 0 && y < imageHeight {
-			pointColor, err = getColorFromProbabilityValue(data)
+			pointColor, err := getColorFromProbabilityValue(data)
 			if err != nil {
 				return false
 			}
-			im.Circle(image.Point{X: x, Y: y}, pointRadius, pointColor)
+
+			im.Circle(image.Point{X: x, Y: flipY(y, imageHeight)}, pointRadius, pointColor)
 		}
 		return true
 	})
@@ -178,7 +232,7 @@ func (ppRM *ParallelProjectionOntoXYWithRobotMarker) PointCloudToRGBD(cloud poin
 		x := int(math.Round((robotMarker.Point().X - minX) * scaleFactor))
 		y := int(math.Round((robotMarker.Point().Y - minY) * scaleFactor))
 		robotMarkerColor := rimage.NewColor(255, 0, 0)
-		im.Circle(image.Point{X: x, Y: y}, robotMarkerRadius, robotMarkerColor)
+		im.Circle(image.Point{X: x, Y: flipY(y, imageHeight)}, robotMarkerRadius, robotMarkerColor)
 	}
 	return im, nil, nil
 }
@@ -206,15 +260,15 @@ func getColorFromProbabilityValue(d pointcloud.Data) (rimage.Color, error) {
 	var r, g, b uint8
 
 	if d == nil {
-		return rimage.NewColor(0, 0, 0), errors.New("data received was null")
+		return rimage.White, errors.New("data received was null")
 	}
 
 	if !d.HasValue() {
-		return rimage.NewColor(255, 255, 255), nil
+		return rimage.Black, nil
 	}
 
 	if d.Value() > 100 || d.Value() < 0 {
-		return rimage.NewColor(0, 0, 0),
+		return rimage.White,
 			errors.Errorf("received a value of %v which is outside the range (0 - 100) representing probabilities", d.Value())
 	}
 
@@ -307,4 +361,8 @@ func safeMath(v float64, err error) (float64, error) {
 		return 0, errors.New("NaN detected")
 	}
 	return v, nil
+}
+
+func flipY(y, imageHeight int) int {
+	return imageHeight - y
 }
