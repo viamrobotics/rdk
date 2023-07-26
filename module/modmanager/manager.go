@@ -527,6 +527,9 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
 
+	// deregister crashed module's resources, and let later checkReady reset m.handles.
+	mod.deregisterResources()
+
 	var orphanedResourceNames []resource.Name
 	for name := range mod.resources {
 		orphanedResourceNames = append(orphanedResourceNames, name)
@@ -539,9 +542,8 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 	var success bool
 	defer func() {
 		if !success {
-			// Deregister module's resources, remove module, and close connection if
-			// restart fails. Process will already be stopped.
-			mod.deregisterResources()
+			// Remove module and close connection if restart fails. Process will
+			// already be stopped.
 			for r, m := range mgr.rMap {
 				if m == mod {
 					delete(mgr.rMap, r)
@@ -596,8 +598,6 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 		return orphanedResourceNames
 	}
 
-	// deregister crashed module's resources, and let checkReady reset m.handles.
-	mod.deregisterResources()
 	if err := mod.checkReady(ctx, mgr.parentAddr, mgr.logger); err != nil {
 		mgr.logger.Errorw("error while waiting for restarted module to be ready",
 			"module", mod.name, "error", err)
