@@ -237,7 +237,6 @@ func (g *SerialNMEAMovementSensor) Properties(ctx context.Context, extra map[str
 	return &movementsensor.Properties{
 		LinearVelocitySupported: true,
 		PositionSupported:       true,
-		CompassHeadingSupported: true,
 	}, nil
 }
 
