@@ -100,55 +100,6 @@ func (pp *ParallelProjection) ImagePointTo3DPoint(pt image.Point, d rimage.Depth
 	return r3.Vector{X: float64(pt.X), Y: float64(pt.Y), Z: float64(d)}, nil
 }
 
-var colorMap = []rimage.Color{
-	rimage.NewColor(240, 240, 240),
-	rimage.NewColor(220, 220, 220),
-	rimage.NewColor(200, 200, 200),
-	rimage.NewColor(190, 190, 190),
-	rimage.NewColor(170, 170, 170),
-	rimage.NewColor(150, 150, 150),
-	rimage.NewColor(40, 40, 40),
-	rimage.NewColor(20, 20, 20),
-	rimage.NewColor(10, 10, 10),
-	rimage.NewColor(0, 0, 0),
-}
-
-// /*
-//  * this color map is greyscale. The color map is being used map probability values of a PCD
-//  * into different color buckets provided by the color map.
-//  * generated with: https://grayscale.design/app
-//  */
-// const colorMapGrey = [
-//   [240, 240, 240],
-//   [220, 220, 220],
-//   [200, 200, 200],
-//   [190, 190, 190],
-//   [170, 170, 170],
-//   [150, 150, 150],
-//   [40, 40, 40],
-//   [20, 20, 20],
-//   [10, 10, 10],
-//   [0, 0, 0],
-// ].map(([red, green, blue]) =>
-//   new THREE.Vector3(red, green, blue).multiplyScalar(1 / 255));
-// /*
-//  * Find the desired color bucket for a given probability. This assumes the probability will be a value from 0 to 100
-//  * ticket to add testing: https://viam.atlassian.net/browse/RSDK-2606
-//  */
-// const probToColorMapBucket = (probability: number, numBuckets: number): number => {
-//   const prob = Math.max(Math.min(100, probability * 255), 0);
-//   return Math.floor((numBuckets - 1) * prob / 100);
-// };
-
-// /*
-//  * Map the color of a pixel to a color bucket value.
-//  * probability represents the probability value normalized by the size of a byte(255) to be between 0 to 1.
-//  * ticket to add testing: https://viam.atlassian.net/browse/RSDK-2606
-//  */
-// const colorBuckets = (probability: number): THREE.Vector3 => {
-//   return colorMapGrey[probToColorMapBucket(probability, colorMapGrey.length)]!;
-// };
-
 // ParallelProjectionOntoXYWithRobotMarker allows the creation of a 2D projection of a pointcloud and robot
 // position onto the XY plane.
 type ParallelProjectionOntoXYWithRobotMarker struct {
@@ -213,11 +164,7 @@ func (ppRM *ParallelProjectionOntoXYWithRobotMarker) PointCloudToRGBD(cloud poin
 		// Adds a point to an image using the value to define the color. If no value is available,
 		// the default color of black is used.
 		if x >= 0 && x < imageWidth && y >= 0 && y < imageHeight {
-			pointColor, err := getColorFromProbabilityValue(data)
-			if err != nil {
-				return false
-			}
-
+			pointColor := getColorFromProbabilityValue(data)
 			im.Circle(image.Point{X: x, Y: flipY(y, imageHeight)}, pointRadius, pointColor)
 		}
 		return true
@@ -251,40 +198,16 @@ func (ppRM *ParallelProjectionOntoXYWithRobotMarker) ImagePointTo3DPoint(pt imag
 	return r3.Vector{}, errors.New("converting an image point to a 3D point is currently unimplemented for this projection")
 }
 
-// getColorFromProbabilityValue returns an RGB color value based on the probability value and defined hit and miss
-// thresholds
-// TODO (RSDK-1705): Once probability values are available, a temporary algorithm is being used based on Cartographer's method
-// of painting images. Currently this function will return a shade of green if the probability is above the hit threshold and
-// a shade of blue if it is below the miss threshold. These shades will be more distinct the further from the threshold they are.
-func getColorFromProbabilityValue(d pointcloud.Data) (rimage.Color, error) {
-	var r, g, b uint8
-
-	if d == nil {
-		return rimage.White, errors.New("data received was null")
+// getColorFromProbabilityValue returns an RGB color value based on the probability value
+// which is assumed to be in the blue color channel.
+// If no data or color is present, 100% probability is assumed.
+func getColorFromProbabilityValue(d pointcloud.Data) rimage.Color {
+	if d == nil || !d.HasColor() {
+		return colorBucket(100)
 	}
+	_, _, prob := d.RGB255()
 
-	if !d.HasValue() {
-		return rimage.Black, nil
-	}
-
-	if d.Value() > 100 || d.Value() < 0 {
-		return rimage.White,
-			errors.Errorf("received a value of %v which is outside the range (0 - 100) representing probabilities", d.Value())
-	}
-
-	prob := float64(d.Value()) / 100.
-
-	switch {
-	case prob < missThreshold:
-		b = uint8(255 * ((missThreshold - prob) / (hitThreshold - 0)))
-	case prob > hitThreshold:
-		g = uint8(255 * ((prob - hitThreshold) / (1 - missThreshold)))
-	default:
-		b = uint8(255 * ((missThreshold - prob) / (hitThreshold - 0)))
-		g = uint8(255 * ((prob - hitThreshold) / (1 - missThreshold)))
-	}
-
-	return rimage.NewColor(r, g, b), nil
+	return colorBucket(prob)
 }
 
 // NewParallelProjectionOntoXYWithRobotMarker creates a new ParallelProjectionOntoXYWithRobotMarker with the given
@@ -365,4 +288,34 @@ func safeMath(v float64, err error) (float64, error) {
 
 func flipY(y, imageHeight int) int {
 	return imageHeight - y
+}
+
+// this color map is greyscale. The color map is being used map probability values of a PCD
+// into different color buckets provided by the color map.
+// generated with: https://grayscale.design/app
+// Intended to match the remote-control frontend's slam 2d renderer
+// component's color scheme
+var colorMap = []rimage.Color{
+	rimage.NewColor(240, 240, 240),
+	rimage.NewColor(220, 220, 220),
+	rimage.NewColor(200, 200, 200),
+	rimage.NewColor(190, 190, 190),
+	rimage.NewColor(170, 170, 170),
+	rimage.NewColor(150, 150, 150),
+	rimage.NewColor(40, 40, 40),
+	rimage.NewColor(20, 20, 20),
+	rimage.NewColor(10, 10, 10),
+	rimage.NewColor(0, 0, 0),
+}
+
+// Map the color of a pixel to a color bucket value.
+func probToColorMapBucket(probability uint8, numBuckets int) int {
+	prob := math.Max(math.Min(100, float64(probability)), 0)
+	return int(math.Floor(float64(numBuckets-1) * prob / 100))
+}
+
+// Find the desired color bucket for a given probability. This assumes the probability will be a value from 0 to 100
+func colorBucket(probability uint8) rimage.Color {
+	bucket := probToColorMapBucket(probability, len(colorMap))
+	return colorMap[bucket]
 }
