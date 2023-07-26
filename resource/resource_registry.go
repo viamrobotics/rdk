@@ -89,7 +89,7 @@ func (e *DependencyNotReadyError) DebugString() string {
 			ret.WriteString(fmt.Sprintf("Dependency %q is not ready yet\n", curError.Name))
 		} else {
 			ret.WriteString(indent)
-			ret.WriteString(fmt.Sprintf("- Because %v is not ready yet\n", curError.Name))
+			ret.WriteString(fmt.Sprintf("- Because %q is not ready yet\n", curError.Name))
 		}
 
 		// If the `Reason` is also of type `DependencyNotReadyError`, we keep going with the
@@ -103,7 +103,7 @@ func (e *DependencyNotReadyError) DebugString() string {
 	}
 
 	ret.WriteString(indent)
-	ret.WriteString(fmt.Sprintf("- Because %v", leafError))
+	ret.WriteString(fmt.Sprintf("- Because %q", leafError))
 
 	return ret.String()
 }
