@@ -773,6 +773,7 @@ func (m *module) deregisterResources() {
 			resource.Deregister(api.API, model)
 		}
 	}
+	m.handles = nil
 }
 
 // DepsToNames converts a dependency list to a simple string slice.
