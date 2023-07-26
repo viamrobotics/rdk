@@ -78,9 +78,11 @@ func (e *DependencyNotReadyError) Error() string {
 	return fmt.Sprintf("dependency %q is not ready yet; reason=%s", e.Name, e.Reason)
 }
 
+// PrettyPrint returns a formatted string representing a `DependencyNotReadyError` error. This can be useful as a
+// `DependencyNotReadyError` often wraps a series of lower level `DependencyNotReadyError` errors.
 func (e *DependencyNotReadyError) PrettyPrint() string {
 	var leafError error
-	var indent string = ""
+	indent := ""
 	ret := strings.Builder{}
 	// Iterate through each `Reason`, incrementing the indent at each level.
 	for curError := e; curError != nil; indent = fmt.Sprintf("%v%v", indent, "  ") {
@@ -94,8 +96,9 @@ func (e *DependencyNotReadyError) PrettyPrint() string {
 
 		// If the `Reason` is also of type `DependencyNotReadyError`, we keep going with the
 		// "because X is not ready" language. The leaf error will be framed separately.
-		if IsDependencyNotReadyError(curError.Reason) {
-			curError = curError.Reason.(*DependencyNotReadyError)
+		var errArt *DependencyNotReadyError
+		if errors.As(curError.Reason, &errArt) {
+			curError = errArt
 		} else {
 			leafError = curError.Reason
 			curError = nil
