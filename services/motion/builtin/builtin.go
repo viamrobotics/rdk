@@ -187,7 +187,9 @@ func (ms *builtIn) MoveOnMap(
 	extra map[string]interface{},
 ) (bool, error) {
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
-
+	extra = make(map[string]interface{})
+	extra["motion_profile"] = "position_only"
+	extra["planning_alg"] = "rrtstar"
 	// make call to motionplan
 	plan, kb, err := ms.planMoveOnMap(ctx, componentName, destination, slamName, extra)
 	if err != nil {

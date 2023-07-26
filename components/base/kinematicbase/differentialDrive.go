@@ -42,20 +42,26 @@ func wrapWithDifferentialDriveKinematics(
 	if len(geometries) > 0 {
 		geometry = geometries[0]
 	}
-	model, err := referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits, geometry)
+	planningFrame, err := referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits, geometry)
 	if err != nil {
 		return nil, err
 	}
 
+	// TODO instead of handling the logic for limits here add it to the options and handle that in here
+	// you will then have access to all 3 dimensions here
+
+	// TODO make an execution frame with all 3 limits
+	// this gets added to the frame system below because this is what we use to calc error 
+
 	fs := referenceframe.NewEmptyFrameSystem("")
-	if err := fs.AddFrame(model, fs.World()); err != nil {
+	if err := fs.AddFrame(executionFrame, fs.World()); err != nil {
 		return nil, err
 	}
 
 	return &differentialDriveKinematics{
 		Base:                          b,
 		localizer:                     localizer,
-		model:                         model,
+		planningFrame:                 planningFrame,
 		fs:                            fs,
 		maxLinearVelocityMillisPerSec: maxLinearVelocityMillisPerSec,
 		maxAngularVelocityDegsPerSec:  maxAngularVelocityDegsPerSec,
@@ -65,14 +71,14 @@ func wrapWithDifferentialDriveKinematics(
 type differentialDriveKinematics struct {
 	base.Base
 	localizer                     motion.Localizer
-	model                         referenceframe.Model
+	planningFrame, executionFrame referenceframe.Model
 	fs                            referenceframe.FrameSystem
 	maxLinearVelocityMillisPerSec float64
 	maxAngularVelocityDegsPerSec  float64
 }
 
 func (ddk *differentialDriveKinematics) Kinematics() referenceframe.Frame {
-	return ddk.model
+	return ddk.planningFrame
 }
 
 func (ddk *differentialDriveKinematics) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
@@ -119,7 +125,7 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 		if !commanded {
 			// no command to move to the x, y location was issued so base is at the correct x, y position
 			// 2DOF model indicates position-only mode so heading doesn't need to be corrected, exit function
-			if len(ddk.model.DoF()) == 2 {
+			if len(ddk.planningFrame.DoF()) == 2 {
 				return nil
 			}
 			// no command to move to the x, y location was issued and not in position-only mode, correct the heading and then exit
@@ -170,7 +176,7 @@ func (ddk *differentialDriveKinematics) errorState(current, desired []referencef
 	)
 
 	// transform the goal pose such that it is in the base frame
-	tf, err := ddk.fs.Transform(map[string][]referenceframe.Input{ddk.model.Name(): current}, goal, ddk.model.Name())
+	tf, err := ddk.fs.Transform(map[string][]referenceframe.Input{ddk.executionFrame.Name(): current}, goal, ddk.executionFrame.Name())
 	if err != nil {
 		return 0, 0, err
 	}
