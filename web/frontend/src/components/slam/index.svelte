@@ -55,12 +55,12 @@ const deleteDestinationMarker = () => {
 
 const localizationMode = (mapTimestamp: Timestamp | undefined) => {
   if (mapTimestamp === undefined) {
-    return false
+    return false;
   }
-  const seconds = mapTimestamp.getSeconds()
-  const nanos = mapTimestamp.getNanos()
-  return seconds === lastTimestamp.getSeconds() && nanos === lastTimestamp.getNanos()
-}
+  const seconds = mapTimestamp.getSeconds();
+  const nanos = mapTimestamp.getNanos();
+  return seconds === lastTimestamp.getSeconds() && nanos === lastTimestamp.getNanos();
+};
 
 const refresh2d = async () => {
 
@@ -110,10 +110,10 @@ const refresh3d = async () => {
      * to see if a change has been made to the pointcloud map.
      * A new call to getPointCloudMap is made if an update has occured.
      */
-     
-     if (!localizationMode(mapTimestamp)) {
+
+    if (!localizationMode(mapTimestamp)) {
       pointcloud = await getPointCloudMap($robotClient, name);
-    } 
+    }
     if (mapTimestamp) {
       lastTimestamp = mapTimestamp;
     }
