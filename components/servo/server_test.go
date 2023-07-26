@@ -14,6 +14,12 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
+var (
+	errMoveFailed         = errors.New("move failed")
+	errPositionUnreadable = errors.New("current angle not readable")
+	errStopFailed         = errors.New("stop failed")
+)
+
 func newServer() (pb.ServoServiceServer, *inject.Servo, *inject.Servo, error) {
 	injectServo := &inject.Servo{}
 	injectServo2 := &inject.Servo{}
@@ -39,7 +45,7 @@ func TestServoMove(t *testing.T) {
 		return nil
 	}
 	failingServo.MoveFunc = func(ctx context.Context, angle uint32, extra map[string]interface{}) error {
-		return errors.New("move failed")
+		return errMoveFailed
 	}
 
 	extra := map[string]interface{}{"foo": "Move"}
@@ -56,6 +62,7 @@ func TestServoMove(t *testing.T) {
 	resp, err = servoServer.Move(context.Background(), &req)
 	test.That(t, resp, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, errMoveFailed.Error())
 
 	req = pb.MoveRequest{Name: fakeServoName}
 	resp, err = servoServer.Move(context.Background(), &req)
@@ -73,7 +80,7 @@ func TestServoGetPosition(t *testing.T) {
 		return 20, nil
 	}
 	failingServo.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (uint32, error) {
-		return 0, errors.New("current angle not readable")
+		return 0, errPositionUnreadable
 	}
 
 	extra := map[string]interface{}{"foo": "Move"}
@@ -90,6 +97,7 @@ func TestServoGetPosition(t *testing.T) {
 	resp, err = servoServer.GetPosition(context.Background(), &req)
 	test.That(t, resp, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, errPositionUnreadable.Error())
 
 	req = pb.GetPositionRequest{Name: fakeServoName}
 	resp, err = servoServer.GetPosition(context.Background(), &req)
@@ -107,7 +115,7 @@ func TestServoStop(t *testing.T) {
 		return nil
 	}
 	failingServo.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
-		return errors.New("no stop")
+		return errStopFailed
 	}
 
 	extra := map[string]interface{}{"foo": "Move"}
@@ -122,6 +130,7 @@ func TestServoStop(t *testing.T) {
 	req = pb.StopRequest{Name: failServoName}
 	_, err = servoServer.Stop(context.Background(), &req)
 	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, errStopFailed.Error())
 
 	req = pb.StopRequest{Name: fakeServoName}
 	_, err = servoServer.Stop(context.Background(), &req)
