@@ -35,7 +35,7 @@ export interface SLAMOverrides {
   ) => Promise<{ packageId: string; version: string }>;
   viewMap: (sessionId: string) => void;
   mappingDetails: MappingDetails;
-  isMapping: boolean;
+  isCloudSlam: boolean;
 }
 export interface RCOverrides {
   slam?: SLAMOverrides;

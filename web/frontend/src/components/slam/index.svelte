@@ -64,7 +64,7 @@ const deleteDestinationMarker = () => {
 const startDurationTimer = (start: number) => {
   durationInterval = setInterval(() => {
     sessionDuration = Date.now() - start;
-  }, 1000);
+  }, 400);
 };
 
 const formatOverridePose = (poseData: Pose) => {
@@ -84,7 +84,7 @@ const refresh2d = async () => {
   try {
     let nextPose;
     const mapTimestamp = await getLatestMapInfo($robotClient, name);
-    if (overrides?.isMapping && overrides?.getMappingSessionPCD) {
+    if (overrides?.isCloudSlam && overrides?.getMappingSessionPCD) {
       const { map, pose: poseData } = await overrides.getMappingSessionPCD(
         sessionId
       );
@@ -126,7 +126,7 @@ const refresh2d = async () => {
 
 const refresh3d = async () => {
   try {
-    if (overrides?.isMapping && overrides?.getMappingSessionPCD) {
+    if (overrides?.isCloudSlam && overrides?.getMappingSessionPCD) {
       const { map } = await overrides.getMappingSessionPCD(sessionId);
       pointcloud = map;
     } else {
@@ -269,7 +269,7 @@ const startMappingIntervals = (start: number) => {
 };
 
 onMount(async () => {
-  if (overrides && overrides.isMapping) {
+  if (overrides && overrides.isCloudSlam) {
     const activeSession = await overrides.getActiveMappingSession();
 
     if (activeSession) {
@@ -348,7 +348,7 @@ onDestroy(() => {
   >
     <div class="flex min-w-fit flex-col gap-4 p-4 pr-0">
       <div class="pb-4 flex flex-col gap-6">
-        {#if overrides?.isMapping && overrides?.mappingDetails}
+        {#if overrides?.isCloudSlam && overrides?.mappingDetails}
           <header class="flex flex-col text-xs justify-between gap-3">
             <div class="flex flex-col">
               <span class="font-bold text-gray-800">Mapping mode</span>
@@ -418,7 +418,7 @@ onDestroy(() => {
                 on:keydown={refresh2dMap}
               />
           </div>
-        {#if overrides && overrides.isMapping}
+        {#if overrides && overrides.isCloudSlam}
           <div class="flex">
             {#if hasActiveSession || mappingSessionEnded}
               <div class="flex justify-between w-full items-center">
