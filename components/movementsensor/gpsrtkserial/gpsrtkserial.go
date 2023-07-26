@@ -386,7 +386,7 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 
 	// It's okay to skip the mutex on this next line: g.ntripStatus can only be mutated by this
 	// goroutine itself
-	for g.ntripStatus {
+	for g.ntripStatus && !g.isClosed {
 		select {
 		case <-g.cancelCtx.Done():
 			return

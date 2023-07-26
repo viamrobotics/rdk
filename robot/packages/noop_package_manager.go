@@ -2,7 +2,7 @@ package packages
 
 import (
 	"context"
-	"path"
+	"fmt"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/resource"
@@ -30,20 +30,13 @@ func (m *noopManager) PackagePath(name PackageName) (string, error) {
 	return string(name), nil
 }
 
-func (m *noopManager) RefPath(refPath string) (string, error) {
-	ref := config.GetPackageReference(refPath)
-
-	// If no reference just return original path.
-	if ref == nil {
-		return refPath, nil
+func (m *noopManager) PlaceholderPath(path string) (*PlaceholderRef, error) {
+	matches := placeholderRegexp.FindStringSubmatch(path)
+	if len(matches) == 0 {
+		return nil, fmt.Errorf("invalid package placeholder path: %s", path)
 	}
 
-	packagePath, err := m.PackagePath(PackageName(ref.Package))
-	if err != nil {
-		return "", err
-	}
-
-	return path.Join(packagePath, path.Clean(ref.PathInPackage)), nil
+	return &PlaceholderRef{matchedPlaceholder: matches[0], nestedPath: matches[1]}, nil
 }
 
 // Close manager.

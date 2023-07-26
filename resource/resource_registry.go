@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strings"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -74,7 +75,40 @@ type DependencyNotReadyError struct {
 }
 
 func (e *DependencyNotReadyError) Error() string {
-	return fmt.Sprintf("dependency %q is not ready yet; reason=%q", e.Name, e.Reason)
+	return fmt.Sprintf("dependency %q is not ready yet; reason=%s", e.Name, e.Reason)
+}
+
+// PrettyPrint returns a formatted string representing a `DependencyNotReadyError` error. This can be useful as a
+// `DependencyNotReadyError` often wraps a series of lower level `DependencyNotReadyError` errors.
+func (e *DependencyNotReadyError) PrettyPrint() string {
+	var leafError error
+	indent := ""
+	ret := strings.Builder{}
+	// Iterate through each `Reason`, incrementing the indent at each level.
+	for curError := e; curError != nil; indent = fmt.Sprintf("%v%v", indent, "  ") {
+		// Give the top-level error different language.
+		if curError == e {
+			ret.WriteString(fmt.Sprintf("Dependency %q is not ready yet\n", curError.Name))
+		} else {
+			ret.WriteString(indent)
+			ret.WriteString(fmt.Sprintf("- Because %q is not ready yet\n", curError.Name))
+		}
+
+		// If the `Reason` is also of type `DependencyNotReadyError`, we keep going with the
+		// "because X is not ready" language. The leaf error will be framed separately.
+		var errArt *DependencyNotReadyError
+		if errors.As(curError.Reason, &errArt) {
+			curError = errArt
+		} else {
+			leafError = curError.Reason
+			curError = nil
+		}
+	}
+
+	ret.WriteString(indent)
+	ret.WriteString(fmt.Sprintf("- Because %q", leafError))
+
+	return ret.String()
 }
 
 // IsDependencyNotReadyError returns if the given error is any kind of dependency not found error.

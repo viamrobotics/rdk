@@ -195,9 +195,9 @@ func TestTMCStepperMotor(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 
 	t.Run("motor supports position reporting", func(t *testing.T) {
-		features, err := motorDep.Properties(ctx, nil)
+		properties, err := motorDep.Properties(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, features[motor.PositionReporting], test.ShouldBeTrue)
+		test.That(t, properties.PositionReporting, test.ShouldBeTrue)
 	})
 
 	t.Run("motor SetPower testing", func(t *testing.T) {
