@@ -53,6 +53,15 @@ const deleteDestinationMarker = () => {
   destination = undefined;
 };
 
+const localizationMode = (mapTimestamp: { getSeconds: () => any; getNanos: () => any; } | undefined) => {
+  if (mapTimestamp == undefined) {
+    return false
+  }
+  const seconds = mapTimestamp.getSeconds()
+  const nanos = mapTimestamp.getNanos()
+  return seconds === lastTimestamp.getSeconds() && nanos === lastTimestamp.getNanos()
+}
+
 const refresh2d = async () => {
 
   try {
@@ -65,14 +74,8 @@ const refresh2d = async () => {
      * A new call to getPointCloudMap is made if an update has occured.
      */
 
-    const seconds = mapTimestamp?.getSeconds()
-    const nanos = mapTimestamp?.getNanos()
-
-    if (seconds !== undefined && nanos !== undefined) {
-      if (seconds > lastTimestamp.getSeconds() ||
-      (seconds === lastTimestamp.getSeconds() && nanos > lastTimestamp.getNanos())) {
-        pointcloud = await getPointCloudMap($robotClient, name);
-      }
+    if (localizationMode(mapTimestamp)) {
+      nextPose = await getPosition($robotClient, name);
     } else {
       [pointcloud, nextPose] = await Promise.all([
         getPointCloudMap($robotClient, name),
@@ -107,16 +110,10 @@ const refresh3d = async () => {
      * to see if a change has been made to the pointcloud map.
      * A new call to getPointCloudMap is made if an update has occured.
      */
-    const seconds = mapTimestamp?.getSeconds()
-    const nanos = mapTimestamp?.getNanos()
-
-    if (seconds !== undefined && nanos !== undefined) {
-      if (seconds > lastTimestamp.getSeconds() ||
-      (seconds === lastTimestamp.getSeconds() && nanos > lastTimestamp.getNanos())) {
-        pointcloud = await getPointCloudMap($robotClient, name);
-      }
-    }
-
+     
+     if (!localizationMode(mapTimestamp)) {
+      pointcloud = await getPointCloudMap($robotClient, name);
+    } 
     if (mapTimestamp) {
       lastTimestamp = mapTimestamp;
     }
