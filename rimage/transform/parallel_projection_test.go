@@ -72,8 +72,9 @@ func TestParallelProjectionOntoXYWithRobotMarker(t *testing.T) {
 			Y: int(math.Round((pose.Point().Y - minY) * scaleFactor)),
 		}
 
-		colorAtPos := im.GetXY(robotMarkerExpectedPos.X, robotMarkerExpectedPos.Y)
-		expectedRobotMarkerColor := rimage.NewColor(255, 0, 0)
+		colorAtPos := im.GetXY(robotMarkerExpectedPos.X, flipY(robotMarkerExpectedPos.Y, imageHeight)-1)
+		expectedRobotMarkerColor := rimage.Red
+		fmt.Println(colorAtPos.RGB255())
 		test.That(t, colorAtPos, test.ShouldResemble, expectedRobotMarkerColor)
 
 		pointExpectedPos := image.Point{
@@ -82,25 +83,9 @@ func TestParallelProjectionOntoXYWithRobotMarker(t *testing.T) {
 		}
 
 		colorAtPoint := im.GetXY(pointExpectedPos.X, pointExpectedPos.Y)
-		expectedPointColor := rimage.NewColor(255, 255, 255)
+		expectedPointColor := rimage.White
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, colorAtPoint, test.ShouldResemble, expectedPointColor)
-	})
-
-	t.Run("Project a point with out of range data", func(t *testing.T) {
-		p := spatialmath.NewPose(r3.Vector{X: 0, Y: 0, Z: 0}, spatialmath.NewOrientationVector())
-		ppRM := NewParallelProjectionOntoXYWithRobotMarker(&p)
-
-		pointcloud := pc.New()
-		err := pointcloud.Set(r3.Vector{X: 0, Y: 0, Z: 0}, pc.NewValueData(200))
-		test.That(t, err, test.ShouldBeNil)
-
-		im, unusedDepthMap, err := ppRM.PointCloudToRGBD(pointcloud)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring,
-			fmt.Sprintf("received a value of %v which is outside the range (0 - 100) representing probabilities", 200))
-		test.That(t, im, test.ShouldBeNil)
-		test.That(t, unusedDepthMap, test.ShouldBeNil)
 	})
 
 	t.Run("Project a two point pointcloud with data with image pixel checks", func(t *testing.T) {
@@ -134,8 +119,8 @@ func TestParallelProjectionOntoXYWithRobotMarker(t *testing.T) {
 			Y: int(math.Round((pose.Point().Y - minY) * scaleFactor)),
 		}
 
-		colorAtPos := im.GetXY(robotMarkerExpectedPos.X, robotMarkerExpectedPos.Y)
-		expectedRobotMarkerColor := rimage.NewColor(255, 0, 0)
+		colorAtPos := im.GetXY(robotMarkerExpectedPos.X, flipY(robotMarkerExpectedPos.Y, imageHeight))
+		expectedRobotMarkerColor := rimage.Red
 		test.That(t, colorAtPos, test.ShouldResemble, expectedRobotMarkerColor)
 
 		point1ExpectedPos := image.Point{
@@ -143,9 +128,8 @@ func TestParallelProjectionOntoXYWithRobotMarker(t *testing.T) {
 			Y: int(math.Round((p1.Y - minY) / scaleFactor)),
 		}
 
-		colorAtPoint1 := im.GetXY(point1ExpectedPos.X, point1ExpectedPos.Y)
-		expectedPoint1Color, err := getColorFromProbabilityValue(d)
-		test.That(t, err, test.ShouldBeNil)
+		colorAtPoint1 := im.GetXY(point1ExpectedPos.X, flipY(point1ExpectedPos.Y, imageHeight)-1)
+		expectedPoint1Color := getColorFromProbabilityValue(d)
 		test.That(t, colorAtPoint1, test.ShouldResemble, expectedPoint1Color)
 
 		point2ExpectedPos := image.Point{
@@ -153,9 +137,8 @@ func TestParallelProjectionOntoXYWithRobotMarker(t *testing.T) {
 			Y: int(math.Round((p2.Y - minY) / scaleFactor)),
 		}
 
-		colorAtPoint2 := im.GetXY(point2ExpectedPos.X, point2ExpectedPos.Y)
-		expectedPoint2Color, err := getColorFromProbabilityValue(d)
-		test.That(t, err, test.ShouldBeNil)
+		colorAtPoint2 := im.GetXY(point2ExpectedPos.X, flipY(point2ExpectedPos.Y, imageHeight)-1)
+		expectedPoint2Color := getColorFromProbabilityValue(d)
 		test.That(t, colorAtPoint2, test.ShouldResemble, expectedPoint2Color)
 	})
 

@@ -178,7 +178,7 @@ func (ppRM *ParallelProjectionOntoXYWithRobotMarker) PointCloudToRGBD(cloud poin
 	if ppRM.robotPose != nil {
 		x := int(math.Round((robotMarker.Point().X - minX) * scaleFactor))
 		y := int(math.Round((robotMarker.Point().Y - minY) * scaleFactor))
-		robotMarkerColor := rimage.NewColor(255, 0, 0)
+		robotMarkerColor := rimage.Red
 		im.Circle(image.Point{X: x, Y: flipY(y, imageHeight)}, robotMarkerRadius, robotMarkerColor)
 	}
 	return im, nil, nil
@@ -305,7 +305,7 @@ var colorMap = []rimage.Color{
 	rimage.NewColor(40, 40, 40),
 	rimage.NewColor(20, 20, 20),
 	rimage.NewColor(10, 10, 10),
-	rimage.NewColor(0, 0, 0),
+	rimage.Black,
 }
 
 // Map the color of a pixel to a color bucket value.
