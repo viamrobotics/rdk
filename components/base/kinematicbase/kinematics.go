@@ -22,22 +22,22 @@ type KinematicBase interface {
 }
 
 const (
-	// LinearVelocityMillisPerSec is the linear velocity the base will drive at in mm/s.
-	defaultLinearVelocityMillisPerSec = 100
+	// LinearVelocityMMPerSec is the linear velocity the base will drive at in mm/s.
+	defaultLinearVelocityMMPerSec = 100
 
-	// AngularVelocityMillisPerSec is the angular velocity the base will turn with in deg/s.
+	// AngularVelocityMMPerSec is the angular velocity the base will turn with in deg/s.
 	defaultAngularVelocityDegsPerSec = 60
 
 	// distThresholdMM is used when the base is moving to a goal. It is considered successful if it is within this radius.
-	defaultDistThresholdMM = 100 // mm
+	defaultGoalRadiusMM = 100 // mm
 
 	// headingThresholdDegrees is used when the base is moving to a goal.
 	// If its heading is within this angle it is considered on the correct path.
 	defaultHeadingThresholdDegrees = 15
 
-	// deviationThreshold is the amount that the base is allowed to deviate from the straight line path it is intended to travel.
+	// planDeviationThreshold is the amount that the base is allowed to deviate from the straight line path it is intended to travel.
 	// If it ever exceeds this amount the movement will fail and an error will be returned.
-	defaultDeviationThreshold = 600.0 // mm
+	defaultPlanDeviationThreshold = 600.0 // mm
 
 	// timeout is the maximum amount of time that the base is allowed to remain stationary during a movement, else an error is thrown.
 	defaultTimeout = time.Second * 10
@@ -48,22 +48,22 @@ const (
 
 // Options contains values used for execution of base movement.
 type Options struct {
-	// LinearVelocityMillisPerSec is the linear velocity the base will drive at in mm/s
-	LinearVelocityMillisPerSec float64
+	// LinearVelocityMMPerSec is the linear velocity the base will drive at in mm/s
+	LinearVelocityMMPerSec float64
 
-	// AngularVelocityMillisPerSec is the angular velocity the base will turn with in deg/s
+	// AngularVelocityMMPerSec is the angular velocity the base will turn with in deg/s
 	AngularVelocityDegsPerSec float64
 
-	// DistThresholdMM is used when the base is moving to a goal. It is considered successful if it is within this radius.
-	DistThresholdMM float64
+	// GoalRadiusMM is used when the base is moving to a goal. It is considered successful if it is within this radius.
+	GoalRadiusMM float64
 
 	// HeadingThresholdDegrees is used when the base is moving to a goal.
 	// If its heading is within this angle it is considered to be on the correct path.
 	HeadingThresholdDegrees float64
 
-	// DeviationThreshold is the amount that the base is allowed to deviate from the straight line path it is intended to travel.
+	// PlanDeviationThreshold is the amount that the base is allowed to deviate from the straight line path it is intended to travel.
 	// If it ever exceeds this amount the movement will fail and an error will be returned.
-	DeviationThreshold float64
+	PlanDeviationThreshold float64
 
 	// Timeout is the maximum amount of time that the base is allowed to remain stationary during a movement, else an error is thrown.
 	Timeout time.Duration
@@ -76,13 +76,13 @@ type Options struct {
 // all values are pre-set to reasonable default values and can be changed if desired.
 func NewKinematicBaseOptions() Options {
 	options := Options{
-		LinearVelocityMillisPerSec: defaultLinearVelocityMillisPerSec,
-		AngularVelocityDegsPerSec:  defaultAngularVelocityDegsPerSec,
-		DistThresholdMM:            defaultDistThresholdMM,
-		HeadingThresholdDegrees:    defaultHeadingThresholdDegrees,
-		DeviationThreshold:         defaultDeviationThreshold,
-		Timeout:                    defaultTimeout,
-		MovementEpsilon:            defaultmovementEpsilon,
+		LinearVelocityMMPerSec:    defaultLinearVelocityMMPerSec,
+		AngularVelocityDegsPerSec: defaultAngularVelocityDegsPerSec,
+		GoalRadiusMM:              defaultGoalRadiusMM,
+		HeadingThresholdDegrees:   defaultHeadingThresholdDegrees,
+		PlanDeviationThreshold:    defaultPlanDeviationThreshold,
+		Timeout:                   defaultTimeout,
+		MovementEpsilon:           defaultmovementEpsilon,
 	}
 	return options
 }

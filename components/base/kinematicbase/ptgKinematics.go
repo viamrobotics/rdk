@@ -46,8 +46,8 @@ func wrapWithPTGKinematics(
 	}
 
 	baseMillimetersPerSecond := defaultBaseMMps
-	if options.LinearVelocityMillisPerSec > 0 {
-		baseMillimetersPerSecond = options.LinearVelocityMillisPerSec
+	if options.LinearVelocityMMPerSec > 0 {
+		baseMillimetersPerSecond = options.LinearVelocityMMPerSec
 	}
 
 	baseTurningRadius := properties.TurningRadiusMeters

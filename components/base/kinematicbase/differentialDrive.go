@@ -195,12 +195,12 @@ func (ddk *differentialDriveKinematics) issueCommand(ctx context.Context, curren
 		return false, err
 	}
 	ddk.logger.Debug("distErr: %f\theadingErr %f", distErr, headingErr)
-	if distErr > ddk.options.DistThresholdMM && math.Abs(headingErr) > ddk.options.HeadingThresholdDegrees {
+	if distErr > ddk.options.GoalRadiusMM && math.Abs(headingErr) > ddk.options.HeadingThresholdDegrees {
 		// base is headed off course; spin to correct
 		return true, ddk.Spin(ctx, -headingErr, ddk.options.AngularVelocityDegsPerSec, nil)
-	} else if distErr > ddk.options.DistThresholdMM {
+	} else if distErr > ddk.options.GoalRadiusMM {
 		// base is pointed the correct direction but not there yet; forge onward
-		return true, ddk.MoveStraight(ctx, int(distErr), ddk.options.LinearVelocityMillisPerSec, nil)
+		return true, ddk.MoveStraight(ctx, int(distErr), ddk.options.LinearVelocityMMPerSec, nil)
 	}
 	return false, nil
 }
@@ -296,8 +296,8 @@ func (ddk *differentialDriveKinematics) newValidRegionCapsule(starting, desired 
 	center := spatialmath.NewPose(pt, r)
 	capsule, err := spatialmath.NewCapsule(
 		center,
-		ddk.options.DeviationThreshold,
-		2*ddk.options.DeviationThreshold+positionErr,
+		ddk.options.PlanDeviationThreshold,
+		2*ddk.options.PlanDeviationThreshold+positionErr,
 		"")
 	if err != nil {
 		return nil, err

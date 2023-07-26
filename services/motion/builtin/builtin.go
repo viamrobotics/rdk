@@ -219,8 +219,11 @@ func (ms *builtIn) MoveOnGlobe(
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
 
 	kinematicsOptions := kinematicbase.NewKinematicBaseOptions()
-	kinematicsOptions.LinearVelocityMillisPerSec = linearVelocity
+	kinematicsOptions.LinearVelocityMMPerSec = linearVelocity
 	kinematicsOptions.AngularVelocityDegsPerSec = angularVelocity
+	kinematicsOptions.GoalRadiusMM = 3000
+	kinematicsOptions.HeadingThresholdDegrees = 8
+	kinematicsOptions.PlanDeviationThreshold = 5000
 
 	plan, kb, err := ms.planMoveOnGlobe(
 		ctx,
