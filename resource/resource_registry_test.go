@@ -3,6 +3,7 @@ package resource_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -309,4 +310,18 @@ func TestTransformAttributeMap(t *testing.T) {
 			"e": 5,
 		},
 	})
+}
+
+func TestDependencyNotReadyError(t *testing.T) {
+	toe := &resource.DependencyNotReadyError{"toe", errors.New("turf toe")}
+	foot := &resource.DependencyNotReadyError{"foot", toe}
+	leg := &resource.DependencyNotReadyError{"leg", foot}
+	human := &resource.DependencyNotReadyError{"human", leg}
+
+	test.That(t, strings.Count(human.Error(), "\\"), test.ShouldEqual, 0)
+	test.That(t, human.DebugString(), test.ShouldEqual, `Dependency "human" is not ready yet
+  - Because leg is not ready yet
+    - Because foot is not ready yet
+      - Because toe is not ready yet
+        - Because turf toe`)
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strings"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -74,7 +75,37 @@ type DependencyNotReadyError struct {
 }
 
 func (e *DependencyNotReadyError) Error() string {
-	return fmt.Sprintf("dependency %q is not ready yet; reason=%q", e.Name, e.Reason)
+	return fmt.Sprintf("dependency %q is not ready yet; reason=%s", e.Name, e.Reason)
+}
+
+func (e *DependencyNotReadyError) DebugString() string {
+	var leafError error
+	var indent string = ""
+	ret := strings.Builder{}
+	// Iterate through each `Reason`, incrementing the indent at each level.
+	for curError := e; curError != nil; indent = fmt.Sprintf("%v%v", indent, "  ") {
+		// Give the top-level error different language.
+		if curError == e {
+			ret.WriteString(fmt.Sprintf("Dependency %q is not ready yet\n", curError.Name))
+		} else {
+			ret.WriteString(indent)
+			ret.WriteString(fmt.Sprintf("- Because %v is not ready yet\n", curError.Name))
+		}
+
+		// If the `Reason` is also of type `DependencyNotReadyError`, we keep going with the
+		// "because X is not ready" language. The leaf error will be framed separately.
+		if IsDependencyNotReadyError(curError.Reason) {
+			curError = curError.Reason.(*DependencyNotReadyError)
+		} else {
+			leafError = curError.Reason
+			curError = nil
+		}
+	}
+
+	ret.WriteString(indent)
+	ret.WriteString(fmt.Sprintf("- Because %v", leafError))
+
+	return ret.String()
 }
 
 // IsDependencyNotReadyError returns if the given error is any kind of dependency not found error.
