@@ -15,12 +15,12 @@ import (
 )
 
 var (
-	errPositionFailed       = errors.New("can't get position")
+	errPositionFailed       = errors.New("couldn't get position")
 	errHomingFailed         = errors.New("homing unsuccessful")
-	errMoveToPositionFailed = errors.New("can't move to position")
-	errLengthsFailed        = errors.New("can't get lengths")
-	errStopFailed           = errors.New("no stop")
-	errGantryUnimplemented  = errors.New("not found")
+	errMoveToPositionFailed = errors.New("couldn't move to position")
+	errLengthsFailed        = errors.New("couldn't get lengths")
+	errStopFailed           = errors.New("couldn't stop")
+	errGantryNotFound       = errors.New("not found")
 )
 
 func newServer() (pb.GantryServiceServer, *inject.Gantry, *inject.Gantry, error) {
@@ -96,7 +96,7 @@ func TestServer(t *testing.T) {
 	t.Run("gantry position", func(t *testing.T) {
 		_, err := gantryServer.GetPosition(context.Background(), &pb.GetPositionRequest{Name: missingGantryName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, errGantryUnimplemented.Error())
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGantryNotFound.Error())
 
 		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "123", "bar": 234})
 		test.That(t, err, test.ShouldBeNil)
@@ -116,7 +116,7 @@ func TestServer(t *testing.T) {
 			&pb.MoveToPositionRequest{Name: missingGantryName, PositionsMm: pos2, SpeedsMmPerSec: speed2},
 		)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, errGantryUnimplemented.Error())
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGantryNotFound.Error())
 
 		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "234", "bar": 345})
 		test.That(t, err, test.ShouldBeNil)
@@ -143,7 +143,7 @@ func TestServer(t *testing.T) {
 	t.Run("lengths", func(t *testing.T) {
 		_, err := gantryServer.GetLengths(context.Background(), &pb.GetLengthsRequest{Name: missingGantryName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, errGantryUnimplemented.Error())
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGantryNotFound.Error())
 
 		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": 123, "bar": "234"})
 		test.That(t, err, test.ShouldBeNil)
@@ -160,7 +160,7 @@ func TestServer(t *testing.T) {
 	t.Run("home", func(t *testing.T) {
 		_, err := gantryServer.Home(context.Background(), &pb.HomeRequest{Name: missingGantryName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, errGantryUnimplemented.Error())
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGantryNotFound.Error())
 
 		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": 123, "bar": "234"})
 		test.That(t, err, test.ShouldBeNil)
@@ -178,7 +178,7 @@ func TestServer(t *testing.T) {
 	t.Run("stop", func(t *testing.T) {
 		_, err = gantryServer.Stop(context.Background(), &pb.StopRequest{Name: missingGantryName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, errGantryUnimplemented.Error())
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGantryNotFound.Error())
 
 		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": 234, "bar": "123"})
 		test.That(t, err, test.ShouldBeNil)

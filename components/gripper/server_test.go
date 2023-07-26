@@ -15,10 +15,10 @@ import (
 )
 
 var (
-	errCantOpen             = errors.New("can't open")
-	errCantGrab             = errors.New("can't grab")
-	errStopUnimplemented    = errors.New("stop unimplemented")
-	errGripperUnimplemented = errors.New("not found")
+	errCantOpen          = errors.New("can't open")
+	errCantGrab          = errors.New("can't grab")
+	errStopUnimplemented = errors.New("stop unimplemented")
+	errGripperNotFound   = errors.New("not found")
 )
 
 func newServer() (pb.GripperServiceServer, *inject.Gripper, *inject.Gripper, error) {
