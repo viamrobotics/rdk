@@ -165,21 +165,17 @@ func (ppRM *ParallelProjectionOntoXYWithRobotMarker) PointCloudToRGBD(cloud poin
 		// the default color of black is used.
 		if x >= 0 && x < imageWidth && y >= 0 && y < imageHeight {
 			pointColor := getColorFromProbabilityValue(data)
-			im.Circle(image.Point{X: x, Y: flipY(y, imageHeight)}, pointRadius, pointColor)
+			im.Circle(image.Point{X: x, Y: flipY(y)}, pointRadius, pointColor)
 		}
 		return true
 	})
-
-	if err != nil {
-		return nil, nil, err
-	}
 
 	// Add a red robot marker to the image
 	if ppRM.robotPose != nil {
 		x := int(math.Round((robotMarker.Point().X - minX) * scaleFactor))
 		y := int(math.Round((robotMarker.Point().Y - minY) * scaleFactor))
 		robotMarkerColor := rimage.Red
-		im.Circle(image.Point{X: x, Y: flipY(y, imageHeight)}, robotMarkerRadius, robotMarkerColor)
+		im.Circle(image.Point{X: x, Y: flipY(y)}, robotMarkerRadius, robotMarkerColor)
 	}
 	return im, nil, nil
 }
@@ -286,7 +282,7 @@ func safeMath(v float64, err error) (float64, error) {
 	return v, nil
 }
 
-func flipY(y, imageHeight int) int {
+func flipY(y int) int {
 	return imageHeight - y
 }
 
@@ -294,7 +290,7 @@ func flipY(y, imageHeight int) int {
 // into different color buckets provided by the color map.
 // generated with: https://grayscale.design/app
 // Intended to match the remote-control frontend's slam 2d renderer
-// component's color scheme
+// component's color scheme.
 var colorMap = []rimage.Color{
 	rimage.NewColor(240, 240, 240),
 	rimage.NewColor(220, 220, 220),
@@ -314,7 +310,7 @@ func probToColorMapBucket(probability uint8, numBuckets int) int {
 	return int(math.Floor(float64(numBuckets-1) * prob / 100))
 }
 
-// Find the desired color bucket for a given probability. This assumes the probability will be a value from 0 to 100
+// Find the desired color bucket for a given probability. This assumes the probability will be a value from 0 to 100.
 func colorBucket(probability uint8) rimage.Color {
 	bucket := probToColorMapBucket(probability, len(colorMap))
 	return colorMap[bucket]

@@ -1,7 +1,6 @@
 package transform
 
 import (
-	"fmt"
 	"image"
 	"math"
 	"os"
@@ -72,9 +71,8 @@ func TestParallelProjectionOntoXYWithRobotMarker(t *testing.T) {
 			Y: int(math.Round((pose.Point().Y - minY) * scaleFactor)),
 		}
 
-		colorAtPos := im.GetXY(robotMarkerExpectedPos.X, flipY(robotMarkerExpectedPos.Y, imageHeight)-1)
+		colorAtPos := im.GetXY(robotMarkerExpectedPos.X, flipY(robotMarkerExpectedPos.Y)-1)
 		expectedRobotMarkerColor := rimage.Red
-		fmt.Println(colorAtPos.RGB255())
 		test.That(t, colorAtPos, test.ShouldResemble, expectedRobotMarkerColor)
 
 		pointExpectedPos := image.Point{
@@ -119,7 +117,7 @@ func TestParallelProjectionOntoXYWithRobotMarker(t *testing.T) {
 			Y: int(math.Round((pose.Point().Y - minY) * scaleFactor)),
 		}
 
-		colorAtPos := im.GetXY(robotMarkerExpectedPos.X, flipY(robotMarkerExpectedPos.Y, imageHeight))
+		colorAtPos := im.GetXY(robotMarkerExpectedPos.X, flipY(robotMarkerExpectedPos.Y))
 		expectedRobotMarkerColor := rimage.Red
 		test.That(t, colorAtPos, test.ShouldResemble, expectedRobotMarkerColor)
 
@@ -128,7 +126,7 @@ func TestParallelProjectionOntoXYWithRobotMarker(t *testing.T) {
 			Y: int(math.Round((p1.Y - minY) / scaleFactor)),
 		}
 
-		colorAtPoint1 := im.GetXY(point1ExpectedPos.X, flipY(point1ExpectedPos.Y, imageHeight)-1)
+		colorAtPoint1 := im.GetXY(point1ExpectedPos.X, flipY(point1ExpectedPos.Y)-1)
 		expectedPoint1Color := getColorFromProbabilityValue(d)
 		test.That(t, colorAtPoint1, test.ShouldResemble, expectedPoint1Color)
 
@@ -137,7 +135,7 @@ func TestParallelProjectionOntoXYWithRobotMarker(t *testing.T) {
 			Y: int(math.Round((p2.Y - minY) / scaleFactor)),
 		}
 
-		colorAtPoint2 := im.GetXY(point2ExpectedPos.X, flipY(point2ExpectedPos.Y, imageHeight)-1)
+		colorAtPoint2 := im.GetXY(point2ExpectedPos.X, flipY(point2ExpectedPos.Y)-1)
 		expectedPoint2Color := getColorFromProbabilityValue(d)
 		test.That(t, colorAtPoint2, test.ShouldResemble, expectedPoint2Color)
 	})
