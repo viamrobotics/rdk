@@ -64,7 +64,7 @@ const refresh2d = async () => {
      * to see if a change has been made to the pointcloud map.
      * A new call to getPointCloudMap is made if an update has occured.
      */
-    if (mapTimestamp?.getSeconds() === lastTimestamp.getSeconds()) {
+
     if (mapTimestamp?.getSeconds() > lastTimestamp.getSeconds() ||
     (mapTimestamp?.getSeconds() === lastTimestamp.getSeconds() && mapTimestamp?.getNanos() > lastTimestamp.getNanos())) {
       nextPose = await getPosition($robotClient, name);
