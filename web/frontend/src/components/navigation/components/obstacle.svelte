@@ -10,10 +10,6 @@ export let obstacle: Obstacle;
 
 let material: THREE.MeshPhongMaterial;
 
-const rotateGeometry = ({ ref }: { ref: THREE.BufferGeometry }) => {
-  // ref.rotateX(-Math.PI / 2);
-};
-
 </script>
 
 {#each obstacle.geometries as geometry, index (index)}
@@ -30,7 +26,6 @@ const rotateGeometry = ({ ref }: { ref: THREE.BufferGeometry }) => {
       {:else}
         <T.PlaneGeometry
           args={[geometry.length, geometry.width]}
-          on:create={rotateGeometry}
         />
       {/if}
     {:else if geometry.type === 'sphere'}
@@ -39,13 +34,11 @@ const rotateGeometry = ({ ref }: { ref: THREE.BufferGeometry }) => {
       {:else}
         <T.CircleGeometry
           args={[geometry.radius]}
-          on:create={rotateGeometry}
         />
       {/if}
     {:else if geometry.type === 'capsule'}
       <T.CapsuleGeometry
         args={[geometry.radius, geometry.length, 16, 32]}
-        on:create={rotateGeometry}
       />
     {/if}
     <T.MeshPhongMaterial
