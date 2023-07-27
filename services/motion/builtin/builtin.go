@@ -8,11 +8,10 @@ import (
 	"math"
 	"sync"
 
-	"github.com/pkg/errors"
-
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
+	"github.com/pkg/errors"
 	servicepb "go.viam.com/api/service/motion/v1"
 
 	"go.viam.com/rdk/components/base"
@@ -206,7 +205,9 @@ func (ms *builtIn) MoveOnMap(
 	// execute the plan
 	for i := 1; i < len(plan); i++ {
 		if err := kb.GoToInputs(ctx, plan[i]); err != nil {
-			kb.Stop(ctx, nil)
+			if stopErr := kb.Stop(ctx, nil); stopErr != nil {
+				return false, errors.Wrap(err, stopErr.Error())
+			}
 			return false, err
 		}
 	}
