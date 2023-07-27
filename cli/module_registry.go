@@ -82,7 +82,7 @@ func CreateModuleCommand(c *cli.Context) error {
 	}
 	// The registry team is currently of the opinion that including an org id in the meta.json file
 	// is non-ideal.
-	// If you do change this, edit the UpdateCommand().. function to also check if the manifestprefix is an orgid
+	// If you do change this, edit the UpdateCommand().. function to also check if the manifest prefix is an orgid
 	// during the replacement to a public namespace
 	if isValidOrgID(returnedModuleID.Prefix) {
 		returnedModuleID.Prefix = ""
@@ -128,7 +128,7 @@ func UpdateModuleCommand(c *cli.Context) error {
 		return err
 	}
 
-	moduleID, err := resolveModuleIDFromMultipleSources(c, client, manifest.Name, publicNamespaceArg, orgIDArg)
+	moduleID, err := updateManifestModuleIDWithArgs(c, client, manifest.Name, publicNamespaceArg, orgIDArg)
 	if err != nil {
 		return err
 	}
@@ -149,13 +149,13 @@ func UpdateModuleCommand(c *cli.Context) error {
 		if err != nil {
 			// hopefully a user never sees this. An alternative would be to fail silently here
 			// to prevent the user from being surprised/scared that their update failed
-			return errors.Wrap(err, "error while trying to tidy up the local meta.json")
+			return errors.Wrap(err, "Failed to update meta.json with new information from Viam")
 		}
 		if org.PublicNamespace != "" {
 			moduleID.Prefix = org.PublicNamespace
 			manifest.Name = moduleID.toString()
 			if err := writeManifest(manifestPath, manifest); err != nil {
-				return errors.Wrap(err, "error while trying to tidy up the local meta.json")
+				return errors.Wrap(err, "Failed to update meta.json with new information from Viam")
 			}
 			fmt.Fprintf(c.App.Writer, "\nUpdated meta.json to use the public namespace of %q which is %q\n",
 				org.Name, org.PublicNamespace)
@@ -200,7 +200,7 @@ func UploadModuleCommand(c *cli.Context) error {
 				"If you want to upload a version without a meta.json, you must supply a module name and namespace (or module name and orgid)",
 			)
 		}
-		moduleID, err = resolveModuleIDFromMultipleSources(c, client, nameArg, publicNamespaceArg, orgIDArg)
+		moduleID, err = updateManifestModuleIDWithArgs(c, client, nameArg, publicNamespaceArg, orgIDArg)
 		if err != nil {
 			return err
 		}
@@ -211,7 +211,7 @@ func UploadModuleCommand(c *cli.Context) error {
 			return err
 		}
 
-		moduleID, err = resolveModuleIDFromMultipleSources(c, client, manifest.Name, publicNamespaceArg, orgIDArg)
+		moduleID, err = updateManifestModuleIDWithArgs(c, client, manifest.Name, publicNamespaceArg, orgIDArg)
 		if err != nil {
 			return err
 		}
@@ -264,9 +264,9 @@ func (m *ModuleID) toString() string {
 	return fmt.Sprintf("%s:%s", m.Prefix, m.Name)
 }
 
-// resolveModuleIDFromMultipleSources tries to parse the manifestNameEntry to see if it is a valid moduleID with a prefix
+// updateManifestModuleIDWithArgs tries to parse the manifestNameEntry to see if it is a valid moduleID with a prefix
 // if it is not, it uses the publicNamespaceArg and orgIDArg to determine what the moduleID prefix should be.
-func resolveModuleIDFromMultipleSources(
+func updateManifestModuleIDWithArgs(
 	c *cli.Context,
 	client *AppClient,
 	manifestNameEntry,
