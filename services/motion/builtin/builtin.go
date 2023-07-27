@@ -310,7 +310,7 @@ func (ms *builtIn) planMoveOnGlobe(
 	}
 	var kb kinematicbase.KinematicBase
 	if fake, ok := b.(*fake.Base); ok {
-		kb, err = kinematicbase.WrapWithFakeKinematics(ctx, fake, localizer, limits)
+		kb, err = kinematicbase.WrapWithFakeKinematics(ctx, fake, localizer, limits, kinematicsOptions)
 	} else {
 		kb, err = kinematicbase.WrapWithKinematics(ctx, b, ms.logger, localizer, limits, kinematicsOptions)
 	}
@@ -474,7 +474,7 @@ func (ms *builtIn) planMoveOnMap(
 	}
 	var kb kinematicbase.KinematicBase
 	if fake, ok := b.(*fake.Base); ok {
-		kb, err = kinematicbase.WrapWithFakeKinematics(ctx, fake, motion.NewSLAMLocalizer(slamSvc), limits)
+		kb, err = kinematicbase.WrapWithFakeKinematics(ctx, fake, motion.NewSLAMLocalizer(slamSvc), limits, kinematicsOptions)
 	} else {
 		kb, err = kinematicbase.WrapWithKinematics(
 			ctx,

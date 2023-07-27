@@ -35,7 +35,7 @@ func TestNewFakeKinematics(t *testing.T) {
 	limits, err := fakeSLAM.GetLimits(ctx)
 	test.That(t, err, test.ShouldBeNil)
 
-	kb, err := WrapWithFakeKinematics(ctx, b.(*fakebase.Base), motion.NewSLAMLocalizer(fakeSLAM), limits)
+	kb, err := WrapWithFakeKinematics(ctx, b.(*fakebase.Base), motion.NewSLAMLocalizer(fakeSLAM), limits, NewKinematicBaseOptions())
 	test.That(t, err, test.ShouldBeNil)
 	expected := referenceframe.FloatsToInputs([]float64{10, 11, 0})
 	test.That(t, kb.GoToInputs(ctx, expected), test.ShouldBeNil)

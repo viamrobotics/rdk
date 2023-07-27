@@ -59,7 +59,7 @@ func TestWrapWithDifferentialDriveKinematics(t *testing.T) {
 		t.Run(string(tc.geoType), func(t *testing.T) {
 			testCfg := testConfig()
 			testCfg.Frame.Geometry.Type = tc.geoType
-			ddk, err := buildTestDDK(ctx, testCfg, defaultLinearVelocityMillisPerSec, defaultAngularVelocityDegsPerSec, logger)
+			ddk, err := buildTestDDK(ctx, testCfg, defaultLinearVelocityMMPerSec, defaultAngularVelocityDegsPerSec, logger)
 			test.That(t, err == nil, test.ShouldEqual, tc.success)
 			if err != nil {
 				return
@@ -90,7 +90,7 @@ func TestWrapWithDifferentialDriveKinematics(t *testing.T) {
 		for _, vels := range velocities {
 			ddk, err := buildTestDDK(ctx, testConfig(), vels.linear, vels.angular, logger)
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, ddk.options.LinearVelocityMillisPerSec, test.ShouldAlmostEqual, vels.linear)
+			test.That(t, ddk.options.LinearVelocityMMPerSec, test.ShouldAlmostEqual, vels.linear)
 			test.That(t, ddk.options.AngularVelocityDegsPerSec, test.ShouldAlmostEqual, vels.angular)
 		}
 	})
@@ -100,7 +100,7 @@ func TestCurrentInputs(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 	ddk, err := buildTestDDK(ctx, testConfig(),
-		defaultLinearVelocityMillisPerSec, defaultAngularVelocityDegsPerSec, logger)
+		defaultLinearVelocityMMPerSec, defaultAngularVelocityDegsPerSec, logger)
 	test.That(t, err, test.ShouldBeNil)
 	for i := 0; i < 10; i++ {
 		_, err := ddk.CurrentInputs(ctx)
@@ -120,7 +120,7 @@ func TestErrorState(t *testing.T) {
 	// build base
 	logger := golog.NewTestLogger(t)
 	ddk, err := buildTestDDK(ctx, testConfig(),
-		defaultLinearVelocityMillisPerSec, defaultAngularVelocityDegsPerSec, logger)
+		defaultLinearVelocityMMPerSec, defaultAngularVelocityDegsPerSec, logger)
 	test.That(t, err, test.ShouldBeNil)
 	ddk.localizer = motion.NewSLAMLocalizer(slam)
 
@@ -157,7 +157,7 @@ func buildTestDDK(
 
 	// construct differential drive kinematic base
 	options := NewKinematicBaseOptions()
-	options.LinearVelocityMillisPerSec = linVel
+	options.LinearVelocityMMPerSec = linVel
 	options.AngularVelocityDegsPerSec = angVel
 	kb, err := wrapWithDifferentialDriveKinematics(ctx, b, logger, motion.NewSLAMLocalizer(fakeSLAM), limits, options)
 	if err != nil {
@@ -173,7 +173,7 @@ func buildTestDDK(
 func TestNewValidRegionCapsule(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
-	ddk, err := buildTestDDK(ctx, testConfig(), defaultLinearVelocityMillisPerSec, defaultAngularVelocityDegsPerSec, logger)
+	ddk, err := buildTestDDK(ctx, testConfig(), defaultLinearVelocityMMPerSec, defaultAngularVelocityDegsPerSec, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	starting := referenceframe.FloatsToInputs([]float64{400, 0, 0})
@@ -185,7 +185,7 @@ func TestNewValidRegionCapsule(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, col, test.ShouldBeTrue)
 
-	col, err = c.CollidesWith(spatialmath.NewPoint(r3.Vector{-defaultDeviationThreshold, -defaultDeviationThreshold, 0}, ""))
+	col, err = c.CollidesWith(spatialmath.NewPoint(r3.Vector{-defaultPlanDeviationThreshold, -defaultPlanDeviationThreshold, 0}, ""))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, col, test.ShouldBeFalse)
 }
