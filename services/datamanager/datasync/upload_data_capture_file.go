@@ -2,6 +2,7 @@ package datasync
 
 import (
 	"context"
+
 	"github.com/docker/go-units"
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
@@ -9,9 +10,9 @@ import (
 	"go.viam.com/rdk/services/datamanager/datacapture"
 )
 
-var (
-	MaxUnaryFileSize = int64(units.MB)
-)
+// MaxUnaryFileSize is the max number of bytes to send using the unary DataCaptureUpload, as opposed to the
+// StreamingDataCaptureUpload.
+var MaxUnaryFileSize = int64(units.MB)
 
 func uploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient, f *datacapture.File, partID string) error {
 	md := f.ReadMetadata()
@@ -83,8 +84,8 @@ func uploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient,
 }
 
 func sendStreamingDCRequests(ctx context.Context, stream v1.DataSyncService_StreamingDataCaptureUploadClient,
-	contents []byte) error {
-
+	contents []byte,
+) error {
 	//nolint:errcheck
 	defer stream.CloseSend()
 

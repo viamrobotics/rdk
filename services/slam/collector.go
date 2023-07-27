@@ -2,6 +2,7 @@ package slam
 
 import (
 	"context"
+
 	pb "go.viam.com/api/service/slam/v1"
 	"google.golang.org/protobuf/types/known/anypb"
 
