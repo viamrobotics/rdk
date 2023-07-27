@@ -19,30 +19,6 @@ func init() {
 		RPCServiceDesc:              &pb.PowerSensorService_ServiceDesc,
 		RPCClient:                   NewClientFromConn,
 	})
-
-	registerCollector("Voltage", func(ctx context.Context, ps PowerSensor) (interface{}, error) {
-		v, _, err := ps.Voltage(ctx, make(map[string]interface{}))
-		if err != nil {
-			return nil, err
-		}
-		return v, err
-	})
-
-	registerCollector("Current", func(ctx context.Context, ps PowerSensor) (interface{}, error) {
-		c, _, err := ps.Current(ctx, make(map[string]interface{}))
-		if err != nil {
-			return nil, err
-		}
-		return c, err
-	})
-
-	registerCollector("Power", func(ctx context.Context, ps PowerSensor) (interface{}, error) {
-		p, err := ps.Power(ctx, make(map[string]interface{}))
-		if err != nil {
-			return nil, err
-		}
-		return p, err
-	})
 }
 
 // SubtypeName is a constant that identifies the component resource API string "power_sensor".
