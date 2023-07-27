@@ -36,6 +36,10 @@ const (
 
 	// epsilon is the amount that a base needs to move for it not to be considered stationary.
 	epsilon = 20 // mm
+
+	// maxSpingAngleDeg is the maximum angle the base should spin for any Spin command.
+	// this breaks up large spin angles into smaller chunks so error doesn't build up.
+	maxSpinAngleDeg = 45
 )
 
 // ErrMovementTimeout is used for when a movement call times out after no movement for some time.
@@ -219,7 +223,7 @@ func (ddk *differentialDriveKinematics) issueCommand(ctx context.Context, curren
 	ddk.logger.Debug("distErr: %f\theadingErr %f", distErr, headingErr)
 	if distErr > distThresholdMM && math.Abs(headingErr) > headingThresholdDegrees {
 		// base is headed off course; spin to correct
-		return true, ddk.Spin(ctx, headingErr, ddk.maxAngularVelocityDegsPerSec, nil)
+		return true, ddk.Spin(ctx, math.Min(headingErr, maxSpinAngleDeg), ddk.maxAngularVelocityDegsPerSec, nil)
 	} else if distErr > distThresholdMM {
 		// base is pointed the correct direction but not there yet; forge onward
 		return true, ddk.MoveStraight(ctx, int(distErr), ddk.maxLinearVelocityMillisPerSec, nil)
