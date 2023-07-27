@@ -16,6 +16,8 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
+var errDoFailed = errors.New("do failed")
+
 func newServer() (genericpb.GenericServiceServer, *inject.Generic, *inject.Generic, error) {
 	injectGeneric := &inject.Generic{}
 	injectGeneric2 := &inject.Generic{}
@@ -50,7 +52,7 @@ func TestGenericDo(t *testing.T) {
 		map[string]interface{},
 		error,
 	) {
-		return nil, errors.New("do failed")
+		return nil, errDoFailed
 	}
 
 	commandStruct, err := protoutils.StructToStructPb(testutils.TestCommand)
@@ -66,5 +68,6 @@ func TestGenericDo(t *testing.T) {
 	req = commonpb.DoCommandRequest{Name: failGenericName, Command: commandStruct}
 	resp, err = genericServer.DoCommand(context.Background(), &req)
 	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, errDoFailed.Error())
 	test.That(t, resp, test.ShouldBeNil)
 }

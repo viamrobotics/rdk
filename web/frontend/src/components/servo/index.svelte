@@ -39,7 +39,6 @@ const handleMove = async (amount: number) => {
     slot="header"
     label="Stop"
     icon="stop-circle-outline"
-    class="fill-white"
     variant="danger"
     on:click={stop}
   />

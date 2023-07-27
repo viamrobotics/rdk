@@ -15,6 +15,8 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
+var errReadingsFailed = errors.New("can't get readings")
+
 func newServer() (pb.SensorServiceServer, *inject.Sensor, *inject.Sensor, error) {
 	injectSensor := &inject.Sensor{}
 	injectSensor2 := &inject.Sensor{}
@@ -42,7 +44,7 @@ func TestServer(t *testing.T) {
 	}
 
 	injectSensor2.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-		return nil, errors.New("can't get readings")
+		return nil, errReadingsFailed
 	}
 
 	t.Run("GetReadings", func(t *testing.T) {
@@ -62,7 +64,7 @@ func TestServer(t *testing.T) {
 
 		_, err = sensorServer.GetReadings(context.Background(), &pb.GetReadingsRequest{Name: failSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get readings")
+		test.That(t, err.Error(), test.ShouldContainSubstring, errReadingsFailed.Error())
 
 		_, err = sensorServer.GetReadings(context.Background(), &pb.GetReadingsRequest{Name: missingSensorName})
 		test.That(t, err, test.ShouldNotBeNil)

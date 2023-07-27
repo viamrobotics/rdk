@@ -23,6 +23,15 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+var (
+	errInvalidMimeType          = errors.New("invalid mime type")
+	errGeneratePointCloudFailed = errors.New("can't generate next point cloud")
+	errPropertiesFailed         = errors.New("can't get camera properties")
+	errCameraProjectorFailed    = errors.New("can't get camera properties")
+	errStreamFailed             = errors.New("can't generate stream")
+	errCameraUnimplemented      = errors.New("not found")
+)
+
 func newServer() (pb.CameraServiceServer, *inject.Camera, *inject.Camera, *inject.Camera, error) {
 	injectCamera := &inject.Camera{}
 	injectCameraDepth := &inject.Camera{}
@@ -113,7 +122,7 @@ func TestServer(t *testing.T) {
 			case "image/woohoo":
 				return rimage.NewLazyEncodedImage([]byte{1, 2, 3}, mimeType), func() {}, nil
 			default:
-				return nil, nil, errors.New("invalid mime type")
+				return nil, nil, errInvalidMimeType
 			}
 		})), nil
 	}
@@ -149,22 +158,22 @@ func TestServer(t *testing.T) {
 	}
 	// bad camera
 	injectCamera2.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
-		return nil, errors.New("can't generate next point cloud")
+		return nil, errGeneratePointCloudFailed
 	}
 	injectCamera2.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
-		return camera.Properties{}, errors.New("can't get camera properties")
+		return camera.Properties{}, errPropertiesFailed
 	}
 	injectCamera2.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
-		return nil, errors.New("can't get camera properties")
+		return nil, errCameraProjectorFailed
 	}
 	injectCamera2.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
-		return nil, errors.New("can't generate stream")
+		return nil, errStreamFailed
 	}
 	// does a depth camera transfer its depth image properly
 	t.Run("GetImage", func(t *testing.T) {
 		_, err := cameraServer.GetImage(context.Background(), &pb.GetImageRequest{Name: missingCameraName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+		test.That(t, err.Error(), test.ShouldContainSubstring, errCameraUnimplemented.Error())
 
 		// color camera
 		// ensure that explicit RawRGBA mimetype request will return RawRGBA mimetype response
@@ -225,7 +234,7 @@ func TestServer(t *testing.T) {
 			MimeType: "image/who",
 		})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "invalid mime type")
+		test.That(t, err.Error(), test.ShouldContainSubstring, errInvalidMimeType.Error())
 
 		// depth camera
 		imageReleasedMu.Lock()
@@ -267,7 +276,7 @@ func TestServer(t *testing.T) {
 		// bad camera
 		_, err = cameraServer.GetImage(context.Background(), &pb.GetImageRequest{Name: failCameraName, MimeType: utils.MimeTypeRawRGBA})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "can't generate stream")
+		test.That(t, err.Error(), test.ShouldContainSubstring, errStreamFailed.Error())
 	})
 
 	t.Run("GetImage with lazy", func(t *testing.T) {
@@ -285,7 +294,7 @@ func TestServer(t *testing.T) {
 			MimeType: "image/notwoo",
 		})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "invalid mime type")
+		test.That(t, err.Error(), test.ShouldContainSubstring, errInvalidMimeType.Error())
 	})
 
 	t.Run("GetImage with +lazy default", func(t *testing.T) {
@@ -308,7 +317,7 @@ func TestServer(t *testing.T) {
 	t.Run("RenderFrame", func(t *testing.T) {
 		_, err := cameraServer.RenderFrame(context.Background(), &pb.RenderFrameRequest{Name: missingCameraName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+		test.That(t, err.Error(), test.ShouldContainSubstring, errCameraUnimplemented.Error())
 
 		resp, err := cameraServer.RenderFrame(context.Background(), &pb.RenderFrameRequest{
 			Name: testCameraName,
@@ -343,20 +352,20 @@ func TestServer(t *testing.T) {
 			MimeType: "image/who",
 		})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "invalid mime type")
+		test.That(t, err.Error(), test.ShouldContainSubstring, errInvalidMimeType.Error())
 		imageReleasedMu.Lock()
 		test.That(t, imageReleased, test.ShouldBeTrue)
 		imageReleasedMu.Unlock()
 
 		_, err = cameraServer.RenderFrame(context.Background(), &pb.RenderFrameRequest{Name: failCameraName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "can't generate stream")
+		test.That(t, err.Error(), test.ShouldContainSubstring, errStreamFailed.Error())
 	})
 
 	t.Run("GetPointCloud", func(t *testing.T) {
 		_, err := cameraServer.GetPointCloud(context.Background(), &pb.GetPointCloudRequest{Name: missingCameraName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+		test.That(t, err.Error(), test.ShouldContainSubstring, errCameraUnimplemented.Error())
 
 		pcA := pointcloud.New()
 		err = pcA.Set(pointcloud.NewVector(5, 5, 5), nil)
@@ -374,12 +383,12 @@ func TestServer(t *testing.T) {
 			Name: failCameraName,
 		})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "can't generate next point cloud")
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGeneratePointCloudFailed.Error())
 	})
 	t.Run("GetImages", func(t *testing.T) {
 		_, err := cameraServer.GetImages(context.Background(), &pb.GetImagesRequest{Name: missingCameraName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+		test.That(t, err.Error(), test.ShouldContainSubstring, errCameraUnimplemented.Error())
 
 		resp, err := cameraServer.GetImages(context.Background(), &pb.GetImagesRequest{Name: testCameraName})
 		test.That(t, err, test.ShouldBeNil)
@@ -392,7 +401,7 @@ func TestServer(t *testing.T) {
 	t.Run("GetProperties", func(t *testing.T) {
 		_, err := cameraServer.GetProperties(context.Background(), &pb.GetPropertiesRequest{Name: missingCameraName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+		test.That(t, err.Error(), test.ShouldContainSubstring, errCameraUnimplemented.Error())
 
 		resp, err := cameraServer.GetProperties(context.Background(), &pb.GetPropertiesRequest{Name: testCameraName})
 		test.That(t, err, test.ShouldBeNil)

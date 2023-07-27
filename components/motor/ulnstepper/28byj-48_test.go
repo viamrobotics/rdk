@@ -11,7 +11,6 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -89,9 +88,9 @@ func TestValid(t *testing.T) {
 	m := mm.(*uln28byj)
 
 	t.Run("motor test supports position reporting", func(t *testing.T) {
-		features, err := m.Properties(ctx, nil)
+		properties, err := m.Properties(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, features[motor.PositionReporting], test.ShouldBeTrue)
+		test.That(t, properties.PositionReporting, test.ShouldBeTrue)
 	})
 
 	t.Run("motor test isOn functionality", func(t *testing.T) {

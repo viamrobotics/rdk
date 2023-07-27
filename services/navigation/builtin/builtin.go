@@ -4,7 +4,6 @@ package builtin
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"math"
 	"sync"
 
@@ -92,12 +91,9 @@ func (conf *Config) Validate(path string) ([]string, error) {
 
 // NewBuiltIn returns a new navigation service for the given robot.
 func NewBuiltIn(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (navigation.Service, error) {
-	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	navSvc := &builtIn{
-		Named:      conf.ResourceName().AsNamed(),
-		logger:     logger,
-		cancelCtx:  cancelCtx,
-		cancelFunc: cancelFunc,
+		Named:  conf.ResourceName().AsNamed(),
+		logger: logger,
 	}
 	if err := navSvc.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
@@ -107,6 +103,7 @@ func NewBuiltIn(ctx context.Context, deps resource.Dependencies, conf resource.C
 
 type builtIn struct {
 	resource.Named
+	actionMu  sync.RWMutex
 	mu        sync.RWMutex
 	store     navigation.NavStore
 	storeType string
@@ -117,17 +114,23 @@ type builtIn struct {
 	motion         motion.Service
 	obstacles      []*spatialmath.GeoObstacle
 
-	metersPerSec            float64
-	degPerSec               float64
-	logger                  golog.Logger
-	cancelCtx               context.Context
-	cancelFunc              func()
-	activeBackgroundWorkers sync.WaitGroup
+	metersPerSec              float64
+	degPerSec                 float64
+	logger                    golog.Logger
+	wholeServiceCancelFunc    func()
+	currentWaypointCancelFunc func()
+	waypointInProgress        *navigation.Waypoint
+	activeBackgroundWorkers   sync.WaitGroup
 }
 
 func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
+	svc.actionMu.Lock()
+	defer svc.actionMu.Unlock()
+
+	if svc.wholeServiceCancelFunc != nil {
+		svc.wholeServiceCancelFunc()
+	}
+	svc.activeBackgroundWorkers.Wait()
 
 	svcConfig, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
@@ -146,6 +149,8 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		return err
 	}
 
+	svc.mu.Lock()
+	defer svc.mu.Unlock()
 	var newStore navigation.NavStore
 	if svc.storeType != string(svcConfig.Store.Type) {
 		switch svcConfig.Store.Type {
@@ -189,29 +194,37 @@ func (svc *builtIn) Mode(ctx context.Context, extra map[string]interface{}) (nav
 }
 
 func (svc *builtIn) SetMode(ctx context.Context, mode navigation.Mode, extra map[string]interface{}) error {
-	svc.mu.Lock()
-	defer svc.mu.Unlock()
+	svc.actionMu.Lock()
+	defer svc.actionMu.Unlock()
+
+	svc.mu.RLock()
 	if svc.mode == mode {
+		svc.mu.RUnlock()
 		return nil
 	}
+	svc.mu.RUnlock()
 
 	// switch modes
-	svc.cancelFunc()
+	if svc.wholeServiceCancelFunc != nil {
+		svc.wholeServiceCancelFunc()
+	}
 	svc.activeBackgroundWorkers.Wait()
+
+	svc.mu.Lock()
+	defer svc.mu.Unlock()
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
-	svc.cancelCtx = cancelCtx
-	svc.cancelFunc = cancelFunc
-	svc.mode = navigation.ModeManual
-	if mode == navigation.ModeWaypoint {
-		if err := svc.startWaypoint(extra); err != nil {
-			return err
-		}
-		svc.mode = mode
+	svc.wholeServiceCancelFunc = cancelFunc
+	svc.mode = mode
+	if svc.mode == navigation.ModeWaypoint {
+		svc.startWaypoint(cancelCtx, extra)
 	}
 	return nil
 }
 
 func (svc *builtIn) Location(ctx context.Context, extra map[string]interface{}) (*geo.Point, error) {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+
 	if svc.movementSensor == nil {
 		return nil, errors.New("no way to get location")
 	}
@@ -235,40 +248,60 @@ func (svc *builtIn) AddWaypoint(ctx context.Context, point *geo.Point, extra map
 }
 
 func (svc *builtIn) RemoveWaypoint(ctx context.Context, id primitive.ObjectID, extra map[string]interface{}) error {
+	svc.mu.Lock()
+	defer svc.mu.Unlock()
+	if svc.waypointInProgress != nil && svc.waypointInProgress.ID == id {
+		if svc.currentWaypointCancelFunc != nil {
+			svc.currentWaypointCancelFunc()
+		}
+		svc.waypointInProgress = nil
+	}
 	return svc.store.RemoveWaypoint(ctx, id)
 }
 
 func (svc *builtIn) waypointReached(ctx context.Context) error {
-	wp, err := svc.store.NextWaypoint(ctx)
-	if err != nil {
-		return fmt.Errorf("can't mark waypoint reached: %w", err)
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+
+	svc.mu.RLock()
+	wp := svc.waypointInProgress
+	svc.mu.RUnlock()
+
+	if wp == nil {
+		return errors.New("can't mark waypoint reached since there is none in progress")
 	}
 	return svc.store.WaypointVisited(ctx, wp.ID)
 }
 
 func (svc *builtIn) Close(ctx context.Context) error {
-	svc.cancelFunc()
+	svc.actionMu.Lock()
+	defer svc.actionMu.Unlock()
+
+	if svc.wholeServiceCancelFunc != nil {
+		svc.wholeServiceCancelFunc()
+	}
 	svc.activeBackgroundWorkers.Wait()
+
 	return svc.store.Close(ctx)
 }
 
-func (svc *builtIn) startWaypoint(extra map[string]interface{}) error {
+func (svc *builtIn) startWaypoint(ctx context.Context, extra map[string]interface{}) {
+	if extra == nil {
+		extra = map[string]interface{}{"motion_profile": "position_only"}
+	} else if _, ok := extra["motion_profile"]; !ok {
+		extra["motion_profile"] = "position_only"
+	}
+
 	svc.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer svc.activeBackgroundWorkers.Done()
 
 		navOnce := func(ctx context.Context, wp navigation.Waypoint) error {
-			if extra == nil {
-				extra = map[string]interface{}{"motion_profile": "position_only"}
-			} else if _, ok := extra["motion_profile"]; !ok {
-				extra["motion_profile"] = "position_only"
-			}
-
-			goal := wp.ToPoint()
 			_, err := svc.motion.MoveOnGlobe(
 				ctx,
 				svc.base.Name(),
-				goal,
+				wp.ToPoint(),
 				math.NaN(),
 				svc.movementSensor.Name(),
 				svc.obstacles,
@@ -284,16 +317,50 @@ func (svc *builtIn) startWaypoint(extra map[string]interface{}) error {
 		}
 
 		// loop until no waypoints remaining
-		for wp, err := svc.store.NextWaypoint(svc.cancelCtx); err == nil; wp, err = svc.store.NextWaypoint(svc.cancelCtx) {
+		for {
+			if ctx.Err() != nil {
+				return
+			}
+
+			wp, err := svc.store.NextWaypoint(ctx)
+			if err != nil {
+				return
+			}
+			svc.mu.Lock()
+			svc.waypointInProgress = &wp
+			cancelCtx, cancelFunc := context.WithCancel(ctx)
+			svc.currentWaypointCancelFunc = cancelFunc
+			svc.mu.Unlock()
+
 			svc.logger.Infof("navigating to waypoint: %+v", wp)
-			if err := navOnce(svc.cancelCtx, wp); err != nil {
+			if err := navOnce(cancelCtx, wp); err != nil {
+				if svc.waypointIsDeleted() {
+					svc.logger.Infof("skipping waypoint %+v since it was deleted", wp)
+					continue
+				}
+
 				svc.logger.Infof("skipping waypoint %+v due to error while navigating towards it: %s", wp, err)
+				if err := svc.waypointReached(ctx); err != nil {
+					if svc.waypointIsDeleted() {
+						svc.logger.Infof("skipping waypoint %+v since it was deleted", wp)
+						continue
+					}
+					svc.logger.Info("can't mark waypoint %+v as reached, exiting navigation due to error: %s", wp, err)
+					return
+				}
 			}
 		}
 	})
-	return nil
+}
+
+func (svc *builtIn) waypointIsDeleted() bool {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.waypointInProgress == nil
 }
 
 func (svc *builtIn) GetObstacles(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoObstacle, error) {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
 	return svc.obstacles, nil
 }

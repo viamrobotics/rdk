@@ -261,8 +261,7 @@ const armCopyJoints = () => {
   <v-button
     slot="header"
     variant="danger"
-    icon="stop-circle-outline"
-    class="fill-white"
+    icon="stop-circle"
     label="Stop"
     on:click|stopPropagation={stop}
   />
@@ -276,7 +275,7 @@ const armCopyJoints = () => {
             <v-button
               variant='icon'
               tooltip='Copy to clipboard'
-              icon='content-copy'
+              icon='copy'
               on:click={armCopyPosition}
             />
           </h3>
@@ -297,7 +296,7 @@ const armCopyJoints = () => {
                 </label>
               {/each}
               <v-button
-                icon='play-circle-outline'
+                icon='play-circle-filled'
                 label="Go"
                 class='mt-2 text-right'
                 on:click={armModifyAllDoEndPosition}
@@ -340,7 +339,7 @@ const armCopyJoints = () => {
             <v-button
               variant='icon'
               tooltip='Copy to clipboard'
-              icon='content-copy'
+              icon='copy'
               on:click={armCopyJoints}
             />
           </h3>
@@ -362,7 +361,7 @@ const armCopyJoints = () => {
               {/each}
               <v-button
                 class='mt-2 text-right'
-                icon='play-circle-outline'
+                icon='play-circle-filled'
                 label="Go"
                 on:click={armModifyAllDoJoint}
               />

@@ -2,7 +2,6 @@ package generic_test
 
 import (
 	"context"
-	"errors"
 	"net"
 	"testing"
 
@@ -40,7 +39,7 @@ func TestClient(t *testing.T) {
 		map[string]interface{},
 		error,
 	) {
-		return nil, errors.New("do failed")
+		return nil, errDoFailed
 	}
 
 	resourceMap := map[resource.Name]resource.Resource{
@@ -62,7 +61,7 @@ func TestClient(t *testing.T) {
 		cancel()
 		_, err = viamgrpc.Dial(cancelCtx, listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
+		test.That(t, err, test.ShouldBeError, context.Canceled)
 	})
 
 	t.Run("client tests for working generic", func(t *testing.T) {
@@ -88,6 +87,7 @@ func TestClient(t *testing.T) {
 
 		_, err = failingGenericClient.DoCommand(context.Background(), testutils.TestCommand)
 		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errDoFailed.Error())
 
 		test.That(t, failingGenericClient.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)

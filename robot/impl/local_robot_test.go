@@ -2858,8 +2858,11 @@ func TestOrphanedResources(t *testing.T) {
 		test.That(t, err, test.ShouldBeError,
 			resource.NewNotFoundError(generic.Named("h")))
 
-		// Also assert that generic helper resource was deregistered.
+		// Also assert that testmodule's resources were deregistered.
 		_, ok := resource.LookupRegistration(generic.API, helperModel)
+		test.That(t, ok, test.ShouldBeFalse)
+		testMotorModel := resource.NewModel("rdk", "test", "motor")
+		_, ok = resource.LookupRegistration(motor.API, testMotorModel)
 		test.That(t, ok, test.ShouldBeFalse)
 	})
 }
@@ -3201,4 +3204,65 @@ func TestCrashedModuleReconfigure(t *testing.T) {
 		_, err = r.ResourceByName(generic.Named("h"))
 		test.That(tb, err, test.ShouldBeNil)
 	})
+}
+
+func TestImplicitDepsAcrossModules(t *testing.T) {
+	ctx := context.Background()
+	logger, _ := golog.NewObservedTestLogger(t)
+
+	// Precompile modules to avoid timeout issues when building takes too long.
+	complexPath, err := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexmodule")
+	test.That(t, err, test.ShouldBeNil)
+	testPath, err := rtestutils.BuildTempModule(t, "module/testmodule")
+	test.That(t, err, test.ShouldBeNil)
+
+	// Manually define models, as importing them can cause double registration.
+	myBaseModel := resource.NewModel("acme", "demo", "mybase")
+	testMotorModel := resource.NewModel("rdk", "test", "motor")
+
+	cfg := &config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "complex-module",
+				ExePath: complexPath,
+			},
+			{
+				Name:    "test-module",
+				ExePath: testPath,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:  "b",
+				Model: myBaseModel,
+				API:   base.API,
+				Attributes: rutils.AttributeMap{
+					"motorL": "m1",
+					"motorR": "m2",
+				},
+			},
+			{
+				Name:  "m1",
+				Model: testMotorModel,
+				API:   motor.API,
+			},
+			{
+				Name:  "m2",
+				Model: testMotorModel,
+				API:   motor.API,
+			},
+		},
+	}
+	r, err := robotimpl.New(ctx, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+	}()
+
+	_, err = r.ResourceByName(base.Named("b"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = r.ResourceByName(motor.Named("m1"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = r.ResourceByName(motor.Named("m2"))
+	test.That(t, err, test.ShouldBeNil)
 }
