@@ -73,7 +73,6 @@ const refresh2d = async () => {
      * to see if a change has been made to the pointcloud map.
      * A new call to getPointCloudMap is made if an update has occured.
      */
-
     if (localizationMode(mapTimestamp)) {
       nextPose = await getPosition($robotClient, name);
     } else {
