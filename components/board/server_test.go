@@ -15,7 +15,10 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
-var errFoo = errors.New("whoops")
+var (
+	errFoo           = errors.New("whoops")
+	errUnimplemented = errors.New("not found")
+)
 
 func newServer() (pb.BoardServiceServer, *inject.Board, error) {
 	injectBoard := &inject.Board{}
@@ -61,7 +64,7 @@ func TestServerStatus(t *testing.T) {
 			req:          &request{Name: missingBoardName},
 			expCapArgs:   []interface{}(nil),
 			expResp:      nil,
-			expRespErr:   "not found",
+			expRespErr:   errUnimplemented.Error(),
 		},
 		{
 			injectResult: status,
@@ -125,7 +128,7 @@ func TestServerSetGPIO(t *testing.T) {
 			injectErr:  nil,
 			req:        &request{Name: missingBoardName},
 			expCapArgs: []interface{}(nil),
-			expRespErr: "not found",
+			expRespErr: errUnimplemented.Error(),
 		},
 		{
 			injectErr:  errFoo,
@@ -194,7 +197,7 @@ func TestServerGetGPIO(t *testing.T) {
 			req:          &request{Name: missingBoardName},
 			expCapArgs:   []interface{}(nil),
 			expResp:      nil,
-			expRespErr:   "not found",
+			expRespErr:   errUnimplemented.Error(),
 		},
 		{
 			injectResult: false,
@@ -269,7 +272,7 @@ func TestServerPWM(t *testing.T) {
 			req:          &request{Name: missingBoardName},
 			expCapArgs:   []interface{}(nil),
 			expResp:      nil,
-			expRespErr:   "not found",
+			expRespErr:   errUnimplemented.Error(),
 		},
 		{
 			injectResult: 0,
@@ -337,7 +340,7 @@ func TestServerSetPWM(t *testing.T) {
 			injectErr:  nil,
 			req:        &request{Name: missingBoardName},
 			expCapArgs: []interface{}(nil),
-			expRespErr: "not found",
+			expRespErr: errUnimplemented.Error(),
 		},
 		{
 			injectErr:  errFoo,
@@ -407,7 +410,7 @@ func TestServerPWMFrequency(t *testing.T) {
 			req:          &request{Name: missingBoardName},
 			expCapArgs:   []interface{}(nil),
 			expResp:      nil,
-			expRespErr:   "not found",
+			expRespErr:   errUnimplemented.Error(),
 		},
 		{
 			injectResult: 0,
@@ -475,7 +478,7 @@ func TestServerSetPWMFrequency(t *testing.T) {
 			injectErr:  nil,
 			req:        &request{Name: missingBoardName},
 			expCapArgs: []interface{}(nil),
-			expRespErr: "not found",
+			expRespErr: errUnimplemented.Error(),
 		},
 		{
 			injectErr:  errFoo,
@@ -551,7 +554,7 @@ func TestServerReadAnalogReader(t *testing.T) {
 			expCapAnalogReaderArgs: []interface{}(nil),
 			expCapArgs:             []interface{}(nil),
 			expResp:                nil,
-			expRespErr:             "not found",
+			expRespErr:             errUnimplemented.Error(),
 		},
 		{
 			injectAnalogReader:     nil,
@@ -650,7 +653,7 @@ func TestServerGetDigitalInterruptValue(t *testing.T) {
 			expCapDigitalInterruptArgs: []interface{}(nil),
 			expCapArgs:                 []interface{}(nil),
 			expResp:                    nil,
-			expRespErr:                 "not found",
+			expRespErr:                 errUnimplemented.Error(),
 		},
 		{
 			injectDigitalInterrupt:     nil,

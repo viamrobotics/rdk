@@ -237,7 +237,6 @@ useDisconnect(() => {
     slot="header"
     variant="danger"
     icon="stop-circle-outline"
-    class="fill-white"
     disabled={moveClicked ? 'false' : 'true'}
     label="Stop"
     on:click={handleStopMoveClick}

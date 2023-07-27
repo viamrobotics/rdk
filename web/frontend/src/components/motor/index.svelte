@@ -160,7 +160,6 @@ const handleToggle = async (event: CustomEvent<{ open: boolean }>) => {
     <v-button
       variant="danger"
       icon="stop-circle-outline"
-    class="fill-white"
       label="Stop"
       on:click|stopPropagation={motorStop}
     />
@@ -253,7 +252,6 @@ const handleToggle = async (event: CustomEvent<{ open: boolean }>) => {
     <div class="flex flex-row-reverse flex-wrap">
       <v-button
         icon="play-circle-outline"
-    class="fill-white"
         variant="success"
         label="Run"
         on:click={motorRun}

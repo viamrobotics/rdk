@@ -60,7 +60,7 @@ func wrapWithDifferentialDriveKinematics(
 		maxAngularVelocityDegsPerSec:  maxAngularVelocityDegsPerSec,
 	}
 
-	geometries, err := b.Geometries(ctx)
+	geometries, err := b.Geometries(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
