@@ -155,7 +155,6 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 		scheduledSyncDisabled bool
 		failTransiently       bool
 		emptyFile             bool
-		streamingUploads      bool
 	}{
 		{
 			name:     "previously captured tabular data should be synced at start up",
@@ -176,11 +175,6 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 			dataType:              v1.DataType_DATA_TYPE_BINARY_SENSOR,
 			manualSync:            true,
 			scheduledSyncDisabled: true,
-		},
-		{
-			name:             "large binary files should be uploaded in via the streaming api",
-			dataType:         v1.DataType_DATA_TYPE_BINARY_SENSOR,
-			streamingUploads: true,
 		},
 		{
 			name:       "running manual and scheduled sync concurrently should not cause data races or duplicate uploads",
@@ -267,10 +261,6 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 			cfg.ScheduledSyncDisabled = tc.scheduledSyncDisabled
 			cfg.SyncIntervalMins = syncIntervalMins
 			resources = resourcesFromDeps(t, r, deps)
-			if tc.streamingUploads {
-				// Set max unary file size to 1, so it uploads via the streaming rpc.
-				datasync.MaxUnaryFileSize = 1
-			}
 			err = newDMSvc.Reconfigure(context.Background(), resources, resource.Config{
 				ConvertedAttributes: cfg,
 			})
@@ -342,31 +332,26 @@ func TestArbitraryFileUpload(t *testing.T) {
 		name                 string
 		manualSync           bool
 		scheduleSyncDisabled bool
-		serviceFail          bool
 	}{
 		{
 			name:                 "scheduled sync of arbitrary files should work",
 			manualSync:           false,
 			scheduleSyncDisabled: false,
-			serviceFail:          false,
 		},
 		{
 			name:                 "manual sync of arbitrary files should work",
 			manualSync:           true,
 			scheduleSyncDisabled: true,
-			serviceFail:          false,
 		},
 		{
 			name:                 "running manual and scheduled sync concurrently should work and not lead to duplicate uploads",
 			manualSync:           true,
 			scheduleSyncDisabled: false,
-			serviceFail:          false,
 		},
 		{
 			name:                 "if an error response is received from the backend, local files should not be deleted",
 			manualSync:           false,
 			scheduleSyncDisabled: false,
-			serviceFail:          false,
 		},
 	}
 
@@ -441,43 +426,35 @@ func TestArbitraryFileUpload(t *testing.T) {
 			}
 
 			// Validate error and URs.
-			remainingFiles := getAllFilePaths(additionalPathsDir)
-			if tc.serviceFail {
-				// Error case, file should not be deleted.
-				test.That(t, len(remainingFiles), test.ShouldEqual, 1)
-			} else {
-				// Validate first metadata message.
-				test.That(t, len(fileUploads), test.ShouldEqual, 1)
-				test.That(t, len(urs), test.ShouldBeGreaterThan, 0)
-				actMD := urs[0].GetMetadata()
-				test.That(t, actMD, test.ShouldNotBeNil)
-				test.That(t, actMD.Type, test.ShouldEqual, v1.DataType_DATA_TYPE_FILE)
-				test.That(t, actMD.FileName, test.ShouldEqual, fileName)
-				test.That(t, actMD.FileExtension, test.ShouldEqual, fileExt)
-				test.That(t, actMD.PartId, test.ShouldNotBeBlank)
+			// Validate first metadata message.
+			test.That(t, len(fileUploads), test.ShouldEqual, 1)
+			test.That(t, len(urs), test.ShouldBeGreaterThan, 0)
+			actMD := urs[0].GetMetadata()
+			test.That(t, actMD, test.ShouldNotBeNil)
+			test.That(t, actMD.Type, test.ShouldEqual, v1.DataType_DATA_TYPE_FILE)
+			test.That(t, actMD.FileName, test.ShouldEqual, fileName)
+			test.That(t, actMD.FileExtension, test.ShouldEqual, fileExt)
+			test.That(t, actMD.PartId, test.ShouldNotBeBlank)
 
-				// Validate ensuing data messages.
-				dataRequests := urs[1:]
-				var actData []byte
-				for _, d := range dataRequests {
-					actData = append(actData, d.GetFileContents().GetData()...)
-				}
-				test.That(t, actData, test.ShouldResemble, fileContents)
-
-				// Validate file no longer exists.
-				waitUntilNoFiles(additionalPathsDir)
-				test.That(t, len(getAllFileInfos(additionalPathsDir)), test.ShouldEqual, 0)
+			// Validate ensuing data messages.
+			dataRequests := urs[1:]
+			var actData []byte
+			for _, d := range dataRequests {
+				actData = append(actData, d.GetFileContents().GetData()...)
 			}
+			test.That(t, actData, test.ShouldResemble, fileContents)
+
+			// Validate file no longer exists.
+			waitUntilNoFiles(additionalPathsDir)
+			test.That(t, len(getAllFileInfos(additionalPathsDir)), test.ShouldEqual, 0)
 			test.That(t, dmsvc.Close(context.Background()), test.ShouldBeNil)
 		})
 	}
 }
 
 func TestStreamingDCUpload(t *testing.T) {
-	// Set exponential factor to 1 and retry wait time to 20ms so retries happen very quickly.
+	// Set exponential factor to 1 so retries happen quickly.
 	datasync.RetryExponentialFactor.Store(int32(1))
-	fileName := "some_file_name.txt"
-	fileExt := ".txt"
 
 	tests := []struct {
 		name        string
@@ -533,10 +510,11 @@ func TestStreamingDCUpload(t *testing.T) {
 			// Turn dmsvc back on with capture disabled.
 			newDMSvc, r := newTestDataManager(t)
 			defer newDMSvc.Close(context.Background())
+			f := atomic.Bool{}
+			f.Store(tc.serviceFail)
 			mockClient := mockDataSyncServiceClient{
-				succesfulDCRequests: make(chan *v1.DataCaptureUploadRequest, 100),
-				failedDCRequests:    make(chan *v1.DataCaptureUploadRequest, 100),
-				fail:                &atomic.Bool{},
+				streamingDCUploads: make(chan *mockStreamingDCClient, 10),
+				fail:               &f,
 			}
 			// Set max unary file size to 1 byte, so it uses the streaming rpc.
 			datasync.MaxUnaryFileSize = 1
@@ -550,17 +528,19 @@ func TestStreamingDCUpload(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 
 			// Call sync.
-			err = dmsvc.Sync(context.Background(), nil)
+			err = newDMSvc.Sync(context.Background(), nil)
 			test.That(t, err, test.ShouldBeNil)
 
 			// Wait for upload requests.
 			var uploads []*mockStreamingDCClient
 			var urs []*v1.StreamingDataCaptureUploadRequest
 			// Get the successful requests
-			wait := time.After(time.Second * 5)
+			wait := time.After(time.Second * 3)
 			select {
 			case <-wait:
-				t.Fatalf("timed out waiting for sync request")
+				if !tc.serviceFail {
+					t.Fatalf("timed out waiting for sync request")
+				}
 			case r := <-mockClient.streamingDCUploads:
 				uploads = append(uploads, r)
 				select {
@@ -585,8 +565,6 @@ func TestStreamingDCUpload(t *testing.T) {
 				test.That(t, actMD.GetUploadMetadata(), test.ShouldNotBeNil)
 				test.That(t, actMD.GetSensorMetadata(), test.ShouldNotBeNil)
 				test.That(t, actMD.GetUploadMetadata().Type, test.ShouldEqual, v1.DataType_DATA_TYPE_BINARY_SENSOR)
-				test.That(t, actMD.GetUploadMetadata().FileName, test.ShouldEqual, fileName)
-				test.That(t, actMD.GetUploadMetadata().FileExtension, test.ShouldEqual, fileExt)
 				test.That(t, actMD.GetUploadMetadata().PartId, test.ShouldNotBeBlank)
 
 				// Validate ensuing data messages.

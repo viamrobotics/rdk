@@ -64,6 +64,10 @@ func uploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient,
 		if err := sendStreamingDCRequests(ctx, c, toUpload.GetBinary()); err != nil {
 			return err
 		}
+
+		if _, err := c.CloseAndRecv(); err != nil {
+			return err
+		}
 	} else {
 		ur := &v1.DataCaptureUploadRequest{
 			Metadata:       uploadMD,
