@@ -189,11 +189,9 @@ func (ms *builtIn) MoveOnMap(
 	extra map[string]interface{},
 ) (bool, error) {
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
-	extra = make(map[string]interface{})
-	extra["motion_profile"] = "position_only"
-	extra["planning_alg"] = "rrtstar"
+	kinematicsOptions := NewKinematicBaseOptions()
 	// make call to motionplan
-	plan, kb, err := ms.planMoveOnMap(ctx, componentName, destination, slamName, extra)
+	plan, kb, err := ms.planMoveOnMap(ctx, componentName, destination, slamName, options, extra)
 	if err != nil {
 		return false, fmt.Errorf("error making plan for MoveOnMap: %w", err)
 	}
@@ -222,14 +220,17 @@ func (ms *builtIn) MoveOnGlobe(
 ) (bool, error) {
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
 
+	kinematicsOptions := NewKinematicBaseOptions()
+	kinematicsOptions.LinearVelocityMMPerSec = linearVelocityMillisPerSec
+	kinematicsOptions.AngularVelocityDegsPerSec = angularVelocityDegsPerSec
+	
 	plan, kb, err := ms.planMoveOnGlobe(
 		ctx,
 		componentName,
 		destination,
 		movementSensorName,
 		obstacles,
-		linearVelocityMillisPerSec,
-		angularVelocityDegsPerSec,
+		kinematicsOptions,
 		extra,
 	)
 	if err != nil {
@@ -253,8 +254,7 @@ func (ms *builtIn) planMoveOnGlobe(
 	destination *geo.Point,
 	movementSensorName resource.Name,
 	obstacles []*spatialmath.GeoObstacle,
-	linearVelocityMillisPerSec float64,
-	angularVelocityDegsPerSec float64,
+	kinematicsOptions kinematicbase.Options,
 	extra map[string]interface{},
 ) ([][]referenceframe.Input, kinematicbase.KinematicBase, error) {
 	// build the localizer from the movement sensor
@@ -305,7 +305,9 @@ func (ms *builtIn) planMoveOnGlobe(
 				return nil, nil, errors.New("could not interpret motion_profile field as string")
 			}
 			if motionProfile == motionplan.PositionOnlyMotionProfile {
-				limits = limits[0:2] // remove theta limit if in position only mode
+				kinematicsOptions.PositionOnlyMode = true
+			} else {
+				kinematicsOptions.PositionOnlyMode = false
 			}
 		}
 	}
@@ -322,10 +324,10 @@ func (ms *builtIn) planMoveOnGlobe(
 	}
 	var kb kinematicbase.KinematicBase
 	if fake, ok := b.(*fake.Base); ok {
-		kb, err = kinematicbase.WrapWithFakeKinematics(ctx, fake, localizer, limits)
+		kb, err = kinematicbase.WrapWithFakeKinematics(ctx, fake, localizer, limits, kinematicsOptions)
 	} else {
 		kb, err = kinematicbase.WrapWithKinematics(ctx, b, ms.logger, localizer, limits,
-			linearVelocityMillisPerSec, angularVelocityDegsPerSec)
+			kinematicsOptions)
 	}
 	if err != nil {
 		return nil, nil, err
@@ -333,7 +335,7 @@ func (ms *builtIn) planMoveOnGlobe(
 
 	// we take the zero position to be the start since in the frame of the localizer we will always be at its origin
 	inputs := make([]referenceframe.Input, 3)
-	if kinematicOptions.PositionOnlyMode {
+	if kinematicsOptions.PositionOnlyMode {
 		inputs = inputs[:2]
 	}
 	inputMap := map[string][]referenceframe.Input{componentName.Name: inputs}
@@ -465,6 +467,7 @@ func (ms *builtIn) planMoveOnMap(
 	componentName resource.Name,
 	destination spatialmath.Pose,
 	slamName resource.Name,
+	kinematicsOptions kinematicbase.Options,
 	extra map[string]interface{},
 ) ([][]referenceframe.Input, kinematicbase.KinematicBase, error) {
 	// get the SLAM Service from the slamName
@@ -497,14 +500,16 @@ func (ms *builtIn) planMoveOnMap(
 				return nil, nil, errors.New("could not interpret motion_profile field as string")
 			}
 			if motionProfile == motionplan.PositionOnlyMotionProfile {
-				limits = limits[0:2] // remove theta limit if in position only mode
+				kinematicsOptions.PositionOnlyMode = true
+			} else {
+				kinematicsOptions.PositionOnlyMode = false
 			}
 		}
 	}
 
 	var kb kinematicbase.KinematicBase
 	if fake, ok := b.(*fake.Base); ok {
-		kb, err = kinematicbase.WrapWithFakeKinematics(ctx, fake, motion.NewSLAMLocalizer(slamSvc), limits)
+		kb, err = kinematicbase.WrapWithFakeKinematics(ctx, fake, motion.NewSLAMLocalizer(slamSvc), limits, kinematicsOptions)
 	} else {
 		kb, err = kinematicbase.WrapWithKinematics(
 			ctx,
@@ -512,8 +517,7 @@ func (ms *builtIn) planMoveOnMap(
 			ms.logger,
 			motion.NewSLAMLocalizer(slamSvc),
 			limits,
-			defaultLinearVelocityMillisPerSec,
-			defaultAngularVelocityDegsPerSec,
+			kinematicsOptions,
 		)
 	}
 	if err != nil {

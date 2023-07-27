@@ -11,9 +11,9 @@ import (
 
 type fakeKinematics struct {
 	*fake.Base
-	model     referenceframe.Frame
-	localizer motion.Localizer
-	inputs    []referenceframe.Input
+	planningFrame, executionFrame referenceframe.Frame
+	localizer                     motion.Localizer
+	inputs                        []referenceframe.Input
 }
 
 // WrapWithFakeKinematics creates a KinematicBase from the fake Base so that it satisfies the ModelFramer and InputEnabled interfaces.
@@ -22,6 +22,7 @@ func WrapWithFakeKinematics(
 	b *fake.Base,
 	localizer motion.Localizer,
 	limits []referenceframe.Limit,
+	options Options,
 ) (KinematicBase, error) {
 	position, err := localizer.CurrentPosition(ctx)
 	if err != nil {
@@ -37,15 +38,26 @@ func WrapWithFakeKinematics(
 	if fk.Base.Geometry != nil {
 		geometry = fk.Base.Geometry[0]
 	}
-	fk.model, err = referenceframe.New2DMobileModelFrame(fk.Base.Name().ShortName(), limits, geometry)
+
+	fk.executionFrame, err = referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits, geometry)
 	if err != nil {
 		return nil, err
 	}
+
+	if options.PositionOnlyMode {
+		fk.planningFrame, err = referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits[:2], geometry)
+	} else {
+		fk.planningFrame, err = referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits, geometry)
+	}
+	if err != nil {
+		return nil, err
+	}
+
 	return fk, nil
 }
 
 func (fk *fakeKinematics) Kinematics() referenceframe.Frame {
-	return fk.model
+	return fk.planningFrame
 }
 
 func (fk *fakeKinematics) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
@@ -53,7 +65,7 @@ func (fk *fakeKinematics) CurrentInputs(ctx context.Context) ([]referenceframe.I
 }
 
 func (fk *fakeKinematics) GoToInputs(ctx context.Context, inputs []referenceframe.Input) error {
-	_, err := fk.model.Transform(inputs)
+	_, err := fk.planningFrame.Transform(inputs)
 	fk.inputs = inputs
 	return err
 }

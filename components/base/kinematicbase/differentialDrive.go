@@ -49,15 +49,13 @@ func wrapWithDifferentialDriveKinematics(
 	logger golog.Logger,
 	localizer motion.Localizer,
 	limits []referenceframe.Limit,
-	maxLinearVelocityMillisPerSec float64,
-	maxAngularVelocityDegsPerSec float64,
+	options Options,
 ) (KinematicBase, error) {
 	ddk := &differentialDriveKinematics{
-		Base:                          b,
-		logger:                        logger,
-		localizer:                     localizer,
-		maxLinearVelocityMillisPerSec: maxLinearVelocityMillisPerSec,
-		maxAngularVelocityDegsPerSec:  maxAngularVelocityDegsPerSec,
+		Base:      b,
+		logger:    logger,
+		localizer: localizer,
+		options:   options,
 	}
 
 	geometries, err := b.Geometries(ctx, nil)
@@ -72,15 +70,19 @@ func wrapWithDifferentialDriveKinematics(
 	if len(geometries) > 0 {
 		geometry = geometries[0]
 	}
-	ddk.planningFrame, err = referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits, geometry)
+	ddk.executionFrame, err = referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits, geometry)
 	if err != nil {
 		return nil, err
 	}
 
-	// TODO instead of handling the logic for limits here add it to the options and handle that in here
-	// you will then have access to all 3 dimensions here
-
-	// TODO make an execution frame with all 3 limits
+	if options.PositionOnlyMode {
+		ddk.planningFrame, err = referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits[:2], geometry)
+	} else {
+		ddk.planningFrame, err = referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits, geometry)
+	}
+	if err != nil {
+		return nil, err
+	}
 
 	ddk.fs = referenceframe.NewEmptyFrameSystem("")
 	if err := ddk.fs.AddFrame(ddk.executionFrame, ddk.fs.World()); err != nil {
@@ -250,7 +252,7 @@ func (ddk *differentialDriveKinematics) errorState(current, desired []referencef
 	)
 
 	// transform the goal pose such that it is in the base frame
-	tf, err := ddk.fs.Transform(map[string][]referenceframe.Input{ddk.executionFrame.Name(): current}, goal, ddk.executionFrame.Name())
+	tf, err := ddk.fs.Transform(map[string][]referenceframe.Input{ddk.planningFrame.Name(): current}, goal, ddk.planningFrame.Name())
 	if err != nil {
 		return 0, 0, err
 	}
@@ -308,7 +310,7 @@ func CollisionGeometry(cfg *referenceframe.LinkConfig) ([]spatialmath.Geometry, 
 // too far from its path.
 func (ddk *differentialDriveKinematics) newValidRegionCapsule(starting, desired []referenceframe.Input) (spatialmath.Geometry, error) {
 	pt := r3.Vector{X: (desired[0].Value + starting[0].Value) / 2, Y: (desired[1].Value + starting[1].Value) / 2}
-	positionErr, _, err := ddk.errorState(starting, desired)
+	positionErr, _, err := ddk.errorState(starting, []referenceframe.Input{desired[0], desired[1], {0}})
 	if err != nil {
 		return nil, err
 	}

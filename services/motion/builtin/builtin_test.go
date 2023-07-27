@@ -345,6 +345,7 @@ func TestMoveOnMapLongDistance(t *testing.T) {
 		base.Named("test_base"),
 		goal,
 		slam.Named("test_slam"),
+		kinematicbase.NewKinematicBaseOptions(),
 		extra,
 	)
 	test.That(t, err, test.ShouldBeNil)
@@ -393,6 +394,7 @@ func TestMoveOnMap(t *testing.T) {
 			base.Named("test_base"),
 			goal,
 			slam.Named("test_slam"),
+			kinematicbase.NewKinematicBaseOptions(),
 			nil,
 		)
 		test.That(t, err, test.ShouldBeNil)
@@ -438,11 +440,27 @@ func TestMoveOnMap(t *testing.T) {
 			base.Named("test_base"),
 			goal,
 			slam.Named("test_slam"),
+			kinematicbase.NewKinematicBaseOptions(),
 			extra,
 		)
 		test.That(t, err, test.ShouldBeNil)
 		// every waypoint should have the form [x,y]
 		test.That(t, len(path[0]), test.ShouldEqual, 2)
+	})
+
+	t.Run("check that position-only mode executes", func(t *testing.T) {
+		t.Parallel()
+		extra := make(map[string]interface{})
+		extra["motion_profile"] = "position_only"
+		success, err := ms.MoveOnMap(
+			context.Background(),
+			base.Named("test_base"),
+			goal,
+			slam.Named("test_slam"),
+			extra,
+		)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, success, test.ShouldBeTrue)
 	})
 }
 
