@@ -155,6 +155,7 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 		scheduledSyncDisabled bool
 		failTransiently       bool
 		emptyFile             bool
+		streamingUploads      bool
 	}{
 		{
 			name:     "previously captured tabular data should be synced at start up",
@@ -175,6 +176,11 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 			dataType:              v1.DataType_DATA_TYPE_BINARY_SENSOR,
 			manualSync:            true,
 			scheduledSyncDisabled: true,
+		},
+		{
+			name:             "large binary files should be uploaded in via the streaming api",
+			dataType:         v1.DataType_DATA_TYPE_BINARY_SENSOR,
+			streamingUploads: true,
 		},
 		{
 			name:       "running manual and scheduled sync concurrently should not cause data races or duplicate uploads",
@@ -261,6 +267,10 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 			cfg.ScheduledSyncDisabled = tc.scheduledSyncDisabled
 			cfg.SyncIntervalMins = syncIntervalMins
 			resources = resourcesFromDeps(t, r, deps)
+			if tc.streamingUploads {
+				// Set max unary file size to 1, so it uploads via the streaming rpc.
+				datasync.MaxUnaryFileSize = 1
+			}
 			err = newDMSvc.Reconfigure(context.Background(), resources, resource.Config{
 				ConvertedAttributes: cfg,
 			})
@@ -457,6 +467,139 @@ func TestArbitraryFileUpload(t *testing.T) {
 				// Validate file no longer exists.
 				waitUntilNoFiles(additionalPathsDir)
 				test.That(t, len(getAllFileInfos(additionalPathsDir)), test.ShouldEqual, 0)
+			}
+			test.That(t, dmsvc.Close(context.Background()), test.ShouldBeNil)
+		})
+	}
+}
+
+func TestStreamingDCUpload(t *testing.T) {
+	// Set exponential factor to 1 and retry wait time to 20ms so retries happen very quickly.
+	datasync.RetryExponentialFactor.Store(int32(1))
+	fileName := "some_file_name.txt"
+	fileExt := ".txt"
+
+	tests := []struct {
+		name        string
+		serviceFail bool
+	}{
+		{
+			name: "A data capture file greater than MaxUnaryFileSize should be successfully uploaded" +
+				"via the streaming rpc.",
+			serviceFail: false,
+		},
+		{
+			name:        "if an error response is received from the backend, local files should not be deleted",
+			serviceFail: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// Set up server.
+			mockClock := clk.NewMock()
+			clock = mockClock
+			tmpDir := t.TempDir()
+
+			// Set up data manager.
+			dmsvc, r := newTestDataManager(t)
+			defer dmsvc.Close(context.Background())
+			var cfg *Config
+			var deps []string
+			captureInterval := time.Millisecond * 10
+			cfg, deps = setupConfig(t, enabledBinaryCollectorConfigPath)
+
+			// Set up service config with only capture enabled.
+			cfg.CaptureDisabled = false
+			cfg.ScheduledSyncDisabled = true
+			cfg.SyncIntervalMins = syncIntervalMins
+			cfg.CaptureDir = tmpDir
+
+			resources := resourcesFromDeps(t, r, deps)
+			err := dmsvc.Reconfigure(context.Background(), resources, resource.Config{
+				ConvertedAttributes: cfg,
+			})
+			test.That(t, err, test.ShouldBeNil)
+
+			// Capture an image, then close.
+			mockClock.Add(captureInterval)
+			err = dmsvc.Close(context.Background())
+			test.That(t, err, test.ShouldBeNil)
+
+			// Get all captured data.
+			_, capturedData, err := getCapturedData(tmpDir)
+			test.That(t, err, test.ShouldBeNil)
+
+			// Turn dmsvc back on with capture disabled.
+			newDMSvc, r := newTestDataManager(t)
+			defer newDMSvc.Close(context.Background())
+			mockClient := mockDataSyncServiceClient{
+				succesfulDCRequests: make(chan *v1.DataCaptureUploadRequest, 100),
+				failedDCRequests:    make(chan *v1.DataCaptureUploadRequest, 100),
+				fail:                &atomic.Bool{},
+			}
+			// Set max unary file size to 1 byte, so it uses the streaming rpc.
+			datasync.MaxUnaryFileSize = 1
+			newDMSvc.SetSyncerConstructor(getTestSyncerConstructorMock(mockClient))
+			cfg.CaptureDisabled = true
+			cfg.ScheduledSyncDisabled = true
+			resources = resourcesFromDeps(t, r, deps)
+			err = newDMSvc.Reconfigure(context.Background(), resources, resource.Config{
+				ConvertedAttributes: cfg,
+			})
+			test.That(t, err, test.ShouldBeNil)
+
+			// Call sync.
+			err = dmsvc.Sync(context.Background(), nil)
+			test.That(t, err, test.ShouldBeNil)
+
+			// Wait for upload requests.
+			var uploads []*mockStreamingDCClient
+			var urs []*v1.StreamingDataCaptureUploadRequest
+			// Get the successful requests
+			wait := time.After(time.Second * 5)
+			select {
+			case <-wait:
+				t.Fatalf("timed out waiting for sync request")
+			case r := <-mockClient.streamingDCUploads:
+				uploads = append(uploads, r)
+				select {
+				case <-wait:
+					t.Fatalf("timed out waiting for sync request")
+				case <-r.closed:
+					urs = append(urs, r.reqs...)
+				}
+			}
+
+			// Validate error and URs.
+			remainingFiles := getAllFilePaths(tmpDir)
+			if tc.serviceFail {
+				// Error case, file should not be deleted.
+				test.That(t, len(remainingFiles), test.ShouldEqual, 1)
+			} else {
+				// Validate first metadata message.
+				test.That(t, len(uploads), test.ShouldEqual, 1)
+				test.That(t, len(urs), test.ShouldBeGreaterThan, 0)
+				actMD := urs[0].GetMetadata()
+				test.That(t, actMD, test.ShouldNotBeNil)
+				test.That(t, actMD.GetUploadMetadata(), test.ShouldNotBeNil)
+				test.That(t, actMD.GetSensorMetadata(), test.ShouldNotBeNil)
+				test.That(t, actMD.GetUploadMetadata().Type, test.ShouldEqual, v1.DataType_DATA_TYPE_BINARY_SENSOR)
+				test.That(t, actMD.GetUploadMetadata().FileName, test.ShouldEqual, fileName)
+				test.That(t, actMD.GetUploadMetadata().FileExtension, test.ShouldEqual, fileExt)
+				test.That(t, actMD.GetUploadMetadata().PartId, test.ShouldNotBeBlank)
+
+				// Validate ensuing data messages.
+				dataRequests := urs[1:]
+				var actData []byte
+				for _, d := range dataRequests {
+					actData = append(actData, d.GetData()...)
+				}
+				test.That(t, actData, test.ShouldResemble, capturedData[0].GetBinary())
+
+				// Validate file no longer exists.
+				waitUntilNoFiles(tmpDir)
+				test.That(t, len(getAllFileInfos(tmpDir)), test.ShouldEqual, 0)
 			}
 			test.That(t, dmsvc.Close(context.Background()), test.ShouldBeNil)
 		})
@@ -661,6 +804,7 @@ type mockDataSyncServiceClient struct {
 	succesfulDCRequests chan *v1.DataCaptureUploadRequest
 	failedDCRequests    chan *v1.DataCaptureUploadRequest
 	fileUploads         chan *mockFileUploadClient
+	streamingDCUploads  chan *mockStreamingDCClient
 	fail                *atomic.Bool
 }
 
@@ -694,6 +838,15 @@ func (c mockDataSyncServiceClient) FileUpload(ctx context.Context, opts ...grpc.
 	return ret, nil
 }
 
+func (c mockDataSyncServiceClient) StreamingDataCaptureUpload(ctx context.Context, opts ...grpc.CallOption) (v1.DataSyncService_StreamingDataCaptureUploadClient, error) {
+	if c.fail.Load() {
+		return nil, errors.New("oh no error")
+	}
+	ret := &mockStreamingDCClient{closed: make(chan struct{})}
+	c.streamingDCUploads <- ret
+	return ret, nil
+}
+
 type mockFileUploadClient struct {
 	urs    []*v1.FileUploadRequest
 	closed chan struct{}
@@ -711,6 +864,26 @@ func (m *mockFileUploadClient) CloseAndRecv() (*v1.FileUploadResponse, error) {
 }
 
 func (m *mockFileUploadClient) CloseSend() error {
+	return nil
+}
+
+type mockStreamingDCClient struct {
+	reqs   []*v1.StreamingDataCaptureUploadRequest
+	closed chan struct{}
+	grpc.ClientStream
+}
+
+func (m *mockStreamingDCClient) Send(req *v1.StreamingDataCaptureUploadRequest) error {
+	m.reqs = append(m.reqs, req)
+	return nil
+}
+
+func (m *mockStreamingDCClient) CloseAndRecv() (*v1.StreamingDataCaptureUploadResponse, error) {
+	m.closed <- struct{}{}
+	return &v1.StreamingDataCaptureUploadResponse{}, nil
+}
+
+func (m *mockStreamingDCClient) CloseSend() error {
 	return nil
 }
 

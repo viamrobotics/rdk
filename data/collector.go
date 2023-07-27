@@ -260,6 +260,8 @@ func NewCollector(captureFunc CaptureFunc, params CollectorParams) (Collector, e
 
 func (c *collector) writeCaptureResults() error {
 	for msg := range c.captureResults {
+		// get matching filters for component
+		// if return true, write else continue
 		if err := c.target.Write(msg); err != nil {
 			return err
 		}
