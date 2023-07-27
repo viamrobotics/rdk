@@ -453,9 +453,6 @@ func TestArbitraryFileUpload(t *testing.T) {
 }
 
 func TestStreamingDCUpload(t *testing.T) {
-	// Set exponential factor to 1 so retries happen quickly.
-	datasync.RetryExponentialFactor.Store(int32(1))
-
 	tests := []struct {
 		name        string
 		serviceFail bool
