@@ -47,15 +47,10 @@ func TestFakeSLAMGetLatestMapInfo(t *testing.T) {
 
 	timestamp1, err := slamSvc.GetLatestMapInfo(context.Background())
 	test.That(t, err, test.ShouldBeNil)
+
 	timestamp2, err := slamSvc.GetLatestMapInfo(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, timestamp1, test.ShouldResemble, timestamp2)
-
-	_, err = slamSvc.GetPointCloudMap(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	timestamp3, err := slamSvc.GetLatestMapInfo(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, timestamp3.After(timestamp2), test.ShouldBeTrue)
+	test.That(t, timestamp2.After(timestamp1), test.ShouldBeTrue)
 }
 
 func TestFakeSLAMStateful(t *testing.T) {
