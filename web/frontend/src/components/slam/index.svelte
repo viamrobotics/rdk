@@ -69,6 +69,15 @@ const startDurationTimer = (start: number) => {
   }, 400);
 };
 
+const localizationMode = (mapTimestamp: Timestamp | undefined) => {
+  if (mapTimestamp === undefined) {
+    return false;
+  }
+  const seconds = mapTimestamp.getSeconds();
+  const nanos = mapTimestamp.getNanos();
+  return seconds === lastTimestamp.getSeconds() && nanos === lastTimestamp.getNanos();
+}
+
 const formatOverridePose = (poseData: Pose) => {
   const poseObject = new commonApi.Pose();
   poseObject.setX(poseData.x);
@@ -98,7 +107,7 @@ const refresh2d = async () => {
        * to see if a change has been made to the pointcloud map.
        * A new call to getPointCloudMap is made if an update has occured.
        */
-    } else if (mapTimestamp?.getSeconds() === lastTimestamp.getSeconds()) {
+    } else if (localizationMode(mapTimestamp)) {
       nextPose = await getPosition($robotClient, name);
     } else {
       [pointcloud, nextPose] = await Promise.all([
@@ -135,11 +144,11 @@ const refresh3d = async () => {
       const mapTimestamp = await getLatestMapInfo($robotClient, name);
 
       /*
-       * The map timestamp is compared to the last timestamp
-       * to see if a change has been made to the pointcloud map.
-       * A new call to getPointCloudMap is made if an update has occured.
-       */
-      if (mapTimestamp?.getSeconds() !== lastTimestamp.getSeconds()) {
+      * The map timestamp is compared to the last timestamp
+      * to see if a change has been made to the pointcloud map.
+      * A new call to getPointCloudMap is made if an update has occured.
+      */
+       if (!localizationMode(mapTimestamp)) {
         pointcloud = await getPointCloudMap($robotClient, name);
       }
       if (mapTimestamp) {
@@ -354,7 +363,6 @@ const handleMapNameChange = (event: CustomEvent) => {
     slot="header"
     variant="danger"
     icon="stop-circle-outline"
-    class="fill-white"
     disabled={moveClicked ? 'false' : 'true'}
     label="Stop"
     on:click={handleStopMoveClick}

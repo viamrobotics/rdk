@@ -338,7 +338,7 @@ func TestSensorBase(t *testing.T) {
 	test.That(t, props.WidthMeters, test.ShouldResemble, 0.1)
 	test.That(t, err, test.ShouldBeNil)
 
-	geometries, err := sb.Geometries(ctx)
+	geometries, err := sb.Geometries(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, geometries, test.ShouldBeNil)
 

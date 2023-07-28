@@ -7,7 +7,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
-	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
@@ -54,34 +53,27 @@ func setupWorkingBase(
 	}
 }
 
-const (
-	errMsgMoveStraight = "critical failure in MoveStraight"
-	errMsgSpin         = "critical failure in Spin"
-	errMsgStop         = "critical failure in Stop"
-	errMsgProperties   = "critical failure in Properties"
-)
-
 func setupBrokenBase(brokenBase *inject.Base) {
 	brokenBase.MoveStraightFunc = func(
 		ctx context.Context,
 		distanceMm int, mmPerSec float64,
 		extra map[string]interface{},
 	) error {
-		return errors.New(errMsgMoveStraight)
+		return errMoveStraight
 	}
 	brokenBase.SpinFunc = func(
 		ctx context.Context,
 		angleDeg, degsPerSec float64,
 		extra map[string]interface{},
 	) error {
-		return errors.New(errMsgSpin)
+		return errSpinFailed
 	}
 	brokenBase.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
-		return errors.New(errMsgStop)
+		return errStopFailed
 	}
 
 	brokenBase.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (base.Properties, error) {
-		return base.Properties{}, errors.New(errMsgProperties)
+		return base.Properties{}, errPropertiesFailed
 	}
 }
 
@@ -128,7 +120,7 @@ func TestClient(t *testing.T) {
 		cancel()
 		_, err = viamgrpc.Dial(cancelCtx, listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
+		test.That(t, err, test.ShouldBeError, context.Canceled)
 	})
 	conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -188,7 +180,7 @@ func TestClient(t *testing.T) {
 		})
 
 		t.Run("working Geometries", func(t *testing.T) {
-			geometries, err := workingBaseClient.Geometries(context.Background())
+			geometries, err := workingBaseClient.Geometries(context.Background(), nil)
 			test.That(t, err, test.ShouldBeNil)
 			for i, geometry := range geometries {
 				test.That(t, geometry.AlmostEqual(expectedGeometries[i]), test.ShouldBeTrue)
@@ -221,16 +213,16 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		err = failingBaseClient.MoveStraight(context.Background(), 42, 42.0, nil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, errMsgMoveStraight)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errMoveStraight.Error())
 
 		err = failingBaseClient.Spin(context.Background(), 42.0, 42.0, nil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, errMsgSpin)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errSpinFailed.Error())
 
 		_, err = failingBaseClient.Properties(context.Background(), nil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, errMsgProperties)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errPropertiesFailed.Error())
 
 		err = failingBaseClient.Stop(context.Background(), nil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, errMsgStop)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errStopFailed.Error())
 
 		test.That(t, failingBaseClient.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)

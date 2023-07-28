@@ -158,7 +158,7 @@ func (s *serviceServer) GetGeometries(ctx context.Context, req *commonpb.GetGeom
 	if err != nil {
 		return nil, err
 	}
-	geometries, err := res.Geometries(ctx)
+	geometries, err := res.Geometries(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}

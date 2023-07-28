@@ -8,10 +8,10 @@ func NewResetZeroPositionUnsupportedError(motorName string) error {
 	return errors.Errorf("motor with name %s does not support ResetZeroPosition", motorName)
 }
 
-// NewFeatureUnsupportedError returns an error representing the need
-// for a motor to support a particular feature.
-func NewFeatureUnsupportedError(feature Feature, motorName string) error {
-	return errors.Errorf("motor named %s must support feature motor.%s", motorName, feature)
+// NewPropertyUnsupportedError returns an error representing the need
+// for a motor to support a particular property.
+func NewPropertyUnsupportedError(prop Properties, motorName string) error {
+	return errors.Errorf("motor named %s must support property motor.%v", motorName, prop)
 }
 
 // NewZeroRPMError returns an error representing a request to move a motor at

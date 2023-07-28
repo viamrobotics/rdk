@@ -6,27 +6,19 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { notify } from '@viamrobotics/prime';
 import { navigationApi, type ServiceError } from '@viamrobotics/sdk';
 import { setMode, type NavigationModes } from '@/api/navigation';
-import { mapCenter, centerMap, robotPosition, flyToMap } from './stores';
+import { mapCenter, centerMap, robotPosition, flyToMap, write as writeStore } from './stores';
+import { useRobotClient } from '@/hooks/robot-client';
 import Collapse from '@/lib/components/collapse.svelte';
 import Map from './components/map.svelte';
 import Nav from './components/nav.svelte';
-import { useRobotClient } from '@/hooks/robot-client';
+import LngLatInput from './components/input/lnglat.svelte';
 
 export let name: string;
+export let write = false;
+
+$: $writeStore = write;
 
 const { robotClient } = useRobotClient();
-
-const decimalFormat = new Intl.NumberFormat(undefined, { maximumFractionDigits: 7 });
-
-const handleLng = (event: CustomEvent) => {
-  const lng = Number.parseFloat(event.detail.value);
-  centerMap({ lng, lat: mapCenter.current.lat });
-};
-
-const handleLat = (event: CustomEvent) => {
-  const lat = Number.parseFloat(event.detail.value);
-  centerMap({ lat, lng: mapCenter.current.lng });
-};
 
 const setNavigationMode = async (event: CustomEvent) => {
   const mode = event.detail.value as 'Manual' | 'Waypoint';
@@ -51,58 +43,39 @@ const setNavigationMode = async (event: CustomEvent) => {
     crumbs="navigation"
   />
 
-  <div class="flex flex-col gap-2 border border-t-0 border-medium p-4">
-    <div class='flex items-end justify-between'>
-      <div class='flex gap-6'>
-        <div class='flex gap-1 items-end'>
-          <v-input class='w-16' label='Base' tooltip='Specified in lng, lat' readonly value={$robotPosition?.lng} />
-          <v-input class='w-16' readonly value={$robotPosition?.lat} />
-          <v-button
-            variant='icon'
-            icon='center'
-            on:click={() => $robotPosition && flyToMap($robotPosition)}
-          />
+  <div class="flex flex-col gap-2 border border-t-0 border-medium">
+    <div class='flex items-end justify-between py-3 px-4'>
+      <div class='flex gap-1'>
+        <div class='w-80'>
+          <LngLatInput readonly label='Base position' lng={$robotPosition?.lng} lat={$robotPosition?.lat}>
+            <v-button
+              variant='icon'
+              icon='center'
+              on:click={() => $robotPosition && flyToMap($robotPosition)}
+            />
+          </LngLatInput>
         </div>
-
-        <v-radio
-          label="Navigation mode"
-          options="Manual, Waypoint"
-          on:input={setNavigationMode}
-        />
       </div>
 
-      <div class='flex gap-1.5'>
-        <v-input
-          type='number'
-          label='Longitude'
-          placeholder='0'
-          incrementor='slider'
-          value={$mapCenter.lng ? decimalFormat.format($mapCenter.lng) : ''}
-          step='0.5'
-          class='max-w-[6rem]'
-          on:input={handleLng}
-        />
-        <v-input
-          type='number'
-          label='Latitude'
-          placeholder='0'
-          incrementor='slider'
-          value={$mapCenter.lat ? decimalFormat.format($mapCenter.lat) : ''}
-          step='0.25'
-          class='max-w-[6rem]'
-          on:input={handleLat}
-        />
-      </div>
+      <v-radio
+        label="Navigation mode"
+        options="Manual, Waypoint"
+        on:input={setNavigationMode}
+      />
+
+      <LngLatInput
+        lng={$mapCenter.lng}
+        lat={$mapCenter.lat}
+        on:input={(event) => centerMap(event.detail)}
+      />
     </div>
 
-    <div class='flex w-full items-stretch gap-2'>
+    <div class='flex w-full items-stretch'>
+
       <Nav {name} />
 
       <div class='grow'>
-        <Map
-          {name}
-          on:drag={(event) => centerMap(event.detail, false)}
-        />
+        <Map {name} />
       </div>
 
     </div>

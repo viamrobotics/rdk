@@ -433,7 +433,7 @@ func (lb *limoBase) Properties(ctx context.Context, extra map[string]interface{}
 	}, nil
 }
 
-func (lb *limoBase) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
+func (lb *limoBase) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
 	return lb.geometries, nil
 }
 

@@ -65,7 +65,7 @@ func TestWheelBaseMath(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, props.WidthMeters, test.ShouldEqual, 100*0.001)
 
-		geometries, err := wb.Geometries(ctx)
+		geometries, err := wb.Geometries(ctx, nil)
 		test.That(t, geometries, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeNil)
 

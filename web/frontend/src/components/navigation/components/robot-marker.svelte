@@ -38,9 +38,5 @@ useDisconnect(() => clearUpdateLocationInterval());
 </script>
 
 {#if $robotPosition}
-  <MapMarker
-    color='red'
-    lng={$robotPosition.lng}
-    lat={$robotPosition.lat}
-  />
+  <MapMarker color='red' lngLat={$robotPosition} />
 {/if}

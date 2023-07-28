@@ -60,7 +60,7 @@ func TestClient(t *testing.T) {
 	}
 	injectArm.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
 		extraOptions = extra
-		return arm.ErrStopUnimplemented
+		return errStopUnimplemented
 	}
 	injectArm.ModelFrameFunc = func() referenceframe.Model {
 		data := []byte("{\"links\": [{\"parent\": \"world\"}]}")
@@ -130,7 +130,7 @@ func TestClient(t *testing.T) {
 		cancel()
 		_, err = viamgrpc.Dial(cancelCtx, listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
+		test.That(t, err, test.ShouldBeError, context.Canceled)
 	})
 
 	// working
@@ -169,7 +169,7 @@ func TestClient(t *testing.T) {
 
 		err = arm1Client.Stop(context.Background(), map[string]interface{}{"foo": "Stop"})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, arm.ErrStopUnimplemented.Error())
+		test.That(t, err.Error(), test.ShouldContainSubstring, errStopUnimplemented.Error())
 		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{"foo": "Stop"})
 
 		test.That(t, arm1Client.Close(context.Background()), test.ShouldBeNil)

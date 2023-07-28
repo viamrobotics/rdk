@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	boardpb "go.viam.com/api/component/board/v1"
 	"go.viam.com/test"
@@ -57,7 +56,7 @@ func TestFailingClient(t *testing.T) {
 
 	_, err := viamgrpc.Dial(cancelCtx, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
+	test.That(t, err, test.ShouldBeError, context.Canceled)
 }
 
 func TestWorkingClient(t *testing.T) {
@@ -256,9 +255,6 @@ func TestClientWithoutStatus(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
 	injectBoard := &inject.Board{}
-	injectBoard.StatusFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
-		return nil, errors.New("no status")
-	}
 
 	listener1, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)

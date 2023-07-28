@@ -87,7 +87,6 @@ type cBiRRTMotionPlanner struct {
 	*planner
 	fastGradDescent *NloptIK
 	algOpts         *cbirrtOptions
-	corners         map[node]bool
 }
 
 // newCBiRRTMotionPlannerWithSeed creates a cBiRRTMotionPlanner object with a user specified random seed.
@@ -117,7 +116,6 @@ func newCBiRRTMotionPlanner(
 		planner:         mp,
 		fastGradDescent: nlopt,
 		algOpts:         algOpts,
-		corners:         map[node]bool{},
 	}, nil
 }
 
@@ -152,7 +150,6 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 		return
 	}
 	// initialize maps
-	corners := map[node]bool{}
 	// TODO(rb) package neighborManager better
 	nm1 := &neighborManager{nCPU: mp.planOpts.NumThreads}
 	nm2 := &neighborManager{nCPU: mp.planOpts.NumThreads}
@@ -231,8 +228,8 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 			map1reached := <-m1chan
 			map2reached := <-m2chan
 
-			corners[map1reached] = true
-			corners[map2reached] = true
+			map1reached.SetCorner(true)
+			map2reached.SetCorner(true)
 
 			return map1reached, map2reached, nil
 		}
@@ -462,100 +459,62 @@ func (mp *cBiRRTMotionPlanner) smoothPath(
 	schan := make(chan node, 1)
 	defer close(schan)
 
-	for iter := 0; iter < toIter && len(inputSteps) > 4; iter++ {
-		select {
-		case <-ctx.Done():
-			mp.logger.Debug("CBiRRT timed out during smoothing, returning best path")
-			return inputSteps
-		default:
-		}
-		// Pick two random non-adjacent indices, excepting the ends
-
-		j := 2 + mp.randseed.Intn(len(inputSteps)-3)
-
-		i := mp.randseed.Intn(j) + 1
-
-		ok, hitCorners := smoothable(inputSteps, i, j, mp.corners)
-		if !ok {
-			continue
-		}
-
-		shortcutGoal := make(map[node]node)
-
-		iSol := inputSteps[i]
-		jSol := inputSteps[j]
-		shortcutGoal[jSol] = nil
-
-		// extend backwards for convenience later. Should work equally well in both directions
-		mp.constrainedExtend(ctx, mp.randseed, shortcutGoal, jSol, iSol, schan)
-		reached := <-schan
-
-		// Note this could technically replace paths with "longer" paths i.e. with more waypoints.
-		// However, smoothed paths are invariably more intuitive and smooth, and lend themselves to future shortening,
-		// so we allow elongation here.
-		dist := mp.planOpts.DistanceFunc(&Segment{StartConfiguration: inputSteps[i].Q(), EndConfiguration: reached.Q()})
-		if dist < mp.algOpts.JointSolveDist && len(reached.Q()) < j-i {
-			mp.corners[iSol] = true
-			mp.corners[jSol] = true
-			for _, hitCorner := range hitCorners {
-				mp.corners[hitCorner] = false
+	for numCornersToPass := 2; numCornersToPass > 0; numCornersToPass-- {
+		for iter := 0; iter < toIter/2 && len(inputSteps) > 3; iter++ {
+			select {
+			case <-ctx.Done():
+				return inputSteps
+			default:
 			}
-			newInputSteps := append([]node{}, inputSteps[:i]...)
-			for reached != nil {
-				newInputSteps = append(newInputSteps, reached)
-				reached = shortcutGoal[reached]
+			// get start node of first edge. Cannot be either the last or second-to-last node.
+			// Intn will return an int in the half-open interval [0,n)
+			i := mp.randseed.Intn(len(inputSteps) - 2)
+			j := i + 1
+			cornersPassed := 0
+			hitCorners := []node{}
+			for (cornersPassed != numCornersToPass || !inputSteps[j].Corner()) && j < len(inputSteps)-1 {
+				j++
+				if cornersPassed < numCornersToPass && inputSteps[j].Corner() {
+					cornersPassed++
+					hitCorners = append(hitCorners, inputSteps[j])
+				}
 			}
-			newInputSteps = append(newInputSteps, inputSteps[j+1:]...)
-			inputSteps = newInputSteps
+			// no corners existed between i and end of inputSteps -> not good candidate for smoothing
+			if len(hitCorners) == 0 {
+				continue
+			}
+
+			shortcutGoal := make(map[node]node)
+
+			iSol := inputSteps[i]
+			jSol := inputSteps[j]
+			shortcutGoal[jSol] = nil
+
+			mp.constrainedExtend(ctx, mp.randseed, shortcutGoal, jSol, iSol, schan)
+			reached := <-schan
+
+			// Note this could technically replace paths with "longer" paths i.e. with more waypoints.
+			// However, smoothed paths are invariably more intuitive and smooth, and lend themselves to future shortening,
+			// so we allow elongation here.
+			dist := mp.planOpts.DistanceFunc(&Segment{StartConfiguration: inputSteps[i].Q(), EndConfiguration: reached.Q()})
+			if dist < mp.algOpts.JointSolveDist {
+				for _, hitCorner := range hitCorners {
+					hitCorner.SetCorner(false)
+				}
+
+				newInputSteps := append([]node{}, inputSteps[:i]...)
+				for reached != nil {
+					newInputSteps = append(newInputSteps, reached)
+					reached = shortcutGoal[reached]
+				}
+				newInputSteps[i].SetCorner(true)
+				newInputSteps[len(newInputSteps)-1].SetCorner(true)
+				newInputSteps = append(newInputSteps, inputSteps[j+1:]...)
+				inputSteps = newInputSteps
+			}
 		}
 	}
-
 	return inputSteps
-}
-
-// Check if there is more than one joint direction change. If not, then not a good candidate for smoothing.
-func smoothable(inputSteps []node, i, j int, corners map[node]bool) (bool, []node) {
-	startPos := inputSteps[i]
-	nextPos := inputSteps[i+1]
-	// Whether joints are increasing
-	incDir := make([]int, 0, len(startPos.Q()))
-	hitCorners := []node{}
-
-	check := func(v1, v2 float64) int {
-		if v1 > v2 {
-			return 1
-		} else if v1 < v2 {
-			return -1
-		}
-		return 0
-	}
-
-	// Get initial directionality
-	for h, v := range startPos.Q() {
-		incDir = append(incDir, check(v.Value, nextPos.Q()[h].Value))
-	}
-
-	// Check for any direction changes
-	changes := 0
-	for k := i + 1; k < j; k++ {
-		for h, v := range nextPos.Q() {
-			// Get 1, 0, or -1 depending on directionality
-			newV := check(v.Value, inputSteps[k].Q()[h].Value)
-			if incDir[h] == 0 {
-				incDir[h] = newV
-			} else if incDir[h] == newV*-1 {
-				changes++
-			}
-			if changes > 1 && len(hitCorners) > 0 {
-				return true, hitCorners
-			}
-		}
-		nextPos = inputSteps[k]
-		if corners[nextPos] {
-			hitCorners = append(hitCorners, nextPos)
-		}
-	}
-	return false, hitCorners
 }
 
 // getFrameSteps will return a slice of positive values representing the largest amount a particular DOF of a frame should
