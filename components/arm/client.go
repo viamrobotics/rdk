@@ -67,6 +67,9 @@ func (c *client) EndPosition(ctx context.Context, extra map[string]interface{}) 
 	if err != nil {
 		return nil, err
 	}
+	if resp.Pose == nil {
+		c.logger.Warn("the end position is nil")
+	}
 	return spatialmath.NewPoseFromProtobuf(resp.Pose), nil
 }
 
@@ -108,6 +111,9 @@ func (c *client) JointPositions(ctx context.Context, extra map[string]interface{
 	if err != nil {
 		return nil, err
 	}
+	if resp.Positions == nil {
+		c.logger.Warn("the joint positions are nil")
+	}
 	return resp.Positions, nil
 }
 
@@ -124,6 +130,9 @@ func (c *client) Stop(ctx context.Context, extra map[string]interface{}) error {
 }
 
 func (c *client) ModelFrame() referenceframe.Model {
+	if c.model == nil {
+		c.logger.Warn("the model frame is nil")
+	}
 	return c.model
 }
 
@@ -134,6 +143,9 @@ func (c *client) CurrentInputs(ctx context.Context) ([]referenceframe.Input, err
 	resp, err := c.JointPositions(ctx, nil)
 	if err != nil {
 		return nil, err
+	}
+	if c.model.InputFromProtobuf(resp) == nil {
+		c.logger.Warn("the current inputs are nil")
 	}
 	return c.model.InputFromProtobuf(resp), nil
 }
