@@ -332,6 +332,7 @@ func TestArbitraryFileUpload(t *testing.T) {
 		name                 string
 		manualSync           bool
 		scheduleSyncDisabled bool
+		serviceFail          bool
 	}{
 		{
 			name:                 "scheduled sync of arbitrary files should work",
@@ -352,6 +353,7 @@ func TestArbitraryFileUpload(t *testing.T) {
 			name:                 "if an error response is received from the backend, local files should not be deleted",
 			manualSync:           false,
 			scheduleSyncDisabled: false,
+			serviceFail:          true,
 		},
 	}
 
@@ -367,11 +369,13 @@ func TestArbitraryFileUpload(t *testing.T) {
 			dmsvc, r := newTestDataManager(t)
 			dmsvc.SetWaitAfterLastModifiedMillis(0)
 			defer dmsvc.Close(context.Background())
+			f := atomic.Bool{}
+			f.Store(tc.serviceFail)
 			mockClient := mockDataSyncServiceClient{
 				succesfulDCRequests: make(chan *v1.DataCaptureUploadRequest, 100),
 				failedDCRequests:    make(chan *v1.DataCaptureUploadRequest, 100),
 				fileUploads:         make(chan *mockFileUploadClient, 100),
-				fail:                &atomic.Bool{},
+				fail:                &f,
 			}
 			dmsvc.SetSyncerConstructor(getTestSyncerConstructorMock(mockClient))
 			cfg, deps := setupConfig(t, disabledTabularCollectorConfigPath)
@@ -411,10 +415,12 @@ func TestArbitraryFileUpload(t *testing.T) {
 			var fileUploads []*mockFileUploadClient
 			var urs []*v1.FileUploadRequest
 			// Get the successful requests
-			wait := time.After(time.Second * 5)
+			wait := time.After(time.Second * 3)
 			select {
 			case <-wait:
-				t.Fatalf("timed out waiting for sync request")
+				if !tc.serviceFail {
+					t.Fatalf("timed out waiting for sync request")
+				}
 			case r := <-mockClient.fileUploads:
 				fileUploads = append(fileUploads, r)
 				select {
@@ -425,29 +431,33 @@ func TestArbitraryFileUpload(t *testing.T) {
 				}
 			}
 
-			// Validate error and URs.
-			// Validate first metadata message.
-			test.That(t, len(fileUploads), test.ShouldEqual, 1)
-			test.That(t, len(urs), test.ShouldBeGreaterThan, 0)
-			actMD := urs[0].GetMetadata()
-			test.That(t, actMD, test.ShouldNotBeNil)
-			test.That(t, actMD.Type, test.ShouldEqual, v1.DataType_DATA_TYPE_FILE)
-			test.That(t, actMD.FileName, test.ShouldEqual, fileName)
-			test.That(t, actMD.FileExtension, test.ShouldEqual, fileExt)
-			test.That(t, actMD.PartId, test.ShouldNotBeBlank)
+			if !tc.serviceFail {
+				// Validate first metadata message.
+				test.That(t, len(fileUploads), test.ShouldEqual, 1)
+				test.That(t, len(urs), test.ShouldBeGreaterThan, 0)
+				actMD := urs[0].GetMetadata()
+				test.That(t, actMD, test.ShouldNotBeNil)
+				test.That(t, actMD.Type, test.ShouldEqual, v1.DataType_DATA_TYPE_FILE)
+				test.That(t, actMD.FileName, test.ShouldEqual, fileName)
+				test.That(t, actMD.FileExtension, test.ShouldEqual, fileExt)
+				test.That(t, actMD.PartId, test.ShouldNotBeBlank)
 
-			// Validate ensuing data messages.
-			dataRequests := urs[1:]
-			var actData []byte
-			for _, d := range dataRequests {
-				actData = append(actData, d.GetFileContents().GetData()...)
+				// Validate ensuing data messages.
+				dataRequests := urs[1:]
+				var actData []byte
+				for _, d := range dataRequests {
+					actData = append(actData, d.GetFileContents().GetData()...)
+				}
+				test.That(t, actData, test.ShouldResemble, fileContents)
+
+				// Validate file no longer exists.
+				waitUntilNoFiles(additionalPathsDir)
+				test.That(t, len(getAllFileInfos(additionalPathsDir)), test.ShouldEqual, 0)
+				test.That(t, dmsvc.Close(context.Background()), test.ShouldBeNil)
+			} else {
+				// Validate file still exists.
+				test.That(t, len(getAllFileInfos(additionalPathsDir)), test.ShouldEqual, 1)
 			}
-			test.That(t, actData, test.ShouldResemble, fileContents)
-
-			// Validate file no longer exists.
-			waitUntilNoFiles(additionalPathsDir)
-			test.That(t, len(getAllFileInfos(additionalPathsDir)), test.ShouldEqual, 0)
-			test.That(t, dmsvc.Close(context.Background()), test.ShouldBeNil)
 		})
 	}
 }
@@ -841,6 +851,7 @@ func (m *mockFileUploadClient) CloseAndRecv() (*v1.FileUploadResponse, error) {
 }
 
 func (m *mockFileUploadClient) CloseSend() error {
+	m.closed <- struct{}{}
 	return nil
 }
 
@@ -861,6 +872,7 @@ func (m *mockStreamingDCClient) CloseAndRecv() (*v1.StreamingDataCaptureUploadRe
 }
 
 func (m *mockStreamingDCClient) CloseSend() error {
+	m.closed <- struct{}{}
 	return nil
 }
 

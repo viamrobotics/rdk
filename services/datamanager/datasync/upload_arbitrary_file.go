@@ -41,8 +41,8 @@ func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, f
 		return errors.Wrapf(err, "error syncing %s", f.Name())
 	}
 
-	_, err = stream.CloseAndRecv()
-	if err != nil {
+	var resp v1.FileUploadResponse
+	if err := stream.RecvMsg(&resp); err != nil {
 		return errors.Wrapf(err, "received error response while syncing %s", f.Name())
 	}
 
