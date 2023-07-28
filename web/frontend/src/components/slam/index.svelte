@@ -92,10 +92,10 @@ const refresh2d = async () => {
       pointcloud = map;
 
       /*
-        * The map timestamp is compared to the last timestamp
-        * to see if a change has been made to the pointcloud map.
-        * A new call to getPointCloudMap is made if an update has occured.
-        */
+       * The map timestamp is compared to the last timestamp
+       * to see if a change has been made to the pointcloud map.
+       * A new call to getPointCloudMap is made if an update has occured.
+       */
     } else if (mapTimestamp?.getSeconds() === lastTimestamp.getSeconds()) {
       nextPose = await getPosition($robotClient, name);
     } else {
@@ -106,9 +106,9 @@ const refresh2d = async () => {
     }
 
     /*
-      * The pose is returned in millimeters, but we need
-      * to convert to meters to display on the frontend.
-      */
+     * The pose is returned in millimeters, but we need
+     * to convert to meters to display on the frontend.
+     */
     nextPose?.setX(nextPose.getX() / 1000);
     nextPose?.setY(nextPose.getY() / 1000);
     nextPose?.setZ(nextPose.getZ() / 1000);
@@ -133,10 +133,10 @@ const refresh3d = async () => {
       const mapTimestamp = await getLatestMapInfo($robotClient, name);
 
       /*
-        * The map timestamp is compared to the last timestamp
-        * to see if a change has been made to the pointcloud map.
-        * A new call to getPointCloudMap is made if an update has occured.
-        */
+       * The map timestamp is compared to the last timestamp
+       * to see if a change has been made to the pointcloud map.
+       * A new call to getPointCloudMap is made if an update has occured.
+       */
       if (mapTimestamp?.getSeconds() !== lastTimestamp.getSeconds()) {
         pointcloud = await getPointCloudMap($robotClient, name);
       }
@@ -258,7 +258,6 @@ const toggleExpand = (event: CustomEvent<{ open: boolean }>) => {
     clear3dRefresh?.();
   }
 };
-
 
 const startMappingIntervals = (start: number) => {
   updateSLAM2dRefreshFrequency();

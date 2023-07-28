@@ -32,7 +32,7 @@ export let bakedAuth: { authEntity?: string; creds?: Credentials; } | undefined 
 export let supportedAuthTypes: string[] | undefined = [];
 export let webrtcEnabled: boolean;
 export let signalingAddress: string;
-export let overrides: RCOverrides | undefined = undefined;
+export let overrides: RCOverrides | undefined;
 
 const resourceStatusByName = (resource: commonApi.ResourceName.AsObject) => {
   return $statuses[resourceNameToString(resource)];
