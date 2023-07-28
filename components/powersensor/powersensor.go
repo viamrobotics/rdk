@@ -67,7 +67,7 @@ func Readings(ctx context.Context, g PowerSensor, extra map[string]interface{}) 
 		}
 	} else {
 		readings["voltage"] = vol
-		readings["AC"] = isAC
+		readings["is_ac"] = isAC
 	}
 
 	cur, _, err := g.Current(ctx, extra)
