@@ -4,6 +4,7 @@ package universalrobots
 import (
 	"bufio"
 	"context"
+
 	// for embedding model file.
 	_ "embed"
 	"encoding/binary"
@@ -334,7 +335,7 @@ func (ua *URArm) EndPosition(ctx context.Context, extra map[string]interface{}) 
 	if err != nil {
 		return nil, err
 	}
-	return motionplan.ComputeOOBPosition(ua.model, joints, ua.logger)
+	return motionplan.ComputeOOBPosition(ua.model, joints)
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.

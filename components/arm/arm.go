@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/edaniels/golog"
+	v1 "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
 	motionpb "go.viam.com/api/service/motion/v1"
 
@@ -102,21 +103,24 @@ func NamesFromRobot(r robot.Robot) []string {
 // CreateStatus creates a status from the arm. This will report calculated end effector positions even if the given
 // arm is perceived to be out of bounds.
 func CreateStatus(ctx context.Context, a Arm) (*pb.Status, error) {
-	logger := golog.NewDebugLogger("Arm:CreateStatus")
 	jointPositions, err := a.JointPositions(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 	model := a.ModelFrame()
-	endPosition, err := motionplan.ComputeOOBPosition(model, jointPositions, logger)
-	if err != nil {
-		return nil, err
+	var endPosition *v1.Pose
+	if jointPositions != nil && model != nil {
+		endPose, err := motionplan.ComputeOOBPosition(model, jointPositions)
+		if err != nil {
+			return nil, err
+		}
+		endPosition = spatialmath.PoseToProtobuf(endPose)
 	}
 	isMoving, err := a.IsMoving(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.Status{EndPosition: spatialmath.PoseToProtobuf(endPosition), JointPositions: jointPositions, IsMoving: isMoving}, nil
+	return &pb.Status{EndPosition: endPosition, JointPositions: jointPositions, IsMoving: isMoving}, nil
 }
 
 // Move is a helper function to abstract away movement for general arms.
