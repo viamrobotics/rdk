@@ -483,7 +483,7 @@ func TestStreamingDCUpload(t *testing.T) {
 			captureInterval := time.Millisecond * 10
 			cfg, deps = setupConfig(t, enabledBinaryCollectorConfigPath)
 
-			// Set up service config with only capture enabled.
+			// Set up service config with just capture enabled.
 			cfg.CaptureDisabled = false
 			cfg.ScheduledSyncDisabled = true
 			cfg.SyncIntervalMins = syncIntervalMins
