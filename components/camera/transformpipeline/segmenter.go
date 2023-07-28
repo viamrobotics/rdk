@@ -88,7 +88,7 @@ func (ss *segmenterSource) NextPointCloud(ctx context.Context) (pointcloud.Point
 		return nil, fmt.Errorf("could not get point clouds: %w", err)
 	}
 	if clouds == nil {
-		return nil, fmt.Errorf("no clusters could be created with the given parameters and file")
+		return pointcloud.New(), nil
 	}
 
 	// merge pointclouds
