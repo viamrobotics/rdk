@@ -35,6 +35,7 @@ func BenchmarkFK(b *testing.B) {
 
 // This should test forward kinematics functions.
 func TestForwardKinematics(t *testing.T) {
+	logger := golog.NewTestLogger(t)
 	// Test the 5DOF yahboom arm to confirm kinematics works with non-6dof arms
 	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/yahboom/dofbot.json"), "")
 	test.That(t, err, test.ShouldBeNil)
@@ -93,7 +94,7 @@ func TestForwardKinematics(t *testing.T) {
 
 	// Test out of bounds. Note that ComputeOOBPosition will NOT return nil on OOB.
 	newPos = []float64{-45, 0, 0, 0, 0, 999}
-	pos, err = ComputeOOBPosition(m, &pb.JointPositions{Values: newPos})
+	pos, err = ComputeOOBPosition(m, &pb.JointPositions{Values: newPos}, logger)
 	expect = spatial.NewPose(
 		r3.Vector{X: 146.37, Y: -146.37, Z: 112},
 		&spatial.R4AA{Theta: math.Pi, RX: 0.31, RY: -0.95, RZ: 0},
@@ -423,23 +424,26 @@ func TestKinematicsJSONvsURDF(t *testing.T) {
 }
 
 func TestComputeOOBPosition(t *testing.T) {
+	logger := golog.NewTestLogger(t)
 	t.Run("fail when JointPositions are nil", func(t *testing.T) {
 		var model frame.Frame
 		var jointPositions *pb.JointPositions
+		errorMsg := "joint positions are nil, check that you are passing non-empty joint positions when writing your driver"
 
-		pose, err := ComputeOOBPosition(model, jointPositions)
+		pose, err := ComputeOOBPosition(model, jointPositions, logger)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, pose, test.ShouldBeNil)
-		test.That(t, err.Error(), test.ShouldEqual, "joint positions should not be nil")
+		test.That(t, err.Error(), test.ShouldEqual, errorMsg)
 	})
 
 	t.Run("fail when model frame is nil", func(t *testing.T) {
 		var model frame.Model
 		jointPositions := &pb.JointPositions{Values: []float64{1.1, 2.2, 3.3, 1.1, 2.2, 3.3}}
+		errorMsg := "the model frame is nil, check that you are passing non-empty kinematics when writing your driver"
 
-		pose, err := ComputeOOBPosition(model, jointPositions)
+		pose, err := ComputeOOBPosition(model, jointPositions, logger)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, pose, test.ShouldBeNil)
-		test.That(t, err.Error(), test.ShouldEqual, "the model frame should not be nil")
+		test.That(t, err.Error(), test.ShouldEqual, errorMsg)
 	})
 }

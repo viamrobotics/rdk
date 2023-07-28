@@ -148,7 +148,7 @@ func (a *Arm) EndPosition(ctx context.Context, extra map[string]interface{}) (sp
 	}
 	a.mu.RLock()
 	defer a.mu.RUnlock()
-	return motionplan.ComputeOOBPosition(a.model, joints)
+	return motionplan.ComputeOOBPosition(a.model, joints, a.logger)
 }
 
 // MoveToPosition sets the position.

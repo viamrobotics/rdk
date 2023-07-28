@@ -108,7 +108,7 @@ func (wrapper *Arm) EndPosition(ctx context.Context, extra map[string]interface{
 	if err != nil {
 		return nil, err
 	}
-	return motionplan.ComputeOOBPosition(wrapper.model, joints)
+	return motionplan.ComputeOOBPosition(wrapper.model, joints, wrapper.logger)
 }
 
 // MoveToPosition sets the position.

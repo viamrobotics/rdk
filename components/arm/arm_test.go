@@ -183,7 +183,7 @@ func TestOOBArm(t *testing.T) {
 
 	t.Run("EndPosition works when OOB", func(t *testing.T) {
 		jPositions := pb.JointPositions{Values: []float64{0, 0, 0, 0, 0, 720}}
-		pose, err := motionplan.ComputeOOBPosition(injectedArm.ModelFrame(), &jPositions)
+		pose, err := motionplan.ComputeOOBPosition(injectedArm.ModelFrame(), &jPositions, logger)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pose, test.ShouldNotBeNil)
 	})

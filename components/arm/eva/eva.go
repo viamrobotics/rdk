@@ -140,7 +140,7 @@ func (e *eva) EndPosition(ctx context.Context, extra map[string]interface{}) (sp
 	if err != nil {
 		return nil, err
 	}
-	return motionplan.ComputeOOBPosition(e.model, joints)
+	return motionplan.ComputeOOBPosition(e.model, joints, e.logger)
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.

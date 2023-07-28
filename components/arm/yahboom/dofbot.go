@@ -160,7 +160,7 @@ func (a *Dofbot) EndPosition(ctx context.Context, extra map[string]interface{}) 
 	if err != nil {
 		return nil, fmt.Errorf("error getting joint positions: %w", err)
 	}
-	return motionplan.ComputeOOBPosition(a.model, joints)
+	return motionplan.ComputeOOBPosition(a.model, joints, a.logger)
 }
 
 // MoveToPosition moves the arm to the given absolute position.

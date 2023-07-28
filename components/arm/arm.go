@@ -102,12 +102,13 @@ func NamesFromRobot(r robot.Robot) []string {
 // CreateStatus creates a status from the arm. This will report calculated end effector positions even if the given
 // arm is perceived to be out of bounds.
 func CreateStatus(ctx context.Context, a Arm) (*pb.Status, error) {
+	logger := golog.NewDebugLogger("Arm:CreateStatus")
 	jointPositions, err := a.JointPositions(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 	model := a.ModelFrame()
-	endPosition, err := motionplan.ComputeOOBPosition(model, jointPositions)
+	endPosition, err := motionplan.ComputeOOBPosition(model, jointPositions, logger)
 	if err != nil {
 		return nil, err
 	}

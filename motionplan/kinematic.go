@@ -4,6 +4,7 @@ import (
 	"math"
 	"strings"
 
+	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/component/arm/v1"
 	"gonum.org/v1/gonum/floats"
@@ -35,13 +36,18 @@ func ComputePosition(model referenceframe.Frame, joints *pb.JointPositions) (spa
 // ComputeOOBPosition takes a model and a protobuf JointPositions in degrees and returns the cartesian
 // position of the end effector as a protobuf ArmPosition even when the arm is in an out of bounds state.
 // This is performed statelessly without changing any data.
-func ComputeOOBPosition(model referenceframe.Frame, joints *pb.JointPositions) (spatialmath.Pose, error) {
+func ComputeOOBPosition(model referenceframe.Frame, joints *pb.JointPositions, logger golog.Logger) (spatialmath.Pose, error) {
 	if joints == nil {
-		return nil, errors.New("joint positions should not be nil")
+		errMsg := "joint positions are nil, check that you are passing non-empty joint positions when writing your driver"
+		logger.Warn(errMsg)
+		return nil, errors.New(errMsg)
 	}
 	if model == nil {
-		return nil, errors.New("the model frame should not be nil")
+		errMsg := "the model frame is nil, check that you are passing non-empty kinematics when writing your driver"
+		logger.Warn(errMsg)
+		return nil, errors.New(errMsg)
 	}
+
 	if len(joints.Values) != len(model.DoF()) {
 		return nil, errors.Errorf(
 			"incorrect number of joints passed to ComputePosition. Want: %d, got: %d",
