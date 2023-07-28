@@ -94,6 +94,47 @@ func TestSegmentPlane(t *testing.T) {
 	test.That(t, math.Abs(dot), test.ShouldBeGreaterThanOrEqualTo, tol)
 }
 
+func TestSegmentPlaneWRTGround(t *testing.T) {
+	t.Parallel()
+	// get depth map
+	d, err := rimage.NewDepthMapFromFile(
+		context.Background(),
+		artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.png"))
+	test.That(t, err, test.ShouldBeNil)
+
+	// Pixel to Meter
+	sensorParams, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(intel515ParamsPath)
+	test.That(t, err, test.ShouldBeNil)
+	depthIntrinsics := &sensorParams.DepthCamera
+	cloud := depthadapter.ToPointCloud(d, depthIntrinsics)
+	test.That(t, err, test.ShouldBeNil)
+	// Segment Plane
+	nIter := 3000
+	groundNormVec := r3.Vector{0, 0, 1}
+	angleThresh := 30.0
+	plane, _, err := SegmentPlaneWRTGround(context.Background(), cloud, nIter, angleThresh, 0.5, groundNormVec)
+	eq := plane.Equation()
+	test.That(t, err, test.ShouldBeNil)
+	// assign gt plane equation - obtained from open3d library with the same parameters
+
+	v1 := r3.Vector{-eq[3] / eq[0], 0, 0}
+	v2 := r3.Vector{0, -eq[3] / eq[1], 0}
+	planeNormVec := v1.Cross(v2)
+	test.That(t, groundNormVec.Dot(planeNormVec), test.ShouldBeLessThanOrEqualTo, angleThresh*math.Pi/180)
+
+	groundNormVec = r3.Vector{0, 1, 0}
+	angleThresh = 40.0
+	plane, _, err = SegmentPlaneWRTGround(context.Background(), cloud, nIter, angleThresh, 0.5, groundNormVec)
+	eq = plane.Equation()
+	test.That(t, err, test.ShouldBeNil)
+	// assign gt plane equation - obtained from open3d library with the same parameters
+
+	v1 = r3.Vector{-eq[3] / eq[0], 0, 0}
+	v2 = r3.Vector{0, -eq[3] / eq[1], 0}
+	planeNormVec = v1.Cross(v2)
+	test.That(t, groundNormVec.Dot(planeNormVec), test.ShouldBeLessThanOrEqualTo, angleThresh*math.Pi/180)
+}
+
 func TestDepthMapToPointCloud(t *testing.T) {
 	d, err := rimage.NewDepthMapFromFile(
 		context.Background(),
