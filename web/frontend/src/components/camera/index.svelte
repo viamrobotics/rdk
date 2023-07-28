@@ -25,6 +25,7 @@ const setupCamera = (cameraName: string) => {
 
 const handleRefreshInput = (name: string) => {
   return (event: CustomEvent) => {
+    console.log(event)
     refreshFrequency[name] = event.detail.value;
   };
 };

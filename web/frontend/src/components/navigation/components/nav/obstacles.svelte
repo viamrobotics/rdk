@@ -12,7 +12,7 @@ const dispatch = createEventDispatcher<{ select: LngLat }>();
 
 const handleAddObstacle = () => {
   $obstacles = [
-    createObstacle(`Obstacle ${$obstacles.length + 1}`, $mapCenter.lng, $mapCenter.lat),
+    createObstacle(`Obstacle ${$obstacles.length + 1}`, $mapCenter),
     ...$obstacles,
   ];
 };
@@ -34,7 +34,13 @@ const handleGeometryInput = (index: number, geoIndex: number) => {
 </script>
 
 {#if $obstacles.length === 0}
-  <li class='text-xs text-subtle-2 font-sans py-2'>None</li>
+  <li class='text-xs text-subtle-2 font-sans py-2'>
+    {#if write}
+      Click to add an obstacle.
+    {:else}
+      Add a static obstacle in your robot's config.
+    {/if}
+  </li>
 {/if}
 
 {#if $write}
