@@ -10,7 +10,7 @@ import { mapCenter, centerMap, robotPosition, flyToMap, write as writeStore } fr
 import { useRobotClient } from '@/hooks/robot-client';
 import Collapse from '@/lib/components/collapse.svelte';
 import Map from './components/map.svelte';
-import Nav from './components/nav.svelte';
+import Nav from './components/nav/index.svelte';
 import LngLatInput from './components/input/lnglat.svelte';
 
 export let name: string;
