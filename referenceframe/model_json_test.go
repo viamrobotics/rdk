@@ -27,6 +27,15 @@ func TestParseJSONFile(t *testing.T) {
 		"referenceframe/testjson/worldjoint.json",
 		"referenceframe/testjson/worldlink.json",
 		"referenceframe/testjson/worldDH.json",
+		"referenceframe/testjson/missinglink.json",
+	}
+
+	badFilesErrorMsgs := []string{
+		"infinite loop finding path from end effector to world",
+		"reserved word: cannot name a link 'world'",
+		"reserved word: cannot name a joint 'world'",
+		"need at least one end effector",
+		"frame named 'base' not in the list of transforms",
 	}
 
 	for _, f := range goodFiles {
@@ -47,10 +56,11 @@ func TestParseJSONFile(t *testing.T) {
 		})
 	}
 
-	for _, f := range badFiles {
+	for i, f := range badFiles {
 		t.Run(f, func(tt *testing.T) {
 			_, err := ParseModelJSONFile(utils.ResolveFile(f), "")
 			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err.Error(), test.ShouldEqual, badFilesErrorMsgs[i])
 		})
 	}
 }
