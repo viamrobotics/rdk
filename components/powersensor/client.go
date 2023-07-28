@@ -22,7 +22,7 @@ type client struct {
 	logger golog.Logger
 }
 
-// NewClientFromConn constructs a new Client from connection passed in.
+// NewClientFromConn constructs a new client from connection passed in.
 func NewClientFromConn(
 	ctx context.Context,
 	conn rpc.ClientConn,
@@ -39,6 +39,7 @@ func NewClientFromConn(
 	}, nil
 }
 
+// Voltage returns the voltage reading in volts and a bool returning true if the voltage is AC.
 func (c *client) Voltage(ctx context.Context, extra map[string]interface{}) (float64, bool, error) {
 	ext, err := structpb.NewStruct(extra)
 	if err != nil {
@@ -56,6 +57,7 @@ func (c *client) Voltage(ctx context.Context, extra map[string]interface{}) (flo
 		nil
 }
 
+// Current returns the current reading in amperes and a bool returning true if the current is AC.
 func (c *client) Current(ctx context.Context, extra map[string]interface{}) (float64, bool, error) {
 	ext, err := structpb.NewStruct(extra)
 	if err != nil {
@@ -73,6 +75,7 @@ func (c *client) Current(ctx context.Context, extra map[string]interface{}) (flo
 		nil
 }
 
+// Power returns the power reading in watts.
 func (c *client) Power(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	ext, err := structpb.NewStruct(extra)
 	if err != nil {
