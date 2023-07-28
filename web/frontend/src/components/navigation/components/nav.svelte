@@ -88,7 +88,7 @@ onMount(() => {
       {#if $write}
         <v-button
           class='my-4'
-          icon='add'
+          icon='plus'
           label='Add'
           on:click={handleAddObstacle}
         />
@@ -102,7 +102,7 @@ onMount(() => {
               <v-button
                 class='invisible group-hover:visible text-subtle-1'
                 variant='icon'
-                icon='trash'
+                icon='trash-can-outline'
                 on:click={() => handleDeleteObstacle(index)}
               />
             </div>
@@ -113,7 +113,7 @@ onMount(() => {
               <v-button
                 class='invisible group-hover:visible text-subtle-1'
                 variant='icon'
-                icon='center'
+                icon='image-filter-center'
                 on:click={() => flyToMap(location)}
               />
 
@@ -141,7 +141,7 @@ onMount(() => {
                 <v-button
                   class='invisible group-hover:visible text-subtle-1'
                   variant='icon'
-                  icon='center'
+                  icon='image-filter-center'
                   on:click={() => handleClick(location.lng, location.lat)}
                 />
               </div>
@@ -176,13 +176,13 @@ onMount(() => {
               <v-button
                 class='invisible group-hover:visible text-subtle-1'
                 variant='icon'
-                icon='center'
+                icon='image-filter-center'
                 on:click={() => handleClick(waypoint.lng, waypoint.lat)}
               />
               <v-button
                 class='invisible group-hover:visible text-subtle-2'
                 variant='icon'
-                icon='trash'
+                icon='trash-can-outline'
                 on:click={() => handleRemoveWaypoint(waypoint.id)}
               />
             </div>
