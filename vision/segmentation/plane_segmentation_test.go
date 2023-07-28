@@ -78,7 +78,7 @@ func TestSegmentPlane(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	// Segment Plane
 	nIter := 3000
-	plane, _, err := SegmentPlane(context.Background(), cloud, nIter, 0.5, 0)
+	plane, _, err := SegmentPlane(context.Background(), cloud, nIter, 0.5)
 	eq := plane.Equation()
 	test.That(t, err, test.ShouldBeNil)
 	// assign gt plane equation - obtained from open3d library with the same parameters
@@ -162,7 +162,7 @@ func BenchmarkPlaneSegmentPointCloud(b *testing.B) {
 	test.That(b, err, test.ShouldBeNil)
 	for i := 0; i < b.N; i++ {
 		// Segment Plane
-		_, _, err := SegmentPlane(context.Background(), pts, 2500, 0.0025, 0)
+		_, _, err := SegmentPlane(context.Background(), pts, 2500, 0.0025)
 		test.That(b, err, test.ShouldBeNil)
 	}
 }

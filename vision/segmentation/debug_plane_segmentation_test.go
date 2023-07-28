@@ -71,7 +71,7 @@ func (h *segmentTestHelper) Process(
 	test.That(t, err, test.ShouldBeNil)
 
 	// create an image where all the planes in the point cloud are color-coded
-	planeSegCloud := NewPointCloudPlaneSegmentation(cloud, 50, 150000, 0)   // feed the parameters for the plane segmentation
+	planeSegCloud := NewPointCloudPlaneSegmentation(cloud, 50, 150000)      // feed the parameters for the plane segmentation
 	planes, nonPlane, err := planeSegCloud.FindPlanes(context.Background()) // returns slice of planes and point cloud of non plane points
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(planes), test.ShouldBeGreaterThan, 0)
@@ -187,7 +187,7 @@ func (h *gripperPlaneTestHelper) Process(
 	t.Logf("number of planes: %d", len(planesVox))
 
 	// point cloud plane segmentation
-	planeSeg := NewPointCloudPlaneSegmentation(cloud, 10, 15000, 0)
+	planeSeg := NewPointCloudPlaneSegmentation(cloud, 10, 15000)
 	planes, nonPlane, err := planeSeg.FindPlanes(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(planes), test.ShouldBeGreaterThan, 0)

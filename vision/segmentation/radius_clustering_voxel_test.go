@@ -36,7 +36,6 @@ func TestClusteringVoxelConfig(t *testing.T) {
 	cfg.CosineThresh = .1
 	cfg.DistanceThresh = 44
 	cfg.MaxDistFromPlane = 10
-	cfg.MaxAngleOfPlane = 0
 	err = cfg.CheckValid()
 	test.That(t, err.Error(), test.ShouldContainSubstring, "weight_threshold cannot be less than 0")
 	// valid

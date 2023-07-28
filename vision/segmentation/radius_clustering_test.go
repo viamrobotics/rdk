@@ -37,7 +37,6 @@ func TestRadiusClusteringValidate(t *testing.T) {
 	cfg.ClusteringRadiusMm = 5
 	cfg.MeanKFiltering = 5
 	cfg.MaxDistFromPlane = 4
-	cfg.MaxAngleOfPlane = 0
 	err = cfg.CheckValid()
 	test.That(t, err, test.ShouldBeNil)
 }

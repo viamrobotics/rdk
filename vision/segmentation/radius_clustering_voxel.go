@@ -20,7 +20,6 @@ type RadiusClusteringVoxelConfig struct {
 	Lambda             float64 `json:"lambda"` // clustering parameter for making voxel planes
 	MinPtsInPlane      int     `json:"min_points_in_plane"`
 	MaxDistFromPlane   float64 `json:"max_dist_from_plane"`
-	MaxAngleOfPlane    float64 `json:"max_angle_of_plane"`
 	MinPtsInSegment    int     `json:"min_points_in_segment"`
 	ClusteringRadiusMm float64 `json:"clustering_radius_mm"`
 	WeightThresh       float64 `json:"weight_threshold"`
