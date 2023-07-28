@@ -152,33 +152,6 @@ func TestCreateStatus(t *testing.T) {
 		_, err := arm.CreateStatus(context.Background(), injectArm)
 		test.That(t, err, test.ShouldBeError, errFail)
 	})
-
-	t.Run("fail elegantly when JointPositions returns a nil pointer", func(t *testing.T) {
-		injectArm.ModelFrameFunc = func() referenceframe.Model {
-			model, _ := ur.MakeModelFrame("ur5e")
-			return model
-		}
-		injectArm.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
-			return nil, nil
-		}
-		_, err := arm.CreateStatus(context.Background(), injectArm)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldEqual, "joint positions should not be nil")
-	})
-
-	t.Run("fail elegantly when ModelFrame returns a nil pointer", func(t *testing.T) {
-
-		injectArm.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
-			return &pb.JointPositions{Values: status.JointPositions.Values}, nil
-		}
-		injectArm.ModelFrameFunc = func() referenceframe.Model {
-			return nil
-		}
-
-		_, err := arm.CreateStatus(context.Background(), injectArm)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldEqual, "the model frame should not be nil")
-	})
 }
 
 func TestOOBArm(t *testing.T) {

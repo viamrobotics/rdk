@@ -421,3 +421,25 @@ func TestKinematicsJSONvsURDF(t *testing.T) {
 		test.That(t, spatial.PoseAlmostEqual(posJSON, posURDF), test.ShouldBeTrue)
 	}
 }
+
+func TestComputeOOBPosition(t *testing.T) {
+	t.Run("fail when JointPositions are nil", func(t *testing.T) {
+		var model frame.Frame
+		var jointPositions *pb.JointPositions
+
+		pose, err := ComputeOOBPosition(model, jointPositions)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, pose, test.ShouldBeNil)
+		test.That(t, err.Error(), test.ShouldEqual, "joint positions should not be nil")
+	})
+
+	t.Run("fail when model frame is nil", func(t *testing.T) {
+		var model frame.Model
+		jointPositions := &pb.JointPositions{Values: []float64{1.1, 2.2, 3.3, 1.1, 2.2, 3.3}}
+
+		pose, err := ComputeOOBPosition(model, jointPositions)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, pose, test.ShouldBeNil)
+		test.That(t, err.Error(), test.ShouldEqual, "the model frame should not be nil")
+	})
+}
