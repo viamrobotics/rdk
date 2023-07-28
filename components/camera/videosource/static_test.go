@@ -2,6 +2,10 @@ package videosource
 
 import (
 	"context"
+	"image"
+	"image/color"
+	"image/jpeg"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -74,6 +78,44 @@ func TestColor(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, strmImg, test.ShouldResemble, readInImage)
 	test.That(t, strmImg.Bounds(), test.ShouldResemble, readInImage.Bounds())
+
+	err = cam.Close(ctx)
+	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestColorOddResolution(t *testing.T) {
+	imgFilePath := t.TempDir() + "/test_img.jpg"
+	imgFile, err := os.Create(imgFilePath)
+	test.That(t, err, test.ShouldBeNil)
+
+	img := image.NewRGBA(image.Rect(0, 0, 3, 3))
+	for x := 0; x < img.Bounds().Dx(); x++ {
+		for y := 0; y < img.Bounds().Dy(); y++ {
+			img.Set(x, y, color.White)
+		}
+	}
+	err = jpeg.Encode(imgFile, img, nil)
+	test.That(t, err, test.ShouldBeNil)
+	err = imgFile.Close()
+	test.That(t, err, test.ShouldBeNil)
+
+	cfg := &fileSourceConfig{Color: imgFilePath}
+	ctx := context.Background()
+	cam, err := newCamera(ctx, resource.Name{API: camera.API}, cfg)
+	test.That(t, err, test.ShouldBeNil)
+
+	stream, err := cam.Stream(ctx)
+	test.That(t, err, test.ShouldBeNil)
+
+	readInImage, err := rimage.NewImageFromFile(imgFilePath)
+	test.That(t, err, test.ShouldBeNil)
+
+	strmImg, _, err := stream.Next(ctx)
+	test.That(t, err, test.ShouldBeNil)
+
+	expectedBounds := image.Rect(0, 0, readInImage.Bounds().Dx()-1, readInImage.Bounds().Dy()-1)
+	test.That(t, strmImg, test.ShouldResemble, readInImage.SubImage(expectedBounds))
+	test.That(t, strmImg.Bounds(), test.ShouldResemble, expectedBounds)
 
 	err = cam.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)
