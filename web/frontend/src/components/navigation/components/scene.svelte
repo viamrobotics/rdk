@@ -35,5 +35,5 @@ onMount(async () => {
 {/if}
 
 {#each $obstacles as obstacle}
-  <Obstacle obstacle={obstacle} />
+  <Obstacle {obstacle} />
 {/each}

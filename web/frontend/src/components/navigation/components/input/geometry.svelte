@@ -14,22 +14,22 @@ const handleShapeSelect = (event: CustomEvent) => {
 };
 
 const handleDimensionsInput = (event: CustomEvent<number[]>) => {
-  const [x = 0, y = 0, z = 0] = event.detail;
+  const [x, y, z] = event.detail;
 
   switch (geometry.type) {
     case 'box': {
-      geometry.length = x;
-      geometry.width = y;
-      geometry.height = z;
+      if (x) geometry.length = x;
+      if (y) geometry.width = y;
+      if (z) geometry.height = z;
       break;
     }
     case 'sphere': {
-      geometry.radius = x;
+      if (x) geometry.radius = x;
       break;
     }
     case 'capsule': {
-      geometry.radius = x;
-      geometry.length = y;
+      if (x) geometry.radius = x;
+      if (y) geometry.length = y;
       break;
     }
   }
