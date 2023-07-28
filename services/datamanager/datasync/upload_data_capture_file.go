@@ -18,7 +18,7 @@ func uploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient,
 	md := f.ReadMetadata()
 	sensorData, err := datacapture.SensorDataFromFile(f)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error reading sensor data from file")
 	}
 
 	// Do not attempt to upload a file without any sensor readings.
@@ -45,7 +45,7 @@ func uploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient,
 
 		c, err := client.StreamingDataCaptureUpload(ctx)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "error creating upload client")
 		}
 
 		toUpload := sensorData[0]
@@ -63,11 +63,12 @@ func uploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient,
 
 		// Then call the function to send the rest.
 		if err := sendStreamingDCRequests(ctx, c, toUpload.GetBinary()); err != nil {
-			return err
+			return errors.Wrap(err, "error sending streaming data capture requests")
 		}
 
-		if _, err := c.CloseAndRecv(); err != nil {
-			return err
+		var resp v1.StreamingDataCaptureUploadResponse
+		if err := c.RecvMsg(&resp); err != nil {
+			return errors.Wrap(err, "error receiving upload response")
 		}
 	} else {
 		ur := &v1.DataCaptureUploadRequest{
