@@ -223,7 +223,7 @@ func (ms *builtIn) MoveOnGlobe(
 	kinematicsOptions.AngularVelocityDegsPerSec = angularVelocity
 	kinematicsOptions.GoalRadiusMM = 3000
 	kinematicsOptions.HeadingThresholdDegrees = 8
-	kinematicsOptions.PlanDeviationThreshold = 5000
+	kinematicsOptions.PlanDeviationThresholdMM = 5000
 
 	plan, kb, err := ms.planMoveOnGlobe(
 		ctx,

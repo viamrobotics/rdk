@@ -29,21 +29,21 @@ const (
 	defaultAngularVelocityDegsPerSec = 60
 
 	// distThresholdMM is used when the base is moving to a goal. It is considered successful if it is within this radius.
-	defaultGoalRadiusMM = 100 // mm
+	defaultGoalRadiusMM = 100
 
 	// headingThresholdDegrees is used when the base is moving to a goal.
 	// If its heading is within this angle it is considered on the correct path.
 	defaultHeadingThresholdDegrees = 15
 
-	// planDeviationThreshold is the amount that the base is allowed to deviate from the straight line path it is intended to travel.
+	// planDeviationThresholdMM is the amount that the base is allowed to deviate from the straight line path it is intended to travel.
 	// If it ever exceeds this amount the movement will fail and an error will be returned.
-	defaultPlanDeviationThreshold = 600.0 // mm
+	defaultPlanDeviationThresholdMM = 600.0 // mm
 
 	// timeout is the maximum amount of time that the base is allowed to remain stationary during a movement, else an error is thrown.
 	defaultTimeout = time.Second * 10
 
-	// movementEpsilon is the amount that a base needs to move for it not to be considered stationary.
-	defaultmovementEpsilon = 20 // mm
+	// minimumMovementThresholdMM is the amount that a base needs to move for it not to be considered stationary.
+	defaultMinimumMovementThresholdMM = 20 // mm
 )
 
 // Options contains values used for execution of base movement.
@@ -61,28 +61,28 @@ type Options struct {
 	// If its heading is within this angle it is considered to be on the correct path.
 	HeadingThresholdDegrees float64
 
-	// PlanDeviationThreshold is the amount that the base is allowed to deviate from the straight line path it is intended to travel.
+	// PlanDeviationThresholdMM is the amount that the base is allowed to deviate from the straight line path it is intended to travel.
 	// If it ever exceeds this amount the movement will fail and an error will be returned.
-	PlanDeviationThreshold float64
+	PlanDeviationThresholdMM float64
 
 	// Timeout is the maximum amount of time that the base is allowed to remain stationary during a movement, else an error is thrown.
 	Timeout time.Duration
 
-	// MovementEpsilon is the amount that a base needs to move for it not to be considered stationary.
-	MovementEpsilon float64
+	// MinimumMovementThresholdMM is the amount that a base needs to move for it not to be considered stationary.
+	MinimumMovementThresholdMM float64
 }
 
 // NewKinematicBaseOptions creates a struct with values used for execution of base movement.
 // all values are pre-set to reasonable default values and can be changed if desired.
 func NewKinematicBaseOptions() Options {
 	options := Options{
-		LinearVelocityMMPerSec:    defaultLinearVelocityMMPerSec,
-		AngularVelocityDegsPerSec: defaultAngularVelocityDegsPerSec,
-		GoalRadiusMM:              defaultGoalRadiusMM,
-		HeadingThresholdDegrees:   defaultHeadingThresholdDegrees,
-		PlanDeviationThreshold:    defaultPlanDeviationThreshold,
-		Timeout:                   defaultTimeout,
-		MovementEpsilon:           defaultmovementEpsilon,
+		LinearVelocityMMPerSec:     defaultLinearVelocityMMPerSec,
+		AngularVelocityDegsPerSec:  defaultAngularVelocityDegsPerSec,
+		GoalRadiusMM:               defaultGoalRadiusMM,
+		HeadingThresholdDegrees:    defaultHeadingThresholdDegrees,
+		PlanDeviationThresholdMM:   defaultPlanDeviationThresholdMM,
+		Timeout:                    defaultTimeout,
+		MinimumMovementThresholdMM: defaultMinimumMovementThresholdMM,
 	}
 	return options
 }

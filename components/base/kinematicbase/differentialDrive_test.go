@@ -185,7 +185,7 @@ func TestNewValidRegionCapsule(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, col, test.ShouldBeTrue)
 
-	col, err = c.CollidesWith(spatialmath.NewPoint(r3.Vector{-defaultPlanDeviationThreshold, -defaultPlanDeviationThreshold, 0}, ""))
+	col, err = c.CollidesWith(spatialmath.NewPoint(r3.Vector{-defaultPlanDeviationThresholdMM, -defaultPlanDeviationThresholdMM, 0}, ""))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, col, test.ShouldBeFalse)
 }

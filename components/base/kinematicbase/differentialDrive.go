@@ -175,7 +175,7 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 			StartConfiguration: prevInputs,
 			EndConfiguration:   currentInputs,
 		})
-		if positionChange > ddk.options.MovementEpsilon {
+		if positionChange > ddk.options.MinimumMovementThresholdMM {
 			lastUpdate = time.Now()
 			prevInputs = currentInputs
 		} else if time.Since(lastUpdate) > ddk.options.Timeout {
@@ -296,8 +296,8 @@ func (ddk *differentialDriveKinematics) newValidRegionCapsule(starting, desired 
 	center := spatialmath.NewPose(pt, r)
 	capsule, err := spatialmath.NewCapsule(
 		center,
-		ddk.options.PlanDeviationThreshold,
-		2*ddk.options.PlanDeviationThreshold+positionErr,
+		ddk.options.PlanDeviationThresholdMM,
+		2*ddk.options.PlanDeviationThresholdMM+positionErr,
 		"")
 	if err != nil {
 		return nil, err
