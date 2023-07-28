@@ -813,7 +813,9 @@ func (c mockDataSyncServiceClient) FileUpload(ctx context.Context, opts ...grpc.
 	return ret, nil
 }
 
-func (c mockDataSyncServiceClient) StreamingDataCaptureUpload(ctx context.Context, opts ...grpc.CallOption) (v1.DataSyncService_StreamingDataCaptureUploadClient, error) {
+func (c mockDataSyncServiceClient) StreamingDataCaptureUpload(ctx context.Context,
+	opts ...grpc.CallOption,
+) (v1.DataSyncService_StreamingDataCaptureUploadClient, error) {
 	if c.fail.Load() {
 		return nil, errors.New("oh no error")
 	}
