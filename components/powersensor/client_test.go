@@ -1,4 +1,4 @@
-// package powersensor_test contains test for powersensor
+// package powersensor_test contains tests for powersensor
 package powersensor_test
 
 import (

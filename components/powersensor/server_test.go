@@ -15,9 +15,9 @@ import (
 )
 
 var (
-	workingPowerSensorName = "ps1"
-	failingPowerSensorName = "ps2"
-	missingPowerSensorName = "ps3"
+	workingPowerSensorName = "workingPS"
+	failingPowerSensorName = "failingPS"
+	missingPowerSensorName = "missingPS"
 	errVoltageFailed       = errors.New("can't get voltage")
 	errCurrentFailed       = errors.New("can't get current")
 	errPowerFailed         = errors.New("can't get power")
@@ -37,7 +37,9 @@ func newServer() (pb.PowerSensorServiceServer, *inject.PowerSensor, *inject.Powe
 		return nil, nil, nil, err
 	}
 
-	return powersensor.NewRPCServiceServer(powerSensorSvc).(pb.PowerSensorServiceServer), workingPowerSensor, failingPowerSensor, nil
+	server := powersensor.NewRPCServiceServer(powerSensorSvc).(pb.PowerSensorServiceServer)
+
+	return server, workingPowerSensor, failingPowerSensor, nil
 }
 
 //nolint:dupl
