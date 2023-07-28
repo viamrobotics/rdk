@@ -60,13 +60,14 @@ func NamesFromRobot(r robot.Robot) []string {
 func Readings(ctx context.Context, g PowerSensor, extra map[string]interface{}) (map[string]interface{}, error) {
 	readings := map[string]interface{}{}
 
-	vol, _, err := g.Voltage(ctx, extra)
+	vol, isAC, err := g.Voltage(ctx, extra)
 	if err != nil {
 		if !strings.Contains(err.Error(), ErrMethodUnimplementedVoltage.Error()) {
 			return nil, err
 		}
 	} else {
 		readings["voltage"] = vol
+		readings["AC"] = isAC
 	}
 
 	cur, _, err := g.Current(ctx, extra)
