@@ -811,7 +811,7 @@ func main() {
 						Name:  "create",
 						Usage: "create & register a module on app.viam.com",
 						Description: `Creates a module in app.viam.com to simplify code deployment.
-Ex: 'viam module create --name my-great-module --org_id <my org id>'
+Ex: 'viam module create --name my-great-module --org-id <my org id>'
 Will create the module and a corresponding meta.json file in the current directory. 
 
 If your org has set a namespace in app.viam.com then your module name will be 'my-namespace:my-great-module' and 
@@ -826,11 +826,11 @@ Next, update your meta.json and use 'viam module update' to push those changes t
 								Required: true,
 							},
 							&cli.StringFlag{
-								Name:  "public_namespace",
+								Name:  "public-namespace",
 								Usage: "the public namespace where the module will reside (alternative way of specifying the org id)",
 							},
 							&cli.StringFlag{
-								Name:  "org_id",
+								Name:  "org-id",
 								Usage: "id of the organization that will host the module",
 							},
 						},
@@ -847,11 +847,11 @@ Next, update your meta.json and use 'viam module update' to push those changes t
 								TakesFile:   true,
 							},
 							&cli.StringFlag{
-								Name:  "public_namespace",
+								Name:  "public-namespace",
 								Usage: "the public namespace where the module resides (alternative way of specifying the org id)",
 							},
 							&cli.StringFlag{
-								Name:  "org_id",
+								Name:  "org-id",
 								Usage: "id of the organization that hosts the module",
 							},
 						},
@@ -875,11 +875,11 @@ viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.ta
 								TakesFile:   true,
 							},
 							&cli.StringFlag{
-								Name:  "public_namespace",
+								Name:  "public-namespace",
 								Usage: "the public namespace where the module resides (alternative way of specifying the org id)",
 							},
 							&cli.StringFlag{
-								Name:  "org_id",
+								Name:  "org-id",
 								Usage: "id of the organization that hosts the module",
 							},
 							&cli.StringFlag{
