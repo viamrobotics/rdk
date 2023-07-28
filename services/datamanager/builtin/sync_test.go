@@ -431,6 +431,7 @@ func TestArbitraryFileUpload(t *testing.T) {
 				}
 			}
 
+			waitUntilNoFiles(additionalPathsDir)
 			if !tc.serviceFail {
 				// Validate first metadata message.
 				test.That(t, len(fileUploads), test.ShouldEqual, 1)
@@ -451,10 +452,11 @@ func TestArbitraryFileUpload(t *testing.T) {
 				test.That(t, actData, test.ShouldResemble, fileContents)
 
 				// Validate file no longer exists.
-				waitUntilNoFiles(additionalPathsDir)
 				test.That(t, len(getAllFileInfos(additionalPathsDir)), test.ShouldEqual, 0)
 				test.That(t, dmsvc.Close(context.Background()), test.ShouldBeNil)
 			} else {
+				// Validate no files were successfully uploaded.
+				test.That(t, len(fileUploads), test.ShouldEqual, 0)
 				// Validate file still exists.
 				test.That(t, len(getAllFileInfos(additionalPathsDir)), test.ShouldEqual, 1)
 			}
@@ -557,10 +559,13 @@ func TestStreamingDCUpload(t *testing.T) {
 					urs = append(urs, r.reqs...)
 				}
 			}
+			waitUntilNoFiles(tmpDir)
 
 			// Validate error and URs.
 			remainingFiles := getAllFilePaths(tmpDir)
 			if tc.serviceFail {
+				// Validate no files were successfully uploaded.
+				test.That(t, len(uploads), test.ShouldEqual, 0)
 				// Error case, file should not be deleted.
 				test.That(t, len(remainingFiles), test.ShouldEqual, 1)
 			} else {
@@ -583,7 +588,6 @@ func TestStreamingDCUpload(t *testing.T) {
 				test.That(t, actData, test.ShouldResemble, capturedData[0].GetBinary())
 
 				// Validate file no longer exists.
-				waitUntilNoFiles(tmpDir)
 				test.That(t, len(getAllFileInfos(tmpDir)), test.ShouldEqual, 0)
 			}
 			test.That(t, dmsvc.Close(context.Background()), test.ShouldBeNil)
