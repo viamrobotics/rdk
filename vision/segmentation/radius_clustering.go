@@ -91,7 +91,7 @@ func (rcc *RadiusClusteringConfig) RadiusClustering(ctx context.Context, src cam
 	}
 	ps := NewPointCloudGroundPlaneSegmentation(cloud, rcc.MaxDistFromPlane, rcc.MinPtsInPlane, rcc.AngleTolerance, rcc.NormalVec)
 	// if there are found planes, remove them, and keep all the non-plane points
-	_, nonPlane, err := ps.FindGroundPlanes(ctx)
+	_, nonPlane, err := ps.FindGroundPlane(ctx)
 	if err != nil {
 		return nil, err
 	}
