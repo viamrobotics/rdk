@@ -46,6 +46,8 @@ let sessionId = '';
 let mappingSessionEnded = false;
 let sessionDuration = 0;
 let durationInterval: number | undefined;
+let newMapName = '';
+let mapNameError = '';
 
 $: loaded2d = pointcloud !== undefined && pose !== undefined;
 $: moveClicked = $operations.find(({ op }) => op.method.includes('MoveOnMap'));
@@ -283,8 +285,20 @@ onMount(async () => {
 
 const handleStartMapping = async () => {
   if (overrides) {
+    // if input error do not start mapping
+    if (mapNameError) {
+      return;
+    }
+
+    // error may not be present if user has not yet typed in input
+    const mapName = overrides.mappingDetails.name || newMapName
+    if (!mapName) {
+      mapNameError = 'Please enter a name for this map';
+      return;
+    }
+
     hasActiveSession = true;
-    sessionId = await overrides.startMappingSession();
+    sessionId = await overrides.startMappingSession(mapName);
     startMappingIntervals(Date.now());
   }
 };
@@ -325,6 +339,10 @@ onDestroy(() => {
   clearInterval(durationInterval);
 });
 
+const handleMapNameChange = (event: CustomEvent) => {
+  newMapName = event.detail.value;
+  mapNameError = overrides?.validateMapName(newMapName) || ''
+}
 </script>
 
 <Collapse
@@ -373,6 +391,15 @@ onDestroy(() => {
                 </div>
               {/if}
             </div>
+            {#if !overrides.mappingDetails.name}
+              <v-input
+                label="Map name"
+                value={newMapName}
+                state={mapNameError ? 'error' : ''}
+                message={mapNameError}
+                on:input={handleMapNameChange}
+              />
+            {/if}
           </header>
         {/if}
         <div class="flex items-end gap-2 min-w-fit">

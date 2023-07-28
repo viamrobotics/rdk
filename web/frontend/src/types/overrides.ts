@@ -28,12 +28,13 @@ export interface SLAMOverrides {
   getMappingSessionPCD: (
     sessionId: string
   ) => Promise<{ map: Uint8Array; pose: Pose }>;
-  startMappingSession: () => Promise<string>;
+  startMappingSession: (mapName: string) => Promise<string>;
   getActiveMappingSession: () => Promise<MappingMetadata | undefined>;
   endMappingSession: (
     sessionId: string
   ) => Promise<{ packageId: string; version: string }>;
   viewMap: (sessionId: string) => void;
+  validateMapName: (mapName: string) => string;
   mappingDetails: MappingDetails;
   isCloudSlam: boolean;
 }
