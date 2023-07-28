@@ -87,6 +87,9 @@ func (ss *segmenterSource) NextPointCloud(ctx context.Context) (pointcloud.Point
 	if err != nil {
 		return nil, fmt.Errorf("could not get point clouds: %w", err)
 	}
+	if clouds == nil {
+		return pointcloud.New(), nil
+	}
 
 	// merge pointclouds
 	cloudsWithOffset := make([]pointcloud.CloudAndOffsetFunc, 0, len(clouds))
