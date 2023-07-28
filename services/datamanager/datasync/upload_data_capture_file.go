@@ -66,8 +66,7 @@ func uploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient,
 			return errors.Wrap(err, "error sending streaming data capture requests")
 		}
 
-		var resp v1.StreamingDataCaptureUploadResponse
-		if err := c.RecvMsg(&resp); err != nil {
+		if _, err := c.CloseAndRecv(); err != nil {
 			return errors.Wrap(err, "error receiving upload response")
 		}
 	} else {
@@ -87,9 +86,6 @@ func uploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient,
 func sendStreamingDCRequests(ctx context.Context, stream v1.DataSyncService_StreamingDataCaptureUploadClient,
 	contents []byte,
 ) error {
-	//nolint:errcheck
-	defer stream.CloseSend()
-
 	// Loop until there is no more content to send.
 	for i := 0; i < len(contents); i += UploadChunkSize {
 		select {
