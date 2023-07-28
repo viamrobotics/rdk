@@ -819,7 +819,11 @@ func (c mockDataSyncServiceClient) FileUpload(ctx context.Context, opts ...grpc.
 		return nil, errors.New("oh no error")
 	}
 	ret := &mockFileUploadClient{closed: make(chan struct{})}
-	c.fileUploads <- ret
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case c.fileUploads <- ret:
+	}
 	return ret, nil
 }
 
@@ -830,7 +834,11 @@ func (c mockDataSyncServiceClient) StreamingDataCaptureUpload(ctx context.Contex
 		return nil, errors.New("oh no error")
 	}
 	ret := &mockStreamingDCClient{closed: make(chan struct{})}
-	c.streamingDCUploads <- ret
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case c.streamingDCUploads <- ret:
+	}
 	return ret, nil
 }
 
