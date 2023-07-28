@@ -18,18 +18,30 @@ const handleDimensionsInput = (event: CustomEvent<number[]>) => {
 
   switch (geometry.type) {
     case 'box': {
-      if (x) geometry.length = x;
-      if (y) geometry.width = y;
-      if (z) geometry.height = z;
+      if (x) {
+        geometry.length = x;
+      }
+      if (y) {
+        geometry.width = y;
+      }
+      if (z) {
+        geometry.height = z;
+      }
       break;
     }
     case 'sphere': {
-      if (x) geometry.radius = x;
+      if (x) {
+        geometry.radius = x;
+      }
       break;
     }
     case 'capsule': {
-      if (x) geometry.radius = x;
-      if (y) geometry.length = y;
+      if (x) {
+        geometry.radius = x;
+      }
+      if (y) {
+        geometry.length = y;
+      }
       break;
     }
   }

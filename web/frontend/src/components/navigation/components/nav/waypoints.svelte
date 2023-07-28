@@ -9,7 +9,7 @@ import { waypoints } from '../../stores';
 
 export let name: string;
 
-const dispatch = createEventDispatcher<{ select: LngLat }>()
+const dispatch = createEventDispatcher<{ select: LngLat }>();
 
 const { robotClient } = useRobotClient();
 

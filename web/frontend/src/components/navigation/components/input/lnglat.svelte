@@ -18,13 +18,17 @@ const dispatch = createEventDispatcher<{ input: LngLat }>();
 
 const handleLng = (event: CustomEvent) => {
   const { value } = event.detail;
-  if (!value) return;
+  if (!value) {
+    return;
+  }
   dispatch('input', { lat: lat ?? 0, lng: Number.parseFloat(value) });
 };
 
 const handleLat = (event: CustomEvent) => {
   const { value } = event.detail;
-  if (!value) return;
+  if (!value) {
+    return;
+  }
   dispatch('input', { lng: lng ?? 0, lat: Number.parseFloat(value) });
 };
 

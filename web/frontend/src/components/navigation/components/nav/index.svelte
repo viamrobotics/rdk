@@ -4,8 +4,8 @@ import { onMount } from 'svelte';
 import { type LngLat } from '@/api/navigation';
 import { obstacles, flyToMap, mapCenter, tab, hovered } from '../../stores';
 import { createObstacle } from '../../lib/obstacle';
-import ObstaclesTab from './obstacles.svelte'
-import WaypointsTab from './waypoints.svelte'
+import ObstaclesTab from './obstacles.svelte';
+import WaypointsTab from './waypoints.svelte';
 
 export let name: string;
 
@@ -46,7 +46,7 @@ onMount(() => {
   >
     {#if $tab === 'Obstacles'}
       <ObstaclesTab on:select={handleSelect} />
-      
+
     {:else if $tab === 'Waypoints'}
       <WaypointsTab {name} on:select={handleSelect} />
     {/if}

@@ -8,7 +8,7 @@ import { obstacles, flyToMap, write, hovered, mapCenter } from '../../stores';
 import { createObstacle } from '../../lib/obstacle';
 import type { Geometry, LngLat } from '@/api/navigation';
 
-const dispatch = createEventDispatcher<{ select: LngLat }>()
+const dispatch = createEventDispatcher<{ select: LngLat }>();
 
 const handleAddObstacle = () => {
   $obstacles = [
