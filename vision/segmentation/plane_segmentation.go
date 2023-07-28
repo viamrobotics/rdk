@@ -116,7 +116,7 @@ func SegmentPlaneWRTGround(ctx context.Context, cloud pc.PointCloud, nIterations
 			equations = append(equations, currentEquation)
 		}
 	}
-	return findBestEq(ctx, cloud, nIterations, equations, pts, dstThreshold)
+	return findBestEq(ctx, cloud, len(equations), equations, pts, dstThreshold)
 }
 
 // SegmentPlane segments the biggest plane in the 3D Pointcloud.
@@ -186,14 +186,6 @@ func findBestEq(ctx context.Context, cloud pc.PointCloud, nIterations int, equat
 			return func(memberNum, workNum int) {
 					currentInliers := 0
 					currentEquation := equations[workNum]
-					for idx, entry := range currentEquation {
-						if entry != 0 {
-							break
-						}
-						if idx == 3 {
-							return
-						}
-					}
 					// store all the Points that are below a certain distance to the plane
 					for _, pt := range pts {
 						dist := distance(currentEquation, pt)
