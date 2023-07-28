@@ -28,15 +28,25 @@ func TestRadiusClusteringValidate(t *testing.T) {
 	cfg.MinPtsInSegment = 5
 	err = cfg.CheckValid()
 	test.That(t, err.Error(), test.ShouldContainSubstring, "clustering_radius_mm must be greater than 0")
-	// invalid threshold dist from plane
+	// invalid angle from plane
 	cfg.ClusteringRadiusMm = 5
-	cfg.MeanKFiltering = 5
+	cfg.AngleTolerance = 190
 	err = cfg.CheckValid()
-	test.That(t, err.Error(), test.ShouldContainSubstring, "max_dist_from_plane must be greater than 0")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "max_angle_of_plane must between 0 & 180 (inclusive)")
 	// valid
-	cfg.ClusteringRadiusMm = 5
+	cfg.AngleTolerance = 180
 	cfg.MeanKFiltering = 5
 	cfg.MaxDistFromPlane = 4
+	err = cfg.CheckValid()
+	test.That(t, err, test.ShouldBeNil)
+
+	// cfg succeeds even without MaxDistFromPlane, AngleTolerance, NormalVec
+	cfg = segmentation.RadiusClusteringConfig{
+		MinPtsInPlane:      10,
+		MinPtsInSegment:    10,
+		ClusteringRadiusMm: 10,
+		MeanKFiltering:     10,
+	}
 	err = cfg.CheckValid()
 	test.That(t, err, test.ShouldBeNil)
 }
