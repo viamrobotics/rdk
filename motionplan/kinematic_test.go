@@ -35,7 +35,6 @@ func BenchmarkFK(b *testing.B) {
 
 // This should test forward kinematics functions.
 func TestForwardKinematics(t *testing.T) {
-	logger := golog.NewTestLogger(t)
 	// Test the 5DOF yahboom arm to confirm kinematics works with non-6dof arms
 	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/yahboom/dofbot.json"), "")
 	test.That(t, err, test.ShouldBeNil)
@@ -94,7 +93,7 @@ func TestForwardKinematics(t *testing.T) {
 
 	// Test out of bounds. Note that ComputeOOBPosition will NOT return nil on OOB.
 	newPos = []float64{-45, 0, 0, 0, 0, 999}
-	pos, err = ComputeOOBPosition(m, &pb.JointPositions{Values: newPos}, logger)
+	pos, err = ComputeOOBPosition(m, &pb.JointPositions{Values: newPos})
 	expect = spatial.NewPose(
 		r3.Vector{X: 146.37, Y: -146.37, Z: 112},
 		&spatial.R4AA{Theta: math.Pi, RX: 0.31, RY: -0.95, RZ: 0},
