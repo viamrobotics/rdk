@@ -509,6 +509,7 @@ func TestStreamingDCUpload(t *testing.T) {
 
 			// Capture an image, then close.
 			mockClock.Add(captureInterval)
+			waitForCaptureFilesToExceedNFiles(tmpDir, 0)
 			err = dmsvc.Close(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 
