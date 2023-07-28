@@ -23,7 +23,6 @@ const updateLocation = async () => {
       centered = true;
     }
   } catch (error) {
-    console.log(error)
     notify.danger((error as ServiceError).message);
     $robotPosition = null;
   }

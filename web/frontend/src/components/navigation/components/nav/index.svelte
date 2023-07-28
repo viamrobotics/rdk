@@ -21,19 +21,11 @@ onMount(() => {
   // @ts-expect-error Debug function.
   window.DEBUG_addObstacles = () => {
     for (let i = 0; i < 100; i += 1) {
-<<<<<<< HEAD
       const lng = $mapCenter.lng + ((i % 10) / 6500);
       const lat = $mapCenter.lat + (Math.trunc(i / 10)) / 6500;
       $obstacles = [
         ...$obstacles,
         createObstacle(`Obstacle ${$obstacles.length + 1}`, { lng, lat }),
-=======
-      const x = (i % 10) / 6500;
-      const y = (Math.trunc(i / 10)) / 6500;
-      $obstacles = [
-        ...$obstacles,
-        createObstacle(`Obstacle ${$obstacles.length + 1}`, $mapCenter.lng + x, $mapCenter.lat + y),
->>>>>>> e71b1b1b7a86dc86ad60091388d50ceb6785834d
       ];
     }
   };

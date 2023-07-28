@@ -14,8 +14,6 @@ const decimalFormat = new Intl.NumberFormat(undefined, { maximumFractionDigits: 
 $: lngRounded = decimalFormat.format(lng ?? 0);
 $: latRounded = decimalFormat.format(lat ?? 0);
 
-$: console.log(lng, lngRounded)
-
 const dispatch = createEventDispatcher<{ input: LngLat }>();
 
 const handleLng = (event: CustomEvent<{ value: string }>) => {

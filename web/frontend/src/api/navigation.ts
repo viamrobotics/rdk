@@ -195,7 +195,7 @@ export const getLocation = async (robotClient: Client, name: string) => {
   });
 
   const location = response?.getLocation();
-  const lat = undefined // location?.getLatitude();
+  const lat = location?.getLatitude();
   const lng = location?.getLongitude();
 
   if (typeof lat !== 'number' || typeof lng !== 'number') {
@@ -203,8 +203,5 @@ export const getLocation = async (robotClient: Client, name: string) => {
     throw new Error('Unable to locate robot');
   }
 
-  return {
-    lat,
-    lng,
-  };
+  return { lng, lat };
 };

@@ -13,6 +13,13 @@
             }
         },
         {
+            "type": "camera",
+            "model": "webcam",
+            "attributes": {},
+            "depends_on": [],
+            "name": "cam"
+        },
+        {
             "name": "audio_input1",
             "type": "audio_input",
             "model": "fake"
@@ -140,6 +147,17 @@
                 "movement_sensor": "movement_sensor1",
                 "base": "base1",
                 "obstacles": [
+                    {
+                        "geometries": [
+                          {
+                            "r": 3700
+                          }
+                        ],
+                        "location": {
+                          "latitude": 40.772239,
+                          "longitude": -73.98241
+                        }
+                      },
                     {
                         "location": {
                             "latitude": 40.6759,

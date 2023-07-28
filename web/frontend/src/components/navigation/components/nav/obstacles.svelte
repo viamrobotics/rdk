@@ -34,7 +34,6 @@ const handleGeometryInput = (index: number, geoIndex: number) => {
 </script>
 
 {#if $obstacles.length === 0}
-<<<<<<< HEAD
   <li class='text-xs text-subtle-2 font-sans py-2'>
     {#if write}
       Click to add an obstacle.
@@ -42,9 +41,6 @@ const handleGeometryInput = (index: number, geoIndex: number) => {
       Add a static obstacle in your robot's config.
     {/if}
   </li>
-=======
-  <li class='text-xs text-subtle-2 font-sans py-2'>None</li>
->>>>>>> e71b1b1b7a86dc86ad60091388d50ceb6785834d
 {/if}
 
 {#if $write}
