@@ -40,6 +40,7 @@ import (
 	"go.viam.com/rdk/components/servo"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/internal"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/datamanager"
 	_ "go.viam.com/rdk/services/datamanager/builtin"
@@ -2598,6 +2599,8 @@ func TestUpdateWeakDependents(t *testing.T) {
 	test.That(t, weak1.resources, test.ShouldContainKey, base2Name)
 }
 
+// TODO(benji): refactor this test to test sensing reconfigurations of remote framesystems
+// not just resources.
 func TestRemoteRobotFrameReconfigure(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
@@ -2610,9 +2613,9 @@ func TestRemoteRobotFrameReconfigure(t *testing.T) {
 				ConvertedAttributes: &fake.Config{
 					ArmModel: "ur5e",
 				},
-				// Frame: &referenceframe.LinkConfig{
-				// 	Parent: referenceframe.World,
-				// },
+				Frame: &referenceframe.LinkConfig{
+					Parent: referenceframe.World,
+				},
 			},
 		},
 	}
@@ -2672,7 +2675,8 @@ func TestRemoteRobotFrameReconfigure(t *testing.T) {
 
 	// Assert that some time after remote Reconfigure, r.ResourceNames no longer returns the "foo:arm" resource
 	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
-		test.That(tb, rdktestutils.NewResourceNameSet(r.ResourceNames()...), test.ShouldResemble, defaultServices)
+		test.That(tb, rdktestutils.NewResourceNameSet(r.ResourceNames()...), test.ShouldResemble,
+			rdktestutils.NewResourceNameSet(defaultServices...))
 	})
 }
 

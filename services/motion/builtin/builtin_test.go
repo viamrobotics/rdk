@@ -82,15 +82,12 @@ func createEnvironment(ctx context.Context, t *testing.T, gpsPoint *geo.Point) (
 	test.That(t, err, test.ShouldBeNil)
 
 	// create base link
-	basePose := spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0})
-	baseSphere, err := spatialmath.NewSphere(basePose, 10, "base-sphere")
-	test.That(t, err, test.ShouldBeNil)
-	baseLink := referenceframe.NewLinkInFrame(
-		referenceframe.World,
-		spatialmath.NewZeroPose(),
-		"test-base",
-		baseSphere,
-	)
+	baseLink := referenceframe.LinkConfig{
+		ID:          "test-base",
+		Parent:      referenceframe.World,
+		Geometry:    &spatialmath.GeometryConfig{R: 10, X: 0, Y: 0, Z: 0},
+		Translation: r3.Vector{0, 0, 0},
+	}
 
 	// create injected MovementSensor
 	injectedMovementSensor := inject.NewMovementSensor("test-gps")
@@ -105,17 +102,17 @@ func createEnvironment(ctx context.Context, t *testing.T, gpsPoint *geo.Point) (
 	}
 
 	// create MovementSensor link
-	movementSensorLink := referenceframe.NewLinkInFrame(
-		baseLink.Name(),
-		spatialmath.NewPoseFromPoint(r3.Vector{-10, 0, 0}),
-		"test-gps",
-		nil,
-	)
+	movementSensorLink := referenceframe.LinkConfig{
+		ID:          "test-gps",
+		Parent:      "test-base",
+		Translation: r3.Vector{-10, 0, 0},
+	}
+	test.That(t, err, test.ShouldBeNil)
 
 	// create the frame system
 	fsParts := []*framesystem.PartConfig{
-		{Origin: movementSensorLink},
-		{Origin: baseLink},
+		{Origin: &movementSensorLink},
+		{Origin: &baseLink},
 	}
 	deps := resource.Dependencies{
 		fakeBase.Name():               fakeBase,
