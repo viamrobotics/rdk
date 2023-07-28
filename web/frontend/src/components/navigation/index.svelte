@@ -50,7 +50,7 @@ const setNavigationMode = async (event: CustomEvent) => {
           <LngLatInput readonly label='Base position' lng={$robotPosition?.lng} lat={$robotPosition?.lat}>
             <v-button
               variant='icon'
-              icon='center'
+              icon='image-filter-center-focus'
               on:click={() => $robotPosition && flyToMap($robotPosition)}
             />
           </LngLatInput>

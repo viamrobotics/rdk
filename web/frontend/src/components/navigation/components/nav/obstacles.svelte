@@ -40,7 +40,7 @@ const handleGeometryInput = (index: number, geoIndex: number) => {
 {#if $write}
   <v-button
     class='my-4'
-    icon='add'
+    icon='plus'
     label='Add'
     on:click={handleAddObstacle}
   />
@@ -54,7 +54,7 @@ const handleGeometryInput = (index: number, geoIndex: number) => {
         <v-button
           class='invisible group-hover:visible text-subtle-1'
           variant='icon'
-          icon='trash'
+          icon='trash-can-outline'
           on:click={() => handleDeleteObstacle(index)}
         />
       </div>
@@ -65,7 +65,8 @@ const handleGeometryInput = (index: number, geoIndex: number) => {
         <v-button
           class='invisible group-hover:visible text-subtle-1'
           variant='icon'
-          icon='center'
+          icon='image-filter-center-focus'
+          aria-label="Focus"
           on:click={() => flyToMap(location)}
         />
 
@@ -94,7 +95,8 @@ const handleGeometryInput = (index: number, geoIndex: number) => {
           <v-button
             class='invisible group-hover:visible text-subtle-1'
             variant='icon'
-            icon='center'
+            icon='image-filter-center-focus'
+            aria-label="Focus {obstacleName}"
             on:click
             on:click={() => dispatch('select', location)}
           />

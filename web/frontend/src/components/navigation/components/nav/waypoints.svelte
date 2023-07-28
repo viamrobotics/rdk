@@ -38,13 +38,15 @@ const handleRemoveWaypoint = async (id: string) => {
       <v-button
         class='invisible group-hover:visible text-subtle-1'
         variant='icon'
-        icon='center'
+        icon='image-filter-center-focus'
+        aria-label="Focus waypoint {index}"
         on:click={() => dispatch('select', waypoint)}
       />
       <v-button
         class='invisible group-hover:visible text-subtle-2'
         variant='icon'
-        icon='trash'
+        aria-label="Remove waypoint {index}"
+        icon='trash-can-outline'
         on:click={() => handleRemoveWaypoint(waypoint.id)}
       />
     </div>
