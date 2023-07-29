@@ -239,14 +239,14 @@ func sortTransforms(unsorted map[string]Frame, parentMap map[string]string, star
 
 	nextTransform, ok := unsorted[start]
 	if !ok {
-		return nil, errors.Errorf("frame named '%v' not in the list of transforms", start)
+		return nil, NewFrameNotInListOfTransformsError(start)
 	}
 	orderedTransforms := []Frame{nextTransform}
 	seen[start] = true
 	for {
 		parent, ok := parentMap[nextTransform.Name()]
 		if !ok {
-			return nil, errors.Errorf("frame named '%v' has no parent specified", nextTransform.Name())
+			return nil, NewParentFrameNotInMapOfParentsError(nextTransform.Name())
 		}
 		if seen[parent] {
 			return nil, ErrCircularReference
@@ -258,7 +258,7 @@ func sortTransforms(unsorted map[string]Frame, parentMap map[string]string, star
 		seen[parent] = true
 		nextTransform, ok = unsorted[parent]
 		if !ok {
-			return nil, errors.Errorf("frame named '%v' not in the list of transforms", parent)
+			return nil, NewFrameNotInListOfTransformsError(parent)
 		}
 		orderedTransforms = append(orderedTransforms, nextTransform)
 	}
