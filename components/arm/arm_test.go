@@ -60,97 +60,163 @@ func TestStatusValid(t *testing.T) {
 }
 
 func TestCreateStatus(t *testing.T) {
-	testPose := spatialmath.NewPose(
+	successfulPose := spatialmath.NewPose(
 		r3.Vector{-802.801508917897990613710135, -248.284077946287368376943050, 9.115758604150467903082244},
 		&spatialmath.R4AA{1.5810814917942602, 0.992515011486776, -0.0953988491934626, 0.07624310818669232},
 	)
-	status := &pb.Status{
-		EndPosition:    spatialmath.PoseToProtobuf(testPose),
+	successfulStatus := &pb.Status{
+		EndPosition:    spatialmath.PoseToProtobuf(successfulPose),
 		JointPositions: &pb.JointPositions{Values: []float64{1.1, 2.2, 3.3, 1.1, 2.2, 3.3}},
 		IsMoving:       true,
 	}
 
 	injectArm := &inject.Arm{}
-	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
+	successfulEndPositionFunc := func(context.Context, map[string]interface{}) (spatialmath.Pose, error) {
 		return pose, nil
 	}
-	injectArm.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
-		return &pb.JointPositions{Values: status.JointPositions.Values}, nil
+
+	//nolint:unparam
+	successfulJointPositionsFunc := func(context.Context, map[string]interface{}) (*pb.JointPositions, error) {
+		return &pb.JointPositions{Values: successfulStatus.JointPositions.Values}, nil
 	}
-	injectArm.IsMovingFunc = func(context.Context) (bool, error) {
+
+	successfulIsMovingFunc := func(context.Context) (bool, error) {
 		return true, nil
 	}
-	injectArm.ModelFrameFunc = func() referenceframe.Model {
+
+	successfulModelFrameFunc := func() referenceframe.Model {
 		model, _ := ur.MakeModelFrame("ur5e")
 		return model
 	}
 
 	t.Run("working", func(t *testing.T) {
-		status1, err := arm.CreateStatus(context.Background(), injectArm)
+		injectArm.EndPositionFunc = successfulEndPositionFunc
+		injectArm.JointPositionsFunc = successfulJointPositionsFunc
+		injectArm.IsMovingFunc = successfulIsMovingFunc
+		injectArm.ModelFrameFunc = successfulModelFrameFunc
+
+		expectedPose := successfulPose
+		expectedStatus := successfulStatus
+
+		actualStatus, err := arm.CreateStatus(context.Background(), injectArm)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, status1.IsMoving, test.ShouldResemble, status.IsMoving)
-		test.That(t, status1.JointPositions, test.ShouldResemble, status.JointPositions)
-		pose1 := spatialmath.NewPoseFromProtobuf(status1.EndPosition)
-		pose2 := spatialmath.NewPoseFromProtobuf(status.EndPosition)
-		test.That(t, spatialmath.PoseAlmostEqualEps(pose1, pose2, 0.01), test.ShouldBeTrue)
+		test.That(t, actualStatus.IsMoving, test.ShouldEqual, expectedStatus.IsMoving)
+		test.That(t, actualStatus.JointPositions, test.ShouldResemble, expectedStatus.JointPositions)
+
+		actualPose := spatialmath.NewPoseFromProtobuf(actualStatus.EndPosition)
+		test.That(t, spatialmath.PoseAlmostEqualEps(actualPose, expectedPose, 0.01), test.ShouldBeTrue)
 
 		resourceAPI, ok, err := resource.LookupAPIRegistration[arm.Arm](arm.API)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ok, test.ShouldBeTrue)
-		status2, err := resourceAPI.Status(context.Background(), injectArm)
+		statusInterface, err := resourceAPI.Status(context.Background(), injectArm)
 		test.That(t, err, test.ShouldBeNil)
 
-		statusMap, err := protoutils.InterfaceToMap(status2)
+		statusMap, err := protoutils.InterfaceToMap(statusInterface)
 		test.That(t, err, test.ShouldBeNil)
 
 		endPosMap, err := protoutils.InterfaceToMap(statusMap["end_position"])
 		test.That(t, err, test.ShouldBeNil)
-		pose3 := spatialmath.NewPose(
+		actualPose = spatialmath.NewPose(
 			r3.Vector{endPosMap["x"].(float64), endPosMap["y"].(float64), endPosMap["z"].(float64)},
 			&spatialmath.OrientationVectorDegrees{
 				endPosMap["theta"].(float64), endPosMap["o_x"].(float64),
 				endPosMap["o_y"].(float64), endPosMap["o_z"].(float64),
 			},
 		)
-		test.That(t, spatialmath.PoseAlmostEqualEps(pose3, pose2, 0.01), test.ShouldBeTrue)
+		test.That(t, spatialmath.PoseAlmostEqualEps(actualPose, expectedPose, 0.01), test.ShouldBeTrue)
 
 		moving := statusMap["is_moving"].(bool)
-		test.That(t, moving, test.ShouldResemble, status.IsMoving)
+		test.That(t, moving, test.ShouldEqual, expectedStatus.IsMoving)
 
 		jPosFace := statusMap["joint_positions"].(map[string]interface{})["values"].([]interface{})
-		jPos := []float64{
+		actualJointPositions := []float64{
 			jPosFace[0].(float64), jPosFace[1].(float64), jPosFace[2].(float64),
 			jPosFace[3].(float64), jPosFace[4].(float64), jPosFace[5].(float64),
 		}
-		test.That(t, jPos, test.ShouldResemble, status.JointPositions.Values)
+		test.That(t, actualJointPositions, test.ShouldResemble, expectedStatus.JointPositions.Values)
 	})
 
 	t.Run("not moving", func(t *testing.T) {
+		injectArm.EndPositionFunc = successfulEndPositionFunc
+		injectArm.JointPositionsFunc = successfulJointPositionsFunc
+		injectArm.ModelFrameFunc = successfulModelFrameFunc
+
 		injectArm.IsMovingFunc = func(context.Context) (bool, error) {
 			return false, nil
 		}
 
-		status2 := &pb.Status{
-			EndPosition:    spatialmath.PoseToProtobuf(testPose),
-			JointPositions: &pb.JointPositions{Values: []float64{1.1, 2.2, 3.3, 1.1, 2.2, 3.3}},
+		expectedPose := successfulPose
+		expectedStatus := &pb.Status{
+			EndPosition:    successfulStatus.EndPosition,
+			JointPositions: successfulStatus.JointPositions,
 			IsMoving:       false,
 		}
-		status1, err := arm.CreateStatus(context.Background(), injectArm)
+
+		actualStatus, err := arm.CreateStatus(context.Background(), injectArm)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, status1.IsMoving, test.ShouldResemble, status2.IsMoving)
-		test.That(t, status1.JointPositions, test.ShouldResemble, status2.JointPositions)
-		pose1 := spatialmath.NewPoseFromProtobuf(status1.EndPosition)
-		pose2 := spatialmath.NewPoseFromProtobuf(status2.EndPosition)
-		test.That(t, spatialmath.PoseAlmostEqualEps(pose1, pose2, 0.01), test.ShouldBeTrue)
+		test.That(t, actualStatus.IsMoving, test.ShouldEqual, expectedStatus.IsMoving)
+		test.That(t, actualStatus.JointPositions, test.ShouldResemble, expectedStatus.JointPositions)
+		test.That(t, actualStatus.EndPosition, test.ShouldResemble, expectedStatus.EndPosition)
+		actualPose := spatialmath.NewPoseFromProtobuf(actualStatus.EndPosition)
+		test.That(t, spatialmath.PoseAlmostEqualEps(actualPose, expectedPose, 0.01), test.ShouldBeTrue)
 	})
 
 	t.Run("fail on JointPositions", func(t *testing.T) {
+		injectArm.EndPositionFunc = successfulEndPositionFunc
+		injectArm.IsMovingFunc = successfulIsMovingFunc
+		injectArm.ModelFrameFunc = successfulModelFrameFunc
+
 		errFail := errors.New("can't get joint positions")
 		injectArm.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
 			return nil, errFail
 		}
-		_, err := arm.CreateStatus(context.Background(), injectArm)
+
+		actualStatus, err := arm.CreateStatus(context.Background(), injectArm)
 		test.That(t, err, test.ShouldBeError, errFail)
+		test.That(t, actualStatus, test.ShouldBeNil)
+	})
+
+	t.Run("nil JointPositions", func(t *testing.T) {
+		injectArm.IsMovingFunc = successfulIsMovingFunc
+		injectArm.ModelFrameFunc = successfulModelFrameFunc
+
+		injectArm.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
+			return nil, nil //nolint:nilnil
+		}
+
+		expectedStatus := &pb.Status{
+			EndPosition:    nil,
+			JointPositions: nil,
+			IsMoving:       successfulStatus.IsMoving,
+		}
+
+		actualStatus, err := arm.CreateStatus(context.Background(), injectArm)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, actualStatus.EndPosition, test.ShouldEqual, expectedStatus.EndPosition)
+		test.That(t, actualStatus.JointPositions, test.ShouldEqual, expectedStatus.JointPositions)
+		test.That(t, actualStatus.IsMoving, test.ShouldEqual, expectedStatus.IsMoving)
+	})
+
+	t.Run("nil model frame", func(t *testing.T) {
+		injectArm.IsMovingFunc = successfulIsMovingFunc
+		injectArm.JointPositionsFunc = successfulJointPositionsFunc
+
+		injectArm.ModelFrameFunc = func() referenceframe.Model {
+			return nil
+		}
+
+		expectedStatus := &pb.Status{
+			EndPosition:    nil,
+			JointPositions: successfulStatus.JointPositions,
+			IsMoving:       successfulStatus.IsMoving,
+		}
+
+		actualStatus, err := arm.CreateStatus(context.Background(), injectArm)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, actualStatus.EndPosition, test.ShouldEqual, expectedStatus.EndPosition)
+		test.That(t, actualStatus.JointPositions, test.ShouldResemble, expectedStatus.JointPositions)
+		test.That(t, actualStatus.IsMoving, test.ShouldEqual, expectedStatus.IsMoving)
 	})
 }
 
