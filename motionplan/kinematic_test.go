@@ -426,22 +426,20 @@ func TestComputeOOBPosition(t *testing.T) {
 	t.Run("fail when JointPositions are nil", func(t *testing.T) {
 		var model frame.Frame
 		var jointPositions *pb.JointPositions
-		errorMsg := "joint positions are nil, check that you are passing non-empty joint positions when writing your driver"
 
 		pose, err := ComputeOOBPosition(model, jointPositions)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, pose, test.ShouldBeNil)
-		test.That(t, err.Error(), test.ShouldEqual, errorMsg)
+		test.That(t, err, test.ShouldEqual, frame.ErrNilJointPositions)
 	})
 
 	t.Run("fail when model frame is nil", func(t *testing.T) {
 		var model frame.Model
 		jointPositions := &pb.JointPositions{Values: []float64{1.1, 2.2, 3.3, 1.1, 2.2, 3.3}}
-		errorMsg := "the model frame is nil, check that you are passing non-empty kinematics when writing your driver"
 
 		pose, err := ComputeOOBPosition(model, jointPositions)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, pose, test.ShouldBeNil)
-		test.That(t, err.Error(), test.ShouldEqual, errorMsg)
+		test.That(t, err, test.ShouldEqual, frame.ErrNilModelFrame)
 	})
 }

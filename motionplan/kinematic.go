@@ -37,12 +37,10 @@ func ComputePosition(model referenceframe.Frame, joints *pb.JointPositions) (spa
 // This is performed statelessly without changing any data.
 func ComputeOOBPosition(model referenceframe.Frame, joints *pb.JointPositions) (spatialmath.Pose, error) {
 	if joints == nil {
-		errMsg := "joint positions are nil, check that you are passing non-empty joint positions when writing your driver"
-		return nil, errors.New(errMsg)
+		return nil, referenceframe.ErrNilJointPositions
 	}
 	if model == nil {
-		errMsg := "the model frame is nil, check that you are passing non-empty kinematics when writing your driver"
-		return nil, errors.New(errMsg)
+		return nil, referenceframe.ErrNilModelFrame
 	}
 
 	if len(joints.Values) != len(model.DoF()) {
