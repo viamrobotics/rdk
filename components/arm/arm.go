@@ -108,14 +108,12 @@ func CreateStatus(ctx context.Context, a Arm) (*pb.Status, error) {
 		return nil, err
 	}
 	model := a.ModelFrame()
+
 	var endPosition *v1.Pose
-	if jointPositions != nil && model != nil {
-		endPose, err := motionplan.ComputeOOBPosition(model, jointPositions)
-		if err != nil {
-			return nil, err
-		}
+	if endPose, err := motionplan.ComputeOOBPosition(model, jointPositions); err == nil {
 		endPosition = spatialmath.PoseToProtobuf(endPose)
 	}
+
 	isMoving, err := a.IsMoving(ctx)
 	if err != nil {
 		return nil, err
