@@ -71,9 +71,6 @@ func TestCreateStatus(t *testing.T) {
 	}
 
 	injectArm := &inject.Arm{}
-	successfulEndPositionFunc := func(context.Context, map[string]interface{}) (spatialmath.Pose, error) {
-		return pose, nil
-	}
 
 	//nolint:unparam
 	successfulJointPositionsFunc := func(context.Context, map[string]interface{}) (*pb.JointPositions, error) {
@@ -90,7 +87,6 @@ func TestCreateStatus(t *testing.T) {
 	}
 
 	t.Run("working", func(t *testing.T) {
-		injectArm.EndPositionFunc = successfulEndPositionFunc
 		injectArm.JointPositionsFunc = successfulJointPositionsFunc
 		injectArm.IsMovingFunc = successfulIsMovingFunc
 		injectArm.ModelFrameFunc = successfulModelFrameFunc
@@ -138,7 +134,6 @@ func TestCreateStatus(t *testing.T) {
 	})
 
 	t.Run("not moving", func(t *testing.T) {
-		injectArm.EndPositionFunc = successfulEndPositionFunc
 		injectArm.JointPositionsFunc = successfulJointPositionsFunc
 		injectArm.ModelFrameFunc = successfulModelFrameFunc
 
@@ -148,7 +143,7 @@ func TestCreateStatus(t *testing.T) {
 
 		expectedPose := successfulPose
 		expectedStatus := &pb.Status{
-			EndPosition:    successfulStatus.EndPosition,
+			EndPosition:    successfulStatus.EndPosition, //nolint:govet
 			JointPositions: successfulStatus.JointPositions,
 			IsMoving:       false,
 		}
@@ -157,13 +152,11 @@ func TestCreateStatus(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, actualStatus.IsMoving, test.ShouldEqual, expectedStatus.IsMoving)
 		test.That(t, actualStatus.JointPositions, test.ShouldResemble, expectedStatus.JointPositions)
-		test.That(t, actualStatus.EndPosition, test.ShouldResemble, expectedStatus.EndPosition)
 		actualPose := spatialmath.NewPoseFromProtobuf(actualStatus.EndPosition)
 		test.That(t, spatialmath.PoseAlmostEqualEps(actualPose, expectedPose, 0.01), test.ShouldBeTrue)
 	})
 
 	t.Run("fail on JointPositions", func(t *testing.T) {
-		injectArm.EndPositionFunc = successfulEndPositionFunc
 		injectArm.IsMovingFunc = successfulIsMovingFunc
 		injectArm.ModelFrameFunc = successfulModelFrameFunc
 
