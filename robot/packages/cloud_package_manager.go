@@ -12,9 +12,8 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"path"
 	"path/filepath"
-	"regexp"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -43,18 +42,13 @@ type managedPackage struct {
 	modtime    time.Time
 }
 
-// group 1: entire placeholder 2: type (if it exists + including the period) 3: the package name.
-// TODO:.
-var placeholderRegexp = regexp.MustCompile(`^\$\{(packages(\.(ml_models|modules))?\.([\w/-]+))\}`)
-
 type cloudManager struct {
 	resource.Named
 	// we assume the config is immutable for the lifetime of the process
 	resource.TriviallyReconfigurable
-	client          pb.PackageServiceClient
-	httpClient      http.Client
-	packagesDataDir string
-	packagesDir     string
+	client      pb.PackageServiceClient
+	httpClient  http.Client
+	packagesDir string
 
 	managedPackages map[PackageName]*managedPackage
 	mu              sync.RWMutex
@@ -73,13 +67,8 @@ var InternalServiceName = resource.NewName(API, "builtin")
 
 // NewCloudManager creates a new manager with the given package service client and directory to sync to.
 func NewCloudManager(client pb.PackageServiceClient, packagesDir string, logger golog.Logger) (ManagerSyncer, error) {
-	packagesDataDir := filepath.Join(packagesDir, ".data")
 
 	if err := os.MkdirAll(packagesDir, 0o700); err != nil {
-		return nil, err
-	}
-
-	if err := os.MkdirAll(packagesDataDir, 0o700); err != nil {
 		return nil, err
 	}
 
@@ -88,13 +77,12 @@ func NewCloudManager(client pb.PackageServiceClient, packagesDir string, logger 
 		client:          client,
 		httpClient:      http.Client{Timeout: time.Minute * 30},
 		packagesDir:     packagesDir,
-		packagesDataDir: packagesDataDir,
 		managedPackages: make(map[PackageName]*managedPackage),
 		logger:          logger.Named("package_manager"),
 	}, nil
 }
 
-// PackagePath returns the package if it exists and already download. If it does not exist it returns a ErrPackageMissing error.
+// PackagePath returns the package if it exists and is already downloaded. If it does not exist it returns a ErrPackageMissing error.
 func (m *cloudManager) PackagePath(name PackageName) (string, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -104,41 +92,7 @@ func (m *cloudManager) PackagePath(name PackageName) (string, error) {
 		return "", ErrPackageMissing
 	}
 
-	return m.localNamedPath(p.thePackage), nil
-}
-
-func (m *cloudManager) getPackageFromType(pt string) (config.PackageType, error) {
-	switch pt {
-	case "ml_models":
-		return config.PackageTypeMlModel, nil
-	case "modules":
-		return config.PackageTypeModule, nil
-	case "":
-		// valid type until type migration
-		return "", nil
-	default:
-		return "", fmt.Errorf("invalid package type %s in placeholder", pt)
-	}
-}
-
-func (m *cloudManager) PlaceholderPath(path string) (*PlaceholderRef, error) {
-	matches := placeholderRegexp.FindStringSubmatch(path)
-	if len(matches) == 0 {
-		return nil, fmt.Errorf("invalid package placeholder path: %s", path)
-	}
-	placeholderRef := &PlaceholderRef{
-		matchedPlaceholder: matches[0],
-		nestedPath:         matches[1],
-		packageName:        matches[4],
-	}
-
-	pt, err := m.getPackageFromType(matches[3])
-	if err != nil {
-		return nil, err
-	}
-	placeholderRef.packageType = pt
-
-	return placeholderRef, nil
+	return p.thePackage.LocalDataDirectory(), nil
 }
 
 // Close manager.
@@ -162,14 +116,12 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 	newManagedPackages := make(map[PackageName]*managedPackage, len(packages))
 
 	for idx, p := range packages {
-		select {
-		case <-ctx.Done():
-			return multierr.Append(outErr, ctx.Err())
-		default:
+		if err := ctx.Err(); err != nil {
+			return multierr.Append(outErr, err)
 		}
 
 		if err := p.Validate(""); err != nil {
-			m.logger.Debugf("package config validation error; skipping", "package", p.Name, "error", err)
+			m.logger.Errorw("package config validation error; skipping", "package", p.Name, "error", err)
 			continue
 		}
 
@@ -181,9 +133,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		if ok {
 			if existing.thePackage.Package == p.Package && existing.thePackage.Version == p.Version {
 				m.logger.Debug("  Package already managed, skipping")
-
 				newManagedPackages[PackageName(p.Name)] = existing
-				delete(m.managedPackages, PackageName(p.Name))
 				continue
 			}
 			// anything left over in the m.managedPackages will be cleaned up later.
@@ -191,7 +141,14 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 
 		// Lookup the packages http url
 		includeURL := true
-		resp, err := m.client.GetPackage(ctx, &pb.GetPackageRequest{Id: p.Package, Version: p.Version, IncludeUrl: &includeURL})
+		platform := fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH)
+		resp, err := m.client.GetPackage(ctx, &pb.GetPackageRequest{
+			Id:         p.Package,
+			Version:    p.Version,
+			Type:       PackageTypeToProto(p.Type),
+			Platform:   &platform,
+			IncludeUrl: &includeURL,
+		})
 		if err != nil {
 			m.logger.Errorf("Failed fetching package details for package %s:%s, %s", p.Package, p.Version, err)
 			outErr = multierr.Append(outErr, errors.Wrapf(err, "failed loading package url for %s:%s", p.Package, p.Version))
@@ -200,25 +157,25 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 
 		m.logger.Debugf("  Downloading from %s", sanitizeURLForLogs(resp.Package.Url))
 
-		// load package from a http endpoint
-		err = m.loadFile(ctx, resp.Package.Url, p)
+		// download package from a http endpoint
+		err = m.downloadPackage(ctx, resp.Package.Url, p)
 		if err != nil {
 			m.logger.Errorf("Failed downloading package %s:%s from %s, %s", p.Package, p.Version, sanitizeURLForLogs(resp.Package.Url), err)
 			outErr = multierr.Append(outErr, errors.Wrapf(err, "failed downloading package %s:%s from %s",
 				p.Package, p.Version, sanitizeURLForLogs(resp.Package.Url)))
 			continue
 		}
-		err = linkFile(m.localDataPath(p), m.localNamedPath(p))
-		if err != nil {
-			m.logger.Errorf("Failed linking package %s:%s, %s", p.Package, p.Version, err)
-			outErr = multierr.Append(outErr, err)
-			continue
+
+		if p.Type == config.PackageTypeMlModel {
+			outErr = multierr.Append(outErr, m.legacyMLModelSymlinkCreation(p))
+			outErr = multierr.Append(outErr, m.legacyCreateMLModelDotDataDirSymlink(p))
+
 		}
 
 		// add to managed packages
 		newManagedPackages[PackageName(p.Name)] = &managedPackage{thePackage: p, modtime: time.Now()}
 
-		m.logger.Debugf("  Sync complete after %dms", time.Since(start).Milliseconds())
+		m.logger.Debugf("  Sync complete after %v", time.Since(start))
 	}
 
 	// swap for new managed packags.
@@ -238,56 +195,109 @@ func (m *cloudManager) Cleanup(ctx context.Context) error {
 
 	var allErrors error
 
-	// packageDir will contain either symlinks to the packages or the .data directory.
+	expectedPackageDirectories := map[string]bool{}
+	for _, pkg := range m.managedPackages {
+		expectedPackageDirectories[pkg.thePackage.LocalDataDirectory()] = true
+	}
+
+	topLevelFiles, err := os.ReadDir(m.packagesDir)
+	if err != nil {
+		return err
+	}
+	// A packageTypeDir is a directory that contains all of the packages for the specified type. ex: packages/ml_models
+	for _, packageTypeDir := range topLevelFiles {
+		if packageTypeDir.Type()&os.ModeDir != os.ModeDir {
+			continue
+		}
+		packageTypeDirName := filepath.Join(m.packagesDir, packageTypeDir.Name())
+		// read all of the packages in the directory and delete those that aren't in expectedPackageDirectories
+		packageDirs, err := os.ReadDir(packageTypeDirName)
+		if err != nil {
+			allErrors = multierr.Append(allErrors, err)
+			continue
+		}
+		for _, packageDir := range packageDirs {
+			packageDirName := filepath.Join(packageTypeDirName, packageDir.Name())
+			_, expectedToExist := expectedPackageDirectories[packageDirName]
+			if !expectedToExist {
+				m.logger.Debug("Removing old package", packageDirName)
+				allErrors = multierr.Append(allErrors, os.RemoveAll(packageDirName))
+			}
+		}
+		// re-read the directory, if there is nothing left in it, delete the directory
+		packageDirs, err = os.ReadDir(packageTypeDirName)
+		if err != nil {
+			allErrors = multierr.Append(allErrors, err)
+			continue
+		}
+		if len(packageDirs) == 0 {
+			allErrors = multierr.Append(allErrors, os.RemoveAll(packageTypeDirName))
+		}
+	}
+
+	m.legacyMlModelSymlinkCleanup()
+	return allErrors
+}
+
+// symlink packages/module_name to packages/ml_models/longdataname for backwards compatablility
+func (m *cloudManager) legacyMLModelSymlinkCreation(p config.PackageConfig) error {
+	if err := linkFile(filepath.Join(m.packagesDir, p.Name), p.LocalDataDirectory()); err != nil {
+		m.logger.Errorf("Failed linking ml_model package %s:%s, %s", p.Package, p.Version, err)
+		return err
+	}
+	return nil
+}
+
+// symlink packages/.data to packages/ml_models for backwards compatability
+func (m *cloudManager) legacyCreateMLModelDotDataDirSymlink(p config.PackageConfig) error {
+	if err := linkFile(filepath.Join(m.packagesDir, ".data"), p.LocalDataParentDirectory()); err != nil {
+		m.logger.Errorf("Failed linking packages/.data to packages/ml_models directory, %s", err)
+		return err
+	}
+	return nil
+}
+
+func (m *cloudManager) legacyMlModelSymlinkCleanup() error {
+	var allErrors error
 	files, err := os.ReadDir(m.packagesDir)
 	if err != nil {
 		return err
 	}
 
-	// keep track of known packages by their hashed name from the package id and version.
-	knownPackages := make(map[string]bool)
-
-	// first remove all symlinks to the packages themself.
+	// The only symlinks in this directory are those created for MLModels
 	for _, f := range files {
-		if f.Type()&os.ModeSymlink == os.ModeSymlink {
-			// if managed skip removing package
-			if p, ok := m.managedPackages[PackageName(f.Name())]; ok {
-				knownPackages[p.thePackage.SanitizeName()] = true
+		if f.Type()&os.ModeSymlink != os.ModeSymlink {
+			continue
+		}
+		if f.Name() == ".data" {
+			// if the ml_models directory still exists, keep the .data link
+			if _, err := os.ReadDir(filepath.Join(m.packagesDir, "ml_models")); err == nil {
 				continue
-			}
 
-			m.logger.Infof("Cleaning up unused package link %s", f.Name())
-
-			// Remove logical symlink to package
-			if err := os.Remove(path.Join(m.packagesDir, f.Name())); err != nil {
-				allErrors = multierr.Append(allErrors, err)
 			}
 		}
-	}
-
-	// remove any packages in the .data dir that aren't known to the manager.
-	// packageDir will contain either symlinks to the packages or the .data directory.
-	files, err = os.ReadDir(m.packagesDataDir)
-	if err != nil {
-		return err
-	}
-
-	// remove any remaining files in the .data dir that should not be there.
-	for _, f := range files {
 		// if managed skip removing package
-		if _, ok := knownPackages[f.Name()]; ok {
+		if _, ok := m.managedPackages[PackageName(f.Name())]; ok {
 			continue
 		}
 
-		m.logger.Debugf("Cleaning up unused package %s", f.Name())
+		m.logger.Infof("Cleaning up unused package link %s", f.Name())
 
 		// Remove logical symlink to package
-		if err := os.RemoveAll(path.Join(m.packagesDataDir, f.Name())); err != nil {
+		if err := os.Remove(filepath.Join(m.packagesDir, f.Name())); err != nil {
 			allErrors = multierr.Append(allErrors, err)
 		}
 	}
 
 	return allErrors
+}
+
+func (m *cloudManager) legacyMLModelSymlinkCleanup(p config.PackageConfig) {
+	if p.Type == config.PackageTypeMlModel {
+		if err := os.Remove(filepath.Join(m.packagesDir, p.Name)); err != nil {
+			m.logger.Debug(err)
+		}
+	}
 }
 
 func sanitizeURLForLogs(u string) string {
@@ -299,23 +309,26 @@ func sanitizeURLForLogs(u string) string {
 	return parsed.String()
 }
 
-func (m *cloudManager) loadFile(ctx context.Context, url string, p config.PackageConfig) error {
+func (m *cloudManager) downloadPackage(ctx context.Context, url string, p config.PackageConfig) error {
 	// TODO(): validate integrity of directory.
-	if dirExists(m.localDataPath(p)) {
+	if dirExists(p.LocalDataDirectory()) {
 		m.logger.Debug("  Package already downloaded, skipping.")
 		return nil
+	}
+
+	if err := os.MkdirAll(p.LocalDataParentDirectory(), 0o700); err != nil {
+		return err
 	}
 
 	// Force redownload of package archive.
 	if err := m.cleanup(p); err != nil {
 		m.logger.Debug(err)
 	}
-	if err := os.Remove(m.localNamedPath(p)); err != nil {
-		m.logger.Debug(err)
-	}
+
+	m.legacyMLModelSymlinkCleanup(p)
 
 	// Download from GCS
-	_, contentType, err := m.downloadFileFromGCSURL(ctx, url, p)
+	_, contentType, err := m.downloadFileFromGCSURL(ctx, url, p.LocalDownloadPath())
 	if err != nil {
 		return err
 	}
@@ -326,29 +339,29 @@ func (m *cloudManager) loadFile(ctx context.Context, url string, p config.Packag
 	}
 
 	// unpack to temp directory to ensure we do an atomic rename once finished.
-	tmpDataPath, err := os.MkdirTemp(m.packagesDataDir, "*.tmp")
+	tmpDataPath, err := os.MkdirTemp(p.LocalDataParentDirectory(), "*.tmp")
 	if err != nil {
 		return errors.Wrap(err, "failed to create temp data dir path")
 	}
 
 	defer func() {
 		// cleanup archive file.
-		if err := os.Remove(m.localDownloadPath(p)); err != nil {
+		if err := os.Remove(p.LocalDownloadPath()); err != nil {
 			m.logger.Debug(err)
 		}
-		if err := os.Remove(tmpDataPath); err != nil {
+		if err := os.RemoveAll(tmpDataPath); err != nil {
 			m.logger.Debug(err)
 		}
 	}()
 
 	// unzip archive.
-	err = m.unpackFile(ctx, m.localDownloadPath(p), tmpDataPath)
+	err = m.unpackFile(ctx, p.LocalDownloadPath(), tmpDataPath)
 	if err != nil {
 		utils.UncheckedError(m.cleanup(p))
 		return err
 	}
 
-	err = os.Rename(tmpDataPath, m.localDataPath(p))
+	err = os.Rename(tmpDataPath, p.LocalDataDirectory())
 	if err != nil {
 		utils.UncheckedError(m.cleanup(p))
 		return err
@@ -359,14 +372,12 @@ func (m *cloudManager) loadFile(ctx context.Context, url string, p config.Packag
 
 func (m *cloudManager) cleanup(p config.PackageConfig) error {
 	return multierr.Combine(
-		os.RemoveAll(m.localDataPath(p)),
-		os.Remove(m.localDownloadPath(p)),
+		os.RemoveAll(p.LocalDataDirectory()),
+		os.Remove(p.LocalDownloadPath()),
 	)
 }
 
-func (m *cloudManager) downloadFileFromGCSURL(ctx context.Context, url string, p config.PackageConfig) (string, string, error) {
-	downloadPath := m.localDownloadPath(p)
-
+func (m *cloudManager) downloadFileFromGCSURL(ctx context.Context, url, downloadPath string) (string, string, error) {
 	getReq, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return "", "", err
@@ -438,10 +449,8 @@ func (m *cloudManager) unpackFile(ctx context.Context, fromFile, toDir string) e
 
 	tarReader := tar.NewReader(archive)
 	for {
-		select {
-		case <-ctx.Done():
-			return errors.New("interrupted")
-		default:
+		if err := ctx.Err(); err != nil {
+			return err
 		}
 
 		header, err := tarReader.Next()
@@ -507,10 +516,8 @@ func (m *cloudManager) unpackFile(ctx context.Context, fromFile, toDir string) e
 
 	// Now we make another pass creating the links
 	for i := range links {
-		select {
-		case <-ctx.Done():
-			return errors.New("interrupted")
-		default:
+		if err := ctx.Err(); err != nil {
+			return err
 		}
 		if err := linkFile(links[i].Name, links[i].Path); err != nil {
 			return errors.Wrapf(err, "failed to create link %s", links[i].Path)
@@ -518,10 +525,8 @@ func (m *cloudManager) unpackFile(ctx context.Context, fromFile, toDir string) e
 	}
 
 	for i := range symlinks {
-		select {
-		case <-ctx.Done():
-			return errors.New("interrupted")
-		default:
+		if err := ctx.Err(); err != nil {
+			return err
 		}
 		if err := linkFile(symlinks[i].Name, symlinks[i].Path); err != nil {
 			return errors.Wrapf(err, "failed to create link %s", links[i].Path)
@@ -529,18 +534,6 @@ func (m *cloudManager) unpackFile(ctx context.Context, fromFile, toDir string) e
 	}
 
 	return nil
-}
-
-func (m *cloudManager) localDownloadPath(p config.PackageConfig) string {
-	return filepath.Join(m.packagesDataDir, fmt.Sprintf("%s.download", p.Name))
-}
-
-func (m *cloudManager) localDataPath(p config.PackageConfig) string {
-	return filepath.Join(m.packagesDataDir, p.SanitizeName())
-}
-
-func (m *cloudManager) localNamedPath(p config.PackageConfig) string {
-	return filepath.Join(m.packagesDir, p.Name)
 }
 
 func getGoogleHash(headers http.Header, hashType string) string {

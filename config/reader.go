@@ -60,7 +60,6 @@ func init() {
 }
 
 var (
-	dataDotDir  = ".data"
 	packagesDir = "packages"
 )
 
