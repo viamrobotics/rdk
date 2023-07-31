@@ -29,21 +29,21 @@ const handleRemoveWaypoint = async (id: string) => {
 {/if}
 
 {#each $waypoints as waypoint, index (waypoint.id)}
-  <li class='flex group justify-between items-center gap-1.5 border-b'>
+  <li class='flex group justify-between items-center py-2 sm:py-0 gap-1.5 border-b'>
     <small>Waypoint {index}</small>
     <small class='text-subtle-2 opacity-60 group-hover:opacity-100'>
       ({waypoint.lng.toFixed(4)}, {waypoint.lat.toFixed(4)})
     </small>
     <div class='flex items-center gap-1.5'>
       <v-button
-        class='invisible group-hover:visible text-subtle-1'
+        class='sm:invisible group-hover:visible text-subtle-1'
         variant='icon'
         icon='image-filter-center-focus'
         aria-label="Focus waypoint {index}"
         on:click={() => dispatch('select', waypoint)}
       />
       <v-button
-        class='invisible group-hover:visible text-subtle-2'
+        class='sm:invisible group-hover:visible text-subtle-2'
         variant='icon'
         aria-label="Remove waypoint {index}"
         icon='trash-can-outline'
