@@ -76,7 +76,7 @@ const localizationMode = (mapTimestamp: Timestamp | undefined) => {
   const seconds = mapTimestamp.getSeconds();
   const nanos = mapTimestamp.getNanos();
   return seconds === lastTimestamp.getSeconds() && nanos === lastTimestamp.getNanos();
-}
+};
 
 const formatOverridePose = (poseData: Pose) => {
   const poseObject = new commonApi.Pose();
@@ -144,11 +144,11 @@ const refresh3d = async () => {
       const mapTimestamp = await getLatestMapInfo($robotClient, name);
 
       /*
-      * The map timestamp is compared to the last timestamp
-      * to see if a change has been made to the pointcloud map.
-      * A new call to getPointCloudMap is made if an update has occured.
-      */
-       if (!localizationMode(mapTimestamp)) {
+       * The map timestamp is compared to the last timestamp
+       * to see if a change has been made to the pointcloud map.
+       * A new call to getPointCloudMap is made if an update has occured.
+       */
+      if (!localizationMode(mapTimestamp)) {
         pointcloud = await getPointCloudMap($robotClient, name);
       }
       if (mapTimestamp) {
@@ -300,7 +300,7 @@ const handleStartMapping = async () => {
     }
 
     // error may not be present if user has not yet typed in input
-    const mapName = overrides.mappingDetails.name || newMapName
+    const mapName = overrides.mappingDetails.name || newMapName;
     if (!mapName) {
       mapNameError = 'Please enter a name for this map';
       return;
@@ -350,8 +350,8 @@ onDestroy(() => {
 
 const handleMapNameChange = (event: CustomEvent) => {
   newMapName = event.detail.value;
-  mapNameError = overrides?.validateMapName(newMapName) || ''
-}
+  mapNameError = overrides?.validateMapName(newMapName) || '';
+};
 </script>
 
 <Collapse
