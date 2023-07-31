@@ -106,7 +106,7 @@ func (v *PlaceholderReplacementVisitor) Visit(data interface{}) (interface{}, er
 // replacePlaceholders replaces a string with a package path if its a valid package placeholder.
 func (v *PlaceholderReplacementVisitor) replacePlaceholders(s string) (string, error) {
 	var allErrors error
-	// TODO(pre-merge) if we wish to re-add Env var replacement, here would be a good place for that
+
 	patchedStr := packagePlaceholderRegexp.ReplaceAllFunc([]byte(s), func(b []byte) []byte {
 		matches := packagePlaceholderRegexp.FindStringSubmatch(string(b))
 		if matches == nil {
@@ -117,18 +117,20 @@ func (v *PlaceholderReplacementVisitor) replacePlaceholders(s string) (string, e
 		// if that occurs, then the tests will fail
 		packageType := matches[packagePlaceholderRegexp.SubexpIndex("type")]
 		packageName := matches[packagePlaceholderRegexp.SubexpIndex("name")]
+
 		packageConfig, isPresent := v.packages[packageName]
 		if !isPresent {
-			allErrors = multierr.Append(allErrors, errors.Errorf("failed to find a package named %q for placeholder %q", packageName, string(b)))
+			allErrors = multierr.Append(allErrors, errors.Errorf("failed to find a package named %q for placeholder %q",
+				packageName, string(b)))
 			return b
 		}
-		// TODO(pre-merge) clean up this logic a bit if we decide to keep the module/modules difference
+		// TODO(pre-merge) clean up this logic if we decide to keep the module/modules difference. It is ugly and has bugs
 		if packageType != "" && packageType != string(packageConfig.Type)+"s" {
 			allErrors = multierr.Append(allErrors,
 				errors.Errorf("placeholder %q is of the wrong type. It should be %q", string(b), string(packageConfig.Type)+"s"))
 			return b
 		}
-		return []byte(packageConfig.LocalDataDirectory())
+		return []byte(packageConfig.Directory())
 	})
 	return string(patchedStr), allErrors
 }

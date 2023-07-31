@@ -905,7 +905,12 @@ func (p *PackageConfig) validate(path string) error {
 		return utils.NewConfigValidationError(path, errors.New("empty package id"))
 	}
 
-	if p.Type != "" && p.Type != PackageTypeModule && p.Type != PackageTypeMlModel {
+	if p.Type == "" {
+		// for backwards compatability
+		p.Type = PackageTypeMlModel
+	}
+
+	if p.Type != PackageTypeModule && p.Type != PackageTypeMlModel {
 		return utils.NewConfigValidationError(path, errors.Errorf("unsupported package type %q. Must be %s or %s",
 			p.Type, PackageTypeModule, PackageTypeMlModel))
 	}
@@ -927,29 +932,36 @@ func (p PackageConfig) Equals(other PackageConfig) bool {
 	return reflect.DeepEqual(p, other)
 }
 
+// LocalDataParentDirectory returns the folder that will contain the all packages of this type.
+// Ex: /home/user/.viam/packages/ml_models
 func (p *PackageConfig) LocalDataParentDirectory() string {
-	return filepath.Join(viamDotDir, packagesDir, p.GetPackageDirectoryFromType())
+	return filepath.Join(viamDotDir, packagesDir, p.packageDirectoryFromType())
 }
 
+// LocalDataDirectory returns the folder where the package should be extracted.
+// Ex: /home/user/.viam/packages/ml_models/orgid_ballClassifier_0.1.2
 func (p *PackageConfig) LocalDataDirectory() string {
-	return filepath.Join(p.LocalDataParentDirectory(), p.sanitizedName())
+	return filepath.Join(p.LocalDataDirectory(), p.sanitizedName())
 }
+
+// LocalDownloadPath returns the file where the archive should be downloaded before extraction
 func (p *PackageConfig) LocalDownloadPath() string {
 	return filepath.Join(p.LocalDataParentDirectory(), fmt.Sprintf("%s.download", p.sanitizedName()))
 }
 
-// SanitizeName forms the package name for the symlink/filepath of the package on the system.
+// sanitizedName returns the package name for the symlink/filepath of the package on the system.
 func (p *PackageConfig) sanitizedName() string {
 	return fmt.Sprintf("%s-%s", strings.ReplaceAll(p.Package, string(os.PathSeparator), "-"), p.sanitizedVersion())
 }
 
+// sanitizedVersion returns a cleaned version of the version so it is file-system-safe
 func (p *PackageConfig) sanitizedVersion() string {
 	// replaces all the . if they exist with _
 	return strings.ReplaceAll(p.Version, ".", "_")
 }
 
-// GetPackageDirectoryFromType returns the package directory for the filepath based on type.
-func (p *PackageConfig) GetPackageDirectoryFromType() string {
+// packageDirectoryFromType returns the package directory for the filepath based on type.
+func (p *PackageConfig) packageDirectoryFromType() string {
 	switch p.Type {
 	case PackageTypeMlModel:
 		return "ml_models"
