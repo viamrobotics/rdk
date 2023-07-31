@@ -13,13 +13,6 @@
             }
         },
         {
-            "type": "camera",
-            "model": "webcam",
-            "attributes": {},
-            "depends_on": [],
-            "name": "cam"
-        },
-        {
             "name": "audio_input1",
             "type": "audio_input",
             "model": "fake"
