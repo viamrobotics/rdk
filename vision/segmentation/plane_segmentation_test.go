@@ -24,7 +24,7 @@ func init() {
 func TestPlaneConfig(t *testing.T) {
 	cfg := VoxelGridPlaneConfig{}
 	// invalid weight threshold
-	cfg.WeightThresh = -1.
+	cfg.WeightThresh = -2.
 	err := cfg.CheckValid()
 	test.That(t, err.Error(), test.ShouldContainSubstring, "weight_threshold cannot be less than 0")
 	// invalid angle threshold
@@ -46,6 +46,40 @@ func TestPlaneConfig(t *testing.T) {
 	cfg.DistanceThresh = 5
 	err = cfg.CheckValid()
 	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestSegmentPlaneWRTGround(t *testing.T) {
+	t.Parallel()
+	// get depth map
+	d, err := rimage.NewDepthMapFromFile(
+		context.Background(),
+		artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.png"))
+	test.That(t, err, test.ShouldBeNil)
+
+	// Pixel to Meter
+	sensorParams, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(intel515ParamsPath)
+	test.That(t, err, test.ShouldBeNil)
+	depthIntrinsics := &sensorParams.DepthCamera
+	cloud := depthadapter.ToPointCloud(d, depthIntrinsics)
+	test.That(t, err, test.ShouldBeNil)
+	// Segment Plane
+	nIter := 3000
+	groundNormVec := r3.Vector{0, 1, 0}
+	angleThresh := 30.0
+	plane, _, err := SegmentPlaneWRTGround(context.Background(), cloud, nIter, angleThresh, 0.5, groundNormVec)
+	eq := plane.Equation()
+	test.That(t, err, test.ShouldBeNil)
+
+	p1 := r3.Vector{-eq[3] / eq[0], 0, 0}
+	p2 := r3.Vector{0, -eq[3] / eq[1], 0}
+	p3 := r3.Vector{0, 0, -eq[3] / eq[2]}
+
+	v1 := p2.Sub(p1).Normalize()
+	v2 := p3.Sub(p1).Normalize()
+
+	planeNormVec := v1.Cross(v2)
+	planeNormVec = planeNormVec.Normalize()
+	test.That(t, math.Acos(planeNormVec.Dot(groundNormVec)), test.ShouldBeLessThanOrEqualTo, angleThresh*math.Pi/180)
 }
 
 func TestSegmentPlane(t *testing.T) {
@@ -92,40 +126,6 @@ func TestSegmentPlane(t *testing.T) {
 	dot := eq[0]*gtPlaneEquation[0] + eq[1]*gtPlaneEquation[1] + eq[2]*gtPlaneEquation[2]
 	tol := 0.75
 	test.That(t, math.Abs(dot), test.ShouldBeGreaterThanOrEqualTo, tol)
-}
-
-func TestSegmentPlaneWRTGround(t *testing.T) {
-	t.Parallel()
-	// get depth map
-	d, err := rimage.NewDepthMapFromFile(
-		context.Background(),
-		artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.png"))
-	test.That(t, err, test.ShouldBeNil)
-
-	// Pixel to Meter
-	sensorParams, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(intel515ParamsPath)
-	test.That(t, err, test.ShouldBeNil)
-	depthIntrinsics := &sensorParams.DepthCamera
-	cloud := depthadapter.ToPointCloud(d, depthIntrinsics)
-	test.That(t, err, test.ShouldBeNil)
-	// Segment Plane
-	nIter := 3000
-	groundNormVec := r3.Vector{0, 1, 0}
-	angleThresh := 30.0
-	plane, _, err := SegmentPlaneWRTGround(context.Background(), cloud, nIter, angleThresh, 0.5, groundNormVec)
-	eq := plane.Equation()
-	test.That(t, err, test.ShouldBeNil)
-
-	p1 := r3.Vector{-eq[3] / eq[0], 0, 0}
-	p2 := r3.Vector{0, -eq[3] / eq[1], 0}
-	p3 := r3.Vector{0, 0, -eq[3] / eq[2]}
-
-	v1 := p2.Sub(p1).Normalize()
-	v2 := p3.Sub(p1).Normalize()
-
-	planeNormVec := v1.Cross(v2)
-	planeNormVec = planeNormVec.Normalize()
-	test.That(t, math.Acos(planeNormVec.Dot(groundNormVec)), test.ShouldBeLessThanOrEqualTo, angleThresh*math.Pi/180)
 }
 
 func TestDepthMapToPointCloud(t *testing.T) {
