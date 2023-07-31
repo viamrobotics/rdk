@@ -114,31 +114,10 @@ func registerObstacleDepth(
 		return nil, errors.New("config for obstacle_depth cannot be nil")
 	}
 
-	// If you have no intrinsics, you just get the shortest depth in the depth map as a Geometry point
+	// If you have no intrinsics,
 	if conf.intrinsics == nil {
 		r.Logger().Warn("obstacle depth started without camera's intrinsic parameters")
-		segmenter := func(ctx context.Context, src camera.VideoSource) ([]*vision.Object, error) {
-			depthStream, err := src.Stream(ctx)
-			if err != nil {
-				return nil, errors.Errorf("could not get stream from %s", src)
-			}
-			pic, release, err := depthStream.Next(ctx)
-			if err != nil {
-				return nil, errors.Errorf("could not get image from stream %s", depthStream)
-			}
-			defer release()
-			dm, err := rimage.ConvertImageToDepthMap(ctx, pic)
-			if err != nil {
-				return nil, errors.New("could not convert image to depth map")
-			}
-			min, _ := dm.MinMax()
-
-			pt := spatialmath.NewPoint(r3.Vector{X: 0, Y: 0, Z: float64(min)}, "obstacle")
-			toReturn := make([]*vision.Object, 1)
-			toReturn[0] = &vision.Object{Geometry: pt}
-
-			return toReturn, nil
-		}
+		segmenter := buildObsDepthNoIntrinsics()
 		return svision.NewService(name, r, nil, nil, nil, segmenter)
 	}
 
@@ -158,10 +137,47 @@ func registerObstacleDepth(
 	return svision.NewService(name, r, nil, nil, nil, segmenter)
 }
 
+// buildObsDepthNoIntrinsics will return the shortest depth in the depth map as a Geometry point.
+func buildObsDepthNoIntrinsics() segmentation.Segmenter {
+	return func(ctx context.Context, src camera.VideoSource) ([]*vision.Object, error) {
+		depthStream, err := src.Stream(ctx)
+		if err != nil {
+			return nil, errors.Errorf("could not get stream from %s", src)
+		}
+		pic, release, err := depthStream.Next(ctx)
+		if err != nil {
+			return nil, errors.Errorf("could not get image from stream %s", depthStream)
+		}
+		defer release()
+		dm, err := rimage.ConvertImageToDepthMap(ctx, pic)
+		if err != nil {
+			return nil, errors.New("could not convert image to depth map")
+		}
+		min, _ := dm.MinMax()
+
+		pt := spatialmath.NewPoint(r3.Vector{X: 0, Y: 0, Z: float64(min)}, "obstacle")
+		toReturn := make([]*vision.Object, 1)
+		toReturn[0] = &vision.Object{Geometry: pt}
+
+		return toReturn, nil
+	}
+}
+
 // buildObsDepthWithIntrinsics will use the methodology in Manduchi et al. to find obstacle points
 // before clustering and projecting those points into 3D obstacles.
 func (o *obsDepth) buildObsDepthWithIntrinsics() segmentation.Segmenter {
 	return func(ctx context.Context, src camera.VideoSource) ([]*vision.Object, error) {
+		// FIRST check if we have intrinsics here or in the camera properties. If not, don't even try
+		props, err := src.Properties(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if props.IntrinsicParams == nil && o.intrinsics == nil {
+			return nil, errors.New("tried to build obstacles depth with intrinsics but no instrinsics found")
+		} else if props.IntrinsicParams != nil {
+			o.intrinsics = props.IntrinsicParams
+		}
+
 		depthStream, err := src.Stream(ctx)
 		if err != nil {
 			return nil, errors.Errorf("could not get stream from %s", src)
