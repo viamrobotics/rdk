@@ -29,6 +29,7 @@ type GPSData struct {
 	valid          bool
 	FixQuality     int
 	CompassHeading float64 // true compass heading in degree
+	isEast         bool    // direction for magnetic variation
 }
 
 func errInvalidFix(sentenceType, badFix, goodFix string) error {
@@ -51,7 +52,9 @@ func (g *GPSData) ParseAndUpdate(line string) error {
 	if err != nil {
 		return multierr.Combine(errs, err)
 	}
-
+	if s.DataType() == nmea.TypeRMC {
+		g.ifEast(line)
+	}
 	errs = g.updateData(s)
 
 	if g.Location == nil {
@@ -122,6 +125,7 @@ func (g *GPSData) updateGSV(gsv nmea.GSV) error {
 // updateRMC updates the GPSData object with the information from the provided
 // RMC (Recommended Minimum Navigation Information) data.
 func (g *GPSData) updateRMC(rmc nmea.RMC) error {
+
 	if rmc.Validity == "A" {
 		g.valid = true
 	} else if rmc.Validity == "V" {
@@ -132,6 +136,7 @@ func (g *GPSData) updateRMC(rmc nmea.RMC) error {
 	if g.valid {
 		g.Speed = rmc.Speed * knotsToMPerSec
 		g.Location = geo.NewPoint(rmc.Latitude, rmc.Longitude)
+		g.CompassHeading = calculateTrueHeading(rmc.Course, rmc.Variation, g.isEast)
 	}
 
 	return nil
@@ -234,4 +239,32 @@ func (g *GPSData) updateGNS(gns nmea.GNS) error {
 	}
 
 	return nil
+}
+
+func calculateTrueHeading(heading float64, magneticDeclination float64, isEast bool) float64 {
+	var adjustment float64
+	if isEast {
+		adjustment = magneticDeclination
+	} else {
+		adjustment = -magneticDeclination
+	}
+
+	trueHeading := heading + adjustment
+	if trueHeading < 0 {
+		trueHeading += 360.0
+	} else if trueHeading >= 360 {
+		trueHeading -= 360.0
+	}
+
+	return trueHeading
+}
+
+func (g *GPSData) ifEast(gpsMessage string) {
+	data := strings.Split(gpsMessage, ",")
+	if len(data) < 10 {
+		return
+	}
+	// Check if the magnetic declination is East or West
+	g.isEast = strings.Contains(data[10], "E")
+
 }
