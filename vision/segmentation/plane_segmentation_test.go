@@ -49,7 +49,6 @@ func TestPlaneConfig(t *testing.T) {
 }
 
 func TestSegmentPlaneWRTGround(t *testing.T) {
-	t.Parallel()
 	// get depth map
 	d, err := rimage.NewDepthMapFromFile(
 		context.Background(),
@@ -83,7 +82,6 @@ func TestSegmentPlaneWRTGround(t *testing.T) {
 }
 
 func TestSegmentPlane(t *testing.T) {
-	t.Parallel()
 	// Intel Sensor Extrinsic data from manufacturer
 	// Intel sensor depth 1024x768 to  RGB 1280x720
 	// Translation Vector : [-0.000828434,0.0139185,-0.0033418]
