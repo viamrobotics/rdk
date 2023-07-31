@@ -141,6 +141,17 @@
                 "base": "base1",
                 "obstacles": [
                     {
+                        "geometries": [
+                          {
+                            "r": 3700
+                          }
+                        ],
+                        "location": {
+                          "latitude": 40.772239,
+                          "longitude": -73.98241
+                        }
+                      },
+                    {
                         "location": {
                             "latitude": 40.6759,
                             "longitude": -73.958847
