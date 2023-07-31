@@ -22,14 +22,13 @@ import (
 
 // TODO Data-343: Reorganize this into a more standard interface/package, and add tests.
 
-// TODO: this is all way too complicated i think. Just keep track of read/write offsets
-
 // FileExt defines the file extension for Viam data capture files.
 const (
 	InProgressFileExt = ".prog"
 	FileExt           = ".capture"
 	readImage         = "ReadImage"
 	nextPointCloud    = "NextPointCloud"
+	getPointCloudMap  = "GetPointCloudMap"
 )
 
 // File is the data structure containing data captured by collectors. It is backed by a file on disk containing
@@ -240,7 +239,7 @@ func getFileTimestampName() string {
 // TODO DATA-246: Implement this in some more robust, programmatic way.
 func getDataType(methodName string) v1.DataType {
 	switch methodName {
-	case nextPointCloud, readImage:
+	case nextPointCloud, readImage, getPointCloudMap:
 		return v1.DataType_DATA_TYPE_BINARY_SENSOR
 	default:
 		return v1.DataType_DATA_TYPE_TABULAR_SENSOR
