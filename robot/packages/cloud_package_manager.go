@@ -168,8 +168,6 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 
 		if p.Type == config.PackageTypeMlModel {
 			outErr = multierr.Append(outErr, m.legacyMLModelSymlinkCreation(p))
-			outErr = multierr.Append(outErr, m.legacyCreateMLModelDotDataDirSymlink(p))
-
 		}
 
 		// add to managed packages
@@ -239,19 +237,10 @@ func (m *cloudManager) Cleanup(ctx context.Context) error {
 	return allErrors
 }
 
-// symlink packages/module_name to packages/ml_models/longdataname for backwards compatablility
+// symlink packages/package-name to packages/ml_models/orgid-package-name-ver for backwards compatablility
 func (m *cloudManager) legacyMLModelSymlinkCreation(p config.PackageConfig) error {
 	if err := linkFile(filepath.Join(m.packagesDir, p.Name), p.LocalDataDirectory()); err != nil {
 		m.logger.Errorf("Failed linking ml_model package %s:%s, %s", p.Package, p.Version, err)
-		return err
-	}
-	return nil
-}
-
-// symlink packages/.data to packages/ml_models for backwards compatability
-func (m *cloudManager) legacyCreateMLModelDotDataDirSymlink(p config.PackageConfig) error {
-	if err := linkFile(filepath.Join(m.packagesDir, ".data"), p.LocalDataParentDirectory()); err != nil {
-		m.logger.Errorf("Failed linking packages/.data to packages/ml_models directory, %s", err)
 		return err
 	}
 	return nil
@@ -270,12 +259,6 @@ func (m *cloudManager) legacyMlModelSymlinkCleanup() error {
 		if f.Type()&os.ModeSymlink != os.ModeSymlink {
 			continue
 		}
-		if f.Name() == ".data" {
-			// if the ml_models directory still exists, keep the .data link
-			if _, err := os.ReadDir(filepath.Join(m.packagesDir, "ml_models")); err == nil {
-				continue
-			}
-		}
 		// if managed skip removing package
 		if _, ok := m.managedPackages[PackageName(f.Name())]; ok {
 			continue
@@ -288,15 +271,7 @@ func (m *cloudManager) legacyMlModelSymlinkCleanup() error {
 			allErrors = multierr.Append(allErrors, err)
 		}
 	}
-
 	return allErrors
-}
-
-// cleanup an existing package/package-name symlink if it exists
-func (m *cloudManager) legacyMLModelSymlinkCleanup(p config.PackageConfig) {
-	if err := os.Remove(filepath.Join(m.packagesDir, p.Name)); err != nil {
-		m.logger.Debug(err)
-	}
 }
 
 func sanitizeURLForLogs(u string) string {
@@ -325,7 +300,9 @@ func (m *cloudManager) downloadPackage(ctx context.Context, url string, p config
 	}
 
 	if p.Type == config.PackageTypeMlModel {
-		m.legacyMLModelSymlinkCleanup(p)
+		if err := os.Remove(filepath.Join(m.packagesDir, p.Name)); err != nil {
+			utils.UncheckedError(err)
+		}
 	}
 
 	// Download from GCS
