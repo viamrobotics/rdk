@@ -154,16 +154,14 @@ type builtIn struct {
 	obstaclePollingFrequency float64
 	planDeviationMeters      float64
 	replanCostFactor         float64
+	metersPerSec             float64
+	degPerSec                float64
 
-	metersPerSec              float64
-	degPerSec                 float64
+	logger                    golog.Logger
 	wholeServiceCancelFunc    func()
 	currentWaypointCancelFunc func()
 	waypointInProgress        *navigation.Waypoint
 	activeBackgroundWorkers   sync.WaitGroup
-	logger                    golog.Logger
-	cancelCtx                 context.Context
-	cancelFunc                func()
 }
 
 func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
