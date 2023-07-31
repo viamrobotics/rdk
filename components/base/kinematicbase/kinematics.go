@@ -17,7 +17,7 @@ import (
 // KinematicBase is an interface for Bases that also satisfy the ModelFramer and InputEnabled interfaces.
 type KinematicBase interface {
 	base.Base
-	resource.InputEnabled
+	resource.InputEnabledActuator
 
 	Kinematics() referenceframe.Frame
 }

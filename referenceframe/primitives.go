@@ -1,6 +1,7 @@
 package referenceframe
 
 import (
+	"context"
 	"fmt"
 	"math"
 
@@ -53,6 +54,14 @@ func JointPositionsFromRadians(radians []float64) *pb.JointPositions {
 		n[idx] = utils.RadToDeg(a)
 	}
 	return &pb.JointPositions{Values: n}
+}
+
+// InputEnabled is a standard interface for all things that interact with the frame system
+// This allows us to figure out where they currently are, and then move them.
+// Input units are always in meters or radians.
+type InputEnabled interface {
+	CurrentInputs(ctx context.Context) ([]Input, error)
+	GoToInputs(ctx context.Context, goal []Input) error
 }
 
 // InterpolateInputs will return a set of inputs that are the specified percent between the two given sets of

@@ -44,7 +44,7 @@ func Named(name string) resource.Name {
 type Gantry interface {
 	resource.Resource
 	referenceframe.ModelFramer
-	resource.InputEnabled
+	resource.InputEnabledActuator
 
 	// Position returns the position in meters
 	Position(ctx context.Context, extra map[string]interface{}) ([]float64, error)

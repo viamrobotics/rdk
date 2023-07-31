@@ -144,13 +144,12 @@ type Shaped interface {
 	Geometries(context.Context, map[string]interface{}) ([]spatialmath.Geometry, error)
 }
 
-// InputEnabled is a standard interface for all things that interact with the frame system.
+// InputEnabledActuator is a standard interface for all things that interact with the frame system.
 // This allows us to figure out where they currently are, and then move them.
 // Input units are always in meters or radians.
-type InputEnabled interface {
+type InputEnabledActuator interface {
 	Actuator
-	CurrentInputs(ctx context.Context) ([]referenceframe.Input, error)
-	GoToInputs(ctx context.Context, goal []referenceframe.Input) error
+	referenceframe.InputEnabled
 }
 
 // ErrDoUnimplemented is returned if the DoCommand methods is not implemented.
