@@ -1,5 +1,6 @@
 // Package obstacledepth uses an underlying depth camera to fulfill GetObjectPointClouds,
-// using the method outlined in ()
+// using the method outlined in (Manduchi, Roberto, et al. "Obstacle detection and terrain classification
+// for autonomous off-road navigation." Autonomous robots 18 (2005): 81-102.)
 package obstacledepth
 
 import (
@@ -32,8 +33,7 @@ import (
 
 var model = resource.DefaultModelFamily.WithModel("obstacle_depth")
 
-// ObstaclesDepthConfig specifies the parameters for the camera to be used
-// for the obstacle distance detection service.
+// ObstaclesDepthConfig specifies the parameters to be used for the obstacle depth service.
 type ObstaclesDepthConfig struct {
 	K          int     `json:"k"`
 	Hmin       float64 `json:"hmin"`
@@ -62,13 +62,14 @@ type obsDepth struct {
 }
 
 const (
-	// params from paper (def need to link paper somewhere in here shoutout them).
+	// the first 3 consts are parameters from Manduchi et. al.
 	defaultHmin     = 0.0
 	defaultHmax     = 150.0
 	defaultThetamax = math.Pi / 4
-	chunkSize       = 200 // we send chunkSize points in each goroutine to speed things up
-	sampleN         = 4   // we sample 1 in every sampleN depth points to speed things up (lol)
-	maxThreads      = 300 // we will run at mos maxThreads goroutines.. to speed things up
+	// the last 3 consts are hyperparameters that can be tweaked for performance improvement.
+	chunkSize  = 200 // we send chunkSize points in each goroutine
+	sampleN    = 4   // we sample 1 in every sampleN depth points
+	maxThreads = 300 // we will run at most maxThreads goroutines
 )
 
 func init() {
