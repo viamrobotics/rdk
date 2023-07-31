@@ -2,6 +2,9 @@ package referenceframe
 
 import "github.com/pkg/errors"
 
+// ErrAtLeastOneEndEffector is an error indicating that at least one end effector is required.
+var ErrAtLeastOneEndEffector = errors.New("need at least one end effector")
+
 // ErrCircularReference is an error indicating that a circular path exists somewhere between the end effector and the world.
 var ErrCircularReference = errors.New("infinite loop finding path from end effector to world")
 
@@ -55,4 +58,21 @@ func NewUnsupportedJointTypeError(jointType string) error {
 // to be registered where this is not allowed.
 func NewDuplicateGeometryNameError(name string) error {
 	return errors.Errorf("cannot specify multiple geometries with the same name: %s", name)
+}
+
+// NewFrameNotInListOfTransformsError returns an error indicating that a frame of the given name
+// is missing from the provided list of transforms.
+func NewFrameNotInListOfTransformsError(frameName string) error {
+	return errors.Errorf("frame named '%s' not in the list of transforms", frameName)
+}
+
+// NewParentFrameNotInMapOfParentsError returns an error indicating that a parent from of the given name
+// is missing from the provided map of parents.
+func NewParentFrameNotInMapOfParentsError(parentFrameName string) error {
+	return errors.Errorf("parent frame named '%s' not in the map of parents", parentFrameName)
+}
+
+// NewReservedWordError returns an error indicating that the provided name for the config  is reserved.
+func NewReservedWordError(configType, reservedWord string) error {
+	return errors.Errorf("reserved word: cannot name a %s '%s'", configType, reservedWord)
 }
