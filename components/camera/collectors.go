@@ -3,6 +3,7 @@ package camera
 import (
 	"bytes"
 	"context"
+	"fmt"
 
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
@@ -81,6 +82,9 @@ func newReadImageCollector(resource interface{}, params data.CollectorParams) (d
 		_, span := trace.StartSpan(ctx, "camera::data::collector::CaptureFunc::ReadImage")
 		defer span.End()
 
+		ctx = context.WithValue(ctx, data.CtxKeyDM, true)
+
+		fmt.Println("KATLOG - in collector passing along context with value ", ctx.Value(data.CtxKeyDM))
 		img, release, err := ReadImage(ctx, camera)
 		if err != nil {
 			return nil, data.FailedToReadErr(params.ComponentName, readImage.String(), err)

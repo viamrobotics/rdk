@@ -1,0 +1,70 @@
+{
+  "modules": [
+    {
+      "executable_path": "/Users/katherinewu/viam/rdk/filterDemo/filterDemo",
+      "name": "katcam"
+    }
+  ],
+  "components": [
+    {
+      "depends_on": [],
+      "service_configs": [
+        {
+          "type": "data_manager",
+          "attributes": {
+            "capture_methods": [
+              {
+                "disabled": false,
+                "method": ""
+              }
+            ]
+          }
+        }
+      ],
+      "name": "webcam",
+      "type": "camera",
+      "model": "webcam",
+      "attributes": {
+        "video_path": "FDF90FEB-59E5-4FCF-AABD-DA03C4E19BFB"
+      }
+    },
+    {
+      "type": "camera",
+      "model": "filters:demo:katcam",
+      "attributes": {
+        "actualCam": "webcam"
+      },
+      "depends_on": [
+        "webcam"
+      ],
+      "service_configs": [
+        {
+          "type": "data_manager",
+          "attributes": {
+            "capture_methods": [
+              {
+                "method": "ReadImage",
+                "additional_params": {
+                  "mime_type": "image/jpeg"
+                },
+                "capture_frequency_hz": 1
+              }
+            ]
+          }
+        }
+      ],
+      "name": "filter-katcam"
+    }
+  ],
+  "services": [
+    {
+      "type": "data_manager",
+      "attributes": {
+        "sync_interval_mins": 0.1,
+        "capture_dir": "",
+        "tags": []
+      },
+      "name": "Data-Management-Service"
+    }
+  ]
+}
