@@ -22,6 +22,8 @@ const updateLocation = async () => {
       centerMap(position, true);
       centered = true;
     }
+
+    $robotPosition = position;
   } catch (error) {
     notify.danger((error as ServiceError).message);
     $robotPosition = null;
