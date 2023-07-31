@@ -70,8 +70,8 @@ type Config struct {
 	VisionServices     []string               `json:"vision_services"`
 
 	// DegPerSec and MetersPerSec are targets and not hard limits on speed
-	DegPerSec    float64 `json:"degs_per_sec"`
-	MetersPerSec float64 `json:"meters_per_sec"`
+	DegPerSec    float64 `json:"degs_per_sec,omitempty"`
+	MetersPerSec float64 `json:"meters_per_sec,omitempty"`
 
 	Obstacles                []*spatialmath.GeoObstacleConfig `json:"obstacles,omitempty"`
 	PositionPollingFrequency float64                          `json:"position_polling_frequency,omitempty"`
