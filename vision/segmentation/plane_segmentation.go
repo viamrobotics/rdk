@@ -66,6 +66,59 @@ func pointCloudSplit(cloud pc.PointCloud, inMap map[r3.Vector]bool) (pc.PointClo
 	return mapCloud, nonMapCloud, nil
 }
 
+// SegmentPlaneWRTGround segments the biggest 'ground' plane in the 3D Pointcloud.
+// nIterations is the number of iteration for ransac
+// nIter to choose? nIter = log(1-p)/log(1-(1-e)^s), where p is prob of success, e is outlier ratio, s is subset size (3 for plane).
+// dstThreshold is the float64 value for the maximum allowed distance to the found plane for a point to belong to it
+// This function returns a Plane struct, as well as the remaining points in a pointcloud
+// It also returns the equation of the found plane: [0]x + [1]y + [2]z + [3] = 0.
+// angleThrehold is the maximum acceptable angle between the groundVec and angle of the plane,
+// if the plane is at a larger angle than maxAngle, it will not be considered for segmentation, if set to 0 then not considered
+// normalVec is the normal vector of the plane representing the ground.
+func SegmentPlaneWRTGround(ctx context.Context, cloud pc.PointCloud, nIterations int, angleThreshold,
+	dstThreshold float64, normalVec r3.Vector,
+) (pc.Plane, pc.PointCloud, error) {
+	if cloud.Size() <= 3 { // if point cloud does not have even 3 points, return original cloud with no planes
+		return pc.NewEmptyPlane(), cloud, nil
+	}
+	//nolint:gosec
+	r := rand.New(rand.NewSource(1))
+	pts := GetPointCloudPositions(cloud)
+	nPoints := cloud.Size()
+
+	// First get all equations
+	equations := make([][4]float64, 0, nIterations)
+	for i := 0; i < nIterations; i++ {
+		// sample 3 Points from the slice of 3D Points
+		n1, n2, n3 := utils.SampleRandomIntRange(1, nPoints-1, r),
+			utils.SampleRandomIntRange(1, nPoints-1, r),
+			utils.SampleRandomIntRange(1, nPoints-1, r)
+		p1, p2, p3 := pts[n1], pts[n2], pts[n3]
+
+		// get 2 vectors that are going to define the plane
+		v1 := p2.Sub(p1)
+		v2 := p3.Sub(p1)
+		// cross product to get the normal unit vector to the plane (v1, v2)
+		cross := v1.Cross(v2)
+		planeVec := cross.Normalize()
+		// find current plane equation denoted as:
+		// cross[0]*x + cross[1]*y + cross[2]*z + d = 0
+		// to find d, we just need to pick a point and deduce d from the plane equation (vec orth to p1, p2, p3)
+		d := -planeVec.Dot(p2)
+
+		currentEquation := [4]float64{planeVec.X, planeVec.Y, planeVec.Z, d}
+
+		if angleThreshold != 0 {
+			if math.Acos(normalVec.Dot(planeVec)) <= angleThreshold*math.Pi/180.0 {
+				equations = append(equations, currentEquation)
+			}
+		} else {
+			equations = append(equations, currentEquation)
+		}
+	}
+	return findBestEq(ctx, cloud, len(equations), equations, pts, dstThreshold)
+}
+
 // SegmentPlane segments the biggest plane in the 3D Pointcloud.
 // nIterations is the number of iteration for ransac
 // nIter to choose? nIter = log(1-p)/log(1-(1-e)^s), where p is prob of success, e is outlier ratio, s is subset size (3 for plane).
@@ -106,6 +159,12 @@ func SegmentPlane(ctx context.Context, cloud pc.PointCloud, nIterations int, thr
 		equations = append(equations, currentEquation)
 	}
 
+	return findBestEq(ctx, cloud, nIterations, equations, pts, threshold)
+}
+
+func findBestEq(ctx context.Context, cloud pc.PointCloud, nIterations int, equations [][4]float64,
+	pts []r3.Vector, threshold float64,
+) (pc.Plane, pc.PointCloud, error) {
 	// Then find the best equation in parallel. It ends up being faster to loop
 	// by equations (iterations) and then points due to what I (erd) think is
 	// memory locality exploitation.
@@ -156,6 +215,8 @@ func SegmentPlane(ctx context.Context, cloud pc.PointCloud, nIterations int, thr
 	}
 	bestEquation = bestResults[bestIdx].equation
 
+	nPoints := cloud.Size()
+
 	planeCloud := pc.NewWithPrealloc(bestInliers)
 	nonPlaneCloud := pc.NewWithPrealloc(nPoints - bestInliers)
 	planeCloudCenter := r3.Vector{}
@@ -188,27 +249,48 @@ func SegmentPlane(ctx context.Context, cloud pc.PointCloud, nIterations int, thr
 // PlaneSegmentation is an interface used to find geometric planes in a 3D space.
 type PlaneSegmentation interface {
 	FindPlanes(ctx context.Context) ([]pc.Plane, pc.PointCloud, error)
+	FindGroundPlane(ctx context.Context) (pc.Plane, pc.PointCloud, error)
 }
 
 type pointCloudPlaneSegmentation struct {
-	cloud       pc.PointCloud
-	threshold   float64
-	minPoints   int
-	nIterations int
+	cloud             pc.PointCloud
+	distanceThreshold float64
+	minPoints         int
+	nIterations       int
+	angleThreshold    float64
+	normalVec         r3.Vector
 }
 
 // NewPointCloudPlaneSegmentation initializes the plane segmentation with the necessary parameters to find the planes
 // threshold is the float64 value for the maximum allowed distance to the found plane for a point to belong to it.
 // minPoints is the minimum number of points necessary to be considered a plane.
 func NewPointCloudPlaneSegmentation(cloud pc.PointCloud, threshold float64, minPoints int) PlaneSegmentation {
-	return &pointCloudPlaneSegmentation{cloud, threshold, minPoints, 2000}
+	return &pointCloudPlaneSegmentation{
+		cloud:             cloud,
+		distanceThreshold: threshold,
+		minPoints:         minPoints,
+		nIterations:       2000,
+		angleThreshold:    0,
+		normalVec:         r3.Vector{X: 0, Y: 0, Z: 1},
+	}
+}
+
+// NewPointCloudGroundPlaneSegmentation initializes the plane segmentation with the necessary parameters to find
+// ground like planes, meaning they are less than angleThreshold away from the plane corresponding to normaLVec
+// distanceThreshold is the float64 value for the maximum allowed distance to the found plane for a
+// point to belong to it.
+// minPoints is the minimum number of points necessary to be considered a plane.
+func NewPointCloudGroundPlaneSegmentation(cloud pc.PointCloud, distanceThreshold float64, minPoints int,
+	angleThreshold float64, normalVec r3.Vector,
+) PlaneSegmentation {
+	return &pointCloudPlaneSegmentation{cloud, distanceThreshold, minPoints, 2000, angleThreshold, normalVec}
 }
 
 // FindPlanes takes in a point cloud and outputs an array of the planes and a point cloud of the leftover points.
 func (pcps *pointCloudPlaneSegmentation) FindPlanes(ctx context.Context) ([]pc.Plane, pc.PointCloud, error) {
 	planes := make([]pc.Plane, 0)
 	var err error
-	plane, nonPlaneCloud, err := SegmentPlane(ctx, pcps.cloud, pcps.nIterations, pcps.threshold)
+	plane, nonPlaneCloud, err := SegmentPlane(ctx, pcps.cloud, pcps.nIterations, pcps.distanceThreshold)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -223,7 +305,7 @@ func (pcps *pointCloudPlaneSegmentation) FindPlanes(ctx context.Context) ([]pc.P
 	var lastNonPlaneCloud pc.PointCloud
 	for {
 		lastNonPlaneCloud = nonPlaneCloud
-		smallerPlane, smallerNonPlaneCloud, err := SegmentPlane(ctx, nonPlaneCloud, pcps.nIterations, pcps.threshold)
+		smallerPlane, smallerNonPlaneCloud, err := SegmentPlane(ctx, nonPlaneCloud, pcps.nIterations, pcps.distanceThreshold)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -241,6 +323,24 @@ func (pcps *pointCloudPlaneSegmentation) FindPlanes(ctx context.Context) ([]pc.P
 		planes = append(planes, smallerPlane)
 	}
 	return planes, nonPlaneCloud, nil
+}
+
+// FindGroundPlane takes in a point cloud and outputs an array of a ground like plane and a point cloud of the leftover points.
+func (pcps *pointCloudPlaneSegmentation) FindGroundPlane(ctx context.Context) (pc.Plane, pc.PointCloud, error) {
+	var err error
+	plane, nonPlaneCloud, err := SegmentPlaneWRTGround(ctx, pcps.cloud, pcps.nIterations,
+		pcps.angleThreshold, pcps.distanceThreshold, pcps.normalVec)
+	if err != nil {
+		return nil, nil, err
+	}
+	planeCloud, err := plane.PointCloud()
+	if err != nil {
+		return nil, nil, err
+	}
+	if planeCloud.Size() <= pcps.minPoints {
+		return nil, pcps.cloud, nil
+	}
+	return plane, nonPlaneCloud, nil
 }
 
 // VoxelGridPlaneConfig contains the parameters needed to create a Plane from a VoxelGrid.
@@ -286,6 +386,11 @@ func (vgps *voxelGridPlaneSegmentation) FindPlanes(ctx context.Context) ([]pc.Pl
 		return nil, nil, err
 	}
 	return planes, nonPlaneCloud, nil
+}
+
+// FindGroundPlane is yet to be implemented.
+func (vgps *voxelGridPlaneSegmentation) FindGroundPlane(ctx context.Context) (pc.Plane, pc.PointCloud, error) {
+	return nil, nil, errors.New("function not yet implemented")
 }
 
 // SplitPointCloudByPlane divides the point cloud in two point clouds, given the equation of a plane.
