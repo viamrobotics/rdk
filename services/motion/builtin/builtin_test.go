@@ -10,7 +10,8 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
-	// register.
+
+	// registers all components
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
@@ -468,7 +469,7 @@ func TestMoveOnMapTimeout(t *testing.T) {
 	test.That(t, success, test.ShouldBeFalse)
 }
 
-func TestMoveOnGlobe(t *testing.T) {
+func TestPlanMoveOnGlobe(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 
