@@ -298,6 +298,7 @@ func TestOOBArm(t *testing.T) {
 		err := injectedArm.MoveToJointPositions(context.Background(), &pb.JointPositions{Values: vals}, nil)
 		output := "joint 5 needs to be within range [-6.283185307179586, 6.283185307179586] and cannot be moved to 6.981317007977318"
 		test.That(t, err.Error(), test.ShouldEqual, output)
+
 	})
 
 	t.Run("MoveToPosition works when IB", func(t *testing.T) {
