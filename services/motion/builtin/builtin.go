@@ -169,8 +169,7 @@ func (ms *builtIn) Move(
 				continue
 			}
 			r := resources[name]
-			err := r.GoToInputs(ctx, inputs)
-			if err != nil {
+			if err := r.GoToInputs(ctx, inputs); err != nil {
 				if actuator, ok := r.(resource.InputEnabledActuator); ok {
 					if stopErr := actuator.Stop(ctx, nil); stopErr != nil {
 						return false, errors.Wrap(err, stopErr.Error())
@@ -258,6 +257,9 @@ func (ms *builtIn) MoveOnGlobe(
 	for i := 1; i < len(plan); i++ {
 		ms.logger.Info(plan[i])
 		if err := kb.GoToInputs(ctx, plan[i]); err != nil {
+			if stopErr := kb.Stop(ctx, nil); stopErr != nil {
+				return false, errors.Wrap(err, stopErr.Error())
+			}
 			return false, err
 		}
 	}
