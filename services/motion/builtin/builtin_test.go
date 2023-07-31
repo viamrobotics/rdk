@@ -19,6 +19,7 @@ import (
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/base/fake"
+	"go.viam.com/rdk/components/base/kinematicbase"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/components/movementsensor"
@@ -340,11 +341,13 @@ func TestMoveOnMapLongDistance(t *testing.T) {
 	goal := spatialmath.NewPoseFromPoint(r3.Vector{X: -32.508 * 1000, Y: -2.092 * 1000})
 	extra := make(map[string]interface{})
 	extra["planning_alg"] = "cbirrt"
+
 	path, _, err := ms.(*builtIn).planMoveOnMap(
 		context.Background(),
 		base.Named("test_base"),
 		goal,
 		slam.Named("test_slam"),
+		kinematicbase.NewKinematicBaseOptions(),
 		extra,
 	)
 	test.That(t, err, test.ShouldBeNil)
@@ -393,6 +396,7 @@ func TestMoveOnMap(t *testing.T) {
 			base.Named("test_base"),
 			goal,
 			slam.Named("test_slam"),
+			kinematicbase.NewKinematicBaseOptions(),
 			nil,
 		)
 		test.That(t, err, test.ShouldBeNil)
@@ -496,8 +500,7 @@ func TestMoveOnGlobe(t *testing.T) {
 			dst,
 			injectedMovementSensor.Name(),
 			nil,
-			math.NaN(),
-			math.NaN(),
+			kinematicbase.NewKinematicBaseOptions(),
 			motionCfg,
 		)
 		test.That(t, err, test.ShouldBeNil)
@@ -521,8 +524,7 @@ func TestMoveOnGlobe(t *testing.T) {
 			dst,
 			injectedMovementSensor.Name(),
 			[]*spatialmath.GeoObstacle{geoObstacle},
-			math.NaN(),
-			math.NaN(),
+			kinematicbase.NewKinematicBaseOptions(),
 			motionCfg,
 		)
 		test.That(t, err, test.ShouldBeNil)
@@ -547,8 +549,7 @@ func TestMoveOnGlobe(t *testing.T) {
 			dst,
 			injectedMovementSensor.Name(),
 			[]*spatialmath.GeoObstacle{geoObstacle},
-			math.NaN(),
-			math.NaN(),
+			kinematicbase.NewKinematicBaseOptions(),
 			motionCfg,
 		)
 		test.That(t, err, test.ShouldNotBeNil)
