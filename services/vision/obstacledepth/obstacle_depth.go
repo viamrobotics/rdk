@@ -112,11 +112,10 @@ func registerObstacleDepth(
 		return nil, errors.New("config for obstacle_depth cannot be nil")
 	}
 
-	// If you have no intrinsics, you get the dumb, quick version of obstacles_depth
+	// If you have no intrinsics, you just get the shortest depth in the depth map as a Geometry point
 	if conf.intrinsics == nil {
 		r.Logger().Warn("obstacle depth started without camera's intrinsic parameters")
 		segmenter := func(ctx context.Context, src camera.VideoSource) ([]*vision.Object, error) {
-			// Return the shortest depth in the depth map as a Geometry point
 			depthStream, err := src.Stream(ctx)
 			if err != nil {
 				return nil, errors.Errorf("could not get stream from %s", src)
@@ -124,9 +123,8 @@ func registerObstacleDepth(
 			pic, release, err := depthStream.Next(ctx)
 			if err != nil {
 				return nil, errors.Errorf("could not get image from stream %s", depthStream)
-			} // maybe try again real quick somehow
+			}
 			defer release()
-			// Get the data from the depth map
 			dm, err := rimage.ConvertImageToDepthMap(ctx, pic)
 			if err != nil {
 				return nil, errors.New("could not convert image to depth map")
@@ -167,7 +165,7 @@ func (o *obsDepth) buildObsDepthWithIntrinsics() segmentation.Segmenter {
 		pic, release, err := depthStream.Next(ctx)
 		if err != nil {
 			return nil, errors.Errorf("could not get image from stream %s", depthStream)
-		} // maybe try again real quick somehow
+		}
 		defer release()
 		dm, err := rimage.ConvertImageToDepthMap(ctx, pic)
 		if err != nil {
