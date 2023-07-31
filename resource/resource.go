@@ -144,9 +144,9 @@ type Shaped interface {
 	Geometries(context.Context, map[string]interface{}) ([]spatialmath.Geometry, error)
 }
 
-// InputEnabledActuator is a standard interface for all things that interact with the frame system.
-// This allows us to figure out where they currently are, and then move them.
-// Input units are always in meters or radians.
+// InputEnabledActuator is an actuator that interacts with the frame system.
+// This allows us to figure out where the actuator currently is and then
+// move it. Input units are always in meters or radians.
 type InputEnabledActuator interface {
 	Actuator
 	referenceframe.InputEnabled
