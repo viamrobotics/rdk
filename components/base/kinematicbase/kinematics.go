@@ -44,6 +44,8 @@ const (
 
 	// minimumMovementThresholdMM is the amount that a base needs to move for it not to be considered stationary.
 	defaultMinimumMovementThresholdMM = 20 // mm
+
+	defaultPositionOnlyMode = true
 )
 
 // Options contains values used for execution of base movement.
@@ -70,6 +72,8 @@ type Options struct {
 
 	// MinimumMovementThresholdMM is the amount that a base needs to move for it not to be considered stationary.
 	MinimumMovementThresholdMM float64
+
+	PositionOnlyMode bool
 }
 
 // NewKinematicBaseOptions creates a struct with values used for execution of base movement.
@@ -83,6 +87,7 @@ func NewKinematicBaseOptions() Options {
 		PlanDeviationThresholdMM:   defaultPlanDeviationThresholdMM,
 		Timeout:                    defaultTimeout,
 		MinimumMovementThresholdMM: defaultMinimumMovementThresholdMM,
+		PositionOnlyMode:           defaultPositionOnlyMode,
 	}
 	return options
 }

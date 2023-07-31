@@ -10,7 +10,6 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
-
 	// register.
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
@@ -364,13 +363,15 @@ func TestMoveOnMap(t *testing.T) {
 	t.Run("check that path is planned around obstacle", func(t *testing.T) {
 		t.Parallel()
 		ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd")
+		extra := make(map[string]interface{})
+		extra["motion_profile"] = "orientation"
 		path, _, err := ms.(*builtIn).planMoveOnMap(
 			context.Background(),
 			base.Named("test_base"),
 			goal,
 			slam.Named("test_slam"),
 			kinematicbase.NewKinematicBaseOptions(),
-			nil,
+			extra,
 		)
 		test.That(t, err, test.ShouldBeNil)
 		// path of length 2 indicates a path that goes straight through central obstacle
@@ -410,6 +411,7 @@ func TestMoveOnMap(t *testing.T) {
 
 	t.Run("check that position-only mode returns 2D plan", func(t *testing.T) {
 		t.Parallel()
+		ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd")
 		extra := make(map[string]interface{})
 		extra["motion_profile"] = "position_only"
 		path, _, err := ms.(*builtIn).planMoveOnMap(
@@ -427,6 +429,7 @@ func TestMoveOnMap(t *testing.T) {
 
 	t.Run("check that position-only mode executes", func(t *testing.T) {
 		t.Parallel()
+		ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd")
 		extra := make(map[string]interface{})
 		extra["motion_profile"] = "position_only"
 		success, err := ms.MoveOnMap(

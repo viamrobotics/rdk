@@ -541,7 +541,7 @@ func (ms *builtIn) planMoveOnMap(
 	if err != nil {
 		return nil, nil, err
 	}
-	if len(limits) == 2 {
+	if kinematicsOptions.PositionOnlyMode {
 		inputs = inputs[:2]
 	}
 	ms.logger.Debugf("base position: %v", inputs)
