@@ -26,7 +26,7 @@ type FrameSystemService struct {
 		srcpc pointcloud.PointCloud,
 		srcName, dstName string,
 	) (pointcloud.PointCloud, error)
-	CurrentInputsFunc func(ctx context.Context) (map[string][]referenceframe.Input, map[string]resource.InputEnabled, error)
+	CurrentInputsFunc func(ctx context.Context) (map[string][]referenceframe.Input, map[string]referenceframe.InputEnabled, error)
 	FrameSystemFunc   func(
 		ctx context.Context,
 		additionalTransforms []*referenceframe.LinkInFrame,
@@ -80,7 +80,7 @@ func (fs *FrameSystemService) TransformPointCloud(
 // CurrentInputs calls the injected method or the real variant.
 func (fs *FrameSystemService) CurrentInputs(
 	ctx context.Context,
-) (map[string][]referenceframe.Input, map[string]resource.InputEnabled, error) {
+) (map[string][]referenceframe.Input, map[string]referenceframe.InputEnabled, error) {
 	if fs.CurrentInputsFunc == nil {
 		return fs.Service.CurrentInputs(ctx)
 	}

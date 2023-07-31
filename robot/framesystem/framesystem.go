@@ -40,7 +40,7 @@ type Service interface {
 		additionalTransforms []*referenceframe.LinkInFrame,
 	) (*referenceframe.PoseInFrame, error)
 	TransformPointCloud(ctx context.Context, srcpc pointcloud.PointCloud, srcName, dstName string) (pointcloud.PointCloud, error)
-	CurrentInputs(ctx context.Context) (map[string][]referenceframe.Input, map[string]resource.InputEnabled, error)
+	CurrentInputs(ctx context.Context) (map[string][]referenceframe.Input, map[string]referenceframe.InputEnabled, error)
 	FrameSystem(ctx context.Context, additionalTransforms []*referenceframe.LinkInFrame) (referenceframe.FrameSystem, error)
 }
 
@@ -184,7 +184,7 @@ func (svc *frameSystemService) TransformPose(
 		if !ok {
 			return nil, DependencyNotFoundError(name)
 		}
-		inputEnabled, ok := component.(resource.InputEnabled)
+		inputEnabled, ok := component.(referenceframe.InputEnabled)
 		if !ok {
 			return nil, NotInputEnabledError(component)
 		}
@@ -209,7 +209,7 @@ func (svc *frameSystemService) TransformPose(
 // InputEnabled resources that those inputs came from.
 func (svc *frameSystemService) CurrentInputs(
 	ctx context.Context,
-) (map[string][]referenceframe.Input, map[string]resource.InputEnabled, error) {
+) (map[string][]referenceframe.Input, map[string]referenceframe.InputEnabled, error) {
 	fs, err := svc.FrameSystem(ctx, []*referenceframe.LinkInFrame{})
 	if err != nil {
 		return nil, nil, err
@@ -217,7 +217,7 @@ func (svc *frameSystemService) CurrentInputs(
 	input := referenceframe.StartPositions(fs)
 
 	// build maps of relevant components and inputs from initial inputs
-	resources := map[string]resource.InputEnabled{}
+	resources := map[string]referenceframe.InputEnabled{}
 	for name, original := range input {
 		// skip frames with no input
 		if len(original) == 0 {
@@ -229,7 +229,7 @@ func (svc *frameSystemService) CurrentInputs(
 		if !ok {
 			return nil, nil, DependencyNotFoundError(name)
 		}
-		inputEnabled, ok := component.(resource.InputEnabled)
+		inputEnabled, ok := component.(referenceframe.InputEnabled)
 		if !ok {
 			return nil, nil, NotInputEnabledError(component)
 		}
