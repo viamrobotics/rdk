@@ -36,6 +36,13 @@ func ComputePosition(model referenceframe.Frame, joints *pb.JointPositions) (spa
 // position of the end effector as a protobuf ArmPosition even when the arm is in an out of bounds state.
 // This is performed statelessly without changing any data.
 func ComputeOOBPosition(model referenceframe.Frame, joints *pb.JointPositions) (spatialmath.Pose, error) {
+	if joints == nil {
+		return nil, referenceframe.ErrNilJointPositions
+	}
+	if model == nil {
+		return nil, referenceframe.ErrNilModelFrame
+	}
+
 	if len(joints.Values) != len(model.DoF()) {
 		return nil, errors.Errorf(
 			"incorrect number of joints passed to ComputePosition. Want: %d, got: %d",
