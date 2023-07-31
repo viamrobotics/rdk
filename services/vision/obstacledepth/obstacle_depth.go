@@ -167,7 +167,7 @@ func buildObsDepthNoIntrinsics() segmentation.Segmenter {
 // before clustering and projecting those points into 3D obstacles.
 func (o *obsDepth) buildObsDepthWithIntrinsics() segmentation.Segmenter {
 	return func(ctx context.Context, src camera.VideoSource) ([]*vision.Object, error) {
-		// FIRST check if we have intrinsics here or in the camera properties. If not, don't even try
+		// Check if we have intrinsics here or in the camera properties. If not, don't even try
 		props, err := src.Properties(ctx)
 		if err != nil {
 			return nil, err
