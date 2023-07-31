@@ -43,12 +43,14 @@ type ObstaclesDepthConfig struct {
 	intrinsics *transform.PinholeCameraIntrinsics
 }
 
+// obsPoint is a useful intermediate struct (which pts are obstacles).
 type obsPoint struct {
 	point      image.Point
 	isObstacle bool
 	depth      rimage.Depth
 }
 
+// obsDepth is the underlying struct actually used by the service.
 type obsDepth struct {
 	dm         *rimage.DepthMap
 	ptChunks   [][]obsPoint
@@ -62,7 +64,7 @@ type obsDepth struct {
 }
 
 const (
-	// the first 3 consts are parameters from Manduchi et. al.
+	// the first 3 consts are parameters from Manduchi et al.
 	defaultHmin     = 0.0
 	defaultHmax     = 150.0
 	defaultThetamax = math.Pi / 4
@@ -297,7 +299,7 @@ func (o *obsDepth) isCompatible(p1, p2 image.Point) bool {
 	return true
 }
 
-// clustersToBoxes will turn the clusters we get from kmeans into boxes
+// clustersToBoxes will turn the clusters we get from kmeans into boxes.
 func (o *obsDepth) clustersToBoxes(clusters clusters.Clusters) ([]spatialmath.Geometry, error) {
 	boxes := make([]spatialmath.Geometry, 0, len(clusters))
 
