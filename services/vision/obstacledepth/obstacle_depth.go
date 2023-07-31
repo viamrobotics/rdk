@@ -169,7 +169,6 @@ func (o *obsDepth) buildObsDepthWithIntrinsics() segmentation.Segmenter {
 			return nil, errors.Errorf("could not get image from stream %s", depthStream)
 		} // maybe try again real quick somehow
 		defer release()
-		// Get the data from the depth map
 		dm, err := rimage.ConvertImageToDepthMap(ctx, pic)
 		if err != nil {
 			return nil, errors.New("could not convert image to depth map")
@@ -238,7 +237,7 @@ func (o *obsDepth) buildObsDepthWithIntrinsics() segmentation.Segmenter {
 	}
 }
 
-// Grab points from the depthmap. Sample every n.
+// makePointList will grab points from the depthmap. Sample every n.
 func (o *obsDepth) makePointList(n int) {
 	w, h := o.dm.Width(), o.dm.Height()
 	out := make([]obsPoint, 0, w*h)
@@ -251,7 +250,7 @@ func (o *obsDepth) makePointList(n int) {
 	o.ptChunks = splitPtList(out, chunkSize)
 }
 
-// Split the pointlist into a list of lists, len(chunk) = chunkSize (not the last one).
+// splitPtList will split the pointlist into a list of lists, len(chunk) = chunkSize (not the last one).
 func splitPtList(slice []obsPoint, chunkSize int) [][]obsPoint {
 	var chunks [][]obsPoint
 	for i := 0; i < len(slice); i += chunkSize {
@@ -269,7 +268,8 @@ func splitPtList(slice []obsPoint, chunkSize int) [][]obsPoint {
 	return chunks
 }
 
-// Returns true/false if compatible with another point in the depthmap.
+// isObstaclePoint returns true/false if compatible with another point in the depthmap.
+// as defined by Manduchi et al.
 func (o *obsDepth) isObstaclePoint(point image.Point) bool {
 	for _, p := range o.ptList {
 		if point == p.point {
@@ -282,7 +282,8 @@ func (o *obsDepth) isObstaclePoint(point image.Point) bool {
 	return false
 }
 
-// Check compatibility between 2 points.
+// isCompatible will check compatibility between 2 points.
+// as defined by Manduchi et al.
 func (o *obsDepth) isCompatible(p1, p2 image.Point) bool {
 	// thetaMax in radians
 	xdist, ydist := math.Abs(float64(p1.X-p2.X)), math.Abs(float64(p1.Y-p2.Y))
@@ -298,7 +299,7 @@ func (o *obsDepth) isCompatible(p1, p2 image.Point) bool {
 	return true
 }
 
-// Turn the clusters we get from kmeans into boxes..
+// clustersToBoxes will turn the clusters we get from kmeans into boxes
 func (o *obsDepth) clustersToBoxes(clusters clusters.Clusters) ([]spatialmath.Geometry, error) {
 	boxes := make([]spatialmath.Geometry, 0, len(clusters))
 
@@ -344,7 +345,7 @@ func (o *obsDepth) clustersToBoxes(clusters clusters.Clusters) ([]spatialmath.Ge
 	return boxes, nil
 }
 
-// Do Kmeans clustering on all the 2D obstacle points.
+// performKMeans will do k-means clustering on all the 2D obstacle points.
 func (o *obsDepth) performKMeans(k int) (clusters.Clusters, error) {
 	var d clusters.Observations
 	for _, pt := range o.ptList {
