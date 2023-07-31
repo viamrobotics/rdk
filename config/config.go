@@ -890,7 +890,7 @@ type PackageConfig struct {
 	// Version of the package ID hosted by a remote PackageService. If not specified "latest" is assumed.
 	Version string `json:"version,omitempty"`
 	// Types of the Package. If not specified it is assumed to be ml_model.
-	Type PackageType `json:"omitempty"`
+	Type PackageType `json:"type,omitempty"`
 
 	alreadyValidated bool
 	cachedErr        error

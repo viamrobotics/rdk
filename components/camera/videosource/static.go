@@ -33,7 +33,7 @@ func init() {
 }
 
 func newCamera(ctx context.Context, name resource.Name, newConf *fileSourceConfig) (camera.Camera, error) {
-	videoSrc := &fileSource{newConf.Color, newConf.Depth, newConf.PointCloud, newConf.CameraParameters, nil}
+	videoSrc := &fileSource{newConf.Color, newConf.Depth, newConf.PointCloud, newConf.CameraParameters, nil, nil}
 	imgType := camera.ColorStream
 	if newConf.Color == "" {
 		imgType = camera.DepthStream
@@ -57,6 +57,7 @@ type fileSource struct {
 	DepthFN      string
 	PointCloudFN string
 	Intrinsics   *transform.PinholeCameraIntrinsics
+	colorImg     image.Image
 	pc           pointcloud.PointCloud
 }
 
@@ -83,11 +84,36 @@ func (fs *fileSource) Read(ctx context.Context) (image.Image, func(), error) {
 		}
 		return img, func() {}, err
 	}
+
+	if fs.colorImg != nil {
+		return fs.colorImg, func() {}, nil
+	}
+
 	img, err := rimage.NewImageFromFile(fs.ColorFN)
 	if err != nil {
 		return nil, nil, err
 	}
-	return img, func() {}, err
+
+	// x264 only supports even resolutions. Not every call to this function will
+	// be in the context of an x264 stream, but we crop every image to even
+	// dimensions anyways.
+	oddWidth := img.Bounds().Dx()%2 != 0
+	oddHeight := img.Bounds().Dy()%2 != 0
+	if oddWidth || oddHeight {
+		newWidth := img.Bounds().Dx()
+		newHeight := img.Bounds().Dy()
+		if oddWidth {
+			newWidth--
+		}
+		if oddHeight {
+			newHeight--
+		}
+		fs.colorImg = img.SubImage(image.Rect(0, 0, newWidth, newHeight))
+	} else {
+		fs.colorImg = img
+	}
+
+	return fs.colorImg, func() {}, err
 }
 
 // NextPointCloud returns the point cloud from projecting the rgb and depth image using the intrinsic parameters,
