@@ -53,8 +53,8 @@ type obsDepth struct {
 	dm         *rimage.DepthMap
 	ptChunks   [][]obsPoint
 	ptList     []obsPoint
-	Hmin       float64
-	Hmax       float64
+	hMin       float64
+	hMax       float64
 	sinTheta   float64
 	intrinsics *transform.PinholeCameraIntrinsics
 	returnPCDs bool
@@ -150,7 +150,7 @@ func registerObstacleDepth(
 	}
 
 	myObsDep := obsDepth{
-		Hmin: conf.Hmin, Hmax: conf.Hmax, sinTheta: math.Sin(conf.ThetaMax),
+		hMin: conf.Hmin, hMax: conf.Hmax, sinTheta: math.Sin(conf.ThetaMax),
 		intrinsics: conf.intrinsics, returnPCDs: conf.ReturnPCDs,
 	}
 	segmenter := myObsDep.buildObsDepthWithIntrinsics() // does the thing
@@ -287,7 +287,7 @@ func (o *obsDepth) isCompatible(p1, p2 image.Point) bool {
 	zdist := math.Abs(float64(o.dm.Get(p1)) - float64(o.dm.Get(p2)))
 	dist := math.Sqrt((xdist * xdist) + (ydist * ydist) + (zdist * zdist))
 
-	if ydist < o.Hmin || ydist > o.Hmax {
+	if ydist < o.hMin || ydist > o.hMax {
 		return false
 	}
 	if ydist/dist < o.sinTheta {
