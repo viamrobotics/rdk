@@ -45,7 +45,7 @@ renderPlugin();
     rendererParameters={{ canvas, context, alpha: true, antialias: true }}
     useLegacyLights={false}
     shadows={false}
-    size={mapSize.current}
+    size={$mapSize}
   >
     <Scene {name} />
   </Canvas>

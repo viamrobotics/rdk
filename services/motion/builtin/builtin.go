@@ -45,10 +45,8 @@ func init() {
 }
 
 const (
-	builtinOpLabel                    = "motion-service"
-	defaultLinearVelocityMillisPerSec = 300  // mm per second; used for bases only
-	defaultAngularVelocityDegsPerSec  = 60   // degrees per second; used for bases only
-	maxTravelDistance                 = 5e+6 // mm (or 5km)
+	builtinOpLabel    = "motion-service"
+	maxTravelDistance = 5e+6 // mm (or 5km)
 )
 
 // ErrNotImplemented is thrown when an unreleased function is called.
@@ -189,9 +187,10 @@ func (ms *builtIn) MoveOnMap(
 	extra map[string]interface{},
 ) (bool, error) {
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
-	kinematicsOptions := NewKinematicBaseOptions()
+	kinematicsOptions := kinematicbase.NewKinematicBaseOptions()
+
 	// make call to motionplan
-	plan, kb, err := ms.planMoveOnMap(ctx, componentName, destination, slamName, options, extra)
+	plan, kb, err := ms.planMoveOnMap(ctx, componentName, destination, slamName, kinematicsOptions, extra)
 	if err != nil {
 		return false, fmt.Errorf("error making plan for MoveOnMap: %w", err)
 	}
@@ -214,16 +213,19 @@ func (ms *builtIn) MoveOnGlobe(
 	heading float64,
 	movementSensorName resource.Name,
 	obstacles []*spatialmath.GeoObstacle,
-	linearVelocityMillisPerSec float64,
-	angularVelocityDegsPerSec float64,
+	linearVelocity float64,
+	angularVelocity float64,
 	extra map[string]interface{},
 ) (bool, error) {
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
 
-	kinematicsOptions := NewKinematicBaseOptions()
-	kinematicsOptions.LinearVelocityMMPerSec = linearVelocityMillisPerSec
-	kinematicsOptions.AngularVelocityDegsPerSec = angularVelocityDegsPerSec
-	
+	kinematicsOptions := kinematicbase.NewKinematicBaseOptions()
+	kinematicsOptions.LinearVelocityMMPerSec = linearVelocity
+	kinematicsOptions.AngularVelocityDegsPerSec = angularVelocity
+	kinematicsOptions.GoalRadiusMM = 3000
+	kinematicsOptions.HeadingThresholdDegrees = 8
+	kinematicsOptions.PlanDeviationThresholdMM = 5000
+
 	plan, kb, err := ms.planMoveOnGlobe(
 		ctx,
 		componentName,
@@ -326,8 +328,7 @@ func (ms *builtIn) planMoveOnGlobe(
 	if fake, ok := b.(*fake.Base); ok {
 		kb, err = kinematicbase.WrapWithFakeKinematics(ctx, fake, localizer, limits, kinematicsOptions)
 	} else {
-		kb, err = kinematicbase.WrapWithKinematics(ctx, b, ms.logger, localizer, limits,
-			kinematicsOptions)
+		kb, err = kinematicbase.WrapWithKinematics(ctx, b, ms.logger, localizer, limits, kinematicsOptions)
 	}
 	if err != nil {
 		return nil, nil, err

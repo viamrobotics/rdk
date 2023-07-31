@@ -17,27 +17,24 @@ $: latRounded = decimalFormat.format(lat);
 const dispatch = createEventDispatcher<{ input: LngLat }>();
 
 const handleLng = (event: CustomEvent) => {
-  dispatch('input', { lat: lat ?? 0, lng: Number.parseFloat(event.detail.value) });
+  const { value } = event.detail;
+  if (!value) {
+    return;
+  }
+  dispatch('input', { lat: lat ?? 0, lng: Number.parseFloat(value) });
 };
 
 const handleLat = (event: CustomEvent) => {
-  dispatch('input', { lng: lng ?? 0, lat: Number.parseFloat(event.detail.value) });
+  const { value } = event.detail;
+  if (!value) {
+    return;
+  }
+  dispatch('input', { lng: lng ?? 0, lat: Number.parseFloat(value) });
 };
 
 </script>
 
 <div class='flex gap-1.5 items-end'>
-  <v-input
-    type='number'
-    label={label ?? 'Longitude'}
-    placeholder='0'
-    incrementor={readonly ? undefined : 'slider'}
-    value={lngRounded}
-    step={$mapZoom ** 5}
-    class='w-full'
-    on:input={handleLng}
-    {readonly}
-  />
   <v-input
     type='number'
     label={label ? '' : 'Latitude'}
@@ -47,6 +44,17 @@ const handleLat = (event: CustomEvent) => {
     step={$mapZoom ** 5}
     class='w-full'
     on:input={handleLat}
+    {readonly}
+  />
+  <v-input
+    type='number'
+    label={label ?? 'Longitude'}
+    placeholder='0'
+    incrementor={readonly ? undefined : 'slider'}
+    value={lngRounded}
+    step={$mapZoom ** 5}
+    class='w-full'
+    on:input={handleLng}
     {readonly}
   />
   <slot />

@@ -1,6 +1,6 @@
 {
   "name": "@viamrobotics/remote-control",
-  "version": "2.0.6",
+  "version": "2.0.8",
   "license": "Apache-2.0",
   "type": "module",
   "files": [
@@ -33,7 +33,7 @@
     "@types/three": "0.152.1",
     "@typescript-eslint/eslint-plugin": "^5.60.1",
     "@typescript-eslint/parser": "^5.60.1",
-    "@viamrobotics/prime": "0.3.6",
+    "@viamrobotics/prime": "0.4.2",
     "@viamrobotics/rpc": "0.1.37",
     "@viamrobotics/sdk": "^0.2.4-rc.0",
     "@viamrobotics/three": "^0.0.2",
