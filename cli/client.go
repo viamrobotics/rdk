@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"net/url"
 	"os"
@@ -19,6 +20,7 @@ import (
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
+	"go.uber.org/multierr"
 	datapb "go.viam.com/api/app/data/v1"
 	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/utils"
@@ -32,6 +34,9 @@ import (
 	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/services/shell"
 )
+
+// ModuleUploadChunkSize sets the number of bytes included in each chunk of the upload stream.
+var ModuleUploadChunkSize = 32 * 1024
 
 // The AppClient provides all the CLI command functionality needed to talk
 // to the app service but not directly to robot parts.
@@ -251,6 +256,9 @@ func (c *AppClient) loadOrganizations() error {
 }
 
 func (c *AppClient) selectOrganization(orgStr string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
 	if orgStr != "" && (c.selectedOrg.Id == orgStr || c.selectedOrg.Name == orgStr) {
 		return nil
 	}
@@ -290,6 +298,52 @@ func (c *AppClient) selectOrganization(orgStr string) error {
 
 	c.selectedOrg = foundOrg
 	return nil
+}
+
+// GetOrg gets an org by an indentifying string. If the orgStr is an
+// org UUID, then this matchs on organization ID, otherwise this will match
+// on organization name.
+func (c *AppClient) GetOrg(orgStr string) (*apppb.Organization, error) {
+	if err := c.ensureLoggedIn(); err != nil {
+		return nil, err
+	}
+	resp, err := c.client.ListOrganizations(c.c.Context, &apppb.ListOrganizationsRequest{})
+	if err != nil {
+		return nil, err
+	}
+	organizations := resp.GetOrganizations()
+	var orgIsID bool
+	if _, err := uuid.Parse(orgStr); err == nil {
+		orgIsID = true
+	}
+	for _, org := range organizations {
+		if orgIsID {
+			if org.Id == orgStr {
+				return org, nil
+			}
+		} else if org.Name == orgStr {
+			return org, nil
+		}
+	}
+	return nil, errors.Errorf("no organization found for %q", orgStr)
+}
+
+// GetUserOrgByPublicNamespace searches the logged in users orgs to see
+// if any have a matching public namespace.
+func (c *AppClient) GetUserOrgByPublicNamespace(publicNamespace string) (*apppb.Organization, error) {
+	if err := c.ensureLoggedIn(); err != nil {
+		return nil, err
+	}
+
+	if err := c.loadOrganizations(); err != nil {
+		return nil, err
+	}
+	for _, org := range *c.orgs {
+		if org.PublicNamespace == publicNamespace {
+			return org, nil
+		}
+	}
+	return nil, errors.Errorf("none of your organizations have a public namespace of %q", publicNamespace)
 }
 
 // ListOrganizations returns all organizations belonging to the currently authenticated user.
@@ -795,4 +849,155 @@ func (c *AppClient) StartRobotPartShell(
 
 	outputLoop()
 	return nil
+}
+
+// CreateModule wraps the grpc CreateModule request.
+func (c *AppClient) CreateModule(moduleName, organizationID string) (*apppb.CreateModuleResponse, error) {
+	if err := c.ensureLoggedIn(); err != nil {
+		return nil, err
+	}
+	req := apppb.CreateModuleRequest{
+		Name:           moduleName,
+		OrganizationId: organizationID,
+	}
+	return c.client.CreateModule(c.c.Context, &req)
+}
+
+// UpdateModule wraps the grpc UpdateModule request.
+func (c *AppClient) UpdateModule(moduleID ModuleID, manifest ModuleManifest) (*apppb.UpdateModuleResponse, error) {
+	if err := c.ensureLoggedIn(); err != nil {
+		return nil, err
+	}
+	var models []*apppb.Model
+	for _, moduleComponent := range manifest.Models {
+		models = append(models, moduleComponentToProto(moduleComponent))
+	}
+	visibility, err := visibilityToProto(manifest.Visibility)
+	if err != nil {
+		return nil, err
+	}
+	req := apppb.UpdateModuleRequest{
+		ModuleId:    moduleID.toString(),
+		Visibility:  visibility,
+		Url:         manifest.URL,
+		Description: manifest.Description,
+		Models:      models,
+		Entrypoint:  manifest.Entrypoint,
+	}
+	return c.client.UpdateModule(c.c.Context, &req)
+}
+
+// UploadModuleFile wraps the grpc UploadModuleFile request.
+func (c *AppClient) UploadModuleFile(
+	moduleID ModuleID,
+	version,
+	platform string,
+	file *os.File,
+) (*apppb.UploadModuleFileResponse, error) {
+	if err := c.ensureLoggedIn(); err != nil {
+		return nil, err
+	}
+	ctx := c.c.Context
+
+	stream, err := c.client.UploadModuleFile(ctx)
+	if err != nil {
+		return nil, err
+	}
+	moduleFileInfo := apppb.ModuleFileInfo{
+		ModuleId: moduleID.toString(),
+		Version:  version,
+		Platform: platform,
+	}
+	req := &apppb.UploadModuleFileRequest{
+		ModuleFile: &apppb.UploadModuleFileRequest_ModuleFileInfo{ModuleFileInfo: &moduleFileInfo},
+	}
+	if err := stream.Send(req); err != nil {
+		return nil, err
+	}
+
+	var errs error
+	// We do not add the EOF as an error because all server-side errors trigger an EOF on the stream
+	// This results in extra clutter to the error msg
+	if err := sendModuleUploadRequests(ctx, stream, file, c.c.App.Writer); err != nil && !errors.Is(err, io.EOF) {
+		errs = multierr.Combine(errs, errors.Wrapf(err, "error uploading %s", file.Name()))
+	}
+
+	resp, closeErr := stream.CloseAndRecv()
+	errs = multierr.Combine(errs, closeErr)
+	return resp, errs
+}
+
+func sendModuleUploadRequests(ctx context.Context, stream apppb.AppService_UploadModuleFileClient, file *os.File, stdout io.Writer) error {
+	stat, err := file.Stat()
+	if err != nil {
+		return err
+	}
+	fileSize := stat.Size()
+	uploadedBytes := 0
+	// Close the line with the progress reading
+	defer fmt.Fprint(stdout, "\n")
+
+	//nolint:errcheck
+	defer stream.CloseSend()
+	// Loop until there is no more content to be read from file or the context expires.
+	for {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		// Get the next UploadRequest from the file.
+		uploadReq, err := getNextModuleUploadRequest(file)
+
+		// EOF means we've completed successfully.
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
+
+		if err != nil {
+			return errors.Wrap(err, "file reading error")
+		}
+
+		if err = stream.Send(uploadReq); err != nil {
+			return err
+		}
+		uploadedBytes += len(uploadReq.GetFile())
+		// Simple progress reading until we have a proper tui library
+		uploadPercent := int(math.Ceil(100 * float64(uploadedBytes) / float64(fileSize)))
+		fmt.Fprintf(stdout, "\r\aUploading... %d%% (%d/%d bytes)", uploadPercent, uploadedBytes, fileSize)
+	}
+}
+
+func getNextModuleUploadRequest(file *os.File) (*apppb.UploadModuleFileRequest, error) {
+	// get the next chunk of bytes from the file
+	byteArr := make([]byte, ModuleUploadChunkSize)
+	numBytesRead, err := file.Read(byteArr)
+	if err != nil {
+		return nil, err
+	}
+	if numBytesRead < ModuleUploadChunkSize {
+		byteArr = byteArr[:numBytesRead]
+	}
+	return &apppb.UploadModuleFileRequest{
+		ModuleFile: &apppb.UploadModuleFileRequest_File{
+			File: byteArr,
+		},
+	}, nil
+}
+
+func visibilityToProto(visibility ModuleVisibility) (apppb.Visibility, error) {
+	switch visibility {
+	case ModuleVisibilityPrivate:
+		return apppb.Visibility_VISIBILITY_PRIVATE, nil
+	case ModuleVisibilityPublic:
+		return apppb.Visibility_VISIBILITY_PUBLIC, nil
+	default:
+		return apppb.Visibility_VISIBILITY_UNSPECIFIED,
+			errors.Errorf("Invalid module visibility. Must be either '%s' or '%s'", ModuleVisibilityPublic, ModuleVisibilityPrivate)
+	}
+}
+
+func moduleComponentToProto(moduleComponent ModuleComponent) *apppb.Model {
+	return &apppb.Model{
+		Api:   moduleComponent.API,
+		Model: moduleComponent.Model,
+	}
 }

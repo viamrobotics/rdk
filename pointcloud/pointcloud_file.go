@@ -8,6 +8,7 @@ import (
 	"image/color"
 	"io"
 	"math"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -40,6 +41,12 @@ func NewFromFile(fn string, logger golog.Logger) (PointCloud, error) {
 	switch filepath.Ext(fn) {
 	case ".las":
 		return NewFromLASFile(fn, logger)
+	case ".pcd":
+		f, err := os.Open(filepath.Clean(fn))
+		if err != nil {
+			return nil, err
+		}
+		return ReadPCD(f)
 	default:
 		return nil, errors.Errorf("do not know how to read file %q", fn)
 	}

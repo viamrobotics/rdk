@@ -5,6 +5,8 @@ package kinematicbase
 import (
 	"context"
 
+	"github.com/edaniels/golog"
+
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/motion"
@@ -23,6 +25,7 @@ type KinematicBase interface {
 func WrapWithKinematics(
 	ctx context.Context,
 	b base.Base,
+	logger golog.Logger,
 	localizer motion.Localizer,
 	limits []referenceframe.Limit,
 	maxLinearVelocityMillisPerSec float64,
@@ -35,7 +38,7 @@ func WrapWithKinematics(
 
 	// TP-space PTG planning does not yet support 0 turning radius
 	if properties.TurningRadiusMeters == 0 {
-		return wrapWithDifferentialDriveKinematics(ctx, b, localizer, limits, maxLinearVelocityMillisPerSec, maxAngularVelocityDegsPerSec)
+		return wrapWithDifferentialDriveKinematics(ctx, b, logger, localizer, limits, maxLinearVelocityMillisPerSec, maxAngularVelocityDegsPerSec)
 	}
 	return wrapWithPTGKinematics(ctx, b, maxLinearVelocityMillisPerSec, maxAngularVelocityDegsPerSec)
 }

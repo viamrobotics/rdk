@@ -18,7 +18,7 @@ export let webrtcEnabled: boolean;
 export let host: string;
 export let signalingAddress: string;
 export let bakedAuth: { authEntity?: string; creds?: Credentials; } = {};
-export let supportedAuthTypes: string[];
+export let supportedAuthTypes: string[] = [];
 
 const {
   robotClient,

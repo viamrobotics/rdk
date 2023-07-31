@@ -31,10 +31,11 @@ type SerialNMEAMovementSensor struct {
 	cancelCtx               context.Context
 	cancelFunc              func()
 	logger                  golog.Logger
-	data                    gpsData
+	data                    GPSData
 	activeBackgroundWorkers sync.WaitGroup
 
 	disableNmea  bool
+	isClosed     bool
 	err          movementsensor.LastError
 	lastposition movementsensor.LastPosition
 
@@ -51,21 +52,13 @@ func NewSerialGPSNMEA(ctx context.Context, name resource.Name, conf *Config, log
 	if serialPath == "" {
 		return nil, fmt.Errorf("SerialNMEAMovementSensor expected non-empty string for %q", conf.SerialConfig.SerialPath)
 	}
-	correctionPath := conf.SerialConfig.SerialCorrectionPath
-	if correctionPath == "" {
-		correctionPath = serialPath
-		logger.Infof("SerialNMEAMovementSensor: correction_path using path: %s", correctionPath)
-	}
+
 	baudRate := conf.SerialConfig.SerialBaudRate
 	if baudRate == 0 {
 		baudRate = 38400
 		logger.Info("SerialNMEAMovementSensor: serial_baud_rate using default 38400")
 	}
-	correctionBaudRate := conf.SerialConfig.SerialCorrectionBaudRate
-	if correctionBaudRate == 0 {
-		correctionBaudRate = baudRate
-		logger.Infof("SerialNMEAMovementSensor: correction_baud using baud_rate: %d", baudRate)
-	}
+
 	disableNmea := conf.DisableNMEA
 	if disableNmea {
 		logger.Info("SerialNMEAMovementSensor: NMEA reading disabled")
@@ -86,18 +79,16 @@ func NewSerialGPSNMEA(ctx context.Context, name resource.Name, conf *Config, log
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
 	g := &SerialNMEAMovementSensor{
-		Named:              name.AsNamed(),
-		dev:                dev,
-		cancelCtx:          cancelCtx,
-		cancelFunc:         cancelFunc,
-		logger:             logger,
-		path:               serialPath,
-		correctionPath:     correctionPath,
-		baudRate:           uint(baudRate),
-		correctionBaudRate: uint(correctionBaudRate),
-		disableNmea:        disableNmea,
-		err:                movementsensor.NewLastError(1, 1),
-		lastposition:       movementsensor.NewLastPosition(),
+		Named:        name.AsNamed(),
+		dev:          dev,
+		cancelCtx:    cancelCtx,
+		cancelFunc:   cancelFunc,
+		logger:       logger,
+		path:         serialPath,
+		baudRate:     uint(baudRate),
+		disableNmea:  disableNmea,
+		err:          movementsensor.NewLastError(1, 1),
+		lastposition: movementsensor.NewLastPosition(),
 	}
 
 	if err := g.Start(ctx); err != nil {
@@ -120,7 +111,7 @@ func (g *SerialNMEAMovementSensor) Start(ctx context.Context) error {
 			default:
 			}
 
-			if !g.disableNmea {
+			if !g.disableNmea && !g.isClosed {
 				line, err := r.ReadString('\n')
 				if err != nil {
 					g.logger.Errorf("can't read gps serial %s", err)
@@ -129,7 +120,7 @@ func (g *SerialNMEAMovementSensor) Start(ctx context.Context) error {
 				}
 				// Update our struct's gps data in-place
 				g.mu.Lock()
-				err = g.data.parseAndUpdate(line)
+				err = g.data.ParseAndUpdate(line)
 				g.mu.Unlock()
 				if err != nil {
 					g.logger.Warnf("can't parse nmea sentence: %#v", err)
@@ -154,7 +145,7 @@ func (g *SerialNMEAMovementSensor) Position(ctx context.Context, extra map[strin
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 
-	currentPosition := g.data.location
+	currentPosition := g.data.Location
 
 	if currentPosition == nil {
 		return lastPosition, 0, errNilLocation
@@ -162,7 +153,7 @@ func (g *SerialNMEAMovementSensor) Position(ctx context.Context, extra map[strin
 
 	// if current position is (0,0) we will return the last non zero position
 	if g.lastposition.IsZeroPosition(currentPosition) && !g.lastposition.IsZeroPosition(lastPosition) {
-		return lastPosition, g.data.alt, g.err.Get()
+		return lastPosition, g.data.Alt, g.err.Get()
 	}
 
 	// updating lastposition if it is different from the current position
@@ -175,21 +166,21 @@ func (g *SerialNMEAMovementSensor) Position(ctx context.Context, extra map[strin
 		g.lastposition.SetLastPosition(currentPosition)
 	}
 
-	return currentPosition, g.data.alt, g.err.Get()
+	return currentPosition, g.data.Alt, g.err.Get()
 }
 
 // Accuracy returns the accuracy, hDOP and vDOP.
 func (g *SerialNMEAMovementSensor) Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return map[string]float32{"hDOP": float32(g.data.hDOP), "vDOP": float32(g.data.vDOP)}, nil
+	return map[string]float32{"hDOP": float32(g.data.HDOP), "vDOP": float32(g.data.VDOP)}, nil
 }
 
 // LinearVelocity linear velocity.
 func (g *SerialNMEAMovementSensor) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return r3.Vector{X: 0, Y: g.data.speed, Z: 0}, nil
+	return r3.Vector{X: 0, Y: g.data.Speed, Z: 0}, nil
 }
 
 // LinearAcceleration linear acceleration.
@@ -222,7 +213,7 @@ func (g *SerialNMEAMovementSensor) CompassHeading(ctx context.Context, extra map
 func (g *SerialNMEAMovementSensor) ReadFix(ctx context.Context) (int, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return g.data.fixQuality, nil
+	return g.data.FixQuality, nil
 }
 
 // Readings will use return all of the MovementSensor Readings.
@@ -254,10 +245,11 @@ func (g *SerialNMEAMovementSensor) Properties(ctx context.Context, extra map[str
 func (g *SerialNMEAMovementSensor) Close(ctx context.Context) error {
 	g.logger.Debug("Closing SerialNMEAMovementSensor")
 	g.cancelFunc()
-	defer g.activeBackgroundWorkers.Wait()
+	g.activeBackgroundWorkers.Wait()
 
 	g.mu.Lock()
 	defer g.mu.Unlock()
+	g.isClosed = true
 	if g.dev != nil {
 		if err := g.dev.Close(); err != nil {
 			return err

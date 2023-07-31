@@ -46,9 +46,9 @@ func NewClientFromConn(
 		client: pbClient,
 		logger: logger,
 	}
-	clientFrame, err := c.updateKinematics(ctx)
+	clientFrame, err := c.updateKinematics(ctx, nil)
 	if err != nil {
-		logger.Errorw("error getting model for arm; will not allow certain methods")
+		logger.Errorw("error getting model for arm; will not allow certain methods", "err", err)
 	} else {
 		c.model = clientFrame
 	}
@@ -157,16 +157,30 @@ func (c *client) IsMoving(ctx context.Context) (bool, error) {
 	return resp.IsMoving, nil
 }
 
-func (c *client) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
-	resp, err := c.client.GetGeometries(ctx, &commonpb.GetGeometriesRequest{Name: c.name})
+func (c *client) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.client.GetGeometries(ctx, &commonpb.GetGeometriesRequest{
+		Name:  c.name,
+		Extra: ext,
+	})
 	if err != nil {
 		return nil, err
 	}
 	return spatialmath.NewGeometriesFromProto(resp.GetGeometries())
 }
 
-func (c *client) updateKinematics(ctx context.Context) (referenceframe.Model, error) {
-	resp, err := c.client.GetKinematics(ctx, &commonpb.GetKinematicsRequest{Name: c.name})
+func (c *client) updateKinematics(ctx context.Context, extra map[string]interface{}) (referenceframe.Model, error) {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.client.GetKinematics(ctx, &commonpb.GetKinematicsRequest{
+		Name:  c.name,
+		Extra: ext,
+	})
 	if err != nil {
 		return nil, err
 	}

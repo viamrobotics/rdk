@@ -129,9 +129,9 @@ func TestMotorABPWM(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, 0.0)
 
-		features, err := m.Properties(ctx, nil)
+		properties, err := m.Properties(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, features[motor.PositionReporting], test.ShouldBeFalse)
+		test.That(t, properties.PositionReporting, test.ShouldBeFalse)
 	})
 
 	t.Run("motor (A/B/PWM) Set PWM frequency testing", func(t *testing.T) {
@@ -213,9 +213,9 @@ func TestMotorDirPWM(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, 0.0)
 
-		features, err := m.Properties(ctx, nil)
+		properties, err := m.Properties(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, features[motor.PositionReporting], test.ShouldBeFalse)
+		test.That(t, properties.PositionReporting, test.ShouldBeFalse)
 	})
 
 	t.Run("motor (DIR/PWM) Set PWM frequency testing", func(t *testing.T) {
@@ -288,9 +288,9 @@ func TestMotorAB(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, 0.0)
 
-		features, err := m.Properties(ctx, nil)
+		properties, err := m.Properties(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, features[motor.PositionReporting], test.ShouldBeFalse)
+		test.That(t, properties.PositionReporting, test.ShouldBeFalse)
 	})
 
 	t.Run("motor (A/B) Set PWM frequency testing", func(t *testing.T) {

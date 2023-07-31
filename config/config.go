@@ -6,8 +6,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"path"
 	"reflect"
-	"regexp"
+	"strings"
 	"sync"
 	"time"
 
@@ -155,6 +156,17 @@ func (c *Config) Ensure(fromCloud bool, logger golog.Logger) error {
 	}
 
 	return nil
+}
+
+// GetExpectedPackagePlaceholders returns a map of placeholder string -> real filepath for each package.
+func (c Config) GetExpectedPackagePlaceholders() map[string]string {
+	packageMap := make(map[string]string)
+	// based on the given packages, generate the expected placeholder + real filepath
+	for _, config := range c.Packages {
+		packageMap[config.GetPackagePlaceholder()] = config.GenerateFilePath()
+	}
+
+	return packageMap
 }
 
 // FindComponent finds a particular component by name.
@@ -855,11 +867,19 @@ func ProcessConfig(in *Config, tlsCfg *TLSConfig) (*Config, error) {
 	return &out, nil
 }
 
-// Regex to match if a config is referencing a Package. Group is the package name.
-var packageReferenceRegex = regexp.MustCompile(`^\$\{packages\.([A-Za-z0-9_\/-]+)}(.*)`)
-
 // DefaultPackageVersionValue default value of the package version used when empty.
 const DefaultPackageVersionValue = "latest"
+
+// PackageType indicates the type of the package
+// This is used to replace placeholder strings in the config.
+type PackageType string
+
+const (
+	// PackageTypeMlModel represents an ML model.
+	PackageTypeMlModel PackageType = "ml_model"
+	// PackageTypeModule represents a module type.
+	PackageTypeModule PackageType = "module"
+)
 
 // A PackageConfig describes the configuration of a Package.
 type PackageConfig struct {
@@ -869,10 +889,75 @@ type PackageConfig struct {
 	Package string `json:"package"`
 	// Version of the package ID hosted by a remote PackageService. If not specified "latest" is assumed.
 	Version string `json:"version,omitempty"`
+	// Types of the Package. If not specified it is assumed to be ml_model.
+	Type PackageType `json:"type,omitempty"`
+
+	alreadyValidated bool
+	cachedErr        error
 }
 
 // Validate package config is valid.
 func (p *PackageConfig) Validate(path string) error {
+	if p.alreadyValidated {
+		return p.cachedErr
+	}
+	p.cachedErr = p.validate(path)
+	p.alreadyValidated = true
+	return p.cachedErr
+}
+
+// SanitizeName forms the package name for the symlink/filepath of the package on the system.
+func (p *PackageConfig) SanitizeName() string {
+	return fmt.Sprintf("%s-%s", strings.ReplaceAll(p.Package, "/", "-"), p.SanitizeVersion())
+}
+
+// SanitizeVersion replaces the version string.
+func (p *PackageConfig) SanitizeVersion() string {
+	// replaces all the . if they exist with _
+	return strings.ReplaceAll(p.Version, ".", "_")
+}
+
+// GenerateFilePath generates what the expected filepath of the package is on the system.
+// based on the package name.
+func (p *PackageConfig) GenerateFilePath() string {
+	// first get the base root
+
+	// for backwards compatibility, packages right now don't have ml_models as a type.
+	// so if that is the case we need to join it right now to packages/../name
+	var dir string
+	if p.Type == "" {
+		// then this is not set and it must be an ml-model for backward compatibility -- but for now just join it without the type
+		// package manager will still create symlinks for these packages based on the packges path
+		dir = path.Clean(path.Join(viamDotDir, packagesDir, p.Name))
+	} else {
+		dir = path.Clean(path.Join(viamDotDir, packagesDir, p.GetPackageDirectoryFromType(), dataDotDir, p.SanitizeName()))
+	}
+	return dir
+}
+
+// GetPackagePlaceholder returns the expected placeholder based on a package config.
+func (p *PackageConfig) GetPackagePlaceholder() string {
+	// then based on what the structure of the package is, we can match what the replacement should look like
+	if p.Type != "" {
+		return strings.Join([]string{packagesDir, p.GetPackageDirectoryFromType(), p.Name}, ".")
+	}
+
+	return strings.Join([]string{packagesDir, p.Name}, ".")
+}
+
+// GetPackageDirectoryFromType returns the package directory for the filepath based on type.
+func (p *PackageConfig) GetPackageDirectoryFromType() string {
+	switch p.Type {
+	case PackageTypeMlModel:
+		return "ml_models"
+	case PackageTypeModule:
+		return "modules"
+	default:
+		return "default"
+	}
+}
+
+func (p *PackageConfig) validate(path string) error {
 	if p.Name == "" {
 		return utils.NewConfigValidationError(path, errors.New("empty package name"))
 	}
@@ -888,24 +973,14 @@ func (p *PackageConfig) Validate(path string) error {
 	return nil
 }
 
-// GetPackageReference a PackageReference if the given path has a Package reference eg. ${packages.some-package}/path.
-// Returns nil if no package reference is found.
-func GetPackageReference(path string) *PackageReference {
-	// return early before regex match
-	if len(path) == 0 || path[0] != '$' {
-		return nil
-	}
-
-	match := packageReferenceRegex.FindStringSubmatch(path)
-	if match == nil {
-		return nil
-	}
-
-	if len(match) != 3 {
-		return nil
-	}
-
-	return &PackageReference{Package: match[1], PathInPackage: match[2]}
+// Equals checks if the two configs are deeply equal to each other.
+func (p PackageConfig) Equals(other PackageConfig) bool {
+	p.alreadyValidated = false
+	p.cachedErr = nil
+	other.alreadyValidated = false
+	other.cachedErr = nil
+	//nolint:govet
+	return reflect.DeepEqual(p, other)
 }
 
 // PackageReference contains the deconstructed parts of a package reference in the config.

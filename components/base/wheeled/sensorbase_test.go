@@ -2,8 +2,10 @@ package wheeled
 
 import (
 	"context"
+	"errors"
 	"math"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 
@@ -12,11 +14,12 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/base"
+	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
-	rdkutils "go.viam.com/rdk/utils"
+	"go.viam.com/rdk/utils"
 )
 
 func TestSpinWithMSMath(t *testing.T) {
@@ -96,7 +99,7 @@ func TestSpinWithMSMath(t *testing.T) {
 
 		ori, err := ms.Orientation(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
-		calcYaw := addAnglesInDomain(rdkutils.RadToDeg(ori.EulerAngles().Yaw), 0)
+		calcYaw := addAnglesInDomain(utils.RadToDeg(ori.EulerAngles().Yaw), 0)
 		measYaw, err := getCurrentYaw(ms)
 		test.That(t, measYaw, test.ShouldEqual, calcYaw)
 		test.That(t, measYaw > 0, test.ShouldBeTrue)
@@ -306,14 +309,165 @@ func TestSensorBase(t *testing.T) {
 	deps, err := conf.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
 	msDeps := fakeMotorDependencies(t, deps)
+
+	counter := 0
+
 	msDeps[movementsensor.Named("ms")] = &inject.MovementSensor{
 		PropertiesFuncExtraCap: map[string]interface{}{},
 		PropertiesFunc: func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
 			return &movementsensor.Properties{OrientationSupported: true}, nil
+		},
+		OrientationFunc: func(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
+			counter++
+			return &spatialmath.EulerAngles{Roll: 0, Pitch: 0, Yaw: utils.RadToDeg(float64(counter))}, nil
 		},
 	}
 
 	wheeled, err := createWheeledBase(ctx, msDeps, testCfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, wheeled, test.ShouldNotBeNil)
+
+	sb, ok := wheeled.(*sensorBase)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	moving, err := sb.IsMoving(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, moving, test.ShouldBeFalse)
+
+	props, err := sb.Properties(ctx, nil)
+	test.That(t, props.WidthMeters, test.ShouldResemble, 0.1)
+	test.That(t, err, test.ShouldBeNil)
+
+	geometries, err := sb.Geometries(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, geometries, test.ShouldBeNil)
+
+	test.That(t, sb.SetPower(ctx, r3.Vector{X: 0, Y: 10, Z: 0}, r3.Vector{X: 0, Y: 0, Z: 0}, nil), test.ShouldBeNil)
+	test.That(t, sb.SetVelocity(ctx, r3.Vector{X: 0, Y: 100, Z: 0}, r3.Vector{X: 0, Y: 100, Z: 0}, nil), test.ShouldBeNil)
+	test.That(t, sb.MoveStraight(ctx, 10, 10, nil), test.ShouldBeNil)
+	// our fake motor code should immediately cancel the base context in this test
+	test.That(t, sb.Spin(ctx, 2, 10, nil), test.ShouldBeError, context.Canceled)
+	test.That(t, sb.Stop(ctx, nil), test.ShouldBeNil)
+
+	test.That(t, sb.Close(ctx), test.ShouldBeNil)
+}
+
+func sBaseTestConfig(msNames, lmotors, rmotors []string) resource.Config {
+	return resource.Config{
+		Name:  "test",
+		API:   base.API,
+		Model: resource.Model{Name: "wheeled_base"},
+		ConvertedAttributes: &Config{
+			WidthMM:              100,
+			WheelCircumferenceMM: 1000,
+			Left:                 lmotors,
+			Right:                rmotors,
+			MovementSensor:       msNames,
+		},
+	}
+}
+
+func msDependencies(t *testing.T, lmotors, rmotors, msNames []string,
+) (resource.Dependencies, resource.Config) {
+	t.Helper()
+
+	cfg := sBaseTestConfig(msNames, lmotors, rmotors)
+
+	deps := make(resource.Dependencies)
+
+	for _, lm := range lmotors {
+		deps[motor.Named(lm)] = inject.NewMotor(lm)
+	}
+
+	for _, rm := range rmotors {
+		deps[motor.Named(rm)] = inject.NewMotor(rm)
+	}
+
+	for _, msName := range msNames {
+		ms := inject.NewMovementSensor(msName)
+		switch {
+		case strings.Contains(msName, "orientation"):
+			ms.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+				return &movementsensor.Properties{
+					OrientationSupported: true,
+				}, nil
+			}
+			deps[movementsensor.Named(msName)] = ms
+
+		case strings.Contains(msName, "setvel"):
+			ms.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+				return &movementsensor.Properties{
+					AngularVelocitySupported: true,
+					LinearVelocitySupported:  true,
+				}, nil
+			}
+			deps[movementsensor.Named(msName)] = ms
+
+		case strings.Contains(msName, "Bad"):
+			ms.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+				return &movementsensor.Properties{
+					OrientationSupported:     true,
+					AngularVelocitySupported: true,
+					LinearVelocitySupported:  true,
+				}, errors.New("bad sensor")
+			}
+			deps[movementsensor.Named(msName)] = ms
+
+		default:
+		}
+	}
+	return deps, cfg
+}
+
+func TestReconfig(t *testing.T) {
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+	lmNames := []string{"l-m"}
+	rmNames := []string{"r-m"}
+
+	deps, cfg := msDependencies(t, lmNames, rmNames, []string{"orientation"})
+
+	b, err := createWheeledBase(ctx, deps, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	sb, ok := b.(*sensorBase)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, sb.orientation.Name().ShortName(), test.ShouldResemble, "orientation")
+
+	deps, cfg = msDependencies(t, lmNames, rmNames, []string{"orientation1"})
+	err = b.Reconfigure(ctx, deps, cfg)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, sb.orientation.Name().ShortName(), test.ShouldResemble, "orientation1")
+
+	deps, cfg = msDependencies(t, lmNames, rmNames, []string{"orientation2"})
+	err = b.Reconfigure(ctx, deps, cfg)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, sb.orientation.Name().ShortName(), test.ShouldResemble, "orientation2")
+
+	deps, cfg = msDependencies(t, lmNames, rmNames, []string{"setvel1"})
+	err = b.Reconfigure(ctx, deps, cfg)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, sb.velocities.Name().ShortName(), test.ShouldResemble, "setvel1")
+
+	deps, cfg = msDependencies(t, lmNames, rmNames, []string{"setvel2"})
+	err = b.Reconfigure(ctx, deps, cfg)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, sb.velocities.Name().ShortName(), test.ShouldResemble, "setvel2")
+
+	deps, cfg = msDependencies(t, lmNames, rmNames, []string{"orientation3", "setvel3", "Bad"})
+	err = b.Reconfigure(ctx, deps, cfg)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, sb.orientation.Name().ShortName(), test.ShouldResemble, "orientation3")
+	test.That(t, sb.velocities.Name().ShortName(), test.ShouldResemble, "setvel3")
+
+	deps, cfg = msDependencies(t, lmNames, rmNames, []string{"Bad", "orientation4", "setvel4", "orientation5", "setvel5"})
+	err = b.Reconfigure(ctx, deps, cfg)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, sb.orientation.Name().ShortName(), test.ShouldResemble, "orientation4")
+	test.That(t, sb.velocities.Name().ShortName(), test.ShouldResemble, "setvel4")
+
+	deps, cfg = msDependencies(t, lmNames, rmNames, []string{"Bad"})
+	err = b.Reconfigure(ctx, deps, cfg)
+	test.That(t, sb.orientation, test.ShouldBeNil)
+	test.That(t, sb.velocities, test.ShouldBeNil)
+	test.That(t, err, test.ShouldBeError, errNoGoodSensor)
 }
