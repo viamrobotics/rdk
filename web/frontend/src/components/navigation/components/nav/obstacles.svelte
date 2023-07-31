@@ -58,7 +58,7 @@ const handleGeometryInput = (index: number, geoIndex: number) => {
       <div class='flex items-end gap-1.5 pb-2'>
         <v-input class='w-full' label='Name' value={obstacleName} />
         <v-button
-          class='invisible group-hover:visible text-subtle-1'
+          class='sm:invisible group-hover:visible text-subtle-1'
           variant='icon'
           icon='trash-can-outline'
           on:click={() => handleDeleteObstacle(index)}
@@ -69,7 +69,7 @@ const handleGeometryInput = (index: number, geoIndex: number) => {
         lat={location.lat}
         on:input={(event) => handleLngLatInput(index, event)}>
         <v-button
-          class='invisible group-hover:visible text-subtle-1'
+          class='sm:invisible group-hover:visible text-subtle-1'
           variant='icon'
           icon='image-filter-center-focus'
           aria-label="Focus"
@@ -99,7 +99,7 @@ const handleGeometryInput = (index: number, geoIndex: number) => {
             ({location.lat.toFixed(4)}, {location.lng.toFixed(4)})
           </small>
           <v-button
-            class='invisible group-hover:visible text-subtle-1'
+            class='sm:invisible group-hover:visible text-subtle-1'
             variant='icon'
             icon='image-filter-center-focus'
             aria-label="Focus {obstacleName}"
