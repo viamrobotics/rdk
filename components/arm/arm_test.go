@@ -74,7 +74,7 @@ func TestCreateStatus(t *testing.T) {
 
 	//nolint:unparam
 	successfulJointPositionsFunc := func(context.Context, map[string]interface{}) (*pb.JointPositions, error) {
-		return &pb.JointPositions{Values: successfulStatus.JointPositions.Values}, nil
+		return successfulStatus.JointPositions, nil
 	}
 
 	successfulIsMovingFunc := func(context.Context) (bool, error) {
