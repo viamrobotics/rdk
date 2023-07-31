@@ -31,12 +31,12 @@ export const flyToMap = (value: LngLat, options: FlyToOptions = {}) => {
   });
 };
 
-export const centerMap = (value: LngLat, jumpTo: JumpToOptions | boolean = true) => {
-  mapCenter.set(value);
+export const centerMap = (center: LngLat, jumpTo: JumpToOptions | boolean = true) => {
+  mapCenter.set(center);
 
   if (jumpTo) {
     map.current?.jumpTo({
-      center: value,
+      center,
       ...(jumpTo === true ? {} : jumpTo),
     });
   }
