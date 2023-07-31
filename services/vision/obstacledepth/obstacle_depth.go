@@ -113,7 +113,7 @@ func registerObstacleDepth(
 
 	// If you have no intrinsics, you get the dumb, quick version of obstacles_depth
 	if conf.intrinsics == nil {
-		r.Logger().Warn("you're doing it the dumb way without intrinsics but okaaaay")
+		r.Logger().Warn("obstacle depth started without camera's intrinsic parameters")
 		segmenter := func(ctx context.Context, src camera.VideoSource) ([]*vision.Object, error) {
 			// Return the shortest depth in the depth map as a Geometry point
 			depthStream, err := src.Stream(ctx)
@@ -151,7 +151,7 @@ func registerObstacleDepth(
 
 	myObsDep := obsDepth{
 		hMin: conf.Hmin, hMax: conf.Hmax, sinTheta: math.Sin(conf.ThetaMax),
-		intrinsics: conf.intrinsics, returnPCDs: conf.ReturnPCDs,
+		intrinsics: conf.intrinsics, returnPCDs: conf.ReturnPCDs, k: conf.K,
 	}
 	segmenter := myObsDep.buildObsDepthWithIntrinsics() // does the thing
 	return svision.NewService(name, r, nil, nil, nil, segmenter)
@@ -215,6 +215,7 @@ func (o *obsDepth) buildObsDepthWithIntrinsics() segmentation.Segmenter {
 		n := int(math.Min(float64(len(outClusters)), float64(len(boxes)))) // should be same len but for safety
 		toReturn := make([]*vision.Object, n)
 		for i := 0; i < n; i++ { // for each cluster/box make an object
+			boxes[i].SetLabel("obstacle")
 			if o.returnPCDs {
 				pcdToReturn := pointcloud.New()
 				basicData := pointcloud.NewBasicData()
