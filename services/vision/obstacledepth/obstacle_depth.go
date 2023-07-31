@@ -158,6 +158,8 @@ func registerObstacleDepth(
 	return svision.NewService(name, r, nil, nil, nil, segmenter)
 }
 
+// buildObsDepthWithIntrinsics will use the methodology in Manduchi et al. to find obstacle points
+// before clustering and projecting those points into 3D obstacles.
 func (o *obsDepth) buildObsDepthWithIntrinsics() segmentation.Segmenter {
 	return func(ctx context.Context, src camera.VideoSource) ([]*vision.Object, error) {
 		depthStream, err := src.Stream(ctx)
