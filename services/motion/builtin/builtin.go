@@ -168,13 +168,12 @@ func (ms *builtIn) Move(
 			if len(inputs) == 0 {
 				continue
 			}
-			err := resources[name].GoToInputs(ctx, inputs)
+			r := resources[name]
+			err := r.GoToInputs(ctx, inputs)
 			if err != nil {
-				for _, step := range steps {
-					for name := range step {
-						if stopErr := resources[name].Stop(ctx, nil); stopErr != nil {
-							return false, errors.Wrap(err, stopErr.Error())
-						}
+				if actuator, ok := r.(resource.InputEnabledActuator); ok {
+					if stopErr := actuator.Stop(ctx, nil); stopErr != nil {
+						return false, errors.Wrap(err, stopErr.Error())
 					}
 				}
 				return false, err
