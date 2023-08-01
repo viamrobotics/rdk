@@ -50,7 +50,7 @@ type callback struct {
 
 // NewInputController returns a fake input.Controller.
 func NewInputController(ctx context.Context, conf resource.Config) (input.Controller, error) {
-	closeCtx, cancelFunc := context.WithCancel(ctx)
+	closeCtx, cancelFunc := context.WithCancel(context.Background())
 
 	c := &InputController{
 		Named:      conf.ResourceName().AsNamed(),
