@@ -5,7 +5,7 @@ import { onMount, onDestroy, createEventDispatcher } from 'svelte';
 import * as THREE from 'three';
 import { MapControls } from 'three/examples/jsm/controls/MapControls';
 import { PCDLoader } from 'three/examples/jsm/loaders/PCDLoader';
-import type { commonApi } from '@viamrobotics/sdk';
+import type { Pose } from '@viamrobotics/sdk';
 import DestMarker from '@/lib/images/destination-marker.txt?raw';
 import BaseMarker from '@/lib/images/base-marker.txt?raw';
 import Legend from './2d-legend.svelte';
@@ -13,7 +13,7 @@ import Dropzone from '@/lib/components/dropzone.svelte';
 import MotionPath from './motion-path.svelte';
 
 export let pointcloud: Uint8Array | undefined;
-export let pose: commonApi.Pose | undefined;
+export let pose: Pose | undefined;
 export let destination: THREE.Vector2 | undefined;
 export let axesVisible: boolean;
 
@@ -129,14 +129,14 @@ const dispose = (object?: THREE.Object3D) => {
   }
 };
 
-const updatePose = (newPose: commonApi.Pose) => {
-  const x = newPose.getX();
-  const y = newPose.getY();
-  const z = newPose.getZ();
+const updatePose = (newPose: Pose) => {
+  const { x } = newPose;
+  const { y } = newPose;
+  const { z } = newPose;
 
   baseMarker.position.set(x, y, z);
 
-  const theta = THREE.MathUtils.degToRad(newPose.getTheta() - 90);
+  const theta = THREE.MathUtils.degToRad(newPose.theta - 90);
   baseMarker.material.rotation = theta;
 };
 
