@@ -35,8 +35,8 @@ const (
 	replanCostFactorDefault = 1.
 
 	// frequency measured in hertz.
-	obstaclePollingFrequencyDefault = 2
-	positionPollingFrequencyDefault = 2
+	obstaclePollingFrequencyDefault = 2.
+	positionPollingFrequencyDefault = 2.
 )
 
 func init() {
