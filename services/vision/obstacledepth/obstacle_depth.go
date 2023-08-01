@@ -7,7 +7,6 @@ import (
 	"context"
 	"image"
 	"math"
-	"runtime"
 	"strconv"
 	"sync"
 
@@ -69,9 +68,8 @@ const (
 	defaultHmax     = 150.0
 	defaultThetamax = math.Pi / 4
 	// the last 3 consts are hyperparameters that can be tweaked for performance improvement.
-	chunkSize  = 200 // we send chunkSize points in each goroutine
-	sampleN    = 4   // we sample 1 in every sampleN depth points
-	maxThreads = 300 // we will run at most maxThreads goroutines
+	chunkSize = 200 // we send chunkSize points in each goroutine
+	sampleN   = 4   // we sample 1 in every sampleN depth points
 )
 
 func init() {
@@ -96,7 +94,7 @@ func (config *ObstaclesDepthConfig) Validate(path string) ([]string, error) {
 	if config.K < 1 || config.K > 50 {
 		return nil, errors.New("invalid K, pick an integer between 1 and 50 (10 recommended)")
 	}
-	if (config.Hmin >= config.Hmax) && config.Hmax != 0 {
+	if config.Hmin >= config.Hmax {
 		return nil, errors.New("Hmin should be less than Hmax")
 	}
 	return deps, nil
@@ -193,7 +191,6 @@ func (o *obsDepth) buildObsDepthWithIntrinsics() segmentation.Segmenter {
 		}
 		o.dm = dm
 		o.makePointList(sampleN)
-		runtime.GOMAXPROCS(maxThreads)
 
 		// Use some goroutines to determine if each depth pixel is an obstacle
 		doneCh := make(chan bool, len(o.ptChunks))
