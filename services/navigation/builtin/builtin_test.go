@@ -405,32 +405,30 @@ func TestValidateGeometry(t *testing.T) {
 		MovementSensorName: "localizer",
 	}
 
+	createBox := func(translation r3.Vector) Config {
+		boxPose := spatialmath.NewPoseFromPoint(translation)
+		geometries, err := spatialmath.NewBox(boxPose, r3.Vector{10, 10, 10}, "")
+		test.That(t, err, test.ShouldBeNil)
+
+		geoObstacle := spatialmath.NewGeoObstacle(geo.NewPoint(0, 0), []spatialmath.Geometry{geometries})
+		geoObstacleCfg, err := spatialmath.NewGeoObstacleConfig(geoObstacle)
+		test.That(t, err, test.ShouldBeNil)
+
+		cfg.Obstacles = []*spatialmath.GeoObstacleConfig{geoObstacleCfg}
+
+		return cfg
+	}
+
 	t.Run("fail case", func(t *testing.T) {
-		cfg = CreateBox(t, cfg, r3.Vector{10, 10, 10})
+		cfg = createBox(r3.Vector{10, 10, 10})
 		_, err := cfg.Validate("")
 		expectedErr := "geometries specified through the navigation are not allowed to have a translation"
 		test.That(t, err.Error(), test.ShouldEqual, expectedErr)
 	})
 
 	t.Run("success case", func(t *testing.T) {
-		cfg = CreateBox(t, cfg, r3.Vector{})
+		cfg = createBox(r3.Vector{})
 		_, err := cfg.Validate("")
 		test.That(t, err, test.ShouldBeNil)
 	})
-}
-
-func CreateBox(t *testing.T, cfg Config, translation r3.Vector) Config {
-	t.Helper()
-
-	boxPose := spatialmath.NewPoseFromPoint(translation)
-	geometries, err := spatialmath.NewBox(boxPose, r3.Vector{10, 10, 10}, "")
-	test.That(t, err, test.ShouldBeNil)
-
-	geoObstacle := spatialmath.NewGeoObstacle(geo.NewPoint(0, 0), []spatialmath.Geometry{geometries})
-	geoObstacleCfg, err := spatialmath.NewGeoObstacleConfig(geoObstacle)
-	test.That(t, err, test.ShouldBeNil)
-
-	cfg.Obstacles = []*spatialmath.GeoObstacleConfig{geoObstacleCfg}
-
-	return cfg
 }
