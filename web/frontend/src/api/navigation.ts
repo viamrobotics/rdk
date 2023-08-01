@@ -11,26 +11,6 @@ import { notify } from '@viamrobotics/prime';
 import type { LngLat } from 'maplibre-gl';
 export * from './types/navigation';
 
-export const setMode = async (robotClient: Client, name: string, mode: NavigationModes) => {
-  const request = new navigationApi.SetModeRequest();
-  request.setName(name);
-  request.setMode(mode);
-
-  rcLogConditionally(request);
-
-  const response = await new Promise<navigationApi.SetModeResponse | null>((resolve, reject) => {
-    robotClient.navigationService.setMode(request, (error, res) => {
-      if (error) {
-        reject(error);
-      } else {
-        resolve(res);
-      }
-    });
-  });
-
-  return response?.toObject();
-};
-
 export const addWaypoint = async (robotClient: Client, lngLat: LngLat, name: string) => {
   const request = new navigationApi.AddWaypointRequest();
   const point = new commonApi.GeoPoint();

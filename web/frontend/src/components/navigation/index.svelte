@@ -4,9 +4,9 @@
 
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { notify } from '@viamrobotics/prime';
-import { navigationApi, type ServiceError } from '@viamrobotics/sdk';
-import { setMode, getObstacles, type NavigationModes } from '@/api/navigation';
-import { mapCenter, centerMap, robotPosition, flyToMap, write as writeStore, obstacles } from './stores';
+import { navigationApi, NavigationClient, type ServiceError } from '@viamrobotics/sdk';
+import { type NavigationModes } from '@/api/navigation';
+import { mapCenter, centerMap, robotPosition, flyToMap, write as writeStore } from './stores';
 import { useRobotClient } from '@/hooks/robot-client';
 import Collapse from '@/lib/components/collapse.svelte';
 import Map from './components/map.svelte';
@@ -20,6 +20,7 @@ export let write = false;
 $: $writeStore = write;
 
 const { robotClient } = useRobotClient();
+const navClient = new NavigationClient($robotClient, name);
 
 const setNavigationMode = async (event: CustomEvent) => {
   const mode = event.detail.value as 'Manual' | 'Waypoint';
@@ -30,7 +31,7 @@ const setNavigationMode = async (event: CustomEvent) => {
   }[mode];
 
   try {
-    await setMode($robotClient, name, navigationMode);
+    await navClient.setMode(navigationMode);
   } catch (error) {
     notify.danger((error as ServiceError).message);
   }
