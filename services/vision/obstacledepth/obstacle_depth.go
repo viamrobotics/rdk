@@ -39,7 +39,7 @@ type ObstaclesDepthConfig struct {
 	Hmax       float64                            `json:"hmax"`
 	ThetaMax   float64                            `json:"theta_max"`
 	ReturnPCDs bool                               `json:"return_pcds"`
-	intrinsics *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters"`
+	Intrinsics *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters"`
 }
 
 // obsPoint is a useful intermediate struct (which pts are obstacles).
@@ -120,7 +120,7 @@ func registerObstacleDepth(
 	}
 
 	// If you have no intrinsics
-	if conf.intrinsics == nil {
+	if conf.Intrinsics == nil {
 		r.Logger().Warn("obstacle depth started without camera's intrinsic parameters")
 		segmenter := buildObsDepthNoIntrinsics()
 		return svision.NewService(name, r, nil, nil, nil, segmenter)
@@ -139,7 +139,7 @@ func registerObstacleDepth(
 
 	myObsDep := obsDepth{
 		hMin: conf.Hmin, hMax: conf.Hmax, sinTheta: math.Sin(conf.ThetaMax),
-		intrinsics: conf.intrinsics, returnPCDs: conf.ReturnPCDs, k: conf.K,
+		intrinsics: conf.Intrinsics, returnPCDs: conf.ReturnPCDs, k: conf.K,
 	}
 	segmenter := myObsDep.buildObsDepthWithIntrinsics() // does the thing
 	return svision.NewService(name, r, nil, nil, nil, segmenter)

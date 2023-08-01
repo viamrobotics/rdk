@@ -51,7 +51,7 @@ func TestObstacleDist(t *testing.T) {
 		Hmax:       defaultHmax,
 		ThetaMax:   defaultThetamax,
 		ReturnPCDs: true,
-		intrinsics: &someIntrinsics,
+		Intrinsics: &someIntrinsics,
 	}
 
 	ctx := context.Background()
