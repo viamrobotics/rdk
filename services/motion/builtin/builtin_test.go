@@ -673,6 +673,9 @@ func TestStopInMoveFunctions(t *testing.T) {
 			model, _ := ur.MakeModelFrame("ur5e")
 			return model
 		}
+		injectArm.MoveToPositionFunc = func(ctx context.Context, to spatialmath.Pose, extra map[string]interface{}) error {
+			return failToReachGoalError
+		}
 
 		// create arm  and goal links
 		armLink := referenceframe.NewLinkInFrame(
@@ -712,14 +715,34 @@ func TestStopInMoveFunctions(t *testing.T) {
 		)
 		test.That(t, err, test.ShouldBeNil)
 
-		goal := referenceframe.NewPoseInFrame(
-			"test-arm",
-			spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: -10, Z: -10}),
-		)
+		t.Run("stop during Move(...) call", func(t *testing.T) {
+			calledStopFunc = false
 
-		_, err = ms.Move(ctx, injectArmName, goal, nil, nil, nil)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err, test.ShouldEqual, failToReachGoalError)
-		test.That(t, calledStopFunc, test.ShouldBeTrue)
+			goal := referenceframe.NewPoseInFrame(
+				"test-arm",
+				spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: -10, Z: -10}),
+			)
+
+			success, err := ms.Move(ctx, injectArmName, goal, nil, nil, nil)
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err, test.ShouldEqual, failToReachGoalError)
+			test.That(t, success, test.ShouldBeFalse)
+			test.That(t, calledStopFunc, test.ShouldBeTrue)
+		})
+
+		t.Run("stop during MoveSingleComponent(...) call", func(t *testing.T) {
+			calledStopFunc = false
+
+			goal := referenceframe.NewPoseInFrame(
+				"test-arm",
+				spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: -10, Z: -10}),
+			)
+
+			success, err := ms.MoveSingleComponent(ctx, fakeArm.Name(), goal, nil, map[string]interface{}{})
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err, test.ShouldEqual, failToReachGoalError)
+			test.That(t, success, test.ShouldBeFalse)
+			test.That(t, calledStopFunc, test.ShouldBeTrue)
+		})
 	})
 }
