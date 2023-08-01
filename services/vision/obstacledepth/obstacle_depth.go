@@ -180,10 +180,12 @@ func (o *obsDepth) buildObsDepthWithIntrinsics() segmentation.Segmenter {
 		if err != nil {
 			return nil, err
 		}
-		if props.IntrinsicParams == nil && o.intrinsics == nil {
-			return nil, errors.New("tried to build obstacles depth with intrinsics but no instrinsics found")
-		} else if props.IntrinsicParams != nil {
+		if props.IntrinsicParams != nil {
 			o.intrinsics = props.IntrinsicParams
+		}
+		if o.intrinsics == nil {
+			return nil, errors.New("tried to build obstacles depth with intrinsics but no instrinsics found")
+
 		}
 
 		depthStream, err := src.Stream(ctx)
