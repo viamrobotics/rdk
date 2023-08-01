@@ -141,12 +141,18 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 
 		// Lookup the packages http url
 		includeURL := true
-		_ = fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH)
+
+		var platform *string
+		if p.Type == config.PackageTypeModule {
+			platformVal := fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH)
+			platform = &platformVal
+		}
+
 		resp, err := m.client.GetPackage(ctx, &pb.GetPackageRequest{
-			Id:      p.Package,
-			Version: p.Version,
-			// Type:       PackageTypeToProto(p.Type),
-			// Platform:   &platform,
+			Id:         p.Package,
+			Version:    p.Version,
+			Type:       PackageTypeToProto(p.Type),
+			Platform:   platform,
 			IncludeUrl: &includeURL,
 		})
 		if err != nil {
@@ -239,10 +245,10 @@ func (m *cloudManager) Cleanup(ctx context.Context) error {
 
 // symlink packages/package-name to packages/ml_models/orgid-package-name-ver for backwards compatablility
 func (m *cloudManager) legacyMLModelSymlinkCreation(p config.PackageConfig) error {
-	// if err := linkFile(filepath.Join(m.packagesDir, p.Name), p.LocalDataDirectory()); err != nil {
-	// 	m.logger.Errorf("Failed linking ml_model package %s:%s, %s", p.Package, p.Version, err)
-	// 	return err
-	// }
+	if err := linkFile(p.LocalDataDirectory(), filepath.Join(m.packagesDir, p.Name)); err != nil {
+		m.logger.Errorf("Failed linking ml_model package %s:%s, %s", p.Package, p.Version, err)
+		return err
+	}
 	return nil
 }
 
