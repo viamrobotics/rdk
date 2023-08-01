@@ -4,6 +4,7 @@ import (
 	"os"
 	"reflect"
 	"regexp"
+	"strings"
 
 	"github.com/pkg/errors"
 )
@@ -42,7 +43,8 @@ func (m *Module) Validate(path string) error {
 }
 
 func (m *Module) validate(path string) error {
-	if !ContainsPlaceholder(m.ExePath) {
+	// TODO(pre-merge) refactor this to not be so ugly
+	if !(ContainsPlaceholder(m.ExePath) || strings.HasPrefix(m.ExePath, viamDotDir)) {
 		_, err := os.Stat(m.ExePath)
 		if err != nil {
 			return errors.Wrapf(err, "module %s executable path error", path)
