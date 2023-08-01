@@ -8,32 +8,7 @@ import type {
   BoxGeometry, CapsuleGeometry, NavigationModes, Obstacle, SphereGeometry, Waypoint,
 } from './types/navigation';
 import { notify } from '@viamrobotics/prime';
-import type { LngLat } from 'maplibre-gl';
 export * from './types/navigation';
-
-export const addWaypoint = async (robotClient: Client, lngLat: LngLat, name: string) => {
-  const request = new navigationApi.AddWaypointRequest();
-  const point = new commonApi.GeoPoint();
-
-  point.setLatitude(lngLat.lat);
-  point.setLongitude(lngLat.lng);
-  request.setName(name);
-  request.setLocation(point);
-
-  rcLogConditionally(request);
-
-  const response = await new Promise<navigationApi.AddWaypointResponse | null>((resolve, reject) => {
-    robotClient.navigationService.addWaypoint(request, (error, res) => {
-      if (error) {
-        reject(error);
-      } else {
-        resolve(res);
-      }
-    });
-  });
-
-  return response?.toObject();
-};
 
 const formatWaypoints = (list: navigationApi.Waypoint[]) => {
   return list.map((item) => {
