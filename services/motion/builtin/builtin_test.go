@@ -10,16 +10,19 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
+	"github.com/pkg/errors"
 
 	// registers all components
 	commonpb "go.viam.com/api/common/v1"
+	ur "go.viam.com/rdk/components/arm/universalrobots"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/components/arm"
+	armFake "go.viam.com/rdk/components/arm/fake"
 	"go.viam.com/rdk/components/base"
-	"go.viam.com/rdk/components/base/fake"
+	baseFake "go.viam.com/rdk/components/base/fake"
 	"go.viam.com/rdk/components/base/kinematicbase"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/gripper"
@@ -80,7 +83,7 @@ func createMoveOnGlobeEnvironment(ctx context.Context, t *testing.T, gpsPoint *g
 		API:   base.API,
 		Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R: 20}},
 	}
-	fakeBase, err := fake.NewBase(ctx, nil, baseCfg, logger)
+	fakeBase, err := baseFake.NewBase(ctx, nil, baseCfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	// create base link
@@ -151,7 +154,7 @@ func createMoveOnMapEnvironment(ctx context.Context, t *testing.T, pcdPath strin
 		Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R: 100}},
 	}
 	logger := golog.NewTestLogger(t)
-	fakeBase, err := fake.NewBase(ctx, nil, cfg, logger)
+	fakeBase, err := baseFake.NewBase(ctx, nil, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	ms, err := NewBuiltIn(
 		ctx,
@@ -631,4 +634,92 @@ func TestGetPose(t *testing.T) {
 	pose, err = ms.GetPose(context.Background(), arm.Named("arm1"), "testFrame", transforms, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeError, referenceframe.NewParentFrameMissingError("testFrame", "noParent"))
 	test.That(t, pose, test.ShouldBeNil)
+}
+
+func TestStopInMoveFunctions(t *testing.T) {
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+	failToReachGoalError := errors.New("failed to reach goal")
+
+	t.Run("successfully stop arms", func(t *testing.T) {
+		// Create an injected Arm
+		armCfg := resource.Config{
+			Name:  "test-arm",
+			Model: resource.DefaultModelFamily.WithModel("ur5e"),
+			ConvertedAttributes: &armFake.Config{
+				ArmModel: "ur5e",
+			},
+			Frame: &referenceframe.LinkConfig{
+				Parent: "world",
+			},
+		}
+
+		fakeArm, err := armFake.NewArm(ctx, nil, armCfg, logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		injectArm := &inject.Arm{
+			Arm: fakeArm,
+		}
+		injectArmName := arm.Named("test-arm")
+		injectArm.GoToInputsFunc = func(ctx context.Context, goal []referenceframe.Input) error {
+			return failToReachGoalError
+		}
+		calledStopFunc := false
+		injectArm.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
+			calledStopFunc = true
+			return nil
+		}
+		injectArm.ModelFrameFunc = func() referenceframe.Model {
+			model, _ := ur.MakeModelFrame("ur5e")
+			return model
+		}
+
+		// create arm  and goal links
+		armLink := referenceframe.NewLinkInFrame(
+			referenceframe.World,
+			spatialmath.NewZeroPose(),
+			"test-arm",
+			nil,
+		)
+
+		// Create a motion service
+		fsParts := []*referenceframe.FrameSystemPart{
+			{FrameConfig: armLink,
+				ModelFrame: injectArm.ModelFrameFunc()},
+		}
+		deps := resource.Dependencies{
+			fakeArm.Name(): injectArm,
+		}
+		fsSvc, err := framesystem.New(ctx, deps, logger)
+		test.That(t, err, test.ShouldBeNil)
+		err = fsSvc.Reconfigure(
+			ctx,
+			deps,
+			resource.Config{
+				ConvertedAttributes: &framesystem.Config{Parts: fsParts},
+			},
+		)
+		test.That(t, err, test.ShouldBeNil)
+
+		deps[fsSvc.Name()] = fsSvc
+
+		// Create motion service
+		ms, err := NewBuiltIn(
+			ctx,
+			deps,
+			resource.Config{ConvertedAttributes: &Config{}},
+			logger,
+		)
+		test.That(t, err, test.ShouldBeNil)
+
+		goal := referenceframe.NewPoseInFrame(
+			"test-arm",
+			spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: -10, Z: -10}),
+		)
+
+		_, err = ms.Move(ctx, injectArmName, goal, nil, nil, nil)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldEqual, failToReachGoalError)
+		test.That(t, calledStopFunc, test.ShouldBeTrue)
+	})
 }
