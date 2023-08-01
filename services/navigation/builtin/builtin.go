@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"math"
-	"reflect"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -91,7 +90,7 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	// ensure obstacles have no translation
 	for _, obs := range conf.Obstacles {
 		for _, geoms := range obs.Geometries {
-			if !reflect.DeepEqual(geoms.TranslationOffset, r3.Vector{}) {
+			if !geoms.TranslationOffset.ApproxEqual(r3.Vector{}) {
 				return nil, errors.New("geometries specified through the navigation are not allowed to have a translation")
 			}
 		}
