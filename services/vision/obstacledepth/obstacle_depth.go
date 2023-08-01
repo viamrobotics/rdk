@@ -98,6 +98,12 @@ func (config *ObstaclesDepthConfig) Validate(path string) ([]string, error) {
 	if config.Hmin >= config.Hmax {
 		return nil, errors.New("Hmin should be less than Hmax")
 	}
+	if config.Hmin < 0 {
+		return nil, errors.New("Hmin should be greater than or equal to 0")
+	}
+	if config.Hmax < 0 {
+		return nil, errors.New("Hmax should be greater than or equal to 0")
+	}
 	return deps, nil
 }
 
