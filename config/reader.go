@@ -51,6 +51,7 @@ func getAgentInfo() (*apppb.AgentInfo, error) {
 	}, nil
 }
 
+// ViamDotDir is the location of the .viam folder.
 var ViamDotDir string
 
 func init() {
