@@ -34,12 +34,12 @@ var model = resource.DefaultModelFamily.WithModel("obstacle_depth")
 
 // ObstaclesDepthConfig specifies the parameters to be used for the obstacle depth service.
 type ObstaclesDepthConfig struct {
-	K          int     `json:"k"`
-	Hmin       float64 `json:"hmin"`
-	Hmax       float64 `json:"hmax"`
-	ThetaMax   float64 `json:"theta_max"`
-	ReturnPCDs bool    `json:"return_pcds"`
-	intrinsics *transform.PinholeCameraIntrinsics
+	K          int                                `json:"k"`
+	Hmin       float64                            `json:"hmin"`
+	Hmax       float64                            `json:"hmax"`
+	ThetaMax   float64                            `json:"theta_max"`
+	ReturnPCDs bool                               `json:"return_pcds"`
+	intrinsics *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters"`
 }
 
 // obsPoint is a useful intermediate struct (which pts are obstacles).
