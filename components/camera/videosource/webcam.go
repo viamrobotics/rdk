@@ -1,14 +1,22 @@
 package videosource
 
 import (
+	"bufio"
 	"context"
+	"encoding/json"
 	"image"
+	"io"
+	"os"
+	"os/exec"
 	"path/filepath"
+	"regexp"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/google/uuid"
 	"github.com/pion/mediadevices"
 	"github.com/pion/mediadevices/pkg/driver"
 	"github.com/pion/mediadevices/pkg/driver/availability"
@@ -23,13 +31,17 @@ import (
 
 	"go.viam.com/rdk/components/camera"
 	jetsoncamera "go.viam.com/rdk/components/camera/platforms/jetson"
+	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage/transform"
 )
 
 // ModelWebcam is the name of the webcam component.
-var ModelWebcam = resource.DefaultModelFamily.WithModel("webcam")
+var (
+	ModelWebcam       = resource.DefaultModelFamily.WithModel("webcam")
+	cameraDebugLogger CameraDebugLogger
+)
 
 func init() {
 	resource.RegisterComponent(
@@ -246,7 +258,9 @@ func NewWebcam(
 		cancelCtx:      cancelCtx,
 		cancel:         cancel,
 	}
+	cameraDebugLogger.AddWebcam(ctx, cam, logger)
 	if err := cam.Reconfigure(ctx, deps, conf); err != nil {
+		cam.Close(ctx)
 		return nil, err
 	}
 	cam.Monitor()
@@ -418,7 +432,25 @@ func (c *monitoredWebcam) reconnectCamera(conf *WebcamConfig) error {
 		c.underlyingSource = nil
 	}
 
-	newSrc, foundLabel, err := findAndMakeVideoSource(c.cancelCtx, conf, c.targetPath, c.logger)
+	localLogger := c.logger
+	if cameraDebugLogger.activeCams[c].discoveryLogFilePath != "" {
+		cameraDebugLogger.activeCams[c].discoveryLogFileMu.Lock()
+		defer cameraDebugLogger.activeCams[c].discoveryLogFileMu.Unlock()
+
+		// Clear the discovery log
+		os.Truncate(cameraDebugLogger.activeCams[c].discoveryLogFilePath, 0)
+
+		fileConsoleTeeLoggerConfig := golog.NewDebugLoggerConfig()
+		fileConsoleTeeLoggerConfig.OutputPaths = append(fileConsoleTeeLoggerConfig.OutputPaths, cameraDebugLogger.activeCams[c].discoveryLogFilePath)
+		fileConsoleTeeLogger, err := fileConsoleTeeLoggerConfig.Build()
+		if err == nil {
+			localLogger = fileConsoleTeeLogger.Sugar()
+		} else {
+			c.logger.Errorw("failed to open discovery service log file", err)
+		}
+	}
+
+	newSrc, foundLabel, err := findAndMakeVideoSource(c.cancelCtx, conf, c.targetPath, localLogger)
 	if err != nil {
 		// If we are on a Jetson Orin AGX, we need to validate hardware/software setup.
 		// If not, simply pass through the error.
@@ -593,5 +625,305 @@ func (c *monitoredWebcam) Close(ctx context.Context) error {
 	if c.underlyingSource != nil {
 		err = multierr.Combine(err, c.underlyingSource.Close(ctx))
 	}
+
+	cameraDebugLogger.numActiveCamsMu.Lock()
+	cameraDebugLogger.numActiveCams--
+	if cameraDebugLogger.numActiveCams == 0 {
+		cameraDebugLogger.cancel()
+		cameraDebugLogger.activeBackgroundWorker.Wait()
+	}
+	cameraDebugLogger.numActiveCamsMu.Unlock()
+
 	return err
+}
+
+type CameraDebugInfo struct {
+	discoveryLogFilePath string
+	discoveryLogFileMu   sync.RWMutex
+}
+
+type CameraDebugLogger struct {
+	gologger               golog.Logger
+	activeCams             map[*monitoredWebcam]*CameraDebugInfo
+	isRunning              bool
+	isRunningMu            sync.Mutex
+	activeBackgroundWorker sync.WaitGroup
+	logFile                *os.File
+	logFilePath            string
+	cancelCtx              context.Context
+	cancel                 func()
+	numActiveCams          int
+	numActiveCamsMu        sync.Mutex
+}
+
+func (logger *CameraDebugLogger) AddWebcam(ctx context.Context, cam *monitoredWebcam, gologger golog.Logger) {
+	// This only supports Linux
+	if runtime.GOOS != "linux" {
+		return
+	}
+
+	logger.isRunningMu.Lock()
+	start := !logger.isRunning
+	logger.isRunning = true
+	logger.isRunningMu.Unlock()
+
+	if logger.activeCams == nil {
+		logger.activeCams = make(map[*monitoredWebcam]*CameraDebugInfo)
+	}
+
+	if start {
+		logger.cancelCtx, logger.cancel = context.WithCancel(context.Background())
+		cameraDebugLogger.activeBackgroundWorker.Add(1)
+		logger.gologger = gologger
+	}
+
+	discoveryLogFilePath := filepath.Join(config.ViamDotDir, "camera_discovery_"+cam.Name().Name+".txt")
+	discoveryLogFile, err := os.Create(discoveryLogFilePath)
+	if err != nil {
+		logger.gologger.Errorw("failed to create discovery log file at "+discoveryLogFilePath, err)
+		return
+	}
+	discoveryLogFile.Close()
+
+	logger.activeCams[cam] = &CameraDebugInfo{discoveryLogFilePath, sync.RWMutex{}}
+
+	logger.numActiveCamsMu.Lock()
+	logger.numActiveCams++
+	logger.numActiveCamsMu.Unlock()
+
+	if !start {
+		return
+	}
+
+	// TODO: If last write was >=24hr ago, truncate and then continue
+	logger.logFilePath = filepath.Join(config.ViamDotDir, "debug_camera_component_"+uuid.NewString()+".txt")
+	logger.logFile, err = os.Create(logger.logFilePath)
+	if err != nil {
+		logger.gologger.Errorw("failed to create camera debug log file at "+logger.logFilePath, err)
+		return
+	}
+
+	goutils.ManagedGo(func() { logger.run() }, cameraDebugLogger.activeBackgroundWorker.Done)
+}
+
+func (logger *CameraDebugLogger) run() {
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+
+	defer logger.logFile.Close()
+
+	defer func() {
+		logger.isRunningMu.Lock()
+		defer logger.isRunningMu.Unlock()
+		logger.isRunning = false
+	}()
+
+	for {
+		select {
+		case <-logger.cancelCtx.Done():
+			return
+		case <-ticker.C:
+		}
+
+		for cam := range logger.activeCams {
+			select {
+			case <-cam.cancelCtx.Done():
+				delete(logger.activeCams, cam)
+			default:
+			}
+		}
+		if len(logger.activeCams) == 0 {
+			return
+		}
+
+		writeHeading := func(heading string) {
+			logger.logFile.WriteString("===== " + heading + " =====\n")
+		}
+
+		writeCommand := func(name string, arg ...string) {
+			cmd := exec.Command(name, arg...)
+			cmdOutput, err := cmd.CombinedOutput()
+			if err != nil && err.Error() != "exit status 1" && !strings.HasPrefix(err.Error(), "signal:") {
+				logger.gologger.Errorw("command "+name+" "+strings.Join(arg, " ")+" finished with error", err)
+			}
+
+			logger.logFile.WriteString(string(cmdOutput))
+		}
+
+		writeHeading("operating system")
+		writeCommand("lsb_release", "--description", "--short")
+		writeCommand("uname", "--kernel-name", "--kernel-release", "--kernel-version")
+		writeCommand("uname", "--machine")
+		logger.logFile.WriteString("\n")
+
+		writeLockedCameraName := func(cam *monitoredWebcam) {
+			logger.logFile.WriteString(cam.Name().Name + " with path " + cam.targetPath + "\n")
+		}
+
+		writeHeading("camera configs")
+		for cam := range logger.activeCams {
+			cam.mu.RLock()
+			select {
+			case <-cam.cancelCtx.Done():
+				cam.mu.RUnlock()
+				continue
+			default:
+			}
+
+			writeLockedCameraName(cam)
+			configJson, err := json.Marshal(cam.conf)
+			cam.mu.RUnlock()
+
+			if err != nil {
+				logger.gologger.Error("failed to marshal config")
+			}
+
+			logger.logFile.Write(configJson)
+			logger.logFile.WriteString("\n")
+		}
+		logger.logFile.WriteString("\n")
+
+		writeHeading("camera devices")
+		writeCommand("v4l2-ctl", "--list-devices")
+		logger.logFile.WriteString("\n")
+
+		writeHeading("camera compliance")
+		for cam := range logger.activeCams {
+			cam.mu.RLock()
+			select {
+			case <-cam.cancelCtx.Done():
+				cam.mu.RUnlock()
+				continue
+			default:
+			}
+
+			writeLockedCameraName(cam)
+			writeCommand("v4l2-compliance", "--device", "/dev/v4l/by-id/"+cam.targetPath)
+			cam.mu.RUnlock()
+		}
+		logger.logFile.WriteString("\n")
+
+		writeHeading("camera discovery")
+		for cam := range logger.activeCams {
+			cam.mu.RLock()
+			select {
+			case <-cam.cancelCtx.Done():
+				cam.mu.RUnlock()
+				continue
+			default:
+			}
+			writeLockedCameraName(cam)
+			cam.mu.RUnlock()
+
+			logger.activeCams[cam].discoveryLogFileMu.RLock()
+			discoveryLogFile, err := os.Open(logger.activeCams[cam].discoveryLogFilePath)
+			if err != nil {
+				logger.gologger.Errorw("failed to open camera discovery log file at "+logger.activeCams[cam].discoveryLogFilePath, err)
+				continue
+			}
+
+			discoveryLogReader := bufio.NewScanner(discoveryLogFile)
+			for discoveryLogReader.Scan() {
+				line := discoveryLogReader.Text()
+				if err != nil && err != io.EOF {
+					logger.gologger.Errorw("failed to read camera discovery log file", err)
+					break
+				}
+
+				// This regex matches for: Start of line. Non-whitespace
+				// (timestamp). Whitespace. Non-whitespace (log level).
+				// Whitespace. The rest (to the end of the line) is what we
+				// capture.
+				regex := regexp.MustCompile(`^\S+\s+\S+\s+(.*)$`)
+				matchArr := regex.FindStringSubmatch(line)
+				if len(matchArr) > 1 {
+					line = matchArr[1]
+				}
+
+				logger.logFile.WriteString(line + "\n")
+			}
+			discoveryLogFile.Close()
+			logger.activeCams[cam].discoveryLogFileMu.RUnlock()
+
+			logger.logFile.WriteString("\n\n")
+		}
+
+		writeHeading("can each open camera retrieve an image?")
+		for cam := range logger.activeCams {
+			func() {
+				cam.mu.RLock()
+				defer cam.mu.RUnlock()
+				select {
+				case <-cam.cancelCtx.Done():
+					return
+				default:
+				}
+				writeLockedCameraName(cam)
+				if cam.underlyingSource == nil {
+					logger.logFile.WriteString("\tunderlying source is nil\n")
+					return
+				}
+				stream, err := cam.underlyingSource.Stream(context.Background())
+				if err != nil {
+					logger.logFile.WriteString("\terror creating stream\n")
+					return
+				}
+				img, _, err := stream.Next(context.Background())
+				if err != nil {
+					logger.logFile.WriteString("\terror getting image from stream\n")
+					return
+				}
+				if img == nil {
+					logger.logFile.WriteString("\tgot nil image from stream\n")
+					return
+				}
+
+				logger.logFile.WriteString("\tyes\n")
+			}()
+		}
+		logger.logFile.WriteString("\n")
+
+		// Reduce file size if necessary
+		fileInfo, err := logger.logFile.Stat()
+		if err == nil {
+			// 512 kB
+			if fileInfo.Size() > 512_000 {
+				// Discard the top half of the file by writing the bottom half
+				// to a temp file and copying it over
+				tmpFilePath := filepath.Join(os.TempDir(), uuid.NewString())
+				tmpFile, err := os.Create(tmpFilePath)
+				if err != nil {
+					logger.gologger.Errorw("failed to create temp file", err)
+				}
+				buf := make([]byte, 1024)
+				totalBytes := int64(0)
+				for {
+					n, err := logger.logFile.ReadAt(buf, totalBytes)
+					if err != nil && err != io.EOF {
+						logger.gologger.Errorw("failed to read log file", err)
+						break
+					}
+					if n == 0 {
+						break
+					}
+
+					if totalBytes > fileInfo.Size()/2 {
+						tmpFile.Write(buf[:n])
+					}
+					totalBytes += int64(n)
+				}
+				tmpFile.Close()
+				logger.logFile.Close()
+
+				os.Rename(tmpFilePath, logger.logFilePath)
+
+				logger.logFile, err = os.OpenFile(logger.logFilePath, os.O_RDWR, 0666)
+				if err != nil {
+					logger.gologger.Errorw("failed to reopen camera debug log file at "+logger.logFilePath, err)
+				}
+			}
+		} else {
+			logger.gologger.Error("failed to read log file size")
+		}
+	}
 }

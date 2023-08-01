@@ -51,12 +51,12 @@ func getAgentInfo() (*apppb.AgentInfo, error) {
 	}, nil
 }
 
-var viamDotDir string
+var ViamDotDir string
 
 func init() {
 	//nolint:errcheck
 	home, _ := os.UserHomeDir()
-	viamDotDir = filepath.Join(home, ".viam")
+	ViamDotDir = filepath.Join(home, ".viam")
 }
 
 var (
@@ -65,7 +65,7 @@ var (
 )
 
 func getCloudCacheFilePath(id string) string {
-	return filepath.Join(viamDotDir, fmt.Sprintf("cached_cloud_config_%s.json", id))
+	return filepath.Join(ViamDotDir, fmt.Sprintf("cached_cloud_config_%s.json", id))
 }
 
 func readFromCache(id string) (*Config, error) {
@@ -88,7 +88,7 @@ func readFromCache(id string) (*Config, error) {
 }
 
 func storeToCache(id string, cfg *Config) error {
-	if err := os.MkdirAll(viamDotDir, 0o700); err != nil {
+	if err := os.MkdirAll(ViamDotDir, 0o700); err != nil {
 		return err
 	}
 
