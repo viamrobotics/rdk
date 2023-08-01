@@ -97,7 +97,6 @@ func TestObstacleDist(t *testing.T) {
 	test.That(t, obs[0].PointCloud, test.ShouldBeNil)
 	poseShouldBe := spatialmath.NewPose(r3.Vector{0, 0, 400}, nil)
 	test.That(t, obs[0].Geometry.Pose(), test.ShouldResemble, poseShouldBe)
-	test.That(t, obs[0].Geometry.Label(), test.ShouldResemble, "obstacle")
 
 	// Now with intrinsics (and pointclouds)!
 	srv2, err := registerObstacleDepth(ctx, name, &withIntrinsicsCfg, r)
@@ -110,6 +109,5 @@ func TestObstacleDist(t *testing.T) {
 	for _, o := range obs {
 		test.That(t, o.PointCloud, test.ShouldNotBeNil)
 		test.That(t, o.Geometry, test.ShouldNotBeNil)
-		test.That(t, o.Geometry.Label(), test.ShouldResemble, "obstacle")
 	}
 }

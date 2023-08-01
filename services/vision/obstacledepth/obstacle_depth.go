@@ -68,7 +68,7 @@ const (
 	defaultHmax     = 150.0
 	defaultThetamax = math.Pi / 4
 	defaultK        = 10 // default number of obstacle segments to create
-	// the last 3 consts are hyperparameters that can be tweaked for performance improvement.
+	// the last 2 consts are hyperparameters that can be tweaked for performance improvement.
 	chunkSize = 200 // we send chunkSize points in each goroutine
 	sampleN   = 4   // we sample 1 in every sampleN depth points
 )
@@ -157,7 +157,7 @@ func buildObsDepthNoIntrinsics() segmentation.Segmenter {
 		}
 		min, _ := dm.MinMax()
 
-		pt := spatialmath.NewPoint(r3.Vector{X: 0, Y: 0, Z: float64(min)}, "obstacle")
+		pt := spatialmath.NewPoint(r3.Vector{X: 0, Y: 0, Z: float64(min)}, "")
 		toReturn := make([]*vision.Object, 1)
 		toReturn[0] = &vision.Object{Geometry: pt}
 
@@ -229,7 +229,6 @@ func (o *obsDepth) buildObsDepthWithIntrinsics() segmentation.Segmenter {
 		n := int(math.Min(float64(len(outClusters)), float64(len(boxes)))) // should be same len but for safety
 		toReturn := make([]*vision.Object, n)
 		for i := 0; i < n; i++ { // for each cluster/box make an object
-			boxes[i].SetLabel("obstacle")
 			if o.returnPCDs {
 				pcdToReturn := pointcloud.New()
 				basicData := pointcloud.NewBasicData()
@@ -318,14 +317,13 @@ func (o *obsDepth) clustersToBoxes(clusters clusters.Clusters) ([]spatialmath.Ge
 	boxes := make([]spatialmath.Geometry, 0, len(clusters))
 
 	for i, c := range clusters {
-		var xmax, ymax, zmax float64
+		xmax, ymax, zmax := math.Inf(-1), math.Inf(-1), math.Inf(-1)
 		xmin, ymin, zmin := math.Inf(1), math.Inf(1), math.Inf(1)
 
 		for _, pt := range c.Observations {
 			u, v := pt.Coordinates().Coordinates()[0], pt.Coordinates().Coordinates()[1]
 			x, y, z := o.intrinsics.PixelToPoint(u, v, float64(o.dm.GetDepth(int(u), int(v))))
 
-			// Lol is this the best I can do?
 			if x < xmin {
 				xmin = x
 			}
