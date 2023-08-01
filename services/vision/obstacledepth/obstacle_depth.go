@@ -67,6 +67,7 @@ const (
 	defaultHmin     = 0.0
 	defaultHmax     = 150.0
 	defaultThetamax = math.Pi / 4
+	defaultK        = 10 // default number of obstacle segments to create
 	// the last 3 consts are hyperparameters that can be tweaked for performance improvement.
 	chunkSize = 200 // we send chunkSize points in each goroutine
 	sampleN   = 4   // we sample 1 in every sampleN depth points
@@ -112,7 +113,7 @@ func registerObstacleDepth(
 		return nil, errors.New("config for obstacle_depth cannot be nil")
 	}
 
-	// If you have no intrinsics,
+	// If you have no intrinsics
 	if conf.intrinsics == nil {
 		r.Logger().Warn("obstacle depth started without camera's intrinsic parameters")
 		segmenter := buildObsDepthNoIntrinsics()
@@ -125,6 +126,9 @@ func registerObstacleDepth(
 	}
 	if conf.ThetaMax == 0 {
 		conf.ThetaMax = defaultThetamax
+	}
+	if conf.K == 0 {
+		conf.K = defaultK
 	}
 
 	myObsDep := obsDepth{
@@ -209,12 +213,7 @@ func (o *obsDepth) buildObsDepthWithIntrinsics() segmentation.Segmenter {
 			wg.Wait()
 			close(doneCh)
 		}()
-		count := 0
-		for c := range doneCh {
-			if c {
-				count++
-			}
-		}
+		wg.Wait()
 
 		// Cluster on the 2D depth points and then project the 2D clusters into 3D boxes
 		outClusters, err := o.performKMeans(o.k)
