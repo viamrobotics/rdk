@@ -185,7 +185,6 @@ func (o *obsDepth) buildObsDepthWithIntrinsics() segmentation.Segmenter {
 		}
 		if o.intrinsics == nil {
 			return nil, errors.New("tried to build obstacles depth with intrinsics but no instrinsics found")
-
 		}
 
 		depthStream, err := src.Stream(ctx)
