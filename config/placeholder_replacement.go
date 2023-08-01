@@ -9,13 +9,19 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// Example strings that satisfy this regexp:
-// ${packages.my-COOL-ml-model/__89}
-// ${packages.modules.intel:CameraThatRocks}
-var packagePlaceholderRegexp = regexp.MustCompile(`\$\{(?P<fulltriple>packages(\.(?P<type>ml_models|modules))?\.(?P<name>[\w:\/-]+))\}`)
+// This placeholder regex matches on all strings that satisfy our criteria for a placeholder
+// Example string satisfying the regex:
+// ${hello}
+var placeholderRegexp = regexp.MustCompile(`\$\{(?P<placeholder_key>[^\}]*)\}`)
+
+// packagePlaceholderRegexp matches on all valid ways of specifying one of our package placeholders
+// Example strings satisfying the regex:
+// packages.my-COOL-ml-model/__89
+// packages.modules.intel:CameraThatRocks
+var packagePlaceholderRegexp = regexp.MustCompile(`packages(\.(?P<type>ml_model|module))?\.(?P<name>[\w:\/-]+)`)
 
 func ContainsPlaceholder(s string) bool {
-	return packagePlaceholderRegexp.Match([]byte(s))
+	return placeholderRegexp.MatchString(s)
 }
 
 func (cfg *Config) ReplacePlaceholders() error {
@@ -49,12 +55,11 @@ func walkTypedAttributes[T any](visitor *PlaceholderReplacementVisitor, attribut
 		}
 		newAttrsTyped, err := utils.AssertType[T](newAttrs)
 		if err != nil {
-			var zero T
-			return zero, err
+			return attributes, err
 		}
-		attributes = newAttrsTyped
+		return newAttrsTyped, nil
 	}
-	return attributes, nil
+	return attributes, errors.Errorf("passed attribute cannot be walked")
 }
 
 // PlaceholderReplacementVisitor is a visitor that replaces strings containing placeholder values with their desired values
@@ -106,31 +111,47 @@ func (v *PlaceholderReplacementVisitor) Visit(data interface{}) (interface{}, er
 // replacePlaceholders replaces a string with a package path if its a valid package placeholder.
 func (v *PlaceholderReplacementVisitor) replacePlaceholders(s string) (string, error) {
 	var allErrors error
-
-	patchedStr := packagePlaceholderRegexp.ReplaceAllFunc([]byte(s), func(b []byte) []byte {
-		matches := packagePlaceholderRegexp.FindStringSubmatch(string(b))
+	// first match all possible placeholders (ex: ${hello})
+	patchedStr := placeholderRegexp.ReplaceAllFunc([]byte(s), func(b []byte) []byte {
+		matches := placeholderRegexp.FindSubmatch(b)
 		if matches == nil {
 			allErrors = multierr.Append(allErrors, errors.Errorf("failed to find substring matches for placeholder %q", string(b)))
 			return b
 		}
-		// The only way that "name" or "type" is not present is if the regexp is out of sync with this function
-		// if that occurs, then the tests will fail
-		packageType := matches[packagePlaceholderRegexp.SubexpIndex("type")]
-		packageName := matches[packagePlaceholderRegexp.SubexpIndex("name")]
+		// placeholder key is the inside of the placeholder ex "hello" for ${hello}
+		placeholderKey := matches[placeholderRegexp.SubexpIndex("placeholder_key")]
 
-		packageConfig, isPresent := v.packages[packageName]
-		if !isPresent {
-			allErrors = multierr.Append(allErrors, errors.Errorf("failed to find a package named %q for placeholder %q",
-				packageName, string(b)))
-			return b
+		if packagePlaceholderRegexp.Match(placeholderKey) {
+			replaced, err := v.replacePackagePlaceholder(placeholderKey)
+			allErrors = multierr.Append(allErrors, err)
+			return replaced
 		}
-		// TODO(pre-merge) clean up this logic if we decide to keep the module/modules difference. It is ugly and has bugs
-		if packageType != "" && packageType != string(packageConfig.Type)+"s" {
-			allErrors = multierr.Append(allErrors,
-				errors.Errorf("placeholder %q is of the wrong type. It should be %q", string(b), string(packageConfig.Type)+"s"))
-			return b
-		}
-		return []byte(packageConfig.Directory())
+
+		allErrors = multierr.Append(allErrors, errors.Errorf("invalid placeholder %q", string(b)))
+		return b
 	})
+
 	return string(patchedStr), allErrors
+
+}
+
+func (v *PlaceholderReplacementVisitor) replacePackagePlaceholder(b []byte) ([]byte, error) {
+	matches := packagePlaceholderRegexp.FindStringSubmatch(string(b))
+	if matches == nil {
+		return b, errors.Errorf("failed to find substring matches for placeholder %q", string(b))
+	}
+	packageType := matches[packagePlaceholderRegexp.SubexpIndex("type")]
+	packageName := matches[packagePlaceholderRegexp.SubexpIndex("name")]
+
+	packageConfig, isPresent := v.packages[packageName]
+	if !isPresent {
+		return b, errors.Errorf("failed to find a package named %q for placeholder %q",
+			packageName, string(b))
+	}
+	if packageType != "" && packageType != string(packageConfig.Type) {
+		return b,
+			errors.Errorf("placeholder %q is of the wrong type. It should be a %q", string(b), string(packageConfig.Type))
+	}
+	return []byte(packageConfig.LocalDataDirectory()), nil
+
 }

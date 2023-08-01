@@ -981,6 +981,16 @@ func dialRobotClient(
 func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) {
 	var allErrs error
 
+	// Sync Packages before reconfiguring rest of robot and resolving references to any packages
+	// in the config.
+	// TODO(RSDK-1849): Make this non-blocking so other resources that do not require packages can run before package sync finishes.
+	// TODO(RSDK-2710) this should really use Reconfigure for the package and should allow itself to check
+	// if anything has changed.
+	err := r.packageManager.Sync(ctx, newConfig.Packages)
+	if err != nil {
+		allErrs = multierr.Combine(allErrs, err)
+	}
+
 	// Add default services and process their dependencies. Dependencies may
 	// already come from config validation so we check that here.
 	seen := make(map[resource.API]int)
@@ -1027,19 +1037,6 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 		}
 	}
 
-	// Sync Packages before reconfiguring rest of robot and resolving references to any packages
-	// in the config.
-	// TODO(RSDK-1849): Make this non-blocking so other resources that do not require packages can run before package sync finishes.
-	// TODO(RSDK-2710) this should really use Reconfigure for the package and should allow itself to check
-	// if anything has changed.
-	err := r.packageManager.Sync(ctx, newConfig.Packages)
-	if err != nil {
-		allErrs = multierr.Combine(allErrs, err)
-	}
-
-	if err := newConfig.ReplacePlaceholders(); err != nil {
-		allErrs = multierr.Append(allErrs, err)
-	}
 
 	// Now that we have the new config and all references are resolved, diff it
 	// with the current generated config to see what has changed

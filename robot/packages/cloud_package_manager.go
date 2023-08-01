@@ -141,12 +141,12 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 
 		// Lookup the packages http url
 		includeURL := true
-		platform := fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH)
+		_ = fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH)
 		resp, err := m.client.GetPackage(ctx, &pb.GetPackageRequest{
-			Id:         p.Package,
-			Version:    p.Version,
-			Type:       PackageTypeToProto(p.Type),
-			Platform:   &platform,
+			Id:      p.Package,
+			Version: p.Version,
+			// Type:       PackageTypeToProto(p.Type),
+			// Platform:   &platform,
 			IncludeUrl: &includeURL,
 		})
 		if err != nil {
@@ -239,10 +239,10 @@ func (m *cloudManager) Cleanup(ctx context.Context) error {
 
 // symlink packages/package-name to packages/ml_models/orgid-package-name-ver for backwards compatablility
 func (m *cloudManager) legacyMLModelSymlinkCreation(p config.PackageConfig) error {
-	if err := linkFile(filepath.Join(m.packagesDir, p.Name), p.LocalDataDirectory()); err != nil {
-		m.logger.Errorf("Failed linking ml_model package %s:%s, %s", p.Package, p.Version, err)
-		return err
-	}
+	// if err := linkFile(filepath.Join(m.packagesDir, p.Name), p.LocalDataDirectory()); err != nil {
+	// 	m.logger.Errorf("Failed linking ml_model package %s:%s, %s", p.Package, p.Version, err)
+	// 	return err
+	// }
 	return nil
 }
 
@@ -468,7 +468,7 @@ func (m *cloudManager) unpackFile(ctx context.Context, fromFile, toDir string) e
 				return errors.Wrapf(err, "failed to create directory %q", parent)
 			}
 			//nolint:gosec // path sanitized with safeJoin
-			outFile, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, info.Mode().Perm())
+			outFile, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600|info.Mode().Perm())
 			if err != nil {
 				return errors.Wrapf(err, "failed to create file %s", path)
 			}

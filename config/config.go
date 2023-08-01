@@ -941,7 +941,7 @@ func (p *PackageConfig) LocalDataParentDirectory() string {
 // LocalDataDirectory returns the folder where the package should be extracted.
 // Ex: /home/user/.viam/packages/ml_models/orgid_ballClassifier_0.1.2
 func (p *PackageConfig) LocalDataDirectory() string {
-	return filepath.Join(p.LocalDataDirectory(), p.sanitizedName())
+	return filepath.Join(p.LocalDataParentDirectory(), p.sanitizedName())
 }
 
 // LocalDownloadPath returns the file where the archive should be downloaded before extraction
@@ -962,13 +962,5 @@ func (p *PackageConfig) sanitizedVersion() string {
 
 // packageDirectoryFromType returns the package directory for the filepath based on type.
 func (p *PackageConfig) packageDirectoryFromType() string {
-	switch p.Type {
-	case PackageTypeMlModel:
-		return "ml_models"
-	case PackageTypeModule:
-		return "modules"
-	default:
-		// shouldn't be hit because validation should guarantee a valid type value
-		return "unknown"
-	}
+    return string(p.Type)
 }

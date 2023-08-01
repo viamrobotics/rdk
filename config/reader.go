@@ -383,6 +383,10 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger golog.Logge
 		return nil, errors.Wrap(err, "error copying config")
 	}
 
+	if err := cfg.ReplacePlaceholders(); err != nil {
+		logger.Errorw("error doing placeholder replacement", "err", err)
+	}
+
 	// Copy does not presve ConfigFilePath and we need to pass it along manually
 	cfg.ConfigFilePath = unprocessedConfig.ConfigFilePath
 
