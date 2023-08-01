@@ -91,7 +91,7 @@ func NewKinematicBaseOptions() Options {
 		PlanDeviationThresholdMM:   defaultPlanDeviationThresholdMM,
 		Timeout:                    defaultTimeout,
 		MinimumMovementThresholdMM: defaultMinimumMovementThresholdMM,
-		MaxSpinAngleDeg: defaultMaxSpinAngleDeg,
+		MaxSpinAngleDeg:            defaultMaxSpinAngleDeg,
 	}
 	return options
 }
