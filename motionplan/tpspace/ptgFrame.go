@@ -12,7 +12,6 @@ import (
 
 const (
 	defaultSimDistMM      = 2000.
-	defaultAlphaCnt  uint = 121
 )
 
 const (
