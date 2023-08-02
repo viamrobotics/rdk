@@ -14,13 +14,13 @@ import (
 
 	// registers all components
 	commonpb "go.viam.com/api/common/v1"
-	ur "go.viam.com/rdk/components/arm/universalrobots"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/components/arm"
 	armFake "go.viam.com/rdk/components/arm/fake"
+	ur "go.viam.com/rdk/components/arm/universalrobots"
 	"go.viam.com/rdk/components/base"
 	baseFake "go.viam.com/rdk/components/base/fake"
 	"go.viam.com/rdk/components/base/kinematicbase"
@@ -636,7 +636,7 @@ func TestGetPose(t *testing.T) {
 	test.That(t, pose, test.ShouldBeNil)
 }
 
-func TestStopInMoveFunctions(t *testing.T) {
+func TestStopMoveFunctions(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 	failToReachGoalError := errors.New("failed to reach goal")
@@ -661,13 +661,13 @@ func TestStopInMoveFunctions(t *testing.T) {
 			Arm: fakeArm,
 		}
 		injectArmName := arm.Named("test-arm")
-		injectArm.GoToInputsFunc = func(ctx context.Context, goal []referenceframe.Input) error {
-			return failToReachGoalError
-		}
 		calledStopFunc := false
 		injectArm.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
 			calledStopFunc = true
 			return nil
+		}
+		injectArm.GoToInputsFunc = func(ctx context.Context, goal []referenceframe.Input) error {
+			return failToReachGoalError
 		}
 		injectArm.ModelFrameFunc = func() referenceframe.Model {
 			model, _ := ur.MakeModelFrame("ur5e")
@@ -706,7 +706,6 @@ func TestStopInMoveFunctions(t *testing.T) {
 
 		deps[fsSvc.Name()] = fsSvc
 
-		// Create motion service
 		ms, err := NewBuiltIn(
 			ctx,
 			deps,
@@ -739,6 +738,138 @@ func TestStopInMoveFunctions(t *testing.T) {
 			)
 
 			success, err := ms.MoveSingleComponent(ctx, fakeArm.Name(), goal, nil, map[string]interface{}{})
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err, test.ShouldEqual, failToReachGoalError)
+			test.That(t, success, test.ShouldBeFalse)
+			test.That(t, calledStopFunc, test.ShouldBeTrue)
+		})
+
+		t.Run("stop during MoveSingleComponent(...) call", func(t *testing.T) {
+			calledStopFunc = false
+
+			goal := referenceframe.NewPoseInFrame(
+				"test-arm",
+				spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: -10, Z: -10}),
+			)
+
+			success, err := ms.MoveSingleComponent(ctx, fakeArm.Name(), goal, nil, map[string]interface{}{})
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err, test.ShouldEqual, failToReachGoalError)
+			test.That(t, success, test.ShouldBeFalse)
+			test.That(t, calledStopFunc, test.ShouldBeTrue)
+		})
+	})
+
+	t.Run("successfully stop kinematic bases", func(t *testing.T) {
+		// Create an injected Base
+		baseCfg := resource.Config{
+			Name: "test-base",
+			API:  base.API,
+			Frame: &referenceframe.LinkConfig{
+				Parent:   "world",
+				Geometry: &spatialmath.GeometryConfig{R: 20},
+			},
+		}
+		fakeBase, err := baseFake.NewBase(ctx, nil, baseCfg, logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		// fakeSLAM := fake.NewSLAM(slam.Named("test-slam"), logger)
+		// limits, err := fakeSLAM.GetLimits(ctx)
+		// test.That(t, err, test.ShouldBeNil)
+
+		injectBase := &inject.Base{
+			Base: fakeBase,
+		}
+		injectBaseName := base.Named("test-base")
+		injectBase.NameFunc = func() resource.Name {
+			return injectBaseName
+		}
+		calledStopFunc := false
+		injectBase.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
+			calledStopFunc = true
+			return nil
+		}
+		injectBase.SpinFunc = func(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
+			return failToReachGoalError
+		}
+		injectBase.MoveStraightFunc = func(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error {
+			return failToReachGoalError
+		}
+		injectBase.SetVelocityFunc = func(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
+			return failToReachGoalError
+		}
+
+		// Create a base link
+		basePose := spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0})
+		baseSphere, err := spatialmath.NewSphere(basePose, 10, "base-sphere")
+		test.That(t, err, test.ShouldBeNil)
+		baseLink := referenceframe.NewLinkInFrame(
+			referenceframe.World,
+			spatialmath.NewZeroPose(),
+			"test-base",
+			baseSphere,
+		)
+
+		// Create an injected MovementSensor
+		gpsPoint := geo.NewPoint(-70, 40)
+		injectMovementSensor := inject.NewMovementSensor("test-gps")
+		injectMovementSensorName := movementsensor.Named("test-gps")
+		injectMovementSensor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+			return gpsPoint, 0, nil
+		}
+		injectMovementSensor.CompassHeadingFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
+			return 0, nil
+		}
+		injectMovementSensor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+			return &movementsensor.Properties{CompassHeadingSupported: true}, nil
+		}
+
+		// Create a MovementSensor link
+		movementSensorLink := referenceframe.NewLinkInFrame(
+			baseLink.Name(),
+			spatialmath.NewPoseFromPoint(r3.Vector{-10, 0, 0}),
+			"test-gps",
+			nil,
+		)
+
+		// Create a motion service
+		fsParts := []*referenceframe.FrameSystemPart{
+			{FrameConfig: movementSensorLink},
+			{FrameConfig: baseLink},
+		}
+		deps := resource.Dependencies{
+			fakeBase.Name():          injectBase,
+			injectMovementSensorName: injectMovementSensor,
+		}
+		fsSvc, err := framesystem.New(ctx, deps, logger)
+		test.That(t, err, test.ShouldBeNil)
+		err = fsSvc.Reconfigure(
+			ctx,
+			deps,
+			resource.Config{
+				ConvertedAttributes: &framesystem.Config{Parts: fsParts},
+			},
+		)
+		test.That(t, err, test.ShouldBeNil)
+
+		deps[fsSvc.Name()] = fsSvc
+
+		ms, err := NewBuiltIn(
+			ctx,
+			deps,
+			resource.Config{ConvertedAttributes: &Config{}},
+			logger,
+		)
+		test.That(t, err, test.ShouldBeNil)
+
+		t.Run("stop during MoveOnGlobe(...) call", func(t *testing.T) {
+			calledStopFunc = false
+			dst := geo.NewPoint(gpsPoint.Lat()+1e-4, gpsPoint.Lng()+1e-4)
+
+			success, err := ms.MoveOnGlobe(
+				ctx, injectBaseName, dst, 0, injectMovementSensorName,
+				nil, 10, 10, nil,
+			)
 			test.That(t, err, test.ShouldNotBeNil)
 			test.That(t, err, test.ShouldEqual, failToReachGoalError)
 			test.That(t, success, test.ShouldBeFalse)
