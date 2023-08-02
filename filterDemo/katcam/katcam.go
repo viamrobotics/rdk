@@ -90,7 +90,7 @@ func (c *katCam) Images(ctx context.Context) ([]image.Image, time.Time, error) {
 	return nil, time.Time{}, errUnimplemented
 }
 
-// TODO: implement instead of Stream?
+// Can implement Read instead of Stream - investigate which cams are MediaReader vs. MediaStream?
 // func (c *katCam) Read(ctx context.Context) (image.Image, func(), error) {
 // 	return nil, nil, nil
 // }

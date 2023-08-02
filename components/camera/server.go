@@ -73,7 +73,7 @@ func (s *serviceServer) GetImage(
 	}
 
 	req.MimeType = utils.WithLazyMIMEType(req.MimeType)
-	// TODO: add to context
+
 	if req.Extra.AsMap()[string(data.CtxKeyDM)] == true {
 		ctx = context.WithValue(ctx, data.CtxKeyDM, true)
 	}
