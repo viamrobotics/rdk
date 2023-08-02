@@ -3,7 +3,6 @@ package fake
 
 import (
 	"context"
-	"errors"
 
 	"github.com/edaniels/golog"
 
@@ -50,12 +49,12 @@ func (f *PowerSensor) DoCommand(ctx context.Context, cmd map[string]interface{})
 
 // DoCommand uses a map string to run custom functionality of a fake powersensor.
 func (f *PowerSensor) Voltage(ctx context.Context, cmd map[string]interface{}) (float64, bool, error) {
-	return 0, false, errors.New("unimplemented")
+	return 1, true, nil
 }
 
 // DoCommand uses a map string to run custom functionality of a fake powersensor.
 func (f *PowerSensor) Current(ctx context.Context, cmd map[string]interface{}) (float64, bool, error) {
-	return 2, true, nil
+	return 0, false, powersensor.ErrMethodUnimplementedCurrent
 }
 
 // DoCommand uses a map string to run custom functionality of a fake powersensor.

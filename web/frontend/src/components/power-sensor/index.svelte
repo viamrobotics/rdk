@@ -24,15 +24,10 @@ let clearInterval: (() => void) | undefined;
 
 const refresh = async () => {
   try {
-    const results = await Promise.all([
-      powerSensorClient.getVoltage(),
-      powerSensorClient.getCurrent(),
-      powerSensorClient.getPower(),
-    ] as const);
-
-    voltageValue = results[0]?.[0];
-    currentValue = results[1]?.[0];
-    powerValue = results[2];
+    const readings = await powerSensorClient.getReadings()
+    voltageValue = readings['voltage'];
+     currentValue = readings['current'];
+     powerValue = readings['power'];
   } catch (error) {
     displayError(error as ServiceError);
   }
@@ -54,30 +49,35 @@ useDisconnect(() => clearInterval?.());
 <Collapse title={name} on:toggle={handleToggle}>
     <v-breadcrumbs slot="title" crumbs="power_sensor" />
     <div class="flex flex-wrap gap-4 text-sm border border-t-0 border-medium p-4">
+      {#if voltageValue != undefined}
         <div class="overflow-auto">
           <h3 class="mb-1">voltage (volts)</h3>
           <div class="flex gap-1.5">
-            {JSON.stringify(voltageValue)}
+            {voltageValue.toFixed(4)}
           </div>
         </div>
+        {/if}
+        {#if currentValue != undefined}
         <div class="overflow-auto">
           <h3 class="mb-1">
            current (amperes)
           </h3>
           <div class="flex gap-1.5">
-            {JSON.stringify(currentValue)}
+            {currentValue.toFixed(4)}
           </div>
         </div>
+        {/if}
+        {#if powerValue != undefined}
         <div class="overflow-auto">
           <h3 class="mb-1">
             power (watts)
           </h3>
           <div class="flex gap-1.5">
-            {JSON.stringify(powerValue)}
+            {powerValue.toFixed(4)}
           </div>
         </div>
-        
-      
+        {/if}
+        </div>
     </Collapse>
 
 
