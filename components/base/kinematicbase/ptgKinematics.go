@@ -141,8 +141,7 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 		
 		err := ptgk.Base.SetVelocity(
 			ctx,
-			linVel,2023-08-02T18:23:04.158Z   warn   robot_server.rdk:component:movement_sensor/gps   gpsnmea/serial.go:126   can't parse nmea sentence: type "RMC" sentence fix is not valid have: "V" want "A"; no Location parsed for nmea gps, using default value of lat: NaN, long: NaN  
-
+			linVel,
 			angVel,
 			nil,
 		)
