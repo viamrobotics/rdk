@@ -67,9 +67,8 @@ type Encoder struct {
 
 	positionType encoder.PositionType
 	logger       golog.Logger
-	// TODO(RSDK-2672): This is exposed for tests and should be unexported with
-	// the constructor being used instead.
-	CancelCtx               context.Context
+
+	cancelCtx               context.Context
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
 }
@@ -119,7 +118,7 @@ func NewSingleEncoder(
 	e := &Encoder{
 		Named:        conf.ResourceName().AsNamed(),
 		logger:       logger,
-		CancelCtx:    cancelCtx,
+		cancelCtx:    cancelCtx,
 		cancelFunc:   cancelFunc,
 		position:     0,
 		positionType: encoder.PositionTypeTicks,
@@ -164,7 +163,7 @@ func (e *Encoder) Reconfigure(
 	}
 	utils.UncheckedError(e.Close(ctx))
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
-	e.CancelCtx = cancelCtx
+	e.cancelCtx = cancelCtx
 	e.cancelFunc = cancelFunc
 
 	e.mu.Lock()
@@ -189,13 +188,13 @@ func (e *Encoder) Start(ctx context.Context) {
 		defer e.I.RemoveCallback(encoderChannel)
 		for {
 			select {
-			case <-e.CancelCtx.Done():
+			case <-e.cancelCtx.Done():
 				return
 			default:
 			}
 
 			select {
-			case <-e.CancelCtx.Done():
+			case <-e.cancelCtx.Done():
 				return
 			case <-encoderChannel:
 			}
@@ -237,10 +236,10 @@ func (e *Encoder) ResetPosition(ctx context.Context, extra map[string]interface{
 }
 
 // Properties returns a list of all the position types that are supported by a given encoder.
-func (e *Encoder) Properties(ctx context.Context, extra map[string]interface{}) (map[encoder.Feature]bool, error) {
-	return map[encoder.Feature]bool{
-		encoder.TicksCountSupported:   true,
-		encoder.AngleDegreesSupported: false,
+func (e *Encoder) Properties(ctx context.Context, extra map[string]interface{}) (encoder.Properties, error) {
+	return encoder.Properties{
+		TicksCountSupported:   true,
+		AngleDegreesSupported: false,
 	}, nil
 }
 

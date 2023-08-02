@@ -93,8 +93,9 @@ func TestTransformPipelineDepth(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, prop, test.ShouldResemble, intrinsics)
 	outPc, err := depth.NextPointCloud(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, outPc, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not defined for last videosource")
+	test.That(t, outPc, test.ShouldBeNil)
 
 	test.That(t, depth.Close(context.Background()), test.ShouldBeNil)
 	test.That(t, source.Close(context.Background()), test.ShouldBeNil)

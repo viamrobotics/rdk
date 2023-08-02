@@ -44,9 +44,8 @@ func init() {
 }
 
 const (
-	builtinOpLabel                    = "motion-service"
-	defaultLinearVelocityMillisPerSec = 300 // mm per second; used for bases only
-	defaultAngularVelocityDegsPerSec  = 60  // degrees per second; used for bases only
+	builtinOpLabel    = "motion-service"
+	maxTravelDistance = 5e+6 // mm (or 5km)
 )
 
 // ErrNotImplemented is thrown when an unreleased function is called.
@@ -82,35 +81,36 @@ func (ms *builtIn) Reconfigure(
 	ms.lock.Lock()
 	defer ms.lock.Unlock()
 
-	localizers := make(map[resource.Name]motion.Localizer)
+	movementSensors := make(map[resource.Name]movementsensor.MovementSensor)
+	slamServices := make(map[resource.Name]slam.Service)
 	components := make(map[resource.Name]resource.Resource)
 	for name, dep := range deps {
 		switch dep := dep.(type) {
 		case framesystem.Service:
 			ms.fsService = dep
-		case slam.Service, movementsensor.MovementSensor:
-			localizer, err := motion.NewLocalizer(ctx, dep)
-			if err != nil {
-				return err
-			}
-			localizers[name] = localizer
+		case movementsensor.MovementSensor:
+			movementSensors[name] = dep
+		case slam.Service:
+			slamServices[name] = dep
 		default:
 			components[name] = dep
 		}
 	}
+	ms.movementSensors = movementSensors
+	ms.slamServices = slamServices
 	ms.components = components
-	ms.localizers = localizers
 	return nil
 }
 
 type builtIn struct {
 	resource.Named
 	resource.TriviallyCloseable
-	fsService  framesystem.Service
-	localizers map[resource.Name]motion.Localizer
-	components map[resource.Name]resource.Resource
-	logger     golog.Logger
-	lock       sync.Mutex
+	fsService       framesystem.Service
+	movementSensors map[resource.Name]movementsensor.MovementSensor
+	slamServices    map[resource.Name]slam.Service
+	components      map[resource.Name]resource.Resource
+	logger          golog.Logger
+	lock            sync.Mutex
 }
 
 // Move takes a goal location and will plan and execute a movement to move a component specified by its name to that destination.
@@ -186,9 +186,10 @@ func (ms *builtIn) MoveOnMap(
 	extra map[string]interface{},
 ) (bool, error) {
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
+	kinematicsOptions := kinematicbase.NewKinematicBaseOptions()
 
 	// make call to motionplan
-	plan, kb, err := ms.planMoveOnMap(ctx, componentName, destination, slamName, extra)
+	plan, kb, err := ms.planMoveOnMap(ctx, componentName, destination, slamName, kinematicsOptions, extra)
 	if err != nil {
 		return false, fmt.Errorf("error making plan for MoveOnMap: %w", err)
 	}
@@ -211,52 +212,39 @@ func (ms *builtIn) MoveOnGlobe(
 	heading float64,
 	movementSensorName resource.Name,
 	obstacles []*spatialmath.GeoObstacle,
-	linearVelocityMillisPerSec float64,
-	angularVelocityDegsPerSec float64,
+	linearVelocity float64,
+	angularVelocity float64,
 	extra map[string]interface{},
 ) (bool, error) {
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
 
-	// get the localizer from the componentName
-	localizer, ok := ms.localizers[movementSensorName]
-	if !ok {
-		return false, resource.DependencyNotFoundError(movementSensorName)
-	}
+	kinematicsOptions := kinematicbase.NewKinematicBaseOptions()
+	kinematicsOptions.LinearVelocityMMPerSec = linearVelocity
+	kinematicsOptions.AngularVelocityDegsPerSec = angularVelocity
+	kinematicsOptions.GoalRadiusMM = 3000
+	kinematicsOptions.HeadingThresholdDegrees = 8
+	kinematicsOptions.PlanDeviationThresholdMM = 5000
 
-	currentPosition, dstPIF, err := ms.getRelativePositionAndDestination(ctx, localizer, componentName, movementSensorName, *destination)
-	if err != nil {
-		return false, err
-	}
-
-	plan, kb, err := ms.planMoveOnGlobe(ctx,
+	plan, kb, err := ms.planMoveOnGlobe(
+		ctx,
 		componentName,
-		currentPosition,
-		dstPIF,
-		localizer,
+		destination,
+		movementSensorName,
 		obstacles,
-		linearVelocityMillisPerSec,
-		angularVelocityDegsPerSec,
+		kinematicsOptions,
 		extra,
 	)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("error making plan for MoveOnMap: %w", err)
 	}
 
 	// execute the plan
-	for _, step := range plan {
-		for _, inputs := range step {
-			if ctx.Err() != nil {
-				return false, ctx.Err()
-			}
-			if len(inputs) == 0 {
-				continue
-			}
-			if err := kb.GoToInputs(ctx, inputs); err != nil {
-				return false, err
-			}
+	for i := 1; i < len(plan); i++ {
+		ms.logger.Info(plan[i])
+		if err := kb.GoToInputs(ctx, plan[i]); err != nil {
+			return false, err
 		}
 	}
-
 	return true, nil
 }
 
@@ -264,19 +252,35 @@ func (ms *builtIn) MoveOnGlobe(
 func (ms *builtIn) planMoveOnGlobe(
 	ctx context.Context,
 	componentName resource.Name,
-	currentPosition r3.Vector,
-	dstPIF *referenceframe.PoseInFrame,
-	localizer motion.Localizer,
+	destination *geo.Point,
+	movementSensorName resource.Name,
 	obstacles []*spatialmath.GeoObstacle,
-	linearVelocityMillisPerSec float64,
-	angularVelocityDegsPerSec float64,
+	kinematicsOptions kinematicbase.Options,
 	extra map[string]interface{},
-) ([]map[string][]referenceframe.Input, kinematicbase.KinematicBase, error) {
-	// create a new empty framesystem which we add our base to
-	fs := referenceframe.NewEmptyFrameSystem("")
+) ([][]referenceframe.Input, kinematicbase.KinematicBase, error) {
+	// build the localizer from the movement sensor
+	movementSensor, ok := ms.movementSensors[movementSensorName]
+	if !ok {
+		return nil, nil, resource.DependencyNotFoundError(movementSensorName)
+	}
+	origin, _, err := movementSensor.Position(ctx, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// add an offset between the movement sensor and the base if it is applicable
+	baseOrigin := referenceframe.NewPoseInFrame(componentName.ShortName(), spatialmath.NewZeroPose())
+	movementSensorToBase, err := ms.fsService.TransformPose(ctx, baseOrigin, movementSensorName.ShortName(), nil)
+	if err != nil {
+		movementSensorToBase = baseOrigin
+	}
+	localizer := motion.NewMovementSensorLocalizer(movementSensor, origin, movementSensorToBase.Pose())
+
+	// convert destination into spatialmath.Pose with respect to where the localizer was initialized
+	goal := spatialmath.GeoPointToPose(destination, origin)
 
 	// convert GeoObstacles into GeometriesInFrame with respect to the base's starting point
-	geoms := spatialmath.GeoObstaclesToGeometries(obstacles, currentPosition)
+	geoms := spatialmath.GeoObstaclesToGeometries(obstacles, origin)
 
 	gif := referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)
 	wrldst, err := referenceframe.NewWorldState([]*referenceframe.GeometriesInFrame{gif}, nil)
@@ -285,7 +289,10 @@ func (ms *builtIn) planMoveOnGlobe(
 	}
 
 	// construct limits
-	straightlineDistance := dstPIF.Pose().Point().Norm()
+	straightlineDistance := goal.Point().Norm()
+	if straightlineDistance > maxTravelDistance {
+		return nil, nil, fmt.Errorf("cannot move more than %d kilometers", int(maxTravelDistance*1e-6))
+	}
 	limits := []referenceframe.Limit{
 		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
 		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
@@ -303,91 +310,59 @@ func (ms *builtIn) planMoveOnGlobe(
 	}
 	var kb kinematicbase.KinematicBase
 	if fake, ok := b.(*fake.Base); ok {
-		kb, err = kinematicbase.WrapWithFakeKinematics(ctx, fake, localizer, limits)
+		kb, err = kinematicbase.WrapWithFakeKinematics(ctx, fake, localizer, limits, kinematicsOptions)
 	} else {
-		kb, err = kinematicbase.WrapWithKinematics(ctx, b, localizer, limits,
-			linearVelocityMillisPerSec, angularVelocityDegsPerSec)
+		kb, err = kinematicbase.WrapWithKinematics(ctx, b, ms.logger, localizer, limits, kinematicsOptions)
 	}
 	if err != nil {
 		return nil, nil, err
 	}
 
+	// we take the zero position to be the start since in the frame of the localizer we will always be at its origin
 	inputMap := map[string][]referenceframe.Input{componentName.Name: make([]referenceframe.Input, 3)}
 
-	// Add the kinematic wheeled base to the framesystem
-	if err := fs.AddFrame(kb.Kinematics(), fs.World()); err != nil {
+	// create a new empty framesystem which we add the kinematic base to
+	fs := referenceframe.NewEmptyFrameSystem("")
+	kbf := kb.Kinematics()
+	if err := fs.AddFrame(kbf, fs.World()); err != nil {
+		return nil, nil, err
+	}
+
+	// TODO(RSDK-3407): this does not adequately account for geometries right now since it is a transformation after the fact.
+	// This is probably acceptable for the time being, but long term the construction of the frame system for the kinematic base should
+	// be moved under the purview of the kinematic base wrapper instead of being done here.
+	offsetFrame, err := referenceframe.NewStaticFrame("offset", movementSensorToBase.Pose())
+	if err != nil {
+		return nil, nil, err
+	}
+	if err := fs.AddFrame(offsetFrame, kbf); err != nil {
 		return nil, nil, err
 	}
 
 	// make call to motionplan
-	plan, err := motionplan.PlanMotion(ctx, ms.logger, dstPIF, kb.Kinematics(), inputMap, fs, wrldst, nil, extra)
+	solutionMap, err := motionplan.PlanMotion(
+		ctx,
+		ms.logger,
+		referenceframe.NewPoseInFrame(referenceframe.World, goal),
+		offsetFrame,
+		inputMap,
+		fs,
+		wrldst,
+		nil,
+		extra,
+	)
 	if err != nil {
 		return nil, nil, err
 	}
+
+	plan, err := motionplan.FrameStepsFromRobotPath(kbf.Name(), solutionMap)
+	if err != nil {
+		return nil, nil, err
+	}
+	for _, step := range plan {
+		ms.logger.Info(step)
+	}
 	return plan, kb, nil
-}
-
-// getRelativePositionAndDestination returns the position of the base relative to the localizer only if there is
-// information about their spatial relationship within the framesystem and the resulting pose in frame
-// as the destination relative to the base to plan for.
-func (ms *builtIn) getRelativePositionAndDestination(
-	ctx context.Context,
-	localizer motion.Localizer,
-	componentName resource.Name,
-	movementSensorName resource.Name,
-	destination geo.Point,
-) (r3.Vector, *referenceframe.PoseInFrame, error) {
-	var currentPosition r3.Vector
-
-	// get localizer current pose in frame
-	currentPIF, err := localizer.CurrentPosition(ctx)
-	if err != nil {
-		return currentPosition, nil, err
-	}
-
-	currentPosition = currentPIF.Pose().Point()
-	ms.logger.Debugf("current position: %v", currentPosition)
-
-	// get position of localizer relative to base
-	robotFS, err := ms.fsService.FrameSystem(ctx, nil)
-	if err != nil {
-		return currentPosition, nil, err
-	}
-
-	localizerFrame := robotFS.Frame(movementSensorName.ShortName())
-	if localizerFrame != nil {
-		// build maps of relevant components and inputs from initial inputs
-		fsInputs, _, err := ms.fsService.CurrentInputs(ctx)
-		if err != nil {
-			return currentPosition, nil, err
-		}
-
-		// transform currentPIF by the movementsensor translation specified for its frame
-		destinationFrameName := componentName.Name
-		tf, err := robotFS.Transform(fsInputs, &currentPIF, destinationFrameName)
-		if err != nil {
-			return currentPosition, nil, err
-		}
-		currentPosition = tf.(*referenceframe.PoseInFrame).Pose().Point()
-		ms.logger.Debugf("corrected current position: %v", currentPosition)
-	}
-
-	// convert destination into spatialmath.Pose with respect to lat = 0 = lng
-	dstPose := spatialmath.GeoPointToPose(&destination)
-	ms.logger.Debugf("destination as geo point and pose: %v, %v", destination, dstPose.Point())
-
-	// convert the destination to be relative to the currentPosition
-	relativeDestinationPt := r3.Vector{
-		X: dstPose.Point().X - currentPosition.X,
-		Y: dstPose.Point().Y - currentPosition.Y,
-		Z: 0,
-	}
-	ms.logger.Debugf("destination pose relative to current position: %v", relativeDestinationPt)
-
-	relativeDstPose := spatialmath.NewPoseFromPoint(relativeDestinationPt)
-	dstPIF := referenceframe.NewPoseInFrame(referenceframe.World, relativeDstPose)
-
-	return currentPosition, dstPIF, nil
 }
 
 // MoveSingleComponent will pass through a move command to a component with a MoveToPosition method that takes a pose. Arms are the only
@@ -473,18 +448,13 @@ func (ms *builtIn) planMoveOnMap(
 	componentName resource.Name,
 	destination spatialmath.Pose,
 	slamName resource.Name,
+	kinematicsOptions kinematicbase.Options,
 	extra map[string]interface{},
 ) ([][]referenceframe.Input, kinematicbase.KinematicBase, error) {
 	// get the SLAM Service from the slamName
-	localizer, ok := ms.localizers[slamName]
+	slamSvc, ok := ms.slamServices[slamName]
 	if !ok {
 		return nil, nil, resource.DependencyNotFoundError(slamName)
-	}
-
-	// assert localizer as a slam service and get map limits
-	slamSvc, ok := localizer.(slam.Service)
-	if !ok {
-		return nil, nil, fmt.Errorf("cannot assert localizer of type %T as slam service", localizer)
 	}
 
 	// gets the extents of the SLAM map
@@ -504,10 +474,16 @@ func (ms *builtIn) planMoveOnMap(
 	}
 	var kb kinematicbase.KinematicBase
 	if fake, ok := b.(*fake.Base); ok {
-		kb, err = kinematicbase.WrapWithFakeKinematics(ctx, fake, localizer, limits)
+		kb, err = kinematicbase.WrapWithFakeKinematics(ctx, fake, motion.NewSLAMLocalizer(slamSvc), limits, kinematicsOptions)
 	} else {
-		kb, err = kinematicbase.WrapWithKinematics(ctx, b, localizer, limits,
-			defaultLinearVelocityMillisPerSec, defaultAngularVelocityDegsPerSec)
+		kb, err = kinematicbase.WrapWithKinematics(
+			ctx,
+			b,
+			ms.logger,
+			motion.NewSLAMLocalizer(slamSvc),
+			limits,
+			kinematicsOptions,
+		)
 	}
 	if err != nil {
 		return nil, nil, err

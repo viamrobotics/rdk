@@ -17,11 +17,14 @@ import (
 // RadiusClusteringConfig specifies the necessary parameters for 3D object finding.
 type RadiusClusteringConfig struct {
 	resource.TriviallyValidateConfig
-	MinPtsInPlane      int     `json:"min_points_in_plane"`
-	MinPtsInSegment    int     `json:"min_points_in_segment"`
-	ClusteringRadiusMm float64 `json:"clustering_radius_mm"`
-	MeanKFiltering     int     `json:"mean_k_filtering"`
-	Label              string  `json:"label,omitempty"`
+	MinPtsInPlane      int       `json:"min_points_in_plane"`
+	MaxDistFromPlane   float64   `json:"max_dist_from_plane_mm"`
+	NormalVec          r3.Vector `json:"ground_plane_normal_vec"`
+	AngleTolerance     float64   `json:"ground_angle_tolerance_degs"`
+	MinPtsInSegment    int       `json:"min_points_in_segment"`
+	ClusteringRadiusMm float64   `json:"clustering_radius_mm"`
+	MeanKFiltering     int       `json:"mean_k_filtering"`
+	Label              string    `json:"label,omitempty"`
 }
 
 // CheckValid checks to see in the input values are valid.
@@ -34,6 +37,18 @@ func (rcc *RadiusClusteringConfig) CheckValid() error {
 	}
 	if rcc.ClusteringRadiusMm <= 0 {
 		return errors.Errorf("clustering_radius_mm must be greater than 0, got %v", rcc.ClusteringRadiusMm)
+	}
+	if rcc.MaxDistFromPlane == 0 {
+		rcc.MaxDistFromPlane = 100
+	}
+	if rcc.MaxDistFromPlane <= 0 {
+		return errors.Errorf("max_dist_from_plane must be greater than 0, got %v", rcc.MaxDistFromPlane)
+	}
+	if rcc.AngleTolerance > 180 || rcc.AngleTolerance < 0 {
+		return errors.Errorf("max_angle_of_plane must between 0 & 180 (inclusive), got %v", rcc.AngleTolerance)
+	}
+	if rcc.NormalVec.Norm2() == 0 {
+		rcc.NormalVec = r3.Vector{X: 0, Y: 0, Z: 1}
 	}
 	return nil
 }
@@ -74,9 +89,9 @@ func (rcc *RadiusClusteringConfig) RadiusClustering(ctx context.Context, src cam
 	if err != nil {
 		return nil, err
 	}
-	ps := NewPointCloudPlaneSegmentation(cloud, 10, rcc.MinPtsInPlane)
+	ps := NewPointCloudGroundPlaneSegmentation(cloud, rcc.MaxDistFromPlane, rcc.MinPtsInPlane, rcc.AngleTolerance, rcc.NormalVec)
 	// if there are found planes, remove them, and keep all the non-plane points
-	_, nonPlane, err := ps.FindPlanes(ctx)
+	_, nonPlane, err := ps.FindGroundPlane(ctx)
 	if err != nil {
 		return nil, err
 	}

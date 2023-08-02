@@ -47,7 +47,7 @@ const grab = () => {
   >
     <v-button
       variant="danger"
-      icon="stop-circle"
+      icon="stop-circle-outline"
       label="Stop"
       on:click|stopPropagation={stop}
     />

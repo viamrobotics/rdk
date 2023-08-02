@@ -237,11 +237,17 @@ func floatsToString(inputs []Input) string {
 func sortTransforms(unsorted map[string]Frame, parentMap map[string]string, start, finish string) ([]Frame, error) {
 	seen := map[string]bool{}
 
-	nextTransform := unsorted[start]
+	nextTransform, ok := unsorted[start]
+	if !ok {
+		return nil, NewFrameNotInListOfTransformsError(start)
+	}
 	orderedTransforms := []Frame{nextTransform}
 	seen[start] = true
 	for {
-		parent := parentMap[nextTransform.Name()]
+		parent, ok := parentMap[nextTransform.Name()]
+		if !ok {
+			return nil, NewParentFrameNotInMapOfParentsError(nextTransform.Name())
+		}
 		if seen[parent] {
 			return nil, ErrCircularReference
 		}
@@ -250,7 +256,10 @@ func sortTransforms(unsorted map[string]Frame, parentMap map[string]string, star
 			break
 		}
 		seen[parent] = true
-		nextTransform = unsorted[parent]
+		nextTransform, ok = unsorted[parent]
+		if !ok {
+			return nil, NewFrameNotInListOfTransformsError(parent)
+		}
 		orderedTransforms = append(orderedTransforms, nextTransform)
 	}
 

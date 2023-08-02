@@ -6,7 +6,6 @@ package robotimpl
 
 import (
 	"context"
-	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -39,8 +38,6 @@ import (
 )
 
 var _ = robot.LocalRobot(&localRobot{})
-
-var resourceConfigurationTimeout = time.Minute
 
 // localRobot satisfies robot.LocalRobot and defers most
 // logic to its manager.
@@ -446,6 +443,11 @@ func newWithResources(
 	// specified modules.
 	r.manager.startModuleManager(r.webSvc.ModuleAddress(), cfg.UntrustedEnv, logger)
 	for _, mod := range cfg.Modules {
+		// this is done in config validation but partial start rules require us to check again
+		if err := mod.Validate(""); err != nil {
+			r.logger.Errorw("module config validation error; skipping", "module", mod.Name, "error", err)
+			continue
+		}
 		if err := r.manager.moduleManager.Add(ctx, mod); err != nil {
 			r.logger.Errorw("error adding module", "module", mod.Name, "error", err)
 			continue
@@ -624,7 +626,7 @@ func (r *localRobot) newResource(
 	resName := conf.ResourceName()
 	resInfo, ok := resource.LookupRegistration(resName.API, conf.Model)
 	if !ok {
-		return nil, errors.Errorf("unknown resource type: %s and/or model: %s", resName.API, conf.Model)
+		return nil, errors.Errorf("unknown resource type: API %q with model %q not registered", resName.API, conf.Model)
 	}
 
 	deps, err := r.getDependencies(ctx, resName, gNode)
@@ -651,18 +653,6 @@ func (r *localRobot) newResource(
 	}
 	r.logger.Warnw("using deprecated robot constructor", "api", resName.API, "model", conf.Model)
 	return resInfo.DeprecatedRobotConstructor(ctx, r, conf, resLogger)
-}
-
-func (r *localRobot) getTimeout() time.Duration {
-	if newTimeout := os.Getenv("VIAM_RESOURCE_CONFIGURATION_TIMEOUT"); newTimeout != "" {
-		timeOut, err := time.ParseDuration(newTimeout)
-		if err != nil {
-			r.logger.Warn("Failed to parse VIAM_RESOURCE_CONFIGURATION_TIMEOUT env var, falling back to default 1 minute timeout")
-			return resourceConfigurationTimeout
-		}
-		return timeOut
-	}
-	return resourceConfigurationTimeout
 }
 
 func (r *localRobot) updateWeakDependents(ctx context.Context) {
@@ -693,7 +683,7 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 		}
 	}
 
-	timeout := r.getTimeout()
+	timeout := utils.GetResourceConfigurationTimeout(r.logger)
 	// NOTE(erd): this is intentionally hard coded since these services are treated specially with
 	// how they request dependencies or consume the robot's config. We should make an effort to
 	// formalize these as servcices that while internal, obey the reconfigure lifecycle.
@@ -1142,12 +1132,14 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	}
 }
 
-func walkConvertedAttributes[T any](pacMan packages.ManagerSyncer, convertedAttributes T, allErrs error) (T, error) {
+func walkConvertedAttributes[T any](
+	pacMan packages.ManagerSyncer, packageMap map[string]string, convertedAttributes T, allErrs error,
+) (T, error) {
 	// Replace all package references with the actual path containing the package
 	// on the robot.
 	var asIfc interface{} = convertedAttributes
 	if walker, ok := asIfc.(utils.Walker); ok {
-		newAttrs, err := walker.Walk(packages.NewPackagePathVisitor(pacMan))
+		newAttrs, err := walker.Walk(packages.NewPackagePathVisitor(pacMan, packageMap))
 		if err != nil {
 			allErrs = multierr.Combine(allErrs, err)
 			return convertedAttributes, allErrs
@@ -1164,14 +1156,26 @@ func walkConvertedAttributes[T any](pacMan packages.ManagerSyncer, convertedAttr
 
 func (r *localRobot) replacePackageReferencesWithPaths(cfg *config.Config) error {
 	var allErrs error
+	packageMap := cfg.GetExpectedPackagePlaceholders()
+	// don't traverse if there are no packages on the config
+	// we may want to remove this if we want to do all placeholder replacement
+	if len(packageMap) == 0 {
+		return nil
+	}
 	for i, s := range cfg.Services {
-		s.ConvertedAttributes, allErrs = walkConvertedAttributes(r.packageManager, s.ConvertedAttributes, allErrs)
+		s.ConvertedAttributes, allErrs = walkConvertedAttributes(r.packageManager, packageMap, s.ConvertedAttributes, allErrs)
 		cfg.Services[i] = s
 	}
 
 	for i, c := range cfg.Components {
-		c.ConvertedAttributes, allErrs = walkConvertedAttributes(r.packageManager, c.ConvertedAttributes, allErrs)
+		c.ConvertedAttributes, allErrs = walkConvertedAttributes(r.packageManager, packageMap, c.ConvertedAttributes, allErrs)
 		cfg.Components[i] = c
+	}
+
+	for _, c := range cfg.Modules {
+		newExecPath, err := packages.NewPackagePathVisitor(r.packageManager, packageMap).VisitAndReplaceString(c.ExePath)
+		allErrs = multierr.Combine(allErrs, err)
+		c.ExePath = newExecPath
 	}
 
 	return allErrs

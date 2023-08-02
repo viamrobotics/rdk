@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/edaniels/golog"
+	v1 "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
 	motionpb "go.viam.com/api/service/motion/v1"
 
@@ -83,9 +84,6 @@ type Arm interface {
 	JointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error)
 }
 
-// ErrStopUnimplemented is used for when Stop is unimplemented.
-var ErrStopUnimplemented = errors.New("Stop unimplemented")
-
 // FromDependencies is a helper for getting the named arm from a collection of
 // dependencies.
 func FromDependencies(deps resource.Dependencies, name string) (Arm, error) {
@@ -110,15 +108,17 @@ func CreateStatus(ctx context.Context, a Arm) (*pb.Status, error) {
 		return nil, err
 	}
 	model := a.ModelFrame()
-	endPosition, err := motionplan.ComputeOOBPosition(model, jointPositions)
-	if err != nil {
-		return nil, err
+
+	var endPosition *v1.Pose
+	if endPose, err := motionplan.ComputeOOBPosition(model, jointPositions); err == nil {
+		endPosition = spatialmath.PoseToProtobuf(endPose)
 	}
+
 	isMoving, err := a.IsMoving(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.Status{EndPosition: spatialmath.PoseToProtobuf(endPosition), JointPositions: jointPositions, IsMoving: isMoving}, nil
+	return &pb.Status{EndPosition: endPosition, JointPositions: jointPositions, IsMoving: isMoving}, nil
 }
 
 // Move is a helper function to abstract away movement for general arms.

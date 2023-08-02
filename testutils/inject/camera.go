@@ -2,6 +2,8 @@ package inject
 
 import (
 	"context"
+	"image"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/viamrobotics/gostream"
@@ -17,6 +19,7 @@ type Camera struct {
 	camera.Camera
 	name       resource.Name
 	DoFunc     func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+	ImagesFunc func(ctx context.Context) ([]image.Image, time.Time, error)
 	StreamFunc func(
 		ctx context.Context,
 		errHandlers ...gostream.ErrorHandler,
@@ -73,6 +76,14 @@ func (c *Camera) Properties(ctx context.Context) (camera.Properties, error) {
 		return c.Camera.Properties(ctx)
 	}
 	return c.PropertiesFunc(ctx)
+}
+
+// Images calls the injected Images or the real version.
+func (c *Camera) Images(ctx context.Context) ([]image.Image, time.Time, error) {
+	if c.ImagesFunc == nil {
+		return c.Camera.Images(ctx)
+	}
+	return c.ImagesFunc(ctx)
 }
 
 // Close calls the injected Close or the real version.

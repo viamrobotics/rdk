@@ -815,6 +815,7 @@ func PackageConfigToProto(cfg *PackageConfig) (*pb.PackageConfig, error) {
 		Name:    cfg.Name,
 		Package: cfg.Package,
 		Version: cfg.Version,
+		Type:    string(cfg.Type),
 	}, nil
 }
 
@@ -824,5 +825,6 @@ func PackageConfigFromProto(proto *pb.PackageConfig) (*PackageConfig, error) {
 		Name:    proto.Name,
 		Package: proto.Package,
 		Version: proto.Version,
+		Type:    PackageType(proto.Type),
 	}, nil
 }

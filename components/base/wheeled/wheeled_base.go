@@ -463,6 +463,6 @@ func (wb *wheeledBase) Properties(ctx context.Context, extra map[string]interfac
 	}, nil
 }
 
-func (wb *wheeledBase) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
+func (wb *wheeledBase) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
 	return wb.geometries, nil
 }

@@ -183,6 +183,7 @@ var testPackageConfig = PackageConfig{
 	Name:    "package-name",
 	Package: "some/package",
 	Version: "v1",
+	Type:    PackageTypeModule,
 }
 
 var (

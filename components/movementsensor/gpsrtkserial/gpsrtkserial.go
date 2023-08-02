@@ -19,7 +19,7 @@ import (
 
 	"go.viam.com/rdk/components/movementsensor"
 	gpsnmea "go.viam.com/rdk/components/movementsensor/gpsnmea"
-	rtk "go.viam.com/rdk/components/movementsensor/gpsrtk"
+	rtk "go.viam.com/rdk/components/movementsensor/rtkutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -93,9 +93,12 @@ type rtkSerial struct {
 
 	activeBackgroundWorkers sync.WaitGroup
 
-	ntripMu     sync.Mutex
-	ntripClient *rtk.NtripInfo
-	ntripStatus bool
+	mu            sync.Mutex
+	ntripMu       sync.Mutex
+	ntripconfigMu sync.Mutex
+	ntripClient   *rtk.NtripInfo
+	ntripStatus   bool
+	isClosed      bool
 
 	err           movementsensor.LastError
 	lastposition  movementsensor.LastPosition
@@ -105,6 +108,60 @@ type rtkSerial struct {
 	correctionWriter   io.ReadWriteCloser
 	writePath          string
 	wbaud              int
+}
+
+// Reconfigure reconfigures attributes.
+func (g *rtkSerial) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	newConf, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return err
+	}
+
+	if newConf.SerialPath != "" {
+		g.writePath = newConf.SerialPath
+		g.logger.Infof("updated serial_path to #%v", newConf.SerialPath)
+	}
+
+	if newConf.SerialBaudRate != 0 {
+		g.wbaud = newConf.SerialBaudRate
+		g.logger.Infof("updated serial_baud_rate to %v", newConf.SerialBaudRate)
+	} else {
+		g.wbaud = 38400
+		g.logger.Info("serial_baud_rate using default baud rate 38400")
+	}
+
+	g.ntripconfigMu.Lock()
+	ntripConfig := &rtk.NtripConfig{
+		NtripURL:             newConf.NtripURL,
+		NtripUser:            newConf.NtripUser,
+		NtripPass:            newConf.NtripPass,
+		NtripMountpoint:      newConf.NtripMountpoint,
+		NtripConnectAttempts: newConf.NtripConnectAttempts,
+	}
+
+	// Init ntripInfo from attributes
+	tempNtripClient, err := rtk.NewNtripInfo(ntripConfig, g.logger)
+	if err != nil {
+		return err
+	}
+
+	if g.ntripClient == nil {
+		g.ntripClient = tempNtripClient
+	} else {
+		tempNtripClient.Client = g.ntripClient.Client
+		tempNtripClient.Stream = g.ntripClient.Stream
+
+		g.ntripClient = tempNtripClient
+	}
+
+	g.ntripconfigMu.Unlock()
+
+	g.logger.Debug("done reconfiguring")
+
+	return nil
 }
 
 func newRTKSerial(
@@ -128,12 +185,9 @@ func newRTKSerial(
 		lastposition: movementsensor.NewLastPosition(),
 	}
 
-	ntripConfig := &rtk.NtripConfig{
-		NtripURL:             newConf.NtripURL,
-		NtripUser:            newConf.NtripUser,
-		NtripPass:            newConf.NtripPass,
-		NtripMountpoint:      newConf.NtripMountpoint,
-		NtripConnectAttempts: newConf.NtripConnectAttempts,
+	// reconfigure
+	if err := g.Reconfigure(ctx, deps, conf); err != nil {
+		return nil, err
 	}
 
 	g.InputProtocol = serialStr
@@ -142,7 +196,6 @@ func newRTKSerial(
 	}
 
 	// Init NMEAMovementSensor
-
 	nmeaConf.SerialConfig = &gpsnmea.SerialConfig{
 		SerialPath:     newConf.SerialPath,
 		SerialBaudRate: newConf.SerialBaudRate,
@@ -151,19 +204,6 @@ func newRTKSerial(
 	if err != nil {
 		return nil, err
 	}
-
-	g.ntripClient, err = rtk.NewNtripInfo(ntripConfig, g.logger)
-	if err != nil {
-		return nil, err
-	}
-
-	// baud rate
-	if newConf.SerialBaudRate == 0 {
-		newConf.SerialBaudRate = 38400
-		g.logger.Info("serial_baud_rate using default baud rate 38400")
-	}
-	g.wbaud = newConf.SerialBaudRate
-	g.writePath = newConf.SerialPath
 
 	if err := g.start(); err != nil {
 		return nil, err
@@ -177,7 +217,9 @@ func (g *rtkSerial) start() error {
 		return err
 	}
 	g.activeBackgroundWorkers.Add(1)
-	utils.PanicCapturingGo(g.receiveAndWriteSerial)
+	if !g.isClosed {
+		utils.PanicCapturingGo(g.receiveAndWriteSerial)
+	}
 	return g.err.Get()
 }
 
@@ -226,7 +268,7 @@ func (g *rtkSerial) getStream(mountPoint string, maxAttempts int) error {
 
 	g.logger.Debug("Getting NTRIP stream")
 
-	for !success && attempts < maxAttempts {
+	for !success && attempts < maxAttempts && !g.isClosed {
 		select {
 		case <-g.cancelCtx.Done():
 			return errors.New("Canceled")
@@ -249,12 +291,55 @@ func (g *rtkSerial) getStream(mountPoint string, maxAttempts int) error {
 		return err
 	}
 
-	g.logger.Debug("Connected to stream")
+	if success {
+		g.logger.Debug("Connected to stream")
+	}
+
 	g.ntripMu.Lock()
 	defer g.ntripMu.Unlock()
 
 	g.ntripClient.Stream = rc
 	return g.err.Get()
+}
+
+// openPort opens the serial port for writing.
+func (g *rtkSerial) openPort() error {
+	options := slib.OpenOptions{
+		PortName:        g.writePath,
+		BaudRate:        uint(g.wbaud),
+		DataBits:        8,
+		StopBits:        1,
+		MinimumReadSize: 1,
+	}
+
+	g.ntripMu.Lock()
+	defer g.ntripMu.Unlock()
+
+	if err := g.cancelCtx.Err(); err != nil {
+		return err
+	}
+
+	var err error
+	g.correctionWriter, err = slib.Open(options)
+	if err != nil {
+		g.logger.Errorf("serial.Open: %v", err)
+		return err
+	}
+
+	return nil
+}
+
+// closePort closes the serial port.
+func (g *rtkSerial) closePort() {
+	g.ntripMu.Lock()
+	defer g.ntripMu.Unlock()
+
+	if g.correctionWriter != nil {
+		err := g.correctionWriter.Close()
+		if err != nil {
+			g.logger.Errorf("Error closing port: %v", err)
+		}
+	}
 }
 
 // receiveAndWriteSerial connects to NTRIP receiver and sends correction stream to the MovementSensor through serial.
@@ -273,30 +358,15 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 		g.logger.Infof("caster %s seems to be down", g.ntripClient.URL)
 	}
 
-	options := slib.OpenOptions{
-		PortName:        g.writePath,
-		BaudRate:        uint(g.wbaud),
-		DataBits:        8,
-		StopBits:        1,
-		MinimumReadSize: 1,
-	}
-
-	// Open the port.
-	g.ntripMu.Lock()
-	if err := g.cancelCtx.Err(); err != nil {
-		g.ntripMu.Unlock()
-		return
-	}
-	g.correctionWriter, err = slib.Open(options)
-	g.ntripMu.Unlock()
+	err = g.openPort()
 	if err != nil {
-		g.logger.Errorf("serial.Open: %v", err)
 		g.err.Set(err)
 		return
 	}
 
-	w := bufio.NewWriter(g.correctionWriter)
+	defer g.closePort()
 
+	w := bufio.NewWriter(g.correctionWriter)
 	err = g.getStream(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
 	if err != nil {
 		g.err.Set(err)
@@ -312,7 +382,7 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 
 	// It's okay to skip the mutex on this next line: g.ntripStatus can only be mutated by this
 	// goroutine itself
-	for g.ntripStatus {
+	for g.ntripStatus && !g.isClosed {
 		select {
 		case <-g.cancelCtx.Done():
 			return
@@ -326,6 +396,9 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 			g.ntripMu.Unlock()
 
 			if msg == nil {
+				if g.isClosed {
+					return
+				}
 				g.logger.Debug("No message... reconnecting to stream...")
 				err = g.getStream(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
 				if err != nil {
@@ -387,6 +460,10 @@ func (g *rtkSerial) Position(ctx context.Context, extra map[string]interface{}) 
 	// Update the last known valid position if the current position is non-zero
 	if position != nil && !g.lastposition.IsZeroPosition(position) {
 		g.lastposition.SetLastPosition(position)
+	}
+
+	if g.lastposition.IsPositionNaN(position) {
+		position = lastPosition
 	}
 
 	return position, alt, nil
@@ -516,6 +593,7 @@ func (g *rtkSerial) Close(ctx context.Context) error {
 	// close ntrip writer
 	if g.correctionWriter != nil {
 		if err := g.correctionWriter.Close(); err != nil {
+			g.isClosed = true
 			g.ntripMu.Unlock()
 			return err
 		}

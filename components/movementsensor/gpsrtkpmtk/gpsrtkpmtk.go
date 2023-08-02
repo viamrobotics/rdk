@@ -20,12 +20,12 @@ import (
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/movementsensor"
 	gpsnmea "go.viam.com/rdk/components/movementsensor/gpsnmea"
-	rtk "go.viam.com/rdk/components/movementsensor/gpsrtk"
+	rtk "go.viam.com/rdk/components/movementsensor/rtkutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
 
-var rtkmodel = resource.DefaultModelFamily.WithModel("gps-rtk-nmea-pmtk")
+var rtkmodel = resource.DefaultModelFamily.WithModel("gps-nmea-rtk-pmtk")
 
 const i2cStr = "i2c"
 
@@ -99,9 +99,11 @@ type rtkI2C struct {
 
 	activeBackgroundWorkers sync.WaitGroup
 
-	ntripMu     sync.Mutex
-	ntripClient *rtk.NtripInfo
-	ntripStatus bool
+	mu            sync.Mutex
+	ntripMu       sync.Mutex
+	ntripconfigMu sync.Mutex
+	ntripClient   *rtk.NtripInfo
+	ntripStatus   bool
 
 	err          movementsensor.LastError
 	lastposition movementsensor.LastPosition
@@ -112,6 +114,68 @@ type rtkI2C struct {
 	bus   board.I2C
 	wbaud int
 	addr  byte
+}
+
+// Reconfigure reconfigures attributes.
+func (g *rtkI2C) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	newConf, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return err
+	}
+
+	if newConf.I2CBaudRate == 0 {
+		newConf.I2CBaudRate = 115200
+	}
+
+	g.wbaud = newConf.I2CBaudRate
+	g.addr = byte(newConf.I2CAddr)
+
+	b, err := board.FromDependencies(deps, newConf.Board)
+	if err != nil {
+		return fmt.Errorf("gps init: failed to find board: %w", err)
+	}
+	localB, ok := b.(board.LocalBoard)
+	if !ok {
+		return fmt.Errorf("board %s is not local", newConf.Board)
+	}
+
+	i2cbus, ok := localB.I2CByName(newConf.I2CBus)
+	if !ok {
+		return fmt.Errorf("gps init: failed to find i2c bus %s", newConf.I2CBus)
+	}
+	g.bus = i2cbus
+
+	g.ntripconfigMu.Lock()
+	ntripConfig := &rtk.NtripConfig{
+		NtripURL:             newConf.NtripURL,
+		NtripUser:            newConf.NtripUser,
+		NtripPass:            newConf.NtripPass,
+		NtripMountpoint:      newConf.NtripMountpoint,
+		NtripConnectAttempts: newConf.NtripConnectAttempts,
+	}
+
+	// Init ntripInfo from attributes
+	tempNtripClient, err := rtk.NewNtripInfo(ntripConfig, g.logger)
+	if err != nil {
+		return err
+	}
+
+	if g.ntripClient == nil {
+		g.ntripClient = tempNtripClient
+	} else {
+		tempNtripClient.Client = g.ntripClient.Client
+		tempNtripClient.Stream = g.ntripClient.Stream
+
+		g.ntripClient = tempNtripClient
+	}
+
+	g.ntripconfigMu.Unlock()
+
+	g.logger.Debug("done reconfiguring")
+
+	return nil
 }
 
 func newRTKI2C(
@@ -135,13 +199,9 @@ func newRTKI2C(
 		lastposition: movementsensor.NewLastPosition(),
 	}
 
-	ntripConfig := &rtk.NtripConfig{
-		NtripURL:             newConf.NtripURL,
-		NtripUser:            newConf.NtripUser,
-		NtripPass:            newConf.NtripPass,
-		NtripMountpoint:      newConf.NtripMountpoint,
-		NtripConnectAttempts: newConf.NtripConnectAttempts,
-		NtripInputProtocol:   i2cStr,
+	// reconfigure
+	if err = g.Reconfigure(ctx, deps, conf); err != nil {
+		return nil, err
 	}
 
 	nmeaConf := &gpsnmea.Config{
@@ -152,36 +212,18 @@ func newRTKI2C(
 	if newConf.I2CBaudRate == 0 {
 		newConf.I2CBaudRate = 115200
 	}
-	nmeaConf.Board = newConf.Board
-	nmeaConf.I2CConfig = &gpsnmea.I2CConfig{I2CBus: newConf.I2CBus, I2CBaudRate: newConf.I2CBaudRate, I2CAddr: newConf.I2CAddr}
+
+	nmeaConf.I2CConfig = &gpsnmea.I2CConfig{
+		Board:       newConf.Board,
+		I2CBus:      newConf.I2CBus,
+		I2CBaudRate: newConf.I2CBaudRate,
+		I2CAddr:     newConf.I2CAddr,
+	}
+
 	g.nmeamovementsensor, err = gpsnmea.NewPmtkI2CGPSNMEA(ctx, deps, conf.ResourceName(), nmeaConf, logger)
 	if err != nil {
 		return nil, err
 	}
-
-	// Init ntripInfo from attributes
-	g.ntripClient, err = rtk.NewNtripInfo(ntripConfig, g.logger)
-	if err != nil {
-		return nil, err
-	}
-
-	g.wbaud = newConf.I2CBaudRate
-	g.addr = byte(newConf.I2CAddr)
-
-	b, err := board.FromDependencies(deps, newConf.Board)
-	if err != nil {
-		return nil, fmt.Errorf("gps init: failed to find board: %w", err)
-	}
-	localB, ok := b.(board.LocalBoard)
-	if !ok {
-		return nil, fmt.Errorf("board %s is not local", newConf.Board)
-	}
-
-	i2cbus, ok := localB.I2CByName(newConf.I2CBus)
-	if !ok {
-		return nil, fmt.Errorf("gps init: failed to find i2c bus %s", newConf.I2CBus)
-	}
-	g.bus = i2cbus
 
 	if err := g.start(); err != nil {
 		return nil, err
@@ -208,6 +250,7 @@ func (g *rtkI2C) start() error {
 
 // connect attempts to connect to ntrip client until successful connection or timeout.
 func (g *rtkI2C) connect(casterAddr, user, pwd string, maxAttempts int) error {
+	g.logger.Info("starting connect")
 	for attempts := 0; attempts < maxAttempts; attempts++ {
 		ntripclient, err := ntrip.NewClient(casterAddr, ntrip.Options{Username: user, Password: pwd})
 		if err == nil {
@@ -415,7 +458,7 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 }
 
 //nolint
-// getNtripConnectionStatus returns true if connection to NTRIP stream is OK, false if not.
+// getNtripConnectionStatus returns true if connection to NTRIP stream is OK, false if not
 func (g *rtkI2C) getNtripConnectionStatus() (bool, error) {
 	g.ntripMu.Lock()
 	defer g.ntripMu.Unlock()
@@ -447,7 +490,6 @@ func (g *rtkI2C) Position(ctx context.Context, extra map[string]interface{}) (*g
 		}
 		return geo.NewPoint(math.NaN(), math.NaN()), math.NaN(), err
 	}
-
 	// Check if the current position is different from the last position and non-zero
 	lastPosition := g.lastposition.GetLastPosition()
 	if !g.lastposition.ArePointsEqual(position, lastPosition) {
@@ -457,6 +499,10 @@ func (g *rtkI2C) Position(ctx context.Context, extra map[string]interface{}) (*g
 	// Update the last known valid position if the current position is non-zero
 	if position != nil && !g.lastposition.IsZeroPosition(position) {
 		g.lastposition.SetLastPosition(position)
+	}
+
+	if g.lastposition.IsPositionNaN(position) {
+		position = lastPosition
 	}
 
 	return position, alt, nil

@@ -77,7 +77,6 @@ func (slamSvc *SLAM) GetPointCloudMap(ctx context.Context) (func() ([]byte, erro
 	ctx, span := trace.StartSpan(ctx, "slam::fake::GetPointCloudMap")
 	defer span.End()
 	slamSvc.incrementDataCount()
-	slamSvc.mapTimestamp = time.Now().UTC()
 	return fakeGetPointCloudMap(ctx, datasetDirectory, slamSvc)
 }
 
@@ -89,10 +88,12 @@ func (slamSvc *SLAM) GetInternalState(ctx context.Context) (func() ([]byte, erro
 	return fakeGetInternalState(ctx, datasetDirectory, slamSvc)
 }
 
-// GetLatestMapInfo returns a message indicating details regarding the latest map returned to the system.
+// GetLatestMapInfo returns information used to determine whether the slam mode is localizing.
+// Fake Slam is always in mapping mode, so it always returns a new timestamp.
 func (slamSvc *SLAM) GetLatestMapInfo(ctx context.Context) (time.Time, error) {
 	_, span := trace.StartSpan(ctx, "slam::fake::GetLatestMapInfo")
 	defer span.End()
+	slamSvc.mapTimestamp = time.Now().UTC()
 	return slamSvc.mapTimestamp, nil
 }
 

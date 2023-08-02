@@ -6,7 +6,6 @@ package genericlinux
 
 import (
 	"context"
-	"strconv"
 
 	"github.com/mkch/gpio"
 	"github.com/pkg/errors"
@@ -17,7 +16,7 @@ import (
 )
 
 type digitalInterrupt struct {
-	parentBoard *sysfsBoard
+	parentBoard *SysfsBoard
 	interrupt   board.ReconfigurableDigitalInterrupt
 	line        *gpio.LineWithEvent
 	cancelCtx   context.Context
@@ -25,20 +24,16 @@ type digitalInterrupt struct {
 	config      *board.DigitalInterruptConfig
 }
 
-func (b *sysfsBoard) createDigitalInterrupt(
+func (b *SysfsBoard) createDigitalInterrupt(
 	ctx context.Context,
 	config board.DigitalInterruptConfig,
-	gpioMappings map[int]GPIOBoardMapping,
+	gpioMappings map[string]GPIOBoardMapping,
 	// If we are reconfiguring a board, we might already have channels subscribed and listening for
 	// updates from an old interrupt that we're creating on a new pin. In that case, reuse the part
 	// that holds the callbacks.
 	oldCallbackHolder board.ReconfigurableDigitalInterrupt,
 ) (*digitalInterrupt, error) {
-	pinInt, err := strconv.Atoi(config.Pin)
-	if err != nil {
-		return nil, errors.Errorf("pin numbers must be numerical, not '%s'", config.Pin)
-	}
-	mapping, ok := gpioMappings[pinInt]
+	mapping, ok := gpioMappings[config.Pin]
 	if !ok {
 		return nil, errors.Errorf("unknown interrupt pin %s", config.Pin)
 	}

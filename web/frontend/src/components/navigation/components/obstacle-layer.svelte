@@ -1,27 +1,25 @@
 <script lang='ts'>
 
 import { type Map } from 'maplibre-gl';
-import { Canvas, currentWritable } from '@threlte/core';
+import { Canvas } from '@threlte/core';
 import Scene from './scene.svelte';
-import { injectLngLatPlugin } from '../lnglat-plugin';
-import type { Mat4 } from '../types';
+import { cameraMatrix, mapSize } from '../stores';
+import { renderPlugin } from '../plugins/render';
 
 export let map: Map;
+export let name: string;
 
-const viewProjectionMatrix = currentWritable<Float32Array | Mat4>(null!);
 const canvas = map.getCanvas();
 
 let context: WebGLRenderingContext | undefined;
-let width = 0;
-let height = 0;
 
 const handleResize = () => {
-  width = canvas.clientWidth;
-  height = canvas.clientHeight;
+  mapSize.update((value) => {
+    value.width = canvas.clientWidth;
+    value.height = canvas.clientHeight;
+    return value;
+  });
 };
-
-injectLngLatPlugin();
-handleResize();
 
 map.on('style.load', () => map.addLayer({
   id: 'obstacle-layer',
@@ -30,23 +28,25 @@ map.on('style.load', () => map.addLayer({
   onAdd (_: Map, newContext: WebGLRenderingContext) {
     context = newContext;
   },
-  render (_ctx, nextViewProjectionMatrix) {
-    viewProjectionMatrix.set(nextViewProjectionMatrix);
+  render (_ctx, viewProjectionMatrix) {
+    cameraMatrix.fromArray(viewProjectionMatrix);
+    map.triggerRepaint();
   },
 }));
 
 map.on('resize', handleResize);
+handleResize();
+renderPlugin();
 
 </script>
 
 {#if context}
   <Canvas
-    rendererParameters={{ canvas, context }}
+    rendererParameters={{ canvas, context, alpha: true, antialias: true }}
     useLegacyLights={false}
     shadows={false}
-    size={{ width, height }}
-    frameloop='always'
+    size={$mapSize}
   >
-    <Scene {map} {viewProjectionMatrix} />
+    <Scene {name} />
   </Canvas>
 {/if}

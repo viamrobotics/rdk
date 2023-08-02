@@ -3,13 +3,16 @@ package camera
 import (
 	"bytes"
 	"context"
+	"image"
 
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 	"github.com/viamrobotics/gostream"
 	"go.opencensus.io/trace"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/camera/v1"
 	"google.golang.org/genproto/googleapis/api/httpbody"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/protoutils"
@@ -88,6 +91,88 @@ func (s *serviceServer) GetImage(
 	}
 	resp.Image = outBytes
 	return &resp, nil
+}
+
+// GetImages returns a list of images and metadata from a camera of the underlying robot.
+func (s *serviceServer) GetImages(
+	ctx context.Context,
+	req *pb.GetImagesRequest,
+) (*pb.GetImagesResponse, error) {
+	ctx, span := trace.StartSpan(ctx, "camera::server::GetImages")
+	defer span.End()
+	cam, err := s.coll.Resource(req.Name)
+	if err != nil {
+		return nil, errors.Wrap(err, "camera server GetImages had an error getting the camera component")
+	}
+	// request the images, and then check to see what the underlying type is to determine
+	// what to encode as. If it's color, just encode as JPEG.
+	imgs, ts, err := cam.Images(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "camera server GetImages could not call Images on the camera")
+	}
+	imagesMessage := make([]*pb.Image, 0, len(imgs))
+	for _, img := range imgs {
+		format, outBytes, err := encodeImageFromUnderlyingType(ctx, img)
+		if err != nil {
+			return nil, errors.Wrap(err, "camera server GetImages could not encode the images")
+		}
+		imgMes := &pb.Image{
+			SourceName: req.Name, // same as the camera name
+			Format:     format,
+			Image:      outBytes,
+		}
+		imagesMessage = append(imagesMessage, imgMes)
+	}
+	// right now the only metadata is timestamp
+	metadata := &commonpb.ResponseMetadata{
+		CapturedAt: timestamppb.New(ts),
+	}
+	resp := &pb.GetImagesResponse{
+		Images:           imagesMessage,
+		ResponseMetadata: metadata,
+	}
+
+	return resp, nil
+}
+
+func encodeImageFromUnderlyingType(ctx context.Context, img image.Image) (pb.Format, []byte, error) {
+	switch v := img.(type) {
+	case *rimage.LazyEncodedImage:
+		format := pb.Format_FORMAT_UNSPECIFIED
+		switch v.MIMEType() {
+		case utils.MimeTypeRawDepth:
+			format = pb.Format_FORMAT_RAW_DEPTH
+		case utils.MimeTypeRawRGBA:
+			format = pb.Format_FORMAT_RAW_RGBA
+		case utils.MimeTypeJPEG:
+			format = pb.Format_FORMAT_JPEG
+		case utils.MimeTypePNG:
+			format = pb.Format_FORMAT_PNG
+		default:
+		}
+		return format, v.RawData(), nil
+	case *rimage.DepthMap:
+		format := pb.Format_FORMAT_RAW_DEPTH
+		outBytes, err := rimage.EncodeImage(ctx, v, utils.MimeTypeRawDepth)
+		if err != nil {
+			return pb.Format_FORMAT_UNSPECIFIED, nil, err
+		}
+		return format, outBytes, nil
+	case *image.Gray16:
+		format := pb.Format_FORMAT_PNG
+		outBytes, err := rimage.EncodeImage(ctx, v, utils.MimeTypePNG)
+		if err != nil {
+			return pb.Format_FORMAT_UNSPECIFIED, nil, err
+		}
+		return format, outBytes, nil
+	default:
+		format := pb.Format_FORMAT_JPEG
+		outBytes, err := rimage.EncodeImage(ctx, v, utils.MimeTypeJPEG)
+		if err != nil {
+			return pb.Format_FORMAT_UNSPECIFIED, nil, err
+		}
+		return format, outBytes, nil
+	}
 }
 
 // RenderFrame renders a frame from a camera of the underlying robot to an HTTP response. A specific MIME type
