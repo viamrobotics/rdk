@@ -51,17 +51,17 @@ func getAgentInfo() (*apppb.AgentInfo, error) {
 	}, nil
 }
 
-var viamDotDir string
+var (
+	viamDotDir      string
+	viamPackagesDir string
+)
 
 func init() {
 	//nolint:errcheck
 	home, _ := os.UserHomeDir()
 	viamDotDir = filepath.Join(home, ".viam")
+	viamPackagesDir = filepath.Join(viamDotDir, "packages")
 }
-
-var (
-	packagesDir = "packages"
-)
 
 func getCloudCacheFilePath(id string) string {
 	return filepath.Join(viamDotDir, fmt.Sprintf("cached_cloud_config_%s.json", id))

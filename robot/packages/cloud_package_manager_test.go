@@ -12,6 +12,7 @@ import (
 	pb "go.viam.com/api/app/packages/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
+	"golang.org/x/exp/slices"
 
 	"go.viam.com/rdk/config"
 	putils "go.viam.com/rdk/robot/packages/testutils"
@@ -48,7 +49,7 @@ func TestCloud(t *testing.T) {
 		packageDir, pm := newPackageManager(t, client, fakeServer, logger)
 		defer utils.UncheckedErrorFunc(func() error { return pm.Close(context.Background()) })
 
-		input := []config.PackageConfig{{Name: "some-name", Package: "org1/test-model", Version: "v1"}}
+		input := []config.PackageConfig{{Name: "some-name", Package: "org1/test-model", Version: "v1", Type: "ml_model"}}
 		err = pm.Sync(ctx, input)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "failed loading package url")
@@ -62,8 +63,8 @@ func TestCloud(t *testing.T) {
 		defer utils.UncheckedErrorFunc(func() error { return pm.Close(context.Background()) })
 
 		input := []config.PackageConfig{
-			{Name: "some-name", Package: "org1/test-model", Version: "v1"},
-			{Name: "some-name-2", Package: "org1/test-model", Version: "v2"},
+			{Name: "some-name", Package: "org1/test-model", Version: "v1", Type: "ml_model"},
+			{Name: "some-name-2", Package: "org1/test-model", Version: "v2", Type: "ml_model"},
 		}
 		fakeServer.StorePackage(input...)
 
@@ -79,8 +80,8 @@ func TestCloud(t *testing.T) {
 		defer utils.UncheckedErrorFunc(func() error { return pm.Close(context.Background()) })
 
 		input := []config.PackageConfig{
-			{Name: "some-name", Package: "org1/test-model", Version: "v1"},
-			{Name: "some-name-2", Package: "org1/test-model", Version: "v2"},
+			{Name: "some-name", Package: "org1/test-model", Version: "v1", Type: "ml_model"},
+			{Name: "some-name-2", Package: "org1/test-model", Version: "v2", Type: "ml_model"},
 		}
 		fakeServer.StorePackage(input[1]) // only store second
 
@@ -97,8 +98,8 @@ func TestCloud(t *testing.T) {
 		defer utils.UncheckedErrorFunc(func() error { return pm.Close(context.Background()) })
 
 		input := []config.PackageConfig{
-			{Name: "some-name-1", Package: "org1/test-model", Version: "v1"},
-			{Name: "some-name-2", Package: "org1/test-model", Version: "v2"},
+			{Name: "some-name-1", Package: "org1/test-model", Version: "v1", Type: "ml_model"},
+			{Name: "some-name-2", Package: "org1/test-model", Version: "v2", Type: "ml_model"},
 		}
 		fakeServer.StorePackage(input...)
 
@@ -128,8 +129,8 @@ func TestCloud(t *testing.T) {
 		defer utils.UncheckedErrorFunc(func() error { return pm.Close(context.Background()) })
 
 		input := []config.PackageConfig{
-			{Name: "some-name", Package: "org1/test-model", Version: "v1"},
-			{Name: "some-name-2", Package: "org1/test-model", Version: "v2"},
+			{Name: "some-name", Package: "org1/test-model", Version: "v1", Type: "ml_model"},
+			{Name: "some-name-2", Package: "org1/test-model", Version: "v2", Type: "ml_model"},
 		}
 		fakeServer.StorePackage(input...)
 
@@ -159,7 +160,7 @@ func TestCloud(t *testing.T) {
 		defer utils.UncheckedErrorFunc(func() error { return pm.Close(context.Background()) })
 
 		input := []config.PackageConfig{
-			{Name: "some-name-1", Package: "org1/test-model", Version: "v1"},
+			{Name: "some-name-1", Package: "org1/test-model", Version: "v1", Type: "ml_model"},
 		}
 		fakeServer.StorePackage(input...)
 
@@ -187,7 +188,7 @@ func TestCloud(t *testing.T) {
 		fakeServer.SetInvalidChecksum(true)
 
 		input := []config.PackageConfig{
-			{Name: "some-name-1", Package: "org1/test-model", Version: "v1"},
+			{Name: "some-name-1", Package: "org1/test-model", Version: "v1", Type: "ml_model"},
 		}
 		fakeServer.StorePackage(input...)
 
@@ -205,7 +206,7 @@ func TestCloud(t *testing.T) {
 		fakeServer.SetInvalidHTTPRes(true)
 
 		input := []config.PackageConfig{
-			{Name: "some-name-1", Package: "org1/test-model", Version: "v1"},
+			{Name: "some-name-1", Package: "org1/test-model", Version: "v1", Type: "ml_model"},
 		}
 		fakeServer.StorePackage(input...)
 
@@ -223,7 +224,7 @@ func TestCloud(t *testing.T) {
 		fakeServer.SetInvalidTar(true)
 
 		input := []config.PackageConfig{
-			{Name: "some-name-1", Package: "org1/test-model", Version: "v1"},
+			{Name: "some-name-1", Package: "org1/test-model", Version: "v1", Type: "ml_model"},
 		}
 		fakeServer.StorePackage(input...)
 
@@ -239,18 +240,20 @@ func validatePackageDir(t *testing.T, dir string, input []config.PackageConfig) 
 	// t.Helper()
 
 	// create maps to make lookups easier.
-	byPackageHash := make(map[string]*config.PackageConfig)
+	bySanitizedName := make(map[string]*config.PackageConfig)
 	byLogicalName := make(map[string]*config.PackageConfig)
+	byType := make(map[string][]string)
 	for _, pI := range input {
 		p := pI
-		byPackageHash[p.SanitizeName()] = &p
+		bySanitizedName[p.SanitizedName()] = &p
 		byLogicalName[p.Name] = &p
+		byType[string(p.Type)] = append(byType[string(p.Type)], p.SanitizedName())
 	}
 
 	// check all known packages exist and are linked to the correct package dir.
 	for _, p := range input {
 		logicalPath := path.Join(dir, p.Name)
-		dataPath := path.Join(dir, fmt.Sprintf(".data/%s", p.SanitizeName()))
+		dataPath := path.Join(dir, fmt.Sprintf(".data/%s/%s", p.Type, p.SanitizedName()))
 
 		info, err := os.Stat(logicalPath)
 		test.That(t, err, test.ShouldBeNil)
@@ -290,14 +293,21 @@ func validatePackageDir(t *testing.T, dir string, input []config.PackageConfig) 
 		t.Fatalf("found unknown file in package dir %s", f.Name())
 	}
 
-	files, err = os.ReadDir(path.Join(dir, ".data"))
+	typeFolders, err := os.ReadDir(path.Join(dir, ".data"))
 	test.That(t, err, test.ShouldBeNil)
 
-	for _, f := range files {
-		if _, ok := byPackageHash[f.Name()]; ok {
-			continue
+	for _, typeFile := range typeFolders {
+		expectedPackages, ok := byType[typeFile.Name()]
+		if !ok {
+			t.Errorf("found unknown file in package data dir %s", typeFile.Name())
 		}
-		t.Errorf("found unknown file in package data dir %s", f.Name())
+		foundFiles, err := os.ReadDir(path.Join(dir, ".data", typeFile.Name()))
+		test.That(t, err, test.ShouldBeNil)
+		for _, packageFile := range foundFiles {
+			if !slices.Contains(expectedPackages, packageFile.Name()) {
+				t.Errorf("found unknown file in package %s dir %s", typeFile.Name(), packageFile.Name())
+			}
+		}
 	}
 }
 
@@ -316,7 +326,7 @@ func TestPackageRefs(t *testing.T) {
 	packageDir, pm := newPackageManager(t, client, fakeServer, logger)
 	defer utils.UncheckedErrorFunc(func() error { return pm.Close(context.Background()) })
 
-	input := []config.PackageConfig{{Name: "some-name", Package: "org1/test-model", Version: "v1"}}
+	input := []config.PackageConfig{{Name: "some-name", Package: "org1/test-model", Version: "v1", Type: "ml_model"}}
 	fakeServer.StorePackage(input...)
 
 	err = pm.Sync(ctx, input)
@@ -326,7 +336,7 @@ func TestPackageRefs(t *testing.T) {
 		t.Run("valid package", func(t *testing.T) {
 			pPath, err := pm.PackagePath("some-name")
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, pPath, test.ShouldEqual, path.Join(packageDir, "some-name"))
+			test.That(t, pPath, test.ShouldEqual, input[0].LocalDataDirectory(packageDir))
 			putils.ValidateContentsOfPPackage(t, pPath)
 		})
 
@@ -339,106 +349,6 @@ func TestPackageRefs(t *testing.T) {
 			_, err = pm.PackagePath("")
 			test.That(t, err, test.ShouldEqual, ErrPackageMissing)
 		})
-	})
-
-	t.Run("PlaceholderPaths", func(t *testing.T) {
-		testStrings := []struct {
-			input  string
-			output *PlaceholderRef
-			err    string
-		}{
-			{
-				input: "${packages.ml_models.test}/myfile/test.txt",
-				output: &PlaceholderRef{
-					matchedPlaceholder: "${packages.ml_models.test}",
-					nestedPath:         "packages.ml_models.test",
-					packageType:        config.PackageTypeMlModel,
-					packageName:        "test",
-				},
-				err: "",
-			},
-			{
-				input: "${packages.test}/output.txt",
-				output: &PlaceholderRef{
-					matchedPlaceholder: "${packages.test}",
-					nestedPath:         "packages.test",
-					packageType:        "",
-					packageName:        "test",
-				},
-				err: "",
-			},
-			{
-				input: "${packages.modules.my-great-module}/output.txt",
-				output: &PlaceholderRef{
-					matchedPlaceholder: "${packages.modules.my-great-module}",
-					nestedPath:         "packages.modules.my-great-module",
-					packageType:        config.PackageTypeModule,
-					packageName:        "my-great-module",
-				},
-				err: "",
-			},
-			{
-				input: "${packages.modules.orgID/my-great-module}/output.txt",
-				output: &PlaceholderRef{
-					matchedPlaceholder: "${packages.modules.orgID/my-great-module}",
-					nestedPath:         "packages.modules.orgID/my-great-module",
-					packageType:        config.PackageTypeModule,
-					packageName:        "orgID/my-great-module",
-				},
-				err: "",
-			},
-			{
-				input: "${packages.ml_models.orgID/my-ml-model}/output.txt",
-				output: &PlaceholderRef{
-					matchedPlaceholder: "${packages.ml_models.orgID/my-ml-model}",
-					nestedPath:         "packages.ml_models.orgID/my-ml-model",
-					packageType:        config.PackageTypeMlModel,
-					packageName:        "orgID/my-ml-model",
-				},
-				err: "",
-			},
-			{
-				input: "${packages.orgID/my-ml-model}/output.txt",
-				output: &PlaceholderRef{
-					matchedPlaceholder: "${packages.orgID/my-ml-model}",
-					nestedPath:         "packages.orgID/my-ml-model",
-					packageType:        "",
-					packageName:        "orgID/my-ml-model",
-				},
-				err: "",
-			},
-			{
-				input:  "${packages.fake-one.test-my-bad}/output.txt",
-				output: nil,
-				err:    "invalid package placeholder path: ${packages.fake-one.test-my-bad}/output.txt",
-			},
-			{
-				input:  "${test-bad.fake-one}/output.txt",
-				output: nil,
-				err:    "invalid package placeholder path: ${test-bad.fake-one}/output.txt",
-			},
-			{
-				input:  "${packages}/output.txt",
-				output: nil,
-				err:    "invalid package placeholder path: ${packages}/output.txt",
-			},
-			{
-				input:  "",
-				output: nil,
-				err:    "invalid package placeholder path: ",
-			},
-		}
-
-		for _, testString := range testStrings {
-			t.Run(fmt.Sprintf("Running PlaceholderPath for %s", testString.input), func(t *testing.T) {
-				placeholderRef, err := pm.PlaceholderPath(testString.input)
-				test.That(t, placeholderRef, test.ShouldResemble, testString.output)
-				if len(testString.err) > 0 {
-					test.That(t, err, test.ShouldNotBeNil)
-					test.That(t, err.Error(), test.ShouldEqual, testString.err)
-				}
-			})
-		}
 	})
 }
 

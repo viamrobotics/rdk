@@ -1,45 +1,58 @@
 package config
 
 import (
+	"fmt"
 	"reflect"
 	"regexp"
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+
 	"go.viam.com/rdk/utils"
 )
 
 // This placeholder regex matches on all strings that satisfy our criteria for a placeholder
 // Example string satisfying the regex:
-// ${hello}
+// ${hello}.
 var placeholderRegexp = regexp.MustCompile(`\$\{(?P<placeholder_key>[^\}]*)\}`)
 
 // packagePlaceholderRegexp matches on all valid ways of specifying one of our package placeholders
 // Example strings satisfying the regex:
 // packages.my-COOL-ml-model/__89
 // packages.modules.intel:CameraThatRocks
-var packagePlaceholderRegexp = regexp.MustCompile(`packages(\.(?P<type>ml_model|module))?\.(?P<name>[\w:\/-]+)`)
+// packages.FutureP4ckge_Ty-pe.name.
+var packagePlaceholderRegexp = regexp.MustCompile(`^packages(\.(?P<type>[^\.]+))?\.(?P<name>[\w:/-]+)$`)
 
+// ContainsPlaceholder returns true if the passed string contains a placeholder.
 func ContainsPlaceholder(s string) bool {
 	return placeholderRegexp.MatchString(s)
 }
 
-func (cfg *Config) ReplacePlaceholders() error {
+// ReplacePlaceholders traverses parts of the config to replace placeholders with their resolved values.
+func (c *Config) ReplacePlaceholders() error {
 	var allErrs, err error
-	visitor := NewPlaceholderReplacementVisitor(cfg)
+	visitor := NewPlaceholderReplacementVisitor(c)
 
-	for i, s := range cfg.Services {
-		cfg.Services[i].Attributes, err = walkTypedAttributes(visitor, s.Attributes)
+	for i, service := range c.Services {
+		// this nil check may seem superfluous, however, the walking & casting will transform a
+		// utils.AttributeMap(nil) into a utils.AttributeMap{} which causes config diffs
+		if service.Attributes == nil {
+			continue
+		}
+		c.Services[i].Attributes, err = walkTypedAttributes(visitor, service.Attributes)
 		allErrs = multierr.Append(allErrs, err)
 	}
 
-	for i, c := range cfg.Components {
-		cfg.Components[i].Attributes, err = walkTypedAttributes(visitor, c.Attributes)
+	for i, component := range c.Components {
+		if component.Attributes == nil {
+			continue
+		}
+		c.Components[i].Attributes, err = walkTypedAttributes(visitor, component.Attributes)
 		allErrs = multierr.Append(allErrs, err)
 	}
 
-	for i, c := range cfg.Modules {
-		cfg.Modules[i].ExePath, err = visitor.replacePlaceholders(c.ExePath)
+	for i, module := range c.Modules {
+		c.Modules[i].ExePath, err = visitor.replacePlaceholders(module.ExePath)
 		allErrs = multierr.Append(allErrs, err)
 	}
 
@@ -59,10 +72,10 @@ func walkTypedAttributes[T any](visitor *PlaceholderReplacementVisitor, attribut
 		}
 		return newAttrsTyped, nil
 	}
-	return attributes, errors.Errorf("passed attribute cannot be walked")
+	return attributes, errors.New("placeholder replacement tried to walk an unwalkable type")
 }
 
-// PlaceholderReplacementVisitor is a visitor that replaces strings containing placeholder values with their desired values
+// PlaceholderReplacementVisitor is a visitor that replaces strings containing placeholder values with their desired values.
 type PlaceholderReplacementVisitor struct {
 	// Map of packageName -> packageConfig
 	packages map[string]PackageConfig
@@ -108,7 +121,6 @@ func (v *PlaceholderReplacementVisitor) Visit(data interface{}) (interface{}, er
 	return withReplacedRefs, nil
 }
 
-// replacePlaceholders replaces a string with a package path if its a valid package placeholder.
 func (v *PlaceholderReplacementVisitor) replacePlaceholders(s string) (string, error) {
 	var allErrors error
 	// first match all possible placeholders (ex: ${hello})
@@ -132,7 +144,6 @@ func (v *PlaceholderReplacementVisitor) replacePlaceholders(s string) (string, e
 	})
 
 	return string(patchedStr), allErrors
-
 }
 
 func (v *PlaceholderReplacementVisitor) replacePackagePlaceholder(b []byte) ([]byte, error) {
@@ -143,15 +154,21 @@ func (v *PlaceholderReplacementVisitor) replacePackagePlaceholder(b []byte) ([]b
 	packageType := matches[packagePlaceholderRegexp.SubexpIndex("type")]
 	packageName := matches[packagePlaceholderRegexp.SubexpIndex("name")]
 
+	if packageType == "" {
+		// for backwards compatibility
+		packageType = string(PackageTypeMlModel)
+	}
 	packageConfig, isPresent := v.packages[packageName]
 	if !isPresent {
 		return b, errors.Errorf("failed to find a package named %q for placeholder %q",
 			packageName, string(b))
 	}
-	if packageType != "" && packageType != string(packageConfig.Type) {
+	if packageType != string(packageConfig.Type) {
+		expectedPlaceholder := fmt.Sprintf("packages.%s.%s", string(packageConfig.Type), packageName)
 		return b,
-			errors.Errorf("placeholder %q is of the wrong type. It should be a %q", string(b), string(packageConfig.Type))
+			errors.Errorf("placeholder %q is looking for a package of type %q but a package of type %q was found. Try %q",
+				string(b), packageType, string(packageConfig.Type), expectedPlaceholder)
 	}
-	return []byte(packageConfig.LocalDataDirectory()), nil
-
+	expectedPath := packageConfig.LocalDataDirectory(viamPackagesDir)
+	return []byte(expectedPath), nil
 }

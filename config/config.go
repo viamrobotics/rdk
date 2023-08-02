@@ -19,6 +19,7 @@ import (
 	"go.viam.com/utils/jwks"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
+	"golang.org/x/exp/slices"
 
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -871,6 +872,9 @@ const (
 	PackageTypeModule PackageType = "module"
 )
 
+// SupportedPackageTypes is a list of all of the valid package types.
+var SupportedPackageTypes = []PackageType{PackageTypeMlModel, PackageTypeModule}
+
 // A PackageConfig describes the configuration of a Package.
 type PackageConfig struct {
 	// Name is the local name of the package on the RDK. Must be unique across Packages. Must not be empty.
@@ -906,13 +910,13 @@ func (p *PackageConfig) validate(path string) error {
 	}
 
 	if p.Type == "" {
-		// for backwards compatability
+		// for backwards compatibility
 		p.Type = PackageTypeMlModel
 	}
 
-	if p.Type != PackageTypeModule && p.Type != PackageTypeMlModel {
-		return utils.NewConfigValidationError(path, errors.Errorf("unsupported package type %q. Must be %s or %s",
-			p.Type, PackageTypeModule, PackageTypeMlModel))
+	if !slices.Contains(SupportedPackageTypes, p.Type) {
+		return utils.NewConfigValidationError(path, errors.Errorf("unsupported package type %q. Must be one of: %v",
+			p.Type, SupportedPackageTypes))
 	}
 
 	if !rutils.ValidNameRegex.MatchString(p.Name) {
@@ -933,34 +937,29 @@ func (p PackageConfig) Equals(other PackageConfig) bool {
 }
 
 // LocalDataParentDirectory returns the folder that will contain the all packages of this type.
-// Ex: /home/user/.viam/packages/ml_models
-func (p *PackageConfig) LocalDataParentDirectory() string {
-	return filepath.Join(viamDotDir, packagesDir, p.packageDirectoryFromType())
+// Ex: /home/user/.viam/packages/ml_model.
+func (p *PackageConfig) LocalDataParentDirectory(packagesDir string) string {
+	return filepath.Join(packagesDir, ".data", string(p.Type))
 }
 
 // LocalDataDirectory returns the folder where the package should be extracted.
-// Ex: /home/user/.viam/packages/ml_models/orgid_ballClassifier_0.1.2
-func (p *PackageConfig) LocalDataDirectory() string {
-	return filepath.Join(p.LocalDataParentDirectory(), p.sanitizedName())
+// Ex: /home/user/.viam/packages/ml_model/orgid_ballClassifier_0.1.2.
+func (p *PackageConfig) LocalDataDirectory(packagesDir string) string {
+	return filepath.Join(p.LocalDataParentDirectory(packagesDir), p.SanitizedName())
 }
 
-// LocalDownloadPath returns the file where the archive should be downloaded before extraction
-func (p *PackageConfig) LocalDownloadPath() string {
-	return filepath.Join(p.LocalDataParentDirectory(), fmt.Sprintf("%s.download", p.sanitizedName()))
+// LocalDownloadPath returns the file where the archive should be downloaded before extraction.
+func (p *PackageConfig) LocalDownloadPath(packagesDir string) string {
+	return filepath.Join(p.LocalDataParentDirectory(packagesDir), fmt.Sprintf("%s.download", p.SanitizedName()))
 }
 
-// sanitizedName returns the package name for the symlink/filepath of the package on the system.
-func (p *PackageConfig) sanitizedName() string {
+// SanitizedName returns the package name for the symlink/filepath of the package on the system.
+func (p *PackageConfig) SanitizedName() string {
 	return fmt.Sprintf("%s-%s", strings.ReplaceAll(p.Package, string(os.PathSeparator), "-"), p.sanitizedVersion())
 }
 
-// sanitizedVersion returns a cleaned version of the version so it is file-system-safe
+// sanitizedVersion returns a cleaned version of the version so it is file-system-safe.
 func (p *PackageConfig) sanitizedVersion() string {
 	// replaces all the . if they exist with _
 	return strings.ReplaceAll(p.Version, ".", "_")
-}
-
-// packageDirectoryFromType returns the package directory for the filepath based on type.
-func (p *PackageConfig) packageDirectoryFromType() string {
-    return string(p.Type)
 }

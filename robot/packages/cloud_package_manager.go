@@ -46,9 +46,10 @@ type cloudManager struct {
 	resource.Named
 	// we assume the config is immutable for the lifetime of the process
 	resource.TriviallyReconfigurable
-	client      pb.PackageServiceClient
-	httpClient  http.Client
-	packagesDir string
+	client          pb.PackageServiceClient
+	httpClient      http.Client
+	packagesDataDir string
+	packagesDir     string
 
 	managedPackages map[PackageName]*managedPackage
 	mu              sync.RWMutex
@@ -67,8 +68,13 @@ var InternalServiceName = resource.NewName(API, "builtin")
 
 // NewCloudManager creates a new manager with the given package service client and directory to sync to.
 func NewCloudManager(client pb.PackageServiceClient, packagesDir string, logger golog.Logger) (ManagerSyncer, error) {
+	packagesDataDir := filepath.Join(packagesDir, ".data")
 
 	if err := os.MkdirAll(packagesDir, 0o700); err != nil {
+		return nil, err
+	}
+
+	if err := os.MkdirAll(packagesDataDir, 0o700); err != nil {
 		return nil, err
 	}
 
@@ -77,6 +83,7 @@ func NewCloudManager(client pb.PackageServiceClient, packagesDir string, logger 
 		client:          client,
 		httpClient:      http.Client{Timeout: time.Minute * 30},
 		packagesDir:     packagesDir,
+		packagesDataDir: packagesDataDir,
 		managedPackages: make(map[PackageName]*managedPackage),
 		logger:          logger.Named("package_manager"),
 	}, nil
@@ -92,7 +99,7 @@ func (m *cloudManager) PackagePath(name PackageName) (string, error) {
 		return "", ErrPackageMissing
 	}
 
-	return p.thePackage.LocalDataDirectory(), nil
+	return p.thePackage.LocalDataDirectory(m.packagesDir), nil
 }
 
 // Close manager.
@@ -173,7 +180,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		}
 
 		if p.Type == config.PackageTypeMlModel {
-			outErr = multierr.Append(outErr, m.legacyMLModelSymlinkCreation(p))
+			outErr = multierr.Append(outErr, m.mLModelSymlinkCreation(p))
 		}
 
 		// add to managed packages
@@ -201,19 +208,22 @@ func (m *cloudManager) Cleanup(ctx context.Context) error {
 
 	expectedPackageDirectories := map[string]bool{}
 	for _, pkg := range m.managedPackages {
-		expectedPackageDirectories[pkg.thePackage.LocalDataDirectory()] = true
+		expectedPackageDirectories[pkg.thePackage.LocalDataDirectory(m.packagesDir)] = true
 	}
 
-	topLevelFiles, err := os.ReadDir(m.packagesDir)
+	topLevelFiles, err := os.ReadDir(m.packagesDataDir)
 	if err != nil {
 		return err
 	}
 	// A packageTypeDir is a directory that contains all of the packages for the specified type. ex: packages/ml_models
 	for _, packageTypeDir := range topLevelFiles {
+		packageTypeDirName := filepath.Join(m.packagesDataDir, packageTypeDir.Name())
+
+		// There should be no non-dir files in the packages/.data dir. Delete any that exist
 		if packageTypeDir.Type()&os.ModeDir != os.ModeDir {
+			allErrors = multierr.Append(allErrors, os.Remove(packageTypeDirName))
 			continue
 		}
-		packageTypeDirName := filepath.Join(m.packagesDir, packageTypeDir.Name())
 		// read all of the packages in the directory and delete those that aren't in expectedPackageDirectories
 		packageDirs, err := os.ReadDir(packageTypeDirName)
 		if err != nil {
@@ -239,13 +249,14 @@ func (m *cloudManager) Cleanup(ctx context.Context) error {
 		}
 	}
 
-	m.legacyMlModelSymlinkCleanup()
+	allErrors = multierr.Append(allErrors, m.mlModelSymlinkCleanup())
 	return allErrors
 }
 
 // symlink packages/package-name to packages/ml_models/orgid-package-name-ver for backwards compatablility
-func (m *cloudManager) legacyMLModelSymlinkCreation(p config.PackageConfig) error {
-	if err := linkFile(p.LocalDataDirectory(), filepath.Join(m.packagesDir, p.Name)); err != nil {
+// Preserved for backwards compatibility. Could be removed or extended to other types in the future.
+func (m *cloudManager) mLModelSymlinkCreation(p config.PackageConfig) error {
+	if err := linkFile(p.LocalDataDirectory(m.packagesDir), filepath.Join(m.packagesDir, p.Name)); err != nil {
 		m.logger.Errorf("Failed linking ml_model package %s:%s, %s", p.Package, p.Version, err)
 		return err
 	}
@@ -253,7 +264,8 @@ func (m *cloudManager) legacyMLModelSymlinkCreation(p config.PackageConfig) erro
 }
 
 // cleanup all symlinks in packages/ directory
-func (m *cloudManager) legacyMlModelSymlinkCleanup() error {
+// Preserved for backwards compatibility. Could be removed or extended to other types in the future.
+func (m *cloudManager) mlModelSymlinkCleanup() error {
 	var allErrors error
 	files, err := os.ReadDir(m.packagesDir)
 	if err != nil {
@@ -291,12 +303,12 @@ func sanitizeURLForLogs(u string) string {
 
 func (m *cloudManager) downloadPackage(ctx context.Context, url string, p config.PackageConfig) error {
 	// TODO(): validate integrity of directory.
-	if dirExists(p.LocalDataDirectory()) {
+	if dirExists(p.LocalDataDirectory(m.packagesDir)) {
 		m.logger.Debug("  Package already downloaded, skipping.")
 		return nil
 	}
 
-	if err := os.MkdirAll(p.LocalDataParentDirectory(), 0o700); err != nil {
+	if err := os.MkdirAll(p.LocalDataParentDirectory(m.packagesDir), 0o700); err != nil {
 		return err
 	}
 
@@ -312,7 +324,7 @@ func (m *cloudManager) downloadPackage(ctx context.Context, url string, p config
 	}
 
 	// Download from GCS
-	_, contentType, err := m.downloadFileFromGCSURL(ctx, url, p.LocalDownloadPath())
+	_, contentType, err := m.downloadFileFromGCSURL(ctx, url, p.LocalDownloadPath(m.packagesDir))
 	if err != nil {
 		return err
 	}
@@ -323,14 +335,14 @@ func (m *cloudManager) downloadPackage(ctx context.Context, url string, p config
 	}
 
 	// unpack to temp directory to ensure we do an atomic rename once finished.
-	tmpDataPath, err := os.MkdirTemp(p.LocalDataParentDirectory(), "*.tmp")
+	tmpDataPath, err := os.MkdirTemp(p.LocalDataParentDirectory(m.packagesDir), "*.tmp")
 	if err != nil {
 		return errors.Wrap(err, "failed to create temp data dir path")
 	}
 
 	defer func() {
 		// cleanup archive file.
-		if err := os.Remove(p.LocalDownloadPath()); err != nil {
+		if err := os.Remove(p.LocalDownloadPath(m.packagesDir)); err != nil {
 			m.logger.Debug(err)
 		}
 		if err := os.RemoveAll(tmpDataPath); err != nil {
@@ -339,13 +351,13 @@ func (m *cloudManager) downloadPackage(ctx context.Context, url string, p config
 	}()
 
 	// unzip archive.
-	err = m.unpackFile(ctx, p.LocalDownloadPath(), tmpDataPath)
+	err = m.unpackFile(ctx, p.LocalDownloadPath(m.packagesDir), tmpDataPath)
 	if err != nil {
 		utils.UncheckedError(m.cleanup(p))
 		return err
 	}
 
-	err = os.Rename(tmpDataPath, p.LocalDataDirectory())
+	err = os.Rename(tmpDataPath, p.LocalDataDirectory(m.packagesDir))
 	if err != nil {
 		utils.UncheckedError(m.cleanup(p))
 		return err
@@ -356,8 +368,8 @@ func (m *cloudManager) downloadPackage(ctx context.Context, url string, p config
 
 func (m *cloudManager) cleanup(p config.PackageConfig) error {
 	return multierr.Combine(
-		os.RemoveAll(p.LocalDataDirectory()),
-		os.Remove(p.LocalDownloadPath()),
+		os.RemoveAll(p.LocalDataDirectory(m.packagesDir)),
+		os.Remove(p.LocalDownloadPath(m.packagesDir)),
 	)
 }
 
