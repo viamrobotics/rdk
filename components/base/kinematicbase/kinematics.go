@@ -106,5 +106,5 @@ func WrapWithKinematics(
 	if properties.TurningRadiusMeters == 0 {
 		return wrapWithDifferentialDriveKinematics(ctx, b, logger, localizer, limits, options)
 	}
-	return wrapWithPTGKinematics(ctx, b, options)
+	return wrapWithPTGKinematics(ctx, b, logger, options)
 }

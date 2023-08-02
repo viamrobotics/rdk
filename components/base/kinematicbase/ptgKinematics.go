@@ -11,6 +11,7 @@ import (
 	"github.com/golang/geo/r3"
 	"go.uber.org/multierr"
 	utils "go.viam.com/utils"
+	"github.com/edaniels/golog"
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/motionplan/tpspace"
@@ -29,6 +30,7 @@ const (
 
 type ptgBaseKinematics struct {
 	base.Base
+	logger golog.Logger
 	frame referenceframe.Frame
 	fs    referenceframe.FrameSystem
 	ptgs  []tpspace.PTG
@@ -38,6 +40,7 @@ type ptgBaseKinematics struct {
 func wrapWithPTGKinematics(
 	ctx context.Context,
 	b base.Base,
+	logger golog.Logger,
 	options Options,
 ) (KinematicBase, error) {
 	properties, err := b.Properties(ctx, nil)
@@ -56,6 +59,11 @@ func wrapWithPTGKinematics(
 		calcTurnRadius := (baseMillimetersPerSecond / rdkutils.DegToRad(options.AngularVelocityDegsPerSec)) / 1000.
 		baseTurningRadius = math.Max(baseTurningRadius, calcTurnRadius)
 	}
+	logger.Infof(
+		"using baseMillimetersPerSecond %f and baseTurningRadius %f for PTG base kinematics",
+		baseMillimetersPerSecond,
+		baseTurningRadius,
+	)
 
 	if baseTurningRadius <= 0 {
 		return nil, errors.New("can only wrap with PTG kinematics if turning radius is greater than zero")
@@ -90,6 +98,7 @@ func wrapWithPTGKinematics(
 
 	return &ptgBaseKinematics{
 		Base:  b,
+		logger: logger,
 		frame: frame,
 		fs:    fs,
 		ptgs:  ptgs,
@@ -110,12 +119,15 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 		return errors.New("inputs to ptg kinematic base must be length 3")
 	}
 
+	ptgk.logger.Debugf("GoToInputs going to %t", inputs)
+
 	selectedPTG := ptgk.ptgs[int(math.Round(inputs[ptgIndex].Value))]
 	selectedTraj := selectedPTG.Trajectory(uint(math.Round(inputs[trajectoryIndexWithinPTG].Value)))
 
 	lastTime := 0.
-	for _, trajNode := range selectedTraj {
+	for i, trajNode := range selectedTraj {
 		if trajNode.Dist > inputs[distanceAlongTrajectoryIndex].Value {
+			ptgk.logger.Debugf("finished executing trajectory after %d steps", i)
 			// We have reached the desired distance along the given trajectory
 			break
 		}
@@ -123,9 +135,14 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 		lastTime = trajNode.Time
 		linVel := r3.Vector{0, trajNode.LinVelMMPS, 0}
 		angVel := r3.Vector{0, 0, rdkutils.RadToDeg(trajNode.AngVelRPS)}
+		
+		ptgk.logger.Debugf("setting velocity to linear %t angular %t", linVel, angVel)
+		ptgk.logger.Debugf("running velocity step for %f ms", time.Duration(trajNode.Time-lastTime) * time.Millisecond)
+		
 		err := ptgk.Base.SetVelocity(
 			ctx,
-			linVel,
+			linVel,2023-08-02T18:23:04.158Z   warn   robot_server.rdk:component:movement_sensor/gps   gpsnmea/serial.go:126   can't parse nmea sentence: type "RMC" sentence fix is not valid have: "V" want "A"; no Location parsed for nmea gps, using default value of lat: NaN, long: NaN  
+
 			angVel,
 			nil,
 		)
