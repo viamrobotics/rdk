@@ -937,13 +937,13 @@ func (p PackageConfig) Equals(other PackageConfig) bool {
 }
 
 // LocalDataParentDirectory returns the folder that will contain the all packages of this type.
-// Ex: /home/user/.viam/packages/ml_model.
+// Ex: /home/user/.viam/packages/.data/ml_model.
 func (p *PackageConfig) LocalDataParentDirectory(packagesDir string) string {
 	return filepath.Join(packagesDir, ".data", string(p.Type))
 }
 
 // LocalDataDirectory returns the folder where the package should be extracted.
-// Ex: /home/user/.viam/packages/ml_model/orgid_ballClassifier_0.1.2.
+// Ex: /home/user/.viam/packages/.data/ml_model/orgid_ballClassifier_0.1.2.
 func (p *PackageConfig) LocalDataDirectory(packagesDir string) string {
 	return filepath.Join(p.LocalDataParentDirectory(packagesDir), p.SanitizedName())
 }
