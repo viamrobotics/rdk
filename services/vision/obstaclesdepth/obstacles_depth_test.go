@@ -1,4 +1,4 @@
-package obstacledepth
+package obstaclesdepth
 
 import (
 	"context"
@@ -37,7 +37,7 @@ func (r testReader) Close(ctx context.Context) error {
 }
 
 func TestObstacleDist(t *testing.T) {
-	noIntrinsicsCfg := ObstaclesDepthConfig{
+	noIntrinsicsCfg := ObsDepthConfig{
 		K:          10,
 		Hmin:       defaultHmin,
 		Hmax:       defaultHmax,
@@ -45,7 +45,7 @@ func TestObstacleDist(t *testing.T) {
 		ReturnPCDs: false,
 	}
 	someIntrinsics := transform.PinholeCameraIntrinsics{Fx: 604.5, Fy: 609.6, Ppx: 324.6, Ppy: 238.9, Width: 640, Height: 480}
-	withIntrinsicsCfg := ObstaclesDepthConfig{
+	withIntrinsicsCfg := ObsDepthConfig{
 		K:          12,
 		Hmin:       defaultHmin,
 		Hmax:       defaultHmax,
@@ -55,9 +55,8 @@ func TestObstacleDist(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	r := &inject.Robot{LoggerFunc: func() golog.Logger {
-		return golog.NewLogger("test")
-	}, ResourceNamesFunc: func() []resource.Name {
+	testLogger := golog.NewLogger("test")
+	r := &inject.Robot{ResourceNamesFunc: func() []resource.Name {
 		return []resource.Name{camera.Named("testCam")}
 	}}
 	tr := testReader{}
@@ -74,7 +73,7 @@ func TestObstacleDist(t *testing.T) {
 		}
 	}
 	name := vision.Named("test")
-	srv, err := registerObstacleDepth(ctx, name, &noIntrinsicsCfg, r)
+	srv, err := registerObstaclesDepth(ctx, name, &noIntrinsicsCfg, r, testLogger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, srv.Name(), test.ShouldResemble, name)
 
@@ -99,7 +98,7 @@ func TestObstacleDist(t *testing.T) {
 	test.That(t, obs[0].Geometry.Pose(), test.ShouldResemble, poseShouldBe)
 
 	// Now with intrinsics (and pointclouds)!
-	srv2, err := registerObstacleDepth(ctx, name, &withIntrinsicsCfg, r)
+	srv2, err := registerObstaclesDepth(ctx, name, &withIntrinsicsCfg, r, testLogger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, srv2, test.ShouldNotBeNil)
 	obs, err = srv2.GetObjectPointClouds(ctx, "testCam", nil)

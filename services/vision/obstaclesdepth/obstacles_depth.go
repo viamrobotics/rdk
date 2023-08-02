@@ -1,20 +1,20 @@
-// Package obstacledepth uses an underlying depth camera to fulfill GetObjectPointClouds,
+// Package obstaclesdepth uses an underlying depth camera to fulfill GetObjectPointClouds,
 // using the method outlined in (Manduchi, Roberto, et al. "Obstacle detection and terrain classification
 // for autonomous off-road navigation." Autonomous robots 18 (2005): 81-102.)
-package obstacledepth
+package obstaclesdepth
 
 import (
 	"context"
 	"image"
 	"math"
 	"strconv"
-	"sync"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/muesli/clusters"
 	"github.com/muesli/kmeans"
 	"github.com/pkg/errors"
+	"github.com/viamrobotics/gostream"
 	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/components/camera"
@@ -30,10 +30,10 @@ import (
 	"go.viam.com/rdk/vision/segmentation"
 )
 
-var model = resource.DefaultModelFamily.WithModel("obstacle_depth")
+var model = resource.DefaultModelFamily.WithModel("obstacles_depth")
 
-// ObstaclesDepthConfig specifies the parameters to be used for the obstacle depth service.
-type ObstaclesDepthConfig struct {
+// ObsDepthConfig specifies the parameters to be used for the obstacle depth service.
+type ObsDepthConfig struct {
 	K          int                                `json:"k"`
 	Hmin       float64                            `json:"hmin"`
 	Hmax       float64                            `json:"hmax"`
@@ -42,24 +42,17 @@ type ObstaclesDepthConfig struct {
 	Intrinsics *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters"`
 }
 
-// obsPoint is a useful intermediate struct (which pts are obstacles).
-type obsPoint struct {
-	point      image.Point
-	isObstacle bool
-	depth      rimage.Depth
-}
-
 // obsDepth is the underlying struct actually used by the service.
 type obsDepth struct {
-	dm         *rimage.DepthMap
-	ptChunks   [][]obsPoint
-	ptList     []obsPoint
-	hMin       float64
-	hMax       float64
-	sinTheta   float64
-	intrinsics *transform.PinholeCameraIntrinsics
-	returnPCDs bool
-	k          int
+	dm          *rimage.DepthMap
+	obstaclePts []image.Point
+	hMin        float64
+	hMax        float64
+	sinTheta    float64
+	intrinsics  *transform.PinholeCameraIntrinsics
+	returnPCDs  bool
+	k           int
+	depthStream gostream.VideoStream
 }
 
 const (
@@ -69,14 +62,13 @@ const (
 	defaultThetamax = math.Pi / 4
 	defaultK        = 10 // default number of obstacle segments to create
 	// the last 2 consts are hyperparameters that can be tweaked for performance improvement.
-	chunkSize = 200 // we send chunkSize points in each goroutine
-	sampleN   = 4   // we sample 1 in every sampleN depth points
+	sampleN = 4 // we sample 1 in every sampleN depth points
 )
 
 func init() {
-	resource.RegisterService(svision.API, model, resource.Registration[svision.Service, *ObstaclesDepthConfig]{
+	resource.RegisterService(svision.API, model, resource.Registration[svision.Service, *ObsDepthConfig]{
 		DeprecatedRobotConstructor: func(ctx context.Context, r any, c resource.Config, logger golog.Logger) (svision.Service, error) {
-			attrs, err := resource.NativeConfig[*ObstaclesDepthConfig](c)
+			attrs, err := resource.NativeConfig[*ObsDepthConfig](c)
 			if err != nil {
 				return nil, err
 			}
@@ -84,13 +76,13 @@ func init() {
 			if err != nil {
 				return nil, err
 			}
-			return registerObstacleDepth(ctx, c.ResourceName(), attrs, actualR)
+			return registerObstaclesDepth(ctx, c.ResourceName(), attrs, actualR, logger)
 		},
 	})
 }
 
 // Validate ensures all parts of the config are valid.
-func (config *ObstaclesDepthConfig) Validate(path string) ([]string, error) {
+func (config *ObsDepthConfig) Validate(path string) ([]string, error) {
 	deps := []string{}
 	if config.K < 1 || config.K > 50 {
 		return nil, errors.New("invalid K, pick an integer between 1 and 50 (10 recommended)")
@@ -107,21 +99,22 @@ func (config *ObstaclesDepthConfig) Validate(path string) ([]string, error) {
 	return deps, nil
 }
 
-func registerObstacleDepth(
+func registerObstaclesDepth(
 	ctx context.Context,
 	name resource.Name,
-	conf *ObstaclesDepthConfig,
+	conf *ObsDepthConfig,
 	r robot.Robot,
+	logger golog.Logger,
 ) (svision.Service, error) {
 	_, span := trace.StartSpan(ctx, "service::vision::registerObstacleDistanceDetector")
 	defer span.End()
 	if conf == nil {
-		return nil, errors.New("config for obstacle_depth cannot be nil")
+		return nil, errors.New("config for obstacles_depth cannot be nil")
 	}
 
 	// If you have no intrinsics
 	if conf.Intrinsics == nil {
-		r.Logger().Warn("obstacle depth started without camera's intrinsic parameters")
+		logger.Warn("obstacles depth started without camera's intrinsic parameters")
 		segmenter := buildObsDepthNoIntrinsics()
 		return svision.NewService(name, r, nil, nil, nil, segmenter)
 	}
@@ -148,15 +141,12 @@ func registerObstacleDepth(
 // buildObsDepthNoIntrinsics will return the shortest depth in the depth map as a Geometry point.
 func buildObsDepthNoIntrinsics() segmentation.Segmenter {
 	return func(ctx context.Context, src camera.VideoSource) ([]*vision.Object, error) {
-		depthStream, err := src.Stream(ctx)
+		pic, release, err := camera.ReadImage(ctx, src)
 		if err != nil {
-			return nil, errors.Errorf("could not get stream from %s", src)
-		}
-		pic, release, err := depthStream.Next(ctx)
-		if err != nil {
-			return nil, errors.Errorf("could not get image from stream %s", depthStream)
+			return nil, errors.Errorf("could not get image from %s", src)
 		}
 		defer release()
+
 		dm, err := rimage.ConvertImageToDepthMap(ctx, pic)
 		if err != nil {
 			return nil, errors.New("could not convert image to depth map")
@@ -186,41 +176,47 @@ func (o *obsDepth) buildObsDepthWithIntrinsics() segmentation.Segmenter {
 		if o.intrinsics == nil {
 			return nil, errors.New("tried to build obstacles depth with intrinsics but no instrinsics found")
 		}
-
-		depthStream, err := src.Stream(ctx)
-		if err != nil {
-			return nil, errors.Errorf("could not get stream from %s", src)
+		if o.depthStream == nil {
+			depthStream, err := src.Stream(ctx)
+			if err != nil {
+				return nil, errors.Errorf("could not get stream from %s", src)
+			}
+			o.depthStream = depthStream
 		}
-		pic, release, err := depthStream.Next(ctx)
+
+		pic, release, err := o.depthStream.Next(ctx)
 		if err != nil {
-			return nil, errors.Errorf("could not get image from stream %s", depthStream)
+			return nil, errors.Errorf("could not get image from stream %s", o.depthStream)
 		}
 		defer release()
 		dm, err := rimage.ConvertImageToDepthMap(ctx, pic)
 		if err != nil {
 			return nil, errors.New("could not convert image to depth map")
 		}
+		w, h := dm.Width(), dm.Height()
 		o.dm = dm
-		o.makePointList(sampleN)
 
-		// Use some goroutines to determine if each depth pixel is an obstacle
-		doneCh := make(chan bool, len(o.ptChunks))
-		var wg sync.WaitGroup
-		for i, chunk := range o.ptChunks {
-			wg.Add(1)
-			go func(i int, chunk []obsPoint) {
-				defer wg.Done()
-				for j, p := range chunk {
-					o.ptChunks[i][j].isObstacle = o.isObstaclePoint(p.point)
+		obstaclePoints := make([]image.Point, 0, w*h/sampleN)
+		for i := 0; i < w; i += sampleN {
+			for j := 0; j < h; j++ {
+				candidate := image.Pt(i, j)
+				// for every sub-sampled point, figure out if it is an obstacle
+			obs:
+				for l := 0; l < w; l += sampleN { // continue with the sub-sampling
+					for m := 0; m < h; m++ {
+						compareTo := image.Pt(l, m)
+						if candidate == compareTo {
+							continue
+						}
+						if o.isCompatible(candidate, compareTo) {
+							obstaclePoints = append(obstaclePoints, candidate)
+							break obs
+						}
+					}
 				}
-				doneCh <- true
-			}(i, chunk)
+			}
 		}
-		go func() {
-			wg.Wait()
-			close(doneCh)
-		}()
-		wg.Wait()
+		o.obstaclePts = obstaclePoints
 
 		// Cluster on the 2D depth points and then project the 2D clusters into 3D boxes
 		outClusters, err := o.performKMeans(o.k)
@@ -257,6 +253,7 @@ func (o *obsDepth) buildObsDepthWithIntrinsics() segmentation.Segmenter {
 	}
 }
 
+/*
 // makePointList will grab points from the depthmap. Sample every n.
 func (o *obsDepth) makePointList(n int) {
 	w, h := o.dm.Width(), o.dm.Height()
@@ -288,6 +285,7 @@ func splitPtList(slice []obsPoint, chunkSize int) [][]obsPoint {
 	return chunks
 }
 
+
 // isObstaclePoint returns true/false if compatible with another point in the depthmap.
 // as defined by Manduchi et al.
 func (o *obsDepth) isObstaclePoint(point image.Point) bool {
@@ -301,6 +299,8 @@ func (o *obsDepth) isObstaclePoint(point image.Point) bool {
 	}
 	return false
 }
+
+*/
 
 // isCompatible will check compatibility between 2 points.
 // as defined by Manduchi et al.
@@ -367,10 +367,8 @@ func (o *obsDepth) clustersToBoxes(clusters clusters.Clusters) ([]spatialmath.Ge
 // performKMeans will do k-means clustering on all the 2D obstacle points.
 func (o *obsDepth) performKMeans(k int) (clusters.Clusters, error) {
 	var d clusters.Observations
-	for _, pt := range o.ptList {
-		if pt.isObstacle {
-			d = append(d, clusters.Coordinates{float64(pt.point.X), float64(pt.point.Y)})
-		}
+	for _, pt := range o.obstaclePts {
+		d = append(d, clusters.Coordinates{float64(pt.X), float64(pt.Y)})
 	}
 	km := kmeans.New()
 	return km.Partition(d, k)
