@@ -247,7 +247,12 @@ func validatePackageDir(t *testing.T, dir string, input []config.PackageConfig) 
 		p := pI
 		bySanitizedName[p.SanitizedName()] = &p
 		byLogicalName[p.Name] = &p
-		byType[string(p.Type)] = append(byType[string(p.Type)], p.SanitizedName())
+		pType := string(p.Type)
+		if pType == "" {
+			// TODO(pre-merge) I don't think this is required anymore
+			pType = "ml_model"
+		}
+		byType[pType] = append(byType[pType], p.SanitizedName())
 	}
 
 	// check all known packages exist and are linked to the correct package dir.

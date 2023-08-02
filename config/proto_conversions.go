@@ -821,15 +821,10 @@ func PackageConfigToProto(cfg *PackageConfig) (*pb.PackageConfig, error) {
 
 // PackageConfigFromProto converts a proto package config to the rdk version.
 func PackageConfigFromProto(proto *pb.PackageConfig) (*PackageConfig, error) {
-	packageType := PackageType(proto.Type)
-	if packageType == "" {
-		// for backwards compatibility
-		packageType = PackageTypeMlModel
-	}
 	return &PackageConfig{
 		Name:    proto.Name,
 		Package: proto.Package,
 		Version: proto.Version,
-		Type:    packageType,
+		Type:    PackageType(proto.Type),
 	}, nil
 }
