@@ -7,5 +7,5 @@ import (
 	_ "go.viam.com/rdk/services/vision/detectionstosegments"
 	_ "go.viam.com/rdk/services/vision/mlvision"
 	_ "go.viam.com/rdk/services/vision/obstacledistance"
-	_ "go.viam.com/rdk/services/vision/radiusclustering"
+	_ "go.viam.com/rdk/services/vision/obstaclespointcloud"
 )

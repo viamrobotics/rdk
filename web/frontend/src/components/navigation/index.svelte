@@ -44,7 +44,7 @@ const setNavigationMode = async (event: CustomEvent) => {
   />
 
   <div class="flex flex-col gap-2 border border-t-0 border-medium">
-    <div class='flex items-end justify-between py-3 px-4'>
+    <div class='flex flex-wrap gap-y-2 items-end justify-between py-3 px-4'>
       <div class='flex gap-1'>
         <div class='w-80'>
           <LngLatInput readonly label='Base position' lng={$robotPosition?.lng} lat={$robotPosition?.lat}>
@@ -70,8 +70,7 @@ const setNavigationMode = async (event: CustomEvent) => {
       />
     </div>
 
-    <div class='flex w-full items-stretch'>
-
+    <div class='sm:flex w-full items-stretch'>
       <Nav {name} />
 
       <div class='grow'>

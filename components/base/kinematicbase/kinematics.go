@@ -44,6 +44,10 @@ const (
 
 	// minimumMovementThresholdMM is the amount that a base needs to move for it not to be considered stationary.
 	defaultMinimumMovementThresholdMM = 20 // mm
+	
+	// maxSpinAngleDeg is the maximum amount of degrees the base should turn with a single Spin command.
+	// used to break up large turns into smaller chunks to prevent error from building up.
+	defaultMaxSpinAngleDeg = 45
 
 	// positionOnlyMode defines whether motion planning should be done in 2DOF or 3DOF.
 	defaultPositionOnlyMode = true
@@ -73,6 +77,10 @@ type Options struct {
 
 	// MinimumMovementThresholdMM is the amount that a base needs to move for it not to be considered stationary.
 	MinimumMovementThresholdMM float64
+	
+	// MaxSpinAngleDeg is the maximum amount of degrees the base should turn with a single Spin command.
+	// used to break up large turns into smaller chunks to prevent error from building up.
+	MaxSpinAngleDeg float64
 
 	// PositionOnlyMode defines whether motion planning should be done in 2DOF or 3DOF.
 	// If value is true, planning is done in [x,y]. If value is false, planning is done in [x,y,theta].
@@ -90,6 +98,7 @@ func NewKinematicBaseOptions() Options {
 		PlanDeviationThresholdMM:   defaultPlanDeviationThresholdMM,
 		Timeout:                    defaultTimeout,
 		MinimumMovementThresholdMM: defaultMinimumMovementThresholdMM,
+		MaxSpinAngleDeg:            defaultMaxSpinAngleDeg,
 		PositionOnlyMode:           defaultPositionOnlyMode,
 	}
 	return options
