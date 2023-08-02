@@ -19,7 +19,7 @@ import InputController from './input-controller/index.svelte';
 import Motor from './motor/index.svelte';
 import MovementSensor from './movement-sensor/index.svelte';
 import Navigation from './navigation/index.svelte';
-import PowerSensor from './power-sensor/index.svelte'
+import PowerSensor from './power-sensor/index.svelte';
 import Servo from './servo/index.svelte';
 import Sensors from './sensors/index.svelte';
 import Slam from './slam/index.svelte';

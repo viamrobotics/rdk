@@ -36,7 +36,7 @@ func init() {
 		})
 }
 
-// MPowerSensor implements is a fake movement sensor interface.
+// PowerSensor implements a fake PowerSensor interface.
 type PowerSensor struct {
 	resource.Named
 	resource.AlwaysRebuild
@@ -47,17 +47,17 @@ func (f *PowerSensor) DoCommand(ctx context.Context, cmd map[string]interface{})
 	return map[string]interface{}{}, nil
 }
 
-// DoCommand uses a map string to run custom functionality of a fake powersensor.
+// Voltage gets the voltage and isAC of a fake powersensor.
 func (f *PowerSensor) Voltage(ctx context.Context, cmd map[string]interface{}) (float64, bool, error) {
 	return 1, true, nil
 }
 
-// DoCommand uses a map string to run custom functionality of a fake powersensor.
+// Current gets the current and isAC of a fake powersensor.
 func (f *PowerSensor) Current(ctx context.Context, cmd map[string]interface{}) (float64, bool, error) {
 	return 0, false, powersensor.ErrMethodUnimplementedCurrent
 }
 
-// DoCommand uses a map string to run custom functionality of a fake powersensor.
+// Power gets the power of a fake powersensor.
 func (f *PowerSensor) Power(ctx context.Context, cmd map[string]interface{}) (float64, error) {
 	return 9.8, nil
 }
@@ -67,10 +67,10 @@ func (f *PowerSensor) Readings(ctx context.Context, extra map[string]interface{}
 	return powersensor.Readings(ctx, f, extra)
 }
 
-// Start starts the fake powersensor
+// Start starts the fake powersensor.
 func (f *PowerSensor) Start(ctx context.Context) error { return nil }
 
-// Close closes the fake powersensor
+// Close closes the fake powersensor.
 func (f *PowerSensor) Close(ctx context.Context) error {
 	return nil
 }

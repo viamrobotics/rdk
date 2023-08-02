@@ -1,6 +1,6 @@
 <script lang="ts">
 
-import {PowerSensorClient, type ServiceError } from '@viamrobotics/sdk';
+import { PowerSensorClient, type ServiceError } from '@viamrobotics/sdk';
 import { displayError } from '@/lib/error';
 import Collapse from '@/lib/components/collapse.svelte';
 import { rcLogConditionally } from '@/lib/log';
@@ -10,7 +10,6 @@ import { useRobotClient, useDisconnect } from '@/hooks/robot-client';
 export let name: string;
 
 const { robotClient } = useRobotClient();
-
 
 const powerSensorClient = new PowerSensorClient($robotClient, name, {
   requestLogger: rcLogConditionally,
@@ -24,10 +23,10 @@ let clearInterval: (() => void) | undefined;
 
 const refresh = async () => {
   try {
-    const readings = await powerSensorClient.getReadings()
-    voltageValue = readings['voltage'];
-     currentValue = readings['current'];
-     powerValue = readings['power'];
+    const readings = await powerSensorClient.getReadings();
+    voltageValue = readings.voltage;
+    currentValue = readings.current;
+    powerValue = readings.power;
   } catch (error) {
     displayError(error as ServiceError);
   }
@@ -49,7 +48,7 @@ useDisconnect(() => clearInterval?.());
 <Collapse title={name} on:toggle={handleToggle}>
     <v-breadcrumbs slot="title" crumbs="power_sensor" />
     <div class="flex flex-wrap gap-4 text-sm border border-t-0 border-medium p-4">
-      {#if voltageValue != undefined}
+      {#if voltageValue !== undefined}
         <div class="overflow-auto">
           <h3 class="mb-1">voltage (volts)</h3>
           <div class="flex gap-1.5">
@@ -57,7 +56,7 @@ useDisconnect(() => clearInterval?.());
           </div>
         </div>
         {/if}
-        {#if currentValue != undefined}
+        {#if currentValue !== undefined}
         <div class="overflow-auto">
           <h3 class="mb-1">
            current (amperes)
@@ -67,7 +66,7 @@ useDisconnect(() => clearInterval?.());
           </div>
         </div>
         {/if}
-        {#if powerValue != undefined}
+        {#if powerValue !== undefined}
         <div class="overflow-auto">
           <h3 class="mb-1">
             power (watts)
@@ -79,5 +78,4 @@ useDisconnect(() => clearInterval?.());
         {/if}
         </div>
     </Collapse>
-
 

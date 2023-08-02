@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "@viamrobotics/sdk": "^0.2.5-next.2"
+  }
+}
