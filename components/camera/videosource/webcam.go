@@ -436,7 +436,7 @@ func (c *monitoredWebcam) reconnectCamera(conf *WebcamConfig) error {
 	}
 
 	localLogger := c.logger
-	if camDebugLogger.activeCams[c].discoveryLogFilePath != "" {
+	if camDebugLogger.activeCams != nil && camDebugLogger.activeCams[c].discoveryLogFilePath != "" {
 		camDebugLogger.activeCams[c].discoveryLogFileMu.Lock()
 		defer camDebugLogger.activeCams[c].discoveryLogFileMu.Unlock()
 
