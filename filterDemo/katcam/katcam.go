@@ -22,7 +22,8 @@ var (
 	// Model is the full model definition.
 	Model            = resource.NewModel("filters", "demo", "katcam")
 	errUnimplemented = errors.New("unimplemented")
-	errNoCapture     = errors.New("Do not store capture from filter module")
+	// Use for filtering
+	errNoCapture = errors.New("Do not store capture from filter module")
 )
 
 func init() {
@@ -89,6 +90,11 @@ func (c *katCam) Images(ctx context.Context) ([]image.Image, time.Time, error) {
 	return nil, time.Time{}, errUnimplemented
 }
 
+// TODO: implement instead of Stream?
+// func (c *katCam) Read(ctx context.Context) (image.Image, func(), error) {
+// 	return nil, nil, nil
+// }
+
 func (c *katCam) Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
 	camStream, err := c.actualCam.Stream(ctx, errHandlers...)
 	if err != nil {
@@ -96,7 +102,6 @@ func (c *katCam) Stream(ctx context.Context, errHandlers ...gostream.ErrorHandle
 	}
 	filterStream := filterStream{camStream}
 
-	fmt.Println("KATLOG - in katcam Stream() with context value ", ctx.Value(data.CtxKeyDM))
 	return filterStream, nil
 }
 
@@ -122,7 +127,6 @@ type filterStream struct {
 
 func (fs filterStream) Next(ctx context.Context) (image.Image, func(), error) {
 	if ctx.Value(data.CtxKeyDM) != true {
-		fmt.Println("KATLOG - in katcam stream.Next with context value ", ctx.Value(data.CtxKeyDM))
 		return nil, nil, errors.New("Cannot access filter stream if not DM collector")
 	}
 

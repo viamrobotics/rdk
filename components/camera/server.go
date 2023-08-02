@@ -14,6 +14,7 @@ import (
 	"google.golang.org/genproto/googleapis/api/httpbody"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
@@ -72,6 +73,11 @@ func (s *serviceServer) GetImage(
 	}
 
 	req.MimeType = utils.WithLazyMIMEType(req.MimeType)
+	// TODO: add to context
+	if req.Extra.AsMap()[string(data.CtxKeyDM)] == true {
+		ctx = context.WithValue(ctx, data.CtxKeyDM, true)
+	}
+
 	img, release, err := ReadImage(gostream.WithMIMETypeHint(ctx, req.MimeType), cam)
 	if err != nil {
 		return nil, err
