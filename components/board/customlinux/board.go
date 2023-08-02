@@ -35,12 +35,6 @@ func init() {
 		})
 }
 
-// customLinuxBoard wraps the genericlinux board type so that both can implement their own Reconfigure function.
-type customLinuxBoard struct {
-	*genericlinux.SysfsBoard
-	logger golog.Logger
-}
-
 func createNewBoard(
 	ctx context.Context,
 	_ resource.Dependencies,
@@ -110,22 +104,4 @@ func createGenericLinuxConfig(conf *Config) genericlinux.Config {
 		Analogs:           conf.Analogs,
 		DigitalInterrupts: conf.DigitalInterrupts,
 	}
-}
-
-// Reconfigure reconfigures the board with interrupt pins, spi and i2c, and analogs.
-// WARNING: does not update pin definitions when the config file changes.
-// TODO[RSDK-4092]: implement reconfiguration when pin definitions change.
-func (b *customLinuxBoard) Reconfigure(
-	ctx context.Context,
-	_ resource.Dependencies,
-	conf resource.Config,
-) error {
-	newConf, err := resource.NativeConfig[*Config](conf)
-	if err != nil {
-		return err
-	}
-
-	boardConfig := createGenericLinuxConfig(newConf)
-
-	return b.ReconfigureParsedConfig(ctx, &boardConfig)
 }
