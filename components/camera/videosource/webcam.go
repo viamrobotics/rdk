@@ -436,7 +436,8 @@ func (c *monitoredWebcam) reconnectCamera(conf *WebcamConfig) error {
 	}
 
 	localLogger := c.logger
-	if camDebugLogger.activeCams != nil && camDebugLogger.activeCams[c].discoveryLogFilePath != "" {
+	camDebugLogger.isRunningMu.Lock()
+	if camDebugLogger.isRunning {
 		camDebugLogger.activeCams[c].discoveryLogFileMu.Lock()
 		defer camDebugLogger.activeCams[c].discoveryLogFileMu.Unlock()
 
@@ -454,6 +455,7 @@ func (c *monitoredWebcam) reconnectCamera(conf *WebcamConfig) error {
 			c.logger.Errorw("failed to open discovery service log file", "error", err)
 		}
 	}
+	camDebugLogger.isRunningMu.Unlock()
 
 	newSrc, foundLabel, err := findAndMakeVideoSource(c.cancelCtx, conf, c.targetPath, localLogger)
 	if err != nil {
