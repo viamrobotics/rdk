@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 
 	"github.com/edaniels/golog"
-	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"periph.io/x/host/v3"
 
@@ -41,7 +40,7 @@ func createNewBoard(
 	conf resource.Config,
 	logger golog.Logger,
 ) (board.Board, error) {
-	return genericlinux.newBoard(ctx, conf, pinDefsFromFile, logger)
+	return genericlinux.NewBoard(ctx, conf, pinDefsFromFile, logger)
 }
 
 // This is a ConfigConverter which loads pin definitions from a file, assuming that the config

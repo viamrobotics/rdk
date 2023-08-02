@@ -35,12 +35,12 @@ func RegisterBoard(modelName string, gpioMappings map[string]GPIOBoardMapping) {
 				conf resource.Config,
 				logger golog.Logger,
 			) (board.Board, error) {
-				return newBoard(ctx, conf, ConstPinDefs(gpioMappings), logger)
+				return NewBoard(ctx, conf, ConstPinDefs(gpioMappings), logger)
 			},
 		})
 }
 
-func newBoard(
+func NewBoard(
 	ctx context.Context,
 	conf resource.Config,
 	convertConfig ConfigConverter,
