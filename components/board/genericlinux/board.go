@@ -51,28 +51,10 @@ func NewBoard(
 		return nil, err
 	}
 
-	b, err := NewSysfsBoard(ctx, conf.ResourceName().AsNamed(), *newConf, convertConfig, logger)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := b.Reconfigure(ctx, nil, conf); err != nil {
-		return nil, err
-	}
-	return b, nil
-}
-
-// NewSysfsBoard creates a new SysfsBoard.
-func NewSysfsBoard(
-	ctx context.Context,
-	name resource.Named,
-	conf UnderlyingConfig,
-	convertConfig ConfigConverter,
-	logger golog.Logger,
-) (board.Board, error) {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
-	b := SysfsBoard{
-		Named:         name,
+
+	b := &SysfsBoard{
+		Named:         conf.ResourceName().AsNamed(),
 		convertConfig: convertConfig,
 
 		logger:     logger,
@@ -87,11 +69,14 @@ func NewSysfsBoard(
 	}
 
 	// TODO(RSDK_4092): Move this part into reconfiguration.
-	for pinName, mapping := range conf.GpioMappings {
+	for pinName, mapping := range newConf.GpioMappings {
 		b.gpios[pinName] = b.createGpioPin(mapping)
 	}
 
-	return &b, nil
+	if err := b.Reconfigure(ctx, nil, conf); err != nil {
+		return nil, err
+	}
+	return b, nil
 }
 
 // Reconfigure reconfigures the board with interrupt pins, spi and i2c, and analogs.
