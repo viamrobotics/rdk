@@ -500,11 +500,7 @@ func (ms *builtIn) planMoveOnMap(
 			if !ok {
 				return nil, nil, errors.New("could not interpret motion_profile field as string")
 			}
-			if motionProfile == motionplan.PositionOnlyMotionProfile {
-				kinematicsOptions.PositionOnlyMode = true
-			} else {
-				kinematicsOptions.PositionOnlyMode = false
-			}
+			kinematicsOptions.PositionOnlyMode = motionProfile == motionplan.PositionOnlyMotionProfile
 		}
 	}
 

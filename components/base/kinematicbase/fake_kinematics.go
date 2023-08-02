@@ -47,11 +47,11 @@ func WrapWithFakeKinematics(
 
 	if options.PositionOnlyMode {
 		fk.planningFrame, err = referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits[:2], geometry)
+		if err != nil {
+			return nil, err
+		}
 	} else {
-		fk.planningFrame, err = referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits, geometry)
-	}
-	if err != nil {
-		return nil, err
+		fk.planningFrame = fk.executionFrame
 	}
 
 	fk.options = options
