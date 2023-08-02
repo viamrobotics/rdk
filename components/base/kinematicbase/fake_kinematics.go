@@ -14,6 +14,7 @@ type fakeKinematics struct {
 	model     referenceframe.Frame
 	localizer motion.Localizer
 	inputs    []referenceframe.Input
+	options   Options
 }
 
 // WrapWithFakeKinematics creates a KinematicBase from the fake Base so that it satisfies the ModelFramer and InputEnabled interfaces.
@@ -22,6 +23,7 @@ func WrapWithFakeKinematics(
 	b *fake.Base,
 	localizer motion.Localizer,
 	limits []referenceframe.Limit,
+	options Options,
 ) (KinematicBase, error) {
 	position, err := localizer.CurrentPosition(ctx)
 	if err != nil {
@@ -41,6 +43,7 @@ func WrapWithFakeKinematics(
 	if err != nil {
 		return nil, err
 	}
+	fk.options = options
 	return fk, nil
 }
 

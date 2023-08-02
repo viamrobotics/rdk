@@ -19,7 +19,7 @@ const updateLocation = async () => {
     const position = await getLocation($robotClient, name);
 
     if (!centered) {
-      centerMap(position);
+      centerMap(position, true);
       centered = true;
     }
 
@@ -38,5 +38,5 @@ useDisconnect(() => clearUpdateLocationInterval());
 </script>
 
 {#if $robotPosition}
-  <MapMarker color='red' lngLat={$robotPosition} />
+  <MapMarker color='#01EF83' lngLat={$robotPosition} />
 {/if}

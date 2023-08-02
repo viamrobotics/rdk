@@ -2,6 +2,9 @@ package referenceframe
 
 import "github.com/pkg/errors"
 
+// ErrAtLeastOneEndEffector is an error indicating that at least one end effector is required.
+var ErrAtLeastOneEndEffector = errors.New("need at least one end effector")
+
 // ErrCircularReference is an error indicating that a circular path exists somewhere between the end effector and the world.
 var ErrCircularReference = errors.New("infinite loop finding path from end effector to world")
 
@@ -19,6 +22,13 @@ var ErrMarshalingHighDOFFrame = errors.New("cannot marshal frame with >1 DOF, us
 
 // ErrNoWorldConnection describes the error when a frame system is built but nothing is connected to the world node.
 var ErrNoWorldConnection = errors.New("there are no robot parts that connect to a 'world' node. Root node must be named 'world'")
+
+// ErrNilJointPositions denotes an error when the joint positions are nil.
+var ErrNilJointPositions = errors.New("joint positions are nil, check that you are" +
+	" passing non-empty joint positions when writing your driver")
+
+// ErrNilModelFrame denotes an error when the kinematics in form of model frames are nil.
+var ErrNilModelFrame = errors.New("the model frame is nil, check that you are passing non-empty kinematics when writing your driver")
 
 // NewParentFrameMissingError returns an error for when a part has named a parent whose part is missing from the collection of Parts
 // that are becoming a FrameSystem object.
@@ -55,4 +65,21 @@ func NewUnsupportedJointTypeError(jointType string) error {
 // to be registered where this is not allowed.
 func NewDuplicateGeometryNameError(name string) error {
 	return errors.Errorf("cannot specify multiple geometries with the same name: %s", name)
+}
+
+// NewFrameNotInListOfTransformsError returns an error indicating that a frame of the given name
+// is missing from the provided list of transforms.
+func NewFrameNotInListOfTransformsError(frameName string) error {
+	return errors.Errorf("frame named '%s' not in the list of transforms", frameName)
+}
+
+// NewParentFrameNotInMapOfParentsError returns an error indicating that a parent from of the given name
+// is missing from the provided map of parents.
+func NewParentFrameNotInMapOfParentsError(parentFrameName string) error {
+	return errors.Errorf("parent frame named '%s' not in the map of parents", parentFrameName)
+}
+
+// NewReservedWordError returns an error indicating that the provided name for the config  is reserved.
+func NewReservedWordError(configType, reservedWord string) error {
+	return errors.Errorf("reserved word: cannot name a %s '%s'", configType, reservedWord)
 }
