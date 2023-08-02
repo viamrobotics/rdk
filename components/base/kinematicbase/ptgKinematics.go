@@ -8,10 +8,10 @@ import (
 	"math"
 	"time"
 
+	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"go.uber.org/multierr"
 	utils "go.viam.com/utils"
-	"github.com/edaniels/golog"
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/motionplan/tpspace"
@@ -31,9 +31,9 @@ const (
 type ptgBaseKinematics struct {
 	base.Base
 	logger golog.Logger
-	frame referenceframe.Frame
-	fs    referenceframe.FrameSystem
-	ptgs  []tpspace.PTG
+	frame  referenceframe.Frame
+	fs     referenceframe.FrameSystem
+	ptgs   []tpspace.PTG
 }
 
 // wrapWithPTGKinematics takes a Base component and adds a PTG kinematic model so that it can be controlled.
@@ -97,11 +97,11 @@ func wrapWithPTGKinematics(
 	ptgs := ptgProv.PTGs()
 
 	return &ptgBaseKinematics{
-		Base:  b,
+		Base:   b,
 		logger: logger,
-		frame: frame,
-		fs:    fs,
-		ptgs:  ptgs,
+		frame:  frame,
+		fs:     fs,
+		ptgs:   ptgs,
 	}, nil
 }
 
@@ -135,10 +135,10 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 		lastTime = trajNode.Time
 		linVel := r3.Vector{0, trajNode.LinVelMMPS, 0}
 		angVel := r3.Vector{0, 0, rdkutils.RadToDeg(trajNode.AngVelRPS)}
-		
+
 		ptgk.logger.Debugf("setting velocity to linear %t angular %t", linVel, angVel)
-		ptgk.logger.Debugf("running velocity step for %f ms", time.Duration(trajNode.Time-lastTime) * time.Millisecond)
-		
+		ptgk.logger.Debugf("running velocity step for %f ms", time.Duration(trajNode.Time-lastTime)*time.Millisecond)
+
 		err := ptgk.Base.SetVelocity(
 			ctx,
 			linVel,
