@@ -120,9 +120,9 @@ const getStatus = (statusMap: Record<string, unknown>, resource: commonApi.Resou
       <MovementSensor {name} />
     {/each}
 
-    <!-- ******* POWER SENSOR *******  -->
+     <!-- ******* POWER SENSOR *******  -->
     {#each filterSubtype($components, 'power_sensor') as { name } (name)}
-        <PowerSensor {name} />
+      <PowerSensor {name} />
     {/each}
 
     <!-- ******* ARM *******  -->

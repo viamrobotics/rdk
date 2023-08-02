@@ -54,7 +54,7 @@ func (f *PowerSensor) Voltage(ctx context.Context, cmd map[string]interface{}) (
 
 // Current gets the current and isAC of a fake powersensor.
 func (f *PowerSensor) Current(ctx context.Context, cmd map[string]interface{}) (float64, bool, error) {
-	return 0, false, powersensor.ErrMethodUnimplementedCurrent
+	return 3.5, true, nil
 }
 
 // Power gets the power of a fake powersensor.
