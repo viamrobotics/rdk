@@ -51,7 +51,7 @@ func newBoard(
 		return nil, err
 	}
 
-	b, err := NewSysfsBoard(ctx, conf.ResourceName().AsNamed(), newConf, convertConfig, logger)
+	b, err := NewSysfsBoard(ctx, conf.ResourceName().AsNamed(), *newConf, convertConfig, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -105,7 +105,7 @@ func (b *SysfsBoard) Reconfigure(
 		return err
 	}
 
-	return b.ReconfigureParsedConfig(ctx, newConf)
+	return b.ReconfigureParsedConfig(ctx, *newConf)
 }
 
 // ReconfigureParsedConfig is a public helper that should only be used

@@ -47,6 +47,12 @@ func createNewBoard(
 	conf resource.Config,
 	logger golog.Logger,
 ) (board.Board, error) {
+	return genericlinux.newBoard(ctx, conf, pinDefsFromFile, logger)
+}
+
+// This is a ConfigConverter which loads pin definitions from a file, assuming that the config
+// passed in is a customlinux.Config underneath.
+func pinDefsFromFile(conf resource.Config) (*genericlinux.UnderlyingConfig, error) {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return nil, err
@@ -62,23 +68,13 @@ func createNewBoard(
 		return nil, err
 	}
 
-	boardConfig := createGenericLinuxConfig(newConf)
-	sysfsB, err := genericlinux.NewSysfsBoard(ctx, conf.ResourceName().AsNamed(), &boardConfig, gpioMappings, logger)
-	if err != nil {
-		return nil, err
-	}
-
-	gb, ok := sysfsB.(*genericlinux.SysfsBoard)
-	// shouldn't happen because customLinuxBoard embeds SysfsBoard
-	if !ok {
-		return nil, errors.New("tried creating SysfsBoard but got non-SysfsBoard result")
-	}
-
-	b := customLinuxBoard{SysfsBoard: gb, logger: logger}
-	if err := b.Reconfigure(ctx, nil, conf); err != nil {
-		return nil, err
-	}
-	return &b, nil
+	return &genericlinux.UnderlyingConfig{
+		I2Cs:              newConf.I2Cs,
+		SPIs:              newConf.SPIs,
+		Analogs:           newConf.Analogs,
+		DigitalInterrupts: newConf.DigitalInterrupts,
+		GpioMappings:      gpioMappings,
+	}, nil
 }
 
 func parsePinConfig(filePath string) ([]genericlinux.PinDefinition, error) {
