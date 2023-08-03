@@ -34,8 +34,8 @@ var model = resource.DefaultModelFamily.WithModel("obstacles_depth")
 
 // ObsDepthConfig specifies the parameters to be used for the obstacle depth service.
 type ObsDepthConfig struct {
-	Hmin       float64                            `json:"h_min_mm"`
-	Hmax       float64                            `json:"h_max_mm"`
+	Hmin       float64                            `json:"h_min_m"`
+	Hmax       float64                            `json:"h_max_m"`
 	ThetaMax   float64                            `json:"theta_max_deg"`
 	ReturnPCDs bool                               `json:"return_pcds"`
 	Intrinsics *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters"`
@@ -57,7 +57,7 @@ type obsDepth struct {
 const (
 	// the first 3 consts are parameters from Manduchi et al.
 	defaultHmin     = 0.0
-	defaultHmax     = 1000.0
+	defaultHmax     = 1.0
 	defaultThetamax = 45
 
 	defaultK = 10 // default number of obstacle segments to create
@@ -128,7 +128,7 @@ func registerObstaclesDepth(
 
 	sinTheta := math.Sin(conf.ThetaMax * math.Pi / 180) // sin(radians(theta))
 	myObsDep := obsDepth{
-		hMin: conf.Hmin, hMax: conf.Hmax, sinTheta: sinTheta,
+		hMin: 1000 * conf.Hmin, hMax: 1000 * conf.Hmax, sinTheta: sinTheta,
 		intrinsics: conf.Intrinsics, returnPCDs: conf.ReturnPCDs, k: defaultK,
 	}
 	segmenter := myObsDep.buildObsDepthWithIntrinsics() // does the thing
