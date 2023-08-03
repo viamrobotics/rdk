@@ -395,11 +395,11 @@ func main() {
 						Flags: []cli.Flag{
 							&cli.StringFlag{
 								Name:        "organization",
-								DefaultText: "currently selected organization",
+								DefaultText: "first organization alphabetically",
 							},
 							&cli.StringFlag{
 								Name:        "location",
-								DefaultText: "currently selected location",
+								DefaultText: "first location alphabetically",
 							},
 						},
 						Action: func(c *cli.Context) error {
@@ -438,11 +438,11 @@ func main() {
 						Flags: []cli.Flag{
 							&cli.StringFlag{
 								Name:        "organization",
-								DefaultText: "currently selected organization",
+								DefaultText: "first organization alphabetically",
 							},
 							&cli.StringFlag{
 								Name:        "location",
-								DefaultText: "currently selected location",
+								DefaultText: "first location alphabetically",
 							},
 							&cli.StringFlag{
 								Name:     "robot",
@@ -510,11 +510,11 @@ func main() {
 						Flags: []cli.Flag{
 							&cli.StringFlag{
 								Name:        "organization",
-								DefaultText: "currently selected organization",
+								DefaultText: "first organization alphabetically",
 							},
 							&cli.StringFlag{
 								Name:        "location",
-								DefaultText: "currently selected location",
+								DefaultText: "first location alphabetically",
 							},
 							&cli.StringFlag{
 								Name:     "robot",
@@ -580,11 +580,11 @@ func main() {
 								Flags: []cli.Flag{
 									&cli.StringFlag{
 										Name:        "organization",
-										DefaultText: "currently selected organization",
+										DefaultText: "first organization alphabetically",
 									},
 									&cli.StringFlag{
 										Name:        "location",
-										DefaultText: "currently selected location",
+										DefaultText: "first location alphabetically",
 									},
 									&cli.StringFlag{
 										Name:     "robot",
@@ -641,11 +641,11 @@ func main() {
 								Flags: []cli.Flag{
 									&cli.StringFlag{
 										Name:        "organization",
-										DefaultText: "currently selected organization",
+										DefaultText: "first organization alphabetically",
 									},
 									&cli.StringFlag{
 										Name:        "location",
-										DefaultText: "currently selected location",
+										DefaultText: "first location alphabetically",
 									},
 									&cli.StringFlag{
 										Name:     "robot",
