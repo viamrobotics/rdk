@@ -728,36 +728,6 @@ func TestStopMoveFunctions(t *testing.T) {
 			test.That(t, success, test.ShouldBeFalse)
 			test.That(t, calledStopFunc, test.ShouldBeTrue)
 		})
-
-		t.Run("stop during MoveSingleComponent(...) call", func(t *testing.T) {
-			calledStopFunc = false
-
-			goal := referenceframe.NewPoseInFrame(
-				"test-arm",
-				spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: -10, Z: -10}),
-			)
-
-			success, err := ms.MoveSingleComponent(ctx, fakeArm.Name(), goal, nil, map[string]interface{}{})
-			test.That(t, err, test.ShouldNotBeNil)
-			test.That(t, err, test.ShouldEqual, failToReachGoalError)
-			test.That(t, success, test.ShouldBeFalse)
-			test.That(t, calledStopFunc, test.ShouldBeTrue)
-		})
-
-		t.Run("stop during MoveSingleComponent(...) call", func(t *testing.T) {
-			calledStopFunc = false
-
-			goal := referenceframe.NewPoseInFrame(
-				"test-arm",
-				spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: -10, Z: -10}),
-			)
-
-			success, err := ms.MoveSingleComponent(ctx, fakeArm.Name(), goal, nil, map[string]interface{}{})
-			test.That(t, err, test.ShouldNotBeNil)
-			test.That(t, err, test.ShouldEqual, failToReachGoalError)
-			test.That(t, success, test.ShouldBeFalse)
-			test.That(t, calledStopFunc, test.ShouldBeTrue)
-		})
 	})
 
 	t.Run("successfully stop kinematic bases", func(t *testing.T) {

@@ -43,8 +43,9 @@ func Named(name string) resource.Name {
 // Gantry is used for controlling gantries of N axis.
 type Gantry interface {
 	resource.Resource
+	resource.Actuator
 	referenceframe.ModelFramer
-	resource.InputEnabledActuator
+	referenceframe.InputEnabled
 
 	// Position returns the position in meters
 	Position(ctx context.Context, extra map[string]interface{}) ([]float64, error)

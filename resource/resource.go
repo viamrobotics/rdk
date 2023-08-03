@@ -25,7 +25,6 @@ import (
 	"github.com/jhump/protoreflect/desc"
 	"github.com/pkg/errors"
 
-	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
@@ -142,14 +141,6 @@ type Shaped interface {
 	// Geometries returns the list of geometries associated with the resource, in any order. The poses of the geometries reflect their
 	// current location relative to the frame of the resource.
 	Geometries(context.Context, map[string]interface{}) ([]spatialmath.Geometry, error)
-}
-
-// InputEnabledActuator is an actuator that interacts with the frame system.
-// This allows us to figure out where the actuator currently is and then
-// move it. Input units are always in meters or radians.
-type InputEnabledActuator interface {
-	Actuator
-	referenceframe.InputEnabled
 }
 
 // ErrDoUnimplemented is returned if the DoCommand methods is not implemented.

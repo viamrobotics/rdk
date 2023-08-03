@@ -10,14 +10,13 @@ import (
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
 )
 
 // KinematicBase is an interface for Bases that also satisfy the ModelFramer and InputEnabled interfaces.
 type KinematicBase interface {
 	base.Base
-	resource.InputEnabledActuator
+	referenceframe.InputEnabled
 
 	Kinematics() referenceframe.Frame
 }

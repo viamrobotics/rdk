@@ -48,6 +48,14 @@ const (
 	maxTravelDistance = 5e+6 // mm (or 5km)
 )
 
+// inputEnabledActuator is an actuator that interacts with the frame system.
+// This allows us to figure out where the actuator currently is and then
+// move it. Input units are always in meters or radians.
+type inputEnabledActuator interface {
+	resource.Actuator
+	referenceframe.InputEnabled
+}
+
 // ErrNotImplemented is thrown when an unreleased function is called.
 var ErrNotImplemented = errors.New("function coming soon but not yet implemented")
 
@@ -170,7 +178,7 @@ func (ms *builtIn) Move(
 			}
 			r := resources[name]
 			if err := r.GoToInputs(ctx, inputs); err != nil {
-				if actuator, ok := r.(resource.InputEnabledActuator); ok {
+				if actuator, ok := r.(inputEnabledActuator); ok {
 					if stopErr := actuator.Stop(ctx, nil); stopErr != nil {
 						return false, errors.Wrap(err, stopErr.Error())
 					}
@@ -199,10 +207,11 @@ func (ms *builtIn) MoveOnMap(
 	if err != nil {
 		return false, fmt.Errorf("error making plan for MoveOnMap: %w", err)
 	}
+	inputEnabledKb := kb.(inputEnabledActuator)
 
 	// execute the plan
 	for i := 1; i < len(plan); i++ {
-		if err := kb.GoToInputs(ctx, plan[i]); err != nil {
+		if err := inputEnabledKb.GoToInputs(ctx, plan[i]); err != nil {
 			if stopErr := kb.Stop(ctx, nil); stopErr != nil {
 				return false, errors.Wrap(err, stopErr.Error())
 			}
@@ -252,11 +261,11 @@ func (ms *builtIn) MoveOnGlobe(
 	if err != nil {
 		return false, fmt.Errorf("error making plan for MoveOnMap: %w", err)
 	}
-
+	inputEnabledKb := kb.(inputEnabledActuator)
 	// execute the plan
 	for i := 1; i < len(plan); i++ {
 		ms.logger.Info(plan[i])
-		if err := kb.GoToInputs(ctx, plan[i]); err != nil {
+		if err := inputEnabledKb.GoToInputs(ctx, plan[i]); err != nil {
 			if stopErr := kb.Stop(ctx, nil); stopErr != nil {
 				return false, errors.Wrap(err, stopErr.Error())
 			}
@@ -489,8 +498,10 @@ func (ms *builtIn) planMoveOnMap(
 		return nil, nil, err
 	}
 
+	inputEnabledKb := kb.(inputEnabledActuator)
+
 	// get current position
-	inputs, err := kb.CurrentInputs(ctx)
+	inputs, err := inputEnabledKb.CurrentInputs(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
