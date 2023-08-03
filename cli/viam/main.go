@@ -434,7 +434,7 @@ func main() {
 					{
 						Name:      "status",
 						Usage:     "display robot status",
-						UsageText: fmt.Sprintf("viam robot status <robot> [other options]"),
+						UsageText: "viam robot status <robot> [other options]",
 						Flags: []cli.Flag{
 							&cli.StringFlag{
 								Name:        "organization",
@@ -506,7 +506,7 @@ func main() {
 					{
 						Name:      "logs",
 						Usage:     "display robot logs",
-						UsageText: fmt.Sprintf("viam robot logs <robot> [other options]"),
+						UsageText: "viam robot logs <robot> [other options]",
 						Flags: []cli.Flag{
 							&cli.StringFlag{
 								Name:        "organization",
@@ -576,7 +576,7 @@ func main() {
 							{
 								Name:      "status",
 								Usage:     "display part status",
-								UsageText: fmt.Sprintf("viam robot part status <robot> <part> [other options]"),
+								UsageText: "viam robot part status <robot> <part> [other options]",
 								Flags: []cli.Flag{
 									&cli.StringFlag{
 										Name:        "organization",
@@ -637,7 +637,7 @@ func main() {
 							{
 								Name:      "logs",
 								Usage:     "display part logs",
-								UsageText: fmt.Sprintf("viam robot part logs <robot> <part> [other options]"),
+								UsageText: "viam robot part logs <robot> <part> [other options]",
 								Flags: []cli.Flag{
 									&cli.StringFlag{
 										Name:        "organization",
@@ -702,7 +702,7 @@ func main() {
 							{
 								Name:      "run",
 								Usage:     "run a command on a robot part",
-								UsageText: fmt.Sprintf("viam robot part run <organization> <location> <robot> <part> [other options] <service.method>"),
+								UsageText: "viam robot part run <organization> <location> <robot> <part> [other options] <service.method>",
 								Flags: []cli.Flag{
 									&cli.StringFlag{
 										Name:     "organization",
@@ -759,8 +759,9 @@ func main() {
 								Name:  "shell",
 								Usage: "start a shell on a robot part",
 								// TODO: remove this warning
-								Description: "Functionality of the shell command is highly experimental. In particular, there may be text-input issues in the opened shell.",
-								UsageText:   fmt.Sprintf("viam robot part shell <organization> <location> <robot> <part>"),
+								Description: `Functionality of the shell command is highly experimental. In particular, there may be text-input issues
+in the opened shell.`,
+								UsageText: "viam robot part shell <organization> <location> <robot> <part>",
 								Flags: []cli.Flag{
 									&cli.StringFlag{
 										Name:     "organization",
@@ -816,7 +817,7 @@ you won't have to pass a namespace or org-id in future commands. Otherwise there
 and you will have to provide the org-id to future cli commands. You cannot make your module public until you claim an org-id.
 
 After creation, update your meta.json and use 'viam module update' to push changes to app.viam.com`,
-						UsageText: fmt.Sprintf("viam robot module create <name> [other options]"),
+						UsageText: "viam robot module create <name> [other options]",
 						Flags: []cli.Flag{
 							&cli.StringFlag{
 								Name:     "name",
@@ -864,7 +865,7 @@ Example for linux/amd64:
 tar -czf packaged-module.tar.gz my-binary   # the meta.json entrypoint is relative to the root of the archive, so it should be "./my-binary"
 viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.tar.gz
                         `,
-						UsageText: fmt.Sprintf("viam robot module upload <version> [other options] <package-module.tar.gz>"),
+						UsageText: "viam robot module upload <version> [other options] <package-module.tar.gz>",
 						Flags: []cli.Flag{
 							&cli.StringFlag{
 								Name:        "module",
