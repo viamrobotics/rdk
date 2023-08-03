@@ -28,12 +28,12 @@ func init() {
 				conf resource.Config,
 				logger golog.Logger,
 			) (powersensor.PowerSensor, error) {
-				return newFakePowerSensorModel(ctx, conf, logger)
+				return newFakePowerSensorModel(conf, logger)
 			},
 		})
 }
 
-func newFakePowerSensorModel(ctx context.Context, conf resource.Config, logger golog.Logger) (powersensor.PowerSensor, error) {
+func newFakePowerSensorModel(conf resource.Config, logger golog.Logger) (powersensor.PowerSensor, error) {
 	return powersensor.PowerSensor(&PowerSensor{
 		Named:  conf.ResourceName().AsNamed(),
 		logger: logger,
