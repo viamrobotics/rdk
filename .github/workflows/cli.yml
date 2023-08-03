@@ -1,0 +1,27 @@
+jobs:
+  viam-cli:
+    name: Viam CLI
+    strategy:
+      matrix:
+        include:
+        - goos: linux
+          goarch: amd64
+        - goos: darwin
+          goarch: amd64
+        - goos: darwin
+          goarch: arm64
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/setup-go@v4
+      with:
+        # todo: pin this for prod
+        go-version: '1.20.x'
+    - name: build
+      env:
+        GOOS: ${{ matrix.goos }}
+        GOARCH: ${{ matrix.goarch }}
+      run: go build -ldflags="-X main.CliVersion=whatever" ./cli/viam
+    - uses: actions/upload-artifact@v3
+      with:
+        path: viam
