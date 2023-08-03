@@ -206,15 +206,16 @@ func (ms *builtIn) MoveOnMap(
 	if err != nil {
 		return false, fmt.Errorf("error making plan for MoveOnMap: %w", err)
 	}
-	inputEnabledKb := kb.(inputEnabledActuator)
 
 	// execute the plan
 	for i := 1; i < len(plan); i++ {
-		if err := inputEnabledKb.GoToInputs(ctx, plan[i]); err != nil {
-			if stopErr := kb.Stop(ctx, nil); stopErr != nil {
-				return false, errors.Wrap(err, stopErr.Error())
+		if inputEnabledKb, ok := kb.(inputEnabledActuator); ok {
+			if err := inputEnabledKb.GoToInputs(ctx, plan[i]); err != nil {
+				if stopErr := kb.Stop(ctx, nil); stopErr != nil {
+					return false, errors.Wrap(err, stopErr.Error())
+				}
+				return false, err
 			}
-			return false, err
 		}
 	}
 	return true, nil
@@ -260,15 +261,16 @@ func (ms *builtIn) MoveOnGlobe(
 	if err != nil {
 		return false, fmt.Errorf("error making plan for MoveOnMap: %w", err)
 	}
-	inputEnabledKb := kb.(inputEnabledActuator)
 	// execute the plan
 	for i := 1; i < len(plan); i++ {
 		ms.logger.Info(plan[i])
-		if err := inputEnabledKb.GoToInputs(ctx, plan[i]); err != nil {
-			if stopErr := kb.Stop(ctx, nil); stopErr != nil {
-				return false, errors.Wrap(err, stopErr.Error())
+		if inputEnabledKb, ok := kb.(inputEnabledActuator); ok {
+			if err := inputEnabledKb.GoToInputs(ctx, plan[i]); err != nil {
+				if stopErr := kb.Stop(ctx, nil); stopErr != nil {
+					return false, errors.Wrap(err, stopErr.Error())
+				}
+				return false, err
 			}
-			return false, err
 		}
 	}
 	return true, nil
@@ -497,10 +499,8 @@ func (ms *builtIn) planMoveOnMap(
 		return nil, nil, err
 	}
 
-	inputEnabledKb := kb.(inputEnabledActuator)
-
 	// get current position
-	inputs, err := inputEnabledKb.CurrentInputs(ctx)
+	inputs, err := kb.CurrentInputs(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
