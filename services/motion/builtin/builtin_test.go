@@ -11,8 +11,7 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
-
-	// registers all components
+	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
@@ -687,8 +686,10 @@ func TestStopMoveFunctions(t *testing.T) {
 
 		// Create a motion service
 		fsParts := []*referenceframe.FrameSystemPart{
-			{FrameConfig: armLink,
-				ModelFrame: injectArm.ModelFrameFunc()},
+			{
+				FrameConfig: armLink,
+				ModelFrame:  injectArm.ModelFrameFunc(),
+			},
 		}
 		deps := resource.Dependencies{
 			fakeArm.Name(): injectArm,
@@ -885,7 +886,6 @@ func TestStopMoveFunctions(t *testing.T) {
 			test.That(t, err, test.ShouldEqual, failToReachGoalError)
 			test.That(t, success, test.ShouldBeFalse)
 			test.That(t, calledStopFunc, test.ShouldBeTrue)
-
 		})
 	})
 }
