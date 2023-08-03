@@ -73,8 +73,8 @@ func PlanFrameMotion(ctx context.Context,
 	return FrameStepsFromRobotPath(f.Name(), solutionMap)
 }
 
-// motionPlanInternal is the internal private function that all motion planning access calls.
-// This will construct the plan manager for each waypoint, and return at the end.
+// motionPlanInternal is the internal private function that all motion planning access calls. This will construct the plan manager for each
+// waypoint, and return at the end.
 func motionPlanInternal(ctx context.Context,
 	logger golog.Logger,
 	goal *frame.PoseInFrame,

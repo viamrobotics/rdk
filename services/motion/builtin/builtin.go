@@ -121,8 +121,7 @@ type builtIn struct {
 	lock            sync.Mutex
 }
 
-// Move takes a goal location and will plan and execute a movement to move a component
-// specified by its name to that destination.
+// Move takes a goal location and will plan and execute a movement to move a component specified by its name to that destination.
 func (ms *builtIn) Move(
 	ctx context.Context,
 	componentName resource.Name,
