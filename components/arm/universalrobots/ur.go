@@ -4,6 +4,7 @@ package universalrobots
 import (
 	"bufio"
 	"context"
+
 	// for embedding model file.
 	_ "embed"
 	"encoding/binary"
@@ -412,9 +413,6 @@ func (ua *URArm) MoveToJointPositionRadians(ctx context.Context, radians []float
 		4.0*ua.speed,
 	)
 
-	if ctx.Err() != nil {
-		return ctx.Err()
-	}
 	_, err := ua.connControl.Write([]byte(cmd))
 	if err != nil {
 		return err
@@ -444,9 +442,6 @@ func (ua *URArm) MoveToJointPositionRadians(ctx context.Context, radians []float
 		}
 
 		if slept > 5000 && !retried {
-			if ctx.Err() != nil {
-				return ctx.Err()
-			}
 			_, err := ua.connControl.Write([]byte(cmd))
 			if err != nil {
 				return err
