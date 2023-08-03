@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -223,7 +224,7 @@ func (ms *builtIn) MoveOnGlobe(
 	kinematicsOptions.AngularVelocityDegsPerSec = angularVelocity
 	kinematicsOptions.GoalRadiusMM = 3000
 	kinematicsOptions.HeadingThresholdDegrees = 8
-	kinematicsOptions.PlanDeviationThresholdMM = 5000
+	kinematicsOptions.PlanDeviationThresholdMM = math.Inf(1)
 
 	plan, kb, err := ms.planMoveOnGlobe(
 		ctx,
