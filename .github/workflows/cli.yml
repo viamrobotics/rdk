@@ -26,4 +26,5 @@ jobs:
       run: go build -ldflags="-X main.CliVersion=whatever" ./cli/viam
     - uses: actions/upload-artifact@v3
       with:
+        name: viam-${{ matrix.goos }}-${{ matrix.goarch }}
         path: viam
