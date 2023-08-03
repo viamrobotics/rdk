@@ -248,7 +248,6 @@ func (o *obsDepth) buildObsDepthWithIntrinsics() segmentation.Segmenter {
 // isCompatible will check compatibility between 2 points.
 // as defined by Manduchi et al.
 func (o *obsDepth) isCompatible(p1, p2 image.Point) bool {
-	// thetaMax in radians
 	xdist, ydist := math.Abs(float64(p1.X-p2.X)), math.Abs(float64(p1.Y-p2.Y))
 	zdist := math.Abs(float64(o.dm.Get(p1)) - float64(o.dm.Get(p2)))
 	dist := math.Sqrt((xdist * xdist) + (ydist * ydist) + (zdist * zdist))
@@ -293,7 +292,7 @@ func (o *obsDepth) clustersToBoxes(clusters clusters.Clusters) ([]spatialmath.Ge
 				zmax = z
 			}
 		}
-		// Make a box from those bounds no matter what they are and add it in
+		// Make a box from those bounds and add it in
 		xdiff, ydiff, zdiff := xmax-xmin, ymax-ymin, zmax-zmin
 		xc, yc, zc := (xmin+xmax)/2, (ymin+ymax)/2, (zmin+zmax)/2
 		pose := spatialmath.NewPose(r3.Vector{xc, yc, zc}, spatialmath.NewZeroOrientation())
