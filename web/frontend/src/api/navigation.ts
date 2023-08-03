@@ -5,7 +5,7 @@ import { type Client, commonApi, navigationApi } from '@viamrobotics/sdk';
 import { ViamObject3D } from '@viamrobotics/three';
 import { rcLogConditionally } from '@/lib/log';
 import type {
-  BoxGeometry, CapsuleGeometry, NavigationModes, Obstacle, SphereGeometry, Waypoint,
+  BoxGeometry, CapsuleGeometry, Obstacle, SphereGeometry, Waypoint,
 } from './types/navigation';
 import { notify } from '@viamrobotics/prime';
 export * from './types/navigation';
@@ -111,36 +111,4 @@ export const getWaypoints = async (robotClient: Client, name: string): Promise<W
   });
 
   return formatWaypoints(response?.getWaypointsList() ?? []);
-};
-
-export const getLocation = async (robotClient: Client, name: string) => {
-  const request = new navigationApi.GetLocationRequest();
-  request.setName(name);
-
-  rcLogConditionally(request);
-
-  const response = await new Promise<navigationApi.GetLocationResponse | null>((resolve, reject) => {
-    robotClient.navigationService.getLocation(request, (error, res) => {
-      if (error) {
-        reject(error);
-      } else {
-        resolve(res);
-      }
-    });
-  });
-
-  const location = response?.getLocation();
-  const lat = location?.getLatitude();
-  const lng = location?.getLongitude();
-
-  rcLogConditionally(response?.getLocation()?.toObject());
-  rcLogConditionally(location?.getLatitude());
-  rcLogConditionally(location?.getLongitude());
-
-  if (typeof lat !== 'number' || typeof lng !== 'number') {
-    // eslint-disable-next-line unicorn/prefer-type-error
-    throw new Error('Unable to locate robot');
-  }
-
-  return { lng, lat };
 };
