@@ -77,8 +77,10 @@ func main() {
 		},
 		Commands: []*cli.Command{
 			{
-				Name:            "auth",
-				Usage:           "authenticate to app.viam.com",
+				Name: "login",
+				// NOTE(benjirewis): maintain `auth` as an alias for backward compatibility.
+				Aliases:         []string{"auth"},
+				Usage:           "login to app.viam.com",
 				HideHelpCommand: true,
 				Action: func(c *cli.Context) error {
 					client, err := rdkcli.NewAppClient(c)
@@ -87,7 +89,7 @@ func main() {
 					}
 
 					loggedInMessage := func(token *rdkcli.Token) {
-						fmt.Fprintf(c.App.Writer, "Already authenticated as %q, expires %s\n", token.User.Email,
+						fmt.Fprintf(c.App.Writer, "Already logged in as %q, expires %s\n", token.User.Email,
 							token.ExpiresAt.Format("Mon Jan 2 15:04:05 MST 2006"))
 					}
 
@@ -114,7 +116,7 @@ func main() {
 							}
 
 							if client.Config().Auth == nil || client.Config().Auth.IsExpired() {
-								return errors.New("not authenticated. run \"auth\" command")
+								return errors.New("not logged in. run \"login\" command")
 							}
 
 							fmt.Fprintln(c.App.Writer, client.Config().Auth.AccessToken)
@@ -146,7 +148,7 @@ func main() {
 			},
 			{
 				Name:  "whoami",
-				Usage: "get currently authenticated user",
+				Usage: "get currently logged-in user",
 				Action: func(c *cli.Context) error {
 					client, err := rdkcli.NewAppClient(c)
 					if err != nil {
@@ -154,7 +156,7 @@ func main() {
 					}
 					auth := client.Config().Auth
 					if auth == nil {
-						fmt.Fprintf(c.App.Writer, "Not logged in\n")
+						fmt.Fprintf(c.App.Writer, "not logged in. run \"login\" command\n")
 						return nil
 					}
 					fmt.Fprintf(c.App.Writer, "%s\n", auth.User.Email)
