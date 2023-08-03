@@ -463,7 +463,7 @@ func (m *gpioStepper) Close(ctx context.Context) error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 	if m.cancel != nil {
-		m.logger.Debug("shutting down control thread")
+		m.logger.Debugf("stopping control thread for motor (%s)", m.Name().Name)
 		m.cancel()
 		m.cancel = nil
 		m.waitGroup.Wait()
