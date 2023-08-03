@@ -140,7 +140,7 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 			"setting velocity to linear %v angular %v and running velocity step for %s ms",
 			linVel,
 			angVel,
-			time.Duration(trajNode.Time-lastTime),
+			timestep,
 		)
 
 		err := ptgk.Base.SetVelocity(

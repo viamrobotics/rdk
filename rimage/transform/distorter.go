@@ -31,6 +31,6 @@ func NewDistorter(distortionType DistortionType, parameters []float64) (Distorte
 	case BrownConradyDistortionType:
 		return NewBrownConrady(parameters)
 	default:
-		return nil, errors.Errorf("do no know how to parse %q distortion model", distortionType)
+		return nil, errors.Errorf("do not know how to parse %q distortion model", distortionType)
 	}
 }

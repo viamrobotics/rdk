@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
@@ -87,6 +88,11 @@ func (pwm *pwmDevice) unexport() error {
 	// device results in an error. We don't care if there's an error: it should be disabled no
 	// matter what.
 	goutils.UncheckedError(pwm.disable())
+
+	// On boards like the Odroid C4, there is a race condition in the kernel where, if you unexport
+	// the pin too quickly after changing something else about it (e.g., disabling it), the whole
+	// PWM system gets corrupted. Sleep for a small amount of time to avoid this.
+	time.Sleep(time.Microsecond)
 	if err := pwm.writeChip("unexport", uint64(pwm.line)); err != nil {
 		return err
 	}

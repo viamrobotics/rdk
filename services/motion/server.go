@@ -1,4 +1,3 @@
-// Package motion contains a gRPC based motion service server
 package motion
 
 import (

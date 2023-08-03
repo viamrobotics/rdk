@@ -51,12 +51,22 @@ func wrapWithDifferentialDriveKinematics(
 	if len(geometries) > 0 {
 		geometry = geometries[0]
 	}
-	ddk.model, err = referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits, geometry)
+	ddk.executionFrame, err = referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits, geometry)
 	if err != nil {
 		return nil, err
 	}
+
+	if options.PositionOnlyMode {
+		ddk.planningFrame, err = referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits[:2], geometry)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		ddk.planningFrame = ddk.executionFrame
+	}
+
 	ddk.fs = referenceframe.NewEmptyFrameSystem("")
-	if err := ddk.fs.AddFrame(ddk.model, ddk.fs.World()); err != nil {
+	if err := ddk.fs.AddFrame(ddk.executionFrame, ddk.fs.World()); err != nil {
 		return nil, err
 	}
 	return ddk, nil
@@ -64,15 +74,15 @@ func wrapWithDifferentialDriveKinematics(
 
 type differentialDriveKinematics struct {
 	base.Base
-	logger    golog.Logger
-	localizer motion.Localizer
-	model     referenceframe.Frame
-	fs        referenceframe.FrameSystem
-	options   Options
+	logger                        golog.Logger
+	localizer                     motion.Localizer
+	planningFrame, executionFrame referenceframe.Model
+	fs                            referenceframe.FrameSystem
+	options                       Options
 }
 
 func (ddk *differentialDriveKinematics) Kinematics() referenceframe.Frame {
-	return ddk.model
+	return ddk.planningFrame
 }
 
 func (ddk *differentialDriveKinematics) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
@@ -84,7 +94,7 @@ func (ddk *differentialDriveKinematics) CurrentInputs(ctx context.Context) ([]re
 	pt := pif.Pose().Point()
 	// We should not have a problem with Gimbal lock by looking at yaw in the domain that most bases will be moving.
 	// This could potentially be made more robust in the future, though.
-	theta := math.Mod(pif.Pose().Orientation().EulerAngles().Yaw, 2*math.Pi) - math.Pi
+	theta := math.Mod(pif.Pose().Orientation().EulerAngles().Yaw, 2*math.Pi)
 	return []referenceframe.Input{{Value: pt.X}, {Value: pt.Y}, {Value: theta}}, nil
 }
 
@@ -121,7 +131,7 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 			}
 
 			// get to the x, y location first - note that from the base's perspective +y is forward
-			desiredHeading := math.Atan2(current[1].Value-desired[1].Value, current[0].Value-desired[0].Value)
+			desiredHeading := math.Atan2(desired[1].Value-current[1].Value, desired[0].Value-current[0].Value)
 			commanded, err := ddk.issueCommand(cancelContext, current, []referenceframe.Input{desired[0], desired[1], {desiredHeading}})
 			if err != nil {
 				movementErr <- err
@@ -130,6 +140,11 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 
 			if !commanded {
 				// no command to move to the x, y location was issued, correct the heading and then exit
+				// 2DOF model indicates position-only mode so heading doesn't need to be corrected, exit function
+				if len(ddk.planningFrame.DoF()) == 2 {
+					movementErr <- err
+					return
+				}
 				if commanded, err := ddk.issueCommand(cancelContext, current, []referenceframe.Input{current[0], current[1], desired[2]}); err == nil {
 					if !commanded {
 						movementErr <- nil
@@ -197,7 +212,7 @@ func (ddk *differentialDriveKinematics) issueCommand(ctx context.Context, curren
 	ddk.logger.Debug("distErr: %f\theadingErr %f", distErr, headingErr)
 	if distErr > ddk.options.GoalRadiusMM && math.Abs(headingErr) > ddk.options.HeadingThresholdDegrees {
 		// base is headed off course; spin to correct
-		return true, ddk.Spin(ctx, -headingErr, ddk.options.AngularVelocityDegsPerSec, nil)
+		return true, ddk.Spin(ctx, math.Min(headingErr, ddk.options.MaxSpinAngleDeg), ddk.options.AngularVelocityDegsPerSec, nil)
 	} else if distErr > ddk.options.GoalRadiusMM {
 		// base is pointed the correct direction but not there yet; forge onward
 		return true, ddk.MoveStraight(ctx, int(distErr), ddk.options.LinearVelocityMMPerSec, nil)
@@ -217,7 +232,7 @@ func (ddk *differentialDriveKinematics) errorState(current, desired []referencef
 	)
 
 	// transform the goal pose such that it is in the base frame
-	tf, err := ddk.fs.Transform(map[string][]referenceframe.Input{ddk.model.Name(): current}, goal, ddk.model.Name())
+	tf, err := ddk.fs.Transform(map[string][]referenceframe.Input{ddk.planningFrame.Name(): current}, goal, ddk.planningFrame.Name())
 	if err != nil {
 		return 0, 0, err
 	}
@@ -275,7 +290,7 @@ func CollisionGeometry(cfg *referenceframe.LinkConfig) ([]spatialmath.Geometry, 
 // too far from its path.
 func (ddk *differentialDriveKinematics) newValidRegionCapsule(starting, desired []referenceframe.Input) (spatialmath.Geometry, error) {
 	pt := r3.Vector{X: (desired[0].Value + starting[0].Value) / 2, Y: (desired[1].Value + starting[1].Value) / 2}
-	positionErr, _, err := ddk.errorState(starting, desired)
+	positionErr, _, err := ddk.errorState(starting, []referenceframe.Input{desired[0], desired[1], {0}})
 	if err != nil {
 		return nil, err
 	}
