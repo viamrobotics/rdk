@@ -174,7 +174,7 @@ func newGPIOStepper(
 		return nil, err
 	}
 
-	m.startThread(ctx)
+	m.startThread()
 	return m, nil
 }
 
@@ -200,6 +200,9 @@ type gpioStepper struct {
 	stepPosition       int64
 	threadStarted      bool
 	targetStepPosition int64
+
+	cancel    context.CancelFunc
+	waitGroup sync.WaitGroup
 }
 
 // SetPower sets the percentage of power the motor should employ between 0-1.
@@ -212,7 +215,7 @@ func (m *gpioStepper) SetPower(ctx context.Context, powerPct float64, extra map[
 	return errors.Errorf("gpioStepper doesn't support raw power mode in motor (%s)", m.motorName)
 }
 
-func (m *gpioStepper) startThread(ctx context.Context) {
+func (m *gpioStepper) startThread() {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
@@ -220,21 +223,26 @@ func (m *gpioStepper) startThread(ctx context.Context) {
 		return
 	}
 
+	m.logger.Debug("starting control thread")
+
+	var ctxWG context.Context
+	ctxWG, m.cancel = context.WithCancel(context.Background())
 	m.threadStarted = true
-	go m.doRun(ctx)
-}
+	m.waitGroup.Add(1)
+	go func() {
+		defer m.waitGroup.Done()
+		for {
+			sleep, err := m.doCycle(ctxWG)
+			if err != nil {
+				m.logger.Warnf("error cycling gpioStepper (%s) %s", m.motorName, err.Error())
+			}
 
-func (m *gpioStepper) doRun(ctx context.Context) {
-	for {
-		sleep, err := m.doCycle(ctx)
-		if err != nil {
-			m.logger.Warnf("error cycling gpioStepper (%s) %s", m.motorName, err.Error())
+			if !utils.SelectContextOrWait(ctxWG, sleep) {
+				// context done
+				return
+			}
 		}
-
-		if !utils.SelectContextOrWait(ctx, sleep) {
-			return
-		}
-	}
+	}()
 }
 
 func (m *gpioStepper) doCycle(ctx context.Context) (time.Duration, error) {
@@ -445,6 +453,21 @@ func (m *gpioStepper) enable(ctx context.Context, on bool) error {
 
 	if m.enablePinLow != nil {
 		err = multierr.Combine(err, m.enablePinLow.Set(ctx, !on, nil))
+	}
+
+	return err
+}
+
+func (m *gpioStepper) Close(ctx context.Context) error {
+	err := m.Stop(ctx, nil)
+
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	if m.cancel != nil {
+		m.logger.Debug("shutting down control thread")
+		m.cancel()
+		m.cancel = nil
+		m.waitGroup.Wait()
 	}
 
 	return err
