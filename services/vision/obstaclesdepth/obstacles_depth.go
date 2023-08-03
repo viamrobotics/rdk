@@ -34,9 +34,9 @@ var model = resource.DefaultModelFamily.WithModel("obstacles_depth")
 
 // ObsDepthConfig specifies the parameters to be used for the obstacle depth service.
 type ObsDepthConfig struct {
-	Hmin       float64                            `json:"hmin"`
-	Hmax       float64                            `json:"hmax"`
-	ThetaMax   float64                            `json:"theta_max"`
+	Hmin       float64                            `json:"h_min_mm"`
+	Hmax       float64                            `json:"h_max_mm"`
+	ThetaMax   float64                            `json:"theta_max_deg"`
 	ReturnPCDs bool                               `json:"return_pcds"`
 	Intrinsics *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters"`
 }
@@ -57,8 +57,8 @@ type obsDepth struct {
 const (
 	// the first 3 consts are parameters from Manduchi et al.
 	defaultHmin     = 0.0
-	defaultHmax     = 150.0
-	defaultThetamax = math.Pi / 4
+	defaultHmax     = 1000.0
+	defaultThetamax = 45
 
 	defaultK = 10 // default number of obstacle segments to create
 	sampleN  = 4  // we sample 1 in every sampleN depth points
@@ -92,6 +92,9 @@ func (config *ObsDepthConfig) Validate(path string) ([]string, error) {
 	if config.Hmax < 0 {
 		return nil, errors.New("Hmax should be greater than or equal to 0")
 	}
+	if config.ThetaMax < 0 || config.ThetaMax > 360 {
+		return nil, errors.New("ThetaMax should be in degrees between 0 and 360")
+	}
 	return deps, nil
 }
 
@@ -123,8 +126,9 @@ func registerObstaclesDepth(
 		conf.ThetaMax = defaultThetamax
 	}
 
+	sinTheta := math.Sin(conf.ThetaMax * math.Pi / 180) // sin(radians(theta))
 	myObsDep := obsDepth{
-		hMin: conf.Hmin, hMax: conf.Hmax, sinTheta: math.Sin(conf.ThetaMax),
+		hMin: conf.Hmin, hMax: conf.Hmax, sinTheta: sinTheta,
 		intrinsics: conf.Intrinsics, returnPCDs: conf.ReturnPCDs, k: defaultK,
 	}
 	segmenter := myObsDep.buildObsDepthWithIntrinsics() // does the thing
