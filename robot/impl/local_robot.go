@@ -1050,6 +1050,18 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	// Set mostRecentConfig if resources were not equal.
 	r.mostRecentCfg = *newConfig
 
+    // We need to pre-add all resources so that the module manager provides the appropriate modules
+    for _,mod := range diff.Added.Modules {
+		if err := mod.Validate(""); err != nil {
+			r.manager.logger.Errorw("module config validation error; skipping", "module", mod.Name, "error", err)
+			continue
+		}
+		if err := r.manager.moduleManager.Add(ctx, mod); err != nil {
+			r.manager.logger.Errorw("error adding module", "module", mod.Name, "error", err)
+			continue
+		}
+    }
+
 	// If something was added or modified, go through components and services in
 	// diff.Added and diff.Modified, call Validate on all those that are modularized,
 	// and store implicit dependencies.
