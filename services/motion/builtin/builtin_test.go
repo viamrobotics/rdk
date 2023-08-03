@@ -761,9 +761,12 @@ func TestStopMoveFunctions(t *testing.T) {
 	})
 
 	t.Run("successfully stop kinematic bases", func(t *testing.T) {
+		calledStopFunc := false
 		// Create an injected Base
+		baseName := "test-base"
+		injectBaseName := base.Named(baseName)
 		baseCfg := resource.Config{
-			Name: "test-base",
+			Name: baseName,
 			API:  base.API,
 			Frame: &referenceframe.LinkConfig{
 				Parent:   "world",
@@ -773,18 +776,12 @@ func TestStopMoveFunctions(t *testing.T) {
 		fakeBase, err := baseFake.NewBase(ctx, nil, baseCfg, logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		// fakeSLAM := fake.NewSLAM(slam.Named("test-slam"), logger)
-		// limits, err := fakeSLAM.GetLimits(ctx)
-		// test.That(t, err, test.ShouldBeNil)
-
 		injectBase := &inject.Base{
 			Base: fakeBase,
 		}
-		injectBaseName := base.Named("test-base")
 		injectBase.NameFunc = func() resource.Name {
 			return injectBaseName
 		}
-		calledStopFunc := false
 		injectBase.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
 			calledStopFunc = true
 			return nil
@@ -806,64 +803,65 @@ func TestStopMoveFunctions(t *testing.T) {
 		baseLink := referenceframe.NewLinkInFrame(
 			referenceframe.World,
 			spatialmath.NewZeroPose(),
-			"test-base",
+			baseName,
 			baseSphere,
 		)
 
-		// Create an injected MovementSensor
-		gpsPoint := geo.NewPoint(-70, 40)
-		injectMovementSensor := inject.NewMovementSensor("test-gps")
-		injectMovementSensorName := movementsensor.Named("test-gps")
-		injectMovementSensor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
-			return gpsPoint, 0, nil
-		}
-		injectMovementSensor.CompassHeadingFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
-			return 0, nil
-		}
-		injectMovementSensor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
-			return &movementsensor.Properties{CompassHeadingSupported: true}, nil
-		}
-
-		// Create a MovementSensor link
-		movementSensorLink := referenceframe.NewLinkInFrame(
-			baseLink.Name(),
-			spatialmath.NewPoseFromPoint(r3.Vector{-10, 0, 0}),
-			"test-gps",
-			nil,
-		)
-
-		// Create a motion service
-		fsParts := []*referenceframe.FrameSystemPart{
-			{FrameConfig: movementSensorLink},
-			{FrameConfig: baseLink},
-		}
-		deps := resource.Dependencies{
-			fakeBase.Name():          injectBase,
-			injectMovementSensorName: injectMovementSensor,
-		}
-		fsSvc, err := framesystem.New(ctx, deps, logger)
-		test.That(t, err, test.ShouldBeNil)
-		err = fsSvc.Reconfigure(
-			ctx,
-			deps,
-			resource.Config{
-				ConvertedAttributes: &framesystem.Config{Parts: fsParts},
-			},
-		)
-		test.That(t, err, test.ShouldBeNil)
-
-		deps[fsSvc.Name()] = fsSvc
-
-		ms, err := NewBuiltIn(
-			ctx,
-			deps,
-			resource.Config{ConvertedAttributes: &Config{}},
-			logger,
-		)
-		test.That(t, err, test.ShouldBeNil)
-
 		t.Run("stop during MoveOnGlobe(...) call", func(t *testing.T) {
 			calledStopFunc = false
+			gpsPoint := geo.NewPoint(-70, 40)
+
+			// Create an injected MovementSensor
+			movementSensorName := "test-gps"
+			injectMovementSensorName := movementsensor.Named(movementSensorName)
+			injectMovementSensor := inject.NewMovementSensor(movementSensorName)
+			injectMovementSensor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+				return gpsPoint, 0, nil
+			}
+			injectMovementSensor.CompassHeadingFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
+				return 0, nil
+			}
+			injectMovementSensor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+				return &movementsensor.Properties{CompassHeadingSupported: true}, nil
+			}
+
+			// Create a MovementSensor link
+			movementSensorLink := referenceframe.NewLinkInFrame(
+				baseLink.Name(),
+				spatialmath.NewPoseFromPoint(r3.Vector{-10, 0, 0}),
+				movementSensorName,
+				nil,
+			)
+
+			// Create a motion service
+			fsParts := []*referenceframe.FrameSystemPart{
+				{FrameConfig: movementSensorLink},
+				{FrameConfig: baseLink},
+			}
+			deps := resource.Dependencies{
+				fakeBase.Name():          injectBase,
+				injectMovementSensorName: injectMovementSensor,
+			}
+			fsSvc, err := framesystem.New(ctx, deps, logger)
+			test.That(t, err, test.ShouldBeNil)
+			err = fsSvc.Reconfigure(
+				ctx,
+				deps,
+				resource.Config{
+					ConvertedAttributes: &framesystem.Config{Parts: fsParts},
+				},
+			)
+			test.That(t, err, test.ShouldBeNil)
+
+			deps[fsSvc.Name()] = fsSvc
+
+			ms, err := NewBuiltIn(
+				ctx,
+				deps,
+				resource.Config{ConvertedAttributes: &Config{}},
+				logger,
+			)
+			test.That(t, err, test.ShouldBeNil)
 			dst := geo.NewPoint(gpsPoint.Lat()+1e-4, gpsPoint.Lng()+1e-4)
 
 			success, err := ms.MoveOnGlobe(
@@ -874,6 +872,50 @@ func TestStopMoveFunctions(t *testing.T) {
 			test.That(t, err, test.ShouldEqual, failToReachGoalError)
 			test.That(t, success, test.ShouldBeFalse)
 			test.That(t, calledStopFunc, test.ShouldBeTrue)
+		})
+
+		t.Run("stop during MoveOnMap(...) call", func(t *testing.T) {
+			calledStopFunc = false
+			slamName := "test-slam"
+			injectSlamName := slam.Named(slamName)
+
+			// Create an injected SLAM
+			pcdPath := "pointcloud/octagonspace.pcd"
+			injectSlam := inject.NewSLAMService(slamName)
+			injectSlam.GetPointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
+				return getPointCloudMap(filepath.Clean(artifact.MustPath(pcdPath)))
+			}
+			injectSlam.GetPositionFunc = func(ctx context.Context) (spatialmath.Pose, string, error) {
+				return spatialmath.NewZeroPose(), "", nil
+			}
+
+			// Create a motion service
+			deps := resource.Dependencies{
+				fakeBase.Name():   injectBase,
+				injectSlam.Name(): injectSlam,
+			}
+
+			ms, err := NewBuiltIn(
+				ctx,
+				deps,
+				resource.Config{ConvertedAttributes: &Config{}},
+				logger,
+			)
+			test.That(t, err, test.ShouldBeNil)
+
+			goal := spatialmath.NewPoseFromPoint(r3.Vector{X: 1.32 * 1000, Y: 0})
+			success, err := ms.MoveOnMap(
+				ctx,
+				injectBaseName,
+				goal,
+				injectSlamName,
+				nil,
+			)
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err, test.ShouldEqual, failToReachGoalError)
+			test.That(t, success, test.ShouldBeFalse)
+			test.That(t, calledStopFunc, test.ShouldBeTrue)
+
 		})
 	})
 }
