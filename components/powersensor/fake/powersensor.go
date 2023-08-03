@@ -22,18 +22,12 @@ func init() {
 		powersensor.API,
 		model,
 		resource.Registration[powersensor.PowerSensor, *Config]{
-			Constructor: func(
-				ctx context.Context,
-				deps resource.Dependencies,
-				conf resource.Config,
-				logger golog.Logger,
-			) (powersensor.PowerSensor, error) {
-				return newFakePowerSensorModel(conf, logger)
-			},
+			Constructor: newFakePowerSensorModel,
 		})
 }
 
-func newFakePowerSensorModel(conf resource.Config, logger golog.Logger) (powersensor.PowerSensor, error) {
+func newFakePowerSensorModel(_ context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger,
+) (powersensor.PowerSensor, error) {
 	return powersensor.PowerSensor(&PowerSensor{
 		Named:  conf.ResourceName().AsNamed(),
 		logger: logger,
