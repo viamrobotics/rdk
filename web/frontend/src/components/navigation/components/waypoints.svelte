@@ -3,11 +3,11 @@
 import { Map, type MapMouseEvent } from 'maplibre-gl';
 import { NavigationClient, type ServiceError } from '@viamrobotics/sdk';
 import { notify } from '@viamrobotics/prime';
-import { getWaypoints } from '@/api/navigation';
 import { setAsyncInterval } from '@/lib/schedule';
 import { useRobotClient, useDisconnect } from '@/hooks/robot-client';
 import { waypoints, tab } from '../stores';
 import MapMarker from './marker.svelte';
+import { formatWaypoints } from '@/api/navigation';
 
 export let map: Map;
 export let name: string;
@@ -35,7 +35,8 @@ const handleAddMarker = async (event: MapMouseEvent) => {
 
 const updateWaypoints = async () => {
   try {
-    $waypoints = await getWaypoints($robotClient, name);
+    const response = await navClient.getWayPoints();
+    $waypoints = formatWaypoints(response);
   } catch (error) {
     notify.danger((error as ServiceError).message);
   }

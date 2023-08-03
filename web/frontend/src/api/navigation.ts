@@ -1,22 +1,21 @@
 /* eslint-disable no-underscore-dangle */
 
 import * as THREE from 'three';
-import { type Client, commonApi, navigationApi, NavigationClient } from '@viamrobotics/sdk';
+import { NavigationClient, Waypoint } from '@viamrobotics/sdk';
 import { ViamObject3D } from '@viamrobotics/three';
-import { rcLogConditionally } from '@/lib/log';
 import type {
-  BoxGeometry, CapsuleGeometry, Obstacle, SphereGeometry, Waypoint,
+  BoxGeometry, CapsuleGeometry, Obstacle, SphereGeometry,
 } from './types/navigation';
 import { notify } from '@viamrobotics/prime';
 export * from './types/navigation';
 
-const formatWaypoints = (list: navigationApi.Waypoint[]) => {
+export const formatWaypoints = (list: Waypoint[]) => {
   return list.map((item) => {
-    const location = item.getLocation();
+    const location = item.location;
     return {
-      id: item.getId(),
-      lng: location?.getLongitude() ?? 0,
-      lat: location?.getLatitude() ?? 0,
+      id: item.id,
+      lng: location?.longitude ?? 0,
+      lat: location?.latitude ?? 0,
     };
   });
 };
@@ -77,23 +76,4 @@ export const getObstacles = async (navClient: NavigationClient): Promise<Obstacl
       }),
     } satisfies Obstacle;
   });
-};
-
-export const getWaypoints = async (robotClient: Client, name: string): Promise<Waypoint[]> => {
-  const req = new navigationApi.GetWaypointsRequest();
-  req.setName(name);
-
-  rcLogConditionally(req);
-
-  const response = await new Promise<{ getWaypointsList(): navigationApi.Waypoint[] } | null>((resolve, reject) => {
-    robotClient.navigationService.getWaypoints(req, (error, res) => {
-      if (error) {
-        reject(error);
-      } else {
-        resolve(res);
-      }
-    });
-  });
-
-  return formatWaypoints(response?.getWaypointsList() ?? []);
 };
