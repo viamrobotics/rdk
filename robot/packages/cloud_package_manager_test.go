@@ -196,6 +196,9 @@ func TestCloud(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "download did not match expected hash")
 
+		err = pm.Cleanup(ctx)
+		test.That(t, err, test.ShouldBeNil)
+
 		validatePackageDir(t, packageDir, []config.PackageConfig{})
 	})
 
@@ -214,6 +217,9 @@ func TestCloud(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "invalid status code 500")
 
+		err = pm.Cleanup(ctx)
+		test.That(t, err, test.ShouldBeNil)
+
 		validatePackageDir(t, packageDir, []config.PackageConfig{})
 	})
 
@@ -231,6 +237,9 @@ func TestCloud(t *testing.T) {
 		err = pm.Sync(ctx, input)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "unexpected EOF")
+
+		err = pm.Cleanup(ctx)
+		test.That(t, err, test.ShouldBeNil)
 
 		validatePackageDir(t, packageDir, []config.PackageConfig{})
 	})
