@@ -867,7 +867,7 @@ Example for linux/amd64:
 tar -czf packaged-module.tar.gz my-binary   # the meta.json entrypoint is relative to the root of the archive, so it should be "./my-binary"
 viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.tar.gz
                         `,
-						UsageText: "viam module upload <version> <platform> [other options] <package-module.tar.gz>",
+						UsageText: "viam module upload <version> <platform> [other options] <packaged-module.tar.gz>",
 						Flags: []cli.Flag{
 							&cli.StringFlag{
 								Name:        "module",
