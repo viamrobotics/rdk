@@ -11,6 +11,7 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
@@ -639,11 +640,27 @@ func TestStopMoveFunctions(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 	failToReachGoalError := errors.New("failed to reach goal")
+	calledStopFunc := false
+	testIfStoppable := func(t *testing.T, success bool, err error) {
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldEqual, failToReachGoalError)
+		test.That(t, success, test.ShouldBeFalse)
+		test.That(t, calledStopFunc, test.ShouldBeTrue)
+	}
 
 	t.Run("successfully stop arms", func(t *testing.T) {
+		calledStopFunc = false
+		armName := "test-arm"
+		injectArmName := arm.Named(armName)
+		goal := referenceframe.NewPoseInFrame(
+			armName,
+			spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: -10, Z: -10}),
+		)
+
 		// Create an injected Arm
 		armCfg := resource.Config{
-			Name:  "test-arm",
+			Name:  armName,
+			API:   arm.API,
 			Model: resource.DefaultModelFamily.WithModel("ur5e"),
 			ConvertedAttributes: &armFake.Config{
 				ArmModel: "ur5e",
@@ -659,8 +676,6 @@ func TestStopMoveFunctions(t *testing.T) {
 		injectArm := &inject.Arm{
 			Arm: fakeArm,
 		}
-		injectArmName := arm.Named("test-arm")
-		calledStopFunc := false
 		injectArm.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
 			calledStopFunc = true
 			return nil
@@ -676,11 +691,11 @@ func TestStopMoveFunctions(t *testing.T) {
 			return failToReachGoalError
 		}
 
-		// create arm  and goal links
+		// create arm link
 		armLink := referenceframe.NewLinkInFrame(
 			referenceframe.World,
 			spatialmath.NewZeroPose(),
-			"test-arm",
+			armName,
 			nil,
 		)
 
@@ -692,7 +707,7 @@ func TestStopMoveFunctions(t *testing.T) {
 			},
 		}
 		deps := resource.Dependencies{
-			fakeArm.Name(): injectArm,
+			injectArmName: injectArm,
 		}
 		fsSvc, err := framesystem.New(ctx, deps, logger)
 		test.That(t, err, test.ShouldBeNil)
@@ -717,41 +732,28 @@ func TestStopMoveFunctions(t *testing.T) {
 
 		t.Run("stop during Move(...) call", func(t *testing.T) {
 			calledStopFunc = false
-
-			goal := referenceframe.NewPoseInFrame(
-				"test-arm",
-				spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: -10, Z: -10}),
-			)
-
 			success, err := ms.Move(ctx, injectArmName, goal, nil, nil, nil)
-			test.That(t, err, test.ShouldNotBeNil)
-			test.That(t, err, test.ShouldEqual, failToReachGoalError)
-			test.That(t, success, test.ShouldBeFalse)
-			test.That(t, calledStopFunc, test.ShouldBeTrue)
+			testIfStoppable(t, success, err)
 		})
 	})
 
 	t.Run("successfully stop kinematic bases", func(t *testing.T) {
-		calledStopFunc := false
 		// Create an injected Base
 		baseName := "test-base"
 		injectBaseName := base.Named(baseName)
-		baseCfg := resource.Config{
-			Name: baseName,
-			API:  base.API,
-			Frame: &referenceframe.LinkConfig{
-				Parent:   "world",
-				Geometry: &spatialmath.GeometryConfig{R: 20},
-			},
-		}
-		fakeBase, err := baseFake.NewBase(ctx, nil, baseCfg, logger)
+
+		geometry, err := (&spatialmath.GeometryConfig{R: 20}).ParseConfig()
 		test.That(t, err, test.ShouldBeNil)
 
-		injectBase := &inject.Base{
-			Base: fakeBase,
+		injectBase := inject.NewBase(baseName)
+		injectBase.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (base.Properties, error) {
+			return base.Properties{
+				TurningRadiusMeters: 0,
+				WidthMeters:         600 * 0.001,
+			}, nil
 		}
-		injectBase.NameFunc = func() resource.Name {
-			return injectBaseName
+		injectBase.GeometriesFunc = func(ctx context.Context) ([]spatialmath.Geometry, error) {
+			return []spatialmath.Geometry{geometry}, nil
 		}
 		injectBase.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
 			calledStopFunc = true
@@ -810,7 +812,7 @@ func TestStopMoveFunctions(t *testing.T) {
 				{FrameConfig: baseLink},
 			}
 			deps := resource.Dependencies{
-				fakeBase.Name():          injectBase,
+				injectBaseName:           injectBase,
 				injectMovementSensorName: injectMovementSensor,
 			}
 			fsSvc, err := framesystem.New(ctx, deps, logger)
@@ -839,10 +841,7 @@ func TestStopMoveFunctions(t *testing.T) {
 				ctx, injectBaseName, dst, 0, injectMovementSensorName,
 				nil, 10, 10, nil,
 			)
-			test.That(t, err, test.ShouldNotBeNil)
-			test.That(t, err, test.ShouldEqual, failToReachGoalError)
-			test.That(t, success, test.ShouldBeFalse)
-			test.That(t, calledStopFunc, test.ShouldBeTrue)
+			testIfStoppable(t, success, err)
 		})
 
 		t.Run("stop during MoveOnMap(...) call", func(t *testing.T) {
@@ -851,10 +850,9 @@ func TestStopMoveFunctions(t *testing.T) {
 			injectSlamName := slam.Named(slamName)
 
 			// Create an injected SLAM
-			pcdPath := "pointcloud/octagonspace.pcd"
 			injectSlam := inject.NewSLAMService(slamName)
 			injectSlam.GetPointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
-				return getPointCloudMap(filepath.Clean(artifact.MustPath(pcdPath)))
+				return getPointCloudMap(filepath.Clean(artifact.MustPath("pointcloud/octagonspace.pcd")))
 			}
 			injectSlam.GetPositionFunc = func(ctx context.Context) (spatialmath.Pose, string, error) {
 				return spatialmath.NewZeroPose(), "", nil
@@ -862,8 +860,8 @@ func TestStopMoveFunctions(t *testing.T) {
 
 			// Create a motion service
 			deps := resource.Dependencies{
-				fakeBase.Name():   injectBase,
-				injectSlam.Name(): injectSlam,
+				injectBaseName: injectBase,
+				injectSlamName: injectSlam,
 			}
 
 			ms, err := NewBuiltIn(
@@ -882,10 +880,7 @@ func TestStopMoveFunctions(t *testing.T) {
 				injectSlamName,
 				nil,
 			)
-			test.That(t, err, test.ShouldNotBeNil)
-			test.That(t, err, test.ShouldEqual, failToReachGoalError)
-			test.That(t, success, test.ShouldBeFalse)
-			test.That(t, calledStopFunc, test.ShouldBeTrue)
+			testIfStoppable(t, success, err)
 		})
 	})
 }

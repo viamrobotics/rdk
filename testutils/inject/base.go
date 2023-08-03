@@ -14,7 +14,6 @@ import (
 type Base struct {
 	base.Base
 	name             resource.Name
-	NameFunc         func() resource.Name
 	DoFunc           func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	MoveStraightFunc func(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error
 	SpinFunc         func(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error
@@ -34,10 +33,7 @@ func NewBase(name string) *Base {
 
 // Name returns the name of the resource.
 func (b *Base) Name() resource.Name {
-	if b.NameFunc == nil {
-		return b.name
-	}
-	return b.NameFunc()
+	return b.name
 }
 
 // MoveStraight calls the injected MoveStraight or the real version.
