@@ -813,7 +813,6 @@ func TestStoppableMoveFunctions(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 
 			goal := geo.NewPoint(gpsPoint.Lat()+1e-4, gpsPoint.Lng()+1e-4)
-
 			success, err := ms.MoveOnGlobe(
 				ctx, injectBase.Name(), goal, 0, injectMovementSensor.Name(),
 				nil, 10, 10, nil,
@@ -843,13 +842,7 @@ func TestStoppableMoveFunctions(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 
 			goal := spatialmath.NewPoseFromPoint(r3.Vector{X: 1.32 * 1000, Y: 0})
-			success, err := ms.MoveOnMap(
-				ctx,
-				injectBase.Name(),
-				goal,
-				injectSlam.Name(),
-				nil,
-			)
+			success, err := ms.MoveOnMap(ctx, injectBase.Name(), goal, injectSlam.Name(), nil)
 			testIfStoppable(t, success, err)
 		})
 	})
