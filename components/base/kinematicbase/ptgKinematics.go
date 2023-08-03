@@ -137,10 +137,10 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 		angVel := r3.Vector{0, 0, rdkutils.RadToDeg(trajNode.AngVelRPS)}
 
 		ptgk.logger.Debugf(
-			"setting velocity to linear %v angular %v and running velocity step for %f ms",
+			"setting velocity to linear %v angular %v and running velocity step for %s ms",
 			linVel,
 			angVel,
-			time.Duration(trajNode.Time-lastTime)*time.Millisecond,
+			time.Duration(trajNode.Time-lastTime),
 		)
 
 		err := ptgk.Base.SetVelocity(
