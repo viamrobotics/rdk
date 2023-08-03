@@ -23,9 +23,9 @@ import (
 type testReader struct{}
 
 func (r testReader) Read(ctx context.Context) (image.Image, func(), error) {
-	d := rimage.NewEmptyDepthMap(640, 480)
-	for i := 200; i < 300; i++ {
-		for j := 250; j < 350; j++ {
+	d := rimage.NewEmptyDepthMap(100, 100)
+	for i := 20; i < 30; i++ {
+		for j := 25; j < 35; j++ {
 			d.Set(i, j, rimage.Depth(400))
 		}
 	}
@@ -88,25 +88,30 @@ func TestObstacleDist(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "does not implement")
 
-	// Test that it is a segmenter
-	obs, err := srv.GetObjectPointClouds(ctx, "testCam", nil)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, obs, test.ShouldNotBeNil)
-	test.That(t, len(obs), test.ShouldEqual, 1)
-	test.That(t, obs[0].PointCloud, test.ShouldBeNil)
-	poseShouldBe := spatialmath.NewPose(r3.Vector{0, 0, 400}, nil)
-	test.That(t, obs[0].Geometry.Pose(), test.ShouldResemble, poseShouldBe)
+	t.Run("no intrinsics version", func(t *testing.T) {
+		// Test that it is a segmenter
+		obs, err := srv.GetObjectPointClouds(ctx, "testCam", nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, obs, test.ShouldNotBeNil)
+		test.That(t, len(obs), test.ShouldEqual, 1)
+		test.That(t, obs[0].PointCloud, test.ShouldBeNil)
+		poseShouldBe := spatialmath.NewPose(r3.Vector{0, 0, 400}, nil)
+		test.That(t, obs[0].Geometry.Pose(), test.ShouldResemble, poseShouldBe)
+	})
+	t.Run("intrinsics version", func(t *testing.T) {
+		// Now with intrinsics (and pointclouds)!
+		srv2, err := registerObstaclesDepth(ctx, name, &withIntrinsicsCfg, r, testLogger)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, srv2, test.ShouldNotBeNil)
+		obs, err := srv2.GetObjectPointClouds(ctx, "testCam", nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, obs, test.ShouldNotBeNil)
+		test.That(t, len(obs), test.ShouldEqual, withIntrinsicsCfg.K)
+		for _, o := range obs {
+			test.That(t, o.PointCloud, test.ShouldNotBeNil)
+			test.That(t, o.Geometry, test.ShouldNotBeNil)
+		}
 
-	// Now with intrinsics (and pointclouds)!
-	srv2, err := registerObstaclesDepth(ctx, name, &withIntrinsicsCfg, r, testLogger)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, srv2, test.ShouldNotBeNil)
-	obs, err = srv2.GetObjectPointClouds(ctx, "testCam", nil)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, obs, test.ShouldNotBeNil)
-	test.That(t, len(obs), test.ShouldEqual, withIntrinsicsCfg.K)
-	for _, o := range obs {
-		test.That(t, o.PointCloud, test.ShouldNotBeNil)
-		test.That(t, o.Geometry, test.ShouldNotBeNil)
-	}
+	})
+
 }
