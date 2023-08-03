@@ -191,7 +191,6 @@ type gpioStepper struct {
 	enablePinHigh, enablePinLow board.GPIOPin
 	stepPin, dirPin             board.GPIOPin
 	logger                      golog.Logger
-	motorName                   string
 
 	// state
 	lock  sync.Mutex
@@ -212,7 +211,7 @@ func (m *gpioStepper) SetPower(ctx context.Context, powerPct float64, extra map[
 		return nil
 	}
 
-	return errors.Errorf("gpioStepper doesn't support raw power mode in motor (%s)", m.motorName)
+	return errors.Errorf("gpioStepper doesn't support raw power mode in motor (%s)", m.Name().Name)
 }
 
 func (m *gpioStepper) startThread() {
@@ -223,7 +222,7 @@ func (m *gpioStepper) startThread() {
 		return
 	}
 
-	m.logger.Debug("starting control thread")
+	m.logger.Debugf("starting control thread for motor (%s)", m.Name().Name)
 
 	var ctxWG context.Context
 	ctxWG, m.cancel = context.WithCancel(context.Background())
@@ -234,7 +233,7 @@ func (m *gpioStepper) startThread() {
 		for {
 			sleep, err := m.doCycle(ctxWG)
 			if err != nil {
-				m.logger.Warnf("error cycling gpioStepper (%s) %s", m.motorName, err.Error())
+				m.logger.Warnf("error cycling gpioStepper (%s) %s", m.Name().Name, err.Error())
 			}
 
 			if !utils.SelectContextOrWait(ctxWG, sleep) {
@@ -261,7 +260,7 @@ func (m *gpioStepper) doCycle(ctx context.Context) (time.Duration, error) {
 	// reporting
 	err := m.doStep(ctx, m.stepPosition < m.targetStepPosition)
 	if err != nil {
-		return time.Second, fmt.Errorf("error stepping %w", err)
+		return time.Second, fmt.Errorf("error stepping motor (%s) %w", m.Name().Name, err)
 	}
 
 	// wait the stepper delay to return from the doRun for loop or select
@@ -306,14 +305,14 @@ func (m *gpioStepper) GoFor(ctx context.Context, rpm, revolutions float64, extra
 
 	err := m.enable(ctx, true)
 	if err != nil {
-		return errors.Wrapf(err, "error enabling motor in GoFor from motor (%s)", m.motorName)
+		return errors.Wrapf(err, "error enabling motor in GoFor from motor (%s)", m.Name().Name)
 	}
 
 	err = m.goForInternal(ctx, rpm, revolutions)
 	if err != nil {
 		return multierr.Combine(
 			m.enable(ctx, false),
-			errors.Wrapf(err, "error in GoFor from motor (%s)", m.motorName))
+			errors.Wrapf(err, "error in GoFor from motor (%s)", m.Name().Name))
 	}
 
 	// this is a long-running operation, do not wait for Stop, do not disable enable pins
@@ -370,18 +369,18 @@ func (m *gpioStepper) goForInternal(ctx context.Context, rpm, revolutions float6
 func (m *gpioStepper) GoTo(ctx context.Context, rpm, positionRevolutions float64, extra map[string]interface{}) error {
 	curPos, err := m.Position(ctx, extra)
 	if err != nil {
-		return errors.Wrapf(err, "error in GoTo from motor (%s)", m.motorName)
+		return errors.Wrapf(err, "error in GoTo from motor (%s)", m.Name().Name)
 	}
 	moveDistance := positionRevolutions - curPos
 
 	// if you call GoFor with 0 revolutions, the motor will spin forever. If we are at the target,
 	// we must avoid this by not calling GoFor.
 	if rdkutils.Float64AlmostEqual(moveDistance, 0, 0.1) {
-		m.logger.Debugf("GoTo distance nearly zero for motor (%s), not moving", m.motorName)
+		m.logger.Debugf("GoTo distance nearly zero for motor (%s), not moving", m.Name().Name)
 		return nil
 	}
 
-	m.logger.Debugf("motor (%s) going to %.2f at rpm %.2f", m.motorName, moveDistance, math.Abs(rpm))
+	m.logger.Debugf("motor (%s) going to %.2f at rpm %.2f", m.Name().Name, moveDistance, math.Abs(rpm))
 	return m.GoFor(ctx, math.Abs(rpm), moveDistance, extra)
 }
 
@@ -436,7 +435,7 @@ func (m *gpioStepper) stop() {
 func (m *gpioStepper) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
 	on, err := m.IsMoving(ctx)
 	if err != nil {
-		return on, 0.0, errors.Wrapf(err, "error in IsPowered from motor (%s)", m.motorName)
+		return on, 0.0, errors.Wrapf(err, "error in IsPowered from motor (%s)", m.Name().Name)
 	}
 	percent := 0.0
 	if on {
