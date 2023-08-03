@@ -62,7 +62,7 @@ const (
 	defaultThetamax = math.Pi / 4
 
 	defaultK = 10 // default number of obstacle segments to create
-	sampleN  = 6  // we sample 1 in every sampleN depth points
+	sampleN  = 4  // we sample 1 in every sampleN depth points
 )
 
 func init() {
