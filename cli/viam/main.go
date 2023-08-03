@@ -18,6 +18,9 @@ import (
 	rdkcli "go.viam.com/rdk/cli"
 )
 
+// set with ldflags
+var CliVersion = "(dev)"
+
 const (
 	// Flags.
 	dataFlagDestination       = "destination"
@@ -909,10 +912,19 @@ viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.ta
 			{
 				Name:  "version",
 				Usage: "print version info for this program",
+				Flags: []cli.Flag{
+					&cli.BoolFlag{
+						Name:  "debug",
+						Usage: "dump full BuildInfo",
+					},
+				},
 				Action: func(c *cli.Context) error {
 					if info, ok := debug.ReadBuildInfo(); !ok {
 						log.Fatal("Error reading build info")
 					} else {
+						if c.Bool("debug") {
+							fmt.Printf("%s\n", info.String())
+						}
 						settings := make(map[string]string, len(info.Settings))
 						for _, setting := range info.Settings {
 							settings[setting.Key] = setting.Value
@@ -924,7 +936,15 @@ viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.ta
 								version += "+"
 							}
 						}
-						fmt.Fprintf(c.App.Writer, "version %s %s %s\n", info.Main.Version, version, info.GoVersion)
+						deps := make(map[string]*debug.Module, len(info.Deps))
+						for _, dep := range info.Deps {
+							deps[dep.Path] = dep
+						}
+						api_version := "?"
+						if dep, ok := deps["go.viam.com/api"]; ok {
+							api_version = dep.Version
+						}
+						fmt.Fprintf(c.App.Writer, "version %s git=%s api=%s %s\n", CliVersion, version, api_version, info.GoVersion)
 					}
 					return nil
 				},
