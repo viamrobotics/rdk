@@ -16,14 +16,13 @@ import (
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage/transform"
+	"go.viam.com/rdk/services/vision"
 )
 
 var (
 	// Model is the full model definition.
 	Model            = resource.NewModel("filters", "demo", "katcam")
 	errUnimplemented = errors.New("unimplemented")
-	// Use for filtering
-	errNoCapture = errors.New("Do not store capture from filter module")
 )
 
 func init() {
@@ -36,6 +35,7 @@ func newCamera(ctx context.Context, deps resource.Dependencies, conf resource.Co
 	c := &katCam{
 		Named:  conf.ResourceName().AsNamed(),
 		logger: logger,
+		// count:  new(int32),
 	}
 	if err := c.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
@@ -44,7 +44,8 @@ func newCamera(ctx context.Context, deps resource.Dependencies, conf resource.Co
 }
 
 type Config struct {
-	ActualCam string `json:"actualCam"`
+	ActualCam     string `json:"actualCam"`
+	VisionService string `json:"visionService"`
 }
 
 func (cfg *Config) Validate(path string) ([]string, error) {
@@ -59,6 +60,12 @@ type katCam struct {
 	resource.Named
 	actualCam camera.Camera
 	logger    golog.Logger
+
+	// // Case 1: Only store one out of every 10 captures.
+	// count *int32
+
+	// Case 2:
+	visionService vision.Service
 }
 
 // resource.Resource methods
@@ -72,6 +79,12 @@ func (c *katCam) Reconfigure(ctx context.Context, deps resource.Dependencies, co
 	c.actualCam, err = camera.FromDependencies(deps, camConfig.ActualCam)
 	if err != nil {
 		return errors.Wrapf(err, "unable to get camera %v for katcam", camConfig.ActualCam)
+	}
+
+	// Case 2:
+	c.visionService, err = vision.FromDependencies(deps, camConfig.VisionService)
+	if err != nil {
+		return errors.Wrapf(err, "unable to get vision service %v for katcam", camConfig.VisionService)
 	}
 
 	return nil
@@ -100,7 +113,13 @@ func (c *katCam) Stream(ctx context.Context, errHandlers ...gostream.ErrorHandle
 	if err != nil {
 		return nil, err
 	}
-	filterStream := filterStream{camStream}
+	// filterStream := filterStream{camStream}
+
+	// // Case 1:
+	// filterStream := filterStream{camStream, c.count}
+
+	// Case 2:
+	filterStream := filterStream{camStream, c.visionService}
 
 	return filterStream, nil
 }
@@ -110,7 +129,6 @@ func (c *katCam) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 }
 
 func (c *katCam) Properties(ctx context.Context) (camera.Properties, error) {
-	// TODO: fill in properties
 	return camera.Properties{}, nil
 }
 
@@ -121,17 +139,43 @@ func (c *katCam) Projector(ctx context.Context) (transform.Projector, error) {
 
 // Filter code:
 type filterStream struct {
-	// For "batch" filtering cases, can keep track of state like prevSent, counter, etc
 	cameraStream gostream.VideoStream
+
+	// // Case 1: Only store one out of every 10 captures.
+	// count *int32
+
+	// Case 2:
+	visionService vision.Service
 }
 
 func (fs filterStream) Next(ctx context.Context) (image.Image, func(), error) {
 	if ctx.Value(data.CtxKeyDM) != true {
 		return nil, nil, errors.New("Cannot access filter stream if not DM collector")
 	}
+	// return fs.cameraStream.Next(ctx)
 
-	// TODO: user can supply filter code here, for ex: get cameraStream.Next image, run model on it, return if is a certain tag
-	return fs.cameraStream.Next(ctx)
+	// // Case 1: Only store one out of every 10 captures.
+	// *fs.count++
+	// if *fs.count%10 == 0 {
+	// 	return fs.cameraStream.Next(ctx)
+	// }
+	// return nil, nil, data.ErrNoCaptureToStore
+
+	// Case 2: Only store capture if it contains certain color.
+	img, release, err := fs.cameraStream.Next(ctx)
+	if err != nil {
+		return nil, nil, errors.New("could not get next source image")
+	}
+	detections, err := fs.visionService.Detections(ctx, img, map[string]interface{}{})
+	if err != nil {
+		return nil, nil, errors.New("could not get detections")
+	}
+
+	if len(detections) == 0 {
+		return nil, nil, data.ErrNoCaptureToStore
+	}
+
+	return img, release, err
 }
 
 func (fs filterStream) Close(ctx context.Context) error {
