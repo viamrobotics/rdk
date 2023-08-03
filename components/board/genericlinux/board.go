@@ -118,8 +118,10 @@ func (b *SysfsBoard) ReconfigureParsedConfig(ctx context.Context, conf Underlyin
 }
 
 func (b *SysfsBoard) reconfigureGpios(newConf UnderlyingConfig) error {
-	// TODO(RSDK-4092): do this correctly.
-	b.gpioMappings = newConf.GpioMappings
+	// TODO(RSDK-4092): implement this correctly.
+	if len(b.gpioMappings) == 0 {
+		b.gpioMappings = newConf.GpioMappings
+	}
 	return nil
 }
 
