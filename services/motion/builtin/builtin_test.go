@@ -86,6 +86,17 @@ func createInjectedMovementSensor(name string, gpsPoint *geo.Point) *inject.Move
 	return injectedMovementSensor
 }
 
+func createInjectedSlam(name, pcdPath string) *inject.SLAMService {
+	injectSlam := inject.NewSLAMService(name)
+	injectSlam.GetPointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
+		return getPointCloudMap(filepath.Clean(artifact.MustPath(pcdPath)))
+	}
+	injectSlam.GetPositionFunc = func(ctx context.Context) (spatialmath.Pose, string, error) {
+		return spatialmath.NewZeroPose(), "", nil
+	}
+	return injectSlam
+}
+
 func createBaseLink(t *testing.T, baseName string) *referenceframe.LinkInFrame {
 	basePose := spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0})
 	baseSphere, err := spatialmath.NewSphere(basePose, 10, "base-sphere")
@@ -169,13 +180,7 @@ func createMoveOnGlobeEnvironment(ctx context.Context, t *testing.T, gpsPoint *g
 }
 
 func createMoveOnMapEnvironment(ctx context.Context, t *testing.T, pcdPath string) motion.Service {
-	injectSlam := inject.NewSLAMService("test_slam")
-	injectSlam.GetPointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
-		return getPointCloudMap(filepath.Clean(artifact.MustPath(pcdPath)))
-	}
-	injectSlam.GetPositionFunc = func(ctx context.Context) (spatialmath.Pose, string, error) {
-		return spatialmath.NewZeroPose(), "", nil
-	}
+	injectSlam := createInjectedSlam("test_slam", pcdPath)
 
 	cfg := resource.Config{
 		Name:  "test_base",
@@ -463,13 +468,7 @@ func TestMoveOnMapTimeout(t *testing.T) {
 		test.That(t, myRobot.Close(context.Background()), test.ShouldBeNil)
 	}()
 
-	injectSlam := inject.NewSLAMService("test_slam")
-	injectSlam.GetPointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
-		return getPointCloudMap(filepath.Clean(artifact.MustPath("pointcloud/octagonspace.pcd")))
-	}
-	injectSlam.GetPositionFunc = func(ctx context.Context) (spatialmath.Pose, string, error) {
-		return spatialmath.NewZeroPose(), "", nil
-	}
+	injectSlam := createInjectedSlam("test_slam", "pointcloud/octagonspace.pcd")
 
 	realBase, err := base.FromRobot(myRobot, "test_base")
 	test.That(t, err, test.ShouldBeNil)
@@ -658,7 +657,7 @@ func TestGetPose(t *testing.T) {
 	test.That(t, pose, test.ShouldBeNil)
 }
 
-func TestStopMoveFunctions(t *testing.T) {
+func TestStoppableMoveFunctions(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 	failToReachGoalError := errors.New("failed to reach goal")
@@ -827,13 +826,7 @@ func TestStopMoveFunctions(t *testing.T) {
 			slamName := "test-slam"
 
 			// Create an injected SLAM
-			injectSlam := inject.NewSLAMService(slamName)
-			injectSlam.GetPointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
-				return getPointCloudMap(filepath.Clean(artifact.MustPath("pointcloud/octagonspace.pcd")))
-			}
-			injectSlam.GetPositionFunc = func(ctx context.Context) (spatialmath.Pose, string, error) {
-				return spatialmath.NewZeroPose(), "", nil
-			}
+			injectSlam := createInjectedSlam(slamName, "pointcloud/octagonspace.pcd")
 
 			// Create a motion service
 			deps := resource.Dependencies{
