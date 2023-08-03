@@ -23,13 +23,13 @@ func registerCollector(name string, f lowLevelCollector) {
 		API:        API,
 		MethodName: name,
 	}, func(resource interface{}, params data.CollectorParams) (data.Collector, error) {
-		ms, err := assertPowerSensor(resource)
+		ps, err := assertPowerSensor(resource)
 		if err != nil {
 			return nil, err
 		}
 
 		cFunc := data.CaptureFunc(func(ctx context.Context, extra map[string]*anypb.Any) (interface{}, error) {
-			v, err := f(ctx, ms)
+			v, err := f(ctx, ps)
 			if err != nil {
 				return nil, data.FailedToReadErr(params.ComponentName, name, err)
 			}

@@ -15,7 +15,6 @@ var model = resource.DefaultModelFamily.WithModel("fake")
 // Config is used for converting fake movementsensor attributes.
 type Config struct {
 	resource.TriviallyValidateConfig
-	ConnectionType string `json:"connection_type,omitempty"`
 }
 
 func init() {
@@ -29,17 +28,23 @@ func init() {
 				conf resource.Config,
 				logger golog.Logger,
 			) (powersensor.PowerSensor, error) {
-				return powersensor.PowerSensor(&PowerSensor{
-					Named: conf.ResourceName().AsNamed(),
-				}), nil
+				return newFakePowerSensorModel(ctx, conf, logger)
 			},
 		})
+}
+
+func newFakePowerSensorModel(ctx context.Context, conf resource.Config, logger golog.Logger) (powersensor.PowerSensor, error) {
+	return powersensor.PowerSensor(&PowerSensor{
+		Named:  conf.ResourceName().AsNamed(),
+		logger: logger,
+	}), nil
 }
 
 // PowerSensor implements a fake PowerSensor interface.
 type PowerSensor struct {
 	resource.Named
 	resource.AlwaysRebuild
+	logger golog.Logger
 }
 
 // DoCommand uses a map string to run custom functionality of a fake powersensor.
@@ -49,7 +54,7 @@ func (f *PowerSensor) DoCommand(ctx context.Context, cmd map[string]interface{})
 
 // Voltage gets the voltage and isAC of a fake powersensor.
 func (f *PowerSensor) Voltage(ctx context.Context, cmd map[string]interface{}) (float64, bool, error) {
-	return 1, true, nil
+	return 1.5, true, nil
 }
 
 // Current gets the current and isAC of a fake powersensor.
@@ -66,9 +71,6 @@ func (f *PowerSensor) Power(ctx context.Context, cmd map[string]interface{}) (fl
 func (f *PowerSensor) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 	return powersensor.Readings(ctx, f, extra)
 }
-
-// Start starts the fake powersensor.
-func (f *PowerSensor) Start(ctx context.Context) error { return nil }
 
 // Close closes the fake powersensor.
 func (f *PowerSensor) Close(ctx context.Context) error {
