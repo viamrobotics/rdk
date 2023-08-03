@@ -36,7 +36,7 @@ func (r testReader) Close(ctx context.Context) error {
 	return nil
 }
 
-func TestObstacleDist(t *testing.T) {
+func TestObstacleDepth(t *testing.T) {
 	noIntrinsicsCfg := ObsDepthConfig{
 		Hmin:       defaultHmin,
 		Hmax:       defaultHmax,
@@ -110,4 +110,38 @@ func TestObstacleDist(t *testing.T) {
 			test.That(t, o.Geometry, test.ShouldNotBeNil)
 		}
 	})
+}
+
+func BenchmarkObstacleDepthIntrinsics(b *testing.B) {
+	someIntrinsics := transform.PinholeCameraIntrinsics{Fx: 604.5, Fy: 609.6, Ppx: 324.6, Ppy: 238.9, Width: 640, Height: 480}
+	withIntrinsicsCfg := ObsDepthConfig{
+		Hmin:       defaultHmin,
+		Hmax:       defaultHmax,
+		ThetaMax:   defaultThetamax,
+		ReturnPCDs: true,
+		Intrinsics: &someIntrinsics,
+	}
+
+	ctx := context.Background()
+	testLogger := golog.NewLogger("test")
+	r := &inject.Robot{ResourceNamesFunc: func() []resource.Name {
+		return []resource.Name{camera.Named("testCam")}
+	}}
+	tr := testReader{}
+	myCamSrc, _ := camera.NewVideoSourceFromReader(ctx, tr, nil, camera.DepthStream)
+	myCam := camera.FromVideoSource(resource.Name{Name: "testCam"}, myCamSrc)
+	r.ResourceByNameFunc = func(n resource.Name) (resource.Resource, error) {
+		switch n.Name {
+		case "testCam":
+			return myCam, nil
+		default:
+			return nil, resource.NewNotFoundError(n)
+		}
+	}
+	name := vision.Named("test")
+	srv, _ := registerObstaclesDepth(ctx, name, &withIntrinsicsCfg, r, testLogger)
+
+	for i := 0; i < b.N; i++ {
+		srv.GetObjectPointClouds(ctx, "testCam", nil)
+	}
 }
