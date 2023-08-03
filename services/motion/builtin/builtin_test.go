@@ -100,6 +100,28 @@ func createBaseLink(t *testing.T, baseName string) *referenceframe.LinkInFrame {
 	return baseLink
 }
 
+func createFrameSystemService(
+	ctx context.Context,
+	t *testing.T,
+	deps resource.Dependencies,
+	fsParts []*referenceframe.FrameSystemPart,
+	logger golog.Logger,
+) (framesystem.Service, error) {
+	fsSvc, err := framesystem.New(ctx, deps, logger)
+	if err != nil {
+		return nil, err
+	}
+	conf := resource.Config{
+		ConvertedAttributes: &framesystem.Config{Parts: fsParts},
+	}
+	if err := fsSvc.Reconfigure(ctx, deps, conf); err != nil {
+		return nil, err
+	}
+	deps[fsSvc.Name()] = fsSvc
+
+	return fsSvc, nil
+}
+
 func createMoveOnGlobeEnvironment(ctx context.Context, t *testing.T, gpsPoint *geo.Point) (
 	*inject.MovementSensor, framesystem.Service, base.Base, motion.Service,
 ) {
@@ -137,14 +159,12 @@ func createMoveOnGlobeEnvironment(ctx context.Context, t *testing.T, gpsPoint *g
 		fakeBase.Name():               fakeBase,
 		injectedMovementSensor.Name(): injectedMovementSensor,
 	}
-	fsSvc, err := framesystem.New(context.Background(), deps, logger)
-	test.That(t, err, test.ShouldBeNil)
-	err = fsSvc.Reconfigure(context.Background(), deps, resource.Config{ConvertedAttributes: &framesystem.Config{Parts: fsParts}})
+
+	fsSvc, err := createFrameSystemService(ctx, t, deps, fsParts, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	// create the motion service
-	deps[fsSvc.Name()] = fsSvc
-	ms, err := NewBuiltIn(ctx, deps, resource.Config{ConvertedAttributes: &Config{}}, logger)
+	conf := resource.Config{ConvertedAttributes: &Config{}}
+	ms, err := NewBuiltIn(ctx, deps, conf, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	return injectedMovementSensor, fsSvc, fakeBase, ms
@@ -167,14 +187,10 @@ func createMoveOnMapEnvironment(ctx context.Context, t *testing.T, pcdPath strin
 	logger := golog.NewTestLogger(t)
 	fakeBase, err := baseFake.NewBase(ctx, nil, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
-	ms, err := NewBuiltIn(
-		ctx,
-		resource.Dependencies{injectSlam.Name(): injectSlam, fakeBase.Name(): fakeBase},
-		resource.Config{
-			ConvertedAttributes: &Config{},
-		},
-		logger,
-	)
+
+	deps := resource.Dependencies{injectSlam.Name(): injectSlam, fakeBase.Name(): fakeBase}
+	conf := resource.Config{ConvertedAttributes: &Config{}}
+	ms, err := NewBuiltIn(ctx, deps, conf, logger)
 	test.That(t, err, test.ShouldBeNil)
 	return ms
 }
@@ -460,14 +476,12 @@ func TestMoveOnMapTimeout(t *testing.T) {
 	realBase, err := base.FromRobot(myRobot, "test_base")
 	test.That(t, err, test.ShouldBeNil)
 
-	ms, err := NewBuiltIn(
-		ctx,
-		resource.Dependencies{injectSlam.Name(): injectSlam, realBase.Name(): realBase},
-		resource.Config{
-			ConvertedAttributes: &Config{},
-		},
-		logger,
-	)
+	deps := resource.Dependencies{
+		injectSlam.Name(): injectSlam,
+		realBase.Name():   realBase,
+	}
+	conf := resource.Config{ConvertedAttributes: &Config{}}
+	ms, err := NewBuiltIn(ctx, deps, conf, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	easyGoal := spatialmath.NewPoseFromPoint(r3.Vector{X: 1001, Y: 1001})
@@ -479,7 +493,6 @@ func TestMoveOnMapTimeout(t *testing.T) {
 		nil,
 	)
 	test.That(t, err, test.ShouldNotBeNil)
-
 	test.That(t, success, test.ShouldBeFalse)
 }
 
@@ -720,25 +733,12 @@ func TestStopMoveFunctions(t *testing.T) {
 		deps := resource.Dependencies{
 			injectArmName: injectArm,
 		}
-		fsSvc, err := framesystem.New(ctx, deps, logger)
-		test.That(t, err, test.ShouldBeNil)
-		err = fsSvc.Reconfigure(
-			ctx,
-			deps,
-			resource.Config{
-				ConvertedAttributes: &framesystem.Config{Parts: fsParts},
-			},
-		)
+
+		_, err = createFrameSystemService(ctx, t, deps, fsParts, logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		deps[fsSvc.Name()] = fsSvc
-
-		ms, err := NewBuiltIn(
-			ctx,
-			deps,
-			resource.Config{ConvertedAttributes: &Config{}},
-			logger,
-		)
+		conf := resource.Config{ConvertedAttributes: &Config{}}
+		ms, err := NewBuiltIn(ctx, deps, conf, logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		t.Run("stop during Move(...) call", func(t *testing.T) {
@@ -807,26 +807,14 @@ func TestStopMoveFunctions(t *testing.T) {
 				injectBase.Name():           injectBase,
 				injectMovementSensor.Name(): injectMovementSensor,
 			}
-			fsSvc, err := framesystem.New(ctx, deps, logger)
-			test.That(t, err, test.ShouldBeNil)
-			err = fsSvc.Reconfigure(
-				ctx,
-				deps,
-				resource.Config{
-					ConvertedAttributes: &framesystem.Config{Parts: fsParts},
-				},
-			)
+
+			_, err := createFrameSystemService(ctx, t, deps, fsParts, logger)
 			test.That(t, err, test.ShouldBeNil)
 
-			deps[fsSvc.Name()] = fsSvc
-
-			ms, err := NewBuiltIn(
-				ctx,
-				deps,
-				resource.Config{ConvertedAttributes: &Config{}},
-				logger,
-			)
+			conf := resource.Config{ConvertedAttributes: &Config{}}
+			ms, err := NewBuiltIn(ctx, deps, conf, logger)
 			test.That(t, err, test.ShouldBeNil)
+
 			goal := geo.NewPoint(gpsPoint.Lat()+1e-4, gpsPoint.Lng()+1e-4)
 
 			success, err := ms.MoveOnGlobe(
