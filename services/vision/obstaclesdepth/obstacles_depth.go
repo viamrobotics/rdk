@@ -34,7 +34,6 @@ var model = resource.DefaultModelFamily.WithModel("obstacles_depth")
 
 // ObsDepthConfig specifies the parameters to be used for the obstacle depth service.
 type ObsDepthConfig struct {
-	K          int                                `json:"k"`
 	Hmin       float64                            `json:"hmin"`
 	Hmax       float64                            `json:"hmax"`
 	ThetaMax   float64                            `json:"theta_max"`
@@ -84,9 +83,6 @@ func init() {
 // Validate ensures all parts of the config are valid.
 func (config *ObsDepthConfig) Validate(path string) ([]string, error) {
 	deps := []string{}
-	if config.K < 1 || config.K > 50 {
-		return nil, errors.New("invalid K, pick an integer between 1 and 50 (10 recommended)")
-	}
 	if config.Hmin >= config.Hmax {
 		return nil, errors.New("Hmin should be less than Hmax")
 	}
@@ -126,13 +122,10 @@ func registerObstaclesDepth(
 	if conf.ThetaMax == 0 {
 		conf.ThetaMax = defaultThetamax
 	}
-	if conf.K == 0 {
-		conf.K = defaultK
-	}
 
 	myObsDep := obsDepth{
 		hMin: conf.Hmin, hMax: conf.Hmax, sinTheta: math.Sin(conf.ThetaMax),
-		intrinsics: conf.Intrinsics, returnPCDs: conf.ReturnPCDs, k: conf.K,
+		intrinsics: conf.Intrinsics, returnPCDs: conf.ReturnPCDs, k: defaultK,
 	}
 	segmenter := myObsDep.buildObsDepthWithIntrinsics() // does the thing
 	return svision.NewService(name, r, nil, nil, nil, segmenter)
