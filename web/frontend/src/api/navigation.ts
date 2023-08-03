@@ -113,26 +113,6 @@ export const getWaypoints = async (robotClient: Client, name: string): Promise<W
   return formatWaypoints(response?.getWaypointsList() ?? []);
 };
 
-export const removeWaypoint = async (robotClient: Client, name: string, id: string) => {
-  const request = new navigationApi.RemoveWaypointRequest();
-  request.setName(name);
-  request.setId(id);
-
-  rcLogConditionally(request);
-
-  const response = await new Promise<navigationApi.RemoveWaypointResponse | null>((resolve, reject) => {
-    robotClient.navigationService.removeWaypoint(request, (error, res) => {
-      if (error) {
-        reject(error);
-      } else {
-        resolve(res);
-      }
-    });
-  });
-
-  return response?.toObject();
-};
-
 export const getLocation = async (robotClient: Client, name: string) => {
   const request = new navigationApi.GetLocationRequest();
   request.setName(name);

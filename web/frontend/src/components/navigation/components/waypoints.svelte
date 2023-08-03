@@ -27,7 +27,6 @@ const handleAddMarker = async (event: MapMouseEvent) => {
   try {
     $waypoints = [...$waypoints, temp];
     await navClient.addWayPoint(location);
-    // await addWaypoint($robotClient, event.lngLat, name);
   } catch (error) {
     notify.danger((error as ServiceError).message);
     $waypoints = $waypoints.filter((item) => item.id !== temp.id);

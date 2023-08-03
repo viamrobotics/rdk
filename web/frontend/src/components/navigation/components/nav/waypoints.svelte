@@ -1,9 +1,9 @@
 <script lang='ts'>
 
 import { createEventDispatcher } from 'svelte';
-import type { ServiceError } from '@viamrobotics/sdk';
+import { NavigationClient, type ServiceError } from '@viamrobotics/sdk';
 import { notify } from '@viamrobotics/prime';
-import { removeWaypoint, type LngLat } from '@/api/navigation';
+import { type LngLat } from '@/api/navigation';
 import { useRobotClient } from '@/hooks/robot-client';
 import { waypoints } from '../../stores';
 
@@ -12,11 +12,12 @@ export let name: string;
 const dispatch = createEventDispatcher<{ select: LngLat }>();
 
 const { robotClient } = useRobotClient();
+const navClient = new NavigationClient($robotClient, name);
 
 const handleRemoveWaypoint = async (id: string) => {
   try {
     $waypoints = $waypoints.filter((item) => item.id !== id);
-    await removeWaypoint($robotClient, name, id);
+    await navClient.removeWayPoint(id);
   } catch (error) {
     notify.danger((error as ServiceError).message);
   }
