@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"runtime/debug"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -903,6 +904,29 @@ viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.ta
 						},
 						Action: rdkcli.UploadModuleCommand,
 					},
+				},
+			},
+			{
+				Name:  "version",
+				Usage: "print version info for this program",
+				Action: func(c *cli.Context) error {
+					if info, ok := debug.ReadBuildInfo(); !ok {
+						log.Fatal("Error reading build info")
+					} else {
+						settings := make(map[string]string, len(info.Settings))
+						for _, setting := range info.Settings {
+							settings[setting.Key] = setting.Value
+						}
+						version := "?"
+						if rev, ok := settings["vcs.revision"]; ok {
+							version = rev[:8]
+							if settings["vcs.modified"] == "true" {
+								version += "+"
+							}
+						}
+						fmt.Fprintf(c.App.Writer, "version %s %s %s\n", info.Main.Version, version, info.GoVersion)
+					}
+					return nil
 				},
 			},
 		},
