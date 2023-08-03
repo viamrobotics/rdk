@@ -1,7 +1,7 @@
 /* eslint-disable no-underscore-dangle */
 
 import * as THREE from 'three';
-import { type Client, commonApi, navigationApi } from '@viamrobotics/sdk';
+import { type Client, commonApi, navigationApi, NavigationClient } from '@viamrobotics/sdk';
 import { ViamObject3D } from '@viamrobotics/three';
 import { rcLogConditionally } from '@/lib/log';
 import type {
@@ -21,73 +21,58 @@ const formatWaypoints = (list: navigationApi.Waypoint[]) => {
   });
 };
 
-export const getObstacles = async (robotClient: Client, name: string): Promise<Obstacle[]> => {
-  const req = new navigationApi.GetObstaclesRequest();
-  req.setName(name);
-
-  rcLogConditionally(req);
-
-  const response = await new Promise<navigationApi.GetObstaclesResponse | null>((resolve, reject) => {
-    robotClient.navigationService.getObstacles(req, (error, res) => {
-      if (error) {
-        reject(error);
-      } else {
-        resolve(res);
-      }
-    });
-  });
-
-  const list = response?.getObstaclesList() ?? [];
+export const getObstacles = async (navClient: NavigationClient): Promise<Obstacle[]> => {
+  const list = await navClient.getObstacles();
 
   return list.map((obstacle, index) => {
-    const location = obstacle.getLocation();
+    const location = obstacle.location;
 
     return {
       name: `Obstacle ${index + 1}`,
       location: {
-        lng: location?.getLongitude() ?? 0,
-        lat: location?.getLatitude() ?? 0,
+        lng: location.longitude ?? 0,
+        lat: location.latitude ?? 0,
       },
-      geometries: obstacle.getGeometriesList().map((geometry) => {
-        const center = geometry.getCenter();
+      geometries: obstacle.geometriesList.map((geometry) => {
+        const center = geometry.center;
         const pose = new ViamObject3D();
-        const th = THREE.MathUtils.degToRad(center?.getTheta() ?? 0);
-        pose.orientationVector.set(center?.getOX(), center?.getOY(), center?.getOZ(), th);
+        const th = THREE.MathUtils.degToRad(center?.theta ?? 0);
+        pose.orientationVector.set(center.oX, center?.oY, center?.oZ, th);
 
-        if (geometry.hasBox()) {
-          const dimsMm = geometry.getBox()?.getDimsMm();
+        if (geometry.box) {
+          const dimsMm = geometry.box.dimsMm;
 
           return {
             type: 'box',
-            length: (dimsMm?.getX() ?? 0) / 1000,
-            width: (dimsMm?.getY() ?? 0) / 1000,
-            height: (dimsMm?.getZ() ?? 0) / 1000,
+            length: (dimsMm?.x ?? 0) / 1000,
+            width: (dimsMm?.y ?? 0) / 1000,
+            height: (dimsMm?.z ?? 0) / 1000,
             pose,
           } satisfies BoxGeometry;
 
-        } else if (geometry.hasSphere()) {
+        } else if (geometry.sphere) {
 
           return {
             type: 'sphere',
-            radius: (geometry.getSphere()?.getRadiusMm() ?? 0) / 1000,
+            radius: (geometry.sphere.radiusMm ?? 0) / 1000,
             pose,
           } satisfies SphereGeometry;
 
-        } else if (geometry.hasCapsule()) {
-          const capsule = geometry.getCapsule();
+        } else if (geometry.capsule) {
+          const capsule = geometry.capsule;
 
           return {
             type: 'capsule',
-            radius: (capsule?.getRadiusMm() ?? 0) / 1000,
-            length: (capsule?.getLengthMm() ?? 0) / 1000,
+            radius: (capsule?.radiusMm ?? 0) / 1000,
+            length: (capsule?.lengthMm ?? 0) / 1000,
             pose,
           } satisfies CapsuleGeometry;
 
         }
 
-        notify.danger('An unsupported geometry was encountered in an obstacle', JSON.stringify(geometry.toObject()));
+        notify.danger('An unsupported geometry was encountered in an obstacle', JSON.stringify(geometry));
         throw new Error(
-          `An unsupported geometry was encountered in an obstacle: ${JSON.stringify(geometry.toObject())}`
+          `An unsupported geometry was encountered in an obstacle: ${JSON.stringify(geometry)}`
         );
       }),
     } satisfies Obstacle;

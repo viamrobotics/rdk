@@ -5,6 +5,8 @@ import { T, useThrelte } from '@threlte/core';
 import { obstacles, view } from '../stores';
 import Obstacle from './obstacle.svelte';
 
+export let name: string;
+
 const { renderer } = useThrelte();
 const clippingPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.1);
 
