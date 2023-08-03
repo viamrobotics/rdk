@@ -11,7 +11,6 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
-
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
@@ -94,7 +93,7 @@ func createBaseLink(t *testing.T, baseName string) *referenceframe.LinkInFrame {
 	baseLink := referenceframe.NewLinkInFrame(
 		referenceframe.World,
 		spatialmath.NewZeroPose(),
-		"test-base",
+		baseName,
 		baseSphere,
 	)
 	return baseLink
@@ -102,7 +101,6 @@ func createBaseLink(t *testing.T, baseName string) *referenceframe.LinkInFrame {
 
 func createFrameSystemService(
 	ctx context.Context,
-	t *testing.T,
 	deps resource.Dependencies,
 	fsParts []*referenceframe.FrameSystemPart,
 	logger golog.Logger,
@@ -160,7 +158,7 @@ func createMoveOnGlobeEnvironment(ctx context.Context, t *testing.T, gpsPoint *g
 		injectedMovementSensor.Name(): injectedMovementSensor,
 	}
 
-	fsSvc, err := createFrameSystemService(ctx, t, deps, fsParts, logger)
+	fsSvc, err := createFrameSystemService(ctx, deps, fsParts, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	conf := resource.Config{ConvertedAttributes: &Config{}}
@@ -734,7 +732,7 @@ func TestStopMoveFunctions(t *testing.T) {
 			injectArmName: injectArm,
 		}
 
-		_, err = createFrameSystemService(ctx, t, deps, fsParts, logger)
+		_, err = createFrameSystemService(ctx, deps, fsParts, logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		conf := resource.Config{ConvertedAttributes: &Config{}}
@@ -808,7 +806,7 @@ func TestStopMoveFunctions(t *testing.T) {
 				injectMovementSensor.Name(): injectMovementSensor,
 			}
 
-			_, err := createFrameSystemService(ctx, t, deps, fsParts, logger)
+			_, err := createFrameSystemService(ctx, deps, fsParts, logger)
 			test.That(t, err, test.ShouldBeNil)
 
 			conf := resource.Config{ConvertedAttributes: &Config{}}
