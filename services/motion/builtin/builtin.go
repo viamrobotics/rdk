@@ -335,11 +335,7 @@ func (ms *builtIn) planMoveOnGlobe(
 	}
 
 	// we take the zero position to be the start since in the frame of the localizer we will always be at its origin
-	inputs := make([]referenceframe.Input, 3)
-	if kinematicsOptions.PositionOnlyMode {
-		inputs = inputs[:2]
-	}
-	inputMap := map[string][]referenceframe.Input{componentName.Name: inputs}
+	inputMap := map[string][]referenceframe.Input{componentName.Name: make([]referenceframe.Input, len(kb.Kinematics().DoF()))}
 
 	// create a new empty framesystem which we add the kinematic base to
 	fs := referenceframe.NewEmptyFrameSystem("")
