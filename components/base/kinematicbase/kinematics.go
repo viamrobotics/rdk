@@ -48,6 +48,9 @@ const (
 	// maxSpinAngleDeg is the maximum amount of degrees the base should turn with a single Spin command.
 	// used to break up large turns into smaller chunks to prevent error from building up.
 	defaultMaxSpinAngleDeg = 45
+
+	// positionOnlyMode defines whether motion planning should be done in 2DOF or 3DOF.
+	defaultPositionOnlyMode = true
 )
 
 // Options contains values used for execution of base movement.
@@ -78,6 +81,10 @@ type Options struct {
 	// MaxSpinAngleDeg is the maximum amount of degrees the base should turn with a single Spin command.
 	// used to break up large turns into smaller chunks to prevent error from building up.
 	MaxSpinAngleDeg float64
+
+	// PositionOnlyMode defines whether motion planning should be done in 2DOF or 3DOF.
+	// If value is true, planning is done in [x,y]. If value is false, planning is done in [x,y,theta].
+	PositionOnlyMode bool
 }
 
 // NewKinematicBaseOptions creates a struct with values used for execution of base movement.
@@ -92,6 +99,7 @@ func NewKinematicBaseOptions() Options {
 		Timeout:                    defaultTimeout,
 		MinimumMovementThresholdMM: defaultMinimumMovementThresholdMM,
 		MaxSpinAngleDeg:            defaultMaxSpinAngleDeg,
+		PositionOnlyMode:           defaultPositionOnlyMode,
 	}
 	return options
 }
@@ -115,5 +123,5 @@ func WrapWithKinematics(
 	if properties.TurningRadiusMeters == 0 {
 		return wrapWithDifferentialDriveKinematics(ctx, b, logger, localizer, limits, options)
 	}
-	return wrapWithPTGKinematics(ctx, b, options)
+	return wrapWithPTGKinematics(ctx, b, logger, options)
 }

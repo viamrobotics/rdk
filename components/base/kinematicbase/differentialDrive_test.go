@@ -2,6 +2,7 @@ package kinematicbase
 
 import (
 	"context"
+	"math"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -64,12 +65,12 @@ func TestWrapWithDifferentialDriveKinematics(t *testing.T) {
 			if err != nil {
 				return
 			}
-			limits := ddk.model.DoF()
+			limits := ddk.executionFrame.DoF()
 			test.That(t, limits[0].Min, test.ShouldBeLessThan, 0)
 			test.That(t, limits[1].Min, test.ShouldBeLessThan, 0)
 			test.That(t, limits[0].Max, test.ShouldBeGreaterThan, 0)
 			test.That(t, limits[1].Max, test.ShouldBeGreaterThan, 0)
-			geometry, err := ddk.model.(*referenceframe.SimpleModel).Geometries(make([]referenceframe.Input, len(limits)))
+			geometry, err := ddk.executionFrame.(*referenceframe.SimpleModel).Geometries(make([]referenceframe.Input, len(limits)))
 			test.That(t, err, test.ShouldBeNil)
 			equivalent := geometry.GeometryByName(testCfg.Name + ":" + testCfg.Frame.Geometry.Label).AlmostEqual(expectedSphere)
 			test.That(t, equivalent, test.ShouldBeTrue)
@@ -154,6 +155,7 @@ func buildTestDDK(
 	if err != nil {
 		return nil, err
 	}
+	limits = append(limits, referenceframe.Limit{-2 * math.Pi, 2 * math.Pi})
 
 	// construct differential drive kinematic base
 	options := NewKinematicBaseOptions()
