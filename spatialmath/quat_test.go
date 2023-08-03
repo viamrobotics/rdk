@@ -32,51 +32,56 @@ func TestAngleAxisConversion2(t *testing.T) {
 }
 
 func TestEulerAnglesConversion(t *testing.T) {
-	// TODO RSDK-2010 (rh) handle edge cases properly while
-	// maintaining quadrant in euler conversions
-	// if runtime.GOARCH == "arm64" {
-	// 	t.Skip()
-	// }
+	for _, testcase := range []struct {
+		name       string
+		expectedEA EulerAngles
+		q          quat.Number
+	}{
+		{
+			"gimbal lock 1: pitch is π/2",
+			EulerAngles{math.Pi / 4.0, math.Pi / 2.0, math.Pi},
+			quat.Number{Real: 0.27059808647933425, Imag: 0.6532814673582304, Jmag: 0.2705980864793342, Kmag: 0.6532814673582303},
+		},
+		{
+			"vanilla 1: roll pitch and yaw are not near edge cases",
+			EulerAngles{math.Pi / 4.0, math.Pi / 4.0, 3.0 * math.Pi / 4.0},
+			quat.Number{Real: 0.46193978734586505, Imag: -0.19134171618254486, Jmag: 0.4619397662556434, Kmag: 0.7325378046916491},
+		},
+		{
+			"vanilla 2: roll pitch and yaw are not near edge cases",
+			EulerAngles{-math.Pi / 4.0, -math.Pi / 4.0, math.Pi / 4.0},
+			quat.Number{Real: 0.8446231850190303, Imag: -0.19134170056642805, Jmag: -0.461939798632522, Kmag: 0.19134170056642805},
+		},
+		{
+			"gimbal lock: pitch is π/2",
+			EulerAngles{-3 * math.Pi / 4.0, math.Pi / 2.0, 0},
+			quat.Number{Real: 0.2705980500730985, Imag: -0.6532814824381882, Jmag: 0.27059805007309856, Kmag: 0.6532814824381883},
+		},
+		{
+			"heading only",
+			EulerAngles{0, 0, math.Pi / 3},
+			quat.Number{Real: 0.8660254042574935, Imag: 0, Jmag: 0, Kmag: 0.5},
+		},
+	} {
+		t.Run(testcase.name, func(t *testing.T) {
+			endEa := QuatToEulerAngles(testcase.q)
+			q2 := endEa.Quaternion()
 
-	// roll pitch and yaw are not near edge cases
-	expectedEA := EulerAngles{math.Pi / 4.0, math.Pi / 4.0, 3.0 * math.Pi / 4.0}
-	q := quat.Number{Real: 0.4619397662556435, Imag: -0.19134171618254486, Jmag: 0.4619397662556434, Kmag: 0.7325378163287418}
-	endEa := QuatToEulerAngles(q)
-	test.That(t, expectedEA.Roll, test.ShouldAlmostEqual, endEa.Roll)
-	test.That(t, expectedEA.Pitch, test.ShouldAlmostEqual, endEa.Pitch)
-	test.That(t, expectedEA.Yaw, test.ShouldAlmostEqual, endEa.Yaw)
-	q2 := endEa.Quaternion()
-	quatCompare(t, q, q2)
-
-	// another vanilla angles test
-	expectedEA = EulerAngles{-math.Pi / 4.0, -math.Pi / 4.0, math.Pi/4}
-	q = quat.Number{Real: 1, Imag: 0, Jmag: 0, Kmag: 0}
-	endEa = QuatToEulerAngles(q)
-	test.That(t, expectedEA.Roll, test.ShouldAlmostEqual, endEa.Roll)
-	test.That(t, expectedEA.Pitch, test.ShouldAlmostEqual, endEa.Pitch)
-	test.That(t, expectedEA.Yaw, test.ShouldAlmostEqual, endEa.Yaw)
-	q2 = endEa.Quaternion()
-	quatCompare(t, q, q2)
-
-	// gimbal lock edge case1: pitch is π / 2
-	expectedEA = EulerAngles{-3 * math.Pi / 4.0, math.Pi / 2.0, 0}
-	q = quat.Number{Real: 0.2705980500730985, Imag: -0.6532814824381882, Jmag: 0.27059805007309856, Kmag: 0.6532814824381883}
-	endEa = QuatToEulerAngles(q)
-	test.That(t, expectedEA.Roll, test.ShouldAlmostEqual, endEa.Roll)
-	test.That(t, expectedEA.Pitch, test.ShouldAlmostEqual, endEa.Pitch)
-	test.That(t, expectedEA.Yaw, test.ShouldAlmostEqual, endEa.Yaw)
-	q2 = endEa.Quaternion()
-	quatCompare(t, q, q2)
-
-	// gimbal lock edge case: pitch is π / 2
-	expectedEA = EulerAngles{math.Pi / 4.0, math.Pi / 2.0, math.Pi}
-	q = quat.Number{Real: 0.2705980500730985, Imag: -0.6532814824381882, Jmag: 0.27059805007309856, Kmag: 0.6532814824381883}
-	endEa = QuatToEulerAngles(q)
-	test.That(t, expectedEA.Roll, test.ShouldAlmostEqual, endEa.Roll)
-	test.That(t, expectedEA.Pitch, test.ShouldAlmostEqual, endEa.Pitch)
-	test.That(t, expectedEA.Yaw, test.ShouldAlmostEqual, endEa.Yaw)
-	q2 = endEa.Quaternion()
-	quatCompare(t, q, q2)
+			t.Run("roll", func(t *testing.T) {
+				test.That(t, testcase.expectedEA.Roll, test.ShouldAlmostEqual, endEa.Roll, 1e-6)
+			})
+			t.Run("pitch", func(t *testing.T) {
+				test.That(t, testcase.expectedEA.Pitch, test.ShouldAlmostEqual, endEa.Pitch, 1e-6)
+			})
+			t.Run("yaw", func(t *testing.T) {
+				test.That(t, testcase.expectedEA.Yaw, test.ShouldAlmostEqual, endEa.Yaw, 1e-6)
+			})
+			t.Run("quat", func(t *testing.T) {
+				quatCompare(t, testcase.q, q2)
+			})
+		},
+		)
+	}
 }
 
 func TestMatrixConversion(t *testing.T) {

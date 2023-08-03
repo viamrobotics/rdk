@@ -51,12 +51,12 @@ func QuatToEulerAngles(q quat.Number) *EulerAngles {
 
 	// yaw (z-axis rotation)
 	sinyCosp := 2.0 * (q.Real*q.Kmag + q.Imag*q.Jmag)
-	if math.Abs(sinyCosp) < 1e-8 {
+	if math.Abs(sinyCosp) < 1e-16 { // && runtime.GOARCH == "arm64"
 		sinyCosp = 0
 	}
 
 	cosyCosp := 1.0 - 2.0*(q.Jmag*q.Jmag+q.Kmag*q.Kmag)
-	if math.Abs(cosyCosp) < 1e-8 {
+	if math.Abs(cosyCosp) < 1e-16 { 
 		cosyCosp = 0
 	}
 
