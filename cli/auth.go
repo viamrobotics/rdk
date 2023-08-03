@@ -214,7 +214,10 @@ func (a *authFlow) makeDeviceCodeRequest(ctx context.Context, discovery *openIDD
 }
 
 func (a *authFlow) directUser(code *deviceCodeResponse) error {
-	fmt.Fprintf(a.console, "To authorize this device, visit:\n\t%s\n", code.VerificationURIComplete)
+	fmt.Fprintf(a.console, `You can log into Viam through the opened browser window or follow the URL below;
+simply confirm the code in the URL matches the one shown in your browser.
+  %s
+`, code.VerificationURIComplete)
 
 	if a.disableBrowserOpen {
 		return nil
