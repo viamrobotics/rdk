@@ -38,7 +38,6 @@ func (r testReader) Close(ctx context.Context) error {
 
 func TestObstacleDist(t *testing.T) {
 	noIntrinsicsCfg := ObsDepthConfig{
-		K:          10,
 		Hmin:       defaultHmin,
 		Hmax:       defaultHmax,
 		ThetaMax:   defaultThetamax,
@@ -46,7 +45,6 @@ func TestObstacleDist(t *testing.T) {
 	}
 	someIntrinsics := transform.PinholeCameraIntrinsics{Fx: 604.5, Fy: 609.6, Ppx: 324.6, Ppy: 238.9, Width: 640, Height: 480}
 	withIntrinsicsCfg := ObsDepthConfig{
-		K:          12,
 		Hmin:       defaultHmin,
 		Hmax:       defaultHmax,
 		ThetaMax:   defaultThetamax,
@@ -106,7 +104,7 @@ func TestObstacleDist(t *testing.T) {
 		obs, err := srv2.GetObjectPointClouds(ctx, "testCam", nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, obs, test.ShouldNotBeNil)
-		test.That(t, len(obs), test.ShouldEqual, withIntrinsicsCfg.K)
+		test.That(t, len(obs), test.ShouldEqual, defaultK)
 		for _, o := range obs {
 			test.That(t, o.PointCloud, test.ShouldNotBeNil)
 			test.That(t, o.Geometry, test.ShouldNotBeNil)
