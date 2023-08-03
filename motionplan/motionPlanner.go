@@ -85,10 +85,6 @@ func motionPlanInternal(ctx context.Context,
 	constraintSpec *pb.Constraints,
 	motionConfig map[string]interface{},
 ) ([]map[string][]frame.Input, error) {
-	if ctx.Err() != nil {
-		return nil, ctx.Err()
-	}
-
 	if goal == nil {
 		return nil, errors.New("no destination passed to Motion")
 	}
