@@ -60,10 +60,10 @@ type UnderlyingConfig struct {
 // We'll use one of these to turn whatever config we get during reconfiguration into an
 // UnderlyingConfig, and then reconfigure based on that. We return a pointer to an UnderlyingConfig
 // instead of the struct itself so that we can return nil if we encounter an error.
-type ConfigConverter = func (resource.Config) (*UnderlyingConfig, error)
+type ConfigConverter = func(resource.Config) (*UnderlyingConfig, error)
 
 func ConstPinDefs(gpioMappings map[string]GPIOBoardMapping) ConfigConverter {
-	return func (conf resource.Config) (*UnderlyingConfig, error) {
+	return func(conf resource.Config) (*UnderlyingConfig, error) {
 		newConf, err := resource.NativeConfig[*Config](conf)
 		if err != nil {
 			return nil, err
