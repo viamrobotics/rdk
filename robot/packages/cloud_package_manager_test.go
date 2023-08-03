@@ -196,6 +196,9 @@ func TestCloud(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "download did not match expected hash")
 
+		err = pm.Cleanup(ctx)
+		test.That(t, err, test.ShouldBeNil)
+
 		validatePackageDir(t, packageDir, []config.PackageConfig{})
 	})
 
@@ -213,6 +216,9 @@ func TestCloud(t *testing.T) {
 		err = pm.Sync(ctx, input)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "invalid status code 500")
+
+		err = pm.Cleanup(ctx)
+		test.That(t, err, test.ShouldBeNil)
 
 		validatePackageDir(t, packageDir, []config.PackageConfig{})
 	})
@@ -232,6 +238,9 @@ func TestCloud(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "unexpected EOF")
 
+		err = pm.Cleanup(ctx)
+		test.That(t, err, test.ShouldBeNil)
+
 		validatePackageDir(t, packageDir, []config.PackageConfig{})
 	})
 }
@@ -248,10 +257,6 @@ func validatePackageDir(t *testing.T, dir string, input []config.PackageConfig) 
 		bySanitizedName[p.SanitizedName()] = &p
 		byLogicalName[p.Name] = &p
 		pType := string(p.Type)
-		if pType == "" {
-			// TODO(pre-merge) I don't think this is required anymore
-			pType = "ml_model"
-		}
 		byType[pType] = append(byType[pType], p.SanitizedName())
 	}
 

@@ -1050,8 +1050,9 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	// Set mostRecentConfig if resources were not equal.
 	r.mostRecentCfg = *newConfig
 
-    // We need to pre-add all resources so that the module manager provides the appropriate modules
-    for _,mod := range diff.Added.Modules {
+	// We need to pre-add the new modules so that the modulemanager knows which modules provide which models
+	// TODO(pre-merge) This is a hack that might have weird side effects if a modules exe path changes but its name is contant @james
+	for _, mod := range diff.Added.Modules {
 		if err := mod.Validate(""); err != nil {
 			r.manager.logger.Errorw("module config validation error; skipping", "module", mod.Name, "error", err)
 			continue
@@ -1060,7 +1061,7 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 			r.manager.logger.Errorw("error adding module", "module", mod.Name, "error", err)
 			continue
 		}
-    }
+	}
 
 	// If something was added or modified, go through components and services in
 	// diff.Added and diff.Modified, call Validate on all those that are modularized,
