@@ -1,4 +1,4 @@
-// Package motion implements an motion service.
+// Package motion is the service that allows you to plan and execute movements.
 package motion
 
 import (
