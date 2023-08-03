@@ -74,4 +74,3 @@ export const getPosition = async (robotClient: Client, name: string) => {
 
   return response?.getPose();
 };
-

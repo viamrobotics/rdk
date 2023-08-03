@@ -1,7 +1,7 @@
 /* eslint-disable no-underscore-dangle */
 
 import * as THREE from 'three';
-import { NavigationClient, Waypoint } from '@viamrobotics/sdk';
+import { NavigationClient, type Waypoint } from '@viamrobotics/sdk';
 import { ViamObject3D } from '@viamrobotics/three';
 import type {
   BoxGeometry, CapsuleGeometry, Obstacle, SphereGeometry,
@@ -11,7 +11,7 @@ export * from './types/navigation';
 
 export const formatWaypoints = (list: Waypoint[]) => {
   return list.map((item) => {
-    const location = item.location;
+    const { location } = item;
     return {
       id: item.id,
       lng: location?.longitude ?? 0,
@@ -24,22 +24,22 @@ export const getObstacles = async (navClient: NavigationClient): Promise<Obstacl
   const list = await navClient.getObstacles();
 
   return list.map((obstacle, index) => {
-    const location = obstacle.location;
+    const { location } = obstacle;
 
     return {
       name: `Obstacle ${index + 1}`,
       location: {
-        lng: location.longitude ?? 0,
-        lat: location.latitude ?? 0,
+        lng: location?.longitude ?? 0,
+        lat: location?.latitude ?? 0,
       },
       geometries: obstacle.geometriesList.map((geometry) => {
-        const center = geometry.center;
+        const { center } = geometry;
         const pose = new ViamObject3D();
         const th = THREE.MathUtils.degToRad(center?.theta ?? 0);
-        pose.orientationVector.set(center.oX, center?.oY, center?.oZ, th);
+        pose.orientationVector.set(center?.oX, center?.oY, center?.oZ, th);
 
         if (geometry.box) {
-          const dimsMm = geometry.box.dimsMm;
+          const { dimsMm } = geometry.box;
 
           return {
             type: 'box',
@@ -58,7 +58,7 @@ export const getObstacles = async (navClient: NavigationClient): Promise<Obstacl
           } satisfies SphereGeometry;
 
         } else if (geometry.capsule) {
-          const capsule = geometry.capsule;
+          const { capsule } = geometry;
 
           return {
             type: 'capsule',

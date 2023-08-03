@@ -13,6 +13,7 @@ import Map from './components/map.svelte';
 import Nav from './components/nav/index.svelte';
 import LngLatInput from './components/input/lnglat.svelte';
 import { inview } from 'svelte-inview';
+import { rcLogConditionally } from '@/lib/log';
 
 export let name: string;
 export let write = false;
@@ -20,7 +21,7 @@ export let write = false;
 $: $writeStore = write;
 
 const { robotClient } = useRobotClient();
-const navClient = new NavigationClient($robotClient, name);
+const navClient = new NavigationClient($robotClient, name, { requestLogger: rcLogConditionally });
 
 const setNavigationMode = async (event: CustomEvent) => {
   const mode = event.detail.value as 'Manual' | 'Waypoint';

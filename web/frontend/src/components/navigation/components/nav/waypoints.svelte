@@ -6,13 +6,14 @@ import { notify } from '@viamrobotics/prime';
 import { type LngLat } from '@/api/navigation';
 import { useRobotClient } from '@/hooks/robot-client';
 import { waypoints } from '../../stores';
+import { rcLogConditionally } from '@/lib/log';
 
 export let name: string;
 
 const dispatch = createEventDispatcher<{ select: LngLat }>();
 
 const { robotClient } = useRobotClient();
-const navClient = new NavigationClient($robotClient, name);
+const navClient = new NavigationClient($robotClient, name, { requestLogger: rcLogConditionally });
 
 const handleRemoveWaypoint = async (id: string) => {
   try {

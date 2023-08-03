@@ -8,12 +8,13 @@ import { useRobotClient, useDisconnect } from '@/hooks/robot-client';
 import { waypoints, tab } from '../stores';
 import MapMarker from './marker.svelte';
 import { formatWaypoints } from '@/api/navigation';
+import { rcLogConditionally } from '@/lib/log';
 
 export let map: Map;
 export let name: string;
 
 const { robotClient } = useRobotClient();
-const navClient = new NavigationClient($robotClient, name);
+const navClient = new NavigationClient($robotClient, name, { requestLogger: rcLogConditionally });
 
 const handleAddMarker = async (event: MapMouseEvent) => {
   if (event.originalEvent.button > 0) {
@@ -21,7 +22,7 @@ const handleAddMarker = async (event: MapMouseEvent) => {
   }
 
   const { lat, lng } = event.lngLat;
-  const location = {latitude: lat, longitude: lng};
+  const location = { latitude: lat, longitude: lng };
   const temp = { lng, lat, id: crypto.randomUUID() };
 
   try {

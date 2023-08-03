@@ -6,18 +6,19 @@ import { robotPosition, centerMap } from '../stores';
 import { setAsyncInterval } from '@/lib/schedule';
 import { useRobotClient, useDisconnect } from '@/hooks/robot-client';
 import MapMarker from './marker.svelte';
+import { rcLogConditionally } from '@/lib/log';
 
 export let name: string;
 
 const { robotClient } = useRobotClient();
-const navClient = new NavigationClient($robotClient, name);
+const navClient = new NavigationClient($robotClient, name, { requestLogger: rcLogConditionally });
 
 let centered = false;
 
 const updateLocation = async () => {
   try {
     const response = await navClient.getLocation();
-    const position = {lat: response.latitude, lng: response.longitude};
+    const position = { lat: response.latitude, lng: response.longitude };
     if (!centered) {
       centerMap(position, true);
       centered = true;
