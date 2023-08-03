@@ -111,7 +111,5 @@ func TestObstacleDist(t *testing.T) {
 			test.That(t, o.PointCloud, test.ShouldNotBeNil)
 			test.That(t, o.Geometry, test.ShouldNotBeNil)
 		}
-
 	})
-
 }
