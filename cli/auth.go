@@ -214,8 +214,8 @@ func (a *authFlow) makeDeviceCodeRequest(ctx context.Context, discovery *openIDD
 }
 
 func (a *authFlow) directUser(code *deviceCodeResponse) error {
-	fmt.Fprintf(a.console, `You can log into Viam through the opened browser window or follow the URL below;
-simply confirm the code in the URL matches the one shown in your browser.
+	fmt.Fprintf(a.console, `You can log into Viam through the opened browser window or follow the URL below.
+Ensure the code in the URL matches the one shown in your browser.
   %s
 `, code.VerificationURIComplete)
 

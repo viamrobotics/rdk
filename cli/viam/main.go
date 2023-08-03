@@ -46,7 +46,7 @@ func main() {
 
 	app := &cli.App{
 		Name:            "viam",
-		Usage:           "interact with your Viam robots through the command line",
+		Usage:           "interact with your Viam robots",
 		HideHelpCommand: true,
 		Flags: []cli.Flag{
 			&cli.StringFlag{
@@ -106,7 +106,7 @@ func main() {
 				Subcommands: []*cli.Command{
 					{
 						Name:  "print-access-token",
-						Usage: "print an access token for your current credentials",
+						Usage: "print the access token associated with current credentials",
 						Action: func(c *cli.Context) error {
 							client, err := rdkcli.NewAppClient(c)
 							if err != nil {
@@ -759,8 +759,10 @@ func main() {
 								Name:  "shell",
 								Usage: "start a shell on a robot part",
 								// TODO: remove this warning
-								Description: `Functionality of the shell command is highly experimental. In particular, there may be text-input issues
-in the opened shell.`,
+								Description: `WARNING: Functionality of the shell command is highly experimental. In particular, there may be text-input issues
+in the opened shell.
+
+In order to use the shell command, the robot must have a valid shell type service.`,
 								UsageText: "viam robot part shell <organization> <location> <robot> <part>",
 								Flags: []cli.Flag{
 									&cli.StringFlag{
@@ -816,8 +818,8 @@ If your org has set a namespace in app.viam.com then your module name will be 'm
 you won't have to pass a namespace or org-id in future commands. Otherwise there will be no namespace
 and you will have to provide the org-id to future cli commands. You cannot make your module public until you claim an org-id.
 
-After creation, update your meta.json and use 'viam module update' to push changes to app.viam.com`,
-						UsageText: "viam robot module create <name> [other options]",
+After creation, use 'viam module update' to push your new module to app.viam.com.`,
+						UsageText: "viam module create <name> [other options]",
 						Flags: []cli.Flag{
 							&cli.StringFlag{
 								Name:     "name",
@@ -865,7 +867,7 @@ Example for linux/amd64:
 tar -czf packaged-module.tar.gz my-binary   # the meta.json entrypoint is relative to the root of the archive, so it should be "./my-binary"
 viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.tar.gz
                         `,
-						UsageText: "viam robot module upload <version> [other options] <package-module.tar.gz>",
+						UsageText: "viam module upload <version> <platform> [other options] <package-module.tar.gz>",
 						Flags: []cli.Flag{
 							&cli.StringFlag{
 								Name:        "module",
