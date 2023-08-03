@@ -119,7 +119,7 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 		return errors.New("inputs to ptg kinematic base must be length 3")
 	}
 
-	ptgk.logger.Debugf("GoToInputs going to %t", inputs)
+	ptgk.logger.Debugf("GoToInputs going to %v", inputs)
 
 	selectedPTG := ptgk.ptgs[int(math.Round(inputs[ptgIndex].Value))]
 	selectedTraj := selectedPTG.Trajectory(uint(math.Round(inputs[trajectoryIndexWithinPTG].Value)))
@@ -136,8 +136,12 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 		linVel := r3.Vector{0, trajNode.LinVelMMPS, 0}
 		angVel := r3.Vector{0, 0, rdkutils.RadToDeg(trajNode.AngVelRPS)}
 
-		ptgk.logger.Debugf("setting velocity to linear %t angular %t", linVel, angVel)
-		ptgk.logger.Debugf("running velocity step for %f ms", time.Duration(trajNode.Time-lastTime)*time.Millisecond)
+		ptgk.logger.Debugf(
+			"setting velocity to linear %v angular %v and running velocity step for %f ms",
+			linVel,
+			angVel,
+			time.Duration(trajNode.Time-lastTime)*time.Millisecond,
+		)
 
 		err := ptgk.Base.SetVelocity(
 			ctx,
