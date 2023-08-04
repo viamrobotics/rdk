@@ -910,12 +910,6 @@ viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.ta
 			{
 				Name:  "version",
 				Usage: "print version info for this program",
-				Flags: []cli.Flag{
-					&cli.BoolFlag{
-						Name:  "debug",
-						Usage: "dump full BuildInfo",
-					},
-				},
 				Action: func(c *cli.Context) error {
 					if info, ok := debug.ReadBuildInfo(); !ok {
 						return errors.Errorf("Error reading build info")
