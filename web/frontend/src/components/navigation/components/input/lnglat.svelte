@@ -9,11 +9,6 @@ export let readonly: true | undefined = undefined;
 export let lng: number | undefined;
 export let lat: number | undefined;
 
-const decimalFormat = new Intl.NumberFormat(undefined, { maximumFractionDigits: 6 });
-
-$: lngRounded = decimalFormat.format(lng ?? 0);
-$: latRounded = decimalFormat.format(lat ?? 0);
-
 const dispatch = createEventDispatcher<{ input: LngLat }>();
 
 const handleLng = (event: CustomEvent<{ value: string }>) => {
@@ -40,7 +35,7 @@ const handleLat = (event: CustomEvent<{ value: string }>) => {
     label={label ?? 'Latitude'}
     placeholder='0'
     incrementor={readonly ? undefined : 'slider'}
-    value={latRounded}
+    value={lat}
     step={$mapZoom ** 5}
     class='w-full'
     on:input={handleLat}
@@ -51,7 +46,7 @@ const handleLat = (event: CustomEvent<{ value: string }>) => {
     label={label ? '' : 'Longitude'}
     placeholder='0'
     incrementor={readonly ? undefined : 'slider'}
-    value={lngRounded}
+    value={lng}
     step={$mapZoom ** 5}
     class='w-full'
     on:input={handleLng}
