@@ -112,7 +112,7 @@ func (g *GPSData) updateData(s nmea.Sentence) error {
 	return errs
 }
 
-// nolint
+//nolint
 // updateGSV updates g.SatsInView with the information from the provided
 // GSV (GPS Satellites in View) data.
 func (g *GPSData) updateGSV(gsv nmea.GSV) error {
@@ -125,7 +125,6 @@ func (g *GPSData) updateGSV(gsv nmea.GSV) error {
 // updateRMC updates the GPSData object with the information from the provided
 // RMC (Recommended Minimum Navigation Information) data.
 func (g *GPSData) updateRMC(rmc nmea.RMC) error {
-
 	if rmc.Validity == "A" {
 		g.valid = true
 	} else if rmc.Validity == "V" {
@@ -193,7 +192,7 @@ func (g *GPSData) updateGGA(gga nmea.GGA) error {
 	return err
 }
 
-// nolint
+//nolint
 // updateGLL updates g.Location with the location information from the provided
 // GLL (Geographic Position - Latitude/Longitude) data.
 func (g *GPSData) updateGLL(gll nmea.GLL) error {
@@ -202,7 +201,7 @@ func (g *GPSData) updateGLL(gll nmea.GLL) error {
 	return nil
 }
 
-// nolint
+//nolint
 // updateVTG updates g.Speed with the ground speed information from the provided
 // VTG (Velocity Made Good) data.
 func (g *GPSData) updateVTG(vtg nmea.VTG) error {
@@ -211,7 +210,7 @@ func (g *GPSData) updateVTG(vtg nmea.VTG) error {
 	return nil
 }
 
-// nolint
+//nolint
 // updateHDT updaates g.CompassHeading with the ground speed information from the provided
 // HDT(Heading from True North) data.
 func (g *GPSData) updateHDT(hdt nmea.HDT) error {
@@ -241,7 +240,8 @@ func (g *GPSData) updateGNS(gns nmea.GNS) error {
 	return nil
 }
 
-func calculateTrueHeading(heading float64, magneticDeclination float64, isEast bool) float64 {
+// calculateTrueHeading is used to get true compass heading from RCM messages.
+func calculateTrueHeading(heading, magneticDeclination float64, isEast bool) float64 {
 	var adjustment float64
 	if isEast {
 		adjustment = magneticDeclination
@@ -259,12 +259,13 @@ func calculateTrueHeading(heading float64, magneticDeclination float64, isEast b
 	return trueHeading
 }
 
-func (g *GPSData) ifEast(gpsMessage string) {
-	data := strings.Split(gpsMessage, ",")
+// ifEast sets g.isEast bool value by parsing the RCM message for compass heading.
+// go-nmea library does not provide this feature so we have parse the message string.
+func (g *GPSData) ifEast(message string) {
+	data := strings.Split(message, ",")
 	if len(data) < 10 {
 		return
 	}
 	// Check if the magnetic declination is East or West
 	g.isEast = strings.Contains(data[10], "E")
-
 }

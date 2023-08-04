@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -232,7 +233,10 @@ func (g *PmtkI2CNMEAMovementSensor) Accuracy(ctx context.Context, extra map[stri
 func (g *PmtkI2CNMEAMovementSensor) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return r3.Vector{X: 0, Y: g.data.Speed, Z: 0}, g.err.Get()
+	headingInRadians := g.data.CompassHeading * (math.Pi / 180)
+	xVelocity := g.data.Speed * math.Sin(headingInRadians)
+	yVelocity := g.data.Speed * math.Cos(headingInRadians)
+	return r3.Vector{X: xVelocity, Y: yVelocity, Z: 0}, g.err.Get()
 }
 
 // LinearAcceleration returns the current linear acceleration of the MovementSensor.
@@ -256,7 +260,7 @@ func (g *PmtkI2CNMEAMovementSensor) AngularVelocity(
 func (g *PmtkI2CNMEAMovementSensor) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return 0, g.err.Get()
+	return g.data.CompassHeading, g.err.Get()
 }
 
 // Orientation not supporter.
@@ -271,6 +275,7 @@ func (g *PmtkI2CNMEAMovementSensor) Properties(ctx context.Context, extra map[st
 	return &movementsensor.Properties{
 		LinearVelocitySupported: true,
 		PositionSupported:       true,
+		CompassHeadingSupported: true,
 	}, nil
 }
 

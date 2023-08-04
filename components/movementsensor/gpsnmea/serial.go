@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"math"
 	"sync"
 
 	"github.com/adrianmo/go-nmea"
@@ -136,7 +137,7 @@ func (g *SerialNMEAMovementSensor) GetCorrectionInfo() (string, uint) {
 	return g.correctionPath, g.correctionBaudRate
 }
 
-// nolint
+//nolint
 // Position position, altitide.
 func (g *SerialNMEAMovementSensor) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
 	lastPosition := g.lastposition.GetLastPosition()
@@ -179,7 +180,10 @@ func (g *SerialNMEAMovementSensor) Accuracy(ctx context.Context, extra map[strin
 func (g *SerialNMEAMovementSensor) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return r3.Vector{X: 0, Y: g.data.Speed, Z: 0}, nil
+	headingInRadians := g.data.CompassHeading * (math.Pi / 180)
+	xVelocity := g.data.Speed * math.Sin(headingInRadians)
+	yVelocity := g.data.Speed * math.Cos(headingInRadians)
+	return r3.Vector{X: xVelocity, Y: yVelocity, Z: 0}, g.err.Get()
 }
 
 // LinearAcceleration linear acceleration.
@@ -237,6 +241,7 @@ func (g *SerialNMEAMovementSensor) Properties(ctx context.Context, extra map[str
 	return &movementsensor.Properties{
 		LinearVelocitySupported: true,
 		PositionSupported:       true,
+		CompassHeadingSupported: true,
 	}, nil
 }
 
