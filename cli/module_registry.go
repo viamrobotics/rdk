@@ -102,7 +102,7 @@ func CreateModuleCommand(c *cli.Context) error {
 	if err := writeManifest(defaultManifestFilename, emptyManifest); err != nil {
 		return err
 	}
-	fmt.Fprintf(c.App.Writer, "Configuration for the module has been written to meta.json\n")
+	fmt.Fprintf(c.App.Writer, "configuration for the module has been written to meta.json\n")
 	return nil
 }
 
