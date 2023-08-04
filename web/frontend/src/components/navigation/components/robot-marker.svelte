@@ -23,6 +23,10 @@ const updateLocation = async () => {
       centered = true;
     }
 
+    if ($robotPosition?.lat === position.lat && $robotPosition.lng === position.lng) {
+      return;
+    }
+
     $robotPosition = position;
   } catch (error) {
     notify.danger((error as ServiceError).message);
