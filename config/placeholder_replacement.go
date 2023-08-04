@@ -56,7 +56,7 @@ func (c *Config) ReplacePlaceholders() error {
 		allErrs = multierr.Append(allErrs, err)
 	}
 
-	return allErrs
+	return multierr.Append(visitor.AllErrors, allErrs)
 }
 
 func walkTypedAttributes[T any](visitor *PlaceholderReplacementVisitor, attributes T) (T, error) {
@@ -79,23 +79,31 @@ func walkTypedAttributes[T any](visitor *PlaceholderReplacementVisitor, attribut
 type PlaceholderReplacementVisitor struct {
 	// Map of packageName -> packageConfig
 	packages map[string]PackageConfig
+	// Accumulation of all that occurred during traversal
+	AllErrors error
 }
 
 // NewPlaceholderReplacementVisitor creates a new PlaceholderReplacementVisitor.
 func NewPlaceholderReplacementVisitor(cfg *Config) *PlaceholderReplacementVisitor {
-	// Create the list of packages that will be used for replacement
+	// Create the map of packages that will be used for replacement
 	packages := map[string]PackageConfig{}
-	// based on the given packages, generate the real filepath
 	for _, config := range cfg.Packages {
 		packages[config.Name] = config
 	}
 
 	return &PlaceholderReplacementVisitor{
-		packages,
+		packages:  packages,
+		AllErrors: nil,
 	}
 }
 
 // Visit implements config.Visitor.
+// Importantly, this function will never error. Instead, all errors are accumulated on the PlaceholderReplacementVisitor.AllErrors object.
+//
+// Returning an error causes the walker to prematurely stop traversing the tree. This is undesirable because it means a single invalid
+// placeholder causes otherwise valid placeholders will appear invalid & unreplaced to the user (there is also no guaranteed order an
+// attribute map is traversed, so if there is a single invalid placeholder, the set of other placeholders that fail to be resolved would
+// be non-deterministic).
 func (v *PlaceholderReplacementVisitor) Visit(data interface{}) (interface{}, error) {
 	t := reflect.TypeOf(data)
 
@@ -110,9 +118,7 @@ func (v *PlaceholderReplacementVisitor) Visit(data interface{}) (interface{}, er
 	}
 
 	withReplacedRefs, err := v.replacePlaceholders(s)
-	if err != nil {
-		return data, err
-	}
+	v.AllErrors = multierr.Append(v.AllErrors, err)
 
 	// If the input was a pointer, return a pointer.
 	if t.Kind() == reflect.Ptr {
@@ -121,33 +127,35 @@ func (v *PlaceholderReplacementVisitor) Visit(data interface{}) (interface{}, er
 	return withReplacedRefs, nil
 }
 
-// replacePlaceholders follows a two step process:
+// replacePlaceholders tries to replace all placeholders in a given string using a two step process:
 // First, match anything that could be a placeholder (ex: ${hello})
-// Second, attempt to match any of those placeholder keys ("hello") with any rules we have for transformation
+// Second, attempt to match any of those placeholder keys (ex: "hello") with any rules we have for transformation
 //
 // This is done so that misspellings like ${package.module.name} wont be silently ignored and
-// so that it is easy to add additional placeholder types (like environment variables).
+// so that it is easy to add additional placeholder types in the future (like environment variables).
 func (v *PlaceholderReplacementVisitor) replacePlaceholders(s string) (string, error) {
 	var allErrors error
 	// First, match all possible placeholders (ex: ${hello})
-	patchedStr := placeholderRegexp.ReplaceAllFunc([]byte(s), func(b []byte) []byte {
-		matches := placeholderRegexp.FindSubmatch(b)
+	patchedStr := placeholderRegexp.ReplaceAllFunc([]byte(s), func(placeholder []byte) []byte {
+		matches := placeholderRegexp.FindSubmatch(placeholder)
 		if matches == nil {
-			allErrors = multierr.Append(allErrors, errors.Errorf("failed to find substring matches for placeholder %q", string(b)))
-			return b
+			allErrors = multierr.Append(allErrors, errors.Errorf("failed to find substring matches for placeholder %q", string(placeholder)))
+			return placeholder
 		}
-		// placeholder key is the inside of the placeholder ex "hello" for ${hello}
 		placeholderKey := matches[placeholderRegexp.SubexpIndex("placeholder_key")]
 
 		// Now, match against every way we know of doing placeholder replacement
 		if packagePlaceholderRegexp.Match(placeholderKey) {
 			replaced, err := v.replacePackagePlaceholder(string(placeholderKey))
-			allErrors = multierr.Append(allErrors, err)
+			if err != nil {
+				allErrors = multierr.Append(allErrors, err)
+				return placeholder
+			}
 			return []byte(replaced)
 		}
 
-		allErrors = multierr.Append(allErrors, errors.Errorf("invalid placeholder %q", string(b)))
-		return b
+		allErrors = multierr.Append(allErrors, errors.Errorf("invalid placeholder %q", string(placeholder)))
+		return placeholder
 	})
 
 	return string(patchedStr), allErrors

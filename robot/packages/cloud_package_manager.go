@@ -155,10 +155,14 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 			platform = &platformVal
 		}
 
+		packageType, err := PackageTypeToProto(p.Type)
+		if err != nil {
+			m.logger.Warnw("failed to get package type", "package", p.Name, "error", err)
+		}
 		resp, err := m.client.GetPackage(ctx, &pb.GetPackageRequest{
 			Id:         p.Package,
 			Version:    p.Version,
-			Type:       PackageTypeToProto(p.Type),
+			Type:       packageType,
 			Platform:   platform,
 			IncludeUrl: &includeURL,
 		})

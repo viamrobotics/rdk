@@ -936,12 +936,6 @@ func (p PackageConfig) Equals(other PackageConfig) bool {
 	return reflect.DeepEqual(p, other)
 }
 
-// LocalDataParentDirectory returns the folder that will contain the all packages of this type.
-// Ex: /home/user/.viam/packages/.data/ml_model.
-func (p *PackageConfig) LocalDataParentDirectory(packagesDir string) string {
-	return filepath.Join(packagesDir, ".data", string(p.Type))
-}
-
 // LocalDataDirectory returns the folder where the package should be extracted.
 // Ex: /home/user/.viam/packages/.data/ml_model/orgid_ballClassifier_0.1.2.
 func (p *PackageConfig) LocalDataDirectory(packagesDir string) string {
@@ -951,6 +945,12 @@ func (p *PackageConfig) LocalDataDirectory(packagesDir string) string {
 // LocalDownloadPath returns the file where the archive should be downloaded before extraction.
 func (p *PackageConfig) LocalDownloadPath(packagesDir string) string {
 	return filepath.Join(p.LocalDataParentDirectory(packagesDir), fmt.Sprintf("%s.download", p.SanitizedName()))
+}
+
+// LocalDataParentDirectory returns the folder that will contain the all packages of this type.
+// Ex: /home/user/.viam/packages/.data/ml_model.
+func (p *PackageConfig) LocalDataParentDirectory(packagesDir string) string {
+	return filepath.Join(packagesDir, ".data", string(p.Type))
 }
 
 // SanitizedName returns the package name for the symlink/filepath of the package on the system.
