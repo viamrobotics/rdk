@@ -109,7 +109,7 @@ func TestNavSetup(t *testing.T) {
 }
 
 func TestStartWaypoint(t *testing.T) {
-	t.Skip()
+	t.Skip() // RSDK-4279
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 
