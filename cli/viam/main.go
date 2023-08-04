@@ -918,7 +918,7 @@ viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.ta
 				},
 				Action: func(c *cli.Context) error {
 					if info, ok := debug.ReadBuildInfo(); !ok {
-						log.Fatal("Error reading build info")
+						return errors.Errorf("Error reading build info")
 					} else {
 						if c.Bool("debug") {
 							fmt.Fprintf(c.App.Writer, "%s\n", info.String())
