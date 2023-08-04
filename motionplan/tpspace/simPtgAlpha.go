@@ -2,6 +2,10 @@ package tpspace
 
 import (
 	"math"
+	"errors"
+	
+	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // Pi / 4 (45 degrees), used as a default alpha constant
@@ -37,34 +41,6 @@ func (ptg *simPTGAlpha) PTGVelocities(alpha, t, x, y, phi float64) (float64, flo
 	return v, w, nil
 }
 
-//~ func (ptg *simPTGAlpha) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {
-	//~ alpha := inputs[0].Value
-	//~ dist := inputs[1].Value
-	
-	//~ reverseDistance := math.Abs(alpha) * 0.5
-	//~ fwdArcDistance := (reverseDistance + math.Pi/2) * ptg.r
-	//~ flip := math.Copysign(1., alpha) // left or right
-	//~ direction := math.Copysign(1., dist) // forwards or backwards
-	
-	//~ revPose, err := ptg.circle.Transform([]referenceframe.Input{{flip * math.Pi}, {-1. * direction * math.Min(dist, reverseDistance)}})
-	//~ if err != nil {
-		//~ return nil, err
-	//~ }
-	//~ if dist < reverseDistance {
-		//~ return revPose, nil
-	//~ }
-	//~ fwdPose, err := ptg.circle.Transform([]referenceframe.Input{{flip * math.Pi}, {direction * (math.Min(dist, fwdArcDistance) - reverseDistance)}})
-	//~ if err != nil {
-		//~ return nil, err
-	//~ }
-	//~ arcPose := spatialmath.Compose(revPose, fwdPose)
-	//~ if dist < reverseDistance + fwdArcDistance {
-		//~ return arcPose, nil
-	//~ }
-	
-	//~ finalPose, err := ptg.circle.Transform([]referenceframe.Input{{0}, {direction * (dist - (fwdArcDistance + reverseDistance))}})
-	//~ if err != nil {
-		//~ return nil, err
-	//~ }
-	//~ return spatialmath.Compose(arcPose, finalPose), nil
-//~ }
+func (ptg *simPTGAlpha) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {
+	return nil, errors.New("alpha PTG does not support Transform yet")
+}

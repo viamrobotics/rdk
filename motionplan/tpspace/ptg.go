@@ -16,19 +16,14 @@ const floatEpsilon = 0.0001 // If floats are closer than this consider them equa
 // PTG coordinates are specified in polar coordinates (alpha, d)
 // One of these is needed for each sort of motion that can be done.
 type PTG interface {
-	// CToTP Converts an (x, y) cartesian coord to a (k, d) TP-space coord
-	// d is the distance along a trajectory, k is a discretized uint index corresponding to an alpha value in [-pi, pi]
-	// See `index2alpha` for more
-	// Also returns a bool representing whether the xy is a within-traj match vs an extrapolation
-	CToTP(x, y float64) []*TrajNode
+	// CToTP Converts a pose to a (k, d) TP-space trajectory, returning the set of trajectory nodes 
+	CToTP(spatialmath.Pose) []*TrajNode
 
 	// RefDistance returns the maximum distance that a single precomputed trajectory may travel
 	RefDistance() float64
 
 	// Returns the set of trajectory nodes for alpha index K
 	Trajectory(uint) []*TrajNode
-	
-	Transform([]referenceframe.Input) (spatialmath.Pose, error)
 }
 
 // PTGProvider is something able to provide a set of PTGs associsated with it. For example, a frame which precomputes
@@ -42,6 +37,7 @@ type PTGProvider interface {
 type PrecomputePTG interface {
 	// PTGVelocities returns the linear and angular velocity at a specific point along a trajectory
 	PTGVelocities(alpha, t, x, y, phi float64) (float64, float64, error)
+	Transform([]referenceframe.Input) (spatialmath.Pose, error)
 }
 
 // TrajNode is a snapshot of a single point in time along a PTG trajectory, including the distance along that trajectory,

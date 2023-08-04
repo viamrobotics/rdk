@@ -1,24 +1,17 @@
 package tpspace
 
+
 import (
 	"math"
 
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/referenceframe"
 )
 
-const (
-	defaultMaxTime       = 15.
-	defaultDiffT         = 0.005
-	defaultAlphaCnt uint = 121
-
-	defaultSearchRadius = 10.
-
-	defaultMaxHeadingChange = 1.95 * math.Pi
-)
 
 // ptgGridSim will take a PrecomputePTG, and simulate out a number of trajectories through some requested time/distance for speed of lookup
 // later. It will store the trajectories in a grid data structure allowing relatively fast lookups.
-type ptgGridSim struct {
+type ptgIK struct {
 	refDist  float64
 	alphaCnt uint
 
