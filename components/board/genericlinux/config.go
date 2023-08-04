@@ -42,14 +42,14 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	return nil, nil
 }
 
-// UnderlyingConfig is a struct containing absolutely everything a genericlinux board might need
+// LinuxBoardConfig is a struct containing absolutely everything a genericlinux board might need
 // configured. It is a union of the configs for the customlinux boards and the genericlinux boards
 // with static pin definitions, because those components all use the same underlying code but have
 // different config types (e.g., only genericlinux has named I2C and SPI buses, while only
-// customlinux can change its pin definitions during reconfiguration). The UnderlyingConfig struct
+// customlinux can change its pin definitions during reconfiguration). The LinuxBoardConfig struct
 // is a unification of the two of them. Whenever we go through reconfiguration, we convert the
 // provided config into this type, and then reconfigure based on this.
-type UnderlyingConfig struct {
+type LinuxBoardConfig struct {
 	I2Cs              []board.I2CConfig
 	SPIs              []board.SPIConfig
 	Analogs           []board.AnalogConfig
@@ -58,23 +58,23 @@ type UnderlyingConfig struct {
 }
 
 // ConfigConverter is a type synonym for a function to turn whatever config we get during
-// reconfiguration into an UnderlyingConfig, so that we can reconfigure based on that. We return a
-// pointer to an UnderlyingConfig instead of the struct itself so that we can return nil if we
+// reconfiguration into a LinuxBoardConfig, so that we can reconfigure based on that. We return a
+// pointer to a LinuxBoardConfig instead of the struct itself so that we can return nil if we
 // encounter an error.
-type ConfigConverter = func(resource.Config) (*UnderlyingConfig, error)
+type ConfigConverter = func(resource.Config) (*LinuxBoardConfig, error)
 
 // ConstPinDefs takes in a map from pin names to GPIOBoardMapping structs, and returns a
 // ConfigConverter that will use these pin definitions in the underlying config. It is intended to
 // be used for board components whose pin definitions are built into the RDK, such as the
 // BeagleBone or Jetson boards.
 func ConstPinDefs(gpioMappings map[string]GPIOBoardMapping) ConfigConverter {
-	return func(conf resource.Config) (*UnderlyingConfig, error) {
+	return func(conf resource.Config) (*LinuxBoardConfig, error) {
 		newConf, err := resource.NativeConfig[*Config](conf)
 		if err != nil {
 			return nil, err
 		}
 
-		return &UnderlyingConfig{
+		return &LinuxBoardConfig{
 			I2Cs:              newConf.I2Cs,
 			SPIs:              newConf.SPIs,
 			Analogs:           newConf.Analogs,

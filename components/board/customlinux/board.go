@@ -45,7 +45,7 @@ func createNewBoard(
 
 // This is a ConfigConverter which loads pin definitions from a file, assuming that the config
 // passed in is a customlinux.Config underneath.
-func pinDefsFromFile(conf resource.Config) (*genericlinux.UnderlyingConfig, error) {
+func pinDefsFromFile(conf resource.Config) (*genericlinux.LinuxBoardConfig, error) {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return nil, err
@@ -61,7 +61,7 @@ func pinDefsFromFile(conf resource.Config) (*genericlinux.UnderlyingConfig, erro
 		return nil, err
 	}
 
-	return &genericlinux.UnderlyingConfig{
+	return &genericlinux.LinuxBoardConfig{
 		I2Cs:              newConf.I2Cs,
 		SPIs:              newConf.SPIs,
 		Analogs:           newConf.Analogs,

@@ -96,7 +96,7 @@ func (b *SysfsBoard) Reconfigure(
 
 // ReconfigureParsedConfig is a public helper that should only be used
 // by the customlinux package.
-func (b *SysfsBoard) ReconfigureParsedConfig(ctx context.Context, conf UnderlyingConfig) error {
+func (b *SysfsBoard) ReconfigureParsedConfig(ctx context.Context, conf LinuxBoardConfig) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -118,7 +118,7 @@ func (b *SysfsBoard) ReconfigureParsedConfig(ctx context.Context, conf Underlyin
 	return nil
 }
 
-func (b *SysfsBoard) reconfigureGpios(newConf UnderlyingConfig) error {
+func (b *SysfsBoard) reconfigureGpios(newConf LinuxBoardConfig) error {
 	// TODO(RSDK-4092): implement this correctly.
 	if len(b.gpioMappings) == 0 {
 		b.gpioMappings = newConf.GpioMappings
@@ -128,7 +128,7 @@ func (b *SysfsBoard) reconfigureGpios(newConf UnderlyingConfig) error {
 
 // This never returns errors, but we give it the same function signature as the other
 // reconfiguration helpers for consistency.
-func (b *SysfsBoard) reconfigureSpis(newConf UnderlyingConfig) error {
+func (b *SysfsBoard) reconfigureSpis(newConf LinuxBoardConfig) error {
 	stillExists := map[string]struct{}{}
 	for _, c := range newConf.SPIs {
 		stillExists[c.Name] = struct{}{}
@@ -151,7 +151,7 @@ func (b *SysfsBoard) reconfigureSpis(newConf UnderlyingConfig) error {
 	return nil
 }
 
-func (b *SysfsBoard) reconfigureI2cs(newConf UnderlyingConfig) error {
+func (b *SysfsBoard) reconfigureI2cs(newConf LinuxBoardConfig) error {
 	stillExists := map[string]struct{}{}
 	for _, c := range newConf.I2Cs {
 		stillExists[c.Name] = struct{}{}
@@ -186,7 +186,7 @@ func (b *SysfsBoard) reconfigureI2cs(newConf UnderlyingConfig) error {
 	return nil
 }
 
-func (b *SysfsBoard) reconfigureAnalogs(ctx context.Context, newConf UnderlyingConfig) error {
+func (b *SysfsBoard) reconfigureAnalogs(ctx context.Context, newConf LinuxBoardConfig) error {
 	stillExists := map[string]struct{}{}
 	for _, c := range newConf.Analogs {
 		channel, err := strconv.Atoi(c.Pin)
@@ -251,7 +251,7 @@ func findNewDigIntConfig(
 	return nil
 }
 
-func (b *SysfsBoard) reconfigureInterrupts(newConf UnderlyingConfig) error {
+func (b *SysfsBoard) reconfigureInterrupts(newConf LinuxBoardConfig) error {
 	// Any pin that already exists in the right configuration should just be copied over; closing
 	// and re-opening it risks losing its state.
 	newInterrupts := make(map[string]*digitalInterrupt, len(newConf.DigitalInterrupts))
