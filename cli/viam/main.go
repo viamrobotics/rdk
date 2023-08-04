@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"runtime/debug"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -15,6 +16,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	rdkcli "go.viam.com/rdk/cli"
+	"go.viam.com/rdk/config"
 )
 
 const (
@@ -906,6 +908,44 @@ viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.ta
 						},
 						Action: rdkcli.UploadModuleCommand,
 					},
+				},
+			},
+			{
+				Name:  "version",
+				Usage: "print version info for this program",
+				Action: func(c *cli.Context) error {
+					info, ok := debug.ReadBuildInfo()
+					if !ok {
+						return errors.New("Error reading build info")
+					}
+					if c.Bool("debug") {
+						fmt.Fprintf(c.App.Writer, "%s\n", info.String())
+					}
+					settings := make(map[string]string, len(info.Settings))
+					for _, setting := range info.Settings {
+						settings[setting.Key] = setting.Value
+					}
+					version := "?"
+					if rev, ok := settings["vcs.revision"]; ok {
+						version = rev[:8]
+						if settings["vcs.modified"] == "true" {
+							version += "+"
+						}
+					}
+					deps := make(map[string]*debug.Module, len(info.Deps))
+					for _, dep := range info.Deps {
+						deps[dep.Path] = dep
+					}
+					apiVersion := "?"
+					if dep, ok := deps["go.viam.com/api"]; ok {
+						apiVersion = dep.Version
+					}
+					appVersion := config.Version
+					if appVersion == "" {
+						appVersion = "(dev)"
+					}
+					fmt.Fprintf(c.App.Writer, "version %s git=%s api=%s\n", appVersion, version, apiVersion)
+					return nil
 				},
 			},
 		},
