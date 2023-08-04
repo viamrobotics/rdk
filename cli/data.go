@@ -37,7 +37,7 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter, parallelDownlo
 	}
 
 	if err := makeDestinationDirs(dst); err != nil {
-		return errors.Wrapf(err, "error creating destination directories")
+		return errors.Wrapf(err, "could not create destination directories")
 	}
 
 	if parallelDownloads == 0 {
@@ -222,7 +222,7 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 	//nolint:gosec
 	dataFile, err := os.Create(filepath.Join(dst, dataDir, fileName+datum.GetMetadata().GetFileExt()))
 	if err != nil {
-		return errors.Wrapf(err, fmt.Sprintf("error creating file for datum %s", datum.GetMetadata().GetId()))
+		return errors.Wrapf(err, fmt.Sprintf("could not create file for datum %s", datum.GetMetadata().GetId()))
 	}
 	//nolint:gosec
 	if _, err := io.Copy(dataFile, r); err != nil {
@@ -241,20 +241,20 @@ func (c *AppClient) TabularData(dst string, filter *datapb.Filter) error {
 	}
 
 	if err := makeDestinationDirs(dst); err != nil {
-		return errors.Wrapf(err, "error creating destination directories")
+		return errors.Wrapf(err, "could not create destination directories")
 	}
 
 	var err error
 	var resp *datapb.TabularDataByFilterResponse
-	// TODO: [DATA-640] Support export in additional formats.
+	// TODO(DATA-640): Support export in additional formats.
 	//nolint:gosec
 	dataFile, err := os.Create(filepath.Join(dst, dataDir, "data.ndjson"))
 	if err != nil {
-		return errors.Wrapf(err, "error creating data file")
+		return errors.Wrapf(err, "could not create data file")
 	}
 	w := bufio.NewWriter(dataFile)
 
-	fmt.Fprintf(c.c.App.Writer, "Downloading..")
+	fmt.Fprintf(c.c.App.Writer, "downloading..")
 	var last string
 	mdIndexes := make(map[string]int)
 	mdIndex := 0
@@ -295,18 +295,18 @@ func (c *AppClient) TabularData(dst string, filter *datapb.Filter) error {
 
 			mdJSONBytes, err := protojson.Marshal(md)
 			if err != nil {
-				return errors.Wrap(err, "error marshaling metadata")
+				return errors.Wrap(err, "could not marshal metadata")
 			}
 			//nolint:gosec
 			mdFile, err := os.Create(filepath.Join(dst, metadataDir, strconv.Itoa(mdIndex)+".json"))
 			if err != nil {
-				return errors.Wrapf(err, fmt.Sprintf("error creating metadata file for metadata index %d", mdIndex))
+				return errors.Wrapf(err, fmt.Sprintf("could not create metadata file for metadata index %d", mdIndex))
 			}
 			if _, err := mdFile.Write(mdJSONBytes); err != nil {
-				return errors.Wrapf(err, "error writing metadata file %s", mdFile.Name())
+				return errors.Wrapf(err, "could not write to metadata file %s", mdFile.Name())
 			}
 			if err := mdFile.Close(); err != nil {
-				return errors.Wrapf(err, "error closing metadata file %s", mdFile.Name())
+				return errors.Wrapf(err, "could not close metadata file %s", mdFile.Name())
 			}
 			mdIndex++
 		}
@@ -324,18 +324,18 @@ func (c *AppClient) TabularData(dst string, filter *datapb.Filter) error {
 			m["MetadataIndex"] = localToGlobalMDIndex[int(datum.GetMetadataIndex())]
 			j, err := json.Marshal(m)
 			if err != nil {
-				return errors.Wrap(err, "error marshaling json response")
+				return errors.Wrap(err, "could not marshal JSON response")
 			}
 			_, err = w.Write(append(j, []byte("\n")...))
 			if err != nil {
-				return errors.Wrapf(err, "error writing reading to file %s", dataFile.Name())
+				return errors.Wrapf(err, "could not write to file %s", dataFile.Name())
 			}
 		}
 	}
 
 	fmt.Fprintf(c.c.App.Writer, "\n")
 	if err := w.Flush(); err != nil {
-		return errors.Wrapf(err, "error flushing writer for %s", dataFile.Name())
+		return errors.Wrapf(err, "could not flush writer for %s", dataFile.Name())
 	}
 
 	return nil
