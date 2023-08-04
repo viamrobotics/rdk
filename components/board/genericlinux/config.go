@@ -57,11 +57,16 @@ type UnderlyingConfig struct {
 	GpioMappings      map[string]GPIOBoardMapping
 }
 
-// We'll use one of these to turn whatever config we get during reconfiguration into an
-// UnderlyingConfig, and then reconfigure based on that. We return a pointer to an UnderlyingConfig
-// instead of the struct itself so that we can return nil if we encounter an error.
+// ConfigConverter is a type synonym for a function to turn whatever config we get during
+// reconfiguration into an UnderlyingConfig, so that we can reconfigure based on that. We return a
+// pointer to an UnderlyingConfig instead of the struct itself so that we can return nil if we
+// encounter an error.
 type ConfigConverter = func(resource.Config) (*UnderlyingConfig, error)
 
+// ConstPinDefs takes in a map from pin names to GPIOBoardMapping structs, and returns a
+// ConfigConverter that will use these pin definitions in the underlying config. It is intended to
+// be used for board components whose pin definitions are built into the RDK, such as the
+// BeagleBone or Jetson boards.
 func ConstPinDefs(gpioMappings map[string]GPIOBoardMapping) ConfigConverter {
 	return func(conf resource.Config) (*UnderlyingConfig, error) {
 		newConf, err := resource.NativeConfig[*Config](conf)

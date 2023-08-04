@@ -40,6 +40,7 @@ func RegisterBoard(modelName string, gpioMappings map[string]GPIOBoardMapping) {
 		})
 }
 
+// NewBoard is the constructor for a SysfsBoard.
 func NewBoard(
 	ctx context.Context,
 	conf resource.Config,
