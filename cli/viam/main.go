@@ -917,7 +917,7 @@ viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.ta
 	}
 
 	if err := app.Run(os.Args); err != nil {
-		rdkcli.Errorf(app.Writer, err.Error())
+		rdkcli.Errorf(app.ErrWriter, err.Error())
 	}
 }
 
