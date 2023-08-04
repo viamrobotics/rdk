@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/test"
 
@@ -398,5 +399,39 @@ func TestStartWaypoint(t *testing.T) {
 			test.That(t, <-statusChannel, test.ShouldEqual, arrivedAtWaypointMsg)
 			currentInputsShouldEqual(ctx, t, kinematicBase, pt2)
 		})
+	})
+}
+
+func TestValidateGeometry(t *testing.T) {
+	cfg := Config{
+		BaseName:           "base",
+		MovementSensorName: "localizer",
+	}
+
+	createBox := func(translation r3.Vector) Config {
+		boxPose := spatialmath.NewPoseFromPoint(translation)
+		geometries, err := spatialmath.NewBox(boxPose, r3.Vector{10, 10, 10}, "")
+		test.That(t, err, test.ShouldBeNil)
+
+		geoObstacle := spatialmath.NewGeoObstacle(geo.NewPoint(0, 0), []spatialmath.Geometry{geometries})
+		geoObstacleCfg, err := spatialmath.NewGeoObstacleConfig(geoObstacle)
+		test.That(t, err, test.ShouldBeNil)
+
+		cfg.Obstacles = []*spatialmath.GeoObstacleConfig{geoObstacleCfg}
+
+		return cfg
+	}
+
+	t.Run("fail case", func(t *testing.T) {
+		cfg = createBox(r3.Vector{10, 10, 10})
+		_, err := cfg.Validate("")
+		expectedErr := "geometries specified through the navigation are not allowed to have a translation"
+		test.That(t, err.Error(), test.ShouldEqual, expectedErr)
+	})
+
+	t.Run("success case", func(t *testing.T) {
+		cfg = createBox(r3.Vector{})
+		_, err := cfg.Validate("")
+		test.That(t, err, test.ShouldBeNil)
 	})
 }
