@@ -40,7 +40,6 @@ type ObsDepthConfig struct {
 	ThetaMax   float64 `json:"theta_max_deg"`
 	ReturnPCDs bool    `json:"return_pcds"`
 	CameraName string  `json:"camera_name"`
-	// Intrinsics *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters"`
 }
 
 // obsDepth is the underlying struct actually used by the service.
@@ -118,6 +117,7 @@ func registerObstaclesDepth(
 	}
 
 	camProps := svision.GetAllCameraPropertiesFromRobot(ctx, r)
+
 	// If you have no intrinsics
 	props, ok := camProps[conf.CameraName]
 	if !ok || props.IntrinsicParams == nil {
