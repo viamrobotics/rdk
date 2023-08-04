@@ -54,60 +54,60 @@ const setMovementType = (event: CustomEvent) => {
 };
 
 const setPosition = (event: CustomEvent) => {
-  const target = event.currentTarget as HTMLInputElement
+  const target = event.currentTarget as HTMLInputElement;
 
   if (event.type === 'blur' && target.value === undefined) {
-    position = 0
+    position = 0;
   }
 
   if (target.value === '') {
-    return
+    return;
   }
 
-  const num = Number.parseFloat(target.value)
+  const num = Number.parseFloat(target.value);
 
   if (Number.isNaN(num)) {
-    return
+    return;
   }
 
   position = num;
 };
 
 const setRpm = (event: CustomEvent) => {
-  const target = event.currentTarget as HTMLInputElement
+  const target = event.currentTarget as HTMLInputElement;
 
   if (event.type === 'blur' && target.value === undefined) {
-    rpm = 0
+    rpm = 0;
   }
 
   if (target.value === '') {
-    return
+    return;
   }
 
-  const num = Number.parseFloat(target.value)
+  const num = Number.parseFloat(target.value);
 
   if (Number.isNaN(num)) {
-    return
+    return;
   }
 
   rpm = num;
 };
 
 const setRevolutions = (event: CustomEvent) => {
-  const target = event.currentTarget as HTMLInputElement
+  const target = event.currentTarget as HTMLInputElement;
 
   if (event.type === 'blur' && target.value === undefined) {
-    revolutions = 0
+    revolutions = 0;
   }
 
   if (target.value === '') {
-    return
+    return;
   }
 
-  const num = Number.parseInt(target.value, 10)
+  const num = Number.parseInt(target.value, 10);
 
   if (Number.isNaN(num)) {
-    return
+    return;
   }
 
   revolutions = num;
