@@ -355,7 +355,6 @@ func TestMoveOnMapLongDistance(t *testing.T) {
 }
 
 func TestMoveOnMap(t *testing.T) {
-	t.Skip() // RSDK-4279
 	t.Parallel()
 	ctx := context.Background()
 	// goal x-position of 1.32m is scaled to be in mm
