@@ -227,7 +227,7 @@ func UploadModuleCommand(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	// TODO(APP-2226) support .tar.xz
+	// TODO(APP-2226): support .tar.xz
 	if !strings.HasSuffix(file.Name(), ".tar.gz") {
 		return errors.New("you must upload your module in the form of a .tar.gz")
 	}

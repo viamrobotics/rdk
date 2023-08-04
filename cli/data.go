@@ -246,7 +246,7 @@ func (c *AppClient) TabularData(dst string, filter *datapb.Filter) error {
 
 	var err error
 	var resp *datapb.TabularDataByFilterResponse
-	// TODO: [DATA-640] Support export in additional formats.
+	// TODO(DATA-640): Support export in additional formats.
 	//nolint:gosec
 	dataFile, err := os.Create(filepath.Join(dst, dataDir, "data.ndjson"))
 	if err != nil {

@@ -762,7 +762,7 @@ func main() {
 							{
 								Name:  "shell",
 								Usage: "start a shell on a robot part",
-								// TODO: remove this warning
+								// TODO(RSDK-4377): remove this warning
 								Description: `WARNING: Functionality of the shell command is highly experimental. In particular, there may be text-input issues
 in the opened shell.
 
@@ -787,7 +787,7 @@ In order to use the shell command, the robot must have a valid shell type servic
 									},
 								},
 								Action: func(c *cli.Context) error {
-									// TODO: remove this warning message
+									// TODO(RSDK-4377): remove this warning message
 									rdkcli.Warningf(c.App.Writer, "shell command is highly experimental")
 
 									client, err := rdkcli.NewAppClient(c)
