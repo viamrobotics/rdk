@@ -155,8 +155,6 @@ export const getWaypoints = async (robotClient: Client, name: string): Promise<W
     });
   });
 
-  rcLogConditionally(response?.getWaypointsList());
-
   return formatWaypoints(response?.getWaypointsList() ?? []);
 };
 
@@ -199,6 +197,10 @@ export const getLocation = async (robotClient: Client, name: string) => {
   const location = response?.getLocation();
   const lat = location?.getLatitude();
   const lng = location?.getLongitude();
+
+  rcLogConditionally(response?.getLocation()?.toObject());
+  rcLogConditionally(location?.getLatitude());
+  rcLogConditionally(location?.getLongitude());
 
   if (typeof lat !== 'number' || typeof lng !== 'number') {
     // eslint-disable-next-line unicorn/prefer-type-error
