@@ -33,7 +33,7 @@ onMount(() => {
 
 </script>
 
-<nav class='w-80'>
+<nav class='w-full sm:w-80'>
   <v-tabs
     tabs="Obstacles, Waypoints"
     selected={$tab}
@@ -42,7 +42,7 @@ onMount(() => {
 
   <ul
     on:mouseleave={() => ($hovered = null)}
-    class='px-4 py-2 max-h-[520px] overflow-y-scroll'
+    class='px-4 py-2 max-h-64 sm:max-h-[520px] overflow-y-scroll'
   >
     {#if $tab === 'Obstacles'}
       <ObstaclesTab on:select={handleSelect} />

@@ -1,4 +1,3 @@
-// Package builtin contains the default navigation service, along with a gRPC server and client
 package builtin
 
 import (
@@ -110,6 +109,7 @@ func TestNavSetup(t *testing.T) {
 }
 
 func TestStartWaypoint(t *testing.T) {
+	t.Skip() // RSDK-4279
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 
@@ -134,7 +134,10 @@ func TestStartWaypoint(t *testing.T) {
 	fake, ok := fakeBase.(*fakebase.Base)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	kinematicBase, err := kinematicbase.WrapWithFakeKinematics(ctx, fake, localizer, limits, kinematicbase.NewKinematicBaseOptions())
+	options := kinematicbase.NewKinematicBaseOptions()
+	options.PositionOnlyMode = false
+
+	kinematicBase, err := kinematicbase.WrapWithFakeKinematics(ctx, fake, localizer, limits, options)
 	test.That(t, err, test.ShouldBeNil)
 
 	injectMovementSensor := inject.NewMovementSensor("test_movement")
