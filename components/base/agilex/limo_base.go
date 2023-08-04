@@ -330,6 +330,7 @@ func (lb *limoBase) setMotionCommand(linearVel float64,
 	return nil
 }
 
+// positive angleDeg spins base left. degsPerSec is a positive angular velocity.
 func (lb *limoBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
 	lb.logger.Debugf("Spin(%f, %f)", angleDeg, degsPerSec)
 	secsToRun := math.Abs(angleDeg / degsPerSec)
@@ -374,7 +375,8 @@ func (lb *limoBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec f
 	return lb.Stop(ctx, extra)
 }
 
-// linear is in mm/sec, angular in degrees/sec.
+// linear is in mm/sec, angular in degrees/sec. 
+// positive angular velocity turns base left.
 func (lb *limoBase) SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
 	lb.logger.Debugf("Will set linear velocity %f angular velocity %f", linear, angular)
 
