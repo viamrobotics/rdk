@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -223,7 +224,7 @@ func (ms *builtIn) MoveOnGlobe(
 	kinematicsOptions.AngularVelocityDegsPerSec = angularVelocity
 	kinematicsOptions.GoalRadiusMM = 3000
 	kinematicsOptions.HeadingThresholdDegrees = 8
-	kinematicsOptions.PlanDeviationThresholdMM = 5000
+	kinematicsOptions.PlanDeviationThresholdMM = math.Inf(1)
 
 	plan, kb, err := ms.planMoveOnGlobe(
 		ctx,
@@ -296,6 +297,21 @@ func (ms *builtIn) planMoveOnGlobe(
 	limits := []referenceframe.Limit{
 		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
 		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
+		{Min: -2 * math.Pi, Max: 2 * math.Pi},
+	}
+
+	if extra != nil {
+		if profile, ok := extra["motion_profile"]; ok {
+			motionProfile, ok := profile.(string)
+			if !ok {
+				return nil, nil, errors.New("could not interpret motion_profile field as string")
+			}
+			if motionProfile == motionplan.PositionOnlyMotionProfile {
+				kinematicsOptions.PositionOnlyMode = true
+			} else {
+				kinematicsOptions.PositionOnlyMode = false
+			}
+		}
 	}
 	ms.logger.Debugf("base limits: %v", limits)
 
@@ -319,7 +335,11 @@ func (ms *builtIn) planMoveOnGlobe(
 	}
 
 	// we take the zero position to be the start since in the frame of the localizer we will always be at its origin
-	inputMap := map[string][]referenceframe.Input{componentName.Name: make([]referenceframe.Input, 3)}
+	inputs := make([]referenceframe.Input, 3)
+	if kinematicsOptions.PositionOnlyMode {
+		inputs = inputs[:2]
+	}
+	inputMap := map[string][]referenceframe.Input{componentName.Name: inputs}
 
 	// create a new empty framesystem which we add the kinematic base to
 	fs := referenceframe.NewEmptyFrameSystem("")
@@ -462,6 +482,7 @@ func (ms *builtIn) planMoveOnMap(
 	if err != nil {
 		return nil, nil, err
 	}
+	limits = append(limits, referenceframe.Limit{Min: -2 * math.Pi, Max: 2 * math.Pi})
 
 	// create a KinematicBase from the componentName
 	component, ok := ms.components[componentName]
@@ -472,6 +493,17 @@ func (ms *builtIn) planMoveOnMap(
 	if !ok {
 		return nil, nil, fmt.Errorf("cannot move component of type %T because it is not a Base", component)
 	}
+
+	if extra != nil {
+		if profile, ok := extra["motion_profile"]; ok {
+			motionProfile, ok := profile.(string)
+			if !ok {
+				return nil, nil, errors.New("could not interpret motion_profile field as string")
+			}
+			kinematicsOptions.PositionOnlyMode = motionProfile == motionplan.PositionOnlyMotionProfile
+		}
+	}
+
 	var kb kinematicbase.KinematicBase
 	if fake, ok := b.(*fake.Base); ok {
 		kb, err = kinematicbase.WrapWithFakeKinematics(ctx, fake, motion.NewSLAMLocalizer(slamSvc), limits, kinematicsOptions)
@@ -504,6 +536,9 @@ func (ms *builtIn) planMoveOnMap(
 	inputs, err := kb.CurrentInputs(ctx)
 	if err != nil {
 		return nil, nil, err
+	}
+	if kinematicsOptions.PositionOnlyMode {
+		inputs = inputs[:2]
 	}
 	ms.logger.Debugf("base position: %v", inputs)
 

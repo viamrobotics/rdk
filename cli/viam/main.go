@@ -20,22 +20,22 @@ import (
 const (
 	// Flags.
 	dataFlagDestination       = "destination"
-	dataFlagDataType          = "data_type"
-	dataFlagOrgIDs            = "org_ids"
-	dataFlagLocationIDs       = "location_ids"
-	dataFlagRobotID           = "robot_id"
-	dataFlagPartID            = "part_id"
-	dataFlagRobotName         = "robot_name"
-	dataFlagPartName          = "part_name"
-	dataFlagComponentType     = "component_type"
-	dataFlagComponentName     = "component_name"
+	dataFlagDataType          = "data-type"
+	dataFlagOrgIDs            = "org-ids"
+	dataFlagLocationIDs       = "location-ids"
+	dataFlagRobotID           = "robot-id"
+	dataFlagPartID            = "part-id"
+	dataFlagRobotName         = "robot-name"
+	dataFlagPartName          = "part-name"
+	dataFlagComponentType     = "component-type"
+	dataFlagComponentName     = "component-name"
 	dataFlagMethod            = "method"
-	dataFlagMimeTypes         = "mime_types"
+	dataFlagMimeTypes         = "mime-types"
 	dataFlagStart             = "start"
 	dataFlagEnd               = "end"
 	dataFlagParallelDownloads = "parallel"
 	dataFlagTags              = "tags"
-	dataFlagBboxLabels        = "bbox_labels"
+	dataFlagBboxLabels        = "bbox-labels"
 
 	dataTypeBinary  = "binary"
 	dataTypeTabular = "tabular"
@@ -263,32 +263,32 @@ func main() {
 							&cli.StringFlag{
 								Name:     dataFlagRobotID,
 								Required: false,
-								Usage:    "robot_id filter",
+								Usage:    "robot-id filter",
 							},
 							&cli.StringFlag{
 								Name:     dataFlagPartID,
 								Required: false,
-								Usage:    "part_id filter",
+								Usage:    "part id filter",
 							},
 							&cli.StringFlag{
 								Name:     dataFlagRobotName,
 								Required: false,
-								Usage:    "robot_name filter",
+								Usage:    "robot name filter",
 							},
 							&cli.StringFlag{
 								Name:     dataFlagPartName,
 								Required: false,
-								Usage:    "part_name filter",
+								Usage:    "part name filter",
 							},
 							&cli.StringFlag{
 								Name:     dataFlagComponentType,
 								Required: false,
-								Usage:    "component_type filter",
+								Usage:    "component type filter",
 							},
 							&cli.StringFlag{
 								Name:     dataFlagComponentName,
 								Required: false,
-								Usage:    "component_name filter",
+								Usage:    "component name filter",
 							},
 							&cli.StringFlag{
 								Name:     dataFlagMethod,
@@ -298,7 +298,7 @@ func main() {
 							&cli.StringSliceFlag{
 								Name:     dataFlagMimeTypes,
 								Required: false,
-								Usage:    "mime_types filter",
+								Usage:    "mime types filter",
 							},
 							&cli.UintFlag{
 								Name:     dataFlagParallelDownloads,
@@ -356,32 +356,32 @@ func main() {
 							&cli.StringFlag{
 								Name:     dataFlagRobotID,
 								Required: false,
-								Usage:    "robot_id filter",
+								Usage:    "robot id filter",
 							},
 							&cli.StringFlag{
 								Name:     dataFlagPartID,
 								Required: false,
-								Usage:    "part_id filter",
+								Usage:    "part id filter",
 							},
 							&cli.StringFlag{
 								Name:     dataFlagRobotName,
 								Required: false,
-								Usage:    "robot_name filter",
+								Usage:    "robot name filter",
 							},
 							&cli.StringFlag{
 								Name:     dataFlagPartName,
 								Required: false,
-								Usage:    "part_name filter",
+								Usage:    "part name filter",
 							},
 							&cli.StringFlag{
 								Name:     dataFlagComponentType,
 								Required: false,
-								Usage:    "component_type filter",
+								Usage:    "component type filter",
 							},
 							&cli.StringFlag{
 								Name:     dataFlagComponentName,
 								Required: false,
-								Usage:    "component_name filter",
+								Usage:    "component name filter",
 							},
 							&cli.StringFlag{
 								Name:     dataFlagMethod,
@@ -391,7 +391,7 @@ func main() {
 							&cli.StringSliceFlag{
 								Name:     dataFlagMimeTypes,
 								Required: false,
-								Usage:    "mime_types filter",
+								Usage:    "mime types filter",
 							},
 							&cli.StringFlag{
 								Name:     dataFlagStart,

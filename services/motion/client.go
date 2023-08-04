@@ -1,4 +1,3 @@
-// Package motion contains a gRPC based motion client
 package motion
 
 import (
