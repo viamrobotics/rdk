@@ -16,6 +16,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/viamrobotics/gostream"
 	"go.opencensus.io/trace"
+	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/pointcloud"
@@ -34,11 +35,12 @@ var model = resource.DefaultModelFamily.WithModel("obstacles_depth")
 
 // ObsDepthConfig specifies the parameters to be used for the obstacle depth service.
 type ObsDepthConfig struct {
-	Hmin       float64                            `json:"h_min_m"`
-	Hmax       float64                            `json:"h_max_m"`
-	ThetaMax   float64                            `json:"theta_max_deg"`
-	ReturnPCDs bool                               `json:"return_pcds"`
-	Intrinsics *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters"`
+	Hmin       float64 `json:"h_min_m"`
+	Hmax       float64 `json:"h_max_m"`
+	ThetaMax   float64 `json:"theta_max_deg"`
+	ReturnPCDs bool    `json:"return_pcds"`
+	CameraName string  `json:"camera_name"`
+	// Intrinsics *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters"`
 }
 
 // obsDepth is the underlying struct actually used by the service.
@@ -83,6 +85,9 @@ func init() {
 // Validate ensures all parts of the config are valid.
 func (config *ObsDepthConfig) Validate(path string) ([]string, error) {
 	deps := []string{}
+	if config.CameraName == "" {
+		return nil, goutils.NewConfigValidationFieldRequiredError(path, "camera_name")
+	}
 	if config.Hmin >= config.Hmax {
 		return nil, errors.New("Hmin should be less than Hmax")
 	}
@@ -95,6 +100,7 @@ func (config *ObsDepthConfig) Validate(path string) ([]string, error) {
 	if config.ThetaMax < 0 || config.ThetaMax > 360 {
 		return nil, errors.New("ThetaMax should be in degrees between 0 and 360")
 	}
+
 	return deps, nil
 }
 
@@ -111,8 +117,10 @@ func registerObstaclesDepth(
 		return nil, errors.New("config for obstacles_depth cannot be nil")
 	}
 
+	camProps := svision.GetAllCameraPropertiesFromRobot(ctx, r)
 	// If you have no intrinsics
-	if conf.Intrinsics == nil {
+	props, ok := camProps[conf.CameraName]
+	if !ok || props.IntrinsicParams == nil {
 		logger.Warn("obstacles depth started without camera's intrinsic parameters")
 		segmenter := buildObsDepthNoIntrinsics()
 		return svision.NewService(name, r, nil, nil, nil, segmenter)
@@ -129,7 +137,7 @@ func registerObstaclesDepth(
 	sinTheta := math.Sin(conf.ThetaMax * math.Pi / 180) // sin(radians(theta))
 	myObsDep := obsDepth{
 		hMin: 1000 * conf.Hmin, hMax: 1000 * conf.Hmax, sinTheta: sinTheta,
-		intrinsics: conf.Intrinsics, returnPCDs: conf.ReturnPCDs, k: defaultK,
+		intrinsics: props.IntrinsicParams, returnPCDs: conf.ReturnPCDs, k: defaultK,
 	}
 	segmenter := myObsDep.buildObsDepthWithIntrinsics() // does the thing
 	return svision.NewService(name, r, nil, nil, nil, segmenter)

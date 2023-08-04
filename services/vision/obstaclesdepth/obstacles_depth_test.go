@@ -42,6 +42,7 @@ func TestObstacleDepth(t *testing.T) {
 		Hmax:       defaultHmax,
 		ThetaMax:   defaultThetamax,
 		ReturnPCDs: false,
+		CameraName: "noIntrinsicsCam",
 	}
 	someIntrinsics := transform.PinholeCameraIntrinsics{Fx: 604.5, Fy: 609.6, Ppx: 324.6, Ppy: 238.9, Width: 640, Height: 480}
 	withIntrinsicsCfg := ObsDepthConfig{
@@ -49,23 +50,30 @@ func TestObstacleDepth(t *testing.T) {
 		Hmax:       defaultHmax,
 		ThetaMax:   defaultThetamax,
 		ReturnPCDs: true,
-		Intrinsics: &someIntrinsics,
+		CameraName: "testCam",
 	}
 
 	ctx := context.Background()
 	testLogger := golog.NewLogger("test")
 	r := &inject.Robot{ResourceNamesFunc: func() []resource.Name {
-		return []resource.Name{camera.Named("testCam")}
+		return []resource.Name{camera.Named("testCam"), camera.Named("noIntrinsicsCam")}
 	}}
 	tr := testReader{}
-	myCamSrc, err := camera.NewVideoSourceFromReader(ctx, tr, nil, camera.DepthStream)
-	myCam := camera.FromVideoSource(resource.Name{Name: "testCam"}, myCamSrc)
+	syst := transform.PinholeCameraModel{&someIntrinsics, nil}
+	myCamSrcIntrinsics, err := camera.NewVideoSourceFromReader(ctx, tr, &syst, camera.DepthStream)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, myCamSrc, test.ShouldNotBeNil)
+	test.That(t, myCamSrcIntrinsics, test.ShouldNotBeNil)
+	myCamSrcNoIntrinsics, err := camera.NewVideoSourceFromReader(ctx, tr, nil, camera.DepthStream)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, myCamSrcNoIntrinsics, test.ShouldNotBeNil)
+	myIntrinsicsCam := camera.FromVideoSource(resource.Name{Name: "testCam"}, myCamSrcIntrinsics)
+	noIntrinsicsCam := camera.FromVideoSource(resource.Name{Name: "noIntrinsicsCam"}, myCamSrcNoIntrinsics)
 	r.ResourceByNameFunc = func(n resource.Name) (resource.Resource, error) {
 		switch n.Name {
 		case "testCam":
-			return myCam, nil
+			return myIntrinsicsCam, nil
+		case "noIntrinsicsCam":
+			return noIntrinsicsCam, nil
 		default:
 			return nil, resource.NewNotFoundError(n)
 		}
@@ -88,7 +96,7 @@ func TestObstacleDepth(t *testing.T) {
 
 	t.Run("no intrinsics version", func(t *testing.T) {
 		// Test that it is a segmenter
-		obs, err := srv.GetObjectPointClouds(ctx, "testCam", nil)
+		obs, err := srv.GetObjectPointClouds(ctx, "noIntrinsicsCam", nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, obs, test.ShouldNotBeNil)
 		test.That(t, len(obs), test.ShouldEqual, 1)
@@ -119,7 +127,7 @@ func BenchmarkObstacleDepthIntrinsics(b *testing.B) {
 		Hmax:       defaultHmax,
 		ThetaMax:   defaultThetamax,
 		ReturnPCDs: true,
-		Intrinsics: &someIntrinsics,
+		CameraName: "testCam",
 	}
 
 	ctx := context.Background()
@@ -128,7 +136,8 @@ func BenchmarkObstacleDepthIntrinsics(b *testing.B) {
 		return []resource.Name{camera.Named("testCam")}
 	}}
 	tr := testReader{}
-	myCamSrc, _ := camera.NewVideoSourceFromReader(ctx, tr, nil, camera.DepthStream)
+	syst := transform.PinholeCameraModel{&someIntrinsics, nil}
+	myCamSrc, _ := camera.NewVideoSourceFromReader(ctx, tr, &syst, camera.DepthStream)
 	myCam := camera.FromVideoSource(resource.Name{Name: "testCam"}, myCamSrc)
 	r.ResourceByNameFunc = func(n resource.Name) (resource.Resource, error) {
 		switch n.Name {
