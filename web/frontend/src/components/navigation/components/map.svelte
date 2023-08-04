@@ -70,11 +70,5 @@ $: {
 {#if $map}
   <RobotMarker {name} />
   <Waypoints {name} map={$map} />
-  <ObstacleLayer {name} map={$map} />
+  <ObstacleLayer map={$map} />
 {/if}
-
-<style>
-  :global(#navigation-map ~ canvas) {
-    display: none;
-  }
-</style>

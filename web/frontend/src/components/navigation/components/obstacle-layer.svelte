@@ -1,52 +1,58 @@
 <script lang='ts'>
 
-import { type Map } from 'maplibre-gl';
+import { onDestroy, onMount } from 'svelte';
 import { Canvas } from '@threlte/core';
+import { type Map } from 'maplibre-gl';
 import Scene from './scene.svelte';
 import { cameraMatrix, mapSize } from '../stores';
 import { renderPlugin } from '../plugins/render';
 
 export let map: Map;
-export let name: string;
-
-const canvas = map.getCanvas();
-
-let context: WebGLRenderingContext | undefined;
 
 const handleResize = () => {
   mapSize.update((value) => {
+    const canvas = map.getCanvas();
     value.width = canvas.clientWidth;
     value.height = canvas.clientHeight;
     return value;
   });
 };
 
-map.on('style.load', () => map.addLayer({
+const addLayer = () => map.addLayer({
   id: 'obstacle-layer',
   type: 'custom',
   renderingMode: '3d',
-  onAdd (_: Map, newContext: WebGLRenderingContext) {
-    context = newContext;
-  },
   render (_ctx, viewProjectionMatrix) {
     cameraMatrix.fromArray(viewProjectionMatrix);
     map.triggerRepaint();
   },
-}));
+});
 
-map.on('resize', handleResize);
-handleResize();
 renderPlugin();
+
+onMount(() => {
+  map.on('resize', handleResize);
+  handleResize();
+
+  if (map.isStyleLoaded()) {
+    addLayer()
+  } else {
+    map.on('style.load', () => addLayer())
+  }
+})
+
+onDestroy(() => {
+  map.off('resize', handleResize)
+
+  if (map.getLayer('obstacle-layer')) {
+    map.removeLayer('obstacle-layer')
+  }
+})
 
 </script>
 
-{#if context}
-  <Canvas
-    rendererParameters={{ canvas, context, alpha: true, antialias: true }}
-    useLegacyLights={false}
-    shadows={false}
-    size={$mapSize}
-  >
-    <Scene {name} />
+<div class='absolute top-0 right-0 pointer-events-none'>
+  <Canvas useLegacyLights={false}>
+    <Scene />
   </Canvas>
-{/if}
+</div>
