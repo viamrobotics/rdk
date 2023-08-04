@@ -946,7 +946,7 @@ viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.ta
 						if appVersion == "" {
 							appVersion = "(dev)"
 						}
-						fmt.Fprintf(c.App.Writer, "version %s git=%s api=%s %s\n", appVersion, version, apiVersion, info.GoVersion)
+						fmt.Fprintf(c.App.Writer, "version %s git=%s api=%s\n", appVersion, version, apiVersion)
 					}
 					return nil
 				},
