@@ -26,7 +26,7 @@ func (sm *SingleOperationManager) CancelRunning(ctx context.Context) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 	if sm.currentOp != nil {
-		sm.currentOp.cancelFunc()
+		sm.currentOp.cancelAndWaitFunc()
 	}
 }
 
@@ -53,7 +53,7 @@ func (sm *SingleOperationManager) New(ctx context.Context) (context.Context, fun
 
 	// Cancel any existing operation. This blocks until the operation is completed.
 	if sm.currentOp != nil {
-		sm.currentOp.cancelFunc()
+		sm.currentOp.cancelAndWaitFunc()
 	}
 
 	theOp := &anOp{
@@ -62,21 +62,28 @@ func (sm *SingleOperationManager) New(ctx context.Context) (context.Context, fun
 
 	ctx = context.WithValue(ctx, somCtxKeySingleOp, theOp)
 
-	var cancelFunc func()
-	theOp.ctx, cancelFunc = context.WithCancel(ctx)
-	theOp.cancelFunc = func() {
+	var newUserCtx context.Context
+	newUserCtx, theOp.interruptFunc = context.WithCancel(ctx)
+	theOp.cancelAndWaitFunc = func() {
 		// Precondition: Caller must be holding `sm.mu`.
-		cancelFunc()
-		for !theOp.closed {
-			theOp.closedCond.Wait()
+		//
+		// If there are two threads competing to win a race, it's not sufficient to return once the
+		// condition variable is signaled. We must re-check that a new operation didn't beat us to
+		// getting the next operation slot.
+		//
+		// Ironically, "winning the race" in this scenario just means the "loser" is going to
+		// immediately interrupt the winner. A future optimization could avoid this unnecessary
+		// starting/stopping.
+		for sm.currentOp != nil {
+			sm.currentOp.interruptFunc()
+			sm.currentOp.closedCond.Wait()
 		}
 	}
 	sm.currentOp = theOp
 	sm.mu.Unlock()
 
-	return theOp.ctx, func() {
+	return newUserCtx, func() {
 		sm.mu.Lock()
-		theOp.closed = true
 		theOp.closedCond.Broadcast()
 		sm.currentOp = nil
 		sm.mu.Unlock()
@@ -154,9 +161,11 @@ func (sm *SingleOperationManager) WaitForSuccess(
 }
 
 type anOp struct {
-	ctx        context.Context
-	cancelFunc context.CancelFunc
-	closed     bool
+	// cancelAndWaitFunc waits until the `SingleOperationManager.currentOp` is empty. This will
+	// interrupt any existing operations as necessary.
+	cancelAndWaitFunc func()
+	// Cancels the context of what's currently running an operation.
+	interruptFunc context.CancelFunc
 	// Used with `SingleOperationManager.mu`.
 	closedCond *sync.Cond
 }
