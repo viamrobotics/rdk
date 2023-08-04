@@ -289,11 +289,13 @@ func ModelFromPath(modelPath, name string) (Model, error) {
 }
 
 // New2DMobileModelFrame builds the kinematic model associated with the kinematicWheeledBase
-// This model is intended to be used with a mobile base and has 3DOF corresponding to a state of x, y, and theta
-// where x and y are the positional coordinates the base is located about and theta is the rotation about the z axis.
+// This model is intended to be used with a mobile base and has either 2DOF corresponding to  a state of x, y
+// or has 3DOF corresponding to a state of x, y, and theta, where x and y are the positional coordinates
+// the base is located about and theta is the rotation about the z axis.
 func New2DMobileModelFrame(name string, limits []Limit, collisionGeometry spatialmath.Geometry) (Model, error) {
-	if len(limits) != 2 {
-		return nil, errors.Errorf("Must have 2DOF state (x, y) to create 2DMobildModelFrame, have %d dof", len(limits))
+	if len(limits) != 2 && len(limits) != 3 {
+		return nil,
+			errors.Errorf("Must have 2DOF state (x, y) or 3DOF state (x, y, theta) to create 2DMobileModelFrame, have %d dof", len(limits))
 	}
 
 	// build the model - SLAM convention is that the XY plane is the ground plane
@@ -305,16 +307,20 @@ func New2DMobileModelFrame(name string, limits []Limit, collisionGeometry spatia
 	if err != nil {
 		return nil, err
 	}
-	orientationLimit := Limit{Min: -2 * math.Pi, Max: 2 * math.Pi}
-	theta, err := NewRotationalFrame("theta", *spatialmath.NewR4AA(), orientationLimit)
-	if err != nil {
-		return nil, err
-	}
 	geometry, err := NewStaticFrameWithGeometry("geometry", spatialmath.NewZeroPose(), collisionGeometry)
 	if err != nil {
 		return nil, err
 	}
+
 	model := NewSimpleModel(name)
-	model.OrdTransforms = []Frame{x, y, theta, geometry}
+	if len(limits) == 3 {
+		theta, err := NewRotationalFrame("theta", *spatialmath.NewR4AA(), limits[2])
+		if err != nil {
+			return nil, err
+		}
+		model.OrdTransforms = []Frame{x, y, theta, geometry}
+	} else {
+		model.OrdTransforms = []Frame{x, y, geometry}
+	}
 	return model, nil
 }

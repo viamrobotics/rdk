@@ -1,4 +1,4 @@
-// Package register registers all relevant navigation models and also API specific functions
+// Package register registers all relevant navigation models and API specific functions.
 package register
 
 import (
