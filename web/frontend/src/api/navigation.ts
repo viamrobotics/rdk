@@ -155,6 +155,8 @@ export const getWaypoints = async (robotClient: Client, name: string): Promise<W
     });
   });
 
+  rcLogConditionally(response?.getWaypointsList());
+
   return formatWaypoints(response?.getWaypointsList() ?? []);
 };
 
