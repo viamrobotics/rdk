@@ -3,6 +3,7 @@ package camera
 import (
 	"bytes"
 	"context"
+	"strings"
 
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
@@ -81,8 +82,14 @@ func newReadImageCollector(resource interface{}, params data.CollectorParams) (d
 		_, span := trace.StartSpan(ctx, "camera::data::collector::CaptureFunc::ReadImage")
 		defer span.End()
 
+		ctx = context.WithValue(ctx, data.CtxKeyDM, true)
+
 		img, release, err := ReadImage(ctx, camera)
 		if err != nil {
+			// Check for filter from modular component that is wrapped in over-the-wire rpc error.
+			if strings.Contains(err.Error(), data.ErrNoCaptureToStore.Error()) {
+				return nil, data.ErrNoCaptureToStore
+			}
 			return nil, data.FailedToReadErr(params.ComponentName, readImage.String(), err)
 		}
 		defer func() {

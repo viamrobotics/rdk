@@ -14,10 +14,12 @@ import (
 	"go.opencensus.io/trace"
 	pb "go.viam.com/api/component/camera/v1"
 	goutils "go.viam.com/utils"
+	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/pointcloud"
-	"go.viam.com/rdk/protoutils"
+	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
@@ -65,9 +67,16 @@ func (c *client) Read(ctx context.Context) (image.Image, func(), error) {
 	defer span.End()
 	mimeType := gostream.MIMETypeHint(ctx, "")
 	expectedType, _ := utils.CheckLazyMIMEType(mimeType)
+
+	extra := make(map[string]interface{})
+	if ctx.Value(data.CtxKeyDM) == true {
+		extra[string(data.CtxKeyDM)] = true
+	}
+	ext, _ := protoutils.StructToStructPb(extra)
 	resp, err := c.client.GetImage(ctx, &pb.GetImageRequest{
 		Name:     c.name,
 		MimeType: expectedType,
+		Extra:    ext,
 	})
 	if err != nil {
 		return nil, nil, err
@@ -248,7 +257,7 @@ func (c *client) Properties(ctx context.Context) (Properties, error) {
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return protoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
+	return rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
 }
 
 func (c *client) Close(ctx context.Context) error {

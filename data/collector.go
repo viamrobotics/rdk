@@ -28,6 +28,13 @@ var sleepCaptureCutoff = 2 * time.Millisecond
 // CaptureFunc allows the creation of simple Capturers with anonymous functions.
 type CaptureFunc func(ctx context.Context, params map[string]*anypb.Any) (interface{}, error)
 
+type CtxKey string
+
+const CtxKeyDM = CtxKey("fromDataManagement")
+
+// ErrNoCaptureToStore is returned when a modular filter resource filters the capture coming from the base resource.
+var ErrNoCaptureToStore = errors.New("Do not store capture from filter module")
+
 // Collector collects data to some target.
 type Collector interface {
 	Close()
@@ -186,6 +193,10 @@ func (c *collector) getAndPushNextReading() {
 	reading, err := c.captureFunc(c.cancelCtx, c.params)
 	timeReceived := timestamppb.New(c.clock.Now().UTC())
 	if err != nil {
+		if errors.Is(err, ErrNoCaptureToStore) {
+			// Handle case where capture is filtered out by modular resource.
+			return
+		}
 		c.captureErrors <- errors.Wrap(err, "error while capturing data")
 		return
 	}
