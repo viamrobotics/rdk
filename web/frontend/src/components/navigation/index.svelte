@@ -36,15 +36,9 @@ const setNavigationMode = async (event: CustomEvent) => {
   }
 };
 
-let entered = false;
-
 const handleEnter = async () => {
   entered = true;
   $obstacles = await getObstacles($robotClient, name);
-};
-
-const handleLeave = () => {
-  entered = false;
 };
 
 </script>
@@ -58,7 +52,6 @@ const handleLeave = () => {
   <div
     use:inview
     on:inview_enter={handleEnter}
-    on:inview_leave={handleLeave}
     class="flex flex-col gap-2 border border-t-0 border-medium"
   >
     <div class='flex flex-wrap gap-y-2 items-end justify-between py-3 px-4'>
@@ -91,9 +84,7 @@ const handleLeave = () => {
       <Nav {name} />
 
       <div class='relative grow'>
-        {#if entered}
-          <Map {name} />
-        {/if}
+        <Map {name} />
       </div>
 
     </div>

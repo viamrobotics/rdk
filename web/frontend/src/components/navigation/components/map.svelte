@@ -37,7 +37,6 @@ onMount(() => {
   const handleResize = () => {
     mapSize.update((value) => {
       const { clientWidth, clientHeight } = mapInstance.getCanvas();
-      console.log(clientWidth, clientHeight);
       value.width = clientWidth;
       value.height = clientHeight;
       return value;
