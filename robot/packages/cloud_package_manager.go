@@ -219,7 +219,7 @@ func (m *cloudManager) Cleanup(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	// A packageTypeDir is a directory that contains all of the packages for the specified type. ex: .data/ml_models
+	// A packageTypeDir is a directory that contains all of the packages for the specified type. ex: .data/ml_model
 	for _, packageTypeDir := range topLevelFiles {
 		packageTypeDirName, err := safeJoin(m.packagesDataDir, packageTypeDir.Name())
 		if err != nil {
@@ -265,7 +265,7 @@ func (m *cloudManager) Cleanup(ctx context.Context) error {
 	return allErrors
 }
 
-// symlink packages/package-name to packages/ml_models/orgid-package-name-ver for backwards compatablility
+// symlink packages/package-name to packages/.data/ml_model/orgid-package-name-ver for backwards compatablility
 // Preserved for backwards compatibility. Could be removed or extended to other types in the future.
 func (m *cloudManager) mLModelSymlinkCreation(p config.PackageConfig) error {
 	symlinkPath, err := safeJoin(m.packagesDir, p.Name)
