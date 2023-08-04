@@ -197,7 +197,7 @@ func UploadModuleCommand(c *cli.Context) error {
 		// no manifest found.
 		if nameArg == "" || (publicNamespaceArg == "" && orgIDArg == "") {
 			return errors.New("unable to find the meta.json. " +
-				"if you want to upload a version without a meta.json, you must supply a module name and namespace (or module name and orgid)",
+				"if you want to upload a version without a meta.json, you must supply a module name and namespace (or module name and org-id)",
 			)
 		}
 		moduleID, err = updateManifestModuleIDWithArgs(c, client, nameArg, publicNamespaceArg, orgIDArg)
