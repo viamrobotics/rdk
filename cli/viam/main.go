@@ -3,7 +3,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"time"
 
@@ -88,21 +87,26 @@ func main() {
 						return err
 					}
 
-					loggedInMessage := func(token *rdkcli.Token) {
-						fmt.Fprintf(c.App.Writer, "Already logged in as %q, expires %s\n", token.User.Email,
+					loggedInMessage := func(token *rdkcli.Token, alreadyLoggedIn bool) {
+						var already string
+						if alreadyLoggedIn {
+							already = "already "
+						}
+
+						fmt.Fprintf(c.App.Writer, "%slogged in as %q, expires %s\n", already, token.User.Email,
 							token.ExpiresAt.Format("Mon Jan 2 15:04:05 MST 2006"))
 					}
 
 					if client.Config().Auth != nil && !client.Config().Auth.IsExpired() {
-						loggedInMessage(client.Config().Auth)
+						loggedInMessage(client.Config().Auth, true)
 						return nil
 					}
 
 					if err := client.Login(); err != nil {
-						return err
+						return errors.Wrap(err, "could not login")
 					}
 
-					loggedInMessage(client.Config().Auth)
+					loggedInMessage(client.Config().Auth, false)
 					return nil
 				},
 				Subcommands: []*cli.Command{
@@ -136,13 +140,13 @@ func main() {
 					}
 					auth := client.Config().Auth
 					if auth == nil {
-						fmt.Fprintf(c.App.Writer, "Already logged out\n")
+						fmt.Fprintf(c.App.Writer, "already logged out\n")
 						return nil
 					}
 					if err := client.Logout(); err != nil {
-						return err
+						return errors.Wrap(err, "could not logout")
 					}
-					fmt.Fprintf(c.App.Writer, "Logged out from %q\n", auth.User.Email)
+					fmt.Fprintf(c.App.Writer, "logged out from %q\n", auth.User.Email)
 					return nil
 				},
 			},
@@ -156,7 +160,7 @@ func main() {
 					}
 					auth := client.Config().Auth
 					if auth == nil {
-						fmt.Fprintf(c.App.Writer, "not logged in. run \"login\" command\n")
+						rdkcli.Warningf(c.App.Writer, "not logged in. run \"login\" command")
 						return nil
 					}
 					fmt.Fprintf(c.App.Writer, "%s\n", auth.User.Email)
@@ -178,11 +182,11 @@ func main() {
 							}
 							orgs, err := client.ListOrganizations()
 							if err != nil {
-								return err
+								return errors.Wrap(err, "could not list organizations")
 							}
 							for i, org := range orgs {
 								if i == 0 {
-									fmt.Fprintf(c.App.Writer, "Organizations for %q:\n", client.Config().Auth.User.Email)
+									fmt.Fprintf(c.App.Writer, "organizations for %q:\n", client.Config().Auth.User.Email)
 								}
 								fmt.Fprintf(c.App.Writer, "\t%s (id: %s)\n", org.Name, org.Id)
 							}
@@ -209,7 +213,7 @@ func main() {
 							listLocations := func(orgID string) error {
 								locs, err := client.ListLocations(orgID)
 								if err != nil {
-									return err
+									return errors.Wrap(err, "could not list locations")
 								}
 								for _, loc := range locs {
 									fmt.Fprintf(c.App.Writer, "\t%s (id: %s)\n", loc.Name, loc.Id)
@@ -219,11 +223,11 @@ func main() {
 							if orgStr == "" {
 								orgs, err := client.ListOrganizations()
 								if err != nil {
-									return err
+									return errors.Wrap(err, "could not list organizations")
 								}
 								for i, org := range orgs {
 									if i == 0 {
-										fmt.Fprintf(c.App.Writer, "Locations for %q:\n", client.Config().Auth.User.Email)
+										fmt.Fprintf(c.App.Writer, "locations for %q:\n", client.Config().Auth.User.Email)
 									}
 									fmt.Fprintf(c.App.Writer, "%s:\n", org.Name)
 									if err := listLocations(org.Id); err != nil {
@@ -413,7 +417,7 @@ func main() {
 							locStr := c.String("location")
 							robots, err := client.ListRobots(orgStr, locStr)
 							if err != nil {
-								return err
+								return errors.Wrap(err, "could not list robots")
 							}
 
 							if orgStr == "" || locStr == "" {
@@ -465,7 +469,7 @@ func main() {
 							}
 							parts, err := client.RobotParts(client.SelectedOrg().Id, client.SelectedLoc().Id, robot.Id)
 							if err != nil {
-								return err
+								return errors.Wrap(err, "could not get robot parts")
 							}
 
 							if orgStr == "" || locStr == "" {
@@ -474,7 +478,7 @@ func main() {
 
 							fmt.Fprintf(
 								c.App.Writer,
-								"ID: %s\nName: %s\nLast Access: %s (%s ago)\n",
+								"ID: %s\nname: %s\nlast access: %s (%s ago)\n",
 								robot.Id,
 								robot.Name,
 								robot.LastAccess.AsTime().Format(time.UnixDate),
@@ -482,7 +486,7 @@ func main() {
 							)
 
 							if len(parts) != 0 {
-								fmt.Fprintln(c.App.Writer, "Parts:")
+								fmt.Fprintln(c.App.Writer, "parts:")
 							}
 							for i, part := range parts {
 								name := part.Name
@@ -491,7 +495,7 @@ func main() {
 								}
 								fmt.Fprintf(
 									c.App.Writer,
-									"\tID: %s\n\tName: %s\n\tLast Access: %s (%s ago)\n",
+									"\tID: %s\n\tname: %s\n\tlast access: %s (%s ago)\n",
 									part.Id,
 									name,
 									part.LastAccess.AsTime().Format(time.UnixDate),
@@ -538,12 +542,12 @@ func main() {
 							robotStr := c.String("robot")
 							robot, err := client.Robot(orgStr, locStr, robotStr)
 							if err != nil {
-								return err
+								return errors.Wrap(err, "could not get robot")
 							}
 
 							parts, err := client.RobotParts(orgStr, locStr, robotStr)
 							if err != nil {
-								return err
+								return errors.Wrap(err, "could not get robot parts")
 							}
 
 							for i, part := range parts {
@@ -563,7 +567,7 @@ func main() {
 									"\t",
 									header,
 								); err != nil {
-									return err
+									return errors.Wrap(err, "could not print robot logs")
 								}
 							}
 
@@ -608,12 +612,12 @@ func main() {
 									robotStr := c.String("robot")
 									robot, err := client.Robot(orgStr, locStr, robotStr)
 									if err != nil {
-										return err
+										return errors.Wrap(err, "could not get robot")
 									}
 
 									part, err := client.RobotPart(orgStr, locStr, robotStr, c.String("part"))
 									if err != nil {
-										return err
+										return errors.Wrap(err, "could not get robot part")
 									}
 
 									if orgStr == "" || locStr == "" || robotStr == "" {
@@ -626,7 +630,7 @@ func main() {
 									}
 									fmt.Fprintf(
 										c.App.Writer,
-										"ID: %s\nName: %s\nLast Access: %s (%s ago)\n",
+										"ID: %s\nname: %s\nlast access: %s (%s ago)\n",
 										part.Id,
 										name,
 										part.LastAccess.AsTime().Format(time.UnixDate),
@@ -678,7 +682,7 @@ func main() {
 									robotStr := c.String("robot")
 									robot, err := client.Robot(orgStr, locStr, robotStr)
 									if err != nil {
-										return err
+										return errors.Wrap(err, "could not get robot")
 									}
 
 									var header string
@@ -734,9 +738,7 @@ func main() {
 								Action: func(c *cli.Context) error {
 									svcMethod := c.Args().First()
 									if svcMethod == "" {
-										fmt.Fprintln(c.App.ErrWriter, "service method required")
-										cli.ShowSubcommandHelpAndExit(c, 1)
-										return nil
+										return errors.New("service method required")
 									}
 
 									client, err := rdkcli.NewAppClient(c)
@@ -785,6 +787,9 @@ In order to use the shell command, the robot must have a valid shell type servic
 									},
 								},
 								Action: func(c *cli.Context) error {
+									// TODO: remove this warning message
+									rdkcli.Warningf(c.App.Writer, "shell command is highly experimental")
+
 									client, err := rdkcli.NewAppClient(c)
 									if err != nil {
 										return err
@@ -912,7 +917,7 @@ viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.ta
 	}
 
 	if err := app.Run(os.Args); err != nil {
-		log.Fatal(err)
+		rdkcli.Errorf(app.Writer, err.Error())
 	}
 }
 
@@ -1030,14 +1035,14 @@ func createDataFilter(c *cli.Context) (*datapb.Filter, error) {
 	if c.String(dataFlagStart) != "" {
 		t, err := time.Parse(timeLayout, c.String(dataFlagStart))
 		if err != nil {
-			return nil, errors.Wrap(err, "error parsing start flag")
+			return nil, errors.Wrap(err, "could not parse start flag")
 		}
 		start = timestamppb.New(t)
 	}
 	if c.String(dataFlagEnd) != "" {
 		t, err := time.Parse(timeLayout, c.String(dataFlagEnd))
 		if err != nil {
-			return nil, errors.Wrap(err, "error parsing end flag")
+			return nil, errors.Wrap(err, "could not parse end flag")
 		}
 		end = timestamppb.New(t)
 	}

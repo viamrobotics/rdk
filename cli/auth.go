@@ -142,7 +142,7 @@ func (a *authFlow) Login(ctx context.Context) (*Token, error) {
 
 	deviceCode, err := a.makeDeviceCodeRequest(ctx, discovery)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed return device code")
+		return nil, errors.Wrapf(err, "failed to return device code")
 	}
 
 	err = a.directUser(deviceCode)
@@ -214,10 +214,9 @@ func (a *authFlow) makeDeviceCodeRequest(ctx context.Context, discovery *openIDD
 }
 
 func (a *authFlow) directUser(code *deviceCodeResponse) error {
-	fmt.Fprintf(a.console, `You can log into Viam through the opened browser window or follow the URL below.
-Ensure the code in the URL matches the one shown in your browser.
-  %s
-`, code.VerificationURIComplete)
+	Infof(a.console, `you can log into Viam through the opened browser window or follow the URL below.
+ensure the code in the URL matches the one shown in your browser.
+  %s`, code.VerificationURIComplete)
 
 	if a.disableBrowserOpen {
 		return nil
@@ -233,7 +232,7 @@ func (a *authFlow) waitForUser(ctx context.Context, code *deviceCodeResponse, di
 	waitInterval := defaultWaitInterval
 	for {
 		if !utils.SelectContextOrWait(ctxWithTimeout, waitInterval) {
-			return nil, errors.New("timed out getting token	")
+			return nil, fmt.Errorf("timed out getting token after %f seconds", waitInterval.Seconds())
 		}
 
 		data := url.Values{}

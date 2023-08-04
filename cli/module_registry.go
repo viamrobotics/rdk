@@ -64,11 +64,11 @@ func CreateModuleCommand(c *cli.Context) error {
 		return err
 	}
 	if org == nil {
-		return errors.Errorf("Unable to determine org from orgID(%q) and namespace(%q)", orgIDArg, publicNamespaceArg)
+		return errors.Errorf("unable to determine org from orgID(%q) and namespace(%q)", orgIDArg, publicNamespaceArg)
 	}
 	// Check to make sure the user doesn't accidentally overwrite a module manifest
 	if _, err := os.Stat(defaultManifestFilename); err == nil {
-		return errors.New("Another module's meta.json already exists in the current directory. Delete it and try again")
+		return errors.New("another module's meta.json already exists in the current directory. delete it and try again")
 	}
 
 	response, err := client.CreateModule(moduleNameArg, org.GetId())
@@ -87,9 +87,9 @@ func CreateModuleCommand(c *cli.Context) error {
 	if isValidOrgID(returnedModuleID.Prefix) {
 		returnedModuleID.Prefix = ""
 	}
-	fmt.Fprintf(c.App.Writer, "Successfully created '%s'.\n", returnedModuleID.toString())
+	fmt.Fprintf(c.App.Writer, "successfully created '%s'.\n", returnedModuleID.toString())
 	if response.GetUrl() != "" {
-		fmt.Fprintf(c.App.Writer, "You can view it here: %s \n", response.GetUrl())
+		fmt.Fprintf(c.App.Writer, "you can view it here: %s \n", response.GetUrl())
 	}
 	emptyManifest := ModuleManifest{
 		Name:       returnedModuleID.toString(),
@@ -137,7 +137,7 @@ func UpdateModuleCommand(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(c.App.Writer, "Module successfully updated! You can view your changes online here: %s\n", response.GetUrl())
+	fmt.Fprintf(c.App.Writer, "module successfully updated! you can view your changes online here: %s\n", response.GetUrl())
 
 	// If the namespace isn't set, modify the meta.json to set it (if available)
 	manifestModuleID, err := parseModuleID(manifest.Name)
@@ -149,17 +149,17 @@ func UpdateModuleCommand(c *cli.Context) error {
 		if err != nil {
 			// hopefully a user never sees this. An alternative would be to fail silently here
 			// to prevent the user from being surprised/scared that their update failed
-			return errors.Wrap(err, "Failed to update meta.json with new information from Viam")
+			return errors.Wrap(err, "failed to update meta.json with new information from Viam")
 		}
 		if org.PublicNamespace != "" {
 			moduleID.Prefix = org.PublicNamespace
 			manifest.Name = moduleID.toString()
 			if err := writeManifest(manifestPath, manifest); err != nil {
-				return errors.Wrap(err, "Failed to update meta.json with new information from Viam")
+				return errors.Wrap(err, "failed to update meta.json with new information from Viam")
 			}
-			fmt.Fprintf(c.App.Writer, "\nUpdated meta.json to use the public namespace of %q which is %q\n",
+			fmt.Fprintf(c.App.Writer, "\nupdated meta.json to use the public namespace of %q which is %q\n",
 				org.Name, org.PublicNamespace)
-			fmt.Fprintf(c.App.Writer, "You no longer need to specify org-id or public-namespace\n")
+			Infof(c.App.Writer, "you no longer need to specify org-id or public-namespace")
 		}
 	}
 	return nil
@@ -175,11 +175,11 @@ func UploadModuleCommand(c *cli.Context) error {
 	platformArg := c.String("platform")
 	tarballPath := c.Args().First()
 	if c.Args().Len() > 1 {
-		return errors.New("Too many arguments passed to upload command. " +
-			"Make sure to specify flag and optional arguments before the required positional package argument")
+		return errors.New("too many arguments passed to upload command. " +
+			"make sure to specify flag and optional arguments before the required positional package argument")
 	}
 	if tarballPath == "" {
-		return errors.New("No package to upload -- please provide an archive containing your module. See the help for more information")
+		return errors.New("no package to upload -- please provide an archive containing your module. use --help for more information")
 	}
 
 	client, err := NewAppClient(c)
@@ -196,8 +196,8 @@ func UploadModuleCommand(c *cli.Context) error {
 	if _, err := os.Stat(manifestPath); err != nil {
 		// no manifest found.
 		if nameArg == "" || (publicNamespaceArg == "" && orgIDArg == "") {
-			return errors.New("Unable to find the meta.json. " +
-				"If you want to upload a version without a meta.json, you must supply a module name and namespace (or module name and orgid)",
+			return errors.New("unable to find the meta.json. " +
+				"if you want to upload a version without a meta.json, you must supply a module name and namespace (or module name and orgid)",
 			)
 		}
 		moduleID, err = updateManifestModuleIDWithArgs(c, client, nameArg, publicNamespaceArg, orgIDArg)
@@ -217,7 +217,7 @@ func UploadModuleCommand(c *cli.Context) error {
 		}
 		if nameArg != "" && nameArg != moduleID.Name {
 			// This is almost certainly a mistake we want to catch
-			return errors.Errorf("Module name %q was supplied via command line args but the meta.json has a module name of %q",
+			return errors.Errorf("module name %q was supplied via command line args but the meta.json has a module name of %q",
 				nameArg, moduleID.Name)
 		}
 	}
@@ -229,14 +229,14 @@ func UploadModuleCommand(c *cli.Context) error {
 	}
 	// TODO(APP-2226) support .tar.xz
 	if !strings.HasSuffix(file.Name(), ".tar.gz") {
-		return errors.New("You must upload your module in the form of a .tar.gz")
+		return errors.New("you must upload your module in the form of a .tar.gz")
 	}
 	response, err := client.UploadModuleFile(moduleID, versionArg, platformArg, file)
 	if err != nil {
 		return err
 	}
 
-	fmt.Fprintf(c.App.Writer, "Version successfully uploaded! You can view your changes online here: %s\n", response.GetUrl())
+	fmt.Fprintf(c.App.Writer, "version successfully uploaded! you can view your changes online here: %s\n", response.GetUrl())
 
 	return nil
 }
@@ -251,8 +251,8 @@ func parseModuleID(moduleName string) (ModuleID, error) {
 	case 2:
 		return ModuleID{Prefix: splitModuleName[0], Name: splitModuleName[1]}, nil
 	default:
-		return ModuleID{}, errors.Errorf("Invalid module name '%s'."+
-			" It must be in the form 'prefix:module-name' for public modules"+
+		return ModuleID{}, errors.Errorf("invalid module name '%s'."+
+			" module name must be in the form 'prefix:module-name' for public modules"+
 			" or just 'module-name' for private modules in organizations without a public namespace", moduleName)
 	}
 }
@@ -291,10 +291,10 @@ func updateManifestModuleIDWithArgs(
 				// This is almost certainly a user mistake
 				// Preferring org name rather than orgid here because the manifest probably has it specified in terms of
 				// public_namespace so returning the ids would be frustrating
-				return ModuleID{}, errors.Errorf("The meta.json specifies a different org %q than the one provided via args %q",
+				return ModuleID{}, errors.Errorf("the meta.json specifies a different org %q than the one provided via args %q",
 					org.GetName(), expectedOrg.GetName())
 			}
-			fmt.Fprintln(c.App.Writer, "The module's meta.json already specifies a full module id. Ignoring public-namespace and org-id arg")
+			fmt.Fprintln(c.App.Writer, "the module's meta.json already specifies a full module id. ignoring public-namespace and org-id arg")
 		}
 		return moduleID, nil
 	}
@@ -356,7 +356,7 @@ func loadManifest(manifestPath string) (ModuleManifest, error) {
 	manifestBytes, err := os.ReadFile(manifestPath)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
-			return ModuleManifest{}, errors.Wrapf(err, "Cannot find %s", manifestPath)
+			return ModuleManifest{}, errors.Wrapf(err, "cannot find %s", manifestPath)
 		}
 		return ModuleManifest{}, err
 	}
