@@ -16,10 +16,8 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	rdkcli "go.viam.com/rdk/cli"
+	"go.viam.com/rdk/config"
 )
-
-// CliVersion set with ldflags.
-var CliVersion = "(dev)"
 
 const (
 	// Flags.
@@ -944,7 +942,11 @@ viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.ta
 						if dep, ok := deps["go.viam.com/api"]; ok {
 							apiVersion = dep.Version
 						}
-						fmt.Fprintf(c.App.Writer, "version %s git=%s api=%s %s\n", CliVersion, version, apiVersion, info.GoVersion)
+						appVersion := config.Version
+						if appVersion == "" {
+							appVersion = "(dev)"
+						}
+						fmt.Fprintf(c.App.Writer, "version %s git=%s api=%s %s\n", appVersion, version, apiVersion, info.GoVersion)
 					}
 					return nil
 				},
