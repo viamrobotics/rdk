@@ -335,7 +335,13 @@ func (lb *limoBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extr
 	secsToRun := math.Abs(angleDeg / degsPerSec)
 	var err error
 	if lb.driveMode == DIFFERENTIAL.String() || lb.driveMode == OMNI.String() {
-		err = lb.SetVelocity(ctx, r3.Vector{}, r3.Vector{Z: degsPerSec}, extra)
+		sign := 0.0
+		if angleDeg < 0 {
+			sign = -1.0
+		} else {
+			sign = 1.0
+		}
+		err = lb.SetVelocity(ctx, r3.Vector{}, r3.Vector{Z: sign * degsPerSec}, extra)
 	} else if lb.driveMode == ACKERMANN.String() {
 		// TODO: this is not the correct math
 		linear := float64(lb.maxLinearVelocity) * (degsPerSec / 360) * math.Pi
@@ -376,7 +382,7 @@ func (lb *limoBase) SetVelocity(ctx context.Context, linear, angular r3.Vector, 
 	defer done()
 
 	// this lb expects angular velocity to be expressed in .001 radians/sec, convert
-	angular.Z = (angular.Z / 57.2958) * 1000
+	angular.Z = (-angular.Z / 57.2958) * 1000
 
 	lb.stateMutex.Lock()
 	lb.state.velocityLinearGoal = linear
@@ -390,7 +396,7 @@ func (lb *limoBase) SetPower(ctx context.Context, linear, angular r3.Vector, ext
 	lb.logger.Debugf("Will set power linear %f angular %f", linear, angular)
 	linY := linear.Y * float64(lb.maxLinearVelocity)
 	angZ := angular.Z * float64(lb.maxAngularVelocity)
-	err := lb.SetVelocity(ctx, r3.Vector{Y: linY}, r3.Vector{Z: -angZ}, extra)
+	err := lb.SetVelocity(ctx, r3.Vector{Y: linY}, r3.Vector{Z: angZ}, extra)
 	if err != nil {
 		return err
 	}
