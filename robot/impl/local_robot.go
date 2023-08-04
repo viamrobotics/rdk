@@ -1050,7 +1050,8 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	// Set mostRecentConfig if resources were not equal.
 	r.mostRecentCfg = *newConfig
 
-	// We need to pre-add all resources so that the module manager provides the appropriate modules
+	// We need to pre-add the new modules so that the modulemanager knows which modules provide which models
+	// TODO(pre-merge) This is a hack that might have weird side effects if a modules exe path changes but its name is contant @james
 	for _, mod := range diff.Added.Modules {
 		if err := mod.Validate(""); err != nil {
 			r.manager.logger.Errorw("module config validation error; skipping", "module", mod.Name, "error", err)

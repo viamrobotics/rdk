@@ -219,9 +219,13 @@ func (m *cloudManager) Cleanup(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	// A packageTypeDir is a directory that contains all of the packages for the specified type. ex: packages/ml_models
+	// A packageTypeDir is a directory that contains all of the packages for the specified type. ex: .data/ml_models
 	for _, packageTypeDir := range topLevelFiles {
-		packageTypeDirName := filepath.Join(m.packagesDataDir, packageTypeDir.Name())
+		packageTypeDirName, err := safeJoin(m.packagesDataDir, packageTypeDir.Name())
+		if err != nil {
+			allErrors = multierr.Append(allErrors, err)
+			continue
+		}
 
 		// There should be no non-dir files in the packages/.data dir. Delete any that exist
 		if packageTypeDir.Type()&os.ModeDir != os.ModeDir {
@@ -235,7 +239,11 @@ func (m *cloudManager) Cleanup(ctx context.Context) error {
 			continue
 		}
 		for _, packageDir := range packageDirs {
-			packageDirName := filepath.Join(packageTypeDirName, packageDir.Name())
+			packageDirName, err := safeJoin(packageTypeDirName, packageDir.Name())
+			if err != nil {
+				allErrors = multierr.Append(allErrors, err)
+				continue
+			}
 			_, expectedToExist := expectedPackageDirectories[packageDirName]
 			if !expectedToExist {
 				m.logger.Debug("Removing old package", packageDirName)
@@ -260,7 +268,12 @@ func (m *cloudManager) Cleanup(ctx context.Context) error {
 // symlink packages/package-name to packages/ml_models/orgid-package-name-ver for backwards compatablility
 // Preserved for backwards compatibility. Could be removed or extended to other types in the future.
 func (m *cloudManager) mLModelSymlinkCreation(p config.PackageConfig) error {
-	if err := linkFile(p.LocalDataDirectory(m.packagesDir), filepath.Join(m.packagesDir, p.Name)); err != nil {
+	symlinkPath, err := safeJoin(m.packagesDir, p.Name)
+	if err != nil {
+		return err
+	}
+
+	if err := linkFile(p.LocalDataDirectory(m.packagesDir), symlinkPath); err != nil {
 		m.logger.Errorf("Failed linking ml_model package %s:%s, %s", p.Package, p.Version, err)
 		return err
 	}
@@ -288,8 +301,13 @@ func (m *cloudManager) mlModelSymlinkCleanup() error {
 
 		m.logger.Infof("Cleaning up unused package link %s", f.Name())
 
+		symlinkPath, err := safeJoin(m.packagesDir, f.Name())
+		if err != nil {
+			allErrors = multierr.Append(allErrors, err)
+			continue
+		}
 		// Remove logical symlink to package
-		if err := os.Remove(filepath.Join(m.packagesDir, f.Name())); err != nil {
+		if err := os.Remove(symlinkPath); err != nil {
 			allErrors = multierr.Append(allErrors, err)
 		}
 	}
@@ -322,8 +340,11 @@ func (m *cloudManager) downloadPackage(ctx context.Context, url string, p config
 	}
 
 	if p.Type == config.PackageTypeMlModel {
-		if err := os.Remove(filepath.Join(m.packagesDir, p.Name)); err != nil {
-			utils.UncheckedError(err)
+		symlinkPath, err := safeJoin(m.packagesDir, p.Name)
+		if err == nil {
+			if err := os.Remove(symlinkPath); err != nil {
+				utils.UncheckedError(err)
+			}
 		}
 	}
 

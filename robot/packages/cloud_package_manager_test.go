@@ -257,10 +257,6 @@ func validatePackageDir(t *testing.T, dir string, input []config.PackageConfig) 
 		bySanitizedName[p.SanitizedName()] = &p
 		byLogicalName[p.Name] = &p
 		pType := string(p.Type)
-		if pType == "" {
-			// TODO(pre-merge) I don't think this is required anymore
-			pType = "ml_model"
-		}
 		byType[pType] = append(byType[pType], p.SanitizedName())
 	}
 
