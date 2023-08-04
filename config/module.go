@@ -43,8 +43,10 @@ func (m *Module) Validate(path string) error {
 }
 
 func (m *Module) validate(path string) error {
-	// TODO(pre-merge) refactor this to not be so ugly
-	if !(ContainsPlaceholder(m.ExePath) || strings.HasPrefix(m.ExePath, viamDotDir)) {
+	// Only check if the path exists during validation for local modules because the packagemanager may not have downloaded
+	// the package yet.
+	// As of 2023-08, modules can't know if they were originally registry modules, so this roundabout check is required
+	if !(ContainsPlaceholder(m.ExePath) || strings.HasPrefix(m.ExePath, viamPackagesDir)) {
 		_, err := os.Stat(m.ExePath)
 		if err != nil {
 			return errors.Wrapf(err, "module %s executable path error", path)

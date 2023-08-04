@@ -121,9 +121,15 @@ func (v *PlaceholderReplacementVisitor) Visit(data interface{}) (interface{}, er
 	return withReplacedRefs, nil
 }
 
+// replacePlaceholders follows a two step process:
+// First, match anything that could be a placeholder (ex: ${hello})
+// Second, attempt to match any of those placeholder keys ("hello") with any rules we have for transformation
+//
+// This is done so that misspellings like ${package.module.name} wont be silently ignored and
+// so that it is easy to add additional placeholder types (like environment variables).
 func (v *PlaceholderReplacementVisitor) replacePlaceholders(s string) (string, error) {
 	var allErrors error
-	// first match all possible placeholders (ex: ${hello})
+	// First, match all possible placeholders (ex: ${hello})
 	patchedStr := placeholderRegexp.ReplaceAllFunc([]byte(s), func(b []byte) []byte {
 		matches := placeholderRegexp.FindSubmatch(b)
 		if matches == nil {
@@ -133,10 +139,11 @@ func (v *PlaceholderReplacementVisitor) replacePlaceholders(s string) (string, e
 		// placeholder key is the inside of the placeholder ex "hello" for ${hello}
 		placeholderKey := matches[placeholderRegexp.SubexpIndex("placeholder_key")]
 
+		// Now, match against every way we know of doing placeholder replacement
 		if packagePlaceholderRegexp.Match(placeholderKey) {
-			replaced, err := v.replacePackagePlaceholder(placeholderKey)
+			replaced, err := v.replacePackagePlaceholder(string(placeholderKey))
 			allErrors = multierr.Append(allErrors, err)
-			return replaced
+			return []byte(replaced)
 		}
 
 		allErrors = multierr.Append(allErrors, errors.Errorf("invalid placeholder %q", string(b)))
@@ -146,10 +153,10 @@ func (v *PlaceholderReplacementVisitor) replacePlaceholders(s string) (string, e
 	return string(patchedStr), allErrors
 }
 
-func (v *PlaceholderReplacementVisitor) replacePackagePlaceholder(b []byte) ([]byte, error) {
-	matches := packagePlaceholderRegexp.FindStringSubmatch(string(b))
+func (v *PlaceholderReplacementVisitor) replacePackagePlaceholder(toReplace string) (string, error) {
+	matches := packagePlaceholderRegexp.FindStringSubmatch(toReplace)
 	if matches == nil {
-		return b, errors.Errorf("failed to find substring matches for placeholder %q", string(b))
+		return toReplace, errors.Errorf("failed to find substring matches for placeholder %q", toReplace)
 	}
 	packageType := matches[packagePlaceholderRegexp.SubexpIndex("type")]
 	packageName := matches[packagePlaceholderRegexp.SubexpIndex("name")]
@@ -160,15 +167,14 @@ func (v *PlaceholderReplacementVisitor) replacePackagePlaceholder(b []byte) ([]b
 	}
 	packageConfig, isPresent := v.packages[packageName]
 	if !isPresent {
-		return b, errors.Errorf("failed to find a package named %q for placeholder %q",
-			packageName, string(b))
+		return toReplace, errors.Errorf("failed to find a package named %q for placeholder %q",
+			packageName, toReplace)
 	}
 	if packageType != string(packageConfig.Type) {
 		expectedPlaceholder := fmt.Sprintf("packages.%s.%s", string(packageConfig.Type), packageName)
-		return b,
+		return toReplace,
 			errors.Errorf("placeholder %q is looking for a package of type %q but a package of type %q was found. Try %q",
-				string(b), packageType, string(packageConfig.Type), expectedPlaceholder)
+				toReplace, packageType, string(packageConfig.Type), expectedPlaceholder)
 	}
-	expectedPath := packageConfig.LocalDataDirectory(viamPackagesDir)
-	return []byte(expectedPath), nil
+	return packageConfig.LocalDataDirectory(viamPackagesDir), nil
 }
