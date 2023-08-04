@@ -35,19 +35,19 @@ onMount(() => {
   handleResize();
 
   if (map.isStyleLoaded()) {
-    addLayer()
+    addLayer();
   } else {
-    map.on('style.load', () => addLayer())
+    map.on('style.load', () => addLayer());
   }
-})
+});
 
 onDestroy(() => {
-  map.off('resize', handleResize)
+  map.off('resize', handleResize);
 
   if (map.getLayer('obstacle-layer')) {
-    map.removeLayer('obstacle-layer')
+    map.removeLayer('obstacle-layer');
   }
-})
+});
 
 </script>
 

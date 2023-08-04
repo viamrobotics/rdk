@@ -6,7 +6,7 @@ import { obstacles, view } from '../stores';
 import Obstacle from './obstacle.svelte';
 
 const { renderer } = useThrelte();
-const clippingPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.1)
+const clippingPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.1);
 
 $: flat = $view === '2D';
 

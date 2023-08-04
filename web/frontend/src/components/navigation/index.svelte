@@ -36,16 +36,16 @@ const setNavigationMode = async (event: CustomEvent) => {
   }
 };
 
-let entered = false
+let entered = false;
 
 const handleEnter = async () => {
-  entered = true
+  entered = true;
   $obstacles = await getObstacles($robotClient, name);
-}
+};
 
 const handleLeave = () => {
-  entered = false
-}
+  entered = false;
+};
 
 </script>
 

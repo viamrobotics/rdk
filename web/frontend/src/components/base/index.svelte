@@ -211,7 +211,7 @@
   const handleVisibilityChange = () => {
     // only issue the stop if there are keys pressed as to not interfere with commands issued by scripts/commands
     if (document.visibilityState === 'hidden') {
-      handleOnBlur()
+      handleOnBlur();
     }
   };
 

@@ -10,7 +10,7 @@ export let visible = true;
 export let color: string | null = null;
 
 const marker = new Marker({ scale, color: color ?? undefined });
-marker.getElement().style.zIndex = '1'
+marker.getElement().style.zIndex = '1';
 
 $: {
   marker.setLngLat(lngLat);
