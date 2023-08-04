@@ -64,7 +64,7 @@ func CreateModuleCommand(c *cli.Context) error {
 		return err
 	}
 	if org == nil {
-		return errors.Errorf("unable to determine org from orgID(%q) and namespace(%q)", orgIDArg, publicNamespaceArg)
+		return errors.Errorf("unable to determine org from org-id (%q) and namespace (%q)", orgIDArg, publicNamespaceArg)
 	}
 	// Check to make sure the user doesn't accidentally overwrite a module manifest
 	if _, err := os.Stat(defaultManifestFilename); err == nil {
