@@ -99,7 +99,7 @@ const refresh2d = async () => {
     } else {
       let response;
       [pointcloud, response] = await Promise.all([
-        getPointCloudMap($robotClient, name),
+        getPointCloudMap(slamClient),
         slamClient.getPosition(),
       ]);
       nextPose = response.pose;
@@ -140,7 +140,7 @@ const refresh3d = async () => {
        * A new call to getPointCloudMap is made if an update has occured.
        */
       if (!localizationMode(mapTimestamp)) {
-        pointcloud = await getPointCloudMap($robotClient, name);
+        pointcloud = await getPointCloudMap(slamClient);
       }
       if (mapTimestamp) {
         lastTimestamp = mapTimestamp;
