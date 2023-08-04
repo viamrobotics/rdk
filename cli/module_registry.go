@@ -217,7 +217,7 @@ func UploadModuleCommand(c *cli.Context) error {
 		}
 		if nameArg != "" && nameArg != moduleID.Name {
 			// This is almost certainly a mistake we want to catch
-			return errors.Errorf("module name %q was supplied via command line args but the meta.json has a module name of %q",
+			return errors.Errorf("module name %q was supplied on the command line but the meta.json has a module name of %q",
 				nameArg, moduleID.Name)
 		}
 	}
