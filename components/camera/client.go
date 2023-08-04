@@ -237,6 +237,9 @@ func (c *client) Properties(ctx context.Context) (Properties, error) {
 	if resp.DistortionParameters == nil {
 		return result, nil
 	}
+	if resp.DistortionParameters.Model == "" { // same as if nil
+		return result, nil
+	}
 	// switch distortion model based on model name
 	model := transform.DistortionType(resp.DistortionParameters.Model)
 	distorter, err := transform.NewDistorter(model, resp.DistortionParameters.Parameters)

@@ -1,4 +1,4 @@
-// Package navigation contains a navigation service, along with a gRPC server and client
+// Package navigation is the service that allows you to navigate along waypoints.
 package navigation
 
 import (

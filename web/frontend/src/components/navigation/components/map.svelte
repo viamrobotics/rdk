@@ -55,7 +55,7 @@ $: {
 
 <div
   id='navigation-map'
-  class="-mr-4 h-[550px] w-full"
+  class="-mr-4 h-[450px] sm:h-[550px] w-full"
 />
 
 {#if localStorage.getItem('debug_3d')}
