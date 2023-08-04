@@ -375,7 +375,7 @@ func (lb *limoBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec f
 	return lb.Stop(ctx, extra)
 }
 
-// linear is in mm/sec, angular in degrees/sec. 
+// linear is in mm/sec, angular in degrees/sec.
 // positive angular velocity turns base left.
 func (lb *limoBase) SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
 	lb.logger.Debugf("Will set linear velocity %f angular velocity %f", linear, angular)
