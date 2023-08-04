@@ -37,7 +37,6 @@ const setNavigationMode = async (event: CustomEvent) => {
 };
 
 const handleEnter = async () => {
-  entered = true;
   $obstacles = await getObstacles($robotClient, name);
 };
 
