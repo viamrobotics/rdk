@@ -88,9 +88,10 @@ func main() {
 					}
 
 					loggedInMessage := func(token *rdkcli.Token, alreadyLoggedIn bool) {
-						var already string
-						if alreadyLoggedIn {
-							already = "already "
+						already := "already "
+						if !alreadyLoggedIn {
+							already = ""
+							rdkcli.ViamLogo(c.App.Writer)
 						}
 
 						fmt.Fprintf(c.App.Writer, "%slogged in as %q, expires %s\n", already, token.User.Email,

@@ -9,6 +9,16 @@ import (
 	"github.com/fatih/color"
 )
 
+const asciiViam = `
+@@BO..    "%@@B^%@@<      .}j.      !B@B$v'.    'nB$$$!
+.*@$%l   f$$@X  %$$+      &@$$      l$$$$@@^   "B$$$$@!
+  (@$$0'M@$@:   B$$~    ~B$$@$@1    !$$BQ@@@q.0@$$0@$$!
+   'WB$$B@p     B$$~   qB$%-!@@@o.  l$@B..B@$@$@%; @$@!
+    .u$$$!      B$$~ ;@@@& ... oB$@~!!$$@. z$$$z'. $$$!
+      :h'       B$$~L%@$||     -@@$bi$@B    'M'    $$$!
+
+`
+
 // Infof prints a message prefixed with a bold cyan "Info: ".
 func Infof(w io.Writer, format string, a ...interface{}) {
 	// NOTE(benjirewis): for some reason, both errcheck and gosec complain about
@@ -35,4 +45,11 @@ func Errorf(w io.Writer, format string, a ...interface{}) {
 	}
 	fmt.Fprintf(w, format+"\n", a...)
 	os.Exit(1)
+}
+
+// ViamLogo prints an ASCII Viam logo.
+func ViamLogo(w io.Writer) {
+	if _, err := color.New(color.Bold, color.FgWhite).Fprint(w, asciiViam); err != nil {
+		log.Fatal(err)
+	}
 }
