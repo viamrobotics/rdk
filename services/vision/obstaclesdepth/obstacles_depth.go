@@ -16,7 +16,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/viamrobotics/gostream"
 	"go.opencensus.io/trace"
-	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/pointcloud"
@@ -39,7 +38,6 @@ type ObsDepthConfig struct {
 	Hmax       float64 `json:"h_max_m"`
 	ThetaMax   float64 `json:"theta_max_deg"`
 	ReturnPCDs bool    `json:"return_pcds"`
-	CameraName string  `json:"camera_name"`
 }
 
 // obsDepth is the underlying struct actually used by the service.
@@ -84,9 +82,6 @@ func init() {
 // Validate ensures all parts of the config are valid.
 func (config *ObsDepthConfig) Validate(path string) ([]string, error) {
 	deps := []string{}
-	if config.CameraName == "" {
-		return nil, goutils.NewConfigValidationFieldRequiredError(path, "camera_name")
-	}
 	if config.Hmin >= config.Hmax {
 		return nil, errors.New("Hmin should be less than Hmax")
 	}
@@ -116,16 +111,6 @@ func registerObstaclesDepth(
 		return nil, errors.New("config for obstacles_depth cannot be nil")
 	}
 
-	camProps := svision.GetAllCameraPropertiesFromRobot(ctx, r)
-
-	// If you have no intrinsics
-	props, ok := camProps[conf.CameraName]
-	if !ok || props.IntrinsicParams == nil {
-		logger.Warn("obstacles depth started without camera's intrinsic parameters")
-		segmenter := buildObsDepthNoIntrinsics()
-		return svision.NewService(name, r, nil, nil, nil, segmenter)
-	}
-
 	// Use defaults if needed
 	if conf.Hmax == 0 {
 		conf.Hmax = defaultHmax
@@ -137,14 +122,30 @@ func registerObstaclesDepth(
 	sinTheta := math.Sin(conf.ThetaMax * math.Pi / 180) // sin(radians(theta))
 	myObsDep := obsDepth{
 		hMin: 1000 * conf.Hmin, hMax: 1000 * conf.Hmax, sinTheta: sinTheta,
-		intrinsics: props.IntrinsicParams, returnPCDs: conf.ReturnPCDs, k: defaultK,
+		returnPCDs: conf.ReturnPCDs, k: defaultK,
 	}
-	segmenter := myObsDep.buildObsDepthWithIntrinsics() // does the thing
+
+	segmenter := myObsDep.buildObsDepth(logger) // does the thing
 	return svision.NewService(name, r, nil, nil, nil, segmenter)
 }
 
+// BuildObsDepth will check for intrinsics and determine how to build based on that.
+func (o *obsDepth) buildObsDepth(logger golog.Logger) func(ctx context.Context, src camera.VideoSource) ([]*vision.Object, error) {
+	return func(ctx context.Context, src camera.VideoSource) ([]*vision.Object, error) {
+		props, err := src.Properties(ctx)
+		if err != nil || props.IntrinsicParams == nil {
+			logger.Warn("obstacles depth started without camera's intrinsic parameters")
+			ni := o.buildObsDepthNoIntrinsics()
+			return ni(ctx, src)
+		}
+		o.intrinsics = props.IntrinsicParams
+		wi := o.buildObsDepthWithIntrinsics()
+		return wi(ctx, src)
+	}
+}
+
 // buildObsDepthNoIntrinsics will return the shortest depth in the depth map as a Geometry point.
-func buildObsDepthNoIntrinsics() segmentation.Segmenter {
+func (o *obsDepth) buildObsDepthNoIntrinsics() segmentation.Segmenter {
 	return func(ctx context.Context, src camera.VideoSource) ([]*vision.Object, error) {
 		pic, release, err := camera.ReadImage(ctx, src)
 		if err != nil {
@@ -170,14 +171,7 @@ func buildObsDepthNoIntrinsics() segmentation.Segmenter {
 // before clustering and projecting those points into 3D obstacles.
 func (o *obsDepth) buildObsDepthWithIntrinsics() segmentation.Segmenter {
 	return func(ctx context.Context, src camera.VideoSource) ([]*vision.Object, error) {
-		// Check if we have intrinsics here or in the camera properties. If not, don't even try
-		props, err := src.Properties(ctx)
-		if err != nil {
-			return nil, err
-		}
-		if props.IntrinsicParams != nil {
-			o.intrinsics = props.IntrinsicParams
-		}
+		// Check if we have intrinsics here. If not, don't even try
 		if o.intrinsics == nil {
 			return nil, errors.New("tried to build obstacles depth with intrinsics but no instrinsics found")
 		}

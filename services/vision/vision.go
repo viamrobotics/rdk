@@ -71,26 +71,6 @@ func FromDependencies(deps resource.Dependencies, name string) (Service, error) 
 	return resource.FromDependencies[Service](deps, Named(name))
 }
 
-// GetAllCameraPropertiesFromRobot returns a map of existing camera names ("webcam") to their properties.
-func GetAllCameraPropertiesFromRobot(ctx context.Context, r robot.Robot) map[string]camera.Properties {
-	out := make(map[string]camera.Properties)
-	for _, name := range r.ResourceNames() {
-		res, err := r.ResourceByName(name)
-		if err != nil {
-			continue
-		}
-		cam, ok := res.(camera.Camera)
-		if ok {
-			props, err := cam.Properties(ctx)
-			if err != nil {
-				out[name.Name] = camera.Properties{}
-			}
-			out[name.Name] = props
-		}
-	}
-	return out
-}
-
 // vizModel wraps the vision model with all the service interface methods.
 type vizModel struct {
 	resource.Named
