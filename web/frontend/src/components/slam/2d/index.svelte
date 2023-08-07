@@ -17,12 +17,12 @@ export let helpers: boolean;
 const dispatch = createEventDispatcher();
 
 let motionPath: string | undefined;
-let basePosition = new THREE.Vector2()
-let baseRotation = 0
+const basePosition = new THREE.Vector2();
+let baseRotation = 0;
 
 const updatePose = (newPose: commonApi.Pose) => {
-  basePosition.x = newPose.getX()
-  basePosition.y = newPose.getY()
+  basePosition.x = newPose.getX();
+  basePosition.y = newPose.getY();
   baseRotation = THREE.MathUtils.degToRad(newPose.getTheta() - 90);
 };
 
@@ -30,7 +30,9 @@ const handleDrop = (event: CustomEvent<string>) => {
   motionPath = event.detail;
 };
 
-$: if (pose) updatePose(pose);
+$: if (pose) {
+  updatePose(pose);
+}
 
 </script>
 

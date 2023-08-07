@@ -1,16 +1,16 @@
 <script lang='ts'>
 
-import * as THREE from 'three'
+import * as THREE from 'three';
 import { PCDLoader } from 'three/examples/jsm/loaders/PCDLoader';
 import { T, useThrelte, createRawEventDispatcher, extend } from '@threlte/core';
 import { MeshDiscardMaterial, MouseRaycaster } from 'trzy';
 import { renderOrder } from './constants';
 import { onMount } from 'svelte';
 
-extend({ MeshDiscardMaterial })
+extend({ MeshDiscardMaterial });
 
-export let pointcloud: Uint8Array | undefined
-export let size: number
+export let pointcloud: Uint8Array | undefined;
+export let size: number;
 
 type $$Events = {
   click: THREE.Vector3
@@ -20,19 +20,19 @@ type $$Events = {
   }
 }
 
-const dispatch = createRawEventDispatcher<$$Events>()
-const { camera, renderer } = useThrelte()
-const loader = new PCDLoader()
+const dispatch = createRawEventDispatcher<$$Events>();
+const { camera, renderer } = useThrelte();
+const loader = new PCDLoader();
 
-let points: THREE.Points
-let material: THREE.PointsMaterial | undefined
-let radius = 1
-let center = { x: 0, y: 0 }
+let points: THREE.Points;
+let material: THREE.PointsMaterial | undefined;
+let radius = 1;
+let center = { x: 0, y: 0 };
 
 const raycaster = new MouseRaycaster({
   camera: camera.current as THREE.OrthographicCamera,
   target: renderer.domElement,
-  recursive: false
+  recursive: false,
 });
 
 /*
@@ -41,18 +41,27 @@ const raycaster = new MouseRaycaster({
  * generated with: https://grayscale.design/app
  */
  const colorMapGrey = [
-  [240, 240, 240],
-  [220, 220, 220],
-  [200, 200, 200],
-  [190, 190, 190],
-  [170, 170, 170],
-  [150, 150, 150],
-  [40, 40, 40],
-  [20, 20, 20],
-  [10, 10, 10],
-  [0, 0, 0],
-].map(([red, green, blue]) =>
-  new THREE.Vector3(red, green, blue).multiplyScalar(1 / 255));
+   [240, 240, 240],
+   [220, 220, 220],
+   [200, 200, 200],
+   [190, 190, 190],
+   [170, 170, 170],
+   [150, 150, 150],
+   [40, 40, 40],
+   [20, 20, 20],
+   [10, 10, 10],
+   [0, 0, 0],
+ ].map(([red, green, blue]) =>
+   new THREE.Vector3(red, green, blue).multiplyScalar(1 / 255));
+
+/*
+ * Find the desired color bucket for a given probability. This assumes the probability will be a value from 0 to 100
+ * ticket to add testing: https://viam.atlassian.net/browse/RSDK-2606
+ */
+ const probToColorMapBucket = (probability: number, numBuckets: number): number => {
+   const prob = Math.max(Math.min(100, probability * 255), 0);
+   return Math.floor((numBuckets - 1) * prob / 100);
+ };
 
 /*
  * Map the color of a pixel to a color bucket value.
@@ -60,17 +69,8 @@ const raycaster = new MouseRaycaster({
  * ticket to add testing: https://viam.atlassian.net/browse/RSDK-2606
  */
  const colorBuckets = (probability: number): THREE.Vector3 => {
-  return colorMapGrey[probToColorMapBucket(probability, colorMapGrey.length)]!;
-};
-
-/*
- * Find the desired color bucket for a given probability. This assumes the probability will be a value from 0 to 100
- * ticket to add testing: https://viam.atlassian.net/browse/RSDK-2606
- */
- const probToColorMapBucket = (probability: number, numBuckets: number): number => {
-  const prob = Math.max(Math.min(100, probability * 255), 0);
-  return Math.floor((numBuckets - 1) * prob / 100);
-};
+   return colorMapGrey[probToColorMapBucket(probability, colorMapGrey.length)]!;
+ };
 
 const update = (cloud: Uint8Array) => {
   points = loader.parse(cloud.buffer);
@@ -82,8 +82,8 @@ const update = (cloud: Uint8Array) => {
   const { boundingSphere } = points.geometry;
 
   if (boundingSphere !== null) {
-    radius = boundingSphere.radius
-    center = boundingSphere.center
+    radius = boundingSphere.radius;
+    center = boundingSphere.center;
   }
 
   const colors = points.geometry.attributes.color;
@@ -100,19 +100,23 @@ const update = (cloud: Uint8Array) => {
     }
   }
 
-  dispatch('update', { center, radius })
+  dispatch('update', { center, radius });
+};
+
+$: if (material) {
+  material.size = size;
 }
+$: if (pointcloud) {
+  update(pointcloud);
+}
+$: raycaster.camera = camera.current as THREE.OrthographicCamera;
 
-$: if (material) material.size = size
-$: if (pointcloud) update(pointcloud)
-$: raycaster.camera = camera.current as THREE.OrthographicCamera
-
-onMount(() => dispatch('update', { center, radius }))
+onMount(() => dispatch('update', { center, radius }));
 
 raycaster.addEventListener('click', (event: THREE.Event) => {
   const [intersection] = event.intersections as THREE.Intersection[];
   if (intersection && intersection.point) {
-    dispatch('click', intersection.point)
+    dispatch('click', intersection.point);
   }
 });
 

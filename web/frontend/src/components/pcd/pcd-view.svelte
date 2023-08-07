@@ -12,7 +12,6 @@ import { notify } from '@viamrobotics/prime';
 export let pointcloud: Uint8Array | undefined;
 
 let container: HTMLDivElement;
-let gizmoContainer: HTMLDivElement;
 let downloadHref: string;
 
 let cube: THREE.LineSegments;
@@ -386,10 +385,5 @@ $: if (pointcloud) {
     class="pcd-container relative w-full border border-medium"
     on:mousedown={handleCanvasMouseDown}
     on:mouseup={handleCanvasMouseUp}
-  >
-    <div
-      bind:this={gizmoContainer}
-      class="absolute right-2 top-2"
-    />
-  </div>
+  />
 </div>

@@ -1,16 +1,16 @@
 <script lang='ts'>
 
-import { T, extend } from '@threlte/core'
+import { T, extend } from '@threlte/core';
 import { Line2 } from 'three/examples/jsm/lines/Line2.js';
 import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
 import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js';
 import { renderOrder } from './constants';
 
-extend({ Line2, LineMaterial })
+extend({ Line2, LineMaterial });
 
 export let path: string | undefined;
 
-let geometry: LineGeometry = new LineGeometry()
+let geometry: LineGeometry = new LineGeometry();
 
 const updatePath = (pathstr?: string) => {
   if (pathstr === undefined) {
@@ -32,7 +32,7 @@ const updatePath = (pathstr?: string) => {
 
   const vertices = new Float32Array(points);
   geometry.setPositions(vertices);
-  console.log(vertices)
+  console.log(vertices);
 };
 
 $: updatePath(path);

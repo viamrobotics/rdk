@@ -1,7 +1,7 @@
 <script lang='ts'>
 
-import * as THREE from 'three'
-import { T, createRawEventDispatcher, extend, useThrelte } from '@threlte/core'
+import * as THREE from 'three';
+import { T, createRawEventDispatcher, extend, useThrelte } from '@threlte/core';
 import { MapControls } from 'three/examples/jsm/controls/MapControls';
 import Helpers from './helpers.svelte';
 import Points from './points.svelte';
@@ -10,41 +10,39 @@ import MotionPath from './motion-path.svelte';
 import DestMarker from '@/lib/images/destination-marker.txt?raw';
 import BaseMarker from '@/lib/images/base-marker.txt?raw';
 
-export let helpers: boolean
-export let pointcloud: Uint8Array | undefined
-export let basePosition: THREE.Vector2
-export let baseRotation: number
-export let destination: THREE.Vector2 | undefined
-export let motionPath: string | undefined
+export let helpers: boolean;
+export let pointcloud: Uint8Array | undefined;
+export let basePosition: THREE.Vector2;
+export let baseRotation: number;
+export let destination: THREE.Vector2 | undefined;
+export let motionPath: string | undefined;
 
-const dispatch = createRawEventDispatcher()
+const dispatch = createRawEventDispatcher();
 
-extend({ MapControls })
+extend({ MapControls });
 
 const { renderer, camera, invalidate } = useThrelte();
 
 const baseSpriteSize = 14;
 const defaultPointSize = 0.05;
 
-let cameraX = 0
-let cameraY = 0
-let userControlling = false
-let markerScale = 0
-let pointSize = 0
-let zoom = 0
+let cameraX = 0;
+let cameraY = 0;
+let userControlling = false;
+let markerScale = 0;
+let pointSize = 0;
+let zoom = 0;
 
-const updateZoom = () => {
-  const cam = camera.current as THREE.OrthographicCamera;
-
+const updateZoom = (cam = camera.current as THREE.OrthographicCamera) => {
   if (cam.zoom !== zoom) {
-    zoom = cam.zoom
+    zoom = cam.zoom;
   }
-}
+};
 
 const handleControlsChange = () => {
-  invalidate()
-  updateZoom()
-}
+  invalidate();
+  updateZoom();
+};
 
 type UpdateEvent = {
   radius: number
@@ -53,29 +51,27 @@ type UpdateEvent = {
 
 const handlePointsUpdate = ({ center, radius }: UpdateEvent) => {
   if (!userControlling) {
-    cameraX = center.x
-    cameraY = center.y
+    cameraX = center.x;
+    cameraY = center.y;
 
     const viewHeight = 1;
     const viewWidth = viewHeight * 2;
     const aspect = renderer.domElement.clientHeight / renderer.domElement.clientWidth;
     const aspectInverse = 0.008;
-    const cam = camera.current as THREE.OrthographicCamera
+    const cam = camera.current as THREE.OrthographicCamera;
 
     cam.zoom = aspect > 1
       ? viewHeight / (radius * aspectInverse)
       : viewWidth / (radius * aspectInverse);
 
-    updateZoom()
+    updateZoom();
   }
 
-
-}
+};
 
 $: markerScale = baseSpriteSize / zoom;
 $: pointSize = zoom * defaultPointSize * window.devicePixelRatio;
-$: $camera, updateZoom()
-
+$: updateZoom($camera as THREE.OrthographicCamera);
 
 </script>
 

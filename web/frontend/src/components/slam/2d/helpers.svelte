@@ -1,10 +1,10 @@
 <script lang='ts'>
 
-import { T, extend } from '@threlte/core'
+import { T, extend } from '@threlte/core';
 import { AxesHelper, GridHelper } from 'trzy';
 import { renderOrder } from './constants';
 
-extend({ AxesHelper, GridHelper })
+extend({ AxesHelper, GridHelper });
 
 </script>
 
@@ -17,12 +17,12 @@ extend({ AxesHelper, GridHelper })
 <T.AxesHelper
   renderOrder={renderOrder.axes}
   width={0.2}
-  length={10000}
+  length={10_000}
 />
 
 <T.AxesHelper
   renderOrder={renderOrder.axes}
   width={0.2}
-  length={10000}
+  length={10_000}
   on:create={({ ref }) => ref.rotateZ(Math.PI)}
 />

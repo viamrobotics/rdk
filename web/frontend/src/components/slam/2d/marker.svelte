@@ -1,6 +1,6 @@
 <script lang='ts' context='module'>
 
-import * as THREE from 'three'
+import * as THREE from 'three';
 
 const textureLoader = new THREE.TextureLoader();
 
@@ -8,12 +8,12 @@ const textureLoader = new THREE.TextureLoader();
 
 <script lang='ts'>
 
-import { T } from '@threlte/core'
+import { T } from '@threlte/core';
 import { renderOrder } from './constants';
 
-export let name: string
-export let url: string
-export let rotation = 0
+export let name: string;
+export let url: string;
+export let rotation = 0;
 
 </script>
 
