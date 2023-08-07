@@ -293,15 +293,35 @@ func TestStartWaypoint(t *testing.T) {
 
 			ns.(*builtIn).startWaypoint(ctx, map[string]interface{}{"experimental": true})
 
+			// Get the ID of the first waypoint
+			wp1, err := ns.(*builtIn).store.NextWaypoint(ctx)
+			test.That(t, err, test.ShouldBeNil)
+
 			// Reach the first waypoint
 			eventChannel <- arrivedAtWaypointMsg
 			test.That(t, <-statusChannel, test.ShouldEqual, arrivedAtWaypointMsg)
 			currentInputsShouldEqual(ctx, t, kinematicBase, pt1)
 
+			// Ensure we aren't querying before the nav service has a chance to mark the previous waypoint visited.
+			wp2, err := ns.(*builtIn).store.NextWaypoint(ctx)
+			test.That(t, err, test.ShouldBeNil)
+			for wp2.ID == wp1.ID {
+				wp2, err = ns.(*builtIn).store.NextWaypoint(ctx)
+				test.That(t, err, test.ShouldBeNil)
+			}
+
 			// Skip the second waypoint due to an error
 			eventChannel <- hitAnErrorMsg
 			test.That(t, <-statusChannel, test.ShouldEqual, hitAnErrorMsg)
 			currentInputsShouldEqual(ctx, t, kinematicBase, pt1)
+
+			// Ensure we aren't querying before the nav service has a chance to mark the previous waypoint visited.
+			wp3, err := ns.(*builtIn).store.NextWaypoint(ctx)
+			test.That(t, err, test.ShouldBeNil)
+			for wp3.ID == wp2.ID {
+				wp3, err = ns.(*builtIn).store.NextWaypoint(ctx)
+				test.That(t, err, test.ShouldBeNil)
+			}
 
 			// Reach the third waypoint
 			eventChannel <- arrivedAtWaypointMsg
