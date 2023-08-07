@@ -57,9 +57,10 @@ func TestClient(t *testing.T) {
 		return nil
 	}
 	expectedLoc := geo.NewPoint(80, 1)
-	workingNavigationService.LocationFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, error) {
+	expectedCompassHeading := 90.
+	workingNavigationService.LocationFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
 		extraOptions = extra
-		return expectedLoc, nil
+		return expectedLoc, expectedCompassHeading, nil
 	}
 	waypoints := []navigation.Waypoint{
 		{
@@ -94,8 +95,8 @@ func TestClient(t *testing.T) {
 		receivedFailingMode = mode
 		return errors.New("failure to set mode")
 	}
-	failingNavigationService.LocationFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, error) {
-		return nil, errors.New("failure to retrieve location")
+	failingNavigationService.LocationFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+		return nil, 0, errors.New("failure to retrieve location")
 	}
 	failingNavigationService.WaypointsFunc = func(ctx context.Context, extra map[string]interface{}) ([]navigation.Waypoint, error) {
 		return nil, errors.New("failure to retrieve waypoints")
@@ -187,10 +188,11 @@ func TestClient(t *testing.T) {
 
 		// test location
 		extra := map[string]interface{}{"foo": "Location"}
-		loc, err := workingDialedClient.Location(context.Background(), extra)
+		loc, heading, err := workingDialedClient.Location(context.Background(), extra)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, loc, test.ShouldResemble, expectedLoc)
 		test.That(t, extraOptions, test.ShouldResemble, extra)
+		test.That(t, heading, test.ShouldEqual, 90.)
 
 		// test remove waypoint
 		wptID := primitive.NewObjectID()
@@ -256,9 +258,10 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 
 		// test location
-		loc, err := dialedClient.Location(context.Background(), map[string]interface{}{})
+		loc, heading, err := dialedClient.Location(context.Background(), map[string]interface{}{})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, loc, test.ShouldBeNil)
+		test.That(t, heading, test.ShouldEqual, 0.)
 
 		// test remove waypoint
 		wptID := primitive.NewObjectID()

@@ -17,7 +17,7 @@ type NavigationService struct {
 	ModeFunc    func(ctx context.Context, extra map[string]interface{}) (navigation.Mode, error)
 	SetModeFunc func(ctx context.Context, mode navigation.Mode, extra map[string]interface{}) error
 
-	LocationFunc func(ctx context.Context, extra map[string]interface{}) (*geo.Point, error)
+	LocationFunc func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error)
 
 	WaypointsFunc      func(ctx context.Context, extra map[string]interface{}) ([]navigation.Waypoint, error)
 	AddWaypointFunc    func(ctx context.Context, point *geo.Point, extra map[string]interface{}) error
@@ -54,7 +54,7 @@ func (ns *NavigationService) SetMode(ctx context.Context, mode navigation.Mode, 
 }
 
 // Location calls the injected LocationFunc or the real version.
-func (ns *NavigationService) Location(ctx context.Context, extra map[string]interface{}) (*geo.Point, error) {
+func (ns *NavigationService) Location(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
 	if ns.LocationFunc == nil {
 		return ns.Service.Location(ctx, extra)
 	}

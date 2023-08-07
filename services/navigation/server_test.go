@@ -175,9 +175,10 @@ func TestServer(t *testing.T) {
 
 	t.Run("working location function", func(t *testing.T) {
 		loc := geo.NewPoint(90, 1)
-		injectSvc.LocationFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, error) {
+		expectedCompassHeading := 90.
+		injectSvc.LocationFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
 			extraOptions = extra
-			return loc, nil
+			return loc, expectedCompassHeading, nil
 		}
 		extra := map[string]interface{}{"foo": "Location"}
 		ext, err := protoutils.StructToStructPb(extra)
@@ -190,11 +191,12 @@ func TestServer(t *testing.T) {
 		test.That(t, protoLoc.GetLatitude(), test.ShouldEqual, loc.Lat())
 		test.That(t, protoLoc.GetLongitude(), test.ShouldEqual, loc.Lng())
 		test.That(t, extraOptions, test.ShouldResemble, extra)
+		test.That(t, resp.GetCompassHeading(), test.ShouldEqual, 90.)
 	})
 
 	t.Run("failing location function", func(t *testing.T) {
-		injectSvc.LocationFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, error) {
-			return nil, errors.New("location retrieval failed")
+		injectSvc.LocationFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+			return nil, 0, errors.New("location retrieval failed")
 		}
 		req := &pb.GetLocationRequest{Name: testSvcName1.ShortName()}
 		resp, err := navServer.GetLocation(context.Background(), req)

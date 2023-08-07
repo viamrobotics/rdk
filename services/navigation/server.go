@@ -74,12 +74,13 @@ func (server *serviceServer) GetLocation(ctx context.Context, req *pb.GetLocatio
 	if err != nil {
 		return nil, err
 	}
-	loc, err := svc.Location(ctx, req.Extra.AsMap())
+	loc, heading, err := svc.Location(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
 	return &pb.GetLocationResponse{
-		Location: &commonpb.GeoPoint{Latitude: loc.Lat(), Longitude: loc.Lng()},
+		Location:       &commonpb.GeoPoint{Latitude: loc.Lat(), Longitude: loc.Lng()},
+		CompassHeading: heading,
 	}, nil
 }
 
