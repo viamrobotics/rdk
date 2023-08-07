@@ -32,7 +32,6 @@ const updatePath = (pathstr?: string) => {
 
   const vertices = new Float32Array(points);
   geometry.setPositions(vertices);
-  console.log(vertices);
 };
 
 $: updatePath(path);
