@@ -7,6 +7,7 @@ package ina
 import (
 	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
 
 	"github.com/edaniels/golog"
@@ -146,7 +147,7 @@ type ina struct {
 }
 
 func (d *ina) setCalibrationScale(modelName string) error {
-	var calibratescale
+	var calibratescale int64
 	if senseResistor <= 0 {
 		return fmt.Errorf("ina219 calibrate: senseResistor value invalid %d", senseResistor)
 	}
@@ -156,11 +157,11 @@ func (d *ina) setCalibrationScale(modelName string) error {
 
 	switch modelName {
 	case modelName219:
-		calibratescale := calibratescale219
+		calibratescale = calibratescale219
 	case modelName226:
-		calibratescale := calibrateScale226
-	defualt: 
-		logger.errorf("ina model not supported")
+		calibratescale = calibrateScale226
+	default:
+		return errors.New("ina model not supported")
 	}
 
 	d.currentLSB = maxCurrent / (1 << 15)
@@ -177,7 +178,7 @@ func (d *ina) setCalibrationScale(modelName string) error {
 	return nil
 }
 
-func (d *ina219) calibrate(ctx context.Context) error {
+func (d *ina) calibrate(ctx context.Context) error {
 	handle, err := d.bus.OpenHandle(d.addr)
 	if err != nil {
 		d.logger.Errorf("can't open ina219 i2c: %s", err)
@@ -204,7 +205,7 @@ func (d *ina219) calibrate(ctx context.Context) error {
 	return nil
 }
 
-func (d *ina219) Voltage(ctx context.Context, extra map[string]interface{}) (float64, bool, error) {
+func (d *ina) Voltage(ctx context.Context, extra map[string]interface{}) (float64, bool, error) {
 	handle, err := d.bus.OpenHandle(d.addr)
 	if err != nil {
 		d.logger.Errorf("can't open ina219 i2c: %s", err)
@@ -222,7 +223,7 @@ func (d *ina219) Voltage(ctx context.Context, extra map[string]interface{}) (flo
 	return voltage, isAC, nil
 }
 
-func (d *ina219) Current(ctx context.Context, extra map[string]interface{}) (float64, bool, error) {
+func (d *ina) Current(ctx context.Context, extra map[string]interface{}) (float64, bool, error) {
 	handle, err := d.bus.OpenHandle(d.addr)
 	if err != nil {
 		d.logger.Errorf("can't open ina219 i2c: %s", err)
@@ -240,7 +241,7 @@ func (d *ina219) Current(ctx context.Context, extra map[string]interface{}) (flo
 	return current, isAC, nil
 }
 
-func (d *ina219) Power(ctx context.Context, extra map[string]interface{}) (float64, error) {
+func (d *ina) Power(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	handle, err := d.bus.OpenHandle(d.addr)
 	if err != nil {
 		d.logger.Errorf("can't open ina219 i2c handle: %s", err)
@@ -257,7 +258,7 @@ func (d *ina219) Power(ctx context.Context, extra map[string]interface{}) (float
 }
 
 // Readings returns a map with voltage, current, power and isAC.
-func (d *ina219) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+func (d *ina) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 
 	volts, isAC, err := d.Voltage(ctx, nil)
 	if err != nil {
