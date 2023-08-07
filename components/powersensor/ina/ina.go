@@ -23,9 +23,10 @@ const (
 	milliAmp                   = 1000 * 1000 // milliAmp = 1000 microAmpere * 1000 nanoAmpere
 	milliOhm                   = 1000 * 1000 // milliOhm = 1000 microOhm * 1000 nanoOhm
 	defaultI2Caddr             = 0x40
-	senseResistor        int64 = 100 * milliOhm  // .1 ohm
-	maxCurrent           int64 = 3200 * milliAmp // 3.2 amp
-	calibratescale             = ((int64(1000*milliAmp) * int64(1000*milliOhm)) / 100000) << 12
+	senseResistor        int64 = 100 * milliOhm                                                 // .1 ohm
+	maxCurrent           int64 = 3200 * milliAmp                                                // 3.2 amp
+	calibratescale219          = ((int64(1000*milliAmp) * int64(1000*milliOhm)) / 100000) << 12 //.04096 is internal fixed value for ina219
+	calibrateScale226          = ((int64(1000*milliAmp) * int64(1000*milliOhm)) / 100000) << 9  //.00512 is internal fixed value for ina226
 	configRegister             = 0x00
 	shuntVoltageRegister       = 0x01
 	busVoltageRegister         = 0x02
@@ -59,31 +60,36 @@ func (conf *Config) Validate(path string) ([]string, error) {
 }
 
 func init() {
-	/*resource.RegisterComponent(
-	powersensor.API,
-	resource.DefaultModelFamily.WithModel(conf.model),
-	resource.Registration[powersensor.PowerSensor, *Config]{
-		Constructor: func(
-			ctx context.Context,
-			deps resource.Dependencies,
-			conf resource.Config,
-			logger golog.Logger,
-		) (powersensor.PowerSensor, error) {
-			newConf, err := resource.NativeConfig[*Config](conf)
-			if err != nil {
-				return nil, err
-			}
-			return newINA219(ctx, deps, conf.ResourceName(), newConf, logger)
-		},
-	}) */
+	for _, modelName := range inaModels {
+		localModelName := modelName
+		inaModel := resource.DefaultModelFamily.WithModel(modelName)
+		resource.RegisterComponent(
+			powersensor.API,
+			inaModel,
+			resource.Registration[powersensor.PowerSensor, *Config]{
+				Constructor: func(
+					ctx context.Context,
+					deps resource.Dependencies,
+					conf resource.Config,
+					logger golog.Logger,
+				) (powersensor.PowerSensor, error) {
+					newConf, err := resource.NativeConfig[*Config](conf)
+					if err != nil {
+						return nil, err
+					}
+					return newINA(ctx, deps, conf.ResourceName(), newConf, logger, localModelName)
+				},
+			})
+	}
 }
 
-func newINA219(
+func newINA(
 	ctx context.Context,
 	deps resource.Dependencies,
 	name resource.Name,
 	conf *Config,
 	logger golog.Logger,
+	modelName string,
 ) (powersensor.PowerSensor, error) {
 
 	b, err := board.FromDependencies(deps, conf.Board)
@@ -106,19 +112,19 @@ func newINA219(
 		logger.Infof("using i2c address : %d", defaultI2Caddr)
 	}
 
-	s := &ina219{
+	s := &ina{
 		Named:  name.AsNamed(),
 		logger: logger,
 		bus:    i2cbus,
 		addr:   byte(addr),
 	}
 
-	err = s.setCalibrationScale()
+	err = s.setCalibrationScale(modelName)
 	if err != nil {
 		return nil, err
 	}
 
-	err = s.calibrate(ctx)
+	err = s.calibrate(ctx, modelName)
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +133,7 @@ func newINA219(
 }
 
 // ina219 is a i2c sensor device that reports voltage, current and power.
-type ina219 struct {
+type ina struct {
 	resource.Named
 	resource.AlwaysRebuild
 	resource.TriviallyCloseable
@@ -139,7 +145,8 @@ type ina219 struct {
 	cal        uint16
 }
 
-func (d *ina219) setCalibrationScale() error {
+func (d *ina) setCalibrationScale(modelName string) error {
+	var calibratescale
 	if senseResistor <= 0 {
 		return fmt.Errorf("ina219 calibrate: senseResistor value invalid %d", senseResistor)
 	}
@@ -147,9 +154,18 @@ func (d *ina219) setCalibrationScale() error {
 		return fmt.Errorf("ina219 calibrate: maxCurrent value invalid %d", maxCurrent)
 	}
 
+	switch modelName {
+	case modelName219:
+		calibratescale := calibratescale219
+	case modelName226:
+		calibratescale := calibrateScale226
+	defualt: 
+		logger.errorf("ina model not supported")
+	}
+
 	d.currentLSB = maxCurrent / (1 << 15)
 	d.powerLSB = (maxCurrent*20 + (1 << 14)) / (1 << 15)
-	// Calibration Register = 0.04096 / (current LSB * Shunt Resistance)
+	// Calibration Register = calibration scale / (current LSB * Shunt Resistance)
 	// Where lsb is in Amps and resistance is in ohms.
 	// Calibration register is 16 bits.
 	cal := calibratescale / (d.currentLSB * senseResistor)
@@ -177,6 +193,8 @@ func (d *ina219) calibrate(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
+	// setting config to 111 sets to normal operating mode
 	buf = make([]byte, 2)
 	binary.BigEndian.PutUint16(buf, uint16(0x1FFF))
 	err = handle.WriteBlockData(ctx, configRegister, buf)
