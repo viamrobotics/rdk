@@ -195,9 +195,17 @@ export const getLocation = async (robotClient: Client, name: string) => {
   });
 
   const location = response?.getLocation();
+  const lat = location?.getLatitude();
+  const lng = location?.getLongitude();
 
-  return {
-    lat: location?.getLatitude() ?? 0,
-    lng: location?.getLongitude() ?? 0,
-  };
+  rcLogConditionally(response?.getLocation()?.toObject());
+  rcLogConditionally(location?.getLatitude());
+  rcLogConditionally(location?.getLongitude());
+
+  if (typeof lat !== 'number' || typeof lng !== 'number') {
+    // eslint-disable-next-line unicorn/prefer-type-error
+    throw new Error('Unable to locate robot');
+  }
+
+  return { lng, lat };
 };

@@ -1,4 +1,4 @@
-// Package builtin contains the default navigation service, along with a gRPC server and client
+// Package builtin implements a navigation service.
 package builtin
 
 import (
@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -119,6 +120,15 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	}
 	if conf.ReplanCostFactor == 0 {
 		conf.ReplanCostFactor = replanCostFactorDefault
+	}
+
+	// ensure obstacles have no translation
+	for _, obs := range conf.Obstacles {
+		for _, geoms := range obs.Geometries {
+			if !geoms.TranslationOffset.ApproxEqual(r3.Vector{}) {
+				return nil, errors.New("geometries specified through the navigation are not allowed to have a translation")
+			}
+		}
 	}
 
 	return deps, nil

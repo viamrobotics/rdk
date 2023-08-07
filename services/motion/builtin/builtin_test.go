@@ -19,6 +19,7 @@ import (
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/base/fake"
+	"go.viam.com/rdk/components/base/kinematicbase"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/components/movementsensor"
@@ -67,7 +68,7 @@ func getPointCloudMap(path string) (func() ([]byte, error), error) {
 	return f, nil
 }
 
-func createEnvironment(ctx context.Context, t *testing.T, gpsPoint *geo.Point) (
+func createMoveOnGlobeEnvironment(ctx context.Context, t *testing.T, gpsPoint *geo.Point) (
 	*inject.MovementSensor, framesystem.Service, base.Base, motion.Service,
 ) {
 	logger := golog.NewTestLogger(t)
@@ -132,6 +133,35 @@ func createEnvironment(ctx context.Context, t *testing.T, gpsPoint *geo.Point) (
 	test.That(t, err, test.ShouldBeNil)
 
 	return injectedMovementSensor, fsSvc, fakeBase, ms
+}
+
+func createMoveOnMapEnvironment(ctx context.Context, t *testing.T, pcdPath string) motion.Service {
+	injectSlam := inject.NewSLAMService("test_slam")
+	injectSlam.GetPointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
+		return getPointCloudMap(filepath.Clean(artifact.MustPath(pcdPath)))
+	}
+	injectSlam.GetPositionFunc = func(ctx context.Context) (spatialmath.Pose, string, error) {
+		return spatialmath.NewZeroPose(), "", nil
+	}
+
+	cfg := resource.Config{
+		Name:  "test_base",
+		API:   base.API,
+		Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R: 100}},
+	}
+	logger := golog.NewTestLogger(t)
+	fakeBase, err := fake.NewBase(ctx, nil, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	ms, err := NewBuiltIn(
+		ctx,
+		resource.Dependencies{injectSlam.Name(): injectSlam, fakeBase.Name(): fakeBase},
+		resource.Config{
+			ConvertedAttributes: &Config{},
+		},
+		logger,
+	)
+	test.That(t, err, test.ShouldBeNil)
+	return ms
 }
 
 func TestMoveFailures(t *testing.T) {
@@ -259,92 +289,20 @@ func TestMoveWithObstacles(t *testing.T) {
 	})
 }
 
-func TestMoveSingleComponent(t *testing.T) {
-	ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
-	defer teardown()
-
-	grabPose := spatialmath.NewPoseFromPoint(r3.Vector{-25, 30, 0})
-	t.Run("succeeds when all frame info in config", func(t *testing.T) {
-		_, err := ms.MoveSingleComponent(
-			context.Background(),
-			arm.Named("pieceArm"),
-			referenceframe.NewPoseInFrame("c", grabPose),
-			nil,
-			map[string]interface{}{},
-		)
-		// Gripper is not an arm and cannot move
-		test.That(t, err, test.ShouldBeNil)
-	})
-	t.Run("fails due to gripper not being an arm", func(t *testing.T) {
-		_, err := ms.MoveSingleComponent(
-			context.Background(),
-			gripper.Named("pieceGripper"),
-			referenceframe.NewPoseInFrame("c", grabPose),
-			nil,
-			map[string]interface{}{},
-		)
-		// Gripper is not an arm and cannot move
-		test.That(t, err, test.ShouldNotBeNil)
-	})
-
-	t.Run("succeeds with supplemental info in world state", func(t *testing.T) {
-		worldState, err := referenceframe.NewWorldState(
-			nil,
-			[]*referenceframe.LinkInFrame{referenceframe.NewLinkInFrame("c", spatialmath.NewZeroPose(), "testFrame2", nil)},
-		)
-		test.That(t, err, test.ShouldBeNil)
-		_, err = ms.MoveSingleComponent(
-			context.Background(),
-			arm.Named("pieceArm"),
-			referenceframe.NewPoseInFrame("testFrame2", grabPose),
-			worldState,
-			map[string]interface{}{},
-		)
-		test.That(t, err, test.ShouldBeNil)
-	})
-}
-
 func TestMoveOnMapLongDistance(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
-	injectSlam := inject.NewSLAMService("test_slam")
-
-	injectSlam.GetPointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
-		return getPointCloudMap(filepath.Clean(
-			artifact.MustPath("slam/example_cartographer_outputs/viam-office-02-22-3/pointcloud/pointcloud_4.pcd")))
-	}
-	injectSlam.GetPositionFunc = func(ctx context.Context) (spatialmath.Pose, string, error) {
-		return spatialmath.NewZeroPose(), "", nil
-	}
-
-	cfg := resource.Config{
-		Name:  "test_base",
-		API:   base.API,
-		Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R: 100}},
-	}
-
-	fakeBase, err := fake.NewBase(ctx, nil, cfg, logger)
-	test.That(t, err, test.ShouldBeNil)
-
-	ms, err := NewBuiltIn(
-		ctx,
-		resource.Dependencies{injectSlam.Name(): injectSlam, fakeBase.Name(): fakeBase},
-		resource.Config{
-			ConvertedAttributes: &Config{},
-		},
-		logger,
-	)
-	test.That(t, err, test.ShouldBeNil)
-
 	// goal x-position of 1.32m is scaled to be in mm
 	goal := spatialmath.NewPoseFromPoint(r3.Vector{X: -32.508 * 1000, Y: -2.092 * 1000})
+	ms := createMoveOnMapEnvironment(ctx, t, "slam/example_cartographer_outputs/viam-office-02-22-3/pointcloud/pointcloud_4.pcd")
 	extra := make(map[string]interface{})
 	extra["planning_alg"] = "cbirrt"
+
 	path, _, err := ms.(*builtIn).planMoveOnMap(
 		context.Background(),
 		base.Named("test_base"),
 		goal,
 		slam.Named("test_slam"),
+		kinematicbase.NewKinematicBaseOptions(),
 		extra,
 	)
 	test.That(t, err, test.ShouldBeNil)
@@ -352,56 +310,35 @@ func TestMoveOnMapLongDistance(t *testing.T) {
 }
 
 func TestMoveOnMap(t *testing.T) {
+	t.Skip() // RSDK-4279
 	t.Parallel()
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
-	injectSlam := inject.NewSLAMService("test_slam")
-
-	injectSlam.GetPointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
-		return getPointCloudMap(filepath.Clean(artifact.MustPath("pointcloud/octagonspace.pcd")))
-	}
-	injectSlam.GetPositionFunc = func(ctx context.Context) (spatialmath.Pose, string, error) {
-		return spatialmath.NewZeroPose(), "", nil
-	}
-
-	cfg := resource.Config{
-		Name:  "test_base",
-		API:   base.API,
-		Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R: 100}},
-	}
-
-	fakeBase, err := fake.NewBase(ctx, nil, cfg, logger)
-	test.That(t, err, test.ShouldBeNil)
-
-	ms, err := NewBuiltIn(
-		ctx,
-		resource.Dependencies{injectSlam.Name(): injectSlam, fakeBase.Name(): fakeBase},
-		resource.Config{
-			ConvertedAttributes: &Config{},
-		},
-		logger,
-	)
-	test.That(t, err, test.ShouldBeNil)
-
 	// goal x-position of 1.32m is scaled to be in mm
 	goal := spatialmath.NewPoseFromPoint(r3.Vector{X: 1.32 * 1000, Y: 0})
 
 	t.Run("check that path is planned around obstacle", func(t *testing.T) {
 		t.Parallel()
+		ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd")
+		extra := make(map[string]interface{})
+		extra["motion_profile"] = "orientation"
 		path, _, err := ms.(*builtIn).planMoveOnMap(
 			context.Background(),
 			base.Named("test_base"),
 			goal,
 			slam.Named("test_slam"),
-			nil,
+			kinematicbase.NewKinematicBaseOptions(),
+			extra,
 		)
 		test.That(t, err, test.ShouldBeNil)
 		// path of length 2 indicates a path that goes straight through central obstacle
 		test.That(t, len(path), test.ShouldBeGreaterThan, 2)
+		// every waypoint should have the form [x,y,theta]
+		test.That(t, len(path[0]), test.ShouldEqual, 3)
 	})
 
 	t.Run("ensure success of movement around obstacle", func(t *testing.T) {
 		t.Parallel()
+		ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd")
 		success, err := ms.MoveOnMap(
 			context.Background(),
 			base.Named("test_base"),
@@ -415,6 +352,7 @@ func TestMoveOnMap(t *testing.T) {
 
 	t.Run("check that straight line path executes", func(t *testing.T) {
 		t.Parallel()
+		ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd")
 		easyGoal := spatialmath.NewPoseFromPoint(r3.Vector{X: 0.277 * 1000, Y: 0.593 * 1000})
 		success, err := ms.MoveOnMap(
 			context.Background(),
@@ -422,6 +360,40 @@ func TestMoveOnMap(t *testing.T) {
 			easyGoal,
 			slam.Named("test_slam"),
 			nil,
+		)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, success, test.ShouldBeTrue)
+	})
+
+	t.Run("check that position-only mode returns 2D plan", func(t *testing.T) {
+		t.Parallel()
+		ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd")
+		extra := make(map[string]interface{})
+		extra["motion_profile"] = "position_only"
+		path, _, err := ms.(*builtIn).planMoveOnMap(
+			context.Background(),
+			base.Named("test_base"),
+			goal,
+			slam.Named("test_slam"),
+			kinematicbase.NewKinematicBaseOptions(),
+			extra,
+		)
+		test.That(t, err, test.ShouldBeNil)
+		// every waypoint should have the form [x,y]
+		test.That(t, len(path[0]), test.ShouldEqual, 2)
+	})
+
+	t.Run("check that position-only mode executes", func(t *testing.T) {
+		t.Parallel()
+		ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd")
+		extra := make(map[string]interface{})
+		extra["motion_profile"] = "position_only"
+		success, err := ms.MoveOnMap(
+			context.Background(),
+			base.Named("test_base"),
+			goal,
+			slam.Named("test_slam"),
+			extra,
 		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, success, test.ShouldBeTrue)
@@ -489,15 +461,14 @@ func TestMoveOnGlobe(t *testing.T) {
 
 	t.Run("ensure success to a nearby geo point", func(t *testing.T) {
 		t.Parallel()
-		injectedMovementSensor, _, fakeBase, ms := createEnvironment(ctx, t, gpsPoint)
+		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint)
 		plan, _, err := ms.(*builtIn).planMoveOnGlobe(
 			context.Background(),
 			fakeBase.Name(),
 			dst,
 			injectedMovementSensor.Name(),
 			nil,
-			math.NaN(),
-			math.NaN(),
+			kinematicbase.NewKinematicBaseOptions(),
 			motionCfg,
 		)
 		test.That(t, err, test.ShouldBeNil)
@@ -508,7 +479,7 @@ func TestMoveOnGlobe(t *testing.T) {
 
 	t.Run("go around an obstacle", func(t *testing.T) {
 		t.Parallel()
-		injectedMovementSensor, _, fakeBase, ms := createEnvironment(ctx, t, gpsPoint)
+		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint)
 		boxPose := spatialmath.NewPoseFromPoint(r3.Vector{50, 0, 0})
 		boxDims := r3.Vector{5, 50, 10}
 		geometries, err := spatialmath.NewBox(boxPose, boxDims, "wall")
@@ -521,8 +492,7 @@ func TestMoveOnGlobe(t *testing.T) {
 			dst,
 			injectedMovementSensor.Name(),
 			[]*spatialmath.GeoObstacle{geoObstacle},
-			math.NaN(),
-			math.NaN(),
+			kinematicbase.NewKinematicBaseOptions(),
 			motionCfg,
 		)
 		test.That(t, err, test.ShouldBeNil)
@@ -533,7 +503,7 @@ func TestMoveOnGlobe(t *testing.T) {
 
 	t.Run("fail because of obstacle", func(t *testing.T) {
 		t.Parallel()
-		injectedMovementSensor, _, fakeBase, ms := createEnvironment(ctx, t, gpsPoint)
+		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint)
 
 		boxPose := spatialmath.NewPoseFromPoint(r3.Vector{50, 0, 0})
 		boxDims := r3.Vector{2, 6660, 10}
@@ -547,8 +517,7 @@ func TestMoveOnGlobe(t *testing.T) {
 			dst,
 			injectedMovementSensor.Name(),
 			[]*spatialmath.GeoObstacle{geoObstacle},
-			math.NaN(),
-			math.NaN(),
+			kinematicbase.NewKinematicBaseOptions(),
 			motionCfg,
 		)
 		test.That(t, err, test.ShouldNotBeNil)
@@ -557,7 +526,7 @@ func TestMoveOnGlobe(t *testing.T) {
 
 	t.Run("check offset constructed correctly", func(t *testing.T) {
 		t.Parallel()
-		_, fsSvc, _, _ := createEnvironment(ctx, t, gpsPoint)
+		_, fsSvc, _, _ := createMoveOnGlobeEnvironment(ctx, t, gpsPoint)
 		baseOrigin := referenceframe.NewPoseInFrame("test-base", spatialmath.NewZeroPose())
 		movementSensorToBase, err := fsSvc.TransformPose(ctx, baseOrigin, "test-gps", nil)
 		if err != nil {

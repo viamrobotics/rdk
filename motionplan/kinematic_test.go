@@ -421,3 +421,35 @@ func TestKinematicsJSONvsURDF(t *testing.T) {
 		test.That(t, spatial.PoseAlmostEqual(posJSON, posURDF), test.ShouldBeTrue)
 	}
 }
+
+func TestComputeOOBPosition(t *testing.T) {
+	model, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "foo")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, model.Name(), test.ShouldEqual, "foo")
+
+	jointPositions := &pb.JointPositions{Values: []float64{1.1, 2.2, 3.3, 1.1, 2.2, 3.3}}
+
+	t.Run("succeed", func(t *testing.T) {
+		pose, err := ComputeOOBPosition(model, jointPositions)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, pose, test.ShouldNotBeNil)
+	})
+
+	t.Run("fail when JointPositions are nil", func(t *testing.T) {
+		var NilJointPositions *pb.JointPositions
+
+		pose, err := ComputeOOBPosition(model, NilJointPositions)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, pose, test.ShouldBeNil)
+		test.That(t, err, test.ShouldEqual, frame.ErrNilJointPositions)
+	})
+
+	t.Run("fail when model frame is nil", func(t *testing.T) {
+		var NilModel frame.Model
+
+		pose, err := ComputeOOBPosition(NilModel, jointPositions)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, pose, test.ShouldBeNil)
+		test.That(t, err, test.ShouldEqual, frame.ErrNilModelFrame)
+	})
+}

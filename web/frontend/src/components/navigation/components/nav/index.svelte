@@ -21,11 +21,11 @@ onMount(() => {
   // @ts-expect-error Debug function.
   window.DEBUG_addObstacles = () => {
     for (let i = 0; i < 100; i += 1) {
-      const x = (i % 10) / 6500;
-      const y = (Math.trunc(i / 10)) / 6500;
+      const lng = $mapCenter.lng + ((i % 10) / 6500);
+      const lat = $mapCenter.lat + ((Math.trunc(i / 10)) / 6500);
       $obstacles = [
         ...$obstacles,
-        createObstacle(`Obstacle ${$obstacles.length + 1}`, $mapCenter.lng + x, $mapCenter.lat + y),
+        createObstacle(`Obstacle ${$obstacles.length + 1}`, { lng, lat }),
       ];
     }
   };
@@ -33,7 +33,7 @@ onMount(() => {
 
 </script>
 
-<nav class='w-80'>
+<nav class='w-full sm:w-80'>
   <v-tabs
     tabs="Obstacles, Waypoints"
     selected={$tab}
@@ -42,7 +42,7 @@ onMount(() => {
 
   <ul
     on:mouseleave={() => ($hovered = null)}
-    class='px-4 py-2 max-h-[520px] overflow-y-scroll'
+    class='px-4 py-2 max-h-64 sm:max-h-[520px] overflow-y-scroll'
   >
     {#if $tab === 'Obstacles'}
       <ObstaclesTab on:select={handleSelect} />

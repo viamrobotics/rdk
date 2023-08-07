@@ -8,6 +8,7 @@ import (
 	"math"
 	"time"
 
+	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"go.uber.org/multierr"
 	utils "go.viam.com/utils"
@@ -29,17 +30,18 @@ const (
 
 type ptgBaseKinematics struct {
 	base.Base
-	frame referenceframe.Frame
-	fs    referenceframe.FrameSystem
-	ptgs  []tpspace.PTG
+	logger golog.Logger
+	frame  referenceframe.Frame
+	fs     referenceframe.FrameSystem
+	ptgs   []tpspace.PTG
 }
 
 // wrapWithPTGKinematics takes a Base component and adds a PTG kinematic model so that it can be controlled.
 func wrapWithPTGKinematics(
 	ctx context.Context,
 	b base.Base,
-	maxLinearVelocityMillisPerSec float64,
-	maxAngularVelocityDegsPerSec float64,
+	logger golog.Logger,
+	options Options,
 ) (KinematicBase, error) {
 	properties, err := b.Properties(ctx, nil)
 	if err != nil {
@@ -47,16 +49,21 @@ func wrapWithPTGKinematics(
 	}
 
 	baseMillimetersPerSecond := defaultBaseMMps
-	if maxLinearVelocityMillisPerSec > 0 {
-		baseMillimetersPerSecond = maxLinearVelocityMillisPerSec
+	if options.LinearVelocityMMPerSec > 0 {
+		baseMillimetersPerSecond = options.LinearVelocityMMPerSec
 	}
 
 	baseTurningRadius := properties.TurningRadiusMeters
-	if maxAngularVelocityDegsPerSec > 0 {
+	if options.AngularVelocityDegsPerSec > 0 {
 		// Compute smallest allowable turning radius permitted by the given speeds. Use the greater of the two.
-		calcTurnRadius := (baseMillimetersPerSecond / rdkutils.DegToRad(maxAngularVelocityDegsPerSec)) / 1000.
+		calcTurnRadius := (baseMillimetersPerSecond / rdkutils.DegToRad(options.AngularVelocityDegsPerSec)) / 1000.
 		baseTurningRadius = math.Max(baseTurningRadius, calcTurnRadius)
 	}
+	logger.Infof(
+		"using baseMillimetersPerSecond %f and baseTurningRadius %f for PTG base kinematics",
+		baseMillimetersPerSecond,
+		baseTurningRadius,
+	)
 
 	if baseTurningRadius <= 0 {
 		return nil, errors.New("can only wrap with PTG kinematics if turning radius is greater than zero")
@@ -90,10 +97,11 @@ func wrapWithPTGKinematics(
 	ptgs := ptgProv.PTGs()
 
 	return &ptgBaseKinematics{
-		Base:  b,
-		frame: frame,
-		fs:    fs,
-		ptgs:  ptgs,
+		Base:   b,
+		logger: logger,
+		frame:  frame,
+		fs:     fs,
+		ptgs:   ptgs,
 	}, nil
 }
 
@@ -111,19 +119,30 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 		return errors.New("inputs to ptg kinematic base must be length 3")
 	}
 
+	ptgk.logger.Debugf("GoToInputs going to %v", inputs)
+
 	selectedPTG := ptgk.ptgs[int(math.Round(inputs[ptgIndex].Value))]
 	selectedTraj := selectedPTG.Trajectory(uint(math.Round(inputs[trajectoryIndexWithinPTG].Value)))
 
 	lastTime := 0.
-	for _, trajNode := range selectedTraj {
+	for i, trajNode := range selectedTraj {
 		if trajNode.Dist > inputs[distanceAlongTrajectoryIndex].Value {
+			ptgk.logger.Debugf("finished executing trajectory after %d steps", i)
 			// We have reached the desired distance along the given trajectory
 			break
 		}
-		timestep := time.Duration(trajNode.Time-lastTime) * time.Second
+		timestep := time.Duration((trajNode.Time-lastTime)*1000*1000) * time.Microsecond
 		lastTime = trajNode.Time
 		linVel := r3.Vector{0, trajNode.LinVelMMPS, 0}
 		angVel := r3.Vector{0, 0, rdkutils.RadToDeg(trajNode.AngVelRPS)}
+
+		ptgk.logger.Debugf(
+			"setting velocity to linear %v angular %v and running velocity step for %s",
+			linVel,
+			angVel,
+			timestep,
+		)
+
 		err := ptgk.Base.SetVelocity(
 			ctx,
 			linVel,

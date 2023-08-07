@@ -1,4 +1,3 @@
-// Package navigation implements the navigation service.
 package navigation
 
 import (

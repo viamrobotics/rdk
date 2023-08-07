@@ -1,4 +1,4 @@
-package radiusclustering
+package obstaclespointcloud
 
 import (
 	"context"
@@ -36,22 +36,23 @@ func TestRadiusClusteringSegmentation(t *testing.T) {
 	params := &segmentation.RadiusClusteringConfig{
 		MinPtsInPlane:      100,
 		MinPtsInSegment:    3,
+		MaxDistFromPlane:   10,
 		ClusteringRadiusMm: 5.,
 		MeanKFiltering:     10.,
 	}
 	// bad registration, no parameters
 	name := vision.Named("test_rcs")
-	_, err := registerRCSegmenter(context.Background(), name, nil, r)
+	_, err := registerOPSegmenter(context.Background(), name, nil, r)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot be nil")
 	// bad registration, parameters out of bounds
 	params.ClusteringRadiusMm = -3.0
-	_, err = registerRCSegmenter(context.Background(), name, params, r)
+	_, err = registerOPSegmenter(context.Background(), name, params, r)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "segmenter config error")
 	// successful registration
 	params.ClusteringRadiusMm = 5.0
-	seg, err := registerRCSegmenter(context.Background(), name, params, r)
+	seg, err := registerOPSegmenter(context.Background(), name, params, r)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, seg.Name(), test.ShouldResemble, name)
 
