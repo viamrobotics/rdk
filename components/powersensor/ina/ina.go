@@ -1,6 +1,6 @@
 // Package ina implements ina power sensors
 // typically used for battery state monitoring.
-// Datasheet can be found at: https://www.ti.com/lit/ds/symlink/ina219.pdf
+// INA219 datasheet: https://www.ti.com/lit/ds/symlink/ina219.pdf
 // Example repo: https://github.com/periph/devices/blob/main/ina219/ina219.go
 package ina
 
@@ -17,9 +17,9 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-var model = resource.DefaultModelFamily.WithModel("ina219")
-
 const (
+	modelName219               = "ina219"
+	modelName226               = "ina226"
 	milliAmp                   = 1000 * 1000 // milliAmp = 1000 microAmpere * 1000 nanoAmpere
 	milliOhm                   = 1000 * 1000 // milliOhm = 1000 microOhm * 1000 nanoOhm
 	defaultI2Caddr             = 0x40
@@ -33,6 +33,8 @@ const (
 	currentRegister            = 0x04
 	calibrationRegister        = 0x05
 )
+
+var inaModels = []string{modelName219, modelName226}
 
 // Config is used for converting config attributes.
 type Config struct {
@@ -57,23 +59,23 @@ func (conf *Config) Validate(path string) ([]string, error) {
 }
 
 func init() {
-	resource.RegisterComponent(
-		powersensor.API,
-		model,
-		resource.Registration[powersensor.PowerSensor, *Config]{
-			Constructor: func(
-				ctx context.Context,
-				deps resource.Dependencies,
-				conf resource.Config,
-				logger golog.Logger,
-			) (powersensor.PowerSensor, error) {
-				newConf, err := resource.NativeConfig[*Config](conf)
-				if err != nil {
-					return nil, err
-				}
-				return newINA219(ctx, deps, conf.ResourceName(), newConf, logger)
-			},
-		})
+	/*resource.RegisterComponent(
+	powersensor.API,
+	resource.DefaultModelFamily.WithModel(conf.model),
+	resource.Registration[powersensor.PowerSensor, *Config]{
+		Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger golog.Logger,
+		) (powersensor.PowerSensor, error) {
+			newConf, err := resource.NativeConfig[*Config](conf)
+			if err != nil {
+				return nil, err
+			}
+			return newINA219(ctx, deps, conf.ResourceName(), newConf, logger)
+		},
+	}) */
 }
 
 func newINA219(
