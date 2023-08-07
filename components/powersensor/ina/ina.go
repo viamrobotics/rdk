@@ -125,7 +125,7 @@ func newINA(
 		return nil, err
 	}
 
-	err = s.calibrate(ctx, modelName)
+	err = s.calibrate(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -197,7 +197,7 @@ func (d *ina) calibrate(ctx context.Context) error {
 
 	// setting config to 111 sets to normal operating mode
 	buf = make([]byte, 2)
-	binary.BigEndian.PutUint16(buf, uint16(0x1FFF))
+	binary.BigEndian.PutUint16(buf, uint16(0x6F))
 	err = handle.WriteBlockData(ctx, configRegister, buf)
 	if err != nil {
 		return err
@@ -231,12 +231,14 @@ func (d *ina) Current(ctx context.Context, extra map[string]interface{}) (float6
 	}
 	defer utils.UncheckedErrorFunc(handle.Close)
 
-	cur, err := handle.ReadBlockData(ctx, currentRegister, 2)
+	rawCur, err := handle.ReadBlockData(ctx, currentRegister, 2)
 	if err != nil {
 		return 0, false, err
 	}
+	fmt.Println("raw current value")
+	fmt.Println(rawCur)
 
-	current := float64(int64(binary.BigEndian.Uint16(cur))*d.currentLSB) / 1000000000
+	current := float64(int64(binary.BigEndian.Uint16(rawCur))*d.currentLSB) / 1000000000
 	isAC := false
 	return current, isAC, nil
 }
@@ -262,18 +264,13 @@ func (d *ina) Readings(ctx context.Context, extra map[string]interface{}) (map[s
 
 	volts, isAC, err := d.Voltage(ctx, nil)
 	if err != nil {
-		d.logger.Errorf("failed to get voltage reading")
+		d.logger.Errorf("failed to get voltage reading: %s", err.Error())
 	}
 
 	amps, _, err := d.Current(ctx, nil)
 	if err != nil {
 		d.logger.Errorf("failed to get current reading")
 	}
-
-	/* // Check if bit zero is set, if set the ADC has overflowed.
-	if binary.BigEndian.Uint16(bus)&1 > 0 {
-		return nil, fmt.Errorf("ina219 bus voltage register overflow, register: %d", busVoltageRegister)
-	} */
 
 	watts, err := d.Power(ctx, nil)
 	if err != nil {
