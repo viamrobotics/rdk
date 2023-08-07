@@ -5,8 +5,8 @@
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { notify } from '@viamrobotics/prime';
 import { navigationApi, NavigationClient, type ServiceError } from '@viamrobotics/sdk';
-import { type NavigationModes } from '@/api/navigation';
-import { mapCenter, centerMap, robotPosition, flyToMap, write as writeStore } from './stores';
+import { getObstacles, type NavigationModes } from '@/api/navigation';
+import { mapCenter, centerMap, robotPosition, flyToMap, write as writeStore, obstacles } from './stores';
 import { useRobotClient } from '@/hooks/robot-client';
 import Collapse from '@/lib/components/collapse.svelte';
 import Map from './components/map.svelte';
@@ -39,7 +39,7 @@ const setNavigationMode = async (event: CustomEvent) => {
 };
 
 const handleEnter = async () => {
-  $obstacles = await getObstacles($robotClient, name);
+  $obstacles = await getObstacles(navClient);
 };
 
 </script>
