@@ -54,15 +54,63 @@ const setMovementType = (event: CustomEvent) => {
 };
 
 const setPosition = (event: CustomEvent) => {
-  position = event.detail.value;
+  const target = event.currentTarget as HTMLInputElement;
+
+  if (event.type === 'blur' && target.value === undefined) {
+    position = 0;
+  }
+
+  if (target.value === '') {
+    return;
+  }
+
+  const num = Number.parseFloat(target.value);
+
+  if (Number.isNaN(num)) {
+    return;
+  }
+
+  position = num;
 };
 
 const setRpm = (event: CustomEvent) => {
-  rpm = event.detail.value;
+  const target = event.currentTarget as HTMLInputElement;
+
+  if (event.type === 'blur' && target.value === undefined) {
+    rpm = 0;
+  }
+
+  if (target.value === '') {
+    return;
+  }
+
+  const num = Number.parseFloat(target.value);
+
+  if (Number.isNaN(num)) {
+    return;
+  }
+
+  rpm = num;
 };
 
 const setRevolutions = (event: CustomEvent) => {
-  revolutions = event.detail.value;
+  const target = event.currentTarget as HTMLInputElement;
+
+  if (event.type === 'blur' && target.value === undefined) {
+    revolutions = 0;
+  }
+
+  if (target.value === '') {
+    return;
+  }
+
+  const num = Number.parseInt(target.value, 10);
+
+  if (Number.isNaN(num)) {
+    return;
+  }
+
+  revolutions = num;
 };
 
 const setPowerSlider = (event: CustomEvent) => {
@@ -167,12 +215,13 @@ const handleToggle = async (event: CustomEvent<{ open: boolean }>) => {
   <div class="border border-t-0 border-medium p-4">
     <div class='mb-6'>
       <v-radio
+        class='inline-block'
         label="Set power"
         options={properties?.positionReporting ? 'Go, Go for, Go to' : 'Go'}
         selected={movementType}
         on:input={setMovementType}
       />
-      <small class='text-xs text-subtle-2'>
+      <small class='block pt-2 text-xs text-subtle-2'>
         {#if movementType === 'Go'}
           Continuously moves
         {:else if movementType === 'Go for'}
@@ -184,31 +233,34 @@ const handleToggle = async (event: CustomEvent<{ open: boolean }>) => {
     </div>
 
     <div class="flex flex-col gap-2">
-      {#if movementType === 'Go to'}
-        <div class='flex gap-2'>
+      <div class='flex gap-4 items-end'>
+        {#if movementType === 'Go to'}
           <v-input
             type="number"
             label="Position in revolutions"
+            placeholder='0'
             value={position}
             class="w-36 pr-2"
             on:input={setPosition}
+            on:blur={setPosition}
           />
           <v-input
             type="number"
             class="w-36 pr-2"
             label="RPM"
+            placeholder='0'
             value={rpm}
             on:input={setRpm}
           />
-        </div>
-      {:else if movementType === 'Go for'}
-        <div class='flex gap-4 items-end'>
+        {:else if movementType === 'Go for'}
           <v-input
             type="number"
             class="w-36"
             label="# in revolutions"
+            placeholder='0'
             value={revolutions}
             on:input={setRevolutions}
+            on:blur={setRevolutions}
           />
           <v-radio
             label="Direction of rotation"
@@ -219,13 +271,13 @@ const handleToggle = async (event: CustomEvent<{ open: boolean }>) => {
           <v-input
             type="number"
             label="RPM"
+            placeholder='0'
             class="w-36"
             value={rpm}
             on:input={setRpm}
+            on:blur={setRpm}
           />
-        </div>
-      {:else if movementType === 'Go'}
-        <div class='flex gap-4'>
+        {:else if movementType === 'Go'}
           <v-radio
             label="Direction of rotation"
             options="Forwards, Backwards"
@@ -245,8 +297,8 @@ const handleToggle = async (event: CustomEvent<{ open: boolean }>) => {
               on:input={setPowerSlider}
             />
           </div>
-        </div>
-      {/if}
+        {/if}
+      </div>
     </div>
 
     <div class="flex flex-row-reverse flex-wrap">

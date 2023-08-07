@@ -198,6 +198,10 @@ export const getLocation = async (robotClient: Client, name: string) => {
   const lat = location?.getLatitude();
   const lng = location?.getLongitude();
 
+  rcLogConditionally(response?.getLocation()?.toObject());
+  rcLogConditionally(location?.getLatitude());
+  rcLogConditionally(location?.getLongitude());
+
   if (typeof lat !== 'number' || typeof lng !== 'number') {
     // eslint-disable-next-line unicorn/prefer-type-error
     throw new Error('Unable to locate robot');

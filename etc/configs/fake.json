@@ -97,7 +97,11 @@
             "type": "movement_sensor",
             "model": "fake"
         },
-        
+        {
+            "name": "power_sensor1",
+            "type": "power_sensor",
+            "model": "fake"
+        },
         {
             "name": "sensor1",
             "type": "sensor",
@@ -140,6 +144,28 @@
                 "movement_sensor": "movement_sensor1",
                 "base": "base1",
                 "obstacles": [
+                    {
+                        "location": {
+                            "latitude": 40.6705209,
+                            "longitude": -73.9659182
+                        },
+                        "geometries": [
+                            {
+                                "r": 2000
+                            }
+                        ]
+                    },
+                    {
+                        "location": {
+                            "longitude": -73.976472,
+                            "latitude": 40.693268
+                        },
+                        "geometries": [
+                            {
+                                "r": 2000000
+                            }
+                        ]
+                    },
                     {
                         "geometries": [
                           {

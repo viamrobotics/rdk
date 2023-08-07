@@ -20,7 +20,7 @@ import (
 
 // numResources is the # of resources in /etc/configs/fake.json + the 2
 // expected builtin resources.
-const numResources = 19
+const numResources = 20
 
 func TestNumResources(t *testing.T) {
 	logger := golog.NewTestLogger(t)
