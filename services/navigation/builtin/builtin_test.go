@@ -180,7 +180,7 @@ func TestStartWaypoint(t *testing.T) {
 			angularVelocityDegsPerSec float64,
 			extra map[string]interface{},
 		) (bool, error) {
-			err := kinematicBase.GoToInputs(ctx, referenceframe.FloatsToInputs([]float64{destination.Lat(), destination.Lng(), 0}))
+			err := kinematicBase.GoToInputs(ctx, referenceframe.FloatsToInputs([]float64{destination.Lat(), destination.Lng()}))
 			return true, err
 		}
 		pt := geo.NewPoint(1, 0)
@@ -265,7 +265,7 @@ func TestStartWaypoint(t *testing.T) {
 				if msg == arrivedAtWaypointMsg {
 					err = kinematicBase.GoToInputs(
 						ctx,
-						referenceframe.FloatsToInputs([]float64{destination.Lat(), destination.Lng(), 0}),
+						referenceframe.FloatsToInputs([]float64{destination.Lat(), destination.Lng()}),
 					)
 				}
 
