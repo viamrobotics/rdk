@@ -45,15 +45,11 @@ jobs:
       with:
         ref: ${{ github.event.pull_request.head.sha }}
 
-    - name: vars
-      id: vars
-      run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
-
     - name: build
       env:
         GOOS: ${{ matrix.goos }}
         GOARCH: ${{ matrix.goarch }}
-      run: go build -ldflags="-X main.CliVersion=${{ steps.vars.outputs.sha_short }}" ./cli/viam
+      run: go build -ldflags="-X main.CliVersion=${{ github.ref_name }}" ./cli/viam
 
     - name: Authorize GCP Upload
       uses: google-github-actions/auth@v1
@@ -64,7 +60,15 @@ jobs:
       with:
         headers: "cache-control: no-cache"
         path: 'viam'
-        destination: 'packages.viam.com/apps/viam-cli/viam-${{ inputs.release_type }}-${{ matrix.goos }}-${{ matrix.goarch }}'
+        destination: 'packages.viam.com/apps/viam-cli/${{ inputs.release_type }}-${{ matrix.goos }}-${{ matrix.goarch }}'
         parent: false # what
         gzip: false # why
-    # todo: also `gs mv` for tagged release
+
+    # publish tagged version for stable
+    - name: Set up Cloud SDK
+      if: inputs.release_type == 'stable'
+      uses: google-github-actions/setup-gcloud@v1
+    - name: Publish AppImage
+      if: inputs.release_type == 'stable'
+      run: |
+        gsutil mv 'gs://packages.viam.com/apps/viam-cli/${{ inputs.release_type }}-${{ matrix.goos }}-${{ matrix.goarch }}/viam' 'gs://packages.viam.com/apps/viam-cli/${{ github.ref_name }}-${{ matrix.goos }}-${{ matrix.goarch }}/viam'
