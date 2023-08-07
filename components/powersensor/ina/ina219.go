@@ -9,10 +9,10 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	"github.com/d2r2/go-i2c"
 	"github.com/edaniels/golog"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/powersensor"
 	"go.viam.com/rdk/resource"
 )
@@ -36,15 +36,21 @@ const (
 
 // Config is used for converting config attributes.
 type Config struct {
-	I2CBus  int `json:"i2c_bus"`
-	I2cAddr int `json:"i2c_addr,omitempty"`
+	Board   string `json:"board"`
+	I2CBus  string `json:"i2c_bus"`
+	I2cAddr int    `json:"i2c_addr,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
 func (conf *Config) Validate(path string) ([]string, error) {
 	var deps []string
 
-	if conf.I2CBus == 0 {
+	if len(conf.Board) == 0 {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
+	}
+	deps = append(deps, conf.Board)
+
+	if len(conf.I2CBus) == 0 {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "i2c_bus")
 	}
 	return deps, nil
@@ -65,17 +71,32 @@ func init() {
 				if err != nil {
 					return nil, err
 				}
-				return newINA219(deps, conf.ResourceName(), newConf, logger)
+				return newINA219(ctx, deps, conf.ResourceName(), newConf, logger)
 			},
 		})
 }
 
 func newINA219(
+	ctx context.Context,
 	deps resource.Dependencies,
 	name resource.Name,
 	conf *Config,
 	logger golog.Logger,
 ) (powersensor.PowerSensor, error) {
+
+	b, err := board.FromDependencies(deps, conf.Board)
+	if err != nil {
+		return nil, fmt.Errorf("ina219 init: failed to find board: %w", err)
+	}
+	localB, ok := b.(board.LocalBoard)
+	if !ok {
+		return nil, fmt.Errorf("board %s is not local", conf.Board)
+	}
+
+	i2cbus, ok := localB.I2CByName(conf.I2CBus)
+	if !ok {
+		return nil, fmt.Errorf("ina219 init: failed to find i2c bus %s", conf.I2CBus)
+	}
 
 	addr := conf.I2cAddr
 	if addr == 0 {
@@ -86,11 +107,16 @@ func newINA219(
 	s := &ina219{
 		Named:  name.AsNamed(),
 		logger: logger,
-		bus:    conf.I2CBus,
+		bus:    i2cbus,
 		addr:   byte(addr),
 	}
 
-	err := s.calibrate()
+	err = s.setCalibrationScale()
+	if err != nil {
+		return nil, err
+	}
+
+	err = s.calibrate(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -104,21 +130,14 @@ type ina219 struct {
 	resource.AlwaysRebuild
 	resource.TriviallyCloseable
 	logger     golog.Logger
-	bus        int
+	bus        board.I2C
 	addr       byte
 	currentLSB int64
 	powerLSB   int64
 	cal        uint16
 }
 
-type powerMonitor struct {
-	Shunt   int64
-	Voltage float64
-	Current float64
-	Power   float64
-}
-
-func (d *ina219) calibrate() error {
+func (d *ina219) setCalibrationScale() error {
 	if senseResistor <= 0 {
 		return fmt.Errorf("ina219 calibrate: senseResistor value invalid %d", senseResistor)
 	}
@@ -140,24 +159,11 @@ func (d *ina219) calibrate() error {
 	return nil
 }
 
-func (d *ina219) Voltage(context.Context, map[string]interface{}) (float64, bool, error) {
-
-}
-
-func (d *ina219) Current(context.Context, map[string]interface{}) (float64, bool, error) {
-
-}
-
-func (d *ina219) Power(context.Context, map[string]interface{}) (float64, error) {
-
-}
-
-// Readings returns a list containing three items (voltage, current, and power).
-func (d *ina219) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-	handle, err := i2c.NewI2C(d.addr, d.bus)
+func (d *ina219) calibrate(ctx context.Context) error {
+	handle, err := d.bus.OpenHandle(d.addr)
 	if err != nil {
 		d.logger.Errorf("can't open ina219 i2c: %s", err)
-		return nil, err
+		return err
 	}
 	defer utils.UncheckedErrorFunc(handle.Close)
 
@@ -167,56 +173,95 @@ func (d *ina219) Readings(ctx context.Context, extra map[string]interface{}) (ma
 	binary.BigEndian.PutUint16(buf, d.cal)
 	err = handle.WriteBlockData(ctx, calibrationRegister, buf)
 	if err != nil {
-		return nil, err
+		return err
 	}
-
 	buf = make([]byte, 2)
 	binary.BigEndian.PutUint16(buf, uint16(0x1FFF))
-	err = handle.WriteRegU16BE(configRegister)
+	err = handle.WriteBlockData(ctx, configRegister, buf)
 	if err != nil {
-		return nil, err
+		return err
 	}
+	return nil
+}
 
-	var pm powerMonitor
-
-	// get shunt voltage - currently we are not returning - is it useful?
-	shunt, err := handle.ReadBlockData(ctx, shuntVoltageRegister, 2)
+func (d *ina219) Voltage(ctx context.Context, extra map[string]interface{}) (float64, bool, error) {
+	handle, err := d.bus.OpenHandle(d.addr)
 	if err != nil {
-		return nil, err
+		d.logger.Errorf("can't open ina219 i2c: %s", err)
+		return 0, false, err
 	}
-
-	// Least significant bit is 10µV.
-	pm.Shunt = int64(binary.BigEndian.Uint16(shunt)) * 10 * 1000
-	d.logger.Debugf("ina219 shunt : %d", pm.Shunt)
+	defer utils.UncheckedErrorFunc(handle.Close)
 
 	bus, err := handle.ReadBlockData(ctx, busVoltageRegister, 2)
 	if err != nil {
-		return nil, err
+		return 0, false, err
 	}
 
-	// Check if bit zero is set, if set the ADC has overflowed.
+	voltage := float64(binary.BigEndian.Uint16(bus)>>3) * 4 / 1000
+	isAC := false
+	return voltage, isAC, nil
+}
+
+func (d *ina219) Current(ctx context.Context, extra map[string]interface{}) (float64, bool, error) {
+	handle, err := d.bus.OpenHandle(d.addr)
+	if err != nil {
+		d.logger.Errorf("can't open ina219 i2c: %s", err)
+		return 0, false, err
+	}
+	defer utils.UncheckedErrorFunc(handle.Close)
+
+	cur, err := handle.ReadBlockData(ctx, currentRegister, 2)
+	if err != nil {
+		return 0, false, err
+	}
+
+	current := float64(int64(binary.BigEndian.Uint16(cur))*d.currentLSB) / 1000000000
+	isAC := false
+	return current, isAC, nil
+}
+
+func (d *ina219) Power(ctx context.Context, extra map[string]interface{}) (float64, error) {
+	handle, err := d.bus.OpenHandle(d.addr)
+	if err != nil {
+		d.logger.Errorf("can't open ina219 i2c handle: %s", err)
+		return 0, err
+	}
+	defer utils.UncheckedErrorFunc(handle.Close)
+
+	pow, err := handle.ReadBlockData(ctx, powerRegister, 2)
+	if err != nil {
+		return 0, err
+	}
+	power := float64(int64(binary.BigEndian.Uint16(pow))*d.powerLSB) / 1000000000
+	return power, nil
+}
+
+// Readings returns a map with voltage, current, power and isAC.
+func (d *ina219) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+
+	volts, isAC, err := d.Voltage(ctx, nil)
+	if err != nil {
+		d.logger.Errorf("failed to get voltage reading")
+	}
+
+	amps, _, err := d.Current(ctx, nil)
+	if err != nil {
+		d.logger.Errorf("failed to get current reading")
+	}
+
+	/* // Check if bit zero is set, if set the ADC has overflowed.
 	if binary.BigEndian.Uint16(bus)&1 > 0 {
 		return nil, fmt.Errorf("ina219 bus voltage register overflow, register: %d", busVoltageRegister)
-	}
+	} */
 
-	pm.Voltage = float64(binary.BigEndian.Uint16(bus)>>3) * 4 / 1000
-
-	current, err := handle.ReadBlockData(ctx, currentRegister, 2)
+	watts, err := d.Power(ctx, nil)
 	if err != nil {
-		return nil, err
+		d.logger.Errorf("failed to get power reading")
 	}
-
-	pm.Current = float64(int64(binary.BigEndian.Uint16(current))*d.currentLSB) / 1000000000
-
-	power, err := handle.ReadBlockData(ctx, powerRegister, 2)
-	if err != nil {
-		return nil, err
-	}
-	pm.Power = float64(int64(binary.BigEndian.Uint16(power))*d.powerLSB) / 1000000000
-
 	return map[string]interface{}{
-		"volts": pm.Voltage,
-		"amps":  pm.Current,
-		"watts": pm.Power,
+		"volts": volts,
+		"amps":  amps,
+		"is_ac": isAC,
+		"watts": watts,
 	}, nil
 }
