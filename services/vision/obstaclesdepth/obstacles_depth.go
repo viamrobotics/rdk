@@ -27,7 +27,6 @@ import (
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 	vision "go.viam.com/rdk/vision"
-	"go.viam.com/rdk/vision/segmentation"
 )
 
 var model = resource.DefaultModelFamily.WithModel("obstacles_depth")
@@ -134,121 +133,115 @@ func (o *obsDepth) buildObsDepth(logger golog.Logger) func(ctx context.Context, 
 	return func(ctx context.Context, src camera.VideoSource) ([]*vision.Object, error) {
 		props, err := src.Properties(ctx)
 		if err != nil || props.IntrinsicParams == nil {
-			logger.Warn("obstacles depth started without camera's intrinsic parameters")
-			ni := o.buildObsDepthNoIntrinsics()
-			return ni(ctx, src)
+			logger.Warnf("obstacles depth started without camera's intrinsic parameters, %s", err)
+			return o.obsDepthNoIntrinsics(ctx, src)
 		}
 		o.intrinsics = props.IntrinsicParams
-		wi := o.buildObsDepthWithIntrinsics()
-		return wi(ctx, src)
+		return o.obsDepthWithIntrinsics(ctx, src)
 	}
 }
 
 // buildObsDepthNoIntrinsics will return the shortest depth in the depth map as a Geometry point.
-func (o *obsDepth) buildObsDepthNoIntrinsics() segmentation.Segmenter {
-	return func(ctx context.Context, src camera.VideoSource) ([]*vision.Object, error) {
-		pic, release, err := camera.ReadImage(ctx, src)
-		if err != nil {
-			return nil, errors.Errorf("could not get image from %s", src)
-		}
-		defer release()
-
-		dm, err := rimage.ConvertImageToDepthMap(ctx, pic)
-		if err != nil {
-			return nil, errors.New("could not convert image to depth map")
-		}
-		min, _ := dm.MinMax()
-
-		pt := spatialmath.NewPoint(r3.Vector{X: 0, Y: 0, Z: float64(min)}, "")
-		toReturn := make([]*vision.Object, 1)
-		toReturn[0] = &vision.Object{Geometry: pt}
-
-		return toReturn, nil
+func (o *obsDepth) obsDepthNoIntrinsics(ctx context.Context, src camera.VideoSource) ([]*vision.Object, error) {
+	pic, release, err := camera.ReadImage(ctx, src)
+	if err != nil {
+		return nil, errors.Errorf("could not get image from %s", src)
 	}
+	defer release()
+
+	dm, err := rimage.ConvertImageToDepthMap(ctx, pic)
+	if err != nil {
+		return nil, errors.New("could not convert image to depth map")
+	}
+	min, _ := dm.MinMax()
+
+	pt := spatialmath.NewPoint(r3.Vector{X: 0, Y: 0, Z: float64(min)}, "")
+	toReturn := make([]*vision.Object, 1)
+	toReturn[0] = &vision.Object{Geometry: pt}
+
+	return toReturn, nil
 }
 
 // buildObsDepthWithIntrinsics will use the methodology in Manduchi et al. to find obstacle points
 // before clustering and projecting those points into 3D obstacles.
-func (o *obsDepth) buildObsDepthWithIntrinsics() segmentation.Segmenter {
-	return func(ctx context.Context, src camera.VideoSource) ([]*vision.Object, error) {
-		// Check if we have intrinsics here. If not, don't even try
-		if o.intrinsics == nil {
-			return nil, errors.New("tried to build obstacles depth with intrinsics but no instrinsics found")
-		}
-		if o.depthStream == nil {
-			depthStream, err := src.Stream(ctx)
-			if err != nil {
-				return nil, errors.Errorf("could not get stream from %s", src)
-			}
-			o.depthStream = depthStream
-		}
-
-		pic, release, err := o.depthStream.Next(ctx)
-		if err != nil {
-			return nil, errors.Errorf("could not get image from stream %s", o.depthStream)
-		}
-		defer release()
-		dm, err := rimage.ConvertImageToDepthMap(ctx, pic)
-		if err != nil {
-			return nil, errors.New("could not convert image to depth map")
-		}
-		w, h := dm.Width(), dm.Height()
-		o.dm = dm
-
-		obstaclePoints := make([]image.Point, 0, w*h/sampleN)
-		for i := 0; i < w; i += sampleN {
-			for j := 0; j < h; j++ {
-				candidate := image.Pt(i, j)
-			obs: // for every sub-sampled point, figure out if it is an obstacle
-				for l := 0; l < w; l += sampleN { // continue with the sub-sampling
-					for m := 0; m < h; m++ {
-						compareTo := image.Pt(l, m)
-						if candidate == compareTo {
-							continue
-						}
-						if o.isCompatible(candidate, compareTo) {
-							obstaclePoints = append(obstaclePoints, candidate)
-							break obs
-						}
-					}
-				}
-			}
-		}
-		o.obstaclePts = obstaclePoints
-
-		// Cluster on the 2D depth points and then project the 2D clusters into 3D boxes
-		outClusters, err := o.performKMeans(o.k)
-		if err != nil {
-			return nil, err
-		}
-		boxes, err := o.clustersToBoxes(outClusters)
-		if err != nil {
-			return nil, err
-		}
-
-		// Packaging the return depending on if they want PCDs
-		n := int(math.Min(float64(len(outClusters)), float64(len(boxes)))) // should be same len but for safety
-		toReturn := make([]*vision.Object, n)
-		for i := 0; i < n; i++ { // for each cluster/box make an object
-			if o.returnPCDs {
-				pcdToReturn := pointcloud.New()
-				basicData := pointcloud.NewBasicData()
-				for _, pt := range outClusters[i].Observations {
-					if len(pt.Coordinates()) >= 3 {
-						vec := r3.Vector{X: pt.Coordinates()[0], Y: pt.Coordinates()[1], Z: pt.Coordinates()[2]}
-						err = pcdToReturn.Set(vec, basicData)
-						if err != nil {
-							return nil, err
-						}
-					}
-				}
-				toReturn[i] = &vision.Object{PointCloud: pcdToReturn, Geometry: boxes[i]}
-			} else {
-				toReturn[i] = &vision.Object{Geometry: boxes[i]}
-			}
-		}
-		return toReturn, nil
+func (o *obsDepth) obsDepthWithIntrinsics(ctx context.Context, src camera.VideoSource) ([]*vision.Object, error) {
+	// Check if we have intrinsics here. If not, don't even try
+	if o.intrinsics == nil {
+		return nil, errors.New("tried to build obstacles depth with intrinsics but no instrinsics found")
 	}
+	if o.depthStream == nil {
+		depthStream, err := src.Stream(ctx)
+		if err != nil {
+			return nil, errors.Errorf("could not get stream from %s", src)
+		}
+		o.depthStream = depthStream
+	}
+
+	pic, release, err := o.depthStream.Next(ctx)
+	if err != nil {
+		return nil, errors.Errorf("could not get image from stream %s", o.depthStream)
+	}
+	defer release()
+	dm, err := rimage.ConvertImageToDepthMap(ctx, pic)
+	if err != nil {
+		return nil, errors.New("could not convert image to depth map")
+	}
+	w, h := dm.Width(), dm.Height()
+	o.dm = dm
+
+	obstaclePoints := make([]image.Point, 0, w*h/sampleN)
+	for i := 0; i < w; i += sampleN {
+		for j := 0; j < h; j++ {
+			candidate := image.Pt(i, j)
+		obs: // for every sub-sampled point, figure out if it is an obstacle
+			for l := 0; l < w; l += sampleN { // continue with the sub-sampling
+				for m := 0; m < h; m++ {
+					compareTo := image.Pt(l, m)
+					if candidate == compareTo {
+						continue
+					}
+					if o.isCompatible(candidate, compareTo) {
+						obstaclePoints = append(obstaclePoints, candidate)
+						break obs
+					}
+				}
+			}
+		}
+	}
+	o.obstaclePts = obstaclePoints
+
+	// Cluster on the 2D depth points and then project the 2D clusters into 3D boxes
+	outClusters, err := o.performKMeans(o.k)
+	if err != nil {
+		return nil, err
+	}
+	boxes, err := o.clustersToBoxes(outClusters)
+	if err != nil {
+		return nil, err
+	}
+
+	// Packaging the return depending on if they want PCDs
+	n := int(math.Min(float64(len(outClusters)), float64(len(boxes)))) // should be same len but for safety
+	toReturn := make([]*vision.Object, n)
+	for i := 0; i < n; i++ { // for each cluster/box make an object
+		if o.returnPCDs {
+			pcdToReturn := pointcloud.New()
+			basicData := pointcloud.NewBasicData()
+			for _, pt := range outClusters[i].Observations {
+				if len(pt.Coordinates()) >= 3 {
+					vec := r3.Vector{X: pt.Coordinates()[0], Y: pt.Coordinates()[1], Z: pt.Coordinates()[2]}
+					err = pcdToReturn.Set(vec, basicData)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+			toReturn[i] = &vision.Object{PointCloud: pcdToReturn, Geometry: boxes[i]}
+		} else {
+			toReturn[i] = &vision.Object{Geometry: boxes[i]}
+		}
+	}
+	return toReturn, nil
 }
 
 // isCompatible will check compatibility between 2 points.
