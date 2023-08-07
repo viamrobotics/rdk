@@ -1,7 +1,7 @@
 name: Build and Publish Latest
 
-concurrency: 
-  group: ${{ github.workflow }}-${{ github.ref }}
+# concurrency:
+#   group: ${{ github.workflow }}-${{ github.ref }}
 
 # DONOTMERGE comment
 # on:
