@@ -5,13 +5,14 @@
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { notify } from '@viamrobotics/prime';
 import { navigationApi, type ServiceError } from '@viamrobotics/sdk';
-import { setMode, type NavigationModes } from '@/api/navigation';
-import { mapCenter, centerMap, robotPosition, flyToMap, write as writeStore } from './stores';
+import { setMode, getObstacles, type NavigationModes } from '@/api/navigation';
+import { mapCenter, centerMap, robotPosition, flyToMap, write as writeStore, obstacles } from './stores';
 import { useRobotClient } from '@/hooks/robot-client';
 import Collapse from '@/lib/components/collapse.svelte';
 import Map from './components/map.svelte';
 import Nav from './components/nav/index.svelte';
 import LngLatInput from './components/input/lnglat.svelte';
+import { inview } from 'svelte-inview';
 
 export let name: string;
 export let write = false;
@@ -35,6 +36,10 @@ const setNavigationMode = async (event: CustomEvent) => {
   }
 };
 
+const handleEnter = async () => {
+  $obstacles = await getObstacles($robotClient, name);
+};
+
 </script>
 
 <Collapse title={name}>
@@ -43,7 +48,11 @@ const setNavigationMode = async (event: CustomEvent) => {
     crumbs="navigation"
   />
 
-  <div class="flex flex-col gap-2 border border-t-0 border-medium">
+  <div
+    use:inview
+    on:inview_enter={handleEnter}
+    class="flex flex-col gap-2 border border-t-0 border-medium"
+  >
     <div class='flex flex-wrap gap-y-2 items-end justify-between py-3 px-4'>
       <div class='flex gap-1'>
         <div class='w-80'>
@@ -73,7 +82,7 @@ const setNavigationMode = async (event: CustomEvent) => {
     <div class='sm:flex w-full items-stretch'>
       <Nav {name} />
 
-      <div class='grow'>
+      <div class='relative grow'>
         <Map {name} />
       </div>
 
