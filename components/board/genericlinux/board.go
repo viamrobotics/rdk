@@ -91,28 +91,22 @@ func (b *Board) Reconfigure(
 		return err
 	}
 
-	return b.ReconfigureParsedConfig(ctx, *newConf)
-}
-
-// ReconfigureParsedConfig is a public helper that should only be used
-// by the customlinux package.
-func (b *Board) ReconfigureParsedConfig(ctx context.Context, conf LinuxBoardConfig) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	if err := b.reconfigureGpios(conf); err != nil {
+	if err := b.reconfigureGpios(newConf); err != nil {
 		return err
 	}
-	if err := b.reconfigureSpis(conf); err != nil {
+	if err := b.reconfigureSpis(newConf); err != nil {
 		return err
 	}
-	if err := b.reconfigureI2cs(conf); err != nil {
+	if err := b.reconfigureI2cs(newConf); err != nil {
 		return err
 	}
-	if err := b.reconfigureAnalogs(ctx, conf); err != nil {
+	if err := b.reconfigureAnalogs(ctx, newConf); err != nil {
 		return err
 	}
-	if err := b.reconfigureInterrupts(conf); err != nil {
+	if err := b.reconfigureInterrupts(newConf); err != nil {
 		return err
 	}
 	return nil
