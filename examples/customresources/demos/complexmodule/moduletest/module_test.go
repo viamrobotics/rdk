@@ -115,17 +115,17 @@ func TestComplexModule(t *testing.T) {
 
 	// Base is a custom component, but built-in API. It also depends on built-in motors, so tests dependencies.
 	t.Run("Test Base", func(t *testing.T) {
-		res, err := rc.ResourceByName(base.Named("base1"))
-		test.That(t, err, test.ShouldBeNil)
-		mybase := res.(base.Base)
-
-		res, err = rc.ResourceByName(motor.Named("motor1"))
+		res, err := rc.ResourceByName(motor.Named("motor1"))
 		test.That(t, err, test.ShouldBeNil)
 		motorL := res.(motor.Motor)
 
 		res, err = rc.ResourceByName(motor.Named("motor2"))
 		test.That(t, err, test.ShouldBeNil)
 		motorR := res.(motor.Motor)
+
+		res, err = rc.ResourceByName(base.Named("base1"))
+		test.That(t, err, test.ShouldBeNil)
+		mybase := res.(base.Base)
 
 		// Test generic echo
 		testCmd := map[string]interface{}{"foo": "bar"}
