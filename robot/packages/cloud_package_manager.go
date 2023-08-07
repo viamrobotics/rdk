@@ -266,7 +266,7 @@ func (m *cloudManager) Cleanup(ctx context.Context) error {
 }
 
 // symlink packages/package-name to packages/.data/ml_model/orgid-package-name-ver for backwards compatablility
-// Preserved for backwards compatibility. Could be removed or extended to other types in the future.
+// TODO(RSDK-4386) Preserved for backwards compatibility. Could be removed or extended to other types in the future.
 func (m *cloudManager) mLModelSymlinkCreation(p config.PackageConfig) error {
 	symlinkPath, err := safeJoin(m.packagesDir, p.Name)
 	if err != nil {
@@ -281,7 +281,7 @@ func (m *cloudManager) mLModelSymlinkCreation(p config.PackageConfig) error {
 }
 
 // cleanup all symlinks in packages/ directory
-// Preserved for backwards compatibility. Could be removed or extended to other types in the future.
+// TODO(RSDK-4386) Preserved for backwards compatibility. Could be removed or extended to other types in the future.
 func (m *cloudManager) mlModelSymlinkCleanup() error {
 	var allErrors error
 	files, err := os.ReadDir(m.packagesDir)
