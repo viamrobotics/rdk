@@ -112,19 +112,11 @@ func (sm *SingleOperationManager) WaitTillNotPowered(ctx context.Context, pollTi
 ) (err error) {
 	// Defers a function that will stop and clean up if the context errors
 	defer func(ctx context.Context) {
-		var errStop error
 		if errors.Is(ctx.Err(), context.Canceled) {
-			sm.mu.Lock()
-			oldOp := sm.currentOp == ctx.Value(somCtxKeySingleOp)
-			sm.mu.Unlock()
-
-			// Dan: Now that cancelation blocks, I think this `if` statement is a tautology and
-			// `stop` is always called when the context is canceled.
-			if oldOp || sm.currentOp == nil {
-				errStop = stop(ctx, map[string]interface{}{})
-			}
+			err = multierr.Combine(ctx.Err(), stop(ctx, map[string]interface{}{}))
+		} else {
+			err = ctx.Err()
 		}
-		err = multierr.Combine(ctx.Err(), errStop)
 	}(ctx)
 	return sm.WaitForSuccess(
 		ctx,
