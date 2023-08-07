@@ -47,7 +47,7 @@ jobs:
       env:
         GOOS: ${{ matrix.goos }}
         GOARCH: ${{ matrix.goarch }}
-      run: go build -ldflags="-X main.CliVersion=${{ github.ref_name }}" ./cli/viam
+      run: go build -ldflags="-X 'go.viam.com/rdk/config.Version=${{ github.ref_name }}'" ./cli/viam
 
     - name: Authorize GCP Upload
       uses: google-github-actions/auth@v1
