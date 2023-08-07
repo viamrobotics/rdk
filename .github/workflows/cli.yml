@@ -32,10 +32,8 @@ jobs:
     steps:
     - uses: actions/setup-go@v4
       with:
-        # todo: pin this for prod
         go-version: '1.20.x'
 
-    # todo(ask): factor out this conditional checkout behavior? why not always use current?
     - name: Check out code
       if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
       uses: actions/checkout@v3
@@ -61,8 +59,6 @@ jobs:
         headers: "cache-control: no-cache"
         path: 'viam'
         destination: 'packages.viam.com/apps/viam-cli/${{ inputs.release_type }}-${{ matrix.goos }}-${{ matrix.goarch }}'
-        parent: false # what
-        gzip: false # why
 
     # publish tagged version for stable
     - name: Set up Cloud SDK
