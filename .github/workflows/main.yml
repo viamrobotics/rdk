@@ -41,7 +41,7 @@ jobs:
 
   cli:
     # uses: viamrobotics/rdk/.github/workflows/cli.yml@main
-    uses: ./cli.yml # DONOTMERGE
+    uses: ./.github/workflows/cli.yml # DONOTMERGE
     with:
       release_type: 'latest'
     secrets:
