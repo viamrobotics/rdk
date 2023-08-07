@@ -36,6 +36,14 @@ jobs:
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
+  cli:
+    # uses: viamrobotics/rdk/.github/workflows/cli.yml@main
+    uses: ./cli.yml # DONOTMERGE
+    with:
+      release_type: 'latest'
+    secrets:
+      GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+
   npm_publish:
     uses: viamrobotics/rdk/.github/workflows/npm-publish.yml@main
     needs: test
