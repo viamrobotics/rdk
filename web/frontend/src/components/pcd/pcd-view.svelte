@@ -3,7 +3,7 @@
 
 import { onMount, onDestroy } from 'svelte';
 import * as THREE from 'three';
-import { OrbitControlsGizmo, GridHelper } from 'trzy';
+import { ViewHelper, GridHelper } from 'trzy';
 import { PCDLoader } from 'three/examples/jsm/loaders/PCDLoader';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls';
@@ -258,13 +258,13 @@ const init = (cloud: Uint8Array) => {
   downloadHref = URL.createObjectURL(file);
 };
 
-let gizmo: OrbitControlsGizmo | undefined;
+let gizmo: ViewHelper | undefined;
 
 onMount(() => {
   container.append(renderer.domElement);
   renderer.setAnimationLoop(animate);
 
-  gizmo = new OrbitControlsGizmo({ camera, el: gizmoContainer as HTMLElement, controls });
+  gizmo = new ViewHelper(camera, renderer);
 
   if (pointcloud) {
     init(pointcloud);
