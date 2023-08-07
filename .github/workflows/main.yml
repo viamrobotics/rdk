@@ -3,13 +3,17 @@ name: Build and Publish Latest
 concurrency: 
   group: ${{ github.workflow }}-${{ github.ref }}
 
-on:
-  workflow_dispatch:
-  push:
-    # branches: [ main ] # DONOTMERGE
-    branches: [ cli-build-poc-2 ]
-    paths-ignore:
-      - 'README.md'
+# DONOTMERGE comment
+# on:
+#   workflow_dispatch:
+#   push:
+#     branches: [ main ]
+#     paths-ignore:
+#       - 'README.md'
+on: # DONOTMERGE block
+  pull_request_target:
+    branches: [ main ]
+    types: [ labeled ]
 
 # To test workflow updates you need to work in a branch directly on viamrobotics/rdk
 # and tag your working branch instead of @main in any viamrobotics/rdk "uses" below.
