@@ -127,12 +127,8 @@ func (mp *cBiRRTMotionPlanner) plan(ctx context.Context,
 	utils.PanicCapturingGo(func() {
 		mp.rrtBackgroundRunner(ctx, seed, &rrtParallelPlannerShared{nil, nil, solutionChan})
 	})
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	case plan := <-solutionChan:
-		return plan.steps, plan.err()
-	}
+	plan := <-solutionChan
+	return plan.steps, plan.err()
 }
 
 // rrtBackgroundRunner will execute the plan. Plan() will call rrtBackgroundRunner in a separate thread and wait for results.
