@@ -2,6 +2,7 @@
 // typically used for battery state monitoring.
 // INA219 datasheet: https://www.ti.com/lit/ds/symlink/ina219.pdf
 // Example repo: https://github.com/periph/devices/blob/main/ina219/ina219.go
+// INA226 datasheet:
 package ina
 
 import (
@@ -158,14 +159,15 @@ func (d *ina) setCalibrationScale(modelName string) error {
 	switch modelName {
 	case modelName219:
 		calibratescale = calibratescale219
+		d.powerLSB = (maxCurrent*20 + (1 << 14)) / (1 << 15)
 	case modelName226:
 		calibratescale = calibrateScale226
+		d.powerLSB = (maxCurrent*25 + (1 << 14)) / (1 << 15)
 	default:
 		return errors.New("ina model not supported")
 	}
 
 	d.currentLSB = maxCurrent / (1 << 15)
-	d.powerLSB = (maxCurrent*20 + (1 << 14)) / (1 << 15)
 	// Calibration Register = calibration scale / (current LSB * Shunt Resistance)
 	// Where lsb is in Amps and resistance is in ohms.
 	// Calibration register is 16 bits.
@@ -208,7 +210,7 @@ func (d *ina) calibrate(ctx context.Context) error {
 func (d *ina) Voltage(ctx context.Context, extra map[string]interface{}) (float64, bool, error) {
 	handle, err := d.bus.OpenHandle(d.addr)
 	if err != nil {
-		d.logger.Errorf("can't open ina219 i2c: %s", err)
+		d.logger.Errorf("can't open ina i2c: %s", err)
 		return 0, false, err
 	}
 	defer utils.UncheckedErrorFunc(handle.Close)
@@ -218,7 +220,8 @@ func (d *ina) Voltage(ctx context.Context, extra map[string]interface{}) (float6
 		return 0, false, err
 	}
 
-	voltage := float64(binary.BigEndian.Uint16(bus)>>3) * 4 / 1000
+	// voltage is 1.25 mV/bit
+	voltage := float64(binary.BigEndian.Uint16(bus)) * 1.25e-3
 	isAC := false
 	return voltage, isAC, nil
 }
@@ -226,7 +229,7 @@ func (d *ina) Voltage(ctx context.Context, extra map[string]interface{}) (float6
 func (d *ina) Current(ctx context.Context, extra map[string]interface{}) (float64, bool, error) {
 	handle, err := d.bus.OpenHandle(d.addr)
 	if err != nil {
-		d.logger.Errorf("can't open ina219 i2c: %s", err)
+		d.logger.Errorf("can't open ina i2c: %s", err)
 		return 0, false, err
 	}
 	defer utils.UncheckedErrorFunc(handle.Close)
@@ -235,8 +238,6 @@ func (d *ina) Current(ctx context.Context, extra map[string]interface{}) (float6
 	if err != nil {
 		return 0, false, err
 	}
-	fmt.Println("raw current value")
-	fmt.Println(rawCur)
 
 	current := float64(int64(binary.BigEndian.Uint16(rawCur))*d.currentLSB) / 1000000000
 	isAC := false
@@ -246,7 +247,7 @@ func (d *ina) Current(ctx context.Context, extra map[string]interface{}) (float6
 func (d *ina) Power(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	handle, err := d.bus.OpenHandle(d.addr)
 	if err != nil {
-		d.logger.Errorf("can't open ina219 i2c handle: %s", err)
+		d.logger.Errorf("can't open ina i2c handle: %s", err)
 		return 0, err
 	}
 	defer utils.UncheckedErrorFunc(handle.Close)
@@ -269,12 +270,12 @@ func (d *ina) Readings(ctx context.Context, extra map[string]interface{}) (map[s
 
 	amps, _, err := d.Current(ctx, nil)
 	if err != nil {
-		d.logger.Errorf("failed to get current reading")
+		d.logger.Errorf("failed to get current reading: %s", err.Error())
 	}
 
 	watts, err := d.Power(ctx, nil)
 	if err != nil {
-		d.logger.Errorf("failed to get power reading")
+		d.logger.Errorf("failed to get power reading: %s", err.Error())
 	}
 	return map[string]interface{}{
 		"volts": volts,
