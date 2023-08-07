@@ -670,7 +670,6 @@ func TestStoppableMoveFunctions(t *testing.T) {
 	}
 
 	t.Run("successfully stop arms", func(t *testing.T) {
-		calledStopFunc = false
 		armName := "test-arm"
 		injectArmName := arm.Named(armName)
 		goal := referenceframe.NewPoseInFrame(

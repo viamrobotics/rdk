@@ -177,6 +177,7 @@ func (ms *builtIn) Move(
 			}
 			r := resources[name]
 			if err := r.GoToInputs(ctx, inputs); err != nil {
+				// If there is an error on GoToInputs, stop the component if possible before returning the error
 				if actuator, ok := r.(inputEnabledActuator); ok {
 					if stopErr := actuator.Stop(ctx, nil); stopErr != nil {
 						return false, errors.Wrap(err, stopErr.Error())
@@ -211,6 +212,7 @@ func (ms *builtIn) MoveOnMap(
 	for i := 1; i < len(plan); i++ {
 		if inputEnabledKb, ok := kb.(inputEnabledActuator); ok {
 			if err := inputEnabledKb.GoToInputs(ctx, plan[i]); err != nil {
+				// If there is an error on GoToInputs, stop the component if possible before returning the error
 				if stopErr := kb.Stop(ctx, nil); stopErr != nil {
 					return false, errors.Wrap(err, stopErr.Error())
 				}
@@ -266,6 +268,7 @@ func (ms *builtIn) MoveOnGlobe(
 		ms.logger.Info(plan[i])
 		if inputEnabledKb, ok := kb.(inputEnabledActuator); ok {
 			if err := inputEnabledKb.GoToInputs(ctx, plan[i]); err != nil {
+				// If there is an error on GoToInputs, stop the component if possible before returning the error
 				if stopErr := kb.Stop(ctx, nil); stopErr != nil {
 					return false, errors.Wrap(err, stopErr.Error())
 				}
