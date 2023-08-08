@@ -251,11 +251,6 @@ func (mp *rrtStarConnectMotionPlanner) extend(
 	near, target node,
 	mchan chan node,
 ) {
-	// Allow qstep to be doubled as a means to escape from configurations which gradient descend to their seed
-	qstep := make([]float64, len(mp.algOpts.qstep))
-	copy(qstep, mp.algOpts.qstep)
-	doubled := false
-
 	oldNear := near
 	// This should iterate until one of the following conditions:
 	// 1) we have reached the target
@@ -291,7 +286,7 @@ func (mp *rrtStarConnectMotionPlanner) extend(
 				newNear = append(newNear, nearInput)
 			} else {
 				v1, v2 := nearInput.Value, target.Q()[j].Value
-				newVal := math.Min(qstep[j], math.Abs(v2-v1))
+				newVal := math.Min(mp.algOpts.qstep[j], math.Abs(v2-v1))
 				// get correct sign
 				newVal *= (v2 - v1) / math.Abs(v2-v1)
 				newNear = append(newNear, referenceframe.Input{nearInput.Value + newVal})
@@ -303,28 +298,6 @@ func (mp *rrtStarConnectMotionPlanner) extend(
 		}
 
 		if newNear != nil {
-			nearDist := mp.planOpts.DistanceFunc(&Segment{StartConfiguration: oldNear.Q(), EndConfiguration: newNear})
-			if nearDist < math.Pow(mp.algOpts.JointSolveDist, 3) {
-				if !doubled {
-					doubled = true
-					// Check if doubling qstep will allow escape from the identical configuration
-					// If not, we terminate and return.
-					// If so, qstep will be reset to its original value after the rescue.
-					for i, q := range qstep {
-						qstep[i] = q * 2.0
-					}
-					continue
-				} else {
-					// We've arrived back at very nearly the same configuration again; stop solving and send back oldNear.
-					// Do not add the near-identical configuration to the RRT map
-					mchan <- oldNear
-					return
-				}
-			}
-			if doubled {
-				copy(qstep, mp.algOpts.qstep)
-				doubled = false
-			}
 
 			neighbors := kNearestNeighbors(mp.planOpts, rrtMap, &basicNode{q: newNear}, mp.algOpts.NeighborhoodSize)
 
