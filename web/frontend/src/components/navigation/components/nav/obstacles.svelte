@@ -7,6 +7,7 @@ import OrientationInput from '../input/orientation.svelte';
 import { obstacles, flyToMap, write, hovered, mapCenter } from '../../stores';
 import { createObstacle } from '../../lib/obstacle';
 import type { Geometry, LngLat } from '@/api/navigation';
+    import { OrientationVector } from '@viamrobotics/three';
 
 const dispatch = createEventDispatcher<{ select: LngLat }>();
 
@@ -108,18 +109,23 @@ const handleGeometryInput = (index: number, geoIndex: number) => {
           />
         </div>
       </div>
-      <small class='text-subtle-2'>
-        {#each geometries as geometry}
-          {#if geometry.type === 'box'}
-            Length: {geometry.length}m, Width: {geometry.width}m, Height: {geometry.height}m
-          {:else if geometry.type === 'sphere'}
-            Radius: {geometry.radius}m
-          {:else if geometry.type === 'capsule'}
-            Radius: {geometry.radius}m, Length: { geometry.length}m
-          {/if}
-        {/each}
-      </small>
+      {#each geometries as geometry}
+        <small class='text-subtle-2'>
+            {#if geometry.type === 'box'}
+              Length: {geometry.length}m, Width: {geometry.width}m, Height: {geometry.height}m
+            {:else if geometry.type === 'sphere'}
+              Radius: {geometry.radius}m
+            {:else if geometry.type === 'capsule'}
+              Radius: {geometry.radius}m, Length: { geometry.length}m
+            {/if}
+        </small>
 
+        {#if geometry.pose.orientationVector.th !== 0}
+          <small class='block text-subtle-2 mt-2'>
+            Theta: {geometry.pose.orientationVector.th.toFixed(2)}
+          </small>
+        {/if}
+      {/each}
     </li>
   {/if}
 {/each}

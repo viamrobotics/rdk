@@ -198,13 +198,14 @@ export const getLocation = async (robotClient: Client, name: string) => {
   const lat = location?.getLatitude();
   const lng = location?.getLongitude();
 
-  rcLogConditionally(response?.getLocation()?.toObject());
-  rcLogConditionally(location?.getLatitude());
-  rcLogConditionally(location?.getLongitude());
-
-  if (typeof lat !== 'number' || typeof lng !== 'number') {
-    // eslint-disable-next-line unicorn/prefer-type-error
-    throw new Error('Unable to locate robot');
+  // todo(micheal parks) - This should be abstracted into the TS SDK, returning NaN here is non-typical
+  if (
+    typeof lat !== 'number' ||
+    typeof lng !== 'number' ||
+    Number.isNaN(lat) ||
+    Number.isNaN(lng)
+  ) {
+    return null;
   }
 
   return { lng, lat };

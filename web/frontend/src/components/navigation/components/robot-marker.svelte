@@ -18,6 +18,11 @@ const updateLocation = async () => {
   try {
     const position = await getLocation($robotClient, name);
 
+    if (position === null) {
+      $robotPosition = null;
+      return;
+    }
+
     if (!centered) {
       centerMap(position, true);
       centered = true;

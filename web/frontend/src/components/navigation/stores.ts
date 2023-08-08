@@ -2,8 +2,9 @@ import * as THREE from 'three';
 import { currentWritable } from '@threlte/core';
 import { type JumpToOptions, type FlyToOptions, type Map } from 'maplibre-gl';
 import type { LngLat, Waypoint, Obstacle } from '@/api/navigation';
+import { persisted } from '@/stores/persisted';
 
-export const tab = currentWritable<'Obstacles' | 'Waypoints'>('Obstacles');
+export const tab = persisted<'Obstacles' | 'Waypoints'>('cards.navigation.tab', 'Waypoints');
 export const mode = currentWritable<'draw' | 'navigate'>('navigate');
 export const view = currentWritable<'2D' | '3D'>('2D');
 export const write = currentWritable(false);
