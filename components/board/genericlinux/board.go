@@ -69,11 +69,6 @@ func NewBoard(
 		interrupts: map[string]*digitalInterrupt{},
 	}
 
-	// TODO(RSDK_4092): Move this part into reconfiguration.
-	for pinName, mapping := range newConf.GpioMappings {
-		b.gpios[pinName] = b.createGpioPin(mapping)
-	}
-
 	if err := b.Reconfigure(ctx, nil, conf); err != nil {
 		return nil, err
 	}
@@ -114,9 +109,12 @@ func (b *Board) Reconfigure(
 
 func (b *Board) reconfigureGpios(newConf LinuxBoardConfig) error {
 	// TODO(RSDK-4092): implement this correctly.
-	if len(b.gpioMappings) == 0 {
-		b.gpioMappings = newConf.GpioMappings
+	newMappings := newConf.GpioMappings
+
+	for pinName, mapping := range newConf.GpioMappings {
+		b.gpios[pinName] = b.createGpioPin(mapping)
 	}
+	b.gpioMappings = newConf.GpioMappings
 	return nil
 }
 
