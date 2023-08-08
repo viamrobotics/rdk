@@ -59,8 +59,7 @@ func newRRTStarConnectOptions(planOpts *plannerOptions, frame referenceframe.Fra
 // https://ieeexplore.ieee.org/document/7419012
 type rrtStarConnectMotionPlanner struct {
 	*planner
-	fastGradDescent *NloptIK
-	algOpts         *rrtStarConnectOptions
+	algOpts *rrtStarConnectOptions
 }
 
 // NewRRTStarConnectMotionPlannerWithSeed creates a rrtStarConnectMotionPlanner object with a user specified random seed.
@@ -77,15 +76,11 @@ func newRRTStarConnectMotionPlanner(
 	if err != nil {
 		return nil, err
 	}
-	nlopt, err := CreateNloptIKSolver(frame, logger, 1, opt.GoalThreshold)
-	if err != nil {
-		return nil, err
-	}
 	algOpts, err := newRRTStarConnectOptions(opt, frame)
 	if err != nil {
 		return nil, err
 	}
-	return &rrtStarConnectMotionPlanner{mp, nlopt, algOpts}, nil
+	return &rrtStarConnectMotionPlanner{mp, algOpts}, nil
 }
 
 func (mp *rrtStarConnectMotionPlanner) plan(ctx context.Context,
@@ -179,16 +174,11 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 			default:
 			}
 
-			//nolint: gosec
-			rseed1 := rand.New(rand.NewSource(int64(mp.randseed.Int())))
-			//nolint: gosec
-			rseed2 := rand.New(rand.NewSource(int64(mp.randseed.Int())))
-
 			utils.PanicCapturingGo(func() {
-				mp.constrainedExtend(ctx, rseed1, map1, nearest1, newConfigurationNode(target), m1chan)
+				mp.constrainedExtend(ctx, map1, nearest1, newConfigurationNode(target), m1chan)
 			})
 			utils.PanicCapturingGo(func() {
-				mp.constrainedExtend(ctx, rseed2, map2, nearest2, newConfigurationNode(target), m2chan)
+				mp.constrainedExtend(ctx, map2, nearest2, newConfigurationNode(target), m2chan)
 			})
 			map1reached := <-m1chan
 			map2reached := <-m2chan
@@ -258,7 +248,6 @@ func (mp *rrtStarConnectMotionPlanner) sample(rSeed node, sampleNum int) ([]refe
 
 func (mp *rrtStarConnectMotionPlanner) constrainedExtend(
 	ctx context.Context,
-	randseed *rand.Rand,
 	rrtMap map[node]node,
 	near, target node,
 	mchan chan node,
@@ -282,9 +271,6 @@ func (mp *rrtStarConnectMotionPlanner) constrainedExtend(
 			return
 		default:
 		}
-
-		// iterate over the k nearest neighbors and find the minimum cost to connect the target node to the tree
-		neighbors := kNearestNeighbors(mp.planOpts, rrtMap, &basicNode{q: target.Q()}, mp.algOpts.NeighborhoodSize)
 
 		dist := mp.planOpts.DistanceFunc(&Segment{StartConfiguration: near.Q(), EndConfiguration: target.Q()})
 		oldDist := mp.planOpts.DistanceFunc(&Segment{StartConfiguration: oldNear.Q(), EndConfiguration: target.Q()})
@@ -312,8 +298,8 @@ func (mp *rrtStarConnectMotionPlanner) constrainedExtend(
 				newNear = append(newNear, referenceframe.Input{nearInput.Value + newVal})
 			}
 		}
-		// Check whether newNear meets constraints, and if not, update it to a configuration that does meet constraints (or nil)
-		newNear = mp.constrainNear(ctx, randseed, oldNear.Q(), newNear)
+		// Check whether oldNear -> newNear path is a valid segment, and if not then set to nil
+		newNear = mp.constrainNear(oldNear.Q(), newNear)
 
 		if newNear != nil {
 			nearDist := mp.planOpts.DistanceFunc(&Segment{StartConfiguration: oldNear.Q(), EndConfiguration: newNear})
@@ -338,7 +324,9 @@ func (mp *rrtStarConnectMotionPlanner) constrainedExtend(
 				copy(qstep, mp.algOpts.qstep)
 				doubled = false
 			}
-			// constrainNear will ensure path between oldNear and newNear satisfies constraints along the way
+
+			neighbors := kNearestNeighbors(mp.planOpts, rrtMap, &basicNode{q: newNear}, mp.algOpts.NeighborhoodSize)
+
 			near = &basicNode{q: newNear, cost: neighbors[0].node.Cost() + neighbors[0].dist}
 			rrtMap[near] = oldNear
 
@@ -372,71 +360,30 @@ func (mp *rrtStarConnectMotionPlanner) constrainedExtend(
 }
 
 func (mp *rrtStarConnectMotionPlanner) constrainNear(
-	ctx context.Context,
-	randseed *rand.Rand,
 	seedInputs,
 	target []referenceframe.Input,
 ) []referenceframe.Input {
-	for i := 0; i < maxNearIter; i++ {
-		select {
-		case <-ctx.Done():
-			return nil
-		default:
-		}
+	seedPos, err := mp.frame.Transform(seedInputs)
+	if err != nil {
+		return nil
+	}
+	goalPos, err := mp.frame.Transform(target)
+	if err != nil {
+		return nil
+	}
 
-		seedPos, err := mp.frame.Transform(seedInputs)
-		if err != nil {
-			return nil
-		}
-		goalPos, err := mp.frame.Transform(target)
-		if err != nil {
-			return nil
-		}
+	newArc := &Segment{
+		StartPosition:      seedPos,
+		EndPosition:        goalPos,
+		StartConfiguration: seedInputs,
+		EndConfiguration:   target,
+		Frame:              mp.frame,
+	}
 
-		newArc := &Segment{
-			StartPosition:      seedPos,
-			EndPosition:        goalPos,
-			StartConfiguration: seedInputs,
-			EndConfiguration:   target,
-			Frame:              mp.frame,
-		}
-
-		// Check if the arc of "seedInputs" to "target" is valid
-		ok, _ := mp.planOpts.CheckSegmentAndStateValidity(newArc, mp.planOpts.Resolution)
-		if ok {
-			return target
-		}
-		solutionGen := make(chan []referenceframe.Input, 1)
-		// Spawn the IK solver to generate solutions until done
-		err = mp.fastGradDescent.Solve(ctx, solutionGen, target, mp.planOpts.pathMetric, randseed.Int())
-		// We should have zero or one solutions
-		var solved []referenceframe.Input
-		select {
-		case solved = <-solutionGen:
-		default:
-		}
-		close(solutionGen)
-		if err != nil {
-			return nil
-		}
-
-		ok, failpos := mp.planOpts.CheckSegmentAndStateValidity(
-			&Segment{StartConfiguration: seedInputs, EndConfiguration: solved, Frame: mp.frame},
-			mp.planOpts.Resolution,
-		)
-		if ok {
-			return solved
-		}
-		if failpos != nil {
-			dist := mp.planOpts.DistanceFunc(&Segment{StartConfiguration: target, EndConfiguration: failpos.EndConfiguration})
-			if dist > mp.algOpts.JointSolveDist {
-				// If we have a first failing position, and that target is updating (no infinite loop), then recurse
-				seedInputs = failpos.StartConfiguration
-				target = failpos.EndConfiguration
-			}
-		} else {
-			return nil
-		}
+	// Check if the arc of "seedInputs" to "target" is valid
+	ok, _ := mp.planOpts.CheckSegmentAndStateValidity(newArc, mp.planOpts.Resolution)
+	if ok {
+		return target
 	}
 	return nil
 }
