@@ -1,3 +1,8 @@
+<!--
+  @component
+  A 2D marker that can accept a texture.
+  Used for rendering the base position, endpoints, etc.
+-->
 <script lang='ts' context='module'>
 
 import * as THREE from 'three';

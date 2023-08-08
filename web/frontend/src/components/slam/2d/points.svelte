@@ -1,3 +1,10 @@
+<!--
+  @component
+  Renders THREE.Points from a .pcd file.
+  Creates an invisible plane mesh with dimensions matching the diameter of
+  the points' bounding sphere.
+  Emits click events that intersect this plane.
+-->
 <script lang='ts'>
 
 import * as THREE from 'three';
@@ -9,11 +16,16 @@ import { onMount } from 'svelte';
 
 extend({ MeshDiscardMaterial });
 
+/** A buffer representing a .pcd file */
 export let pointcloud: Uint8Array | undefined;
+
+/** The size of each individual point */
 export let size: number;
 
 type $$Events = {
+  /** Dispatched when a user clicks within the bounding box of the pointcloud */
   click: THREE.Vector3
+  /** Dispatched whenever a new .pcd file is parsed. Emits the radius and center of the cloud's bounding sphere. */
   update: {
     radius: number
     center: { x: number; y: number }

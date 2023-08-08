@@ -1,3 +1,7 @@
+<!--
+  @component
+  A user legend for the SLAM map axes.
+-->
 <svg
   class="Axes-Legend absolute right-3 top-3"
   width="30"

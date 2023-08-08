@@ -10,7 +10,7 @@ import { AxesHelper, GridHelper } from 'trzy';
 import { renderOrder } from './constants';
 
 extend({
-  // trzy.AxesHelper uses fat lines so that axes are more clearly displayed, and is dynamically resizable.
+  // trzy.AxesHelper uses thick lines so that axes are more clearly displayed, and is dynamically resizable.
   AxesHelper,
   // trzy.GridHelper is more performant by drawing the grid in a shader, and can have small and large cells.
   GridHelper

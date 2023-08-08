@@ -1,3 +1,11 @@
+<!--
+  @component
+  Renders a motion plan using thick lines.
+  Assumes the motion plan is coming in as a string in the format:
+  x,y\n
+  x,y\n
+  ...
+-->
 <script lang='ts'>
 
 import { T, extend } from '@threlte/core';
