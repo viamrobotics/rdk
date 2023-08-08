@@ -43,7 +43,7 @@ jobs:
         GOOS=darwin GOARCH=arm64 make bin/viam-${{ inputs.release_type }}-darwin-arm64
 
     - name: tagged alias
-      if: inputs.release_type == 'stable'
+      # if: inputs.release_type == 'stable' # DONOTMERGE comment
       run: |
         cp -R bin tagged-bin
         rename viam-${{ inputs.release_type }}- viam-${{ github.ref_name }}- tagged-bin/viam-*
@@ -60,3 +60,4 @@ jobs:
         path: 'bin'
         glob: 'viam-*'
         destination: 'packages.viam.com/apps/viam-cli/'
+        parent: false
