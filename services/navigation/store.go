@@ -80,6 +80,9 @@ type MemoryNavigationStore struct {
 
 // Waypoints returns a copy of all of the waypoints in the MemoryNavigationStore.
 func (store *MemoryNavigationStore) Waypoints(ctx context.Context) ([]Waypoint, error) {
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
 	store.mu.RLock()
 	defer store.mu.RUnlock()
 	wps := make([]Waypoint, 0, len(store.waypoints))
@@ -95,6 +98,9 @@ func (store *MemoryNavigationStore) Waypoints(ctx context.Context) ([]Waypoint, 
 
 // AddWaypoint adds a waypoint to the MemoryNavigationStore.
 func (store *MemoryNavigationStore) AddWaypoint(ctx context.Context, point *geo.Point) (Waypoint, error) {
+	if ctx.Err() != nil {
+		return Waypoint{}, ctx.Err()
+	}
 	store.mu.Lock()
 	defer store.mu.Unlock()
 	newPoint := Waypoint{
@@ -108,6 +114,9 @@ func (store *MemoryNavigationStore) AddWaypoint(ctx context.Context, point *geo.
 
 // RemoveWaypoint removes a waypoint from the MemoryNavigationStore.
 func (store *MemoryNavigationStore) RemoveWaypoint(ctx context.Context, id primitive.ObjectID) error {
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
 	store.mu.Lock()
 	defer store.mu.Unlock()
 	newWps := make([]*Waypoint, 0, len(store.waypoints)-1)
@@ -123,6 +132,9 @@ func (store *MemoryNavigationStore) RemoveWaypoint(ctx context.Context, id primi
 
 // NextWaypoint gets the next waypoint that has not been visited.
 func (store *MemoryNavigationStore) NextWaypoint(ctx context.Context) (Waypoint, error) {
+	if ctx.Err() != nil {
+		return Waypoint{}, ctx.Err()
+	}
 	store.mu.RLock()
 	defer store.mu.RUnlock()
 	for _, wp := range store.waypoints {
@@ -135,6 +147,9 @@ func (store *MemoryNavigationStore) NextWaypoint(ctx context.Context) (Waypoint,
 
 // WaypointVisited sets that a waypoint has been visited.
 func (store *MemoryNavigationStore) WaypointVisited(ctx context.Context, id primitive.ObjectID) error {
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
 	store.mu.Lock()
 	defer store.mu.Unlock()
 	for _, wp := range store.waypoints {

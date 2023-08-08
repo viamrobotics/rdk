@@ -285,6 +285,7 @@ func TestStartWaypoint(t *testing.T) {
 		pt1, pt2, pt3 := geo.NewPoint(1, 2), geo.NewPoint(2, 3), geo.NewPoint(3, 4)
 		points := []*geo.Point{pt1, pt2, pt3}
 		t.Run("MoveOnGlobe error results in skipping the current waypoint", func(t *testing.T) {
+			ctx, cancelFunc := context.WithCancel(ctx)
 			err = deleteAllWaypoints(ctx, ns)
 			for _, pt := range points {
 				err = ns.AddWaypoint(ctx, pt, nil)
@@ -327,6 +328,7 @@ func TestStartWaypoint(t *testing.T) {
 			eventChannel <- arrivedAtWaypointMsg
 			test.That(t, <-statusChannel, test.ShouldEqual, arrivedAtWaypointMsg)
 			currentInputsShouldEqual(ctx, t, kinematicBase, pt3)
+			cancelFunc()
 		})
 		t.Run("Calling SetMode cancels current and future MoveOnGlobe calls", func(t *testing.T) {
 			err = deleteAllWaypoints(ctx, ns)
@@ -384,6 +386,19 @@ func TestStartWaypoint(t *testing.T) {
 			for wp2.ID == wp1.ID {
 				wp2, err = ns.(*builtIn).store.NextWaypoint(ctx)
 				test.That(t, err, test.ShouldBeNil)
+			}
+
+			// ensure we actually start the wp2 waypoint before removing it
+			ready := false
+			for !ready {
+				ns.(*builtIn).mu.RLock()
+				svcWp := ns.(*builtIn).waypointInProgress
+				ns.(*builtIn).mu.RUnlock()
+				if wp2.ID != svcWp.ID {
+					time.Sleep(time.Millisecond)
+				} else {
+					ready = true
+				}
 			}
 			err = ns.RemoveWaypoint(ctx, wp2.ID, nil)
 			test.That(t, err, test.ShouldBeNil)
