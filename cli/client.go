@@ -42,7 +42,7 @@ var ModuleUploadChunkSize = 32 * 1024
 // to the app service but not directly to robot parts.
 type AppClient struct {
 	c          *cli.Context
-	conf       *Config
+	conf       *config
 	client     apppb.AppServiceClient
 	dataClient datapb.DataServiceClient
 	baseURL    *url.URL
@@ -97,7 +97,7 @@ func NewAppClient(c *cli.Context) (*AppClient, error) {
 		if !os.IsNotExist(err) {
 			return nil, err
 		}
-		conf = &Config{}
+		conf = &config{}
 	}
 
 	return &AppClient{
@@ -112,7 +112,7 @@ func NewAppClient(c *cli.Context) (*AppClient, error) {
 }
 
 // Config returns the current config.
-func (c *AppClient) Config() *Config {
+func (c *AppClient) Config() *config {
 	return c.conf
 }
 
@@ -218,7 +218,7 @@ func (c *AppClient) Logout() error {
 	if err := removeConfigFromCache(); err != nil && !os.IsNotExist(err) {
 		return err
 	}
-	c.conf = &Config{}
+	c.conf = &config{}
 	return nil
 }
 
