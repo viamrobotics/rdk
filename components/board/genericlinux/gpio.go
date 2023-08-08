@@ -15,7 +15,7 @@ import (
 )
 
 type gpioPin struct {
-	parentBoard *SysfsBoard
+	parentBoard *Board
 
 	// These values should both be considered immutable.
 	devicePath string
@@ -283,7 +283,7 @@ func (pin *gpioPin) Close() error {
 	return pin.closeGpioFd()
 }
 
-func (b *SysfsBoard) createGpioPin(mapping GPIOBoardMapping) *gpioPin {
+func (b *Board) createGpioPin(mapping GPIOBoardMapping) *gpioPin {
 	pin := gpioPin{
 		parentBoard: b,
 		devicePath:  mapping.GPIOChipDev,

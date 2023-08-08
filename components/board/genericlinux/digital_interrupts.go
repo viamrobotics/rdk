@@ -16,7 +16,7 @@ import (
 )
 
 type digitalInterrupt struct {
-	parentBoard *SysfsBoard
+	parentBoard *Board
 	interrupt   board.ReconfigurableDigitalInterrupt
 	line        *gpio.LineWithEvent
 	cancelCtx   context.Context
@@ -24,7 +24,7 @@ type digitalInterrupt struct {
 	config      *board.DigitalInterruptConfig
 }
 
-func (b *SysfsBoard) createDigitalInterrupt(
+func (b *Board) createDigitalInterrupt(
 	ctx context.Context,
 	config board.DigitalInterruptConfig,
 	gpioMappings map[string]GPIOBoardMapping,
