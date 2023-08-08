@@ -28,7 +28,7 @@ cli: bin/$(GOOS)-$(GOARCH)/viam-cli
 
 .PHONY: cli-ci
 cli-ci: bin/$(GOOS)-$(GOARCH)/viam-cli
-	if [[ -n "$(CI_RELEASE)" ]]; then \
+	if [ -n "$(CI_RELEASE)" ]; then \
 		mkdir -p bin/deploy-ci/; \
 		cp $< bin/deploy-ci/viam-cli-$(CI_RELEASE)-$(GOOS)-$(GOARCH); \
 	fi
