@@ -299,7 +299,9 @@ func (mp *rrtStarConnectMotionPlanner) constrainedExtend(
 			}
 		}
 		// Check whether oldNear -> newNear path is a valid segment, and if not then set to nil
-		newNear = mp.constrainNear(oldNear.Q(), newNear)
+		if !mp.checkPath(oldNear.Q(), newNear) {
+			newNear = nil
+		}
 
 		if newNear != nil {
 			nearDist := mp.planOpts.DistanceFunc(&Segment{StartConfiguration: oldNear.Q(), EndConfiguration: newNear})
@@ -357,33 +359,4 @@ func (mp *rrtStarConnectMotionPlanner) constrainedExtend(
 		}
 	}
 	mchan <- oldNear
-}
-
-func (mp *rrtStarConnectMotionPlanner) constrainNear(
-	seedInputs,
-	target []referenceframe.Input,
-) []referenceframe.Input {
-	seedPos, err := mp.frame.Transform(seedInputs)
-	if err != nil {
-		return nil
-	}
-	goalPos, err := mp.frame.Transform(target)
-	if err != nil {
-		return nil
-	}
-
-	newArc := &Segment{
-		StartPosition:      seedPos,
-		EndPosition:        goalPos,
-		StartConfiguration: seedInputs,
-		EndConfiguration:   target,
-		Frame:              mp.frame,
-	}
-
-	// Check if the arc of "seedInputs" to "target" is valid
-	ok, _ := mp.planOpts.CheckSegmentAndStateValidity(newArc, mp.planOpts.Resolution)
-	if ok {
-		return target
-	}
-	return nil
 }
