@@ -9,12 +9,24 @@ import Legend from './legend.svelte';
 import Dropzone from '@/lib/components/dropzone.svelte';
 import Scene from './scene.svelte';
 
+/** A buffer representing a .pcd file */
 export let pointcloud: Uint8Array | undefined;
+
+/** The pose of the base of the robot */
 export let pose: commonApi.Pose | undefined;
+
+/** A user-specificed robot destination */
 export let destination: THREE.Vector2 | undefined;
+
+/** Whether or not scene helpers should be rendered */
 export let helpers: boolean;
 
-const dispatch = createEventDispatcher();
+type $$Events = {
+  /** Dispatched when a user clicks within the bounding box of the pointcloud */
+  click: THREE.Vector3
+}
+
+const dispatch = createEventDispatcher<$$Events>();
 
 let motionPath: string | undefined;
 const basePosition = new THREE.Vector2();

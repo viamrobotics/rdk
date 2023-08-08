@@ -17,7 +17,12 @@ export let baseRotation: number;
 export let destination: THREE.Vector2 | undefined;
 export let motionPath: string | undefined;
 
-const dispatch = createRawEventDispatcher();
+type $$Events = {
+  /** Dispatched when a user clicks within the bounding box of the pointcloud */
+  click: THREE.Vector3
+}
+
+const dispatch = createRawEventDispatcher<$$Events>();
 
 extend({ MapControls });
 
