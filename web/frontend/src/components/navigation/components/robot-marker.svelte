@@ -24,6 +24,10 @@ const updateLocation = async () => {
       centered = true;
     }
 
+    rcLogConditionally(response);
+    rcLogConditionally(response.latitude);
+    rcLogConditionally(response.longitude);
+
     if ($robotPosition?.lat === position.lat && $robotPosition.lng === position.lng) {
       return;
     }
