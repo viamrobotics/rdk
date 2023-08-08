@@ -35,13 +35,13 @@ var (
 	// ErrEndOfDataset represents that the replay sensor has reached the end of the dataset.
 	ErrEndOfDataset = errors.New("reached end of dataset")
 
-	defaultCacheStatus = map[string]bool{
-		"position":         false,
-		"orientation":      false,
-		"angular_velocity": false,
-		"linear_velocity":  false,
-		"compass_heading":  false,
-		"orientation":      false,
+	defaultCacheMap = map[string][]*cacheEntry{
+		"position":            nil,
+		"orientation":         nil,
+		"angular_velocity":    nil,
+		"linear_velocity":     nil,
+		"compass_heading":     nil,
+		"linear_acceleration": nil,
 	}
 )
 
@@ -142,9 +142,8 @@ type replayMovementSensor struct {
 	limit    uint64
 	filter   *datapb.Filter
 
-	cache              []*cacheEntry
-	currentCacheStatus map[string]bool
-	properties         movementsensor.Properties
+	cache      map[string][]*cacheEntry
+	properties movementsensor.Properties
 
 	mu     sync.RWMutex
 	closed bool
@@ -176,14 +175,12 @@ func (replay *replayMovementSensor) Position(ctx context.Context, extra map[stri
 		return nil, 0, errors.New("position is not supported, add position_supported to the properties to enable")
 	}
 
-	data, err := replay.getDataFromCache(ctx)
+	entry, err := replay.getDataFromCache(ctx, "position", replay.cache["position"])
 	if err != nil {
 		return nil, 0, err
 	}
 
-	replay.currentCacheStatus["position"] = true
-
-	return data.position.point, data.position.altitude, nil
+	return entry.data.position.point, entry.data.position.altitude, nil
 }
 
 // LinearVelocity returns the next linear velocity from the cache.
@@ -198,14 +195,12 @@ func (replay *replayMovementSensor) LinearVelocity(ctx context.Context, extra ma
 		return r3.Vector{}, errors.New("linear velocity is not supported, add linear_velocity_supported to the properties to enable")
 	}
 
-	data, err := replay.getDataFromCache(ctx)
+	entry, err := replay.getDataFromCache(ctx, "linear_velocity", replay.cache["linear_velocity"])
 	if err != nil {
 		return r3.Vector{}, err
 	}
 
-	replay.currentCacheStatus["linear_velocity"] = true
-
-	return data.linearVelocity, nil
+	return entry.data.linearVelocity, nil
 }
 
 // AngularVelocity returns the next angular velocity from the cache.
@@ -220,14 +215,12 @@ func (replay *replayMovementSensor) AngularVelocity(ctx context.Context, extra m
 		return spatialmath.AngularVelocity{}, errors.New("angular velocity is not supported, add angular_velocity_supported to the properties to enable")
 	}
 
-	data, err := replay.getDataFromCache(ctx)
+	entry, err := replay.getDataFromCache(ctx, "angular_velocity", replay.cache["angular_velocity"])
 	if err != nil {
 		return spatialmath.AngularVelocity{}, err
 	}
 
-	replay.currentCacheStatus["angular_velocity"] = true
-
-	return data.angularVelocity, nil
+	return entry.data.angularVelocity, nil
 }
 
 // LinearAcceleration returns the next linear acceleration from the cache.
@@ -242,14 +235,12 @@ func (replay *replayMovementSensor) LinearAcceleration(ctx context.Context, extr
 		return r3.Vector{}, errors.New("linear acceleration is not supported, add linear_acceleration_supported to the properties to enable")
 	}
 
-	data, err := replay.getDataFromCache(ctx)
+	entry, err := replay.getDataFromCache(ctx, "linear_acceleration", replay.cache["linear_acceleration"])
 	if err != nil {
 		return r3.Vector{}, err
 	}
 
-	replay.currentCacheStatus["linear_acceleration"] = true
-
-	return data.linearAcceleration, nil
+	return entry.data.linearAcceleration, nil
 }
 
 // CompassHeading returns the next compass heading from the cache.
@@ -264,14 +255,12 @@ func (replay *replayMovementSensor) CompassHeading(ctx context.Context, extra ma
 		return 0, errors.New("compass heading is not supported, add compass_heading_supported to the properties to enable")
 	}
 
-	data, err := replay.getDataFromCache(ctx)
+	entry, err := replay.getDataFromCache(ctx, "compass_heading", replay.cache["compass_heading"])
 	if err != nil {
 		return 0, err
 	}
 
-	replay.currentCacheStatus["compass_heading"] = true
-
-	return data.compassHeading, nil
+	return entry.data.compassHeading, nil
 }
 
 // Orientation returns the next orientation from the cache.
@@ -286,14 +275,12 @@ func (replay *replayMovementSensor) Orientation(ctx context.Context, extra map[s
 		return nil, errors.New("orientation is not supported, add orientation_supported to the properties to enable")
 	}
 
-	data, err := replay.getDataFromCache(ctx)
+	entry, err := replay.getDataFromCache(ctx, "orientation", replay.cache["orientation"])
 	if err != nil {
 		return nil, err
 	}
 
-	replay.currentCacheStatus["orientation"] = true
-
-	return data.orientation, nil
+	return entry.data.orientation, nil
 }
 
 // Properties returns the available properties for the given replay movement sensor.
@@ -301,7 +288,7 @@ func (replay *replayMovementSensor) Properties(ctx context.Context, extra map[st
 	return &replay.properties, nil
 }
 
-// Accuracy is currently not defined for replay movement sensors. TODO: CHECK THIS
+// Accuracy is currently not defined for replay movement sensors.
 func (replay *replayMovementSensor) Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32, error) {
 	return map[string]float32{}, movementsensor.ErrMethodUnimplementedAccuracy
 }
@@ -316,9 +303,9 @@ func (replay *replayMovementSensor) Close(ctx context.Context) error {
 	return nil
 }
 
-// TODO UNIMPLEMENTED
+// Readings returns all available data from the next entry stored in the cache.
 func (replay *replayMovementSensor) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-	return nil, nil
+	return movementsensor.Readings(ctx, replay, extra)
 }
 
 // Reconfigure finishes the bring up of the replay movement sensor by evaluating given arguments and setting up the required cloud
@@ -356,10 +343,8 @@ func (replay *replayMovementSensor) Reconfigure(ctx context.Context, deps resour
 	} else {
 		replay.limit = *replayCamConfig.BatchSize
 	}
-	replay.cache = nil
-	replay.currentCacheStatus = defaultCacheStatus
+	replay.cache = defaultCacheMap
 
-	//TODO CHECK IF THIS IS THE WAY WE WANT TO DEFINE PROPERTIES
 	replay.properties = movementsensor.Properties{
 		LinearVelocitySupported:     replayCamConfig.Properties["linear_velocity_supported"],
 		AngularVelocitySupported:    replayCamConfig.Properties["angular_velocity_supported"],
@@ -372,7 +357,6 @@ func (replay *replayMovementSensor) Reconfigure(ctx context.Context, deps resour
 	replay.filter = &datapb.Filter{
 		ComponentName: replayCamConfig.Source,
 		RobotId:       replayCamConfig.RobotID,
-		MimeType:      []string{"pointcloud/pcd"}, //TODO HOW DOES THIS CHANGE
 		Interval:      &datapb.CaptureInterval{},
 	}
 	replay.lastData = ""
@@ -399,27 +383,19 @@ func (replay *replayMovementSensor) Reconfigure(ctx context.Context, deps resour
 }
 
 // TODO UNIMPLEMENTED
-func (replay *replayMovementSensor) downloadMoreData() error {
+func (replay *replayMovementSensor) downloadMoreData(ctx context.Context, method string) error {
 	return nil
 }
 
 // getDataFromCache will return the next valid cache entry and advance the cache as needed. If there is not more data in the cache, a new batch of data will be downloaded.
-func (replay *replayMovementSensor) getDataFromCache(ctx context.Context, functionCall string) (cacheEntry, error) {
+func (replay *replayMovementSensor) getDataFromCache(ctx context.Context, method string, cache []*cacheEntry) (cacheEntry, error) {
 	if len(replay.cache) == 0 {
-		if err := replay.downloadMoreData(); err != nil {
+		if err := replay.downloadMoreData(ctx, method); err != nil {
 			return cacheEntry{}, err
 		}
 	}
 
-	// Check if desired data has already been accessed
-	if replay.currentCacheStatus[functionCall] {
-		replay.cache = replay.cache[1:]
-		replay.currentCacheStatus = defaultCacheStatus
-
-		return replay.getDataFromCache(ctx, functionCall)
-	}
-
-	return *replay.cache[0], nil
+	return *cache[0], nil
 }
 
 // closeCloudConnection closes all parts of the cloud connection used by the replay movement sensor.
