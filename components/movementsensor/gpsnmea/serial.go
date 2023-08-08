@@ -35,10 +35,17 @@ type SerialNMEAMovementSensor struct {
 	data                    GPSData
 	activeBackgroundWorkers sync.WaitGroup
 
+<<<<<<< HEAD
 	disableNmea        bool
 	err                movementsensor.LastError
 	lastposition       movementsensor.LastPosition
 	lastcompassheading movementsensor.LastCompassHeading
+=======
+	disableNmea  bool
+	isClosed     bool
+	err          movementsensor.LastError
+	lastposition movementsensor.LastPosition
+>>>>>>> main
 
 	dev                io.ReadWriteCloser
 	path               string
@@ -113,7 +120,7 @@ func (g *SerialNMEAMovementSensor) Start(ctx context.Context) error {
 			default:
 			}
 
-			if !g.disableNmea {
+			if !g.disableNmea && !g.isClosed {
 				line, err := r.ReadString('\n')
 				if err != nil {
 					g.logger.Errorf("can't read gps serial %s", err)
@@ -265,10 +272,11 @@ func (g *SerialNMEAMovementSensor) Properties(ctx context.Context, extra map[str
 func (g *SerialNMEAMovementSensor) Close(ctx context.Context) error {
 	g.logger.Debug("Closing SerialNMEAMovementSensor")
 	g.cancelFunc()
-	defer g.activeBackgroundWorkers.Wait()
+	g.activeBackgroundWorkers.Wait()
 
 	g.mu.Lock()
 	defer g.mu.Unlock()
+	g.isClosed = true
 	if g.dev != nil {
 		if err := g.dev.Close(); err != nil {
 			return err

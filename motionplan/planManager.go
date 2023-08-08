@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"sync"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -28,8 +29,9 @@ const (
 // motionplan.PlanMotion() -> SolvableFrameSystem.SolveWaypointsWithOptions() -> planManager.planSingleWaypoint().
 type planManager struct {
 	*planner
-	frame *solverFrame
-	fs    referenceframe.FrameSystem
+	frame                   *solverFrame
+	fs                      referenceframe.FrameSystem
+	activeBackgroundWorkers sync.WaitGroup
 
 	useTPspace bool
 }
@@ -62,7 +64,7 @@ func newPlanManager(
 	if err != nil {
 		return nil, err
 	}
-	return &planManager{p, frame, fs, anyPTG}, nil
+	return &planManager{planner: p, frame: frame, fs: fs, useTPspace: anyPTG}, nil
 }
 
 // PlanSingleWaypoint will solve the solver frame to one individual pose. If you have multiple waypoints to hit, call this multiple times.
@@ -172,6 +174,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 	}
 
 	resultSlices, err := pm.planAtomicWaypoints(ctx, goals, seed, planners)
+	pm.activeBackgroundWorkers.Wait()
 	if err != nil {
 		if len(goals) > 1 {
 			err = fmt.Errorf("failed to plan path for valid goal: %w", err)
@@ -242,7 +245,9 @@ func (pm *planManager) planSingleAtomicWaypoint(
 		// for this solve will be rectified at the end.
 		endpointPreview := make(chan node, 1)
 		solutionChan := make(chan *rrtPlanReturn, 1)
+		pm.activeBackgroundWorkers.Add(1)
 		utils.PanicCapturingGo(func() {
+			defer pm.activeBackgroundWorkers.Done()
 			pm.planParallelRRTMotion(ctx, goal, seed, parPlan, endpointPreview, solutionChan, maps)
 		})
 		select {
@@ -322,7 +327,9 @@ func (pm *planManager) planParallelRRTMotion(
 	plannerChan := make(chan *rrtPlanReturn, 1)
 
 	// start the planner
+	pm.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
+		defer pm.activeBackgroundWorkers.Done()
 		pathPlanner.rrtBackgroundRunner(plannerctx, seed, &rrtParallelPlannerShared{maps, endpointPreview, plannerChan})
 	})
 
@@ -374,7 +381,9 @@ func (pm *planManager) planParallelRRTMotion(
 
 		// Start smoothing before initializing the fallback plan. This allows both to run simultaneously.
 		smoothChan := make(chan []node, 1)
+		pm.activeBackgroundWorkers.Add(1)
 		utils.PanicCapturingGo(func() {
+			defer pm.activeBackgroundWorkers.Done()
 			smoothChan <- pathPlanner.smoothPath(ctx, finalSteps.steps)
 		})
 		var alternateFuture *resultPromise

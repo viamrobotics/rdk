@@ -23,6 +23,7 @@ import Servo from './servo/index.svelte';
 import Sensors from './sensors/index.svelte';
 import Slam from './slam/index.svelte';
 import Client from '@/lib/components/robot-client.svelte';
+import type { RCOverrides } from '@/types/overrides';
 
 const { resources, components, services, statuses, sensorNames } = useRobotClient();
 
@@ -31,6 +32,7 @@ export let bakedAuth: { authEntity?: string; creds?: Credentials; } | undefined 
 export let supportedAuthTypes: string[] | undefined = [];
 export let webrtcEnabled: boolean;
 export let signalingAddress: string;
+export let overrides: RCOverrides | undefined = undefined;
 
 const resourceStatusByName = (resource: commonApi.ResourceName.AsObject) => {
   return $statuses[resourceNameToString(resource)];
@@ -92,6 +94,11 @@ const getStatus = (statusMap: Record<string, unknown>, resource: commonApi.Resou
     <!-- ******* BASE *******  -->
     {#each filterSubtype($components, 'base') as { name } (name)}
       <Base {name} />
+    {/each}
+
+    <!-- ******* SLAM *******  -->
+    {#each filterSubtype($services, 'slam') as { name } (name)}
+      <Slam {name} overrides={overrides?.slam} />
     {/each}
 
     <!-- ******* ENCODER *******  -->
@@ -167,7 +174,7 @@ const getStatus = (statusMap: Record<string, unknown>, resource: commonApi.Resou
 
     <!-- ******* NAVIGATION *******  -->
     {#each filterSubtype($services, 'navigation') as { name } (name)}
-      <Navigation {name} />
+      <Navigation {name} write={false} />
     {/each}
 
     <!-- ******* SENSOR *******  -->
@@ -181,11 +188,6 @@ const getStatus = (statusMap: Record<string, unknown>, resource: commonApi.Resou
     <!-- ******* AUDIO *******  -->
     {#each filterSubtype($components, 'audio_input') as { name } (name)}
       <AudioInput {name} />
-    {/each}
-
-    <!-- ******* SLAM *******  -->
-    {#each filterSubtype($services, 'slam') as { name } (name)}
-      <Slam {name} />
     {/each}
 
     <!-- ******* DO *******  -->

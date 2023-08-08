@@ -34,12 +34,12 @@ func (cfg *ModelConfig) ParseConfig(modelName string) (Model, error) {
 	case "SVA", "":
 		for _, link := range cfg.Links {
 			if link.ID == World {
-				return nil, errors.New("reserved word: cannot name a link 'world'")
+				return nil, NewReservedWordError("link", "world")
 			}
 		}
 		for _, joint := range cfg.Joints {
 			if joint.ID == World {
-				return nil, errors.New("reserved word: cannot name a joint 'world'")
+				return nil, NewReservedWordError("joint", "world")
 			}
 		}
 
@@ -100,7 +100,7 @@ func (cfg *ModelConfig) ParseConfig(modelName string) (Model, error) {
 		return nil, errors.New("more than one end effector not supported")
 	}
 	if len(parents) < 1 {
-		return nil, errors.New("need at least one end effector")
+		return nil, ErrAtLeastOneEndEffector
 	}
 	var eename string
 	// TODO(pl): is there a better way to do all this? Annoying to iterate over a map three times. Maybe if we

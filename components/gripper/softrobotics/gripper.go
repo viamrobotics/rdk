@@ -15,6 +15,7 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 )
 
 var model = resource.DefaultModelFamily.WithModel("softrobotics")
@@ -84,11 +85,12 @@ type softGripper struct {
 
 	pinOpen, pinClose, pinPower board.GPIOPin
 
-	logger golog.Logger
-	opMgr  operation.SingleOperationManager
+	logger     golog.Logger
+	opMgr      operation.SingleOperationManager
+	geometries []spatialmath.Geometry
 }
 
-// newGripper TODO.
+// newGripper instantiates a new Gripper of softGripper type.
 func newGripper(b board.Board, conf resource.Config, logger golog.Logger) (gripper.Gripper, error) {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
@@ -124,6 +126,14 @@ func newGripper(b board.Board, conf resource.Config, logger golog.Logger) (gripp
 
 	if theGripper.psi == nil {
 		return nil, errors.New("no psi analog reader")
+	}
+
+	if conf.Frame != nil && conf.Frame.Geometry != nil {
+		geometry, err := conf.Frame.Geometry.ParseConfig()
+		if err != nil {
+			return nil, err
+		}
+		theGripper.geometries = []spatialmath.Geometry{geometry}
 	}
 
 	return theGripper, nil
@@ -218,4 +228,9 @@ func (g *softGripper) IsMoving(ctx context.Context) (bool, error) {
 // ModelFrame is unimplemented for softGripper.
 func (g *softGripper) ModelFrame() referenceframe.Model {
 	return nil
+}
+
+// Geometries returns the geometries associated with the softGripper.
+func (g *softGripper) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
+	return g.geometries, nil
 }

@@ -1,18 +1,18 @@
 /*
 Package resource contains types that help identify and classify resources (components/services) of a robot.
-The three most imporant types in this package are: API (which represents an API for a resource), Model (which represents a specific
+The three most important types in this package are: API (which represents an API for a resource), Model (which represents a specific
 implementation of an API), and Name (which represents a specific instantiation of a resource.)
 
-Both API and Model have a "triplet" format which begins with a namespace. API has "namespace:type:subtype" with "type" in this
-case being either "service" or "component." Model has "namespace:modelfamily:modelname" with "modelfamily" being somewhat arbitrary,
+Both API and Model have a "triplet" format that begins with a namespace. API has "namespace:type:subtype" with "type" in this
+case being either "service" or "component." Model has "namespace:modelfamily:modelname" with "modelfamily" being somewhat arbitrary
 and useful mostly for organization/grouping. Note that each "tier" contains the tier to the left it. Such that ModelFamily contains
 Namespace, and Model itself contains ModelFamily.
 
-An example resource (say, a motor) may use the motor API, and thus have the API "rdk:component:motor" and have a model such as
-"rdk:builtin:gpio". Each individual instance of that motor will have an arbitrary name (defined in the robot's configuration) and that
-is represented by a Name type, which also includes the API and (optionally) the remote it belongs to. Thus, the Name contains
-everything (API, remote info, and unique name) to locate and cast a resource to the correct interface when requested by a client. While
-Model is typically only needed during resource instantiation.
+An example resource (say, a motor) may use the motor API and thus have the API "rdk:component:motor" and have a model such as
+"rdk:builtin:gpio". Each instance of that motor will have an arbitrary name (defined in the robot's configuration)
+represented by a Name type, which also includes the API and (optionally) the remote it belongs to. Thus, the Name contains
+everything (API, remote info, and unique name) to locate and cast a resource to the correct interface when requested by a client.
+Model on the other hand is typically only needed during resource instantiation.
 */
 package resource
 
@@ -140,7 +140,7 @@ type Actuator interface {
 type Shaped interface {
 	// Geometries returns the list of geometries associated with the resource, in any order. The poses of the geometries reflect their
 	// current location relative to the frame of the resource.
-	Geometries(context.Context) ([]spatialmath.Geometry, error)
+	Geometries(context.Context, map[string]interface{}) ([]spatialmath.Geometry, error)
 }
 
 // ErrDoUnimplemented is returned if the DoCommand methods is not implemented.

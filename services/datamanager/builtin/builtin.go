@@ -88,7 +88,7 @@ type builtIn struct {
 	logger                      golog.Logger
 	captureDir                  string
 	captureDisabled             bool
-	collectors                  map[componentMethodMetadata]*collectorAndConfig
+	collectors                  map[resourceMethodMetadata]*collectorAndConfig
 	lock                        sync.Mutex
 	backgroundWorkers           sync.WaitGroup
 	waitAfterLastModifiedMillis int
@@ -118,7 +118,7 @@ func NewBuiltIn(
 		Named:                       conf.ResourceName().AsNamed(),
 		logger:                      logger,
 		captureDir:                  viamCaptureDotDir,
-		collectors:                  make(map[componentMethodMetadata]*collectorAndConfig),
+		collectors:                  make(map[resourceMethodMetadata]*collectorAndConfig),
 		syncIntervalMins:            0,
 		additionalSyncPaths:         []string{},
 		tags:                        []string{},
@@ -179,8 +179,8 @@ type collectorAndConfig struct {
 
 // Identifier for a particular collector: component name, component model, component type,
 // method parameters, and method name.
-type componentMethodMetadata struct {
-	ComponentName  string
+type resourceMethodMetadata struct {
+	ResourceName   string
 	MethodParams   string
 	MethodMetadata data.MethodMetadata
 }
@@ -196,7 +196,7 @@ func getDurationFromHz(captureFrequencyHz float32) time.Duration {
 // Initialize a collector for the component/method or update it if it has previously been created.
 // Return the component/method metadata which is used as a key in the collectors map.
 func (svc *builtIn) initializeOrUpdateCollector(
-	md componentMethodMetadata,
+	md resourceMethodMetadata,
 	config *datamanager.DataCaptureConfig,
 ) (
 	*collectorAndConfig, error,
@@ -366,11 +366,11 @@ func (svc *builtIn) Reconfigure(
 	// Service is disabled, so close all collectors and clear the map so we can instantiate new ones if we enable this service.
 	if svc.captureDisabled {
 		svc.closeCollectors()
-		svc.collectors = make(map[componentMethodMetadata]*collectorAndConfig)
+		svc.collectors = make(map[resourceMethodMetadata]*collectorAndConfig)
 	}
 
 	// Initialize or add collectors based on changes to the component configurations.
-	newCollectors := make(map[componentMethodMetadata]*collectorAndConfig)
+	newCollectors := make(map[resourceMethodMetadata]*collectorAndConfig)
 	if !svc.captureDisabled {
 		for _, resConf := range svcConfig.ResourceConfigs {
 			if resConf.Resource == nil {
@@ -384,8 +384,8 @@ func (svc *builtIn) Reconfigure(
 					MethodName: resConf.Method,
 				}
 
-				componentMethodMetadata := componentMethodMetadata{
-					ComponentName:  resConf.Name.ShortName(),
+				componentMethodMetadata := resourceMethodMetadata{
+					ResourceName:   resConf.Name.ShortName(),
 					MethodMetadata: methodMetadata,
 					MethodParams:   fmt.Sprintf("%v", resConf.AdditionalParams),
 				}

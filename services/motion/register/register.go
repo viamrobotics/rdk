@@ -1,4 +1,4 @@
-// Package register registers all relevant motion services and also API specific functions
+// Package register registers all relevant motion services and API specific functions.
 package register
 
 import (
