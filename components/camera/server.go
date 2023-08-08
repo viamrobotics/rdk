@@ -12,6 +12,7 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/camera/v1"
 	"google.golang.org/genproto/googleapis/api/httpbody"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/data"
@@ -74,7 +75,8 @@ func (s *serviceServer) GetImage(
 
 	req.MimeType = utils.WithLazyMIMEType(req.MimeType)
 
-	if req.Extra.AsMap()[string(data.CtxKeyDM)] == true {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if ok && len(md.Get(string(data.CtxKeyDM))) > 0 {
 		ctx = context.WithValue(ctx, data.CtxKeyDM, true)
 	}
 

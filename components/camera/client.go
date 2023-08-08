@@ -14,8 +14,8 @@ import (
 	"go.opencensus.io/trace"
 	pb "go.viam.com/api/component/camera/v1"
 	goutils "go.viam.com/utils"
-	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
+	"google.golang.org/grpc/metadata"
 
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/pointcloud"
@@ -67,15 +67,14 @@ func (c *client) Read(ctx context.Context) (image.Image, func(), error) {
 	defer span.End()
 	mimeType := gostream.MIMETypeHint(ctx, "")
 	expectedType, _ := utils.CheckLazyMIMEType(mimeType)
-	extra := make(map[string]interface{})
+
 	if ctx.Value(data.CtxKeyDM) == true {
-		extra[string(data.CtxKeyDM)] = true
+		ctx = metadata.AppendToOutgoingContext(ctx, string(data.CtxKeyDM), "true")
 	}
-	ext, _ := protoutils.StructToStructPb(extra)
+
 	resp, err := c.client.GetImage(ctx, &pb.GetImageRequest{
 		Name:     c.name,
 		MimeType: expectedType,
-		Extra:    ext,
 	})
 	if err != nil {
 		return nil, nil, err
