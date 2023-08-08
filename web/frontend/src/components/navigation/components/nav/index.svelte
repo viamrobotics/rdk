@@ -9,10 +9,6 @@ import WaypointsTab from './waypoints.svelte';
 
 export let name: string;
 
-const handleSelect = (event: CustomEvent<{ name: string; location: LngLat }>) => {
-  flyToMap(event.detail.location);
-};
-
 const handleTabSelect = (event: CustomEvent) => {
   $tab = event.detail.value;
 };
@@ -45,9 +41,9 @@ onMount(() => {
     class='px-4 py-2 max-h-64 sm:max-h-[520px] overflow-y-scroll'
   >
     {#if $tab === 'Waypoints'}
-      <WaypointsTab {name} on:select={handleSelect} />
+      <WaypointsTab {name} />
     {:else if $tab === 'Obstacles'}
-      <ObstaclesTab on:select={handleSelect} />
+      <ObstaclesTab />
     {/if}
   </ul>
 </nav>
