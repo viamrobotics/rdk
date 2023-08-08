@@ -50,8 +50,7 @@ func newCbirrtOptions(planOpts *plannerOptions, frame referenceframe.Frame) (*cb
 		return nil, err
 	}
 
-	rrtOptions := newRRTOptions()
-	rrtOptions.qstep = getFrameSteps(frame, rrtOptions.FrameStep)
+	rrtOptions := newRRTOptions(frame)
 	algOpts.rrtOptions = rrtOptions
 
 	return algOpts, nil

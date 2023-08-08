@@ -50,12 +50,13 @@ type rrtOptions struct {
 	qstep []float64
 }
 
-func newRRTOptions() *rrtOptions {
+func newRRTOptions(frame referenceframe.Frame) *rrtOptions {
 	return &rrtOptions{
 		PlanIter:       defaultPlanIter,
 		FrameStep:      defaultFrameStep,
 		JointSolveDist: defaultJointSolveDist,
 		IterBeforeRand: defaultIterBeforeRand,
+		qstep:          getFrameSteps(frame, defaultFrameStep),
 	}
 }
 

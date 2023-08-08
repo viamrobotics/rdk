@@ -47,8 +47,7 @@ func newRRTStarConnectOptions(planOpts *plannerOptions, frame referenceframe.Fra
 		return nil, err
 	}
 
-	rrtOptions := newRRTOptions()
-	rrtOptions.qstep = getFrameSteps(frame, rrtOptions.FrameStep)
+	rrtOptions := newRRTOptions(frame)
 	algOpts.rrtOptions = rrtOptions
 
 	return algOpts, nil
@@ -175,10 +174,10 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 			}
 
 			utils.PanicCapturingGo(func() {
-				mp.constrainedExtend(ctx, map1, nearest1, newConfigurationNode(target), m1chan)
+				mp.extend(ctx, map1, nearest1, newConfigurationNode(target), m1chan)
 			})
 			utils.PanicCapturingGo(func() {
-				mp.constrainedExtend(ctx, map2, nearest2, newConfigurationNode(target), m2chan)
+				mp.extend(ctx, map2, nearest2, newConfigurationNode(target), m2chan)
 			})
 			map1reached := <-m1chan
 			map2reached := <-m2chan
@@ -246,7 +245,7 @@ func (mp *rrtStarConnectMotionPlanner) sample(rSeed node, sampleNum int) ([]refe
 	return referenceframe.RestrictedRandomFrameInputs(mp.frame, mp.randseed, 0.1, rSeed.Q())
 }
 
-func (mp *rrtStarConnectMotionPlanner) constrainedExtend(
+func (mp *rrtStarConnectMotionPlanner) extend(
 	ctx context.Context,
 	rrtMap map[node]node,
 	near, target node,

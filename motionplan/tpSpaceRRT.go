@@ -405,7 +405,7 @@ func (mp *tpSpaceRRTMotionPlanner) extendMap(
 
 func (mp *tpSpaceRRTMotionPlanner) setupTPSpaceOptions() {
 	tpOpt := &tpspaceOptions{
-		rrtOptions: newRRTOptions(),
+		rrtOptions: newRRTOptions(mp.frame),
 		goalCheck:  defaultGoalCheck,
 		autoBB:     defaultAutoBB,
 
