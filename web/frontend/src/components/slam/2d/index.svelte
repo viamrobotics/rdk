@@ -28,12 +28,13 @@ export let destination: THREE.Vector2 | undefined;
 /** Whether or not scene helpers should be rendered */
 export let helpers: boolean;
 
-type $$Events = {
+type Events = {
+
   /** Dispatched when a user clicks within the bounding box of the pointcloud */
   click: THREE.Vector3
 }
 
-const dispatch = createEventDispatcher<$$Events>();
+const dispatch = createEventDispatcher<Events>();
 
 let motionPath: string | undefined;
 const basePosition = new THREE.Vector2();

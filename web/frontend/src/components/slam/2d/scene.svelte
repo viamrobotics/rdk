@@ -18,6 +18,7 @@ export let destination: THREE.Vector2 | undefined;
 export let motionPath: string | undefined;
 
 type $$Events = {
+
   /** Dispatched when a user clicks within the bounding box of the pointcloud */
   click: THREE.Vector3
 }

@@ -23,8 +23,10 @@ export let pointcloud: Uint8Array | undefined;
 export let size: number;
 
 type $$Events = {
+
   /** Dispatched when a user clicks within the bounding box of the pointcloud */
   click: THREE.Vector3
+
   /** Dispatched whenever a new .pcd file is parsed. Emits the radius and center of the cloud's bounding sphere. */
   update: {
     radius: number
