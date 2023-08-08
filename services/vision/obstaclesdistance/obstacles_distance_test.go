@@ -1,4 +1,4 @@
-package obstacledistance
+package obstaclesdistance
 
 import (
 	"context"

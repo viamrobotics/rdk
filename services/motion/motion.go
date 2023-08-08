@@ -51,13 +51,6 @@ type Service interface {
 		angularVelocity float64,
 		extra map[string]interface{},
 	) (bool, error)
-	MoveSingleComponent(
-		ctx context.Context,
-		componentName resource.Name,
-		destination *referenceframe.PoseInFrame,
-		worldState *referenceframe.WorldState,
-		extra map[string]interface{},
-	) (bool, error)
 	GetPose(
 		ctx context.Context,
 		componentName resource.Name,

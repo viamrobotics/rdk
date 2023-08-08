@@ -97,7 +97,11 @@
             "type": "movement_sensor",
             "model": "fake"
         },
-        
+        {
+            "name": "power_sensor1",
+            "type": "power_sensor",
+            "model": "fake"
+        },
         {
             "name": "sensor1",
             "type": "sensor",
