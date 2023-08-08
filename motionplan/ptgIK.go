@@ -67,3 +67,7 @@ func (ptg *ptgIK) CToTP(ctx context.Context, pose spatialmath.Pose) []*tpspace.T
 func (ptg *ptgIK) RefDistance() float64 {
 	return ptg.refDist
 }
+
+func (ptg *ptgIK) Trajectory(alpha, dist float64) ([]*tpspace.TrajNode, error) {
+	return nil, nil
+}

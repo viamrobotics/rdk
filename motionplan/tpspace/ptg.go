@@ -24,7 +24,7 @@ type PTG interface {
 	RefDistance() float64
 
 	// Returns the set of trajectory nodes along the given trajectory, out to the requested distance
-	Trajectory(alpha, dist float64) []*TrajNode
+	Trajectory(alpha, dist float64) ([]*TrajNode, error)
 }
 
 // PTGProvider is something able to provide a set of PTGs associsated with it. For example, a frame which precomputes
@@ -48,7 +48,7 @@ type TrajNode struct {
 	Pose       spatialmath.Pose // for 2d, we only use x, y, and OV theta
 	Time       float64          // elapsed time on trajectory
 	Dist       float64          // distance travelled down trajectory
-	K          uint             // alpha k-value at this node
+	Alpha      float64          // alpha k-value at this node
 	LinVelMMPS float64          // linvel in millimeters per second at this node
 	AngVelRPS  float64          // angvel in radians per second at this node
 

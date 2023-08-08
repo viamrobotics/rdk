@@ -2,6 +2,7 @@ package tpspace
 
 import (
 	"context"
+	"fmt"
 	"math"
 
 	"go.viam.com/rdk/spatialmath"
@@ -126,12 +127,23 @@ func (ptg *ptgGridSim) RefDistance() float64 {
 }
 
 func (ptg *ptgGridSim) Trajectory(alpha, dist float64) ([]*TrajNode, error) {
-	k := alpha2index(alpha)
+	k := alpha2index(alpha, ptg.alphaCnt)
 	if int(k) >= len(ptg.precomputeTraj) {
 		return nil, fmt.Errorf("requested trajectory of index %d but this grid sim only has %d available", k, len(ptg.precomputeTraj))
 	}
 	fullTraj := ptg.precomputeTraj[k]
-	
+	if fullTraj[len(fullTraj) - 1].Dist < dist {
+		return nil, fmt.Errorf("requested traj to dist %f but cannot request distances larger than %f", dist, fullTraj[len(fullTraj) - 1].Dist)
+	}
+	var traj []*TrajNode
+	for _, trajNode := range fullTraj {
+		// Walk the trajectory until we pass the specified distance
+		if trajNode.Dist > dist {
+			break
+		}
+		traj = append(traj, trajNode)
+	}
+	return traj, nil
 }
 
 func (ptg *ptgGridSim) simulateTrajectories(simPtg PrecomputePTG) ([][]*TrajNode, error) {
@@ -189,7 +201,7 @@ func (ptg *ptgGridSim) simulateTrajectories(simPtg PrecomputePTG) ([][]*TrajNode
 			alphaTraj[len(alphaTraj)-1].AngVelRPS = w
 
 			pose := xythetaToPose(x, y, phi)
-			alphaTraj = append(alphaTraj, &TrajNode{pose, t, dist, k, v, w, pose.Point().X, pose.Point().Y})
+			alphaTraj = append(alphaTraj, &TrajNode{pose, t, dist, alpha, v, w, pose.Point().X, pose.Point().Y})
 
 			// For the grid!
 			xMin = math.Min(xMin, x)
@@ -202,7 +214,7 @@ func (ptg *ptgGridSim) simulateTrajectories(simPtg PrecomputePTG) ([][]*TrajNode
 		alphaTraj[len(alphaTraj)-1].LinVelMMPS = v
 		alphaTraj[len(alphaTraj)-1].AngVelRPS = w
 		pose := xythetaToPose(x, y, phi)
-		tNode := &TrajNode{pose, t, dist, k, v, w, pose.Point().X, pose.Point().Y}
+		tNode := &TrajNode{pose, t, dist, alpha, v, w, pose.Point().X, pose.Point().Y}
 
 		// Discretize into a grid for faster lookups later
 		if _, ok := ptg.trajNodeGrid[int(math.Round(x))]; !ok {

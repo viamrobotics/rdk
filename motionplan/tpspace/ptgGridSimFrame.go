@@ -16,7 +16,7 @@ const (
 
 const (
 	ptgIndex int = iota
-	trajectoryIndexWithinPTG
+	trajectoryAlphaWithinPTG
 	distanceAlongTrajectoryIndex
 )
 
@@ -85,19 +85,17 @@ func (pf *ptgGridSimFrame) MarshalJSON() ([]byte, error) {
 
 // Inputs are: [0] index of PTG to use, [1] index of the trajectory within that PTG, and [2] distance to travel along that trajectory.
 func (pf *ptgGridSimFrame) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {
+	alpha := inputs[trajectoryAlphaWithinPTG].Value
+	dist := inputs[distanceAlongTrajectoryIndex].Value
+	
 	ptgIdx := int(math.Round(inputs[ptgIndex].Value))
-	trajIdx := uint(math.Round(inputs[trajectoryIndexWithinPTG].Value))
-	traj := pf.ptgs[ptgIdx].Trajectory(trajIdx)
-	lastPose := spatialmath.NewZeroPose()
-	for _, trajNode := range traj {
-		// Walk the trajectory until we pass the specified distance
-		if trajNode.Dist > inputs[distanceAlongTrajectoryIndex].Value {
-			break
-		}
-		lastPose = trajNode.Pose
+	
+	traj, err := pf.ptgs[ptgIdx].Trajectory(alpha, dist)
+	if err != nil {
+		return nil, err
 	}
 
-	return lastPose, nil
+	return traj[len(traj)-1].Pose, nil
 }
 
 func (pf *ptgGridSimFrame) InputFromProtobuf(jp *pb.JointPositions) []referenceframe.Input {
