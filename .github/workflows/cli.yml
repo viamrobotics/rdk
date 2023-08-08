@@ -37,18 +37,18 @@ jobs:
       env:
         BINPREFIX: -${{ inputs.release_type }}
       run: |
-        GOOS=linux GOARCH=amd64 make bin/viam-${{ inputs.release_type }}-$GOOS-$GOARCH
-        # GOOS=linux GOARCH=arm64 make bin/viam-${{ inputs.release_type }}-$GOOS-$GOARCH
-        # GOOS=darwin GOARCH=amd64 make bin/viam-${{ inputs.release_type }}-$GOOS-$GOARCH
-        # GOOS=darwin GOARCH=arm64 make bin/viam-${{ inputs.release_type }}-$GOOS-$GOARCH
+        GOOS=linux GOARCH=amd64 make bin/viam-${{ inputs.release_type }}-linux-amd64
+        # GOOS=linux GOARCH=arm64 make bin/viam-${{ inputs.release_type }}-linux-arm64
+        # GOOS=darwin GOARCH=amd64 make bin/viam-${{ inputs.release_type }}-darwin-amd64
+        # GOOS=darwin GOARCH=arm64 make bin/viam-${{ inputs.release_type }}-darwin-arm64
 
     - name: tagged alias
       # if: inputs.release_type == 'stable' # DONOTMERGE comment
       run: |
-        GOOS=linux GOARCH=amd64 cp bin/viam-${{ inputs.release_type }}-$GOOS-$GOARCH bin/viam-${{ github.ref_name }}-$GOOS-$GOARCH
-        # GOOS=linux GOARCH=arm64 cp bin/viam-${{ inputs.release_type }}-$GOOS-$GOARCH bin/viam-${{ github.ref_name }}-$GOOS-$GOARCH
-        # GOOS=darwin GOARCH=amd64 cp bin/viam-${{ inputs.release_type }}-$GOOS-$GOARCH bin/viam-${{ github.ref_name }}-$GOOS-$GOARCH
-        # GOOS=darwin GOARCH=arm64 cp bin/viam-${{ inputs.release_type }}-$GOOS-$GOARCH bin/viam-${{ github.ref_name }}-$GOOS-$GOARCH
+        GOOS=linux GOARCH=amd64 cp bin/viam-${{ inputs.release_type }}-linux-amd64 bin/viam-${{ github.ref_name }}-linux-amd64
+        # GOOS=linux GOARCH=arm64 cp bin/viam-${{ inputs.release_type }}-linux-arm64 bin/viam-${{ github.ref_name }}-linux-arm64
+        # GOOS=darwin GOARCH=amd64 cp bin/viam-${{ inputs.release_type }}-darwin-amd64 bin/viam-${{ github.ref_name }}-darwin-amd64
+        # GOOS=darwin GOARCH=arm64 cp bin/viam-${{ inputs.release_type }}-darwin-arm64 bin/viam-${{ github.ref_name }}-darwin-arm64
 
     - name: Authorize GCP Upload
       uses: google-github-actions/auth@v1
