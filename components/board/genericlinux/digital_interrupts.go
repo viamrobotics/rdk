@@ -6,6 +6,7 @@ package genericlinux
 
 import (
 	"context"
+	"sync"
 
 	"github.com/mkch/gpio"
 	"github.com/pkg/errors"
@@ -16,12 +17,12 @@ import (
 )
 
 type digitalInterrupt struct {
-	parentBoard *Board
-	interrupt   board.ReconfigurableDigitalInterrupt
-	line        *gpio.LineWithEvent
-	cancelCtx   context.Context
-	cancelFunc  func()
-	config      *board.DigitalInterruptConfig
+	activeBackgroundWorkers *sync.WaitGroup
+	interrupt               board.ReconfigurableDigitalInterrupt
+	line                    *gpio.LineWithEvent
+	cancelCtx               context.Context
+	cancelFunc              func()
+	config                  *board.DigitalInterruptConfig
 }
 
 func (b *Board) createDigitalInterrupt(
@@ -65,19 +66,19 @@ func (b *Board) createDigitalInterrupt(
 
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	result := digitalInterrupt{
-		parentBoard: b,
-		interrupt:   interrupt,
-		line:        line,
-		cancelCtx:   cancelCtx,
-		cancelFunc:  cancelFunc,
-		config:      &config,
+		activeBackgroundWorkers: &b.activeBackgroundWorkers,
+		interrupt:               interrupt,
+		line:                    line,
+		cancelCtx:               cancelCtx,
+		cancelFunc:              cancelFunc,
+		config:                  &config,
 	}
 	result.startMonitor()
 	return &result, nil
 }
 
 func (di *digitalInterrupt) startMonitor() {
-	di.parentBoard.activeBackgroundWorkers.Add(1)
+	di.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
 		for {
 			select {
@@ -88,7 +89,7 @@ func (di *digitalInterrupt) startMonitor() {
 					di.cancelCtx, event.RisingEdge, uint64(event.Time.UnixNano())))
 			}
 		}
-	}, di.parentBoard.activeBackgroundWorkers.Done)
+	}, di.activeBackgroundWorkers.Done)
 }
 
 func (di *digitalInterrupt) Close() error {
