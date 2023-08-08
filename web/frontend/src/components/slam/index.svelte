@@ -139,7 +139,7 @@ const refresh3d = async () => {
        * A new call to getPointCloudMap is made if an update has occured.
        */
       if (!localizationMode(mapTimestamp)) {
-        pointcloud = await getPointCloudMap(slamClient);
+        pointcloud = await slamClient.getPointCloudMap();
       }
       if (mapTimestamp) {
         lastTimestamp = mapTimestamp;
