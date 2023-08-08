@@ -33,7 +33,12 @@
                     },
                     "x":10,
                     "y":10,
-                    "z":10
+                    "z":10,
+                    "translation":{
+                        "x":1,
+                        "y":1,
+                        "z":1
+                    }
                 }],
                 "location":{
                     "latitude": 1,
