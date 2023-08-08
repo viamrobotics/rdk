@@ -242,10 +242,9 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 
 	// Get cartesian distance from NN to rand
 	relPose := spatialmath.Compose(spatialmath.PoseInverse(nearest.Pose()), randPosNode.Pose())
-	relPosePt := relPose.Point()
 
 	// Convert cartesian distance to tp-space using inverse curPtg, yielding TP-space coordinates goalK and goalD
-	nodes := curPtg.CToTP(relPosePt.X, relPosePt.Y)
+	nodes := curPtg.CToTP(relPose)
 	bestNode, bestDist := mp.closestNode(relPose, nodes, mp.algOpts.dupeNodeBuffer)
 	if bestNode == nil {
 		return nil
@@ -452,8 +451,7 @@ func (mp *tpSpaceRRTMotionPlanner) make2DTPSpaceDistanceOptions(ptg tpspace.PTG,
 			return math.Inf(1)
 		}
 		relPose := spatialmath.Compose(spatialmath.PoseInverse(seg.StartPosition), seg.EndPosition)
-		relPosePt := relPose.Point()
-		nodes := ptg.CToTP(relPosePt.X, relPosePt.Y)
+		nodes := ptg.CToTP(relPose)
 		closeNode, _ := mp.closestNode(relPose, nodes, min)
 		if closeNode == nil {
 			return math.Inf(1)

@@ -1,6 +1,7 @@
 package tpspace
 
 import (
+	"context"
 	"math"
 
 	"go.viam.com/rdk/spatialmath"
@@ -60,7 +61,7 @@ func NewPTGGridSim(simPTG PrecomputePTG, arcs uint, simDist float64) (PTG, error
 	return ptg, nil
 }
 
-func (ptg *ptgGridSim) CToTP(pose spatialmath.Pose) []*TrajNode {
+func (ptg *ptgGridSim) CToTP(ctx context.Context, pose spatialmath.Pose) []*TrajNode {
 	
 	point := pose.Point()
 	x := point.X
@@ -124,11 +125,13 @@ func (ptg *ptgGridSim) RefDistance() float64 {
 	return ptg.refDist
 }
 
-func (ptg *ptgGridSim) Trajectory(k uint) []*TrajNode {
+func (ptg *ptgGridSim) Trajectory(alpha, dist float64) ([]*TrajNode, error) {
+	k := alpha2index(alpha)
 	if int(k) >= len(ptg.precomputeTraj) {
-		return nil
+		return nil, fmt.Errorf("requested trajectory of index %d but this grid sim only has %d available", k, len(ptg.precomputeTraj))
 	}
-	return ptg.precomputeTraj[k]
+	fullTraj := ptg.precomputeTraj[k]
+	
 }
 
 func (ptg *ptgGridSim) simulateTrajectories(simPtg PrecomputePTG) ([][]*TrajNode, error) {

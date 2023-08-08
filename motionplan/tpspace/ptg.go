@@ -2,6 +2,7 @@
 package tpspace
 
 import (
+	"context"
 	"math"
 
 	"github.com/golang/geo/r3"
@@ -16,14 +17,14 @@ const floatEpsilon = 0.0001 // If floats are closer than this consider them equa
 // PTG coordinates are specified in polar coordinates (alpha, d)
 // One of these is needed for each sort of motion that can be done.
 type PTG interface {
-	// CToTP Converts a pose to a (k, d) TP-space trajectory, returning the set of trajectory nodes 
-	CToTP(spatialmath.Pose) []*TrajNode
+	// CToTP Converts a pose to a (k, d) TP-space trajectory, returning the set of trajectory nodes leading to that pose
+	CToTP(context.Context, spatialmath.Pose) []*TrajNode
 
-	// RefDistance returns the maximum distance that a single precomputed trajectory may travel
+	// RefDistance returns the maximum distance that a single trajectory may travel
 	RefDistance() float64
 
-	// Returns the set of trajectory nodes for alpha index K
-	Trajectory(uint) []*TrajNode
+	// Returns the set of trajectory nodes along the given trajectory, out to the requested distance
+	Trajectory(alpha, dist float64) []*TrajNode
 }
 
 // PTGProvider is something able to provide a set of PTGs associsated with it. For example, a frame which precomputes
@@ -56,9 +57,6 @@ type TrajNode struct {
 }
 
 // discretized path to alpha.
-// The inverse of this, which may be useful, looks like this:
-// alpha = wrapTo2Pi(alpha)
-// k := int(math.Round(0.5 * (float64(numPaths)*(1.0+alpha/math.Pi) - 1.0))).
 func index2alpha(k, numPaths uint) float64 {
 	if k >= numPaths {
 		return math.NaN()
@@ -67,6 +65,11 @@ func index2alpha(k, numPaths uint) float64 {
 		return math.NaN()
 	}
 	return math.Pi * (-1.0 + 2.0*(float64(k)+0.5)/float64(numPaths))
+}
+
+func alpha2index(alpha float64, numPaths uint) uint {
+	alpha = wrapTo2Pi(alpha)
+	return uint(math.Round(0.5 * (float64(numPaths)*(1.0+alpha/math.Pi) - 1.0)))
 }
 
 // Returns a given angle in the [0, 2pi) range.
