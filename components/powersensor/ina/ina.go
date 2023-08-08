@@ -2,7 +2,7 @@
 // typically used for battery state monitoring.
 // INA219 datasheet: https://www.ti.com/lit/ds/symlink/ina219.pdf
 // Example repo: https://github.com/periph/devices/blob/main/ina219/ina219.go
-// INA226 datasheet:
+// INA226 datasheet: https://www.ti.com/lit/ds/symlink/ina226.pdf
 package ina
 
 import (
@@ -27,8 +27,8 @@ const (
 	defaultI2Caddr             = 0x40
 	senseResistor        int64 = 100 * milliOhm                                                 // .1 ohm
 	maxCurrent           int64 = 20000 * milliAmp                                               // 3.2 amp
-	calibratescale219          = ((int64(1000*milliAmp) * int64(1000*milliOhm)) / 100000) << 12 //.04096 is internal fixed value for ina219
-	calibrateScale226          = ((int64(1000*milliAmp) * int64(1000*milliOhm)) / 100000) << 9  //.00512 is internal fixed value for ina226
+	calibratescale219          = ((int64(1000*milliAmp) * int64(1000*milliOhm)) / 100000) << 12 // .04096 is internal fixed value for ina219
+	calibrateScale226          = ((int64(1000*milliAmp) * int64(1000*milliOhm)) / 100000) << 9  // .00512 is internal fixed value for ina226
 	configRegister             = 0x00
 	shuntVoltageRegister       = 0x01
 	busVoltageRegister         = 0x02
@@ -93,7 +93,6 @@ func newINA(
 	logger golog.Logger,
 	modelName string,
 ) (powersensor.PowerSensor, error) {
-
 	b, err := board.FromDependencies(deps, conf.Board)
 	if err != nil {
 		return nil, fmt.Errorf("ina219 init: failed to find board: %w", err)
@@ -273,7 +272,6 @@ func (d *ina) Power(ctx context.Context, extra map[string]interface{}) (float64,
 
 // Readings returns a map with voltage, current, power and isAC.
 func (d *ina) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-
 	volts, isAC, err := d.Voltage(ctx, nil)
 	if err != nil {
 		d.logger.Errorf("failed to get voltage reading: %s", err.Error())
