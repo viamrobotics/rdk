@@ -2,7 +2,6 @@ package packages
 
 import (
 	"context"
-	"fmt"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/resource"
@@ -28,15 +27,6 @@ func NewNoopManager() ManagerSyncer {
 // PackagePath returns the package if it exists and already download. If it does not exist it returns a ErrPackageMissing error.
 func (m *noopManager) PackagePath(name PackageName) (string, error) {
 	return string(name), nil
-}
-
-func (m *noopManager) PlaceholderPath(path string) (*PlaceholderRef, error) {
-	matches := placeholderRegexp.FindStringSubmatch(path)
-	if len(matches) == 0 {
-		return nil, fmt.Errorf("invalid package placeholder path: %s", path)
-	}
-
-	return &PlaceholderRef{matchedPlaceholder: matches[0], nestedPath: matches[1]}, nil
 }
 
 // Close manager.
