@@ -16,6 +16,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/pkg/errors"
+	"github.com/urfave/cli/v2"
 	"go.viam.com/utils"
 )
 
@@ -87,7 +88,104 @@ type Token struct {
 	TokenURL     string    `json:"token_url"`
 	ClientID     string    `json:"client_id"`
 
-	User UserData `json:"user_data"`
+	User userData `json:"user_data"`
+}
+
+// LoginAction is the corresponding Action for 'login'. Logs in using a device
+// code and browser. Once logged in the access token and user details are
+// cached on disk.
+func LoginAction(c *cli.Context) error {
+	client, err := NewAppClient(c)
+	if err != nil {
+		return err
+	}
+
+	loggedInMessage := func(token *Token, alreadyLoggedIn bool) {
+		already := "already "
+		if !alreadyLoggedIn {
+			already = ""
+			ViamLogo(c.App.Writer)
+		}
+
+		fmt.Fprintf(c.App.Writer, "%slogged in as %q, expires %s\n", already, token.User.Email,
+			token.ExpiresAt.Format("Mon Jan 2 15:04:05 MST 2006"))
+	}
+
+	if client.Config().Auth != nil && !client.Config().Auth.IsExpired() {
+		loggedInMessage(client.Config().Auth, true)
+		return nil
+	}
+
+	var token *Token
+	if client.conf.Auth != nil && client.conf.Auth.CanRefresh() {
+		token, err = client.authFlow.Refresh(client.c.Context, client.conf.Auth)
+		if err != nil {
+			utils.UncheckedError(client.Logout())
+			return err
+		}
+	} else {
+		token, err = client.authFlow.login(client.c.Context)
+		if err != nil {
+			return err
+		}
+	}
+
+	// write token to config.
+	client.conf.Auth = token
+	if err := storeConfigToCache(client.conf); err != nil {
+		return err
+	}
+
+	loggedInMessage(client.Config().Auth, false)
+	return nil
+}
+
+// PrintAccessTokenAction is the corresponding Action for 'print-access-token'.
+func PrintAccessTokenAction(c *cli.Context) error {
+	client, err := NewAppClient(c)
+	if err != nil {
+		return err
+	}
+
+	if client.Config().Auth == nil || client.Config().Auth.IsExpired() {
+		return errors.New("not logged in. run \"login\" command")
+	}
+
+	fmt.Fprintln(c.App.Writer, client.Config().Auth.AccessToken)
+	return nil
+}
+
+// LogoutAction is the corresponding Action for 'logout'.
+func LogoutAction(c *cli.Context) error {
+	client, err := NewAppClient(c)
+	if err != nil {
+		return err
+	}
+	auth := client.Config().Auth
+	if auth == nil {
+		fmt.Fprintf(c.App.Writer, "already logged out\n")
+		return nil
+	}
+	if err := client.Logout(); err != nil {
+		return errors.Wrap(err, "could not logout")
+	}
+	fmt.Fprintf(c.App.Writer, "logged out from %q\n", auth.User.Email)
+	return nil
+}
+
+// LogoutAction is the corresponding Action for 'logout'.
+func WhoAmIAction(c *cli.Context) error {
+	client, err := NewAppClient(c)
+	if err != nil {
+		return err
+	}
+	auth := client.Config().Auth
+	if auth == nil {
+		Warningf(c.App.Writer, "not logged in. run \"login\" command")
+		return nil
+	}
+	fmt.Fprintf(c.App.Writer, "%s\n", auth.User.Email)
+	return nil
 }
 
 // IsExpired returns true if the token is expired.
@@ -100,8 +198,7 @@ func (t *Token) CanRefresh() bool {
 	return t.RefreshToken != "" && t.TokenURL != "" && t.ClientID != ""
 }
 
-// UserData user details from login.
-type UserData struct {
+type userData struct {
 	jwt.Claims
 
 	Email   string `json:"email"`
@@ -134,7 +231,7 @@ func newCLIAuthFlowWithAuthDomain(authDomain, audience, clientID string, console
 	}
 }
 
-func (a *authFlow) Login(ctx context.Context) (*Token, error) {
+func (a *authFlow) login(ctx context.Context) (*Token, error) {
 	discovery, err := a.loadOIDiscoveryEndpoint(ctx)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed retrieving discovery endpoint")
@@ -307,8 +404,8 @@ func openbrowser(url string) error {
 	return err
 }
 
-func userDataFromIDToken(token string) (*UserData, error) {
-	userData := UserData{}
+func userDataFromIDToken(token string) (*userData, error) {
+	userData := userData{}
 	jwtParser := jwt.NewParser()
 
 	// We assume the ID token returned form the authorization endpoint is going to give
@@ -330,6 +427,7 @@ func userDataFromIDToken(token string) (*UserData, error) {
 	return &userData, nil
 }
 
+// Refresh refreshes the provided token.
 func (a *authFlow) Refresh(ctx context.Context, token *Token) (*Token, error) {
 	return refreshToken(ctx, a.httpClient, token)
 }

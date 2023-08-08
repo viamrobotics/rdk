@@ -83,92 +83,24 @@ func main() {
 				Aliases:         []string{"auth"},
 				Usage:           "login to app.viam.com",
 				HideHelpCommand: true,
-				Action: func(c *cli.Context) error {
-					client, err := rdkcli.NewAppClient(c)
-					if err != nil {
-						return err
-					}
-
-					loggedInMessage := func(token *rdkcli.Token, alreadyLoggedIn bool) {
-						already := "already "
-						if !alreadyLoggedIn {
-							already = ""
-							rdkcli.ViamLogo(c.App.Writer)
-						}
-
-						fmt.Fprintf(c.App.Writer, "%slogged in as %q, expires %s\n", already, token.User.Email,
-							token.ExpiresAt.Format("Mon Jan 2 15:04:05 MST 2006"))
-					}
-
-					if client.Config().Auth != nil && !client.Config().Auth.IsExpired() {
-						loggedInMessage(client.Config().Auth, true)
-						return nil
-					}
-
-					if err := client.Login(); err != nil {
-						return errors.Wrap(err, "could not login")
-					}
-
-					loggedInMessage(client.Config().Auth, false)
-					return nil
-				},
+				Action:          rdkcli.LoginAction,
 				Subcommands: []*cli.Command{
 					{
-						Name:  "print-access-token",
-						Usage: "print the access token associated with current credentials",
-						Action: func(c *cli.Context) error {
-							client, err := rdkcli.NewAppClient(c)
-							if err != nil {
-								return err
-							}
-
-							if client.Config().Auth == nil || client.Config().Auth.IsExpired() {
-								return errors.New("not logged in. run \"login\" command")
-							}
-
-							fmt.Fprintln(c.App.Writer, client.Config().Auth.AccessToken)
-
-							return nil
-						},
+						Name:   "print-access-token",
+						Usage:  "print the access token associated with current credentials",
+						Action: rdkcli.PrintAccessTokenAction,
 					},
 				},
 			},
 			{
-				Name:  "logout",
-				Usage: "logout from current session",
-				Action: func(c *cli.Context) error {
-					client, err := rdkcli.NewAppClient(c)
-					if err != nil {
-						return err
-					}
-					auth := client.Config().Auth
-					if auth == nil {
-						fmt.Fprintf(c.App.Writer, "already logged out\n")
-						return nil
-					}
-					if err := client.Logout(); err != nil {
-						return errors.Wrap(err, "could not logout")
-					}
-					fmt.Fprintf(c.App.Writer, "logged out from %q\n", auth.User.Email)
-					return nil
-				},
+				Name:   "logout",
+				Usage:  "logout from current session",
+				Action: rdkcli.LogoutAction,
 			},
 			{
-				Name:  "whoami",
-				Usage: "get currently logged-in user",
-				Action: func(c *cli.Context) error {
-					client, err := rdkcli.NewAppClient(c)
-					if err != nil {
-						return err
-					}
-					auth := client.Config().Auth
-					if auth == nil {
-						rdkcli.Warningf(c.App.Writer, "not logged in. run \"login\" command")
-						return nil
-					}
-					fmt.Fprintf(c.App.Writer, "%s\n", auth.User.Email)
-					return nil
-				},
+				Name:   "whoami",
+				Usage:  "get currently logged-in user",
+				Action: rdkcli.WhoAmIAction,
 			},
 			{
 				Name:            "organizations",

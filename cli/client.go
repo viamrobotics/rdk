@@ -111,30 +111,6 @@ func NewAppClient(c *cli.Context) (*AppClient, error) {
 	}, nil
 }
 
-// Login goes through the CLI login flow using a device code and browser. Once logged in the access token and user details
-// are cached on disk.
-func (c *AppClient) Login() error {
-	var token *Token
-	var err error
-	if c.conf.Auth != nil && c.conf.Auth.CanRefresh() {
-		token, err = c.authFlow.Refresh(c.c.Context, c.conf.Auth)
-		if err != nil {
-			utils.UncheckedError(c.Logout())
-			return err
-		}
-	} else {
-		token, err = c.authFlow.Login(c.c.Context)
-		if err != nil {
-			return err
-		}
-	}
-
-	// write token to config.
-	c.conf.Auth = token
-
-	return storeConfigToCache(c.conf)
-}
-
 // Config returns the current config.
 func (c *AppClient) Config() *Config {
 	return c.conf
