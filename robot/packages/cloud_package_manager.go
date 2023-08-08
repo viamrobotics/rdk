@@ -139,7 +139,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		existing, ok := m.managedPackages[PackageName(p.Name)]
 		if ok {
 			if existing.thePackage.Package == p.Package && existing.thePackage.Version == p.Version {
-				m.logger.Debug("  Package already managed, skipping")
+				m.logger.Debug("Package already managed, skipping")
 				newManagedPackages[PackageName(p.Name)] = existing
 				continue
 			}
@@ -172,7 +172,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 			continue
 		}
 
-		m.logger.Debugf("  Downloading from %s", sanitizeURLForLogs(resp.Package.Url))
+		m.logger.Debugf("Downloading from %s", sanitizeURLForLogs(resp.Package.Url))
 
 		// download package from a http endpoint
 		err = m.downloadPackage(ctx, resp.Package.Url, p)
@@ -190,7 +190,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		// add to managed packages
 		newManagedPackages[PackageName(p.Name)] = &managedPackage{thePackage: p, modtime: time.Now()}
 
-		m.logger.Debugf("  Sync complete after %v", time.Since(start))
+		m.logger.Debugf("Sync complete after %v", time.Since(start))
 	}
 
 	// swap for new managed packags.
@@ -274,8 +274,7 @@ func (m *cloudManager) mLModelSymlinkCreation(p config.PackageConfig) error {
 	}
 
 	if err := linkFile(p.LocalDataDirectory(m.packagesDir), symlinkPath); err != nil {
-		m.logger.Errorf("Failed linking ml_model package %s:%s, %s", p.Package, p.Version, err)
-		return err
+		return errors.Wrapf(err, "failed linking ml_model package %s:%s, %s", p.Package, p.Version, err)
 	}
 	return nil
 }
@@ -326,10 +325,11 @@ func sanitizeURLForLogs(u string) string {
 func (m *cloudManager) downloadPackage(ctx context.Context, url string, p config.PackageConfig) error {
 	// TODO(): validate integrity of directory.
 	if dirExists(p.LocalDataDirectory(m.packagesDir)) {
-		m.logger.Debug("  Package already downloaded, skipping.")
+		m.logger.Debug("Package already downloaded, skipping.")
 		return nil
 	}
 
+	// Create the parent directory for the package type if it doesn't exist
 	if err := os.MkdirAll(p.LocalDataParentDirectory(m.packagesDir), 0o700); err != nil {
 		return err
 	}

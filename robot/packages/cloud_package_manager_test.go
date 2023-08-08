@@ -3,9 +3,8 @@ package packages
 import (
 	"context"
 	"errors"
-	"fmt"
 	"os"
-	"path"
+	"path/filepath"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -262,8 +261,8 @@ func validatePackageDir(t *testing.T, dir string, input []config.PackageConfig) 
 
 	// check all known packages exist and are linked to the correct package dir.
 	for _, p := range input {
-		logicalPath := path.Join(dir, p.Name)
-		dataPath := path.Join(dir, fmt.Sprintf(".data/%s/%s", p.Type, p.SanitizedName()))
+		logicalPath := filepath.Join(dir, p.Name)
+		dataPath := filepath.Join(dir, ".data", string(p.Type), p.SanitizedName())
 
 		info, err := os.Stat(logicalPath)
 		test.That(t, err, test.ShouldBeNil)
@@ -288,7 +287,7 @@ func validatePackageDir(t *testing.T, dir string, input []config.PackageConfig) 
 	test.That(t, err, test.ShouldBeNil)
 
 	for _, f := range files {
-		if isSymLink(t, path.Join(dir, f.Name())) {
+		if isSymLink(t, filepath.Join(dir, f.Name())) {
 			if _, ok := byLogicalName[f.Name()]; !ok {
 				t.Fatalf("found unknown symlink in package dir %s", f.Name())
 			}
@@ -303,7 +302,7 @@ func validatePackageDir(t *testing.T, dir string, input []config.PackageConfig) 
 		t.Fatalf("found unknown file in package dir %s", f.Name())
 	}
 
-	typeFolders, err := os.ReadDir(path.Join(dir, ".data"))
+	typeFolders, err := os.ReadDir(filepath.Join(dir, ".data"))
 	test.That(t, err, test.ShouldBeNil)
 
 	for _, typeFile := range typeFolders {
@@ -311,7 +310,7 @@ func validatePackageDir(t *testing.T, dir string, input []config.PackageConfig) 
 		if !ok {
 			t.Errorf("found unknown file in package data dir %s", typeFile.Name())
 		}
-		foundFiles, err := os.ReadDir(path.Join(dir, ".data", typeFile.Name()))
+		foundFiles, err := os.ReadDir(filepath.Join(dir, ".data", typeFile.Name()))
 		test.That(t, err, test.ShouldBeNil)
 		for _, packageFile := range foundFiles {
 			if !slices.Contains(expectedPackages, packageFile.Name()) {
