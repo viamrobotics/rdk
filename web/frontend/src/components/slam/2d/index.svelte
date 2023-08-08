@@ -1,3 +1,10 @@
+<!--
+  @component
+  Renders a 2d pointcloud from a top-down perspective.
+  The pointcloud exists on the xy axis, with the camera set at z=1.
+  Has the ability to also render other environmental features,
+  such as the pose of a base and / or a motion plan.
+-->
 <script lang="ts">
 
 import { createEventDispatcher } from 'svelte';
