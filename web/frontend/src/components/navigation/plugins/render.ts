@@ -8,7 +8,9 @@ import { onDestroy } from 'svelte';
 const { clamp } = THREE.MathUtils;
 
 const world = new THREE.Group();
-const axes = new AxesHelper({ size: 1000 });
+const axes = new AxesHelper();
+axes.length = 1000;
+axes.width = 0.1;
 const rotation = new THREE.Euler();
 const rotationMatrix = new THREE.Matrix4();
 const scale = new THREE.Vector3();
@@ -57,23 +59,23 @@ const initialize = () => {
 
   const { renderer, scene, camera } = useThrelte();
 
-  renderer!.autoClear = false;
+  renderer.autoClear = false;
 
   scene.add(world);
 
   useRender(() => {
-    renderer!.clear();
+    renderer.clear();
 
     scenes.forEach(({ ref, matrix }) => {
       camera.current.projectionMatrix = matrix;
       world.add(ref);
-      renderer!.render(scene, camera.current);
+      renderer.render(scene, camera.current);
       world.remove(ref);
     });
   });
 
   const unsub = mapSize.subscribe((value) => {
-    renderer?.setSize(value.width, value.height);
+    renderer.setSize(value.width, value.height);
   });
 
   onDestroy(() => unsub());
