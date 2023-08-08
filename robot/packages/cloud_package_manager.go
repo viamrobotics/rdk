@@ -155,7 +155,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 			platform = &platformVal
 		}
 
-		packageType, err := PackageTypeToProto(p.Type)
+		packageType, err := config.PackageTypeToProto(p.Type)
 		if err != nil {
 			m.logger.Warnw("failed to get package type", "package", p.Name, "error", err)
 		}
