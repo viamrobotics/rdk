@@ -439,20 +439,8 @@ func newWithResources(
 		return nil, err
 	}
 
-	// Once web service is started, start module manager and add initially
-	// specified modules.
+	// Once web service is started, start module manager
 	r.manager.startModuleManager(r.webSvc.ModuleAddress(), cfg.UntrustedEnv, logger)
-	for _, mod := range cfg.Modules {
-		// this is done in config validation but partial start rules require us to check again
-		if err := mod.Validate(""); err != nil {
-			r.logger.Errorw("module config validation error; skipping", "module", mod.Name, "error", err)
-			continue
-		}
-		if err := r.manager.moduleManager.Add(ctx, mod); err != nil {
-			r.logger.Errorw("error adding module", "module", mod.Name, "error", err)
-			continue
-		}
-	}
 
 	r.activeBackgroundWorkers.Add(1)
 	r.configTicker = time.NewTicker(5 * time.Second)
@@ -993,6 +981,16 @@ func dialRobotClient(
 func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) {
 	var allErrs error
 
+	// Sync Packages before reconfiguring rest of robot and resolving references to any packages
+	// in the config.
+	// TODO(RSDK-1849): Make this non-blocking so other resources that do not require packages can run before package sync finishes.
+	// TODO(RSDK-2710) this should really use Reconfigure for the package and should allow itself to check
+	// if anything has changed.
+	err := r.packageManager.Sync(ctx, newConfig.Packages)
+	if err != nil {
+		allErrs = multierr.Combine(allErrs, err)
+	}
+
 	// Add default services and process their dependencies. Dependencies may
 	// already come from config validation so we check that here.
 	seen := make(map[resource.API]int)
@@ -1039,21 +1037,6 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 		}
 	}
 
-	// Sync Packages before reconfiguring rest of robot and resolving references to any packages
-	// in the config.
-	// TODO(RSDK-1849): Make this non-blocking so other resources that do not require packages can run before package sync finishes.
-	// TODO(RSDK-2710) this should really use Reconfigure for the package and should allow itself to check
-	// if anything has changed.
-	err := r.packageManager.Sync(ctx, newConfig.Packages)
-	if err != nil {
-		allErrs = multierr.Combine(allErrs, err)
-	}
-
-	err = r.replacePackageReferencesWithPaths(newConfig)
-	if err != nil {
-		allErrs = multierr.Combine(allErrs, err)
-	}
-
 	// Now that we have the new config and all references are resolved, diff it
 	// with the current generated config to see what has changed
 	diff, err := config.DiffConfigs(*r.Config(), *newConfig, r.revealSensitiveConfigDiffs)
@@ -1066,6 +1049,19 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	}
 	// Set mostRecentConfig if resources were not equal.
 	r.mostRecentCfg = *newConfig
+
+	// We need to pre-add the new modules so that resource validation can check against the new models
+	// TODO(RSDK-4383) These lines are taken from uppdateResources() and should be refactored as part of this bugfix
+	for _, mod := range diff.Added.Modules {
+		if err := mod.Validate(""); err != nil {
+			r.manager.logger.Errorw("module config validation error; skipping", "module", mod.Name, "error", err)
+			continue
+		}
+		if err := r.manager.moduleManager.Add(ctx, mod); err != nil {
+			r.manager.logger.Errorw("error adding module", "module", mod.Name, "error", err)
+			continue
+		}
+	}
 
 	// If something was added or modified, go through components and services in
 	// diff.Added and diff.Modified, call Validate on all those that are modularized,
@@ -1130,55 +1126,6 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	if allErrs != nil {
 		r.logger.Errorw("the following errors were gathered during reconfiguration", "errors", allErrs)
 	}
-}
-
-func walkConvertedAttributes[T any](
-	pacMan packages.ManagerSyncer, packageMap map[string]string, convertedAttributes T, allErrs error,
-) (T, error) {
-	// Replace all package references with the actual path containing the package
-	// on the robot.
-	var asIfc interface{} = convertedAttributes
-	if walker, ok := asIfc.(utils.Walker); ok {
-		newAttrs, err := walker.Walk(packages.NewPackagePathVisitor(pacMan, packageMap))
-		if err != nil {
-			allErrs = multierr.Combine(allErrs, err)
-			return convertedAttributes, allErrs
-		}
-		newAttrsTyped, err := utils.AssertType[T](newAttrs)
-		if err != nil {
-			var zero T
-			return zero, err
-		}
-		convertedAttributes = newAttrsTyped
-	}
-	return convertedAttributes, allErrs
-}
-
-func (r *localRobot) replacePackageReferencesWithPaths(cfg *config.Config) error {
-	var allErrs error
-	packageMap := cfg.GetExpectedPackagePlaceholders()
-	// don't traverse if there are no packages on the config
-	// we may want to remove this if we want to do all placeholder replacement
-	if len(packageMap) == 0 {
-		return nil
-	}
-	for i, s := range cfg.Services {
-		s.ConvertedAttributes, allErrs = walkConvertedAttributes(r.packageManager, packageMap, s.ConvertedAttributes, allErrs)
-		cfg.Services[i] = s
-	}
-
-	for i, c := range cfg.Components {
-		c.ConvertedAttributes, allErrs = walkConvertedAttributes(r.packageManager, packageMap, c.ConvertedAttributes, allErrs)
-		cfg.Components[i] = c
-	}
-
-	for _, c := range cfg.Modules {
-		newExecPath, err := packages.NewPackagePathVisitor(r.packageManager, packageMap).VisitAndReplaceString(c.ExePath)
-		allErrs = multierr.Combine(allErrs, err)
-		c.ExePath = newExecPath
-	}
-
-	return allErrs
 }
 
 // checkMaxInstance checks to see if the local robot has reached the maximum number of a specific resource type that are local.
