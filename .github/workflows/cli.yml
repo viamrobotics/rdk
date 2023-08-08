@@ -18,17 +18,6 @@ on:
 
 jobs:
   viam-cli:
-    strategy:
-      matrix:
-        include:
-        - goos: linux
-          goarch: amd64
-        - goos: linux
-          goarch: arm64
-        - goos: darwin
-          goarch: amd64
-        - goos: darwin
-          goarch: arm64
     runs-on: ubuntu-latest
     steps:
     - uses: actions/setup-go@v4
@@ -46,9 +35,19 @@ jobs:
 
     - name: build
       env:
-        GOOS: ${{ matrix.goos }}
-        GOARCH: ${{ matrix.goarch }}
-      run: go build -ldflags="-X 'go.viam.com/rdk/config.Version=${{ github.ref_name }}'" ./cli/viam
+        BINPREFIX: -${{ inputs.release_type }}
+      run: |
+        GOOS=linux GOARCH=amd64 make bin/viam-${{ inputs.release_type }}-linux-amd64
+        GOOS=linux GOARCH=arm64 make bin/viam-${{ inputs.release_type }}-linux-arm64
+        GOOS=darwin GOARCH=amd64 make bin/viam-${{ inputs.release_type }}-darwin-amd64
+        GOOS=darwin GOARCH=arm64 make bin/viam-${{ inputs.release_type }}-darwin-arm64
+
+    - name: tagged alias
+      if: inputs.release_type == 'stable'
+      run: |
+        cp -R bin tagged-bin
+        rename viam-${{ inputs.release_type }}- viam-${{ github.ref_name }}- tagged-bin/viam-*
+        mv tagged-bin/viam-* bin
 
     - name: Authorize GCP Upload
       uses: google-github-actions/auth@v1
@@ -58,14 +57,6 @@ jobs:
       uses: google-github-actions/upload-cloud-storage@v0.10.4
       with:
         headers: "cache-control: no-cache"
-        path: 'viam'
-        destination: 'packages.viam.com/apps/viam-cli/${{ inputs.release_type }}-${{ matrix.goos }}-${{ matrix.goarch }}'
-
-    # publish tagged version for stable
-    - name: Set up Cloud SDK
-      if: inputs.release_type == 'stable'
-      uses: google-github-actions/setup-gcloud@v1
-    - name: Publish AppImage
-      if: inputs.release_type == 'stable'
-      run: |
-        gsutil mv 'gs://packages.viam.com/apps/viam-cli/${{ inputs.release_type }}-${{ matrix.goos }}-${{ matrix.goarch }}/viam' 'gs://packages.viam.com/apps/viam-cli/${{ github.ref_name }}-${{ matrix.goos }}-${{ matrix.goarch }}/viam'
+        path: 'bin'
+        glob: 'viam-*'
+        destination: 'packages.viam.com/apps/viam-cli/'

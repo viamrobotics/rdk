@@ -18,6 +18,9 @@ build: build-web build-go
 build-go:
 	go build ./...
 
+bin/viam$(BINPREFIX)-$(GOOS)-$(GOARCH): ./cli/viam
+	go build -ldflags="-X 'go.viam.com/rdk/config.Version=$(TAG_VERSION)' -s -w" -o $@ ./$<
+
 build-web: web/runtime-shared/static/control.js
 
 # only generate static files when source has changed.
