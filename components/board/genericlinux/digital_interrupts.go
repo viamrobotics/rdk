@@ -17,12 +17,12 @@ import (
 )
 
 type digitalInterrupt struct {
-	activeBackgroundWorkers *sync.WaitGroup
-	interrupt               board.ReconfigurableDigitalInterrupt
-	line                    *gpio.LineWithEvent
-	cancelCtx               context.Context
-	cancelFunc              func()
-	config                  *board.DigitalInterruptConfig
+	boardWorkers *sync.WaitGroup
+	interrupt    board.ReconfigurableDigitalInterrupt
+	line         *gpio.LineWithEvent
+	cancelCtx    context.Context
+	cancelFunc   func()
+	config       *board.DigitalInterruptConfig
 }
 
 func (b *Board) createDigitalInterrupt(
@@ -66,19 +66,19 @@ func (b *Board) createDigitalInterrupt(
 
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	result := digitalInterrupt{
-		activeBackgroundWorkers: &b.activeBackgroundWorkers,
-		interrupt:               interrupt,
-		line:                    line,
-		cancelCtx:               cancelCtx,
-		cancelFunc:              cancelFunc,
-		config:                  &config,
+		boardWorkers: &b.activeBackgroundWorkers,
+		interrupt:    interrupt,
+		line:         line,
+		cancelCtx:    cancelCtx,
+		cancelFunc:   cancelFunc,
+		config:       &config,
 	}
 	result.startMonitor()
 	return &result, nil
 }
 
 func (di *digitalInterrupt) startMonitor() {
-	di.activeBackgroundWorkers.Add(1)
+	di.boardWorkers.Add(1)
 	utils.ManagedGo(func() {
 		for {
 			select {
@@ -89,7 +89,7 @@ func (di *digitalInterrupt) startMonitor() {
 					di.cancelCtx, event.RisingEdge, uint64(event.Time.UnixNano())))
 			}
 		}
-	}, di.activeBackgroundWorkers.Done)
+	}, di.boardWorkers.Done)
 }
 
 func (di *digitalInterrupt) Close() error {
