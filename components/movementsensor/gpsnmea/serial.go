@@ -35,9 +35,10 @@ type SerialNMEAMovementSensor struct {
 	data                    GPSData
 	activeBackgroundWorkers sync.WaitGroup
 
-	disableNmea  bool
-	err          movementsensor.LastError
-	lastposition movementsensor.LastPosition
+	disableNmea        bool
+	err                movementsensor.LastError
+	lastposition       movementsensor.LastPosition
+	lastcompassheading movementsensor.LastCompassHeading
 
 	dev                io.ReadWriteCloser
 	path               string
@@ -79,16 +80,17 @@ func NewSerialGPSNMEA(ctx context.Context, name resource.Name, conf *Config, log
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
 	g := &SerialNMEAMovementSensor{
-		Named:        name.AsNamed(),
-		dev:          dev,
-		cancelCtx:    cancelCtx,
-		cancelFunc:   cancelFunc,
-		logger:       logger,
-		path:         serialPath,
-		baudRate:     uint(baudRate),
-		disableNmea:  disableNmea,
-		err:          movementsensor.NewLastError(1, 1),
-		lastposition: movementsensor.NewLastPosition(),
+		Named:              name.AsNamed(),
+		dev:                dev,
+		cancelCtx:          cancelCtx,
+		cancelFunc:         cancelFunc,
+		logger:             logger,
+		path:               serialPath,
+		baudRate:           uint(baudRate),
+		disableNmea:        disableNmea,
+		err:                movementsensor.NewLastError(1, 1),
+		lastposition:       movementsensor.NewLastPosition(),
+		lastcompassheading: movementsensor.NewLastCompassHeading(),
 	}
 
 	if err := g.Start(ctx); err != nil {
@@ -209,7 +211,21 @@ func (g *SerialNMEAMovementSensor) Orientation(ctx context.Context, extra map[st
 func (g *SerialNMEAMovementSensor) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return g.data.CompassHeading, nil
+	currentHeading := g.data.CompassHeading
+	lastHeading := g.lastcompassheading.GetLastCompassHeading()
+	if !math.IsNaN(currentHeading) && !math.IsNaN(lastHeading) && currentHeading != lastHeading {
+		g.lastcompassheading.SetLastCompassHeading(g.data.CompassHeading)
+		currentHeading = lastHeading
+	}
+
+	if math.IsNaN(lastHeading) && !math.IsNaN(currentHeading) {
+		g.lastcompassheading.SetLastCompassHeading(currentHeading)
+	}
+
+	if !math.IsNaN(lastHeading) && math.IsNaN(currentHeading) {
+		currentHeading = lastHeading
+	}
+	return currentHeading, nil
 }
 
 // ReadFix returns Fix quality of MovementSensor measurements.

@@ -19,17 +19,18 @@ const (
 
 // GPSData struct combines various attributes related to GPS.
 type GPSData struct {
-	Location       *geo.Point
-	Alt            float64
-	Speed          float64 // ground speed in m per sec
-	VDOP           float64 // vertical accuracy
-	HDOP           float64 // horizontal accuracy
-	SatsInView     int     // quantity satellites in view
-	SatsInUse      int     // quantity satellites in view
-	valid          bool
-	FixQuality     int
-	CompassHeading float64 // true compass heading in degree
-	isEast         bool    // direction for magnetic variation
+	Location            *geo.Point
+	Alt                 float64
+	Speed               float64 // ground speed in m per sec
+	VDOP                float64 // vertical accuracy
+	HDOP                float64 // horizontal accuracy
+	SatsInView          int     // quantity satellites in view
+	SatsInUse           int     // quantity satellites in view
+	valid               bool
+	FixQuality          int
+	CompassHeading      float64 // true compass heading in degree
+	isEast              bool    // direction for magnetic variation
+	validCompassHeading bool
 }
 
 func errInvalidFix(sentenceType, badFix, goodFix string) error {
@@ -135,7 +136,11 @@ func (g *GPSData) updateRMC(rmc nmea.RMC) error {
 	if g.valid {
 		g.Speed = rmc.Speed * knotsToMPerSec
 		g.Location = geo.NewPoint(rmc.Latitude, rmc.Longitude)
-		g.CompassHeading = calculateTrueHeading(rmc.Course, rmc.Variation, g.isEast)
+		if g.validCompassHeading {
+			g.CompassHeading = calculateTrueHeading(rmc.Course, rmc.Variation, g.isEast)
+		} else {
+			g.CompassHeading = math.NaN()
+		}
 	}
 
 	return nil
@@ -265,6 +270,9 @@ func (g *GPSData) ifEast(message string) {
 	data := strings.Split(message, ",")
 	if len(data) < 10 {
 		return
+	}
+	if strings.Contains(data[7], "") {
+		g.validCompassHeading = false
 	}
 	// Check if the magnetic declination is East or West
 	g.isEast = strings.Contains(data[10], "E")

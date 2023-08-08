@@ -29,9 +29,10 @@ type PmtkI2CNMEAMovementSensor struct {
 	data                    GPSData
 	activeBackgroundWorkers sync.WaitGroup
 
-	disableNmea  bool
-	err          movementsensor.LastError
-	lastposition movementsensor.LastPosition
+	disableNmea        bool
+	err                movementsensor.LastError
+	lastposition       movementsensor.LastPosition
+	lastcompassheading movementsensor.LastCompassHeading
 
 	bus   board.I2C
 	addr  byte
@@ -84,8 +85,9 @@ func NewPmtkI2CGPSNMEA(
 		disableNmea: disableNmea,
 		// Overloaded boards can have flaky I2C busses. Only report errors if at least 5 of the
 		// last 10 attempts have failed.
-		err:          movementsensor.NewLastError(10, 5),
-		lastposition: movementsensor.NewLastPosition(),
+		err:                movementsensor.NewLastError(10, 5),
+		lastposition:       movementsensor.NewLastPosition(),
+		lastcompassheading: movementsensor.NewLastCompassHeading(),
 	}
 
 	if err := g.Start(ctx); err != nil {
@@ -260,7 +262,21 @@ func (g *PmtkI2CNMEAMovementSensor) AngularVelocity(
 func (g *PmtkI2CNMEAMovementSensor) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return g.data.CompassHeading, g.err.Get()
+	currentHeading := g.data.CompassHeading
+	lastHeading := g.lastcompassheading.GetLastCompassHeading()
+	if !math.IsNaN(currentHeading) && !math.IsNaN(lastHeading) && currentHeading != lastHeading {
+		g.lastcompassheading.SetLastCompassHeading(g.data.CompassHeading)
+		currentHeading = lastHeading
+	}
+
+	if math.IsNaN(lastHeading) && !math.IsNaN(currentHeading) {
+		g.lastcompassheading.SetLastCompassHeading(currentHeading)
+	}
+
+	if !math.IsNaN(lastHeading) && math.IsNaN(currentHeading) {
+		currentHeading = lastHeading
+	}
+	return currentHeading, nil
 }
 
 // Orientation not supporter.

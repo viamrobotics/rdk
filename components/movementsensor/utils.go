@@ -90,6 +90,12 @@ type LastPosition struct {
 	mu           sync.Mutex
 }
 
+// LastCompassHeading store the last valid compass heading seen by the movement sensor.
+type LastCompassHeading struct {
+	lastcompassheading float64
+	mu                 sync.Mutex
+}
+
 // NewLastError creates a LastError object which will let you retrieve the most recent error if at
 // least `threshold` of the most recent `size` items put into it are non-nil.
 func NewLastError(size, threshold int) LastError {
@@ -177,6 +183,25 @@ func (lp *LastPosition) IsZeroPosition(p *geo.Point) bool {
 // IsPositionNaN checks if a geo.Point in math.NaN().
 func (lp *LastPosition) IsPositionNaN(p *geo.Point) bool {
 	return math.IsNaN(p.Lng()) && math.IsNaN(p.Lat())
+}
+
+// NewLastCompassHeading create a new LastCompassHeading.
+func NewLastCompassHeading() LastCompassHeading {
+	return LastCompassHeading{lastcompassheading: math.NaN()}
+}
+
+// GetLastCompassHeading returns the last compass heading stored.
+func (lch *LastCompassHeading) GetLastCompassHeading() float64 {
+	lch.mu.Lock()
+	defer lch.mu.Unlock()
+	return lch.lastcompassheading
+}
+
+// SetLastCompassHeading sets lastcompassheading to the value given in the function.
+func (lch *LastCompassHeading) SetLastCompassHeading(compassheading float64) {
+	lch.mu.Lock()
+	defer lch.mu.Unlock()
+	lch.lastcompassheading = compassheading
 }
 
 // PMTKAddChk adds PMTK checksums to commands by XORing the bytes together.
