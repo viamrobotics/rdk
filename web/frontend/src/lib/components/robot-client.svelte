@@ -428,10 +428,12 @@ const login = async (authType: string) => {
   }
 };
 
-// If the component is unmounted during the init setTimeout evaluations, 
-// nothing will stop init from calling setTimeout and trying to reconnect
-// again. This boolean is used to track whether the component is mounted
-// and explicitly stop trying to connect.
+/*
+ * If the component is unmounted during the init setTimeout evaluations,
+ * nothing will stop init from calling setTimeout and trying to reconnect
+ * again. This boolean is used to track whether the component is mounted
+ * and explicitly stop trying to connect.
+ */
 let isMounted = false;
 
 const init = async () => {
