@@ -103,8 +103,6 @@ func init() {
 				conf resource.Config,
 				logger golog.Logger,
 			) (arm.Arm, error) {
-				fmt.Println("making new arm....")
-				fmt.Println(localArmModelName)
 				return NewxArm(ctx, conf, logger, localArmModelName)
 			},
 		})

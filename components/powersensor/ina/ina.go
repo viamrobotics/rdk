@@ -26,7 +26,7 @@ const (
 	milliOhm                   = 1000 * 1000 // milliOhm = 1000 microOhm * 1000 nanoOhm
 	defaultI2Caddr             = 0x40
 	senseResistor        int64 = 100 * milliOhm                                                 // .1 ohm
-	maxCurrent           int64 = 3200 * milliAmp                                                // 3.2 amp
+	maxCurrent           int64 = 20000 * milliAmp                                               // 3.2 amp
 	calibratescale219          = ((int64(1000*milliAmp) * int64(1000*milliOhm)) / 100000) << 12 //.04096 is internal fixed value for ina219
 	calibrateScale226          = ((int64(1000*milliAmp) * int64(1000*milliOhm)) / 100000) << 9  //.00512 is internal fixed value for ina226
 	configRegister             = 0x00
@@ -117,6 +117,7 @@ func newINA(
 	s := &ina{
 		Named:  name.AsNamed(),
 		logger: logger,
+		model:  modelName,
 		bus:    i2cbus,
 		addr:   byte(addr),
 	}
@@ -140,6 +141,7 @@ type ina struct {
 	resource.AlwaysRebuild
 	resource.TriviallyCloseable
 	logger     golog.Logger
+	model      string
 	bus        board.I2C
 	addr       byte
 	currentLSB int64
@@ -156,18 +158,19 @@ func (d *ina) setCalibrationScale(modelName string) error {
 		return fmt.Errorf("ina219 calibrate: maxCurrent value invalid %d", maxCurrent)
 	}
 
+	d.currentLSB = maxCurrent / (1 << 15)
+
 	switch modelName {
 	case modelName219:
 		calibratescale = calibratescale219
 		d.powerLSB = (maxCurrent*20 + (1 << 14)) / (1 << 15)
 	case modelName226:
 		calibratescale = calibrateScale226
-		d.powerLSB = (maxCurrent*25 + (1 << 14)) / (1 << 15)
+		d.powerLSB = 25 * d.currentLSB
 	default:
 		return errors.New("ina model not supported")
 	}
 
-	d.currentLSB = maxCurrent / (1 << 15)
 	// Calibration Register = calibration scale / (current LSB * Shunt Resistance)
 	// Where lsb is in Amps and resistance is in ohms.
 	// Calibration register is 16 bits.
@@ -220,8 +223,16 @@ func (d *ina) Voltage(ctx context.Context, extra map[string]interface{}) (float6
 		return 0, false, err
 	}
 
-	// voltage is 1.25 mV/bit
-	voltage := float64(binary.BigEndian.Uint16(bus)) * 1.25e-3
+	var voltage float64
+	switch d.model {
+	case modelName226:
+		// voltage is 1.25 mV/bit for the ina226
+		voltage = float64(binary.BigEndian.Uint16(bus)) * 1.25e-3
+	case modelName219:
+		voltage = float64(binary.BigEndian.Uint16(bus)>>3) * 4 / 1000
+	default:
+	}
+
 	isAC := false
 	return voltage, isAC, nil
 }
