@@ -1,23 +1,4 @@
-import { type Client, slamApi, SlamClient } from '@viamrobotics/sdk';
-
-const concatArrayU8 = (arrays: Uint8Array[]) => {
-  const totalLength = arrays.reduce((acc, value) => acc + value.length, 0);
-  const result = new Uint8Array(totalLength);
-
-  let length = 0;
-
-  for (const array of arrays) {
-    result.set(array, length);
-    length += array.length;
-  }
-
-  return result;
-};
-
-export const getPointCloudMap = async (slamClient: SlamClient) => {
-  const chunks = await slamClient.getPointCloudMap();
-  return concatArrayU8(chunks);
-};
+import { type Client, slamApi } from '@viamrobotics/sdk';
 
 export const getPosition = async (robotClient: Client, name: string) => {
   const request = new slamApi.GetPositionRequest();

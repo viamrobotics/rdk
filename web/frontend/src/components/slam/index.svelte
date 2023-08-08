@@ -17,7 +17,6 @@ import Slam2dRenderer from './2d-renderer.svelte';
 import { useRobotClient, useDisconnect } from '@/hooks/robot-client';
 import type { SLAMOverrides } from '@/types/overrides';
 import { rcLogConditionally } from '@/lib/log';
-import { getPointCloudMap } from '@/api/slam';
 
 export let name: string;
 export let overrides: SLAMOverrides | undefined;
@@ -99,7 +98,7 @@ const refresh2d = async () => {
     } else {
       let response;
       [pointcloud, response] = await Promise.all([
-        getPointCloudMap(slamClient),
+        slamClient.getPointCloudMap(),
         slamClient.getPosition(),
       ]);
       nextPose = response.pose;
