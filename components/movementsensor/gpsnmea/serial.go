@@ -35,17 +35,11 @@ type SerialNMEAMovementSensor struct {
 	data                    GPSData
 	activeBackgroundWorkers sync.WaitGroup
 
-<<<<<<< HEAD
 	disableNmea        bool
 	err                movementsensor.LastError
 	lastposition       movementsensor.LastPosition
 	lastcompassheading movementsensor.LastCompassHeading
-=======
-	disableNmea  bool
-	isClosed     bool
-	err          movementsensor.LastError
-	lastposition movementsensor.LastPosition
->>>>>>> main
+	isClosed           bool
 
 	dev                io.ReadWriteCloser
 	path               string
@@ -146,7 +140,7 @@ func (g *SerialNMEAMovementSensor) GetCorrectionInfo() (string, uint) {
 	return g.correctionPath, g.correctionBaudRate
 }
 
-//nolint
+// nolint
 // Position position, altitide.
 func (g *SerialNMEAMovementSensor) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
 	lastPosition := g.lastposition.GetLastPosition()
