@@ -15,7 +15,7 @@ import (
 )
 
 type gpioPin struct {
-	parentBoard *Board
+	activeBackgroundWorkers *sync.WaitGroup
 
 	// These values should both be considered immutable.
 	devicePath string
@@ -180,8 +180,8 @@ func (pin *gpioPin) startSoftwarePWM() error {
 	}
 
 	pin.swPwmRunning = true
-	pin.parentBoard.activeBackgroundWorkers.Add(1)
-	utils.ManagedGo(pin.softwarePwmLoop, pin.parentBoard.activeBackgroundWorkers.Done)
+	pin.activeBackgroundWorkers.Add(1)
+	utils.ManagedGo(pin.softwarePwmLoop, pin.activeBackgroundWorkers.Done)
 	return nil
 }
 
@@ -285,11 +285,11 @@ func (pin *gpioPin) Close() error {
 
 func (b *Board) createGpioPin(mapping GPIOBoardMapping) *gpioPin {
 	pin := gpioPin{
-		parentBoard: b,
-		devicePath:  mapping.GPIOChipDev,
-		offset:      uint32(mapping.GPIO),
-		cancelCtx:   b.cancelCtx,
-		logger:      b.logger,
+		activeBackgroundWorkers: &b.activeBackgroundWorkers,
+		devicePath:              mapping.GPIOChipDev,
+		offset:                  uint32(mapping.GPIO),
+		cancelCtx:               b.cancelCtx,
+		logger:                  b.logger,
 	}
 	if mapping.HWPWMSupported {
 		pin.hwPwm = newPwmDevice(mapping.PWMSysFsDir, mapping.PWMID, b.logger)
