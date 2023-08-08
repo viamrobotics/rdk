@@ -15,7 +15,6 @@ import (
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
-	"go.viam.com/rdk/robot/packages"
 	"go.viam.com/rdk/services/mlmodel"
 )
 
@@ -244,63 +243,4 @@ func makeExampleSlice(length int) []int32 {
 		out = append(out, int32(i))
 	}
 	return out
-}
-
-func TestTFLiteConfigWalker(t *testing.T) {
-	makeVisionAttributes := func(modelPath, labelPath string) *TFLiteConfig {
-		return &TFLiteConfig{
-			ModelPath:  modelPath,
-			LabelPath:  labelPath,
-			NumThreads: 1,
-		}
-	}
-
-	labelPath := "/other/path/on/robot/textFile.txt"
-	visionAttrs := makeVisionAttributes("/some/path/on/robot/model.tflite", labelPath)
-
-	labelPathWithRefs := "${packages.test_model}/textFile.txt"
-	visionAttrsWithRefs := makeVisionAttributes("${packages.test_model}/model.tflite", labelPathWithRefs)
-
-	labelPathOneRef := "${packages.test_model}/textFile.txt"
-	visionAttrsOneRef := makeVisionAttributes("/some/path/on/robot/model.tflite", labelPathOneRef)
-
-	packageManager := packages.NewNoopManager()
-	packgeMap := make(map[string]string)
-	packgeMap["packages.test_model"] = "packages/test_model"
-
-	testAttributesWalker := func(t *testing.T, attrs *TFLiteConfig, expectedModelPath, expectedLabelPath string) {
-		newAttrs, err := attrs.Walk(packages.NewPackagePathVisitor(packageManager, packgeMap))
-		test.That(t, err, test.ShouldBeNil)
-
-		test.That(t, newAttrs.(*TFLiteConfig).ModelPath, test.ShouldEqual, expectedModelPath)
-		test.That(t, newAttrs.(*TFLiteConfig).LabelPath, test.ShouldEqual, expectedLabelPath)
-		test.That(t, newAttrs.(*TFLiteConfig).NumThreads, test.ShouldEqual, 1)
-	}
-
-	testAttributesWalker(t, visionAttrs, "/some/path/on/robot/model.tflite", "/other/path/on/robot/textFile.txt")
-	testAttributesWalker(t, visionAttrsWithRefs, "packages/test_model/model.tflite", "packages/test_model/textFile.txt")
-	testAttributesWalker(t, visionAttrsOneRef, "/some/path/on/robot/model.tflite", "packages/test_model/textFile.txt")
-}
-
-func TestLabelPathWalkFail(t *testing.T) {
-	labelPath := "/blah/blah/mylabels.txt"
-	var oldLabelPath *string
-
-	packageManager := packages.NewNoopManager()
-	visitor := packages.NewPackagePathVisitor(packageManager, make(map[string]string))
-
-	outNew, err := visitor.Visit(labelPath)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, outNew, test.ShouldResemble, labelPath)
-	func() {
-		defer func() {
-			if r := recover(); r == nil {
-				// If we're here, the old approach "Visit(nil)" did not panic
-				test.That(t, 3, test.ShouldResemble, 5)
-			}
-		}()
-
-		// This should cause a panic
-		visitor.Visit(oldLabelPath)
-	}()
 }
