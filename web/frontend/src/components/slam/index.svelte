@@ -15,7 +15,7 @@ import { setAsyncInterval } from '@/lib/schedule';
 import { components } from '@/stores/resources';
 import Collapse from '@/lib/components/collapse.svelte';
 import PCD from '@/components/pcd/pcd-view.svelte';
-import Slam2dRenderer from './2d-renderer.svelte';
+import Slam2D from './2d/index.svelte';
 import { useRobotClient, useDisconnect } from '@/hooks/robot-client';
 import type { SLAMOverrides } from '@/types/overrides';
 
@@ -614,11 +614,11 @@ const handleMapNameChange = (event: CustomEvent) => {
             />
           </div>
 
-          <Slam2dRenderer
+          <Slam2D
             {pointcloud}
             {pose}
             {destination}
-            axesVisible={showAxes}
+            helpers={showAxes}
             on:click={handle2dRenderClick}
           />
         </div>

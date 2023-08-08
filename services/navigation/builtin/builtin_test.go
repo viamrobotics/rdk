@@ -114,7 +114,6 @@ func TestNavSetup(t *testing.T) {
 }
 
 func TestStartWaypoint(t *testing.T) {
-	t.Skip() // RSDK-4279
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 
@@ -185,7 +184,7 @@ func TestStartWaypoint(t *testing.T) {
 			angularVelocityDegsPerSec float64,
 			extra map[string]interface{},
 		) (bool, error) {
-			err := kinematicBase.GoToInputs(ctx, referenceframe.FloatsToInputs([]float64{destination.Lat(), destination.Lng(), 0}))
+			err := kinematicBase.GoToInputs(ctx, referenceframe.FloatsToInputs([]float64{destination.Lat(), destination.Lng()}))
 			return true, err
 		}
 		pt := geo.NewPoint(1, 0)
@@ -270,7 +269,7 @@ func TestStartWaypoint(t *testing.T) {
 				if msg == arrivedAtWaypointMsg {
 					err = kinematicBase.GoToInputs(
 						ctx,
-						referenceframe.FloatsToInputs([]float64{destination.Lat(), destination.Lng(), 0}),
+						referenceframe.FloatsToInputs([]float64{destination.Lat(), destination.Lng()}),
 					)
 				}
 
@@ -298,15 +297,35 @@ func TestStartWaypoint(t *testing.T) {
 
 			ns.(*builtIn).startWaypoint(ctx, map[string]interface{}{"experimental": true})
 
+			// Get the ID of the first waypoint
+			wp1, err := ns.(*builtIn).store.NextWaypoint(ctx)
+			test.That(t, err, test.ShouldBeNil)
+
 			// Reach the first waypoint
 			eventChannel <- arrivedAtWaypointMsg
 			test.That(t, <-statusChannel, test.ShouldEqual, arrivedAtWaypointMsg)
 			currentInputsShouldEqual(ctx, t, kinematicBase, pt1)
 
+			// Ensure we aren't querying before the nav service has a chance to mark the previous waypoint visited.
+			wp2, err := ns.(*builtIn).store.NextWaypoint(ctx)
+			test.That(t, err, test.ShouldBeNil)
+			for wp2.ID == wp1.ID {
+				wp2, err = ns.(*builtIn).store.NextWaypoint(ctx)
+				test.That(t, err, test.ShouldBeNil)
+			}
+
 			// Skip the second waypoint due to an error
 			eventChannel <- hitAnErrorMsg
 			test.That(t, <-statusChannel, test.ShouldEqual, hitAnErrorMsg)
 			currentInputsShouldEqual(ctx, t, kinematicBase, pt1)
+
+			// Ensure we aren't querying before the nav service has a chance to mark the previous waypoint visited.
+			wp3, err := ns.(*builtIn).store.NextWaypoint(ctx)
+			test.That(t, err, test.ShouldBeNil)
+			for wp3.ID == wp2.ID {
+				wp3, err = ns.(*builtIn).store.NextWaypoint(ctx)
+				test.That(t, err, test.ShouldBeNil)
+			}
 
 			// Reach the third waypoint
 			eventChannel <- arrivedAtWaypointMsg
@@ -353,15 +372,24 @@ func TestStartWaypoint(t *testing.T) {
 			ns.(*builtIn).mode = navigation.ModeManual
 			err = ns.SetMode(ctx, navigation.ModeWaypoint, map[string]interface{}{"experimental": true})
 
+			// Get the ID of the first waypoint
+			wp1, err := ns.(*builtIn).store.NextWaypoint(ctx)
+			test.That(t, err, test.ShouldBeNil)
+
 			// Reach the first waypoint
 			eventChannel <- arrivedAtWaypointMsg
 			test.That(t, <-statusChannel, test.ShouldEqual, arrivedAtWaypointMsg)
 			currentInputsShouldEqual(ctx, t, kinematicBase, pt1)
 
-			// Remove the second waypoint, which is in progress
-			currentWaypoint, err := ns.(*builtIn).store.NextWaypoint(ctx)
+			// Remove the second waypoint, which is in progress. Ensure we aren't querying before the nav service has a chance to mark
+			// the previous waypoint visited.
+			wp2, err := ns.(*builtIn).store.NextWaypoint(ctx)
 			test.That(t, err, test.ShouldBeNil)
-			err = ns.RemoveWaypoint(ctx, currentWaypoint.ID, nil)
+			for wp2.ID == wp1.ID {
+				wp2, err = ns.(*builtIn).store.NextWaypoint(ctx)
+				test.That(t, err, test.ShouldBeNil)
+			}
+			err = ns.RemoveWaypoint(ctx, wp2.ID, nil)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, <-statusChannel, test.ShouldEqual, cancelledContextMsg)
 			currentInputsShouldEqual(ctx, t, kinematicBase, pt1)
@@ -430,6 +458,7 @@ func TestValidateGeometry(t *testing.T) {
 		cfg = createBox(r3.Vector{10, 10, 10})
 		_, err := cfg.Validate("")
 		expectedErr := "geometries specified through the navigation are not allowed to have a translation"
+		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldEqual, expectedErr)
 	})
 

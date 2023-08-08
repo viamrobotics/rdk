@@ -98,7 +98,7 @@ func (nm *neighborManager) parallelNearestNeighbor(
 	nm.seedPos = seed
 
 	nm.neighbors = make(chan *neighbor, nm.nCPU)
-	nm.nnKeys = make(chan node, nm.nCPU)
+	nm.nnKeys = make(chan node, len(rrtMap))
 	defer close(nm.nnKeys)
 	defer close(nm.neighbors)
 
