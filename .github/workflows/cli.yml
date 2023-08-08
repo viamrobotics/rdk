@@ -45,7 +45,7 @@ jobs:
     - name: tagged alias
       env:
          CI_RELEASE: ${{ github.ref_name }}
-      if: inputs.release_type == 'stable'
+      # if: inputs.release_type == 'stable' # DONOTMERGE comment
       run: |
         GOOS=linux GOARCH=amd64 make cli-ci
         GOOS=linux GOARCH=arm64 make cli-ci
