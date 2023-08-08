@@ -43,7 +43,7 @@ jobs:
         GOOS=darwin GOARCH=arm64 make bin/viam-${{ inputs.release_type }}-darwin-arm64
 
     - name: tagged alias
-      # if: inputs.release_type == 'stable' # DONOTMERGE comment
+      if: inputs.release_type == 'stable'
       run: |
         GOOS=linux GOARCH=amd64 cp bin/viam-${{ inputs.release_type }}-linux-amd64 bin/viam-${{ github.ref_name }}-linux-amd64
         GOOS=linux GOARCH=arm64 cp bin/viam-${{ inputs.release_type }}-linux-arm64 bin/viam-${{ github.ref_name }}-linux-arm64
