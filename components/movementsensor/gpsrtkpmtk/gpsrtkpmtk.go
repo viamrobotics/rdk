@@ -116,9 +116,7 @@ type rtkI2C struct {
 	addr  byte
 }
 
-// Reconfigure reconfigures only the i2c attributes at the moment. Ntrip attributes are not reconfiured
-// since ntripClient is locked in functions such as: connect/getStream and altering the attributes can cause
-// invalid memory address.
+// Reconfigure reconfigures attributes.
 func (g *rtkI2C) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
@@ -492,7 +490,6 @@ func (g *rtkI2C) Position(ctx context.Context, extra map[string]interface{}) (*g
 		}
 		return geo.NewPoint(math.NaN(), math.NaN()), math.NaN(), err
 	}
-
 	// Check if the current position is different from the last position and non-zero
 	lastPosition := g.lastposition.GetLastPosition()
 	if !g.lastposition.ArePointsEqual(position, lastPosition) {
@@ -502,6 +499,10 @@ func (g *rtkI2C) Position(ctx context.Context, extra map[string]interface{}) (*g
 	// Update the last known valid position if the current position is non-zero
 	if position != nil && !g.lastposition.IsZeroPosition(position) {
 		g.lastposition.SetLastPosition(position)
+	}
+
+	if g.lastposition.IsPositionNaN(position) {
+		position = lastPosition
 	}
 
 	return position, alt, nil

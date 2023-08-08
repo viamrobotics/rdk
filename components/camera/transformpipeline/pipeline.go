@@ -16,6 +16,7 @@ import (
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
@@ -92,23 +93,25 @@ func newTransformPipeline(
 	}
 	// check if the source produces a depth image or color image
 	img, release, err := camera.ReadImage(ctx, source)
-	if err != nil {
-		return nil, err
-	}
+
 	var streamType camera.ImageType
-	if _, ok := img.(*rimage.DepthMap); ok {
+	if err != nil {
+		streamType = camera.UnspecifiedStream
+	} else if _, ok := img.(*rimage.DepthMap); ok {
 		streamType = camera.DepthStream
 	} else if _, ok := img.(*image.Gray16); ok {
 		streamType = camera.DepthStream
 	} else {
 		streamType = camera.ColorStream
 	}
-	release()
+	if release != nil {
+		release()
+	}
 	// loop through the pipeline and create the image flow
 	pipeline := make([]gostream.VideoSource, 0, len(cfg.Pipeline))
 	lastSource := source
 	for _, tr := range cfg.Pipeline {
-		src, newStreamType, err := buildTransform(ctx, r, lastSource, streamType, tr)
+		src, newStreamType, err := buildTransform(ctx, r, lastSource, streamType, tr, cfg.Source)
 		if err != nil {
 			return nil, err
 		}
@@ -136,6 +139,19 @@ func (tp transformPipeline) Read(ctx context.Context) (image.Image, func(), erro
 	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::Read")
 	defer span.End()
 	return tp.stream.Next(ctx)
+}
+
+func (tp transformPipeline) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::NextPointCloud")
+	defer span.End()
+	if lastElem, ok := tp.pipeline[len(tp.pipeline)-1].(camera.PointCloudSource); ok {
+		pc, err := lastElem.NextPointCloud(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "function NextPointCloud not defined for last videosource in transform pipeline")
+		}
+		return pc, nil
+	}
+	return nil, errors.New("function NextPointCloud not defined for last videosource in transform pipeline")
 }
 
 func (tp transformPipeline) Close(ctx context.Context) error {

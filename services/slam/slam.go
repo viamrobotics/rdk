@@ -32,6 +32,10 @@ func init() {
 		API:        API,
 		MethodName: getPosition.String(),
 	}, newGetPositionCollector)
+	data.RegisterCollector(data.MethodMetadata{
+		API:        API,
+		MethodName: getPointCloudMap.String(),
+	}, newGetPointCloudMapCollector)
 }
 
 // SubtypeName is the name of the type of service.

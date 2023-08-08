@@ -164,7 +164,7 @@ func (c *AppClient) ensureLoggedIn() error {
 	}
 
 	if c.conf.Auth == nil {
-		return errors.New("not logged in: run the following command to authenticate:\n\tviam auth")
+		return errors.New("not logged in: run the following command to login:\n\tviam login")
 	}
 
 	if c.conf.Auth.IsExpired() {
@@ -177,7 +177,7 @@ func (c *AppClient) ensureLoggedIn() error {
 		newToken, err := c.authFlow.Refresh(c.c.Context, c.conf.Auth)
 		if err != nil {
 			utils.UncheckedError(c.Logout()) // clear cache if failed to refresh
-			return errors.Wrapf(err, "error while refrshing token")
+			return errors.Wrapf(err, "error while refreshing token")
 		}
 
 		// write token to config.
@@ -343,7 +343,7 @@ func (c *AppClient) GetUserOrgByPublicNamespace(publicNamespace string) (*apppb.
 			return org, nil
 		}
 	}
-	return nil, errors.Errorf("none of your organizations have a public_namespace of '%s'", publicNamespace)
+	return nil, errors.Errorf("none of your organizations have a public namespace of %q", publicNamespace)
 }
 
 // ListOrganizations returns all organizations belonging to the currently authenticated user.
@@ -736,9 +736,7 @@ func (c *AppClient) StartRobotPartShell(
 	}
 	robotClient, err := client.New(dialCtx, fqdn, logger, client.WithDialOptions(rpcOpts...))
 	if err != nil {
-		fmt.Fprintln(c.c.App.ErrWriter, err)
-		cli.OsExiter(1)
-		return nil
+		return errors.Wrap(err, "could not connect to robot part")
 	}
 
 	defer func() {
@@ -755,30 +753,22 @@ func (c *AppClient) StartRobotPartShell(
 		}
 	}
 	if found == nil {
-		fmt.Fprintln(c.c.App.ErrWriter, "shell service is not enabled")
-		cli.OsExiter(1)
-		return nil
+		return errors.New("shell service is not enabled on this robot part")
 	}
 
 	shellRes, err := robotClient.ResourceByName(*found)
 	if err != nil {
-		fmt.Fprintln(c.c.App.ErrWriter, err)
-		cli.OsExiter(1)
-		return nil
+		return errors.Wrap(err, "could not get shell service from robot part")
 	}
 
 	shellSvc, ok := shellRes.(shell.Service)
 	if !ok {
-		fmt.Fprintln(c.c.App.ErrWriter, "shell service is not a shell service")
-		cli.OsExiter(1)
-		return nil
+		return errors.New("could not get shell service from robot part")
 	}
 
 	input, output, err := shellSvc.Shell(c.c.Context, map[string]interface{}{})
 	if err != nil {
-		fmt.Fprintln(c.c.App.ErrWriter, err)
-		cli.OsExiter(1)
-		return nil
+		return err
 	}
 
 	setRaw := func(isRaw bool) error {
@@ -792,9 +782,7 @@ func (c *AppClient) StartRobotPartShell(
 		return rawMode.Run()
 	}
 	if err := setRaw(true); err != nil {
-		fmt.Fprintln(c.c.App.ErrWriter, err)
-		cli.OsExiter(1)
-		return nil
+		return err
 	}
 	defer func() {
 		utils.UncheckedError(setRaw(false))
@@ -864,7 +852,7 @@ func (c *AppClient) CreateModule(moduleName, organizationID string) (*apppb.Crea
 }
 
 // UpdateModule wraps the grpc UpdateModule request.
-func (c *AppClient) UpdateModule(manifest ModuleManifest, organizationID *string) (*apppb.UpdateModuleResponse, error) {
+func (c *AppClient) UpdateModule(moduleID ModuleID, manifest ModuleManifest) (*apppb.UpdateModuleResponse, error) {
 	if err := c.ensureLoggedIn(); err != nil {
 		return nil, err
 	}
@@ -877,23 +865,21 @@ func (c *AppClient) UpdateModule(manifest ModuleManifest, organizationID *string
 		return nil, err
 	}
 	req := apppb.UpdateModuleRequest{
-		ModuleId:       manifest.Name,
-		OrganizationId: organizationID,
-		Visibility:     visibility,
-		Url:            manifest.URL,
-		Description:    manifest.Description,
-		Models:         models,
-		Entrypoint:     manifest.Entrypoint,
+		ModuleId:    moduleID.toString(),
+		Visibility:  visibility,
+		Url:         manifest.URL,
+		Description: manifest.Description,
+		Models:      models,
+		Entrypoint:  manifest.Entrypoint,
 	}
 	return c.client.UpdateModule(c.c.Context, &req)
 }
 
 // UploadModuleFile wraps the grpc UploadModuleFile request.
 func (c *AppClient) UploadModuleFile(
-	moduleID,
+	moduleID ModuleID,
 	version,
 	platform string,
-	organizationID *string,
 	file *os.File,
 ) (*apppb.UploadModuleFileResponse, error) {
 	if err := c.ensureLoggedIn(); err != nil {
@@ -906,10 +892,9 @@ func (c *AppClient) UploadModuleFile(
 		return nil, err
 	}
 	moduleFileInfo := apppb.ModuleFileInfo{
-		ModuleId:       moduleID,
-		OrganizationId: organizationID,
-		Version:        version,
-		Platform:       platform,
+		ModuleId: moduleID.toString(),
+		Version:  version,
+		Platform: platform,
 	}
 	req := &apppb.UploadModuleFileRequest{
 		ModuleFile: &apppb.UploadModuleFileRequest_ModuleFileInfo{ModuleFileInfo: &moduleFileInfo},
@@ -922,7 +907,7 @@ func (c *AppClient) UploadModuleFile(
 	// We do not add the EOF as an error because all server-side errors trigger an EOF on the stream
 	// This results in extra clutter to the error msg
 	if err := sendModuleUploadRequests(ctx, stream, file, c.c.App.Writer); err != nil && !errors.Is(err, io.EOF) {
-		errs = multierr.Combine(errs, errors.Wrapf(err, "error uploading %s", file.Name()))
+		errs = multierr.Combine(errs, errors.Wrapf(err, "could not upload %s", file.Name()))
 	}
 
 	resp, closeErr := stream.CloseAndRecv()
@@ -956,7 +941,7 @@ func sendModuleUploadRequests(ctx context.Context, stream apppb.AppService_Uploa
 		}
 
 		if err != nil {
-			return errors.Wrap(err, "file reading error")
+			return errors.Wrap(err, "could not read file")
 		}
 
 		if err = stream.Send(uploadReq); err != nil {
@@ -965,7 +950,7 @@ func sendModuleUploadRequests(ctx context.Context, stream apppb.AppService_Uploa
 		uploadedBytes += len(uploadReq.GetFile())
 		// Simple progress reading until we have a proper tui library
 		uploadPercent := int(math.Ceil(100 * float64(uploadedBytes) / float64(fileSize)))
-		fmt.Fprintf(stdout, "\r\aUploading... %d%% (%d/%d bytes)", uploadPercent, uploadedBytes, fileSize)
+		fmt.Fprintf(stdout, "\r\auploading... %d%% (%d/%d bytes)", uploadPercent, uploadedBytes, fileSize)
 	}
 }
 
@@ -994,7 +979,7 @@ func visibilityToProto(visibility ModuleVisibility) (apppb.Visibility, error) {
 		return apppb.Visibility_VISIBILITY_PUBLIC, nil
 	default:
 		return apppb.Visibility_VISIBILITY_UNSPECIFIED,
-			errors.Errorf("Invalid module visibility. Must be either '%s' or '%s'", ModuleVisibilityPublic, ModuleVisibilityPrivate)
+			errors.Errorf("invalid module visibility. must be either %q or %q", ModuleVisibilityPublic, ModuleVisibilityPrivate)
 	}
 }
 

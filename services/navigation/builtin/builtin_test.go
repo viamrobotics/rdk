@@ -1,4 +1,3 @@
-// Package builtin contains the default navigation service, along with a gRPC server and client
 package builtin
 
 import (
@@ -8,6 +7,7 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/test"
 
@@ -134,7 +134,10 @@ func TestStartWaypoint(t *testing.T) {
 	fake, ok := fakeBase.(*fakebase.Base)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	kinematicBase, err := kinematicbase.WrapWithFakeKinematics(ctx, fake, localizer, limits)
+	options := kinematicbase.NewKinematicBaseOptions()
+	options.PositionOnlyMode = false
+
+	kinematicBase, err := kinematicbase.WrapWithFakeKinematics(ctx, fake, localizer, limits, options)
 	test.That(t, err, test.ShouldBeNil)
 
 	injectMovementSensor := inject.NewMovementSensor("test_movement")
@@ -177,7 +180,7 @@ func TestStartWaypoint(t *testing.T) {
 			angularVelocityDegsPerSec float64,
 			extra map[string]interface{},
 		) (bool, error) {
-			err := kinematicBase.GoToInputs(ctx, referenceframe.FloatsToInputs([]float64{destination.Lat(), destination.Lng(), 0}))
+			err := kinematicBase.GoToInputs(ctx, referenceframe.FloatsToInputs([]float64{destination.Lat(), destination.Lng()}))
 			return true, err
 		}
 		pt := geo.NewPoint(1, 0)
@@ -262,7 +265,7 @@ func TestStartWaypoint(t *testing.T) {
 				if msg == arrivedAtWaypointMsg {
 					err = kinematicBase.GoToInputs(
 						ctx,
-						referenceframe.FloatsToInputs([]float64{destination.Lat(), destination.Lng(), 0}),
+						referenceframe.FloatsToInputs([]float64{destination.Lat(), destination.Lng()}),
 					)
 				}
 
@@ -290,15 +293,35 @@ func TestStartWaypoint(t *testing.T) {
 
 			ns.(*builtIn).startWaypoint(ctx, map[string]interface{}{"experimental": true})
 
+			// Get the ID of the first waypoint
+			wp1, err := ns.(*builtIn).store.NextWaypoint(ctx)
+			test.That(t, err, test.ShouldBeNil)
+
 			// Reach the first waypoint
 			eventChannel <- arrivedAtWaypointMsg
 			test.That(t, <-statusChannel, test.ShouldEqual, arrivedAtWaypointMsg)
 			currentInputsShouldEqual(ctx, t, kinematicBase, pt1)
 
+			// Ensure we aren't querying before the nav service has a chance to mark the previous waypoint visited.
+			wp2, err := ns.(*builtIn).store.NextWaypoint(ctx)
+			test.That(t, err, test.ShouldBeNil)
+			for wp2.ID == wp1.ID {
+				wp2, err = ns.(*builtIn).store.NextWaypoint(ctx)
+				test.That(t, err, test.ShouldBeNil)
+			}
+
 			// Skip the second waypoint due to an error
 			eventChannel <- hitAnErrorMsg
 			test.That(t, <-statusChannel, test.ShouldEqual, hitAnErrorMsg)
 			currentInputsShouldEqual(ctx, t, kinematicBase, pt1)
+
+			// Ensure we aren't querying before the nav service has a chance to mark the previous waypoint visited.
+			wp3, err := ns.(*builtIn).store.NextWaypoint(ctx)
+			test.That(t, err, test.ShouldBeNil)
+			for wp3.ID == wp2.ID {
+				wp3, err = ns.(*builtIn).store.NextWaypoint(ctx)
+				test.That(t, err, test.ShouldBeNil)
+			}
 
 			// Reach the third waypoint
 			eventChannel <- arrivedAtWaypointMsg
@@ -345,15 +368,24 @@ func TestStartWaypoint(t *testing.T) {
 			ns.(*builtIn).mode = navigation.ModeManual
 			err = ns.SetMode(ctx, navigation.ModeWaypoint, map[string]interface{}{"experimental": true})
 
+			// Get the ID of the first waypoint
+			wp1, err := ns.(*builtIn).store.NextWaypoint(ctx)
+			test.That(t, err, test.ShouldBeNil)
+
 			// Reach the first waypoint
 			eventChannel <- arrivedAtWaypointMsg
 			test.That(t, <-statusChannel, test.ShouldEqual, arrivedAtWaypointMsg)
 			currentInputsShouldEqual(ctx, t, kinematicBase, pt1)
 
-			// Remove the second waypoint, which is in progress
-			currentWaypoint, err := ns.(*builtIn).store.NextWaypoint(ctx)
+			// Remove the second waypoint, which is in progress. Ensure we aren't querying before the nav service has a chance to mark
+			// the previous waypoint visited.
+			wp2, err := ns.(*builtIn).store.NextWaypoint(ctx)
 			test.That(t, err, test.ShouldBeNil)
-			err = ns.RemoveWaypoint(ctx, currentWaypoint.ID, nil)
+			for wp2.ID == wp1.ID {
+				wp2, err = ns.(*builtIn).store.NextWaypoint(ctx)
+				test.That(t, err, test.ShouldBeNil)
+			}
+			err = ns.RemoveWaypoint(ctx, wp2.ID, nil)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, <-statusChannel, test.ShouldEqual, cancelledContextMsg)
 			currentInputsShouldEqual(ctx, t, kinematicBase, pt1)
@@ -395,5 +427,40 @@ func TestStartWaypoint(t *testing.T) {
 			test.That(t, <-statusChannel, test.ShouldEqual, arrivedAtWaypointMsg)
 			currentInputsShouldEqual(ctx, t, kinematicBase, pt2)
 		})
+	})
+}
+
+func TestValidateGeometry(t *testing.T) {
+	cfg := Config{
+		BaseName:           "base",
+		MovementSensorName: "localizer",
+	}
+
+	createBox := func(translation r3.Vector) Config {
+		boxPose := spatialmath.NewPoseFromPoint(translation)
+		geometries, err := spatialmath.NewBox(boxPose, r3.Vector{10, 10, 10}, "")
+		test.That(t, err, test.ShouldBeNil)
+
+		geoObstacle := spatialmath.NewGeoObstacle(geo.NewPoint(0, 0), []spatialmath.Geometry{geometries})
+		geoObstacleCfg, err := spatialmath.NewGeoObstacleConfig(geoObstacle)
+		test.That(t, err, test.ShouldBeNil)
+
+		cfg.Obstacles = []*spatialmath.GeoObstacleConfig{geoObstacleCfg}
+
+		return cfg
+	}
+
+	t.Run("fail case", func(t *testing.T) {
+		cfg = createBox(r3.Vector{10, 10, 10})
+		_, err := cfg.Validate("")
+		expectedErr := "geometries specified through the navigation are not allowed to have a translation"
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldEqual, expectedErr)
+	})
+
+	t.Run("success case", func(t *testing.T) {
+		cfg = createBox(r3.Vector{})
+		_, err := cfg.Validate("")
+		test.That(t, err, test.ShouldBeNil)
 	})
 }

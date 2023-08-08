@@ -4,7 +4,6 @@ package gripper
 import (
 	"context"
 
-	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/gripper/v1"
 
@@ -50,9 +49,6 @@ type Gripper interface {
 	// This will block until done or a new operation cancels this one
 	Grab(ctx context.Context, extra map[string]interface{}) (bool, error)
 }
-
-// ErrStopUnimplemented is used for when Stop is unimplemented.
-var ErrStopUnimplemented = errors.New("Stop unimplemented")
 
 // FromRobot is a helper for getting the named Gripper from the given Robot.
 func FromRobot(r robot.Robot, name string) (Gripper, error) {
