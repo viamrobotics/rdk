@@ -11,7 +11,7 @@ const clippingPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.1);
 $: flat = $view === '2D';
 
 // This clips against the map so that intersecting objects will not render over the map
-$: renderer!.clippingPlanes = flat ? [] : [clippingPlane];
+$: renderer.clippingPlanes = flat ? [] : [clippingPlane];
 
 </script>
 
