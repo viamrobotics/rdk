@@ -333,16 +333,17 @@ func (lb *limoBase) setMotionCommand(linearVel float64,
 // positive angleDeg spins base left. degsPerSec is a positive angular velocity.
 func (lb *limoBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
 	lb.logger.Debugf("Spin(%f, %f)", angleDeg, degsPerSec)
+	if degsPerSec == 0 {
+		return errors.New("degrees per second must be a positive, non-zero value")
+	}
 	secsToRun := math.Abs(angleDeg / degsPerSec)
 	var err error
 	if lb.driveMode == DIFFERENTIAL.String() || lb.driveMode == OMNI.String() {
-		sign := 0.0
-		if angleDeg < 0 {
-			sign = -1.0
-		} else {
-			sign = 1.0
+		dir := 1.0
+		if math.Signbit(angleDeg) {
+			dir = -1.0
 		}
-		err = lb.SetVelocity(ctx, r3.Vector{}, r3.Vector{Z: sign * degsPerSec}, extra)
+		err = lb.SetVelocity(ctx, r3.Vector{}, r3.Vector{Z: dir * degsPerSec}, extra)
 	} else if lb.driveMode == ACKERMANN.String() {
 		// TODO: this is not the correct math
 		linear := float64(lb.maxLinearVelocity) * (degsPerSec / 360) * math.Pi
