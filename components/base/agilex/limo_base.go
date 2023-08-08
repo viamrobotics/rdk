@@ -15,6 +15,7 @@ import (
 	"github.com/jacobsa/go-serial/serial"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	rdkutils "go.viam.com/rdk/utils"
 	utils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/base"
@@ -22,6 +23,7 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 // default port for limo serial comm.
@@ -333,7 +335,7 @@ func (lb *limoBase) setMotionCommand(linearVel float64,
 // positive angleDeg spins base left. degsPerSec is a positive angular velocity.
 func (lb *limoBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
 	lb.logger.Debugf("Spin(%f, %f)", angleDeg, degsPerSec)
-	if degsPerSec == 0 {
+	if degsPerSec <= 0 {
 		return errors.New("degrees per second must be a positive, non-zero value")
 	}
 	secsToRun := math.Abs(angleDeg / degsPerSec)
@@ -385,7 +387,7 @@ func (lb *limoBase) SetVelocity(ctx context.Context, linear, angular r3.Vector, 
 	defer done()
 
 	// this lb expects angular velocity to be expressed in .001 radians/sec, convert
-	angular.Z = (-angular.Z / 57.2958) * 1000
+	angular.Z = rdkutils.DegToRad(-angular.Z) * 1000
 
 	lb.stateMutex.Lock()
 	lb.state.velocityLinearGoal = linear
