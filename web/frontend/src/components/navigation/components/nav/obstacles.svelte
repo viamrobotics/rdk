@@ -1,15 +1,17 @@
 <script lang='ts'>
 
-import { createEventDispatcher } from 'svelte';
 import LnglatInput from '../input/lnglat.svelte';
 import GeometryInputs from '../input/geometry.svelte';
 import OrientationInput from '../input/orientation.svelte';
-import { obstacles, flyToMap, write, hovered, mapCenter } from '../../stores';
+import { obstacles, write, hovered, mapCenter, zooms, flyToMap } from '../../stores';
 import { createObstacle } from '../../lib/obstacle';
 import type { Geometry, LngLat } from '@/api/navigation';
-    import { OrientationVector } from '@viamrobotics/three';
 
-const dispatch = createEventDispatcher<{ select: LngLat }>();
+const handleSelect = (selection: { name: string; location: LngLat }) => {
+  const zoom = zooms[selection.name];
+  console.log(zoom);
+  flyToMap(selection.location, zoom ? { zoom } : undefined);
+};
 
 const handleAddObstacle = () => {
   $obstacles = [
@@ -74,7 +76,7 @@ const handleGeometryInput = (index: number, geoIndex: number) => {
           variant='icon'
           icon='image-filter-center-focus'
           aria-label="Focus"
-          on:click={() => flyToMap(location)}
+          on:click={() => handleSelect({ name: obstacleName, location })}
         />
 
       </LnglatInput>
@@ -104,8 +106,7 @@ const handleGeometryInput = (index: number, geoIndex: number) => {
             variant='icon'
             icon='image-filter-center-focus'
             aria-label="Focus {obstacleName}"
-            on:click
-            on:click={() => dispatch('select', location)}
+            on:click={() => handleSelect({ name: obstacleName, location })}
           />
         </div>
       </div>
