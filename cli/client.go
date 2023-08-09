@@ -455,61 +455,6 @@ func (c *appClient) copyRPCOpts() []rpc.DialOption {
 	return rpcOpts
 }
 
-func (c *appClient) ensureLoggedIn() error {
-	if c.client != nil {
-		return nil
-	}
-
-	if c.conf.Auth == nil {
-		return errors.New("not logged in: run the following command to login:\n\tviam login")
-	}
-
-	if c.conf.Auth.isExpired() {
-		if !c.conf.Auth.canRefresh() {
-			utils.UncheckedError(c.logout())
-			return errors.New("token expired and cannot refresh")
-		}
-
-		// expired.
-		newToken, err := c.authFlow.refreshToken(c.c.Context, c.conf.Auth)
-		if err != nil {
-			utils.UncheckedError(c.logout()) // clear cache if failed to refresh
-			return errors.Wrapf(err, "error while refreshing token")
-		}
-
-		// write token to config.
-		c.conf.Auth = newToken
-		if err := storeConfigToCache(c.conf); err != nil {
-			return err
-		}
-	}
-
-	rpcOpts := append(c.copyRPCOpts(), rpc.WithStaticAuthenticationMaterial(c.conf.Auth.AccessToken))
-
-	conn, err := rpc.DialDirectGRPC(
-		c.c.Context,
-		c.baseURL.Host,
-		nil,
-		rpcOpts...,
-	)
-	if err != nil {
-		return err
-	}
-
-	c.client = apppb.NewAppServiceClient(conn)
-	c.dataClient = datapb.NewDataServiceClient(conn)
-	return nil
-}
-
-// logout logs out the client and clears the config.
-func (c *appClient) logout() error {
-	if err := removeConfigFromCache(); err != nil && !os.IsNotExist(err) {
-		return err
-	}
-	c.conf = &config{}
-	return nil
-}
-
 func (c *appClient) loadOrganizations() error {
 	resp, err := c.client.ListOrganizations(c.c.Context, &apppb.ListOrganizationsRequest{})
 	if err != nil {
@@ -824,43 +769,6 @@ func (c *appClient) tailRobotPartLogs(orgStr, locStr, robotStr, partStr string, 
 		}
 		c.printRobotPartLogsInner(resp.Logs, indent)
 	}
-}
-
-func (c *appClient) prepareDial(
-	orgStr, locStr, robotStr, partStr string,
-	debug bool,
-) (context.Context, string, []rpc.DialOption, error) {
-	if err := c.ensureLoggedIn(); err != nil {
-		return nil, "", nil, err
-	}
-	if err := c.selectOrganization(orgStr); err != nil {
-		return nil, "", nil, err
-	}
-	if err := c.selectLocation(locStr); err != nil {
-		return nil, "", nil, err
-	}
-
-	part, err := c.robotPart(c.selectedOrg.Id, c.selectedLoc.Id, robotStr, partStr)
-	if err != nil {
-		return nil, "", nil, err
-	}
-
-	rpcDialer := rpc.NewCachedDialer()
-	defer func() {
-		utils.UncheckedError(rpcDialer.Close())
-	}()
-	dialCtx := rpc.ContextWithDialer(c.c.Context, rpcDialer)
-
-	rpcOpts := append(c.copyRPCOpts(),
-		rpc.WithExternalAuth(c.baseURL.Host, part.Fqdn),
-		rpc.WithStaticExternalAuthenticationMaterial(c.conf.Auth.AccessToken),
-	)
-
-	if debug {
-		rpcOpts = append(rpcOpts, rpc.WithDialDebug())
-	}
-
-	return dialCtx, part.Fqdn, rpcOpts, nil
 }
 
 func (c *appClient) runRobotPartCommand(

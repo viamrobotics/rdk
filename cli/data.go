@@ -84,11 +84,11 @@ func DataExportAction(c *cli.Context) error {
 
 	switch c.String(DataFlagDataType) {
 	case dataTypeBinary:
-		if err := client.BinaryData(c.Path(DataFlagDestination), filter, c.Uint(DataFlagParallelDownloads)); err != nil {
+		if err := client.binaryData(c.Path(DataFlagDestination), filter, c.Uint(DataFlagParallelDownloads)); err != nil {
 			return err
 		}
 	case dataTypeTabular:
-		if err := client.TabularData(c.Path(DataFlagDestination), filter); err != nil {
+		if err := client.tabularData(c.Path(DataFlagDestination), filter); err != nil {
 			return err
 		}
 	default:
@@ -205,7 +205,7 @@ func createDataFilter(c *cli.Context) (*datapb.Filter, error) {
 }
 
 // BinaryData downloads binary data matching filter to dst.
-func (c *appClient) BinaryData(dst string, filter *datapb.Filter, parallelDownloads uint) error {
+func (c *appClient) binaryData(dst string, filter *datapb.Filter, parallelDownloads uint) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
@@ -408,8 +408,8 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 	return nil
 }
 
-// TabularData downloads binary data matching filter to dst.
-func (c *appClient) TabularData(dst string, filter *datapb.Filter) error {
+// tabularData downloads binary data matching filter to dst.
+func (c *appClient) tabularData(dst string, filter *datapb.Filter) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
