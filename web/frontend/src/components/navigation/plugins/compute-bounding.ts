@@ -1,23 +1,8 @@
 import * as THREE from 'three';
 import { injectPlugin } from '@threlte/core';
-import { zooms } from '../stores';
+import { boundingRadius } from '../stores';
 
 type Props = { computeBounding: string }
-
-const scaleAndInvert = (input: number): number => {
-  const upperBoundMeters = 40_075_000;
-  // Ensure input is within the range of 1 to upperBoundMeters
-  const clampedInput = Math.min(Math.max(input, 1), upperBoundMeters);
-
-  // Scale the clamped input to the output range of 2 to 22
-  const scaledOutput = (clampedInput - 1) / (upperBoundMeters - 1) * (22 - 2) + 2;
-
-
-  // Invert the scaled output
-  const invertedOutput = 22 - scaledOutput;
-
-  return invertedOutput;
-};
 
 export const computeBoundingPlugin = () => injectPlugin<Props>('computeBounding', ({ ref, props }) => {
   let currentRef: THREE.BufferGeometry = ref;
@@ -32,7 +17,7 @@ export const computeBoundingPlugin = () => injectPlugin<Props>('computeBounding'
     const radius = currentRef.boundingSphere?.radius;
 
     if (radius) {
-      zooms[currentProps.computeBounding] = scaleAndInvert(radius);
+      boundingRadius[currentProps.computeBounding] = radius;
     }
   };
 
@@ -42,7 +27,7 @@ export const computeBoundingPlugin = () => injectPlugin<Props>('computeBounding'
       handleChange();
 
       return () => {
-        delete zooms[currentProps.computeBounding];
+        delete boundingRadius[currentProps.computeBounding];
       };
     },
     onPropsChange (nextProps) {

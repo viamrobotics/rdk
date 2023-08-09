@@ -1,8 +1,7 @@
 <script lang='ts'>
 
 import { onMount } from 'svelte';
-import { type LngLat } from '@/api/navigation';
-import { obstacles, flyToMap, mapCenter, tab, hovered } from '../../stores';
+import { obstacles, mapCenter, tab, hovered } from '../../stores';
 import { createObstacle } from '../../lib/obstacle';
 import ObstaclesTab from './obstacles.svelte';
 import WaypointsTab from './waypoints.svelte';

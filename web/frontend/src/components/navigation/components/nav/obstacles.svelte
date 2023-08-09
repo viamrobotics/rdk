@@ -3,13 +3,15 @@
 import LnglatInput from '../input/lnglat.svelte';
 import GeometryInputs from '../input/geometry.svelte';
 import OrientationInput from '../input/orientation.svelte';
-import { obstacles, write, hovered, mapCenter, zooms, flyToMap } from '../../stores';
+import { obstacles, write, hovered, mapCenter, boundingRadius, map } from '../../stores';
 import { createObstacle } from '../../lib/obstacle';
 import type { Geometry, LngLat } from '@/api/navigation';
+import { calculateBoundingBox } from '../../lib/bounding-box';
 
 const handleSelect = (selection: { name: string; location: LngLat }) => {
-  const zoom = zooms[selection.name];
-  flyToMap(selection.location, zoom ? { zoom } : undefined);
+  const zoom = boundingRadius[selection.name]!;
+  const bb = calculateBoundingBox(zoom, selection.location);
+  map.current?.fitBounds(bb, { duration: 800, curve: 0.1 });
 };
 
 const handleAddObstacle = () => {

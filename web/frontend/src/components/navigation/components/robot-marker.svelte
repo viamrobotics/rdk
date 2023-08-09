@@ -19,8 +19,10 @@ const updateLocation = async () => {
   try {
     const { latitude, longitude } = await navClient.getLocation();
 
-    // todo(micheal parks) - This should be abstracted into the TS SDK to return response | null based on this logic.
-    // returning NaN here is non-typical
+    /*
+     * todo(micheal parks) - This should be abstracted into the TS SDK to return response | null based on this logic.
+     * returning NaN here is non-typical
+     */
     if (
       typeof latitude !== 'number' ||
       typeof longitude !== 'number' ||

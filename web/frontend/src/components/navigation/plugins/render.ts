@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { injectPlugin, useFrame, useRender, useThrelte } from '@threlte/core';
 import { MercatorCoordinate, type LngLat, LngLatBounds } from 'maplibre-gl';
 import { AxesHelper } from 'trzy';
-import { map, cameraMatrix, mapSize, zooms } from '../stores';
+import { map, cameraMatrix, mapSize } from '../stores';
 import { onDestroy } from 'svelte';
 
 const { clamp } = THREE.MathUtils;
@@ -166,10 +166,6 @@ export const renderPlugin = () => injectPlugin<Props>('lnglat', ({ ref, props })
       if (currentProps.lnglat) {
         updateModelMatrix(currentProps.lnglat, currentProps.altitude);
       }
-
-      return () => {
-        delete zooms[currentRef.name];
-      };
     },
     onPropsChange (nextProps) {
       currentProps = nextProps;
