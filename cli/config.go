@@ -42,5 +42,5 @@ func storeConfigToCache(cfg *config) error {
 }
 
 type config struct {
-	Auth *Token `json:"auth"`
+	Auth *token `json:"auth"`
 }

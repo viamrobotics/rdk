@@ -168,7 +168,7 @@ func UpdateModuleAction(c *cli.Context) error {
 			}
 			fmt.Fprintf(c.App.Writer, "\nupdated meta.json to use the public namespace of %q which is %q\n",
 				org.Name, org.PublicNamespace)
-			Infof(c.App.Writer, "you no longer need to specify org-id or public-namespace")
+			infof(c.App.Writer, "you no longer need to specify org-id or public-namespace")
 		}
 	}
 	return nil

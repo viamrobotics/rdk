@@ -338,7 +338,7 @@ func RobotPartRunAction(c *cli.Context) error {
 
 // RobotPartShellAction is the corresponding Action for 'robot part shell'.
 func RobotPartShellAction(c *cli.Context) error {
-	Infof(c.App.Writer, "ensure robot part has a valid shell type service")
+	infof(c.App.Writer, "ensure robot part has a valid shell type service")
 
 	client, err := newAppClient(c)
 	if err != nil {

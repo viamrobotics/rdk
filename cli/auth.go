@@ -78,8 +78,8 @@ type tokenResponse struct {
 	TokenType    string `json:"token_type"`
 }
 
-// Token contains an authorization token and details once logged in.
-type Token struct {
+// token contains an authorization token and details once logged in.
+type token struct {
 	AccessToken  string    `json:"access_token"`
 	RefreshToken string    `json:"refresh_token"`
 	IDToken      string    `json:"id_token"`
@@ -98,15 +98,15 @@ func LoginAction(c *cli.Context) error {
 		return err
 	}
 
-	loggedInMessage := func(token *Token, alreadyLoggedIn bool) {
+	loggedInMessage := func(t *token, alreadyLoggedIn bool) {
 		already := "already "
 		if !alreadyLoggedIn {
 			already = ""
-			ViamLogo(c.App.Writer)
+			viamLogo(c.App.Writer)
 		}
 
-		fmt.Fprintf(c.App.Writer, "%slogged in as %q, expires %s\n", already, token.User.Email,
-			token.ExpiresAt.Format("Mon Jan 2 15:04:05 MST 2006"))
+		fmt.Fprintf(c.App.Writer, "%slogged in as %q, expires %s\n", already, t.User.Email,
+			t.ExpiresAt.Format("Mon Jan 2 15:04:05 MST 2006"))
 	}
 
 	if client.conf.Auth != nil && !client.conf.Auth.isExpired() {
@@ -114,22 +114,22 @@ func LoginAction(c *cli.Context) error {
 		return nil
 	}
 
-	var token *Token
+	var t *token
 	if client.conf.Auth != nil && client.conf.Auth.canRefresh() {
-		token, err = client.authFlow.refreshToken(client.c.Context, client.conf.Auth)
+		t, err = client.authFlow.refreshToken(client.c.Context, client.conf.Auth)
 		if err != nil {
 			utils.UncheckedError(client.logout())
 			return err
 		}
 	} else {
-		token, err = client.authFlow.login(client.c.Context)
+		t, err = client.authFlow.login(client.c.Context)
 		if err != nil {
 			return err
 		}
 	}
 
 	// write token to config.
-	client.conf.Auth = token
+	client.conf.Auth = t
 	if err := storeConfigToCache(client.conf); err != nil {
 		return err
 	}
@@ -179,18 +179,18 @@ func WhoAmIAction(c *cli.Context) error {
 	}
 	auth := client.conf.Auth
 	if auth == nil {
-		Warningf(c.App.Writer, "not logged in. run \"login\" command")
+		warningf(c.App.Writer, "not logged in. run \"login\" command")
 		return nil
 	}
 	fmt.Fprintf(c.App.Writer, "%s\n", auth.User.Email)
 	return nil
 }
 
-func (t *Token) isExpired() bool {
+func (t *token) isExpired() bool {
 	return t.ExpiresAt.Before(time.Now().Add(10 * time.Second))
 }
 
-func (t *Token) canRefresh() bool {
+func (t *token) canRefresh() bool {
 	return t.RefreshToken != "" && t.TokenURL != "" && t.ClientID != ""
 }
 
@@ -227,7 +227,7 @@ func newCLIAuthFlowWithAuthDomain(authDomain, audience, clientID string, console
 	}
 }
 
-func (a *authFlow) login(ctx context.Context) (*Token, error) {
+func (a *authFlow) login(ctx context.Context) (*token, error) {
 	discovery, err := a.loadOIDiscoveryEndpoint(ctx)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed retrieving discovery endpoint")
@@ -250,18 +250,18 @@ func (a *authFlow) login(ctx context.Context) (*Token, error) {
 	return buildToken(token, discovery.TokenEndPoint, a.clientID)
 }
 
-func buildToken(token *tokenResponse, tokenURL, clientID string) (*Token, error) {
-	userData, err := userDataFromIDToken(token.IDToken)
+func buildToken(t *tokenResponse, tokenURL, clientID string) (*token, error) {
+	userData, err := userDataFromIDToken(t.IDToken)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Token{
+	return &token{
 		TokenType:    tokenTypeUserOAuthToken,
-		AccessToken:  token.AccessToken,
-		RefreshToken: token.RefreshToken,
-		IDToken:      token.IDToken,
-		ExpiresAt:    time.Now().Add(time.Second * time.Duration(token.ExpiresIn)),
+		AccessToken:  t.AccessToken,
+		RefreshToken: t.RefreshToken,
+		IDToken:      t.IDToken,
+		ExpiresAt:    time.Now().Add(time.Second * time.Duration(t.ExpiresIn)),
 		User:         *userData,
 		TokenURL:     tokenURL,
 		ClientID:     clientID,
@@ -307,7 +307,7 @@ func (a *authFlow) makeDeviceCodeRequest(ctx context.Context, discovery *openIDD
 }
 
 func (a *authFlow) directUser(code *deviceCodeResponse) error {
-	Infof(a.console, `you can log into Viam through the opened browser window or follow the URL below.
+	infof(a.console, `you can log into Viam through the opened browser window or follow the URL below.
 ensure the code in the URL matches the one shown in your browser.
   %s`, code.VerificationURIComplete)
 
@@ -423,13 +423,13 @@ func userDataFromIDToken(token string) (*userData, error) {
 	return &userData, nil
 }
 
-func (a *authFlow) refreshToken(ctx context.Context, token *Token) (*Token, error) {
+func (a *authFlow) refreshToken(ctx context.Context, t *token) (*token, error) {
 	data := url.Values{}
-	data.Set("client_id", token.ClientID)
+	data.Set("client_id", t.ClientID)
 	data.Set("grant_type", "refresh_token")
-	data.Set("refresh_token", token.RefreshToken)
+	data.Set("refresh_token", t.RefreshToken)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, token.TokenURL, strings.NewReader(data.Encode()))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, t.TokenURL, strings.NewReader(data.Encode()))
 	if err != nil {
 		return nil, err
 	}
@@ -449,7 +449,7 @@ func (a *authFlow) refreshToken(ctx context.Context, token *Token) (*Token, erro
 		return nil, errors.New("expecting new token")
 	}
 
-	return buildToken(resp, token.TokenURL, token.ClientID)
+	return buildToken(resp, t.TokenURL, t.ClientID)
 }
 
 func processTokenResponse(res *http.Response) (*tokenResponse, error) {
