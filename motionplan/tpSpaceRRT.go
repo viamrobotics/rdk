@@ -248,11 +248,11 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 	relPose := spatialmath.Compose(spatialmath.PoseInverse(nearest.Pose()), randPosNode.Pose())
 
 	// Convert cartesian distance to tp-space using inverse curPtg, yielding TP-space coordinates goalK and goalD
-	nodes := curPtg.CToTP(ctx, relPose)
-	bestNode, bestDist := mp.closestNode(relPose, nodes, mp.algOpts.dupeNodeBuffer)
-	if bestNode == nil {
-		return nil, nil
+	bestNode, err := curPtg.CToTP(ctx, relPose)
+	if err != nil {
+		return nil, err
 	}
+	bestDist := mp.planOpts.DistanceFunc(&Segment{StartPosition: relPose, EndPosition: bestNode.Pose})
 	goalAlpha := bestNode.Alpha
 	goalD := bestNode.Dist
 	// Check collisions along this traj and get the longest distance viable
@@ -269,16 +269,13 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 	isLastNode := true
 	// Check each point along the trajectory to confirm constraints are met
 	for _, trajPt := range trajK {
-		if trajPt.Dist > goalD {
-			// After we've passed randD, no need to keep checking, just add to RRT tree
-			isLastNode = false
-			break
-		}
+
 		sinceLastCollideCheck += (trajPt.Dist - lastDist)
 		trajState := &State{Position: spatialmath.Compose(nearest.Pose(), trajPt.Pose), Frame: mp.frame}
 		if sinceLastCollideCheck > planOpts.Resolution {
 			ok, _ := planOpts.CheckStateConstraints(trajState)
 			if !ok {
+				fmt.Println("not ok")
 				return nil, nil
 			}
 			sinceLastCollideCheck = 0.
@@ -436,42 +433,28 @@ func (mp *tpSpaceRRTMotionPlanner) setupTPSpaceOptions() {
 	mp.algOpts = tpOpt
 }
 
-// closestNode will look through a set of nodes and return the one that is closest to a given pose
-// A minimum distance may be passed beyond which nodes are disregarded.
-func (mp *tpSpaceRRTMotionPlanner) closestNode(pose spatialmath.Pose, nodes []*tpspace.TrajNode, min float64) (*tpspace.TrajNode, float64) {
-	var bestNode *tpspace.TrajNode
-	bestDist := math.Inf(1)
-	for _, tNode := range nodes {
-		if tNode.Dist < min {
-			continue
-		}
-		dist := mp.planOpts.DistanceFunc(&Segment{StartPosition: pose, EndPosition: tNode.Pose})
-		if dist < bestDist {
-			bestNode = tNode
-			bestDist = dist
-		}
-	}
-	return bestNode, bestDist
-}
-
 // make2DTPSpaceDistanceOptions will create a plannerOptions object with a custom DistanceFunc constructed such that
 // distances can be computed in TP space using the given PTG.
 func (mp *tpSpaceRRTMotionPlanner) make2DTPSpaceDistanceOptions(ptg tpspace.PTG, min float64) *plannerOptions {
 	opts := newBasicPlannerOptions()
 
-	segMet := func(seg *Segment) float64 {
+	segMetric := func(seg *Segment) float64 {
 		if seg.StartPosition == nil || seg.EndPosition == nil {
 			return math.Inf(1)
 		}
 		relPose := spatialmath.Compose(spatialmath.PoseInverse(seg.StartPosition), seg.EndPosition)
-		nodes := ptg.CToTP(context.Background(), relPose)
-		closeNode, _ := mp.closestNode(relPose, nodes, min)
+		closeNode, err := ptg.CToTP(context.Background(), relPose)
+		if err != nil {
+			return math.Inf(1)
+		}
+		closeDist := mp.planOpts.DistanceFunc(&Segment{StartPosition: relPose, EndPosition: closeNode.Pose})
+		fmt.Println("close", closeNode.Pose.Point(), closeDist)
 		if closeNode == nil {
 			return math.Inf(1)
 		}
-		return closeNode.Dist
+		return closeDist
 	}
-	opts.DistanceFunc = segMet
+	opts.DistanceFunc = segMetric
 	return opts
 }
 

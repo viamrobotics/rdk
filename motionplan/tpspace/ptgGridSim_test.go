@@ -6,14 +6,6 @@ import (
 	"go.viam.com/test"
 )
 
-var defaultPTGs = []func(float64, float64, float64) PrecomputePTG{
-	NewCirclePTG,
-	NewCCPTG,
-	NewCCSPTG,
-	NewCSPTG,
-	NewAlphaPTG,
-}
-
 var (
 	defaultMps    = 0.3
 	turnRadMeters = 0.3

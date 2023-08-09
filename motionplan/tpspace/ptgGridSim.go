@@ -62,7 +62,7 @@ func NewPTGGridSim(simPTG PrecomputePTG, arcs uint, simDist float64) (PTG, error
 	return ptg, nil
 }
 
-func (ptg *ptgGridSim) CToTP(ctx context.Context, pose spatialmath.Pose) []*TrajNode {
+func (ptg *ptgGridSim) CToTP(ctx context.Context, pose spatialmath.Pose) (*TrajNode, error) {
 	
 	point := pose.Point()
 	x := point.X
@@ -80,13 +80,21 @@ func (ptg *ptgGridSim) CToTP(ctx context.Context, pose spatialmath.Pose) []*Traj
 		}
 	}
 
-	if len(nearbyNodes) > 0 {
-		return nearbyNodes
-	}
-
 	// Try to find a closest point to the paths:
 	bestDist := math.Inf(1)
 	var bestNode *TrajNode
+
+	if len(nearbyNodes) > 0 {
+		for _, nearbyNode := range nearbyNodes {
+			distToPoint := math.Pow(nearbyNode.ptX-x, 2) + math.Pow(nearbyNode.ptY-y, 2)
+			if distToPoint < bestDist {
+				bestDist = distToPoint
+
+				bestNode = nearbyNode
+			}
+		}
+		return bestNode, nil
+	}
 
 	for k := 0; k < int(ptg.alphaCnt); k++ {
 		nMax := len(ptg.precomputeTraj[k]) - 1
@@ -101,7 +109,7 @@ func (ptg *ptgGridSim) CToTP(ctx context.Context, pose spatialmath.Pose) []*Traj
 	}
 
 	if bestNode != nil {
-		return []*TrajNode{bestNode}
+		return bestNode, nil
 	}
 
 	// Given a point (x,y), compute the "k_closest" whose extrapolation
@@ -119,7 +127,7 @@ func (ptg *ptgGridSim) CToTP(ctx context.Context, pose spatialmath.Pose) []*Traj
 		}
 	}
 
-	return []*TrajNode{bestNode}
+	return bestNode, nil
 }
 
 func (ptg *ptgGridSim) RefDistance() float64 {
@@ -147,82 +155,26 @@ func (ptg *ptgGridSim) Trajectory(alpha, dist float64) ([]*TrajNode, error) {
 }
 
 func (ptg *ptgGridSim) simulateTrajectories(simPtg PrecomputePTG) ([][]*TrajNode, error) {
-	xMin := 500.0
-	xMax := -500.0
-	yMin := 500.0
-	yMax := -500.0
-
 	// C-space path structure
 	allTraj := make([][]*TrajNode, 0, ptg.alphaCnt)
 
 	for k := uint(0); k < ptg.alphaCnt; k++ {
 		alpha := index2alpha(k, ptg.alphaCnt)
-
-		// Initialize trajectory with an all-zero node
-		alphaTraj := []*TrajNode{{Pose: spatialmath.NewZeroPose()}}
-
-		var err error
-		var w float64
-		var v float64
-		var x float64
-		var y float64
-		var phi float64
-		var t float64
-		var dist float64
-
-		// Last saved waypoints
-		accumulatedHeadingChange := 0.
-
-		lastVs := [2]float64{0, 0}
-		lastWs := [2]float64{0, 0}
-
-		// Step through each time point for this alpha
-		for t < ptg.maxTime && dist < ptg.refDist && accumulatedHeadingChange < defaultMaxHeadingChange {
-			v, w, err = simPtg.PTGVelocities(alpha, t, x, y, phi)
-			if err != nil {
-				return nil, err
+		
+		alphaTraj, err := ComputePTG(alpha, simPtg, ptg.maxTime, ptg.refDist, ptg.diffT)
+		if err != nil {
+			return nil, err
+		}
+		
+		for _, tNode := range alphaTraj {
+			gridX := int(math.Round(tNode.ptX))
+			gridY := int(math.Round(tNode.ptY))
+			// Discretize into a grid for faster lookups later
+			if _, ok := ptg.trajNodeGrid[gridX]; !ok {
+				ptg.trajNodeGrid[gridX] = map[int][]*TrajNode{}
 			}
-			lastVs[1] = lastVs[0]
-			lastWs[1] = lastWs[0]
-			lastVs[0] = v
-			lastWs[0] = w
-
-			// finite difference eq
-			x += math.Cos(phi) * v * ptg.diffT
-			y += math.Sin(phi) * v * ptg.diffT
-			phi += w * ptg.diffT
-			accumulatedHeadingChange += w * ptg.diffT
-
-			dist += v * ptg.diffT
-			t += ptg.diffT
-
-			// Update velocities of last node because reasons
-			alphaTraj[len(alphaTraj)-1].LinVelMMPS = v
-			alphaTraj[len(alphaTraj)-1].AngVelRPS = w
-
-			pose := xythetaToPose(x, y, phi)
-			alphaTraj = append(alphaTraj, &TrajNode{pose, t, dist, alpha, v, w, pose.Point().X, pose.Point().Y})
-
-			// For the grid!
-			xMin = math.Min(xMin, x)
-			xMax = math.Max(xMax, x)
-			yMin = math.Min(yMin, y)
-			yMax = math.Max(yMax, y)
+			ptg.trajNodeGrid[gridX][gridY] = append(ptg.trajNodeGrid[gridX][gridY], tNode)
 		}
-
-		// Add final node
-		alphaTraj[len(alphaTraj)-1].LinVelMMPS = v
-		alphaTraj[len(alphaTraj)-1].AngVelRPS = w
-		pose := xythetaToPose(x, y, phi)
-		tNode := &TrajNode{pose, t, dist, alpha, v, w, pose.Point().X, pose.Point().Y}
-
-		// Discretize into a grid for faster lookups later
-		if _, ok := ptg.trajNodeGrid[int(math.Round(x))]; !ok {
-			ptg.trajNodeGrid[int(math.Round(x))] = map[int][]*TrajNode{}
-		}
-		ptg.trajNodeGrid[int(math.Round(x))][int(math.Round(y))] = append(ptg.trajNodeGrid[int(math.Round(x))][int(math.Round(y))], tNode)
-
-		alphaTraj = append(alphaTraj, tNode)
 
 		allTraj = append(allTraj, alphaTraj)
 	}

@@ -13,20 +13,18 @@ import (
 type ptgDiffDriveCC struct {
 	maxMMPS float64 // millimeters per second velocity to target
 	maxRPS  float64 // radians per second of rotation when driving at maxMMPS and turning at max turning radius
-	k       float64 // k = +1 for forwards, -1 for backwards
 	
 	circle *ptgDiffDriveC
 }
 
 // NewCCPTG creates a new PrecomputePTG of type ptgDiffDriveCC.
-func NewCCPTG(maxMMPS, maxRPS, k float64) PrecomputePTG {
+func NewCCPTG(maxMMPS, maxRPS float64) PrecomputePTG {
 	
-	circle := NewCirclePTG(maxMMPS, maxRPS, k).(*ptgDiffDriveC)
+	circle := NewCirclePTG(maxMMPS, maxRPS).(*ptgDiffDriveC)
 	
 	return &ptgDiffDriveCC{
 		maxMMPS: maxMMPS,
 		maxRPS:  maxRPS,
-		k:       k,
 		circle: circle,
 	}
 }
@@ -34,7 +32,8 @@ func NewCCPTG(maxMMPS, maxRPS, k float64) PrecomputePTG {
 // For this particular driver, turns alpha into a linear + angular velocity. Linear is just max * fwd/back.
 // Note that this will NOT work as-is for 0-radius turning. Robots capable of turning in place will need to be special-cased
 // because they will have zero linear velocity through their turns, not max.
-func (ptg *ptgDiffDriveCC) PTGVelocities(alpha, t, x, y, phi float64) (float64, float64, error) {
+func (ptg *ptgDiffDriveCC) PTGVelocities(alpha, dist, x, y, phi float64) (float64, float64, error) {
+	k := math.Copysign(1.0, dist)
 	r := ptg.maxMMPS / ptg.maxRPS
 
 	u := math.Abs(alpha) * 0.5
@@ -42,11 +41,11 @@ func (ptg *ptgDiffDriveCC) PTGVelocities(alpha, t, x, y, phi float64) (float64, 
 	v := 0.
 	w := 0.
 
-	if t < u*r/ptg.maxMMPS {
+	if dist < u*r {
 		// l-
 		v = -ptg.maxMMPS
 		w = ptg.maxRPS
-	} else if t < (u+math.Pi*0.5)*r/ptg.maxMMPS {
+	} else if dist < (u+math.Pi*0.5)*r {
 		// l+
 		v = ptg.maxMMPS
 		w = ptg.maxRPS
@@ -57,8 +56,8 @@ func (ptg *ptgDiffDriveCC) PTGVelocities(alpha, t, x, y, phi float64) (float64, 
 		w *= -1
 	}
 
-	v *= ptg.k
-	w *= ptg.k
+	v *= k
+	w *= k
 
 	return v, w, nil
 }

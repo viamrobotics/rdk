@@ -16,7 +16,6 @@ const (
 type ptgDiffDriveCS struct {
 	maxMMPS float64 // millimeters per second velocity to target
 	maxRPS  float64 // radians per second of rotation when driving at maxMMPS and turning at max turning radius
-	k       float64 // k = +1 for forwards, -1 for backwards
 	
 	r       float64 // turning radius
 	turnStraight float64
@@ -24,14 +23,13 @@ type ptgDiffDriveCS struct {
 }
 
 // NewCSPTG creates a new PrecomputePTG of type ptgDiffDriveCS.
-func NewCSPTG(maxMMPS, maxRPS, k float64) PrecomputePTG {
+func NewCSPTG(maxMMPS, maxRPS float64) PrecomputePTG {
 	r := maxMMPS / maxRPS
 	turnStraight := 1.2 * r
-	circle := NewCirclePTG(maxMMPS, maxRPS, k).(*ptgDiffDriveC)
+	circle := NewCirclePTG(maxMMPS, maxRPS).(*ptgDiffDriveC)
 	return &ptgDiffDriveCS{
 		maxMMPS: maxMMPS,
 		maxRPS:  maxRPS,
-		k:       k,
 		r: r,
 		turnStraight: turnStraight,
 		circle: circle,
@@ -41,14 +39,15 @@ func NewCSPTG(maxMMPS, maxRPS, k float64) PrecomputePTG {
 // For this particular driver, turns alpha into a linear + angular velocity. Linear is just max * fwd/back.
 // Note that this will NOT work as-is for 0-radius turning. Robots capable of turning in place will need to be special-cased
 // because they will have zero linear velocity through their turns, not max.
-func (ptg *ptgDiffDriveCS) PTGVelocities(alpha, t, x, y, phi float64) (float64, float64, error) {
+func (ptg *ptgDiffDriveCS) PTGVelocities(alpha, dist, x, y, phi float64) (float64, float64, error) {
 	// Magic number; rotate this much before going straight
-	turnSecs := math.Sqrt(math.Abs(alpha)) * ptg.turnStraight / ptg.maxMMPS
+	turnDist := math.Sqrt(math.Abs(alpha)) * ptg.turnStraight
+	k := math.Copysign(1.0, dist)
 
 	v := ptg.maxMMPS
 	w := 0.
 
-	if t < turnSecs {
+	if dist < turnDist {
 		// l+
 		v = ptg.maxMMPS
 		w = ptg.maxRPS * math.Min(1.0, 1.0-math.Exp(-1*alpha*alpha))
@@ -59,8 +58,8 @@ func (ptg *ptgDiffDriveCS) PTGVelocities(alpha, t, x, y, phi float64) (float64, 
 		w *= -1
 	}
 
-	v *= ptg.k
-	w *= ptg.k
+	v *= k
+	w *= k
 	return v, w, nil
 }
 

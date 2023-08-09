@@ -17,8 +17,8 @@ const floatEpsilon = 0.0001 // If floats are closer than this consider them equa
 // PTG coordinates are specified in polar coordinates (alpha, d)
 // One of these is needed for each sort of motion that can be done.
 type PTG interface {
-	// CToTP Converts a pose to a (k, d) TP-space trajectory, returning the set of trajectory nodes leading to that pose
-	CToTP(context.Context, spatialmath.Pose) []*TrajNode
+	// CToTP Converts a pose to a (k, d) TP-space trajectory, returning the node closest to that pose
+	CToTP(context.Context, spatialmath.Pose) (*TrajNode, error)
 
 	// RefDistance returns the maximum distance that a single trajectory may travel
 	RefDistance() float64
@@ -37,7 +37,7 @@ type PTGProvider interface {
 // PrecomputePTG is a precomputable PTG.
 type PrecomputePTG interface {
 	// PTGVelocities returns the linear and angular velocity at a specific point along a trajectory
-	PTGVelocities(alpha, t, x, y, phi float64) (float64, float64, error)
+	PTGVelocities(alpha, dist, x, y, phi float64) (float64, float64, error)
 	Transform([]referenceframe.Input) (spatialmath.Pose, error)
 }
 
@@ -68,8 +68,9 @@ func index2alpha(k, numPaths uint) float64 {
 }
 
 func alpha2index(alpha float64, numPaths uint) uint {
-	alpha = wrapTo2Pi(alpha)
-	return uint(math.Round(0.5 * (float64(numPaths)*(1.0+alpha/math.Pi) - 1.0)))
+	alpha = wrapTo2Pi(alpha + math.Pi) - math.Pi
+	idx := uint(math.Round(0.5 * (float64(numPaths)*(1.0+alpha/math.Pi) - 1.0)))
+	return idx
 }
 
 // Returns a given angle in the [0, 2pi) range.
@@ -79,4 +80,68 @@ func wrapTo2Pi(theta float64) float64 {
 
 func xythetaToPose(x, y, theta float64) spatialmath.Pose {
 	return spatialmath.NewPose(r3.Vector{x, y, 0}, &spatialmath.OrientationVector{OZ: 1, Theta: theta})
+}
+
+func ComputePTG(
+	alpha float64,
+	simPtg PrecomputePTG,
+	maxTime, refDist, diffT float64,
+	
+) ([]*TrajNode, error) {
+	// Initialize trajectory with an all-zero node
+	alphaTraj := []*TrajNode{{Pose: spatialmath.NewZeroPose()}}
+
+	var err error
+	var w float64
+	var v float64
+	var x float64
+	var y float64
+	var phi float64
+	var t float64
+	dist := math.Abs(v) * diffT
+
+	// Last saved waypoints
+	accumulatedHeadingChange := 0.
+
+	lastVs := [2]float64{0, 0}
+	lastWs := [2]float64{0, 0}
+
+	// Step through each time point for this alpha
+	for t < maxTime && dist < refDist && accumulatedHeadingChange < defaultMaxHeadingChange {
+		
+		v, w, err = simPtg.PTGVelocities(alpha, dist, x, y, phi)
+		if err != nil {
+			return nil, err
+		}
+		lastVs[1] = lastVs[0]
+		lastWs[1] = lastWs[0]
+		lastVs[0] = v
+		lastWs[0] = w
+
+		accumulatedHeadingChange += w * diffT
+
+		t += diffT
+
+		// Update velocities of last node because reasons
+		alphaTraj[len(alphaTraj)-1].LinVelMMPS = v
+		alphaTraj[len(alphaTraj)-1].AngVelRPS = w
+
+		pose, err := simPtg.Transform([]referenceframe.Input{{alpha}, {dist}})
+		if err != nil {
+			return nil, err
+		}
+		alphaTraj = append(alphaTraj, &TrajNode{pose, t, dist, alpha, v, w, pose.Point().X, pose.Point().Y})
+		dist += math.Abs(v) * diffT
+	}
+
+	// Add final node
+	alphaTraj[len(alphaTraj)-1].LinVelMMPS = v
+	alphaTraj[len(alphaTraj)-1].AngVelRPS = w
+	pose, err := simPtg.Transform([]referenceframe.Input{{alpha}, {refDist}})
+	if err != nil {
+		return nil, err
+	}
+	tNode := &TrajNode{pose, t, refDist, alpha, v, w, pose.Point().X, pose.Point().Y}
+	alphaTraj = append(alphaTraj, tNode)
+	return alphaTraj, nil
 }
