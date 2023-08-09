@@ -287,7 +287,6 @@ func (mp *rrtStarConnectMotionPlanner) extend(
 		}
 
 		if newNear != nil {
-
 			neighbors := kNearestNeighbors(mp.planOpts, rrtMap, &basicNode{q: newNear}, mp.algOpts.NeighborhoodSize)
 
 			near = &basicNode{q: newNear, cost: neighbors[0].node.Cost() + neighbors[0].dist}
