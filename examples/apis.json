@@ -52,6 +52,10 @@
     "func": "LinearAcceleration",
     "args": ["context.Background()", "map[string]interface{}{}"]
   },
+  "power_sensor": {
+    "func": "Voltage",
+    "args": ["context.Background()", "map[string]interface{}{}"]
+  },
   "pose_tracker": {
     "func": "Poses",
     "args": []
