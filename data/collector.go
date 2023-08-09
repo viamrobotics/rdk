@@ -33,7 +33,7 @@ type CtxKey string
 const CtxKeyDM = CtxKey("fromDataManagement")
 
 // ErrNoCaptureToStore is returned when a modular filter resource filters the capture coming from the base resource.
-var ErrNoCaptureToStore = errors.New("Do not store capture from filter module")
+var ErrNoCaptureToStore = errors.New("No capture from filter module")
 
 // Collector collects data to some target.
 type Collector interface {
@@ -194,7 +194,7 @@ func (c *collector) getAndPushNextReading() {
 	timeReceived := timestamppb.New(c.clock.Now().UTC())
 	if err != nil {
 		if errors.Is(err, ErrNoCaptureToStore) {
-			// Handle case where capture is filtered out by modular resource.
+			c.logger.Debugln("capture filtered out by modular resource")
 			return
 		}
 		c.captureErrors <- errors.Wrap(err, "error while capturing data")
