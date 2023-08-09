@@ -1,15 +1,19 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/fs"
+	"math"
 	"os"
 	"strings"
 
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
+	"go.uber.org/multierr"
 	apppb "go.viam.com/api/app/v1"
 )
 
@@ -71,7 +75,7 @@ func CreateModuleCommand(c *cli.Context) error {
 		return errors.New("another module's meta.json already exists in the current directory. delete it and try again")
 	}
 
-	response, err := client.CreateModule(moduleNameArg, org.GetId())
+	response, err := client.createModule(moduleNameArg, org.GetId())
 	if err != nil {
 		return errors.Wrap(err, "failed to register the module on app.viam.com")
 	}
@@ -133,7 +137,7 @@ func UpdateModuleCommand(c *cli.Context) error {
 		return err
 	}
 
-	response, err := client.UpdateModule(moduleID, manifest)
+	response, err := client.updateModule(moduleID, manifest)
 	if err != nil {
 		return err
 	}
@@ -231,7 +235,7 @@ func UploadModuleCommand(c *cli.Context) error {
 	if !strings.HasSuffix(file.Name(), ".tar.gz") {
 		return errors.New("you must upload your module in the form of a .tar.gz")
 	}
-	response, err := client.UploadModuleFile(moduleID, versionArg, platformArg, file)
+	response, err := client.uploadModuleFile(moduleID, versionArg, platformArg, file)
 	if err != nil {
 		return err
 	}
@@ -239,6 +243,154 @@ func UploadModuleCommand(c *cli.Context) error {
 	fmt.Fprintf(c.App.Writer, "version successfully uploaded! you can view your changes online here: %s\n", response.GetUrl())
 
 	return nil
+}
+
+func (c *appClient) createModule(moduleName, organizationID string) (*apppb.CreateModuleResponse, error) {
+	if err := c.ensureLoggedIn(); err != nil {
+		return nil, err
+	}
+	req := apppb.CreateModuleRequest{
+		Name:           moduleName,
+		OrganizationId: organizationID,
+	}
+	return c.client.CreateModule(c.c.Context, &req)
+}
+
+func (c *appClient) updateModule(moduleID ModuleID, manifest ModuleManifest) (*apppb.UpdateModuleResponse, error) {
+	if err := c.ensureLoggedIn(); err != nil {
+		return nil, err
+	}
+	var models []*apppb.Model
+	for _, moduleComponent := range manifest.Models {
+		models = append(models, moduleComponentToProto(moduleComponent))
+	}
+	visibility, err := visibilityToProto(manifest.Visibility)
+	if err != nil {
+		return nil, err
+	}
+	req := apppb.UpdateModuleRequest{
+		ModuleId:    moduleID.toString(),
+		Visibility:  visibility,
+		Url:         manifest.URL,
+		Description: manifest.Description,
+		Models:      models,
+		Entrypoint:  manifest.Entrypoint,
+	}
+	return c.client.UpdateModule(c.c.Context, &req)
+}
+
+func (c *appClient) uploadModuleFile(
+	moduleID ModuleID,
+	version,
+	platform string,
+	file *os.File,
+) (*apppb.UploadModuleFileResponse, error) {
+	if err := c.ensureLoggedIn(); err != nil {
+		return nil, err
+	}
+	ctx := c.c.Context
+
+	stream, err := c.client.UploadModuleFile(ctx)
+	if err != nil {
+		return nil, err
+	}
+	moduleFileInfo := apppb.ModuleFileInfo{
+		ModuleId: moduleID.toString(),
+		Version:  version,
+		Platform: platform,
+	}
+	req := &apppb.UploadModuleFileRequest{
+		ModuleFile: &apppb.UploadModuleFileRequest_ModuleFileInfo{ModuleFileInfo: &moduleFileInfo},
+	}
+	if err := stream.Send(req); err != nil {
+		return nil, err
+	}
+
+	var errs error
+	// We do not add the EOF as an error because all server-side errors trigger an EOF on the stream
+	// This results in extra clutter to the error msg
+	if err := sendModuleUploadRequests(ctx, stream, file, c.c.App.Writer); err != nil && !errors.Is(err, io.EOF) {
+		errs = multierr.Combine(errs, errors.Wrapf(err, "could not upload %s", file.Name()))
+	}
+
+	resp, closeErr := stream.CloseAndRecv()
+	errs = multierr.Combine(errs, closeErr)
+	return resp, errs
+}
+
+func sendModuleUploadRequests(ctx context.Context, stream apppb.AppService_UploadModuleFileClient, file *os.File, stdout io.Writer) error {
+	stat, err := file.Stat()
+	if err != nil {
+		return err
+	}
+	fileSize := stat.Size()
+	uploadedBytes := 0
+	// Close the line with the progress reading
+	defer fmt.Fprint(stdout, "\n")
+
+	//nolint:errcheck
+	defer stream.CloseSend()
+	// Loop until there is no more content to be read from file or the context expires.
+	for {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		// Get the next UploadRequest from the file.
+		uploadReq, err := getNextModuleUploadRequest(file)
+
+		// EOF means we've completed successfully.
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
+
+		if err != nil {
+			return errors.Wrap(err, "could not read file")
+		}
+
+		if err = stream.Send(uploadReq); err != nil {
+			return err
+		}
+		uploadedBytes += len(uploadReq.GetFile())
+		// Simple progress reading until we have a proper tui library
+		uploadPercent := int(math.Ceil(100 * float64(uploadedBytes) / float64(fileSize)))
+		fmt.Fprintf(stdout, "\r\auploading... %d%% (%d/%d bytes)", uploadPercent, uploadedBytes, fileSize)
+	}
+}
+
+func getNextModuleUploadRequest(file *os.File) (*apppb.UploadModuleFileRequest, error) {
+	// get the next chunk of bytes from the file
+	byteArr := make([]byte, moduleUploadChunkSize)
+	numBytesRead, err := file.Read(byteArr)
+	if err != nil {
+		return nil, err
+	}
+	if numBytesRead < moduleUploadChunkSize {
+		byteArr = byteArr[:numBytesRead]
+	}
+	return &apppb.UploadModuleFileRequest{
+		ModuleFile: &apppb.UploadModuleFileRequest_File{
+			File: byteArr,
+		},
+	}, nil
+}
+
+func visibilityToProto(visibility ModuleVisibility) (apppb.Visibility, error) {
+	switch visibility {
+	case ModuleVisibilityPrivate:
+		return apppb.Visibility_VISIBILITY_PRIVATE, nil
+	case ModuleVisibilityPublic:
+		return apppb.Visibility_VISIBILITY_PUBLIC, nil
+	default:
+		return apppb.Visibility_VISIBILITY_UNSPECIFIED,
+			errors.Errorf("invalid module visibility. must be either %q or %q", ModuleVisibilityPublic, ModuleVisibilityPrivate)
+	}
+}
+
+func moduleComponentToProto(moduleComponent ModuleComponent) *apppb.Model {
+	return &apppb.Model{
+		Api:   moduleComponent.API,
+		Model: moduleComponent.Model,
+	}
 }
 
 func parseModuleID(moduleName string) (ModuleID, error) {
@@ -321,7 +473,7 @@ func resolveOrg(client *appClient, publicNamespace, orgID string) (*apppb.Organi
 		if !isValidOrgID(orgID) {
 			return nil, errors.Errorf("provided org-id %q is not a valid org-id", orgID)
 		}
-		org, err := client.GetOrg(orgID)
+		org, err := client.getOrg(orgID)
 		if err != nil {
 			return nil, err
 		}
@@ -331,7 +483,7 @@ func resolveOrg(client *appClient, publicNamespace, orgID string) (*apppb.Organi
 	if publicNamespace == "" {
 		return nil, errors.New("must provide either org-id or public-namespace")
 	}
-	org, err := client.GetUserOrgByPublicNamespace(publicNamespace)
+	org, err := client.getUserOrgByPublicNamespace(publicNamespace)
 	if err != nil {
 		return nil, err
 	}
@@ -340,9 +492,9 @@ func resolveOrg(client *appClient, publicNamespace, orgID string) (*apppb.Organi
 
 func getOrgByModuleIDPrefix(client *appClient, moduleIDPrefix string) (*apppb.Organization, error) {
 	if isValidOrgID(moduleIDPrefix) {
-		return client.GetOrg(moduleIDPrefix)
+		return client.getOrg(moduleIDPrefix)
 	}
-	return client.GetUserOrgByPublicNamespace(moduleIDPrefix)
+	return client.getUserOrgByPublicNamespace(moduleIDPrefix)
 }
 
 // isValidOrgID checks if the str is a valid uuid.

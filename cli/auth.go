@@ -109,8 +109,8 @@ func LoginAction(c *cli.Context) error {
 			token.ExpiresAt.Format("Mon Jan 2 15:04:05 MST 2006"))
 	}
 
-	if client.config().Auth != nil && !client.config().Auth.IsExpired() {
-		loggedInMessage(client.config().Auth, true)
+	if client.conf.Auth != nil && !client.conf.Auth.IsExpired() {
+		loggedInMessage(client.conf.Auth, true)
 		return nil
 	}
 
@@ -118,7 +118,7 @@ func LoginAction(c *cli.Context) error {
 	if client.conf.Auth != nil && client.conf.Auth.CanRefresh() {
 		token, err = client.authFlow.Refresh(client.c.Context, client.conf.Auth)
 		if err != nil {
-			utils.UncheckedError(client.Logout())
+			utils.UncheckedError(client.logout())
 			return err
 		}
 	} else {
@@ -134,7 +134,7 @@ func LoginAction(c *cli.Context) error {
 		return err
 	}
 
-	loggedInMessage(client.config().Auth, false)
+	loggedInMessage(client.conf.Auth, false)
 	return nil
 }
 
@@ -145,11 +145,11 @@ func PrintAccessTokenAction(c *cli.Context) error {
 		return err
 	}
 
-	if client.config().Auth == nil || client.config().Auth.IsExpired() {
+	if client.conf.Auth == nil || client.conf.Auth.IsExpired() {
 		return errors.New("not logged in. run \"login\" command")
 	}
 
-	fmt.Fprintln(c.App.Writer, client.config().Auth.AccessToken)
+	fmt.Fprintln(c.App.Writer, client.conf.Auth.AccessToken)
 	return nil
 }
 
@@ -159,12 +159,12 @@ func LogoutAction(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	auth := client.config().Auth
+	auth := client.conf.Auth
 	if auth == nil {
 		fmt.Fprintf(c.App.Writer, "already logged out\n")
 		return nil
 	}
-	if err := client.Logout(); err != nil {
+	if err := client.logout(); err != nil {
 		return errors.Wrap(err, "could not logout")
 	}
 	fmt.Fprintf(c.App.Writer, "logged out from %q\n", auth.User.Email)
@@ -177,7 +177,7 @@ func WhoAmIAction(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	auth := client.config().Auth
+	auth := client.conf.Auth
 	if auth == nil {
 		Warningf(c.App.Writer, "not logged in. run \"login\" command")
 		return nil
