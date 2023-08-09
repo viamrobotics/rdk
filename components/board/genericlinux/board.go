@@ -107,14 +107,42 @@ func (b *Board) Reconfigure(
 	return nil
 }
 
+func getMatchingPin(target GPIOBoardMapping, gpios map[string]*gpioPin) (string, *gpioPin) {
+	for name, pin := range(gpios) {
+		if pin.Matches(target) {
+			return name, pin
+		}
+	}
+	return "", nil
+}
+
 func (b *Board) reconfigureGpios(newConf LinuxBoardConfig) error {
 	// TODO(RSDK-4092): implement this correctly.
-	newMappings := newConf.GpioMappings
+	var newGpios map[string]*gpioPin
 
-	for pinName, mapping := range newConf.GpioMappings {
-		b.gpios[pinName] = b.createGpioPin(mapping)
+	// For each new pin definition, if you can find an old pin that matches, just move it over.
+	for newName, mapping := range newConf.GpioMappings {
+		if oldName, oldPin = getMatchingPin(mapping, b.gpios); oldPin != nil {
+			newGpios[newName] = oldPin
+			delete(b.gpioMappings, oldName)
+		}
+	}
+
+	// All remaining old pins should be closed.
+	for _, pin := range b.gpios {
+		pin.Close()
+	}
+
+	// All remaining new mappings should be created.
+	for newName, mapping := range newConf.GpioMappings {
+		if _, exists := newGpios[newName]; exists {
+			continue
+		}
+		// TODO: skip pins that look like an already-existing digint
+		newGpios[newName] = b.createGpioPin(mapping)
 	}
 	b.gpioMappings = newConf.GpioMappings
+	b.gpios = newGpios
 	return nil
 }
 
