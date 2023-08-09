@@ -12,12 +12,12 @@ func getCLICachePath() string {
 	return filepath.Join(viamDotDir, "cached_cli_config.json")
 }
 
-func configFromCache() (*Config, error) {
+func configFromCache() (*config, error) {
 	rd, err := os.ReadFile(getCLICachePath())
 	if err != nil {
 		return nil, err
 	}
-	var conf Config
+	var conf config
 	if err := json.Unmarshal(rd, &conf); err != nil {
 		return nil, err
 	}
@@ -29,7 +29,7 @@ func removeConfigFromCache() error {
 	return os.Remove(getCLICachePath())
 }
 
-func storeConfigToCache(cfg *Config) error {
+func storeConfigToCache(cfg *config) error {
 	if err := os.MkdirAll(viamDotDir, 0o700); err != nil {
 		return err
 	}
@@ -41,7 +41,6 @@ func storeConfigToCache(cfg *Config) error {
 	return os.WriteFile(getCLICachePath(), md, 0o640)
 }
 
-// Config contains stored config information for the CLI.
-type Config struct {
-	Auth *Token `json:"auth"`
+type config struct {
+	Auth *token `json:"auth"`
 }
