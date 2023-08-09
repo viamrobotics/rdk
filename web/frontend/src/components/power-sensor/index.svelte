@@ -47,32 +47,32 @@ useDisconnect(() => clearInterval?.());
 
 <Collapse title={name} on:toggle={handleToggle}>
     <v-breadcrumbs slot="title" crumbs="power_sensor" />
-    <div class="flex flex-wrap gap-4 text-sm border border-t-0 border-medium p-4">
+    <div class="flex flex-wrap gap-5 text-sm border border-t-0 border-medium p-4">
       {#if voltageValue !== undefined}
         <div class="overflow-auto">
-          <h3 class="mb-1">voltage (volts)</h3>
+          <small class='block pt-1 text-sm text-subtle-2'> voltage (volts)</small>
           <div class="flex gap-1.5">
-            {voltageValue.toFixed(4)}
+            <small class='block pt-1 text-sm text-subtle-1'>  {voltageValue.toFixed(4)} </small>
           </div>
         </div>
         {/if}
         {#if currentValue !== undefined}
         <div class="overflow-auto">
-          <h3 class="mb-1">
-           current (amperes)
-          </h3>
+          <small class='block pt-1 text-sm text-subtle-2'>
+           current (amps)
+          </small>
           <div class="flex gap-1.5">
-            {currentValue.toFixed(4)}
+            <small class='block pt-1 text-sm text-subtle-1'> {currentValue.toFixed(4)}</small>
           </div>
         </div>
         {/if}
         {#if powerValue !== undefined}
         <div class="overflow-auto">
-          <h3 class="mb-1">
+          <small class='block pt-1 text-sm text-subtle-2'>
             power (watts)
-          </h3>
+          </small>
           <div class="flex gap-1.5">
-            {powerValue.toFixed(4)}
+            <small class='block pt-1 text-sm text-subtle-1'>  {powerValue.toFixed(4)} </small>
           </div>
         </div>
         {/if}
