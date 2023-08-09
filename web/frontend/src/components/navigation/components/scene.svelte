@@ -15,10 +15,10 @@ $: renderer.clippingPlanes = flat ? [] : [clippingPlane];
 
 </script>
 
-<T.AmbientLight intensity={flat ? 2 : 1} />
+<T.AmbientLight intensity={flat ? 1 : 0.5} />
 
 {#if !flat}
-  <T.DirectionalLight />
+  <T.DirectionalLight intensity={0.5} />
 {/if}
 
 {#each $obstacles as obstacle (obstacle.name)}
