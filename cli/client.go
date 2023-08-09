@@ -464,14 +464,14 @@ func (c *appClient) ensureLoggedIn() error {
 		return errors.New("not logged in: run the following command to login:\n\tviam login")
 	}
 
-	if c.conf.Auth.IsExpired() {
-		if !c.conf.Auth.CanRefresh() {
+	if c.conf.Auth.isExpired() {
+		if !c.conf.Auth.canRefresh() {
 			utils.UncheckedError(c.logout())
 			return errors.New("token expired and cannot refresh")
 		}
 
 		// expired.
-		newToken, err := c.authFlow.Refresh(c.c.Context, c.conf.Auth)
+		newToken, err := c.authFlow.refreshToken(c.c.Context, c.conf.Auth)
 		if err != nil {
 			utils.UncheckedError(c.logout()) // clear cache if failed to refresh
 			return errors.Wrapf(err, "error while refreshing token")

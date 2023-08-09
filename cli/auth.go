@@ -109,14 +109,14 @@ func LoginAction(c *cli.Context) error {
 			token.ExpiresAt.Format("Mon Jan 2 15:04:05 MST 2006"))
 	}
 
-	if client.conf.Auth != nil && !client.conf.Auth.IsExpired() {
+	if client.conf.Auth != nil && !client.conf.Auth.isExpired() {
 		loggedInMessage(client.conf.Auth, true)
 		return nil
 	}
 
 	var token *Token
-	if client.conf.Auth != nil && client.conf.Auth.CanRefresh() {
-		token, err = client.authFlow.Refresh(client.c.Context, client.conf.Auth)
+	if client.conf.Auth != nil && client.conf.Auth.canRefresh() {
+		token, err = client.authFlow.refreshToken(client.c.Context, client.conf.Auth)
 		if err != nil {
 			utils.UncheckedError(client.logout())
 			return err
@@ -145,7 +145,7 @@ func PrintAccessTokenAction(c *cli.Context) error {
 		return err
 	}
 
-	if client.conf.Auth == nil || client.conf.Auth.IsExpired() {
+	if client.conf.Auth == nil || client.conf.Auth.isExpired() {
 		return errors.New("not logged in. run \"login\" command")
 	}
 
@@ -186,13 +186,11 @@ func WhoAmIAction(c *cli.Context) error {
 	return nil
 }
 
-// IsExpired returns true if the token is expired.
-func (t *Token) IsExpired() bool {
+func (t *Token) isExpired() bool {
 	return t.ExpiresAt.Before(time.Now().Add(10 * time.Second))
 }
 
-// CanRefresh returns true if the token can be refreshed.
-func (t *Token) CanRefresh() bool {
+func (t *Token) canRefresh() bool {
 	return t.RefreshToken != "" && t.TokenURL != "" && t.ClientID != ""
 }
 
@@ -425,12 +423,7 @@ func userDataFromIDToken(token string) (*userData, error) {
 	return &userData, nil
 }
 
-// Refresh refreshes the provided token.
-func (a *authFlow) Refresh(ctx context.Context, token *Token) (*Token, error) {
-	return refreshToken(ctx, a.httpClient, token)
-}
-
-func refreshToken(ctx context.Context, httpClient *http.Client, token *Token) (*Token, error) {
+func (a *authFlow) refreshToken(ctx context.Context, token *Token) (*Token, error) {
 	data := url.Values{}
 	data.Set("client_id", token.ClientID)
 	data.Set("grant_type", "refresh_token")
@@ -444,7 +437,7 @@ func refreshToken(ctx context.Context, httpClient *http.Client, token *Token) (*
 	req.Header.Add("Content-Length", strconv.Itoa(len(data.Encode())))
 
 	//nolint:bodyclose // processTokenResponse() closes it
-	res, err := httpClient.Do(req)
+	res, err := a.httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
