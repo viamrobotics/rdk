@@ -17,16 +17,26 @@ let centered = false;
 
 const updateLocation = async () => {
   try {
-    const response = await navClient.getLocation();
-    const position = { lat: response.latitude, lng: response.longitude };
+    const { latitude, longitude } = await navClient.getLocation();
+
+    /*
+     * todo(micheal parks) - This should be abstracted into the TS SDK to return response | null based on this logic.
+     * returning NaN here is non-typical
+     */
+    if (
+      typeof latitude !== 'number' ||
+      typeof longitude !== 'number' ||
+      Number.isNaN(latitude) ||
+      Number.isNaN(longitude)
+    ) {
+      return;
+    }
+
+    const position = { lat: latitude, lng: longitude };
     if (!centered) {
       centerMap(position, true);
       centered = true;
     }
-
-    rcLogConditionally(response);
-    rcLogConditionally(response.latitude);
-    rcLogConditionally(response.longitude);
 
     if ($robotPosition?.lat === position.lat && $robotPosition.lng === position.lng) {
       return;
