@@ -55,7 +55,7 @@ func CreateModuleCommand(c *cli.Context) error {
 	publicNamespaceArg := c.String("public-namespace")
 	orgIDArg := c.String("org-id")
 
-	client, err := NewAppClient(c)
+	client, err := newAppClient(c)
 	if err != nil {
 		return err
 	}
@@ -118,7 +118,7 @@ func UpdateModuleCommand(c *cli.Context) error {
 		manifestPath = manifestPathArg
 	}
 
-	client, err := NewAppClient(c)
+	client, err := newAppClient(c)
 	if err != nil {
 		return err
 	}
@@ -182,7 +182,7 @@ func UploadModuleCommand(c *cli.Context) error {
 		return errors.New("no package to upload -- please provide an archive containing your module. use --help for more information")
 	}
 
-	client, err := NewAppClient(c)
+	client, err := newAppClient(c)
 	if err != nil {
 		return err
 	}
@@ -268,7 +268,7 @@ func (m *ModuleID) toString() string {
 // if it is not, it uses the publicNamespaceArg and orgIDArg to determine what the moduleID prefix should be.
 func updateManifestModuleIDWithArgs(
 	c *cli.Context,
-	client *AppClient,
+	client *appClient,
 	manifestNameEntry,
 	publicNamespaceArg,
 	orgIDArg string,
@@ -313,7 +313,7 @@ func updateManifestModuleIDWithArgs(
 
 // resolveOrg accepts either an orgID or a publicNamespace (one must be an empty string).
 // If orgID is an empty string, it will use the publicNamespace to resolve it.
-func resolveOrg(client *AppClient, publicNamespace, orgID string) (*apppb.Organization, error) {
+func resolveOrg(client *appClient, publicNamespace, orgID string) (*apppb.Organization, error) {
 	if orgID != "" {
 		if publicNamespace != "" {
 			return nil, errors.New("cannot specify both org-id and public-namespace")
@@ -338,7 +338,7 @@ func resolveOrg(client *AppClient, publicNamespace, orgID string) (*apppb.Organi
 	return org, nil
 }
 
-func getOrgByModuleIDPrefix(client *AppClient, moduleIDPrefix string) (*apppb.Organization, error) {
+func getOrgByModuleIDPrefix(client *appClient, moduleIDPrefix string) (*apppb.Organization, error) {
 	if isValidOrgID(moduleIDPrefix) {
 		return client.GetOrg(moduleIDPrefix)
 	}

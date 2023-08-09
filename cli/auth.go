@@ -91,11 +91,9 @@ type Token struct {
 	User userData `json:"user_data"`
 }
 
-// LoginAction is the corresponding Action for 'login'. Logs in using a device
-// code and browser. Once logged in the access token and user details are
-// cached on disk.
+// LoginAction is the corresponding Action for 'login'.
 func LoginAction(c *cli.Context) error {
-	client, err := NewAppClient(c)
+	client, err := newAppClient(c)
 	if err != nil {
 		return err
 	}
@@ -111,8 +109,8 @@ func LoginAction(c *cli.Context) error {
 			token.ExpiresAt.Format("Mon Jan 2 15:04:05 MST 2006"))
 	}
 
-	if client.Config().Auth != nil && !client.Config().Auth.IsExpired() {
-		loggedInMessage(client.Config().Auth, true)
+	if client.config().Auth != nil && !client.config().Auth.IsExpired() {
+		loggedInMessage(client.config().Auth, true)
 		return nil
 	}
 
@@ -136,32 +134,32 @@ func LoginAction(c *cli.Context) error {
 		return err
 	}
 
-	loggedInMessage(client.Config().Auth, false)
+	loggedInMessage(client.config().Auth, false)
 	return nil
 }
 
 // PrintAccessTokenAction is the corresponding Action for 'print-access-token'.
 func PrintAccessTokenAction(c *cli.Context) error {
-	client, err := NewAppClient(c)
+	client, err := newAppClient(c)
 	if err != nil {
 		return err
 	}
 
-	if client.Config().Auth == nil || client.Config().Auth.IsExpired() {
+	if client.config().Auth == nil || client.config().Auth.IsExpired() {
 		return errors.New("not logged in. run \"login\" command")
 	}
 
-	fmt.Fprintln(c.App.Writer, client.Config().Auth.AccessToken)
+	fmt.Fprintln(c.App.Writer, client.config().Auth.AccessToken)
 	return nil
 }
 
 // LogoutAction is the corresponding Action for 'logout'.
 func LogoutAction(c *cli.Context) error {
-	client, err := NewAppClient(c)
+	client, err := newAppClient(c)
 	if err != nil {
 		return err
 	}
-	auth := client.Config().Auth
+	auth := client.config().Auth
 	if auth == nil {
 		fmt.Fprintf(c.App.Writer, "already logged out\n")
 		return nil
@@ -173,13 +171,13 @@ func LogoutAction(c *cli.Context) error {
 	return nil
 }
 
-// LogoutAction is the corresponding Action for 'logout'.
+// WhoAmIAction is the corresponding Action for 'whoami'.
 func WhoAmIAction(c *cli.Context) error {
-	client, err := NewAppClient(c)
+	client, err := newAppClient(c)
 	if err != nil {
 		return err
 	}
-	auth := client.Config().Auth
+	auth := client.config().Auth
 	if auth == nil {
 		Warningf(c.App.Writer, "not logged in. run \"login\" command")
 		return nil
