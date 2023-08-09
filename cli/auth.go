@@ -20,7 +20,6 @@ import (
 	"github.com/urfave/cli/v2"
 	datapb "go.viam.com/api/app/data/v1"
 	apppb "go.viam.com/api/app/v1"
-
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 )
