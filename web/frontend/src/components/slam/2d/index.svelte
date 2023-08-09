@@ -10,7 +10,7 @@
 import { createEventDispatcher } from 'svelte';
 import { Canvas } from '@threlte/core';
 import * as THREE from 'three';
-import type { commonApi } from '@viamrobotics/sdk';
+import type { Pose } from '@viamrobotics/sdk';
 
 import Legend from './legend.svelte';
 import Dropzone from '@/lib/components/dropzone.svelte';
@@ -20,7 +20,7 @@ import Scene from './scene.svelte';
 export let pointcloud: Uint8Array | undefined;
 
 /** The pose of the base of the robot */
-export let pose: commonApi.Pose | undefined;
+export let pose: Pose | undefined;
 
 /** A user-specificed robot destination */
 export let destination: THREE.Vector2 | undefined;
@@ -40,10 +40,10 @@ let motionPath: string | undefined;
 const basePosition = new THREE.Vector2();
 let baseRotation = 0;
 
-const updatePose = (newPose: commonApi.Pose) => {
-  basePosition.x = newPose.getX();
-  basePosition.y = newPose.getY();
-  baseRotation = THREE.MathUtils.degToRad(newPose.getTheta() - 90);
+const updatePose = (newPose: Pose) => {
+  basePosition.x = newPose.x;
+  basePosition.y = newPose.y;
+  baseRotation = THREE.MathUtils.degToRad(newPose.theta - 90);
 };
 
 const handleDrop = (event: CustomEvent<string>) => {
