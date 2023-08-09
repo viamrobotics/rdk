@@ -34,9 +34,6 @@ import (
 	"go.viam.com/rdk/services/shell"
 )
 
-// moduleUploadChunkSize sets the number of bytes included in each chunk of the upload stream.
-var moduleUploadChunkSize = 32 * 1024
-
 // appClient wraps a cli.Context and provides all the CLI command functionality
 // needed to talk to the app service but not directly to robot parts.
 type appClient struct {

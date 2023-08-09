@@ -17,6 +17,9 @@ import (
 	apppb "go.viam.com/api/app/v1"
 )
 
+// moduleUploadChunkSize sets the number of bytes included in each chunk of the upload stream.
+var moduleUploadChunkSize = 32 * 1024
+
 // moduleVisibility determines whether modules are public or private.
 type moduleVisibility string
 
