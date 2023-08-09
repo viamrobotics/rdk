@@ -111,11 +111,11 @@ func DataDeleteAction(c *cli.Context) error {
 
 	switch c.String(DataFlagDataType) {
 	case dataTypeBinary:
-		if err := client.DeleteBinaryData(filter); err != nil {
+		if err := client.deleteBinaryData(filter); err != nil {
 			return err
 		}
 	case dataTypeTabular:
-		if err := client.DeleteTabularData(filter); err != nil {
+		if err := client.deleteTabularData(filter); err != nil {
 			return err
 		}
 	default:
@@ -525,8 +525,7 @@ func makeDestinationDirs(dst string) error {
 	return nil
 }
 
-// DeleteBinaryData deletes binary data matching filter.
-func (c *appClient) DeleteBinaryData(filter *datapb.Filter) error {
+func (c *appClient) deleteBinaryData(filter *datapb.Filter) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
@@ -539,8 +538,8 @@ func (c *appClient) DeleteBinaryData(filter *datapb.Filter) error {
 	return nil
 }
 
-// DeleteTabularData delete tabular data matching filter.
-func (c *appClient) DeleteTabularData(filter *datapb.Filter) error {
+// deleteTabularData delete tabular data matching filter.
+func (c *appClient) deleteTabularData(filter *datapb.Filter) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
