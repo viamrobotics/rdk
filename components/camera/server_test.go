@@ -90,17 +90,17 @@ func TestServer(t *testing.T) {
 			IntrinsicParams: intrinsics,
 		}, nil
 	}
-	injectCamera.ImagesFunc = func(ctx context.Context) ([]image.Image, time.Time, error) {
-		images := []image.Image{}
+	injectCamera.ImagesFunc = func(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+		images := []camera.NamedImage{}
 		// one color image
 		color := rimage.NewImage(40, 50)
-		images = append(images, color)
+		images = append(images, camera.NamedImage{color, "color"})
 		// one depth image
 		depth := rimage.NewEmptyDepthMap(10, 20)
-		images = append(images, depth)
+		images = append(images, camera.NamedImage{depth, "depth"})
 		// a timestamp of 12345
 		ts := time.UnixMilli(12345)
-		return images, ts, nil
+		return images, resource.ResponseMetadata{ts}, nil
 	}
 	injectCamera.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
 		return projA, nil
@@ -395,7 +395,9 @@ func TestServer(t *testing.T) {
 		test.That(t, resp.ResponseMetadata.CapturedAt.AsTime(), test.ShouldEqual, time.UnixMilli(12345))
 		test.That(t, len(resp.Images), test.ShouldEqual, 2)
 		test.That(t, resp.Images[0].Format, test.ShouldEqual, pb.Format_FORMAT_JPEG)
+		test.That(t, resp.Images[0].SourceName, test.ShouldEqual, "color")
 		test.That(t, resp.Images[1].Format, test.ShouldEqual, pb.Format_FORMAT_RAW_DEPTH)
+		test.That(t, resp.Images[1].SourceName, test.ShouldEqual, "depth")
 	})
 
 	t.Run("GetProperties", func(t *testing.T) {

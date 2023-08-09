@@ -63,9 +63,9 @@ type Properties struct {
 	DistortionParams transform.Distorter
 }
 
-// NamedImage is a struct that associates the source from where the image came from to the Image
+// NamedImage is a struct that associates the source from where the image came from to the Image.
 type NamedImage struct {
-	image.Image
+	Image      image.Image
 	SourceName string
 }
 

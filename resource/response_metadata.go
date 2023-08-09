@@ -12,14 +12,14 @@ type ResponseMetadata struct {
 	CapturedAt time.Time
 }
 
-// AsProto turns the ResponseMetadata struct into a protobuf message
+// AsProto turns the ResponseMetadata struct into a protobuf message.
 func (rm ResponseMetadata) AsProto() *commonpb.ResponseMetadata {
 	metadata := &commonpb.ResponseMetadata{}
 	metadata.CapturedAt = timestamppb.New(rm.CapturedAt)
 	return metadata
 }
 
-// ResponseMetadataFromProto turns the protobuf message into a ResponseMetadata struct
+// ResponseMetadataFromProto turns the protobuf message into a ResponseMetadata struct.
 func ResponseMetadataFromProto(proto *commonpb.ResponseMetadata) ResponseMetadata {
 	metadata := ResponseMetadata{}
 	metadata.CapturedAt = proto.CapturedAt.AsTime()
