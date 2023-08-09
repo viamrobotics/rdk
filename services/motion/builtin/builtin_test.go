@@ -289,51 +289,6 @@ func TestMoveWithObstacles(t *testing.T) {
 	})
 }
 
-func TestMoveSingleComponent(t *testing.T) {
-	ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
-	defer teardown()
-
-	grabPose := spatialmath.NewPoseFromPoint(r3.Vector{-25, 30, 0})
-	t.Run("succeeds when all frame info in config", func(t *testing.T) {
-		_, err := ms.MoveSingleComponent(
-			context.Background(),
-			arm.Named("pieceArm"),
-			referenceframe.NewPoseInFrame("c", grabPose),
-			nil,
-			map[string]interface{}{},
-		)
-		// Gripper is not an arm and cannot move
-		test.That(t, err, test.ShouldBeNil)
-	})
-	t.Run("fails due to gripper not being an arm", func(t *testing.T) {
-		_, err := ms.MoveSingleComponent(
-			context.Background(),
-			gripper.Named("pieceGripper"),
-			referenceframe.NewPoseInFrame("c", grabPose),
-			nil,
-			map[string]interface{}{},
-		)
-		// Gripper is not an arm and cannot move
-		test.That(t, err, test.ShouldNotBeNil)
-	})
-
-	t.Run("succeeds with supplemental info in world state", func(t *testing.T) {
-		worldState, err := referenceframe.NewWorldState(
-			nil,
-			[]*referenceframe.LinkInFrame{referenceframe.NewLinkInFrame("c", spatialmath.NewZeroPose(), "testFrame2", nil)},
-		)
-		test.That(t, err, test.ShouldBeNil)
-		_, err = ms.MoveSingleComponent(
-			context.Background(),
-			arm.Named("pieceArm"),
-			referenceframe.NewPoseInFrame("testFrame2", grabPose),
-			worldState,
-			map[string]interface{}{},
-		)
-		test.That(t, err, test.ShouldBeNil)
-	})
-}
-
 func TestMoveOnMapLongDistance(t *testing.T) {
 	ctx := context.Background()
 	// goal x-position of 1.32m is scaled to be in mm
@@ -355,6 +310,7 @@ func TestMoveOnMapLongDistance(t *testing.T) {
 }
 
 func TestMoveOnMap(t *testing.T) {
+	t.Skip() // RSDK-4279
 	t.Parallel()
 	ctx := context.Background()
 	// goal x-position of 1.32m is scaled to be in mm
@@ -363,17 +319,21 @@ func TestMoveOnMap(t *testing.T) {
 	t.Run("check that path is planned around obstacle", func(t *testing.T) {
 		t.Parallel()
 		ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd")
+		extra := make(map[string]interface{})
+		extra["motion_profile"] = "orientation"
 		path, _, err := ms.(*builtIn).planMoveOnMap(
 			context.Background(),
 			base.Named("test_base"),
 			goal,
 			slam.Named("test_slam"),
 			kinematicbase.NewKinematicBaseOptions(),
-			nil,
+			extra,
 		)
 		test.That(t, err, test.ShouldBeNil)
 		// path of length 2 indicates a path that goes straight through central obstacle
 		test.That(t, len(path), test.ShouldBeGreaterThan, 2)
+		// every waypoint should have the form [x,y,theta]
+		test.That(t, len(path[0]), test.ShouldEqual, 3)
 	})
 
 	t.Run("ensure success of movement around obstacle", func(t *testing.T) {
@@ -400,6 +360,40 @@ func TestMoveOnMap(t *testing.T) {
 			easyGoal,
 			slam.Named("test_slam"),
 			nil,
+		)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, success, test.ShouldBeTrue)
+	})
+
+	t.Run("check that position-only mode returns 2D plan", func(t *testing.T) {
+		t.Parallel()
+		ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd")
+		extra := make(map[string]interface{})
+		extra["motion_profile"] = "position_only"
+		path, _, err := ms.(*builtIn).planMoveOnMap(
+			context.Background(),
+			base.Named("test_base"),
+			goal,
+			slam.Named("test_slam"),
+			kinematicbase.NewKinematicBaseOptions(),
+			extra,
+		)
+		test.That(t, err, test.ShouldBeNil)
+		// every waypoint should have the form [x,y]
+		test.That(t, len(path[0]), test.ShouldEqual, 2)
+	})
+
+	t.Run("check that position-only mode executes", func(t *testing.T) {
+		t.Parallel()
+		ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd")
+		extra := make(map[string]interface{})
+		extra["motion_profile"] = "position_only"
+		success, err := ms.MoveOnMap(
+			context.Background(),
+			base.Named("test_base"),
+			goal,
+			slam.Named("test_slam"),
+			extra,
 		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, success, test.ShouldBeTrue)

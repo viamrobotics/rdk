@@ -1,33 +1,31 @@
+<!--
+  @component
+  Renders a motion plan using thick lines.
+  Assumes the motion plan is coming in as a string in the format:
+  x,y\n
+  x,y\n
+  ...
+-->
 <script lang='ts'>
 
-import * as THREE from 'three';
+import { T, extend } from '@threlte/core';
 import { Line2 } from 'three/examples/jsm/lines/Line2.js';
 import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
 import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js';
+import { renderOrder } from './constants';
 
-export let scene: THREE.Scene;
+extend({ Line2, LineMaterial });
+
 export let path: string | undefined;
 
-const material = new LineMaterial({
-  color: 0xFF_00_47,
-  linewidth: 0.005,
-  dashed: false,
-  alphaToCoverage: true,
-});
-
-let line: Line2;
+let geometry: LineGeometry = new LineGeometry();
 
 const updatePath = (pathstr?: string) => {
-  if (line !== undefined) {
-    scene.remove(line);
-    line.geometry.dispose();
-  }
-
   if (pathstr === undefined) {
     return;
   }
 
-  const geometry = new LineGeometry();
+  geometry = new LineGeometry();
 
   const points: number[] = [];
 
@@ -42,16 +40,18 @@ const updatePath = (pathstr?: string) => {
 
   const vertices = new Float32Array(points);
   geometry.setPositions(vertices);
-
-  line = new Line2(geometry, material);
-
-  // Render above pointcloud.
-  line.renderOrder = 3;
-
-  line.computeLineDistances();
-  scene.add(line);
 };
 
 $: updatePath(path);
 
 </script>
+
+{#if path}
+  <T.Line2 renderOrder={renderOrder.motionPath}>
+    <T.LineMaterial
+      color='#FF0047'
+      linewidth={0.005}
+    />
+    <T is={geometry} />
+  </T.Line2>
+{/if}

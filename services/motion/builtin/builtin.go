@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -13,7 +14,6 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	servicepb "go.viam.com/api/service/motion/v1"
 
-	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/base/fake"
 	"go.viam.com/rdk/components/base/kinematicbase"
@@ -223,7 +223,7 @@ func (ms *builtIn) MoveOnGlobe(
 	kinematicsOptions.AngularVelocityDegsPerSec = angularVelocity
 	kinematicsOptions.GoalRadiusMM = 3000
 	kinematicsOptions.HeadingThresholdDegrees = 8
-	kinematicsOptions.PlanDeviationThresholdMM = 5000
+	kinematicsOptions.PlanDeviationThresholdMM = math.Inf(1)
 
 	plan, kb, err := ms.planMoveOnGlobe(
 		ctx,
@@ -296,6 +296,21 @@ func (ms *builtIn) planMoveOnGlobe(
 	limits := []referenceframe.Limit{
 		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
 		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
+		{Min: -2 * math.Pi, Max: 2 * math.Pi},
+	}
+
+	if extra != nil {
+		if profile, ok := extra["motion_profile"]; ok {
+			motionProfile, ok := profile.(string)
+			if !ok {
+				return nil, nil, errors.New("could not interpret motion_profile field as string")
+			}
+			if motionProfile == motionplan.PositionOnlyMotionProfile {
+				kinematicsOptions.PositionOnlyMode = true
+			} else {
+				kinematicsOptions.PositionOnlyMode = false
+			}
+		}
 	}
 	ms.logger.Debugf("base limits: %v", limits)
 
@@ -319,7 +334,7 @@ func (ms *builtIn) planMoveOnGlobe(
 	}
 
 	// we take the zero position to be the start since in the frame of the localizer we will always be at its origin
-	inputMap := map[string][]referenceframe.Input{componentName.Name: make([]referenceframe.Input, 3)}
+	inputMap := map[string][]referenceframe.Input{componentName.Name: make([]referenceframe.Input, len(kb.Kinematics().DoF()))}
 
 	// create a new empty framesystem which we add the kinematic base to
 	fs := referenceframe.NewEmptyFrameSystem("")
@@ -365,62 +380,6 @@ func (ms *builtIn) planMoveOnGlobe(
 	return plan, kb, nil
 }
 
-// MoveSingleComponent will pass through a move command to a component with a MoveToPosition method that takes a pose. Arms are the only
-// component that supports this. This method will transform the destination pose, given in an arbitrary frame, into the pose of the arm.
-// The arm will then move its most distal link to that pose. If you instead wish to move any other component than the arm end to that pose,
-// then you must manually adjust the given destination by the transform from the arm end to the intended component.
-// Because this uses an arm's MoveToPosition method when issuing commands, it does not support obstacle avoidance.
-func (ms *builtIn) MoveSingleComponent(
-	ctx context.Context,
-	componentName resource.Name,
-	destination *referenceframe.PoseInFrame,
-	worldState *referenceframe.WorldState,
-	extra map[string]interface{},
-) (bool, error) {
-	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
-
-	// Get the arm and all initial inputs
-	fsInputs, _, err := ms.fsService.CurrentInputs(ctx)
-	if err != nil {
-		return false, err
-	}
-	ms.logger.Debugf("frame system inputs: %v", fsInputs)
-
-	armResource, ok := ms.components[componentName]
-	if !ok {
-		return false, fmt.Errorf("could not find a resource named %v", componentName.ShortName())
-	}
-	movableArm, ok := armResource.(arm.Arm)
-	if !ok {
-		return false, fmt.Errorf(
-			"could not cast resource named %v to an arm. MoveSingleComponent only supports moving arms for now",
-			componentName,
-		)
-	}
-
-	// get destination pose in frame of movable component
-	goalPose := destination.Pose()
-	if destination.Parent() != componentName.ShortName() {
-		ms.logger.Debugf("goal given in frame of %q", destination.Parent())
-
-		frameSys, err := ms.fsService.FrameSystem(ctx, worldState.Transforms())
-		if err != nil {
-			return false, err
-		}
-
-		// re-evaluate goalPose to be in the frame we're going to move in
-		tf, err := frameSys.Transform(fsInputs, destination, componentName.ShortName()+"_origin")
-		if err != nil {
-			return false, err
-		}
-		goalPoseInFrame, _ := tf.(*referenceframe.PoseInFrame)
-		goalPose = goalPoseInFrame.Pose()
-		ms.logger.Debugf("converted goal pose %q", spatialmath.PoseToProtobuf(goalPose))
-	}
-	err = movableArm.MoveToPosition(ctx, goalPose, extra)
-	return err == nil, err
-}
-
 func (ms *builtIn) GetPose(
 	ctx context.Context,
 	componentName resource.Name,
@@ -462,6 +421,7 @@ func (ms *builtIn) planMoveOnMap(
 	if err != nil {
 		return nil, nil, err
 	}
+	limits = append(limits, referenceframe.Limit{Min: -2 * math.Pi, Max: 2 * math.Pi})
 
 	// create a KinematicBase from the componentName
 	component, ok := ms.components[componentName]
@@ -472,6 +432,17 @@ func (ms *builtIn) planMoveOnMap(
 	if !ok {
 		return nil, nil, fmt.Errorf("cannot move component of type %T because it is not a Base", component)
 	}
+
+	if extra != nil {
+		if profile, ok := extra["motion_profile"]; ok {
+			motionProfile, ok := profile.(string)
+			if !ok {
+				return nil, nil, errors.New("could not interpret motion_profile field as string")
+			}
+			kinematicsOptions.PositionOnlyMode = motionProfile == motionplan.PositionOnlyMotionProfile
+		}
+	}
+
 	var kb kinematicbase.KinematicBase
 	if fake, ok := b.(*fake.Base); ok {
 		kb, err = kinematicbase.WrapWithFakeKinematics(ctx, fake, motion.NewSLAMLocalizer(slamSvc), limits, kinematicsOptions)
@@ -504,6 +475,9 @@ func (ms *builtIn) planMoveOnMap(
 	inputs, err := kb.CurrentInputs(ctx)
 	if err != nil {
 		return nil, nil, err
+	}
+	if kinematicsOptions.PositionOnlyMode {
+		inputs = inputs[:2]
 	}
 	ms.logger.Debugf("base position: %v", inputs)
 
