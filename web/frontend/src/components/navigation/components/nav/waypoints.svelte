@@ -1,19 +1,20 @@
 <script lang='ts'>
 
-import type { ServiceError } from '@viamrobotics/sdk';
+import { NavigationClient, type ServiceError } from '@viamrobotics/sdk';
 import { notify } from '@viamrobotics/prime';
-import { removeWaypoint } from '@/api/navigation';
 import { useRobotClient } from '@/hooks/robot-client';
 import { waypoints, flyToMap } from '../../stores';
+import { rcLogConditionally } from '@/lib/log';
 
 export let name: string;
 
 const { robotClient } = useRobotClient();
+const navClient = new NavigationClient($robotClient, name, { requestLogger: rcLogConditionally });
 
 const handleRemoveWaypoint = async (id: string) => {
   try {
     $waypoints = $waypoints.filter((item) => item.id !== id);
-    await removeWaypoint($robotClient, name, id);
+    await navClient.removeWayPoint(id);
   } catch (error) {
     notify.danger((error as ServiceError).message);
   }

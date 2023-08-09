@@ -772,12 +772,15 @@ func (c *AppClient) StartRobotPartShell(
 	}
 
 	setRaw := func(isRaw bool) error {
-		r := "raw"
+		// NOTE(benjirewis): Linux systems seem to need both "raw" (no processing) and "-echo"
+		// (no echoing back inputted characters) in order to allow the input and output loops
+		// below to completely control the terminal.
+		args := []string{"raw", "-echo"}
 		if !isRaw {
-			r = "-raw"
+			args = []string{"-raw", "echo"}
 		}
 
-		rawMode := exec.Command("stty", r)
+		rawMode := exec.Command("stty", args...)
 		rawMode.Stdin = os.Stdin
 		return rawMode.Run()
 	}
