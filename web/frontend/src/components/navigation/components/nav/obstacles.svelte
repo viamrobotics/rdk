@@ -9,7 +9,6 @@ import type { Geometry, LngLat } from '@/api/navigation';
 
 const handleSelect = (selection: { name: string; location: LngLat }) => {
   const zoom = zooms[selection.name];
-  console.log(zoom);
   flyToMap(selection.location, zoom ? { zoom } : undefined);
 };
 

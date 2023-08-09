@@ -24,30 +24,30 @@ let material: THREE.MeshPhongMaterial;
     {#if geometry.type === 'box'}
       {#if $view === '3D'}
         <T.BoxGeometry
-          computeBounding
+          computeBounding={obstacle.name}
           args={[geometry.length, geometry.width, geometry.height]}
         />
       {:else}
         <T.PlaneGeometry
-          computeBounding
+          computeBounding={obstacle.name}
           args={[geometry.length, geometry.width]}
         />
       {/if}
     {:else if geometry.type === 'sphere'}
       {#if $view === '3D'}
         <T.SphereGeometry
-          computeBounding
+          computeBounding={obstacle.name}
           args={[geometry.radius]}
         />
       {:else}
         <T.CircleGeometry
-          computeBounding
+          computeBounding={obstacle.name}
           args={[geometry.radius]}
         />
       {/if}
     {:else if geometry.type === 'capsule'}
       <T.CapsuleGeometry
-        computeBounding
+        computeBounding={obstacle.name}
         args={[geometry.radius, geometry.length, 16, 32]}
       />
     {/if}
