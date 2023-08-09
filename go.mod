@@ -24,6 +24,7 @@ require (
 	github.com/edaniels/golog v0.0.0-20230215213219-28954395e8d0
 	github.com/edaniels/lidario v0.0.0-20220607182921-5879aa7b96dd
 	github.com/erh/scheme v0.0.0-20210304170849-99d295c6ce9a
+	github.com/fatih/color v1.15.0
 	github.com/fogleman/gg v1.3.0
 	github.com/fsnotify/fsnotify v1.6.0
 	github.com/fullstorydev/grpcurl v1.8.6
@@ -80,9 +81,9 @@ require (
 	go.uber.org/atomic v1.10.0
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.24.0
-	go.viam.com/api v0.1.159
+	go.viam.com/api v0.1.164
 	go.viam.com/test v1.1.1-0.20220913152726-5da9916c08a2
-	go.viam.com/utils v0.1.38
+	go.viam.com/utils v0.1.40
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.8.0
 	golang.org/x/tools v0.8.0
@@ -161,7 +162,6 @@ require (
 	github.com/esimonov/ifshort v1.0.4 // indirect
 	github.com/ettle/strcase v0.1.1 // indirect
 	github.com/fatih/camelcase v1.0.0 // indirect
-	github.com/fatih/color v1.15.0 // indirect
 	github.com/fatih/structtag v1.2.0 // indirect
 	github.com/firefart/nonamedreturns v1.0.4 // indirect
 	github.com/fzipp/gocyclo v0.6.0 // indirect

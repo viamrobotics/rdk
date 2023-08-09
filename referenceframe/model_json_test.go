@@ -27,6 +27,15 @@ func TestParseJSONFile(t *testing.T) {
 		"referenceframe/testjson/worldjoint.json",
 		"referenceframe/testjson/worldlink.json",
 		"referenceframe/testjson/worldDH.json",
+		"referenceframe/testjson/missinglink.json",
+	}
+
+	badFilesErrors := []error{
+		ErrCircularReference,
+		NewReservedWordError("link", "world"),
+		NewReservedWordError("joint", "world"),
+		ErrAtLeastOneEndEffector,
+		NewFrameNotInListOfTransformsError("base"),
 	}
 
 	for _, f := range goodFiles {
@@ -47,10 +56,11 @@ func TestParseJSONFile(t *testing.T) {
 		})
 	}
 
-	for _, f := range badFiles {
+	for i, f := range badFiles {
 		t.Run(f, func(tt *testing.T) {
 			_, err := ParseModelJSONFile(utils.ResolveFile(f), "")
 			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err.Error(), test.ShouldEqual, badFilesErrors[i].Error())
 		})
 	}
 }

@@ -1,0 +1,128 @@
+// Package powersensor defines the interfaces of a powersensor
+package powersensor
+
+import (
+	"context"
+	"strings"
+
+	pb "go.viam.com/api/component/powersensor/v1"
+
+	"go.viam.com/rdk/components/sensor"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot"
+)
+
+func init() {
+	resource.RegisterAPI(API, resource.APIRegistration[PowerSensor]{
+		RPCServiceServerConstructor: NewRPCServiceServer,
+		RPCServiceHandler:           pb.RegisterPowerSensorServiceHandlerFromEndpoint,
+		RPCServiceDesc:              &pb.PowerSensorService_ServiceDesc,
+		RPCClient:                   NewClientFromConn,
+	})
+
+	registerCollector("Voltage", func(ctx context.Context, ps PowerSensor) (interface{}, error) {
+		type Voltage struct {
+			Volts float64
+			IsAc  bool
+		}
+		v, ac, err := ps.Voltage(ctx, make(map[string]interface{}))
+		if err != nil {
+			return nil, err
+		}
+
+		return Voltage{Volts: v, IsAc: ac}, nil
+	})
+
+	registerCollector("Current", func(ctx context.Context, ps PowerSensor) (interface{}, error) {
+		type Current struct {
+			Amperes float64
+			IsAc    bool
+		}
+		c, ac, err := ps.Current(ctx, make(map[string]interface{}))
+		if err != nil {
+			return nil, err
+		}
+		return Current{Amperes: c, IsAc: ac}, nil
+	})
+
+	registerCollector("Power", func(ctx context.Context, ps PowerSensor) (interface{}, error) {
+		type Power struct {
+			Watts float64
+		}
+		p, err := ps.Power(ctx, make(map[string]interface{}))
+		if err != nil {
+			return nil, err
+		}
+		return Power{Watts: p}, nil
+	})
+}
+
+// SubtypeName is a constant that identifies the component resource API string "power_sensor".
+const SubtypeName = "power_sensor"
+
+// API is a variable that identifies the component resource API.
+var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
+
+// Named is a helper for getting the named PowerSensor's typed resource name.
+func Named(name string) resource.Name {
+	return resource.NewName(API, name)
+}
+
+// A PowerSensor reports information about voltage, current and power.
+type PowerSensor interface {
+	sensor.Sensor
+	Voltage(ctx context.Context, extra map[string]interface{}) (float64, bool, error)
+	Current(ctx context.Context, extra map[string]interface{}) (float64, bool, error)
+	Power(ctx context.Context, extra map[string]interface{}) (float64, error)
+}
+
+// FromDependencies is a helper for getting the named PowerSensor from a collection of
+// dependencies.
+func FromDependencies(deps resource.Dependencies, name string) (PowerSensor, error) {
+	return resource.FromDependencies[PowerSensor](deps, Named(name))
+}
+
+// FromRobot is a helper for getting the named PowerSensor from the given Robot.
+func FromRobot(r robot.Robot, name string) (PowerSensor, error) {
+	return robot.ResourceFromRobot[PowerSensor](r, Named(name))
+}
+
+// NamesFromRobot is a helper for getting all PowerSensor names from the given Robot.
+func NamesFromRobot(r robot.Robot) []string {
+	return robot.NamesByAPI(r, API)
+}
+
+// Readings is a helper for getting all readings from a PowerSensor.
+func Readings(ctx context.Context, g PowerSensor, extra map[string]interface{}) (map[string]interface{}, error) {
+	readings := map[string]interface{}{}
+
+	vol, isAC, err := g.Voltage(ctx, extra)
+	if err != nil {
+		if !strings.Contains(err.Error(), ErrMethodUnimplementedVoltage.Error()) {
+			return nil, err
+		}
+	} else {
+		readings["voltage"] = vol
+		readings["is_ac"] = isAC
+	}
+
+	cur, _, err := g.Current(ctx, extra)
+	if err != nil {
+		if !strings.Contains(err.Error(), ErrMethodUnimplementedCurrent.Error()) {
+			return nil, err
+		}
+	} else {
+		readings["current"] = cur
+	}
+
+	pow, err := g.Power(ctx, extra)
+	if err != nil {
+		if !strings.Contains(err.Error(), ErrMethodUnimplementedPower.Error()) {
+			return nil, err
+		}
+	} else {
+		readings["power"] = pow
+	}
+
+	return readings, nil
+}

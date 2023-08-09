@@ -3,8 +3,8 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
+	"runtime/debug"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -15,27 +15,28 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	rdkcli "go.viam.com/rdk/cli"
+	"go.viam.com/rdk/config"
 )
 
 const (
-	// Flags.
+	// data command flags.
 	dataFlagDestination       = "destination"
-	dataFlagDataType          = "data_type"
-	dataFlagOrgIDs            = "org_ids"
-	dataFlagLocationIDs       = "location_ids"
-	dataFlagRobotID           = "robot_id"
-	dataFlagPartID            = "part_id"
-	dataFlagRobotName         = "robot_name"
-	dataFlagPartName          = "part_name"
-	dataFlagComponentType     = "component_type"
-	dataFlagComponentName     = "component_name"
+	dataFlagDataType          = "data-type"
+	dataFlagOrgIDs            = "org-ids"
+	dataFlagLocationIDs       = "location-ids"
+	dataFlagRobotID           = "robot-id"
+	dataFlagPartID            = "part-id"
+	dataFlagRobotName         = "robot-name"
+	dataFlagPartName          = "part-name"
+	dataFlagComponentType     = "component-type"
+	dataFlagComponentName     = "component-name"
 	dataFlagMethod            = "method"
-	dataFlagMimeTypes         = "mime_types"
+	dataFlagMimeTypes         = "mime-types"
 	dataFlagStart             = "start"
 	dataFlagEnd               = "end"
 	dataFlagParallelDownloads = "parallel"
 	dataFlagTags              = "tags"
-	dataFlagBboxLabels        = "bbox_labels"
+	dataFlagBboxLabels        = "bbox-labels"
 
 	dataTypeBinary  = "binary"
 	dataTypeTabular = "tabular"
@@ -45,8 +46,9 @@ func main() {
 	var logger golog.Logger
 
 	app := &cli.App{
-		Name:  "viam",
-		Usage: "interact with your robots",
+		Name:            "viam",
+		Usage:           "interact with your Viam robots",
+		HideHelpCommand: true,
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:   "base-url",
@@ -57,7 +59,7 @@ func main() {
 			&cli.StringFlag{
 				Name:    "config",
 				Aliases: []string{"c"},
-				Usage:   "Load configuration from `FILE`",
+				Usage:   "load configuration from `FILE`",
 			},
 			&cli.BoolFlag{
 				Name:    "debug",
@@ -76,34 +78,44 @@ func main() {
 		},
 		Commands: []*cli.Command{
 			{
-				Name:  "auth",
-				Usage: "authenticate to app.viam.com",
+				Name: "login",
+				// NOTE(benjirewis): maintain `auth` as an alias for backward compatibility.
+				Aliases:         []string{"auth"},
+				Usage:           "login to app.viam.com",
+				HideHelpCommand: true,
 				Action: func(c *cli.Context) error {
 					client, err := rdkcli.NewAppClient(c)
 					if err != nil {
 						return err
 					}
 
-					loggedInMessage := func(token *rdkcli.Token) {
-						fmt.Fprintf(c.App.Writer, "Already authenticated as %q expires at %s\n", token.User.Email, token.ExpiresAt)
+					loggedInMessage := func(token *rdkcli.Token, alreadyLoggedIn bool) {
+						already := "already "
+						if !alreadyLoggedIn {
+							already = ""
+							rdkcli.ViamLogo(c.App.Writer)
+						}
+
+						fmt.Fprintf(c.App.Writer, "%slogged in as %q, expires %s\n", already, token.User.Email,
+							token.ExpiresAt.Format("Mon Jan 2 15:04:05 MST 2006"))
 					}
 
 					if client.Config().Auth != nil && !client.Config().Auth.IsExpired() {
-						loggedInMessage(client.Config().Auth)
+						loggedInMessage(client.Config().Auth, true)
 						return nil
 					}
 
 					if err := client.Login(); err != nil {
-						return err
+						return errors.Wrap(err, "could not login")
 					}
 
-					loggedInMessage(client.Config().Auth)
+					loggedInMessage(client.Config().Auth, false)
 					return nil
 				},
 				Subcommands: []*cli.Command{
 					{
 						Name:  "print-access-token",
-						Usage: "print-access-token - print an access token for your current credentials",
+						Usage: "print the access token associated with current credentials",
 						Action: func(c *cli.Context) error {
 							client, err := rdkcli.NewAppClient(c)
 							if err != nil {
@@ -111,7 +123,7 @@ func main() {
 							}
 
 							if client.Config().Auth == nil || client.Config().Auth.IsExpired() {
-								return errors.New("not authenticated. run \"auth\" command")
+								return errors.New("not logged in. run \"login\" command")
 							}
 
 							fmt.Fprintln(c.App.Writer, client.Config().Auth.AccessToken)
@@ -131,19 +143,19 @@ func main() {
 					}
 					auth := client.Config().Auth
 					if auth == nil {
-						fmt.Fprintf(c.App.Writer, "Already logged out\n")
+						fmt.Fprintf(c.App.Writer, "already logged out\n")
 						return nil
 					}
 					if err := client.Logout(); err != nil {
-						return err
+						return errors.Wrap(err, "could not logout")
 					}
-					fmt.Fprintf(c.App.Writer, "Logged out from %q\n", auth.User.Email)
+					fmt.Fprintf(c.App.Writer, "logged out from %q\n", auth.User.Email)
 					return nil
 				},
 			},
 			{
 				Name:  "whoami",
-				Usage: "get currently authenticated user",
+				Usage: "get currently logged-in user",
 				Action: func(c *cli.Context) error {
 					client, err := rdkcli.NewAppClient(c)
 					if err != nil {
@@ -151,7 +163,7 @@ func main() {
 					}
 					auth := client.Config().Auth
 					if auth == nil {
-						fmt.Fprintf(c.App.Writer, "Not logged in\n")
+						rdkcli.Warningf(c.App.Writer, "not logged in. run \"login\" command")
 						return nil
 					}
 					fmt.Fprintf(c.App.Writer, "%s\n", auth.User.Email)
@@ -159,12 +171,13 @@ func main() {
 				},
 			},
 			{
-				Name:  "organizations",
-				Usage: "work with organizations",
+				Name:            "organizations",
+				Usage:           "work with organizations",
+				HideHelpCommand: true,
 				Subcommands: []*cli.Command{
 					{
 						Name:  "list",
-						Usage: "list organizations",
+						Usage: "list organizations for the current user",
 						Action: func(c *cli.Context) error {
 							client, err := rdkcli.NewAppClient(c)
 							if err != nil {
@@ -172,10 +185,13 @@ func main() {
 							}
 							orgs, err := client.ListOrganizations()
 							if err != nil {
-								return err
+								return errors.Wrap(err, "could not list organizations")
 							}
-							for _, org := range orgs {
-								fmt.Fprintf(c.App.Writer, "%s (id: %s)\n", org.Name, org.Id)
+							for i, org := range orgs {
+								if i == 0 {
+									fmt.Fprintf(c.App.Writer, "organizations for %q:\n", client.Config().Auth.User.Email)
+								}
+								fmt.Fprintf(c.App.Writer, "\t%s (id: %s)\n", org.Name, org.Id)
 							}
 							return nil
 						},
@@ -183,12 +199,13 @@ func main() {
 				},
 			},
 			{
-				Name:  "locations",
-				Usage: "work with locations",
+				Name:            "locations",
+				Usage:           "work with locations",
+				HideHelpCommand: true,
 				Subcommands: []*cli.Command{
 					{
 						Name:      "list",
-						Usage:     "list locations",
+						Usage:     "list locations for the current user",
 						ArgsUsage: "[organization]",
 						Action: func(c *cli.Context) error {
 							client, err := rdkcli.NewAppClient(c)
@@ -199,23 +216,22 @@ func main() {
 							listLocations := func(orgID string) error {
 								locs, err := client.ListLocations(orgID)
 								if err != nil {
-									return err
+									return errors.Wrap(err, "could not list locations")
 								}
 								for _, loc := range locs {
-									fmt.Fprintf(c.App.Writer, "%s (id: %s)\n", loc.Name, loc.Id)
+									fmt.Fprintf(c.App.Writer, "\t%s (id: %s)\n", loc.Name, loc.Id)
 								}
 								return nil
 							}
 							if orgStr == "" {
 								orgs, err := client.ListOrganizations()
 								if err != nil {
-									return err
+									return errors.Wrap(err, "could not list organizations")
 								}
 								for i, org := range orgs {
-									if i != 0 {
-										fmt.Fprintln(c.App.Writer, "")
+									if i == 0 {
+										fmt.Fprintf(c.App.Writer, "locations for %q:\n", client.Config().Auth.User.Email)
 									}
-
 									fmt.Fprintf(c.App.Writer, "%s:\n", org.Name)
 									if err := listLocations(org.Id); err != nil {
 										return err
@@ -229,16 +245,14 @@ func main() {
 				},
 			},
 			{
-				Name:  "data",
-				Usage: "work with data",
+				Name:            "data",
+				Usage:           "work with data",
+				HideHelpCommand: true,
 				Subcommands: []*cli.Command{
 					{
-						Name:  "export",
-						Usage: "download data from Viam cloud",
-						UsageText: fmt.Sprintf("viam data export <%s> <%s> [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s]",
-							dataFlagDestination, dataFlagDataType, dataFlagOrgIDs, dataFlagLocationIDs, dataFlagRobotID, dataFlagRobotName,
-							dataFlagPartID, dataFlagPartName, dataFlagComponentType, dataFlagComponentName,
-							dataFlagStart, dataFlagEnd, dataFlagMethod, dataFlagMimeTypes, dataFlagParallelDownloads, dataFlagTags),
+						Name:      "export",
+						Usage:     "download data from Viam cloud",
+						UsageText: fmt.Sprintf("viam data export <%s> <%s> [other options]", dataFlagDestination, dataFlagDataType),
 						Flags: []cli.Flag{
 							&cli.PathFlag{
 								Name:     dataFlagDestination,
@@ -251,79 +265,65 @@ func main() {
 								Usage:    "data type to be downloaded: either binary or tabular",
 							},
 							&cli.StringSliceFlag{
-								Name:     dataFlagOrgIDs,
-								Required: false,
-								Usage:    "orgs filter",
+								Name:  dataFlagOrgIDs,
+								Usage: "orgs filter",
 							},
 							&cli.StringSliceFlag{
-								Name:     dataFlagLocationIDs,
-								Required: false,
-								Usage:    "locations filter",
+								Name:  dataFlagLocationIDs,
+								Usage: "locations filter",
 							},
 							&cli.StringFlag{
-								Name:     dataFlagRobotID,
-								Required: false,
-								Usage:    "robot_id filter",
+								Name:  dataFlagRobotID,
+								Usage: "robot-id filter",
 							},
 							&cli.StringFlag{
-								Name:     dataFlagPartID,
-								Required: false,
-								Usage:    "part_id filter",
+								Name:  dataFlagPartID,
+								Usage: "part id filter",
 							},
 							&cli.StringFlag{
-								Name:     dataFlagRobotName,
-								Required: false,
-								Usage:    "robot_name filter",
+								Name:  dataFlagRobotName,
+								Usage: "robot name filter",
 							},
 							&cli.StringFlag{
-								Name:     dataFlagPartName,
-								Required: false,
-								Usage:    "part_name filter",
+								Name:  dataFlagPartName,
+								Usage: "part name filter",
 							},
 							&cli.StringFlag{
-								Name:     dataFlagComponentType,
-								Required: false,
-								Usage:    "component_type filter",
+								Name:  dataFlagComponentType,
+								Usage: "component type filter",
 							},
 							&cli.StringFlag{
-								Name:     dataFlagComponentName,
-								Required: false,
-								Usage:    "component_name filter",
+								Name:  dataFlagComponentName,
+								Usage: "component name filter",
 							},
 							&cli.StringFlag{
-								Name:     dataFlagMethod,
-								Required: false,
-								Usage:    "method filter",
+								Name:  dataFlagMethod,
+								Usage: "method filter",
 							},
 							&cli.StringSliceFlag{
-								Name:     dataFlagMimeTypes,
-								Required: false,
-								Usage:    "mime_types filter",
+								Name:  dataFlagMimeTypes,
+								Usage: "mime types filter",
 							},
 							&cli.UintFlag{
-								Name:     dataFlagParallelDownloads,
-								Required: false,
-								Usage:    "number of download requests to make in parallel, with a default value of 10",
+								Name:        dataFlagParallelDownloads,
+								Usage:       "number of download requests to make in parallel",
+								DefaultText: "10",
 							},
 							&cli.StringFlag{
-								Name:     dataFlagStart,
-								Required: false,
-								Usage:    "ISO-8601 timestamp indicating the start of the interval filter",
+								Name:  dataFlagStart,
+								Usage: "ISO-8601 timestamp indicating the start of the interval filter",
 							},
 							&cli.StringFlag{
-								Name:     dataFlagEnd,
-								Required: false,
-								Usage:    "ISO-8601 timestamp indicating the end of the interval filter",
+								Name:  dataFlagEnd,
+								Usage: "ISO-8601 timestamp indicating the end of the interval filter",
 							},
 							&cli.StringSliceFlag{
-								Name:     dataFlagTags,
-								Required: false,
+								Name: dataFlagTags,
 								Usage: "tags filter. " +
 									"accepts tagged for all tagged data, untagged for all untagged data, or a list of tags for all data matching any of the tags",
 							},
 							&cli.StringSliceFlag{
-								Name:     dataFlagBboxLabels,
-								Required: false,
+								Name: dataFlagBboxLabels,
 								Usage: "bbox labels filter. " +
 									"accepts string labels corresponding to bounding boxes within images",
 							},
@@ -331,77 +331,62 @@ func main() {
 						Action: DataCommand,
 					},
 					{
-						Name:  "delete",
-						Usage: "delete data from Viam cloud",
-						UsageText: fmt.Sprintf("viam data delete [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s]",
-							dataFlagDataType, dataFlagOrgIDs, dataFlagLocationIDs, dataFlagRobotID, dataFlagRobotName,
-							dataFlagPartID, dataFlagPartName, dataFlagComponentType, dataFlagComponentName,
-							dataFlagStart, dataFlagEnd, dataFlagMethod, dataFlagMimeTypes),
+						Name:      "delete",
+						Usage:     "delete data from Viam cloud",
+						UsageText: fmt.Sprintf("viam data delete <%s> [other options]", dataFlagDataType),
 						Flags: []cli.Flag{
 							&cli.StringFlag{
 								Name:     dataFlagDataType,
-								Required: false,
+								Required: true,
 								Usage:    "data type to be deleted: either binary or tabular",
 							},
 							&cli.StringSliceFlag{
-								Name:     dataFlagOrgIDs,
-								Required: false,
-								Usage:    "orgs filter",
+								Name:  dataFlagOrgIDs,
+								Usage: "orgs filter",
 							},
 							&cli.StringSliceFlag{
-								Name:     dataFlagLocationIDs,
-								Required: false,
-								Usage:    "locations filter",
+								Name:  dataFlagLocationIDs,
+								Usage: "locations filter",
 							},
 							&cli.StringFlag{
-								Name:     dataFlagRobotID,
-								Required: false,
-								Usage:    "robot_id filter",
+								Name:  dataFlagRobotID,
+								Usage: "robot id filter",
 							},
 							&cli.StringFlag{
-								Name:     dataFlagPartID,
-								Required: false,
-								Usage:    "part_id filter",
+								Name:  dataFlagPartID,
+								Usage: "part id filter",
 							},
 							&cli.StringFlag{
-								Name:     dataFlagRobotName,
-								Required: false,
-								Usage:    "robot_name filter",
+								Name:  dataFlagRobotName,
+								Usage: "robot name filter",
 							},
 							&cli.StringFlag{
-								Name:     dataFlagPartName,
-								Required: false,
-								Usage:    "part_name filter",
+								Name:  dataFlagPartName,
+								Usage: "part name filter",
 							},
 							&cli.StringFlag{
-								Name:     dataFlagComponentType,
-								Required: false,
-								Usage:    "component_type filter",
+								Name:  dataFlagComponentType,
+								Usage: "component type filter",
 							},
 							&cli.StringFlag{
-								Name:     dataFlagComponentName,
-								Required: false,
-								Usage:    "component_name filter",
+								Name:  dataFlagComponentName,
+								Usage: "component name filter",
 							},
 							&cli.StringFlag{
-								Name:     dataFlagMethod,
-								Required: false,
-								Usage:    "method filter",
+								Name:  dataFlagMethod,
+								Usage: "method filter",
 							},
 							&cli.StringSliceFlag{
-								Name:     dataFlagMimeTypes,
-								Required: false,
-								Usage:    "mime_types filter",
+								Name:  dataFlagMimeTypes,
+								Usage: "mime types filter",
 							},
 							&cli.StringFlag{
-								Name:     dataFlagStart,
-								Required: false,
-								Usage:    "ISO-8601 timestamp indicating the start of the interval filter",
+								Name:  dataFlagStart,
+								Usage: "ISO-8601 timestamp indicating the start of the interval filter",
 							},
 							&cli.StringFlag{
-								Name:     dataFlagEnd,
-								Required: false,
-								Usage:    "ISO-8601 timestamp indicating the end of the interval filter",
+								Name:  dataFlagEnd,
+								Usage: "ISO-8601 timestamp indicating the end of the interval filter",
 							},
 						},
 						Action: DeleteCommand,
@@ -409,18 +394,21 @@ func main() {
 				},
 			},
 			{
-				Name:  "robots",
-				Usage: "work with robots",
+				Name:            "robots",
+				Usage:           "work with robots",
+				HideHelpCommand: true,
 				Subcommands: []*cli.Command{
 					{
 						Name:  "list",
-						Usage: "list robots",
+						Usage: "list robots in an organization and location",
 						Flags: []cli.Flag{
 							&cli.StringFlag{
-								Name: "organization",
+								Name:        "organization",
+								DefaultText: "first organization alphabetically",
 							},
 							&cli.StringFlag{
-								Name: "location",
+								Name:        "location",
+								DefaultText: "first location alphabetically",
 							},
 						},
 						Action: func(c *cli.Context) error {
@@ -432,7 +420,7 @@ func main() {
 							locStr := c.String("location")
 							robots, err := client.ListRobots(orgStr, locStr)
 							if err != nil {
-								return err
+								return errors.Wrap(err, "could not list robots")
 							}
 
 							if orgStr == "" || locStr == "" {
@@ -448,18 +436,22 @@ func main() {
 				},
 			},
 			{
-				Name:  "robot",
-				Usage: "work with a robot",
+				Name:            "robot",
+				Usage:           "work with a robot",
+				HideHelpCommand: true,
 				Subcommands: []*cli.Command{
 					{
-						Name:  "status",
-						Usage: "display robot status",
+						Name:      "status",
+						Usage:     "display robot status",
+						UsageText: "viam robot status <robot> [other options]",
 						Flags: []cli.Flag{
 							&cli.StringFlag{
-								Name: "organization",
+								Name:        "organization",
+								DefaultText: "first organization alphabetically",
 							},
 							&cli.StringFlag{
-								Name: "location",
+								Name:        "location",
+								DefaultText: "first location alphabetically",
 							},
 							&cli.StringFlag{
 								Name:     "robot",
@@ -480,7 +472,7 @@ func main() {
 							}
 							parts, err := client.RobotParts(client.SelectedOrg().Id, client.SelectedLoc().Id, robot.Id)
 							if err != nil {
-								return err
+								return errors.Wrap(err, "could not get robot parts")
 							}
 
 							if orgStr == "" || locStr == "" {
@@ -489,7 +481,7 @@ func main() {
 
 							fmt.Fprintf(
 								c.App.Writer,
-								"ID: %s\nName: %s\nLast Access: %s (%s ago)\n",
+								"ID: %s\nname: %s\nlast access: %s (%s ago)\n",
 								robot.Id,
 								robot.Name,
 								robot.LastAccess.AsTime().Format(time.UnixDate),
@@ -497,7 +489,7 @@ func main() {
 							)
 
 							if len(parts) != 0 {
-								fmt.Fprintln(c.App.Writer, "Parts:")
+								fmt.Fprintln(c.App.Writer, "parts:")
 							}
 							for i, part := range parts {
 								name := part.Name
@@ -506,7 +498,7 @@ func main() {
 								}
 								fmt.Fprintf(
 									c.App.Writer,
-									"\tID: %s\n\tName: %s\n\tLast Access: %s (%s ago)\n",
+									"\tID: %s\n\tname: %s\n\tlast access: %s (%s ago)\n",
 									part.Id,
 									name,
 									part.LastAccess.AsTime().Format(time.UnixDate),
@@ -521,14 +513,17 @@ func main() {
 						},
 					},
 					{
-						Name:  "logs",
-						Usage: "display robot logs",
+						Name:      "logs",
+						Usage:     "display robot logs",
+						UsageText: "viam robot logs <robot> [other options]",
 						Flags: []cli.Flag{
 							&cli.StringFlag{
-								Name: "organization",
+								Name:        "organization",
+								DefaultText: "first organization alphabetically",
 							},
 							&cli.StringFlag{
-								Name: "location",
+								Name:        "location",
+								DefaultText: "first location alphabetically",
 							},
 							&cli.StringFlag{
 								Name:     "robot",
@@ -550,12 +545,12 @@ func main() {
 							robotStr := c.String("robot")
 							robot, err := client.Robot(orgStr, locStr, robotStr)
 							if err != nil {
-								return err
+								return errors.Wrap(err, "could not get robot")
 							}
 
 							parts, err := client.RobotParts(orgStr, locStr, robotStr)
 							if err != nil {
-								return err
+								return errors.Wrap(err, "could not get robot parts")
 							}
 
 							for i, part := range parts {
@@ -575,7 +570,7 @@ func main() {
 									"\t",
 									header,
 								); err != nil {
-									return err
+									return errors.Wrap(err, "could not print robot logs")
 								}
 							}
 
@@ -583,18 +578,22 @@ func main() {
 						},
 					},
 					{
-						Name:  "part",
-						Usage: "work with robot part",
+						Name:            "part",
+						Usage:           "work with a robot part",
+						HideHelpCommand: true,
 						Subcommands: []*cli.Command{
 							{
-								Name:  "status",
-								Usage: "display part status",
+								Name:      "status",
+								Usage:     "display part status",
+								UsageText: "viam robot part status <robot> <part> [other options]",
 								Flags: []cli.Flag{
 									&cli.StringFlag{
-										Name: "organization",
+										Name:        "organization",
+										DefaultText: "first organization alphabetically",
 									},
 									&cli.StringFlag{
-										Name: "location",
+										Name:        "location",
+										DefaultText: "first location alphabetically",
 									},
 									&cli.StringFlag{
 										Name:     "robot",
@@ -616,12 +615,12 @@ func main() {
 									robotStr := c.String("robot")
 									robot, err := client.Robot(orgStr, locStr, robotStr)
 									if err != nil {
-										return err
+										return errors.Wrap(err, "could not get robot")
 									}
 
 									part, err := client.RobotPart(orgStr, locStr, robotStr, c.String("part"))
 									if err != nil {
-										return err
+										return errors.Wrap(err, "could not get robot part")
 									}
 
 									if orgStr == "" || locStr == "" || robotStr == "" {
@@ -634,7 +633,7 @@ func main() {
 									}
 									fmt.Fprintf(
 										c.App.Writer,
-										"ID: %s\nName: %s\nLast Access: %s (%s ago)\n",
+										"ID: %s\nname: %s\nlast access: %s (%s ago)\n",
 										part.Id,
 										name,
 										part.LastAccess.AsTime().Format(time.UnixDate),
@@ -645,14 +644,17 @@ func main() {
 								},
 							},
 							{
-								Name:  "logs",
-								Usage: "display part logs",
+								Name:      "logs",
+								Usage:     "display part logs",
+								UsageText: "viam robot part logs <robot> <part> [other options]",
 								Flags: []cli.Flag{
 									&cli.StringFlag{
-										Name: "organization",
+										Name:        "organization",
+										DefaultText: "first organization alphabetically",
 									},
 									&cli.StringFlag{
-										Name: "location",
+										Name:        "location",
+										DefaultText: "first location alphabetically",
 									},
 									&cli.StringFlag{
 										Name:     "robot",
@@ -683,7 +685,7 @@ func main() {
 									robotStr := c.String("robot")
 									robot, err := client.Robot(orgStr, locStr, robotStr)
 									if err != nil {
-										return err
+										return errors.Wrap(err, "could not get robot")
 									}
 
 									var header string
@@ -709,7 +711,7 @@ func main() {
 							{
 								Name:      "run",
 								Usage:     "run a command on a robot part",
-								ArgsUsage: "<service.method>",
+								UsageText: "viam robot part run <organization> <location> <robot> <part> [other options] <service.method>",
 								Flags: []cli.Flag{
 									&cli.StringFlag{
 										Name:     "organization",
@@ -739,9 +741,7 @@ func main() {
 								Action: func(c *cli.Context) error {
 									svcMethod := c.Args().First()
 									if svcMethod == "" {
-										fmt.Fprintln(c.App.ErrWriter, "service method required")
-										cli.ShowSubcommandHelpAndExit(c, 1)
-										return nil
+										return errors.New("service method required")
 									}
 
 									client, err := rdkcli.NewAppClient(c)
@@ -765,6 +765,12 @@ func main() {
 							{
 								Name:  "shell",
 								Usage: "start a shell on a robot part",
+								// TODO(RSDK-4377): remove this warning
+								Description: `WARNING: Functionality of the shell command is highly experimental. In particular, there may be text-input issues
+in the opened shell.
+
+In order to use the shell command, the robot must have a valid shell type service.`,
+								UsageText: "viam robot part shell <organization> <location> <robot> <part>",
 								Flags: []cli.Flag{
 									&cli.StringFlag{
 										Name:     "organization",
@@ -784,6 +790,9 @@ func main() {
 									},
 								},
 								Action: func(c *cli.Context) error {
+									// TODO(RSDK-4377): remove this warning message
+									rdkcli.Warningf(c.App.Writer, "shell command is highly experimental")
+
 									client, err := rdkcli.NewAppClient(c)
 									if err != nil {
 										return err
@@ -804,21 +813,23 @@ func main() {
 				},
 			},
 			{
-				Name:  "module",
-				Usage: "manage your modules in Viam's registry",
+				Name:            "module",
+				Usage:           "manage your modules in Viam's registry",
+				HideHelpCommand: true,
 				Subcommands: []*cli.Command{
 					{
 						Name:  "create",
 						Usage: "create & register a module on app.viam.com",
 						Description: `Creates a module in app.viam.com to simplify code deployment.
-Ex: 'viam module create --name my-great-module --org_id <my org id>'
-Will create the module and a corresponding meta.json file in the current directory. 
+Ex: 'viam module create --name my-great-module --org-id <my org id>'
+Will create the module and a corresponding meta.json file in the current directory.
 
-If your org has set a namespace in app.viam.com then your module name will be 'my-namespace:my-great-module' and 
-you wont have to pass a namespace or orgid in future commands. Otherwise there we be no namespace
-and you will have to provide the org id to future cli commands and can't make your module public until you claim one.
+If your org has set a namespace in app.viam.com then your module name will be 'my-namespace:my-great-module' and
+you won't have to pass a namespace or org-id in future commands. Otherwise there will be no namespace
+and you will have to provide the org-id to future cli commands. You cannot make your module public until you claim an org-id.
 
-Next, update your meta.json and use 'viam module update' to push those changes to app.viam.com`,
+After creation, use 'viam module update' to push your new module to app.viam.com.`,
+						UsageText: "viam module create <name> [other options]",
 						Flags: []cli.Flag{
 							&cli.StringFlag{
 								Name:     "name",
@@ -826,11 +837,11 @@ Next, update your meta.json and use 'viam module update' to push those changes t
 								Required: true,
 							},
 							&cli.StringFlag{
-								Name:  "public_namespace",
+								Name:  "public-namespace",
 								Usage: "the public namespace where the module will reside (alternative way of specifying the org id)",
 							},
 							&cli.StringFlag{
-								Name:  "org_id",
+								Name:  "org-id",
 								Usage: "id of the organization that will host the module",
 							},
 						},
@@ -847,11 +858,11 @@ Next, update your meta.json and use 'viam module update' to push those changes t
 								TakesFile:   true,
 							},
 							&cli.StringFlag{
-								Name:  "public_namespace",
+								Name:  "public-namespace",
 								Usage: "the public namespace where the module resides (alternative way of specifying the org id)",
 							},
 							&cli.StringFlag{
-								Name:  "org_id",
+								Name:  "org-id",
 								Usage: "id of the organization that hosts the module",
 							},
 						},
@@ -866,7 +877,7 @@ Example for linux/amd64:
 tar -czf packaged-module.tar.gz my-binary   # the meta.json entrypoint is relative to the root of the archive, so it should be "./my-binary"
 viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.tar.gz
                         `,
-						ArgsUsage: "<packaged-module.tar.gz>",
+						UsageText: "viam module upload <version> <platform> [other options] <packaged-module.tar.gz>",
 						Flags: []cli.Flag{
 							&cli.StringFlag{
 								Name:        "module",
@@ -875,11 +886,11 @@ viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.ta
 								TakesFile:   true,
 							},
 							&cli.StringFlag{
-								Name:  "public_namespace",
+								Name:  "public-namespace",
 								Usage: "the public namespace where the module resides (alternative way of specifying the org id)",
 							},
 							&cli.StringFlag{
-								Name:  "org_id",
+								Name:  "org-id",
 								Usage: "id of the organization that hosts the module",
 							},
 							&cli.StringFlag{
@@ -893,7 +904,7 @@ viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.ta
 							},
 							&cli.StringFlag{
 								Name: "platform",
-								Usage: `Platform of the binary you are uploading. Must be one of:
+								Usage: `platform of the binary you are uploading. Must be one of:
                         linux/amd64
                         linux/arm64
                         darwin/amd64 (for intel macs)
@@ -905,11 +916,49 @@ viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.ta
 					},
 				},
 			},
+			{
+				Name:  "version",
+				Usage: "print version info for this program",
+				Action: func(c *cli.Context) error {
+					info, ok := debug.ReadBuildInfo()
+					if !ok {
+						return errors.New("Error reading build info")
+					}
+					if c.Bool("debug") {
+						fmt.Fprintf(c.App.Writer, "%s\n", info.String())
+					}
+					settings := make(map[string]string, len(info.Settings))
+					for _, setting := range info.Settings {
+						settings[setting.Key] = setting.Value
+					}
+					version := "?"
+					if rev, ok := settings["vcs.revision"]; ok {
+						version = rev[:8]
+						if settings["vcs.modified"] == "true" {
+							version += "+"
+						}
+					}
+					deps := make(map[string]*debug.Module, len(info.Deps))
+					for _, dep := range info.Deps {
+						deps[dep.Path] = dep
+					}
+					apiVersion := "?"
+					if dep, ok := deps["go.viam.com/api"]; ok {
+						apiVersion = dep.Version
+					}
+					appVersion := config.Version
+					if appVersion == "" {
+						appVersion = "(dev)"
+					}
+					fmt.Fprintf(c.App.Writer, "version %s git=%s api=%s\n", appVersion, version, apiVersion)
+					return nil
+				},
+			},
 		},
 	}
 
 	if err := app.Run(os.Args); err != nil {
-		log.Fatal(err)
+		rdkcli.Errorf(app.ErrWriter, err.Error())
 	}
 }
 
@@ -935,7 +984,7 @@ func DataCommand(c *cli.Context) error {
 			return err
 		}
 	default:
-		return errors.Errorf("type must be binary or tabular, got %s", c.String("type"))
+		return errors.Errorf("%s must be binary or tabular, got %q", dataFlagDataType, c.String(dataFlagDataType))
 	}
 	return nil
 }
@@ -962,7 +1011,7 @@ func DeleteCommand(c *cli.Context) error {
 			return err
 		}
 	default:
-		return errors.Errorf("type must be binary or tabular, got %s", c.String("type"))
+		return errors.Errorf("%s must be binary or tabular, got %q", dataFlagDataType, c.String(dataFlagDataType))
 	}
 
 	return nil
@@ -1027,14 +1076,14 @@ func createDataFilter(c *cli.Context) (*datapb.Filter, error) {
 	if c.String(dataFlagStart) != "" {
 		t, err := time.Parse(timeLayout, c.String(dataFlagStart))
 		if err != nil {
-			return nil, errors.Wrap(err, "error parsing start flag")
+			return nil, errors.Wrap(err, "could not parse start flag")
 		}
 		start = timestamppb.New(t)
 	}
 	if c.String(dataFlagEnd) != "" {
 		t, err := time.Parse(timeLayout, c.String(dataFlagEnd))
 		if err != nil {
-			return nil, errors.Wrap(err, "error parsing end flag")
+			return nil, errors.Wrap(err, "could not parse end flag")
 		}
 		end = timestamppb.New(t)
 	}

@@ -1,26 +1,35 @@
 <script lang='ts'>
 
 import { notify } from '@viamrobotics/prime';
-import { getLocation } from '@/api/navigation';
-import type { ServiceError } from '@viamrobotics/sdk';
+import { NavigationClient, type ServiceError } from '@viamrobotics/sdk';
 import { robotPosition, centerMap } from '../stores';
 import { setAsyncInterval } from '@/lib/schedule';
 import { useRobotClient, useDisconnect } from '@/hooks/robot-client';
 import MapMarker from './marker.svelte';
+import { rcLogConditionally } from '@/lib/log';
 
 export let name: string;
 
 const { robotClient } = useRobotClient();
+const navClient = new NavigationClient($robotClient, name, { requestLogger: rcLogConditionally });
 
 let centered = false;
 
 const updateLocation = async () => {
   try {
-    const position = await getLocation($robotClient, name);
-
+    const response = await navClient.getLocation();
+    const position = { lat: response.latitude, lng: response.longitude };
     if (!centered) {
-      centerMap(position);
+      centerMap(position, true);
       centered = true;
+    }
+
+    rcLogConditionally(response);
+    rcLogConditionally(response.latitude);
+    rcLogConditionally(response.longitude);
+
+    if ($robotPosition?.lat === position.lat && $robotPosition.lng === position.lng) {
+      return;
     }
 
     $robotPosition = position;
@@ -38,9 +47,5 @@ useDisconnect(() => clearUpdateLocationInterval());
 </script>
 
 {#if $robotPosition}
-  <MapMarker
-    color='red'
-    lng={$robotPosition.lng}
-    lat={$robotPosition.lat}
-  />
+  <MapMarker color='#01EF83' lngLat={$robotPosition} />
 {/if}

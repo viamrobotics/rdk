@@ -97,7 +97,11 @@
             "type": "movement_sensor",
             "model": "fake"
         },
-        
+        {
+            "name": "power_sensor1",
+            "type": "power_sensor",
+            "model": "fake"
+        },
         {
             "name": "sensor1",
             "type": "sensor",
@@ -142,16 +146,58 @@
                 "obstacles": [
                     {
                         "location": {
+                            "latitude": 40.6705209,
+                            "longitude": -73.9659182
+                        },
+                        "geometries": [
+                            {
+                                "r": 2000
+                            }
+                        ]
+                    },
+                    {
+                        "location": {
+                            "longitude": -73.976472,
+                            "latitude": 40.693268
+                        },
+                        "geometries": [
+                            {
+                                "r": 2000000
+                            }
+                        ]
+                    },
+                    {
+                        "geometries": [
+                          {
+                            "r": 3700
+                          }
+                        ],
+                        "location": {
+                          "latitude": 40.772239,
+                          "longitude": -73.98241
+                        }
+                      },
+                    {
+                        "location": {
                             "latitude": 40.6759,
                             "longitude": -73.958847
                         },
                         "geometries": [
                             {
                                 "type": "capsule",
-                                "r": 10,
-                                "l": 30,
-                                "translation": { "x": 0, "y": 0, "z": 0 }
-                            }
+                                "r": 50000,
+                                "l": 300000,
+                                "translation": { "x": 0, "y": 0, "z": 0 },
+                                "orientation": {
+                                    "type": "ov_degrees",
+                                    "value": {
+                                        "x": 0,
+                                        "y": 0,
+                                        "z": 1,
+                                        "th": 0
+                                    }
+                                }
+                            }    
                         ]
                     },
                     {
@@ -162,7 +208,7 @@
                         "geometries": [
                             {
                                 "type": "sphere",
-                                "r": 1000,
+                                "r": 20000,
                                 "translation": { "x": 0, "y": 0, "z": 0 }
                             }
                         ]
@@ -175,9 +221,9 @@
                         "geometries": [
                             {
                                 "type": "box",
-                                "x": 100,
-                                "y": 100,
-                                "z": 100,
+                                "x": 50000,
+                                "y": 50000,
+                                "z": 50000,
                                 "translation": { "x": 0, "y": 0, "z": 0 }
                             }
                         ]
