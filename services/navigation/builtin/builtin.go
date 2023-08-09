@@ -231,24 +231,23 @@ func (svc *builtIn) SetMode(ctx context.Context, mode navigation.Mode, extra map
 	return nil
 }
 
-func (svc *builtIn) Location(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+func (svc *builtIn) Location(ctx context.Context, extra map[string]interface{}) (*spatialmath.GeoPose, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 
-	var compassHeading float64
-
 	if svc.movementSensor == nil {
-		return nil, compassHeading, errors.New("no way to get location")
+		return nil, errors.New("no way to get location")
 	}
 	loc, _, err := svc.movementSensor.Position(ctx, extra)
 	if err != nil {
-		return nil, compassHeading, err
+		return nil, err
 	}
-	compassHeading, err = svc.movementSensor.CompassHeading(ctx, extra)
+	compassHeading, err := svc.movementSensor.CompassHeading(ctx, extra)
 	if err != nil {
-		return nil, compassHeading, err
+		return nil, err
 	}
-	return loc, compassHeading, err
+	geoPose := spatialmath.NewGeoPose(loc, compassHeading)
+	return geoPose, err
 }
 
 func (svc *builtIn) Waypoints(ctx context.Context, extra map[string]interface{}) ([]navigation.Waypoint, error) {

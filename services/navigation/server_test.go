@@ -15,6 +15,7 @@ import (
 
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/navigation"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -176,9 +177,10 @@ func TestServer(t *testing.T) {
 	t.Run("working location function", func(t *testing.T) {
 		loc := geo.NewPoint(90, 1)
 		expectedCompassHeading := 90.
-		injectSvc.LocationFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+		expectedGeoPose := spatialmath.NewGeoPose(loc, expectedCompassHeading)
+		injectSvc.LocationFunc = func(ctx context.Context, extra map[string]interface{}) (*spatialmath.GeoPose, error) {
 			extraOptions = extra
-			return loc, expectedCompassHeading, nil
+			return expectedGeoPose, nil
 		}
 		extra := map[string]interface{}{"foo": "Location"}
 		ext, err := protoutils.StructToStructPb(extra)
@@ -195,8 +197,8 @@ func TestServer(t *testing.T) {
 	})
 
 	t.Run("failing location function", func(t *testing.T) {
-		injectSvc.LocationFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
-			return nil, 0, errors.New("location retrieval failed")
+		injectSvc.LocationFunc = func(ctx context.Context, extra map[string]interface{}) (*spatialmath.GeoPose, error) {
+			return nil, errors.New("location retrieval failed")
 		}
 		req := &pb.GetLocationRequest{Name: testSvcName1.ShortName()}
 		resp, err := navServer.GetLocation(context.Background(), req)

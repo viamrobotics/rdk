@@ -156,3 +156,27 @@ func GeoObstaclesToGeometries(obstacles []*GeoObstacle, origin *geo.Point) []Geo
 	}
 	return geoms
 }
+
+// GeoPose is a struct to store to location and heading in a geospatial environment.
+type GeoPose struct {
+	location *geo.Point
+	heading  float64
+}
+
+// NewGeoPose constructs a GeoPose from a geo.Point and float64.
+func NewGeoPose(loc *geo.Point, heading float64) *GeoPose {
+	return &GeoPose{
+		location: loc,
+		heading:  heading,
+	}
+}
+
+// Location returns the locating coordinates of the GeoPose.
+func (gpo *GeoPose) Location() *geo.Point {
+	return gpo.location
+}
+
+// Heading returns a number from [0-360) where 0 is north.
+func (gpo *GeoPose) Heading() float64 {
+	return gpo.heading
+}

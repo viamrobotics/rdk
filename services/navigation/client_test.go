@@ -18,6 +18,7 @@ import (
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/navigation"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -58,9 +59,11 @@ func TestClient(t *testing.T) {
 	}
 	expectedLoc := geo.NewPoint(80, 1)
 	expectedCompassHeading := 90.
-	workingNavigationService.LocationFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+	expectedGeoPose := spatialmath.NewGeoPose(expectedLoc, expectedCompassHeading)
+	workingNavigationService.LocationFunc = func(ctx context.Context, extra map[string]interface{}) (*spatialmath.GeoPose, error) {
 		extraOptions = extra
-		return expectedLoc, expectedCompassHeading, nil
+
+		return expectedGeoPose, nil
 	}
 	waypoints := []navigation.Waypoint{
 		{
@@ -95,8 +98,8 @@ func TestClient(t *testing.T) {
 		receivedFailingMode = mode
 		return errors.New("failure to set mode")
 	}
-	failingNavigationService.LocationFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
-		return nil, 0, errors.New("failure to retrieve location")
+	failingNavigationService.LocationFunc = func(ctx context.Context, extra map[string]interface{}) (*spatialmath.GeoPose, error) {
+		return nil, errors.New("failure to retrieve location")
 	}
 	failingNavigationService.WaypointsFunc = func(ctx context.Context, extra map[string]interface{}) ([]navigation.Waypoint, error) {
 		return nil, errors.New("failure to retrieve waypoints")
@@ -188,11 +191,10 @@ func TestClient(t *testing.T) {
 
 		// test location
 		extra := map[string]interface{}{"foo": "Location"}
-		loc, heading, err := workingDialedClient.Location(context.Background(), extra)
+		geoPose, err := workingDialedClient.Location(context.Background(), extra)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, loc, test.ShouldResemble, expectedLoc)
+		test.That(t, geoPose, test.ShouldResemble, expectedGeoPose)
 		test.That(t, extraOptions, test.ShouldResemble, extra)
-		test.That(t, heading, test.ShouldEqual, 90.)
 
 		// test remove waypoint
 		wptID := primitive.NewObjectID()
@@ -258,10 +260,9 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 
 		// test location
-		loc, heading, err := dialedClient.Location(context.Background(), map[string]interface{}{})
+		geoPose, err := dialedClient.Location(context.Background(), map[string]interface{}{})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, loc, test.ShouldBeNil)
-		test.That(t, heading, test.ShouldEqual, 0.)
+		test.That(t, geoPose, test.ShouldBeNil)
 
 		// test remove waypoint
 		wptID := primitive.NewObjectID()
