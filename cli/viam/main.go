@@ -461,7 +461,7 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 								Usage: "id of the organization that will host the module",
 							},
 						},
-						Action: rdkcli.CreateModuleCommand,
+						Action: rdkcli.CreateModuleAction,
 					},
 					{
 						Name:  "update",
@@ -482,7 +482,7 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 								Usage: "id of the organization that hosts the module",
 							},
 						},
-						Action: rdkcli.UpdateModuleCommand,
+						Action: rdkcli.UpdateModuleAction,
 					},
 					{
 						Name:  "upload",
@@ -528,7 +528,7 @@ viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.ta
 								Required: true,
 							},
 						},
-						Action: rdkcli.UploadModuleCommand,
+						Action: rdkcli.UploadModuleAction,
 					},
 				},
 			},

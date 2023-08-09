@@ -17,34 +17,34 @@ import (
 	apppb "go.viam.com/api/app/v1"
 )
 
-// ModuleVisibility determines whether modules are public or private.
-type ModuleVisibility string
+// moduleVisibility determines whether modules are public or private.
+type moduleVisibility string
 
 // Permissions enumeration.
 const (
-	ModuleVisibilityPrivate ModuleVisibility = "private"
-	ModuleVisibilityPublic  ModuleVisibility = "public"
+	moduleVisibilityPrivate moduleVisibility = "private"
+	moduleVisibilityPublic  moduleVisibility = "public"
 )
 
-// ModuleComponent represents an api - model pair.
-type ModuleComponent struct {
+// moduleComponent represents an api - model pair.
+type moduleComponent struct {
 	API   string `json:"api"`
 	Model string `json:"model"`
 }
 
-// ModuleID represents a prefix:name pair where prefix can be either an org id or a namespace.
-type ModuleID struct {
-	Prefix string
-	Name   string
+// moduleID represents a prefix:name pair where prefix can be either an org id or a namespace.
+type moduleID struct {
+	prefix string
+	name   string
 }
 
-// ModuleManifest is used to create & parse manifest.json.
-type ModuleManifest struct {
+// moduleManifest is used to create & parse manifest.json.
+type moduleManifest struct {
 	Name        string            `json:"name"`
-	Visibility  ModuleVisibility  `json:"visibility"`
+	Visibility  moduleVisibility  `json:"visibility"`
 	URL         string            `json:"url"`
 	Description string            `json:"description"`
-	Models      []ModuleComponent `json:"models"`
+	Models      []moduleComponent `json:"models"`
 	Entrypoint  string            `json:"entrypoint"`
 }
 
@@ -52,9 +52,10 @@ const (
 	defaultManifestFilename = "meta.json"
 )
 
-// CreateModuleCommand runs the command to create a module
-// This includes both a gRPC call to register the module on app.viam.com and creating the manifest file.
-func CreateModuleCommand(c *cli.Context) error {
+// CreateModuleAction is the corresponding Action for 'module create'. It runs
+// the command to create a module. This includes both a gRPC call to register
+// the module on app.viam.com and creating the manifest file.
+func CreateModuleAction(c *cli.Context) error {
 	moduleNameArg := c.String("name")
 	publicNamespaceArg := c.String("public-namespace")
 	orgIDArg := c.String("org-id")
@@ -88,18 +89,18 @@ func CreateModuleCommand(c *cli.Context) error {
 	// is non-ideal.
 	// If you do change this, edit the UpdateCommand().. function to also check if the manifest prefix is an orgid
 	// during the replacement to a public namespace
-	if isValidOrgID(returnedModuleID.Prefix) {
-		returnedModuleID.Prefix = ""
+	if isValidOrgID(returnedModuleID.prefix) {
+		returnedModuleID.prefix = ""
 	}
-	fmt.Fprintf(c.App.Writer, "successfully created '%s'.\n", returnedModuleID.toString())
+	fmt.Fprintf(c.App.Writer, "successfully created '%s'.\n", returnedModuleID.String())
 	if response.GetUrl() != "" {
 		fmt.Fprintf(c.App.Writer, "you can view it here: %s \n", response.GetUrl())
 	}
-	emptyManifest := ModuleManifest{
-		Name:       returnedModuleID.toString(),
-		Visibility: ModuleVisibilityPrivate,
+	emptyManifest := moduleManifest{
+		Name:       returnedModuleID.String(),
+		Visibility: moduleVisibilityPrivate,
 		// This is done so that the json has an empty example
-		Models: []ModuleComponent{
+		Models: []moduleComponent{
 			{},
 		},
 	}
@@ -110,9 +111,10 @@ func CreateModuleCommand(c *cli.Context) error {
 	return nil
 }
 
-// UpdateModuleCommand runs the command to update a module.
-// This includes updating the meta.json to include the public namespace (if set on the org).
-func UpdateModuleCommand(c *cli.Context) error {
+// UpdateModuleAction is the corresponding Action for 'module update'. It runs
+// the command to update a module. This includes updating the meta.json to
+// include the public namespace (if set on the org).
+func UpdateModuleAction(c *cli.Context) error {
 	publicNamespaceArg := c.String("public-namespace")
 	orgIDArg := c.String("org-id")
 	manifestPathArg := c.String("module")
@@ -148,16 +150,16 @@ func UpdateModuleCommand(c *cli.Context) error {
 	if err != nil {
 		return err // shouldn't happen because this has already been parsed
 	}
-	if manifestModuleID.Prefix == "" || isValidOrgID(manifestModuleID.Prefix) {
-		org, err := getOrgByModuleIDPrefix(client, moduleID.Prefix)
+	if manifestModuleID.prefix == "" || isValidOrgID(manifestModuleID.prefix) {
+		org, err := getOrgByModuleIDPrefix(client, moduleID.prefix)
 		if err != nil {
 			// hopefully a user never sees this. An alternative would be to fail silently here
 			// to prevent the user from being surprised/scared that their update failed
 			return errors.Wrap(err, "failed to update meta.json with new information from Viam")
 		}
 		if org.PublicNamespace != "" {
-			moduleID.Prefix = org.PublicNamespace
-			manifest.Name = moduleID.toString()
+			moduleID.prefix = org.PublicNamespace
+			manifest.Name = moduleID.String()
 			if err := writeManifest(manifestPath, manifest); err != nil {
 				return errors.Wrap(err, "failed to update meta.json with new information from Viam")
 			}
@@ -169,8 +171,8 @@ func UpdateModuleCommand(c *cli.Context) error {
 	return nil
 }
 
-// UploadModuleCommand runs the command to upload a new version of a module.
-func UploadModuleCommand(c *cli.Context) error {
+// UploadModuleAction is the corresponding action for 'module upload'.
+func UploadModuleAction(c *cli.Context) error {
 	manifestPathArg := c.String("module")
 	publicNamespaceArg := c.String("public-namespace")
 	orgIDArg := c.String("org-id")
@@ -195,7 +197,7 @@ func UploadModuleCommand(c *cli.Context) error {
 	if manifestPathArg != "" {
 		manifestPath = manifestPathArg
 	}
-	var moduleID ModuleID
+	var moduleID moduleID
 	// if the manifest cant be found
 	if _, err := os.Stat(manifestPath); err != nil {
 		// no manifest found.
@@ -219,10 +221,10 @@ func UploadModuleCommand(c *cli.Context) error {
 		if err != nil {
 			return err
 		}
-		if nameArg != "" && nameArg != moduleID.Name {
+		if nameArg != "" && nameArg != moduleID.name {
 			// This is almost certainly a mistake we want to catch
 			return errors.Errorf("module name %q was supplied on the command line but the meta.json has a module name of %q",
-				nameArg, moduleID.Name)
+				nameArg, moduleID.name)
 		}
 	}
 
@@ -256,7 +258,7 @@ func (c *appClient) createModule(moduleName, organizationID string) (*apppb.Crea
 	return c.client.CreateModule(c.c.Context, &req)
 }
 
-func (c *appClient) updateModule(moduleID ModuleID, manifest ModuleManifest) (*apppb.UpdateModuleResponse, error) {
+func (c *appClient) updateModule(moduleID moduleID, manifest moduleManifest) (*apppb.UpdateModuleResponse, error) {
 	if err := c.ensureLoggedIn(); err != nil {
 		return nil, err
 	}
@@ -269,7 +271,7 @@ func (c *appClient) updateModule(moduleID ModuleID, manifest ModuleManifest) (*a
 		return nil, err
 	}
 	req := apppb.UpdateModuleRequest{
-		ModuleId:    moduleID.toString(),
+		ModuleId:    moduleID.String(),
 		Visibility:  visibility,
 		Url:         manifest.URL,
 		Description: manifest.Description,
@@ -280,7 +282,7 @@ func (c *appClient) updateModule(moduleID ModuleID, manifest ModuleManifest) (*a
 }
 
 func (c *appClient) uploadModuleFile(
-	moduleID ModuleID,
+	moduleID moduleID,
 	version,
 	platform string,
 	file *os.File,
@@ -295,7 +297,7 @@ func (c *appClient) uploadModuleFile(
 		return nil, err
 	}
 	moduleFileInfo := apppb.ModuleFileInfo{
-		ModuleId: moduleID.toString(),
+		ModuleId: moduleID.String(),
 		Version:  version,
 		Platform: platform,
 	}
@@ -374,46 +376,46 @@ func getNextModuleUploadRequest(file *os.File) (*apppb.UploadModuleFileRequest, 
 	}, nil
 }
 
-func visibilityToProto(visibility ModuleVisibility) (apppb.Visibility, error) {
+func visibilityToProto(visibility moduleVisibility) (apppb.Visibility, error) {
 	switch visibility {
-	case ModuleVisibilityPrivate:
+	case moduleVisibilityPrivate:
 		return apppb.Visibility_VISIBILITY_PRIVATE, nil
-	case ModuleVisibilityPublic:
+	case moduleVisibilityPublic:
 		return apppb.Visibility_VISIBILITY_PUBLIC, nil
 	default:
 		return apppb.Visibility_VISIBILITY_UNSPECIFIED,
-			errors.Errorf("invalid module visibility. must be either %q or %q", ModuleVisibilityPublic, ModuleVisibilityPrivate)
+			errors.Errorf("invalid module visibility. must be either %q or %q", moduleVisibilityPublic, moduleVisibilityPrivate)
 	}
 }
 
-func moduleComponentToProto(moduleComponent ModuleComponent) *apppb.Model {
+func moduleComponentToProto(moduleComponent moduleComponent) *apppb.Model {
 	return &apppb.Model{
 		Api:   moduleComponent.API,
 		Model: moduleComponent.Model,
 	}
 }
 
-func parseModuleID(moduleName string) (ModuleID, error) {
+func parseModuleID(moduleName string) (moduleID, error) {
 	// This parsing is intentionally lenient so that the backend does the real validation
 	// We also allow for empty prefixes here (unlike the backend) to simplify the flexible way to parse user input
 	splitModuleName := strings.Split(moduleName, ":")
 	switch len(splitModuleName) {
 	case 1:
-		return ModuleID{Prefix: "", Name: moduleName}, nil
+		return moduleID{prefix: "", name: moduleName}, nil
 	case 2:
-		return ModuleID{Prefix: splitModuleName[0], Name: splitModuleName[1]}, nil
+		return moduleID{prefix: splitModuleName[0], name: splitModuleName[1]}, nil
 	default:
-		return ModuleID{}, errors.Errorf("invalid module name '%s'."+
+		return moduleID{}, errors.Errorf("invalid module name '%s'."+
 			" module name must be in the form 'prefix:module-name' for public modules"+
 			" or just 'module-name' for private modules in organizations without a public namespace", moduleName)
 	}
 }
 
-func (m *ModuleID) toString() string {
-	if m.Prefix == "" {
-		return m.Name
+func (m *moduleID) String() string {
+	if m.prefix == "" {
+		return m.name
 	}
-	return fmt.Sprintf("%s:%s", m.Prefix, m.Name)
+	return fmt.Sprintf("%s:%s", m.prefix, m.name)
 }
 
 // updateManifestModuleIDWithArgs tries to parse the manifestNameEntry to see if it is a valid moduleID with a prefix
@@ -424,43 +426,43 @@ func updateManifestModuleIDWithArgs(
 	manifestNameEntry,
 	publicNamespaceArg,
 	orgIDArg string,
-) (ModuleID, error) {
-	moduleID, err := parseModuleID(manifestNameEntry)
+) (moduleID, error) {
+	mid, err := parseModuleID(manifestNameEntry)
 	if err != nil {
-		return ModuleID{}, err
+		return moduleID{}, err
 	}
-	if moduleID.Prefix != "" {
+	if mid.prefix != "" {
 		if publicNamespaceArg != "" || orgIDArg != "" {
 			org, err := resolveOrg(client, publicNamespaceArg, orgIDArg)
 			if err != nil {
-				return ModuleID{}, err
+				return moduleID{}, err
 			}
-			expectedOrg, err := getOrgByModuleIDPrefix(client, moduleID.Prefix)
+			expectedOrg, err := getOrgByModuleIDPrefix(client, mid.prefix)
 			if err != nil {
-				return ModuleID{}, err
+				return moduleID{}, err
 			}
 			if org.GetId() != expectedOrg.GetId() {
 				// This is almost certainly a user mistake
 				// Preferring org name rather than orgid here because the manifest probably has it specified in terms of
 				// public_namespace so returning the ids would be frustrating
-				return ModuleID{}, errors.Errorf("the meta.json specifies a different org %q than the one provided via args %q",
+				return moduleID{}, errors.Errorf("the meta.json specifies a different org %q than the one provided via args %q",
 					org.GetName(), expectedOrg.GetName())
 			}
 			fmt.Fprintln(c.App.Writer, "the module's meta.json already specifies a full module id. ignoring public-namespace and org-id arg")
 		}
-		return moduleID, nil
+		return mid, nil
 	}
 	// moduleID.Prefix is empty. Need to use orgIDArg and publicNamespaceArg to figure out what it should be
 	org, err := resolveOrg(client, publicNamespaceArg, orgIDArg)
 	if err != nil {
-		return ModuleID{}, err
+		return moduleID{}, err
 	}
 	if org.PublicNamespace != "" {
-		moduleID.Prefix = org.PublicNamespace
+		mid.prefix = org.PublicNamespace
 	} else {
-		moduleID.Prefix = org.Id
+		mid.prefix = org.Id
 	}
-	return moduleID, nil
+	return mid, nil
 }
 
 // resolveOrg accepts either an orgID or a publicNamespace (one must be an empty string).
@@ -503,23 +505,23 @@ func isValidOrgID(str string) bool {
 	return err == nil
 }
 
-func loadManifest(manifestPath string) (ModuleManifest, error) {
+func loadManifest(manifestPath string) (moduleManifest, error) {
 	//nolint:gosec
 	manifestBytes, err := os.ReadFile(manifestPath)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
-			return ModuleManifest{}, errors.Wrapf(err, "cannot find %s", manifestPath)
+			return moduleManifest{}, errors.Wrapf(err, "cannot find %s", manifestPath)
 		}
-		return ModuleManifest{}, err
+		return moduleManifest{}, err
 	}
-	var manifest ModuleManifest
+	var manifest moduleManifest
 	if err := json.Unmarshal(manifestBytes, &manifest); err != nil {
-		return ModuleManifest{}, err
+		return moduleManifest{}, err
 	}
 	return manifest, nil
 }
 
-func writeManifest(manifestPath string, manifest ModuleManifest) error {
+func writeManifest(manifestPath string, manifest moduleManifest) error {
 	manifestBytes, err := json.MarshalIndent(manifest, "", "  ")
 	if err != nil {
 		return err
