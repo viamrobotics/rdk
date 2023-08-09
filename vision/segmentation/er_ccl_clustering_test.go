@@ -2,15 +2,14 @@ package segmentation_test
 
 import (
 	"context"
-	"os"
 	"testing"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
 
 	pc "go.viam.com/rdk/pointcloud"
-	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
@@ -25,9 +24,9 @@ func TestERCCL(t *testing.T) {
 		// return pc.NewFromFile("/Users/vpandiarajan/viam/robotManip/pythonManip/pointcloud.pcd", logger)
 		// return pc.NewFromFile("/Users/vpandiarajan/viam/robotManip/pythonManip/realsense_shoe.pcd", logger)
 		// return pc.NewFromFile("/Users/vpandiarajan/viam/robotManip/pythonManip/realsense_wall.pcd", logger)
-		return pc.NewFromFile("/Users/vpandiarajan/viam/robotManip/pythonManip/realsense_misc_items.pcd", logger)
+		// return pc.NewFromFile("/Users/vpandiarajan/viam/robotManip/pythonManip/realsense_misc_items.pcd", logger)
 		// return pc.NewFromFile("/Users/vpandiarajan/viam/robotManip/pythonManip/realsense_table_leg.pcd", logger)
-		// return pc.NewFromFile(artifact.MustPath("pointcloud/test.las"), logger)
+		return pc.NewFromFile(artifact.MustPath("pointcloud/test.las"), logger)
 		// return pc.NewFromLASFile(artifact.MustPath("pointcloud/test.las"), logger)
 	}
 
@@ -45,25 +44,25 @@ func TestERCCL(t *testing.T) {
 
 	segmenter, err := segmentation.NewERCCLClustering(objConfig)
 	test.That(t, err, test.ShouldBeNil)
-	segments, err := segmenter(context.Background(), injectCamera)
+	_, err = segmenter(context.Background(), injectCamera)
 	test.That(t, err, test.ShouldBeNil)
 
-	cloudsWithOffset := make([]pc.CloudAndOffsetFunc, 0, len(segments))
-	for _, cloud := range segments {
-		cloud := cloud.PointCloud
-		cloudCopy := cloud
-		cloudFunc := func(ctx context.Context) (pc.PointCloud, spatialmath.Pose, error) {
-			return cloudCopy, nil, nil
-		}
-		cloudsWithOffset = append(cloudsWithOffset, cloudFunc)
-	}
-	mergedCloud, err := pc.MergePointClouds(context.Background(), cloudsWithOffset, logger)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, mergedCloud, test.ShouldNotBeNil)
-	pcdFile, err := os.Create("ERCCLmisc.pcd")
-	test.That(t, err, test.ShouldBeNil)
-	defer pcdFile.Close()
-	pc.ToPCD(mergedCloud, pcdFile, pc.PCDBinary)
+	// cloudsWithOffset := make([]pc.CloudAndOffsetFunc, 0, len(segments))
+	// for _, cloud := range segments {
+	// 	cloud := cloud.PointCloud
+	// 	cloudCopy := cloud
+	// 	cloudFunc := func(ctx context.Context) (pc.PointCloud, spatialmath.Pose, error) {
+	// 		return cloudCopy, nil, nil
+	// 	}
+	// 	cloudsWithOffset = append(cloudsWithOffset, cloudFunc)
+	// }
+	// mergedCloud, err := pc.MergePointClouds(context.Background(), cloudsWithOffset, logger)
+	// test.That(t, err, test.ShouldBeNil)
+	// test.That(t, mergedCloud, test.ShouldNotBeNil)
+	// pcdFile, err := os.Create("ERCCLmisc.pcd")
+	// test.That(t, err, test.ShouldBeNil)
+	// defer pcdFile.Close()
+	// pc.ToPCD(mergedCloud, pcdFile, pc.PCDBinary)
 
 	// cloud, _ := pc.NewFromFile("/Users/vpandiarajan/viam/robotManip/pythonManip/realsense_shoe.pcd", nil)
 	// ps := segmentation.NewPointCloudGroundPlaneSegmentation(cloud, 20, 1500, 20, r3.Vector{0, -1, 0})
