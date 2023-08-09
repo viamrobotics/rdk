@@ -3,12 +3,10 @@
 
 import * as THREE from 'three';
 import { onMount, onDestroy } from 'svelte';
-import { Timestamp } from 'google-protobuf/google/protobuf/timestamp_pb';
 
-import { commonApi, type Pose, type ServiceError } from '@viamrobotics/sdk';
+import { SlamClient, type Pose, type ServiceError } from '@viamrobotics/sdk';
 import { copyToClipboard } from '@/lib/copy-to-clipboard';
 import { filterSubtype } from '@/lib/resource';
-import { getPointCloudMap, getPosition, getLatestMapInfo } from '@/api/slam';
 import { moveOnMap, stopMoveOnMap } from '@/api/motion';
 import { notify } from '@viamrobotics/prime';
 import { setAsyncInterval } from '@/lib/schedule';
@@ -18,11 +16,13 @@ import PCD from '@/components/pcd/pcd-view.svelte';
 import Slam2D from './2d/index.svelte';
 import { useRobotClient, useDisconnect } from '@/hooks/robot-client';
 import type { SLAMOverrides } from '@/types/overrides';
+import { rcLogConditionally } from '@/lib/log';
 
 export let name: string;
 export let overrides: SLAMOverrides | undefined;
 
 const { robotClient, operations } = useRobotClient();
+const slamClient = new SlamClient($robotClient, name, { requestLogger: rcLogConditionally });
 
 const refreshErrorMessage = 'Error refreshing map. The map shown may be stale.';
 
@@ -34,8 +34,8 @@ let refreshErrorMessage3d: string | undefined;
 let refresh2dRate = 'manual';
 let refresh3dRate = 'manual';
 let pointcloud: Uint8Array | undefined;
-let pose: commonApi.Pose | undefined;
-let lastTimestamp = new Timestamp();
+let pose: Pose | undefined;
+let lastTimestamp = new Date();
 let show2d = false;
 let show3d = false;
 let showAxes = true;
@@ -69,37 +69,22 @@ const startDurationTimer = (start: number) => {
   }, 400);
 };
 
-const localizationMode = (mapTimestamp: Timestamp | undefined) => {
+const localizationMode = (mapTimestamp: Date | undefined) => {
   if (mapTimestamp === undefined) {
     return false;
   }
-  const seconds = mapTimestamp.getSeconds();
-  const nanos = mapTimestamp.getNanos();
-  return seconds === lastTimestamp.getSeconds() && nanos === lastTimestamp.getNanos();
-};
-
-const formatOverridePose = (poseData: Pose) => {
-  const poseObject = new commonApi.Pose();
-  poseObject.setX(poseData.x);
-  poseObject.setY(poseData.y);
-  poseObject.setZ(poseData.z);
-  poseObject.setOX(poseData.oX);
-  poseObject.setOY(poseData.oY);
-  poseObject.setOZ(poseData.oZ);
-  poseObject.setTheta(poseData.theta);
-
-  return poseObject;
+  return mapTimestamp === lastTimestamp;
 };
 
 const refresh2d = async () => {
   try {
     let nextPose;
-    const mapTimestamp = await getLatestMapInfo($robotClient, name);
+    const mapTimestamp = await slamClient.getLatestMapInfo();
     if (overrides?.isCloudSlam && overrides?.getMappingSessionPCD) {
       const { map, pose: poseData } = await overrides.getMappingSessionPCD(
         sessionId
       );
-      nextPose = formatOverridePose(poseData);
+      nextPose = poseData;
       pointcloud = map;
 
       /*
@@ -108,21 +93,26 @@ const refresh2d = async () => {
        * A new call to getPointCloudMap is made if an update has occured.
        */
     } else if (localizationMode(mapTimestamp)) {
-      nextPose = await getPosition($robotClient, name);
+      const response = await slamClient.getPosition();
+      nextPose = response.pose;
     } else {
-      [pointcloud, nextPose] = await Promise.all([
-        getPointCloudMap($robotClient, name),
-        getPosition($robotClient, name),
+      let response;
+      [pointcloud, response] = await Promise.all([
+        slamClient.getPointCloudMap(),
+        slamClient.getPosition(),
       ]);
+      nextPose = response.pose;
     }
 
     /*
      * The pose is returned in millimeters, but we need
      * to convert to meters to display on the frontend.
      */
-    nextPose?.setX(nextPose.getX() / 1000);
-    nextPose?.setY(nextPose.getY() / 1000);
-    nextPose?.setZ(nextPose.getZ() / 1000);
+    if (nextPose) {
+      nextPose.x /= 1000;
+      nextPose.y /= 1000;
+      nextPose.z /= 1000;
+    }
     pose = nextPose;
     if (mapTimestamp) {
       lastTimestamp = mapTimestamp;
@@ -141,7 +131,7 @@ const refresh3d = async () => {
       const { map } = await overrides.getMappingSessionPCD(sessionId);
       pointcloud = map;
     } else {
-      const mapTimestamp = await getLatestMapInfo($robotClient, name);
+      const mapTimestamp = await slamClient.getLatestMapInfo();
 
       /*
        * The map timestamp is compared to the last timestamp
@@ -149,7 +139,7 @@ const refresh3d = async () => {
        * A new call to getPointCloudMap is made if an update has occured.
        */
       if (!localizationMode(mapTimestamp)) {
-        pointcloud = await getPointCloudMap($robotClient, name);
+        pointcloud = await slamClient.getPointCloudMap();
       }
       if (mapTimestamp) {
         lastTimestamp = mapTimestamp;
@@ -229,13 +219,13 @@ const handleUpdateDestY = (event: CustomEvent<{ value: string }>) => {
 
 const baseCopyPosition = () => {
   copyToClipboard(JSON.stringify({
-    x: pose?.getX(),
-    y: pose?.getY(),
-    z: pose?.getZ(),
+    x: pose?.x,
+    y: pose?.y,
+    z: pose?.z,
     ox: 0,
     oy: 0,
     oz: 1,
-    th: pose?.getTheta(),
+    th: pose?.theta,
   }));
 };
 
@@ -572,13 +562,13 @@ const handleMapNameChange = (event: CustomEvent) => {
               {#if pose}
                 <div class="flex flex-row items-center">
                   <p class="items-end pr-1.5 text-xs text-gray-500">x</p>
-                  <p>{(pose.getX() * unitScale).toFixed(1)}</p>
+                  <p>{(pose.x * unitScale).toFixed(1)}</p>
 
                   <p class="pl-6 pr-1.5 text-xs text-gray-500">y</p>
-                  <p>{(pose.getY() * unitScale).toFixed(1)}</p>
+                  <p>{(pose.y * unitScale).toFixed(1)}</p>
 
                   <p class="pl-6 pr-1.5 text-xs text-gray-500">z</p>
-                  <p>{(pose.getZ() * unitScale).toFixed(1)}</p>
+                  <p>{(pose.z * unitScale).toFixed(1)}</p>
                 </div>
               {/if}
             </div>
@@ -590,16 +580,16 @@ const handleMapNameChange = (event: CustomEvent) => {
               {#if pose}
                 <div class="flex flex-row items-center">
                   <p class="pr-1.5 text-xs text-gray-500">o<sub>x</sub></p>
-                  <p>{pose.getOX().toFixed(1)}</p>
+                  <p>{pose.oX.toFixed(1)}</p>
 
                   <p class="pl-6 pr-1.5 text-xs text-gray-500">o<sub>y</sub></p>
-                  <p>{pose.getOY().toFixed(1)}</p>
+                  <p>{pose.oY.toFixed(1)}</p>
 
                   <p class="pl-6 pr-1.5 text-xs text-gray-500">o<sub>z</sub></p>
-                  <p>{pose.getOZ().toFixed(1)}</p>
+                  <p>{pose.oZ.toFixed(1)}</p>
 
                   <p class="pl-6 pr-1.5 text-xs text-gray-500">&theta;</p>
-                  <p>{pose.getTheta().toFixed(1)}</p>
+                  <p>{pose.theta.toFixed(1)}</p>
                 </div>
               {/if}
             </div>
