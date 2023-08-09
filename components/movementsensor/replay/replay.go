@@ -6,26 +6,30 @@ import (
 	"sync"
 	"time"
 
+	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
-
-	"github.com/edaniels/golog"
 	datapb "go.viam.com/api/app/data/v1"
+	goutils "go.viam.com/utils"
+	"go.viam.com/utils/rpc"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
+
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
-	goutils "go.viam.com/utils"
-	"go.viam.com/utils/rpc"
-	"google.golang.org/protobuf/types/known/timestamppb"
+	"go.viam.com/rdk/utils/contextutils"
 )
 
 const (
 	timeFormat            = time.RFC3339
 	grpcConnectionTimeout = 10 * time.Second
 	downloadTimeout       = 30 * time.Second
-	maxCacheSize          = 100
+	maxCacheSize          = 1000
 )
 
 var (
@@ -35,14 +39,8 @@ var (
 	// ErrEndOfDataset represents that the replay sensor has reached the end of the dataset.
 	ErrEndOfDataset = errors.New("reached end of dataset")
 
-	defaultCacheMap = map[string][]*cacheEntry{
-		"position":            nil,
-		"orientation":         nil,
-		"angular_velocity":    nil,
-		"linear_velocity":     nil,
-		"compass_heading":     nil,
-		"linear_acceleration": nil,
-	}
+	// List of all basic method possible for a movement sensor to implement.
+	methodList = []string{"Position", "Orientation", "AngularVelocity", "LinearVelocity", "LinearAcceleration", "CompassHeading"}
 )
 
 func init() {
@@ -91,12 +89,15 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 	return []string{cloud.InternalServiceName.String()}, nil
 }
 
+// Config describes how to configure the replay movement sensor.
 type Config struct {
-	Source     string          `json:"source,omitempty"`
-	RobotID    string          `json:"robot_id,omitempty"`
-	Interval   TimeInterval    `json:"time_interval,omitempty"`
-	BatchSize  *uint64         `json:"batch_size,omitempty"`
-	Properties map[string]bool `json:"properties,omitempty"`
+	Source         string          `json:"source,omitempty"`
+	RobotID        string          `json:"robot_id,omitempty"`
+	LocationID     string          `json:"location_id,omitempty"`
+	OrganizationID string          `json:"organization_id,omitempty"`
+	Interval       TimeInterval    `json:"time_interval,omitempty"`
+	BatchSize      *uint64         `json:"batch_size,omitempty"`
+	Properties     map[string]bool `json:"properties,omitempty"`
 }
 
 // TimeInterval holds the start and end time used to filter data.
@@ -105,31 +106,15 @@ type TimeInterval struct {
 	End   string `json:"end,omitempty"`
 }
 
-type positionData struct {
-	point    *geo.Point
-	altitude float64
-}
-
-type movementSensorData struct {
-	position           positionData
-	linearVelocity     r3.Vector
-	angularVelocity    spatialmath.AngularVelocity
-	linearAcceleration r3.Vector
-	compassHeading     float64
-	orientation        spatialmath.Orientation
-}
-
 // cacheEntry stores data that was downloaded from a previous operation but has not yet been passed
 // to the caller.
 type cacheEntry struct {
-	id            *datapb.BinaryID
-	data          movementSensorData
+	data          *structpb.Struct
 	timeRequested *timestamppb.Timestamp
 	timeReceived  *timestamppb.Timestamp
-	err           error
 }
 
-// replayMovementSensor is a movement sensor model that plays back pre-captured point cloud data.
+// replayMovementSensor is a movement sensor model that plays back pre-captured movement sensor data.
 type replayMovementSensor struct {
 	resource.Named
 	logger golog.Logger
@@ -138,19 +123,20 @@ type replayMovementSensor struct {
 	cloudConn    rpc.ClientConn
 	dataClient   datapb.DataServiceClient
 
-	lastData string
+	lastData map[string]string
 	limit    uint64
 	filter   *datapb.Filter
 
-	cache      map[string][]*cacheEntry
-	properties movementsensor.Properties
+	cache map[string][]*cacheEntry
 
 	mu     sync.RWMutex
 	closed bool
 }
 
 // newReplayMovementSensor creates a new replay movement sensor based on the inputted config and dependencies.
-func newReplayMovementSensor(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (movementsensor.MovementSensor, error) {
+func newReplayMovementSensor(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (
+	movementsensor.MovementSensor, error,
+) {
 	replay := &replayMovementSensor{
 		Named:  conf.ResourceName().AsNamed(),
 		logger: logger,
@@ -171,16 +157,14 @@ func (replay *replayMovementSensor) Position(ctx context.Context, extra map[stri
 		return nil, 0, errors.New("session closed")
 	}
 
-	if !replay.properties.PositionSupported {
-		return nil, 0, errors.New("position is not supported, add position_supported to the properties to enable")
-	}
-
-	entry, err := replay.getDataFromCache(ctx, "position", replay.cache["position"])
+	data, err := replay.getDataFromCache(ctx, "Position")
 	if err != nil {
 		return nil, 0, err
 	}
 
-	return entry.data.position.point, entry.data.position.altitude, nil
+	return geo.NewPoint(
+		data.GetFields()["Latitude"].GetNumberValue(),
+		data.GetFields()["Longitude"].GetNumberValue()), data.GetFields()["Altitude"].GetNumberValue(), nil
 }
 
 // LinearVelocity returns the next linear velocity from the cache.
@@ -191,36 +175,38 @@ func (replay *replayMovementSensor) LinearVelocity(ctx context.Context, extra ma
 		return r3.Vector{}, errors.New("session closed")
 	}
 
-	if !replay.properties.LinearVelocitySupported {
-		return r3.Vector{}, errors.New("linear velocity is not supported, add linear_velocity_supported to the properties to enable")
-	}
-
-	entry, err := replay.getDataFromCache(ctx, "linear_velocity", replay.cache["linear_velocity"])
+	data, err := replay.getDataFromCache(ctx, "LinearVelocity")
 	if err != nil {
 		return r3.Vector{}, err
 	}
 
-	return entry.data.linearVelocity, nil
+	return r3.Vector{
+		X: data.GetFields()["X"].GetNumberValue(),
+		Y: data.GetFields()["Y"].GetNumberValue(),
+		Z: data.GetFields()["Z"].GetNumberValue(),
+	}, nil
 }
 
 // AngularVelocity returns the next angular velocity from the cache.
-func (replay *replayMovementSensor) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
+func (replay *replayMovementSensor) AngularVelocity(ctx context.Context, extra map[string]interface{}) (
+	spatialmath.AngularVelocity, error,
+) {
 	replay.mu.Lock()
 	defer replay.mu.Unlock()
 	if replay.closed {
 		return spatialmath.AngularVelocity{}, errors.New("session closed")
 	}
 
-	if !replay.properties.AngularVelocitySupported {
-		return spatialmath.AngularVelocity{}, errors.New("angular velocity is not supported, add angular_velocity_supported to the properties to enable")
-	}
-
-	entry, err := replay.getDataFromCache(ctx, "angular_velocity", replay.cache["angular_velocity"])
+	data, err := replay.getDataFromCache(ctx, "AngularVelocity")
 	if err != nil {
 		return spatialmath.AngularVelocity{}, err
 	}
 
-	return entry.data.angularVelocity, nil
+	return spatialmath.AngularVelocity{
+		X: data.GetFields()["X"].GetNumberValue(),
+		Y: data.GetFields()["Y"].GetNumberValue(),
+		Z: data.GetFields()["Z"].GetNumberValue(),
+	}, nil
 }
 
 // LinearAcceleration returns the next linear acceleration from the cache.
@@ -231,16 +217,16 @@ func (replay *replayMovementSensor) LinearAcceleration(ctx context.Context, extr
 		return r3.Vector{}, errors.New("session closed")
 	}
 
-	if !replay.properties.LinearAccelerationSupported {
-		return r3.Vector{}, errors.New("linear acceleration is not supported, add linear_acceleration_supported to the properties to enable")
-	}
-
-	entry, err := replay.getDataFromCache(ctx, "linear_acceleration", replay.cache["linear_acceleration"])
+	data, err := replay.getDataFromCache(ctx, "LinearAcceleration")
 	if err != nil {
 		return r3.Vector{}, err
 	}
 
-	return entry.data.linearAcceleration, nil
+	return r3.Vector{
+		X: data.GetFields()["X"].GetNumberValue(),
+		Y: data.GetFields()["Y"].GetNumberValue(),
+		Z: data.GetFields()["Z"].GetNumberValue(),
+	}, nil
 }
 
 // CompassHeading returns the next compass heading from the cache.
@@ -248,19 +234,15 @@ func (replay *replayMovementSensor) CompassHeading(ctx context.Context, extra ma
 	replay.mu.Lock()
 	defer replay.mu.Unlock()
 	if replay.closed {
-		return 0, errors.New("session closed")
+		return 0., errors.New("session closed")
 	}
 
-	if !replay.properties.CompassHeadingSupported {
-		return 0, errors.New("compass heading is not supported, add compass_heading_supported to the properties to enable")
-	}
-
-	entry, err := replay.getDataFromCache(ctx, "compass_heading", replay.cache["compass_heading"])
+	data, err := replay.getDataFromCache(ctx, "CompassHeading")
 	if err != nil {
-		return 0, err
+		return 0., err
 	}
 
-	return entry.data.compassHeading, nil
+	return data.GetFields()["Compass"].GetNumberValue(), nil
 }
 
 // Orientation returns the next orientation from the cache.
@@ -271,21 +253,29 @@ func (replay *replayMovementSensor) Orientation(ctx context.Context, extra map[s
 		return nil, errors.New("session closed")
 	}
 
-	if !replay.properties.OrientationSupported {
-		return nil, errors.New("orientation is not supported, add orientation_supported to the properties to enable")
-	}
-
-	entry, err := replay.getDataFromCache(ctx, "orientation", replay.cache["orientation"])
+	data, err := replay.getDataFromCache(ctx, "Orientation")
 	if err != nil {
 		return nil, err
 	}
 
-	return entry.data.orientation, nil
+	return &spatialmath.OrientationVector{
+		OX:    data.GetFields()["OX"].GetNumberValue(),
+		OY:    data.GetFields()["OY"].GetNumberValue(),
+		OZ:    data.GetFields()["OZ"].GetNumberValue(),
+		Theta: data.GetFields()["Theta"].GetNumberValue(),
+	}, nil
 }
 
 // Properties returns the available properties for the given replay movement sensor.
 func (replay *replayMovementSensor) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
-	return &replay.properties, nil
+	return &movementsensor.Properties{
+		LinearVelocitySupported:     true,
+		AngularVelocitySupported:    true,
+		OrientationSupported:        true,
+		PositionSupported:           true,
+		CompassHeadingSupported:     true,
+		LinearAccelerationSupported: true,
+	}, nil
 }
 
 // Accuracy is currently not defined for replay movement sensors.
@@ -317,7 +307,7 @@ func (replay *replayMovementSensor) Reconfigure(ctx context.Context, deps resour
 		return errors.New("session closed")
 	}
 
-	replayCamConfig, err := resource.NativeConfig[*Config](conf)
+	replayMovementSensorConfig, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return err
 	}
@@ -338,31 +328,32 @@ func (replay *replayMovementSensor) Reconfigure(ctx context.Context, deps resour
 		}
 	}
 
-	if replayCamConfig.BatchSize == nil {
+	if replayMovementSensorConfig.BatchSize == nil {
 		replay.limit = 1
 	} else {
-		replay.limit = *replayCamConfig.BatchSize
+		replay.limit = *replayMovementSensorConfig.BatchSize
 	}
-	replay.cache = defaultCacheMap
 
-	replay.properties = movementsensor.Properties{
-		LinearVelocitySupported:     replayCamConfig.Properties["linear_velocity_supported"],
-		AngularVelocitySupported:    replayCamConfig.Properties["angular_velocity_supported"],
-		OrientationSupported:        replayCamConfig.Properties["orientation_supported"],
-		PositionSupported:           replayCamConfig.Properties["position_supported"],
-		CompassHeadingSupported:     replayCamConfig.Properties["compass_heading_supported"],
-		LinearAccelerationSupported: replayCamConfig.Properties["linear_acceleration_supported"],
+	replay.cache = map[string][]*cacheEntry{}
+	for _, k := range methodList {
+		replay.cache[k] = nil
 	}
 
 	replay.filter = &datapb.Filter{
-		ComponentName: replayCamConfig.Source,
-		RobotId:       replayCamConfig.RobotID,
-		Interval:      &datapb.CaptureInterval{},
+		ComponentName:   replayMovementSensorConfig.Source,
+		RobotId:         replayMovementSensorConfig.RobotID,
+		LocationIds:     []string{replayMovementSensorConfig.LocationID},
+		OrganizationIds: []string{replayMovementSensorConfig.OrganizationID},
+		Interval:        &datapb.CaptureInterval{},
 	}
-	replay.lastData = ""
 
-	if replayCamConfig.Interval.Start != "" {
-		startTime, err := time.Parse(timeFormat, replayCamConfig.Interval.Start)
+	replay.lastData = map[string]string{}
+	for _, k := range methodList {
+		replay.lastData[k] = ""
+	}
+
+	if replayMovementSensorConfig.Interval.Start != "" {
+		startTime, err := time.Parse(timeFormat, replayMovementSensorConfig.Interval.Start)
 		if err != nil {
 			replay.closeCloudConnection(ctx)
 			return errors.New("invalid time format for start time, missed during config validation")
@@ -370,8 +361,8 @@ func (replay *replayMovementSensor) Reconfigure(ctx context.Context, deps resour
 		replay.filter.Interval.Start = timestamppb.New(startTime)
 	}
 
-	if replayCamConfig.Interval.End != "" {
-		endTime, err := time.Parse(timeFormat, replayCamConfig.Interval.End)
+	if replayMovementSensorConfig.Interval.End != "" {
+		endTime, err := time.Parse(timeFormat, replayMovementSensorConfig.Interval.End)
 		if err != nil {
 			replay.closeCloudConnection(ctx)
 			return errors.New("invalid time format for end time, missed during config validation")
@@ -382,20 +373,82 @@ func (replay *replayMovementSensor) Reconfigure(ctx context.Context, deps resour
 	return nil
 }
 
-// TODO UNIMPLEMENTED
-func (replay *replayMovementSensor) downloadMoreData(ctx context.Context, method string) error {
+// updateCache will update the cache with an additional batch of data downloaded from the cloud via TabularDataByFilter based on the given
+// filter, and the last data accessed.
+func (replay *replayMovementSensor) updateCache(ctx context.Context, method string) error {
+	filter := replay.filter
+	filter.Method = method
+
+	// Retrieve data from the cloud
+	resp, err := replay.dataClient.TabularDataByFilter(ctx, &datapb.TabularDataByFilterRequest{
+		DataRequest: &datapb.DataRequest{
+			Filter:    filter,
+			Limit:     replay.limit,
+			Last:      replay.lastData[method],
+			SortOrder: datapb.Order_ORDER_ASCENDING,
+		},
+		CountOnly: false,
+	})
+	if err != nil {
+		return err
+	}
+
+	// Check if data exists
+	if len(resp.GetData()) == 0 {
+		return ErrEndOfDataset
+	}
+	replay.lastData[method] = resp.GetLast()
+
+	// Add data to cache
+	for _, dataResponse := range resp.Data {
+		entry := &cacheEntry{
+			data:          dataResponse.Data,
+			timeRequested: dataResponse.GetTimeRequested(),
+			timeReceived:  dataResponse.GetTimeReceived(),
+		}
+		replay.cache[method] = append(replay.cache[method], entry)
+	}
+
 	return nil
 }
 
-// getDataFromCache will return the next valid cache entry and advance the cache as needed. If there is not more data in the cache, a new batch of data will be downloaded.
-func (replay *replayMovementSensor) getDataFromCache(ctx context.Context, method string, cache []*cacheEntry) (cacheEntry, error) {
-	if len(replay.cache) == 0 {
-		if err := replay.downloadMoreData(ctx, method); err != nil {
-			return cacheEntry{}, err
+// addGRPCMetadata adds timestamps from the data response to the gRPC response header if one is found in the context.
+func addGRPCMetadata(ctx context.Context, timeRequested, timeReceived *timestamppb.Timestamp) error {
+	if stream := grpc.ServerTransportStreamFromContext(ctx); stream != nil {
+		var grpcMetadata metadata.MD = make(map[string][]string)
+		if timeRequested != nil {
+			grpcMetadata.Set(contextutils.TimeRequestedMetadataKey, timeRequested.AsTime().Format(time.RFC3339Nano))
+		}
+		if timeReceived != nil {
+			grpcMetadata.Set(contextutils.TimeReceivedMetadataKey, timeReceived.AsTime().Format(time.RFC3339Nano))
+		}
+		if err := grpc.SetHeader(ctx, grpcMetadata); err != nil {
+			return err
 		}
 	}
 
-	return *cache[0], nil
+	return nil
+}
+
+// extractDataAndMetadata retrieves the next cached data and removes it from the cache. It assumes the write lock is being held.
+func (replay *replayMovementSensor) getDataFromCache(ctx context.Context, method string) (*structpb.Struct, error) {
+	// If no data remains in the cache, download a new batch of data
+	if len(replay.cache[method]) == 0 {
+		if err := replay.updateCache(ctx, method); err != nil {
+			return nil, errors.Wrapf(err, "could not update the cache")
+		}
+	}
+
+	// Grab the next cached data and update the cache immediately
+	methodCache := replay.cache[method]
+	entry := methodCache[0]
+	replay.cache[method] = methodCache[1:]
+
+	if err := addGRPCMetadata(ctx, entry.timeRequested, entry.timeReceived); err != nil {
+		return nil, errors.Wrapf(err, "adding GRPC metadata failed")
+	}
+
+	return entry.data, nil
 }
 
 // closeCloudConnection closes all parts of the cloud connection used by the replay movement sensor.
