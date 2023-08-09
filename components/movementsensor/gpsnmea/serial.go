@@ -140,7 +140,7 @@ func (g *SerialNMEAMovementSensor) GetCorrectionInfo() (string, uint) {
 	return g.correctionPath, g.correctionBaudRate
 }
 
-//nolint
+// nolint
 // Position position, altitide.
 func (g *SerialNMEAMovementSensor) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
 	lastPosition := g.lastposition.GetLastPosition()
@@ -214,9 +214,9 @@ func (g *SerialNMEAMovementSensor) CompassHeading(ctx context.Context, extra map
 	defer g.mu.RUnlock()
 	currentHeading := g.data.CompassHeading
 	lastHeading := g.lastcompassheading.GetLastCompassHeading()
+
 	if !math.IsNaN(currentHeading) && !math.IsNaN(lastHeading) && currentHeading != lastHeading {
-		g.lastcompassheading.SetLastCompassHeading(g.data.CompassHeading)
-		currentHeading = lastHeading
+		g.lastcompassheading.SetLastCompassHeading(currentHeading)
 	}
 
 	if math.IsNaN(lastHeading) && !math.IsNaN(currentHeading) {

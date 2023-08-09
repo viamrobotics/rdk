@@ -54,7 +54,7 @@ func (g *GPSData) ParseAndUpdate(line string) error {
 		return multierr.Combine(errs, err)
 	}
 	if s.DataType() == nmea.TypeRMC {
-		g.parseRCM(line)
+		g.parseRMC(line)
 	}
 	errs = g.updateData(s)
 
@@ -113,7 +113,7 @@ func (g *GPSData) updateData(s nmea.Sentence) error {
 	return errs
 }
 
-//nolint
+// nolint
 // updateGSV updates g.SatsInView with the information from the provided
 // GSV (GPS Satellites in View) data.
 func (g *GPSData) updateGSV(gsv nmea.GSV) error {
@@ -136,6 +136,7 @@ func (g *GPSData) updateRMC(rmc nmea.RMC) error {
 	if g.valid {
 		g.Speed = rmc.Speed * knotsToMPerSec
 		g.Location = geo.NewPoint(rmc.Latitude, rmc.Longitude)
+
 		if g.validCompassHeading {
 			g.CompassHeading = calculateTrueHeading(rmc.Course, rmc.Variation, g.isEast)
 		} else {
@@ -197,7 +198,7 @@ func (g *GPSData) updateGGA(gga nmea.GGA) error {
 	return err
 }
 
-//nolint
+// nolint
 // updateGLL updates g.Location with the location information from the provided
 // GLL (Geographic Position - Latitude/Longitude) data.
 func (g *GPSData) updateGLL(gll nmea.GLL) error {
@@ -206,7 +207,7 @@ func (g *GPSData) updateGLL(gll nmea.GLL) error {
 	return nil
 }
 
-//nolint
+// nolint
 // updateVTG updates g.Speed with the ground speed information from the provided
 // VTG (Velocity Made Good) data.
 func (g *GPSData) updateVTG(vtg nmea.VTG) error {
@@ -215,7 +216,7 @@ func (g *GPSData) updateVTG(vtg nmea.VTG) error {
 	return nil
 }
 
-//nolint
+// nolint
 // updateHDT updaates g.CompassHeading with the ground speed information from the provided
 // HDT(Heading from True North) data.
 func (g *GPSData) updateHDT(hdt nmea.HDT) error {
@@ -264,15 +265,16 @@ func calculateTrueHeading(heading, magneticDeclination float64, isEast bool) flo
 	return trueHeading
 }
 
-// parseRCM sets g.isEast bool value by parsing the RCM message for compass heading
-// and sets g.validCompassHeading bool since RCM message sends empty strings if
+// parseRMC sets g.isEast bool value by parsing the RMC message for compass heading
+// and sets g.validCompassHeading bool since RMC message sends empty strings if
 // there is no movement.
 // go-nmea library does not provide this feature so we have parse the message string.
-func (g *GPSData) parseRCM(message string) {
+func (g *GPSData) parseRMC(message string) {
 	data := strings.Split(message, ",")
 	if len(data) < 10 {
 		return
 	}
+
 	if strings.Contains(data[7], "") {
 		g.validCompassHeading = false
 	}
