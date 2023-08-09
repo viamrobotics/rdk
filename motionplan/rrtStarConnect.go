@@ -113,10 +113,6 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 		return
 	}
 
-	nm1 := &neighborManager{nCPU: mp.planOpts.NumThreads}
-	nm2 := &neighborManager{nCPU: mp.planOpts.NumThreads}
-	nmContext, cancel := context.WithCancel(ctx)
-	defer cancel()
 	mp.start = time.Now()
 
 	if rrt.maps == nil || len(rrt.maps.goalMap) == 0 {
@@ -158,14 +154,6 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 
 		tryExtend := func(target []referenceframe.Input) (node, node, error) {
 			// attempt to extend maps 1 and 2 towards the target
-			utils.PanicCapturingGo(func() {
-				m1chan <- nm1.nearestNeighbor(nmContext, mp.planOpts, newConfigurationNode(target), map1)
-			})
-			utils.PanicCapturingGo(func() {
-				m2chan <- nm2.nearestNeighbor(nmContext, mp.planOpts, newConfigurationNode(target), map2)
-			})
-			nearest1 := <-m1chan
-			nearest2 := <-m2chan
 			// If ctx is done, nearest neighbors will be invalid and we want to return immediately
 			select {
 			case <-ctx.Done():
@@ -174,10 +162,10 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 			}
 
 			utils.PanicCapturingGo(func() {
-				mp.extend(ctx, map1, nearest1, newConfigurationNode(target), m1chan)
+				mp.extend(ctx, map1, newConfigurationNode(target), m1chan)
 			})
 			utils.PanicCapturingGo(func() {
-				mp.extend(ctx, map2, nearest2, newConfigurationNode(target), m2chan)
+				mp.extend(ctx, map2, newConfigurationNode(target), m2chan)
 			})
 			map1reached := <-m1chan
 			map2reached := <-m2chan
@@ -248,16 +236,17 @@ func (mp *rrtStarConnectMotionPlanner) sample(rSeed node, sampleNum int) ([]refe
 func (mp *rrtStarConnectMotionPlanner) extend(
 	ctx context.Context,
 	rrtMap map[node]node,
-	near, target node,
+	target node,
 	mchan chan node,
 ) {
-	oldNear := near
 	// This should iterate until one of the following conditions:
 	// 1) we have reached the target
 	// 2) the request is cancelled/times out
 	// 3) we are no longer approaching the target and our "best" node is further away than the previous best
 	// 4) further iterations change our best node by close-to-zero amounts
 	// 5) we have iterated more than maxExtendIter times
+	near := kNearestNeighbors(mp.planOpts, rrtMap, &basicNode{q: target.Q()}, mp.algOpts.NeighborhoodSize)[0].node
+	oldNear := near
 	for i := 0; i < maxExtendIter; i++ {
 		select {
 		case <-ctx.Done():
