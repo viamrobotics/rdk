@@ -45,8 +45,15 @@ func newNextPointCloudCollector(resource interface{}, params data.CollectorParam
 		_, span := trace.StartSpan(ctx, "camera::data::collector::CaptureFunc::NextPointCloud")
 		defer span.End()
 
+		ctx = context.WithValue(ctx, data.FromDMContextKey, true)
+
 		v, err := camera.NextPointCloud(ctx)
 		if err != nil {
+			// If err is from a modular filter component, propagate it to getAndPushNextReading(). We check for the substring presence here
+			// because the error thrown by the modular component may be wrapped in an rpc error or may not be a golang error.
+			if strings.Contains(err.Error(), data.ErrNoCaptureToStore.Error()) {
+				return nil, data.ErrNoCaptureToStore
+			}
 			return nil, data.FailedToReadErr(params.ComponentName, nextPointCloud.String(), err)
 		}
 
@@ -82,11 +89,12 @@ func newReadImageCollector(resource interface{}, params data.CollectorParams) (d
 		_, span := trace.StartSpan(ctx, "camera::data::collector::CaptureFunc::ReadImage")
 		defer span.End()
 
-		ctx = context.WithValue(ctx, data.CtxKeyDM, true)
+		ctx = context.WithValue(ctx, data.FromDMContextKey, true)
 
 		img, release, err := ReadImage(ctx, camera)
 		if err != nil {
-			// Check for filter from modular component that is wrapped in over-the-wire rpc error.
+			// If err is from a modular filter component, propagate it to getAndPushNextReading(). We check for the substring presence here
+			// because the error thrown by the modular component may be wrapped in an rpc error or may not be a golang error.
 			if strings.Contains(err.Error(), data.ErrNoCaptureToStore.Error()) {
 				return nil, data.ErrNoCaptureToStore
 			}

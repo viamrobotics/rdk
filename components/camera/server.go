@@ -74,8 +74,8 @@ func (s *serviceServer) GetImage(
 
 	req.MimeType = utils.WithLazyMIMEType(req.MimeType)
 
-	if req.Extra.AsMap()[string(data.CtxKeyDM)] == true {
-		ctx = context.WithValue(ctx, data.CtxKeyDM, true)
+	if req.Extra.AsMap()[string(data.FromDMContextKey)] == true {
+		ctx = context.WithValue(ctx, data.FromDMContextKey, true)
 	}
 
 	img, release, err := ReadImage(gostream.WithMIMETypeHint(ctx, req.MimeType), cam)

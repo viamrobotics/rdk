@@ -16,6 +16,7 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/protoutils"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/resource"
@@ -28,9 +29,10 @@ var sleepCaptureCutoff = 2 * time.Millisecond
 // CaptureFunc allows the creation of simple Capturers with anonymous functions.
 type CaptureFunc func(ctx context.Context, params map[string]*anypb.Any) (interface{}, error)
 
-type CtxKey string
+type contextKey string
 
-const CtxKeyDM = CtxKey("fromDataManagement")
+// FromDMContextKey is the key used to access the 'fromDataManagement' value from a context.
+const FromDMContextKey = contextKey("fromDataManagement")
 
 // ErrNoCaptureToStore is returned when a modular filter resource filters the capture coming from the base resource.
 var ErrNoCaptureToStore = errors.New("No capture from filter module")
@@ -300,4 +302,13 @@ func InvalidInterfaceErr(api resource.API) error {
 // FailedToReadErr is the error describing when a Capturer was unable to get the reading of a method.
 func FailedToReadErr(component, method string, err error) error {
 	return errors.Errorf("failed to get reading of method %s of component %s: %v", method, component, err)
+}
+
+// GetExtraFromContext sets the extra struct with "fromDataManagement": true if the flag is true in the context.
+func GetExtraFromContext(ctx context.Context) (*structpb.Struct, error) {
+	extra := make(map[string]interface{})
+	if ctx.Value(FromDMContextKey) == true {
+		extra[string(FromDMContextKey)] = true
+	}
+	return protoutils.StructToStructPb(extra)
 }
