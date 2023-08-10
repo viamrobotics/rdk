@@ -1,3 +1,5 @@
+//go:build linux
+
 // Package ina implements ina power sensors
 // typically used for battery state monitoring.
 // INA219 datasheet: https://www.ti.com/lit/ds/symlink/ina219.pdf
@@ -41,14 +43,15 @@ var inaModels = []string{modelName219, modelName226}
 
 // Config is used for converting config attributes.
 type Config struct {
-	I2CBus  int `json:"i2c_bus"`
-	I2cAddr int `json:"i2c_addr,omitempty"`
+	I2CBus          int     `json:"i2c_bus"`
+	I2cAddr         int     `json:"i2c_addr,omitempty"`
+	MaxCurrent      float64 `json:"max_current_amps,omitempty"`
+	ShuntResistance float64 `json:"shunt_resistance,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
 func (conf *Config) Validate(path string) ([]string, error) {
 	var deps []string
-
 	if conf.I2CBus == 0 {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "i2c_bus")
 	}
@@ -94,12 +97,31 @@ func newINA(
 		logger.Infof("using i2c address : %d", defaultI2Caddr)
 	}
 
+	maxCurrent := int64(conf.MaxCurrent * 1000 * milliAmp)
+	if maxCurrent == 0 {
+		switch modelName {
+		case modelName219:
+			maxCurrent = maxCurrent219
+			logger.Infof("using default max current 3.2A")
+		case modelName226:
+			maxCurrent = maxCurrent219
+			logger.Infof("using default max current 20A")
+		}
+	}
+
+	resistance := int64(conf.ShuntResistance * 100 * milliOhm)
+	if resistance == 0 {
+		resistance = senseResistor
+		logger.Infof("using default resistor value 0.1 ohms")
+	}
+
 	s := &ina{
-		Named:  name.AsNamed(),
-		logger: logger,
-		model:  modelName,
-		bus:    conf.I2CBus,
-		addr:   byte(addr),
+		Named:      name.AsNamed(),
+		logger:     logger,
+		model:      modelName,
+		bus:        conf.I2CBus,
+		addr:       byte(addr),
+		maxCurrent: maxCurrent,
 	}
 
 	err := s.setCalibrationScale(modelName)
@@ -127,6 +149,8 @@ type ina struct {
 	currentLSB int64
 	powerLSB   int64
 	cal        uint16
+	maxCurrent int64
+	resistance int64
 }
 
 func (d *ina) setCalibrationScale(modelName string) error {
