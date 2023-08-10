@@ -167,6 +167,23 @@ const checkVal = (val?: number): number => {
   return val;
 };
 
+const trunc = (val?: number): number => {
+  const checkedVal = checkVal(val);
+  if (Number.isNaN(checkedVal)) {
+    return checkedVal;
+  }
+
+  // Checks for positive or negative numbers with up to four decimal points
+  // eslint-disable-next-line unicorn/no-unsafe-regex
+  const match = checkedVal.toString().match(/^-?\d+(?:.\d{0,4})?/u);
+  if (match === null) {
+    return checkedVal;
+  }
+
+  // This will always be present because null will be returned if there are no matches.
+  return Number(match[0]);
+};
+
 const tick = () => {
   const gamepad = currentGamepad;
   if (!gamepad || !gamepad.connected) {
@@ -177,20 +194,6 @@ const tick = () => {
   }
 
   prevStates = { ...prevStates, ...curStates };
-
-  // eslint-disable-next-line unicorn/no-unsafe-regex
-  const re = /^-?\d+(?:.\d{0,4})?/u;
-  const trunc = (val?: number): number => {
-    const checkedVal = checkVal(val);
-    if (Number.isNaN(checkedVal)) {
-      return checkedVal;
-    }
-    const match = checkedVal.toString().match(re);
-    if (match && match.length === 0) {
-      return checkedVal;
-    }
-    return Number(match![0]!);
-  };
 
   /*
    * TODO(RSDK-881): this ought to detect actual controller mappings; for now
@@ -291,7 +294,7 @@ $: {
         {#each Object.keys(curStates) as stateName, value}
           <div class="ml-0 flex w-[8ex] flex-col text-center">
             <p class="subtitle m-0">{stateName}</p>
-            {value.toFixed((/X|Y|Z$/u).test(stateName.toString()) ? 4 : 0)}
+            {value?.toFixed((/X|Y|Z$/u).test(stateName.toString()) ? 4 : 0) ?? 0}
           </div>
         {/each}
       </div>
