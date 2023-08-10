@@ -23,15 +23,13 @@ type erCCLConfig struct {
 	NormalVec        r3.Vector `json:"ground_plane_normal_vec"`
 	AngleTolerance   float64   `json:"ground_angle_tolerance_degs"`
 	Radius           int       `json:"clustering_radius"`
-	// Alpha            float64   `json:"alpha"`
-	// Beta             float64   `json:"beta"`
-	S float64 `json:"s"`
+	Beta             float64   `json:"beta"`
 }
 
 type node struct {
-	i, j       int
-	label      int
-	minY, maxY float64
+	i, j                 int
+	label                int
+	minHeight, maxHeight float64
 	// lowkey don't think you need i,j
 	// label -1 means no cluster, otherwise labeled according to index
 }
@@ -56,7 +54,13 @@ func (erCCL *erCCLConfig) CheckValid() error {
 	if erCCL.Radius < 0 {
 		return errors.Errorf("radius must be greater than 0, got %v", erCCL.Radius)
 	}
-	// need to add more here
+	if erCCL.Beta == 0 {
+		erCCL.Beta = 5
+	}
+	// going to have to add that the ground plane's normal vec has to be {0, 1, 0} or {0, 0, 1}
+	if !erCCL.NormalVec.IsUnit() {
+		return errors.Errorf("ground_plane_normal_vec should be a unit vector, got %v", erCCL.NormalVec)
+	}
 	if erCCL.NormalVec.Norm2() == 0 {
 		erCCL.NormalVec = r3.Vector{X: 0, Y: 0, Z: 1}
 	}
@@ -106,14 +110,20 @@ func (erCCL *erCCLConfig) erCCLAlgorithm(ctx context.Context, src camera.VideoSo
 		return nil, err
 	}
 
-	// calculating s value, want 400 x 400 graph
-	// resolution := math.Ceil((cloud.MetaData().MaxX - cloud.MetaData().MinX) / 400)
-	// resolution = math.Min(math.Ceil((cloud.MetaData().MaxZ-cloud.MetaData().MinZ)/400), resolution)
-	// resolution := 200.0
-	resolution := erCCL.S
+	// need to figure out coordinate system
+	// if height is not y, then height is going to be z
+	heightIsY := erCCL.NormalVec.Y != 0
+
+	// calculating s value, want 200 x 200 graph
+	resolution := math.Ceil((nonPlane.MetaData().MaxX - nonPlane.MetaData().MinX) / 200)
+	if heightIsY {
+		resolution = math.Ceil((math.Ceil((nonPlane.MetaData().MaxZ-nonPlane.MetaData().MinZ)/200) + resolution) / 2)
+	} else {
+		resolution = math.Ceil((math.Ceil((nonPlane.MetaData().MaxY-nonPlane.MetaData().MinY)/200) + resolution) / 2)
+	}
 
 	// create obstacle flag map, return that 2d slice of nodes
-	labelMap := pcProjection(nonPlane, resolution)
+	labelMap := pcProjection(nonPlane, resolution, heightIsY)
 
 	// actually run erCCLL
 	// iterate through every box, searching down and right r distance
@@ -124,10 +134,10 @@ func (erCCL *erCCLConfig) erCCLAlgorithm(ctx context.Context, src camera.VideoSo
 	i := 0
 	continueRunning := true
 	for continueRunning {
-		// 0.8 is alpha
-		// 5 is beta
-
-		continueRunning := labelMapUpdate(labelMap, erCCL.Radius, 0.8, 5, resolution)
+		// 0.9 is alpha
+		// oldValMap := extractVals(labelMap)
+		continueRunning := labelMapUpdate(labelMap, erCCL.Radius, 0.9, erCCL.Beta, resolution)
+		// fmt.Println("changed", labelsChanged(extractVals(labelMap), oldValMap))
 		if !continueRunning {
 			break
 		}
@@ -135,6 +145,7 @@ func (erCCL *erCCLConfig) erCCLAlgorithm(ctx context.Context, src camera.VideoSo
 		if i > 300000 { // arbitrary cutoff for iterations
 			return nil, errors.New("could not converge, change parameters")
 		}
+		i++
 	}
 
 	// look up label value of point by looking at 2d array and seeing what label inside that struct
@@ -143,6 +154,9 @@ func (erCCL *erCCLConfig) erCCLAlgorithm(ctx context.Context, src camera.VideoSo
 	nonPlane.Iterate(0, 0, func(p r3.Vector, d pc.Data) bool {
 		i := int(math.Ceil((p.X - nonPlane.MetaData().MinX) / resolution))
 		j := int(math.Ceil((p.Z - nonPlane.MetaData().MinZ) / resolution))
+		if !heightIsY {
+			j = int(math.Ceil((p.Y - nonPlane.MetaData().MinY) / resolution))
+		}
 		// fmt.Println("i:", i, ", j:", j)
 		err := segments.AssignCluster(p, d, labelMap[i][j].label)
 		if err != nil {
@@ -161,16 +175,19 @@ func (erCCL *erCCLConfig) erCCLAlgorithm(ctx context.Context, src camera.VideoSo
 	// this seems a bit wasteful to make segments then make more segments after filtering, but rolling with it for now
 }
 
-func pcProjection(cloud pc.PointCloud, s float64) [][]node {
+func pcProjection(cloud pc.PointCloud, s float64, heightIsY bool) [][]node {
 	h := int(math.Ceil((cloud.MetaData().MaxX-cloud.MetaData().MinX)/s)) + 1
 	w := int(math.Ceil((cloud.MetaData().MaxZ-cloud.MetaData().MinZ)/s)) + 1
+	if !heightIsY {
+		w = int(math.Ceil((cloud.MetaData().MaxY-cloud.MetaData().MinY)/s)) + 1
+	}
 	retVal := make([][]node, h)
 	for i := range retVal {
 		retVal[i] = make([]node, w)
 		for j, curNode := range retVal[i] {
 			curNode.label = -1
-			curNode.minY = 0
-			curNode.maxY = 0
+			curNode.minHeight = 0
+			curNode.maxHeight = 0
 			curNode.i = i
 			curNode.j = j
 			retVal[i][j] = curNode
@@ -179,9 +196,17 @@ func pcProjection(cloud pc.PointCloud, s float64) [][]node {
 	cloud.Iterate(0, 0, func(p r3.Vector, d pc.Data) bool {
 		i := int(math.Ceil((p.X - cloud.MetaData().MinX) / s))
 		j := int(math.Ceil((p.Z - cloud.MetaData().MinZ) / s))
-		curNode := retVal[i][j]
-		curNode.maxY = math.Max(curNode.maxY, p.Y)
-		curNode.minY = math.Min(curNode.minY, p.Y)
+		var curNode node
+		if heightIsY {
+			curNode = retVal[i][j]
+			curNode.maxHeight = math.Max(curNode.maxHeight, p.Y)
+			curNode.minHeight = math.Min(curNode.minHeight, p.Y)
+		} else {
+			j = int(math.Ceil((p.Y - cloud.MetaData().MinY) / s))
+			curNode = retVal[i][j]
+			curNode.maxHeight = math.Max(curNode.maxHeight, p.Z)
+			curNode.minHeight = math.Min(curNode.minHeight, p.Z)
+		}
 		curNode.label = i*w + j
 		retVal[i][j] = curNode
 		return true
@@ -242,7 +267,7 @@ func similarEnough(curNode, neighbor node, r int, alpha, beta, s float64) bool {
 		return false
 	}
 	d := s * math.Sqrt(float64(((curNode.i-neighbor.i)*(curNode.i-neighbor.i) + (curNode.j-neighbor.j)*(curNode.j-neighbor.j))))
-	h := math.Abs(curNode.maxY-neighbor.maxY) + math.Abs(curNode.minY-neighbor.minY)
+	h := math.Abs(curNode.maxHeight-neighbor.maxHeight) + math.Abs(curNode.minHeight-neighbor.minHeight)
 	ecc := alpha*math.Exp(-d) + (1-alpha)*math.Exp(-h)
 	return ecc >= beta*math.Exp(float64(-r))
 }
