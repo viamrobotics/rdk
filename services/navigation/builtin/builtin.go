@@ -359,8 +359,14 @@ func (svc *builtIn) startWaypoint(ctx context.Context, extra map[string]interfac
 	}
 
 	motionCfg := motion.MotionConfiguration{
-		LinearMPerSec:     svc.metersPerSec,
-		AngularDegsPerSec: svc.degPerSec,
+		LinearMPerSec:         svc.metersPerSec,
+		AngularDegsPerSec:     svc.degPerSec,
+		PlanDeviationM:        svc.planDeviationM,
+		PositionPollingFreqHz: svc.positionPollingFrequencyHz,
+		ObstaclePollingFreqHz: svc.obstaclePollingFrequencyHz,
+	}
+	for _, vis := range svc.visionServices {
+		motionCfg.VisionSvc = append(motionCfg.VisionSvc, vis.Name())
 	}
 
 	svc.activeBackgroundWorkers.Add(1)
