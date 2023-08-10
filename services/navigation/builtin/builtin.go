@@ -303,6 +303,11 @@ func (svc *builtIn) startWaypoint(ctx context.Context, extra map[string]interfac
 		extra["motion_profile"] = "position_only"
 	}
 
+	motionCfg := motion.MotionConfiguration{
+		LinearMPerSec:     svc.metersPerSec,
+		AngularDegsPerSec: svc.degPerSec,
+	}
+
 	svc.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer svc.activeBackgroundWorkers.Done()
@@ -315,8 +320,7 @@ func (svc *builtIn) startWaypoint(ctx context.Context, extra map[string]interfac
 				math.NaN(),
 				svc.movementSensor.Name(),
 				svc.obstacles,
-				svc.metersPerSec*1000,
-				svc.degPerSec,
+				&motionCfg,
 				extra,
 			)
 			if err != nil {
