@@ -36,7 +36,7 @@ func WrapWithFakeKinematics(
 		inputs:    []referenceframe.Input{{pt.X}, {pt.Y}, {0}},
 	}
 	var geometry spatialmath.Geometry
-	if fk.Base.Geometry != nil {
+	if len(fk.Base.Geometry) != 0 {
 		geometry = fk.Base.Geometry[0]
 	}
 
