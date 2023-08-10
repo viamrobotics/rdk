@@ -26,7 +26,8 @@ const (
 	milliOhm                   = 1000 * 1000 // milliOhm = 1000 microOhm * 1000 nanoOhm
 	defaultI2Caddr             = 0x40
 	senseResistor        int64 = 100 * milliOhm                                                 // .1 ohm
-	maxCurrent           int64 = 20000 * milliAmp                                               // 3.2 amp
+	maxCurrent219        int64 = 3200 * milliAmp                                                // 3.2 amp
+	maxCurrent226        int64 = 20000 * milliAmp                                               // 20 amp
 	calibratescale219          = ((int64(1000*milliAmp) * int64(1000*milliOhm)) / 100000) << 12 // .04096 is internal fixed value for ina219
 	calibrateScale226          = ((int64(1000*milliAmp) * int64(1000*milliOhm)) / 100000) << 9  // .00512 is internal fixed value for ina226
 	configRegister             = 0x00
@@ -150,20 +151,14 @@ type ina struct {
 
 func (d *ina) setCalibrationScale(modelName string) error {
 	var calibratescale int64
-	if senseResistor <= 0 {
-		return fmt.Errorf("ina219 calibrate: senseResistor value invalid %d", senseResistor)
-	}
-	if maxCurrent <= 0 {
-		return fmt.Errorf("ina219 calibrate: maxCurrent value invalid %d", maxCurrent)
-	}
-
-	d.currentLSB = maxCurrent / (1 << 15)
 
 	switch modelName {
 	case modelName219:
+		d.currentLSB = maxCurrent219 / (1 << 15)
 		calibratescale = calibratescale219
-		d.powerLSB = (maxCurrent*20 + (1 << 14)) / (1 << 15)
+		d.powerLSB = (maxCurrent219*20 + (1 << 14)) / (1 << 15)
 	case modelName226:
+		d.currentLSB = maxCurrent226 / (1 << 15)
 		calibratescale = calibrateScale226
 		d.powerLSB = 25 * d.currentLSB
 	default:
