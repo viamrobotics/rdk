@@ -304,8 +304,8 @@ func (svc *builtIn) startWaypoint(ctx context.Context, extra map[string]interfac
 	}
 
 	motionCfg := motion.MotionConfiguration{
-		LinearMetersPerSec: svc.metersPerSec,
-		AngularDegsPerSec:  svc.degPerSec,
+		LinearMPerSec:     svc.metersPerSec,
+		AngularDegsPerSec: svc.degPerSec,
 	}
 
 	svc.activeBackgroundWorkers.Add(1)

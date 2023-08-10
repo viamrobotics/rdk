@@ -63,12 +63,12 @@ type Service interface {
 //
 //nolint:revive
 type MotionConfiguration struct {
-	VisionSvc           []resource.Name
-	PositionPollingFreq float64
-	ObstaclePollingFreq float64
-	PlanDeviationMeters float64
-	LinearMetersPerSec  float64
-	AngularDegsPerSec   float64
+	VisionSvc             []resource.Name
+	PositionPollingFreqHz float64
+	ObstaclePollingFreqHz float64
+	PlanDeviationM        float64
+	LinearMPerSec         float64
+	AngularDegsPerSec     float64
 }
 
 // SubtypeName is the name of the type of service.

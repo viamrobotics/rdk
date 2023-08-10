@@ -140,20 +140,20 @@ func (c *client) MoveOnGlobe(
 		req.Obstacles = obstaclesProto
 	}
 
-	if !math.IsNaN(motionCfg.LinearMetersPerSec) && motionCfg.LinearMetersPerSec != 0 {
-		req.MotionConfiguration.LinearMPerSec = &motionCfg.LinearMetersPerSec
+	if !math.IsNaN(motionCfg.LinearMPerSec) && motionCfg.LinearMPerSec != 0 {
+		req.MotionConfiguration.LinearMPerSec = &motionCfg.LinearMPerSec
 	}
 	if !math.IsNaN(motionCfg.AngularDegsPerSec) && motionCfg.AngularDegsPerSec != 0 {
 		req.MotionConfiguration.AngularDegsPerSec = &motionCfg.AngularDegsPerSec
 	}
-	if !math.IsNaN(motionCfg.ObstaclePollingFreq) && motionCfg.ObstaclePollingFreq > 0 {
-		req.MotionConfiguration.ObstaclePollingFrequencyHz = &motionCfg.ObstaclePollingFreq
+	if !math.IsNaN(motionCfg.ObstaclePollingFreqHz) && motionCfg.ObstaclePollingFreqHz > 0 {
+		req.MotionConfiguration.ObstaclePollingFrequencyHz = &motionCfg.ObstaclePollingFreqHz
 	}
-	if !math.IsNaN(motionCfg.PositionPollingFreq) && motionCfg.PositionPollingFreq > 0 {
-		req.MotionConfiguration.PositionPollingFrequencyHz = &motionCfg.PositionPollingFreq
+	if !math.IsNaN(motionCfg.PositionPollingFreqHz) && motionCfg.PositionPollingFreqHz > 0 {
+		req.MotionConfiguration.PositionPollingFrequencyHz = &motionCfg.PositionPollingFreqHz
 	}
-	if !math.IsNaN(motionCfg.PlanDeviationMeters) && motionCfg.PlanDeviationMeters >= 0 {
-		req.MotionConfiguration.PlanDeviationM = &motionCfg.PlanDeviationMeters
+	if !math.IsNaN(motionCfg.PlanDeviationM) && motionCfg.PlanDeviationM >= 0 {
+		req.MotionConfiguration.PlanDeviationM = &motionCfg.PlanDeviationM
 	}
 
 	if len(motionCfg.VisionSvc) > 0 {

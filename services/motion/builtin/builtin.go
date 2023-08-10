@@ -219,14 +219,14 @@ func (ms *builtIn) MoveOnGlobe(
 
 	kinematicsOptions := kinematicbase.NewKinematicBaseOptions()
 
-	if motionCfg.LinearMetersPerSec != 0 {
-		kinematicsOptions.LinearVelocityMMPerSec = motionCfg.LinearMetersPerSec * 1000
+	if motionCfg.LinearMPerSec != 0 {
+		kinematicsOptions.LinearVelocityMMPerSec = motionCfg.LinearMPerSec * 1000
 	}
 	if motionCfg.AngularDegsPerSec != 0 {
 		kinematicsOptions.AngularVelocityDegsPerSec = motionCfg.AngularDegsPerSec
 	}
-	if !math.IsNaN(motionCfg.PlanDeviationMeters) {
-		kinematicsOptions.PlanDeviationThresholdMM = motionCfg.PlanDeviationMeters * 1000
+	if !math.IsNaN(motionCfg.PlanDeviationM) {
+		kinematicsOptions.PlanDeviationThresholdMM = motionCfg.PlanDeviationM * 1000
 	}
 	kinematicsOptions.GoalRadiusMM = 3000
 	kinematicsOptions.HeadingThresholdDegrees = 8
