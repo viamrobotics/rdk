@@ -25,8 +25,8 @@ import (
 )
 
 const (
-	defaultMetersPerSec = 0.5
-	defaultDegsPerSec   = 45
+	defaultLinearVelocityMPerSec     = 0.5
+	defaultAngularVelocityDegsPerSec = 45
 
 	// how far off the path must the robot be to trigger replanning.
 	defaultPlanDeviationM = 1e9
@@ -104,10 +104,10 @@ func (conf *Config) Validate(path string) ([]string, error) {
 
 	// get default speeds from config if set, else defaults from nav services const
 	if conf.MetersPerSec == 0 {
-		conf.MetersPerSec = defaultMetersPerSec
+		conf.MetersPerSec = defaultLinearVelocityMPerSec
 	}
 	if conf.DegPerSec == 0 {
-		conf.DegPerSec = defaultDegsPerSec
+		conf.DegPerSec = defaultAngularVelocityDegsPerSec
 	}
 	if conf.PositionPollingFrequencyHz == 0 {
 		conf.PositionPollingFrequencyHz = defaultPositionPollingFrequencyHz
