@@ -156,34 +156,6 @@ func (c *client) MoveOnGlobe(
 	return resp.Success, nil
 }
 
-func (c *client) MoveSingleComponent(
-	ctx context.Context,
-	componentName resource.Name,
-	destination *referenceframe.PoseInFrame,
-	worldState *referenceframe.WorldState,
-	extra map[string]interface{},
-) (bool, error) {
-	ext, err := vprotoutils.StructToStructPb(extra)
-	if err != nil {
-		return false, err
-	}
-	worldStateMsg, err := worldState.ToProtobuf()
-	if err != nil {
-		return false, err
-	}
-	resp, err := c.client.MoveSingleComponent(ctx, &pb.MoveSingleComponentRequest{
-		Name:          c.name,
-		ComponentName: protoutils.ResourceNameToProto(componentName),
-		Destination:   referenceframe.PoseInFrameToProtobuf(destination),
-		WorldState:    worldStateMsg,
-		Extra:         ext,
-	})
-	if err != nil {
-		return false, err
-	}
-	return resp.Success, nil
-}
-
 func (c *client) GetPose(
 	ctx context.Context,
 	componentName resource.Name,

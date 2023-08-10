@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"os/exec"
 	"runtime"
 	"strconv"
@@ -16,7 +17,11 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/pkg/errors"
+	"github.com/urfave/cli/v2"
+	datapb "go.viam.com/api/app/data/v1"
+	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/utils"
+	"go.viam.com/utils/rpc"
 )
 
 type authFlow struct {
@@ -77,8 +82,8 @@ type tokenResponse struct {
 	TokenType    string `json:"token_type"`
 }
 
-// Token contains an authorization token and details once logged in.
-type Token struct {
+// token contains an authorization token and details once logged in.
+type token struct {
 	AccessToken  string    `json:"access_token"`
 	RefreshToken string    `json:"refresh_token"`
 	IDToken      string    `json:"id_token"`
@@ -87,21 +92,205 @@ type Token struct {
 	TokenURL     string    `json:"token_url"`
 	ClientID     string    `json:"client_id"`
 
-	User UserData `json:"user_data"`
+	User userData `json:"user_data"`
 }
 
-// IsExpired returns true if the token is expired.
-func (t *Token) IsExpired() bool {
+// LoginAction is the corresponding Action for 'login'.
+func LoginAction(c *cli.Context) error {
+	client, err := newAppClient(c)
+	if err != nil {
+		return err
+	}
+
+	loggedInMessage := func(t *token, alreadyLoggedIn bool) {
+		already := "already "
+		if !alreadyLoggedIn {
+			already = ""
+			viamLogo(c.App.Writer)
+		}
+
+		fmt.Fprintf(c.App.Writer, "%slogged in as %q, expires %s\n", already, t.User.Email,
+			t.ExpiresAt.Format("Mon Jan 2 15:04:05 MST 2006"))
+	}
+
+	if client.conf.Auth != nil && !client.conf.Auth.isExpired() {
+		loggedInMessage(client.conf.Auth, true)
+		return nil
+	}
+
+	var t *token
+	if client.conf.Auth != nil && client.conf.Auth.canRefresh() {
+		t, err = client.authFlow.refreshToken(client.c.Context, client.conf.Auth)
+		if err != nil {
+			utils.UncheckedError(client.logout())
+			return err
+		}
+	} else {
+		t, err = client.authFlow.login(client.c.Context)
+		if err != nil {
+			return err
+		}
+	}
+
+	// write token to config.
+	client.conf.Auth = t
+	if err := storeConfigToCache(client.conf); err != nil {
+		return err
+	}
+
+	loggedInMessage(client.conf.Auth, false)
+	return nil
+}
+
+// PrintAccessTokenAction is the corresponding Action for 'print-access-token'.
+func PrintAccessTokenAction(c *cli.Context) error {
+	client, err := newAppClient(c)
+	if err != nil {
+		return err
+	}
+
+	if err := client.ensureLoggedIn(); err != nil {
+		return err
+	}
+
+	fmt.Fprintln(c.App.Writer, client.conf.Auth.AccessToken)
+	return nil
+}
+
+// LogoutAction is the corresponding Action for 'logout'.
+func LogoutAction(c *cli.Context) error {
+	client, err := newAppClient(c)
+	if err != nil {
+		return err
+	}
+	auth := client.conf.Auth
+	if auth == nil {
+		fmt.Fprintf(c.App.Writer, "already logged out\n")
+		return nil
+	}
+	if err := client.logout(); err != nil {
+		return errors.Wrap(err, "could not logout")
+	}
+	fmt.Fprintf(c.App.Writer, "logged out from %q\n", auth.User.Email)
+	return nil
+}
+
+// WhoAmIAction is the corresponding Action for 'whoami'.
+func WhoAmIAction(c *cli.Context) error {
+	client, err := newAppClient(c)
+	if err != nil {
+		return err
+	}
+	auth := client.conf.Auth
+	if auth == nil {
+		warningf(c.App.Writer, "not logged in. run \"login\" command")
+		return nil
+	}
+	fmt.Fprintf(c.App.Writer, "%s\n", auth.User.Email)
+	return nil
+}
+
+func (c *appClient) ensureLoggedIn() error {
+	if c.client != nil {
+		return nil
+	}
+
+	if c.conf.Auth == nil {
+		return errors.New("not logged in: run the following command to login:\n\tviam login")
+	}
+
+	if c.conf.Auth.isExpired() {
+		if !c.conf.Auth.canRefresh() {
+			utils.UncheckedError(c.logout())
+			return errors.New("token expired and cannot refresh")
+		}
+
+		// expired.
+		newToken, err := c.authFlow.refreshToken(c.c.Context, c.conf.Auth)
+		if err != nil {
+			utils.UncheckedError(c.logout()) // clear cache if failed to refresh
+			return errors.Wrapf(err, "error while refreshing token")
+		}
+
+		// write token to config.
+		c.conf.Auth = newToken
+		if err := storeConfigToCache(c.conf); err != nil {
+			return err
+		}
+	}
+
+	rpcOpts := append(c.copyRPCOpts(), rpc.WithStaticAuthenticationMaterial(c.conf.Auth.AccessToken))
+
+	conn, err := rpc.DialDirectGRPC(
+		c.c.Context,
+		c.baseURL.Host,
+		nil,
+		rpcOpts...,
+	)
+	if err != nil {
+		return err
+	}
+
+	c.client = apppb.NewAppServiceClient(conn)
+	c.dataClient = datapb.NewDataServiceClient(conn)
+	return nil
+}
+
+// logout logs out the client and clears the config.
+func (c *appClient) logout() error {
+	if err := removeConfigFromCache(); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	c.conf = &config{}
+	return nil
+}
+
+func (c *appClient) prepareDial(
+	orgStr, locStr, robotStr, partStr string,
+	debug bool,
+) (context.Context, string, []rpc.DialOption, error) {
+	if err := c.ensureLoggedIn(); err != nil {
+		return nil, "", nil, err
+	}
+	if err := c.selectOrganization(orgStr); err != nil {
+		return nil, "", nil, err
+	}
+	if err := c.selectLocation(locStr); err != nil {
+		return nil, "", nil, err
+	}
+
+	part, err := c.robotPart(c.selectedOrg.Id, c.selectedLoc.Id, robotStr, partStr)
+	if err != nil {
+		return nil, "", nil, err
+	}
+
+	rpcDialer := rpc.NewCachedDialer()
+	defer func() {
+		utils.UncheckedError(rpcDialer.Close())
+	}()
+	dialCtx := rpc.ContextWithDialer(c.c.Context, rpcDialer)
+
+	rpcOpts := append(c.copyRPCOpts(),
+		rpc.WithExternalAuth(c.baseURL.Host, part.Fqdn),
+		rpc.WithStaticExternalAuthenticationMaterial(c.conf.Auth.AccessToken),
+	)
+
+	if debug {
+		rpcOpts = append(rpcOpts, rpc.WithDialDebug())
+	}
+
+	return dialCtx, part.Fqdn, rpcOpts, nil
+}
+
+func (t *token) isExpired() bool {
 	return t.ExpiresAt.Before(time.Now().Add(10 * time.Second))
 }
 
-// CanRefresh returns true if the token can be refreshed.
-func (t *Token) CanRefresh() bool {
+func (t *token) canRefresh() bool {
 	return t.RefreshToken != "" && t.TokenURL != "" && t.ClientID != ""
 }
 
-// UserData user details from login.
-type UserData struct {
+type userData struct {
 	jwt.Claims
 
 	Email   string `json:"email"`
@@ -134,7 +323,7 @@ func newCLIAuthFlowWithAuthDomain(authDomain, audience, clientID string, console
 	}
 }
 
-func (a *authFlow) Login(ctx context.Context) (*Token, error) {
+func (a *authFlow) login(ctx context.Context) (*token, error) {
 	discovery, err := a.loadOIDiscoveryEndpoint(ctx)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed retrieving discovery endpoint")
@@ -157,18 +346,18 @@ func (a *authFlow) Login(ctx context.Context) (*Token, error) {
 	return buildToken(token, discovery.TokenEndPoint, a.clientID)
 }
 
-func buildToken(token *tokenResponse, tokenURL, clientID string) (*Token, error) {
-	userData, err := userDataFromIDToken(token.IDToken)
+func buildToken(t *tokenResponse, tokenURL, clientID string) (*token, error) {
+	userData, err := userDataFromIDToken(t.IDToken)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Token{
+	return &token{
 		TokenType:    tokenTypeUserOAuthToken,
-		AccessToken:  token.AccessToken,
-		RefreshToken: token.RefreshToken,
-		IDToken:      token.IDToken,
-		ExpiresAt:    time.Now().Add(time.Second * time.Duration(token.ExpiresIn)),
+		AccessToken:  t.AccessToken,
+		RefreshToken: t.RefreshToken,
+		IDToken:      t.IDToken,
+		ExpiresAt:    time.Now().Add(time.Second * time.Duration(t.ExpiresIn)),
 		User:         *userData,
 		TokenURL:     tokenURL,
 		ClientID:     clientID,
@@ -214,7 +403,7 @@ func (a *authFlow) makeDeviceCodeRequest(ctx context.Context, discovery *openIDD
 }
 
 func (a *authFlow) directUser(code *deviceCodeResponse) error {
-	Infof(a.console, `you can log into Viam through the opened browser window or follow the URL below.
+	infof(a.console, `you can log into Viam through the opened browser window or follow the URL below.
 ensure the code in the URL matches the one shown in your browser.
   %s`, code.VerificationURIComplete)
 
@@ -307,8 +496,8 @@ func openbrowser(url string) error {
 	return err
 }
 
-func userDataFromIDToken(token string) (*UserData, error) {
-	userData := UserData{}
+func userDataFromIDToken(token string) (*userData, error) {
+	userData := userData{}
 	jwtParser := jwt.NewParser()
 
 	// We assume the ID token returned form the authorization endpoint is going to give
@@ -330,17 +519,13 @@ func userDataFromIDToken(token string) (*UserData, error) {
 	return &userData, nil
 }
 
-func (a *authFlow) Refresh(ctx context.Context, token *Token) (*Token, error) {
-	return refreshToken(ctx, a.httpClient, token)
-}
-
-func refreshToken(ctx context.Context, httpClient *http.Client, token *Token) (*Token, error) {
+func (a *authFlow) refreshToken(ctx context.Context, t *token) (*token, error) {
 	data := url.Values{}
-	data.Set("client_id", token.ClientID)
+	data.Set("client_id", t.ClientID)
 	data.Set("grant_type", "refresh_token")
-	data.Set("refresh_token", token.RefreshToken)
+	data.Set("refresh_token", t.RefreshToken)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, token.TokenURL, strings.NewReader(data.Encode()))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, t.TokenURL, strings.NewReader(data.Encode()))
 	if err != nil {
 		return nil, err
 	}
@@ -348,7 +533,7 @@ func refreshToken(ctx context.Context, httpClient *http.Client, token *Token) (*
 	req.Header.Add("Content-Length", strconv.Itoa(len(data.Encode())))
 
 	//nolint:bodyclose // processTokenResponse() closes it
-	res, err := httpClient.Do(req)
+	res, err := a.httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -360,7 +545,7 @@ func refreshToken(ctx context.Context, httpClient *http.Client, token *Token) (*
 		return nil, errors.New("expecting new token")
 	}
 
-	return buildToken(resp, token.TokenURL, token.ClientID)
+	return buildToken(resp, t.TokenURL, t.ClientID)
 }
 
 func processTokenResponse(res *http.Response) (*tokenResponse, error) {

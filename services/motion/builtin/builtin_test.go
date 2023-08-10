@@ -289,51 +289,6 @@ func TestMoveWithObstacles(t *testing.T) {
 	})
 }
 
-func TestMoveSingleComponent(t *testing.T) {
-	ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
-	defer teardown()
-
-	grabPose := spatialmath.NewPoseFromPoint(r3.Vector{-25, 30, 0})
-	t.Run("succeeds when all frame info in config", func(t *testing.T) {
-		_, err := ms.MoveSingleComponent(
-			context.Background(),
-			arm.Named("pieceArm"),
-			referenceframe.NewPoseInFrame("c", grabPose),
-			nil,
-			map[string]interface{}{},
-		)
-		// Gripper is not an arm and cannot move
-		test.That(t, err, test.ShouldBeNil)
-	})
-	t.Run("fails due to gripper not being an arm", func(t *testing.T) {
-		_, err := ms.MoveSingleComponent(
-			context.Background(),
-			gripper.Named("pieceGripper"),
-			referenceframe.NewPoseInFrame("c", grabPose),
-			nil,
-			map[string]interface{}{},
-		)
-		// Gripper is not an arm and cannot move
-		test.That(t, err, test.ShouldNotBeNil)
-	})
-
-	t.Run("succeeds with supplemental info in world state", func(t *testing.T) {
-		worldState, err := referenceframe.NewWorldState(
-			nil,
-			[]*referenceframe.LinkInFrame{referenceframe.NewLinkInFrame("c", spatialmath.NewZeroPose(), "testFrame2", nil)},
-		)
-		test.That(t, err, test.ShouldBeNil)
-		_, err = ms.MoveSingleComponent(
-			context.Background(),
-			arm.Named("pieceArm"),
-			referenceframe.NewPoseInFrame("testFrame2", grabPose),
-			worldState,
-			map[string]interface{}{},
-		)
-		test.That(t, err, test.ShouldBeNil)
-	})
-}
-
 func TestMoveOnMapLongDistance(t *testing.T) {
 	ctx := context.Background()
 	// goal x-position of 1.32m is scaled to be in mm

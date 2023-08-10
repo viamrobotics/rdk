@@ -19,6 +19,7 @@ import InputController from './input-controller/index.svelte';
 import Motor from './motor/index.svelte';
 import MovementSensor from './movement-sensor/index.svelte';
 import Navigation from './navigation/index.svelte';
+import PowerSensor from './power-sensor/index.svelte';
 import Servo from './servo/index.svelte';
 import Sensors from './sensors/index.svelte';
 import Slam from './slam/index.svelte';
@@ -117,6 +118,11 @@ const getStatus = (statusMap: Record<string, unknown>, resource: commonApi.Resou
     <!-- ******* MOVEMENT SENSOR *******  -->
     {#each filterSubtype($components, 'movement_sensor') as { name } (name)}
       <MovementSensor {name} />
+    {/each}
+
+     <!-- ******* POWER SENSOR *******  -->
+    {#each filterSubtype($components, 'power_sensor') as { name } (name)}
+      <PowerSensor {name} />
     {/each}
 
     <!-- ******* ARM *******  -->
