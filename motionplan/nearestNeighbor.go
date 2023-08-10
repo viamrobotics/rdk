@@ -49,6 +49,7 @@ func kNearestNeighbors(planOpts *plannerOptions, rrtMap map[node]node, target no
 	return allCosts[:kNeighbors]
 }
 
+// Can return `nil` when the context is canceled during processing.
 func (nm *neighborManager) nearestNeighbor(
 	ctx context.Context,
 	planOpts *plannerOptions,
@@ -112,6 +113,12 @@ func (nm *neighborManager) parallelNearestNeighbor(
 	bestDist := math.Inf(1)
 	for workerIdx := 0; workerIdx < nm.nCPU; workerIdx++ {
 		candidate := <-nm.neighbors
+		if candidate == nil {
+			// Seeing a `nil` here implies the workers did not get to all of the candidate
+			// neighbors. And thus we don't have the right answer to return.
+			return nil
+		}
+
 		if candidate.dist < bestDist {
 			bestDist = candidate.dist
 			best = candidate.node
@@ -125,6 +132,14 @@ func (nm *neighborManager) nnWorker(ctx context.Context, planOpts *plannerOption
 	bestDist := math.Inf(1)
 
 	for candidate := range nm.nnKeys {
+		select {
+		case <-ctx.Done():
+			// We were interrupted, signal that to the caller by returning a `nil`.
+			nm.neighbors <- nil
+			return
+		default:
+		}
+
 		seg := &Segment{
 			StartConfiguration: nm.seedPos.Q(),
 			EndConfiguration:   candidate.Q(),
@@ -139,13 +154,6 @@ func (nm *neighborManager) nnWorker(ctx context.Context, planOpts *plannerOption
 		if dist < bestDist {
 			bestDist = dist
 			best = candidate
-		}
-
-		select {
-		case <-ctx.Done():
-			nm.neighbors <- &neighbor{bestDist, best}
-			return
-		default:
 		}
 	}
 
