@@ -4,6 +4,7 @@ package builtin
 import (
 	"context"
 	"encoding/json"
+	"math"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -293,6 +294,77 @@ func (svc *builtIn) Close(ctx context.Context) error {
 	svc.activeBackgroundWorkers.Wait()
 
 	return svc.store.Close(ctx)
+}
+
+func (svc *builtIn) startWaypoint(ctx context.Context, extra map[string]interface{}) {
+	if extra == nil {
+		extra = map[string]interface{}{"motion_profile": "position_only"}
+	} else if _, ok := extra["motion_profile"]; !ok {
+		extra["motion_profile"] = "position_only"
+	}
+
+	motionCfg := motion.MotionConfiguration{
+		LinearMetersPerSec: svc.metersPerSec,
+		AngularDegsPerSec:  svc.degPerSec,
+	}
+
+	svc.activeBackgroundWorkers.Add(1)
+	utils.PanicCapturingGo(func() {
+		defer svc.activeBackgroundWorkers.Done()
+
+		navOnce := func(ctx context.Context, wp navigation.Waypoint) error {
+			_, err := svc.motion.MoveOnGlobe(
+				ctx,
+				svc.base.Name(),
+				wp.ToPoint(),
+				math.NaN(),
+				svc.movementSensor.Name(),
+				svc.obstacles,
+				motionCfg,
+				extra,
+			)
+			if err != nil {
+				return err
+			}
+
+			return svc.waypointReached(ctx)
+		}
+
+		// loop until no waypoints remaining
+		for {
+			if ctx.Err() != nil {
+				return
+			}
+
+			wp, err := svc.store.NextWaypoint(ctx)
+			if err != nil {
+				return
+			}
+			svc.mu.Lock()
+			svc.waypointInProgress = &wp
+			cancelCtx, cancelFunc := context.WithCancel(ctx)
+			svc.currentWaypointCancelFunc = cancelFunc
+			svc.mu.Unlock()
+
+			svc.logger.Infof("navigating to waypoint: %+v", wp)
+			if err := navOnce(cancelCtx, wp); err != nil {
+				if svc.waypointIsDeleted() {
+					svc.logger.Infof("skipping waypoint %+v since it was deleted", wp)
+					continue
+				}
+
+				svc.logger.Infof("skipping waypoint %+v due to error while navigating towards it: %s", wp, err)
+				if err := svc.waypointReached(ctx); err != nil {
+					if svc.waypointIsDeleted() {
+						svc.logger.Infof("skipping waypoint %+v since it was deleted", wp)
+						continue
+					}
+					svc.logger.Info("can't mark waypoint %+v as reached, exiting navigation due to error: %s", wp, err)
+					return
+				}
+			}
+		}
+	})
 }
 
 func (svc *builtIn) waypointIsDeleted() bool {

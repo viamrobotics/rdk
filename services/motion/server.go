@@ -105,7 +105,6 @@ func setupMotionConfiguration(motionCfg *pb.MotionConfiguration) MotionConfigura
 	positionPolling := math.NaN()
 	obstaclePolling := math.NaN()
 	planDeviation := math.NaN()
-	replanCostFactor := math.NaN()
 	linear := math.NaN()
 	angular := math.NaN()
 
@@ -115,23 +114,20 @@ func setupMotionConfiguration(motionCfg *pb.MotionConfiguration) MotionConfigura
 				visionSvc = append(visionSvc, protoutils.ResourceNameFromProto(name))
 			}
 		}
-		if motionCfg.PositionPollingFrequency != nil {
-			positionPolling = motionCfg.GetPositionPollingFrequency()
+		if motionCfg.PositionPollingFrequencyHz != nil {
+			positionPolling = motionCfg.GetPositionPollingFrequencyHz()
 		}
-		if motionCfg.ObstaclePollingFrequency != nil {
-			obstaclePolling = motionCfg.GetObstaclePollingFrequency()
+		if motionCfg.ObstaclePollingFrequencyHz != nil {
+			obstaclePolling = motionCfg.GetObstaclePollingFrequencyHz()
 		}
-		if motionCfg.PlanDeviationMeters != nil {
-			planDeviation = motionCfg.GetPlanDeviationMeters()
+		if motionCfg.PlanDeviationM != nil {
+			planDeviation = motionCfg.GetPlanDeviationM()
 		}
-		if motionCfg.ReplanCostFactor != nil {
-			replanCostFactor = motionCfg.GetReplanCostFactor()
+		if motionCfg.LinearMPerSec != nil {
+			linear = motionCfg.GetLinearMPerSec()
 		}
-		if motionCfg.LinearMetersPerSec != nil {
-			linear = motionCfg.GetLinearMetersPerSec()
-		}
-		if motionCfg.AngularDegPerSec != nil {
-			angular = motionCfg.GetAngularDegPerSec()
+		if motionCfg.AngularDegsPerSec != nil {
+			angular = motionCfg.GetAngularDegsPerSec()
 		}
 	}
 
@@ -140,9 +136,8 @@ func setupMotionConfiguration(motionCfg *pb.MotionConfiguration) MotionConfigura
 		PositionPollingFreq: positionPolling,
 		ObstaclePollingFreq: obstaclePolling,
 		PlanDeviationMeters: planDeviation,
-		ReplanCostFactor:    replanCostFactor,
 		LinearMetersPerSec:  linear,
-		AngularMetersPerSec: angular,
+		AngularDegsPerSec:   angular,
 	}
 }
 func (server *serviceServer) GetPose(ctx context.Context, req *pb.GetPoseRequest) (*pb.GetPoseResponse, error) {

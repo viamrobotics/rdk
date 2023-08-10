@@ -217,6 +217,13 @@ func (ms *builtIn) MoveOnGlobe(
 ) (bool, error) {
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
 
+	kinematicsOptions := kinematicbase.NewKinematicBaseOptions()
+	kinematicsOptions.LinearVelocityMMPerSec = motionCfg.LinearMetersPerSec
+	kinematicsOptions.AngularVelocityDegsPerSec = motionCfg.AngularDegsPerSec
+	kinematicsOptions.GoalRadiusMM = 3000
+	kinematicsOptions.HeadingThresholdDegrees = 8
+	kinematicsOptions.PlanDeviationThresholdMM = math.Inf(1)
+
 	plan, kb, err := ms.planMoveOnGlobe(
 		ctx,
 		componentName,

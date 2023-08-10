@@ -67,9 +67,8 @@ type MotionConfiguration struct {
 	PositionPollingFreq float64
 	ObstaclePollingFreq float64
 	PlanDeviationMeters float64
-	ReplanCostFactor    float64
 	LinearMetersPerSec  float64
-	AngularMetersPerSec float64
+	AngularDegsPerSec   float64
 }
 
 // SubtypeName is the name of the type of service.
