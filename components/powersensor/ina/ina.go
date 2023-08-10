@@ -140,7 +140,7 @@ func newINA(
 	return s, nil
 }
 
-// ina219 is a i2c sensor device that reports voltage, current and power.
+// ina is a i2c sensor device that reports voltage, current and power.
 type ina struct {
 	resource.Named
 	resource.AlwaysRebuild
