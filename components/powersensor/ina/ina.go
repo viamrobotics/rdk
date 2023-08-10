@@ -105,17 +105,17 @@ func newINA(
 		switch modelName {
 		case modelName219:
 			maxCurrent = maxCurrent219
-			logger.Infof("using default max current 3.2A")
+			logger.Info("using default max current 3.2A")
 		case modelName226:
 			maxCurrent = maxCurrent219
-			logger.Infof("using default max current 20A")
+			logger.Info("using default max current 20A")
 		}
 	}
 
 	resistance := int64(conf.ShuntResistance * 1000 * milliOhm)
 	if resistance == 0 {
 		resistance = senseResistor
-		logger.Infof("using default resistor value 0.1 ohms")
+		logger.Info("using default resistor value 0.1 ohms")
 	}
 
 	s := &ina{
