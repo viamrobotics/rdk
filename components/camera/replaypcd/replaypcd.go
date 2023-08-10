@@ -80,6 +80,18 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 		return nil, goutils.NewConfigValidationFieldRequiredError(path, "source")
 	}
 
+	if cfg.RobotID == "" {
+		return nil, goutils.NewConfigValidationFieldRequiredError(path, "robot_id")
+	}
+
+	if cfg.LocationID == "" {
+		return nil, goutils.NewConfigValidationFieldRequiredError(path, "location_id")
+	}
+
+	if cfg.OrganizationID == "" {
+		return nil, goutils.NewConfigValidationFieldRequiredError(path, "organization_id")
+	}
+
 	var err error
 	var startTime time.Time
 	if cfg.Interval.Start != "" {

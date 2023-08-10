@@ -236,7 +236,7 @@ func resourcesFromDeps(t *testing.T, r robot.Robot, deps []string) resource.Depe
 // the provided filter and last returned artifact.
 func getNextDataAfterFilter(filter *datapb.Filter, last string) (int, error) {
 	// Basic component part (source) filter
-	if filter.ComponentName != "" && filter.ComponentName != "source" {
+	if filter.ComponentName != "" && filter.ComponentName != validSource {
 		return 0, ErrEndOfDataset
 	}
 

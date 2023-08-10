@@ -19,6 +19,7 @@ import (
 
 const (
 	datasetDirectory    = "slam/mock_lidar/%d.pcd"
+	validSource         = "source"
 	validRobotID        = "robot_id"
 	validOrganizationID = "organization_id"
 	validLocationID     = "location_id"
@@ -47,14 +48,20 @@ func TestNewReplayPCD(t *testing.T) {
 		{
 			description: "valid config with internal cloud service",
 			cfg: &Config{
-				Source: "source",
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
 			},
 			validCloudConnection: true,
 		},
 		{
 			description: "bad internal cloud service",
 			cfg: &Config{
-				Source: "source",
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
 			},
 			validCloudConnection: false,
 			expectedErr:          errors.New("failure to connect to the cloud: cloud connection error"),
@@ -62,7 +69,10 @@ func TestNewReplayPCD(t *testing.T) {
 		{
 			description: "bad start timestamp",
 			cfg: &Config{
-				Source: "source",
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
 				Interval: TimeInterval{
 					Start: "bad timestamp",
 				},
@@ -73,7 +83,10 @@ func TestNewReplayPCD(t *testing.T) {
 		{
 			description: "bad end timestamp",
 			cfg: &Config{
-				Source: "source",
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
 				Interval: TimeInterval{
 					End: "bad timestamp",
 				},
@@ -116,53 +129,21 @@ func TestNextPointCloud(t *testing.T) {
 		{
 			description: "Calling NextPointCloud no filter",
 			cfg: &Config{
-				Source: "source",
-			},
-			startFileNum: 0,
-			endFileNum:   numPCDFiles,
-		},
-		{
-			description: "Calling NextPointCloud with bad source",
-			cfg: &Config{
-				Source: "bad_source",
-			},
-			startFileNum: -1,
-			endFileNum:   -1,
-		},
-		{
-			description: "Calling NextPointCloud with robot_id",
-			cfg: &Config{
-				Source:         "source",
+				Source:         validSource,
 				RobotID:        validRobotID,
-				OrganizationID: validOrganizationID,
 				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
 			},
 			startFileNum: 0,
 			endFileNum:   numPCDFiles,
 		},
 		{
-			description: "Calling NextPointCloud with bad robot_id",
+			description: "Calling NextPointCloud with bad filter",
 			cfg: &Config{
-				Source:  "source",
-				RobotID: "bad_robot_id",
-			},
-			startFileNum: -1,
-			endFileNum:   -1,
-		},
-		{
-			description: "Calling NextPointCloud with bad robot_id",
-			cfg: &Config{
-				Source:     "source",
-				LocationID: "bad_location_id",
-			},
-			startFileNum: -1,
-			endFileNum:   -1,
-		},
-		{
-			description: "Calling NextPointCloud with bad robot_id",
-			cfg: &Config{
-				Source:         "source",
-				OrganizationID: "bad_organization_id",
+				Source:         "bad_source",
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
 			},
 			startFileNum: -1,
 			endFileNum:   -1,
@@ -170,8 +151,11 @@ func TestNextPointCloud(t *testing.T) {
 		{
 			description: "Calling NextPointCloud with filter no data",
 			cfg: &Config{
-				Source:    "source",
-				BatchSize: &batchSize1,
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
+				BatchSize:      &batchSize1,
 				Interval: TimeInterval{
 					Start: "2000-01-01T12:00:30Z",
 					End:   "2000-01-01T12:00:40Z",
@@ -183,8 +167,11 @@ func TestNextPointCloud(t *testing.T) {
 		{
 			description: "Calling NextPointCloud with end filter",
 			cfg: &Config{
-				Source:    "source",
-				BatchSize: &batchSize1,
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
+				BatchSize:      &batchSize1,
 				Interval: TimeInterval{
 					End: "2000-01-01T12:00:10Z",
 				},
@@ -195,8 +182,11 @@ func TestNextPointCloud(t *testing.T) {
 		{
 			description: "Calling NextPointCloud with start filter",
 			cfg: &Config{
-				Source:    "source",
-				BatchSize: &batchSize1,
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
+				BatchSize:      &batchSize1,
 				Interval: TimeInterval{
 					Start: "2000-01-01T12:00:05Z",
 				},
@@ -207,8 +197,11 @@ func TestNextPointCloud(t *testing.T) {
 		{
 			description: "Calling NextPointCloud with start and end filter",
 			cfg: &Config{
-				Source:    "source",
-				BatchSize: &batchSize1,
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
+				BatchSize:      &batchSize1,
 				Interval: TimeInterval{
 					Start: "2000-01-01T12:00:05Z",
 					End:   "2000-01-01T12:00:10Z",
@@ -220,8 +213,11 @@ func TestNextPointCloud(t *testing.T) {
 		{
 			description: "Calling NextPointCloud with non-divisible batch size, last batch size 1",
 			cfg: &Config{
-				Source:    "source",
-				BatchSize: &batchSize2,
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
+				BatchSize:      &batchSize2,
 			},
 			startFileNum: 0,
 			endFileNum:   numPCDFiles,
@@ -229,8 +225,11 @@ func TestNextPointCloud(t *testing.T) {
 		{
 			description: "Calling NextPointCloud with non-divisible batch size, last batch > 1",
 			cfg: &Config{
-				Source:    "source",
-				BatchSize: &batchSize4,
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
+				BatchSize:      &batchSize4,
 			},
 			startFileNum: 0,
 			endFileNum:   numPCDFiles,
@@ -238,8 +237,11 @@ func TestNextPointCloud(t *testing.T) {
 		{
 			description: "Calling NextPointCloud with divisible batch size",
 			cfg: &Config{
-				Source:    "source",
-				BatchSize: &batchSize3,
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
+				BatchSize:      &batchSize3,
 			},
 			startFileNum: 0,
 			endFileNum:   numPCDFiles,
@@ -247,7 +249,7 @@ func TestNextPointCloud(t *testing.T) {
 		{
 			description: "Calling NextPointCloud with batching and a start and end filter",
 			cfg: &Config{
-				Source:    "source",
+				Source:    validSource,
 				BatchSize: &batchSize2,
 				Interval: TimeInterval{
 					Start: "2000-01-01T12:00:05Z",
@@ -260,8 +262,11 @@ func TestNextPointCloud(t *testing.T) {
 		{
 			description: "Calling NextPointCloud with a large batch size",
 			cfg: &Config{
-				Source:    "source",
-				BatchSize: &batchSizeLarge,
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
+				BatchSize:      &batchSizeLarge,
 			},
 			startFileNum: 0,
 			endFileNum:   numPCDFiles,
@@ -315,7 +320,7 @@ func TestLiveNextPointCloud(t *testing.T) {
 	defer func() { numPCDFiles = numPCDFilesOriginal }()
 
 	cfg := &Config{
-		Source: "source",
+		Source: validSource,
 	}
 
 	replayCamera, _, serverClose, err := createNewReplayPCDCamera(ctx, t, cfg, true)
@@ -366,23 +371,61 @@ func TestConfigValidation(t *testing.T) {
 		{
 			description: "Valid config with source and no timestamp",
 			cfg: &Config{
-				Source:   "source",
-				Interval: TimeInterval{},
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
+				Interval:       TimeInterval{},
 			},
 			expectedDeps: []string{cloud.InternalServiceName.String()},
 		},
 		{
-			description: "Valid config with source and any robot id",
+			description: "Valid config with bad source",
 			cfg: &Config{
-				Source:  "source",
-				RobotID: "source",
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
+				Interval:       TimeInterval{},
 			},
-			expectedDeps: []string{cloud.InternalServiceName.String()},
+			expectedErr: utils.NewConfigValidationFieldRequiredError("", validSource),
+		},
+		{
+			description: "Valid config with bad robot_id",
+			cfg: &Config{
+				Source:         validSource,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
+				Interval:       TimeInterval{},
+			},
+			expectedErr: utils.NewConfigValidationFieldRequiredError("", validRobotID),
+		},
+		{
+			description: "Valid config with bad location_id",
+			cfg: &Config{
+				Source:         validSource,
+				RobotID:        validRobotID,
+				OrganizationID: validOrganizationID,
+				Interval:       TimeInterval{},
+			},
+			expectedErr: utils.NewConfigValidationFieldRequiredError("", validLocationID),
+		},
+		{
+			description: "Valid config with bad organization_id",
+			cfg: &Config{
+				Source:     validSource,
+				RobotID:    validRobotID,
+				LocationID: validLocationID,
+				Interval:   TimeInterval{},
+			},
+			expectedErr: utils.NewConfigValidationFieldRequiredError("", validOrganizationID),
 		},
 		{
 			description: "Valid config with start timestamp",
 			cfg: &Config{
-				Source: "source",
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
 				Interval: TimeInterval{
 					Start: "2000-01-01T12:00:00Z",
 				},
@@ -392,7 +435,10 @@ func TestConfigValidation(t *testing.T) {
 		{
 			description: "Valid config with end timestamp",
 			cfg: &Config{
-				Source: "source",
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
 				Interval: TimeInterval{
 					End: "2000-01-01T12:00:00Z",
 				},
@@ -402,7 +448,10 @@ func TestConfigValidation(t *testing.T) {
 		{
 			description: "Valid config with start and end timestamps",
 			cfg: &Config{
-				Source: "source",
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
 				Interval: TimeInterval{
 					Start: "2000-01-01T12:00:00Z",
 					End:   "2000-01-01T12:00:01Z",
@@ -411,17 +460,12 @@ func TestConfigValidation(t *testing.T) {
 			expectedDeps: []string{cloud.InternalServiceName.String()},
 		},
 		{
-			description: "Invalid config no source and no timestamp",
-			cfg: &Config{
-				Source:   "",
-				Interval: TimeInterval{},
-			},
-			expectedErr: utils.NewConfigValidationFieldRequiredError("", "source"),
-		},
-		{
 			description: "Invalid config with bad start timestamp format",
 			cfg: &Config{
-				Source: "source",
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
 				Interval: TimeInterval{
 					Start: "gibberish",
 				},
@@ -431,7 +475,10 @@ func TestConfigValidation(t *testing.T) {
 		{
 			description: "Invalid config with bad end timestamp format",
 			cfg: &Config{
-				Source: "source",
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
 				Interval: TimeInterval{
 					End: "gibberish",
 				},
@@ -441,7 +488,10 @@ func TestConfigValidation(t *testing.T) {
 		{
 			description: "Invalid config with bad start timestamp",
 			cfg: &Config{
-				Source: "source",
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
 				Interval: TimeInterval{
 					Start: "3000-01-01T12:00:00Z",
 				},
@@ -451,7 +501,10 @@ func TestConfigValidation(t *testing.T) {
 		{
 			description: "Invalid config with bad end timestamp",
 			cfg: &Config{
-				Source: "source",
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
 				Interval: TimeInterval{
 					End: "3000-01-01T12:00:00Z",
 				},
@@ -461,7 +514,10 @@ func TestConfigValidation(t *testing.T) {
 		{
 			description: "Invalid config with start after end timestamps",
 			cfg: &Config{
-				Source: "source",
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
 				Interval: TimeInterval{
 					Start: "2000-01-01T12:00:01Z",
 					End:   "2000-01-01T12:00:00Z",
@@ -472,7 +528,10 @@ func TestConfigValidation(t *testing.T) {
 		{
 			description: "Invalid config with batch size above max",
 			cfg: &Config{
-				Source: "source",
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
 				Interval: TimeInterval{
 					Start: "2000-01-01T12:00:00Z",
 					End:   "2000-01-01T12:00:01Z",
@@ -484,7 +543,10 @@ func TestConfigValidation(t *testing.T) {
 		{
 			description: "Invalid config with batch size 0",
 			cfg: &Config{
-				Source: "source",
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
 				Interval: TimeInterval{
 					Start: "2000-01-01T12:00:00Z",
 					End:   "2000-01-01T12:00:01Z",
@@ -511,7 +573,12 @@ func TestConfigValidation(t *testing.T) {
 func TestUnimplementedFunctions(t *testing.T) {
 	ctx := context.Background()
 
-	replayCamCfg := &Config{Source: "source"}
+	replayCamCfg := &Config{
+		Source:         validSource,
+		RobotID:        validRobotID,
+		LocationID:     validLocationID,
+		OrganizationID: validOrganizationID,
+	}
 	replayCamera, _, serverClose, err := createNewReplayPCDCamera(ctx, t, replayCamCfg, true)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -579,18 +646,34 @@ func TestNextPointCloudTimestamps(t *testing.T) {
 	}
 
 	t.Run("no batching", func(t *testing.T) {
-		cfg := &Config{Source: "source"}
+		cfg := &Config{
+			Source:         validSource,
+			RobotID:        validRobotID,
+			LocationID:     validLocationID,
+			OrganizationID: validOrganizationID,
+		}
 		testCameraWithCfg(cfg)
 	})
 	t.Run("with batching", func(t *testing.T) {
-		cfg := &Config{Source: "source", BatchSize: &batchSize2}
+		cfg := &Config{
+			Source:         validSource,
+			RobotID:        validRobotID,
+			LocationID:     validLocationID,
+			OrganizationID: validOrganizationID,
+			BatchSize:      &batchSize2,
+		}
 		testCameraWithCfg(cfg)
 	})
 }
 
 func TestReconfigure(t *testing.T) {
 	// Construct replay camera
-	cfg := &Config{Source: "source"}
+	cfg := &Config{
+		Source:         validSource,
+		RobotID:        validRobotID,
+		LocationID:     validLocationID,
+		OrganizationID: validOrganizationID,
+	}
 	ctx := context.Background()
 	replayCamera, deps, serverClose, err := createNewReplayPCDCamera(ctx, t, cfg, true)
 	test.That(t, err, test.ShouldBeNil)
@@ -606,7 +689,7 @@ func TestReconfigure(t *testing.T) {
 	}
 
 	// Reconfigure with a new batch size
-	cfg = &Config{Source: "source", BatchSize: &batchSize4}
+	cfg = &Config{Source: validSource, BatchSize: &batchSize4}
 	replayCamera.Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
 
 	// Call NextPointCloud a couple more times, ensuring that we start over from the beginning
@@ -620,7 +703,7 @@ func TestReconfigure(t *testing.T) {
 	}
 
 	// Reconfigure again, batch size 1
-	cfg = &Config{Source: "source", BatchSize: &batchSize1}
+	cfg = &Config{Source: validSource, BatchSize: &batchSize1}
 	replayCamera.Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
 
 	// Again verify dataset starts from beginning
