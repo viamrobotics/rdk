@@ -28,7 +28,7 @@ func TestParse2(t *testing.T) {
 	test.That(t, data.Speed, test.ShouldAlmostEqual, 0.030351959999999997)
 	test.That(t, data.Location.Lat(), test.ShouldAlmostEqual, 40.77385866666667, 0.001)
 	test.That(t, data.Location.Lng(), test.ShouldAlmostEqual, -73.9817245, 0.001)
-	test.That(t, data.CompassHeading, test.ShouldEqual, 0)
+	test.That(t, math.IsNaN(data.CompassHeading), test.ShouldBeTrue)
 
 	nmeaSentence = "$GPRMC,210230,A,3855.4487,N,09446.0071,W,0.0,076.2,130495,003.8,E*69"
 	err = data.ParseAndUpdate(nmeaSentence)

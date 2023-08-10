@@ -100,9 +100,10 @@ type rtkSerial struct {
 	ntripStatus   bool
 	isClosed      bool
 
-	err           movementsensor.LastError
-	lastposition  movementsensor.LastPosition
-	InputProtocol string
+	err                movementsensor.LastError
+	lastposition       movementsensor.LastPosition
+	lastcompassheading movementsensor.LastCompassHeading
+	InputProtocol      string
 
 	nmeamovementsensor gpsnmea.NmeaMovementSensor
 	correctionWriter   io.ReadWriteCloser
@@ -177,12 +178,13 @@ func newRTKSerial(
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	g := &rtkSerial{
-		Named:        conf.ResourceName().AsNamed(),
-		cancelCtx:    cancelCtx,
-		cancelFunc:   cancelFunc,
-		logger:       logger,
-		err:          movementsensor.NewLastError(1, 1),
-		lastposition: movementsensor.NewLastPosition(),
+		Named:              conf.ResourceName().AsNamed(),
+		cancelCtx:          cancelCtx,
+		cancelFunc:         cancelFunc,
+		logger:             logger,
+		err:                movementsensor.NewLastError(1, 1),
+		lastposition:       movementsensor.NewLastPosition(),
+		lastcompassheading: movementsensor.NewLastCompassHeading(),
 	}
 
 	// reconfigure
@@ -513,8 +515,24 @@ func (g *rtkSerial) CompassHeading(ctx context.Context, extra map[string]interfa
 		return 0, lastError
 	}
 	g.ntripMu.Unlock()
+	lastHeading := g.lastcompassheading.GetLastCompassHeading()
+	currentHeading, err := g.nmeamovementsensor.CompassHeading(ctx, extra)
+	if err != nil {
+		return math.NaN(), err
+	}
 
-	return g.nmeamovementsensor.CompassHeading(ctx, extra)
+	if !math.IsNaN(currentHeading) && !math.IsNaN(lastHeading) && currentHeading != lastHeading {
+		g.lastcompassheading.SetLastCompassHeading(currentHeading)
+	}
+
+	if math.IsNaN(currentHeading) && !math.IsNaN(lastHeading) {
+		currentHeading = lastHeading
+	}
+
+	if !math.IsNaN(currentHeading) && math.IsNaN(lastHeading) {
+		g.lastcompassheading.SetLastCompassHeading(currentHeading)
+	}
+	return currentHeading, nil
 }
 
 // Orientation passthrough.

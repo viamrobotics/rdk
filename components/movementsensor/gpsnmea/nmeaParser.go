@@ -101,10 +101,6 @@ func (g *GPSData) updateData(s nmea.Sentence) error {
 		if gns, ok := s.(nmea.GNS); ok {
 			errs = g.updateGNS(gns)
 		}
-	case nmea.HDT:
-		if hdt, ok := s.(nmea.HDT); ok {
-			errs = g.updateHDT(hdt)
-		}
 	default:
 		// Handle the case when the sentence type is not recognized
 		errs = fmt.Errorf("unrecognized sentence type: %T", sentence)
@@ -113,7 +109,7 @@ func (g *GPSData) updateData(s nmea.Sentence) error {
 	return errs
 }
 
-// nolint
+//nolint
 // updateGSV updates g.SatsInView with the information from the provided
 // GSV (GPS Satellites in View) data.
 func (g *GPSData) updateGSV(gsv nmea.GSV) error {
@@ -198,7 +194,7 @@ func (g *GPSData) updateGGA(gga nmea.GGA) error {
 	return err
 }
 
-// nolint
+//nolint
 // updateGLL updates g.Location with the location information from the provided
 // GLL (Geographic Position - Latitude/Longitude) data.
 func (g *GPSData) updateGLL(gll nmea.GLL) error {
@@ -207,21 +203,12 @@ func (g *GPSData) updateGLL(gll nmea.GLL) error {
 	return nil
 }
 
-// nolint
+//nolint
 // updateVTG updates g.Speed with the ground speed information from the provided
 // VTG (Velocity Made Good) data.
 func (g *GPSData) updateVTG(vtg nmea.VTG) error {
 	// VTG provides ground speed
 	g.Speed = vtg.GroundSpeedKPH * kphToMPerSec
-	return nil
-}
-
-// nolint
-// updateHDT updaates g.CompassHeading with the ground speed information from the provided
-// HDT(Heading from True North) data.
-func (g *GPSData) updateHDT(hdt nmea.HDT) error {
-	// HDT provides compass heading
-	g.CompassHeading = hdt.Heading
 	return nil
 }
 
@@ -275,9 +262,12 @@ func (g *GPSData) parseRMC(message string) {
 		return
 	}
 
-	if strings.Contains(data[7], "") {
+	if data[8] == "" {
 		g.validCompassHeading = false
+	} else {
+		g.validCompassHeading = true
 	}
+
 	// Check if the magnetic declination is East or West
 	g.isEast = strings.Contains(data[10], "E")
 }

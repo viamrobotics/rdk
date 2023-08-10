@@ -140,7 +140,7 @@ func (g *SerialNMEAMovementSensor) GetCorrectionInfo() (string, uint) {
 	return g.correctionPath, g.correctionBaudRate
 }
 
-// nolint
+//nolint
 // Position position, altitide.
 func (g *SerialNMEAMovementSensor) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
 	lastPosition := g.lastposition.GetLastPosition()
@@ -210,22 +210,21 @@ func (g *SerialNMEAMovementSensor) Orientation(ctx context.Context, extra map[st
 
 // CompassHeading 0->360.
 func (g *SerialNMEAMovementSensor) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-	currentHeading := g.data.CompassHeading
 	lastHeading := g.lastcompassheading.GetLastCompassHeading()
 
-	if !math.IsNaN(currentHeading) && !math.IsNaN(lastHeading) && currentHeading != lastHeading {
-		g.lastcompassheading.SetLastCompassHeading(currentHeading)
-	}
+	g.mu.RLock()
+	defer g.mu.RUnlock()
 
-	if math.IsNaN(lastHeading) && !math.IsNaN(currentHeading) {
-		g.lastcompassheading.SetLastCompassHeading(currentHeading)
-	}
+	currentHeading := g.data.CompassHeading
 
 	if !math.IsNaN(lastHeading) && math.IsNaN(currentHeading) {
-		currentHeading = lastHeading
+		return lastHeading, nil
 	}
+
+	if !math.IsNaN(currentHeading) && currentHeading != lastHeading {
+		g.lastcompassheading.SetLastCompassHeading(currentHeading)
+	}
+
 	return currentHeading, nil
 }
 
