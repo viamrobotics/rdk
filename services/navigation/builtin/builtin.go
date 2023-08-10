@@ -24,8 +24,8 @@ import (
 )
 
 const (
-	metersPerSecDefault = 0.5
-	degPerSecDefault    = 45
+	defaultMetersPerSec = 0.5
+	defaultDegPerSec    = 45
 )
 
 func init() {
@@ -81,10 +81,10 @@ func (conf *Config) Validate(path string) ([]string, error) {
 
 	// get default speeds from config if set, else defaults from nav services const
 	if conf.MetersPerSec == 0 {
-		conf.MetersPerSec = metersPerSecDefault
+		conf.MetersPerSec = defaultMetersPerSec
 	}
 	if conf.DegPerSec == 0 {
-		conf.DegPerSec = degPerSecDefault
+		conf.DegPerSec = defaultDegPerSec
 	}
 
 	// ensure obstacles have no translation
