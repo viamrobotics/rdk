@@ -138,12 +138,45 @@ func TestNextPointCloud(t *testing.T) {
 			endFileNum:   numPCDFiles,
 		},
 		{
-			description: "Calling NextPointCloud with bad filter",
+			description: "Calling NextPointCloud with bad source",
 			cfg: &Config{
 				Source:         "bad_source",
 				RobotID:        validRobotID,
 				LocationID:     validLocationID,
 				OrganizationID: validOrganizationID,
+			},
+			startFileNum: -1,
+			endFileNum:   -1,
+		},
+		{
+			description: "Calling NextPointCloud with bad robot_id",
+			cfg: &Config{
+				Source:         validSource,
+				RobotID:        "bad_robot_id",
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
+			},
+			startFileNum: -1,
+			endFileNum:   -1,
+		},
+		{
+			description: "Calling NextPointCloud with bad location_id",
+			cfg: &Config{
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     "bad_location_id",
+				OrganizationID: validOrganizationID,
+			},
+			startFileNum: -1,
+			endFileNum:   -1,
+		},
+		{
+			description: "Calling NextPointCloud with bad organization_id",
+			cfg: &Config{
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: "bad_organization_id",
 			},
 			startFileNum: -1,
 			endFileNum:   -1,
