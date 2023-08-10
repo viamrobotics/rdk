@@ -143,7 +143,8 @@ func (nm *neighborManager) nnWorker(ctx context.Context, planOpts *plannerOption
 
 		select {
 		case <-ctx.Done():
-			break
+			nm.neighbors <- &neighbor{bestDist, best}
+			return
 		default:
 		}
 	}
