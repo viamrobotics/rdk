@@ -100,8 +100,7 @@ func TestClient(t *testing.T) {
 			heading float64,
 			movementSensorName resource.Name,
 			obstacles []*spatialmath.GeoObstacle,
-			linearVelocity float64,
-			angularVelocity float64,
+			motionCfg *motion.MotionConfiguration,
 			extra map[string]interface{},
 		) (bool, error) {
 			return false, errors.New("Not yet implemented")
@@ -126,7 +125,7 @@ func TestClient(t *testing.T) {
 		test.That(t, result, test.ShouldEqual, success)
 
 		// MoveOnGlobe
-		globeResult, err := client.MoveOnGlobe(ctx, baseName, globeDest, math.NaN(), gpsName, nil, math.NaN(), math.NaN(), nil)
+		globeResult, err := client.MoveOnGlobe(ctx, baseName, globeDest, math.NaN(), gpsName, nil, &motion.MotionConfiguration{}, nil)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, notYetImplementedErr.Error())
 		test.That(t, globeResult, test.ShouldEqual, false)
@@ -196,8 +195,7 @@ func TestClient(t *testing.T) {
 			heading float64,
 			movementSensorName resource.Name,
 			obstacles []*spatialmath.GeoObstacle,
-			linearVelocity float64,
-			angularVelocity float64,
+			motionCfg *motion.MotionConfiguration,
 			extra map[string]interface{},
 		) (bool, error) {
 			return false, passedErr
@@ -219,7 +217,7 @@ func TestClient(t *testing.T) {
 		test.That(t, resp, test.ShouldEqual, false)
 
 		// MoveOnGlobe
-		resp, err = client2.MoveOnGlobe(ctx, baseName, globeDest, math.NaN(), gpsName, nil, math.NaN(), math.NaN(), nil)
+		resp, err = client2.MoveOnGlobe(ctx, baseName, globeDest, math.NaN(), gpsName, nil, &motion.MotionConfiguration{}, nil)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
 		test.That(t, resp, test.ShouldEqual, false)

@@ -47,8 +47,7 @@ type Service interface {
 		heading float64,
 		movementSensorName resource.Name,
 		obstacles []*spatialmath.GeoObstacle,
-		linearVelocity float64,
-		angularVelocity float64,
+		motionConfig *MotionConfiguration,
 		extra map[string]interface{},
 	) (bool, error)
 	GetPose(
@@ -58,6 +57,18 @@ type Service interface {
 		supplementalTransforms []*referenceframe.LinkInFrame,
 		extra map[string]interface{},
 	) (*referenceframe.PoseInFrame, error)
+}
+
+// MotionConfiguration specifies how to configure a call
+//
+//nolint:revive
+type MotionConfiguration struct {
+	VisionSvc             []resource.Name
+	PositionPollingFreqHz float64
+	ObstaclePollingFreqHz float64
+	PlanDeviationM        float64
+	LinearMPerSec         float64
+	AngularDegsPerSec     float64
 }
 
 // SubtypeName is the name of the type of service.
