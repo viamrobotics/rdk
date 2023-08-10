@@ -77,7 +77,7 @@ func init() {
 					if err != nil {
 						return nil, err
 					}
-					return newINA(ctx, deps, conf.ResourceName(), newConf, logger, localModelName)
+					return newINA(ctx, conf.ResourceName(), newConf, logger, localModelName)
 				},
 			})
 	}
@@ -85,14 +85,16 @@ func init() {
 
 func newINA(
 	ctx context.Context,
-	deps resource.Dependencies,
 	name resource.Name,
 	conf *Config,
 	logger golog.Logger,
 	modelName string,
 ) (powersensor.PowerSensor, error) {
 
-	i2clog.ChangePackageLogLevel("i2c", i2clog.InfoLevel)
+	err = i2clog.ChangePackageLogLevel("i2c", i2clog.InfoLevel)
+	if err != nil {
+		return nil, err
+	}
 
 	addr := conf.I2cAddr
 	if addr == 0 {
@@ -125,6 +127,7 @@ func newINA(
 		bus:        conf.I2CBus,
 		addr:       byte(addr),
 		maxCurrent: maxCurrent,
+		resistance: resisitance,
 	}
 
 	err := s.setCalibrationScale(modelName)
@@ -132,7 +135,7 @@ func newINA(
 		return nil, err
 	}
 
-	err = s.calibrate(ctx)
+	err = s.calibrate()
 	if err != nil {
 		return nil, err
 	}
@@ -182,7 +185,7 @@ func (d *ina) setCalibrationScale(modelName string) error {
 	return nil
 }
 
-func (d *ina) calibrate(ctx context.Context) error {
+func (d *ina) calibrate() error {
 	handle, err := i2c.NewI2C(d.addr, d.bus)
 	if err != nil {
 		d.logger.Errorf("can't open ina i2c: %s", err)
