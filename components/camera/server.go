@@ -75,8 +75,8 @@ func (s *serviceServer) GetImage(
 	req.MimeType = utils.WithLazyMIMEType(req.MimeType)
 
 	// Add 'fromDataManagement' to context to avoid threading extra through gostream API.
-	if req.Extra.AsMap()[string(data.FromDMContextKey)] == true {
-		ctx = context.WithValue(ctx, data.FromDMContextKey, true)
+	if req.Extra.AsMap()[data.FromDMString] == true {
+		ctx = context.WithValue(ctx, data.FromDMContextKey{}, true)
 	}
 
 	img, release, err := ReadImage(gostream.WithMIMETypeHint(ctx, req.MimeType), cam)

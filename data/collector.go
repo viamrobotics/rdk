@@ -29,10 +29,11 @@ var sleepCaptureCutoff = 2 * time.Millisecond
 // CaptureFunc allows the creation of simple Capturers with anonymous functions.
 type CaptureFunc func(ctx context.Context, params map[string]*anypb.Any) (interface{}, error)
 
-type contextKey string
+// FromDMContextKey is used to check whether the context is from data management.
+type FromDMContextKey struct{}
 
-// FromDMContextKey is the key used to access the 'fromDataManagement' value from a context.
-const FromDMContextKey = contextKey("fromDataManagement")
+// FromDMString is used to access the 'fromDataManagement' value from a request's Extra struct.
+const FromDMString = "fromDataManagement"
 
 // ErrNoCaptureToStore is returned when a modular filter resource filters the capture coming from the base resource.
 var ErrNoCaptureToStore = errors.New("No capture from filter module")
@@ -307,8 +308,8 @@ func FailedToReadErr(component, method string, err error) error {
 // GetExtraFromContext sets the extra struct with "fromDataManagement": true if the flag is true in the context.
 func GetExtraFromContext(ctx context.Context) (*structpb.Struct, error) {
 	extra := make(map[string]interface{})
-	if ctx.Value(FromDMContextKey) == true {
-		extra[string(FromDMContextKey)] = true
+	if ctx.Value(FromDMContextKey{}) == true {
+		extra[FromDMString] = true
 	}
 	return protoutils.StructToStructPb(extra)
 }
