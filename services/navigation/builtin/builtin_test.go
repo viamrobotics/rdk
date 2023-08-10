@@ -177,7 +177,7 @@ func TestStartWaypoint(t *testing.T) {
 			heading float64,
 			movementSensorName resource.Name,
 			obstacles []*spatialmath.GeoObstacle,
-			motionCfg motion.MotionConfiguration,
+			motionCfg *motion.MotionConfiguration,
 			extra map[string]interface{},
 		) (bool, error) {
 			err := kinematicBase.GoToInputs(ctx, referenceframe.FloatsToInputs([]float64{destination.Lat(), destination.Lng()}))
@@ -208,7 +208,7 @@ func TestStartWaypoint(t *testing.T) {
 			heading float64,
 			movementSensorName resource.Name,
 			obstacles []*spatialmath.GeoObstacle,
-			motionCfg motion.MotionConfiguration,
+			motionCfg *motion.MotionConfiguration,
 			extra map[string]interface{},
 		) (bool, error) {
 			if extra != nil && extra["motion_profile"] != nil {
@@ -247,7 +247,7 @@ func TestStartWaypoint(t *testing.T) {
 			heading float64,
 			movementSensorName resource.Name,
 			obstacles []*spatialmath.GeoObstacle,
-			motionCfg motion.MotionConfiguration,
+			motionCfg *motion.MotionConfiguration,
 			extra map[string]interface{},
 		) (bool, error) {
 			if ctx.Err() != nil {

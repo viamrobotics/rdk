@@ -47,7 +47,7 @@ type Service interface {
 		heading float64,
 		movementSensorName resource.Name,
 		obstacles []*spatialmath.GeoObstacle,
-		motionConfig MotionConfiguration,
+		motionConfig *MotionConfiguration,
 		extra map[string]interface{},
 	) (bool, error)
 	GetPose(

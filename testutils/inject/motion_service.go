@@ -39,7 +39,7 @@ type MotionService struct {
 		heading float64,
 		movementSensorName resource.Name,
 		obstacles []*spatialmath.GeoObstacle,
-		motionCfg motion.MotionConfiguration,
+		motionCfg *motion.MotionConfiguration,
 		extra map[string]interface{},
 	) (bool, error)
 	GetPoseFunc func(
@@ -101,7 +101,7 @@ func (mgs *MotionService) MoveOnGlobe(
 	heading float64,
 	movementSensorName resource.Name,
 	obstacles []*spatialmath.GeoObstacle,
-	motionCfg motion.MotionConfiguration,
+	motionCfg *motion.MotionConfiguration,
 	extra map[string]interface{},
 ) (bool, error) {
 	if mgs.MoveOnGlobeFunc == nil {

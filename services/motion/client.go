@@ -107,7 +107,7 @@ func (c *client) MoveOnGlobe(
 	heading float64,
 	movementSensorName resource.Name,
 	obstacles []*spatialmath.GeoObstacle,
-	motionCfg MotionConfiguration,
+	motionCfg *MotionConfiguration,
 	extra map[string]interface{},
 ) (bool, error) {
 	ext, err := vprotoutils.StructToStructPb(extra)
@@ -140,24 +140,22 @@ func (c *client) MoveOnGlobe(
 		req.Obstacles = obstaclesProto
 	}
 
-	if !math.IsNaN(motionCfg.AngularMetersPerSec) {
-		req.MotionConfiguration.AngularDegPerSec = &motionCfg.AngularMetersPerSec
+	if !math.IsNaN(motionCfg.LinearMetersPerSec) && motionCfg.LinearMetersPerSec != 0 {
+		req.MotionConfiguration.LinearMPerSec = &motionCfg.LinearMetersPerSec
 	}
-	if !math.IsNaN(motionCfg.LinearMetersPerSec) {
-		req.MotionConfiguration.LinearMetersPerSec = &motionCfg.LinearMetersPerSec
+	if !math.IsNaN(motionCfg.AngularDegsPerSec) && motionCfg.AngularDegsPerSec != 0 {
+		req.MotionConfiguration.AngularDegsPerSec = &motionCfg.AngularDegsPerSec
 	}
-	if !math.IsNaN(motionCfg.ObstaclePollingFreq) {
-		req.MotionConfiguration.ObstaclePollingFrequency = &motionCfg.ObstaclePollingFreq
+	if !math.IsNaN(motionCfg.ObstaclePollingFreq) && motionCfg.ObstaclePollingFreq > 0 {
+		req.MotionConfiguration.ObstaclePollingFrequencyHz = &motionCfg.ObstaclePollingFreq
 	}
-	if !math.IsNaN(motionCfg.PlanDeviationMeters) {
-		req.MotionConfiguration.PlanDeviationMeters = &motionCfg.PlanDeviationMeters
+	if !math.IsNaN(motionCfg.PositionPollingFreq) && motionCfg.PositionPollingFreq > 0 {
+		req.MotionConfiguration.PositionPollingFrequencyHz = &motionCfg.PositionPollingFreq
 	}
-	if !math.IsNaN(motionCfg.PositionPollingFreq) {
-		req.MotionConfiguration.PositionPollingFrequency = &motionCfg.PositionPollingFreq
+	if !math.IsNaN(motionCfg.PlanDeviationMeters) && motionCfg.PlanDeviationMeters >= 0 {
+		req.MotionConfiguration.PlanDeviationM = &motionCfg.PlanDeviationMeters
 	}
-	if !math.IsNaN(motionCfg.ReplanCostFactor) {
-		req.MotionConfiguration.ReplanCostFactor = &motionCfg.ReplanCostFactor
-	}
+
 	if len(motionCfg.VisionSvc) > 0 {
 		svcs := []*commonpb.ResourceName{}
 		for _, name := range motionCfg.VisionSvc {

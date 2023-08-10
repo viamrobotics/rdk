@@ -94,7 +94,7 @@ func (server *serviceServer) MoveOnGlobe(ctx context.Context, req *pb.MoveOnGlob
 		heading,
 		protoutils.ResourceNameFromProto(req.GetMovementSensorName()),
 		obstacles,
-		motionCfg,
+		&motionCfg,
 		req.Extra.AsMap(),
 	)
 	return &pb.MoveOnGlobeResponse{Success: success}, err
@@ -102,11 +102,11 @@ func (server *serviceServer) MoveOnGlobe(ctx context.Context, req *pb.MoveOnGlob
 
 func setupMotionConfiguration(motionCfg *pb.MotionConfiguration) MotionConfiguration {
 	visionSvc := []resource.Name{}
-	positionPolling := math.NaN()
-	obstaclePolling := math.NaN()
 	planDeviation := math.NaN()
-	linear := math.NaN()
-	angular := math.NaN()
+	positionPolling := 0.
+	obstaclePolling := 0.
+	linear := 0.
+	angular := 0.
 
 	if motionCfg != nil {
 		if motionCfg.VisionServices != nil {

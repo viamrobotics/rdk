@@ -320,7 +320,7 @@ func (svc *builtIn) startWaypoint(ctx context.Context, extra map[string]interfac
 				math.NaN(),
 				svc.movementSensor.Name(),
 				svc.obstacles,
-				motionCfg,
+				&motionCfg,
 				extra,
 			)
 			if err != nil {
