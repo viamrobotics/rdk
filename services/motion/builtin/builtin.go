@@ -228,7 +228,7 @@ func (ms *builtIn) MoveOnGlobe(
 	if motionCfg.PlanDeviationM != 0 {
 		kinematicsOptions.PlanDeviationThresholdMM = motionCfg.PlanDeviationM * 1000
 	}
-	kinematicsOptions.GoalRadiusMM = 3000
+	kinematicsOptions.GoalRadiusMM = math.Min(motionCfg.PlanDeviationM*1000, 3000)
 	kinematicsOptions.HeadingThresholdDegrees = 8
 
 	plan, kb, err := ms.planMoveOnGlobe(
