@@ -71,6 +71,7 @@ func newMergedModel(ctx context.Context, deps resource.Dependencies, conf resour
 ) {
 	m := merged{
 		logger: logger,
+		Named:  conf.ResourceName().AsNamed(),
 	}
 
 	if err := m.Reconfigure(ctx, deps, conf); err != nil {

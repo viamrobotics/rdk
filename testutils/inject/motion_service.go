@@ -42,13 +42,6 @@ type MotionService struct {
 		motionCfg motion.MotionConfiguration,
 		extra map[string]interface{},
 	) (bool, error)
-	MoveSingleComponentFunc func(
-		ctx context.Context,
-		componentName resource.Name,
-		grabPose *referenceframe.PoseInFrame,
-		worldState *referenceframe.WorldState,
-		extra map[string]interface{},
-	) (bool, error)
 	GetPoseFunc func(
 		ctx context.Context,
 		componentName resource.Name,
@@ -115,20 +108,6 @@ func (mgs *MotionService) MoveOnGlobe(
 		return mgs.Service.MoveOnGlobe(ctx, componentName, destination, heading, movementSensorName, obstacles, motionCfg, extra)
 	}
 	return mgs.MoveOnGlobeFunc(ctx, componentName, destination, heading, movementSensorName, obstacles, motionCfg, extra)
-}
-
-// MoveSingleComponent calls the injected MoveSingleComponent or the real variant. It uses the same function as Move.
-func (mgs *MotionService) MoveSingleComponent(
-	ctx context.Context,
-	componentName resource.Name,
-	destination *referenceframe.PoseInFrame,
-	worldState *referenceframe.WorldState,
-	extra map[string]interface{},
-) (bool, error) {
-	if mgs.MoveFunc == nil {
-		return mgs.Service.MoveSingleComponent(ctx, componentName, destination, worldState, extra)
-	}
-	return mgs.MoveSingleComponentFunc(ctx, componentName, destination, worldState, extra)
 }
 
 // GetPose calls the injected GetPose or the real variant.

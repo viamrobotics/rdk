@@ -156,6 +156,7 @@ module.exports = {
     'no-caller': 'error',
     'no-param-reassign': 'error',
     'no-return-await': 'error',
+    'no-undef-init': 'off',
     radix: 'error',
     'require-await': 'error',
     strict: 'error',
@@ -183,6 +184,8 @@ module.exports = {
     'unicorn/filename-case': 'off',
     'unicorn/no-null': 'off',
     'unicorn/consistent-destructuring': 'off',
+    'unicorn/no-array-for-each': 'off',
+    'unicorn/no-useless-undefined': 'off',
 
     // Tailwind
     'tailwindcss/no-custom-classname': 'off',

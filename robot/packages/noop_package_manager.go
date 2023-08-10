@@ -2,7 +2,6 @@ package packages
 
 import (
 	"context"
-	"path"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/resource"
@@ -28,22 +27,6 @@ func NewNoopManager() ManagerSyncer {
 // PackagePath returns the package if it exists and already download. If it does not exist it returns a ErrPackageMissing error.
 func (m *noopManager) PackagePath(name PackageName) (string, error) {
 	return string(name), nil
-}
-
-func (m *noopManager) RefPath(refPath string) (string, error) {
-	ref := config.GetPackageReference(refPath)
-
-	// If no reference just return original path.
-	if ref == nil {
-		return refPath, nil
-	}
-
-	packagePath, err := m.PackagePath(PackageName(ref.Package))
-	if err != nil {
-		return "", err
-	}
-
-	return path.Join(packagePath, path.Clean(ref.PathInPackage)), nil
 }
 
 // Close manager.

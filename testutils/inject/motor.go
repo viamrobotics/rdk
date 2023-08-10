@@ -17,7 +17,7 @@ type Motor struct {
 	GoToFunc              func(ctx context.Context, rpm, position float64, extra map[string]interface{}) error
 	ResetZeroPositionFunc func(ctx context.Context, offset float64, extra map[string]interface{}) error
 	PositionFunc          func(ctx context.Context, extra map[string]interface{}) (float64, error)
-	PropertiesFunc        func(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error)
+	PropertiesFunc        func(ctx context.Context, extra map[string]interface{}) (motor.Properties, error)
 	StopFunc              func(ctx context.Context, extra map[string]interface{}) error
 	IsPoweredFunc         func(ctx context.Context, extra map[string]interface{}) (bool, float64, error)
 	IsMovingFunc          func(context.Context) (bool, error)
@@ -74,7 +74,7 @@ func (m *Motor) Position(ctx context.Context, extra map[string]interface{}) (flo
 }
 
 // Properties calls the injected Properties or the real version.
-func (m *Motor) Properties(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
+func (m *Motor) Properties(ctx context.Context, extra map[string]interface{}) (motor.Properties, error) {
 	if m.PropertiesFunc == nil {
 		return m.Motor.Properties(ctx, extra)
 	}

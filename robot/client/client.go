@@ -490,11 +490,18 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnec
 				if rc.changeChan != nil {
 					rc.changeChan <- true
 				}
+
+				var notifyParentFn func()
 				if rc.notifyParent != nil {
 					rc.Logger().Debugf("connection was lost for remote %q", rc.address)
-					rc.notifyParent()
+					// RSDK-3670: This callback may ultimately acquire the `robotClient.mu`
+					// mutex. Execute the function after releasing the mutex.
+					notifyParentFn = rc.notifyParent
 				}
 				rc.mu.Unlock()
+				if notifyParentFn != nil {
+					notifyParentFn()
+				}
 			}
 		}
 	}

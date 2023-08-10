@@ -174,7 +174,7 @@ func TestPlanningWithGripper(t *testing.T) {
 // ------------------------.
 func simple2DMap() (*planConfig, error) {
 	// build model
-	limits := []frame.Limit{{Min: -100, Max: 100}, {Min: -100, Max: 100}}
+	limits := []frame.Limit{{Min: -100, Max: 100}, {Min: -100, Max: 100}, {Min: -2 * math.Pi, Max: 2 * math.Pi}}
 	physicalGeometry, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{X: 10, Y: 10, Z: 10}, "")
 	if err != nil {
 		return nil, err
@@ -313,8 +313,9 @@ func testPlanner(t *testing.T, plannerFunc plannerConstructor, config planConfig
 	test.That(t, err, test.ShouldBeNil)
 	mp, err := plannerFunc(cfg.RobotFrame, rand.New(rand.NewSource(int64(seed))), logger.Sugar(), cfg.Options)
 	test.That(t, err, test.ShouldBeNil)
-	path, err := mp.plan(context.Background(), cfg.Goal, cfg.Start)
+	pathNodes, err := mp.plan(context.Background(), cfg.Goal, cfg.Start)
 	test.That(t, err, test.ShouldBeNil)
+	path := nodesToInputs(pathNodes)
 
 	// test that path doesn't violate constraints
 	test.That(t, len(path), test.ShouldBeGreaterThanOrEqualTo, 2)
@@ -527,7 +528,7 @@ func TestPlanMapMotion(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	model, err := frame.New2DMobileModelFrame(
 		"test",
-		[]frame.Limit{{-100, 100}, {-100, 100}},
+		[]frame.Limit{{-100, 100}, {-100, 100}, {-2 * math.Pi, 2 * math.Pi}},
 		sphere,
 	)
 	test.That(t, err, test.ShouldBeNil)

@@ -20,7 +20,7 @@ const (
 	maxRecursionDepth = 1000
 	nodeRegionOverlap = 1e-6
 	// TODO (RSDK-3767): pass these in a different way.
-	confidenceThreshold = 60   // value between 0-100, threshold sets the confidence level required for a point to be considered a collision
+	confidenceThreshold = 50   // value between 0-100, threshold sets the confidence level required for a point to be considered a collision
 	buffer              = 60.0 // max distance from base to point for it to be considered a collision in mm
 )
 

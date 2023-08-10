@@ -6,7 +6,7 @@ package genericlinux
 
 import (
 	"context"
-	"strconv"
+	"sync"
 
 	"github.com/mkch/gpio"
 	"github.com/pkg/errors"
@@ -17,28 +17,24 @@ import (
 )
 
 type digitalInterrupt struct {
-	parentBoard *sysfsBoard
-	interrupt   board.ReconfigurableDigitalInterrupt
-	line        *gpio.LineWithEvent
-	cancelCtx   context.Context
-	cancelFunc  func()
-	config      *board.DigitalInterruptConfig
+	boardWorkers *sync.WaitGroup
+	interrupt    board.ReconfigurableDigitalInterrupt
+	line         *gpio.LineWithEvent
+	cancelCtx    context.Context
+	cancelFunc   func()
+	config       *board.DigitalInterruptConfig
 }
 
-func (b *sysfsBoard) createDigitalInterrupt(
+func (b *Board) createDigitalInterrupt(
 	ctx context.Context,
 	config board.DigitalInterruptConfig,
-	gpioMappings map[int]GPIOBoardMapping,
+	gpioMappings map[string]GPIOBoardMapping,
 	// If we are reconfiguring a board, we might already have channels subscribed and listening for
 	// updates from an old interrupt that we're creating on a new pin. In that case, reuse the part
 	// that holds the callbacks.
 	oldCallbackHolder board.ReconfigurableDigitalInterrupt,
 ) (*digitalInterrupt, error) {
-	pinInt, err := strconv.Atoi(config.Pin)
-	if err != nil {
-		return nil, errors.Errorf("pin numbers must be numerical, not '%s'", config.Pin)
-	}
-	mapping, ok := gpioMappings[pinInt]
+	mapping, ok := gpioMappings[config.Pin]
 	if !ok {
 		return nil, errors.Errorf("unknown interrupt pin %s", config.Pin)
 	}
@@ -70,19 +66,19 @@ func (b *sysfsBoard) createDigitalInterrupt(
 
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	result := digitalInterrupt{
-		parentBoard: b,
-		interrupt:   interrupt,
-		line:        line,
-		cancelCtx:   cancelCtx,
-		cancelFunc:  cancelFunc,
-		config:      &config,
+		boardWorkers: &b.activeBackgroundWorkers,
+		interrupt:    interrupt,
+		line:         line,
+		cancelCtx:    cancelCtx,
+		cancelFunc:   cancelFunc,
+		config:       &config,
 	}
 	result.startMonitor()
 	return &result, nil
 }
 
 func (di *digitalInterrupt) startMonitor() {
-	di.parentBoard.activeBackgroundWorkers.Add(1)
+	di.boardWorkers.Add(1)
 	utils.ManagedGo(func() {
 		for {
 			select {
@@ -93,7 +89,7 @@ func (di *digitalInterrupt) startMonitor() {
 					di.cancelCtx, event.RisingEdge, uint64(event.Time.UnixNano())))
 			}
 		}
-	}, di.parentBoard.activeBackgroundWorkers.Done)
+	}, di.boardWorkers.Done)
 }
 
 func (di *digitalInterrupt) Close() error {

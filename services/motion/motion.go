@@ -1,4 +1,4 @@
-// Package motion implements an motion service.
+// Package motion is the service that allows you to plan and execute movements.
 package motion
 
 import (
@@ -48,13 +48,6 @@ type Service interface {
 		movementSensorName resource.Name,
 		obstacles []*spatialmath.GeoObstacle,
 		motionConfig MotionConfiguration,
-		extra map[string]interface{},
-	) (bool, error)
-	MoveSingleComponent(
-		ctx context.Context,
-		componentName resource.Name,
-		destination *referenceframe.PoseInFrame,
-		worldState *referenceframe.WorldState,
 		extra map[string]interface{},
 	) (bool, error)
 	GetPose(

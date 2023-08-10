@@ -35,12 +35,6 @@ type Manager interface {
 
 	// PackagePath returns the package if it exists and is already downloaded. If it does not exist it returns a ErrPackageMissing error.
 	PackagePath(name PackageName) (string, error)
-
-	// RefPath returns the absolute path of the package reference for a given path with a package reference.
-	// - If not the original path is not a package reference the original path is returned without an error.
-	// - If the path contains a package reference and the package does not exist a ErrPackageMissing will be returned.
-	// - Any syntax errors in the package reference will produce an ErrInvalidPackageRef.
-	RefPath(name string) (string, error)
 }
 
 // ManagerSyncer provides a managed interface for both reading package paths and syncing packages from the RDK config.

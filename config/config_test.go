@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -266,10 +267,16 @@ func TestConfigEnsure(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `processes.0`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"id" is required`)
-	invalidProcesses.Processes[0].ID = "bar"
+	invalidProcesses = config.Config{
+		DisablePartialStart: true,
+		Processes:           []pexec.ProcessConfig{{ID: "bar"}},
+	}
 	err = invalidProcesses.Ensure(false, logger)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
-	invalidProcesses.Processes[0].Name = "foo"
+	invalidProcesses = config.Config{
+		DisablePartialStart: true,
+		Processes:           []pexec.ProcessConfig{{ID: "bar", Name: "foo"}},
+	}
 	test.That(t, invalidProcesses.Ensure(false, logger), test.ShouldBeNil)
 
 	invalidNetwork := config.Config{
@@ -960,30 +967,69 @@ func keysetToAttributeMap(t *testing.T, keyset jwks.KeySet) rutils.AttributeMap 
 	return jwksAsInterface
 }
 
-func TestGetPackageReference(t *testing.T) {
-	t.Run("non reference", func(t *testing.T) {
-		test.That(t, config.GetPackageReference("/a/path"), test.ShouldBeNil)
-	})
+func TestPackageConfig(t *testing.T) {
+	homeDir, _ := os.UserHomeDir()
+	viamDotDir := filepath.Join(homeDir, ".viam")
 
-	t.Run("non reference with ${package.some}", func(t *testing.T) {
-		test.That(t, config.GetPackageReference("/a/path/${packages.some}"), test.ShouldBeNil)
-	})
+	packageTests := []struct {
+		config               config.PackageConfig
+		shouldFailValidation bool
+		expectedRealFilePath string
+	}{
+		{
+			config: config.PackageConfig{
+				Name:    "my_package",
+				Package: "my_org/my_package",
+				Version: "0",
+			},
+			expectedRealFilePath: filepath.Join(viamDotDir, "packages", ".data", "ml_model", "my_org-my_package-0"),
+		},
+		{
+			config: config.PackageConfig{
+				Name:    "my_module",
+				Type:    config.PackageTypeModule,
+				Package: "my_org/my_module",
+				Version: "1.2",
+			},
+			expectedRealFilePath: filepath.Join(viamDotDir, "packages", ".data", "module", "my_org-my_module-1_2"),
+		},
+		{
+			config: config.PackageConfig{
+				Name:    "my_ml_model",
+				Type:    config.PackageTypeMlModel,
+				Package: "my_org/my_ml_model",
+				Version: "latest",
+			},
+			expectedRealFilePath: filepath.Join(viamDotDir, "packages", ".data", "ml_model", "my_org-my_ml_model-latest"),
+		},
+		{
+			config: config.PackageConfig{
+				Name:    "::::",
+				Type:    config.PackageTypeMlModel,
+				Package: "my_org/my_ml_model",
+				Version: "latest",
+			},
+			shouldFailValidation: true,
+		},
+		{
+			config: config.PackageConfig{
+				Name:    "my_ml_model",
+				Type:    config.PackageType("willfail"),
+				Package: "my_org/my_ml_model",
+				Version: "latest",
+			},
+			shouldFailValidation: true,
+		},
+	}
 
-	t.Run("non reference with ${package.some", func(t *testing.T) {
-		test.That(t, config.GetPackageReference("${packages.some"), test.ShouldBeNil)
-	})
-
-	t.Run("non reference with ${package.some} empty space", func(t *testing.T) {
-		test.That(t, config.GetPackageReference(" ${packages.some-package}"), test.ShouldBeNil)
-	})
-
-	t.Run("valid package reference", func(t *testing.T) {
-		test.That(t, config.GetPackageReference("${packages.some-package}/some/path"), test.ShouldResemble,
-			&config.PackageReference{Package: "some-package", PathInPackage: "/some/path"})
-	})
-
-	t.Run("valid package reference no path", func(t *testing.T) {
-		test.That(t, config.GetPackageReference("${packages.some-package}"), test.ShouldResemble,
-			&config.PackageReference{Package: "some-package", PathInPackage: ""})
-	})
+	for _, pt := range packageTests {
+		err := pt.config.Validate("")
+		if pt.shouldFailValidation {
+			test.That(t, err, test.ShouldBeError)
+			continue
+		}
+		test.That(t, err, test.ShouldBeNil)
+		actualFilepath := pt.config.LocalDataDirectory(filepath.Join(viamDotDir, "packages"))
+		test.That(t, actualFilepath, test.ShouldEqual, pt.expectedRealFilePath)
+	}
 }

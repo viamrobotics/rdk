@@ -8,6 +8,7 @@ import (
 	"context"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -57,7 +58,7 @@ type localRobot struct {
 	configTicker               *time.Ticker
 	revealSensitiveConfigDiffs bool
 
-	lastWeakDependentsRound int64
+	lastWeakDependentsRound atomic.Int64
 
 	// internal services that are in the graph but we also hold onto
 	webSvc   web.Service
@@ -438,15 +439,8 @@ func newWithResources(
 		return nil, err
 	}
 
-	// Once web service is started, start module manager and add initially
-	// specified modules.
+	// Once web service is started, start module manager
 	r.manager.startModuleManager(r.webSvc.ModuleAddress(), cfg.UntrustedEnv, logger)
-	for _, mod := range cfg.Modules {
-		if err := r.manager.moduleManager.Add(ctx, mod); err != nil {
-			r.logger.Errorw("error adding module", "module", mod.Name, "error", err)
-			continue
-		}
-	}
 
 	r.activeBackgroundWorkers.Add(1)
 	r.configTicker = time.NewTicker(5 * time.Second)
@@ -520,7 +514,7 @@ func (r *localRobot) getDependencies(
 	var needUpdate bool
 	for _, dep := range r.manager.resources.GetAllParentsOf(rName) {
 		if node, ok := r.manager.resources.Node(dep); ok {
-			if r.lastWeakDependentsRound <= node.UpdatedAt() {
+			if r.lastWeakDependentsRound.Load() <= node.UpdatedAt() {
 				needUpdate = true
 			}
 		}
@@ -620,7 +614,7 @@ func (r *localRobot) newResource(
 	resName := conf.ResourceName()
 	resInfo, ok := resource.LookupRegistration(resName.API, conf.Model)
 	if !ok {
-		return nil, errors.Errorf("unknown resource type: %s and/or model: %s", resName.API, conf.Model)
+		return nil, errors.Errorf("unknown resource type: API %q with model %q not registered", resName.API, conf.Model)
 	}
 
 	deps, err := r.getDependencies(ctx, resName, gNode)
@@ -652,7 +646,7 @@ func (r *localRobot) newResource(
 func (r *localRobot) updateWeakDependents(ctx context.Context) {
 	// track that we are current in resources up to the latest update time. This will
 	// be used to determine if this method should be called while completing a config.
-	r.lastWeakDependentsRound = r.manager.resources.LastUpdatedTime()
+	r.lastWeakDependentsRound.Store(r.manager.resources.LastUpdatedTime())
 
 	allResources := map[resource.Name]resource.Resource{}
 	internalResources := map[resource.Name]resource.Resource{}
@@ -677,34 +671,55 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 		}
 	}
 
+	timeout := utils.GetResourceConfigurationTimeout(r.logger)
 	// NOTE(erd): this is intentionally hard coded since these services are treated specially with
 	// how they request dependencies or consume the robot's config. We should make an effort to
 	// formalize these as servcices that while internal, obey the reconfigure lifecycle.
 	// For example, the framesystem should depend on all input enabled components while the web
 	// service depends on all resources.
 	// For now, we pass all resources and empty configs.
-	for resName, res := range internalResources {
-		switch resName {
-		case web.InternalServiceName:
-			if err := res.Reconfigure(ctx, allResources, resource.Config{}); err != nil {
-				r.Logger().Errorw("failed to reconfigure internal service", "service", resName, "error", err)
+	processInternalResources := func(resName resource.Name, res resource.Resource, resChan chan struct{}) {
+		ctxWithTimeout, timeoutCancel := context.WithTimeout(ctx, timeout)
+		defer timeoutCancel()
+		goutils.PanicCapturingGo(func() {
+			defer func() {
+				resChan <- struct{}{}
+			}()
+			switch resName {
+			case web.InternalServiceName:
+				if err := res.Reconfigure(ctxWithTimeout, allResources, resource.Config{}); err != nil {
+					r.Logger().Errorw("failed to reconfigure internal service", "service", resName, "error", err)
+				}
+			case framesystem.InternalServiceName:
+				fsCfg, err := r.FrameSystemConfig(ctxWithTimeout)
+				if err != nil {
+					r.Logger().Errorw("failed to reconfigure internal service", "service", resName, "error", err)
+					break
+				}
+				if err := res.Reconfigure(ctxWithTimeout, components, resource.Config{ConvertedAttributes: fsCfg}); err != nil {
+					r.Logger().Errorw("failed to reconfigure internal service", "service", resName, "error", err)
+				}
+			case packages.InternalServiceName, cloud.InternalServiceName:
+			default:
+				r.logger.Warnw("do not know how to reconfigure internal service", "service", resName)
 			}
-		case framesystem.InternalServiceName:
-			fsCfg, err := r.FrameSystemConfig(ctx)
-			if err != nil {
-				r.Logger().Errorw("failed to reconfigure internal service", "service", resName, "error", err)
-				continue
-			}
-			if err := res.Reconfigure(ctx, components, resource.Config{ConvertedAttributes: fsCfg}); err != nil {
-				r.Logger().Errorw("failed to reconfigure internal service", "service", resName, "error", err)
-			}
-		case packages.InternalServiceName, cloud.InternalServiceName:
-		default:
-			r.logger.Warnw("do not know how to reconfigure internal service", "service", resName)
+		})
+
+		select {
+		case <-resChan:
+		case <-ctxWithTimeout.Done():
+			r.logger.Warn(resource.NewBuildTimeoutError(resName))
 		}
 	}
 
-	updateResourceWeakDependents := func(conf resource.Config) {
+	for resName, res := range internalResources {
+		resChan := make(chan struct{}, 1)
+		resName := resName
+		res := res
+		processInternalResources(resName, res, resChan)
+	}
+
+	updateResourceWeakDependents := func(ctx context.Context, conf resource.Config) {
 		resName := conf.ResourceName()
 		resNode, ok := r.manager.resources.Node(resName)
 		if !ok {
@@ -726,12 +741,24 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 			r.Logger().Errorw("failed to reconfigure resource with weak dependencies", "resource", resName, "error", err)
 		}
 	}
-	conf := r.Config()
-	for _, conf := range conf.Components {
-		updateResourceWeakDependents(conf)
-	}
-	for _, conf := range conf.Services {
-		updateResourceWeakDependents(conf)
+
+	cfg := r.Config()
+	for _, conf := range append(cfg.Components, cfg.Services...) {
+		conf := conf
+		ctxWithTimeout, timeoutCancel := context.WithTimeout(ctx, timeout)
+		defer timeoutCancel()
+		resChan := make(chan struct{}, 1)
+		goutils.PanicCapturingGo(func() {
+			defer func() {
+				resChan <- struct{}{}
+			}()
+			updateResourceWeakDependents(ctxWithTimeout, conf)
+		})
+		select {
+		case <-resChan:
+		case <-ctxWithTimeout.Done():
+			r.logger.Warn(resource.NewBuildTimeoutError(conf.ResourceName()))
+		}
 	}
 }
 
@@ -954,6 +981,16 @@ func dialRobotClient(
 func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) {
 	var allErrs error
 
+	// Sync Packages before reconfiguring rest of robot and resolving references to any packages
+	// in the config.
+	// TODO(RSDK-1849): Make this non-blocking so other resources that do not require packages can run before package sync finishes.
+	// TODO(RSDK-2710) this should really use Reconfigure for the package and should allow itself to check
+	// if anything has changed.
+	err := r.packageManager.Sync(ctx, newConfig.Packages)
+	if err != nil {
+		allErrs = multierr.Combine(allErrs, err)
+	}
+
 	// Add default services and process their dependencies. Dependencies may
 	// already come from config validation so we check that here.
 	seen := make(map[resource.API]int)
@@ -1000,23 +1037,8 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 		}
 	}
 
-	// Sync Packages before reconfiguring rest of robot and resolving references to any packages
-	// in the config.
-	// TODO(RSDK-1849): Make this non-blocking so other resources that do not require packages can run before package sync finishes.
-	// TODO(RSDK-2710) this should really use Reconfigure for the package and should allow itself to check
-	// if anything has changed.
-	err := r.packageManager.Sync(ctx, newConfig.Packages)
-	if err != nil {
-		allErrs = multierr.Combine(allErrs, err)
-	}
-
-	err = r.replacePackageReferencesWithPaths(newConfig)
-	if err != nil {
-		allErrs = multierr.Combine(allErrs, err)
-	}
-
 	// Now that we have the new config and all references are resolved, diff it
-	// with the current generated config to see what has changed.
+	// with the current generated config to see what has changed
 	diff, err := config.DiffConfigs(*r.Config(), *newConfig, r.revealSensitiveConfigDiffs)
 	if err != nil {
 		r.logger.Errorw("error diffing the configs", "error", err)
@@ -1027,6 +1049,19 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	}
 	// Set mostRecentConfig if resources were not equal.
 	r.mostRecentCfg = *newConfig
+
+	// We need to pre-add the new modules so that resource validation can check against the new models
+	// TODO(RSDK-4383) These lines are taken from uppdateResources() and should be refactored as part of this bugfix
+	for _, mod := range diff.Added.Modules {
+		if err := mod.Validate(""); err != nil {
+			r.manager.logger.Errorw("module config validation error; skipping", "module", mod.Name, "error", err)
+			continue
+		}
+		if err := r.manager.moduleManager.Add(ctx, mod); err != nil {
+			r.manager.logger.Errorw("error adding module", "module", mod.Name, "error", err)
+			continue
+		}
+	}
 
 	// If something was added or modified, go through components and services in
 	// diff.Added and diff.Modified, call Validate on all those that are modularized,
@@ -1091,41 +1126,6 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	if allErrs != nil {
 		r.logger.Errorw("the following errors were gathered during reconfiguration", "errors", allErrs)
 	}
-}
-
-func walkConvertedAttributes[T any](pacMan packages.ManagerSyncer, convertedAttributes T, allErrs error) (T, error) {
-	// Replace all package references with the actual path containing the package
-	// on the robot.
-	var asIfc interface{} = convertedAttributes
-	if walker, ok := asIfc.(utils.Walker); ok {
-		newAttrs, err := walker.Walk(packages.NewPackagePathVisitor(pacMan))
-		if err != nil {
-			allErrs = multierr.Combine(allErrs, err)
-			return convertedAttributes, allErrs
-		}
-		newAttrsTyped, err := utils.AssertType[T](newAttrs)
-		if err != nil {
-			var zero T
-			return zero, err
-		}
-		convertedAttributes = newAttrsTyped
-	}
-	return convertedAttributes, allErrs
-}
-
-func (r *localRobot) replacePackageReferencesWithPaths(cfg *config.Config) error {
-	var allErrs error
-	for i, s := range cfg.Services {
-		s.ConvertedAttributes, allErrs = walkConvertedAttributes(r.packageManager, s.ConvertedAttributes, allErrs)
-		cfg.Services[i] = s
-	}
-
-	for i, c := range cfg.Components {
-		c.ConvertedAttributes, allErrs = walkConvertedAttributes(r.packageManager, c.ConvertedAttributes, allErrs)
-		cfg.Components[i] = c
-	}
-
-	return allErrs
 }
 
 // checkMaxInstance checks to see if the local robot has reached the maximum number of a specific resource type that are local.

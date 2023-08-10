@@ -6,8 +6,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"os"
+	"path/filepath"
 	"reflect"
-	"regexp"
+	"strings"
 	"sync"
 	"time"
 
@@ -17,6 +19,7 @@ import (
 	"go.viam.com/utils/jwks"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
+	"golang.org/x/exp/slices"
 
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -855,11 +858,22 @@ func ProcessConfig(in *Config, tlsCfg *TLSConfig) (*Config, error) {
 	return &out, nil
 }
 
-// Regex to match if a config is referencing a Package. Group is the package name.
-var packageReferenceRegex = regexp.MustCompile(`^\$\{packages\.([A-Za-z0-9_\/-]+)}(.*)`)
-
 // DefaultPackageVersionValue default value of the package version used when empty.
 const DefaultPackageVersionValue = "latest"
+
+// PackageType indicates the type of the package
+// This is used to replace placeholder strings in the config.
+type PackageType string
+
+const (
+	// PackageTypeMlModel represents an ML model.
+	PackageTypeMlModel PackageType = "ml_model"
+	// PackageTypeModule represents a module type.
+	PackageTypeModule PackageType = "module"
+)
+
+// SupportedPackageTypes is a list of all of the valid package types.
+var SupportedPackageTypes = []PackageType{PackageTypeMlModel, PackageTypeModule}
 
 // A PackageConfig describes the configuration of a Package.
 type PackageConfig struct {
@@ -869,10 +883,24 @@ type PackageConfig struct {
 	Package string `json:"package"`
 	// Version of the package ID hosted by a remote PackageService. If not specified "latest" is assumed.
 	Version string `json:"version,omitempty"`
+	// Types of the Package. If not specified it is assumed to be ml_model.
+	Type PackageType `json:"type,omitempty"`
+
+	alreadyValidated bool
+	cachedErr        error
 }
 
 // Validate package config is valid.
 func (p *PackageConfig) Validate(path string) error {
+	if p.alreadyValidated {
+		return p.cachedErr
+	}
+	p.cachedErr = p.validate(path)
+	p.alreadyValidated = true
+	return p.cachedErr
+}
+
+func (p *PackageConfig) validate(path string) error {
 	if p.Name == "" {
 		return utils.NewConfigValidationError(path, errors.New("empty package name"))
 	}
@@ -881,36 +909,57 @@ func (p *PackageConfig) Validate(path string) error {
 		return utils.NewConfigValidationError(path, errors.New("empty package id"))
 	}
 
+	if p.Type == "" {
+		// for backwards compatibility
+		p.Type = PackageTypeMlModel
+	}
+
+	if !slices.Contains(SupportedPackageTypes, p.Type) {
+		return utils.NewConfigValidationError(path, errors.Errorf("unsupported package type %q. Must be one of: %v",
+			p.Type, SupportedPackageTypes))
+	}
+
 	if !rutils.ValidNameRegex.MatchString(p.Name) {
-		return rutils.ErrInvalidName(p.Name)
+		return utils.NewConfigValidationError(path, rutils.ErrInvalidName(p.Name))
 	}
 
 	return nil
 }
 
-// GetPackageReference a PackageReference if the given path has a Package reference eg. ${packages.some-package}/path.
-// Returns nil if no package reference is found.
-func GetPackageReference(path string) *PackageReference {
-	// return early before regex match
-	if len(path) == 0 || path[0] != '$' {
-		return nil
-	}
-
-	match := packageReferenceRegex.FindStringSubmatch(path)
-	if match == nil {
-		return nil
-	}
-
-	if len(match) != 3 {
-		return nil
-	}
-
-	return &PackageReference{Package: match[1], PathInPackage: match[2]}
+// Equals checks if the two configs are deeply equal to each other.
+func (p PackageConfig) Equals(other PackageConfig) bool {
+	p.alreadyValidated = false
+	p.cachedErr = nil
+	other.alreadyValidated = false
+	other.cachedErr = nil
+	//nolint:govet
+	return reflect.DeepEqual(p, other)
 }
 
-// PackageReference contains the deconstructed parts of a package reference in the config.
-// Eg: ${packages.some-package}/path/a/b/c -> {"some-package", "/path/a/b/c"}.
-type PackageReference struct {
-	Package       string
-	PathInPackage string
+// LocalDataDirectory returns the folder where the package should be extracted.
+// Ex: /home/user/.viam/packages/.data/ml_model/orgid_ballClassifier_0.1.2.
+func (p *PackageConfig) LocalDataDirectory(packagesDir string) string {
+	return filepath.Join(p.LocalDataParentDirectory(packagesDir), p.SanitizedName())
+}
+
+// LocalDownloadPath returns the file where the archive should be downloaded before extraction.
+func (p *PackageConfig) LocalDownloadPath(packagesDir string) string {
+	return filepath.Join(p.LocalDataParentDirectory(packagesDir), fmt.Sprintf("%s.download", p.SanitizedName()))
+}
+
+// LocalDataParentDirectory returns the folder that will contain the all packages of this type.
+// Ex: /home/user/.viam/packages/.data/ml_model.
+func (p *PackageConfig) LocalDataParentDirectory(packagesDir string) string {
+	return filepath.Join(packagesDir, ".data", string(p.Type))
+}
+
+// SanitizedName returns the package name for the symlink/filepath of the package on the system.
+func (p *PackageConfig) SanitizedName() string {
+	return fmt.Sprintf("%s-%s", strings.ReplaceAll(p.Package, string(os.PathSeparator), "-"), p.sanitizedVersion())
+}
+
+// sanitizedVersion returns a cleaned version of the version so it is file-system-safe.
+func (p *PackageConfig) sanitizedVersion() string {
+	// replaces all the . if they exist with _
+	return strings.ReplaceAll(p.Version, ".", "_")
 }

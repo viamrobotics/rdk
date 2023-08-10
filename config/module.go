@@ -2,12 +2,15 @@ package config
 
 import (
 	"os"
+	"reflect"
 	"regexp"
+	"strings"
 
 	"github.com/pkg/errors"
 )
 
-var moduleNameRegEx = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
+// TODO(APP-2430) Restrict this regex to not allow namespaces or ":".
+var moduleNameRegEx = regexp.MustCompile(`^([a-z0-9-]+:)?[\w-]+$`)
 
 const reservedModuleName = "parent"
 
@@ -25,13 +28,30 @@ type Module struct {
 	// value besides "" or "debug" is used for LogLevel ("log_level" in JSON). In other words, setting a LogLevel
 	// of something like "info" will ignore the debug setting on the server.
 	LogLevel string `json:"log_level"`
+
+	alreadyValidated bool
+	cachedErr        error
 }
 
 // Validate checks if the config is valid.
 func (m *Module) Validate(path string) error {
-	_, err := os.Stat(m.ExePath)
-	if err != nil {
-		return errors.Wrapf(err, "module %s executable path error", path)
+	if m.alreadyValidated {
+		return m.cachedErr
+	}
+	m.cachedErr = m.validate(path)
+	m.alreadyValidated = true
+	return m.cachedErr
+}
+
+func (m *Module) validate(path string) error {
+	// Only check if the path exists during validation for local modules because the packagemanager may not have downloaded
+	// the package yet.
+	// As of 2023-08, modules can't know if they were originally registry modules, so this roundabout check is required
+	if !(ContainsPlaceholder(m.ExePath) || strings.HasPrefix(m.ExePath, viamPackagesDir)) {
+		_, err := os.Stat(m.ExePath)
+		if err != nil {
+			return errors.Wrapf(err, "module %s executable path error", path)
+		}
 	}
 
 	// the module name is used to create the socket path
@@ -44,4 +64,14 @@ func (m *Module) Validate(path string) error {
 	}
 
 	return nil
+}
+
+// Equals checks if the two modules are deeply equal to each other.
+func (m Module) Equals(other Module) bool {
+	m.alreadyValidated = false
+	m.cachedErr = nil
+	other.alreadyValidated = false
+	other.cachedErr = nil
+	//nolint:govet
+	return reflect.DeepEqual(m, other)
 }

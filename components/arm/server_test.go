@@ -17,6 +17,15 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
+var (
+	errGetPoseFailed             = errors.New("can't get pose")
+	errGetJointsFailed           = errors.New("can't get joint positions")
+	errMoveToPositionFailed      = errors.New("can't move to pose")
+	errMoveToJointPositionFailed = errors.New("can't move to joint positions")
+	errStopUnimplemented         = errors.New("Stop unimplemented")
+	errArmUnimplemented          = errors.New("not found")
+)
+
 func newServer() (pb.ArmServiceServer, *inject.Arm, *inject.Arm, error) {
 	injectArm := &inject.Arm{}
 	injectArm2 := &inject.Arm{}
@@ -70,28 +79,28 @@ func TestServer(t *testing.T) {
 	pose2 := &commonpb.Pose{X: 4, Y: 5, Z: 6}
 	positionDegs2 := &pb.JointPositions{Values: []float64{4.0, 5.0, 6.0}}
 	injectArm2.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
-		return nil, errors.New("can't get pose")
+		return nil, errGetPoseFailed
 	}
 	injectArm2.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
-		return nil, errors.New("can't get joint positions")
+		return nil, errGetJointsFailed
 	}
 	injectArm2.MoveToPositionFunc = func(ctx context.Context, ap spatialmath.Pose, extra map[string]interface{}) error {
 		capArmPos = ap
-		return errors.New("can't move to pose")
+		return errMoveToPositionFailed
 	}
 
 	injectArm2.MoveToJointPositionsFunc = func(ctx context.Context, jp *pb.JointPositions, extra map[string]interface{}) error {
 		capArmJointPos = jp
-		return errors.New("can't move to joint positions")
+		return errMoveToJointPositionFailed
 	}
 	injectArm2.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
-		return arm.ErrStopUnimplemented
+		return errStopUnimplemented
 	}
 
 	t.Run("arm position", func(t *testing.T) {
 		_, err := armServer.GetEndPosition(context.Background(), &pb.GetEndPositionRequest{Name: missingArmName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+		test.That(t, err.Error(), test.ShouldContainSubstring, errArmUnimplemented.Error())
 
 		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "EndPosition"})
 		test.That(t, err, test.ShouldBeNil)
@@ -103,13 +112,13 @@ func TestServer(t *testing.T) {
 
 		_, err = armServer.GetEndPosition(context.Background(), &pb.GetEndPositionRequest{Name: failArmName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get pose")
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGetPoseFailed.Error())
 	})
 
 	t.Run("move to position", func(t *testing.T) {
 		_, err = armServer.MoveToPosition(context.Background(), &pb.MoveToPositionRequest{Name: missingArmName, To: pose2})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+		test.That(t, err.Error(), test.ShouldContainSubstring, errArmUnimplemented.Error())
 
 		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "MoveToPosition"})
 		test.That(t, err, test.ShouldBeNil)
@@ -123,14 +132,14 @@ func TestServer(t *testing.T) {
 			To:   spatialmath.PoseToProtobuf(pose1),
 		})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "can't move to pose")
+		test.That(t, err.Error(), test.ShouldContainSubstring, errMoveToPositionFailed.Error())
 		test.That(t, spatialmath.PoseAlmostCoincident(capArmPos, pose1), test.ShouldBeTrue)
 	})
 
 	t.Run("arm joint position", func(t *testing.T) {
 		_, err := armServer.GetJointPositions(context.Background(), &pb.GetJointPositionsRequest{Name: missingArmName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+		test.That(t, err.Error(), test.ShouldContainSubstring, errArmUnimplemented.Error())
 
 		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "JointPositions"})
 		test.That(t, err, test.ShouldBeNil)
@@ -141,7 +150,7 @@ func TestServer(t *testing.T) {
 
 		_, err = armServer.GetJointPositions(context.Background(), &pb.GetJointPositionsRequest{Name: failArmName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get joint positions")
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGetJointsFailed.Error())
 	})
 
 	t.Run("move to joint position", func(t *testing.T) {
@@ -150,7 +159,7 @@ func TestServer(t *testing.T) {
 			&pb.MoveToJointPositionsRequest{Name: missingArmName, Positions: positionDegs2},
 		)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+		test.That(t, err.Error(), test.ShouldContainSubstring, errArmUnimplemented.Error())
 
 		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "MoveToJointPositions"})
 		test.That(t, err, test.ShouldBeNil)
@@ -167,14 +176,14 @@ func TestServer(t *testing.T) {
 			&pb.MoveToJointPositionsRequest{Name: failArmName, Positions: positionDegs1},
 		)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "can't move to joint positions")
+		test.That(t, err.Error(), test.ShouldContainSubstring, errMoveToJointPositionFailed.Error())
 		test.That(t, capArmJointPos.String(), test.ShouldResemble, positionDegs1.String())
 	})
 
 	t.Run("stop", func(t *testing.T) {
 		_, err = armServer.Stop(context.Background(), &pb.StopRequest{Name: missingArmName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+		test.That(t, err.Error(), test.ShouldContainSubstring, errArmUnimplemented.Error())
 
 		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "Stop"})
 		test.That(t, err, test.ShouldBeNil)
@@ -184,6 +193,6 @@ func TestServer(t *testing.T) {
 
 		_, err = armServer.Stop(context.Background(), &pb.StopRequest{Name: failArmName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err, test.ShouldBeError, arm.ErrStopUnimplemented)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errStopUnimplemented.Error())
 	})
 }

@@ -1,4 +1,3 @@
-// Package motion contains a gRPC based motion service server
 package motion
 
 import (
@@ -146,29 +145,6 @@ func setupMotionConfiguration(motionCfg *pb.MotionConfiguration) MotionConfigura
 		AngularMetersPerSec: angular,
 	}
 }
-
-func (server *serviceServer) MoveSingleComponent(
-	ctx context.Context,
-	req *pb.MoveSingleComponentRequest,
-) (*pb.MoveSingleComponentResponse, error) {
-	svc, err := server.coll.Resource(req.Name)
-	if err != nil {
-		return nil, err
-	}
-	worldState, err := referenceframe.WorldStateFromProtobuf(req.GetWorldState())
-	if err != nil {
-		return nil, err
-	}
-	success, err := svc.MoveSingleComponent(
-		ctx,
-		protoutils.ResourceNameFromProto(req.GetComponentName()),
-		referenceframe.ProtobufToPoseInFrame(req.GetDestination()),
-		worldState,
-		req.Extra.AsMap(),
-	)
-	return &pb.MoveSingleComponentResponse{Success: success}, err
-}
-
 func (server *serviceServer) GetPose(ctx context.Context, req *pb.GetPoseRequest) (*pb.GetPoseResponse, error) {
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {

@@ -19,18 +19,21 @@ import InputController from './input-controller/index.svelte';
 import Motor from './motor/index.svelte';
 import MovementSensor from './movement-sensor/index.svelte';
 import Navigation from './navigation/index.svelte';
+import PowerSensor from './power-sensor/index.svelte';
 import Servo from './servo/index.svelte';
 import Sensors from './sensors/index.svelte';
 import Slam from './slam/index.svelte';
 import Client from '@/lib/components/robot-client.svelte';
+import type { RCOverrides } from '@/types/overrides';
 
 const { resources, components, services, statuses, sensorNames } = useRobotClient();
 
 export let host: string;
-export let bakedAuth: { authEntity: string; creds: Credentials; } | undefined;
-export let supportedAuthTypes: string[];
+export let bakedAuth: { authEntity?: string; creds?: Credentials; } | undefined = {};
+export let supportedAuthTypes: string[] | undefined = [];
 export let webrtcEnabled: boolean;
 export let signalingAddress: string;
+export let overrides: RCOverrides | undefined = undefined;
 
 const resourceStatusByName = (resource: commonApi.ResourceName.AsObject) => {
   return $statuses[resourceNameToString(resource)];
@@ -94,6 +97,11 @@ const getStatus = (statusMap: Record<string, unknown>, resource: commonApi.Resou
       <Base {name} />
     {/each}
 
+    <!-- ******* SLAM *******  -->
+    {#each filterSubtype($services, 'slam') as { name } (name)}
+      <Slam {name} overrides={overrides?.slam} />
+    {/each}
+
     <!-- ******* ENCODER *******  -->
     {#each filterSubtype($components, 'encoder') as { name } (name)}
       <Encoder {name} />
@@ -110,6 +118,11 @@ const getStatus = (statusMap: Record<string, unknown>, resource: commonApi.Resou
     <!-- ******* MOVEMENT SENSOR *******  -->
     {#each filterSubtype($components, 'movement_sensor') as { name } (name)}
       <MovementSensor {name} />
+    {/each}
+
+     <!-- ******* POWER SENSOR *******  -->
+    {#each filterSubtype($components, 'power_sensor') as { name } (name)}
+      <PowerSensor {name} />
     {/each}
 
     <!-- ******* ARM *******  -->
@@ -167,7 +180,7 @@ const getStatus = (statusMap: Record<string, unknown>, resource: commonApi.Resou
 
     <!-- ******* NAVIGATION *******  -->
     {#each filterSubtype($services, 'navigation') as { name } (name)}
-      <Navigation {name} />
+      <Navigation {name} write={false} />
     {/each}
 
     <!-- ******* SENSOR *******  -->
@@ -181,11 +194,6 @@ const getStatus = (statusMap: Record<string, unknown>, resource: commonApi.Resou
     <!-- ******* AUDIO *******  -->
     {#each filterSubtype($components, 'audio_input') as { name } (name)}
       <AudioInput {name} />
-    {/each}
-
-    <!-- ******* SLAM *******  -->
-    {#each filterSubtype($services, 'slam') as { name } (name)}
-      <Slam {name} />
     {/each}
 
     <!-- ******* DO *******  -->

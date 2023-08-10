@@ -294,7 +294,7 @@ func diffProcesses(left, right []pexec.ProcessConfig, diff *Diff) bool {
 }
 
 func diffProcess(left, right pexec.ProcessConfig, diff *Diff) bool {
-	if reflect.DeepEqual(left, right) {
+	if left.Equals(right) {
 		return false
 	}
 	diff.Modified.Processes = append(diff.Modified.Processes, right)
@@ -336,7 +336,7 @@ func diffPackages(left, right []PackageConfig, diff *Diff) bool {
 }
 
 func diffPackage(left, right PackageConfig, diff *Diff) bool {
-	if reflect.DeepEqual(left, right) {
+	if left.Equals(right) {
 		return false
 	}
 	diff.Modified.Packages = append(diff.Modified.Packages, right)
@@ -489,7 +489,7 @@ func diffModules(leftModules, rightModules []Module, diff *Diff) bool {
 }
 
 func diffModule(left, right Module, diff *Diff) bool {
-	if reflect.DeepEqual(left, right) {
+	if left.Equals(right) {
 		return false
 	}
 	diff.Modified.Modules = append(diff.Modified.Modules, right)

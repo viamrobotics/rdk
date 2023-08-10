@@ -23,7 +23,7 @@ const defaultRandomSeed = 0
 type motionPlanner interface {
 	// Plan will take a context, a goal position, and an input start state and return a series of state waypoints which
 	// should be visited in order to arrive at the goal while satisfying all constraints
-	plan(context.Context, spatialmath.Pose, []frame.Input) ([][]frame.Input, error)
+	plan(context.Context, spatialmath.Pose, []frame.Input) ([]node, error)
 
 	// Everything below this point should be covered by anything that wraps the generic `planner`
 	smoothPath(context.Context, []node) []node
@@ -109,7 +109,7 @@ func motionPlanInternal(ctx context.Context,
 	}
 
 	logger.Infof(
-		"planning motion for frame %s. Goal: %v Starting seed map %v, startPose %v, worldstate: %v",
+		"planning motion for frame %s\nGoal: %v\nStarting seed map %v\n, startPose %v\n, worldstate: %v\n",
 		f.Name(),
 		frame.PoseInFrameToProtobuf(goal),
 		seedMap,

@@ -126,6 +126,7 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, conn *grpc.Clie
 		name:      conf.Name,
 		exe:       conf.ExePath,
 		logLevel:  conf.LogLevel,
+		conn:      conn,
 		resources: map[resource.Name]*addedResource{},
 	}
 	mgr.modules[conf.Name] = mod
@@ -144,12 +145,12 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, conn *grpc.Clie
 		}
 	}()
 
-	// dial will re-use conn if it's non-nil (module being added in a Reconfigure).
-	if err := mod.dial(conn); err != nil {
+	// dial will re-use mod.conn if it's non-nil (module being added in a Reconfigure).
+	if err := mod.dial(); err != nil {
 		return errors.WithMessage(err, "error while dialing module "+mod.name)
 	}
 
-	if err := mod.checkReady(ctx, mgr.parentAddr); err != nil {
+	if err := mod.checkReady(ctx, mgr.parentAddr, mgr.logger); err != nil {
 		return errors.WithMessage(err, "error while waiting for module to be ready "+mod.name)
 	}
 
@@ -444,6 +445,36 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) b
 		if mod.inRecovery.Load() {
 			return false
 		}
+
+		// If mod.handles was never set, the module was never actually ready in the
+		// first place before crashing. Log an error and do not attempt a restart;
+		// something is likely wrong with the module implemenation.
+		mgr.mu.Lock()
+		if mod.handles == nil {
+			mgr.logger.Errorw(
+				"module has unexpectedly exited without responding to a ready request ",
+				"module", mod.name,
+				"exit_code", exitCode,
+			)
+			// Remove module and close connection. Process will already be stopped.
+			for r, m := range mgr.rMap {
+				if m == mod {
+					delete(mgr.rMap, r)
+				}
+			}
+			delete(mgr.modules, mod.name)
+			if mod.conn != nil {
+				if err := mod.conn.Close(); err != nil {
+					mgr.logger.Errorw("error while closing connection from crashed module",
+						"module", mod.name,
+						"error", err)
+				}
+			}
+			mgr.mu.Unlock()
+			return false
+		}
+		mgr.mu.Unlock()
+
 		mod.inRecovery.Store(true)
 		defer mod.inRecovery.Store(false)
 
@@ -470,14 +501,13 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) b
 		}
 
 		// Otherwise, add old module process' resources to new module; warn if new
-		// module cannot handle old resource, deregister that resource and remove
-		// it from mod.resources. Finally, handle orphaned resources.
+		// module cannot handle old resource and remove it from mod.resources.
+		// Finally, handle orphaned resources.
 		var orphanedResourceNames []resource.Name
 		for name, res := range mod.resources {
 			if _, err := mgr.addResource(ctx, res.conf, res.deps); err != nil {
 				mgr.logger.Warnw("error while re-adding resource to module",
 					"resource", name, "module", mod.name, "error", err)
-				resource.Deregister(res.conf.API, res.conf.Model)
 				delete(mod.resources, name)
 				orphanedResourceNames = append(orphanedResourceNames, name)
 			}
@@ -497,6 +527,9 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
 
+	// deregister crashed module's resources, and let later checkReady reset m.handles.
+	mod.deregisterResources()
+
 	var orphanedResourceNames []resource.Name
 	for name := range mod.resources {
 		orphanedResourceNames = append(orphanedResourceNames, name)
@@ -509,9 +542,8 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 	var success bool
 	defer func() {
 		if !success {
-			// Deregister module's resources, remove module, and close connection if
-			// restart fails. Process will already be stopped.
-			mod.deregisterResources()
+			// Remove module and close connection if restart fails. Process will
+			// already be stopped.
 			for r, m := range mgr.rMap {
 				if m == mod {
 					delete(mgr.rMap, r)
@@ -558,15 +590,15 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 		}
 	}()
 
-	// dial will re-use connection; old connection can still be used when module
+	// dial will re-use mod.conn; old connection can still be used when module
 	// crashes.
-	if err := mod.dial(mod.conn); err != nil {
+	if err := mod.dial(); err != nil {
 		mgr.logger.Errorw("error while dialing restarted module",
 			"module", mod.name, "error", err)
 		return orphanedResourceNames
 	}
 
-	if err := mod.checkReady(ctx, mgr.parentAddr); err != nil {
+	if err := mod.checkReady(ctx, mgr.parentAddr, mgr.logger); err != nil {
 		mgr.logger.Errorw("error while waiting for restarted module to be ready",
 			"module", mod.name, "error", err)
 		return orphanedResourceNames
@@ -576,10 +608,9 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 	return nil
 }
 
-// dial will use the passed-in connection to make a new module service client
-// or Dial m.addr if the passed-in connection is nil.
-func (m *module) dial(conn *grpc.ClientConn) error {
-	m.conn = conn
+// dial will use m.conn to make a new module service client or Dial m.addr if
+// m.conn is nil.
+func (m *module) dial() error {
 	if m.conn == nil {
 		// TODO(PRODUCT-343): session support probably means interceptors here
 		var err error
@@ -603,8 +634,8 @@ func (m *module) dial(conn *grpc.ClientConn) error {
 	return nil
 }
 
-func (m *module) checkReady(ctx context.Context, parentAddr string) error {
-	ctxTimeout, cancelFunc := context.WithTimeout(ctx, time.Second*30)
+func (m *module) checkReady(ctx context.Context, parentAddr string, logger golog.Logger) error {
+	ctxTimeout, cancelFunc := context.WithTimeout(ctx, rutils.GetResourceConfigurationTimeout(logger))
 	defer cancelFunc()
 
 	for {
@@ -628,7 +659,8 @@ func (m *module) startProcess(
 	oue func(int) bool,
 	logger golog.Logger,
 ) error {
-	m.addr = filepath.ToSlash(filepath.Join(filepath.Dir(parentAddr), m.name+".sock"))
+	// TODO(APP-2430) Remove the strings.ReplaceAll once we no longer allow : in the name
+	m.addr = filepath.ToSlash(filepath.Join(filepath.Dir(parentAddr), strings.ReplaceAll(m.name, ":", "_")+".sock"))
 	if err := modlib.CheckSocketAddressLength(m.addr); err != nil {
 		return err
 	}
@@ -655,7 +687,7 @@ func (m *module) startProcess(
 		return errors.WithMessage(err, "module startup failed")
 	}
 
-	ctxTimeout, cancel := context.WithTimeout(ctx, time.Second*30)
+	ctxTimeout, cancel := context.WithTimeout(ctx, rutils.GetResourceConfigurationTimeout(logger))
 	defer cancel()
 	for {
 		select {
@@ -704,6 +736,7 @@ func (m *module) registerResources(mgr modmaninterface.ModuleManager, logger gol
 		switch {
 		case api.API.IsComponent():
 			for _, model := range models {
+				logger.Debugw("registering component from module", "module", m.name, "API", api.API, "model", model)
 				resource.RegisterComponent(api.API, model, resource.Registration[resource.Resource, resource.NoNativeConfig]{
 					Constructor: func(
 						ctx context.Context,
@@ -717,6 +750,7 @@ func (m *module) registerResources(mgr modmaninterface.ModuleManager, logger gol
 			}
 		case api.API.IsService():
 			for _, model := range models {
+				logger.Debugw("registering service from module", "module", m.name, "API", api.API, "model", model)
 				resource.RegisterService(api.API, model, resource.Registration[resource.Resource, resource.NoNativeConfig]{
 					Constructor: func(
 						ctx context.Context,
@@ -740,6 +774,7 @@ func (m *module) deregisterResources() {
 			resource.Deregister(api.API, model)
 		}
 	}
+	m.handles = nil
 }
 
 // DepsToNames converts a dependency list to a simple string slice.

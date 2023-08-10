@@ -1,19 +1,19 @@
 <script lang='ts'>
 
 import { onDestroy } from 'svelte';
-import { Marker } from 'maplibre-gl';
+import { type LngLatLike, Marker } from 'maplibre-gl';
 import { map } from '../stores';
 
-export let lng = 0;
-export let lat = 0;
+export let lngLat: LngLatLike;
 export let scale = 1;
 export let visible = true;
 export let color: string | null = null;
 
 const marker = new Marker({ scale, color: color ?? undefined });
+marker.getElement().style.zIndex = '1';
 
 $: {
-  marker.setLngLat([lng, lat]);
+  marker.setLngLat(lngLat);
 
   if ($map && visible) {
     marker.addTo($map);

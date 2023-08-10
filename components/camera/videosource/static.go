@@ -27,31 +27,38 @@ func init() {
 				if err != nil {
 					return nil, err
 				}
-				videoSrc := &fileSource{newConf.Color, newConf.Depth, newConf.CameraParameters}
-				imgType := camera.ColorStream
-				if newConf.Color == "" {
-					imgType = camera.DepthStream
-				}
-				cameraModel := camera.NewPinholeModelWithBrownConradyDistortion(newConf.CameraParameters, newConf.DistortionParameters)
-				src, err := camera.NewVideoSourceFromReader(
-					ctx,
-					videoSrc,
-					&cameraModel,
-					imgType,
-				)
-				if err != nil {
-					return nil, err
-				}
-				return camera.FromVideoSource(conf.ResourceName(), src), nil
+				return newCamera(context.Background(), conf.ResourceName(), newConf)
 			},
 		})
 }
 
-// fileSource stores the paths to a color and depth image.
+func newCamera(ctx context.Context, name resource.Name, newConf *fileSourceConfig) (camera.Camera, error) {
+	videoSrc := &fileSource{newConf.Color, newConf.Depth, newConf.PointCloud, newConf.CameraParameters, nil, nil}
+	imgType := camera.ColorStream
+	if newConf.Color == "" {
+		imgType = camera.DepthStream
+	}
+	cameraModel := camera.NewPinholeModelWithBrownConradyDistortion(newConf.CameraParameters, newConf.DistortionParameters)
+	src, err := camera.NewVideoSourceFromReader(
+		ctx,
+		videoSrc,
+		&cameraModel,
+		imgType,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return camera.FromVideoSource(name, src), nil
+}
+
+// fileSource stores the paths to a color and depth image and a pointcloud.
 type fileSource struct {
-	ColorFN    string
-	DepthFN    string
-	Intrinsics *transform.PinholeCameraIntrinsics
+	ColorFN      string
+	DepthFN      string
+	PointCloudFN string
+	Intrinsics   *transform.PinholeCameraIntrinsics
+	colorImg     image.Image
+	pc           pointcloud.PointCloud
 }
 
 // fileSourceConfig is the attribute struct for fileSource.
@@ -62,20 +69,66 @@ type fileSourceConfig struct {
 	Debug                bool                               `json:"debug,omitempty"`
 	Color                string                             `json:"color_image_file_path,omitempty"`
 	Depth                string                             `json:"depth_image_file_path,omitempty"`
+	PointCloud           string                             `json:"pointcloud_file_path,omitempty"`
 }
 
 // Read returns just the RGB image if it is present, or the depth map if the RGB image is not present.
 func (fs *fileSource) Read(ctx context.Context) (image.Image, func(), error) {
+	if fs.ColorFN == "" && fs.DepthFN == "" {
+		return nil, nil, errors.New("no image file to read, so not implemented")
+	}
 	if fs.ColorFN == "" { // only depth info
 		img, err := rimage.NewDepthMapFromFile(context.Background(), fs.DepthFN)
+		if err != nil {
+			return nil, nil, err
+		}
 		return img, func() {}, err
 	}
+
+	if fs.colorImg != nil {
+		return fs.colorImg, func() {}, nil
+	}
+
 	img, err := rimage.NewImageFromFile(fs.ColorFN)
-	return img, func() {}, err
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// x264 only supports even resolutions. Not every call to this function will
+	// be in the context of an x264 stream, but we crop every image to even
+	// dimensions anyways.
+	oddWidth := img.Bounds().Dx()%2 != 0
+	oddHeight := img.Bounds().Dy()%2 != 0
+	if oddWidth || oddHeight {
+		newWidth := img.Bounds().Dx()
+		newHeight := img.Bounds().Dy()
+		if oddWidth {
+			newWidth--
+		}
+		if oddHeight {
+			newHeight--
+		}
+		fs.colorImg = img.SubImage(image.Rect(0, 0, newWidth, newHeight))
+	} else {
+		fs.colorImg = img
+	}
+
+	return fs.colorImg, func() {}, err
 }
 
-// NextPointCloud returns the point cloud from projecting the rgb and depth image using the intrinsic parameters.
+// NextPointCloud returns the point cloud from projecting the rgb and depth image using the intrinsic parameters,
+// or the pointcloud from file if set.
 func (fs *fileSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+	if fs.PointCloudFN != "" && fs.pc == nil {
+		newPc, err := pointcloud.NewFromFile(fs.PointCloudFN, nil)
+		if err != nil {
+			return nil, err
+		}
+		fs.pc = newPc
+	}
+	if fs.pc != nil {
+		return fs.pc, nil
+	}
 	if fs.Intrinsics == nil {
 		return nil, transform.NewNoIntrinsicsError("camera intrinsics not found in config")
 	}

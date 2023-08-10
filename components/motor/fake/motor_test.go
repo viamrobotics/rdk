@@ -34,9 +34,9 @@ func TestMotorInit(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pos, test.ShouldEqual, 0)
 
-	featureMap, err := m.Properties(ctx, nil)
+	properties, err := m.Properties(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, featureMap[motor.PositionReporting], test.ShouldBeTrue)
+	test.That(t, properties.PositionReporting, test.ShouldBeTrue)
 }
 
 func TestGoFor(t *testing.T) {

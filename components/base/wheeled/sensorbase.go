@@ -446,8 +446,8 @@ func (sb *sensorBase) Properties(ctx context.Context, extra map[string]interface
 	return sb.wBase.Properties(ctx, extra)
 }
 
-func (sb *sensorBase) Geometries(ctx context.Context) ([]spatialmath.Geometry, error) {
-	return sb.wBase.Geometries(ctx)
+func (sb *sensorBase) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
+	return sb.wBase.Geometries(ctx, extra)
 }
 
 func (sb *sensorBase) Close(ctx context.Context) error {

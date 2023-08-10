@@ -39,6 +39,7 @@ func getAgentInfo() (*apppb.AgentInfo, error) {
 	if err != nil {
 		return nil, err
 	}
+	platform := fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH)
 
 	return &apppb.AgentInfo{
 		Host:        hostname,
@@ -46,10 +47,21 @@ func getAgentInfo() (*apppb.AgentInfo, error) {
 		Os:          runtime.GOOS,
 		Version:     Version,
 		GitRevision: GitRevision,
+		Platform:    &platform,
 	}, nil
 }
 
-var viamDotDir = filepath.Join(os.Getenv("HOME"), ".viam")
+var (
+	viamDotDir      string
+	viamPackagesDir string
+)
+
+func init() {
+	//nolint:errcheck
+	home, _ := os.UserHomeDir()
+	viamDotDir = filepath.Join(home, ".viam")
+	viamPackagesDir = filepath.Join(viamDotDir, "packages")
+}
 
 func getCloudCacheFilePath(id string) string {
 	return filepath.Join(viamDotDir, fmt.Sprintf("cached_cloud_config_%s.json", id))
@@ -369,6 +381,10 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger golog.Logge
 	cfg, err := unprocessedConfig.CopyOnlyPublicFields()
 	if err != nil {
 		return nil, errors.Wrap(err, "error copying config")
+	}
+
+	if err := cfg.ReplacePlaceholders(); err != nil {
+		logger.Errorw("error during placeholder replacement", "err", err)
 	}
 
 	// Copy does not presve ConfigFilePath and we need to pass it along manually

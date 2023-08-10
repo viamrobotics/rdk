@@ -3,12 +3,13 @@ package camera_test
 import (
 	"bytes"
 	"context"
-	"errors"
 	"image"
+	"image/color"
 	"image/png"
 	"net"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/viamrobotics/gostream"
@@ -74,6 +75,18 @@ func TestClient(t *testing.T) {
 	injectCamera.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
 		return projA, nil
 	}
+	injectCamera.ImagesFunc = func(ctx context.Context) ([]image.Image, time.Time, error) {
+		images := []image.Image{}
+		// one color image
+		color := rimage.NewImage(40, 50)
+		images = append(images, color)
+		// one depth image
+		depth := rimage.NewEmptyDepthMap(10, 20)
+		images = append(images, depth)
+		// a timestamp of 12345
+		ts := time.UnixMilli(12345)
+		return images, ts, nil
+	}
 	injectCamera.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
 		return gostream.NewEmbeddedVideoStreamFromReader(gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
 			imageReleasedMu.Lock()
@@ -113,16 +126,16 @@ func TestClient(t *testing.T) {
 	// bad camera
 	injectCamera2 := &inject.Camera{}
 	injectCamera2.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
-		return nil, errors.New("can't generate next point cloud")
+		return nil, errGeneratePointCloudFailed
 	}
 	injectCamera2.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
-		return camera.Properties{}, errors.New("can't get camera properties")
+		return camera.Properties{}, errPropertiesFailed
 	}
 	injectCamera2.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
-		return nil, errors.New("can't get camera properties")
+		return nil, errCameraProjectorFailed
 	}
 	injectCamera2.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
-		return nil, errors.New("can't generate stream")
+		return nil, errStreamFailed
 	}
 
 	resources := map[resource.Name]camera.Camera{
@@ -147,7 +160,7 @@ func TestClient(t *testing.T) {
 		cancel()
 		_, err := viamgrpc.Dial(cancelCtx, listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
+		test.That(t, err, test.ShouldBeError, context.Canceled)
 	})
 
 	t.Run("camera client 1", func(t *testing.T) {
@@ -178,6 +191,19 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, propsB.SupportsPCD, test.ShouldBeTrue)
 		test.That(t, propsB.IntrinsicParams, test.ShouldResemble, intrinsics)
+
+		images, ts, err := camera1Client.Images(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, ts, test.ShouldEqual, time.UnixMilli(12345))
+		test.That(t, len(images), test.ShouldEqual, 2)
+		test.That(t, images[0].Bounds().Dx(), test.ShouldEqual, 40)
+		test.That(t, images[0].Bounds().Dy(), test.ShouldEqual, 50)
+		test.That(t, images[0], test.ShouldHaveSameTypeAs, &rimage.LazyEncodedImage{})
+		test.That(t, images[0].ColorModel(), test.ShouldHaveSameTypeAs, color.RGBAModel)
+		test.That(t, images[1].Bounds().Dx(), test.ShouldEqual, 10)
+		test.That(t, images[1].Bounds().Dy(), test.ShouldEqual, 20)
+		test.That(t, images[1], test.ShouldHaveSameTypeAs, &rimage.LazyEncodedImage{})
+		test.That(t, images[1].ColorModel(), test.ShouldHaveSameTypeAs, color.Gray16Model)
 
 		// Do
 		resp, err := camera1Client.DoCommand(context.Background(), testutils.TestCommand)
@@ -217,19 +243,19 @@ func TestClient(t *testing.T) {
 
 		_, _, err = camera.ReadImage(context.Background(), client2)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "can't generate stream")
+		test.That(t, err.Error(), test.ShouldContainSubstring, errStreamFailed.Error())
 
 		_, err = client2.NextPointCloud(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "can't generate next point cloud")
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGeneratePointCloudFailed.Error())
 
 		_, err = client2.Projector(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get camera properties")
+		test.That(t, err.Error(), test.ShouldContainSubstring, errCameraProjectorFailed.Error())
 
 		_, err = client2.Properties(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get camera properties")
+		test.That(t, err.Error(), test.ShouldContainSubstring, errPropertiesFailed.Error())
 
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
@@ -348,7 +374,7 @@ func TestClientLazyImage(t *testing.T) {
 			case rutils.MimeTypePNG:
 				return imgPng, func() {}, nil
 			default:
-				return nil, nil, errors.New("invalid mime type")
+				return nil, nil, errInvalidMimeType
 			}
 		})), nil
 	}

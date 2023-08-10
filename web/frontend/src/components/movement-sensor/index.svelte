@@ -98,7 +98,7 @@ useDisconnect(() => clearInterval?.());
           </tr>
           <tr>
             <th class="border border-medium p-2">
-              Altitide (m)
+              Altitude (m)
             </th>
             <td class="border border-medium p-2">
               {altitudeM?.toFixed(2)}

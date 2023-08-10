@@ -1,4 +1,3 @@
-// Package motion contains a gRPC based motion client
 package motion
 
 import (
@@ -135,12 +134,8 @@ func (c *client) MoveOnGlobe(
 	}
 	if len(obstacles) > 0 {
 		obstaclesProto := make([]*commonpb.GeoObstacle, 0, len(obstacles))
-		for _, eachObst := range obstacles {
-			convObst, err := spatialmath.GeoObstacleToProtobuf(eachObst)
-			if err != nil {
-				return false, err
-			}
-			obstaclesProto = append(obstaclesProto, convObst)
+		for _, obstacle := range obstacles {
+			obstaclesProto = append(obstaclesProto, spatialmath.GeoObstacleToProtobuf(obstacle))
 		}
 		req.Obstacles = obstaclesProto
 	}
@@ -176,34 +171,6 @@ func (c *client) MoveOnGlobe(
 		return false, err
 	}
 
-	return resp.Success, nil
-}
-
-func (c *client) MoveSingleComponent(
-	ctx context.Context,
-	componentName resource.Name,
-	destination *referenceframe.PoseInFrame,
-	worldState *referenceframe.WorldState,
-	extra map[string]interface{},
-) (bool, error) {
-	ext, err := vprotoutils.StructToStructPb(extra)
-	if err != nil {
-		return false, err
-	}
-	worldStateMsg, err := worldState.ToProtobuf()
-	if err != nil {
-		return false, err
-	}
-	resp, err := c.client.MoveSingleComponent(ctx, &pb.MoveSingleComponentRequest{
-		Name:          c.name,
-		ComponentName: protoutils.ResourceNameToProto(componentName),
-		Destination:   referenceframe.PoseInFrameToProtobuf(destination),
-		WorldState:    worldStateMsg,
-		Extra:         ext,
-	})
-	if err != nil {
-		return false, err
-	}
 	return resp.Success, nil
 }
 

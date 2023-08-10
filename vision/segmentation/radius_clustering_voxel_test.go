@@ -35,6 +35,7 @@ func TestClusteringVoxelConfig(t *testing.T) {
 	cfg.AngleThresh = 40
 	cfg.CosineThresh = .1
 	cfg.DistanceThresh = 44
+	cfg.MaxDistFromPlane = 10
 	err = cfg.CheckValid()
 	test.That(t, err.Error(), test.ShouldContainSubstring, "weight_threshold cannot be less than 0")
 	// valid
@@ -56,6 +57,7 @@ func TestVoxelSegmentMeans(t *testing.T) {
 		"voxel_size":            1.0,
 		"lambda":                0.1,
 		"min_points_in_plane":   100,
+		"max_dist_from_plane":   10,
 		"min_points_in_segment": 25,
 		"clustering_radius_mm":  7.5,
 		"weight_threshold":      0.9,

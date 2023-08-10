@@ -96,9 +96,17 @@ func (nm *neighborManager) parallelNearestNeighbor(
 ) node {
 	nm.ready = false
 	nm.seedPos = seed
-	nm.startNNworkers(ctx, planOpts)
+
+	nm.neighbors = make(chan *neighbor, nm.nCPU)
+	nm.nnKeys = make(chan node, len(rrtMap))
 	defer close(nm.nnKeys)
 	defer close(nm.neighbors)
+
+	for i := 0; i < nm.nCPU; i++ {
+		utils.PanicCapturingGo(func() {
+			nm.nnWorker(ctx, planOpts)
+		})
+	}
 
 	for k := range rrtMap {
 		nm.nnKeys <- k
@@ -111,32 +119,19 @@ func (nm *neighborManager) parallelNearestNeighbor(
 	returned := 0
 	for returned < nm.nCPU {
 		select {
-		case <-ctx.Done():
-			return nil
-		default:
-		}
-
-		select {
 		case nn := <-nm.neighbors:
 			returned++
-			if nn.dist < bestDist {
-				bestDist = nn.dist
-				best = nn.node
+			if nn != nil {
+				// nn will be nil if the ctx is cancelled
+				if nn.dist < bestDist {
+					bestDist = nn.dist
+					best = nn.node
+				}
 			}
 		default:
 		}
 	}
 	return best
-}
-
-func (nm *neighborManager) startNNworkers(ctx context.Context, planOpts *plannerOptions) {
-	nm.neighbors = make(chan *neighbor, nm.nCPU)
-	nm.nnKeys = make(chan node, nm.nCPU)
-	for i := 0; i < nm.nCPU; i++ {
-		utils.PanicCapturingGo(func() {
-			nm.nnWorker(ctx, planOpts)
-		})
-	}
 }
 
 func (nm *neighborManager) nnWorker(ctx context.Context, planOpts *plannerOptions) {
@@ -146,6 +141,7 @@ func (nm *neighborManager) nnWorker(ctx context.Context, planOpts *plannerOption
 	for {
 		select {
 		case <-ctx.Done():
+			nm.neighbors <- nil
 			return
 		default:
 		}
