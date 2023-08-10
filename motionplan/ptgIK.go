@@ -14,7 +14,6 @@ import (
 )
 
 const (
-	defaultMaxTime = 15.
 	defaultDiffT = 0.01 // seconds
 )
 
@@ -26,6 +25,8 @@ type ptgIK struct {
 	ptgFrame referenceframe.Frame
 	fastGradDescent *NloptIK
 	randseed *rand.Rand
+	
+	gridSim tpspace.PTG
 }
 
 // NewPTGIK creates a new PTG by simulating a PrecomputePTG for some distance, then cacheing the results in a grid for fast lookup.
@@ -42,6 +43,12 @@ func NewPTGIK(simPTG tpspace.PrecomputePTG, logger golog.Logger, refDist float64
 	if err != nil {
 		return nil, err
 	}
+	
+	// create an ends-only grid sim for quick end-of-trajectory calculations
+	gridSim, err := tpspace.NewPTGGridSim(simPTG, 0, refDist/2, true)
+	if err != nil {
+		return nil, err
+	}
 
 	ptg := &ptgIK{
 		refDist:   refDist,
@@ -49,6 +56,7 @@ func NewPTGIK(simPTG tpspace.PrecomputePTG, logger golog.Logger, refDist float64
 		ptgFrame:   ptgFrame,
 		fastGradDescent: nlopt,
 		randseed: rseed,
+		gridSim: gridSim,
 	}
 
 	return ptg, nil
@@ -57,10 +65,10 @@ func NewPTGIK(simPTG tpspace.PrecomputePTG, logger golog.Logger, refDist float64
 func (ptg *ptgIK) CToTP(ctx context.Context, pose spatialmath.Pose) (*tpspace.TrajNode, error) {
 	
 	solutionGen := make(chan []referenceframe.Input, 1)
-	
-	goalMetric := NewPositionOnlyMetric(pose)
+	seedInput := []referenceframe.Input{{math.Pi/3}, {ptg.refDist/3}}
+	goalMetric := NewSquaredNormMetric(pose)
 	// Spawn the IK solver to generate a solution
-	err := ptg.fastGradDescent.Solve(ctx, solutionGen, []referenceframe.Input{{math.Pi/4}, {ptg.refDist/2}}, goalMetric, ptg.randseed.Int())
+	err := ptg.fastGradDescent.Solve(ctx, solutionGen, seedInput, goalMetric, ptg.randseed.Int())
 	// We should have zero or one solutions
 	var solved []referenceframe.Input
 	select {
@@ -68,8 +76,10 @@ func (ptg *ptgIK) CToTP(ctx context.Context, pose spatialmath.Pose) (*tpspace.Tr
 	default:
 	}
 	close(solutionGen)
-	if err != nil {
-		return nil, err
+	if err != nil || solved == nil {
+		//~ solved = seedInput
+		return ptg.gridSim.CToTP(ctx, pose)
+		//~ return nil, nil
 	}
 	// TODO: make this more efficient
 	traj, err := ptg.Trajectory(solved[0].Value, solved[1].Value)
@@ -84,5 +94,5 @@ func (ptg *ptgIK) RefDistance() float64 {
 }
 
 func (ptg *ptgIK) Trajectory(alpha, dist float64) ([]*tpspace.TrajNode, error) {
-	return tpspace.ComputePTG(alpha, ptg.simPTG, defaultMaxTime, dist, defaultDiffT)
+	return tpspace.ComputePTG(alpha, ptg.simPTG, dist, defaultDiffT)
 }

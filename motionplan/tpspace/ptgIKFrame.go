@@ -19,7 +19,8 @@ func NewPTGIKFrame(ptg PrecomputePTG, dist float64) (referenceframe.Frame, error
 
 	pf.limits = []referenceframe.Limit{
 		{Min: -math.Pi, Max: math.Pi},
-		{Min: -dist, Max: dist},
+		{Min: 0, Max: dist},
+		//~ {Min: -dist, Max: dist},
 	}
 	return pf, nil
 }

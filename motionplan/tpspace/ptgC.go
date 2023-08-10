@@ -60,6 +60,7 @@ func (ptg *ptgDiffDriveC) Transform(inputs []referenceframe.Input) (spatialmath.
 	}
 	
 	pt := r3.Vector{0, dist, 0} // Straight line, +Y is "forwards"
+	//~ pt := r3.Vector{dist,0, 0} // Straight line, +Y is "forwards"
 	angleRads := 0.
 	if alpha != 0 {
 		arcRadius := math.Pi * turnRad / math.Abs(alpha) // radius of arc
@@ -71,7 +72,7 @@ func (ptg *ptgDiffDriveC) Transform(inputs []referenceframe.Input) (spatialmath.
 			angleRads *= -1
 		}
 	}
-	pose := spatialmath.NewPose(pt, &spatialmath.OrientationVector{OZ: 1, Theta: angleRads})
+	pose := spatialmath.NewPose(pt, &spatialmath.OrientationVector{OZ: 1, Theta: -angleRads})
 	
 	return pose, nil
 }

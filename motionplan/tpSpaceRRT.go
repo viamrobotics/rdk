@@ -178,6 +178,7 @@ func (mp *tpSpaceRRTMotionPlanner) planRunner(
 
 	var randPos spatialmath.Pose
 	for iter := 0; iter < mp.algOpts.PlanIter; iter++ {
+		fmt.Println("iter", iter)
 		if ctx.Err() != nil {
 			mp.logger.Debugf("TP Space RRT timed out after %d iterations", iter)
 			rrt.solutionChan <- &rrtPlanReturn{planerr: fmt.Errorf("TP Space RRT timeout %w", ctx.Err()), maps: rrt.maps}
@@ -352,7 +353,7 @@ func (mp *tpSpaceRRTMotionPlanner) attemptExtension(
 	}
 }
 
-// extendMap grows the rrt map to the best candidate node if it is valid to do so, returning the added candidate.
+// extendMap grows the rrt map to the best candidate node, returning the added candidate.
 func (mp *tpSpaceRRTMotionPlanner) extendMap(
 	ctx context.Context,
 	candidates []*candidate,
@@ -386,27 +387,30 @@ func (mp *tpSpaceRRTMotionPlanner) extendMap(
 	lastDist := 0.
 	sinceLastNode := 0.
 
-	for _, trajPt := range trajK {
-		if ctx.Err() != nil {
-			return nil, ctx.Err()
-		}
-		trajState := &State{Position: spatialmath.Compose(treeNode.Pose(), trajPt.Pose)}
-		sinceLastNode += (trajPt.Dist - lastDist)
-
-		// Optionally add sub-nodes along the way. Will make the final path a bit better
-		if mp.algOpts.addIntermediate && sinceLastNode > mp.algOpts.addNodeEvery {
-			// add the last node in trajectory
-			addedNode = &basicNode{
-				q:      referenceframe.FloatsToInputs([]float64{float64(ptgNum), randAlpha, trajPt.Dist}),
-				cost:   treeNode.Cost() + trajPt.Dist,
-				pose:   trajState.Position,
-				corner: false,
+	//~ if mp.algOpts.addIntermediate {
+		for _, trajPt := range trajK {
+			if ctx.Err() != nil {
+				return nil, ctx.Err()
 			}
-			rrt.maps.startMap[addedNode] = treeNode
-			sinceLastNode = 0.
+			trajState := &State{Position: spatialmath.Compose(treeNode.Pose(), trajPt.Pose)}
+			//~ fmt.Printf("FINALPATH,%f,%f\n", trajState.Position.Point().X, trajState.Position.Point().Y)
+			sinceLastNode += (trajPt.Dist - lastDist)
+
+			// Optionally add sub-nodes along the way. Will make the final path a bit better
+			if sinceLastNode > mp.algOpts.addNodeEvery {
+				// add the last node in trajectory
+				addedNode = &basicNode{
+					q:      referenceframe.FloatsToInputs([]float64{float64(ptgNum), randAlpha, trajPt.Dist}),
+					cost:   treeNode.Cost() + trajPt.Dist,
+					pose:   trajState.Position,
+					corner: false,
+				}
+				rrt.maps.startMap[addedNode] = treeNode
+				sinceLastNode = 0.
+			}
+			lastDist = trajPt.Dist
 		}
-		lastDist = trajPt.Dist
-	}
+	//~ }
 	rrt.maps.startMap[newNode] = treeNode
 	return bestCand, nil
 }
@@ -443,14 +447,11 @@ func (mp *tpSpaceRRTMotionPlanner) make2DTPSpaceDistanceOptions(ptg tpspace.PTG,
 		}
 		relPose := spatialmath.Compose(spatialmath.PoseInverse(seg.StartPosition), seg.EndPosition)
 		closeNode, err := ptg.CToTP(context.Background(), relPose)
-		if err != nil {
+		if err != nil || closeNode == nil {
 			return math.Inf(1)
 		}
-		closeDist := mp.planOpts.DistanceFunc(&Segment{StartPosition: relPose, EndPosition: closeNode.Pose})
-		if closeNode == nil {
-			return math.Inf(1)
-		}
-		return closeDist
+		// Note that we want to return distances in TP space here
+		return closeNode.Dist
 	}
 	opts.DistanceFunc = segMetric
 	return opts

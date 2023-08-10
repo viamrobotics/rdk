@@ -1,6 +1,7 @@
 package tpspace
 
 import (
+	//~ "fmt"
 	"math"
 	
 	"go.viam.com/rdk/referenceframe"
@@ -45,7 +46,7 @@ func (ptg *ptgDiffDriveCC) PTGVelocities(alpha, dist, x, y, phi float64) (float6
 		// l-
 		v = -ptg.maxMMPS
 		w = ptg.maxRPS
-	} else if dist < (u+math.Pi*0.5)*r {
+	} else {
 		// l+
 		v = ptg.maxMMPS
 		w = ptg.maxRPS
@@ -63,14 +64,15 @@ func (ptg *ptgDiffDriveCC) PTGVelocities(alpha, dist, x, y, phi float64) (float6
 }
 
 func (ptg *ptgDiffDriveCC) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {
+	//~ fmt.Println("CC")
 	alpha := inputs[0].Value
 	dist := inputs[1].Value
-	
-	reverseDistance := math.Abs(alpha) * 0.5
+	r := ptg.maxMMPS / ptg.maxRPS
+	reverseDistance := math.Abs(alpha) * 0.5 * r
 	flip := math.Copysign(1., alpha) // left or right
 	direction := math.Copysign(1., dist) // forwards or backwards
 	
-	revPose, err := ptg.circle.Transform([]referenceframe.Input{{flip * math.Pi}, {-1. * direction * math.Min(dist, reverseDistance)}})
+	revPose, err := ptg.circle.Transform([]referenceframe.Input{{-1 * flip * math.Pi}, {-1. * direction * math.Min(dist, reverseDistance)}})
 	if err != nil {
 		return nil, err
 	}

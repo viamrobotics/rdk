@@ -84,8 +84,8 @@ func xythetaToPose(x, y, theta float64) spatialmath.Pose {
 
 func ComputePTG(
 	alpha float64,
-	simPtg PrecomputePTG,
-	maxTime, refDist, diffT float64,
+	simPTG PrecomputePTG,
+	refDist, diffT float64,
 	
 ) ([]*TrajNode, error) {
 	// Initialize trajectory with an all-zero node
@@ -101,14 +101,13 @@ func ComputePTG(
 	dist := math.Copysign(math.Abs(v) * diffT, refDist)
 
 	// Last saved waypoints
-	accumulatedHeadingChange := 0.
 
 	lastVs := [2]float64{0, 0}
 	lastWs := [2]float64{0, 0}
 
 	// Step through each time point for this alpha
-	for t < maxTime && math.Abs(dist) < math.Abs(refDist) && accumulatedHeadingChange < defaultMaxHeadingChange {
-		v, w, err = simPtg.PTGVelocities(alpha, dist, x, y, phi)
+	for math.Abs(dist) < math.Abs(refDist) {
+		v, w, err = simPTG.PTGVelocities(alpha, dist, x, y, phi)
 		if err != nil {
 			return nil, err
 		}
@@ -117,15 +116,13 @@ func ComputePTG(
 		lastVs[0] = v
 		lastWs[0] = w
 
-		accumulatedHeadingChange += w * diffT
-
 		t += diffT
 
 		// Update velocities of last node because reasons
 		alphaTraj[len(alphaTraj)-1].LinVelMMPS = v
 		alphaTraj[len(alphaTraj)-1].AngVelRPS = w
 
-		pose, err := simPtg.Transform([]referenceframe.Input{{alpha}, {dist}})
+		pose, err := simPTG.Transform([]referenceframe.Input{{alpha}, {dist}})
 		if err != nil {
 			return nil, err
 		}
@@ -136,7 +133,7 @@ func ComputePTG(
 	// Add final node
 	alphaTraj[len(alphaTraj)-1].LinVelMMPS = v
 	alphaTraj[len(alphaTraj)-1].AngVelRPS = w
-	pose, err := simPtg.Transform([]referenceframe.Input{{alpha}, {refDist}})
+	pose, err := simPTG.Transform([]referenceframe.Input{{alpha}, {refDist}})
 	if err != nil {
 		return nil, err
 	}

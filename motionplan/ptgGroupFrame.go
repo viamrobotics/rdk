@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	defaultSimDistMM      = 600.
+	defaultSimDistMM      = 4000.
 )
 
 const (
@@ -61,8 +61,8 @@ func NewPTGFrameFromTurningRadius(
 	// Get max angular velocity in radians per second
 	maxRPS := velocityMMps / (1000. * turnRadMeters)
 	pf := &ptgGroupFrame{name: name}
-	//~ err := pf.initPTGs(logger, velocityMMps, maxRPS, refDist, false)
-	err := pf.initPTGs(logger, velocityMMps, maxRPS, refDist, true)
+	err := pf.initPTGs(logger, velocityMMps, maxRPS, refDist, false)
+	//~ err := pf.initPTGs(logger, velocityMMps, maxRPS, refDist, true)
 	if err != nil {
 		return nil, err
 	}
@@ -152,14 +152,14 @@ func (pf *ptgGroupFrame) initPTGs(logger golog.Logger, maxMps, maxRPS, simDist f
 				//~ for _, k := range []float64{1., -1.} {
 				for _, k := range []float64{1.} {
 					// irreversible trajectories, e.g. alpha, will return nil for negative k
-					newptg, err := tpspace.NewPTGGridSim(ptgGen, 0, k*simDist) // 0 uses default alpha count
+					newptg, err := tpspace.NewPTGGridSim(ptgGen, 0, k*simDist, false) // 0 uses default alpha count
 					if err != nil {
 						return err
 					}
 					ptgs = append(ptgs, newptg)
 				}
 			} else {
-				newptg, err := NewPTGIK(ptgGen, logger, simDist, 1)
+				newptg, err := NewPTGIK(ptgGen, logger, simDist, 2)
 				if err != nil {
 					return err
 				}

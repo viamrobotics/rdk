@@ -66,9 +66,9 @@ func CreateNloptIKSolver(mdl referenceframe.Frame, logger golog.Logger, iter int
 
 // Solve runs the actual solver and sends any solutions found to the given channel.
 func (ik *NloptIK) Solve(ctx context.Context,
-	c chan<- []referenceframe.Input,
+	solutionChan chan<- []referenceframe.Input,
 	seed []referenceframe.Input,
-	m StateMetric,
+	solveMetric StateMetric,
 	rseed int,
 ) error {
 	//nolint: gosec
@@ -109,7 +109,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 		}
 		mInput.Configuration = inputs
 		mInput.Position = eePos
-		dist := m(mInput)
+		dist := solveMetric(mInput)
 
 		if len(gradient) > 0 {
 			for i := range gradient {
@@ -125,7 +125,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 				}
 				mInput.Configuration = inputs
 				mInput.Position = eePos
-				dist2 := m(mInput)
+				dist2 := solveMetric(mInput)
 
 				gradient[i] = (dist2 - dist) / ik.jump
 			}
@@ -179,20 +179,20 @@ func (ik *NloptIK) Solve(ctx context.Context,
 		default:
 		}
 		iterations++
-		solutionRaw, _, nloptErr := opt.Optimize(referenceframe.InputsToFloats(startingPos))
+		solutionRaw, result, nloptErr := opt.Optimize(referenceframe.InputsToFloats(startingPos))
 		if nloptErr != nil {
 			// This just *happens* sometimes due to weirdnesses in nonlinear randomized problems.
 			// Ignore it, something else will find a solution
 			err = multierr.Combine(err, nloptErr)
 		}
 
-		//~ if result < ik.epsilon*ik.epsilon {
-		if solutionRaw != nil {
+		if result < ik.epsilon*ik.epsilon || solutionRaw != nil {
 			select {
 			case <-ctx.Done():
 				return err
-			case c <- referenceframe.FloatsToInputs(solutionRaw):
+			default:
 			}
+			solutionChan <- referenceframe.FloatsToInputs(solutionRaw)
 			solutionsFound++
 		}
 		tries++
