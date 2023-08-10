@@ -6,6 +6,7 @@ package genericlinux
 
 import (
 	"context"
+	"sync"
 
 	"github.com/mkch/gpio"
 	"github.com/pkg/errors"
@@ -16,15 +17,15 @@ import (
 )
 
 type digitalInterrupt struct {
-	parentBoard *SysfsBoard
-	interrupt   board.ReconfigurableDigitalInterrupt
-	line        *gpio.LineWithEvent
-	cancelCtx   context.Context
-	cancelFunc  func()
-	config      *board.DigitalInterruptConfig
+	boardWorkers *sync.WaitGroup
+	interrupt    board.ReconfigurableDigitalInterrupt
+	line         *gpio.LineWithEvent
+	cancelCtx    context.Context
+	cancelFunc   func()
+	config       *board.DigitalInterruptConfig
 }
 
-func (b *SysfsBoard) createDigitalInterrupt(
+func (b *Board) createDigitalInterrupt(
 	ctx context.Context,
 	config board.DigitalInterruptConfig,
 	gpioMappings map[string]GPIOBoardMapping,
@@ -65,19 +66,19 @@ func (b *SysfsBoard) createDigitalInterrupt(
 
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	result := digitalInterrupt{
-		parentBoard: b,
-		interrupt:   interrupt,
-		line:        line,
-		cancelCtx:   cancelCtx,
-		cancelFunc:  cancelFunc,
-		config:      &config,
+		boardWorkers: &b.activeBackgroundWorkers,
+		interrupt:    interrupt,
+		line:         line,
+		cancelCtx:    cancelCtx,
+		cancelFunc:   cancelFunc,
+		config:       &config,
 	}
 	result.startMonitor()
 	return &result, nil
 }
 
 func (di *digitalInterrupt) startMonitor() {
-	di.parentBoard.activeBackgroundWorkers.Add(1)
+	di.boardWorkers.Add(1)
 	utils.ManagedGo(func() {
 		for {
 			select {
@@ -88,7 +89,7 @@ func (di *digitalInterrupt) startMonitor() {
 					di.cancelCtx, event.RisingEdge, uint64(event.Time.UnixNano())))
 			}
 		}
-	}, di.parentBoard.activeBackgroundWorkers.Done)
+	}, di.boardWorkers.Done)
 }
 
 func (di *digitalInterrupt) Close() error {

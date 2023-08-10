@@ -3,14 +3,12 @@ package cli
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
-	"math"
-	"net/http"
 	"net/url"
 	"os"
 	"os/exec"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -20,7 +18,7 @@ import (
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
-	"go.uber.org/multierr"
+	"go.uber.org/zap"
 	datapb "go.viam.com/api/app/data/v1"
 	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/utils"
@@ -29,20 +27,18 @@ import (
 	"google.golang.org/grpc/metadata"
 	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
 
+	rconfig "go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/services/shell"
 )
 
-// ModuleUploadChunkSize sets the number of bytes included in each chunk of the upload stream.
-var ModuleUploadChunkSize = 32 * 1024
-
-// The AppClient provides all the CLI command functionality needed to talk
-// to the app service but not directly to robot parts.
-type AppClient struct {
+// appClient wraps a cli.Context and provides all the CLI command functionality
+// needed to talk to the app service but not directly to robot parts.
+type appClient struct {
 	c          *cli.Context
-	conf       *Config
+	conf       *config
 	client     apppb.AppServiceClient
 	dataClient datapb.DataServiceClient
 	baseURL    *url.URL
@@ -55,6 +51,350 @@ type AppClient struct {
 	// caches
 	orgs *[]*apppb.Organization
 	locs *[]*apppb.Location
+}
+
+// ListOrganizationsAction is the corresponding Action for 'organizations list'.
+func ListOrganizationsAction(c *cli.Context) error {
+	client, err := newAppClient(c)
+	if err != nil {
+		return err
+	}
+	orgs, err := client.listOrganizations()
+	if err != nil {
+		return errors.Wrap(err, "could not list organizations")
+	}
+	for i, org := range orgs {
+		if i == 0 {
+			fmt.Fprintf(c.App.Writer, "organizations for %q:\n", client.conf.Auth.User.Email)
+		}
+		fmt.Fprintf(c.App.Writer, "\t%s (id: %s)\n", org.Name, org.Id)
+	}
+	return nil
+}
+
+// ListLocationsAction is the corresponding Action for 'locations list'.
+func ListLocationsAction(c *cli.Context) error {
+	client, err := newAppClient(c)
+	if err != nil {
+		return err
+	}
+	orgStr := c.Args().First()
+	listLocations := func(orgID string) error {
+		locs, err := client.listLocations(orgID)
+		if err != nil {
+			return errors.Wrap(err, "could not list locations")
+		}
+		for _, loc := range locs {
+			fmt.Fprintf(c.App.Writer, "\t%s (id: %s)\n", loc.Name, loc.Id)
+		}
+		return nil
+	}
+	if orgStr == "" {
+		orgs, err := client.listOrganizations()
+		if err != nil {
+			return errors.Wrap(err, "could not list organizations")
+		}
+		for i, org := range orgs {
+			if i == 0 {
+				fmt.Fprintf(c.App.Writer, "locations for %q:\n", client.conf.Auth.User.Email)
+			}
+			fmt.Fprintf(c.App.Writer, "%s:\n", org.Name)
+			if err := listLocations(org.Id); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	return listLocations(orgStr)
+}
+
+// ListRobotsAction is the corresponding Action for 'robots list'.
+func ListRobotsAction(c *cli.Context) error {
+	client, err := newAppClient(c)
+	if err != nil {
+		return err
+	}
+	orgStr := c.String("organization")
+	locStr := c.String("location")
+	robots, err := client.listRobots(orgStr, locStr)
+	if err != nil {
+		return errors.Wrap(err, "could not list robots")
+	}
+
+	if orgStr == "" || locStr == "" {
+		fmt.Fprintf(c.App.Writer, "%s -> %s\n", client.selectedOrg.Name, client.selectedLoc.Name)
+	}
+
+	for _, robot := range robots {
+		fmt.Fprintf(c.App.Writer, "%s (id: %s)\n", robot.Name, robot.Id)
+	}
+	return nil
+}
+
+// RobotStatusAction is the corresponding Action for 'robot status'.
+func RobotStatusAction(c *cli.Context) error {
+	client, err := newAppClient(c)
+	if err != nil {
+		return err
+	}
+
+	orgStr := c.String("organization")
+	locStr := c.String("location")
+	robot, err := client.robot(orgStr, locStr, c.String("robot"))
+	if err != nil {
+		return err
+	}
+	parts, err := client.robotParts(client.selectedOrg.Id, client.selectedLoc.Id, robot.Id)
+	if err != nil {
+		return errors.Wrap(err, "could not get robot parts")
+	}
+
+	if orgStr == "" || locStr == "" {
+		fmt.Fprintf(c.App.Writer, "%s -> %s\n", client.selectedOrg.Name, client.selectedLoc.Name)
+	}
+
+	fmt.Fprintf(
+		c.App.Writer,
+		"ID: %s\nname: %s\nlast access: %s (%s ago)\n",
+		robot.Id,
+		robot.Name,
+		robot.LastAccess.AsTime().Format(time.UnixDate),
+		time.Since(robot.LastAccess.AsTime()),
+	)
+
+	if len(parts) != 0 {
+		fmt.Fprintln(c.App.Writer, "parts:")
+	}
+	for i, part := range parts {
+		name := part.Name
+		if part.MainPart {
+			name += " (main)"
+		}
+		fmt.Fprintf(
+			c.App.Writer,
+			"\tID: %s\n\tname: %s\n\tlast access: %s (%s ago)\n",
+			part.Id,
+			name,
+			part.LastAccess.AsTime().Format(time.UnixDate),
+			time.Since(part.LastAccess.AsTime()),
+		)
+		if i != len(parts)-1 {
+			fmt.Fprintln(c.App.Writer, "")
+		}
+	}
+
+	return nil
+}
+
+// RobotLogsAction is the corresponding Action for 'robot logs'.
+func RobotLogsAction(c *cli.Context) error {
+	client, err := newAppClient(c)
+	if err != nil {
+		return err
+	}
+
+	orgStr := c.String("organization")
+	locStr := c.String("location")
+	robotStr := c.String("robot")
+	robot, err := client.robot(orgStr, locStr, robotStr)
+	if err != nil {
+		return errors.Wrap(err, "could not get robot")
+	}
+
+	parts, err := client.robotParts(orgStr, locStr, robotStr)
+	if err != nil {
+		return errors.Wrap(err, "could not get robot parts")
+	}
+
+	for i, part := range parts {
+		if i != 0 {
+			fmt.Fprintln(c.App.Writer, "")
+		}
+
+		var header string
+		if orgStr == "" || locStr == "" || robotStr == "" {
+			header = fmt.Sprintf("%s -> %s -> %s -> %s", client.selectedOrg.Name, client.selectedLoc.Name, robot.Name, part.Name)
+		} else {
+			header = part.Name
+		}
+		if err := client.printRobotPartLogs(
+			orgStr, locStr, robotStr, part.Id,
+			c.Bool("errors"),
+			"\t",
+			header,
+		); err != nil {
+			return errors.Wrap(err, "could not print robot logs")
+		}
+	}
+
+	return nil
+}
+
+// RobotPartStatusAction is the corresponding Action for 'robot part status'.
+func RobotPartStatusAction(c *cli.Context) error {
+	client, err := newAppClient(c)
+	if err != nil {
+		return err
+	}
+
+	orgStr := c.String("organization")
+	locStr := c.String("location")
+	robotStr := c.String("robot")
+	robot, err := client.robot(orgStr, locStr, robotStr)
+	if err != nil {
+		return errors.Wrap(err, "could not get robot")
+	}
+
+	part, err := client.robotPart(orgStr, locStr, robotStr, c.String("part"))
+	if err != nil {
+		return errors.Wrap(err, "could not get robot part")
+	}
+
+	if orgStr == "" || locStr == "" || robotStr == "" {
+		fmt.Fprintf(c.App.Writer, "%s -> %s -> %s\n", client.selectedOrg.Name, client.selectedLoc.Name, robot.Name)
+	}
+
+	name := part.Name
+	if part.MainPart {
+		name += " (main)"
+	}
+	fmt.Fprintf(
+		c.App.Writer,
+		"ID: %s\nname: %s\nlast access: %s (%s ago)\n",
+		part.Id,
+		name,
+		part.LastAccess.AsTime().Format(time.UnixDate),
+		time.Since(part.LastAccess.AsTime()),
+	)
+
+	return nil
+}
+
+// RobotPartLogsAction is the corresponding Action for 'robot part logs'.
+func RobotPartLogsAction(c *cli.Context) error {
+	client, err := newAppClient(c)
+	if err != nil {
+		return err
+	}
+
+	orgStr := c.String("organization")
+	locStr := c.String("location")
+	robotStr := c.String("robot")
+	robot, err := client.robot(orgStr, locStr, robotStr)
+	if err != nil {
+		return errors.Wrap(err, "could not get robot")
+	}
+
+	var header string
+	if orgStr == "" || locStr == "" || robotStr == "" {
+		header = fmt.Sprintf("%s -> %s -> %s", client.selectedOrg.Name, client.selectedLoc.Name, robot.Name)
+	}
+	if c.Bool("tail") {
+		return client.tailRobotPartLogs(
+			orgStr, locStr, robotStr, c.String("part"),
+			c.Bool("errors"),
+			"",
+			header,
+		)
+	}
+	return client.printRobotPartLogs(
+		orgStr, locStr, robotStr, c.String("part"),
+		c.Bool("errors"),
+		"",
+		header,
+	)
+}
+
+// RobotPartRunAction is the corresponding Action for 'robot part run'.
+func RobotPartRunAction(c *cli.Context) error {
+	svcMethod := c.Args().First()
+	if svcMethod == "" {
+		return errors.New("service method required")
+	}
+
+	client, err := newAppClient(c)
+	if err != nil {
+		return err
+	}
+
+	// Create logger based on presence of "debug" flag.
+	logger := zap.NewNop().Sugar()
+	if c.Bool("debug") {
+		logger = golog.NewDebugLogger("cli")
+	}
+
+	return client.runRobotPartCommand(
+		c.String("organization"),
+		c.String("location"),
+		c.String("robot"),
+		c.String("part"),
+		svcMethod,
+		c.String("data"),
+		c.Duration("stream"),
+		c.Bool("debug"),
+		logger,
+	)
+}
+
+// RobotPartShellAction is the corresponding Action for 'robot part shell'.
+func RobotPartShellAction(c *cli.Context) error {
+	infof(c.App.Writer, "ensure robot part has a valid shell type service")
+
+	client, err := newAppClient(c)
+	if err != nil {
+		return err
+	}
+
+	// Create logger based on presence of "debug" flag.
+	logger := zap.NewNop().Sugar()
+	if c.Bool("debug") {
+		logger = golog.NewDebugLogger("cli")
+	}
+
+	return client.startRobotPartShell(
+		c.String("organization"),
+		c.String("location"),
+		c.String("robot"),
+		c.String("part"),
+		c.Bool("debug"),
+		logger,
+	)
+}
+
+// VersionAction is the corresponding Action for 'version'.
+func VersionAction(c *cli.Context) error {
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return errors.New("error reading build info")
+	}
+	if c.Bool("debug") {
+		fmt.Fprintf(c.App.Writer, "%s\n", info.String())
+	}
+	settings := make(map[string]string, len(info.Settings))
+	for _, setting := range info.Settings {
+		settings[setting.Key] = setting.Value
+	}
+	version := "?"
+	if rev, ok := settings["vcs.revision"]; ok {
+		version = rev[:8]
+		if settings["vcs.modified"] == "true" {
+			version += "+"
+		}
+	}
+	deps := make(map[string]*debug.Module, len(info.Deps))
+	for _, dep := range info.Deps {
+		deps[dep.Path] = dep
+	}
+	apiVersion := "?"
+	if dep, ok := deps["go.viam.com/api"]; ok {
+		apiVersion = dep.Version
+	}
+	appVersion := rconfig.Version
+	if appVersion == "" {
+		appVersion = "(dev)"
+	}
+	fmt.Fprintf(c.App.Writer, "version %s git=%s api=%s\n", appVersion, version, apiVersion)
+	return nil
 }
 
 func checkBaseURL(c *cli.Context) (*url.URL, []rpc.DialOption, error) {
@@ -77,9 +417,7 @@ func isProdBaseURL(baseURL *url.URL) bool {
 	return strings.HasSuffix(baseURL.Hostname(), "viam.com")
 }
 
-// NewAppClient returns a new app client that may already
-// be authenticated.
-func NewAppClient(c *cli.Context) (*AppClient, error) {
+func newAppClient(c *cli.Context) (*appClient, error) {
 	baseURL, rpcOpts, err := checkBaseURL(c)
 	if err != nil {
 		return nil, err
@@ -97,10 +435,10 @@ func NewAppClient(c *cli.Context) (*AppClient, error) {
 		if !os.IsNotExist(err) {
 			return nil, err
 		}
-		conf = &Config{}
+		conf = &config{}
 	}
 
-	return &AppClient{
+	return &appClient{
 		c:           c,
 		conf:        conf,
 		baseURL:     baseURL,
@@ -111,142 +449,13 @@ func NewAppClient(c *cli.Context) (*AppClient, error) {
 	}, nil
 }
 
-// Login goes through the CLI login flow using a device code and browser. Once logged in the access token and user details
-// are cached on disk.
-func (c *AppClient) Login() error {
-	var token *Token
-	var err error
-	if c.conf.Auth != nil && c.conf.Auth.CanRefresh() {
-		token, err = c.authFlow.Refresh(c.c.Context, c.conf.Auth)
-		if err != nil {
-			utils.UncheckedError(c.Logout())
-			return err
-		}
-	} else {
-		token, err = c.authFlow.Login(c.c.Context)
-		if err != nil {
-			return err
-		}
-	}
-
-	// write token to config.
-	c.conf.Auth = token
-
-	return storeConfigToCache(c.conf)
-}
-
-// Config returns the current config.
-func (c *AppClient) Config() *Config {
-	return c.conf
-}
-
-// RPCOpts returns RPC dial options dervied from the base URL
-// being used in the current invocation of the CLI.
-func (c *AppClient) RPCOpts() []rpc.DialOption {
+func (c *appClient) copyRPCOpts() []rpc.DialOption {
 	rpcOpts := make([]rpc.DialOption, len(c.rpcOpts))
 	copy(rpcOpts, c.rpcOpts)
 	return rpcOpts
 }
 
-// SelectedOrg returns the currently selected organization, possibly zero initialized.
-func (c *AppClient) SelectedOrg() *apppb.Organization {
-	return c.selectedOrg
-}
-
-// SelectedLoc returns the currently selected location, possibly zero initialized.
-func (c *AppClient) SelectedLoc() *apppb.Location {
-	return c.selectedLoc
-}
-
-func (c *AppClient) ensureLoggedIn() error {
-	if c.client != nil {
-		return nil
-	}
-
-	if c.conf.Auth == nil {
-		return errors.New("not logged in: run the following command to login:\n\tviam login")
-	}
-
-	if c.conf.Auth.IsExpired() {
-		if !c.conf.Auth.CanRefresh() {
-			utils.UncheckedError(c.Logout())
-			return errors.New("token expired and cannot refresh")
-		}
-
-		// expired.
-		newToken, err := c.authFlow.Refresh(c.c.Context, c.conf.Auth)
-		if err != nil {
-			utils.UncheckedError(c.Logout()) // clear cache if failed to refresh
-			return errors.Wrapf(err, "error while refreshing token")
-		}
-
-		// write token to config.
-		c.conf.Auth = newToken
-		if err := storeConfigToCache(c.conf); err != nil {
-			return err
-		}
-	}
-
-	rpcOpts := append(c.RPCOpts(), rpc.WithStaticAuthenticationMaterial(c.conf.Auth.AccessToken))
-
-	conn, err := rpc.DialDirectGRPC(
-		c.c.Context,
-		c.baseURL.Host,
-		nil,
-		rpcOpts...,
-	)
-	if err != nil {
-		return err
-	}
-
-	c.client = apppb.NewAppServiceClient(conn)
-	c.dataClient = datapb.NewDataServiceClient(conn)
-	return nil
-}
-
-// PrepareAuthorization prepares authorization for this device and returns
-// the device token to late authenticate with and the URL to authorize the device
-// at.
-func (c *AppClient) PrepareAuthorization() (string, string, error) {
-	req, err := http.NewRequest(
-		http.MethodPost, fmt.Sprintf("%s/auth/device", c.baseURL), nil)
-	if err != nil {
-		return "", "", err
-	}
-	req = req.WithContext(c.c.Context)
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return "", "", err
-	}
-	defer func() {
-		utils.UncheckedError(resp.Body.Close())
-	}()
-
-	if resp.StatusCode != http.StatusOK {
-		return "", "", fmt.Errorf("unexpected status code %d", resp.StatusCode)
-	}
-
-	var deviceData struct {
-		Token string `json:"token"`
-		URL   string `json:"url"`
-	}
-	dec := json.NewDecoder(resp.Body)
-	if err := dec.Decode(&deviceData); err != nil {
-		return "", "", err
-	}
-	return deviceData.Token, deviceData.URL, nil
-}
-
-// Logout logs out the client and clears the config.
-func (c *AppClient) Logout() error {
-	if err := removeConfigFromCache(); err != nil && !os.IsNotExist(err) {
-		return err
-	}
-	c.conf = &Config{}
-	return nil
-}
-
-func (c *AppClient) loadOrganizations() error {
+func (c *appClient) loadOrganizations() error {
 	resp, err := c.client.ListOrganizations(c.c.Context, &apppb.ListOrganizationsRequest{})
 	if err != nil {
 		return err
@@ -255,7 +464,7 @@ func (c *AppClient) loadOrganizations() error {
 	return nil
 }
 
-func (c *AppClient) selectOrganization(orgStr string) error {
+func (c *appClient) selectOrganization(orgStr string) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
@@ -300,10 +509,10 @@ func (c *AppClient) selectOrganization(orgStr string) error {
 	return nil
 }
 
-// GetOrg gets an org by an indentifying string. If the orgStr is an
+// getOrg gets an org by an indentifying string. If the orgStr is an
 // org UUID, then this matchs on organization ID, otherwise this will match
 // on organization name.
-func (c *AppClient) GetOrg(orgStr string) (*apppb.Organization, error) {
+func (c *appClient) getOrg(orgStr string) (*apppb.Organization, error) {
 	if err := c.ensureLoggedIn(); err != nil {
 		return nil, err
 	}
@@ -328,9 +537,9 @@ func (c *AppClient) GetOrg(orgStr string) (*apppb.Organization, error) {
 	return nil, errors.Errorf("no organization found for %q", orgStr)
 }
 
-// GetUserOrgByPublicNamespace searches the logged in users orgs to see
+// getUserOrgByPublicNamespace searches the logged in users orgs to see
 // if any have a matching public namespace.
-func (c *AppClient) GetUserOrgByPublicNamespace(publicNamespace string) (*apppb.Organization, error) {
+func (c *appClient) getUserOrgByPublicNamespace(publicNamespace string) (*apppb.Organization, error) {
 	if err := c.ensureLoggedIn(); err != nil {
 		return nil, err
 	}
@@ -346,8 +555,7 @@ func (c *AppClient) GetUserOrgByPublicNamespace(publicNamespace string) (*apppb.
 	return nil, errors.Errorf("none of your organizations have a public namespace of %q", publicNamespace)
 }
 
-// ListOrganizations returns all organizations belonging to the currently authenticated user.
-func (c *AppClient) ListOrganizations() ([]*apppb.Organization, error) {
+func (c *appClient) listOrganizations() ([]*apppb.Organization, error) {
 	if err := c.ensureLoggedIn(); err != nil {
 		return nil, err
 	}
@@ -357,7 +565,7 @@ func (c *AppClient) ListOrganizations() ([]*apppb.Organization, error) {
 	return (*c.orgs), nil
 }
 
-func (c *AppClient) loadLocations() error {
+func (c *appClient) loadLocations() error {
 	if c.selectedOrg.Id == "" {
 		return errors.New("must select organization first")
 	}
@@ -369,7 +577,7 @@ func (c *AppClient) loadLocations() error {
 	return nil
 }
 
-func (c *AppClient) selectLocation(locStr string) error {
+func (c *appClient) selectLocation(locStr string) error {
 	if locStr != "" && (c.selectedLoc.Id == locStr || c.selectedLoc.Name == locStr) {
 		return nil
 	}
@@ -403,8 +611,7 @@ func (c *AppClient) selectLocation(locStr string) error {
 	return nil
 }
 
-// ListLocations returns all locations in the given organizationbelonging to the currently authenticated user.
-func (c *AppClient) ListLocations(orgID string) ([]*apppb.Location, error) {
+func (c *appClient) listLocations(orgID string) ([]*apppb.Location, error) {
 	if err := c.ensureLoggedIn(); err != nil {
 		return nil, err
 	}
@@ -417,8 +624,7 @@ func (c *AppClient) ListLocations(orgID string) ([]*apppb.Location, error) {
 	return (*c.locs), nil
 }
 
-// ListRobots returns all robots in the given location.
-func (c *AppClient) ListRobots(orgStr, locStr string) ([]*apppb.Robot, error) {
+func (c *appClient) listRobots(orgStr, locStr string) ([]*apppb.Robot, error) {
 	if err := c.ensureLoggedIn(); err != nil {
 		return nil, err
 	}
@@ -437,13 +643,12 @@ func (c *AppClient) ListRobots(orgStr, locStr string) ([]*apppb.Robot, error) {
 	return resp.Robots, nil
 }
 
-// Robot returns the given robot.
-func (c *AppClient) Robot(orgStr, locStr, robotStr string) (*apppb.Robot, error) {
+func (c *appClient) robot(orgStr, locStr, robotStr string) (*apppb.Robot, error) {
 	if err := c.ensureLoggedIn(); err != nil {
 		return nil, err
 	}
 
-	robots, err := c.ListRobots(orgStr, locStr)
+	robots, err := c.listRobots(orgStr, locStr)
 	if err != nil {
 		return nil, err
 	}
@@ -456,12 +661,11 @@ func (c *AppClient) Robot(orgStr, locStr, robotStr string) (*apppb.Robot, error)
 	return nil, errors.Errorf("no robot found for %q", robotStr)
 }
 
-// RobotPart returns the given robot part belonging to a robot.
-func (c *AppClient) RobotPart(orgStr, locStr, robotStr, partStr string) (*apppb.RobotPart, error) {
+func (c *appClient) robotPart(orgStr, locStr, robotStr, partStr string) (*apppb.RobotPart, error) {
 	if err := c.ensureLoggedIn(); err != nil {
 		return nil, err
 	}
-	parts, err := c.RobotParts(orgStr, locStr, robotStr)
+	parts, err := c.robotParts(orgStr, locStr, robotStr)
 	if err != nil {
 		return nil, err
 	}
@@ -473,8 +677,8 @@ func (c *AppClient) RobotPart(orgStr, locStr, robotStr, partStr string) (*apppb.
 	return nil, errors.Errorf("no robot part found for %q", partStr)
 }
 
-func (c *AppClient) robotPartLogs(orgStr, locStr, robotStr, partStr string, errorsOnly bool) ([]*apppb.LogEntry, error) {
-	part, err := c.RobotPart(orgStr, locStr, robotStr, partStr)
+func (c *appClient) robotPartLogs(orgStr, locStr, robotStr, partStr string, errorsOnly bool) ([]*apppb.LogEntry, error) {
+	part, err := c.robotPart(orgStr, locStr, robotStr, partStr)
 	if err != nil {
 		return nil, err
 	}
@@ -489,28 +693,11 @@ func (c *AppClient) robotPartLogs(orgStr, locStr, robotStr, partStr string, erro
 	return resp.Logs, nil
 }
 
-// RobotPartLogs returns recent logs for the given robot part.
-func (c *AppClient) RobotPartLogs(orgStr, locStr, robotStr, partStr string) ([]*apppb.LogEntry, error) {
+func (c *appClient) robotParts(orgStr, locStr, robotStr string) ([]*apppb.RobotPart, error) {
 	if err := c.ensureLoggedIn(); err != nil {
 		return nil, err
 	}
-	return c.robotPartLogs(orgStr, locStr, robotStr, partStr, false)
-}
-
-// RobotPartLogsErrors returns recent error logs for the given robot part.
-func (c *AppClient) RobotPartLogsErrors(orgStr, locStr, robotStr, partStr string) ([]*apppb.LogEntry, error) {
-	if err := c.ensureLoggedIn(); err != nil {
-		return nil, err
-	}
-	return c.robotPartLogs(orgStr, locStr, robotStr, partStr, true)
-}
-
-// RobotParts returns all parts of the given robot.
-func (c *AppClient) RobotParts(orgStr, locStr, robotStr string) ([]*apppb.RobotPart, error) {
-	if err := c.ensureLoggedIn(); err != nil {
-		return nil, err
-	}
-	robot, err := c.Robot(orgStr, locStr, robotStr)
+	robot, err := c.robot(orgStr, locStr, robotStr)
 	if err != nil {
 		return nil, err
 	}
@@ -523,7 +710,7 @@ func (c *AppClient) RobotParts(orgStr, locStr, robotStr string) ([]*apppb.RobotP
 	return resp.Parts, nil
 }
 
-func (c *AppClient) printRobotPartLogsInternal(logs []*apppb.LogEntry, indent string) {
+func (c *appClient) printRobotPartLogsInner(logs []*apppb.LogEntry, indent string) {
 	for _, log := range logs {
 		fmt.Fprintf(
 			c.c.App.Writer,
@@ -537,8 +724,7 @@ func (c *AppClient) printRobotPartLogsInternal(logs []*apppb.LogEntry, indent st
 	}
 }
 
-// PrintRobotPartLogs prints logs for the given robot part.
-func (c *AppClient) PrintRobotPartLogs(orgStr, locStr, robotStr, partStr string, errorsOnly bool, indent, header string) error {
+func (c *appClient) printRobotPartLogs(orgStr, locStr, robotStr, partStr string, errorsOnly bool, indent, header string) error {
 	logs, err := c.robotPartLogs(orgStr, locStr, robotStr, partStr, errorsOnly)
 	if err != nil {
 		return err
@@ -551,13 +737,13 @@ func (c *AppClient) PrintRobotPartLogs(orgStr, locStr, robotStr, partStr string,
 		fmt.Fprintf(c.c.App.Writer, "%sno recent logs\n", indent)
 		return nil
 	}
-	c.printRobotPartLogsInternal(logs, indent)
+	c.printRobotPartLogsInner(logs, indent)
 	return nil
 }
 
-// TailRobotPartLogs tails and prints logs for the given robot part.
-func (c *AppClient) TailRobotPartLogs(orgStr, locStr, robotStr, partStr string, errorsOnly bool, indent, header string) error {
-	part, err := c.RobotPart(orgStr, locStr, robotStr, partStr)
+// tailRobotPartLogs tails and prints logs for the given robot part.
+func (c *appClient) tailRobotPartLogs(orgStr, locStr, robotStr, partStr string, errorsOnly bool, indent, header string) error {
+	part, err := c.robotPart(orgStr, locStr, robotStr, partStr)
 	if err != nil {
 		return err
 	}
@@ -581,49 +767,11 @@ func (c *AppClient) TailRobotPartLogs(orgStr, locStr, robotStr, partStr string, 
 			}
 			return err
 		}
-		c.printRobotPartLogsInternal(resp.Logs, indent)
+		c.printRobotPartLogsInner(resp.Logs, indent)
 	}
 }
 
-func (c *AppClient) prepareDial(
-	orgStr, locStr, robotStr, partStr string,
-	debug bool,
-) (context.Context, string, []rpc.DialOption, error) {
-	if err := c.ensureLoggedIn(); err != nil {
-		return nil, "", nil, err
-	}
-	if err := c.selectOrganization(orgStr); err != nil {
-		return nil, "", nil, err
-	}
-	if err := c.selectLocation(locStr); err != nil {
-		return nil, "", nil, err
-	}
-
-	part, err := c.RobotPart(c.selectedOrg.Id, c.selectedLoc.Id, robotStr, partStr)
-	if err != nil {
-		return nil, "", nil, err
-	}
-
-	rpcDialer := rpc.NewCachedDialer()
-	defer func() {
-		utils.UncheckedError(rpcDialer.Close())
-	}()
-	dialCtx := rpc.ContextWithDialer(c.c.Context, rpcDialer)
-
-	rpcOpts := append(c.RPCOpts(),
-		rpc.WithExternalAuth(c.baseURL.Host, part.Fqdn),
-		rpc.WithStaticExternalAuthenticationMaterial(c.conf.Auth.AccessToken),
-	)
-
-	if debug {
-		rpcOpts = append(rpcOpts, rpc.WithDialDebug())
-	}
-
-	return dialCtx, part.Fqdn, rpcOpts, nil
-}
-
-// RunRobotPartCommand runs the given command on a robot part.
-func (c *AppClient) RunRobotPartCommand(
+func (c *appClient) runRobotPartCommand(
 	orgStr, locStr, robotStr, partStr string,
 	svcMethod, data string,
 	streamDur time.Duration,
@@ -720,8 +868,7 @@ func (c *AppClient) RunRobotPartCommand(
 	}
 }
 
-// StartRobotPartShell starts a shell on a robot part.
-func (c *AppClient) StartRobotPartShell(
+func (c *appClient) startRobotPartShell(
 	orgStr, locStr, robotStr, partStr string,
 	debug bool,
 	logger golog.Logger,
@@ -772,12 +919,15 @@ func (c *AppClient) StartRobotPartShell(
 	}
 
 	setRaw := func(isRaw bool) error {
-		r := "raw"
+		// NOTE(benjirewis): Linux systems seem to need both "raw" (no processing) and "-echo"
+		// (no echoing back inputted characters) in order to allow the input and output loops
+		// below to completely control the terminal.
+		args := []string{"raw", "-echo"}
 		if !isRaw {
-			r = "-raw"
+			args = []string{"-raw", "echo"}
 		}
 
-		rawMode := exec.Command("stty", r)
+		rawMode := exec.Command("stty", args...)
 		rawMode.Stdin = os.Stdin
 		return rawMode.Run()
 	}
@@ -837,155 +987,4 @@ func (c *AppClient) StartRobotPartShell(
 
 	outputLoop()
 	return nil
-}
-
-// CreateModule wraps the grpc CreateModule request.
-func (c *AppClient) CreateModule(moduleName, organizationID string) (*apppb.CreateModuleResponse, error) {
-	if err := c.ensureLoggedIn(); err != nil {
-		return nil, err
-	}
-	req := apppb.CreateModuleRequest{
-		Name:           moduleName,
-		OrganizationId: organizationID,
-	}
-	return c.client.CreateModule(c.c.Context, &req)
-}
-
-// UpdateModule wraps the grpc UpdateModule request.
-func (c *AppClient) UpdateModule(moduleID ModuleID, manifest ModuleManifest) (*apppb.UpdateModuleResponse, error) {
-	if err := c.ensureLoggedIn(); err != nil {
-		return nil, err
-	}
-	var models []*apppb.Model
-	for _, moduleComponent := range manifest.Models {
-		models = append(models, moduleComponentToProto(moduleComponent))
-	}
-	visibility, err := visibilityToProto(manifest.Visibility)
-	if err != nil {
-		return nil, err
-	}
-	req := apppb.UpdateModuleRequest{
-		ModuleId:    moduleID.toString(),
-		Visibility:  visibility,
-		Url:         manifest.URL,
-		Description: manifest.Description,
-		Models:      models,
-		Entrypoint:  manifest.Entrypoint,
-	}
-	return c.client.UpdateModule(c.c.Context, &req)
-}
-
-// UploadModuleFile wraps the grpc UploadModuleFile request.
-func (c *AppClient) UploadModuleFile(
-	moduleID ModuleID,
-	version,
-	platform string,
-	file *os.File,
-) (*apppb.UploadModuleFileResponse, error) {
-	if err := c.ensureLoggedIn(); err != nil {
-		return nil, err
-	}
-	ctx := c.c.Context
-
-	stream, err := c.client.UploadModuleFile(ctx)
-	if err != nil {
-		return nil, err
-	}
-	moduleFileInfo := apppb.ModuleFileInfo{
-		ModuleId: moduleID.toString(),
-		Version:  version,
-		Platform: platform,
-	}
-	req := &apppb.UploadModuleFileRequest{
-		ModuleFile: &apppb.UploadModuleFileRequest_ModuleFileInfo{ModuleFileInfo: &moduleFileInfo},
-	}
-	if err := stream.Send(req); err != nil {
-		return nil, err
-	}
-
-	var errs error
-	// We do not add the EOF as an error because all server-side errors trigger an EOF on the stream
-	// This results in extra clutter to the error msg
-	if err := sendModuleUploadRequests(ctx, stream, file, c.c.App.Writer); err != nil && !errors.Is(err, io.EOF) {
-		errs = multierr.Combine(errs, errors.Wrapf(err, "could not upload %s", file.Name()))
-	}
-
-	resp, closeErr := stream.CloseAndRecv()
-	errs = multierr.Combine(errs, closeErr)
-	return resp, errs
-}
-
-func sendModuleUploadRequests(ctx context.Context, stream apppb.AppService_UploadModuleFileClient, file *os.File, stdout io.Writer) error {
-	stat, err := file.Stat()
-	if err != nil {
-		return err
-	}
-	fileSize := stat.Size()
-	uploadedBytes := 0
-	// Close the line with the progress reading
-	defer fmt.Fprint(stdout, "\n")
-
-	//nolint:errcheck
-	defer stream.CloseSend()
-	// Loop until there is no more content to be read from file or the context expires.
-	for {
-		if ctx.Err() != nil {
-			return ctx.Err()
-		}
-		// Get the next UploadRequest from the file.
-		uploadReq, err := getNextModuleUploadRequest(file)
-
-		// EOF means we've completed successfully.
-		if errors.Is(err, io.EOF) {
-			return nil
-		}
-
-		if err != nil {
-			return errors.Wrap(err, "could not read file")
-		}
-
-		if err = stream.Send(uploadReq); err != nil {
-			return err
-		}
-		uploadedBytes += len(uploadReq.GetFile())
-		// Simple progress reading until we have a proper tui library
-		uploadPercent := int(math.Ceil(100 * float64(uploadedBytes) / float64(fileSize)))
-		fmt.Fprintf(stdout, "\r\auploading... %d%% (%d/%d bytes)", uploadPercent, uploadedBytes, fileSize)
-	}
-}
-
-func getNextModuleUploadRequest(file *os.File) (*apppb.UploadModuleFileRequest, error) {
-	// get the next chunk of bytes from the file
-	byteArr := make([]byte, ModuleUploadChunkSize)
-	numBytesRead, err := file.Read(byteArr)
-	if err != nil {
-		return nil, err
-	}
-	if numBytesRead < ModuleUploadChunkSize {
-		byteArr = byteArr[:numBytesRead]
-	}
-	return &apppb.UploadModuleFileRequest{
-		ModuleFile: &apppb.UploadModuleFileRequest_File{
-			File: byteArr,
-		},
-	}, nil
-}
-
-func visibilityToProto(visibility ModuleVisibility) (apppb.Visibility, error) {
-	switch visibility {
-	case ModuleVisibilityPrivate:
-		return apppb.Visibility_VISIBILITY_PRIVATE, nil
-	case ModuleVisibilityPublic:
-		return apppb.Visibility_VISIBILITY_PUBLIC, nil
-	default:
-		return apppb.Visibility_VISIBILITY_UNSPECIFIED,
-			errors.Errorf("invalid module visibility. must be either %q or %q", ModuleVisibilityPublic, ModuleVisibilityPrivate)
-	}
-}
-
-func moduleComponentToProto(moduleComponent ModuleComponent) *apppb.Model {
-	return &apppb.Model{
-		Api:   moduleComponent.API,
-		Model: moduleComponent.Model,
-	}
 }

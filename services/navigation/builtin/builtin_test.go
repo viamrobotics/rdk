@@ -10,6 +10,7 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/test"
+	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/components/base"
 	fakebase "go.viam.com/rdk/components/base/fake"
@@ -289,6 +290,8 @@ func TestStartWaypoint(t *testing.T) {
 		pt1, pt2, pt3 := geo.NewPoint(1, 2), geo.NewPoint(2, 3), geo.NewPoint(3, 4)
 		points := []*geo.Point{pt1, pt2, pt3}
 		t.Run("MoveOnGlobe error results in skipping the current waypoint", func(t *testing.T) {
+			ctx, cancelFunc := context.WithCancel(ctx)
+			defer cancelFunc()
 			err = deleteAllWaypoints(ctx, ns)
 			for _, pt := range points {
 				err = ns.AddWaypoint(ctx, pt, nil)
@@ -389,6 +392,16 @@ func TestStartWaypoint(t *testing.T) {
 				wp2, err = ns.(*builtIn).store.NextWaypoint(ctx)
 				test.That(t, err, test.ShouldBeNil)
 			}
+
+			// ensure we actually start the wp2 waypoint before removing it
+			testutils.WaitForAssertion(t, func(tb testing.TB) {
+				tb.Helper()
+				ns.(*builtIn).mu.RLock()
+				svcWp := ns.(*builtIn).waypointInProgress
+				ns.(*builtIn).mu.RUnlock()
+				test.That(tb, wp2.ID, test.ShouldEqual, svcWp.ID)
+			})
+
 			err = ns.RemoveWaypoint(ctx, wp2.ID, nil)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, <-statusChannel, test.ShouldEqual, cancelledContextMsg)
