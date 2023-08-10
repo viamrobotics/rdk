@@ -36,7 +36,7 @@ type FromDMContextKey struct{}
 const FromDMString = "fromDataManagement"
 
 // ErrNoCaptureToStore is returned when a modular filter resource filters the capture coming from the base resource.
-var ErrNoCaptureToStore = errors.New("No capture from filter module")
+var ErrNoCaptureToStore = errors.New("no capture from filter module")
 
 // Collector collects data to some target.
 type Collector interface {
