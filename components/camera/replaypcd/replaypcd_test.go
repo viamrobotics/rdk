@@ -17,7 +17,12 @@ import (
 	"go.viam.com/rdk/utils/contextutils"
 )
 
-const datasetDirectory = "slam/mock_lidar/%d.pcd"
+const (
+	datasetDirectory    = "slam/mock_lidar/%d.pcd"
+	validRobotID        = "robot_id"
+	validOrganizationID = "organization_id"
+	validLocationID     = "location_id"
+)
 
 var (
 	numPCDFiles       = 15
@@ -127,8 +132,10 @@ func TestNextPointCloud(t *testing.T) {
 		{
 			description: "Calling NextPointCloud with robot_id",
 			cfg: &Config{
-				Source:  "source",
-				RobotID: "robot_id",
+				Source:         "source",
+				RobotID:        validRobotID,
+				OrganizationID: validOrganizationID,
+				LocationID:     validLocationID,
 			},
 			startFileNum: 0,
 			endFileNum:   numPCDFiles,
@@ -138,6 +145,24 @@ func TestNextPointCloud(t *testing.T) {
 			cfg: &Config{
 				Source:  "source",
 				RobotID: "bad_robot_id",
+			},
+			startFileNum: -1,
+			endFileNum:   -1,
+		},
+		{
+			description: "Calling NextPointCloud with bad robot_id",
+			cfg: &Config{
+				Source:     "source",
+				LocationID: "bad_location_id",
+			},
+			startFileNum: -1,
+			endFileNum:   -1,
+		},
+		{
+			description: "Calling NextPointCloud with bad robot_id",
+			cfg: &Config{
+				Source:         "source",
+				OrganizationID: "bad_organization_id",
 			},
 			startFileNum: -1,
 			endFileNum:   -1,

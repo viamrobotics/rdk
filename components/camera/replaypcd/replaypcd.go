@@ -50,10 +50,12 @@ func init() {
 
 // Config describes how to configure the replay camera component.
 type Config struct {
-	Source    string       `json:"source,omitempty"`
-	RobotID   string       `json:"robot_id,omitempty"`
-	Interval  TimeInterval `json:"time_interval,omitempty"`
-	BatchSize *uint64      `json:"batch_size,omitempty"`
+	Source         string       `json:"source,omitempty"`
+	RobotID        string       `json:"robot_id,omitempty"`
+	LocationID     string       `json:"location_id,omitempty"`
+	OrganizationID string       `json:"organization_id,omitempty"`
+	Interval       TimeInterval `json:"time_interval,omitempty"`
+	BatchSize      *uint64      `json:"batch_size,omitempty"`
 }
 
 // TimeInterval holds the start and end time used to filter data.
@@ -297,7 +299,9 @@ func (replay *pcdCamera) Images(ctx context.Context) ([]image.Image, time.Time, 
 
 // Properties is a part of the camera interface but is not implemented for replay.
 func (replay *pcdCamera) Properties(ctx context.Context) (camera.Properties, error) {
-	var props camera.Properties
+	props := camera.Properties{
+		SupportsPCD: true,
+	}
 	return props, errors.New("Properties is unimplemented")
 }
 
@@ -362,10 +366,12 @@ func (replay *pcdCamera) Reconfigure(ctx context.Context, deps resource.Dependen
 	replay.cache = nil
 
 	replay.filter = &datapb.Filter{
-		ComponentName: replayCamConfig.Source,
-		RobotId:       replayCamConfig.RobotID,
-		MimeType:      []string{"pointcloud/pcd"},
-		Interval:      &datapb.CaptureInterval{},
+		ComponentName:   replayCamConfig.Source,
+		RobotId:         replayCamConfig.RobotID,
+		LocationIds:     []string{replayCamConfig.LocationID},
+		OrganizationIds: []string{replayCamConfig.OrganizationID},
+		MimeType:        []string{"pointcloud/pcd"},
+		Interval:        &datapb.CaptureInterval{},
 	}
 	replay.lastData = ""
 
