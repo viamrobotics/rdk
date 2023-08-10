@@ -21,8 +21,9 @@ import (
 )
 
 var (
+	validSource         = "source"
 	validRobotID        = "robot_id"
-	validOrganizationID = "org_id"
+	validOrganizationID = "organization_id"
 	validLocationID     = "location_id"
 
 	batchSizeZero        = uint64(0)
@@ -110,14 +111,14 @@ func TestNewReplayMovementSensor(t *testing.T) {
 		{
 			description: "valid config with internal cloud service",
 			cfg: &Config{
-				Source: "source",
+				Source: validSource,
 			},
 			validCloudConnection: true,
 		},
 		{
 			description: "bad internal cloud service",
 			cfg: &Config{
-				Source: "source",
+				Source: validSource,
 			},
 			validCloudConnection: false,
 			expectedErr:          errors.New("failure to connect to the cloud: cloud connection error"),
@@ -125,7 +126,7 @@ func TestNewReplayMovementSensor(t *testing.T) {
 		{
 			description: "bad start timestamp",
 			cfg: &Config{
-				Source: "source",
+				Source: validSource,
 				Interval: TimeInterval{
 					Start: "bad timestamp",
 				},
@@ -136,7 +137,7 @@ func TestNewReplayMovementSensor(t *testing.T) {
 		{
 			description: "bad end timestamp",
 			cfg: &Config{
-				Source: "source",
+				Source: validSource,
 				Interval: TimeInterval{
 					End: "bad timestamp",
 				},
@@ -178,18 +179,9 @@ func TestReplayMovementSensorFunctions(t *testing.T) {
 		endFileNum   map[string]int
 	}{
 		{
-			description: "Calling function no filter",
+			description: "Calling method no filter",
 			cfg: &Config{
-				Source: "source",
-			},
-			methods:      []string{"LinearAcceleration", "AngularVelocity", "Position", "LinearVelocity", "CompassHeading", "Orientation"},
-			startFileNum: defaultMinDataLength,
-			endFileNum:   defaultMaxDataLength,
-		},
-		{
-			description: "Calling function with valid filter",
-			cfg: &Config{
-				Source:         "source",
+				Source:         validSource,
 				RobotID:        validRobotID,
 				LocationID:     validLocationID,
 				OrganizationID: validOrganizationID,
@@ -199,28 +191,59 @@ func TestReplayMovementSensorFunctions(t *testing.T) {
 			endFileNum:   defaultMaxDataLength,
 		},
 		{
-			description: "Calling function with bad source",
+			description: "Calling method with valid filter",
 			cfg: &Config{
-				Source: "bad_source",
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
+			},
+			methods:      []string{"LinearAcceleration", "AngularVelocity", "Position", "LinearVelocity", "CompassHeading", "Orientation"},
+			startFileNum: defaultMinDataLength,
+			endFileNum:   defaultMaxDataLength,
+		},
+		{
+			description: "Calling method with bad source",
+			cfg: &Config{
+				Source:         "bad_source",
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
 			},
 			methods:      []string{"LinearAcceleration"},
 			startFileNum: map[string]int{"LinearAcceleration": -1},
 			endFileNum:   map[string]int{"LinearAcceleration": -1},
 		},
 		{
-			description: "Calling function with bad robot_id",
+			description: "Calling method with bad robot_id",
 			cfg: &Config{
-				Source:  "source",
-				RobotID: "bad_robot_id",
+				Source:         validSource,
+				RobotID:        "bad_robot_id",
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
 			},
 			methods:      []string{"LinearAcceleration"},
 			startFileNum: map[string]int{"LinearAcceleration": -1},
 			endFileNum:   map[string]int{"LinearAcceleration": -1},
 		},
 		{
-			description: "Calling function with bad organization_id",
+			description: "Calling method with bad location_id",
 			cfg: &Config{
-				Source:         "source",
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     "bad_location_id",
+				OrganizationID: validOrganizationID,
+			},
+			methods:      []string{"LinearAcceleration"},
+			startFileNum: map[string]int{"LinearAcceleration": -1},
+			endFileNum:   map[string]int{"LinearAcceleration": -1},
+		},
+		{
+			description: "Calling method with bad organization_id",
+			cfg: &Config{
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
 				OrganizationID: "bad_organization_id",
 			},
 			methods:      []string{"LinearAcceleration"},
@@ -228,20 +251,13 @@ func TestReplayMovementSensorFunctions(t *testing.T) {
 			endFileNum:   map[string]int{"LinearAcceleration": -1},
 		},
 		{
-			description: "Calling function with bad location_id",
+			description: "Calling method with filter no data",
 			cfg: &Config{
-				Source:     "source",
-				LocationID: "bad_location_id",
-			},
-			methods:      []string{"LinearAcceleration"},
-			startFileNum: map[string]int{"LinearAcceleration": -1},
-			endFileNum:   map[string]int{"LinearAcceleration": -1},
-		},
-		{
-			description: "Calling function with filter no data",
-			cfg: &Config{
-				Source:    "source",
-				BatchSize: &batchSizeNonZero,
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
+				BatchSize:      &batchSizeNonZero,
 				Interval: TimeInterval{
 					Start: "2000-01-01T12:00:30Z",
 					End:   "2000-01-01T12:00:40Z",
@@ -252,10 +268,13 @@ func TestReplayMovementSensorFunctions(t *testing.T) {
 			endFileNum:   map[string]int{"LinearAcceleration": -1},
 		},
 		{
-			description: "Calling function with end filter",
+			description: "Calling methods with end filter",
 			cfg: &Config{
-				Source:    "source",
-				BatchSize: &batchSizeNonZero,
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
+				BatchSize:      &batchSizeNonZero,
 				Interval: TimeInterval{
 					End: "2000-01-01T12:00:03Z",
 				},
@@ -272,10 +291,13 @@ func TestReplayMovementSensorFunctions(t *testing.T) {
 			},
 		},
 		{
-			description: "Calling function with start filter",
+			description: "Calling methods with start filter",
 			cfg: &Config{
-				Source:    "source",
-				BatchSize: &batchSizeNonZero,
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
+				BatchSize:      &batchSizeNonZero,
 				Interval: TimeInterval{
 					Start: "2000-01-01T12:00:02Z",
 				},
@@ -299,10 +321,13 @@ func TestReplayMovementSensorFunctions(t *testing.T) {
 			},
 		},
 		{
-			description: "Calling NextPointCloud with start and end filter",
+			description: "Calling methods with start and end filter",
 			cfg: &Config{
-				Source:    "source",
-				BatchSize: &batchSizeNonZero,
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
+				BatchSize:      &batchSizeNonZero,
 				Interval: TimeInterval{
 					Start: "2000-01-01T12:00:01Z",
 					End:   "2000-01-01T12:00:03Z",
@@ -361,25 +386,23 @@ func TestReplayMovementSensorConfigValidation(t *testing.T) {
 		expectedErr  error
 	}{
 		{
-			description: "Valid config with source and no timestamp",
+			description: "Valid config and no timestamp",
 			cfg: &Config{
-				Source:   "source",
-				Interval: TimeInterval{},
-			},
-			expectedDeps: []string{cloud.InternalServiceName.String()},
-		},
-		{
-			description: "Valid config with source and any robot id",
-			cfg: &Config{
-				Source:  "source",
-				RobotID: "source",
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
+				Interval:       TimeInterval{},
 			},
 			expectedDeps: []string{cloud.InternalServiceName.String()},
 		},
 		{
 			description: "Valid config with start timestamp",
 			cfg: &Config{
-				Source: "source",
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
 				Interval: TimeInterval{
 					Start: "2000-01-01T12:00:00Z",
 				},
@@ -389,7 +412,10 @@ func TestReplayMovementSensorConfigValidation(t *testing.T) {
 		{
 			description: "Valid config with end timestamp",
 			cfg: &Config{
-				Source: "source",
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
 				Interval: TimeInterval{
 					End: "2000-01-01T12:00:00Z",
 				},
@@ -399,7 +425,10 @@ func TestReplayMovementSensorConfigValidation(t *testing.T) {
 		{
 			description: "Valid config with start and end timestamps",
 			cfg: &Config{
-				Source: "source",
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
 				Interval: TimeInterval{
 					Start: "2000-01-01T12:00:00Z",
 					End:   "2000-01-01T12:00:01Z",
@@ -410,15 +439,47 @@ func TestReplayMovementSensorConfigValidation(t *testing.T) {
 		{
 			description: "Invalid config no source and no timestamp",
 			cfg: &Config{
-				Source:   "",
 				Interval: TimeInterval{},
 			},
-			expectedErr: utils.NewConfigValidationFieldRequiredError("", "source"),
+			expectedErr: utils.NewConfigValidationFieldRequiredError("", validSource),
+		},
+		{
+			description: "Invalid config no robot_id and no timestamp",
+			cfg: &Config{
+				Source:         validSource,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
+				Interval:       TimeInterval{},
+			},
+			expectedErr: utils.NewConfigValidationFieldRequiredError("", validRobotID),
+		},
+		{
+			description: "Invalid config no location_id and no timestamp",
+			cfg: &Config{
+				Source:         validSource,
+				RobotID:        validRobotID,
+				OrganizationID: validOrganizationID,
+				Interval:       TimeInterval{},
+			},
+			expectedErr: utils.NewConfigValidationFieldRequiredError("", validLocationID),
+		},
+		{
+			description: "Invalid config no organization_id and no timestamp",
+			cfg: &Config{
+				Source:     validSource,
+				RobotID:    validRobotID,
+				LocationID: validLocationID,
+				Interval:   TimeInterval{},
+			},
+			expectedErr: utils.NewConfigValidationFieldRequiredError("", validOrganizationID),
 		},
 		{
 			description: "Invalid config with bad start timestamp format",
 			cfg: &Config{
-				Source: "source",
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
 				Interval: TimeInterval{
 					Start: "gibberish",
 				},
@@ -428,7 +489,10 @@ func TestReplayMovementSensorConfigValidation(t *testing.T) {
 		{
 			description: "Invalid config with bad end timestamp format",
 			cfg: &Config{
-				Source: "source",
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
 				Interval: TimeInterval{
 					End: "gibberish",
 				},
@@ -438,7 +502,10 @@ func TestReplayMovementSensorConfigValidation(t *testing.T) {
 		{
 			description: "Invalid config with bad start timestamp",
 			cfg: &Config{
-				Source: "source",
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
 				Interval: TimeInterval{
 					Start: "3000-01-01T12:00:00Z",
 				},
@@ -448,7 +515,10 @@ func TestReplayMovementSensorConfigValidation(t *testing.T) {
 		{
 			description: "Invalid config with bad end timestamp",
 			cfg: &Config{
-				Source: "source",
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
 				Interval: TimeInterval{
 					End: "3000-01-01T12:00:00Z",
 				},
@@ -458,7 +528,10 @@ func TestReplayMovementSensorConfigValidation(t *testing.T) {
 		{
 			description: "Invalid config with start after end timestamps",
 			cfg: &Config{
-				Source: "source",
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
 				Interval: TimeInterval{
 					Start: "2000-01-01T12:00:01Z",
 					End:   "2000-01-01T12:00:00Z",
@@ -469,7 +542,10 @@ func TestReplayMovementSensorConfigValidation(t *testing.T) {
 		{
 			description: "Invalid config with batch size of 0",
 			cfg: &Config{
-				Source: "source",
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
 				Interval: TimeInterval{
 					Start: "2000-01-01T12:00:00Z",
 					End:   "2000-01-01T12:00:01Z",
@@ -481,7 +557,10 @@ func TestReplayMovementSensorConfigValidation(t *testing.T) {
 		{
 			description: "Invalid config with batch size above max",
 			cfg: &Config{
-				Source: "source",
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
 				Interval: TimeInterval{
 					Start: "2000-01-01T12:00:00Z",
 					End:   "2000-01-01T12:00:01Z",
@@ -508,7 +587,13 @@ func TestReplayMovementSensorConfigValidation(t *testing.T) {
 func TestReplayMovementSensorProperties(t *testing.T) {
 	// Construct replay movement sensor.
 	ctx := context.Background()
-	cfg := &Config{Source: "source", BatchSize: &batchSizeNonZero}
+	cfg := &Config{
+		Source:         validSource,
+		RobotID:        validRobotID,
+		LocationID:     validLocationID,
+		OrganizationID: validOrganizationID,
+		BatchSize:      &batchSizeNonZero,
+	}
 	replay, _, serverClose, err := createNewReplayMovementSensor(ctx, t, cfg, true)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, replay, test.ShouldNotBeNil)
@@ -531,7 +616,12 @@ func TestReplayMovementSensorProperties(t *testing.T) {
 func TestUnimplementedFunctionAccuracy(t *testing.T) {
 	ctx := context.Background()
 
-	cfg := &Config{Source: "source"}
+	cfg := &Config{
+		Source:         validSource,
+		RobotID:        validRobotID,
+		LocationID:     validLocationID,
+		OrganizationID: validOrganizationID,
+	}
 	replay, _, serverClose, err := createNewReplayMovementSensor(ctx, t, cfg, true)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -548,7 +638,12 @@ func TestUnimplementedFunctionAccuracy(t *testing.T) {
 func TestReplayMovementSensorReadings(t *testing.T) {
 	ctx := context.Background()
 
-	cfg := &Config{Source: "source"}
+	cfg := &Config{
+		Source:         validSource,
+		RobotID:        validRobotID,
+		LocationID:     validLocationID,
+		OrganizationID: validOrganizationID,
+	}
 	replay, _, serverClose, err := createNewReplayMovementSensor(ctx, t, cfg, true)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -579,7 +674,13 @@ func TestReplayMovementSensorReadings(t *testing.T) {
 func TestReplayMovementSensorTimestampsMetadata(t *testing.T) {
 	// Construct replay movement sensor.
 	ctx := context.Background()
-	cfg := &Config{Source: "source", BatchSize: &batchSizeNonZero}
+	cfg := &Config{
+		Source:         validSource,
+		RobotID:        validRobotID,
+		LocationID:     validLocationID,
+		OrganizationID: validOrganizationID,
+		BatchSize:      &batchSizeNonZero,
+	}
 	replay, _, serverClose, err := createNewReplayMovementSensor(ctx, t, cfg, true)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, replay, test.ShouldNotBeNil)
@@ -612,7 +713,12 @@ func TestReplayMovementSensorTimestampsMetadata(t *testing.T) {
 
 func TestReplayMovementSensorReconfigure(t *testing.T) {
 	// Construct replay movement sensor
-	cfg := &Config{Source: "source"}
+	cfg := &Config{
+		Source:         validSource,
+		RobotID:        validRobotID,
+		LocationID:     validLocationID,
+		OrganizationID: validOrganizationID,
+	}
 	ctx := context.Background()
 	replay, deps, serverClose, err := createNewReplayMovementSensor(ctx, t, cfg, true)
 	test.That(t, err, test.ShouldBeNil)
@@ -624,7 +730,7 @@ func TestReplayMovementSensorReconfigure(t *testing.T) {
 	}
 
 	// Reconfigure with a new batch size
-	cfg = &Config{Source: "source", BatchSize: &batchSize4}
+	cfg = &Config{Source: validSource, BatchSize: &batchSize4}
 	replay.Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
 
 	// Call the default movement sensor function a couple more times, ensuring that we start over from
@@ -634,7 +740,7 @@ func TestReplayMovementSensorReconfigure(t *testing.T) {
 	}
 
 	// Reconfigure again, batch size 1
-	cfg = &Config{Source: "source", BatchSize: &batchSizeNonZero}
+	cfg = &Config{Source: validSource, BatchSize: &batchSizeNonZero}
 	replay.Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
 
 	// Again verify dataset starts from beginning

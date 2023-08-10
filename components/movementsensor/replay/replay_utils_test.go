@@ -98,7 +98,7 @@ func timestampsFromIndex(index int) (*timestamppb.Timestamp, *timestamppb.Timest
 // getNextDataAfterFilter returns the index of the next data based on the provided.
 func getNextDataAfterFilter(filter *datapb.Filter, last string) (int, error) {
 	// Basic component part (source) filter
-	if filter.ComponentName != "" && filter.ComponentName != "source" {
+	if filter.ComponentName != "" && filter.ComponentName != validSource {
 		return 0, ErrEndOfDataset
 	}
 
@@ -128,28 +128,31 @@ func getNextDataAfterFilter(filter *datapb.Filter, last string) (int, error) {
 	// by sorting for the data in the list whose index is after the start second count and before the end second count.
 	// For example, if there are 15 entries the start time is 2000-01-01T12:00:10Z and the end time is 2000-01-01T12:00:14Z,
 	// we will return data from indices 10 to 14.
-	start := 0
-	end := defaultMaxDataLength[filter.Method]
+	startIntervalIndex := 0
+	endIntervalIndex := math.MaxInt
+	availableDataNum := defaultMaxDataLength[filter.Method]
+
 	if filter.Interval.Start != nil {
-		start = filter.Interval.Start.AsTime().Second()
+		startIntervalIndex = filter.Interval.Start.AsTime().Second()
 	}
 	if filter.Interval.End != nil {
-		end = int(math.Min(float64(filter.Interval.End.AsTime().Second()), float64(end)))
+		endIntervalIndex = filter.Interval.End.AsTime().Second()
 	}
 	if last == "" {
-		return getData(start, end)
+		return checkDataEndCondition(startIntervalIndex, endIntervalIndex, availableDataNum)
 	}
 	lastFileNum, err := strconv.Atoi(last)
 	if err != nil {
 		return 0, err
 	}
 
-	return getData(lastFileNum+1, end)
+	return checkDataEndCondition(lastFileNum+1, endIntervalIndex, availableDataNum)
 }
 
-// getData will return the next data to be returned after checking it satisfies the end condition.
-func getData(i, end int) (int, error) {
-	if i < end {
+// checkDataEndCondition will return the index of the data to be returned after checking the amount of data available and the end
+// internal condition.
+func checkDataEndCondition(i, endIntervalIndex, availableDataNum int) (int, error) {
+	if i < endIntervalIndex && i < availableDataNum {
 		return i, nil
 	}
 	return 0, ErrEndOfDataset
