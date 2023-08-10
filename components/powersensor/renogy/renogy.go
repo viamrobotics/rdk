@@ -109,16 +109,67 @@ type Renogy struct {
 	modbusID byte
 }
 
+func (r *Renogy) getHandler() *modbus.RTUClientHandler {
+	handler := modbus.NewRTUClientHandler(r.path)
+	handler.BaudRate = r.baud
+	handler.DataBits = 8
+	handler.Parity = "N"
+	handler.StopBits = 1
+	handler.SlaveId = r.modbusID
+	handler.Timeout = 1 * time.Second
+	return handler
+}
+
 func (r *Renogy) Voltage(ctx context.Context, extra map[string]interface{}) (float64, bool, error) {
+	handler := r.getHandler()
+
+	err := handler.Connect()
+	if err != nil {
+		return 0, false, err
+	}
+
+	defer handler.Close()
+	client := modbus.NewClient(handler)
+
+	volts := readRegister(client, 257, 1)
+	isAc := false
+
+	return float64(volts), isAc, nil
 
 }
 
 func (r *Renogy) Current(ctx context.Context, extra map[string]interface{}) (float64, bool, error) {
+	handler := r.getHandler()
 
+	err := handler.Connect()
+	if err != nil {
+		return 0, false, err
+	}
+
+	defer handler.Close()
+	client := modbus.NewClient(handler)
+
+	loadCurrent := readRegister(client, 261, 2)
+	isAc := false
+
+	return float64(loadCurrent), isAc, nil
 }
 
 func (r *Renogy) Power(ctx context.Context, extra map[string]interface{}) (float64, error) {
 
+	handler := r.getHandler()
+	err := handler.Connect()
+	if err != nil {
+		handler.Close()
+		return 0, err
+	}
+
+	defer handler.Close()
+
+	client := modbus.NewClient(handler)
+
+	loadPower := readRegister(client, 262, 0)
+	return float64(loadPower), err
 }
 
 // Readings returns a list of readings from the sensor.
@@ -142,13 +193,7 @@ func (r *Renogy) Readings(ctx context.Context, extra map[string]interface{}) (ma
 // GetControllerOutput returns current readings from the charge controller.
 func (r *Renogy) GetControllerOutput(ctx context.Context) (Charge, error) {
 	var chargeRes Charge
-	handler := modbus.NewRTUClientHandler(r.path)
-	handler.BaudRate = r.baud
-	handler.DataBits = 8
-	handler.Parity = "N"
-	handler.StopBits = 1
-	handler.SlaveId = r.modbusID
-	handler.Timeout = 1 * time.Second
+	handler := r.getHandler()
 
 	err := handler.Connect()
 	if err != nil {
