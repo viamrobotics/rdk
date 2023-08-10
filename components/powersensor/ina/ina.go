@@ -13,6 +13,7 @@ import (
 	"fmt"
 
 	"github.com/d2r2/go-i2c"
+	i2clog "github.com/d2r2/go-logger"
 	"github.com/edaniels/golog"
 	"go.viam.com/utils"
 
@@ -91,6 +92,8 @@ func newINA(
 	modelName string,
 ) (powersensor.PowerSensor, error) {
 
+	i2clog.ChangePackageLogLevel("i2c", i2clog.InfoLevel)
+
 	addr := conf.I2cAddr
 	if addr == 0 {
 		addr = defaultI2Caddr
@@ -109,7 +112,7 @@ func newINA(
 		}
 	}
 
-	resistance := int64(conf.ShuntResistance * 100 * milliOhm)
+	resistance := int64(conf.ShuntResistance * 1000 * milliOhm)
 	if resistance == 0 {
 		resistance = senseResistor
 		logger.Infof("using default resistor value 0.1 ohms")
@@ -155,14 +158,12 @@ type ina struct {
 
 func (d *ina) setCalibrationScale(modelName string) error {
 	var calibratescale int64
-
+	d.currentLSB = d.maxCurrent / (1 << 15)
 	switch modelName {
 	case modelName219:
-		d.currentLSB = maxCurrent219 / (1 << 15)
 		calibratescale = calibratescale219
-		d.powerLSB = (maxCurrent219*20 + (1 << 14)) / (1 << 15)
+		d.powerLSB = (d.maxCurrent*20 + (1 << 14)) / (1 << 15)
 	case modelName226:
-		d.currentLSB = maxCurrent226 / (1 << 15)
 		calibratescale = calibrateScale226
 		d.powerLSB = 25 * d.currentLSB
 	default:
