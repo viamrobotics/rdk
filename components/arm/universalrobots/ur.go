@@ -4,6 +4,7 @@ package universalrobots
 import (
 	"bufio"
 	"context"
+
 	// for embedding model file.
 	_ "embed"
 	"encoding/binary"
@@ -91,6 +92,7 @@ type URArm struct {
 	dashboardConnection      net.Conn
 	readRobotStateConnection net.Conn
 	host                     string
+	isConnected              bool
 }
 
 const waitBackgroundWorkersDur = 5 * time.Second
@@ -198,6 +200,7 @@ func URArmConnect(ctx context.Context, conf resource.Config, logger golog.Logger
 		readRobotStateConnection: connReadRobotState,
 		dashboardConnection:      connDashboard,
 		host:                     newConf.Host,
+		isConnected:              true,
 	}
 
 	newArm.activeBackgroundWorkers.Add(1)
@@ -214,12 +217,18 @@ func URArmConnect(ctx context.Context, conf resource.Config, logger golog.Logger
 						return
 					}
 					logger.Debug("attempting to reconnect to ur arm dashboard")
+					// time.Sleep(1 * time.Second)
 					connDashboard, err = d.DialContext(cancelCtx, "tcp", newArm.host+":29999")
 					if err == nil {
 						newArm.mu.Lock()
 						newArm.dashboardConnection = connDashboard
+						newArm.isConnected = true
 						newArm.mu.Unlock()
 						break
+					} else {
+						newArm.mu.Lock()
+						newArm.isConnected = false
+						newArm.mu.Unlock()
 					}
 					if !goutils.SelectContextOrWait(cancelCtx, 1*time.Second) {
 						return
