@@ -165,23 +165,6 @@ func createMoveOnMapEnvironment(ctx context.Context, t *testing.T, pcdPath strin
 	return ms
 }
 
-func TestSmth(t *testing.T) {
-	ms, teardown := setupMotionServiceFromConfig(t, "../data/gps_base.json")
-	defer teardown()
-	ctx := context.Background()
-	ms.MoveOnGlobe(
-		ctx,
-		base.Named("test-base"),
-		geo.NewPoint(0, 0),
-		0,
-		movementsensor.Named("test-gps"),
-		nil,
-		&motion.MotionConfiguration{},
-		nil,
-	)
-
-}
-
 func TestMoveFailures(t *testing.T) {
 	var err error
 	ms, teardown := setupMotionServiceFromConfig(t, "../data/arm_gantry.json")
