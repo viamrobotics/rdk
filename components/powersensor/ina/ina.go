@@ -91,9 +91,9 @@ func newINA(
 	modelName string,
 ) (powersensor.PowerSensor, error) {
 
-	err = i2clog.ChangePackageLogLevel("i2c", i2clog.InfoLevel)
+	err := i2clog.ChangePackageLogLevel("i2c", i2clog.InfoLevel)
 	if err != nil {
-		return nil, err
+		return nil, UncheckedErrorFunc
 	}
 
 	addr := conf.I2cAddr
@@ -127,7 +127,7 @@ func newINA(
 		bus:        conf.I2CBus,
 		addr:       byte(addr),
 		maxCurrent: maxCurrent,
-		resistance: resisitance,
+		resistance: resistance,
 	}
 
 	err := s.setCalibrationScale(modelName)
