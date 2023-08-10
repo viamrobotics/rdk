@@ -126,7 +126,9 @@ func (b *Board) reconfigureGpios(newConf LinuxBoardConfig) error {
 		if oldName, oldPin := getMatchingPin(mapping, b.gpios); oldPin != nil {
 			newGpios[newName] = oldPin
 			delete(b.gpioMappings, oldName)
-			renaming[oldName] = newName
+			if oldName != newName {
+				renaming[oldName] = newName
+			}
 		}
 	}
 
@@ -139,9 +141,22 @@ func (b *Board) reconfigureGpios(newConf LinuxBoardConfig) error {
 		}
 	}
 
-	// All remaining old pins should be closed.
-	for _, pin := range b.gpios {
+	// All remaining old pins should be closed. All interrupts using them should also be closed and
+	// deleted.
+	for pinName, pin := range b.gpios {
 		pin.Close()
+		// If this pin was used in a digital interrupt, shut that down, too. but don't mutate our
+		// interrupt collection while iterating over it! Wait until after iterating to remove them.
+		interruptsToRemove := []string{}
+		for intName, interrupt := range b.interrupts {
+			if interrupt.config.Pin == pinName {
+				interrupt.Close()
+				interruptsToRemove = append(interruptsToRemove, intName)
+			}
+		}
+		for intName := range interruptsToRemove {
+			delete(b.interrupts, intName)
+		}
 	}
 
 	// All remaining new pins should be created.
