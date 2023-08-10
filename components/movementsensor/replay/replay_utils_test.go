@@ -29,9 +29,7 @@ import (
 )
 
 const (
-	testTime   = "2000-01-01T12:00:%02dZ"
-	orgID      = "org_id"
-	locationID = "location_id"
+	testTime = "2000-01-01T12:00:%02dZ"
 )
 
 // mockDataServiceServer is a struct that includes unimplemented versions of all the Data Service endpoints. These
@@ -48,12 +46,11 @@ func (mDServer *mockDataServiceServer) TabularDataByFilter(ctx context.Context, 
 	last := req.DataRequest.GetLast()
 	limit := req.DataRequest.GetLimit()
 
-	// Construct response
 	var dataset []*datapb.TabularData
-	var index int
+	var dataIndex int
 	var err error
 	for i := 0; i < int(limit); i++ {
-		index, err = getNextDataAfterFilter(filter, last)
+		dataIndex, err = getNextDataAfterFilter(filter, last)
 		if err != nil {
 			if i == 0 {
 				return nil, err
@@ -61,14 +58,15 @@ func (mDServer *mockDataServiceServer) TabularDataByFilter(ctx context.Context, 
 			continue
 		}
 
-		data := createDataByFunction(filter.Method, index)
+		// Call desired function
+		data := createDataByMovementSensorMethod(filter.Method, dataIndex)
 
-		timeReq, timeRec, err := timestampsFromIndex(index)
+		timeReq, timeRec, err := timestampsFromIndex(dataIndex)
 		if err != nil {
 			return nil, err
 		}
 
-		last = fmt.Sprint(index)
+		last = fmt.Sprint(dataIndex)
 
 		tabularData := &datapb.TabularData{
 			Data:          data,
@@ -78,6 +76,7 @@ func (mDServer *mockDataServiceServer) TabularDataByFilter(ctx context.Context, 
 		dataset = append(dataset, tabularData)
 	}
 
+	// Construct response
 	resp := &datapb.TabularDataByFilterResponse{
 		Data: dataset,
 		Last: last,
@@ -86,6 +85,7 @@ func (mDServer *mockDataServiceServer) TabularDataByFilter(ctx context.Context, 
 	return resp, nil
 }
 
+// timestampsFromIndex uses the index of the data to generate a timeReceived and timeRequested for testing.
 func timestampsFromIndex(index int) (*timestamppb.Timestamp, *timestamppb.Timestamp, error) {
 	timeReq, err := time.Parse(time.RFC3339, fmt.Sprintf(testTime, index))
 	if err != nil {
@@ -95,7 +95,7 @@ func timestampsFromIndex(index int) (*timestamppb.Timestamp, *timestamppb.Timest
 	return timestamppb.New(timeReq), timestamppb.New(timeRec), nil
 }
 
-// getNextDataAfterFilter returns the data point to be return based on the provided filter and last returned data index.
+// getNextDataAfterFilter returns the index of the next data based on the provided.
 func getNextDataAfterFilter(filter *datapb.Filter, last string) (int, error) {
 	// Basic component part (source) filter
 	if filter.ComponentName != "" && filter.ComponentName != "source" {
@@ -103,17 +103,23 @@ func getNextDataAfterFilter(filter *datapb.Filter, last string) (int, error) {
 	}
 
 	// Basic robot_id filter
-	if filter.RobotId != "" && filter.RobotId != "robot_id" {
+	if filter.RobotId != "" && filter.RobotId != validRobotID {
 		return 0, ErrEndOfDataset
 	}
 
 	// Basic location_id filter
-	if filter.LocationIds[0] != "" && filter.LocationIds[0] != "location_id" {
+	if len(filter.LocationIds) == 0 {
+		return 0, errors.New("issue occurred with transmitting LocationIds to the cloud")
+	}
+	if filter.LocationIds[0] != "" && filter.LocationIds[0] != validLocationID {
 		return 0, ErrEndOfDataset
 	}
 
 	// Basic organization_id filter
-	if filter.OrganizationIds[0] != "" && filter.OrganizationIds[0] != "organization_id" {
+	if len(filter.OrganizationIds) == 0 {
+		return 0, errors.New("issue occurred with transmitting OrganizationIds to the cloud")
+	}
+	if filter.OrganizationIds[0] != "" && filter.OrganizationIds[0] != validOrganizationID {
 		return 0, ErrEndOfDataset
 	}
 
@@ -215,8 +221,8 @@ func resourcesFromDeps(t *testing.T, r robot.Robot, deps []string) resource.Depe
 	return resources
 }
 
-// createDataByFunction will create the mocked struct returned by calls in tabular data.
-func createDataByFunction(method string, index int) *structpb.Struct {
+// createDataByMovementSensorMethod will create the mocked structpb.Struct containing the next data returned by calls in tabular data.
+func createDataByMovementSensorMethod(method string, index int) *structpb.Struct {
 	var data structpb.Struct
 	switch method {
 	case "Position":
@@ -254,18 +260,12 @@ func createDataByFunction(method string, index int) *structpb.Struct {
 		data.Fields = map[string]*structpb.Value{
 			"Compass": structpb.NewNumberValue(compassHeadingData[index]),
 		}
-	default:
-		data.Fields = map[string]*structpb.Value{
-			"X": structpb.NewNumberValue(linearAccelerationData[index].X),
-			"Y": structpb.NewNumberValue(linearAccelerationData[index].Y),
-			"Z": structpb.NewNumberValue(linearAccelerationData[index].Z),
-		}
 	}
 	return &data
 }
 
-// testMovementSensorFunction tests the specified replay movement sensor function, both success and failure cases.
-func testReplayMovementSensorFunction(ctx context.Context, t *testing.T, replay movementsensor.MovementSensor, method string,
+// testReplayMovementSensorMethod tests the specified replay movement sensor function, both success and failure cases.
+func testReplayMovementSensorMethod(ctx context.Context, t *testing.T, replay movementsensor.MovementSensor, method string,
 	i int, success bool,
 ) {
 	var extra map[string]interface{}
@@ -332,17 +332,6 @@ func testReplayMovementSensorFunction(ctx context.Context, t *testing.T, replay 
 			test.That(t, err, test.ShouldNotBeNil)
 			test.That(t, err.Error(), test.ShouldContainSubstring, ErrEndOfDataset.Error())
 			test.That(t, data, test.ShouldBeNil)
-		}
-	default:
-		data, err := replay.LinearAcceleration(ctx, extra)
-		if success {
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, data, test.ShouldResemble, linearAccelerationData[i])
-		} else {
-			test.That(t, err, test.ShouldNotBeNil)
-			test.That(t, err.Error(), test.ShouldContainSubstring, ErrEndOfDataset.Error())
-			test.That(t, data, test.ShouldResemble, r3.Vector{})
 		}
 	}
 }

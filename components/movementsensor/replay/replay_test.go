@@ -21,6 +21,10 @@ import (
 )
 
 var (
+	validRobotID        = "robot_id"
+	validOrganizationID = "org_id"
+	validLocationID     = "location_id"
+
 	batchSizeZero        = uint64(0)
 	batchSizeNonZero     = uint64(5)
 	batchSize4           = uint64(4)
@@ -47,21 +51,23 @@ var (
 	linearVelocityData = []r3.Vector{
 		{X: 0, Y: 0, Z: 0},
 		{X: 1, Y: 0, Z: 0},
-		{X: 0, Y: 1, Z: 0},
-		{X: 0, Y: 2, Z: 0},
+		{X: 0, Y: 1, Z: 11},
+		{X: 1, Y: 4, Z: 0},
 		{X: 0, Y: 3, Z: 3},
-		{X: 0, Y: 2, Z: 0},
+		{X: 3, Y: 2, Z: 7},
 		{X: 0, Y: 3, Z: 3},
+		{X: 3, Y: 2, Z: 7},
+		{X: 0, Y: 3, Z: 311},
 	}
 
 	angularVelocityData = []spatialmath.AngularVelocity{
 		{X: 0, Y: 0, Z: 0},
-		{X: 1, Y: 0, Z: 0},
+		{X: 1, Y: 0, Z: 2},
 		{X: 0, Y: 1, Z: 0},
-		{X: 0, Y: 2, Z: 0},
-		{X: 0, Y: 3, Z: 3},
-		{X: 0, Y: 2, Z: 0},
-		{X: 0, Y: 3, Z: 3},
+		{X: 0, Y: 5, Z: 2},
+		{X: 2, Y: 3, Z: 3},
+		{X: 1, Y: 2, Z: 0},
+		{X: 0, Y: 0, Z: 12},
 	}
 
 	compassHeadingData = []float64{0, 1, 2, 3, 4, 5, 6, 4, 3, 2, 1}
@@ -184,9 +190,9 @@ func TestReplayMovementSensorFunctions(t *testing.T) {
 			description: "Calling function with valid filter",
 			cfg: &Config{
 				Source:         "source",
-				RobotID:        "robot_id",
-				LocationID:     "location_id",
-				OrganizationID: "organization_id",
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
 			},
 			methods:      []string{"LinearAcceleration", "AngularVelocity", "Position", "LinearVelocity", "CompassHeading", "Orientation"},
 			startFileNum: defaultMinDataLength,
@@ -332,11 +338,11 @@ func TestReplayMovementSensorFunctions(t *testing.T) {
 				// Iterate through all files that meet the provided filter
 				if tt.startFileNum[method] != -1 {
 					for i := tt.startFileNum[method]; i < tt.endFileNum[method]; i++ {
-						testReplayMovementSensorFunction(ctx, t, replay, method, i, true)
+						testReplayMovementSensorMethod(ctx, t, replay, method, i, true)
 					}
 				}
 				// Confirm the end of the dataset was reached when expected
-				testReplayMovementSensorFunction(ctx, t, replay, method, -1, false)
+				testReplayMovementSensorMethod(ctx, t, replay, method, -1, false)
 			}
 
 			err = replay.Close(ctx)
@@ -546,6 +552,7 @@ func TestReplayMovementSensorReadings(t *testing.T) {
 	replay, _, serverClose, err := createNewReplayMovementSensor(ctx, t, cfg, true)
 	test.That(t, err, test.ShouldBeNil)
 
+	// For loop depends on the data length of orientation as it has the fewest points of data
 	for i := 0; i < defaultMaxDataLength["Orientation"]; i++ {
 		readings, err := replay.Readings(ctx, map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)
@@ -582,7 +589,7 @@ func TestReplayMovementSensorTimestampsMetadata(t *testing.T) {
 		serverStream := testutils.NewServerTransportStream()
 		ctx = grpc.NewContextWithServerTransportStream(ctx, serverStream)
 
-		testReplayMovementSensorFunction(ctx, t, replay, defaultReplayMovementSensorFunction, i, true)
+		testReplayMovementSensorMethod(ctx, t, replay, defaultReplayMovementSensorFunction, i, true)
 
 		expectedTimeReq := fmt.Sprintf(testTime, i)
 		expectedTimeRec := fmt.Sprintf(testTime, i+1)
@@ -595,7 +602,7 @@ func TestReplayMovementSensorTimestampsMetadata(t *testing.T) {
 	}
 
 	// Confirm the end of the dataset was reached when expected
-	testReplayMovementSensorFunction(ctx, t, replay, defaultReplayMovementSensorFunction, -1, false)
+	testReplayMovementSensorMethod(ctx, t, replay, defaultReplayMovementSensorFunction, -1, false)
 
 	err = replay.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)
@@ -613,7 +620,7 @@ func TestReplayMovementSensorReconfigure(t *testing.T) {
 
 	// Call default movement sensor function to iterate through a few files
 	for i := 0; i < 3; i++ {
-		testReplayMovementSensorFunction(ctx, t, replay, defaultReplayMovementSensorFunction, i, true)
+		testReplayMovementSensorMethod(ctx, t, replay, defaultReplayMovementSensorFunction, i, true)
 	}
 
 	// Reconfigure with a new batch size
@@ -623,7 +630,7 @@ func TestReplayMovementSensorReconfigure(t *testing.T) {
 	// Call the default movement sensor function a couple more times, ensuring that we start over from
 	// the beginning of the dataset after calling Reconfigure
 	for i := 0; i < 5; i++ {
-		testReplayMovementSensorFunction(ctx, t, replay, defaultReplayMovementSensorFunction, i, true)
+		testReplayMovementSensorMethod(ctx, t, replay, defaultReplayMovementSensorFunction, i, true)
 	}
 
 	// Reconfigure again, batch size 1
@@ -632,11 +639,11 @@ func TestReplayMovementSensorReconfigure(t *testing.T) {
 
 	// Again verify dataset starts from beginning
 	for i := 0; i < defaultMaxDataLength[defaultReplayMovementSensorFunction]; i++ {
-		testReplayMovementSensorFunction(ctx, t, replay, defaultReplayMovementSensorFunction, i, true)
+		testReplayMovementSensorMethod(ctx, t, replay, defaultReplayMovementSensorFunction, i, true)
 	}
 
 	// Confirm the end of the dataset was reached when expected
-	testReplayMovementSensorFunction(ctx, t, replay, defaultReplayMovementSensorFunction, -1, false)
+	testReplayMovementSensorMethod(ctx, t, replay, defaultReplayMovementSensorFunction, -1, false)
 
 	err = replay.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)

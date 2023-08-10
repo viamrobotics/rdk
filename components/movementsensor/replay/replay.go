@@ -39,7 +39,7 @@ var (
 	// ErrEndOfDataset represents that the replay sensor has reached the end of the dataset.
 	ErrEndOfDataset = errors.New("reached end of dataset")
 
-	// List of all basic method possible for a movement sensor to implement.
+	// methodList is a list of all the base methods possible for a movement sensor to implement.
 	methodList = []string{"Position", "Orientation", "AngularVelocity", "LinearVelocity", "LinearAcceleration", "CompassHeading"}
 )
 
@@ -149,7 +149,7 @@ func newReplayMovementSensor(ctx context.Context, deps resource.Dependencies, co
 	return replay, nil
 }
 
-// Position returns the next position from the cache.
+// Position returns the next position from the cache, in the form of a geo.Point and altitude.
 func (replay *replayMovementSensor) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
 	replay.mu.Lock()
 	defer replay.mu.Unlock()
@@ -167,7 +167,7 @@ func (replay *replayMovementSensor) Position(ctx context.Context, extra map[stri
 		data.GetFields()["Longitude"].GetNumberValue()), data.GetFields()["Altitude"].GetNumberValue(), nil
 }
 
-// LinearVelocity returns the next linear velocity from the cache.
+// LinearVelocity returns the next linear velocity from the cache in the form of an r3.Vector.
 func (replay *replayMovementSensor) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	replay.mu.Lock()
 	defer replay.mu.Unlock()
@@ -187,7 +187,7 @@ func (replay *replayMovementSensor) LinearVelocity(ctx context.Context, extra ma
 	}, nil
 }
 
-// AngularVelocity returns the next angular velocity from the cache.
+// AngularVelocity returns the next angular velocity from the cache in the form of a spatialmath.AngularVelocity (r3.Vector).
 func (replay *replayMovementSensor) AngularVelocity(ctx context.Context, extra map[string]interface{}) (
 	spatialmath.AngularVelocity, error,
 ) {
@@ -209,7 +209,7 @@ func (replay *replayMovementSensor) AngularVelocity(ctx context.Context, extra m
 	}, nil
 }
 
-// LinearAcceleration returns the next linear acceleration from the cache.
+// LinearAcceleration returns the next linear acceleration from the cache in the form of an r3.Vector.
 func (replay *replayMovementSensor) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	replay.mu.Lock()
 	defer replay.mu.Unlock()
@@ -229,7 +229,7 @@ func (replay *replayMovementSensor) LinearAcceleration(ctx context.Context, extr
 	}, nil
 }
 
-// CompassHeading returns the next compass heading from the cache.
+// CompassHeading returns the next compass heading from the cache as a float64.
 func (replay *replayMovementSensor) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	replay.mu.Lock()
 	defer replay.mu.Unlock()
@@ -245,7 +245,7 @@ func (replay *replayMovementSensor) CompassHeading(ctx context.Context, extra ma
 	return data.GetFields()["Compass"].GetNumberValue(), nil
 }
 
-// Orientation returns the next orientation from the cache.
+// Orientation returns the next orientation from the cache as a spatialmath.Orientation created from a spatialmath.OrientationVector.
 func (replay *replayMovementSensor) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
 	replay.mu.Lock()
 	defer replay.mu.Unlock()
@@ -283,7 +283,7 @@ func (replay *replayMovementSensor) Accuracy(ctx context.Context, extra map[stri
 	return map[string]float32{}, movementsensor.ErrMethodUnimplementedAccuracy
 }
 
-// Close stops replay movement sensor, closes the channels and its connections to the cloud.
+// Close stops the replay movement sensor, closes its channels and its connections to the cloud.
 func (replay *replayMovementSensor) Close(ctx context.Context) error {
 	replay.mu.Lock()
 	defer replay.mu.Unlock()
@@ -299,7 +299,7 @@ func (replay *replayMovementSensor) Readings(ctx context.Context, extra map[stri
 }
 
 // Reconfigure finishes the bring up of the replay movement sensor by evaluating given arguments and setting up the required cloud
-// connection.
+// connection as well as updates all required parameters upon a reconfiguration attempt, restarting the cloud connection in the process.
 func (replay *replayMovementSensor) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	replay.mu.Lock()
 	defer replay.mu.Unlock()
@@ -339,17 +339,17 @@ func (replay *replayMovementSensor) Reconfigure(ctx context.Context, deps resour
 		replay.cache[k] = nil
 	}
 
+	replay.lastData = map[string]string{}
+	for _, k := range methodList {
+		replay.lastData[k] = ""
+	}
+
 	replay.filter = &datapb.Filter{
 		ComponentName:   replayMovementSensorConfig.Source,
 		RobotId:         replayMovementSensorConfig.RobotID,
 		LocationIds:     []string{replayMovementSensorConfig.LocationID},
 		OrganizationIds: []string{replayMovementSensorConfig.OrganizationID},
 		Interval:        &datapb.CaptureInterval{},
-	}
-
-	replay.lastData = map[string]string{}
-	for _, k := range methodList {
-		replay.lastData[k] = ""
 	}
 
 	if replayMovementSensorConfig.Interval.Start != "" {
@@ -399,7 +399,7 @@ func (replay *replayMovementSensor) updateCache(ctx context.Context, method stri
 	}
 	replay.lastData[method] = resp.GetLast()
 
-	// Add data to cache
+	// Add data to associated cache
 	for _, dataResponse := range resp.Data {
 		entry := &cacheEntry{
 			data:          dataResponse.Data,
@@ -439,7 +439,7 @@ func (replay *replayMovementSensor) getDataFromCache(ctx context.Context, method
 		}
 	}
 
-	// Grab the next cached data and update the cache immediately
+	// Grab the next cached data and update the associated cache
 	methodCache := replay.cache[method]
 	entry := methodCache[0]
 	replay.cache[method] = methodCache[1:]
