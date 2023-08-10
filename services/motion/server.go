@@ -140,6 +140,7 @@ func setupMotionConfiguration(motionCfg *pb.MotionConfiguration) MotionConfigura
 		AngularDegsPerSec:     angularDegsPerSec,
 	}
 }
+
 func (server *serviceServer) GetPose(ctx context.Context, req *pb.GetPoseRequest) (*pb.GetPoseResponse, error) {
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
