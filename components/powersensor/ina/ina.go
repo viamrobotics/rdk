@@ -93,7 +93,7 @@ func newINA(
 
 	err := i2clog.ChangePackageLogLevel("i2c", i2clog.InfoLevel)
 	if err != nil {
-		return nil, UncheckedErrorFunc
+		return nil, err
 	}
 
 	addr := conf.I2cAddr
@@ -130,7 +130,7 @@ func newINA(
 		resistance: resistance,
 	}
 
-	err := s.setCalibrationScale(modelName)
+	err = s.setCalibrationScale(modelName)
 	if err != nil {
 		return nil, err
 	}
