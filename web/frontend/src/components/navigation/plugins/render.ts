@@ -8,7 +8,7 @@ import { onDestroy } from 'svelte';
 const { clamp } = THREE.MathUtils;
 
 const world = new THREE.Group();
-const axes = new AxesHelper({ size: 1000 });
+const axes = new AxesHelper(1, 0.1);
 const rotation = new THREE.Euler();
 const rotationMatrix = new THREE.Matrix4();
 const scale = new THREE.Vector3();
@@ -23,7 +23,7 @@ let initialized = false;
 let counter = 0;
 let cursor = 0;
 
-const scenes: { ref: THREE.Object3D; matrix: THREE.Matrix4 }[] = [];
+const scenes: { ref: THREE.Mesh; matrix: THREE.Matrix4 }[] = [];
 const objects: { id: number, start: () => void; stop: () => void; lngLat: LngLat }[] = [];
 
 const setFrameloops = () => {
@@ -57,23 +57,25 @@ const initialize = () => {
 
   const { renderer, scene, camera } = useThrelte();
 
-  renderer!.autoClear = false;
+  renderer.autoClear = false;
 
   scene.add(world);
 
   useRender(() => {
-    renderer!.clear();
+    renderer.clear();
 
     scenes.forEach(({ ref, matrix }) => {
       camera.current.projectionMatrix = matrix;
+      axes.length = (ref.geometry.boundingSphere?.radius ?? 0) * 2;
+
       world.add(ref);
-      renderer!.render(scene, camera.current);
+      renderer.render(scene, camera.current);
       world.remove(ref);
     });
   });
 
   const unsub = mapSize.subscribe((value) => {
-    renderer?.setSize(value.width, value.height);
+    renderer.setSize(value.width, value.height);
   });
 
   onDestroy(() => unsub());
@@ -93,10 +95,10 @@ export interface Props {
 }
 
 export const renderPlugin = () => injectPlugin<Props>('lnglat', ({ ref, props }) => {
-  let currentRef = ref;
+  let currentRef: THREE.Mesh = ref;
   let currentProps = props;
 
-  if (!(currentRef instanceof THREE.Object3D) || currentProps.lnglat === undefined) {
+  if (!(currentRef instanceof THREE.Mesh) || currentProps.lnglat === undefined) {
     return;
   }
 
@@ -157,7 +159,7 @@ export const renderPlugin = () => injectPlugin<Props>('lnglat', ({ ref, props })
   });
 
   return {
-    onRefChange (nextRef) {
+    onRefChange (nextRef: THREE.Mesh) {
       currentRef = nextRef;
       sceneObj.ref = nextRef;
 
