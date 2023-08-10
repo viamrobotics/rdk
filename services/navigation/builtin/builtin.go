@@ -33,7 +33,7 @@ const (
 
 	// the allowable quality change between the new plan and the remainder
 	// of the original plan.
-	replanCostFactorDefault = 1.
+	defaultReplanCostFactor = 1.
 
 	// frequency measured in hertz.
 	defaultObstaclePollingFrequencyHz = 2.
@@ -119,7 +119,7 @@ func (conf *Config) Validate(path string) ([]string, error) {
 		conf.PlanDeviationM = defaultPlanDeviationM
 	}
 	if conf.ReplanCostFactor == 0 {
-		conf.ReplanCostFactor = replanCostFactorDefault
+		conf.ReplanCostFactor = defaultReplanCostFactor
 	}
 
 	// ensure obstacles have no translation
