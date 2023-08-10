@@ -4,7 +4,6 @@ import (
 	"context"
 	"math"
 	"sort"
-	"sync"
 
 	"go.viam.com/utils"
 )
@@ -14,9 +13,7 @@ const defaultNeighborsBeforeParallelization = 1000
 type neighborManager struct {
 	nnKeys            chan node
 	neighbors         chan *neighbor
-	nnLock            sync.RWMutex
 	seedPos           node
-	ready             bool
 	nCPU              int
 	parallelNeighbors int
 }
@@ -94,12 +91,10 @@ func (nm *neighborManager) parallelNearestNeighbor(
 	seed node,
 	rrtMap map[node]node,
 ) node {
-	nm.ready = false
 	nm.seedPos = seed
 
 	nm.neighbors = make(chan *neighbor, nm.nCPU)
 	nm.nnKeys = make(chan node, len(rrtMap))
-	defer close(nm.nnKeys)
 	defer close(nm.neighbors)
 
 	for i := 0; i < nm.nCPU; i++ {
@@ -111,24 +106,15 @@ func (nm *neighborManager) parallelNearestNeighbor(
 	for k := range rrtMap {
 		nm.nnKeys <- k
 	}
-	nm.nnLock.Lock()
-	nm.ready = true
-	nm.nnLock.Unlock()
+	close(nm.nnKeys)
+
 	var best node
 	bestDist := math.Inf(1)
-	returned := 0
-	for returned < nm.nCPU {
-		select {
-		case nn := <-nm.neighbors:
-			returned++
-			if nn != nil {
-				// nn will be nil if the ctx is cancelled
-				if nn.dist < bestDist {
-					bestDist = nn.dist
-					best = nn.node
-				}
-			}
-		default:
+	for workerIdx := 0; workerIdx < nm.nCPU; workerIdx++ {
+		candidate := <-nm.neighbors
+		if candidate.dist < bestDist {
+			bestDist = candidate.dist
+			best = candidate.node
 		}
 	}
 	return best
@@ -138,43 +124,29 @@ func (nm *neighborManager) nnWorker(ctx context.Context, planOpts *plannerOption
 	var best node
 	bestDist := math.Inf(1)
 
-	for {
-		select {
-		case <-ctx.Done():
-			nm.neighbors <- nil
-			return
-		default:
+	for candidate := range nm.nnKeys {
+		seg := &Segment{
+			StartConfiguration: nm.seedPos.Q(),
+			EndConfiguration:   candidate.Q(),
+		}
+		if pose := nm.seedPos.Pose(); pose != nil {
+			seg.StartPosition = pose
+		}
+		if pose := candidate.Pose(); pose != nil {
+			seg.EndPosition = pose
+		}
+		dist := planOpts.DistanceFunc(seg)
+		if dist < bestDist {
+			bestDist = dist
+			best = candidate
 		}
 
 		select {
-		case k := <-nm.nnKeys:
-			if k != nil {
-				nm.nnLock.RLock()
-				seg := &Segment{
-					StartConfiguration: nm.seedPos.Q(),
-					EndConfiguration:   k.Q(),
-				}
-				if pose := nm.seedPos.Pose(); pose != nil {
-					seg.StartPosition = pose
-				}
-				if pose := k.Pose(); pose != nil {
-					seg.EndPosition = pose
-				}
-				dist := planOpts.DistanceFunc(seg)
-				nm.nnLock.RUnlock()
-				if dist < bestDist {
-					bestDist = dist
-					best = k
-				}
-			}
+		case <-ctx.Done():
+			break
 		default:
-			nm.nnLock.RLock()
-			if nm.ready {
-				nm.nnLock.RUnlock()
-				nm.neighbors <- &neighbor{bestDist, best}
-				return
-			}
-			nm.nnLock.RUnlock()
 		}
 	}
+
+	nm.neighbors <- &neighbor{bestDist, best}
 }
