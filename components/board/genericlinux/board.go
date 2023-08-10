@@ -107,6 +107,9 @@ func (b *Board) Reconfigure(
 	return nil
 }
 
+// This is a helper function. It looks for pre-existing pins that match a new target pin
+// definition, so we can tell whether we already have an old pin that fits the description or
+// whether we need to create it anew.
 func getMatchingPin(target GPIOBoardMapping, gpios map[string]*gpioPin) (string, *gpioPin) {
 	for name, pin := range(gpios) {
 		if pin.Matches(target) {
@@ -116,15 +119,27 @@ func getMatchingPin(target GPIOBoardMapping, gpios map[string]*gpioPin) (string,
 	return "", nil
 }
 
+// This never returns errors, but we give it the same function signature as the other
+// reconfiguration helpers for consistency.
 func (b *Board) reconfigureGpios(newConf LinuxBoardConfig) error {
-	// TODO(RSDK-4092): implement this correctly.
 	var newGpios map[string]*gpioPin
+	var renaming map[string]string // Maps old names for pins to new names
 
 	// For each new pin definition, if you can find an old pin that matches, just move it over.
 	for newName, mapping := range newConf.GpioMappings {
-		if oldName, oldPin = getMatchingPin(mapping, b.gpios); oldPin != nil {
+		if oldName, oldPin := getMatchingPin(mapping, b.gpios); oldPin != nil {
 			newGpios[newName] = oldPin
 			delete(b.gpioMappings, oldName)
+			renaming[oldName] = newName
+		}
+	}
+
+	// For all pins that got renamed, if they were used as a digital interrupt, update the names to
+	// match. Note that we must do this once we have all the updated names, in case an old name has
+	// been reused on a different pin!
+	for _, interrupt := range b.interrupts {
+		if newName, ok := renaming[interrupt.config.Pin]; ok {
+			interrupt.config.Pin = newName
 		}
 	}
 
@@ -133,14 +148,15 @@ func (b *Board) reconfigureGpios(newConf LinuxBoardConfig) error {
 		pin.Close()
 	}
 
-	// All remaining new mappings should be created.
+	// All remaining new pins should be created.
 	for newName, mapping := range newConf.GpioMappings {
-		if _, exists := newGpios[newName]; exists {
+		if _, ok := newGpios[newName]; ok {
 			continue
 		}
 		// TODO: skip pins that look like an already-existing digint
 		newGpios[newName] = b.createGpioPin(mapping)
 	}
+
 	b.gpioMappings = newConf.GpioMappings
 	b.gpios = newGpios
 	return nil
