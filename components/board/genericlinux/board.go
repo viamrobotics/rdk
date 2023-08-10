@@ -47,11 +47,6 @@ func NewBoard(
 	convertConfig ConfigConverter,
 	logger golog.Logger,
 ) (board.Board, error) {
-	newConf, err := convertConfig(conf)
-	if err != nil {
-		return nil, err
-	}
-
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
 	b := &Board{
@@ -81,10 +76,11 @@ func (b *Board) Reconfigure(
 	_ resource.Dependencies,
 	conf resource.Config,
 ) error {
-	newConf, err := b.convertConfig(conf)
+	newConfPtr, err := b.convertConfig(conf)
 	if err != nil {
 		return err
 	}
+	newConf := *newConfPtr
 
 	b.mu.Lock()
 	defer b.mu.Unlock()
