@@ -179,14 +179,15 @@ func (ik *NloptIK) Solve(ctx context.Context,
 		default:
 		}
 		iterations++
-		solutionRaw, result, nloptErr := opt.Optimize(referenceframe.InputsToFloats(startingPos))
+		solutionRaw, _, nloptErr := opt.Optimize(referenceframe.InputsToFloats(startingPos))
 		if nloptErr != nil {
 			// This just *happens* sometimes due to weirdnesses in nonlinear randomized problems.
 			// Ignore it, something else will find a solution
 			err = multierr.Combine(err, nloptErr)
 		}
 
-		if result < ik.epsilon*ik.epsilon {
+		//~ if result < ik.epsilon*ik.epsilon {
+		if solutionRaw != nil {
 			select {
 			case <-ctx.Done():
 				return err

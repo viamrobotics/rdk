@@ -98,7 +98,7 @@ func ComputePTG(
 	var y float64
 	var phi float64
 	var t float64
-	dist := math.Abs(v) * diffT
+	dist := math.Copysign(math.Abs(v) * diffT, refDist)
 
 	// Last saved waypoints
 	accumulatedHeadingChange := 0.
@@ -107,8 +107,7 @@ func ComputePTG(
 	lastWs := [2]float64{0, 0}
 
 	// Step through each time point for this alpha
-	for t < maxTime && dist < refDist && accumulatedHeadingChange < defaultMaxHeadingChange {
-		
+	for t < maxTime && math.Abs(dist) < math.Abs(refDist) && accumulatedHeadingChange < defaultMaxHeadingChange {
 		v, w, err = simPtg.PTGVelocities(alpha, dist, x, y, phi)
 		if err != nil {
 			return nil, err
@@ -131,7 +130,7 @@ func ComputePTG(
 			return nil, err
 		}
 		alphaTraj = append(alphaTraj, &TrajNode{pose, t, dist, alpha, v, w, pose.Point().X, pose.Point().Y})
-		dist += math.Abs(v) * diffT
+		dist += math.Copysign(math.Abs(v) * diffT, refDist)
 	}
 
 	// Add final node

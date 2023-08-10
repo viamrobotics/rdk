@@ -19,20 +19,17 @@ type ptgDiffDriveCS struct {
 	
 	r       float64 // turning radius
 	turnStraight float64
-	circle *ptgDiffDriveC
 }
 
 // NewCSPTG creates a new PrecomputePTG of type ptgDiffDriveCS.
 func NewCSPTG(maxMMPS, maxRPS float64) PrecomputePTG {
 	r := maxMMPS / maxRPS
 	turnStraight := 1.2 * r
-	circle := NewCirclePTG(maxMMPS, maxRPS).(*ptgDiffDriveC)
 	return &ptgDiffDriveCS{
 		maxMMPS: maxMMPS,
 		maxRPS:  maxRPS,
 		r: r,
 		turnStraight: turnStraight,
-		circle: circle,
 	}
 }
 
@@ -67,18 +64,24 @@ func (ptg *ptgDiffDriveCS) Transform(inputs []referenceframe.Input) (spatialmath
 	alpha := inputs[0].Value
 	dist := inputs[1].Value
 	
+	actualRPS := ptg.maxRPS * math.Min(1.0, 1.0-math.Exp(-1*alpha*alpha))
+	circle := NewCirclePTG(ptg.maxMMPS, actualRPS).(*ptgDiffDriveC)
+	
 	arcDistance := ptg.turnStraight * math.Sqrt(math.Abs(alpha))
 	flip := math.Copysign(1., alpha) // left or right
 	direction := math.Copysign(1., dist) // forwards or backwards
-	
-	arcPose, err := ptg.circle.Transform([]referenceframe.Input{{flip * math.Pi}, {direction * math.Min(dist, arcDistance)}})
-	if err != nil {
-		return nil, err
+	var err error
+	arcPose := spatialmath.NewZeroPose()
+	if alpha != 0 {
+		arcPose, err = circle.Transform([]referenceframe.Input{{flip * math.Pi}, {direction * math.Min(dist, arcDistance)}})
+		if err != nil {
+			return nil, err
+		}
 	}
 	if dist < arcDistance {
 		return arcPose, nil
 	}
-	fwdPose, err := ptg.circle.Transform([]referenceframe.Input{{0}, {direction * (dist - arcDistance)}})
+	fwdPose, err := circle.Transform([]referenceframe.Input{{0}, {direction * (dist - arcDistance)}})
 	if err != nil {
 		return nil, err
 	}

@@ -275,7 +275,6 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 		if sinceLastCollideCheck > planOpts.Resolution {
 			ok, _ := planOpts.CheckStateConstraints(trajState)
 			if !ok {
-				fmt.Println("not ok")
 				return nil, nil
 			}
 			sinceLastCollideCheck = 0.
@@ -448,7 +447,6 @@ func (mp *tpSpaceRRTMotionPlanner) make2DTPSpaceDistanceOptions(ptg tpspace.PTG,
 			return math.Inf(1)
 		}
 		closeDist := mp.planOpts.DistanceFunc(&Segment{StartPosition: relPose, EndPosition: closeNode.Pose})
-		fmt.Println("close", closeNode.Pose.Point(), closeDist)
 		if closeNode == nil {
 			return math.Inf(1)
 		}

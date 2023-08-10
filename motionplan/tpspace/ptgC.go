@@ -63,7 +63,7 @@ func (ptg *ptgDiffDriveC) Transform(inputs []referenceframe.Input) (spatialmath.
 	angleRads := 0.
 	if alpha != 0 {
 		arcRadius := math.Pi * turnRad / math.Abs(alpha) // radius of arc
-		angleRads = dist / turnRad // number of radians to travel along arc
+		angleRads = dist / arcRadius // number of radians to travel along arc
 		pt = r3.Vector{arcRadius * (1 - math.Cos(angleRads)), arcRadius * math.Sin(angleRads), 0}
 		if alpha > 0 {
 			// positive alpha = positive rotation = left turn = negative X

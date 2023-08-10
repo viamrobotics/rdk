@@ -4,7 +4,6 @@ package motionplan
 import (
 	"context"
 	"math"
-	"fmt"
 	"math/rand"
 
 	"github.com/edaniels/golog"
@@ -72,7 +71,6 @@ func (ptg *ptgIK) CToTP(ctx context.Context, pose spatialmath.Pose) (*tpspace.Tr
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("calling trajectory", solved)
 	// TODO: make this more efficient
 	traj, err := ptg.Trajectory(solved[0].Value, solved[1].Value)
 	if err != nil {

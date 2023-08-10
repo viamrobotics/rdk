@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	defaultSimDistMM      = 2000.
+	defaultSimDistMM      = 600.
 )
 
 const (
@@ -25,9 +25,9 @@ const (
 type ptgFactory func(float64, float64) tpspace.PrecomputePTG
 
 var defaultPTGs = []ptgFactory{
-	//~ tpspace.NewCirclePTG,
-	//~ tpspace.NewCCPTG,
-	//~ tpspace.NewCCSPTG,
+	tpspace.NewCirclePTG,
+	tpspace.NewCCPTG,
+	tpspace.NewCCSPTG,
 	tpspace.NewCSPTG,
 	//~ tpspace.NewAlphaPTG,
 }
@@ -61,8 +61,8 @@ func NewPTGFrameFromTurningRadius(
 	// Get max angular velocity in radians per second
 	maxRPS := velocityMMps / (1000. * turnRadMeters)
 	pf := &ptgGroupFrame{name: name}
+	//~ err := pf.initPTGs(logger, velocityMMps, maxRPS, refDist, false)
 	err := pf.initPTGs(logger, velocityMMps, maxRPS, refDist, true)
-	//~ err := pf.initPTGs(logger, velocityMMps, maxRPS, refDist, true)
 	if err != nil {
 		return nil, err
 	}
