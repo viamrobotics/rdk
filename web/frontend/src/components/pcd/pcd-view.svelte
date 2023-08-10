@@ -20,7 +20,7 @@ let transformEnabled = false;
 
 const click = new THREE.Vector3();
 
-$: distanceFromCamera = Math.round(Math.sqrt((click.x ** 2) + (click.y ** 2) + (click.z ** 2)));
+$: distanceFromCamera = Math.round(Math.hypot((click.x), (click.y), (click.z)));
 
 const loader = new PCDLoader();
 const scene = new THREE.Scene();

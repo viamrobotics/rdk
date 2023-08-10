@@ -1,7 +1,6 @@
 <script lang="ts">
 
-import { movementSensorApi as movementsensorApi, type ServiceError } from '@viamrobotics/sdk';
-import type { commonApi } from '@viamrobotics/sdk';
+import { movementSensorApi as movementsensorApi, type ServiceError, type commonApi } from '@viamrobotics/sdk';
 import { displayError } from '@/lib/error';
 import Collapse from '@/lib/components/collapse.svelte';
 import { setAsyncInterval } from '@/lib/schedule';

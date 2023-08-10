@@ -30,8 +30,8 @@ export let rotation = 0;
   <T.SpriteMaterial
     map={textureLoader.load(url)}
     sizeAttenuation={false}
-    color='#FF0047'
     {rotation}
+    on:create={({ ref }) => ref.color.set('#ff0047')}
   />
 </T.Sprite>
 

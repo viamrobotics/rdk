@@ -8,7 +8,9 @@ import { view, hovered } from '../stores';
 
 export let obstacle: Obstacle;
 
-let material: THREE.MeshPhongMaterial;
+let material: THREE.MeshPhongMaterial | undefined;
+
+$: material?.color.set($hovered === obstacle.name ? '#FFD400' : '#FF7D80');
 
 </script>
 
@@ -53,7 +55,6 @@ let material: THREE.MeshPhongMaterial;
     {/if}
     <T.MeshPhongMaterial
       bind:ref={material}
-      color={$hovered === obstacle.name ? '#FFD400' : '#FF7D80'}
     />
   </T.Mesh>
 {/each}
