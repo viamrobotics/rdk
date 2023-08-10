@@ -7,14 +7,13 @@ package ina
 
 import (
 	"context"
-	"encoding/binary"
 	"errors"
 	"fmt"
 
+	"github.com/d2r2/go-i2c"
 	"github.com/edaniels/golog"
 	"go.viam.com/utils"
 
-	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/powersensor"
 	"go.viam.com/rdk/resource"
 )
@@ -42,21 +41,15 @@ var inaModels = []string{modelName219, modelName226}
 
 // Config is used for converting config attributes.
 type Config struct {
-	Board   string `json:"board"`
-	I2CBus  string `json:"i2c_bus"`
-	I2cAddr int    `json:"i2c_addr,omitempty"`
+	I2CBus  int `json:"i2c_bus"`
+	I2cAddr int `json:"i2c_addr,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
 func (conf *Config) Validate(path string) ([]string, error) {
 	var deps []string
 
-	if len(conf.Board) == 0 {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
-	}
-	deps = append(deps, conf.Board)
-
-	if len(conf.I2CBus) == 0 {
+	if conf.I2CBus == 0 {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "i2c_bus")
 	}
 	return deps, nil
@@ -94,19 +87,6 @@ func newINA(
 	logger golog.Logger,
 	modelName string,
 ) (powersensor.PowerSensor, error) {
-	b, err := board.FromDependencies(deps, conf.Board)
-	if err != nil {
-		return nil, fmt.Errorf("ina219 init: failed to find board: %w", err)
-	}
-	localB, ok := b.(board.LocalBoard)
-	if !ok {
-		return nil, fmt.Errorf("board %s is not local", conf.Board)
-	}
-
-	i2cbus, ok := localB.I2CByName(conf.I2CBus)
-	if !ok {
-		return nil, fmt.Errorf("ina219 init: failed to find i2c bus %s", conf.I2CBus)
-	}
 
 	addr := conf.I2cAddr
 	if addr == 0 {
@@ -118,11 +98,11 @@ func newINA(
 		Named:  name.AsNamed(),
 		logger: logger,
 		model:  modelName,
-		bus:    i2cbus,
+		bus:    conf.I2CBus,
 		addr:   byte(addr),
 	}
 
-	err = s.setCalibrationScale(modelName)
+	err := s.setCalibrationScale(modelName)
 	if err != nil {
 		return nil, err
 	}
@@ -142,7 +122,7 @@ type ina struct {
 	resource.TriviallyCloseable
 	logger     golog.Logger
 	model      string
-	bus        board.I2C
+	bus        int
 	addr       byte
 	currentLSB int64
 	powerLSB   int64
@@ -178,26 +158,22 @@ func (d *ina) setCalibrationScale(modelName string) error {
 }
 
 func (d *ina) calibrate(ctx context.Context) error {
-	handle, err := d.bus.OpenHandle(d.addr)
+	handle, err := i2c.NewI2C(d.addr, d.bus)
 	if err != nil {
-		d.logger.Errorf("can't open ina219 i2c: %s", err)
+		d.logger.Errorf("can't open ina i2c: %s", err)
 		return err
 	}
 	defer utils.UncheckedErrorFunc(handle.Close)
 
 	// use the calibration result to set the scaling factor
 	// of the current and power registers for the maximum resolution
-	buf := make([]byte, 2)
-	binary.BigEndian.PutUint16(buf, d.cal)
-	err = handle.WriteBlockData(ctx, calibrationRegister, buf)
+	err = handle.WriteRegU16BE(calibrationRegister, d.cal)
 	if err != nil {
 		return err
 	}
 
 	// setting config to 111 sets to normal operating mode
-	buf = make([]byte, 2)
-	binary.BigEndian.PutUint16(buf, uint16(0x6F))
-	err = handle.WriteBlockData(ctx, configRegister, buf)
+	err = handle.WriteRegU16BE(configRegister, uint16(0x6F))
 	if err != nil {
 		return err
 	}
@@ -205,14 +181,14 @@ func (d *ina) calibrate(ctx context.Context) error {
 }
 
 func (d *ina) Voltage(ctx context.Context, extra map[string]interface{}) (float64, bool, error) {
-	handle, err := d.bus.OpenHandle(d.addr)
+	handle, err := i2c.NewI2C(d.addr, d.bus)
 	if err != nil {
 		d.logger.Errorf("can't open ina i2c: %s", err)
 		return 0, false, err
 	}
 	defer utils.UncheckedErrorFunc(handle.Close)
 
-	bus, err := handle.ReadBlockData(ctx, busVoltageRegister, 2)
+	bus, err := handle.ReadRegU16BE(busVoltageRegister)
 	if err != nil {
 		return 0, false, err
 	}
@@ -221,9 +197,9 @@ func (d *ina) Voltage(ctx context.Context, extra map[string]interface{}) (float6
 	switch d.model {
 	case modelName226:
 		// voltage is 1.25 mV/bit for the ina226
-		voltage = float64(binary.BigEndian.Uint16(bus)) * 1.25e-3
+		voltage = float64(bus) * 1.25e-3
 	case modelName219:
-		voltage = float64(binary.BigEndian.Uint16(bus)>>3) * 4 / 1000
+		voltage = float64(bus>>3) * 4 / 1000
 	default:
 	}
 
@@ -232,36 +208,36 @@ func (d *ina) Voltage(ctx context.Context, extra map[string]interface{}) (float6
 }
 
 func (d *ina) Current(ctx context.Context, extra map[string]interface{}) (float64, bool, error) {
-	handle, err := d.bus.OpenHandle(d.addr)
+	handle, err := i2c.NewI2C(d.addr, d.bus)
 	if err != nil {
 		d.logger.Errorf("can't open ina i2c: %s", err)
 		return 0, false, err
 	}
 	defer utils.UncheckedErrorFunc(handle.Close)
 
-	rawCur, err := handle.ReadBlockData(ctx, currentRegister, 2)
+	rawCur, err := handle.ReadRegU16BE(currentRegister)
 	if err != nil {
 		return 0, false, err
 	}
 
-	current := float64(int64(binary.BigEndian.Uint16(rawCur))*d.currentLSB) / 1000000000
+	current := float64(int64(rawCur)*d.currentLSB) / 1000000000
 	isAC := false
 	return current, isAC, nil
 }
 
 func (d *ina) Power(ctx context.Context, extra map[string]interface{}) (float64, error) {
-	handle, err := d.bus.OpenHandle(d.addr)
+	handle, err := i2c.NewI2C(d.addr, d.bus)
 	if err != nil {
 		d.logger.Errorf("can't open ina i2c handle: %s", err)
 		return 0, err
 	}
 	defer utils.UncheckedErrorFunc(handle.Close)
 
-	pow, err := handle.ReadBlockData(ctx, powerRegister, 2)
+	pow, err := handle.ReadRegU16BE(powerRegister)
 	if err != nil {
 		return 0, err
 	}
-	power := float64(int64(binary.BigEndian.Uint16(pow))*d.powerLSB) / 1000000000
+	power := float64(int64(pow)*d.powerLSB) / 1000000000
 	return power, nil
 }
 
