@@ -25,19 +25,19 @@ import (
 )
 
 const (
-	metersPerSecDefault = 0.5
-	degPerSecDefault    = 45
+	defaultMetersPerSec = 0.5
+	defaultDegsPerSec   = 45
 
 	// how far off the path must the robot be to trigger replanning.
-	planDeviationMetersDefault = 1.
+	defaultPlanDeviationM = 1e9
 
 	// the allowable quality change between the new plan and the remainder
 	// of the original plan.
 	replanCostFactorDefault = 1.
 
 	// frequency measured in hertz.
-	obstaclePollingFrequencyDefault = 2.
-	positionPollingFrequencyDefault = 2.
+	defaultObstaclePollingFrequencyHz = 2.
+	defaultPositionPollingFrequencyHz = 2.
 )
 
 func init() {
@@ -72,11 +72,11 @@ type Config struct {
 	DegPerSec    float64 `json:"degs_per_sec,omitempty"`
 	MetersPerSec float64 `json:"meters_per_sec,omitempty"`
 
-	Obstacles                []*spatialmath.GeoObstacleConfig `json:"obstacles,omitempty"`
-	PositionPollingFrequency float64                          `json:"position_polling_frequency,omitempty"`
-	ObstaclePollingFrequency float64                          `json:"obstacle_polling_frequency,omitempty"`
-	PlanDeviationMeters      float64                          `json:"plan_deviation_meters,omitempty"`
-	ReplanCostFactor         float64                          `json:"replan_cost_factor,omitempty"`
+	Obstacles                  []*spatialmath.GeoObstacleConfig `json:"obstacles,omitempty"`
+	PositionPollingFrequencyHz float64                          `json:"position_polling_frequency_hz,omitempty"`
+	ObstaclePollingFrequencyHz float64                          `json:"obstacle_polling_frequency_hz,omitempty"`
+	PlanDeviationM             float64                          `json:"plan_deviation_m,omitempty"`
+	ReplanCostFactor           float64                          `json:"replan_cost_factor,omitempty"`
 }
 
 // Validate creates the list of implicit dependencies.
@@ -104,19 +104,19 @@ func (conf *Config) Validate(path string) ([]string, error) {
 
 	// get default speeds from config if set, else defaults from nav services const
 	if conf.MetersPerSec == 0 {
-		conf.MetersPerSec = metersPerSecDefault
+		conf.MetersPerSec = defaultMetersPerSec
 	}
 	if conf.DegPerSec == 0 {
-		conf.DegPerSec = degPerSecDefault
+		conf.DegPerSec = defaultDegsPerSec
 	}
-	if conf.PositionPollingFrequency == 0 {
-		conf.PositionPollingFrequency = positionPollingFrequencyDefault
+	if conf.PositionPollingFrequencyHz == 0 {
+		conf.PositionPollingFrequencyHz = defaultPositionPollingFrequencyHz
 	}
-	if conf.ObstaclePollingFrequency == 0 {
-		conf.ObstaclePollingFrequency = obstaclePollingFrequencyDefault
+	if conf.ObstaclePollingFrequencyHz == 0 {
+		conf.ObstaclePollingFrequencyHz = defaultObstaclePollingFrequencyHz
 	}
-	if conf.PlanDeviationMeters == 0 {
-		conf.PlanDeviationMeters = planDeviationMetersDefault
+	if conf.PlanDeviationM == 0 {
+		conf.PlanDeviationM = defaultPlanDeviationM
 	}
 	if conf.ReplanCostFactor == 0 {
 		conf.ReplanCostFactor = replanCostFactorDefault
@@ -160,12 +160,12 @@ type builtIn struct {
 	visionServices []vision.Service
 	obstacles      []*spatialmath.GeoObstacle
 
-	positionPollingFrequency float64
-	obstaclePollingFrequency float64
-	planDeviationMeters      float64
-	replanCostFactor         float64
-	metersPerSec             float64
-	degPerSec                float64
+	positionPollingFrequencyHz float64
+	obstaclePollingFrequencyHz float64
+	planDeviationM             float64
+	replanCostFactor           float64
+	metersPerSec               float64
+	degPerSec                  float64
 
 	logger                    golog.Logger
 	wholeServiceCancelFunc    func()
@@ -244,9 +244,9 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	svc.obstacles = newObstacles
 	svc.metersPerSec = svcConfig.MetersPerSec
 	svc.degPerSec = svcConfig.DegPerSec
-	svc.obstaclePollingFrequency = svcConfig.ObstaclePollingFrequency
-	svc.positionPollingFrequency = svcConfig.PositionPollingFrequency
-	svc.planDeviationMeters = svcConfig.PlanDeviationMeters
+	svc.obstaclePollingFrequencyHz = svcConfig.ObstaclePollingFrequencyHz
+	svc.positionPollingFrequencyHz = svcConfig.PositionPollingFrequencyHz
+	svc.planDeviationM = svcConfig.PlanDeviationM
 	svc.replanCostFactor = svcConfig.ReplanCostFactor
 
 	return nil
