@@ -111,14 +111,20 @@ func TestNewReplayMovementSensor(t *testing.T) {
 		{
 			description: "valid config with internal cloud service",
 			cfg: &Config{
-				Source: validSource,
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
 			},
 			validCloudConnection: true,
 		},
 		{
 			description: "bad internal cloud service",
 			cfg: &Config{
-				Source: validSource,
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
 			},
 			validCloudConnection: false,
 			expectedErr:          errors.New("failure to connect to the cloud: cloud connection error"),
@@ -126,7 +132,10 @@ func TestNewReplayMovementSensor(t *testing.T) {
 		{
 			description: "bad start timestamp",
 			cfg: &Config{
-				Source: validSource,
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
 				Interval: TimeInterval{
 					Start: "bad timestamp",
 				},
@@ -137,7 +146,10 @@ func TestNewReplayMovementSensor(t *testing.T) {
 		{
 			description: "bad end timestamp",
 			cfg: &Config{
-				Source: validSource,
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
 				Interval: TimeInterval{
 					End: "bad timestamp",
 				},
