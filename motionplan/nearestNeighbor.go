@@ -109,6 +109,7 @@ func (nm *neighborManager) parallelNearestNeighbor(
 	}
 	close(nm.nnKeys)
 
+	wasInterrupted := false
 	var best node
 	bestDist := math.Inf(1)
 	for workerIdx := 0; workerIdx < nm.nCPU; workerIdx++ {
@@ -116,7 +117,8 @@ func (nm *neighborManager) parallelNearestNeighbor(
 		if candidate == nil {
 			// Seeing a `nil` here implies the workers did not get to all of the candidate
 			// neighbors. And thus we don't have the right answer to return.
-			return nil
+			wasInterrupted = true
+			continue
 		}
 
 		if candidate.dist < bestDist {
@@ -124,6 +126,10 @@ func (nm *neighborManager) parallelNearestNeighbor(
 			best = candidate.node
 		}
 	}
+	if wasInterrupted {
+		return nil
+	}
+
 	return best
 }
 
