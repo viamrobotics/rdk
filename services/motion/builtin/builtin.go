@@ -225,7 +225,7 @@ func (ms *builtIn) MoveOnGlobe(
 	if motionCfg.AngularDegsPerSec != 0 {
 		kinematicsOptions.AngularVelocityDegsPerSec = motionCfg.AngularDegsPerSec
 	}
-	if !math.IsNaN(motionCfg.PlanDeviationM) {
+	if motionCfg.PlanDeviationM != 0 {
 		kinematicsOptions.PlanDeviationThresholdMM = motionCfg.PlanDeviationM * 1000
 	}
 	kinematicsOptions.GoalRadiusMM = 3000

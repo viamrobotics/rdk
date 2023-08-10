@@ -102,7 +102,7 @@ func (server *serviceServer) MoveOnGlobe(ctx context.Context, req *pb.MoveOnGlob
 
 func setupMotionConfiguration(motionCfg *pb.MotionConfiguration) MotionConfiguration {
 	visionSvc := []resource.Name{}
-	planDeviationM := math.NaN()
+	planDeviationM := 0.
 	positionPollingHz := 0.
 	obstaclePollingHz := 0.
 	linearMPerSec := 0.
