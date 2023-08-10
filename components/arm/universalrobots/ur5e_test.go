@@ -3,7 +3,6 @@ package universalrobots
 import (
 	"bufio"
 	"context"
-	"errors"
 	"fmt"
 	"math"
 	"net"
@@ -203,16 +202,6 @@ func computeUR5ePosition(t *testing.T, jointRadians []float64) spatialmath.Pose 
 		r3.Vector{X: res.At(0, 3), Y: res.At(1, 3), Z: res.At(2, 3)}.Mul(1000),
 		&spatialmath.OrientationVectorDegrees{OX: poseOV.OX, OY: poseOV.OY, OZ: poseOV.OZ, Theta: utils.RadToDeg(poseOV.Theta)},
 	)
-}
-
-func selectChanOrTimeout(c <-chan struct{}, timeout time.Duration) error {
-	timer := time.NewTimer(timeout)
-	select {
-	case <-timer.C:
-		return errors.New("timeout")
-	case <-c:
-		return nil
-	}
 }
 
 func setupListeners(ctx context.Context, statusBlob []byte,
