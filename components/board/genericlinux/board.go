@@ -117,7 +117,7 @@ func getMatchingPin(target GPIOBoardMapping, mapping map[string]GPIOBoardMapping
 func (b *Board) reconfigureGpios(newConf LinuxBoardConfig) error {
 	// First, find old pins that are no longer defined, and destroy them.
 	for oldName, mapping := range b.gpioMappings {
-		if _, ok := findMatch(mapping, newConf.GpioMappings; ok {
+		if _, ok := getMatchingPin(mapping, newConf.GpioMappings); ok {
 			continue // This pin is in the new mapping, so don't destroy it.
 		}
 
@@ -148,9 +148,9 @@ func (b *Board) reconfigureGpios(newConf LinuxBoardConfig) error {
 	// and new pins to create. Don't actually create any yet, in case you'd overwrite a pin that
 	// should be renamed out of the way first.
 	toRename := map[string]string{} // Maps old names for pins to new names
-	toCreate := map[string]GpioBoardMapping{}
+	toCreate := map[string]GPIOBoardMapping{}
 	for newName, mapping := range newConf.GpioMappings {
-		if oldName, ok := findMatch(mapping, b.gpioMappings); ok {
+		if oldName, ok := getMatchingPin(mapping, b.gpioMappings); ok {
 			if oldName != newName {
 				toRename[oldName] = newName
 			}
@@ -163,8 +163,8 @@ func (b *Board) reconfigureGpios(newConf LinuxBoardConfig) error {
 	// while A should be renamed to B, we need to make sure we don't overwrite B with A and then
 	// rename it to C. To avoid this, move all the pins to rename into a temporary data structure,
 	// then move them all back again afterward.
-	tempGpios := map[string]*gpioPin
-	tempInterrupts := map[string]*digitalInterrupt
+	tempGpios := map[string]*gpioPin{}
+	tempInterrupts := map[string]*digitalInterrupt{}
 	for oldName, newName := range toRename {
 		if pin, ok := b.gpios[oldName]; ok {
 			tempGpios[newName] = pin
