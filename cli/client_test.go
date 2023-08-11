@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/urfave/cli/v2"
-	datapb "go.viam.com/api/app/data/v1"
 	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/test"
 	"google.golang.org/grpc"
@@ -31,9 +30,8 @@ func (tw *testWriter) Write(b []byte) (int, error) {
 }
 
 // setup creates a new cli.Context with fake auth and the passed in
-// AppServiceClient and DataServiceClient. It also returns testWriters that
-// capture Stdout and Stdin.
-func setup(asc apppb.AppServiceClient, dsc datapb.DataServiceClient) (*cli.Context, *testWriter, *testWriter) {
+// AppServiceClient. It also returns testWriters that capture Stdout and Stdin.
+func setup(asc apppb.AppServiceClient) (*cli.Context, *testWriter, *testWriter) {
 	conf := &config{
 		Auth: &token{
 			AccessToken: testToken,
@@ -52,9 +50,8 @@ func setup(asc apppb.AppServiceClient, dsc datapb.DataServiceClient) (*cli.Conte
 	// injected with the appClient to be extracted in newAppClient. The appClient,
 	// however, must also contain the cli.Context.
 	ac := &appClient{
-		client:     asc,
-		dataClient: dsc,
-		conf:       conf,
+		client: asc,
+		conf:   conf,
 	}
 	cCtx := &cli.Context{
 		App:     app,
@@ -74,7 +71,7 @@ func TestListOrganizationsAction(t *testing.T) {
 	asc := &inject.AppServiceClient{
 		ListOrganizationsFunc: listOrganizationsFunc,
 	}
-	ctx, out, errOut := setup(asc, nil)
+	ctx, out, errOut := setup(asc)
 
 	test.That(t, ListOrganizationsAction(ctx), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
