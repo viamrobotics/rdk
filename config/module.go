@@ -4,11 +4,13 @@ import (
 	"os"
 	"reflect"
 	"regexp"
+	"strings"
 
 	"github.com/pkg/errors"
 )
 
-var moduleNameRegEx = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
+// TODO(APP-2430) Restrict this regex to not allow namespaces or ":".
+var moduleNameRegEx = regexp.MustCompile(`^([a-z0-9-]+:)?[\w-]+$`)
 
 const reservedModuleName = "parent"
 
@@ -42,9 +44,14 @@ func (m *Module) Validate(path string) error {
 }
 
 func (m *Module) validate(path string) error {
-	_, err := os.Stat(m.ExePath)
-	if err != nil {
-		return errors.Wrapf(err, "module %s executable path error", path)
+	// Only check if the path exists during validation for local modules because the packagemanager may not have downloaded
+	// the package yet.
+	// As of 2023-08, modules can't know if they were originally registry modules, so this roundabout check is required
+	if !(ContainsPlaceholder(m.ExePath) || strings.HasPrefix(m.ExePath, viamPackagesDir)) {
+		_, err := os.Stat(m.ExePath)
+		if err != nil {
+			return errors.Wrapf(err, "module %s executable path error", path)
+		}
 	}
 
 	// the module name is used to create the socket path

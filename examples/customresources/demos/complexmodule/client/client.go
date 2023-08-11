@@ -157,14 +157,14 @@ func main() {
 	time.Sleep(time.Second)
 
 	logger.Info("spin left")
-	err = mybase.SetPower(context.Background(), r3.Vector{}, r3.Vector{Z: -1}, nil)
+	err = mybase.SetPower(context.Background(), r3.Vector{}, r3.Vector{Z: 1}, nil)
 	if err != nil {
 		logger.Fatal(err)
 	}
 	time.Sleep(time.Second)
 
 	logger.Info("spin right")
-	err = mybase.SetPower(context.Background(), r3.Vector{}, r3.Vector{Z: 1}, nil)
+	err = mybase.SetPower(context.Background(), r3.Vector{}, r3.Vector{Z: -1}, nil)
 	if err != nil {
 		logger.Fatal(err)
 	}

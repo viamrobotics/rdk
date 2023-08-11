@@ -1,0 +1,66 @@
+name: Viam CLI
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_type:
+        required: true
+        type: string
+        default: latest
+  workflow_call:
+    inputs:
+      release_type:
+        required: true
+        type: string
+    secrets:
+      GCP_CREDENTIALS:
+        required: true
+
+jobs:
+  viam-cli:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/setup-go@v4
+      with:
+        go-version: '1.20.x'
+
+    - name: Check out code
+      if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+      uses: actions/checkout@v3
+    - name: Check out PR branch code
+      if: github.event_name == 'pull_request_target'
+      uses: actions/checkout@v3
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
+
+    - name: build
+      env:
+        CI_RELEASE: ${{ inputs.release_type }}
+      run: |
+        GOOS=linux GOARCH=amd64 make cli-ci
+        GOOS=linux GOARCH=arm64 make cli-ci
+        GOOS=darwin GOARCH=amd64 make cli-ci
+        GOOS=darwin GOARCH=arm64 make cli-ci
+
+    - name: tagged alias
+      env:
+         CI_RELEASE: ${{ github.ref_name }}
+      if: inputs.release_type == 'stable'
+      run: |
+        GOOS=linux GOARCH=amd64 make cli-ci
+        GOOS=linux GOARCH=arm64 make cli-ci
+        GOOS=darwin GOARCH=amd64 make cli-ci
+        GOOS=darwin GOARCH=arm64 make cli-ci
+
+    - name: Authorize GCP Upload
+      uses: google-github-actions/auth@v1
+      with:
+        credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
+    - name: upload
+      uses: google-github-actions/upload-cloud-storage@v0.10.4
+      with:
+        headers: "cache-control: no-cache"
+        path: 'bin/deploy-ci'
+        glob: 'viam-cli-*'
+        destination: 'packages.viam.com/apps/viam-cli/'
+        parent: false

@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"path"
 	"path/filepath"
 	"testing"
 	"time"
@@ -969,20 +968,21 @@ func keysetToAttributeMap(t *testing.T, keyset jwks.KeySet) rutils.AttributeMap 
 }
 
 func TestPackageConfig(t *testing.T) {
-	viamDotDir := filepath.Join(os.Getenv("HOME"), ".viam")
+	homeDir, _ := os.UserHomeDir()
+	viamDotDir := filepath.Join(homeDir, ".viam")
 
 	packageTests := []struct {
 		config               config.PackageConfig
-		expectedPlaceholer   string
+		shouldFailValidation bool
 		expectedRealFilePath string
 	}{
 		{
 			config: config.PackageConfig{
 				Name:    "my_package",
 				Package: "my_org/my_package",
+				Version: "0",
 			},
-			expectedPlaceholer:   "packages.my_package",
-			expectedRealFilePath: path.Join(viamDotDir, "packages", "my_package"),
+			expectedRealFilePath: filepath.Join(viamDotDir, "packages", ".data", "ml_model", "my_org-my_package-0"),
 		},
 		{
 			config: config.PackageConfig{
@@ -991,8 +991,7 @@ func TestPackageConfig(t *testing.T) {
 				Package: "my_org/my_module",
 				Version: "1.2",
 			},
-			expectedPlaceholer:   "packages.modules.my_module",
-			expectedRealFilePath: path.Join(viamDotDir, "packages", "modules", ".data", "my_org-my_module-1_2"),
+			expectedRealFilePath: filepath.Join(viamDotDir, "packages", ".data", "module", "my_org-my_module-1_2"),
 		},
 		{
 			config: config.PackageConfig{
@@ -1001,27 +1000,36 @@ func TestPackageConfig(t *testing.T) {
 				Package: "my_org/my_ml_model",
 				Version: "latest",
 			},
-			expectedPlaceholer:   "packages.ml_models.my_ml_model",
-			expectedRealFilePath: path.Join(viamDotDir, "packages", "ml_models", ".data", "my_org-my_ml_model-latest"),
+			expectedRealFilePath: filepath.Join(viamDotDir, "packages", ".data", "ml_model", "my_org-my_ml_model-latest"),
+		},
+		{
+			config: config.PackageConfig{
+				Name:    "::::",
+				Type:    config.PackageTypeMlModel,
+				Package: "my_org/my_ml_model",
+				Version: "latest",
+			},
+			shouldFailValidation: true,
+		},
+		{
+			config: config.PackageConfig{
+				Name:    "my_ml_model",
+				Type:    config.PackageType("willfail"),
+				Package: "my_org/my_ml_model",
+				Version: "latest",
+			},
+			shouldFailValidation: true,
 		},
 	}
 
-	packageMapToTest := make(map[string]string)
-	packages := make([]config.PackageConfig, 3)
-	for i, pt := range packageTests {
-		actualExpectedPlaceholder := pt.config.GetPackagePlaceholder()
-		actualFilepath := pt.config.GenerateFilePath()
-
-		test.That(t, actualExpectedPlaceholder, test.ShouldEqual, pt.expectedPlaceholer)
+	for _, pt := range packageTests {
+		err := pt.config.Validate("")
+		if pt.shouldFailValidation {
+			test.That(t, err, test.ShouldBeError)
+			continue
+		}
+		test.That(t, err, test.ShouldBeNil)
+		actualFilepath := pt.config.LocalDataDirectory(filepath.Join(viamDotDir, "packages"))
 		test.That(t, actualFilepath, test.ShouldEqual, pt.expectedRealFilePath)
-
-		packageMapToTest[actualExpectedPlaceholder] = actualFilepath
-		packages[i] = pt.config
 	}
-
-	config := &config.Config{
-		Packages: packages,
-	}
-
-	test.That(t, config.GetExpectedPackagePlaceholders(), test.ShouldResemble, packageMapToTest)
 }

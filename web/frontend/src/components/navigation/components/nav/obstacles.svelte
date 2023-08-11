@@ -1,14 +1,18 @@
 <script lang='ts'>
 
-import { createEventDispatcher } from 'svelte';
 import LnglatInput from '../input/lnglat.svelte';
 import GeometryInputs from '../input/geometry.svelte';
 import OrientationInput from '../input/orientation.svelte';
-import { obstacles, flyToMap, write, hovered, mapCenter } from '../../stores';
+import { obstacles, write, hovered, mapCenter, boundingRadius, map } from '../../stores';
 import { createObstacle } from '../../lib/obstacle';
 import type { Geometry, LngLat } from '@/api/navigation';
+import { calculateBoundingBox } from '../../lib/bounding-box';
 
-const dispatch = createEventDispatcher<{ select: LngLat }>();
+const handleSelect = (selection: { name: string; location: LngLat }) => {
+  const zoom = boundingRadius[selection.name]!;
+  const bb = calculateBoundingBox(zoom, selection.location);
+  map.current?.fitBounds(bb, { duration: 800, curve: 0.1 });
+};
 
 const handleAddObstacle = () => {
   $obstacles = [
@@ -73,7 +77,7 @@ const handleGeometryInput = (index: number, geoIndex: number) => {
           variant='icon'
           icon='image-filter-center-focus'
           aria-label="Focus"
-          on:click={() => flyToMap(location)}
+          on:click={() => handleSelect({ name: obstacleName, location })}
         />
 
       </LnglatInput>
@@ -103,23 +107,27 @@ const handleGeometryInput = (index: number, geoIndex: number) => {
             variant='icon'
             icon='image-filter-center-focus'
             aria-label="Focus {obstacleName}"
-            on:click
-            on:click={() => dispatch('select', location)}
+            on:click={() => handleSelect({ name: obstacleName, location })}
           />
         </div>
       </div>
-      <small class='text-subtle-2'>
-        {#each geometries as geometry}
-          {#if geometry.type === 'box'}
-            Length: {geometry.length}m, Width: {geometry.width}m, Height: {geometry.height}m
-          {:else if geometry.type === 'sphere'}
-            Radius: {geometry.radius}m
-          {:else if geometry.type === 'capsule'}
-            Radius: {geometry.radius}m, Length: { geometry.length}m
-          {/if}
-        {/each}
-      </small>
+      {#each geometries as geometry}
+        <small class='text-subtle-2'>
+            {#if geometry.type === 'box'}
+              Length: {geometry.length}m, Width: {geometry.width}m, Height: {geometry.height}m
+            {:else if geometry.type === 'sphere'}
+              Radius: {geometry.radius}m
+            {:else if geometry.type === 'capsule'}
+              Radius: {geometry.radius}m, Length: { geometry.length}m
+            {/if}
+        </small>
 
+        {#if geometry.pose.orientationVector.th !== 0}
+          <small class='block text-subtle-2 mt-2'>
+            Theta: {geometry.pose.orientationVector.th.toFixed(2)}
+          </small>
+        {/if}
+      {/each}
     </li>
   {/if}
 {/each}

@@ -19,8 +19,8 @@ const asciiViam = `
 
 `
 
-// Infof prints a message prefixed with a bold cyan "Info: ".
-func Infof(w io.Writer, format string, a ...interface{}) {
+// infof prints a message prefixed with a bold cyan "Info: ".
+func infof(w io.Writer, format string, a ...interface{}) {
 	// NOTE(benjirewis): for some reason, both errcheck and gosec complain about
 	// Fprint's "unchecked error" here. Fatally log any errors write errors here
 	// and below.
@@ -30,8 +30,8 @@ func Infof(w io.Writer, format string, a ...interface{}) {
 	fmt.Fprintf(w, format+"\n", a...)
 }
 
-// Warningf prints a message prefixed with a bold yellow "Warning: ".
-func Warningf(w io.Writer, format string, a ...interface{}) {
+// warningf prints a message prefixed with a bold yellow "Warning: ".
+func warningf(w io.Writer, format string, a ...interface{}) {
 	if _, err := color.New(color.Bold, color.FgYellow).Fprint(w, "Warning: "); err != nil {
 		log.Fatal(err)
 	}
@@ -47,8 +47,8 @@ func Errorf(w io.Writer, format string, a ...interface{}) {
 	os.Exit(1)
 }
 
-// ViamLogo prints an ASCII Viam logo.
-func ViamLogo(w io.Writer) {
+// viamLogo prints an ASCII Viam logo.
+func viamLogo(w io.Writer) {
 	if _, err := color.New(color.Bold, color.FgWhite).Fprint(w, asciiViam); err != nil {
 		log.Fatal(err)
 	}

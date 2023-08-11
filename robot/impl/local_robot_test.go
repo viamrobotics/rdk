@@ -1860,11 +1860,13 @@ func TestConfigPackages(t *testing.T) {
 				Name:    "some-name-1",
 				Package: "package-1",
 				Version: "v1",
+				Type:    "ml_model",
 			},
 			{
 				Name:    "some-name-2",
-				Package: "package-1",
+				Package: "package-2",
 				Version: "v2",
+				Type:    "ml_model",
 			},
 		},
 		Cloud: &config.Cloud{
@@ -1878,11 +1880,11 @@ func TestConfigPackages(t *testing.T) {
 
 	path1, err := r.PackageManager().PackagePath("some-name-1")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, path1, test.ShouldEqual, path.Join(packageDir, "some-name-1"))
+	test.That(t, path1, test.ShouldEqual, path.Join(packageDir, ".data", "ml_model", "package-1-v1"))
 
 	path2, err := r.PackageManager().PackagePath("some-name-2")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, path2, test.ShouldEqual, path.Join(packageDir, "some-name-2"))
+	test.That(t, path2, test.ShouldEqual, path.Join(packageDir, ".data", "ml_model", "package-2-v2"))
 }
 
 func TestConfigPackageReferenceReplacement(t *testing.T) {
