@@ -449,14 +449,14 @@ func TestReplayMovementSensorConfigValidation(t *testing.T) {
 			expectedDeps: []string{cloud.InternalServiceName.String()},
 		},
 		{
-			description: "Invalid config no source and no timestamp",
+			description: "Invalid config no source",
 			cfg: &Config{
 				Interval: TimeInterval{},
 			},
 			expectedErr: utils.NewConfigValidationFieldRequiredError("", validSource),
 		},
 		{
-			description: "Invalid config no robot_id and no timestamp",
+			description: "Invalid config no robot_id",
 			cfg: &Config{
 				Source:         validSource,
 				LocationID:     validLocationID,
@@ -466,7 +466,7 @@ func TestReplayMovementSensorConfigValidation(t *testing.T) {
 			expectedErr: utils.NewConfigValidationFieldRequiredError("", validRobotID),
 		},
 		{
-			description: "Invalid config no location_id and no timestamp",
+			description: "Invalid config no location_id",
 			cfg: &Config{
 				Source:         validSource,
 				RobotID:        validRobotID,
@@ -476,7 +476,7 @@ func TestReplayMovementSensorConfigValidation(t *testing.T) {
 			expectedErr: utils.NewConfigValidationFieldRequiredError("", validLocationID),
 		},
 		{
-			description: "Invalid config no organization_id and no timestamp",
+			description: "Invalid config no organization_id",
 			cfg: &Config{
 				Source:     validSource,
 				RobotID:    validRobotID,
