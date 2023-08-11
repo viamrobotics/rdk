@@ -8,6 +8,7 @@ import (
 
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/navigation"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // NavigationService represents a fake instance of a navigation service.
@@ -17,7 +18,7 @@ type NavigationService struct {
 	ModeFunc    func(ctx context.Context, extra map[string]interface{}) (navigation.Mode, error)
 	SetModeFunc func(ctx context.Context, mode navigation.Mode, extra map[string]interface{}) error
 
-	LocationFunc func(ctx context.Context, extra map[string]interface{}) (*geo.Point, error)
+	LocationFunc func(ctx context.Context, extra map[string]interface{}) (*spatialmath.GeoPose, error)
 
 	WaypointsFunc      func(ctx context.Context, extra map[string]interface{}) ([]navigation.Waypoint, error)
 	AddWaypointFunc    func(ctx context.Context, point *geo.Point, extra map[string]interface{}) error
@@ -54,7 +55,7 @@ func (ns *NavigationService) SetMode(ctx context.Context, mode navigation.Mode, 
 }
 
 // Location calls the injected LocationFunc or the real version.
-func (ns *NavigationService) Location(ctx context.Context, extra map[string]interface{}) (*geo.Point, error) {
+func (ns *NavigationService) Location(ctx context.Context, extra map[string]interface{}) (*spatialmath.GeoPose, error) {
 	if ns.LocationFunc == nil {
 		return ns.Service.Location(ctx, extra)
 	}
