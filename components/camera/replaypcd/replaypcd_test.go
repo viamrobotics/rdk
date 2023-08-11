@@ -36,7 +36,7 @@ var (
 	batchSizeTooLarge = uint64(1000)
 )
 
-func TestNewReplayPCD(t *testing.T) {
+func TestReplayPCDNew(t *testing.T) {
 	ctx := context.Background()
 
 	cases := []struct {
@@ -117,7 +117,7 @@ func TestNewReplayPCD(t *testing.T) {
 	}
 }
 
-func TestNextPointCloud(t *testing.T) {
+func TestReplayPCDNextPointCloud(t *testing.T) {
 	ctx := context.Background()
 
 	cases := []struct {
@@ -282,8 +282,11 @@ func TestNextPointCloud(t *testing.T) {
 		{
 			description: "Calling NextPointCloud with batching and a start and end filter",
 			cfg: &Config{
-				Source:    validSource,
-				BatchSize: &batchSize2,
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
+				BatchSize:      &batchSize2,
 				Interval: TimeInterval{
 					Start: "2000-01-01T12:00:05Z",
 					End:   "2000-01-01T12:00:10Z",
@@ -345,7 +348,7 @@ func TestNextPointCloud(t *testing.T) {
 // TestLiveNextPointCloud checks the replay pcd camera's ability to handle new data being added to the
 // database the pool during a session, proving that NextPointCloud can return new data even after
 // returning errEndOfDataset.
-func TestLiveNextPointCloud(t *testing.T) {
+func TestReplayPCDLiveNextPointCloud(t *testing.T) {
 	ctx := context.Background()
 
 	numPCDFilesOriginal := numPCDFiles
@@ -353,7 +356,10 @@ func TestLiveNextPointCloud(t *testing.T) {
 	defer func() { numPCDFiles = numPCDFilesOriginal }()
 
 	cfg := &Config{
-		Source: validSource,
+		Source:         validSource,
+		RobotID:        validRobotID,
+		LocationID:     validLocationID,
+		OrganizationID: validOrganizationID,
 	}
 
 	replayCamera, _, serverClose, err := createNewReplayPCDCamera(ctx, t, cfg, true)
@@ -394,7 +400,7 @@ func TestLiveNextPointCloud(t *testing.T) {
 	test.That(t, serverClose(), test.ShouldBeNil)
 }
 
-func TestConfigValidation(t *testing.T) {
+func TestReplayPCDConfigValidation(t *testing.T) {
 	cases := []struct {
 		description  string
 		cfg          *Config
@@ -413,7 +419,7 @@ func TestConfigValidation(t *testing.T) {
 			expectedDeps: []string{cloud.InternalServiceName.String()},
 		},
 		{
-			description: "Valid config with bad source",
+			description: "Valid config with no source",
 			cfg: &Config{
 				RobotID:        validRobotID,
 				LocationID:     validLocationID,
@@ -423,7 +429,7 @@ func TestConfigValidation(t *testing.T) {
 			expectedErr: utils.NewConfigValidationFieldRequiredError("", validSource),
 		},
 		{
-			description: "Valid config with bad robot_id",
+			description: "Valid config with no robot_id",
 			cfg: &Config{
 				Source:         validSource,
 				LocationID:     validLocationID,
@@ -433,7 +439,7 @@ func TestConfigValidation(t *testing.T) {
 			expectedErr: utils.NewConfigValidationFieldRequiredError("", validRobotID),
 		},
 		{
-			description: "Valid config with bad location_id",
+			description: "Valid config with no location_id",
 			cfg: &Config{
 				Source:         validSource,
 				RobotID:        validRobotID,
@@ -443,7 +449,7 @@ func TestConfigValidation(t *testing.T) {
 			expectedErr: utils.NewConfigValidationFieldRequiredError("", validLocationID),
 		},
 		{
-			description: "Valid config with bad organization_id",
+			description: "Valid config with no organization_id",
 			cfg: &Config{
 				Source:     validSource,
 				RobotID:    validRobotID,
@@ -603,7 +609,7 @@ func TestConfigValidation(t *testing.T) {
 	}
 }
 
-func TestUnimplementedFunctions(t *testing.T) {
+func TestReplayPCDUnimplementedFunctions(t *testing.T) {
 	ctx := context.Background()
 
 	replayCamCfg := &Config{
@@ -620,11 +626,6 @@ func TestUnimplementedFunctions(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldEqual, "Stream is unimplemented")
 	})
 
-	t.Run("Properties", func(t *testing.T) {
-		_, err := replayCamera.Properties(ctx)
-		test.That(t, err.Error(), test.ShouldEqual, "Properties is unimplemented")
-	})
-
 	t.Run("Projector", func(t *testing.T) {
 		_, err := replayCamera.Projector(ctx)
 		test.That(t, err.Error(), test.ShouldEqual, "Projector is unimplemented")
@@ -636,9 +637,7 @@ func TestUnimplementedFunctions(t *testing.T) {
 	test.That(t, serverClose(), test.ShouldBeNil)
 }
 
-// TestNextPointCloudTimestamps tests that calls to NextPointCloud on the replay camera will inject
-// the time received and time requested metadata into the gRPC response header.
-func TestNextPointCloudTimestamps(t *testing.T) {
+func TestReplayPCDTimestamps(t *testing.T) {
 	testCameraWithCfg := func(cfg *Config) {
 		// Construct replay camera.
 		ctx := context.Background()
@@ -699,7 +698,31 @@ func TestNextPointCloudTimestamps(t *testing.T) {
 	})
 }
 
-func TestReconfigure(t *testing.T) {
+func TestReplayPCDProperties(t *testing.T) {
+	// Construct replay camera.
+	ctx := context.Background()
+	cfg := &Config{
+		Source:         validSource,
+		RobotID:        validRobotID,
+		LocationID:     validLocationID,
+		OrganizationID: validOrganizationID,
+		BatchSize:      &batchSize1,
+	}
+	replayCamera, _, serverClose, err := createNewReplayPCDCamera(ctx, t, cfg, true)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, replayCamera, test.ShouldNotBeNil)
+
+	props, err := replayCamera.Properties(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, props.SupportsPCD, test.ShouldBeTrue)
+
+	err = replayCamera.Close(ctx)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, serverClose(), test.ShouldBeNil)
+}
+
+func TestReplayPCDReconfigure(t *testing.T) {
 	// Construct replay camera
 	cfg := &Config{
 		Source:         validSource,

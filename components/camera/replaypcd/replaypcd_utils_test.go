@@ -247,7 +247,7 @@ func getNextDataAfterFilter(filter *datapb.Filter, last string) (int, error) {
 
 	// Basic location_id filter
 	if len(filter.LocationIds) == 0 {
-		return 0, errors.New("issue occurred with transmitting LocationIds to the cloud")
+		return 0, errors.New("LocationIds in filter is empty")
 	}
 	if filter.LocationIds[0] != "" && filter.LocationIds[0] != validLocationID {
 		return 0, ErrEndOfDataset
@@ -255,7 +255,7 @@ func getNextDataAfterFilter(filter *datapb.Filter, last string) (int, error) {
 
 	// Basic organization_id filter
 	if len(filter.OrganizationIds) == 0 {
-		return 0, errors.New("issue occurred with transmitting OrganizationIds to the cloud")
+		return 0, errors.New("OrganizationIds in filter is empty")
 	}
 	if filter.OrganizationIds[0] != "" && filter.OrganizationIds[0] != validOrganizationID {
 		return 0, ErrEndOfDataset

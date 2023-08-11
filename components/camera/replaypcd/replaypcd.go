@@ -309,12 +309,12 @@ func (replay *pcdCamera) Images(ctx context.Context) ([]image.Image, time.Time, 
 	return nil, time.Time{}, errors.New("Images is unimplemented")
 }
 
-// Properties is a part of the camera interface but is not implemented for replay.
+// Properties is a part of the camera interface and returns the camera.Properties struct with SupportsPCD set to true.
 func (replay *pcdCamera) Properties(ctx context.Context) (camera.Properties, error) {
 	props := camera.Properties{
 		SupportsPCD: true,
 	}
-	return props, errors.New("Properties is unimplemented")
+	return props, nil
 }
 
 // Projector is a part of the camera interface but is not implemented for replay.
