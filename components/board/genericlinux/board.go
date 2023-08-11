@@ -118,7 +118,7 @@ func (b *Board) reconfigureGpios(newConf LinuxBoardConfig) error {
 	// First, find old pins that are no longer defined, and destroy them.
 	for oldName, mapping := range b.gpioMappings {
 		if _, ok := findMatch(mapping, newConf.GpioMappings; ok {
-			continue // This pin is in the new mapping, too. Don't destroy it.
+			continue // This pin is in the new mapping, so don't destroy it.
 		}
 
 		// Otherwise, remove the pin because it's not in the new mapping.
@@ -145,7 +145,8 @@ func (b *Board) reconfigureGpios(newConf LinuxBoardConfig) error {
 	}
 
 	// Next, compare the new pin definitions to the old ones, to build up 2 sets: pins to rename,
-	// and new pins to create.
+	// and new pins to create. Don't actually create any yet, in case you'd overwrite a pin that
+	// should be renamed out of the way first.
 	toRename := map[string]string{} // Maps old names for pins to new names
 	toCreate := map[string]GpioBoardMapping{}
 	for newName, mapping := range newConf.GpioMappings {
@@ -158,7 +159,7 @@ func (b *Board) reconfigureGpios(newConf LinuxBoardConfig) error {
 		}
 	}
 
-	// Rename the ones whose name changed. The order here is tricky: if B should be renamed to C
+	// Rename the ones whose name changed. The ordering here is tricky: if B should be renamed to C
 	// while A should be renamed to B, we need to make sure we don't overwrite B with A and then
 	// rename it to C. To avoid this, move all the pins to rename into a temporary data structure,
 	// then move them all back again afterward.
@@ -191,7 +192,7 @@ func (b *Board) reconfigureGpios(newConf LinuxBoardConfig) error {
 	}
 
 
-	// Finally, create the new pins
+	// Finally, create the new pins.
 	for newName, mapping := range toCreate {
 		b.gpios[newName] = b.createGpioPin(mapping)
 	}
