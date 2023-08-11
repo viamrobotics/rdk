@@ -7,6 +7,7 @@ package genericlinux
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"sync"
 	"time"
@@ -139,7 +140,9 @@ func (b *Board) reconfigureGpios(newConf *LinuxBoardConfig) error {
 			continue
 		}
 
-		b.logger.Warnf("During reconfiguration, old pin '%s' should be destroyed, but "+
+		// If we get here, there is a logic bug somewhere. but failing to delete a nonexistent pin
+		// seemingly doesn't hurt anything, so just log the error and continue.
+		b.logger.Errorf("During reconfiguration, old pin '%s' should be destroyed, but "+
 			"it doesn't exist!?", oldName)
 	}
 
@@ -178,7 +181,7 @@ func (b *Board) reconfigureGpios(newConf *LinuxBoardConfig) error {
 			continue
 		}
 
-		b.logger.Errorf("During reconfiguration, old pin '%s' should be renamed to '%s', but "+
+		return fmt.Errorf("During reconfiguration, old pin '%s' should be renamed to '%s', but "+
 			"it doesn't exist!?", oldName, newName)
 	}
 
