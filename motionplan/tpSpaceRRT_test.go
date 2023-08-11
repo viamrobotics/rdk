@@ -18,11 +18,12 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-var printPath = false
+var printPath = true
 
 const testTurnRad = 0.3
 
 func TestPtgRrt(t *testing.T) {
+	fmt.Println("type,X,Y")
 	logger := golog.NewTestLogger(t)
 	roverGeom, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{10, 10, 10}, "")
 	test.That(t, err, test.ShouldBeNil)
@@ -38,19 +39,21 @@ func TestPtgRrt(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	goalPos := spatialmath.NewPose(r3.Vector{X: 100, Y: 700, Z: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 180})
+	//~ goalPos := spatialmath.NewPose(r3.Vector{X: 100, Y: 700, Z: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 180})
+	goalPos := spatialmath.NewPose(r3.Vector{X: 100, Y: 7000, Z: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 0})
 
 	opt := newBasicPlannerOptions()
-	opt.SetGoalMetric(NewPositionOnlyMetric(goalPos))
-	opt.DistanceFunc = SquaredNormNoOrientSegmentMetric
-	//~ opt.SetGoalMetric(NewSquaredNormMetric(goalPos))
-	//~ opt.DistanceFunc = SquaredNormSegmentMetric
+	//~ opt.SetGoalMetric(NewPositionOnlyMetric(goalPos))
+	//~ opt.DistanceFunc = SquaredNormNoOrientSegmentMetric
+	opt.SetGoalMetric(NewSquaredNormMetric(goalPos))
+	opt.DistanceFunc = SquaredNormSegmentMetric
 	opt.GoalThreshold = 5.
 	mp, err := newTPSpaceMotionPlanner(ackermanFrame, rand.New(rand.NewSource(42)), logger, opt)
 	test.That(t, err, test.ShouldBeNil)
 	tp, ok := mp.(*tpSpaceRRTMotionPlanner)
 	test.That(t, ok, test.ShouldBeTrue)
-
+	fmt.Printf("SG,%f,%f\n", 0., 0.)
+	fmt.Printf("SG,%f,%f\n", goalPos.Point().X, goalPos.Point().Y)
 	plan, err := tp.plan(context.Background(), goalPos, nil)
 	for _, wp := range plan {
 		fmt.Println(wp.Q())
@@ -129,8 +132,10 @@ func TestPtgWithObstacle(t *testing.T) {
 	mp, err := newTPSpaceMotionPlanner(ackermanFrame, rand.New(rand.NewSource(42)), logger, opt)
 	test.That(t, err, test.ShouldBeNil)
 	tp, _ := mp.(*tpSpaceRRTMotionPlanner)
-
+	fmt.Printf("SG,%f,%f\n", 0., 0.)
+	fmt.Printf("SG,%f,%f\n", goalPos.Point().X, goalPos.Point().Y)
 	plan, err := tp.plan(ctx, goalPos, nil)
+	
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(plan), test.ShouldBeGreaterThan, 2)
 	for _, wp := range plan {
@@ -144,7 +149,6 @@ func TestPtgWithObstacle(t *testing.T) {
 		for _, mynode := range plan {
 			trajPts, _ := allPtgs[int(mynode.Q()[0].Value)].Trajectory(mynode.Q()[1].Value, mynode.Q()[2].Value)
 			for i, pt := range trajPts {
-				fmt.Println("pt", pt)
 				intPose := spatialmath.Compose(lastPose, pt.Pose)
 				if i == 0 {
 					fmt.Printf("WP,%f,%f\n", intPose.Point().X, intPose.Point().Y)

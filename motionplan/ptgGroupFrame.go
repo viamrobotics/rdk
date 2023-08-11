@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	defaultSimDistMM      = 4000.
+	defaultSimDistMM      = 2000.
 )
 
 const (

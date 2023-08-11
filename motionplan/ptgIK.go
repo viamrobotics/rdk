@@ -15,6 +15,7 @@ import (
 
 const (
 	defaultDiffT = 0.01 // seconds
+	nloptSeed = 42
 )
 
 // ptgGridSim will take a PrecomputePTG, and simulate out a number of trajectories through some requested time/distance for speed of lookup
@@ -45,7 +46,7 @@ func NewPTGIK(simPTG tpspace.PrecomputePTG, logger golog.Logger, refDist float64
 	}
 	
 	// create an ends-only grid sim for quick end-of-trajectory calculations
-	gridSim, err := tpspace.NewPTGGridSim(simPTG, 0, refDist/2, true)
+	gridSim, err := tpspace.NewPTGGridSim(simPTG, 0, refDist, true)
 	if err != nil {
 		return nil, err
 	}
@@ -64,11 +65,13 @@ func NewPTGIK(simPTG tpspace.PrecomputePTG, logger golog.Logger, refDist float64
 
 func (ptg *ptgIK) CToTP(ctx context.Context, pose spatialmath.Pose) (*tpspace.TrajNode, error) {
 	
+	
+	
 	solutionGen := make(chan []referenceframe.Input, 1)
-	seedInput := []referenceframe.Input{{math.Pi/3}, {ptg.refDist/3}}
+	seedInput := []referenceframe.Input{{math.Pi/3}, {ptg.refDist/3}} // random value to seed the IK solver
 	goalMetric := NewSquaredNormMetric(pose)
 	// Spawn the IK solver to generate a solution
-	err := ptg.fastGradDescent.Solve(ctx, solutionGen, seedInput, goalMetric, ptg.randseed.Int())
+	err := ptg.fastGradDescent.Solve(ctx, solutionGen, seedInput, goalMetric, nloptSeed)
 	// We should have zero or one solutions
 	var solved []referenceframe.Input
 	select {
@@ -77,9 +80,8 @@ func (ptg *ptgIK) CToTP(ctx context.Context, pose spatialmath.Pose) (*tpspace.Tr
 	}
 	close(solutionGen)
 	if err != nil || solved == nil {
-		//~ solved = seedInput
+		return nil, nil
 		return ptg.gridSim.CToTP(ctx, pose)
-		//~ return nil, nil
 	}
 	// TODO: make this more efficient
 	traj, err := ptg.Trajectory(solved[0].Value, solved[1].Value)
