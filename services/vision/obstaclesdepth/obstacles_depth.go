@@ -159,7 +159,9 @@ func (o *obsDepth) obsDepthNoIntrinsics(ctx context.Context, src camera.VideoSou
 		return nil, errors.New("could not convert image to depth map")
 	}
 	depData := dm.Data()
-
+	if len(depData) == 0 {
+		return nil, errors.New("could not get info from depth map")
+	}
 	// Sort the depth data [smallest...largest]
 	sort.Slice(depData, func(i, j int) bool {
 		return depData[i] < depData[j]
