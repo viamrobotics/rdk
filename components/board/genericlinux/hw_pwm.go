@@ -201,9 +201,3 @@ func (pwm *pwmDevice) Close() error {
 	defer pwm.mu.Unlock()
 	return pwm.wrapError(pwm.unexport())
 }
-
-// Matches returns whether this pin looks like it was defined by the target board mapping. It is
-// used during board reconfiguration to check if the pin definitions have changed.
-func (pwm *pwmDevice) Matches(target GPIOBoardMapping) bool {
-	return target.PWMSysFsDir == pwm.chipPath && target.PWMID == pwm.line
-}

@@ -283,19 +283,6 @@ func (pin *gpioPin) Close() error {
 	return pin.closeGpioFd()
 }
 
-// Matches returns whether this pin looks like it was defined by the target board mapping. It is
-// used during board reconfiguration to check if the pin definitions have changed.
-func (pin *gpioPin) Matches(target GPIOBoardMapping) bool {
-	if pin.devicePath != target.GPIOChipDev || pin.offset != uint32(target.GPIO) {
-		return false // The GPIO line doesn't match
-	}
-	if pin.hwPwm != nil {
-		return pin.hwPwm.Matches(target)
-	}
-	// Otherwise, this pin doesn't have hardware PWM support. Make sure the target doesn't either.
-	return target.PWMSysFsDir == ""
-}
-
 func (b *Board) createGpioPin(mapping GPIOBoardMapping) *gpioPin {
 	pin := gpioPin{
 		boardWorkers: &b.activeBackgroundWorkers,
