@@ -25,6 +25,8 @@ import (
 	"go.viam.com/rdk/services/navigation"
 	"go.viam.com/rdk/services/slam"
 	fakeslam "go.viam.com/rdk/services/slam/fake"
+	_ "go.viam.com/rdk/services/vision"
+	_ "go.viam.com/rdk/services/vision/colordetector"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -108,6 +110,8 @@ func TestNavSetup(t *testing.T) {
 	obs, err := ns.GetObstacles(ctx, nil)
 	test.That(t, len(obs), test.ShouldEqual, 1)
 	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, len(ns.(*builtIn).visionServices), test.ShouldEqual, 1)
 }
 
 func TestStartWaypoint(t *testing.T) {

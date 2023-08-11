@@ -11,12 +11,27 @@
         "model": "fake"
     }],
     "services":
-    [{
+    [
+        {
+            "name": "blue_square",
+            "type": "vision",
+            "model": "color_detector",
+            "attributes": {
+                "segment_size_px": 100,
+                "detect_color": "#1C4599",
+                "hue_tolerance_pct": 0.07,
+                "value_cutoff_pct": 0.15
+            }
+        },
+        {
         "name":"test_navigation",
         "type": "navigation",
         "attributes":{
             "base":"test_base",
             "movement_sensor":"test_movement",
+            "vision_services": [
+                "blue_square"
+            ],
             "obstacles":
             [{
                 "geometries":
