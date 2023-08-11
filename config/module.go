@@ -9,8 +9,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-// TODO(APP-2430) Restrict this regex to not allow namespaces or ":".
-var moduleNameRegEx = regexp.MustCompile(`^([a-z0-9-]+:)?[\w-]+$`)
+var moduleNameRegEx = regexp.MustCompile(`^[\w-]+$`)
 
 const reservedModuleName = "parent"
 
