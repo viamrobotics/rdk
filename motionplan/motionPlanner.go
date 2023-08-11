@@ -12,6 +12,7 @@ import (
 	pb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/referenceframe"
 	frame "go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -184,6 +185,16 @@ func (mp *planner) checkPath(seedInputs, target []frame.Input) bool {
 		mp.planOpts.Resolution,
 	)
 	return ok
+}
+
+func (mp *planner) sample(rSeed node, sampleNum int) ([]referenceframe.Input, error) {
+	// If we have done more than 50 iterations, start seeding off completely random positions 2 at a time
+	// The 2 at a time is to ensure random seeds are added onto both the seed and goal maps.
+	if sampleNum >= mp.planOpts.IterBeforeRand && sampleNum%4 >= 2 {
+		return referenceframe.RandomFrameInputs(mp.frame, mp.randseed), nil
+	}
+	// Seeding nearby to valid points results in much faster convergence in less constrained space
+	return referenceframe.RestrictedRandomFrameInputs(mp.frame, mp.randseed, 0.1, rSeed.Q())
 }
 
 func (mp *planner) opt() *plannerOptions {

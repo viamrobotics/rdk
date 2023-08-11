@@ -43,7 +43,6 @@ func newRRTStarConnectOptions(planOpts *plannerOptions) (*rrtStarConnectOptions,
 	if err != nil {
 		return nil, err
 	}
-
 	return algOpts, nil
 }
 
@@ -117,7 +116,6 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 		}
 		rrt.maps = planSeed.maps
 	}
-
 	target := referenceframe.InterpolateInputs(seed, rrt.maps.optNode.Q(), 0.5)
 	map1, map2 := rrt.maps.startMap, rrt.maps.goalMap
 
@@ -215,16 +213,6 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 	}
 	mp.logger.Debug("RRT* exceeded max iter")
 	rrt.solutionChan <- shortestPath(rrt.maps, shared)
-}
-
-func (mp *rrtStarConnectMotionPlanner) sample(rSeed node, sampleNum int) ([]referenceframe.Input, error) {
-	// If we have done more than 50 iterations, start seeding off completely random positions 2 at a time
-	// The 2 at a time is to ensure random seeds are added onto both the seed and goal maps.
-	if sampleNum >= mp.planOpts.IterBeforeRand && sampleNum%4 >= 2 {
-		return referenceframe.RandomFrameInputs(mp.frame, mp.randseed), nil
-	}
-	// Seeding nearby to valid points results in much faster convergence in less constrained space
-	return referenceframe.RestrictedRandomFrameInputs(mp.frame, mp.randseed, 0.1, rSeed.Q())
 }
 
 func (mp *rrtStarConnectMotionPlanner) extend(
