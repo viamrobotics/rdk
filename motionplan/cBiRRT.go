@@ -281,20 +281,7 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 
 		oldNear = near
 
-		newNear := make([]referenceframe.Input, 0, len(near.Q()))
-
-		// alter near to be closer to target
-		for j, nearInput := range near.Q() {
-			if nearInput.Value == target.Q()[j].Value {
-				newNear = append(newNear, nearInput)
-			} else {
-				v1, v2 := nearInput.Value, target.Q()[j].Value
-				newVal := math.Min(qstep[j], math.Abs(v2-v1))
-				// get correct sign
-				newVal *= (v2 - v1) / math.Abs(v2-v1)
-				newNear = append(newNear, referenceframe.Input{nearInput.Value + newVal})
-			}
-		}
+		newNear := fixedStepInterpolation(near, target, mp.planOpts.qstep)
 		// Check whether newNear meets constraints, and if not, update it to a configuration that does meet constraints (or nil)
 		newNear = mp.constrainNear(ctx, randseed, oldNear.Q(), newNear)
 

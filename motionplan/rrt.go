@@ -118,6 +118,24 @@ func shortestPath(maps *rrtMaps, nodePairs []*nodePair) *rrtPlanReturn {
 	return &rrtPlanReturn{steps: extractPath(maps.startMap, maps.goalMap, nodePairs[minIdx]), maps: maps}
 }
 
+// fixedStepInterpolation returns inputs at qstep distance along the path from start to target
+// if start and target have the same Input value, then no step increment is made.
+func fixedStepInterpolation(start, target node, qstep []float64) []referenceframe.Input {
+	newNear := make([]referenceframe.Input, 0, len(start.Q()))
+	for j, nearInput := range start.Q() {
+		if nearInput.Value == target.Q()[j].Value {
+			newNear = append(newNear, nearInput)
+		} else {
+			v1, v2 := nearInput.Value, target.Q()[j].Value
+			newVal := math.Min(qstep[j], math.Abs(v2-v1))
+			// get correct sign
+			newVal *= (v2 - v1) / math.Abs(v2-v1)
+			newNear = append(newNear, referenceframe.Input{nearInput.Value + newVal})
+		}
+	}
+	return newNear
+}
+
 // node interface is used to wrap a configuration for planning purposes.
 // TODO: This is somewhat redundant with a State.
 type node interface {
