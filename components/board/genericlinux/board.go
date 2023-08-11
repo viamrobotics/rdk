@@ -115,22 +115,7 @@ func getMatchingPin(target GPIOBoardMapping, mapping map[string]GPIOBoardMapping
 }
 
 func (b *Board) reconfigureGpios(newConf LinuxBoardConfig) error {
-	// First, compare the new pin definitions to the old ones, to build up 2 sets: pins to rename,
-	// and new pins to create.
-	toRename := map[string]string{} // Maps old names for pins to new names
-	toCreate := map[string]GpioBoardMapping{}
-	for newName, mapping := range newConf.GpioMappings {
-		if oldName, ok := findMatch(mapping, b.gpioMappings); ok {
-			if oldName != newName {
-				toRename[oldName] = newName
-			}
-		} else {
-			toCreate[newName] = mapping
-		}
-	}
-
-	// Next, find old pins to destroy
-	toDestroy := []string{}
+	// First, find old pins that are no longer defined, and destroy them.
 	for oldName, mapping := range b.gpioMappings {
 		if _, ok := findMatch(mapping, newConf.GpioMappings; ok {
 			continue // This pin is in the new mapping, too. Don't destroy it.
@@ -157,6 +142,20 @@ func (b *Board) reconfigureGpios(newConf LinuxBoardConfig) error {
 
 		b.logger.Warnf("During reconfiguration, old pin '%s' should be destroyed, but " +
 		               "it doesn't exist!?", oldName)
+	}
+
+	// Next, compare the new pin definitions to the old ones, to build up 2 sets: pins to rename,
+	// and new pins to create.
+	toRename := map[string]string{} // Maps old names for pins to new names
+	toCreate := map[string]GpioBoardMapping{}
+	for newName, mapping := range newConf.GpioMappings {
+		if oldName, ok := findMatch(mapping, b.gpioMappings); ok {
+			if oldName != newName {
+				toRename[oldName] = newName
+			}
+		} else {
+			toCreate[newName] = mapping
+		}
 	}
 
 	// Rename the ones whose name changed. The order here is tricky: if B should be renamed to C
