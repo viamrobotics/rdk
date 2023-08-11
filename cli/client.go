@@ -34,6 +34,10 @@ import (
 	"go.viam.com/rdk/services/shell"
 )
 
+// injectedAppClientKey is used as the context map key that contains injected
+// appClients for testing.
+type injectedAppClientKey struct{}
+
 // appClient wraps a cli.Context and provides all the CLI command functionality
 // needed to talk to the app service but not directly to robot parts.
 type appClient struct {
@@ -418,6 +422,11 @@ func isProdBaseURL(baseURL *url.URL) bool {
 }
 
 func newAppClient(c *cli.Context) (*appClient, error) {
+	// Check for injectedAppClientKey for testing.
+	if ac := c.Context.Value(injectedAppClientKey{}); ac != nil {
+		return ac.(*appClient), nil
+	}
+
 	baseURL, rpcOpts, err := checkBaseURL(c)
 	if err != nil {
 		return nil, err
