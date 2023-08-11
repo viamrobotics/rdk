@@ -84,9 +84,10 @@ func TestNavSetup(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, navMode, test.ShouldEqual, navigation.ModeWaypoint)
 
-	loc, err := ns.Location(ctx, nil)
+	geoPose, err := ns.Location(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, loc, test.ShouldResemble, geo.NewPoint(40.7, -73.98))
+	expectedGeoPose := spatialmath.NewGeoPose(geo.NewPoint(40.7, -73.98), 25.)
+	test.That(t, geoPose, test.ShouldResemble, expectedGeoPose)
 
 	wayPt, err := ns.Waypoints(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
