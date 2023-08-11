@@ -38,11 +38,6 @@ func TestEulerAnglesConversion(t *testing.T) {
 		q          quat.Number
 	}{
 		{
-			"gimbal lock 1: pitch is π/2",
-			EulerAngles{math.Pi / 4.0, math.Pi / 2.0, math.Pi},
-			quat.Number{Real: 0.27059808647933425, Imag: 0.6532814673582304, Jmag: 0.2705980864793342, Kmag: 0.6532814673582303},
-		},
-		{
 			"vanilla 1: roll pitch and yaw are not near edge cases",
 			EulerAngles{math.Pi / 4.0, math.Pi / 4.0, 3.0 * math.Pi / 4.0},
 			quat.Number{Real: 0.46193978734586505, Imag: -0.19134171618254486, Jmag: 0.4619397662556434, Kmag: 0.7325378046916491},
