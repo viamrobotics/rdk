@@ -106,7 +106,7 @@ func (b *Board) Reconfigure(
 // This is a helper function used to reconfigure the GPIO pins. It looks for the key in the map
 // whose value resembles the target pin definition.
 func getMatchingPin(target GPIOBoardMapping, mapping map[string]GPIOBoardMapping) (string, bool) {
-	for name, def := range(mapping) {
+	for name, def := range mapping {
 		if target == def {
 			return name, true
 		}
@@ -140,8 +140,8 @@ func (b *Board) reconfigureGpios(newConf LinuxBoardConfig) error {
 			continue
 		}
 
-		b.logger.Warnf("During reconfiguration, old pin '%s' should be destroyed, but " +
-		               "it doesn't exist!?", oldName)
+		b.logger.Warnf("During reconfiguration, old pin '%s' should be destroyed, but "+
+			"it doesn't exist!?", oldName)
 	}
 
 	// Next, compare the new pin definitions to the old ones, to build up 2 sets: pins to rename,
@@ -179,8 +179,8 @@ func (b *Board) reconfigureGpios(newConf LinuxBoardConfig) error {
 			continue
 		}
 
-		b.logger.Errorf("During reconfiguration, old pin '%s' should be renamed to '%s', but " +
-		                "it doesn't exist!?", oldName, newName)
+		b.logger.Errorf("During reconfiguration, old pin '%s' should be renamed to '%s', but "+
+			"it doesn't exist!?", oldName, newName)
 	}
 
 	// Now move all the pins back from the temporary data structures.
@@ -190,7 +190,6 @@ func (b *Board) reconfigureGpios(newConf LinuxBoardConfig) error {
 	for newName, interrupt := range tempInterrupts {
 		b.interrupts[newName] = interrupt
 	}
-
 
 	// Finally, create the new pins.
 	for newName, mapping := range toCreate {
