@@ -117,8 +117,8 @@ func getMatchingPin(target GPIOBoardMapping, mapping map[string]GPIOBoardMapping
 // This never returns errors, but we give it the same function signature as the other
 // reconfiguration helpers for consistency.
 func (b *Board) reconfigureGpios(newConf LinuxBoardConfig) error {
-	// First, compare the new pin definitions to the old ones, to build up 3 sets: pins that have
-	// been renamed, new pins to create, and old pins to destroy.
+	// First, compare the new pin definitions to the old ones, to build up 3 sets: pins to rename,
+	// new pins to create, and old pins to destroy.
 	toRename := map[string]string{} // Maps old names for pins to new names
 	toCreate := map[string]GpioBoardMapping{}
 	for newName, mapping := range newConf.GpioMappings {
