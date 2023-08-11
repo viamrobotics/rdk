@@ -37,7 +37,7 @@ type PTGProvider interface {
 // PrecomputePTG is a precomputable PTG.
 type PrecomputePTG interface {
 	// PTGVelocities returns the linear and angular velocity at a specific point along a trajectory
-	PTGVelocities(alpha, dist, x, y, phi float64) (float64, float64, error)
+	PTGVelocities(alpha, dist float64) (float64, float64, error)
 	Transform([]referenceframe.Input) (spatialmath.Pose, error)
 }
 
@@ -94,9 +94,6 @@ func ComputePTG(
 	var err error
 	var w float64
 	var v float64
-	var x float64
-	var y float64
-	var phi float64
 	var t float64
 	dist := math.Copysign(math.Abs(v) * diffT, refDist)
 
@@ -107,7 +104,7 @@ func ComputePTG(
 
 	// Step through each time point for this alpha
 	for math.Abs(dist) < math.Abs(refDist) {
-		v, w, err = simPTG.PTGVelocities(alpha, dist, x, y, phi)
+		v, w, err = simPTG.PTGVelocities(alpha, dist)
 		if err != nil {
 			return nil, err
 		}
