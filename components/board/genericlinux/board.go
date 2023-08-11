@@ -76,11 +76,10 @@ func (b *Board) Reconfigure(
 	_ resource.Dependencies,
 	conf resource.Config,
 ) error {
-	newConfPtr, err := b.convertConfig(conf)
+	newConf, err := b.convertConfig(conf)
 	if err != nil {
 		return err
 	}
-	newConf := *newConfPtr
 
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -114,7 +113,7 @@ func getMatchingPin(target GPIOBoardMapping, mapping map[string]GPIOBoardMapping
 	return "", false
 }
 
-func (b *Board) reconfigureGpios(newConf LinuxBoardConfig) error {
+func (b *Board) reconfigureGpios(newConf *LinuxBoardConfig) error {
 	// First, find old pins that are no longer defined, and destroy them.
 	for oldName, mapping := range b.gpioMappings {
 		if _, ok := getMatchingPin(mapping, newConf.GpioMappings); ok {
@@ -202,7 +201,7 @@ func (b *Board) reconfigureGpios(newConf LinuxBoardConfig) error {
 
 // This never returns errors, but we give it the same function signature as the other
 // reconfiguration helpers for consistency.
-func (b *Board) reconfigureSpis(newConf LinuxBoardConfig) error {
+func (b *Board) reconfigureSpis(newConf *LinuxBoardConfig) error {
 	stillExists := map[string]struct{}{}
 	for _, c := range newConf.SPIs {
 		stillExists[c.Name] = struct{}{}
@@ -225,7 +224,7 @@ func (b *Board) reconfigureSpis(newConf LinuxBoardConfig) error {
 	return nil
 }
 
-func (b *Board) reconfigureI2cs(newConf LinuxBoardConfig) error {
+func (b *Board) reconfigureI2cs(newConf *LinuxBoardConfig) error {
 	stillExists := map[string]struct{}{}
 	for _, c := range newConf.I2Cs {
 		stillExists[c.Name] = struct{}{}
@@ -260,7 +259,7 @@ func (b *Board) reconfigureI2cs(newConf LinuxBoardConfig) error {
 	return nil
 }
 
-func (b *Board) reconfigureAnalogs(ctx context.Context, newConf LinuxBoardConfig) error {
+func (b *Board) reconfigureAnalogs(ctx context.Context, newConf *LinuxBoardConfig) error {
 	stillExists := map[string]struct{}{}
 	for _, c := range newConf.Analogs {
 		channel, err := strconv.Atoi(c.Pin)
@@ -325,7 +324,7 @@ func findNewDigIntConfig(
 	return nil
 }
 
-func (b *Board) reconfigureInterrupts(newConf LinuxBoardConfig) error {
+func (b *Board) reconfigureInterrupts(newConf *LinuxBoardConfig) error {
 	// Any pin that already exists in the right configuration should just be copied over; closing
 	// and re-opening it risks losing its state.
 	newInterrupts := make(map[string]*digitalInterrupt, len(newConf.DigitalInterrupts))
