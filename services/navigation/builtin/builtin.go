@@ -19,13 +19,25 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/navigation"
+	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
 const (
-	metersPerSecDefault = 0.5
-	degPerSecDefault    = 45
+	defaultLinearVelocityMPerSec     = 0.5
+	defaultAngularVelocityDegsPerSec = 45
+
+	// how far off the path must the robot be to trigger replanning.
+	defaultPlanDeviationM = 1e9
+
+	// the allowable quality change between the new plan and the remainder
+	// of the original plan.
+	defaultReplanCostFactor = 1.
+
+	// frequency measured in hertz.
+	defaultObstaclePollingFrequencyHz = 2.
+	defaultPositionPollingFrequencyHz = 2.
 )
 
 func init() {
@@ -54,10 +66,17 @@ type Config struct {
 	BaseName           string                 `json:"base"`
 	MovementSensorName string                 `json:"movement_sensor"`
 	MotionServiceName  string                 `json:"motion_service"`
+	VisionServices     []string               `json:"vision_services"`
+
 	// DegPerSec and MetersPerSec are targets and not hard limits on speed
-	DegPerSec    float64                          `json:"degs_per_sec"`
-	MetersPerSec float64                          `json:"meters_per_sec"`
-	Obstacles    []*spatialmath.GeoObstacleConfig `json:"obstacles,omitempty"`
+	DegPerSec    float64 `json:"degs_per_sec,omitempty"`
+	MetersPerSec float64 `json:"meters_per_sec,omitempty"`
+
+	Obstacles                  []*spatialmath.GeoObstacleConfig `json:"obstacles,omitempty"`
+	PositionPollingFrequencyHz float64                          `json:"position_polling_frequency_hz,omitempty"`
+	ObstaclePollingFrequencyHz float64                          `json:"obstacle_polling_frequency_hz,omitempty"`
+	PlanDeviationM             float64                          `json:"plan_deviation_m,omitempty"`
+	ReplanCostFactor           float64                          `json:"replan_cost_factor,omitempty"`
 }
 
 // Validate creates the list of implicit dependencies.
@@ -79,12 +98,28 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	}
 	deps = append(deps, resource.NewName(motion.API, conf.MotionServiceName).String())
 
+	for _, v := range conf.VisionServices {
+		deps = append(deps, resource.NewName(vision.API, v).String())
+	}
+
 	// get default speeds from config if set, else defaults from nav services const
 	if conf.MetersPerSec == 0 {
-		conf.MetersPerSec = metersPerSecDefault
+		conf.MetersPerSec = defaultLinearVelocityMPerSec
 	}
 	if conf.DegPerSec == 0 {
-		conf.DegPerSec = degPerSecDefault
+		conf.DegPerSec = defaultAngularVelocityDegsPerSec
+	}
+	if conf.PositionPollingFrequencyHz == 0 {
+		conf.PositionPollingFrequencyHz = defaultPositionPollingFrequencyHz
+	}
+	if conf.ObstaclePollingFrequencyHz == 0 {
+		conf.ObstaclePollingFrequencyHz = defaultObstaclePollingFrequencyHz
+	}
+	if conf.PlanDeviationM == 0 {
+		conf.PlanDeviationM = defaultPlanDeviationM
+	}
+	if conf.ReplanCostFactor == 0 {
+		conf.ReplanCostFactor = defaultReplanCostFactor
 	}
 
 	// ensure obstacles have no translation
@@ -122,10 +157,16 @@ type builtIn struct {
 	base           base.Base
 	movementSensor movementsensor.MovementSensor
 	motion         motion.Service
+	visionServices []vision.Service
 	obstacles      []*spatialmath.GeoObstacle
 
-	metersPerSec              float64
-	degPerSec                 float64
+	positionPollingFrequencyHz float64
+	obstaclePollingFrequencyHz float64
+	planDeviationM             float64
+	replanCostFactor           float64
+	metersPerSec               float64
+	degPerSec                  float64
+
 	logger                    golog.Logger
 	wholeServiceCancelFunc    func()
 	currentWaypointCancelFunc func()
@@ -154,9 +195,18 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	if err != nil {
 		return err
 	}
-	motionSrv, err := motion.FromDependencies(deps, svcConfig.MotionServiceName)
+	motionSvc, err := motion.FromDependencies(deps, svcConfig.MotionServiceName)
 	if err != nil {
 		return err
+	}
+
+	var visionSvcs []vision.Service
+	for _, svc := range svcConfig.VisionServices {
+		visionSvc, err := vision.FromDependencies(deps, svc)
+		if err != nil {
+			return err
+		}
+		visionSvcs = append(visionSvcs, visionSvc)
 	}
 
 	svc.mu.Lock()
@@ -189,10 +239,15 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	svc.storeType = string(svcConfig.Store.Type)
 	svc.base = base1
 	svc.movementSensor = movementSensor
-	svc.motion = motionSrv
+	svc.motion = motionSvc
+	svc.visionServices = visionSvcs
 	svc.obstacles = newObstacles
 	svc.metersPerSec = svcConfig.MetersPerSec
 	svc.degPerSec = svcConfig.DegPerSec
+	svc.obstaclePollingFrequencyHz = svcConfig.ObstaclePollingFrequencyHz
+	svc.positionPollingFrequencyHz = svcConfig.PositionPollingFrequencyHz
+	svc.planDeviationM = svcConfig.PlanDeviationM
+	svc.replanCostFactor = svcConfig.ReplanCostFactor
 
 	return nil
 }
@@ -304,8 +359,14 @@ func (svc *builtIn) startWaypoint(ctx context.Context, extra map[string]interfac
 	}
 
 	motionCfg := motion.MotionConfiguration{
-		LinearMPerSec:     svc.metersPerSec,
-		AngularDegsPerSec: svc.degPerSec,
+		LinearMPerSec:         svc.metersPerSec,
+		AngularDegsPerSec:     svc.degPerSec,
+		PlanDeviationM:        svc.planDeviationM,
+		PositionPollingFreqHz: svc.positionPollingFrequencyHz,
+		ObstaclePollingFreqHz: svc.obstaclePollingFrequencyHz,
+	}
+	for _, vis := range svc.visionServices {
+		motionCfg.VisionSvc = append(motionCfg.VisionSvc, vis.Name())
 	}
 
 	svc.activeBackgroundWorkers.Add(1)
