@@ -114,11 +114,9 @@ func getMatchingPin(target GPIOBoardMapping, mapping map[string]GPIOBoardMapping
 	return "", false
 }
 
-// This never returns errors, but we give it the same function signature as the other
-// reconfiguration helpers for consistency.
 func (b *Board) reconfigureGpios(newConf LinuxBoardConfig) error {
-	// First, compare the new pin definitions to the old ones, to build up 3 sets: pins to rename,
-	// new pins to create, and old pins to destroy.
+	// First, compare the new pin definitions to the old ones, to build up 2 sets: pins to rename,
+	// and new pins to create.
 	toRename := map[string]string{} // Maps old names for pins to new names
 	toCreate := map[string]GpioBoardMapping{}
 	for newName, mapping := range newConf.GpioMappings {
@@ -131,25 +129,28 @@ func (b *Board) reconfigureGpios(newConf LinuxBoardConfig) error {
 		}
 	}
 
+	// Next, find old pins to destroy
 	toDestroy := []string{}
 	for oldName, mapping := range b.gpioMappings {
-		if _, ok := findMatch(mapping, newConf.GpioMappings; !ok {
-			toDestroy = append(toDestroy, oldName)
+		if _, ok := findMatch(mapping, newConf.GpioMappings; ok {
+			continue // This pin is in the new mapping, too. Don't destroy it.
 		}
-	}
 
-	// Destroy the no-longer-used ones
-	for oldName := range toDestroy {
+		// Otherwise, remove the pin because it's not in the new mapping.
 		if pin, ok := b.gpios[oldName]; ok {
-			pin.Close()
+			if err := pin.Close(); err != nil {
+				return err
+			}
 			delete(b.gpios, oldName)
 			continue
 		}
 
-		// If we get here, the pin definition exists, but the pin does not. Check if it's a digital
-		// interrupt.
+		// If we get here, the old pin definition exists, but the old pin does not. Check if it's a
+		// digital interrupt.
 		if interrupt, ok := b.interrupts[oldName]; ok {
-			interrupt.Close()
+			if err := interrupt.Close(); err != nil {
+				return err
+			}
 			delete(b.interrupts, oldName)
 			continue
 		}
@@ -178,7 +179,7 @@ func (b *Board) reconfigureGpios(newConf LinuxBoardConfig) error {
 			continue
 		}
 
-		b.logger.Errorf("During reconfiguration, old pin '%s' should be renamed to %s, but " +
+		b.logger.Errorf("During reconfiguration, old pin '%s' should be renamed to '%s', but " +
 		                "it doesn't exist!?", oldName, newName)
 	}
 
