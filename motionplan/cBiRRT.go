@@ -29,14 +29,11 @@ const (
 type cbirrtOptions struct {
 	// Number of IK solutions with which to seed the goal side of the bidirectional tree.
 	SolutionsToSeed int `json:"solutions_to_seed"`
-
-	// Parameters common to all RRT implementations
-	*rrtOptions
 }
 
 // newCbirrtOptions creates a struct controlling the running of a single invocation of cbirrt. All values are pre-set to reasonable
 // defaults, but can be tweaked if needed.
-func newCbirrtOptions(planOpts *plannerOptions, frame referenceframe.Frame) (*cbirrtOptions, error) {
+func newCbirrtOptions(planOpts *plannerOptions) (*cbirrtOptions, error) {
 	algOpts := &cbirrtOptions{
 		SolutionsToSeed: defaultSolutionsToSeed,
 	}
@@ -49,9 +46,6 @@ func newCbirrtOptions(planOpts *plannerOptions, frame referenceframe.Frame) (*cb
 	if err != nil {
 		return nil, err
 	}
-
-	rrtOptions := newRRTOptions(frame)
-	algOpts.rrtOptions = rrtOptions
 
 	return algOpts, nil
 }
@@ -84,7 +78,7 @@ func newCBiRRTMotionPlanner(
 	if err != nil {
 		return nil, err
 	}
-	algOpts, err := newCbirrtOptions(opt, mp.frame)
+	algOpts, err := newCbirrtOptions(opt)
 	if err != nil {
 		return nil, err
 	}
@@ -160,7 +154,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 		len(rrt.maps.goalMap),
 	)
 
-	for i := 0; i < mp.algOpts.PlanIter; i++ {
+	for i := 0; i < mp.planOpts.PlanIter; i++ {
 		select {
 		case <-ctx.Done():
 			mp.logger.Debugf("CBiRRT timed out after %d iterations", i)
@@ -215,7 +209,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 		reachedDelta := mp.planOpts.DistanceFunc(&Segment{StartConfiguration: map1reached.Q(), EndConfiguration: map2reached.Q()})
 
 		// Second iteration; extend maps 1 and 2 towards the halfway point between where they reached
-		if reachedDelta > mp.algOpts.JointSolveDist {
+		if reachedDelta > mp.planOpts.JointSolveDist {
 			target = referenceframe.InterpolateInputs(map1reached.Q(), map2reached.Q(), 0.5)
 			map1reached, map2reached, err = tryExtend(target)
 			if err != nil {
@@ -226,7 +220,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 		}
 
 		// Solved!
-		if reachedDelta <= mp.algOpts.JointSolveDist {
+		if reachedDelta <= mp.planOpts.JointSolveDist {
 			mp.logger.Debugf("CBiRRT found solution after %d iterations", i)
 			cancel()
 			path := extractPath(rrt.maps.startMap, rrt.maps.goalMap, &nodePair{map1reached, map2reached})
@@ -248,7 +242,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 func (mp *cBiRRTMotionPlanner) sample(rSeed node, sampleNum int) ([]referenceframe.Input, error) {
 	// If we have done more than 50 iterations, start seeding off completely random positions 2 at a time
 	// The 2 at a time is to ensure random seeds are added onto both the seed and goal maps.
-	if sampleNum >= mp.algOpts.IterBeforeRand && sampleNum%4 >= 2 {
+	if sampleNum >= mp.planOpts.IterBeforeRand && sampleNum%4 >= 2 {
 		return referenceframe.RandomFrameInputs(mp.frame, mp.randseed), nil
 	}
 	// Seeding nearby to valid points results in much faster convergence in less constrained space
@@ -265,8 +259,8 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 	mchan chan node,
 ) {
 	// Allow qstep to be doubled as a means to escape from configurations which gradient descend to their seed
-	qstep := make([]float64, len(mp.algOpts.qstep))
-	copy(qstep, mp.algOpts.qstep)
+	qstep := make([]float64, len(mp.planOpts.qstep))
+	copy(qstep, mp.planOpts.qstep)
 	doubled := false
 
 	oldNear := near
@@ -287,7 +281,7 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 		dist := mp.planOpts.DistanceFunc(&Segment{StartConfiguration: near.Q(), EndConfiguration: target.Q()})
 		oldDist := mp.planOpts.DistanceFunc(&Segment{StartConfiguration: oldNear.Q(), EndConfiguration: target.Q()})
 		switch {
-		case dist < mp.algOpts.JointSolveDist:
+		case dist < mp.planOpts.JointSolveDist:
 			mchan <- near
 			return
 		case dist > oldDist:
@@ -316,7 +310,7 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 
 		if newNear != nil {
 			nearDist := mp.planOpts.DistanceFunc(&Segment{StartConfiguration: oldNear.Q(), EndConfiguration: newNear})
-			if nearDist < math.Pow(mp.algOpts.JointSolveDist, 3) {
+			if nearDist < math.Pow(mp.planOpts.JointSolveDist, 3) {
 				if !doubled {
 					doubled = true
 					// Check if doubling qstep will allow escape from the identical configuration
@@ -334,7 +328,7 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 				}
 			}
 			if doubled {
-				copy(qstep, mp.algOpts.qstep)
+				copy(qstep, mp.planOpts.qstep)
 				doubled = false
 			}
 			// constrainNear will ensure path between oldNear and newNear satisfies constraints along the way
@@ -408,7 +402,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 		}
 		if failpos != nil {
 			dist := mp.planOpts.DistanceFunc(&Segment{StartConfiguration: target, EndConfiguration: failpos.EndConfiguration})
-			if dist > mp.algOpts.JointSolveDist {
+			if dist > mp.planOpts.JointSolveDist {
 				// If we have a first failing position, and that target is updating (no infinite loop), then recurse
 				seedInputs = failpos.StartConfiguration
 				target = failpos.EndConfiguration
@@ -469,7 +463,7 @@ func (mp *cBiRRTMotionPlanner) smoothPath(
 			// However, smoothed paths are invariably more intuitive and smooth, and lend themselves to future shortening,
 			// so we allow elongation here.
 			dist := mp.planOpts.DistanceFunc(&Segment{StartConfiguration: inputSteps[i].Q(), EndConfiguration: reached.Q()})
-			if dist < mp.algOpts.JointSolveDist {
+			if dist < mp.planOpts.JointSolveDist {
 				for _, hitCorner := range hitCorners {
 					hitCorner.SetCorner(false)
 				}

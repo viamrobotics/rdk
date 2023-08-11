@@ -33,33 +33,6 @@ type rrtParallelPlannerShared struct {
 	solutionChan    chan *rrtPlanReturn
 }
 
-type rrtOptions struct {
-	// Number of planner iterations before giving up.
-	PlanIter int `json:"plan_iter"`
-
-	// The maximum percent of a joints range of motion to allow per step.
-	FrameStep float64 `json:"frame_step"`
-
-	// If the dot product between two sets of joint angles is less than this, consider them identical.
-	JointSolveDist float64 `json:"joint_solve_dist"`
-
-	// Number of iterations to mrun before beginning to accept randomly seeded locations.
-	IterBeforeRand int `json:"iter_before_rand"`
-
-	// This is how far cbirrt will try to extend the map towards a goal per-step. Determined from FrameStep
-	qstep []float64
-}
-
-func newRRTOptions(frame referenceframe.Frame) *rrtOptions {
-	return &rrtOptions{
-		PlanIter:       defaultPlanIter,
-		FrameStep:      defaultFrameStep,
-		JointSolveDist: defaultJointSolveDist,
-		IterBeforeRand: defaultIterBeforeRand,
-		qstep:          getFrameSteps(frame, defaultFrameStep),
-	}
-}
-
 type rrtMap map[node]node
 
 type rrtPlanReturn struct {

@@ -26,14 +26,11 @@ const (
 type rrtStarConnectOptions struct {
 	// The number of nearest neighbors to consider when adding a new sample to the tree
 	NeighborhoodSize int `json:"neighborhood_size"`
-
-	// Parameters common to all RRT implementations
-	*rrtOptions
 }
 
 // newRRTStarConnectOptions creates a struct controlling the running of a single invocation of the algorithm.
 // All values are pre-set to reasonable defaults, but can be tweaked if needed.
-func newRRTStarConnectOptions(planOpts *plannerOptions, frame referenceframe.Frame) (*rrtStarConnectOptions, error) {
+func newRRTStarConnectOptions(planOpts *plannerOptions) (*rrtStarConnectOptions, error) {
 	algOpts := &rrtStarConnectOptions{
 		NeighborhoodSize: defaultNeighborhoodSize,
 	}
@@ -46,9 +43,6 @@ func newRRTStarConnectOptions(planOpts *plannerOptions, frame referenceframe.Fra
 	if err != nil {
 		return nil, err
 	}
-
-	rrtOptions := newRRTOptions(frame)
-	algOpts.rrtOptions = rrtOptions
 
 	return algOpts, nil
 }
@@ -75,7 +69,7 @@ func newRRTStarConnectMotionPlanner(
 	if err != nil {
 		return nil, err
 	}
-	algOpts, err := newRRTStarConnectOptions(opt, frame)
+	algOpts, err := newRRTStarConnectOptions(opt)
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +131,7 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 
 	nSolved := 0
 
-	for i := 0; i < mp.algOpts.PlanIter; i++ {
+	for i := 0; i < mp.planOpts.PlanIter; i++ {
 		select {
 		case <-ctx.Done():
 			// stop and return best path
@@ -182,7 +176,7 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 		reachedDelta := mp.planOpts.DistanceFunc(&Segment{StartConfiguration: map1reached.Q(), EndConfiguration: map2reached.Q()})
 
 		// Second iteration; extend maps 1 and 2 towards the halfway point between where they reached
-		if reachedDelta > mp.algOpts.JointSolveDist {
+		if reachedDelta > mp.planOpts.JointSolveDist {
 			target = referenceframe.InterpolateInputs(map1reached.Q(), map2reached.Q(), 0.5)
 			map1reached, map2reached, err = tryExtend(target)
 			if err != nil {
@@ -193,7 +187,7 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 		}
 
 		// Solved
-		if reachedDelta <= mp.algOpts.JointSolveDist {
+		if reachedDelta <= mp.planOpts.JointSolveDist {
 			// target was added to both map
 			shared = append(shared, &nodePair{map1reached, map2reached})
 
@@ -226,7 +220,7 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 func (mp *rrtStarConnectMotionPlanner) sample(rSeed node, sampleNum int) ([]referenceframe.Input, error) {
 	// If we have done more than 50 iterations, start seeding off completely random positions 2 at a time
 	// The 2 at a time is to ensure random seeds are added onto both the seed and goal maps.
-	if rSeed == nil || (sampleNum >= mp.algOpts.IterBeforeRand && sampleNum%4 >= 2) {
+	if sampleNum >= mp.planOpts.IterBeforeRand && sampleNum%4 >= 2 {
 		return referenceframe.RandomFrameInputs(mp.frame, mp.randseed), nil
 	}
 	// Seeding nearby to valid points results in much faster convergence in less constrained space
@@ -256,13 +250,8 @@ func (mp *rrtStarConnectMotionPlanner) extend(
 		}
 
 		dist := mp.planOpts.DistanceFunc(&Segment{StartConfiguration: near.Q(), EndConfiguration: target.Q()})
-		oldDist := mp.planOpts.DistanceFunc(&Segment{StartConfiguration: oldNear.Q(), EndConfiguration: target.Q()})
-		switch {
-		case dist < mp.algOpts.JointSolveDist:
+		if dist < mp.planOpts.JointSolveDist {
 			mchan <- near
-			return
-		case dist > oldDist:
-			mchan <- oldNear
 			return
 		}
 
@@ -275,7 +264,7 @@ func (mp *rrtStarConnectMotionPlanner) extend(
 				newNear = append(newNear, nearInput)
 			} else {
 				v1, v2 := nearInput.Value, target.Q()[j].Value
-				newVal := math.Min(mp.algOpts.qstep[j], math.Abs(v2-v1))
+				newVal := math.Min(mp.planOpts.qstep[j], math.Abs(v2-v1))
 				// get correct sign
 				newVal *= (v2 - v1) / math.Abs(v2-v1)
 				newNear = append(newNear, referenceframe.Input{nearInput.Value + newVal})
@@ -283,39 +272,35 @@ func (mp *rrtStarConnectMotionPlanner) extend(
 		}
 		// Check whether oldNear -> newNear path is a valid segment, and if not then set to nil
 		if !mp.checkPath(oldNear.Q(), newNear) {
-			newNear = nil
+			break
 		}
 
-		if newNear != nil {
-			neighbors := kNearestNeighbors(mp.planOpts, rrtMap, &basicNode{q: newNear}, mp.algOpts.NeighborhoodSize)
+		neighbors := kNearestNeighbors(mp.planOpts, rrtMap, &basicNode{q: newNear}, mp.algOpts.NeighborhoodSize)
 
-			near = &basicNode{q: newNear, cost: neighbors[0].node.Cost() + neighbors[0].dist}
-			rrtMap[near] = oldNear
+		near = &basicNode{q: newNear, cost: neighbors[0].node.Cost() + neighbors[0].dist}
+		rrtMap[near] = oldNear
 
-			// rewire the tree
-			for i, thisNeighbor := range neighbors {
-				// dont need to try to rewire nearest neighbor, so skip it
-				if i == 0 {
-					continue
-				}
-
-				// check to see if a shortcut is possible, and rewire the node if it is
-				connectionCost := mp.planOpts.DistanceFunc(&Segment{
-					StartConfiguration: thisNeighbor.node.Q(),
-					EndConfiguration:   near.Q(),
-				})
-				cost := connectionCost + near.Cost()
-
-				// If 1) we have a lower cost, and 2) the putative updated path is valid
-				if cost < thisNeighbor.node.Cost() && mp.checkPath(target.Q(), thisNeighbor.node.Q()) {
-					// Alter the cost of the node
-					// This needs to edit the existing node, rather than make a new one, as there are pointers in the tree
-					thisNeighbor.node.SetCost(cost)
-					rrtMap[thisNeighbor.node] = near
-				}
+		// rewire the tree
+		for i, thisNeighbor := range neighbors {
+			// dont need to try to rewire nearest neighbor, so skip it
+			if i == 0 {
+				continue
 			}
-		} else {
-			break
+
+			// check to see if a shortcut is possible, and rewire the node if it is
+			connectionCost := mp.planOpts.DistanceFunc(&Segment{
+				StartConfiguration: thisNeighbor.node.Q(),
+				EndConfiguration:   near.Q(),
+			})
+			cost := connectionCost + near.Cost()
+
+			// If 1) we have a lower cost, and 2) the putative updated path is valid
+			if cost < thisNeighbor.node.Cost() && mp.checkPath(target.Q(), thisNeighbor.node.Q()) {
+				// Alter the cost of the node
+				// This needs to edit the existing node, rather than make a new one, as there are pointers in the tree
+				thisNeighbor.node.SetCost(cost)
+				rrtMap[thisNeighbor.node] = near
+			}
 		}
 	}
 	mchan <- oldNear

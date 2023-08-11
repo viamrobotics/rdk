@@ -95,7 +95,7 @@ func constrainedXArmMotion() (*planConfig, error) {
 	// Test ability to arrive at another position
 	pos := spatialmath.NewPoseFromProtobuf(&commonpb.Pose{X: -206, Y: 100, Z: 120, OZ: -1})
 
-	opt := newBasicPlannerOptions()
+	opt := newBasicPlannerOptions(model)
 	orientMetric := NewPoseFlexOVMetric(pos, 0.09)
 
 	oFunc := orientDistToRegion(pos.Orientation(), 0.1)
@@ -205,7 +205,7 @@ func simple2DMap() (*planConfig, error) {
 	}
 
 	// setup planner options
-	opt := newBasicPlannerOptions()
+	opt := newBasicPlannerOptions(model)
 	startInput := frame.StartPositions(fs)
 	startInput[modelName] = frame.FloatsToInputs([]float64{-90., 90., 0})
 	goal := spatialmath.NewPoseFromPoint(r3.Vector{X: 90, Y: 90, Z: 0})
@@ -246,7 +246,7 @@ func simpleXArmMotion() (*planConfig, error) {
 	goal := spatialmath.NewPoseFromProtobuf(&commonpb.Pose{X: 206, Y: 100, Z: 120, OZ: -1})
 
 	// setup planner options
-	opt := newBasicPlannerOptions()
+	opt := newBasicPlannerOptions(xarm)
 	opt.SetGoalMetric(NewSquaredNormMetric(goal))
 	sf, err := newSolverFrame(fs, xarm.Name(), frame.World, frame.StartPositions(fs))
 	if err != nil {
@@ -281,7 +281,7 @@ func simpleUR5eMotion() (*planConfig, error) {
 	goal := spatialmath.NewPoseFromProtobuf(&commonpb.Pose{X: -750, Y: -250, Z: 200, OX: -1})
 
 	// setup planner options
-	opt := newBasicPlannerOptions()
+	opt := newBasicPlannerOptions(ur5e)
 	opt.SetGoalMetric(NewSquaredNormMetric(goal))
 	sf, err := newSolverFrame(fs, ur5e.Name(), frame.World, frame.StartPositions(fs))
 	if err != nil {
