@@ -103,62 +103,100 @@ func (b *Board) Reconfigure(
 	return nil
 }
 
-// This is a helper function. It looks for pre-existing pins that match a new target pin
-// definition, so we can tell whether we already have an old pin that fits the description or
-// whether we need to create it anew.
-func getMatchingPin(target GPIOBoardMapping, gpios map[string]*gpioPin) (string, *gpioPin) {
-	for name, pin := range(gpios) {
-		if pin.Matches(target) {
-			return name, pin
+// This is a helper function used to reconfigure the GPIO pins. It looks for the key in the map
+// whose value resembles the target pin definition.
+func getMatchingPin(target GPIOBoardMapping, mapping map[string]GPIOBoardMapping) (string, bool) {
+	for name, def := range(mapping) {
+		if target == def {
+			return name, true
 		}
 	}
-	return "", nil
+	return "", false
 }
 
 // This never returns errors, but we give it the same function signature as the other
 // reconfiguration helpers for consistency.
 func (b *Board) reconfigureGpios(newConf LinuxBoardConfig) error {
-	var newGpios map[string]*gpioPin
-	var renaming map[string]string // Maps old names for pins to new names
-
-	// For each new pin definition, if you can find an old pin that matches, just move it over.
+	// First, compare the new pin definitions to the old ones, to build up 3 sets: pins that have
+	// been renamed, new pins to create, and old pins to destroy.
+	toRename := map[string]string{} // Maps old names for pins to new names
+	toCreate := map[string]GpioBoardMapping{}
 	for newName, mapping := range newConf.GpioMappings {
-		if oldName, oldPin := getMatchingPin(mapping, b.gpios); oldPin != nil {
-			newGpios[newName] = oldPin
-			delete(b.gpioMappings, oldName)
+		if oldName, ok := findMatch(mapping, b.gpioMappings); ok {
 			if oldName != newName {
-				renaming[oldName] = newName
+				toRename[oldName] = newName
 			}
+		} else {
+			toCreate[newName] = mapping
 		}
 	}
 
-	// For all pins that got renamed, if they were used as a digital interrupt, update the names to
-	// match. Note that we must do this once we have all the updated names, in case an old name has
-	// been reused on a different pin!
-	for _, interrupt := range b.interrupts {
-		if newName, ok := renaming[interrupt.config.Pin]; ok {
-			interrupt.config.Pin = newName
+	toDestroy := []string{}
+	for oldName, mapping := range b.gpioMappings {
+		if _, ok := findMatch(mapping, newConf.GpioMappings; !ok {
+			toDestroy = append(toDestroy, oldName)
 		}
 	}
 
-	// All remaining old pins should be closed.
-	for pinName, pin := range b.gpios {
-		pin.Close()
-		// No need to check if the pin was a digital interrupt that needs to be shut down; that
-		// happens down in reconfigureInterrupts().
-	}
-
-	// All remaining new pins should be created.
-	for newName, mapping := range newConf.GpioMappings {
-		if _, ok := newGpios[newName]; ok {
+	// Destroy the no-longer-used ones
+	for oldName := range toDestroy {
+		if pin, ok := b.gpios[oldName]; ok {
+			pin.Close()
+			delete(b.gpios, oldName)
 			continue
 		}
-		// TODO: skip pins that look like an already-existing digint
-		newGpios[newName] = b.createGpioPin(mapping)
+
+		// If we get here, the pin definition exists, but the pin does not. Check if it's a digital
+		// interrupt.
+		if interrupt, ok := b.interrupts[oldName]; ok {
+			interrupt.Close()
+			delete(b.interrupts, oldName)
+			continue
+		}
+
+		b.logger.Warnf("During reconfiguration, old pin '%s' should be destroyed, but " +
+		               "it doesn't exist!?", oldName)
+	}
+
+	// Rename the ones whose name changed. The order here is tricky: if B should be renamed to C
+	// while A should be renamed to B, we need to make sure we don't overwrite B with A and then
+	// rename it to C. To avoid this, move all the pins to rename into a temporary data structure,
+	// then move them all back again afterward.
+	tempGpios := map[string]*gpioPin
+	tempInterrupts := map[string]*digitalInterrupt
+	for oldName, newName := range toRename {
+		if pin, ok := b.gpios[oldName]; ok {
+			tempGpios[newName] = pin
+			delete(b.gpios, oldName)
+			continue
+		}
+
+		// If we get here, again check if the missing pin is a digital interrupt.
+		if interrupt, ok := b.interrupts[oldName]; ok {
+			tempInterrupts[newName] = interrupt
+			delete(b.interrupts, oldName)
+			continue
+		}
+
+		b.logger.Errorf("During reconfiguration, old pin '%s' should be renamed to %s, but " +
+		                "it doesn't exist!?", oldName, newName)
+	}
+
+	// Now move all the pins back from the temporary data structures.
+	for newName, pin := range tempGpios {
+		b.gpios[newName] = pin
+	}
+	for newName, interrupt := range tempInterrupts {
+		b.interrupts[newName] = interrupt
+	}
+
+
+	// Finally, create the new pins
+	for newName, mapping := range toCreate {
+		b.gpios[newName] = b.createGpioPin(mapping)
 	}
 
 	b.gpioMappings = newConf.GpioMappings
-	b.gpios = newGpios
 	return nil
 }
 
