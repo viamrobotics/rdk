@@ -39,8 +39,9 @@ func TestPtgRrt(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	//~ goalPos := spatialmath.NewPose(r3.Vector{X: 100, Y: 700, Z: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 180})
-	goalPos := spatialmath.NewPose(r3.Vector{X: 100, Y: 7000, Z: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 0})
+	goalPos := spatialmath.NewPose(r3.Vector{X: 200, Y: 7000, Z: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 80})
+	//~ goalPos := spatialmath.NewPose(r3.Vector{X: 200, Y: 7000, Z: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 0})
+	//~ goalPos := spatialmath.NewPose(r3.Vector{X: 0, Y: 7000, Z: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 0})
 
 	opt := newBasicPlannerOptions()
 	//~ opt.SetGoalMetric(NewPositionOnlyMetric(goalPos))
@@ -60,6 +61,26 @@ func TestPtgRrt(t *testing.T) {
 	}
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(plan), test.ShouldBeGreaterThanOrEqualTo, 2)
+	
+	allPtgs := ackermanFrame.(tpspace.PTGProvider).PTGs()
+	lastPose := spatialmath.NewZeroPose()
+	
+	if printPath {
+		for _, mynode := range plan {
+			trajPts, _ := allPtgs[int(mynode.Q()[0].Value)].Trajectory(mynode.Q()[1].Value, mynode.Q()[2].Value)
+			for i, pt := range trajPts {
+				intPose := spatialmath.Compose(lastPose, pt.Pose)
+				if i == 0 {
+					fmt.Printf("WP,%f,%f\n", intPose.Point().X, intPose.Point().Y)
+				}
+				fmt.Printf("FINALPATH,%f,%f\n", intPose.Point().X, intPose.Point().Y)
+				if i == len(trajPts) - 1 {
+					lastPose = spatialmath.Compose(lastPose, pt.Pose)
+					break
+				}
+			}
+		}
+	}
 }
 
 func TestPtgWithObstacle(t *testing.T) {
@@ -158,6 +179,23 @@ func TestPtgWithObstacle(t *testing.T) {
 					lastPose = spatialmath.Compose(lastPose, pt.Pose)
 					break
 				}
+			}
+		}
+	}
+	
+	plan = tp.smoothPath(ctx, plan)
+	lastPose = spatialmath.NewZeroPose()
+	for _, mynode := range plan {
+		trajPts, _ := allPtgs[int(mynode.Q()[0].Value)].Trajectory(mynode.Q()[1].Value, mynode.Q()[2].Value)
+		for i, pt := range trajPts {
+			intPose := spatialmath.Compose(lastPose, pt.Pose)
+			if i == 0 {
+				fmt.Printf("SMOOTHWP,%f,%f\n", intPose.Point().X, intPose.Point().Y)
+			}
+			fmt.Printf("SMOOTHPATH,%f,%f\n", intPose.Point().X, intPose.Point().Y)
+			if pt.Dist >= mynode.Q()[2].Value {
+				lastPose = spatialmath.Compose(lastPose, pt.Pose)
+				break
 			}
 		}
 	}

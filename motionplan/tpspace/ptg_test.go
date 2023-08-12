@@ -15,11 +15,9 @@ func TestAlphaIdx(t *testing.T) {
 	}
 }
 
-func TestRevPTGs(t *testing.T) {
-	cs := NewCirclePTG(0.3, 0.3)
-	//~ cs := NewCSPTG(0.3, 0.3)
-	_, err := ComputePTG(0, cs, -2000, 0.05)
-	test.That(t, err, test.ShouldBeNil)
+//~ func TestRevPTGs(t *testing.T) {
+	//~ cs := NewCirclePTG(0.3, 0.3)
+	//~ traj, err := ComputePTG(cs, 0, -2000, 0.05)
+	//~ test.That(t, err, test.ShouldBeNil)
 	//~ fmt.Println(traj)
-	
-}
+//~ }

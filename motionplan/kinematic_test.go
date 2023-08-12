@@ -354,7 +354,7 @@ func TestCombinedCPUs(t *testing.T) {
 }
 
 func solveTest(ctx context.Context, solver InverseKinematics, goal spatial.Pose, seed []frame.Input) ([][]frame.Input, error) {
-	solutionGen := make(chan []frame.Input)
+	solutionGen := make(chan *IKSolution)
 	ikErr := make(chan error)
 	ctxWithCancel, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -378,7 +378,7 @@ IK:
 
 		select {
 		case step := <-solutionGen:
-			solutions = append(solutions, step)
+			solutions = append(solutions, step.Configuration)
 			// Skip the return check below until we have nothing left to read from solutionGen
 			continue IK
 		default:

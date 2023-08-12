@@ -16,6 +16,7 @@ const (
 	defaultSearchRadius = 10.
 
 	defaultMaxHeadingChange = 1.95 * math.Pi
+	orientationDistanceScaling = 10.
 )
 
 // ptgGridSim will take a PrecomputePTG, and simulate out a number of trajectories through some requested time/distance for speed of lookup
@@ -67,44 +68,18 @@ func NewPTGGridSim(simPTG PrecomputePTG, arcs uint, simDist float64, endsOnly bo
 	return ptg, nil
 }
 
-func (ptg *ptgGridSim) CToTP(ctx context.Context, pose spatialmath.Pose) (*TrajNode, error) {
+func (ptg *ptgGridSim) CToTP(ctx context.Context, distFunc func(spatialmath.Pose) float64) (*TrajNode, error) {
 	
-	point := pose.Point()
-	x := point.X
-	y := point.Y
-	
-	nearbyNodes := []*TrajNode{}
 	// Try to find a closest point to the paths:
 	bestDist := math.Inf(1)
 	var bestNode *TrajNode
 
 	if !ptg.endsOnly {
-		// First, try to do a quick grid-based lookup
-		// TODO: an octree should be faster
-		for tx := int(math.Round(x - ptg.searchRad)); tx < int(math.Round(x+ptg.searchRad)); tx++ {
-			if ptg.trajNodeGrid[tx] != nil {
-				for ty := int(math.Round(y - ptg.searchRad)); ty < int(math.Round(y+ptg.searchRad)); ty++ {
-					nearbyNodes = append(nearbyNodes, ptg.trajNodeGrid[tx][ty]...)
-				}
-			}
-		}
-
-		if len(nearbyNodes) > 0 {
-			for _, nearbyNode := range nearbyNodes {
-				distToPoint := math.Pow(nearbyNode.ptX-x, 2) + math.Pow(nearbyNode.ptY-y, 2)
-				if distToPoint < bestDist {
-					bestDist = distToPoint
-
-					bestNode = nearbyNode
-				}
-			}
-			return bestNode, nil
-		}
 
 		for k := 0; k < int(ptg.alphaCnt); k++ {
 			nMax := len(ptg.precomputeTraj[k]) - 1
 			for n := 0; n <= nMax; n++ {
-				distToPoint := math.Pow(ptg.precomputeTraj[k][n].ptX-x, 2) + math.Pow(ptg.precomputeTraj[k][n].ptY-y, 2)
+				distToPoint := distFunc(ptg.precomputeTraj[k][n].Pose)
 				if distToPoint < bestDist {
 					bestDist = distToPoint
 
@@ -123,9 +98,11 @@ func (ptg *ptgGridSim) CToTP(ctx context.Context, pose spatialmath.Pose) (*TrajN
 	//  which can be normalized by "1/refDistance" to get TP-Space distances.
 	for k := 0; k < int(ptg.alphaCnt); k++ {
 		n := len(ptg.precomputeTraj[k]) - 1
-
-		distToPoint := math.Pow(ptg.precomputeTraj[k][n].Dist, 2) +
-			math.Pow(ptg.precomputeTraj[k][n].ptX-x, 2) + math.Pow(ptg.precomputeTraj[k][n].ptY-y, 2)
+		//~ fmt.Println("checking", ptg.precomputeTraj[k][n].ptX, ptg.precomputeTraj[k][n].ptY)
+		distToPoint := distFunc(ptg.precomputeTraj[k][n].Pose)
+		//~ distToPoint := math.Sqrt(math.Pow(ptg.precomputeTraj[k][n].Dist, 2) +
+			//~ math.Pow(ptg.precomputeTraj[k][n].ptX-x, 2) + math.Pow(ptg.precomputeTraj[k][n].ptY-y, 2))
+		//~ fmt.Println("checked dist", distToPoint)
 
 		if distToPoint < bestDist {
 			bestDist = distToPoint
@@ -167,7 +144,7 @@ func (ptg *ptgGridSim) simulateTrajectories(simPTG PrecomputePTG) ([][]*TrajNode
 	for k := uint(0); k < ptg.alphaCnt; k++ {
 		alpha := index2alpha(k, ptg.alphaCnt)
 		
-		alphaTraj, err := ComputePTG(alpha, simPTG, ptg.refDist, ptg.diffT)
+		alphaTraj, err := ComputePTG(simPTG, alpha, ptg.refDist, ptg.diffT)
 		if err != nil {
 			return nil, err
 		}
@@ -188,4 +165,13 @@ func (ptg *ptgGridSim) simulateTrajectories(simPTG PrecomputePTG) ([][]*TrajNode
 	}
 
 	return allTraj, nil
+}
+
+
+func goalPoseDiscFunc(goal spatialmath.Pose) func(spatialmath.Pose) float64 {
+	return func (query spatialmath.Pose) float64 {
+		delta := spatialmath.PoseDelta(goal, query)
+		// Increase weight for orientation since it's a small number
+		return delta.Point().Norm2() + spatialmath.QuatToR3AA(delta.Orientation().Quaternion()).Mul(orientationDistanceScaling).Norm2()
+	}
 }

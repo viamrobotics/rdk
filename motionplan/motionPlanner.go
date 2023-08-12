@@ -255,7 +255,7 @@ func (mp *planner) getSolutions(ctx context.Context, seed []frame.Input) ([]node
 	ctxWithCancel, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	solutionGen := make(chan []frame.Input)
+	solutionGen := make(chan *IKSolution)
 	ikErr := make(chan error, 1)
 	// Spawn the IK solver to generate solutions until done
 	utils.PanicCapturingGo(func() {
@@ -279,7 +279,8 @@ IK:
 		}
 
 		select {
-		case step := <-solutionGen:
+		case stepSolution := <-solutionGen:
+			step := stepSolution.Configuration
 			// Ensure the end state is a valid one
 			statePass, failName := mp.planOpts.CheckStateConstraints(&State{
 				Configuration: step,

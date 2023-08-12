@@ -104,7 +104,7 @@ func newCBiRRTMotionPlanner(
 		return nil, err
 	}
 	// nlopt should try only once
-	nlopt, err := CreateNloptIKSolver(frame, logger, 1, opt.GoalThreshold)
+	nlopt, err := CreateNloptIKSolver(frame, logger, 1, opt.GoalThreshold, false)
 	if err != nil {
 		return nil, err
 	}
@@ -413,11 +413,11 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 		if ok {
 			return target
 		}
-		solutionGen := make(chan []referenceframe.Input, 1)
+		solutionGen := make(chan *IKSolution, 1)
 		// Spawn the IK solver to generate solutions until done
 		err = mp.fastGradDescent.Solve(ctx, solutionGen, target, mp.planOpts.pathMetric, randseed.Int())
 		// We should have zero or one solutions
-		var solved []referenceframe.Input
+		var solved *IKSolution
 		select {
 		case solved = <-solutionGen:
 		default:
@@ -428,11 +428,11 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 		}
 
 		ok, failpos := mp.planOpts.CheckSegmentAndStateValidity(
-			&Segment{StartConfiguration: seedInputs, EndConfiguration: solved, Frame: mp.frame},
+			&Segment{StartConfiguration: seedInputs, EndConfiguration: solved.Configuration, Frame: mp.frame},
 			mp.planOpts.Resolution,
 		)
 		if ok {
-			return solved
+			return solved.Configuration
 		}
 		if failpos != nil {
 			dist := mp.planOpts.DistanceFunc(&Segment{StartConfiguration: target, EndConfiguration: failpos.EndConfiguration})

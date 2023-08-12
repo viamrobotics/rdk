@@ -4,7 +4,8 @@ package motionplan
 import (
 	"context"
 	"math"
-	"math/rand"
+	"sync"
+	//~ "fmt"
 
 	"github.com/edaniels/golog"
 
@@ -15,7 +16,9 @@ import (
 
 const (
 	defaultDiffT = 0.01 // seconds
-	nloptSeed = 42
+	nloptSeed = 42 // This should be fine to kepe constant
+	
+	defaultZeroDist = 1e-3 // Sometimes nlopt will minimize trajectories to zero. Ensure min traj dist is at least this
 )
 
 // ptgGridSim will take a PrecomputePTG, and simulate out a number of trajectories through some requested time/distance for speed of lookup
@@ -25,9 +28,11 @@ type ptgIK struct {
 	simPTG   tpspace.PrecomputePTG
 	ptgFrame referenceframe.Frame
 	fastGradDescent *NloptIK
-	randseed *rand.Rand
 	
 	gridSim tpspace.PTG
+	
+	mu sync.RWMutex
+	trajCache map[float64][]*tpspace.TrajNode
 }
 
 // NewPTGIK creates a new PTG by simulating a PrecomputePTG for some distance, then cacheing the results in a grid for fast lookup.
@@ -37,10 +42,7 @@ func NewPTGIK(simPTG tpspace.PrecomputePTG, logger golog.Logger, refDist float64
 		return nil, err
 	}
 	
-	//nolint: gosec
-	rseed := rand.New(rand.NewSource(int64(randSeed)))
-	
-	nlopt, err := CreateNloptIKSolver(ptgFrame, logger, 1, defaultEpsilon*defaultEpsilon)
+	nlopt, err := CreateNloptIKSolver(ptgFrame, logger, 1, defaultEpsilon*defaultEpsilon, true)
 	if err != nil {
 		return nil, err
 	}
@@ -56,35 +58,50 @@ func NewPTGIK(simPTG tpspace.PrecomputePTG, logger golog.Logger, refDist float64
 		simPTG: simPTG,
 		ptgFrame:   ptgFrame,
 		fastGradDescent: nlopt,
-		randseed: rseed,
 		gridSim: gridSim,
+		trajCache: map[float64][]*tpspace.TrajNode{},
 	}
 
 	return ptg, nil
 }
 
-func (ptg *ptgIK) CToTP(ctx context.Context, pose spatialmath.Pose) (*tpspace.TrajNode, error) {
+func (ptg *ptgIK) CToTP(ctx context.Context, distFunc func(spatialmath.Pose) float64) (*tpspace.TrajNode, error) {
+	//~ if pose.Point().Norm() > ptg.refDist {
+		//~ fmt.Println("simming", pose.Point())
+		//~ return ptg.gridSim.CToTP(ctx, pose)
+	//~ }
 	
-	
-	
-	solutionGen := make(chan []referenceframe.Input, 1)
-	seedInput := []referenceframe.Input{{math.Pi/3}, {ptg.refDist/3}} // random value to seed the IK solver
-	goalMetric := NewSquaredNormMetric(pose)
+	solutionGen := make(chan *IKSolution, 1)
+	seedInput := []referenceframe.Input{{math.Pi/2}, {ptg.refDist/2}} // random value to seed the IK solver
+	//~ goalMetric := NewSquaredNormMetric(pose)
+	goalMetric := func(state *State) float64 {
+		return distFunc(state.Position)
+	}
 	// Spawn the IK solver to generate a solution
 	err := ptg.fastGradDescent.Solve(ctx, solutionGen, seedInput, goalMetric, nloptSeed)
 	// We should have zero or one solutions
-	var solved []referenceframe.Input
+	var solved *IKSolution
 	select {
 	case solved = <-solutionGen:
 	default:
 	}
 	close(solutionGen)
-	if err != nil || solved == nil {
-		return nil, nil
-		return ptg.gridSim.CToTP(ctx, pose)
+	if err != nil || solved == nil || (solved != nil && solved.Configuration[1].Value < defaultZeroDist) {
+		return ptg.gridSim.CToTP(ctx, distFunc)
 	}
-	// TODO: make this more efficient
-	traj, err := ptg.Trajectory(solved[0].Value, solved[1].Value)
+	
+	if solved.Partial {
+		gridNode, err := ptg.gridSim.CToTP(ctx, distFunc)
+		if err == nil {
+			// Check if the grid has a better solution
+			//~ fmt.Println("comparing score. nlopt:", solved.Score, "grid", distFunc(gridNode.Pose))
+			if distFunc(gridNode.Pose) < solved.Score {
+				return gridNode, nil
+			}
+		}
+	}
+	
+	traj, err := ptg.Trajectory(solved.Configuration[0].Value, solved.Configuration[1].Value)
 	if err != nil {
 		return nil, err
 	}
@@ -96,5 +113,36 @@ func (ptg *ptgIK) RefDistance() float64 {
 }
 
 func (ptg *ptgIK) Trajectory(alpha, dist float64) ([]*tpspace.TrajNode, error) {
-	return tpspace.ComputePTG(alpha, ptg.simPTG, dist, defaultDiffT)
+	ptg.mu.RLock()
+	precomp := ptg.trajCache[alpha]
+	ptg.mu.RUnlock()
+	if precomp != nil {
+		if precomp[len(precomp)-1].Dist >= dist {
+			subTraj := []*tpspace.TrajNode{}
+			for _, wp := range precomp {
+				if wp.Dist < dist {
+					subTraj = append(subTraj, wp)
+				} else {
+					break
+				}
+			}
+			time := 0.
+			if len(subTraj) > 0 {
+				time = subTraj[len(subTraj)-1].Time
+			}
+			lastNode, err := tpspace.ComputeNextPTGNode(ptg.simPTG, alpha, dist, time)
+			if err != nil {
+				return nil, err
+			}
+			subTraj = append(subTraj, lastNode)
+		}
+	}
+	traj, err := tpspace.ComputePTG(ptg.simPTG, alpha, dist, defaultDiffT)
+	if err != nil {
+		return nil, err
+	}
+	ptg.mu.Lock()
+	ptg.trajCache[alpha] = traj
+	ptg.mu.Unlock()
+	return traj, nil
 }

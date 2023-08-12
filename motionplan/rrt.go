@@ -211,7 +211,7 @@ func extractPath(startMap, goalMap map[node]node, pair *nodePair) []node {
 
 	if goalReached != nil {
 		// skip goalReached node and go directly to its parent in order to not repeat this node
-		goalReached = goalMap[goalReached]
+		//~ goalReached = goalMap[goalReached]
 
 		// extract the path to the goal
 		for goalReached != nil {

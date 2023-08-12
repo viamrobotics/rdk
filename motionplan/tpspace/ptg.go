@@ -17,8 +17,10 @@ const floatEpsilon = 0.0001 // If floats are closer than this consider them equa
 // PTG coordinates are specified in polar coordinates (alpha, d)
 // One of these is needed for each sort of motion that can be done.
 type PTG interface {
-	// CToTP Converts a pose to a (k, d) TP-space trajectory, returning the node closest to that pose
-	CToTP(context.Context, spatialmath.Pose) (*TrajNode, error)
+	//~ // CToTP Converts a pose to a (k, d) TP-space trajectory, returning the node closest to that pose
+	//~ CToTP(context.Context, spatialmath.Pose) (*TrajNode, error)
+	// CToTP will return the (alpha, dist) TP-space coordinates whose corresponding relative pose minimizes the given function
+	CToTP(context.Context, func(spatialmath.Pose) float64) (*TrajNode, error)
 
 	// RefDistance returns the maximum distance that a single trajectory may travel
 	RefDistance() float64
@@ -83,18 +85,14 @@ func xythetaToPose(x, y, theta float64) spatialmath.Pose {
 }
 
 func ComputePTG(
-	alpha float64,
 	simPTG PrecomputePTG,
-	refDist, diffT float64,
-	
+	alpha, refDist, diffT float64,
 ) ([]*TrajNode, error) {
 	// Initialize trajectory with an all-zero node
 	alphaTraj := []*TrajNode{{Pose: spatialmath.NewZeroPose()}}
 
 	var err error
-	var w float64
-	var v float64
-	var t float64
+	var t, v, w float64
 	dist := math.Copysign(math.Abs(v) * diffT, refDist)
 
 	// Last saved waypoints
@@ -104,26 +102,27 @@ func ComputePTG(
 
 	// Step through each time point for this alpha
 	for math.Abs(dist) < math.Abs(refDist) {
-		v, w, err = simPTG.PTGVelocities(alpha, dist)
+		
+		t += diffT
+		nextNode, err := ComputeNextPTGNode(simPTG, alpha, dist, t)
 		if err != nil {
 			return nil, err
 		}
+		v = nextNode.LinVelMMPS
+		w = nextNode.AngVelRPS
+		
 		lastVs[1] = lastVs[0]
 		lastWs[1] = lastWs[0]
 		lastVs[0] = v
 		lastWs[0] = w
 
-		t += diffT
+		
 
 		// Update velocities of last node because reasons
 		alphaTraj[len(alphaTraj)-1].LinVelMMPS = v
 		alphaTraj[len(alphaTraj)-1].AngVelRPS = w
 
-		pose, err := simPTG.Transform([]referenceframe.Input{{alpha}, {dist}})
-		if err != nil {
-			return nil, err
-		}
-		alphaTraj = append(alphaTraj, &TrajNode{pose, t, dist, alpha, v, w, pose.Point().X, pose.Point().Y})
+		alphaTraj = append(alphaTraj, nextNode)
 		dist += math.Copysign(math.Abs(v) * diffT, refDist)
 	}
 
@@ -137,4 +136,17 @@ func ComputePTG(
 	tNode := &TrajNode{pose, t, refDist, alpha, v, w, pose.Point().X, pose.Point().Y}
 	alphaTraj = append(alphaTraj, tNode)
 	return alphaTraj, nil
+}
+
+func ComputeNextPTGNode(
+	simPTG PrecomputePTG,
+	alpha, dist, atT float64,
+) (*TrajNode, error) {
+	v, w, err := simPTG.PTGVelocities(alpha, dist)
+
+	pose, err := simPTG.Transform([]referenceframe.Input{{alpha}, {dist}})
+	if err != nil {
+		return nil, err
+	}
+	return &TrajNode{pose, atT, dist, alpha, v, w, pose.Point().X, pose.Point().Y}, nil
 }

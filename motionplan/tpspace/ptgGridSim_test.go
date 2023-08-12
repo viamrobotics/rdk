@@ -5,6 +5,8 @@ import (
 	"fmt"
 
 	"go.viam.com/test"
+	"go.viam.com/rdk/spatialmath"
+	"github.com/golang/geo/r3"
 )
 
 
@@ -23,7 +25,7 @@ var (
 )
 
 func TestSim(t *testing.T) {
-	simDist := 150.
+	simDist := 600.
 	alphaCnt := uint(121)
 	fmt.Println("type,X,Y")
 	//~ for _, ptg := range defaultPTGs {
@@ -37,11 +39,23 @@ func TestSim(t *testing.T) {
 		
 		//~ for i := uint(0); i < alphaCnt; i++ {
 		//~ i := uint(60)
-		alpha := -3.115629077940291
+		alpha := -0.41541721039203877
 			//~ traj, _ := grid.Trajectory(index2alpha(i, alphaCnt), simDist)
 			traj, _ := grid.Trajectory(alpha, simDist)
 			for _, intPose := range traj{
 				fmt.Printf("FINALPATH,%f,%f\n", intPose.Pose.Point().X, intPose.Pose.Point().Y)
 			}
 		//~ }
+}
+
+func TestPose(t *testing.T) {
+	goalPose := spatialmath.NewPoseFromPoint(r3.Vector{50,1000,0})
+	trajPose := spatialmath.NewPose(r3.Vector{-100,10,0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 90})
+	startPose := spatialmath.Compose(goalPose, spatialmath.PoseInverse(trajPose))
+	// resultPose x:39.999999999999886 y:1100 o_z:1 theta:-89.99999999999999
+
+	//~ startPose := spatialmath.Compose(spatialmath.PoseInverse(trajPose), goalPose)
+	// resultPose x:990 y:50.000000000000114 o_z:1 theta:-89.99999999999999
+
+	fmt.Println("resultPose", spatialmath.PoseToProtobuf(startPose))
 }

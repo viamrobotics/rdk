@@ -10,7 +10,13 @@ import (
 // solutions to the provided channel until cancelled or otherwise completes.
 type InverseKinematics interface {
 	// Solve receives a context, the goal arm position, and current joint angles.
-	Solve(context.Context, chan<- []referenceframe.Input, []referenceframe.Input, StateMetric, int) error
+	Solve(context.Context, chan<-*IKSolution, []referenceframe.Input, StateMetric, int) error
+}
+
+type IKSolution struct {
+	Configuration []referenceframe.Input
+	Score         float64
+	Partial       bool
 }
 
 func limitsToArrays(limits []referenceframe.Limit) ([]float64, []float64) {

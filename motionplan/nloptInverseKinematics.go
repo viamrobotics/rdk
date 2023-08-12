@@ -38,12 +38,13 @@ type NloptIK struct {
 	solveEpsilon  float64
 	logger        golog.Logger
 	jump          float64
+	partial bool
 }
 
 // CreateNloptIKSolver creates an nloptIK object that can perform gradient descent on metrics for Frames. The parameters are the Frame on
 // which Transform() will be called, a logger, and the number of iterations to run. If the iteration count is less than 1, it will be set
 // to the default of 5000.
-func CreateNloptIKSolver(mdl referenceframe.Frame, logger golog.Logger, iter int, solveEpsilon float64) (*NloptIK, error) {
+func CreateNloptIKSolver(mdl referenceframe.Frame, logger golog.Logger, iter int, solveEpsilon float64, partial bool) (*NloptIK, error) {
 	ik := &NloptIK{logger: logger}
 
 	ik.model = mdl
@@ -60,13 +61,14 @@ func CreateNloptIKSolver(mdl referenceframe.Frame, logger golog.Logger, iter int
 	ik.lowerBound, ik.upperBound = limitsToArrays(mdl.DoF())
 	// How much to adjust joints to determine slope
 	ik.jump = 0.00000001
+	ik.partial = partial
 
 	return ik, nil
 }
 
 // Solve runs the actual solver and sends any solutions found to the given channel.
 func (ik *NloptIK) Solve(ctx context.Context,
-	solutionChan chan<- []referenceframe.Input,
+	solutionChan chan<-*IKSolution,
 	seed []referenceframe.Input,
 	solveMetric StateMetric,
 	rseed int,
@@ -186,13 +188,21 @@ func (ik *NloptIK) Solve(ctx context.Context,
 			err = multierr.Combine(err, nloptErr)
 		}
 
-		if result < ik.epsilon*ik.epsilon || solutionRaw != nil {
+		//~ if solutionRaw != nil {
+			//~ fmt.Println("best nlopt", result)
+		//~ }
+
+		if result < ik.epsilon*ik.epsilon || (solutionRaw != nil && ik.partial) {
 			select {
 			case <-ctx.Done():
 				return err
 			default:
 			}
-			solutionChan <- referenceframe.FloatsToInputs(solutionRaw)
+			solutionChan <- &IKSolution{
+				Configuration: referenceframe.FloatsToInputs(solutionRaw),
+				Score: result,
+				Partial: result >= ik.epsilon*ik.epsilon,
+			}
 			solutionsFound++
 		}
 		tries++
