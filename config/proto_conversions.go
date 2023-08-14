@@ -180,14 +180,20 @@ func ServiceConfigToProto(conf *resource.Config) (*pb.ServiceConfig, error) {
 		return nil, err
 	}
 
+	serviceConfigs, err := mapSliceWithErrors(conf.AssociatedResourceConfigs, AssociatedResourceConfigToProto)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to convert service configs")
+	}
+
 	protoConf := pb.ServiceConfig{
-		Name:       conf.Name,
-		Namespace:  string(conf.API.Type.Namespace),
-		Type:       conf.API.SubtypeName,
-		Api:        conf.API.String(),
-		Model:      conf.Model.String(),
-		Attributes: attributes,
-		DependsOn:  conf.DependsOn,
+		Name:           conf.Name,
+		Namespace:      string(conf.API.Type.Namespace),
+		Type:           conf.API.SubtypeName,
+		Api:            conf.API.String(),
+		Model:          conf.Model.String(),
+		Attributes:     attributes,
+		DependsOn:      conf.DependsOn,
+		ServiceConfigs: serviceConfigs,
 	}
 
 	return &protoConf, nil
@@ -201,6 +207,11 @@ func ServiceConfigFromProto(protoConf *pb.ServiceConfig) (*resource.Config, erro
 		attrs = nil
 	}
 
+	serviceConfigs, err := mapSliceWithErrors(protoConf.ServiceConfigs, AssociatedResourceConfigFromProto)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to convert service configs")
+	}
+
 	api, err := resource.NewAPIFromString(protoConf.GetApi())
 	if err != nil {
 		return nil, err
@@ -212,11 +223,12 @@ func ServiceConfigFromProto(protoConf *pb.ServiceConfig) (*resource.Config, erro
 	}
 
 	conf := resource.Config{
-		Name:       protoConf.GetName(),
-		API:        api,
-		Model:      model,
-		Attributes: attrs,
-		DependsOn:  protoConf.GetDependsOn(),
+		Name:                      protoConf.GetName(),
+		API:                       api,
+		Model:                     model,
+		Attributes:                attrs,
+		DependsOn:                 protoConf.GetDependsOn(),
+		AssociatedResourceConfigs: serviceConfigs,
 	}
 
 	return &conf, nil
