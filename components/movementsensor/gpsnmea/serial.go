@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"math"
 	"sync"
 
 	"github.com/adrianmo/go-nmea"
@@ -34,10 +35,11 @@ type SerialNMEAMovementSensor struct {
 	data                    GPSData
 	activeBackgroundWorkers sync.WaitGroup
 
-	disableNmea  bool
-	isClosed     bool
-	err          movementsensor.LastError
-	lastposition movementsensor.LastPosition
+	disableNmea        bool
+	err                movementsensor.LastError
+	lastPosition       movementsensor.LastPosition
+	lastCompassHeading movementsensor.LastCompassHeading
+	isClosed           bool
 
 	dev                io.ReadWriteCloser
 	path               string
@@ -79,16 +81,17 @@ func NewSerialGPSNMEA(ctx context.Context, name resource.Name, conf *Config, log
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
 	g := &SerialNMEAMovementSensor{
-		Named:        name.AsNamed(),
-		dev:          dev,
-		cancelCtx:    cancelCtx,
-		cancelFunc:   cancelFunc,
-		logger:       logger,
-		path:         serialPath,
-		baudRate:     uint(baudRate),
-		disableNmea:  disableNmea,
-		err:          movementsensor.NewLastError(1, 1),
-		lastposition: movementsensor.NewLastPosition(),
+		Named:              name.AsNamed(),
+		dev:                dev,
+		cancelCtx:          cancelCtx,
+		cancelFunc:         cancelFunc,
+		logger:             logger,
+		path:               serialPath,
+		baudRate:           uint(baudRate),
+		disableNmea:        disableNmea,
+		err:                movementsensor.NewLastError(1, 1),
+		lastPosition:       movementsensor.NewLastPosition(),
+		lastCompassHeading: movementsensor.NewLastCompassHeading(),
 	}
 
 	if err := g.Start(ctx); err != nil {
@@ -140,7 +143,7 @@ func (g *SerialNMEAMovementSensor) GetCorrectionInfo() (string, uint) {
 //nolint
 // Position position, altitide.
 func (g *SerialNMEAMovementSensor) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
-	lastPosition := g.lastposition.GetLastPosition()
+	lastPosition := g.lastPosition.GetLastPosition()
 
 	g.mu.RLock()
 	defer g.mu.RUnlock()
@@ -152,18 +155,18 @@ func (g *SerialNMEAMovementSensor) Position(ctx context.Context, extra map[strin
 	}
 
 	// if current position is (0,0) we will return the last non zero position
-	if g.lastposition.IsZeroPosition(currentPosition) && !g.lastposition.IsZeroPosition(lastPosition) {
+	if g.lastPosition.IsZeroPosition(currentPosition) && !g.lastPosition.IsZeroPosition(lastPosition) {
 		return lastPosition, g.data.Alt, g.err.Get()
 	}
 
-	// updating lastposition if it is different from the current position
-	if !g.lastposition.ArePointsEqual(currentPosition, lastPosition) {
-		g.lastposition.SetLastPosition(currentPosition)
+	// updating lastPosition if it is different from the current position
+	if !g.lastPosition.ArePointsEqual(currentPosition, lastPosition) {
+		g.lastPosition.SetLastPosition(currentPosition)
 	}
 
 	// updating the last known valid position if the current position is non-zero
-	if !g.lastposition.IsZeroPosition(currentPosition) && !g.lastposition.IsPositionNaN(currentPosition) {
-		g.lastposition.SetLastPosition(currentPosition)
+	if !g.lastPosition.IsZeroPosition(currentPosition) && !g.lastPosition.IsPositionNaN(currentPosition) {
+		g.lastPosition.SetLastPosition(currentPosition)
 	}
 
 	return currentPosition, g.data.Alt, g.err.Get()
@@ -180,7 +183,10 @@ func (g *SerialNMEAMovementSensor) Accuracy(ctx context.Context, extra map[strin
 func (g *SerialNMEAMovementSensor) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return r3.Vector{X: 0, Y: g.data.Speed, Z: 0}, nil
+	headingInRadians := g.data.CompassHeading * (math.Pi / 180)
+	xVelocity := g.data.Speed * math.Sin(headingInRadians)
+	yVelocity := g.data.Speed * math.Cos(headingInRadians)
+	return r3.Vector{X: xVelocity, Y: yVelocity, Z: 0}, g.err.Get()
 }
 
 // LinearAcceleration linear acceleration.
@@ -204,9 +210,22 @@ func (g *SerialNMEAMovementSensor) Orientation(ctx context.Context, extra map[st
 
 // CompassHeading 0->360.
 func (g *SerialNMEAMovementSensor) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
+	lastHeading := g.lastCompassHeading.GetLastCompassHeading()
+
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return 0, movementsensor.ErrMethodUnimplementedCompassHeading
+
+	currentHeading := g.data.CompassHeading
+
+	if !math.IsNaN(lastHeading) && math.IsNaN(currentHeading) {
+		return lastHeading, nil
+	}
+
+	if !math.IsNaN(currentHeading) && currentHeading != lastHeading {
+		g.lastCompassHeading.SetLastCompassHeading(currentHeading)
+	}
+
+	return currentHeading, nil
 }
 
 // ReadFix returns Fix quality of MovementSensor measurements.
@@ -238,6 +257,7 @@ func (g *SerialNMEAMovementSensor) Properties(ctx context.Context, extra map[str
 	return &movementsensor.Properties{
 		LinearVelocitySupported: true,
 		PositionSupported:       true,
+		CompassHeadingSupported: true,
 	}, nil
 }
 
