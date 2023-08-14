@@ -77,20 +77,18 @@ func init() {
 					if err != nil {
 						return nil, err
 					}
-					return newINA(ctx, conf.ResourceName(), newConf, logger, localModelName)
+					return newINA(conf.ResourceName(), newConf, logger, localModelName)
 				},
 			})
 	}
 }
 
 func newINA(
-	ctx context.Context,
 	name resource.Name,
 	conf *Config,
 	logger golog.Logger,
 	modelName string,
 ) (powersensor.PowerSensor, error) {
-
 	err := i2clog.ChangePackageLogLevel("i2c", i2clog.InfoLevel)
 	if err != nil {
 		return nil, err
@@ -178,7 +176,7 @@ func (d *ina) setCalibrationScale(modelName string) error {
 	// Calibration register is 16 bits.
 	cal := calibratescale / (d.currentLSB * senseResistor)
 	if cal >= (1 << 16) {
-		return fmt.Errorf("ina219 calibrate: calibration register value invalid %d", cal)
+		return fmt.Errorf("ina calibrate: calibration register value invalid %d", cal)
 	}
 	d.cal = uint16(cal)
 
