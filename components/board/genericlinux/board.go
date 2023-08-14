@@ -181,7 +181,7 @@ func (b *Board) reconfigureGpios(newConf *LinuxBoardConfig) error {
 			continue
 		}
 
-		return fmt.Errorf("During reconfiguration, old pin '%s' should be renamed to '%s', but "+
+		return fmt.Errorf("during reconfiguration, old pin '%s' should be renamed to '%s', but "+
 			"it doesn't exist!?", oldName, newName)
 	}
 
