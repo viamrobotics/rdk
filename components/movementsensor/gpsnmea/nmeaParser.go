@@ -101,6 +101,10 @@ func (g *GPSData) updateData(s nmea.Sentence) error {
 		if gns, ok := s.(nmea.GNS); ok {
 			errs = g.updateGNS(gns)
 		}
+	case nmea.HDT:
+		if hdt, ok := s.(nmea.HDT); ok {
+			errs = g.updateHDT(hdt)
+		}
 	default:
 		// Handle the case when the sentence type is not recognized
 		errs = fmt.Errorf("unrecognized sentence type: %T", sentence)
@@ -232,6 +236,14 @@ func (g *GPSData) updateGNS(gns nmea.GNS) error {
 		g.Alt = gns.Altitude
 	}
 
+	return nil
+}
+
+// nolint:all
+// updateHDT updaates g.CompassHeading with the ground speed information from the provided
+func (g *GPSData) updateHDT(hdt nmea.HDT) error {
+	// HDT provides compass heading
+	g.CompassHeading = hdt.Heading
 	return nil
 }
 
