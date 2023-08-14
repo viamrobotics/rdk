@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -28,9 +29,10 @@ type PmtkI2CNMEAMovementSensor struct {
 	data                    GPSData
 	activeBackgroundWorkers sync.WaitGroup
 
-	disableNmea  bool
-	err          movementsensor.LastError
-	lastposition movementsensor.LastPosition
+	disableNmea        bool
+	err                movementsensor.LastError
+	lastPosition       movementsensor.LastPosition
+	lastCompassHeading movementsensor.LastCompassHeading
 
 	bus   board.I2C
 	addr  byte
@@ -83,8 +85,9 @@ func NewPmtkI2CGPSNMEA(
 		disableNmea: disableNmea,
 		// Overloaded boards can have flaky I2C busses. Only report errors if at least 5 of the
 		// last 10 attempts have failed.
-		err:          movementsensor.NewLastError(10, 5),
-		lastposition: movementsensor.NewLastPosition(),
+		err:                movementsensor.NewLastError(10, 5),
+		lastPosition:       movementsensor.NewLastPosition(),
+		lastCompassHeading: movementsensor.NewLastCompassHeading(),
 	}
 
 	if err := g.Start(ctx); err != nil {
@@ -192,7 +195,7 @@ func (g *PmtkI2CNMEAMovementSensor) GetBusAddr() (board.I2C, byte) {
 //nolint
 // Position returns the current geographic location of the MovementSensor.
 func (g *PmtkI2CNMEAMovementSensor) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
-	lastPosition := g.lastposition.GetLastPosition()
+	lastPosition := g.lastPosition.GetLastPosition()
 
 	g.mu.RLock()
 	defer g.mu.RUnlock()
@@ -204,18 +207,18 @@ func (g *PmtkI2CNMEAMovementSensor) Position(ctx context.Context, extra map[stri
 	}
 
 	// if current position is (0,0) we will return the last non zero position
-	if g.lastposition.IsZeroPosition(currentPosition) && !g.lastposition.IsZeroPosition(lastPosition) {
+	if g.lastPosition.IsZeroPosition(currentPosition) && !g.lastPosition.IsZeroPosition(lastPosition) {
 		return lastPosition, g.data.Alt, g.err.Get()
 	}
 
-	// updating lastposition if it is different from the current position
-	if !g.lastposition.ArePointsEqual(currentPosition, lastPosition) {
-		g.lastposition.SetLastPosition(currentPosition)
+	// updating lastPosition if it is different from the current position
+	if !g.lastPosition.ArePointsEqual(currentPosition, lastPosition) {
+		g.lastPosition.SetLastPosition(currentPosition)
 	}
 
 	// updating the last known valid position if the current position is non-zero
-	if !g.lastposition.IsZeroPosition(currentPosition) && !g.lastposition.IsPositionNaN(currentPosition) {
-		g.lastposition.SetLastPosition(currentPosition)
+	if !g.lastPosition.IsZeroPosition(currentPosition) && !g.lastPosition.IsPositionNaN(currentPosition) {
+		g.lastPosition.SetLastPosition(currentPosition)
 	}
 
 	return currentPosition, g.data.Alt, g.err.Get()
@@ -232,7 +235,10 @@ func (g *PmtkI2CNMEAMovementSensor) Accuracy(ctx context.Context, extra map[stri
 func (g *PmtkI2CNMEAMovementSensor) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return r3.Vector{X: 0, Y: g.data.Speed, Z: 0}, g.err.Get()
+	headingInRadians := g.data.CompassHeading * (math.Pi / 180)
+	xVelocity := g.data.Speed * math.Sin(headingInRadians)
+	yVelocity := g.data.Speed * math.Cos(headingInRadians)
+	return r3.Vector{X: xVelocity, Y: yVelocity, Z: 0}, g.err.Get()
 }
 
 // LinearAcceleration returns the current linear acceleration of the MovementSensor.
@@ -252,11 +258,24 @@ func (g *PmtkI2CNMEAMovementSensor) AngularVelocity(
 	return spatialmath.AngularVelocity{}, movementsensor.ErrMethodUnimplementedAngularVelocity
 }
 
-// CompassHeading not supported.
+// CompassHeading returns the compass heading in degree (0->360).
 func (g *PmtkI2CNMEAMovementSensor) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
+	lastHeading := g.lastCompassHeading.GetLastCompassHeading()
+
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return 0, g.err.Get()
+
+	currentHeading := g.data.CompassHeading
+
+	if !math.IsNaN(lastHeading) && math.IsNaN(currentHeading) {
+		return lastHeading, nil
+	}
+
+	if !math.IsNaN(currentHeading) && currentHeading != lastHeading {
+		g.lastCompassHeading.SetLastCompassHeading(currentHeading)
+	}
+
+	return currentHeading, nil
 }
 
 // Orientation not supporter.
@@ -271,6 +290,7 @@ func (g *PmtkI2CNMEAMovementSensor) Properties(ctx context.Context, extra map[st
 	return &movementsensor.Properties{
 		LinearVelocitySupported: true,
 		PositionSupported:       true,
+		CompassHeadingSupported: true,
 	}, nil
 }
 

@@ -84,36 +84,10 @@ type LastError struct {
 	count int     // How many items in errs are non-nil
 }
 
-// LastPosition stores the last position seen by the movement sensor.
-type LastPosition struct {
-	lastposition *geo.Point
-	mu           sync.Mutex
-}
-
 // NewLastError creates a LastError object which will let you retrieve the most recent error if at
 // least `threshold` of the most recent `size` items put into it are non-nil.
 func NewLastError(size, threshold int) LastError {
 	return LastError{errs: make([]error, size), threshold: threshold}
-}
-
-// NewLastPosition creates a new point that's (NaN, NaN)
-// go-staticcheck.
-func NewLastPosition() LastPosition {
-	return LastPosition{lastposition: geo.NewPoint(math.NaN(), math.NaN())}
-}
-
-// GetLastPosition returns the last known position.
-func (lp *LastPosition) GetLastPosition() *geo.Point {
-	lp.mu.Lock()
-	defer lp.mu.Unlock()
-	return lp.lastposition
-}
-
-// SetLastPosition updates the last known position.
-func (lp *LastPosition) SetLastPosition(position *geo.Point) {
-	lp.mu.Lock()
-	defer lp.mu.Unlock()
-	lp.lastposition = position
 }
 
 // Set stores an error to be retrieved later.
@@ -161,6 +135,32 @@ func (le *LastError) Get() error {
 	return errToReturn
 }
 
+// LastPosition stores the last position seen by the movement sensor.
+type LastPosition struct {
+	lastposition *geo.Point
+	mu           sync.Mutex
+}
+
+// NewLastPosition creates a new point that's (NaN, NaN)
+// go-staticcheck.
+func NewLastPosition() LastPosition {
+	return LastPosition{lastposition: geo.NewPoint(math.NaN(), math.NaN())}
+}
+
+// GetLastPosition returns the last known position.
+func (lp *LastPosition) GetLastPosition() *geo.Point {
+	lp.mu.Lock()
+	defer lp.mu.Unlock()
+	return lp.lastposition
+}
+
+// SetLastPosition updates the last known position.
+func (lp *LastPosition) SetLastPosition(position *geo.Point) {
+	lp.mu.Lock()
+	defer lp.mu.Unlock()
+	lp.lastposition = position
+}
+
 // ArePointsEqual checks if two geo.Point instances are equal.
 func (lp *LastPosition) ArePointsEqual(p1, p2 *geo.Point) bool {
 	if p1 == nil || p2 == nil {
@@ -177,6 +177,33 @@ func (lp *LastPosition) IsZeroPosition(p *geo.Point) bool {
 // IsPositionNaN checks if a geo.Point in math.NaN().
 func (lp *LastPosition) IsPositionNaN(p *geo.Point) bool {
 	return math.IsNaN(p.Lng()) && math.IsNaN(p.Lat())
+}
+
+// LastCompassHeading store the last valid compass heading seen by the movement sensor.
+// This is really just an atomic float64, analogous to the atomic ints provided in the
+// "sync/atomic" package.
+type LastCompassHeading struct {
+	lastcompassheading float64
+	mu                 sync.Mutex
+}
+
+// NewLastCompassHeading create a new LastCompassHeading.
+func NewLastCompassHeading() LastCompassHeading {
+	return LastCompassHeading{lastcompassheading: math.NaN()}
+}
+
+// GetLastCompassHeading returns the last compass heading stored.
+func (lch *LastCompassHeading) GetLastCompassHeading() float64 {
+	lch.mu.Lock()
+	defer lch.mu.Unlock()
+	return lch.lastcompassheading
+}
+
+// SetLastCompassHeading sets lastcompassheading to the value given in the function.
+func (lch *LastCompassHeading) SetLastCompassHeading(compassheading float64) {
+	lch.mu.Lock()
+	defer lch.mu.Unlock()
+	lch.lastcompassheading = compassheading
 }
 
 // PMTKAddChk adds PMTK checksums to commands by XORing the bytes together.

@@ -100,9 +100,10 @@ type rtkSerial struct {
 	ntripStatus   bool
 	isClosed      bool
 
-	err           movementsensor.LastError
-	lastposition  movementsensor.LastPosition
-	InputProtocol string
+	err                movementsensor.LastError
+	lastposition       movementsensor.LastPosition
+	lastcompassheading movementsensor.LastCompassHeading
+	InputProtocol      string
 
 	nmeamovementsensor gpsnmea.NmeaMovementSensor
 	correctionWriter   io.ReadWriteCloser
@@ -177,12 +178,13 @@ func newRTKSerial(
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	g := &rtkSerial{
-		Named:        conf.ResourceName().AsNamed(),
-		cancelCtx:    cancelCtx,
-		cancelFunc:   cancelFunc,
-		logger:       logger,
-		err:          movementsensor.NewLastError(1, 1),
-		lastposition: movementsensor.NewLastPosition(),
+		Named:              conf.ResourceName().AsNamed(),
+		cancelCtx:          cancelCtx,
+		cancelFunc:         cancelFunc,
+		logger:             logger,
+		err:                movementsensor.NewLastError(1, 1),
+		lastposition:       movementsensor.NewLastPosition(),
+		lastcompassheading: movementsensor.NewLastCompassHeading(),
 	}
 
 	// reconfigure
@@ -513,7 +515,6 @@ func (g *rtkSerial) CompassHeading(ctx context.Context, extra map[string]interfa
 		return 0, lastError
 	}
 	g.ntripMu.Unlock()
-
 	return g.nmeamovementsensor.CompassHeading(ctx, extra)
 }
 
@@ -526,7 +527,6 @@ func (g *rtkSerial) Orientation(ctx context.Context, extra map[string]interface{
 		return spatialmath.NewZeroOrientation(), lastError
 	}
 	g.ntripMu.Unlock()
-
 	return g.nmeamovementsensor.Orientation(ctx, extra)
 }
 
@@ -539,7 +539,6 @@ func (g *rtkSerial) readFix(ctx context.Context) (int, error) {
 		return 0, lastError
 	}
 	g.ntripMu.Unlock()
-
 	return g.nmeamovementsensor.ReadFix(ctx)
 }
 
