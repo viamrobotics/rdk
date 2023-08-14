@@ -1,10 +1,21 @@
 //go:build linux
 
-// Package ina implements ina power sensors
-// typically used for battery state monitoring.
+// Package ina implements ina power sensors to measure voltage, current, and power
 // INA219 datasheet: https://www.ti.com/lit/ds/symlink/ina219.pdf
 // Example repo: https://github.com/periph/devices/blob/main/ina219/ina219.go
 // INA226 datasheet: https://www.ti.com/lit/ds/symlink/ina226.pdf
+
+// The voltage, current and power can be read as
+// 16 bit big endian integers from their given registers.
+// This value is multiplied by the register LSB to get the reading in nanounits.
+
+// Voltage LSB: 1.25 mV for INA226, 4 mV for INA219
+// Current LSB: maximum expected current of the system / (1 << 15)
+// Power LSB: 25*CurrentLSB for INA226, 20*CurrentLSB for INA219
+
+// The calibration register is programmed to measure current and power properly.
+// The calibration register is set to: calibratescale / (currentLSB * senseResistor)
+
 package ina
 
 import (
@@ -22,22 +33,28 @@ import (
 )
 
 const (
-	modelName219               = "ina219"
-	modelName226               = "ina226"
-	milliAmp                   = 1000 * 1000 // milliAmp = 1000 microAmpere * 1000 nanoAmpere
-	milliOhm                   = 1000 * 1000 // milliOhm = 1000 microOhm * 1000 nanoOhm
-	defaultI2Caddr             = 0x40
-	senseResistor        int64 = 100 * milliOhm                                                 // .1 ohm
-	maxCurrent219        int64 = 3200 * milliAmp                                                // 3.2 amp
-	maxCurrent226        int64 = 20000 * milliAmp                                               // 20 amp
-	calibratescale219          = ((int64(1000*milliAmp) * int64(1000*milliOhm)) / 100000) << 12 // .04096 is internal fixed value for ina219
-	calibrateScale226          = ((int64(1000*milliAmp) * int64(1000*milliOhm)) / 100000) << 9  // .00512 is internal fixed value for ina226
-	configRegister             = 0x00
-	shuntVoltageRegister       = 0x01
-	busVoltageRegister         = 0x02
-	powerRegister              = 0x03
-	currentRegister            = 0x04
-	calibrationRegister        = 0x05
+	modelName219         = "ina219"
+	modelName226         = "ina226"
+	defaultI2Caddr       = 0x40
+	configRegister       = 0x00
+	shuntVoltageRegister = 0x01
+	busVoltageRegister   = 0x02
+	powerRegister        = 0x03
+	currentRegister      = 0x04
+	calibrationRegister  = 0x05
+)
+
+// values for inas in nano units so need to convert.
+var (
+	senseResistor = toNano(0.1) // .1 ohm
+	maxCurrent219 = toNano(3.2) // 3.2 amp
+	maxCurrent226 = toNano(20)  // 20 amp
+)
+
+// need to scale, making sure to not overflow int64.
+var (
+	calibratescale219 = (toNano(1) * toNano(1) / 100000) << 12 // .04096 is internal fixed value for ina219
+	calibrateScale226 = (toNano(1) * toNano(1) / 100000) << 9  // .00512 is internal fixed value for ina226
 )
 
 var inaModels = []string{modelName219, modelName226}
@@ -100,19 +117,19 @@ func newINA(
 		logger.Infof("using i2c address : %d", defaultI2Caddr)
 	}
 
-	maxCurrent := int64(conf.MaxCurrent * 1000 * milliAmp)
+	maxCurrent := toNano(conf.MaxCurrent)
 	if maxCurrent == 0 {
 		switch modelName {
 		case modelName219:
 			maxCurrent = maxCurrent219
 			logger.Info("using default max current 3.2A")
 		case modelName226:
-			maxCurrent = maxCurrent219
+			maxCurrent = maxCurrent226
 			logger.Info("using default max current 20A")
 		}
 	}
 
-	resistance := int64(conf.ShuntResistance * 1000 * milliOhm)
+	resistance := toNano(conf.ShuntResistance)
 	if resistance == 0 {
 		resistance = senseResistor
 		logger.Info("using default resistor value 0.1 ohms")
@@ -174,7 +191,7 @@ func (d *ina) setCalibrationScale(modelName string) error {
 	// Calibration Register = calibration scale / (current LSB * Shunt Resistance)
 	// Where lsb is in Amps and resistance is in ohms.
 	// Calibration register is 16 bits.
-	cal := calibratescale / (d.currentLSB * senseResistor)
+	cal := calibratescale / (d.currentLSB * d.resistance)
 	if cal >= (1 << 16) {
 		return fmt.Errorf("ina calibrate: calibration register value invalid %d", cal)
 	}
@@ -225,6 +242,7 @@ func (d *ina) Voltage(ctx context.Context, extra map[string]interface{}) (float6
 		// voltage is 1.25 mV/bit for the ina226
 		voltage = float64(bus) * 1.25e-3
 	case modelName219:
+		// lsb is 4mV, must shift right 3 bits
 		voltage = float64(bus>>3) * 4 / 1000
 	default:
 	}
@@ -246,7 +264,7 @@ func (d *ina) Current(ctx context.Context, extra map[string]interface{}) (float6
 		return 0, false, err
 	}
 
-	current := float64(int64(rawCur)*d.currentLSB) / 1000000000
+	current := fromNano(float64(int64(rawCur) * d.currentLSB))
 	isAC := false
 	return current, isAC, nil
 }
@@ -263,7 +281,7 @@ func (d *ina) Power(ctx context.Context, extra map[string]interface{}) (float64,
 	if err != nil {
 		return 0, err
 	}
-	power := float64(int64(pow)*d.powerLSB) / 1000000000
+	power := fromNano(float64(int64(pow) * d.powerLSB))
 	return power, nil
 }
 
@@ -289,4 +307,14 @@ func (d *ina) Readings(ctx context.Context, extra map[string]interface{}) (map[s
 		"is_ac": isAC,
 		"watts": watts,
 	}, nil
+}
+
+func toNano(value float64) int64 {
+	nano := value * 1e9
+	return int64(nano)
+}
+
+func fromNano(value float64) float64 {
+	unit := value / 1e9
+	return unit
 }
