@@ -16,7 +16,7 @@ import (
 
 var (
 	testEmail = "grogu@viam.com"
-	testToken = "this is the way"
+	testToken = "thisistheway"
 )
 
 type testWriter struct {
