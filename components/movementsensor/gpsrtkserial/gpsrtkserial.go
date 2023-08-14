@@ -515,24 +515,7 @@ func (g *rtkSerial) CompassHeading(ctx context.Context, extra map[string]interfa
 		return 0, lastError
 	}
 	g.ntripMu.Unlock()
-	lastHeading := g.lastcompassheading.GetLastCompassHeading()
-	currentHeading, err := g.nmeamovementsensor.CompassHeading(ctx, extra)
-	if err != nil {
-		return math.NaN(), err
-	}
-
-	if !math.IsNaN(currentHeading) && !math.IsNaN(lastHeading) && currentHeading != lastHeading {
-		g.lastcompassheading.SetLastCompassHeading(currentHeading)
-	}
-
-	if math.IsNaN(currentHeading) && !math.IsNaN(lastHeading) {
-		currentHeading = lastHeading
-	}
-
-	if !math.IsNaN(currentHeading) && math.IsNaN(lastHeading) {
-		g.lastcompassheading.SetLastCompassHeading(currentHeading)
-	}
-	return currentHeading, nil
+	return g.nmeamovementsensor.CompassHeading(ctx, extra)
 }
 
 // Orientation passthrough.
@@ -544,7 +527,6 @@ func (g *rtkSerial) Orientation(ctx context.Context, extra map[string]interface{
 		return spatialmath.NewZeroOrientation(), lastError
 	}
 	g.ntripMu.Unlock()
-
 	return g.nmeamovementsensor.Orientation(ctx, extra)
 }
 
@@ -557,7 +539,6 @@ func (g *rtkSerial) readFix(ctx context.Context) (int, error) {
 		return 0, lastError
 	}
 	g.ntripMu.Unlock()
-
 	return g.nmeamovementsensor.ReadFix(ctx)
 }
 

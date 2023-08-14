@@ -192,7 +192,7 @@ func (g *PmtkI2CNMEAMovementSensor) GetBusAddr() (board.I2C, byte) {
 	return g.bus, g.addr
 }
 
-//nolint
+// nolint
 // Position returns the current geographic location of the MovementSensor.
 func (g *PmtkI2CNMEAMovementSensor) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
 	lastPosition := g.lastposition.GetLastPosition()
@@ -260,22 +260,21 @@ func (g *PmtkI2CNMEAMovementSensor) AngularVelocity(
 
 // CompassHeading not supported.
 func (g *PmtkI2CNMEAMovementSensor) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-	currentHeading := g.data.CompassHeading
 	lastHeading := g.lastcompassheading.GetLastCompassHeading()
 
-	if !math.IsNaN(currentHeading) && !math.IsNaN(lastHeading) && currentHeading != lastHeading {
-		g.lastcompassheading.SetLastCompassHeading(currentHeading)
-	}
+	g.mu.RLock()
+	defer g.mu.RUnlock()
 
-	if math.IsNaN(lastHeading) && !math.IsNaN(currentHeading) {
-		g.lastcompassheading.SetLastCompassHeading(currentHeading)
-	}
+	currentHeading := g.data.CompassHeading
 
 	if !math.IsNaN(lastHeading) && math.IsNaN(currentHeading) {
-		currentHeading = lastHeading
+		return lastHeading, nil
 	}
+
+	if !math.IsNaN(currentHeading) && currentHeading != lastHeading {
+		g.lastcompassheading.SetLastCompassHeading(currentHeading)
+	}
+
 	return currentHeading, nil
 }
 
