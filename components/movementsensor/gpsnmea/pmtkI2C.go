@@ -258,7 +258,7 @@ func (g *PmtkI2CNMEAMovementSensor) AngularVelocity(
 	return spatialmath.AngularVelocity{}, movementsensor.ErrMethodUnimplementedAngularVelocity
 }
 
-// CompassHeading not supported.
+// CompassHeading returns the compass heading in degree (0->360).
 func (g *PmtkI2CNMEAMovementSensor) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	lastHeading := g.lastCompassHeading.GetLastCompassHeading()
 
