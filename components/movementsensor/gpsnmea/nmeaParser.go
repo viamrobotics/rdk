@@ -29,8 +29,8 @@ type GPSData struct {
 	valid               bool
 	FixQuality          int
 	CompassHeading      float64 // true compass heading in degree
-	isEast              bool    // direction for magnetic variation
-	validCompassHeading bool
+	isEast              bool    // direction for magnetic variation which outputs East or West.
+	validCompassHeading bool    // true if we get course of direction instead of empty strings.
 }
 
 func errInvalidFix(sentenceType, badFix, goodFix string) error {

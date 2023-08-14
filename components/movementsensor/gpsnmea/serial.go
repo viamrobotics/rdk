@@ -37,8 +37,8 @@ type SerialNMEAMovementSensor struct {
 
 	disableNmea        bool
 	err                movementsensor.LastError
-	lastposition       movementsensor.LastPosition
-	lastcompassheading movementsensor.LastCompassHeading
+	lastPosition       movementsensor.LastPosition
+	lastCompassHeading movementsensor.LastCompassHeading
 	isClosed           bool
 
 	dev                io.ReadWriteCloser
@@ -90,8 +90,8 @@ func NewSerialGPSNMEA(ctx context.Context, name resource.Name, conf *Config, log
 		baudRate:           uint(baudRate),
 		disableNmea:        disableNmea,
 		err:                movementsensor.NewLastError(1, 1),
-		lastposition:       movementsensor.NewLastPosition(),
-		lastcompassheading: movementsensor.NewLastCompassHeading(),
+		lastPosition:       movementsensor.NewLastPosition(),
+		lastCompassHeading: movementsensor.NewLastCompassHeading(),
 	}
 
 	if err := g.Start(ctx); err != nil {
@@ -143,7 +143,7 @@ func (g *SerialNMEAMovementSensor) GetCorrectionInfo() (string, uint) {
 //nolint
 // Position position, altitide.
 func (g *SerialNMEAMovementSensor) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
-	lastPosition := g.lastposition.GetLastPosition()
+	lastPosition := g.lastPosition.GetLastPosition()
 
 	g.mu.RLock()
 	defer g.mu.RUnlock()
@@ -155,18 +155,18 @@ func (g *SerialNMEAMovementSensor) Position(ctx context.Context, extra map[strin
 	}
 
 	// if current position is (0,0) we will return the last non zero position
-	if g.lastposition.IsZeroPosition(currentPosition) && !g.lastposition.IsZeroPosition(lastPosition) {
+	if g.lastPosition.IsZeroPosition(currentPosition) && !g.lastPosition.IsZeroPosition(lastPosition) {
 		return lastPosition, g.data.Alt, g.err.Get()
 	}
 
-	// updating lastposition if it is different from the current position
-	if !g.lastposition.ArePointsEqual(currentPosition, lastPosition) {
-		g.lastposition.SetLastPosition(currentPosition)
+	// updating lastPosition if it is different from the current position
+	if !g.lastPosition.ArePointsEqual(currentPosition, lastPosition) {
+		g.lastPosition.SetLastPosition(currentPosition)
 	}
 
 	// updating the last known valid position if the current position is non-zero
-	if !g.lastposition.IsZeroPosition(currentPosition) && !g.lastposition.IsPositionNaN(currentPosition) {
-		g.lastposition.SetLastPosition(currentPosition)
+	if !g.lastPosition.IsZeroPosition(currentPosition) && !g.lastPosition.IsPositionNaN(currentPosition) {
+		g.lastPosition.SetLastPosition(currentPosition)
 	}
 
 	return currentPosition, g.data.Alt, g.err.Get()
@@ -210,7 +210,7 @@ func (g *SerialNMEAMovementSensor) Orientation(ctx context.Context, extra map[st
 
 // CompassHeading 0->360.
 func (g *SerialNMEAMovementSensor) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
-	lastHeading := g.lastcompassheading.GetLastCompassHeading()
+	lastHeading := g.lastCompassHeading.GetLastCompassHeading()
 
 	g.mu.RLock()
 	defer g.mu.RUnlock()
@@ -222,7 +222,7 @@ func (g *SerialNMEAMovementSensor) CompassHeading(ctx context.Context, extra map
 	}
 
 	if !math.IsNaN(currentHeading) && currentHeading != lastHeading {
-		g.lastcompassheading.SetLastCompassHeading(currentHeading)
+		g.lastCompassHeading.SetLastCompassHeading(currentHeading)
 	}
 
 	return currentHeading, nil
