@@ -10,12 +10,27 @@ import (
 	"go.viam.com/utils"
 )
 
+type anOp struct {
+	// cancelAndWaitFunc waits until the `SingleOperationManager.currentOp` is empty. This will
+	// interrupt any existing operations as necessary.
+	cancelAndWaitFunc func()
+	// Cancels the context of what's currently running an operation.
+	interruptFunc context.CancelFunc
+}
+
 // SingleOperationManager ensures only 1 operation is happening at a time.
 // An operation can be nested, so if there is already an operation in progress,
 // it can have sub-operations without an issue.
 type SingleOperationManager struct {
-	mu        sync.Mutex
-	currentOp *anOp
+	mu         sync.Mutex
+	opDoneCond *sync.Cond
+	currentOp  *anOp
+}
+
+func NewSingleOperationManager() *SingleOperationManager {
+	ret := &SingleOperationManager{}
+	ret.opDoneCond = sync.NewCond(&ret.mu)
+	return ret
 }
 
 // CancelRunning cancels a current operation unless it's mine.
@@ -56,9 +71,7 @@ func (sm *SingleOperationManager) New(ctx context.Context) (context.Context, fun
 		sm.currentOp.cancelAndWaitFunc()
 	}
 
-	theOp := &anOp{
-		closedCond: sync.NewCond(&sm.mu),
-	}
+	theOp := &anOp{}
 
 	ctx = context.WithValue(ctx, somCtxKeySingleOp, theOp)
 
@@ -76,7 +89,7 @@ func (sm *SingleOperationManager) New(ctx context.Context) (context.Context, fun
 		// starting/stopping.
 		for sm.currentOp != nil {
 			sm.currentOp.interruptFunc()
-			sm.currentOp.closedCond.Wait()
+			sm.opDoneCond.Wait()
 		}
 	}
 	sm.currentOp = theOp
@@ -84,7 +97,7 @@ func (sm *SingleOperationManager) New(ctx context.Context) (context.Context, fun
 
 	return newUserCtx, func() {
 		sm.mu.Lock()
-		theOp.closedCond.Broadcast()
+		sm.opDoneCond.Broadcast()
 		sm.currentOp = nil
 		sm.mu.Unlock()
 	}
@@ -150,14 +163,4 @@ func (sm *SingleOperationManager) WaitForSuccess(
 			return ctx.Err()
 		}
 	}
-}
-
-type anOp struct {
-	// cancelAndWaitFunc waits until the `SingleOperationManager.currentOp` is empty. This will
-	// interrupt any existing operations as necessary.
-	cancelAndWaitFunc func()
-	// Cancels the context of what's currently running an operation.
-	interruptFunc context.CancelFunc
-	// Used with `SingleOperationManager.mu`.
-	closedCond *sync.Cond
 }
