@@ -24,7 +24,7 @@ func TestNearestNeighbor(t *testing.T) {
 	ctx := context.Background()
 
 	seed := []referenceframe.Input{{23.1}}
-	opt := newBasicPlannerOptions()
+	opt := newBasicPlannerOptions(referenceframe.NewZeroStaticFrame("test-frame"))
 	nn := nm.nearestNeighbor(ctx, opt, &basicNode{q: seed}, rrtMap)
 	test.That(t, nn.Q()[0].Value, test.ShouldAlmostEqual, 23.0)
 
