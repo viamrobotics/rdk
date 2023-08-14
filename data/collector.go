@@ -15,6 +15,8 @@ import (
 	v1 "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/protoutils"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -36,7 +38,7 @@ type FromDMContextKey struct{}
 const FromDMString = "fromDataManagement"
 
 // ErrNoCaptureToStore is returned when a modular filter resource filters the capture coming from the base resource.
-var ErrNoCaptureToStore = errors.New("no capture from filter module")
+var ErrNoCaptureToStore = status.Error(codes.FailedPrecondition, "no capture from filter module")
 
 // Collector collects data to some target.
 type Collector interface {

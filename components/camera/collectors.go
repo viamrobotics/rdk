@@ -93,11 +93,11 @@ func newReadImageCollector(resource interface{}, params data.CollectorParams) (d
 
 		img, release, err := ReadImage(ctx, camera)
 		if err != nil {
-			// If err is from a modular filter component, propagate it to getAndPushNextReading(). We check for the substring presence here
-			// because the error thrown by the modular component may be wrapped in an rpc error or may not be a golang error.
-			if strings.Contains(err.Error(), data.ErrNoCaptureToStore.Error()) {
+			// If err is from a modular filter component, propagate it to getAndPushNextReading().
+			if errors.Is(err, data.ErrNoCaptureToStore) {
 				return nil, data.ErrNoCaptureToStore
 			}
+
 			return nil, data.FailedToReadErr(params.ComponentName, readImage.String(), err)
 		}
 		defer func() {
