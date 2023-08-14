@@ -870,6 +870,8 @@ const (
 	PackageTypeMlModel PackageType = "ml_model"
 	// PackageTypeModule represents a module type.
 	PackageTypeModule PackageType = "module"
+	// PackageTypeSlamMap represents a slam internal state.
+	PackageTypeSlamMap PackageType = "slam_map"
 )
 
 // SupportedPackageTypes is a list of all of the valid package types.
