@@ -4,9 +4,12 @@ package mlmodel
 
 import (
 	"context"
+	"unsafe"
 
+	"github.com/pkg/errors"
 	servicepb "go.viam.com/api/service/mlmodel/v1"
 	vprotoutils "go.viam.com/utils/protoutils"
+	"gorgonia.org/tensor"
 
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -19,6 +22,125 @@ func init() {
 		RPCServiceDesc:              &servicepb.MLModelService_ServiceDesc,
 		RPCClient:                   NewClientFromConn,
 	})
+}
+
+// Tensors are a data structure to hold the input and output map of tensors to be fed into a
+// model or the result coming from the model.
+type Tensors map[string]*tensor.Dense
+
+func (ts Tensors) toProto() (*servicepb.FlatTensors, error) {
+	pbts := &servicepb.FlatTensors{}
+	for name, t := range ts {
+		tp, err := tensorToProto(t)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to convert tensor to proto message")
+		}
+		pbts.Tensors[name] = tp
+	}
+	return pbts, nil
+}
+
+func tensorToProto(t *tensor.Dense) (*servicepb.FlatTensor, error) {
+	ftpb := &servicepb.FlatTensor{}
+	// get the shape of the tensors
+	shape := t.Shape()
+	for _, s := range shape {
+		ftpb.Shape = append(ftpb.Shape, uint64(s))
+	}
+	// switch on data type
+	data := t.Data()
+	switch dataSlice := data.(type) {
+	case []int8:
+		unsafeByteSlice := *(*[]byte)(unsafe.Pointer(&dataSlice))
+		data := &servicepb.FlatTensorDataInt8{}
+		data.Data = append(data.Data, unsafeByteSlice...)
+		ftpb.Tensor = &servicepb.FlatTensor_Int8Tensor{Int8Tensor: data}
+	case []uint8:
+		ftpb.Tensor = &servicepb.FlatTensor_Uint8Tensor{
+			Uint8Tensor: &servicepb.FlatTensorDataUInt8{
+				Data: dataSlice,
+			},
+		}
+	case []int16:
+		ftpb.Tensor = &servicepb.FlatTensor_Int16Tensor{
+			Int16Tensor: &servicepb.FlatTensorDataInt16{
+				Data: int16ToUint32(dataSlice),
+			},
+		}
+	case []uint16:
+		ftpb.Tensor = &servicepb.FlatTensor_Uint16Tensor{
+			Uint16Tensor: &servicepb.FlatTensorDataUInt16{
+				Data: uint16ToUint32(dataSlice),
+			},
+		}
+	case []int32:
+		ftpb.Tensor = &servicepb.FlatTensor_Int32Tensor{
+			Int32Tensor: &servicepb.FlatTensorDataInt32{
+				Data: dataSlice,
+			},
+		}
+	case []uint32:
+		ftpb.Tensor = &servicepb.FlatTensor_Uint32Tensor{
+			Uint32Tensor: &servicepb.FlatTensorDataUInt32{
+				Data: dataSlice,
+			},
+		}
+	case []int64:
+		ftpb.Tensor = &servicepb.FlatTensor_Int64Tensor{
+			Int64Tensor: &servicepb.FlatTensorDataInt64{
+				Data: dataSlice,
+			},
+		}
+	case []uint64:
+		ftpb.Tensor = &servicepb.FlatTensor_Uint64Tensor{
+			Uint64Tensor: &servicepb.FlatTensorDataUInt64{
+				Data: dataSlice,
+			},
+		}
+	case []int:
+		unsafeInt64Slice := *(*[]int64)(unsafe.Pointer(&dataSlice))
+		data := &servicepb.FlatTensorDataInt64{}
+		data.Data = append(data.Data, unsafeInt64Slice...)
+		ftpb.Tensor = &servicepb.FlatTensor_Int64Tensor{Int64Tensor: data}
+	case []uint:
+		unsafeUint64Slice := *(*[]uint64)(unsafe.Pointer(&dataSlice))
+		data := &servicepb.FlatTensorDataUInt64{}
+		data.Data = append(data.Data, unsafeUint64Slice...)
+		ftpb.Tensor = &servicepb.FlatTensor_Uint64Tensor{Uint64Tensor: data}
+	case []float32:
+		ftpb.Tensor = &servicepb.FlatTensor_FloatTensor{
+			FloatTensor: &servicepb.FlatTensorDataFloat{
+				Data: dataSlice,
+			},
+		}
+	case []float64:
+		ftpb.Tensor = &servicepb.FlatTensor_DoubleTensor{
+			DoubleTensor: &servicepb.FlatTensorDataDouble{
+				Data: dataSlice,
+			},
+		}
+	default:
+		return nil, errors.Errorf("cannot turn underlying tensor data of type %T into proto message", dataSlice)
+	}
+	return ftpb, nil
+}
+
+func int16ToUint32(int16Slice []int16) []uint32 {
+	uint32Slice := make([]uint32, len(int16Slice))
+
+	for i, value := range int16Slice {
+		uint32Slice[i] = uint32(value)
+	}
+	return uint32Slice
+}
+
+func uint16ToUint32(uint16Slice []uint16) []uint32 {
+	uint32Slice := make([]uint32, len(uint16Slice))
+
+	for i, value := range uint16Slice {
+		uint32Slice[i] = uint32(value)
+	}
+	return uint32Slice
 }
 
 // Service defines the ML Model interface, which takes a map of inputs, runs it through
