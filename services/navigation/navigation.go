@@ -37,7 +37,7 @@ type Service interface {
 	Mode(ctx context.Context, extra map[string]interface{}) (Mode, error)
 	SetMode(ctx context.Context, mode Mode, extra map[string]interface{}) error
 
-	Location(ctx context.Context, extra map[string]interface{}) (*geo.Point, error)
+	Location(ctx context.Context, extra map[string]interface{}) (*spatialmath.GeoPose, error)
 
 	// Waypoint
 	Waypoints(ctx context.Context, extra map[string]interface{}) ([]Waypoint, error)

@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"encoding/json"
+	"fmt"
 	"syscall"
 	"testing"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/lestrrat-go/jwx/jwk"
+	packagespb "go.viam.com/api/app/packages/v1"
 	pb "go.viam.com/api/app/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/jwks"
@@ -885,4 +887,22 @@ func TestDisablePartialStart(t *testing.T) {
 	out, err := FromProto(input, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, out, test.ShouldBeNil)
+}
+
+func TestPackageTypeConversion(t *testing.T) {
+	emptyType := PackageType("")
+	converted, err := PackageTypeToProto(emptyType)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, converted, test.ShouldResemble, packagespb.PackageType_PACKAGE_TYPE_ML_MODEL.Enum())
+
+	moduleType := PackageType("module")
+	converted, err = PackageTypeToProto(moduleType)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, converted, test.ShouldResemble, packagespb.PackageType_PACKAGE_TYPE_MODULE.Enum())
+
+	badType := PackageType("invalid-package-type")
+	converted, err = PackageTypeToProto(badType)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "invalid-package-type")
+	test.That(t, converted, test.ShouldResemble, packagespb.PackageType_PACKAGE_TYPE_UNSPECIFIED.Enum())
 }

@@ -1,22 +1,20 @@
 <script lang='ts'>
 
-import { createEventDispatcher } from 'svelte';
-import type { ServiceError } from '@viamrobotics/sdk';
+import { NavigationClient, type ServiceError } from '@viamrobotics/sdk';
 import { notify } from '@viamrobotics/prime';
-import { removeWaypoint, type LngLat } from '@/api/navigation';
 import { useRobotClient } from '@/hooks/robot-client';
-import { waypoints } from '../../stores';
+import { waypoints, flyToMap } from '../../stores';
+import { rcLogConditionally } from '@/lib/log';
 
 export let name: string;
 
-const dispatch = createEventDispatcher<{ select: LngLat }>();
-
 const { robotClient } = useRobotClient();
+const navClient = new NavigationClient($robotClient, name, { requestLogger: rcLogConditionally });
 
 const handleRemoveWaypoint = async (id: string) => {
   try {
     $waypoints = $waypoints.filter((item) => item.id !== id);
-    await removeWaypoint($robotClient, name, id);
+    await navClient.removeWayPoint(id);
   } catch (error) {
     notify.danger((error as ServiceError).message);
   }
@@ -40,7 +38,7 @@ const handleRemoveWaypoint = async (id: string) => {
         variant='icon'
         icon='image-filter-center-focus'
         aria-label="Focus waypoint {index}"
-        on:click={() => dispatch('select', waypoint)}
+        on:click={() => flyToMap(waypoint)}
       />
       <v-button
         class='sm:invisible group-hover:visible text-subtle-2'

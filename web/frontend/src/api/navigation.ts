@@ -1,211 +1,79 @@
 /* eslint-disable no-underscore-dangle */
 
 import * as THREE from 'three';
-import { type Client, commonApi, navigationApi } from '@viamrobotics/sdk';
+import { NavigationClient, type Waypoint } from '@viamrobotics/sdk';
 import { ViamObject3D } from '@viamrobotics/three';
-import { rcLogConditionally } from '@/lib/log';
 import type {
-  BoxGeometry, CapsuleGeometry, NavigationModes, Obstacle, SphereGeometry, Waypoint,
+  BoxGeometry, CapsuleGeometry, Obstacle, SphereGeometry,
 } from './types/navigation';
 import { notify } from '@viamrobotics/prime';
-import type { LngLat } from 'maplibre-gl';
 export * from './types/navigation';
 
-export const setMode = async (robotClient: Client, name: string, mode: NavigationModes) => {
-  const request = new navigationApi.SetModeRequest();
-  request.setName(name);
-  request.setMode(mode);
-
-  rcLogConditionally(request);
-
-  const response = await new Promise<navigationApi.SetModeResponse | null>((resolve, reject) => {
-    robotClient.navigationService.setMode(request, (error, res) => {
-      if (error) {
-        reject(error);
-      } else {
-        resolve(res);
-      }
-    });
-  });
-
-  return response?.toObject();
-};
-
-export const addWaypoint = async (robotClient: Client, lngLat: LngLat, name: string) => {
-  const request = new navigationApi.AddWaypointRequest();
-  const point = new commonApi.GeoPoint();
-
-  point.setLatitude(lngLat.lat);
-  point.setLongitude(lngLat.lng);
-  request.setName(name);
-  request.setLocation(point);
-
-  rcLogConditionally(request);
-
-  const response = await new Promise<navigationApi.AddWaypointResponse | null>((resolve, reject) => {
-    robotClient.navigationService.addWaypoint(request, (error, res) => {
-      if (error) {
-        reject(error);
-      } else {
-        resolve(res);
-      }
-    });
-  });
-
-  return response?.toObject();
-};
-
-const formatWaypoints = (list: navigationApi.Waypoint[]) => {
+export const formatWaypoints = (list: Waypoint[]) => {
   return list.map((item) => {
-    const location = item.getLocation();
+    const { location } = item;
     return {
-      id: item.getId(),
-      lng: location?.getLongitude() ?? 0,
-      lat: location?.getLatitude() ?? 0,
+      id: item.id,
+      lng: location?.longitude ?? 0,
+      lat: location?.latitude ?? 0,
     };
   });
 };
 
-export const getObstacles = async (robotClient: Client, name: string): Promise<Obstacle[]> => {
-  const req = new navigationApi.GetObstaclesRequest();
-  req.setName(name);
-
-  rcLogConditionally(req);
-
-  const response = await new Promise<navigationApi.GetObstaclesResponse | null>((resolve, reject) => {
-    robotClient.navigationService.getObstacles(req, (error, res) => {
-      if (error) {
-        reject(error);
-      } else {
-        resolve(res);
-      }
-    });
-  });
-
-  const list = response?.getObstaclesList() ?? [];
+export const getObstacles = async (navClient: NavigationClient): Promise<Obstacle[]> => {
+  const list = await navClient.getObstacles();
 
   return list.map((obstacle, index) => {
-    const location = obstacle.getLocation();
+    const { location } = obstacle;
 
     return {
       name: `Obstacle ${index + 1}`,
       location: {
-        lng: location?.getLongitude() ?? 0,
-        lat: location?.getLatitude() ?? 0,
+        lng: location?.longitude ?? 0,
+        lat: location?.latitude ?? 0,
       },
-      geometries: obstacle.getGeometriesList().map((geometry) => {
-        const center = geometry.getCenter();
+      geometries: obstacle.geometriesList.map((geometry) => {
+        const { center } = geometry;
         const pose = new ViamObject3D();
-        const th = THREE.MathUtils.degToRad(center?.getTheta() ?? 0);
-        pose.orientationVector.set(center?.getOX(), center?.getOY(), center?.getOZ(), th);
+        const th = THREE.MathUtils.degToRad(center?.theta ?? 0);
+        pose.orientationVector.set(center?.oX, center?.oY, center?.oZ, th);
 
-        if (geometry.hasBox()) {
-          const dimsMm = geometry.getBox()?.getDimsMm();
+        if (geometry.box) {
+          const { dimsMm } = geometry.box;
 
           return {
             type: 'box',
-            length: (dimsMm?.getX() ?? 0) / 1000,
-            width: (dimsMm?.getY() ?? 0) / 1000,
-            height: (dimsMm?.getZ() ?? 0) / 1000,
+            length: (dimsMm?.x ?? 0) / 1000,
+            width: (dimsMm?.y ?? 0) / 1000,
+            height: (dimsMm?.z ?? 0) / 1000,
             pose,
           } satisfies BoxGeometry;
 
-        } else if (geometry.hasSphere()) {
+        } else if (geometry.sphere) {
 
           return {
             type: 'sphere',
-            radius: (geometry.getSphere()?.getRadiusMm() ?? 0) / 1000,
+            radius: (geometry.sphere.radiusMm ?? 0) / 1000,
             pose,
           } satisfies SphereGeometry;
 
-        } else if (geometry.hasCapsule()) {
-          const capsule = geometry.getCapsule();
+        } else if (geometry.capsule) {
+          const { capsule } = geometry;
 
           return {
             type: 'capsule',
-            radius: (capsule?.getRadiusMm() ?? 0) / 1000,
-            length: (capsule?.getLengthMm() ?? 0) / 1000,
+            radius: (capsule?.radiusMm ?? 0) / 1000,
+            length: (capsule?.lengthMm ?? 0) / 1000,
             pose,
           } satisfies CapsuleGeometry;
 
         }
 
-        notify.danger('An unsupported geometry was encountered in an obstacle', JSON.stringify(geometry.toObject()));
+        notify.danger('An unsupported geometry was encountered in an obstacle', JSON.stringify(geometry));
         throw new Error(
-          `An unsupported geometry was encountered in an obstacle: ${JSON.stringify(geometry.toObject())}`
+          `An unsupported geometry was encountered in an obstacle: ${JSON.stringify(geometry)}`
         );
       }),
     } satisfies Obstacle;
   });
-};
-
-export const getWaypoints = async (robotClient: Client, name: string): Promise<Waypoint[]> => {
-  const req = new navigationApi.GetWaypointsRequest();
-  req.setName(name);
-
-  rcLogConditionally(req);
-
-  const response = await new Promise<{ getWaypointsList(): navigationApi.Waypoint[] } | null>((resolve, reject) => {
-    robotClient.navigationService.getWaypoints(req, (error, res) => {
-      if (error) {
-        reject(error);
-      } else {
-        resolve(res);
-      }
-    });
-  });
-
-  return formatWaypoints(response?.getWaypointsList() ?? []);
-};
-
-export const removeWaypoint = async (robotClient: Client, name: string, id: string) => {
-  const request = new navigationApi.RemoveWaypointRequest();
-  request.setName(name);
-  request.setId(id);
-
-  rcLogConditionally(request);
-
-  const response = await new Promise<navigationApi.RemoveWaypointResponse | null>((resolve, reject) => {
-    robotClient.navigationService.removeWaypoint(request, (error, res) => {
-      if (error) {
-        reject(error);
-      } else {
-        resolve(res);
-      }
-    });
-  });
-
-  return response?.toObject();
-};
-
-export const getLocation = async (robotClient: Client, name: string) => {
-  const request = new navigationApi.GetLocationRequest();
-  request.setName(name);
-
-  rcLogConditionally(request);
-
-  const response = await new Promise<navigationApi.GetLocationResponse | null>((resolve, reject) => {
-    robotClient.navigationService.getLocation(request, (error, res) => {
-      if (error) {
-        reject(error);
-      } else {
-        resolve(res);
-      }
-    });
-  });
-
-  const location = response?.getLocation();
-  const lat = location?.getLatitude();
-  const lng = location?.getLongitude();
-
-  rcLogConditionally(response?.getLocation()?.toObject());
-  rcLogConditionally(location?.getLatitude());
-  rcLogConditionally(location?.getLongitude());
-
-  if (typeof lat !== 'number' || typeof lng !== 'number') {
-    // eslint-disable-next-line unicorn/prefer-type-error
-    throw new Error('Unable to locate robot');
-  }
-
-  return { lng, lat };
 };

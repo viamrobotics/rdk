@@ -1,17 +1,12 @@
 <script lang='ts'>
 
 import { onMount } from 'svelte';
-import { type LngLat } from '@/api/navigation';
-import { obstacles, flyToMap, mapCenter, tab, hovered } from '../../stores';
+import { obstacles, mapCenter, tab, hovered } from '../../stores';
 import { createObstacle } from '../../lib/obstacle';
 import ObstaclesTab from './obstacles.svelte';
 import WaypointsTab from './waypoints.svelte';
 
 export let name: string;
-
-const handleSelect = (event: CustomEvent<LngLat>) => {
-  flyToMap(event.detail);
-};
 
 const handleTabSelect = (event: CustomEvent) => {
   $tab = event.detail.value;
@@ -35,7 +30,7 @@ onMount(() => {
 
 <nav class='w-full sm:w-80'>
   <v-tabs
-    tabs="Obstacles, Waypoints"
+    tabs="Waypoints, Obstacles"
     selected={$tab}
     on:input={handleTabSelect}
   />
@@ -44,11 +39,10 @@ onMount(() => {
     on:mouseleave={() => ($hovered = null)}
     class='px-4 py-2 max-h-64 sm:max-h-[520px] overflow-y-scroll'
   >
-    {#if $tab === 'Obstacles'}
-      <ObstaclesTab on:select={handleSelect} />
-
-    {:else if $tab === 'Waypoints'}
-      <WaypointsTab {name} on:select={handleSelect} />
+    {#if $tab === 'Waypoints'}
+      <WaypointsTab {name} />
+    {:else if $tab === 'Obstacles'}
+      <ObstaclesTab />
     {/if}
   </ul>
 </nav>

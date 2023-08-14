@@ -40,7 +40,7 @@ func RegisterBoard(modelName string, gpioMappings map[string]GPIOBoardMapping) {
 		})
 }
 
-// NewBoard is the constructor for a SysfsBoard.
+// NewBoard is the constructor for a Board.
 func NewBoard(
 	ctx context.Context,
 	conf resource.Config,
@@ -54,7 +54,7 @@ func NewBoard(
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
-	b := &SysfsBoard{
+	b := &Board{
 		Named:         conf.ResourceName().AsNamed(),
 		convertConfig: convertConfig,
 
@@ -81,7 +81,7 @@ func NewBoard(
 }
 
 // Reconfigure reconfigures the board with interrupt pins, spi and i2c, and analogs.
-func (b *SysfsBoard) Reconfigure(
+func (b *Board) Reconfigure(
 	ctx context.Context,
 	_ resource.Dependencies,
 	conf resource.Config,
@@ -96,7 +96,7 @@ func (b *SysfsBoard) Reconfigure(
 
 // ReconfigureParsedConfig is a public helper that should only be used
 // by the customlinux package.
-func (b *SysfsBoard) ReconfigureParsedConfig(ctx context.Context, conf LinuxBoardConfig) error {
+func (b *Board) ReconfigureParsedConfig(ctx context.Context, conf LinuxBoardConfig) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -118,7 +118,7 @@ func (b *SysfsBoard) ReconfigureParsedConfig(ctx context.Context, conf LinuxBoar
 	return nil
 }
 
-func (b *SysfsBoard) reconfigureGpios(newConf LinuxBoardConfig) error {
+func (b *Board) reconfigureGpios(newConf LinuxBoardConfig) error {
 	// TODO(RSDK-4092): implement this correctly.
 	if len(b.gpioMappings) == 0 {
 		b.gpioMappings = newConf.GpioMappings
@@ -128,7 +128,7 @@ func (b *SysfsBoard) reconfigureGpios(newConf LinuxBoardConfig) error {
 
 // This never returns errors, but we give it the same function signature as the other
 // reconfiguration helpers for consistency.
-func (b *SysfsBoard) reconfigureSpis(newConf LinuxBoardConfig) error {
+func (b *Board) reconfigureSpis(newConf LinuxBoardConfig) error {
 	stillExists := map[string]struct{}{}
 	for _, c := range newConf.SPIs {
 		stillExists[c.Name] = struct{}{}
@@ -151,7 +151,7 @@ func (b *SysfsBoard) reconfigureSpis(newConf LinuxBoardConfig) error {
 	return nil
 }
 
-func (b *SysfsBoard) reconfigureI2cs(newConf LinuxBoardConfig) error {
+func (b *Board) reconfigureI2cs(newConf LinuxBoardConfig) error {
 	stillExists := map[string]struct{}{}
 	for _, c := range newConf.I2Cs {
 		stillExists[c.Name] = struct{}{}
@@ -186,7 +186,7 @@ func (b *SysfsBoard) reconfigureI2cs(newConf LinuxBoardConfig) error {
 	return nil
 }
 
-func (b *SysfsBoard) reconfigureAnalogs(ctx context.Context, newConf LinuxBoardConfig) error {
+func (b *Board) reconfigureAnalogs(ctx context.Context, newConf LinuxBoardConfig) error {
 	stillExists := map[string]struct{}{}
 	for _, c := range newConf.Analogs {
 		channel, err := strconv.Atoi(c.Pin)
@@ -251,7 +251,7 @@ func findNewDigIntConfig(
 	return nil
 }
 
-func (b *SysfsBoard) reconfigureInterrupts(newConf LinuxBoardConfig) error {
+func (b *Board) reconfigureInterrupts(newConf LinuxBoardConfig) error {
 	// Any pin that already exists in the right configuration should just be copied over; closing
 	// and re-opening it risks losing its state.
 	newInterrupts := make(map[string]*digitalInterrupt, len(newConf.DigitalInterrupts))
@@ -361,8 +361,8 @@ func (a *wrappedAnalog) reset(ctx context.Context, chipSelect string, reader *bo
 	a.chipSelect = chipSelect
 }
 
-// SysfsBoard implements an interface using sysfs for any board that runs linux.
-type SysfsBoard struct {
+// Board implements a component for a Linux machine.
+type Board struct {
 	resource.Named
 	mu            sync.RWMutex
 	convertConfig ConfigConverter
@@ -382,25 +382,25 @@ type SysfsBoard struct {
 }
 
 // SPIByName returns the SPI by the given name if it exists.
-func (b *SysfsBoard) SPIByName(name string) (board.SPI, bool) {
+func (b *Board) SPIByName(name string) (board.SPI, bool) {
 	s, ok := b.spis[name]
 	return s, ok
 }
 
 // I2CByName returns the i2c by the given name if it exists.
-func (b *SysfsBoard) I2CByName(name string) (board.I2C, bool) {
+func (b *Board) I2CByName(name string) (board.I2C, bool) {
 	i, ok := b.i2cs[name]
 	return i, ok
 }
 
 // AnalogReaderByName returns the analog reader by the given name if it exists.
-func (b *SysfsBoard) AnalogReaderByName(name string) (board.AnalogReader, bool) {
+func (b *Board) AnalogReaderByName(name string) (board.AnalogReader, bool) {
 	a, ok := b.analogs[name]
 	return a, ok
 }
 
 // DigitalInterruptByName returns the interrupt by the given name if it exists.
-func (b *SysfsBoard) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
+func (b *Board) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -439,7 +439,7 @@ func (b *SysfsBoard) DigitalInterruptByName(name string) (board.DigitalInterrupt
 }
 
 // SPINames returns the names of all known SPIs.
-func (b *SysfsBoard) SPINames() []string {
+func (b *Board) SPINames() []string {
 	if len(b.spis) == 0 {
 		return nil
 	}
@@ -451,7 +451,7 @@ func (b *SysfsBoard) SPINames() []string {
 }
 
 // I2CNames returns the names of all known I2Cs.
-func (b *SysfsBoard) I2CNames() []string {
+func (b *Board) I2CNames() []string {
 	if len(b.i2cs) == 0 {
 		return nil
 	}
@@ -463,7 +463,7 @@ func (b *SysfsBoard) I2CNames() []string {
 }
 
 // AnalogReaderNames returns the names of all known analog readers.
-func (b *SysfsBoard) AnalogReaderNames() []string {
+func (b *Board) AnalogReaderNames() []string {
 	names := []string{}
 	for k := range b.analogs {
 		names = append(names, k)
@@ -472,7 +472,7 @@ func (b *SysfsBoard) AnalogReaderNames() []string {
 }
 
 // DigitalInterruptNames returns the names of all known digital interrupts.
-func (b *SysfsBoard) DigitalInterruptNames() []string {
+func (b *Board) DigitalInterruptNames() []string {
 	if b.interrupts == nil {
 		return nil
 	}
@@ -485,7 +485,7 @@ func (b *SysfsBoard) DigitalInterruptNames() []string {
 }
 
 // GPIOPinNames returns the names of all known GPIO pins.
-func (b *SysfsBoard) GPIOPinNames() []string {
+func (b *Board) GPIOPinNames() []string {
 	if b.gpioMappings == nil {
 		return nil
 	}
@@ -497,7 +497,7 @@ func (b *SysfsBoard) GPIOPinNames() []string {
 }
 
 // GPIOPinByName returns a GPIOPin by name.
-func (b *SysfsBoard) GPIOPinByName(pinName string) (board.GPIOPin, error) {
+func (b *Board) GPIOPinByName(pinName string) (board.GPIOPin, error) {
 	if pin, ok := b.gpios[pinName]; ok {
 		return pin, nil
 	}
@@ -511,19 +511,19 @@ func (b *SysfsBoard) GPIOPinByName(pinName string) (board.GPIOPin, error) {
 }
 
 // Status returns the current status of the board.
-func (b *SysfsBoard) Status(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
+func (b *Board) Status(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
 	return &commonpb.BoardStatus{}, nil
 }
 
 // ModelAttributes returns attributes related to the model of this board.
-func (b *SysfsBoard) ModelAttributes() board.ModelAttributes {
+func (b *Board) ModelAttributes() board.ModelAttributes {
 	return board.ModelAttributes{}
 }
 
 // SetPowerMode sets the board to the given power mode. If provided,
 // the board will exit the given power mode after the specified
 // duration.
-func (b *SysfsBoard) SetPowerMode(
+func (b *Board) SetPowerMode(
 	ctx context.Context,
 	mode pb.PowerMode,
 	duration *time.Duration,
@@ -532,7 +532,7 @@ func (b *SysfsBoard) SetPowerMode(
 }
 
 // Close attempts to cleanly close each part of the board.
-func (b *SysfsBoard) Close(ctx context.Context) error {
+func (b *Board) Close(ctx context.Context) error {
 	b.mu.Lock()
 	b.cancelFunc()
 	b.mu.Unlock()
