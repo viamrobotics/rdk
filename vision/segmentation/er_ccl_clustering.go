@@ -30,7 +30,7 @@ type node struct {
 	i, j                 int
 	label                int
 	minHeight, maxHeight float64
-	// lowkey don't think you need i,j
+	// could be implemented without i,j
 	// label -1 means no cluster, otherwise labeled according to index
 }
 
@@ -127,17 +127,15 @@ func (erCCL *erCCLConfig) erCCLAlgorithm(ctx context.Context, src camera.VideoSo
 
 	// actually run erCCLL
 	// iterate through every box, searching down and right r distance
-	// run the weird calcs and shit to see if similar enough
+	// run calculations to meet similarity threshold
 	// if similar enough update to initial label value (will also be smallest)
-	// iterate though pointcloud
+	// iterate through pointcloud
 
 	i := 0
 	continueRunning := true
 	for continueRunning {
 		// 0.9 is alpha
-		// oldValMap := extractVals(labelMap)
 		continueRunning := labelMapUpdate(labelMap, erCCL.Radius, 0.9, erCCL.Beta, resolution)
-		// fmt.Println("changed", labelsChanged(extractVals(labelMap), oldValMap))
 		if !continueRunning {
 			break
 		}
@@ -271,73 +269,3 @@ func similarEnough(curNode, neighbor node, r int, alpha, beta, s float64) bool {
 	ecc := alpha*math.Exp(-d) + (1-alpha)*math.Exp(-h)
 	return ecc >= beta*math.Exp(float64(-r))
 }
-
-// func findAndClusterNeighbors(labelMap [][]node, r int, curNode *node, alpha, beta, s float64) (bool, error) {
-// 	labelChanged := false
-// 	if curNode.label == -1 {
-// 		return false, errors.New("curNode has a label of -1 (no point in this cell)")
-// 	}
-// 	minLabel := curNode.label
-// 	neighbors := make([]*node, 0, r*r)
-// 	for x := 0; x < r; x++ {
-// 		newI := curNode.i + x
-// 		if newI >= len(labelMap) {
-// 			break
-// 		}
-// 		for y := 0; y < r; y++ {
-// 			newJ := curNode.j + y
-// 			if newJ >= len(labelMap[0]) {
-// 				break
-// 			}
-// 			// fmt.Println("NewI:", newI, " NewJ:", newJ)
-// 			if (newI == curNode.i && newJ == curNode.j) || labelMap[newI][newJ].label == -1 {
-// 				continue
-// 			}
-// 			neighborNode := labelMap[newI][newJ]
-// 			if similarEnough(*curNode, neighborNode, r, alpha, beta, s) {
-// 				// fmt.Println("Changed NewI:", newI, ", NewJ:", newJ, ", from", neighborNode.label, "to", curNode.label)
-// 				// if curNode.label > neighborNode.label {
-// 				// 	fmt.Println("you shitted it lol")
-// 				// }
-// 				minLabel = int(math.Min(float64(neighborNode.label), float64(curNode.label)))
-// 				neighbors = append(neighbors, &neighborNode)
-// 				// labelMap[newI][newJ].label = curNode.label
-// 			}
-// 		}
-// 	}
-// 	if minLabel != curNode.label {
-// 		curNode.label = minLabel
-// 		labelChanged = true
-// 	}
-// 	for _, neighbor := range neighbors {
-// 		if neighbor.label != minLabel {
-// 			if minLabel > neighbor.label {
-// 				return false, errors.New("labeling point with higher label, this shouldn't happen")
-// 			}
-// 			neighbor.label = minLabel
-// 			labelChanged = true
-// 		}
-// 	}
-// 	return labelChanged, nil
-// }
-
-// func labelsChanged(labelMap, oldLabelMap []int) int {
-// 	numChanged := 0
-// 	for i, curLabel := range labelMap {
-// 		oldLabel := oldLabelMap[i]
-// 		if oldLabel != curLabel {
-// 			numChanged++
-// 		}
-// 	}
-// 	return numChanged
-// }
-
-// func extractVals(labelMap [][]node) []int {
-// 	retVal := make([]int, len(labelMap)*len(labelMap[0]))
-// 	for i, curNodeList := range labelMap {
-// 		for j, curNode := range curNodeList {
-// 			retVal[i*len(labelMap[0])+j] = curNode.label
-// 		}
-// 	}
-// 	return retVal
-// }
