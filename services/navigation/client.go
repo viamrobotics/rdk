@@ -88,7 +88,7 @@ func (c *client) SetMode(ctx context.Context, mode Mode, extra map[string]interf
 	return nil
 }
 
-func (c *client) Location(ctx context.Context, extra map[string]interface{}) (*geo.Point, error) {
+func (c *client) Location(ctx context.Context, extra map[string]interface{}) (*spatialmath.GeoPose, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return nil, err
@@ -97,9 +97,11 @@ func (c *client) Location(ctx context.Context, extra map[string]interface{}) (*g
 	if err != nil {
 		return nil, err
 	}
-	loc := resp.GetLocation()
-	result := geo.NewPoint(loc.GetLatitude(), loc.GetLongitude())
-	return result, nil
+	geoPose := spatialmath.NewGeoPose(
+		geo.NewPoint(resp.GetLocation().GetLatitude(), resp.GetLocation().GetLongitude()),
+		resp.GetCompassHeading(),
+	)
+	return geoPose, nil
 }
 
 func (c *client) Waypoints(ctx context.Context, extra map[string]interface{}) ([]Waypoint, error) {

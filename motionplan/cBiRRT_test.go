@@ -37,7 +37,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 
 	goalPos := spatialmath.NewPose(r3.Vector{X: 206, Y: 100, Z: 120.5}, &spatialmath.OrientationVectorDegrees{OY: -1})
 
-	opt := newBasicPlannerOptions()
+	opt := newBasicPlannerOptions(m)
 	opt.SetGoalMetric(NewSquaredNormMetric(goalPos))
 	mp, err := newCBiRRTMotionPlanner(m, rand.New(rand.NewSource(42)), logger, opt)
 	test.That(t, err, test.ShouldBeNil)
@@ -62,7 +62,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 	}
 	nn := &neighborManager{nCPU: nCPU}
 
-	cOpt, err := newCbirrtOptions(opt, m)
+	_, err = newCbirrtOptions(opt)
 	test.That(t, err, test.ShouldBeNil)
 
 	m1chan := make(chan node, 1)
@@ -81,7 +81,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 	})
 	goalReached := <-m1chan
 	dist := opt.DistanceFunc(&Segment{StartConfiguration: seedReached.Q(), EndConfiguration: goalReached.Q()})
-	test.That(t, dist < cOpt.JointSolveDist, test.ShouldBeTrue)
+	test.That(t, dist < cbirrt.planOpts.JointSolveDist, test.ShouldBeTrue)
 
 	seedReached.SetCorner(true)
 	goalReached.SetCorner(true)

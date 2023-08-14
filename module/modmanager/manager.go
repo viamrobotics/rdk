@@ -659,8 +659,7 @@ func (m *module) startProcess(
 	oue func(int) bool,
 	logger golog.Logger,
 ) error {
-	// TODO(APP-2430) Remove the strings.ReplaceAll once we no longer allow : in the name
-	m.addr = filepath.ToSlash(filepath.Join(filepath.Dir(parentAddr), strings.ReplaceAll(m.name, ":", "_")+".sock"))
+	m.addr = filepath.ToSlash(filepath.Join(filepath.Dir(parentAddr), m.name+".sock"))
 	if err := modlib.CheckSocketAddressLength(m.addr); err != nil {
 		return err
 	}

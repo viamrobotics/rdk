@@ -106,13 +106,14 @@ func Readings(ctx context.Context, g PowerSensor, extra map[string]interface{}) 
 		readings["is_ac"] = isAC
 	}
 
-	cur, _, err := g.Current(ctx, extra)
+	cur, isAC, err := g.Current(ctx, extra)
 	if err != nil {
 		if !strings.Contains(err.Error(), ErrMethodUnimplementedCurrent.Error()) {
 			return nil, err
 		}
 	} else {
 		readings["current"] = cur
+		readings["is_ac"] = isAC
 	}
 
 	pow, err := g.Power(ctx, extra)

@@ -12,7 +12,6 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/camera/v1"
 	"google.golang.org/genproto/googleapis/api/httpbody"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/pointcloud"
@@ -113,30 +112,27 @@ func (s *serviceServer) GetImages(
 	}
 	// request the images, and then check to see what the underlying type is to determine
 	// what to encode as. If it's color, just encode as JPEG.
-	imgs, ts, err := cam.Images(ctx)
+	imgs, metadata, err := cam.Images(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "camera server GetImages could not call Images on the camera")
 	}
 	imagesMessage := make([]*pb.Image, 0, len(imgs))
 	for _, img := range imgs {
-		format, outBytes, err := encodeImageFromUnderlyingType(ctx, img)
+		format, outBytes, err := encodeImageFromUnderlyingType(ctx, img.Image)
 		if err != nil {
 			return nil, errors.Wrap(err, "camera server GetImages could not encode the images")
 		}
 		imgMes := &pb.Image{
-			SourceName: req.Name, // same as the camera name
+			SourceName: img.SourceName,
 			Format:     format,
 			Image:      outBytes,
 		}
 		imagesMessage = append(imagesMessage, imgMes)
 	}
 	// right now the only metadata is timestamp
-	metadata := &commonpb.ResponseMetadata{
-		CapturedAt: timestamppb.New(ts),
-	}
 	resp := &pb.GetImagesResponse{
 		Images:           imagesMessage,
-		ResponseMetadata: metadata,
+		ResponseMetadata: metadata.AsProto(),
 	}
 
 	return resp, nil

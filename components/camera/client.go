@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"image"
 	"sync"
-	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
@@ -146,7 +145,7 @@ func (c *client) Stream(
 	return stream, nil
 }
 
-func (c *client) Images(ctx context.Context) ([]image.Image, time.Time, error) {
+func (c *client) Images(ctx context.Context) ([]NamedImage, resource.ResponseMetadata, error) {
 	ctx, span := trace.StartSpan(ctx, "camera::client::Images")
 	defer span.End()
 
@@ -154,10 +153,10 @@ func (c *client) Images(ctx context.Context) ([]image.Image, time.Time, error) {
 		Name: c.name,
 	})
 	if err != nil {
-		return nil, time.Time{}, errors.Wrap(err, "camera client: could not gets images from the camera")
+		return nil, resource.ResponseMetadata{}, errors.Wrap(err, "camera client: could not gets images from the camera")
 	}
 
-	images := make([]image.Image, 0, len(resp.Images))
+	images := make([]NamedImage, 0, len(resp.Images))
 	// keep everything lazy encoded by default, if type is unknown, attempt to decode it
 	for _, img := range resp.Images {
 		var rdkImage image.Image
@@ -173,12 +172,12 @@ func (c *client) Images(ctx context.Context) ([]image.Image, time.Time, error) {
 		case pb.Format_FORMAT_UNSPECIFIED:
 			rdkImage, _, err = image.Decode(bytes.NewReader(img.Image))
 			if err != nil {
-				return nil, time.Time{}, err
+				return nil, resource.ResponseMetadata{}, err
 			}
 		}
-		images = append(images, rdkImage)
+		images = append(images, NamedImage{rdkImage, img.SourceName})
 	}
-	return images, resp.ResponseMetadata.CapturedAt.AsTime(), nil
+	return images, resource.ResponseMetadataFromProto(resp.ResponseMetadata), nil
 }
 
 func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
