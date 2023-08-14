@@ -28,6 +28,7 @@ import (
 	"io"
 	"math"
 	"sync"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
@@ -45,6 +46,8 @@ import (
 var model = resource.DefaultModelFamily.WithModel("imu-wit")
 
 var baudRateList = []uint{115200, 9600, 0}
+
+const pollTime = 50 * time.Millisecond
 
 // Config is used for converting a witmotion IMU MovementSensor config attributes.
 type Config struct {
@@ -153,7 +156,8 @@ func calculateCompassHeading(x, y float64) float64 {
 	// calculate -180 to 180 heading from radians
 	// North (y) is 0 so  the π/2 - atan2(y, x) identity is used
 	// directly
-	rad := math.Atan2(x, y) * 180 / math.Pi // -180 to 180 heading
+	rad := rutils.RadToDeg(math.Atan2(x, y)) // -180 to 180 heading
+	fmt.Printf("\n %v \n", rad)
 
 	return math.Mod(rad+360, 360) // change domain to 0 to 360
 }
@@ -254,14 +258,18 @@ func (imu *wit) startUpdateLoop(ctx context.Context, portReader *bufio.Reader, l
 		})
 		defer imu.activeBackgroundWorkers.Done()
 
+		ticker := time.NewTicker(pollTime)
+
+		defer ticker.Stop()
 		for {
 			if ctx.Err() != nil {
 				return
 			}
+
 			select {
 			case <-ctx.Done():
 				return
-			default:
+			case <-ticker.C:
 			}
 
 			line, err := portReader.ReadString('U')
@@ -294,12 +302,12 @@ func scale(a, b byte, r float64) float64 {
 	return x
 }
 
-func scalemag(a, b byte, r float64) float64 {
+func scalemag(a, b byte /*, r float64*/) float64 {
 	x := float64(int(b)<<8 | int(a)) // 0 -> 2
-	x *= r                           // 0 -> 2r
-	x += r
-	x = math.Mod(x, r*2)
-	x -= r
+	// x *= r                           // 0 -> 2r
+	// x += r
+	// x = math.Mod(x, r*2)
+	// x -= r
 	return x
 }
 
@@ -336,9 +344,9 @@ func (imu *wit) parseWIT(line string) error {
 		if len(line) < 7 {
 			return fmt.Errorf("line is wrong for imu magnetometer %d %v", len(line), line)
 		}
-		imu.magnetometer.X = scalemag(line[1], line[2], 1) // converts to gauss
-		imu.magnetometer.Y = scalemag(line[3], line[4], 1)
-		imu.magnetometer.Z = scalemag(line[5], line[6], 1)
+		imu.magnetometer.X = scalemag(line[1], line[2] /*, 1*/) // converts to gauss
+		imu.magnetometer.Y = scalemag(line[3], line[4] /*, 1*/)
+		imu.magnetometer.Z = scalemag(line[5], line[6] /*, 1*/)
 	}
 
 	return nil
