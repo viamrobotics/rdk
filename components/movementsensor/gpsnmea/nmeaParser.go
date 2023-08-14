@@ -19,15 +19,18 @@ const (
 
 // GPSData struct combines various attributes related to GPS.
 type GPSData struct {
-	Location   *geo.Point
-	Alt        float64
-	Speed      float64 // ground speed in m per sec
-	VDOP       float64 // vertical accuracy
-	HDOP       float64 // horizontal accuracy
-	SatsInView int     // quantity satellites in view
-	SatsInUse  int     // quantity satellites in view
-	valid      bool
-	FixQuality int
+	Location            *geo.Point
+	Alt                 float64
+	Speed               float64 // ground speed in m per sec
+	VDOP                float64 // vertical accuracy
+	HDOP                float64 // horizontal accuracy
+	SatsInView          int     // quantity satellites in view
+	SatsInUse           int     // quantity satellites in view
+	valid               bool
+	FixQuality          int
+	CompassHeading      float64 // true compass heading in degree
+	isEast              bool    // direction for magnetic variation which outputs East or West.
+	validCompassHeading bool    // true if we get course of direction instead of empty strings.
 }
 
 func errInvalidFix(sentenceType, badFix, goodFix string) error {
@@ -50,7 +53,9 @@ func (g *GPSData) ParseAndUpdate(line string) error {
 	if err != nil {
 		return multierr.Combine(errs, err)
 	}
-
+	if s.DataType() == nmea.TypeRMC {
+		g.parseRMC(line)
+	}
 	errs = g.updateData(s)
 
 	if g.Location == nil {
@@ -104,9 +109,10 @@ func (g *GPSData) updateData(s nmea.Sentence) error {
 	return errs
 }
 
-//nolint
 // updateGSV updates g.SatsInView with the information from the provided
 // GSV (GPS Satellites in View) data.
+//
+//nolint:all
 func (g *GPSData) updateGSV(gsv nmea.GSV) error {
 	// GSV provides the number of satellites in view
 
@@ -127,6 +133,12 @@ func (g *GPSData) updateRMC(rmc nmea.RMC) error {
 	if g.valid {
 		g.Speed = rmc.Speed * knotsToMPerSec
 		g.Location = geo.NewPoint(rmc.Latitude, rmc.Longitude)
+
+		if g.validCompassHeading {
+			g.CompassHeading = calculateTrueHeading(rmc.Course, rmc.Variation, g.isEast)
+		} else {
+			g.CompassHeading = math.NaN()
+		}
 	}
 
 	return nil
@@ -179,22 +191,23 @@ func (g *GPSData) updateGGA(gga nmea.GGA) error {
 		g.HDOP = gga.HDOP
 		g.Alt = gga.Altitude
 	}
-
 	return err
 }
 
-//nolint
 // updateGLL updates g.Location with the location information from the provided
 // GLL (Geographic Position - Latitude/Longitude) data.
+//
+//nolint:all
 func (g *GPSData) updateGLL(gll nmea.GLL) error {
 	now := toPoint(gll)
 	g.Location = now
 	return nil
 }
 
-//nolint
 // updateVTG updates g.Speed with the ground speed information from the provided
 // VTG (Velocity Made Good) data.
+//
+//nolint:all
 func (g *GPSData) updateVTG(vtg nmea.VTG) error {
 	// VTG provides ground speed
 	g.Speed = vtg.GroundSpeedKPH * kphToMPerSec
@@ -220,4 +233,43 @@ func (g *GPSData) updateGNS(gns nmea.GNS) error {
 	}
 
 	return nil
+}
+
+// calculateTrueHeading is used to get true compass heading from RCM messages.
+func calculateTrueHeading(heading, magneticDeclination float64, isEast bool) float64 {
+	var adjustment float64
+	if isEast {
+		adjustment = magneticDeclination
+	} else {
+		adjustment = -magneticDeclination
+	}
+
+	trueHeading := heading + adjustment
+	if trueHeading < 0 {
+		trueHeading += 360.0
+	} else if trueHeading >= 360 {
+		trueHeading -= 360.0
+	}
+
+	return trueHeading
+}
+
+// parseRMC sets g.isEast bool value by parsing the RMC message for compass heading
+// and sets g.validCompassHeading bool since RMC message sends empty strings if
+// there is no movement.
+// go-nmea library does not provide this feature so we have parse the message string.
+func (g *GPSData) parseRMC(message string) {
+	data := strings.Split(message, ",")
+	if len(data) < 10 {
+		return
+	}
+
+	if data[8] == "" {
+		g.validCompassHeading = false
+	} else {
+		g.validCompassHeading = true
+	}
+
+	// Check if the magnetic declination is East or West
+	g.isEast = strings.Contains(data[10], "E")
 }

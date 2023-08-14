@@ -60,7 +60,7 @@ func newPlanManager(
 	}
 
 	//nolint: gosec
-	p, err := newPlanner(frame, rand.New(rand.NewSource(int64(seed))), logger, newBasicPlannerOptions())
+	p, err := newPlanner(frame, rand.New(rand.NewSource(int64(seed))), logger, newBasicPlannerOptions(frame))
 	if err != nil {
 		return nil, err
 	}
@@ -444,7 +444,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 	to = fixOvIncrement(to, from)
 
 	// Start with normal options
-	opt := newBasicPlannerOptions()
+	opt := newBasicPlannerOptions(pm.frame)
 	opt.SetGoalMetric(NewSquaredNormMetric(to))
 
 	opt.extra = planningOpts

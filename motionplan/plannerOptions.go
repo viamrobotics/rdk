@@ -5,6 +5,7 @@ import (
 
 	pb "go.viam.com/api/service/motion/v1"
 
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -69,7 +70,7 @@ const (
 )
 
 // NewBasicPlannerOptions specifies a set of basic options for the planner.
-func newBasicPlannerOptions() *plannerOptions {
+func newBasicPlannerOptions(frame referenceframe.Frame) *plannerOptions {
 	opt := &plannerOptions{}
 	opt.goalArcScore = JointMetric
 	opt.DistanceFunc = L2InputMetric
@@ -82,6 +83,12 @@ func newBasicPlannerOptions() *plannerOptions {
 	opt.Resolution = defaultResolution
 	opt.Timeout = defaultTimeout
 	opt.GoalThreshold = defaultGoalThreshold
+
+	opt.PlanIter = defaultPlanIter
+	opt.FrameStep = defaultFrameStep
+	opt.JointSolveDist = defaultJointSolveDist
+	opt.IterBeforeRand = defaultIterBeforeRand
+	opt.qstep = getFrameSteps(frame, defaultFrameStep)
 
 	// Note the direct reference to a default here.
 	// This is due to a Go compiler issue where it will incorrectly refuse to compile with a circular reference error if this
@@ -128,6 +135,21 @@ type plannerOptions struct {
 
 	// How close to get to the goal
 	GoalThreshold float64 `json:"goal_threshold"`
+
+	// Number of planner iterations before giving up.
+	PlanIter int `json:"plan_iter"`
+
+	// The maximum percent of a joints range of motion to allow per step.
+	FrameStep float64 `json:"frame_step"`
+
+	// If the dot product between two sets of joint angles is less than this, consider them identical.
+	JointSolveDist float64 `json:"joint_solve_dist"`
+
+	// Number of iterations to mrun before beginning to accept randomly seeded locations.
+	IterBeforeRand int `json:"iter_before_rand"`
+
+	// This is how far cbirrt will try to extend the map towards a goal per-step. Determined from FrameStep
+	qstep []float64
 
 	// DistanceFunc is the function that the planner will use to measure the degree of "closeness" between two states of the robot
 	DistanceFunc SegmentMetric

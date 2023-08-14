@@ -99,12 +99,12 @@ func main() {
 	if err != nil {
 		logger.Fatal(err)
 	}
-	loc, err := nav.Location(context.Background(), nil)
+	geoPose, err := nav.Location(context.Background(), nil)
 	if err != nil {
 		logger.Fatal(err)
 	}
 
-	logger.Infof("denali service reports its location as %0.8f, %0.8f", loc.Lat(), loc.Lng())
+	logger.Infof("denali service reports its location as %0.8f, %0.8f", geoPose.Location().Lat(), geoPose.Location().Lng())
 
 	err = nav.AddWaypoint(context.Background(), geo.NewPoint(55.1, 22.2), nil)
 	if err != nil {
@@ -157,14 +157,14 @@ func main() {
 	time.Sleep(time.Second)
 
 	logger.Info("spin left")
-	err = mybase.SetPower(context.Background(), r3.Vector{}, r3.Vector{Z: -1}, nil)
+	err = mybase.SetPower(context.Background(), r3.Vector{}, r3.Vector{Z: 1}, nil)
 	if err != nil {
 		logger.Fatal(err)
 	}
 	time.Sleep(time.Second)
 
 	logger.Info("spin right")
-	err = mybase.SetPower(context.Background(), r3.Vector{}, r3.Vector{Z: 1}, nil)
+	err = mybase.SetPower(context.Background(), r3.Vector{}, r3.Vector{Z: -1}, nil)
 	if err != nil {
 		logger.Fatal(err)
 	}

@@ -28,6 +28,15 @@ func TestParse2(t *testing.T) {
 	test.That(t, data.Speed, test.ShouldAlmostEqual, 0.030351959999999997)
 	test.That(t, data.Location.Lat(), test.ShouldAlmostEqual, 40.77385866666667, 0.001)
 	test.That(t, data.Location.Lng(), test.ShouldAlmostEqual, -73.9817245, 0.001)
+	test.That(t, math.IsNaN(data.CompassHeading), test.ShouldBeTrue)
+
+	nmeaSentence = "$GPRMC,210230,A,3855.4487,N,09446.0071,W,0.0,076.2,130495,003.8,E*69"
+	err = data.ParseAndUpdate(nmeaSentence)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, data.Speed, test.ShouldAlmostEqual, 0)
+	test.That(t, data.Location.Lat(), test.ShouldAlmostEqual, 38.924144999999996, 0.001)
+	test.That(t, data.Location.Lng(), test.ShouldAlmostEqual, -94.76678500000001, 0.001)
+	test.That(t, data.CompassHeading, test.ShouldAlmostEqual, 72.4)
 
 	nmeaSentence = "$GNVTG,,T,,M,0.059,N,0.108,K,A*38"
 	err = data.ParseAndUpdate(nmeaSentence)
@@ -108,4 +117,12 @@ func TestParsing(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, data.Location.Lat(), test.ShouldAlmostEqual, 41.20433, 0.001)
 	test.That(t, data.Location.Lng(), test.ShouldAlmostEqual, 113.537, 0.001)
+
+	nmeaSentence = "$GPRMC,123519,A,4807.038,N,01131.000,E,022.4,084.4,230394,003.1,W*6A"
+	err = data.ParseAndUpdate(nmeaSentence)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, data.Speed, test.ShouldAlmostEqual, 11.523456)
+	test.That(t, data.Location.Lat(), test.ShouldAlmostEqual, 48.117299999, 0.001)
+	test.That(t, data.Location.Lng(), test.ShouldAlmostEqual, 11.516666666, 0.001)
+	test.That(t, data.CompassHeading, test.ShouldAlmostEqual, 87.5)
 }

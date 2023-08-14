@@ -25,6 +25,8 @@ import (
 	"go.viam.com/rdk/services/navigation"
 	"go.viam.com/rdk/services/slam"
 	fakeslam "go.viam.com/rdk/services/slam/fake"
+	_ "go.viam.com/rdk/services/vision"
+	_ "go.viam.com/rdk/services/vision/colordetector"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -82,9 +84,10 @@ func TestNavSetup(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, navMode, test.ShouldEqual, navigation.ModeWaypoint)
 
-	loc, err := ns.Location(ctx, nil)
+	geoPose, err := ns.Location(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, loc, test.ShouldResemble, geo.NewPoint(40.7, -73.98))
+	expectedGeoPose := spatialmath.NewGeoPose(geo.NewPoint(40.7, -73.98), 25.)
+	test.That(t, geoPose, test.ShouldResemble, expectedGeoPose)
 
 	wayPt, err := ns.Waypoints(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
@@ -108,6 +111,8 @@ func TestNavSetup(t *testing.T) {
 	obs, err := ns.GetObstacles(ctx, nil)
 	test.That(t, len(obs), test.ShouldEqual, 1)
 	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, len(ns.(*builtIn).visionServices), test.ShouldEqual, 1)
 }
 
 func TestStartWaypoint(t *testing.T) {
@@ -177,8 +182,7 @@ func TestStartWaypoint(t *testing.T) {
 			heading float64,
 			movementSensorName resource.Name,
 			obstacles []*spatialmath.GeoObstacle,
-			linearVelocityMillisPerSec float64,
-			angularVelocityDegsPerSec float64,
+			motionCfg *motion.MotionConfiguration,
 			extra map[string]interface{},
 		) (bool, error) {
 			err := kinematicBase.GoToInputs(ctx, referenceframe.FloatsToInputs([]float64{destination.Lat(), destination.Lng()}))
@@ -209,8 +213,7 @@ func TestStartWaypoint(t *testing.T) {
 			heading float64,
 			movementSensorName resource.Name,
 			obstacles []*spatialmath.GeoObstacle,
-			linearVelocity float64,
-			angularVelocity float64,
+			motionCfg *motion.MotionConfiguration,
 			extra map[string]interface{},
 		) (bool, error) {
 			if extra != nil && extra["motion_profile"] != nil {
@@ -249,8 +252,7 @@ func TestStartWaypoint(t *testing.T) {
 			heading float64,
 			movementSensorName resource.Name,
 			obstacles []*spatialmath.GeoObstacle,
-			linearVelocityMillisPerSec float64,
-			angularVelocityDegsPerSec float64,
+			motionCfg *motion.MotionConfiguration,
 			extra map[string]interface{},
 		) (bool, error) {
 			if ctx.Err() != nil {

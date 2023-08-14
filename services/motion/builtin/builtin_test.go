@@ -290,23 +290,46 @@ func TestMoveWithObstacles(t *testing.T) {
 }
 
 func TestMoveOnMapLongDistance(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
-	// goal x-position of 1.32m is scaled to be in mm
+	// goal position is scaled to be in mm
 	goal := spatialmath.NewPoseFromPoint(r3.Vector{X: -32.508 * 1000, Y: -2.092 * 1000})
-	ms := createMoveOnMapEnvironment(ctx, t, "slam/example_cartographer_outputs/viam-office-02-22-3/pointcloud/pointcloud_4.pcd")
-	extra := make(map[string]interface{})
-	extra["planning_alg"] = "cbirrt"
 
-	path, _, err := ms.(*builtIn).planMoveOnMap(
-		context.Background(),
-		base.Named("test_base"),
-		goal,
-		slam.Named("test_slam"),
-		kinematicbase.NewKinematicBaseOptions(),
-		extra,
-	)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(path), test.ShouldBeGreaterThan, 2)
+	t.Run("test cbirrt planning on office map", func(t *testing.T) {
+		t.Parallel()
+		ms := createMoveOnMapEnvironment(ctx, t, "slam/example_cartographer_outputs/viam-office-02-22-3/pointcloud/pointcloud_4.pcd")
+		extra := make(map[string]interface{})
+		extra["planning_alg"] = "cbirrt"
+
+		path, _, err := ms.(*builtIn).planMoveOnMap(
+			context.Background(),
+			base.Named("test_base"),
+			goal,
+			slam.Named("test_slam"),
+			kinematicbase.NewKinematicBaseOptions(),
+			extra,
+		)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(path), test.ShouldBeGreaterThan, 2)
+	})
+
+	t.Run("test rrtstar planning on office map", func(t *testing.T) {
+		t.Parallel()
+		ms := createMoveOnMapEnvironment(ctx, t, "slam/example_cartographer_outputs/viam-office-02-22-3/pointcloud/pointcloud_4.pcd")
+		extra := make(map[string]interface{})
+		extra["planning_alg"] = "rrtstar"
+
+		path, _, err := ms.(*builtIn).planMoveOnMap(
+			context.Background(),
+			base.Named("test_base"),
+			goal,
+			slam.Named("test_slam"),
+			kinematicbase.NewKinematicBaseOptions(),
+			extra,
+		)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(path), test.ShouldBeGreaterThan, 2)
+	})
 }
 
 func TestMoveOnMap(t *testing.T) {
