@@ -457,7 +457,7 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 	}
 }
 
-//nolint
+// nolint
 // getNtripConnectionStatus returns true if connection to NTRIP stream is OK, false if not
 func (g *rtkI2C) getNtripConnectionStatus() (bool, error) {
 	g.ntripMu.Lock()
@@ -489,20 +489,6 @@ func (g *rtkI2C) Position(ctx context.Context, extra map[string]interface{}) (*g
 			}
 		}
 		return geo.NewPoint(math.NaN(), math.NaN()), math.NaN(), err
-	}
-	// Check if the current position is different from the last position and non-zero
-	lastPosition := g.lastposition.GetLastPosition()
-	if !g.lastposition.ArePointsEqual(position, lastPosition) {
-		g.lastposition.SetLastPosition(position)
-	}
-
-	// Update the last known valid position if the current position is non-zero
-	if position != nil && !g.lastposition.IsZeroPosition(position) {
-		g.lastposition.SetLastPosition(position)
-	}
-
-	if g.lastposition.IsPositionNaN(position) {
-		position = lastPosition
 	}
 
 	return position, alt, nil
