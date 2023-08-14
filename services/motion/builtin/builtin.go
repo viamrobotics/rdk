@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"math"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
@@ -28,6 +30,7 @@ import (
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
+	goutils "go.viam.com/utils"
 )
 
 func init() {
@@ -105,12 +108,13 @@ func (ms *builtIn) Reconfigure(
 type builtIn struct {
 	resource.Named
 	resource.TriviallyCloseable
-	fsService       framesystem.Service
-	movementSensors map[resource.Name]movementsensor.MovementSensor
-	slamServices    map[resource.Name]slam.Service
-	components      map[resource.Name]resource.Resource
-	logger          golog.Logger
-	lock            sync.Mutex
+	backgroundWorkers sync.WaitGroup
+	fsService         framesystem.Service
+	movementSensors   map[resource.Name]movementsensor.MovementSensor
+	slamServices      map[resource.Name]slam.Service
+	components        map[resource.Name]resource.Resource
+	logger            golog.Logger
+	lock              sync.Mutex
 }
 
 // Move takes a goal location and will plan and execute a movement to move a component specified by its name to that destination.
@@ -218,7 +222,6 @@ func (ms *builtIn) MoveOnGlobe(
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
 
 	kinematicsOptions := kinematicbase.NewKinematicBaseOptions()
-
 	if motionCfg.LinearMPerSec != 0 {
 		kinematicsOptions.LinearVelocityMMPerSec = motionCfg.LinearMPerSec * 1000
 	}
@@ -231,23 +234,73 @@ func (ms *builtIn) MoveOnGlobe(
 	kinematicsOptions.GoalRadiusMM = math.Min(motionCfg.PlanDeviationM*1000, 3000)
 	kinematicsOptions.HeadingThresholdDegrees = 8
 
-	plan, kb, err := ms.planMoveOnGlobe(
-		ctx,
-		componentName,
-		destination,
-		movementSensorName,
-		obstacles,
-		kinematicsOptions,
-		extra,
-	)
-	if err != nil {
-		return false, fmt.Errorf("error making plan for MoveOnMap: %w", err)
-	}
+	var planMu sync.Mutex
+	var currentPlan [][]referenceframe.Input = nil
+	var kinematicBase kinematicbase.KinematicBase = nil
+
+	var replanFlag atomic.Bool
+	replanFlag.Store(true)
+
+	ms.backgroundWorkers.Add(1)
+	goutils.ManagedGo(func() {
+		var positionPollingTicker, obstaclePollingTicker *time.Ticker
+		restartTickers := func() {
+			positionPollingTicker = time.NewTicker(time.Duration(1000/motionCfg.PositionPollingFreqHz) * time.Millisecond)
+			obstaclePollingTicker = time.NewTicker(time.Duration(1000/motionCfg.ObstaclePollingFreqHz) * time.Millisecond)
+		}
+		restartTickers()
+
+		// counting to 1000 to get iterations for testing
+		for i := 0; i < 1000; i++ {
+			select {
+			case <-positionPollingTicker.C:
+				fmt.Println("position")
+				// TODO: theres nothing stopping us from making another thread before the previous has completed
+				ms.backgroundWorkers.Add(1)
+				goutils.ManagedGo(func() {
+					// TODO: the function that actually monitors position
+				}, ms.backgroundWorkers.Done)
+			case <-obstaclePollingTicker.C:
+				fmt.Println("obstacle")
+				// TODO: theres nothing stopping us from making another thread before the previous has completed
+				ms.backgroundWorkers.Add(1)
+				goutils.ManagedGo(func() {
+					// TODO: the function that actually monitors obstacles
+				}, ms.backgroundWorkers.Done)
+			}
+			if replanFlag.Load() {
+				fmt.Println("replanning")
+				// TODO: being able to cancel the in progress threads here would be a good thing
+
+				plan, kb, err := ms.planMoveOnGlobe(
+					ctx,
+					componentName,
+					destination,
+					movementSensorName,
+					obstacles,
+					kinematicsOptions,
+					extra,
+				)
+				if err != nil {
+					// TODO this is gonna need to return an error somehow
+					fmt.Println("error making plan for MoveOnGlobe: %w", err)
+				}
+				planMu.Lock()
+				currentPlan = plan
+				kinematicBase = kb
+				planMu.Unlock()
+
+				replanFlag.Store(false)
+			}
+		}
+
+	}, ms.backgroundWorkers.Done)
+	ms.backgroundWorkers.Wait()
 
 	// execute the plan
-	for i := 1; i < len(plan); i++ {
-		ms.logger.Info(plan[i])
-		if err := kb.GoToInputs(ctx, plan[i]); err != nil {
+	for i := 1; i < len(currentPlan); i++ {
+		ms.logger.Info(currentPlan[i])
+		if err := kinematicBase.GoToInputs(ctx, currentPlan[i]); err != nil {
 			return false, err
 		}
 	}

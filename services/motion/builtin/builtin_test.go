@@ -10,6 +10,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
+
 	// register.
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
@@ -534,6 +535,26 @@ func TestMoveOnGlobe(t *testing.T) {
 		}
 		test.That(t, movementSensorToBase.Pose().Point(), test.ShouldResemble, r3.Vector{10, 0, 0})
 	})
+}
+
+func TestParallelMoveOnGlobe(t *testing.T) {
+	ctx := context.Background()
+	gpsPoint := geo.NewPoint(-70, 40)
+	dst := geo.NewPoint(gpsPoint.Lat(), gpsPoint.Lng()+1e-5)
+	// expectedDst := r3.Vector{380, 0, 0}
+
+	injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint)
+	_, err := ms.MoveOnGlobe(
+		ctx,
+		fakeBase.Name(),
+		dst,
+		0,
+		injectedMovementSensor.Name(),
+		nil,
+		&motion.MotionConfiguration{PositionPollingFreqHz: .2, ObstaclePollingFreqHz: .1},
+		nil,
+	)
+	test.That(t, err, test.ShouldBeNil)
 }
 
 func TestMultiplePieces(t *testing.T) {
