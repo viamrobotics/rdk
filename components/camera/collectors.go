@@ -3,7 +3,6 @@ package camera
 import (
 	"bytes"
 	"context"
-	"strings"
 
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
@@ -49,9 +48,8 @@ func newNextPointCloudCollector(resource interface{}, params data.CollectorParam
 
 		v, err := camera.NextPointCloud(ctx)
 		if err != nil {
-			// If err is from a modular filter component, propagate it to getAndPushNextReading(). We check for the substring presence here
-			// because the error thrown by the modular component may be wrapped in an rpc error or may not be a golang error.
-			if strings.Contains(err.Error(), data.ErrNoCaptureToStore.Error()) {
+			// If err is from a modular filter component, propagate it to getAndPushNextReading().
+			if errors.Is(err, data.ErrNoCaptureToStore) {
 				return nil, data.ErrNoCaptureToStore
 			}
 			return nil, data.FailedToReadErr(params.ComponentName, nextPointCloud.String(), err)
