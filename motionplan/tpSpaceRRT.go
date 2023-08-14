@@ -42,7 +42,6 @@ const (
 )
 
 type tpspaceOptions struct {
-	*rrtOptions
 	goalCheck int // Check if goal is reachable every this many iters
 
 	// TODO: base this on frame limits?
@@ -177,7 +176,7 @@ func (mp *tpSpaceRRTMotionPlanner) planRunner(
 	midPt := goalPose.Point().Sub(startPose.Point())
 
 	var randPos spatialmath.Pose
-	for iter := 0; iter < mp.algOpts.PlanIter; iter++ {
+	for iter := 0; iter < mp.planOpts.PlanIter; iter++ {
 		if ctx.Err() != nil {
 			mp.logger.Debugf("TP Space RRT timed out after %d iterations", iter)
 			rrt.solutionChan <- &rrtPlanReturn{planerr: fmt.Errorf("TP Space RRT timeout %w", ctx.Err()), maps: rrt.maps}
@@ -405,9 +404,8 @@ func (mp *tpSpaceRRTMotionPlanner) extendMap(
 
 func (mp *tpSpaceRRTMotionPlanner) setupTPSpaceOptions() {
 	tpOpt := &tpspaceOptions{
-		rrtOptions: newRRTOptions(),
-		goalCheck:  defaultGoalCheck,
-		autoBB:     defaultAutoBB,
+		goalCheck: defaultGoalCheck,
+		autoBB:    defaultAutoBB,
 
 		addIntermediate: defaultAddInt,
 		addNodeEvery:    defaultAddNodeEvery,
@@ -445,7 +443,7 @@ func (mp *tpSpaceRRTMotionPlanner) closestNode(pose spatialmath.Pose, nodes []*t
 // make2DTPSpaceDistanceOptions will create a plannerOptions object with a custom DistanceFunc constructed such that
 // distances can be computed in TP space using the given PTG.
 func (mp *tpSpaceRRTMotionPlanner) make2DTPSpaceDistanceOptions(ptg tpspace.PTG, min float64) *plannerOptions {
-	opts := newBasicPlannerOptions()
+	opts := newBasicPlannerOptions(mp.frame)
 
 	segMet := func(seg *Segment) float64 {
 		if seg.StartPosition == nil || seg.EndPosition == nil {
