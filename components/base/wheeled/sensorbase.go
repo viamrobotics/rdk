@@ -43,7 +43,7 @@ type sensorBase struct {
 	sensorLoopDone    func()
 	sensorLoopPolling bool
 
-	opMgr operation.SingleOperationManager
+	opMgr *operation.SingleOperationManager
 
 	allSensors  []movementsensor.MovementSensor
 	orientation movementsensor.MovementSensor
@@ -63,6 +63,9 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 	sb.allSensors = nil
 	sb.velocities = nil
 	sb.orientation = nil
+	if sb.opMgr == nil {
+		sb.opMgr = operation.NewSingleOperationManager()
+	}
 
 	for _, name := range newConf.MovementSensor {
 		ms, err := movementsensor.FromDependencies(deps, name)

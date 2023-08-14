@@ -104,7 +104,7 @@ type singleAxis struct {
 
 	cancelFunc              func()
 	logger                  golog.Logger
-	opMgr                   operation.SingleOperationManager
+	opMgr                   *operation.SingleOperationManager
 	activeBackgroundWorkers sync.WaitGroup
 }
 
@@ -113,6 +113,7 @@ func newSingleAxis(ctx context.Context, deps resource.Dependencies, conf resourc
 	sAx := &singleAxis{
 		Named:  conf.ResourceName().AsNamed(),
 		logger: logger,
+		opMgr:  operation.NewSingleOperationManager(),
 	}
 
 	if err := sAx.Reconfigure(ctx, deps, conf); err != nil {

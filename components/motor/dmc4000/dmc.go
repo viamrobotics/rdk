@@ -58,7 +58,7 @@ type Motor struct {
 	MaxAcceleration  float64
 	HomeRPM          float64
 	jogging          bool
-	opMgr            operation.SingleOperationManager
+	opMgr            *operation.SingleOperationManager
 	powerPct         float64
 }
 
@@ -153,6 +153,7 @@ func NewMotor(ctx context.Context, c *Config, name resource.Name, logger golog.L
 		MaxAcceleration:  c.MaxAcceleration,
 		HomeRPM:          c.HomeRPM,
 		powerPct:         0.0,
+		opMgr:            operation.NewSingleOperationManager(),
 	}
 
 	if m.maxRPM <= 0 {

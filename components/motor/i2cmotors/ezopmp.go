@@ -83,7 +83,7 @@ type Ezopmp struct {
 	maxPowerPct float64
 	powerPct    float64
 	maxFlowRate float64
-	opMgr       operation.SingleOperationManager
+	opMgr       *operation.SingleOperationManager
 }
 
 // available commands.
@@ -122,6 +122,7 @@ func NewMotor(ctx context.Context, deps resource.Dependencies, c *Config, name r
 		logger:      logger,
 		maxPowerPct: 1.0,
 		powerPct:    0.0,
+		opMgr:       operation.NewSingleOperationManager(),
 	}
 
 	flowRate, err := m.findMaxFlowRate(ctx)
