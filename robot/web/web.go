@@ -454,7 +454,7 @@ func (svc *webService) Reconfigure(ctx context.Context, deps resource.Dependenci
 	if err := svc.updateResources(deps); err != nil {
 		return err
 	}
-	if !svc.isRunning || svc.cancelCtx == nil {
+	if !svc.isRunning {
 		return nil
 	}
 	return svc.addNewStreams(svc.cancelCtx)
