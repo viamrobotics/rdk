@@ -47,11 +47,11 @@ func (rcc *RadiusClusteringConfig) CheckValid() error {
 	if rcc.AngleTolerance > 180 || rcc.AngleTolerance < 0 {
 		return errors.Errorf("max_angle_of_plane must between 0 & 180 (inclusive), got %v", rcc.AngleTolerance)
 	}
-	if !rcc.NormalVec.IsUnit() {
-		return errors.Errorf("ground_plane_normal_vec should be a unit vector, got %v", rcc.NormalVec)
-	}
 	if rcc.NormalVec.Norm2() == 0 {
 		rcc.NormalVec = r3.Vector{X: 0, Y: 0, Z: 1}
+	}
+	if !rcc.NormalVec.IsUnit() {
+		return errors.Errorf("ground_plane_normal_vec should be a unit vector, got %v", rcc.NormalVec)
 	}
 	return nil
 }
