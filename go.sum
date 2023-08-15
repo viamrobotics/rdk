@@ -282,6 +282,10 @@ github.com/creack/pty v1.1.19-0.20220421211855-0d412c9fbeb1 h1:Tw0uuY+3UWYiSbR0+
 github.com/creack/pty v1.1.19-0.20220421211855-0d412c9fbeb1/go.mod h1:MOBLtS5ELjhRRrroQr9kyvTxUAFNvYEK993ew/Vr4O4=
 github.com/curioswitch/go-reassign v0.2.0 h1:G9UZyOcpk/d7Gd6mqYgd8XYWFMw/znxwGDUstnC9DIo=
 github.com/curioswitch/go-reassign v0.2.0/go.mod h1:x6OpXuWvgfQaMGks2BZybTngWjT84hqJfKoO8Tt/Roc=
+github.com/d2r2/go-i2c v0.0.0-20191123181816-73a8a799d6bc h1:HLRSIWzUGMLCq4ldt0W1GLs3nnAxa5EGoP+9qHgh6j0=
+github.com/d2r2/go-i2c v0.0.0-20191123181816-73a8a799d6bc/go.mod h1:AwxDPnsgIpy47jbGXZHA9Rv7pDkOJvQbezPuK1Y+nNk=
+github.com/d2r2/go-logger v0.0.0-20210606094344-60e9d1233e22 h1:nO+SY4KOMsF/LsZ5EtbSKhiT3M6sv/igo2PEru/xEHI=
+github.com/d2r2/go-logger v0.0.0-20210606094344-60e9d1233e22/go.mod h1:eSx+YfcVy5vCjRZBNIhpIpfCGFMQ6XSOSQkDk7+VCpg=
 github.com/daixiang0/gci v0.2.8/go.mod h1:+4dZ7TISfSmqfAGv59ePaHfNzgGtIkHAhhdKggP1JAc=
 github.com/daixiang0/gci v0.9.1 h1:jBrwBmBZTDsGsXiaCTLIe9diotp1X4X64zodFrh7l+c=
 github.com/daixiang0/gci v0.9.1/go.mod h1:EpVfrztufwVgQRXjnX4zuNinEpLj5OmMjtu/+MB0V0c=
