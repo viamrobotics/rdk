@@ -109,7 +109,7 @@ func TestPtgWithObstacle(t *testing.T) {
 	opt := newBasicPlannerOptions()
 	//~ opt.SetGoalMetric(NewPositionOnlyMetric(goalPos))
 	//~ opt.DistanceFunc = SquaredNormNoOrientSegmentMetric
-	opt.DistanceFunc = NewSquaredNormSegmentMetricWithScaling(40.)
+	opt.DistanceFunc = NewSquaredNormSegmentMetricWithScaling(30.)
 	//~ opt.GoalThreshold = 0.001
 	opt.GoalThreshold = 5
 	// obstacles

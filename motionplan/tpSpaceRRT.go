@@ -33,7 +33,7 @@ const (
 
 	// Don't add new RRT tree nodes if there is an existing node within this distance.
 	// Consider nodes on trees to be connected if they are within this distance.
-	defaultIdenticalNodeDistance = 1.
+	defaultIdenticalNodeDistance = 3.
 
 	defaultMaxReseeds = 50
 	
@@ -426,7 +426,18 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 	}
 
 	cand := &candidate{dist: bestDist, treeNode: nearest, newNode: successNode, lastInTraj: isLastNode}
-
+	// check if this  successNode is too close to nodes already in the tree, and if so, do not add.
+	// Get nearest neighbor to new node that's already in the tree
+	nearest = nm.nearestNeighbor(ctx, planOpts, successNode, rrt)
+	if nearest != nil {
+		dist := planOpts.DistanceFunc(&Segment{StartPosition: successNode.Pose(), EndPosition: nearest.Pose()})
+		// Ensure successNode is sufficiently far from the nearest node already existing in the tree
+		// If too close, don't add a new node
+		if dist < defaultIdenticalNodeDistance {
+			fmt.Println("too close!!!")
+			cand = nil
+		}
+	}
 	return cand, nil
 }
 
