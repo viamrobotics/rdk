@@ -20,7 +20,7 @@ import (
 func TestGenericLinux(t *testing.T) {
 	ctx := context.Background()
 
-	b := &SysfsBoard{
+	b := &Board{
 		logger: golog.NewTestLogger(t),
 	}
 
@@ -46,7 +46,7 @@ func TestGenericLinux(t *testing.T) {
 	boardSPIs["open"].bus.Store(&twoStr)
 	boardSPIs["open"].openHandle.bus.bus.Store(&twoStr)
 
-	b = &SysfsBoard{
+	b = &Board{
 		Named:        board.Named("foo").AsNamed(),
 		gpioMappings: nil,
 		spis:         boardSPIs,

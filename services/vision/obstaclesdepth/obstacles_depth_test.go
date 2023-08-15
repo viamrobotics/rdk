@@ -24,8 +24,8 @@ type testReader struct{}
 
 func (r testReader) Read(ctx context.Context) (image.Image, func(), error) {
 	d := rimage.NewEmptyDepthMap(50, 50)
-	for i := 20; i < 30; i++ {
-		for j := 25; j < 35; j++ {
+	for i := 0; i < 40; i++ {
+		for j := 5; j < 45; j++ {
 			d.Set(i, j, rimage.Depth(400))
 		}
 	}

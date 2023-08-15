@@ -7,6 +7,7 @@ import (
 	"context"
 	"image"
 	"math"
+	"sort"
 	"strconv"
 
 	"github.com/edaniels/golog"
@@ -145,7 +146,7 @@ func (o *obsDepth) buildObsDepth(logger golog.Logger) func(ctx context.Context, 
 	}
 }
 
-// buildObsDepthNoIntrinsics will return the shortest depth in the depth map as a Geometry point.
+// buildObsDepthNoIntrinsics will return the median depth in the depth map as a Geometry point.
 func (o *obsDepth) obsDepthNoIntrinsics(ctx context.Context, src camera.VideoSource) ([]*vision.Object, error) {
 	pic, release, err := camera.ReadImage(ctx, src)
 	if err != nil {
@@ -157,9 +158,16 @@ func (o *obsDepth) obsDepthNoIntrinsics(ctx context.Context, src camera.VideoSou
 	if err != nil {
 		return nil, errors.New("could not convert image to depth map")
 	}
-	min, _ := dm.MinMax()
-
-	pt := spatialmath.NewPoint(r3.Vector{X: 0, Y: 0, Z: float64(min)}, "")
+	depData := dm.Data()
+	if len(depData) == 0 {
+		return nil, errors.New("could not get info from depth map")
+	}
+	// Sort the depth data [smallest...largest]
+	sort.Slice(depData, func(i, j int) bool {
+		return depData[i] < depData[j]
+	})
+	med := int(0.5 * float64(len(depData)))
+	pt := spatialmath.NewPoint(r3.Vector{X: 0, Y: 0, Z: float64(depData[med])}, "")
 	toReturn := make([]*vision.Object, 1)
 	toReturn[0] = &vision.Object{Geometry: pt}
 

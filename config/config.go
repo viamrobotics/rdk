@@ -6,7 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"path"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"sync"
@@ -18,6 +19,7 @@ import (
 	"go.viam.com/utils/jwks"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
+	"golang.org/x/exp/slices"
 
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -156,17 +158,6 @@ func (c *Config) Ensure(fromCloud bool, logger golog.Logger) error {
 	}
 
 	return nil
-}
-
-// GetExpectedPackagePlaceholders returns a map of placeholder string -> real filepath for each package.
-func (c Config) GetExpectedPackagePlaceholders() map[string]string {
-	packageMap := make(map[string]string)
-	// based on the given packages, generate the expected placeholder + real filepath
-	for _, config := range c.Packages {
-		packageMap[config.GetPackagePlaceholder()] = config.GenerateFilePath()
-	}
-
-	return packageMap
 }
 
 // FindComponent finds a particular component by name.
@@ -879,7 +870,12 @@ const (
 	PackageTypeMlModel PackageType = "ml_model"
 	// PackageTypeModule represents a module type.
 	PackageTypeModule PackageType = "module"
+	// PackageTypeSlamMap represents a slam internal state.
+	PackageTypeSlamMap PackageType = "slam_map"
 )
+
+// SupportedPackageTypes is a list of all of the valid package types.
+var SupportedPackageTypes = []PackageType{PackageTypeMlModel, PackageTypeModule, PackageTypeSlamMap}
 
 // A PackageConfig describes the configuration of a Package.
 type PackageConfig struct {
@@ -906,57 +902,6 @@ func (p *PackageConfig) Validate(path string) error {
 	return p.cachedErr
 }
 
-// SanitizeName forms the package name for the symlink/filepath of the package on the system.
-func (p *PackageConfig) SanitizeName() string {
-	return fmt.Sprintf("%s-%s", strings.ReplaceAll(p.Package, "/", "-"), p.SanitizeVersion())
-}
-
-// SanitizeVersion replaces the version string.
-func (p *PackageConfig) SanitizeVersion() string {
-	// replaces all the . if they exist with _
-	return strings.ReplaceAll(p.Version, ".", "_")
-}
-
-// GenerateFilePath generates what the expected filepath of the package is on the system.
-// based on the package name.
-func (p *PackageConfig) GenerateFilePath() string {
-	// first get the base root
-
-	// for backwards compatibility, packages right now don't have ml_models as a type.
-	// so if that is the case we need to join it right now to packages/../name
-	var dir string
-	if p.Type == "" {
-		// then this is not set and it must be an ml-model for backward compatibility -- but for now just join it without the type
-		// package manager will still create symlinks for these packages based on the packges path
-		dir = path.Clean(path.Join(viamDotDir, packagesDir, p.Name))
-	} else {
-		dir = path.Clean(path.Join(viamDotDir, packagesDir, p.GetPackageDirectoryFromType(), dataDotDir, p.SanitizeName()))
-	}
-	return dir
-}
-
-// GetPackagePlaceholder returns the expected placeholder based on a package config.
-func (p *PackageConfig) GetPackagePlaceholder() string {
-	// then based on what the structure of the package is, we can match what the replacement should look like
-	if p.Type != "" {
-		return strings.Join([]string{packagesDir, p.GetPackageDirectoryFromType(), p.Name}, ".")
-	}
-
-	return strings.Join([]string{packagesDir, p.Name}, ".")
-}
-
-// GetPackageDirectoryFromType returns the package directory for the filepath based on type.
-func (p *PackageConfig) GetPackageDirectoryFromType() string {
-	switch p.Type {
-	case PackageTypeMlModel:
-		return "ml_models"
-	case PackageTypeModule:
-		return "modules"
-	default:
-		return "default"
-	}
-}
-
 func (p *PackageConfig) validate(path string) error {
 	if p.Name == "" {
 		return utils.NewConfigValidationError(path, errors.New("empty package name"))
@@ -966,8 +911,18 @@ func (p *PackageConfig) validate(path string) error {
 		return utils.NewConfigValidationError(path, errors.New("empty package id"))
 	}
 
+	if p.Type == "" {
+		// for backwards compatibility
+		p.Type = PackageTypeMlModel
+	}
+
+	if !slices.Contains(SupportedPackageTypes, p.Type) {
+		return utils.NewConfigValidationError(path, errors.Errorf("unsupported package type %q. Must be one of: %v",
+			p.Type, SupportedPackageTypes))
+	}
+
 	if !rutils.ValidNameRegex.MatchString(p.Name) {
-		return rutils.ErrInvalidName(p.Name)
+		return utils.NewConfigValidationError(path, rutils.ErrInvalidName(p.Name))
 	}
 
 	return nil
@@ -983,9 +938,30 @@ func (p PackageConfig) Equals(other PackageConfig) bool {
 	return reflect.DeepEqual(p, other)
 }
 
-// PackageReference contains the deconstructed parts of a package reference in the config.
-// Eg: ${packages.some-package}/path/a/b/c -> {"some-package", "/path/a/b/c"}.
-type PackageReference struct {
-	Package       string
-	PathInPackage string
+// LocalDataDirectory returns the folder where the package should be extracted.
+// Ex: /home/user/.viam/packages/.data/ml_model/orgid_ballClassifier_0.1.2.
+func (p *PackageConfig) LocalDataDirectory(packagesDir string) string {
+	return filepath.Join(p.LocalDataParentDirectory(packagesDir), p.SanitizedName())
+}
+
+// LocalDownloadPath returns the file where the archive should be downloaded before extraction.
+func (p *PackageConfig) LocalDownloadPath(packagesDir string) string {
+	return filepath.Join(p.LocalDataParentDirectory(packagesDir), fmt.Sprintf("%s.download", p.SanitizedName()))
+}
+
+// LocalDataParentDirectory returns the folder that will contain the all packages of this type.
+// Ex: /home/user/.viam/packages/.data/ml_model.
+func (p *PackageConfig) LocalDataParentDirectory(packagesDir string) string {
+	return filepath.Join(packagesDir, ".data", string(p.Type))
+}
+
+// SanitizedName returns the package name for the symlink/filepath of the package on the system.
+func (p *PackageConfig) SanitizedName() string {
+	return fmt.Sprintf("%s-%s", strings.ReplaceAll(p.Package, string(os.PathSeparator), "-"), p.sanitizedVersion())
+}
+
+// sanitizedVersion returns a cleaned version of the version so it is file-system-safe.
+func (p *PackageConfig) sanitizedVersion() string {
+	// replaces all the . if they exist with _
+	return strings.ReplaceAll(p.Version, ".", "_")
 }

@@ -514,20 +514,20 @@ func (c *monitoredWebcam) Projector(ctx context.Context) (transform.Projector, e
 	return c.exposedProjector.Projector(ctx)
 }
 
-func (c *monitoredWebcam) Images(ctx context.Context) ([]image.Image, time.Time, error) {
+func (c *monitoredWebcam) Images(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 	if c, ok := c.underlyingSource.(camera.ImagesSource); ok {
 		return c.Images(ctx)
 	}
 	img, release, err := camera.ReadImage(ctx, c.underlyingSource)
 	if err != nil {
-		return nil, time.Time{}, errors.Wrap(err, "monitoredWebcam: call to get Images failed")
+		return nil, resource.ResponseMetadata{}, errors.Wrap(err, "monitoredWebcam: call to get Images failed")
 	}
 	defer func() {
 		if release != nil {
 			release()
 		}
 	}()
-	return []image.Image{img}, time.Now(), nil
+	return []camera.NamedImage{{img, c.Name().Name}}, resource.ResponseMetadata{time.Now()}, nil
 }
 
 func (c *monitoredWebcam) Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {

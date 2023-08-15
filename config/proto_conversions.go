@@ -7,6 +7,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
+	packagespb "go.viam.com/api/app/packages/v1"
 	pb "go.viam.com/api/app/v1"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/protoutils"
@@ -827,4 +828,22 @@ func PackageConfigFromProto(proto *pb.PackageConfig) (*PackageConfig, error) {
 		Version: proto.Version,
 		Type:    PackageType(proto.Type),
 	}, nil
+}
+
+// PackageTypeToProto converts a config PackageType to its proto equivalent
+// This is required be because app/packages uses a PackageType enum but app/PackageConfig uses a string Type.
+func PackageTypeToProto(t PackageType) (*packagespb.PackageType, error) {
+	switch t {
+	case "":
+		// for backwards compatibility
+		fallthrough
+	case PackageTypeMlModel:
+		return packagespb.PackageType_PACKAGE_TYPE_ML_MODEL.Enum(), nil
+	case PackageTypeModule:
+		return packagespb.PackageType_PACKAGE_TYPE_MODULE.Enum(), nil
+	case PackageTypeSlamMap:
+		return packagespb.PackageType_PACKAGE_TYPE_SLAM_MAP.Enum(), nil
+	default:
+		return packagespb.PackageType_PACKAGE_TYPE_UNSPECIFIED.Enum(), errors.Errorf("unknown package type %q", t)
+	}
 }

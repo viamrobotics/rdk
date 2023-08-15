@@ -14,6 +14,7 @@ let material: THREE.MeshPhongMaterial;
 
 {#each obstacle.geometries as geometry, index (index)}
   <T.Mesh
+    name={obstacle.name}
     obstacle={obstacle.name}
     lnglat={obstacle.location}
     on:create={({ ref }) => {
@@ -22,22 +23,31 @@ let material: THREE.MeshPhongMaterial;
   >
     {#if geometry.type === 'box'}
       {#if $view === '3D'}
-        <T.BoxGeometry args={[geometry.length, geometry.width, geometry.height]} />
+        <T.BoxGeometry
+          computeBounding={obstacle.name}
+          args={[geometry.length, geometry.width, geometry.height]}
+        />
       {:else}
         <T.PlaneGeometry
+          computeBounding={obstacle.name}
           args={[geometry.length, geometry.width]}
         />
       {/if}
     {:else if geometry.type === 'sphere'}
       {#if $view === '3D'}
-        <T.SphereGeometry args={[geometry.radius]} />
+        <T.SphereGeometry
+          computeBounding={obstacle.name}
+          args={[geometry.radius]}
+        />
       {:else}
         <T.CircleGeometry
+          computeBounding={obstacle.name}
           args={[geometry.radius]}
         />
       {/if}
     {:else if geometry.type === 'capsule'}
       <T.CapsuleGeometry
+        computeBounding={obstacle.name}
         args={[geometry.radius, geometry.length, 16, 32]}
       />
     {/if}

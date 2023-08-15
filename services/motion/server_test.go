@@ -126,8 +126,7 @@ func TestServerMoveOnGlobe(t *testing.T) {
 		heading float64,
 		movementSensorName resource.Name,
 		obstacles []*spatialmath.GeoObstacle,
-		linearVelocity float64,
-		angularVelocity float64,
+		motionCfg *motion.MotionConfiguration,
 		extra map[string]interface{},
 	) (bool, error) {
 		return false, notYetImplementedErr

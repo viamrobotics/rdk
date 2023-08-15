@@ -18,6 +18,21 @@ build: build-web build-go
 build-go:
 	go build ./...
 
+GOOS ?= $(shell go env GOOS)
+GOARCH ?= $(shell go env GOARCH)
+bin/$(GOOS)-$(GOARCH)/viam-cli:
+	go build $(LDFLAGS) -tags osusergo,netgo -o $@ ./cli/viam
+
+.PHONY: cli
+cli: bin/$(GOOS)-$(GOARCH)/viam-cli
+
+.PHONY: cli-ci
+cli-ci: bin/$(GOOS)-$(GOARCH)/viam-cli
+	if [ -n "$(CI_RELEASE)" ]; then \
+		mkdir -p bin/deploy-ci/; \
+		cp $< bin/deploy-ci/viam-cli-$(CI_RELEASE)-$(GOOS)-$(GOARCH); \
+	fi
+
 build-web: web/runtime-shared/static/control.js
 
 # only generate static files when source has changed.

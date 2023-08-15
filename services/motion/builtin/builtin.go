@@ -212,18 +212,24 @@ func (ms *builtIn) MoveOnGlobe(
 	heading float64,
 	movementSensorName resource.Name,
 	obstacles []*spatialmath.GeoObstacle,
-	linearVelocity float64,
-	angularVelocity float64,
+	motionCfg *motion.MotionConfiguration,
 	extra map[string]interface{},
 ) (bool, error) {
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
 
 	kinematicsOptions := kinematicbase.NewKinematicBaseOptions()
-	kinematicsOptions.LinearVelocityMMPerSec = linearVelocity
-	kinematicsOptions.AngularVelocityDegsPerSec = angularVelocity
-	kinematicsOptions.GoalRadiusMM = 3000
+
+	if motionCfg.LinearMPerSec != 0 {
+		kinematicsOptions.LinearVelocityMMPerSec = motionCfg.LinearMPerSec * 1000
+	}
+	if motionCfg.AngularDegsPerSec != 0 {
+		kinematicsOptions.AngularVelocityDegsPerSec = motionCfg.AngularDegsPerSec
+	}
+	if motionCfg.PlanDeviationM != 0 {
+		kinematicsOptions.PlanDeviationThresholdMM = motionCfg.PlanDeviationM * 1000
+	}
+	kinematicsOptions.GoalRadiusMM = math.Min(motionCfg.PlanDeviationM*1000, 3000)
 	kinematicsOptions.HeadingThresholdDegrees = 8
-	kinematicsOptions.PlanDeviationThresholdMM = math.Inf(1)
 
 	plan, kb, err := ms.planMoveOnGlobe(
 		ctx,
