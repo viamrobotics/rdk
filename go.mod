@@ -16,6 +16,8 @@ require (
 	github.com/bep/debounce v1.2.1
 	github.com/bufbuild/buf v1.6.0
 	github.com/creack/pty v1.1.19-0.20220421211855-0d412c9fbeb1
+	github.com/d2r2/go-i2c v0.0.0-20191123181816-73a8a799d6bc
+	github.com/d2r2/go-logger v0.0.0-20210606094344-60e9d1233e22
 	github.com/de-bkg/gognss v0.0.0-20220601150219-24ccfdcdbb5d
 	github.com/disintegration/imaging v1.6.2
 	github.com/docker/go-units v0.5.0
