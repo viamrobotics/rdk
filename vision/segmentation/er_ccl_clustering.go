@@ -15,6 +15,8 @@ import (
 	"go.viam.com/rdk/vision"
 )
 
+// ErCCLConfig specifies the necessary parameters to apply the
+// connected components based clustering algo.
 type ErCCLConfig struct {
 	resource.TriviallyValidateConfig
 	MinPtsInPlane    int       `json:"min_points_in_plane"`
@@ -96,6 +98,7 @@ func NewERCCLClustering(params utils.AttributeMap) (Segmenter, error) {
 	return cfg.ErCCLAlgorithm, nil
 }
 
+// ErCCLAlgorithm applies the connected components clustering algorithm directly on a given point cloud.
 func (erCCL *ErCCLConfig) ErCCLAlgorithm(ctx context.Context, src camera.VideoSource) ([]*vision.Object, error) {
 	// get next point cloud
 	cloud, err := src.NextPointCloud(ctx)

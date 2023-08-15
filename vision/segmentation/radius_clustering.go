@@ -14,7 +14,8 @@ import (
 	"go.viam.com/rdk/vision"
 )
 
-// RadiusClusteringConfig specifies the necessary parameters for 3D object finding.
+// RadiusClusteringConfig specifies the necessary parameters to apply the
+// radius based clustering algo.
 type RadiusClusteringConfig struct {
 	resource.TriviallyValidateConfig
 	MinPtsInPlane      int       `json:"min_points_in_plane"`
