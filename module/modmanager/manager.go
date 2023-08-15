@@ -129,21 +129,28 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, conn *grpc.Clie
 		conn:      conn,
 		resources: map[resource.Name]*addedResource{},
 	}
-	mgr.modules[conf.Name] = mod
+
+	var success bool
+	defer func() {
+		if !success {
+			// Stop process if it was started (stopProcess handles this) and close connection.
+			if err := mod.stopProcess(); err != nil {
+				mgr.logger.Error(err)
+			}
+			if mod.conn != nil {
+				if err := mod.conn.Close(); err != nil {
+					mgr.logger.Errorw("error while closing connection to module that failed to start",
+						"module", mod.name,
+						"error", err)
+				}
+			}
+		}
+	}()
 
 	if err := mod.startProcess(ctx, mgr.parentAddr,
 		mgr.newOnUnexpectedExitHandler(mod), mgr.logger); err != nil {
 		return errors.WithMessage(err, "error while starting module "+mod.name)
 	}
-
-	var success bool
-	defer func() {
-		if !success {
-			if err := mod.stopProcess(); err != nil {
-				mgr.logger.Error(err)
-			}
-		}
-	}()
 
 	// dial will re-use mod.conn if it's non-nil (module being added in a Reconfigure).
 	if err := mod.dial(); err != nil {
@@ -155,6 +162,7 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, conn *grpc.Clie
 	}
 
 	mod.registerResources(mgr, mgr.logger)
+	mgr.modules[conf.Name] = mod
 
 	success = true
 	return nil
@@ -446,35 +454,6 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) b
 			return false
 		}
 
-		// If mod.handles was never set, the module was never actually ready in the
-		// first place before crashing. Log an error and do not attempt a restart;
-		// something is likely wrong with the module implemenation.
-		mgr.mu.Lock()
-		if mod.handles == nil {
-			mgr.logger.Errorw(
-				"module has unexpectedly exited without responding to a ready request ",
-				"module", mod.name,
-				"exit_code", exitCode,
-			)
-			// Remove module and close connection. Process will already be stopped.
-			for r, m := range mgr.rMap {
-				if m == mod {
-					delete(mgr.rMap, r)
-				}
-			}
-			delete(mgr.modules, mod.name)
-			if mod.conn != nil {
-				if err := mod.conn.Close(); err != nil {
-					mgr.logger.Errorw("error while closing connection from crashed module",
-						"module", mod.name,
-						"error", err)
-				}
-			}
-			mgr.mu.Unlock()
-			return false
-		}
-		mgr.mu.Unlock()
-
 		mod.inRecovery.Store(true)
 		defer mod.inRecovery.Store(false)
 
@@ -527,7 +506,8 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
 
-	// deregister crashed module's resources, and let later checkReady reset m.handles.
+	// deregister crashed module's resources, and let later checkReady reset m.handles
+	// before reregistering.
 	mod.deregisterResources()
 
 	var orphanedResourceNames []resource.Name
@@ -542,14 +522,11 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 	var success bool
 	defer func() {
 		if !success {
-			// Remove module and close connection if restart fails. Process will
-			// already be stopped.
-			for r, m := range mgr.rMap {
-				if m == mod {
-					delete(mgr.rMap, r)
-				}
+			// Stop process if it was restarted (stopProcess handles this), close connection,
+			// and remove module if attemptRestart fails.
+			if err := mod.stopProcess(); err != nil {
+				mgr.logger.Error(err)
 			}
-			delete(mgr.modules, mod.name)
 			if mod.conn != nil {
 				if err := mod.conn.Close(); err != nil {
 					mgr.logger.Errorw("error while closing connection from crashed module",
@@ -557,6 +534,12 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 						"error", err)
 				}
 			}
+			for r, m := range mgr.rMap {
+				if m == mod {
+					delete(mgr.rMap, r)
+				}
+			}
+			delete(mgr.modules, mod.name)
 		}
 	}()
 
@@ -581,15 +564,6 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 		utils.SelectContextOrWait(ctx, time.Duration(attempt)*oueRestartInterval)
 	}
 
-	defer func() {
-		if !success {
-			// Stop restarted module process if there are later failures.
-			if err := mod.stopProcess(); err != nil {
-				mgr.logger.Error(err)
-			}
-		}
-	}()
-
 	// dial will re-use mod.conn; old connection can still be used when module
 	// crashes.
 	if err := mod.dial(); err != nil {
@@ -603,6 +577,8 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 			"module", mod.name, "error", err)
 		return orphanedResourceNames
 	}
+
+	mod.registerResources(mgr, mgr.logger)
 
 	success = true
 	return nil
