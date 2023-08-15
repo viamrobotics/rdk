@@ -4,7 +4,6 @@ package builtin
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"math"
 	"sync"
@@ -12,6 +11,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
+	"github.com/pkg/errors"
 	servicepb "go.viam.com/api/service/motion/v1"
 
 	"go.viam.com/rdk/components/base"
@@ -47,6 +47,14 @@ const (
 	builtinOpLabel    = "motion-service"
 	maxTravelDistance = 5e+6 // mm (or 5km)
 )
+
+// inputEnabledActuator is an actuator that interacts with the frame system.
+// This allows us to figure out where the actuator currently is and then
+// move it. Input units are always in meters or radians.
+type inputEnabledActuator interface {
+	resource.Actuator
+	referenceframe.InputEnabled
+}
 
 // ErrNotImplemented is thrown when an unreleased function is called.
 var ErrNotImplemented = errors.New("function coming soon but not yet implemented")
@@ -155,20 +163,26 @@ func (ms *builtIn) Move(
 	goalPose, _ := tf.(*referenceframe.PoseInFrame)
 
 	// the goal is to move the component to goalPose which is specified in coordinates of goalFrameName
-	output, err := motionplan.PlanMotion(ctx, ms.logger, goalPose, movingFrame, fsInputs, frameSys, worldState, constraints, extra)
+	steps, err := motionplan.PlanMotion(ctx, ms.logger, goalPose, movingFrame, fsInputs, frameSys, worldState, constraints, extra)
 	if err != nil {
 		return false, err
 	}
 
 	// move all the components
-	for _, step := range output {
+	for _, step := range steps {
 		// TODO(erh): what order? parallel?
 		for name, inputs := range step {
 			if len(inputs) == 0 {
 				continue
 			}
-			err := resources[name].GoToInputs(ctx, inputs)
-			if err != nil {
+			r := resources[name]
+			if err := r.GoToInputs(ctx, inputs); err != nil {
+				// If there is an error on GoToInputs, stop the component if possible before returning the error
+				if actuator, ok := r.(inputEnabledActuator); ok {
+					if stopErr := actuator.Stop(ctx, nil); stopErr != nil {
+						return false, errors.Wrap(err, stopErr.Error())
+					}
+				}
 				return false, err
 			}
 		}
@@ -196,8 +210,14 @@ func (ms *builtIn) MoveOnMap(
 
 	// execute the plan
 	for i := 1; i < len(plan); i++ {
-		if err := kb.GoToInputs(ctx, plan[i]); err != nil {
-			return false, err
+		if inputEnabledKb, ok := kb.(inputEnabledActuator); ok {
+			if err := inputEnabledKb.GoToInputs(ctx, plan[i]); err != nil {
+				// If there is an error on GoToInputs, stop the component if possible before returning the error
+				if stopErr := kb.Stop(ctx, nil); stopErr != nil {
+					return false, errors.Wrap(err, stopErr.Error())
+				}
+				return false, err
+			}
 		}
 	}
 	return true, nil
@@ -243,12 +263,17 @@ func (ms *builtIn) MoveOnGlobe(
 	if err != nil {
 		return false, fmt.Errorf("error making plan for MoveOnMap: %w", err)
 	}
-
 	// execute the plan
 	for i := 1; i < len(plan); i++ {
 		ms.logger.Info(plan[i])
-		if err := kb.GoToInputs(ctx, plan[i]); err != nil {
-			return false, err
+		if inputEnabledKb, ok := kb.(inputEnabledActuator); ok {
+			if err := inputEnabledKb.GoToInputs(ctx, plan[i]); err != nil {
+				// If there is an error on GoToInputs, stop the component if possible before returning the error
+				if stopErr := kb.Stop(ctx, nil); stopErr != nil {
+					return false, errors.Wrap(err, stopErr.Error())
+				}
+				return false, err
+			}
 		}
 	}
 	return true, nil
