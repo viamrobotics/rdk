@@ -2,6 +2,7 @@ package vision
 
 import (
 	"errors"
+	commonpb "go.viam.com/api/common/v1"
 	"math"
 
 	pc "go.viam.com/rdk/pointcloud"
@@ -17,19 +18,27 @@ type Object struct {
 
 // NewObject creates a new vision.Object from a point cloud with an empty label.
 func NewObject(cloud pc.PointCloud) (*Object, error) {
-	return NewObjectWithLabel(cloud, "")
+	return NewObjectWithLabel(cloud, "", nil)
 }
 
 // NewObjectWithLabel creates a new vision.Object from a point cloud with the given label.
-func NewObjectWithLabel(cloud pc.PointCloud, label string) (*Object, error) {
+func NewObjectWithLabel(cloud pc.PointCloud, label string, geometry *commonpb.Geometry) (*Object, error) {
 	if cloud == nil {
 		return NewEmptyObject(), nil
 	}
-	box, err := pc.BoundingBoxFromPointCloudWithLabel(cloud, label)
+	if geometry == nil {
+		box, err := pc.BoundingBoxFromPointCloudWithLabel(cloud, label)
+		if err != nil {
+			return nil, err
+		}
+		return &Object{cloud, box}, nil
+	}
+	geom, err := spatialmath.NewGeometryFromProto(geometry)
 	if err != nil {
 		return nil, err
 	}
-	return &Object{cloud, box}, nil
+	return &Object{PointCloud: cloud, Geometry: geom}, nil
+
 }
 
 // NewEmptyObject creates a new empty point cloud with metadata.

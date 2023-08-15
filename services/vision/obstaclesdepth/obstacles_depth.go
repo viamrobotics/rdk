@@ -170,7 +170,6 @@ func (o *obsDepth) obsDepthNoIntrinsics(ctx context.Context, src camera.VideoSou
 	pt := spatialmath.NewPoint(r3.Vector{X: 0, Y: 0, Z: float64(depData[med])}, "")
 	toReturn := make([]*vision.Object, 1)
 	toReturn[0] = &vision.Object{Geometry: pt}
-
 	return toReturn, nil
 }
 

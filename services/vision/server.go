@@ -3,7 +3,6 @@ package vision
 import (
 	"bytes"
 	"context"
-
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	commonpb "go.viam.com/api/common/v1"
