@@ -62,7 +62,7 @@ func TestClient(t *testing.T) {
 		client, err := mlmodel.NewClientFromConn(context.Background(), conn, "", mlmodel.Named(testMLModelServiceName), logger)
 		test.That(t, err, test.ShouldBeNil)
 		// Infer Command
-		result, err := client.Infer(context.Background(), inputData)
+		_, result, err := client.Infer(context.Background(), nil, inputData)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(result), test.ShouldEqual, 4)
 		// decode the map[string]interface{} into a struct
@@ -79,7 +79,7 @@ func TestClient(t *testing.T) {
 		test.That(t, len(temp.Labels[0]), test.ShouldEqual, 3)
 		test.That(t, temp.Locations[0][0], test.ShouldResemble, []float32{0.1, 0.4, 0.22, 0.4})
 		// nil data should work too
-		result, err = client.Infer(context.Background(), nil)
+		_, result, err = client.Infer(context.Background(), nil, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(result), test.ShouldEqual, 4)
 		// Metadata Command

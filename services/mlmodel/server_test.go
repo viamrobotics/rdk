@@ -117,7 +117,7 @@ var injectedMetadataFunc = func(ctx context.Context) (mlmodel.MLMetadata, error)
 	return md, nil
 }
 
-var injectedInferFunc = func(ctx context.Context, input map[string]interface{}) (map[string]interface{}, error) {
+var injectedInferFunc = func(ctx context.Context, tensors mlmodel.Tensors, input map[string]interface{}) (mlmodel.Tensors, map[string]interface{}, error) {
 	// this is a possible form of what a detection tensor with 3 detection in 1 image would look like
 	outputMap := make(map[string]interface{})
 	outputMap["n_detections"] = []int32{3}
@@ -128,7 +128,7 @@ var injectedInferFunc = func(ctx context.Context, input map[string]interface{}) 
 		{0.02, 0.22, 0.77, 0.90},
 		{0.40, 0.50, 0.40, 0.50},
 	}}
-	return outputMap, nil
+	return nil, outputMap, nil
 }
 
 func TestServerInfer(t *testing.T) {

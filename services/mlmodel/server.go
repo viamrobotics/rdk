@@ -32,7 +32,11 @@ func (server *serviceServer) Infer(ctx context.Context, req *pb.InferRequest) (*
 	if err != nil {
 		return nil, err
 	}
-	od, err := svc.Infer(ctx, id)
+	it, err := protoToTensors(req.InputTensors)
+	if err != nil {
+		return nil, err
+	}
+	ot, od, err := svc.Infer(ctx, it, id)
 	if err != nil {
 		return nil, err
 	}
@@ -40,7 +44,11 @@ func (server *serviceServer) Infer(ctx context.Context, req *pb.InferRequest) (*
 	if err != nil {
 		return nil, err
 	}
-	return &pb.InferResponse{OutputData: outputData}, nil
+	outputTensors, err := ot.toProto()
+	if err != nil {
+		return nil, err
+	}
+	return &pb.InferResponse{OutputData: outputData, OutputTensors: outputTensors}, nil
 }
 
 // AsMap converts x to a general-purpose Go map.

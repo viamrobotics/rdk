@@ -24,6 +24,15 @@ func init() {
 	})
 }
 
+// Service defines the ML Model interface, which takes a map of inputs, runs it through
+// an inference engine, and creates a map of outputs. Metadata is necessary in order to build
+// the struct that will decode that map[string]interface{} correctly.
+type Service interface {
+	resource.Resource
+	Infer(ctx context.Context, tensors Tensors, input map[string]interface{}) (Tensors, map[string]interface{}, error)
+	Metadata(ctx context.Context) (MLMetadata, error)
+}
+
 // Tensors are a data structure to hold the input and output map of tensors to be fed into a
 // model or the result coming from the model.
 type Tensors map[string]*tensor.Dense
@@ -42,12 +51,11 @@ func (ts Tensors) toProto() (*servicepb.FlatTensors, error) {
 
 func tensorToProto(t *tensor.Dense) (*servicepb.FlatTensor, error) {
 	ftpb := &servicepb.FlatTensor{}
-	// get the shape of the tensors
 	shape := t.Shape()
 	for _, s := range shape {
 		ftpb.Shape = append(ftpb.Shape, uint64(s))
 	}
-	// switch on data type
+	// switch on data type of the underlying array
 	data := t.Data()
 	switch dataSlice := data.(type) {
 	case []int8:
@@ -141,15 +149,6 @@ func uint16ToUint32(uint16Slice []uint16) []uint32 {
 		uint32Slice[i] = uint32(value)
 	}
 	return uint32Slice
-}
-
-// Service defines the ML Model interface, which takes a map of inputs, runs it through
-// an inference engine, and creates a map of outputs. Metadata is necessary in order to build
-// the struct that will decode that map[string]interface{} correctly.
-type Service interface {
-	resource.Resource
-	Infer(ctx context.Context, input map[string]interface{}) (map[string]interface{}, error)
-	Metadata(ctx context.Context) (MLMetadata, error)
 }
 
 // MLMetadata contains the metadata of the model file, such as the name of the model, what
