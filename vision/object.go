@@ -3,8 +3,6 @@ package vision
 import (
 	"errors"
 	"math"
-
-
 	commonpb "go.viam.com/api/common/v1"
 
 	pc "go.viam.com/rdk/pointcloud"
