@@ -812,9 +812,13 @@ func TestStoppableMoveFunctions(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 
 			goal := geo.NewPoint(gpsPoint.Lat()+1e-4, gpsPoint.Lng()+1e-4)
+			motionCfg := motion.MotionConfiguration{
+				PlanDeviationM: 10,
+				LinearMPerSec:  10,
+			}
 			success, err := ms.MoveOnGlobe(
 				ctx, injectBase.Name(), goal, 0, injectMovementSensor.Name(),
-				nil, 10, 10, nil,
+				nil, &motionCfg, nil,
 			)
 			testIfStoppable(t, success, err)
 		})
