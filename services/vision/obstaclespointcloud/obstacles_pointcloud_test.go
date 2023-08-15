@@ -5,6 +5,7 @@ import (
 	"image/color"
 	"testing"
 
+	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 
@@ -33,12 +34,14 @@ func TestRadiusClusteringSegmentation(t *testing.T) {
 			return nil, resource.NewNotFoundError(n)
 		}
 	}
-	params := &segmentation.RadiusClusteringConfig{
-		MinPtsInPlane:      100,
-		MinPtsInSegment:    3,
-		MaxDistFromPlane:   10,
-		ClusteringRadiusMm: 5.,
-		MeanKFiltering:     10.,
+	params := &segmentation.ErCCLConfig{
+		MinPtsInPlane:    100,
+		MaxDistFromPlane: 10,
+		MinPtsInSegment:  3,
+		AngleTolerance:   20,
+		NormalVec:        r3.Vector{0, 0, 1},
+		ClusteringRadius: 5,
+		Beta:             3,
 	}
 	// bad registration, no parameters
 	name := vision.Named("test_rcs")
@@ -46,12 +49,12 @@ func TestRadiusClusteringSegmentation(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot be nil")
 	// bad registration, parameters out of bounds
-	params.ClusteringRadiusMm = -3.0
+	params.ClusteringRadius = -3
 	_, err = registerOPSegmenter(context.Background(), name, params, r)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "segmenter config error")
 	// successful registration
-	params.ClusteringRadiusMm = 5.0
+	params.ClusteringRadius = 1
 	seg, err := registerOPSegmenter(context.Background(), name, params, r)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, seg.Name(), test.ShouldResemble, name)
@@ -79,13 +82,13 @@ func TestRadiusClusteringSegmentation(t *testing.T) {
 		err = cloud.Set(pc.NewVector(1, 1, 4), pc.NewColoredData(color.NRGBA{255, 0, 0, 255}))
 		test.That(t, err, test.ShouldBeNil)
 		// cluster 2
-		err = cloud.Set(pc.NewVector(1, 1, 101), pc.NewColoredData(color.NRGBA{255, 0, 0, 255}))
+		err = cloud.Set(pc.NewVector(2, 2, 101), pc.NewColoredData(color.NRGBA{255, 0, 0, 255}))
 		test.That(t, err, test.ShouldBeNil)
-		err = cloud.Set(pc.NewVector(1, 1, 102), pc.NewColoredData(color.NRGBA{255, 0, 0, 255}))
+		err = cloud.Set(pc.NewVector(2, 2, 102), pc.NewColoredData(color.NRGBA{255, 0, 0, 255}))
 		test.That(t, err, test.ShouldBeNil)
-		err = cloud.Set(pc.NewVector(1, 1, 103), pc.NewColoredData(color.NRGBA{255, 0, 0, 255}))
+		err = cloud.Set(pc.NewVector(2, 2, 103), pc.NewColoredData(color.NRGBA{255, 0, 0, 255}))
 		test.That(t, err, test.ShouldBeNil)
-		err = cloud.Set(pc.NewVector(1, 1, 104), pc.NewColoredData(color.NRGBA{255, 0, 0, 255}))
+		err = cloud.Set(pc.NewVector(2, 2, 104), pc.NewColoredData(color.NRGBA{255, 0, 0, 255}))
 		test.That(t, err, test.ShouldBeNil)
 		return cloud, nil
 	}

@@ -15,14 +15,14 @@ import (
 	"go.viam.com/rdk/vision"
 )
 
-type erCCLConfig struct {
+type ErCCLConfig struct {
 	resource.TriviallyValidateConfig
 	MinPtsInPlane    int       `json:"min_points_in_plane"`
 	MinPtsInSegment  int       `json:"min_points_in_segment"`
 	MaxDistFromPlane float64   `json:"max_dist_from_plane_mm"`
 	NormalVec        r3.Vector `json:"ground_plane_normal_vec"`
 	AngleTolerance   float64   `json:"ground_angle_tolerance_degs"`
-	Radius           int       `json:"clustering_radius"`
+	ClusteringRadius int       `json:"clustering_radius"`
 	Beta             float64   `json:"beta"`
 }
 
@@ -35,7 +35,7 @@ type node struct {
 }
 
 // CheckValid checks to see in the input values are valid.
-func (erCCL *erCCLConfig) CheckValid() error {
+func (erCCL *ErCCLConfig) CheckValid() error {
 	if erCCL.MinPtsInPlane <= 0 {
 		return errors.Errorf("min_points_in_plane must be greater than 0, got %v", erCCL.MinPtsInPlane)
 	}
@@ -51,8 +51,8 @@ func (erCCL *erCCLConfig) CheckValid() error {
 	if erCCL.AngleTolerance > 180 || erCCL.AngleTolerance < 0 {
 		return errors.Errorf("max_angle_of_plane must between 0 & 180 (inclusive), got %v", erCCL.AngleTolerance)
 	}
-	if erCCL.Radius < 0 {
-		return errors.Errorf("radius must be greater than 0, got %v", erCCL.Radius)
+	if erCCL.ClusteringRadius < 0 {
+		return errors.Errorf("radius must be greater than 0, got %v", erCCL.ClusteringRadius)
 	}
 	if erCCL.Beta == 0 {
 		erCCL.Beta = 5
@@ -67,8 +67,8 @@ func (erCCL *erCCLConfig) CheckValid() error {
 	return nil
 }
 
-// ConvertAttributes changes the AttributeMap input into an erCCLConfig.
-func (erCCL *erCCLConfig) ConvertAttributes(am utils.AttributeMap) error {
+// ConvertAttributes changes the AttributeMap input into an ErCCLConfig.
+func (erCCL *ErCCLConfig) ConvertAttributes(am utils.AttributeMap) error {
 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: erCCL})
 	if err != nil {
 		return err
@@ -88,15 +88,15 @@ func NewERCCLClustering(params utils.AttributeMap) (Segmenter, error) {
 	if params == nil {
 		return nil, errors.New("config for ER-CCL segmentation cannot be nil")
 	}
-	cfg := &erCCLConfig{}
+	cfg := &ErCCLConfig{}
 	err := cfg.ConvertAttributes(params)
 	if err != nil {
 		return nil, err
 	}
-	return cfg.erCCLAlgorithm, nil
+	return cfg.ErCCLAlgorithm, nil
 }
 
-func (erCCL *erCCLConfig) erCCLAlgorithm(ctx context.Context, src camera.VideoSource) ([]*vision.Object, error) {
+func (erCCL *ErCCLConfig) ErCCLAlgorithm(ctx context.Context, src camera.VideoSource) ([]*vision.Object, error) {
 	// get next point cloud
 	cloud, err := src.NextPointCloud(ctx)
 	if err != nil {
@@ -135,7 +135,7 @@ func (erCCL *erCCLConfig) erCCLAlgorithm(ctx context.Context, src camera.VideoSo
 	continueRunning := true
 	for continueRunning {
 		// 0.9 is alpha
-		continueRunning := labelMapUpdate(labelMap, erCCL.Radius, 0.9, erCCL.Beta, resolution)
+		continueRunning := labelMapUpdate(labelMap, erCCL.ClusteringRadius, 0.9, erCCL.Beta, resolution)
 		if !continueRunning {
 			break
 		}
