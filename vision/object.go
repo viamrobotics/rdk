@@ -2,8 +2,10 @@ package vision
 
 import (
 	"errors"
-	commonpb "go.viam.com/api/common/v1"
 	"math"
+
+
+	commonpb "go.viam.com/api/common/v1"
 
 	pc "go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/spatialmath"
@@ -38,7 +40,6 @@ func NewObjectWithLabel(cloud pc.PointCloud, label string, geometry *commonpb.Ge
 		return nil, err
 	}
 	return &Object{PointCloud: cloud, Geometry: geom}, nil
-
 }
 
 // NewEmptyObject creates a new empty point cloud with metadata.
