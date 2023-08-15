@@ -366,6 +366,13 @@ func TestArmReconnection(t *testing.T) {
 
 	test.That(t, goutils.SelectContextOrWait(parentCtx, time.Millisecond*500), test.ShouldBeTrue)
 
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		tb.Helper()
+		ua.mu.Lock()
+		test.That(tb, ua.isConnected, test.ShouldBeFalse)
+		ua.mu.Unlock()
+	})
+
 	ctx, childCancel = context.WithCancel(parentCtx)
 
 	closer, err = setupListeners(ctx, statusBlob, &remote)

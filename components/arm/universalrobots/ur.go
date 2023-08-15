@@ -216,7 +216,7 @@ func URArmConnect(ctx context.Context, conf resource.Config, logger golog.Logger
 						return
 					}
 					logger.Debug("attempting to reconnect to ur arm dashboard")
-					// time.Sleep(1 * time.Second)
+					time.Sleep(1 * time.Second)
 					connDashboard, err = d.DialContext(cancelCtx, "tcp", newArm.host+":29999")
 					if err == nil {
 						newArm.mu.Lock()
