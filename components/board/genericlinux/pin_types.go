@@ -22,7 +22,7 @@ type GPIOBoardMapping struct {
 // PinDefinition describes a gpio pin on a linux board.
 type PinDefinition struct {
 	Name            string `json:"name"`
-	Ngpio           int    `json:"ngpio"`       // ngpio number of the chip the pin is attached to
+	DeviceName      int    `json:"device_name"` // name of the pin's chip's device, within /dev
 	LineNumber      int    `json:"line_number"` // relative line number on chip
 	PwmChipSysfsDir string `json:"pwm_chip_sysfs_dir,omitempty"`
 	PwmID           int    `json:"pwm_id,omitempty"`
@@ -38,7 +38,6 @@ type PinDefinitions struct {
 func (conf *PinDefinition) UnmarshalJSON(text []byte) error {
 	type TempPin PinDefinition // needed to prevent infinite recursive calls to UnmarshalJSON
 	aux := TempPin{
-		Ngpio:      -1,
 		LineNumber: -1,
 		PwmID:      -1,
 	}
@@ -55,8 +54,8 @@ func (conf *PinDefinition) Validate(path string) error {
 		return utils.NewConfigValidationFieldRequiredError(path, "name")
 	}
 
-	if conf.Ngpio == -1 {
-		return utils.NewConfigValidationFieldRequiredError(path, "ngpio")
+	if conf.DeviceName == "" {
+		return utils.NewConfigValidationFieldRequiredError(path, "device_name")
 	}
 
 	if conf.LineNumber == -1 {
@@ -65,10 +64,6 @@ func (conf *PinDefinition) Validate(path string) error {
 
 	if conf.LineNumber < 0 {
 		return utils.NewConfigValidationError(path, errors.New("line_number on gpio chip must be at least zero"))
-	}
-
-	if conf.LineNumber >= conf.Ngpio {
-		return utils.NewConfigValidationError(path, errors.New("line_number on gpio chip must be less than ngpio"))
 	}
 
 	if conf.PwmChipSysfsDir != "" && conf.PwmID == -1 {
