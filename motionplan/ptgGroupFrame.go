@@ -1,6 +1,7 @@
 package motionplan
 
 import (
+	"errors"
 	"fmt"
 	"math"
 
@@ -13,7 +14,7 @@ import (
 )
 
 const (
-	defaultSimDistMM      = 600.
+	defaultSimDistMM      = 400.
 )
 
 const (
@@ -37,6 +38,9 @@ type ptgGroupFrame struct {
 	limits     []referenceframe.Limit
 	geometries []spatialmath.Geometry
 	ptgs       []tpspace.PTG
+	velocityMMps float64
+	turnRadMeters float64
+	logger golog.Logger
 }
 
 // NewPTGFrameFromTurningRadius will create a new Frame which is also a PTGProvider. It will precompute the default set of
@@ -56,23 +60,57 @@ func NewPTGFrameFromTurningRadius(
 
 	if refDist <= 0 {
 		refDist = defaultSimDistMM
+		//~ refDist = 1000. * turnRadMeters * math.Pi * 0.8
 	}
 
 	// Get max angular velocity in radians per second
 	maxRPS := velocityMMps / (1000. * turnRadMeters)
 	pf := &ptgGroupFrame{name: name}
 	err := pf.initPTGs(logger, velocityMMps, maxRPS, refDist, false)
-	//~ err := pf.initPTGs(logger, velocityMMps, maxRPS, refDist, true)
 	if err != nil {
 		return nil, err
 	}
 
 	pf.geometries = geoms
+	pf.velocityMMps = velocityMMps
+	pf.turnRadMeters = turnRadMeters
 
 	pf.limits = []referenceframe.Limit{
 		{Min: 0, Max: float64(len(pf.ptgs) - 1)},
 		{Min: -math.Pi, Max: math.Pi},
 		{Min: 0, Max: refDist},
+	}
+
+	return pf, nil
+}
+
+// newPTGFrameFromPTGFrame will create a new Frame from a preexisting ptgGroupFrame, allowing the adjustment of `refDist` while keeping
+// other params the same. This may be expanded to allow altering turning radius, geometries, etc
+func newPTGFrameFromPTGFrame(frame referenceframe.Frame, refDist float64) (referenceframe.Frame, error) {
+	
+	ptgFrame, ok := frame.(*ptgGroupFrame)
+	if !ok {
+		return nil, errors.New("cannot create ptg framem given frame is not a ptgGroupFrame")
+	}
+
+	if refDist <= 0 {
+		refDist = 1000. * ptgFrame.turnRadMeters * math.Pi * 0.9
+	}
+
+	// Get max angular velocity in radians per second
+	maxRPS := ptgFrame.velocityMMps / (1000. * ptgFrame.turnRadMeters)
+	pf := &ptgGroupFrame{name: ptgFrame.name}
+	err := pf.initPTGs(ptgFrame.logger, ptgFrame.velocityMMps, maxRPS, refDist, false)
+	if err != nil {
+		return nil, err
+	}
+
+	pf.geometries = ptgFrame.geometries
+
+	pf.limits = []referenceframe.Limit{
+		{Min: 0, Max: float64(len(pf.ptgs) - 1)},
+		{Min: -math.Pi, Max: math.Pi},
+		{Min: -refDist, Max: refDist},
 	}
 
 	return pf, nil
@@ -145,11 +183,9 @@ func (pf *ptgGroupFrame) PTGs() []tpspace.PTG {
 func (pf *ptgGroupFrame) initPTGs(logger golog.Logger, maxMps, maxRPS, simDist float64, simulate bool) error {
 	ptgs := []tpspace.PTG{}
 	for _, ptg := range defaultPTGs {
-		// Positive K calculates trajectories forwards, negative k calculates trajectories backwards
 		ptgGen := ptg(maxMps, maxRPS)
 		if ptgGen != nil {
 			if simulate {
-				//~ for _, k := range []float64{1., -1.} {
 				for _, k := range []float64{1.} {
 					// irreversible trajectories, e.g. alpha, will return nil for negative k
 					newptg, err := tpspace.NewPTGGridSim(ptgGen, 0, k*simDist, false) // 0 uses default alpha count

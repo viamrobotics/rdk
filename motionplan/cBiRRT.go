@@ -257,7 +257,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 		if reachedDelta <= mp.algOpts.JointSolveDist {
 			mp.logger.Debugf("CBiRRT found solution after %d iterations", i)
 			cancel()
-			path := extractPath(rrt.maps.startMap, rrt.maps.goalMap, &nodePair{map1reached, map2reached})
+			path := extractPath(rrt.maps.startMap, rrt.maps.goalMap, &nodePair{map1reached, map2reached}, true)
 			rrt.solutionChan <- &rrtPlanReturn{steps: path, maps: rrt.maps}
 			return
 		}

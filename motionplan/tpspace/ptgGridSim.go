@@ -2,7 +2,7 @@ package tpspace
 
 import (
 	"context"
-	"fmt"
+	//~ "fmt"
 	"math"
 
 	"go.viam.com/rdk/spatialmath"
@@ -11,9 +11,8 @@ import (
 const (
 	defaultMaxTime       = 15.
 	defaultDiffT         = 0.005
-	defaultAlphaCnt uint = 121
+	defaultAlphaCnt uint = 91
 
-	defaultSearchRadius = 10.
 
 	defaultMaxHeadingChange = 1.95 * math.Pi
 	orientationDistanceScaling = 10.
@@ -38,7 +37,6 @@ type ptgGridSim struct {
 	
 	// Discretized x[y][]node maps for rapid NN lookups
 	trajNodeGrid map[int]map[int][]*TrajNode
-	searchRad    float64 // Distance around a query point to search for precompute in the cached grid
 }
 
 // NewPTGGridSim creates a new PTG by simulating a PrecomputePTG for some distance, then cacheing the results in a grid for fast lookup.
@@ -52,7 +50,6 @@ func NewPTGGridSim(simPTG PrecomputePTG, arcs uint, simDist float64, endsOnly bo
 		alphaCnt:  arcs,
 		maxTime:   defaultMaxTime,
 		diffT:     defaultDiffT,
-		searchRad: defaultSearchRadius,
 		endsOnly:  endsOnly,
 
 		trajNodeGrid: map[int]map[int][]*TrajNode{},
@@ -118,23 +115,7 @@ func (ptg *ptgGridSim) RefDistance() float64 {
 }
 
 func (ptg *ptgGridSim) Trajectory(alpha, dist float64) ([]*TrajNode, error) {
-	k := alpha2index(alpha, ptg.alphaCnt)
-	if int(k) >= len(ptg.precomputeTraj) {
-		return nil, fmt.Errorf("requested trajectory of index %d but this grid sim only has %d available", k, len(ptg.precomputeTraj))
-	}
-	fullTraj := ptg.precomputeTraj[k]
-	if fullTraj[len(fullTraj) - 1].Dist < dist {
-		return nil, fmt.Errorf("requested traj to dist %f but only simulated trajectories to distance %f", dist, fullTraj[len(fullTraj) - 1].Dist)
-	}
-	var traj []*TrajNode
-	for _, trajNode := range fullTraj {
-		// Walk the trajectory until we pass the specified distance
-		if trajNode.Dist > dist {
-			break
-		}
-		traj = append(traj, trajNode)
-	}
-	return traj, nil
+	return nil, nil
 }
 
 func (ptg *ptgGridSim) simulateTrajectories(simPTG PrecomputePTG) ([][]*TrajNode, error) {

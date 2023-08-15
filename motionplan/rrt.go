@@ -117,7 +117,7 @@ func shortestPath(maps *rrtMaps, nodePairs []*nodePair) *rrtPlanReturn {
 			minIdx = i
 		}
 	}
-	return &rrtPlanReturn{steps: extractPath(maps.startMap, maps.goalMap, nodePairs[minIdx]), maps: maps}
+	return &rrtPlanReturn{steps: extractPath(maps.startMap, maps.goalMap, nodePairs[minIdx], true), maps: maps}
 }
 
 // node interface is used to wrap a configuration for planning purposes.
@@ -188,7 +188,7 @@ func (np *nodePair) sumCosts() float64 {
 	return aCost + bCost
 }
 
-func extractPath(startMap, goalMap map[node]node, pair *nodePair) []node {
+func extractPath(startMap, goalMap map[node]node, pair *nodePair, matched bool) []node {
 	// need to figure out which of the two nodes is in the start map
 	var startReached, goalReached node
 	if _, ok := startMap[pair.a]; ok {
@@ -210,14 +210,29 @@ func extractPath(startMap, goalMap map[node]node, pair *nodePair) []node {
 	}
 
 	if goalReached != nil {
-		// skip goalReached node and go directly to its parent in order to not repeat this node
-		//~ goalReached = goalMap[goalReached]
+		if matched {
+			// skip goalReached node and go directly to its parent in order to not repeat this node
+			goalReached = goalMap[goalReached]
+		}
 
 		// extract the path to the goal
 		for goalReached != nil {
+			// special rewriting poses for inverted tree
+			if lastNode, ok :=path[len(path)-1].(*basicNode); ok {
+				lastNode.pose = goalReached.Pose()
+			}
+			
 			path = append(path, goalReached)
 			goalReached = goalMap[goalReached]
 		}
 	}
 	return path
+}
+
+func sumCosts(path []node) float64 {
+	cost := 0.
+	for _, wp := range path {
+		cost += wp.Cost()
+	}
+	return cost
 }

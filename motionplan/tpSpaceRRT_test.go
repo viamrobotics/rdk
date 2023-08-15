@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"testing"
 	"math"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
@@ -155,7 +156,9 @@ func TestPtgWithObstacle(t *testing.T) {
 	tp, _ := mp.(*tpSpaceRRTMotionPlanner)
 	fmt.Printf("SG,%f,%f\n", 0., 0.)
 	fmt.Printf("SG,%f,%f\n", goalPos.Point().X, goalPos.Point().Y)
+	start := time.Now()
 	plan, err := tp.plan(ctx, goalPos, nil)
+	fmt.Println("planning took", time.Since(start))
 	
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(plan), test.ShouldBeGreaterThan, 2)
@@ -176,14 +179,18 @@ func TestPtgWithObstacle(t *testing.T) {
 				}
 				fmt.Printf("FINALPATH,%f,%f\n", intPose.Point().X, intPose.Point().Y)
 				if i == len(trajPts) - 1 {
-					lastPose = spatialmath.Compose(lastPose, pt.Pose)
+					lastPose = intPose
 					break
 				}
 			}
 		}
 	}
-	
+	start = time.Now()
 	plan = tp.smoothPath(ctx, plan)
+	fmt.Println("smoothing took", time.Since(start))
+	for _, wp := range plan {
+		fmt.Println(wp.Q())
+	}
 	lastPose = spatialmath.NewZeroPose()
 	for _, mynode := range plan {
 		trajPts, _ := allPtgs[int(mynode.Q()[0].Value)].Trajectory(mynode.Q()[1].Value, mynode.Q()[2].Value)
@@ -194,7 +201,7 @@ func TestPtgWithObstacle(t *testing.T) {
 			}
 			fmt.Printf("SMOOTHPATH,%f,%f\n", intPose.Point().X, intPose.Point().Y)
 			if pt.Dist >= mynode.Q()[2].Value {
-				lastPose = spatialmath.Compose(lastPose, pt.Pose)
+				lastPose = intPose
 				break
 			}
 		}

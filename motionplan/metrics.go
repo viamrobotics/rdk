@@ -8,7 +8,7 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-const orientationDistanceScaling = 50.
+const orientationDistanceScaling = 30.
 
 // StateMetric are functions which, given a State, produces some score. Lower is better.
 // This is used for gradient descent to converge upon a goal pose, for example.

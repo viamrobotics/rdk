@@ -508,9 +508,6 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		// Distances are computed in cartesian space rather than configuration space
 		opt.DistanceFunc = SquaredNormSegmentMetric
 
-		// TODO: instead of using a default this should be set from the TP frame as a function of the resolution of
-		// the simulated trajectories
-		opt.GoalThreshold = defaultTPSpaceGoalDist
 		planAlg = "tpspace"
 	}
 
