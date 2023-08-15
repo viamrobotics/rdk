@@ -14,7 +14,7 @@ elif [ "$(uname -m)" = "armv7l" ]; then
     UPX_URL=https://github.com/upx/upx/releases/download/v$UPX_VERSION/upx-$UPX_VERSION-arm_linux.tar.xz
 fi
 echo $UPX_URL
-curl -L "\$UPX_URL" | tar -C /usr/local/bin/ --strip-components=1 --wildcards -xJv '*/upx'
+curl -L $UPX_URL | tar -C /usr/local/bin/ --strip-components=1 --wildcards -xJv '*/upx'
 
 # canon
 GOBIN=/usr/local/bin go install github.com/viamrobotics/canon@latest

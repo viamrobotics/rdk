@@ -9,6 +9,7 @@ USER build
 WORKDIR /build
 COPY etc/bullseye-1.sh .
 RUN sudo ./bullseye-1.sh
+RUN sudo apt-get install -qqy wget xz-utils
 COPY etc/bullseye-2.sh .
 RUN sudo ./bullseye-2.sh
 # RUN make server
