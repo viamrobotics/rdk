@@ -82,7 +82,7 @@ func init() {
 // Validate ensures all parts of the config are valid.
 func (config *ObsDepthConfig) Validate(path string) ([]string, error) {
 	deps := []string{}
-	if config.Hmin >= config.Hmax {
+	if config.Hmin >= config.Hmax && !(config.Hmin == 0 && config.Hmax == 0) {
 		return nil, errors.New("Hmin should be less than Hmax")
 	}
 	if config.Hmin < 0 {
@@ -105,7 +105,7 @@ func registerObstaclesDepth(
 	r robot.Robot,
 	logger golog.Logger,
 ) (svision.Service, error) {
-	_, span := trace.StartSpan(ctx, "service::vision::registerObstacleDistanceDetector")
+	_, span := trace.StartSpan(ctx, "service::vision::registerObstacleDepth")
 	defer span.End()
 	if conf == nil {
 		return nil, errors.New("config for obstacles_depth cannot be nil")
