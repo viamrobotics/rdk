@@ -2,6 +2,7 @@ package builtin
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"os"
 	"path/filepath"
@@ -467,7 +468,7 @@ func TestMoveOnGlobe(t *testing.T) {
 			context.Background(),
 			fakeBase.Name(),
 			dst,
-			injectedMovementSensor.Name(),
+			injectedMovementSensor,
 			nil,
 			kinematicbase.NewKinematicBaseOptions(),
 			motionCfg,
@@ -491,7 +492,7 @@ func TestMoveOnGlobe(t *testing.T) {
 			context.Background(),
 			fakeBase.Name(),
 			dst,
-			injectedMovementSensor.Name(),
+			injectedMovementSensor,
 			[]*spatialmath.GeoObstacle{geoObstacle},
 			kinematicbase.NewKinematicBaseOptions(),
 			motionCfg,
@@ -516,7 +517,7 @@ func TestMoveOnGlobe(t *testing.T) {
 			context.Background(),
 			fakeBase.Name(),
 			dst,
-			injectedMovementSensor.Name(),
+			injectedMovementSensor,
 			[]*spatialmath.GeoObstacle{geoObstacle},
 			kinematicbase.NewKinematicBaseOptions(),
 			motionCfg,
@@ -551,10 +552,12 @@ func TestParallelMoveOnGlobe(t *testing.T) {
 		0,
 		injectedMovementSensor.Name(),
 		nil,
-		&motion.MotionConfiguration{PositionPollingFreqHz: .2, ObstaclePollingFreqHz: .1},
+		&motion.MotionConfiguration{PositionPollingFreqHz: .1, ObstaclePollingFreqHz: .2},
 		nil,
 	)
 	test.That(t, err, test.ShouldBeNil)
+	fmt.Println("just waiting to close now")
+	ms.Close(ctx)
 }
 
 func TestMultiplePieces(t *testing.T) {
