@@ -13,6 +13,7 @@ if [ "$(uname -m)" = "aarch64" ]; then
 elif [ "$(uname -m)" = "armv7l" ]; then
     UPX_URL=https://github.com/upx/upx/releases/download/v$UPX_VERSION/upx-$UPX_VERSION-arm_linux.tar.xz
 fi
+echo $UPX_URL
 curl -L "\$UPX_URL" | tar -C /usr/local/bin/ --strip-components=1 --wildcards -xJv '*/upx'
 
 # canon
