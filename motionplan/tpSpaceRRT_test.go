@@ -40,7 +40,7 @@ func TestPtgRrt(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	goalPos := spatialmath.NewPose(r3.Vector{X: 200, Y: 7000, Z: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 80})
+	goalPos := spatialmath.NewPose(r3.Vector{X: 200, Y: 7000, Z: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 90})
 	//~ goalPos := spatialmath.NewPose(r3.Vector{X: 200, Y: 7000, Z: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 0})
 	//~ goalPos := spatialmath.NewPose(r3.Vector{X: 0, Y: 7000, Z: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 0})
 
@@ -101,7 +101,7 @@ func TestPtgWithObstacle(t *testing.T) {
 
 	ctx := context.Background()
 
-	goalPos := spatialmath.NewPoseFromPoint(r3.Vector{X: 5000, Y: 0, Z: 0})
+	goalPos := spatialmath.NewPoseFromPoint(r3.Vector{X: 6500, Y: 0, Z: 0})
 
 	fs := referenceframe.NewEmptyFrameSystem("test")
 	fs.AddFrame(ackermanFrame, fs.World())
@@ -109,14 +109,13 @@ func TestPtgWithObstacle(t *testing.T) {
 	opt := newBasicPlannerOptions()
 	//~ opt.SetGoalMetric(NewPositionOnlyMetric(goalPos))
 	//~ opt.DistanceFunc = SquaredNormNoOrientSegmentMetric
-	opt.SetGoalMetric(NewSquaredNormMetric(goalPos))
-	opt.DistanceFunc = SquaredNormSegmentMetric
+	opt.DistanceFunc = NewSquaredNormSegmentMetricWithScaling(40.)
 	//~ opt.GoalThreshold = 0.001
 	opt.GoalThreshold = 5
 	// obstacles
-	obstacle1, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{2500, -500, 0}), r3.Vector{180, 1800, 1}, "")
+	obstacle1, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{3300, -500, 0}), r3.Vector{180, 1800, 1}, "")
 	test.That(t, err, test.ShouldBeNil)
-	obstacle2, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{2500, 1800, 0}), r3.Vector{180, 1800, 1}, "")
+	obstacle2, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{3300, 1800, 0}), r3.Vector{180, 1800, 1}, "")
 	test.That(t, err, test.ShouldBeNil)
 	obstacle3, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{2500, -1400, 0}), r3.Vector{50000, 30, 1}, "")
 	test.That(t, err, test.ShouldBeNil)

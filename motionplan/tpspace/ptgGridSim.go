@@ -115,7 +115,7 @@ func (ptg *ptgGridSim) RefDistance() float64 {
 }
 
 func (ptg *ptgGridSim) Trajectory(alpha, dist float64) ([]*TrajNode, error) {
-	return nil, nil
+	return ComputePTG(ptg.simPTG, alpha, dist, defaultDiffT)
 }
 
 func (ptg *ptgGridSim) simulateTrajectories(simPTG PrecomputePTG) ([][]*TrajNode, error) {

@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	defaultSimDistMM      = 400.
+	defaultSimDistMM      =600.
 )
 
 const (
@@ -30,7 +30,8 @@ var defaultPTGs = []ptgFactory{
 	tpspace.NewCCPTG,
 	tpspace.NewCCSPTG,
 	tpspace.NewCSPTG,
-	//~ tpspace.NewAlphaPTG,
+	tpspace.NewSideSPTG,
+	tpspace.NewSideSOverturnPTG,
 }
 
 type ptgGroupFrame struct {
@@ -59,8 +60,8 @@ func NewPTGFrameFromTurningRadius(
 	}
 
 	if refDist <= 0 {
-		refDist = defaultSimDistMM
-		//~ refDist = 1000. * turnRadMeters * math.Pi * 0.8
+		// Default to a distance of just over one half of a circle turning at max radius
+		refDist = 1000. * turnRadMeters * math.Pi * 0.9
 	}
 
 	// Get max angular velocity in radians per second
@@ -110,7 +111,7 @@ func newPTGFrameFromPTGFrame(frame referenceframe.Frame, refDist float64) (refer
 	pf.limits = []referenceframe.Limit{
 		{Min: 0, Max: float64(len(pf.ptgs) - 1)},
 		{Min: -math.Pi, Max: math.Pi},
-		{Min: -refDist, Max: refDist},
+		{Min: 0, Max: refDist},
 	}
 
 	return pf, nil

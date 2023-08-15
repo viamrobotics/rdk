@@ -8,7 +8,7 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-const orientationDistanceScaling = 30.
+const orientationDistanceScaling = 10.
 
 // StateMetric are functions which, given a State, produces some score. Lower is better.
 // This is used for gradient descent to converge upon a goal pose, for example.
@@ -118,6 +118,16 @@ func SquaredNormSegmentMetric(segment *Segment) float64 {
 	delta := spatial.PoseDelta(segment.StartPosition, segment.EndPosition)
 	// Increase weight for orientation since it's a small number
 	return delta.Point().Norm2() + spatial.QuatToR3AA(delta.Orientation().Quaternion()).Mul(orientationDistanceScaling).Norm2()
+}
+
+// NewSquaredNormSegmentMetricWithScaling returns a metric which will return the cartesian distance between the two positions.
+// It allows the caller to choose the scaling level of orientation.
+func NewSquaredNormSegmentMetricWithScaling(scaleFactor float64) SegmentMetric {
+	return func(segment *Segment) float64 {
+		delta := spatial.PoseDelta(segment.StartPosition, segment.EndPosition)
+		// Increase weight for orientation since it's a small number
+		return delta.Point().Norm2() + spatial.QuatToR3AA(delta.Orientation().Quaternion()).Mul(scaleFactor).Norm2()
+	}
 }
 
 // SquaredNormNoOrientSegmentMetric is a metric which will return the cartesian distance between the two positions.

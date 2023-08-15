@@ -36,6 +36,13 @@ const (
 	defaultIdenticalNodeDistance = 1.
 
 	defaultMaxReseeds = 50
+	
+	defaultSmoothScaleFactor = 1.
+	
+	// Make an attempt to solve the tree every this many iterations
+	// For a unidirectional solve, this means attempting to reach the goal rather than a random point
+	// For a bidirectional solve, this means trying to connect the two trees directly
+	defaultAttemptSolveEvery = 15
 )
 
 type tpspaceOptions struct {
@@ -53,6 +60,10 @@ type tpspaceOptions struct {
 	
 	// If the squared norm between two poses is less than this, consider them equal
 	poseSolveDist float64
+	
+	smoothScaleFactor float64
+
+	attemptSolveEvery int
 
 	// Cached functions for calculating TP-space distances for each PTG
 	distOptions map[tpspace.PTG]*plannerOptions
@@ -135,6 +146,10 @@ func (mp *tpSpaceRRTMotionPlanner) plan(ctx context.Context,
 		return nil, ctx.Err()
 	case plan := <-solutionChan:
 		if plan != nil {
+			fmt.Println("path")
+			for i, wp := range plan.steps {
+				fmt.Println(i, wp.Q(), wp.Pose().Point())
+			}
 			return plan.steps, plan.err()
 		}
 		return nil, errors.New("nil tp-space plan returned, unable to complete plan")
@@ -187,8 +202,7 @@ func (mp *tpSpaceRRTMotionPlanner) planRunner(
 	midPt := spatialmath.Interpolate(startPose, goalPose, 0.5) // used for initial seed
 
 	var randPos spatialmath.Pose
-	//~ for iter := 0; iter < mp.algOpts.PlanIter; iter++ {
-	for iter := 0; iter < 1; iter++ {
+	for iter := 0; iter < mp.algOpts.PlanIter; iter++ {
 		fmt.Println("iter", iter)
 		if ctx.Err() != nil {
 			mp.logger.Debugf("TP Space RRT timed out after %d iterations", iter)
@@ -207,7 +221,7 @@ func (mp *tpSpaceRRTMotionPlanner) planRunner(
 		if iter == 0 {
 			randPos = midPt
 		}
-		if !bidirectional && iter % 5 == 0 {
+		if !bidirectional && iter % mp.algOpts.attemptSolveEvery == 0 {
 			randPos = goalPose
 		}
 		randPosNode := &basicNode{pose: randPos}
@@ -215,9 +229,9 @@ func (mp *tpSpaceRRTMotionPlanner) planRunner(
 		utils.PanicCapturingGo(func() {
 			m1chan <- mp.attemptExtension(ctx, nil, randPosNode, rrt.maps.startMap, false)
 		})
+		fmt.Println("seed done")
 		utils.PanicCapturingGo(func() {
 			m2chan <- mp.attemptExtension(ctx, nil, randPosNode, rrt.maps.goalMap, true)
-			
 		})
 		seedMapReached := <-m1chan
 		goalMapReached := <-m2chan
@@ -237,6 +251,7 @@ func (mp *tpSpaceRRTMotionPlanner) planRunner(
 			return
 		}
 		
+		fmt.Println("reseeding")
 		if seedMapNode != nil && goalMapNode != nil {
 		
 			seedReached := mp.attemptExtension(ctx, nil, goalMapNode, rrt.maps.startMap, false)
@@ -262,6 +277,45 @@ func (mp *tpSpaceRRTMotionPlanner) planRunner(
 				// If we've reached the goal, extract the path from the RRT trees and return
 				path := extractPath(rrt.maps.startMap, rrt.maps.goalMap, &nodePair{a: seedReached.node, b: goalReached.node}, false)
 				rrt.solutionChan <- &rrtPlanReturn{steps: path, maps: rrt.maps}
+				return
+			}
+		}
+		if iter % mp.algOpts.attemptSolveEvery == 0 {
+			paths := [][]node{}
+			for goalMapNode, _ := range rrt.maps.goalMap {
+				seedReached := mp.attemptExtension(ctx, nil, goalMapNode, rrt.maps.startMap, false)
+				if seedReached.error != nil {
+					rrt.solutionChan <- &rrtPlanReturn{planerr: seedReached.error, maps: rrt.maps}
+					return
+				}
+				if seedReached.node == nil {
+					continue
+				}
+				reachedDelta := mp.planOpts.DistanceFunc(&Segment{StartPosition: seedReached.node.Pose(), EndPosition: goalMapNode.Pose()})
+				if reachedDelta <= mp.algOpts.poseSolveDist {
+					fmt.Println("reached seed", spatialmath.PoseToProtobuf(seedReached.node.Pose()))
+					fmt.Println("reached goal", spatialmath.PoseToProtobuf(goalMapNode.Pose()))
+					// If we've reached the goal, extract the path from the RRT trees and return
+					path := extractPath(rrt.maps.startMap, rrt.maps.goalMap, &nodePair{a: seedReached.node, b: goalMapNode}, false)
+					paths = append(paths, path)
+				}
+			}
+			if len(paths) > 0 {
+				var bestPath []node
+				bestCost := math.Inf(1)
+				for _, goodPath := range paths {
+					currCost := sumCosts(goodPath)
+					if currCost < bestCost {
+						bestCost = currCost
+						bestPath = goodPath
+					}
+				}
+				correctedPath, err := mp.rectifyPath(bestPath)
+				if err != nil {
+					rrt.solutionChan <- &rrtPlanReturn{planerr: err, maps: rrt.maps}
+					return
+				}
+				rrt.solutionChan <- &rrtPlanReturn{steps: correctedPath, maps: rrt.maps}
 				return
 			}
 		}
@@ -361,7 +415,7 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 		lastDist = trajPt.Dist
 	}
 	
-	isLastNode := math.Abs(finalTrajNode.Dist - curPtg.RefDistance()) < 1e-3
+	isLastNode := math.Abs(finalTrajNode.Dist - curPtg.RefDistance()) < 0.1
 	
 	// add the last node in trajectory
 	successNode = &basicNode{
@@ -437,7 +491,8 @@ func (mp *tpSpaceRRTMotionPlanner) attemptExtension(
 			return &nodeAndError{nil, nil}
 		}
 		dist := mp.planOpts.DistanceFunc(&Segment{StartPosition: reseedCandidate.newNode.Pose(), EndPosition: goalNode.Pose()})
-		if dist < mp.algOpts.poseSolveDist || !reseedCandidate.lastInTraj {
+		//~ if dist < mp.algOpts.poseSolveDist || !reseedCandidate.lastInTraj {
+		if dist < mp.algOpts.poseSolveDist  {
 			// Reached the goal position, or otherwise failed to fully extend to the end of a trajectory
 			return &nodeAndError{reseedCandidate.newNode, nil}
 		}
@@ -539,6 +594,8 @@ func (mp *tpSpaceRRTMotionPlanner) setupTPSpaceOptions() {
 
 		addIntermediate: defaultAddInt,
 		addNodeEvery:    defaultAddNodeEvery,
+		attemptSolveEvery: defaultAttemptSolveEvery,
+		smoothScaleFactor: defaultSmoothScaleFactor,
 
 		poseSolveDist: defaultIdenticalNodeDistance,
 		
@@ -590,9 +647,46 @@ func (mp *tpSpaceRRTMotionPlanner) make2DTPSpaceDistanceOptions(ptg tpspace.PTG,
 	return opts
 }
 
+func (mp *tpSpaceRRTMotionPlanner) rectifyPath(path []node) ([]node, error) {
+	correctedPath  := []node{}
+	runningPose := spatialmath.NewZeroPose()
+	for _, wp := range path {
+		wpPose, err := mp.frame.Transform(wp.Q())
+		if err != nil {
+			return nil, err
+		}
+		runningPose = spatialmath.Compose(runningPose, wpPose)
+		
+		thisNode := &basicNode{
+			q:      wp.Q(),
+			cost:   wp.Cost(),
+			pose:   runningPose,
+			corner: wp.Corner(),
+		}
+		correctedPath = append(correctedPath, thisNode)
+	}
+	return correctedPath, nil
+}
+
 func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) []node {
-	toIter := int(math.Min(float64(len(path)*len(path)), float64(mp.planOpts.SmoothIter)))*5
+	toIter := int(math.Min(float64(len(path)*len(path)), float64(mp.planOpts.SmoothIter)))
 	currCost := sumCosts(path)
+	
+	maxCost := math.Inf(-1)
+	for _, wp := range path {
+		if wp.Cost() > maxCost {
+			maxCost = wp.Cost()
+		}
+	}
+	newFrame, err := newPTGFrameFromPTGFrame(mp.frame, maxCost * mp.algOpts.smoothScaleFactor)
+	if err != nil {
+		return path
+	}
+	smoothPlannerMP, err := newTPSpaceMotionPlanner(newFrame, mp.randseed, mp.logger, mp.planOpts)
+	if err != nil {
+		return path
+	}
+	smoothPlanner := smoothPlannerMP.(*tpSpaceRRTMotionPlanner)
 	for i := 0; i < toIter; i++ {
 		select {
 		case <-ctx.Done():
@@ -604,9 +698,9 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 		firstEdge := mp.randseed.Intn(len(path) - 2)
 		secondEdge := firstEdge + 2 + mp.randseed.Intn((len(path)-2)-firstEdge)
 		mp.logger.Debugf("checking shortcut between nodes %d and %d", firstEdge, secondEdge)
-		//~ fmt.Printf("checking shortcut between nodes %d and %d \n", firstEdge, secondEdge)
+		fmt.Printf("checking shortcut between nodes %d and %d \n", firstEdge, secondEdge)
 		
-		newInputSteps, err := mp.attemptSmooth(ctx, path, firstEdge, secondEdge)
+		newInputSteps, err := mp.attemptSmooth(ctx, path, firstEdge, secondEdge, smoothPlanner)
 		if err != nil || newInputSteps == nil {
 			continue
 		}
@@ -615,22 +709,43 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 			continue
 		}
 		// Re-connect to the final goal
-		newInputSteps = append(newInputSteps, path[len(path)-1])
-		goalInputSteps, err := mp.attemptSmooth(ctx, newInputSteps, len(newInputSteps)-3, len(newInputSteps)-1)
+		if newInputSteps[len(newInputSteps)-1] != path[len(path)-1] {
+			newInputSteps = append(newInputSteps, path[len(path)-1])
+		}
+		fmt.Println("success, checking goal")
+
+		goalInputSteps, err := mp.attemptSmooth(ctx, newInputSteps, len(newInputSteps)-3, len(newInputSteps)-1, smoothPlanner)
 		if err != nil || goalInputSteps == nil {
+			fmt.Println("failed to reconnect goal")
 			continue
 		}
 		goalInputSteps = append(goalInputSteps, path[len(path)-1])
-		
-		
+		fmt.Println("path")
+		for i, wp := range path {
+			fmt.Println(i, wp.Q(), wp.Pose().Point())
+		}
+		fmt.Println("new")
+		for i, wp := range newInputSteps {
+			fmt.Println(i, wp.Q(), wp.Pose().Point())
+		}
+		fmt.Println("successful smooth")
+		for i, wp := range goalInputSteps {
+			fmt.Println(i, wp.Q(), wp.Pose().Point())
+		}
 		path = goalInputSteps
+		//~ path = newInputSteps
 		currCost = sumCosts(path)
 	}
 	return path
 }
 
 // firstEdge and secondEdge must not be adjacent
-func (mp *tpSpaceRRTMotionPlanner) attemptSmooth(ctx context.Context, path []node, firstEdge, secondEdge int) ([]node, error) {
+func (mp *tpSpaceRRTMotionPlanner) attemptSmooth(
+	ctx context.Context,
+	path []node,
+	firstEdge, secondEdge int,
+	smoother *tpSpaceRRTMotionPlanner,
+) ([]node, error) {
 	startMap := map[node]node{}
 	var parent node
 	parentPose := spatialmath.NewZeroPose()
@@ -641,7 +756,7 @@ func (mp *tpSpaceRRTMotionPlanner) attemptSmooth(ctx context.Context, path []nod
 		for _, adj := range []float64{0.25, 0.5, 0.75} {
 			fullQ := pathNode.Q()
 			newQ := []referenceframe.Input{fullQ[0], fullQ[1], referenceframe.Input{fullQ[2].Value * adj}}
-			trajK, err := mp.tpFrame.PTGs()[int(math.Round(newQ[0].Value))].Trajectory(newQ[1].Value, newQ[2].Value)
+			trajK, err := smoother.tpFrame.PTGs()[int(math.Round(newQ[0].Value))].Trajectory(newQ[1].Value, newQ[2].Value)
 			if err != nil {
 				continue
 			}
@@ -657,8 +772,7 @@ func (mp *tpSpaceRRTMotionPlanner) attemptSmooth(ctx context.Context, path []nod
 		parent = pathNode
 		parentPose = parent.Pose()
 	}
-	
-	reached := mp.attemptExtension(ctx, nil, path[secondEdge], startMap, false)
+	reached := smoother.attemptExtension(ctx, nil, path[secondEdge], startMap, false)
 	if reached.error != nil || reached.node == nil {
 		return nil, errors.New("could not extend to smoothing destination")
 	}
@@ -668,8 +782,8 @@ func (mp *tpSpaceRRTMotionPlanner) attemptSmooth(ctx context.Context, path []nod
 	if reachedDelta > mp.algOpts.poseSolveDist {
 		return nil, errors.New("could not precisely reach smoothing destination")
 	}
-	//~ fmt.Println("matched poses", reached.Pose().Point(), path[secondEdge].Pose().Point())
-	//~ fmt.Println("reached", reached.node)
+	fmt.Println("matched poses", reached.Pose().Point(), path[secondEdge].Pose().Point())
+	fmt.Println("reached", reached.node)
 
 	newInputSteps := extractPath(startMap, nil, &nodePair{a: reached.node, b: nil}, false)
 	
@@ -677,5 +791,5 @@ func (mp *tpSpaceRRTMotionPlanner) attemptSmooth(ctx context.Context, path []nod
 		//~ fmt.Println("appending")
 		newInputSteps = append(newInputSteps, path[secondEdge+1:]...)
 	}
-	return newInputSteps, nil
+	return mp.rectifyPath(newInputSteps)
 }

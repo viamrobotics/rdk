@@ -25,11 +25,11 @@ var (
 )
 
 func TestSim(t *testing.T) {
-	simDist := 600.
-	alphaCnt := uint(121)
+	simDist :=2500.
+	alphaCnt := uint(61)
 	fmt.Println("type,X,Y")
 	//~ for _, ptg := range defaultPTGs {
-	ptg := NewCSPTG
+	ptg := NewSideSOverturnPTG
 		radPS := defaultMMps / (turnRadMeters * 1000)
 
 		ptgGen := ptg(defaultMMps, radPS)
@@ -37,15 +37,15 @@ func TestSim(t *testing.T) {
 		grid, err := NewPTGGridSim(ptgGen, alphaCnt, simDist, false)
 		test.That(t, err, test.ShouldBeNil)
 		
-		//~ for i := uint(0); i < alphaCnt; i++ {
+		for i := uint(0); i < alphaCnt; i++ {
 		//~ i := uint(60)
-		alpha := -0.41541721039203877
-			//~ traj, _ := grid.Trajectory(index2alpha(i, alphaCnt), simDist)
-			traj, _ := grid.Trajectory(alpha, simDist)
+		//~ alpha := -0.41541721039203877
+			traj, _ := grid.Trajectory(index2alpha(i, alphaCnt), simDist)
+			//~ traj, _ := grid.Trajectory(alpha, simDist)
 			for _, intPose := range traj{
 				fmt.Printf("FINALPATH,%f,%f\n", intPose.Pose.Point().X, intPose.Pose.Point().Y)
 			}
-		//~ }
+		}
 }
 
 func TestPose(t *testing.T) {
