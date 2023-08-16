@@ -133,17 +133,7 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, conn *grpc.Clie
 	var success bool
 	defer func() {
 		if !success {
-			// Stop process if it was started (stopProcess handles this) and close connection.
-			if err := mod.stopProcess(); err != nil {
-				mgr.logger.Error(err)
-			}
-			if mod.conn != nil {
-				if err := mod.conn.Close(); err != nil {
-					mgr.logger.Errorw("error while closing connection to module that failed to start",
-						"module", mod.name,
-						"error", err)
-				}
-			}
+			mod.cleanupAfterStartupFailure(mgr, false)
 		}
 	}()
 
@@ -522,24 +512,7 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 	var success bool
 	defer func() {
 		if !success {
-			// Stop process if it was restarted (stopProcess handles this), close connection,
-			// and remove module if attemptRestart fails.
-			if err := mod.stopProcess(); err != nil {
-				mgr.logger.Error(err)
-			}
-			if mod.conn != nil {
-				if err := mod.conn.Close(); err != nil {
-					mgr.logger.Errorw("error while closing connection from crashed module",
-						"module", mod.name,
-						"error", err)
-				}
-			}
-			for r, m := range mgr.rMap {
-				if m == mod {
-					delete(mgr.rMap, r)
-				}
-			}
-			delete(mgr.modules, mod.name)
+			mod.cleanupAfterStartupFailure(mgr, true)
 		}
 	}()
 
@@ -750,6 +723,35 @@ func (m *module) deregisterResources() {
 		}
 	}
 	m.handles = nil
+}
+
+func (m *module) cleanupAfterStartupFailure(mgr *Manager, afterCrash bool) {
+	if err := m.stopProcess(); err != nil {
+		msg := "error while stopping process of module that failed to start"
+		if afterCrash {
+			msg = "error while stopping process of crashed module"
+		}
+		mgr.logger.Errorw(msg, "module", m.name, "error", err)
+	}
+	if m.conn != nil {
+		if err := m.conn.Close(); err != nil {
+			msg := "error while closing connection to module that failed to start"
+			if afterCrash {
+				msg = "error while closing connection to crashed module"
+			}
+			mgr.logger.Errorw(msg, "module", m.name, "error", err)
+		}
+	}
+
+	// Remove module from rMap and mgr.modules if startup failure was after crash.
+	if afterCrash {
+		for r, mod := range mgr.rMap {
+			if mod == m {
+				delete(mgr.rMap, r)
+			}
+		}
+		delete(mgr.modules, m.name)
+	}
 }
 
 // DepsToNames converts a dependency list to a simple string slice.

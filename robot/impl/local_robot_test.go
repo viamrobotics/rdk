@@ -3181,8 +3181,8 @@ func TestCrashedModuleReconfigure(t *testing.T) {
 	_, err = r.ResourceByName(generic.Named("h"))
 	test.That(t, err, test.ShouldBeNil)
 
-	// Reconfigure module to a malformed module (does not respond to ready
-	// requests). Assert that "h" is removed after reconfiguration error.
+	// Reconfigure module to a malformed module (does not start listening).
+	// Assert that "h" is removed after reconfiguration error.
 	cfg.Modules[0].ExePath = rutils.ResolveFile("module/testmodule/fakemodule.sh")
 	r.Reconfigure(ctx, cfg)
 

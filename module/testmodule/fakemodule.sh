@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# fakemodule is a completely fake module that repeatedly echos a mesasge. Used
-# to test that modules that never respond to ready requests will be stopped.
+# fakemodule is a completely fake module that repeatedly echos a message. Used
+# to test that modules that never start listening are stopped.
 
 while :
 do
