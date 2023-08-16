@@ -5,13 +5,13 @@ import (
 	"context"
 	"math"
 	fp "path/filepath"
-	"strconv"
 	"strings"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 
+	"go.viam.com/rdk/ml"
 	inf "go.viam.com/rdk/ml/inference"
 	"go.viam.com/rdk/ml/inference/tflite_metadata"
 	"go.viam.com/rdk/resource"
@@ -108,47 +108,40 @@ func NewTFLiteCPUModel(ctx context.Context, params *TFLiteConfig, name resource.
 
 // Infer takes the input map and uses the inference package to
 // return the result from the tflite cpu model as a map.
-func (m *Model) Infer(ctx context.Context, input map[string]interface{}) (map[string]interface{}, error) {
+func (m *Model) Infer(ctx context.Context, tensors ml.Tensors, input map[string]interface{}) (ml.Tensors, map[string]interface{}, error) {
 	_, span := trace.StartSpan(ctx, "service::mlmodel::tflite_cpu::Infer")
 	defer span.End()
-
-	outMap := make(map[string]interface{})
-	doInfer := func(input interface{}) (map[string]interface{}, error) {
-		outTensors, err := m.model.Infer(input)
-		if err != nil {
-			return nil, errors.Wrapf(err, "couldn't infer from model %q", m.Name())
-		}
-
-		// Fill in the output map with the names from metadata if u have them
-		// Otherwise, do output1, output2, etc.
-		n := int(math.Min(float64(len(m.metadata.Outputs)), float64(len(m.model.Info.OutputTensorTypes))))
-		for i := 0; i < n; i++ {
-			if m.metadata.Outputs[i].Name != "" {
-				outMap[m.metadata.Outputs[i].Name] = outTensors[i]
+	if input != nil {
+		m.logger.Warn("input maps for tflite_cpu.Infer are deprecated")
+	}
+	outTensors, err := m.model.Infer(tensors)
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "couldn't infer from model %q", m.Name())
+	}
+	// Fill in the output map with the names from metadata if u have them
+	// default output name usually has its ordered located in its name in tflite.
+	// if at any point this fails, just use the default name
+	/*
+		results := ml.Tensors{}
+		for defaultName, tensor := range outTensors {
+			parts := strings.SplitN(defaultName, ":", 2)
+			if len(parts) < 2 {
+				results[defaultName] = tensor
+				continue
+			}
+			nameInt, err := strconv.Atoi(parts[1])
+			if err != nil {
+				results[defaultName] = tensor
+				continue
+			}
+			if len(m.metadata.Outputs) > nameInt && m.metadata.Outputs[nameInt].Name != "" {
+				results[m.metadata.Outputs[nameInt].Name] = tensor
 			} else {
-				outMap["output"+strconv.Itoa(i)] = outTensors[i]
+				results[defaultName] = tensor
 			}
 		}
-		return outMap, nil
-	}
-
-	// If there's only one thing in the input map, use it.
-	if len(input) == 1 {
-		for _, in := range input {
-			return doInfer(in)
-		}
-	}
-	// If you have more than 1 thing
-	if m.metadata != nil {
-		// Use metadata if possible to grab input name
-		return doInfer(input[m.metadata.Inputs[0].Name])
-	}
-	// Try to use "input"
-	if in, ok := input["input"]; ok {
-		return doInfer(in)
-	}
-
-	return nil, errors.New("input map has multiple elements and none are named 'input'")
+	*/
+	return outTensors, nil, nil
 }
 
 // Metadata reads the metadata from your tflite cpu model into the metadata struct

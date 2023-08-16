@@ -11,6 +11,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"gorgonia.org/tensor"
 
+	"go.viam.com/rdk/ml"
 	"go.viam.com/rdk/resource"
 )
 
@@ -44,12 +45,12 @@ func NewClientFromConn(
 	return c, nil
 }
 
-func (c *client) Infer(ctx context.Context, tensors Tensors, input map[string]interface{}) (Tensors, map[string]interface{}, error) {
+func (c *client) Infer(ctx context.Context, tensors ml.Tensors, input map[string]interface{}) (ml.Tensors, map[string]interface{}, error) {
 	inProto, err := structpb.NewStruct(input)
 	if err != nil {
 		return nil, nil, err
 	}
-	tensorProto, err := tensors.ToProto()
+	tensorProto, err := TensorsToProto(tensors)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -69,11 +70,11 @@ func (c *client) Infer(ctx context.Context, tensors Tensors, input map[string]in
 }
 
 // protoToTensors takes pb.FlatTensors and turns it into a Tensors map.
-func protoToTensors(pbft *pb.FlatTensors) (Tensors, error) {
+func protoToTensors(pbft *pb.FlatTensors) (ml.Tensors, error) {
 	if pbft == nil {
 		return nil, errors.New("protobuf FlatTensors is nil")
 	}
-	tensors := Tensors{}
+	tensors := ml.Tensors{}
 	for name, ftproto := range pbft.Tensors {
 		t, err := createNewTensor(ftproto)
 		if err != nil {

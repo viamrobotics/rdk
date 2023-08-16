@@ -4,8 +4,10 @@ import (
 	"testing"
 
 	tflite "github.com/mattn/go-tflite"
+	"go.viam.com/rdk/ml"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
+	"gorgonia.org/tensor"
 )
 
 type fakeInterpreter struct{}
@@ -66,7 +68,8 @@ func TestLoadModel(t *testing.T) {
 	test.That(t, structInfo.OutputTensorTypes, test.ShouldResemble, []string{"Float32", "Float32", "Float32", "Float32"})
 
 	buf := make([]float32, c*h*w)
-	outTensors, err := tfliteStruct.Infer(buf)
+	tensors := ml.Tensors{"serving_default_input:0": tensor.New(tensor.WithShape(h, w, c), tensor.WithBacking(buf))}
+	outTensors, err := tfliteStruct.Infer(tensors)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, outTensors, test.ShouldNotBeNil)
 	test.That(t, len(outTensors), test.ShouldEqual, 4)

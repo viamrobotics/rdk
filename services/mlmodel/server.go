@@ -44,7 +44,7 @@ func (server *serviceServer) Infer(ctx context.Context, req *pb.InferRequest) (*
 	if err != nil {
 		return nil, err
 	}
-	outputTensors, err := ot.ToProto()
+	outputTensors, err := TensorsToProto(ot)
 	if err != nil {
 		return nil, err
 	}

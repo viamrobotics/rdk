@@ -11,6 +11,7 @@ import (
 	vprotoutils "go.viam.com/utils/protoutils"
 	"gorgonia.org/tensor"
 
+	"go.viam.com/rdk/ml"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 )
@@ -29,16 +30,12 @@ func init() {
 // the struct that will decode that map[string]interface{} correctly.
 type Service interface {
 	resource.Resource
-	Infer(ctx context.Context, tensors Tensors, input map[string]interface{}) (Tensors, map[string]interface{}, error)
+	Infer(ctx context.Context, tensors ml.Tensors, input map[string]interface{}) (ml.Tensors, map[string]interface{}, error)
 	Metadata(ctx context.Context) (MLMetadata, error)
 }
 
-// Tensors are a data structure to hold the input and output map of tensors to be fed into a
-// model or the result coming from the model.
-type Tensors map[string]*tensor.Dense
-
-// ToProto turns the Tensors map into a protobuf message of FlatTensors
-func (ts Tensors) ToProto() (*servicepb.FlatTensors, error) {
+// TensorsToProto turns the ml.Tensors map into a protobuf message of FlatTensors
+func TensorsToProto(ts ml.Tensors) (*servicepb.FlatTensors, error) {
 	pbts := &servicepb.FlatTensors{
 		Tensors: make(map[string]*servicepb.FlatTensor),
 	}
