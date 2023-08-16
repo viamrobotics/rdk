@@ -15,8 +15,6 @@ const floatEpsilon = 0.0001 // If floats are closer than this consider them equa
 // PTG coordinates are specified in polar coordinates (alpha, d)
 // One of these is needed for each sort of motion that can be done.
 type PTG interface {
-	// ~ // CToTP Converts a pose to a (k, d) TP-space trajectory, returning the node closest to that pose
-	// ~ CToTP(context.Context, spatialmath.Pose) (*TrajNode, error)
 	// CToTP will return the (alpha, dist) TP-space coordinates whose corresponding relative pose minimizes the given function
 	CToTP(context.Context, func(spatialmath.Pose) float64) (*TrajNode, error)
 

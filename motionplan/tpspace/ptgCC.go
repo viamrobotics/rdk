@@ -62,7 +62,6 @@ func (ptg *ptgDiffDriveCC) PTGVelocities(alpha, dist float64) (float64, float64,
 }
 
 func (ptg *ptgDiffDriveCC) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {
-	// ~ fmt.Println("CC")
 	alpha := inputs[0].Value
 	dist := inputs[1].Value
 	r := ptg.maxMMPS / ptg.maxRPS

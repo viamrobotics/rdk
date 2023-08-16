@@ -188,10 +188,6 @@ func (ik *NloptIK) Solve(ctx context.Context,
 			err = multierr.Combine(err, nloptErr)
 		}
 
-		// ~ if solutionRaw != nil {
-		// ~ fmt.Println("best nlopt", result)
-		// ~ }
-
 		if result < ik.epsilon*ik.epsilon || (solutionRaw != nil && ik.partial) {
 			select {
 			case <-ctx.Done():
