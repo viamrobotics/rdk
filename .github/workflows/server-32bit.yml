@@ -51,7 +51,7 @@ jobs:
     steps:
     - uses: actions/download-artifact@v3
     - name: rename
-      run: mv artifact viam-server-latest-armv7l
+      run: mv artifact/server viam-server-latest-armv7l
     - name: Authorize GCP Upload
       uses: google-github-actions/auth@v1
       with:
