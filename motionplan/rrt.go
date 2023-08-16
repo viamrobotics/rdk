@@ -245,7 +245,7 @@ func extractPath(startMap, goalMap map[node]node, pair *nodePair, matched bool) 
 			// ~ cost:   goalReached.Cost(),
 			// ~ pose:   goalReached.Pose(),
 			// ~ corner: goalReached.Corner(),
-			//~ }
+			// ~ }
 			//~ lastNode = thisNode
 			//~ path = append(path, thisNode)
 			path = append(path, goalReached)

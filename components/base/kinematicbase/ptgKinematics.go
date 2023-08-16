@@ -131,7 +131,6 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 
 	lastTime := 0.
 	for _, trajNode := range selectedTraj {
-		timestep := time.Duration(trajNode.Time-lastTime) * time.Second
 		timestep := time.Duration((trajNode.Time-lastTime)*1000*1000) * time.Microsecond
 		lastTime = trajNode.Time
 		linVel := r3.Vector{0, trajNode.LinVelMMPS, 0}
