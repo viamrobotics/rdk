@@ -231,23 +231,8 @@ func extractPath(startMap, goalMap map[node]node, pair *nodePair, matched bool) 
 			goalReached = goalMap[goalReached]
 		}
 
-		// ~ var lastNode *basicNode
 		// extract the path to the goal
 		for goalReached != nil {
-			// ~ fmt.Println("goal reached pose", goalReached.Q(), goalReached.Pose().Point())
-			// special rewriting poses for inverted tree
-			// ~ if lastNode != nil {
-			// ~ lastNode.pose = goalReached.Pose()
-			// ~ }
-
-			// ~ thisNode := &basicNode{
-			// ~ q:      goalReached.Q(),
-			// ~ cost:   goalReached.Cost(),
-			// ~ pose:   goalReached.Pose(),
-			// ~ corner: goalReached.Corner(),
-			// ~ }
-			//~ lastNode = thisNode
-			//~ path = append(path, thisNode)
 			path = append(path, goalReached)
 			goalReached = goalMap[goalReached]
 		}

@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	defaultDiffT = 0.01 // seconds
+	defaultDiffT = 0.01 // seconds. Return trajectories updating velocities at this resolution.
 	nloptSeed    = 42   // This should be fine to kepe constant
 
 	defaultZeroDist = 1e-3 // Sometimes nlopt will minimize trajectories to zero. Ensure min traj dist is at least this

@@ -29,9 +29,6 @@ type ptgGridSim struct {
 	// If true, then CToTP calls will *only* check the furthest end of each precomputed trajectory.
 	// This is useful when used in conjunction with IK
 	endsOnly bool
-
-	// Discretized x[y][]node maps for rapid NN lookups
-	trajNodeGrid map[int]map[int][]*TrajNode
 }
 
 // NewPTGGridSim creates a new PTG by simulating a PrecomputePTG for some distance, then cacheing the results in a grid for fast lookup.
@@ -46,8 +43,6 @@ func NewPTGGridSim(simPTG PrecomputePTG, arcs uint, simDist float64, endsOnly bo
 		maxTime:  defaultMaxTime,
 		diffT:    defaultDiffT,
 		endsOnly: endsOnly,
-
-		trajNodeGrid: map[int]map[int][]*TrajNode{},
 	}
 	ptg.simPTG = simPTG
 
@@ -118,19 +113,6 @@ func (ptg *ptgGridSim) simulateTrajectories(simPTG PrecomputePTG) ([][]*TrajNode
 		if err != nil {
 			return nil, err
 		}
-
-		if !ptg.endsOnly {
-			for _, tNode := range alphaTraj {
-				gridX := int(math.Round(tNode.ptX))
-				gridY := int(math.Round(tNode.ptY))
-				// Discretize into a grid for faster lookups later
-				if _, ok := ptg.trajNodeGrid[gridX]; !ok {
-					ptg.trajNodeGrid[gridX] = map[int][]*TrajNode{}
-				}
-				ptg.trajNodeGrid[gridX][gridY] = append(ptg.trajNodeGrid[gridX][gridY], tNode)
-			}
-		}
-
 		allTraj = append(allTraj, alphaTraj)
 	}
 

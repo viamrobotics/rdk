@@ -131,6 +131,8 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 
 	lastTime := 0.
 	for _, trajNode := range selectedTraj {
+		// TODO: Most trajectories update their velocities infrequently, or sometimes never.
+		// This function could be improved by looking ahead through the trajectory and minimizing the amount of SetVelocity calls.
 		timestep := time.Duration((trajNode.Time-lastTime)*1000*1000) * time.Microsecond
 		lastTime = trajNode.Time
 		linVel := r3.Vector{0, trajNode.LinVelMMPS, 0}

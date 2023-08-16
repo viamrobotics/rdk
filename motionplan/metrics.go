@@ -113,11 +113,9 @@ func L2InputMetric(segment *Segment) float64 {
 	return referenceframe.InputsL2Distance(segment.StartConfiguration, segment.EndConfiguration)
 }
 
-// SquaredNormSegmentMetric is a metric which will return the cartesian distance between the two positions.
-func SquaredNormSegmentMetric(segment *Segment) float64 {
-	delta := spatial.PoseDelta(segment.StartPosition, segment.EndPosition)
-	// Increase weight for orientation since it's a small number
-	return delta.Point().Norm2() + spatial.QuatToR3AA(delta.Orientation().Quaternion()).Mul(orientationDistanceScaling).Norm2()
+// NewSquaredNormSegmentMetric returns a metric which will return the cartesian distance between the two positions.
+func NewSquaredNormSegmentMetric() SegmentMetric {
+	return NewSquaredNormSegmentMetricWithScaling(orientationDistanceScaling)
 }
 
 // NewSquaredNormSegmentMetricWithScaling returns a metric which will return the cartesian distance between the two positions.

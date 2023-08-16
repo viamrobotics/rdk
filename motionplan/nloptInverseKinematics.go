@@ -38,7 +38,10 @@ type NloptIK struct {
 	solveEpsilon  float64
 	logger        golog.Logger
 	jump          float64
-	partial       bool
+
+	// Nlopt will try to minimize a configuration for whatever is passed in. If partial is true, then the solver will emit partial
+	// solutions where it was not able to meet the goal criteria but still was able to improve upon the seed.
+	partial bool
 }
 
 // CreateNloptIKSolver creates an nloptIK object that can perform gradient descent on metrics for Frames. The parameters are the Frame on

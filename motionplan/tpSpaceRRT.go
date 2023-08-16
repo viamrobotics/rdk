@@ -35,6 +35,7 @@ const (
 	// Consider nodes on trees to be connected if they are within this distance.
 	defaultIdenticalNodeDistance = 5.
 
+	// When extending the RRT tree towards some point, do not extend more than this many times in a single RRT invocation.
 	defaultMaxReseeds = 50
 
 	defaultSmoothScaleFactor = 0.5
@@ -337,6 +338,8 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 			return nil, errNoNeighbors
 		}
 	}
+	// TODO: We could potentially improve solving by first getting the rough distance to the randPosNode to any point in the rrt tree,
+	// then dynamically expanding or contracting the limits of IK to be some fraction of that distance.
 
 	// Get cartesian distance from NN to rand
 	var targetFunc func(spatialmath.Pose) float64
@@ -532,7 +535,6 @@ func (mp *tpSpaceRRTMotionPlanner) extendMap(
 	randAlpha := newNode.Q()[1].Value
 	randDist := newNode.Q()[2].Value
 
-	// ~ fmt.Println("__ADDINGtraj", ptgNum, randAlpha, randDist)
 	trajK, err := mp.tpFrame.PTGs()[ptgNum].Trajectory(randAlpha, randDist)
 	if err != nil {
 		return nil, err
