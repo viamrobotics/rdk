@@ -47,6 +47,7 @@ jobs:
         path: server
   upload:
     needs: [build]
+    if: github.ref_name == 'main'
     runs-on: ubuntu-latest
     steps:
     - uses: actions/download-artifact@v3
