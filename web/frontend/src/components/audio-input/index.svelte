@@ -1,7 +1,6 @@
 <script lang='ts'>
 
-import { StreamClient } from '@viamrobotics/sdk';
-import type { ServiceError } from '@viamrobotics/sdk';
+import { StreamClient, type ServiceError } from '@viamrobotics/sdk';
 import { displayError } from '@/lib/error';
 import Collapse from '@/lib/components/collapse.svelte';
 import { useRobotClient, useDisconnect } from '@/hooks/robot-client';
