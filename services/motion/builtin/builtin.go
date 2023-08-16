@@ -236,10 +236,10 @@ func (ms *builtIn) MoveOnGlobe(
 	kinematicsOptions.GoalRadiusMM = math.Min(motionCfg.PlanDeviationM*1000, 3000)
 	kinematicsOptions.HeadingThresholdDegrees = 8
 
-	// movementSensor, ok := ms.movementSensors[movementSensorName]
-	// if !ok {
-	// 	return false, resource.DependencyNotFoundError(movementSensorName)
-	// }
+	movementSensor, ok := ms.movementSensors[movementSensorName]
+	if !ok {
+		return false, resource.DependencyNotFoundError(movementSensorName)
+	}
 
 	// TODO: if we disentangle creation of the kinematic base from the plan call we make we don't need this and can do this once
 	var kinematicBase kinematicbase.KinematicBase = nil
@@ -247,7 +247,6 @@ func (ms *builtIn) MoveOnGlobe(
 	// Shared variables for planning and execution threads, are all guarded with a mutex
 	var planMu sync.Mutex
 	var moveCtx context.Context
-	var cancelMove context.CancelFunc
 	var currentPlan [][]referenceframe.Input = nil
 
 	// Shared variable between threads that can trigger replanning and planning thread
@@ -256,37 +255,32 @@ func (ms *builtIn) MoveOnGlobe(
 
 	var successFlag atomic.Bool
 	successFlag.Store(false)
-	// errChan := make(chan error)
+	errChan := make(chan error)
 
 	ms.backgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
-		var positionPollingTicker, obstaclePollingTicker *time.Ticker
-		restartTickers := func() {
-			positionPollingTicker = time.NewTicker(time.Duration(1000/motionCfg.PositionPollingFreqHz) * time.Millisecond)
-			obstaclePollingTicker = time.NewTicker(time.Duration(1000/motionCfg.ObstaclePollingFreqHz) * time.Millisecond)
-		}
-		restartTickers()
 
 		// maybe move this into the restart tickers function
 		cancelCtx, cancelFn := context.WithCancel(context.Background())
 		ms.cancelFn = cancelFn
 
-		for !successFlag.Load() {
-			if ctx.Err() != nil {
-				// Error out
-			}
+		positionPollingTicker := time.NewTicker(time.Duration(1000/motionCfg.PositionPollingFreqHz) * time.Millisecond)
+		obstaclePollingTicker := time.NewTicker(time.Duration(1000/motionCfg.ObstaclePollingFreqHz) * time.Millisecond)
 
+		for !successFlag.Load() && ctx.Err() == nil {
 			select {
 			case <-positionPollingTicker.C:
 				// TODO: theres nothing stopping us from making another thread before the previous has completed
 				ms.backgroundWorkers.Add(1)
 				goutils.ManagedGo(func() {
-					fmt.Println("hello there")
-					successFlag.Store(true)
-
-					// this is gonna get removed when I pass context along the way
-					if !utils.SelectContextOrWait(cancelCtx, 20*time.Second) {
-						fmt.Println("I've been cancelled")
+					fmt.Println("position poll")
+					current, _, err := movementSensor.Position(cancelCtx, nil)
+					if err != nil {
+						errChan <- err
+						return
+					}
+					if spatialmath.GeoPointToPose(current, destination).Point().Norm() <= kinematicsOptions.PlanDeviationThresholdMM {
+						successFlag.Store(true)
 					}
 
 					// TODO: the function that actually monitors position - and pass context in
@@ -295,64 +289,52 @@ func (ms *builtIn) MoveOnGlobe(
 				// TODO: theres nothing stopping us from making another thread before the previous has completed
 				ms.backgroundWorkers.Add(1)
 				goutils.ManagedGo(func() {
-					fmt.Println("general kenobi")
+					fmt.Println("obstacle poll")
 					replanFlag.Store(true)
+
 					// this is gonna get removed when I pass context along the way
-					if !utils.SelectContextOrWait(cancelCtx, 20*time.Second) {
-						fmt.Println("I've also been cancelled")
+					if !utils.SelectContextOrWait(cancelCtx, 1*time.Millisecond) {
+						fmt.Println("I've been cancelled")
 					}
 
 					// TODO: the function that actually monitors obstacles - and pass context in
 				}, ms.backgroundWorkers.Done)
 			default:
 			}
-			if !replanFlag.Load() {
-				continue
+			if replanFlag.Load() {
+				fmt.Println("replanning")
+
+				ms.cancelFn()
+				cancelCtx, cancelFn = context.WithCancel(context.Background())
+				ms.cancelFn = cancelFn
+
+				plan, kb, err := ms.planMoveOnGlobe(
+					ctx,
+					componentName,
+					destination,
+					movementSensor,
+					obstacles,
+					kinematicsOptions,
+					extra,
+				)
+				if err != nil {
+					errChan <- err
+					return
+				}
+				planMu.Lock()
+				currentPlan = plan
+				kinematicBase = kb
+				planMu.Unlock()
+
+				replanFlag.Store(false)
 			}
-			fmt.Println("replanning")
-			if cancelMove != nil {
-				fmt.Println("cancelling")
-				cancelMove()
-			}
-			// rename me later
-			cancelFn()
-			cancelCtx, cancelFn = context.WithCancel(context.Background())
-			ms.cancelFn = cancelFn
-
-			// plan, kb, err := ms.planMoveOnGlobe(
-			// 	ctx,
-			// 	componentName,
-			// 	destination,
-			// 	movementSensor,
-			// 	obstacles,
-			// 	kinematicsOptions,
-			// 	extra,
-			// )
-			// if err != nil {
-			// 	errChan <- err
-			// 	return
-			// }
-			// planMu.Lock()
-			// currentPlan = plan
-			// kinematicBase = kb
-			// planMu.Unlock()
-			// ms.logger.Info(currentPlan)
-
-			replanFlag.Store(false)
-
-			// TODO: figure out if this is worth doing
-			// restartTickers()
 		}
 	}, ms.backgroundWorkers.Done)
 
 	// execute the plan
 	for !successFlag.Load() {
 		for i := 1; len(currentPlan) > 1; {
-			planMu.Lock()
-			moveCtx, cancelMove = context.WithCancel(ctx)
-			planMu.Unlock()
 			ms.logger.Info(currentPlan[i])
-
 			if err := kinematicBase.GoToInputs(moveCtx, currentPlan[i]); err != nil {
 				return false, err
 			}
@@ -362,11 +344,6 @@ func (ms *builtIn) MoveOnGlobe(
 		}
 	}
 	return true, nil
-}
-
-// TODO: this will need to change to reflect the distance between the current and the desired state
-func errorState() float64 {
-	return 1
 }
 
 // planMoveOnGlobe returns the plan for MoveOnGlobe to execute.
