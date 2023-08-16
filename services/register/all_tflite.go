@@ -1,4 +1,5 @@
 //go:build !no_tflite
+
 // Package register registers all services
 package register
 
