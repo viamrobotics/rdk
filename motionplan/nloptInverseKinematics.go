@@ -38,7 +38,7 @@ type NloptIK struct {
 	solveEpsilon  float64
 	logger        golog.Logger
 	jump          float64
-	partial bool
+	partial       bool
 }
 
 // CreateNloptIKSolver creates an nloptIK object that can perform gradient descent on metrics for Frames. The parameters are the Frame on
@@ -68,7 +68,7 @@ func CreateNloptIKSolver(mdl referenceframe.Frame, logger golog.Logger, iter int
 
 // Solve runs the actual solver and sends any solutions found to the given channel.
 func (ik *NloptIK) Solve(ctx context.Context,
-	solutionChan chan<-*IKSolution,
+	solutionChan chan<- *IKSolution,
 	seed []referenceframe.Input,
 	solveMetric StateMetric,
 	rseed int,
@@ -188,9 +188,9 @@ func (ik *NloptIK) Solve(ctx context.Context,
 			err = multierr.Combine(err, nloptErr)
 		}
 
-		//~ if solutionRaw != nil {
-			//~ fmt.Println("best nlopt", result)
-		//~ }
+		// ~ if solutionRaw != nil {
+		// ~ fmt.Println("best nlopt", result)
+		// ~ }
 
 		if result < ik.epsilon*ik.epsilon || (solutionRaw != nil && ik.partial) {
 			select {
@@ -200,8 +200,8 @@ func (ik *NloptIK) Solve(ctx context.Context,
 			}
 			solutionChan <- &IKSolution{
 				Configuration: referenceframe.FloatsToInputs(solutionRaw),
-				Score: result,
-				Partial: result >= ik.epsilon*ik.epsilon,
+				Score:         result,
+				Partial:       result >= ik.epsilon*ik.epsilon,
 			}
 			solutionsFound++
 		}

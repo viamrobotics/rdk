@@ -1,6 +1,7 @@
 package tpspace
 
 import (
+	"errors"
 	"math"
 
 	pb "go.viam.com/api/component/arm/v1"
@@ -8,19 +9,20 @@ import (
 	"go.viam.com/rdk/referenceframe"
 )
 
-// ptgFrame wraps a tpspace.PrecomputePTG so that it fills the Frame interface and can be used by IK
+// ptgFrame wraps a tpspace.PrecomputePTG so that it fills the Frame interface and can be used by IK.
 type ptgIKFrame struct {
 	PrecomputePTG
-	limits     []referenceframe.Limit
+	limits []referenceframe.Limit
 }
 
+// NewPTGIKFrame will create a new frame intended to be passed to an Inverse Kinematics solver, allowing IK to solve for parameters
+// for the passed in PTG.
 func NewPTGIKFrame(ptg PrecomputePTG, dist float64) (referenceframe.Frame, error) {
 	pf := &ptgIKFrame{PrecomputePTG: ptg}
 
 	pf.limits = []referenceframe.Limit{
 		{Min: -math.Pi, Max: math.Pi},
 		{Min: -dist, Max: dist},
-		//~ {Min: -dist, Max: dist},
 	}
 	return pf, nil
 }
@@ -34,7 +36,7 @@ func (pf *ptgIKFrame) Name() string {
 }
 
 func (pf *ptgIKFrame) MarshalJSON() ([]byte, error) {
-	return nil, nil
+	return nil, errors.New("marshal json not implemented for ptg IK frame")
 }
 
 func (pf *ptgIKFrame) InputFromProtobuf(jp *pb.JointPositions) []referenceframe.Input {
@@ -54,5 +56,5 @@ func (pf *ptgIKFrame) ProtobufFromInput(input []referenceframe.Input) *pb.JointP
 }
 
 func (pf *ptgIKFrame) Geometries(inputs []referenceframe.Input) (*referenceframe.GeometriesInFrame, error) {
-	return nil, nil
+	return nil, errors.New("geometries not implemented for ptg IK frame")
 }

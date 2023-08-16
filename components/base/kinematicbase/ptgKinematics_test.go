@@ -86,7 +86,7 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(f, fs.World())
 	inputMap := referenceframe.StartPositions(fs)
-	
+
 	obstacle, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{1000, 0, 0}), r3.Vector{1, 1, 1}, "")
 	test.That(t, err, test.ShouldBeNil)
 

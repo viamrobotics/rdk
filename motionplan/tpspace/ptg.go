@@ -5,8 +5,6 @@ import (
 	"context"
 	"math"
 
-	"github.com/golang/geo/r3"
-
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -17,8 +15,8 @@ const floatEpsilon = 0.0001 // If floats are closer than this consider them equa
 // PTG coordinates are specified in polar coordinates (alpha, d)
 // One of these is needed for each sort of motion that can be done.
 type PTG interface {
-	//~ // CToTP Converts a pose to a (k, d) TP-space trajectory, returning the node closest to that pose
-	//~ CToTP(context.Context, spatialmath.Pose) (*TrajNode, error)
+	// ~ // CToTP Converts a pose to a (k, d) TP-space trajectory, returning the node closest to that pose
+	// ~ CToTP(context.Context, spatialmath.Pose) (*TrajNode, error)
 	// CToTP will return the (alpha, dist) TP-space coordinates whose corresponding relative pose minimizes the given function
 	CToTP(context.Context, func(spatialmath.Pose) float64) (*TrajNode, error)
 
@@ -70,7 +68,7 @@ func index2alpha(k, numPaths uint) float64 {
 }
 
 func alpha2index(alpha float64, numPaths uint) uint {
-	alpha = wrapTo2Pi(alpha + math.Pi) - math.Pi
+	alpha = wrapTo2Pi(alpha+math.Pi) - math.Pi
 	idx := uint(math.Round(0.5 * (float64(numPaths)*(1.0+alpha/math.Pi) - 1.0)))
 	return idx
 }
@@ -80,10 +78,7 @@ func wrapTo2Pi(theta float64) float64 {
 	return theta - 2*math.Pi*math.Floor(theta/(2*math.Pi))
 }
 
-func xythetaToPose(x, y, theta float64) spatialmath.Pose {
-	return spatialmath.NewPose(r3.Vector{x, y, 0}, &spatialmath.OrientationVector{OZ: 1, Theta: theta})
-}
-
+// ComputePTG will compute all nodes of simPTG at the requested alpha, out to the requested distance, at the specified diffT resolution.
 func ComputePTG(
 	simPTG PrecomputePTG,
 	alpha, refDist, diffT float64,
@@ -93,37 +88,24 @@ func ComputePTG(
 
 	var err error
 	var t, v, w float64
-	dist := math.Copysign(math.Abs(v) * diffT, refDist)
-
-	// Last saved waypoints
-
-	lastVs := [2]float64{0, 0}
-	lastWs := [2]float64{0, 0}
+	dist := math.Copysign(math.Abs(v)*diffT, refDist)
 
 	// Step through each time point for this alpha
 	for math.Abs(dist) < math.Abs(refDist) {
-		
 		t += diffT
-		nextNode, err := ComputeNextPTGNode(simPTG, alpha, dist, t)
+		nextNode, err := ComputePTGNode(simPTG, alpha, dist, t)
 		if err != nil {
 			return nil, err
 		}
 		v = nextNode.LinVelMMPS
 		w = nextNode.AngVelRPS
-		
-		lastVs[1] = lastVs[0]
-		lastWs[1] = lastWs[0]
-		lastVs[0] = v
-		lastWs[0] = w
 
-		
-
-		// Update velocities of last node because reasons
+		// Update velocities of last node because the computed velocities at this node are what should be set after passing the last node
 		alphaTraj[len(alphaTraj)-1].LinVelMMPS = v
 		alphaTraj[len(alphaTraj)-1].AngVelRPS = w
 
 		alphaTraj = append(alphaTraj, nextNode)
-		dist += math.Copysign(math.Abs(v) * diffT, refDist)
+		dist += math.Copysign(math.Abs(v)*diffT, refDist)
 	}
 
 	// Add final node
@@ -138,12 +120,18 @@ func ComputePTG(
 	return alphaTraj, nil
 }
 
-func ComputeNextPTGNode(
+// ComputePTGNode will return the TrajNode of the requested PTG, at the specified alpha and dist. The provided time is used
+// to fill in the time field.
+func ComputePTGNode(
 	simPTG PrecomputePTG,
 	alpha, dist, atT float64,
 ) (*TrajNode, error) {
 	v, w, err := simPTG.PTGVelocities(alpha, dist)
+	if err != nil {
+		return nil, err
+	}
 
+	// ptgIK caches these, so this should be fast. If cacheing is removed or a different simPTG used, this could be slow.
 	pose, err := simPTG.Transform([]referenceframe.Input{{alpha}, {dist}})
 	if err != nil {
 		return nil, err

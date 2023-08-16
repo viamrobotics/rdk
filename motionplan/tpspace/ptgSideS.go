@@ -2,7 +2,7 @@ package tpspace
 
 import (
 	"math"
-	
+
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -10,43 +10,41 @@ import (
 const defaultCountersteer = 1.5
 
 // ptgDiffDriveSideS defines a PTG family which makes a forwards turn, then a counter turn the other direction, and goes straight.
-// This has the effect of translating to one side or the other without orientation change
+// This has the effect of translating to one side or the other without orientation change.
 type ptgDiffDriveSideS struct {
-	maxMMPS float64 // millimeters per second velocity to target
-	maxRPS  float64 // radians per second of rotation when driving at maxMMPS and turning at max turning radius
-	r       float64
+	maxMMPS      float64 // millimeters per second velocity to target
+	maxRPS       float64 // radians per second of rotation when driving at maxMMPS and turning at max turning radius
+	r            float64
 	countersteer float64
-	circle *ptgDiffDriveC
+	circle       *ptgDiffDriveC
 }
 
 // NewSideSPTG creates a new PrecomputePTG of type ptgDiffDriveSideS.
 func NewSideSPTG(maxMMPS, maxRPS float64) PrecomputePTG {
-	
 	r := maxMMPS / maxRPS
 	circle := NewCirclePTG(maxMMPS, maxRPS).(*ptgDiffDriveC)
-	
+
 	return &ptgDiffDriveSideS{
-		maxMMPS: maxMMPS,
-		maxRPS:  maxRPS,
-		r: r,
+		maxMMPS:      maxMMPS,
+		maxRPS:       maxRPS,
+		r:            r,
 		countersteer: 1.0,
-		circle: circle,
+		circle:       circle,
 	}
 }
 
 // NewSideSOverturnPTG creates a new PrecomputePTG of type ptgDiffDriveSideS which overturns.
-// It turns X amount in one direction, then countersteers X*countersteerFactor in the other direction
+// It turns X amount in one direction, then countersteers X*countersteerFactor in the other direction.
 func NewSideSOverturnPTG(maxMMPS, maxRPS float64) PrecomputePTG {
-	
 	r := maxMMPS / maxRPS
 	circle := NewCirclePTG(maxMMPS, maxRPS).(*ptgDiffDriveC)
-	
+
 	return &ptgDiffDriveSideS{
-		maxMMPS: maxMMPS,
-		maxRPS:  maxRPS,
-		r: r,
+		maxMMPS:      maxMMPS,
+		maxRPS:       maxRPS,
+		r:            r,
 		countersteer: defaultCountersteer,
-		circle: circle,
+		circle:       circle,
 	}
 }
 
@@ -63,7 +61,7 @@ func (ptg *ptgDiffDriveSideS) PTGVelocities(alpha, dist float64) (float64, float
 		// l-
 		v = ptg.maxMMPS
 		w = ptg.maxRPS * flip
-	} else if dist < arcLength + arcLength * ptg.countersteer {
+	} else if dist < arcLength+arcLength*ptg.countersteer {
 		v = ptg.maxMMPS
 		w = ptg.maxRPS * -1 * flip
 	}
@@ -74,11 +72,11 @@ func (ptg *ptgDiffDriveSideS) PTGVelocities(alpha, dist float64) (float64, float
 func (ptg *ptgDiffDriveSideS) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {
 	alpha := inputs[0].Value
 	dist := inputs[1].Value
-	
-	flip := math.Copysign(1., alpha) // left or right
-	direction := math.Copysign(1., dist) // forwards or backwards
-	arcLength := math.Abs(alpha) * 0.5 * ptg.r // 
-	
+
+	flip := math.Copysign(1., alpha)           // left or right
+	direction := math.Copysign(1., dist)       // forwards or backwards
+	arcLength := math.Abs(alpha) * 0.5 * ptg.r //
+
 	revPose, err := ptg.circle.Transform([]referenceframe.Input{{flip * math.Pi}, {direction * math.Min(dist, arcLength)}})
 	if err != nil {
 		return nil, err
@@ -89,18 +87,18 @@ func (ptg *ptgDiffDriveSideS) Transform(inputs []referenceframe.Input) (spatialm
 	fwdPose, err := ptg.circle.Transform(
 		[]referenceframe.Input{
 			{-1 * flip * math.Pi},
-			{direction * (math.Min(dist, arcLength + arcLength * ptg.countersteer) - arcLength)},
+			{direction * (math.Min(dist, arcLength+arcLength*ptg.countersteer) - arcLength)},
 		},
 	)
 	if err != nil {
 		return nil, err
 	}
 	arcPose := spatialmath.Compose(revPose, fwdPose)
-	if dist < arcLength + arcLength * ptg.countersteer {
+	if dist < arcLength+arcLength*ptg.countersteer {
 		return arcPose, nil
 	}
-	
-	finalPose, err := ptg.circle.Transform([]referenceframe.Input{{0}, {direction * (dist - (arcLength + arcLength * ptg.countersteer))}})
+
+	finalPose, err := ptg.circle.Transform([]referenceframe.Input{{0}, {direction * (dist - (arcLength + arcLength*ptg.countersteer))}})
 	if err != nil {
 		return nil, err
 	}

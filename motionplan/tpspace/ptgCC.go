@@ -1,9 +1,8 @@
 package tpspace
 
 import (
-	//~ "fmt"
 	"math"
-	
+
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -14,19 +13,18 @@ import (
 type ptgDiffDriveCC struct {
 	maxMMPS float64 // millimeters per second velocity to target
 	maxRPS  float64 // radians per second of rotation when driving at maxMMPS and turning at max turning radius
-	
+
 	circle *ptgDiffDriveC
 }
 
 // NewCCPTG creates a new PrecomputePTG of type ptgDiffDriveCC.
 func NewCCPTG(maxMMPS, maxRPS float64) PrecomputePTG {
-	
 	circle := NewCirclePTG(maxMMPS, maxRPS).(*ptgDiffDriveC)
-	
+
 	return &ptgDiffDriveCC{
 		maxMMPS: maxMMPS,
 		maxRPS:  maxRPS,
-		circle: circle,
+		circle:  circle,
 	}
 }
 
@@ -64,14 +62,14 @@ func (ptg *ptgDiffDriveCC) PTGVelocities(alpha, dist float64) (float64, float64,
 }
 
 func (ptg *ptgDiffDriveCC) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {
-	//~ fmt.Println("CC")
+	// ~ fmt.Println("CC")
 	alpha := inputs[0].Value
 	dist := inputs[1].Value
 	r := ptg.maxMMPS / ptg.maxRPS
 	reverseDistance := math.Abs(alpha) * 0.5 * r
-	flip := math.Copysign(1., alpha) // left or right
+	flip := math.Copysign(1., alpha)     // left or right
 	direction := math.Copysign(1., dist) // forwards or backwards
-	
+
 	revPose, err := ptg.circle.Transform([]referenceframe.Input{{-1 * flip * math.Pi}, {-1. * direction * math.Min(dist, reverseDistance)}})
 	if err != nil {
 		return nil, err

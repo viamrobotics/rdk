@@ -5,16 +5,12 @@ import (
 	"fmt"
 	"math"
 
-	pb "go.viam.com/api/component/arm/v1"
 	"github.com/edaniels/golog"
+	pb "go.viam.com/api/component/arm/v1"
 
 	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
-)
-
-const (
-	defaultSimDistMM      =600.
 )
 
 const (
@@ -35,13 +31,13 @@ var defaultPTGs = []ptgFactory{
 }
 
 type ptgGroupFrame struct {
-	name       string
-	limits     []referenceframe.Limit
-	geometries []spatialmath.Geometry
-	ptgs       []tpspace.PTG
-	velocityMMps float64
+	name          string
+	limits        []referenceframe.Limit
+	geometries    []spatialmath.Geometry
+	ptgs          []tpspace.PTG
+	velocityMMps  float64
 	turnRadMeters float64
-	logger golog.Logger
+	logger        golog.Logger
 }
 
 // NewPTGFrameFromTurningRadius will create a new Frame which is also a PTGProvider. It will precompute the default set of
@@ -86,16 +82,15 @@ func NewPTGFrameFromTurningRadius(
 }
 
 // newPTGFrameFromPTGFrame will create a new Frame from a preexisting ptgGroupFrame, allowing the adjustment of `refDist` while keeping
-// other params the same. This may be expanded to allow altering turning radius, geometries, etc
+// other params the same. This may be expanded to allow altering turning radius, geometries, etc.
 func newPTGFrameFromPTGFrame(frame referenceframe.Frame, refDist float64) (referenceframe.Frame, error) {
-	
 	ptgFrame, ok := frame.(*ptgGroupFrame)
 	if !ok {
 		return nil, errors.New("cannot create ptg framem given frame is not a ptgGroupFrame")
 	}
 
 	if refDist <= 0 {
-		refDist = 1000. * ptgFrame.turnRadMeters * math.Pi * 0.9
+		refDist = 1000. * ptgFrame.turnRadMeters * math.Pi * 1.5
 	}
 
 	// Get max angular velocity in radians per second
@@ -134,9 +129,9 @@ func (pf *ptgGroupFrame) MarshalJSON() ([]byte, error) {
 func (pf *ptgGroupFrame) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {
 	alpha := inputs[trajectoryAlphaWithinPTG].Value
 	dist := inputs[distanceAlongTrajectoryIndex].Value
-	
+
 	ptgIdx := int(math.Round(inputs[ptgIndex].Value))
-	
+
 	traj, err := pf.ptgs[ptgIdx].Trajectory(alpha, dist)
 	if err != nil {
 		return nil, err

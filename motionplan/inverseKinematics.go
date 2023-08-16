@@ -10,9 +10,11 @@ import (
 // solutions to the provided channel until cancelled or otherwise completes.
 type InverseKinematics interface {
 	// Solve receives a context, the goal arm position, and current joint angles.
-	Solve(context.Context, chan<-*IKSolution, []referenceframe.Input, StateMetric, int) error
+	Solve(context.Context, chan<- *IKSolution, []referenceframe.Input, StateMetric, int) error
 }
 
+// IKSolution is the struct returned from an IK solver. It contains the solution configuration, the score of the solution, and a flag
+// indicating whether that configuration and score met the solution criteria requested by the caller.
 type IKSolution struct {
 	Configuration []referenceframe.Input
 	Score         float64

@@ -2,7 +2,6 @@ package tpspace
 
 import (
 	"testing"
-	//~ "fmt"
 
 	"go.viam.com/test"
 )
@@ -14,10 +13,3 @@ func TestAlphaIdx(t *testing.T) {
 		test.That(t, i, test.ShouldEqual, i2)
 	}
 }
-
-//~ func TestRevPTGs(t *testing.T) {
-	//~ cs := NewCirclePTG(0.3, 0.3)
-	//~ traj, err := ComputePTG(cs, 0, -2000, 0.05)
-	//~ test.That(t, err, test.ShouldBeNil)
-	//~ fmt.Println(traj)
-//~ }

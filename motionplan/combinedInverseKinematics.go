@@ -43,7 +43,7 @@ func CreateCombinedIKSolver(model referenceframe.Frame, logger golog.Logger, nCP
 
 func runSolver(ctx context.Context,
 	solver InverseKinematics,
-	c chan<-*IKSolution,
+	c chan<- *IKSolution,
 	seed []referenceframe.Input,
 	m StateMetric,
 	rseed int,
@@ -54,7 +54,7 @@ func runSolver(ctx context.Context,
 // Solve will initiate solving for the given position in all child solvers, seeding with the specified initial joint
 // positions. If unable to solve, the returned error will be non-nil.
 func (ik *CombinedIK) Solve(ctx context.Context,
-	c chan<-*IKSolution,
+	c chan<- *IKSolution,
 	seed []referenceframe.Input,
 	m StateMetric,
 	rseed int,

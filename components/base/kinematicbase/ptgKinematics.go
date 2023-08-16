@@ -14,6 +14,7 @@ import (
 	utils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/base"
+	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
 	rdkutils "go.viam.com/rdk/utils"
@@ -74,11 +75,12 @@ func wrapWithPTGKinematics(
 		return nil, err
 	}
 
-	frame, err := referenceframe.NewPTGFrameFromTurningRadius(
+	frame, err := motionplan.NewPTGFrameFromTurningRadius(
 		b.Name().ShortName(),
+		logger,
 		baseMillimetersPerSecond,
 		baseTurningRadius,
-		0, // pass 0 to use the default
+		0, // pass 0 to use the default refDist
 		geometries,
 	)
 	if err != nil {
@@ -122,15 +124,13 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 	ptgk.logger.Debugf("GoToInputs going to %v", inputs)
 
 	selectedPTG := ptgk.ptgs[int(math.Round(inputs[ptgIndex].Value))]
-	selectedTraj := selectedPTG.Trajectory(uint(math.Round(inputs[trajectoryIndexWithinPTG].Value)))
+	selectedTraj, err := selectedPTG.Trajectory(inputs[trajectoryIndexWithinPTG].Value, inputs[distanceAlongTrajectoryIndex].Value)
+	if err != nil {
+		return errors.Join(err, ptgk.Base.Stop(ctx, nil))
+	}
 
 	lastTime := 0.
-	for i, trajNode := range selectedTraj {
-		if trajNode.Dist > inputs[distanceAlongTrajectoryIndex].Value {
-			ptgk.logger.Debugf("finished executing trajectory after %d steps", i)
-			// We have reached the desired distance along the given trajectory
-			break
-		}
+	for _, trajNode := range selectedTraj {
 		timestep := time.Duration(trajNode.Time-lastTime) * time.Second
 		lastTime = trajNode.Time
 		linVel := r3.Vector{0, trajNode.LinVelMMPS, 0}
