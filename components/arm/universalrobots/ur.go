@@ -4,6 +4,7 @@ package universalrobots
 import (
 	"bufio"
 	"context"
+
 	// for embedding model file.
 	_ "embed"
 	"encoding/binary"
@@ -235,6 +236,9 @@ func URArmConnect(ctx context.Context, conf resource.Config, logger golog.Logger
 				}
 			} else if err != nil {
 				logger.Errorw("dashboard reader failed", "error", err)
+				newArm.mu.Lock()
+				newArm.isConnected = false
+				newArm.mu.Unlock()
 				return
 			}
 		}
