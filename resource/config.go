@@ -26,6 +26,7 @@ type Config struct {
 
 	ConvertedAttributes ConfigValidator
 	ImplicitDependsOn   []string
+	ProvidedBy          string
 
 	alreadyValidated   bool
 	cachedImplicitDeps []string
@@ -168,17 +169,19 @@ func (conf Config) Equals(other Config) bool {
 	conf.ImplicitDependsOn = nil
 	conf.cachedImplicitDeps = nil
 	conf.cachedErr = nil
+	conf.ProvidedBy = ""
 	other.alreadyValidated = false
 	other.ImplicitDependsOn = nil
 	other.cachedImplicitDeps = nil
 	other.cachedErr = nil
+	other.ProvidedBy = ""
 	//nolint:govet
 	return reflect.DeepEqual(conf, other)
 }
 
 // Dependencies returns the deduplicated union of user-defined and implicit dependencies.
 func (conf *Config) Dependencies() []string {
-	result := make([]string, 0, len(conf.DependsOn)+len(conf.ImplicitDependsOn))
+	result := make([]string, 0, len(conf.DependsOn)+len(conf.ImplicitDependsOn)+1)
 	seen := make(map[string]struct{})
 	appendUniq := func(dep string) {
 		if _, ok := seen[dep]; !ok {
@@ -191,6 +194,9 @@ func (conf *Config) Dependencies() []string {
 	}
 	for _, dep := range conf.ImplicitDependsOn {
 		appendUniq(dep)
+	}
+	if conf.ProvidedBy != "" {
+		appendUniq(conf.ProvidedBy)
 	}
 	return result
 }
@@ -212,9 +218,9 @@ func (conf *Config) ResourceName() Name {
 
 // Validate ensures all parts of the config are valid and returns dependencies.
 func (conf *Config) Validate(path, defaultAPIType string) ([]string, error) {
-	if conf.alreadyValidated {
-		return conf.cachedImplicitDeps, conf.cachedErr
-	}
+	// if conf.alreadyValidated {
+	// 	return conf.cachedImplicitDeps, conf.cachedErr
+	// }
 	conf.cachedImplicitDeps, conf.cachedErr = conf.validate(path, defaultAPIType)
 	conf.alreadyValidated = true
 	return conf.cachedImplicitDeps, conf.cachedErr

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+	"go.viam.com/rdk/resource"
 )
 
 var moduleNameRegEx = regexp.MustCompile(`^[\w-]+$`)
@@ -33,13 +34,13 @@ type Module struct {
 }
 
 // Validate checks if the config is valid.
-func (m *Module) Validate(path string) error {
+func (m *Module) Validate(path string) ([]string, error) {
 	if m.alreadyValidated {
-		return m.cachedErr
+		return []string{}, m.cachedErr
 	}
 	m.cachedErr = m.validate(path)
 	m.alreadyValidated = true
-	return m.cachedErr
+	return []string{}, m.cachedErr
 }
 
 func (m *Module) validate(path string) error {
@@ -63,6 +64,26 @@ func (m *Module) validate(path string) error {
 	}
 
 	return nil
+}
+
+// RemoteTypeName is the type name used for a remote. This is for internal use.
+const ModuleTypeName = string("module")
+
+// ModuleAPI is the fully qualified API for a module. This is for internal use.
+var ModuleAPI = resource.APINamespaceRDK.WithType(ModuleTypeName).WithSubtype("module")
+
+func ModelFromModuleName(name string) resource.Model {
+	return resource.ModelNamespaceRDK.WithFamily("module").WithModel(name)
+}
+
+func (m *Module) AsResource() *resource.Config {
+	mCopy := *m
+	return &resource.Config{
+		Name:                m.Name,
+		API:                 ModuleAPI,
+		Model:               ModelFromModuleName(m.Name),
+		ConvertedAttributes: &mCopy,
+	}
 }
 
 // Equals checks if the two modules are deeply equal to each other.

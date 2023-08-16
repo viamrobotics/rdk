@@ -48,7 +48,6 @@ func TestModularResources(t *testing.T) {
 		r, err := New(context.Background(), &config.Config{}, logger)
 		test.That(t, err, test.ShouldBeNil)
 		actualR := r.(*localRobot)
-		actualR.manager.moduleManager = mod
 
 		resource.RegisterAPI(compAPI,
 			resource.APIRegistration[resource.Resource]{ReflectRPCServiceDesc: &desc.ServiceDescriptor{}})

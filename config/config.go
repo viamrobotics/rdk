@@ -96,7 +96,7 @@ func (c *Config) Ensure(fromCloud bool, logger golog.Logger) error {
 	}
 
 	for idx := 0; idx < len(c.Modules); idx++ {
-		if err := c.Modules[idx].Validate(fmt.Sprintf("%s.%d", "modules", idx)); err != nil {
+		if _, err := c.Modules[idx].Validate(fmt.Sprintf("%s.%d", "modules", idx)); err != nil {
 			if c.DisablePartialStart {
 				return err
 			}

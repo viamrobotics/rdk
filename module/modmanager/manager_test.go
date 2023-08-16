@@ -51,7 +51,7 @@ func TestModManagerFunctions(t *testing.T) {
 	t.Log("test Helpers")
 	mgr := NewManager(parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
 
-	mod := &module{name: "test", exe: modPath}
+	mod := &ModuleGraphNode{name: "test", exe: modPath}
 
 	err = mod.startProcess(ctx, parentAddr, nil, logger)
 	test.That(t, err, test.ShouldBeNil)

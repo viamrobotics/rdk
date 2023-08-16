@@ -1052,45 +1052,6 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	// Set mostRecentConfig if resources were not equal.
 	r.mostRecentCfg = *newConfig
 
-	// We need to pre-add the new modules so that resource validation can check against the new models
-	// TODO(RSDK-4383) These lines are taken from uppdateResources() and should be refactored as part of this bugfix
-	for _, mod := range diff.Added.Modules {
-		if err := mod.Validate(""); err != nil {
-			r.manager.logger.Errorw("module config validation error; skipping", "module", mod.Name, "error", err)
-			continue
-		}
-		if err := r.manager.moduleManager.Add(ctx, mod); err != nil {
-			r.manager.logger.Errorw("error adding module", "module", mod.Name, "error", err)
-			continue
-		}
-	}
-
-	// If something was added or modified, go through components and services in
-	// diff.Added and diff.Modified, call Validate on all those that are modularized,
-	// and store implicit dependencies.
-	validateModularResources := func(confs []resource.Config) {
-		for i, c := range confs {
-			if r.manager.moduleManager.Provides(c) {
-				implicitDeps, err := r.manager.moduleManager.ValidateConfig(ctx, c)
-				if err != nil {
-					r.logger.Errorw("modular config validation error found in resource: "+c.Name, "error", err)
-					continue
-				}
-
-				// Modify resource to add its implicit dependencies.
-				confs[i].ImplicitDependsOn = implicitDeps
-			}
-		}
-	}
-	if diff.Added != nil {
-		validateModularResources(diff.Added.Components)
-		validateModularResources(diff.Added.Services)
-	}
-	if diff.Modified != nil {
-		validateModularResources(diff.Modified.Components)
-		validateModularResources(diff.Modified.Services)
-	}
-
 	if r.revealSensitiveConfigDiffs {
 		r.logger.Debugf("(re)configuring with %+v", diff)
 	}

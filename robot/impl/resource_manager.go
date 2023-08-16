@@ -19,8 +19,6 @@ import (
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/module/modmanager"
-	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
-	modif "go.viam.com/rdk/module/modmaninterface"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/client"
@@ -42,13 +40,13 @@ var (
 
 // resourceManager manages the actual parts that make up a robot.
 type resourceManager struct {
-	resources      *resource.Graph
-	processManager pexec.ProcessManager
-	processConfigs map[string]pexec.ProcessConfig
-	moduleManager  modif.ModuleManager
-	opts           resourceManagerOptions
-	logger         golog.Logger
-	configLock     sync.Mutex
+	resources           *resource.Graph
+	processManager      pexec.ProcessManager
+	processConfigs      map[string]pexec.ProcessConfig
+	moduleParentAddress string
+	opts                resourceManagerOptions
+	logger              golog.Logger
+	configLock          sync.Mutex
 }
 
 type resourceManagerOptions struct {
@@ -60,7 +58,6 @@ type resourceManagerOptions struct {
 }
 
 // newResourceManager returns a properly initialized set of parts.
-// moduleManager will not be initialized until startModuleManager is called.
 func newResourceManager(
 	opts resourceManagerOptions,
 	logger golog.Logger,
@@ -93,11 +90,11 @@ func (manager *resourceManager) startModuleManager(
 	untrustedEnv bool,
 	logger golog.Logger,
 ) {
-	mmOpts := modmanageroptions.Options{
-		UntrustedEnv:            untrustedEnv,
-		RemoveOrphanedResources: manager.removeOrphanedResources,
-	}
-	manager.moduleManager = modmanager.NewManager(parentAddr, logger, mmOpts)
+	// mmOpts := modmanageroptions.Options{
+	// 	UntrustedEnv:            untrustedEnv,
+	// 	RemoveOrphanedResources: manager.removeOrphanedResources,
+	// }
+	manager.moduleParentAddress = parentAddr
 }
 
 // addRemote adds a remote to the manager.
@@ -397,16 +394,7 @@ func (manager *resourceManager) mergeResourceRPCAPIsWithRemote(r robot.Robot, ty
 }
 
 func (manager *resourceManager) closeResource(ctx context.Context, res resource.Resource) error {
-	allErrs := res.Close(ctx)
-
-	resName := res.Name()
-	if manager.moduleManager != nil && manager.moduleManager.IsModularResource(resName) {
-		if err := manager.moduleManager.RemoveResource(ctx, resName); err != nil {
-			allErrs = multierr.Combine(err, errors.Wrap(err, "error removing modular resource for closure"))
-		}
-	}
-
-	return allErrs
+	return res.Close(ctx)
 }
 
 // removeMarkedAndClose removes all resources marked for removal from the graph and
@@ -444,13 +432,6 @@ func (manager *resourceManager) Close(ctx context.Context) error {
 	}
 	if err := manager.removeMarkedAndClose(ctx, excludeWebFromClose); err != nil {
 		allErrs = multierr.Combine(allErrs, err)
-	}
-
-	// moduleManager may be nil in tests, and must be closed last, after resources within have been closed properly above
-	if manager.moduleManager != nil {
-		if err := manager.moduleManager.Close(ctx); err != nil {
-			allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error closing module manager"))
-		}
 	}
 
 	return allErrs
@@ -520,6 +501,30 @@ func (manager *resourceManager) completeConfig(
 			manager.logger.Errorw(err.Error(), "resource", resName)
 		}
 	}
+	for _, rName := range manager.resources.Names() {
+		gNode, ok := manager.resources.Node(rName)
+		if !ok {
+			panic("race condition TODO(pre-merge)")
+		}
+
+		nc := gNode.Config()
+		if reg, ok := resource.LookupRegistration(nc.API, nc.Model); ok && reg.AttributeMapConverter != nil {
+			converted, err := reg.AttributeMapConverter(nc.Attributes)
+			if err != nil {
+				panic("TODO(pre-merge) damn")
+			}
+			nc.ConvertedAttributes = converted
+		}
+
+		implicitDeps, err := nc.Validate(rName.Name, "")
+		if err != nil {
+			manager.logger.Errorf("config validation error found in resource: %v, %v", rName.Name, err)
+			continue
+		}
+		nc.ImplicitDependsOn = implicitDeps
+		gNode.SetNewConfig(nc, nc.Dependencies())
+
+	}
 
 	// now resolve prior to sorting in case there's anything newly discovered
 	if err := manager.resources.ResolveDependencies(manager.logger); err != nil {
@@ -544,7 +549,7 @@ func (manager *resourceManager) completeConfig(
 			if !ok || !gNode.NeedsReconfigure() {
 				return
 			}
-			if !(resName.API.IsComponent() || resName.API.IsService()) {
+			if !(resName.API.IsComponent() || resName.API.IsService() || resName.API == config.ModuleAPI) {
 				return
 			}
 			var verb string
@@ -562,43 +567,29 @@ func (manager *resourceManager) completeConfig(
 				gNode.SetLastError(errors.Wrap(err, "config validation error found in resource: "+conf.ResourceName().String()))
 				return
 			}
-			if manager.moduleManager.Provides(conf) {
-				if _, err := manager.moduleManager.ValidateConfig(ctxWithTimeout, conf); err != nil {
-					manager.logger.Errorw("modular resource config validation error", "resource", conf.ResourceName(), "model", conf.Model, "error", err)
-					gNode.SetLastError(errors.Wrap(err, "config validation error found in modular resource: "+conf.ResourceName().String()))
-					return
+
+			newRes, newlyBuilt, err := manager.processResource(ctxWithTimeout, conf, gNode, robot)
+			if newlyBuilt || err != nil {
+				if err := manager.markChildrenForUpdate(resName); err != nil {
+					manager.logger.Errorw(
+						"failed to mark children of resource for update",
+						"resource", resName,
+						"reason", err)
 				}
 			}
-
-			switch {
-			case resName.API.IsComponent(), resName.API.IsService():
-				newRes, newlyBuilt, err := manager.processResource(ctxWithTimeout, conf, gNode, robot)
-				if newlyBuilt || err != nil {
-					if err := manager.markChildrenForUpdate(resName); err != nil {
-						manager.logger.Errorw(
-							"failed to mark children of resource for update",
-							"resource", resName,
-							"reason", err)
-					}
-				}
-				if err != nil {
-					manager.logger.Errorw("error building resource", "resource", conf.ResourceName(), "model", conf.Model, "error", err)
-					gNode.SetLastError(errors.Wrap(err, "resource build error"))
-					return
-				}
-				// if the ctxWithTimeout has an error then that means we've timed out. This means
-				// that resource generation is running async, and we don't currently have good
-				// validation around how this might affect the resource graph. So, we avoid updating
-				// the graph to be safe.
-				if ctxWithTimeout.Err() != nil {
-					manager.logger.Errorw("error building resource", "resource", conf.ResourceName(), "model", conf.Model, "error", ctxWithTimeout.Err())
-				} else {
-					gNode.SwapResource(newRes, conf.Model)
-				}
-			default:
-				err := errors.New("config is not for a component or service")
-				manager.logger.Errorw(err.Error(), "resource", resName)
-				gNode.SetLastError(err)
+			if err != nil {
+				manager.logger.Errorw("error building resource", "resource", conf.ResourceName(), "model", conf.Model, "error", err)
+				gNode.SetLastError(errors.Wrap(err, "resource build error"))
+				return
+			}
+			// if the ctxWithTimeout has an error then that means we've timed out. This means
+			// that resource generation is running async, and we don't currently have good
+			// validation around how this might affect the resource graph. So, we avoid updating
+			// the graph to be safe.
+			if ctxWithTimeout.Err() != nil {
+				manager.logger.Errorw("error building resource", "resource", conf.ResourceName(), "model", conf.Model, "error", ctxWithTimeout.Err())
+			} else {
+				gNode.SwapResource(newRes, conf.Model)
 			}
 		})
 		select {
@@ -764,15 +755,7 @@ func (manager *resourceManager) processResource(
 		return nil, false, multierr.Combine(err, manager.closeResource(ctx, currentRes))
 	}
 
-	isModular := manager.moduleManager.Provides(conf)
 	if gNode.ResourceModel() == conf.Model {
-		if isModular {
-			if err := manager.moduleManager.ReconfigureResource(ctx, conf, modmanager.DepsToNames(deps)); err != nil {
-				return nil, false, err
-			}
-			return currentRes, false, nil
-		}
-
 		err = currentRes.Reconfigure(ctx, deps, conf)
 		if err == nil {
 			return currentRes, false, nil
@@ -817,6 +800,11 @@ func (manager *resourceManager) markResourceForUpdate(name resource.Name, conf r
 	return nil
 }
 
+func (manager *resourceManager) linkModulesViaImplicitDeps(ctx context.Context, conf *config.Diff) {
+	// TODO(pre-merge) use the providedBy field on the config to somehow link a modular resource in the graph and the module
+	//
+}
+
 // updateResources will use the difference between the current config
 // and next one to create resource nodes with configs that completeConfig will later on use.
 // Ideally at the end of this function we should have a complete graph representation of the configuration
@@ -829,6 +817,13 @@ func (manager *resourceManager) updateResources(
 	manager.configLock.Lock()
 	defer manager.configLock.Unlock()
 	var allErrs error
+	for _, m := range conf.Added.Modules {
+		modmanager.RegisterModule(ctx, m, manager.moduleParentAddress, manager.logger)
+	}
+	for _, m := range conf.Added.Modules {
+		mResource := m.AsResource()
+		allErrs = multierr.Combine(allErrs, manager.markResourceForUpdate(mResource.ResourceName(), *mResource, mResource.Dependencies()))
+	}
 
 	for _, s := range conf.Added.Services {
 		rName := s.ResourceName()
@@ -917,35 +912,6 @@ func (manager *resourceManager) updateResources(
 		manager.processConfigs[p.ID] = p
 	}
 
-	// modules are not added into the resource tree as they belong to the module manager
-	for _, mod := range conf.Added.Modules {
-		// this is done in config validation but partial start rules require us to check again
-		if err := mod.Validate(""); err != nil {
-			manager.logger.Errorw("module config validation error; skipping", "module", mod.Name, "error", err)
-			continue
-		}
-		if err := manager.moduleManager.Add(ctx, mod); err != nil {
-			manager.logger.Errorw("error adding module", "module", mod.Name, "error", err)
-			continue
-		}
-	}
-	for _, mod := range conf.Modified.Modules {
-		// this is done in config validation but partial start rules require us to check again
-		if err := mod.Validate(""); err != nil {
-			manager.logger.Errorw("module config validation error; skipping", "module", mod.Name, "error", err)
-			continue
-		}
-		orphanedResourceNames, err := manager.moduleManager.Reconfigure(ctx, mod)
-		if err != nil {
-			manager.logger.Errorw("error reconfiguring module", "module", mod.Name, "error", err)
-		}
-		for _, resToClose := range manager.markResourcesRemoved(orphanedResourceNames, nil) {
-			if err := resToClose.Close(ctx); err != nil {
-				manager.logger.Errorw("error closing now orphaned resource", "resource",
-					resToClose.Name().String(), "module", mod.Name, "error", err)
-			}
-		}
-	}
 	return allErrs
 }
 
@@ -1013,11 +979,7 @@ func (manager *resourceManager) markRemoved(
 
 	var resourcesToMark []resource.Name
 	for _, conf := range conf.Modules {
-		orphanedResourceNames, err := manager.moduleManager.Remove(conf.Name)
-		if err != nil {
-			manager.logger.Errorw("error removing module", "module", conf.Name, "error", err)
-		}
-		resourcesToMark = append(resourcesToMark, orphanedResourceNames...)
+		resourcesToMark = append(resourcesToMark, conf.AsResource().ResourceName())
 	}
 
 	for _, conf := range conf.Remotes {
@@ -1084,7 +1046,7 @@ func (manager *resourceManager) removeOrphanedResources(ctx context.Context,
 }
 
 // createConfig will create a config.Config based on the current state of the
-// resource graph, processManager and moduleManager. The created config will
+// resource graph, and processManager. The created config will
 // possibly contain default services registered by the RDK and not specified by
 // the user in their config.
 func (manager *resourceManager) createConfig() *config.Config {
@@ -1115,6 +1077,16 @@ func (manager *resourceManager) createConfig() *config.Config {
 			}
 
 			conf.Remotes = append(conf.Remotes, *remoteConf)
+		} else if resName.API == config.ModuleAPI {
+			moduleConf, err := rutils.AssertType[*config.Module](resConf.ConvertedAttributes)
+			if err != nil {
+				manager.logger.Errorw("error getting module config",
+					"module", resName.String(),
+					"error", err)
+				continue
+			}
+
+			conf.Modules = append(conf.Modules, *moduleConf)
 		} else if resName.API.IsComponent() {
 			conf.Components = append(conf.Components, resConf)
 		} else if resName.API.IsService() &&
@@ -1123,7 +1095,6 @@ func (manager *resourceManager) createConfig() *config.Config {
 		}
 	}
 
-	conf.Modules = append(conf.Modules, manager.moduleManager.Configs()...)
 	for _, processConf := range manager.processConfigs {
 		conf.Processes = append(conf.Processes, processConf)
 	}
