@@ -460,7 +460,7 @@ func TestModuleReloading(t *testing.T) {
 		// Assert that RemoveOrphanedResources was called once.
 		test.That(t, dummyRemoveOrphanedResourcesCallCount.Load(), test.ShouldEqual, 1)
 	})
-	t.Run("immediate crash is not restarted", func(t *testing.T) {
+	t.Run("timed out module process is stopped", func(t *testing.T) {
 		logger, logs := golog.NewObservedTestLogger(t)
 
 		modCfg.ExePath = rutils.ResolveFile("module/testmodule/fakemodule.sh")
@@ -494,24 +494,17 @@ func TestModuleReloading(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring,
 			"timed out waiting for module test-module to start listening")
 
-		// Assert that manager removes module after immediate crash.
-		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			test.That(tb, len(mgr.Configs()), test.ShouldEqual, 0)
-		})
+		// Assert that number of "fakemodule is running" messages does not increase
+		// over time (the process was stopped).
+		msgNum := logs.FilterMessageSnippet("fakemodule is running").Len()
+		time.Sleep(100 * time.Millisecond)
+		test.That(t, logs.FilterMessageSnippet("fakemodule is running").Len(), test.ShouldEqual, msgNum)
+
+		// Assert that manager removes module.
+		test.That(t, len(mgr.Configs()), test.ShouldEqual, 0)
 
 		err = mgr.Close(ctx)
 		test.That(t, err, test.ShouldBeNil)
-
-		// Assert that logs reflect that fakemodule exited without responding to a
-		// ready request, and the manager did not try to nor succeed in restarting
-		// it.
-		test.That(t, logs.FilterMessageSnippet(
-			"module has unexpectedly exited without responding to a ready request").Len(),
-			test.ShouldEqual, 1)
-		test.That(t, logs.FilterMessageSnippet("attempting to restart it").Len(),
-			test.ShouldEqual, 0)
-		test.That(t, logs.FilterMessageSnippet("module successfully restarted").Len(),
-			test.ShouldEqual, 0)
 	})
 }
 

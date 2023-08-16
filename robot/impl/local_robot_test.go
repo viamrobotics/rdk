@@ -3181,15 +3181,13 @@ func TestCrashedModuleReconfigure(t *testing.T) {
 	_, err = r.ResourceByName(generic.Named("h"))
 	test.That(t, err, test.ShouldBeNil)
 
-	// Reconfigure module to a module that immediately crashes. Assert that "h"
-	// is removed and the manager did not attempt to restart the crashed module.
+	// Reconfigure module to a malformed module (does not start listening).
+	// Assert that "h" is removed after reconfiguration error.
 	cfg.Modules[0].ExePath = rutils.ResolveFile("module/testmodule/fakemodule.sh")
 	r.Reconfigure(ctx, cfg)
 
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		test.That(tb, logs.FilterMessageSnippet(
-			"module has unexpectedly exited without responding to a ready request").Len(),
-			test.ShouldEqual, 1)
+		test.That(t, logs.FilterMessage("error reconfiguring module").Len(), test.ShouldEqual, 1)
 	})
 
 	_, err = r.ResourceByName(generic.Named("h"))
