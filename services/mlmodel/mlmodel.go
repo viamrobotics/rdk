@@ -37,8 +37,11 @@ type Service interface {
 // model or the result coming from the model.
 type Tensors map[string]*tensor.Dense
 
-func (ts Tensors) toProto() (*servicepb.FlatTensors, error) {
-	pbts := &servicepb.FlatTensors{}
+// ToProto turns the Tensors map into a protobuf message of FlatTensors
+func (ts Tensors) ToProto() (*servicepb.FlatTensors, error) {
+	pbts := &servicepb.FlatTensors{
+		Tensors: make(map[string]*servicepb.FlatTensor),
+	}
 	for name, t := range ts {
 		tp, err := tensorToProto(t)
 		if err != nil {

@@ -49,7 +49,7 @@ func (c *client) Infer(ctx context.Context, tensors Tensors, input map[string]in
 	if err != nil {
 		return nil, nil, err
 	}
-	tensorProto, err := tensors.toProto()
+	tensorProto, err := tensors.ToProto()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -70,6 +70,9 @@ func (c *client) Infer(ctx context.Context, tensors Tensors, input map[string]in
 
 // protoToTensors takes pb.FlatTensors and turns it into a Tensors map.
 func protoToTensors(pbft *pb.FlatTensors) (Tensors, error) {
+	if pbft == nil {
+		return nil, errors.New("protobuf FlatTensors is nil")
+	}
 	tensors := Tensors{}
 	for name, ftproto := range pbft.Tensors {
 		t, err := createNewTensor(ftproto)

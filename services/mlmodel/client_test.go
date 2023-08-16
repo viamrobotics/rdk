@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
-	"github.com/mitchellh/mapstructure"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 	"gorgonia.org/tensor"
@@ -62,24 +61,28 @@ func TestClient(t *testing.T) {
 		client, err := mlmodel.NewClientFromConn(context.Background(), conn, "", mlmodel.Named(testMLModelServiceName), logger)
 		test.That(t, err, test.ShouldBeNil)
 		// Infer Command
-		_, result, err := client.Infer(context.Background(), inputTensors, nil)
+		result, _, err := client.Infer(context.Background(), inputTensors, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(result), test.ShouldEqual, 4)
-		// decode the map[string]interface{} into a struct
-		temp := struct {
-			NDetections      []int32       `mapstructure:"n_detections"`
-			ConfidenceScores [][]float32   `mapstructure:"confidence_scores"`
-			Labels           [][]int32     `mapstructure:"labels"`
-			Locations        [][][]float32 `mapstructure:"locations"`
-		}{}
-		err = mapstructure.Decode(result, &temp)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, temp.NDetections[0], test.ShouldEqual, 3)
-		test.That(t, len(temp.ConfidenceScores[0]), test.ShouldEqual, 3)
-		test.That(t, len(temp.Labels[0]), test.ShouldEqual, 3)
-		test.That(t, temp.Locations[0][0], test.ShouldResemble, []float32{0.1, 0.4, 0.22, 0.4})
+		detections, err := result["n_detections"].At(0)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, detections, test.ShouldEqual, 3)
+		confidenceScores, err := result["confidence_scores"].Slice(tensor.S(0, 1), nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, confidenceScores.Size(), test.ShouldEqual, 3)
+		labels, err := result["labels"].Slice(tensor.S(0, 1), nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, labels.Size(), test.ShouldEqual, 3)
+		location0, err := result["locations"].At(0, 0, 0)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, location0, test.ShouldEqual, 0.1)
+		locations, err := result["locations"].Slice(tensor.S(0, 1), tensor.S(0, 1), nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, locations.Size(), test.ShouldEqual, 4)
+		test.That(t, locations.Data().([]float32), test.ShouldResemble, []float32{0.1, 0.4, 0.22, 0.4})
 		// nil data should work too
-		_, result, err = client.Infer(context.Background(), nil, nil)
+		result, _, err = client.Infer(context.Background(), nil, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(result), test.ShouldEqual, 4)
 		// Metadata Command
