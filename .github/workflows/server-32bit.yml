@@ -19,8 +19,10 @@ jobs:
       with:
         file: etc/packaging/32bit/Dockerfile
         tags: ghcr.io/viamrobotics/viam-server:armv7
-        pull: true # todo: this seems to not be working -- read buildjet + docker caching docs
+        pull: true
         push: true
+        cache-from: type=registry,ref=ghcr.io/viamrobotics/viam-server:buildcache
+        cache-to: type=registry,ref=ghcr.io/viamrobotics/viam-server:buildcache
         platforms: linux/armv7
   build:
     needs: [docker]
@@ -38,5 +40,5 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
     - name: build
       run: |
-        docker run --platform linux/armv7 --rm -v ./:/rdk ghcr.io/viamrobotics/viam-server:armv7 go build -v -tags no_pigpio,no_tflite ./web/cmd/server
+        docker run --platform linux/armv7 --rm -v $PWD/:/rdk ghcr.io/viamrobotics/viam-server:armv7 go build -v -tags no_pigpio,no_tflite ./web/cmd/server
         file server
