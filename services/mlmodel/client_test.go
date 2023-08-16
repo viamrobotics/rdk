@@ -9,6 +9,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
+	"gorgonia.org/tensor"
 
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/resource"
@@ -40,9 +41,8 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, svc), test.ShouldBeNil)
-	inputData := map[string]interface{}{
-		"image": []uint8{10, 10, 255, 0, 0, 255, 255, 0, 100},
-	}
+	inputTensors := mlmodel.Tensors{}
+	inputTensors["image"] = tensor.New(tensor.WithShape(3, 3), tensor.WithBacking([]uint8{10, 10, 255, 0, 0, 255, 255, 0, 100}))
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()
 
@@ -62,7 +62,7 @@ func TestClient(t *testing.T) {
 		client, err := mlmodel.NewClientFromConn(context.Background(), conn, "", mlmodel.Named(testMLModelServiceName), logger)
 		test.That(t, err, test.ShouldBeNil)
 		// Infer Command
-		_, result, err := client.Infer(context.Background(), nil, inputData)
+		_, result, err := client.Infer(context.Background(), inputTensors, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(result), test.ShouldEqual, 4)
 		// decode the map[string]interface{} into a struct

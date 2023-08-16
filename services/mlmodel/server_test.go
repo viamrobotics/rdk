@@ -9,6 +9,7 @@ import (
 	pb "go.viam.com/api/service/mlmodel/v1"
 	"go.viam.com/test"
 	vprotoutils "go.viam.com/utils/protoutils"
+	"gorgonia.org/tensor"
 
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/mlmodel"
@@ -119,16 +120,24 @@ var injectedMetadataFunc = func(ctx context.Context) (mlmodel.MLMetadata, error)
 
 var injectedInferFunc = func(ctx context.Context, tensors mlmodel.Tensors, input map[string]interface{}) (mlmodel.Tensors, map[string]interface{}, error) {
 	// this is a possible form of what a detection tensor with 3 detection in 1 image would look like
-	outputMap := make(map[string]interface{})
-	outputMap["n_detections"] = []int32{3}
-	outputMap["confidence_scores"] = [][]float32{{0.9084375, 0.7359375, 0.33984375}}
-	outputMap["labels"] = [][]int32{{0, 0, 4}}
-	outputMap["locations"] = [][][]float32{{
-		{0.1, 0.4, 0.22, 0.4},
-		{0.02, 0.22, 0.77, 0.90},
-		{0.40, 0.50, 0.40, 0.50},
-	}}
-	return nil, outputMap, nil
+	outputMap := mlmodel.Tensors{}
+	outputMap["n_detections"] = tensor.New(
+		tensor.WithShape(1),
+		tensor.WithBacking([]int32{3}),
+	)
+	outputMap["confidence_scores"] = tensor.New(
+		tensor.WithShape(1, 3),
+		tensor.WithBacking([]float32{0.9084375, 0.7359375, 0.33984375}),
+	)
+	outputMap["labels"] = tensor.New(
+		tensor.WithShape(1, 3),
+		tensor.WithBacking([]int32{0, 0, 4}),
+	)
+	outputMap["locations"] = tensor.New(
+		tensor.WithShape(1, 3, 4),
+		tensor.WithBacking([]float32{0.1, 0.4, 0.22, 0.4, 0.02, 0.22, 0.77, 0.90, 0.40, 0.50, 0.40, 0.50}),
+	)
+	return outputMap, nil, nil
 }
 
 func TestServerInfer(t *testing.T) {
