@@ -15,4 +15,4 @@ RUN sudo ./bullseye-2.sh
 COPY ./ rdk/
 WORKDIR rdk
 USER root
-RUN go build -v ./web/cmd/server
+# RUN go build -v ./web/cmd/server
