@@ -42,3 +42,24 @@ jobs:
       run: |
         docker run --platform linux/armv7 --rm -v $PWD/:/rdk ghcr.io/viamrobotics/viam-server:armv7 sh -c "git config --global --add safe.directory '*' && go build -v -tags no_pigpio,no_tflite ./web/cmd/server"
         file server
+    - uses: actions/upload-artifact@v3
+      with:
+        path: server
+  upload:
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/download-artifact@v3
+      with:
+        name: server
+    - name: Authorize GCP Upload
+      uses: google-github-actions/auth@v1
+      with:
+        credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
+    - name: upload
+      uses: google-github-actions/upload-cloud-storage@v0.10.4
+      with:
+        headers: "cache-control: no-cache"
+        path: server
+        destination: 'packages.viam.com/apps/viam-server/viam-server-latest-armv7l'
+        parent: false
