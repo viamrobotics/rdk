@@ -246,7 +246,6 @@ func (ms *builtIn) MoveOnGlobe(
 
 	// Shared variables for planning and execution threads, are all guarded with a mutex
 	var planMu sync.Mutex
-	var moveCtx context.Context
 	var currentPlan [][]referenceframe.Input = nil
 
 	// Shared variable between threads that can trigger replanning and planning thread
@@ -257,12 +256,11 @@ func (ms *builtIn) MoveOnGlobe(
 	successFlag.Store(false)
 	errChan := make(chan error)
 
+	cancelCtx, cancelFn := context.WithCancel(context.Background())
+	ms.cancelFn = cancelFn
+
 	ms.backgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
-
-		// maybe move this into the restart tickers function
-		cancelCtx, cancelFn := context.WithCancel(context.Background())
-		ms.cancelFn = cancelFn
 
 		positionPollingTicker := time.NewTicker(time.Duration(1000/motionCfg.PositionPollingFreqHz) * time.Millisecond)
 		obstaclePollingTicker := time.NewTicker(time.Duration(1000/motionCfg.ObstaclePollingFreqHz) * time.Millisecond)
@@ -335,7 +333,7 @@ func (ms *builtIn) MoveOnGlobe(
 	for !successFlag.Load() {
 		for i := 1; len(currentPlan) > 1; {
 			ms.logger.Info(currentPlan[i])
-			if err := kinematicBase.GoToInputs(moveCtx, currentPlan[i]); err != nil {
+			if err := kinematicBase.GoToInputs(cancelCtx, currentPlan[i]); err != nil {
 				return false, err
 			}
 			planMu.Lock()
