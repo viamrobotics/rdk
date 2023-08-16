@@ -11,6 +11,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
+	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/motionplan/tpspace"
@@ -238,7 +239,7 @@ func (mp *tpSpaceRRTMotionPlanner) planRunner(
 
 		seedMapNode := seedMapReached.node
 		goalMapNode := goalMapReached.node
-		err := errors.Join(seedMapReached.error, goalMapReached.error)
+		err := multierr.Combine(seedMapReached.error, goalMapReached.error)
 		if err != nil {
 			rrt.solutionChan <- &rrtPlanReturn{planerr: err, maps: rrt.maps}
 			return
