@@ -38,9 +38,9 @@ jobs:
         registry: ghcr.io
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
-    - name: build
+    - name: test and build
       run: |
-        docker run --platform linux/armv7 --rm -v $PWD/:/rdk ghcr.io/viamrobotics/viam-server:armv7 sh -c "git config --global --add safe.directory '*' && go build -v -tags no_pigpio,no_tflite ./web/cmd/server"
+        docker run --platform linux/armv7 --rm -v $PWD/:/rdk ghcr.io/viamrobotics/viam-server:armv7 sh -c "git config --global --add safe.directory '*' && make test-go && go build -v -tags no_pigpio,no_tflite ./web/cmd/server"
         file server
     - uses: actions/upload-artifact@v3
       with:
