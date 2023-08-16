@@ -114,9 +114,6 @@ func (r *localRobot) PackageManager() packages.Manager {
 
 // Close attempts to cleanly close down all constituent parts of the robot.
 func (r *localRobot) Close(ctx context.Context) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	// we will stop and close web ourselves since modules need it to be
 	// removed properly and in the right order, so grab it before its removed
 	// from the graph/closed automatically.
