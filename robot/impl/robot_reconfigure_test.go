@@ -3607,6 +3607,11 @@ func TestResourceConstructTimeout(t *testing.T) {
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		test.That(tb, timeOutErrorCount(), test.ShouldEqual, 1)
 	})
+
+	rr, ok := r.(*localRobot)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	rr.reconfigureWorkers.Wait()
 }
 
 type mockFake struct {
