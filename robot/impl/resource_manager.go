@@ -534,9 +534,11 @@ func (manager *resourceManager) completeConfig(
 		resName := resName
 		ctxWithTimeout, timeoutCancel := context.WithTimeout(ctx, timeout)
 		defer timeoutCancel()
+		robot.reconfigureWorkers.Add(1)
 		goutils.PanicCapturingGo(func() {
 			defer func() {
 				resChan <- struct{}{}
+				robot.reconfigureWorkers.Done()
 			}()
 			gNode, ok := manager.resources.Node(resName)
 			if !ok || !gNode.NeedsReconfigure() {
