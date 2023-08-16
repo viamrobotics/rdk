@@ -50,8 +50,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/download-artifact@v3
-      with:
-        name: server
     - name: Authorize GCP Upload
       uses: google-github-actions/auth@v1
       with:
