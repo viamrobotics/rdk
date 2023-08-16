@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 
 	"github.com/edaniels/golog"
-	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"periph.io/x/host/v3"
 
@@ -35,18 +34,18 @@ func init() {
 		})
 }
 
-// customLinuxBoard wraps the genericlinux board type so that both can implement their own Reconfigure function.
-type customLinuxBoard struct {
-	*genericlinux.SysfsBoard
-	logger golog.Logger
-}
-
 func createNewBoard(
 	ctx context.Context,
 	_ resource.Dependencies,
 	conf resource.Config,
 	logger golog.Logger,
 ) (board.Board, error) {
+	return genericlinux.NewBoard(ctx, conf, pinDefsFromFile, logger)
+}
+
+// This is a ConfigConverter which loads pin definitions from a file, assuming that the config
+// passed in is a customlinux.Config underneath.
+func pinDefsFromFile(conf resource.Config) (*genericlinux.LinuxBoardConfig, error) {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return nil, err
@@ -62,23 +61,13 @@ func createNewBoard(
 		return nil, err
 	}
 
-	boardConfig := createGenericLinuxConfig(newConf)
-	sysfsB, err := genericlinux.NewSysfsBoard(ctx, conf.ResourceName().AsNamed(), &boardConfig, gpioMappings, logger)
-	if err != nil {
-		return nil, err
-	}
-
-	gb, ok := sysfsB.(*genericlinux.SysfsBoard)
-	// shouldn't happen because customLinuxBoard embeds SysfsBoard
-	if !ok {
-		return nil, errors.New("tried creating SysfsBoard but got non-SysfsBoard result")
-	}
-
-	b := customLinuxBoard{SysfsBoard: gb, logger: logger}
-	if err := b.Reconfigure(ctx, nil, conf); err != nil {
-		return nil, err
-	}
-	return &b, nil
+	return &genericlinux.LinuxBoardConfig{
+		I2Cs:              newConf.I2Cs,
+		SPIs:              newConf.SPIs,
+		Analogs:           newConf.Analogs,
+		DigitalInterrupts: newConf.DigitalInterrupts,
+		GpioMappings:      gpioMappings,
+	}, nil
 }
 
 func parsePinConfig(filePath string) ([]genericlinux.PinDefinition, error) {
@@ -114,22 +103,4 @@ func createGenericLinuxConfig(conf *Config) genericlinux.Config {
 		Analogs:           conf.Analogs,
 		DigitalInterrupts: conf.DigitalInterrupts,
 	}
-}
-
-// Reconfigure reconfigures the board with interrupt pins, spi and i2c, and analogs.
-// WARNING: does not update pin definitions when the config file changes.
-// TODO[RSDK-4092]: implement reconfiguration when pin definitions change.
-func (b *customLinuxBoard) Reconfigure(
-	ctx context.Context,
-	_ resource.Dependencies,
-	conf resource.Config,
-) error {
-	newConf, err := resource.NativeConfig[*Config](conf)
-	if err != nil {
-		return err
-	}
-
-	boardConfig := createGenericLinuxConfig(newConf)
-
-	return b.ReconfigureParsedConfig(ctx, &boardConfig)
 }

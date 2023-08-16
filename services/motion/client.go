@@ -107,8 +107,7 @@ func (c *client) MoveOnGlobe(
 	heading float64,
 	movementSensorName resource.Name,
 	obstacles []*spatialmath.GeoObstacle,
-	linearVelocity float64,
-	angularVelocity float64,
+	motionCfg *MotionConfiguration,
 	extra map[string]interface{},
 ) (bool, error) {
 	ext, err := vprotoutils.StructToStructPb(extra)
@@ -121,11 +120,12 @@ func (c *client) MoveOnGlobe(
 	}
 
 	req := &pb.MoveOnGlobeRequest{
-		Name:               c.name,
-		ComponentName:      protoutils.ResourceNameToProto(componentName),
-		Destination:        &commonpb.GeoPoint{Latitude: destination.Lat(), Longitude: destination.Lng()},
-		MovementSensorName: protoutils.ResourceNameToProto(movementSensorName),
-		Extra:              ext,
+		Name:                c.name,
+		ComponentName:       protoutils.ResourceNameToProto(componentName),
+		Destination:         &commonpb.GeoPoint{Latitude: destination.Lat(), Longitude: destination.Lng()},
+		MovementSensorName:  protoutils.ResourceNameToProto(movementSensorName),
+		MotionConfiguration: &pb.MotionConfiguration{},
+		Extra:               ext,
 	}
 
 	// Optionals
@@ -139,13 +139,29 @@ func (c *client) MoveOnGlobe(
 		}
 		req.Obstacles = obstaclesProto
 	}
-	reqLinear := float32(linearVelocity)
-	if !math.IsNaN(linearVelocity) {
-		req.LinearMetersPerSec = &reqLinear
+
+	if !math.IsNaN(motionCfg.LinearMPerSec) && motionCfg.LinearMPerSec != 0 {
+		req.MotionConfiguration.LinearMPerSec = &motionCfg.LinearMPerSec
 	}
-	reqAngular := float32(angularVelocity)
-	if !math.IsNaN(angularVelocity) {
-		req.AngularDegPerSec = &reqAngular
+	if !math.IsNaN(motionCfg.AngularDegsPerSec) && motionCfg.AngularDegsPerSec != 0 {
+		req.MotionConfiguration.AngularDegsPerSec = &motionCfg.AngularDegsPerSec
+	}
+	if !math.IsNaN(motionCfg.ObstaclePollingFreqHz) && motionCfg.ObstaclePollingFreqHz > 0 {
+		req.MotionConfiguration.ObstaclePollingFrequencyHz = &motionCfg.ObstaclePollingFreqHz
+	}
+	if !math.IsNaN(motionCfg.PositionPollingFreqHz) && motionCfg.PositionPollingFreqHz > 0 {
+		req.MotionConfiguration.PositionPollingFrequencyHz = &motionCfg.PositionPollingFreqHz
+	}
+	if !math.IsNaN(motionCfg.PlanDeviationM) && motionCfg.PlanDeviationM >= 0 {
+		req.MotionConfiguration.PlanDeviationM = &motionCfg.PlanDeviationM
+	}
+
+	if len(motionCfg.VisionSvc) > 0 {
+		svcs := []*commonpb.ResourceName{}
+		for _, name := range motionCfg.VisionSvc {
+			svcs = append(svcs, protoutils.ResourceNameToProto(name))
+		}
+		req.MotionConfiguration.VisionServices = svcs
 	}
 
 	resp, err := c.client.MoveOnGlobe(ctx, req)
@@ -153,34 +169,6 @@ func (c *client) MoveOnGlobe(
 		return false, err
 	}
 
-	return resp.Success, nil
-}
-
-func (c *client) MoveSingleComponent(
-	ctx context.Context,
-	componentName resource.Name,
-	destination *referenceframe.PoseInFrame,
-	worldState *referenceframe.WorldState,
-	extra map[string]interface{},
-) (bool, error) {
-	ext, err := vprotoutils.StructToStructPb(extra)
-	if err != nil {
-		return false, err
-	}
-	worldStateMsg, err := worldState.ToProtobuf()
-	if err != nil {
-		return false, err
-	}
-	resp, err := c.client.MoveSingleComponent(ctx, &pb.MoveSingleComponentRequest{
-		Name:          c.name,
-		ComponentName: protoutils.ResourceNameToProto(componentName),
-		Destination:   referenceframe.PoseInFrameToProtobuf(destination),
-		WorldState:    worldStateMsg,
-		Extra:         ext,
-	})
-	if err != nil {
-		return false, err
-	}
 	return resp.Success, nil
 }
 

@@ -1860,11 +1860,13 @@ func TestConfigPackages(t *testing.T) {
 				Name:    "some-name-1",
 				Package: "package-1",
 				Version: "v1",
+				Type:    "ml_model",
 			},
 			{
 				Name:    "some-name-2",
-				Package: "package-1",
+				Package: "package-2",
 				Version: "v2",
+				Type:    "ml_model",
 			},
 		},
 		Cloud: &config.Cloud{
@@ -1878,11 +1880,11 @@ func TestConfigPackages(t *testing.T) {
 
 	path1, err := r.PackageManager().PackagePath("some-name-1")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, path1, test.ShouldEqual, path.Join(packageDir, "some-name-1"))
+	test.That(t, path1, test.ShouldEqual, path.Join(packageDir, ".data", "ml_model", "package-1-v1"))
 
 	path2, err := r.PackageManager().PackagePath("some-name-2")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, path2, test.ShouldEqual, path.Join(packageDir, "some-name-2"))
+	test.That(t, path2, test.ShouldEqual, path.Join(packageDir, ".data", "ml_model", "package-2-v2"))
 }
 
 func TestConfigPackageReferenceReplacement(t *testing.T) {
@@ -3179,15 +3181,13 @@ func TestCrashedModuleReconfigure(t *testing.T) {
 	_, err = r.ResourceByName(generic.Named("h"))
 	test.That(t, err, test.ShouldBeNil)
 
-	// Reconfigure module to a module that immediately crashes. Assert that "h"
-	// is removed and the manager did not attempt to restart the crashed module.
+	// Reconfigure module to a malformed module (does not start listening).
+	// Assert that "h" is removed after reconfiguration error.
 	cfg.Modules[0].ExePath = rutils.ResolveFile("module/testmodule/fakemodule.sh")
 	r.Reconfigure(ctx, cfg)
 
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		test.That(tb, logs.FilterMessageSnippet(
-			"module has unexpectedly exited without responding to a ready request").Len(),
-			test.ShouldEqual, 1)
+		test.That(t, logs.FilterMessage("error reconfiguring module").Len(), test.ShouldEqual, 1)
 	})
 
 	_, err = r.ResourceByName(generic.Named("h"))

@@ -19,7 +19,70 @@ import (
 	segment "go.viam.com/rdk/vision/segmentation"
 )
 
-func TestTransformSegmenter(t *testing.T) {
+func TestTransformSegmenterProps(t *testing.T) {
+	r := &inject.Robot{}
+	cam := &inject.Camera{}
+	vizServ := &inject.VisionService{}
+
+	cam.StreamFunc = func(ctx context.Context,
+		errHandlers ...gostream.ErrorHandler,
+	) (gostream.MediaStream[image.Image], error) {
+		return &streamTest{}, nil
+	}
+	cam.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+		return camera.Properties{}, nil
+	}
+
+	r.ResourceByNameFunc = func(n resource.Name) (resource.Resource, error) {
+		switch n.Name {
+		case "fakeCamera":
+			return cam, nil
+		case "fakeVizService":
+			return vizServ, nil
+		default:
+			return nil, resource.NewNotFoundError(n)
+		}
+	}
+
+	transformConf := &transformConfig{
+		Source: "fakeCamera",
+		Pipeline: []Transformation{
+			{
+				Type: "segmentations", Attributes: utils.AttributeMap{
+					"segmenter_name": "fakeVizService",
+				},
+			},
+		},
+	}
+
+	am := transformConf.Pipeline[0].Attributes
+	conf, err := resource.TransformAttributeMap[*segmenterConfig](am)
+	test.That(t, err, test.ShouldBeNil)
+	_, err = conf.Validate("path")
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = newTransformPipeline(context.Background(), cam, transformConf, r)
+	test.That(t, err, test.ShouldBeNil)
+
+	transformConf = &transformConfig{
+		Pipeline: []Transformation{
+			{
+				Type: "segmentations", Attributes: utils.AttributeMap{},
+			},
+		},
+	}
+
+	am = transformConf.Pipeline[0].Attributes
+	conf, err = resource.TransformAttributeMap[*segmenterConfig](am)
+	test.That(t, err, test.ShouldBeNil)
+	_, err = conf.Validate("path")
+	test.That(t, err, test.ShouldNotBeNil)
+}
+
+func TestTransformSegmenterFunctionality(t *testing.T) {
+	// TODO(RSDK-1200): remove skip when complete
+	t.Skip("remove skip once RSDK-1200 improvement is complete")
+
 	r := &inject.Robot{}
 	cam := &inject.Camera{}
 	vizServ := &inject.VisionService{}
@@ -85,12 +148,6 @@ func TestTransformSegmenter(t *testing.T) {
 		},
 	}
 
-	am := transformConf.Pipeline[0].Attributes
-	conf, err := resource.TransformAttributeMap[*segmenterConfig](am)
-	test.That(t, err, test.ShouldBeNil)
-	_, err = conf.Validate("path")
-	test.That(t, err, test.ShouldBeNil)
-
 	pipeline, err := newTransformPipeline(context.Background(), cam, transformConf, r)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -103,18 +160,4 @@ func TestTransformSegmenter(t *testing.T) {
 	test.That(t, isValid, test.ShouldBeTrue)
 	_, isValid = pc.At(0, 1, 0)
 	test.That(t, isValid, test.ShouldBeTrue)
-
-	transformConf = &transformConfig{
-		Pipeline: []Transformation{
-			{
-				Type: "segmentations", Attributes: utils.AttributeMap{},
-			},
-		},
-	}
-
-	am = transformConf.Pipeline[0].Attributes
-	conf, err = resource.TransformAttributeMap[*segmenterConfig](am)
-	test.That(t, err, test.ShouldBeNil)
-	_, err = conf.Validate("path")
-	test.That(t, err, test.ShouldNotBeNil)
 }

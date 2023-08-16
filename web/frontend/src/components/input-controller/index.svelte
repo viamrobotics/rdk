@@ -3,9 +3,11 @@
   import type { inputControllerApi } from '@viamrobotics/sdk';
   import Collapse from '@/lib/components/collapse.svelte';
 
+  // TODO (RSDK-4451): Figure out why value is not always defined
+  type InputControllerEvent = (Omit<inputControllerApi.Event.AsObject, 'value'> & {value?: number});
   export let name: string;
   export let status: {
-    events?: inputControllerApi.Event.AsObject[] | undefined
+    events?: InputControllerEvent[] | undefined
   } = { events: [] };
 
   const controlOrder = [
@@ -35,11 +37,15 @@
   $: connected = events.some(({ event }) => event !== 'Disconnect');
 
   const getValue = (
-    eventsList: inputControllerApi.Event.AsObject[],
+    eventsList: InputControllerEvent[],
     controlMatch: string
   ) => {
     for (const { control, value } of eventsList) {
       if (control === controlMatch) {
+        if (value === undefined) {
+          return '';
+        }
+
         return control.includes('Absolute')
           ? value.toFixed(4)
           : value.toFixed(0);
@@ -49,7 +55,7 @@
     return '';
   };
 
-  $: controls = ((eventsList: inputControllerApi.Event.AsObject[]) => {
+  $: controls = ((eventsList: InputControllerEvent[]) => {
     const pendingControls: [control: string, value: string][] = [];
 
     for (const ctrl of controlOrder) {

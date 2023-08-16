@@ -2,76 +2,28 @@ import * as THREE from 'three';
 import { injectPlugin, useFrame, useRender, useThrelte } from '@threlte/core';
 import { MercatorCoordinate, type LngLat, LngLatBounds } from 'maplibre-gl';
 import { AxesHelper } from 'trzy';
-import { map, cameraMatrix, mapSize, view } from '../stores';
+import { map, cameraMatrix, mapSize } from '../stores';
+import { onDestroy } from 'svelte';
 
 const { clamp } = THREE.MathUtils;
 
-const renderTarget = new THREE.WebGLRenderTarget(0, 0, { format: THREE.RGBAFormat });
-const renderTexture = renderTarget.texture;
-
-const scene = new THREE.Scene();
 const world = new THREE.Group();
+const axes = new AxesHelper(1, 0.1);
+const rotation = new THREE.Euler();
+const rotationMatrix = new THREE.Matrix4();
+const scale = new THREE.Vector3();
+
 // Viam's coordinate system.
 world.rotateY(-Math.PI / 2);
 world.rotateX(-Math.PI / 2);
 world.rotateZ(Math.PI / 2);
-
-scene.add(world);
-const ambient = new THREE.AmbientLight();
-const dir = new THREE.DirectionalLight();
-dir.intensity = 1.5;
-world.add(ambient);
-
-if (localStorage.getItem('debug_axes_helper')) {
-  world.add(new AxesHelper({ size: 1000 }));
-}
-
-view.subscribe((value) => {
-  if (value === '2D') {
-    ambient.intensity = 3.5;
-    world.remove(dir);
-  } else {
-    ambient.intensity = 2.5;
-    world.add(dir);
-  }
-});
-
-const material = new THREE.ShaderMaterial({
-  transparent: true,
-  uniforms: { tex: { value: renderTexture } },
-  vertexShader: `
-varying vec2 vUv;
-void main(){ vUv = uv; gl_Position = vec4(position,1.);}
-  `,
-  fragmentShader: `
-uniform sampler2D tex; 
-varying vec2 vUv;
-void main(){ gl_FragColor = texture2D(tex, vUv); }`,
-});
-
-const quad = new THREE.Mesh(
-  new THREE.PlaneGeometry(2, 2),
-  material
-);
-
-const vecPositiveX = new THREE.Vector3(1, 0, 0);
-const vecPositiveY = new THREE.Vector3(0, 1, 0);
-const vecPositiveZ = new THREE.Vector3(0, 0, 1);
-const rotation = new THREE.Euler();
-
-const rotationX = new THREE.Matrix4();
-const rotationY = new THREE.Matrix4();
-const rotationZ = new THREE.Matrix4();
-const scale = new THREE.Vector3();
-
-const scenes: {
-  ref: THREE.Object3D
-  camera: THREE.PerspectiveCamera
-}[] = [];
+world.add(axes);
 
 let initialized = false;
+let counter = 0;
 let cursor = 0;
 
+const scenes: { ref: THREE.Mesh; matrix: THREE.Matrix4 }[] = [];
 const objects: { id: number, start: () => void; stop: () => void; lngLat: LngLat }[] = [];
 
 const setFrameloops = () => {
@@ -98,42 +50,43 @@ const setFrameloops = () => {
 };
 
 const initialize = () => {
-  map.current?.on('move', setFrameloops);
+  initialized = true;
+
+  map.current!.on('move', setFrameloops);
   setFrameloops();
 
-  mapSize.subscribe(({ width, height }) => {
-    const dpi = window.devicePixelRatio;
-    renderTarget.setSize(width * dpi, height * dpi);
-  });
+  const { renderer, scene, camera } = useThrelte();
 
-  const { renderer } = useThrelte();
+  renderer.autoClear = false;
 
-  useRender((ctx) => {
-    renderer!.resetState();
-    renderer!.setRenderTarget(renderTarget);
-    renderer!.clear();
+  scene.add(world);
 
-    scenes.forEach(({ ref, camera }) => {
+  useRender(() => {
+    renderer.clear();
+
+    scenes.forEach(({ ref, matrix }) => {
+      camera.current.projectionMatrix = matrix;
+      axes.length = (ref.geometry.boundingSphere?.radius ?? 0) * 2;
+
       world.add(ref);
-      renderer!.render(scene, camera);
+      renderer.render(scene, camera.current);
       world.remove(ref);
     });
-
-    renderer!.setRenderTarget(null);
-    renderer!.render(quad, ctx.camera.current);
   });
 
-  initialized = true;
+  const unsub = mapSize.subscribe((value) => {
+    renderer.setSize(value.width, value.height);
+  });
+
+  onDestroy(() => unsub());
 };
 
-const deregister = (id: number) => {
-  objects.splice(objects.findIndex((object) => object.id === id), 1);
-};
+const deinitialize = () => {
+  initialized = false;
 
-const register = (lngLat: LngLat, start: () => void, stop: () => void) => {
-  cursor += 1;
-  objects.push({ id: cursor, lngLat, start, stop });
-  return cursor;
+  map.current!.off('move', setFrameloops);
+  scenes.splice(0, scenes.length);
+  objects.splice(0, objects.length);
 };
 
 export interface Props {
@@ -142,10 +95,10 @@ export interface Props {
 }
 
 export const renderPlugin = () => injectPlugin<Props>('lnglat', ({ ref, props }) => {
-  let currentRef = ref;
+  let currentRef: THREE.Mesh = ref;
   let currentProps = props;
 
-  if (!(currentRef instanceof THREE.Object3D) || currentProps.lnglat === undefined) {
+  if (!(currentRef instanceof THREE.Mesh) || currentProps.lnglat === undefined) {
     return;
   }
 
@@ -153,11 +106,11 @@ export const renderPlugin = () => injectPlugin<Props>('lnglat', ({ ref, props })
     initialize();
   }
 
-  const camera = new THREE.PerspectiveCamera();
-  const sceneObj = { ref, camera };
-  scenes.push(sceneObj);
-
+  const matrix = new THREE.Matrix4();
   const modelMatrix = new THREE.Matrix4();
+
+  const sceneObj = { ref, matrix };
+  scenes.push(sceneObj);
 
   const updateModelMatrix = (lngLat: LngLat, altitude?: number) => {
     const mercator = MercatorCoordinate.fromLngLat(lngLat, altitude);
@@ -167,35 +120,52 @@ export const renderPlugin = () => injectPlugin<Props>('lnglat', ({ ref, props })
     rotation.copy(currentRef.rotation);
     rotation.x += Math.PI / 2;
 
-    rotationX.makeRotationAxis(vecPositiveX, rotation.x);
-    rotationY.makeRotationAxis(vecPositiveY, rotation.y);
-    rotationZ.makeRotationAxis(vecPositiveZ, rotation.z);
+    rotationMatrix.makeRotationFromEuler(rotation);
 
     modelMatrix
       .makeTranslation(mercator.x, mercator.y, mercator.z)
       .scale(scale)
-      .multiply(rotationX)
-      .multiply(rotationY)
-      .multiply(rotationZ);
+      .multiply(rotationMatrix);
   };
 
   updateModelMatrix(currentProps.lnglat);
 
   const { start, stop } = useFrame(() => {
-    camera.projectionMatrix.copy(cameraMatrix).multiply(modelMatrix);
+    matrix.copy(cameraMatrix).multiply(modelMatrix);
   }, { order: 1 });
 
-  const id = register(currentProps.lnglat, start, stop);
+  const { scene } = useThrelte();
+
+  currentRef.matrixAutoUpdate = false;
+  currentRef.matrixWorldAutoUpdate = false;
+
+  scene.remove(currentRef);
+
+  cursor += 1;
+  counter += 1;
+
+  objects.push({ id: cursor, lngLat: currentProps.lnglat, start, stop });
+
+  const id = cursor;
+
+  onDestroy(() => {
+    stop();
+    objects.splice(objects.findIndex((object) => object.id === id), 1);
+    scenes.splice(scenes.indexOf(sceneObj), 1);
+    counter -= 1;
+    if (counter === 0) {
+      deinitialize();
+    }
+  });
 
   return {
-    onRefChange (nextRef) {
+    onRefChange (nextRef: THREE.Mesh) {
       currentRef = nextRef;
       sceneObj.ref = nextRef;
 
-      return () => {
-        deregister(id);
-        stop();
-      };
+      if (currentProps.lnglat) {
+        updateModelMatrix(currentProps.lnglat, currentProps.altitude);
+      }
     },
     onPropsChange (nextProps) {
       currentProps = nextProps;

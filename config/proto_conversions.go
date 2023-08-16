@@ -7,6 +7,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
+	packagespb "go.viam.com/api/app/packages/v1"
 	pb "go.viam.com/api/app/v1"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/protoutils"
@@ -179,14 +180,20 @@ func ServiceConfigToProto(conf *resource.Config) (*pb.ServiceConfig, error) {
 		return nil, err
 	}
 
+	serviceConfigs, err := mapSliceWithErrors(conf.AssociatedResourceConfigs, AssociatedResourceConfigToProto)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to convert service configs")
+	}
+
 	protoConf := pb.ServiceConfig{
-		Name:       conf.Name,
-		Namespace:  string(conf.API.Type.Namespace),
-		Type:       conf.API.SubtypeName,
-		Api:        conf.API.String(),
-		Model:      conf.Model.String(),
-		Attributes: attributes,
-		DependsOn:  conf.DependsOn,
+		Name:           conf.Name,
+		Namespace:      string(conf.API.Type.Namespace),
+		Type:           conf.API.SubtypeName,
+		Api:            conf.API.String(),
+		Model:          conf.Model.String(),
+		Attributes:     attributes,
+		DependsOn:      conf.DependsOn,
+		ServiceConfigs: serviceConfigs,
 	}
 
 	return &protoConf, nil
@@ -200,6 +207,11 @@ func ServiceConfigFromProto(protoConf *pb.ServiceConfig) (*resource.Config, erro
 		attrs = nil
 	}
 
+	serviceConfigs, err := mapSliceWithErrors(protoConf.ServiceConfigs, AssociatedResourceConfigFromProto)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to convert service configs")
+	}
+
 	api, err := resource.NewAPIFromString(protoConf.GetApi())
 	if err != nil {
 		return nil, err
@@ -211,11 +223,12 @@ func ServiceConfigFromProto(protoConf *pb.ServiceConfig) (*resource.Config, erro
 	}
 
 	conf := resource.Config{
-		Name:       protoConf.GetName(),
-		API:        api,
-		Model:      model,
-		Attributes: attrs,
-		DependsOn:  protoConf.GetDependsOn(),
+		Name:                      protoConf.GetName(),
+		API:                       api,
+		Model:                     model,
+		Attributes:                attrs,
+		DependsOn:                 protoConf.GetDependsOn(),
+		AssociatedResourceConfigs: serviceConfigs,
 	}
 
 	return &conf, nil
@@ -827,4 +840,22 @@ func PackageConfigFromProto(proto *pb.PackageConfig) (*PackageConfig, error) {
 		Version: proto.Version,
 		Type:    PackageType(proto.Type),
 	}, nil
+}
+
+// PackageTypeToProto converts a config PackageType to its proto equivalent
+// This is required be because app/packages uses a PackageType enum but app/PackageConfig uses a string Type.
+func PackageTypeToProto(t PackageType) (*packagespb.PackageType, error) {
+	switch t {
+	case "":
+		// for backwards compatibility
+		fallthrough
+	case PackageTypeMlModel:
+		return packagespb.PackageType_PACKAGE_TYPE_ML_MODEL.Enum(), nil
+	case PackageTypeModule:
+		return packagespb.PackageType_PACKAGE_TYPE_MODULE.Enum(), nil
+	case PackageTypeSlamMap:
+		return packagespb.PackageType_PACKAGE_TYPE_SLAM_MAP.Enum(), nil
+	default:
+		return packagespb.PackageType_PACKAGE_TYPE_UNSPECIFIED.Enum(), errors.Errorf("unknown package type %q", t)
+	}
 }

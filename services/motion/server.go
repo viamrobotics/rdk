@@ -85,14 +85,7 @@ func (server *serviceServer) MoveOnGlobe(ctx context.Context, req *pb.MoveOnGlob
 		}
 		obstacles = append(obstacles, convObst)
 	}
-	linear := math.NaN()
-	if req.LinearMetersPerSec != nil {
-		linear = float64(req.GetLinearMetersPerSec())
-	}
-	angular := math.NaN()
-	if req.AngularDegPerSec != nil {
-		angular = float64(req.GetAngularDegPerSec())
-	}
+	motionCfg := setupMotionConfiguration(req.MotionConfiguration)
 
 	success, err := svc.MoveOnGlobe(
 		ctx,
@@ -101,33 +94,51 @@ func (server *serviceServer) MoveOnGlobe(ctx context.Context, req *pb.MoveOnGlob
 		heading,
 		protoutils.ResourceNameFromProto(req.GetMovementSensorName()),
 		obstacles,
-		linear,
-		angular,
+		&motionCfg,
 		req.Extra.AsMap(),
 	)
 	return &pb.MoveOnGlobeResponse{Success: success}, err
 }
 
-func (server *serviceServer) MoveSingleComponent(
-	ctx context.Context,
-	req *pb.MoveSingleComponentRequest,
-) (*pb.MoveSingleComponentResponse, error) {
-	svc, err := server.coll.Resource(req.Name)
-	if err != nil {
-		return nil, err
+func setupMotionConfiguration(motionCfg *pb.MotionConfiguration) MotionConfiguration {
+	visionSvc := []resource.Name{}
+	planDeviationM := 0.
+	positionPollingHz := 0.
+	obstaclePollingHz := 0.
+	linearMPerSec := 0.
+	angularDegsPerSec := 0.
+
+	if motionCfg != nil {
+		if motionCfg.VisionServices != nil {
+			for _, name := range motionCfg.GetVisionServices() {
+				visionSvc = append(visionSvc, protoutils.ResourceNameFromProto(name))
+			}
+		}
+		if motionCfg.PositionPollingFrequencyHz != nil {
+			positionPollingHz = motionCfg.GetPositionPollingFrequencyHz()
+		}
+		if motionCfg.ObstaclePollingFrequencyHz != nil {
+			obstaclePollingHz = motionCfg.GetObstaclePollingFrequencyHz()
+		}
+		if motionCfg.PlanDeviationM != nil {
+			planDeviationM = motionCfg.GetPlanDeviationM()
+		}
+		if motionCfg.LinearMPerSec != nil {
+			linearMPerSec = motionCfg.GetLinearMPerSec()
+		}
+		if motionCfg.AngularDegsPerSec != nil {
+			angularDegsPerSec = motionCfg.GetAngularDegsPerSec()
+		}
 	}
-	worldState, err := referenceframe.WorldStateFromProtobuf(req.GetWorldState())
-	if err != nil {
-		return nil, err
+
+	return MotionConfiguration{
+		VisionSvc:             visionSvc,
+		PositionPollingFreqHz: positionPollingHz,
+		ObstaclePollingFreqHz: obstaclePollingHz,
+		PlanDeviationM:        planDeviationM,
+		LinearMPerSec:         linearMPerSec,
+		AngularDegsPerSec:     angularDegsPerSec,
 	}
-	success, err := svc.MoveSingleComponent(
-		ctx,
-		protoutils.ResourceNameFromProto(req.GetComponentName()),
-		referenceframe.ProtobufToPoseInFrame(req.GetDestination()),
-		worldState,
-		req.Extra.AsMap(),
-	)
-	return &pb.MoveSingleComponentResponse{Success: success}, err
 }
 
 func (server *serviceServer) GetPose(ctx context.Context, req *pb.GetPoseRequest) (*pb.GetPoseResponse, error) {

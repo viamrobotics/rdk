@@ -63,6 +63,12 @@ type Properties struct {
 	DistortionParams transform.Distorter
 }
 
+// NamedImage is a struct that associates the source from where the image came from to the Image.
+type NamedImage struct {
+	Image      image.Image
+	SourceName string
+}
+
 // A Camera is a resource that can capture frames.
 type Camera interface {
 	resource.Resource
@@ -75,7 +81,7 @@ type VideoSource interface {
 
 	// Images is used for getting simultaneous images from different sensors,
 	// along with associated metadata (just timestamp for now). It's not for getting a time series of images from the same sensor.
-	Images(ctx context.Context) ([]image.Image, time.Time, error)
+	Images(ctx context.Context) ([]NamedImage, resource.ResponseMetadata, error)
 	// Stream returns a stream that makes a best effort to return consecutive images
 	// that may have a MIME type hint dictated in the context via gostream.WithMIMETypeHint.
 	Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error)
@@ -105,7 +111,7 @@ type PointCloudSource interface {
 
 // A ImagesSource is a source that can return a list of images with timestamp.
 type ImagesSource interface {
-	Images(ctx context.Context) ([]image.Image, time.Time, error)
+	Images(ctx context.Context) ([]NamedImage, resource.ResponseMetadata, error)
 }
 
 // FromVideoSource creates a Camera resource from a VideoSource.
@@ -242,7 +248,7 @@ func (vs *videoSource) Stream(ctx context.Context, errHandlers ...gostream.Error
 // Images is for getting simultaneous images from different sensors
 // If the underlying source did not specify an Images function, a default is applied.
 // The default returns a list of 1 image from ReadImage, and the current time.
-func (vs *videoSource) Images(ctx context.Context) ([]image.Image, time.Time, error) {
+func (vs *videoSource) Images(ctx context.Context) ([]NamedImage, resource.ResponseMetadata, error) {
 	ctx, span := trace.StartSpan(ctx, "camera::videoSource::Images")
 	defer span.End()
 	if c, ok := vs.actualSource.(ImagesSource); ok {
@@ -250,7 +256,7 @@ func (vs *videoSource) Images(ctx context.Context) ([]image.Image, time.Time, er
 	}
 	img, release, err := ReadImage(ctx, vs.videoSource)
 	if err != nil {
-		return nil, time.Time{}, errors.Wrap(err, "videoSource: call to get Images failed")
+		return nil, resource.ResponseMetadata{}, errors.Wrap(err, "videoSource: call to get Images failed")
 	}
 	defer func() {
 		if release != nil {
@@ -258,7 +264,7 @@ func (vs *videoSource) Images(ctx context.Context) ([]image.Image, time.Time, er
 		}
 	}()
 	ts := time.Now()
-	return []image.Image{img}, ts, nil
+	return []NamedImage{{img, ""}}, resource.ResponseMetadata{CapturedAt: ts}, nil
 }
 
 // NextPointCloud returns the next PointCloud from the camera, or will error if not supported.

@@ -3,7 +3,7 @@
 
 import { onMount, onDestroy } from 'svelte';
 import * as THREE from 'three';
-import { OrbitControlsGizmo, GridHelper } from 'trzy';
+import { ViewHelper, GridHelper } from 'trzy';
 import { PCDLoader } from 'three/examples/jsm/loaders/PCDLoader';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls';
@@ -12,7 +12,6 @@ import { notify } from '@viamrobotics/prime';
 export let pointcloud: Uint8Array | undefined;
 
 let container: HTMLDivElement;
-let gizmoContainer: HTMLDivElement;
 let downloadHref: string;
 
 let cube: THREE.LineSegments;
@@ -21,7 +20,7 @@ let transformEnabled = false;
 
 const click = new THREE.Vector3();
 
-$: distanceFromCamera = Math.round(Math.sqrt((click.x ** 2) + (click.y ** 2) + (click.z ** 2)));
+$: distanceFromCamera = Math.round(Math.hypot((click.x), (click.y), (click.z)));
 
 const loader = new PCDLoader();
 const scene = new THREE.Scene();
@@ -258,13 +257,13 @@ const init = (cloud: Uint8Array) => {
   downloadHref = URL.createObjectURL(file);
 };
 
-let gizmo: OrbitControlsGizmo | undefined;
+let gizmo: ViewHelper | undefined;
 
 onMount(() => {
   container.append(renderer.domElement);
   renderer.setAnimationLoop(animate);
 
-  gizmo = new OrbitControlsGizmo({ camera, el: gizmoContainer as HTMLElement, controls });
+  gizmo = new ViewHelper(camera, renderer);
 
   if (pointcloud) {
     init(pointcloud);
@@ -386,10 +385,5 @@ $: if (pointcloud) {
     class="pcd-container relative w-full border border-medium"
     on:mousedown={handleCanvasMouseDown}
     on:mouseup={handleCanvasMouseUp}
-  >
-    <div
-      bind:this={gizmoContainer}
-      class="absolute right-2 top-2"
-    />
-  </div>
+  />
 </div>

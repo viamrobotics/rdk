@@ -7,6 +7,7 @@ package genericlinux
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"sync"
 	"time"
@@ -35,48 +36,27 @@ func RegisterBoard(modelName string, gpioMappings map[string]GPIOBoardMapping) {
 				conf resource.Config,
 				logger golog.Logger,
 			) (board.Board, error) {
-				return newBoard(ctx, conf, gpioMappings, logger)
+				return NewBoard(ctx, conf, ConstPinDefs(gpioMappings), logger)
 			},
 		})
 }
 
-func newBoard(
+// NewBoard is the constructor for a Board.
+func NewBoard(
 	ctx context.Context,
 	conf resource.Config,
-	gpioMappings map[string]GPIOBoardMapping,
-	logger golog.Logger,
-) (board.Board, error) {
-	newConf, err := resource.NativeConfig[*Config](conf)
-	if err != nil {
-		return nil, err
-	}
-
-	b, err := NewSysfsBoard(ctx, conf.ResourceName().AsNamed(), newConf, gpioMappings, logger)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := b.Reconfigure(ctx, nil, conf); err != nil {
-		return nil, err
-	}
-	return b, nil
-}
-
-// NewSysfsBoard creates a new SysfsBoard.
-func NewSysfsBoard(
-	ctx context.Context,
-	name resource.Named,
-	conf *Config,
-	gpioMappings map[string]GPIOBoardMapping,
+	convertConfig ConfigConverter,
 	logger golog.Logger,
 ) (board.Board, error) {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
-	b := SysfsBoard{
-		Named:        name,
-		gpioMappings: gpioMappings,
-		logger:       logger,
-		cancelCtx:    cancelCtx,
-		cancelFunc:   cancelFunc,
+
+	b := &Board{
+		Named:         conf.ResourceName().AsNamed(),
+		convertConfig: convertConfig,
+
+		logger:     logger,
+		cancelCtx:  cancelCtx,
+		cancelFunc: cancelFunc,
 
 		spis:       map[string]*spiBus{},
 		analogs:    map[string]*wrappedAnalog{},
@@ -85,50 +65,146 @@ func NewSysfsBoard(
 		interrupts: map[string]*digitalInterrupt{},
 	}
 
-	for pinName, mapping := range gpioMappings {
-		b.gpios[pinName] = b.createGpioPin(mapping)
+	if err := b.Reconfigure(ctx, nil, conf); err != nil {
+		return nil, err
 	}
-	return &b, nil
+	return b, nil
 }
 
 // Reconfigure reconfigures the board with interrupt pins, spi and i2c, and analogs.
-func (b *SysfsBoard) Reconfigure(
+func (b *Board) Reconfigure(
 	ctx context.Context,
 	_ resource.Dependencies,
 	conf resource.Config,
 ) error {
-	newConf, err := resource.NativeConfig[*Config](conf)
+	newConf, err := b.convertConfig(conf)
 	if err != nil {
 		return err
 	}
 
-	return b.ReconfigureParsedConfig(ctx, newConf)
-}
-
-// ReconfigureParsedConfig is a public helper that should only be used
-// by the customlinux package.
-func (b *SysfsBoard) ReconfigureParsedConfig(ctx context.Context, conf *Config) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	if err := b.reconfigureSpis(conf); err != nil {
+	if err := b.reconfigureGpios(newConf); err != nil {
 		return err
 	}
-	if err := b.reconfigureI2cs(conf); err != nil {
+	if err := b.reconfigureSpis(newConf); err != nil {
 		return err
 	}
-	if err := b.reconfigureAnalogs(ctx, conf); err != nil {
+	if err := b.reconfigureI2cs(newConf); err != nil {
 		return err
 	}
-	if err := b.reconfigureInterrupts(conf); err != nil {
+	if err := b.reconfigureAnalogs(ctx, newConf); err != nil {
+		return err
+	}
+	if err := b.reconfigureInterrupts(newConf); err != nil {
 		return err
 	}
 	return nil
 }
 
+// This is a helper function used to reconfigure the GPIO pins. It looks for the key in the map
+// whose value resembles the target pin definition.
+func getMatchingPin(target GPIOBoardMapping, mapping map[string]GPIOBoardMapping) (string, bool) {
+	for name, def := range mapping {
+		if target == def {
+			return name, true
+		}
+	}
+	return "", false
+}
+
+func (b *Board) reconfigureGpios(newConf *LinuxBoardConfig) error {
+	// First, find old pins that are no longer defined, and destroy them.
+	for oldName, mapping := range b.gpioMappings {
+		if _, ok := getMatchingPin(mapping, newConf.GpioMappings); ok {
+			continue // This pin is in the new mapping, so don't destroy it.
+		}
+
+		// Otherwise, remove the pin because it's not in the new mapping.
+		if pin, ok := b.gpios[oldName]; ok {
+			if err := pin.Close(); err != nil {
+				return err
+			}
+			delete(b.gpios, oldName)
+			continue
+		}
+
+		// If we get here, the old pin definition exists, but the old pin does not. Check if it's a
+		// digital interrupt.
+		if interrupt, ok := b.interrupts[oldName]; ok {
+			if err := interrupt.Close(); err != nil {
+				return err
+			}
+			delete(b.interrupts, oldName)
+			continue
+		}
+
+		// If we get here, there is a logic bug somewhere. but failing to delete a nonexistent pin
+		// seemingly doesn't hurt anything, so just log the error and continue.
+		b.logger.Errorf("During reconfiguration, old pin '%s' should be destroyed, but "+
+			"it doesn't exist!?", oldName)
+	}
+
+	// Next, compare the new pin definitions to the old ones, to build up 2 sets: pins to rename,
+	// and new pins to create. Don't actually create any yet, in case you'd overwrite a pin that
+	// should be renamed out of the way first.
+	toRename := map[string]string{} // Maps old names for pins to new names
+	toCreate := map[string]GPIOBoardMapping{}
+	for newName, mapping := range newConf.GpioMappings {
+		if oldName, ok := getMatchingPin(mapping, b.gpioMappings); ok {
+			if oldName != newName {
+				toRename[oldName] = newName
+			}
+		} else {
+			toCreate[newName] = mapping
+		}
+	}
+
+	// Rename the ones whose name changed. The ordering here is tricky: if B should be renamed to C
+	// while A should be renamed to B, we need to make sure we don't overwrite B with A and then
+	// rename it to C. To avoid this, move all the pins to rename into a temporary data structure,
+	// then move them all back again afterward.
+	tempGpios := map[string]*gpioPin{}
+	tempInterrupts := map[string]*digitalInterrupt{}
+	for oldName, newName := range toRename {
+		if pin, ok := b.gpios[oldName]; ok {
+			tempGpios[newName] = pin
+			delete(b.gpios, oldName)
+			continue
+		}
+
+		// If we get here, again check if the missing pin is a digital interrupt.
+		if interrupt, ok := b.interrupts[oldName]; ok {
+			tempInterrupts[newName] = interrupt
+			delete(b.interrupts, oldName)
+			continue
+		}
+
+		return fmt.Errorf("during reconfiguration, old pin '%s' should be renamed to '%s', but "+
+			"it doesn't exist!?", oldName, newName)
+	}
+
+	// Now move all the pins back from the temporary data structures.
+	for newName, pin := range tempGpios {
+		b.gpios[newName] = pin
+	}
+	for newName, interrupt := range tempInterrupts {
+		b.interrupts[newName] = interrupt
+	}
+
+	// Finally, create the new pins.
+	for newName, mapping := range toCreate {
+		b.gpios[newName] = b.createGpioPin(mapping)
+	}
+
+	b.gpioMappings = newConf.GpioMappings
+	return nil
+}
+
 // This never returns errors, but we give it the same function signature as the other
 // reconfiguration helpers for consistency.
-func (b *SysfsBoard) reconfigureSpis(newConf *Config) error {
+func (b *Board) reconfigureSpis(newConf *LinuxBoardConfig) error {
 	stillExists := map[string]struct{}{}
 	for _, c := range newConf.SPIs {
 		stillExists[c.Name] = struct{}{}
@@ -151,7 +227,7 @@ func (b *SysfsBoard) reconfigureSpis(newConf *Config) error {
 	return nil
 }
 
-func (b *SysfsBoard) reconfigureI2cs(newConf *Config) error {
+func (b *Board) reconfigureI2cs(newConf *LinuxBoardConfig) error {
 	stillExists := map[string]struct{}{}
 	for _, c := range newConf.I2Cs {
 		stillExists[c.Name] = struct{}{}
@@ -186,7 +262,7 @@ func (b *SysfsBoard) reconfigureI2cs(newConf *Config) error {
 	return nil
 }
 
-func (b *SysfsBoard) reconfigureAnalogs(ctx context.Context, newConf *Config) error {
+func (b *Board) reconfigureAnalogs(ctx context.Context, newConf *LinuxBoardConfig) error {
 	stillExists := map[string]struct{}{}
 	for _, c := range newConf.Analogs {
 		channel, err := strconv.Atoi(c.Pin)
@@ -224,9 +300,9 @@ func (b *SysfsBoard) reconfigureAnalogs(ctx context.Context, newConf *Config) er
 // This helper function is used while reconfiguring digital interrupts. It finds the new config (if
 // any) for a pre-existing digital interrupt.
 func findNewDigIntConfig(
-	interrupt *digitalInterrupt, newConf *Config, logger golog.Logger,
+	interrupt *digitalInterrupt, confs []board.DigitalInterruptConfig, logger golog.Logger,
 ) *board.DigitalInterruptConfig {
-	for _, newConfig := range newConf.DigitalInterrupts {
+	for _, newConfig := range confs {
 		if newConfig.Pin == interrupt.config.Pin {
 			return &newConfig
 		}
@@ -235,7 +311,7 @@ func findNewDigIntConfig(
 		// This interrupt is named identically to its pin. It was probably created on the fly
 		// by some other component (an encoder?). Unless there's now some other config with the
 		// same name but on a different pin, keep it initialized as-is.
-		for _, intConfig := range newConf.DigitalInterrupts {
+		for _, intConfig := range confs {
 			if intConfig.Name == interrupt.config.Name {
 				// The name of this interrupt is defined in the new config, but on a different
 				// pin. This interrupt should be closed.
@@ -251,14 +327,14 @@ func findNewDigIntConfig(
 	return nil
 }
 
-func (b *SysfsBoard) reconfigureInterrupts(newConf *Config) error {
+func (b *Board) reconfigureInterrupts(newConf *LinuxBoardConfig) error {
 	// Any pin that already exists in the right configuration should just be copied over; closing
 	// and re-opening it risks losing its state.
 	newInterrupts := make(map[string]*digitalInterrupt, len(newConf.DigitalInterrupts))
 
 	// Reuse any old interrupts that have new configs
 	for _, oldInterrupt := range b.interrupts {
-		if newConfig := findNewDigIntConfig(oldInterrupt, newConf, b.logger); newConfig == nil {
+		if newConfig := findNewDigIntConfig(oldInterrupt, newConf.DigitalInterrupts, b.logger); newConfig == nil {
 			// The old interrupt shouldn't exist any more, but it probably became a GPIO pin.
 			if err := oldInterrupt.Close(); err != nil {
 				return err // This should never happen, but the linter worries anyway.
@@ -361,10 +437,12 @@ func (a *wrappedAnalog) reset(ctx context.Context, chipSelect string, reader *bo
 	a.chipSelect = chipSelect
 }
 
-// SysfsBoard implements an interface using sysfs for any board that runs linux.
-type SysfsBoard struct {
+// Board implements a component for a Linux machine.
+type Board struct {
 	resource.Named
-	mu           sync.RWMutex
+	mu            sync.RWMutex
+	convertConfig ConfigConverter
+
 	gpioMappings map[string]GPIOBoardMapping
 	spis         map[string]*spiBus
 	analogs      map[string]*wrappedAnalog
@@ -380,25 +458,25 @@ type SysfsBoard struct {
 }
 
 // SPIByName returns the SPI by the given name if it exists.
-func (b *SysfsBoard) SPIByName(name string) (board.SPI, bool) {
+func (b *Board) SPIByName(name string) (board.SPI, bool) {
 	s, ok := b.spis[name]
 	return s, ok
 }
 
 // I2CByName returns the i2c by the given name if it exists.
-func (b *SysfsBoard) I2CByName(name string) (board.I2C, bool) {
+func (b *Board) I2CByName(name string) (board.I2C, bool) {
 	i, ok := b.i2cs[name]
 	return i, ok
 }
 
 // AnalogReaderByName returns the analog reader by the given name if it exists.
-func (b *SysfsBoard) AnalogReaderByName(name string) (board.AnalogReader, bool) {
+func (b *Board) AnalogReaderByName(name string) (board.AnalogReader, bool) {
 	a, ok := b.analogs[name]
 	return a, ok
 }
 
 // DigitalInterruptByName returns the interrupt by the given name if it exists.
-func (b *SysfsBoard) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
+func (b *Board) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -437,7 +515,7 @@ func (b *SysfsBoard) DigitalInterruptByName(name string) (board.DigitalInterrupt
 }
 
 // SPINames returns the names of all known SPIs.
-func (b *SysfsBoard) SPINames() []string {
+func (b *Board) SPINames() []string {
 	if len(b.spis) == 0 {
 		return nil
 	}
@@ -449,7 +527,7 @@ func (b *SysfsBoard) SPINames() []string {
 }
 
 // I2CNames returns the names of all known I2Cs.
-func (b *SysfsBoard) I2CNames() []string {
+func (b *Board) I2CNames() []string {
 	if len(b.i2cs) == 0 {
 		return nil
 	}
@@ -461,7 +539,7 @@ func (b *SysfsBoard) I2CNames() []string {
 }
 
 // AnalogReaderNames returns the names of all known analog readers.
-func (b *SysfsBoard) AnalogReaderNames() []string {
+func (b *Board) AnalogReaderNames() []string {
 	names := []string{}
 	for k := range b.analogs {
 		names = append(names, k)
@@ -470,7 +548,7 @@ func (b *SysfsBoard) AnalogReaderNames() []string {
 }
 
 // DigitalInterruptNames returns the names of all known digital interrupts.
-func (b *SysfsBoard) DigitalInterruptNames() []string {
+func (b *Board) DigitalInterruptNames() []string {
 	if b.interrupts == nil {
 		return nil
 	}
@@ -483,7 +561,7 @@ func (b *SysfsBoard) DigitalInterruptNames() []string {
 }
 
 // GPIOPinNames returns the names of all known GPIO pins.
-func (b *SysfsBoard) GPIOPinNames() []string {
+func (b *Board) GPIOPinNames() []string {
 	if b.gpioMappings == nil {
 		return nil
 	}
@@ -495,7 +573,7 @@ func (b *SysfsBoard) GPIOPinNames() []string {
 }
 
 // GPIOPinByName returns a GPIOPin by name.
-func (b *SysfsBoard) GPIOPinByName(pinName string) (board.GPIOPin, error) {
+func (b *Board) GPIOPinByName(pinName string) (board.GPIOPin, error) {
 	if pin, ok := b.gpios[pinName]; ok {
 		return pin, nil
 	}
@@ -509,19 +587,19 @@ func (b *SysfsBoard) GPIOPinByName(pinName string) (board.GPIOPin, error) {
 }
 
 // Status returns the current status of the board.
-func (b *SysfsBoard) Status(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
+func (b *Board) Status(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
 	return &commonpb.BoardStatus{}, nil
 }
 
 // ModelAttributes returns attributes related to the model of this board.
-func (b *SysfsBoard) ModelAttributes() board.ModelAttributes {
+func (b *Board) ModelAttributes() board.ModelAttributes {
 	return board.ModelAttributes{}
 }
 
 // SetPowerMode sets the board to the given power mode. If provided,
 // the board will exit the given power mode after the specified
 // duration.
-func (b *SysfsBoard) SetPowerMode(
+func (b *Board) SetPowerMode(
 	ctx context.Context,
 	mode pb.PowerMode,
 	duration *time.Duration,
@@ -530,7 +608,7 @@ func (b *SysfsBoard) SetPowerMode(
 }
 
 // Close attempts to cleanly close each part of the board.
-func (b *SysfsBoard) Close(ctx context.Context) error {
+func (b *Board) Close(ctx context.Context) error {
 	b.mu.Lock()
 	b.cancelFunc()
 	b.mu.Unlock()

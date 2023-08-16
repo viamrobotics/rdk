@@ -186,6 +186,16 @@ func (mp *planner) checkPath(seedInputs, target []frame.Input) bool {
 	return ok
 }
 
+func (mp *planner) sample(rSeed node, sampleNum int) ([]frame.Input, error) {
+	// If we have done more than 50 iterations, start seeding off completely random positions 2 at a time
+	// The 2 at a time is to ensure random seeds are added onto both the seed and goal maps.
+	if sampleNum >= mp.planOpts.IterBeforeRand && sampleNum%4 >= 2 {
+		return frame.RandomFrameInputs(mp.frame, mp.randseed), nil
+	}
+	// Seeding nearby to valid points results in much faster convergence in less constrained space
+	return frame.RestrictedRandomFrameInputs(mp.frame, mp.randseed, 0.1, rSeed.Q())
+}
+
 func (mp *planner) opt() *plannerOptions {
 	return mp.planOpts
 }

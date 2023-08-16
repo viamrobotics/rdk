@@ -11,6 +11,15 @@ import (
 const (
 	// Number of planner iterations before giving up.
 	defaultPlanIter = 20000
+
+	// The maximum percent of a joints range of motion to allow per step.
+	defaultFrameStep = 0.015
+
+	// If the dot product between two sets of joint angles is less than this, consider them identical.
+	defaultJointSolveDist = 0.0001
+
+	// Number of iterations to run before beginning to accept randomly seeded locations.
+	defaultIterBeforeRand = 50
 )
 
 type rrtParallelPlanner interface {
@@ -22,17 +31,6 @@ type rrtParallelPlannerShared struct {
 	maps            *rrtMaps
 	endpointPreview chan node
 	solutionChan    chan *rrtPlanReturn
-}
-
-type rrtOptions struct {
-	// Number of planner iterations before giving up.
-	PlanIter int `json:"plan_iter"`
-}
-
-func newRRTOptions() *rrtOptions {
-	return &rrtOptions{
-		PlanIter: defaultPlanIter,
-	}
 }
 
 type rrtMap map[node]node
@@ -118,6 +116,24 @@ func shortestPath(maps *rrtMaps, nodePairs []*nodePair) *rrtPlanReturn {
 		}
 	}
 	return &rrtPlanReturn{steps: extractPath(maps.startMap, maps.goalMap, nodePairs[minIdx], true), maps: maps}
+}
+
+// fixedStepInterpolation returns inputs at qstep distance along the path from start to target
+// if start and target have the same Input value, then no step increment is made.
+func fixedStepInterpolation(start, target node, qstep []float64) []referenceframe.Input {
+	newNear := make([]referenceframe.Input, 0, len(start.Q()))
+	for j, nearInput := range start.Q() {
+		if nearInput.Value == target.Q()[j].Value {
+			newNear = append(newNear, nearInput)
+		} else {
+			v1, v2 := nearInput.Value, target.Q()[j].Value
+			newVal := math.Min(qstep[j], math.Abs(v2-v1))
+			// get correct sign
+			newVal *= (v2 - v1) / math.Abs(v2-v1)
+			newNear = append(newNear, referenceframe.Input{nearInput.Value + newVal})
+		}
+	}
+	return newNear
 }
 
 // node interface is used to wrap a configuration for planning purposes.

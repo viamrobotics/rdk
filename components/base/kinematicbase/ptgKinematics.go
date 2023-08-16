@@ -130,17 +130,27 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 	}
 
 	lastTime := 0.
+<<<<<<< HEAD
 	for _, trajNode := range selectedTraj {
 		timestep := time.Duration(trajNode.Time-lastTime) * time.Second
+=======
+	for i, trajNode := range selectedTraj {
+		if trajNode.Dist > inputs[distanceAlongTrajectoryIndex].Value {
+			ptgk.logger.Debugf("finished executing trajectory after %d steps", i)
+			// We have reached the desired distance along the given trajectory
+			break
+		}
+		timestep := time.Duration((trajNode.Time-lastTime)*1000*1000) * time.Microsecond
+>>>>>>> main
 		lastTime = trajNode.Time
 		linVel := r3.Vector{0, trajNode.LinVelMMPS, 0}
 		angVel := r3.Vector{0, 0, rdkutils.RadToDeg(trajNode.AngVelRPS)}
 
 		ptgk.logger.Debugf(
-			"setting velocity to linear %v angular %v and running velocity step for %f ms",
+			"setting velocity to linear %v angular %v and running velocity step for %s",
 			linVel,
 			angVel,
-			time.Duration(trajNode.Time-lastTime)*time.Millisecond,
+			timestep,
 		)
 
 		err := ptgk.Base.SetVelocity(

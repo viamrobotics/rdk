@@ -80,6 +80,7 @@
 
   const stop = async () => {
     stopped = true;
+
     try {
       await baseClient.stop();
     } catch (error) {
@@ -200,17 +201,17 @@
     disableViews = liveCameras > 1;
   };
 
-  const handleVisibilityChange = () => {
-    // only issue the stop if there are keys pressed as to not interfere with commands issued by scripts/commands
-    if (document.visibilityState === 'hidden' && pressed.size > 0) {
+  const handleOnBlur = () => {
+    if (pressed.size <= 0) {
       pressed.clear();
       stop();
     }
   };
 
-  const handleOnBlur = () => {
-    if (pressed.size <= 0) {
-      stop();
+  const handleVisibilityChange = () => {
+    // only issue the stop if there are keys pressed as to not interfere with commands issued by scripts/commands
+    if (document.visibilityState === 'hidden') {
+      handleOnBlur();
     }
   };
 

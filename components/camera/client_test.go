@@ -75,17 +75,17 @@ func TestClient(t *testing.T) {
 	injectCamera.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
 		return projA, nil
 	}
-	injectCamera.ImagesFunc = func(ctx context.Context) ([]image.Image, time.Time, error) {
-		images := []image.Image{}
+	injectCamera.ImagesFunc = func(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+		images := []camera.NamedImage{}
 		// one color image
 		color := rimage.NewImage(40, 50)
-		images = append(images, color)
+		images = append(images, camera.NamedImage{color, "color"})
 		// one depth image
 		depth := rimage.NewEmptyDepthMap(10, 20)
-		images = append(images, depth)
+		images = append(images, camera.NamedImage{depth, "depth"})
 		// a timestamp of 12345
 		ts := time.UnixMilli(12345)
-		return images, ts, nil
+		return images, resource.ResponseMetadata{ts}, nil
 	}
 	injectCamera.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
 		return gostream.NewEmbeddedVideoStreamFromReader(gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
@@ -192,18 +192,20 @@ func TestClient(t *testing.T) {
 		test.That(t, propsB.SupportsPCD, test.ShouldBeTrue)
 		test.That(t, propsB.IntrinsicParams, test.ShouldResemble, intrinsics)
 
-		images, ts, err := camera1Client.Images(context.Background())
+		images, meta, err := camera1Client.Images(context.Background())
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, ts, test.ShouldEqual, time.UnixMilli(12345))
+		test.That(t, meta.CapturedAt, test.ShouldEqual, time.UnixMilli(12345))
 		test.That(t, len(images), test.ShouldEqual, 2)
-		test.That(t, images[0].Bounds().Dx(), test.ShouldEqual, 40)
-		test.That(t, images[0].Bounds().Dy(), test.ShouldEqual, 50)
-		test.That(t, images[0], test.ShouldHaveSameTypeAs, &rimage.LazyEncodedImage{})
-		test.That(t, images[0].ColorModel(), test.ShouldHaveSameTypeAs, color.RGBAModel)
-		test.That(t, images[1].Bounds().Dx(), test.ShouldEqual, 10)
-		test.That(t, images[1].Bounds().Dy(), test.ShouldEqual, 20)
-		test.That(t, images[1], test.ShouldHaveSameTypeAs, &rimage.LazyEncodedImage{})
-		test.That(t, images[1].ColorModel(), test.ShouldHaveSameTypeAs, color.Gray16Model)
+		test.That(t, images[0].SourceName, test.ShouldEqual, "color")
+		test.That(t, images[0].Image.Bounds().Dx(), test.ShouldEqual, 40)
+		test.That(t, images[0].Image.Bounds().Dy(), test.ShouldEqual, 50)
+		test.That(t, images[0].Image, test.ShouldHaveSameTypeAs, &rimage.LazyEncodedImage{})
+		test.That(t, images[0].Image.ColorModel(), test.ShouldHaveSameTypeAs, color.RGBAModel)
+		test.That(t, images[1].SourceName, test.ShouldEqual, "depth")
+		test.That(t, images[1].Image.Bounds().Dx(), test.ShouldEqual, 10)
+		test.That(t, images[1].Image.Bounds().Dy(), test.ShouldEqual, 20)
+		test.That(t, images[1].Image, test.ShouldHaveSameTypeAs, &rimage.LazyEncodedImage{})
+		test.That(t, images[1].Image.ColorModel(), test.ShouldHaveSameTypeAs, color.Gray16Model)
 
 		// Do
 		resp, err := camera1Client.DoCommand(context.Background(), testutils.TestCommand)

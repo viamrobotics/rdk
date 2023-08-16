@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"encoding/json"
+	"fmt"
 	"syscall"
 	"testing"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/lestrrat-go/jwx/jwk"
+	packagespb "go.viam.com/api/app/packages/v1"
 	pb "go.viam.com/api/app/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/jwks"
@@ -115,6 +117,14 @@ var testService = resource.Config{
 		"attr1": 1,
 	},
 	DependsOn: []string{"some-depends-on"},
+	AssociatedResourceConfigs: []resource.AssociatedResourceConfig{
+		{
+			API: resource.APINamespaceRDK.WithServiceType("some-type-1"),
+			Attributes: utils.AttributeMap{
+				"attr1": 1,
+			},
+		},
+	},
 }
 
 var testProcessConfig = pexec.ProcessConfig{
@@ -522,33 +532,53 @@ func TestServiceConfigToProto(t *testing.T) {
 		{
 			Name: "basic component with internal API",
 			Conf: resource.Config{
-				Name:  "foo",
-				API:   resource.APINamespaceRDK.WithServiceType("base"),
-				Model: resource.DefaultModelFamily.WithModel("fake"),
+				Name:                      "foo",
+				API:                       resource.APINamespaceRDK.WithServiceType("base"),
+				Model:                     resource.DefaultModelFamily.WithModel("fake"),
+				AssociatedResourceConfigs: []resource.AssociatedResourceConfig{},
 			},
 		},
 		{
 			Name: "basic component with external API",
 			Conf: resource.Config{
-				Name:  "foo",
-				API:   resource.NewAPI("acme", "service", "gizmo"),
-				Model: resource.DefaultModelFamily.WithModel("fake"),
+				Name:                      "foo",
+				API:                       resource.NewAPI("acme", "service", "gizmo"),
+				Model:                     resource.DefaultModelFamily.WithModel("fake"),
+				AssociatedResourceConfigs: []resource.AssociatedResourceConfig{},
 			},
 		},
 		{
 			Name: "basic component with external model",
 			Conf: resource.Config{
-				Name:  "foo",
-				API:   resource.NewAPI("acme", "service", "gizmo"),
-				Model: resource.NewModel("acme", "test", "model"),
+				Name:                      "foo",
+				API:                       resource.NewAPI("acme", "service", "gizmo"),
+				Model:                     resource.NewModel("acme", "test", "model"),
+				AssociatedResourceConfigs: []resource.AssociatedResourceConfig{},
 			},
 		},
 		{
 			Name: "empty model name",
 			Conf: resource.Config{
+				Name:                      "foo",
+				API:                       resource.NewAPI("acme", "service", "gizmo"),
+				Model:                     resource.Model{},
+				AssociatedResourceConfigs: []resource.AssociatedResourceConfig{},
+			},
+		},
+		{
+			Name: "associated service config",
+			Conf: resource.Config{
 				Name:  "foo",
 				API:   resource.NewAPI("acme", "service", "gizmo"),
 				Model: resource.Model{},
+				AssociatedResourceConfigs: []resource.AssociatedResourceConfig{
+					{
+						API: resource.APINamespaceRDK.WithServiceType("some-type-1"),
+						Attributes: utils.AttributeMap{
+							"attr1": 1,
+						},
+					},
+				},
 			},
 		},
 	} {
@@ -560,7 +590,7 @@ func TestServiceConfigToProto(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, out, test.ShouldNotBeNil)
 
-			test.That(t, out, test.ShouldResemble, &tc.Conf)
+			test.That(t, out.String(), test.ShouldResemble, tc.Conf.String())
 			_, err = out.Validate("test", resource.APITypeServiceName)
 			test.That(t, err, test.ShouldBeNil)
 		})
@@ -885,4 +915,22 @@ func TestDisablePartialStart(t *testing.T) {
 	out, err := FromProto(input, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, out, test.ShouldBeNil)
+}
+
+func TestPackageTypeConversion(t *testing.T) {
+	emptyType := PackageType("")
+	converted, err := PackageTypeToProto(emptyType)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, converted, test.ShouldResemble, packagespb.PackageType_PACKAGE_TYPE_ML_MODEL.Enum())
+
+	moduleType := PackageType("module")
+	converted, err = PackageTypeToProto(moduleType)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, converted, test.ShouldResemble, packagespb.PackageType_PACKAGE_TYPE_MODULE.Enum())
+
+	badType := PackageType("invalid-package-type")
+	converted, err = PackageTypeToProto(badType)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "invalid-package-type")
+	test.That(t, converted, test.ShouldResemble, packagespb.PackageType_PACKAGE_TYPE_UNSPECIFIED.Enum())
 }

@@ -19,6 +19,42 @@ func init() {
 		RPCServiceDesc:              &pb.PowerSensorService_ServiceDesc,
 		RPCClient:                   NewClientFromConn,
 	})
+
+	registerCollector("Voltage", func(ctx context.Context, ps PowerSensor) (interface{}, error) {
+		type Voltage struct {
+			Volts float64
+			IsAc  bool
+		}
+		v, ac, err := ps.Voltage(ctx, make(map[string]interface{}))
+		if err != nil {
+			return nil, err
+		}
+
+		return Voltage{Volts: v, IsAc: ac}, nil
+	})
+
+	registerCollector("Current", func(ctx context.Context, ps PowerSensor) (interface{}, error) {
+		type Current struct {
+			Amperes float64
+			IsAc    bool
+		}
+		c, ac, err := ps.Current(ctx, make(map[string]interface{}))
+		if err != nil {
+			return nil, err
+		}
+		return Current{Amperes: c, IsAc: ac}, nil
+	})
+
+	registerCollector("Power", func(ctx context.Context, ps PowerSensor) (interface{}, error) {
+		type Power struct {
+			Watts float64
+		}
+		p, err := ps.Power(ctx, make(map[string]interface{}))
+		if err != nil {
+			return nil, err
+		}
+		return Power{Watts: p}, nil
+	})
 }
 
 // SubtypeName is a constant that identifies the component resource API string "power_sensor".
@@ -70,13 +106,14 @@ func Readings(ctx context.Context, g PowerSensor, extra map[string]interface{}) 
 		readings["is_ac"] = isAC
 	}
 
-	cur, _, err := g.Current(ctx, extra)
+	cur, isAC, err := g.Current(ctx, extra)
 	if err != nil {
 		if !strings.Contains(err.Error(), ErrMethodUnimplementedCurrent.Error()) {
 			return nil, err
 		}
 	} else {
 		readings["current"] = cur
+		readings["is_ac"] = isAC
 	}
 
 	pow, err := g.Power(ctx, extra)

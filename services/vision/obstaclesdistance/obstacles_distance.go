@@ -1,6 +1,6 @@
-// Package obstacledistance uses an underlying camera to fulfill vision service methods, specifically
+// Package obstaclesdistance uses an underlying camera to fulfill vision service methods, specifically
 // GetObjectPointClouds, which performs several queries of NextPointCloud and returns a median point.
-package obstacledistance
+package obstaclesdistance
 
 import (
 	"context"

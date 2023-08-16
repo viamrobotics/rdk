@@ -28,16 +28,6 @@ var ErrPackageMissing = errors.New("package missing")
 // ErrInvalidPackageRef is an error when a invalid package reference syntax.
 var ErrInvalidPackageRef = errors.New("invalid package reference")
 
-// PlaceholderRef stores the destructured info about the matched placeholder
-// if the Placeholder is ${packges.ml_model.hello} ->
-// { matchedPlaceholder: ${packges.ml_model.hello}, nestedPath: packges.ml_model.hello type: ml_model, name: hello}.
-type PlaceholderRef struct {
-	matchedPlaceholder string
-	nestedPath         string
-	packageType        config.PackageType
-	packageName        string
-}
-
 // Manager provides a managed interface for looking up package paths. This is separated from ManagerSyncer to avoid passing
 // the full sync interface to all components.
 type Manager interface {
@@ -45,9 +35,6 @@ type Manager interface {
 
 	// PackagePath returns the package if it exists and is already downloaded. If it does not exist it returns a ErrPackageMissing error.
 	PackagePath(name PackageName) (string, error)
-
-	// Placeholder path returns a valid package placeholder from the entire string or errors if there is none
-	PlaceholderPath(path string) (*PlaceholderRef, error)
 }
 
 // ManagerSyncer provides a managed interface for both reading package paths and syncing packages from the RDK config.

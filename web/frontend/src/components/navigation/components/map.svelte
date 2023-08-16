@@ -2,7 +2,7 @@
 
 import { onMount } from 'svelte';
 import { Map, NavigationControl } from 'maplibre-gl';
-import { map, mapZoom, mapCenter, view } from '../stores';
+import { map, mapZoom, mapCenter, view, mapSize, cameraMatrix } from '../stores';
 import { style } from '../style';
 import ObstacleLayer from './obstacle-layer.svelte';
 import Waypoints from './waypoints.svelte';
@@ -17,15 +17,6 @@ const handleViewSelect = (event: CustomEvent) => {
   $view = event.detail.value;
 };
 
-const handleMove = () => {
-  if (!map.current) {
-    return;
-  }
-
-  mapCenter.set(map.current.getCenter());
-  mapZoom.set(map.current.getZoom() / map.current.getMaxZoom());
-};
-
 onMount(() => {
   const mapInstance = new Map({
     container: 'navigation-map',
@@ -36,14 +27,47 @@ onMount(() => {
     minPitch,
     maxPitch: minPitch,
   });
+  $map = mapInstance;
+
+  const handleMove = () => {
+    mapCenter.set(mapInstance.getCenter());
+    mapZoom.set(mapInstance.getZoom() / mapInstance.getMaxZoom());
+  };
+
+  const handleResize = () => {
+    mapSize.update((value) => {
+      const { clientWidth, clientHeight } = mapInstance.getCanvas();
+      value.width = clientWidth;
+      value.height = clientHeight;
+      return value;
+    });
+  };
 
   const nav = new NavigationControl({ showZoom: false });
   mapInstance.addControl(nav, 'top-right');
-
   mapInstance.on('move', handleMove);
-  handleMove();
+  mapInstance.on('resize', handleResize);
 
-  $map = mapInstance;
+  mapInstance.on('style.load', () => {
+    mapInstance.addLayer({
+      id: 'obstacle-layer',
+      type: 'custom',
+      renderingMode: '3d',
+      render (_ctx, viewProjectionMatrix) {
+        cameraMatrix.fromArray(viewProjectionMatrix);
+        mapInstance.triggerRepaint();
+      },
+    });
+  });
+
+  handleMove();
+  handleResize();
+
+  return () => {
+    if (mapInstance.getLayer('obstacle-layer')) {
+      mapInstance.removeLayer('obstacle-layer');
+    }
+  };
 });
 
 $: {
@@ -70,11 +94,5 @@ $: {
 {#if $map}
   <RobotMarker {name} />
   <Waypoints {name} map={$map} />
-  <ObstacleLayer {name} map={$map} />
+  <ObstacleLayer />
 {/if}
-
-<style>
-  :global(#navigation-map ~ canvas) {
-    display: none;
-  }
-</style>
