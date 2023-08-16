@@ -38,6 +38,8 @@ jobs:
         registry: ghcr.io
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
+    - name: suppress dubious ownership warning
+      run: echo "[safe]\n\tdirectory = *" >> .gitconfig
     - name: build
       run: |
         docker run --platform linux/armv7 --rm -v $PWD/:/rdk ghcr.io/viamrobotics/viam-server:armv7 go build -v -tags no_pigpio,no_tflite ./web/cmd/server
