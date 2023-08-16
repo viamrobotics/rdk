@@ -1,5 +1,4 @@
-import type { Client } from '@viamrobotics/sdk';
-import { robotApi } from '@viamrobotics/sdk';
+import { type Client, robotApi } from '@viamrobotics/sdk';
 
 export const getOperations = async (robotClient: Client) => {
   const request = new robotApi.GetOperationsRequest();
