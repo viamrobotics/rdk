@@ -27,7 +27,7 @@ jobs:
     runs-on: buildjet-4vcpu-ubuntu-2204-arm
     container:
       image: ghcr.io/viamrobotics/viam-server:armv7
-      options: --platform linux/armv7
+      # options: --platform linux/armv7
     steps:
     - uses: actions/checkout@v3
     - name: build
