@@ -75,7 +75,8 @@ test-go: tool-install
 	PATH=$(PATH_WITH_TOOLS) ./etc/test.sh race
 
 test-go-no-race: tool-install
-	PATH=$(PATH_WITH_TOOLS) ./etc/test.sh
+	# DONOTMERGE MORE_GO_FLAGS
+	PATH=$(PATH_WITH_TOOLS) MORE_GO_TAGS=,no_tflite,no_pigpio ./etc/test.sh
 
 test-web:
 	npm run test:unit --prefix web/frontend

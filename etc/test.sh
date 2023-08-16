@@ -17,7 +17,7 @@ if [[ "$1" == "race" ]]; then
 fi
 
 # We run analyzetests on every run, pass or fail. We only run analyzecoverage when all tests passed.
-PION_LOG_WARN=webrtc,datachannel,sctp gotestsum --format standard-verbose --jsonfile json.log -- -tags=no_skip $RACE $COVER ./...
+PION_LOG_WARN=webrtc,datachannel,sctp gotestsum --format standard-verbose --jsonfile json.log -- -tags=no_skip$MORE_GO_FLAGS $RACE $COVER ./...
 SUCCESS=$?
 
 cat json.log | go run ./etc/analyzetests/main.go
