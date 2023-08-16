@@ -126,7 +126,7 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 	selectedPTG := ptgk.ptgs[int(math.Round(inputs[ptgIndex].Value))]
 	selectedTraj, err := selectedPTG.Trajectory(inputs[trajectoryIndexWithinPTG].Value, inputs[distanceAlongTrajectoryIndex].Value)
 	if err != nil {
-		return errors.Join(err, ptgk.Base.Stop(ctx, nil))
+		return multierr.Combine(err, ptgk.Base.Stop(ctx, nil))
 	}
 
 	lastTime := 0.
