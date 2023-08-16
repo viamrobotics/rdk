@@ -34,10 +34,11 @@ var model = resource.DefaultModelFamily.WithModel("obstacles_depth")
 
 // ObsDepthConfig specifies the parameters to be used for the obstacle depth service.
 type ObsDepthConfig struct {
-	Hmin       float64 `json:"h_min_m"`
-	Hmax       float64 `json:"h_max_m"`
-	ThetaMax   float64 `json:"theta_max_deg"`
-	ReturnPCDs bool    `json:"return_pcds"`
+	Hmin           float64 `json:"h_min_m"`
+	Hmax           float64 `json:"h_max_m"`
+	ThetaMax       float64 `json:"theta_max_deg"`
+	ReturnPCDs     bool    `json:"return_pcds"`
+	WithGeometries bool    `json:"with_geometries"`
 }
 
 // obsDepth is the underlying struct actually used by the service.
@@ -49,6 +50,7 @@ type obsDepth struct {
 	sinTheta    float64
 	intrinsics  *transform.PinholeCameraIntrinsics
 	returnPCDs  bool
+	withGeoms   bool
 	k           int
 	depthStream gostream.VideoStream
 }
@@ -122,7 +124,7 @@ func registerObstaclesDepth(
 	sinTheta := math.Sin(conf.ThetaMax * math.Pi / 180) // sin(radians(theta))
 	myObsDep := obsDepth{
 		hMin: 1000 * conf.Hmin, hMax: 1000 * conf.Hmax, sinTheta: sinTheta,
-		returnPCDs: conf.ReturnPCDs, k: defaultK,
+		returnPCDs: conf.ReturnPCDs, k: defaultK, withGeoms: conf.WithGeometries,
 	}
 
 	segmenter := myObsDep.buildObsDepth(logger) // does the thing
@@ -142,7 +144,10 @@ func (o *obsDepth) buildObsDepth(logger golog.Logger) func(ctx context.Context, 
 			return o.obsDepthNoIntrinsics(ctx, src)
 		}
 		o.intrinsics = props.IntrinsicParams
-		return o.obsDepthWithIntrinsics(ctx, src)
+		if o.withGeoms {
+			return o.obsDepthWithIntrinsics(ctx, src)
+		}
+		return o.obsDepthNoIntrinsics(ctx, src)
 	}
 }
 
