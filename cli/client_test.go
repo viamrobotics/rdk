@@ -29,9 +29,15 @@ func (tw *testWriter) Write(b []byte) (int, error) {
 	return len(b), nil
 }
 
-// setup creates a new cli.Context with fake auth and the passed in
-// AppServiceClient. It also returns testWriters that capture Stdout and Stdin.
-func setup(asc apppb.AppServiceClient) (*cli.Context, *testWriter, *testWriter) {
+// setup creates a new cli.Context and appClient with fake auth and the passed
+// in AppServiceClient. It also returns testWriters that capture Stdout and
+// Stdin.
+func setup(asc apppb.AppServiceClient) (*cli.Context, *appClient, *testWriter, *testWriter) {
+	out := &testWriter{}
+	errOut := &testWriter{}
+	cCtx := &cli.Context{
+		App: NewApp(out, errOut),
+	}
 	conf := &config{
 		Auth: &token{
 			AccessToken: testToken,
@@ -41,24 +47,12 @@ func setup(asc apppb.AppServiceClient) (*cli.Context, *testWriter, *testWriter) 
 			},
 		},
 	}
-
-	out := &testWriter{}
-	errOut := &testWriter{}
-	app := NewApp(out, errOut)
-
-	// NOTE(benjirewis): Some confusing logic here. We want to return a cli.Context
-	// injected with the appClient to be extracted in newAppClient. The appClient,
-	// however, must also contain the cli.Context.
 	ac := &appClient{
 		client: asc,
 		conf:   conf,
+		c:      cCtx,
 	}
-	cCtx := &cli.Context{
-		App:     app,
-		Context: context.WithValue(context.Background(), injectedAppClientKey{}, ac),
-	}
-	ac.c = cCtx
-	return cCtx, out, errOut
+	return cCtx, ac, out, errOut
 }
 
 func TestListOrganizationsAction(t *testing.T) {
@@ -71,9 +65,9 @@ func TestListOrganizationsAction(t *testing.T) {
 	asc := &inject.AppServiceClient{
 		ListOrganizationsFunc: listOrganizationsFunc,
 	}
-	ctx, out, errOut := setup(asc)
+	cCtx, ac, out, errOut := setup(asc)
 
-	test.That(t, ListOrganizationsAction(ctx), test.ShouldBeNil)
+	test.That(t, ac.listOrganizationsAction(cCtx), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
 	test.That(t, len(out.messages), test.ShouldEqual, 3)
 	test.That(t, out.messages[0], test.ShouldEqual, fmt.Sprintf("organizations for %q:\n", testEmail))

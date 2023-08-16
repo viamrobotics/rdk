@@ -34,10 +34,6 @@ import (
 	"go.viam.com/rdk/services/shell"
 )
 
-// injectedAppClientKey is used as the context map key that contains injected
-// appClients for testing.
-type injectedAppClientKey struct{}
-
 // appClient wraps a cli.Context and provides all the CLI command functionality
 // needed to talk to the app service but not directly to robot parts.
 type appClient struct {
@@ -58,20 +54,24 @@ type appClient struct {
 }
 
 // ListOrganizationsAction is the corresponding Action for 'organizations list'.
-func ListOrganizationsAction(c *cli.Context) error {
-	client, err := newAppClient(c)
+func ListOrganizationsAction(cCtx *cli.Context) error {
+	c, err := newAppClient(cCtx)
 	if err != nil {
 		return err
 	}
-	orgs, err := client.listOrganizations()
+	return c.listOrganizationsAction(cCtx)
+}
+
+func (c *appClient) listOrganizationsAction(cCtx *cli.Context) error {
+	orgs, err := c.listOrganizations()
 	if err != nil {
 		return errors.Wrap(err, "could not list organizations")
 	}
 	for i, org := range orgs {
 		if i == 0 {
-			fmt.Fprintf(c.App.Writer, "organizations for %q:\n", client.conf.Auth.User.Email)
+			fmt.Fprintf(cCtx.App.Writer, "organizations for %q:\n", c.conf.Auth.User.Email)
 		}
-		fmt.Fprintf(c.App.Writer, "\t%s (id: %s)\n", org.Name, org.Id)
+		fmt.Fprintf(cCtx.App.Writer, "\t%s (id: %s)\n", org.Name, org.Id)
 	}
 	return nil
 }
@@ -422,11 +422,6 @@ func isProdBaseURL(baseURL *url.URL) bool {
 }
 
 func newAppClient(c *cli.Context) (*appClient, error) {
-	// Check for injectedAppClientKey for testing.
-	if ac := c.Context.Value(injectedAppClientKey{}); ac != nil {
-		return ac.(*appClient), nil
-	}
-
 	baseURL, rpcOpts, err := checkBaseURL(c)
 	if err != nil {
 		return nil, err
