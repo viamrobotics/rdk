@@ -7,6 +7,27 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
+// CLI flags.
+const (
+	dataFlagDestination       = "destination"
+	dataFlagDataType          = "data-type"
+	dataFlagOrgIDs            = "org-ids"
+	dataFlagLocationIDs       = "location-ids"
+	dataFlagRobotID           = "robot-id"
+	dataFlagPartID            = "part-id"
+	dataFlagRobotName         = "robot-name"
+	dataFlagPartName          = "part-name"
+	dataFlagComponentType     = "component-type"
+	dataFlagComponentName     = "component-name"
+	dataFlagMethod            = "method"
+	dataFlagMimeTypes         = "mime-types"
+	dataFlagStart             = "start"
+	dataFlagEnd               = "end"
+	dataFlagParallelDownloads = "parallel"
+	dataFlagTags              = "tags"
+	dataFlagBboxLabels        = "bbox-labels"
+)
+
 var app = &cli.App{
 	Name:            "viam",
 	Usage:           "interact with your Viam robots",
@@ -89,78 +110,78 @@ var app = &cli.App{
 					Name:  "export",
 					Usage: "download data from Viam cloud",
 					UsageText: fmt.Sprintf("viam data export <%s> <%s> [other options]",
-						DataFlagDestination, DataFlagDataType),
+						dataFlagDestination, dataFlagDataType),
 					Flags: []cli.Flag{
 						&cli.PathFlag{
-							Name:     DataFlagDestination,
+							Name:     dataFlagDestination,
 							Required: true,
 							Usage:    "output directory for downloaded data",
 						},
 						&cli.StringFlag{
-							Name:     DataFlagDataType,
+							Name:     dataFlagDataType,
 							Required: true,
 							Usage:    "data type to be downloaded: either binary or tabular",
 						},
 						&cli.StringSliceFlag{
-							Name:  DataFlagOrgIDs,
+							Name:  dataFlagOrgIDs,
 							Usage: "orgs filter",
 						},
 						&cli.StringSliceFlag{
-							Name:  DataFlagLocationIDs,
+							Name:  dataFlagLocationIDs,
 							Usage: "locations filter",
 						},
 						&cli.StringFlag{
-							Name:  DataFlagRobotID,
+							Name:  dataFlagRobotID,
 							Usage: "robot-id filter",
 						},
 						&cli.StringFlag{
-							Name:  DataFlagPartID,
+							Name:  dataFlagPartID,
 							Usage: "part id filter",
 						},
 						&cli.StringFlag{
-							Name:  DataFlagRobotName,
+							Name:  dataFlagRobotName,
 							Usage: "robot name filter",
 						},
 						&cli.StringFlag{
-							Name:  DataFlagPartName,
+							Name:  dataFlagPartName,
 							Usage: "part name filter",
 						},
 						&cli.StringFlag{
-							Name:  DataFlagComponentType,
+							Name:  dataFlagComponentType,
 							Usage: "component type filter",
 						},
 						&cli.StringFlag{
-							Name:  DataFlagComponentName,
+							Name:  dataFlagComponentName,
 							Usage: "component name filter",
 						},
 						&cli.StringFlag{
-							Name:  DataFlagMethod,
+							Name:  dataFlagMethod,
 							Usage: "method filter",
 						},
 						&cli.StringSliceFlag{
-							Name:  DataFlagMimeTypes,
+							Name:  dataFlagMimeTypes,
 							Usage: "mime types filter",
 						},
 						&cli.UintFlag{
-							Name:        DataFlagParallelDownloads,
+							Name:        dataFlagParallelDownloads,
 							Usage:       "number of download requests to make in parallel",
 							DefaultText: "10",
 						},
 						&cli.StringFlag{
-							Name:  DataFlagStart,
+							Name:  dataFlagStart,
 							Usage: "ISO-8601 timestamp indicating the start of the interval filter",
 						},
 						&cli.StringFlag{
-							Name:  DataFlagEnd,
+							Name:  dataFlagEnd,
 							Usage: "ISO-8601 timestamp indicating the end of the interval filter",
 						},
 						&cli.StringSliceFlag{
-							Name: DataFlagTags,
+							Name: dataFlagTags,
 							Usage: "tags filter. " +
 								"accepts tagged for all tagged data, untagged for all untagged data, or a list of tags for all data matching any of the tags",
 						},
 						&cli.StringSliceFlag{
-							Name: DataFlagBboxLabels,
+							Name: dataFlagBboxLabels,
 							Usage: "bbox labels filter. " +
 								"accepts string labels corresponding to bounding boxes within images",
 						},
@@ -170,59 +191,59 @@ var app = &cli.App{
 				{
 					Name:      "delete",
 					Usage:     "delete data from Viam cloud",
-					UsageText: fmt.Sprintf("viam data delete <%s> [other options]", DataFlagDataType),
+					UsageText: fmt.Sprintf("viam data delete <%s> [other options]", dataFlagDataType),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
-							Name:     DataFlagDataType,
+							Name:     dataFlagDataType,
 							Required: true,
 							Usage:    "data type to be deleted: either binary or tabular",
 						},
 						&cli.StringSliceFlag{
-							Name:  DataFlagOrgIDs,
+							Name:  dataFlagOrgIDs,
 							Usage: "orgs filter",
 						},
 						&cli.StringSliceFlag{
-							Name:  DataFlagLocationIDs,
+							Name:  dataFlagLocationIDs,
 							Usage: "locations filter",
 						},
 						&cli.StringFlag{
-							Name:  DataFlagRobotID,
+							Name:  dataFlagRobotID,
 							Usage: "robot id filter",
 						},
 						&cli.StringFlag{
-							Name:  DataFlagPartID,
+							Name:  dataFlagPartID,
 							Usage: "part id filter",
 						},
 						&cli.StringFlag{
-							Name:  DataFlagRobotName,
+							Name:  dataFlagRobotName,
 							Usage: "robot name filter",
 						},
 						&cli.StringFlag{
-							Name:  DataFlagPartName,
+							Name:  dataFlagPartName,
 							Usage: "part name filter",
 						},
 						&cli.StringFlag{
-							Name:  DataFlagComponentType,
+							Name:  dataFlagComponentType,
 							Usage: "component type filter",
 						},
 						&cli.StringFlag{
-							Name:  DataFlagComponentName,
+							Name:  dataFlagComponentName,
 							Usage: "component name filter",
 						},
 						&cli.StringFlag{
-							Name:  DataFlagMethod,
+							Name:  dataFlagMethod,
 							Usage: "method filter",
 						},
 						&cli.StringSliceFlag{
-							Name:  DataFlagMimeTypes,
+							Name:  dataFlagMimeTypes,
 							Usage: "mime types filter",
 						},
 						&cli.StringFlag{
-							Name:  DataFlagStart,
+							Name:  dataFlagStart,
 							Usage: "ISO-8601 timestamp indicating the start of the interval filter",
 						},
 						&cli.StringFlag{
-							Name:  DataFlagEnd,
+							Name:  dataFlagEnd,
 							Usage: "ISO-8601 timestamp indicating the end of the interval filter",
 						},
 					},
