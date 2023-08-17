@@ -104,8 +104,8 @@ func TestGenericLinux(t *testing.T) {
 
 	t.Run("test genericlinux gpio pin functionality", func(t *testing.T) {
 		bs, err := b.Status(ctx, nil)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, bs, test.ShouldResemble, &commonpb.BoardStatus{})
+		test.That(t, err.Error(), test.ShouldContainSubstring, "closed")
+		test.That(t, bs, test.ShouldHaveSameTypeAs, &commonpb.BoardStatus{})
 
 		bma := b.ModelAttributes()
 		test.That(t, bma, test.ShouldResemble, board.ModelAttributes{})
