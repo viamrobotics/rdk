@@ -28,8 +28,9 @@ jobs:
   test:
     # needs: [docker]
     runs-on: buildjet-4vcpu-ubuntu-2204-arm
+    concurrency: '32bit-${{ github.ref }}' # to debug runs, DONOTMERGE (for prod speed)
     strategy:
-      fail-fast: false
+      # fail-fast: false
       matrix:
         index: ['0', '1', '2', '3']
     permissions:
@@ -45,7 +46,7 @@ jobs:
       env:
         GOFLAGS: -buildvcs=false -tags no_tflite,no_pigpio
         CGO_ENABLED: '1'
-      run: docker run --rm -v $PWD/:/rdk ghcr.io/viamrobotics/viam-server:armv7 sh -c "go list -json $GOFLAGS ./... | etc/splitter.py ${{ matrix.index }} --nbins 4 --command \"go test $GOFLAGS\""
+      run: docker run --rm -v $PWD/:/rdk ghcr.io/viamrobotics/viam-server:armv7 sh -c "go version && go list -json $GOFLAGS ./... | etc/splitter.py ${{ matrix.index }} --nbins 4 --command \"go test $GOFLAGS\" --fail-empty"
   build:
     needs: [test]
     runs-on: buildjet-4vcpu-ubuntu-2204-arm
@@ -59,7 +60,7 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
     - uses: actions/checkout@v3
     - name: build
-      run: docker run --platform linux/armv7 --rm -v $PWD/:/rdk ghcr.io/viamrobotics/viam-server:armv7 sh -c "git config --global --add safe.directory '*' && go build -v -tags no_pigpio,no_tflite ./web/cmd/server"
+      run: docker run --rm -v $PWD/:/rdk ghcr.io/viamrobotics/viam-server:armv7 sh -c "git config --global --add safe.directory '*' && go build -v -tags no_pigpio,no_tflite ./web/cmd/server"
     - name: show arch
       run: file server
     - uses: actions/upload-artifact@v3

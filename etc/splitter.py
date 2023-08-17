@@ -56,6 +56,7 @@ def main():
     p.add_argument('--dry-run', action='store_true', help="print output but don't run anything")
     p.add_argument('-d', '--debug', action='store_true', help="log level debug")
     p.add_argument('-c', '--command', default="go test", help="go test command with optional extra arguments")
+    p.add_argument('--fail-empty', action='store_true', help="crash if no tests in input")
     args = p.parse_args()
     logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO)
 
@@ -72,6 +73,8 @@ def main():
             sizes.append(('.' + item["Dir"].removeprefix(cwd), n_test_files))
     if not sizes:
         logger.warning('no tests to run, quitting')
+        if args.fail_empty:
+            raise ValueError('to tests in input and --fail-empty is set')
         return
     bin_size = int(sum(size for _, size in sizes) / args.nbins)
     logger.info('%d packages with tests, bin_size %d', len(sizes), bin_size)
