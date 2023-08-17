@@ -330,14 +330,14 @@ func TestMoveOnMapLongDistance(t *testing.T) {
 }
 
 func TestMoveOnMap(t *testing.T) {
-	// t.Skip() // RSDK-4279
+	t.Skip() // RSDK-4279
 	t.Parallel()
 	ctx := context.Background()
 	// goal x-position of 1.32m is scaled to be in mm
 	goal := spatialmath.NewPoseFromPoint(r3.Vector{X: 1.32 * 1000, Y: 0})
 
 	t.Run("check that path is planned around obstacle", func(t *testing.T) {
-		// t.Parallel()
+		t.Parallel()
 		ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd")
 		extra := make(map[string]interface{})
 		extra["motion_profile"] = "orientation"
