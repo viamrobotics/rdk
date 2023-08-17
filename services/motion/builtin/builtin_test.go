@@ -10,6 +10,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
+
 	// register.
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
@@ -208,7 +209,25 @@ func TestMove(t *testing.T) {
 		ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
 		defer teardown()
 		grabPose := referenceframe.NewPoseInFrame("pieceArm", spatialmath.NewPoseFromPoint(r3.Vector{0, -30, -50}))
-		_, err = ms.Move(ctx, gripper.Named("pieceArm"), grabPose, nil, nil, map[string]interface{}{})
+		_, err = ms.Move(ctx, arm.Named("pieceArm"), grabPose, nil, nil, map[string]interface{}{})
+		test.That(t, err, test.ShouldBeNil)
+
+		plan := [][]referenceframe.Input{}
+		plan = append(plan, referenceframe.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0}))
+		plan = append(plan, referenceframe.FloatsToInputs([]float64{
+			-0.061415653878237754,
+			0.15398252391889578,
+			-0.24380682723426927,
+			0.09029531877468856,
+			-0.0613905398108419,
+			-0.00044902844166047314,
+		}))
+		fs, err := ms.(*builtIn).fsService.FrameSystem(ctx, nil)
+		test.That(t, err, test.ShouldBeNil)
+		armFrame := fs.Frame("pieceArm")
+
+		b, err := motionplan.CheckPlan(armFrame, plan, nil, fs)
+		test.That(t, b, test.ShouldBeTrue)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
