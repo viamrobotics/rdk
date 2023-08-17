@@ -5,6 +5,7 @@ import (
 	"context"
 	"math/rand"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -265,11 +266,15 @@ func (mp *planner) getSolutions(ctx context.Context, seed []frame.Input) ([]node
 	ctxWithCancel, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	solutionGen := make(chan *IKSolution)
+	solutionGen := make(chan *IKSolution, mp.planOpts.NumThreads)
 	ikErr := make(chan error, 1)
+	var activeSolvers sync.WaitGroup
+	defer activeSolvers.Wait()
+	activeSolvers.Add(1)
 	// Spawn the IK solver to generate solutions until done
 	utils.PanicCapturingGo(func() {
 		defer close(ikErr)
+		defer activeSolvers.Done()
 		ikErr <- mp.solver.Solve(ctxWithCancel, solutionGen, seed, mp.planOpts.goalMetric, mp.randseed.Int())
 	})
 

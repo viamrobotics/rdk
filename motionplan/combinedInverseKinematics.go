@@ -63,7 +63,7 @@ func (ik *CombinedIK) Solve(ctx context.Context,
 	ctxWithCancel, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	errChan := make(chan error, len(ik.solvers))
+	errChan := make(chan error, len(ik.solvers)+1)
 	var activeSolvers sync.WaitGroup
 	defer activeSolvers.Wait()
 	activeSolvers.Add(len(ik.solvers))
@@ -89,6 +89,7 @@ func (ik *CombinedIK) Solve(ctx context.Context,
 	for !done {
 		select {
 		case <-ctx.Done():
+			activeSolvers.Wait()
 			return ctx.Err()
 		default:
 		}
@@ -110,6 +111,7 @@ func (ik *CombinedIK) Solve(ctx context.Context,
 		// Collect return errors from all solvers
 		select {
 		case <-ctx.Done():
+			activeSolvers.Wait()
 			return ctx.Err()
 		default:
 		}
@@ -120,6 +122,7 @@ func (ik *CombinedIK) Solve(ctx context.Context,
 			collectedErrs = multierr.Combine(collectedErrs, err)
 		}
 	}
+	activeSolvers.Wait()
 	return collectedErrs
 }
 
