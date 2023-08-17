@@ -181,7 +181,7 @@ func UploadModuleAction(c *cli.Context) error {
 	orgIDArg := c.String(moduleFlagOrgID)
 	nameArg := c.String(moduleFlagName)
 	versionArg := c.String(moduleFlagVersion)
-	platformArg := c.String(moduleFlagVersion)
+	platformArg := c.String(moduleFlagPlatform)
 	tarballPath := c.Args().First()
 	if c.Args().Len() > 1 {
 		return errors.New("too many arguments passed to upload command. " +
