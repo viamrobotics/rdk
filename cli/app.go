@@ -7,24 +7,66 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
+// CLI flags.
+const (
+	baseURLFlag      = "base-url"
+	configFlag       = "config"
+	debugFlag        = "debug"
+	organizationFlag = "organization"
+	locationFlag     = "location"
+	robotFlag        = "robot"
+	partFlag         = "part"
+
+	logsFlagErrors = "errors"
+	logsFlagTail   = "tail"
+
+	runFlagData   = "data"
+	runFlagStream = "stream"
+
+	moduleFlagName            = "name"
+	moduleFlagPublicNamespace = "public-namespace"
+	moduleFlagOrgID           = "org-id"
+	moduleFlagPath            = "module"
+	moduleFlagVersion         = "version"
+	moduleFlagPlatform        = "platform"
+
+	dataFlagDestination       = "destination"
+	dataFlagDataType          = "data-type"
+	dataFlagOrgIDs            = "org-ids"
+	dataFlagLocationIDs       = "location-ids"
+	dataFlagRobotID           = "robot-id"
+	dataFlagPartID            = "part-id"
+	dataFlagRobotName         = "robot-name"
+	dataFlagPartName          = "part-name"
+	dataFlagComponentType     = "component-type"
+	dataFlagComponentName     = "component-name"
+	dataFlagMethod            = "method"
+	dataFlagMimeTypes         = "mime-types"
+	dataFlagStart             = "start"
+	dataFlagEnd               = "end"
+	dataFlagParallelDownloads = "parallel"
+	dataFlagTags              = "tags"
+	dataFlagBboxLabels        = "bbox-labels"
+)
+
 var app = &cli.App{
 	Name:            "viam",
 	Usage:           "interact with your Viam robots",
 	HideHelpCommand: true,
 	Flags: []cli.Flag{
 		&cli.StringFlag{
-			Name:   "base-url",
+			Name:   baseURLFlag,
 			Hidden: true,
 			Value:  "https://app.viam.com:443",
 			Usage:  "base URL of app",
 		},
 		&cli.StringFlag{
-			Name:    "config",
+			Name:    configFlag,
 			Aliases: []string{"c"},
 			Usage:   "load configuration from `FILE`",
 		},
 		&cli.BoolFlag{
-			Name:    "debug",
+			Name:    debugFlag,
 			Aliases: []string{"vvv"},
 			Usage:   "enable debug logging",
 		},
@@ -89,78 +131,78 @@ var app = &cli.App{
 					Name:  "export",
 					Usage: "download data from Viam cloud",
 					UsageText: fmt.Sprintf("viam data export <%s> <%s> [other options]",
-						DataFlagDestination, DataFlagDataType),
+						dataFlagDestination, dataFlagDataType),
 					Flags: []cli.Flag{
 						&cli.PathFlag{
-							Name:     DataFlagDestination,
+							Name:     dataFlagDestination,
 							Required: true,
 							Usage:    "output directory for downloaded data",
 						},
 						&cli.StringFlag{
-							Name:     DataFlagDataType,
+							Name:     dataFlagDataType,
 							Required: true,
 							Usage:    "data type to be downloaded: either binary or tabular",
 						},
 						&cli.StringSliceFlag{
-							Name:  DataFlagOrgIDs,
+							Name:  dataFlagOrgIDs,
 							Usage: "orgs filter",
 						},
 						&cli.StringSliceFlag{
-							Name:  DataFlagLocationIDs,
+							Name:  dataFlagLocationIDs,
 							Usage: "locations filter",
 						},
 						&cli.StringFlag{
-							Name:  DataFlagRobotID,
+							Name:  dataFlagRobotID,
 							Usage: "robot-id filter",
 						},
 						&cli.StringFlag{
-							Name:  DataFlagPartID,
+							Name:  dataFlagPartID,
 							Usage: "part id filter",
 						},
 						&cli.StringFlag{
-							Name:  DataFlagRobotName,
+							Name:  dataFlagRobotName,
 							Usage: "robot name filter",
 						},
 						&cli.StringFlag{
-							Name:  DataFlagPartName,
+							Name:  dataFlagPartName,
 							Usage: "part name filter",
 						},
 						&cli.StringFlag{
-							Name:  DataFlagComponentType,
+							Name:  dataFlagComponentType,
 							Usage: "component type filter",
 						},
 						&cli.StringFlag{
-							Name:  DataFlagComponentName,
+							Name:  dataFlagComponentName,
 							Usage: "component name filter",
 						},
 						&cli.StringFlag{
-							Name:  DataFlagMethod,
+							Name:  dataFlagMethod,
 							Usage: "method filter",
 						},
 						&cli.StringSliceFlag{
-							Name:  DataFlagMimeTypes,
+							Name:  dataFlagMimeTypes,
 							Usage: "mime types filter",
 						},
 						&cli.UintFlag{
-							Name:        DataFlagParallelDownloads,
+							Name:        dataFlagParallelDownloads,
 							Usage:       "number of download requests to make in parallel",
 							DefaultText: "10",
 						},
 						&cli.StringFlag{
-							Name:  DataFlagStart,
+							Name:  dataFlagStart,
 							Usage: "ISO-8601 timestamp indicating the start of the interval filter",
 						},
 						&cli.StringFlag{
-							Name:  DataFlagEnd,
+							Name:  dataFlagEnd,
 							Usage: "ISO-8601 timestamp indicating the end of the interval filter",
 						},
 						&cli.StringSliceFlag{
-							Name: DataFlagTags,
+							Name: dataFlagTags,
 							Usage: "tags filter. " +
 								"accepts tagged for all tagged data, untagged for all untagged data, or a list of tags for all data matching any of the tags",
 						},
 						&cli.StringSliceFlag{
-							Name: DataFlagBboxLabels,
+							Name: dataFlagBboxLabels,
 							Usage: "bbox labels filter. " +
 								"accepts string labels corresponding to bounding boxes within images",
 						},
@@ -170,59 +212,59 @@ var app = &cli.App{
 				{
 					Name:      "delete",
 					Usage:     "delete data from Viam cloud",
-					UsageText: fmt.Sprintf("viam data delete <%s> [other options]", DataFlagDataType),
+					UsageText: fmt.Sprintf("viam data delete <%s> [other options]", dataFlagDataType),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
-							Name:     DataFlagDataType,
+							Name:     dataFlagDataType,
 							Required: true,
 							Usage:    "data type to be deleted: either binary or tabular",
 						},
 						&cli.StringSliceFlag{
-							Name:  DataFlagOrgIDs,
+							Name:  dataFlagOrgIDs,
 							Usage: "orgs filter",
 						},
 						&cli.StringSliceFlag{
-							Name:  DataFlagLocationIDs,
+							Name:  dataFlagLocationIDs,
 							Usage: "locations filter",
 						},
 						&cli.StringFlag{
-							Name:  DataFlagRobotID,
+							Name:  dataFlagRobotID,
 							Usage: "robot id filter",
 						},
 						&cli.StringFlag{
-							Name:  DataFlagPartID,
+							Name:  dataFlagPartID,
 							Usage: "part id filter",
 						},
 						&cli.StringFlag{
-							Name:  DataFlagRobotName,
+							Name:  dataFlagRobotName,
 							Usage: "robot name filter",
 						},
 						&cli.StringFlag{
-							Name:  DataFlagPartName,
+							Name:  dataFlagPartName,
 							Usage: "part name filter",
 						},
 						&cli.StringFlag{
-							Name:  DataFlagComponentType,
+							Name:  dataFlagComponentType,
 							Usage: "component type filter",
 						},
 						&cli.StringFlag{
-							Name:  DataFlagComponentName,
+							Name:  dataFlagComponentName,
 							Usage: "component name filter",
 						},
 						&cli.StringFlag{
-							Name:  DataFlagMethod,
+							Name:  dataFlagMethod,
 							Usage: "method filter",
 						},
 						&cli.StringSliceFlag{
-							Name:  DataFlagMimeTypes,
+							Name:  dataFlagMimeTypes,
 							Usage: "mime types filter",
 						},
 						&cli.StringFlag{
-							Name:  DataFlagStart,
+							Name:  dataFlagStart,
 							Usage: "ISO-8601 timestamp indicating the start of the interval filter",
 						},
 						&cli.StringFlag{
-							Name:  DataFlagEnd,
+							Name:  dataFlagEnd,
 							Usage: "ISO-8601 timestamp indicating the end of the interval filter",
 						},
 					},
@@ -240,11 +282,11 @@ var app = &cli.App{
 					Usage: "list robots in an organization and location",
 					Flags: []cli.Flag{
 						&cli.StringFlag{
-							Name:        "organization",
+							Name:        organizationFlag,
 							DefaultText: "first organization alphabetically",
 						},
 						&cli.StringFlag{
-							Name:        "location",
+							Name:        locationFlag,
 							DefaultText: "first location alphabetically",
 						},
 					},
@@ -263,15 +305,15 @@ var app = &cli.App{
 					UsageText: "viam robot status <robot> [other options]",
 					Flags: []cli.Flag{
 						&cli.StringFlag{
-							Name:        "organization",
+							Name:        organizationFlag,
 							DefaultText: "first organization alphabetically",
 						},
 						&cli.StringFlag{
-							Name:        "location",
+							Name:        locationFlag,
 							DefaultText: "first location alphabetically",
 						},
 						&cli.StringFlag{
-							Name:     "robot",
+							Name:     robotFlag,
 							Required: true,
 						},
 					},
@@ -283,19 +325,19 @@ var app = &cli.App{
 					UsageText: "viam robot logs <robot> [other options]",
 					Flags: []cli.Flag{
 						&cli.StringFlag{
-							Name:        "organization",
+							Name:        organizationFlag,
 							DefaultText: "first organization alphabetically",
 						},
 						&cli.StringFlag{
-							Name:        "location",
+							Name:        locationFlag,
 							DefaultText: "first location alphabetically",
 						},
 						&cli.StringFlag{
-							Name:     "robot",
+							Name:     robotFlag,
 							Required: true,
 						},
 						&cli.BoolFlag{
-							Name:  "errors",
+							Name:  logsFlagErrors,
 							Usage: "show only errors",
 						},
 					},
@@ -312,19 +354,19 @@ var app = &cli.App{
 							UsageText: "viam robot part status <robot> <part> [other options]",
 							Flags: []cli.Flag{
 								&cli.StringFlag{
-									Name:        "organization",
+									Name:        organizationFlag,
 									DefaultText: "first organization alphabetically",
 								},
 								&cli.StringFlag{
-									Name:        "location",
+									Name:        locationFlag,
 									DefaultText: "first location alphabetically",
 								},
 								&cli.StringFlag{
-									Name:     "robot",
+									Name:     robotFlag,
 									Required: true,
 								},
 								&cli.StringFlag{
-									Name:     "part",
+									Name:     partFlag,
 									Required: true,
 								},
 							},
@@ -336,27 +378,27 @@ var app = &cli.App{
 							UsageText: "viam robot part logs <robot> <part> [other options]",
 							Flags: []cli.Flag{
 								&cli.StringFlag{
-									Name:        "organization",
+									Name:        organizationFlag,
 									DefaultText: "first organization alphabetically",
 								},
 								&cli.StringFlag{
-									Name:        "location",
+									Name:        locationFlag,
 									DefaultText: "first location alphabetically",
 								},
 								&cli.StringFlag{
-									Name:     "robot",
+									Name:     robotFlag,
 									Required: true,
 								},
 								&cli.StringFlag{
-									Name:     "part",
+									Name:     partFlag,
 									Required: true,
 								},
 								&cli.BoolFlag{
-									Name:  "errors",
+									Name:  logsFlagErrors,
 									Usage: "show only errors",
 								},
 								&cli.BoolFlag{
-									Name:    "tail",
+									Name:    logsFlagTail,
 									Aliases: []string{"f"},
 									Usage:   "follow logs",
 								},
@@ -369,27 +411,27 @@ var app = &cli.App{
 							UsageText: "viam robot part run <organization> <location> <robot> <part> [other options] <service.method>",
 							Flags: []cli.Flag{
 								&cli.StringFlag{
-									Name:     "organization",
+									Name:     organizationFlag,
 									Required: true,
 								},
 								&cli.StringFlag{
-									Name:     "location",
+									Name:     locationFlag,
 									Required: true,
 								},
 								&cli.StringFlag{
-									Name:     "robot",
+									Name:     robotFlag,
 									Required: true,
 								},
 								&cli.StringFlag{
-									Name:     "part",
+									Name:     partFlag,
 									Required: true,
 								},
 								&cli.StringFlag{
-									Name:    "data",
+									Name:    runFlagData,
 									Aliases: []string{"d"},
 								},
 								&cli.DurationFlag{
-									Name:    "stream",
+									Name:    runFlagStream,
 									Aliases: []string{"s"},
 								},
 							},
@@ -402,19 +444,19 @@ var app = &cli.App{
 							UsageText:   "viam robot part shell <organization> <location> <robot> <part>",
 							Flags: []cli.Flag{
 								&cli.StringFlag{
-									Name:     "organization",
+									Name:     organizationFlag,
 									Required: true,
 								},
 								&cli.StringFlag{
-									Name:     "location",
+									Name:     locationFlag,
 									Required: true,
 								},
 								&cli.StringFlag{
-									Name:     "robot",
+									Name:     robotFlag,
 									Required: true,
 								},
 								&cli.StringFlag{
-									Name:     "part",
+									Name:     partFlag,
 									Required: true,
 								},
 							},
@@ -444,16 +486,16 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 					UsageText: "viam module create <name> [other options]",
 					Flags: []cli.Flag{
 						&cli.StringFlag{
-							Name:     "name",
+							Name:     moduleFlagName,
 							Usage:    "name of your module (cannot be changed once set)",
 							Required: true,
 						},
 						&cli.StringFlag{
-							Name:  "public-namespace",
+							Name:  moduleFlagPublicNamespace,
 							Usage: "the public namespace where the module will reside (alternative way of specifying the org id)",
 						},
 						&cli.StringFlag{
-							Name:  "org-id",
+							Name:  moduleFlagOrgID,
 							Usage: "id of the organization that will host the module",
 						},
 					},
@@ -464,17 +506,17 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 					Usage: "update a module's metadata on app.viam.com",
 					Flags: []cli.Flag{
 						&cli.StringFlag{
-							Name:        "module",
+							Name:        moduleFlagPath,
 							Usage:       "path to meta.json",
 							DefaultText: "./meta.json",
 							TakesFile:   true,
 						},
 						&cli.StringFlag{
-							Name:  "public-namespace",
+							Name:  moduleFlagPublicNamespace,
 							Usage: "the public namespace where the module resides (alternative way of specifying the org id)",
 						},
 						&cli.StringFlag{
-							Name:  "org-id",
+							Name:  moduleFlagOrgID,
 							Usage: "id of the organization that hosts the module",
 						},
 					},
@@ -492,30 +534,30 @@ viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.ta
 					UsageText: "viam module upload <version> <platform> [other options] <packaged-module.tar.gz>",
 					Flags: []cli.Flag{
 						&cli.StringFlag{
-							Name:        "module",
+							Name:        moduleFlagPath,
 							Usage:       "path to meta.json",
 							DefaultText: "./meta.json",
 							TakesFile:   true,
 						},
 						&cli.StringFlag{
-							Name:  "public-namespace",
+							Name:  moduleFlagPublicNamespace,
 							Usage: "the public namespace where the module resides (alternative way of specifying the org id)",
 						},
 						&cli.StringFlag{
-							Name:  "org-id",
+							Name:  moduleFlagOrgID,
 							Usage: "id of the organization that hosts the module",
 						},
 						&cli.StringFlag{
-							Name:  "name",
+							Name:  moduleFlagName,
 							Usage: "name of the module (used if you don't have a meta.json)",
 						},
 						&cli.StringFlag{
-							Name:     "version",
+							Name:     moduleFlagVersion,
 							Usage:    "version of the module to upload (semver2.0) ex: \"0.1.0\"",
 							Required: true,
 						},
 						&cli.StringFlag{
-							Name: "platform",
+							Name: moduleFlagPlatform,
 							Usage: `platform of the binary you are uploading. Must be one of:
                       linux/amd64
                       linux/arm64
