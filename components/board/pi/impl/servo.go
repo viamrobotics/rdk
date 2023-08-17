@@ -52,6 +52,7 @@ func init() {
 				theServo := &piPigpioServo{
 					Named: conf.ResourceName().AsNamed(),
 					pin:   C.uint(bcom),
+					opMgr: operation.NewSingleOperationManager(),
 				}
 				if newConf.Min > 0 {
 					theServo.min = uint32(newConf.Min)
