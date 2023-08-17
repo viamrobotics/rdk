@@ -277,6 +277,8 @@ func (o *odometry) trackPosition(ctx context.Context) {
 			}
 			if !leftMove && !rightMove {
 				// neither motors are moving, so the odometry values do not need to be updated
+				o.linearVelocity.Y = 0
+				o.angularVelocity.Z = 0
 				continue
 			}
 
