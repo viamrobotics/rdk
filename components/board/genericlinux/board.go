@@ -588,7 +588,7 @@ func (b *Board) GPIOPinByName(pinName string) (board.GPIOPin, error) {
 
 // Status returns the current status of the board.
 func (b *Board) Status(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
-	return board.CreateStatus(ctx, b, extra), nil
+	return board.CreateStatus(ctx, b, extra)
 }
 
 // ModelAttributes returns attributes related to the model of this board.
