@@ -44,6 +44,7 @@ jobs:
     - name: test
       env:
         GOFLAGS: -buildvcs=false -tags no_tflite,no_pigpio
+        CGO_ENABLED: '1'
       run: docker run --rm -v $PWD/:/rdk ghcr.io/viamrobotics/viam-server:armv7 sh -c "go list -json $GOFLAGS ./... | etc/splitter.py ${{ matrix.index }} --nbins 4 --command \"go test $GOFLAGS\""
   build:
     needs: [test]
