@@ -84,7 +84,7 @@ def main():
     for package in splits[args.index]:
         logger.info('running tests for %s', package)
         if not args.dry_run:
-            subprocess.run(f"{args.command} {package}", shell=True)
+            subprocess.run(f"{args.command} {package}", shell=True, check=True)
 
 if __name__ == '__main__':
     main()
