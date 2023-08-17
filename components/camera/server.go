@@ -13,6 +13,7 @@ import (
 	pb "go.viam.com/api/component/camera/v1"
 	"google.golang.org/genproto/googleapis/api/httpbody"
 
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
@@ -71,6 +72,12 @@ func (s *serviceServer) GetImage(
 	}
 
 	req.MimeType = utils.WithLazyMIMEType(req.MimeType)
+
+	// Add 'fromDataManagement' to context to avoid threading extra through gostream API.
+	if req.Extra.AsMap()[data.FromDMString] == true {
+		ctx = context.WithValue(ctx, data.FromDMContextKey{}, true)
+	}
+
 	img, release, err := ReadImage(gostream.WithMIMETypeHint(ctx, req.MimeType), cam)
 	if err != nil {
 		return nil, err
