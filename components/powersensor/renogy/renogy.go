@@ -1,4 +1,6 @@
-// package renogy implements the renogy charge controller sensor.
+// Package renogy implements the renogy charge controller sensor.
+// renogy wanderer: https://www.renogy.com/content/RNG-CTRL-WND30-LI/WND30-LI-Manual.pdf
+// LCD Wanderer: https://ca.renogy.com/content/manual/RNG-CTRL-WND10-Manual.pdf
 package renogy
 
 import (
@@ -11,12 +13,15 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/goburrow/modbus"
+
 	"go.viam.com/rdk/components/powersensor"
 	"go.viam.com/rdk/resource"
 )
 
-var globalMu sync.Mutex
-var model = resource.DefaultModelFamily.WithModel("renogy")
+var (
+	globalMu sync.Mutex
+	model    = resource.DefaultModelFamily.WithModel("renogy")
+)
 
 // defaults assume the device is connected via UART serial.
 const (
@@ -28,12 +33,12 @@ const (
 // Config is used for converting config attributes.
 type Config struct {
 	resource.TriviallyValidateConfig
-	Path     string `json:"serial_path"`
-	Baud     int    `json:"serial_baud_rate"`
-	ModbusID byte   `json:"modbus_id"`
+	Path     string `json:"serial_path,omitempty"`
+	Baud     int    `json:"serial_baud_rate,omitempty"`
+	ModbusID byte   `json:"modbus_id,omitempty"`
 }
 
-// Charge represents a charge state.
+// Charge represents the solar charge controller readings.
 type Charge struct {
 	SolarVolt             float32
 	SolarAmp              float32
@@ -43,6 +48,7 @@ type Charge struct {
 	LoadWatt              float32
 	BattVolt              float32
 	BattChargePct         float32
+	BattChargeCurrent     float32
 	BattDegC              int16
 	ControllerDegC        int16
 	MaxSolarTodayWatt     float32
@@ -120,6 +126,7 @@ func (r *Renogy) getHandler() *modbus.RTUClientHandler {
 	return handler
 }
 
+// Voltage returns the voltage of the battery and a boolean IsAc.
 func (r *Renogy) Voltage(ctx context.Context, extra map[string]interface{}) (float64, bool, error) {
 	handler := r.getHandler()
 
@@ -127,52 +134,60 @@ func (r *Renogy) Voltage(ctx context.Context, extra map[string]interface{}) (flo
 	if err != nil {
 		return 0, false, err
 	}
-
-	defer handler.Close()
 	client := modbus.NewClient(handler)
 
+	// Eead the battery voltage.
 	volts := readRegister(client, 257, 1)
 	isAc := false
 
-	return float64(volts), isAc, nil
-
-}
-
-func (r *Renogy) Current(ctx context.Context, extra map[string]interface{}) (float64, bool, error) {
-	handler := r.getHandler()
-
-	err := handler.Connect()
+	err = handler.Close()
 	if err != nil {
 		return 0, false, err
 	}
 
-	defer handler.Close()
+	return float64(volts), isAc, nil
+}
+
+// Current returns the load's current and boolean isAC.
+// If the controller does not have a load input, will return zero.
+func (r *Renogy) Current(ctx context.Context, extra map[string]interface{}) (float64, bool, error) {
+	handler := r.getHandler()
+
 	client := modbus.NewClient(handler)
 
+	// read the load current.
 	loadCurrent := readRegister(client, 261, 2)
 	isAc := false
+
+	err := handler.Close()
+	if err != nil {
+		return 0, false, err
+	}
 
 	return float64(loadCurrent), isAc, nil
 }
 
+// Power returns the power of the load. If the controller does not have a load input, will return zero.
 func (r *Renogy) Power(ctx context.Context, extra map[string]interface{}) (float64, error) {
-
 	handler := r.getHandler()
 	err := handler.Connect()
 	if err != nil {
-		handler.Close()
 		return 0, err
 	}
 
-	defer handler.Close()
-
 	client := modbus.NewClient(handler)
 
+	// reads the load wattage.
 	loadPower := readRegister(client, 262, 0)
+
+	err = handler.Close()
+	if err != nil {
+		return 0, err
+	}
 	return float64(loadPower), err
 }
 
-// Readings returns a list of readings from the sensor.
+// Readings returns a list of all readings from the sensor.
 func (r *Renogy) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 	readings, err := r.GetControllerOutput(ctx)
 	if err != nil {
@@ -209,6 +224,7 @@ func (r *Renogy) GetControllerOutput(ctx context.Context) (Charge, error) {
 	chargeRes.LoadWatt = readRegister(client, 262, 0)
 	chargeRes.BattVolt = readRegister(client, 257, 1)
 	chargeRes.BattChargePct = readRegister(client, 256, 0)
+	chargeRes.BattChargeCurrent = readRegister(client, 258, 0)
 	tempReading := readRegister(client, 259, 0)
 	battTempSign := (int16(tempReading) & 0b0000000010000000) >> 7
 	battTemp := int16(tempReading) & 0b0000000001111111
