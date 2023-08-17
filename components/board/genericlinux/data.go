@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/edaniels/golog"
-	"github.com/mkch/gpio"
 
 	rdkutils "go.viam.com/rdk/utils"
 )

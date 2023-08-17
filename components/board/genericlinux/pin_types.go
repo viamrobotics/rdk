@@ -22,7 +22,7 @@ type GPIOBoardMapping struct {
 // PinDefinition describes a gpio pin on a linux board.
 type PinDefinition struct {
 	Name            string `json:"name"`
-	DeviceName      int    `json:"device_name"` // name of the pin's chip's device, within /dev
+	DeviceName      string `json:"device_name"` // name of the pin's chip's device, within /dev
 	LineNumber      int    `json:"line_number"` // relative line number on chip
 	PwmChipSysfsDir string `json:"pwm_chip_sysfs_dir,omitempty"`
 	PwmID           int    `json:"pwm_id,omitempty"`
