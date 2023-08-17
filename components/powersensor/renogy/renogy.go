@@ -1,12 +1,12 @@
-// Package renogy implements the renogy charge controller sensor.
-// renogy wanderer: https://www.renogy.com/content/RNG-CTRL-WND30-LI/WND30-LI-Manual.pdf
-// LCD Wanderer: https://ca.renogy.com/content/manual/RNG-CTRL-WND10-Manual.pdf
+// Package renogy implements the renogy charge controller sensor
+// Tested with renogy wanderer model
+// Wanderer Manual: https://www.renogy.com/content/RNG-CTRL-WND30-LI/WND30-LI-Manual.pdf
+// LCD Wanderer Manual: https://ca.renogy.com/content/manual/RNG-CTRL-WND10-Manual.pdf
 package renogy
 
 import (
 	"context"
 	"encoding/binary"
-	"encoding/json"
 	"math"
 	"sync"
 	"time"
@@ -21,6 +21,7 @@ import (
 var (
 	globalMu sync.Mutex
 	model    = resource.DefaultModelFamily.WithModel("renogy")
+	readings map[string]interface{}
 )
 
 // defaults assume the device is connected via UART serial.
@@ -39,70 +40,61 @@ type Config struct {
 }
 
 // Charge represents the solar charge controller readings.
-type Charge struct {
-	SolarVolt             float32
-	SolarAmp              float32
-	SolarWatt             float32
-	LoadVolt              float32
-	LoadAmp               float32
-	LoadWatt              float32
-	BattVolt              float32
-	BattChargePct         float32
-	BattChargeCurrent     float32
-	BattDegC              int16
-	ControllerDegC        int16
-	MaxSolarTodayWatt     float32
-	MinSolarTodayWatt     float32
-	MaxBattTodayVolt      float32
-	MinBattTodayVolt      float32
-	MaxSolarTodayAmp      float32
-	MinSolarTodayAmp      float32
-	ChargeTodayWattHrs    float32
-	DischargeTodayWattHrs float32
-	ChargeTodayAmpHrs     float32
-	DischargeTodayAmpHrs  float32
-	TotalBattOverCharges  float32
-	TotalBattFullCharges  float32
-}
+const (
+	SolarVoltReg             = 263
+	SolarAmpReg              = 264
+	SolarWattReg             = 265
+	LoadVoltReg              = 260
+	LoadAmpReg               = 261
+	LoadWattReg              = 262
+	BattVoltReg              = 257
+	BattChargePctReg         = 256
+	ControllerDegCReg        = 259
+	MaxSolarTodayWattReg     = 271
+	MinSolarTodayWattReg     = 272
+	MaxBattTodayVoltReg      = 268
+	MinBattTodayVoltReg      = 267
+	MaxSolarTodayAmpReg      = 269
+	MinSolarTodayAmpReg      = 270
+	ChargeTodayWattHrsReg    = 273
+	DischargeTodayWattHrsReg = 274
+	ChargeTodayAmpHrsReg     = 275
+	DischargeTodayAmpHrsReg  = 276
+	TotalBattOverChargesReg  = 278
+	TotalBattFullChargesReg  = 279
+)
 
 func init() {
 	resource.RegisterComponent(
 		powersensor.API,
 		model,
 		resource.Registration[powersensor.PowerSensor, *Config]{
-			Constructor: func(
-				ctx context.Context,
-				deps resource.Dependencies,
-				conf resource.Config,
-				logger golog.Logger,
-			) (powersensor.PowerSensor, error) {
-				newConf, err := resource.NativeConfig[*Config](conf)
-				if err != nil {
-					return nil, err
-				}
-				return newRenogy(conf.ResourceName(), newConf.Path,
-					newConf.Baud, newConf.ModbusID), nil
-			},
+			Constructor: newRenogy,
 		})
 }
 
-func newRenogy(name resource.Name, path string, baud int, modbusID byte) powersensor.PowerSensor {
-	if path == "" {
-		path = pathDefault
+func newRenogy(_ context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (powersensor.PowerSensor, error) {
+	newConf, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return nil, err
 	}
-	if baud == 0 {
-		baud = baudDefault
+
+	if newConf.Path == "" {
+		newConf.Path = pathDefault
 	}
-	if modbusID == 0 {
-		modbusID = modbusIDDefault
+	if newConf.Baud == 0 {
+		newConf.Baud = baudDefault
+	}
+	if newConf.ModbusID == 0 {
+		newConf.ModbusID = modbusIDDefault
 	}
 
 	return &Renogy{
-		Named:    name.AsNamed(),
-		path:     path,
-		baud:     baud,
-		modbusID: modbusID,
-	}
+		Named:    conf.ResourceName().AsNamed(),
+		path:     newConf.Path,
+		baud:     newConf.Baud,
+		modbusID: newConf.ModbusID,
+	}, nil
 }
 
 // Renogy is a serial charge controller.
@@ -110,6 +102,7 @@ type Renogy struct {
 	resource.Named
 	resource.AlwaysRebuild
 	resource.TriviallyCloseable
+	logger   golog.Logger
 	path     string
 	baud     int
 	modbusID byte
@@ -136,8 +129,11 @@ func (r *Renogy) Voltage(ctx context.Context, extra map[string]interface{}) (flo
 	}
 	client := modbus.NewClient(handler)
 
-	// Eead the battery voltage.
-	volts := readRegister(client, 257, 1)
+	// Read the battery voltage.
+	volts, err := readRegister(client, 257, 1)
+	if err != nil {
+		return 0, false, err
+	}
 	isAc := false
 
 	err = handler.Close()
@@ -156,10 +152,13 @@ func (r *Renogy) Current(ctx context.Context, extra map[string]interface{}) (flo
 	client := modbus.NewClient(handler)
 
 	// read the load current.
-	loadCurrent := readRegister(client, 261, 2)
+	loadCurrent, err := readRegister(client, 261, 2)
+	if err != nil {
+		return 0, false, err
+	}
 	isAc := false
 
-	err := handler.Close()
+	err = handler.Close()
 	if err != nil {
 		return 0, false, err
 	}
@@ -178,7 +177,10 @@ func (r *Renogy) Power(ctx context.Context, extra map[string]interface{}) (float
 	client := modbus.NewClient(handler)
 
 	// reads the load wattage.
-	loadPower := readRegister(client, 262, 0)
+	loadPower, err := readRegister(client, 262, 0)
+	if err != nil {
+		return 0, err
+	}
 
 	err = handler.Close()
 	if err != nil {
@@ -189,78 +191,80 @@ func (r *Renogy) Power(ctx context.Context, extra map[string]interface{}) (float
 
 // Readings returns a list of all readings from the sensor.
 func (r *Renogy) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-	readings, err := r.GetControllerOutput(ctx)
-	if err != nil {
-		return nil, err
-	}
-	m := make(map[string]interface{})
-	j, err := json.Marshal(readings)
-	if err != nil {
-		return nil, err
-	}
-	err = json.Unmarshal(j, &m)
-	if err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
-// GetControllerOutput returns current readings from the charge controller.
-func (r *Renogy) GetControllerOutput(ctx context.Context) (Charge, error) {
-	var chargeRes Charge
 	handler := r.getHandler()
 
 	err := handler.Connect()
 	if err != nil {
 		err = handler.Close()
-		return chargeRes, err
+		return nil, err
 	}
+
+	readings = make(map[string]interface{})
+
 	client := modbus.NewClient(handler)
-	chargeRes.SolarVolt = readRegister(client, 263, 1)
-	chargeRes.SolarAmp = readRegister(client, 264, 2)
-	chargeRes.SolarWatt = readRegister(client, 265, 0)
-	chargeRes.LoadVolt = readRegister(client, 260, 1)
-	chargeRes.LoadAmp = readRegister(client, 261, 2)
-	chargeRes.LoadWatt = readRegister(client, 262, 0)
-	chargeRes.BattVolt = readRegister(client, 257, 1)
-	chargeRes.BattChargePct = readRegister(client, 256, 0)
-	chargeRes.BattChargeCurrent = readRegister(client, 258, 0)
-	tempReading := readRegister(client, 259, 0)
+
+	r.addReading(client, SolarVoltReg, 1, "SolarVolt")
+	r.addReading(client, SolarAmpReg, 2, "SolarAmp")
+	r.addReading(client, SolarWattReg, 0, "SolarWatt")
+	r.addReading(client, LoadVoltReg, 1, "LoadVolt")
+	r.addReading(client, LoadAmpReg, 2, "LoadAmp")
+	r.addReading(client, LoadWattReg, 0, "LoadWatt")
+	r.addReading(client, BattVoltReg, 1, "BattVolt")
+	r.addReading(client, BattChargePctReg, 0, "BattChargePct")
+	r.addReading(client, MaxSolarTodayWattReg, 0, "MaxSolarTodayWatt")
+	r.addReading(client, MinSolarTodayWattReg, 0, "MinSolarTodayWatt")
+	r.addReading(client, MaxBattTodayVoltReg, 1, "MaxBattTodayVolt")
+	r.addReading(client, MinBattTodayVoltReg, 1, "MinBattTodayVolt")
+	r.addReading(client, MaxSolarTodayAmpReg, 2, "MaxSolarTodayAmp")
+	r.addReading(client, MinSolarTodayAmpReg, 1, "MinSolarTodayAmp")
+	r.addReading(client, ChargeTodayAmpHrsReg, 0, "ChargeTodayAmpHrs")
+	r.addReading(client, DischargeTodayAmpHrsReg, 0, "DischargeTodayAmpHrs")
+	r.addReading(client, ChargeTodayWattHrsReg, 0, "ChargeTodayWattHrs")
+	r.addReading(client, DischargeTodayWattHrsReg, 0, "DischargeTodayWattHrs")
+	r.addReading(client, TotalBattOverChargesReg, 0, "TotalBattOverCharges")
+	r.addReading(client, TotalBattFullChargesReg, 0, "TotalBattFullCharges")
+
+	// Controller and battery temperates require extra math to determine sign and temp.
+	tempReading, err := readRegister(client, ControllerDegCReg, 0)
+	if err != nil {
+		return readings, err
+	}
+
 	battTempSign := (int16(tempReading) & 0b0000000010000000) >> 7
 	battTemp := int16(tempReading) & 0b0000000001111111
 	if battTempSign == 1 {
 		battTemp = -battTemp
 	}
-	chargeRes.BattDegC = battTemp
+
+	readings["BattDegC"] = int32(battTemp)
+
 	ctlTempSign := (int32(tempReading) & 0b1000000000000000) >> 15
 	ctlTemp := (int16(tempReading) & 0b0111111100000000) >> 8
 	if ctlTempSign == 1 {
 		ctlTemp = -ctlTemp
 	}
-	chargeRes.ControllerDegC = ctlTemp
-	chargeRes.MaxSolarTodayWatt = readRegister(client, 271, 0)
-	chargeRes.MinSolarTodayWatt = readRegister(client, 272, 0)
-	chargeRes.MaxBattTodayVolt = readRegister(client, 268, 1)
-	chargeRes.MinBattTodayVolt = readRegister(client, 267, 1)
-	chargeRes.MaxSolarTodayAmp = readRegister(client, 269, 2)
-	chargeRes.MinSolarTodayAmp = readRegister(client, 270, 1)
-	chargeRes.ChargeTodayAmpHrs = readRegister(client, 273, 0)
-	chargeRes.DischargeTodayAmpHrs = readRegister(client, 274, 0)
-	chargeRes.ChargeTodayWattHrs = readRegister(client, 275, 0)
-	chargeRes.DischargeTodayWattHrs = readRegister(client, 276, 0)
-	chargeRes.TotalBattOverCharges = readRegister(client, 278, 0)
-	chargeRes.TotalBattFullCharges = readRegister(client, 279, 0)
+	readings["ControllerDegC"] = int32(ctlTemp)
 
 	err = handler.Close()
-	return chargeRes, err
+	return readings, err
 }
 
-func readRegister(client modbus.Client, register uint16, precision uint) (result float32) {
+func (r *Renogy) addReading(client modbus.Client, register uint16, precision uint, reading string) {
+	value, err := readRegister(client, register, precision)
+	if err != nil {
+		r.logger.Errorf("error getting reading: %s", reading)
+		r.logger.Error(err)
+	} else {
+		readings[reading] = value
+	}
+}
+
+func readRegister(client modbus.Client, register uint16, precision uint) (result float32, err error) {
 	globalMu.Lock()
 	b, err := client.ReadHoldingRegisters(register, 1)
 	globalMu.Unlock()
 	if err != nil {
-		result = 0
+		return 0, err
 	} else {
 		if len(b) > 0 {
 			result = float32FromBytes(b, precision)
@@ -268,7 +272,7 @@ func readRegister(client modbus.Client, register uint16, precision uint) (result
 			result = 0
 		}
 	}
-	return result
+	return result, nil
 }
 
 func float32FromBytes(bytes []byte, precision uint) float32 {
