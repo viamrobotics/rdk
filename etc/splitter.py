@@ -74,7 +74,7 @@ def main():
     if not sizes:
         logger.warning('no tests to run, quitting')
         if args.fail_empty:
-            raise ValueError('to tests in input and --fail-empty is set')
+            raise ValueError('no tests in input and --fail-empty is set')
         return
     bin_size = int(sum(size for _, size in sizes) / args.nbins)
     logger.info('%d packages with tests, bin_size %d', len(sizes), bin_size)

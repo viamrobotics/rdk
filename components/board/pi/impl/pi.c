@@ -1,3 +1,4 @@
+//go:build !no_pigpio
 #include <pigpio.h>
 
 extern void pigpioInterruptCallback(int gpio, int level, uint32_t tick);
