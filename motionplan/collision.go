@@ -1,12 +1,14 @@
 package motionplan
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"strconv"
 
 	pb "go.viam.com/api/service/motion/v1"
 
+	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -310,4 +312,98 @@ func createUniqueCollisionMap(geoms []spatial.Geometry) (map[string]spatial.Geom
 		geomMap[label] = geom
 	}
 	return geomMap, nil
+}
+
+// CheckPlan checks if obstacles intersect the trajectory of the frame following the plan.
+func CheckPlan(
+	frame referenceframe.Frame,
+	plan [][]referenceframe.Input,
+	obstacles []*referenceframe.GeometriesInFrame,
+	fs referenceframe.FrameSystem,
+) (bool, error) {
+	if len(frame.DoF()) != len(plan[0]) {
+		return false, errors.New("frame DOF length must match inputs length")
+	}
+	ptgProv, ok := frame.(tpspace.PTGProvider)
+	if ok {
+		return checkPtgPlan(frame, plan, obstacles, ptgProv.PTGs())
+	}
+
+	if len(plan) < 2 {
+		return false, errors.New("plan must have at least two elements")
+	}
+
+	opt := newBasicPlannerOptions()
+	sf, err := newSolverFrame(fs, frame.Name(), referenceframe.World, nil)
+	if err != nil {
+		return false, err
+	}
+
+	wrdlst, err := referenceframe.NewWorldState(obstacles, nil)
+	if err != nil {
+		return false, err
+	}
+
+	collisionConstraints, err := createAllCollisionConstraints(sf, fs, wrdlst, referenceframe.StartPositions(fs), nil)
+	if err != nil {
+		return false, err
+	}
+	for name, constraint := range collisionConstraints {
+		opt.AddStateConstraint(name, constraint)
+	}
+
+	for i := 0; i < len(plan)-1; i++ {
+		if isValid, fault := opt.CheckSegmentAndStateValidity(
+			&Segment{
+				StartConfiguration: plan[i],
+				EndConfiguration:   plan[i+1],
+				Frame:              frame,
+			},
+			opt.Resolution,
+		); !isValid {
+			return false, fmt.Errorf("found collsion in segment:%v", fault)
+		}
+	}
+	return true, nil
+}
+
+func checkPtgPlan(
+	frame referenceframe.Frame,
+	plan [][]referenceframe.Input,
+	obstacles []*referenceframe.GeometriesInFrame,
+	ptgs []tpspace.PTG,
+) (bool, error) {
+	// inputs are:
+	// [0] index of PTG to use
+	// [1] index of the trajectory within that PTG
+	// [2] distance to travel along that trajectory.
+	for _, inputs := range plan {
+		// find the relevant ptg with the 0th value of inputs
+		ptg := ptgs[int(math.Round(inputs[0].Value))]
+		// find relevant trajectories with the 1st value of inputs
+		for _, traj := range ptg.Trajectory(uint(inputs[1].Value)) {
+			// stop checking the trajectory once we have traveled its required distance
+			if traj.Dist >= inputs[2].Value {
+				break
+			}
+			// transform the frame's geometries by inputs
+			baseGIFS, err := frame.Geometries(inputs)
+			if err != nil {
+				return false, err
+			}
+			for _, geom := range baseGIFS.Geometries() {
+				for i := range obstacles {
+					for _, obstacle := range obstacles[i].Geometries() {
+						// perform collision check
+						if collides, err := geom.CollidesWith(obstacle); err != nil {
+							return false, err
+						} else if collides {
+							return false, fmt.Errorf("path is not valid, found collision with %v", obstacle)
+						}
+					}
+				}
+			}
+		}
+	}
+	return true, nil
 }

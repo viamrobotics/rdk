@@ -25,6 +25,7 @@ import (
 	"go.viam.com/rdk/components/movementsensor"
 	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/framesystem"
@@ -310,14 +311,14 @@ func TestMoveOnMapLongDistance(t *testing.T) {
 }
 
 func TestMoveOnMap(t *testing.T) {
-	t.Skip() // RSDK-4279
+	// t.Skip() // RSDK-4279
 	t.Parallel()
 	ctx := context.Background()
 	// goal x-position of 1.32m is scaled to be in mm
 	goal := spatialmath.NewPoseFromPoint(r3.Vector{X: 1.32 * 1000, Y: 0})
 
 	t.Run("check that path is planned around obstacle", func(t *testing.T) {
-		t.Parallel()
+		// t.Parallel()
 		ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd")
 		extra := make(map[string]interface{})
 		extra["motion_profile"] = "orientation"
@@ -451,9 +452,10 @@ func TestMoveOnGlobe(t *testing.T) {
 
 	gpsPoint := geo.NewPoint(-70, 40)
 
-	// create motion config
 	motionCfg := make(map[string]interface{})
+	// onlty generate plan for x and y, exclude theta
 	motionCfg["motion_profile"] = "position_only"
+	// fail if we don't find a plan in 5 seconds
 	motionCfg["timeout"] = 5.
 
 	dst := geo.NewPoint(gpsPoint.Lat(), gpsPoint.Lng()+1e-5)
@@ -533,6 +535,127 @@ func TestMoveOnGlobe(t *testing.T) {
 			movementSensorToBase = baseOrigin
 		}
 		test.That(t, movementSensorToBase.Pose().Point(), test.ShouldResemble, r3.Vector{10, 0, 0})
+	})
+}
+
+func TestCheckPlan(t *testing.T) {
+	ctx := context.Background()
+
+	// orign as gps point
+	gpsPoint := geo.NewPoint(-70, 40)
+
+	// create env
+	injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint)
+
+	motionCfg := make(map[string]interface{})
+	// fail if we don't find a plan in 5 seconds
+	motionCfg["timeout"] = 5.
+
+	// get plan and kinematic base
+	plan, kinBase, err := ms.(*builtIn).planMoveOnGlobe(
+		context.Background(),
+		fakeBase.Name(),
+		geo.NewPoint(gpsPoint.Lat(), gpsPoint.Lng()+1e-5),
+		injectedMovementSensor.Name(),
+		nil,
+		kinematicbase.NewKinematicBaseOptions(),
+		motionCfg,
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	newFS := referenceframe.NewEmptyFrameSystem("test-fs")
+	newFS.AddFrame(kinBase.Kinematics(), newFS.World())
+
+	t.Run("check plan without obstacles - ensure success", func(t *testing.T) {
+		b, err := motionplan.CheckPlan(kinBase.Kinematics(), plan, nil, newFS)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, b, test.ShouldBeTrue)
+	})
+	t.Run("check plan with a blocking obstacle - ensure failure", func(t *testing.T) {
+		obstacle, err := spatialmath.NewBox(
+			spatialmath.NewPoseFromPoint(r3.Vector{150, 0, 0}),
+			r3.Vector{10, 10, 1}, "obstacle",
+		)
+		test.That(t, err, test.ShouldBeNil)
+		geoms := []spatialmath.Geometry{obstacle}
+		gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)}
+
+		b, err := motionplan.CheckPlan(kinBase.Kinematics(), plan, gifs, newFS)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, b, test.ShouldBeFalse)
+	})
+	t.Run("ensure transforms of obstacles works - collision", func(t *testing.T) {
+		// create camera_origin frame
+		cameraOriginFrame, err := referenceframe.NewStaticFrame("camera-origin", spatialmath.NewPoseFromPoint(r3.Vector{0, -30, 0}))
+		test.That(t, err, test.ShouldBeNil)
+		err = newFS.AddFrame(cameraOriginFrame, kinBase.Kinematics())
+		test.That(t, err, test.ShouldBeNil)
+
+		// create camera geometry
+		cameraGeom, err := spatialmath.NewBox(
+			spatialmath.NewZeroPose(),
+			r3.Vector{1, 1, 1}, "camera",
+		)
+		test.That(t, err, test.ShouldBeNil)
+
+		// create cameraFrame and add to framesystem
+		cameraFrame, err := referenceframe.NewStaticFrameWithGeometry(
+			"camera-frame", spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0}), cameraGeom,
+		)
+		test.That(t, err, test.ShouldBeNil)
+		err = newFS.AddFrame(cameraFrame, cameraOriginFrame)
+		test.That(t, err, test.ShouldBeNil)
+
+		// create obstacle
+		obstacle, err := spatialmath.NewBox(
+			spatialmath.NewPoseFromPoint(r3.Vector{150, 0, 0}),
+			r3.Vector{10, 10, 1}, "obstacle",
+		)
+		test.That(t, err, test.ShouldBeNil)
+		geoms := []spatialmath.Geometry{obstacle}
+		gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(cameraFrame.Name(), geoms)}
+
+		b, err := motionplan.CheckPlan(kinBase.Kinematics(), plan, gifs, newFS)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, b, test.ShouldBeTrue)
+	})
+	t.Run("ensure transforms of obstacles works - no collision", func(t *testing.T) {
+		newFS := referenceframe.NewEmptyFrameSystem("test-fs")
+		newFS.AddFrame(kinBase.Kinematics(), newFS.World())
+		// create camera_origin frame
+		cameraOriginFrame, err := referenceframe.NewStaticFrame("camera-origin", spatialmath.NewPoseFromPoint(r3.Vector{0, -30, 0}))
+		test.That(t, err, test.ShouldBeNil)
+		err = newFS.AddFrame(cameraOriginFrame, kinBase.Kinematics())
+		test.That(t, err, test.ShouldBeNil)
+
+		// create camera geometry
+		cameraGeom, err := spatialmath.NewBox(
+			spatialmath.NewZeroPose(),
+			r3.Vector{1, 1, 1}, "camera",
+		)
+		test.That(t, err, test.ShouldBeNil)
+
+		// create cameraFrame and add to framesystem
+		cameraFrame, err := referenceframe.NewStaticFrameWithGeometry(
+			"camera-frame", spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0}), cameraGeom,
+		)
+		test.That(t, err, test.ShouldBeNil)
+		err = newFS.AddFrame(cameraFrame, cameraOriginFrame)
+		test.That(t, err, test.ShouldBeNil)
+
+		// create obstacle
+		obstacle, err := spatialmath.NewBox(
+			// the goal is x:300
+			spatialmath.NewPoseFromPoint(r3.Vector{150, 30, 0}),
+			r3.Vector{10, 10, 1}, "obstacle",
+		)
+		test.That(t, err, test.ShouldBeNil)
+		geoms := []spatialmath.Geometry{obstacle}
+		gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(cameraFrame.Name(), geoms)}
+
+		b, err := motionplan.CheckPlan(kinBase.Kinematics(), plan, gifs, newFS)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, b, test.ShouldBeFalse)
 	})
 }
 

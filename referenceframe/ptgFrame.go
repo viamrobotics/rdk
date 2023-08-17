@@ -1,6 +1,7 @@
 package referenceframe
 
 import (
+	"errors"
 	"fmt"
 	"math"
 
@@ -122,6 +123,9 @@ func (pf *ptgGridSimFrame) Geometries(inputs []Input) (*GeometriesInFrame, error
 		return NewGeometriesInFrame(pf.Name(), nil), nil
 	}
 
+	if inputs == nil {
+		return nil, errors.New("please specify non-nil inputs value")
+	}
 	transformedPose, err := pf.Transform(inputs)
 	if err != nil {
 		return nil, err

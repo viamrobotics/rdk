@@ -107,3 +107,54 @@ func TestPtgWithObstacle(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(plan), test.ShouldBeGreaterThan, 2)
 }
+
+func TestPtgWaypoints(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	roverGeom, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{10, 10, 10}, "")
+	test.That(t, err, test.ShouldBeNil)
+	geometries := []spatialmath.Geometry{roverGeom}
+
+	ackermanFrame, err := referenceframe.NewPTGFrameFromTurningRadius(
+		"ackframe",
+		300.,
+		testTurnRad,
+		0,
+		geometries,
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	goalPos := spatialmath.NewPoseFromPoint(r3.Vector{X: 1000, Y: 0, Z: 0})
+
+	fs := referenceframe.NewEmptyFrameSystem("test")
+	fs.AddFrame(ackermanFrame, fs.World())
+
+	opt := newBasicPlannerOptions()
+	opt.SetGoalMetric(NewPositionOnlyMetric(goalPos))
+	opt.DistanceFunc = SquaredNormNoOrientSegmentMetric
+	opt.GoalThreshold = 10.
+
+	mp, err := newTPSpaceMotionPlanner(ackermanFrame, rand.New(rand.NewSource(42)), logger, opt)
+	test.That(t, err, test.ShouldBeNil)
+	tp, _ := mp.(*tpSpaceRRTMotionPlanner)
+
+	plan, err := tp.plan(context.Background(), goalPos, nil)
+	test.That(t, err, test.ShouldBeNil)
+	planAsInputs := nodesToInputs(plan)
+
+	// check plan without any obstacles
+	valid, err := CheckPlan(ackermanFrame, planAsInputs, nil, fs)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, valid, test.ShouldBeTrue)
+
+	// create obstacle blocking path
+	obstacle, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{500, 0, 0}), r3.Vector{9999, 10, 1}, "")
+	test.That(t, err, test.ShouldBeNil)
+
+	geoms := []spatialmath.Geometry{obstacle}
+	gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)}
+
+	// check plan with obstacles blocking path
+	valid, err = CheckPlan(ackermanFrame, planAsInputs, gifs, fs)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, valid, test.ShouldBeFalse)
+}
