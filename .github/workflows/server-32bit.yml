@@ -3,6 +3,8 @@ on:
 
 jobs:
   docker:
+    # temporarily suppress this job to work around rate limit
+    if: false
     runs-on: buildjet-4vcpu-ubuntu-2204-arm
     permissions:
       packages: write
@@ -25,7 +27,7 @@ jobs:
         cache-to: type=registry,ref=ghcr.io/viamrobotics/viam-server:buildcache
         platforms: linux/armv7
   build:
-    needs: [docker]
+    # needs: [docker]
     runs-on: buildjet-4vcpu-ubuntu-2204-arm
     permissions:
       packages: read
