@@ -44,8 +44,14 @@ func newNextPointCloudCollector(resource interface{}, params data.CollectorParam
 		_, span := trace.StartSpan(ctx, "camera::data::collector::CaptureFunc::NextPointCloud")
 		defer span.End()
 
+		ctx = context.WithValue(ctx, data.FromDMContextKey{}, true)
+
 		v, err := camera.NextPointCloud(ctx)
 		if err != nil {
+			// If err is from a modular filter component, propagate it to getAndPushNextReading().
+			if errors.Is(err, data.ErrNoCaptureToStore) {
+				return nil, data.ErrNoCaptureToStore
+			}
 			return nil, data.FailedToReadErr(params.ComponentName, nextPointCloud.String(), err)
 		}
 
@@ -81,8 +87,15 @@ func newReadImageCollector(resource interface{}, params data.CollectorParams) (d
 		_, span := trace.StartSpan(ctx, "camera::data::collector::CaptureFunc::ReadImage")
 		defer span.End()
 
+		ctx = context.WithValue(ctx, data.FromDMContextKey{}, true)
+
 		img, release, err := ReadImage(ctx, camera)
 		if err != nil {
+			// If err is from a modular filter component, propagate it to getAndPushNextReading().
+			if errors.Is(err, data.ErrNoCaptureToStore) {
+				return nil, data.ErrNoCaptureToStore
+			}
+
 			return nil, data.FailedToReadErr(params.ComponentName, readImage.String(), err)
 		}
 		defer func() {
