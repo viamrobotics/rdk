@@ -70,6 +70,9 @@ def main():
         n_test_files = len(item.get('TestGoFiles', []) + item.get('XTestGoFiles', []))
         if n_test_files:
             sizes.append(('.' + item["Dir"].removeprefix(cwd), n_test_files))
+    if not sizes:
+        logger.warning('no tests to run, quitting')
+        return
     bin_size = int(sum(size for _, size in sizes) / args.nbins)
     logger.info('%d packages with tests, bin_size %d', len(sizes), bin_size)
     splits = split_bins(sizes, bin_size)
