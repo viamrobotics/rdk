@@ -4,7 +4,7 @@ on:
 jobs:
   docker:
     # temporarily suppress this job to work around rate limit
-    # if: false
+    if: false
     runs-on: buildjet-4vcpu-ubuntu-2204-arm
     permissions:
       packages: write
@@ -26,7 +26,7 @@ jobs:
         cache-from: type=registry,ref=ghcr.io/viamrobotics/viam-server:buildcache
         cache-to: type=registry,ref=ghcr.io/viamrobotics/viam-server:buildcache
   build:
-    needs: [docker]
+    # needs: [docker]
     runs-on: buildjet-4vcpu-ubuntu-2204-arm
     permissions:
       packages: read
@@ -35,6 +35,7 @@ jobs:
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
+      options: --platform linux/arm32v7
     steps:
     - uses: actions/checkout@v3
     - name: setup
