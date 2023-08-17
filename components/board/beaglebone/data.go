@@ -7,7 +7,6 @@ const bbAi = "bb_Ai64"
 var boardInfoMappings = map[string]genericlinux.BoardInformation{
 	bbAi: {
 		PinDefinitions: []genericlinux.PinDefinition{
-			// GPIOChipRelativeIDs {NGPIO: LINENUM} -> {128: 93}
 			// PinNumberBoard {914} -> PinNameCVM3 "P9_14"
 
 			// ******** DATA MAPPING ********************************

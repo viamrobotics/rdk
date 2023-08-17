@@ -11,7 +11,6 @@ var boardInfoMappings = map[string]genericlinux.BoardInformation{
 		[]genericlinux.PinDefinition{
 			/*
 				pinout for up4000: https://github.com/up-board/up-community/wiki/Pinout_UP4000
-				GPIOChipRelativeIDs: {ngpio : base-linux_gpio_number}
 				GPIOChipSysFSDir: path to the directory of a chip. Can be found from the output of gpiodetect
 			*/
 			// GPIO pin definition
