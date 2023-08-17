@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 "consume output of `go list -json` and run a partition of tests"
 
-import argparse, json, sys, logging, subprocess, shutil
+import argparse, json, sys, logging, subprocess
 import os
 from typing import List, Tuple
 
@@ -15,7 +15,7 @@ def file_or_stdin(path: str):
     else:
         return open(path, 'rb')
 
-def iter_scan_once(raw: str | bytes):
+def iter_scan_once(raw: str):
     """
     Yield top-level json objects from input string.
     This is to deal with inputs that are formatted as {}\n{} rather than [{},{}]
