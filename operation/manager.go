@@ -20,13 +20,14 @@ type anOp struct {
 
 // SingleOperationManager ensures only 1 operation is happening at a time.
 // An operation can be nested, so if there is already an operation in progress,
-// it can have sub-operations without an issue.
+// it can have sub-operations.
 type SingleOperationManager struct {
 	mu         sync.Mutex
 	opDoneCond *sync.Cond
 	currentOp  *anOp
 }
 
+// Creates a new SingleOperationManager. Use this to appropriately initialize the members.
 func NewSingleOperationManager() *SingleOperationManager {
 	ret := &SingleOperationManager{}
 	ret.opDoneCond = sync.NewCond(&ret.mu)
