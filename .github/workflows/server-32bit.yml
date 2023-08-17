@@ -29,16 +29,20 @@ jobs:
     runs-on: buildjet-4vcpu-ubuntu-2204-arm
     permissions:
       packages: read
-    steps:
-    - uses: actions/checkout@v3
-    - uses: docker/login-action@v2
-      with:
-        registry: ghcr.io
+    container:
+      image: ghcr.io/viamrobotics/viam-server:armv7
+      credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
-    - name: test and build
+    steps:
+    - uses: actions/checkout@v3
+    - name: setup
+      run: git config --global --add safe.directory '*'
+    - name: test
+      run: make test-go-no-race
+    - name: build
       run: |
-        docker run --platform linux/armv7 --rm -v $PWD/:/rdk ghcr.io/viamrobotics/viam-server:armv7 sh -c "git config --global --add safe.directory '*' && make test-go-no-race && go build -v -tags no_pigpio,no_tflite ./web/cmd/server"
+        go build -v -tags no_pigpio,no_tflite ./web/cmd/server
         file server
     - uses: actions/upload-artifact@v3
       with:
