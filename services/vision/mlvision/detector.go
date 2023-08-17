@@ -114,7 +114,7 @@ func attemptToBuildDetector(mlm mlmodel.Service) (objectdetection.Detector, erro
 }
 
 // findDetectionTensors finds the tensors that are necessary for object detection
-// the returned tensor order is location, category, score
+// the returned tensor order is location, category, score.
 func findDetectionTensors(outMap ml.Tensors) (*tensor.Dense, *tensor.Dense, *tensor.Dense, error) {
 	locations, okLoc := outMap["location"]
 	categories, okCat := outMap["category"]

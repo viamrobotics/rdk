@@ -4,10 +4,11 @@ import (
 	"testing"
 
 	tflite "github.com/mattn/go-tflite"
-	"go.viam.com/rdk/ml"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 	"gorgonia.org/tensor"
+
+	"go.viam.com/rdk/ml"
 )
 
 type fakeInterpreter struct{}

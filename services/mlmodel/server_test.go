@@ -118,7 +118,11 @@ var injectedMetadataFunc = func(ctx context.Context) (mlmodel.MLMetadata, error)
 	return md, nil
 }
 
-var injectedInferFunc = func(ctx context.Context, tensors ml.Tensors, input map[string]interface{}) (ml.Tensors, map[string]interface{}, error) {
+var injectedInferFunc = func(
+	ctx context.Context,
+	tensors ml.Tensors,
+	input map[string]interface{},
+) (ml.Tensors, map[string]interface{}, error) {
 	// this is a possible form of what a detection tensor with 3 detection in 1 image would look like
 	outputMap := ml.Tensors{}
 	outputMap["n_detections"] = tensor.New(

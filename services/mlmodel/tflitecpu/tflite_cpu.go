@@ -128,7 +128,7 @@ func (m *Model) Infer(ctx context.Context, tensors ml.Tensors, input map[string]
 		parts := strings.Split(defaultName, ":") // number after colon associates it with metadata
 		if len(parts) > 1 {
 			nameInt, err := strconv.Atoi(parts[len(parts)-1])
-			if err != nil {
+			if err != nil { //nolint:gocritic
 				outName = strings.Join(parts[0:len(parts)-1], ":") // just use default name, add colons back
 			} else if len(m.metadata.Outputs) > nameInt && m.metadata.Outputs[nameInt].Name != "" {
 				outName = m.metadata.Outputs[nameInt].Name

@@ -213,13 +213,13 @@ func checkClassificationScores(in []float64) []float64 {
 	return in // no need to sigmoid
 }
 
-// Number interface for converting between numbers
+// Number interface for converting between numbers.
 type number interface {
 	constraints.Integer | constraints.Float
 }
 
-// convertNumberSlice converts any number slice into another number slice
-func convertNumberSlice[T1 number, T2 number](t1 []T1) []T2 {
+// convertNumberSlice converts any number slice into another number slice.
+func convertNumberSlice[T1, T2 number](t1 []T1) []T2 {
 	t2 := make([]T2, len(t1))
 	for i := range t1 {
 		t2[i] = T2(t1[i])
@@ -282,7 +282,7 @@ func convertToFloat64Slice(slice interface{}) ([]float64, error) {
 	}
 }
 
-// tensorNames returns all the names of the tensors
+// tensorNames returns all the names of the tensors.
 func tensorNames(t ml.Tensors) []string {
 	names := []string{}
 	for name := range t {

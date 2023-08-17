@@ -211,7 +211,7 @@ func (model *TFLiteStruct) Infer(inputTensors ml.Tensors) (ml.Tensors, error) {
 
 	status := interpreter.Invoke()
 	if status != tflite.OK {
-		return nil, errors.Errorf("tflite invoke failed")
+		return nil, errors.New("tflite invoke failed")
 	}
 
 	output := ml.Tensors{}
@@ -232,7 +232,7 @@ func (model *TFLiteStruct) Infer(inputTensors ml.Tensors) (ml.Tensors, error) {
 	return output, nil
 }
 
-// TFliteTensorToGorgoniaTensor converts the constants from one tensor library to another
+// TFliteTensorToGorgoniaTensor converts the constants from one tensor library to another.
 func TFliteTensorToGorgoniaTensor(t tflite.TensorType) tensor.Dtype {
 	switch t {
 	case tflite.NoType:

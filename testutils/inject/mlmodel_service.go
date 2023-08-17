@@ -28,7 +28,11 @@ func (s *MLModelService) Name() resource.Name {
 }
 
 // Infer calls the injected Infer or the real variant.
-func (s *MLModelService) Infer(ctx context.Context, tensors ml.Tensors, input map[string]interface{}) (ml.Tensors, map[string]interface{}, error) {
+func (s *MLModelService) Infer(
+	ctx context.Context,
+	tensors ml.Tensors,
+	input map[string]interface{},
+) (ml.Tensors, map[string]interface{}, error) {
 	if s.InferFunc == nil {
 		return s.Service.Infer(ctx, tensors, input)
 	}

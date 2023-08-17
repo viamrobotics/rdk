@@ -34,7 +34,7 @@ type Service interface {
 	Metadata(ctx context.Context) (MLMetadata, error)
 }
 
-// TensorsToProto turns the ml.Tensors map into a protobuf message of FlatTensors
+// TensorsToProto turns the ml.Tensors map into a protobuf message of FlatTensors.
 func TensorsToProto(ts ml.Tensors) (*servicepb.FlatTensors, error) {
 	pbts := &servicepb.FlatTensors{
 		Tensors: make(map[string]*servicepb.FlatTensor),
@@ -59,7 +59,7 @@ func tensorToProto(t *tensor.Dense) (*servicepb.FlatTensor, error) {
 	data := t.Data()
 	switch dataSlice := data.(type) {
 	case []int8:
-		unsafeByteSlice := *(*[]byte)(unsafe.Pointer(&dataSlice))
+		unsafeByteSlice := *(*[]byte)(unsafe.Pointer(&dataSlice)) //nolint:gosec
 		data := &servicepb.FlatTensorDataInt8{}
 		data.Data = append(data.Data, unsafeByteSlice...)
 		ftpb.Tensor = &servicepb.FlatTensor_Int8Tensor{Int8Tensor: data}
@@ -106,12 +106,12 @@ func tensorToProto(t *tensor.Dense) (*servicepb.FlatTensor, error) {
 			},
 		}
 	case []int:
-		unsafeInt64Slice := *(*[]int64)(unsafe.Pointer(&dataSlice))
+		unsafeInt64Slice := *(*[]int64)(unsafe.Pointer(&dataSlice)) //nolint:gosec
 		data := &servicepb.FlatTensorDataInt64{}
 		data.Data = append(data.Data, unsafeInt64Slice...)
 		ftpb.Tensor = &servicepb.FlatTensor_Int64Tensor{Int64Tensor: data}
 	case []uint:
-		unsafeUint64Slice := *(*[]uint64)(unsafe.Pointer(&dataSlice))
+		unsafeUint64Slice := *(*[]uint64)(unsafe.Pointer(&dataSlice)) //nolint:gosec
 		data := &servicepb.FlatTensorDataUInt64{}
 		data.Data = append(data.Data, unsafeUint64Slice...)
 		ftpb.Tensor = &servicepb.FlatTensor_Uint64Tensor{Uint64Tensor: data}

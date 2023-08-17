@@ -85,7 +85,7 @@ func protoToTensors(pbft *pb.FlatTensors) (ml.Tensors, error) {
 	return tensors, nil
 }
 
-// createNewTensor turns a proto FlatTensor into a *tensor.Dense
+// createNewTensor turns a proto FlatTensor into a *tensor.Dense.
 func createNewTensor(pft *pb.FlatTensor) (*tensor.Dense, error) {
 	shape := make([]int, 0, len(pft.Shape))
 	for _, s := range pft.Shape {
@@ -99,7 +99,7 @@ func createNewTensor(pft *pb.FlatTensor) (*tensor.Dense, error) {
 			return nil, errors.New("tensor of type Int8Tensor is nil")
 		}
 		dataSlice := data.GetData()
-		unsafeInt8Slice := *(*[]int8)(unsafe.Pointer(&dataSlice))
+		unsafeInt8Slice := *(*[]int8)(unsafe.Pointer(&dataSlice)) //nolint:gosec
 		int8Slice := make([]int8, 0, len(dataSlice))
 		int8Slice = append(int8Slice, unsafeInt8Slice...)
 		return tensor.New(tensor.WithShape(shape...), tensor.WithBacking(int8Slice)), nil
