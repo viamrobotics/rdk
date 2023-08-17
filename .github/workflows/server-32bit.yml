@@ -35,7 +35,7 @@ jobs:
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
-      options: --platform linux/arm32v7
+      options: --platform linux/arm/v7
     steps:
     - uses: actions/checkout@v3
     - name: setup
