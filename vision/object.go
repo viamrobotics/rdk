@@ -34,6 +34,9 @@ func NewObjectWithLabel(cloud pc.PointCloud, label string, geometry *commonpb.Ge
 		}
 		return &Object{cloud, box}, nil
 	}
+	if label != "" { // will override geometry proto label with given label (unless empty)
+		geometry.Label = label
+	}
 	geom, err := spatialmath.NewGeometryFromProto(geometry)
 	if err != nil {
 		return nil, err

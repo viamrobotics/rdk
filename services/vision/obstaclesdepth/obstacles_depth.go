@@ -38,7 +38,7 @@ type ObsDepthConfig struct {
 	Hmax           float64 `json:"h_max_m"`
 	ThetaMax       float64 `json:"theta_max_deg"`
 	ReturnPCDs     bool    `json:"return_pcds"`
-	WithGeometries bool    `json:"with_geometries"`
+	WithGeometries *bool   `json:"with_geometries"`
 }
 
 // obsDepth is the underlying struct actually used by the service.
@@ -120,11 +120,15 @@ func registerObstaclesDepth(
 	if conf.ThetaMax == 0 {
 		conf.ThetaMax = defaultThetamax
 	}
+	if conf.WithGeometries == nil {
+		wg := true
+		conf.WithGeometries = &wg
+	}
 
 	sinTheta := math.Sin(conf.ThetaMax * math.Pi / 180) // sin(radians(theta))
 	myObsDep := obsDepth{
 		hMin: 1000 * conf.Hmin, hMax: 1000 * conf.Hmax, sinTheta: sinTheta,
-		returnPCDs: conf.ReturnPCDs, k: defaultK, withGeoms: conf.WithGeometries,
+		returnPCDs: conf.ReturnPCDs, k: defaultK, withGeoms: *conf.WithGeometries,
 	}
 
 	segmenter := myObsDep.buildObsDepth(logger) // does the thing

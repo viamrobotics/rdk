@@ -37,20 +37,20 @@ func (r testReader) Close(ctx context.Context) error {
 }
 
 func TestObstacleDepth(t *testing.T) {
+	no := false
 	noIntrinsicsCfg := ObsDepthConfig{
 		Hmin:           defaultHmin,
 		Hmax:           defaultHmax,
 		ThetaMax:       defaultThetamax,
 		ReturnPCDs:     false,
-		WithGeometries: false,
+		WithGeometries: &no,
 	}
 	someIntrinsics := transform.PinholeCameraIntrinsics{Fx: 604.5, Fy: 609.6, Ppx: 324.6, Ppy: 238.9, Width: 640, Height: 480}
 	withIntrinsicsCfg := ObsDepthConfig{
-		Hmin:           defaultHmin,
-		Hmax:           defaultHmax,
-		ThetaMax:       defaultThetamax,
-		ReturnPCDs:     true,
-		WithGeometries: true,
+		Hmin:       defaultHmin,
+		Hmax:       defaultHmax,
+		ThetaMax:   defaultThetamax,
+		ReturnPCDs: true,
 	}
 
 	ctx := context.Background()

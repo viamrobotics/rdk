@@ -36,6 +36,43 @@ func TestObjectCreation(t *testing.T) {
 	test.That(t, obj.Geometry.AlmostEqual(expectedBox), test.ShouldBeTrue)
 }
 
+func TestObjectCreationWithLabel(t *testing.T) {
+	// test that object created "withlabel" maintains label
+
+	geomLabel := "blah"
+	requestedLabel := "notBlah"
+
+	// create point cloud
+	pc := pointcloud.New()
+	err := pc.Set(pointcloud.NewVector(0, 0, 200), nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	// create labelled and unlabelled Geometries
+	geom := spatialmath.NewPoint(r3.Vector{0, 0, 200}, geomLabel)
+	geom2 := spatialmath.NewPoint(r3.Vector{0, 0, 200}, "")
+	pbGeomWithLabel := geom.ToProtobuf()
+	pbGeomNoLabel := geom2.ToProtobuf()
+
+	// Test that a requestedLabel will overwrite the geometry label
+	obj, err := NewObjectWithLabel(pc, "", pbGeomWithLabel)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, obj.Geometry.Label(), test.ShouldResemble, geomLabel)
+
+	obj, err = NewObjectWithLabel(pc, requestedLabel, pbGeomWithLabel)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, obj.Geometry.Label(), test.ShouldResemble, requestedLabel)
+
+	// Test that with no geometry label, the requestedLabel persists
+	obj2, err := NewObjectWithLabel(pc, "", pbGeomNoLabel)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, obj2.Geometry.Label(), test.ShouldResemble, "")
+
+	obj2, err = NewObjectWithLabel(pc, requestedLabel, pbGeomNoLabel)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, obj2.Geometry.Label(), test.ShouldResemble, requestedLabel)
+
+}
+
 func TestObjectDistance(t *testing.T) {
 	pc := pointcloud.New()
 	err := pc.Set(pointcloud.NewVector(0, 0, 0), nil)
