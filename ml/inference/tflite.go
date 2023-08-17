@@ -255,7 +255,7 @@ func TFliteTensorToGorgoniaTensor(t tflite.TensorType) tensor.Dtype {
 		return tensor.Complex64
 	case tflite.Int8:
 		return tensor.Int8
-	default: // shouldn't reach here unless tflite adds more tyes
+	default: // shouldn't reach here unless tflite adds more types
 		return tensor.Uintptr
 	}
 }
