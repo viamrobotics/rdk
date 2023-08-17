@@ -11,6 +11,7 @@ import (
 	"gorgonia.org/tensor"
 
 	viamgrpc "go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/ml"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/mlmodel"
 	"go.viam.com/rdk/testutils/inject"
@@ -40,7 +41,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, svc), test.ShouldBeNil)
-	inputTensors := mlmodel.Tensors{}
+	inputTensors := ml.Tensors{}
 	inputTensors["image"] = tensor.New(tensor.WithShape(3, 3), tensor.WithBacking([]uint8{10, 10, 255, 0, 0, 255, 255, 0, 100}))
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()

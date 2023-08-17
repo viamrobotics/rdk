@@ -10,6 +10,7 @@ import (
 	vprotoutils "go.viam.com/utils/protoutils"
 	"gorgonia.org/tensor"
 
+	"go.viam.com/rdk/ml"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/mlmodel"
 	"go.viam.com/rdk/testutils/inject"
@@ -117,9 +118,9 @@ var injectedMetadataFunc = func(ctx context.Context) (mlmodel.MLMetadata, error)
 	return md, nil
 }
 
-var injectedInferFunc = func(ctx context.Context, tensors mlmodel.Tensors, input map[string]interface{}) (mlmodel.Tensors, map[string]interface{}, error) {
+var injectedInferFunc = func(ctx context.Context, tensors ml.Tensors, input map[string]interface{}) (ml.Tensors, map[string]interface{}, error) {
 	// this is a possible form of what a detection tensor with 3 detection in 1 image would look like
-	outputMap := mlmodel.Tensors{}
+	outputMap := ml.Tensors{}
 	outputMap["n_detections"] = tensor.New(
 		tensor.WithShape(1),
 		tensor.WithBacking([]int32{3}),
@@ -147,9 +148,9 @@ func TestServerInfer(t *testing.T) {
 	inputProto, err := vprotoutils.StructToStructPb(inputData)
 	test.That(t, err, test.ShouldBeNil)
 	// input tensors to proto
-	inputTensors := mlmodel.Tensors{}
+	inputTensors := ml.Tensors{}
 	inputTensors["image"] = tensor.New(tensor.WithShape(3, 3), tensor.WithBacking([]uint8{10, 10, 255, 0, 0, 255, 255, 0, 100}))
-	tensorsProto, err := inputTensors.ToProto()
+	tensorsProto, err := mlmodel.TensorsToProto(inputTensors)
 	test.That(t, err, test.ShouldBeNil)
 	inferRequest := &pb.InferRequest{
 		Name:         testMLModelServiceName,

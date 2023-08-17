@@ -113,12 +113,24 @@ func attemptToBuildDetector(mlm mlmodel.Service) (objectdetection.Detector, erro
 	}, nil
 }
 
-// this is a hack-y function meant to find the correct detection tensors if the tensors
-// were not given the expected names, or have no metadata. This function should succeed
-// for models built with the platform.
-// order is location, category, score
+// findDetectionTensors finds the tensors that are necessary for object detection
+// the returned tensor order is location, category, score
 func findDetectionTensors(outMap ml.Tensors) (*tensor.Dense, *tensor.Dense, *tensor.Dense, error) {
+	locations, okLoc := outMap["location"]
+	categories, okCat := outMap["category"]
+	scores, okScores := outMap["score"]
+	if okLoc && okCat && okScores { // names are as expected
+		return locations, categories, scores, nil
+	}
+	return guessDetectionTensors(outMap)
+}
+
+// guessDetectionTensors is a hack-y function meant to find the correct detection tensors if the tensors
+// were not given the expected names, or have no metadata. This function should succeed
+// for models built with the viam platform.
+func guessDetectionTensors(outMap ml.Tensors) (*tensor.Dense, *tensor.Dense, *tensor.Dense, error) {
 	foundTensor := map[string]bool{}
+	outNames := tensorNames(outMap)
 	locations, okLoc := outMap["location"]
 	if okLoc {
 		foundTensor["location"] = true
@@ -131,10 +143,6 @@ func findDetectionTensors(outMap ml.Tensors) (*tensor.Dense, *tensor.Dense, *ten
 	if okScores {
 		foundTensor["score"] = true
 	}
-	if okLoc && okCat && okScores { // names are ass expected
-		return locations, categories, scores, nil
-	}
-	outNames := tensorNames(outMap)
 	// first find how many detections there were
 	// this will be used to find the other tensors
 	nDetections := 0
