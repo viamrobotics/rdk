@@ -27,7 +27,8 @@ type SingleOperationManager struct {
 	currentOp  *anOp
 }
 
-// Creates a new SingleOperationManager. Use this to appropriately initialize the members.
+// NewSingleOperationManager creates a new SingleOperationManager. Use this to appropriately
+// initialize the members.
 func NewSingleOperationManager() *SingleOperationManager {
 	ret := &SingleOperationManager{}
 	ret.opDoneCond = sync.NewCond(&ret.mu)
