@@ -57,7 +57,7 @@ type MLModelConfig struct {
 	ModelName string `json:"mlmodel_name"`
 }
 
-// Validate will add the ModelName as an implicit dependency to the robot
+// Validate will add the ModelName as an implicit dependency to the robot.
 func (conf *MLModelConfig) Validate(path string) ([]string, error) {
 	if conf.ModelName == "" {
 		return nil, errors.New("mlmodel_name cannot be empty")

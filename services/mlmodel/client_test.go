@@ -56,7 +56,7 @@ func TestClient(t *testing.T) {
 	})
 
 	// working
-	t.Run("ml model client", func(t *testing.T) {
+	t.Run("ml model client infer", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 		client, err := mlmodel.NewClientFromConn(context.Background(), conn, "", mlmodel.Named(testMLModelServiceName), logger)
@@ -86,6 +86,15 @@ func TestClient(t *testing.T) {
 		result, _, err = client.Infer(context.Background(), nil, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(result), test.ShouldEqual, 4)
+		// close the client
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
+		test.That(t, conn.Close(), test.ShouldBeNil)
+	})
+	t.Run("ml model client metadata", func(t *testing.T) {
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
+		test.That(t, err, test.ShouldBeNil)
+		client, err := mlmodel.NewClientFromConn(context.Background(), conn, "", mlmodel.Named(testMLModelServiceName), logger)
+		test.That(t, err, test.ShouldBeNil)
 		// Metadata Command
 		meta, err := client.Metadata(context.Background())
 		test.That(t, err, test.ShouldBeNil)
