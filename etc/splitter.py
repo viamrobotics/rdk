@@ -42,8 +42,8 @@ def split_bins(sizes: SizeList, bin_size: int) -> List[List[str]]:
             logger.debug('turnover: accum %d items %d slice [%d:%d]', accum, len(ret[-1]), i, j + 1)
             i = j + 1
             accum = 0
-    if i < j + 1:
-        ret.append([x for x, _ in sizes[i:j + 1]])
+    if i < len(sizes):
+        ret.append([x for x, _ in sizes[i:]])
     assert sum(len(x) for x in ret) == len(sizes), "split_bins lost values"
     assert len(set(y for x in ret for y in x)) == len(set(sizes)), "split_bins has different number of unique values than input"
     return ret
