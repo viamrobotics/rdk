@@ -115,7 +115,7 @@ type wheeledBase struct {
 	right     []motor.Motor
 	allMotors []motor.Motor
 
-	opMgr  operation.SingleOperationManager
+	opMgr  *operation.SingleOperationManager
 	logger golog.Logger
 
 	mu   sync.Mutex
@@ -224,6 +224,7 @@ func createWheeledBase(
 		widthMm:              newConf.WidthMM,
 		wheelCircumferenceMm: newConf.WheelCircumferenceMM,
 		spinSlipFactor:       newConf.SpinSlipFactor,
+		opMgr:                operation.NewSingleOperationManager(),
 		logger:               logger,
 		name:                 conf.Name,
 	}
@@ -233,7 +234,12 @@ func createWheeledBase(
 	}
 
 	if len(newConf.MovementSensor) != 0 {
-		sb := sensorBase{wBase: &wb, logger: logger, Named: conf.ResourceName().AsNamed()}
+		sb := sensorBase{
+			wBase:  &wb,
+			logger: logger,
+			Named:  conf.ResourceName().AsNamed(),
+			opMgr:  operation.NewSingleOperationManager(),
+		}
 		if err := sb.Reconfigure(ctx, deps, conf); err != nil {
 			return nil, err
 		}

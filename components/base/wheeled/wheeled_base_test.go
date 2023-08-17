@@ -14,6 +14,7 @@ import (
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/motor/fake"
+	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 )
 
@@ -40,6 +41,7 @@ func fakeMotorDependencies(t *testing.T, deps []string) resource.Dependencies {
 		result[motor.Named(dep)] = &fake.Motor{
 			Named:  motor.Named(dep).AsNamed(),
 			MaxRPM: 60,
+			OpMgr:  operation.NewSingleOperationManager(),
 			Logger: logger,
 		}
 	}

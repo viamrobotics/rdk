@@ -12,6 +12,7 @@ import (
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/motor"
+	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
@@ -280,6 +281,7 @@ func TestHome(t *testing.T) {
 		logger:          logger,
 		rpm:             float64(300),
 		limitSwitchPins: []string{"1"},
+		opMgr:           operation.NewSingleOperationManager(),
 	}
 	homed, err := fakegantry.Home(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
@@ -306,6 +308,7 @@ func TestHome(t *testing.T) {
 	fakegantry = &singleAxis{
 		motor:  fakeMotor,
 		logger: logger,
+		opMgr:  operation.NewSingleOperationManager(),
 	}
 	homed, err = fakegantry.Home(ctx, nil)
 	test.That(t, err, test.ShouldBeError, posErr)
@@ -318,6 +321,7 @@ func TestHome(t *testing.T) {
 		logger:          logger,
 		rpm:             float64(300),
 		limitSwitchPins: []string{"1", "2"},
+		opMgr:           operation.NewSingleOperationManager(),
 	}
 	homed, err = fakegantry.Home(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
@@ -325,6 +329,7 @@ func TestHome(t *testing.T) {
 
 	fakegantry = &singleAxis{
 		motor: fakeMotor,
+		opMgr: operation.NewSingleOperationManager(),
 	}
 	homed, err = fakegantry.Home(ctx, nil)
 	test.That(t, err, test.ShouldBeError, posErr)
@@ -337,6 +342,7 @@ func TestHome(t *testing.T) {
 		logger:          logger,
 		rpm:             float64(300),
 		limitSwitchPins: []string{"1", "2"},
+		opMgr:           operation.NewSingleOperationManager(),
 	}
 	homed, err = fakegantry.Home(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
@@ -353,6 +359,7 @@ func TestHomeLimitSwitch(t *testing.T) {
 		logger:          logger,
 		rpm:             float64(300),
 		limitSwitchPins: []string{"1", "2"},
+		opMgr:           operation.NewSingleOperationManager(),
 	}
 
 	err := fakegantry.homeLimSwitch(ctx)
@@ -451,6 +458,7 @@ func TestHomeLimitSwitch2(t *testing.T) {
 		limitSwitchPins: []string{"1"},
 		lengthMm:        float64(1),
 		mmPerRevolution: float64(.1),
+		opMgr:           operation.NewSingleOperationManager(),
 	}
 
 	err := fakegantry.homeLimSwitch(ctx)
@@ -501,7 +509,7 @@ func TestHomeLimitSwitch2(t *testing.T) {
 }
 
 func TestHomeEncoder(t *testing.T) {
-	fakegantry := &singleAxis{}
+	fakegantry := &singleAxis{opMgr: operation.NewSingleOperationManager()}
 
 	resetZeroErr := errors.New("failed to set zero")
 	injMotor := &inject.Motor{
@@ -531,6 +539,7 @@ func TestTestLimit(t *testing.T) {
 		board:           createLimitBoard(),
 		rpm:             float64(300),
 		limitHigh:       true,
+		opMgr:           operation.NewSingleOperationManager(),
 	}
 	pos, err := fakegantry.testLimit(ctx, 0)
 	test.That(t, err, test.ShouldBeNil)
@@ -543,6 +552,7 @@ func TestLimitHit(t *testing.T) {
 		limitSwitchPins: []string{"1", "2", "3"},
 		board:           createLimitBoard(),
 		limitHigh:       true,
+		opMgr:           operation.NewSingleOperationManager(),
 	}
 
 	hit, err := fakegantry.limitHit(ctx, 0)
@@ -568,6 +578,7 @@ func TestPosition(t *testing.T) {
 		limitHigh:       true,
 		limitSwitchPins: []string{"1", "2"},
 		logger:          logger,
+		opMgr:           operation.NewSingleOperationManager(),
 	}
 	positions, err := fakegantry.Position(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
@@ -587,6 +598,7 @@ func TestPosition(t *testing.T) {
 		limitSwitchPins: []string{"1", "2"},
 		positionLimits:  []float64{0, 1},
 		logger:          logger,
+		opMgr:           operation.NewSingleOperationManager(),
 	}
 	positions, err = fakegantry.Position(ctx, nil)
 	test.That(t, positions, test.ShouldResemble, []float64{})
@@ -596,6 +608,7 @@ func TestPosition(t *testing.T) {
 func TestLengths(t *testing.T) {
 	fakegantry := &singleAxis{
 		lengthMm: float64(1.0),
+		opMgr:    operation.NewSingleOperationManager(),
 	}
 	ctx := context.Background()
 	fakelengths, err := fakegantry.Lengths(ctx, nil)
@@ -612,6 +625,7 @@ func TestMoveToPosition(t *testing.T) {
 		motor:         createFakeMotor(),
 		limitHigh:     true,
 		positionRange: 10,
+		opMgr:         operation.NewSingleOperationManager(),
 	}
 	pos := []float64{1, 2}
 	speed := []float64{100, 200}
@@ -707,6 +721,7 @@ func TestStop(t *testing.T) {
 		limitSwitchPins: []string{"1", "2"},
 		lengthMm:        float64(200),
 		positionLimits:  []float64{0, 2},
+		opMgr:           operation.NewSingleOperationManager(),
 	}
 
 	test.That(t, fakegantry.Stop(ctx, nil), test.ShouldBeNil)
@@ -726,6 +741,7 @@ func TestCurrentInputs(t *testing.T) {
 		lengthMm:        float64(200),
 		positionLimits:  []float64{0, 2},
 		positionRange:   2.0,
+		opMgr:           operation.NewSingleOperationManager(),
 	}
 
 	input, err := fakegantry.CurrentInputs(ctx)
@@ -742,6 +758,7 @@ func TestCurrentInputs(t *testing.T) {
 		lengthMm:        float64(200),
 		positionLimits:  []float64{0, 2},
 		positionRange:   2.0,
+		opMgr:           operation.NewSingleOperationManager(),
 	}
 
 	input, err = fakegantry.CurrentInputs(ctx)
@@ -761,6 +778,7 @@ func TestCurrentInputs(t *testing.T) {
 		rpm:            float64(300),
 		lengthMm:       float64(200),
 		positionLimits: []float64{0, 0.5},
+		opMgr:          operation.NewSingleOperationManager(),
 	}
 
 	input, err = fakegantry.CurrentInputs(ctx)
@@ -800,6 +818,7 @@ func TestGoToInputs(t *testing.T) {
 		positionLimits:  []float64{1, 2},
 		model:           nil,
 		logger:          logger,
+		opMgr:           operation.NewSingleOperationManager(),
 	}
 
 	fakegantry.positionRange = 10

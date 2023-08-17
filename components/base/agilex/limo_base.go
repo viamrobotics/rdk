@@ -72,7 +72,7 @@ type limoBase struct {
 	resource.Named
 	resource.AlwaysRebuild
 	driveMode          string
-	opMgr              operation.SingleOperationManager
+	opMgr              *operation.SingleOperationManager
 	cancel             context.CancelFunc
 	waitGroup          sync.WaitGroup
 	width              int
@@ -123,6 +123,7 @@ func createLimoBase(ctx context.Context, _ resource.Dependencies, conf resource.
 	lb := &limoBase{
 		Named:              conf.ResourceName().AsNamed(),
 		driveMode:          newConf.DriveMode,
+		opMgr:              operation.NewSingleOperationManager(),
 		testChan:           newConf.TestChan, // for testing only
 		logger:             logger,
 		width:              defaultBaseTreadMm,
