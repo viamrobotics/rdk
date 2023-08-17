@@ -59,9 +59,9 @@ const (
 // the command to create a module. This includes both a gRPC call to register
 // the module on app.viam.com and creating the manifest file.
 func CreateModuleAction(c *cli.Context) error {
-	moduleNameArg := c.String("name")
-	publicNamespaceArg := c.String("public-namespace")
-	orgIDArg := c.String("org-id")
+	moduleNameArg := c.String(moduleFlagName)
+	publicNamespaceArg := c.String(moduleFlagPublicNamespace)
+	orgIDArg := c.String(moduleFlagOrgID)
 
 	client, err := newAppClient(c)
 	if err != nil {
@@ -118,9 +118,9 @@ func CreateModuleAction(c *cli.Context) error {
 // the command to update a module. This includes updating the meta.json to
 // include the public namespace (if set on the org).
 func UpdateModuleAction(c *cli.Context) error {
-	publicNamespaceArg := c.String("public-namespace")
-	orgIDArg := c.String("org-id")
-	manifestPathArg := c.String("module")
+	publicNamespaceArg := c.String(moduleFlagPublicNamespace)
+	orgIDArg := c.String(moduleFlagOrgID)
+	manifestPathArg := c.String(moduleFlagPath)
 
 	manifestPath := defaultManifestFilename
 	if manifestPathArg != "" {
@@ -176,12 +176,12 @@ func UpdateModuleAction(c *cli.Context) error {
 
 // UploadModuleAction is the corresponding action for 'module upload'.
 func UploadModuleAction(c *cli.Context) error {
-	manifestPathArg := c.String("module")
-	publicNamespaceArg := c.String("public-namespace")
-	orgIDArg := c.String("org-id")
-	nameArg := c.String("name")
-	versionArg := c.String("version")
-	platformArg := c.String("platform")
+	manifestPathArg := c.String(moduleFlagPath)
+	publicNamespaceArg := c.String(moduleFlagPublicNamespace)
+	orgIDArg := c.String(moduleFlagOrgID)
+	nameArg := c.String(moduleFlagName)
+	versionArg := c.String(moduleFlagVersion)
+	platformArg := c.String(moduleFlagVersion)
 	tarballPath := c.Args().First()
 	if c.Args().Len() > 1 {
 		return errors.New("too many arguments passed to upload command. " +
