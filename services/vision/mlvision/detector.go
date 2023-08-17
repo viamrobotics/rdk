@@ -184,7 +184,8 @@ func guessDetectionTensors(outMap ml.Tensors) (*tensor.Dense, *tensor.Dense, *te
 		}
 	}
 	if !okCat { // guess the name of the category tensor
-		// a category usually has a whole number in its elements
+		// a category usually has a whole number in its elements, so either look for
+		// int data types in the tensor, or sum the elements and make sure they dont have any decimals
 		for name, t := range outMap {
 			if _, alreadyFound := foundTensor[name]; alreadyFound {
 				continue
