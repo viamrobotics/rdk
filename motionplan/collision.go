@@ -336,7 +336,7 @@ func CheckPlan(
 	}
 
 	// construct planner with collision contraints
-	opt := newBasicPlannerOptions()
+	opt := newBasicPlannerOptions(frame)
 	sf, err := newSolverFrame(fs, frame.Name(), referenceframe.World, nil)
 	if err != nil {
 		return false, err

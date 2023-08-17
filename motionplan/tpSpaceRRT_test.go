@@ -128,7 +128,7 @@ func TestPtgWaypoints(t *testing.T) {
 	fs := referenceframe.NewEmptyFrameSystem("test")
 	fs.AddFrame(ackermanFrame, fs.World())
 
-	opt := newBasicPlannerOptions()
+	opt := newBasicPlannerOptions(ackermanFrame)
 	opt.SetGoalMetric(NewPositionOnlyMetric(goalPos))
 	opt.DistanceFunc = SquaredNormNoOrientSegmentMetric
 	opt.GoalThreshold = 10.
