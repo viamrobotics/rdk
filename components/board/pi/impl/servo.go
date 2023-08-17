@@ -109,7 +109,7 @@ type piPigpioServo struct {
 	pinname     string
 	res         C.int
 	min, max    uint32
-	opMgr       operation.SingleOperationManager
+	opMgr       *operation.SingleOperationManager
 	pulseWidth  int // pulsewidth value, 500-2500us is 0-180 degrees, 0 is off
 	holdPos     bool
 	maxRotation uint32
