@@ -321,9 +321,11 @@ func CheckPlan(
 	obstacles []*referenceframe.GeometriesInFrame,
 	fs referenceframe.FrameSystem,
 ) (bool, error) {
+	// ensure that we can actually perform the check
 	if len(frame.DoF()) != len(plan[0]) {
 		return false, errors.New("frame DOF length must match inputs length")
 	}
+	// check if we are working with ptgs
 	ptgProv, ok := frame.(tpspace.PTGProvider)
 	if ok {
 		return checkPtgPlan(frame, plan, obstacles, ptgProv.PTGs())
@@ -333,17 +335,16 @@ func CheckPlan(
 		return false, errors.New("plan must have at least two elements")
 	}
 
+	// construct planner with collision contraints
 	opt := newBasicPlannerOptions()
 	sf, err := newSolverFrame(fs, frame.Name(), referenceframe.World, nil)
 	if err != nil {
 		return false, err
 	}
-
 	wrdlst, err := referenceframe.NewWorldState(obstacles, nil)
 	if err != nil {
 		return false, err
 	}
-
 	collisionConstraints, err := createAllCollisionConstraints(sf, fs, wrdlst, referenceframe.StartPositions(fs), nil)
 	if err != nil {
 		return false, err
@@ -352,6 +353,7 @@ func CheckPlan(
 		opt.AddStateConstraint(name, constraint)
 	}
 
+	// go through plan and check that we can move from plan[i] to plan[i+1]
 	for i := 0; i < len(plan)-1; i++ {
 		if isValid, fault := opt.CheckSegmentAndStateValidity(
 			&Segment{
