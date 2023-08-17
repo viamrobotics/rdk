@@ -122,6 +122,7 @@ func newEncodedMotor(
 		rampRate:         motorConfig.RampRate,
 		maxPowerPct:      motorConfig.MaxPowerPct,
 		logger:           logger,
+		opMgr:            operation.NewSingleOperationManager(),
 	}
 
 	props, err := realEncoder.Properties(context.Background(), nil)
@@ -199,7 +200,7 @@ type EncodedMotor struct {
 	cancelCtx       context.Context
 	cancel          func()
 	loop            *control.Loop
-	opMgr           operation.SingleOperationManager
+	opMgr           *operation.SingleOperationManager
 }
 
 // EncodedMotorState is the core, non-statistical state for the motor.

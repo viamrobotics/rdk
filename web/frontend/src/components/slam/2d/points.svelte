@@ -72,19 +72,20 @@ const raycaster = new MouseRaycaster({
  * Find the desired color bucket for a given probability. This assumes the probability will be a value from 0 to 100
  * ticket to add testing: https://viam.atlassian.net/browse/RSDK-2606
  */
- const probToColorMapBucket = (probability: number, numBuckets: number): number => {
-   const prob = Math.max(Math.min(100, probability * 255), 0);
-   return Math.floor((numBuckets - 1) * prob / 100);
- };
+const probToColorMapBucket = (probability: number, numBuckets: number): number => {
+  const prob = Math.max(Math.min(100, probability * 255), 0);
+  return Math.floor((numBuckets - 1) * prob / 100);
+};
 
 /*
  * Map the color of a pixel to a color bucket value.
  * probability represents the probability value normalized by the size of a byte(255) to be between 0 to 1.
  * ticket to add testing: https://viam.atlassian.net/browse/RSDK-2606
  */
- const colorBuckets = (probability: number): THREE.Vector3 => {
-   return colorMapGrey[probToColorMapBucket(probability, colorMapGrey.length)]!;
- };
+const colorBuckets = (probability: number): THREE.Vector3 => {
+  const bucket = probToColorMapBucket(probability, colorMapGrey.length);
+  return colorMapGrey[bucket]!;
+};
 
 const update = (cloud: Uint8Array) => {
   points = loader.parse(cloud.buffer);
@@ -109,7 +110,7 @@ const update = (cloud: Uint8Array) => {
        * Probability is currently assumed to be held in the rgb field of the PCD map, on a scale of 0 to 100.
        * ticket to look into this further https://viam.atlassian.net/browse/RSDK-2605
        */
-      const colorMapPoint = colorBuckets(colors.getZ(i));
+      const colorMapPoint = colorBuckets(colors.getZ(i) * 10);
       colors.setXYZ(i, colorMapPoint.x, colorMapPoint.y, colorMapPoint.z);
     }
   }

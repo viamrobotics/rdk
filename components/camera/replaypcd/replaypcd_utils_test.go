@@ -236,12 +236,28 @@ func resourcesFromDeps(t *testing.T, r robot.Robot, deps []string) resource.Depe
 // the provided filter and last returned artifact.
 func getNextDataAfterFilter(filter *datapb.Filter, last string) (int, error) {
 	// Basic component part (source) filter
-	if filter.ComponentName != "" && filter.ComponentName != "source" {
+	if filter.ComponentName != "" && filter.ComponentName != validSource {
 		return 0, ErrEndOfDataset
 	}
 
 	// Basic robot_id filter
-	if filter.RobotId != "" && filter.RobotId != "robot_id" {
+	if filter.RobotId != "" && filter.RobotId != validRobotID {
+		return 0, ErrEndOfDataset
+	}
+
+	// Basic location_id filter
+	if len(filter.LocationIds) == 0 {
+		return 0, errors.New("LocationIds in filter is empty")
+	}
+	if filter.LocationIds[0] != "" && filter.LocationIds[0] != validLocationID {
+		return 0, ErrEndOfDataset
+	}
+
+	// Basic organization_id filter
+	if len(filter.OrganizationIds) == 0 {
+		return 0, errors.New("OrganizationIds in filter is empty")
+	}
+	if filter.OrganizationIds[0] != "" && filter.OrganizationIds[0] != validOrganizationID {
 		return 0, ErrEndOfDataset
 	}
 

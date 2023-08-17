@@ -40,7 +40,7 @@ type SerialConfig struct {
 
 // I2CConfig is used for converting Serial NMEA MovementSensor config attributes.
 type I2CConfig struct {
-	Board       string `json:"board,omitempty"`
+	Board       string `json:"board"`
 	I2CBus      string `json:"i2c_bus"`
 	I2CAddr     int    `json:"i2c_addr"`
 	I2CBaudRate int    `json:"i2c_baud_rate,omitempty"`

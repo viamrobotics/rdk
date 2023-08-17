@@ -80,7 +80,7 @@ type URArm struct {
 	cancel                  func()
 	activeBackgroundWorkers sync.WaitGroup
 	model                   referenceframe.Model
-	opMgr                   operation.SingleOperationManager
+	opMgr                   *operation.SingleOperationManager
 
 	mu                       sync.Mutex
 	state                    RobotState
@@ -91,6 +91,7 @@ type URArm struct {
 	dashboardConnection      net.Conn
 	readRobotStateConnection net.Conn
 	host                     string
+	isConnected              bool
 }
 
 const waitBackgroundWorkersDur = 5 * time.Second
@@ -193,11 +194,13 @@ func URArmConnect(ctx context.Context, conf resource.Config, logger golog.Logger
 		logger:                   logger,
 		cancel:                   cancel,
 		model:                    model,
+		opMgr:                    operation.NewSingleOperationManager(),
 		urHostedKinematics:       newConf.ArmHostedKinematics,
 		inRemoteMode:             false,
 		readRobotStateConnection: connReadRobotState,
 		dashboardConnection:      connDashboard,
 		host:                     newConf.Host,
+		isConnected:              true,
 	}
 
 	newArm.activeBackgroundWorkers.Add(1)
@@ -214,12 +217,18 @@ func URArmConnect(ctx context.Context, conf resource.Config, logger golog.Logger
 						return
 					}
 					logger.Debug("attempting to reconnect to ur arm dashboard")
+					time.Sleep(1 * time.Second)
 					connDashboard, err = d.DialContext(cancelCtx, "tcp", newArm.host+":29999")
 					if err == nil {
 						newArm.mu.Lock()
 						newArm.dashboardConnection = connDashboard
+						newArm.isConnected = true
 						newArm.mu.Unlock()
 						break
+					} else {
+						newArm.mu.Lock()
+						newArm.isConnected = false
+						newArm.mu.Unlock()
 					}
 					if !goutils.SelectContextOrWait(cancelCtx, 1*time.Second) {
 						return
@@ -227,6 +236,9 @@ func URArmConnect(ctx context.Context, conf resource.Config, logger golog.Logger
 				}
 			} else if err != nil {
 				logger.Errorw("dashboard reader failed", "error", err)
+				newArm.mu.Lock()
+				newArm.isConnected = false
+				newArm.mu.Unlock()
 				return
 			}
 		}

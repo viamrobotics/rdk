@@ -34,7 +34,7 @@ func TestPtgRrt(t *testing.T) {
 
 	goalPos := spatialmath.NewPose(r3.Vector{X: 50, Y: 10, Z: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 180})
 
-	opt := newBasicPlannerOptions()
+	opt := newBasicPlannerOptions(ackermanFrame)
 	opt.SetGoalMetric(NewPositionOnlyMetric(goalPos))
 	opt.DistanceFunc = SquaredNormNoOrientSegmentMetric
 	opt.GoalThreshold = 10.
@@ -69,7 +69,7 @@ func TestPtgWithObstacle(t *testing.T) {
 	fs := referenceframe.NewEmptyFrameSystem("test")
 	fs.AddFrame(ackermanFrame, fs.World())
 
-	opt := newBasicPlannerOptions()
+	opt := newBasicPlannerOptions(ackermanFrame)
 	opt.SetGoalMetric(NewPositionOnlyMetric(goalPos))
 	opt.DistanceFunc = SquaredNormNoOrientSegmentMetric
 	opt.GoalThreshold = 30.

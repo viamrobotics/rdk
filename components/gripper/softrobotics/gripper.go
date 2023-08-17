@@ -86,7 +86,7 @@ type softGripper struct {
 	pinOpen, pinClose, pinPower board.GPIOPin
 
 	logger     golog.Logger
-	opMgr      operation.SingleOperationManager
+	opMgr      *operation.SingleOperationManager
 	geometries []spatialmath.Geometry
 }
 
@@ -122,6 +122,7 @@ func newGripper(b board.Board, conf resource.Config, logger golog.Logger) (gripp
 		pinClose: pinClose,
 		pinPower: pinPower,
 		logger:   logger,
+		opMgr:    operation.NewSingleOperationManager(),
 	}
 
 	if theGripper.psi == nil {

@@ -24,6 +24,8 @@ type Arm struct {
 	IsMovingFunc             func(context.Context) (bool, error)
 	CloseFunc                func(ctx context.Context) error
 	ModelFrameFunc           func() referenceframe.Model
+	CurrentInputsFunc        func(ctx context.Context) ([]referenceframe.Input, error)
+	GoToInputsFunc           func(ctx context.Context, goal []referenceframe.Input) error
 }
 
 // NewArm returns a new injected arm.
@@ -113,4 +115,20 @@ func (a *Arm) ModelFrame() referenceframe.Model {
 		return model
 	}
 	return a.ModelFrameFunc()
+}
+
+// CurrentInputs calls the injected CurrentInputs or the real version.
+func (a *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
+	if a.CurrentInputsFunc == nil {
+		return a.Arm.CurrentInputs(ctx)
+	}
+	return a.CurrentInputsFunc(ctx)
+}
+
+// GoToInputs calls the injected GoToInputs or the real version.
+func (a *Arm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
+	if a.GoToInputsFunc == nil {
+		return a.Arm.GoToInputs(ctx, goal)
+	}
+	return a.GoToInputsFunc(ctx, goal)
 }

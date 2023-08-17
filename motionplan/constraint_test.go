@@ -22,7 +22,7 @@ func TestIKTolerances(t *testing.T) {
 
 	m, err := frame.ParseModelJSONFile(utils.ResolveFile("referenceframe/testjson/ur5eDH.json"), "")
 	test.That(t, err, test.ShouldBeNil)
-	mp, err := newCBiRRTMotionPlanner(m, rand.New(rand.NewSource(1)), logger, newBasicPlannerOptions())
+	mp, err := newCBiRRTMotionPlanner(m, rand.New(rand.NewSource(1)), logger, newBasicPlannerOptions(m))
 	test.That(t, err, test.ShouldBeNil)
 
 	// Test inability to arrive at another position due to orientation
@@ -38,7 +38,7 @@ func TestIKTolerances(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// Now verify that setting tolerances to zero allows the same arm to reach that position
-	opt := newBasicPlannerOptions()
+	opt := newBasicPlannerOptions(m)
 	opt.SetGoalMetric(NewPositionOnlyMetric(pos))
 	opt.SetMaxSolutions(50)
 	mp, err = newCBiRRTMotionPlanner(m, rand.New(rand.NewSource(1)), logger, opt)
@@ -154,7 +154,7 @@ func TestLineFollow(t *testing.T) {
 	sf, err := newSolverFrame(fs, markerFrame.Name(), goalFrame.Name(), frame.StartPositions(fs))
 	test.That(t, err, test.ShouldBeNil)
 
-	opt := newBasicPlannerOptions()
+	opt := newBasicPlannerOptions(sf)
 	opt.SetPathMetric(gradFunc)
 	opt.AddStateConstraint("whiteboard", validFunc)
 
