@@ -24,23 +24,13 @@ var (
 	readings map[string]interface{}
 )
 
-// defaults assume the device is connected via UART serial.
 const (
+	// defaults assume the device is connected via UART serial.
 	pathDefault     = "/dev/serial0"
 	baudDefault     = 9600
 	modbusIDDefault = 1
-)
 
-// Config is used for converting config attributes.
-type Config struct {
-	resource.TriviallyValidateConfig
-	Path     string `json:"serial_path,omitempty"`
-	Baud     int    `json:"serial_baud_rate,omitempty"`
-	ModbusID byte   `json:"modbus_id,omitempty"`
-}
-
-// Charge represents the solar charge controller readings.
-const (
+	//Registers for renogy controller
 	SolarVoltReg             = 263
 	SolarAmpReg              = 264
 	SolarWattReg             = 265
@@ -63,6 +53,14 @@ const (
 	TotalBattOverChargesReg  = 278
 	TotalBattFullChargesReg  = 279
 )
+
+// Config is used for converting config attributes.
+type Config struct {
+	resource.TriviallyValidateConfig
+	Path     string `json:"serial_path,omitempty"`
+	Baud     int    `json:"serial_baud_rate,omitempty"`
+	ModbusID byte   `json:"modbus_id,omitempty"`
+}
 
 func init() {
 	resource.RegisterComponent(
