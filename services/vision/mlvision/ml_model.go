@@ -54,8 +54,15 @@ func init() {
 
 // MLModelConfig specifies the parameters needed to turn an ML model into a vision Model.
 type MLModelConfig struct {
-	resource.TriviallyValidateConfig
 	ModelName string `json:"mlmodel_name"`
+}
+
+// Validate will add the ModelName as an implicit dependency to the robot
+func (conf *MLModelConfig) Validate(path string) ([]string, error) {
+	if conf.ModelName == "" {
+		return nil, errors.New("mlmodel_name cannot be empty")
+	}
+	return []string{conf.ModelName}, nil
 }
 
 func registerMLModelVisionService(
