@@ -49,7 +49,7 @@ type Arm struct {
 	resource.Named
 	resource.TriviallyCloseable
 	logger golog.Logger
-	opMgr  operation.SingleOperationManager
+	opMgr  *operation.SingleOperationManager
 
 	mu     sync.RWMutex
 	model  referenceframe.Model
@@ -61,6 +61,7 @@ func NewWrapperArm(ctx context.Context, deps resource.Dependencies, conf resourc
 	a := &Arm{
 		Named:  conf.ResourceName().AsNamed(),
 		logger: logger,
+		opMgr:  operation.NewSingleOperationManager(),
 	}
 	if err := a.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err

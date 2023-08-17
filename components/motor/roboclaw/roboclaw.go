@@ -198,6 +198,7 @@ func newRoboClaw(conf resource.Config, logger golog.Logger) (motor.Motor, error)
 		conf:   motorConfig,
 		addr:   uint8(motorConfig.Address),
 		logger: logger,
+		opMgr:  operation.NewSingleOperationManager(),
 		maxRPM: maxRPM,
 	}, nil
 }
@@ -212,7 +213,7 @@ type roboclawMotor struct {
 	maxRPM float64
 
 	logger golog.Logger
-	opMgr  operation.SingleOperationManager
+	opMgr  *operation.SingleOperationManager
 
 	powerPct float64
 }

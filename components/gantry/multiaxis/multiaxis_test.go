@@ -10,6 +10,7 @@ import (
 	"go.viam.com/rdk/components/gantry"
 	"go.viam.com/rdk/components/motor"
 	fm "go.viam.com/rdk/components/motor/fake"
+	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
@@ -123,17 +124,27 @@ func TestMoveToPosition(t *testing.T) {
 	positions := []float64{}
 	speeds := []float64{}
 
-	fakemultiaxis := &multiAxis{}
+	fakemultiaxis := &multiAxis{
+		opMgr: operation.NewSingleOperationManager(),
+	}
 	err := fakemultiaxis.MoveToPosition(ctx, positions, speeds, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	fakemultiaxis = &multiAxis{subAxes: threeAxes, lengthsMm: []float64{1, 2, 3}}
+	fakemultiaxis = &multiAxis{
+		subAxes:   threeAxes,
+		lengthsMm: []float64{1, 2, 3},
+		opMgr:     operation.NewSingleOperationManager(),
+	}
 	positions = []float64{1, 2, 3}
 	speeds = []float64{100, 200, 300}
 	err = fakemultiaxis.MoveToPosition(ctx, positions, speeds, nil)
 	test.That(t, err, test.ShouldBeNil)
 
-	fakemultiaxis = &multiAxis{subAxes: twoAxes, lengthsMm: []float64{1, 2}}
+	fakemultiaxis = &multiAxis{
+		subAxes:   twoAxes,
+		lengthsMm: []float64{1, 2},
+		opMgr:     operation.NewSingleOperationManager(),
+	}
 	positions = []float64{1, 2}
 	speeds = []float64{100, 200}
 	err = fakemultiaxis.MoveToPosition(ctx, positions, speeds, nil)
@@ -144,16 +155,26 @@ func TestGoToInputs(t *testing.T) {
 	ctx := context.Background()
 	inputs := []referenceframe.Input{}
 
-	fakemultiaxis := &multiAxis{}
+	fakemultiaxis := &multiAxis{
+		opMgr: operation.NewSingleOperationManager(),
+	}
 	err := fakemultiaxis.GoToInputs(ctx, inputs)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	fakemultiaxis = &multiAxis{subAxes: threeAxes, lengthsMm: []float64{1, 2, 3}}
+	fakemultiaxis = &multiAxis{
+		subAxes:   threeAxes,
+		lengthsMm: []float64{1, 2, 3},
+		opMgr:     operation.NewSingleOperationManager(),
+	}
 	inputs = []referenceframe.Input{{Value: 1}, {Value: 2}, {Value: 3}}
 	err = fakemultiaxis.GoToInputs(ctx, inputs)
 	test.That(t, err, test.ShouldBeNil)
 
-	fakemultiaxis = &multiAxis{subAxes: twoAxes, lengthsMm: []float64{1, 2}}
+	fakemultiaxis = &multiAxis{
+		subAxes:   twoAxes,
+		lengthsMm: []float64{1, 2},
+		opMgr:     operation.NewSingleOperationManager(),
+	}
 	inputs = []referenceframe.Input{{Value: 1}, {Value: 2}}
 	err = fakemultiaxis.GoToInputs(ctx, inputs)
 	test.That(t, err, test.ShouldBeNil)
@@ -162,12 +183,18 @@ func TestGoToInputs(t *testing.T) {
 func TestPosition(t *testing.T) {
 	ctx := context.Background()
 
-	fakemultiaxis := &multiAxis{subAxes: threeAxes}
+	fakemultiaxis := &multiAxis{
+		subAxes: threeAxes,
+		opMgr:   operation.NewSingleOperationManager(),
+	}
 	pos, err := fakemultiaxis.Position(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pos, test.ShouldResemble, []float64{1, 5, 9})
 
-	fakemultiaxis = &multiAxis{subAxes: twoAxes}
+	fakemultiaxis = &multiAxis{
+		subAxes: twoAxes,
+		opMgr:   operation.NewSingleOperationManager(),
+	}
 	pos, err = fakemultiaxis.Position(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pos, test.ShouldResemble, []float64{1, 5})
@@ -175,17 +202,25 @@ func TestPosition(t *testing.T) {
 
 func TestLengths(t *testing.T) {
 	ctx := context.Background()
-	fakemultiaxis := &multiAxis{}
+	fakemultiaxis := &multiAxis{
+		opMgr: operation.NewSingleOperationManager(),
+	}
 	lengths, err := fakemultiaxis.Lengths(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, lengths, test.ShouldResemble, []float64{})
 
-	fakemultiaxis = &multiAxis{subAxes: threeAxes}
+	fakemultiaxis = &multiAxis{
+		subAxes: threeAxes,
+		opMgr:   operation.NewSingleOperationManager(),
+	}
 	lengths, err = fakemultiaxis.Lengths(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, lengths, test.ShouldResemble, []float64{1, 2, 3})
 
-	fakemultiaxis = &multiAxis{subAxes: twoAxes}
+	fakemultiaxis = &multiAxis{
+		subAxes: twoAxes,
+		opMgr:   operation.NewSingleOperationManager(),
+	}
 
 	lengths, err = fakemultiaxis.Lengths(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
@@ -194,17 +229,25 @@ func TestLengths(t *testing.T) {
 
 func TestHome(t *testing.T) {
 	ctx := context.Background()
-	fakemultiaxis := &multiAxis{}
+	fakemultiaxis := &multiAxis{
+		opMgr: operation.NewSingleOperationManager(),
+	}
 	homed, err := fakemultiaxis.Home(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, homed, test.ShouldBeTrue)
 
-	fakemultiaxis = &multiAxis{subAxes: threeAxes}
+	fakemultiaxis = &multiAxis{
+		subAxes: threeAxes,
+		opMgr:   operation.NewSingleOperationManager(),
+	}
 	homed, err = fakemultiaxis.Home(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, homed, test.ShouldBeTrue)
 
-	fakemultiaxis = &multiAxis{subAxes: twoAxes}
+	fakemultiaxis = &multiAxis{
+		subAxes: twoAxes,
+		opMgr:   operation.NewSingleOperationManager(),
+	}
 
 	homed, err = fakemultiaxis.Home(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
@@ -213,29 +256,45 @@ func TestHome(t *testing.T) {
 
 func TestStop(t *testing.T) {
 	ctx := context.Background()
-	fakemultiaxis := &multiAxis{}
+	fakemultiaxis := &multiAxis{
+		opMgr: operation.NewSingleOperationManager(),
+	}
 	test.That(t, fakemultiaxis.Stop(ctx, nil), test.ShouldBeNil)
 
-	fakemultiaxis = &multiAxis{subAxes: threeAxes}
+	fakemultiaxis = &multiAxis{
+		subAxes: threeAxes,
+		opMgr:   operation.NewSingleOperationManager(),
+	}
 	test.That(t, fakemultiaxis.Stop(ctx, nil), test.ShouldBeNil)
 
-	fakemultiaxis = &multiAxis{subAxes: twoAxes}
+	fakemultiaxis = &multiAxis{
+		subAxes: twoAxes,
+		opMgr:   operation.NewSingleOperationManager(),
+	}
 	test.That(t, fakemultiaxis.Stop(ctx, nil), test.ShouldBeNil)
 }
 
 func TestCurrentInputs(t *testing.T) {
 	ctx := context.Background()
-	fakemultiaxis := &multiAxis{}
+	fakemultiaxis := &multiAxis{
+		opMgr: operation.NewSingleOperationManager(),
+	}
 	inputs, err := fakemultiaxis.CurrentInputs(ctx)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, inputs, test.ShouldResemble, []referenceframe.Input(nil))
 
-	fakemultiaxis = &multiAxis{subAxes: threeAxes}
+	fakemultiaxis = &multiAxis{
+		subAxes: threeAxes,
+		opMgr:   operation.NewSingleOperationManager(),
+	}
 	inputs, err = fakemultiaxis.CurrentInputs(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, inputs, test.ShouldResemble, []referenceframe.Input{{Value: 1}, {Value: 5}, {Value: 9}})
 
-	fakemultiaxis = &multiAxis{subAxes: twoAxes}
+	fakemultiaxis = &multiAxis{
+		subAxes: twoAxes,
+		opMgr:   operation.NewSingleOperationManager(),
+	}
 	inputs, err = fakemultiaxis.CurrentInputs(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, inputs, test.ShouldResemble, []referenceframe.Input{{Value: 1}, {Value: 5}})
@@ -246,6 +305,7 @@ func TestModelFrame(t *testing.T) {
 		Named:     gantry.Named("foo").AsNamed(),
 		subAxes:   twoAxes,
 		lengthsMm: []float64{1, 1},
+		opMgr:     operation.NewSingleOperationManager(),
 	}
 	model := fakemultiaxis.ModelFrame()
 	test.That(t, model, test.ShouldNotBeNil)
@@ -254,6 +314,7 @@ func TestModelFrame(t *testing.T) {
 		Named:     gantry.Named("foo").AsNamed(),
 		subAxes:   threeAxes,
 		lengthsMm: []float64{1, 1, 1},
+		opMgr:     operation.NewSingleOperationManager(),
 	}
 	model = fakemultiaxis.ModelFrame()
 	test.That(t, model, test.ShouldNotBeNil)

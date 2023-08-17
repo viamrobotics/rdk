@@ -80,7 +80,7 @@ type URArm struct {
 	cancel                  func()
 	activeBackgroundWorkers sync.WaitGroup
 	model                   referenceframe.Model
-	opMgr                   operation.SingleOperationManager
+	opMgr                   *operation.SingleOperationManager
 
 	mu                       sync.Mutex
 	state                    RobotState
@@ -194,6 +194,7 @@ func URArmConnect(ctx context.Context, conf resource.Config, logger golog.Logger
 		logger:                   logger,
 		cancel:                   cancel,
 		model:                    model,
+		opMgr:                    operation.NewSingleOperationManager(),
 		urHostedKinematics:       newConf.ArmHostedKinematics,
 		inRemoteMode:             false,
 		readRobotStateConnection: connReadRobotState,
