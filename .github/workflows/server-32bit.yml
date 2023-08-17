@@ -42,7 +42,7 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
     - uses: actions/checkout@v3
     - name: test
-      run: docker run --rm -v $PWD/:/rdk ghcr.io/viamrobotics/viam-server:armv7 sh -c "go list -json ./... | etc/splitter.py ${{ matrix.index }} --nbins 4 --command "go test -buildvcs false -tags no_tflite,no_pigpio"
+      run: docker run --rm -v $PWD/:/rdk ghcr.io/viamrobotics/viam-server:armv7 sh -c "go list -json ./... | etc/splitter.py ${{ matrix.index }} --nbins 4 --command \"go test -buildvcs false -tags no_tflite,no_pigpio\""
   build:
     needs: [test]
     runs-on: buildjet-4vcpu-ubuntu-2204-arm
