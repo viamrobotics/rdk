@@ -22,7 +22,6 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 // default port for limo serial comm.
@@ -331,20 +330,12 @@ func (lb *limoBase) setMotionCommand(linearVel float64,
 	return nil
 }
 
-// positive angleDeg spins base left. degsPerSec is a positive angular velocity.
 func (lb *limoBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
 	lb.logger.Debugf("Spin(%f, %f)", angleDeg, degsPerSec)
-	if degsPerSec <= 0 {
-		return errors.New("degrees per second must be a positive, non-zero value")
-	}
 	secsToRun := math.Abs(angleDeg / degsPerSec)
 	var err error
 	if lb.driveMode == DIFFERENTIAL.String() || lb.driveMode == OMNI.String() {
-		dir := 1.0
-		if math.Signbit(angleDeg) {
-			dir = -1.0
-		}
-		err = lb.SetVelocity(ctx, r3.Vector{}, r3.Vector{Z: dir * degsPerSec}, extra)
+		err = lb.SetVelocity(ctx, r3.Vector{}, r3.Vector{Z: degsPerSec}, extra)
 	} else if lb.driveMode == ACKERMANN.String() {
 		// TODO: this is not the correct math
 		linear := float64(lb.maxLinearVelocity) * (degsPerSec / 360) * math.Pi
@@ -378,7 +369,6 @@ func (lb *limoBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec f
 }
 
 // linear is in mm/sec, angular in degrees/sec.
-// positive angular velocity turns base left.
 func (lb *limoBase) SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
 	lb.logger.Debugf("Will set linear velocity %f angular velocity %f", linear, angular)
 
@@ -386,7 +376,7 @@ func (lb *limoBase) SetVelocity(ctx context.Context, linear, angular r3.Vector, 
 	defer done()
 
 	// this lb expects angular velocity to be expressed in .001 radians/sec, convert
-	angular.Z = rdkutils.DegToRad(-angular.Z) * 1000
+	angular.Z = (angular.Z / 57.2958) * 1000
 
 	lb.stateMutex.Lock()
 	lb.state.velocityLinearGoal = linear
@@ -400,7 +390,7 @@ func (lb *limoBase) SetPower(ctx context.Context, linear, angular r3.Vector, ext
 	lb.logger.Debugf("Will set power linear %f angular %f", linear, angular)
 	linY := linear.Y * float64(lb.maxLinearVelocity)
 	angZ := angular.Z * float64(lb.maxAngularVelocity)
-	err := lb.SetVelocity(ctx, r3.Vector{Y: linY}, r3.Vector{Z: angZ}, extra)
+	err := lb.SetVelocity(ctx, r3.Vector{Y: linY}, r3.Vector{Z: -angZ}, extra)
 	if err != nil {
 		return err
 	}
@@ -438,8 +428,9 @@ func (lb *limoBase) Properties(ctx context.Context, extra map[string]interface{}
 	}
 
 	return base.Properties{
-		TurningRadiusMeters: lbTurnRadiusM,
-		WidthMeters:         float64(lb.width) * 0.001, // convert from mm to meters
+		TurningRadiusMeters:      lbTurnRadiusM,
+		WidthMeters:              float64(lb.width) * 0.001, // convert from mm to meters
+		WheelCircumferenceMeters: 0,                         // no access to individual motors, so wheel circumference cannot be used for odometry
 	}, nil
 }
 
