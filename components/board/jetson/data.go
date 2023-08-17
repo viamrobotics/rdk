@@ -127,33 +127,33 @@ var jetsonTX2NXPins = []genericlinux.PinDefinition{
 }
 
 var jetsonTX2Pins = []genericlinux.PinDefinition{
-	{Name: "7", Ngpio: 192, LineNumber: 76, PwmChipSysfsDir: "", PwmID: -1},
+	{Name: "7", DeviceName: "gpiochip0", LineNumber: 76, PwmChipSysfsDir: "", PwmID: -1},
 	// Output-only (due to base board)
-	{Name: "11", Ngpio: 192, LineNumber: 146, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "12", Ngpio: 192, LineNumber: 72, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "13", Ngpio: 192, LineNumber: 77, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "15", Ngpio: -1, LineNumber: 15, PwmChipSysfsDir: "", PwmID: -1},
+	{Name: "11", DeviceName: "gpiochip0", LineNumber: 146, PwmChipSysfsDir: "", PwmID: -1},
+	{Name: "12", DeviceName: "gpiochip0", LineNumber: 72, PwmChipSysfsDir: "", PwmID: -1},
+	{Name: "13", DeviceName: "gpiochip0", LineNumber: 77, PwmChipSysfsDir: "", PwmID: -1},
+	{Name: "15", DeviceName: "UNKNOWN", LineNumber: 15, PwmChipSysfsDir: "", PwmID: -1},
 	// Input-only (due to module):
-	{Name: "16", Ngpio: 64, LineNumber: 40, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "18", Ngpio: 192, LineNumber: 161, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "19", Ngpio: 192, LineNumber: 109, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "21", Ngpio: 192, LineNumber: 108, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "22", Ngpio: -1, LineNumber: 14, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "23", Ngpio: 192, LineNumber: 107, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "24", Ngpio: 192, LineNumber: 110, PwmChipSysfsDir: "", PwmID: -1},
+	{Name: "16", DeviceName: "gpiochip1", LineNumber: 40, PwmChipSysfsDir: "", PwmID: -1},
+	{Name: "18", DeviceName: "gpiochip0", LineNumber: 161, PwmChipSysfsDir: "", PwmID: -1},
+	{Name: "19", DeviceName: "gpiochip0", LineNumber: 109, PwmChipSysfsDir: "", PwmID: -1},
+	{Name: "21", DeviceName: "gpiochip0", LineNumber: 108, PwmChipSysfsDir: "", PwmID: -1},
+	{Name: "22", DeviceName: "UNKNOWN", LineNumber: 14, PwmChipSysfsDir: "", PwmID: -1},
+	{Name: "23", DeviceName: "gpiochip0", LineNumber: 107, PwmChipSysfsDir: "", PwmID: -1},
+	{Name: "24", DeviceName: "gpiochip0", LineNumber: 110, PwmChipSysfsDir: "", PwmID: -1},
 	// Board pin 26 is not available on this board
-	{Name: "29", Ngpio: 192, LineNumber: 78, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "31", Ngpio: 64, LineNumber: 42, PwmChipSysfsDir: "", PwmID: -1},
+	{Name: "29", DeviceName: "gpiochip0", LineNumber: 78, PwmChipSysfsDir: "", PwmID: -1},
+	{Name: "31", DeviceName: "gpiochip1", LineNumber: 42, PwmChipSysfsDir: "", PwmID: -1},
 	// Output-only (due to module):
-	{Name: "32", Ngpio: 64, LineNumber: 41, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "33", Ngpio: 192, LineNumber: 69, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "35", Ngpio: 192, LineNumber: 75, PwmChipSysfsDir: "", PwmID: -1},
+	{Name: "32", DeviceName: "gpiochip1", LineNumber: 41, PwmChipSysfsDir: "", PwmID: -1},
+	{Name: "33", DeviceName: "gpiochip0", LineNumber: 69, PwmChipSysfsDir: "", PwmID: -1},
+	{Name: "35", DeviceName: "gpiochip0", LineNumber: 75, PwmChipSysfsDir: "", PwmID: -1},
 	// Input-only (due to base board) IF NVIDIA debug card NOT plugged in
 	// Output-only (due to base board) IF NVIDIA debug card plugged in
-	{Name: "36", Ngpio: 192, LineNumber: 147, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "37", Ngpio: 192, LineNumber: 68, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "38", Ngpio: 192, LineNumber: 74, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "40", Ngpio: 192, LineNumber: 73, PwmChipSysfsDir: "", PwmID: -1},
+	{Name: "36", DeviceName: "gpiochip0", LineNumber: 147, PwmChipSysfsDir: "", PwmID: -1},
+	{Name: "37", DeviceName: "gpiochip0", LineNumber: 68, PwmChipSysfsDir: "", PwmID: -1},
+	{Name: "38", DeviceName: "gpiochip0", LineNumber: 74, PwmChipSysfsDir: "", PwmID: -1},
+	{Name: "40", DeviceName: "gpiochip0", LineNumber: 73, PwmChipSysfsDir: "", PwmID: -1},
 }
 
 var jetsonTX1Pins = []genericlinux.PinDefinition{
