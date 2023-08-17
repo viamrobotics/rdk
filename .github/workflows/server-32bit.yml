@@ -25,27 +25,40 @@ jobs:
         push: true
         cache-from: type=registry,ref=ghcr.io/viamrobotics/viam-server:buildcache
         cache-to: type=registry,ref=ghcr.io/viamrobotics/viam-server:buildcache
-  build:
+  test:
     # needs: [docker]
+    runs-on: buildjet-4vcpu-ubuntu-2204-arm
+    strategy:
+      fail-fast: false
+      matrix:
+        index: ['0', '1', '2', '3']
+    permissions:
+      packages: read
+    steps:
+    - uses: docker/login-action@v2
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    - uses: actions/checkout@v3
+    - name: test
+      run: docker run --rm -v $PWD/:/rdk ghcr.io/viamrobotics/viam-server:armv7 sh -c "go list -json ./... | etc/splitter.py ${{ matrix.index }} --nbins 4"
+  build:
+    needs: [test]
     runs-on: buildjet-4vcpu-ubuntu-2204-arm
     permissions:
       packages: read
-    container:
-      image: ghcr.io/viamrobotics/viam-server:armv7
-      credentials:
+    steps:
+    - uses: docker/login-action@v2
+      with:
+        registry: ghcr.io
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
-      options: --platform linux/arm/v7
-    steps:
     - uses: actions/checkout@v3
-    - name: setup
-      run: git config --global --add safe.directory '*'
-    - name: test
-      run: make test-go-no-race
     - name: build
-      run: |
-        go build -v -tags no_pigpio,no_tflite ./web/cmd/server
-        file server
+      run: docker run --platform linux/armv7 --rm -v $PWD/:/rdk ghcr.io/viamrobotics/viam-server:armv7 sh -c "git config --global --add safe.directory '*' && go build -v -tags no_pigpio,no_tflite ./web/cmd/server"
+    - name: show arch
+      run: file server
     - uses: actions/upload-artifact@v3
       with:
         path: server
