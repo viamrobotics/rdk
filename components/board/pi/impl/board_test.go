@@ -15,6 +15,7 @@ import (
 	"go.viam.com/rdk/components/board/genericlinux"
 	picommon "go.viam.com/rdk/components/board/pi/common"
 	"go.viam.com/rdk/components/servo"
+	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 )
 
@@ -272,7 +273,7 @@ func TestServoFunctions(t *testing.T) {
 
 	t.Run(("check Move IsMoving ande pigpio errors"), func(t *testing.T) {
 		ctx := context.Background()
-		s := &piPigpioServo{pinname: "1", maxRotation: 180}
+		s := &piPigpioServo{pinname: "1", maxRotation: 180, opMgr: operation.NewSingleOperationManager()}
 
 		s.res = -93
 		err := s.pigpioErrors(int(s.res))
