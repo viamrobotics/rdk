@@ -5,11 +5,13 @@ import (
 	"image"
 	"math"
 	"strconv"
+	"strings"
 
 	"github.com/nfnt/resize"
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
+	"gorgonia.org/tensor"
 
+	"go.viam.com/rdk/ml"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/mlmodel"
 	"go.viam.com/rdk/utils"
@@ -58,42 +60,35 @@ func attemptToBuildDetector(mlm mlmodel.Service) (objectdetection.Detector, erro
 		if (origW != resizeW) || (origH != resizeH) {
 			resized = resize.Resize(uint(resizeW), uint(resizeH), img, resize.Bilinear)
 		}
-		inMap := make(map[string]interface{})
+		inMap := ml.Tensors{}
 		switch inType {
 		case UInt8:
-			inMap["image"] = rimage.ImageToUInt8Buffer(resized)
+			inMap["image"] = tensor.New(tensor.WithBacking(rimage.ImageToUInt8Buffer(resized)))
 		case Float32:
-			inMap["image"] = rimage.ImageToFloatBuffer(resized)
+			inMap["image"] = tensor.New(tensor.WithBacking(rimage.ImageToFloatBuffer(resized)))
 		default:
 			return nil, errors.New("invalid input type. try uint8 or float32")
 		}
-		outMap, err := mlm.Infer(ctx, inMap)
+		outMap, _, err := mlm.Infer(ctx, inMap, nil)
 		if err != nil {
 			return nil, err
 		}
 
-		var err2 error
-
-		locations, err := unpack(outMap, "location")
-		if err != nil || len(locations) == 0 {
-			locations, err2 = unpack(outMap, DefaultOutTensorName+"0")
-			if err2 != nil {
-				return nil, multierr.Combine(err, err2)
-			}
+		locationsT, categoriesT, scoresT, err := findDetectionTensors(outMap)
+		if err != nil {
+			return nil, err
 		}
-		categories, err := unpack(outMap, "category")
-		if err != nil || len(categories) == 0 {
-			categories, err2 = unpack(outMap, DefaultOutTensorName+"1")
-			if err2 != nil {
-				return nil, multierr.Combine(err, err2)
-			}
+		locations, err := convertToFloat64Slice(locationsT.Data())
+		if err != nil {
+			return nil, err
 		}
-		scores, err := unpack(outMap, "score")
-		if err != nil || len(scores) == 0 {
-			scores, err2 = unpack(outMap, DefaultOutTensorName+"2")
-			if err2 != nil {
-				return nil, multierr.Combine(err, err2)
-			}
+		categories, err := convertToFloat64Slice(categoriesT.Data())
+		if err != nil {
+			return nil, err
+		}
+		scores, err := convertToFloat64Slice(scoresT.Data())
+		if err != nil {
+			return nil, err
 		}
 
 		// Now reshape outMap into Detections
@@ -116,6 +111,126 @@ func attemptToBuildDetector(mlm mlmodel.Service) (objectdetection.Detector, erro
 		}
 		return detections, nil
 	}, nil
+}
+
+// this is a hack-y function meant to find the correct detection tensors if the tensors
+// were not given the expected names, or have no metadata. This function should succeed
+// for models built with the platform.
+// order is location, category, score
+func findDetectionTensors(outMap ml.Tensors) (*tensor.Dense, *tensor.Dense, *tensor.Dense, error) {
+	foundTensor := map[string]bool{}
+	locations, okLoc := outMap["location"]
+	if okLoc {
+		foundTensor["location"] = true
+	}
+	categories, okCat := outMap["category"]
+	if okCat {
+		foundTensor["category"] = true
+	}
+	scores, okScores := outMap["score"]
+	if okScores {
+		foundTensor["score"] = true
+	}
+	if okLoc && okCat && okScores { // names are ass expected
+		return locations, categories, scores, nil
+	}
+	outNames := tensorNames(outMap)
+	// first find how many detections there were
+	// this will be used to find the other tensors
+	nDetections := 0
+	for name, t := range outMap {
+		if _, alreadyFound := foundTensor[name]; alreadyFound {
+			continue
+		}
+		if t.Dims() == 1 { // usually n-detections has its own tensor
+			val, err := t.At(0)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+			val64, err := convertToFloat64Slice(val)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+			nDetections = int(val64[0])
+			foundTensor[name] = true
+			break
+		}
+	}
+	if nDetections == 0 { // return empty data
+		return nil, nil, nil, errors.New("empty data")
+	}
+	if !okLoc { // guess the name of the location tensor
+		// location tensor should have 3 dimensions usually
+		for name, t := range outMap {
+			if _, alreadyFound := foundTensor[name]; alreadyFound {
+				continue
+			}
+			if t.Dims() == 3 {
+				locations = t
+				foundTensor[name] = true
+				break
+			}
+		}
+		if locations == nil {
+			return nil, nil, nil, errors.Errorf("could not find an output tensor named 'location' among [%s]", strings.Join(outNames, ", "))
+		}
+	}
+	if !okCat { // guess the name of the category tensor
+		// a category usually has a whole number in its elements
+		for name, t := range outMap {
+			if _, alreadyFound := foundTensor[name]; alreadyFound {
+				continue
+			}
+			dt := t.Dtype()
+			if t.Dims() == 2 {
+				if dt == tensor.Int || dt == tensor.Int32 || dt == tensor.Int64 ||
+					dt == tensor.Uint32 || dt == tensor.Uint64 || dt == tensor.Int8 || dt == tensor.Uint8 {
+					categories = t
+					foundTensor[name] = true
+					break
+				}
+				// check if fully whole number
+				s, err := t.Slice(nil, tensor.S(0, nDetections))
+				if err != nil {
+					return nil, nil, nil, err
+				}
+				whole, err := tensor.Sum(s)
+				if err != nil {
+					return nil, nil, nil, err
+				}
+				val, err := convertToFloat64Slice(whole.Data())
+				if err != nil {
+					return nil, nil, nil, err
+				}
+				if math.Mod(val[0], 1) == 0 {
+					categories = t
+					foundTensor[name] = true
+					break
+				}
+			}
+		}
+		if categories == nil {
+			return nil, nil, nil, errors.Errorf("could not find an output tensor named 'category' among [%s]", strings.Join(outNames, ", "))
+		}
+	}
+	if !okScores { // guess the name of the scores tensor
+		// a score usually has a float data type
+		for name, t := range outMap {
+			if _, alreadyFound := foundTensor[name]; alreadyFound {
+				continue
+			}
+			dt := t.Dtype()
+			if t.Dims() == 2 && (dt == tensor.Float32 || dt == tensor.Float64) {
+				scores = t
+				foundTensor[name] = true
+				break
+			}
+		}
+		if scores == nil {
+			return nil, nil, nil, errors.Errorf("could not find an output tensor named 'score' among [%s]", strings.Join(outNames, ", "))
+		}
+	}
+	return locations, categories, scores, nil
 }
 
 // In the case that the model provided is not a detector, attemptToBuildDetector will return a

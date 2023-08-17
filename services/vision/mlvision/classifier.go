@@ -4,11 +4,13 @@ import (
 	"context"
 	"image"
 	"strconv"
+	"strings"
 
 	"github.com/nfnt/resize"
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
+	"gorgonia.org/tensor"
 
+	"go.viam.com/rdk/ml"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/mlmodel"
 	"go.viam.com/rdk/vision/classification"
@@ -50,30 +52,34 @@ func attemptToBuildClassifier(mlm mlmodel.Service) (classification.Classifier, e
 		if (origW != resizeW) || (origH != resizeH) {
 			resized = resize.Resize(uint(resizeW), uint(resizeH), img, resize.Bilinear)
 		}
-		inMap := make(map[string]interface{})
+		inMap := ml.Tensors{}
 		switch inType {
 		case UInt8:
-			inMap["image"] = rimage.ImageToUInt8Buffer(resized)
+			inMap["image"] = tensor.New(tensor.WithBacking(rimage.ImageToUInt8Buffer(resized)))
 		case Float32:
-			inMap["image"] = rimage.ImageToFloatBuffer(resized)
+			inMap["image"] = tensor.New(tensor.WithBacking(rimage.ImageToFloatBuffer(resized)))
 		default:
 			return nil, errors.New("invalid input type. try uint8 or float32")
 		}
-		outMap, err := mlm.Infer(ctx, inMap)
+		outMap, _, err := mlm.Infer(ctx, inMap, nil)
 		if err != nil {
 			return nil, err
 		}
 
-		var err2 error
-
-		probs, err := unpack(outMap, "probability")
-		if err != nil || len(probs) == 0 {
-			probs, err2 = unpack(outMap, DefaultOutTensorName+"0")
-			if err2 != nil {
-				return nil, multierr.Combine(err, err2)
+		data, ok := outMap["probability"]
+		if !ok {
+			if len(outMap) == 1 {
+				for _, outTensor := range outMap { //  only 1 element in map, assume its probabilities
+					data = outTensor
+				}
+			} else {
+				return nil, errors.Errorf("no tensor named 'probability' among output tensors [%s]", strings.Join(tensorNames(outMap), ", "))
 			}
 		}
-
+		probs, err := convertToFloat64Slice(data.Data())
+		if err != nil {
+			return nil, err
+		}
 		confs := checkClassificationScores(probs)
 		if labels != nil && len(labels) != len(confs) {
 			return nil, errors.New("length of output expected to be length of label list (but is not)")

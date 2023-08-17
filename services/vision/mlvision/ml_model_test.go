@@ -290,6 +290,7 @@ func TestMoreMLDetectors(t *testing.T) {
 	// Even without metadata we should find
 	test.That(t, check.Inputs[0].Shape, test.ShouldResemble, []int{1, 320, 320, 3})
 	test.That(t, check.Inputs[0].DataType, test.ShouldResemble, "float32")
+	test.That(t, len(check.Outputs), test.ShouldEqual, 4)
 
 	gotDetector, err := attemptToBuildDetector(outModel)
 	test.That(t, err, test.ShouldBeNil)

@@ -136,6 +136,7 @@ func TestTFLiteCPUClassifier(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gotOutput, test.ShouldNotBeNil)
 
+	test.That(t, len(gotOutput), test.ShouldEqual, 1)
 	test.That(t, gotOutput["probability"], test.ShouldNotBeNil)
 	result, err := gotOutput["probability"].At(0, 290)
 	test.That(t, err, test.ShouldBeNil)

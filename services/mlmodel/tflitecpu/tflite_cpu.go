@@ -121,6 +121,7 @@ func (m *Model) Infer(ctx context.Context, tensors ml.Tensors, input map[string]
 	}
 	// Fill in the output map with the names from metadata if u have them
 	// if at any point this fails, just use the default name
+	// also, make sure tensor names are not reused
 	results := ml.Tensors{}
 	for defaultName, tensor := range outTensors {
 		outName := defaultName
@@ -128,11 +129,11 @@ func (m *Model) Infer(ctx context.Context, tensors ml.Tensors, input map[string]
 		if len(parts) > 1 {
 			nameInt, err := strconv.Atoi(parts[len(parts)-1])
 			if err != nil {
-				outName = parts[0] // just use default name
+				outName = strings.Join(parts[0:len(parts)-1], ":") // just use default name, add colons back
 			} else if len(m.metadata.Outputs) > nameInt && m.metadata.Outputs[nameInt].Name != "" {
 				outName = m.metadata.Outputs[nameInt].Name
 			} else {
-				outName = parts[0]
+				outName = strings.Join(parts[0:len(parts)-1], ":") // just use default name, add colons back
 			}
 		} else if len(parts) == 1 {
 			outName = parts[0] // default name

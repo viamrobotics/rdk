@@ -3,6 +3,7 @@ package inject
 import (
 	"context"
 
+	"go.viam.com/rdk/ml"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/mlmodel"
 )
@@ -11,7 +12,7 @@ import (
 type MLModelService struct {
 	mlmodel.Service
 	name         resource.Name
-	InferFunc    func(ctx context.Context, tensors mlmodel.Tensors, input map[string]interface{}) (mlmodel.Tensors, map[string]interface{}, error)
+	InferFunc    func(ctx context.Context, tensors ml.Tensors, input map[string]interface{}) (ml.Tensors, map[string]interface{}, error)
 	MetadataFunc func(ctx context.Context) (mlmodel.MLMetadata, error)
 	CloseFunc    func(ctx context.Context) error
 }
@@ -27,7 +28,7 @@ func (s *MLModelService) Name() resource.Name {
 }
 
 // Infer calls the injected Infer or the real variant.
-func (s *MLModelService) Infer(ctx context.Context, tensors mlmodel.Tensors, input map[string]interface{}) (mlmodel.Tensors, map[string]interface{}, error) {
+func (s *MLModelService) Infer(ctx context.Context, tensors ml.Tensors, input map[string]interface{}) (ml.Tensors, map[string]interface{}, error) {
 	if s.InferFunc == nil {
 		return s.Service.Infer(ctx, tensors, input)
 	}
