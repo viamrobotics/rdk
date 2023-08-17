@@ -66,7 +66,7 @@ func TestTFLiteCPUDetector(t *testing.T) {
 	imgBytes := rimage.ImageToUInt8Buffer(resized)
 	test.That(t, imgBytes, test.ShouldNotBeNil)
 	inputMap := ml.Tensors{}
-	inputMap["serving_default_images:0"] = tensor.New(
+	inputMap["image"] = tensor.New(
 		tensor.WithShape(got.metadata.Inputs[0].Shape[1], got.metadata.Inputs[0].Shape[2], 3),
 		tensor.WithBacking(imgBytes),
 	)
@@ -76,20 +76,20 @@ func TestTFLiteCPUDetector(t *testing.T) {
 
 	test.That(t, len(gotOutput), test.ShouldEqual, 4)
 	// n detections
-	test.That(t, gotOutput["StatefulPartitionedCall:0"], test.ShouldNotBeNil)
-	test.That(t, gotOutput["StatefulPartitionedCall:0"].Data(), test.ShouldResemble, []float32{25})
+	test.That(t, gotOutput["number of detections"], test.ShouldNotBeNil)
+	test.That(t, gotOutput["number of detections"].Data(), test.ShouldResemble, []float32{25})
 	// score
-	test.That(t, gotOutput["StatefulPartitionedCall:1"], test.ShouldNotBeNil)
-	test.That(t, gotOutput["StatefulPartitionedCall:1"].Shape(), test.ShouldResemble, tensor.Shape{1, 25})
+	test.That(t, gotOutput["score"], test.ShouldNotBeNil)
+	test.That(t, gotOutput["score"].Shape(), test.ShouldResemble, tensor.Shape{1, 25})
 	// category
-	test.That(t, gotOutput["StatefulPartitionedCall:2"], test.ShouldNotBeNil)
-	test.That(t, gotOutput["StatefulPartitionedCall:2"].Shape(), test.ShouldResemble, tensor.Shape{1, 25})
-	result, err := gotOutput["StatefulPartitionedCall:2"].At(0, 0)
+	test.That(t, gotOutput["category"], test.ShouldNotBeNil)
+	test.That(t, gotOutput["category"].Shape(), test.ShouldResemble, tensor.Shape{1, 25})
+	result, err := gotOutput["category"].At(0, 0)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldEqual, 17) // 17 is dog
 	// location
-	test.That(t, gotOutput["StatefulPartitionedCall:3"], test.ShouldNotBeNil)
-	test.That(t, gotOutput["StatefulPartitionedCall:3"].Shape(), test.ShouldResemble, tensor.Shape{1, 25, 4})
+	test.That(t, gotOutput["location"], test.ShouldNotBeNil)
+	test.That(t, gotOutput["location"].Shape(), test.ShouldResemble, tensor.Shape{1, 25, 4})
 }
 
 func TestTFLiteCPUClassifier(t *testing.T) {
@@ -136,14 +136,14 @@ func TestTFLiteCPUClassifier(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gotOutput, test.ShouldNotBeNil)
 
-	test.That(t, gotOutput["Softmax"], test.ShouldNotBeNil)
-	result, err := gotOutput["Softmax"].At(0, 290)
+	test.That(t, gotOutput["probability"], test.ShouldNotBeNil)
+	result, err := gotOutput["probability"].At(0, 290)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldEqual, 0)
-	result, err = gotOutput["Softmax"].At(0, 291)
+	result, err = gotOutput["probability"].At(0, 291)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldBeGreaterThan, 200) // 291 is lion
-	result, err = gotOutput["Softmax"].At(0, 292)
+	result, err = gotOutput["probability"].At(0, 292)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldEqual, 0)
 }
@@ -224,7 +224,7 @@ func TestTFLiteCPUClient(t *testing.T) {
 	imgBytes := rimage.ImageToUInt8Buffer(resized)
 	test.That(t, imgBytes, test.ShouldNotBeNil)
 	inputMap := ml.Tensors{}
-	inputMap["serving_default_images:0"] = tensor.New(
+	inputMap["image"] = tensor.New(
 		tensor.WithShape(320, 320, 3),
 		tensor.WithBacking(imgBytes),
 	)
@@ -254,20 +254,20 @@ func TestTFLiteCPUClient(t *testing.T) {
 	test.That(t, gotOutput, test.ShouldNotBeNil)
 	test.That(t, len(gotOutput), test.ShouldEqual, 4)
 	// n detections
-	test.That(t, gotOutput["StatefulPartitionedCall:0"], test.ShouldNotBeNil)
-	test.That(t, gotOutput["StatefulPartitionedCall:0"].Data(), test.ShouldResemble, []float32{25})
+	test.That(t, gotOutput["number of detections"], test.ShouldNotBeNil)
+	test.That(t, gotOutput["number of detections"].Data(), test.ShouldResemble, []float32{25})
 	// score
-	test.That(t, gotOutput["StatefulPartitionedCall:1"], test.ShouldNotBeNil)
-	test.That(t, gotOutput["StatefulPartitionedCall:1"].Shape(), test.ShouldResemble, tensor.Shape{1, 25})
+	test.That(t, gotOutput["score"], test.ShouldNotBeNil)
+	test.That(t, gotOutput["score"].Shape(), test.ShouldResemble, tensor.Shape{1, 25})
 	// category
-	test.That(t, gotOutput["StatefulPartitionedCall:2"], test.ShouldNotBeNil)
-	test.That(t, gotOutput["StatefulPartitionedCall:2"].Shape(), test.ShouldResemble, tensor.Shape{1, 25})
-	result, err := gotOutput["StatefulPartitionedCall:2"].At(0, 0)
+	test.That(t, gotOutput["category"], test.ShouldNotBeNil)
+	test.That(t, gotOutput["category"].Shape(), test.ShouldResemble, tensor.Shape{1, 25})
+	result, err := gotOutput["category"].At(0, 0)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldEqual, 17) // 17 is dog
 	// location
-	test.That(t, gotOutput["StatefulPartitionedCall:3"], test.ShouldNotBeNil)
-	test.That(t, gotOutput["StatefulPartitionedCall:3"].Shape(), test.ShouldResemble, tensor.Shape{1, 25, 4})
+	test.That(t, gotOutput["location"], test.ShouldNotBeNil)
+	test.That(t, gotOutput["location"].Shape(), test.ShouldResemble, tensor.Shape{1, 25, 4})
 }
 
 func makeExampleTensor(length int) *tensor.Dense {

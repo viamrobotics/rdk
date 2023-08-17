@@ -5,6 +5,7 @@ import (
 	"context"
 	"math"
 	fp "path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/edaniels/golog"
@@ -119,29 +120,26 @@ func (m *Model) Infer(ctx context.Context, tensors ml.Tensors, input map[string]
 		return nil, nil, errors.Wrapf(err, "couldn't infer from model %q", m.Name())
 	}
 	// Fill in the output map with the names from metadata if u have them
-	// default output name usually has its ordered located in its name in tflite.
 	// if at any point this fails, just use the default name
-	/*
-		results := ml.Tensors{}
-		for defaultName, tensor := range outTensors {
-			parts := strings.SplitN(defaultName, ":", 2)
-			if len(parts) < 2 {
-				results[defaultName] = tensor
-				continue
-			}
-			nameInt, err := strconv.Atoi(parts[1])
+	results := ml.Tensors{}
+	for defaultName, tensor := range outTensors {
+		outName := defaultName
+		parts := strings.Split(defaultName, ":") // number after colon associates it with metadata
+		if len(parts) > 1 {
+			nameInt, err := strconv.Atoi(parts[len(parts)-1])
 			if err != nil {
-				results[defaultName] = tensor
-				continue
-			}
-			if len(m.metadata.Outputs) > nameInt && m.metadata.Outputs[nameInt].Name != "" {
-				results[m.metadata.Outputs[nameInt].Name] = tensor
+				outName = parts[0] // just use default name
+			} else if len(m.metadata.Outputs) > nameInt && m.metadata.Outputs[nameInt].Name != "" {
+				outName = m.metadata.Outputs[nameInt].Name
 			} else {
-				results[defaultName] = tensor
+				outName = parts[0]
 			}
+		} else if len(parts) == 1 {
+			outName = parts[0] // default name
 		}
-	*/
-	return outTensors, nil, nil
+		results[outName] = tensor
+	}
+	return results, nil, nil
 }
 
 // Metadata reads the metadata from your tflite cpu model into the metadata struct

@@ -3,6 +3,7 @@
 package inference
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"runtime"
@@ -182,18 +183,29 @@ func (model *TFLiteStruct) Infer(inputTensors ml.Tensors) (ml.Tensors, error) {
 	defer model.mu.Unlock()
 
 	interpreter := model.interpreter
-	for i := 0; i < interpreter.GetInputTensorCount(); i++ {
-		input := interpreter.GetInputTensor(i)
-		inpTensor, ok := inputTensors[input.Name()]
-		if !ok {
-			return nil, errors.Errorf("tflite model expected a tensor named %q, but no such input tensor found", input.Name())
+	inputCount := interpreter.GetInputTensorCount()
+	if inputCount == 1 && len(inputTensors) == 1 { // convenience function for underspecified names
+		input := interpreter.GetInputTensor(0)
+		for _, inpTensor := range inputTensors { // there is only one element in this map
+			status := input.CopyFromBuffer(inpTensor.Data())
+			if status != tflite.OK {
+				return nil, errors.Errorf("copying from tensor buffer %q failed", input.Name())
+			}
 		}
-		if inpTensor == nil {
-			continue
-		}
-		status := input.CopyFromBuffer(inpTensor.Data())
-		if status != tflite.OK {
-			return nil, errors.Errorf("copying from tensor buffer named %q failed", input.Name())
+	} else {
+		for i := 0; i < inputCount; i++ {
+			input := interpreter.GetInputTensor(i)
+			inpTensor, ok := inputTensors[input.Name()]
+			if !ok {
+				return nil, errors.Errorf("tflite model expected a tensor named %q, but no such input tensor found", input.Name())
+			}
+			if inpTensor == nil {
+				continue
+			}
+			status := input.CopyFromBuffer(inpTensor.Data())
+			if status != tflite.OK {
+				return nil, errors.Errorf("copying from tensor buffer named %q failed", input.Name())
+			}
 		}
 	}
 
@@ -214,7 +226,8 @@ func (model *TFLiteStruct) Infer(inputTensors ml.Tensors) (ml.Tensors, error) {
 			tensor.Of(tType),
 			tensor.FromMemory(uintptr(t.Data()), uintptr(t.ByteSize())),
 		)
-		output[t.Name()] = outputTensor
+		outName := fmt.Sprintf("%s:%v", t.Name(), i)
+		output[outName] = outputTensor
 	}
 	return output, nil
 }
