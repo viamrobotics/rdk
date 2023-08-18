@@ -60,14 +60,13 @@ func init() {
 				if err != nil {
 					return nil, err
 				}
-				return newSensor(ctx, deps, conf.ResourceName(), newConf, logger)
+				return newSensor(ctx, conf.ResourceName(), newConf, logger)
 			},
 		})
 }
 
 func newSensor(
 	ctx context.Context,
-	deps resource.Dependencies,
 	name resource.Name,
 	conf *Config,
 	logger golog.Logger,
