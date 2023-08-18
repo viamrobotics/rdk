@@ -81,10 +81,8 @@ def main():
     splits = split_bins(sizes, bin_size)
     assert len(splits) == args.nbins
     logger.info('bin %d / %d has %d packages', args.index, args.nbins, len(splits[args.index]))
-    for package in splits[args.index]:
-        logger.info('running tests for %s', package)
-        if not args.dry_run:
-            subprocess.run(f"{args.command} {package}", shell=True, check=True)
+    if not args.dry_run:
+        subprocess.run(f"{args.command} {splits[args.index].join(' ')}", shell=True, check=True)
 
 if __name__ == '__main__':
     main()
