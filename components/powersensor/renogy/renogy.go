@@ -1,4 +1,4 @@
-// Package renogy implements the renogy charge controller sensor
+// Package renogy implements the renogy charge controller sensor for DC batteries.
 // Tested with renogy wanderer model
 // Wanderer Manual: https://www.renogy.com/content/RNG-CTRL-WND30-LI/WND30-LI-Manual.pdf
 // LCD Wanderer Manual: https://ca.renogy.com/content/manual/RNG-CTRL-WND10-Manual.pdf
@@ -51,6 +51,8 @@ const (
 	dischargeTodayAmpHrsReg  = 276
 	totalBattOverChargesReg  = 278
 	totalBattFullChargesReg  = 279
+
+	isAc = false
 )
 
 // Config is used for converting config attributes.
@@ -86,25 +88,29 @@ func newRenogy(_ context.Context, _ resource.Dependencies, conf resource.Config,
 		newConf.ModbusID = modbusIDDefault
 	}
 
-	return &Renogy{
+	r := &Renogy{
 		Named:    conf.ResourceName().AsNamed(),
+		logger:   golog.NewLogger("renogy"),
 		path:     newConf.Path,
 		baud:     newConf.Baud,
 		modbusID: newConf.ModbusID,
-	}, nil
+	}
+
+	return r, nil
 }
 
 // Renogy is a serial charge controller.
 type Renogy struct {
 	resource.Named
 	resource.AlwaysRebuild
-	resource.TriviallyCloseable
 	logger   golog.Logger
 	path     string
 	baud     int
 	modbusID byte
+	handler  *modbus.RTUClientHandler
 }
 
+// getHandler is a helper function to create the modbus handler
 func (r *Renogy) getHandler() *modbus.RTUClientHandler {
 	handler := modbus.NewRTUClientHandler(r.path)
 	handler.BaudRate = r.baud
@@ -118,25 +124,24 @@ func (r *Renogy) getHandler() *modbus.RTUClientHandler {
 
 // Voltage returns the voltage of the battery and a boolean IsAc.
 func (r *Renogy) Voltage(ctx context.Context, extra map[string]interface{}) (float64, bool, error) {
-	handler := r.getHandler()
-
-	err := handler.Connect()
+	r.handler = r.getHandler()
+	err := r.handler.Connect()
 	if err != nil {
 		return 0, false, err
 	}
-	client := modbus.NewClient(handler)
+	client := modbus.NewClient(r.handler)
 
 	// Read the battery voltage.
 	volts, err := readRegister(client, battVoltReg, 1)
 	if err != nil {
 		return 0, false, err
 	}
-	isAc := false
 
-	err = handler.Close()
+	err = r.handler.Close()
 	if err != nil {
 		return 0, false, err
 	}
+	r.handler = nil
 
 	return float64(volts), isAc, nil
 }
@@ -153,25 +158,25 @@ func (r *Renogy) Current(ctx context.Context, extra map[string]interface{}) (flo
 	if err != nil {
 		return 0, false, err
 	}
-	isAc := false
 
 	err = handler.Close()
 	if err != nil {
 		return 0, false, err
 	}
+	r.handler = nil
 
 	return float64(loadCurrent), isAc, nil
 }
 
 // Power returns the power of the load. If the controller does not have a load input, will return zero.
 func (r *Renogy) Power(ctx context.Context, extra map[string]interface{}) (float64, error) {
-	handler := r.getHandler()
-	err := handler.Connect()
+	r.handler = r.getHandler()
+	err := r.handler.Connect()
 	if err != nil {
 		return 0, err
 	}
 
-	client := modbus.NewClient(handler)
+	client := modbus.NewClient(r.handler)
 
 	// reads the load wattage.
 	loadPower, err := readRegister(client, loadWattReg, 0)
@@ -179,25 +184,25 @@ func (r *Renogy) Power(ctx context.Context, extra map[string]interface{}) (float
 		return 0, err
 	}
 
-	err = handler.Close()
+	err = r.handler.Close()
 	if err != nil {
 		return 0, err
 	}
+	r.handler = nil
 	return float64(loadPower), err
 }
 
 // Readings returns a list of all readings from the sensor.
 func (r *Renogy) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-	handler := r.getHandler()
+	r.handler = r.getHandler()
 
-	err := handler.Connect()
+	err := r.handler.Connect()
 	if err != nil {
-		err = handler.Close()
 		return nil, err
 	}
 
 	readings = make(map[string]interface{})
-	client := modbus.NewClient(handler)
+	client := modbus.NewClient(r.handler)
 
 	// add all readings.
 	r.addReading(client, solarVoltReg, 1, "SolarVolt")
@@ -242,8 +247,12 @@ func (r *Renogy) Readings(ctx context.Context, extra map[string]interface{}) (ma
 	}
 	readings["ControllerDegC"] = int32(ctlTemp)
 
-	err = handler.Close()
-	return readings, err
+	err = r.handler.Close()
+	if err != nil {
+		return readings, err
+	}
+	r.handler = nil
+	return readings, nil
 }
 
 func (r *Renogy) addReading(client modbus.Client, register uint16, precision uint, reading string) {
@@ -274,4 +283,16 @@ func float32FromBytes(bytes []byte, precision uint) float32 {
 	i := binary.BigEndian.Uint16(bytes)
 	ratio := math.Pow(10, float64(precision))
 	return float32(float64(i) / ratio)
+}
+
+// Close closes the renogy modbus
+func (r *Renogy) Close(ctx context.Context) error {
+	globalMu.Lock()
+	if r.handler != nil {
+		err := r.handler.Close()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
