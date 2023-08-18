@@ -53,24 +53,30 @@ func (erCCL *ErCCLConfig) CheckValid() error {
 	if erCCL.MaxDistFromPlane <= 0 {
 		return errors.Errorf("max_dist_from_plane must be greater than 0, got %v", erCCL.MaxDistFromPlane)
 	}
-	if erCCL.AngleTolerance > 180 || erCCL.AngleTolerance < 0 {
-		return errors.Errorf("max_angle_of_plane must between 0 & 180 (inclusive), got %v", erCCL.AngleTolerance)
-	}
-	if erCCL.ClusteringRadius < 0 {
-		return errors.Errorf("radius must be greater than 0, got %v", erCCL.ClusteringRadius)
-	}
-	if erCCL.ClusteringStrictness < 0 {
-		return errors.Errorf("clustering_strictness must be greater than 0, got %v", erCCL.ClusteringStrictness)
-	}
-	if erCCL.ClusteringStrictness == 0 {
-		erCCL.ClusteringStrictness = 5
-	}
 	// going to have to add that the ground plane's normal vec has to be {0, 1, 0} or {0, 0, 1}
 	if !erCCL.NormalVec.IsUnit() {
 		return errors.Errorf("ground_plane_normal_vec should be a unit vector, got %v", erCCL.NormalVec)
 	}
 	if erCCL.NormalVec.Norm2() == 0 {
 		erCCL.NormalVec = r3.Vector{X: 0, Y: 0, Z: 1}
+	}
+	if erCCL.AngleTolerance == 0.0 {
+		erCCL.AngleTolerance = 30.0
+	}
+	if erCCL.AngleTolerance > 180 || erCCL.AngleTolerance < 0 {
+		return errors.Errorf("max_angle_of_plane must between 0 & 180 (inclusive), got %v", erCCL.AngleTolerance)
+	}
+	if erCCL.ClusteringRadius == 0 {
+		erCCL.ClusteringRadius = 1
+	}
+	if erCCL.ClusteringRadius < 0 {
+		return errors.Errorf("radius must be greater than 0, got %v", erCCL.ClusteringRadius)
+	}
+	if erCCL.ClusteringStrictness == 0 {
+		erCCL.ClusteringStrictness = 5
+	}
+	if erCCL.ClusteringStrictness < 0 {
+		return errors.Errorf("clustering_strictness must be greater than 0, got %v", erCCL.ClusteringStrictness)
 	}
 	return nil
 }
