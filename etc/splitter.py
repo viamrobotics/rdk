@@ -82,7 +82,7 @@ def main():
     assert len(splits) == args.nbins
     logger.info('bin %d / %d has %d packages', args.index, args.nbins, len(splits[args.index]))
     if not args.dry_run:
-        subprocess.run(f"{args.command} {splits[args.index].join(' ')}", shell=True, check=True)
+        subprocess.run(f"{args.command} {' '.join(splits[args.index])}", shell=True, check=True)
 
 if __name__ == '__main__':
     main()
