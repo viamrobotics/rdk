@@ -1,4 +1,4 @@
-// Package sensorcontrolled base implement a base with feedback control from a movement sensor
+// Package sensorcontrolled base implements a base with feedback control from a movement sensor
 package sensorcontrolled
 
 import (
@@ -202,7 +202,7 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 		return err
 	}
 
-	// is moving returns true when moving, which is not a success condition for our
+	// IsMoving returns true when moving, which is not a success condition for our controll loop
 	baseStopped := func(ctx context.Context) (bool, error) {
 		moving, err := sb.IsMoving(ctx)
 		return !moving, err
