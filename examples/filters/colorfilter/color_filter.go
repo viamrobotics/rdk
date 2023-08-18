@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"image"
-	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
@@ -42,11 +41,13 @@ func newCamera(ctx context.Context, deps resource.Dependencies, conf resource.Co
 	return c, nil
 }
 
+// Config contains the name to the underlying camera and the name of the vision service to be used.
 type Config struct {
 	ActualCam     string `json:"actual_cam"`
 	VisionService string `json:"vision_service"`
 }
 
+// Validate validates the config and returns implicit dependencies.
 func (cfg *Config) Validate(path string) ([]string, error) {
 	if cfg.ActualCam == "" {
 		return nil, fmt.Errorf(`expected "actual_cam" attribute in %q`, path)
@@ -55,6 +56,8 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 	return []string{cfg.ActualCam}, nil
 }
 
+// A colorFilterCam wraps the underlying camera `actualCam` and only keeps the data captured on the actual camera if `visionService`
+// detects a certain color in the captured image.
 type colorFilterCam struct {
 	resource.Named
 	actualCam     camera.Camera
@@ -62,7 +65,7 @@ type colorFilterCam struct {
 	logger        golog.Logger
 }
 
-// resource.Resource methods
+// Reconfigure reconfigures the modular component with new settings.
 func (c *colorFilterCam) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	c.actualCam = nil
 	camConfig, err := resource.NativeConfig[*Config](conf)
@@ -83,19 +86,22 @@ func (c *colorFilterCam) Reconfigure(ctx context.Context, deps resource.Dependen
 	return nil
 }
 
+// DoCommand simply echoes whatever was sent.
 func (c *colorFilterCam) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return cmd, nil
 }
 
+// Close closes the underlying camera.
 func (c *colorFilterCam) Close(ctx context.Context) error {
 	return c.actualCam.Close(ctx)
 }
 
-// VideoStream methods
-func (c *colorFilterCam) Images(ctx context.Context) ([]image.Image, time.Time, error) {
-	return nil, time.Time{}, errUnimplemented
+// Images does nothing.
+func (c *colorFilterCam) Images(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+	return nil, resource.ResponseMetadata{}, errUnimplemented
 }
 
+// Stream returns a stream that filters the output of the underlying camera stream in the stream.Next method.
 func (c *colorFilterCam) Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
 	camStream, err := c.actualCam.Stream(ctx, errHandlers...)
 	if err != nil {
@@ -105,25 +111,27 @@ func (c *colorFilterCam) Stream(ctx context.Context, errHandlers ...gostream.Err
 	return filterStream{camStream, c.visionService}, nil
 }
 
+// NextPointCloud does nothing.
 func (c *colorFilterCam) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
 	return nil, errUnimplemented
 }
 
+// Properties returns details about the camera.
 func (c *colorFilterCam) Properties(ctx context.Context) (camera.Properties, error) {
 	return camera.Properties{}, nil
 }
 
-// Projector methods
+// Projector does nothing.
 func (c *colorFilterCam) Projector(ctx context.Context) (transform.Projector, error) {
 	return nil, errUnimplemented
 }
 
-// Filter code:
 type filterStream struct {
 	cameraStream  gostream.VideoStream
 	visionService vision.Service
 }
 
+// Next contains the filtering logic and returns select data from the underlying camera.
 func (fs filterStream) Next(ctx context.Context) (image.Image, func(), error) {
 	if ctx.Value(data.FromDMContextKey{}) != true {
 		// If not data management collector, return underlying stream contents without filtering.
@@ -147,6 +155,7 @@ func (fs filterStream) Next(ctx context.Context) (image.Image, func(), error) {
 	return img, release, err
 }
 
+// Close closes the stream.
 func (fs filterStream) Close(ctx context.Context) error {
 	return fs.cameraStream.Close(ctx)
 }
