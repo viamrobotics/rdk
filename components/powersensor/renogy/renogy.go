@@ -13,7 +13,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/goburrow/modbus"
-
 	"go.viam.com/rdk/components/powersensor"
 	"go.viam.com/rdk/resource"
 )
@@ -288,13 +287,12 @@ func float32FromBytes(bytes []byte, precision uint) float32 {
 // Close closes the renogy modbus
 func (r *Renogy) Close(ctx context.Context) error {
 	r.mu.Lock()
+	defer r.mu.Unlock()
 	if r.handler != nil {
 		err := r.handler.Close()
 		if err != nil {
-			r.mu.Unlock()
 			return err
 		}
 	}
-	r.mu.Unlock()
 	return nil
 }
