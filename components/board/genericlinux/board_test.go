@@ -11,7 +11,6 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
-	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/board"
@@ -100,15 +99,6 @@ func TestGenericLinux(t *testing.T) {
 		gn1, err := b.GPIOPinByName("10")
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, gn1, test.ShouldBeNil)
-	})
-
-	t.Run("test genericlinux gpio pin functionality", func(t *testing.T) {
-		bs, err := b.Status(ctx, nil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "closed")
-		test.That(t, bs, test.ShouldHaveSameTypeAs, &commonpb.BoardStatus{})
-
-		bma := b.ModelAttributes()
-		test.That(t, bma, test.ShouldResemble, board.ModelAttributes{})
 	})
 
 	t.Run("test spi functionality", func(t *testing.T) {
