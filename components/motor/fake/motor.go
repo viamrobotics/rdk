@@ -68,6 +68,7 @@ func init() {
 			m := &Motor{
 				Named:  conf.ResourceName().AsNamed(),
 				Logger: logger,
+				OpMgr:  operation.NewSingleOperationManager(),
 			}
 			if err := m.Reconfigure(ctx, deps, conf); err != nil {
 				return nil, err
@@ -93,7 +94,7 @@ type Motor struct {
 	DirFlip           bool
 	TicksPerRotation  int
 
-	opMgr  operation.SingleOperationManager
+	OpMgr  *operation.SingleOperationManager
 	Logger golog.Logger
 }
 
@@ -184,7 +185,7 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.opMgr.CancelRunning(ctx)
+	m.OpMgr.CancelRunning(ctx)
 	m.Logger.Debugf("Motor SetPower %f", powerPct)
 	m.setPowerPct(powerPct)
 
@@ -285,7 +286,7 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 		return nil
 	}
 
-	if m.opMgr.NewTimedWaitOp(ctx, waitDur) {
+	if m.OpMgr.NewTimedWaitOp(ctx, waitDur) {
 		err = m.Stop(ctx, nil)
 		if err != nil {
 			return err
@@ -333,7 +334,7 @@ func (m *Motor) GoTo(ctx context.Context, rpm, pos float64, extra map[string]int
 		return nil
 	}
 
-	if m.opMgr.NewTimedWaitOp(ctx, waitDur) {
+	if m.OpMgr.NewTimedWaitOp(ctx, waitDur) {
 		err = m.Stop(ctx, nil)
 		if err != nil {
 			return err

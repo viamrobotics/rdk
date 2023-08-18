@@ -55,7 +55,7 @@ type xArm struct {
 	moveLock sync.Mutex
 	model    referenceframe.Model
 	started  bool
-	opMgr    operation.SingleOperationManager
+	opMgr    *operation.SingleOperationManager
 	logger   golog.Logger
 
 	mu    sync.RWMutex
@@ -123,6 +123,7 @@ func NewxArm(ctx context.Context, conf resource.Config, logger golog.Logger, mod
 		moveHZ:  defaultMoveHz,
 		model:   model,
 		started: false,
+		opMgr:   operation.NewSingleOperationManager(),
 		logger:  logger,
 	}
 

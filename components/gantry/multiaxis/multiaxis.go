@@ -33,7 +33,7 @@ type multiAxis struct {
 	logger             golog.Logger
 	moveSimultaneously bool
 	model              referenceframe.Model
-	opMgr              operation.SingleOperationManager
+	opMgr              *operation.SingleOperationManager
 	workers            sync.WaitGroup
 }
 
@@ -70,6 +70,7 @@ func newMultiAxis(
 	mAx := &multiAxis{
 		Named:  conf.ResourceName().AsNamed(),
 		logger: logger,
+		opMgr:  operation.NewSingleOperationManager(),
 	}
 
 	for _, s := range newConf.SubAxes {

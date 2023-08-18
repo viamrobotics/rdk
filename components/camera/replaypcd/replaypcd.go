@@ -49,10 +49,12 @@ func init() {
 
 // Config describes how to configure the replay camera component.
 type Config struct {
-	Source    string       `json:"source,omitempty"`
-	RobotID   string       `json:"robot_id,omitempty"`
-	Interval  TimeInterval `json:"time_interval,omitempty"`
-	BatchSize *uint64      `json:"batch_size,omitempty"`
+	Source         string       `json:"source,omitempty"`
+	RobotID        string       `json:"robot_id,omitempty"`
+	LocationID     string       `json:"location_id,omitempty"`
+	OrganizationID string       `json:"organization_id,omitempty"`
+	Interval       TimeInterval `json:"time_interval,omitempty"`
+	BatchSize      *uint64      `json:"batch_size,omitempty"`
 }
 
 // TimeInterval holds the start and end time used to filter data.
@@ -75,6 +77,18 @@ type cacheEntry struct {
 func (cfg *Config) Validate(path string) ([]string, error) {
 	if cfg.Source == "" {
 		return nil, goutils.NewConfigValidationFieldRequiredError(path, "source")
+	}
+
+	if cfg.RobotID == "" {
+		return nil, goutils.NewConfigValidationFieldRequiredError(path, "robot_id")
+	}
+
+	if cfg.LocationID == "" {
+		return nil, goutils.NewConfigValidationFieldRequiredError(path, "location_id")
+	}
+
+	if cfg.OrganizationID == "" {
+		return nil, goutils.NewConfigValidationFieldRequiredError(path, "organization_id")
 	}
 
 	var err error
@@ -294,10 +308,12 @@ func (replay *pcdCamera) Images(ctx context.Context) ([]camera.NamedImage, resou
 	return nil, resource.ResponseMetadata{}, errors.New("Images is unimplemented")
 }
 
-// Properties is a part of the camera interface but is not implemented for replay.
+// Properties is a part of the camera interface and returns the camera.Properties struct with SupportsPCD set to true.
 func (replay *pcdCamera) Properties(ctx context.Context) (camera.Properties, error) {
-	var props camera.Properties
-	return props, errors.New("Properties is unimplemented")
+	props := camera.Properties{
+		SupportsPCD: true,
+	}
+	return props, nil
 }
 
 // Projector is a part of the camera interface but is not implemented for replay.
@@ -361,10 +377,12 @@ func (replay *pcdCamera) Reconfigure(ctx context.Context, deps resource.Dependen
 	replay.cache = nil
 
 	replay.filter = &datapb.Filter{
-		ComponentName: replayCamConfig.Source,
-		RobotId:       replayCamConfig.RobotID,
-		MimeType:      []string{"pointcloud/pcd"},
-		Interval:      &datapb.CaptureInterval{},
+		ComponentName:   replayCamConfig.Source,
+		RobotId:         replayCamConfig.RobotID,
+		LocationIds:     []string{replayCamConfig.LocationID},
+		OrganizationIds: []string{replayCamConfig.OrganizationID},
+		MimeType:        []string{"pointcloud/pcd"},
+		Interval:        &datapb.CaptureInterval{},
 	}
 	replay.lastData = ""
 

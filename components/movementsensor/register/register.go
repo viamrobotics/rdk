@@ -12,4 +12,5 @@ import (
 	_ "go.viam.com/rdk/components/movementsensor/imuwit"
 	_ "go.viam.com/rdk/components/movementsensor/merged"
 	_ "go.viam.com/rdk/components/movementsensor/mpu6050"
+	_ "go.viam.com/rdk/components/movementsensor/replay"
 )

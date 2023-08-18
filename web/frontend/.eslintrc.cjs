@@ -115,7 +115,6 @@ module.exports = {
     'object-curly-spacing': ['error', 'always'],
     'object-property-newline': ['error', { allowAllPropertiesOnSameLine: true }],
     'no-continue': 'off',
-    'no-duplicate-imports': 'off',
     'no-extra-parens': 'off',
     'no-magic-numbers': 'off',
     'no-multiple-empty-lines': ['error', { max: 1 }],
@@ -192,7 +191,6 @@ module.exports = {
 
     // Typescript
     '@typescript-eslint/indent': ['error', 2],
-    '@typescript-eslint/no-duplicate-imports': ['error'],
     '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
     '@typescript-eslint/no-explicit-any': 'error',
     '@typescript-eslint/no-non-null-assertion': 'off',

@@ -91,7 +91,7 @@ type eva struct {
 
 	frameJSON []byte
 
-	opMgr operation.SingleOperationManager
+	opMgr *operation.SingleOperationManager
 }
 
 // NewEva TODO.
@@ -114,6 +114,7 @@ func NewEva(ctx context.Context, conf resource.Config, logger golog.Logger) (arm
 		logger:    logger,
 		model:     model,
 		frameJSON: evamodeljson,
+		opMgr:     operation.NewSingleOperationManager(),
 	}
 
 	name, err := e.apiName(ctx)

@@ -103,7 +103,7 @@ type Dofbot struct {
 	mu      sync.Mutex
 	muMove  sync.Mutex
 	logger  golog.Logger
-	opMgr   operation.SingleOperationManager
+	opMgr   *operation.SingleOperationManager
 	stopped bool
 }
 
@@ -119,6 +119,7 @@ func NewDofBot(ctx context.Context, deps resource.Dependencies, conf resource.Co
 	a := Dofbot{
 		Named:  conf.ResourceName().AsNamed(),
 		logger: logger,
+		opMgr:  operation.NewSingleOperationManager(),
 	}
 
 	b, err := board.FromDependencies(deps, newConf.Board)
