@@ -3,15 +3,14 @@ package inference
 
 import (
 	"github.com/pkg/errors"
-
-	"go.viam.com/rdk/utils"
+	"go.viam.com/rdk/ml"
 )
 
 // MLModel represents a trained machine learning model.
 type MLModel interface {
 	// Infer takes an already ordered input tensor as an array,
 	// and makes an inference on the model, returning an output tensor map
-	Infer(inputTensor interface{}) (utils.AttributeMap, error)
+	Infer(inputTensor ml.Tensors) (ml.Tensors, error)
 
 	// Metadata gets the entire model metadata structure from file
 	Metadata() (interface{}, error)
