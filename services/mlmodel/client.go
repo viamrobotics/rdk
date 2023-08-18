@@ -46,7 +46,6 @@ func NewClientFromConn(
 }
 
 func (c *client) Infer(ctx context.Context, tensors ml.Tensors, input map[string]interface{}) (ml.Tensors, map[string]interface{}, error) {
-
 	if input != nil && tensors != nil {
 		return nil, nil, errors.New("cannot have both input tensors and input map fed to Infer")
 	}
