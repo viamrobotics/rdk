@@ -11,6 +11,7 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
@@ -650,27 +651,28 @@ func TestCheckPlan(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, b, test.ShouldBeFalse)
 	})
+
+	// create camera_origin frame
+	cameraOriginFrame, err := referenceframe.NewStaticFrame("camera-origin", spatialmath.NewPoseFromPoint(r3.Vector{0, -30, 0}))
+	test.That(t, err, test.ShouldBeNil)
+	err = newFS.AddFrame(cameraOriginFrame, kinBase.Kinematics())
+	test.That(t, err, test.ShouldBeNil)
+
+	// create camera geometry
+	cameraGeom, err := spatialmath.NewBox(
+		spatialmath.NewZeroPose(),
+		r3.Vector{1, 1, 1}, "camera",
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	// create cameraFrame and add to framesystem
+	cameraFrame, err := referenceframe.NewStaticFrameWithGeometry(
+		"camera-frame", spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0}), cameraGeom,
+	)
+	test.That(t, err, test.ShouldBeNil)
+	err = newFS.AddFrame(cameraFrame, cameraOriginFrame)
+	test.That(t, err, test.ShouldBeNil)
 	t.Run("ensure transforms of obstacles works - collision", func(t *testing.T) {
-		// create camera_origin frame
-		cameraOriginFrame, err := referenceframe.NewStaticFrame("camera-origin", spatialmath.NewPoseFromPoint(r3.Vector{0, -30, 0}))
-		test.That(t, err, test.ShouldBeNil)
-		err = newFS.AddFrame(cameraOriginFrame, kinBase.Kinematics())
-		test.That(t, err, test.ShouldBeNil)
-
-		// create camera geometry
-		cameraGeom, err := spatialmath.NewBox(
-			spatialmath.NewZeroPose(),
-			r3.Vector{1, 1, 1}, "camera",
-		)
-		test.That(t, err, test.ShouldBeNil)
-
-		// create cameraFrame and add to framesystem
-		cameraFrame, err := referenceframe.NewStaticFrameWithGeometry(
-			"camera-frame", spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0}), cameraGeom,
-		)
-		test.That(t, err, test.ShouldBeNil)
-		err = newFS.AddFrame(cameraFrame, cameraOriginFrame)
-		test.That(t, err, test.ShouldBeNil)
 
 		// create obstacle
 		obstacle, err := spatialmath.NewBox(
@@ -686,32 +688,8 @@ func TestCheckPlan(t *testing.T) {
 		test.That(t, b, test.ShouldBeTrue)
 	})
 	t.Run("ensure transforms of obstacles works - no collision", func(t *testing.T) {
-		newFS := referenceframe.NewEmptyFrameSystem("test-fs")
-		newFS.AddFrame(kinBase.Kinematics(), newFS.World())
-		// create camera_origin frame
-		cameraOriginFrame, err := referenceframe.NewStaticFrame("camera-origin", spatialmath.NewPoseFromPoint(r3.Vector{0, -30, 0}))
-		test.That(t, err, test.ShouldBeNil)
-		err = newFS.AddFrame(cameraOriginFrame, kinBase.Kinematics())
-		test.That(t, err, test.ShouldBeNil)
-
-		// create camera geometry
-		cameraGeom, err := spatialmath.NewBox(
-			spatialmath.NewZeroPose(),
-			r3.Vector{1, 1, 1}, "camera",
-		)
-		test.That(t, err, test.ShouldBeNil)
-
-		// create cameraFrame and add to framesystem
-		cameraFrame, err := referenceframe.NewStaticFrameWithGeometry(
-			"camera-frame", spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0}), cameraGeom,
-		)
-		test.That(t, err, test.ShouldBeNil)
-		err = newFS.AddFrame(cameraFrame, cameraOriginFrame)
-		test.That(t, err, test.ShouldBeNil)
-
 		// create obstacle
 		obstacle, err := spatialmath.NewBox(
-			// the goal is x:300
 			spatialmath.NewPoseFromPoint(r3.Vector{150, 30, 0}),
 			r3.Vector{10, 10, 1}, "obstacle",
 		)
