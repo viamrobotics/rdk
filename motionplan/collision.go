@@ -328,7 +328,7 @@ func CheckPlan(
 	// check if we are working with ptgs
 	ptgProv, ok := frame.(tpspace.PTGProvider)
 	if ok {
-		return checkPtgPlan(frame, plan, obstacles, ptgProv.PTGs())
+		return checkPtgPlan(frame, plan, obstacles, fs, ptgProv.PTGs())
 	}
 
 	if len(plan) < 2 {
@@ -373,8 +373,22 @@ func checkPtgPlan(
 	frame referenceframe.Frame,
 	plan [][]referenceframe.Input,
 	obstacles []*referenceframe.GeometriesInFrame,
+	fs referenceframe.FrameSystem,
 	ptgs []tpspace.PTG,
 ) (bool, error) {
+	// ensure obstacles are in world frame
+	wrdlst, err := referenceframe.NewWorldState(obstacles, nil)
+	if err != nil {
+		return false, err
+	}
+	transformedObstacles, err := wrdlst.ObstaclesInWorldFrame(fs, referenceframe.StartPositions(fs))
+	if err != nil {
+		return false, err
+	}
+
+	lastRecordedPose := spatial.NewZeroPose()
+	latestPose := spatial.NewZeroPose()
+
 	// inputs are:
 	// [0] index of PTG to use
 	// [1] index of the trajectory within that PTG
@@ -386,25 +400,28 @@ func checkPtgPlan(
 		for _, traj := range ptg.Trajectory(uint(inputs[1].Value)) {
 			// stop checking the trajectory once we have traveled its required distance
 			if traj.Dist >= inputs[2].Value {
+				lastRecordedPose = spatial.Compose(lastRecordedPose, latestPose)
 				break
 			}
 			// transform the frame's geometries by inputs
-			baseGIFS, err := frame.Geometries(inputs)
+			newInputs := []referenceframe.Input{
+				inputs[0], inputs[1], {Value: traj.Dist},
+			}
+			baseGIFS, err := frame.Geometries(newInputs)
 			if err != nil {
 				return false, err
 			}
-			for _, geom := range baseGIFS.Geometries() {
-				for i := range obstacles {
-					for _, obstacle := range obstacles[i].Geometries() {
-						// perform collision check
-						if collides, err := geom.CollidesWith(obstacle); err != nil {
-							return false, err
-						} else if collides {
-							return false, fmt.Errorf("path is not valid, found collision with %v", obstacle)
-						}
+			for _, baseGeom := range baseGIFS.Geometries() {
+				baseGeom = baseGeom.Transform(lastRecordedPose)
+				for _, obstacle := range transformedObstacles.Geometries() {
+					if collides, err := baseGeom.CollidesWith(obstacle); err != nil {
+						return false, err
+					} else if collides {
+						return false, fmt.Errorf("path is not valid, found collision with %v", obstacle)
 					}
 				}
 			}
+			latestPose = traj.Pose
 		}
 	}
 	return true, nil
