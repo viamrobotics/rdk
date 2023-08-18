@@ -35,13 +35,13 @@ func TestRadiusClusteringSegmentation(t *testing.T) {
 		}
 	}
 	params := &segmentation.ErCCLConfig{
-		MinPtsInPlane:    100,
-		MaxDistFromPlane: 10,
-		MinPtsInSegment:  3,
-		AngleTolerance:   20,
-		NormalVec:        r3.Vector{0, 0, 1},
-		ClusteringRadius: 5,
-		Beta:             3,
+		MinPtsInPlane:        100,
+		MaxDistFromPlane:     10,
+		MinPtsInSegment:      3,
+		AngleTolerance:       20,
+		NormalVec:            r3.Vector{0, 0, 1},
+		ClusteringRadius:     5,
+		ClusteringStrictness: 3,
 	}
 	// bad registration, no parameters
 	name := vision.Named("test_rcs")

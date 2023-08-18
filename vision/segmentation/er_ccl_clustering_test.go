@@ -32,7 +32,7 @@ func TestERCCL(t *testing.T) {
 		// "ground_angle_tolerance_degs": 20,
 		// "ground_plane_normal_vec":     r3.Vector{0, 0, 1},
 		// "clustering_radius":           5,
-		// "beta":                        2,
+		// "clustering_granularity":      2,
 
 		// realsense config
 		"min_points_in_plane":         1500,
@@ -66,7 +66,7 @@ func BenchmarkERCCL(b *testing.B) {
 		// "ground_angle_tolerance_degs": 20,
 		// "ground_plane_normal_vec":     r3.Vector{0, 0, 1},
 		// "clustering_radius":           5,
-		// "beta":                        2,
+		// "clustering_granularity":      2,
 
 		// realsense config
 		"min_points_in_plane":         1500,
@@ -75,7 +75,7 @@ func BenchmarkERCCL(b *testing.B) {
 		"ground_angle_tolerance_degs": 20,
 		"ground_plane_normal_vec":     r3.Vector{0, -1, 0},
 		"clustering_radius":           5,
-		"beta":                        3,
+		"clustering_granularity":      3,
 	}
 
 	segmenter, err := segmentation.NewERCCLClustering(objConfig)

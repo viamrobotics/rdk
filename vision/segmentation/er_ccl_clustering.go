@@ -15,6 +15,7 @@ import (
 	"go.viam.com/rdk/vision"
 )
 
+// MaxCCLIterations is a value to stop the CCL algo from going on for too long.
 const MaxCCLIterations = 300000
 
 // ErCCLConfig specifies the necessary parameters to apply the
@@ -143,7 +144,7 @@ func (erCCL *ErCCLConfig) ErCCLAlgorithm(ctx context.Context, src camera.VideoSo
 	continueRunning := true
 	for continueRunning {
 		// 0.9 is alpha
-		continueRunning := labelMapUpdate(labelMap, erCCL.ClusteringRadius, 0.9, erCCL.Beta, resolution)
+		continueRunning := labelMapUpdate(labelMap, erCCL.ClusteringRadius, 0.9, erCCL.ClusteringStrictness, resolution)
 		if !continueRunning {
 			break
 		}
@@ -275,7 +276,7 @@ func labelMapUpdate(labelMap [][]node, r int, alpha, beta, s float64) bool {
 // similarEnough takes in two nodes and tries to see if they meet some similarity threshold
 // there are three components, first calculate distance between nodes, then height difference between points
 // use these values to then calculate a score for similarity and if it exceeds a threshold calculated from the
-// search radius and clustering strictness value
+// search radius and clustering strictness value.
 func similarEnough(curNode, neighbor node, r int, alpha, beta, s float64) bool {
 	// trying to avoid math.pow since these are ints and math.pow is slow
 	if neighbor.label == -1 {
