@@ -672,8 +672,8 @@ func TestCheckPlan(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	err = newFS.AddFrame(cameraFrame, cameraOriginFrame)
 	test.That(t, err, test.ShouldBeNil)
-	t.Run("ensure transforms of obstacles works - collision", func(t *testing.T) {
 
+	t.Run("ensure transforms of obstacles works - collision", func(t *testing.T) {
 		// create obstacle
 		obstacle, err := spatialmath.NewBox(
 			spatialmath.NewPoseFromPoint(r3.Vector{150, 0, 0}),
