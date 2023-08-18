@@ -14,7 +14,8 @@ import (
 	"go.viam.com/rdk/vision"
 )
 
-// RadiusClusteringConfig specifies the necessary parameters for 3D object finding.
+// RadiusClusteringConfig specifies the necessary parameters to apply the
+// radius based clustering algo.
 type RadiusClusteringConfig struct {
 	resource.TriviallyValidateConfig
 	MinPtsInPlane      int       `json:"min_points_in_plane"`
@@ -49,6 +50,9 @@ func (rcc *RadiusClusteringConfig) CheckValid() error {
 	}
 	if rcc.NormalVec.Norm2() == 0 {
 		rcc.NormalVec = r3.Vector{X: 0, Y: 0, Z: 1}
+	}
+	if !rcc.NormalVec.IsUnit() {
+		return errors.Errorf("ground_plane_normal_vec should be a unit vector, got %v", rcc.NormalVec)
 	}
 	return nil
 }
