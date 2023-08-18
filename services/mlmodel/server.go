@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/base64"
 
+	"github.com/pkg/errors"
 	pb "go.viam.com/api/service/mlmodel/v1"
 	vprotoutils "go.viam.com/utils/protoutils"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"go.viam.com/rdk/ml"
 	"go.viam.com/rdk/resource"
 )
 
@@ -28,13 +30,19 @@ func (server *serviceServer) Infer(ctx context.Context, req *pb.InferRequest) (*
 	if err != nil {
 		return nil, err
 	}
-	id, err := asMap(req.InputData)
-	if err != nil {
-		return nil, err
+	var id map[string]interface{}
+	if req.InputData != nil {
+		id, err = asMap(req.InputData)
+		if err != nil {
+			return nil, err
+		}
 	}
-	it, err := protoToTensors(req.InputTensors)
-	if err != nil {
-		return nil, err
+	var it ml.Tensors
+	if req.InputTensors != nil {
+		it, err = protoToTensors(req.InputTensors)
+		if err != nil {
+			return nil, err
+		}
 	}
 	ot, od, err := svc.Infer(ctx, it, id)
 	if err != nil {
@@ -54,6 +62,9 @@ func (server *serviceServer) Infer(ctx context.Context, req *pb.InferRequest) (*
 // AsMap converts x to a general-purpose Go map.
 // The map values are converted by calling Value.AsInterface.
 func asMap(x *structpb.Struct) (map[string]interface{}, error) {
+	if x == nil {
+		return nil, errors.New("input pb.Struct is nil")
+	}
 	f := x.GetFields()
 	vs := make(map[string]interface{}, len(f))
 	for k, in := range f {

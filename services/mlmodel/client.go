@@ -46,6 +46,10 @@ func NewClientFromConn(
 }
 
 func (c *client) Infer(ctx context.Context, tensors ml.Tensors, input map[string]interface{}) (ml.Tensors, map[string]interface{}, error) {
+	//TODO(RSDK-4199) just for now until we remove backwards compatibility
+	if input != nil && tensors != nil {
+		return nil, nil, errors.New("cannot have both input tensors and input map fed to Infer")
+	}
 	inProto, err := structpb.NewStruct(input)
 	if err != nil {
 		return nil, nil, err
@@ -53,6 +57,13 @@ func (c *client) Infer(ctx context.Context, tensors ml.Tensors, input map[string
 	tensorProto, err := TensorsToProto(tensors)
 	if err != nil {
 		return nil, nil, err
+	}
+	//TODO(RSDK-4199) just for now until we remove backwards compatibility
+	if input == nil {
+		inProto = nil
+	}
+	if tensors == nil {
+		tensorProto = nil
 	}
 	resp, err := c.client.Infer(ctx, &pb.InferRequest{
 		Name:         c.name,
@@ -66,7 +77,11 @@ func (c *client) Infer(ctx context.Context, tensors ml.Tensors, input map[string
 	if err != nil {
 		return nil, nil, err
 	}
-	return tensorResp, resp.OutputData.AsMap(), nil
+	var mapResp map[string]interface{}
+	if resp.OutputData != nil {
+		mapResp = resp.OutputData.AsMap()
+	}
+	return tensorResp, mapResp, nil
 }
 
 // protoToTensors takes pb.FlatTensors and turns it into a Tensors map.
