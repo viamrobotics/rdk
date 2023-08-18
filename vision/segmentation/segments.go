@@ -28,7 +28,7 @@ func NewSegments() *Segments {
 func NewSegmentsFromSlice(clouds []pc.PointCloud, label string) (*Segments, error) {
 	segments := NewSegments()
 	for i, cloud := range clouds {
-		seg, err := vision.NewObjectWithLabel(cloud, label)
+		seg, err := vision.NewObjectWithLabel(cloud, label, nil)
 		if err != nil {
 			return nil, err
 		}
