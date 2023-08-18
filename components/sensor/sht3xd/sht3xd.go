@@ -40,7 +40,7 @@ type Config struct {
 // Validate ensures all parts of the config are valid.
 func (conf *Config) Validate(path string) ([]string, error) {
 	var deps []string
-	if len(conf.Board) == 0 {
+	if len(conf.Board) != 0 {
 		deps = append(deps, conf.Board)
 	}
 	if len(conf.I2CBus) == 0 {
