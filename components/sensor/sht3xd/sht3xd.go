@@ -1,3 +1,5 @@
+//go:build linux
+
 // Package sht3xd implements a sht3x-d sensor for temperature and humidity
 // datasheet can be found at: https://cdn-shop.adafruit.com/product-files/2857/Sensirion_Humidity_SHT3x_Datasheet_digital-767294.pdf
 // example repo: https://github.com/esphome/esphome/tree/dev/esphome/components/sht3xd
