@@ -140,19 +140,9 @@ func (erCCL *ErCCLConfig) ErCCLAlgorithm(ctx context.Context, src camera.VideoSo
 	// if similar enough update to initial label value (will also be smallest)
 	// iterate through pointcloud
 
-	i := 0
-	continueRunning := true
-	for continueRunning {
-		// 0.9 is alpha
-		continueRunning := labelMapUpdate(labelMap, erCCL.ClusteringRadius, 0.9, erCCL.ClusteringStrictness, resolution)
-		if !continueRunning {
-			break
-		}
-
-		if i > MaxCCLIterations { // arbitrary cutoff for iterations
-			return nil, errors.New("could not converge, change parameters")
-		}
-		i++
+	err = LabelMapUpdate(labelMap, erCCL.ClusteringRadius, 0.9, erCCL.ClusteringStrictness, resolution)
+	if err != nil {
+		return nil, err
 	}
 
 	// look up label value of point by looking at 2d array and seeing what label inside that struct
@@ -185,6 +175,25 @@ func (erCCL *ErCCLConfig) ErCCLAlgorithm(ctx context.Context, src camera.VideoSo
 	return objects.Objects, nil
 	// this seems a bit wasteful to make segments then make more segments after filtering, but rolling with it for now
 	// TODO: RSDK-4613
+}
+
+// LabelMapUpdate updates the label map until it converges or errors.
+func LabelMapUpdate(labelMap [][]node, r int, alpha, beta, s float64) error {
+	i := 0
+	continueRunning := true
+	for continueRunning {
+		// 0.9 is alpha
+		continueRunning := minimumSearch(labelMap, r, 0.9, beta, s)
+		if !continueRunning {
+			break
+		}
+
+		if i > MaxCCLIterations { // arbitrary cutoff for iterations
+			return errors.New("could not converge, change parameters")
+		}
+		i++
+	}
+	return nil
 }
 
 func pcProjection(cloud pc.PointCloud, s float64, heightIsY bool) [][]node {
@@ -226,7 +235,8 @@ func pcProjection(cloud pc.PointCloud, s float64, heightIsY bool) [][]node {
 	return retVal
 }
 
-func labelMapUpdate(labelMap [][]node, r int, alpha, beta, s float64) bool {
+// minimumSearch updates the label map 'once' meaning it searches from every cell once.
+func minimumSearch(labelMap [][]node, r int, alpha, beta, s float64) bool {
 	mapChanged := false
 
 	for i, curNodeSlice := range labelMap {
