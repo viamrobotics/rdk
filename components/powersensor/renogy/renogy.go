@@ -13,6 +13,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/goburrow/modbus"
+
 	"go.viam.com/rdk/components/powersensor"
 	"go.viam.com/rdk/resource"
 )
@@ -109,7 +110,7 @@ type Renogy struct {
 	handler  *modbus.RTUClientHandler
 }
 
-// getHandler is a helper function to create the modbus handler
+// getHandler is a helper function to create the modbus handler.
 func (r *Renogy) getHandler() *modbus.RTUClientHandler {
 	handler := modbus.NewRTUClientHandler(r.path)
 	handler.BaudRate = r.baud
@@ -284,7 +285,7 @@ func float32FromBytes(bytes []byte, precision uint) float32 {
 	return float32(float64(i) / ratio)
 }
 
-// Close closes the renogy modbus
+// Close closes the renogy modbus.
 func (r *Renogy) Close(ctx context.Context) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
