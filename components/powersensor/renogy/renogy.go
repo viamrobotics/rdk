@@ -128,7 +128,7 @@ func (r *Renogy) Voltage(ctx context.Context, extra map[string]interface{}) (flo
 	client := modbus.NewClient(handler)
 
 	// Read the battery voltage.
-	volts, err := readRegister(client, 257, 1)
+	volts, err := readRegister(client, BattVoltReg, 1)
 	if err != nil {
 		return 0, false, err
 	}
@@ -150,7 +150,7 @@ func (r *Renogy) Current(ctx context.Context, extra map[string]interface{}) (flo
 	client := modbus.NewClient(handler)
 
 	// read the load current.
-	loadCurrent, err := readRegister(client, 261, 2)
+	loadCurrent, err := readRegister(client, LoadAmpReg, 2)
 	if err != nil {
 		return 0, false, err
 	}
@@ -175,7 +175,7 @@ func (r *Renogy) Power(ctx context.Context, extra map[string]interface{}) (float
 	client := modbus.NewClient(handler)
 
 	// reads the load wattage.
-	loadPower, err := readRegister(client, 262, 0)
+	loadPower, err := readRegister(client, LoadWattReg, 0)
 	if err != nil {
 		return 0, err
 	}
@@ -198,9 +198,9 @@ func (r *Renogy) Readings(ctx context.Context, extra map[string]interface{}) (ma
 	}
 
 	readings = make(map[string]interface{})
-
 	client := modbus.NewClient(handler)
 
+	// add all readings.
 	r.addReading(client, SolarVoltReg, 1, "SolarVolt")
 	r.addReading(client, SolarAmpReg, 2, "SolarAmp")
 	r.addReading(client, SolarWattReg, 0, "SolarWatt")
@@ -222,7 +222,7 @@ func (r *Renogy) Readings(ctx context.Context, extra map[string]interface{}) (ma
 	r.addReading(client, TotalBattOverChargesReg, 0, "TotalBattOverCharges")
 	r.addReading(client, TotalBattFullChargesReg, 0, "TotalBattFullCharges")
 
-	// Controller and battery temperates require extra math to determine sign and temp.
+	// Controller and battery temperates require math on controller deg register.
 	tempReading, err := readRegister(client, ControllerDegCReg, 0)
 	if err != nil {
 		return readings, err
@@ -250,8 +250,7 @@ func (r *Renogy) Readings(ctx context.Context, extra map[string]interface{}) (ma
 func (r *Renogy) addReading(client modbus.Client, register uint16, precision uint, reading string) {
 	value, err := readRegister(client, register, precision)
 	if err != nil {
-		r.logger.Errorf("error getting reading: %s", reading)
-		r.logger.Error(err)
+		r.logger.Errorf("error getting reading: %s : %v", reading, err)
 	} else {
 		readings[reading] = value
 	}
