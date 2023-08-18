@@ -41,7 +41,7 @@ func TestERCCL(t *testing.T) {
 		"ground_angle_tolerance_degs": 20,
 		"ground_plane_normal_vec":     r3.Vector{0, -1, 0},
 		"clustering_radius":           5,
-		"beta":                        3,
+		"clustering_granularity":      3,
 	}
 
 	segmenter, err := segmentation.NewERCCLClustering(objConfig)

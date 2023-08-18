@@ -15,17 +15,19 @@ import (
 	"go.viam.com/rdk/vision"
 )
 
+const MaxCCLIterations = 300000
+
 // ErCCLConfig specifies the necessary parameters to apply the
 // connected components based clustering algo.
 type ErCCLConfig struct {
 	resource.TriviallyValidateConfig
-	MinPtsInPlane    int       `json:"min_points_in_plane"`
-	MinPtsInSegment  int       `json:"min_points_in_segment"`
-	MaxDistFromPlane float64   `json:"max_dist_from_plane_mm"`
-	NormalVec        r3.Vector `json:"ground_plane_normal_vec"`
-	AngleTolerance   float64   `json:"ground_angle_tolerance_degs"`
-	ClusteringRadius int       `json:"clustering_radius"`
-	Beta             float64   `json:"beta"`
+	MinPtsInPlane        int       `json:"min_points_in_plane"`
+	MinPtsInSegment      int       `json:"min_points_in_segment"`
+	MaxDistFromPlane     float64   `json:"max_dist_from_plane_mm"`
+	NormalVec            r3.Vector `json:"ground_plane_normal_vec"`
+	AngleTolerance       float64   `json:"ground_angle_tolerance_degs"`
+	ClusteringRadius     int       `json:"clustering_radius"`
+	ClusteringStrictness float64   `json:"clustering_strictness"`
 }
 
 type node struct {
@@ -56,8 +58,11 @@ func (erCCL *ErCCLConfig) CheckValid() error {
 	if erCCL.ClusteringRadius < 0 {
 		return errors.Errorf("radius must be greater than 0, got %v", erCCL.ClusteringRadius)
 	}
-	if erCCL.Beta == 0 {
-		erCCL.Beta = 5
+	if erCCL.ClusteringStrictness < 0 {
+		return errors.Errorf("clustering_strictness must be greater than 0, got %v", erCCL.ClusteringStrictness)
+	}
+	if erCCL.ClusteringStrictness == 0 {
+		erCCL.ClusteringStrictness = 5
 	}
 	// going to have to add that the ground plane's normal vec has to be {0, 1, 0} or {0, 0, 1}
 	if !erCCL.NormalVec.IsUnit() {
@@ -143,7 +148,7 @@ func (erCCL *ErCCLConfig) ErCCLAlgorithm(ctx context.Context, src camera.VideoSo
 			break
 		}
 
-		if i > 300000 { // arbitrary cutoff for iterations
+		if i > MaxCCLIterations { // arbitrary cutoff for iterations
 			return nil, errors.New("could not converge, change parameters")
 		}
 		i++
@@ -151,6 +156,7 @@ func (erCCL *ErCCLConfig) ErCCLAlgorithm(ctx context.Context, src camera.VideoSo
 
 	// look up label value of point by looking at 2d array and seeing what label inside that struct
 	// set this label
+	var iterateErr error
 	segments := NewSegments()
 	nonPlane.Iterate(0, 0, func(p r3.Vector, d pc.Data) bool {
 		i := int(math.Ceil((p.X - nonPlane.MetaData().MinX) / resolution))
@@ -158,13 +164,16 @@ func (erCCL *ErCCLConfig) ErCCLAlgorithm(ctx context.Context, src camera.VideoSo
 		if !heightIsY {
 			j = int(math.Ceil((p.Y - nonPlane.MetaData().MinY) / resolution))
 		}
-		// fmt.Println("i:", i, ", j:", j)
 		err := segments.AssignCluster(p, d, labelMap[i][j].label)
 		if err != nil {
-			panic("clustering went wrong uhhhh")
+			iterateErr = err
+			return false
 		}
 		return true
 	})
+	if iterateErr != nil {
+		return nil, iterateErr
+	}
 	// prune smaller clusters
 	validClouds := pc.PrunePointClouds(segments.PointClouds(), erCCL.MinPtsInSegment)
 	// wrap
@@ -174,6 +183,7 @@ func (erCCL *ErCCLConfig) ErCCLAlgorithm(ctx context.Context, src camera.VideoSo
 	}
 	return objects.Objects, nil
 	// this seems a bit wasteful to make segments then make more segments after filtering, but rolling with it for now
+	// TODO: RSDK-4613
 }
 
 func pcProjection(cloud pc.PointCloud, s float64, heightIsY bool) [][]node {
@@ -262,6 +272,10 @@ func labelMapUpdate(labelMap [][]node, r int, alpha, beta, s float64) bool {
 	return mapChanged
 }
 
+// similarEnough takes in two nodes and tries to see if they meet some similarity threshold
+// there are three components, first calculate distance between nodes, then height difference between points
+// use these values to then calculate a score for similarity and if it exceeds a threshold calculated from the
+// search radius and clustering strictness value
 func similarEnough(curNode, neighbor node, r int, alpha, beta, s float64) bool {
 	// trying to avoid math.pow since these are ints and math.pow is slow
 	if neighbor.label == -1 {
