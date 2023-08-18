@@ -90,7 +90,7 @@ func newRenogy(_ context.Context, _ resource.Dependencies, conf resource.Config,
 
 	r := &Renogy{
 		Named:    conf.ResourceName().AsNamed(),
-		logger:   golog.NewLogger("renogy"),
+		logger:   logger,
 		path:     newConf.Path,
 		baud:     newConf.Baud,
 		modbusID: newConf.ModbusID,
