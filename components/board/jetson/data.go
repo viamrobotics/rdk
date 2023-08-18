@@ -189,6 +189,7 @@ var jetsonTX1Pins = []genericlinux.PinDefinition{
 	{Name: "40", DeviceName: "UNKNOWN", LineNumber: 10, PwmChipSysfsDir: "", PwmID: -1},
 }
 
+//nolint:dupl // This is not actually a duplicate of jetsonNXPins despite what the linter thinks
 var jetsonNanoPins = []genericlinux.PinDefinition{
 	{Name: "7", DeviceName: "gpiochip0", LineNumber: 216, PwmChipSysfsDir: "", PwmID: -1},
 	{Name: "11", DeviceName: "gpiochip0", LineNumber: 50, PwmChipSysfsDir: "", PwmID: -1},
