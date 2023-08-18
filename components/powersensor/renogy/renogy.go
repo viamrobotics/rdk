@@ -19,7 +19,6 @@ import (
 )
 
 var (
-	globalMu sync.Mutex
 	model    = resource.DefaultModelFamily.WithModel("renogy")
 	readings map[string]interface{}
 )
@@ -104,6 +103,7 @@ type Renogy struct {
 	resource.Named
 	resource.AlwaysRebuild
 	logger   golog.Logger
+	mu       sync.Mutex
 	path     string
 	baud     int
 	modbusID byte
@@ -132,7 +132,7 @@ func (r *Renogy) Voltage(ctx context.Context, extra map[string]interface{}) (flo
 	client := modbus.NewClient(r.handler)
 
 	// Read the battery voltage.
-	volts, err := readRegister(client, battVoltReg, 1)
+	volts, err := r.readRegister(client, battVoltReg, 1)
 	if err != nil {
 		return 0, false, err
 	}
@@ -154,7 +154,7 @@ func (r *Renogy) Current(ctx context.Context, extra map[string]interface{}) (flo
 	client := modbus.NewClient(handler)
 
 	// read the load current.
-	loadCurrent, err := readRegister(client, loadAmpReg, 2)
+	loadCurrent, err := r.readRegister(client, loadAmpReg, 2)
 	if err != nil {
 		return 0, false, err
 	}
@@ -179,7 +179,7 @@ func (r *Renogy) Power(ctx context.Context, extra map[string]interface{}) (float
 	client := modbus.NewClient(r.handler)
 
 	// reads the load wattage.
-	loadPower, err := readRegister(client, loadWattReg, 0)
+	loadPower, err := r.readRegister(client, loadWattReg, 0)
 	if err != nil {
 		return 0, err
 	}
@@ -227,7 +227,7 @@ func (r *Renogy) Readings(ctx context.Context, extra map[string]interface{}) (ma
 	r.addReading(client, totalBattFullChargesReg, 0, "TotalBattFullCharges")
 
 	// Controller and battery temperates require math on controller deg register.
-	tempReading, err := readRegister(client, controllerDegCReg, 0)
+	tempReading, err := r.readRegister(client, controllerDegCReg, 0)
 	if err != nil {
 		return readings, err
 	}
@@ -256,7 +256,7 @@ func (r *Renogy) Readings(ctx context.Context, extra map[string]interface{}) (ma
 }
 
 func (r *Renogy) addReading(client modbus.Client, register uint16, precision uint, reading string) {
-	value, err := readRegister(client, register, precision)
+	value, err := r.readRegister(client, register, precision)
 	if err != nil {
 		r.logger.Errorf("error getting reading: %s : %v", reading, err)
 	} else {
@@ -264,10 +264,10 @@ func (r *Renogy) addReading(client modbus.Client, register uint16, precision uin
 	}
 }
 
-func readRegister(client modbus.Client, register uint16, precision uint) (result float32, err error) {
-	globalMu.Lock()
+func (r *Renogy) readRegister(client modbus.Client, register uint16, precision uint) (result float32, err error) {
+	r.mu.Lock()
 	b, err := client.ReadHoldingRegisters(register, 1)
-	globalMu.Unlock()
+	r.mu.Unlock()
 	if err != nil {
 		return 0, err
 	}
@@ -287,12 +287,14 @@ func float32FromBytes(bytes []byte, precision uint) float32 {
 
 // Close closes the renogy modbus
 func (r *Renogy) Close(ctx context.Context) error {
-	globalMu.Lock()
+	r.mu.Lock()
 	if r.handler != nil {
 		err := r.handler.Close()
 		if err != nil {
+			r.mu.Unlock()
 			return err
 		}
 	}
+	r.mu.Unlock()
 	return nil
 }
