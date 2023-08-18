@@ -10,7 +10,7 @@ import (
 type MLModel interface {
 	// Infer takes an already ordered input tensor as an array,
 	// and makes an inference on the model, returning an output tensor map
-	Infer(inputTensor ml.Tensors) (ml.Tensors, error)
+	Infer(inputTensors ml.Tensors) (ml.Tensors, error)
 
 	// Metadata gets the entire model metadata structure from file
 	Metadata() (interface{}, error)
