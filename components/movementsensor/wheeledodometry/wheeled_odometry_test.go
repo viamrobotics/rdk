@@ -349,7 +349,7 @@ func TestComplicatedPath(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	or, err = od.Orientation(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, or.OrientationVectorDegrees().Theta, test.ShouldAlmostEqual, 360, 0.1)
+	test.That(t, or.OrientationVectorDegrees().Theta, test.ShouldAlmostEqual, 0, 0.1)
 	test.That(t, pos.Lat(), test.ShouldAlmostEqual, 7.6, 0.1)
 	test.That(t, pos.Lng(), test.ShouldAlmostEqual, -6.4, 0.1)
 }
