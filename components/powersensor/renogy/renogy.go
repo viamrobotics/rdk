@@ -30,28 +30,27 @@ const (
 	baudDefault     = 9600
 	modbusIDDefault = 1
 
-	//Registers for renogy controller
-	SolarVoltReg             = 263
-	SolarAmpReg              = 264
-	SolarWattReg             = 265
-	LoadVoltReg              = 260
-	LoadAmpReg               = 261
-	LoadWattReg              = 262
-	BattVoltReg              = 257
-	BattChargePctReg         = 256
-	ControllerDegCReg        = 259
-	MaxSolarTodayWattReg     = 271
-	MinSolarTodayWattReg     = 272
-	MaxBattTodayVoltReg      = 268
-	MinBattTodayVoltReg      = 267
-	MaxSolarTodayAmpReg      = 269
-	MinSolarTodayAmpReg      = 270
-	ChargeTodayWattHrsReg    = 273
-	DischargeTodayWattHrsReg = 274
-	ChargeTodayAmpHrsReg     = 275
-	DischargeTodayAmpHrsReg  = 276
-	TotalBattOverChargesReg  = 278
-	TotalBattFullChargesReg  = 279
+	solarVoltReg             = 263
+	solarAmpReg              = 264
+	solarWattReg             = 265
+	loadVoltReg              = 260
+	loadAmpReg               = 261
+	loadWattReg              = 262
+	battVoltReg              = 257
+	battChargePctReg         = 256
+	controllerDegCReg        = 259
+	maxSolarTodayWattReg     = 271
+	minSolarTodayWattReg     = 272
+	maxBattTodayVoltReg      = 268
+	minBattTodayVoltReg      = 267
+	maxSolarTodayAmpReg      = 269
+	minSolarTodayAmpReg      = 270
+	chargeTodayWattHrsReg    = 273
+	dischargeTodayWattHrsReg = 274
+	chargeTodayAmpHrsReg     = 275
+	dischargeTodayAmpHrsReg  = 276
+	totalBattOverChargesReg  = 278
+	totalBattFullChargesReg  = 279
 )
 
 // Config is used for converting config attributes.
@@ -128,7 +127,7 @@ func (r *Renogy) Voltage(ctx context.Context, extra map[string]interface{}) (flo
 	client := modbus.NewClient(handler)
 
 	// Read the battery voltage.
-	volts, err := readRegister(client, BattVoltReg, 1)
+	volts, err := readRegister(client, battVoltReg, 1)
 	if err != nil {
 		return 0, false, err
 	}
@@ -150,7 +149,7 @@ func (r *Renogy) Current(ctx context.Context, extra map[string]interface{}) (flo
 	client := modbus.NewClient(handler)
 
 	// read the load current.
-	loadCurrent, err := readRegister(client, LoadAmpReg, 2)
+	loadCurrent, err := readRegister(client, loadAmpReg, 2)
 	if err != nil {
 		return 0, false, err
 	}
@@ -175,7 +174,7 @@ func (r *Renogy) Power(ctx context.Context, extra map[string]interface{}) (float
 	client := modbus.NewClient(handler)
 
 	// reads the load wattage.
-	loadPower, err := readRegister(client, LoadWattReg, 0)
+	loadPower, err := readRegister(client, loadWattReg, 0)
 	if err != nil {
 		return 0, err
 	}
@@ -201,29 +200,29 @@ func (r *Renogy) Readings(ctx context.Context, extra map[string]interface{}) (ma
 	client := modbus.NewClient(handler)
 
 	// add all readings.
-	r.addReading(client, SolarVoltReg, 1, "SolarVolt")
-	r.addReading(client, SolarAmpReg, 2, "SolarAmp")
-	r.addReading(client, SolarWattReg, 0, "SolarWatt")
-	r.addReading(client, LoadVoltReg, 1, "LoadVolt")
-	r.addReading(client, LoadAmpReg, 2, "LoadAmp")
-	r.addReading(client, LoadWattReg, 0, "LoadWatt")
-	r.addReading(client, BattVoltReg, 1, "BattVolt")
-	r.addReading(client, BattChargePctReg, 0, "BattChargePct")
-	r.addReading(client, MaxSolarTodayWattReg, 0, "MaxSolarTodayWatt")
-	r.addReading(client, MinSolarTodayWattReg, 0, "MinSolarTodayWatt")
-	r.addReading(client, MaxBattTodayVoltReg, 1, "MaxBattTodayVolt")
-	r.addReading(client, MinBattTodayVoltReg, 1, "MinBattTodayVolt")
-	r.addReading(client, MaxSolarTodayAmpReg, 2, "MaxSolarTodayAmp")
-	r.addReading(client, MinSolarTodayAmpReg, 1, "MinSolarTodayAmp")
-	r.addReading(client, ChargeTodayAmpHrsReg, 0, "ChargeTodayAmpHrs")
-	r.addReading(client, DischargeTodayAmpHrsReg, 0, "DischargeTodayAmpHrs")
-	r.addReading(client, ChargeTodayWattHrsReg, 0, "ChargeTodayWattHrs")
-	r.addReading(client, DischargeTodayWattHrsReg, 0, "DischargeTodayWattHrs")
-	r.addReading(client, TotalBattOverChargesReg, 0, "TotalBattOverCharges")
-	r.addReading(client, TotalBattFullChargesReg, 0, "TotalBattFullCharges")
+	r.addReading(client, solarVoltReg, 1, "SolarVolt")
+	r.addReading(client, solarAmpReg, 2, "SolarAmp")
+	r.addReading(client, solarWattReg, 0, "SolarWatt")
+	r.addReading(client, loadVoltReg, 1, "LoadVolt")
+	r.addReading(client, loadAmpReg, 2, "LoadAmp")
+	r.addReading(client, loadWattReg, 0, "LoadWatt")
+	r.addReading(client, battVoltReg, 1, "BattVolt")
+	r.addReading(client, battChargePctReg, 0, "BattChargePct")
+	r.addReading(client, maxSolarTodayWattReg, 0, "MaxSolarTodayWatt")
+	r.addReading(client, minSolarTodayWattReg, 0, "MinSolarTodayWatt")
+	r.addReading(client, maxBattTodayVoltReg, 1, "MaxBattTodayVolt")
+	r.addReading(client, minBattTodayVoltReg, 1, "MinBattTodayVolt")
+	r.addReading(client, maxSolarTodayAmpReg, 2, "MaxSolarTodayAmp")
+	r.addReading(client, minSolarTodayAmpReg, 1, "MinSolarTodayAmp")
+	r.addReading(client, chargeTodayAmpHrsReg, 0, "ChargeTodayAmpHrs")
+	r.addReading(client, dischargeTodayAmpHrsReg, 0, "DischargeTodayAmpHrs")
+	r.addReading(client, chargeTodayWattHrsReg, 0, "ChargeTodayWattHrs")
+	r.addReading(client, dischargeTodayWattHrsReg, 0, "DischargeTodayWattHrs")
+	r.addReading(client, totalBattOverChargesReg, 0, "TotalBattOverCharges")
+	r.addReading(client, totalBattFullChargesReg, 0, "TotalBattFullCharges")
 
 	// Controller and battery temperates require math on controller deg register.
-	tempReading, err := readRegister(client, ControllerDegCReg, 0)
+	tempReading, err := readRegister(client, controllerDegCReg, 0)
 	if err != nil {
 		return readings, err
 	}
@@ -262,12 +261,11 @@ func readRegister(client modbus.Client, register uint16, precision uint) (result
 	globalMu.Unlock()
 	if err != nil {
 		return 0, err
+	}
+	if len(b) > 0 {
+		result = float32FromBytes(b, precision)
 	} else {
-		if len(b) > 0 {
-			result = float32FromBytes(b, precision)
-		} else {
-			result = 0
-		}
+		result = 0
 	}
 	return result, nil
 }
