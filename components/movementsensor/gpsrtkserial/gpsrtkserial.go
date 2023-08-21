@@ -446,7 +446,9 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 	}
 }
 
-// nolint
+// getNtripConnectionStatus returns true if connection to NTRIP stream is OK, false if not.
+//
+//nolint:all
 // getNtripConnectionStatus returns true if connection to NTRIP stream is OK, false if not.
 func (g *rtkSerial) getNtripConnectionStatus() (bool, error) {
 	g.ntripMu.Lock()
@@ -478,6 +480,10 @@ func (g *rtkSerial) Position(ctx context.Context, extra map[string]interface{}) 
 			}
 		}
 		return geo.NewPoint(math.NaN(), math.NaN()), math.NaN(), err
+	}
+
+	if g.lastposition.IsPositionNaN(position) {
+		position = g.lastposition.GetLastPosition()
 	}
 
 	return position, alt, nil

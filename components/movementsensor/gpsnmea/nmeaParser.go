@@ -144,7 +144,6 @@ func (g *GPSData) updateRMC(rmc nmea.RMC) error {
 			g.CompassHeading = math.NaN()
 		}
 	}
-
 	return nil
 }
 
@@ -239,7 +238,7 @@ func (g *GPSData) updateGNS(gns nmea.GNS) error {
 	return nil
 }
 
-// nolint:all
+//nolint:all
 // updateHDT updaates g.CompassHeading with the ground speed information from the provided
 func (g *GPSData) updateHDT(hdt nmea.HDT) error {
 	// HDT provides compass heading
