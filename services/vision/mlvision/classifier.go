@@ -55,9 +55,15 @@ func attemptToBuildClassifier(mlm mlmodel.Service) (classification.Classifier, e
 		inMap := ml.Tensors{}
 		switch inType {
 		case UInt8:
-			inMap["image"] = tensor.New(tensor.WithBacking(rimage.ImageToUInt8Buffer(resized)))
+			inMap["image"] = tensor.New(
+				tensor.WithShape(1, int(inHeight), int(inWidth), 3),
+				tensor.WithBacking(rimage.ImageToUInt8Buffer(resized)),
+			)
 		case Float32:
-			inMap["image"] = tensor.New(tensor.WithBacking(rimage.ImageToFloatBuffer(resized)))
+			inMap["image"] = tensor.New(
+				tensor.WithShape(1, int(inHeight), int(inWidth), 3),
+				tensor.WithBacking(rimage.ImageToFloatBuffer(resized)),
+			)
 		default:
 			return nil, errors.New("invalid input type. try uint8 or float32")
 		}

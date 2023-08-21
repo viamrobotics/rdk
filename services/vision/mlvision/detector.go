@@ -170,9 +170,6 @@ func guessDetectionTensors(outMap ml.Tensors) (*tensor.Dense, *tensor.Dense, *te
 			break
 		}
 	}
-	if nDetections == 0 { // return empty data
-		return nil, nil, nil, errors.New("empty data")
-	}
 	if !okLoc { // guess the name of the location tensor
 		// location tensor should have 3 dimensions usually
 		for name, t := range outMap {
@@ -205,13 +202,22 @@ func guessDetectionTensors(outMap ml.Tensors) (*tensor.Dense, *tensor.Dense, *te
 					break
 				}
 				// check if fully whole number
-				s, err := t.Slice(nil, tensor.S(0, nDetections))
-				if err != nil {
-					return nil, nil, nil, err
-				}
-				whole, err := tensor.Sum(s)
-				if err != nil {
-					return nil, nil, nil, err
+				var whole tensor.Tensor
+				var err error
+				if nDetections == 0 {
+					whole, err = tensor.Sum(t)
+					if err != nil {
+						return nil, nil, nil, err
+					}
+				} else {
+					s, err := t.Slice(nil, tensor.S(0, nDetections))
+					if err != nil {
+						return nil, nil, nil, err
+					}
+					whole, err = tensor.Sum(s)
+					if err != nil {
+						return nil, nil, nil, err
+					}
 				}
 				val, err := convertToFloat64Slice(whole.Data())
 				if err != nil {
