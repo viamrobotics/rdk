@@ -23,7 +23,7 @@ func attemptToBuildDetector(mlm mlmodel.Service) (objectdetection.Detector, erro
 	}
 
 	// Set up input type, height, width, and labels
-	var inHeight, inWidth uint
+	var inHeight, inWidth int
 	if len(md.Inputs) < 1 {
 		return nil, errors.New("no input tensors received")
 	}
@@ -39,14 +39,25 @@ func attemptToBuildDetector(mlm mlmodel.Service) (objectdetection.Detector, erro
 	}
 
 	if shape := md.Inputs[0].Shape; getIndex(shape, 3) == 1 {
-		inHeight, inWidth = uint(shape[2]), uint(shape[3])
+		inHeight, inWidth = shape[2], shape[3]
 	} else {
-		inHeight, inWidth = uint(shape[1]), uint(shape[2])
+		inHeight, inWidth = shape[1], shape[2]
 	}
 
 	return func(ctx context.Context, img image.Image) ([]objectdetection.Detection, error) {
 		origW, origH := img.Bounds().Dx(), img.Bounds().Dy()
-		resized := resize.Resize(inWidth, inHeight, img, resize.Bilinear)
+		resizeW := inWidth
+		if resizeW == -1 {
+			resizeW = origW
+		}
+		resizeH := inHeight
+		if resizeH == -1 {
+			resizeH = origH
+		}
+		resized := img
+		if (origW != resizeW) || (origH != resizeH) {
+			resized = resize.Resize(uint(resizeW), uint(resizeH), img, resize.Bilinear)
+		}
 		inMap := make(map[string]interface{})
 		switch inType {
 		case UInt8:
@@ -121,7 +132,7 @@ func checkIfDetectorWorks(ctx context.Context, df objectdetection.Detector) erro
 
 	_, err := df(ctx, img)
 	if err != nil {
-		return errors.New("Cannot use model as a detector")
+		return errors.Wrap(err, "Cannot use model as a detector")
 	}
 	return nil
 }
