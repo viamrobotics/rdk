@@ -21,7 +21,7 @@ func attemptToBuildClassifier(mlm mlmodel.Service) (classification.Classifier, e
 	}
 
 	// Set up input type, height, width, and labels
-	var inHeight, inWidth uint
+	var inHeight, inWidth int
 	if len(md.Inputs) < 1 {
 		return nil, errors.New("no input tensors received")
 	}
@@ -31,13 +31,25 @@ func attemptToBuildClassifier(mlm mlmodel.Service) (classification.Classifier, e
 		return nil, errors.Errorf("invalid length of shape array (expected 4, got %d)", shapeLen)
 	}
 	if shape := md.Inputs[0].Shape; getIndex(shape, 3) == 1 {
-		inHeight, inWidth = uint(shape[2]), uint(shape[3])
+		inHeight, inWidth = shape[2], shape[3]
 	} else {
-		inHeight, inWidth = uint(shape[1]), uint(shape[2])
+		inHeight, inWidth = shape[1], shape[2]
 	}
 
 	return func(ctx context.Context, img image.Image) (classification.Classifications, error) {
-		resized := resize.Resize(inWidth, inHeight, img, resize.Bilinear)
+		origW, origH := img.Bounds().Dx(), img.Bounds().Dy()
+		resizeW := inWidth
+		if resizeW == -1 {
+			resizeW = origW
+		}
+		resizeH := inHeight
+		if resizeH == -1 {
+			resizeH = origH
+		}
+		resized := img
+		if (origW != resizeW) || (origH != resizeH) {
+			resized = resize.Resize(uint(resizeW), uint(resizeH), img, resize.Bilinear)
+		}
 		inMap := make(map[string]interface{})
 		switch inType {
 		case UInt8:
