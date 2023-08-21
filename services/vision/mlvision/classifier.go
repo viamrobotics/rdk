@@ -56,12 +56,12 @@ func attemptToBuildClassifier(mlm mlmodel.Service, nameMap map[string]string) (c
 		switch inType {
 		case UInt8:
 			inMap["image"] = tensor.New(
-				tensor.WithShape(1, int(inHeight), int(inWidth), 3),
+				tensor.WithShape(1, resized.Bounds().Dy(), resized.Bounds().Dx(), 3),
 				tensor.WithBacking(rimage.ImageToUInt8Buffer(resized)),
 			)
 		case Float32:
 			inMap["image"] = tensor.New(
-				tensor.WithShape(1, int(inHeight), int(inWidth), 3),
+				tensor.WithShape(1, resized.Bounds().Dy(), resized.Bounds().Dx(), 3),
 				tensor.WithBacking(rimage.ImageToFloatBuffer(resized)),
 			)
 		default:

@@ -113,17 +113,19 @@ func (m *Model) Infer(ctx context.Context, tensors ml.Tensors, input map[string]
 	_, span := trace.StartSpan(ctx, "service::mlmodel::tflite_cpu::Infer")
 	defer span.End()
 	if input != nil {
-		m.logger.Warn("input maps for tflite_cpu.Infer are deprecated")
+		return nil, nil, errors.New("input maps for tflite_cpu.Infer is no longer supported. Use tensor inputs")
 	}
 	outTensors, err := m.model.Infer(tensors)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "couldn't infer from model %q", m.Name())
 	}
 	// Fill in the output map with the names from metadata if u have them
-	// if at any point this fails, just use the default name
+	// if at any point this fails, just use the default name.
 	results := ml.Tensors{}
 	for defaultName, tensor := range outTensors {
 		outName := defaultName
+		// tensors are usually added in the same order as the metadata was added. The number
+		// at the end of the tensor name (after the colon) is essentially an ordinal.
 		parts := strings.Split(defaultName, ":") // number after colon associates it with metadata
 		if len(parts) > 1 {
 			nameInt, err := strconv.Atoi(parts[len(parts)-1])
@@ -132,8 +134,6 @@ func (m *Model) Infer(ctx context.Context, tensors ml.Tensors, input map[string]
 			} else {
 				outName = strings.Join(parts[0:len(parts)-1], ":") // just use default name, add colons back
 			}
-		} else if len(parts) == 1 {
-			outName = parts[0] // default name
 		}
 		results[outName] = tensor
 	}
