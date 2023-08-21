@@ -241,19 +241,20 @@ func (ms *builtIn) MoveOnGlobe(
 		return false, resource.DependencyNotFoundError(movementSensorName)
 	}
 
+	var planMu sync.Mutex
+	var currentPlan [][]referenceframe.Input = nil
 	// TODO: if we disentangle creation of the kinematic base from the plan call we make we don't need this and can do this once
 	var kinematicBase kinematicbase.KinematicBase = nil
 
-	// Shared variables for planning and execution threads, are all guarded with a mutex
-	var planMu sync.Mutex
-	var currentPlan [][]referenceframe.Input = nil
+	var positionMu sync.Mutex
+	var currentPosition *geo.Point
 
-	// Shared variable between threads that can trigger replanning and planning thread
 	var replanFlag atomic.Bool
 	replanFlag.Store(true)
 
 	var successFlag atomic.Bool
 	successFlag.Store(false)
+
 	errChan := make(chan error)
 
 	cancelCtx, cancelFn := context.WithCancel(context.Background())
@@ -272,15 +273,14 @@ func (ms *builtIn) MoveOnGlobe(
 				ms.backgroundWorkers.Add(1)
 				goutils.ManagedGo(func() {
 					fmt.Println("position poll")
-					current, _, err := movementSensor.Position(cancelCtx, nil)
+					position, _, err := movementSensor.Position(cancelCtx, nil)
 					if err != nil {
 						errChan <- err
 						return
 					}
-					if spatialmath.GeoPointToPose(current, destination).Point().Norm() <= kinematicsOptions.PlanDeviationThresholdMM {
-						successFlag.Store(true)
-					}
-
+					positionMu.Lock()
+					currentPosition = position
+					positionMu.Unlock()
 					// TODO: the function that actually monitors position - and pass context in
 				}, ms.backgroundWorkers.Done)
 			case <-obstaclePollingTicker.C:
@@ -330,15 +330,35 @@ func (ms *builtIn) MoveOnGlobe(
 	}, ms.backgroundWorkers.Done)
 
 	// execute the plan
+	var waypoint []referenceframe.Input
 	for !successFlag.Load() {
-		for i := 1; len(currentPlan) > 1; {
-			ms.logger.Info(currentPlan[i])
-			if err := kinematicBase.GoToInputs(cancelCtx, currentPlan[i]); err != nil {
-				return false, err
+		planMu.Lock()
+		if len(currentPlan) > 1 {
+			waypoint = currentPlan[1]
+		} else {
+			waypoint = nil
+		}
+		planMu.Unlock()
+
+		if waypoint != nil {
+			ms.logger.Info(waypoint)
+			if err := kinematicBase.GoToInputs(cancelCtx, waypoint); err != nil {
+				continue
 			}
+
 			planMu.Lock()
 			currentPlan = currentPlan[1:]
 			planMu.Unlock()
+		} else {
+			positionMu.Lock()
+			position := currentPosition
+			positionMu.Unlock()
+
+			if position != nil {
+				if spatialmath.GeoPointToPose(position, destination).Point().Norm() <= kinematicsOptions.PlanDeviationThresholdMM {
+					successFlag.Store(true)
+				}
+			}
 		}
 	}
 	return true, nil
