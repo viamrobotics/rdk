@@ -182,7 +182,7 @@ func (erCCL *ErCCLConfig) ErCCLAlgorithm(ctx context.Context, src camera.VideoSo
 		return nil, iterateErr
 	}
 	// prune smaller clusters. Default minimum number of points determined by size of original point cloud.
-	minPtsInSegment := int(nonPlane.Size() / 200)
+	minPtsInSegment := int(math.Max(float64(nonPlane.Size())/200.0, 10.0))
 	if erCCL.MinPtsInSegment != 0 {
 		minPtsInSegment = erCCL.MinPtsInSegment
 	}
