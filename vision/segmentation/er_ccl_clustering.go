@@ -41,18 +41,25 @@ type node struct {
 
 // CheckValid checks to see in the input values are valid.
 func (erCCL *ErCCLConfig) CheckValid() error {
+	// min_points_in_plane
+	if erCCL.MinPtsInPlane == 0 {
+		erCCL.MinPtsInPlane = 500
+	}
 	if erCCL.MinPtsInPlane <= 0 {
 		return errors.Errorf("min_points_in_plane must be greater than 0, got %v", erCCL.MinPtsInPlane)
 	}
-	if erCCL.MinPtsInSegment <= 0 {
-		return errors.Errorf("min_points_in_segment must be greater than 0, got %v", erCCL.MinPtsInSegment)
+	// min_points_in_segment
+	if erCCL.MinPtsInSegment < 0 {
+		return errors.Errorf("min_points_in_segment must be greater than or equal to 0, got %v", erCCL.MinPtsInSegment)
 	}
+	// max_dist_from_plane_mm
 	if erCCL.MaxDistFromPlane == 0 {
 		erCCL.MaxDistFromPlane = 100
 	}
 	if erCCL.MaxDistFromPlane <= 0 {
 		return errors.Errorf("max_dist_from_plane must be greater than 0, got %v", erCCL.MaxDistFromPlane)
 	}
+	// ground_plane_normal_vec
 	// going to have to add that the ground plane's normal vec has to be {0, 1, 0} or {0, 0, 1}
 	if !erCCL.NormalVec.IsUnit() {
 		return errors.Errorf("ground_plane_normal_vec should be a unit vector, got %v", erCCL.NormalVec)
@@ -60,18 +67,21 @@ func (erCCL *ErCCLConfig) CheckValid() error {
 	if erCCL.NormalVec.Norm2() == 0 {
 		erCCL.NormalVec = r3.Vector{X: 0, Y: 0, Z: 1}
 	}
+	// ground_angle_tolerance_degs
 	if erCCL.AngleTolerance == 0.0 {
 		erCCL.AngleTolerance = 30.0
 	}
 	if erCCL.AngleTolerance > 180 || erCCL.AngleTolerance < 0 {
 		return errors.Errorf("max_angle_of_plane must between 0 & 180 (inclusive), got %v", erCCL.AngleTolerance)
 	}
+	// clustering_radius
 	if erCCL.ClusteringRadius == 0 {
 		erCCL.ClusteringRadius = 1
 	}
 	if erCCL.ClusteringRadius < 0 {
 		return errors.Errorf("radius must be greater than 0, got %v", erCCL.ClusteringRadius)
 	}
+	// clustering_strictness
 	if erCCL.ClusteringStrictness == 0 {
 		erCCL.ClusteringStrictness = 5
 	}
@@ -171,8 +181,12 @@ func (erCCL *ErCCLConfig) ErCCLAlgorithm(ctx context.Context, src camera.VideoSo
 	if iterateErr != nil {
 		return nil, iterateErr
 	}
-	// prune smaller clusters
-	validClouds := pc.PrunePointClouds(segments.PointClouds(), erCCL.MinPtsInSegment)
+	// prune smaller clusters. Default minimum number of points determined by size of original point cloud.
+	minPtsInSegment := int(nonPlane.Size() / 200)
+	if erCCL.MinPtsInSegment != 0 {
+		minPtsInSegment = erCCL.MinPtsInSegment
+	}
+	validClouds := pc.PrunePointClouds(segments.PointClouds(), minPtsInSegment)
 	// wrap
 	objects, err := NewSegmentsFromSlice(validClouds, "")
 	if err != nil {
