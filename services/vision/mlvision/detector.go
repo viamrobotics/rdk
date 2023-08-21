@@ -6,6 +6,7 @@ import (
 	"math"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/nfnt/resize"
 	"github.com/pkg/errors"
@@ -18,7 +19,7 @@ import (
 	"go.viam.com/rdk/vision/objectdetection"
 )
 
-func attemptToBuildDetector(mlm mlmodel.Service, nameMap map[string]string) (objectdetection.Detector, error) {
+func attemptToBuildDetector(mlm mlmodel.Service, nameMap *sync.Map) (objectdetection.Detector, error) {
 	md, err := mlm.Metadata(context.Background())
 	if err != nil {
 		return nil, errors.New("could not get any metadata")
@@ -122,33 +123,45 @@ func attemptToBuildDetector(mlm mlmodel.Service, nameMap map[string]string) (obj
 
 // findDetectionTensors finds the tensors that are necessary for object detection
 // the returned tensor order is location, category, score. It caches results.
-func findDetectionTensorNames(outMap ml.Tensors, nameMap map[string]string) (string, string, string, error) {
+func findDetectionTensorNames(outMap ml.Tensors, nameMap *sync.Map) (string, string, string, error) {
 	// first try the nameMap
-	_, okLoc := nameMap["location"]
-	_, okCat := nameMap["category"]
-	_, okScores := nameMap["score"]
+	loc, okLoc := nameMap.Load("location")
+	cat, okCat := nameMap.Load("category")
+	score, okScores := nameMap.Load("score")
 	if okLoc && okCat && okScores { // names are known
-		return nameMap["location"], nameMap["category"], nameMap["score"], nil
+		locString, ok := loc.(string)
+		if !ok {
+			return "", "", "", errors.Errorf("name map was not storing string, but a type %T", loc)
+		}
+		catString, ok := cat.(string)
+		if !ok {
+			return "", "", "", errors.Errorf("name map was not storing string, but a type %T", cat)
+		}
+		scoreString, ok := score.(string)
+		if !ok {
+			return "", "", "", errors.Errorf("name map was not storing string, but a type %T", score)
+		}
+		return locString, catString, scoreString, nil
 	}
 	// next, if nameMap is not set, just see if the outMap has expected names
 	_, okLoc = outMap["location"]
 	_, okCat = outMap["category"]
 	_, okScores = outMap["score"]
 	if okLoc && okCat && okScores { // names are as expected
-		nameMap["location"] = "location"
-		nameMap["category"] = "category"
-		nameMap["score"] = "score"
-		return nameMap["location"], nameMap["category"], nameMap["score"], nil
+		nameMap.Store("location", "location")
+		nameMap.Store("category", "category")
+		nameMap.Store("score", "score")
+		return "location", "category", "score", nil
 	}
-	// do a hack-y thing to try to guess the tensor names for the detection output tensors
+	// last, do a hack-y thing to try to guess the tensor names for the detection output tensors
 	locationName, categoryName, scoreName, err := guessDetectionTensorNames(outMap)
 	if err != nil {
 		return "", "", "", err
 	}
-	nameMap["location"] = locationName
-	nameMap["category"] = categoryName
-	nameMap["score"] = scoreName
-	return nameMap["location"], nameMap["category"], nameMap["score"], nil
+	nameMap.Store("location", locationName)
+	nameMap.Store("category", categoryName)
+	nameMap.Store("score", scoreName)
+	return locationName, categoryName, scoreName, nil
 }
 
 // guessDetectionTensors is a hack-y function meant to find the correct detection tensors if the tensors

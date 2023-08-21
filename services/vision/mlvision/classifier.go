@@ -5,6 +5,7 @@ import (
 	"image"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/nfnt/resize"
 	"github.com/pkg/errors"
@@ -16,7 +17,7 @@ import (
 	"go.viam.com/rdk/vision/classification"
 )
 
-func attemptToBuildClassifier(mlm mlmodel.Service, nameMap map[string]string) (classification.Classifier, error) {
+func attemptToBuildClassifier(mlm mlmodel.Service, nameMap *sync.Map) (classification.Classifier, error) {
 	md, err := mlm.Metadata(context.Background())
 	if err != nil {
 		return nil, errors.New("could not get any metadata")
@@ -74,20 +75,26 @@ func attemptToBuildClassifier(mlm mlmodel.Service, nameMap map[string]string) (c
 
 		// check if output tensor name that classifier is looking for is already present
 		// in the nameMap. If not, find the probability name, and cache it in the nameMap
-		_, ok := nameMap["probability"]
+		pName, ok := nameMap.Load("probability")
 		if !ok {
 			_, ok := outMap["probability"]
 			if !ok {
 				if len(outMap) == 1 {
 					for name := range outMap { //  only 1 element in map, assume its probabilities
-						nameMap["probability"] = name
+						nameMap.Store("probability", name)
+						pName = name
 					}
 				}
 			} else {
-				nameMap["probability"] = "probability"
+				nameMap.Store("probability", "probability")
+				pName = "probability"
 			}
 		}
-		data, ok := outMap[nameMap["probability"]]
+		probabilityName, ok := pName.(string)
+		if !ok {
+			return nil, errors.Errorf("name map did not store a string of the tensor name, but an object of type %T instead", pName)
+		}
+		data, ok := outMap[probabilityName]
 		if !ok {
 			return nil, errors.Errorf("no tensor named 'probability' among output tensors [%s]", strings.Join(tensorNames(outMap), ", "))
 		}

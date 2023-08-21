@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/edaniels/golog"
 	"github.com/montanaflynn/stats"
@@ -83,7 +84,7 @@ func registerMLModelVisionService(
 	// the nameMap that associates the tensor names as they are found in the model, to
 	// what the vision service expects. This might not be necessary any more once we
 	// get the vision service to have rename maps in its configs.
-	nameMap := make(map[string]string)
+	nameMap := &sync.Map{}
 	classifierFunc, err := attemptToBuildClassifier(mlm, nameMap)
 	if err != nil {
 		logger.Debugw("unable to use ml model as a classifier, will attempt to evaluate as"+
