@@ -872,10 +872,12 @@ const (
 	PackageTypeModule PackageType = "module"
 	// PackageTypeSlamMap represents a slam internal state.
 	PackageTypeSlamMap PackageType = "slam_map"
+	//PackageTypeBoardDef represents a linux board defintion file.
+	PackageTypeBoardDef PackageType = "board_def"
 )
 
 // SupportedPackageTypes is a list of all of the valid package types.
-var SupportedPackageTypes = []PackageType{PackageTypeMlModel, PackageTypeModule, PackageTypeSlamMap}
+var SupportedPackageTypes = []PackageType{PackageTypeMlModel, PackageTypeModule, PackageTypeSlamMap, PackageTypeBoardDef}
 
 // A PackageConfig describes the configuration of a Package.
 type PackageConfig struct {
