@@ -155,7 +155,10 @@ func TestRotateColorSource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	source := gostream.NewVideoSource(&videosource.StaticSource{ColorImg: img}, prop.Video{})
-	rs, stream, err := newRotateTransform(context.Background(), source, camera.ColorStream)
+	am := utils.AttributeMap{
+		"angle_degs": 180,
+	}
+	rs, stream, err := newRotateTransform(context.Background(), source, camera.ColorStream, am)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, stream, test.ShouldEqual, camera.ColorStream)
 
@@ -181,6 +184,68 @@ func TestRotateColorSource(t *testing.T) {
 
 	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
 	test.That(t, source.Close(context.Background()), test.ShouldBeNil)
+
+	source = gostream.NewVideoSource(&videosource.StaticSource{ColorImg: img}, prop.Video{})
+	am = utils.AttributeMap{
+		"angle_degs": 90,
+	}
+	rs, stream, err = newRotateTransform(context.Background(), source, camera.ColorStream, am)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, stream, test.ShouldEqual, camera.ColorStream)
+
+	rawImage, _, err = camera.ReadImage(context.Background(), rs)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
+
+	err = rimage.WriteImageToFile(t.TempDir()+"/test_rotate_color_source.png", rawImage)
+	test.That(t, err, test.ShouldBeNil)
+
+	img2 = rimage.ConvertImage(rawImage)
+
+	for x := 0; x < img.Width(); x++ {
+		p1 := image.Point{X: x}
+		p2 := image.Point{X: img2.Width() - 1, Y: x}
+
+		a := img.Get(p1)
+		b := img2.Get(p2)
+
+		d := a.Distance(b)
+		test.That(t, d, test.ShouldEqual, 0)
+	}
+
+	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
+	test.That(t, source.Close(context.Background()), test.ShouldBeNil)
+
+	source = gostream.NewVideoSource(&videosource.StaticSource{ColorImg: img}, prop.Video{})
+	am = utils.AttributeMap{
+		"angle_degs": -90, // == 270, but additionally tests for negative numbers
+	}
+	rs, stream, err = newRotateTransform(context.Background(), source, camera.ColorStream, am)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, stream, test.ShouldEqual, camera.ColorStream)
+
+	rawImage, _, err = camera.ReadImage(context.Background(), rs)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
+
+	err = rimage.WriteImageToFile(t.TempDir()+"/test_rotate_color_source.png", rawImage)
+	test.That(t, err, test.ShouldBeNil)
+
+	img2 = rimage.ConvertImage(rawImage)
+
+	for x := 0; x < img.Width(); x++ {
+		p1 := image.Point{X: x}
+		p2 := image.Point{Y: img2.Height() - 1 - x}
+
+		a := img.Get(p1)
+		b := img2.Get(p2)
+
+		d := a.Distance(b)
+		test.That(t, d, test.ShouldEqual, 0)
+	}
+
+	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
+	test.That(t, source.Close(context.Background()), test.ShouldBeNil)
 }
 
 func TestRotateDepthSource(t *testing.T) {
@@ -189,7 +254,10 @@ func TestRotateDepthSource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	source := gostream.NewVideoSource(&videosource.StaticSource{DepthImg: pc}, prop.Video{})
-	rs, stream, err := newRotateTransform(context.Background(), source, camera.DepthStream)
+	am := utils.AttributeMap{
+		"angle_degs": 180,
+	}
+	rs, stream, err := newRotateTransform(context.Background(), source, camera.DepthStream, am)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, stream, test.ShouldEqual, camera.DepthStream)
 
@@ -215,6 +283,68 @@ func TestRotateDepthSource(t *testing.T) {
 
 	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
 	test.That(t, source.Close(context.Background()), test.ShouldBeNil)
+
+	source = gostream.NewVideoSource(&videosource.StaticSource{DepthImg: pc}, prop.Video{})
+	am = utils.AttributeMap{
+		"angle_degs": 90,
+	}
+	rs, stream, err = newRotateTransform(context.Background(), source, camera.DepthStream, am)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, stream, test.ShouldEqual, camera.DepthStream)
+
+	rawImage, _, err = camera.ReadImage(context.Background(), rs)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
+
+	err = rimage.WriteImageToFile(t.TempDir()+"/test_rotate_depth_source.png", rawImage)
+	test.That(t, err, test.ShouldBeNil)
+
+	dm, err = rimage.ConvertImageToDepthMap(context.Background(), rawImage)
+	test.That(t, err, test.ShouldBeNil)
+
+	for x := 0; x < pc.Width(); x++ {
+		p1 := image.Point{X: x}
+		p2 := image.Point{X: dm.Width() - 1, Y: x}
+
+		d1 := pc.Get(p1)
+		d2 := dm.Get(p2)
+
+		test.That(t, d1, test.ShouldEqual, d2)
+	}
+
+	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
+	test.That(t, source.Close(context.Background()), test.ShouldBeNil)
+
+	source = gostream.NewVideoSource(&videosource.StaticSource{DepthImg: pc}, prop.Video{})
+	am = utils.AttributeMap{
+		"angle_degs": -90, // == 270, but additionally tests for negative numbers
+	}
+	rs, stream, err = newRotateTransform(context.Background(), source, camera.DepthStream, am)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, stream, test.ShouldEqual, camera.DepthStream)
+
+	rawImage, _, err = camera.ReadImage(context.Background(), rs)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
+
+	err = rimage.WriteImageToFile(t.TempDir()+"/test_rotate_depth_source.png", rawImage)
+	test.That(t, err, test.ShouldBeNil)
+
+	dm, err = rimage.ConvertImageToDepthMap(context.Background(), rawImage)
+	test.That(t, err, test.ShouldBeNil)
+
+	for x := 0; x < pc.Width(); x++ {
+		p1 := image.Point{X: x}
+		p2 := image.Point{Y: dm.Height() - 1 - x}
+
+		d1 := pc.Get(p1)
+		d2 := dm.Get(p2)
+
+		test.That(t, d1, test.ShouldEqual, d2)
+	}
+
+	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
+	test.That(t, source.Close(context.Background()), test.ShouldBeNil)
 }
 
 func BenchmarkColorRotate(b *testing.B) {
@@ -224,7 +354,10 @@ func BenchmarkColorRotate(b *testing.B) {
 	source := gostream.NewVideoSource(&videosource.StaticSource{ColorImg: img}, prop.Video{})
 	src, err := camera.WrapVideoSourceWithProjector(context.Background(), source, nil, camera.ColorStream)
 	test.That(b, err, test.ShouldBeNil)
-	rs, stream, err := newRotateTransform(context.Background(), src, camera.ColorStream)
+	am := utils.AttributeMap{
+		"angle_degs": 180,
+	}
+	rs, stream, err := newRotateTransform(context.Background(), src, camera.ColorStream, am)
 	test.That(b, err, test.ShouldBeNil)
 	test.That(b, stream, test.ShouldEqual, camera.ColorStream)
 
@@ -245,7 +378,10 @@ func BenchmarkDepthRotate(b *testing.B) {
 	source := gostream.NewVideoSource(&videosource.StaticSource{DepthImg: img}, prop.Video{})
 	src, err := camera.WrapVideoSourceWithProjector(context.Background(), source, nil, camera.DepthStream)
 	test.That(b, err, test.ShouldBeNil)
-	rs, stream, err := newRotateTransform(context.Background(), src, camera.DepthStream)
+	am := utils.AttributeMap{
+		"angle_degs": 180,
+	}
+	rs, stream, err := newRotateTransform(context.Background(), src, camera.DepthStream, am)
 	test.That(b, err, test.ShouldBeNil)
 	test.That(b, stream, test.ShouldEqual, camera.DepthStream)
 
