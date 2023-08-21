@@ -16,7 +16,7 @@ import (
 	"go.viam.com/rdk/vision/classification"
 )
 
-func attemptToBuildClassifier(mlm mlmodel.Service) (classification.Classifier, error) {
+func attemptToBuildClassifier(mlm mlmodel.Service, nameMap map[string]string) (classification.Classifier, error) {
 	md, err := mlm.Metadata(context.Background())
 	if err != nil {
 		return nil, errors.New("could not get any metadata")
@@ -72,15 +72,24 @@ func attemptToBuildClassifier(mlm mlmodel.Service) (classification.Classifier, e
 			return nil, err
 		}
 
-		data, ok := outMap["probability"]
+		// check if output tensor name that classifier is looking for is already present
+		// in the nameMap. If not, find the probability name, and cache it in the nameMap
+		_, ok := nameMap["probability"]
 		if !ok {
-			if len(outMap) == 1 {
-				for _, outTensor := range outMap { //  only 1 element in map, assume its probabilities
-					data = outTensor
+			_, ok := outMap["probability"]
+			if !ok {
+				if len(outMap) == 1 {
+					for name := range outMap { //  only 1 element in map, assume its probabilities
+						nameMap["probability"] = name
+					}
 				}
 			} else {
-				return nil, errors.Errorf("no tensor named 'probability' among output tensors [%s]", strings.Join(tensorNames(outMap), ", "))
+				nameMap["probability"] = "probability"
 			}
+		}
+		data, ok := outMap[nameMap["probability"]]
+		if !ok {
+			return nil, errors.Errorf("no tensor named 'probability' among output tensors [%s]", strings.Join(tensorNames(outMap), ", "))
 		}
 		probs, err := convertToFloat64Slice(data.Data())
 		if err != nil {

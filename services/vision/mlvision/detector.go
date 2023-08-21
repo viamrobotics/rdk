@@ -18,7 +18,7 @@ import (
 	"go.viam.com/rdk/vision/objectdetection"
 )
 
-func attemptToBuildDetector(mlm mlmodel.Service) (objectdetection.Detector, error) {
+func attemptToBuildDetector(mlm mlmodel.Service, nameMap map[string]string) (objectdetection.Detector, error) {
 	md, err := mlm.Metadata(context.Background())
 	if err != nil {
 		return nil, errors.New("could not get any metadata")
@@ -80,7 +80,8 @@ func attemptToBuildDetector(mlm mlmodel.Service) (objectdetection.Detector, erro
 			return nil, err
 		}
 
-		locationName, categoryName, scoreName, err := findDetectionTensorNames(outMap)
+		// use the nameMap to find the tensor names, or guess and cache the names
+		locationName, categoryName, scoreName, err := findDetectionTensorNames(outMap, nameMap)
 		if err != nil {
 			return nil, err
 		}
@@ -120,15 +121,34 @@ func attemptToBuildDetector(mlm mlmodel.Service) (objectdetection.Detector, erro
 }
 
 // findDetectionTensors finds the tensors that are necessary for object detection
-// the returned tensor order is location, category, score.
-func findDetectionTensorNames(outMap ml.Tensors) (string, string, string, error) {
-	_, okLoc := outMap["location"]
-	_, okCat := outMap["category"]
-	_, okScores := outMap["score"]
-	if okLoc && okCat && okScores { // names are as expected
-		return "location", "category", "score", nil
+// the returned tensor order is location, category, score. It caches results.
+func findDetectionTensorNames(outMap ml.Tensors, nameMap map[string]string) (string, string, string, error) {
+	// first try the nameMap
+	_, okLoc := nameMap["location"]
+	_, okCat := nameMap["category"]
+	_, okScores := nameMap["score"]
+	if okLoc && okCat && okScores { // names are known
+		return nameMap["location"], nameMap["category"], nameMap["score"], nil
 	}
-	return guessDetectionTensorNames(outMap)
+	// next, if nameMap is not set, just see if the outMap has expected names
+	_, okLoc = outMap["location"]
+	_, okCat = outMap["category"]
+	_, okScores = outMap["score"]
+	if okLoc && okCat && okScores { // names are as expected
+		nameMap["location"] = "location"
+		nameMap["category"] = "category"
+		nameMap["score"] = "score"
+		return nameMap["location"], nameMap["category"], nameMap["score"], nil
+	}
+	// do a hack-y thing to try to guess the tensor names for the detection output tensors
+	locationName, categoryName, scoreName, err := guessDetectionTensorNames(outMap)
+	if err != nil {
+		return "", "", "", err
+	}
+	nameMap["location"] = locationName
+	nameMap["category"] = categoryName
+	nameMap["score"] = scoreName
+	return nameMap["location"], nameMap["category"], nameMap["score"], nil
 }
 
 // guessDetectionTensors is a hack-y function meant to find the correct detection tensors if the tensors

@@ -80,7 +80,11 @@ func registerMLModelVisionService(
 		return nil, err
 	}
 
-	classifierFunc, err := attemptToBuildClassifier(mlm)
+	// the nameMap that associates the tensor names as they are found in the model, to
+	// what the vision service expects. This might not be necessary any more once we
+	// get the vision service to have rename maps in its configs.
+	nameMap := make(map[string]string)
+	classifierFunc, err := attemptToBuildClassifier(mlm, nameMap)
 	if err != nil {
 		logger.Debugw("unable to use ml model as a classifier, will attempt to evaluate as"+
 			"detector and segmenter", "model", params.ModelName, "error", err)
@@ -95,7 +99,7 @@ func registerMLModelVisionService(
 		}
 	}
 
-	detectorFunc, err := attemptToBuildDetector(mlm)
+	detectorFunc, err := attemptToBuildDetector(mlm, nameMap)
 	if err != nil {
 		logger.Debugw("unable to use ml model as a detector, will attempt to evaluate as 3D segmenter",
 			"model", params.ModelName, "error", err)
@@ -110,7 +114,7 @@ func registerMLModelVisionService(
 		}
 	}
 
-	segmenter3DFunc, err := attemptToBuild3DSegmenter(mlm)
+	segmenter3DFunc, err := attemptToBuild3DSegmenter(mlm, nameMap)
 	if err != nil {
 		logger.Debugw("unable to use ml model as 3D segmenter", "model", params.ModelName, "error", err)
 	} else {
