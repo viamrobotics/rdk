@@ -1,4 +1,4 @@
-// Package wheeledodometry implements an odometery estimate from an encoder wheeled base
+// Package wheeledodometry implements an odometery estimate from an encoder wheeled base.
 package wheeledodometry
 
 import (
@@ -24,8 +24,8 @@ import (
 var model = resource.DefaultModelFamily.WithModel("wheeled-odometry")
 
 const (
-	defaultTimeInt = 500
-	oneTurn        = 2 * math.Pi
+	defaultTimeIntervalMSecs = 500
+	oneTurn                  = 2 * math.Pi
 )
 
 // Config is the config for a wheeledodometry MovementSensor.
@@ -94,7 +94,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 		return nil, errors.New("mismatch number of left and right motors")
 	}
 
-	// temporary validation check until support for more than one left and right motor each is added
+	// Temporary validation check until support for more than one left and right motor each is added.
 	if len(cfg.LeftMotors) > 1 || len(cfg.RightMotors) > 1 {
 		return nil, errors.New("wheeled odometry only supports one left and right motor each")
 	}
@@ -114,11 +114,11 @@ func newWheeledOdometry(
 		return nil, err
 	}
 
-	timeInt := newConf.TimeIntervalMSecs
-	if timeInt == 0 {
-		timeInt = defaultTimeInt
+	timeIntervalMSecs := newConf.TimeIntervalMSecs
+	if timeIntervalMSecs == 0 {
+		timeIntervalMSecs = defaultTimeIntervalMSecs
 	}
-	if timeInt > 500 {
+	if timeIntervalMSecs > 500 {
 		logger.Warn("if the time interval is more than 500 ms, be sure to move the base slowly for better accuracy")
 	}
 
@@ -126,7 +126,7 @@ func newWheeledOdometry(
 		Named:             conf.ResourceName().AsNamed(),
 		lastLeftPos:       0.0,
 		lastRightPos:      0.0,
-		timeIntervalMSecs: timeInt,
+		timeIntervalMSecs: timeIntervalMSecs,
 		logger:            logger,
 	}
 
@@ -177,7 +177,9 @@ func newWheeledOdometry(
 		return nil, errors.New("base width or wheel circumference are 0, movement sensor cannot be created")
 	}
 	o.orientation.Yaw = 0
-	o.trackPosition(context.Background())
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	o.cancelFunc = cancelFunc
+	o.trackPosition(ctx)
 
 	return o, nil
 }
@@ -202,7 +204,7 @@ func (o *odometry) Orientation(ctx context.Context, extra map[string]interface{}
 func (o *odometry) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
-	return o.orientation.Yaw, nil
+	return 0, movementsensor.ErrMethodUnimplementedCompassHeading
 }
 
 func (o *odometry) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
@@ -227,11 +229,10 @@ func (o *odometry) Accuracy(ctx context.Context, extra map[string]interface{}) (
 
 func (o *odometry) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
 	return &movementsensor.Properties{
-		LinearVelocitySupported:     true,
-		AngularVelocitySupported:    true,
-		OrientationSupported:        true,
-		PositionSupported:           true,
-		LinearAccelerationSupported: false,
+		LinearVelocitySupported:  true,
+		AngularVelocitySupported: true,
+		OrientationSupported:     true,
+		PositionSupported:        true,
 	}, nil
 }
 
@@ -264,31 +265,14 @@ func (o *odometry) trackPosition(ctx context.Context) {
 			case <-ticker.C:
 			}
 
-			// always use the first pair until more than one pair of motors is supported in this model
-			leftMove, err := o.motors[0].left.IsMoving(ctx)
-			if err != nil {
-				o.logger.Error(err)
-				return
-			}
-			rightMove, err := o.motors[0].right.IsMoving(ctx)
-			if err != nil {
-				o.logger.Error(err)
-				return
-			}
-			if !leftMove && !rightMove {
-				// neither motors are moving, so the odometry values do not need to be updated
-				o.linearVelocity.Y = 0
-				o.angularVelocity.Z = 0
-				continue
-			}
-
-			// use GetInParallel to ensure the left and right motors are polled at the same time
+			// Use GetInParallel to ensure the left and right motors are polled at the same time.
 			positionFuncs := func() []rdkutils.FloatFunc {
 				fs := []rdkutils.FloatFunc{}
 
+				// These reads of the left and right motors can race with `Reconfigure`.
 				o.mu.Lock()
 				defer o.mu.Unlock()
-				// always use the first pair until more than one pair of motors is supported in this model
+				// Always use the first pair until more than one pair of motors is supported in this model.
 				fs = append(fs, func(ctx context.Context) (float64, error) { return o.motors[0].left.Position(ctx, nil) })
 				fs = append(fs, func(ctx context.Context) (float64, error) { return o.motors[0].right.Position(ctx, nil) })
 
@@ -301,7 +285,7 @@ func (o *odometry) trackPosition(ctx context.Context) {
 				continue
 			}
 
-			// current position of the left and right motors in revolutions
+			// Current position of the left and right motors in revolutions.
 			if len(positions) != len(o.motors)*2 {
 				o.logger.Error("error getting both motor positions, trying again")
 				continue
@@ -309,32 +293,37 @@ func (o *odometry) trackPosition(ctx context.Context) {
 			left := positions[0]
 			right := positions[1]
 
-			// difference in the left and right motors since the last iteration, in mm
+			// Difference in the left and right motors since the last iteration, in mm.
 			leftDist := (left - o.lastLeftPos) * o.wheelCircumference
 			rightDist := (right - o.lastRightPos) * o.wheelCircumference
 
-			// update lastLeftPos and lastRightPos to be the current position in mm
+			// Update lastLeftPos and lastRightPos to be the current position in mm.
 			o.lastLeftPos = left
 			o.lastRightPos = right
 
-			// linear and angular distance the center point has traveled
+			// Linear and angular distance the center point has traveled. This works based on
+			// the assumption that the time interval between calulations is small enough that
+			// the inner angle of the rotation will be small enough that it can be accurately
+			// estimated using the below equations.
 			centerDist := (leftDist + rightDist) / 2
 			centerAngle := (rightDist - leftDist) / o.baseWidth
 
-			// update the position and orientation values accordingly
+			// Update the position and orientation values accordingly.
 			o.mu.Lock()
 			o.orientation.Yaw += centerAngle
 
+			// Limit the yaw to a range of positive 0 to 360 degrees.
 			o.orientation.Yaw = math.Mod(o.orientation.Yaw, oneTurn)
 			o.orientation.Yaw = math.Mod(o.orientation.Yaw+oneTurn, oneTurn)
 
-			// calculate X and Y by using centerDist and the current orientation yaw (theta)
+			// Calculate X and Y by using centerDist and the current orientation yaw (theta).
 			o.position.X += (centerDist * math.Cos(o.orientation.Yaw))
 			o.position.Y += (centerDist * math.Sin(o.orientation.Yaw))
 
-			// update the linear and angular velocity values using the provided time interval
+			// Update the linear and angular velocity values using the provided time interval.
 			o.linearVelocity.Y = centerDist / (o.timeIntervalMSecs / 1000)
 			o.angularVelocity.Z = centerAngle * (180 / math.Pi) / (o.timeIntervalMSecs / 1000)
+
 			o.mu.Unlock()
 		}
 	})
