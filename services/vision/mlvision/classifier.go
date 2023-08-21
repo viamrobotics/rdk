@@ -104,7 +104,7 @@ func checkIfClassifierWorks(ctx context.Context, cf classification.Classifier) e
 
 	_, err := cf(ctx, img)
 	if err != nil {
-		return errors.New("Cannot use model as a classifier")
+		return errors.Wrap(err, "Cannot use model as a classifier")
 	}
 	return nil
 }

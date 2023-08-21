@@ -132,7 +132,7 @@ func checkIfDetectorWorks(ctx context.Context, df objectdetection.Detector) erro
 
 	_, err := df(ctx, img)
 	if err != nil {
-		return errors.New("Cannot use model as a detector")
+		return errors.Wrap(err, "Cannot use model as a detector")
 	}
 	return nil
 }
