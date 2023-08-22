@@ -1014,7 +1014,7 @@ func TestPackageConfig(t *testing.T) {
 		{
 			config: config.PackageConfig{
 				Name:    "my_board_def",
-				Type:    config.PackageTypeBoardDef,
+				Type:    config.PackageTypeBoardDefs,
 				Package: "my_org/my_board_def",
 				Version: "latest",
 			},
