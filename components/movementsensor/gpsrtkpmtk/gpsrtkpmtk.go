@@ -126,10 +126,11 @@ func (g *rtkI2C) Reconfigure(ctx context.Context, deps resource.Dependencies, co
 	}
 
 	if newConf.I2CBaudRate == 0 {
-		newConf.I2CBaudRate = 115200
+		g.wbaud = 115200
+	} else {
+		g.wbaud = newConf.I2CBaudRate
 	}
 
-	g.wbaud = newConf.I2CBaudRate
 	g.addr = byte(newConf.I2CAddr)
 
 	b, err := board.FromDependencies(deps, newConf.Board)
@@ -209,15 +210,15 @@ func newRTKI2C(
 	}
 
 	// Init NMEAMovementSensor
-	if newConf.I2CBaudRate == 0 {
-		newConf.I2CBaudRate = 115200
-	}
-
 	nmeaConf.I2CConfig = &gpsnmea.I2CConfig{
 		Board:       newConf.Board,
 		I2CBus:      newConf.I2CBus,
 		I2CBaudRate: newConf.I2CBaudRate,
 		I2CAddr:     newConf.I2CAddr,
+	}
+
+	if nmeaConf.I2CConfig.I2CBaudRate == 0 {
+		nmeaConf.I2CConfig.I2CBaudRate = 115200
 	}
 
 	g.nmeamovementsensor, err = gpsnmea.NewPmtkI2CGPSNMEA(ctx, deps, conf.ResourceName(), nmeaConf, logger)

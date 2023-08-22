@@ -54,20 +54,24 @@ type appClient struct {
 }
 
 // ListOrganizationsAction is the corresponding Action for 'organizations list'.
-func ListOrganizationsAction(c *cli.Context) error {
-	client, err := newAppClient(c)
+func ListOrganizationsAction(cCtx *cli.Context) error {
+	c, err := newAppClient(cCtx)
 	if err != nil {
 		return err
 	}
-	orgs, err := client.listOrganizations()
+	return c.listOrganizationsAction(cCtx)
+}
+
+func (c *appClient) listOrganizationsAction(cCtx *cli.Context) error {
+	orgs, err := c.listOrganizations()
 	if err != nil {
 		return errors.Wrap(err, "could not list organizations")
 	}
 	for i, org := range orgs {
 		if i == 0 {
-			fmt.Fprintf(c.App.Writer, "organizations for %q:\n", client.conf.Auth.User.Email)
+			fmt.Fprintf(cCtx.App.Writer, "organizations for %q:\n", c.conf.Auth.User.Email)
 		}
-		fmt.Fprintf(c.App.Writer, "\t%s (id: %s)\n", org.Name, org.Id)
+		fmt.Fprintf(cCtx.App.Writer, "\t%s (id: %s)\n", org.Name, org.Id)
 	}
 	return nil
 }
@@ -114,8 +118,8 @@ func ListRobotsAction(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	orgStr := c.String("organization")
-	locStr := c.String("location")
+	orgStr := c.String(organizationFlag)
+	locStr := c.String(locationFlag)
 	robots, err := client.listRobots(orgStr, locStr)
 	if err != nil {
 		return errors.Wrap(err, "could not list robots")
@@ -138,9 +142,9 @@ func RobotStatusAction(c *cli.Context) error {
 		return err
 	}
 
-	orgStr := c.String("organization")
-	locStr := c.String("location")
-	robot, err := client.robot(orgStr, locStr, c.String("robot"))
+	orgStr := c.String(organizationFlag)
+	locStr := c.String(locationFlag)
+	robot, err := client.robot(orgStr, locStr, c.String(robotFlag))
 	if err != nil {
 		return err
 	}
@@ -193,9 +197,9 @@ func RobotLogsAction(c *cli.Context) error {
 		return err
 	}
 
-	orgStr := c.String("organization")
-	locStr := c.String("location")
-	robotStr := c.String("robot")
+	orgStr := c.String(organizationFlag)
+	locStr := c.String(locationFlag)
+	robotStr := c.String(robotFlag)
 	robot, err := client.robot(orgStr, locStr, robotStr)
 	if err != nil {
 		return errors.Wrap(err, "could not get robot")
@@ -219,7 +223,7 @@ func RobotLogsAction(c *cli.Context) error {
 		}
 		if err := client.printRobotPartLogs(
 			orgStr, locStr, robotStr, part.Id,
-			c.Bool("errors"),
+			c.Bool(logsFlagErrors),
 			"\t",
 			header,
 		); err != nil {
@@ -237,15 +241,15 @@ func RobotPartStatusAction(c *cli.Context) error {
 		return err
 	}
 
-	orgStr := c.String("organization")
-	locStr := c.String("location")
-	robotStr := c.String("robot")
+	orgStr := c.String(organizationFlag)
+	locStr := c.String(locationFlag)
+	robotStr := c.String(robotFlag)
 	robot, err := client.robot(orgStr, locStr, robotStr)
 	if err != nil {
 		return errors.Wrap(err, "could not get robot")
 	}
 
-	part, err := client.robotPart(orgStr, locStr, robotStr, c.String("part"))
+	part, err := client.robotPart(orgStr, locStr, robotStr, c.String(partFlag))
 	if err != nil {
 		return errors.Wrap(err, "could not get robot part")
 	}
@@ -277,9 +281,9 @@ func RobotPartLogsAction(c *cli.Context) error {
 		return err
 	}
 
-	orgStr := c.String("organization")
-	locStr := c.String("location")
-	robotStr := c.String("robot")
+	orgStr := c.String(organizationFlag)
+	locStr := c.String(locationFlag)
+	robotStr := c.String(robotFlag)
 	robot, err := client.robot(orgStr, locStr, robotStr)
 	if err != nil {
 		return errors.Wrap(err, "could not get robot")
@@ -289,17 +293,17 @@ func RobotPartLogsAction(c *cli.Context) error {
 	if orgStr == "" || locStr == "" || robotStr == "" {
 		header = fmt.Sprintf("%s -> %s -> %s", client.selectedOrg.Name, client.selectedLoc.Name, robot.Name)
 	}
-	if c.Bool("tail") {
+	if c.Bool(logsFlagTail) {
 		return client.tailRobotPartLogs(
-			orgStr, locStr, robotStr, c.String("part"),
-			c.Bool("errors"),
+			orgStr, locStr, robotStr, c.String(partFlag),
+			c.Bool(logsFlagErrors),
 			"",
 			header,
 		)
 	}
 	return client.printRobotPartLogs(
-		orgStr, locStr, robotStr, c.String("part"),
-		c.Bool("errors"),
+		orgStr, locStr, robotStr, c.String(partFlag),
+		c.Bool(logsFlagErrors),
 		"",
 		header,
 	)
@@ -317,21 +321,21 @@ func RobotPartRunAction(c *cli.Context) error {
 		return err
 	}
 
-	// Create logger based on presence of "debug" flag.
+	// Create logger based on presence of debugFlag.
 	logger := zap.NewNop().Sugar()
-	if c.Bool("debug") {
+	if c.Bool(debugFlag) {
 		logger = golog.NewDebugLogger("cli")
 	}
 
 	return client.runRobotPartCommand(
-		c.String("organization"),
-		c.String("location"),
-		c.String("robot"),
-		c.String("part"),
+		c.String(organizationFlag),
+		c.String(locationFlag),
+		c.String(robotFlag),
+		c.String(partFlag),
 		svcMethod,
-		c.String("data"),
-		c.Duration("stream"),
-		c.Bool("debug"),
+		c.String(runFlagData),
+		c.Duration(runFlagStream),
+		c.Bool(debugFlag),
 		logger,
 	)
 }
@@ -345,18 +349,18 @@ func RobotPartShellAction(c *cli.Context) error {
 		return err
 	}
 
-	// Create logger based on presence of "debug" flag.
+	// Create logger based on presence of debugFlag.
 	logger := zap.NewNop().Sugar()
-	if c.Bool("debug") {
+	if c.Bool(debugFlag) {
 		logger = golog.NewDebugLogger("cli")
 	}
 
 	return client.startRobotPartShell(
-		c.String("organization"),
-		c.String("location"),
-		c.String("robot"),
-		c.String("part"),
-		c.Bool("debug"),
+		c.String(organizationFlag),
+		c.String(locationFlag),
+		c.String(robotFlag),
+		c.String(partFlag),
+		c.Bool(debugFlag),
 		logger,
 	)
 }
@@ -367,7 +371,7 @@ func VersionAction(c *cli.Context) error {
 	if !ok {
 		return errors.New("error reading build info")
 	}
-	if c.Bool("debug") {
+	if c.Bool(debugFlag) {
 		fmt.Fprintf(c.App.Writer, "%s\n", info.String())
 	}
 	settings := make(map[string]string, len(info.Settings))
@@ -398,7 +402,7 @@ func VersionAction(c *cli.Context) error {
 }
 
 func checkBaseURL(c *cli.Context) (*url.URL, []rpc.DialOption, error) {
-	baseURL := c.String("base-url")
+	baseURL := c.String(baseURLFlag)
 	baseURLParsed, err := url.Parse(baseURL)
 	if err != nil {
 		return nil, nil, err

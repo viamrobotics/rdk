@@ -15,6 +15,7 @@ import (
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
@@ -64,9 +65,16 @@ func (c *client) Read(ctx context.Context) (image.Image, func(), error) {
 	defer span.End()
 	mimeType := gostream.MIMETypeHint(ctx, "")
 	expectedType, _ := utils.CheckLazyMIMEType(mimeType)
+
+	extra, err := data.GetExtraFromContext(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	resp, err := c.client.GetImage(ctx, &pb.GetImageRequest{
 		Name:     c.name,
 		MimeType: expectedType,
+		Extra:    extra,
 	})
 	if err != nil {
 		return nil, nil, err
@@ -177,9 +185,16 @@ func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 	defer span.End()
 
 	ctx, getPcdSpan := trace.StartSpan(ctx, "camera::client::NextPointCloud::GetPointCloud")
+
+	extra, err := data.GetExtraFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	resp, err := c.client.GetPointCloud(ctx, &pb.GetPointCloudRequest{
 		Name:     c.name,
 		MimeType: utils.MimeTypePCD,
+		Extra:    extra,
 	})
 	getPcdSpan.End()
 	if err != nil {

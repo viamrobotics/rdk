@@ -7,6 +7,7 @@ import (
 	"image/png"
 	"io"
 	"math"
+	"strconv"
 
 	"github.com/pkg/errors"
 	"gonum.org/v1/gonum/mat"
@@ -251,6 +252,10 @@ func (dm *DepthMap) ToPrettyPicture(hardMin, hardMax Depth) *Image {
 
 // Rotate rotates a copy of this depth map clockwise by the given amount.
 func (dm *DepthMap) Rotate(amount int) *DepthMap {
+	if amount == 0 {
+		return dm
+	}
+
 	if amount == 180 {
 		return dm.Rotate180()
 	}
@@ -259,12 +264,12 @@ func (dm *DepthMap) Rotate(amount int) *DepthMap {
 		return dm.Rotate90(true)
 	}
 
-	if amount == -90 {
+	if amount == -90 || amount == 270 {
 		return dm.Rotate90(false)
 	}
 
 	// made this a panic
-	panic("vision.DepthMap can only rotate 90, -90, or 180 degrees right now")
+	panic("vision.DepthMap can only rotate 90, -90, or 180 degrees, not " + strconv.Itoa(amount))
 }
 
 // Rotate90 rotates a copy of this depth map either by 90 degrees clockwise or counterclockwise.

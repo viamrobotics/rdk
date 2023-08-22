@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/edaniels/golog"
-	"github.com/mkch/gpio"
 
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -40,10 +39,6 @@ func GetGPIOBoardMappings(modelName string, boardInfoMappings map[string]BoardIn
 
 // GetGPIOBoardMappingFromPinDefs attempts to find a compatible board-pin mapping using the pin definitions.
 func GetGPIOBoardMappingFromPinDefs(pinDefs []PinDefinition) (map[string]GPIOBoardMapping, error) {
-	gpioChipsInfo, err := getGpioChipDefs(pinDefs)
-	if err != nil {
-		return nil, err
-	}
 	pwmChipsInfo, err := getPwmChipDefs(pinDefs)
 	if err != nil {
 		// Try continuing on without hardware PWM support. Many boards do not have it enabled by
@@ -52,7 +47,7 @@ func GetGPIOBoardMappingFromPinDefs(pinDefs []PinDefinition) (map[string]GPIOBoa
 		pwmChipsInfo = map[string]pwmChipData{}
 	}
 
-	return getBoardMapping(pinDefs, gpioChipsInfo, pwmChipsInfo)
+	return getBoardMapping(pinDefs, pwmChipsInfo)
 }
 
 // getCompatiblePinDefs returns a list of pin definitions, from the first BoardInformation struct
@@ -88,49 +83,6 @@ func readIntFile(filePath string) (int, error) {
 	}
 	resultInt64, err := strconv.ParseInt(strings.TrimSpace(string(contents)), 10, 64)
 	return int(resultInt64), err
-}
-
-// getGpioChipDefs returns map of chip ngpio# to the corresponding gpio chip name.
-func getGpioChipDefs(pinDefs []PinDefinition) (map[int]string, error) {
-	allDevices := gpio.ChipDevices()
-	ngpioToChipName := make(map[int]string, len(allDevices)) // maps chipNgpio -> string gpiochip#
-	for _, dev := range allDevices {
-		chip, err := gpio.OpenChip(dev)
-		if err != nil {
-			return nil, err
-		}
-
-		chipInfo, err := chip.Info()
-		if err != nil {
-			return nil, err
-		}
-
-		// should not have two chips with same ngpio #
-		if _, ok := ngpioToChipName[int(chipInfo.NumLines)]; ok {
-			golog.Global().Errorf("Board has multiple GPIO chips with the same ngpio value, %d!", chipInfo.NumLines)
-		}
-		ngpioToChipName[int(chipInfo.NumLines)] = chipInfo.Name
-	}
-
-	expectedNgpios := make(map[int]struct{}, len(pinDefs))
-	for _, pinDef := range pinDefs {
-		expectedNgpios[pinDef.Ngpio] = struct{}{} // get a "set" of all ngpio numbers on the board
-	}
-
-	gpioChipsInfo := map[int]string{}
-	// for each chip in the board config, find the right gpioChip dir
-	for chipNgpio := range expectedNgpios {
-		dir, ok := ngpioToChipName[chipNgpio]
-
-		if !ok {
-			return nil, fmt.Errorf("unknown GPIO device with ngpio %d",
-				chipNgpio)
-		}
-
-		gpioChipsInfo[chipNgpio] = dir
-	}
-
-	return gpioChipsInfo, nil
 }
 
 func getPwmChipDefs(pinDefs []PinDefinition) (map[string]pwmChipData, error) {
@@ -187,8 +139,7 @@ func getPwmChipDefs(pinDefs []PinDefinition) (map[string]pwmChipData, error) {
 	return pwmChipsInfo, nil
 }
 
-func getBoardMapping(pinDefs []PinDefinition, gpioChipsInfo map[int]string,
-	pwmChipsInfo map[string]pwmChipData,
+func getBoardMapping(pinDefs []PinDefinition, pwmChipsInfo map[string]pwmChipData,
 ) (map[string]GPIOBoardMapping, error) {
 	data := make(map[string]GPIOBoardMapping, len(pinDefs))
 
@@ -196,12 +147,6 @@ func getBoardMapping(pinDefs []PinDefinition, gpioChipsInfo map[int]string,
 	dummyPwmInfo := pwmChipData{Dir: "", Npwm: -1}
 
 	for _, pinDef := range pinDefs {
-		gpioChipDir, ok := gpioChipsInfo[pinDef.Ngpio]
-		if !ok {
-			return nil, fmt.Errorf("unknown GPIO device for chip with ngpio %d, pin %s",
-				pinDef.Ngpio, pinDef.Name)
-		}
-
 		pwmChipInfo, ok := pwmChipsInfo[pinDef.PwmChipSysfsDir]
 		if ok {
 			if pinDef.PwmID >= pwmChipInfo.Npwm {
@@ -220,7 +165,7 @@ func getBoardMapping(pinDefs []PinDefinition, gpioChipsInfo map[int]string,
 		}
 
 		data[pinDef.Name] = GPIOBoardMapping{
-			GPIOChipDev:    gpioChipDir,
+			GPIOChipDev:    pinDef.DeviceName,
 			GPIO:           pinDef.LineNumber,
 			GPIOName:       pinDef.Name,
 			PWMSysFsDir:    pwmChipInfo.Dir,

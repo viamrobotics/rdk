@@ -62,7 +62,6 @@ type Config struct {
 	SpinSlipFactor       float64  `json:"spin_slip_factor,omitempty"`
 	Left                 []string `json:"left"`
 	Right                []string `json:"right"`
-	MovementSensor       []string `json:"movement_sensor,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -93,10 +92,6 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 	deps = append(deps, cfg.Left...)
 	deps = append(deps, cfg.Right...)
 
-	if len(cfg.MovementSensor) != 0 {
-		deps = append(deps, cfg.MovementSensor...)
-	}
-
 	return deps, nil
 }
 
@@ -115,7 +110,7 @@ type wheeledBase struct {
 	right     []motor.Motor
 	allMotors []motor.Motor
 
-	opMgr  operation.SingleOperationManager
+	opMgr  *operation.SingleOperationManager
 	logger golog.Logger
 
 	mu   sync.Mutex
@@ -139,10 +134,10 @@ func (wb *wheeledBase) Reconfigure(ctx context.Context, deps resource.Dependenci
 	}
 
 	if newConf.SpinSlipFactor == 0 {
-		newConf.SpinSlipFactor = 1
+		wb.spinSlipFactor = 1
+	} else {
+		wb.spinSlipFactor = newConf.SpinSlipFactor
 	}
-
-	wb.spinSlipFactor = newConf.SpinSlipFactor
 
 	updateMotors := func(curr []motor.Motor, fromConfig []string, whichMotor string) ([]motor.Motor, error) {
 		newMotors := make([]motor.Motor, 0)
@@ -224,20 +219,13 @@ func createWheeledBase(
 		widthMm:              newConf.WidthMM,
 		wheelCircumferenceMm: newConf.WheelCircumferenceMM,
 		spinSlipFactor:       newConf.SpinSlipFactor,
+		opMgr:                operation.NewSingleOperationManager(),
 		logger:               logger,
 		name:                 conf.Name,
 	}
 
 	if err := wb.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
-	}
-
-	if len(newConf.MovementSensor) != 0 {
-		sb := sensorBase{wBase: &wb, logger: logger, Named: conf.ResourceName().AsNamed()}
-		if err := sb.Reconfigure(ctx, deps, conf); err != nil {
-			return nil, err
-		}
-		return &sb, nil
 	}
 
 	return &wb, nil
@@ -496,8 +484,9 @@ func (wb *wheeledBase) Close(ctx context.Context) error {
 
 func (wb *wheeledBase) Properties(ctx context.Context, extra map[string]interface{}) (base.Properties, error) {
 	return base.Properties{
-		TurningRadiusMeters: 0.0,
-		WidthMeters:         float64(wb.widthMm) * 0.001, // convert to meters from mm
+		TurningRadiusMeters:      0.0,
+		WidthMeters:              float64(wb.widthMm) * 0.001,              // convert to meters from mm
+		WheelCircumferenceMeters: float64(wb.wheelCircumferenceMm) * 0.001, // convert to meters from mm
 	}, nil
 }
 

@@ -12,7 +12,7 @@ import (
 )
 
 func TestNestedOperatioDoesNotCancelParent(t *testing.T) {
-	som := SingleOperationManager{}
+	som := NewSingleOperationManager()
 	ctx := context.Background()
 	test.That(t, som.NewTimedWaitOp(ctx, time.Millisecond), test.ShouldBeTrue)
 
@@ -24,7 +24,7 @@ func TestNestedOperatioDoesNotCancelParent(t *testing.T) {
 }
 
 func TestCallOnDifferentContext(t *testing.T) {
-	som := SingleOperationManager{}
+	som := NewSingleOperationManager()
 	ctx := context.Background()
 	test.That(t, som.NewTimedWaitOp(ctx, time.Millisecond), test.ShouldBeTrue)
 
@@ -51,7 +51,7 @@ func TestCallOnDifferentContext(t *testing.T) {
 }
 
 func TestWaitForSuccess(t *testing.T) {
-	som := SingleOperationManager{}
+	som := NewSingleOperationManager()
 	ctx := context.Background()
 	count := int64(0)
 
@@ -70,7 +70,7 @@ func TestWaitForSuccess(t *testing.T) {
 }
 
 func TestWaitForError(t *testing.T) {
-	som := SingleOperationManager{}
+	som := NewSingleOperationManager()
 	count := int64(0)
 
 	err := som.WaitForSuccess(
@@ -88,7 +88,7 @@ func TestWaitForError(t *testing.T) {
 }
 
 func TestDontCancel(t *testing.T) {
-	som := SingleOperationManager{}
+	som := NewSingleOperationManager()
 	ctx, done := som.New(context.Background())
 	defer done()
 
@@ -99,7 +99,7 @@ func TestDontCancel(t *testing.T) {
 func TestCancelRace(t *testing.T) {
 	// First set up the "worker" context and register an operation on
 	// the `SingleOperationManager` instance.
-	som := SingleOperationManager{}
+	som := NewSingleOperationManager()
 	workerError := make(chan error, 1)
 	workerCtx, somCleanupFunc := som.New(context.Background())
 
@@ -133,7 +133,7 @@ func TestCancelRace(t *testing.T) {
 }
 
 func TestStopCalled(t *testing.T) {
-	som := SingleOperationManager{}
+	som := NewSingleOperationManager()
 	ctx, done := som.New(context.Background())
 	defer done()
 	mock := &mock{stopCount: 0}
@@ -154,7 +154,7 @@ func TestStopCalled(t *testing.T) {
 }
 
 func TestErrorContainsStopAndCancel(t *testing.T) {
-	som := SingleOperationManager{}
+	som := NewSingleOperationManager()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	mock := &mock{stopCount: 0}

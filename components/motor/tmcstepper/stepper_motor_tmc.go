@@ -97,7 +97,7 @@ type Motor struct {
 	maxAcc      float64
 	fClk        float64
 	logger      golog.Logger
-	opMgr       operation.SingleOperationManager
+	opMgr       *operation.SingleOperationManager
 	powerPct    float64
 	motorName   string
 }
@@ -186,6 +186,7 @@ func NewMotor(ctx context.Context, deps resource.Dependencies, c TMC5072Config, 
 		maxAcc:      c.MaxAcceleration,
 		fClk:        baseClk / c.CalFactor,
 		logger:      logger,
+		opMgr:       operation.NewSingleOperationManager(),
 		motorName:   name.ShortName(),
 	}
 

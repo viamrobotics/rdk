@@ -73,6 +73,7 @@ func newGripper(deps resource.Dependencies, conf resource.Config) (gripper.Gripp
 	g := &dofGripper{
 		Named:      conf.ResourceName().AsNamed(),
 		dofArm:     dofArm,
+		opMgr:      operation.NewSingleOperationManager(),
 		geometries: []spatialmath.Geometry{},
 	}
 
@@ -92,7 +93,7 @@ type dofGripper struct {
 	resource.AlwaysRebuild
 	resource.TriviallyCloseable
 	dofArm     *yahboom.Dofbot
-	opMgr      operation.SingleOperationManager
+	opMgr      *operation.SingleOperationManager
 	geometries []spatialmath.Geometry
 }
 

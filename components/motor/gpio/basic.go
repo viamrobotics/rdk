@@ -46,6 +46,7 @@ func NewMotor(b board.Board, mc Config, name resource.Name, logger golog.Logger)
 		maxRPM:      mc.MaxRPM,
 		dirFlip:     mc.DirectionFlip,
 		logger:      logger,
+		opMgr:       operation.NewSingleOperationManager(),
 	}
 
 	if mc.Pins.A != "" {
@@ -101,7 +102,7 @@ type Motor struct {
 	resource.TriviallyCloseable
 
 	mu     sync.Mutex
-	opMgr  operation.SingleOperationManager
+	opMgr  *operation.SingleOperationManager
 	logger golog.Logger
 	// config
 	Board                    board.Board
