@@ -47,6 +47,11 @@ const (
 	dataFlagParallelDownloads = "parallel"
 	dataFlagTags              = "tags"
 	dataFlagBboxLabels        = "bbox-labels"
+
+	boardFlagName    = "name"
+	boardFlagPath    = "path"
+	boardFlagVersion = "version"
+	boardFlagOrgID   = "org-id"
 )
 
 var app = &cli.App{
@@ -574,6 +579,41 @@ viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.ta
 			Name:   "version",
 			Usage:  "print version info for this program",
 			Action: VersionAction,
+		},
+		{
+			Name:            "board",
+			Usage:           "manage your board defintion files",
+			HideHelpCommand: true,
+			Subcommands: []*cli.Command{
+				{
+					Name:        "upload",
+					Usage:       "upload a board definition file",
+					Description: `Uploads a board defintion file`,
+					UsageText:   "viam board upload <name> <version> <path> [other options]",
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     boardFlagName,
+							Usage:    "name of your board definition file (cannot be changed once set)",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:  boardFlagOrgID,
+							Usage: "id of the organization that hosts the module",
+						},
+						&cli.StringFlag{
+							Name:     boardFlagVersion,
+							Usage:    "version of the file to upload (semver2.0) ex: \"0.1.0\"",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:     boardFlagPath,
+							Usage:    "path to the file",
+							Required: true,
+						},
+					},
+					Action: UploadBoardDefAction,
+				},
+			},
 		},
 	},
 }
