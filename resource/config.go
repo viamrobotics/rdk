@@ -173,6 +173,8 @@ func (conf Config) Equals(other Config) bool {
 		return false
 	case conf.Model != other.Model:
 		return false
+	case !reflect.DeepEqual(conf.Frame, other.Frame):
+		return false
 	case !reflect.DeepEqual(conf.DependsOn, other.DependsOn):
 		return false
 	case !reflect.DeepEqual(conf.AssociatedResourceConfigs, other.AssociatedResourceConfigs):
