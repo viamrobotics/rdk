@@ -18,15 +18,26 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+// rotateConfig are the attributes for a rotate transform.
+type rotateConfig struct {
+	Angle float64 `json:"angle_degs"`
+}
+
 // rotateSource is the source to be rotated and the kind of image type.
 type rotateSource struct {
 	originalStream gostream.VideoStream
 	stream         camera.ImageType
+	angle          float64
 }
 
 // newRotateTransform creates a new rotation transform.
-func newRotateTransform(ctx context.Context, source gostream.VideoSource, stream camera.ImageType,
+func newRotateTransform(ctx context.Context, source gostream.VideoSource, stream camera.ImageType, am utils.AttributeMap,
 ) (gostream.VideoSource, camera.ImageType, error) {
+	conf, err := resource.TransformAttributeMap[*rotateConfig](am)
+	if err != nil {
+		return nil, camera.UnspecifiedStream, errors.Wrap(err, "cannot parse rotate attribute map")
+	}
+
 	props, err := propsFromVideoSource(ctx, source)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
@@ -37,7 +48,7 @@ func newRotateTransform(ctx context.Context, source gostream.VideoSource, stream
 	if props.DistortionParams != nil {
 		cameraModel.Distortion = props.DistortionParams
 	}
-	reader := &rotateSource{gostream.NewEmbeddedVideoStream(source), stream}
+	reader := &rotateSource{gostream.NewEmbeddedVideoStream(source), stream, conf.Angle}
 	src, err := camera.NewVideoSourceFromReader(ctx, reader, &cameraModel, stream)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
@@ -55,13 +66,15 @@ func (rs *rotateSource) Read(ctx context.Context) (image.Image, func(), error) {
 	}
 	switch rs.stream {
 	case camera.ColorStream, camera.UnspecifiedStream:
-		return imaging.Rotate(orig, 180, color.Black), release, nil
+		// imaging.Rotate rotates an image counter-clockwise but our rotate function rotates in the
+		// clockwise direction. The angle is negated here for consistency.
+		return imaging.Rotate(orig, -(rs.angle), color.Black), release, nil
 	case camera.DepthStream:
 		dm, err := rimage.ConvertImageToDepthMap(ctx, orig)
 		if err != nil {
 			return nil, nil, err
 		}
-		return dm.Rotate(180), release, nil
+		return dm.Rotate(int(rs.angle)), release, nil
 	default:
 		return nil, nil, camera.NewUnsupportedImageTypeError(rs.stream)
 	}
