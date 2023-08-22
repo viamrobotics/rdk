@@ -424,12 +424,23 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger golog.Logge
 				continue
 			}
 
-			converted, err := reg.AttributeMapConverter(conf.Attributes)
+			// RSDK-4657: We convert the `Attributes` twice to create two isolated copies of a
+			// component's configuration. This is done to avoid spurious `Reconfigure` calls. The
+			// `DiffingAttributes` is used when comparing an old config and a new config to see if
+			// there are any changes that should result in a `Reconfigure`. The
+			// `ConvertedAttributes` is passed into a component's `Reconfigure` call. `Reconfigure`
+			// functions that modify this `ConvertedAttributes` member won't affect the
+			// `DiffingAttributes`.
+			var err error
+			confs[idx].DiffingAttributes, err = reg.AttributeMapConverter(conf.Attributes)
+			if err != nil {
+				return errors.Wrapf(err, "error converting attributes for (%s, %s)", resName.API, copied.Model)
+			}
+			confs[idx].ConvertedAttributes, err = reg.AttributeMapConverter(conf.Attributes)
 			if err != nil {
 				return errors.Wrapf(err, "error converting attributes for (%s, %s)", resName.API, copied.Model)
 			}
 			confs[idx].Attributes = nil
-			confs[idx].ConvertedAttributes = converted
 		}
 		return nil
 	}

@@ -24,6 +24,7 @@ type Config struct {
 	AssociatedResourceConfigs []AssociatedResourceConfig
 	Attributes                utils.AttributeMap
 
+	DiffingAttributes   ConfigValidator
 	ConvertedAttributes ConfigValidator
 	ImplicitDependsOn   []string
 
@@ -161,19 +162,29 @@ func (assoc AssociatedResourceConfig) MarshalJSON() ([]byte, error) {
 	})
 }
 
-// Equals checks if the two configs are deeply equal to each other. Validation
-// related fields and implicit dependencies will be ignored.
+// Equals checks if the two configs are logically equivalent. From the perspective of the
+// component's JSON configuration string.
 func (conf Config) Equals(other Config) bool {
-	conf.alreadyValidated = false
-	conf.ImplicitDependsOn = nil
-	conf.cachedImplicitDeps = nil
-	conf.cachedErr = nil
-	other.alreadyValidated = false
-	other.ImplicitDependsOn = nil
-	other.cachedImplicitDeps = nil
-	other.cachedErr = nil
 	//nolint:govet
-	return reflect.DeepEqual(conf, other)
+	switch {
+	case conf.Name != other.Name:
+		return false
+	case conf.API != other.API:
+		return false
+	case conf.Model != other.Model:
+		return false
+	case !reflect.DeepEqual(conf.DependsOn, other.DependsOn):
+		return false
+	case !reflect.DeepEqual(conf.AssociatedResourceConfigs, other.AssociatedResourceConfigs):
+		return false
+	case !reflect.DeepEqual(conf.Attributes, other.Attributes):
+		// Only one of `Attributes` or `DiffingAttributes` should be in populated.
+		return false
+	case !reflect.DeepEqual(conf.DiffingAttributes, other.DiffingAttributes):
+		return false
+	}
+
+	return true
 }
 
 // Dependencies returns the deduplicated union of user-defined and implicit dependencies.
