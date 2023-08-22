@@ -23,7 +23,7 @@ func TestConfigParse(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "must supply pwm_id for the pwm chip")
 
-	invalidLineNumber := []byte(`{"pins": [{"name": "7", "device_name": "gpiochip1", "line_number": -1}]}`)
+	invalidLineNumber := []byte(`{"pins": [{"name": "7", "device_name": "gpiochip1", "line_number": -2}]}`)
 	_, err = parseRawPinData(invalidLineNumber, "path")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "line_number on gpio chip must be at least zero")
