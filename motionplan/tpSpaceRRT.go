@@ -320,7 +320,6 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 	curPtg tpspace.PTG,
 	rrt rrtMap,
 	nearest node,
-	planOpts *plannerOptions,
 	invert bool,
 ) (*candidate, error) {
 	nm := &neighborManager{nCPU: mp.planOpts.NumThreads / len(mp.tpFrame.PTGs())}
@@ -401,8 +400,8 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 		sinceLastCollideCheck += math.Abs(trajPt.Dist - lastDist)
 		trajState := &ik.State{Position: spatialmath.Compose(arcStartPose, trajPt.Pose), Frame: mp.frame}
 		nodePose = trajState.Position // This will get rewritten later for inverted trees
-		if sinceLastCollideCheck > planOpts.Resolution {
-			ok, _ := planOpts.CheckStateConstraints(trajState)
+		if sinceLastCollideCheck > mp.planOpts.Resolution {
+			ok, _ := mp.planOpts.CheckStateConstraints(trajState)
 			if !ok {
 				return nil, errInvalidCandidate
 			}
@@ -425,9 +424,9 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 	cand := &candidate{dist: bestDist, treeNode: nearest, newNode: successNode, lastInTraj: isLastNode}
 	// check if this  successNode is too close to nodes already in the tree, and if so, do not add.
 	// Get nearest neighbor to new node that's already in the tree
-	nearest = nm.nearestNeighbor(ctx, planOpts, successNode, rrt)
+	nearest = nm.nearestNeighbor(ctx, mp.planOpts, successNode, rrt)
 	if nearest != nil {
-		dist := planOpts.DistanceFunc(&ik.Segment{StartPosition: successNode.Pose(), EndPosition: nearest.Pose()})
+		dist := mp.planOpts.DistanceFunc(&ik.Segment{StartPosition: successNode.Pose(), EndPosition: nearest.Pose()})
 		// Ensure successNode is sufficiently far from the nearest node already existing in the tree
 		// If too close, don't add a new node
 		if dist < defaultIdenticalNodeDistance {
@@ -463,7 +462,7 @@ func (mp *tpSpaceRRTMotionPlanner) attemptExtension(
 			// Find the best traj point for each traj family, and store for later comparison
 			ptgNumPar, curPtgPar := ptgNum, curPtg
 			utils.PanicCapturingGo(func() {
-				cand, err := mp.getExtensionCandidate(ctx, goalNode, ptgNumPar, curPtgPar, rrt, seedNode, mp.planOpts, invert)
+				cand, err := mp.getExtensionCandidate(ctx, goalNode, ptgNumPar, curPtgPar, rrt, seedNode, invert)
 				if err != nil && !errors.Is(err, errNoNeighbors) && !errors.Is(err, errInvalidCandidate) {
 					candChan <- nil
 					return
