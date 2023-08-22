@@ -11,6 +11,7 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
@@ -705,12 +706,12 @@ func TestArmGantryPlanCheck(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(modelXarm, gantryX)
 
-	goal1 := spatialmath.NewPoseFromPoint(r3.Vector{X: 407, Y: 0, Z: 112})
+	goal := spatialmath.NewPoseFromPoint(r3.Vector{X: 407, Y: 0, Z: 112})
 
 	plan, err := motionplan.PlanMotion(
 		context.Background(),
 		logger,
-		referenceframe.NewPoseInFrame(referenceframe.World, goal1),
+		referenceframe.NewPoseInFrame(referenceframe.World, goal),
 		fs.Frame("xArm6"),
 		referenceframe.StartPositions(fs),
 		fs,
@@ -720,31 +721,34 @@ func TestArmGantryPlanCheck(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	b, err := motionplan.CheckPlan(
-		fs.Frame("xArm6"),
-		plan,
-		nil,
-		fs,
-	)
-	test.That(t, b, test.ShouldBeTrue)
-	test.That(t, err, test.ShouldBeNil)
+	t.Run("check plan with no obstacles", func(t *testing.T) {
+		b, err := motionplan.CheckPlan(
+			fs.Frame("xArm6"),
+			plan,
+			nil,
+			fs,
+		)
+		test.That(t, b, test.ShouldBeTrue)
+		test.That(t, err, test.ShouldBeNil)
+	})
+	t.Run("check plan with obstacle", func(t *testing.T) {
+		obstacle, err := spatialmath.NewBox(
+			spatialmath.NewPoseFromPoint(r3.Vector{400, 0, 112}),
+			r3.Vector{10, 10, 1}, "obstacle",
+		)
+		test.That(t, err, test.ShouldBeNil)
 
-	obstacle, err := spatialmath.NewBox(
-		spatialmath.NewPoseFromPoint(r3.Vector{400, 0, 112}),
-		r3.Vector{10, 10, 1}, "obstacle",
-	)
-	test.That(t, err, test.ShouldBeNil)
-
-	geoms := []spatialmath.Geometry{obstacle}
-	gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)}
-	b, err = motionplan.CheckPlan(
-		fs.Frame("xArm6"),
-		plan,
-		gifs,
-		fs,
-	)
-	test.That(t, b, test.ShouldBeFalse)
-	test.That(t, err, test.ShouldNotBeNil)
+		geoms := []spatialmath.Geometry{obstacle}
+		gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)}
+		b, err := motionplan.CheckPlan(
+			fs.Frame("xArm6"),
+			plan,
+			gifs,
+			fs,
+		)
+		test.That(t, b, test.ShouldBeFalse)
+		test.That(t, err, test.ShouldNotBeNil)
+	})
 }
 
 func TestMultiplePieces(t *testing.T) {
