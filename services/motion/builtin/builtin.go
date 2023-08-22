@@ -251,7 +251,7 @@ func (ms *builtIn) MoveOnGlobe(
 	kinematicsOptions.GoalRadiusMM = math.Min(motionCfg.PlanDeviationM*1000, 3000)
 	kinematicsOptions.HeadingThresholdDegrees = 8
 
-	plan, kb, err := ms.planMoveOnGlobe(
+	solutionMap, kb, err := ms.planMoveOnGlobe(
 		ctx,
 		componentName,
 		destination,
@@ -262,6 +262,13 @@ func (ms *builtIn) MoveOnGlobe(
 	)
 	if err != nil {
 		return false, fmt.Errorf("error making plan for MoveOnMap: %w", err)
+	}
+	plan, err := motionplan.FrameStepsFromRobotPath(kb.Kinematics().Name(), solutionMap)
+	if err != nil {
+		return false, err
+	}
+	for _, step := range plan {
+		ms.logger.Info(step)
 	}
 	// execute the plan
 	for i := 1; i < len(plan); i++ {
@@ -288,7 +295,7 @@ func (ms *builtIn) planMoveOnGlobe(
 	obstacles []*spatialmath.GeoObstacle,
 	kinematicsOptions kinematicbase.Options,
 	extra map[string]interface{},
-) ([][]referenceframe.Input, kinematicbase.KinematicBase, error) {
+) ([]map[string][]referenceframe.Input, kinematicbase.KinematicBase, error) {
 	// build the localizer from the movement sensor
 	movementSensor, ok := ms.movementSensors[movementSensorName]
 	if !ok {
@@ -401,14 +408,7 @@ func (ms *builtIn) planMoveOnGlobe(
 		return nil, nil, err
 	}
 
-	plan, err := motionplan.FrameStepsFromRobotPath(kbf.Name(), solutionMap)
-	if err != nil {
-		return nil, nil, err
-	}
-	for _, step := range plan {
-		ms.logger.Info(step)
-	}
-	return plan, kb, nil
+	return solutionMap, kb, nil
 }
 
 func (ms *builtIn) GetPose(

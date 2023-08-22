@@ -317,14 +317,16 @@ func createUniqueCollisionMap(geoms []spatial.Geometry) (map[string]spatial.Geom
 // CheckPlan checks if obstacles intersect the trajectory of the frame following the plan.
 func CheckPlan(
 	frame referenceframe.Frame,
-	plan [][]referenceframe.Input,
+	// plan [][]referenceframe.Input,
+	plan []map[string][]referenceframe.Input,
 	obstacles []*referenceframe.GeometriesInFrame,
 	fs referenceframe.FrameSystem,
 ) (bool, error) {
 	// ensure that we can actually perform the check
-	if len(frame.DoF()) != len(plan[0]) {
-		return false, errors.New("frame DOF length must match inputs length")
+	if len(plan) == 0 {
+		return false, errors.New("cannot check validity of an empty plan")
 	}
+
 	// check if we are working with ptgs
 	ptgProv, ok := frame.(tpspace.PTGProvider)
 	if ok {
@@ -335,31 +337,39 @@ func CheckPlan(
 		return false, errors.New("plan must have at least two elements")
 	}
 
-	// construct planner with collision contraints
+	// construct constraints
+	sf, err := newSolverFrame(fs, frame.Name(), referenceframe.World, plan[0])
+	if err != nil {
+		return false, err
+	}
+	worldState, err := referenceframe.NewWorldState(obstacles, nil)
+	if err != nil {
+		return false, err
+	}
+	collisionConstraints, err := createAllCollisionConstraints(sf, fs, worldState, referenceframe.StartPositions(fs), nil)
+	if err != nil {
+		return false, err
+	}
 	opt := newBasicPlannerOptions(frame)
-	sf, err := newSolverFrame(fs, frame.Name(), referenceframe.World, nil)
-	if err != nil {
-		return false, err
-	}
-	wrdlst, err := referenceframe.NewWorldState(obstacles, nil)
-	if err != nil {
-		return false, err
-	}
-	collisionConstraints, err := createAllCollisionConstraints(sf, fs, wrdlst, referenceframe.StartPositions(fs), nil)
-	if err != nil {
-		return false, err
-	}
 	for name, constraint := range collisionConstraints {
 		opt.AddStateConstraint(name, constraint)
 	}
 
 	// go through plan and check that we can move from plan[i] to plan[i+1]
 	for i := 0; i < len(plan)-1; i++ {
+		now, err := sf.mapToSlice(plan[i])
+		if err != nil {
+			return false, err
+		}
+		nextStep, err := sf.mapToSlice(plan[i+1])
+		if err != nil {
+			return false, err
+		}
 		if isValid, fault := opt.CheckSegmentAndStateValidity(
 			&Segment{
-				StartConfiguration: plan[i],
-				EndConfiguration:   plan[i+1],
-				Frame:              frame,
+				StartConfiguration: now,
+				EndConfiguration:   nextStep,
+				Frame:              sf,
 			},
 			opt.Resolution,
 		); !isValid {
@@ -371,17 +381,17 @@ func CheckPlan(
 
 func checkPtgPlan(
 	frame referenceframe.Frame,
-	plan [][]referenceframe.Input,
+	plan []map[string][]referenceframe.Input,
 	obstacles []*referenceframe.GeometriesInFrame,
 	fs referenceframe.FrameSystem,
 	ptgs []tpspace.PTG,
 ) (bool, error) {
 	// ensure obstacles are in world frame
-	wrdlst, err := referenceframe.NewWorldState(obstacles, nil)
+	worldState, err := referenceframe.NewWorldState(obstacles, nil)
 	if err != nil {
 		return false, err
 	}
-	transformedObstacles, err := wrdlst.ObstaclesInWorldFrame(fs, referenceframe.StartPositions(fs))
+	transformedObstacles, err := worldState.ObstaclesInWorldFrame(fs, referenceframe.StartPositions(fs))
 	if err != nil {
 		return false, err
 	}
@@ -389,11 +399,20 @@ func checkPtgPlan(
 	lastRecordedPose := spatial.NewZeroPose()
 	latestPose := spatial.NewZeroPose()
 
+	sf, err := newSolverFrame(fs, frame.Name(), referenceframe.World, plan[0])
+	if err != nil {
+		return false, err
+	}
+
 	// inputs are:
 	// [0] index of PTG to use
 	// [1] index of the trajectory within that PTG
 	// [2] distance to travel along that trajectory.
 	for _, inputs := range plan {
+		inputs, err := sf.mapToSlice(inputs)
+		if err != nil {
+			return false, err
+		}
 		// find the relevant ptg with the 0th value of inputs
 		ptg := ptgs[int(math.Round(inputs[0].Value))]
 		// find relevant trajectories with the 1st value of inputs

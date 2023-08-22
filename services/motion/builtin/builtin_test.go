@@ -37,6 +37,7 @@ import (
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 func setupMotionServiceFromConfig(t *testing.T, configFilename string) (motion.Service, func()) {
@@ -243,24 +244,6 @@ func TestMove(t *testing.T) {
 		defer teardown()
 		grabPose := referenceframe.NewPoseInFrame("pieceArm", spatialmath.NewPoseFromPoint(r3.Vector{0, -30, -50}))
 		_, err = ms.Move(ctx, arm.Named("pieceArm"), grabPose, nil, nil, map[string]interface{}{})
-		test.That(t, err, test.ShouldBeNil)
-
-		plan := [][]referenceframe.Input{}
-		plan = append(plan, referenceframe.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0}))
-		plan = append(plan, referenceframe.FloatsToInputs([]float64{
-			-0.061415653878237754,
-			0.15398252391889578,
-			-0.24380682723426927,
-			0.09029531877468856,
-			-0.0613905398108419,
-			-0.00044902844166047314,
-		}))
-		fs, err := ms.(*builtIn).fsService.FrameSystem(ctx, nil)
-		test.That(t, err, test.ShouldBeNil)
-		armFrame := fs.Frame("pieceArm")
-
-		b, err := motionplan.CheckPlan(armFrame, plan, nil, fs)
-		test.That(t, b, test.ShouldBeTrue)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -530,7 +513,7 @@ func TestPlanMoveOnGlobe(t *testing.T) {
 	t.Run("ensure success to a nearby geo point", func(t *testing.T) {
 		t.Parallel()
 		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint)
-		plan, _, err := ms.(*builtIn).planMoveOnGlobe(
+		solutionMap, kb, err := ms.(*builtIn).planMoveOnGlobe(
 			context.Background(),
 			fakeBase.Name(),
 			dst,
@@ -539,6 +522,8 @@ func TestPlanMoveOnGlobe(t *testing.T) {
 			kinematicbase.NewKinematicBaseOptions(),
 			motionCfg,
 		)
+		test.That(t, err, test.ShouldBeNil)
+		plan, err := motionplan.FrameStepsFromRobotPath(kb.Kinematics().Name(), solutionMap)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(plan), test.ShouldEqual, 2)
 		test.That(t, plan[1][0].Value, test.ShouldAlmostEqual, expectedDst.X, 10)
@@ -554,7 +539,7 @@ func TestPlanMoveOnGlobe(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		geoObstacle := spatialmath.NewGeoObstacle(gpsPoint, []spatialmath.Geometry{geometries})
 
-		plan, _, err := ms.(*builtIn).planMoveOnGlobe(
+		solutionMap, kb, err := ms.(*builtIn).planMoveOnGlobe(
 			context.Background(),
 			fakeBase.Name(),
 			dst,
@@ -563,6 +548,8 @@ func TestPlanMoveOnGlobe(t *testing.T) {
 			kinematicbase.NewKinematicBaseOptions(),
 			motionCfg,
 		)
+		test.That(t, err, test.ShouldBeNil)
+		plan, err := motionplan.FrameStepsFromRobotPath(kb.Kinematics().Name(), solutionMap)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(plan), test.ShouldBeGreaterThan, 2)
 		test.That(t, plan[len(plan)-1][0].Value, test.ShouldAlmostEqual, expectedDst.X, 10)
@@ -672,10 +659,10 @@ func TestCheckPlan(t *testing.T) {
 	err = newFS.AddFrame(cameraFrame, cameraOriginFrame)
 	test.That(t, err, test.ShouldBeNil)
 
-	t.Run("ensure transforms of obstacles works - collision", func(t *testing.T) {
+	t.Run("ensure transforms of obstacles works - no collision", func(t *testing.T) {
 		// create obstacle
 		obstacle, err := spatialmath.NewBox(
-			spatialmath.NewPoseFromPoint(r3.Vector{150, 0, 0}),
+			spatialmath.NewPoseFromPoint(r3.Vector{150, -6, 0}),
 			r3.Vector{10, 10, 1}, "obstacle",
 		)
 		test.That(t, err, test.ShouldBeNil)
@@ -686,7 +673,7 @@ func TestCheckPlan(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, b, test.ShouldBeTrue)
 	})
-	t.Run("ensure transforms of obstacles works - no collision", func(t *testing.T) {
+	t.Run("ensure transforms of obstacles works - collision", func(t *testing.T) {
 		// create obstacle
 		obstacle, err := spatialmath.NewBox(
 			spatialmath.NewPoseFromPoint(r3.Vector{150, 30, 0}),
@@ -700,6 +687,64 @@ func TestCheckPlan(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, b, test.ShouldBeFalse)
 	})
+}
+
+func TestArmGantryPlanCheck(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	fs := referenceframe.NewEmptyFrameSystem("test")
+
+	gantryOffset, err := referenceframe.NewStaticFrame("gantryOffset", spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0}))
+	test.That(t, err, test.ShouldBeNil)
+	fs.AddFrame(gantryOffset, fs.World())
+
+	gantryX, err := referenceframe.NewTranslationalFrame("gantryX", r3.Vector{1, 0, 0}, referenceframe.Limit{math.Inf(-1), math.Inf(1)})
+	test.That(t, err, test.ShouldBeNil)
+	fs.AddFrame(gantryX, gantryOffset)
+
+	modelXarm, err := referenceframe.ParseModelJSONFile(rdkutils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+	fs.AddFrame(modelXarm, gantryX)
+
+	goal1 := spatialmath.NewPoseFromPoint(r3.Vector{X: 407, Y: 0, Z: 112})
+
+	plan, err := motionplan.PlanMotion(
+		context.Background(),
+		logger,
+		referenceframe.NewPoseInFrame(referenceframe.World, goal1),
+		fs.Frame("xArm6"),
+		referenceframe.StartPositions(fs),
+		fs,
+		nil,
+		nil,
+		nil,
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	b, err := motionplan.CheckPlan(
+		fs.Frame("xArm6"),
+		plan,
+		nil,
+		fs,
+	)
+	test.That(t, b, test.ShouldBeTrue)
+	test.That(t, err, test.ShouldBeNil)
+
+	obstacle, err := spatialmath.NewBox(
+		spatialmath.NewPoseFromPoint(r3.Vector{400, 0, 112}),
+		r3.Vector{10, 10, 1}, "obstacle",
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	geoms := []spatialmath.Geometry{obstacle}
+	gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)}
+	b, err = motionplan.CheckPlan(
+		fs.Frame("xArm6"),
+		plan,
+		gifs,
+		fs,
+	)
+	test.That(t, b, test.ShouldBeFalse)
+	test.That(t, err, test.ShouldNotBeNil)
 }
 
 func TestMultiplePieces(t *testing.T) {
