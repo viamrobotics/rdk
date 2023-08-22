@@ -134,10 +134,10 @@ func (wb *wheeledBase) Reconfigure(ctx context.Context, deps resource.Dependenci
 	}
 
 	if newConf.SpinSlipFactor == 0 {
-		newConf.SpinSlipFactor = 1
+		wb.spinSlipFactor = 1
+	} else {
+		wb.spinSlipFactor = newConf.SpinSlipFactor
 	}
-
-	wb.spinSlipFactor = newConf.SpinSlipFactor
 
 	updateMotors := func(curr []motor.Motor, fromConfig []string, whichMotor string) ([]motor.Motor, error) {
 		newMotors := make([]motor.Motor, 0)
