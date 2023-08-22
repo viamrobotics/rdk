@@ -44,6 +44,7 @@ type moduleID struct {
 // moduleManifest is used to create & parse manifest.json.
 type moduleManifest struct {
 	Name        string            `json:"name"`
+	ModuleID    string            `json:"moduleID"`
 	Visibility  moduleVisibility  `json:"visibility"`
 	URL         string            `json:"url"`
 	Description string            `json:"description"`
@@ -71,9 +72,6 @@ func CreateModuleAction(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	if org == nil {
-		return errors.Errorf("unable to determine org from org-id (%q) and namespace (%q)", orgIDArg, publicNamespaceArg)
-	}
 	// Check to make sure the user doesn't accidentally overwrite a module manifest
 	if _, err := os.Stat(defaultManifestFilename); err == nil {
 		return errors.New("another module's meta.json already exists in the current directory. delete it and try again")
@@ -100,7 +98,8 @@ func CreateModuleAction(c *cli.Context) error {
 		fmt.Fprintf(c.App.Writer, "you can view it here: %s \n", response.GetUrl())
 	}
 	emptyManifest := moduleManifest{
-		Name:       returnedModuleID.String(),
+		Name:       returnedModuleID.name,
+		ModuleID:   returnedModuleID.String(),
 		Visibility: moduleVisibilityPrivate,
 		// This is done so that the json has an empty example
 		Models: []moduleComponent{
@@ -137,7 +136,7 @@ func UpdateModuleAction(c *cli.Context) error {
 		return err
 	}
 
-	moduleID, err := updateManifestModuleIDWithArgs(c, client, manifest.Name, publicNamespaceArg, orgIDArg)
+	moduleID, err := updateManifestModuleIDWithArgs(c, client, manifest.ModuleID, publicNamespaceArg, orgIDArg)
 	if err != nil {
 		return err
 	}
@@ -149,7 +148,7 @@ func UpdateModuleAction(c *cli.Context) error {
 	fmt.Fprintf(c.App.Writer, "module successfully updated! you can view your changes online here: %s\n", response.GetUrl())
 
 	// If the namespace isn't set, modify the meta.json to set it (if available)
-	manifestModuleID, err := parseModuleID(manifest.Name)
+	manifestModuleID, err := parseModuleID(manifest.ModuleID)
 	if err != nil {
 		return err // shouldn't happen because this has already been parsed
 	}
@@ -220,10 +219,14 @@ func UploadModuleAction(c *cli.Context) error {
 			return err
 		}
 
-		moduleID, err = updateManifestModuleIDWithArgs(c, client, manifest.Name, publicNamespaceArg, orgIDArg)
+		moduleID, err = parseModuleID(manifest.ModuleID)
 		if err != nil {
-			return err
+			moduleID, err = updateManifestModuleIDWithArgs(c, client, manifest.Name, publicNamespaceArg, orgIDArg)
+			if err != nil {
+				return err
+			}
 		}
+
 		if nameArg != "" && nameArg != moduleID.name {
 			// This is almost certainly a mistake we want to catch
 			return errors.Errorf("module name %q was supplied on the command line but the meta.json has a module name of %q",
@@ -482,6 +485,9 @@ func resolveOrg(client *appClient, publicNamespace, orgID string) (*apppb.Organi
 		if err != nil {
 			return nil, err
 		}
+		if org == nil {
+			return nil, errors.Errorf("there is no orgId with ID %s", orgID)
+		}
 		return org, nil
 	}
 	// Use publicNamespace to back-derive what the org is
@@ -491,6 +497,9 @@ func resolveOrg(client *appClient, publicNamespace, orgID string) (*apppb.Organi
 	org, err := client.getUserOrgByPublicNamespace(publicNamespace)
 	if err != nil {
 		return nil, err
+	}
+	if org == nil {
+		return nil, errors.Errorf("there is no org with namespace %s", publicNamespace)
 	}
 	return org, nil
 }
