@@ -1013,12 +1013,12 @@ func TestPackageConfig(t *testing.T) {
 		},
 		{
 			config: config.PackageConfig{
-				Name:    "my_board_def",
+				Name:    "my_board_defs",
 				Type:    config.PackageTypeBoardDefs,
-				Package: "my_org/my_board_def",
+				Package: "my_org/my_board_defs",
 				Version: "latest",
 			},
-			expectedRealFilePath: filepath.Join(viamDotDir, "packages", ".data", "board_def", "my_org-my_board_def-latest"),
+			expectedRealFilePath: filepath.Join(viamDotDir, "packages", ".data", "board_defs", "my_org-my_board_defs-latest"),
 		},
 		{
 			config: config.PackageConfig{
