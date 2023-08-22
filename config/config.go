@@ -872,7 +872,7 @@ const (
 	PackageTypeModule PackageType = "module"
 	// PackageTypeSlamMap represents a slam internal state.
 	PackageTypeSlamMap PackageType = "slam_map"
-	//PackageTypeBoardDef represents a linux board definition file.
+	// PackageTypeBoardDef represents a linux board definition file.
 	PackageTypeBoardDefs PackageType = "board_defs"
 )
 
