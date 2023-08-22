@@ -5,7 +5,7 @@ This component supports a board running Linux and requires the user to provide a
   "pins": [
     {
         "name": "string",
-        "ngpio": "int",
+        "device_name": "string",
         "line_number": "int",
         "pwm_chip_sysfs_dir": "string",
         "pwm_id": "int"
