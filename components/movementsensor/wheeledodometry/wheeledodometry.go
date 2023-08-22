@@ -102,6 +102,120 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 	return deps, nil
 }
 
+// Reconfigure automatically reconfigures this movement sensor based on the updated config.
+func (o *odometry) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+	if len(o.motors) > 0 {
+		if err := o.motors[0].left.Stop(ctx, nil); err != nil {
+			return err
+		}
+		if err := o.motors[0].right.Stop(ctx, nil); err != nil {
+			return err
+		}
+	}
+
+	if o.cancelFunc != nil {
+		o.cancelFunc()
+		o.activeBackgroundWorkers.Wait()
+	}
+
+	o.mu.Lock()
+	defer o.mu.Unlock()
+
+	newConf, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return err
+	}
+
+	o.timeIntervalMSecs = newConf.TimeIntervalMSecs
+	if o.timeIntervalMSecs == 0 {
+		o.timeIntervalMSecs = defaultTimeIntervalMSecs
+	}
+	if o.timeIntervalMSecs > 500 {
+		o.logger.Warn("if the time interval is more than 500 ms, be sure to move the base slowly for better accuracy")
+	}
+
+	newBase, err := base.FromDependencies(deps, newConf.Base)
+	if err != nil {
+		return err
+	}
+	props, err := newBase.Properties(ctx, nil)
+	if err != nil {
+		return err
+	}
+	o.baseWidth = props.WidthMeters
+	o.wheelCircumference = props.WheelCircumferenceMeters
+	if o.baseWidth == 0 || o.wheelCircumference == 0 {
+		return errors.New("base width or wheel circumference are 0, movement sensor cannot be created")
+	}
+
+	if o.motors != nil && len(o.motors) == len(newConf.LeftMotors) {
+		isSame := true
+		for i := range o.motors {
+			if o.motors[i].left.Name().ShortName() != newConf.LeftMotors[i] ||
+				o.motors[i].right.Name().ShortName() != newConf.RightMotors[i] {
+				isSame = false
+			}
+		}
+		if isSame {
+			o.orientation.Yaw = 0
+			ctx, cancelFunc := context.WithCancel(context.Background())
+			o.cancelFunc = cancelFunc
+			o.trackPosition(ctx)
+			return nil
+		}
+	}
+
+	for i := range newConf.LeftMotors {
+		var motorLeft, motorRight motor.Motor
+		if i >= len(o.motors) || o.motors[i].left.Name().ShortName() != newConf.LeftMotors[i] {
+			motorLeft, err = motor.FromDependencies(deps, newConf.LeftMotors[i])
+			if err != nil {
+				return err
+			}
+			properties, err := motorLeft.Properties(ctx, nil)
+			if err != nil {
+				return err
+			}
+			if !properties.PositionReporting {
+				return motor.NewPropertyUnsupportedError(properties, newConf.LeftMotors[i])
+			}
+		}
+
+		if i >= len(o.motors) || o.motors[i].right.Name().ShortName() != newConf.RightMotors[i] {
+			motorRight, err = motor.FromDependencies(deps, newConf.RightMotors[i])
+			if err != nil {
+				return err
+			}
+			properties, err := motorRight.Properties(ctx, nil)
+			if err != nil {
+				return err
+			}
+			if !properties.PositionReporting {
+				return motor.NewPropertyUnsupportedError(properties, newConf.LeftMotors[i])
+			}
+		}
+
+		thisPair := motorPair{left: motorLeft, right: motorRight}
+		if i >= len(o.motors) {
+			o.motors = append(o.motors, thisPair)
+		} else {
+			o.motors[i].left = motorLeft
+			o.motors[i].right = motorRight
+		}
+	}
+
+	if len(o.motors) > 1 {
+		o.logger.Warn("odometry will not be accurate if the left and right motors that are paired are not listed in the same order")
+	}
+
+	o.orientation.Yaw = 0
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	o.cancelFunc = cancelFunc
+	o.trackPosition(ctx)
+
+	return nil
+}
+
 // newWheeledOdometry returns a new wheeled encoder movement sensor defined by the given config.
 func newWheeledOdometry(
 	ctx context.Context,
@@ -109,77 +223,16 @@ func newWheeledOdometry(
 	conf resource.Config,
 	logger golog.Logger,
 ) (movementsensor.MovementSensor, error) {
-	newConf, err := resource.NativeConfig[*Config](conf)
-	if err != nil {
-		return nil, err
-	}
-
-	timeIntervalMSecs := newConf.TimeIntervalMSecs
-	if timeIntervalMSecs == 0 {
-		timeIntervalMSecs = defaultTimeIntervalMSecs
-	}
-	if timeIntervalMSecs > 500 {
-		logger.Warn("if the time interval is more than 500 ms, be sure to move the base slowly for better accuracy")
-	}
-
 	o := &odometry{
-		Named:             conf.ResourceName().AsNamed(),
-		lastLeftPos:       0.0,
-		lastRightPos:      0.0,
-		timeIntervalMSecs: timeIntervalMSecs,
-		logger:            logger,
+		Named:        conf.ResourceName().AsNamed(),
+		lastLeftPos:  0.0,
+		lastRightPos: 0.0,
+		logger:       logger,
 	}
 
-	for i := range newConf.LeftMotors {
-		motorLeft, err := motor.FromDependencies(deps, newConf.LeftMotors[i])
-		if err != nil {
-			return nil, err
-		}
-		properties, err := motorLeft.Properties(ctx, nil)
-		if err != nil {
-			return nil, err
-		}
-		if !properties.PositionReporting {
-			return nil, motor.NewPropertyUnsupportedError(properties, newConf.LeftMotors[i])
-		}
-
-		motorRight, err := motor.FromDependencies(deps, newConf.RightMotors[i])
-		if err != nil {
-			return nil, err
-		}
-		properties, err = motorRight.Properties(ctx, nil)
-		if err != nil {
-			return nil, err
-		}
-		if !properties.PositionReporting {
-			return nil, motor.NewPropertyUnsupportedError(properties, newConf.LeftMotors[i])
-		}
-
-		thisPair := motorPair{left: motorLeft, right: motorRight}
-		o.motors = append(o.motors, thisPair)
-	}
-
-	if len(o.motors) > 1 {
-		o.logger.Warn("odometry will not be accurate if the left and right motors that are paired are not listed in the same order")
-	}
-
-	newBase, err := base.FromDependencies(deps, newConf.Base)
-	if err != nil {
+	if err := o.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
-	props, err := newBase.Properties(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-	o.baseWidth = props.WidthMeters
-	o.wheelCircumference = props.WheelCircumferenceMeters
-	if o.baseWidth == 0 || o.wheelCircumference == 0 {
-		return nil, errors.New("base width or wheel circumference are 0, movement sensor cannot be created")
-	}
-	o.orientation.Yaw = 0
-	ctx, cancelFunc := context.WithCancel(context.Background())
-	o.cancelFunc = cancelFunc
-	o.trackPosition(ctx)
 
 	return o, nil
 }
