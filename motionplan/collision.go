@@ -317,7 +317,6 @@ func createUniqueCollisionMap(geoms []spatial.Geometry) (map[string]spatial.Geom
 // CheckPlan checks if obstacles intersect the trajectory of the frame following the plan.
 func CheckPlan(
 	frame referenceframe.Frame,
-	// plan [][]referenceframe.Input,
 	plan []map[string][]referenceframe.Input,
 	obstacles []*referenceframe.GeometriesInFrame,
 	fs referenceframe.FrameSystem,
