@@ -165,7 +165,6 @@ func (assoc AssociatedResourceConfig) MarshalJSON() ([]byte, error) {
 // Equals checks if the two configs are logically equivalent. From the perspective of the
 // component's JSON configuration string.
 func (conf Config) Equals(other Config) bool {
-	//nolint:govet
 	switch {
 	case conf.Name != other.Name:
 		return false
