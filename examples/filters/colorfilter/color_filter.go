@@ -20,7 +20,8 @@ import (
 )
 
 var (
-	Model            = resource.NewModel("example", "filter", "colorfilter")
+	// Model is the full model definition.
+	Model            = resource.NewModel("example", "camera", "colorfilter")
 	errUnimplemented = errors.New("unimplemented")
 )
 
@@ -118,7 +119,7 @@ func (c *colorFilterCam) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 
 // Properties returns details about the camera.
 func (c *colorFilterCam) Properties(ctx context.Context) (camera.Properties, error) {
-	return camera.Properties{}, nil
+	return c.actualCam.Properties(ctx)
 }
 
 // Projector does nothing.
