@@ -130,8 +130,8 @@ func (o *odometry) Reconfigure(ctx context.Context, deps resource.Dependencies, 
 	if o.timeIntervalMSecs == 0 {
 		o.timeIntervalMSecs = defaultTimeIntervalMSecs
 	}
-	if o.timeIntervalMSecs > 500 {
-		o.logger.Warn("if the time interval is more than 500 ms, be sure to move the base slowly for better accuracy")
+	if o.timeIntervalMSecs > 1000 {
+		o.logger.Warn("if the time interval is more than 1000 ms, be sure to move the base slowly for better accuracy")
 	}
 
 	newBase, err := base.FromDependencies(deps, newConf.Base)
