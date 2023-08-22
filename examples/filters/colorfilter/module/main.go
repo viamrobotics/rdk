@@ -5,11 +5,11 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/examples/filters/colorfilter"
 	"go.viam.com/rdk/module"
-	"go.viam.com/utils"
 )
 
 func main() {
