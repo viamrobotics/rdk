@@ -30,6 +30,10 @@ func (server *serviceServer) Infer(ctx context.Context, req *pb.InferRequest) (*
 	if err != nil {
 		return nil, err
 	}
+	if req.InputData != nil && req.InputTensors != nil {
+		return nil, errors.New("both input_data and input_tensors fields in the Infer request are not nil." +
+			"Server can only process one or the other")
+	}
 	var id map[string]interface{}
 	if req.InputData != nil {
 		id, err = asMap(req.InputData)

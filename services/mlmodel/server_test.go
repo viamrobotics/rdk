@@ -7,7 +7,6 @@ import (
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/service/mlmodel/v1"
 	"go.viam.com/test"
-	vprotoutils "go.viam.com/utils/protoutils"
 	"gorgonia.org/tensor"
 
 	"go.viam.com/rdk/ml"
@@ -145,12 +144,6 @@ var injectedInferFunc = func(
 }
 
 func TestServerInfer(t *testing.T) {
-	// input data to proto
-	inputData := map[string]interface{}{
-		"image": [][]uint8{{10, 10, 255, 0, 0, 255, 255, 0, 100}},
-	}
-	inputProto, err := vprotoutils.StructToStructPb(inputData)
-	test.That(t, err, test.ShouldBeNil)
 	// input tensors to proto
 	inputTensors := ml.Tensors{}
 	inputTensors["image"] = tensor.New(tensor.WithShape(3, 3), tensor.WithBacking([]uint8{10, 10, 255, 0, 0, 255, 255, 0, 100}))
@@ -158,7 +151,6 @@ func TestServerInfer(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	inferRequest := &pb.InferRequest{
 		Name:         testMLModelServiceName,
-		InputData:    inputProto,
 		InputTensors: tensorsProto,
 	}
 
