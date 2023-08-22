@@ -269,9 +269,6 @@ func (o *odometry) trackPosition(ctx context.Context) {
 			positionFuncs := func() []rdkutils.FloatFunc {
 				fs := []rdkutils.FloatFunc{}
 
-				// These reads of the left and right motors can race with `Reconfigure`.
-				o.mu.Lock()
-				defer o.mu.Unlock()
 				// Always use the first pair until more than one pair of motors is supported in this model.
 				fs = append(fs, func(ctx context.Context) (float64, error) { return o.motors[0].left.Position(ctx, nil) })
 				fs = append(fs, func(ctx context.Context) (float64, error) { return o.motors[0].right.Position(ctx, nil) })
