@@ -1,6 +1,6 @@
 //go:build windows
 
-package motionplan
+package ik
 
 import (
 	"github.com/edaniels/golog"

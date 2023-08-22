@@ -1,4 +1,4 @@
-package motionplan
+package tpspace
 
 import (
 	"errors"
@@ -8,7 +8,6 @@ import (
 	"github.com/edaniels/golog"
 	pb "go.viam.com/api/component/arm/v1"
 
-	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -19,24 +18,27 @@ const (
 	distanceAlongTrajectoryIndex
 )
 
-type ptgFactory func(float64, float64) tpspace.PrecomputePTG
+// If refDist is not explicitly set, default to pi radians times this adjustment value
+const refDistHalfCircles = 0.9
+
+type ptgFactory func(float64, float64) PrecomputePTG
 
 var defaultPTGs = []ptgFactory{
-	tpspace.NewCirclePTG,
-	tpspace.NewCCPTG,
-	tpspace.NewCCSPTG,
-	tpspace.NewCSPTG,
-	tpspace.NewSideSPTG,
-	tpspace.NewSideSOverturnPTG,
+	NewCirclePTG,
+	NewCCPTG,
+	NewCCSPTG,
+	NewCSPTG,
+	NewSideSPTG,
+	NewSideSOverturnPTG,
 }
 
 type ptgGroupFrame struct {
 	name          string
 	limits        []referenceframe.Limit
 	geometries    []spatialmath.Geometry
-	ptgs          []tpspace.PTG
+	ptgs          []PTG
 	velocityMMps  float64
-	turnRadMeters float64
+	turnRadMillimeters float64
 	logger        golog.Logger
 }
 
@@ -54,14 +56,20 @@ func NewPTGFrameFromTurningRadius(
 	if turnRadMeters <= 0 {
 		return nil, fmt.Errorf("cannot create ptg frame, turning radius %f must be >0", turnRadMeters)
 	}
+	if refDist < 0 {
+		return nil, fmt.Errorf("cannot create ptg frame, refDist %f must be >=0", refDist)
+	}
+	
+	turnRadMillimeters := turnRadMeters * 1000
 
-	if refDist <= 0 {
+	if refDist == 0 {
 		// Default to a distance of just over one half of a circle turning at max radius
-		refDist = 1000. * turnRadMeters * math.Pi * 0.9
+		refDist = turnRadMillimeters * math.Pi * refDistHalfCircles
+		logger.Debugf("refDist was zero, calculating default %f", refDist)
 	}
 
 	// Get max angular velocity in radians per second
-	maxRPS := velocityMMps / (1000. * turnRadMeters)
+	maxRPS := velocityMMps / turnRadMillimeters
 	pf := &ptgGroupFrame{name: name}
 	err := pf.initPTGs(logger, velocityMMps, maxRPS, refDist)
 	if err != nil {
@@ -70,7 +78,7 @@ func NewPTGFrameFromTurningRadius(
 
 	pf.geometries = geoms
 	pf.velocityMMps = velocityMMps
-	pf.turnRadMeters = turnRadMeters
+	pf.turnRadMillimeters = turnRadMillimeters
 
 	pf.limits = []referenceframe.Limit{
 		{Min: 0, Max: float64(len(pf.ptgs) - 1)},
@@ -81,20 +89,24 @@ func NewPTGFrameFromTurningRadius(
 	return pf, nil
 }
 
-// newPTGFrameFromPTGFrame will create a new Frame from a preexisting ptgGroupFrame, allowing the adjustment of `refDist` while keeping
+// NewPTGFrameFromPTGFrame will create a new Frame from a preexisting ptgGroupFrame, allowing the adjustment of `refDist` while keeping
 // other params the same. This may be expanded to allow altering turning radius, geometries, etc.
-func newPTGFrameFromPTGFrame(frame referenceframe.Frame, refDist float64) (referenceframe.Frame, error) {
+func NewPTGFrameFromPTGFrame(frame referenceframe.Frame, refDist float64) (referenceframe.Frame, error) {
 	ptgFrame, ok := frame.(*ptgGroupFrame)
 	if !ok {
 		return nil, errors.New("cannot create ptg framem given frame is not a ptgGroupFrame")
 	}
+	if refDist < 0 {
+		return nil, fmt.Errorf("cannot create ptg frame, refDist %f must be >=0", refDist)
+	}
 
 	if refDist <= 0 {
-		refDist = 1000. * ptgFrame.turnRadMeters * math.Pi * 1.5
+		refDist = ptgFrame.turnRadMillimeters * math.Pi * refDistHalfCircles
+		ptgFrame.logger.Debugf("refDist was zero, calculating default %f", refDist)
 	}
 
 	// Get max angular velocity in radians per second
-	maxRPS := ptgFrame.velocityMMps / (1000. * ptgFrame.turnRadMeters)
+	maxRPS := ptgFrame.velocityMMps / ptgFrame.turnRadMillimeters
 	pf := &ptgGroupFrame{name: ptgFrame.name}
 	err := pf.initPTGs(ptgFrame.logger, ptgFrame.velocityMMps, maxRPS, refDist)
 	if err != nil {
@@ -127,6 +139,9 @@ func (pf *ptgGroupFrame) MarshalJSON() ([]byte, error) {
 
 // Inputs are: [0] index of PTG to use, [1] index of the trajectory within that PTG, and [2] distance to travel along that trajectory.
 func (pf *ptgGroupFrame) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {
+	if len(inputs) != len(pf.DoF()) {
+		return nil, referenceframe.NewIncorrectInputLengthError(len(inputs), len(pf.DoF()))
+	}
 	alpha := inputs[trajectoryAlphaWithinPTG].Value
 	dist := inputs[distanceAlongTrajectoryIndex].Value
 
@@ -172,12 +187,12 @@ func (pf *ptgGroupFrame) Geometries(inputs []referenceframe.Input) (*referencefr
 	return referenceframe.NewGeometriesInFrame(pf.name, geoms), nil
 }
 
-func (pf *ptgGroupFrame) PTGs() []tpspace.PTG {
+func (pf *ptgGroupFrame) PTGs() []PTG {
 	return pf.ptgs
 }
 
 func (pf *ptgGroupFrame) initPTGs(logger golog.Logger, maxMps, maxRPS, simDist float64) error {
-	ptgs := []tpspace.PTG{}
+	ptgs := []PTG{}
 	for _, ptg := range defaultPTGs {
 		ptgGen := ptg(maxMps, maxRPS)
 		if ptgGen != nil {

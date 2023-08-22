@@ -1,6 +1,6 @@
 //go:build !windows
 
-package motionplan
+package ik
 
 import (
 	"context"
@@ -30,7 +30,7 @@ func CreateCombinedIKSolver(model referenceframe.Frame, logger golog.Logger, nCP
 		nCPU = 1
 	}
 	for i := 1; i <= nCPU; i++ {
-		nlopt, err := CreateNloptIKSolver(model, logger, -1, goalThreshold, false)
+		nlopt, err := CreateNloptIKSolver(model, logger, -1, true)
 		nlopt.id = i
 		if err != nil {
 			return nil, err

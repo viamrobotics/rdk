@@ -6,15 +6,6 @@ import (
 	"go.viam.com/test"
 )
 
-type ptgFactory func(float64, float64) PrecomputePTG
-
-var defaultPTGs = []ptgFactory{
-	NewCirclePTG,
-	NewCCPTG,
-	NewCCSPTG,
-	NewCSPTG,
-}
-
 var (
 	defaultMMps   = 300.
 	turnRadMeters = 0.3

@@ -1,4 +1,4 @@
-package motionplan
+package ik
 
 import (
 	"math"

@@ -2,11 +2,11 @@
 package tpspace
 
 import (
-	"context"
 	"math"
 
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/motionplan/ik"
 )
 
 const floatEpsilon = 0.0001 // If floats are closer than this consider them equal
@@ -15,8 +15,9 @@ const floatEpsilon = 0.0001 // If floats are closer than this consider them equa
 // PTG coordinates are specified in polar coordinates (alpha, d)
 // One of these is needed for each sort of motion that can be done.
 type PTG interface {
-	// CToTP will return the (alpha, dist) TP-space coordinates whose corresponding relative pose minimizes the given function
-	CToTP(context.Context, func(spatialmath.Pose) float64) (*TrajNode, error)
+	// Solve will return the (alpha, dist) TP-space coordinates whose corresponding relative pose minimizes the given function
+	ik.InverseKinematics
+	PrecomputePTG
 
 	// RefDistance returns the maximum distance that a single trajectory may travel
 	RefDistance() float64
@@ -49,9 +50,6 @@ type TrajNode struct {
 	Alpha      float64          // alpha k-value at this node
 	LinVelMMPS float64          // linvel in millimeters per second at this node
 	AngVelRPS  float64          // angvel in radians per second at this node
-
-	ptX float64
-	ptY float64
 }
 
 // discretized path to alpha.
@@ -91,7 +89,7 @@ func ComputePTG(
 	// Step through each time point for this alpha
 	for math.Abs(dist) < math.Abs(refDist) {
 		t += diffT
-		nextNode, err := ComputePTGNode(simPTG, alpha, dist, t)
+		nextNode, err := computePTGNode(simPTG, alpha, dist, t)
 		if err != nil {
 			return nil, err
 		}
@@ -113,14 +111,14 @@ func ComputePTG(
 	if err != nil {
 		return nil, err
 	}
-	tNode := &TrajNode{pose, t, refDist, alpha, v, w, pose.Point().X, pose.Point().Y}
+	tNode := &TrajNode{pose, t, refDist, alpha, v, w}
 	alphaTraj = append(alphaTraj, tNode)
 	return alphaTraj, nil
 }
 
-// ComputePTGNode will return the TrajNode of the requested PTG, at the specified alpha and dist. The provided time is used
+// computePTGNode will return the TrajNode of the requested PTG, at the specified alpha and dist. The provided time is used
 // to fill in the time field.
-func ComputePTGNode(
+func computePTGNode(
 	simPTG PrecomputePTG,
 	alpha, dist, atT float64,
 ) (*TrajNode, error) {
@@ -134,5 +132,5 @@ func ComputePTGNode(
 	if err != nil {
 		return nil, err
 	}
-	return &TrajNode{pose, atT, dist, alpha, v, w, pose.Point().X, pose.Point().Y}, nil
+	return &TrajNode{pose, atT, dist, alpha, v, w}, nil
 }

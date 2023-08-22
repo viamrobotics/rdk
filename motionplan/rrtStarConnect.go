@@ -9,6 +9,7 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -170,7 +171,7 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 			return
 		}
 
-		reachedDelta := mp.planOpts.DistanceFunc(&Segment{StartConfiguration: map1reached.Q(), EndConfiguration: map2reached.Q()})
+		reachedDelta := mp.planOpts.DistanceFunc(&ik.Segment{StartConfiguration: map1reached.Q(), EndConfiguration: map2reached.Q()})
 
 		// Second iteration; extend maps 1 and 2 towards the halfway point between where they reached
 		if reachedDelta > mp.planOpts.JointSolveDist {
@@ -180,7 +181,7 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 				rrt.solutionChan <- &rrtPlanReturn{planerr: err, maps: rrt.maps}
 				return
 			}
-			reachedDelta = mp.planOpts.DistanceFunc(&Segment{StartConfiguration: map1reached.Q(), EndConfiguration: map2reached.Q()})
+			reachedDelta = mp.planOpts.DistanceFunc(&ik.Segment{StartConfiguration: map1reached.Q(), EndConfiguration: map2reached.Q()})
 		}
 
 		// Solved
@@ -236,7 +237,7 @@ func (mp *rrtStarConnectMotionPlanner) extend(
 		default:
 		}
 
-		dist := mp.planOpts.DistanceFunc(&Segment{StartConfiguration: near.Q(), EndConfiguration: target.Q()})
+		dist := mp.planOpts.DistanceFunc(&ik.Segment{StartConfiguration: near.Q(), EndConfiguration: target.Q()})
 		if dist < mp.planOpts.JointSolveDist {
 			mchan <- near
 			return
@@ -261,7 +262,7 @@ func (mp *rrtStarConnectMotionPlanner) extend(
 			}
 
 			// check to see if a shortcut is possible, and rewire the node if it is
-			connectionCost := mp.planOpts.DistanceFunc(&Segment{
+			connectionCost := mp.planOpts.DistanceFunc(&ik.Segment{
 				StartConfiguration: thisNeighbor.node.Q(),
 				EndConfiguration:   near.Q(),
 			})

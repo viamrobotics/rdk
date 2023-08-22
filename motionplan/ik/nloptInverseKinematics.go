@@ -1,6 +1,6 @@
 //go:build !windows
 
-package motionplan
+package ik
 
 import (
 	"context"
@@ -34,28 +34,27 @@ type NloptIK struct {
 	lowerBound    []float64
 	upperBound    []float64
 	maxIterations int
-	epsilon       float64
-	solveEpsilon  float64
+	epsilon  float64
 	logger        golog.Logger
 	jump          float64
 
-	// Nlopt will try to minimize a configuration for whatever is passed in. If partial is true, then the solver will emit partial
+	// Nlopt will try to minimize a configuration for whatever is passed in. If exact is false, then the solver will emit partial
 	// solutions where it was not able to meet the goal criteria but still was able to improve upon the seed.
-	partial bool
+	exact bool
 }
 
 // CreateNloptIKSolver creates an nloptIK object that can perform gradient descent on metrics for Frames. The parameters are the Frame on
 // which Transform() will be called, a logger, and the number of iterations to run. If the iteration count is less than 1, it will be set
 // to the default of 5000.
-func CreateNloptIKSolver(mdl referenceframe.Frame, logger golog.Logger, iter int, solveEpsilon float64, partial bool) (*NloptIK, error) {
+func CreateNloptIKSolver(mdl referenceframe.Frame, logger golog.Logger, iter int, exact bool) (*NloptIK, error) {
 	ik := &NloptIK{logger: logger}
 
 	ik.model = mdl
 	ik.id = 0
-	// How close we want to get to the goal
-	ik.epsilon = defaultEpsilon
+	
 	// Stop optimizing when iterations change by less than this much
-	ik.solveEpsilon = solveEpsilon
+	// Also, how close we want to get to the goal region. The metric should reflect any buffer.
+	ik.epsilon = defaultEpsilon * defaultEpsilon
 	if iter < 1 {
 		// default value
 		iter = 5000
@@ -64,7 +63,7 @@ func CreateNloptIKSolver(mdl referenceframe.Frame, logger golog.Logger, iter int
 	ik.lowerBound, ik.upperBound = limitsToArrays(mdl.DoF())
 	// How much to adjust joints to determine slope
 	ik.jump = 0.00000001
-	ik.partial = partial
+	ik.exact = exact
 
 	return ik, nil
 }
@@ -139,13 +138,13 @@ func (ik *NloptIK) Solve(ctx context.Context,
 	}
 
 	err = multierr.Combine(
-		opt.SetFtolAbs(ik.solveEpsilon),
-		opt.SetFtolRel(ik.solveEpsilon),
+		opt.SetFtolAbs(ik.epsilon),
+		opt.SetFtolRel(ik.epsilon),
 		opt.SetLowerBounds(ik.lowerBound),
-		opt.SetStopVal(ik.epsilon*ik.epsilon),
+		opt.SetStopVal(ik.epsilon),
 		opt.SetUpperBounds(ik.upperBound),
-		opt.SetXtolAbs1(ik.solveEpsilon),
-		opt.SetXtolRel(ik.solveEpsilon),
+		opt.SetXtolAbs1(ik.epsilon),
+		opt.SetXtolRel(ik.epsilon),
 		opt.SetMinObjective(nloptMinFunc),
 		opt.SetMaxEval(nloptStepsPerIter),
 	)
@@ -191,7 +190,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 			err = multierr.Combine(err, nloptErr)
 		}
 
-		if result < ik.epsilon*ik.epsilon || (solutionRaw != nil && ik.partial) {
+		if result < ik.epsilon || (solutionRaw != nil && !ik.exact) {
 			select {
 			case <-ctx.Done():
 				return err
@@ -200,7 +199,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 			solutionChan <- &IKSolution{
 				Configuration: referenceframe.FloatsToInputs(solutionRaw),
 				Score:         result,
-				Partial:       result >= ik.epsilon*ik.epsilon,
+				Exact:         result < ik.epsilon,
 			}
 			solutionsFound++
 		}

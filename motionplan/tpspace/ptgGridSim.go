@@ -4,7 +4,8 @@ import (
 	"context"
 	"math"
 
-	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/motionplan/ik"
 )
 
 const (
@@ -16,13 +17,12 @@ const (
 // ptgGridSim will take a PrecomputePTG, and simulate out a number of trajectories through some requested time/distance for speed of lookup
 // later. It will store the trajectories in a grid data structure allowing relatively fast lookups.
 type ptgGridSim struct {
+	PrecomputePTG
 	refDist  float64
 	alphaCnt uint
 
 	maxTime float64 // secs of robot execution to simulate
 	diffT   float64 // discretize trajectory simulation to this time granularity
-
-	simPTG PrecomputePTG
 
 	precomputeTraj [][]*TrajNode
 
@@ -44,9 +44,9 @@ func NewPTGGridSim(simPTG PrecomputePTG, arcs uint, simDist float64, endsOnly bo
 		diffT:    defaultDiffT,
 		endsOnly: endsOnly,
 	}
-	ptg.simPTG = simPTG
+	ptg.PrecomputePTG = simPTG
 
-	precomp, err := ptg.simulateTrajectories(ptg.simPTG)
+	precomp, err := ptg.simulateTrajectories()
 	if err != nil {
 		return nil, err
 	}
@@ -55,7 +55,13 @@ func NewPTGGridSim(simPTG PrecomputePTG, arcs uint, simDist float64, endsOnly bo
 	return ptg, nil
 }
 
-func (ptg *ptgGridSim) CToTP(ctx context.Context, distFunc func(spatialmath.Pose) float64) (*TrajNode, error) {
+func (ptg *ptgGridSim) Solve(
+	ctx context.Context,
+	solutionChan chan<- *ik.IKSolution,
+	seed []referenceframe.Input,
+	solveMetric ik.StateMetric,
+	rseed int,
+) error {
 	// Try to find a closest point to the paths:
 	bestDist := math.Inf(1)
 	var bestNode *TrajNode
@@ -64,7 +70,7 @@ func (ptg *ptgGridSim) CToTP(ctx context.Context, distFunc func(spatialmath.Pose
 		for k := 0; k < int(ptg.alphaCnt); k++ {
 			nMax := len(ptg.precomputeTraj[k]) - 1
 			for n := 0; n <= nMax; n++ {
-				distToPoint := distFunc(ptg.precomputeTraj[k][n].Pose)
+				distToPoint := solveMetric(&ik.State{Position: ptg.precomputeTraj[k][n].Pose})
 				if distToPoint < bestDist {
 					bestDist = distToPoint
 
@@ -74,7 +80,12 @@ func (ptg *ptgGridSim) CToTP(ctx context.Context, distFunc func(spatialmath.Pose
 		}
 
 		if bestNode != nil {
-			return bestNode, nil
+			solutionChan <- &ik.IKSolution{
+				Configuration: []referenceframe.Input{{bestNode.Alpha}, {bestNode.Dist}},
+				Score: bestDist,
+				Exact: false,
+			}
+			return nil
 		}
 	}
 
@@ -83,7 +94,7 @@ func (ptg *ptgGridSim) CToTP(ctx context.Context, distFunc func(spatialmath.Pose
 	//  which can be normalized by "1/refDistance" to get TP-Space distances.
 	for k := 0; k < int(ptg.alphaCnt); k++ {
 		n := len(ptg.precomputeTraj[k]) - 1
-		distToPoint := distFunc(ptg.precomputeTraj[k][n].Pose)
+		distToPoint := solveMetric(&ik.State{Position: ptg.precomputeTraj[k][n].Pose})
 
 		if distToPoint < bestDist {
 			bestDist = distToPoint
@@ -91,7 +102,12 @@ func (ptg *ptgGridSim) CToTP(ctx context.Context, distFunc func(spatialmath.Pose
 		}
 	}
 
-	return bestNode, nil
+	solutionChan <- &ik.IKSolution{
+		Configuration: []referenceframe.Input{{bestNode.Alpha}, {bestNode.Dist}},
+		Score: bestDist,
+		Exact: false,
+	}
+	return nil
 }
 
 func (ptg *ptgGridSim) RefDistance() float64 {
@@ -99,17 +115,17 @@ func (ptg *ptgGridSim) RefDistance() float64 {
 }
 
 func (ptg *ptgGridSim) Trajectory(alpha, dist float64) ([]*TrajNode, error) {
-	return ComputePTG(ptg.simPTG, alpha, dist, defaultDiffT)
+	return ComputePTG(ptg, alpha, dist, defaultDiffT)
 }
 
-func (ptg *ptgGridSim) simulateTrajectories(simPTG PrecomputePTG) ([][]*TrajNode, error) {
+func (ptg *ptgGridSim) simulateTrajectories() ([][]*TrajNode, error) {
 	// C-space path structure
 	allTraj := make([][]*TrajNode, 0, ptg.alphaCnt)
 
 	for k := uint(0); k < ptg.alphaCnt; k++ {
 		alpha := index2alpha(k, ptg.alphaCnt)
 
-		alphaTraj, err := ComputePTG(simPTG, alpha, ptg.refDist, ptg.diffT)
+		alphaTraj, err := ComputePTG(ptg, alpha, ptg.refDist, ptg.diffT)
 		if err != nil {
 			return nil, err
 		}

@@ -14,6 +14,7 @@ import (
 	pb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
@@ -446,7 +447,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 
 	// Start with normal options
 	opt := newBasicPlannerOptions(pm.frame)
-	opt.SetGoalMetric(NewSquaredNormMetric(to))
+	opt.SetGoalMetric(ik.NewSquaredNormMetric(to))
 
 	opt.extra = planningOpts
 
@@ -516,7 +517,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		// overwrite default with TP space
 		opt.PlannerConstructor = newTPSpaceMotionPlanner
 		// Distances are computed in cartesian space rather than configuration space
-		opt.DistanceFunc = NewSquaredNormSegmentMetricWithScaling(defaultTPspaceOrientationScale)
+		opt.DistanceFunc = ik.NewSquaredNormSegmentMetric(defaultTPspaceOrientationScale)
 
 		planAlg = "tpspace"
 	}
@@ -556,7 +557,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		opt.AddStateConstraint(defaultOrientationConstraintDesc, constraint)
 		opt.pathMetric = pathMetric
 	case PositionOnlyMotionProfile:
-		opt.SetGoalMetric(NewPositionOnlyMetric(to))
+		opt.SetGoalMetric(ik.NewPositionOnlyMetric(to))
 	case FreeMotionProfile:
 		// No restrictions on motion
 		fallthrough

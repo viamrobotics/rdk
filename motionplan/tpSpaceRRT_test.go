@@ -12,6 +12,7 @@ import (
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
@@ -30,7 +31,7 @@ func TestPtgRrt(t *testing.T) {
 
 	ctx := context.Background()
 
-	ackermanFrame, err := NewPTGFrameFromTurningRadius(
+	ackermanFrame, err := tpspace.NewPTGFrameFromTurningRadius(
 		"ackframe",
 		logger,
 		300.,
@@ -43,7 +44,7 @@ func TestPtgRrt(t *testing.T) {
 	goalPos := spatialmath.NewPose(r3.Vector{X: 200, Y: 7000, Z: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 90})
 
 	opt := newBasicPlannerOptions(ackermanFrame)
-	opt.DistanceFunc = NewSquaredNormSegmentMetricWithScaling(30.)
+	opt.DistanceFunc = ik.NewSquaredNormSegmentMetric(30.)
 	mp, err := newTPSpaceMotionPlanner(ackermanFrame, rand.New(rand.NewSource(42)), logger, opt)
 	test.That(t, err, test.ShouldBeNil)
 	tp, ok := mp.(*tpSpaceRRTMotionPlanner)
@@ -103,7 +104,7 @@ func TestPtgWithObstacle(t *testing.T) {
 	roverGeom, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{10, 10, 10}, "")
 	test.That(t, err, test.ShouldBeNil)
 	geometries := []spatialmath.Geometry{roverGeom}
-	ackermanFrame, err := NewPTGFrameFromTurningRadius(
+	ackermanFrame, err := tpspace.NewPTGFrameFromTurningRadius(
 		"ackframe",
 		logger,
 		300.,
@@ -121,7 +122,7 @@ func TestPtgWithObstacle(t *testing.T) {
 	fs.AddFrame(ackermanFrame, fs.World())
 
 	opt := newBasicPlannerOptions(ackermanFrame)
-	opt.DistanceFunc = NewSquaredNormSegmentMetricWithScaling(30.)
+	opt.DistanceFunc = ik.NewSquaredNormSegmentMetric(30.)
 	opt.GoalThreshold = 5
 	// obstacles
 	obstacle1, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{3300, -500, 0}), r3.Vector{180, 1800, 1}, "")
@@ -217,7 +218,7 @@ func TestIKPtgRrt(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	geometries := []spatialmath.Geometry{roverGeom}
 
-	ackermanFrame, err := NewPTGFrameFromTurningRadius(
+	ackermanFrame, err := tpspace.NewPTGFrameFromTurningRadius(
 		"ackframe",
 		logger,
 		300.,
@@ -230,8 +231,8 @@ func TestIKPtgRrt(t *testing.T) {
 	goalPos := spatialmath.NewPose(r3.Vector{X: 50, Y: 10, Z: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 180})
 
 	opt := newBasicPlannerOptions(ackermanFrame)
-	opt.SetGoalMetric(NewPositionOnlyMetric(goalPos))
-	opt.DistanceFunc = SquaredNormNoOrientSegmentMetric
+	opt.SetGoalMetric(ik.NewPositionOnlyMetric(goalPos))
+	opt.DistanceFunc = ik.SquaredNormNoOrientSegmentMetric
 	opt.GoalThreshold = 10.
 	mp, err := newTPSpaceMotionPlanner(ackermanFrame, rand.New(rand.NewSource(42)), logger, opt)
 	test.That(t, err, test.ShouldBeNil)
@@ -253,7 +254,7 @@ func TestTPsmoothing(t *testing.T) {
 
 	ctx := context.Background()
 
-	ackermanFrame, err := NewPTGFrameFromTurningRadius(
+	ackermanFrame, err := tpspace.NewPTGFrameFromTurningRadius(
 		"ackframe",
 		logger,
 		300.,
@@ -264,7 +265,7 @@ func TestTPsmoothing(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	opt := newBasicPlannerOptions(ackermanFrame)
-	opt.DistanceFunc = NewSquaredNormSegmentMetricWithScaling(30.)
+	opt.DistanceFunc = ik.NewSquaredNormSegmentMetric(30.)
 	mp, err := newTPSpaceMotionPlanner(ackermanFrame, rand.New(rand.NewSource(42)), logger, opt)
 	test.That(t, err, test.ShouldBeNil)
 	tp, _ := mp.(*tpSpaceRRTMotionPlanner)

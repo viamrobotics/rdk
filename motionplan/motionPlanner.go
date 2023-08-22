@@ -13,6 +13,7 @@ import (
 	pb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/motionplan/ik"
 	frame "go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -144,7 +145,7 @@ func motionPlanInternal(ctx context.Context,
 }
 
 type planner struct {
-	solver   InverseKinematics
+	solver   ik.InverseKinematics
 	frame    frame.Frame
 	logger   golog.Logger
 	randseed *rand.Rand
@@ -153,12 +154,12 @@ type planner struct {
 }
 
 func newPlanner(frame frame.Frame, seed *rand.Rand, logger golog.Logger, opt *plannerOptions) (*planner, error) {
-	ik, err := CreateCombinedIKSolver(frame, logger, opt.NumThreads, opt.GoalThreshold)
+	solver, err := ik.CreateCombinedIKSolver(frame, logger, opt.NumThreads, opt.GoalThreshold)
 	if err != nil {
 		return nil, err
 	}
 	mp := &planner{
-		solver:   ik,
+		solver:   solver,
 		frame:    frame,
 		logger:   logger,
 		randseed: seed,
@@ -168,7 +169,7 @@ func newPlanner(frame frame.Frame, seed *rand.Rand, logger golog.Logger, opt *pl
 }
 
 func (mp *planner) checkInputs(inputs []frame.Input) bool {
-	ok, _ := mp.planOpts.CheckStateConstraints(&State{
+	ok, _ := mp.planOpts.CheckStateConstraints(&ik.State{
 		Configuration: inputs,
 		Frame:         mp.frame,
 	})
@@ -177,7 +178,7 @@ func (mp *planner) checkInputs(inputs []frame.Input) bool {
 
 func (mp *planner) checkPath(seedInputs, target []frame.Input) bool {
 	ok, _ := mp.planOpts.CheckSegmentAndStateValidity(
-		&Segment{
+		&ik.Segment{
 			StartConfiguration: seedInputs,
 			EndConfiguration:   target,
 			Frame:              mp.frame,
@@ -266,7 +267,7 @@ func (mp *planner) getSolutions(ctx context.Context, seed []frame.Input) ([]node
 	ctxWithCancel, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	solutionGen := make(chan *IKSolution, mp.planOpts.NumThreads)
+	solutionGen := make(chan *ik.IKSolution, mp.planOpts.NumThreads)
 	ikErr := make(chan error, 1)
 	var activeSolvers sync.WaitGroup
 	defer activeSolvers.Wait()
@@ -297,12 +298,12 @@ IK:
 		case stepSolution := <-solutionGen:
 			step := stepSolution.Configuration
 			// Ensure the end state is a valid one
-			statePass, failName := mp.planOpts.CheckStateConstraints(&State{
+			statePass, failName := mp.planOpts.CheckStateConstraints(&ik.State{
 				Configuration: step,
 				Frame:         mp.frame,
 			})
 			if statePass {
-				stepArc := &Segment{
+				stepArc := &ik.Segment{
 					StartConfiguration: seed,
 					StartPosition:      seedPos,
 					EndConfiguration:   step,

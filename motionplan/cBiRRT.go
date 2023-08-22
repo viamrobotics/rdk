@@ -13,6 +13,7 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -55,7 +56,7 @@ func newCbirrtOptions(planOpts *plannerOptions) (*cbirrtOptions, error) {
 // https://ieeexplore.ieee.org/document/5152399/
 type cBiRRTMotionPlanner struct {
 	*planner
-	fastGradDescent *NloptIK
+	fastGradDescent *ik.NloptIK
 	algOpts         *cbirrtOptions
 }
 
@@ -74,7 +75,7 @@ func newCBiRRTMotionPlanner(
 		return nil, err
 	}
 	// nlopt should try only once
-	nlopt, err := CreateNloptIKSolver(frame, logger, 1, opt.GoalThreshold, false)
+	nlopt, err := ik.CreateNloptIKSolver(frame, logger, 1, true)
 	if err != nil {
 		return nil, err
 	}
@@ -206,7 +207,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 			return
 		}
 
-		reachedDelta := mp.planOpts.DistanceFunc(&Segment{StartConfiguration: map1reached.Q(), EndConfiguration: map2reached.Q()})
+		reachedDelta := mp.planOpts.DistanceFunc(&ik.Segment{StartConfiguration: map1reached.Q(), EndConfiguration: map2reached.Q()})
 
 		// Second iteration; extend maps 1 and 2 towards the halfway point between where they reached
 		if reachedDelta > mp.planOpts.JointSolveDist {
@@ -216,7 +217,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 				rrt.solutionChan <- &rrtPlanReturn{planerr: err, maps: rrt.maps}
 				return
 			}
-			reachedDelta = mp.planOpts.DistanceFunc(&Segment{StartConfiguration: map1reached.Q(), EndConfiguration: map2reached.Q()})
+			reachedDelta = mp.planOpts.DistanceFunc(&ik.Segment{StartConfiguration: map1reached.Q(), EndConfiguration: map2reached.Q()})
 		}
 
 		// Solved!
@@ -268,8 +269,8 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 		default:
 		}
 
-		dist := mp.planOpts.DistanceFunc(&Segment{StartConfiguration: near.Q(), EndConfiguration: target.Q()})
-		oldDist := mp.planOpts.DistanceFunc(&Segment{StartConfiguration: oldNear.Q(), EndConfiguration: target.Q()})
+		dist := mp.planOpts.DistanceFunc(&ik.Segment{StartConfiguration: near.Q(), EndConfiguration: target.Q()})
+		oldDist := mp.planOpts.DistanceFunc(&ik.Segment{StartConfiguration: oldNear.Q(), EndConfiguration: target.Q()})
 		switch {
 		case dist < mp.planOpts.JointSolveDist:
 			mchan <- near
@@ -286,7 +287,7 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 		newNear = mp.constrainNear(ctx, randseed, oldNear.Q(), newNear)
 
 		if newNear != nil {
-			nearDist := mp.planOpts.DistanceFunc(&Segment{StartConfiguration: oldNear.Q(), EndConfiguration: newNear})
+			nearDist := mp.planOpts.DistanceFunc(&ik.Segment{StartConfiguration: oldNear.Q(), EndConfiguration: newNear})
 			if nearDist < math.Pow(mp.planOpts.JointSolveDist, 3) {
 				if !doubled {
 					doubled = true
@@ -343,7 +344,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 			return nil
 		}
 
-		newArc := &Segment{
+		newArc := &ik.Segment{
 			StartPosition:      seedPos,
 			EndPosition:        goalPos,
 			StartConfiguration: seedInputs,
@@ -356,11 +357,11 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 		if ok {
 			return target
 		}
-		solutionGen := make(chan *IKSolution, 1)
+		solutionGen := make(chan *ik.IKSolution, 1)
 		// Spawn the IK solver to generate solutions until done
 		err = mp.fastGradDescent.Solve(ctx, solutionGen, target, mp.planOpts.pathMetric, randseed.Int())
 		// We should have zero or one solutions
-		var solved *IKSolution
+		var solved *ik.IKSolution
 		select {
 		case solved = <-solutionGen:
 		default:
@@ -371,14 +372,14 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 		}
 
 		ok, failpos := mp.planOpts.CheckSegmentAndStateValidity(
-			&Segment{StartConfiguration: seedInputs, EndConfiguration: solved.Configuration, Frame: mp.frame},
+			&ik.Segment{StartConfiguration: seedInputs, EndConfiguration: solved.Configuration, Frame: mp.frame},
 			mp.planOpts.Resolution,
 		)
 		if ok {
 			return solved.Configuration
 		}
 		if failpos != nil {
-			dist := mp.planOpts.DistanceFunc(&Segment{StartConfiguration: target, EndConfiguration: failpos.EndConfiguration})
+			dist := mp.planOpts.DistanceFunc(&ik.Segment{StartConfiguration: target, EndConfiguration: failpos.EndConfiguration})
 			if dist > mp.planOpts.JointSolveDist {
 				// If we have a first failing position, and that target is updating (no infinite loop), then recurse
 				seedInputs = failpos.StartConfiguration
@@ -439,7 +440,7 @@ func (mp *cBiRRTMotionPlanner) smoothPath(
 			// Note this could technically replace paths with "longer" paths i.e. with more waypoints.
 			// However, smoothed paths are invariably more intuitive and smooth, and lend themselves to future shortening,
 			// so we allow elongation here.
-			dist := mp.planOpts.DistanceFunc(&Segment{StartConfiguration: inputSteps[i].Q(), EndConfiguration: reached.Q()})
+			dist := mp.planOpts.DistanceFunc(&ik.Segment{StartConfiguration: inputSteps[i].Q(), EndConfiguration: reached.Q()})
 			if dist < mp.planOpts.JointSolveDist {
 				for _, hitCorner := range hitCorners {
 					hitCorner.SetCorner(false)

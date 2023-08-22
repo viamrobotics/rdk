@@ -1,9 +1,17 @@
-package motionplan
+package ik
 
 import (
 	"context"
 
 	"go.viam.com/rdk/referenceframe"
+)
+
+const (
+	// Default distance below which two distances are considered equal.
+	defaultEpsilon = 0.001
+
+	// default amount of closeness to get to the goal.
+	defaultGoalThreshold = defaultEpsilon * defaultEpsilon
 )
 
 // InverseKinematics defines an interface which, provided with seed inputs and a Metric to minimize to zero, will output all found
@@ -18,7 +26,7 @@ type InverseKinematics interface {
 type IKSolution struct {
 	Configuration []referenceframe.Input
 	Score         float64
-	Partial       bool
+	Exact         bool
 }
 
 func limitsToArrays(limits []referenceframe.Limit) ([]float64, []float64) {
