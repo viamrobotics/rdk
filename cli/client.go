@@ -72,7 +72,7 @@ func (c *viamClient) listOrganizationsAction(cCtx *cli.Context) error {
 	}
 	for i, org := range orgs {
 		if i == 0 {
-			fmt.Fprintf(cCtx.App.Writer, "organizations for %q:\n", c.conf.Auth.User.Email)
+			fmt.Fprintf(cCtx.App.Writer, "organizations for %q:\n", c.conf.Auth.prettyPrint())
 		}
 		fmt.Fprintf(cCtx.App.Writer, "\t%s (id: %s)\n", org.Name, org.Id)
 	}
@@ -103,7 +103,7 @@ func ListLocationsAction(c *cli.Context) error {
 		}
 		for i, org := range orgs {
 			if i == 0 {
-				fmt.Fprintf(c.App.Writer, "locations for %q:\n", client.conf.Auth.User.Email)
+				fmt.Fprintf(c.App.Writer, "locations for %q:\n", client.conf.Auth.prettyPrint())
 			}
 			fmt.Fprintf(c.App.Writer, "%s:\n", org.Name)
 			if err := listLocations(org.Id); err != nil {

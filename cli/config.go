@@ -18,9 +18,20 @@ func configFromCache() (*config, error) {
 		return nil, err
 	}
 	var conf config
+
+	conf.Auth = &token{}
 	if err := json.Unmarshal(rd, &conf); err != nil {
 		return nil, err
 	}
+	if conf.Auth.prettyPrint() != "" {
+		return &conf, nil
+	}
+
+	conf.Auth = &apiKey{}
+	if err := json.Unmarshal(rd, &conf); err != nil {
+		return nil, err
+	}
+
 
 	return &conf, nil
 }
@@ -42,5 +53,5 @@ func storeConfigToCache(cfg *config) error {
 }
 
 type config struct {
-	Auth *token `json:"auth"`
+	Auth authMethod `json:"auth"`
 }
