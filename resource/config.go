@@ -180,7 +180,7 @@ func (conf Config) Equals(other Config) bool {
 	case !reflect.DeepEqual(conf.AssociatedResourceConfigs, other.AssociatedResourceConfigs):
 		return false
 	case !reflect.DeepEqual(conf.Attributes, other.Attributes):
-		// Only one of `Attributes` or `DiffingAttributes` should be in populated.
+		// Only one of `Attributes` or `DiffingAttributes` should be populated.
 		return false
 	case !reflect.DeepEqual(conf.DiffingAttributes, other.DiffingAttributes):
 		return false
