@@ -20,10 +20,13 @@ import (
 )
 
 const (
-	leftMotorName  = "left"
-	rightMotorName = "right"
-	baseName       = "base"
-	testSensorName = "name"
+	leftMotorName     = "left"
+	rightMotorName    = "right"
+	baseName          = "base"
+	testSensorName    = "name"
+	newLeftMotorName  = "new_left"
+	newRightMotorName = "new_right"
+	newBaseName       = "new_base"
 )
 
 type positions struct {
@@ -68,13 +71,16 @@ func createFakeMotor(dir bool) motor.Motor {
 			position.rightPos = 0
 			return nil
 		},
+		StopFunc: func(ctx context.Context, extra map[string]interface{}) error {
+			return nil
+		},
 	}
 }
 
-func createFakeBase() base.Base {
+func createFakeBase(circ, width, rad float64) base.Base {
 	return &inject.Base{
 		PropertiesFunc: func(ctx context.Context, extra map[string]interface{}) (base.Properties, error) {
-			return base.Properties{WheelCircumferenceMeters: 0.2, WidthMeters: 0.2, TurningRadiusMeters: 0}, nil
+			return base.Properties{WheelCircumferenceMeters: circ, WidthMeters: width, TurningRadiusMeters: rad}, nil
 		},
 	}
 }
@@ -91,7 +97,7 @@ func TestNewWheeledOdometry(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
 	deps := make(resource.Dependencies)
-	deps[base.Named(baseName)] = createFakeBase()
+	deps[base.Named(baseName)] = createFakeBase(0.1, 0.1, 0)
 	deps[motor.Named(leftMotorName)] = createFakeMotor(true)
 	deps[motor.Named(rightMotorName)] = createFakeMotor(false)
 
@@ -108,6 +114,51 @@ func TestNewWheeledOdometry(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	_, ok := fakeSensor.(*odometry)
 	test.That(t, ok, test.ShouldBeTrue)
+}
+
+func TestReconfigure(t *testing.T) {
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+
+	deps := make(resource.Dependencies)
+	deps[base.Named(baseName)] = createFakeBase(0.1, 0.1, 0)
+	deps[motor.Named(leftMotorName)] = createFakeMotor(true)
+	deps[motor.Named(rightMotorName)] = createFakeMotor(false)
+
+	fakecfg := resource.Config{
+		Name: testSensorName,
+		ConvertedAttributes: &Config{
+			LeftMotors:        []string{leftMotorName},
+			RightMotors:       []string{rightMotorName},
+			Base:              baseName,
+			TimeIntervalMSecs: 500,
+		},
+	}
+	fakeSensor, err := newWheeledOdometry(ctx, deps, fakecfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	od, ok := fakeSensor.(*odometry)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	newDeps := make(resource.Dependencies)
+	newDeps[base.Named(newBaseName)] = createFakeBase(0.2, 0.2, 0)
+	newDeps[motor.Named(newLeftMotorName)] = createFakeMotor(true)
+	newDeps[motor.Named(newRightMotorName)] = createFakeMotor(false)
+
+	newconf := resource.Config{
+		Name: testSensorName,
+		ConvertedAttributes: &Config{
+			LeftMotors:        []string{newLeftMotorName},
+			RightMotors:       []string{newRightMotorName},
+			Base:              newBaseName,
+			TimeIntervalMSecs: 300,
+		},
+	}
+
+	err = fakeSensor.Reconfigure(ctx, newDeps, newconf)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, od.timeIntervalMSecs, test.ShouldEqual, 300)
+	test.That(t, od.baseWidth, test.ShouldEqual, 0.2)
+	test.That(t, od.wheelCircumference, test.ShouldEqual, 0.2)
 }
 
 func TestValidateConfig(t *testing.T) {
