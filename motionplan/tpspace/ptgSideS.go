@@ -14,8 +14,8 @@ const defaultCountersteer = 1.5
 type ptgDiffDriveSideS struct {
 	maxMMPS      float64 // millimeters per second velocity to target
 	maxRPS       float64 // radians per second of rotation when driving at maxMMPS and turning at max turning radius
-	r            float64
-	countersteer float64
+	r            float64 // turning radius
+	countersteer float64 // scale the length of the second arc by this much
 	circle       *ptgDiffDriveC
 }
 

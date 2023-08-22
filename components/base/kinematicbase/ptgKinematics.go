@@ -14,7 +14,6 @@ import (
 	utils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/base"
-	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
 	rdkutils "go.viam.com/rdk/utils"
@@ -75,7 +74,7 @@ func wrapWithPTGKinematics(
 		return nil, err
 	}
 
-	frame, err := motionplan.NewPTGFrameFromTurningRadius(
+	frame, err := tpspace.NewPTGFrameFromTurningRadius(
 		b.Name().ShortName(),
 		logger,
 		baseMillimetersPerSecond,

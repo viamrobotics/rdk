@@ -133,7 +133,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 		rrt.maps = planSeed.maps
 	}
 	mp.logger.Infof("goal node: %v\n", rrt.maps.optNode.Q())
-	target := referenceframe.InterpolateInputs(seed, rrt.maps.optNode.Q(), 0.5)
+	target := newConfigurationNode(referenceframe.InterpolateInputs(seed, rrt.maps.optNode.Q(), 0.5))
 
 	map1, map2 := rrt.maps.startMap, rrt.maps.goalMap
 
@@ -164,13 +164,13 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 		default:
 		}
 
-		tryExtend := func(target []referenceframe.Input) (node, node, error) {
+		tryExtend := func(target node) (node, node, error) {
 			// attempt to extend maps 1 and 2 towards the target
 			utils.PanicCapturingGo(func() {
-				m1chan <- nm1.nearestNeighbor(nmContext, mp.planOpts, newConfigurationNode(target), map1)
+				m1chan <- nm1.nearestNeighbor(nmContext, mp.planOpts, target, map1)
 			})
 			utils.PanicCapturingGo(func() {
-				m2chan <- nm2.nearestNeighbor(nmContext, mp.planOpts, newConfigurationNode(target), map2)
+				m2chan <- nm2.nearestNeighbor(nmContext, mp.planOpts, target, map2)
 			})
 			nearest1 := <-m1chan
 			nearest2 := <-m2chan
@@ -187,10 +187,10 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 			rseed2 := rand.New(rand.NewSource(int64(mp.randseed.Int())))
 
 			utils.PanicCapturingGo(func() {
-				mp.constrainedExtend(ctx, rseed1, map1, nearest1, newConfigurationNode(target), m1chan)
+				mp.constrainedExtend(ctx, rseed1, map1, nearest1, target, m1chan)
 			})
 			utils.PanicCapturingGo(func() {
-				mp.constrainedExtend(ctx, rseed2, map2, nearest2, newConfigurationNode(target), m2chan)
+				mp.constrainedExtend(ctx, rseed2, map2, nearest2, target, m2chan)
 			})
 			map1reached := <-m1chan
 			map2reached := <-m2chan
@@ -211,7 +211,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 
 		// Second iteration; extend maps 1 and 2 towards the halfway point between where they reached
 		if reachedDelta > mp.planOpts.JointSolveDist {
-			target = referenceframe.InterpolateInputs(map1reached.Q(), map2reached.Q(), 0.5)
+			target = newConfigurationNode(referenceframe.InterpolateInputs(map1reached.Q(), map2reached.Q(), 0.5))
 			map1reached, map2reached, err = tryExtend(target)
 			if err != nil {
 				rrt.solutionChan <- &rrtPlanReturn{planerr: err, maps: rrt.maps}
@@ -357,11 +357,11 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 		if ok {
 			return target
 		}
-		solutionGen := make(chan *ik.IKSolution, 1)
+		solutionGen := make(chan *ik.Solution, 1)
 		// Spawn the IK solver to generate solutions until done
 		err = mp.fastGradDescent.Solve(ctx, solutionGen, target, mp.planOpts.pathMetric, randseed.Int())
 		// We should have zero or one solutions
-		var solved *ik.IKSolution
+		var solved *ik.Solution
 		select {
 		case solved = <-solutionGen:
 		default:

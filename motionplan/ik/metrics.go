@@ -67,7 +67,7 @@ func OrientDist(o1, o2 spatial.Orientation) float64 {
 	return utils.RadToDeg(spatial.QuatToR4AA(spatial.OrientationBetween(o1, o2).Quaternion()).Theta)
 }
 
-// orientDistToRegion will return a function which will tell you how far the unit sphere component of an orientation
+// OrientDistToRegion will return a function which will tell you how far the unit sphere component of an orientation
 // vector is from a region defined by a point and an arclength around it. The theta value of OV is disregarded.
 // This is useful, for example, in defining the set of acceptable angles of attack for writing on a whiteboard.
 func OrientDistToRegion(goal spatial.Orientation, alpha float64) func(spatial.Orientation) float64 {

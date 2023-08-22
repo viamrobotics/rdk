@@ -35,7 +35,7 @@ func NewPTGIK(simPTG PrecomputePTG, logger golog.Logger, refDist float64, randSe
 	if refDist <= 0 {
 		return nil, errors.New("refDist must be greater than zero")
 	}
-	
+
 	ptgFrame, err := NewPTGIKFrame(simPTG, refDist)
 	if err != nil {
 		return nil, err
@@ -66,19 +66,19 @@ func NewPTGIK(simPTG PrecomputePTG, logger golog.Logger, refDist float64, randSe
 
 func (ptg *ptgIK) Solve(
 	ctx context.Context,
-	solutionChan chan<- *ik.IKSolution,
+	solutionChan chan<- *ik.Solution,
 	seed []referenceframe.Input,
 	solveMetric ik.StateMetric,
 	nloptSeed int,
 ) error {
-	internalSolutionGen := make(chan *ik.IKSolution, 1)
+	internalSolutionGen := make(chan *ik.Solution, 1)
 	defer close(internalSolutionGen)
-	var solved *ik.IKSolution
-	
+	var solved *ik.Solution
+
 	// Spawn the IK solver to generate a solution
 	err := ptg.fastGradDescent.Solve(ctx, internalSolutionGen, seed, solveMetric, nloptSeed)
 	// We should have zero or one solutions
-	
+
 	select {
 	case solved = <-internalSolutionGen:
 	default:
@@ -92,7 +92,7 @@ func (ptg *ptgIK) Solve(
 		// nlopt returned something but was unable to complete the solve. See if the grid check produces something better.
 		err = ptg.gridSim.Solve(ctx, internalSolutionGen, seed, solveMetric, nloptSeed)
 		if err == nil {
-			var gridSolved *ik.IKSolution
+			var gridSolved *ik.Solution
 			select {
 			case gridSolved = <-internalSolutionGen:
 			default:
@@ -120,7 +120,7 @@ func (ptg *ptgIK) Trajectory(alpha, dist float64) ([]*TrajNode, error) {
 	ptg.mu.RUnlock()
 	if precomp != nil {
 		if precomp[len(precomp)-1].Dist >= dist {
-			// Cacheing here provides a ~33% speedup to a solve call
+			// Caching here provides a ~33% speedup to a solve call
 			subTraj := []*TrajNode{}
 			for _, wp := range precomp {
 				if wp.Dist < dist {

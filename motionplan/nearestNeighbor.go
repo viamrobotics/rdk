@@ -6,6 +6,7 @@ import (
 	"sort"
 
 	"go.viam.com/utils"
+
 	"go.viam.com/rdk/motionplan/ik"
 )
 

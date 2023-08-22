@@ -41,6 +41,8 @@ const (
 	// When extending the RRT tree towards some point, do not extend more than this many times in a single RRT invocation.
 	defaultMaxReseeds = 50
 
+	// For whatever `refDist` is used for the generation of the original path, scale that by this amount when smoothing.
+	// This can help to find paths.
 	defaultSmoothScaleFactor = 0.5
 
 	// Make an attempt to solve the tree every this many iterations
@@ -73,7 +75,7 @@ type tpspaceOptions struct {
 
 	// Print very fine-grained debug info. Useful for observing the inner RRT tree structure directly
 	pathdebug bool
-	
+
 	// random value to seed the IK solver. Can be anything in the middle of the valid manifold.
 	ikSeed []referenceframe.Input
 
@@ -99,7 +101,7 @@ type nodeAndError struct {
 // tpSpaceRRTMotionPlanner.
 type tpSpaceRRTMotionPlanner struct {
 	*planner
-	mu sync.Mutex
+	mu      sync.Mutex
 	algOpts *tpspaceOptions
 	tpFrame tpspace.PTGProvider
 }
@@ -129,9 +131,9 @@ func newTPSpaceMotionPlanner(
 		tpFrame: tpFrame,
 	}
 	tpPlanner.setupTPSpaceOptions()
-	
+
 	tpPlanner.algOpts.ikSeed = []referenceframe.Input{{math.Pi / 2}, {tpFrame.PTGs()[0].RefDistance() / 2}}
-	
+
 	return tpPlanner, nil
 }
 
@@ -203,39 +205,21 @@ func (mp *tpSpaceRRTMotionPlanner) planRunner(
 		}
 	}
 
-	bidirectional := true
-
 	m1chan := make(chan *nodeAndError, 1)
 	m2chan := make(chan *nodeAndError, 1)
 	defer close(m1chan)
 	defer close(m2chan)
 
 	dist := math.Sqrt(mp.planOpts.DistanceFunc(&ik.Segment{StartPosition: startPose, EndPosition: goalPose}))
-	midPt := spatialmath.Interpolate(startPose, goalPose, 0.5) // used for initial seed
+	midptNode := &basicNode{pose: spatialmath.Interpolate(startPose, goalPose, 0.5), cost: dist} // used for initial seed
+	var randPosNode node = midptNode
 
-	var randPos spatialmath.Pose
 	for iter := 0; iter < mp.planOpts.PlanIter; iter++ {
 		if ctx.Err() != nil {
 			mp.logger.Debugf("TP Space RRT timed out after %d iterations", iter)
 			rrt.solutionChan <- &rrtPlanReturn{planerr: fmt.Errorf("TP Space RRT timeout %w", ctx.Err()), maps: rrt.maps}
 			return
 		}
-		// Get random cartesian configuration
-		rDist := dist * (mp.algOpts.autoBB + float64(iter)/10.)
-		randPosX := float64(mp.randseed.Intn(int(rDist)))
-		randPosY := float64(mp.randseed.Intn(int(rDist)))
-		randPosTheta := math.Pi * (mp.randseed.Float64() - 0.5)
-		randPos = spatialmath.NewPose(
-			r3.Vector{midPt.Point().X + (randPosX - rDist/2.), midPt.Point().Y + (randPosY - rDist/2.), 0},
-			&spatialmath.OrientationVector{OZ: 1, Theta: randPosTheta},
-		)
-		if iter == 0 {
-			randPos = midPt
-		}
-		if !bidirectional && iter%mp.algOpts.attemptSolveEvery == 0 {
-			randPos = goalPose
-		}
-		randPosNode := &basicNode{pose: randPos}
 
 		utils.PanicCapturingGo(func() {
 			m1chan <- mp.attemptExtension(ctx, randPosNode, rrt.maps.startMap, false)
@@ -280,6 +264,7 @@ func (mp *tpSpaceRRTMotionPlanner) planRunner(
 			}
 		}
 		if iter%mp.algOpts.attemptSolveEvery == 0 {
+			// Attempt a solve; we exhaustively iterate through our goal tree and attempt to find any connection to the seed tree
 			paths := [][]node{}
 			for goalMapNode := range rrt.maps.goalMap {
 				seedReached := mp.attemptExtension(ctx, goalMapNode, rrt.maps.startMap, false)
@@ -315,6 +300,13 @@ func (mp *tpSpaceRRTMotionPlanner) planRunner(
 				rrt.solutionChan <- &rrtPlanReturn{steps: correctedPath, maps: rrt.maps}
 				return
 			}
+		}
+
+		// Get random cartesian configuration
+		randPosNode, err = mp.sample(midptNode, iter+1)
+		if err != nil {
+			rrt.solutionChan <- &rrtPlanReturn{planerr: err, maps: rrt.maps}
+			return
 		}
 	}
 	rrt.solutionChan <- &rrtPlanReturn{maps: rrt.maps, planerr: errors.New("tpspace RRT unable to create valid path")}
@@ -352,20 +344,6 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 	// then dynamically expanding or contracting the limits of IK to be some fraction of that distance.
 
 	// Get cartesian distance from NN to rand
-	//~ var targetFunc func(spatialmath.Pose) float64
-	//~ if invert {
-		//~ sqMet := ik.NewSquaredNormMetric(randPosNode.Pose())
-		//~ targetFunc = func(pose spatialmath.Pose) float64 {
-			//~ return sqMet(&ik.State{Position: spatialmath.Compose(nearest.Pose(), spatialmath.PoseInverse(pose))})
-		//~ }
-	//~ } else {
-		//~ relPose := spatialmath.Compose(spatialmath.PoseInverse(nearest.Pose()), randPosNode.Pose())
-		//~ sqMet := ik.NewSquaredNormMetric(relPose)
-		//~ targetFunc = func(pose spatialmath.Pose) float64 {
-			//~ return sqMet(&ik.State{Position: pose})
-		//~ }
-	//~ }
-
 	var targetFunc ik.StateMetric
 	if invert {
 		sqMet := ik.NewSquaredNormMetric(randPosNode.Pose())
@@ -376,10 +354,10 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 		relPose := spatialmath.Compose(spatialmath.PoseInverse(nearest.Pose()), randPosNode.Pose())
 		targetFunc = ik.NewSquaredNormMetric(relPose)
 	}
-	solutionChan := make(chan *ik.IKSolution, 1)
+	solutionChan := make(chan *ik.Solution, 1)
 	err := curPtg.Solve(context.Background(), solutionChan, mp.algOpts.ikSeed, targetFunc, mp.randseed.Int())
-	
-	var bestNode *ik.IKSolution
+
+	var bestNode *ik.Solution
 	select {
 	case bestNode = <-solutionChan:
 	default:
@@ -391,7 +369,7 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 	if err != nil {
 		return nil, err
 	}
-	
+
 	bestDist := targetFunc(&ik.State{Position: pose})
 	goalAlpha := bestNode.Configuration[0].Value
 	goalD := bestNode.Configuration[1].Value
@@ -650,6 +628,7 @@ func (mp *tpSpaceRRTMotionPlanner) setupTPSpaceOptions() {
 func (mp *tpSpaceRRTMotionPlanner) make2DTPSpaceDistanceOptions(ptg tpspace.PTG, invert bool) *plannerOptions {
 	opts := newBasicPlannerOptions(mp.frame)
 	mp.mu.Lock()
+	//nolint: gosec
 	randSeed := rand.New(rand.NewSource(mp.randseed.Int63() + mp.randseed.Int63()))
 	mp.mu.Unlock()
 
@@ -670,10 +649,10 @@ func (mp *tpSpaceRRTMotionPlanner) make2DTPSpaceDistanceOptions(ptg tpspace.PTG,
 			relPose := spatialmath.Compose(spatialmath.PoseInverse(seg.EndPosition), seg.StartPosition)
 			targetFunc = ik.NewSquaredNormMetric(relPose)
 		}
-		solutionChan := make(chan *ik.IKSolution, 1)
+		solutionChan := make(chan *ik.Solution, 1)
 		err := ptg.Solve(context.Background(), solutionChan, mp.algOpts.ikSeed, targetFunc, randSeed.Int())
-		
-		var closeNode *ik.IKSolution
+
+		var closeNode *ik.Solution
 		select {
 		case closeNode = <-solutionChan:
 		default:
@@ -771,7 +750,8 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 	return path
 }
 
-// firstEdge and secondEdge must not be adjacent.
+// attemptSmooth attempts to connect two given points in a path. The points must not be adjacent.
+// Strategy is to subdivide the seed-side trajectories to give a greater probability of solving.
 func (mp *tpSpaceRRTMotionPlanner) attemptSmooth(
 	ctx context.Context,
 	path []node,
@@ -822,4 +802,20 @@ func (mp *tpSpaceRRTMotionPlanner) attemptSmooth(
 		newInputSteps = append(newInputSteps, path[secondEdge+1:]...)
 	}
 	return mp.rectifyPath(newInputSteps)
+}
+
+func (mp *tpSpaceRRTMotionPlanner) sample(rSeed node, iter int) (node, error) {
+	dist := rSeed.Cost()
+	if dist == 0 {
+		dist = 1.0
+	}
+	rDist := dist * (mp.algOpts.autoBB + float64(iter)/10.)
+	randPosX := float64(mp.randseed.Intn(int(rDist)))
+	randPosY := float64(mp.randseed.Intn(int(rDist)))
+	randPosTheta := math.Pi * (mp.randseed.Float64() - 0.5)
+	randPos := spatialmath.NewPose(
+		r3.Vector{rSeed.Pose().Point().X + (randPosX - rDist/2.), rSeed.Pose().Point().Y + (randPosY - rDist/2.), 0},
+		&spatialmath.OrientationVector{OZ: 1, Theta: randPosTheta},
+	)
+	return &basicNode{pose: randPos}, nil
 }

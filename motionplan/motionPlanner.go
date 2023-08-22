@@ -33,6 +33,7 @@ type motionPlanner interface {
 	checkInputs([]frame.Input) bool
 	getSolutions(context.Context, []frame.Input) ([]node, error)
 	opt() *plannerOptions
+	sample(node, int) (node, error)
 }
 
 type plannerConstructor func(frame.Frame, *rand.Rand, golog.Logger, *plannerOptions) (motionPlanner, error)
@@ -188,14 +189,18 @@ func (mp *planner) checkPath(seedInputs, target []frame.Input) bool {
 	return ok
 }
 
-func (mp *planner) sample(rSeed node, sampleNum int) ([]frame.Input, error) {
+func (mp *planner) sample(rSeed node, sampleNum int) (node, error) {
 	// If we have done more than 50 iterations, start seeding off completely random positions 2 at a time
 	// The 2 at a time is to ensure random seeds are added onto both the seed and goal maps.
 	if sampleNum >= mp.planOpts.IterBeforeRand && sampleNum%4 >= 2 {
-		return frame.RandomFrameInputs(mp.frame, mp.randseed), nil
+		return newConfigurationNode(frame.RandomFrameInputs(mp.frame, mp.randseed)), nil
 	}
 	// Seeding nearby to valid points results in much faster convergence in less constrained space
-	return frame.RestrictedRandomFrameInputs(mp.frame, mp.randseed, 0.1, rSeed.Q())
+	q, err := frame.RestrictedRandomFrameInputs(mp.frame, mp.randseed, 0.1, rSeed.Q())
+	if err != nil {
+		return nil, err
+	}
+	return newConfigurationNode(q), nil
 }
 
 func (mp *planner) opt() *plannerOptions {
@@ -267,7 +272,7 @@ func (mp *planner) getSolutions(ctx context.Context, seed []frame.Input) ([]node
 	ctxWithCancel, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	solutionGen := make(chan *ik.IKSolution, mp.planOpts.NumThreads)
+	solutionGen := make(chan *ik.Solution, mp.planOpts.NumThreads)
 	ikErr := make(chan error, 1)
 	var activeSolvers sync.WaitGroup
 	defer activeSolvers.Wait()

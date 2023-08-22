@@ -13,7 +13,7 @@ import (
 	utils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/base"
-	"go.viam.com/rdk/motionplan"
+	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/spatialmath"
@@ -186,7 +186,7 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 		if prevInputs == nil {
 			prevInputs = currentInputs
 		}
-		positionChange := motionplan.L2InputMetric(&motionplan.Segment{
+		positionChange := ik.L2InputMetric(&ik.Segment{
 			StartConfiguration: prevInputs,
 			EndConfiguration:   currentInputs,
 		})

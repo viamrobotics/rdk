@@ -4,9 +4,9 @@ package tpspace
 import (
 	"math"
 
+	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/motionplan/ik"
 )
 
 const floatEpsilon = 0.0001 // If floats are closer than this consider them equal

@@ -116,7 +116,7 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 		}
 		rrt.maps = planSeed.maps
 	}
-	target := referenceframe.InterpolateInputs(seed, rrt.maps.optNode.Q(), 0.5)
+	target := newConfigurationNode(referenceframe.InterpolateInputs(seed, rrt.maps.optNode.Q(), 0.5))
 	map1, map2 := rrt.maps.startMap, rrt.maps.goalMap
 
 	// Keep a list of the node pairs that have the same inputs
@@ -144,7 +144,7 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 		default:
 		}
 
-		tryExtend := func(target []referenceframe.Input) (node, node, error) {
+		tryExtend := func(target node) (node, node, error) {
 			// attempt to extend maps 1 and 2 towards the target
 			// If ctx is done, nearest neighbors will be invalid and we want to return immediately
 			select {
@@ -154,10 +154,10 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 			}
 
 			utils.PanicCapturingGo(func() {
-				mp.extend(ctx, map1, newConfigurationNode(target), m1chan)
+				mp.extend(ctx, map1, target, m1chan)
 			})
 			utils.PanicCapturingGo(func() {
-				mp.extend(ctx, map2, newConfigurationNode(target), m2chan)
+				mp.extend(ctx, map2, target, m2chan)
 			})
 			map1reached := <-m1chan
 			map2reached := <-m2chan
@@ -175,7 +175,7 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 
 		// Second iteration; extend maps 1 and 2 towards the halfway point between where they reached
 		if reachedDelta > mp.planOpts.JointSolveDist {
-			target = referenceframe.InterpolateInputs(map1reached.Q(), map2reached.Q(), 0.5)
+			target = newConfigurationNode(referenceframe.InterpolateInputs(map1reached.Q(), map2reached.Q(), 0.5))
 			map1reached, map2reached, err = tryExtend(target)
 			if err != nil {
 				rrt.solutionChan <- &rrtPlanReturn{planerr: err, maps: rrt.maps}

@@ -18,7 +18,7 @@ const (
 	distanceAlongTrajectoryIndex
 )
 
-// If refDist is not explicitly set, default to pi radians times this adjustment value
+// If refDist is not explicitly set, default to pi radians times this adjustment value.
 const refDistHalfCircles = 0.9
 
 type ptgFactory func(float64, float64) PrecomputePTG
@@ -33,13 +33,13 @@ var defaultPTGs = []ptgFactory{
 }
 
 type ptgGroupFrame struct {
-	name          string
-	limits        []referenceframe.Limit
-	geometries    []spatialmath.Geometry
-	ptgs          []PTG
-	velocityMMps  float64
+	name               string
+	limits             []referenceframe.Limit
+	geometries         []spatialmath.Geometry
+	ptgs               []PTG
+	velocityMMps       float64
 	turnRadMillimeters float64
-	logger        golog.Logger
+	logger             golog.Logger
 }
 
 // NewPTGFrameFromTurningRadius will create a new Frame which is also a PTGProvider. It will precompute the default set of
@@ -59,7 +59,7 @@ func NewPTGFrameFromTurningRadius(
 	if refDist < 0 {
 		return nil, fmt.Errorf("cannot create ptg frame, refDist %f must be >=0", refDist)
 	}
-	
+
 	turnRadMillimeters := turnRadMeters * 1000
 
 	if refDist == 0 {

@@ -4,8 +4,8 @@ import (
 	"context"
 	"math"
 
-	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/motionplan/ik"
+	"go.viam.com/rdk/referenceframe"
 )
 
 const (
@@ -57,7 +57,7 @@ func NewPTGGridSim(simPTG PrecomputePTG, arcs uint, simDist float64, endsOnly bo
 
 func (ptg *ptgGridSim) Solve(
 	ctx context.Context,
-	solutionChan chan<- *ik.IKSolution,
+	solutionChan chan<- *ik.Solution,
 	seed []referenceframe.Input,
 	solveMetric ik.StateMetric,
 	rseed int,
@@ -80,10 +80,10 @@ func (ptg *ptgGridSim) Solve(
 		}
 
 		if bestNode != nil {
-			solutionChan <- &ik.IKSolution{
+			solutionChan <- &ik.Solution{
 				Configuration: []referenceframe.Input{{bestNode.Alpha}, {bestNode.Dist}},
-				Score: bestDist,
-				Exact: false,
+				Score:         bestDist,
+				Exact:         false,
 			}
 			return nil
 		}
@@ -102,10 +102,10 @@ func (ptg *ptgGridSim) Solve(
 		}
 	}
 
-	solutionChan <- &ik.IKSolution{
+	solutionChan <- &ik.Solution{
 		Configuration: []referenceframe.Input{{bestNode.Alpha}, {bestNode.Dist}},
-		Score: bestDist,
-		Exact: false,
+		Score:         bestDist,
+		Exact:         false,
 	}
 	return nil
 }

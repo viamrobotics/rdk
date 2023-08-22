@@ -34,7 +34,7 @@ type NloptIK struct {
 	lowerBound    []float64
 	upperBound    []float64
 	maxIterations int
-	epsilon  float64
+	epsilon       float64
 	logger        golog.Logger
 	jump          float64
 
@@ -51,7 +51,7 @@ func CreateNloptIKSolver(mdl referenceframe.Frame, logger golog.Logger, iter int
 
 	ik.model = mdl
 	ik.id = 0
-	
+
 	// Stop optimizing when iterations change by less than this much
 	// Also, how close we want to get to the goal region. The metric should reflect any buffer.
 	ik.epsilon = defaultEpsilon * defaultEpsilon
@@ -70,7 +70,7 @@ func CreateNloptIKSolver(mdl referenceframe.Frame, logger golog.Logger, iter int
 
 // Solve runs the actual solver and sends any solutions found to the given channel.
 func (ik *NloptIK) Solve(ctx context.Context,
-	solutionChan chan<- *IKSolution,
+	solutionChan chan<- *Solution,
 	seed []referenceframe.Input,
 	solveMetric StateMetric,
 	rseed int,
@@ -196,7 +196,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 				return err
 			default:
 			}
-			solutionChan <- &IKSolution{
+			solutionChan <- &Solution{
 				Configuration: referenceframe.FloatsToInputs(solutionRaw),
 				Score:         result,
 				Exact:         result < ik.epsilon,
