@@ -484,8 +484,9 @@ func (wb *wheeledBase) Close(ctx context.Context) error {
 
 func (wb *wheeledBase) Properties(ctx context.Context, extra map[string]interface{}) (base.Properties, error) {
 	return base.Properties{
-		TurningRadiusMeters: 0.0,
-		WidthMeters:         float64(wb.widthMm) * 0.001, // convert to meters from mm
+		TurningRadiusMeters:      0.0,
+		WidthMeters:              float64(wb.widthMm) * 0.001,              // convert to meters from mm
+		WheelCircumferenceMeters: float64(wb.wheelCircumferenceMm) * 0.001, // convert to meters from mm
 	}, nil
 }
 
