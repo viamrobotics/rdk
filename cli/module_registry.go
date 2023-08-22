@@ -136,8 +136,10 @@ func UpdateModuleAction(c *cli.Context) error {
 		return err
 	}
 
-	moduleID, err := updateManifestModuleIDWithArgs(c, client, manifest.ModuleID, publicNamespaceArg, orgIDArg)
+	moduleID, err := parseModuleID(manifest.ModuleID)
 	if err != nil {
+		// if moduleID is empty then this will error out but it could be valid because this is a breaking change
+		// we should grab this from the BE because we shouldn't be guessing here as we set it on create
 		return err
 	}
 
@@ -208,10 +210,7 @@ func UploadModuleAction(c *cli.Context) error {
 				"if you want to upload a version without a meta.json, you must supply a module name and namespace (or module name and org-id)",
 			)
 		}
-		moduleID, err = updateManifestModuleIDWithArgs(c, client, nameArg, publicNamespaceArg, orgIDArg)
-		if err != nil {
-			return err
-		}
+		// get from the BE?
 	} else {
 		// if we can find a manifest, use that
 		manifest, err := loadManifest(manifestPath)
@@ -221,10 +220,7 @@ func UploadModuleAction(c *cli.Context) error {
 
 		moduleID, err = parseModuleID(manifest.ModuleID)
 		if err != nil {
-			moduleID, err = updateManifestModuleIDWithArgs(c, client, manifest.Name, publicNamespaceArg, orgIDArg)
-			if err != nil {
-				return err
-			}
+			// get from the BE if is empty string?
 		}
 
 		if nameArg != "" && nameArg != moduleID.name {
@@ -422,53 +418,6 @@ func (m *moduleID) String() string {
 		return m.name
 	}
 	return fmt.Sprintf("%s:%s", m.prefix, m.name)
-}
-
-// updateManifestModuleIDWithArgs tries to parse the manifestNameEntry to see if it is a valid moduleID with a prefix
-// if it is not, it uses the publicNamespaceArg and orgIDArg to determine what the moduleID prefix should be.
-func updateManifestModuleIDWithArgs(
-	c *cli.Context,
-	client *appClient,
-	manifestNameEntry,
-	publicNamespaceArg,
-	orgIDArg string,
-) (moduleID, error) {
-	mid, err := parseModuleID(manifestNameEntry)
-	if err != nil {
-		return moduleID{}, err
-	}
-	if mid.prefix != "" {
-		if publicNamespaceArg != "" || orgIDArg != "" {
-			org, err := resolveOrg(client, publicNamespaceArg, orgIDArg)
-			if err != nil {
-				return moduleID{}, err
-			}
-			expectedOrg, err := getOrgByModuleIDPrefix(client, mid.prefix)
-			if err != nil {
-				return moduleID{}, err
-			}
-			if org.GetId() != expectedOrg.GetId() {
-				// This is almost certainly a user mistake
-				// Preferring org name rather than orgid here because the manifest probably has it specified in terms of
-				// public_namespace so returning the ids would be frustrating
-				return moduleID{}, errors.Errorf("the meta.json specifies a different org %q than the one provided via args %q",
-					org.GetName(), expectedOrg.GetName())
-			}
-			fmt.Fprintln(c.App.Writer, "the module's meta.json already specifies a full module id. ignoring public-namespace and org-id arg")
-		}
-		return mid, nil
-	}
-	// moduleID.Prefix is empty. Need to use orgIDArg and publicNamespaceArg to figure out what it should be
-	org, err := resolveOrg(client, publicNamespaceArg, orgIDArg)
-	if err != nil {
-		return moduleID{}, err
-	}
-	if org.PublicNamespace != "" {
-		mid.prefix = org.PublicNamespace
-	} else {
-		mid.prefix = org.Id
-	}
-	return mid, nil
 }
 
 // resolveOrg accepts either an orgID or a publicNamespace (one must be an empty string).
