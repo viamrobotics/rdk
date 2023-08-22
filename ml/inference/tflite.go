@@ -3,6 +3,7 @@
 package inference
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"runtime"
@@ -10,7 +11,9 @@ import (
 
 	tflite "github.com/mattn/go-tflite"
 	"github.com/pkg/errors"
+	"gorgonia.org/tensor"
 
+	"go.viam.com/rdk/ml"
 	tfliteSchema "go.viam.com/rdk/ml/inference/tflite"
 	metadata "go.viam.com/rdk/ml/inference/tflite_metadata"
 )
@@ -174,61 +177,87 @@ func getInfo(inter Interpreter) *TFLiteInfo {
 	return info
 }
 
-// Infer takes an input array in desired type and returns an array of the output tensors.
-func (model *TFLiteStruct) Infer(inputTensor interface{}) ([]interface{}, error) {
+// Infer takes an input map of tensors and returns an output map of tensors.
+func (model *TFLiteStruct) Infer(inputTensors ml.Tensors) (ml.Tensors, error) {
 	model.mu.Lock()
 	defer model.mu.Unlock()
 
 	interpreter := model.interpreter
-	input := interpreter.GetInputTensor(0)
-	status := input.CopyFromBuffer(inputTensor)
-	if status != tflite.OK {
-		return nil, errors.New("copying to buffer failed")
+	inputCount := interpreter.GetInputTensorCount()
+	if inputCount == 1 && len(inputTensors) == 1 { // convenience function for underspecified names
+		input := interpreter.GetInputTensor(0)
+		for _, inpTensor := range inputTensors { // there is only one element in this map
+			status := input.CopyFromBuffer(inpTensor.Data())
+			if status != tflite.OK {
+				return nil, errors.Errorf("copying from tensor buffer %q failed", input.Name())
+			}
+		}
+	} else {
+		for i := 0; i < inputCount; i++ {
+			input := interpreter.GetInputTensor(i)
+			inpTensor, ok := inputTensors[input.Name()]
+			if !ok {
+				return nil, errors.Errorf("tflite model expected a tensor named %q, but no such input tensor found", input.Name())
+			}
+			if inpTensor == nil {
+				continue
+			}
+			status := input.CopyFromBuffer(inpTensor.Data())
+			if status != tflite.OK {
+				return nil, errors.Errorf("copying from tensor buffer named %q failed", input.Name())
+			}
+		}
 	}
 
-	status = interpreter.Invoke()
+	status := interpreter.Invoke()
 	if status != tflite.OK {
-		return nil, errors.New("invoke failed")
+		return nil, errors.New("tflite invoke failed")
 	}
 
-	var output []interface{}
-	numOutputTensors := interpreter.GetOutputTensorCount()
-	for i := 0; i < numOutputTensors; i++ {
-		var buf interface{}
-		currTensor := interpreter.GetOutputTensor(i)
-		if currTensor == nil {
+	output := ml.Tensors{}
+	for i := 0; i < interpreter.GetOutputTensorCount(); i++ {
+		t := interpreter.GetOutputTensor(i)
+		if t == nil {
 			continue
 		}
-		switch currTensor.Type() {
-		case tflite.Float32:
-			buf = currTensor.Float32s()
-		case tflite.UInt8:
-			buf = currTensor.UInt8s()
-		case tflite.Bool:
-			buf = make([]bool, currTensor.ByteSize())
-			currTensor.CopyToBuffer(buf)
-		case tflite.Int8:
-			buf = currTensor.Int8s()
-		case tflite.Int16:
-			buf = currTensor.Int16s()
-		case tflite.Int32:
-			buf = currTensor.Int32s()
-		case tflite.Int64:
-			buf = currTensor.Int64s()
-		case tflite.Complex64:
-			buf = make([]complex64, currTensor.ByteSize()/8)
-			currTensor.CopyToBuffer(buf)
-		case tflite.String, tflite.NoType:
-			// TODO: find a model that outputs tflite.String to test
-			// if there is a better solution than this
-			buf = make([]byte, currTensor.ByteSize())
-			currTensor.CopyToBuffer(buf)
-		default:
-			return nil, FailedToGetError("output tensor type")
-		}
-		output = append(output, buf)
+		tType := TFliteTensorToGorgoniaTensor(t.Type())
+		outputTensor := tensor.New(
+			tensor.WithShape(t.Shape()...),
+			tensor.Of(tType),
+			tensor.FromMemory(uintptr(t.Data()), uintptr(t.ByteSize())),
+		)
+		outName := fmt.Sprintf("%s:%v", t.Name(), i)
+		output[outName] = outputTensor
 	}
 	return output, nil
+}
+
+// TFliteTensorToGorgoniaTensor converts the constants from one tensor library to another.
+func TFliteTensorToGorgoniaTensor(t tflite.TensorType) tensor.Dtype {
+	switch t {
+	case tflite.NoType:
+		return tensor.Uintptr // just return is as a general pointer type...
+	case tflite.Float32:
+		return tensor.Float32
+	case tflite.Int32:
+		return tensor.Int32
+	case tflite.UInt8:
+		return tensor.Uint8
+	case tflite.Int64:
+		return tensor.Int64
+	case tflite.String:
+		return tensor.String
+	case tflite.Bool:
+		return tensor.Bool
+	case tflite.Int16:
+		return tensor.Int16
+	case tflite.Complex64:
+		return tensor.Complex64
+	case tflite.Int8:
+		return tensor.Int8
+	default: // shouldn't reach here unless tflite adds more types
+		return tensor.Uintptr
+	}
 }
 
 // Metadata provides the metadata information based on the model flatbuffer file.

@@ -4,10 +4,14 @@ package mlmodel
 
 import (
 	"context"
+	"unsafe"
 
+	"github.com/pkg/errors"
 	servicepb "go.viam.com/api/service/mlmodel/v1"
 	vprotoutils "go.viam.com/utils/protoutils"
+	"gorgonia.org/tensor"
 
+	"go.viam.com/rdk/ml"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 )
@@ -26,8 +30,125 @@ func init() {
 // the struct that will decode that map[string]interface{} correctly.
 type Service interface {
 	resource.Resource
-	Infer(ctx context.Context, input map[string]interface{}) (map[string]interface{}, error)
+	Infer(ctx context.Context, tensors ml.Tensors, input map[string]interface{}) (ml.Tensors, map[string]interface{}, error)
 	Metadata(ctx context.Context) (MLMetadata, error)
+}
+
+// TensorsToProto turns the ml.Tensors map into a protobuf message of FlatTensors.
+func TensorsToProto(ts ml.Tensors) (*servicepb.FlatTensors, error) {
+	pbts := &servicepb.FlatTensors{
+		Tensors: make(map[string]*servicepb.FlatTensor),
+	}
+	for name, t := range ts {
+		tp, err := tensorToProto(t)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to convert tensor to proto message")
+		}
+		pbts.Tensors[name] = tp
+	}
+	return pbts, nil
+}
+
+func tensorToProto(t *tensor.Dense) (*servicepb.FlatTensor, error) {
+	ftpb := &servicepb.FlatTensor{}
+	shape := t.Shape()
+	for _, s := range shape {
+		ftpb.Shape = append(ftpb.Shape, uint64(s))
+	}
+	// switch on data type of the underlying array
+	data := t.Data()
+	switch dataSlice := data.(type) {
+	case []int8:
+		unsafeByteSlice := *(*[]byte)(unsafe.Pointer(&dataSlice)) //nolint:gosec
+		data := &servicepb.FlatTensorDataInt8{}
+		data.Data = append(data.Data, unsafeByteSlice...)
+		ftpb.Tensor = &servicepb.FlatTensor_Int8Tensor{Int8Tensor: data}
+	case []uint8:
+		ftpb.Tensor = &servicepb.FlatTensor_Uint8Tensor{
+			Uint8Tensor: &servicepb.FlatTensorDataUInt8{
+				Data: dataSlice,
+			},
+		}
+	case []int16:
+		ftpb.Tensor = &servicepb.FlatTensor_Int16Tensor{
+			Int16Tensor: &servicepb.FlatTensorDataInt16{
+				Data: int16ToUint32(dataSlice),
+			},
+		}
+	case []uint16:
+		ftpb.Tensor = &servicepb.FlatTensor_Uint16Tensor{
+			Uint16Tensor: &servicepb.FlatTensorDataUInt16{
+				Data: uint16ToUint32(dataSlice),
+			},
+		}
+	case []int32:
+		ftpb.Tensor = &servicepb.FlatTensor_Int32Tensor{
+			Int32Tensor: &servicepb.FlatTensorDataInt32{
+				Data: dataSlice,
+			},
+		}
+	case []uint32:
+		ftpb.Tensor = &servicepb.FlatTensor_Uint32Tensor{
+			Uint32Tensor: &servicepb.FlatTensorDataUInt32{
+				Data: dataSlice,
+			},
+		}
+	case []int64:
+		ftpb.Tensor = &servicepb.FlatTensor_Int64Tensor{
+			Int64Tensor: &servicepb.FlatTensorDataInt64{
+				Data: dataSlice,
+			},
+		}
+	case []uint64:
+		ftpb.Tensor = &servicepb.FlatTensor_Uint64Tensor{
+			Uint64Tensor: &servicepb.FlatTensorDataUInt64{
+				Data: dataSlice,
+			},
+		}
+	case []int:
+		unsafeInt64Slice := *(*[]int64)(unsafe.Pointer(&dataSlice)) //nolint:gosec
+		data := &servicepb.FlatTensorDataInt64{}
+		data.Data = append(data.Data, unsafeInt64Slice...)
+		ftpb.Tensor = &servicepb.FlatTensor_Int64Tensor{Int64Tensor: data}
+	case []uint:
+		unsafeUint64Slice := *(*[]uint64)(unsafe.Pointer(&dataSlice)) //nolint:gosec
+		data := &servicepb.FlatTensorDataUInt64{}
+		data.Data = append(data.Data, unsafeUint64Slice...)
+		ftpb.Tensor = &servicepb.FlatTensor_Uint64Tensor{Uint64Tensor: data}
+	case []float32:
+		ftpb.Tensor = &servicepb.FlatTensor_FloatTensor{
+			FloatTensor: &servicepb.FlatTensorDataFloat{
+				Data: dataSlice,
+			},
+		}
+	case []float64:
+		ftpb.Tensor = &servicepb.FlatTensor_DoubleTensor{
+			DoubleTensor: &servicepb.FlatTensorDataDouble{
+				Data: dataSlice,
+			},
+		}
+	default:
+		return nil, errors.Errorf("cannot turn underlying tensor data of type %T into proto message", dataSlice)
+	}
+	return ftpb, nil
+}
+
+func int16ToUint32(int16Slice []int16) []uint32 {
+	uint32Slice := make([]uint32, len(int16Slice))
+
+	for i, value := range int16Slice {
+		uint32Slice[i] = uint32(value)
+	}
+	return uint32Slice
+}
+
+func uint16ToUint32(uint16Slice []uint16) []uint32 {
+	uint32Slice := make([]uint32, len(uint16Slice))
+
+	for i, value := range uint16Slice {
+		uint32Slice[i] = uint32(value)
+	}
+	return uint32Slice
 }
 
 // MLMetadata contains the metadata of the model file, such as the name of the model, what

@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/base64"
 
+	"github.com/pkg/errors"
 	pb "go.viam.com/api/service/mlmodel/v1"
 	vprotoutils "go.viam.com/utils/protoutils"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"go.viam.com/rdk/ml"
 	"go.viam.com/rdk/resource"
 )
 
@@ -28,11 +30,25 @@ func (server *serviceServer) Infer(ctx context.Context, req *pb.InferRequest) (*
 	if err != nil {
 		return nil, err
 	}
-	id, err := asMap(req.InputData)
-	if err != nil {
-		return nil, err
+	if req.InputData != nil && req.InputTensors != nil {
+		return nil, errors.New("both input_data and input_tensors fields in the Infer request are not nil." +
+			"Server can only process one or the other")
 	}
-	od, err := svc.Infer(ctx, id)
+	var id map[string]interface{}
+	if req.InputData != nil {
+		id, err = asMap(req.InputData)
+		if err != nil {
+			return nil, err
+		}
+	}
+	var it ml.Tensors
+	if req.InputTensors != nil {
+		it, err = ProtoToTensors(req.InputTensors)
+		if err != nil {
+			return nil, err
+		}
+	}
+	ot, od, err := svc.Infer(ctx, it, id)
 	if err != nil {
 		return nil, err
 	}
@@ -40,12 +56,19 @@ func (server *serviceServer) Infer(ctx context.Context, req *pb.InferRequest) (*
 	if err != nil {
 		return nil, err
 	}
-	return &pb.InferResponse{OutputData: outputData}, nil
+	outputTensors, err := TensorsToProto(ot)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.InferResponse{OutputData: outputData, OutputTensors: outputTensors}, nil
 }
 
 // AsMap converts x to a general-purpose Go map.
 // The map values are converted by calling Value.AsInterface.
 func asMap(x *structpb.Struct) (map[string]interface{}, error) {
+	if x == nil {
+		return nil, errors.New("input pb.Struct is nil")
+	}
 	f := x.GetFields()
 	vs := make(map[string]interface{}, len(f))
 	for k, in := range f {
