@@ -589,7 +589,7 @@ viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.ta
 					Name:        "upload",
 					Usage:       "upload a board definition file",
 					Description: `Uploads a board defintion file`,
-					UsageText:   "viam board upload <name> <version> <path> [other options]",
+					UsageText:   "viam board upload <name> <version> [other options] <path.json>",
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     boardFlagName,
