@@ -66,6 +66,10 @@ func init() {
 				if err := matrices.CheckValid(); err != nil {
 					return nil, err
 				}
+				oldCameraSystem := attributes["camera_system"]
+				defer func() {
+					attributes["camera_system"] = oldCameraSystem
+				}()
 				attributes["camera_system"] = matrices
 
 				return resource.TransformAttributeMap[*extrinsicsConfig](attributes)
