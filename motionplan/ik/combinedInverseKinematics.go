@@ -53,7 +53,7 @@ func (ik *CombinedIK) Solve(ctx context.Context,
 	ctxWithCancel, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	errChan := make(chan error, len(ik.solvers)+1)
+	errChan := make(chan error, len(ik.solvers))
 	var activeSolvers sync.WaitGroup
 	defer activeSolvers.Wait()
 	activeSolvers.Add(len(ik.solvers))
