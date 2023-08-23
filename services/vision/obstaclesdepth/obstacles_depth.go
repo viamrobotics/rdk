@@ -34,10 +34,11 @@ var model = resource.DefaultModelFamily.WithModel("obstacles_depth")
 
 // ObsDepthConfig specifies the parameters to be used for the obstacle depth service.
 type ObsDepthConfig struct {
-	Hmin       float64 `json:"h_min_m"`
-	Hmax       float64 `json:"h_max_m"`
-	ThetaMax   float64 `json:"theta_max_deg"`
-	ReturnPCDs bool    `json:"return_pcds"`
+	Hmin           float64 `json:"h_min_m"`
+	Hmax           float64 `json:"h_max_m"`
+	ThetaMax       float64 `json:"theta_max_deg"`
+	ReturnPCDs     bool    `json:"return_pcds"`
+	WithGeometries *bool   `json:"with_geometries"`
 }
 
 // obsDepth is the underlying struct actually used by the service.
@@ -49,6 +50,7 @@ type obsDepth struct {
 	sinTheta    float64
 	intrinsics  *transform.PinholeCameraIntrinsics
 	returnPCDs  bool
+	withGeoms   bool
 	k           int
 	depthStream gostream.VideoStream
 }
@@ -82,7 +84,7 @@ func init() {
 // Validate ensures all parts of the config are valid.
 func (config *ObsDepthConfig) Validate(path string) ([]string, error) {
 	deps := []string{}
-	if config.Hmin >= config.Hmax {
+	if config.Hmin >= config.Hmax && !(config.Hmin == 0 && config.Hmax == 0) {
 		return nil, errors.New("Hmin should be less than Hmax")
 	}
 	if config.Hmin < 0 {
@@ -105,7 +107,7 @@ func registerObstaclesDepth(
 	r robot.Robot,
 	logger golog.Logger,
 ) (svision.Service, error) {
-	_, span := trace.StartSpan(ctx, "service::vision::registerObstacleDistanceDetector")
+	_, span := trace.StartSpan(ctx, "service::vision::registerObstacleDepth")
 	defer span.End()
 	if conf == nil {
 		return nil, errors.New("config for obstacles_depth cannot be nil")
@@ -118,11 +120,15 @@ func registerObstaclesDepth(
 	if conf.ThetaMax == 0 {
 		conf.ThetaMax = defaultThetamax
 	}
+	if conf.WithGeometries == nil {
+		wg := true
+		conf.WithGeometries = &wg
+	}
 
 	sinTheta := math.Sin(conf.ThetaMax * math.Pi / 180) // sin(radians(theta))
 	myObsDep := obsDepth{
 		hMin: 1000 * conf.Hmin, hMax: 1000 * conf.Hmax, sinTheta: sinTheta,
-		returnPCDs: conf.ReturnPCDs, k: defaultK,
+		returnPCDs: conf.ReturnPCDs, k: defaultK, withGeoms: *conf.WithGeometries,
 	}
 
 	segmenter := myObsDep.buildObsDepth(logger) // does the thing
@@ -142,7 +148,10 @@ func (o *obsDepth) buildObsDepth(logger golog.Logger) func(ctx context.Context, 
 			return o.obsDepthNoIntrinsics(ctx, src)
 		}
 		o.intrinsics = props.IntrinsicParams
-		return o.obsDepthWithIntrinsics(ctx, src)
+		if o.withGeoms {
+			return o.obsDepthWithIntrinsics(ctx, src)
+		}
+		return o.obsDepthNoIntrinsics(ctx, src)
 	}
 }
 
@@ -170,7 +179,6 @@ func (o *obsDepth) obsDepthNoIntrinsics(ctx context.Context, src camera.VideoSou
 	pt := spatialmath.NewPoint(r3.Vector{X: 0, Y: 0, Z: float64(depData[med])}, "")
 	toReturn := make([]*vision.Object, 1)
 	toReturn[0] = &vision.Object{Geometry: pt}
-
 	return toReturn, nil
 }
 

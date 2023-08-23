@@ -19,9 +19,9 @@ import (
 var model = resource.DefaultModelFamily.WithModel("obstacles_pointcloud")
 
 func init() {
-	resource.RegisterService(vision.API, model, resource.Registration[vision.Service, *segmentation.RadiusClusteringConfig]{
+	resource.RegisterService(vision.API, model, resource.Registration[vision.Service, *segmentation.ErCCLConfig]{
 		DeprecatedRobotConstructor: func(ctx context.Context, r any, c resource.Config, logger golog.Logger) (vision.Service, error) {
-			attrs, err := resource.NativeConfig[*segmentation.RadiusClusteringConfig](c)
+			attrs, err := resource.NativeConfig[*segmentation.ErCCLConfig](c)
 			if err != nil {
 				return nil, err
 			}
@@ -38,7 +38,7 @@ func init() {
 func registerOPSegmenter(
 	ctx context.Context,
 	name resource.Name,
-	conf *segmentation.RadiusClusteringConfig,
+	conf *segmentation.ErCCLConfig,
 	r robot.Robot,
 ) (vision.Service, error) {
 	_, span := trace.StartSpan(ctx, "service::vision::registerObstaclesPointcloud")
@@ -50,6 +50,6 @@ func registerOPSegmenter(
 	if err != nil {
 		return nil, errors.Wrap(err, "obstacles pointcloud segmenter config error")
 	}
-	segmenter := segmentation.Segmenter(conf.RadiusClustering)
+	segmenter := segmentation.Segmenter(conf.ErCCLAlgorithm)
 	return vision.NewService(name, r, nil, nil, nil, segmenter)
 }

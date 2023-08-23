@@ -1,4 +1,5 @@
-package wheeled
+// Package sensorcontrolled base implements a base with feedback control from a movement sensor
+package sensorcontrolled
 
 import (
 	"context"
@@ -29,7 +30,33 @@ const (
 	sensorDebug        = false
 )
 
-var errNoGoodSensor = errors.New("no appropriate sensor for orientaiton or velocity feedback")
+var (
+	// Model is the name of the sensor_controlled model of a base component.
+	Model           = resource.DefaultModelFamily.WithModel("sensor-controlled")
+	errNoGoodSensor = errors.New("no appropriate sensor for orientaiton or velocity feedback")
+)
+
+// Config configures a sencor controlled base.
+type Config struct {
+	MovementSensor []string `json:"movement_sensor"`
+	Base           string   `json:"base"`
+}
+
+// Validate validates all parts of the sensor controlled base config.
+func (cfg *Config) Validate(path string) ([]string, error) {
+	deps := []string{}
+	if len(cfg.MovementSensor) == 0 {
+		return nil, utils.NewConfigValidationError(path, errors.New("need at least one movement sensor for base"))
+	}
+
+	deps = append(deps, cfg.MovementSensor...)
+	if cfg.Base == "" {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "base")
+	}
+
+	deps = append(deps, cfg.Base)
+	return deps, nil
+}
 
 type sensorBase struct {
 	resource.Named
@@ -37,7 +64,7 @@ type sensorBase struct {
 	mu     sync.Mutex
 
 	activeBackgroundWorkers sync.WaitGroup
-	wBase                   base.Base // the inherited wheeled base
+	controlledBase          base.Base // the inherited wheeled base
 
 	sensorLoopMu      sync.Mutex
 	sensorLoopDone    func()
@@ -48,6 +75,32 @@ type sensorBase struct {
 	allSensors  []movementsensor.MovementSensor
 	orientation movementsensor.MovementSensor
 	velocities  movementsensor.MovementSensor
+}
+
+func init() {
+	resource.RegisterComponent(
+		base.API,
+		Model,
+		resource.Registration[base.Base, *Config]{Constructor: createSensorBase})
+}
+
+func createSensorBase(
+	ctx context.Context,
+	deps resource.Dependencies,
+	conf resource.Config,
+	logger golog.Logger,
+) (base.Base, error) {
+	sb := &sensorBase{
+		logger: logger,
+		Named:  conf.ResourceName().AsNamed(),
+		opMgr:  operation.NewSingleOperationManager(),
+	}
+
+	if err := sb.Reconfigure(ctx, deps, conf); err != nil {
+		return nil, err
+	}
+
+	return sb, nil
 }
 
 func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
@@ -63,9 +116,7 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 	sb.allSensors = nil
 	sb.velocities = nil
 	sb.orientation = nil
-	if sb.opMgr == nil {
-		sb.opMgr = operation.NewSingleOperationManager()
-	}
+	sb.controlledBase = nil
 
 	for _, name := range newConf.MovementSensor {
 		ms, err := movementsensor.FromDependencies(deps, name)
@@ -99,6 +150,11 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 		return errNoGoodSensor
 	}
 
+	sb.controlledBase, err = base.FromDependencies(deps, newConf.Base)
+	if err != nil {
+		return errors.Wrapf(err, "no base named (%s)", newConf.Base)
+	}
+
 	return nil
 }
 
@@ -123,7 +179,7 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 	if int(angleDeg) >= 360 {
 		sb.setPolling(false)
 		sb.logger.Warn("feedback for spin calls over 360 not supported yet, spinning without sensor")
-		return sb.wBase.Spin(ctx, angleDeg, degsPerSec, nil)
+		return sb.controlledBase.Spin(ctx, angleDeg, degsPerSec, nil)
 	}
 	ctx, done := sb.opMgr.New(ctx)
 	defer done()
@@ -146,23 +202,23 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 		return err
 	}
 
-	wb := sb.wBase.(*wheeledBase)
-	motor := wb.allMotors[0]
-	if err := sb.opMgr.WaitTillNotPowered(ctx, 500*time.Millisecond, motor,
-		func(context.Context, map[string]interface{}) error {
-			return nil
-		},
-	); err != nil {
-		return err
+	// IsMoving returns true when moving, which is not a success condition for our control loop
+	baseStopped := func(ctx context.Context) (bool, error) {
+		moving, err := sb.IsMoving(ctx)
+		return !moving, err
 	}
-	return nil
+	return sb.opMgr.WaitForSuccess(
+		ctx,
+		yawPollTime,
+		baseStopped,
+	)
 }
 
 func (sb *sensorBase) startRunningMotors(ctx context.Context, angleDeg, degsPerSec float64) error {
 	if math.Signbit(angleDeg) != math.Signbit(degsPerSec) {
 		degsPerSec *= -1
 	}
-	return sb.wBase.SetVelocity(ctx,
+	return sb.controlledBase.SetVelocity(ctx,
 		r3.Vector{X: 0, Y: 0, Z: 0},
 		r3.Vector{X: 0, Y: 0, Z: degsPerSec}, nil)
 }
@@ -357,7 +413,7 @@ func (sb *sensorBase) MoveStraight(
 	ctx, done := sb.opMgr.New(ctx)
 	defer done()
 	sb.setPolling(false)
-	return sb.wBase.MoveStraight(ctx, distanceMm, mmPerSec, extra)
+	return sb.controlledBase.MoveStraight(ctx, distanceMm, mmPerSec, extra)
 }
 
 func (sb *sensorBase) SetVelocity(
@@ -383,7 +439,7 @@ func (sb *sensorBase) SetVelocity(
 		return errors.New(
 			"setvelocity with sensor feedback not currently implemented, remove movement sensor reporting linear and angular velocity ")
 	}
-	return sb.wBase.SetVelocity(ctx, linear, angular, extra)
+	return sb.controlledBase.SetVelocity(ctx, linear, angular, extra)
 }
 
 func (sb *sensorBase) pollsensors(ctx context.Context, extra map[string]interface{}) {
@@ -432,25 +488,25 @@ func (sb *sensorBase) SetPower(
 ) error {
 	sb.opMgr.CancelRunning(ctx)
 	sb.setPolling(false)
-	return sb.wBase.SetPower(ctx, linear, angular, extra)
+	return sb.controlledBase.SetPower(ctx, linear, angular, extra)
 }
 
 func (sb *sensorBase) Stop(ctx context.Context, extra map[string]interface{}) error {
 	sb.opMgr.CancelRunning(ctx)
 	sb.setPolling(false)
-	return sb.wBase.Stop(ctx, extra)
+	return sb.controlledBase.Stop(ctx, extra)
 }
 
 func (sb *sensorBase) IsMoving(ctx context.Context) (bool, error) {
-	return sb.wBase.IsMoving(ctx)
+	return sb.controlledBase.IsMoving(ctx)
 }
 
 func (sb *sensorBase) Properties(ctx context.Context, extra map[string]interface{}) (base.Properties, error) {
-	return sb.wBase.Properties(ctx, extra)
+	return sb.controlledBase.Properties(ctx, extra)
 }
 
 func (sb *sensorBase) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
-	return sb.wBase.Geometries(ctx, extra)
+	return sb.controlledBase.Geometries(ctx, extra)
 }
 
 func (sb *sensorBase) Close(ctx context.Context) error {

@@ -1,3 +1,5 @@
+//go:build linux
+
 // Package sht3xd implements a sht3x-d sensor for temperature and humidity
 // datasheet can be found at: https://cdn-shop.adafruit.com/product-files/2857/Sensirion_Humidity_SHT3x_Datasheet_digital-767294.pdf
 // example repo: https://github.com/esphome/esphome/tree/dev/esphome/components/sht3xd
@@ -14,6 +16,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/board/genericlinux"
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/resource"
 )
@@ -31,7 +34,7 @@ const (
 
 // Config is used for converting config attributes.
 type Config struct {
-	Board   string `json:"board"`
+	Board   string `json:"board,omitempty"`
 	I2CBus  string `json:"i2c_bus"`
 	I2cAddr int    `json:"i2c_addr,omitempty"`
 }
@@ -39,10 +42,9 @@ type Config struct {
 // Validate ensures all parts of the config are valid.
 func (conf *Config) Validate(path string) ([]string, error) {
 	var deps []string
-	if len(conf.Board) == 0 {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
+	if len(conf.Board) != 0 {
+		deps = append(deps, conf.Board)
 	}
-	deps = append(deps, conf.Board)
 	if len(conf.I2CBus) == 0 {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "i2c_bus")
 	}
@@ -76,17 +78,26 @@ func newSensor(
 	conf *Config,
 	logger golog.Logger,
 ) (sensor.Sensor, error) {
-	b, err := board.FromDependencies(deps, conf.Board)
-	if err != nil {
-		return nil, fmt.Errorf("sht3xd init: failed to find board: %w", err)
-	}
-	localB, ok := b.(board.LocalBoard)
-	if !ok {
-		return nil, fmt.Errorf("board %s is not local", conf.Board)
-	}
-	i2cbus, ok := localB.I2CByName(conf.I2CBus)
-	if !ok {
-		return nil, fmt.Errorf("sht3xd init: failed to find i2c bus %s", conf.I2CBus)
+	var i2cbus board.I2C
+	var err error
+	if conf.Board != "" {
+		b, err := board.FromDependencies(deps, conf.Board)
+		if err != nil {
+			return nil, fmt.Errorf("sht3xd init: failed to find board: %w", err)
+		}
+		localB, ok := b.(board.LocalBoard)
+		if !ok {
+			return nil, fmt.Errorf("board %s is not local", conf.Board)
+		}
+		i2cbus, ok = localB.I2CByName(conf.I2CBus)
+		if !ok {
+			return nil, fmt.Errorf("sht3xd init: failed to find i2c bus %s", conf.I2CBus)
+		}
+	} else {
+		i2cbus, err = genericlinux.NewI2cBus(conf.I2CBus)
+		if err != nil {
+			return nil, fmt.Errorf("sht3xd init: failed to find i2c bus %s", conf.I2CBus)
+		}
 	}
 	addr := conf.I2cAddr
 	if addr == 0 {

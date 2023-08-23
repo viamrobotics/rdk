@@ -2,6 +2,7 @@ package videosource
 
 import (
 	"context"
+	"fmt"
 	"image"
 	"path/filepath"
 	"strings"
@@ -23,9 +24,11 @@ import (
 
 	"go.viam.com/rdk/components/camera"
 	jetsoncamera "go.viam.com/rdk/components/camera/platforms/jetson"
+	debugLogger "go.viam.com/rdk/components/camera/videosource/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage/transform"
+	"go.viam.com/rdk/web/server"
 )
 
 // ModelWebcam is the name of the webcam component.
@@ -107,7 +110,30 @@ func Discover(_ context.Context, getDrivers func() []driver.Driver, logger golog
 		}
 		webcams = append(webcams, wc)
 	}
+
+	goutils.UncheckedError(server.GLoggerCamComp.Log("discovery service", webcamsToMap(webcams)))
 	return &pb.Webcams{Webcams: webcams}, nil
+}
+
+func webcamsToMap(webcams []*pb.Webcam) debugLogger.InfoMap {
+	info := make(debugLogger.InfoMap)
+	for _, w := range webcams {
+		k := w.Name
+		v := fmt.Sprintf("ID: %s\n", w.Id)
+		v += fmt.Sprintf("Status: %s\n", w.Status)
+		v += fmt.Sprintf("Label: %s\n", w.Label)
+		v += "Properties:"
+		for _, p := range w.Properties {
+			v += fmt.Sprintf(" :%s=%-4d | %s=%-4d | %s=%-5s | %s=%-4.2f\n",
+				"width_px", p.GetWidthPx(),
+				"height_px", p.GetHeightPx(),
+				"frame_format", p.GetFrameFormat(),
+				"frame_rate", p.GetFrameRate(),
+			)
+		}
+		info[k] = v
+	}
+	return info
 }
 
 func getProperties(d driver.Driver) (_ []prop.Media, err error) {
@@ -250,6 +276,27 @@ func NewWebcam(
 		return nil, err
 	}
 	cam.Monitor()
+
+	s, err := cam.Stream(ctx)
+	if err != nil {
+		goutils.UncheckedError(server.GLoggerCamComp.Log("camera test results",
+			debugLogger.InfoMap{
+				"name":  cam.Name().Name,
+				"error": fmt.Sprint(err),
+			},
+		))
+		return cam, nil
+	}
+
+	img, _, err := s.Next(ctx)
+	goutils.UncheckedError(server.GLoggerCamComp.Log("camera test results",
+		debugLogger.InfoMap{
+			"camera name":        cam.Name().Name,
+			"has non-nil image?": fmt.Sprintf("%t", img != nil),
+			"error:":             fmt.Sprintf("%s", err),
+		},
+	))
+
 	return cam, nil
 }
 
