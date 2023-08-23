@@ -151,7 +151,7 @@ func TestTabularDataByFilterAction(t *testing.T) {
 	b = make([]byte, expectedMetadataSize)
 
 	// metadata is named `0.json` based on its index in the metadata array
-	filePath = fmt.Sprintf("%smetadata/0.json", os.TempDir())
+	filePath = fmt.Sprintf("%s/metadata/0.json", os.TempDir())
 	file, err = os.Open(filePath)
 	test.That(t, err, test.ShouldBeNil)
 
