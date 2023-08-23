@@ -385,7 +385,7 @@ func TestDiffConfigs(t *testing.T) {
 			tc.Expected.Added.Network = config.NetworkConfig{}
 			tc.Expected.Removed.Network = config.NetworkConfig{}
 
-			for _, revealSensitiveConfigDiffs := range []bool{true} { // , false} {
+			for _, revealSensitiveConfigDiffs := range []bool{true, false} {
 				t.Run(fmt.Sprintf("revealSensitiveConfigDiffs=%t", revealSensitiveConfigDiffs), func(t *testing.T) {
 					logger := golog.NewTestLogger(t)
 					left, err := config.Read(context.Background(), tc.LeftFile, logger)
