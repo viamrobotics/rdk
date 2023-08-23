@@ -1,6 +1,17 @@
 // Package gpsnmea implements an NMEA serial gps.
 package gpsnmea
 
+/*
+	This package supports GPS NMEA over Serial or I2C.
+
+	NMEA reference manual:
+	https://www.sparkfun.com/datasheets/GPS/NMEA%20Reference%20Manual-Rev2.1-Dec07.pdf
+
+	Example GPS NMEA chip datasheet:
+	https://content.u-blox.com/sites/default/files/NEO-M9N-00B_DataSheet_UBX-19014285.pdf
+
+*/
+
 import (
 	"context"
 	"strings"
