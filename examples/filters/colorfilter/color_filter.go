@@ -53,8 +53,11 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 	if cfg.ActualCam == "" {
 		return nil, fmt.Errorf(`expected "actual_cam" attribute in %q`, path)
 	}
+	if cfg.VisionService == "" {
+		return nil, fmt.Errorf(`expected "vision_service" attribute in %q`, path)
+	}
 
-	return []string{cfg.ActualCam}, nil
+	return []string{cfg.ActualCam, cfg.VisionService}, nil
 }
 
 // A colorFilterCam wraps the underlying camera `actualCam` and only keeps the data captured on the actual camera if `visionService`
@@ -68,7 +71,6 @@ type colorFilterCam struct {
 
 // Reconfigure reconfigures the modular component with new settings.
 func (c *colorFilterCam) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
-	c.actualCam = nil
 	camConfig, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return err
