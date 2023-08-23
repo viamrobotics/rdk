@@ -9,12 +9,15 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/edaniels/golog"
 	"github.com/montanaflynn/stats"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
+	"golang.org/x/exp/constraints"
 
+	"go.viam.com/rdk/ml"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/mlmodel"
@@ -52,8 +55,15 @@ func init() {
 
 // MLModelConfig specifies the parameters needed to turn an ML model into a vision Model.
 type MLModelConfig struct {
-	resource.TriviallyValidateConfig
 	ModelName string `json:"mlmodel_name"`
+}
+
+// Validate will add the ModelName as an implicit dependency to the robot.
+func (conf *MLModelConfig) Validate(path string) ([]string, error) {
+	if conf.ModelName == "" {
+		return nil, errors.New("mlmodel_name cannot be empty")
+	}
+	return []string{conf.ModelName}, nil
 }
 
 func registerMLModelVisionService(
@@ -71,7 +81,11 @@ func registerMLModelVisionService(
 		return nil, err
 	}
 
-	classifierFunc, err := attemptToBuildClassifier(mlm)
+	// the nameMap that associates the tensor names as they are found in the model, to
+	// what the vision service expects. This might not be necessary any more once we
+	// get the vision service to have rename maps in its configs.
+	nameMap := &sync.Map{}
+	classifierFunc, err := attemptToBuildClassifier(mlm, nameMap)
 	if err != nil {
 		logger.Debugw("unable to use ml model as a classifier, will attempt to evaluate as"+
 			"detector and segmenter", "model", params.ModelName, "error", err)
@@ -86,7 +100,7 @@ func registerMLModelVisionService(
 		}
 	}
 
-	detectorFunc, err := attemptToBuildDetector(mlm)
+	detectorFunc, err := attemptToBuildDetector(mlm, nameMap)
 	if err != nil {
 		logger.Debugw("unable to use ml model as a detector, will attempt to evaluate as 3D segmenter",
 			"model", params.ModelName, "error", err)
@@ -101,7 +115,7 @@ func registerMLModelVisionService(
 		}
 	}
 
-	segmenter3DFunc, err := attemptToBuild3DSegmenter(mlm)
+	segmenter3DFunc, err := attemptToBuild3DSegmenter(mlm, nameMap)
 	if err != nil {
 		logger.Debugw("unable to use ml model as 3D segmenter", "model", params.ModelName, "error", err)
 	} else {
@@ -109,28 +123,6 @@ func registerMLModelVisionService(
 	}
 	// Don't return a close function, because you don't want to close the underlying ML service
 	return vision.NewService(name, r, nil, classifierFunc, detectorFunc, segmenter3DFunc)
-}
-
-// Unpack output based on expected type and force it into a []float64.
-func unpack(inMap map[string]interface{}, name string) ([]float64, error) {
-	var out []float64
-	me := inMap[name]
-	if me == nil {
-		return nil, errors.Errorf("no such tensor named %q to unpack", name)
-	}
-	switch v := me.(type) {
-	case []uint8:
-		out = make([]float64, 0, len(v))
-		for _, t := range v {
-			out = append(out, float64(t))
-		}
-	case []float32:
-		out = make([]float64, 0, len(v))
-		for _, t := range v {
-			out = append(out, float64(t))
-		}
-	}
-	return out, nil
 }
 
 // getLabelsFromMetadata returns a slice of strings--the intended labels.
@@ -231,4 +223,82 @@ func checkClassificationScores(in []float64) []float64 {
 		return out
 	}
 	return in // no need to sigmoid
+}
+
+// Number interface for converting between numbers.
+type number interface {
+	constraints.Integer | constraints.Float
+}
+
+// convertNumberSlice converts any number slice into another number slice.
+func convertNumberSlice[T1, T2 number](t1 []T1) []T2 {
+	t2 := make([]T2, len(t1))
+	for i := range t1 {
+		t2[i] = T2(t1[i])
+	}
+	return t2
+}
+
+func convertToFloat64Slice(slice interface{}) ([]float64, error) {
+	switch v := slice.(type) {
+	case []float64:
+		return v, nil
+	case float64:
+		return []float64{v}, nil
+	case []float32:
+		return convertNumberSlice[float32, float64](v), nil
+	case float32:
+		return convertNumberSlice[float32, float64]([]float32{v}), nil
+	case []int:
+		return convertNumberSlice[int, float64](v), nil
+	case int:
+		return convertNumberSlice[int, float64]([]int{v}), nil
+	case []uint:
+		return convertNumberSlice[uint, float64](v), nil
+	case uint:
+		return convertNumberSlice[uint, float64]([]uint{v}), nil
+	case []int8:
+		return convertNumberSlice[int8, float64](v), nil
+	case int8:
+		return convertNumberSlice[int8, float64]([]int8{v}), nil
+	case []int16:
+		return convertNumberSlice[int16, float64](v), nil
+	case int16:
+		return convertNumberSlice[int16, float64]([]int16{v}), nil
+	case []int32:
+		return convertNumberSlice[int32, float64](v), nil
+	case int32:
+		return convertNumberSlice[int32, float64]([]int32{v}), nil
+	case []int64:
+		return convertNumberSlice[int64, float64](v), nil
+	case int64:
+		return convertNumberSlice[int64, float64]([]int64{v}), nil
+	case []uint8:
+		return convertNumberSlice[uint8, float64](v), nil
+	case uint8:
+		return convertNumberSlice[uint8, float64]([]uint8{v}), nil
+	case []uint16:
+		return convertNumberSlice[uint16, float64](v), nil
+	case uint16:
+		return convertNumberSlice[uint16, float64]([]uint16{v}), nil
+	case []uint32:
+		return convertNumberSlice[uint32, float64](v), nil
+	case uint32:
+		return convertNumberSlice[uint32, float64]([]uint32{v}), nil
+	case []uint64:
+		return convertNumberSlice[uint64, float64](v), nil
+	case uint64:
+		return convertNumberSlice[uint64, float64]([]uint64{v}), nil
+	default:
+		return nil, errors.Errorf("dont know how to convert slice of %T into a []float64", slice)
+	}
+}
+
+// tensorNames returns all the names of the tensors.
+func tensorNames(t ml.Tensors) []string {
+	names := []string{}
+	for name := range t {
+		names = append(names, name)
+	}
+	return names
 }

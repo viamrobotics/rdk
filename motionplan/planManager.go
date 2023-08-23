@@ -14,14 +14,16 @@ import (
 	pb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
 
 const (
-	defaultOptimalityMultiple = 2.0
-	defaultFallbackTimeout    = 1.5
+	defaultOptimalityMultiple      = 2.0
+	defaultFallbackTimeout         = 1.5
+	defaultTPspaceOrientationScale = 30.
 )
 
 // planManager is intended to be the single entry point to motion planners, wrapping all others, dealing with fallbacks, etc.
@@ -142,6 +144,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 	}
 	goals = append(goals, goalPos)
 	opt, err := pm.plannerSetupFromMoveRequest(seedPos, goalPos, seedMap, worldState, constraintSpec, motionConfig)
+	pm.logger.Debug("set up planner options for waypoint")
 	if err != nil {
 		return nil, err
 	}
@@ -172,6 +175,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 			return nil, err
 		}
 	}
+	pm.logger.Debug("checked goal viability: success")
 
 	resultSlices, err := pm.planAtomicWaypoints(ctx, goals, seed, planners)
 	pm.activeBackgroundWorkers.Wait()
@@ -299,7 +303,9 @@ func (pm *planManager) planParallelRRTMotion(
 	var err error
 	// If we don't pass in pre-made maps, initialize and seed with IK solutions here
 	if maps == nil {
+		pm.logger.Debug("initializing RRT solutions")
 		planSeed := initRRTSolutions(ctx, pathPlanner, seed)
+		pm.logger.Debug("RRT solutions initialized")
 		if planSeed.planerr != nil || planSeed.steps != nil {
 			solutionChan <- planSeed
 			return
@@ -445,7 +451,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 
 	// Start with normal options
 	opt := newBasicPlannerOptions(pm.frame)
-	opt.SetGoalMetric(NewSquaredNormMetric(to))
+	opt.SetGoalMetric(ik.NewSquaredNormMetric(to))
 
 	opt.extra = planningOpts
 
@@ -515,11 +521,8 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		// overwrite default with TP space
 		opt.PlannerConstructor = newTPSpaceMotionPlanner
 		// Distances are computed in cartesian space rather than configuration space
-		opt.DistanceFunc = SquaredNormSegmentMetric
+		opt.DistanceFunc = ik.NewSquaredNormSegmentMetric(defaultTPspaceOrientationScale)
 
-		// TODO: instead of using a default this should be set from the TP frame as a function of the resolution of
-		// the simulated trajectories
-		opt.GoalThreshold = defaultTPSpaceGoalDist
 		planAlg = "tpspace"
 	}
 
@@ -558,7 +561,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		opt.AddStateConstraint(defaultOrientationConstraintDesc, constraint)
 		opt.pathMetric = pathMetric
 	case PositionOnlyMotionProfile:
-		opt.SetGoalMetric(NewPositionOnlyMetric(to))
+		opt.SetGoalMetric(ik.NewPositionOnlyMetric(to))
 	case FreeMotionProfile:
 		// No restrictions on motion
 		fallthrough
