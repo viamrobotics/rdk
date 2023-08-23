@@ -296,9 +296,14 @@ const handleStartMapping = async () => {
       return;
     }
 
-    hasActiveSession = true;
-    sessionId = await overrides.startMappingSession(mapName);
-    startMappingIntervals(Date.now());
+    try {
+      hasActiveSession = true;
+      sessionId = await overrides.startMappingSession(mapName);
+      startMappingIntervals(Date.now());
+    } catch {
+      hasActiveSession = false;
+      sessionDuration = 0;
+    }
   }
 };
 
