@@ -135,7 +135,7 @@ func TestTabularDataByFilterAction(t *testing.T) {
 	b := make([]byte, expectedDataSize)
 
 	// `data.ndjson` is the standardized name of the file data is written to in the `tabularData` call
-	filePath := fmt.Sprintf("%sdata/data.ndjson", os.TempDir())
+	filePath := fmt.Sprintf("%s/data/data.ndjson", os.TempDir())
 	file, err := os.Open(filePath)
 	test.That(t, err, test.ShouldBeNil)
 
