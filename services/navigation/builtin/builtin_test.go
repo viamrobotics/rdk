@@ -292,6 +292,7 @@ func TestStartWaypoint(t *testing.T) {
 			err = ns.SetMode(ctx, navigation.ModeManual, map[string]interface{}{"experimental": true})
 			test.That(t, err, test.ShouldBeNil)
 			ctx, cancelFunc := context.WithCancel(ctx)
+			defer ns.(*builtIn).activeBackgroundWorkers.Wait()
 			defer cancelFunc()
 			err = deleteAllWaypoints(ctx, ns)
 			for _, pt := range points {
@@ -338,8 +339,6 @@ func TestStartWaypoint(t *testing.T) {
 		})
 		t.Run("Calling SetMode cancels current and future MoveOnGlobe calls", func(t *testing.T) {
 			// Set manual mode to ensure waypoint loop from prior test exits
-			err = ns.SetMode(ctx, navigation.ModeManual, map[string]interface{}{"experimental": true})
-			test.That(t, err, test.ShouldBeNil)
 			err = deleteAllWaypoints(ctx, ns)
 			test.That(t, err, test.ShouldBeNil)
 			for _, pt := range points {
