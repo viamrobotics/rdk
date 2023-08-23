@@ -292,7 +292,7 @@ func (mp *tpSpaceRRTMotionPlanner) planRunner(
 						bestPath = goodPath
 					}
 				}
-				correctedPath, err := mp.rectifyPath(bestPath)
+				correctedPath, err := rectifyTPspacePath(bestPath, mp.frame)
 				if err != nil {
 					rrt.solutionChan <- &rrtPlanReturn{planerr: err, maps: rrt.maps}
 					return
@@ -672,32 +672,6 @@ func (mp *tpSpaceRRTMotionPlanner) make2DTPSpaceDistanceOptions(ptg tpspace.PTG,
 	return opts
 }
 
-// rectifyPath is needed because of how trees are currently stored. As trees grow from the start or goal, the Pose stored in the node
-// is the distal pose away from the root of the tree, which in the case of the goal tree is in fact the 0-distance point of the traj.
-// When this becomes a single path, poses should reflect the transformation at the end of each traj. Here we go through and recompute
-// each pose in order to ensure correctness.
-// TODO: if trees are stored as segments rather than nodes, then this becomes simpler/unnecessary. Related to RSDK-4139.
-func (mp *tpSpaceRRTMotionPlanner) rectifyPath(path []node) ([]node, error) {
-	correctedPath := []node{}
-	runningPose := spatialmath.NewZeroPose()
-	for _, wp := range path {
-		wpPose, err := mp.frame.Transform(wp.Q())
-		if err != nil {
-			return nil, err
-		}
-		runningPose = spatialmath.Compose(runningPose, wpPose)
-
-		thisNode := &basicNode{
-			q:      wp.Q(),
-			cost:   wp.Cost(),
-			pose:   runningPose,
-			corner: wp.Corner(),
-		}
-		correctedPath = append(correctedPath, thisNode)
-	}
-	return correctedPath, nil
-}
-
 func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) []node {
 	toIter := int(math.Min(float64(len(path)*len(path))/2, float64(mp.planOpts.SmoothIter)))
 	currCost := sumCosts(path)
@@ -803,7 +777,7 @@ func (mp *tpSpaceRRTMotionPlanner) attemptSmooth(
 	if secondEdge < len(path)-1 {
 		newInputSteps = append(newInputSteps, path[secondEdge+1:]...)
 	}
-	return mp.rectifyPath(newInputSteps)
+	return rectifyTPspacePath(newInputSteps, mp.frame)
 }
 
 func (mp *tpSpaceRRTMotionPlanner) sample(rSeed node, iter int) (node, error) {
@@ -820,4 +794,30 @@ func (mp *tpSpaceRRTMotionPlanner) sample(rSeed node, iter int) (node, error) {
 		&spatialmath.OrientationVector{OZ: 1, Theta: randPosTheta},
 	)
 	return &basicNode{pose: randPos}, nil
+}
+
+// rectifyTPspacePath is needed because of how trees are currently stored. As trees grow from the start or goal, the Pose stored in the node
+// is the distal pose away from the root of the tree, which in the case of the goal tree is in fact the 0-distance point of the traj.
+// When this becomes a single path, poses should reflect the transformation at the end of each traj. Here we go through and recompute
+// each pose in order to ensure correctness.
+// TODO: if trees are stored as segments rather than nodes, then this becomes simpler/unnecessary. Related to RSDK-4139.
+func rectifyTPspacePath(path []node, frame referenceframe.Frame) ([]node, error) {
+	correctedPath := []node{}
+	runningPose := spatialmath.NewZeroPose()
+	for _, wp := range path {
+		wpPose, err := frame.Transform(wp.Q())
+		if err != nil {
+			return nil, err
+		}
+		runningPose = spatialmath.Compose(runningPose, wpPose)
+
+		thisNode := &basicNode{
+			q:      wp.Q(),
+			cost:   wp.Cost(),
+			pose:   runningPose,
+			corner: wp.Corner(),
+		}
+		correctedPath = append(correctedPath, thisNode)
+	}
+	return correctedPath, nil
 }
