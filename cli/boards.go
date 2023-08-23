@@ -2,14 +2,16 @@ package cli
 
 import (
 	"archive/tar"
+	"bufio"
 	"bytes"
 	"compress/gzip"
-	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
 
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
@@ -17,60 +19,68 @@ import (
 	packagepb "go.viam.com/api/app/packages/v1"
 )
 
-const UploadChunkSize = 32 * 1024
+// supportedVersionRegex validates that the board version is semver 2.0.0 specification.
+var supportedVersionRegex = regexp.MustCompile(`^(?P<major>0|[1-9]\d*)\.(?P<minor>0|[1-9]\d*)\.(?P<patch>0|[1-9]\d*)` +
+	`(?:-(?P<prerelease>(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)` +
+	`(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+(?P<buildmetadata>[0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$`)
 
+const uploadChunkSize = 32 * 1024
+
+// UploadBoardDefsAction is the corresponding action for "board upload".
 func UploadBoardDefsAction(c *cli.Context) error {
-	orgIDArg := c.String(boardFlagOrgID)
+	orgArg := c.String(boardFlagOrg)
 	nameArg := c.String(boardFlagName)
 	versionArg := c.String(boardFlagVersion)
-	jsonPath := c.String(boardFlagPath)
+	jsonPath := c.Args().First()
 	if c.Args().Len() > 1 {
 		return errors.New("too many arguments passed to upload command. " +
 			"make sure to specify flag and optional arguments before the required positional package argument")
 	}
 	if jsonPath == "" {
-		return errors.New("no package to upload -- please provide a json path containing your board file. use --help for more information")
+		return errors.New("no package to upload -- please provide a path containing your json file. use --help for more information")
 	}
 
-	// Create tar file from the json file provided.
-	out, err := os.Create("output.tar.gz")
-	if err != nil {
-		log.Fatalln("Error writing archive:", err)
-	}
-	defer out.Close()
-
-	jsonFile, err := os.Open(jsonPath)
-
-	if err != nil {
-		return err
-	}
-
-	stats, err := json.Stat()
-	if err != nil {
-		return err
-	}
-
-	size := stats.Size()
-
-	file, err := CreateArchive(json)
-	if err != nil {
-		log.Fatalln("Error creating archive:", err)
+	// Validate that version is valid.
+	if !supportedVersionRegex.MatchString(versionArg) {
+		return fmt.Errorf("invalid version %s. Must use semver 2.0.0 specification for versions", versionArg)
 	}
 
 	client, err := newAppClient(c)
 	if err != nil {
 		return err
 	}
+	ctx := client.c.Context
 
-	response, err := client.uploadBoardDefsFile(nameArg, versionArg, orgIDArg, jsonFile)
+	// get the org in case they supplied a string name instead of org id.
+	org, err := client.getOrg(orgArg)
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf(response.Id)
-	fmt.Printf(response.Version)
+	// Check if a package with this version already exists, the packageID is the orgid/name
+	packageID := fmt.Sprintf("%s/%s", org.Id, nameArg)
+	req := packagepb.GetPackageRequest{
+		Id:      packageID,
+		Version: versionArg,
+	}
 
-	fmt.Printf("Board definitions file was successfully uploaded!")
+	_, err = client.packageClient.GetPackage(ctx, &req)
+
+	if !strings.Contains(err.Error(), "package not found") {
+		return fmt.Errorf("a package with name %s and version %s already exists", nameArg, versionArg)
+	}
+
+	jsonFile, err := os.Open(filepath.Clean(jsonPath))
+	if err != nil {
+		return err
+	}
+
+	_, err = client.uploadBoardDefsFile(nameArg, versionArg, org.Id, jsonFile)
+	if err != nil {
+		return err
+	}
+
+	fmt.Fprintf(c.App.Writer, "Board definitions file was successfully uploaded!\n")
 	return nil
 }
 
@@ -85,19 +95,25 @@ func (c *appClient) uploadBoardDefsFile(
 	}
 	ctx := c.c.Context
 
-	stats, err := json.Stat()
+	// Get the size of the json file
+	stats, err := jsonFile.Stat()
 	if err != nil {
-		return err
+		return nil, err
 	}
-
 	size := stats.Size()
 
-	file, err := CreateArchive(json)
+	// Create an archive tar.gz file (required for packages).
+	file, err := CreateArchive(jsonFile)
 	if err != nil {
 		log.Fatalln("Error creating archive:", err)
 	}
 
-	//setup streaming client for request
+	// The board defs packages are small and never expected to be larger than the upload chunk size,
+	// so we are sending in one chunk.
+	// If the file is too big, return error.
+	if file.Len() > uploadChunkSize {
+		return nil, fmt.Errorf("file is too large, must be under %d bytes", uploadChunkSize)
+	}
 
 	stream, err := c.packageClient.CreatePackage(ctx)
 	if err != nil {
@@ -115,13 +131,13 @@ func (c *appClient) uploadBoardDefsFile(
 		Metadata:       nil,
 	}
 
-	// send the package request!!!!
+	// send the package requests
 	var errs error
-	if err := sendPackageRequests(ctx, stream, file, packageInfo); err != nil {
+	if err := sendPackageRequests(stream, file, packageInfo); err != nil {
 		errs = multierr.Combine(errs, errors.Wrapf(err, "error syncing package"))
 	}
 
-	// close the stream and recievea respoinse when finished.
+	// close the stream and receive a response when finished.
 	resp, err := stream.CloseAndRecv()
 	if err != nil {
 		errs = multierr.Combine(errs, errors.Wrapf(err, "received error response while syncing package"))
@@ -130,103 +146,39 @@ func (c *appClient) uploadBoardDefsFile(
 		return nil, errs
 	}
 
-	includeURL := true
-	packageType := packagepb.PackageType_PACKAGE_TYPE_BOARD_DEFS
-
-	fmt.Println(c.packageClient)
-
-	response, err := c.packageClient.GetPackage(ctx, &packagepb.GetPackageRequest{
-		Id:         resp.Id,
-		Version:    resp.Version,
-		Type:       &packageType,
-		IncludeUrl: &includeURL,
-	})
-
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	fmt.Println(response.Package.Url)
-
 	return resp, nil
 }
 
-func sendPackageRequests(ctx context.Context, stream packagepb.PackageService_CreatePackageClient,
+func sendPackageRequests(stream packagepb.PackageService_CreatePackageClient,
 	f *bytes.Buffer, packageInfo *packagepb.PackageInfo,
 ) error {
 	req := &packagepb.CreatePackageRequest{
 		Package: &packagepb.CreatePackageRequest_Info{Info: packageInfo},
 	}
-	// first send the metadata for the package
+	// first send the packageinfo.
 	if err := stream.Send(req); err != nil {
-		return errors.Wrapf(err, "sending metadata")
+		return err
 	}
 
 	//nolint:errcheck
 	defer stream.CloseSend()
-	// Loop until there is no more content to be read from file.
-	for {
-		select {
-		case <-ctx.Done():
-			return context.Canceled
-		default:
-			// Get the next UploadRequest from the file.
-			uploadReq, err := getCreatePackageRequest(ctx, f)
 
-			// EOF means we've completed successfully.
-			if errors.Is(err, io.EOF) {
-				return nil
-			}
-
-			if err != nil {
-				return err
-			}
-
-			if err = stream.Send(uploadReq); err != nil {
-				return err
-			}
-		}
+	// Now send the file contents.
+	req = &packagepb.CreatePackageRequest{
+		Package: &packagepb.CreatePackageRequest_Contents{Contents: f.Bytes()},
 	}
+
+	if err := stream.Send(req); err != nil {
+		return err
+	}
+	return nil
 }
 
-func getCreatePackageRequest(ctx context.Context, f *bytes.Buffer) (*packagepb.CreatePackageRequest, error) {
-	select {
-	case <-ctx.Done():
-		return nil, context.Canceled
-	default:
-		// Get the next file data reading from file, check for an error.
-		next, err := readNextFileChunk(f)
-		if err != nil {
-			return nil, err
-		}
-		// Otherwise, return an UploadRequest and no error.
-		return &packagepb.CreatePackageRequest{
-			Package: &packagepb.CreatePackageRequest_Contents{
-				Contents: next,
-			},
-		}, nil
-	}
-}
-
-func readNextFileChunk(f *bytes.Buffer) ([]byte, error) {
-	byteArr := make([]byte, UploadChunkSize)
-	numBytesRead, err := f.Read(byteArr)
-	if numBytesRead < UploadChunkSize {
-		byteArr = byteArr[:numBytesRead]
-	}
-	if err != nil {
-		return nil, err
-	}
-	return byteArr, nil
-}
-
-// CreateArchive creates a tar.gz with the desired set of files.
+// CreateArchive creates a tar.gz from the file provided.
 func CreateArchive(file *os.File) (*bytes.Buffer, error) {
 	// Create output buffer
 	out := new(bytes.Buffer)
 
-	// Create the archive and write the output to the "out" Writer
-	// Create new Writers for gzip and tar
 	// These writers are chained. Writing to the tar writer will
 	// write to the gzip writer which in turn will write to
 	// the "out" writer
@@ -242,7 +194,6 @@ func CreateArchive(file *os.File) (*bytes.Buffer, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	// Create a tar Header from the FileInfo data
 	header, err := tar.FileInfoHeader(info, info.Name())
 	if err != nil {
@@ -255,13 +206,15 @@ func CreateArchive(file *os.File) (*bytes.Buffer, error) {
 		return nil, err
 	}
 
-	fileContents, err := ioutil.ReadFile(file.Name()) //read the content of file
-	if err != nil {
+	// Read the file into a byte slice
+	bytes := make([]byte, info.Size())
+	_, err = bufio.NewReader(file).Read(bytes)
+	if err != nil && !errors.Is(err, io.EOF) {
 		return nil, err
 	}
 
 	// Copy file content to tar archive
-	if _, err := tw.Write(fileContents); err != nil {
+	if _, err := tw.Write(bytes); err != nil {
 		return nil, err
 	}
 

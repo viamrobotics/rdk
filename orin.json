@@ -1,7 +1,5 @@
 {"pins": 
 	[
-	  	{"name": "7", "device_name": "gpiochip1", "line_number": 71, "pwm_chip_sysfs_dir": "ffd1a000.pwm", "pwm_id": 0},
-		{"name": "11", "device_name": "gpiochip1", "line_number": 69, "pwm_chip_sysfs_dir": "ffd1a000.pwm", "pwm_id": 1},
 		{"name": "15", "device_name": "gpiochip1", "line_number": 73},
 		{"name": "12", "device_name": "gpiochip1", "line_number": 82},
 		{"name": "29", "device_name": "gpiochip1", "line_number": 80},
