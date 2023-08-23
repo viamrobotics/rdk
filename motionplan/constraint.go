@@ -13,6 +13,64 @@ import (
 	spatial "go.viam.com/rdk/spatialmath"
 )
 
+// Given a constraint input with only frames and input positions, calculates the corresponding poses as needed.
+func resolveStatesToPositions(state *ik.State) error {
+	if state.Position == nil {
+		if state.Frame != nil {
+			if state.Configuration != nil {
+				pos, err := state.Frame.Transform(state.Configuration)
+				if err == nil {
+					state.Position = pos
+				} else {
+					return err
+				}
+			} else {
+				return errors.New("invalid constraint input")
+			}
+		} else {
+			return errors.New("invalid constraint input")
+		}
+	}
+	return nil
+}
+
+// Given a constraint input with only frames and input positions, calculates the corresponding poses as needed.
+func resolveSegmentsToPositions(segment *ik.Segment) error {
+	if segment.StartPosition == nil {
+		if segment.Frame != nil {
+			if segment.StartConfiguration != nil {
+				pos, err := segment.Frame.Transform(segment.StartConfiguration)
+				if err == nil {
+					segment.StartPosition = pos
+				} else {
+					return err
+				}
+			} else {
+				return errors.New("invalid constraint input")
+			}
+		} else {
+			return errors.New("invalid constraint input")
+		}
+	}
+	if segment.EndPosition == nil {
+		if segment.Frame != nil {
+			if segment.EndConfiguration != nil {
+				pos, err := segment.Frame.Transform(segment.EndConfiguration)
+				if err == nil {
+					segment.EndPosition = pos
+				} else {
+					return err
+				}
+			} else {
+				return errors.New("invalid constraint input")
+			}
+		} else {
+			return errors.New("invalid constraint input")
+		}
+	}
+	return nil
+}
+
 // SegmentConstraint tests whether a transition from a starting robot configuration to an ending robot configuration is valid.
 // If the returned bool is true, the constraint is satisfied and the segment is valid.
 type SegmentConstraint func(*ik.Segment) bool
@@ -426,62 +484,4 @@ func NewOctreeCollisionConstraint(octree *pointcloud.BasicOctree, threshold int,
 		return true
 	}
 	return constraint
-}
-
-// Given a constraint input with only frames and input positions, calculates the corresponding poses as needed.
-func resolveStatesToPositions(state *ik.State) error {
-	if state.Position == nil {
-		if state.Frame != nil {
-			if state.Configuration != nil {
-				pos, err := state.Frame.Transform(state.Configuration)
-				if err == nil {
-					state.Position = pos
-				} else {
-					return err
-				}
-			} else {
-				return errors.New("invalid constraint input")
-			}
-		} else {
-			return errors.New("invalid constraint input")
-		}
-	}
-	return nil
-}
-
-// Given a constraint input with only frames and input positions, calculates the corresponding poses as needed.
-func resolveSegmentsToPositions(segment *ik.Segment) error {
-	if segment.StartPosition == nil {
-		if segment.Frame != nil {
-			if segment.StartConfiguration != nil {
-				pos, err := segment.Frame.Transform(segment.StartConfiguration)
-				if err == nil {
-					segment.StartPosition = pos
-				} else {
-					return err
-				}
-			} else {
-				return errors.New("invalid constraint input")
-			}
-		} else {
-			return errors.New("invalid constraint input")
-		}
-	}
-	if segment.EndPosition == nil {
-		if segment.Frame != nil {
-			if segment.EndConfiguration != nil {
-				pos, err := segment.Frame.Transform(segment.EndConfiguration)
-				if err == nil {
-					segment.EndPosition = pos
-				} else {
-					return err
-				}
-			} else {
-				return errors.New("invalid constraint input")
-			}
-		} else {
-			return errors.New("invalid constraint input")
-		}
-	}
-	return nil
 }
