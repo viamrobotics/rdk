@@ -3,7 +3,6 @@ package tflitecpu
 import (
 	"context"
 	"net"
-	"reflect"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -11,8 +10,10 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/rpc"
+	"gorgonia.org/tensor"
 
 	viamgrpc "go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/ml"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/mlmodel"
@@ -64,18 +65,31 @@ func TestTFLiteCPUDetector(t *testing.T) {
 	resized := resize.Resize(uint(got.metadata.Inputs[0].Shape[1]), uint(got.metadata.Inputs[0].Shape[2]), pic, resize.Bilinear)
 	imgBytes := rimage.ImageToUInt8Buffer(resized)
 	test.That(t, imgBytes, test.ShouldNotBeNil)
-	inputMap := make(map[string]interface{})
-	inputMap["image"] = imgBytes
-
-	gotOutput, err := got.Infer(ctx, inputMap)
+	inputMap := ml.Tensors{}
+	inputMap["image"] = tensor.New(
+		tensor.WithShape(got.metadata.Inputs[0].Shape[1], got.metadata.Inputs[0].Shape[2], 3),
+		tensor.WithBacking(imgBytes),
+	)
+	gotOutput, _, err := got.Infer(ctx, inputMap, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gotOutput, test.ShouldNotBeNil)
 
-	test.That(t, gotOutput["number of detections"], test.ShouldResemble, []float32{25})
-	test.That(t, len(gotOutput["score"].([]float32)), test.ShouldResemble, 25)
-	test.That(t, len(gotOutput["location"].([]float32)), test.ShouldResemble, 100)
-	test.That(t, len(gotOutput["category"].([]float32)), test.ShouldResemble, 25)
-	test.That(t, gotOutput["category"].([]float32)[0], test.ShouldEqual, 17) // 17 is dog
+	test.That(t, len(gotOutput), test.ShouldEqual, 4)
+	// n detections
+	test.That(t, gotOutput["number of detections"], test.ShouldNotBeNil)
+	test.That(t, gotOutput["number of detections"].Data(), test.ShouldResemble, []float32{25})
+	// score
+	test.That(t, gotOutput["score"], test.ShouldNotBeNil)
+	test.That(t, gotOutput["score"].Shape(), test.ShouldResemble, tensor.Shape{1, 25})
+	// category
+	test.That(t, gotOutput["category"], test.ShouldNotBeNil)
+	test.That(t, gotOutput["category"].Shape(), test.ShouldResemble, tensor.Shape{1, 25})
+	result, err := gotOutput["category"].At(0, 0)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, result, test.ShouldEqual, 17) // 17 is dog
+	// location
+	test.That(t, gotOutput["location"], test.ShouldNotBeNil)
+	test.That(t, gotOutput["location"].Shape(), test.ShouldResemble, tensor.Shape{1, 25, 4})
 }
 
 func TestTFLiteCPUClassifier(t *testing.T) {
@@ -112,17 +126,27 @@ func TestTFLiteCPUClassifier(t *testing.T) {
 	resized := resize.Resize(uint(got.metadata.Inputs[0].Shape[1]), uint(got.metadata.Inputs[0].Shape[2]), pic, resize.Bilinear)
 	imgBytes := rimage.ImageToUInt8Buffer(resized)
 	test.That(t, imgBytes, test.ShouldNotBeNil)
-	inputMap := make(map[string]interface{})
-	inputMap["image"] = imgBytes
+	inputMap := ml.Tensors{}
+	inputMap["images"] = tensor.New(
+		tensor.WithShape(got.metadata.Inputs[0].Shape[1], got.metadata.Inputs[0].Shape[2], 3),
+		tensor.WithBacking(imgBytes),
+	)
 
-	gotOutput, err := got.Infer(ctx, inputMap)
+	gotOutput, _, err := got.Infer(ctx, inputMap, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gotOutput, test.ShouldNotBeNil)
 
-	test.That(t, gotOutput["probability"].([]uint8), test.ShouldNotBeNil)
-	test.That(t, gotOutput["probability"].([]uint8)[290], test.ShouldEqual, 0)
-	test.That(t, gotOutput["probability"].([]uint8)[291], test.ShouldBeGreaterThan, 200) // 291 is lion
-	test.That(t, gotOutput["probability"].([]uint8)[292], test.ShouldEqual, 0)
+	test.That(t, len(gotOutput), test.ShouldEqual, 1)
+	test.That(t, gotOutput["probability"], test.ShouldNotBeNil)
+	result, err := gotOutput["probability"].At(0, 290)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, result, test.ShouldEqual, 0)
+	result, err = gotOutput["probability"].At(0, 291)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, result, test.ShouldBeGreaterThan, 200) // 291 is lion
+	result, err = gotOutput["probability"].At(0, 292)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, result, test.ShouldEqual, 0)
 }
 
 func TestTFLiteCPUTextModel(t *testing.T) {
@@ -150,17 +174,20 @@ func TestTFLiteCPUTextModel(t *testing.T) {
 	test.That(t, got.metadata, test.ShouldNotBeNil)
 
 	// Test that the Infer() works even on a text classifier
-	inputMap := make(map[string]interface{})
-	inputMap["text"] = makeExampleSlice(got.model.Info.InputHeight)
-	test.That(t, len(inputMap["text"].([]int32)), test.ShouldEqual, 384)
-	gotOutput, err := got.Infer(ctx, inputMap)
+	zeros := make([]int32, got.model.Info.InputHeight)
+	inputMap := ml.Tensors{}
+	inputMap["input_ids"] = makeExampleTensor(got.model.Info.InputHeight)
+	test.That(t, inputMap["input_ids"].Shape(), test.ShouldResemble, tensor.Shape{384})
+	inputMap["input_mask"] = tensor.New(tensor.WithShape(384), tensor.WithBacking(zeros))
+	inputMap["segment_ids"] = tensor.New(tensor.WithShape(384), tensor.WithBacking(zeros))
+	gotOutput, _, err := got.Infer(ctx, inputMap, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gotOutput, test.ShouldNotBeNil)
 	test.That(t, len(gotOutput), test.ShouldEqual, 2)
-	test.That(t, gotOutput["output0"], test.ShouldNotBeNil)
-	test.That(t, gotOutput["output1"], test.ShouldNotBeNil)
-	test.That(t, len(gotOutput["output0"].([]float32)), test.ShouldEqual, 384)
-	test.That(t, len(gotOutput["output1"].([]float32)), test.ShouldEqual, 384)
+	test.That(t, gotOutput["end_logits"], test.ShouldNotBeNil)
+	test.That(t, gotOutput["start_logits"], test.ShouldNotBeNil)
+	test.That(t, gotOutput["end_logits"].Shape(), test.ShouldResemble, tensor.Shape{1, 384})
+	test.That(t, gotOutput["start_logits"].Shape(), test.ShouldResemble, tensor.Shape{1, 384})
 }
 
 func TestTFLiteCPUClient(t *testing.T) {
@@ -197,8 +224,11 @@ func TestTFLiteCPUClient(t *testing.T) {
 	resized := resize.Resize(320, 320, pic, resize.Bilinear)
 	imgBytes := rimage.ImageToUInt8Buffer(resized)
 	test.That(t, imgBytes, test.ShouldNotBeNil)
-	inputMap := make(map[string]interface{})
-	inputMap["image"] = imgBytes
+	inputMap := ml.Tensors{}
+	inputMap["image"] = tensor.New(
+		tensor.WithShape(320, 320, 3),
+		tensor.WithBacking(imgBytes),
+	)
 
 	conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -220,27 +250,31 @@ func TestTFLiteCPUClient(t *testing.T) {
 	test.That(t, gotMD.Outputs[1].AssociatedFiles[0].Name, test.ShouldResemble, "labelmap.txt")
 
 	// Test call to Infer
-	gotOutput, err := client.Infer(context.Background(), inputMap)
+	gotOutput, _, err := client.Infer(context.Background(), inputMap, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gotOutput, test.ShouldNotBeNil)
 	test.That(t, len(gotOutput), test.ShouldEqual, 4)
-	locs := reflect.ValueOf(gotOutput["location"])
-	test.That(t, locs.Len(), test.ShouldEqual, 100)
-	scores := reflect.ValueOf(gotOutput["score"])
-	test.That(t, scores.Len(), test.ShouldEqual, 25)
-	nDets := reflect.ValueOf(gotOutput["number of detections"])
-	test.That(t, nDets.Len(), test.ShouldEqual, 1)
-	test.That(t, nDets.Index(0).Interface().(float64), test.ShouldResemble, float64(25))
-	test.That(t, reflect.TypeOf(gotOutput["category"]).Kind(), test.ShouldResemble, reflect.Slice)
-	cats := reflect.ValueOf(gotOutput["category"])
-	test.That(t, cats.Len(), test.ShouldEqual, 25)
-	test.That(t, cats.Index(0).Interface().(float64), test.ShouldResemble, float64(17)) // 17 is dog
+	// n detections
+	test.That(t, gotOutput["number of detections"], test.ShouldNotBeNil)
+	test.That(t, gotOutput["number of detections"].Data(), test.ShouldResemble, []float32{25})
+	// score
+	test.That(t, gotOutput["score"], test.ShouldNotBeNil)
+	test.That(t, gotOutput["score"].Shape(), test.ShouldResemble, tensor.Shape{1, 25})
+	// category
+	test.That(t, gotOutput["category"], test.ShouldNotBeNil)
+	test.That(t, gotOutput["category"].Shape(), test.ShouldResemble, tensor.Shape{1, 25})
+	result, err := gotOutput["category"].At(0, 0)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, result, test.ShouldEqual, 17) // 17 is dog
+	// location
+	test.That(t, gotOutput["location"], test.ShouldNotBeNil)
+	test.That(t, gotOutput["location"].Shape(), test.ShouldResemble, tensor.Shape{1, 25, 4})
 }
 
-func makeExampleSlice(length int) []int32 {
+func makeExampleTensor(length int) *tensor.Dense {
 	out := make([]int32, 0, length)
 	for i := 0; i < length; i++ {
 		out = append(out, int32(i))
 	}
-	return out
+	return tensor.New(tensor.WithShape(length), tensor.WithBacking(out))
 }

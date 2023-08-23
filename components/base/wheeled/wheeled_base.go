@@ -134,10 +134,10 @@ func (wb *wheeledBase) Reconfigure(ctx context.Context, deps resource.Dependenci
 	}
 
 	if newConf.SpinSlipFactor == 0 {
-		newConf.SpinSlipFactor = 1
+		wb.spinSlipFactor = 1
+	} else {
+		wb.spinSlipFactor = newConf.SpinSlipFactor
 	}
-
-	wb.spinSlipFactor = newConf.SpinSlipFactor
 
 	updateMotors := func(curr []motor.Motor, fromConfig []string, whichMotor string) ([]motor.Motor, error) {
 		newMotors := make([]motor.Motor, 0)
@@ -484,8 +484,9 @@ func (wb *wheeledBase) Close(ctx context.Context) error {
 
 func (wb *wheeledBase) Properties(ctx context.Context, extra map[string]interface{}) (base.Properties, error) {
 	return base.Properties{
-		TurningRadiusMeters: 0.0,
-		WidthMeters:         float64(wb.widthMm) * 0.001, // convert to meters from mm
+		TurningRadiusMeters:      0.0,
+		WidthMeters:              float64(wb.widthMm) * 0.001,              // convert to meters from mm
+		WheelCircumferenceMeters: float64(wb.wheelCircumferenceMm) * 0.001, // convert to meters from mm
 	}, nil
 }
 
