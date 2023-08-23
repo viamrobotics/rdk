@@ -54,7 +54,7 @@ type Arguments struct {
 	RevealSensitiveConfigDiffs bool   `flag:"reveal-sensitive-config-diffs,usage=show config diffs"`
 	UntrustedEnv               bool   `flag:"untrusted-env,usage=disable processes and shell from running in a untrusted environment"`
 	OutputTelemetry            bool   `flag:"output-telemetry,usage=print out telemetry data (metrics and spans)"`
-	DisableMulticastDNS        bool   `flag:"disable-mdns,usage=disable server discovery through multicast DNS"`
+	MulticastDNS               bool   `flag:"mdns,default=true,usage=enable server discovery through multicast DNS"`
 }
 
 type robotServer struct {
@@ -199,7 +199,7 @@ func (s *robotServer) createWebOptions(cfg *config.Config) (weboptions.Options, 
 	options.SharedDir = s.args.SharedDir
 	options.Debug = s.args.Debug || cfg.Debug
 	options.WebRTC = s.args.WebRTC
-	options.DisableMulticastDNS = s.args.DisableMulticastDNS
+	options.MulticastDNS = s.args.MulticastDNS
 	if cfg.Cloud != nil && s.args.AllowInsecureCreds {
 		options.SignalingDialOpts = append(options.SignalingDialOpts, rpc.WithAllowInsecureWithCredentialsDowngrade())
 	}

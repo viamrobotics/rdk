@@ -927,7 +927,7 @@ func (svc *webService) initRPCOptions(listenerTCPAddr *net.TCPAddr, options webo
 			OnPeerRemoved:             options.WebRTCOnPeerRemoved,
 		}),
 	}
-	if options.DisableMulticastDNS {
+	if !options.MulticastDNS {
 		rpcOpts = append(rpcOpts, rpc.WithDisableMulticastDNS())
 	}
 
