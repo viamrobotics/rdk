@@ -354,7 +354,10 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 		targetFunc = ik.NewSquaredNormMetric(relPose)
 	}
 	solutionChan := make(chan *ik.Solution, 1)
-	err := curPtg.Solve(context.Background(), solutionChan, mp.algOpts.ikSeed, targetFunc, mp.randseed.Int())
+	mp.mu.Lock()
+	rseed := mp.randseed.Int()
+	mp.mu.Unlock()
+	err := curPtg.Solve(context.Background(), solutionChan, mp.algOpts.ikSeed, targetFunc, rseed)
 
 	var bestNode *ik.Solution
 	select {
