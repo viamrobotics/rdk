@@ -19,6 +19,7 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -1531,6 +1532,7 @@ func TestConfigStartsInvalidReconfiguresValid(t *testing.T) {
 				Name:                "test",
 				API:                 base.API,
 				Model:               fakeModel,
+				DiffingAttributes:   someConfig{},
 				ConvertedAttributes: someConfig{},
 			},
 		},
@@ -1538,6 +1540,7 @@ func TestConfigStartsInvalidReconfiguresValid(t *testing.T) {
 			{
 				Name:                "fake1",
 				API:                 datamanager.API,
+				DiffingAttributes:   someConfig{},
 				ConvertedAttributes: someConfig{},
 			},
 		},
@@ -1571,6 +1574,7 @@ func TestConfigStartsInvalidReconfiguresValid(t *testing.T) {
 				Name:                "fake1",
 				API:                 datamanager.API,
 				Model:               resource.DefaultServiceModel,
+				DiffingAttributes:   &builtin.Config{},
 				ConvertedAttributes: &builtin.Config{},
 			},
 		},
@@ -1624,6 +1628,9 @@ func TestConfigStartsValidReconfiguresInvalid(t *testing.T) {
 		Name:  "arm1",
 		API:   arm.API,
 		Model: fakeModel,
+		DiffingAttributes: &fake.Config{
+			ModelFilePath: "../../components/arm/fake/fake_model.json",
+		},
 		ConvertedAttributes: &fake.Config{
 			ModelFilePath: "../../components/arm/fake/fake_model.json",
 		},
@@ -1655,6 +1662,7 @@ func TestConfigStartsValidReconfiguresInvalid(t *testing.T) {
 				Name:                "fake1",
 				API:                 datamanager.API,
 				Model:               resource.DefaultServiceModel,
+				DiffingAttributes:   &builtin.Config{},
 				ConvertedAttributes: &builtin.Config{},
 			},
 		},
@@ -1678,6 +1686,7 @@ func TestConfigStartsValidReconfiguresInvalid(t *testing.T) {
 				Name:                "test",
 				API:                 base.API,
 				Model:               fakeModel,
+				DiffingAttributes:   someConfig{},
 				ConvertedAttributes: someConfig{},
 			},
 		},
@@ -1685,6 +1694,7 @@ func TestConfigStartsValidReconfiguresInvalid(t *testing.T) {
 			{
 				Name:                "fake1",
 				API:                 datamanager.API,
+				DiffingAttributes:   someConfig{},
 				ConvertedAttributes: someConfig{},
 			},
 		},

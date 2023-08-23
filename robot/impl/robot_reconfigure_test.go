@@ -2462,6 +2462,7 @@ func TestUpdateWeakDependents(t *testing.T) {
 				Name:                arm1Name.Name,
 				API:                 arm.API,
 				Model:               fake.Model,
+				DiffingAttributes:   &fake.Config{},
 				ConvertedAttributes: &fake.Config{},
 			},
 		},
@@ -2508,6 +2509,9 @@ func TestUpdateWeakDependents(t *testing.T) {
 				Name:  weak1Name.Name,
 				API:   weakAPI,
 				Model: weakModel,
+				DiffingAttributes: &someTypeWithWeakAndStrongDepsConfig{
+					deps: []resource.Name{generic.Named("foo")},
+				},
 				ConvertedAttributes: &someTypeWithWeakAndStrongDepsConfig{
 					deps: []resource.Name{generic.Named("foo")},
 				},
@@ -2537,6 +2541,9 @@ func TestUpdateWeakDependents(t *testing.T) {
 				Name:  weak1Name.Name,
 				API:   weakAPI,
 				Model: weakModel,
+				DiffingAttributes: &someTypeWithWeakAndStrongDepsConfig{
+					weakDeps: []resource.Name{base1Name},
+				},
 				ConvertedAttributes: &someTypeWithWeakAndStrongDepsConfig{
 					weakDeps: []resource.Name{base1Name},
 				},
@@ -2569,6 +2576,10 @@ func TestUpdateWeakDependents(t *testing.T) {
 				Name:  weak1Name.Name,
 				API:   weakAPI,
 				Model: weakModel,
+				DiffingAttributes: &someTypeWithWeakAndStrongDepsConfig{
+					deps:     []resource.Name{base2Name},
+					weakDeps: []resource.Name{base1Name},
+				},
 				ConvertedAttributes: &someTypeWithWeakAndStrongDepsConfig{
 					deps:     []resource.Name{base2Name},
 					weakDeps: []resource.Name{base1Name},
@@ -3316,6 +3327,7 @@ func TestReconfigureModelRebuild(t *testing.T) {
 				Name:                "one",
 				Model:               model1,
 				API:                 mockAPI,
+				DiffingAttributes:   resource.NoNativeConfig{},
 				ConvertedAttributes: resource.NoNativeConfig{},
 			},
 		},
@@ -3535,6 +3547,12 @@ func TestResourceConstructTimeout(t *testing.T) {
 				Name:  "fakewheel",
 				API:   base.API,
 				Model: wheeled.Model,
+				DiffingAttributes: &wheeled.Config{
+					Right:                []string{"left", "right"},
+					Left:                 []string{"left", "right"},
+					WheelCircumferenceMM: 1,
+					WidthMM:              2,
+				},
 				ConvertedAttributes: &wheeled.Config{
 					Right:                []string{"left", "right"},
 					Left:                 []string{"left", "right"},
@@ -3547,12 +3565,14 @@ func TestResourceConstructTimeout(t *testing.T) {
 				Name:                "left",
 				API:                 motor.API,
 				Model:               fakeModel,
+				DiffingAttributes:   &fakemotor.Config{},
 				ConvertedAttributes: &fakemotor.Config{},
 			},
 			{
 				Name:                "right",
 				API:                 motor.API,
 				Model:               fakeModel,
+				DiffingAttributes:   &fakemotor.Config{},
 				ConvertedAttributes: &fakemotor.Config{},
 			},
 		},
@@ -3579,6 +3599,12 @@ func TestResourceConstructTimeout(t *testing.T) {
 				Name:  "fakewheel",
 				API:   base.API,
 				Model: wheeled.Model,
+				DiffingAttributes: &wheeled.Config{
+					Right:                []string{"right"},
+					Left:                 []string{"left"},
+					WheelCircumferenceMM: 1,
+					WidthMM:              2,
+				},
 				ConvertedAttributes: &wheeled.Config{
 					Right:                []string{"right"},
 					Left:                 []string{"left"},
@@ -3591,12 +3617,14 @@ func TestResourceConstructTimeout(t *testing.T) {
 				Name:                "left",
 				API:                 motor.API,
 				Model:               fakeModel,
+				DiffingAttributes:   &fakemotor.Config{},
 				ConvertedAttributes: &fakemotor.Config{},
 			},
 			{
 				Name:                "right",
 				API:                 motor.API,
 				Model:               fakeModel,
+				DiffingAttributes:   &fakemotor.Config{},
 				ConvertedAttributes: &fakemotor.Config{},
 			},
 		},
