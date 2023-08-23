@@ -303,6 +303,7 @@ const handleStartMapping = async () => {
     } catch {
       hasActiveSession = false;
       sessionDuration = 0;
+      clearInterval(durationInterval);
     }
   }
 };
