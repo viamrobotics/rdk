@@ -1,6 +1,36 @@
 // Package gpsrtkpmtk implements a gps using serial connection
 package gpsrtkpmtk
 
+/*
+	This package supports GPS RTK (Real Time Kinematics), which takes in the normal signals
+	from the GNSS (Global Navigation Satellite Systems) along with a correction stream to achieve
+	positional accuracy (accuracy tbd), over I2C bus.
+
+	Example GPS RTK chip datasheet:
+	https://content.u-blox.com/sites/default/files/ZED-F9P-04B_DataSheet_UBX-21044850.pdf
+
+	Example configuration:
+
+	{
+		"name": "my-gps-rtk",
+		"type": "movement_sensor",
+		"model": "gps-nmea-rtk-pmtk",
+		"attributes": {
+			"board": "local",
+			"i2c_addr": 66,
+			"i2c_baud_rate": 115200,
+			"i2c_bus": "default_bus",
+			"ntrip_connect_attempts": 12,
+			"ntrip_mountpoint": "MNTPT",
+			"ntrip_password": "pass",
+			"ntrip_url": "http://ntrip/url",
+			"ntrip_username": "usr"
+		},
+		"depends_on": [],
+	}
+
+*/
+
 import (
 	"bytes"
 	"context"
@@ -491,19 +521,9 @@ func (g *rtkI2C) Position(ctx context.Context, extra map[string]interface{}) (*g
 		}
 		return geo.NewPoint(math.NaN(), math.NaN()), math.NaN(), err
 	}
-	// Check if the current position is different from the last position and non-zero
-	lastPosition := g.lastposition.GetLastPosition()
-	if !g.lastposition.ArePointsEqual(position, lastPosition) {
-		g.lastposition.SetLastPosition(position)
-	}
-
-	// Update the last known valid position if the current position is non-zero
-	if position != nil && !g.lastposition.IsZeroPosition(position) {
-		g.lastposition.SetLastPosition(position)
-	}
 
 	if g.lastposition.IsPositionNaN(position) {
-		position = lastPosition
+		position = g.lastposition.GetLastPosition()
 	}
 
 	return position, alt, nil
