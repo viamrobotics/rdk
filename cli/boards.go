@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"os"
 
@@ -18,7 +19,7 @@ import (
 
 const UploadChunkSize = 32 * 1024
 
-func UploadBoardDefAction(c *cli.Context) error {
+func UploadBoardDefsAction(c *cli.Context) error {
 	orgIDArg := c.String(boardFlagOrgID)
 	nameArg := c.String(boardFlagName)
 	versionArg := c.String(boardFlagVersion)
@@ -38,7 +39,20 @@ func UploadBoardDefAction(c *cli.Context) error {
 	}
 	defer out.Close()
 
-	err = createTar(jsonPath, out)
+	jsonFile, err := os.Open(jsonPath)
+
+	if err != nil {
+		return err
+	}
+
+	stats, err := json.Stat()
+	if err != nil {
+		return err
+	}
+
+	size := stats.Size()
+
+	file, err := CreateArchive(json)
 	if err != nil {
 		log.Fatalln("Error creating archive:", err)
 	}
@@ -48,46 +62,66 @@ func UploadBoardDefAction(c *cli.Context) error {
 		return err
 	}
 
-	response, err := client.uploadBoardDefFile(nameArg, versionArg, orgIDArg, file)
+	response, err := client.uploadBoardDefsFile(nameArg, versionArg, orgIDArg, jsonFile)
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(c.App.Writer, "version successfully uploaded! you can view your changes online here: %s\n", response.GetUrl())
+
+	fmt.Printf(response.Id)
+	fmt.Printf(response.Version)
+
+	fmt.Printf("Board definitions file was successfully uploaded!")
 	return nil
 }
 
-func (c *appClient) uploadBoardDefFile(
+func (c *appClient) uploadBoardDefsFile(
 	name string,
 	version string,
 	orgID string,
-	file *os.File,
+	jsonFile *os.File,
 ) (*packagepb.CreatePackageResponse, error) {
 	if err := c.ensureLoggedIn(); err != nil {
 		return nil, err
 	}
 	ctx := c.c.Context
 
-	// setup streaming client for request
+	stats, err := json.Stat()
+	if err != nil {
+		return err
+	}
+
+	size := stats.Size()
+
+	file, err := CreateArchive(json)
+	if err != nil {
+		log.Fatalln("Error creating archive:", err)
+	}
+
+	//setup streaming client for request
+
 	stream, err := c.packageClient.CreatePackage(ctx)
 	if err != nil {
 		return nil, errors.Wrapf(err, "error starting CreatePackage stream")
 	}
+
+	boardDefsFile := []*packagepb.FileInfo{{Name: name, Size: uint64(size)}}
 
 	packageInfo := &packagepb.PackageInfo{
 		OrganizationId: orgID,
 		Name:           name,
 		Version:        version,
 		Type:           packagepb.PackageType_PACKAGE_TYPE_BOARD_DEFS,
-		Files:          []*packagepb.FileInfo{},
+		Files:          boardDefsFile,
 		Metadata:       nil,
 	}
 
-	// close the stream and receive a response when finished
+	// send the package request!!!!
 	var errs error
-	if err := sendPackageRequests(ctx, stream, file.bytes, &packageInfo); err != nil {
+	if err := sendPackageRequests(ctx, stream, file, packageInfo); err != nil {
 		errs = multierr.Combine(errs, errors.Wrapf(err, "error syncing package"))
 	}
 
+	// close the stream and recievea respoinse when finished.
 	resp, err := stream.CloseAndRecv()
 	if err != nil {
 		errs = multierr.Combine(errs, errors.Wrapf(err, "received error response while syncing package"))
@@ -95,6 +129,24 @@ func (c *appClient) uploadBoardDefFile(
 	if errs != nil {
 		return nil, errs
 	}
+
+	includeURL := true
+	packageType := packagepb.PackageType_PACKAGE_TYPE_BOARD_DEFS
+
+	fmt.Println(c.packageClient)
+
+	response, err := c.packageClient.GetPackage(ctx, &packagepb.GetPackageRequest{
+		Id:         resp.Id,
+		Version:    resp.Version,
+		Type:       &packageType,
+		IncludeUrl: &includeURL,
+	})
+
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	fmt.Println(response.Package.Url)
 
 	return resp, nil
 }
@@ -137,7 +189,7 @@ func sendPackageRequests(ctx context.Context, stream packagepb.PackageService_Cr
 	}
 }
 
-func getCreatePackageRequest(ctx context.Context, f *bytes.Buffer) (*pbPackage.CreatePackageRequest, error) {
+func getCreatePackageRequest(ctx context.Context, f *bytes.Buffer) (*packagepb.CreatePackageRequest, error) {
 	select {
 	case <-ctx.Done():
 		return nil, context.Canceled
@@ -168,50 +220,50 @@ func readNextFileChunk(f *bytes.Buffer) ([]byte, error) {
 	return byteArr, nil
 }
 
-func createTar(filePath string, buf io.Writer) error {
+// CreateArchive creates a tar.gz with the desired set of files.
+func CreateArchive(file *os.File) (*bytes.Buffer, error) {
+	// Create output buffer
+	out := new(bytes.Buffer)
+
+	// Create the archive and write the output to the "out" Writer
 	// Create new Writers for gzip and tar
 	// These writers are chained. Writing to the tar writer will
 	// write to the gzip writer which in turn will write to
-	// the "buf" writer
-	gw := gzip.NewWriter(buf)
+	// the "out" writer
+	gw := gzip.NewWriter(out)
+	//nolint:errcheck
 	defer gw.Close()
 	tw := tar.NewWriter(gw)
+	//nolint:errcheck
 	defer tw.Close()
-
-	file, err := os.Open(filePath)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
 
 	// Get FileInfo about our file providing file size, mode, etc.
 	info, err := file.Stat()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Create a tar Header from the FileInfo data
 	header, err := tar.FileInfoHeader(info, info.Name())
 	if err != nil {
-		return err
+		return nil, err
 	}
-
-	// Use full path as name (FileInfoHeader only takes the basename)
-	// If we don't do this the directory strucuture would
-	// not be preserved
-	// https://golang.org/src/archive/tar/common.go?#L626
-	header.Name = filePath
 
 	// Write file header to the tar archive
 	err = tw.WriteHeader(header)
 	if err != nil {
-		return err
+		return nil, err
+	}
+
+	fileContents, err := ioutil.ReadFile(file.Name()) //read the content of file
+	if err != nil {
+		return nil, err
 	}
 
 	// Copy file content to tar archive
-	_, err = io.Copy(tw, file)
-	if err != nil {
-		return err
+	if _, err := tw.Write(fileContents); err != nil {
+		return nil, err
 	}
-	return nil
+
+	return out, nil
 }

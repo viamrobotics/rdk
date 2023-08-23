@@ -611,7 +611,7 @@ viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.ta
 							Required: true,
 						},
 					},
-					Action: UploadBoardDefAction,
+					Action: UploadBoardDefsAction,
 				},
 			},
 		},
