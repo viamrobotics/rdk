@@ -132,7 +132,7 @@ func newTPSpaceMotionPlanner(
 	}
 	tpPlanner.setupTPSpaceOptions()
 
-	tpPlanner.algOpts.ikSeed = []referenceframe.Input{{math.Pi / 2}, {tpFrame.PTGs()[0].RefDistance() / 2}}
+	tpPlanner.algOpts.ikSeed = []referenceframe.Input{{math.Pi / 2}, {tpFrame.PTGs()[0].MaxDistance() / 2}}
 
 	return tpPlanner, nil
 }
@@ -414,7 +414,7 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 		lastDist = trajPt.Dist
 	}
 
-	isLastNode := math.Abs(finalTrajNode.Dist-curPtg.RefDistance()) < 0.1
+	isLastNode := math.Abs(finalTrajNode.Dist-curPtg.MaxDistance()) < 0.1
 
 	// add the last node in trajectory
 	successNode = &basicNode{

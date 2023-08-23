@@ -144,7 +144,6 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 	}
 	goals = append(goals, goalPos)
 	opt, err := pm.plannerSetupFromMoveRequest(seedPos, goalPos, seedMap, worldState, constraintSpec, motionConfig)
-	pm.logger.Debug("set up planner options for waypoint")
 	if err != nil {
 		return nil, err
 	}
@@ -175,7 +174,6 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 			return nil, err
 		}
 	}
-	pm.logger.Debug("checked goal viability: success")
 
 	resultSlices, err := pm.planAtomicWaypoints(ctx, goals, seed, planners)
 	pm.activeBackgroundWorkers.Wait()
@@ -303,9 +301,7 @@ func (pm *planManager) planParallelRRTMotion(
 	var err error
 	// If we don't pass in pre-made maps, initialize and seed with IK solutions here
 	if maps == nil {
-		pm.logger.Debug("initializing RRT solutions")
 		planSeed := initRRTSolutions(ctx, pathPlanner, seed)
-		pm.logger.Debug("RRT solutions initialized")
 		if planSeed.planerr != nil || planSeed.steps != nil {
 			solutionChan <- planSeed
 			return

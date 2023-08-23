@@ -19,8 +19,8 @@ type PTG interface {
 	ik.InverseKinematics
 	PrecomputePTG
 
-	// RefDistance returns the maximum distance that a single trajectory may travel
-	RefDistance() float64
+	// MaxDistance returns the maximum distance that a single trajectory may travel
+	MaxDistance() float64
 
 	// Returns the set of trajectory nodes along the given trajectory, out to the requested distance
 	Trajectory(alpha, dist float64) ([]*TrajNode, error)
@@ -63,65 +63,56 @@ func index2alpha(k, numPaths uint) float64 {
 	return math.Pi * (-1.0 + 2.0*(float64(k)+0.5)/float64(numPaths))
 }
 
-func alpha2index(alpha float64, numPaths uint) uint {
-	alpha = wrapTo2Pi(alpha+math.Pi) - math.Pi
-	idx := uint(math.Round(0.5 * (float64(numPaths)*(1.0+alpha/math.Pi) - 1.0)))
-	return idx
-}
-
 // Returns a given angle in the [0, 2pi) range.
 func wrapTo2Pi(theta float64) float64 {
 	return theta - 2*math.Pi*math.Floor(theta/(2*math.Pi))
 }
 
 // ComputePTG will compute all nodes of simPTG at the requested alpha, out to the requested distance, at the specified diffT resolution.
-func ComputePTG(
-	simPTG PrecomputePTG,
-	alpha, refDist, diffT float64,
-) ([]*TrajNode, error) {
+func ComputePTG(simPTG PrecomputePTG, alpha, dist, diffT float64) ([]*TrajNode, error) {
 	// Initialize trajectory with an all-zero node
 	alphaTraj := []*TrajNode{{Pose: spatialmath.NewZeroPose()}}
 
 	var err error
 	var t, v, w float64
-	dist := math.Copysign(math.Abs(v)*diffT, refDist)
+	distTravelled := math.Copysign(math.Abs(v)*diffT, dist)
 
 	// Step through each time point for this alpha
-	for math.Abs(dist) < math.Abs(refDist) {
+	for math.Abs(distTravelled) < math.Abs(dist) {
 		t += diffT
-		nextNode, err := computePTGNode(simPTG, alpha, dist, t)
+		nextNode, err := computePTGNode(simPTG, alpha, distTravelled, t)
 		if err != nil {
 			return nil, err
 		}
 		v = nextNode.LinVelMMPS
 		w = nextNode.AngVelRPS
 
-		// Update velocities of last node because the computed velocities at this node are what should be set after passing the last node
+		// Update velocities of last node because the computed velocities at this node are what should be set after passing the last node.
+		// Reasoning: if the distance passed in is 0, then we want the first node to return velocity 0. However, if we want a nonzero
+		// distance such that we return two nodes, then the first node, which has zero translation, should set a nonzero velocity so that
+		// the next node, which has a nonzero translation, is arrived at when it ought to be.
 		alphaTraj[len(alphaTraj)-1].LinVelMMPS = v
 		alphaTraj[len(alphaTraj)-1].AngVelRPS = w
 
 		alphaTraj = append(alphaTraj, nextNode)
-		dist += math.Copysign(math.Abs(v)*diffT, refDist)
+		distTravelled += math.Copysign(math.Max(diffT, math.Abs(v)*diffT), dist)
 	}
 
 	// Add final node
 	alphaTraj[len(alphaTraj)-1].LinVelMMPS = v
 	alphaTraj[len(alphaTraj)-1].AngVelRPS = w
-	pose, err := simPTG.Transform([]referenceframe.Input{{alpha}, {refDist}})
+	pose, err := simPTG.Transform([]referenceframe.Input{{alpha}, {dist}})
 	if err != nil {
 		return nil, err
 	}
-	tNode := &TrajNode{pose, t, refDist, alpha, v, w}
+	tNode := &TrajNode{pose, t, dist, alpha, v, w}
 	alphaTraj = append(alphaTraj, tNode)
 	return alphaTraj, nil
 }
 
 // computePTGNode will return the TrajNode of the requested PTG, at the specified alpha and dist. The provided time is used
 // to fill in the time field.
-func computePTGNode(
-	simPTG PrecomputePTG,
-	alpha, dist, atT float64,
-) (*TrajNode, error) {
+func computePTGNode(simPTG PrecomputePTG, alpha, dist, atT float64) (*TrajNode, error) {
 	v, w, err := simPTG.PTGVelocities(alpha, dist)
 	if err != nil {
 		return nil, err

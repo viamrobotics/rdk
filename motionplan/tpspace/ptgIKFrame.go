@@ -17,14 +17,14 @@ type ptgIKFrame struct {
 
 // NewPTGIKFrame will create a new frame intended to be passed to an Inverse Kinematics solver, allowing IK to solve for parameters
 // for the passed in PTG.
-func NewPTGIKFrame(ptg PrecomputePTG, dist float64) (referenceframe.Frame, error) {
+func newPTGIKFrame(ptg PrecomputePTG, dist float64) referenceframe.Frame {
 	pf := &ptgIKFrame{PrecomputePTG: ptg}
 
 	pf.limits = []referenceframe.Limit{
 		{Min: -math.Pi, Max: math.Pi},
-		{Min: -dist, Max: dist},
+		{Min: 0, Max: dist},
 	}
-	return pf, nil
+	return pf
 }
 
 func (pf *ptgIKFrame) DoF() []referenceframe.Limit {

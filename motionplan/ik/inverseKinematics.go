@@ -30,12 +30,3 @@ type Solution struct {
 	Score         float64
 	Exact         bool
 }
-
-func limitsToArrays(limits []referenceframe.Limit) ([]float64, []float64) {
-	var min, max []float64
-	for _, limit := range limits {
-		min = append(min, limit.Min)
-		max = append(max, limit.Max)
-	}
-	return min, max
-}
