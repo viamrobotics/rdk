@@ -131,6 +131,7 @@ func motionPlanInternal(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
+	logger.Debug("created new plan manager")
 	resultSlices, err := sfPlanner.PlanSingleWaypoint(ctx, seedMap, goal.Pose(), worldState, constraintSpec, motionConfig)
 	if err != nil {
 		return nil, err
@@ -272,7 +273,7 @@ func (mp *planner) getSolutions(ctx context.Context, seed []frame.Input) ([]node
 	ctxWithCancel, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	solutionGen := make(chan *ik.Solution, mp.planOpts.NumThreads)
+	solutionGen := make(chan *ik.Solution, mp.planOpts.NumThreads*2)
 	ikErr := make(chan error, 1)
 	var activeSolvers sync.WaitGroup
 	defer activeSolvers.Wait()
@@ -354,6 +355,14 @@ IK:
 
 	// Cancel any ongoing processing within the IK solvers if we're done receiving solutions
 	cancel()
+	done := false
+	for !done {
+		select {
+		case <-solutionGen:
+		default:
+			done = true
+		}
+	}
 
 	if len(solutions) == 0 {
 		// We have failed to produce a usable IK solution. Let the user know if zero IK solutions were produced, or if non-zero solutions

@@ -125,7 +125,9 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 	mp.start = time.Now()
 
 	if rrt.maps == nil || len(rrt.maps.goalMap) == 0 {
+		mp.logger.Info("initing solutions")
 		planSeed := initRRTSolutions(ctx, mp, seed)
+		mp.logger.Info("init solutions done")
 		if planSeed.planerr != nil || planSeed.steps != nil {
 			rrt.solutionChan <- planSeed
 			return
@@ -367,7 +369,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 		default:
 		}
 		close(solutionGen)
-		if err != nil {
+		if err != nil || solved == nil {
 			return nil
 		}
 

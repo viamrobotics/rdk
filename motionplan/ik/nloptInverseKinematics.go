@@ -7,11 +7,13 @@ import (
 	"math"
 	"math/rand"
 	"strings"
+	"sync"
 
 	"github.com/edaniels/golog"
 	"github.com/go-nlopt/nlopt"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/referenceframe"
 )
@@ -41,6 +43,12 @@ type NloptIK struct {
 	// Nlopt will try to minimize a configuration for whatever is passed in. If exact is false, then the solver will emit partial
 	// solutions where it was not able to meet the goal criteria but still was able to improve upon the seed.
 	exact bool
+}
+
+type optimizeReturn struct {
+	solution []float64
+	score    float64
+	err      error
 }
 
 // CreateNloptIKSolver creates an nloptIK object that can perform gradient descent on metrics for Frames. The parameters are the Frame on
@@ -94,6 +102,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 		return errBadBounds
 	}
 	mInput := &State{Frame: ik.model}
+	var activeSolvers sync.WaitGroup
 
 	// x is our joint positions
 	// Gradient is, under the hood, a unsafe C structure that we are meant to mutate in place.
@@ -169,21 +178,36 @@ func (ik *NloptIK) Solve(ctx context.Context,
 		}
 	}
 
-	select {
-	case <-ctx.Done():
-		ik.logger.Info("solver halted before solving start; possibly solving twice in a row?")
-		return err
-	default:
-	}
-
+	solveChan := make(chan *optimizeReturn, 1)
+	defer close(solveChan)
 	for iterations < ik.maxIterations {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
 		}
+
+		var solutionRaw []float64
+		var result float64
+		var nloptErr error
+
 		iterations++
-		solutionRaw, result, nloptErr := opt.Optimize(referenceframe.InputsToFloats(startingPos))
+		activeSolvers.Add(1)
+		utils.PanicCapturingGo(func() {
+			defer activeSolvers.Done()
+			solutionRaw, result, nloptErr := opt.Optimize(referenceframe.InputsToFloats(startingPos))
+			solveChan <- &optimizeReturn{solutionRaw, result, nloptErr}
+		})
+		select {
+		case <-ctx.Done():
+			err = multierr.Combine(err, opt.ForceStop())
+			activeSolvers.Wait()
+			return multierr.Combine(err, ctx.Err())
+		case solution := <-solveChan:
+			solutionRaw = solution.solution
+			result = solution.score
+			nloptErr = solution.err
+		}
 		if nloptErr != nil {
 			// This just *happens* sometimes due to weirdnesses in nonlinear randomized problems.
 			// Ignore it, something else will find a solution
