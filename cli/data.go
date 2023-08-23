@@ -45,23 +45,23 @@ func DataExportAction(c *cli.Context) error {
 	return client.dataExportAction(c)
 }
 
-func (client *appClient) dataExportAction(c *cli.Context) error {
-	filter, err := createDataFilter(c)
+func (c *appClient) dataExportAction(cCtx *cli.Context) error {
+	filter, err := createDataFilter(cCtx)
 	if err != nil {
 		return err
 	}
 
-	switch c.String(dataFlagDataType) {
+	switch cCtx.String(dataFlagDataType) {
 	case dataTypeBinary:
-		if err := client.binaryData(c.Path(dataFlagDestination), filter, c.Uint(dataFlagParallelDownloads)); err != nil {
+		if err := c.binaryData(cCtx.Path(dataFlagDestination), filter, cCtx.Uint(dataFlagParallelDownloads)); err != nil {
 			return err
 		}
 	case dataTypeTabular:
-		if err := client.tabularData(c.Path(dataFlagDestination), filter); err != nil {
+		if err := c.tabularData(cCtx.Path(dataFlagDestination), filter); err != nil {
 			return err
 		}
 	default:
-		return errors.Errorf("%s must be binary or tabular, got %q", dataFlagDataType, c.String(dataFlagDataType))
+		return errors.Errorf("%s must be binary or tabular, got %q", dataFlagDataType, cCtx.String(dataFlagDataType))
 	}
 	return nil
 }

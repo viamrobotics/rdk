@@ -99,7 +99,10 @@ func TestTabularDataByFilterAction(t *testing.T) {
 			return &datapb.TabularDataByFilterResponse{}, nil
 		}
 		dataRequested = true
-		return &datapb.TabularDataByFilterResponse{Data: []*datapb.TabularData{{Data: pbStruct}}, Metadata: []*datapb.CaptureMetadata{{LocationId: "loc-id"}}}, nil
+		return &datapb.TabularDataByFilterResponse{
+			Data:     []*datapb.TabularData{{Data: pbStruct}},
+			Metadata: []*datapb.CaptureMetadata{{LocationId: "loc-id"}},
+		}, nil
 	}
 
 	dsc := &inject.DataServiceClient{
@@ -113,7 +116,7 @@ func TestTabularDataByFilterAction(t *testing.T) {
 	protoMap := resp.Data[0].Data.AsMap()
 	test.That(t, protoMap, test.ShouldResemble, testMap)
 
-	// dataRequested was set to	true during the `TabularDataByFilter` call above, so we need
+	// dataRequested was set to true during the `TabularDataByFilter` call above, so we need
 	// to reset it here
 	dataRequested = false
 
@@ -131,7 +134,7 @@ func TestTabularDataByFilterAction(t *testing.T) {
 	expectedDataSize := 98
 	b := make([]byte, expectedDataSize)
 
-	// data/ndjson is the standardized name of the file data is written to in the `tabularData` call
+	// `data.ndjson` is the standardized name of the file data is written to in the `tabularData` call
 	filePath := fmt.Sprintf("%sdata/data.ndjson", os.TempDir())
 	file, err := os.Open(filePath)
 	test.That(t, err, test.ShouldBeNil)
@@ -140,8 +143,9 @@ func TestTabularDataByFilterAction(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, dataSize, test.ShouldEqual, expectedDataSize)
 
-	savedData := string(b[:])
-	test.That(t, savedData, test.ShouldEqual, "{\"MetadataIndex\":0,\"TimeReceived\":null,\"TimeRequested\":null,\"bool\":true,\"float\":1,\"string\":\"true\"}")
+	savedData := string(b)
+	expectedData := "{\"MetadataIndex\":0,\"TimeReceived\":null,\"TimeRequested\":null,\"bool\":true,\"float\":1,\"string\":\"true\"}"
+	test.That(t, savedData, test.ShouldEqual, expectedData)
 
 	expectedMetadataSize := 23
 	b = make([]byte, expectedMetadataSize)
@@ -155,6 +159,6 @@ func TestTabularDataByFilterAction(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, metadataSize, test.ShouldEqual, expectedMetadataSize)
 
-	savedMetadata := string(b[:])
+	savedMetadata := string(b)
 	test.That(t, savedMetadata, test.ShouldEqual, "{\"locationId\":\"loc-id\"}")
 }
