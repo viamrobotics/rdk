@@ -312,6 +312,7 @@ const handleEndMapping = () => {
   mappingSessionEnded = true;
   clearRefresh();
   clearInterval(durationInterval);
+  overrides?.endMappingSession(sessionId);
 };
 
 const formatDisplayTime = (time: number) =>
