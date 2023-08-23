@@ -297,7 +297,7 @@ func TestTPsmoothing(t *testing.T) {
 		}
 		plan = append(plan, thisNode)
 	}
-	plan, err = tp.rectifyPath(plan)
+	plan, err = rectifyTPspacePath(plan, tp.frame)
 	test.That(t, err, test.ShouldBeNil)
 
 	plan = tp.smoothPath(ctx, plan)
