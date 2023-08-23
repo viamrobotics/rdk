@@ -37,12 +37,16 @@ const (
 
 // DataExportAction is the corresponding action for 'data export'.
 func DataExportAction(c *cli.Context) error {
-	filter, err := createDataFilter(c)
+	client, err := newAppClient(c)
 	if err != nil {
 		return err
 	}
 
-	client, err := newAppClient(c)
+	return client.dataExportAction(c)
+}
+
+func (client *appClient) dataExportAction(c *cli.Context) error {
+	filter, err := createDataFilter(c)
 	if err != nil {
 		return err
 	}
