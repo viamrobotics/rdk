@@ -26,7 +26,6 @@ jobs:
         cache-from: type=registry,ref=ghcr.io/viamrobotics/viam-server:buildcache
         cache-to: type=registry,ref=ghcr.io/viamrobotics/viam-server:buildcache
   test:
-    if: false # DONOTMERGE
     # needs: [docker]
     runs-on: buildjet-4vcpu-ubuntu-2204-arm
     # concurrency: '32bit-${{ github.ref }}'
