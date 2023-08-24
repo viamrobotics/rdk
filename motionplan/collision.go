@@ -320,7 +320,7 @@ func createUniqueCollisionMap(geoms []spatial.Geometry) (map[string]spatial.Geom
 func CheckPlan(
 	frame referenceframe.Frame,
 	plan []map[string][]referenceframe.Input,
-	obstacles []*referenceframe.GeometriesInFrame,
+	worldState *referenceframe.WorldState,
 	fs referenceframe.FrameSystem,
 ) (bool, error) {
 	// ensure that we can actually perform the check
@@ -331,7 +331,7 @@ func CheckPlan(
 	// check if we are working with ptgs
 	ptgProv, ok := frame.(tpspace.PTGProvider)
 	if ok {
-		return checkPtgPlan(frame, plan, obstacles, fs, ptgProv.PTGs())
+		return checkPtgPlan(frame, plan, worldState, fs, ptgProv.PTGs())
 	}
 
 	if len(plan) < 2 {
@@ -344,22 +344,8 @@ func CheckPlan(
 		return false, err
 	}
 
-	// ensure we can perform the plan check
-	execptedDoF, err := sf.mapToSlice(plan[0])
-	if err != nil {
-		return false, err
-	}
-	if len(sf.DoF()) != len(execptedDoF) {
-		return false, referenceframe.NewIncorrectInputLengthError(len(execptedDoF), len(sf.DoF()))
-	}
-
 	// construct planager
 	sfPlanner, err := newPlanManager(sf, fs, golog.NewLogger("checkPlan-logger"), defaultRandomSeed)
-	if err != nil {
-		return false, err
-	}
-	// construct worldstate
-	worldState, err := referenceframe.NewWorldState(obstacles, nil)
 	if err != nil {
 		return false, err
 	}
@@ -413,15 +399,11 @@ func CheckPlan(
 func checkPtgPlan(
 	frame referenceframe.Frame,
 	plan []map[string][]referenceframe.Input,
-	obstacles []*referenceframe.GeometriesInFrame,
+	worldState *referenceframe.WorldState,
 	fs referenceframe.FrameSystem,
 	ptgs []tpspace.PTG,
 ) (bool, error) {
 	// ensure obstacles are in world frame
-	worldState, err := referenceframe.NewWorldState(obstacles, nil)
-	if err != nil {
-		return false, err
-	}
 	transformedObstacles, err := worldState.ObstaclesInWorldFrame(fs, referenceframe.StartPositions(fs))
 	if err != nil {
 		return false, err

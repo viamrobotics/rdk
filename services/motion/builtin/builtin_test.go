@@ -11,6 +11,7 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
@@ -502,7 +503,7 @@ func TestPlanMoveOnGlobe(t *testing.T) {
 	gpsPoint := geo.NewPoint(-70, 40)
 
 	motionCfg := make(map[string]interface{})
-	// onlty generate plan for x and y, exclude theta
+	// only generate plan for x and y, exclude theta
 	motionCfg["motion_profile"] = "position_only"
 	// fail if we don't find a plan in 5 seconds
 	motionCfg["timeout"] = 5.
@@ -633,7 +634,10 @@ func TestCheckPlan(t *testing.T) {
 		geoms := []spatialmath.Geometry{obstacle}
 		gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)}
 
-		b, err := motionplan.CheckPlan(kinBase.Kinematics(), plan, gifs, newFS)
+		worldState, err := referenceframe.NewWorldState(gifs, nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		b, err := motionplan.CheckPlan(kinBase.Kinematics(), plan, worldState, newFS)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, b, test.ShouldBeFalse)
 	})
@@ -669,7 +673,10 @@ func TestCheckPlan(t *testing.T) {
 		geoms := []spatialmath.Geometry{obstacle}
 		gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(cameraFrame.Name(), geoms)}
 
-		b, err := motionplan.CheckPlan(kinBase.Kinematics(), plan, gifs, newFS)
+		worldState, err := referenceframe.NewWorldState(gifs, nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		b, err := motionplan.CheckPlan(kinBase.Kinematics(), plan, worldState, newFS)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, b, test.ShouldBeTrue)
 	})
@@ -683,7 +690,10 @@ func TestCheckPlan(t *testing.T) {
 		geoms := []spatialmath.Geometry{obstacle}
 		gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(cameraFrame.Name(), geoms)}
 
-		b, err := motionplan.CheckPlan(kinBase.Kinematics(), plan, gifs, newFS)
+		worldState, err := referenceframe.NewWorldState(gifs, nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		b, err := motionplan.CheckPlan(kinBase.Kinematics(), plan, worldState, newFS)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, b, test.ShouldBeFalse)
 	})
@@ -721,12 +731,7 @@ func TestArmGantryPlanCheck(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("check plan with no obstacles", func(t *testing.T) {
-		b, err := motionplan.CheckPlan(
-			fs.Frame("xArm6"),
-			plan,
-			nil,
-			fs,
-		)
+		b, err := motionplan.CheckPlan(fs.Frame("xArm6"), plan, nil, fs)
 		test.That(t, b, test.ShouldBeTrue)
 		test.That(t, err, test.ShouldBeNil)
 	})
@@ -739,12 +744,11 @@ func TestArmGantryPlanCheck(t *testing.T) {
 
 		geoms := []spatialmath.Geometry{obstacle}
 		gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)}
-		b, err := motionplan.CheckPlan(
-			fs.Frame("xArm6"),
-			plan,
-			gifs,
-			fs,
-		)
+
+		worldState, err := referenceframe.NewWorldState(gifs, nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		b, err := motionplan.CheckPlan(fs.Frame("xArm6"), plan, worldState, fs)
 		test.That(t, b, test.ShouldBeFalse)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
