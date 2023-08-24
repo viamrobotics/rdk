@@ -88,6 +88,7 @@ func NewBoard(ctx context.Context, conf resource.Config, logger golog.Logger) (*
 		Analogs:  map[string]*Analog{},
 		Digitals: map[string]*DigitalInterruptWrapper{},
 		GPIOPins: map[string]*GPIOPin{},
+		Logger:   logger,
 	}
 
 	if err := b.processConfig(conf); err != nil {
@@ -204,6 +205,7 @@ type Board struct {
 	Analogs    map[string]*Analog
 	Digitals   map[string]*DigitalInterruptWrapper
 	GPIOPins   map[string]*GPIOPin
+	Logger     golog.Logger
 	CloseCount int
 }
 

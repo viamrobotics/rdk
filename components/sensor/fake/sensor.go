@@ -21,13 +21,14 @@ func init() {
 			conf resource.Config,
 			logger golog.Logger,
 		) (sensor.Sensor, error) {
-			return newSensor(conf.ResourceName()), nil
+			return newSensor(conf.ResourceName(), logger), nil
 		}})
 }
 
-func newSensor(name resource.Name) sensor.Sensor {
+func newSensor(name resource.Name, logger golog.Logger) sensor.Sensor {
 	return &Sensor{
-		Named: name.AsNamed(),
+		Named:  name.AsNamed(),
+		logger: logger,
 	}
 }
 
@@ -37,6 +38,7 @@ type Sensor struct {
 	resource.Named
 	resource.TriviallyReconfigurable
 	resource.TriviallyCloseable
+	logger golog.Logger
 }
 
 // Readings always returns the set values.

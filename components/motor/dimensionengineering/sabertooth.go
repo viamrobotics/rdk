@@ -47,6 +47,7 @@ type Motor struct {
 	resource.Named
 	resource.AlwaysRebuild
 
+	logger golog.Logger
 	// A reference to the actual controller that needs to be commanded for the motor to run
 	c *controller
 	// which channel the motor is connected to on the controller
@@ -245,6 +246,7 @@ func NewMotor(ctx context.Context, c *Config, name resource.Name, logger golog.L
 		maxPowerPct: c.MaxPowerPct,
 		maxRPM:      c.MaxRPM,
 		opMgr:       operation.NewSingleOperationManager(),
+		logger:      logger,
 	}
 
 	if err := m.configure(c); err != nil {
