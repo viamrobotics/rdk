@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"math"
+	"sync"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -21,6 +22,7 @@ import (
 
 // Define a default speed to target for the base in the case where one is not provided.
 const defaultBaseMMps = 600.
+var zeroInput = []referenceframe.Input{{Value: 0}, {Value: 0}, {Value: 0}}
 
 const (
 	ptgIndex int = iota
@@ -34,6 +36,8 @@ type ptgBaseKinematics struct {
 	frame  referenceframe.Frame
 	fs     referenceframe.FrameSystem
 	ptgs   []tpspace.PTG
+	inputLock sync.RWMutex
+	currentInput []referenceframe.Input
 }
 
 // wrapWithPTGKinematics takes a Base component and adds a PTG kinematic model so that it can be controlled.
@@ -103,6 +107,7 @@ func wrapWithPTGKinematics(
 		frame:  frame,
 		fs:     fs,
 		ptgs:   ptgs,
+		currentInput: zeroInput,
 	}, nil
 }
 
@@ -112,13 +117,21 @@ func (ptgk *ptgBaseKinematics) Kinematics() referenceframe.Frame {
 
 func (ptgk *ptgBaseKinematics) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	// A PTG frame is always at its own origin, so current inputs are always all zero/not meaningful
-	return []referenceframe.Input{{Value: 0}, {Value: 0}, {Value: 0}}, nil
+	ptgk.inputLock.RLock()
+	defer ptgk.inputLock.RUnlock()
+	return ptgk.currentInput, nil
 }
 
 func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenceframe.Input) (err error) {
 	if len(inputs) != 3 {
 		return errors.New("inputs to ptg kinematic base must be length 3")
 	}
+	
+	defer func() {
+		ptgk.inputLock.Lock()
+		ptgk.currentInput = zeroInput
+		ptgk.inputLock.Unlock()
+	}()
 
 	ptgk.logger.Debugf("GoToInputs going to %v", inputs)
 
@@ -127,6 +140,10 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 	if err != nil {
 		return multierr.Combine(err, ptgk.Base.Stop(ctx, nil))
 	}
+	
+	ptgk.inputLock.Lock()
+	ptgk.currentInput = []referenceframe.Input{inputs[0], inputs[1], {0}}
+	ptgk.inputLock.Unlock()
 
 	lastTime := 0.
 	for _, trajNode := range selectedTraj {
@@ -154,6 +171,9 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 			return multierr.Combine(err, ptgk.Base.Stop(ctx, nil))
 		}
 		utils.SelectContextOrWait(ctx, timestep)
+		ptgk.inputLock.Lock() // In the case where there's actual contention here, this could cause timing issues; how to solve?
+		ptgk.currentInput = []referenceframe.Input{inputs[0], inputs[1], {trajNode.Dist}}
+		ptgk.inputLock.Unlock()
 	}
 
 	return ptgk.Base.Stop(ctx, nil)
