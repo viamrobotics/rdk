@@ -2,6 +2,7 @@ package transformpipeline
 
 import (
 	"context"
+
 	"github.com/invopop/jsonschema"
 	"github.com/pkg/errors"
 	"github.com/viamrobotics/gostream"
