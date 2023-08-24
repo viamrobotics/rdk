@@ -50,7 +50,7 @@ func newNextPointCloudCollector(resource interface{}, params data.CollectorParam
 		if err != nil {
 			// If err is from a modular filter component, propagate it to getAndPushNextReading().
 			if errors.Is(err, data.ErrNoCaptureToStore) {
-				return nil, data.ErrNoCaptureToStore
+				return nil, err
 			}
 			return nil, data.FailedToReadErr(params.ComponentName, nextPointCloud.String(), err)
 		}
@@ -93,7 +93,7 @@ func newReadImageCollector(resource interface{}, params data.CollectorParams) (d
 		if err != nil {
 			// If err is from a modular filter component, propagate it to getAndPushNextReading().
 			if errors.Is(err, data.ErrNoCaptureToStore) {
-				return nil, data.ErrNoCaptureToStore
+				return nil, err
 			}
 
 			return nil, data.FailedToReadErr(params.ComponentName, readImage.String(), err)

@@ -9,6 +9,7 @@ import (
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/data"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 )
@@ -53,7 +54,7 @@ func (c *client) Move(ctx context.Context, angleDeg uint32, extra map[string]int
 }
 
 func (c *client) Position(ctx context.Context, extra map[string]interface{}) (uint32, error) {
-	ext, err := protoutils.StructToStructPb(extra)
+	ext, err := data.GetExtraFromContext(ctx, extra)
 	if err != nil {
 		return 0, err
 	}

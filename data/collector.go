@@ -307,9 +307,8 @@ func FailedToReadErr(component, method string, err error) error {
 	return errors.Errorf("failed to get reading of method %s of component %s: %v", method, component, err)
 }
 
-// GetExtraFromContext sets the extra struct with "fromDataManagement": true if the flag is true in the context.
-func GetExtraFromContext(ctx context.Context) (*structpb.Struct, error) {
-	extra := make(map[string]interface{})
+// GetExtraFromContext adds "fromDataManagement": true to the extra map if the flag is true in the context, and returns a protobuf Struct.
+func GetExtraFromContext(ctx context.Context, extra map[string]interface{}) (*structpb.Struct, error) {
 	if ctx.Value(FromDMContextKey{}) == true {
 		extra[FromDMString] = true
 	}

@@ -2,6 +2,7 @@ package servo
 
 import (
 	"context"
+	"errors"
 
 	"google.golang.org/protobuf/types/known/anypb"
 
@@ -33,8 +34,13 @@ func newPositionCollector(resource interface{}, params data.CollectorParams) (da
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
+		ctx = context.WithValue(ctx, data.FromDMContextKey{}, true)
 		v, err := servo.Position(ctx, nil)
 		if err != nil {
+			// If err is from a modular filter component, propagate it to getAndPushNextReading().
+			if errors.Is(err, data.ErrNoCaptureToStore) {
+				return nil, err
+			}
 			return nil, data.FailedToReadErr(params.ComponentName, position.String(), err)
 		}
 		return Position{Position: v}, nil

@@ -7,8 +7,8 @@ import (
 	"github.com/edaniels/golog"
 	pb "go.viam.com/api/component/sensor/v1"
 	"go.viam.com/utils/rpc"
-	"google.golang.org/protobuf/types/known/structpb"
 
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 )
@@ -41,7 +41,7 @@ func NewClientFromConn(
 }
 
 func (c *client) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-	ext, err := structpb.NewStruct(extra)
+	ext, err := data.GetExtraFromContext(ctx, extra)
 	if err != nil {
 		return nil, err
 	}

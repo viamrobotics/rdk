@@ -2,6 +2,7 @@ package arm
 
 import (
 	"context"
+	"errors"
 
 	"google.golang.org/protobuf/types/known/anypb"
 
@@ -32,8 +33,13 @@ func newEndPositionCollector(resource interface{}, params data.CollectorParams) 
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
+		ctx = context.WithValue(ctx, data.FromDMContextKey{}, true)
 		v, err := arm.EndPosition(ctx, nil)
 		if err != nil {
+			// If err is from a modular filter component, propagate it to getAndPushNextReading().
+			if errors.Is(err, data.ErrNoCaptureToStore) {
+				return nil, err
+			}
 			return nil, data.FailedToReadErr(params.ComponentName, endPosition.String(), err)
 		}
 		return v, nil
@@ -48,8 +54,13 @@ func newJointPositionsCollector(resource interface{}, params data.CollectorParam
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
+		ctx = context.WithValue(ctx, data.FromDMContextKey{}, true)
 		v, err := arm.JointPositions(ctx, nil)
 		if err != nil {
+			// If err is from a modular filter component, propagate it to getAndPushNextReading().
+			if errors.Is(err, data.ErrNoCaptureToStore) {
+				return nil, err
+			}
 			return nil, data.FailedToReadErr(params.ComponentName, jointPositions.String(), err)
 		}
 		return v, nil

@@ -2,6 +2,7 @@ package powersensor
 
 import (
 	"context"
+	"errors"
 
 	"google.golang.org/protobuf/types/known/anypb"
 
@@ -29,8 +30,13 @@ func registerCollector(name string, f lowLevelCollector) {
 		}
 
 		cFunc := data.CaptureFunc(func(ctx context.Context, extra map[string]*anypb.Any) (interface{}, error) {
+			ctx = context.WithValue(ctx, data.FromDMContextKey{}, true)
 			v, err := f(ctx, ps)
 			if err != nil {
+				// If err is from a modular filter component, propagate it to getAndPushNextReading().
+				if errors.Is(err, data.ErrNoCaptureToStore) {
+					return nil, err
+				}
 				return nil, data.FailedToReadErr(params.ComponentName, name, err)
 			}
 			return v, nil

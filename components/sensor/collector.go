@@ -2,6 +2,7 @@ package sensor
 
 import (
 	"context"
+	"errors"
 
 	"google.golang.org/protobuf/types/known/anypb"
 
@@ -39,9 +40,14 @@ func newSensorCollector(resource interface{}, params data.CollectorParams) (data
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, arg map[string]*anypb.Any) (interface{}, error) {
+		ctx = context.WithValue(ctx, data.FromDMContextKey{}, true)
 		var records []ReadingRecord
 		values, err := sensorResource.Readings(ctx, nil) // TODO (RSDK-1972): pass in something here from the config rather than nil?
 		if err != nil {
+			// If err is from a modular filter component, propagate it to getAndPushNextReading().
+			if errors.Is(err, data.ErrNoCaptureToStore) {
+				return nil, err
+			}
 			return nil, data.FailedToReadErr(params.ComponentName, readings.String(), err)
 		}
 		for name, value := range values {

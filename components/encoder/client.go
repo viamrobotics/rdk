@@ -8,6 +8,7 @@ import (
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 )
@@ -48,7 +49,7 @@ func (c *client) Position(
 	positionType PositionType,
 	extra map[string]interface{},
 ) (float64, PositionType, error) {
-	ext, err := structpb.NewStruct(extra)
+	ext, err := data.GetExtraFromContext(ctx, extra)
 	if err != nil {
 		return 0, PositionTypeUnspecified, err
 	}

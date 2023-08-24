@@ -3,6 +3,7 @@ package board
 import (
 	"context"
 
+	"github.com/pkg/errors"
 	"google.golang.org/protobuf/types/known/anypb"
 
 	"go.viam.com/rdk/data"
@@ -54,11 +55,16 @@ func newAnalogCollector(resource interface{}, params data.CollectorParams) (data
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, arg map[string]*anypb.Any) (interface{}, error) {
+		ctx = context.WithValue(ctx, data.FromDMContextKey{}, true)
 		var readings []AnalogRecord
 		for k := range arg {
 			if reader, ok := board.AnalogReaderByName(k); ok {
 				value, err := reader.Read(ctx, nil)
 				if err != nil {
+					// If err is from a modular filter component, propagate it to getAndPushNextReading().
+					if errors.Is(err, data.ErrNoCaptureToStore) {
+						return nil, err
+					}
 					return nil, data.FailedToReadErr(params.ComponentName, analogs.String(), err)
 				}
 				readings = append(readings, AnalogRecord{AnalogName: k, AnalogValue: value})
@@ -76,11 +82,16 @@ func newGPIOCollector(resource interface{}, params data.CollectorParams) (data.C
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, arg map[string]*anypb.Any) (interface{}, error) {
+		ctx = context.WithValue(ctx, data.FromDMContextKey{}, true)
 		var readings []GpioRecord
 		for k := range arg {
 			if gpio, err := board.GPIOPinByName(k); err == nil {
 				value, err := gpio.Get(ctx, nil)
 				if err != nil {
+					// If err is from a modular filter component, propagate it to getAndPushNextReading().
+					if errors.Is(err, data.ErrNoCaptureToStore) {
+						return nil, err
+					}
 					return nil, data.FailedToReadErr(params.ComponentName, gpios.String(), err)
 				}
 				readings = append(readings, GpioRecord{GPIOName: k, GPIOValue: value})

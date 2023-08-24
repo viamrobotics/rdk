@@ -9,6 +9,7 @@ import (
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/data"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 )
@@ -99,7 +100,7 @@ func (c *client) ResetZeroPosition(ctx context.Context, offset float64, extra ma
 }
 
 func (c *client) Position(ctx context.Context, extra map[string]interface{}) (float64, error) {
-	ext, err := protoutils.StructToStructPb(extra)
+	ext, err := data.GetExtraFromContext(ctx, extra)
 	if err != nil {
 		return 0, err
 	}
@@ -135,7 +136,7 @@ func (c *client) Stop(ctx context.Context, extra map[string]interface{}) error {
 }
 
 func (c *client) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
-	ext, err := protoutils.StructToStructPb(extra)
+	ext, err := data.GetExtraFromContext(ctx, extra)
 	if err != nil {
 		return false, 0.0, err
 	}
