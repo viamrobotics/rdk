@@ -7,24 +7,14 @@ import (
 	"github.com/golang/geo/r3"
 	pb "go.viam.com/api/service/motion/v1"
 
+	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 )
 
-// Segment contains all the information a constraint needs to determine validity for a movement.
-// It contains the starting inputs, the ending inputs, corresponding poses, and the frame it refers to.
-// Pose fields may be empty, and may be filled in by a constraint that needs them.
-type Segment struct {
-	StartPosition      spatial.Pose
-	EndPosition        spatial.Pose
-	StartConfiguration []referenceframe.Input
-	EndConfiguration   []referenceframe.Input
-	Frame              referenceframe.Frame
-}
-
 // Given a constraint input with only frames and input positions, calculates the corresponding poses as needed.
-func resolveSegmentsToPositions(segment *Segment) error {
+func resolveSegmentsToPositions(segment *ik.Segment) error {
 	if segment.StartPosition == nil {
 		if segment.Frame != nil {
 			if segment.StartConfiguration != nil {
@@ -60,17 +50,8 @@ func resolveSegmentsToPositions(segment *Segment) error {
 	return nil
 }
 
-// State contains all the information a constraint needs to determine validity for a movement.
-// It contains the starting inputs, the ending inputs, corresponding poses, and the frame it refers to.
-// Pose fields may be empty, and may be filled in by a constraint that needs them.
-type State struct {
-	Position      spatial.Pose
-	Configuration []referenceframe.Input
-	Frame         referenceframe.Frame
-}
-
 // Given a constraint input with only frames and input positions, calculates the corresponding poses as needed.
-func resolveStatesToPositions(state *State) error {
+func resolveStatesToPositions(state *ik.State) error {
 	if state.Position == nil {
 		if state.Frame != nil {
 			if state.Configuration != nil {
@@ -92,11 +73,11 @@ func resolveStatesToPositions(state *State) error {
 
 // SegmentConstraint tests whether a transition from a starting robot configuration to an ending robot configuration is valid.
 // If the returned bool is true, the constraint is satisfied and the segment is valid.
-type SegmentConstraint func(*Segment) bool
+type SegmentConstraint func(*ik.Segment) bool
 
 // StateConstraint tests whether a given robot configuration is valid
 // If the returned bool is true, the constraint is satisfied and the state is valid.
-type StateConstraint func(*State) bool
+type StateConstraint func(*ik.State) bool
 
 // ConstraintHandler is a convenient wrapper for constraint handling which is likely to be common among most motion
 // planners. Including a constraint handler as an anonymous struct member allows reuse.
@@ -109,7 +90,7 @@ type ConstraintHandler struct {
 // Return values are:
 // -- a bool representing whether all constraints passed
 // -- if failing, a string naming the failed constraint.
-func (c *ConstraintHandler) CheckStateConstraints(state *State) (bool, string) {
+func (c *ConstraintHandler) CheckStateConstraints(state *ik.State) (bool, string) {
 	for name, cFunc := range c.stateConstraints {
 		pass := cFunc(state)
 		if !pass {
@@ -123,7 +104,7 @@ func (c *ConstraintHandler) CheckStateConstraints(state *State) (bool, string) {
 // Return values are:
 // -- a bool representing whether all constraints passed
 // -- if failing, a string naming the failed constraint.
-func (c *ConstraintHandler) CheckSegmentConstraints(segment *Segment) (bool, string) {
+func (c *ConstraintHandler) CheckSegmentConstraints(segment *ik.Segment) (bool, string) {
 	for name, cFunc := range c.segmentConstraints {
 		pass := cFunc(segment)
 		if !pass {
@@ -137,7 +118,7 @@ func (c *ConstraintHandler) CheckSegmentConstraints(segment *Segment) (bool, str
 // states as well as both endpoints satisfy all state constraints. If all constraints are satisfied, then this will return `true, nil`.
 // If any constraints fail, this will return false, and an Segment representing the valid portion of the segment, if any. If no
 // part of the segment is valid, then `false, nil` is returned.
-func (c *ConstraintHandler) CheckStateConstraintsAcrossSegment(ci *Segment, resolution float64) (bool, *Segment) {
+func (c *ConstraintHandler) CheckStateConstraintsAcrossSegment(ci *ik.Segment, resolution float64) (bool, *ik.Segment) {
 	// ensure we have cartesian positions
 	err := resolveSegmentsToPositions(ci)
 	if err != nil {
@@ -150,7 +131,7 @@ func (c *ConstraintHandler) CheckStateConstraintsAcrossSegment(ci *Segment, reso
 	for i := 0; i <= steps; i++ {
 		interp := float64(i) / float64(steps)
 		interpConfig := referenceframe.InterpolateInputs(ci.StartConfiguration, ci.EndConfiguration, interp)
-		interpC := &State{Frame: ci.Frame, Configuration: interpConfig}
+		interpC := &ik.State{Frame: ci.Frame, Configuration: interpConfig}
 		err = resolveStatesToPositions(interpC)
 		if err != nil {
 			return false, nil
@@ -161,7 +142,7 @@ func (c *ConstraintHandler) CheckStateConstraintsAcrossSegment(ci *Segment, reso
 				// fail on start pos
 				return false, nil
 			}
-			return false, &Segment{StartConfiguration: ci.StartConfiguration, EndConfiguration: lastGood}
+			return false, &ik.Segment{StartConfiguration: ci.StartConfiguration, EndConfiguration: lastGood}
 		}
 		lastGood = interpC.Configuration
 	}
@@ -172,7 +153,7 @@ func (c *ConstraintHandler) CheckStateConstraintsAcrossSegment(ci *Segment, reso
 // CheckSegmentAndStateValidity will check an segment input and confirm that it 1) meets all segment constraints, and 2) meets all
 // state constraints across the segment at some resolution. If it fails an intermediate state, it will return the shortest valid segment,
 // provided that segment also meets segment constraints.
-func (c *ConstraintHandler) CheckSegmentAndStateValidity(segment *Segment, resolution float64) (bool, *Segment) {
+func (c *ConstraintHandler) CheckSegmentAndStateValidity(segment *ik.Segment, resolution float64) (bool, *ik.Segment) {
 	valid, subSegment := c.CheckStateConstraintsAcrossSegment(segment, resolution)
 	if !valid {
 		if subSegment != nil {
@@ -336,7 +317,7 @@ func newCollisionConstraint(
 	}
 
 	// create constraint from reference collision graph
-	constraint := func(state *State) bool {
+	constraint := func(state *ik.State) bool {
 		var internalGeoms []spatial.Geometry
 		switch {
 		case state.Configuration != nil:
@@ -373,12 +354,12 @@ func newCollisionConstraint(
 // NewAbsoluteLinearInterpolatingConstraint provides a Constraint whose valid manifold allows a specified amount of deviation from the
 // shortest straight-line path between the start and the goal. linTol is the allowed linear deviation in mm, orientTol is the allowed
 // orientation deviation measured by norm of the R3AA orientation difference to the slerp path between start/goal orientations.
-func NewAbsoluteLinearInterpolatingConstraint(from, to spatial.Pose, linTol, orientTol float64) (StateConstraint, StateMetric) {
+func NewAbsoluteLinearInterpolatingConstraint(from, to spatial.Pose, linTol, orientTol float64) (StateConstraint, ik.StateMetric) {
 	orientConstraint, orientMetric := NewSlerpOrientationConstraint(from, to, orientTol)
 	lineConstraint, lineMetric := NewLineConstraint(from.Point(), to.Point(), linTol)
-	interpMetric := CombineMetrics(orientMetric, lineMetric)
+	interpMetric := ik.CombineMetrics(orientMetric, lineMetric)
 
-	f := func(state *State) bool {
+	f := func(state *ik.State) bool {
 		return orientConstraint(state) && lineConstraint(state)
 	}
 	return f, interpMetric
@@ -386,8 +367,8 @@ func NewAbsoluteLinearInterpolatingConstraint(from, to spatial.Pose, linTol, ori
 
 // NewProportionalLinearInterpolatingConstraint will provide the same metric and constraint as NewAbsoluteLinearInterpolatingConstraint,
 // except that allowable linear and orientation deviation is scaled based on the distance from start to goal.
-func NewProportionalLinearInterpolatingConstraint(from, to spatial.Pose, epsilon float64) (StateConstraint, StateMetric) {
-	orientTol := epsilon * orientDist(from.Orientation(), to.Orientation())
+func NewProportionalLinearInterpolatingConstraint(from, to spatial.Pose, epsilon float64) (StateConstraint, ik.StateMetric) {
+	orientTol := epsilon * ik.OrientDist(from.Orientation(), to.Orientation())
 	linTol := epsilon * from.Point().Distance(to.Point())
 
 	return NewAbsoluteLinearInterpolatingConstraint(from, to, linTol, orientTol)
@@ -396,22 +377,22 @@ func NewProportionalLinearInterpolatingConstraint(from, to spatial.Pose, epsilon
 // NewSlerpOrientationConstraint will measure the orientation difference between the orientation of two poses, and return a constraint that
 // returns whether a given orientation is within a given tolerance distance of the shortest segment between the two orientations, as
 // well as a metric which returns the distance to that valid region.
-func NewSlerpOrientationConstraint(start, goal spatial.Pose, tolerance float64) (StateConstraint, StateMetric) {
-	origDist := math.Max(orientDist(start.Orientation(), goal.Orientation()), defaultEpsilon)
+func NewSlerpOrientationConstraint(start, goal spatial.Pose, tolerance float64) (StateConstraint, ik.StateMetric) {
+	origDist := math.Max(ik.OrientDist(start.Orientation(), goal.Orientation()), defaultEpsilon)
 
-	gradFunc := func(state *State) float64 {
-		sDist := orientDist(start.Orientation(), state.Position.Orientation())
+	gradFunc := func(state *ik.State) float64 {
+		sDist := ik.OrientDist(start.Orientation(), state.Position.Orientation())
 		gDist := 0.
 
 		// If origDist is less than or equal to defaultEpsilon, then the starting and ending orientations are the same and we do not need
 		// to compute the distance to the ending orientation
 		if origDist > defaultEpsilon {
-			gDist = orientDist(goal.Orientation(), state.Position.Orientation())
+			gDist = ik.OrientDist(goal.Orientation(), state.Position.Orientation())
 		}
 		return (sDist + gDist) - origDist
 	}
 
-	validFunc := func(state *State) bool {
+	validFunc := func(state *ik.State) bool {
 		err := resolveStatesToPositions(state)
 		if err != nil {
 			return false
@@ -427,7 +408,7 @@ func NewSlerpOrientationConstraint(start, goal spatial.Pose, tolerance float64) 
 // which will bring a pose into the valid constraint space. The plane normal is assumed to point towards the valid area.
 // angle refers to the maximum unit sphere segment length deviation from the ov
 // epsilon refers to the closeness to the plane necessary to be a valid pose.
-func NewPlaneConstraint(pNorm, pt r3.Vector, writingAngle, epsilon float64) (StateConstraint, StateMetric) {
+func NewPlaneConstraint(pNorm, pt r3.Vector, writingAngle, epsilon float64) (StateConstraint, ik.StateMetric) {
 	// get the constant value for the plane
 	pConst := -pt.Dot(pNorm)
 
@@ -435,7 +416,7 @@ func NewPlaneConstraint(pNorm, pt r3.Vector, writingAngle, epsilon float64) (Sta
 	ov := &spatial.OrientationVector{OX: -pNorm.X, OY: -pNorm.Y, OZ: -pNorm.Z}
 	ov.Normalize()
 
-	dFunc := orientDistToRegion(ov, writingAngle)
+	dFunc := ik.OrientDistToRegion(ov, writingAngle)
 
 	// distance from plane to point
 	planeDist := func(pt r3.Vector) float64 {
@@ -443,13 +424,13 @@ func NewPlaneConstraint(pNorm, pt r3.Vector, writingAngle, epsilon float64) (Sta
 	}
 
 	// TODO: do we need to care about trajectory here? Probably, but not yet implemented
-	gradFunc := func(state *State) float64 {
+	gradFunc := func(state *ik.State) float64 {
 		pDist := planeDist(state.Position.Point())
 		oDist := dFunc(state.Position.Orientation())
 		return pDist*pDist + oDist*oDist
 	}
 
-	validFunc := func(state *State) bool {
+	validFunc := func(state *ik.State) bool {
 		err := resolveStatesToPositions(state)
 		if err != nil {
 			return false
@@ -464,16 +445,16 @@ func NewPlaneConstraint(pNorm, pt r3.Vector, writingAngle, epsilon float64) (Sta
 // function which will determine whether a point is on the line, and 2) a distance function
 // which will bring a pose into the valid constraint space.
 // tolerance refers to the closeness to the line necessary to be a valid pose in mm.
-func NewLineConstraint(pt1, pt2 r3.Vector, tolerance float64) (StateConstraint, StateMetric) {
+func NewLineConstraint(pt1, pt2 r3.Vector, tolerance float64) (StateConstraint, ik.StateMetric) {
 	if pt1.Distance(pt2) < defaultEpsilon {
 		tolerance = defaultEpsilon
 	}
 
-	gradFunc := func(state *State) float64 {
+	gradFunc := func(state *ik.State) float64 {
 		return math.Max(spatial.DistToLineSegment(pt1, pt2, state.Position.Point())-tolerance, 0)
 	}
 
-	validFunc := func(state *State) bool {
+	validFunc := func(state *ik.State) bool {
 		err := resolveStatesToPositions(state)
 		if err != nil {
 			return false
@@ -488,7 +469,7 @@ func NewLineConstraint(pt1, pt2 r3.Vector, tolerance float64) (StateConstraint, 
 // intersect with points in the octree. Threshold sets the confidence level required for a point to be considered, and buffer is the
 // distance to a point that is considered a collision in mm.
 func NewOctreeCollisionConstraint(octree *pointcloud.BasicOctree, threshold int, buffer float64) StateConstraint {
-	constraint := func(state *State) bool {
+	constraint := func(state *ik.State) bool {
 		geometries, err := state.Frame.Geometries(state.Configuration)
 		if err != nil && geometries == nil {
 			return false
