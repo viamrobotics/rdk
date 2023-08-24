@@ -6,8 +6,10 @@ import (
 	"math"
 	"strconv"
 
+	"github.com/edaniels/golog"
 	pb "go.viam.com/api/service/motion/v1"
 
+	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
@@ -336,22 +338,52 @@ func CheckPlan(
 		return false, errors.New("plan must have at least two elements")
 	}
 
-	// construct constraints
+	// construct solverFrame and startPose
 	sf, err := newSolverFrame(fs, frame.Name(), referenceframe.World, plan[0])
 	if err != nil {
 		return false, err
 	}
+
+	// ensure we can perform the plan check
+	execptedDoF, err := sf.mapToSlice(plan[0])
+	if err != nil {
+		return false, err
+	}
+	if len(sf.DoF()) != len(execptedDoF) {
+		return false, referenceframe.NewIncorrectInputLengthError(len(execptedDoF), len(sf.DoF()))
+	}
+
+	// construct planager
+	sfPlanner, err := newPlanManager(sf, fs, golog.NewLogger("checkPlan-logger"), defaultRandomSeed)
+	if err != nil {
+		return false, err
+	}
+	// construct worldstate
 	worldState, err := referenceframe.NewWorldState(obstacles, nil)
 	if err != nil {
 		return false, err
 	}
-	collisionConstraints, err := createAllCollisionConstraints(sf, fs, worldState, referenceframe.StartPositions(fs), nil)
+
+	// construct start and goal pose
+	startPose, err := sf.getPoseFromMap(plan[0])
 	if err != nil {
 		return false, err
 	}
-	opt := newBasicPlannerOptions(frame)
-	for name, constraint := range collisionConstraints {
-		opt.AddStateConstraint(name, constraint)
+	goalPose, err := sf.getPoseFromMap(plan[len(plan)-1])
+	if err != nil {
+		return false, err
+	}
+
+	// create constraints
+	if sfPlanner.planOpts, err = sfPlanner.plannerSetupFromMoveRequest(
+		startPose,
+		goalPose,
+		plan[0],
+		worldState,
+		nil, // no pb.Constraints
+		nil, // no plannOpts
+	); err != nil {
+		return false, err
 	}
 
 	// go through plan and check that we can move from plan[i] to plan[i+1]
@@ -364,13 +396,13 @@ func CheckPlan(
 		if err != nil {
 			return false, err
 		}
-		if isValid, fault := opt.CheckSegmentAndStateValidity(
-			&Segment{
+		if isValid, fault := sfPlanner.planOpts.CheckSegmentAndStateValidity(
+			&ik.Segment{
 				StartConfiguration: now,
 				EndConfiguration:   nextStep,
 				Frame:              sf,
 			},
-			opt.Resolution,
+			sfPlanner.planOpts.Resolution,
 		); !isValid {
 			return false, fmt.Errorf("found collsion in segment:%v", fault)
 		}
@@ -415,7 +447,11 @@ func checkPtgPlan(
 		// find the relevant ptg with the 0th value of inputs
 		ptg := ptgs[int(math.Round(inputs[0].Value))]
 		// find relevant trajectories with the 1st value of inputs
-		for _, traj := range ptg.Trajectory(uint(inputs[1].Value)) {
+		tajNodes, err := ptg.Trajectory(inputs[1].Value, inputs[2].Value)
+		if err != nil {
+			return false, err
+		}
+		for _, traj := range tajNodes {
 			// stop checking the trajectory once we have traveled its required distance
 			if traj.Dist >= inputs[2].Value {
 				lastRecordedPose = spatial.Compose(lastRecordedPose, latestPose)

@@ -295,6 +295,19 @@ func (sf *solverFrame) AlmostEquals(otherFrame frame.Frame) bool {
 	return false
 }
 
+// getPoseFromMap is a convience method for constructing a pose from the seedmap.
+func (sf solverFrame) getPoseFromMap(seedMap map[string][]frame.Input) (spatial.Pose, error) {
+	seed, err := sf.mapToSlice(seedMap)
+	if err != nil {
+		return nil, err
+	}
+	startPose, err := sf.Transform(seed)
+	if err != nil {
+		return nil, err
+	}
+	return startPose, nil
+}
+
 // uniqInPlaceSlice will deduplicate the values in a slice using in-place replacement on the slice. This is faster than
 // a solution using append().
 // This function does not remove anything from the input slice, but it does rearrange the elements.

@@ -102,11 +102,7 @@ func motionPlanInternal(ctx context.Context,
 	if len(sf.DoF()) == 0 {
 		return nil, errors.New("solver frame has no degrees of freedom, cannot perform inverse kinematics")
 	}
-	seed, err := sf.mapToSlice(seedMap)
-	if err != nil {
-		return nil, err
-	}
-	startPose, err := sf.Transform(seed)
+	startPose, err := sf.getPoseFromMap(seedMap)
 	if err != nil {
 		return nil, err
 	}

@@ -309,8 +309,9 @@ func TestPtgCheckPlan(t *testing.T) {
 	roverGeom, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{10, 10, 10}, "")
 	test.That(t, err, test.ShouldBeNil)
 	geometries := []spatialmath.Geometry{roverGeom}
-	ackermanFrame, err := referenceframe.NewPTGFrameFromTurningRadius(
+	ackermanFrame, err := tpspace.NewPTGFrameFromTurningRadius(
 		"ackframe",
+		logger,
 		300.,
 		testTurnRad,
 		0,
@@ -324,9 +325,13 @@ func TestPtgCheckPlan(t *testing.T) {
 	fs.AddFrame(ackermanFrame, fs.World())
 
 	opt := newBasicPlannerOptions(ackermanFrame)
-	opt.SetGoalMetric(NewPositionOnlyMetric(goalPos))
-	opt.DistanceFunc = SquaredNormNoOrientSegmentMetric
+	opt.SetGoalMetric(ik.NewPositionOnlyMetric(goalPos))
+	opt.DistanceFunc = ik.SquaredNormNoOrientSegmentMetric
 	opt.GoalThreshold = 30.
+
+	test.That(t, err, test.ShouldBeNil)
+	sf, err := newSolverFrame(fs, ackermanFrame.Name(), referenceframe.World, nil)
+	test.That(t, err, test.ShouldBeNil)
 
 	mp, err := newTPSpaceMotionPlanner(ackermanFrame, rand.New(rand.NewSource(42)), logger, opt)
 	test.That(t, err, test.ShouldBeNil)
@@ -335,7 +340,6 @@ func TestPtgCheckPlan(t *testing.T) {
 	plan, err := tp.plan(context.Background(), goalPos, nil)
 	test.That(t, err, test.ShouldBeNil)
 	planAsInputs := nodesToInputs(plan)
-	sf, err := newSolverFrame(fs, "ackframe", "world", referenceframe.StartPositions(fs))
 	test.That(t, err, test.ShouldBeNil)
 	steps := []map[string][]referenceframe.Input{}
 	for _, resultSlice := range planAsInputs {
@@ -345,7 +349,7 @@ func TestPtgCheckPlan(t *testing.T) {
 
 	t.Run("obstacles blocking path", func(t *testing.T) {
 		// create obstacle blocking path
-		obstacle, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{1000, 0, 0}), r3.Vector{20, 20, 1}, "")
+		obstacle, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{1000, 0, 0}), r3.Vector{20, 2000, 1}, "")
 		test.That(t, err, test.ShouldBeNil)
 
 		geoms := []spatialmath.Geometry{obstacle}
@@ -358,7 +362,7 @@ func TestPtgCheckPlan(t *testing.T) {
 
 	t.Run("obstacles blocking path2", func(t *testing.T) {
 		// create obstacle blocking path
-		obstacle, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{2000, 0, 0}), r3.Vector{20, 20, 1}, "")
+		obstacle, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{2000, 0, 0}), r3.Vector{20, 2000, 1}, "")
 		test.That(t, err, test.ShouldBeNil)
 
 		geoms := []spatialmath.Geometry{obstacle}
@@ -371,7 +375,7 @@ func TestPtgCheckPlan(t *testing.T) {
 
 	t.Run("obstacles blocking path2.5", func(t *testing.T) {
 		// create obstacle blocking path
-		obstacle, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{2500, 0, 0}), r3.Vector{20, 20, 1}, "")
+		obstacle, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{2500, 0, 0}), r3.Vector{20, 2000, 1}, "")
 		test.That(t, err, test.ShouldBeNil)
 
 		geoms := []spatialmath.Geometry{obstacle}
@@ -384,7 +388,7 @@ func TestPtgCheckPlan(t *testing.T) {
 
 	t.Run("obstacles blocking path3", func(t *testing.T) {
 		// create obstacle blocking path
-		obstacle, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{3000, 0, 0}), r3.Vector{20, 20, 1}, "")
+		obstacle, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{3000, 0, 0}), r3.Vector{20, 2000, 1}, "")
 		test.That(t, err, test.ShouldBeNil)
 
 		geoms := []spatialmath.Geometry{obstacle}
@@ -420,7 +424,7 @@ func TestPtgCheckPlan(t *testing.T) {
 		// create obstacle
 		obstacle, err := spatialmath.NewBox(
 			spatialmath.NewPoseFromPoint(r3.Vector{2500, 0, 0}),
-			r3.Vector{10, 10, 1}, "obstacle",
+			r3.Vector{10, 20, 1}, "obstacle",
 		)
 		test.That(t, err, test.ShouldBeNil)
 		geoms := []spatialmath.Geometry{obstacle}
@@ -435,7 +439,7 @@ func TestPtgCheckPlan(t *testing.T) {
 		// create obstacle
 		obstacle, err := spatialmath.NewBox(
 			spatialmath.NewPoseFromPoint(r3.Vector{2500, 20, 0}),
-			r3.Vector{10, 10, 1}, "obstacle",
+			r3.Vector{10, 2000, 1}, "obstacle",
 		)
 		test.That(t, err, test.ShouldBeNil)
 		geoms := []spatialmath.Geometry{obstacle}
