@@ -6,8 +6,9 @@ import pb "go.viam.com/api/component/base/v1"
 // Properties is a structure representing features
 // of a base.
 type Properties struct {
-	TurningRadiusMeters float64
-	WidthMeters         float64
+	TurningRadiusMeters      float64
+	WidthMeters              float64
+	WheelCircumferenceMeters float64
 }
 
 // ProtoFeaturesToProperties takes a GetPropertiesResponse and returns
@@ -21,6 +22,8 @@ func ProtoFeaturesToProperties(resp *pb.GetPropertiesResponse) Properties {
 		TurningRadiusMeters: resp.TurningRadiusMeters,
 		// the width of the base's wheelbase
 		WidthMeters: resp.WidthMeters,
+		// the circumference of the wheels
+		WheelCircumferenceMeters: resp.WheelCircumferenceMeters,
 	}
 }
 
@@ -30,7 +33,8 @@ func PropertiesToProtoResponse(
 	features Properties,
 ) (*pb.GetPropertiesResponse, error) {
 	return &pb.GetPropertiesResponse{
-		TurningRadiusMeters: features.TurningRadiusMeters,
-		WidthMeters:         features.WidthMeters,
+		TurningRadiusMeters:      features.TurningRadiusMeters,
+		WidthMeters:              features.WidthMeters,
+		WheelCircumferenceMeters: features.WheelCircumferenceMeters,
 	}, nil
 }

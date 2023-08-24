@@ -1,6 +1,6 @@
 //go:build !windows
 
-package motionplan
+package ik
 
 import (
 	"context"
@@ -30,7 +30,7 @@ func CreateCombinedIKSolver(model referenceframe.Frame, logger golog.Logger, nCP
 		nCPU = 1
 	}
 	for i := 1; i <= nCPU; i++ {
-		nlopt, err := CreateNloptIKSolver(model, logger, -1, goalThreshold)
+		nlopt, err := CreateNloptIKSolver(model, logger, -1, true)
 		nlopt.id = i
 		if err != nil {
 			return nil, err
@@ -41,20 +41,10 @@ func CreateCombinedIKSolver(model referenceframe.Frame, logger golog.Logger, nCP
 	return ik, nil
 }
 
-func runSolver(ctx context.Context,
-	solver InverseKinematics,
-	c chan<- []referenceframe.Input,
-	seed []referenceframe.Input,
-	m StateMetric,
-	rseed int,
-) error {
-	return solver.Solve(ctx, c, seed, m, rseed)
-}
-
 // Solve will initiate solving for the given position in all child solvers, seeding with the specified initial joint
 // positions. If unable to solve, the returned error will be non-nil.
 func (ik *CombinedIK) Solve(ctx context.Context,
-	c chan<- []referenceframe.Input,
+	c chan<- *Solution,
 	seed []referenceframe.Input,
 	m StateMetric,
 	rseed int,
@@ -75,7 +65,8 @@ func (ik *CombinedIK) Solve(ctx context.Context,
 
 		utils.PanicCapturingGo(func() {
 			defer activeSolvers.Done()
-			errChan <- runSolver(ctxWithCancel, thisSolver, c, seed, m, parseed)
+
+			errChan <- thisSolver.Solve(ctxWithCancel, c, seed, m, parseed)
 		})
 	}
 
@@ -89,6 +80,7 @@ func (ik *CombinedIK) Solve(ctx context.Context,
 	for !done {
 		select {
 		case <-ctx.Done():
+			activeSolvers.Wait()
 			return ctx.Err()
 		default:
 		}
@@ -110,6 +102,7 @@ func (ik *CombinedIK) Solve(ctx context.Context,
 		// Collect return errors from all solvers
 		select {
 		case <-ctx.Done():
+			activeSolvers.Wait()
 			return ctx.Err()
 		default:
 		}
@@ -120,6 +113,7 @@ func (ik *CombinedIK) Solve(ctx context.Context,
 			collectedErrs = multierr.Combine(collectedErrs, err)
 		}
 	}
+	activeSolvers.Wait()
 	return collectedErrs
 }
 

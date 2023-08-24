@@ -288,7 +288,11 @@ func TestStartWaypoint(t *testing.T) {
 		pt1, pt2, pt3 := geo.NewPoint(1, 2), geo.NewPoint(2, 3), geo.NewPoint(3, 4)
 		points := []*geo.Point{pt1, pt2, pt3}
 		t.Run("MoveOnGlobe error results in skipping the current waypoint", func(t *testing.T) {
+			// Set manual mode to ensure waypoint loop from prior test exits
+			err = ns.SetMode(ctx, navigation.ModeManual, map[string]interface{}{"experimental": true})
+			test.That(t, err, test.ShouldBeNil)
 			ctx, cancelFunc := context.WithCancel(ctx)
+			defer ns.(*builtIn).activeBackgroundWorkers.Wait()
 			defer cancelFunc()
 			err = deleteAllWaypoints(ctx, ns)
 			for _, pt := range points {
@@ -334,6 +338,7 @@ func TestStartWaypoint(t *testing.T) {
 			currentInputsShouldEqual(ctx, t, kinematicBase, pt3)
 		})
 		t.Run("Calling SetMode cancels current and future MoveOnGlobe calls", func(t *testing.T) {
+			// Set manual mode to ensure waypoint loop from prior test exits
 			err = deleteAllWaypoints(ctx, ns)
 			test.That(t, err, test.ShouldBeNil)
 			for _, pt := range points {
@@ -342,7 +347,6 @@ func TestStartWaypoint(t *testing.T) {
 			}
 
 			// start navigation - set ModeManual first to ensure navigation starts up
-			ns.(*builtIn).mode = navigation.ModeManual
 			err = ns.SetMode(ctx, navigation.ModeWaypoint, map[string]interface{}{"experimental": true})
 
 			// Reach the first waypoint
@@ -363,6 +367,9 @@ func TestStartWaypoint(t *testing.T) {
 		})
 
 		t.Run("Calling RemoveWaypoint on the waypoint in progress cancels current MoveOnGlobe call", func(t *testing.T) {
+			// Set manual mode to ensure waypoint loop from prior test exits
+			err = ns.SetMode(ctx, navigation.ModeManual, map[string]interface{}{"experimental": true})
+			test.That(t, err, test.ShouldBeNil)
 			err = deleteAllWaypoints(ctx, ns)
 			for _, pt := range points {
 				err = ns.AddWaypoint(ctx, pt, nil)
@@ -370,7 +377,6 @@ func TestStartWaypoint(t *testing.T) {
 			}
 
 			// start navigation - set ModeManual first to ensure navigation starts up
-			ns.(*builtIn).mode = navigation.ModeManual
 			err = ns.SetMode(ctx, navigation.ModeWaypoint, map[string]interface{}{"experimental": true})
 
 			// Get the ID of the first waypoint
@@ -412,6 +418,9 @@ func TestStartWaypoint(t *testing.T) {
 		})
 
 		t.Run("Calling RemoveWaypoint on a waypoint that is not in progress does not cancel MoveOnGlobe", func(t *testing.T) {
+			// Set manual mode to ensure waypoint loop from prior test exits
+			err = ns.SetMode(ctx, navigation.ModeManual, map[string]interface{}{"experimental": true})
+			test.That(t, err, test.ShouldBeNil)
 			err = deleteAllWaypoints(ctx, ns)
 			var wp3 navigation.Waypoint
 			for i, pt := range points {
@@ -425,7 +434,6 @@ func TestStartWaypoint(t *testing.T) {
 			}
 
 			// start navigation - set ModeManual first to ensure navigation starts up
-			ns.(*builtIn).mode = navigation.ModeManual
 			err = ns.SetMode(ctx, navigation.ModeWaypoint, map[string]interface{}{"experimental": true})
 
 			// Reach the first waypoint

@@ -369,6 +369,10 @@ func TestRunning(t *testing.T) {
 			on, _, err := m.IsPowered(ctx, nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, on, test.ShouldEqual, true)
+
+			p, err := m.Position(ctx, nil)
+			test.That(tb, err, test.ShouldBeNil)
+			test.That(tb, p, test.ShouldBeGreaterThan, 0)
 		})
 
 		cancel()

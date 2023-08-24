@@ -124,7 +124,7 @@ func ParallelForEachPixel(size image.Point, f func(x, y int)) {
 // SimpleFunc is for RunInParallel.
 type SimpleFunc func(ctx context.Context) error
 
-// RunInParallel runs all functions in parallel, return is elapsed time and n error.
+// RunInParallel runs all functions in parallel, return is elapsed time and an error.
 func RunInParallel(ctx context.Context, fs []SimpleFunc) (time.Duration, error) {
 	start := time.Now()
 	ctx, cancel := context.WithCancel(ctx)
@@ -163,4 +163,51 @@ func RunInParallel(ctx context.Context, fs []SimpleFunc) (time.Duration, error) 
 
 	wg.Wait()
 	return time.Since(start), bigError
+}
+
+// FloatFunc is for GetInParallel.
+type FloatFunc func(ctx context.Context) (float64, error)
+
+// GetInParallel runs all functions in parallel, return is elapsed time, a list of floats, and an error.
+func GetInParallel(ctx context.Context, fs []FloatFunc) (time.Duration, []float64, error) {
+	start := time.Now()
+	ctx, cancel := context.WithCancel(ctx)
+
+	var wg sync.WaitGroup
+
+	var bigError error
+	var bigErrorMutex sync.Mutex
+	storeError := func(err error) {
+		bigErrorMutex.Lock()
+		defer bigErrorMutex.Unlock()
+		if bigError == nil || !errors.Is(err, context.Canceled) {
+			bigError = multierr.Combine(bigError, err)
+		}
+	}
+
+	results := make([]float64, len(fs))
+
+	helper := func(f FloatFunc, i int) {
+		defer func() {
+			if thePanic := recover(); thePanic != nil {
+				storeError(fmt.Errorf("got panic getting something in parallel: %v", thePanic))
+				cancel()
+			}
+			wg.Done()
+		}()
+		value, err := f(ctx)
+		if err != nil {
+			storeError(err)
+			cancel()
+		}
+		results[i] = value
+	}
+
+	for i, f := range fs {
+		wg.Add(1)
+		go helper(f, i)
+	}
+
+	wg.Wait()
+	return time.Since(start), results, bigError
 }
