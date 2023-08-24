@@ -69,7 +69,7 @@ func (bus *I2cBus) OpenHandle(addr byte) (board.I2CHandle, error) {
 	if bus.closeableBus == nil {
 		newBus, err := i2creg.Open(bus.deviceName)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		bus.closeableBus = newBus
 	}
