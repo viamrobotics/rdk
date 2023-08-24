@@ -294,12 +294,8 @@ func scale(a, b byte, r float64) float64 {
 	return x
 }
 
-func scalemag(a, b byte, r float64) float64 {
+func scalemag(a, b byte) float64 {
 	x := float64(int(b)<<8 | int(a)) // 0 -> 2
-	x *= r                           // 0 -> 2r
-	x += r
-	x = math.Mod(x, r*2)
-	x -= r
 	return x
 }
 
@@ -336,9 +332,9 @@ func (imu *wit) parseWIT(line string) error {
 		if len(line) < 7 {
 			return fmt.Errorf("line is wrong for imu magnetometer %d %v", len(line), line)
 		}
-		imu.magnetometer.X = scalemag(line[1], line[2], 1) // converts to gauss
-		imu.magnetometer.Y = scalemag(line[3], line[4], 1)
-		imu.magnetometer.Z = scalemag(line[5], line[6], 1)
+		imu.magnetometer.X = scalemag(line[1], line[2]) // converts to gauss
+		imu.magnetometer.Y = scalemag(line[3], line[4])
+		imu.magnetometer.Z = scalemag(line[5], line[6])
 	}
 
 	return nil
