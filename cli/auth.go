@@ -97,14 +97,14 @@ type token struct {
 
 // LoginAction is the corresponding Action for 'login'.
 func LoginAction(cCtx *cli.Context) error {
-	c, err := newAppClient(cCtx)
+	c, err := newViamClient(cCtx)
 	if err != nil {
 		return err
 	}
 	return c.loginAction(cCtx)
 }
 
-func (c *appClient) loginAction(cCtx *cli.Context) error {
+func (c *viamClient) loginAction(cCtx *cli.Context) error {
 	loggedInMessage := func(t *token, alreadyLoggedIn bool) {
 		already := "already "
 		if !alreadyLoggedIn {
@@ -148,14 +148,14 @@ func (c *appClient) loginAction(cCtx *cli.Context) error {
 
 // PrintAccessTokenAction is the corresponding Action for 'print-access-token'.
 func PrintAccessTokenAction(cCtx *cli.Context) error {
-	c, err := newAppClient(cCtx)
+	c, err := newViamClient(cCtx)
 	if err != nil {
 		return err
 	}
 	return c.printAccessTokenAction(cCtx)
 }
 
-func (c *appClient) printAccessTokenAction(cCtx *cli.Context) error {
+func (c *viamClient) printAccessTokenAction(cCtx *cli.Context) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
@@ -166,14 +166,14 @@ func (c *appClient) printAccessTokenAction(cCtx *cli.Context) error {
 
 // LogoutAction is the corresponding Action for 'logout'.
 func LogoutAction(cCtx *cli.Context) error {
-	c, err := newAppClient(cCtx)
+	c, err := newViamClient(cCtx)
 	if err != nil {
 		return err
 	}
 	return c.logoutAction(cCtx)
 }
 
-func (c *appClient) logoutAction(cCtx *cli.Context) error {
+func (c *viamClient) logoutAction(cCtx *cli.Context) error {
 	auth := c.conf.Auth
 	if auth == nil {
 		fmt.Fprintf(cCtx.App.Writer, "already logged out\n")
@@ -188,14 +188,14 @@ func (c *appClient) logoutAction(cCtx *cli.Context) error {
 
 // WhoAmIAction is the corresponding Action for 'whoami'.
 func WhoAmIAction(cCtx *cli.Context) error {
-	c, err := newAppClient(cCtx)
+	c, err := newViamClient(cCtx)
 	if err != nil {
 		return err
 	}
 	return c.whoAmIAction(cCtx)
 }
 
-func (c *appClient) whoAmIAction(cCtx *cli.Context) error {
+func (c *viamClient) whoAmIAction(cCtx *cli.Context) error {
 	auth := c.conf.Auth
 	if auth == nil {
 		warningf(cCtx.App.Writer, "not logged in. run \"login\" command")
@@ -205,7 +205,7 @@ func (c *appClient) whoAmIAction(cCtx *cli.Context) error {
 	return nil
 }
 
-func (c *appClient) ensureLoggedIn() error {
+func (c *viamClient) ensureLoggedIn() error {
 	if c.client != nil {
 		return nil
 	}
@@ -252,7 +252,7 @@ func (c *appClient) ensureLoggedIn() error {
 }
 
 // logout logs out the client and clears the config.
-func (c *appClient) logout() error {
+func (c *viamClient) logout() error {
 	if err := removeConfigFromCache(); err != nil && !os.IsNotExist(err) {
 		return err
 	}
@@ -260,7 +260,7 @@ func (c *appClient) logout() error {
 	return nil
 }
 
-func (c *appClient) prepareDial(
+func (c *viamClient) prepareDial(
 	orgStr, locStr, robotStr, partStr string,
 	debug bool,
 ) (context.Context, string, []rpc.DialOption, error) {

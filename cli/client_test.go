@@ -16,6 +16,7 @@ import (
 	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/utils"
 )
 
 var (
@@ -33,17 +34,17 @@ func (tw *testWriter) Write(b []byte) (int, error) {
 	return len(b), nil
 }
 
-// setup creates a new cli.Context and appClient with fake auth and the passed
+// setup creates a new cli.Context and viamClient with fake auth and the passed
 // in AppServiceClient. It also returns testWriters that capture Stdout and
 // Stdin.
-func setup(asc apppb.AppServiceClient, dataClient datapb.DataServiceClient) (*cli.Context, *appClient, *testWriter, *testWriter) {
+func setup(asc apppb.AppServiceClient, dataClient datapb.DataServiceClient) (*cli.Context, *viamClient, *testWriter, *testWriter) {
 	out := &testWriter{}
 	errOut := &testWriter{}
 	flags := &flag.FlagSet{}
 	if dataClient != nil {
 		// these flags are only relevant when testing a dataClient
 		flags.String(dataFlagDataType, dataTypeTabular, "")
-		flags.String(dataFlagDestination, os.TempDir(), "")
+		flags.String(dataFlagDestination, utils.ResolveFile(""), "")
 	}
 	cCtx := cli.NewContext(NewApp(out, errOut), flags, nil)
 	conf := &config{
@@ -55,7 +56,7 @@ func setup(asc apppb.AppServiceClient, dataClient datapb.DataServiceClient) (*cl
 			},
 		},
 	}
-	ac := &appClient{
+	ac := &viamClient{
 		client:     asc,
 		conf:       conf,
 		c:          cCtx,
@@ -135,7 +136,7 @@ func TestTabularDataByFilterAction(t *testing.T) {
 	b := make([]byte, expectedDataSize)
 
 	// `data.ndjson` is the standardized name of the file data is written to in the `tabularData` call
-	filePath := fmt.Sprintf("%s/data/data.ndjson", os.TempDir())
+	filePath := utils.ResolveFile("data/data.ndjson")
 	file, err := os.Open(filePath)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -151,7 +152,7 @@ func TestTabularDataByFilterAction(t *testing.T) {
 	b = make([]byte, expectedMetadataSize)
 
 	// metadata is named `0.json` based on its index in the metadata array
-	filePath = fmt.Sprintf("%s/metadata/0.json", os.TempDir())
+	filePath = utils.ResolveFile("metadata/0.json")
 	file, err = os.Open(filePath)
 	test.That(t, err, test.ShouldBeNil)
 

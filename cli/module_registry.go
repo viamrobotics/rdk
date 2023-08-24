@@ -63,7 +63,7 @@ func CreateModuleAction(c *cli.Context) error {
 	publicNamespaceArg := c.String(moduleFlagPublicNamespace)
 	orgIDArg := c.String(moduleFlagOrgID)
 
-	client, err := newAppClient(c)
+	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
@@ -127,7 +127,7 @@ func UpdateModuleAction(c *cli.Context) error {
 		manifestPath = manifestPathArg
 	}
 
-	client, err := newAppClient(c)
+	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
@@ -191,7 +191,7 @@ func UploadModuleAction(c *cli.Context) error {
 		return errors.New("no package to upload -- please provide an archive containing your module. use --help for more information")
 	}
 
-	client, err := newAppClient(c)
+	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
@@ -250,7 +250,7 @@ func UploadModuleAction(c *cli.Context) error {
 	return nil
 }
 
-func (c *appClient) createModule(moduleName, organizationID string) (*apppb.CreateModuleResponse, error) {
+func (c *viamClient) createModule(moduleName, organizationID string) (*apppb.CreateModuleResponse, error) {
 	if err := c.ensureLoggedIn(); err != nil {
 		return nil, err
 	}
@@ -261,7 +261,7 @@ func (c *appClient) createModule(moduleName, organizationID string) (*apppb.Crea
 	return c.client.CreateModule(c.c.Context, &req)
 }
 
-func (c *appClient) updateModule(moduleID moduleID, manifest moduleManifest) (*apppb.UpdateModuleResponse, error) {
+func (c *viamClient) updateModule(moduleID moduleID, manifest moduleManifest) (*apppb.UpdateModuleResponse, error) {
 	if err := c.ensureLoggedIn(); err != nil {
 		return nil, err
 	}
@@ -284,7 +284,7 @@ func (c *appClient) updateModule(moduleID moduleID, manifest moduleManifest) (*a
 	return c.client.UpdateModule(c.c.Context, &req)
 }
 
-func (c *appClient) uploadModuleFile(
+func (c *viamClient) uploadModuleFile(
 	moduleID moduleID,
 	version,
 	platform string,
@@ -425,7 +425,7 @@ func (m *moduleID) String() string {
 // if it is not, it uses the publicNamespaceArg and orgIDArg to determine what the moduleID prefix should be.
 func updateManifestModuleIDWithArgs(
 	c *cli.Context,
-	client *appClient,
+	client *viamClient,
 	manifestNameEntry,
 	publicNamespaceArg,
 	orgIDArg string,
@@ -470,7 +470,7 @@ func updateManifestModuleIDWithArgs(
 
 // resolveOrg accepts either an orgID or a publicNamespace (one must be an empty string).
 // If orgID is an empty string, it will use the publicNamespace to resolve it.
-func resolveOrg(client *appClient, publicNamespace, orgID string) (*apppb.Organization, error) {
+func resolveOrg(client *viamClient, publicNamespace, orgID string) (*apppb.Organization, error) {
 	if orgID != "" {
 		if publicNamespace != "" {
 			return nil, errors.New("cannot specify both org-id and public-namespace")
@@ -495,7 +495,7 @@ func resolveOrg(client *appClient, publicNamespace, orgID string) (*apppb.Organi
 	return org, nil
 }
 
-func getOrgByModuleIDPrefix(client *appClient, moduleIDPrefix string) (*apppb.Organization, error) {
+func getOrgByModuleIDPrefix(client *viamClient, moduleIDPrefix string) (*apppb.Organization, error) {
 	if isValidOrgID(moduleIDPrefix) {
 		return client.getOrg(moduleIDPrefix)
 	}

@@ -37,7 +37,7 @@ const (
 
 // DataExportAction is the corresponding action for 'data export'.
 func DataExportAction(c *cli.Context) error {
-	client, err := newAppClient(c)
+	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
@@ -45,7 +45,7 @@ func DataExportAction(c *cli.Context) error {
 	return client.dataExportAction(c)
 }
 
-func (c *appClient) dataExportAction(cCtx *cli.Context) error {
+func (c *viamClient) dataExportAction(cCtx *cli.Context) error {
 	filter, err := createDataFilter(cCtx)
 	if err != nil {
 		return err
@@ -73,7 +73,7 @@ func DataDeleteAction(c *cli.Context) error {
 		return err
 	}
 
-	client, err := newAppClient(c)
+	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
@@ -174,7 +174,7 @@ func createDataFilter(c *cli.Context) (*datapb.Filter, error) {
 }
 
 // BinaryData downloads binary data matching filter to dst.
-func (c *appClient) binaryData(dst string, filter *datapb.Filter, parallelDownloads uint) error {
+func (c *viamClient) binaryData(dst string, filter *datapb.Filter, parallelDownloads uint) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
@@ -378,7 +378,7 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 }
 
 // tabularData downloads binary data matching filter to dst.
-func (c *appClient) tabularData(dst string, filter *datapb.Filter) error {
+func (c *viamClient) tabularData(dst string, filter *datapb.Filter) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
@@ -494,7 +494,7 @@ func makeDestinationDirs(dst string) error {
 	return nil
 }
 
-func (c *appClient) deleteBinaryData(filter *datapb.Filter) error {
+func (c *viamClient) deleteBinaryData(filter *datapb.Filter) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
@@ -508,7 +508,7 @@ func (c *appClient) deleteBinaryData(filter *datapb.Filter) error {
 }
 
 // deleteTabularData delete tabular data matching filter.
-func (c *appClient) deleteTabularData(filter *datapb.Filter) error {
+func (c *viamClient) deleteTabularData(filter *datapb.Filter) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
