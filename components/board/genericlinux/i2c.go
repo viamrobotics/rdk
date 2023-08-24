@@ -63,12 +63,13 @@ func (bus *I2cBus) reset(deviceName string) error {
 // communicating with a device at a specific I2C handle. Opening a handle locks the I2C bus so
 // nothing else can use it, and closing the handle unlocks the bus again.
 func (bus *I2cBus) OpenHandle(addr byte) (board.I2CHandle, error) {
-	bus.mu.Lock() // Lock the bus so no other handle can use it until this one is closed.
+	bus.mu.Lock() // Lock the bus so no other handle can use it until this handle is closed.
 
 	// If we haven't yet connected to the bus itself, do so now.
 	if bus.closeableBus == nil {
 		newBus, err := i2creg.Open(bus.deviceName)
 		if err != nil {
+			bus.mu.Unlock() // We never created a handle, so unlock the bus for next time.
 			return nil, err
 		}
 		bus.closeableBus = newBus
