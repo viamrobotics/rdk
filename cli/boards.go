@@ -81,6 +81,66 @@ func UploadBoardDefsAction(c *cli.Context) error {
 	return nil
 }
 
+func GetBoardDefsAction(c *cli.Context) error {
+	orgArg := c.String(boardFlagOrg)
+	nameArg := c.String(boardFlagName)
+	versionArg := c.String(boardFlagVersion)
+
+	if versionArg == "" {
+		versionArg = "latest"
+	}
+
+	client, err := newAppClient(c)
+	if err != nil {
+		return err
+	}
+
+	// get the org from the name or id.
+	org, err := client.getOrg(orgArg)
+	if err != nil {
+		return err
+	}
+
+	// check if the package already exists.
+	url, err := client.getBoardDefsFile(nameArg, versionArg, org.Id)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println(url)
+
+	return nil
+}
+
+func (c *appClient) getBoardDefsFile(
+	name string,
+	version string,
+	orgID string,
+) (string, error) {
+	ctx := c.c.Context
+	includeURL := true
+	packageType := packagepb.PackageType_PACKAGE_TYPE_BOARD_DEFS
+
+	// the packageID is the orgid/name
+	packageID := fmt.Sprintf("%s/%s", orgID, name)
+
+	req := &packagepb.GetPackageRequest{
+		Id:         packageID,
+		Version:    version,
+		Type:       &packageType,
+		IncludeUrl: &includeURL,
+	}
+
+	response, err := c.packageClient.GetPackage(ctx, req)
+
+	if err != nil {
+		return "", err
+	}
+
+	return response.Package.Url, nil
+
+}
+
 func (c *appClient) uploadBoardDefsFile(
 	name string,
 	version string,
