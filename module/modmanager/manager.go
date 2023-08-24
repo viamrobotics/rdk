@@ -25,6 +25,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/data"
 	rdkgrpc "go.viam.com/rdk/grpc"
 	modlib "go.viam.com/rdk/module"
 	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
@@ -569,6 +570,7 @@ func (m *module) dial() error {
 			grpc.WithChainUnaryInterceptor(
 				grpc_retry.UnaryClientInterceptor(),
 				operation.UnaryClientInterceptor,
+				data.UnaryClientInterceptor,
 			),
 			grpc.WithChainStreamInterceptor(
 				grpc_retry.StreamClientInterceptor(),

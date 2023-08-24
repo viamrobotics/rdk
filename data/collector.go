@@ -15,6 +15,7 @@ import (
 	v1 "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/protoutils"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -313,4 +314,28 @@ func GetExtraFromContext(ctx context.Context, extra map[string]interface{}) (*st
 		extra[FromDMString] = true
 	}
 	return protoutils.StructToStructPb(extra)
+}
+
+type requestWithExtra interface {
+	GetExtra() *structpb.Struct
+}
+
+// UnaryClientInterceptor adds "fromDataManagement": true to the outgoing req's Extra struct if the flag is true in the context.
+func UnaryClientInterceptor(
+	ctx context.Context,
+	method string,
+	req, reply interface{},
+	cc *grpc.ClientConn,
+	invoker grpc.UnaryInvoker,
+	opts ...grpc.CallOption,
+) error {
+	if ctx.Value(FromDMContextKey{}) == true {
+		reqWithExtra, ok := req.(requestWithExtra)
+		if ok && reqWithExtra.GetExtra() != nil {
+			extraMap := reqWithExtra.GetExtra().Fields
+			extraMap[FromDMString] = structpb.NewBoolValue(true)
+		}
+	}
+
+	return invoker(ctx, method, req, reply, cc, opts...)
 }

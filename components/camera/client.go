@@ -14,6 +14,7 @@ import (
 	pb "go.viam.com/api/component/camera/v1"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/pointcloud"
@@ -66,7 +67,7 @@ func (c *client) Read(ctx context.Context) (image.Image, func(), error) {
 	mimeType := gostream.MIMETypeHint(ctx, "")
 	expectedType, _ := utils.CheckLazyMIMEType(mimeType)
 
-	extra, err := data.GetExtraFromContext(ctx, make(map[string]interface{}))
+	ext, err := structpb.NewStruct(make(map[string]interface{}))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -74,7 +75,7 @@ func (c *client) Read(ctx context.Context) (image.Image, func(), error) {
 	resp, err := c.client.GetImage(ctx, &pb.GetImageRequest{
 		Name:     c.name,
 		MimeType: expectedType,
-		Extra:    extra,
+		Extra:    ext,
 	})
 	if err != nil {
 		return nil, nil, err
