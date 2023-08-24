@@ -61,7 +61,6 @@ func (ptg *ptgDiffDriveCCS) PTGVelocities(alpha, dist float64) (float64, float64
 }
 
 func (ptg *ptgDiffDriveCCS) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {
-	// ~ fmt.Println("CCS")
 	alpha := inputs[0].Value
 	dist := inputs[1].Value
 

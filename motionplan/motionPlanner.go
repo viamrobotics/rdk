@@ -351,8 +351,7 @@ IK:
 
 	// Cancel any ongoing processing within the IK solvers if we're done receiving solutions
 	cancel()
-	done := false
-	for !done {
+	for done := false; !done; {
 		select {
 		case <-solutionGen:
 		default:

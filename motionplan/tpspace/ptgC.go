@@ -29,6 +29,9 @@ func NewCirclePTG(maxMMPS, maxRPS float64) PrecomputePTG {
 // because they will have zero linear velocity through their turns, not max.
 func (ptg *ptgDiffDriveC) PTGVelocities(alpha, dist float64) (float64, float64, error) {
 	// (v,w)
+	if dist == 0 {
+		return 0, 0, nil
+	}
 	k := math.Copysign(1.0, dist)
 	v := ptg.maxMMPS * k
 	w := (alpha / math.Pi) * ptg.maxRPS * k

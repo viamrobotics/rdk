@@ -110,7 +110,7 @@ func (ptg *ptgGridSim) Solve(
 	return nil
 }
 
-func (ptg *ptgGridSim) RefDistance() float64 {
+func (ptg *ptgGridSim) MaxDistance() float64 {
 	return ptg.refDist
 }
 

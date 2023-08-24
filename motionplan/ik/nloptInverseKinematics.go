@@ -299,3 +299,12 @@ func (ik *NloptIK) updateBounds(seed []referenceframe.Input, tries int, opt *nlo
 		opt.SetUpperBounds(newUpper),
 	)
 }
+
+func limitsToArrays(limits []referenceframe.Limit) ([]float64, []float64) {
+	var min, max []float64
+	for _, limit := range limits {
+		min = append(min, limit.Min)
+		max = append(max, limit.Max)
+	}
+	return min, max
+}

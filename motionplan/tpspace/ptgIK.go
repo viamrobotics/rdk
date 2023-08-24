@@ -36,10 +36,7 @@ func NewPTGIK(simPTG PrecomputePTG, logger golog.Logger, refDist float64, randSe
 		return nil, errors.New("refDist must be greater than zero")
 	}
 
-	ptgFrame, err := NewPTGIKFrame(simPTG, refDist)
-	if err != nil {
-		return nil, err
-	}
+	ptgFrame := newPTGIKFrame(simPTG, refDist)
 
 	nlopt, err := ik.CreateNloptIKSolver(ptgFrame, logger, 1, false)
 	if err != nil {
@@ -110,7 +107,7 @@ func (ptg *ptgIK) Solve(
 	return nil
 }
 
-func (ptg *ptgIK) RefDistance() float64 {
+func (ptg *ptgIK) MaxDistance() float64 {
 	return ptg.refDist
 }
 
