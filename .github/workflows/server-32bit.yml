@@ -25,16 +25,6 @@ jobs:
         push: true
         cache-from: type=registry,ref=ghcr.io/viamrobotics/viam-server:buildcache
         cache-to: type=registry,ref=ghcr.io/viamrobotics/viam-server:buildcache
-  lint:
-    # needs: [docker]
-    runs-on: buildjet-4vcpu-ubuntu-2204-arm
-    container:
-      image: ghcr.io/viamrobotics/viam-server:armv7
-      options: --platform linux/arm/v7
-    steps:
-    - uses: actions/checkout@v3
-    - name: lint
-      run: make lint-go
   test:
     if: false # DONOTMERGE
     # needs: [docker]
@@ -53,6 +43,9 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
     - uses: actions/checkout@v3
+    # note: we're rerunning lint on 32-bit because govet atomicalign linter only detects errors on 32-bit architecture
+    - name: lint
+      run: make lint-go
     - name: test
       env:
         EXTRA_FLAGS: -buildvcs=false -tags no_tflite,no_pigpio
