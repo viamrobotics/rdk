@@ -1,17 +1,19 @@
 //go:build !windows
 
-package motionplan
+package ik
 
 import (
 	"context"
 	"math"
 	"math/rand"
 	"strings"
+	"sync"
 
 	"github.com/edaniels/golog"
 	"github.com/go-nlopt/nlopt"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/referenceframe"
 )
@@ -35,23 +37,32 @@ type NloptIK struct {
 	upperBound    []float64
 	maxIterations int
 	epsilon       float64
-	solveEpsilon  float64
 	logger        golog.Logger
 	jump          float64
+
+	// Nlopt will try to minimize a configuration for whatever is passed in. If exact is false, then the solver will emit partial
+	// solutions where it was not able to meet the goal criteria but still was able to improve upon the seed.
+	exact bool
+}
+
+type optimizeReturn struct {
+	solution []float64
+	score    float64
+	err      error
 }
 
 // CreateNloptIKSolver creates an nloptIK object that can perform gradient descent on metrics for Frames. The parameters are the Frame on
 // which Transform() will be called, a logger, and the number of iterations to run. If the iteration count is less than 1, it will be set
 // to the default of 5000.
-func CreateNloptIKSolver(mdl referenceframe.Frame, logger golog.Logger, iter int, solveEpsilon float64) (*NloptIK, error) {
+func CreateNloptIKSolver(mdl referenceframe.Frame, logger golog.Logger, iter int, exact bool) (*NloptIK, error) {
 	ik := &NloptIK{logger: logger}
 
 	ik.model = mdl
 	ik.id = 0
-	// How close we want to get to the goal
-	ik.epsilon = defaultEpsilon
+
 	// Stop optimizing when iterations change by less than this much
-	ik.solveEpsilon = solveEpsilon
+	// Also, how close we want to get to the goal region. The metric should reflect any buffer.
+	ik.epsilon = defaultEpsilon * defaultEpsilon
 	if iter < 1 {
 		// default value
 		iter = 5000
@@ -60,15 +71,16 @@ func CreateNloptIKSolver(mdl referenceframe.Frame, logger golog.Logger, iter int
 	ik.lowerBound, ik.upperBound = limitsToArrays(mdl.DoF())
 	// How much to adjust joints to determine slope
 	ik.jump = 0.00000001
+	ik.exact = exact
 
 	return ik, nil
 }
 
 // Solve runs the actual solver and sends any solutions found to the given channel.
 func (ik *NloptIK) Solve(ctx context.Context,
-	c chan<- []referenceframe.Input,
+	solutionChan chan<- *Solution,
 	seed []referenceframe.Input,
-	m StateMetric,
+	solveMetric StateMetric,
 	rseed int,
 ) error {
 	//nolint: gosec
@@ -90,6 +102,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 		return errBadBounds
 	}
 	mInput := &State{Frame: ik.model}
+	var activeSolvers sync.WaitGroup
 
 	// x is our joint positions
 	// Gradient is, under the hood, a unsafe C structure that we are meant to mutate in place.
@@ -109,7 +122,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 		}
 		mInput.Configuration = inputs
 		mInput.Position = eePos
-		dist := m(mInput)
+		dist := solveMetric(mInput)
 
 		if len(gradient) > 0 {
 			for i := range gradient {
@@ -125,7 +138,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 				}
 				mInput.Configuration = inputs
 				mInput.Position = eePos
-				dist2 := m(mInput)
+				dist2 := solveMetric(mInput)
 
 				gradient[i] = (dist2 - dist) / ik.jump
 			}
@@ -134,13 +147,13 @@ func (ik *NloptIK) Solve(ctx context.Context,
 	}
 
 	err = multierr.Combine(
-		opt.SetFtolAbs(ik.solveEpsilon),
-		opt.SetFtolRel(ik.solveEpsilon),
+		opt.SetFtolAbs(ik.epsilon),
+		opt.SetFtolRel(ik.epsilon),
 		opt.SetLowerBounds(ik.lowerBound),
-		opt.SetStopVal(ik.epsilon*ik.epsilon),
+		opt.SetStopVal(ik.epsilon),
 		opt.SetUpperBounds(ik.upperBound),
-		opt.SetXtolAbs1(ik.solveEpsilon),
-		opt.SetXtolRel(ik.solveEpsilon),
+		opt.SetXtolAbs1(ik.epsilon),
+		opt.SetXtolRel(ik.epsilon),
 		opt.SetMinObjective(nloptMinFunc),
 		opt.SetMaxEval(nloptStepsPerIter),
 	)
@@ -165,32 +178,52 @@ func (ik *NloptIK) Solve(ctx context.Context,
 		}
 	}
 
-	select {
-	case <-ctx.Done():
-		ik.logger.Info("solver halted before solving start; possibly solving twice in a row?")
-		return err
-	default:
-	}
-
+	solveChan := make(chan *optimizeReturn, 1)
+	defer close(solveChan)
 	for iterations < ik.maxIterations {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
 		}
+
+		var solutionRaw []float64
+		var result float64
+		var nloptErr error
+
 		iterations++
-		solutionRaw, result, nloptErr := opt.Optimize(referenceframe.InputsToFloats(startingPos))
+		activeSolvers.Add(1)
+		utils.PanicCapturingGo(func() {
+			defer activeSolvers.Done()
+			solutionRaw, result, nloptErr := opt.Optimize(referenceframe.InputsToFloats(startingPos))
+			solveChan <- &optimizeReturn{solutionRaw, result, nloptErr}
+		})
+		select {
+		case <-ctx.Done():
+			err = multierr.Combine(err, opt.ForceStop())
+			activeSolvers.Wait()
+			return multierr.Combine(err, ctx.Err())
+		case solution := <-solveChan:
+			solutionRaw = solution.solution
+			result = solution.score
+			nloptErr = solution.err
+		}
 		if nloptErr != nil {
 			// This just *happens* sometimes due to weirdnesses in nonlinear randomized problems.
 			// Ignore it, something else will find a solution
 			err = multierr.Combine(err, nloptErr)
 		}
 
-		if result < ik.epsilon*ik.epsilon {
+		if result < ik.epsilon || (solutionRaw != nil && !ik.exact) {
 			select {
 			case <-ctx.Done():
 				return err
-			case c <- referenceframe.FloatsToInputs(solutionRaw):
+			default:
+			}
+			solutionChan <- &Solution{
+				Configuration: referenceframe.FloatsToInputs(solutionRaw),
+				Score:         result,
+				Exact:         result < ik.epsilon,
 			}
 			solutionsFound++
 		}
@@ -265,4 +298,13 @@ func (ik *NloptIK) updateBounds(seed []referenceframe.Input, tries int, opt *nlo
 		opt.SetLowerBounds(newLower),
 		opt.SetUpperBounds(newUpper),
 	)
+}
+
+func limitsToArrays(limits []referenceframe.Limit) ([]float64, []float64) {
+	var min, max []float64
+	for _, limit := range limits {
+		min = append(min, limit.Min)
+		max = append(max, limit.Max)
+	}
+	return min, max
 }
