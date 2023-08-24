@@ -97,7 +97,7 @@ func TestNewWheeledOdometry(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
 	deps := make(resource.Dependencies)
-	deps[base.Named(baseName)] = createFakeBase(0.1, 0.1, 0)
+	deps[base.Named(baseName)] = createFakeBase(0.1, 0.1, 0.1)
 	deps[motor.Named(leftMotorName)] = createFakeMotor(true)
 	deps[motor.Named(rightMotorName)] = createFakeMotor(false)
 
@@ -142,21 +142,42 @@ func TestReconfigure(t *testing.T) {
 	newDeps := make(resource.Dependencies)
 	newDeps[base.Named(newBaseName)] = createFakeBase(0.2, 0.2, 0)
 	newDeps[motor.Named(newLeftMotorName)] = createFakeMotor(true)
-	newDeps[motor.Named(newRightMotorName)] = createFakeMotor(false)
+	newDeps[motor.Named(rightMotorName)] = createFakeMotor(false)
 
 	newconf := resource.Config{
 		Name: testSensorName,
 		ConvertedAttributes: &Config{
 			LeftMotors:        []string{newLeftMotorName},
-			RightMotors:       []string{newRightMotorName},
+			RightMotors:       []string{rightMotorName},
 			Base:              newBaseName,
-			TimeIntervalMSecs: 300,
+			TimeIntervalMSecs: 500,
 		},
 	}
 
 	err = fakeSensor.Reconfigure(ctx, newDeps, newconf)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, od.timeIntervalMSecs, test.ShouldEqual, 300)
+	test.That(t, od.timeIntervalMSecs, test.ShouldEqual, 500)
+	test.That(t, od.baseWidth, test.ShouldEqual, 0.2)
+	test.That(t, od.wheelCircumference, test.ShouldEqual, 0.2)
+
+	newDeps = make(resource.Dependencies)
+	newDeps[base.Named(newBaseName)] = createFakeBase(0.2, 0.2, 0)
+	newDeps[motor.Named(newLeftMotorName)] = createFakeMotor(true)
+	newDeps[motor.Named(newRightMotorName)] = createFakeMotor(false)
+
+	newconf = resource.Config{
+		Name: testSensorName,
+		ConvertedAttributes: &Config{
+			LeftMotors:        []string{newLeftMotorName},
+			RightMotors:       []string{newRightMotorName},
+			Base:              newBaseName,
+			TimeIntervalMSecs: 200,
+		},
+	}
+
+	err = fakeSensor.Reconfigure(ctx, newDeps, newconf)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, od.timeIntervalMSecs, test.ShouldEqual, 200)
 	test.That(t, od.baseWidth, test.ShouldEqual, 0.2)
 	test.That(t, od.wheelCircumference, test.ShouldEqual, 0.2)
 }

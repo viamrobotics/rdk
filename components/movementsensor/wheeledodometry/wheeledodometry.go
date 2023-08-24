@@ -126,6 +126,7 @@ func (o *odometry) Reconfigure(ctx context.Context, deps resource.Dependencies, 
 		return err
 	}
 
+	// set the new timeIntervalMSecs
 	o.timeIntervalMSecs = newConf.TimeIntervalMSecs
 	if o.timeIntervalMSecs == 0 {
 		o.timeIntervalMSecs = defaultTimeIntervalMSecs
@@ -134,6 +135,7 @@ func (o *odometry) Reconfigure(ctx context.Context, deps resource.Dependencies, 
 		o.logger.Warn("if the time interval is more than 1000 ms, be sure to move the base slowly for better accuracy")
 	}
 
+	// set baseWidth and wheelCircumference from the new base properties
 	newBase, err := base.FromDependencies(deps, newConf.Base)
 	if err != nil {
 		return err
@@ -148,23 +150,7 @@ func (o *odometry) Reconfigure(ctx context.Context, deps resource.Dependencies, 
 		return errors.New("base width or wheel circumference are 0, movement sensor cannot be created")
 	}
 
-	if o.motors != nil && len(o.motors) == len(newConf.LeftMotors) {
-		isSame := true
-		for i := range o.motors {
-			if o.motors[i].left.Name().ShortName() != newConf.LeftMotors[i] ||
-				o.motors[i].right.Name().ShortName() != newConf.RightMotors[i] {
-				isSame = false
-			}
-		}
-		if isSame {
-			o.orientation.Yaw = 0
-			ctx, cancelFunc := context.WithCancel(context.Background())
-			o.cancelFunc = cancelFunc
-			o.trackPosition(ctx)
-			return nil
-		}
-	}
-
+	// check if new motors have been added, or the existing motors have been changed, and update the motorPairs accorodingly
 	for i := range newConf.LeftMotors {
 		var motorLeft, motorRight motor.Motor
 		if i >= len(o.motors) || o.motors[i].left.Name().ShortName() != newConf.LeftMotors[i] {
@@ -195,6 +181,7 @@ func (o *odometry) Reconfigure(ctx context.Context, deps resource.Dependencies, 
 			}
 		}
 
+		// append if motors have been added, replace if motors have changed
 		thisPair := motorPair{left: motorLeft, right: motorRight}
 		if i >= len(o.motors) {
 			o.motors = append(o.motors, thisPair)
