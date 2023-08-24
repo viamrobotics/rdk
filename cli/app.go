@@ -51,7 +51,6 @@ const (
 	boardFlagName    = "name"
 	boardFlagPath    = "path"
 	boardFlagVersion = "version"
-	boardFlagOrg     = "org"
 )
 
 var app = &cli.App{
@@ -599,7 +598,7 @@ viam board upload --name=orin --org="my org" --version=1.0.0 file.json`,
 							Required: true,
 						},
 						&cli.StringFlag{
-							Name:     boardFlagOrg,
+							Name:     organizationFlag,
 							Usage:    "Organization that will host the board file. This can be the org's ID or name",
 							Required: true,
 						},

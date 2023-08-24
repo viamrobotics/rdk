@@ -24,11 +24,11 @@ var supportedVersionRegex = regexp.MustCompile(`^(?P<major>0|[1-9]\d*)\.(?P<mino
 	`(?:-(?P<prerelease>(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)` +
 	`(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+(?P<buildmetadata>[0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$`)
 
-const uploadChunkSize = 32 * 1024
+const boardUploadChunkSize = 32 * 1024
 
 // UploadBoardDefsAction is the corresponding action for "board upload".
 func UploadBoardDefsAction(c *cli.Context) error {
-	orgArg := c.String(boardFlagOrg)
+	orgArg := c.String(organizationFlag)
 	nameArg := c.String(boardFlagName)
 	versionArg := c.String(boardFlagVersion)
 	jsonPath := c.Args().First()
@@ -58,7 +58,7 @@ func UploadBoardDefsAction(c *cli.Context) error {
 	}
 
 	// check if the package already exists.
-	err = client.lookForPackage(ctx, org.Id, nameArg, versionArg)
+	err = client.boardDefsPackageExists(ctx, org.Id, nameArg, versionArg)
 	if err != nil {
 		return err
 	}
@@ -101,8 +101,8 @@ func (c *appClient) uploadBoardDefsFile(
 	// The board defs packages are small and never expected to be larger than the upload chunk size,
 	// so we are sending in one chunk.
 	// If the file is too big, return error.
-	if file.Len() > uploadChunkSize {
-		return nil, fmt.Errorf("file is too large, must be under %d bytes", uploadChunkSize)
+	if file.Len() > boardUploadChunkSize {
+		return nil, fmt.Errorf("file is too large, must be under %d bytes", boardUploadChunkSize)
 	}
 
 	stream, err := c.packageClient.CreatePackage(ctx)
@@ -143,8 +143,8 @@ func (c *appClient) uploadBoardDefsFile(
 	return resp, nil
 }
 
-// helper function to check if a package with this version already exists.
-func (c *appClient) lookForPackage(ctx context.Context, orgID, name, version string) error {
+// helper function to check if a package with this name and version already exists.
+func (c *appClient) boardDefsPackageExists(ctx context.Context, orgID, name, version string) error {
 	// the packageID is the orgid/name
 	packageID := fmt.Sprintf("%s/%s", orgID, name)
 
@@ -155,7 +155,7 @@ func (c *appClient) lookForPackage(ctx context.Context, orgID, name, version str
 
 	_, err := c.packageClient.GetPackage(ctx, &req)
 
-	if !strings.Contains(err.Error(), "package not found") {
+	if err == nil {
 		return fmt.Errorf("a package with name %s and version %s already exists", name, version)
 	}
 	return nil
