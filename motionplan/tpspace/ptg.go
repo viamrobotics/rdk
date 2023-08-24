@@ -63,12 +63,6 @@ func index2alpha(k, numPaths uint) float64 {
 	return math.Pi * (-1.0 + 2.0*(float64(k)+0.5)/float64(numPaths))
 }
 
-func alpha2index(alpha float64, numPaths uint) uint {
-	alpha = wrapTo2Pi(alpha+math.Pi) - math.Pi
-	idx := uint(math.Round(0.5 * (float64(numPaths)*(1.0+alpha/math.Pi) - 1.0)))
-	return idx
-}
-
 // Returns a given angle in the [0, 2pi) range.
 func wrapTo2Pi(theta float64) float64 {
 	return theta - 2*math.Pi*math.Floor(theta/(2*math.Pi))
