@@ -5,9 +5,9 @@ import (
 	"bufio"
 	"bytes"
 	"compress/gzip"
+	"context"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -40,7 +40,7 @@ func UploadBoardDefsAction(c *cli.Context) error {
 		return errors.New("no package to upload -- please provide a path containing your json file. use --help for more information")
 	}
 
-	// Validate that version is valid.
+	// Validate the version is valid.
 	if !supportedVersionRegex.MatchString(versionArg) {
 		return fmt.Errorf("invalid version %s. Must use semver 2.0.0 specification for versions", versionArg)
 	}
@@ -51,28 +51,25 @@ func UploadBoardDefsAction(c *cli.Context) error {
 	}
 	ctx := client.c.Context
 
-	// get the org in case they supplied a string name instead of org id.
+	// get the org from the name or id.
 	org, err := client.getOrg(orgArg)
 	if err != nil {
 		return err
 	}
 
-	// Check if a package with this version already exists, the packageID is the orgid/name
-	packageID := fmt.Sprintf("%s/%s", org.Id, nameArg)
-	req := packagepb.GetPackageRequest{
-		Id:      packageID,
-		Version: versionArg,
-	}
-
-	_, err = client.packageClient.GetPackage(ctx, &req)
-
-	if !strings.Contains(err.Error(), "package not found") {
-		return fmt.Errorf("a package with name %s and version %s already exists", nameArg, versionArg)
+	// check if the package already exists.
+	err = client.lookForPackage(ctx, org.Id, nameArg, versionArg)
+	if err != nil {
+		return err
 	}
 
 	jsonFile, err := os.Open(filepath.Clean(jsonPath))
 	if err != nil {
 		return err
+	}
+
+	if !strings.HasSuffix(jsonFile.Name(), ".json") {
+		return errors.New("The board definition file must be a .json")
 	}
 
 	_, err = client.uploadBoardDefsFile(nameArg, versionArg, org.Id, jsonFile)
@@ -95,17 +92,10 @@ func (c *appClient) uploadBoardDefsFile(
 	}
 	ctx := c.c.Context
 
-	// Get the size of the json file
-	stats, err := jsonFile.Stat()
-	if err != nil {
-		return nil, err
-	}
-	size := stats.Size()
-
 	// Create an archive tar.gz file (required for packages).
 	file, err := CreateArchive(jsonFile)
 	if err != nil {
-		log.Fatalln("Error creating archive:", err)
+		return nil, errors.Wrap(err, "error creating archive")
 	}
 
 	// The board defs packages are small and never expected to be larger than the upload chunk size,
@@ -120,7 +110,11 @@ func (c *appClient) uploadBoardDefsFile(
 		return nil, errors.Wrapf(err, "error starting CreatePackage stream")
 	}
 
-	boardDefsFile := []*packagepb.FileInfo{{Name: name, Size: uint64(size)}}
+	stats, err := jsonFile.Stat()
+	if err != nil {
+		return nil, err
+	}
+	boardDefsFile := []*packagepb.FileInfo{{Name: name, Size: uint64(stats.Size())}}
 
 	packageInfo := &packagepb.PackageInfo{
 		OrganizationId: orgID,
@@ -147,6 +141,24 @@ func (c *appClient) uploadBoardDefsFile(
 	}
 
 	return resp, nil
+}
+
+// helper function to check if a package with this version already exists.
+func (c *appClient) lookForPackage(ctx context.Context, orgID, name, version string) error {
+	// the packageID is the orgid/name
+	packageID := fmt.Sprintf("%s/%s", orgID, name)
+
+	req := packagepb.GetPackageRequest{
+		Id:      packageID,
+		Version: version,
+	}
+
+	_, err := c.packageClient.GetPackage(ctx, &req)
+
+	if !strings.Contains(err.Error(), "package not found") {
+		return fmt.Errorf("a package with name %s and version %s already exists", name, version)
+	}
+	return nil
 }
 
 func sendPackageRequests(stream packagepb.PackageService_CreatePackageClient,

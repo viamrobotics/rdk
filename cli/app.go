@@ -590,7 +590,7 @@ viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.ta
 					Usage: "upload a board definition file",
 					Description: `Upload a json board definition file for linux boards.
 Example:
-viam board upload --name=orin --org="my org" --version=1.0.0 --path=files/orin.json`,
+viam board upload --name=orin --org="my org" --version=1.0.0 file.json`,
 					UsageText: "viam board upload <name> <org> <version> [other options] <file.json>",
 					Flags: []cli.Flag{
 						&cli.StringFlag{
