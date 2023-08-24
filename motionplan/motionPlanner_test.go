@@ -557,11 +557,11 @@ func TestPlanMapMotion(t *testing.T) {
 		}
 		destination := frame.NewPoseInFrame(frame.World, dst)
 		seedMap := map[string][]frame.Input{f.Name(): seed}
-		solutionMap, err := motionPlanInternal(ctx, logger, destination, f, seedMap, fs, worldState, nil, nil)
+		plan, err := motionPlanInternal(ctx, logger, destination, f, seedMap, fs, worldState, nil, nil)
 		if err != nil {
 			return nil, err
 		}
-		return FrameStepsFromRobotPath(f.Name(), solutionMap)
+		return plan.GetFrameSteps(f.Name())
 	}
 
 	plan, err := PlanMapMotion(ctx, logger, dst, model, make([]frame.Input, 3), worldState)

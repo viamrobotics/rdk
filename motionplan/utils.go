@@ -10,17 +10,33 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// FrameStepsFromRobotPath is a helper function which will extract the waypoints of a single frame from the map output of a robot path.
-func FrameStepsFromRobotPath(frameName string, path []map[string][]referenceframe.Input) ([][]referenceframe.Input, error) {
-	solution := make([][]referenceframe.Input, 0, len(path))
-	for _, step := range path {
+type Plan []map[string][]referenceframe.Input
+
+// FrameStepsFromPlan is a helper function which will extract the waypoints of a single frame from the map output of a robot path.
+func (plan Plan) GetFrameSteps(frameName string) ([][]referenceframe.Input, error) {
+	solution := make([][]referenceframe.Input, 0, len(plan))
+	for _, step := range plan {
 		frameStep, ok := step[frameName]
 		if !ok {
-			return nil, fmt.Errorf("frame named %s not found in solved motion path", frameName)
+			return nil, fmt.Errorf("frame named %s not found in solved motion plan", frameName)
 		}
 		solution = append(solution, frameStep)
 	}
 	return solution, nil
+}
+
+// String returns a human-readable version of the Plan, suitable for debugging
+func (plan Plan) String() string {
+	var str string
+	for _, step := range plan {
+		str += "\n"
+		for component, input := range step {
+			if len(input) > 0 {
+				str += fmt.Sprintf("%s: %v\t", component, input)
+			}
+		}
+	}
+	return str
 }
 
 // PathStepCount will determine the number of steps which should be used to get from the seed to the goal.

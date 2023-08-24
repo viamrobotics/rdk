@@ -15,7 +15,6 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	servicepb "go.viam.com/api/service/motion/v1"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/base/fake"
@@ -247,6 +246,7 @@ func (ms *builtIn) MoveOnGlobe(
 	var kinematicBase kinematicbase.KinematicBase = nil
 
 	var positionMu sync.Mutex
+	// TODO: this has got to become a geo Point eventually but testing gets hard
 	var currentPosition *geo.Point
 
 	var replanFlag atomic.Bool
@@ -260,50 +260,42 @@ func (ms *builtIn) MoveOnGlobe(
 	cancelCtx, cancelFn := context.WithCancel(context.Background())
 	ms.cancelFn = cancelFn
 
-	ms.backgroundWorkers.Add(1)
-	goutils.ManagedGo(func() {
+	positionPollingPeriod := time.Duration(1000/motionCfg.PositionPollingFreqHz) * time.Millisecond
+	obstaclePollingPeriod := time.Duration(1000/motionCfg.ObstaclePollingFreqHz) * time.Millisecond
 
-		positionPollingTicker := time.NewTicker(time.Duration(1000/motionCfg.PositionPollingFreqHz) * time.Millisecond)
-		obstaclePollingTicker := time.NewTicker(time.Duration(1000/motionCfg.ObstaclePollingFreqHz) * time.Millisecond)
-
-		for !successFlag.Load() && ctx.Err() == nil {
-			select {
-			case <-positionPollingTicker.C:
-				// TODO: theres nothing stopping us from making another thread before the previous has completed
-				ms.backgroundWorkers.Add(1)
-				goutils.ManagedGo(func() {
-					fmt.Println("position poll")
-					position, _, err := movementSensor.Position(cancelCtx, nil)
-					if err != nil {
-						errChan <- err
+	startPolling := func(ctx context.Context, period time.Duration, fn func(context.Context)) {
+		ms.backgroundWorkers.Add(1)
+		goutils.ManagedGo(func() {
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				default:
+					startTime := time.Now()
+					fn(ctx)
+					timeElapsed := time.Since(startTime)
+					sleepTime := int(math.Max(0, float64(period-timeElapsed)))
+					if !goutils.SelectContextOrWait(ctx, time.Duration(sleepTime)) {
+						fmt.Println("cancelled")
 						return
 					}
-					positionMu.Lock()
-					currentPosition = position
-					positionMu.Unlock()
-					// TODO: the function that actually monitors position - and pass context in
-				}, ms.backgroundWorkers.Done)
-			case <-obstaclePollingTicker.C:
-				// TODO: theres nothing stopping us from making another thread before the previous has completed
-				ms.backgroundWorkers.Add(1)
-				goutils.ManagedGo(func() {
-					fmt.Println("obstacle poll")
-					replanFlag.Store(true)
-
-					// this is gonna get removed when I pass context along the way
-					if !utils.SelectContextOrWait(cancelCtx, 1*time.Millisecond) {
-						fmt.Println("I've been cancelled")
-					}
-
-					// TODO: the function that actually monitors obstacles - and pass context in
-				}, ms.backgroundWorkers.Done)
-			default:
+				}
 			}
+		}, ms.backgroundWorkers.Done)
+	}
+
+	ms.backgroundWorkers.Add(1)
+	goutils.ManagedGo(func() {
+		for !successFlag.Load() && ctx.Err() == nil {
 			if replanFlag.Load() {
 				fmt.Println("replanning")
 
+				planMu.Lock()
+				currentPlan = nil
+				planMu.Unlock()
+
 				ms.cancelFn()
-				cancelCtx, cancelFn = context.WithCancel(context.Background())
+				cancelCtx, cancelFn = context.WithCancel(ctx)
 				ms.cancelFn = cancelFn
 
 				plan, kb, err := ms.planMoveOnGlobe(
@@ -319,12 +311,33 @@ func (ms *builtIn) MoveOnGlobe(
 					errChan <- err
 					return
 				}
+
 				planMu.Lock()
 				currentPlan = plan
 				kinematicBase = kb
 				planMu.Unlock()
 
 				replanFlag.Store(false)
+
+				startPolling(cancelCtx, positionPollingPeriod, func(ctx context.Context) {
+					// TODO: the function that actually monitors position
+					fmt.Println("position poll")
+					position, _, err := movementSensor.Position(cancelCtx, nil)
+					if err != nil {
+						errChan <- err
+						return
+					}
+					positionMu.Lock()
+					currentPosition = position
+					ms.logger.Infof("position: %v", position)
+					ms.logger.Infof("distance: %v", spatialmath.GeoPointToPose(position, destination).Point().Norm())
+					positionMu.Unlock()
+				})
+				startPolling(cancelCtx, obstaclePollingPeriod, func(ctx context.Context) {
+					fmt.Println("obstacle poll")
+					time.Sleep(time.Second)
+					replanFlag.Store(true)
+				})
 			}
 		}
 	}, ms.backgroundWorkers.Done)
@@ -334,7 +347,10 @@ func (ms *builtIn) MoveOnGlobe(
 	for !successFlag.Load() {
 		planMu.Lock()
 		if len(currentPlan) > 1 {
-			waypoint = currentPlan[1]
+			waypoint = []referenceframe.Input{
+				{Value: currentPlan[1][0].Value - currentPlan[0][0].Value},
+				{Value: currentPlan[1][1].Value - currentPlan[0][1].Value},
+			}
 		} else {
 			waypoint = nil
 		}
@@ -345,7 +361,8 @@ func (ms *builtIn) MoveOnGlobe(
 			if err := kinematicBase.GoToInputs(cancelCtx, waypoint); err != nil {
 				continue
 			}
-
+			// Remove me
+			time.Sleep(200 * time.Millisecond)
 			planMu.Lock()
 			currentPlan = currentPlan[1:]
 			planMu.Unlock()
@@ -360,6 +377,9 @@ func (ms *builtIn) MoveOnGlobe(
 				}
 			}
 		}
+	}
+	if ms.cancelFn != nil {
+		ms.cancelFn()
 	}
 	return true, nil
 }
@@ -436,9 +456,7 @@ func (ms *builtIn) planMoveOnGlobe(
 		return nil, nil, fmt.Errorf("cannot move base of type %T because it is not a Base", baseComponent)
 	}
 	var kb kinematicbase.KinematicBase
-	if fake, ok := b.(*fake.Base); ok {
-		kb, err = kinematicbase.WrapWithFakeKinematics(ctx, fake, localizer, limits, kinematicsOptions)
-	} else {
+	if kb, ok = b.(kinematicbase.KinematicBase); !ok {
 		kb, err = kinematicbase.WrapWithKinematics(ctx, b, ms.logger, localizer, limits, kinematicsOptions)
 	}
 	if err != nil {
@@ -467,7 +485,7 @@ func (ms *builtIn) planMoveOnGlobe(
 	}
 
 	// make call to motionplan
-	solutionMap, err := motionplan.PlanMotion(
+	plan, err := motionplan.PlanMotion(
 		ctx,
 		ms.logger,
 		referenceframe.NewPoseInFrame(referenceframe.World, goal),
@@ -482,11 +500,11 @@ func (ms *builtIn) planMoveOnGlobe(
 		return nil, nil, err
 	}
 
-	plan, err := motionplan.FrameStepsFromRobotPath(kbf.Name(), solutionMap)
+	steps, err := plan.GetFrameSteps(kbf.Name())
 	if err != nil {
 		return nil, nil, err
 	}
-	return plan, kb, nil
+	return steps, kb, nil
 }
 
 func (ms *builtIn) GetPose(
@@ -608,18 +626,15 @@ func (ms *builtIn) planMoveOnMap(
 	seedMap := map[string][]referenceframe.Input{f.Name(): inputs}
 
 	ms.logger.Debugf("goal position: %v", dst.Pose().Point())
-	solutionMap, err := motionplan.PlanMotion(ctx, ms.logger, dst, f, seedMap, fs, worldState, nil, extra)
+	plan, err := motionplan.PlanMotion(ctx, ms.logger, dst, f, seedMap, fs, worldState, nil, extra)
 	if err != nil {
 		return nil, nil, err
 	}
-	plan, err := motionplan.FrameStepsFromRobotPath(f.Name(), solutionMap)
-	return plan, kb, err
+	steps, err := plan.GetFrameSteps(f.Name())
+	return steps, kb, err
 }
 
 func (ms *builtIn) Close(ctx context.Context) error {
-	if ms.cancelFn != nil {
-		ms.cancelFn()
-	}
 	ms.backgroundWorkers.Wait()
 	return nil
 }

@@ -33,7 +33,7 @@ func WrapWithFakeKinematics(
 	fk := &fakeKinematics{
 		Base:      b,
 		localizer: localizer,
-		inputs:    []referenceframe.Input{{pt.X}, {pt.Y}, {0}},
+		inputs:    []referenceframe.Input{{pt.X}, {pt.Y}},
 	}
 	var geometry spatialmath.Geometry
 	if len(fk.Base.Geometry) != 0 {
@@ -68,6 +68,9 @@ func (fk *fakeKinematics) CurrentInputs(ctx context.Context) ([]referenceframe.I
 
 func (fk *fakeKinematics) GoToInputs(ctx context.Context, inputs []referenceframe.Input) error {
 	_, err := fk.planningFrame.Transform(inputs)
-	fk.inputs = inputs
+	fk.inputs = []referenceframe.Input{
+		{Value: fk.inputs[0].Value + inputs[0].Value},
+		{Value: fk.inputs[1].Value + inputs[1].Value},
+	}
 	return err
 }

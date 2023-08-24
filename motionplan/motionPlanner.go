@@ -45,7 +45,7 @@ func PlanMotion(ctx context.Context,
 	worldState *frame.WorldState,
 	constraintSpec *pb.Constraints,
 	planningOpts map[string]interface{},
-) ([]map[string][]frame.Input, error) {
+) (Plan, error) {
 	return motionPlanInternal(ctx, logger, dst, f, seedMap, fs, worldState, constraintSpec, planningOpts)
 }
 
@@ -66,11 +66,11 @@ func PlanFrameMotion(ctx context.Context,
 	}
 	destination := frame.NewPoseInFrame(frame.World, dst)
 	seedMap := map[string][]frame.Input{f.Name(): seed}
-	solutionMap, err := motionPlanInternal(ctx, logger, destination, f, seedMap, fs, nil, constraintSpec, planningOpts)
+	plan, err := motionPlanInternal(ctx, logger, destination, f, seedMap, fs, nil, constraintSpec, planningOpts)
 	if err != nil {
 		return nil, err
 	}
-	return FrameStepsFromRobotPath(f.Name(), solutionMap)
+	return plan.GetFrameSteps(f.Name())
 }
 
 // motionPlanInternal is the internal private function that all motion planning access calls. This will construct the plan manager for each
@@ -84,12 +84,12 @@ func motionPlanInternal(ctx context.Context,
 	worldState *frame.WorldState,
 	constraintSpec *pb.Constraints,
 	motionConfig map[string]interface{},
-) ([]map[string][]frame.Input, error) {
+) (Plan, error) {
 	if goal == nil {
 		return nil, errors.New("no destination passed to Motion")
 	}
 
-	steps := []map[string][]frame.Input{}
+	plan := Plan{}
 
 	// Create a frame to solve for, and an IK solver with that frame.
 	sf, err := newSolverFrame(fs, f.Name(), goal.Parent(), seedMap)
@@ -134,12 +134,12 @@ func motionPlanInternal(ctx context.Context,
 	}
 	for _, resultSlice := range resultSlices {
 		stepMap := sf.sliceToMap(resultSlice)
-		steps = append(steps, stepMap)
+		plan = append(plan, stepMap)
 	}
 
-	logger.Debugf("final plan steps: %v", steps)
+	logger.Debugf("final plan steps: %s", plan.String())
 
-	return steps, nil
+	return plan, nil
 }
 
 type planner struct {
