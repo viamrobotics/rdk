@@ -10,10 +10,19 @@ import (
 // typed information from a map.
 type AttributeMap map[string]interface{}
 
-// Has returns whether or not the given name is in the map.
+// Has returns whether the given name is in the map.
 func (am AttributeMap) Has(name string) bool {
 	_, has := am[name]
 	return has
+}
+
+// SetDefault sets the key to the given value if and only if the key is not present in the AttributeMap.
+// It returns the current value.
+func SetDefault[T any](am AttributeMap, key string, defaultVal T) T {
+	if _, ok := am[key]; !ok {
+		am[key] = defaultVal
+	}
+	return am[key].(T)
 }
 
 // IntSlice attempts to return a slice of ints present in the map with
