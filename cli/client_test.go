@@ -86,8 +86,7 @@ func TestListOrganizationsAction(t *testing.T) {
 }
 
 func TestTabularDataByFilterAction(t *testing.T) {
-	testMap := map[string]interface{}{"bool": true, "string": "true", "float": float64(1)}
-	pbStruct, err := protoutils.StructToStructPb(testMap)
+	pbStruct, err := protoutils.StructToStructPb(map[string]interface{}{"bool": true, "string": "true", "float": float64(1)})
 	test.That(t, err, test.ShouldBeNil)
 
 	// calls to `TabularDataByFilter` will repeat so long as data continue to be returned,
@@ -109,17 +108,6 @@ func TestTabularDataByFilterAction(t *testing.T) {
 	dsc := &inject.DataServiceClient{
 		TabularDataByFilterFunc: tabularDataByFilterFunc,
 	}
-	resp, err := dsc.TabularDataByFilter(context.Background(), &datapb.TabularDataByFilterRequest{})
-
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(resp.Data), test.ShouldEqual, 1)
-
-	protoMap := resp.Data[0].Data.AsMap()
-	test.That(t, protoMap, test.ShouldResemble, testMap)
-
-	// dataRequested was set to true during the `TabularDataByFilter` call above, so we need
-	// to reset it here
-	dataRequested = false
 
 	cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, dsc)
 
