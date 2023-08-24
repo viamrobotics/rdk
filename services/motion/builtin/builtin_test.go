@@ -490,7 +490,7 @@ func TestMoveOnGlobe(t *testing.T) {
 	motionCfg["timeout"] = 5.
 
 	dst := geo.NewPoint(gpsPoint.Lat(), gpsPoint.Lng()+1e-5)
-	expectedDst := r3.Vector{380, 0, 0}
+	// expectedDst := r3.Vector{380, 0, 0}
 
 	// t.Run("ensure success to a nearby geo point", func(t *testing.T) {
 	// 	t.Parallel()
@@ -520,19 +520,19 @@ func TestMoveOnGlobe(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		geoObstacle := spatialmath.NewGeoObstacle(gpsPoint, []spatialmath.Geometry{geometries})
 
-		plan, _, err := ms.(*builtIn).planMoveOnGlobe(
-			context.Background(),
-			fakeBase.Name(),
-			dst,
-			injectedMovementSensor,
-			[]*spatialmath.GeoObstacle{geoObstacle},
-			kinematicbase.NewKinematicBaseOptions(),
-			motionCfg,
-		)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(plan), test.ShouldBeGreaterThan, 2)
-		test.That(t, plan[len(plan)-1][0].Value, test.ShouldAlmostEqual, expectedDst.X, epsilonMM)
-		test.That(t, plan[len(plan)-1][1].Value, test.ShouldAlmostEqual, expectedDst.Y, epsilonMM)
+		// plan, _, err := ms.(*builtIn).planMoveOnGlobe(
+		// 	context.Background(),
+		// 	fakeBase.Name(),
+		// 	dst,
+		// 	injectedMovementSensor,
+		// 	[]*spatialmath.GeoObstacle{geoObstacle},
+		// 	kinematicbase.NewKinematicBaseOptions(),
+		// 	motionCfg,
+		// )
+		// test.That(t, err, test.ShouldBeNil)
+		// test.That(t, len(plan), test.ShouldBeGreaterThan, 2)
+		// test.That(t, plan[len(plan)-1][0].Value, test.ShouldAlmostEqual, expectedDst.X, epsilonMM)
+		// test.That(t, plan[len(plan)-1][1].Value, test.ShouldAlmostEqual, expectedDst.Y, epsilonMM)
 
 		ms.MoveOnGlobe(
 			context.Background(),

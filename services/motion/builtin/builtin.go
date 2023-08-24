@@ -329,8 +329,6 @@ func (ms *builtIn) MoveOnGlobe(
 					}
 					positionMu.Lock()
 					currentPosition = position
-					ms.logger.Infof("position: %v", position)
-					ms.logger.Infof("distance: %v", spatialmath.GeoPointToPose(position, destination).Point().Norm())
 					positionMu.Unlock()
 				})
 				startPolling(cancelCtx, obstaclePollingPeriod, func(ctx context.Context) {
