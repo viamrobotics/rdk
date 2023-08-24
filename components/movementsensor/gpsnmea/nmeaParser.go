@@ -101,6 +101,10 @@ func (g *GPSData) updateData(s nmea.Sentence) error {
 		if gns, ok := s.(nmea.GNS); ok {
 			errs = g.updateGNS(gns)
 		}
+	case nmea.HDT:
+		if hdt, ok := s.(nmea.HDT); ok {
+			errs = g.updateHDT(hdt)
+		}
 	default:
 		// Handle the case when the sentence type is not recognized
 		errs = fmt.Errorf("unrecognized sentence type: %T", sentence)
@@ -140,7 +144,6 @@ func (g *GPSData) updateRMC(rmc nmea.RMC) error {
 			g.CompassHeading = math.NaN()
 		}
 	}
-
 	return nil
 }
 
@@ -235,6 +238,14 @@ func (g *GPSData) updateGNS(gns nmea.GNS) error {
 	return nil
 }
 
+//nolint:all
+// updateHDT updaates g.CompassHeading with the ground speed information from the provided
+func (g *GPSData) updateHDT(hdt nmea.HDT) error {
+	// HDT provides compass heading
+	g.CompassHeading = hdt.Heading
+	return nil
+}
+
 // calculateTrueHeading is used to get true compass heading from RCM messages.
 func calculateTrueHeading(heading, magneticDeclination float64, isEast bool) float64 {
 	var adjustment float64
@@ -257,7 +268,7 @@ func calculateTrueHeading(heading, magneticDeclination float64, isEast bool) flo
 // parseRMC sets g.isEast bool value by parsing the RMC message for compass heading
 // and sets g.validCompassHeading bool since RMC message sends empty strings if
 // there is no movement.
-// go-nmea library does not provide this feature so we have parse the message string.
+// go-nmea library does not provide this feature.
 func (g *GPSData) parseRMC(message string) {
 	data := strings.Split(message, ",")
 	if len(data) < 10 {

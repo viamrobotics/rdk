@@ -352,10 +352,14 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 		return err
 	}
 
-	gzippedBytes := datum.GetBinary()
-	r, err := gzip.NewReader(bytes.NewBuffer(gzippedBytes))
-	if err != nil {
-		return err
+	bin := datum.GetBinary()
+
+	r := io.NopCloser(bytes.NewReader(bin))
+	if datum.GetMetadata().GetFileExt() == ".gz" {
+		r, err = gzip.NewReader(r)
+		if err != nil {
+			return err
+		}
 	}
 
 	//nolint:gosec
