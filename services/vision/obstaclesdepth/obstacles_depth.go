@@ -18,6 +18,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/viamrobotics/gostream"
 	"go.opencensus.io/trace"
+	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/pointcloud"
@@ -29,7 +30,6 @@ import (
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 	vision "go.viam.com/rdk/vision"
-	goutils "go.viam.com/utils"
 )
 
 var model = resource.DefaultModelFamily.WithModel("obstacles_depth")
