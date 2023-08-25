@@ -241,44 +241,38 @@ func (ms *builtIn) MoveOnGlobe(
 	}
 
 	var planMu sync.Mutex
-	var currentPlan [][]referenceframe.Input = nil
+	var currentPlan motionplan.Plan = nil
 	// TODO: if we disentangle creation of the kinematic base from the plan call we make we don't need this and can do this once
 	var kinematicBase kinematicbase.KinematicBase = nil
 
-	var positionMu sync.Mutex
-	// TODO: this has got to become a geo Point eventually but testing gets hard
-	var currentPosition *geo.Point
-
-	var replanFlag atomic.Bool
-	replanFlag.Store(true)
-
+	successChan := make(chan bool)
 	var successFlag atomic.Bool
 	successFlag.Store(false)
+
+	replanChan := make(chan bool, 1)
+	replanChan <- true
 
 	errChan := make(chan error)
 
 	cancelCtx, cancelFn := context.WithCancel(context.Background())
 	ms.cancelFn = cancelFn
 
+	now := time.Now()
 	positionPollingPeriod := time.Duration(1000/motionCfg.PositionPollingFreqHz) * time.Millisecond
 	obstaclePollingPeriod := time.Duration(1000/motionCfg.ObstaclePollingFreqHz) * time.Millisecond
 
-	startPolling := func(ctx context.Context, period time.Duration, fn func(context.Context)) {
+	startPolling := func(ctx context.Context, period time.Duration, fn func(context.Context) error) {
 		ms.backgroundWorkers.Add(1)
 		goutils.ManagedGo(func() {
+			ticker := time.NewTicker(period)
+			defer ticker.Stop()
 			for {
 				select {
 				case <-ctx.Done():
+					errChan <- ctx.Err()
 					return
-				default:
-					startTime := time.Now()
-					fn(ctx)
-					timeElapsed := time.Since(startTime)
-					sleepTime := int(math.Max(0, float64(period-timeElapsed)))
-					if !goutils.SelectContextOrWait(ctx, time.Duration(sleepTime)) {
-						fmt.Println("cancelled")
-						return
-					}
+				case <-ticker.C:
+					errChan <- fn(ctx)
 				}
 			}
 		}, ms.backgroundWorkers.Done)
@@ -286,17 +280,20 @@ func (ms *builtIn) MoveOnGlobe(
 
 	ms.backgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
-		for !successFlag.Load() && ctx.Err() == nil {
-			if replanFlag.Load() {
+		for {
+			select {
+			case <-ctx.Done():
+				// todo
+			case <-successChan:
+				successFlag.Store(true)
+			case <-replanChan:
 				fmt.Println("replanning")
+
+				ms.cancelFn()
 
 				planMu.Lock()
 				currentPlan = nil
 				planMu.Unlock()
-
-				ms.cancelFn()
-				cancelCtx, cancelFn = context.WithCancel(ctx)
-				ms.cancelFn = cancelFn
 
 				plan, kb, err := ms.planMoveOnGlobe(
 					ctx,
@@ -317,69 +314,95 @@ func (ms *builtIn) MoveOnGlobe(
 				kinematicBase = kb
 				planMu.Unlock()
 
-				replanFlag.Store(false)
+				fmt.Println(plan.String())
 
-				startPolling(cancelCtx, positionPollingPeriod, func(ctx context.Context) {
+				// drain the replanChan
+				for gotSomething := true; gotSomething; {
+					select {
+					case <-replanChan:
+					default:
+						gotSomething = false
+					}
+				}
+
+				cancelCtx, cancelFn = context.WithCancel(ctx)
+				ms.cancelFn = cancelFn
+
+				fmt.Println("is this even happening")
+
+				startPolling(cancelCtx, positionPollingPeriod, func(ctx context.Context) error {
 					// TODO: the function that actually monitors position
 					fmt.Println("position poll")
 					position, _, err := movementSensor.Position(cancelCtx, nil)
 					if err != nil {
-						errChan <- err
-						return
+						return err
 					}
-					positionMu.Lock()
-					currentPosition = position
-					positionMu.Unlock()
+
+					ms.logger.Infof("position: %v", position)
+					ms.logger.Infof("distance: %v", spatialmath.GeoPointToPose(position, destination).Point().Norm())
+					if spatialmath.GeoPointToPose(position, destination).Point().Norm() <= kinematicsOptions.PlanDeviationThresholdMM {
+						successChan <- true
+					}
+					return nil
 				})
-				startPolling(cancelCtx, obstaclePollingPeriod, func(ctx context.Context) {
+				startPolling(cancelCtx, obstaclePollingPeriod, func(ctx context.Context) error {
+					// TODO: the function that actually monitors obstacles
 					fmt.Println("obstacle poll")
-					time.Sleep(time.Second)
-					replanFlag.Store(true)
+					fmt.Println(time.Since(now))
+					replanChan <- true
+					return nil
 				})
 			}
 		}
 	}, ms.backgroundWorkers.Done)
 
 	// execute the plan
-	var waypoint []referenceframe.Input
 	for !successFlag.Load() {
 		planMu.Lock()
-		if len(currentPlan) > 1 {
-			waypoint = []referenceframe.Input{
-				{Value: currentPlan[1][0].Value - currentPlan[0][0].Value},
-				{Value: currentPlan[1][1].Value - currentPlan[0][1].Value},
-			}
-		} else {
-			waypoint = nil
-		}
+		plan := currentPlan
 		planMu.Unlock()
 
-		if waypoint != nil {
-			ms.logger.Info(waypoint)
-			if err := kinematicBase.GoToInputs(cancelCtx, waypoint); err != nil {
-				continue
-			}
-			// Remove me
-			time.Sleep(200 * time.Millisecond)
-			planMu.Lock()
-			currentPlan = currentPlan[1:]
-			planMu.Unlock()
-		} else {
-			positionMu.Lock()
-			position := currentPosition
-			positionMu.Unlock()
+		// for debugging - remove me
+		fmt.Println("I'm actually grabbing a new plan now")
+		time.Sleep(10 * time.Millisecond)
 
-			if position != nil {
-				if spatialmath.GeoPointToPose(position, destination).Point().Norm() <= kinematicsOptions.PlanDeviationThresholdMM {
-					successFlag.Store(true)
-				}
-			}
+		if plan != nil {
+			ms.executePlan(cancelCtx, kinematicBase, plan)
+			planMu.Lock()
+			currentPlan = nil
+			planMu.Unlock()
 		}
 	}
 	if ms.cancelFn != nil {
 		ms.cancelFn()
 	}
 	return true, nil
+}
+
+func (ms *builtIn) executePlan(ctx context.Context, kinematicBase kinematicbase.KinematicBase, plan motionplan.Plan) error {
+	waypoints, err := plan.GetFrameSteps(kinematicBase.Name().Name)
+	if err != nil {
+		return err
+	}
+
+	for i := 1; i < len(waypoints); i++ {
+		select {
+		case <-ctx.Done():
+			return nil
+		default:
+			ms.logger.Info(waypoints[i])
+			segment := []referenceframe.Input{
+				{Value: waypoints[i][0].Value - waypoints[i-1][0].Value},
+				{Value: waypoints[i][1].Value - waypoints[i-1][1].Value},
+			}
+			if err := kinematicBase.GoToInputs(ctx, segment); err != nil {
+				return err
+			}
+			// Remove me
+			time.Sleep(200 * time.Millisecond)
+		}
+	}
+	return nil
 }
 
 // planMoveOnGlobe returns the plan for MoveOnGlobe to execute.
@@ -391,7 +414,7 @@ func (ms *builtIn) planMoveOnGlobe(
 	obstacles []*spatialmath.GeoObstacle,
 	kinematicsOptions kinematicbase.Options,
 	extra map[string]interface{},
-) ([][]referenceframe.Input, kinematicbase.KinematicBase, error) {
+) (motionplan.Plan, kinematicbase.KinematicBase, error) {
 	// build the localizer from the movement sensor
 	origin, _, err := movementSensor.Position(ctx, nil)
 	if err != nil {
@@ -497,12 +520,7 @@ func (ms *builtIn) planMoveOnGlobe(
 	if err != nil {
 		return nil, nil, err
 	}
-
-	steps, err := plan.GetFrameSteps(kbf.Name())
-	if err != nil {
-		return nil, nil, err
-	}
-	return steps, kb, nil
+	return plan, kb, err
 }
 
 func (ms *builtIn) GetPose(
