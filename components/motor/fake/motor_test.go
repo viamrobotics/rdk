@@ -21,7 +21,7 @@ func TestMotorInit(t *testing.T) {
 
 	enc, err := fake.NewEncoder(context.Background(), resource.Config{
 		ConvertedAttributes: &fake.Config{},
-	})
+	}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	m := &Motor{
 		Encoder:           enc.(fake.Encoder),
@@ -47,7 +47,7 @@ func TestGoFor(t *testing.T) {
 
 	enc, err := fake.NewEncoder(context.Background(), resource.Config{
 		ConvertedAttributes: &fake.Config{},
-	})
+	}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	m := &Motor{
 		Encoder:           enc.(fake.Encoder),
@@ -84,7 +84,7 @@ func TestGoTo(t *testing.T) {
 
 	enc, err := fake.NewEncoder(context.Background(), resource.Config{
 		ConvertedAttributes: &fake.Config{},
-	})
+	}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	m := &Motor{
 		Encoder:           enc.(fake.Encoder),
@@ -121,7 +121,7 @@ func TestResetZeroPosition(t *testing.T) {
 
 	enc, err := fake.NewEncoder(context.Background(), resource.Config{
 		ConvertedAttributes: &fake.Config{},
-	})
+	}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	m := &Motor{
 		Encoder:           enc.(fake.Encoder),
@@ -146,7 +146,7 @@ func TestPower(t *testing.T) {
 
 	enc, err := fake.NewEncoder(context.Background(), resource.Config{
 		ConvertedAttributes: &fake.Config{},
-	})
+	}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	m := &Motor{
 		Encoder:           enc.(fake.Encoder),

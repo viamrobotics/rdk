@@ -22,8 +22,8 @@ func init() {
 		input.API,
 		model,
 		resource.Registration[input.Controller, *Config]{
-			Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, _ golog.Logger) (input.Controller, error) {
-				return NewInputController(ctx, conf)
+			Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (input.Controller, error) {
+				return NewInputController(ctx, conf, logger)
 			},
 		},
 	)
@@ -49,7 +49,7 @@ type callback struct {
 }
 
 // NewInputController returns a fake input.Controller.
-func NewInputController(ctx context.Context, conf resource.Config) (input.Controller, error) {
+func NewInputController(ctx context.Context, conf resource.Config, logger golog.Logger) (input.Controller, error) {
 	closeCtx, cancelFunc := context.WithCancel(context.Background())
 
 	c := &InputController{
@@ -57,6 +57,7 @@ func NewInputController(ctx context.Context, conf resource.Config) (input.Contro
 		closeCtx:   closeCtx,
 		cancelFunc: cancelFunc,
 		callbacks:  make([]callback, 0),
+		logger:     logger,
 	}
 
 	if err := c.Reconfigure(ctx, nil, conf); err != nil {
@@ -85,6 +86,7 @@ type InputController struct {
 	eventValue    *float64
 	callbackDelay *time.Duration
 	callbacks     []callback
+	logger        golog.Logger
 }
 
 // Reconfigure updates the config of the controller.
