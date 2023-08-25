@@ -308,9 +308,9 @@ func (imu *wit) parseWIT(line string) error {
 		if len(line) < 7 {
 			return fmt.Errorf("line is wrong for imu angularVelocity %d %v", len(line), line)
 		}
-		imu.angularVelocity.X = scale(line[1], line[2], 2000)
-		imu.angularVelocity.Y = scale(line[3], line[4], 2000)
-		imu.angularVelocity.Z = scale(line[5], line[6], 2000)
+		imu.angularVelocity.X = rutils.DegToRad(scale(line[1], line[2], 2000))
+		imu.angularVelocity.Y = rutils.DegToRad(scale(line[3], line[4], 2000))
+		imu.angularVelocity.Z = rutils.DegToRad(scale(line[5], line[6], 2000))
 	}
 
 	if line[0] == 0x53 {
