@@ -29,6 +29,7 @@ import (
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 	vision "go.viam.com/rdk/vision"
+	goutils "go.viam.com/utils"
 )
 
 var model = resource.DefaultModelFamily.WithModel("obstacles_depth")
@@ -236,10 +237,10 @@ func (o *obsDepth) obsDepthWithIntrinsics(ctx context.Context, src camera.VideoS
 			}
 		}(i)
 	}
-	go func() {
+	goutils.PanicCapturingGo(func() {
 		wg.Wait()
 		close(obstaclePointChan)
-	}()
+	})
 
 	obstaclePoints := make([]image.Point, 0, w*h/sampleN)
 	for op := range obstaclePointChan {
