@@ -36,15 +36,12 @@ func (r testReader) Close(ctx context.Context) error {
 	return nil
 }
 
-// fullReader creates and serves a fake depth image for testing.
+// fullReader grabs and serves a fake depth image for testing.
 type fullReader struct{}
 
 func (r fullReader) Read(ctx context.Context) (image.Image, func(), error) {
-	// We want this to return a known depth image (640 x 480)
-	pic, err := rimage.NewDepthMapFromFile(context.Background(), "exampleDepth.png")
-	if err != nil {
-		panic(err) //pic or bust for now
-	}
+	// We want this to return a valid depth image of known size (640 x 480)
+	pic, err := rimage.NewDepthMapFromFile(context.Background(), artifact.MustPath("vision/exampleDepth.png"))
 	return pic, nil, err
 }
 

@@ -5,6 +5,12 @@ package obstaclesdepth
 
 import (
 	"context"
+	"image"
+	"math"
+	"sort"
+	"strconv"
+	"sync"
+
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/muesli/clusters"
@@ -12,11 +18,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/viamrobotics/gostream"
 	"go.opencensus.io/trace"
-	"image"
-	"math"
-	"sort"
-	"strconv"
-	"sync"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/pointcloud"
@@ -228,7 +229,6 @@ func (o *obsDepth) obsDepthWithIntrinsics(ctx context.Context, src camera.VideoS
 						}
 						if o.isCompatible(candidate, compareTo) {
 							obstaclePointChan <- candidate
-							// obstaclePoints = append(obstaclePoints, candidate)
 							break obs
 						}
 					}
