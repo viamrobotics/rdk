@@ -15,7 +15,6 @@ import (
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/durationpb"
 
-	"go.viam.com/rdk/data"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 )
@@ -218,7 +217,7 @@ type analogReaderClient struct {
 }
 
 func (arc *analogReaderClient) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
-	ext, err := data.GetExtraFromContext(ctx, extra)
+	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return 0, err
 	}
@@ -296,7 +295,7 @@ func (gpc *gpioPinClient) Set(ctx context.Context, high bool, extra map[string]i
 }
 
 func (gpc *gpioPinClient) Get(ctx context.Context, extra map[string]interface{}) (bool, error) {
-	ext, err := data.GetExtraFromContext(ctx, extra)
+	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return false, err
 	}

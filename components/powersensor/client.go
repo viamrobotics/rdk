@@ -6,8 +6,8 @@ import (
 	"github.com/edaniels/golog"
 	pb "go.viam.com/api/component/powersensor/v1"
 	"go.viam.com/utils/rpc"
+	"google.golang.org/protobuf/types/known/structpb"
 
-	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 )
@@ -41,7 +41,7 @@ func NewClientFromConn(
 
 // Voltage returns the voltage reading in volts and a bool returning true if the voltage is AC.
 func (c *client) Voltage(ctx context.Context, extra map[string]interface{}) (float64, bool, error) {
-	ext, err := data.GetExtraFromContext(ctx, extra)
+	ext, err := structpb.NewStruct(extra)
 	if err != nil {
 		return 0, false, err
 	}
@@ -59,7 +59,7 @@ func (c *client) Voltage(ctx context.Context, extra map[string]interface{}) (flo
 
 // Current returns the current reading in amperes and a bool returning true if the current is AC.
 func (c *client) Current(ctx context.Context, extra map[string]interface{}) (float64, bool, error) {
-	ext, err := data.GetExtraFromContext(ctx, extra)
+	ext, err := structpb.NewStruct(extra)
 	if err != nil {
 		return 0, false, err
 	}
@@ -77,7 +77,7 @@ func (c *client) Current(ctx context.Context, extra map[string]interface{}) (flo
 
 // Power returns the power reading in watts.
 func (c *client) Power(ctx context.Context, extra map[string]interface{}) (float64, error) {
-	ext, err := data.GetExtraFromContext(ctx, extra)
+	ext, err := structpb.NewStruct(extra)
 	if err != nil {
 		return 0, err
 	}

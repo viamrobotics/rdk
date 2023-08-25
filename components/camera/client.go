@@ -16,7 +16,6 @@ import (
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
@@ -187,7 +186,7 @@ func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 
 	ctx, getPcdSpan := trace.StartSpan(ctx, "camera::client::NextPointCloud::GetPointCloud")
 
-	extra, err := data.GetExtraFromContext(ctx, make(map[string]interface{}))
+	ext, err := structpb.NewStruct(make(map[string]interface{}))
 	if err != nil {
 		return nil, err
 	}
@@ -195,7 +194,7 @@ func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 	resp, err := c.client.GetPointCloud(ctx, &pb.GetPointCloudRequest{
 		Name:     c.name,
 		MimeType: utils.MimeTypePCD,
-		Extra:    extra,
+		Extra:    ext,
 	})
 	getPcdSpan.End()
 	if err != nil {

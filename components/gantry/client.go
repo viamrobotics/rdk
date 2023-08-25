@@ -9,7 +9,6 @@ import (
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/data"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -43,7 +42,7 @@ func NewClientFromConn(
 }
 
 func (c *client) Position(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
-	ext, err := data.GetExtraFromContext(ctx, extra)
+	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +57,7 @@ func (c *client) Position(ctx context.Context, extra map[string]interface{}) ([]
 }
 
 func (c *client) Lengths(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
-	ext, err := data.GetExtraFromContext(ctx, extra)
+	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return nil, err
 	}

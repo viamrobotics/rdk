@@ -10,7 +10,6 @@ import (
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
@@ -44,7 +43,7 @@ func NewClientFromConn(
 }
 
 func (c *client) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
-	ext, err := data.GetExtraFromContext(ctx, extra)
+	ext, err := structpb.NewStruct(extra)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -61,7 +60,7 @@ func (c *client) Position(ctx context.Context, extra map[string]interface{}) (*g
 }
 
 func (c *client) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
-	ext, err := data.GetExtraFromContext(ctx, extra)
+	ext, err := structpb.NewStruct(extra)
 	if err != nil {
 		return r3.Vector{}, err
 	}
@@ -76,7 +75,7 @@ func (c *client) LinearVelocity(ctx context.Context, extra map[string]interface{
 }
 
 func (c *client) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
-	ext, err := data.GetExtraFromContext(ctx, extra)
+	ext, err := structpb.NewStruct(extra)
 	if err != nil {
 		return spatialmath.AngularVelocity{}, err
 	}
@@ -91,7 +90,7 @@ func (c *client) AngularVelocity(ctx context.Context, extra map[string]interface
 }
 
 func (c *client) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
-	ext, err := data.GetExtraFromContext(ctx, extra)
+	ext, err := structpb.NewStruct(extra)
 	if err != nil {
 		return r3.Vector{}, err
 	}
@@ -106,7 +105,7 @@ func (c *client) LinearAcceleration(ctx context.Context, extra map[string]interf
 }
 
 func (c *client) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
-	ext, err := data.GetExtraFromContext(ctx, extra)
+	ext, err := structpb.NewStruct(extra)
 	if err != nil {
 		return spatialmath.NewZeroOrientation(), err
 	}
@@ -121,7 +120,7 @@ func (c *client) Orientation(ctx context.Context, extra map[string]interface{}) 
 }
 
 func (c *client) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
-	ext, err := data.GetExtraFromContext(ctx, extra)
+	ext, err := structpb.NewStruct(extra)
 	if err != nil {
 		return 0, err
 	}
