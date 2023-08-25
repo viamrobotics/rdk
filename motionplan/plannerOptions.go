@@ -5,6 +5,7 @@ import (
 
 	pb "go.viam.com/api/service/motion/v1"
 
+	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -40,9 +41,6 @@ const (
 	// default number of times to try to smooth the path.
 	defaultSmoothIter = 200
 
-	// default amount of closeness to get to the goal.
-	defaultGoalThreshold = defaultEpsilon * defaultEpsilon
-
 	// descriptions of constraints.
 	defaultLinearConstraintDesc         = "Constraint to follow linear path"
 	defaultPseudolinearConstraintDesc   = "Constraint to follow pseudolinear path, with tolerance scaled to path length"
@@ -72,9 +70,9 @@ const (
 // NewBasicPlannerOptions specifies a set of basic options for the planner.
 func newBasicPlannerOptions(frame referenceframe.Frame) *plannerOptions {
 	opt := &plannerOptions{}
-	opt.goalArcScore = JointMetric
-	opt.DistanceFunc = L2InputMetric
-	opt.pathMetric = NewZeroMetric() // By default, the distance to the valid manifold is zero, unless constraints say otherwise
+	opt.goalArcScore = ik.JointMetric
+	opt.DistanceFunc = ik.L2InputMetric
+	opt.pathMetric = ik.NewZeroMetric() // By default, the distance to the valid manifold is zero, unless constraints say otherwise
 	// opt.goalMetric is intentionally unset as it is likely dependent on the goal itself.
 
 	// Set defaults
@@ -82,7 +80,6 @@ func newBasicPlannerOptions(frame referenceframe.Frame) *plannerOptions {
 	opt.MinScore = defaultMinIkScore
 	opt.Resolution = defaultResolution
 	opt.Timeout = defaultTimeout
-	opt.GoalThreshold = defaultGoalThreshold
 
 	opt.PlanIter = defaultPlanIter
 	opt.FrameStep = defaultFrameStep
@@ -105,9 +102,9 @@ func newBasicPlannerOptions(frame referenceframe.Frame) *plannerOptions {
 // plannerOptions are a set of options to be passed to a planner which will specify how to solve a motion planning problem.
 type plannerOptions struct {
 	ConstraintHandler
-	goalMetric   StateMetric // Distance function which converges to the final goal position
-	goalArcScore SegmentMetric
-	pathMetric   StateMetric // Distance function which converges on the valid manifold of intermediate path states
+	goalMetric   ik.StateMetric // Distance function which converges to the final goal position
+	goalArcScore ik.SegmentMetric
+	pathMetric   ik.StateMetric // Distance function which converges on the valid manifold of intermediate path states
 
 	extra map[string]interface{}
 
@@ -152,7 +149,7 @@ type plannerOptions struct {
 	qstep []float64
 
 	// DistanceFunc is the function that the planner will use to measure the degree of "closeness" between two states of the robot
-	DistanceFunc SegmentMetric
+	DistanceFunc ik.SegmentMetric
 
 	PlannerConstructor plannerConstructor
 
@@ -160,12 +157,12 @@ type plannerOptions struct {
 }
 
 // SetMetric sets the distance metric for the solver.
-func (p *plannerOptions) SetGoalMetric(m StateMetric) {
+func (p *plannerOptions) SetGoalMetric(m ik.StateMetric) {
 	p.goalMetric = m
 }
 
 // SetPathDist sets the distance metric for the solver to move a constraint-violating point into a valid manifold.
-func (p *plannerOptions) SetPathMetric(m StateMetric) {
+func (p *plannerOptions) SetPathMetric(m ik.StateMetric) {
 	p.pathMetric = m
 }
 
@@ -208,7 +205,7 @@ func (p *plannerOptions) addPbLinearConstraints(from, to spatialmath.Pose, pbCon
 	constraint, pathDist := NewAbsoluteLinearInterpolatingConstraint(from, to, float64(linTol), float64(orientTol))
 	p.AddStateConstraint(defaultLinearConstraintDesc, constraint)
 
-	p.pathMetric = CombineMetrics(p.pathMetric, pathDist)
+	p.pathMetric = ik.CombineMetrics(p.pathMetric, pathDist)
 }
 
 func (p *plannerOptions) addPbOrientationConstraints(from, to spatialmath.Pose, pbConstraint *pb.OrientationConstraint) {
@@ -218,5 +215,5 @@ func (p *plannerOptions) addPbOrientationConstraints(from, to spatialmath.Pose, 
 	}
 	constraint, pathDist := NewSlerpOrientationConstraint(from, to, float64(orientTol))
 	p.AddStateConstraint(defaultOrientationConstraintDesc, constraint)
-	p.pathMetric = CombineMetrics(p.pathMetric, pathDist)
+	p.pathMetric = ik.CombineMetrics(p.pathMetric, pathDist)
 }

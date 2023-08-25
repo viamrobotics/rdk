@@ -296,9 +296,15 @@ const handleStartMapping = async () => {
       return;
     }
 
-    hasActiveSession = true;
-    sessionId = await overrides.startMappingSession(mapName);
-    startMappingIntervals(Date.now());
+    try {
+      hasActiveSession = true;
+      sessionId = await overrides.startMappingSession(mapName);
+      startMappingIntervals(Date.now());
+    } catch {
+      hasActiveSession = false;
+      sessionDuration = 0;
+      clearInterval(durationInterval);
+    }
   }
 };
 
@@ -312,6 +318,7 @@ const handleEndMapping = () => {
   mappingSessionEnded = true;
   clearRefresh();
   clearInterval(durationInterval);
+  overrides?.endMappingSession(sessionId);
 };
 
 const formatDisplayTime = (time: number) =>
