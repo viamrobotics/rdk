@@ -33,7 +33,8 @@ func registerCollector(name string, f lowLevelCollector) {
 			ctx = context.WithValue(ctx, data.FromDMContextKey{}, true)
 			v, err := f(ctx, ps)
 			if err != nil {
-				// If err is from a modular filter component, propagate it to getAndPushNextReading().
+				// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
+				// is used in the datamanager to exclude readings from being captured and stored.
 				if errors.Is(err, data.ErrNoCaptureToStore) {
 					return nil, err
 				}

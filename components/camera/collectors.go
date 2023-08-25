@@ -48,7 +48,8 @@ func newNextPointCloudCollector(resource interface{}, params data.CollectorParam
 
 		v, err := camera.NextPointCloud(ctx)
 		if err != nil {
-			// If err is from a modular filter component, propagate it to getAndPushNextReading().
+			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
+			// is used in the datamanager to exclude readings from being captured and stored.
 			if errors.Is(err, data.ErrNoCaptureToStore) {
 				return nil, err
 			}
@@ -91,7 +92,8 @@ func newReadImageCollector(resource interface{}, params data.CollectorParams) (d
 
 		img, release, err := ReadImage(ctx, camera)
 		if err != nil {
-			// If err is from a modular filter component, propagate it to getAndPushNextReading().
+			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
+			// is used in the datamanager to exclude readings from being captured and stored.
 			if errors.Is(err, data.ErrNoCaptureToStore) {
 				return nil, err
 			}

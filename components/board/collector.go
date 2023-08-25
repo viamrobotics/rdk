@@ -61,7 +61,8 @@ func newAnalogCollector(resource interface{}, params data.CollectorParams) (data
 			if reader, ok := board.AnalogReaderByName(k); ok {
 				value, err := reader.Read(ctx, nil)
 				if err != nil {
-					// If err is from a modular filter component, propagate it to getAndPushNextReading().
+					// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
+					// is used in the datamanager to exclude readings from being captured and stored.
 					if errors.Is(err, data.ErrNoCaptureToStore) {
 						return nil, err
 					}
@@ -88,7 +89,8 @@ func newGPIOCollector(resource interface{}, params data.CollectorParams) (data.C
 			if gpio, err := board.GPIOPinByName(k); err == nil {
 				value, err := gpio.Get(ctx, nil)
 				if err != nil {
-					// If err is from a modular filter component, propagate it to getAndPushNextReading().
+					// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
+					// is used in the datamanager to exclude readings from being captured and stored.
 					if errors.Is(err, data.ErrNoCaptureToStore) {
 						return nil, err
 					}

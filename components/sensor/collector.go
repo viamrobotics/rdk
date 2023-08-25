@@ -44,7 +44,8 @@ func newSensorCollector(resource interface{}, params data.CollectorParams) (data
 		var records []ReadingRecord
 		values, err := sensorResource.Readings(ctx, nil) // TODO (RSDK-1972): pass in something here from the config rather than nil?
 		if err != nil {
-			// If err is from a modular filter component, propagate it to getAndPushNextReading().
+			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
+			// is used in the datamanager to exclude readings from being captured and stored.
 			if errors.Is(err, data.ErrNoCaptureToStore) {
 				return nil, err
 			}
