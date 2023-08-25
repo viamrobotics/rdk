@@ -23,7 +23,8 @@ var boardInfoMappings = map[string]genericlinux.BoardInformation{
 			{Name: "12", DeviceName: "gpiochip4", LineNumber: 18, PwmChipSysfsDir: "", PwmID: -1},
 			{Name: "13", DeviceName: "gpiochip4", LineNumber: 27, PwmChipSysfsDir: "", PwmID: -1},
 			{Name: "15", DeviceName: "gpiochip4", LineNumber: 22, PwmChipSysfsDir: "", PwmID: -1},
-			{Name: "16", DeviceName: "gpiochip4", LineNumber: 23, PwmChipSysfsDir: "0000:00:1a.0", PwmID: 3},
+			// Pin 16 supposedly has hardware PWM from pwmID 3, but we haven't gotten it to work.
+			{Name: "16", DeviceName: "gpiochip4", LineNumber: 23, PwmChipSysfsDir: "", PwmID: -1},
 			{Name: "18", DeviceName: "gpiochip4", LineNumber: 24, PwmChipSysfsDir: "", PwmID: -1},
 			{Name: "19", DeviceName: "gpiochip4", LineNumber: 10, PwmChipSysfsDir: "", PwmID: -1},
 			{Name: "21", DeviceName: "gpiochip4", LineNumber: 9, PwmChipSysfsDir: "", PwmID: -1},
