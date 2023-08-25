@@ -35,7 +35,7 @@ type Base struct {
 	TurningRadius            float64
 	WheelCircumferenceMeters float64
 	Geometry                 []spatialmath.Geometry
-	Logger                   golog.Logger
+	logger                   golog.Logger
 }
 
 // NewBase instantiates a new base of the fake model type.
@@ -43,7 +43,7 @@ func NewBase(_ context.Context, _ resource.Dependencies, conf resource.Config, l
 	b := &Base{
 		Named:    conf.ResourceName().AsNamed(),
 		Geometry: []spatialmath.Geometry{},
-		Logger:   logger,
+		logger:   logger,
 	}
 	if conf.Frame != nil && conf.Frame.Geometry != nil {
 		geometry, err := conf.Frame.Geometry.ParseConfig()

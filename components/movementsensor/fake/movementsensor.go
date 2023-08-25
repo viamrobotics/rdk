@@ -34,7 +34,7 @@ func init() {
 			) (movementsensor.MovementSensor, error) {
 				return movementsensor.MovementSensor(&MovementSensor{
 					Named:  conf.ResourceName().AsNamed(),
-					Logger: logger,
+					logger: logger,
 				}), nil
 			},
 		})
@@ -44,7 +44,7 @@ func init() {
 type MovementSensor struct {
 	resource.Named
 	resource.AlwaysRebuild
-	Logger golog.Logger
+	logger golog.Logger
 }
 
 // Position gets the position of a fake movementsensor.

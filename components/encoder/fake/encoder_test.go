@@ -18,7 +18,7 @@ func TestEncoder(t *testing.T) {
 		UpdateRate: 100,
 	}
 	cfg := resource.Config{Name: "enc1", ConvertedAttributes: &ic}
-	var logger golog.Logger
+	logger := golog.NewTestLogger(t)
 	e, _ := NewEncoder(ctx, cfg, logger)
 
 	// Get and set position
