@@ -624,7 +624,7 @@ Example:`,
 							Required: true,
 						},
 						&cli.StringFlag{
-							Name:     boardFlagOrg,
+							Name:     organizationFlag,
 							Usage:    "Organization that hosts the board file",
 							Required: true,
 						},

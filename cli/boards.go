@@ -81,8 +81,9 @@ func UploadBoardDefsAction(c *cli.Context) error {
 	return nil
 }
 
+// GetBoardDefsAction is the corresponding action for "board get".
 func GetBoardDefsAction(c *cli.Context) error {
-	orgArg := c.String(boardFlagOrg)
+	orgArg := c.String(organizationFlag)
 	nameArg := c.String(boardFlagName)
 	versionArg := c.String(boardFlagVersion)
 
@@ -101,44 +102,14 @@ func GetBoardDefsAction(c *cli.Context) error {
 		return err
 	}
 
-	// check if the package already exists.
 	url, err := client.getBoardDefsFile(nameArg, versionArg, org.Id)
 	if err != nil {
 		return err
 	}
 
-	fmt.Println(url)
+	fmt.Fprintf(c.App.Writer, "Download the %s board definition file here: %s\n", nameArg, url)
 
 	return nil
-}
-
-func (c *appClient) getBoardDefsFile(
-	name string,
-	version string,
-	orgID string,
-) (string, error) {
-	ctx := c.c.Context
-	includeURL := true
-	packageType := packagepb.PackageType_PACKAGE_TYPE_BOARD_DEFS
-
-	// the packageID is the orgid/name
-	packageID := fmt.Sprintf("%s/%s", orgID, name)
-
-	req := &packagepb.GetPackageRequest{
-		Id:         packageID,
-		Version:    version,
-		Type:       &packageType,
-		IncludeUrl: &includeURL,
-	}
-
-	response, err := c.packageClient.GetPackage(ctx, req)
-
-	if err != nil {
-		return "", err
-	}
-
-	return response.Package.Url, nil
-
 }
 
 func (c *appClient) uploadBoardDefsFile(
@@ -201,6 +172,37 @@ func (c *appClient) uploadBoardDefsFile(
 	}
 
 	return resp, nil
+}
+
+func (c *appClient) getBoardDefsFile(
+	name string,
+	version string,
+	orgID string,
+) (string, error) {
+	if err := c.ensureLoggedIn(); err != nil {
+		return "", err
+	}
+	ctx := c.c.Context
+
+	includeURL := true
+	packageType := packagepb.PackageType_PACKAGE_TYPE_BOARD_DEFS
+
+	// the packageID is the orgid/name
+	packageID := fmt.Sprintf("%s/%s", orgID, name)
+
+	req := &packagepb.GetPackageRequest{
+		Id:         packageID,
+		Version:    version,
+		Type:       &packageType,
+		IncludeUrl: &includeURL,
+	}
+
+	response, err := c.packageClient.GetPackage(ctx, req)
+	if err != nil {
+		return "", err
+	}
+
+	return response.Package.Url, nil
 }
 
 // helper function to check if a package with this version already exists.
