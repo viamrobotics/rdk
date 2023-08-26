@@ -2,7 +2,6 @@ package builtin
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"os"
 	"path/filepath"
@@ -658,15 +657,4 @@ func TestGetPose(t *testing.T) {
 	pose, err = ms.GetPose(context.Background(), arm.Named("arm1"), "testFrame", transforms, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeError, referenceframe.NewParentFrameMissingError("testFrame", "noParent"))
 	test.That(t, pose, test.ShouldBeNil)
-}
-
-func TestMath(t *testing.T) {
-	origin := *geo.NewPoint(-70.00000000000001, 39.99999999999996)
-	input := []referenceframe.Input{{370.3081904371804}, {-0.0005126260474099809}}
-	heading := rdkutils.RadToDeg(math.Atan2(input[0].Value, input[1].Value))
-	fmt.Println(heading)
-	distance := math.Sqrt(input[1].Value*input[1].Value + input[0].Value*input[0].Value)
-	fmt.Println(distance)
-	pt := origin.PointAtDistanceAndBearing(distance*1e-6, heading)
-	fmt.Println(pt)
 }
