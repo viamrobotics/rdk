@@ -240,14 +240,15 @@ func (ms *builtIn) MoveOnGlobe(
 		return false, resource.DependencyNotFoundError(movementSensorName)
 	}
 
-	var planMu sync.Mutex
-	var currentPlan motionplan.Plan = nil
-	// TODO: if we disentangle creation of the kinematic base from the plan call we make we don't need this and can do this once
-	var kinematicBase kinematicbase.KinematicBase = nil
-
 	successChan := make(chan bool)
 	var successFlag atomic.Bool
 	successFlag.Store(false)
+
+	type planAndBase struct {
+		base kinematicbase.KinematicBase
+		plan motionplan.Plan
+	}
+	planChan := make(chan planAndBase)
 
 	replanChan := make(chan bool, 1)
 	replanChan <- true
@@ -257,7 +258,6 @@ func (ms *builtIn) MoveOnGlobe(
 	cancelCtx, cancelFn := context.WithCancel(context.Background())
 	ms.cancelFn = cancelFn
 
-	now := time.Now()
 	positionPollingPeriod := time.Duration(1000/motionCfg.PositionPollingFreqHz) * time.Millisecond
 	obstaclePollingPeriod := time.Duration(1000/motionCfg.ObstaclePollingFreqHz) * time.Millisecond
 
@@ -285,15 +285,16 @@ func (ms *builtIn) MoveOnGlobe(
 			case <-ctx.Done():
 				// todo
 			case <-successChan:
-				successFlag.Store(true)
+				if ms.cancelFn != nil {
+					ms.cancelFn()
+				}
+				return
 			case <-replanChan:
 				fmt.Println("replanning")
 
 				ms.cancelFn()
-
-				planMu.Lock()
-				currentPlan = nil
-				planMu.Unlock()
+				cancelCtx, cancelFn = context.WithCancel(ctx)
+				ms.cancelFn = cancelFn
 
 				plan, kb, err := ms.planMoveOnGlobe(
 					ctx,
@@ -309,12 +310,7 @@ func (ms *builtIn) MoveOnGlobe(
 					return
 				}
 
-				planMu.Lock()
-				currentPlan = plan
-				kinematicBase = kb
-				planMu.Unlock()
-
-				fmt.Println(plan.String())
+				planChan <- planAndBase{kb, plan}
 
 				// drain the replanChan
 				for gotSomething := true; gotSomething; {
@@ -325,30 +321,14 @@ func (ms *builtIn) MoveOnGlobe(
 					}
 				}
 
-				cancelCtx, cancelFn = context.WithCancel(ctx)
-				ms.cancelFn = cancelFn
-
-				fmt.Println("is this even happening")
-
 				startPolling(cancelCtx, positionPollingPeriod, func(ctx context.Context) error {
 					// TODO: the function that actually monitors position
 					fmt.Println("position poll")
-					position, _, err := movementSensor.Position(cancelCtx, nil)
-					if err != nil {
-						return err
-					}
-
-					ms.logger.Infof("position: %v", position)
-					ms.logger.Infof("distance: %v", spatialmath.GeoPointToPose(position, destination).Point().Norm())
-					if spatialmath.GeoPointToPose(position, destination).Point().Norm() <= kinematicsOptions.PlanDeviationThresholdMM {
-						successChan <- true
-					}
 					return nil
 				})
 				startPolling(cancelCtx, obstaclePollingPeriod, func(ctx context.Context) error {
 					// TODO: the function that actually monitors obstacles
 					fmt.Println("obstacle poll")
-					fmt.Println(time.Since(now))
 					replanChan <- true
 					return nil
 				})
@@ -357,26 +337,26 @@ func (ms *builtIn) MoveOnGlobe(
 	}, ms.backgroundWorkers.Done)
 
 	// execute the plan
-	for !successFlag.Load() {
-		planMu.Lock()
-		plan := currentPlan
-		planMu.Unlock()
+	for {
+		select {
+		case <-ctx.Done():
+			return false, ctx.Err()
+		case planBase := <-planChan:
+			if err := ms.executePlan(cancelCtx, planBase.base, planBase.plan); err != nil {
+				
+			}
+			position, _, err := movementSensor.Position(cancelCtx, nil)
+			if err != nil {
+				// todo
+			}
 
-		// for debugging - remove me
-		fmt.Println("I'm actually grabbing a new plan now")
-		time.Sleep(10 * time.Millisecond)
-
-		if plan != nil {
-			ms.executePlan(cancelCtx, kinematicBase, plan)
-			planMu.Lock()
-			currentPlan = nil
-			planMu.Unlock()
+			ms.logger.Infof("position: %v", position)
+			if spatialmath.GeoPointToPose(position, destination).Point().Norm() <= kinematicsOptions.PlanDeviationThresholdMM {
+				successChan <- true
+				return true, nil
+			}
 		}
 	}
-	if ms.cancelFn != nil {
-		ms.cancelFn()
-	}
-	return true, nil
 }
 
 func (ms *builtIn) executePlan(ctx context.Context, kinematicBase kinematicbase.KinematicBase, plan motionplan.Plan) error {
@@ -399,7 +379,7 @@ func (ms *builtIn) executePlan(ctx context.Context, kinematicBase kinematicbase.
 				return err
 			}
 			// Remove me
-			time.Sleep(200 * time.Millisecond)
+			time.Sleep(250 * time.Millisecond)
 		}
 	}
 	return nil

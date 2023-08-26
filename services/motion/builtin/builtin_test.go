@@ -541,7 +541,7 @@ func TestMoveOnGlobe(t *testing.T) {
 			0,
 			injectedMovementSensor.Name(),
 			[]*spatialmath.GeoObstacle{geoObstacle},
-			&motion.MotionConfiguration{PositionPollingFreqHz: 2, ObstaclePollingFreqHz: 1, PlanDeviationM: 1e-3 * epsilonMM},
+			&motion.MotionConfiguration{PositionPollingFreqHz: 4, ObstaclePollingFreqHz: 1, PlanDeviationM: 1e-3 * epsilonMM},
 			motionCfg,
 		)
 	})
