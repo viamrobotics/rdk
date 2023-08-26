@@ -534,7 +534,7 @@ func TestMoveOnGlobe(t *testing.T) {
 		// test.That(t, plan[len(plan)-1][0].Value, test.ShouldAlmostEqual, expectedDst.X, epsilonMM)
 		// test.That(t, plan[len(plan)-1][1].Value, test.ShouldAlmostEqual, expectedDst.Y, epsilonMM)
 
-		ms.MoveOnGlobe(
+		success, err := ms.MoveOnGlobe(
 			context.Background(),
 			fakeBase.Name(),
 			dst,
@@ -544,6 +544,8 @@ func TestMoveOnGlobe(t *testing.T) {
 			&motion.MotionConfiguration{PositionPollingFreqHz: 4, ObstaclePollingFreqHz: 1, PlanDeviationM: 1e-3 * epsilonMM},
 			motionCfg,
 		)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, success, test.ShouldBeTrue)
 	})
 
 	// t.Run("fail because of obstacle", func(t *testing.T) {

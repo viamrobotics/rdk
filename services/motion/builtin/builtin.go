@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"math"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -222,6 +221,9 @@ func (ms *builtIn) MoveOnGlobe(
 ) (bool, error) {
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
 
+	positionPollingPeriod := time.Duration(1000/motionCfg.PositionPollingFreqHz) * time.Millisecond
+	obstaclePollingPeriod := time.Duration(1000/motionCfg.ObstaclePollingFreqHz) * time.Millisecond
+
 	kinematicsOptions := kinematicbase.NewKinematicBaseOptions()
 	if motionCfg.LinearMPerSec != 0 {
 		kinematicsOptions.LinearVelocityMMPerSec = motionCfg.LinearMPerSec * 1000
@@ -241,26 +243,28 @@ func (ms *builtIn) MoveOnGlobe(
 	}
 
 	successChan := make(chan bool)
-	var successFlag atomic.Bool
-	successFlag.Store(false)
+	defer close(successChan)
 
+	// TODO: I know this has to change
 	type planAndBase struct {
 		base kinematicbase.KinematicBase
 		plan motionplan.Plan
 	}
 	planChan := make(chan planAndBase)
+	defer close(planChan)
 
 	replanChan := make(chan bool, 1)
+	defer close(replanChan)
 	replanChan <- true
 
 	errChan := make(chan error)
+	defer close(errChan)
 
 	cancelCtx, cancelFn := context.WithCancel(context.Background())
 	ms.cancelFn = cancelFn
+	defer ms.cancelFn()
 
-	positionPollingPeriod := time.Duration(1000/motionCfg.PositionPollingFreqHz) * time.Millisecond
-	obstaclePollingPeriod := time.Duration(1000/motionCfg.ObstaclePollingFreqHz) * time.Millisecond
-
+	// helper function to manage polling functions
 	startPolling := func(ctx context.Context, period time.Duration, fn func(context.Context) error) {
 		ms.backgroundWorkers.Add(1)
 		goutils.ManagedGo(func() {
@@ -272,89 +276,95 @@ func (ms *builtIn) MoveOnGlobe(
 					errChan <- ctx.Err()
 					return
 				case <-ticker.C:
-					errChan <- fn(ctx)
+					if err := fn(ctx); err != nil {
+						errChan <- err
+					}
+					return
 				}
 			}
 		}, ms.backgroundWorkers.Done)
 	}
 
+	// start goroutine to execute plan
 	ms.backgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
 		for {
 			select {
 			case <-ctx.Done():
-				// todo
-			case <-successChan:
-				if ms.cancelFn != nil {
-					ms.cancelFn()
-				}
+				errChan <- ctx.Err()
 				return
-			case <-replanChan:
-				fmt.Println("replanning")
+			case planBase := <-planChan:
+				if err := ms.executePlan(cancelCtx, planBase.base, planBase.plan); err != nil {
+					errChan <- err
+					return
+				}
 
-				ms.cancelFn()
-				cancelCtx, cancelFn = context.WithCancel(ctx)
-				ms.cancelFn = cancelFn
-
-				plan, kb, err := ms.planMoveOnGlobe(
-					ctx,
-					componentName,
-					destination,
-					movementSensor,
-					obstacles,
-					kinematicsOptions,
-					extra,
-				)
+				position, _, err := movementSensor.Position(cancelCtx, nil)
 				if err != nil {
 					errChan <- err
 					return
 				}
 
-				planChan <- planAndBase{kb, plan}
-
-				// drain the replanChan
-				for gotSomething := true; gotSomething; {
-					select {
-					case <-replanChan:
-					default:
-						gotSomething = false
-					}
+				ms.logger.Infof("position: %v", position)
+				if spatialmath.GeoPointToPose(position, destination).Point().Norm() <= kinematicsOptions.PlanDeviationThresholdMM {
+					successChan <- true
+					return
 				}
-
-				startPolling(cancelCtx, positionPollingPeriod, func(ctx context.Context) error {
-					// TODO: the function that actually monitors position
-					fmt.Println("position poll")
-					return nil
-				})
-				startPolling(cancelCtx, obstaclePollingPeriod, func(ctx context.Context) error {
-					// TODO: the function that actually monitors obstacles
-					fmt.Println("obstacle poll")
-					replanChan <- true
-					return nil
-				})
 			}
 		}
 	}, ms.backgroundWorkers.Done)
 
-	// execute the plan
+	// loop to monitor things that poll and replan appropriately
 	for {
 		select {
 		case <-ctx.Done():
 			return false, ctx.Err()
-		case planBase := <-planChan:
-			if err := ms.executePlan(cancelCtx, planBase.base, planBase.plan); err != nil {
-				
-			}
-			position, _, err := movementSensor.Position(cancelCtx, nil)
+		case err := <-errChan:
+			fmt.Println("this actually happening")
+			return false, err
+		case <-replanChan:
+			fmt.Println("replanning")
+
+			ms.cancelFn()
+			cancelCtx, cancelFn = context.WithCancel(ctx)
+			ms.cancelFn = cancelFn
+
+			plan, kb, err := ms.planMoveOnGlobe(
+				ctx,
+				componentName,
+				destination,
+				movementSensor,
+				obstacles,
+				kinematicsOptions,
+				extra,
+			)
 			if err != nil {
-				// todo
+				return false, err
+			}
+			planChan <- planAndBase{kb, plan}
+
+			// drain the replanChan
+			for gotSomething := true; gotSomething; {
+				select {
+				case <-replanChan:
+				default:
+					gotSomething = false
+				}
 			}
 
-			ms.logger.Infof("position: %v", position)
-			if spatialmath.GeoPointToPose(position, destination).Point().Norm() <= kinematicsOptions.PlanDeviationThresholdMM {
-				successChan <- true
-				return true, nil
-			}
+			startPolling(cancelCtx, positionPollingPeriod, func(ctx context.Context) error {
+				// TODO: the function that actually monitors position
+				fmt.Println("position poll")
+				return nil
+			})
+			startPolling(cancelCtx, obstaclePollingPeriod, func(ctx context.Context) error {
+				// TODO: the function that actually monitors obstacles
+				fmt.Println("obstacle poll")
+				replanChan <- true
+				return nil
+			})
+		case <-successChan:
+			return true, nil
 		}
 	}
 }
