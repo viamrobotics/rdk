@@ -28,7 +28,7 @@ def walk(args) -> dict:
             logger.info('linting %s', path)
             if not args.dry_run:
                 # note: --no-config flag is so vendor's own lint config doesn't break this
-                proc = subprocess.run("golangci-lint run -v --tests=false --disable-all --enable staticcheck --out-format json --no-config", cwd=path, shell=True, check=False, capture_output=True)
+                proc = subprocess.run("golangci-lint run -v --tests=false --disable-all --enable staticcheck --out-format json --no-config ./...", cwd=path, shell=True, check=False, capture_output=True)
                 if proc.returncode != 0:
                     logger.error('bad result %d mod %s OUT %s... ERR %s...', proc.returncode, mod, proc.stdout[:40], proc.stderr[:40])
                 results[mod] = json.loads(proc.stdout) if proc.stdout else None
@@ -38,11 +38,15 @@ def walk(args) -> dict:
             json.dump(results, fout)
     return results
 
+class FailingModules(Exception):
+    pass
+
 def analyze(args):
     "filter json results to actually relevant, throw error if result looks bad"
     with open(args.out) as f_in:
         results = json.load(f_in)
     ignored = collections.Counter()
+    included = []
     for mod, result in results.items():
         if result is None:
             logger.warning('empty mod %s', mod)
@@ -53,8 +57,11 @@ def analyze(args):
             if token not in INCLUDE_ISSUES:
                 ignored[token] += 1
                 continue
-            print(mod, issue['FromLinter'], issue['Text'])
-    raise NotImplementedError
+            logger.warning("included: %s %s %s", mod, issue['FromLinter'], issue['Text'])
+            included.append((mod, issue))
+    logger.info('ignored %s', ignored)
+    if included:
+        raise FailingModules(f"{len(included)} {collections.Counter(mod for mod, _ in included)}")
 
 def main():
     p = argparse.ArgumentParser()
