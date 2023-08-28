@@ -35,7 +35,7 @@ func (tw *testWriter) Write(b []byte) (int, error) {
 }
 
 // setup creates a new cli.Context and viamClient with fake auth and the passed
-// in AppServiceClient. It also returns testWriters that capture Stdout and
+// in AppServiceClient and DataServiceClient. It also returns testWriters that capture Stdout and
 // Stdin.
 func setup(asc apppb.AppServiceClient, dataClient datapb.DataServiceClient) (*cli.Context, *viamClient, *testWriter, *testWriter) {
 	out := &testWriter{}
