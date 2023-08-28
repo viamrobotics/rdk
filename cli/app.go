@@ -47,6 +47,10 @@ const (
 	dataFlagParallelDownloads = "parallel"
 	dataFlagTags              = "tags"
 	dataFlagBboxLabels        = "bbox-labels"
+
+	boardFlagName    = "name"
+	boardFlagPath    = "path"
+	boardFlagVersion = "version"
 )
 
 var app = &cli.App{
@@ -574,6 +578,39 @@ viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.ta
 			Name:   "version",
 			Usage:  "print version info for this program",
 			Action: VersionAction,
+		},
+		{
+			Name:            "board",
+			Usage:           "manage your board definition files",
+			HideHelpCommand: true,
+			Subcommands: []*cli.Command{
+				{
+					Name:  "upload",
+					Usage: "upload a board definition file",
+					Description: `Upload a json board definition file for linux boards.
+Example:
+viam board upload --name=orin --org="my org" --version=1.0.0 file.json`,
+					UsageText: "viam board upload <name> <org> <version> [other options] <file.json>",
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     boardFlagName,
+							Usage:    "name of your board definition file (cannot be changed once set)",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:     organizationFlag,
+							Usage:    "Organization that will host the board file. This can be the org's ID or name",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:     boardFlagVersion,
+							Usage:    "version of the file to upload (semver2.0) ex: \"0.1.0\"",
+							Required: true,
+						},
+					},
+					Action: UploadBoardDefsAction,
+				},
+			},
 		},
 	},
 }

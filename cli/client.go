@@ -20,6 +20,7 @@ import (
 	"github.com/urfave/cli/v2"
 	"go.uber.org/zap"
 	datapb "go.viam.com/api/app/data/v1"
+	packagepb "go.viam.com/api/app/packages/v1"
 	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -37,13 +38,14 @@ import (
 // appClient wraps a cli.Context and provides all the CLI command functionality
 // needed to talk to the app service but not directly to robot parts.
 type appClient struct {
-	c          *cli.Context
-	conf       *config
-	client     apppb.AppServiceClient
-	dataClient datapb.DataServiceClient
-	baseURL    *url.URL
-	rpcOpts    []rpc.DialOption
-	authFlow   *authFlow
+	c             *cli.Context
+	conf          *config
+	client        apppb.AppServiceClient
+	dataClient    datapb.DataServiceClient
+	packageClient packagepb.PackageServiceClient
+	baseURL       *url.URL
+	rpcOpts       []rpc.DialOption
+	authFlow      *authFlow
 
 	selectedOrg *apppb.Organization
 	selectedLoc *apppb.Location
