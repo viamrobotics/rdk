@@ -229,14 +229,14 @@ func (c *appClient) boardDefsVersionExists(ctx *cli.Context, orgID, name, versio
 func sendPackageRequests(stream packagepb.PackageService_CreatePackageClient,
 	f *bytes.Buffer, packageInfo *packagepb.PackageInfo,
 ) error {
+	defer utils.UncheckedErrorFunc(stream.CloseSend)
+
 	req := &packagepb.CreatePackageRequest{
 		Package: &packagepb.CreatePackageRequest_Info{Info: packageInfo},
 	}
 	if err := stream.Send(req); err != nil {
 		return err
 	}
-
-	defer utils.UncheckedErrorFunc(stream.CloseSend)
 
 	req = &packagepb.CreatePackageRequest{
 		Package: &packagepb.CreatePackageRequest_Contents{Contents: f.Bytes()},

@@ -612,8 +612,8 @@ viam board upload --name=orin --org="my org" --version=1.0.0 file.json`,
 				},
 				{
 					Name:  "get",
-					Usage: "get a board definition file",
-					Description: `download a json board definition file for linux boards.
+					Usage: "get a board definition package",
+					Description: `download a json board definitions file for generic linux boards.
 Example:`,
 					UsageText: "viam board download <name> <organization> <version> [other options]",
 					Flags: []cli.Flag{
@@ -624,7 +624,7 @@ Example:`,
 						},
 						&cli.StringFlag{
 							Name:     organizationFlag,
-							Usage:    "Organization that hosts the board file",
+							Usage:    "Organization that hosts the board defintions file",
 							Required: true,
 						},
 						&cli.StringFlag{
