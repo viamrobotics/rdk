@@ -746,6 +746,19 @@ func TestManagerNewComponent(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "circular dependency")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "arm3")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "board3")
+
+	// add a new config with the same name and it should error
+	diff.Added.Components = append(diff.Added.Components, resource.Config{
+		Name:      "arm1",
+		Model:     fakeModel,
+		API:       arm.API,
+		DependsOn: []string{"board1"},
+	})
+
+	err = robotForRemote.manager.updateResources(context.Background(), diff)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "already exists in the config")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "arm1")
 }
 
 func managerForTest(ctx context.Context, t *testing.T, l golog.Logger) *resourceManager {
