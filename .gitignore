@@ -78,3 +78,5 @@ google-credentials.json
 
 # frontend built artifacts are not committed (they are generated during appimage github workflow step)
 web/runtime-shared/static
+
+vendorlint.json
