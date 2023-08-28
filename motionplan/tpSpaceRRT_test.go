@@ -347,9 +347,15 @@ func TestPtgCheckPlan(t *testing.T) {
 		steps = append(steps, stepMap)
 	}
 
+	t.Run("base case - validate plan without obstacles", func(t *testing.T) {
+		valid, err := CheckPlan(ackermanFrame, steps, nil, fs)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, valid, test.ShouldBeTrue)
+	})
+
 	t.Run("obstacles blocking path", func(t *testing.T) {
 		// create obstacle blocking path
-		obstacle, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{1000, 0, 0}), r3.Vector{20, 2000, 1}, "")
+		obstacle, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{1000, 0, 0}), r3.Vector{20, 5000, 1}, "")
 		test.That(t, err, test.ShouldBeNil)
 
 		geoms := []spatialmath.Geometry{obstacle}
@@ -433,10 +439,9 @@ func TestPtgCheckPlan(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("obstacles NOT in world frame - no collision", func(t *testing.T) {
-		// create obstacle
 		obstacle, err := spatialmath.NewBox(
-			spatialmath.NewPoseFromPoint(r3.Vector{2500, 0, 0}),
-			r3.Vector{10, 20, 1}, "obstacle",
+			spatialmath.NewPoseFromPoint(r3.Vector{2500, -40, 0}),
+			r3.Vector{10, 10, 1}, "obstacle",
 		)
 		test.That(t, err, test.ShouldBeNil)
 		geoms := []spatialmath.Geometry{obstacle}

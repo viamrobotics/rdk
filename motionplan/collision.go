@@ -10,7 +10,6 @@ import (
 	pb "go.viam.com/api/service/motion/v1"
 
 	"go.viam.com/rdk/motionplan/ik"
-	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -327,18 +326,13 @@ func CheckPlan(
 	if len(plan) == 0 {
 		return false, errors.New("cannot check validity of an empty plan")
 	}
-
-	// check if we are working with ptgs
-	ptgProv, ok := frame.(tpspace.PTGProvider)
-	if ok {
-		return checkPtgPlan(frame, plan, worldState, fs, ptgProv.PTGs())
-	}
-
 	if len(plan) < 2 {
 		return false, errors.New("plan must have at least two elements")
 	}
 
-	// construct solverFrame and startPose
+	// construct solverFrame
+	// Note that this requires all frames which move as part of the plan, to have an
+	// entry in the very first plan waypoint
 	sf, err := newSolverFrame(fs, frame.Name(), referenceframe.World, plan[0])
 	if err != nil {
 		return false, err
@@ -350,15 +344,32 @@ func CheckPlan(
 		return false, err
 	}
 
-	// construct start and goal pose
-	startPose, err := sf.getPoseFromMap(plan[0])
-	if err != nil {
-		return false, err
+	// convert plan into nodes
+	planNodes := make([]node, 0, len(plan))
+	for _, step := range plan {
+		stepConfig, err := sf.mapToSlice(step)
+		if err != nil {
+			return false, err
+		}
+		pose, err := sf.Transform(stepConfig)
+		if err != nil {
+			return false, err
+		}
+		planNodes = append(planNodes, &basicNode{q: stepConfig, pose: pose})
 	}
-	goalPose, err := sf.getPoseFromMap(plan[len(plan)-1])
-	if err != nil {
-		return false, err
+
+	// This should be done for any plan whose configurations are specified in relative terms rather than absolute ones.
+	// Currently this is only TP-space, so we check if the PTG length is >0.
+	// The solver frame will have had its PTGs filled in the newPlanManager() call, if applicable.
+	relative := len(sf.PTGs()) > 0
+
+	if relative {
+		if planNodes, err = rectifyTPspacePath(planNodes, sf); err != nil {
+			return false, err
+		}
 	}
+	startPose := planNodes[0].Pose()
+	goalPose := planNodes[len(planNodes)-1].Pose()
 
 	// create constraints
 	if sfPlanner.planOpts, err = sfPlanner.plannerSetupFromMoveRequest(
@@ -373,91 +384,26 @@ func CheckPlan(
 	}
 
 	// go through plan and check that we can move from plan[i] to plan[i+1]
-	for i := 0; i < len(plan)-1; i++ {
-		now, err := sf.mapToSlice(plan[i])
-		if err != nil {
-			return false, err
-		}
-		nextStep, err := sf.mapToSlice(plan[i+1])
-		if err != nil {
-			return false, err
+	for i := 0; i < len(planNodes)-1; i++ {
+		currentConfig := planNodes[i].Q()
+		currentPose := planNodes[i].Pose()
+		nextConfig := planNodes[i+1].Q()
+		nextPose := planNodes[i+1].Pose()
+		if relative {
+			currentConfig = nil
+			nextConfig = nil
 		}
 		if isValid, fault := sfPlanner.planOpts.CheckSegmentAndStateValidity(
 			&ik.Segment{
-				StartConfiguration: now,
-				EndConfiguration:   nextStep,
+				StartConfiguration: currentConfig,
+				StartPosition:      currentPose,
+				EndConfiguration:   nextConfig,
+				EndPosition:        nextPose,
 				Frame:              sf,
 			},
 			sfPlanner.planOpts.Resolution,
 		); !isValid {
 			return false, fmt.Errorf("found collsion in segment:%v", fault)
-		}
-	}
-	return true, nil
-}
-
-func checkPtgPlan(
-	frame referenceframe.Frame,
-	plan []map[string][]referenceframe.Input,
-	worldState *referenceframe.WorldState,
-	fs referenceframe.FrameSystem,
-	ptgs []tpspace.PTG,
-) (bool, error) {
-	// ensure obstacles are in world frame
-	transformedObstacles, err := worldState.ObstaclesInWorldFrame(fs, referenceframe.StartPositions(fs))
-	if err != nil {
-		return false, err
-	}
-
-	lastRecordedPose := spatial.NewZeroPose()
-	latestPose := spatial.NewZeroPose()
-
-	sf, err := newSolverFrame(fs, frame.Name(), referenceframe.World, plan[0])
-	if err != nil {
-		return false, err
-	}
-
-	// inputs are:
-	// [0] index of PTG to use
-	// [1] index of the trajectory within that PTG
-	// [2] distance to travel along that trajectory.
-	for _, inputs := range plan {
-		inputs, err := sf.mapToSlice(inputs)
-		if err != nil {
-			return false, err
-		}
-		// find the relevant ptg with the 0th value of inputs
-		ptg := ptgs[int(math.Round(inputs[0].Value))]
-		// find relevant trajectories with the 1st value of inputs
-		tajNodes, err := ptg.Trajectory(inputs[1].Value, inputs[2].Value)
-		if err != nil {
-			return false, err
-		}
-		for _, traj := range tajNodes {
-			// stop checking the trajectory once we have traveled its required distance
-			if traj.Dist >= inputs[2].Value {
-				lastRecordedPose = spatial.Compose(lastRecordedPose, latestPose)
-				break
-			}
-			// transform the frame's geometries by inputs
-			newInputs := []referenceframe.Input{
-				inputs[0], inputs[1], {Value: traj.Dist},
-			}
-			baseGIFS, err := frame.Geometries(newInputs)
-			if err != nil {
-				return false, err
-			}
-			for _, baseGeom := range baseGIFS.Geometries() {
-				baseGeom = baseGeom.Transform(lastRecordedPose)
-				for _, obstacle := range transformedObstacles.Geometries() {
-					if collides, err := baseGeom.CollidesWith(obstacle); err != nil {
-						return false, err
-					} else if collides {
-						return false, fmt.Errorf("path is not valid, found collision with %v", obstacle)
-					}
-				}
-			}
-			latestPose = traj.Pose
 		}
 	}
 	return true, nil

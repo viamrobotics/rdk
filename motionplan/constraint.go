@@ -62,10 +62,10 @@ func resolveStatesToPositions(state *ik.State) error {
 					return err
 				}
 			} else {
-				return errors.New("invalid constraint input")
+				return errInvalidConstraint
 			}
 		} else {
-			return errors.New("invalid constraint input")
+			return errInvalidConstraint
 		}
 	}
 	return nil
@@ -130,11 +130,14 @@ func (c *ConstraintHandler) CheckStateConstraintsAcrossSegment(ci *ik.Segment, r
 
 	for i := 0; i <= steps; i++ {
 		interp := float64(i) / float64(steps)
-		interpConfig := referenceframe.InterpolateInputs(ci.StartConfiguration, ci.EndConfiguration, interp)
-		interpC := &ik.State{Frame: ci.Frame, Configuration: interpConfig}
-		err = resolveStatesToPositions(interpC)
-		if err != nil {
-			return false, nil
+		interpC := &ik.State{Frame: ci.Frame}
+		if ci.StartConfiguration != nil && ci.EndConfiguration != nil {
+			interpC.Configuration = referenceframe.InterpolateInputs(ci.StartConfiguration, ci.EndConfiguration, interp)
+			if resolveStatesToPositions(interpC) != nil {
+				return false, nil
+			}
+		} else {
+			interpC.Position = spatial.Interpolate(ci.StartPosition, ci.EndPosition, interp)
 		}
 		pass, _ := c.CheckStateConstraints(interpC)
 		if !pass {

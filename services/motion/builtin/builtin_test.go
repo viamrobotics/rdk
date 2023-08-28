@@ -608,7 +608,7 @@ func TestCheckPlan(t *testing.T) {
 	plan, kinBase, err := ms.(*builtIn).planMoveOnGlobe(
 		context.Background(),
 		fakeBase.Name(),
-		geo.NewPoint(gpsPoint.Lat(), gpsPoint.Lng()+1e-5),
+		geo.NewPoint(gpsPoint.Lat(), gpsPoint.Lng()+1e-4),
 		injectedMovementSensor.Name(),
 		nil,
 		kinematicbase.NewKinematicBaseOptions(),
