@@ -830,49 +830,58 @@ func (manager *resourceManager) updateResources(
 	defer manager.configLock.Unlock()
 	var allErrs error
 
-	for _, s := range conf.Added.Services {
+	seenServices := make(map[resource.Name]bool, 0)
+	for _, s := range append(conf.Added.Services, conf.Modified.Services...) {
 		rName := s.ResourceName()
 		if manager.opts.untrustedEnv && rName.API == shell.API {
 			allErrs = multierr.Combine(allErrs, errShellServiceDisabled)
 			continue
 		}
-		allErrs = multierr.Combine(allErrs, manager.markResourceForUpdate(rName, s, s.Dependencies()))
-	}
-	for _, c := range conf.Added.Components {
-		rName := c.ResourceName()
-		allErrs = multierr.Combine(allErrs, manager.markResourceForUpdate(rName, c, c.Dependencies()))
-	}
-	for _, r := range conf.Added.Remotes {
-		rName := fromRemoteNameToRemoteNodeName(r.Name)
-		rCopy := r
-		allErrs = multierr.Combine(allErrs, manager.markResourceForUpdate(rName, resource.Config{ConvertedAttributes: &rCopy}, []string{}))
-	}
-	for _, c := range conf.Modified.Components {
-		rName := c.ResourceName()
-		allErrs = multierr.Combine(allErrs, manager.markResourceForUpdate(rName, c, c.Dependencies()))
-	}
-	for _, s := range conf.Modified.Services {
-		rName := s.ResourceName()
-
-		// Disable shell service when in untrusted env
-		if manager.opts.untrustedEnv && rName.API == shell.API {
-			allErrs = multierr.Combine(allErrs, errShellServiceDisabled)
+		if _, ok := seenServices[rName]; ok {
+			manager.logger.Errorw("already a service with the same name, skipping updateResource for this service", "name", rName)
 			continue
+		} else {
+			seenServices[rName] = true
 		}
-
 		allErrs = multierr.Combine(allErrs, manager.markResourceForUpdate(rName, s, s.Dependencies()))
 	}
-	for _, r := range conf.Modified.Remotes {
+
+	seenComponents := make(map[resource.Name]bool, 0)
+	for _, c := range append(conf.Added.Components, conf.Modified.Components...) {
+		rName := c.ResourceName()
+		if _, ok := seenComponents[rName]; ok {
+			manager.logger.Errorw("already seen component with the same name, skipping updateResource for this component", "name", rName)
+			continue
+		} else {
+			seenComponents[rName] = true
+		}
+		allErrs = multierr.Combine(allErrs, manager.markResourceForUpdate(rName, c, c.Dependencies()))
+	}
+	seenRemotes := make(map[resource.Name]bool, 0)
+	for _, r := range append(conf.Added.Remotes, conf.Modified.Remotes...) {
 		rName := fromRemoteNameToRemoteNodeName(r.Name)
+		if _, ok := seenRemotes[rName]; ok {
+			manager.logger.Errorw("already seen remote with same name, skipping updateResource for this component", "name", rName)
+		} else {
+			seenRemotes[rName] = true
+		}
 		rCopy := r
 		allErrs = multierr.Combine(allErrs, manager.markResourceForUpdate(rName, resource.Config{ConvertedAttributes: &rCopy}, []string{}))
 	}
 
 	// processes are not added into the resource tree as they belong to a process manager
+	seenProcesses := make(map[string]bool, 0)
 	for _, p := range conf.Added.Processes {
 		if manager.opts.untrustedEnv {
 			allErrs = multierr.Combine(allErrs, errProcessesDisabled)
 			break
+		}
+
+		if _, ok := seenProcesses[p.Name]; ok {
+			manager.logger.Errorw("already seen process with same name, skipping updateResource for this component", "name", p.Name)
+			continue
+		} else {
+			seenProcesses[p.Name] = true
 		}
 
 		// this is done in config validation but partial start rules require us to check again
@@ -901,6 +910,13 @@ func (manager *resourceManager) updateResources(
 			manager.logger.Errorw("couldn't find modified process", "process", p.ID)
 		}
 
+		if _, ok := seenProcesses[p.Name]; ok {
+			manager.logger.Errorw("already seen process with same name, skipping updateResource for this component", "name", p.Name)
+			continue
+		} else {
+			seenProcesses[p.Name] = true
+		}
+
 		// Remove processConfig from map in case re-addition fails.
 		delete(manager.processConfigs, p.ID)
 
@@ -918,12 +934,42 @@ func (manager *resourceManager) updateResources(
 	}
 
 	// modules are not added into the resource tree as they belong to the module manager
+
+	seenModules := make(map[string]bool, 0)
+
+	for _, mod := range conf.Added.Modules {
+		// this is done in config validation but partial start rules require us to check again
+		if err := mod.Validate(""); err != nil {
+			manager.logger.Errorw("module config validation error; skipping", "module", mod.Name, "error", err)
+			continue
+		}
+
+		if _, ok := seenModules[mod.Name]; !ok {
+			manager.logger.Errorw("module with the same name already seen, skipping updateResource", "name", mod.Name)
+			continue
+		} else {
+			seenModules[mod.Name] = true
+		}
+
+		if err := manager.moduleManager.Add(ctx, mod); err != nil {
+			manager.logger.Errorw("error adding module", "module", mod.Name, "error", err)
+			continue
+		}
+	}
 	for _, mod := range conf.Modified.Modules {
 		// this is done in config validation but partial start rules require us to check again
 		if err := mod.Validate(""); err != nil {
 			manager.logger.Errorw("module config validation error; skipping", "module", mod.Name, "error", err)
 			continue
 		}
+
+		if _, ok := seenModules[mod.Name]; !ok {
+			manager.logger.Errorw("module with the same name already seen, skipping updateResource", "name", mod.Name)
+			continue
+		} else {
+			seenModules[mod.Name] = true
+		}
+
 		orphanedResourceNames, err := manager.moduleManager.Reconfigure(ctx, mod)
 		if err != nil {
 			manager.logger.Errorw("error reconfiguring module", "module", mod.Name, "error", err)
