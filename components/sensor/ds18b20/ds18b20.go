@@ -40,15 +40,16 @@ func init() {
 				if err != nil {
 					return nil, err
 				}
-				return newSensor(conf.ResourceName(), newConf.UniqueID), nil
+				return newSensor(conf.ResourceName(), newConf.UniqueID, logger), nil
 			},
 		})
 }
 
-func newSensor(name resource.Name, id string) sensor.Sensor {
+func newSensor(name resource.Name, id string, logger golog.Logger) sensor.Sensor {
 	// temp sensors are in family 28
 	return &Sensor{
 		Named:         name.AsNamed(),
+		logger:        logger,
 		OneWireID:     id,
 		OneWireFamily: "28",
 	}
@@ -61,6 +62,7 @@ type Sensor struct {
 	resource.TriviallyCloseable
 	OneWireID     string
 	OneWireFamily string
+	logger        golog.Logger
 }
 
 // ReadTemperatureCelsius returns current temperature in celsius.

@@ -66,7 +66,7 @@ func (c *client) Read(ctx context.Context) (image.Image, func(), error) {
 	mimeType := gostream.MIMETypeHint(ctx, "")
 	expectedType, _ := utils.CheckLazyMIMEType(mimeType)
 
-	extra, err := data.GetExtraFromContext(ctx)
+	ext, err := data.GetExtraFromContext(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -74,7 +74,7 @@ func (c *client) Read(ctx context.Context) (image.Image, func(), error) {
 	resp, err := c.client.GetImage(ctx, &pb.GetImageRequest{
 		Name:     c.name,
 		MimeType: expectedType,
-		Extra:    extra,
+		Extra:    ext,
 	})
 	if err != nil {
 		return nil, nil, err
@@ -186,7 +186,7 @@ func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 
 	ctx, getPcdSpan := trace.StartSpan(ctx, "camera::client::NextPointCloud::GetPointCloud")
 
-	extra, err := data.GetExtraFromContext(ctx)
+	ext, err := data.GetExtraFromContext(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -194,7 +194,7 @@ func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 	resp, err := c.client.GetPointCloud(ctx, &pb.GetPointCloudRequest{
 		Name:     c.name,
 		MimeType: utils.MimeTypePCD,
-		Extra:    extra,
+		Extra:    ext,
 	})
 	getPcdSpan.End()
 	if err != nil {

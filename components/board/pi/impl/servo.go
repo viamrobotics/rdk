@@ -50,9 +50,10 @@ func init() {
 				}
 
 				theServo := &piPigpioServo{
-					Named: conf.ResourceName().AsNamed(),
-					pin:   C.uint(bcom),
-					opMgr: operation.NewSingleOperationManager(),
+					Named:  conf.ResourceName().AsNamed(),
+					logger: logger,
+					pin:    C.uint(bcom),
+					opMgr:  operation.NewSingleOperationManager(),
 				}
 				if newConf.Min > 0 {
 					theServo.min = uint32(newConf.Min)
@@ -105,6 +106,7 @@ type piPigpioServo struct {
 	resource.Named
 	resource.AlwaysRebuild
 	resource.TriviallyCloseable
+	logger      golog.Logger
 	pin         C.uint
 	pinname     string
 	res         C.int

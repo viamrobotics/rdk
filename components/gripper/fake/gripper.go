@@ -30,6 +30,7 @@ type Gripper struct {
 	resource.TriviallyCloseable
 	geometries []spatialmath.Geometry
 	mu         sync.Mutex
+	logger     golog.Logger
 }
 
 // NewGripper instantiates a new gripper of the fake model type.
@@ -37,6 +38,7 @@ func NewGripper(ctx context.Context, deps resource.Dependencies, conf resource.C
 	g := &Gripper{
 		Named:      conf.ResourceName().AsNamed(),
 		geometries: []spatialmath.Geometry{},
+		logger:     logger,
 	}
 	if err := g.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
