@@ -27,7 +27,8 @@ def walk(args) -> dict:
         if test_path(mod):
             logger.info('linting %s', path)
             if not args.dry_run:
-                proc = subprocess.run("golangci-lint run -v --tests=false --disable-all --enable staticcheck --out-format json", cwd=path, shell=True, check=False, capture_output=True)
+                # note: --no-config flag is so vendor's own lint config doesn't break this
+                proc = subprocess.run("golangci-lint run -v --tests=false --disable-all --enable staticcheck --out-format json --no-config", cwd=path, shell=True, check=False, capture_output=True)
                 if proc.returncode != 0:
                     logger.error('bad result %d mod %s OUT %s... ERR %s...', proc.returncode, mod, proc.stdout[:40], proc.stderr[:40])
                 results[mod] = json.loads(proc.stdout) if proc.stdout else None
