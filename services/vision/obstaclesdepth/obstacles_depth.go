@@ -211,7 +211,6 @@ func (o *obsDepth) obsDepthWithIntrinsics(ctx context.Context, src camera.VideoS
 	w, h := dm.Width(), dm.Height()
 	o.dm = dm
 
-	// THIS is the part that's ripe for optimization
 	var wg sync.WaitGroup
 	obstaclePointChan := make(chan image.Point)
 
