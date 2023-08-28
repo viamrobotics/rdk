@@ -92,7 +92,7 @@ func TestTabularDataByFilterAction(t *testing.T) {
 	// calls to `TabularDataByFilter` will repeat so long as data continue to be returned,
 	// so we need a way of telling our injected method when data has already been sent so we
 	// can send an empty response
-	dataRequested := false
+	var dataRequested bool
 	tabularDataByFilterFunc := func(ctx context.Context, in *datapb.TabularDataByFilterRequest, opts ...grpc.CallOption,
 	) (*datapb.TabularDataByFilterResponse, error) {
 		if dataRequested {
