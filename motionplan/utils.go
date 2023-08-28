@@ -12,7 +12,7 @@ import (
 
 type Plan []map[string][]referenceframe.Input
 
-// FrameStepsFromPlan is a helper function which will extract the waypoints of a single frame from the map output of a robot path.
+// GetFrameSteps is a helper function which will extract the waypoints of a single frame from the map output of a robot path.
 func (plan Plan) GetFrameSteps(frameName string) ([][]referenceframe.Input, error) {
 	solution := make([][]referenceframe.Input, 0, len(plan))
 	for _, step := range plan {

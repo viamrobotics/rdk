@@ -16,7 +16,6 @@ import (
 	servicepb "go.viam.com/api/service/motion/v1"
 
 	"go.viam.com/rdk/components/base"
-	"go.viam.com/rdk/components/base/fake"
 	"go.viam.com/rdk/components/base/kinematicbase"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/internal"
@@ -244,12 +243,7 @@ func (ms *builtIn) MoveOnGlobe(
 	successChan := make(chan bool)
 	defer close(successChan)
 
-	// TODO: I know this has to change
-	type planAndBase struct {
-		base kinematicbase.KinematicBase
-		plan motionplan.Plan
-	}
-	planChan := make(chan planAndBase)
+	planChan := make(chan motionplan.Plan)
 	defer close(planChan)
 
 	replanChan := make(chan bool, 1)
@@ -265,7 +259,6 @@ func (ms *builtIn) MoveOnGlobe(
 
 	var backgroundWorkers sync.WaitGroup
 	defer backgroundWorkers.Wait()
-
 	// helper function to manage polling functions
 	startPolling := func(ctx context.Context, period time.Duration, fn func(context.Context) error) {
 		backgroundWorkers.Add(1)
@@ -287,6 +280,90 @@ func (ms *builtIn) MoveOnGlobe(
 		}, backgroundWorkers.Done)
 	}
 
+	// build the localizer from the movement sensor
+	origin, _, err := movementSensor.Position(ctx, nil)
+	if err != nil {
+		return false, err
+	}
+
+	// add an offset between the movement sensor and the base if it is applicable
+	baseOrigin := referenceframe.NewPoseInFrame(componentName.ShortName(), spatialmath.NewZeroPose())
+	movementSensorToBase, err := ms.fsService.TransformPose(ctx, baseOrigin, movementSensor.Name().ShortName(), nil)
+	if err != nil {
+		movementSensorToBase = baseOrigin
+	}
+	localizer := motion.NewMovementSensorLocalizer(movementSensor, origin, movementSensorToBase.Pose())
+
+	// convert destination into spatialmath.Pose with respect to where the localizer was initialized
+	goal := spatialmath.GeoPointToPose(destination, origin)
+
+	// convert GeoObstacles into GeometriesInFrame with respect to the base's starting point
+	geoms := spatialmath.GeoObstaclesToGeometries(obstacles, origin)
+
+	gif := referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)
+	worldState, err := referenceframe.NewWorldState([]*referenceframe.GeometriesInFrame{gif}, nil)
+	if err != nil {
+		return false, err
+	}
+
+	// construct limits
+	straightlineDistance := goal.Point().Norm()
+	if straightlineDistance > maxTravelDistance {
+		return false, fmt.Errorf("cannot move more than %d kilometers", int(maxTravelDistance*1e-6))
+	}
+	limits := []referenceframe.Limit{
+		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
+		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
+		{Min: -2 * math.Pi, Max: 2 * math.Pi},
+	}
+
+	if extra != nil {
+		if profile, ok := extra["motion_profile"]; ok {
+			motionProfile, ok := profile.(string)
+			if !ok {
+				return false, errors.New("could not interpret motion_profile field as string")
+			}
+			kinematicsOptions.PositionOnlyMode = motionProfile == motionplan.PositionOnlyMotionProfile
+		}
+	}
+	ms.logger.Debugf("base limits: %v", limits)
+
+	// create a KinematicBase from the componentName
+	baseComponent, ok := ms.components[componentName]
+	if !ok {
+		return false, resource.NewNotFoundError(componentName)
+	}
+	b, ok := baseComponent.(base.Base)
+	if !ok {
+		return false, fmt.Errorf("cannot move component of type %T because it is not a Base", baseComponent)
+	}
+
+	kb, err := kinematicbase.WrapWithKinematics(ctx, b, ms.logger, localizer, limits, kinematicsOptions)
+	if err != nil {
+		return false, err
+	}
+
+	// we take the zero position to be the start since in the frame of the localizer we will always be at its origin
+	inputMap := map[string][]referenceframe.Input{componentName.Name: make([]referenceframe.Input, len(kb.Kinematics().DoF()))}
+
+	// create a new empty framesystem which we add the kinematic base to
+	fs := referenceframe.NewEmptyFrameSystem("")
+	kbf := kb.Kinematics()
+	if err := fs.AddFrame(kbf, fs.World()); err != nil {
+		return false, err
+	}
+
+	// TODO(RSDK-3407): this does not adequately account for geometries right now since it is a transformation after the fact.
+	// This is probably acceptable for the time being, but long term the construction of the frame system for the kinematic base should
+	// be moved under the purview of the kinematic base wrapper instead of being done here.
+	offsetFrame, err := referenceframe.NewStaticFrame("offset", movementSensorToBase.Pose())
+	if err != nil {
+		return false, err
+	}
+	if err := fs.AddFrame(offsetFrame, kbf); err != nil {
+		return false, err
+	}
+
 	// start goroutine to execute plan
 	backgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
@@ -295,8 +372,8 @@ func (ms *builtIn) MoveOnGlobe(
 			case <-ctx.Done():
 				errChan <- ctx.Err()
 				return
-			case planBase := <-planChan:
-				if err := ms.executePlan(cancelCtx, planBase.base, planBase.plan); err != nil {
+			case plan := <-planChan:
+				if err := ms.executePlan(cancelCtx, kb, plan); err != nil {
 					errChan <- err
 					return
 				}
@@ -322,7 +399,6 @@ func (ms *builtIn) MoveOnGlobe(
 		case <-ctx.Done():
 			return false, ctx.Err()
 		case err := <-errChan:
-			fmt.Println("this actually happening")
 			return false, err
 		case <-replanChan:
 			fmt.Println("replanning")
@@ -331,19 +407,21 @@ func (ms *builtIn) MoveOnGlobe(
 			cancelCtx, cancelFn = context.WithCancel(ctx)
 			ms.cancelFn = cancelFn
 
-			plan, kb, err := ms.planMoveOnGlobe(
+			plan, err := motionplan.PlanMotion(
 				ctx,
-				componentName,
-				destination,
-				movementSensor,
-				obstacles,
-				kinematicsOptions,
+				ms.logger,
+				referenceframe.NewPoseInFrame(referenceframe.World, goal),
+				offsetFrame,
+				inputMap,
+				fs,
+				worldState,
+				nil,
 				extra,
 			)
 			if err != nil {
 				return false, err
 			}
-			planChan <- planAndBase{kb, plan}
+			planChan <- plan
 
 			// drain the replanChan
 			for len(replanChan) > 0 {
@@ -572,19 +650,7 @@ func (ms *builtIn) planMoveOnMap(
 		}
 	}
 
-	var kb kinematicbase.KinematicBase
-	if fake, ok := b.(*fake.Base); ok {
-		kb, err = kinematicbase.WrapWithFakeKinematics(ctx, fake, motion.NewSLAMLocalizer(slamSvc), limits, kinematicsOptions)
-	} else {
-		kb, err = kinematicbase.WrapWithKinematics(
-			ctx,
-			b,
-			ms.logger,
-			motion.NewSLAMLocalizer(slamSvc),
-			limits,
-			kinematicsOptions,
-		)
-	}
+	kb, err := kinematicbase.WrapWithKinematics(ctx, b, ms.logger, motion.NewSLAMLocalizer(slamSvc), limits, kinematicsOptions)
 	if err != nil {
 		return nil, nil, err
 	}
