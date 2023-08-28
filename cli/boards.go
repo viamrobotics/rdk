@@ -68,12 +68,7 @@ func UploadBoardDefsAction(ctx *cli.Context) error {
 		return errors.New("The board definition file must be a .json")
 	}
 
-	jsonFile, err := os.Open(filepath.Clean(jsonPath))
-	if err != nil {
-		return err
-	}
-
-	_, err = client.uploadBoardDefsFile(nameArg, versionArg, org.Id, jsonFile)
+	_, err = client.uploadBoardDefsFile(nameArg, versionArg, org.Id, jsonPath)
 	if err != nil {
 		return err
 	}
@@ -90,11 +85,8 @@ func GetBoardDefsAction(c *cli.Context) error {
 
 	if versionArg == "" {
 		versionArg = "latest"
-	} else {
-		// Validate the version is valid.
-		if !supportedVersionRegex.MatchString(versionArg) {
-			return fmt.Errorf("invalid version %s. Must use semver 2.0.0 specification for versions", versionArg)
-		}
+	} else if !supportedVersionRegex.MatchString(versionArg) {
+		return fmt.Errorf("invalid version %s. Must use semver 2.0.0 specification for versions", versionArg)
 	}
 
 	client, err := newAppClient(c)
@@ -122,12 +114,17 @@ func (c *appClient) uploadBoardDefsFile(
 	name string,
 	version string,
 	orgID string,
-	jsonFile *os.File,
+	jsonPath string,
 ) (*packagepb.CreatePackageResponse, error) {
 	if err := c.ensureLoggedIn(); err != nil {
 		return nil, err
 	}
 	ctx := c.c.Context
+
+	jsonFile, err := os.Open(filepath.Clean(jsonPath))
+	if err != nil {
+		return nil, err
+	}
 
 	// Create an archive tar.gz file (required for packages).
 	file, err := CreateArchive(jsonFile)
@@ -205,7 +202,7 @@ func (c *appClient) getBoardDefsFile(
 
 	response, err := c.packageClient.GetPackage(ctx, req)
 	if err != nil {
-		return "", fmt.Errorf("could not retrieve the requested package: %s", err.Error())
+		return "", fmt.Errorf("could not retrieve the requested package: %w", err)
 	}
 
 	return response.Package.Url, nil
