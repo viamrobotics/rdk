@@ -27,7 +27,7 @@ jobs:
         cache-to: type=registry,ref=ghcr.io/viamrobotics/viam-server:buildcache
   lint:
     # needs: [docker]
-    runs-on: buildjet-4vcpu-ubuntu-2204-arm
+    runs-on: buildjet-8vcpu-ubuntu-2204-arm
     # concurrency: '32bit-${{ github.ref }}'
     permissions:
       packages: read
