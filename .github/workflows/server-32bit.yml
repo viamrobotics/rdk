@@ -42,7 +42,7 @@ jobs:
     - name: lint
       run: docker run --rm -v $PWD/:/rdk ghcr.io/viamrobotics/viam-server:armv7 make lint-32bit
     - name: vendorlint
-      run: docker run --rm -v $PWD/:/rdk ghcr.io/viamrobotics/viam-server:armv7 sh -c "go mod vendor && etc/vendorlint.py all"
+      run: docker run --rm -v $PWD/:/rdk ghcr.io/viamrobotics/viam-server:armv7 sh -c "go install github.com/golangci/golangci-lint/cmd/golangci-lint && go mod vendor && etc/vendorlint.py all"
   test:
     if: false
     # needs: [docker]
