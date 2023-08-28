@@ -68,12 +68,7 @@ func UploadBoardDefsAction(ctx *cli.Context) error {
 		return errors.New("The board definition file must be a .json")
 	}
 
-	jsonFile, err := os.Open(filepath.Clean(jsonPath))
-	if err != nil {
-		return err
-	}
-
-	_, err = client.uploadBoardDefsFile(nameArg, versionArg, org.Id, jsonFile)
+	_, err = client.uploadBoardDefsFile(nameArg, versionArg, org.Id, jsonPath)
 	if err != nil {
 		return err
 	}
@@ -86,12 +81,17 @@ func (c *appClient) uploadBoardDefsFile(
 	name string,
 	version string,
 	orgID string,
-	jsonFile *os.File,
+	jsonPath string,
 ) (*packagepb.CreatePackageResponse, error) {
 	if err := c.ensureLoggedIn(); err != nil {
 		return nil, err
 	}
 	ctx := c.c.Context
+
+	jsonFile, err := os.Open(filepath.Clean(jsonPath))
+	if err != nil {
+		return nil, err
+	}
 
 	// Create an archive tar.gz file (required for packages).
 	file, err := CreateArchive(jsonFile)
@@ -165,14 +165,14 @@ func (c *appClient) boardDefsVersionExists(ctx *cli.Context, orgID, name, versio
 func sendPackageRequests(stream packagepb.PackageService_CreatePackageClient,
 	f *bytes.Buffer, packageInfo *packagepb.PackageInfo,
 ) error {
+	defer utils.UncheckedErrorFunc(stream.CloseSend)
+
 	req := &packagepb.CreatePackageRequest{
 		Package: &packagepb.CreatePackageRequest_Info{Info: packageInfo},
 	}
 	if err := stream.Send(req); err != nil {
 		return err
 	}
-
-	defer utils.UncheckedErrorFunc(stream.CloseSend)
 
 	req = &packagepb.CreatePackageRequest{
 		Package: &packagepb.CreatePackageRequest_Contents{Contents: f.Bytes()},
