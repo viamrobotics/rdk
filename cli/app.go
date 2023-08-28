@@ -614,7 +614,8 @@ viam board upload --name=orin --org="my org" --version=1.0.0 file.json`,
 					Name:  "get",
 					Usage: "get a board definition package",
 					Description: `download a json board definitions file for generic linux boards.
-Example:`,
+Example:
+viam board get --name=test --organization="my org" --version=1.0.0`,
 					UsageText: "viam board download <name> <organization> <version> [other options]",
 					Flags: []cli.Flag{
 						&cli.StringFlag{
