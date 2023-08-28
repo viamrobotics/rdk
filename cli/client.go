@@ -35,9 +35,9 @@ import (
 	"go.viam.com/rdk/services/shell"
 )
 
-// appClient wraps a cli.Context and provides all the CLI command functionality
-// needed to talk to the app service but not directly to robot parts.
-type appClient struct {
+// viamClient wraps a cli.Context and provides all the CLI command functionality
+// needed to talk to the app and data services but not directly to robot parts.
+type viamClient struct {
 	c             *cli.Context
 	conf          *config
 	client        apppb.AppServiceClient
@@ -57,14 +57,14 @@ type appClient struct {
 
 // ListOrganizationsAction is the corresponding Action for 'organizations list'.
 func ListOrganizationsAction(cCtx *cli.Context) error {
-	c, err := newAppClient(cCtx)
+	c, err := newViamClient(cCtx)
 	if err != nil {
 		return err
 	}
 	return c.listOrganizationsAction(cCtx)
 }
 
-func (c *appClient) listOrganizationsAction(cCtx *cli.Context) error {
+func (c *viamClient) listOrganizationsAction(cCtx *cli.Context) error {
 	orgs, err := c.listOrganizations()
 	if err != nil {
 		return errors.Wrap(err, "could not list organizations")
@@ -80,7 +80,7 @@ func (c *appClient) listOrganizationsAction(cCtx *cli.Context) error {
 
 // ListLocationsAction is the corresponding Action for 'locations list'.
 func ListLocationsAction(c *cli.Context) error {
-	client, err := newAppClient(c)
+	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
@@ -116,7 +116,7 @@ func ListLocationsAction(c *cli.Context) error {
 
 // ListRobotsAction is the corresponding Action for 'robots list'.
 func ListRobotsAction(c *cli.Context) error {
-	client, err := newAppClient(c)
+	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
@@ -139,7 +139,7 @@ func ListRobotsAction(c *cli.Context) error {
 
 // RobotStatusAction is the corresponding Action for 'robot status'.
 func RobotStatusAction(c *cli.Context) error {
-	client, err := newAppClient(c)
+	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
@@ -194,7 +194,7 @@ func RobotStatusAction(c *cli.Context) error {
 
 // RobotLogsAction is the corresponding Action for 'robot logs'.
 func RobotLogsAction(c *cli.Context) error {
-	client, err := newAppClient(c)
+	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
@@ -238,7 +238,7 @@ func RobotLogsAction(c *cli.Context) error {
 
 // RobotPartStatusAction is the corresponding Action for 'robot part status'.
 func RobotPartStatusAction(c *cli.Context) error {
-	client, err := newAppClient(c)
+	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
@@ -278,7 +278,7 @@ func RobotPartStatusAction(c *cli.Context) error {
 
 // RobotPartLogsAction is the corresponding Action for 'robot part logs'.
 func RobotPartLogsAction(c *cli.Context) error {
-	client, err := newAppClient(c)
+	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
@@ -318,7 +318,7 @@ func RobotPartRunAction(c *cli.Context) error {
 		return errors.New("service method required")
 	}
 
-	client, err := newAppClient(c)
+	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
@@ -346,7 +346,7 @@ func RobotPartRunAction(c *cli.Context) error {
 func RobotPartShellAction(c *cli.Context) error {
 	infof(c.App.Writer, "ensure robot part has a valid shell type service")
 
-	client, err := newAppClient(c)
+	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
@@ -423,7 +423,7 @@ func isProdBaseURL(baseURL *url.URL) bool {
 	return strings.HasSuffix(baseURL.Hostname(), "viam.com")
 }
 
-func newAppClient(c *cli.Context) (*appClient, error) {
+func newViamClient(c *cli.Context) (*viamClient, error) {
 	baseURL, rpcOpts, err := checkBaseURL(c)
 	if err != nil {
 		return nil, err
@@ -444,7 +444,7 @@ func newAppClient(c *cli.Context) (*appClient, error) {
 		conf = &config{}
 	}
 
-	return &appClient{
+	return &viamClient{
 		c:           c,
 		conf:        conf,
 		baseURL:     baseURL,
@@ -455,13 +455,13 @@ func newAppClient(c *cli.Context) (*appClient, error) {
 	}, nil
 }
 
-func (c *appClient) copyRPCOpts() []rpc.DialOption {
+func (c *viamClient) copyRPCOpts() []rpc.DialOption {
 	rpcOpts := make([]rpc.DialOption, len(c.rpcOpts))
 	copy(rpcOpts, c.rpcOpts)
 	return rpcOpts
 }
 
-func (c *appClient) loadOrganizations() error {
+func (c *viamClient) loadOrganizations() error {
 	resp, err := c.client.ListOrganizations(c.c.Context, &apppb.ListOrganizationsRequest{})
 	if err != nil {
 		return err
@@ -470,7 +470,7 @@ func (c *appClient) loadOrganizations() error {
 	return nil
 }
 
-func (c *appClient) selectOrganization(orgStr string) error {
+func (c *viamClient) selectOrganization(orgStr string) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
@@ -518,7 +518,7 @@ func (c *appClient) selectOrganization(orgStr string) error {
 // getOrg gets an org by an indentifying string. If the orgStr is an
 // org UUID, then this matchs on organization ID, otherwise this will match
 // on organization name.
-func (c *appClient) getOrg(orgStr string) (*apppb.Organization, error) {
+func (c *viamClient) getOrg(orgStr string) (*apppb.Organization, error) {
 	if err := c.ensureLoggedIn(); err != nil {
 		return nil, err
 	}
@@ -545,7 +545,7 @@ func (c *appClient) getOrg(orgStr string) (*apppb.Organization, error) {
 
 // getUserOrgByPublicNamespace searches the logged in users orgs to see
 // if any have a matching public namespace.
-func (c *appClient) getUserOrgByPublicNamespace(publicNamespace string) (*apppb.Organization, error) {
+func (c *viamClient) getUserOrgByPublicNamespace(publicNamespace string) (*apppb.Organization, error) {
 	if err := c.ensureLoggedIn(); err != nil {
 		return nil, err
 	}
@@ -561,7 +561,7 @@ func (c *appClient) getUserOrgByPublicNamespace(publicNamespace string) (*apppb.
 	return nil, errors.Errorf("none of your organizations have a public namespace of %q", publicNamespace)
 }
 
-func (c *appClient) listOrganizations() ([]*apppb.Organization, error) {
+func (c *viamClient) listOrganizations() ([]*apppb.Organization, error) {
 	if err := c.ensureLoggedIn(); err != nil {
 		return nil, err
 	}
@@ -571,7 +571,7 @@ func (c *appClient) listOrganizations() ([]*apppb.Organization, error) {
 	return (*c.orgs), nil
 }
 
-func (c *appClient) loadLocations() error {
+func (c *viamClient) loadLocations() error {
 	if c.selectedOrg.Id == "" {
 		return errors.New("must select organization first")
 	}
@@ -583,7 +583,7 @@ func (c *appClient) loadLocations() error {
 	return nil
 }
 
-func (c *appClient) selectLocation(locStr string) error {
+func (c *viamClient) selectLocation(locStr string) error {
 	if locStr != "" && (c.selectedLoc.Id == locStr || c.selectedLoc.Name == locStr) {
 		return nil
 	}
@@ -617,7 +617,7 @@ func (c *appClient) selectLocation(locStr string) error {
 	return nil
 }
 
-func (c *appClient) listLocations(orgID string) ([]*apppb.Location, error) {
+func (c *viamClient) listLocations(orgID string) ([]*apppb.Location, error) {
 	if err := c.ensureLoggedIn(); err != nil {
 		return nil, err
 	}
@@ -630,7 +630,7 @@ func (c *appClient) listLocations(orgID string) ([]*apppb.Location, error) {
 	return (*c.locs), nil
 }
 
-func (c *appClient) listRobots(orgStr, locStr string) ([]*apppb.Robot, error) {
+func (c *viamClient) listRobots(orgStr, locStr string) ([]*apppb.Robot, error) {
 	if err := c.ensureLoggedIn(); err != nil {
 		return nil, err
 	}
@@ -649,7 +649,7 @@ func (c *appClient) listRobots(orgStr, locStr string) ([]*apppb.Robot, error) {
 	return resp.Robots, nil
 }
 
-func (c *appClient) robot(orgStr, locStr, robotStr string) (*apppb.Robot, error) {
+func (c *viamClient) robot(orgStr, locStr, robotStr string) (*apppb.Robot, error) {
 	if err := c.ensureLoggedIn(); err != nil {
 		return nil, err
 	}
@@ -667,7 +667,7 @@ func (c *appClient) robot(orgStr, locStr, robotStr string) (*apppb.Robot, error)
 	return nil, errors.Errorf("no robot found for %q", robotStr)
 }
 
-func (c *appClient) robotPart(orgStr, locStr, robotStr, partStr string) (*apppb.RobotPart, error) {
+func (c *viamClient) robotPart(orgStr, locStr, robotStr, partStr string) (*apppb.RobotPart, error) {
 	if err := c.ensureLoggedIn(); err != nil {
 		return nil, err
 	}
@@ -683,7 +683,7 @@ func (c *appClient) robotPart(orgStr, locStr, robotStr, partStr string) (*apppb.
 	return nil, errors.Errorf("no robot part found for %q", partStr)
 }
 
-func (c *appClient) robotPartLogs(orgStr, locStr, robotStr, partStr string, errorsOnly bool) ([]*apppb.LogEntry, error) {
+func (c *viamClient) robotPartLogs(orgStr, locStr, robotStr, partStr string, errorsOnly bool) ([]*apppb.LogEntry, error) {
 	part, err := c.robotPart(orgStr, locStr, robotStr, partStr)
 	if err != nil {
 		return nil, err
@@ -699,7 +699,7 @@ func (c *appClient) robotPartLogs(orgStr, locStr, robotStr, partStr string, erro
 	return resp.Logs, nil
 }
 
-func (c *appClient) robotParts(orgStr, locStr, robotStr string) ([]*apppb.RobotPart, error) {
+func (c *viamClient) robotParts(orgStr, locStr, robotStr string) ([]*apppb.RobotPart, error) {
 	if err := c.ensureLoggedIn(); err != nil {
 		return nil, err
 	}
@@ -716,7 +716,7 @@ func (c *appClient) robotParts(orgStr, locStr, robotStr string) ([]*apppb.RobotP
 	return resp.Parts, nil
 }
 
-func (c *appClient) printRobotPartLogsInner(logs []*apppb.LogEntry, indent string) {
+func (c *viamClient) printRobotPartLogsInner(logs []*apppb.LogEntry, indent string) {
 	for _, log := range logs {
 		fmt.Fprintf(
 			c.c.App.Writer,
@@ -730,7 +730,7 @@ func (c *appClient) printRobotPartLogsInner(logs []*apppb.LogEntry, indent strin
 	}
 }
 
-func (c *appClient) printRobotPartLogs(orgStr, locStr, robotStr, partStr string, errorsOnly bool, indent, header string) error {
+func (c *viamClient) printRobotPartLogs(orgStr, locStr, robotStr, partStr string, errorsOnly bool, indent, header string) error {
 	logs, err := c.robotPartLogs(orgStr, locStr, robotStr, partStr, errorsOnly)
 	if err != nil {
 		return err
@@ -748,7 +748,7 @@ func (c *appClient) printRobotPartLogs(orgStr, locStr, robotStr, partStr string,
 }
 
 // tailRobotPartLogs tails and prints logs for the given robot part.
-func (c *appClient) tailRobotPartLogs(orgStr, locStr, robotStr, partStr string, errorsOnly bool, indent, header string) error {
+func (c *viamClient) tailRobotPartLogs(orgStr, locStr, robotStr, partStr string, errorsOnly bool, indent, header string) error {
 	part, err := c.robotPart(orgStr, locStr, robotStr, partStr)
 	if err != nil {
 		return err
@@ -777,7 +777,7 @@ func (c *appClient) tailRobotPartLogs(orgStr, locStr, robotStr, partStr string, 
 	}
 }
 
-func (c *appClient) runRobotPartCommand(
+func (c *viamClient) runRobotPartCommand(
 	orgStr, locStr, robotStr, partStr string,
 	svcMethod, data string,
 	streamDur time.Duration,
@@ -874,7 +874,7 @@ func (c *appClient) runRobotPartCommand(
 	}
 }
 
-func (c *appClient) startRobotPartShell(
+func (c *viamClient) startRobotPartShell(
 	orgStr, locStr, robotStr, partStr string,
 	debug bool,
 	logger golog.Logger,

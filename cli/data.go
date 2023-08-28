@@ -37,27 +37,31 @@ const (
 
 // DataExportAction is the corresponding action for 'data export'.
 func DataExportAction(c *cli.Context) error {
-	filter, err := createDataFilter(c)
+	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
 
-	client, err := newAppClient(c)
+	return client.dataExportAction(c)
+}
+
+func (c *viamClient) dataExportAction(cCtx *cli.Context) error {
+	filter, err := createDataFilter(cCtx)
 	if err != nil {
 		return err
 	}
 
-	switch c.String(dataFlagDataType) {
+	switch cCtx.String(dataFlagDataType) {
 	case dataTypeBinary:
-		if err := client.binaryData(c.Path(dataFlagDestination), filter, c.Uint(dataFlagParallelDownloads)); err != nil {
+		if err := c.binaryData(cCtx.Path(dataFlagDestination), filter, cCtx.Uint(dataFlagParallelDownloads)); err != nil {
 			return err
 		}
 	case dataTypeTabular:
-		if err := client.tabularData(c.Path(dataFlagDestination), filter); err != nil {
+		if err := c.tabularData(cCtx.Path(dataFlagDestination), filter); err != nil {
 			return err
 		}
 	default:
-		return errors.Errorf("%s must be binary or tabular, got %q", dataFlagDataType, c.String(dataFlagDataType))
+		return errors.Errorf("%s must be binary or tabular, got %q", dataFlagDataType, cCtx.String(dataFlagDataType))
 	}
 	return nil
 }
@@ -69,7 +73,7 @@ func DataDeleteAction(c *cli.Context) error {
 		return err
 	}
 
-	client, err := newAppClient(c)
+	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
@@ -170,7 +174,7 @@ func createDataFilter(c *cli.Context) (*datapb.Filter, error) {
 }
 
 // BinaryData downloads binary data matching filter to dst.
-func (c *appClient) binaryData(dst string, filter *datapb.Filter, parallelDownloads uint) error {
+func (c *viamClient) binaryData(dst string, filter *datapb.Filter, parallelDownloads uint) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
@@ -378,7 +382,7 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 }
 
 // tabularData downloads binary data matching filter to dst.
-func (c *appClient) tabularData(dst string, filter *datapb.Filter) error {
+func (c *viamClient) tabularData(dst string, filter *datapb.Filter) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
@@ -494,7 +498,7 @@ func makeDestinationDirs(dst string) error {
 	return nil
 }
 
-func (c *appClient) deleteBinaryData(filter *datapb.Filter) error {
+func (c *viamClient) deleteBinaryData(filter *datapb.Filter) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
@@ -508,7 +512,7 @@ func (c *appClient) deleteBinaryData(filter *datapb.Filter) error {
 }
 
 // deleteTabularData delete tabular data matching filter.
-func (c *appClient) deleteTabularData(filter *datapb.Filter) error {
+func (c *viamClient) deleteTabularData(filter *datapb.Filter) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
