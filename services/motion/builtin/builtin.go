@@ -107,14 +107,13 @@ func (ms *builtIn) Reconfigure(
 type builtIn struct {
 	resource.Named
 	resource.TriviallyCloseable
-	backgroundWorkers sync.WaitGroup
-	cancelFn          context.CancelFunc
-	fsService         framesystem.Service
-	movementSensors   map[resource.Name]movementsensor.MovementSensor
-	slamServices      map[resource.Name]slam.Service
-	components        map[resource.Name]resource.Resource
-	logger            golog.Logger
-	lock              sync.Mutex
+	cancelFn        context.CancelFunc
+	fsService       framesystem.Service
+	movementSensors map[resource.Name]movementsensor.MovementSensor
+	slamServices    map[resource.Name]slam.Service
+	components      map[resource.Name]resource.Resource
+	logger          golog.Logger
+	lock            sync.Mutex
 }
 
 // Move takes a goal location and will plan and execute a movement to move a component specified by its name to that destination.
@@ -221,9 +220,6 @@ func (ms *builtIn) MoveOnGlobe(
 ) (bool, error) {
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
 
-	positionPollingPeriod := time.Duration(1000/motionCfg.PositionPollingFreqHz) * time.Millisecond
-	obstaclePollingPeriod := time.Duration(1000/motionCfg.ObstaclePollingFreqHz) * time.Millisecond
-
 	kinematicsOptions := kinematicbase.NewKinematicBaseOptions()
 	if motionCfg.LinearMPerSec != 0 {
 		kinematicsOptions.LinearVelocityMMPerSec = motionCfg.LinearMPerSec * 1000
@@ -236,6 +232,9 @@ func (ms *builtIn) MoveOnGlobe(
 	}
 	kinematicsOptions.GoalRadiusMM = math.Min(motionCfg.PlanDeviationM*1000, 3000)
 	kinematicsOptions.HeadingThresholdDegrees = 8
+
+	positionPollingPeriod := time.Duration(1000/motionCfg.PositionPollingFreqHz) * time.Millisecond
+	obstaclePollingPeriod := time.Duration(1000/motionCfg.ObstaclePollingFreqHz) * time.Millisecond
 
 	movementSensor, ok := ms.movementSensors[movementSensorName]
 	if !ok {
@@ -264,9 +263,12 @@ func (ms *builtIn) MoveOnGlobe(
 	ms.cancelFn = cancelFn
 	defer ms.cancelFn()
 
+	var backgroundWorkers sync.WaitGroup
+	defer backgroundWorkers.Wait()
+
 	// helper function to manage polling functions
 	startPolling := func(ctx context.Context, period time.Duration, fn func(context.Context) error) {
-		ms.backgroundWorkers.Add(1)
+		backgroundWorkers.Add(1)
 		goutils.ManagedGo(func() {
 			ticker := time.NewTicker(period)
 			defer ticker.Stop()
@@ -282,11 +284,11 @@ func (ms *builtIn) MoveOnGlobe(
 					return
 				}
 			}
-		}, ms.backgroundWorkers.Done)
+		}, backgroundWorkers.Done)
 	}
 
 	// start goroutine to execute plan
-	ms.backgroundWorkers.Add(1)
+	backgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
 		for {
 			select {
@@ -312,7 +314,7 @@ func (ms *builtIn) MoveOnGlobe(
 				}
 			}
 		}
-	}, ms.backgroundWorkers.Done)
+	}, backgroundWorkers.Done)
 
 	// loop to monitor things that poll and replan appropriately
 	for {
@@ -344,12 +346,8 @@ func (ms *builtIn) MoveOnGlobe(
 			planChan <- planAndBase{kb, plan}
 
 			// drain the replanChan
-			for gotSomething := true; gotSomething; {
-				select {
-				case <-replanChan:
-				default:
-					gotSomething = false
-				}
+			for len(replanChan) > 0 {
+				<-replanChan
 			}
 
 			startPolling(cancelCtx, positionPollingPeriod, func(ctx context.Context) error {
@@ -388,8 +386,6 @@ func (ms *builtIn) executePlan(ctx context.Context, kinematicBase kinematicbase.
 			if err := kinematicBase.GoToInputs(ctx, segment); err != nil {
 				return err
 			}
-			// Remove me
-			time.Sleep(250 * time.Millisecond)
 		}
 	}
 	return nil
@@ -638,9 +634,4 @@ func (ms *builtIn) planMoveOnMap(
 	}
 	steps, err := plan.GetFrameSteps(f.Name())
 	return steps, kb, err
-}
-
-func (ms *builtIn) Close(ctx context.Context) error {
-	ms.backgroundWorkers.Wait()
-	return nil
 }
