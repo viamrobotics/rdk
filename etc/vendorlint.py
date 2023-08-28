@@ -28,7 +28,7 @@ def walk(args) -> dict:
             logger.info('linting %s', path)
             if not args.dry_run:
                 # note: --no-config flag is so vendor's own lint config doesn't break this
-                proc = subprocess.run("golangci-lint run -v --tests=false --disable-all --enable staticcheck --out-format json --no-config ./...", cwd=path, shell=True, check=False, capture_output=True)
+                proc = subprocess.run(f"{args.linter} run -v --tests=false --disable-all --enable staticcheck --out-format json --no-config ./...", cwd=path, shell=True, check=False, capture_output=True)
                 if proc.returncode != 0:
                     logger.error('bad result %d mod %s OUT %s... ERR %s...', proc.returncode, mod, proc.stdout[:40], proc.stderr[:40])
                 results[mod] = json.loads(proc.stdout) if proc.stdout else None
@@ -68,7 +68,8 @@ def main():
     p.add_argument('command', choices=('walk', 'analyze', 'all'))
     p.add_argument('--root', default='vendor', help="where to start the walk")
     p.add_argument('--dry-run', action='store_true', help="don't lint, just log")
-    p.add_argument('--out', help="store json result to file", default='vendorlint.json')
+    p.add_argument('--out', default='vendorlint.json', help="store json result to file")
+    p.add_argument('--linter', default="golangci-lint", help="path to linter")
     args = p.parse_args()
     logging.basicConfig(level=logging.INFO)
 

@@ -38,11 +38,9 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
     - uses: actions/checkout@v3
-    # note: we're rerunning lint on 32-bit because govet atomicalign linter only detects errors on 32-bit architecture
+    # note: we're linting on 32-bit because atomicalign analyzer only works on 32-bit architecture
     - name: lint
       run: docker run --rm -v $PWD/:/rdk ghcr.io/viamrobotics/viam-server:armv7 make lint-32bit
-    - name: vendorlint
-      run: docker run --rm -v $PWD/:/rdk ghcr.io/viamrobotics/viam-server:armv7 sh -c "go install github.com/golangci/golangci-lint/cmd/golangci-lint && go mod vendor && etc/vendorlint.py all"
   test:
     if: false
     # needs: [docker]
