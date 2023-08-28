@@ -599,7 +599,7 @@ viam board upload --name=orin --org="my org" --version=1.0.0 file.json`,
 						},
 						&cli.StringFlag{
 							Name:     organizationFlag,
-							Usage:    "Organization that will host the board file. This can be the org's ID or name",
+							Usage:    "organization that will host the board definitions file. This can be the org's ID or name",
 							Required: true,
 						},
 						&cli.StringFlag{
@@ -620,18 +620,17 @@ viam board get --name=test --organization="my org" --version=1.0.0`,
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     boardFlagName,
-							Usage:    "name of thr board definitions file to download",
+							Usage:    "name of the board definitions file to download",
 							Required: true,
 						},
 						&cli.StringFlag{
 							Name:     organizationFlag,
-							Usage:    "Organization that hosts the board defintions file",
+							Usage:    "organization that hosts the board definitions file",
 							Required: true,
 						},
 						&cli.StringFlag{
-							Name:     boardFlagVersion,
-							Usage:    "version of the file to download. defaults to latest if not set.",
-							Required: false,
+							Name:  boardFlagVersion,
+							Usage: "version of the file to download. defaults to latest if not set.",
 						},
 					},
 					Action: GetBoardDefsAction,
