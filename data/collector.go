@@ -15,7 +15,6 @@ import (
 	v1 "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/protoutils"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -37,6 +36,9 @@ type FromDMContextKey struct{}
 
 // FromDMString is used to access the 'fromDataManagement' value from a request's Extra struct.
 const FromDMString = "fromDataManagement"
+
+// FromDMExtraMap is a map with 'fromDataManagement' set to true.
+var FromDMExtraMap = map[string]interface{}{FromDMString: true}
 
 // ErrNoCaptureToStore is returned when a modular filter resource filters the capture coming from the base resource.
 var ErrNoCaptureToStore = status.Error(codes.FailedPrecondition, "no capture from filter module")
@@ -308,26 +310,11 @@ func FailedToReadErr(component, method string, err error) error {
 	return errors.Errorf("failed to get reading of method %s of component %s: %v", method, component, err)
 }
 
-type requestWithExtra interface {
-	GetExtra() *structpb.Struct
-}
-
-// UnaryClientInterceptor adds "fromDataManagement": true to the outgoing req's Extra struct if the flag is true in the context.
-func UnaryClientInterceptor(
-	ctx context.Context,
-	method string,
-	req, reply interface{},
-	cc *grpc.ClientConn,
-	invoker grpc.UnaryInvoker,
-	opts ...grpc.CallOption,
-) error {
+// GetExtraFromContext sets the extra struct with "fromDataManagement": true if the flag is true in the context.
+func GetExtraFromContext(ctx context.Context) (*structpb.Struct, error) {
+	extra := make(map[string]interface{})
 	if ctx.Value(FromDMContextKey{}) == true {
-		reqWithExtra, ok := req.(requestWithExtra)
-		if ok && reqWithExtra.GetExtra() != nil {
-			extraMap := reqWithExtra.GetExtra().Fields
-			extraMap[FromDMString] = structpb.NewBoolValue(true)
-		}
+		extra[FromDMString] = true
 	}
-
-	return invoker(ctx, method, req, reply, cc, opts...)
+	return protoutils.StructToStructPb(extra)
 }

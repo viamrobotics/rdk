@@ -33,8 +33,7 @@ func newEndPositionCollector(resource interface{}, params data.CollectorParams) 
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
-		ctx = context.WithValue(ctx, data.FromDMContextKey{}, true)
-		v, err := arm.EndPosition(ctx, nil)
+		v, err := arm.EndPosition(ctx, data.FromDMExtraMap)
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
@@ -55,8 +54,7 @@ func newJointPositionsCollector(resource interface{}, params data.CollectorParam
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
-		ctx = context.WithValue(ctx, data.FromDMContextKey{}, true)
-		v, err := arm.JointPositions(ctx, nil)
+		v, err := arm.JointPositions(ctx, data.FromDMExtraMap)
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.

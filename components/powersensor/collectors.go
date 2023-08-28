@@ -17,7 +17,7 @@ func assertPowerSensor(resource interface{}) (PowerSensor, error) {
 	return ps, nil
 }
 
-type lowLevelCollector func(ctx context.Context, ps PowerSensor) (interface{}, error)
+type lowLevelCollector func(ctx context.Context, ps PowerSensor, extra map[string]interface{}) (interface{}, error)
 
 func registerCollector(name string, f lowLevelCollector) {
 	data.RegisterCollector(data.MethodMetadata{
@@ -30,8 +30,7 @@ func registerCollector(name string, f lowLevelCollector) {
 		}
 
 		cFunc := data.CaptureFunc(func(ctx context.Context, extra map[string]*anypb.Any) (interface{}, error) {
-			ctx = context.WithValue(ctx, data.FromDMContextKey{}, true)
-			v, err := f(ctx, ps)
+			v, err := f(ctx, ps, data.FromDMExtraMap)
 			if err != nil {
 				// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 				// is used in the datamanager to exclude readings from being captured and stored.

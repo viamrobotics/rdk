@@ -34,8 +34,7 @@ func newTicksCountCollector(resource interface{}, params data.CollectorParams) (
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
-		ctx = context.WithValue(ctx, data.FromDMContextKey{}, true)
-		v, _, err := encoder.Position(ctx, PositionTypeUnspecified, nil)
+		v, _, err := encoder.Position(ctx, PositionTypeUnspecified, data.FromDMExtraMap)
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.

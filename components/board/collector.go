@@ -55,11 +55,10 @@ func newAnalogCollector(resource interface{}, params data.CollectorParams) (data
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, arg map[string]*anypb.Any) (interface{}, error) {
-		ctx = context.WithValue(ctx, data.FromDMContextKey{}, true)
 		var readings []AnalogRecord
 		for k := range arg {
 			if reader, ok := board.AnalogReaderByName(k); ok {
-				value, err := reader.Read(ctx, nil)
+				value, err := reader.Read(ctx, data.FromDMExtraMap)
 				if err != nil {
 					// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 					// is used in the datamanager to exclude readings from being captured and stored.
@@ -83,11 +82,10 @@ func newGPIOCollector(resource interface{}, params data.CollectorParams) (data.C
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, arg map[string]*anypb.Any) (interface{}, error) {
-		ctx = context.WithValue(ctx, data.FromDMContextKey{}, true)
 		var readings []GpioRecord
 		for k := range arg {
 			if gpio, err := board.GPIOPinByName(k); err == nil {
-				value, err := gpio.Get(ctx, nil)
+				value, err := gpio.Get(ctx, data.FromDMExtraMap)
 				if err != nil {
 					// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 					// is used in the datamanager to exclude readings from being captured and stored.
