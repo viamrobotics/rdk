@@ -40,7 +40,7 @@ jobs:
     - uses: actions/checkout@v3
     # note: we're rerunning lint on 32-bit because govet atomicalign linter only detects errors on 32-bit architecture
     - name: lint
-      run: docker run --rm -v $PWD/:/rdk ghcr.io/viamrobotics/viam-server:armv7 make lint-go
+      run: docker run --rm -v $PWD/:/rdk ghcr.io/viamrobotics/viam-server:armv7 make lint-32bit
   test:
     if: false
     # needs: [docker]
