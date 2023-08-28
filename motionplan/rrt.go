@@ -4,6 +4,7 @@ import (
 	"context"
 	"math"
 
+	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -79,7 +80,7 @@ func initRRTSolutions(ctx context.Context, mp motionPlanner, seed []referencefra
 	}
 
 	// the smallest interpolated distance between the start and end input represents a lower bound on cost
-	optimalCost := mp.opt().DistanceFunc(&Segment{StartConfiguration: seed, EndConfiguration: solutions[0].Q()})
+	optimalCost := mp.opt().DistanceFunc(&ik.Segment{StartConfiguration: seed, EndConfiguration: solutions[0].Q()})
 	rrt.maps.optNode = &basicNode{q: solutions[0].Q(), cost: optimalCost}
 
 	// Check for direct interpolation for the subset of IK solutions within some multiple of optimal
@@ -88,7 +89,7 @@ func initRRTSolutions(ctx context.Context, mp motionPlanner, seed []referencefra
 	// initialize maps and check whether direct interpolation is an option
 	for _, solution := range solutions {
 		if canInterp {
-			cost := mp.opt().DistanceFunc(&Segment{StartConfiguration: seed, EndConfiguration: solution.Q()})
+			cost := mp.opt().DistanceFunc(&ik.Segment{StartConfiguration: seed, EndConfiguration: solution.Q()})
 			if cost < optimalCost*defaultOptimalityMultiple {
 				if mp.checkPath(seed, solution.Q()) {
 					rrt.steps = []node{seedNode, solution}
@@ -115,7 +116,7 @@ func shortestPath(maps *rrtMaps, nodePairs []*nodePair) *rrtPlanReturn {
 			minIdx = i
 		}
 	}
-	return &rrtPlanReturn{steps: extractPath(maps.startMap, maps.goalMap, nodePairs[minIdx]), maps: maps}
+	return &rrtPlanReturn{steps: extractPath(maps.startMap, maps.goalMap, nodePairs[minIdx], true), maps: maps}
 }
 
 // fixedStepInterpolation returns inputs at qstep distance along the path from start to target
@@ -204,7 +205,7 @@ func (np *nodePair) sumCosts() float64 {
 	return aCost + bCost
 }
 
-func extractPath(startMap, goalMap map[node]node, pair *nodePair) []node {
+func extractPath(startMap, goalMap map[node]node, pair *nodePair, matched bool) []node {
 	// need to figure out which of the two nodes is in the start map
 	var startReached, goalReached node
 	if _, ok := startMap[pair.a]; ok {
@@ -226,8 +227,10 @@ func extractPath(startMap, goalMap map[node]node, pair *nodePair) []node {
 	}
 
 	if goalReached != nil {
-		// skip goalReached node and go directly to its parent in order to not repeat this node
-		goalReached = goalMap[goalReached]
+		if matched {
+			// skip goalReached node and go directly to its parent in order to not repeat this node
+			goalReached = goalMap[goalReached]
+		}
 
 		// extract the path to the goal
 		for goalReached != nil {
@@ -236,4 +239,12 @@ func extractPath(startMap, goalMap map[node]node, pair *nodePair) []node {
 		}
 	}
 	return path
+}
+
+func sumCosts(path []node) float64 {
+	cost := 0.
+	for _, wp := range path {
+		cost += wp.Cost()
+	}
+	return cost
 }

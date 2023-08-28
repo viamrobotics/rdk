@@ -36,15 +36,15 @@ func init() {
 				if err != nil {
 					return nil, err
 				}
-				return newCamera(ctx, deps, conf.ResourceName(), newConf)
+				return newCamera(ctx, deps, conf.ResourceName(), newConf, logger)
 			},
 		})
 }
 
 func newCamera(ctx context.Context, deps resource.Dependencies, name resource.Name,
-	newConf *ultrasense.Config,
+	newConf *ultrasense.Config, logger golog.Logger,
 ) (camera.Camera, error) {
-	usSensor, err := ultrasense.NewSensor(ctx, deps, name, newConf)
+	usSensor, err := ultrasense.NewSensor(ctx, deps, name, newConf, logger)
 	if err != nil {
 		return nil, err
 	}

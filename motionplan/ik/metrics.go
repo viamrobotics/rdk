@@ -1,4 +1,4 @@
-package motionplan
+package ik
 
 import (
 	"math"
@@ -9,6 +9,26 @@ import (
 )
 
 const orientationDistanceScaling = 10.
+
+// Segment contains all the information a constraint needs to determine validity for a movement.
+// It contains the starting inputs, the ending inputs, corresponding poses, and the frame it refers to.
+// Pose fields may be empty, and may be filled in by a constraint that needs them.
+type Segment struct {
+	StartPosition      spatial.Pose
+	EndPosition        spatial.Pose
+	StartConfiguration []referenceframe.Input
+	EndConfiguration   []referenceframe.Input
+	Frame              referenceframe.Frame
+}
+
+// State contains all the information a constraint needs to determine validity for a movement.
+// It contains the starting inputs, the ending inputs, corresponding poses, and the frame it refers to.
+// Pose fields may be empty, and may be filled in by a constraint that needs them.
+type State struct {
+	Position      spatial.Pose
+	Configuration []referenceframe.Input
+	Frame         referenceframe.Frame
+}
 
 // StateMetric are functions which, given a State, produces some score. Lower is better.
 // This is used for gradient descent to converge upon a goal pose, for example.
@@ -42,15 +62,15 @@ func CombineMetrics(metrics ...StateMetric) StateMetric {
 	return cm.combinedDist
 }
 
-// orientDist returns the arclength between two orientations in degrees.
-func orientDist(o1, o2 spatial.Orientation) float64 {
+// OrientDist returns the arclength between two orientations in degrees.
+func OrientDist(o1, o2 spatial.Orientation) float64 {
 	return utils.RadToDeg(spatial.QuatToR4AA(spatial.OrientationBetween(o1, o2).Quaternion()).Theta)
 }
 
-// orientDistToRegion will return a function which will tell you how far the unit sphere component of an orientation
+// OrientDistToRegion will return a function which will tell you how far the unit sphere component of an orientation
 // vector is from a region defined by a point and an arclength around it. The theta value of OV is disregarded.
 // This is useful, for example, in defining the set of acceptable angles of attack for writing on a whiteboard.
-func orientDistToRegion(goal spatial.Orientation, alpha float64) func(spatial.Orientation) float64 {
+func OrientDistToRegion(goal spatial.Orientation, alpha float64) func(spatial.Orientation) float64 {
 	ov1 := goal.OrientationVectorRadians()
 	return func(o spatial.Orientation) float64 {
 		ov2 := o.OrientationVectorRadians()
@@ -81,7 +101,7 @@ func NewSquaredNormMetric(goal spatial.Pose) StateMetric {
 // NewPoseFlexOVMetric will provide a distance function which will converge on a pose with an OV within an arclength of `alpha`
 // of the ov of the goal given.
 func NewPoseFlexOVMetric(goal spatial.Pose, alpha float64) StateMetric {
-	oDistFunc := orientDistToRegion(goal.Orientation(), alpha)
+	oDistFunc := OrientDistToRegion(goal.Orientation(), alpha)
 	return func(state *State) float64 {
 		pDist := state.Position.Point().Distance(goal.Point())
 		oDist := oDistFunc(state.Position.Orientation())
@@ -113,11 +133,14 @@ func L2InputMetric(segment *Segment) float64 {
 	return referenceframe.InputsL2Distance(segment.StartConfiguration, segment.EndConfiguration)
 }
 
-// SquaredNormSegmentMetric is a metric which will return the cartesian distance between the two positions.
-func SquaredNormSegmentMetric(segment *Segment) float64 {
-	delta := spatial.PoseDelta(segment.StartPosition, segment.EndPosition)
-	// Increase weight for orientation since it's a small number
-	return delta.Point().Norm2() + spatial.QuatToR3AA(delta.Orientation().Quaternion()).Mul(orientationDistanceScaling).Norm2()
+// NewSquaredNormSegmentMetric returns a metric which will return the cartesian distance between the two positions.
+// It allows the caller to choose the scaling level of orientation.
+func NewSquaredNormSegmentMetric(orientationScaleFactor float64) SegmentMetric {
+	return func(segment *Segment) float64 {
+		delta := spatial.PoseDelta(segment.StartPosition, segment.EndPosition)
+		// Increase weight for orientation since it's a small number
+		return delta.Point().Norm2() + spatial.QuatToR3AA(delta.Orientation().Quaternion()).Mul(orientationScaleFactor).Norm2()
+	}
 }
 
 // SquaredNormNoOrientSegmentMetric is a metric which will return the cartesian distance between the two positions.

@@ -60,6 +60,7 @@ type Motor struct {
 	jogging          bool
 	opMgr            *operation.SingleOperationManager
 	powerPct         float64
+	logger           golog.Logger
 }
 
 // Config adds DMC-specific config options.
@@ -154,6 +155,7 @@ func NewMotor(ctx context.Context, c *Config, name resource.Name, logger golog.L
 		HomeRPM:          c.HomeRPM,
 		powerPct:         0.0,
 		opMgr:            operation.NewSingleOperationManager(),
+		logger:           logger,
 	}
 
 	if m.maxRPM <= 0 {
