@@ -34,7 +34,7 @@ func newGetPositionCollector(resource interface{}, params data.CollectorParams) 
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
-		pose, componentRef, err := slam.GetPosition(ctx)
+		pose, componentRef, err := slam.Position(ctx)
 		if err != nil {
 			return nil, data.FailedToReadErr(params.ComponentName, getPosition.String(), err)
 		}
@@ -50,7 +50,7 @@ func newGetPointCloudMapCollector(resource interface{}, params data.CollectorPar
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
-		f, err := slam.GetPointCloudMap(ctx)
+		f, err := slam.PointCloudMap(ctx)
 		if err != nil {
 			return nil, data.FailedToReadErr(params.ComponentName, getPointCloudMap.String(), err)
 		}

@@ -57,10 +57,10 @@ func FromRobot(r robot.Robot, name string) (Service, error) {
 // Service describes the functions that are available to the service.
 type Service interface {
 	resource.Resource
-	GetPosition(ctx context.Context) (spatialmath.Pose, string, error)
-	GetPointCloudMap(ctx context.Context) (func() ([]byte, error), error)
-	GetInternalState(ctx context.Context) (func() ([]byte, error), error)
-	GetLatestMapInfo(ctx context.Context) (time.Time, error)
+	Position(ctx context.Context) (spatialmath.Pose, string, error)
+	PointCloudMap(ctx context.Context) (func() ([]byte, error), error)
+	InternalState(ctx context.Context) (func() ([]byte, error), error)
+	LatestMapInfo(ctx context.Context) (time.Time, error)
 }
 
 // HelperConcatenateChunksToFull concatenates the chunks from a streamed grpc endpoint.
@@ -79,32 +79,32 @@ func HelperConcatenateChunksToFull(f func() ([]byte, error)) ([]byte, error) {
 	}
 }
 
-// GetPointCloudMapFull concatenates the streaming responses from GetPointCloudMap into a full point cloud.
-func GetPointCloudMapFull(ctx context.Context, slamSvc Service) ([]byte, error) {
-	ctx, span := trace.StartSpan(ctx, "slam::GetPointCloudMapFull")
+// PointCloudMapFull concatenates the streaming responses from PointCloudMap into a full point cloud.
+func PointCloudMapFull(ctx context.Context, slamSvc Service) ([]byte, error) {
+	ctx, span := trace.StartSpan(ctx, "slam::PointCloudMapFull")
 	defer span.End()
-	callback, err := slamSvc.GetPointCloudMap(ctx)
+	callback, err := slamSvc.PointCloudMap(ctx)
 	if err != nil {
 		return nil, err
 	}
 	return HelperConcatenateChunksToFull(callback)
 }
 
-// GetInternalStateFull concatenates the streaming responses from GetInternalState into
+// InternalStateFull concatenates the streaming responses from InternalState into
 // the internal serialized state of the slam algorithm.
-func GetInternalStateFull(ctx context.Context, slamSvc Service) ([]byte, error) {
-	ctx, span := trace.StartSpan(ctx, "slam::GetInternalStateFull")
+func InternalStateFull(ctx context.Context, slamSvc Service) ([]byte, error) {
+	ctx, span := trace.StartSpan(ctx, "slam::InternalStateFull")
 	defer span.End()
-	callback, err := slamSvc.GetInternalState(ctx)
+	callback, err := slamSvc.InternalState(ctx)
 	if err != nil {
 		return nil, err
 	}
 	return HelperConcatenateChunksToFull(callback)
 }
 
-// GetLimits returns the bounds of the slam map as a list of referenceframe.Limits.
-func GetLimits(ctx context.Context, svc Service) ([]referenceframe.Limit, error) {
-	data, err := GetPointCloudMapFull(ctx, svc)
+// Limits returns the bounds of the slam map as a list of referenceframe.Limits.
+func Limits(ctx context.Context, svc Service) ([]referenceframe.Limit, error) {
+	data, err := PointCloudMapFull(ctx, svc)
 	if err != nil {
 		return nil, err
 	}

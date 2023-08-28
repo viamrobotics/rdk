@@ -27,11 +27,11 @@ func NewRPCServiceServer(coll resource.APIResourceCollection[Service]) interface
 	return &serviceServer{coll: coll}
 }
 
-// GetPosition returns a Pose and a component reference string of the robot's current location according to SLAM.
-func (server *serviceServer) GetPosition(ctx context.Context, req *pb.GetPositionRequest) (
+// Position returns a Pose and a component reference string of the robot's current location according to SLAM.
+func (server *serviceServer) Position(ctx context.Context, req *pb.GetPositionRequest) (
 	*pb.GetPositionResponse, error,
 ) {
-	ctx, span := trace.StartSpan(ctx, "slam::server::GetPosition")
+	ctx, span := trace.StartSpan(ctx, "slam::server::Position")
 	defer span.End()
 
 	svc, err := server.coll.Resource(req.Name)
@@ -39,7 +39,7 @@ func (server *serviceServer) GetPosition(ctx context.Context, req *pb.GetPositio
 		return nil, err
 	}
 
-	p, componentReference, err := svc.GetPosition(ctx)
+	p, componentReference, err := svc.Position(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -50,14 +50,14 @@ func (server *serviceServer) GetPosition(ctx context.Context, req *pb.GetPositio
 	}, nil
 }
 
-// GetPointCloudMap returns the slam service's slam algo's current map state in PCD format as
+// PointCloudMap returns the slam service's slam algo's current map state in PCD format as
 // a stream of byte chunks.
-func (server *serviceServer) GetPointCloudMap(req *pb.GetPointCloudMapRequest,
+func (server *serviceServer) PointCloudMap(req *pb.GetPointCloudMapRequest,
 	stream pb.SLAMService_GetPointCloudMapServer,
 ) error {
 	ctx := context.Background()
 
-	ctx, span := trace.StartSpan(ctx, "slam::server::GetPointCloudMap")
+	ctx, span := trace.StartSpan(ctx, "slam::server::PointCloudMap")
 	defer span.End()
 
 	svc, err := server.coll.Resource(req.Name)
@@ -65,9 +65,9 @@ func (server *serviceServer) GetPointCloudMap(req *pb.GetPointCloudMapRequest,
 		return err
 	}
 
-	f, err := svc.GetPointCloudMap(ctx)
+	f, err := svc.PointCloudMap(ctx)
 	if err != nil {
-		return errors.Wrap(err, "getting callback function from GetPointCloudMap encountered an issue")
+		return errors.Wrap(err, "getting callback function from PointCloudMap encountered an issue")
 	}
 
 	// In the future, channel buffer could be used here to optimize for latency
@@ -89,13 +89,13 @@ func (server *serviceServer) GetPointCloudMap(req *pb.GetPointCloudMapRequest,
 	}
 }
 
-// GetInternalState returns the internal state of the slam service's slam algo in a stream of
+// InternalState returns the internal state of the slam service's slam algo in a stream of
 // byte chunks.
-func (server *serviceServer) GetInternalState(req *pb.GetInternalStateRequest,
+func (server *serviceServer) InternalState(req *pb.GetInternalStateRequest,
 	stream pb.SLAMService_GetInternalStateServer,
 ) error {
 	ctx := context.Background()
-	ctx, span := trace.StartSpan(ctx, "slam::server::GetInternalState")
+	ctx, span := trace.StartSpan(ctx, "slam::server::InternalState")
 	defer span.End()
 
 	svc, err := server.coll.Resource(req.Name)
@@ -103,7 +103,7 @@ func (server *serviceServer) GetInternalState(req *pb.GetInternalStateRequest,
 		return err
 	}
 
-	f, err := svc.GetInternalState(ctx)
+	f, err := svc.InternalState(ctx)
 	if err != nil {
 		return err
 	}
@@ -127,11 +127,11 @@ func (server *serviceServer) GetInternalState(req *pb.GetInternalStateRequest,
 	}
 }
 
-// GetLatestMapInfo returns the timestamp of when the map was last updated.
-func (server *serviceServer) GetLatestMapInfo(ctx context.Context, req *pb.GetLatestMapInfoRequest) (
+// LatestMapInfo returns the timestamp of when the map was last updated.
+func (server *serviceServer) LatestMapInfo(ctx context.Context, req *pb.GetLatestMapInfoRequest) (
 	*pb.GetLatestMapInfoResponse, error,
 ) {
-	ctx, span := trace.StartSpan(ctx, "slam::server::GetLatestMapInfo")
+	ctx, span := trace.StartSpan(ctx, "slam::server::LatestMapInfo")
 	defer span.End()
 
 	svc, err := server.coll.Resource(req.Name)
@@ -139,7 +139,7 @@ func (server *serviceServer) GetLatestMapInfo(ctx context.Context, req *pb.GetLa
 		return nil, err
 	}
 
-	mapTimestamp, err := svc.GetLatestMapInfo(ctx)
+	mapTimestamp, err := svc.LatestMapInfo(ctx)
 	if err != nil {
 		return nil, err
 	}

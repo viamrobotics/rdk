@@ -30,7 +30,7 @@ func NewSLAMLocalizer(slam slam.Service) Localizer {
 
 // CurrentPosition returns slam's current position.
 func (s *slamLocalizer) CurrentPosition(ctx context.Context) (*referenceframe.PoseInFrame, error) {
-	pose, _, err := s.GetPosition(ctx)
+	pose, _, err := s.Position(ctx)
 	if err != nil {
 		return nil, err
 	}
