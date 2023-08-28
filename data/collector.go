@@ -37,6 +37,9 @@ type FromDMContextKey struct{}
 // FromDMString is used to access the 'fromDataManagement' value from a request's Extra struct.
 const FromDMString = "fromDataManagement"
 
+// FromDMExtraMap is a map with 'fromDataManagement' set to true.
+var FromDMExtraMap = map[string]interface{}{FromDMString: true}
+
 // ErrNoCaptureToStore is returned when a modular filter resource filters the capture coming from the base resource.
 var ErrNoCaptureToStore = status.Error(codes.FailedPrecondition, "no capture from filter module")
 
