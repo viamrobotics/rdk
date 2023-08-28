@@ -11,8 +11,6 @@ import (
 	"strconv"
 	"sync"
 
-	goutils "go.viam.com/utils"
-
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/muesli/clusters"
