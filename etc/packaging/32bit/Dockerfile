@@ -1,4 +1,4 @@
-FROM arm32v7/debian:bullseye-20230725
+FROM debian:bullseye
 # docker arch guide https://github.com/docker-library/official-images#architectures-other-than-amd64
 
 WORKDIR /build
