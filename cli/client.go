@@ -42,7 +42,7 @@ type viamClient struct {
 	conf          *config
 	client        apppb.AppServiceClient
 	dataClient    datapb.DataServiceClient
-  packageClient packagepb.PackageServiceClient
+	packageClient packagepb.PackageServiceClient
 	baseURL       *url.URL
 	rpcOpts       []rpc.DialOption
 	authFlow      *authFlow
