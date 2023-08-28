@@ -80,8 +80,8 @@ func UploadBoardDefsAction(ctx *cli.Context) error {
 	return nil
 }
 
-// GetBoardDefsAction is the corresponding action for "board get".
-func GetBoardDefsAction(c *cli.Context) error {
+// DownloadBoardDefsAction is the corresponding action for "board download".
+func DownloadBoardDefsAction(c *cli.Context) error {
 	orgArg := c.String(organizationFlag)
 	nameArg := c.String(boardFlagName)
 	versionArg := c.String(boardFlagVersion)
@@ -103,7 +103,7 @@ func GetBoardDefsAction(c *cli.Context) error {
 		return err
 	}
 
-	err = client.getBoardDefsFile(nameArg, versionArg, org.Id)
+	err = client.downloadBoardDefsFile(nameArg, versionArg, org.Id)
 	if err != nil {
 		return err
 	}
@@ -180,7 +180,7 @@ func (c *appClient) uploadBoardDefsFile(
 	return resp, nil
 }
 
-func (c *appClient) getBoardDefsFile(
+func (c *appClient) downloadBoardDefsFile(
 	name string,
 	version string,
 	orgID string,
@@ -318,9 +318,9 @@ func downloadFile(ctx context.Context, filepath, url string) error {
 	if err != nil {
 		return err
 	}
-
 	httpClient := &http.Client{Timeout: time.Second * 30}
 
+	//nolint:bodyclose /// closed in UncheckedErrorFunc
 	resp, err := httpClient.Do(getReq)
 	if err != nil {
 		return fmt.Errorf("error downloading the requested package: %w", err)

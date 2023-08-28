@@ -611,11 +611,11 @@ viam board upload --name=orin --org="my org" --version=1.0.0 file.json`,
 					Action: UploadBoardDefsAction,
 				},
 				{
-					Name:  "get",
-					Usage: "get a board definition package",
+					Name:  "download",
+					Usage: "download a board definitions package",
 					Description: `download a json board definitions file for generic linux boards.
 Example:
-viam board get --name=test --organization="my org" --version=1.0.0`,
+viam board download --name=test --organization="my org" --version=1.0.0`,
 					UsageText: "viam board download <name> <organization> <version> [other options]",
 					Flags: []cli.Flag{
 						&cli.StringFlag{
@@ -633,7 +633,7 @@ viam board get --name=test --organization="my org" --version=1.0.0`,
 							Usage: "version of the file to download. defaults to latest if not set.",
 						},
 					},
-					Action: GetBoardDefsAction,
+					Action: DownloadBoardDefsAction,
 				},
 			},
 		},
