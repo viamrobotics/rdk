@@ -131,13 +131,13 @@ func (c *ConstraintHandler) CheckStateConstraintsAcrossSegment(ci *ik.Segment, r
 	for i := 0; i <= steps; i++ {
 		interp := float64(i) / float64(steps)
 		interpC := &ik.State{Frame: ci.Frame}
-		if ci.StartConfiguration != nil && ci.EndConfiguration != nil {
+		if ci.StartPosition != nil && ci.EndPosition != nil {
+			interpC.Position = spatial.Interpolate(ci.StartPosition, ci.EndPosition, interp)
+		} else {
 			interpC.Configuration = referenceframe.InterpolateInputs(ci.StartConfiguration, ci.EndConfiguration, interp)
 			if resolveStatesToPositions(interpC) != nil {
 				return false, nil
 			}
-		} else {
-			interpC.Position = spatial.Interpolate(ci.StartPosition, ci.EndPosition, interp)
 		}
 		pass, _ := c.CheckStateConstraints(interpC)
 		if !pass {

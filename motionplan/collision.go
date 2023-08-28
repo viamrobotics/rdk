@@ -1,15 +1,12 @@
 package motionplan
 
 import (
-	"errors"
 	"fmt"
 	"math"
 	"strconv"
 
-	"github.com/edaniels/golog"
 	pb "go.viam.com/api/service/motion/v1"
 
-	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -313,98 +310,4 @@ func createUniqueCollisionMap(geoms []spatial.Geometry) (map[string]spatial.Geom
 		geomMap[label] = geom
 	}
 	return geomMap, nil
-}
-
-// CheckPlan checks if obstacles intersect the trajectory of the frame following the plan.
-func CheckPlan(
-	frame referenceframe.Frame,
-	plan []map[string][]referenceframe.Input,
-	worldState *referenceframe.WorldState,
-	fs referenceframe.FrameSystem,
-) (bool, error) {
-	// ensure that we can actually perform the check
-	if len(plan) == 0 {
-		return false, errors.New("cannot check validity of an empty plan")
-	}
-	if len(plan) < 2 {
-		return false, errors.New("plan must have at least two elements")
-	}
-
-	// construct solverFrame
-	// Note that this requires all frames which move as part of the plan, to have an
-	// entry in the very first plan waypoint
-	sf, err := newSolverFrame(fs, frame.Name(), referenceframe.World, plan[0])
-	if err != nil {
-		return false, err
-	}
-
-	// construct planager
-	sfPlanner, err := newPlanManager(sf, fs, golog.NewLogger("checkPlan-logger"), defaultRandomSeed)
-	if err != nil {
-		return false, err
-	}
-
-	// convert plan into nodes
-	planNodes := make([]node, 0, len(plan))
-	for _, step := range plan {
-		stepConfig, err := sf.mapToSlice(step)
-		if err != nil {
-			return false, err
-		}
-		pose, err := sf.Transform(stepConfig)
-		if err != nil {
-			return false, err
-		}
-		planNodes = append(planNodes, &basicNode{q: stepConfig, pose: pose})
-	}
-
-	// This should be done for any plan whose configurations are specified in relative terms rather than absolute ones.
-	// Currently this is only TP-space, so we check if the PTG length is >0.
-	// The solver frame will have had its PTGs filled in the newPlanManager() call, if applicable.
-	relative := len(sf.PTGs()) > 0
-
-	if relative {
-		if planNodes, err = rectifyTPspacePath(planNodes, sf); err != nil {
-			return false, err
-		}
-	}
-	startPose := planNodes[0].Pose()
-	goalPose := planNodes[len(planNodes)-1].Pose()
-
-	// create constraints
-	if sfPlanner.planOpts, err = sfPlanner.plannerSetupFromMoveRequest(
-		startPose,
-		goalPose,
-		plan[0],
-		worldState,
-		nil, // no pb.Constraints
-		nil, // no plannOpts
-	); err != nil {
-		return false, err
-	}
-
-	// go through plan and check that we can move from plan[i] to plan[i+1]
-	for i := 0; i < len(planNodes)-1; i++ {
-		currentConfig := planNodes[i].Q()
-		currentPose := planNodes[i].Pose()
-		nextConfig := planNodes[i+1].Q()
-		nextPose := planNodes[i+1].Pose()
-		if relative {
-			currentConfig = nil
-			nextConfig = nil
-		}
-		if isValid, fault := sfPlanner.planOpts.CheckSegmentAndStateValidity(
-			&ik.Segment{
-				StartConfiguration: currentConfig,
-				StartPosition:      currentPose,
-				EndConfiguration:   nextConfig,
-				EndPosition:        nextPose,
-				Frame:              sf,
-			},
-			sfPlanner.planOpts.Resolution,
-		); !isValid {
-			return false, fmt.Errorf("found collsion in segment:%v", fault)
-		}
-	}
-	return true, nil
 }

@@ -339,7 +339,7 @@ func TestPtgCheckPlan(t *testing.T) {
 
 	plan, err := tp.plan(context.Background(), goalPos, nil)
 	test.That(t, err, test.ShouldBeNil)
-	planAsInputs := nodesToInputs(plan)
+	planAsInputs := nodesToInputs(plan[1:])
 	test.That(t, err, test.ShouldBeNil)
 	steps := []map[string][]referenceframe.Input{}
 	for _, resultSlice := range planAsInputs {
@@ -347,8 +347,11 @@ func TestPtgCheckPlan(t *testing.T) {
 		steps = append(steps, stepMap)
 	}
 
+	currentInputs := referenceframe.StartPositions(fs)
+	errorState := spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0})
+
 	t.Run("base case - validate plan without obstacles", func(t *testing.T) {
-		valid, err := CheckPlan(ackermanFrame, steps, nil, fs)
+		valid, err := CheckPlan(ackermanFrame, steps, nil, fs, currentInputs, errorState)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, valid, test.ShouldBeTrue)
 	})
@@ -364,7 +367,7 @@ func TestPtgCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		valid, err := CheckPlan(ackermanFrame, steps, worldState, fs)
+		valid, err := CheckPlan(ackermanFrame, steps, worldState, fs, currentInputs, errorState)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, valid, test.ShouldBeFalse)
 	})
@@ -380,7 +383,7 @@ func TestPtgCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		valid, err := CheckPlan(ackermanFrame, steps, worldState, fs)
+		valid, err := CheckPlan(ackermanFrame, steps, worldState, fs, currentInputs, errorState)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, valid, test.ShouldBeFalse)
 	})
@@ -396,7 +399,7 @@ func TestPtgCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		valid, err := CheckPlan(ackermanFrame, steps, worldState, fs)
+		valid, err := CheckPlan(ackermanFrame, steps, worldState, fs, currentInputs, errorState)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, valid, test.ShouldBeFalse)
 	})
@@ -412,7 +415,7 @@ func TestPtgCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		valid, err := CheckPlan(ackermanFrame, steps, worldState, fs)
+		valid, err := CheckPlan(ackermanFrame, steps, worldState, fs, currentInputs, errorState)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, valid, test.ShouldBeFalse)
 	})
@@ -450,7 +453,7 @@ func TestPtgCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		valid, err := CheckPlan(ackermanFrame, steps, worldState, fs)
+		valid, err := CheckPlan(ackermanFrame, steps, worldState, fs, currentInputs, errorState)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, valid, test.ShouldBeTrue)
 	})
@@ -468,7 +471,7 @@ func TestPtgCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		valid, err := CheckPlan(ackermanFrame, steps, worldState, fs)
+		valid, err := CheckPlan(ackermanFrame, steps, worldState, fs, currentInputs, errorState)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, valid, test.ShouldBeFalse)
 	})
