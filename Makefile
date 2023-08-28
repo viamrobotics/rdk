@@ -58,6 +58,11 @@ lint-go: tool-install
 	export pkgs="`go list -f '{{.Dir}}' ./... | grep -v /proto/`" && echo "$$pkgs" | xargs go vet -vettool=$(TOOL_BIN)/combined
 	GOGC=50 $(TOOL_BIN)/golangci-lint run -v --fix --config=./etc/.golangci.yaml
 
+lint-32bit: tool-install
+	# todo: no_pigpio is wrong; get it working on 32-bit builder
+	$(TOOL_BIN)/golangci-lint run -v --build-tags no_tflite,no_pigpio --config etc/.golangci.yaml --tests=false --disable=unused,revive,stylecheck
+
+
 lint-web: check-web
 	npm run lint --prefix web/frontend
 
