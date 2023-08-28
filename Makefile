@@ -60,7 +60,7 @@ lint-go: tool-install
 
 lint-32bit: tool-install
 	# todo: no_pigpio is wrong; get it working on 32-bit builder
-	$(TOOL_BIN)/golangci-lint run -v --build-tags no_tflite,no_pigpio --tests=false --disable-all --enable staticcheck
+	$(TOOL_BIN)/golangci-lint run -v --build-tags no_tflite,no_pigpio --tests=false --disable-all --enable staticcheck --timeout 30m
 
 
 lint-web: check-web
