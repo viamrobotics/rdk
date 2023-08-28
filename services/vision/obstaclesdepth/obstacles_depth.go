@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"sync"
 
+	goutils "go.viam.com/utils"
+
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/muesli/clusters"
@@ -236,10 +238,11 @@ func (o *obsDepth) obsDepthWithIntrinsics(ctx context.Context, src camera.VideoS
 			}
 		}(i)
 	}
-	goutils.PanicCapturingGo(func() {
+
+	goutils.ManagedGo(func() {
 		wg.Wait()
 		close(obstaclePointChan)
-	})
+	}, nil)
 
 	obstaclePoints := make([]image.Point, 0, w*h/sampleN)
 	for op := range obstaclePointChan {
