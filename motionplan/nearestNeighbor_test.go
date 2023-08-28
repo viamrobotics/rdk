@@ -2,12 +2,16 @@ package motionplan
 
 import (
 	"context"
+	"math"
+	"runtime"
 	"testing"
 
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/referenceframe"
 )
+
+var nCPU = int(math.Max(1.0, float64(runtime.NumCPU()/4)))
 
 func TestNearestNeighbor(t *testing.T) {
 	nm := &neighborManager{nCPU: 2, parallelNeighbors: 1000}

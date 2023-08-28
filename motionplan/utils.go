@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 
+	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -40,12 +41,12 @@ func PathStepCount(seedPos, goalPos spatialmath.Pose, stepSize float64) int {
 }
 
 // EvaluatePlan assigns a numeric score to a plan that corresponds to the cumulative distance between input waypoints in the plan.
-func EvaluatePlan(plan [][]referenceframe.Input, distFunc SegmentMetric) (totalCost float64) {
+func EvaluatePlan(plan [][]referenceframe.Input, distFunc ik.SegmentMetric) (totalCost float64) {
 	if len(plan) < 2 {
 		return math.Inf(1)
 	}
 	for i := 0; i < len(plan)-1; i++ {
-		cost := distFunc(&Segment{StartConfiguration: plan[i], EndConfiguration: plan[i+1]})
+		cost := distFunc(&ik.Segment{StartConfiguration: plan[i], EndConfiguration: plan[i+1]})
 		totalCost += cost
 	}
 	return totalCost

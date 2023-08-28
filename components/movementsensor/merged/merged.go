@@ -29,7 +29,7 @@ type Config struct {
 	CompassHeading     []string `json:"compass_heading,omitempty"`
 	LinearVelocity     []string `json:"linear_velocity,omitempty"`
 	AngularVelocity    []string `json:"angular_velocity,omitempty"`
-	LinearAcceleration []string `json:"angular_acceleration,omitempty"`
+	LinearAcceleration []string `json:"linear_acceleration,omitempty"`
 }
 
 // Validate validates the merged model's configuration.

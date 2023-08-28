@@ -3,6 +3,7 @@ package board
 import (
 	"context"
 
+	"github.com/pkg/errors"
 	"google.golang.org/protobuf/types/known/anypb"
 
 	"go.viam.com/rdk/data"
@@ -57,8 +58,13 @@ func newAnalogCollector(resource interface{}, params data.CollectorParams) (data
 		var readings []AnalogRecord
 		for k := range arg {
 			if reader, ok := board.AnalogReaderByName(k); ok {
-				value, err := reader.Read(ctx, nil)
+				value, err := reader.Read(ctx, data.FromDMExtraMap)
 				if err != nil {
+					// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
+					// is used in the datamanager to exclude readings from being captured and stored.
+					if errors.Is(err, data.ErrNoCaptureToStore) {
+						return nil, err
+					}
 					return nil, data.FailedToReadErr(params.ComponentName, analogs.String(), err)
 				}
 				readings = append(readings, AnalogRecord{AnalogName: k, AnalogValue: value})
@@ -79,8 +85,13 @@ func newGPIOCollector(resource interface{}, params data.CollectorParams) (data.C
 		var readings []GpioRecord
 		for k := range arg {
 			if gpio, err := board.GPIOPinByName(k); err == nil {
-				value, err := gpio.Get(ctx, nil)
+				value, err := gpio.Get(ctx, data.FromDMExtraMap)
 				if err != nil {
+					// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
+					// is used in the datamanager to exclude readings from being captured and stored.
+					if errors.Is(err, data.ErrNoCaptureToStore) {
+						return nil, err
+					}
 					return nil, data.FailedToReadErr(params.ComponentName, gpios.String(), err)
 				}
 				readings = append(readings, GpioRecord{GPIOName: k, GPIOValue: value})
