@@ -88,8 +88,6 @@ func DownloadBoardDefsAction(c *cli.Context) error {
 
 	if versionArg == "" {
 		versionArg = "latest"
-	} else if !supportedVersionRegex.MatchString(versionArg) {
-		return fmt.Errorf("invalid version %s. Must use semver 2.0.0 specification for versions", versionArg)
 	}
 
 	client, err := newAppClient(c)
