@@ -235,6 +235,7 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		return err
 	}
 
+	svc.mode = navigation.ModeManual
 	svc.store = newStore
 	svc.storeType = string(svcConfig.Store.Type)
 	svc.base = base1
@@ -401,12 +402,15 @@ func (svc *builtIn) startWaypoint(ctx context.Context, extra map[string]interfac
 
 		// loop until no waypoints remaining
 		for {
+		WP:
 			if ctx.Err() != nil {
 				return
 			}
 
 			wp, err := svc.store.NextWaypoint(ctx)
-			if err != nil {
+			if err.Error() == "no more waypoints" {
+				goto WP
+			} else if err != nil {
 				return
 			}
 			svc.mu.Lock()
