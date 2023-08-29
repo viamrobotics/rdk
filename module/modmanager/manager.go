@@ -43,6 +43,7 @@ var (
 
 // NewManager returns a Manager.
 func NewManager(parentAddr string, logger golog.Logger, options modmanageroptions.Options) modmaninterface.ModuleManager {
+	restartCtx, restartCtxCancel := context.WithCancel(context.Background())
 	return &Manager{
 		logger:                  logger,
 		modules:                 map[string]*module{},
@@ -50,6 +51,8 @@ func NewManager(parentAddr string, logger golog.Logger, options modmanageroption
 		rMap:                    map[resource.Name]*module{},
 		untrustedEnv:            options.UntrustedEnv,
 		removeOrphanedResources: options.RemoveOrphanedResources,
+		restartCtx:              restartCtx,
+		restartCtxCancel:        restartCtxCancel,
 	}
 }
 
@@ -92,12 +95,18 @@ type Manager struct {
 	rMap                    map[resource.Name]*module
 	untrustedEnv            bool
 	removeOrphanedResources func(ctx context.Context, rNames []resource.Name)
+	restartCtx              context.Context
+	restartCtxCancel        context.CancelFunc
 }
 
 // Close terminates module connections and processes.
 func (mgr *Manager) Close(ctx context.Context) error {
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
+
+	if mgr.restartCtxCancel != nil {
+		mgr.restartCtxCancel()
+	}
 	var err error
 	for _, mod := range mgr.modules {
 		err = multierr.Combine(err, mgr.remove(mod, false))
@@ -137,7 +146,7 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, conn *grpc.Clie
 		}
 	}()
 
-	if err := mod.startProcess(ctx, mgr.parentAddr,
+	if err := mod.startProcess(mgr.restartCtx, mgr.parentAddr,
 		mgr.newOnUnexpectedExitHandler(mod), mgr.logger); err != nil {
 		return errors.WithMessage(err, "error while starting module "+mod.name)
 	}
@@ -448,7 +457,7 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) b
 		defer mod.inRecovery.Store(false)
 
 		// Use oueTimeout for entire attempted module restart.
-		ctx, cancel := context.WithTimeout(context.Background(), oueTimeout)
+		ctx, cancel := context.WithTimeout(mgr.restartCtx, oueTimeout)
 		defer cancel()
 
 		// Log error immediately, as this is unexpected behavior.
@@ -521,7 +530,7 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 
 	// Attempt to restart module process 3 times.
 	for attempt := 1; attempt < 4; attempt++ {
-		if err := mod.startProcess(ctx, mgr.parentAddr,
+		if err := mod.startProcess(mgr.restartCtx, mgr.parentAddr,
 			mgr.newOnUnexpectedExitHandler(mod), mgr.logger); err != nil {
 			mgr.logger.Errorf("attempt %d: error while restarting crashed module %s: %v",
 				attempt, mod.name, err)
@@ -635,7 +644,7 @@ func (m *module) startProcess(
 		return errors.WithMessage(err, "module startup failed")
 	}
 
-	ctxTimeout, cancel := context.WithTimeout(ctx, rutils.GetResourceConfigurationTimeout(logger))
+	ctxTimeout, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
 	for {
 		select {
