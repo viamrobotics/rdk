@@ -361,88 +361,89 @@ func (ms *builtIn) MoveOnGlobe(
 		return false, err
 	}
 
-	// start goroutine to execute plan
+	// start goroutine to replan
 	backgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
 		for {
 			select {
 			case <-ctx.Done():
 				return
-			case plan := <-planChan:
-				if err := ms.executePlan(cancelCtx, kb, plan); err != nil {
-					errChan <- err
-					return
-				}
+			case <-successChan:
+				return
+			case <-replanChan:
+				fmt.Println("replanning")
 
-				position, _, err := movementSensor.Position(cancelCtx, nil)
+				ms.cancelFn()
+				cancelCtx, cancelFn = context.WithCancel(ctx)
+				ms.cancelFn = cancelFn
+
+				inputs, err := kb.CurrentInputs(ctx)
 				if err != nil {
 					errChan <- err
 					return
 				}
+				inputMap := map[string][]referenceframe.Input{componentName.Name: inputs}
 
-				ms.logger.Infof("position: %v", position)
-				if spatialmath.GeoPointToPose(position, destination).Point().Norm() <= kinematicsOptions.PlanDeviationThresholdMM {
-					successChan <- true
+				plan, err := motionplan.PlanMotion(
+					ctx,
+					ms.logger,
+					referenceframe.NewPoseInFrame(referenceframe.World, goal),
+					offsetFrame,
+					inputMap,
+					fs,
+					worldState,
+					nil,
+					extra,
+				)
+				if err != nil {
+					errChan <- err
 					return
 				}
+				planChan <- plan
+
+				// drain the replanChan
+				for len(replanChan) > 0 {
+					<-replanChan
+				}
+
+				startPolling(cancelCtx, positionPollingPeriod, func(ctx context.Context) error {
+					// TODO: the function that actually monitors position
+					fmt.Println("position poll")
+					return nil
+				})
+				startPolling(cancelCtx, obstaclePollingPeriod, func(ctx context.Context) error {
+					// TODO: the function that actually monitors obstacles
+					fmt.Println("obstacle poll")
+					replanChan <- true
+					return nil
+				})
 			}
 		}
 	}, backgroundWorkers.Done)
 
-	// loop to monitor things that poll and replan appropriately
+	// execution loop, exits when distance between GPS position reported by movement sensor is within PlanDeviationThreshold of the goal
+	// after it exits, deferred statements will execute cleaning up the other threads
 	for {
 		select {
 		case <-ctx.Done():
 			return false, ctx.Err()
 		case err := <-errChan:
 			return false, err
-		case <-replanChan:
-			fmt.Println("replanning")
+		case plan := <-planChan:
+			if err := ms.executePlan(cancelCtx, kb, plan); err != nil {
+				return false, err
+			}
 
-			ms.cancelFn()
-			cancelCtx, cancelFn = context.WithCancel(ctx)
-			ms.cancelFn = cancelFn
-
-			inputs, err := kb.CurrentInputs(ctx)
+			position, _, err := movementSensor.Position(cancelCtx, nil)
 			if err != nil {
 				return false, err
 			}
-			inputMap := map[string][]referenceframe.Input{componentName.Name: inputs}
 
-			plan, err := motionplan.PlanMotion(
-				ctx,
-				ms.logger,
-				referenceframe.NewPoseInFrame(referenceframe.World, goal),
-				offsetFrame,
-				inputMap,
-				fs,
-				worldState,
-				nil,
-				extra,
-			)
-			if err != nil {
-				return false, err
+			ms.logger.Infof("position: %v", position)
+			if spatialmath.GeoPointToPose(position, destination).Point().Norm() <= kinematicsOptions.PlanDeviationThresholdMM {
+				successChan <- true
+				return true, nil
 			}
-			planChan <- plan
-
-			// drain the replanChan
-			for len(replanChan) > 0 {
-				<-replanChan
-			}
-
-			startPolling(cancelCtx, positionPollingPeriod, func(ctx context.Context) error {
-				// TODO: the function that actually monitors position
-				fmt.Println("position poll")
-				return nil
-			})
-			startPolling(cancelCtx, obstaclePollingPeriod, func(ctx context.Context) error {
-				// TODO: the function that actually monitors obstacles
-				fmt.Println("obstacle poll")
-				replanChan <- true
-				return nil
-			})
-		case <-successChan:
-			return true, nil
 		}
 	}
 }

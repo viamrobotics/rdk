@@ -73,6 +73,6 @@ func (fk *fakeKinematics) GoToInputs(ctx context.Context, inputs []referencefram
 		{Value: fk.inputs[0].Value + inputs[0].Value},
 		{Value: fk.inputs[1].Value + inputs[1].Value},
 	}
-	time.Sleep(250 * time.Millisecond)
+	time.Sleep(150 * time.Millisecond)
 	return err
 }
