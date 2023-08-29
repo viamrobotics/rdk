@@ -269,7 +269,6 @@ func (ms *builtIn) MoveOnGlobe(
 			for {
 				select {
 				case <-ctx.Done():
-					errChan <- ctx.Err()
 					return
 				case <-ticker.C:
 					if err := fn(ctx); err != nil {
@@ -371,7 +370,6 @@ func (ms *builtIn) MoveOnGlobe(
 		for {
 			select {
 			case <-ctx.Done():
-				errChan <- ctx.Err()
 				return
 			case plan := <-planChan:
 				if err := ms.executePlan(cancelCtx, kb, plan); err != nil {
