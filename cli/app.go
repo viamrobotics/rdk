@@ -29,6 +29,7 @@ const (
 	moduleFlagPath            = "module"
 	moduleFlagVersion         = "version"
 	moduleFlagPlatform        = "platform"
+	moduleFlagForce           = "force"
 
 	dataFlagDestination       = "destination"
 	dataFlagDataType          = "data-type"
@@ -568,6 +569,10 @@ viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.ta
                       darwin/amd64 (for intel macs)
                       darwin/arm64 (for non-intel macs)`,
 							Required: true,
+						},
+						&cli.BoolFlag{
+							Name:  moduleFlagForce,
+							Usage: "skip validation (may result in non-functional versions)",
 						},
 					},
 					Action: UploadModuleAction,
