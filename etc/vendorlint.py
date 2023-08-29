@@ -75,7 +75,7 @@ def main():
 
     if args.command in ('walk', 'all'):
         walk(args)
-    elif args.command in ('analyze', 'all'):
+    if args.command in ('analyze', 'all'):
         analyze(args)
 
 if __name__ == '__main__':
