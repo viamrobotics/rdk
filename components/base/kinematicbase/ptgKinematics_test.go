@@ -47,7 +47,13 @@ func TestPTGKinematics(t *testing.T) {
 	fs.AddFrame(f, fs.World())
 	inputMap := referenceframe.StartPositions(fs)
 
-	plan, err := motionplan.PlanMotion(ctx, logger, dstPIF, f, inputMap, fs, nil, nil, nil)
+	plan, err := motionplan.PlanMotion(ctx, motionplan.PlanRequest{
+		Logger:      logger,
+		Goal:        dstPIF,
+		Frame:       f,
+		Inputs:      inputMap,
+		FrameSystem: fs,
+	})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, plan, test.ShouldNotBeNil)
 }

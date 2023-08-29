@@ -157,7 +157,16 @@ func (ms *builtIn) Move(
 	goalPose, _ := tf.(*referenceframe.PoseInFrame)
 
 	// the goal is to move the component to goalPose which is specified in coordinates of goalFrameName
-	output, err := motionplan.PlanMotion(ctx, ms.logger, goalPose, movingFrame, fsInputs, frameSys, worldState, constraints, extra)
+	output, err := motionplan.PlanMotion(ctx, motionplan.PlanRequest{
+		Logger:          ms.logger,
+		Goal:            goalPose,
+		Frame:           movingFrame,
+		Inputs:          fsInputs,
+		FrameSystem:     frameSys,
+		WorldState:      worldState,
+		ConstraintSpecs: constraints,
+		Options:         extra,
+	})
 	if err != nil {
 		return false, err
 	}
@@ -382,19 +391,16 @@ func (ms *builtIn) MoveOnGlobe(
 					errChan <- err
 					return
 				}
-				inputMap := map[string][]referenceframe.Input{componentName.Name: inputs}
-
-				plan, err := motionplan.PlanMotion(
-					ctx,
-					ms.logger,
-					referenceframe.NewPoseInFrame(referenceframe.World, goal),
-					offsetFrame,
-					inputMap,
-					fs,
-					worldState,
-					nil,
-					extra,
-				)
+				plan, err := motionplan.PlanMotion(ctx, motionplan.PlanRequest{
+					Logger:          ms.logger,
+					Goal:            referenceframe.NewPoseInFrame(referenceframe.World, goal),
+					Frame:           offsetFrame,
+					Inputs:          map[string][]referenceframe.Input{componentName.Name: inputs},
+					FrameSystem:     fs,
+					WorldState:      worldState,
+					ConstraintSpecs: nil,
+					Options:         extra,
+				})
 				if err != nil {
 					errChan <- err
 					return
@@ -503,7 +509,7 @@ func (ms *builtIn) planMoveOnGlobe(
 	geoms := spatialmath.GeoObstaclesToGeometries(obstacles, origin)
 
 	gif := referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)
-	wrldst, err := referenceframe.NewWorldState([]*referenceframe.GeometriesInFrame{gif}, nil)
+	worldState, err := referenceframe.NewWorldState([]*referenceframe.GeometriesInFrame{gif}, nil)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -573,17 +579,16 @@ func (ms *builtIn) planMoveOnGlobe(
 	}
 
 	// make call to motionplan
-	plan, err := motionplan.PlanMotion(
-		ctx,
-		ms.logger,
-		referenceframe.NewPoseInFrame(referenceframe.World, goal),
-		offsetFrame,
-		inputMap,
-		fs,
-		wrldst,
-		nil,
-		extra,
-	)
+	plan, err := motionplan.PlanMotion(ctx, motionplan.PlanRequest{
+		Logger:          ms.logger,
+		Goal:            referenceframe.NewPoseInFrame(referenceframe.World, goal),
+		Frame:           offsetFrame,
+		Inputs:          inputMap,
+		FrameSystem:     fs,
+		WorldState:      worldState,
+		ConstraintSpecs: nil,
+		Options:         extra,
+	})
 	if err != nil {
 		return nil, nil, err
 	}
@@ -697,7 +702,16 @@ func (ms *builtIn) planMoveOnMap(
 	seedMap := map[string][]referenceframe.Input{f.Name(): inputs}
 
 	ms.logger.Debugf("goal position: %v", dst.Pose().Point())
-	plan, err := motionplan.PlanMotion(ctx, ms.logger, dst, f, seedMap, fs, worldState, nil, extra)
+	plan, err := motionplan.PlanMotion(ctx, motionplan.PlanRequest{
+		Logger:          ms.logger,
+		Goal:            dst,
+		Frame:           f,
+		Inputs:          seedMap,
+		FrameSystem:     fs,
+		WorldState:      worldState,
+		ConstraintSpecs: nil,
+		Options:         extra,
+	})
 	if err != nil {
 		return nil, nil, err
 	}
