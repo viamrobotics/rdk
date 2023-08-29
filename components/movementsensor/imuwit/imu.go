@@ -76,16 +76,15 @@ func init() {
 type wit struct {
 	resource.Named
 	resource.AlwaysRebuild
-	angularVelocity spatialmath.AngularVelocity
-	orientation     spatialmath.EulerAngles
-	acceleration    r3.Vector
-	magnetometer    r3.Vector
-	compassheading  float64
-	numBadReadings  uint32
-	err             movementsensor.LastError
-
-	mu sync.Mutex
-
+	angularVelocity         spatialmath.AngularVelocity
+	orientation             spatialmath.EulerAngles
+	acceleration            r3.Vector
+	magnetometer            r3.Vector
+	compassheading          float64
+	numBadReadings          uint32
+	err                     movementsensor.LastError
+	compassBool             bool
+	mu                      sync.Mutex
 	port                    io.ReadWriteCloser
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
@@ -178,7 +177,7 @@ func (imu *wit) Properties(ctx context.Context, extra map[string]interface{}) (*
 		AngularVelocitySupported:    true,
 		OrientationSupported:        true,
 		LinearAccelerationSupported: true,
-		CompassHeadingSupported:     !math.IsNaN(imu.compassheading),
+		CompassHeadingSupported:     imu.compassBool,
 	}, nil
 }
 
@@ -228,6 +227,7 @@ func newWit(
 }
 
 func (imu *wit) startUpdateLoop(ctx context.Context, portReader *bufio.Reader, logger golog.Logger) {
+	imu.compassBool = false
 	ctx, imu.cancelFunc = context.WithCancel(ctx)
 	imu.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
@@ -318,6 +318,7 @@ func (imu *wit) parseWIT(line string) error {
 	}
 
 	if line[0] == 0x54 {
+		imu.compassBool = true
 		if len(line) < 7 {
 			return fmt.Errorf("line is wrong for imu magnetometer %d %v", len(line), line)
 		}
