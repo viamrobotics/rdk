@@ -128,7 +128,7 @@ func (c *appClient) uploadBoardDefsFile(
 	}
 
 	// Create an archive tar.gz file (required for packages).
-	file, err := CreateArchive(jsonFile)
+	file, err := createArchive(jsonFile)
 	if err != nil {
 		return nil, errors.Wrap(err, "error creating archive")
 	}
@@ -203,7 +203,7 @@ func (c *appClient) downloadBoardDefsFile(
 
 	response, err := c.packageClient.GetPackage(ctx, req)
 	if err != nil {
-		return fmt.Errorf("could not retrieve the requested package: %w", err)
+		return errors.Wrap(err, "could not retrieve the requested package")
 	}
 
 	currentDir, err := os.Getwd()
@@ -260,8 +260,8 @@ func sendPackageRequests(stream packagepb.PackageService_CreatePackageClient,
 	return nil
 }
 
-// CreateArchive creates a tar.gz from the file provided.
-func CreateArchive(file *os.File) (*bytes.Buffer, error) {
+// createArchive creates a tar.gz from the file provided.
+func createArchive(file *os.File) (*bytes.Buffer, error) {
 	// Create output buffer
 	out := new(bytes.Buffer)
 
@@ -321,20 +321,20 @@ func downloadFile(ctx context.Context, filepath, url string) error {
 	//nolint:bodyclose /// closed in UncheckedErrorFunc
 	resp, err := httpClient.Do(getReq)
 	if err != nil {
-		return fmt.Errorf("error downloading the requested package: %w", err)
+		return errors.Wrap(err, "error downloading the requested package")
 	}
 
 	defer utils.UncheckedErrorFunc(resp.Body.Close)
 
-	err = Untar(filepath, resp.Body)
+	err = untar(filepath, resp.Body)
 	if err != nil {
-		return fmt.Errorf("error extracting the tar file: %w", err)
+		return errors.Wrap(err, "error extracting the tar file")
 	}
 	return nil
 }
 
-// Untar extracts the tar.gz file, keeping file directory structure.
-func Untar(dst string, r io.Reader) error {
+// untar extracts the tar.gz file, keeping file directory structure.
+func untar(dst string, r io.Reader) error {
 	gzr, err := gzip.NewReader(r)
 	if err != nil {
 		return err
