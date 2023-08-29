@@ -83,7 +83,7 @@ type wit struct {
 	compassheading          float64
 	numBadReadings          uint32
 	err                     movementsensor.LastError
-	compassBool             bool
+	hasMagnetometer         bool
 	mu                      sync.Mutex
 	port                    io.ReadWriteCloser
 	cancelFunc              func()
@@ -177,7 +177,7 @@ func (imu *wit) Properties(ctx context.Context, extra map[string]interface{}) (*
 		AngularVelocitySupported:    true,
 		OrientationSupported:        true,
 		LinearAccelerationSupported: true,
-		CompassHeadingSupported:     imu.compassBool,
+		CompassHeadingSupported:     imu.hasMagnetometer,
 	}, nil
 }
 
@@ -227,7 +227,7 @@ func newWit(
 }
 
 func (imu *wit) startUpdateLoop(ctx context.Context, portReader *bufio.Reader, logger golog.Logger) {
-	imu.compassBool = false
+	imu.hasMagnetometer = false
 	ctx, imu.cancelFunc = context.WithCancel(ctx)
 	imu.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
@@ -318,7 +318,7 @@ func (imu *wit) parseWIT(line string) error {
 	}
 
 	if line[0] == 0x54 {
-		imu.compassBool = true
+		imu.hasMagnetometer = true
 		if len(line) < 7 {
 			return fmt.Errorf("line is wrong for imu magnetometer %d %v", len(line), line)
 		}
