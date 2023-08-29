@@ -50,7 +50,7 @@ func UploadBoardDefsAction(ctx *cli.Context) error {
 		return fmt.Errorf("invalid version %s. Must use semver 2.0.0 specification for versions", versionArg)
 	}
 
-	client, err := newAppClient(ctx)
+	client, err := newViamClient(ctx)
 	if err != nil {
 		return err
 	}
@@ -90,7 +90,7 @@ func DownloadBoardDefsAction(c *cli.Context) error {
 		versionArg = "latest"
 	}
 
-	client, err := newAppClient(c)
+	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
@@ -111,7 +111,7 @@ func DownloadBoardDefsAction(c *cli.Context) error {
 	return nil
 }
 
-func (c *appClient) uploadBoardDefsFile(
+func (c *viamClient) uploadBoardDefsFile(
 	name string,
 	version string,
 	orgID string,
@@ -178,7 +178,7 @@ func (c *appClient) uploadBoardDefsFile(
 	return resp, nil
 }
 
-func (c *appClient) downloadBoardDefsFile(
+func (c *viamClient) downloadBoardDefsFile(
 	name string,
 	version string,
 	orgID string,
@@ -221,7 +221,7 @@ func (c *appClient) downloadBoardDefsFile(
 }
 
 // helper function to check if a package with this name and version already exists.
-func (c *appClient) boardDefsVersionExists(ctx *cli.Context, orgID, name, version string) error {
+func (c *viamClient) boardDefsVersionExists(ctx *cli.Context, orgID, name, version string) error {
 	// the packageID is the orgid/name
 	packageID := fmt.Sprintf("%s/%s", orgID, name)
 

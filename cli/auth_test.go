@@ -10,7 +10,7 @@ import (
 )
 
 func TestLoginAction(t *testing.T) {
-	cCtx, ac, out, errOut := setup(nil)
+	cCtx, ac, out, errOut := setup(nil, nil)
 
 	test.That(t, ac.loginAction(cCtx), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
@@ -21,7 +21,7 @@ func TestLoginAction(t *testing.T) {
 
 func TestPrintAccessTokenAction(t *testing.T) {
 	// AppServiceClient needed for any Action that calls ensureLoggedIn.
-	cCtx, ac, out, errOut := setup(&inject.AppServiceClient{})
+	cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, nil)
 
 	test.That(t, ac.printAccessTokenAction(cCtx), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
@@ -30,7 +30,7 @@ func TestPrintAccessTokenAction(t *testing.T) {
 }
 
 func TestLogoutAction(t *testing.T) {
-	cCtx, ac, out, errOut := setup(nil)
+	cCtx, ac, out, errOut := setup(nil, nil)
 
 	test.That(t, ac.logoutAction(cCtx), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
@@ -40,7 +40,7 @@ func TestLogoutAction(t *testing.T) {
 }
 
 func TestWhoAmIAction(t *testing.T) {
-	cCtx, ac, out, errOut := setup(nil)
+	cCtx, ac, out, errOut := setup(nil, nil)
 
 	test.That(t, ac.whoAmIAction(cCtx), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)

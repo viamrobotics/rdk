@@ -131,31 +131,20 @@ func (imu *wit) CompassHeading(ctx context.Context, extra map[string]interface{}
 	var err error
 	// this only works when the imu is level to the surface of the earth, no inclines
 	// do not let the imu near permanent magnets or things that make a strong magnetic field
-	if imu.checkMagReadingsExist() {
-		imu.compassheading = calculateCompassHeading(imu.magnetometer.X, imu.magnetometer.Y)
-	} else {
-		imu.compassheading = math.NaN()
-		err = movementsensor.ErrMethodUnimplementedCompassHeading
-	}
+	imu.compassheading = calculateCompassHeading(imu.magnetometer.X, imu.magnetometer.Y)
 
 	return imu.compassheading, err
-}
-
-// these were not included in the busy loop as they are a stop-gap solution to obtain
-// compass heading under a very specific circumstance
-// eventually, we will implment filters that give us more robust data and check for
-// magnetometry data existing in the construction.
-func (imu *wit) checkMagReadingsExist() bool {
-	return imu.magnetometer.X != 0 && imu.magnetometer.Y != 0 && imu.magnetometer.Z != 0
 }
 
 func calculateCompassHeading(x, y float64) float64 {
 	// calculate -180 to 180 heading from radians
 	// North (y) is 0 so  the π/2 - atan2(y, x) identity is used
-	// directly
-	rad := math.Atan2(x, y) * 180 / math.Pi // -180 to 180 heading
-
-	return math.Mod(rad+360, 360) // change domain to 0 to 360
+	// directl
+	rad := math.Atan2(y, x) // -180 to 180 heading
+	compass := rutils.RadToDeg(rad)
+	compass = math.Mod(compass, 360)
+	compass = math.Mod(compass+360, 360)
+	return compass // change domain to 0 to 360
 }
 
 func (imu *wit) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
@@ -295,7 +284,7 @@ func scale(a, b byte, r float64) float64 {
 }
 
 func convertMagByteToTesla(a, b byte) float64 {
-	x := float64(int(b)<<8 | int(a)) // 0 -> 2
+	x := float64(int(int8(b))<<8 | int(a)) // 0 -> 2
 	return x
 }
 
