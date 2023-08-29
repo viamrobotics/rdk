@@ -590,7 +590,7 @@ viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.ta
 					Description: `Upload a json board definition file for linux boards.
 Example:
 viam board upload --name=orin --org="my org" --version=1.0.0 file.json`,
-					UsageText: "viam board upload <name> <org> <version> [other options] <file.json>",
+					UsageText: "viam board upload <name> <organization> <version> [other options] <file.json>",
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     boardFlagName,
@@ -599,7 +599,7 @@ viam board upload --name=orin --org="my org" --version=1.0.0 file.json`,
 						},
 						&cli.StringFlag{
 							Name:     organizationFlag,
-							Usage:    "Organization that will host the board file. This can be the org's ID or name",
+							Usage:    "organization that will host the board definitions file. This can be the org's ID or name",
 							Required: true,
 						},
 						&cli.StringFlag{
@@ -609,6 +609,31 @@ viam board upload --name=orin --org="my org" --version=1.0.0 file.json`,
 						},
 					},
 					Action: UploadBoardDefsAction,
+				},
+				{
+					Name:  "download",
+					Usage: "download a board definitions package",
+					Description: `download a json board definitions file for generic linux boards.
+Example:
+viam board download --name=test --organization="my org" --version=1.0.0`,
+					UsageText: "viam board download <name> <organization> <version> [other options]",
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     boardFlagName,
+							Usage:    "name of the board definitions file to download",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:     organizationFlag,
+							Usage:    "organization that hosts the board definitions file",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:  boardFlagVersion,
+							Usage: "version of the file to download. defaults to latest if not set.",
+						},
+					},
+					Action: DownloadBoardDefsAction,
 				},
 			},
 		},
