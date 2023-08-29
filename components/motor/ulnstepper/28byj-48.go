@@ -121,6 +121,7 @@ func new28byj(ctx context.Context, deps resource.Dependencies, conf resource.Con
 		ticksPerRotation: mc.TicksPerRotation,
 		logger:           logger,
 		motorName:        conf.Name,
+		opMgr:            operation.NewSingleOperationManager(),
 	}
 
 	in1, err := b.GPIOPinByName(mc.Pins.In1)
@@ -163,7 +164,7 @@ type uln28byj struct {
 
 	// state
 	lock  sync.Mutex
-	opMgr operation.SingleOperationManager
+	opMgr *operation.SingleOperationManager
 
 	stepPosition       int64
 	stepperDelay       time.Duration

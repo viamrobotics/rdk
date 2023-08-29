@@ -23,23 +23,27 @@ func init() {
 const (
 	defaultWidthMm               = 600
 	defaultMinimumTurningRadiusM = 0
+	defaultWheelCircumferenceM   = 3
 )
 
 // Base is a fake base that returns what it was provided in each method.
 type Base struct {
 	resource.Named
 	resource.TriviallyReconfigurable
-	CloseCount    int
-	WidthMeters   float64
-	TurningRadius float64
-	Geometry      []spatialmath.Geometry
+	CloseCount               int
+	WidthMeters              float64
+	TurningRadius            float64
+	WheelCircumferenceMeters float64
+	Geometry                 []spatialmath.Geometry
+	logger                   golog.Logger
 }
 
 // NewBase instantiates a new base of the fake model type.
-func NewBase(_ context.Context, _ resource.Dependencies, conf resource.Config, _ golog.Logger) (base.Base, error) {
+func NewBase(_ context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (base.Base, error) {
 	b := &Base{
 		Named:    conf.ResourceName().AsNamed(),
 		Geometry: []spatialmath.Geometry{},
+		logger:   logger,
 	}
 	if conf.Frame != nil && conf.Frame.Geometry != nil {
 		geometry, err := conf.Frame.Geometry.ParseConfig()
@@ -92,8 +96,9 @@ func (b *Base) Close(ctx context.Context) error {
 // Properties returns the base's properties.
 func (b *Base) Properties(ctx context.Context, extra map[string]interface{}) (base.Properties, error) {
 	return base.Properties{
-		TurningRadiusMeters: b.TurningRadius,
-		WidthMeters:         b.WidthMeters,
+		TurningRadiusMeters:      b.TurningRadius,
+		WidthMeters:              b.WidthMeters,
+		WheelCircumferenceMeters: b.WheelCircumferenceMeters,
 	}, nil
 }
 

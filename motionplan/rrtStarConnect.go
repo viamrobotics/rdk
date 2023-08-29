@@ -3,13 +3,13 @@ package motionplan
 import (
 	"context"
 	"encoding/json"
-	"math"
 	"math/rand"
 	"time"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -26,9 +26,6 @@ const (
 type rrtStarConnectOptions struct {
 	// The number of nearest neighbors to consider when adding a new sample to the tree
 	NeighborhoodSize int `json:"neighborhood_size"`
-
-	// Parameters common to all RRT implementations
-	*rrtOptions
 }
 
 // newRRTStarConnectOptions creates a struct controlling the running of a single invocation of the algorithm.
@@ -36,7 +33,6 @@ type rrtStarConnectOptions struct {
 func newRRTStarConnectOptions(planOpts *plannerOptions) (*rrtStarConnectOptions, error) {
 	algOpts := &rrtStarConnectOptions{
 		NeighborhoodSize: defaultNeighborhoodSize,
-		rrtOptions:       newRRTOptions(),
 	}
 	// convert map to json
 	jsonString, err := json.Marshal(planOpts.extra)
@@ -120,7 +116,8 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 		}
 		rrt.maps = planSeed.maps
 	}
-	target := referenceframe.InterpolateInputs(seed, rrt.maps.optNode.Q(), 0.5)
+	target := newConfigurationNode(referenceframe.InterpolateInputs(seed, rrt.maps.optNode.Q(), 0.5))
+	map1, map2 := rrt.maps.startMap, rrt.maps.goalMap
 
 	// Keep a list of the node pairs that have the same inputs
 	shared := make([]*nodePair, 0)
@@ -132,7 +129,7 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 
 	nSolved := 0
 
-	for i := 0; i < mp.algOpts.PlanIter; i++ {
+	for i := 0; i < mp.planOpts.PlanIter; i++ {
 		select {
 		case <-ctx.Done():
 			// stop and return best path
@@ -147,17 +144,48 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 		default:
 		}
 
-		// try to connect the target to map 1
-		utils.PanicCapturingGo(func() {
-			mp.extend(rrt.maps.startMap, target, m1chan)
-		})
-		utils.PanicCapturingGo(func() {
-			mp.extend(rrt.maps.goalMap, target, m2chan)
-		})
-		map1reached := <-m1chan
-		map2reached := <-m2chan
+		tryExtend := func(target node) (node, node, error) {
+			// attempt to extend maps 1 and 2 towards the target
+			// If ctx is done, nearest neighbors will be invalid and we want to return immediately
+			select {
+			case <-ctx.Done():
+				return nil, nil, ctx.Err()
+			default:
+			}
 
-		if map1reached != nil && map2reached != nil {
+			utils.PanicCapturingGo(func() {
+				mp.extend(ctx, map1, target, m1chan)
+			})
+			utils.PanicCapturingGo(func() {
+				mp.extend(ctx, map2, target, m2chan)
+			})
+			map1reached := <-m1chan
+			map2reached := <-m2chan
+
+			return map1reached, map2reached, nil
+		}
+
+		map1reached, map2reached, err := tryExtend(target)
+		if err != nil {
+			rrt.solutionChan <- &rrtPlanReturn{planerr: err, maps: rrt.maps}
+			return
+		}
+
+		reachedDelta := mp.planOpts.DistanceFunc(&ik.Segment{StartConfiguration: map1reached.Q(), EndConfiguration: map2reached.Q()})
+
+		// Second iteration; extend maps 1 and 2 towards the halfway point between where they reached
+		if reachedDelta > mp.planOpts.JointSolveDist {
+			target = newConfigurationNode(referenceframe.InterpolateInputs(map1reached.Q(), map2reached.Q(), 0.5))
+			map1reached, map2reached, err = tryExtend(target)
+			if err != nil {
+				rrt.solutionChan <- &rrtPlanReturn{planerr: err, maps: rrt.maps}
+				return
+			}
+			reachedDelta = mp.planOpts.DistanceFunc(&ik.Segment{StartConfiguration: map1reached.Q(), EndConfiguration: map2reached.Q()})
+		}
+
+		// Solved
+		if reachedDelta <= mp.planOpts.JointSolveDist {
 			// target was added to both map
 			shared = append(shared, &nodePair{map1reached, map2reached})
 
@@ -176,64 +204,78 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 		}
 
 		// get next sample, switch map pointers
-		target = referenceframe.RandomFrameInputs(mp.frame, mp.randseed)
+		target, err = mp.sample(map1reached, i)
+		if err != nil {
+			rrt.solutionChan <- &rrtPlanReturn{planerr: err, maps: rrt.maps}
+			return
+		}
+		map1, map2 = map2, map1
 	}
 	mp.logger.Debug("RRT* exceeded max iter")
 	rrt.solutionChan <- shortestPath(rrt.maps, shared)
 }
 
 func (mp *rrtStarConnectMotionPlanner) extend(
-	tree rrtMap,
-	target []referenceframe.Input,
+	ctx context.Context,
+	rrtMap map[node]node,
+	target node,
 	mchan chan node,
 ) {
-	if validTarget := mp.checkInputs(target); !validTarget {
-		mchan <- nil
-		return
-	}
-	// iterate over the k nearest neighbors and find the minimum cost to connect the target node to the tree
-	neighbors := kNearestNeighbors(mp.planOpts, tree, &basicNode{q: target}, mp.algOpts.NeighborhoodSize)
-	minCost := math.Inf(1)
-	minIndex := -1
-	for i, thisNeighbor := range neighbors {
-		cost := thisNeighbor.node.Cost() + thisNeighbor.dist
-		if mp.checkPath(thisNeighbor.node.Q(), target) {
-			minIndex = i
-			minCost = cost
-			// Neighbors are returned ordered by their costs. The first valid one we find is best, so break here.
+	// This should iterate until one of the following conditions:
+	// 1) we have reached the target
+	// 2) the request is cancelled/times out
+	// 3) we are no longer approaching the target and our "best" node is further away than the previous best
+	// 4) further iterations change our best node by close-to-zero amounts
+	// 5) we have iterated more than maxExtendIter times
+	near := kNearestNeighbors(mp.planOpts, rrtMap, &basicNode{q: target.Q()}, mp.algOpts.NeighborhoodSize)[0].node
+	oldNear := near
+	for i := 0; i < maxExtendIter; i++ {
+		select {
+		case <-ctx.Done():
+			mchan <- oldNear
+			return
+		default:
+		}
+
+		dist := mp.planOpts.DistanceFunc(&ik.Segment{StartConfiguration: near.Q(), EndConfiguration: target.Q()})
+		if dist < mp.planOpts.JointSolveDist {
+			mchan <- near
+			return
+		}
+
+		oldNear = near
+		newNear := fixedStepInterpolation(near, target, mp.planOpts.qstep)
+		// Check whether oldNear -> newNear path is a valid segment, and if not then set to nil
+		if !mp.checkPath(oldNear.Q(), newNear) {
 			break
 		}
-	}
 
-	// add new node to tree as a child of the minimum cost neighbor node if it was reachable
-	if minIndex == -1 {
-		mchan <- nil
-		return
-	}
-	targetNode := &basicNode{q: target, cost: minCost}
-	tree[targetNode] = neighbors[minIndex].node
+		neighbors := kNearestNeighbors(mp.planOpts, rrtMap, &basicNode{q: newNear}, mp.algOpts.NeighborhoodSize)
+		near = &basicNode{q: newNear, cost: neighbors[0].node.Cost() + neighbors[0].dist}
+		rrtMap[near] = oldNear
 
-	// rewire the tree
-	for i, thisNeighbor := range neighbors {
-		// dont need to try to rewire minIndex, so skip it
-		if i == minIndex {
-			continue
-		}
+		// rewire the tree
+		for i, thisNeighbor := range neighbors {
+			// dont need to try to rewire nearest neighbor, so skip it
+			if i == 0 {
+				continue
+			}
 
-		// check to see if a shortcut is possible, and rewire the node if it is
-		connectionCost := mp.planOpts.DistanceFunc(&Segment{
-			StartConfiguration: thisNeighbor.node.Q(),
-			EndConfiguration:   targetNode.Q(),
-		})
-		cost := connectionCost + targetNode.Cost()
+			// check to see if a shortcut is possible, and rewire the node if it is
+			connectionCost := mp.planOpts.DistanceFunc(&ik.Segment{
+				StartConfiguration: thisNeighbor.node.Q(),
+				EndConfiguration:   near.Q(),
+			})
+			cost := connectionCost + near.Cost()
 
-		// If 1) we have a lower cost, and 2) the putative updated path is valid
-		if cost < thisNeighbor.node.Cost() && mp.checkPath(target, thisNeighbor.node.Q()) {
-			// Alter the cost of the node
-			// This needs to edit the existing node, rather than make a new one, as there are pointers in the tree
-			thisNeighbor.node.SetCost(cost)
-			tree[thisNeighbor.node] = targetNode
+			// If 1) we have a lower cost, and 2) the putative updated path is valid
+			if cost < thisNeighbor.node.Cost() && mp.checkPath(target.Q(), thisNeighbor.node.Q()) {
+				// Alter the cost of the node
+				// This needs to edit the existing node, rather than make a new one, as there are pointers in the tree
+				thisNeighbor.node.SetCost(cost)
+				rrtMap[thisNeighbor.node] = near
+			}
 		}
 	}
-	mchan <- targetNode
+	mchan <- oldNear
 }

@@ -12,7 +12,7 @@ import (
 )
 
 func TestNestedOperatioDoesNotCancelParent(t *testing.T) {
-	som := SingleOperationManager{}
+	som := NewSingleOperationManager()
 	ctx := context.Background()
 	test.That(t, som.NewTimedWaitOp(ctx, time.Millisecond), test.ShouldBeTrue)
 
@@ -24,7 +24,7 @@ func TestNestedOperatioDoesNotCancelParent(t *testing.T) {
 }
 
 func TestCallOnDifferentContext(t *testing.T) {
-	som := SingleOperationManager{}
+	som := NewSingleOperationManager()
 	ctx := context.Background()
 	test.That(t, som.NewTimedWaitOp(ctx, time.Millisecond), test.ShouldBeTrue)
 
@@ -51,7 +51,7 @@ func TestCallOnDifferentContext(t *testing.T) {
 }
 
 func TestWaitForSuccess(t *testing.T) {
-	som := SingleOperationManager{}
+	som := NewSingleOperationManager()
 	ctx := context.Background()
 	count := int64(0)
 
@@ -70,7 +70,7 @@ func TestWaitForSuccess(t *testing.T) {
 }
 
 func TestWaitForError(t *testing.T) {
-	som := SingleOperationManager{}
+	som := NewSingleOperationManager()
 	count := int64(0)
 
 	err := som.WaitForSuccess(
@@ -88,7 +88,7 @@ func TestWaitForError(t *testing.T) {
 }
 
 func TestDontCancel(t *testing.T) {
-	som := SingleOperationManager{}
+	som := NewSingleOperationManager()
 	ctx, done := som.New(context.Background())
 	defer done()
 
@@ -97,26 +97,43 @@ func TestDontCancel(t *testing.T) {
 }
 
 func TestCancelRace(t *testing.T) {
-	som := SingleOperationManager{}
-	ctx, done := som.New(context.Background())
-	defer done()
+	// First set up the "worker" context and register an operation on
+	// the `SingleOperationManager` instance.
+	som := NewSingleOperationManager()
+	workerError := make(chan error, 1)
+	workerCtx, somCleanupFunc := som.New(context.Background())
 
-	var wg sync.WaitGroup
+	// Spin up a separate go-routine for the worker to listen for cancelation. Canceling an
+	// operation blocks until the operation completes. This goroutine is responsible for running
+	// `somCleanupFunc` to signal that canceling has completed.
+	workerFunc := func() {
+		defer somCleanupFunc()
 
-	wg.Add(1)
-	go func() {
-		_, done := som.New(context.Background())
-		wg.Done()
-		defer done()
-	}()
+		select {
+		case <-workerCtx.Done():
+			workerError <- nil
+		case <-time.After(5 * time.Second):
+			workerError <- errors.New("Failed to be signaled via a cancel")
+		}
 
-	som.CancelRunning(ctx)
-	wg.Wait()
-	test.That(t, ctx.Err(), test.ShouldNotBeNil)
+		close(workerError)
+	}
+	go workerFunc()
+
+	// Set up a "test" context to cancel the worker.
+	testCtx, testCleanupFunc := context.WithTimeout(context.Background(), time.Second)
+	defer testCleanupFunc()
+	som.CancelRunning(testCtx)
+	// If `workerCtx.Done` was observed to be closed, the worker thread will pass a `nil` error back.
+	test.That(t, <-workerError, test.ShouldBeNil)
+	// When `SingleOperationManager` cancels an operation, the operation's context should be in a
+	// "context canceled" error state.
+	test.That(t, workerCtx.Err(), test.ShouldNotBeNil)
+	test.That(t, workerCtx.Err(), test.ShouldEqual, context.Canceled)
 }
 
 func TestStopCalled(t *testing.T) {
-	som := SingleOperationManager{}
+	som := NewSingleOperationManager()
 	ctx, done := som.New(context.Background())
 	defer done()
 	mock := &mock{stopCount: 0}
@@ -137,7 +154,7 @@ func TestStopCalled(t *testing.T) {
 }
 
 func TestErrorContainsStopAndCancel(t *testing.T) {
-	som := SingleOperationManager{}
+	som := NewSingleOperationManager()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	mock := &mock{stopCount: 0}
@@ -153,24 +170,6 @@ func TestErrorContainsStopAndCancel(t *testing.T) {
 	cancel()
 	wg.Wait()
 	test.That(t, errRet.Error(), test.ShouldEqual, "context canceled; Stop failed")
-}
-
-func TestStopNotCalledOnOldContext(t *testing.T) {
-	som := SingleOperationManager{}
-	ctx, done := som.New(context.Background())
-	defer done()
-	mock := &mock{stopCount: 0}
-	var wg sync.WaitGroup
-
-	wg.Add(1)
-	go func() {
-		som.WaitTillNotPowered(ctx, time.Second, mock, mock.stop)
-		wg.Done()
-	}()
-	som.New(context.Background())
-	wg.Wait()
-	test.That(t, ctx.Err(), test.ShouldNotBeNil)
-	test.That(t, mock.stopCount, test.ShouldEqual, 0)
 }
 
 type mock struct {

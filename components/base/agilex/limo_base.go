@@ -72,7 +72,7 @@ type limoBase struct {
 	resource.Named
 	resource.AlwaysRebuild
 	driveMode          string
-	opMgr              operation.SingleOperationManager
+	opMgr              *operation.SingleOperationManager
 	cancel             context.CancelFunc
 	waitGroup          sync.WaitGroup
 	width              int
@@ -123,6 +123,7 @@ func createLimoBase(ctx context.Context, _ resource.Dependencies, conf resource.
 	lb := &limoBase{
 		Named:              conf.ResourceName().AsNamed(),
 		driveMode:          newConf.DriveMode,
+		opMgr:              operation.NewSingleOperationManager(),
 		testChan:           newConf.TestChan, // for testing only
 		logger:             logger,
 		width:              defaultBaseTreadMm,
@@ -438,8 +439,9 @@ func (lb *limoBase) Properties(ctx context.Context, extra map[string]interface{}
 	}
 
 	return base.Properties{
-		TurningRadiusMeters: lbTurnRadiusM,
-		WidthMeters:         float64(lb.width) * 0.001, // convert from mm to meters
+		TurningRadiusMeters:      lbTurnRadiusM,
+		WidthMeters:              float64(lb.width) * 0.001, // convert from mm to meters
+		WheelCircumferenceMeters: 0,                         // no access to individual motors, so wheel circumference cannot be used for odometry
 	}, nil
 }
 

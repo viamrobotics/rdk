@@ -57,3 +57,53 @@ func TestPTGKinematics(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, plan, test.ShouldNotBeNil)
 }
+
+func TestPTGKinematicsWithGeom(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+
+	name, err := resource.NewFromString("is:a:fakebase")
+	test.That(t, err, test.ShouldBeNil)
+
+	baseGeom, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{1, 1, 1}, "")
+	test.That(t, err, test.ShouldBeNil)
+
+	b := &fake.Base{
+		Named:         name.AsNamed(),
+		Geometry:      []spatialmath.Geometry{baseGeom},
+		WidthMeters:   0.2,
+		TurningRadius: 0.3,
+	}
+
+	ctx := context.Background()
+
+	kbOpt := NewKinematicBaseOptions()
+	kbOpt.AngularVelocityDegsPerSec = 0
+	kb, err := WrapWithKinematics(ctx, b, logger, nil, nil, kbOpt)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, kb, test.ShouldNotBeNil)
+	ptgBase, ok := kb.(*ptgBaseKinematics)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, ptgBase, test.ShouldNotBeNil)
+
+	dstPIF := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPoseFromPoint(r3.Vector{X: 2000, Y: 0, Z: 0}))
+
+	fs := referenceframe.NewEmptyFrameSystem("test")
+	f := kb.Kinematics()
+	test.That(t, err, test.ShouldBeNil)
+	fs.AddFrame(f, fs.World())
+	inputMap := referenceframe.StartPositions(fs)
+
+	obstacle, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{1000, 0, 0}), r3.Vector{1, 1, 1}, "")
+	test.That(t, err, test.ShouldBeNil)
+
+	geoms := []spatialmath.Geometry{obstacle}
+	worldState, err := referenceframe.NewWorldState(
+		[]*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)},
+		nil,
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	plan, err := motionplan.PlanMotion(ctx, logger, dstPIF, f, inputMap, fs, worldState, nil, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, plan, test.ShouldNotBeNil)
+}

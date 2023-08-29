@@ -5,6 +5,7 @@ import (
 	"context"
 	"math/rand"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -12,6 +13,7 @@ import (
 	pb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/motionplan/ik"
 	frame "go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -31,6 +33,7 @@ type motionPlanner interface {
 	checkInputs([]frame.Input) bool
 	getSolutions(context.Context, []frame.Input) ([]node, error)
 	opt() *plannerOptions
+	sample(node, int) (node, error)
 }
 
 type plannerConstructor func(frame.Frame, *rand.Rand, golog.Logger, *plannerOptions) (motionPlanner, error)
@@ -140,7 +143,7 @@ func PlanFrameMotion(ctx context.Context,
 }
 
 type planner struct {
-	solver   InverseKinematics
+	solver   ik.InverseKinematics
 	frame    frame.Frame
 	logger   golog.Logger
 	randseed *rand.Rand
@@ -149,12 +152,12 @@ type planner struct {
 }
 
 func newPlanner(frame frame.Frame, seed *rand.Rand, logger golog.Logger, opt *plannerOptions) (*planner, error) {
-	ik, err := CreateCombinedIKSolver(frame, logger, opt.NumThreads, opt.GoalThreshold)
+	solver, err := ik.CreateCombinedIKSolver(frame, logger, opt.NumThreads, opt.GoalThreshold)
 	if err != nil {
 		return nil, err
 	}
 	mp := &planner{
-		solver:   ik,
+		solver:   solver,
 		frame:    frame,
 		logger:   logger,
 		randseed: seed,
@@ -164,7 +167,7 @@ func newPlanner(frame frame.Frame, seed *rand.Rand, logger golog.Logger, opt *pl
 }
 
 func (mp *planner) checkInputs(inputs []frame.Input) bool {
-	ok, _ := mp.planOpts.CheckStateConstraints(&State{
+	ok, _ := mp.planOpts.CheckStateConstraints(&ik.State{
 		Configuration: inputs,
 		Frame:         mp.frame,
 	})
@@ -173,7 +176,7 @@ func (mp *planner) checkInputs(inputs []frame.Input) bool {
 
 func (mp *planner) checkPath(seedInputs, target []frame.Input) bool {
 	ok, _ := mp.planOpts.CheckSegmentAndStateValidity(
-		&Segment{
+		&ik.Segment{
 			StartConfiguration: seedInputs,
 			EndConfiguration:   target,
 			Frame:              mp.frame,
@@ -181,6 +184,20 @@ func (mp *planner) checkPath(seedInputs, target []frame.Input) bool {
 		mp.planOpts.Resolution,
 	)
 	return ok
+}
+
+func (mp *planner) sample(rSeed node, sampleNum int) (node, error) {
+	// If we have done more than 50 iterations, start seeding off completely random positions 2 at a time
+	// The 2 at a time is to ensure random seeds are added onto both the seed and goal maps.
+	if sampleNum >= mp.planOpts.IterBeforeRand && sampleNum%4 >= 2 {
+		return newConfigurationNode(frame.RandomFrameInputs(mp.frame, mp.randseed)), nil
+	}
+	// Seeding nearby to valid points results in much faster convergence in less constrained space
+	q, err := frame.RestrictedRandomFrameInputs(mp.frame, mp.randseed, 0.1, rSeed.Q())
+	if err != nil {
+		return nil, err
+	}
+	return newConfigurationNode(q), nil
 }
 
 func (mp *planner) opt() *plannerOptions {
@@ -214,7 +231,6 @@ func (mp *planner) smoothPath(ctx context.Context, path []node) []node {
 		// Intn will return an int in the half-open interval half-open interval [0,n)
 		firstEdge := mp.randseed.Intn(len(path) - 2)
 		secondEdge := firstEdge + 1 + mp.randseed.Intn((len(path)-2)-firstEdge)
-		mp.logger.Debugf("checking shortcut between nodes %d and %d", firstEdge, secondEdge+1)
 
 		wayPoint1 := frame.InterpolateInputs(path[firstEdge].Q(), path[firstEdge+1].Q(), waypoints[mp.randseed.Intn(3)])
 		wayPoint2 := frame.InterpolateInputs(path[secondEdge].Q(), path[secondEdge+1].Q(), waypoints[mp.randseed.Intn(3)])
@@ -252,11 +268,15 @@ func (mp *planner) getSolutions(ctx context.Context, seed []frame.Input) ([]node
 	ctxWithCancel, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	solutionGen := make(chan []frame.Input)
+	solutionGen := make(chan *ik.Solution, mp.planOpts.NumThreads*2)
 	ikErr := make(chan error, 1)
+	var activeSolvers sync.WaitGroup
+	defer activeSolvers.Wait()
+	activeSolvers.Add(1)
 	// Spawn the IK solver to generate solutions until done
 	utils.PanicCapturingGo(func() {
 		defer close(ikErr)
+		defer activeSolvers.Done()
 		ikErr <- mp.solver.Solve(ctxWithCancel, solutionGen, seed, mp.planOpts.goalMetric, mp.randseed.Int())
 	})
 
@@ -276,14 +296,15 @@ IK:
 		}
 
 		select {
-		case step := <-solutionGen:
+		case stepSolution := <-solutionGen:
+			step := stepSolution.Configuration
 			// Ensure the end state is a valid one
-			statePass, failName := mp.planOpts.CheckStateConstraints(&State{
+			statePass, failName := mp.planOpts.CheckStateConstraints(&ik.State{
 				Configuration: step,
 				Frame:         mp.frame,
 			})
 			if statePass {
-				stepArc := &Segment{
+				stepArc := &ik.Segment{
 					StartConfiguration: seed,
 					StartPosition:      seedPos,
 					EndConfiguration:   step,
@@ -329,6 +350,13 @@ IK:
 
 	// Cancel any ongoing processing within the IK solvers if we're done receiving solutions
 	cancel()
+	for done := false; !done; {
+		select {
+		case <-solutionGen:
+		default:
+			done = true
+		}
+	}
 
 	if len(solutions) == 0 {
 		// We have failed to produce a usable IK solution. Let the user know if zero IK solutions were produced, or if non-zero solutions

@@ -17,6 +17,7 @@ import (
 	"go.viam.com/rdk/components/encoder/single"
 	"go.viam.com/rdk/components/motor"
 	fakemotor "go.viam.com/rdk/components/motor/fake"
+	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 )
 
@@ -89,6 +90,7 @@ func TestMotorEncoder1(t *testing.T) {
 		MaxRPM:           100,
 		Logger:           logger,
 		TicksPerRotation: 100,
+		OpMgr:            operation.NewSingleOperationManager(),
 	}
 	interrupt := &board.BasicDigitalInterrupt{}
 
@@ -323,6 +325,7 @@ func TestMotorEncoderIncremental(t *testing.T) {
 			MaxRPM:           100,
 			Logger:           logger,
 			TicksPerRotation: 100,
+			OpMgr:            operation.NewSingleOperationManager(),
 		}
 
 		ctx := context.Background()
@@ -621,7 +624,9 @@ func TestWrapMotorWithEncoder(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
 	t.Run("wrap motor no encoder", func(t *testing.T) {
-		fakeMotor := &fakemotor.Motor{}
+		fakeMotor := &fakemotor.Motor{
+			OpMgr: operation.NewSingleOperationManager(),
+		}
 		m, err := WrapMotorWithEncoder(
 			context.Background(),
 			nil,
@@ -636,7 +641,9 @@ func TestWrapMotorWithEncoder(t *testing.T) {
 
 	t.Run("wrap motor with single encoder", func(t *testing.T) {
 		b := MakeSingleBoard(t)
-		fakeMotor := &fakemotor.Motor{}
+		fakeMotor := &fakemotor.Motor{
+			OpMgr: operation.NewSingleOperationManager(),
+		}
 		b.Digitals["a"], _ = fakeboard.NewDigitalInterruptWrapper(board.DigitalInterruptConfig{
 			Type: "basic",
 		})
@@ -677,7 +684,9 @@ func TestWrapMotorWithEncoder(t *testing.T) {
 
 	t.Run("wrap motor with hall encoder", func(t *testing.T) {
 		b := MakeIncrementalBoard(t)
-		fakeMotor := &fakemotor.Motor{}
+		fakeMotor := &fakemotor.Motor{
+			OpMgr: operation.NewSingleOperationManager(),
+		}
 		b.Digitals["a"], _ = fakeboard.NewDigitalInterruptWrapper(board.DigitalInterruptConfig{
 			Type: "basic",
 		})
@@ -726,6 +735,7 @@ func TestDirFlipMotor(t *testing.T) {
 		Logger:           logger,
 		TicksPerRotation: 100,
 		DirFlip:          true,
+		OpMgr:            operation.NewSingleOperationManager(),
 	}
 	defer dirflipFakeMotor.Close(context.Background())
 

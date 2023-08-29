@@ -10,6 +10,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 	rutils "go.viam.com/rdk/utils"
@@ -37,8 +38,8 @@ func TestSimpleLinearMotion(t *testing.T) {
 
 	goalPos := spatialmath.NewPose(r3.Vector{X: 206, Y: 100, Z: 120.5}, &spatialmath.OrientationVectorDegrees{OY: -1})
 
-	opt := newBasicPlannerOptions()
-	opt.SetGoalMetric(NewSquaredNormMetric(goalPos))
+	opt := newBasicPlannerOptions(m)
+	opt.SetGoalMetric(ik.NewSquaredNormMetric(goalPos))
 	mp, err := newCBiRRTMotionPlanner(m, rand.New(rand.NewSource(42)), logger, opt)
 	test.That(t, err, test.ShouldBeNil)
 	cbirrt, _ := mp.(*cBiRRTMotionPlanner)
@@ -62,7 +63,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 	}
 	nn := &neighborManager{nCPU: nCPU}
 
-	cOpt, err := newCbirrtOptions(opt, m)
+	_, err = newCbirrtOptions(opt)
 	test.That(t, err, test.ShouldBeNil)
 
 	m1chan := make(chan node, 1)
@@ -80,8 +81,8 @@ func TestSimpleLinearMotion(t *testing.T) {
 		cbirrt.constrainedExtend(ctx, cbirrt.randseed, goalMap, near2, seedReached, m1chan)
 	})
 	goalReached := <-m1chan
-	dist := opt.DistanceFunc(&Segment{StartConfiguration: seedReached.Q(), EndConfiguration: goalReached.Q()})
-	test.That(t, dist < cOpt.JointSolveDist, test.ShouldBeTrue)
+	dist := opt.DistanceFunc(&ik.Segment{StartConfiguration: seedReached.Q(), EndConfiguration: goalReached.Q()})
+	test.That(t, dist < cbirrt.planOpts.JointSolveDist, test.ShouldBeTrue)
 
 	seedReached.SetCorner(true)
 	goalReached.SetCorner(true)

@@ -10,22 +10,41 @@ import (
 	"go.viam.com/utils"
 )
 
-// SingleOperationManager ensures only 1 operation is happening a time
-// An operation can be nested, so if there is already an operation in progress,
-// it can have sub-operations without an issue.
-type SingleOperationManager struct {
-	mu        sync.Mutex
-	currentOp *anOp
+type anOp struct {
+	// cancelAndWaitFunc waits until the `SingleOperationManager.currentOp` is empty. This will
+	// interrupt any existing operations as necessary.
+	cancelAndWaitFunc func()
+	// Cancels the context of what's currently running an operation.
+	interruptFunc context.CancelFunc
 }
 
-// CancelRunning cancel's a current operation unless it's mine.
+// SingleOperationManager ensures only 1 operation is happening at a time.
+// An operation can be nested, so if there is already an operation in progress,
+// it can have sub-operations.
+type SingleOperationManager struct {
+	mu         sync.Mutex
+	opDoneCond *sync.Cond
+	currentOp  *anOp
+}
+
+// NewSingleOperationManager creates a new SingleOperationManager. Use this to appropriately
+// initialize the members.
+func NewSingleOperationManager() *SingleOperationManager {
+	ret := &SingleOperationManager{}
+	ret.opDoneCond = sync.NewCond(&ret.mu)
+	return ret
+}
+
+// CancelRunning cancels a current operation unless it's mine.
 func (sm *SingleOperationManager) CancelRunning(ctx context.Context) {
 	if ctx.Value(somCtxKeySingleOp) != nil {
 		return
 	}
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
-	sm.cancelInLock(ctx)
+	if sm.currentOp != nil {
+		sm.currentOp.cancelAndWaitFunc()
+	}
 }
 
 // OpRunning returns if there is a current operation.
@@ -41,32 +60,47 @@ const somCtxKeySingleOp = somCtxKey(iota)
 
 // New creates a new operation, cancels previous, returns a new context and function to call when done.
 func (sm *SingleOperationManager) New(ctx context.Context) (context.Context, func()) {
-	// handle nested ops
+	// Handle nested ops. Note an operation set on a context by one `SingleOperationManager` can be
+	// observed on a different instance of a `SingleOperationManager`.
 	if ctx.Value(somCtxKeySingleOp) != nil {
 		return ctx, func() {}
 	}
 
 	sm.mu.Lock()
 
-	// first cancel any old operation
-	sm.cancelInLock(ctx)
+	// Cancel any existing operation. This blocks until the operation is completed.
+	if sm.currentOp != nil {
+		sm.currentOp.cancelAndWaitFunc()
+	}
 
 	theOp := &anOp{}
 
 	ctx = context.WithValue(ctx, somCtxKeySingleOp, theOp)
 
-	theOp.ctx, theOp.cancelFunc = context.WithCancel(ctx)
+	var newUserCtx context.Context
+	newUserCtx, theOp.interruptFunc = context.WithCancel(ctx)
+	theOp.cancelAndWaitFunc = func() {
+		// Precondition: Caller must be holding `sm.mu`.
+		//
+		// If there are two threads competing to win a race, it's not sufficient to return once the
+		// condition variable is signaled. We must re-check that a new operation didn't beat us to
+		// getting the next operation slot.
+		//
+		// Ironically, "winning the race" in this scenario just means the "loser" is going to
+		// immediately interrupt the winner. A future optimization could avoid this unnecessary
+		// starting/stopping.
+		for sm.currentOp != nil {
+			sm.currentOp.interruptFunc()
+			sm.opDoneCond.Wait()
+		}
+	}
 	sm.currentOp = theOp
 	sm.mu.Unlock()
 
-	return theOp.ctx, func() {
-		if !theOp.closed {
-			theOp.closed = true
-		}
+	return newUserCtx, func() {
 		sm.mu.Lock()
-		if theOp == sm.currentOp {
-			sm.currentOp = nil
-		}
+		sm.opDoneCond.Broadcast()
+		sm.currentOp = nil
 		sm.mu.Unlock()
 	}
 }
@@ -93,17 +127,11 @@ func (sm *SingleOperationManager) WaitTillNotPowered(ctx context.Context, pollTi
 ) (err error) {
 	// Defers a function that will stop and clean up if the context errors
 	defer func(ctx context.Context) {
-		var errStop error
 		if errors.Is(ctx.Err(), context.Canceled) {
-			sm.mu.Lock()
-			oldOp := sm.currentOp == ctx.Value(somCtxKeySingleOp)
-			sm.mu.Unlock()
-
-			if oldOp || sm.currentOp == nil {
-				errStop = stop(ctx, map[string]interface{}{})
-			}
+			err = multierr.Combine(ctx.Err(), stop(ctx, map[string]interface{}{}))
+		} else {
+			err = ctx.Err()
 		}
-		err = multierr.Combine(ctx.Err(), errStop)
 	}(ctx)
 	return sm.WaitForSuccess(
 		ctx,
@@ -137,23 +165,4 @@ func (sm *SingleOperationManager) WaitForSuccess(
 			return ctx.Err()
 		}
 	}
-}
-
-func (sm *SingleOperationManager) cancelInLock(ctx context.Context) {
-	myOp := ctx.Value(somCtxKeySingleOp)
-	op := sm.currentOp
-
-	if op == nil || myOp == op {
-		return
-	}
-
-	op.cancelFunc()
-
-	sm.currentOp = nil
-}
-
-type anOp struct {
-	ctx        context.Context
-	cancelFunc context.CancelFunc
-	closed     bool
 }

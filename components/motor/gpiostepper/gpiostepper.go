@@ -136,6 +136,7 @@ func newGPIOStepper(
 		theBoard:         b,
 		stepsPerRotation: mc.TicksPerRotation,
 		logger:           logger,
+		opMgr:            operation.NewSingleOperationManager(),
 	}
 
 	var err error
@@ -194,7 +195,7 @@ type gpioStepper struct {
 
 	// state
 	lock  sync.Mutex
-	opMgr operation.SingleOperationManager
+	opMgr *operation.SingleOperationManager
 
 	stepPosition       int64
 	threadStarted      bool

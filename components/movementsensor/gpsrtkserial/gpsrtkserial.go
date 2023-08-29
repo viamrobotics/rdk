@@ -1,6 +1,33 @@
 // Package gpsrtkserial implements a gps using serial connection
 package gpsrtkserial
 
+/*
+	This package supports GPS RTK (Real Time Kinematics), which takes in the normal signals
+	from the GNSS (Global Navigation Satellite Systems) along with a correction stream to achieve
+	positional accuracy (accuracy tbd), over Serial.
+
+	Example GPS RTK chip datasheet:
+	https://content.u-blox.com/sites/default/files/ZED-F9P-04B_DataSheet_UBX-21044850.pdf
+
+	Example configuration:
+	{
+      "type": "movement_sensor",
+	  "model": "gps-nmea-rtk-serial",
+      "name": "my-gps-rtk"
+      "attributes": {
+        "ntrip_url": "url",
+        "ntrip_username": "usr",
+        "ntrip_connect_attempts": 10,
+        "ntrip_mountpoint": "MTPT",
+        "ntrip_password": "pwd",
+		"serial_baud_rate": 115200,
+        "serial_path": "serial-path"
+      },
+      "depends_on": [],
+    }
+
+*/
+
 import (
 	"bufio"
 	"context"
@@ -100,9 +127,10 @@ type rtkSerial struct {
 	ntripStatus   bool
 	isClosed      bool
 
-	err           movementsensor.LastError
-	lastposition  movementsensor.LastPosition
-	InputProtocol string
+	err                movementsensor.LastError
+	lastposition       movementsensor.LastPosition
+	lastcompassheading movementsensor.LastCompassHeading
+	InputProtocol      string
 
 	nmeamovementsensor gpsnmea.NmeaMovementSensor
 	correctionWriter   io.ReadWriteCloser
@@ -177,12 +205,13 @@ func newRTKSerial(
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	g := &rtkSerial{
-		Named:        conf.ResourceName().AsNamed(),
-		cancelCtx:    cancelCtx,
-		cancelFunc:   cancelFunc,
-		logger:       logger,
-		err:          movementsensor.NewLastError(1, 1),
-		lastposition: movementsensor.NewLastPosition(),
+		Named:              conf.ResourceName().AsNamed(),
+		cancelCtx:          cancelCtx,
+		cancelFunc:         cancelFunc,
+		logger:             logger,
+		err:                movementsensor.NewLastError(1, 1),
+		lastposition:       movementsensor.NewLastPosition(),
+		lastcompassheading: movementsensor.NewLastCompassHeading(),
 	}
 
 	// reconfigure
@@ -417,8 +446,9 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 	}
 }
 
-//nolint
 // getNtripConnectionStatus returns true if connection to NTRIP stream is OK, false if not.
+//
+//nolint:all
 func (g *rtkSerial) getNtripConnectionStatus() (bool, error) {
 	g.ntripMu.Lock()
 	defer g.ntripMu.Unlock()
@@ -451,21 +481,9 @@ func (g *rtkSerial) Position(ctx context.Context, extra map[string]interface{}) 
 		return geo.NewPoint(math.NaN(), math.NaN()), math.NaN(), err
 	}
 
-	// Check if the current position is different from the last position and non-zero
-	lastPosition := g.lastposition.GetLastPosition()
-	if !g.lastposition.ArePointsEqual(position, lastPosition) {
-		g.lastposition.SetLastPosition(position)
-	}
-
-	// Update the last known valid position if the current position is non-zero
-	if position != nil && !g.lastposition.IsZeroPosition(position) {
-		g.lastposition.SetLastPosition(position)
-	}
-
 	if g.lastposition.IsPositionNaN(position) {
-		position = lastPosition
+		position = g.lastposition.GetLastPosition()
 	}
-
 	return position, alt, nil
 }
 
@@ -513,7 +531,6 @@ func (g *rtkSerial) CompassHeading(ctx context.Context, extra map[string]interfa
 		return 0, lastError
 	}
 	g.ntripMu.Unlock()
-
 	return g.nmeamovementsensor.CompassHeading(ctx, extra)
 }
 
@@ -526,7 +543,6 @@ func (g *rtkSerial) Orientation(ctx context.Context, extra map[string]interface{
 		return spatialmath.NewZeroOrientation(), lastError
 	}
 	g.ntripMu.Unlock()
-
 	return g.nmeamovementsensor.Orientation(ctx, extra)
 }
 
@@ -539,7 +555,6 @@ func (g *rtkSerial) readFix(ctx context.Context) (int, error) {
 		return 0, lastError
 	}
 	g.ntripMu.Unlock()
-
 	return g.nmeamovementsensor.ReadFix(ctx)
 }
 

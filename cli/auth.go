@@ -19,6 +19,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 	datapb "go.viam.com/api/app/data/v1"
+	packagepb "go.viam.com/api/app/packages/v1"
 	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -96,101 +97,116 @@ type token struct {
 }
 
 // LoginAction is the corresponding Action for 'login'.
-func LoginAction(c *cli.Context) error {
-	client, err := newAppClient(c)
+func LoginAction(cCtx *cli.Context) error {
+	c, err := newViamClient(cCtx)
 	if err != nil {
 		return err
 	}
+	return c.loginAction(cCtx)
+}
 
+func (c *viamClient) loginAction(cCtx *cli.Context) error {
 	loggedInMessage := func(t *token, alreadyLoggedIn bool) {
 		already := "already "
 		if !alreadyLoggedIn {
 			already = ""
-			viamLogo(c.App.Writer)
+			viamLogo(cCtx.App.Writer)
 		}
 
-		fmt.Fprintf(c.App.Writer, "%slogged in as %q, expires %s\n", already, t.User.Email,
+		fmt.Fprintf(cCtx.App.Writer, "%slogged in as %q, expires %s\n", already, t.User.Email,
 			t.ExpiresAt.Format("Mon Jan 2 15:04:05 MST 2006"))
 	}
 
-	if client.conf.Auth != nil && !client.conf.Auth.isExpired() {
-		loggedInMessage(client.conf.Auth, true)
+	if c.conf.Auth != nil && !c.conf.Auth.isExpired() {
+		loggedInMessage(c.conf.Auth, true)
 		return nil
 	}
 
 	var t *token
-	if client.conf.Auth != nil && client.conf.Auth.canRefresh() {
-		t, err = client.authFlow.refreshToken(client.c.Context, client.conf.Auth)
+	var err error
+	if c.conf.Auth != nil && c.conf.Auth.canRefresh() {
+		t, err = c.authFlow.refreshToken(c.c.Context, c.conf.Auth)
 		if err != nil {
-			utils.UncheckedError(client.logout())
+			utils.UncheckedError(c.logout())
 			return err
 		}
 	} else {
-		t, err = client.authFlow.login(client.c.Context)
+		t, err = c.authFlow.login(c.c.Context)
 		if err != nil {
 			return err
 		}
 	}
 
 	// write token to config.
-	client.conf.Auth = t
-	if err := storeConfigToCache(client.conf); err != nil {
+	c.conf.Auth = t
+	if err := storeConfigToCache(c.conf); err != nil {
 		return err
 	}
 
-	loggedInMessage(client.conf.Auth, false)
+	loggedInMessage(c.conf.Auth, false)
 	return nil
 }
 
 // PrintAccessTokenAction is the corresponding Action for 'print-access-token'.
-func PrintAccessTokenAction(c *cli.Context) error {
-	client, err := newAppClient(c)
+func PrintAccessTokenAction(cCtx *cli.Context) error {
+	c, err := newViamClient(cCtx)
 	if err != nil {
 		return err
 	}
+	return c.printAccessTokenAction(cCtx)
+}
 
-	if err := client.ensureLoggedIn(); err != nil {
+func (c *viamClient) printAccessTokenAction(cCtx *cli.Context) error {
+	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
 
-	fmt.Fprintln(c.App.Writer, client.conf.Auth.AccessToken)
+	fmt.Fprintln(cCtx.App.Writer, c.conf.Auth.AccessToken)
 	return nil
 }
 
 // LogoutAction is the corresponding Action for 'logout'.
-func LogoutAction(c *cli.Context) error {
-	client, err := newAppClient(c)
+func LogoutAction(cCtx *cli.Context) error {
+	c, err := newViamClient(cCtx)
 	if err != nil {
 		return err
 	}
-	auth := client.conf.Auth
+	return c.logoutAction(cCtx)
+}
+
+func (c *viamClient) logoutAction(cCtx *cli.Context) error {
+	auth := c.conf.Auth
 	if auth == nil {
-		fmt.Fprintf(c.App.Writer, "already logged out\n")
+		fmt.Fprintf(cCtx.App.Writer, "already logged out\n")
 		return nil
 	}
-	if err := client.logout(); err != nil {
+	if err := c.logout(); err != nil {
 		return errors.Wrap(err, "could not logout")
 	}
-	fmt.Fprintf(c.App.Writer, "logged out from %q\n", auth.User.Email)
+	fmt.Fprintf(cCtx.App.Writer, "logged out from %q\n", auth.User.Email)
 	return nil
 }
 
 // WhoAmIAction is the corresponding Action for 'whoami'.
-func WhoAmIAction(c *cli.Context) error {
-	client, err := newAppClient(c)
+func WhoAmIAction(cCtx *cli.Context) error {
+	c, err := newViamClient(cCtx)
 	if err != nil {
 		return err
 	}
-	auth := client.conf.Auth
+	return c.whoAmIAction(cCtx)
+}
+
+func (c *viamClient) whoAmIAction(cCtx *cli.Context) error {
+	auth := c.conf.Auth
 	if auth == nil {
-		warningf(c.App.Writer, "not logged in. run \"login\" command")
+		warningf(cCtx.App.Writer, "not logged in. run \"login\" command")
 		return nil
 	}
-	fmt.Fprintf(c.App.Writer, "%s\n", auth.User.Email)
+	fmt.Fprintf(cCtx.App.Writer, "%s\n", auth.User.Email)
 	return nil
 }
 
-func (c *appClient) ensureLoggedIn() error {
+func (c *viamClient) ensureLoggedIn() error {
 	if c.client != nil {
 		return nil
 	}
@@ -233,11 +249,12 @@ func (c *appClient) ensureLoggedIn() error {
 
 	c.client = apppb.NewAppServiceClient(conn)
 	c.dataClient = datapb.NewDataServiceClient(conn)
+	c.packageClient = packagepb.NewPackageServiceClient(conn)
 	return nil
 }
 
 // logout logs out the client and clears the config.
-func (c *appClient) logout() error {
+func (c *viamClient) logout() error {
 	if err := removeConfigFromCache(); err != nil && !os.IsNotExist(err) {
 		return err
 	}
@@ -245,7 +262,7 @@ func (c *appClient) logout() error {
 	return nil
 }
 
-func (c *appClient) prepareDial(
+func (c *viamClient) prepareDial(
 	orgStr, locStr, robotStr, partStr string,
 	debug bool,
 ) (context.Context, string, []rpc.DialOption, error) {

@@ -6,6 +6,8 @@ import (
 	"sort"
 
 	"go.viam.com/utils"
+
+	"go.viam.com/rdk/motionplan/ik"
 )
 
 const defaultNeighborsBeforeParallelization = 1000
@@ -24,20 +26,32 @@ type neighbor struct {
 }
 
 //nolint:revive
-func kNearestNeighbors(planOpts *plannerOptions, rrtMap map[node]node, target node, neighborhoodSize int) []*neighbor {
+func kNearestNeighbors(planOpts *plannerOptions, tree rrtMap, target node, neighborhoodSize int) []*neighbor {
 	kNeighbors := neighborhoodSize
-	if neighborhoodSize > len(rrtMap) {
-		kNeighbors = len(rrtMap)
+	if neighborhoodSize > len(tree) {
+		kNeighbors = len(tree)
 	}
 
 	allCosts := make([]*neighbor, 0)
-	for rrtnode := range rrtMap {
-		dist := planOpts.DistanceFunc(&Segment{
+	for rrtnode := range tree {
+		dist := planOpts.DistanceFunc(&ik.Segment{
 			StartConfiguration: target.Q(),
 			EndConfiguration:   rrtnode.Q(),
 		})
 		allCosts = append(allCosts, &neighbor{dist: dist, node: rrtnode})
 	}
+	// sort neighbors by their distance to target first so that first nearest neighbor isn't always the start node of tree
+	sort.Slice(allCosts, func(i, j int) bool {
+		if !math.IsNaN(allCosts[i].node.Cost()) {
+			if !math.IsNaN(allCosts[j].node.Cost()) {
+				return allCosts[i].dist < allCosts[j].dist
+			}
+		}
+		return allCosts[i].dist < allCosts[j].dist
+	})
+	allCosts = allCosts[:kNeighbors]
+	// sort k nearest distance neighbors by "total cost to target" metric so that target's nearest neighbor
+	// provides the smallest cost path from start node to target
 	sort.Slice(allCosts, func(i, j int) bool {
 		if !math.IsNaN(allCosts[i].node.Cost()) {
 			if !math.IsNaN(allCosts[j].node.Cost()) {
@@ -46,7 +60,7 @@ func kNearestNeighbors(planOpts *plannerOptions, rrtMap map[node]node, target no
 		}
 		return allCosts[i].dist < allCosts[j].dist
 	})
-	return allCosts[:kNeighbors]
+	return allCosts
 }
 
 // Can return `nil` when the context is canceled during processing.
@@ -54,20 +68,20 @@ func (nm *neighborManager) nearestNeighbor(
 	ctx context.Context,
 	planOpts *plannerOptions,
 	seed node,
-	rrtMap map[node]node,
+	tree rrtMap,
 ) node {
 	if nm.parallelNeighbors == 0 {
 		nm.parallelNeighbors = defaultNeighborsBeforeParallelization
 	}
 
-	if len(rrtMap) > nm.parallelNeighbors && nm.nCPU > 1 {
+	if len(tree) > nm.parallelNeighbors && nm.nCPU > 1 {
 		// If the map is large, calculate distances in parallel
-		return nm.parallelNearestNeighbor(ctx, planOpts, seed, rrtMap)
+		return nm.parallelNearestNeighbor(ctx, planOpts, seed, tree)
 	}
 	bestDist := math.Inf(1)
 	var best node
-	for k := range rrtMap {
-		seg := &Segment{
+	for k := range tree {
+		seg := &ik.Segment{
 			StartConfiguration: seed.Q(),
 			EndConfiguration:   k.Q(),
 		}
@@ -90,12 +104,12 @@ func (nm *neighborManager) parallelNearestNeighbor(
 	ctx context.Context,
 	planOpts *plannerOptions,
 	seed node,
-	rrtMap map[node]node,
+	tree rrtMap,
 ) node {
 	nm.seedPos = seed
 
 	nm.neighbors = make(chan *neighbor, nm.nCPU)
-	nm.nnKeys = make(chan node, len(rrtMap))
+	nm.nnKeys = make(chan node, len(tree))
 	defer close(nm.neighbors)
 
 	for i := 0; i < nm.nCPU; i++ {
@@ -104,7 +118,7 @@ func (nm *neighborManager) parallelNearestNeighbor(
 		})
 	}
 
-	for k := range rrtMap {
+	for k := range tree {
 		nm.nnKeys <- k
 	}
 	close(nm.nnKeys)
@@ -146,7 +160,7 @@ func (nm *neighborManager) nnWorker(ctx context.Context, planOpts *plannerOption
 		default:
 		}
 
-		seg := &Segment{
+		seg := &ik.Segment{
 			StartConfiguration: nm.seedPos.Q(),
 			EndConfiguration:   candidate.Q(),
 		}

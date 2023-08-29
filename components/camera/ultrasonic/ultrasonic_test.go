@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
@@ -52,7 +53,8 @@ func TestNewCamera(t *testing.T) {
 	name := resource.Name{API: camera.API}
 	ctx := context.Background()
 	deps := setupDependencies(t)
-	_, err := newCamera(ctx, deps, name, fakecfg)
+	logger := golog.NewTestLogger(t)
+	_, err := newCamera(ctx, deps, name, fakecfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 }
 

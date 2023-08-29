@@ -20,12 +20,12 @@ func init() {
 			conf resource.Config,
 			logger golog.Logger,
 		) (resource.Resource, error) {
-			return newGeneric(conf.ResourceName()), nil
+			return newGeneric(conf.ResourceName(), logger), nil
 		}})
 }
 
-func newGeneric(name resource.Name) resource.Resource {
-	return &Generic{Named: name.AsNamed()}
+func newGeneric(name resource.Name, logger golog.Logger) resource.Resource {
+	return &Generic{Named: name.AsNamed(), logger: logger}
 }
 
 // Generic is a fake Generic device that always echos inputs back to the caller.
@@ -33,4 +33,5 @@ type Generic struct {
 	resource.Named
 	resource.TriviallyReconfigurable
 	resource.TriviallyCloseable
+	logger golog.Logger
 }

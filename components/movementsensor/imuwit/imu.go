@@ -76,16 +76,15 @@ func init() {
 type wit struct {
 	resource.Named
 	resource.AlwaysRebuild
-	angularVelocity spatialmath.AngularVelocity
-	orientation     spatialmath.EulerAngles
-	acceleration    r3.Vector
-	magnetometer    r3.Vector
-	compassheading  float64
-	numBadReadings  uint32
-	err             movementsensor.LastError
-
-	mu sync.Mutex
-
+	angularVelocity         spatialmath.AngularVelocity
+	orientation             spatialmath.EulerAngles
+	acceleration            r3.Vector
+	magnetometer            r3.Vector
+	compassheading          float64
+	numBadReadings          uint32
+	err                     movementsensor.LastError
+	hasMagnetometer         bool
+	mu                      sync.Mutex
 	port                    io.ReadWriteCloser
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
@@ -131,31 +130,20 @@ func (imu *wit) CompassHeading(ctx context.Context, extra map[string]interface{}
 	var err error
 	// this only works when the imu is level to the surface of the earth, no inclines
 	// do not let the imu near permanent magnets or things that make a strong magnetic field
-	if imu.checkMagReadingsExist() {
-		imu.compassheading = calculateCompassHeading(imu.magnetometer.X, imu.magnetometer.Y)
-	} else {
-		imu.compassheading = math.NaN()
-		err = movementsensor.ErrMethodUnimplementedCompassHeading
-	}
+	imu.compassheading = calculateCompassHeading(imu.magnetometer.X, imu.magnetometer.Y)
 
 	return imu.compassheading, err
-}
-
-// these were not included in the busy loop as they are a stop-gap solution to obtain
-// compass heading under a very specific circumstance
-// eventually, we will implment filters that give us more robust data and check for
-// magnetometry data existing in the construction.
-func (imu *wit) checkMagReadingsExist() bool {
-	return imu.magnetometer.X != 0 && imu.magnetometer.Y != 0 && imu.magnetometer.Z != 0
 }
 
 func calculateCompassHeading(x, y float64) float64 {
 	// calculate -180 to 180 heading from radians
 	// North (y) is 0 so  the π/2 - atan2(y, x) identity is used
-	// directly
-	rad := math.Atan2(x, y) * 180 / math.Pi // -180 to 180 heading
-
-	return math.Mod(rad+360, 360) // change domain to 0 to 360
+	// directl
+	rad := math.Atan2(y, x) // -180 to 180 heading
+	compass := rutils.RadToDeg(rad)
+	compass = math.Mod(compass, 360)
+	compass = math.Mod(compass+360, 360)
+	return compass // change domain to 0 to 360
 }
 
 func (imu *wit) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
@@ -189,7 +177,7 @@ func (imu *wit) Properties(ctx context.Context, extra map[string]interface{}) (*
 		AngularVelocitySupported:    true,
 		OrientationSupported:        true,
 		LinearAccelerationSupported: true,
-		CompassHeadingSupported:     !math.IsNaN(imu.compassheading),
+		CompassHeadingSupported:     imu.hasMagnetometer,
 	}, nil
 }
 
@@ -239,6 +227,7 @@ func newWit(
 }
 
 func (imu *wit) startUpdateLoop(ctx context.Context, portReader *bufio.Reader, logger golog.Logger) {
+	imu.hasMagnetometer = false
 	ctx, imu.cancelFunc = context.WithCancel(ctx)
 	imu.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
@@ -294,12 +283,8 @@ func scale(a, b byte, r float64) float64 {
 	return x
 }
 
-func scalemag(a, b byte, r float64) float64 {
-	x := float64(int(b)<<8 | int(a)) // 0 -> 2
-	x *= r                           // 0 -> 2r
-	x += r
-	x = math.Mod(x, r*2)
-	x -= r
+func convertMagByteToTesla(a, b byte) float64 {
+	x := float64(int(int8(b))<<8 | int(a)) // 0 -> 2
 	return x
 }
 
@@ -333,12 +318,13 @@ func (imu *wit) parseWIT(line string) error {
 	}
 
 	if line[0] == 0x54 {
+		imu.hasMagnetometer = true
 		if len(line) < 7 {
 			return fmt.Errorf("line is wrong for imu magnetometer %d %v", len(line), line)
 		}
-		imu.magnetometer.X = scalemag(line[1], line[2], 1) // converts to gauss
-		imu.magnetometer.Y = scalemag(line[3], line[4], 1)
-		imu.magnetometer.Z = scalemag(line[5], line[6], 1)
+		imu.magnetometer.X = convertMagByteToTesla(line[1], line[2]) // converts uT (micro Tesla)
+		imu.magnetometer.Y = convertMagByteToTesla(line[3], line[4])
+		imu.magnetometer.Z = convertMagByteToTesla(line[5], line[6])
 	}
 
 	return nil

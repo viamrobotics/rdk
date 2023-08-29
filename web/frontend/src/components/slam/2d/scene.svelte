@@ -29,8 +29,8 @@ extend({ MapControls });
 
 const { renderer, camera, invalidate } = useThrelte();
 
-const baseSpriteSize = 14;
-const defaultPointSize = 0.05;
+const baseSpriteSize = 15.5;
+const defaultPointSize = 0.03;
 
 let cameraX = 0;
 let cameraY = 0;
@@ -125,17 +125,16 @@ $: updateZoom($camera as THREE.OrthographicCamera);
   rotation={baseRotation}
 />
 
-{#if destination}
   <Marker
     name='Destination marker'
+    visible={destination !== undefined}
     url={DestMarker}
-    position.x={destination.x}
-    position.y={destination.y}
+    position.x={destination?.x}
+    position.y={destination?.y}
     scale.x={markerScale}
     scale.y={markerScale}
     center.x={0.5}
     center.y={0.05}
   />
-{/if}
 
 <MotionPath path={motionPath} />

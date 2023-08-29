@@ -58,7 +58,7 @@ type robotiqGripper struct {
 	openLimit  string
 	closeLimit string
 	logger     golog.Logger
-	opMgr      operation.SingleOperationManager
+	opMgr      *operation.SingleOperationManager
 	geometries []spatialmath.Geometry
 }
 
@@ -75,7 +75,7 @@ func newGripper(ctx context.Context, conf resource.Config, host string, logger g
 		"0",
 		"255",
 		logger,
-		operation.SingleOperationManager{},
+		operation.NewSingleOperationManager(),
 		[]spatialmath.Geometry{},
 	}
 

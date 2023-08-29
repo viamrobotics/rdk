@@ -34,6 +34,7 @@ func NewController(ctx context.Context, _ resource.Dependencies, conf resource.C
 			input.ButtonLT, input.ButtonRT, input.ButtonLThumb, input.ButtonRThumb,
 			input.ButtonSelect, input.ButtonStart, input.ButtonMenu,
 		},
+		logger: logger,
 	}, nil
 }
 
@@ -46,6 +47,7 @@ type webGamepad struct {
 	lastEvents map[input.Control]input.Event
 	mu         sync.RWMutex
 	callbacks  map[input.Control]map[input.EventType]input.ControlFunction
+	logger     golog.Logger
 }
 
 func (w *webGamepad) makeCallbacks(ctx context.Context, eventOut input.Event) {

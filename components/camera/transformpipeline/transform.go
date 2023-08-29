@@ -140,7 +140,7 @@ func buildTransform(
 	case transformTypeUnspecified, transformTypeIdentity:
 		return source, stream, nil
 	case transformTypeRotate:
-		return newRotateTransform(ctx, source, stream)
+		return newRotateTransform(ctx, source, stream, tr.Attributes)
 	case transformTypeResize:
 		return newResizeTransform(ctx, source, stream, tr.Attributes)
 	case transformTypeCrop:

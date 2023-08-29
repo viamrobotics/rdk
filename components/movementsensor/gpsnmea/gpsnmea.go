@@ -1,6 +1,17 @@
 // Package gpsnmea implements an NMEA serial gps.
 package gpsnmea
 
+/*
+	This package supports GPS NMEA over Serial or I2C.
+
+	NMEA reference manual:
+	https://www.sparkfun.com/datasheets/GPS/NMEA%20Reference%20Manual-Rev2.1-Dec07.pdf
+
+	Example GPS NMEA chip datasheet:
+	https://content.u-blox.com/sites/default/files/NEO-M9N-00B_DataSheet_UBX-19014285.pdf
+
+*/
+
 import (
 	"context"
 	"strings"
@@ -40,7 +51,7 @@ type SerialConfig struct {
 
 // I2CConfig is used for converting Serial NMEA MovementSensor config attributes.
 type I2CConfig struct {
-	Board       string `json:"board,omitempty"`
+	Board       string `json:"board"`
 	I2CBus      string `json:"i2c_bus"`
 	I2CAddr     int    `json:"i2c_addr"`
 	I2CBaudRate int    `json:"i2c_baud_rate,omitempty"`

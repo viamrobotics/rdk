@@ -318,6 +318,9 @@
       icon="stop-circle-outline"
       label="Stop"
       on:click={stop}
+      on:keyup={stop}
+      role="button"
+      tabindex="0"
     />
 
     <div
@@ -381,18 +384,22 @@
                 label="Speed (mm/sec)"
                 on:input={handleSetSpeed}
               />
-              <div
-                class="pointer-events-none"
-                class:opacity-50={movementType === 'Continuous'}
-              >
+              {#if movementType === 'Continuous'}
                 <v-input
                   type="number"
                   value={increment}
-                  readonly={movementType === 'Continuous'}
+                  tabindex="-1"
+                  disabled
+                  label="Distance (mm)"
+                />
+              {:else}
+                <v-input
+                  type="number"
+                  value={increment}
                   label="Distance (mm)"
                   on:input={handleSetIncrement}
                 />
-              </div>
+              {/if}
             {/if}
             {#if movementMode === 'Spin'}
               <v-input
@@ -425,6 +432,8 @@
               label="Run"
               on:click={baseRun}
               on:keyup={baseRun}
+              role="button"
+              tabindex="0"
             />
           </div>
         {/if}
@@ -475,6 +484,8 @@
                 on:keyup ={() => {
                   triggerRefresh = !triggerRefresh;
                 }}
+                role="button"
+                tabindex="0"
               />
             </div>
           </div>

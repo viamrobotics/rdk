@@ -31,68 +31,37 @@ const (
 	logEveryN                = 100
 	maxLimit                 = 100
 
-	// DataFlagDestination is the output directory for downloaded data.
-	DataFlagDestination = "destination"
-	// DataFlagDataType is the data type to be downloaded: either binary or tabular.
-	DataFlagDataType = "data-type"
-	// DataFlagOrgIDs is the orgs filter.
-	DataFlagOrgIDs = "org-ids"
-	// DataFlagLocationIDs is the location filter.
-	DataFlagLocationIDs = "location-ids"
-	// DataFlagRobotID is the robot-id filter.
-	DataFlagRobotID = "robot-id"
-	// DataFlagPartID is the robot-id filter.
-	DataFlagPartID = "part-id"
-	// DataFlagRobotName is the robot name filter.
-	DataFlagRobotName = "robot-name"
-	// DataFlagPartName is the part name filter.
-	DataFlagPartName = "part-name"
-	// DataFlagComponentType is the component type filter.
-	DataFlagComponentType = "component-type"
-	// DataFlagComponentName is the component name filter.
-	DataFlagComponentName = "component-name"
-	// DataFlagMethod is the method filter.
-	DataFlagMethod = "method"
-	// DataFlagMimeTypes is the mime types filter.
-	DataFlagMimeTypes = "mime-types"
-	// DataFlagStart is an ISO-8601 timestamp indicating the start of the interval filter.
-	DataFlagStart = "start"
-	// DataFlagEnd is an ISO-8601 timestamp indicating the end of the interval filter.
-	DataFlagEnd = "end"
-	// DataFlagParallelDownloads is the number of download requests to make in parallel.
-	DataFlagParallelDownloads = "parallel"
-	// DataFlagTags is the tags filter.
-	DataFlagTags = "tags"
-	// DataFlagBboxLabels is the bbox labels filter.
-	DataFlagBboxLabels = "bbox-labels"
-
 	dataTypeBinary  = "binary"
 	dataTypeTabular = "tabular"
 )
 
 // DataExportAction is the corresponding action for 'data export'.
 func DataExportAction(c *cli.Context) error {
-	filter, err := createDataFilter(c)
+	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
 
-	client, err := newAppClient(c)
+	return client.dataExportAction(c)
+}
+
+func (c *viamClient) dataExportAction(cCtx *cli.Context) error {
+	filter, err := createDataFilter(cCtx)
 	if err != nil {
 		return err
 	}
 
-	switch c.String(DataFlagDataType) {
+	switch cCtx.String(dataFlagDataType) {
 	case dataTypeBinary:
-		if err := client.binaryData(c.Path(DataFlagDestination), filter, c.Uint(DataFlagParallelDownloads)); err != nil {
+		if err := c.binaryData(cCtx.Path(dataFlagDestination), filter, cCtx.Uint(dataFlagParallelDownloads)); err != nil {
 			return err
 		}
 	case dataTypeTabular:
-		if err := client.tabularData(c.Path(DataFlagDestination), filter); err != nil {
+		if err := c.tabularData(cCtx.Path(dataFlagDestination), filter); err != nil {
 			return err
 		}
 	default:
-		return errors.Errorf("%s must be binary or tabular, got %q", DataFlagDataType, c.String(DataFlagDataType))
+		return errors.Errorf("%s must be binary or tabular, got %q", dataFlagDataType, cCtx.String(dataFlagDataType))
 	}
 	return nil
 }
@@ -104,12 +73,12 @@ func DataDeleteAction(c *cli.Context) error {
 		return err
 	}
 
-	client, err := newAppClient(c)
+	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
 
-	switch c.String(DataFlagDataType) {
+	switch c.String(dataFlagDataType) {
 	case dataTypeBinary:
 		if err := client.deleteBinaryData(filter); err != nil {
 			return err
@@ -119,7 +88,7 @@ func DataDeleteAction(c *cli.Context) error {
 			return err
 		}
 	default:
-		return errors.Errorf("%s must be binary or tabular, got %q", DataFlagDataType, c.String(DataFlagDataType))
+		return errors.Errorf("%s must be binary or tabular, got %q", dataFlagDataType, c.String(dataFlagDataType))
 	}
 
 	return nil
@@ -128,68 +97,68 @@ func DataDeleteAction(c *cli.Context) error {
 func createDataFilter(c *cli.Context) (*datapb.Filter, error) {
 	filter := &datapb.Filter{}
 
-	if c.StringSlice(DataFlagOrgIDs) != nil {
-		filter.OrganizationIds = c.StringSlice(DataFlagOrgIDs)
+	if c.StringSlice(dataFlagOrgIDs) != nil {
+		filter.OrganizationIds = c.StringSlice(dataFlagOrgIDs)
 	}
-	if c.StringSlice(DataFlagLocationIDs) != nil {
-		filter.LocationIds = c.StringSlice(DataFlagLocationIDs)
+	if c.StringSlice(dataFlagLocationIDs) != nil {
+		filter.LocationIds = c.StringSlice(dataFlagLocationIDs)
 	}
-	if c.String(DataFlagRobotID) != "" {
-		filter.RobotId = c.String(DataFlagRobotID)
+	if c.String(dataFlagRobotID) != "" {
+		filter.RobotId = c.String(dataFlagRobotID)
 	}
-	if c.String(DataFlagPartID) != "" {
-		filter.PartId = c.String(DataFlagPartID)
+	if c.String(dataFlagPartID) != "" {
+		filter.PartId = c.String(dataFlagPartID)
 	}
-	if c.String(DataFlagRobotName) != "" {
-		filter.RobotName = c.String(DataFlagRobotName)
+	if c.String(dataFlagRobotName) != "" {
+		filter.RobotName = c.String(dataFlagRobotName)
 	}
-	if c.String(DataFlagPartName) != "" {
-		filter.PartName = c.String(DataFlagPartName)
+	if c.String(dataFlagPartName) != "" {
+		filter.PartName = c.String(dataFlagPartName)
 	}
-	if c.String(DataFlagComponentType) != "" {
-		filter.ComponentType = c.String(DataFlagComponentType)
+	if c.String(dataFlagComponentType) != "" {
+		filter.ComponentType = c.String(dataFlagComponentType)
 	}
-	if c.String(DataFlagComponentName) != "" {
-		filter.ComponentName = c.String(DataFlagComponentName)
+	if c.String(dataFlagComponentName) != "" {
+		filter.ComponentName = c.String(dataFlagComponentName)
 	}
-	if c.String(DataFlagMethod) != "" {
-		filter.Method = c.String(DataFlagMethod)
+	if c.String(dataFlagMethod) != "" {
+		filter.Method = c.String(dataFlagMethod)
 	}
-	if len(c.StringSlice(DataFlagMimeTypes)) != 0 {
-		filter.MimeType = c.StringSlice(DataFlagMimeTypes)
+	if len(c.StringSlice(dataFlagMimeTypes)) != 0 {
+		filter.MimeType = c.StringSlice(dataFlagMimeTypes)
 	}
-	if c.StringSlice(DataFlagTags) != nil {
+	if c.StringSlice(dataFlagTags) != nil {
 		switch {
-		case len(c.StringSlice(DataFlagTags)) == 1 && c.StringSlice(DataFlagTags)[0] == "tagged":
+		case len(c.StringSlice(dataFlagTags)) == 1 && c.StringSlice(dataFlagTags)[0] == "tagged":
 			filter.TagsFilter = &datapb.TagsFilter{
 				Type: datapb.TagsFilterType_TAGS_FILTER_TYPE_TAGGED,
 			}
-		case len(c.StringSlice(DataFlagTags)) == 1 && c.StringSlice(DataFlagTags)[0] == "untagged":
+		case len(c.StringSlice(dataFlagTags)) == 1 && c.StringSlice(dataFlagTags)[0] == "untagged":
 			filter.TagsFilter = &datapb.TagsFilter{
 				Type: datapb.TagsFilterType_TAGS_FILTER_TYPE_UNTAGGED,
 			}
 		default:
 			filter.TagsFilter = &datapb.TagsFilter{
 				Type: datapb.TagsFilterType_TAGS_FILTER_TYPE_MATCH_BY_OR,
-				Tags: c.StringSlice(DataFlagTags),
+				Tags: c.StringSlice(dataFlagTags),
 			}
 		}
 	}
-	if len(c.StringSlice(DataFlagBboxLabels)) != 0 {
-		filter.BboxLabels = c.StringSlice(DataFlagBboxLabels)
+	if len(c.StringSlice(dataFlagBboxLabels)) != 0 {
+		filter.BboxLabels = c.StringSlice(dataFlagBboxLabels)
 	}
 	var start *timestamppb.Timestamp
 	var end *timestamppb.Timestamp
 	timeLayout := time.RFC3339
-	if c.String(DataFlagStart) != "" {
-		t, err := time.Parse(timeLayout, c.String(DataFlagStart))
+	if c.String(dataFlagStart) != "" {
+		t, err := time.Parse(timeLayout, c.String(dataFlagStart))
 		if err != nil {
 			return nil, errors.Wrap(err, "could not parse start flag")
 		}
 		start = timestamppb.New(t)
 	}
-	if c.String(DataFlagEnd) != "" {
-		t, err := time.Parse(timeLayout, c.String(DataFlagEnd))
+	if c.String(dataFlagEnd) != "" {
+		t, err := time.Parse(timeLayout, c.String(dataFlagEnd))
 		if err != nil {
 			return nil, errors.Wrap(err, "could not parse end flag")
 		}
@@ -205,7 +174,7 @@ func createDataFilter(c *cli.Context) (*datapb.Filter, error) {
 }
 
 // BinaryData downloads binary data matching filter to dst.
-func (c *appClient) binaryData(dst string, filter *datapb.Filter, parallelDownloads uint) error {
+func (c *viamClient) binaryData(dst string, filter *datapb.Filter, parallelDownloads uint) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
@@ -387,10 +356,14 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 		return err
 	}
 
-	gzippedBytes := datum.GetBinary()
-	r, err := gzip.NewReader(bytes.NewBuffer(gzippedBytes))
-	if err != nil {
-		return err
+	bin := datum.GetBinary()
+
+	r := io.NopCloser(bytes.NewReader(bin))
+	if datum.GetMetadata().GetFileExt() == ".gz" {
+		r, err = gzip.NewReader(r)
+		if err != nil {
+			return err
+		}
 	}
 
 	//nolint:gosec
@@ -409,7 +382,7 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 }
 
 // tabularData downloads binary data matching filter to dst.
-func (c *appClient) tabularData(dst string, filter *datapb.Filter) error {
+func (c *viamClient) tabularData(dst string, filter *datapb.Filter) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
@@ -525,7 +498,7 @@ func makeDestinationDirs(dst string) error {
 	return nil
 }
 
-func (c *appClient) deleteBinaryData(filter *datapb.Filter) error {
+func (c *viamClient) deleteBinaryData(filter *datapb.Filter) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
@@ -539,7 +512,7 @@ func (c *appClient) deleteBinaryData(filter *datapb.Filter) error {
 }
 
 // deleteTabularData delete tabular data matching filter.
-func (c *appClient) deleteTabularData(filter *datapb.Filter) error {
+func (c *viamClient) deleteTabularData(filter *datapb.Filter) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}

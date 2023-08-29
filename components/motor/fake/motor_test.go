@@ -11,6 +11,7 @@ import (
 
 	"go.viam.com/rdk/components/encoder/fake"
 	"go.viam.com/rdk/components/motor"
+	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 )
 
@@ -20,7 +21,7 @@ func TestMotorInit(t *testing.T) {
 
 	enc, err := fake.NewEncoder(context.Background(), resource.Config{
 		ConvertedAttributes: &fake.Config{},
-	})
+	}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	m := &Motor{
 		Encoder:           enc.(fake.Encoder),
@@ -28,6 +29,7 @@ func TestMotorInit(t *testing.T) {
 		PositionReporting: true,
 		MaxRPM:            60,
 		TicksPerRotation:  1,
+		OpMgr:             operation.NewSingleOperationManager(),
 	}
 
 	pos, err := m.Position(ctx, nil)
@@ -45,7 +47,7 @@ func TestGoFor(t *testing.T) {
 
 	enc, err := fake.NewEncoder(context.Background(), resource.Config{
 		ConvertedAttributes: &fake.Config{},
-	})
+	}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	m := &Motor{
 		Encoder:           enc.(fake.Encoder),
@@ -53,6 +55,7 @@ func TestGoFor(t *testing.T) {
 		PositionReporting: true,
 		MaxRPM:            60,
 		TicksPerRotation:  1,
+		OpMgr:             operation.NewSingleOperationManager(),
 	}
 
 	err = m.GoFor(ctx, 0, 1, nil)
@@ -81,7 +84,7 @@ func TestGoTo(t *testing.T) {
 
 	enc, err := fake.NewEncoder(context.Background(), resource.Config{
 		ConvertedAttributes: &fake.Config{},
-	})
+	}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	m := &Motor{
 		Encoder:           enc.(fake.Encoder),
@@ -89,6 +92,7 @@ func TestGoTo(t *testing.T) {
 		PositionReporting: true,
 		MaxRPM:            60,
 		TicksPerRotation:  1,
+		OpMgr:             operation.NewSingleOperationManager(),
 	}
 
 	err = m.GoTo(ctx, 60, 1, nil)
@@ -117,7 +121,7 @@ func TestResetZeroPosition(t *testing.T) {
 
 	enc, err := fake.NewEncoder(context.Background(), resource.Config{
 		ConvertedAttributes: &fake.Config{},
-	})
+	}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	m := &Motor{
 		Encoder:           enc.(fake.Encoder),
@@ -125,6 +129,7 @@ func TestResetZeroPosition(t *testing.T) {
 		PositionReporting: true,
 		MaxRPM:            60,
 		TicksPerRotation:  1,
+		OpMgr:             operation.NewSingleOperationManager(),
 	}
 
 	err = m.ResetZeroPosition(ctx, 0, nil)
@@ -141,7 +146,7 @@ func TestPower(t *testing.T) {
 
 	enc, err := fake.NewEncoder(context.Background(), resource.Config{
 		ConvertedAttributes: &fake.Config{},
-	})
+	}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	m := &Motor{
 		Encoder:           enc.(fake.Encoder),
@@ -149,6 +154,7 @@ func TestPower(t *testing.T) {
 		PositionReporting: true,
 		MaxRPM:            60,
 		TicksPerRotation:  1,
+		OpMgr:             operation.NewSingleOperationManager(),
 	}
 
 	err = m.SetPower(ctx, 1.0, nil)

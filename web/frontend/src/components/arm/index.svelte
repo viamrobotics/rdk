@@ -1,7 +1,6 @@
 <script lang="ts">
 
-import { ArmClient } from '@viamrobotics/sdk';
-import type { Pose, ServiceError } from '@viamrobotics/sdk';
+import { ArmClient, type Pose, type ServiceError } from '@viamrobotics/sdk';
 import { copyToClipboard } from '@/lib/copy-to-clipboard';
 import { displayError } from '@/lib/error';
 import { roundTo2Decimals } from '@/lib/math';
