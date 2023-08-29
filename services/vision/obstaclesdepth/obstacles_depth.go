@@ -9,6 +9,7 @@ import (
 	"math"
 	"sort"
 	"strconv"
+	"sync"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
@@ -17,6 +18,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/viamrobotics/gostream"
 	"go.opencensus.io/trace"
+	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/pointcloud"
@@ -209,24 +211,40 @@ func (o *obsDepth) obsDepthWithIntrinsics(ctx context.Context, src camera.VideoS
 	w, h := dm.Width(), dm.Height()
 	o.dm = dm
 
-	obstaclePoints := make([]image.Point, 0, w*h/sampleN)
+	var wg sync.WaitGroup
+	obstaclePointChan := make(chan image.Point)
+
 	for i := 0; i < w; i += sampleN {
-		for j := 0; j < h; j++ {
-			candidate := image.Pt(i, j)
-		obs: // for every sub-sampled point, figure out if it is an obstacle
-			for l := 0; l < w; l += sampleN { // continue with the sub-sampling
-				for m := 0; m < h; m++ {
-					compareTo := image.Pt(l, m)
-					if candidate == compareTo {
-						continue
-					}
-					if o.isCompatible(candidate, compareTo) {
-						obstaclePoints = append(obstaclePoints, candidate)
-						break obs
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			for j := 0; j < h; j++ {
+				candidate := image.Pt(i, j)
+			obs: // for every sub-sampled point, figure out if it is an obstacle
+				for l := 0; l < w; l += sampleN { // continue with the sub-sampling
+					for m := 0; m < h; m++ {
+						compareTo := image.Pt(l, m)
+						if candidate == compareTo {
+							continue
+						}
+						if o.isCompatible(candidate, compareTo) {
+							obstaclePointChan <- candidate
+							break obs
+						}
 					}
 				}
 			}
-		}
+		}(i)
+	}
+
+	goutils.ManagedGo(func() {
+		wg.Wait()
+		close(obstaclePointChan)
+	}, nil)
+
+	obstaclePoints := make([]image.Point, 0, w*h/sampleN)
+	for op := range obstaclePointChan {
+		obstaclePoints = append(obstaclePoints, op)
 	}
 	o.obstaclePts = obstaclePoints
 
