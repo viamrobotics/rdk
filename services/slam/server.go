@@ -57,7 +57,7 @@ func (server *serviceServer) GetPointCloudMap(req *pb.GetPointCloudMapRequest,
 ) error {
 	ctx := context.Background()
 
-	ctx, span := trace.StartSpan(ctx, "slam::server::PointCloudMap")
+	ctx, span := trace.StartSpan(ctx, "slam::server::GetPointCloudMap")
 	defer span.End()
 
 	svc, err := server.coll.Resource(req.Name)
@@ -95,7 +95,7 @@ func (server *serviceServer) GetInternalState(req *pb.GetInternalStateRequest,
 	stream pb.SLAMService_GetInternalStateServer,
 ) error {
 	ctx := context.Background()
-	ctx, span := trace.StartSpan(ctx, "slam::server::InternalState")
+	ctx, span := trace.StartSpan(ctx, "slam::server::GetInternalState")
 	defer span.End()
 
 	svc, err := server.coll.Resource(req.Name)
@@ -131,7 +131,7 @@ func (server *serviceServer) GetInternalState(req *pb.GetInternalStateRequest,
 func (server *serviceServer) GetLatestMapInfo(ctx context.Context, req *pb.GetLatestMapInfoRequest) (
 	*pb.GetLatestMapInfoResponse, error,
 ) {
-	ctx, span := trace.StartSpan(ctx, "slam::server::LatestMapInfo")
+	ctx, span := trace.StartSpan(ctx, "slam::server::GetLatestMapInfo")
 	defer span.End()
 
 	svc, err := server.coll.Resource(req.Name)
