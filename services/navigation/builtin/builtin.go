@@ -4,6 +4,7 @@ package builtin
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"math"
 	"sync"
 
@@ -361,6 +362,7 @@ func (svc *builtIn) Close(ctx context.Context) error {
 }
 
 func (svc *builtIn) startWaypoint(ctx context.Context, extra map[string]interface{}) {
+	fmt.Println("startWaypoint")
 	if extra == nil {
 		extra = map[string]interface{}{"motion_profile": "position_only"}
 	} else if _, ok := extra["motion_profile"]; !ok {
@@ -383,6 +385,7 @@ func (svc *builtIn) startWaypoint(ctx context.Context, extra map[string]interfac
 		defer svc.activeBackgroundWorkers.Done()
 
 		navOnce := func(ctx context.Context, wp navigation.Waypoint) error {
+			fmt.Println("in nac onnce func")
 			_, err := svc.motion.MoveOnGlobe(
 				ctx,
 				svc.base.Name(),
@@ -408,7 +411,7 @@ func (svc *builtIn) startWaypoint(ctx context.Context, extra map[string]interfac
 			}
 
 			wp, err := svc.store.NextWaypoint(ctx)
-			if err.Error() == "no more waypoints" {
+			if err != nil && err.Error() == "no more waypoints" {
 				goto WP
 			} else if err != nil {
 				return
