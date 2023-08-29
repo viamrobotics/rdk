@@ -62,7 +62,6 @@ var app = &cli.App{
 		&cli.StringFlag{
 			Name:   baseURLFlag,
 			Hidden: true,
-			Value:  "https://app.viam.com:443",
 			Usage:  "base URL of app",
 		},
 		&cli.StringFlag{

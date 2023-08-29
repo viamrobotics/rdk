@@ -92,6 +92,7 @@ type token struct {
 	TokenType    string    `json:"token_type"`
 	TokenURL     string    `json:"token_url"`
 	ClientID     string    `json:"client_id"`
+	BaseURL      string    `json:"base_url"`
 
 	User userData `json:"user_data"`
 }
@@ -131,7 +132,7 @@ func (c *viamClient) loginAction(cCtx *cli.Context) error {
 			return err
 		}
 	} else {
-		t, err = c.authFlow.login(c.c.Context)
+		t, err = c.authFlow.login(c.c.Context, cCtx.String(baseURLFlag))
 		if err != nil {
 			return err
 		}
@@ -340,7 +341,7 @@ func newCLIAuthFlowWithAuthDomain(authDomain, audience, clientID string, console
 	}
 }
 
-func (a *authFlow) login(ctx context.Context) (*token, error) {
+func (a *authFlow) login(ctx context.Context, baseURL string) (*token, error) {
 	discovery, err := a.loadOIDiscoveryEndpoint(ctx)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed retrieving discovery endpoint")
@@ -360,15 +361,18 @@ func (a *authFlow) login(ctx context.Context) (*token, error) {
 	if err != nil {
 		return nil, err
 	}
-	return buildToken(token, discovery.TokenEndPoint, a.clientID)
+	return buildToken(token, discovery.TokenEndPoint, a.clientID, baseURL)
 }
 
-func buildToken(t *tokenResponse, tokenURL, clientID string) (*token, error) {
+func buildToken(t *tokenResponse, tokenURL, clientID, baseURL string) (*token, error) {
 	userData, err := userDataFromIDToken(t.IDToken)
 	if err != nil {
 		return nil, err
 	}
 
+	if baseURL == "" {
+		baseURL = defaultBaseURL
+	}
 	return &token{
 		TokenType:    tokenTypeUserOAuthToken,
 		AccessToken:  t.AccessToken,
@@ -378,6 +382,7 @@ func buildToken(t *tokenResponse, tokenURL, clientID string) (*token, error) {
 		User:         *userData,
 		TokenURL:     tokenURL,
 		ClientID:     clientID,
+		BaseURL:      baseURL,
 	}, nil
 }
 
@@ -562,7 +567,7 @@ func (a *authFlow) refreshToken(ctx context.Context, t *token) (*token, error) {
 		return nil, errors.New("expecting new token")
 	}
 
-	return buildToken(resp, t.TokenURL, t.ClientID)
+	return buildToken(resp, t.TokenURL, t.ClientID, t.BaseURL)
 }
 
 func processTokenResponse(res *http.Response) (*tokenResponse, error) {
