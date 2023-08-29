@@ -238,7 +238,9 @@ func UploadModuleAction(c *cli.Context) error {
 
 	if !forceUploadArg {
 		if err := validateModuleFile(client, moduleID, tarballPath, versionArg); err != nil {
-			return errors.Wrap(err, "error validating module. use --force to ignore this")
+			return fmt.Errorf(
+				"error validating module: %w. For more details, please visit: https://docs.viam.com/manage/cli/#command-options-3 ",
+				err)
 		}
 	}
 
@@ -402,9 +404,7 @@ func validateModuleFile(client *viamClient, moduleID moduleID, tarballPath, vers
 	if err != nil {
 		return err
 	}
-	//nolint:govet // warns about copying a lock, should be safe
-	moduleInfo := moduleInfo(*getModuleResp.Module)
-	entrypoint, err := moduleInfo.getEntrypointForVersion(version)
+	entrypoint, err := getEntrypointForVersion(getModuleResp.Module, version)
 	if err != nil {
 		return err
 	}
@@ -423,7 +423,7 @@ func validateModuleFile(client *viamClient, moduleID moduleID, tarballPath, vers
 	}
 
 	tarReader := tar.NewReader(archive)
-	filesWithSameName := []string{}
+	filesWithSameNameAsEntrypoint := []string{}
 	for {
 		if err := client.c.Context.Err(); err != nil {
 			return err
@@ -433,7 +433,7 @@ func validateModuleFile(client *viamClient, moduleID moduleID, tarballPath, vers
 			break
 		}
 		if err != nil {
-			return errors.Wrapf(err, "error reading %s. is it a tar.gz?", file.Name())
+			return errors.Wrapf(err, "error reading %s", file.Name())
 		}
 		path := header.Name
 
@@ -449,14 +449,14 @@ func validateModuleFile(client *viamClient, moduleID moduleID, tarballPath, vers
 			return nil
 		}
 		if filepath.Base(path) == filepath.Base(entrypoint) {
-			filesWithSameName = append(filesWithSameName, path)
+			filesWithSameNameAsEntrypoint = append(filesWithSameNameAsEntrypoint, path)
 		}
 	}
 	extraErrInfo := ""
-	if len(filesWithSameName) > 0 {
-		extraErrInfo = fmt.Sprintf(" did you mean to set your entrypoint to %v?", filesWithSameName)
+	if len(filesWithSameNameAsEntrypoint) > 0 {
+		extraErrInfo = fmt.Sprintf(". did you mean to set your entrypoint to %v?", filesWithSameNameAsEntrypoint)
 	}
-	return errors.Errorf("the provided tarball %q does not contain a file at the desired entrypoint %q.%s",
+	return errors.Errorf("the provided tarball %q does not contain a file at the desired entrypoint %q%s",
 		tarballPath, entrypoint, extraErrInfo)
 }
 
@@ -623,17 +623,16 @@ func writeManifest(manifestPath string, manifest moduleManifest) error {
 	return nil
 }
 
-type moduleInfo apppb.Module
-
-func (mi *moduleInfo) getEntrypointForVersion(version string) (string, error) {
-	for _, ver := range mi.Versions {
+// getEntrypointForVersion returns the entrypoint associated with the provided version, or the last updated entrypoint if it doesnt exit.
+func getEntrypointForVersion(mod *apppb.Module, version string) (string, error) {
+	for _, ver := range mod.Versions {
 		if ver.Version == version {
 			return ver.Entrypoint, nil
 		}
 	}
-	if mi.Entrypoint == "" {
+	if mod.Entrypoint == "" {
 		return "", errors.New("no entrypoint has been set for your module. add one to your meta.json and then update your module")
 	}
 	// if there is no entrypoint set yet, use the last uploaded entrypoint
-	return mi.Entrypoint, nil
+	return mod.Entrypoint, nil
 }
