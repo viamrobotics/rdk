@@ -843,6 +843,13 @@ func (manager *resourceManager) updateResources(
 	for _, r := range manager.resources.Names() {
 		seenResources[r.String()] = true
 	}
+	for _, c := range manager.moduleManager.Configs() {
+		manager.logger.Infof("\n module config: %v\n", c)
+		seenResources[c.Name] = true
+	}
+	for _, p := range manager.processConfigs {
+		seenResources[p.ID] = true
+	}
 
 	for _, s := range conf.Added.Services {
 		rName := s.ResourceName()
