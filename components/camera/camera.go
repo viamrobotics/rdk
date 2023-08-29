@@ -79,8 +79,8 @@ type Camera interface {
 type VideoSource interface {
 	projectorProvider
 
-	// Images is used for getting simultaneous images from different sensors,
-	// along with associated metadata (just timestamp for now). It's not for getting a time series of images from the same sensor.
+	// Images is used for getting simultaneous images from different imagers,
+	// along with associated metadata (just timestamp for now). It's not for getting a time series of images from the same imager.
 	Images(ctx context.Context) ([]NamedImage, resource.ResponseMetadata, error)
 	// Stream returns a stream that makes a best effort to return consecutive images
 	// that may have a MIME type hint dictated in the context via gostream.WithMIMETypeHint.
