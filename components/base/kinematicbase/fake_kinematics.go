@@ -11,8 +11,8 @@ import (
 
 type fakeKinematics struct {
 	*fake.Base
+	motion.Localizer
 	planningFrame, executionFrame referenceframe.Frame
-	localizer                     motion.Localizer
 	inputs                        []referenceframe.Input
 	options                       Options
 }
@@ -32,7 +32,7 @@ func WrapWithFakeKinematics(
 	pt := position.Pose().Point()
 	fk := &fakeKinematics{
 		Base:      b,
-		localizer: localizer,
+		Localizer: localizer,
 		inputs:    []referenceframe.Input{{pt.X}, {pt.Y}, {0}},
 	}
 	var geometry spatialmath.Geometry

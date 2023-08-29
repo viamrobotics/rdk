@@ -16,6 +16,7 @@ import (
 // KinematicBase is an interface for Bases that also satisfy the ModelFramer and InputEnabled interfaces.
 type KinematicBase interface {
 	base.Base
+	motion.Localizer
 	referenceframe.InputEnabled
 
 	Kinematics() referenceframe.Frame
@@ -132,5 +133,5 @@ func WrapWithKinematics(
 	if properties.TurningRadiusMeters == 0 {
 		return wrapWithDifferentialDriveKinematics(ctx, b, logger, localizer, limits, options)
 	}
-	return wrapWithPTGKinematics(ctx, b, logger, options)
+	return wrapWithPTGKinematics(ctx, b, logger, localizer, options)
 }

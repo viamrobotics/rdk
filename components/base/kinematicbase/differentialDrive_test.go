@@ -123,7 +123,7 @@ func TestErrorState(t *testing.T) {
 	ddk, err := buildTestDDK(ctx, testConfig(),
 		defaultLinearVelocityMMPerSec, defaultAngularVelocityDegsPerSec, logger)
 	test.That(t, err, test.ShouldBeNil)
-	ddk.localizer = motion.NewSLAMLocalizer(slam)
+	ddk.Localizer = motion.NewSLAMLocalizer(slam)
 
 	desiredInput := []referenceframe.Input{{3}, {4}, {utils.DegToRad(30)}}
 	distErr, headingErr, err := ddk.errorState(make([]referenceframe.Input, 3), desiredInput)

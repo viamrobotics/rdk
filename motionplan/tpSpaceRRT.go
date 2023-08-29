@@ -350,7 +350,7 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 			return sqMet(&ik.State{Position: spatialmath.Compose(nearest.Pose(), spatialmath.PoseInverse(pose.Position))})
 		}
 	} else {
-		relPose := spatialmath.Compose(spatialmath.PoseInverse(nearest.Pose()), randPosNode.Pose())
+		relPose := spatialmath.PoseBetween(nearest.Pose(), randPosNode.Pose())
 		targetFunc = ik.NewSquaredNormMetric(relPose)
 	}
 	solutionChan := make(chan *ik.Solution, 1)
@@ -648,7 +648,7 @@ func (mp *tpSpaceRRTMotionPlanner) make2DTPSpaceDistanceOptions(ptg tpspace.PTG,
 				return sqMet(&ik.State{Position: spatialmath.Compose(seg.EndPosition, spatialmath.PoseInverse(pose.Position))})
 			}
 		} else {
-			relPose := spatialmath.Compose(spatialmath.PoseInverse(seg.EndPosition), seg.StartPosition)
+			relPose := spatialmath.PoseBetween(seg.EndPosition, seg.StartPosition)
 			targetFunc = ik.NewSquaredNormMetric(relPose)
 		}
 		solutionChan := make(chan *ik.Solution, 1)

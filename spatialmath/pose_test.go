@@ -43,7 +43,7 @@ func TestBasicPoseConstruction(t *testing.T) {
 	ovCompare(t, delta.Orientation().OrientationVectorRadians(), NewOrientationVector())
 
 	p2 = NewPoseFromPoint(r3.Vector{2, 3, 4})
-	
+
 	pb := PoseBetween(p1, p2)
 	test.That(t, PoseAlmostEqual(Compose(p1, pb), p2), test.ShouldBeTrue)
 	pbi := PoseBetweenInverse(p1, p2)

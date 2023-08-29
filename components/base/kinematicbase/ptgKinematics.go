@@ -17,11 +17,13 @@ import (
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/services/motion"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
 // Define a default speed to target for the base in the case where one is not provided.
 const defaultBaseMMps = 600.
+
 var zeroInput = []referenceframe.Input{{Value: 0}, {Value: 0}, {Value: 0}}
 
 const (
@@ -32,11 +34,12 @@ const (
 
 type ptgBaseKinematics struct {
 	base.Base
-	logger golog.Logger
-	frame  referenceframe.Frame
-	fs     referenceframe.FrameSystem
-	ptgs   []tpspace.PTG
-	inputLock sync.RWMutex
+	motion.Localizer
+	logger       golog.Logger
+	frame        referenceframe.Frame
+	fs           referenceframe.FrameSystem
+	ptgs         []tpspace.PTG
+	inputLock    sync.RWMutex
 	currentInput []referenceframe.Input
 }
 
@@ -45,6 +48,7 @@ func wrapWithPTGKinematics(
 	ctx context.Context,
 	b base.Base,
 	logger golog.Logger,
+	localizer motion.Localizer,
 	options Options,
 ) (KinematicBase, error) {
 	properties, err := b.Properties(ctx, nil)
@@ -102,11 +106,12 @@ func wrapWithPTGKinematics(
 	ptgs := ptgProv.PTGs()
 
 	return &ptgBaseKinematics{
-		Base:   b,
-		logger: logger,
-		frame:  frame,
-		fs:     fs,
-		ptgs:   ptgs,
+		Base:         b,
+		Localizer:    localizer,
+		logger:       logger,
+		frame:        frame,
+		fs:           fs,
+		ptgs:         ptgs,
 		currentInput: zeroInput,
 	}, nil
 }
@@ -126,7 +131,7 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 	if len(inputs) != 3 {
 		return errors.New("inputs to ptg kinematic base must be length 3")
 	}
-	
+
 	defer func() {
 		ptgk.inputLock.Lock()
 		ptgk.currentInput = zeroInput
@@ -140,7 +145,7 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 	if err != nil {
 		return multierr.Combine(err, ptgk.Base.Stop(ctx, nil))
 	}
-	
+
 	ptgk.inputLock.Lock()
 	ptgk.currentInput = []referenceframe.Input{inputs[0], inputs[1], {0}}
 	ptgk.inputLock.Unlock()
