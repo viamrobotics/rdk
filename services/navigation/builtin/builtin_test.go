@@ -199,7 +199,7 @@ func TestStartWaypoint(t *testing.T) {
 		ns.(*builtIn).mode = navigation.ModeManual
 		err = ns.SetMode(ctx, navigation.ModeWaypoint, nil)
 		test.That(t, err, test.ShouldBeNil)
-		ns.(*builtIn).activeBackgroundWorkers.Wait()
+		ns.(*builtIn).activeBackgroundWorkers.Done()
 
 		currentInputsShouldEqual(ctx, t, kinematicBase, pt)
 	})

@@ -5,8 +5,8 @@
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { notify } from '@viamrobotics/prime';
 import { navigationApi, NavigationClient, type ServiceError } from '@viamrobotics/sdk';
-import { getObstacles, type NavigationModes } from '@/api/navigation';
-import { mapCenter, centerMap, robotPosition, flyToMap, write as writeStore, obstacles, navMode } from './stores';
+import { getObstacles } from '@/api/navigation';
+import { mapCenter, centerMap, robotPosition, flyToMap, write as writeStore, obstacles } from './stores';
 import { useRobotClient } from '@/hooks/robot-client';
 import Collapse from '@/lib/components/collapse.svelte';
 import Map from './components/map.svelte';
@@ -24,12 +24,18 @@ $: $writeStore = write;
 const { robotClient } = useRobotClient();
 const navClient = new NavigationClient($robotClient, name, { requestLogger: rcLogConditionally });
 
+let navMode: 'Manual' | 'Waypoint' | '' = ''
+const enum NavigationModes {
+  Manual = 1,
+  Waypoint = 2,
+}
+
 onMount(async () => {
   const currentMode = await navClient.getMode();
-  if (currentMode === 1) {
-    $navMode = 'Manual';
-  } else if (currentMode === 2) {
-    $navMode = 'Waypoint';
+  if (currentMode === NavigationModes.Manual) {
+    navMode = 'Manual';
+  } else if (currentMode === NavigationModes.Waypoint) {
+    navMode = 'Waypoint';
   }
 });
 
@@ -81,7 +87,7 @@ const handleEnter = async () => {
       <v-radio
         label="Navigation mode"
         options="Manual, Waypoint"
-        selected={$navMode}
+        selected={navMode}
         on:input={setNavigationMode}
       />
 

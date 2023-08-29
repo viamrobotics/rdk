@@ -12,7 +12,6 @@ export const map = currentWritable<Map | null>(null);
 export const obstacles = currentWritable<Obstacle[]>([]);
 export const waypoints = currentWritable<Waypoint[]>([]);
 export const hovered = currentWritable<string | null>(null);
-export const navMode = currentWritable<string | null>(null);
 
 /** The currently selected tab. */
 export const tab = persisted<'Obstacles' | 'Waypoints'>('cards.navigation.tab', 'Waypoints');

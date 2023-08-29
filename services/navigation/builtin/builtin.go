@@ -400,16 +400,15 @@ func (svc *builtIn) startWaypoint(ctx context.Context, extra map[string]interfac
 			return svc.waypointReached(ctx)
 		}
 
-		// do not exit loop - even if there are no waypoints
+		// do not exit loop - even if there are no waypoints remaining
 		for {
-		WP:
 			if ctx.Err() != nil {
 				return
 			}
 
 			wp, err := svc.store.NextWaypoint(ctx)
-			if err != nil && err.Error() == "no more waypoints" {
-				goto WP
+			if err == navigation.ErrNoMoreWaypoints {
+				continue
 			} else if err != nil {
 				return
 			}
