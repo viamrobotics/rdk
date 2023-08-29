@@ -36,6 +36,19 @@ func (r testReader) Close(ctx context.Context) error {
 	return nil
 }
 
+// fullReader grabs and serves a fake depth image for testing.
+type fullReader struct{}
+
+func (r fullReader) Read(ctx context.Context) (image.Image, func(), error) {
+	// We want this to return a valid depth image of known size (640 x 480)
+	pic, err := rimage.NewDepthMapFromFile(context.Background(), artifact.MustPath("vision/exampleDepth.png"))
+	return pic, nil, err
+}
+
+func (r fullReader) Close(ctx context.Context) error {
+	return nil
+}
+
 func TestObstacleDepth(t *testing.T) {
 	no := false
 	noIntrinsicsCfg := ObsDepthConfig{
@@ -134,7 +147,7 @@ func BenchmarkObstacleDepthIntrinsics(b *testing.B) {
 	r := &inject.Robot{ResourceNamesFunc: func() []resource.Name {
 		return []resource.Name{camera.Named("testCam")}
 	}}
-	tr := testReader{}
+	tr := fullReader{}
 	syst := transform.PinholeCameraModel{&someIntrinsics, nil}
 	myCamSrc, _ := camera.NewVideoSourceFromReader(ctx, tr, &syst, camera.DepthStream)
 	myCam := camera.FromVideoSource(resource.Name{Name: "testCam"}, myCamSrc)
@@ -148,6 +161,37 @@ func BenchmarkObstacleDepthIntrinsics(b *testing.B) {
 	}
 	name := vision.Named("test")
 	srv, _ := registerObstaclesDepth(ctx, name, &withIntrinsicsCfg, r, testLogger)
+
+	for i := 0; i < b.N; i++ {
+		srv.GetObjectPointClouds(ctx, "testCam", nil)
+	}
+}
+
+func BenchmarkObstacleDepthNoIntrinsics(b *testing.B) {
+	no := false
+	noIntrinsicsCfg := ObsDepthConfig{
+		ReturnPCDs:     false,
+		WithGeometries: &no,
+	}
+
+	ctx := context.Background()
+	testLogger := golog.NewLogger("test")
+	r := &inject.Robot{ResourceNamesFunc: func() []resource.Name {
+		return []resource.Name{camera.Named("testCam")}
+	}}
+	tr := fullReader{}
+	myCamSrc, _ := camera.NewVideoSourceFromReader(ctx, tr, nil, camera.DepthStream)
+	myCam := camera.FromVideoSource(resource.Name{Name: "testCam"}, myCamSrc)
+	r.ResourceByNameFunc = func(n resource.Name) (resource.Resource, error) {
+		switch n.Name {
+		case "testCam":
+			return myCam, nil
+		default:
+			return nil, resource.NewNotFoundError(n)
+		}
+	}
+	name := vision.Named("test")
+	srv, _ := registerObstaclesDepth(ctx, name, &noIntrinsicsCfg, r, testLogger)
 
 	for i := 0; i < b.N; i++ {
 		srv.GetObjectPointClouds(ctx, "testCam", nil)
