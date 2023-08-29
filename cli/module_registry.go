@@ -64,7 +64,6 @@ func CreateModuleAction(c *cli.Context) error {
 	moduleNameArg := c.String(moduleFlagName)
 	publicNamespaceArg := c.String(moduleFlagPublicNamespace)
 	orgIDArg := c.String(moduleFlagOrgID)
-	visibility := c.String(moduleFlagVisibility)
 
 	client, err := newViamClient(c)
 	if err != nil {
@@ -77,10 +76,6 @@ func CreateModuleAction(c *cli.Context) error {
 	// Check to make sure the user doesn't accidentally overwrite a module manifest
 	if _, err := os.Stat(defaultManifestFilename); err == nil {
 		return errors.New("another module's meta.json already exists in the current directory. delete it and try again")
-	}
-
-	if visibility == "" || (visibility != string(moduleVisibilityPrivate) && visibility != string(moduleVisibilityPublic)) {
-		return errors.New("must specificy visibility as either private or public")
 	}
 
 	response, err := client.createModule(moduleNameArg, org.GetId())
@@ -99,7 +94,7 @@ func CreateModuleAction(c *cli.Context) error {
 	}
 	emptyManifest := moduleManifest{
 		ModuleID:   returnedModuleID.String(),
-		Visibility: moduleVisibility(visibility),
+		Visibility: "",
 		// This is done so that the json has an empty example
 		Models: []moduleComponent{
 			{},

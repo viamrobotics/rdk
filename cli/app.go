@@ -26,7 +26,6 @@ const (
 	moduleFlagName            = "name"
 	moduleFlagPublicNamespace = "public-namespace"
 	moduleFlagOrgID           = "org-id"
-	moduleFlagVisibility      = "visibility"
 	moduleFlagPath            = "module"
 	moduleFlagVersion         = "version"
 	moduleFlagPlatform        = "platform"
@@ -502,11 +501,6 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 						&cli.StringFlag{
 							Name:  moduleFlagOrgID,
 							Usage: "id of the organization that will host the module",
-						},
-						&cli.StringFlag{
-							Name:     moduleFlagVisibility,
-							Required: true,
-							Usage:    "the visibility of your module on app.viam.com. It can be either 'public' (readable outside of your org) or 'private'.",
 						},
 					},
 					Action: CreateModuleAction,
