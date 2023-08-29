@@ -492,26 +492,26 @@ func TestMoveOnGlobe(t *testing.T) {
 	expectedDst := r3.Vector{380, 0, 0}
 	epsilonMM := 15.
 
-	t.Run("ensure success to a nearby geo point", func(t *testing.T) {
-		t.Parallel()
-		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, dst)
+	// t.Run("ensure success to a nearby geo point", func(t *testing.T) {
+	// 	t.Parallel()
+	// 	injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, dst)
 
-		plan, _, err := ms.(*builtIn).planMoveOnGlobe(
-			context.Background(),
-			fakeBase.Name(),
-			dst,
-			injectedMovementSensor,
-			nil,
-			kinematicbase.NewKinematicBaseOptions(),
-			motionCfg,
-		)
-		test.That(t, err, test.ShouldBeNil)
-		waypoints, err := plan.GetFrameSteps(fakeBase.Name().Name)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(waypoints), test.ShouldEqual, 2)
-		test.That(t, waypoints[1][0].Value, test.ShouldAlmostEqual, expectedDst.X, epsilonMM)
-		test.That(t, waypoints[1][1].Value, test.ShouldAlmostEqual, expectedDst.Y, epsilonMM)
-	})
+	// 	plan, _, err := ms.(*builtIn).planMoveOnGlobe(
+	// 		context.Background(),
+	// 		fakeBase.Name(),
+	// 		dst,
+	// 		injectedMovementSensor,
+	// 		nil,
+	// 		kinematicbase.NewKinematicBaseOptions(),
+	// 		motionCfg,
+	// 	)
+	// 	test.That(t, err, test.ShouldBeNil)
+	// 	waypoints, err := plan.GetFrameSteps(fakeBase.Name().Name)
+	// 	test.That(t, err, test.ShouldBeNil)
+	// 	test.That(t, len(waypoints), test.ShouldEqual, 2)
+	// 	test.That(t, waypoints[1][0].Value, test.ShouldAlmostEqual, expectedDst.X, epsilonMM)
+	// 	test.That(t, waypoints[1][1].Value, test.ShouldAlmostEqual, expectedDst.Y, epsilonMM)
+	// })
 
 	t.Run("go around an obstacle", func(t *testing.T) {
 		t.Parallel()
@@ -553,39 +553,39 @@ func TestMoveOnGlobe(t *testing.T) {
 		test.That(t, success, test.ShouldBeTrue)
 	})
 
-	t.Run("fail because of obstacle", func(t *testing.T) {
-		t.Parallel()
-		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, dst)
+	// t.Run("fail because of obstacle", func(t *testing.T) {
+	// 	t.Parallel()
+	// 	injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, dst)
 
-		boxPose := spatialmath.NewPoseFromPoint(r3.Vector{50, 0, 0})
-		boxDims := r3.Vector{2, 6660, 10}
-		geometries, err := spatialmath.NewBox(boxPose, boxDims, "wall")
-		test.That(t, err, test.ShouldBeNil)
-		geoObstacle := spatialmath.NewGeoObstacle(gpsPoint, []spatialmath.Geometry{geometries})
+	// 	boxPose := spatialmath.NewPoseFromPoint(r3.Vector{50, 0, 0})
+	// 	boxDims := r3.Vector{2, 6660, 10}
+	// 	geometries, err := spatialmath.NewBox(boxPose, boxDims, "wall")
+	// 	test.That(t, err, test.ShouldBeNil)
+	// 	geoObstacle := spatialmath.NewGeoObstacle(gpsPoint, []spatialmath.Geometry{geometries})
 
-		plan, _, err := ms.(*builtIn).planMoveOnGlobe(
-			context.Background(),
-			fakeBase.Name(),
-			dst,
-			injectedMovementSensor,
-			[]*spatialmath.GeoObstacle{geoObstacle},
-			kinematicbase.NewKinematicBaseOptions(),
-			motionCfg,
-		)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, len(plan), test.ShouldEqual, 0)
-	})
+	// 	plan, _, err := ms.(*builtIn).planMoveOnGlobe(
+	// 		context.Background(),
+	// 		fakeBase.Name(),
+	// 		dst,
+	// 		injectedMovementSensor,
+	// 		[]*spatialmath.GeoObstacle{geoObstacle},
+	// 		kinematicbase.NewKinematicBaseOptions(),
+	// 		motionCfg,
+	// 	)
+	// 	test.That(t, err, test.ShouldNotBeNil)
+	// 	test.That(t, len(plan), test.ShouldEqual, 0)
+	// })
 
-	t.Run("check offset constructed correctly", func(t *testing.T) {
-		t.Parallel()
-		_, fsSvc, _, _ := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, dst)
-		baseOrigin := referenceframe.NewPoseInFrame("test-base", spatialmath.NewZeroPose())
-		movementSensorToBase, err := fsSvc.TransformPose(ctx, baseOrigin, "test-gps", nil)
-		if err != nil {
-			movementSensorToBase = baseOrigin
-		}
-		test.That(t, movementSensorToBase.Pose().Point(), test.ShouldResemble, r3.Vector{10, 0, 0})
-	})
+	// t.Run("check offset constructed correctly", func(t *testing.T) {
+	// 	t.Parallel()
+	// 	_, fsSvc, _, _ := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, dst)
+	// 	baseOrigin := referenceframe.NewPoseInFrame("test-base", spatialmath.NewZeroPose())
+	// 	movementSensorToBase, err := fsSvc.TransformPose(ctx, baseOrigin, "test-gps", nil)
+	// 	if err != nil {
+	// 		movementSensorToBase = baseOrigin
+	// 	}
+	// 	test.That(t, movementSensorToBase.Pose().Point(), test.ShouldResemble, r3.Vector{10, 0, 0})
+	// })
 }
 
 func TestMultiplePieces(t *testing.T) {

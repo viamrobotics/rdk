@@ -343,9 +343,6 @@ func (ms *builtIn) MoveOnGlobe(
 		return false, err
 	}
 
-	// we take the zero position to be the start since in the frame of the localizer we will always be at its origin
-	inputMap := map[string][]referenceframe.Input{componentName.Name: make([]referenceframe.Input, len(kb.Kinematics().DoF()))}
-
 	// create a new empty framesystem which we add the kinematic base to
 	fs := referenceframe.NewEmptyFrameSystem("")
 	kbf := kb.Kinematics()
@@ -405,6 +402,12 @@ func (ms *builtIn) MoveOnGlobe(
 			ms.cancelFn()
 			cancelCtx, cancelFn = context.WithCancel(ctx)
 			ms.cancelFn = cancelFn
+
+			inputs, err := kb.CurrentInputs(ctx)
+			if err != nil {
+				return false, err
+			}
+			inputMap := map[string][]referenceframe.Input{componentName.Name: inputs}
 
 			plan, err := motionplan.PlanMotion(
 				ctx,
