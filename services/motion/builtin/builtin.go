@@ -253,12 +253,13 @@ func (ms *builtIn) MoveOnGlobe(
 	errChan := make(chan error)
 	defer close(errChan)
 
+	var backgroundWorkers sync.WaitGroup
+	defer backgroundWorkers.Wait()
+
 	cancelCtx, cancelFn := context.WithCancel(context.Background())
 	ms.cancelFn = cancelFn
 	defer ms.cancelFn()
 
-	var backgroundWorkers sync.WaitGroup
-	defer backgroundWorkers.Wait()
 	// helper function to manage polling functions
 	startPolling := func(ctx context.Context, period time.Duration, fn func(context.Context) error) {
 		backgroundWorkers.Add(1)
