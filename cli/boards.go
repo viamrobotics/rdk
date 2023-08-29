@@ -5,12 +5,15 @@ import (
 	"bufio"
 	"bytes"
 	"compress/gzip"
+	"context"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
@@ -77,6 +80,37 @@ func UploadBoardDefsAction(ctx *cli.Context) error {
 	return nil
 }
 
+// DownloadBoardDefsAction is the corresponding action for "board download".
+func DownloadBoardDefsAction(c *cli.Context) error {
+	orgArg := c.String(organizationFlag)
+	nameArg := c.String(boardFlagName)
+	versionArg := c.String(boardFlagVersion)
+
+	if versionArg == "" {
+		versionArg = "latest"
+	}
+
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	// get the org from the name or id.
+	org, err := client.getOrg(orgArg)
+	if err != nil {
+		return err
+	}
+
+	err = client.downloadBoardDefsFile(nameArg, versionArg, org.Id)
+	if err != nil {
+		return err
+	}
+
+	fmt.Fprintf(c.App.Writer, "%s board definitions successfully downloaded!\n", nameArg)
+
+	return nil
+}
+
 func (c *viamClient) uploadBoardDefsFile(
 	name string,
 	version string,
@@ -94,7 +128,7 @@ func (c *viamClient) uploadBoardDefsFile(
 	}
 
 	// Create an archive tar.gz file (required for packages).
-	file, err := CreateArchive(jsonFile)
+	file, err := createArchive(jsonFile)
 	if err != nil {
 		return nil, errors.Wrap(err, "error creating archive")
 	}
@@ -144,6 +178,48 @@ func (c *viamClient) uploadBoardDefsFile(
 	return resp, nil
 }
 
+func (c *viamClient) downloadBoardDefsFile(
+	name string,
+	version string,
+	orgID string,
+) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+	ctx := c.c.Context
+
+	includeURL := true
+	packageType := packagepb.PackageType_PACKAGE_TYPE_BOARD_DEFS
+
+	// the packageID is the orgid/name.
+	packageID := fmt.Sprintf("%s/%s", orgID, name)
+
+	req := &packagepb.GetPackageRequest{
+		Id:         packageID,
+		Version:    version,
+		Type:       &packageType,
+		IncludeUrl: &includeURL,
+	}
+
+	response, err := c.packageClient.GetPackage(ctx, req)
+	if err != nil {
+		return errors.Wrap(err, "could not retrieve the requested package")
+	}
+
+	currentDir, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+
+	// download the file from the gcs url into the current directory.
+	err = downloadFile(ctx, currentDir, response.Package.Url)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // helper function to check if a package with this name and version already exists.
 func (c *viamClient) boardDefsVersionExists(ctx *cli.Context, orgID, name, version string) error {
 	// the packageID is the orgid/name
@@ -184,8 +260,8 @@ func sendPackageRequests(stream packagepb.PackageService_CreatePackageClient,
 	return nil
 }
 
-// CreateArchive creates a tar.gz from the file provided.
-func CreateArchive(file *os.File) (*bytes.Buffer, error) {
+// createArchive creates a tar.gz from the file provided.
+func createArchive(file *os.File) (*bytes.Buffer, error) {
 	// Create output buffer
 	out := new(bytes.Buffer)
 
@@ -232,4 +308,81 @@ func CreateArchive(file *os.File) (*bytes.Buffer, error) {
 	}
 
 	return out, nil
+}
+
+// helper function to download a url to a local file.
+func downloadFile(ctx context.Context, filepath, url string) error {
+	getReq, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return err
+	}
+	httpClient := &http.Client{Timeout: time.Second * 30}
+
+	//nolint:bodyclose /// closed in UncheckedErrorFunc
+	resp, err := httpClient.Do(getReq)
+	if err != nil {
+		return errors.Wrap(err, "error downloading the requested package")
+	}
+
+	defer utils.UncheckedErrorFunc(resp.Body.Close)
+
+	err = untar(filepath, resp.Body)
+	if err != nil {
+		return errors.Wrap(err, "error extracting the tar file")
+	}
+	return nil
+}
+
+// untar extracts the tar.gz file, keeping file directory structure.
+func untar(dst string, r io.Reader) error {
+	gzr, err := gzip.NewReader(r)
+	if err != nil {
+		return err
+	}
+	defer utils.UncheckedErrorFunc(gzr.Close)
+	tr := tar.NewReader(gzr)
+
+	for {
+		header, err := tr.Next()
+		switch {
+		// if no more files are found return
+		case errors.Is(err, io.EOF):
+			return nil
+		// return any other error
+		case err != nil:
+			return err
+		}
+
+		// the target location where the dir/file should be created.
+		//nolint: gosec
+		path := filepath.Join(dst, header.Name)
+
+		// check the file type.
+		switch header.Typeflag {
+		// if its a dir and it doesn't exist create it.
+		case tar.TypeDir:
+			if _, err := os.Stat(path); err != nil {
+				if err := os.MkdirAll(path, 0o750); err != nil {
+					return err
+				}
+			}
+		// if it's a file create it.
+		case tar.TypeReg:
+			f, err := os.OpenFile(filepath.Clean(path), os.O_CREATE|os.O_RDWR, os.FileMode(header.Mode))
+			if err != nil {
+				return err
+			}
+
+			// copy over file contents.
+			//nolint:gosec
+			if _, err := io.Copy(f, tr); err != nil {
+				return err
+			}
+
+			err = f.Close()
+			if err != nil {
+				return err
+			}
+		}
+	}
 }
