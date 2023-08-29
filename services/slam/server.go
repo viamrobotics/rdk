@@ -31,7 +31,7 @@ func NewRPCServiceServer(coll resource.APIResourceCollection[Service]) interface
 func (server *serviceServer) GetPosition(ctx context.Context, req *pb.GetPositionRequest) (
 	*pb.GetPositionResponse, error,
 ) {
-	ctx, span := trace.StartSpan(ctx, "slam::server::Position")
+	ctx, span := trace.StartSpan(ctx, "slam::server::GetPosition")
 	defer span.End()
 
 	svc, err := server.coll.Resource(req.Name)
