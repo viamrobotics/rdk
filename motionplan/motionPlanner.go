@@ -47,7 +47,7 @@ type PlanRequest struct {
 }
 
 // PlanMotion plans a motion to destination for a given frame. It takes a given frame system, wraps it with a SolvableFS, and solves.
-func PlanMotion(ctx context.Context, request PlanRequest) (Plan, error) {
+func PlanMotion(ctx context.Context, request *PlanRequest) (Plan, error) {
 	if request.Goal == nil {
 		return nil, errors.New("no destination passed to Motion")
 	}
@@ -124,7 +124,7 @@ func PlanFrameMotion(ctx context.Context,
 	if err := fs.AddFrame(f, fs.World()); err != nil {
 		return nil, err
 	}
-	plan, err := PlanMotion(ctx, PlanRequest{
+	plan, err := PlanMotion(ctx, &PlanRequest{
 		Logger:          logger,
 		Goal:            frame.NewPoseInFrame(frame.World, dst),
 		Frame:           f,

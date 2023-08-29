@@ -2,6 +2,7 @@ package kinematicbase
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"go.viam.com/rdk/components/base/fake"
@@ -16,6 +17,7 @@ type fakeKinematics struct {
 	localizer                     motion.Localizer
 	inputs                        []referenceframe.Input
 	options                       Options
+	lock                          sync.Mutex
 }
 
 // WrapWithFakeKinematics creates a KinematicBase from the fake Base so that it satisfies the ModelFramer and InputEnabled interfaces.
@@ -64,15 +66,19 @@ func (fk *fakeKinematics) Kinematics() referenceframe.Frame {
 }
 
 func (fk *fakeKinematics) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
+	fk.lock.Lock()
+	defer fk.lock.Unlock()
 	return fk.inputs, nil
 }
 
 func (fk *fakeKinematics) GoToInputs(ctx context.Context, inputs []referenceframe.Input) error {
 	_, err := fk.planningFrame.Transform(inputs)
+	fk.lock.Lock()
 	fk.inputs = []referenceframe.Input{
 		{Value: fk.inputs[0].Value + inputs[0].Value},
 		{Value: fk.inputs[1].Value + inputs[1].Value},
 	}
+	defer fk.lock.Unlock()
 	time.Sleep(150 * time.Millisecond)
 	return err
 }

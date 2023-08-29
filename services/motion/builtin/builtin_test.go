@@ -13,6 +13,7 @@ import (
 
 	// register.
 	commonpb "go.viam.com/api/common/v1"
+	"go.viam.com/rdk/motionplan"
 	rdkutils "go.viam.com/rdk/utils"
 	"go.viam.com/test"
 	"go.viam.com/utils"
@@ -492,26 +493,41 @@ func TestMoveOnGlobe(t *testing.T) {
 	expectedDst := r3.Vector{380, 0, 0}
 	epsilonMM := 15.
 
-	// t.Run("ensure success to a nearby geo point", func(t *testing.T) {
-	// 	t.Parallel()
-	// 	injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, dst)
+	t.Run("ensure success to a nearby geo point", func(t *testing.T) {
+		t.Parallel()
+		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, dst)
 
-	// 	plan, _, err := ms.(*builtIn).planMoveOnGlobe(
-	// 		context.Background(),
-	// 		fakeBase.Name(),
-	// 		dst,
-	// 		injectedMovementSensor,
-	// 		nil,
-	// 		kinematicbase.NewKinematicBaseOptions(),
-	// 		motionCfg,
-	// 	)
-	// 	test.That(t, err, test.ShouldBeNil)
-	// 	waypoints, err := plan.GetFrameSteps(fakeBase.Name().Name)
-	// 	test.That(t, err, test.ShouldBeNil)
-	// 	test.That(t, len(waypoints), test.ShouldEqual, 2)
-	// 	test.That(t, waypoints[1][0].Value, test.ShouldAlmostEqual, expectedDst.X, epsilonMM)
-	// 	test.That(t, waypoints[1][1].Value, test.ShouldAlmostEqual, expectedDst.Y, epsilonMM)
-	// })
+		planRequest, _, err := ms.(*builtIn).newMoveOnGlobeRequest(
+			context.Background(),
+			fakeBase.Name(),
+			dst,
+			injectedMovementSensor,
+			[]*spatialmath.GeoObstacle{},
+			&motion.MotionConfiguration{PositionPollingFreqHz: 4, ObstaclePollingFreqHz: 1, PlanDeviationM: 1e-3 * epsilonMM},
+			motionCfg,
+		)
+		test.That(t, err, test.ShouldBeNil)
+		plan, err := motionplan.PlanMotion(ctx, planRequest)
+		test.That(t, err, test.ShouldBeNil)
+		waypoints, err := plan.GetFrameSteps(fakeBase.Name().Name)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(waypoints), test.ShouldEqual, 2)
+		test.That(t, waypoints[1][0].Value, test.ShouldAlmostEqual, expectedDst.X, epsilonMM)
+		test.That(t, waypoints[1][1].Value, test.ShouldAlmostEqual, expectedDst.Y, epsilonMM)
+
+		success, err := ms.MoveOnGlobe(
+			context.Background(),
+			fakeBase.Name(),
+			dst,
+			0,
+			injectedMovementSensor.Name(),
+			[]*spatialmath.GeoObstacle{},
+			&motion.MotionConfiguration{PositionPollingFreqHz: 4, ObstaclePollingFreqHz: 1, PlanDeviationM: 1e-3 * epsilonMM},
+			motionCfg,
+		)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, success, test.ShouldBeTrue)
+	})
 
 	t.Run("go around an obstacle", func(t *testing.T) {
 		t.Parallel()
@@ -523,15 +539,17 @@ func TestMoveOnGlobe(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		geoObstacle := spatialmath.NewGeoObstacle(gpsPoint, []spatialmath.Geometry{geometries})
 
-		plan, _, err := ms.(*builtIn).planMoveOnGlobe(
+		planRequest, _, err := ms.(*builtIn).newMoveOnGlobeRequest(
 			context.Background(),
 			fakeBase.Name(),
 			dst,
 			injectedMovementSensor,
 			[]*spatialmath.GeoObstacle{geoObstacle},
-			kinematicbase.NewKinematicBaseOptions(),
+			&motion.MotionConfiguration{PositionPollingFreqHz: 4, ObstaclePollingFreqHz: 1, PlanDeviationM: 1e-3 * epsilonMM},
 			motionCfg,
 		)
+		test.That(t, err, test.ShouldBeNil)
+		plan, err := motionplan.PlanMotion(ctx, planRequest)
 		test.That(t, err, test.ShouldBeNil)
 		waypoints, err := plan.GetFrameSteps(fakeBase.Name().Name)
 		test.That(t, err, test.ShouldBeNil)
@@ -563,15 +581,17 @@ func TestMoveOnGlobe(t *testing.T) {
 	// 	test.That(t, err, test.ShouldBeNil)
 	// 	geoObstacle := spatialmath.NewGeoObstacle(gpsPoint, []spatialmath.Geometry{geometries})
 
-	// 	plan, _, err := ms.(*builtIn).planMoveOnGlobe(
+	// 	planRequest, _, err := ms.(*builtIn).newMoveOnGlobeRequest(
 	// 		context.Background(),
 	// 		fakeBase.Name(),
 	// 		dst,
 	// 		injectedMovementSensor,
 	// 		[]*spatialmath.GeoObstacle{geoObstacle},
-	// 		kinematicbase.NewKinematicBaseOptions(),
+	// 		nil,
 	// 		motionCfg,
 	// 	)
+	// 	test.That(t, err, test.ShouldBeNil)
+	// 	plan, err := motionplan.PlanMotion(ctx, planRequest)
 	// 	test.That(t, err, test.ShouldNotBeNil)
 	// 	test.That(t, len(plan), test.ShouldEqual, 0)
 	// })
