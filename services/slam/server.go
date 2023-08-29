@@ -27,8 +27,8 @@ func NewRPCServiceServer(coll resource.APIResourceCollection[Service]) interface
 	return &serviceServer{coll: coll}
 }
 
-// Position returns a Pose and a component reference string of the robot's current location according to SLAM.
-func (server *serviceServer) Position(ctx context.Context, req *pb.GetPositionRequest) (
+// GetPosition returns a Pose and a component reference string of the robot's current location according to SLAM.
+func (server *serviceServer) GetPosition(ctx context.Context, req *pb.GetPositionRequest) (
 	*pb.GetPositionResponse, error,
 ) {
 	ctx, span := trace.StartSpan(ctx, "slam::server::Position")
@@ -50,9 +50,9 @@ func (server *serviceServer) Position(ctx context.Context, req *pb.GetPositionRe
 	}, nil
 }
 
-// PointCloudMap returns the slam service's slam algo's current map state in PCD format as
+// GetPointCloudMap returns the slam service's slam algo's current map state in PCD format as
 // a stream of byte chunks.
-func (server *serviceServer) PointCloudMap(req *pb.GetPointCloudMapRequest,
+func (server *serviceServer) GetPointCloudMap(req *pb.GetPointCloudMapRequest,
 	stream pb.SLAMService_GetPointCloudMapServer,
 ) error {
 	ctx := context.Background()
@@ -89,9 +89,9 @@ func (server *serviceServer) PointCloudMap(req *pb.GetPointCloudMapRequest,
 	}
 }
 
-// InternalState returns the internal state of the slam service's slam algo in a stream of
+// GetInternalState returns the internal state of the slam service's slam algo in a stream of
 // byte chunks.
-func (server *serviceServer) InternalState(req *pb.GetInternalStateRequest,
+func (server *serviceServer) GetInternalState(req *pb.GetInternalStateRequest,
 	stream pb.SLAMService_GetInternalStateServer,
 ) error {
 	ctx := context.Background()
@@ -127,8 +127,8 @@ func (server *serviceServer) InternalState(req *pb.GetInternalStateRequest,
 	}
 }
 
-// LatestMapInfo returns the timestamp of when the map was last updated.
-func (server *serviceServer) LatestMapInfo(ctx context.Context, req *pb.GetLatestMapInfoRequest) (
+// GetLatestMapInfo returns the timestamp of when the map was last updated.
+func (server *serviceServer) GetLatestMapInfo(ctx context.Context, req *pb.GetLatestMapInfoRequest) (
 	*pb.GetLatestMapInfoResponse, error,
 ) {
 	ctx, span := trace.StartSpan(ctx, "slam::server::LatestMapInfo")
