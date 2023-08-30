@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"net/url"
 	"os"
 	"os/exec"
@@ -403,14 +404,60 @@ func VersionAction(c *cli.Context) error {
 	return nil
 }
 
-func checkBaseURL(c *cli.Context) (*url.URL, []rpc.DialOption, error) {
+var defaultBaseURL = "https://app.viam.com:443"
+
+func checkBaseURL(c *cli.Context, auth *config) (*url.URL, []rpc.DialOption, error) {
+	// If base URL was not specified, assume cached base URL. If no base URL is
+	// cached, assume default base URL.
 	baseURL := c.String(baseURLFlag)
+	if baseURL == "" {
+		baseURL = defaultBaseURL
+		if auth.Auth != nil && auth.Auth.BaseURL != "" {
+			baseURL = auth.Auth.BaseURL
+		}
+	}
+
+	if auth.Auth != nil && auth.Auth.BaseURL != baseURL {
+		return nil, nil, fmt.Errorf("cached base URL for this session is %q, "+
+			"please logout and login again to use provided base URL %q", auth.Auth.BaseURL, baseURL)
+	}
+
 	baseURLParsed, err := url.Parse(baseURL)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	if baseURLParsed.Scheme == "https" {
+	// Go URL parsing can place the host in Path if no scheme is provided; place
+	// Path in Host in this case.
+	if baseURLParsed.Host == "" && baseURLParsed.Path != "" {
+		baseURLParsed.Host = baseURLParsed.Path
+		baseURLParsed.Path = ""
+	}
+
+	// Assume "https" scheme if none is provided, and assume 8080 port for "http"
+	// scheme and 443 port for "https" scheme.
+	var secure bool
+	switch baseURLParsed.Scheme {
+	case "http":
+		if baseURLParsed.Port() == "" {
+			baseURLParsed.Host = baseURLParsed.Host + ":" + "8080"
+		}
+	case "https", "":
+		secure = true
+		baseURLParsed.Scheme = "https"
+		if baseURLParsed.Port() == "" {
+			baseURLParsed.Host = baseURLParsed.Host + ":" + "443"
+		}
+	}
+
+	// Check if URL is even valid with a TCP dial.
+	conn, err := net.DialTimeout("tcp", baseURLParsed.Host, time.Second)
+	if err != nil {
+		return nil, nil, fmt.Errorf("value of %q argument %q is an unreachable URL", baseURLFlag, baseURL)
+	}
+	utils.UncheckedError(conn.Close())
+
+	if secure {
 		return baseURLParsed, nil, nil
 	}
 	return baseURLParsed, []rpc.DialOption{
@@ -424,9 +471,20 @@ func isProdBaseURL(baseURL *url.URL) bool {
 }
 
 func newViamClient(c *cli.Context) (*viamClient, error) {
-	baseURL, rpcOpts, err := checkBaseURL(c)
+	conf, err := configFromCache()
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return nil, err
+		}
+		conf = &config{}
+	}
+
+	baseURL, rpcOpts, err := checkBaseURL(c, conf)
 	if err != nil {
 		return nil, err
+	}
+	if baseURL.String() != defaultBaseURL {
+		infof(c.App.Writer, "using %q as base URL value", baseURL.String())
 	}
 
 	var authFlow *authFlow
@@ -434,14 +492,6 @@ func newViamClient(c *cli.Context) (*viamClient, error) {
 		authFlow = newCLIAuthFlow(c.App.Writer)
 	} else {
 		authFlow = newStgCLIAuthFlow(c.App.Writer)
-	}
-
-	conf, err := configFromCache()
-	if err != nil {
-		if !os.IsNotExist(err) {
-			return nil, err
-		}
-		conf = &config{}
 	}
 
 	return &viamClient{
