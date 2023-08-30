@@ -83,7 +83,7 @@ func DataDeleteBinaryAction(c *cli.Context) error {
 			return err
 		}
 	case dataTypeTabular:
-		return errors.Errorf("use `delete-tabular` flag instead of `delete`")
+		return errors.Errorf("use `delete-tabular` action instead of `delete`")
 	default:
 		return errors.Errorf("%s must be binary or tabular, got %q", dataFlagDataType, c.String(dataFlagDataType))
 	}
