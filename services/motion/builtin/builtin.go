@@ -260,7 +260,7 @@ func (ms *builtIn) MoveOnGlobe(
 		return false, err
 	}
 
-	successChan := make(chan bool)
+	successChan := make(chan bool, 1)
 	defer close(successChan)
 
 	replanChan := make(chan bool, 1)
@@ -506,11 +506,7 @@ func (ms *builtIn) executePlan(ctx context.Context, kinematicBase kinematicbase.
 			return nil
 		default:
 			ms.logger.Info(waypoints[i])
-			segment := []referenceframe.Input{
-				{Value: waypoints[i][0].Value - waypoints[i-1][0].Value},
-				{Value: waypoints[i][1].Value - waypoints[i-1][1].Value},
-			}
-			if err := kinematicBase.GoToInputs(ctx, segment); err != nil {
+			if err := kinematicBase.GoToInputs(ctx, waypoints[i]); err != nil {
 				// If there is an error on GoToInputs, stop the component if possible before returning the error
 				if stopErr := kinematicBase.Stop(ctx, nil); stopErr != nil {
 					return errors.Wrap(err, stopErr.Error())

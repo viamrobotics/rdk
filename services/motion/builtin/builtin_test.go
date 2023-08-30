@@ -526,7 +526,7 @@ func TestMoveOnMapTimeout(t *testing.T) {
 	test.That(t, success, test.ShouldBeFalse)
 }
 
-func TestPlanMoveOnGlobe(t *testing.T) {
+func TestMoveOnGlobe(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 
