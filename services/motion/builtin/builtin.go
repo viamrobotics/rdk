@@ -114,7 +114,6 @@ func (ms *builtIn) Reconfigure(
 type builtIn struct {
 	resource.Named
 	resource.TriviallyCloseable
-	cancelFn        context.CancelFunc
 	fsService       framesystem.Service
 	movementSensors map[resource.Name]movementsensor.MovementSensor
 	slamServices    map[resource.Name]slam.Service
@@ -264,9 +263,6 @@ func (ms *builtIn) MoveOnGlobe(
 	successChan := make(chan bool)
 	defer close(successChan)
 
-	planChan := make(chan motionplan.Plan)
-	defer close(planChan)
-
 	replanChan := make(chan bool, 1)
 	defer close(replanChan)
 	replanChan <- true
@@ -276,10 +272,6 @@ func (ms *builtIn) MoveOnGlobe(
 
 	var backgroundWorkers sync.WaitGroup
 	defer backgroundWorkers.Wait()
-
-	cancelCtx, cancelFn := context.WithCancel(context.Background())
-	ms.cancelFn = cancelFn
-	defer ms.cancelFn()
 
 	// helper function to manage polling functions
 	startPolling := func(ctx context.Context, period time.Duration, fn func(context.Context) error) {
@@ -301,87 +293,89 @@ func (ms *builtIn) MoveOnGlobe(
 		}, backgroundWorkers.Done)
 	}
 
-	// start goroutine to replan
-	backgroundWorkers.Add(1)
-	goutils.ManagedGo(func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-successChan:
-				return
-			case <-replanChan:
-				fmt.Println("replanning")
-
-				ms.cancelFn()
-				cancelCtx, cancelFn = context.WithCancel(ctx)
-				ms.cancelFn = cancelFn
-
-				inputs, err := kb.CurrentInputs(ctx)
-				if err != nil {
-					errChan <- err
-					return
-				}
-				if len(kb.Kinematics().DoF()) == 2 {
-					inputs = inputs[:2]
-				}
-				planRequest.Inputs = map[string][]referenceframe.Input{componentName.Name: inputs}
-
-				plan, err := motionplan.PlanMotion(ctx, planRequest)
-				if err != nil {
-					errChan <- err
-					return
-				}
-				planChan <- plan
-
-				// drain the replanChan
-				for len(replanChan) > 0 {
-					<-replanChan
-				}
-
-				if positionPollingPeriod > 0 {
-					startPolling(cancelCtx, positionPollingPeriod, func(ctx context.Context) error {
-						// TODO: the function that actually monitors position
-						fmt.Println("position poll")
-						return nil
-					})
-				}
-				if obstaclePollingPeriod > 0 {
-					startPolling(cancelCtx, obstaclePollingPeriod, func(ctx context.Context) error {
-						// TODO: the function that actually monitors obstacles
-						fmt.Println("obstacle poll")
-						replanChan <- true
-						return nil
-					})
-				}
-			}
+	var cancelCtx context.Context
+	var cancelFn context.CancelFunc
+	defer func() {
+		if cancelFn != nil {
+			cancelFn()
 		}
-	}, backgroundWorkers.Done)
-
-	// execution loop, exits when distance between GPS position reported by movement sensor is within PlanDeviationThreshold of the goal
-	// after it exits, deferred statements will execute cleaning up the other threads
+	}()
 	for {
 		select {
 		case <-ctx.Done():
 			return false, ctx.Err()
+		case <-successChan:
+			return true, nil
 		case err := <-errChan:
 			return false, err
-		case plan := <-planChan:
-			if err := ms.executePlan(cancelCtx, kb, plan); err != nil {
-				return false, err
-			}
+		case <-replanChan:
+			fmt.Println("replanning")
 
-			position, _, err := movementSensor.Position(cancelCtx, nil)
+			if cancelFn != nil {
+				cancelFn()
+			}
+			backgroundWorkers.Wait()
+			cancelCtx, cancelFn = context.WithCancel(ctx)
+
+			inputs, err := kb.CurrentInputs(ctx)
 			if err != nil {
-				return false, err
+				return false, nil
+			}
+			if len(kb.Kinematics().DoF()) == 2 {
+				inputs = inputs[:2]
+			}
+			planRequest.Inputs = map[string][]referenceframe.Input{componentName.Name: inputs}
+
+			plan, err := motionplan.PlanMotion(ctx, planRequest)
+			if err != nil {
+				return false, nil
 			}
 
-			ms.logger.Infof("position: %v", position)
-			// TODO: dont do the calculation to mm here
-			if spatialmath.GeoPointToPose(position, destination).Point().Norm() <= 1e3*motionCfg.PlanDeviationM {
-				successChan <- true
-				return true, nil
+			// drain the replanChan
+			for len(replanChan) > 0 {
+				<-replanChan
 			}
+			// drain the replanChan
+			for len(errChan) > 0 {
+				<-errChan
+			}
+
+			if positionPollingPeriod > 0 {
+				startPolling(cancelCtx, positionPollingPeriod, func(ctx context.Context) error {
+					// TODO: the function that actually monitors position
+					fmt.Println("position poll")
+					return nil
+				})
+			}
+			if obstaclePollingPeriod > 0 {
+				startPolling(cancelCtx, obstaclePollingPeriod, func(ctx context.Context) error {
+					// TODO: the function that actually monitors obstacles
+					fmt.Println("obstacle poll")
+					replanChan <- true
+					return nil
+				})
+			}
+
+			backgroundWorkers.Add(1)
+			goutils.ManagedGo(func() {
+				if err := ms.executePlan(cancelCtx, kb, plan); err != nil {
+					errChan <- err
+					return
+				}
+
+				position, _, err := movementSensor.Position(cancelCtx, nil)
+				if err != nil {
+					errChan <- err
+					return
+				}
+
+				ms.logger.Infof("position: %v", position)
+				// TODO: dont do the calculation to mm here
+				if spatialmath.GeoPointToPose(position, destination).Point().Norm() <= 1e3*motionCfg.PlanDeviationM {
+					successChan <- true
+					return
+				}
+			}, backgroundWorkers.Done)
 		}
 	}
 }
