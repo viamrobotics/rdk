@@ -260,13 +260,16 @@ func (ms *builtIn) MoveOnGlobe(
 		return false, err
 	}
 
+	// successChan is for sending messages that relate to the base meeting the success criteria for the request
 	successChan := make(chan bool, 1)
 	defer close(successChan)
 
+	// replanChan is for sending messages that signal that we should stop motion and replan
 	replanChan := make(chan bool, 1)
 	defer close(replanChan)
 	replanChan <- true
 
+	// errChan is for sending error messages encountered during the move
 	errChan := make(chan error)
 	defer close(errChan)
 
@@ -309,8 +312,6 @@ func (ms *builtIn) MoveOnGlobe(
 		case err := <-errChan:
 			return false, err
 		case <-replanChan:
-			fmt.Println("replanning")
-
 			if cancelFn != nil {
 				cancelFn()
 			}
@@ -343,14 +344,12 @@ func (ms *builtIn) MoveOnGlobe(
 			if positionPollingPeriod > 0 {
 				startPolling(cancelCtx, positionPollingPeriod, func(ctx context.Context) error {
 					// TODO: the function that actually monitors position
-					fmt.Println("position poll")
 					return nil
 				})
 			}
 			if obstaclePollingPeriod > 0 {
 				startPolling(cancelCtx, obstaclePollingPeriod, func(ctx context.Context) error {
 					// TODO: the function that actually monitors obstacles
-					fmt.Println("obstacle poll")
 					replanChan <- true
 					return nil
 				})

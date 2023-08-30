@@ -73,9 +73,14 @@ func (fk *fakeKinematics) CurrentInputs(ctx context.Context) ([]referenceframe.I
 
 func (fk *fakeKinematics) GoToInputs(ctx context.Context, inputs []referenceframe.Input) error {
 	_, err := fk.planningFrame.Transform(inputs)
+	if err != nil {
+		return err
+	}
 	fk.lock.Lock()
 	fk.inputs = inputs
 	fk.lock.Unlock()
+
+	// Sleep for a short amount to time to simulate a base taking some amount of time to reach the inputs
 	time.Sleep(150 * time.Millisecond)
-	return err
+	return nil
 }
