@@ -14,7 +14,7 @@ from viam.errors import NoCaptureToStoreError
 from viam.services.vision import Vision
 
 class ColorFilterCam(Camera, Reconfigurable):
-    # A ColorFilterCam wraps the underlying camera `actualCam` and only keeps the data captured on the actual camera if `visionService`
+    # A ColorFilterCam wraps the underlying camera `actual_cam` and only keeps the data captured on the actual camera if `vision_service`
     # detects a certain color in the captured image.
     MODEL: ClassVar[Model] = Model(ModelFamily("example", "camera"), "colorfilter")
 
