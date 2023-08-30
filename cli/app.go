@@ -31,23 +31,25 @@ const (
 	moduleFlagPlatform        = "platform"
 	moduleFlagForce           = "force"
 
-	dataFlagDestination       = "destination"
-	dataFlagDataType          = "data-type"
-	dataFlagOrgIDs            = "org-ids"
-	dataFlagLocationIDs       = "location-ids"
-	dataFlagRobotID           = "robot-id"
-	dataFlagPartID            = "part-id"
-	dataFlagRobotName         = "robot-name"
-	dataFlagPartName          = "part-name"
-	dataFlagComponentType     = "component-type"
-	dataFlagComponentName     = "component-name"
-	dataFlagMethod            = "method"
-	dataFlagMimeTypes         = "mime-types"
-	dataFlagStart             = "start"
-	dataFlagEnd               = "end"
-	dataFlagParallelDownloads = "parallel"
-	dataFlagTags              = "tags"
-	dataFlagBboxLabels        = "bbox-labels"
+	dataFlagDestination                    = "destination"
+	dataFlagDataType                       = "data-type"
+	dataFlagOrgIDs                         = "org-ids"
+	dataFlagLocationIDs                    = "location-ids"
+	dataFlagRobotID                        = "robot-id"
+	dataFlagPartID                         = "part-id"
+	dataFlagRobotName                      = "robot-name"
+	dataFlagPartName                       = "part-name"
+	dataFlagComponentType                  = "component-type"
+	dataFlagComponentName                  = "component-name"
+	dataFlagMethod                         = "method"
+	dataFlagMimeTypes                      = "mime-types"
+	dataFlagStart                          = "start"
+	dataFlagEnd                            = "end"
+	dataFlagParallelDownloads              = "parallel"
+	dataFlagTags                           = "tags"
+	dataFlagBboxLabels                     = "bbox-labels"
+	dataFlagOrgID                          = "org-id"
+	dataFlagDeleteTabularDataOlderThanDays = "delete-older-than-days"
 
 	boardFlagName    = "name"
 	boardFlagPath    = "path"
@@ -215,13 +217,13 @@ var app = &cli.App{
 				},
 				{
 					Name:      "delete",
-					Usage:     "delete data from Viam cloud",
+					Usage:     "delete binary data from Viam cloud",
 					UsageText: fmt.Sprintf("viam data delete <%s> [other options]", dataFlagDataType),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     dataFlagDataType,
 							Required: true,
-							Usage:    "data type to be deleted: either binary or tabular",
+							Usage:    "data type to be deleted. should only be binary. if tabular, use delete-tabular instead.",
 						},
 						&cli.StringSliceFlag{
 							Name:  dataFlagOrgIDs,
@@ -272,7 +274,25 @@ var app = &cli.App{
 							Usage: "ISO-8601 timestamp indicating the end of the interval filter",
 						},
 					},
-					Action: DataDeleteAction,
+					Action: DataDeleteBinaryAction,
+				},
+				{
+					Name:      "delete-tabular",
+					Usage:     "delete tabular data from Viam cloud",
+					UsageText: "viam data delete-tabular [other options]",
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     dataFlagOrgID,
+							Usage:    "org",
+							Required: true,
+						},
+						&cli.IntFlag{
+							Name:     dataFlagDeleteTabularDataOlderThanDays,
+							Usage:    "delete any tabular data that is older than X calendar days before now. 0 deletes all data.",
+							Required: true,
+						},
+					},
+					Action: DataDeleteTabularAction,
 				},
 			},
 		},
