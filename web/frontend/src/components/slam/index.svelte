@@ -79,7 +79,6 @@ const localizationMode = (mapTimestamp: Date | undefined) => {
 const refresh2d = async () => {
   try {
     let nextPose;
-    const mapTimestamp = await slamClient.getLatestMapInfo();
     if (overrides?.isCloudSlam && overrides?.getMappingSessionPCD) {
       const { map, pose: poseData } = await overrides.getMappingSessionPCD(
         sessionId
@@ -92,16 +91,22 @@ const refresh2d = async () => {
        * to see if a change has been made to the pointcloud map.
        * A new call to getPointCloudMap is made if an update has occured.
        */
-    } else if (localizationMode(mapTimestamp)) {
-      const response = await slamClient.getPosition();
-      nextPose = response.pose;
     } else {
-      let response;
-      [pointcloud, response] = await Promise.all([
-        slamClient.getPointCloudMap(),
-        slamClient.getPosition(),
-      ]);
-      nextPose = response.pose;
+      const mapTimestamp = await slamClient.getLatestMapInfo();
+      if (localizationMode(mapTimestamp)) {
+        const response = await slamClient.getPosition();
+        nextPose = response.pose;
+      } else {
+        let response;
+        [pointcloud, response] = await Promise.all([
+          slamClient.getPointCloudMap(),
+          slamClient.getPosition(),
+        ]);
+        nextPose = response.pose;
+      }
+      if (mapTimestamp) {
+        lastTimestamp = mapTimestamp;
+      }
     }
 
     /*
@@ -114,9 +119,6 @@ const refresh2d = async () => {
       nextPose.z /= 1000;
     }
     pose = nextPose;
-    if (mapTimestamp) {
-      lastTimestamp = mapTimestamp;
-    }
   } catch (error) {
     refreshErrorMessage2d =
       error !== null && typeof error === 'object' && 'message' in error
@@ -382,7 +384,7 @@ const handleMapNameChange = (event: CustomEvent) => {
               {#if overrides.mappingDetails.name}
                 <div class="flex flex-col">
                   <span class="font-bold text-gray-800">Map name</span>
-                  <span class="capitalize text-subtle-2"
+                  <span class="text-subtle-2"
                     >{overrides.mappingDetails.name}</span
                   >
                 </div>
@@ -390,7 +392,7 @@ const handleMapNameChange = (event: CustomEvent) => {
               {#if overrides.mappingDetails.version}
                 <div class="flex flex-col">
                   <span class="font-bold text-gray-800">Version</span>
-                  <span class="capitalize text-subtle-2"
+                  <span class="text-subtle-2"
                     >{overrides.mappingDetails.version}</span
                   >
                 </div>
@@ -408,47 +410,6 @@ const handleMapNameChange = (event: CustomEvent) => {
           </header>
         {/if}
         <div class="flex items-end gap-2 min-w-fit">
-          <div class="relative">
-              <p class="mb-1 text-xs text-gray-500">
-                Refresh frequency
-              </p>
-              <select
-                bind:value={refresh2dRate}
-                class="
-                    m-0 w-full min-w-[200px] appearance-none border border-solid border-medium bg-white bg-clip-padding
-                    px-3 py-1.5 text-xs font-normal text-default focus:outline-none
-                  "
-                aria-label="Default select example"
-                on:change={updateSLAM2dRefreshFrequency}
-              >
-                <option value="manual">
-                  Manual refresh
-                </option>
-                <option value="30">
-                  Every 30 seconds
-                </option>
-                <option value="10">
-                  Every 10 seconds
-                </option>
-                <option value="5">
-                  Every 5 seconds
-                </option>
-                <option value="1">
-                  Every second
-                </option>
-              </select>
-              <v-icon
-                name='chevron-down'
-                class="pointer-events-none absolute bottom-0 h-[30px] right-0 flex items-center px-2"
-              />
-            </div>
-              <v-button
-                label="Refresh"
-                icon="refresh"
-                on:click={refresh2dMap}
-                on:keydown={refresh2dMap}
-              />
-          </div>
         {#if overrides && overrides.isCloudSlam}
           <div class="flex">
             {#if hasActiveSession || mappingSessionEnded}
@@ -535,6 +496,47 @@ const handleMapNameChange = (event: CustomEvent) => {
             </div>
           </div>
         {/if}
+          <div class="relative">
+            <p class="mb-1 text-xs text-gray-500">
+              Refresh frequency
+            </p>
+            <select
+              bind:value={refresh2dRate}
+              class="
+                  m-0 w-full min-w-[200px] appearance-none border border-solid border-medium bg-white bg-clip-padding
+                  px-3 py-1.5 text-xs font-normal text-default focus:outline-none
+                "
+              aria-label="Default select example"
+              on:change={updateSLAM2dRefreshFrequency}
+            >
+              <option value="manual">
+                Manual refresh
+              </option>
+              <option value="30">
+                Every 30 seconds
+              </option>
+              <option value="10">
+                Every 10 seconds
+              </option>
+              <option value="5">
+                Every 5 seconds
+              </option>
+              <option value="1">
+                Every second
+              </option>
+            </select>
+            <v-icon
+              name='chevron-down'
+              class="pointer-events-none absolute bottom-0 h-[30px] right-0 flex items-center px-2"
+            />
+          </div>
+            <v-button
+              label="Refresh"
+              icon="refresh"
+              on:click={refresh2dMap}
+              on:keydown={refresh2dMap}
+            />
+        </div>
         <v-switch
           class="pt-2"
           label="Show grid"
