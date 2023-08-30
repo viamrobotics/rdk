@@ -66,8 +66,8 @@ func (c *viamClient) dataExportAction(cCtx *cli.Context) error {
 	return nil
 }
 
-// DataDeleteAction is the corresponding action for 'data delete'.
-func DataDeleteAction(c *cli.Context) error {
+// DataDeleteBinaryAction is the corresponding action for 'data delete'.
+func DataDeleteBinaryAction(c *cli.Context) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
@@ -83,26 +83,23 @@ func DataDeleteAction(c *cli.Context) error {
 			return err
 		}
 	case dataTypeTabular:
-		orgIDs := c.StringSlice(dataFlagOrgIDs)
-		if orgIDs == nil || len(orgIDs) != 1 {
-			return errors.New("must provide single org id")
-		}
-
-		if !c.IsSet(dataFlagDeleteTabularDataOlderThanDays) {
-			return errors.Errorf(
-				"must set %s flag, set to 0 to delete all tabular data in the org. "+
-					"only the org and day value is used, and any other filter fields are ignored",
-				dataFlagDeleteTabularDataOlderThanDays,
-			)
-		}
-
-		if err := client.deleteTabularData(orgIDs[0], c.Int(dataFlagDeleteTabularDataOlderThanDays)); err != nil {
-			return err
-		}
+		return errors.Errorf("use `delete-tabular` flag instead of `delete`")
 	default:
 		return errors.Errorf("%s must be binary or tabular, got %q", dataFlagDataType, c.String(dataFlagDataType))
 	}
 
+	return nil
+}
+
+func DataDeleteTabularAction(c *cli.Context) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	if err := client.deleteTabularData(c.String(dataFlagOrgID), c.Int(dataFlagDeleteTabularDataOlderThanDays)); err != nil {
+		return err
+	}
 	return nil
 }
 
