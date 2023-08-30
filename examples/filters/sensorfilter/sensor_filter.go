@@ -18,6 +18,8 @@ import (
 // Model is the full model definition.
 var Model = resource.NewModel("example", "sensor", "sensorfilter")
 
+var threshold = 0.1
+
 func init() {
 	resource.RegisterComponent(sensor.API, Model, resource.Registration[sensor.Sensor, *Config]{
 		Constructor: newSensor,
@@ -77,7 +79,7 @@ func (s *filterSensor) DoCommand(ctx context.Context, cmd map[string]interface{}
 	return cmd, nil
 }
 
-func delta(curr, prev map[string]interface{}, logger golog.Logger) float64 {
+func relativeChange(curr, prev map[string]interface{}, logger golog.Logger) float64 {
 	currDist, ok := curr["distance"].(float64)
 	if !ok {
 		logger.Errorw("sensor's current distance reading is not of type float", "currReading", curr)
@@ -89,6 +91,9 @@ func delta(curr, prev map[string]interface{}, logger golog.Logger) float64 {
 		return 0
 	}
 	diff := currDist - prevDist
+	if prevDist == 0 {
+		return math.Abs(diff)
+	}
 	return math.Abs(diff / prevDist)
 }
 
@@ -104,7 +109,7 @@ func (s *filterSensor) Readings(ctx context.Context, extra map[string]interface{
 	}
 
 	// Only return captured readings if they are significantly different from the previously stored readings.
-	if s.prevReadings == nil || delta(readings, s.prevReadings, s.logger) > 0.1 {
+	if s.prevReadings == nil || relativeChange(readings, s.prevReadings, s.logger) > threshold {
 		s.prevReadings = readings
 		return readings, nil
 	}
