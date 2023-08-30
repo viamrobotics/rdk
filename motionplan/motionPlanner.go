@@ -453,21 +453,13 @@ func CheckPlan(
 
 	// go through plan and check that we can move from plan[i] to plan[i+1]
 	for i := 0; i < len(planNodes)-1; i++ {
-		currentConfig := planNodes[i].Q()
 		currentPose := planNodes[i].Pose()
-		nextConfig := planNodes[i+1].Q()
 		nextPose := planNodes[i+1].Pose()
-		if relative {
-			currentConfig = nil
-			nextConfig = nil
-		}
 		if isValid, fault := sfPlanner.planOpts.CheckSegmentAndStateValidity(
 			&ik.Segment{
-				StartConfiguration: currentConfig,
-				StartPosition:      currentPose,
-				EndConfiguration:   nextConfig,
-				EndPosition:        nextPose,
-				Frame:              sf,
+				StartPosition: currentPose,
+				EndPosition:   nextPose,
+				Frame:         sf,
 			},
 			sfPlanner.planOpts.Resolution,
 		); !isValid {
