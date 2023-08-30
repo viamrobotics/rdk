@@ -339,7 +339,7 @@ func TestPtgCheckPlan(t *testing.T) {
 
 	plan, err := tp.plan(context.Background(), goalPos, nil)
 	test.That(t, err, test.ShouldBeNil)
-	planAsInputs := nodesToInputs(plan[1:])
+	planAsInputs := nodesToInputs(plan)
 	test.That(t, err, test.ShouldBeNil)
 	steps := []map[string][]referenceframe.Input{}
 	for _, resultSlice := range planAsInputs {

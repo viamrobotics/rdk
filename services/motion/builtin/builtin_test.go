@@ -11,6 +11,7 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
@@ -615,9 +616,6 @@ func TestCheckPlan(t *testing.T) {
 		motionCfg,
 	)
 	test.That(t, err, test.ShouldBeNil)
-
-	// edit plan to remove first step
-	plan = plan[1:]
 
 	newFS := referenceframe.NewEmptyFrameSystem("test-fs")
 	newFS.AddFrame(kinBase.Kinematics(), newFS.World())
