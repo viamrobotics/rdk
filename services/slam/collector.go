@@ -13,21 +13,21 @@ import (
 type method int64
 
 const (
-	getPosition method = iota
-	getPointCloudMap
+	position method = iota
+	pointCloudMap
 )
 
 func (m method) String() string {
-	if m == getPosition {
-		return "GetPosition"
+	if m == position {
+		return "Position"
 	}
-	if m == getPointCloudMap {
-		return "GetPointCloudMap"
+	if m == pointCloudMap {
+		return "PointCloudMap"
 	}
 	return "Unknown"
 }
 
-func newGetPositionCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+func newPositionCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	slam, err := assertSLAM(resource)
 	if err != nil {
 		return nil, err
@@ -36,14 +36,14 @@ func newGetPositionCollector(resource interface{}, params data.CollectorParams) 
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
 		pose, componentRef, err := slam.Position(ctx)
 		if err != nil {
-			return nil, data.FailedToReadErr(params.ComponentName, getPosition.String(), err)
+			return nil, data.FailedToReadErr(params.ComponentName, position.String(), err)
 		}
 		return &pb.GetPositionResponse{Pose: spatialmath.PoseToProtobuf(pose), ComponentReference: componentRef}, nil
 	})
 	return data.NewCollector(cFunc, params)
 }
 
-func newGetPointCloudMapCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+func newPointCloudMapCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	slam, err := assertSLAM(resource)
 	if err != nil {
 		return nil, err
@@ -52,12 +52,12 @@ func newGetPointCloudMapCollector(resource interface{}, params data.CollectorPar
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
 		f, err := slam.PointCloudMap(ctx)
 		if err != nil {
-			return nil, data.FailedToReadErr(params.ComponentName, getPointCloudMap.String(), err)
+			return nil, data.FailedToReadErr(params.ComponentName, pointCloudMap.String(), err)
 		}
 
 		pcd, err := HelperConcatenateChunksToFull(f)
 		if err != nil {
-			return nil, data.FailedToReadErr(params.ComponentName, getPointCloudMap.String(), err)
+			return nil, data.FailedToReadErr(params.ComponentName, pointCloudMap.String(), err)
 		}
 
 		return pcd, nil

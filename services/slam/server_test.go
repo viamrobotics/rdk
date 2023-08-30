@@ -269,7 +269,7 @@ func TestFailingServer(t *testing.T) {
 	})
 
 	t.Run("failing GetInternalState", func(t *testing.T) {
-		// GetInternalStateFunc error
+		// InternalStateFunc error
 		injectSvc.InternalStateFunc = func(ctx context.Context) (func() ([]byte, error), error) {
 			return nil, errors.New("failure to get internal state")
 		}
