@@ -90,10 +90,11 @@ func relativeChange(curr, prev map[string]interface{}, logger golog.Logger) floa
 		logger.Errorw("sensor's previous distance reading is not of type float", "prevReading", prev)
 		return 0
 	}
-	diff := currDist - prevDist
+	logger.Warnln("calculating rel change - curr: ", currDist, "; prev: ", prevDist)
 	if prevDist == 0 {
-		return math.Abs(diff)
+		return math.Abs(currDist)
 	}
+	diff := currDist - prevDist
 	return math.Abs(diff / prevDist)
 }
 
@@ -110,10 +111,10 @@ func (s *filterSensor) Readings(ctx context.Context, extra map[string]interface{
 
 	// Only return captured readings if they are significantly different from the previously stored readings.
 	if s.prevReadings == nil || relativeChange(readings, s.prevReadings, s.logger) > threshold {
+		s.logger.Warnln("returning reading: ", readings)
 		s.prevReadings = readings
 		return readings, nil
 	}
-
 	return nil, data.ErrNoCaptureToStore
 }
 
