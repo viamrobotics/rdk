@@ -103,7 +103,8 @@ func PoseBetween(a, b Pose) Pose {
 }
 
 // PoseBetweenInverse returns an origin pose which when composed with the first parameter, yields the second.
-// Example: if PoseBetweenInverse(a, b) = c, then Compose(c, a) = b.
+// Example: if PoseBetweenInverse(a, b) = c, then Compose(c, a) = b
+// PoseBetweenInverse(a, b) is equivalent to Compose(b, PoseInverse(a)).
 func PoseBetweenInverse(a, b Pose) Pose {
 	return &dualQuaternion{dualquat.Mul(dualQuaternionFromPose(b).Number, dualquat.ConjQuat(dualQuaternionFromPose(a).Number))}
 }

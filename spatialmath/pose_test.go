@@ -48,6 +48,8 @@ func TestBasicPoseConstruction(t *testing.T) {
 	test.That(t, PoseAlmostEqual(Compose(p1, pb), p2), test.ShouldBeTrue)
 	pbi := PoseBetweenInverse(p1, p2)
 	test.That(t, PoseAlmostEqual(Compose(pbi, p1), p2), test.ShouldBeTrue)
+	pbi2 := Compose(p2, PoseInverse(p1))
+	test.That(t, PoseAlmostEqual(pbi, pbi2), test.ShouldBeTrue)
 
 	p = NewPoseFromOrientation(&R4AA{0, 4, 5, 6})
 	test.That(t, p.Orientation().OrientationVectorRadians(), test.ShouldResemble, &OrientationVector{0, 0, 0, 1})
