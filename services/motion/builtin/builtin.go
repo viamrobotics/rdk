@@ -269,13 +269,23 @@ func (ms *builtIn) MoveOnGlobe(
 	replanChan := make(chan bool, 1)
 	defer close(replanChan)
 	replanChan <- true
-Yea
+
 	// errChan is for sending error messages encountered during the move
 	errChan := make(chan error)
 	defer close(errChan)
 
+	// create a waitgroup to manage goroutines and wait on their completion before exiting the function
 	var backgroundWorkers sync.WaitGroup
 	defer backgroundWorkers.Wait()
+
+	// create a cancellable context and ensure that it is cancelled before exiting
+	var cancelCtx context.Context
+	var cancelFn context.CancelFunc
+	defer func() {
+		if cancelFn != nil {
+			cancelFn()
+		}
+	}()
 
 	// helper function to manage polling functions
 	startPolling := func(ctx context.Context, period time.Duration, fn func(context.Context) error) {
@@ -297,13 +307,8 @@ Yea
 		}, backgroundWorkers.Done)
 	}
 
-	var cancelCtx context.Context
-	var cancelFn context.CancelFunc
-	defer func() {
-		if cancelFn != nil {
-			cancelFn()
-		}
-	}()
+	// start the loop that (re)plans when something is read from the replan channel
+	// and exits when something is read from the success channel
 	for {
 		select {
 		case <-ctx.Done():
@@ -313,6 +318,7 @@ Yea
 		case err := <-errChan:
 			return false, err
 		case <-replanChan:
+			// cancel the goroutines spawned by this function, create a new cancellable context to use in the future
 			if cancelFn != nil {
 				cancelFn()
 			}
@@ -333,15 +339,15 @@ Yea
 				return false, nil
 			}
 
-			// drain the replanChan
+			// drain channels of any extra messages
 			for len(replanChan) > 0 {
 				<-replanChan
 			}
-			// drain the replanChan
 			for len(errChan) > 0 {
 				<-errChan
 			}
 
+			// spawn two goroutines that each have the ability to trigger a replan
 			if positionPollingPeriod > 0 {
 				startPolling(cancelCtx, positionPollingPeriod, func(ctx context.Context) error {
 					// TODO: the function that actually monitors position
@@ -356,6 +362,7 @@ Yea
 				})
 			}
 
+			// spawn function to execute the plan on the robot
 			backgroundWorkers.Add(1)
 			goutils.ManagedGo(func() {
 				if err := ms.executePlan(cancelCtx, kb, plan); err != nil {
@@ -363,14 +370,12 @@ Yea
 					return
 				}
 
+				// the plan has been fully executed so check to see if the GeoPoint we are at is close enough to the goal.
 				position, _, err := movementSensor.Position(cancelCtx, nil)
 				if err != nil {
 					errChan <- err
 					return
 				}
-
-				ms.logger.Infof("position: %v", position)
-				// TODO: dont do the calculation to mm here
 				if spatialmath.GeoPointToPose(position, destination).Point().Norm() <= 1e3*motionCfg.PlanDeviationM {
 					successChan <- true
 					return

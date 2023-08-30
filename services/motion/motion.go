@@ -63,7 +63,7 @@ type Service interface {
 //
 //nolint:revive
 type MotionConfiguration struct {
-	VisionSvc             []resource.Name
+	VisionServices        []resource.Name
 	PositionPollingFreqHz float64
 	ObstaclePollingFreqHz float64
 	PlanDeviationM        float64
