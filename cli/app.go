@@ -279,7 +279,7 @@ var app = &cli.App{
 				{
 					Name:      "delete-tabular",
 					Usage:     "delete tabular data from Viam cloud",
-					UsageText: fmt.Sprintf("viam data delete-tabular [other options]"),
+					UsageText: "viam data delete-tabular [other options]",
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     dataFlagOrgID,

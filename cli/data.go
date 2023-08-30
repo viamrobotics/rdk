@@ -91,6 +91,7 @@ func DataDeleteBinaryAction(c *cli.Context) error {
 	return nil
 }
 
+// DataDeleteTabularAction is the corresponding action for 'data delete-tabular'.
 func DataDeleteTabularAction(c *cli.Context) error {
 	client, err := newViamClient(c)
 	if err != nil {
