@@ -39,31 +39,31 @@ type motionPlanner interface {
 type plannerConstructor func(frame.Frame, *rand.Rand, golog.Logger, *plannerOptions) (motionPlanner, error)
 
 type PlanRequest struct {
-	Logger          golog.Logger
-	Goal            *frame.PoseInFrame
-	Frame           frame.Frame
-	FrameSystem     frame.FrameSystem
-	Inputs          map[string][]frame.Input
-	WorldState      *frame.WorldState
-	ConstraintSpecs *pb.Constraints
-	Options         map[string]interface{}
+	Logger             golog.Logger
+	Goal               *frame.PoseInFrame
+	Frame              frame.Frame
+	FrameSystem        frame.FrameSystem
+	StartConfiguration map[string][]frame.Input
+	WorldState         *frame.WorldState
+	ConstraintSpecs    *pb.Constraints
+	Options            map[string]interface{}
 }
 
-// PlanMotion plans a motion to destination for a given frame. It takes a given frame system, wraps it with a SolvableFS, and solves.
+// PlanMotion plans a motion from a provided plan request
 func PlanMotion(ctx context.Context, request *PlanRequest) (Plan, error) {
 	if request.Goal == nil {
 		return nil, errors.New("no destination passed to Motion")
 	}
 
 	// Create a frame to solve for, and an IK solver with that frame.
-	sf, err := newSolverFrame(request.FrameSystem, request.Frame.Name(), request.Goal.Parent(), request.Inputs)
+	sf, err := newSolverFrame(request.FrameSystem, request.Frame.Name(), request.Goal.Parent(), request.StartConfiguration)
 	if err != nil {
 		return nil, err
 	}
 	if len(sf.DoF()) == 0 {
 		return nil, errors.New("solver frame has no degrees of freedom, cannot perform inverse kinematics")
 	}
-	seed, err := sf.mapToSlice(request.Inputs)
+	seed, err := sf.mapToSlice(request.StartConfiguration)
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +76,7 @@ func PlanMotion(ctx context.Context, request *PlanRequest) (Plan, error) {
 		"planning motion for frame %s\nGoal: %v\nStarting seed map %v\n, startPose %v\n, worldstate: %v\n",
 		request.Frame.Name(),
 		frame.PoseInFrameToProtobuf(request.Goal),
-		request.Inputs,
+		request.StartConfiguration,
 		spatialmath.PoseToProtobuf(startPose),
 		request.WorldState.String(),
 	)
@@ -94,7 +94,7 @@ func PlanMotion(ctx context.Context, request *PlanRequest) (Plan, error) {
 
 	resultSlices, err := sfPlanner.PlanSingleWaypoint(
 		ctx,
-		request.Inputs,
+		request.StartConfiguration,
 		request.Goal.Pose(),
 		request.WorldState,
 		request.ConstraintSpecs,
@@ -128,13 +128,13 @@ func PlanFrameMotion(ctx context.Context,
 		return nil, err
 	}
 	plan, err := PlanMotion(ctx, &PlanRequest{
-		Logger:          logger,
-		Goal:            frame.NewPoseInFrame(frame.World, dst),
-		Frame:           f,
-		Inputs:          map[string][]frame.Input{f.Name(): seed},
-		FrameSystem:     fs,
-		ConstraintSpecs: constraintSpec,
-		Options:         planningOpts,
+		Logger:             logger,
+		Goal:               frame.NewPoseInFrame(frame.World, dst),
+		Frame:              f,
+		StartConfiguration: map[string][]frame.Input{f.Name(): seed},
+		FrameSystem:        fs,
+		ConstraintSpecs:    constraintSpec,
+		Options:            planningOpts,
 	})
 	if err != nil {
 		return nil, err

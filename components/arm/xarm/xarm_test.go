@@ -74,23 +74,23 @@ func TestWriteViam(t *testing.T) {
 	seedMap[m.Name()] = home7
 
 	plan, err := motionplan.PlanMotion(ctx, &motionplan.PlanRequest{
-		Logger:      logger,
-		Goal:        frame.NewPoseInFrame(frame.World, goal),
-		Frame:       moveFrame,
-		Inputs:      seedMap,
-		FrameSystem: fs,
+		Logger:             logger,
+		Goal:               frame.NewPoseInFrame(frame.World, goal),
+		Frame:              moveFrame,
+		StartConfiguration: seedMap,
+		FrameSystem:        fs,
 	})
 	test.That(t, err, test.ShouldBeNil)
 
 	opt := map[string]interface{}{"motion_profile": motionplan.LinearMotionProfile}
 	goToGoal := func(seedMap map[string][]frame.Input, goal spatial.Pose) map[string][]frame.Input {
 		plan, err := motionplan.PlanMotion(ctx, &motionplan.PlanRequest{
-			Logger:      logger,
-			Goal:        frame.NewPoseInFrame(fs.World().Name(), goal),
-			Frame:       moveFrame,
-			Inputs:      seedMap,
-			FrameSystem: fs,
-			Options:     opt,
+			Logger:             logger,
+			Goal:               frame.NewPoseInFrame(fs.World().Name(), goal),
+			Frame:              moveFrame,
+			StartConfiguration: seedMap,
+			FrameSystem:        fs,
+			Options:            opt,
 		})
 		test.That(t, err, test.ShouldBeNil)
 		return plan[len(plan)-1]

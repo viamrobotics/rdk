@@ -48,11 +48,11 @@ func TestPTGKinematics(t *testing.T) {
 	inputMap := referenceframe.StartPositions(fs)
 
 	plan, err := motionplan.PlanMotion(ctx, &motionplan.PlanRequest{
-		Logger:      logger,
-		Goal:        dstPIF,
-		Frame:       f,
-		Inputs:      inputMap,
-		FrameSystem: fs,
+		Logger:             logger,
+		Goal:               dstPIF,
+		Frame:              f,
+		StartConfiguration: inputMap,
+		FrameSystem:        fs,
 	})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, plan, test.ShouldNotBeNil)
@@ -103,7 +103,14 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	plan, err := motionplan.PlanMotion(ctx, logger, dstPIF, f, inputMap, fs, worldState, nil, nil)
+	plan, err := motionplan.PlanMotion(ctx, &motionplan.PlanRequest{
+		Logger:             logger,
+		Goal:               dstPIF,
+		Frame:              f,
+		StartConfiguration: inputMap,
+		FrameSystem:        fs,
+		WorldState:         worldState,
+	})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, plan, test.ShouldNotBeNil)
 }

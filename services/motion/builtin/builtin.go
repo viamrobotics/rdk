@@ -165,14 +165,14 @@ func (ms *builtIn) Move(
 
 	// the goal is to move the component to goalPose which is specified in coordinates of goalFrameName
 	steps, err := motionplan.PlanMotion(ctx, &motionplan.PlanRequest{
-		Logger:          ms.logger,
-		Goal:            goalPose,
-		Frame:           movingFrame,
-		Inputs:          fsInputs,
-		FrameSystem:     frameSys,
-		WorldState:      worldState,
-		ConstraintSpecs: constraints,
-		Options:         extra,
+		Logger:             ms.logger,
+		Goal:               goalPose,
+		Frame:              movingFrame,
+		StartConfiguration: fsInputs,
+		FrameSystem:        frameSys,
+		WorldState:         worldState,
+		ConstraintSpecs:    constraints,
+		Options:            extra,
 	})
 	if err != nil {
 		return false, err
@@ -324,7 +324,7 @@ func (ms *builtIn) MoveOnGlobe(
 			if len(kb.Kinematics().DoF()) == 2 {
 				inputs = inputs[:2]
 			}
-			planRequest.Inputs = map[string][]referenceframe.Input{componentName.Name: inputs}
+			planRequest.StartConfiguration = map[string][]referenceframe.Input{componentName.Name: inputs}
 
 			plan, err := motionplan.PlanMotion(ctx, planRequest)
 			if err != nil {
@@ -484,13 +484,13 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	}
 
 	return &motionplan.PlanRequest{
-		Logger:      ms.logger,
-		Goal:        referenceframe.NewPoseInFrame(referenceframe.World, goal),
-		Frame:       offsetFrame,
-		FrameSystem: fs,
-		Inputs:      referenceframe.StartPositions(fs),
-		WorldState:  worldState,
-		Options:     extra,
+		Logger:             ms.logger,
+		Goal:               referenceframe.NewPoseInFrame(referenceframe.World, goal),
+		Frame:              offsetFrame,
+		FrameSystem:        fs,
+		StartConfiguration: referenceframe.StartPositions(fs),
+		WorldState:         worldState,
+		Options:            extra,
 	}, kb, nil
 }
 
@@ -630,14 +630,14 @@ func (ms *builtIn) planMoveOnMap(
 
 	ms.logger.Debugf("goal position: %v", dst.Pose().Point())
 	plan, err := motionplan.PlanMotion(ctx, &motionplan.PlanRequest{
-		Logger:          ms.logger,
-		Goal:            dst,
-		Frame:           f,
-		Inputs:          seedMap,
-		FrameSystem:     fs,
-		WorldState:      worldState,
-		ConstraintSpecs: nil,
-		Options:         extra,
+		Logger:             ms.logger,
+		Goal:               dst,
+		Frame:              f,
+		StartConfiguration: seedMap,
+		FrameSystem:        fs,
+		WorldState:         worldState,
+		ConstraintSpecs:    nil,
+		Options:            extra,
 	})
 	if err != nil {
 		return nil, nil, err

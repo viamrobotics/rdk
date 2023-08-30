@@ -22,6 +22,7 @@ import (
 
 	"go.viam.com/rdk/components/arm"
 	armFake "go.viam.com/rdk/components/arm/fake"
+	ur "go.viam.com/rdk/components/arm/universalrobots"
 	"go.viam.com/rdk/components/base"
 	baseFake "go.viam.com/rdk/components/base/fake"
 	"go.viam.com/rdk/components/base/kinematicbase"
@@ -634,7 +635,7 @@ func TestPlanMoveOnGlobe(t *testing.T) {
 			dst,
 			injectedMovementSensor,
 			[]*spatialmath.GeoObstacle{geoObstacle},
-			nil,
+			&motion.MotionConfiguration{},
 			motionCfg,
 		)
 		test.That(t, err, test.ShouldBeNil)

@@ -142,11 +142,11 @@ func TestPlanningWithGripper(t *testing.T) {
 
 	newPose := frame.NewPoseInFrame("gripper", spatialmath.NewPoseFromPoint(r3.Vector{100, 100, 0}))
 	solutionMap, err := PlanMotion(context.Background(), &PlanRequest{
-		Logger:      logger.Sugar(),
-		Goal:        newPose,
-		Frame:       gripper,
-		Inputs:      zeroPos,
-		FrameSystem: fs,
+		Logger:             logger.Sugar(),
+		Goal:               newPose,
+		Frame:              gripper,
+		StartConfiguration: zeroPos,
+		FrameSystem:        fs,
 	})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(solutionMap), test.ShouldBeGreaterThanOrEqualTo, 2)
@@ -373,11 +373,11 @@ func TestArmOOBSolve(t *testing.T) {
 	// Set a goal unreachable by the UR due to sheer distance
 	goal1 := spatialmath.NewPose(r3.Vector{X: 257, Y: 21000, Z: -300}, &spatialmath.OrientationVectorDegrees{OZ: -1})
 	_, err := PlanMotion(context.Background(), &PlanRequest{
-		Logger:      logger.Sugar(),
-		Goal:        frame.NewPoseInFrame(frame.World, goal1),
-		Frame:       fs.Frame("urCamera"),
-		Inputs:      positions,
-		FrameSystem: fs,
+		Logger:             logger.Sugar(),
+		Goal:               frame.NewPoseInFrame(frame.World, goal1),
+		Frame:              fs.Frame("urCamera"),
+		StartConfiguration: positions,
+		FrameSystem:        fs,
 	})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldEqual, errIKSolve.Error())
@@ -399,12 +399,12 @@ func TestArmObstacleSolve(t *testing.T) {
 	// Set a goal unreachable by the UR
 	goal1 := spatialmath.NewPose(r3.Vector{X: 257, Y: 210, Z: -300}, &spatialmath.OrientationVectorDegrees{OZ: -1})
 	_, err = PlanMotion(context.Background(), &PlanRequest{
-		Logger:      logger.Sugar(),
-		Goal:        frame.NewPoseInFrame(frame.World, goal1),
-		Frame:       fs.Frame("urCamera"),
-		Inputs:      positions,
-		FrameSystem: fs,
-		WorldState:  worldState,
+		Logger:             logger.Sugar(),
+		Goal:               frame.NewPoseInFrame(frame.World, goal1),
+		Frame:              fs.Frame("urCamera"),
+		StartConfiguration: positions,
+		FrameSystem:        fs,
+		WorldState:         worldState,
 	})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, errIKConstraint)
@@ -425,11 +425,11 @@ func TestArmAndGantrySolve(t *testing.T) {
 	// Set a goal such that the gantry and arm must both be used to solve
 	goal1 := spatialmath.NewPose(r3.Vector{X: 257, Y: 2100, Z: -300}, &spatialmath.OrientationVectorDegrees{OZ: -1})
 	plan, err := PlanMotion(context.Background(), &PlanRequest{
-		Logger:      logger.Sugar(),
-		Goal:        frame.NewPoseInFrame(frame.World, goal1),
-		Frame:       fs.Frame("xArmVgripper"),
-		Inputs:      positions,
-		FrameSystem: fs,
+		Logger:             logger.Sugar(),
+		Goal:               frame.NewPoseInFrame(frame.World, goal1),
+		Frame:              fs.Frame("xArmVgripper"),
+		StartConfiguration: positions,
+		FrameSystem:        fs,
 	})
 	test.That(t, err, test.ShouldBeNil)
 	solvedPose, err := fs.Transform(
@@ -447,12 +447,12 @@ func TestMultiArmSolve(t *testing.T) {
 	// Solve such that the ur5 and xArm are pointing at each other, 60mm from gripper to camera
 	goal2 := spatialmath.NewPose(r3.Vector{Z: 60}, &spatialmath.OrientationVectorDegrees{OZ: -1})
 	plan, err := PlanMotion(context.Background(), &PlanRequest{
-		Logger:      logger.Sugar(),
-		Goal:        frame.NewPoseInFrame("urCamera", goal2),
-		Frame:       fs.Frame("xArmVgripper"),
-		Inputs:      positions,
-		FrameSystem: fs,
-		Options:     map[string]interface{}{"max_ik_solutions": 100, "timeout": 150.0},
+		Logger:             logger.Sugar(),
+		Goal:               frame.NewPoseInFrame("urCamera", goal2),
+		Frame:              fs.Frame("xArmVgripper"),
+		StartConfiguration: positions,
+		FrameSystem:        fs,
+		Options:            map[string]interface{}{"max_ik_solutions": 100, "timeout": 150.0},
 	})
 	test.That(t, err, test.ShouldBeNil)
 
@@ -486,12 +486,12 @@ func TestReachOverArm(t *testing.T) {
 	// plan to a location, it should interpolate to get there
 	opts := map[string]interface{}{"max_ik_solutions": 100, "timeout": 150.0}
 	plan, err := PlanMotion(context.Background(), &PlanRequest{
-		Logger:      logger.Sugar(),
-		Goal:        goal,
-		Frame:       xarm,
-		Inputs:      frame.StartPositions(fs),
-		FrameSystem: fs,
-		Options:     opts,
+		Logger:             logger.Sugar(),
+		Goal:               goal,
+		Frame:              xarm,
+		StartConfiguration: frame.StartPositions(fs),
+		FrameSystem:        fs,
+		Options:            opts,
 	})
 
 	test.That(t, err, test.ShouldBeNil)
@@ -505,12 +505,12 @@ func TestReachOverArm(t *testing.T) {
 	// the plan should no longer be able to interpolate, but it should still be able to get there
 	opts = map[string]interface{}{"max_ik_solutions": 100, "timeout": 150.0}
 	plan, err = PlanMotion(context.Background(), &PlanRequest{
-		Logger:      logger.Sugar(),
-		Goal:        goal,
-		Frame:       xarm,
-		Inputs:      frame.StartPositions(fs),
-		FrameSystem: fs,
-		Options:     opts,
+		Logger:             logger.Sugar(),
+		Goal:               goal,
+		Frame:              xarm,
+		StartConfiguration: frame.StartPositions(fs),
+		FrameSystem:        fs,
+		Options:            opts,
 	})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(plan), test.ShouldBeGreaterThan, 2)
@@ -569,13 +569,13 @@ func TestArmConstraintSpecificationSolve(t *testing.T) {
 	checkReachable := func(worldState *frame.WorldState, constraints *motionpb.Constraints) error {
 		goal := spatialmath.NewPose(r3.Vector{X: 600, Y: 100, Z: 300}, &spatialmath.OrientationVectorDegrees{OX: 1})
 		_, err := PlanMotion(context.Background(), &PlanRequest{
-			Logger:          logger.Sugar(),
-			Goal:            frame.NewPoseInFrame(frame.World, goal),
-			Frame:           fs.Frame("xArmVgripper"),
-			FrameSystem:     fs,
-			Inputs:          frame.StartPositions(fs),
-			WorldState:      worldState,
-			ConstraintSpecs: constraints,
+			Logger:             logger.Sugar(),
+			Goal:               frame.NewPoseInFrame(frame.World, goal),
+			Frame:              fs.Frame("xArmVgripper"),
+			FrameSystem:        fs,
+			StartConfiguration: frame.StartPositions(fs),
+			WorldState:         worldState,
+			ConstraintSpecs:    constraints,
 		})
 		return err
 	}
