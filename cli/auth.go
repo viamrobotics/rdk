@@ -84,8 +84,8 @@ type tokenResponse struct {
 }
 
 type authMethod interface {
+	fmt.Stringer
 	dialOpts() rpc.DialOption
-	prettyPrint() string
 }
 
 // token contains an authorization token and details once logged in.
@@ -104,8 +104,8 @@ type token struct {
 
 // apiKey holds an id/value pair used to authenticate with app.viam.
 type apiKey struct {
-	KeyID string `json:"key_id"`
-	Key   string `json:"key"`
+	KeyID     string `json:"key_id"`
+	KeyCrypto string `json:"key_crypto"`
 }
 
 // LoginAction is the corresponding Action for 'login'.
@@ -128,10 +128,14 @@ func (c *viamClient) loginAction(cCtx *cli.Context) error {
 			t.ExpiresAt.Format("Mon Jan 2 15:04:05 MST 2006"))
 	}
 
-	currentToken, ok := c.conf.Auth.(*token)
-	if !ok {
-		return errors.New("config auth was not a token or api key")
+	if _, isAPIKey := c.conf.Auth.(*token); isAPIKey {
+		warningf(c.c.App.Writer, "was logged in with an api-key. logging out")
+		if err := c.logout(); err != nil {
+			return err
+		}
 	}
+	// it is okay for this to be nil.
+	currentToken, _ := c.conf.Auth.(*token)
 	if currentToken != nil && !currentToken.isExpired() {
 		loggedInMessage(currentToken, true)
 		return nil
@@ -169,8 +173,8 @@ func LoginWithAPIKeyAction(cCtx *cli.Context) error {
 		return err
 	}
 	key := apiKey{
-		KeyID: c.c.String(loginFlagKeyID),
-		Key:   c.c.String(loginFlagKey),
+		KeyID:     cCtx.String(loginFlagKeyID),
+		KeyCrypto: cCtx.String(loginFlagKey),
 	}
 	c.conf.Auth = &key
 	if err := storeConfigToCache(c.conf); err != nil {
@@ -200,7 +204,7 @@ func (c *viamClient) printAccessTokenAction(cCtx *cli.Context) error {
 	if token, ok := c.conf.Auth.(*token); ok {
 		fmt.Fprintln(cCtx.App.Writer, token.AccessToken)
 	} else {
-		return errors.New("not logged in as a user. cannot print access token")
+		return errors.New("not logged in as a user. cannot print access token. run \"viam login\" to sign in with your account")
 	}
 	return nil
 }
@@ -223,7 +227,7 @@ func (c *viamClient) logoutAction(cCtx *cli.Context) error {
 	if err := c.logout(); err != nil {
 		return errors.Wrap(err, "could not logout")
 	}
-	fmt.Fprintf(cCtx.App.Writer, "logged out from %q\n", auth.prettyPrint())
+	fmt.Fprintf(cCtx.App.Writer, "logged out from %s\n", auth)
 	return nil
 }
 
@@ -241,7 +245,7 @@ func (c *viamClient) whoAmIAction(cCtx *cli.Context) error {
 		warningf(cCtx.App.Writer, "not logged in. run \"login\" command")
 		return nil
 	}
-	fmt.Fprintf(cCtx.App.Writer, "%s\n", c.conf.Auth.prettyPrint())
+	fmt.Fprintf(cCtx.App.Writer, "%s\n", c.conf.Auth)
 	return nil
 }
 
@@ -409,7 +413,7 @@ func (t *token) dialOpts() rpc.DialOption {
 	return rpc.WithStaticAuthenticationMaterial(t.AccessToken)
 }
 
-func (t *token) prettyPrint() string {
+func (t *token) String() string {
 	return t.User.Email
 }
 
@@ -418,12 +422,12 @@ func (k *apiKey) dialOpts() rpc.DialOption {
 		k.KeyID,
 		rpc.Credentials{
 			Type:    "api-key",
-			Payload: k.Key,
+			Payload: k.KeyCrypto,
 		},
 	)
 }
 
-func (k *apiKey) prettyPrint() string {
+func (k *apiKey) String() string {
 	return fmt.Sprintf("key-%s", k.KeyID)
 }
 

@@ -2,6 +2,7 @@ package cli
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 )
@@ -23,7 +24,7 @@ func configFromCache() (*config, error) {
 	if err := json.Unmarshal(rd, &conf); err != nil {
 		return nil, err
 	}
-	if conf.Auth.prettyPrint() != "" {
+	if conf.Auth != nil && conf.Auth.(*token).User.Email != "" {
 		return &conf, nil
 	}
 
@@ -31,9 +32,11 @@ func configFromCache() (*config, error) {
 	if err := json.Unmarshal(rd, &conf); err != nil {
 		return nil, err
 	}
+	if conf.Auth != nil && conf.Auth.(*apiKey).KeyID != "" {
+		return &conf, nil
+	}
 
-
-	return &conf, nil
+	return nil, errors.New("failed to read config from cache. auth was not an api key or a token")
 }
 
 func removeConfigFromCache() error {
