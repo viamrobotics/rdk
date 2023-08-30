@@ -89,7 +89,10 @@ func DataDeleteAction(c *cli.Context) error {
 		}
 
 		if !c.IsSet(dataFlagDeleteTabularDataOlderThanDays) {
-			return errors.Errorf("must set %s flag, set to 0 to delete all tabular data in the org", dataFlagDeleteTabularDataOlderThanDays)
+			return errors.Errorf(
+				"must set %s flag, set to 0 to delete all tabular data in the org",
+				dataFlagDeleteTabularDataOlderThanDays,
+			)
 		}
 
 		if err := client.deleteTabularData(orgIDs[0], c.Int(dataFlagDeleteTabularDataOlderThanDays)); err != nil {
