@@ -1,4 +1,4 @@
-from typing import ClassVar, Mapping, Sequence, Optional, cast, Tuple, List
+from typing import ClassVar, Mapping, Sequence, Optional, cast, Tuple, List, Any, Dict
 
 from typing_extensions import Self
 
@@ -54,20 +54,22 @@ class ColorFilterCam(Camera, Reconfigurable):
         return await self.actual_cam.get_properties()
 
     # Filters the output of the underlying camera
-    async def get_image(self, mime_type: str = "", **kwargs) -> Image.Image:
-        # TODO - add check to extra for "fromDataManagement"
-        img = await self.actual_cam.get_image()
-        detections = await self.vision_service.get_detections(img)
-        if len(detections) > 0:
-            return img
-        raise NoCaptureToStoreError()
+    async def get_image(self, mime_type: str = "", *, extra: Optional[Dict[str, Any]] = None, timeout: Optional[float] = None, **kwargs) -> Image.Image:
+        if extra and extra["fromDataManagement"]:
+            img = await self.actual_cam.get_image()
+            detections = await self.vision_service.get_detections(img)
+            if len(detections) > 0:
+                return img
+            raise NoCaptureToStoreError()
+        
+        return await self.actual_cam.get_image()
 
     # get_images: unimplemented
     async def get_images(self, *, timeout: Optional[float] = None, **kwargs) -> Tuple[List[NamedImage], ResponseMetadata]:
         raise NotImplementedError
 
     # get_point_cloud: unimplemented
-    async def get_point_cloud(self, *, timeout: Optional[float] = None, **kwargs) -> Tuple[bytes, str]:
+    async def get_point_cloud(self, *, extra: Optional[Dict[str, Any]] = None, timeout: Optional[float] = None, **kwargs) -> Tuple[bytes, str]:
         raise NotImplementedError
     
     # get_geometries: unimplemented
