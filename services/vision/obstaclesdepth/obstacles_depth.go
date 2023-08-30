@@ -296,13 +296,13 @@ func (o *obsDepth) isCompatible(p1, p2 image.Point) bool {
 
 // performKMeans3D will do k-means clustering on projected obstacle points.
 func (o *obsDepth) performKMeans3D(k int) ([]spatialmath.Geometry, clusters.Clusters, error) {
-	var d clusters.Observations
+	var observations3D clusters.Observations
 	for _, pt := range o.obstaclePts {
 		outX, outY, outZ := o.intrinsics.PixelToPoint(float64(pt.X), float64(pt.Y), float64(o.dm.GetDepth(pt.X, pt.Y)))
-		d = append(d, clusters.Coordinates{outX, outY, outZ})
+		observations3D = append(observations3D, clusters.Coordinates{outX, outY, outZ})
 	}
 	km := kmeans.New()
-	clusters, err := km.Partition(d, k)
+	clusters, err := km.Partition(observations3D, k)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -337,7 +337,7 @@ func (o *obsDepth) performKMeans3D(k int) ([]spatialmath.Geometry, clusters.Clus
 		// Make a box from those bounds and add it in
 		xdiff, ydiff, zdiff := xmax-xmin, ymax-ymin, zmax-zmin
 		xc, yc, zc := (xmin+xmax)/2, (ymin+ymax)/2, (zmin+zmax)/2
-		pose := spatialmath.NewPose(r3.Vector{xc, yc, zc}, spatialmath.NewZeroOrientation())
+		pose := spatialmath.NewPoseFromPoint(r3.Vector{xc, yc, zc})
 
 		box, err := spatialmath.NewBox(pose, r3.Vector{xdiff, ydiff, zdiff}, strconv.Itoa(i))
 		if err != nil {
