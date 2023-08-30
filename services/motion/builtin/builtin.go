@@ -339,17 +339,21 @@ func (ms *builtIn) MoveOnGlobe(
 					<-replanChan
 				}
 
-				startPolling(cancelCtx, positionPollingPeriod, func(ctx context.Context) error {
-					// TODO: the function that actually monitors position
-					fmt.Println("position poll")
-					return nil
-				})
-				startPolling(cancelCtx, obstaclePollingPeriod, func(ctx context.Context) error {
-					// TODO: the function that actually monitors obstacles
-					fmt.Println("obstacle poll")
-					replanChan <- true
-					return nil
-				})
+				if positionPollingPeriod > 0 {
+					startPolling(cancelCtx, positionPollingPeriod, func(ctx context.Context) error {
+						// TODO: the function that actually monitors position
+						fmt.Println("position poll")
+						return nil
+					})
+				}
+				if obstaclePollingPeriod > 0 {
+					startPolling(cancelCtx, obstaclePollingPeriod, func(ctx context.Context) error {
+						// TODO: the function that actually monitors obstacles
+						fmt.Println("obstacle poll")
+						replanChan <- true
+						return nil
+					})
+				}
 			}
 		}
 	}, backgroundWorkers.Done)
