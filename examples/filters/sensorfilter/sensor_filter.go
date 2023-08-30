@@ -18,6 +18,7 @@ import (
 // Model is the full model definition.
 var Model = resource.NewModel("example", "sensor", "sensorfilter")
 
+// Change threshold is 0.1 meters.
 var threshold = 0.1
 
 func init() {
@@ -79,7 +80,7 @@ func (s *filterSensor) DoCommand(ctx context.Context, cmd map[string]interface{}
 	return cmd, nil
 }
 
-func relativeChange(curr, prev map[string]interface{}, logger golog.Logger) float64 {
+func delta(curr, prev map[string]interface{}, logger golog.Logger) float64 {
 	currDist, ok := curr["distance"].(float64)
 	if !ok {
 		logger.Errorw("sensor's current distance reading is not of type float", "currReading", curr)
@@ -90,12 +91,7 @@ func relativeChange(curr, prev map[string]interface{}, logger golog.Logger) floa
 		logger.Errorw("sensor's previous distance reading is not of type float", "prevReading", prev)
 		return 0
 	}
-	fmt.Println("calculating rel change - curr: ", currDist, "; prev: ", prevDist)
-	if prevDist == 0 {
-		return math.Abs(currDist)
-	}
-	diff := currDist - prevDist
-	return math.Abs(diff / prevDist)
+	return math.Abs(currDist - prevDist)
 }
 
 // Readings returns data from the sensor.
@@ -110,8 +106,7 @@ func (s *filterSensor) Readings(ctx context.Context, extra map[string]interface{
 	}
 
 	// Only return captured readings if they are significantly different from the previously stored readings.
-	if s.prevReadings == nil || relativeChange(readings, s.prevReadings, s.logger) > threshold {
-		fmt.Println("returning reading: ", readings)
+	if s.prevReadings == nil || delta(readings, s.prevReadings, s.logger) > threshold {
 		s.prevReadings = readings
 		return readings, nil
 	}
