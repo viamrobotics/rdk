@@ -207,14 +207,14 @@ func (c *viamClient) whoAmIAction(cCtx *cli.Context) error {
 	return nil
 }
 
-// OrganizationApiKeyCreateAction corresponds to `organization api-key create`
-func OrganizationApiKeyCreateAction(cCtx *cli.Context) error {
+// OrganizationAPIKeyCreateAction corresponds to `organization api-key create`.
+func OrganizationAPIKeyCreateAction(cCtx *cli.Context) error {
 	c, err := newViamClient(cCtx)
 	if err != nil {
 		return err
 	}
 	if c.conf.Auth == nil {
-		return errors.New("not logged in. run \"login\" command")
+		return errors.New("not logged in: run the following command to login:\n\tviam login")
 	}
 	orgID := c.c.String(apiKeyCreateFlagOrgID)
 	keyName := c.c.String(apiKeyCreateFlagName)
@@ -223,20 +223,20 @@ func OrganizationApiKeyCreateAction(cCtx *cli.Context) error {
 		keyName = fmt.Sprintf("%s-%s", c.conf.Auth.User.Email, time.Now().Format(time.RFC3339))
 		infof(cCtx.App.Writer, "using default key name of %q", keyName)
 	}
-	resp, err := c.createOrganizationApiKey(cCtx, orgID, keyName)
+	resp, err := c.createOrganizationAPIKey(orgID, keyName)
 	if err != nil {
 		return err
 	}
-	infof(cCtx.App.Writer, "successfully created key:", resp.GetKey())
+	infof(cCtx.App.Writer, "successfully created key:")
 	fmt.Fprintf(cCtx.App.Writer, "key id: %s\n", resp.GetId())
 	fmt.Fprintf(cCtx.App.Writer, "key value: %s\n\n", resp.GetKey())
 	infof(cCtx.App.Writer, "keep this key somewhere safe; it has full access to your organization")
 	return nil
 }
 
-func (c *viamClient) createOrganizationApiKey(cCtx *cli.Context, orgID, keyName string) (*apppb.CreateKeyResponse, error) {
+func (c *viamClient) createOrganizationAPIKey(orgID, keyName string) (*apppb.CreateKeyResponse, error) {
 	if err := c.ensureLoggedIn(); err != nil {
-		return err
+		return nil, err
 	}
 
 	req := &apppb.CreateKeyRequest{

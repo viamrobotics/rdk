@@ -138,10 +138,10 @@ var app = &cli.App{
 								},
 								&cli.StringFlag{
 									Name:  apiKeyCreateFlagName,
-									Usage: "the name of the key (defaults to the current time)",
+									Usage: "the name of the key (defaults to your login info with the current time)",
 								},
 							},
-							Action: OrganizationApiKeyCreateAction,
+							Action: OrganizationAPIKeyCreateAction,
 						},
 					},
 				},
