@@ -265,10 +265,11 @@ func (ms *builtIn) MoveOnGlobe(
 	defer close(successChan)
 
 	// replanChan is for sending messages that signal that we should stop motion and replan
+	// initialize with a true signal so that we immediately start planning
 	replanChan := make(chan bool, 1)
 	defer close(replanChan)
 	replanChan <- true
-
+Yea
 	// errChan is for sending error messages encountered during the move
 	errChan := make(chan error)
 	defer close(errChan)
