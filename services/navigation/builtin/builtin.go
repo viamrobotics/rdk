@@ -212,7 +212,6 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
 	var newStore navigation.NavStore
-	// this should be changed such that we always initialize in manual mode?
 	if svc.storeType != string(svcConfig.Store.Type) {
 		switch svcConfig.Store.Type {
 		case navigation.StoreTypeMemory:

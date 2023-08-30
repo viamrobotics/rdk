@@ -389,19 +389,17 @@ func CheckPlan(
 	plan []map[string][]frame.Input,
 	worldState *frame.WorldState,
 	fs frame.FrameSystem,
-	currentInputs map[string][]frame.Input,
 	errorState spatialmath.Pose,
 ) (bool, error) {
-	// IN THIS VERSION WE MAKE NO ASSUMPTIONS ABOUT THE STARTING STATE OF THE ROBOT
 	// ensure that we can actually perform the check
-	if len(plan) < 1 {
-		return false, errors.New("plan must have at least one element")
+	if len(plan) < 2 {
+		return false, errors.New("plan must have at least two elements")
 	}
 
 	// construct solverFrame
 	// Note that this requires all frames which move as part of the plan, to have an
 	// entry in the very first plan waypoint
-	sf, err := newSolverFrame(fs, checkFrame.Name(), frame.World, currentInputs)
+	sf, err := newSolverFrame(fs, checkFrame.Name(), frame.World, plan[0])
 	if err != nil {
 		return false, err
 	}
@@ -412,8 +410,6 @@ func CheckPlan(
 		return false, err
 	}
 
-	// prepend first step to plan
-	plan = append([]map[string][]frame.Input{currentInputs}, plan...)
 	// convert plan into nodes
 	planNodes := make([]node, 0, len(plan))
 	for _, step := range plan {
