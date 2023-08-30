@@ -31,23 +31,24 @@ const (
 	moduleFlagPlatform        = "platform"
 	moduleFlagForce           = "force"
 
-	dataFlagDestination       = "destination"
-	dataFlagDataType          = "data-type"
-	dataFlagOrgIDs            = "org-ids"
-	dataFlagLocationIDs       = "location-ids"
-	dataFlagRobotID           = "robot-id"
-	dataFlagPartID            = "part-id"
-	dataFlagRobotName         = "robot-name"
-	dataFlagPartName          = "part-name"
-	dataFlagComponentType     = "component-type"
-	dataFlagComponentName     = "component-name"
-	dataFlagMethod            = "method"
-	dataFlagMimeTypes         = "mime-types"
-	dataFlagStart             = "start"
-	dataFlagEnd               = "end"
-	dataFlagParallelDownloads = "parallel"
-	dataFlagTags              = "tags"
-	dataFlagBboxLabels        = "bbox-labels"
+	dataFlagDestination                    = "destination"
+	dataFlagDataType                       = "data-type"
+	dataFlagOrgIDs                         = "org-ids"
+	dataFlagLocationIDs                    = "location-ids"
+	dataFlagRobotID                        = "robot-id"
+	dataFlagPartID                         = "part-id"
+	dataFlagRobotName                      = "robot-name"
+	dataFlagPartName                       = "part-name"
+	dataFlagComponentType                  = "component-type"
+	dataFlagComponentName                  = "component-name"
+	dataFlagMethod                         = "method"
+	dataFlagMimeTypes                      = "mime-types"
+	dataFlagStart                          = "start"
+	dataFlagEnd                            = "end"
+	dataFlagParallelDownloads              = "parallel"
+	dataFlagTags                           = "tags"
+	dataFlagBboxLabels                     = "bbox-labels"
+	dataFlagDeleteTabularDataOlderThanDays = "delete-tabular-data-older-than-days"
 
 	boardFlagName    = "name"
 	boardFlagPath    = "path"
@@ -270,6 +271,10 @@ var app = &cli.App{
 						&cli.StringFlag{
 							Name:  dataFlagEnd,
 							Usage: "ISO-8601 timestamp indicating the end of the interval filter",
+						},
+						&cli.IntFlag{
+							Name:  dataFlagDeleteTabularDataOlderThanDays,
+							Usage: "delete any tabular data that is older than X calendar days before now",
 						},
 					},
 					Action: DataDeleteAction,

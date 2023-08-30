@@ -68,11 +68,6 @@ func (c *viamClient) dataExportAction(cCtx *cli.Context) error {
 
 // DataDeleteAction is the corresponding action for 'data delete'.
 func DataDeleteAction(c *cli.Context) error {
-	filter, err := createDataFilter(c)
-	if err != nil {
-		return err
-	}
-
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
@@ -80,11 +75,24 @@ func DataDeleteAction(c *cli.Context) error {
 
 	switch c.String(dataFlagDataType) {
 	case dataTypeBinary:
+		filter, err := createDataFilter(c)
+		if err != nil {
+			return err
+		}
 		if err := client.deleteBinaryData(filter); err != nil {
 			return err
 		}
 	case dataTypeTabular:
-		if err := client.deleteTabularData(filter); err != nil {
+		orgIDs := c.StringSlice(dataFlagOrgIDs)
+		if orgIDs == nil || len(orgIDs) != 1 {
+			return errors.New("must provide single org id")
+		}
+
+		if !c.IsSet(dataFlagDeleteTabularDataOlderThanDays) {
+			return errors.Errorf("must set %s flag, set to 0 to delete all tabular data in the org", dataFlagDeleteTabularDataOlderThanDays)
+		}
+
+		if err := client.deleteTabularData(orgIDs[0], c.Int(dataFlagDeleteTabularDataOlderThanDays)); err != nil {
 			return err
 		}
 	default:
@@ -512,12 +520,12 @@ func (c *viamClient) deleteBinaryData(filter *datapb.Filter) error {
 }
 
 // deleteTabularData delete tabular data matching filter.
-func (c *viamClient) deleteTabularData(filter *datapb.Filter) error {
+func (c *viamClient) deleteTabularData(orgID string, deleteOlderThanDays int) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
-	resp, err := c.dataClient.DeleteTabularDataByFilter(context.Background(),
-		&datapb.DeleteTabularDataByFilterRequest{Filter: filter})
+	resp, err := c.dataClient.DeleteTabularData(context.Background(),
+		&datapb.DeleteTabularDataRequest{OrganizationId: orgID, DeleteOlderThanDays: uint32(deleteOlderThanDays)})
 	if err != nil {
 		return errors.Wrapf(err, "received error from server")
 	}
