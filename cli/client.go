@@ -439,7 +439,9 @@ func checkBaseURL(c *cli.Context, auth *config) (*url.URL, []rpc.DialOption, err
 	var secure bool
 	switch baseURLParsed.Scheme {
 	case "http":
-		baseURLParsed.Host = baseURLParsed.Host + ":" + "8080"
+		if baseURLParsed.Port() == "" {
+			baseURLParsed.Host = baseURLParsed.Host + ":" + "8080"
+		}
 	case "https", "":
 		secure = true
 		baseURLParsed.Scheme = "https"
