@@ -248,12 +248,8 @@ func (o *obsDepth) obsDepthWithIntrinsics(ctx context.Context, src camera.VideoS
 	}
 	o.obstaclePts = obstaclePoints
 
-	// Cluster on the 2D depth points and then project the 2D clusters into 3D boxes
-	outClusters, err := o.performKMeans(o.k)
-	if err != nil {
-		return nil, err
-	}
-	boxes, err := o.clustersToBoxes(outClusters)
+	// Cluster the points in 3D
+	boxes, outClusters, err := o.performKMeans3D(o.k)
 	if err != nil {
 		return nil, err
 	}
@@ -263,7 +259,7 @@ func (o *obsDepth) obsDepthWithIntrinsics(ctx context.Context, src camera.VideoS
 	toReturn := make([]*vision.Object, n)
 	for i := 0; i < n; i++ { // for each cluster/box make an object
 		if o.returnPCDs {
-			pcdToReturn := pointcloud.New()
+			pcdToReturn := pointcloud.NewWithPrealloc(len(outClusters[i].Observations))
 			basicData := pointcloud.NewBasicData()
 			for _, pt := range outClusters[i].Observations {
 				if len(pt.Coordinates()) >= 3 {
@@ -298,8 +294,18 @@ func (o *obsDepth) isCompatible(p1, p2 image.Point) bool {
 	return true
 }
 
-// clustersToBoxes will turn the clusters we get from kmeans into boxes.
-func (o *obsDepth) clustersToBoxes(clusters clusters.Clusters) ([]spatialmath.Geometry, error) {
+// performKMeans3D will do k-means clustering on projected obstacle points.
+func (o *obsDepth) performKMeans3D(k int) ([]spatialmath.Geometry, clusters.Clusters, error) {
+	var d clusters.Observations
+	for _, pt := range o.obstaclePts {
+		outX, outY, outZ := o.intrinsics.PixelToPoint(float64(pt.X), float64(pt.Y), float64(o.dm.GetDepth(pt.X, pt.Y)))
+		d = append(d, clusters.Coordinates{outX, outY, outZ})
+	}
+	km := kmeans.New()
+	clusters, err := km.Partition(d, k)
+	if err != nil {
+		return nil, nil, err
+	}
 	boxes := make([]spatialmath.Geometry, 0, len(clusters))
 
 	for i, c := range clusters {
@@ -307,8 +313,7 @@ func (o *obsDepth) clustersToBoxes(clusters clusters.Clusters) ([]spatialmath.Ge
 		xmin, ymin, zmin := math.Inf(1), math.Inf(1), math.Inf(1)
 
 		for _, pt := range c.Observations {
-			u, v := pt.Coordinates().Coordinates()[0], pt.Coordinates().Coordinates()[1]
-			x, y, z := o.intrinsics.PixelToPoint(u, v, float64(o.dm.GetDepth(int(u), int(v))))
+			x, y, z := pt.Coordinates().Coordinates()[0], pt.Coordinates().Coordinates()[1], pt.Coordinates().Coordinates()[2]
 
 			if x < xmin {
 				xmin = x
@@ -336,19 +341,9 @@ func (o *obsDepth) clustersToBoxes(clusters clusters.Clusters) ([]spatialmath.Ge
 
 		box, err := spatialmath.NewBox(pose, r3.Vector{xdiff, ydiff, zdiff}, strconv.Itoa(i))
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		boxes = append(boxes, box)
 	}
-	return boxes, nil
-}
-
-// performKMeans will do k-means clustering on all the 2D obstacle points.
-func (o *obsDepth) performKMeans(k int) (clusters.Clusters, error) {
-	var d clusters.Observations
-	for _, pt := range o.obstaclePts {
-		d = append(d, clusters.Coordinates{float64(pt.X), float64(pt.Y)})
-	}
-	km := kmeans.New()
-	return km.Partition(d, k)
+	return boxes, clusters, err
 }
