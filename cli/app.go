@@ -23,6 +23,9 @@ const (
 	runFlagData   = "data"
 	runFlagStream = "stream"
 
+	apiKeyCreateFlagOrgID = "org-id"
+	apiKeyCreateFlagName  = "name"
+
 	moduleFlagName            = "name"
 	moduleFlagPublicNamespace = "public-namespace"
 	moduleFlagOrgID           = "org-id"
@@ -112,6 +115,35 @@ var app = &cli.App{
 					Name:   "list",
 					Usage:  "list organizations for the current user",
 					Action: ListOrganizationsAction,
+				},
+			},
+		},
+		{
+			Name:            "organization",
+			Usage:           "work with a organization",
+			HideHelpCommand: true,
+			Subcommands: []*cli.Command{
+				{
+					Name:  "api-key",
+					Usage: "work with an organization's api keys",
+					Subcommands: []*cli.Command{
+						{
+							Name:  "create",
+							Usage: "create an api key for your organization",
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     apiKeyCreateFlagOrgID,
+									Required: true,
+									Usage:    "the org to create an api key for",
+								},
+								&cli.StringFlag{
+									Name:  apiKeyCreateFlagName,
+									Usage: "the name of the key (defaults to your login info with the current time)",
+								},
+							},
+							Action: OrganizationAPIKeyCreateAction,
+						},
+					},
 				},
 			},
 		},
