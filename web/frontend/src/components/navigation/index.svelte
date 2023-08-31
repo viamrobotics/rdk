@@ -24,7 +24,7 @@ $: $writeStore = write;
 const { robotClient } = useRobotClient();
 const navClient = new NavigationClient($robotClient, name, { requestLogger: rcLogConditionally });
 
-let navMode: 'Manual' | 'Waypoint' | '' = ''
+let navMode: 'Manual' | 'Waypoint' | '' = '';
 const enum NavigationModes {
   Manual = 1,
   Waypoint = 2,

@@ -16,6 +16,7 @@ import (
 	mongoutils "go.viam.com/utils/mongo"
 )
 
+// ErrNoMoreWaypoints is thrown when there are no remaining waypoints to navigate to.
 var ErrNoMoreWaypoints = errors.New("no more waypoints")
 
 // NavStore handles the waypoints for a navigation service.
