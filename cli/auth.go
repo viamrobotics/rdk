@@ -213,11 +213,11 @@ func OrganizationAPIKeyCreateAction(cCtx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	if c.conf.Auth == nil {
-		return errors.New("not logged in: run the following command to login:\n\tviam login")
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
 	}
-	orgID := c.c.String(apiKeyCreateFlagOrgID)
-	keyName := c.c.String(apiKeyCreateFlagName)
+	orgID := cCtx.String(apiKeyCreateFlagOrgID)
+	keyName := cCtx.String(apiKeyCreateFlagName)
 	if keyName == "" {
 		// Formats name as myusername@gmail.com-2009-11-10T23:00:00Z
 		keyName = fmt.Sprintf("%s-%s", c.conf.Auth.User.Email, time.Now().Format(time.RFC3339))
@@ -230,7 +230,7 @@ func OrganizationAPIKeyCreateAction(cCtx *cli.Context) error {
 	infof(cCtx.App.Writer, "successfully created key:")
 	fmt.Fprintf(cCtx.App.Writer, "key id: %s\n", resp.GetId())
 	fmt.Fprintf(cCtx.App.Writer, "key value: %s\n\n", resp.GetKey())
-	infof(cCtx.App.Writer, "keep this key somewhere safe; it has full write access to your organization")
+	warningf(cCtx.App.Writer, "keep this key somewhere safe; it has full write access to your organization")
 	return nil
 }
 
