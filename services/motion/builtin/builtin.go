@@ -420,7 +420,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	if motionCfg.PlanDeviationMM != 0 {
 		kinematicsOptions.PlanDeviationThresholdMM = motionCfg.PlanDeviationMM
 	}
-	kinematicsOptions.GoalRadiusMM = math.Min(motionCfg.PlanDeviationMM, 3000)
+	kinematicsOptions.GoalRadiusMM = motionCfg.PlanDeviationMM
 	kinematicsOptions.HeadingThresholdDegrees = 8
 
 	// build the localizer from the movement sensor
