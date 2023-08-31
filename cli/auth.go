@@ -217,11 +217,20 @@ func (c *viamClient) printAccessTokenAction(cCtx *cli.Context) error {
 
 // LogoutAction is the corresponding Action for 'logout'.
 func LogoutAction(cCtx *cli.Context) error {
-	c, err := newViamClient(cCtx)
+	// Create basic viam client; no need to check base URL.
+	conf, err := configFromCache()
 	if err != nil {
-		return err
+		if !os.IsNotExist(err) {
+			return err
+		}
+		conf = &config{}
 	}
-	return c.logoutAction(cCtx)
+
+	vc := &viamClient{
+		c:    cCtx,
+		conf: conf,
+	}
+	return vc.logoutAction(cCtx)
 }
 
 func (c *viamClient) logoutAction(cCtx *cli.Context) error {
