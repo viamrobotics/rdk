@@ -12,9 +12,10 @@ from viam.media.video import NamedImage
 from PIL import Image
 from viam.errors import NoCaptureToStoreError
 from viam.services.vision import Vision
+from viam.utils import from_dm_from_extra
 
 class ColorFilterCam(Camera, Reconfigurable):
-    """ A ColorFilterCam wraps the underlying camera `actual_cam` and only keeps the data captured on the actual camera if `vision_service`
+    """A ColorFilterCam wraps the underlying camera `actual_cam` and only keeps the data captured on the actual camera if `vision_service`
     detects a certain color in the captured image.
     """
     MODEL: ClassVar[Model] = Model(ModelFamily("example", "camera"), "colorfilter")
@@ -24,14 +25,13 @@ class ColorFilterCam(Camera, Reconfigurable):
 
     @classmethod
     def new_cam(cls, config: ComponentConfig, dependencies: Mapping[ResourceName, ResourceBase]) -> Self:
-        # Constructor
         cam = cls(config.name)
         cam.reconfigure(config, dependencies)
         return cam
 
     @classmethod
     def validate_config(cls, config: ComponentConfig) -> Sequence[str]:
-        # Validates JSON Configuration
+        """Validates JSON configuration"""
         actual_cam = config.attributes.fields["actual_cam"].string_value
         if actual_cam == "":
             raise Exception("actual_cam attribute is required for a ColorFilterCam component")
@@ -41,7 +41,7 @@ class ColorFilterCam(Camera, Reconfigurable):
         return [actual_cam, vision_service]
     
     def reconfigure(self, config: ComponentConfig, dependencies: Mapping[ResourceName, ResourceBase]):
-        # Handles attribute reconfiguration
+        """Handles attribute reconfiguration"""
         actual_cam_name = config.attributes.fields["actual_cam"].string_value
         actual_cam = dependencies[Camera.get_resource_name(actual_cam_name)]
         self.actual_cam = cast(Camera, actual_cam)
@@ -51,13 +51,13 @@ class ColorFilterCam(Camera, Reconfigurable):
         self.vision_service = cast(Vision, vision_service)
 
     async def get_properties(self, *, timeout: Optional[float] = None, **kwargs) -> Camera.Properties:
-        # Returns details about the camera
+        """Returns details about the camera"""
         return await self.actual_cam.get_properties()
 
     async def get_image(self, mime_type: str = "", *, extra: Optional[Dict[str, Any]] = None, timeout: Optional[float] = None, **kwargs) -> Image.Image:
-        # Filters the output of the underlying camera
+        """Filters the output of the underlying camera"""
         img = await self.actual_cam.get_image()
-        if extra and extra["fromDataManagement"]:
+        if from_dm_from_extra(extra):
             detections = await self.vision_service.get_detections(img)
             if len(detections) == 0:
                 raise NoCaptureToStoreError()
@@ -65,13 +65,10 @@ class ColorFilterCam(Camera, Reconfigurable):
         return img
 
     async def get_images(self, *, timeout: Optional[float] = None, **kwargs) -> Tuple[List[NamedImage], ResponseMetadata]:
-        # get_images: unimplemented
         raise NotImplementedError
 
     async def get_point_cloud(self, *, extra: Optional[Dict[str, Any]] = None, timeout: Optional[float] = None, **kwargs) -> Tuple[bytes, str]:
-        # get_point_cloud: unimplemented
         raise NotImplementedError
     
     async def get_geometries(self) -> List[Geometry]:
-        # get_geometries: unimplemented
         raise NotImplementedError
