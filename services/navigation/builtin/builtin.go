@@ -278,7 +278,7 @@ func (svc *builtIn) SetMode(ctx context.Context, mode navigation.Mode, extra map
 
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
-	cancelCtx, cancelFunc := context.WithCancel(ctx)
+	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	svc.wholeServiceCancelFunc = cancelFunc
 	svc.mode = mode
 	if svc.mode == navigation.ModeWaypoint {
@@ -407,10 +407,8 @@ func (svc *builtIn) startWaypoint(ctx context.Context, extra map[string]interfac
 			}
 
 			wp, err := svc.store.NextWaypoint(ctx)
-			if errors.Is(err, navigation.ErrNoMoreWaypoints) {
+			if err != nil {
 				continue
-			} else if err != nil {
-				return
 			}
 			svc.mu.Lock()
 			svc.waypointInProgress = &wp

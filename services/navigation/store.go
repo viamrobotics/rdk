@@ -16,8 +16,7 @@ import (
 	mongoutils "go.viam.com/utils/mongo"
 )
 
-// ErrNoMoreWaypoints is thrown when there are no remaining waypoints to navigate to.
-var ErrNoMoreWaypoints = errors.New("no more waypoints")
+var errNoMoreWaypoints = errors.New("no more waypoints")
 
 // NavStore handles the waypoints for a navigation service.
 type NavStore interface {
@@ -143,7 +142,7 @@ func (store *MemoryNavigationStore) NextWaypoint(ctx context.Context) (Waypoint,
 			return *wp, nil
 		}
 	}
-	return Waypoint{}, ErrNoMoreWaypoints
+	return Waypoint{}, errNoMoreWaypoints
 }
 
 // WaypointVisited sets that a waypoint has been visited.
@@ -271,7 +270,7 @@ func (store *MongoDBNavigationStore) NextWaypoint(ctx context.Context) (Waypoint
 	var wp Waypoint
 	if err := result.Decode(&wp); err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
-			return Waypoint{}, ErrNoMoreWaypoints
+			return Waypoint{}, errNoMoreWaypoints
 		}
 		return Waypoint{}, err
 	}
