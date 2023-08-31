@@ -504,7 +504,7 @@ Will create the module and a corresponding meta.json file in the current directo
 
 If your org has set a namespace in app.viam.com then your module name will be 'my-namespace:my-great-module' and
 you won't have to pass a namespace or org-id in future commands. Otherwise there will be no namespace
-and you will have to provide the org-id to future cli commands. You cannot make your module public until you claim an org-id.
+and you will have to provide the org-id to future cli commands. You cannot make your module public until you claim a namespace.
 
 After creation, use 'viam module update' to push your new module to app.viam.com.`,
 					UsageText: "viam module create <name> [other options]",
