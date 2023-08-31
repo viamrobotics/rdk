@@ -21,16 +21,24 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-type execManager struct {
-	plan                   motionplan.Plan
-	successChan            chan bool
-	positionPollingErrChan chan error
-	obsticlePollingErrChan chan error
-	executionErrChan       chan error
-	replanChan             chan bool
-	cancelCtx              context.Context
-	cancelFn               context.CancelFunc
-	backgroundWorkers      *sync.WaitGroup
+type replanResponse struct {
+	err    error
+	replan bool
+}
+
+type executeResponse struct {
+	err     error
+	success bool
+}
+
+type planSession struct {
+	plan              motionplan.Plan
+	executionChan     chan executeResponse
+	positionChan      chan replanResponse
+	obsticleChan      chan replanResponse
+	cancelCtx         context.Context
+	cancelFn          context.CancelFunc
+	backgroundWorkers *sync.WaitGroup
 }
 
 func plan(
@@ -55,42 +63,43 @@ func plan(
 func startPollingForReplan(
 	ctx context.Context,
 	period time.Duration,
-	errChan chan error,
-	replanChan chan bool,
-	doneFn func(),
+	responseChan chan replanResponse,
+	backgroundWorkers *sync.WaitGroup,
 	fn func(context.Context,
-	) (bool, error),
+	) replanResponse,
 ) {
+	backgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
 		ticker := time.NewTicker(period)
 		defer ticker.Stop()
 		for {
+			// this ensures that if the context is cancelled we always
+			// return early at the top of the loop
+			if err := ctx.Err(); err != nil {
+				return
+			}
+
 			select {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				replan, err := fn(ctx)
-				if err != nil {
-					errChan <- err
-					return
-				}
-				if replan {
-					// TODO: the function that actually monitors obstacles
-					replanChan <- replan
+				response := fn(ctx)
+				if response.err != nil || response.replan {
+					responseChan <- response
 					return
 				}
 			}
 		}
-	}, doneFn)
+	}, backgroundWorkers.Done)
 }
 
-func spawnExecute(
+func (ps *planSession) start(
 	motionCfg *motion.MotionConfiguration,
 	kb kinematicbase.KinematicBase,
 	ms *builtIn,
 	movementSensor movementsensor.MovementSensor,
 	destination *geo.Point,
-	manager *execManager,
+	replanCount int,
 ) {
 	positionPollingPeriod := time.Duration(1000/motionCfg.PositionPollingFreqHz) * time.Millisecond
 	obstaclePollingPeriod := time.Duration(1000/motionCfg.ObstaclePollingFreqHz) * time.Millisecond
@@ -98,57 +107,54 @@ func spawnExecute(
 	// helper function to manage polling functions
 	// spawn two goroutines that each have the ability to trigger a replan
 	if positionPollingPeriod > 0 {
-		manager.backgroundWorkers.Add(1)
 		startPollingForReplan(
-			manager.cancelCtx,
+			ps.cancelCtx,
 			positionPollingPeriod,
-			manager.positionPollingErrChan,
-			manager.replanChan,
-			manager.backgroundWorkers.Done,
-			func(ctx context.Context) (bool, error) {
-				return false, nil
+			ps.positionChan,
+			ps.backgroundWorkers,
+			func(ctx context.Context) replanResponse {
+				if replanCount == 2 {
+					return replanResponse{replan: true}
+				}
+				return replanResponse{}
 			})
 	}
 	if obstaclePollingPeriod > 0 {
-		manager.backgroundWorkers.Add(1)
 		startPollingForReplan(
-			manager.cancelCtx,
+			ps.cancelCtx,
 			obstaclePollingPeriod,
-			manager.obsticlePollingErrChan,
-			manager.replanChan,
-			manager.backgroundWorkers.Done,
-			func(ctx context.Context,
-			) (bool, error) {
-				return true, nil
+			ps.obsticleChan,
+			ps.backgroundWorkers,
+			func(ctx context.Context) replanResponse {
+				if replanCount == 1 {
+					return replanResponse{replan: true}
+				}
+				return replanResponse{}
 			})
 	}
 
 	// spawn function to execute the plan on the robot
-	manager.backgroundWorkers.Add(1)
+	ps.backgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
-		if err := ms.execute(manager.cancelCtx, kb, manager.plan); err != nil {
-			manager.executionErrChan <- err
+		if err := ms.execute(ps.cancelCtx, kb, ps.plan); err != nil {
+			ps.executionChan <- executeResponse{err: err}
 			return
 		}
 
 		// the plan has been fully executed so check to see if the GeoPoint we are at is close enough to the goal.
 		success, err := arrivedAtGoal(
-			manager.cancelCtx,
+			ps.cancelCtx,
 			movementSensor,
 			destination,
 			motionCfg.PlanDeviationMM,
 		)
 		if err != nil {
-			manager.executionErrChan <- err
+			ps.executionChan <- executeResponse{err: err}
 			return
 		}
 
-		if success {
-			manager.successChan <- success
-			return
-		}
-		manager.executionErrChan <- errors.New("failed to arrive at goal")
-	}, manager.backgroundWorkers.Done)
+		ps.executionChan <- executeResponse{success: success}
+	}, ps.backgroundWorkers.Done)
 }
 
 func arrivedAtGoal(ctx context.Context, ms movementsensor.MovementSensor, destination *geo.Point, radiusMM float64) (bool, error) {
@@ -162,22 +168,20 @@ func arrivedAtGoal(ctx context.Context, ms movementsensor.MovementSensor, destin
 	return false, nil
 }
 
-func newExecutionManager(ctx context.Context, plan motionplan.Plan) *execManager {
+func newPlanSession(ctx context.Context, plan motionplan.Plan) *planSession {
 	cancelCtx, cancelFn := context.WithCancel(ctx)
 
 	var backgroundWorkers sync.WaitGroup
 	defer backgroundWorkers.Wait()
 
-	return &execManager{
-		plan:                   plan,
-		successChan:            make(chan bool, 1),
-		replanChan:             make(chan bool, 1),
-		executionErrChan:       make(chan error, 1),
-		obsticlePollingErrChan: make(chan error, 1),
-		positionPollingErrChan: make(chan error, 1),
-		cancelCtx:              cancelCtx,
-		cancelFn:               cancelFn,
-		backgroundWorkers:      &backgroundWorkers,
+	return &planSession{
+		plan:              plan,
+		executionChan:     make(chan executeResponse),
+		positionChan:      make(chan replanResponse),
+		obsticleChan:      make(chan replanResponse),
+		cancelCtx:         cancelCtx,
+		cancelFn:          cancelFn,
+		backgroundWorkers: &backgroundWorkers,
 	}
 }
 
@@ -187,14 +191,12 @@ func flushChan[T any](c chan T) {
 	}
 }
 
-func (s *execManager) flush() {
-	s.cancelFn()
-	flushChan(s.successChan)
-	flushChan(s.replanChan)
-	flushChan(s.executionErrChan)
-	flushChan(s.obsticlePollingErrChan)
-	flushChan(s.positionPollingErrChan)
-	s.backgroundWorkers.Wait()
+func (ps *planSession) stop() {
+	ps.cancelFn()
+	flushChan(ps.obsticleChan)
+	flushChan(ps.positionChan)
+	flushChan(ps.executionChan)
+	ps.backgroundWorkers.Wait()
 }
 
 func (ms *builtIn) newMoveOnGlobeRequest(

@@ -284,33 +284,53 @@ func (ms *builtIn) MoveOnGlobe(
 		return false, err
 	}
 
-	planManager := newExecutionManager(ctx, plan)
-	spawnExecute(motionCfg, kb, ms, movementSensor, destination, planManager)
+	ps := newPlanSession(ctx, plan)
+	// TODO: Remove replanCount when read position & obsticle polling is integrated
+	var replanCount int
+	ps.start(motionCfg, kb, ms, movementSensor, destination, replanCount)
 
 	// start the loop that (re)plans when something is read from the replan channel
 	// and exits when something is read from the success channel
 	for {
+		replanCount++
+		if err := ctx.Err(); err != nil {
+			ps.stop()
+			return false, err
+		}
+
 		select {
 		case <-ctx.Done():
-			planManager.flush()
+			ps.stop()
 			return false, ctx.Err()
-		case <-planManager.successChan:
-			planManager.flush()
-			return true, nil
-		case err := <-planManager.executionErrChan:
-			planManager.flush()
-			return false, err
-		case err := <-planManager.obsticlePollingErrChan:
-			planManager.flush()
-			return false, err
-		case err := <-planManager.positionPollingErrChan:
-			planManager.flush()
-			return false, err
-		case <-planManager.replanChan:
-			// cancel the goroutines spawned by this function, create a new cancellable context to use in the future
-			planManager.flush()
-			planManager = newExecutionManager(ctx, plan)
-			spawnExecute(motionCfg, kb, ms, movementSensor, destination, planManager)
+
+		// once execution responds: return the result to the caller
+		case resp := <-ps.executionChan:
+			ms.logger.Debugf("execution complete: %#v", resp)
+			ps.stop()
+			return resp.success, resp.err
+
+		// if the obstacle poller hit an error, return the terminal error to the caller
+		// otherwise the obstacle poller detected an obstacle and we should replan
+		case resp := <-ps.obsticleChan:
+			ms.logger.Debugf("obsticle response: %#v", resp)
+			ps.stop()
+			if resp.err != nil {
+				return false, err
+			}
+			ps = newPlanSession(ctx, plan)
+			ps.start(motionCfg, kb, ms, movementSensor, destination, replanCount)
+
+		// if the obstacle poller hit an error, return the terminal error to the caller
+		// otherwise the position poller detected the position has drifted too far
+		// from the plan &  and we should replan
+		case resp := <-ps.positionChan:
+			ms.logger.Debugf("position response: %#v", resp)
+			ps.stop()
+			if resp.err != nil {
+				return false, err
+			}
+			ps = newPlanSession(ctx, plan)
+			ps.start(motionCfg, kb, ms, movementSensor, destination, replanCount)
 		}
 	}
 }
