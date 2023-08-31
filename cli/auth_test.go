@@ -34,7 +34,6 @@ func TestPrintAccessTokenAction(t *testing.T) {
 }
 
 func TestAPIKeyCreateAction(t *testing.T) {
-	// AppServiceClient needed for any Action that calls ensureLoggedIn.
 	createKeyFunc := func(ctx context.Context, in *apppb.CreateKeyRequest,
 		opts ...grpc.CallOption,
 	) (*apppb.CreateKeyResponse, error) {
