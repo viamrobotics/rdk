@@ -387,20 +387,20 @@ IK:
 func CheckPlan(
 	checkFrame frame.Frame,
 	plan []map[string][]frame.Input,
-	startingConfiguration map[string][]frame.Input,
 	worldState *frame.WorldState,
 	fs frame.FrameSystem,
+	startingPosition spatialmath.Pose,
 	errorState spatialmath.Pose,
 ) error {
 	// ensure that we can actually perform the check
-	if len(plan) < 1 {
-		return errors.New("plan must have at least one element")
+	if len(plan) < 2 {
+		return errors.New("plan must have at least two elements")
 	}
 
 	// construct solverFrame
 	// Note that this requires all frames which move as part of the plan, to have an
 	// entry in the very first plan waypoint
-	sf, err := newSolverFrame(fs, checkFrame.Name(), frame.World, startingConfiguration)
+	sf, err := newSolverFrame(fs, checkFrame.Name(), frame.World, plan[0])
 	if err != nil {
 		return err
 	}
@@ -411,8 +411,6 @@ func CheckPlan(
 		return err
 	}
 
-	// prepend startingConfiguration to plan
-	plan = append([]map[string][]frame.Input{startingConfiguration}, plan...)
 	// convert plan into nodes
 	planNodes := make([]node, 0, len(plan))
 	for _, step := range plan {
@@ -435,6 +433,7 @@ func CheckPlan(
 	relative := len(sf.PTGs()) > 0
 
 	if relative {
+		planNodes[0] = &basicNode{q: planNodes[0].Q(), pose: spatialmath.Compose(startingPosition, planNodes[0].Pose())}
 		if planNodes, err = rectifyTPspacePath(planNodes, sf); err != nil {
 			return err
 		}
