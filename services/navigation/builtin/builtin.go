@@ -157,7 +157,6 @@ type builtIn struct {
 	base           base.Base
 	movementSensor movementsensor.MovementSensor
 	motion         motion.Service
-	visionServices []vision.Service
 	obstacles      []*spatialmath.GeoObstacle
 
 	motionCfg        *motion.MotionConfiguration

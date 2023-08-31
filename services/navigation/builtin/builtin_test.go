@@ -112,7 +112,7 @@ func TestNavSetup(t *testing.T) {
 	test.That(t, len(obs), test.ShouldEqual, 1)
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, len(ns.(*builtIn).visionServices), test.ShouldEqual, 1)
+	test.That(t, len(ns.(*builtIn).motionCfg.VisionServices), test.ShouldEqual, 1)
 }
 
 func TestStartWaypoint(t *testing.T) {

@@ -373,18 +373,29 @@ func (ms *builtIn) MoveOnGlobe(
 				}
 
 				// the plan has been fully executed so check to see if the GeoPoint we are at is close enough to the goal.
-				position, _, err := movementSensor.Position(cancelCtx, nil)
+				success, err := arrivedAtGoal(cancelCtx, movementSensor, destination, motionCfg.PlanDeviationMM)
 				if err != nil {
 					errChan <- err
 					return
 				}
-				if spatialmath.GeoPointToPose(position, destination).Point().Norm() <= motionCfg.PlanDeviationMM {
+				if success {
 					successChan <- true
 					return
 				}
 			}, backgroundWorkers.Done)
 		}
 	}
+}
+
+func arrivedAtGoal(ctx context.Context, ms movementsensor.MovementSensor, destination *geo.Point, radiusMM float64) (bool, error) {
+	position, _, err := ms.Position(ctx, nil)
+	if err != nil {
+		return false, err
+	}
+	if spatialmath.GeoPointToPose(position, destination).Point().Norm() <= radiusMM {
+		return true, nil
+	}
+	return false, nil
 }
 
 func (ms *builtIn) newMoveOnGlobeRequest(
