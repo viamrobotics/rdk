@@ -213,6 +213,10 @@ func OrganizationAPIKeyCreateAction(cCtx *cli.Context) error {
 	if err != nil {
 		return err
 	}
+	return c.organizationAPIKeyCreateAction(cCtx)
+}
+
+func (c *viamClient) organizationAPIKeyCreateAction(cCtx *cli.Context) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
