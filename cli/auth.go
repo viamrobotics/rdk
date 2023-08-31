@@ -128,7 +128,7 @@ func (c *viamClient) loginAction(cCtx *cli.Context) error {
 			already = ""
 			viamLogo(cCtx.App.Writer)
 		}
-		fmt.Fprintf(cCtx.App.Writer, "%slogged in as %q, expires %s\n", already, t.User.Email,
+		printf(cCtx.App.Writer, "%slogged in as %q, expires %s", already, t.User.Email,
 			t.ExpiresAt.Format("Mon Jan 2 15:04:05 MST 2006"))
 	}
 
@@ -236,13 +236,13 @@ func LogoutAction(cCtx *cli.Context) error {
 func (c *viamClient) logoutAction(cCtx *cli.Context) error {
 	auth := c.conf.Auth
 	if auth == nil {
-		fmt.Fprintf(cCtx.App.Writer, "already logged out\n")
+		printf(cCtx.App.Writer, "already logged out")
 		return nil
 	}
 	if err := c.logout(); err != nil {
 		return errors.Wrap(err, "could not logout")
 	}
-	fmt.Fprintf(cCtx.App.Writer, "logged out from %q\n", auth)
+	printf(cCtx.App.Writer, "logged out from %q", auth)
 	return nil
 }
 
@@ -260,7 +260,7 @@ func (c *viamClient) whoAmIAction(cCtx *cli.Context) error {
 		warningf(cCtx.App.Writer, "not logged in. run \"login\" command")
 		return nil
 	}
-	fmt.Fprintf(cCtx.App.Writer, "%s\n", c.conf.Auth)
+	printf(cCtx.App.Writer, "%s", c.conf.Auth)
 	return nil
 }
 

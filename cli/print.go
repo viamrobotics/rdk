@@ -19,6 +19,11 @@ const asciiViam = `
 
 `
 
+// printf prints a message with no prefix.
+func printf(w io.Writer, format string, a ...interface{}) {
+	fmt.Fprintf(w, format+"\n", a...)
+}
+
 // infof prints a message prefixed with a bold cyan "Info: ".
 func infof(w io.Writer, format string, a ...interface{}) {
 	// NOTE(benjirewis): for some reason, both errcheck and gosec complain about

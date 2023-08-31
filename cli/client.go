@@ -72,9 +72,9 @@ func (c *viamClient) listOrganizationsAction(cCtx *cli.Context) error {
 	}
 	for i, org := range orgs {
 		if i == 0 {
-			fmt.Fprintf(cCtx.App.Writer, "organizations for %q:\n", c.conf.Auth)
+			printf(cCtx.App.Writer, "organizations for %q:", c.conf.Auth)
 		}
-		fmt.Fprintf(cCtx.App.Writer, "\t%s (id: %s)\n", org.Name, org.Id)
+		printf(cCtx.App.Writer, "\t%s (id: %s)", org.Name, org.Id)
 	}
 	return nil
 }
@@ -92,7 +92,7 @@ func ListLocationsAction(c *cli.Context) error {
 			return errors.Wrap(err, "could not list locations")
 		}
 		for _, loc := range locs {
-			fmt.Fprintf(c.App.Writer, "\t%s (id: %s)\n", loc.Name, loc.Id)
+			printf(c.App.Writer, "\t%s (id: %s)", loc.Name, loc.Id)
 		}
 		return nil
 	}
@@ -103,9 +103,9 @@ func ListLocationsAction(c *cli.Context) error {
 		}
 		for i, org := range orgs {
 			if i == 0 {
-				fmt.Fprintf(c.App.Writer, "locations for %q:\n", client.conf.Auth)
+				printf(c.App.Writer, "locations for %q:", client.conf.Auth)
 			}
-			fmt.Fprintf(c.App.Writer, "%s:\n", org.Name)
+			printf(c.App.Writer, "%s:", org.Name)
 			if err := listLocations(org.Id); err != nil {
 				return err
 			}
@@ -129,11 +129,11 @@ func ListRobotsAction(c *cli.Context) error {
 	}
 
 	if orgStr == "" || locStr == "" {
-		fmt.Fprintf(c.App.Writer, "%s -> %s\n", client.selectedOrg.Name, client.selectedLoc.Name)
+		printf(c.App.Writer, "%s -> %s", client.selectedOrg.Name, client.selectedLoc.Name)
 	}
 
 	for _, robot := range robots {
-		fmt.Fprintf(c.App.Writer, "%s (id: %s)\n", robot.Name, robot.Id)
+		printf(c.App.Writer, "%s (id: %s)", robot.Name, robot.Id)
 	}
 	return nil
 }
@@ -157,12 +157,12 @@ func RobotStatusAction(c *cli.Context) error {
 	}
 
 	if orgStr == "" || locStr == "" {
-		fmt.Fprintf(c.App.Writer, "%s -> %s\n", client.selectedOrg.Name, client.selectedLoc.Name)
+		printf(c.App.Writer, "%s -> %s", client.selectedOrg.Name, client.selectedLoc.Name)
 	}
 
-	fmt.Fprintf(
+	printf(
 		c.App.Writer,
-		"ID: %s\nname: %s\nlast access: %s (%s ago)\n",
+		"ID: %s\nname: %s\nlast access: %s (%s ago)",
 		robot.Id,
 		robot.Name,
 		robot.LastAccess.AsTime().Format(time.UnixDate),
@@ -177,9 +177,9 @@ func RobotStatusAction(c *cli.Context) error {
 		if part.MainPart {
 			name += " (main)"
 		}
-		fmt.Fprintf(
+		printf(
 			c.App.Writer,
-			"\tID: %s\n\tname: %s\n\tlast access: %s (%s ago)\n",
+			"\tID: %s\n\tname: %s\n\tlast access: %s (%s ago)",
 			part.Id,
 			name,
 			part.LastAccess.AsTime().Format(time.UnixDate),
@@ -258,16 +258,16 @@ func RobotPartStatusAction(c *cli.Context) error {
 	}
 
 	if orgStr == "" || locStr == "" || robotStr == "" {
-		fmt.Fprintf(c.App.Writer, "%s -> %s -> %s\n", client.selectedOrg.Name, client.selectedLoc.Name, robot.Name)
+		printf(c.App.Writer, "%s -> %s -> %s", client.selectedOrg.Name, client.selectedLoc.Name, robot.Name)
 	}
 
 	name := part.Name
 	if part.MainPart {
 		name += " (main)"
 	}
-	fmt.Fprintf(
+	printf(
 		c.App.Writer,
-		"ID: %s\nname: %s\nlast access: %s (%s ago)\n",
+		"ID: %s\nname: %s\nlast access: %s (%s ago)",
 		part.Id,
 		name,
 		part.LastAccess.AsTime().Format(time.UnixDate),
@@ -375,7 +375,7 @@ func VersionAction(c *cli.Context) error {
 		return errors.New("error reading build info")
 	}
 	if c.Bool(debugFlag) {
-		fmt.Fprintf(c.App.Writer, "%s\n", info.String())
+		printf(c.App.Writer, "%s", info.String())
 	}
 	settings := make(map[string]string, len(info.Settings))
 	for _, setting := range info.Settings {
@@ -400,7 +400,7 @@ func VersionAction(c *cli.Context) error {
 	if appVersion == "" {
 		appVersion = "(dev)"
 	}
-	fmt.Fprintf(c.App.Writer, "version %s git=%s api=%s\n", appVersion, version, apiVersion)
+	printf(c.App.Writer, "version %s git=%s api=%s", appVersion, version, apiVersion)
 	return nil
 }
 
@@ -768,9 +768,9 @@ func (c *viamClient) robotParts(orgStr, locStr, robotStr string) ([]*apppb.Robot
 
 func (c *viamClient) printRobotPartLogsInner(logs []*apppb.LogEntry, indent string) {
 	for _, log := range logs {
-		fmt.Fprintf(
+		printf(
 			c.c.App.Writer,
-			"%s%s\t%s\t%s\t%s\n",
+			"%s%s\t%s\t%s\t%s",
 			indent,
 			log.Time.AsTime().Format("2006-01-02T15:04:05.000Z0700"),
 			log.Level,
@@ -790,7 +790,7 @@ func (c *viamClient) printRobotPartLogs(orgStr, locStr, robotStr, partStr string
 		fmt.Fprintln(c.c.App.Writer, header)
 	}
 	if len(logs) == 0 {
-		fmt.Fprintf(c.c.App.Writer, "%sno recent logs\n", indent)
+		printf(c.c.App.Writer, "%sno recent logs", indent)
 		return nil
 	}
 	c.printRobotPartLogsInner(logs, indent)
