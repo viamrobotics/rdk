@@ -19,9 +19,6 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-// Define a default speed to target for the base in the case where one is not provided.
-const defaultBaseMMps = 600.
-
 const (
 	ptgIndex int = iota
 	trajectoryIndexWithinPTG
@@ -33,7 +30,7 @@ type ptgBaseKinematics struct {
 	logger golog.Logger
 	frame  referenceframe.Frame
 	fs     referenceframe.FrameSystem
-	ptgs   []tpspace.PTG
+	ptgs   []tpspace.PTGSolver
 }
 
 // wrapWithPTGKinematics takes a Base component and adds a PTG kinematic model so that it can be controlled.
@@ -48,25 +45,21 @@ func wrapWithPTGKinematics(
 		return nil, err
 	}
 
-	baseMillimetersPerSecond := defaultBaseMMps
-	if options.LinearVelocityMMPerSec > 0 {
-		baseMillimetersPerSecond = options.LinearVelocityMMPerSec
+	baseMillimetersPerSecond := options.LinearVelocityMMPerSec
+	if baseMillimetersPerSecond == 0 {
+		baseMillimetersPerSecond = defaultLinearVelocityMMPerSec
 	}
 
-	baseTurningRadius := properties.TurningRadiusMeters
-	if options.AngularVelocityDegsPerSec > 0 {
-		// Compute smallest allowable turning radius permitted by the given speeds. Use the greater of the two.
-		calcTurnRadius := (baseMillimetersPerSecond / rdkutils.DegToRad(options.AngularVelocityDegsPerSec)) / 1000.
-		baseTurningRadius = math.Max(baseTurningRadius, calcTurnRadius)
-	}
+	baseTurningRadiusMeters := properties.TurningRadiusMeters
+
 	logger.Infof(
 		"using baseMillimetersPerSecond %f and baseTurningRadius %f for PTG base kinematics",
 		baseMillimetersPerSecond,
-		baseTurningRadius,
+		baseTurningRadiusMeters,
 	)
 
-	if baseTurningRadius <= 0 {
-		return nil, errors.New("can only wrap with PTG kinematics if turning radius is greater than zero")
+	if baseTurningRadiusMeters < 0 {
+		return nil, errors.New("can only wrap with PTG kinematics if turning radius is greater than or equal to zero")
 	}
 
 	geometries, err := b.Geometries(ctx, nil)
@@ -78,9 +71,11 @@ func wrapWithPTGKinematics(
 		b.Name().ShortName(),
 		logger,
 		baseMillimetersPerSecond,
-		baseTurningRadius,
-		0, // pass 0 to use the default refDist
+		options.AngularVelocityDegsPerSec,
+		baseTurningRadiusMeters,
+		options.MaxMoveStraightMM, // If zero, will use default on the receiver end.
 		geometries,
+		options.NoSkidSteer,
 	)
 	if err != nil {
 		return nil, err
@@ -95,7 +90,7 @@ func wrapWithPTGKinematics(
 	if !ok {
 		return nil, errors.New("unable to cast ptgk frame to a PTG Provider")
 	}
-	ptgs := ptgProv.PTGs()
+	ptgs := ptgProv.PTGSolvers()
 
 	return &ptgBaseKinematics{
 		Base:   b,

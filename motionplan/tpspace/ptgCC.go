@@ -7,21 +7,21 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-// ptgDiffDriveCC defines a PTG family combined of two stages; first reversing while turning at radius, then moving forwards while turning
+// ptgCC defines a PTG family combined of two stages; first reversing while turning at radius, then moving forwards while turning
 // at radius, resulting in a path that looks like a "3"
 // Alpha determines how far to reverse before moving forwards.
-type ptgDiffDriveCC struct {
+type ptgCC struct {
 	maxMMPS float64 // millimeters per second velocity to target
 	maxRPS  float64 // radians per second of rotation when driving at maxMMPS and turning at max turning radius
 
-	circle *ptgDiffDriveC
+	circle *ptgC
 }
 
-// NewCCPTG creates a new PrecomputePTG of type ptgDiffDriveCC.
-func NewCCPTG(maxMMPS, maxRPS float64) PrecomputePTG {
-	circle := NewCirclePTG(maxMMPS, maxRPS).(*ptgDiffDriveC)
+// NewCCPTG creates a new PTG of type ptgCC.
+func NewCCPTG(maxMMPS, maxRPS float64) PTG {
+	circle := NewCirclePTG(maxMMPS, maxRPS).(*ptgC)
 
-	return &ptgDiffDriveCC{
+	return &ptgCC{
 		maxMMPS: maxMMPS,
 		maxRPS:  maxRPS,
 		circle:  circle,
@@ -31,7 +31,7 @@ func NewCCPTG(maxMMPS, maxRPS float64) PrecomputePTG {
 // For this particular driver, turns alpha into a linear + angular velocity. Linear is just max * fwd/back.
 // Note that this will NOT work as-is for 0-radius turning. Robots capable of turning in place will need to be special-cased
 // because they will have zero linear velocity through their turns, not max.
-func (ptg *ptgDiffDriveCC) PTGVelocities(alpha, dist float64) (float64, float64, error) {
+func (ptg *ptgCC) PTGVelocities(alpha, dist float64) (float64, float64, error) {
 	k := math.Copysign(1.0, dist)
 	r := ptg.maxMMPS / ptg.maxRPS
 
@@ -61,7 +61,7 @@ func (ptg *ptgDiffDriveCC) PTGVelocities(alpha, dist float64) (float64, float64,
 	return v, w, nil
 }
 
-func (ptg *ptgDiffDriveCC) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {
+func (ptg *ptgCC) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {
 	alpha := inputs[0].Value
 	dist := inputs[1].Value
 	r := ptg.maxMMPS / ptg.maxRPS

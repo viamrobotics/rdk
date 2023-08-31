@@ -28,7 +28,7 @@ type solverFrame struct {
 	worldRooted bool
 	origSeed    map[string][]frame.Input // stores starting locations of all frames in fss that are NOT in `frames`
 
-	ptgs []tpspace.PTG
+	ptgs []tpspace.PTGSolver
 }
 
 func newSolverFrame(fs frame.FrameSystem, solveFrameName, goalFrameName string, seedMap map[string][]frame.Input) (*solverFrame, error) {
@@ -250,8 +250,8 @@ func (sf *solverFrame) DoF() []frame.Limit {
 	return limits
 }
 
-// PTGs passes through the PTGs of the solving tp-space frame if it exists, otherwise nil.
-func (sf *solverFrame) PTGs() []tpspace.PTG {
+// PTGSolvers passes through the PTGs of the solving tp-space frame if it exists, otherwise nil.
+func (sf *solverFrame) PTGSolvers() []tpspace.PTGSolver {
 	return sf.ptgs
 }
 

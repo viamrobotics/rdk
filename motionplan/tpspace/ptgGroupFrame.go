@@ -10,6 +10,7 @@ import (
 
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 const (
@@ -21,7 +22,7 @@ const (
 // If refDist is not explicitly set, default to pi radians times this adjustment value.
 const refDistHalfCircles = 0.9
 
-type ptgFactory func(float64, float64) PrecomputePTG
+type ptgFactory func(float64, float64) PTG
 
 var defaultPTGs = []ptgFactory{
 	NewCirclePTG,
@@ -32,12 +33,16 @@ var defaultPTGs = []ptgFactory{
 	NewSideSOverturnPTG,
 }
 
+var defaultDiffPTG ptgFactory = NewDiffDrivePTG
+
 type ptgGroupFrame struct {
 	name               string
 	limits             []referenceframe.Limit
 	geometries         []spatialmath.Geometry
 	ptgs               []PTG
+	solvers            []PTGSolver
 	velocityMMps       float64
+	angVelocityRadps   float64
 	turnRadMillimeters float64
 	logger             golog.Logger
 }
@@ -47,20 +52,46 @@ type ptgGroupFrame struct {
 func NewPTGFrameFromTurningRadius(
 	name string,
 	logger golog.Logger,
-	velocityMMps, turnRadMeters, refDist float64,
+	velocityMMps, angVelocityDegps, turnRadMeters, refDist float64,
 	geoms []spatialmath.Geometry,
+	diffDriveOnly bool,
 ) (referenceframe.Frame, error) {
 	if velocityMMps <= 0 {
 		return nil, fmt.Errorf("cannot create ptg frame, movement velocity %f must be >0", velocityMMps)
 	}
-	if turnRadMeters <= 0 {
+	if turnRadMeters < 0 {
 		return nil, fmt.Errorf("cannot create ptg frame, turning radius %f must be >0", turnRadMeters)
 	}
 	if refDist < 0 {
 		return nil, fmt.Errorf("cannot create ptg frame, refDist %f must be >=0", refDist)
 	}
+	if diffDriveOnly && turnRadMeters != 0 {
+		return nil, errors.New("if diffDriveOnly is used, turning radius must be zero")
+	}
 
 	turnRadMillimeters := turnRadMeters * 1000
+
+	angVelocityRadps := rdkutils.DegToRad(angVelocityDegps)
+	if angVelocityRadps == 0 {
+		if turnRadMeters == 0 {
+			return nil, errors.New("cannot create ptg frame, turning radius and angular velocity cannot both be zero")
+		}
+		angVelocityRadps = velocityMMps / turnRadMillimeters
+	} else if turnRadMeters > 0 {
+		// Compute smallest allowable turning radius permitted by the given speeds. Use the greater of the two.
+		calcTurnRadius := (velocityMMps / angVelocityRadps)
+		if calcTurnRadius > turnRadMillimeters {
+			logger.Debugf(
+				"given turning radius was %f but a linear velocity of %f "+
+					"meters per sec and angular velocity of %f degs per sec only allow a turning radius of %f, using that instead",
+				turnRadMeters, velocityMMps/1000., angVelocityDegps, calcTurnRadius,
+			)
+		} else if calcTurnRadius < turnRadMillimeters {
+			// If max allowed angular velocity would turn tighter than given turn radius, shrink the max used angular velocity
+			// to match the requested tightest turn radius.
+			angVelocityRadps = velocityMMps / turnRadMillimeters
+		}
+	}
 
 	if refDist == 0 {
 		// Default to a distance of just over one half of a circle turning at max radius
@@ -68,16 +99,28 @@ func NewPTGFrameFromTurningRadius(
 		logger.Debugf("refDist was zero, calculating default %f", refDist)
 	}
 
-	// Get max angular velocity in radians per second
-	maxRPS := velocityMMps / turnRadMillimeters
+	ptgsToUse := []ptgFactory{}
+	if turnRadMeters == 0 {
+		ptgsToUse = append(ptgsToUse, defaultDiffPTG)
+	}
+	if !diffDriveOnly {
+		ptgsToUse = append(ptgsToUse, defaultPTGs...)
+	}
+
 	pf := &ptgGroupFrame{name: name}
-	err := pf.initPTGs(logger, velocityMMps, maxRPS, refDist)
+
+	ptgs := initializePTGs(velocityMMps, angVelocityRadps, ptgsToUse)
+	solvers, err := initializeSolvers(logger, refDist, ptgs)
 	if err != nil {
 		return nil, err
 	}
 
+	pf.ptgs = ptgs
+	pf.solvers = solvers
+
 	pf.geometries = geoms
 	pf.velocityMMps = velocityMMps
+	pf.angVelocityRadps = angVelocityRadps
 	pf.turnRadMillimeters = turnRadMillimeters
 
 	pf.limits = []referenceframe.Limit{
@@ -106,14 +149,18 @@ func NewPTGFrameFromPTGFrame(frame referenceframe.Frame, refDist float64) (refer
 	}
 
 	// Get max angular velocity in radians per second
-	maxRPS := ptgFrame.velocityMMps / ptgFrame.turnRadMillimeters
 	pf := &ptgGroupFrame{name: ptgFrame.name}
-	err := pf.initPTGs(ptgFrame.logger, ptgFrame.velocityMMps, maxRPS, refDist)
+	solvers, err := initializeSolvers(ptgFrame.logger, refDist, ptgFrame.ptgs)
 	if err != nil {
 		return nil, err
 	}
 
+	pf.ptgs = ptgFrame.ptgs
+	pf.solvers = solvers
 	pf.geometries = ptgFrame.geometries
+	pf.angVelocityRadps = ptgFrame.angVelocityRadps
+	pf.turnRadMillimeters = ptgFrame.turnRadMillimeters
+	pf.velocityMMps = ptgFrame.velocityMMps
 
 	pf.limits = []referenceframe.Limit{
 		{Min: 0, Max: float64(len(pf.ptgs) - 1)},
@@ -147,7 +194,7 @@ func (pf *ptgGroupFrame) Transform(inputs []referenceframe.Input) (spatialmath.P
 
 	ptgIdx := int(math.Round(inputs[ptgIndex].Value))
 
-	traj, err := pf.ptgs[ptgIdx].Trajectory(alpha, dist)
+	traj, err := pf.solvers[ptgIdx].Trajectory(alpha, dist)
 	if err != nil {
 		return nil, err
 	}
@@ -187,22 +234,29 @@ func (pf *ptgGroupFrame) Geometries(inputs []referenceframe.Input) (*referencefr
 	return referenceframe.NewGeometriesInFrame(pf.name, geoms), nil
 }
 
-func (pf *ptgGroupFrame) PTGs() []PTG {
-	return pf.ptgs
+func (pf *ptgGroupFrame) PTGSolvers() []PTGSolver {
+	return pf.solvers
 }
 
-func (pf *ptgGroupFrame) initPTGs(logger golog.Logger, maxMps, maxRPS, simDist float64) error {
+func initializePTGs(maxMps, maxRPS float64, constructors []ptgFactory) []PTG {
 	ptgs := []PTG{}
-	for _, ptg := range defaultPTGs {
-		ptgGen := ptg(maxMps, maxRPS)
-		if ptgGen != nil {
-			newptg, err := NewPTGIK(ptgGen, logger, simDist, 2)
-			if err != nil {
-				return err
-			}
+	for _, ptg := range constructors {
+		newptg := ptg(maxMps, maxRPS)
+		if newptg != nil {
 			ptgs = append(ptgs, newptg)
 		}
 	}
-	pf.ptgs = ptgs
-	return nil
+	return ptgs
+}
+
+func initializeSolvers(logger golog.Logger, simDist float64, ptgs []PTG) ([]PTGSolver, error) {
+	solvers := []PTGSolver{}
+	for _, ptg := range ptgs {
+		solver, err := NewPTGIK(ptg, logger, simDist, 2)
+		if err != nil {
+			return nil, err
+		}
+		solvers = append(solvers, solver)
+	}
+	return solvers, nil
 }
