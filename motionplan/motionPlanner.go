@@ -433,7 +433,7 @@ func CheckPlan(
 	relative := len(sf.PTGs()) > 0
 
 	if relative {
-		planNodes[0] = &basicNode{q: planNodes[0].Q(), pose: spatialmath.Compose(startingPosition, planNodes[0].Pose())}
+		planNodes[0] = &basicNode{q: planNodes[0].Q(), pose: startingPosition}
 		if planNodes, err = rectifyTPspacePath(planNodes, sf); err != nil {
 			return err
 		}
