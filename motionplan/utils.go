@@ -11,6 +11,7 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+// Plan describes a motion plan.
 type Plan []map[string][]referenceframe.Input
 
 // GetFrameSteps is a helper function which will extract the waypoints of a single frame from the map output of a robot path.

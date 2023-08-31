@@ -38,6 +38,7 @@ type motionPlanner interface {
 
 type plannerConstructor func(frame.Frame, *rand.Rand, golog.Logger, *plannerOptions) (motionPlanner, error)
 
+// PlanRequest is a struct to store all the data necessary to make a call to PlanMotion.
 type PlanRequest struct {
 	Logger             golog.Logger
 	Goal               *frame.PoseInFrame

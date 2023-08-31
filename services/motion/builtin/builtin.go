@@ -14,6 +14,7 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	servicepb "go.viam.com/api/service/motion/v1"
+	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/base/kinematicbase"
@@ -28,7 +29,6 @@ import (
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
-	goutils "go.viam.com/utils"
 )
 
 func init() {
@@ -323,10 +323,13 @@ func (ms *builtIn) MoveOnGlobe(
 				cancelFn()
 			}
 			backgroundWorkers.Wait()
+			// context is not lost because it is cancelled above and then cancelled again with defer
+			//nolint:govet
 			cancelCtx, cancelFn = context.WithCancel(ctx)
 
 			inputs, err := kb.CurrentInputs(ctx)
 			if err != nil {
+				//nolint:govet
 				return false, err
 			}
 			// TODO: this is really hacky and we should figure out a better place to store this information
@@ -337,7 +340,7 @@ func (ms *builtIn) MoveOnGlobe(
 
 			plan, err := motionplan.PlanMotion(ctx, planRequest)
 			if err != nil {
-				return false, nil
+				return false, err
 			}
 
 			// drain channels of any extra messages
