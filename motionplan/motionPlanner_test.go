@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"testing"
 
+	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"go.uber.org/zap"
 	commonpb "go.viam.com/api/common/v1"
@@ -512,6 +513,62 @@ func TestReachOverArm(t *testing.T) {
 		FrameSystem:        fs,
 		Options:            opts,
 	})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(plan), test.ShouldBeGreaterThan, 2)
+}
+
+func TestPlanMapMotion(t *testing.T) {
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+
+	// build kinematic base model
+	sphere, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 10, "base")
+	test.That(t, err, test.ShouldBeNil)
+	model, err := frame.New2DMobileModelFrame(
+		"test",
+		[]frame.Limit{{-100, 100}, {-100, 100}, {-2 * math.Pi, 2 * math.Pi}},
+		sphere,
+	)
+	test.That(t, err, test.ShouldBeNil)
+	dst := spatialmath.NewPoseFromPoint(r3.Vector{0, 100, 0})
+	box, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{0, 50, 0}), r3.Vector{25, 25, 25}, "impediment")
+	test.That(t, err, test.ShouldBeNil)
+	worldState, err := frame.NewWorldState(
+		[]*frame.GeometriesInFrame{frame.NewGeometriesInFrame(frame.World, []spatialmath.Geometry{box})},
+		nil,
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	PlanMapMotion := func(
+		ctx context.Context,
+		logger golog.Logger,
+		dst spatialmath.Pose,
+		f frame.Frame,
+		seed []frame.Input,
+		worldState *frame.WorldState,
+	) ([][]frame.Input, error) {
+		// ephemerally create a framesystem containing just the frame for the solve
+		fs := frame.NewEmptyFrameSystem("")
+		if err := fs.AddFrame(f, fs.World()); err != nil {
+			return nil, err
+		}
+		destination := frame.NewPoseInFrame(frame.World, dst)
+		seedMap := map[string][]frame.Input{f.Name(): seed}
+		plan, err := PlanMotion(ctx, &PlanRequest{
+			Logger:             logger,
+			Goal:               destination,
+			Frame:              f,
+			StartConfiguration: seedMap,
+			FrameSystem:        fs,
+			WorldState:         worldState,
+		})
+		if err != nil {
+			return nil, err
+		}
+		return plan.GetFrameSteps(f.Name())
+	}
+
+	plan, err := PlanMapMotion(ctx, logger, dst, model, make([]frame.Input, 3), worldState)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(plan), test.ShouldBeGreaterThan, 2)
 }

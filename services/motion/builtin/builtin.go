@@ -327,8 +327,9 @@ func (ms *builtIn) MoveOnGlobe(
 
 			inputs, err := kb.CurrentInputs(ctx)
 			if err != nil {
-				return false, nil
+				return false, err
 			}
+			// TODO: this is really hacky and we should figure out a better place to store this information
 			if len(kb.Kinematics().DoF()) == 2 {
 				inputs = inputs[:2]
 			}
@@ -348,6 +349,7 @@ func (ms *builtIn) MoveOnGlobe(
 			}
 
 			// spawn two goroutines that each have the ability to trigger a replan
+			// TODO: optionally could make MotionConfiguration more robust such that the option that these are zero is never possible
 			if positionPollingPeriod > 0 {
 				startPolling(cancelCtx, positionPollingPeriod, func(ctx context.Context) error {
 					// TODO: the function that actually monitors position
@@ -376,7 +378,7 @@ func (ms *builtIn) MoveOnGlobe(
 					errChan <- err
 					return
 				}
-				if spatialmath.GeoPointToPose(position, destination).Point().Norm() <= 1e3*motionCfg.PlanDeviationM {
+				if spatialmath.GeoPointToPose(position, destination).Point().Norm() <= motionCfg.PlanDeviationMM {
 					successChan <- true
 					return
 				}
@@ -401,10 +403,10 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	if motionCfg.AngularDegsPerSec != 0 {
 		kinematicsOptions.AngularVelocityDegsPerSec = motionCfg.AngularDegsPerSec
 	}
-	if motionCfg.PlanDeviationM != 0 {
-		kinematicsOptions.PlanDeviationThresholdMM = motionCfg.PlanDeviationM * 1000
+	if motionCfg.PlanDeviationMM != 0 {
+		kinematicsOptions.PlanDeviationThresholdMM = motionCfg.PlanDeviationMM
 	}
-	kinematicsOptions.GoalRadiusMM = math.Min(motionCfg.PlanDeviationM*1000, 3000)
+	kinematicsOptions.GoalRadiusMM = math.Min(motionCfg.PlanDeviationMM, 3000)
 	kinematicsOptions.HeadingThresholdDegrees = 8
 
 	// build the localizer from the movement sensor

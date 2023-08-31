@@ -26,7 +26,7 @@ func (plan Plan) GetFrameSteps(frameName string) ([][]referenceframe.Input, erro
 	return solution, nil
 }
 
-// String returns a human-readable version of the Plan, suitable for debugging
+// String returns a human-readable version of the Plan, suitable for debugging.
 func (plan Plan) String() string {
 	var str string
 	for _, step := range plan {

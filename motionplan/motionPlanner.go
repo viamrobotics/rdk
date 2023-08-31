@@ -49,7 +49,7 @@ type PlanRequest struct {
 	Options            map[string]interface{}
 }
 
-// PlanMotion plans a motion from a provided plan request
+// PlanMotion plans a motion from a provided plan request.
 func PlanMotion(ctx context.Context, request *PlanRequest) (Plan, error) {
 	if request.Goal == nil {
 		return nil, errors.New("no destination passed to Motion")

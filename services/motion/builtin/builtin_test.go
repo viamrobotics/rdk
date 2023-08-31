@@ -551,7 +551,7 @@ func TestMoveOnGlobe(t *testing.T) {
 			dst,
 			injectedMovementSensor,
 			[]*spatialmath.GeoObstacle{},
-			&motion.MotionConfiguration{PositionPollingFreqHz: 4, ObstaclePollingFreqHz: 1, PlanDeviationM: 1e-3 * epsilonMM},
+			&motion.MotionConfiguration{PositionPollingFreqHz: 4, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM},
 			motionCfg,
 		)
 		test.That(t, err, test.ShouldBeNil)
@@ -570,7 +570,7 @@ func TestMoveOnGlobe(t *testing.T) {
 			0,
 			injectedMovementSensor.Name(),
 			[]*spatialmath.GeoObstacle{},
-			&motion.MotionConfiguration{PositionPollingFreqHz: 4, ObstaclePollingFreqHz: 1, PlanDeviationM: 1e-3 * epsilonMM},
+			&motion.MotionConfiguration{PositionPollingFreqHz: 4, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM},
 			motionCfg,
 		)
 		test.That(t, err, test.ShouldBeNil)
@@ -593,7 +593,7 @@ func TestMoveOnGlobe(t *testing.T) {
 			dst,
 			injectedMovementSensor,
 			[]*spatialmath.GeoObstacle{geoObstacle},
-			&motion.MotionConfiguration{PositionPollingFreqHz: 4, ObstaclePollingFreqHz: 1, PlanDeviationM: 1e-3 * epsilonMM},
+			&motion.MotionConfiguration{PositionPollingFreqHz: 4, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM},
 			motionCfg,
 		)
 		test.That(t, err, test.ShouldBeNil)
@@ -612,7 +612,7 @@ func TestMoveOnGlobe(t *testing.T) {
 			0,
 			injectedMovementSensor.Name(),
 			[]*spatialmath.GeoObstacle{geoObstacle},
-			&motion.MotionConfiguration{PositionPollingFreqHz: 4, ObstaclePollingFreqHz: 1, PlanDeviationM: 1e-3 * epsilonMM},
+			&motion.MotionConfiguration{PositionPollingFreqHz: 4, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM},
 			motionCfg,
 		)
 		test.That(t, err, test.ShouldBeNil)
@@ -885,7 +885,7 @@ func TestStoppableMoveFunctions(t *testing.T) {
 
 			goal := geo.NewPoint(gpsPoint.Lat()+1e-4, gpsPoint.Lng()+1e-4)
 			motionCfg := motion.MotionConfiguration{
-				PlanDeviationM:        10,
+				PlanDeviationMM:       10000,
 				LinearMPerSec:         10,
 				PositionPollingFreqHz: 4,
 				ObstaclePollingFreqHz: 1,

@@ -242,7 +242,7 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		VisionServices:        visionServices,
 		LinearMPerSec:         svcConfig.MetersPerSec,
 		AngularDegsPerSec:     svcConfig.DegPerSec,
-		PlanDeviationM:        svcConfig.PlanDeviationM,
+		PlanDeviationMM:       1e3 * svcConfig.PlanDeviationM,
 		PositionPollingFreqHz: svcConfig.PositionPollingFrequencyHz,
 		ObstaclePollingFreqHz: svcConfig.ObstaclePollingFrequencyHz,
 	}
