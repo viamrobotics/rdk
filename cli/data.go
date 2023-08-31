@@ -258,7 +258,7 @@ func (c *viamClient) binaryData(dst string, filter *datapb.Filter, parallelDownl
 					}
 					numFilesDownloaded.Add(1)
 					if numFilesDownloaded.Load()%logEveryN == 0 {
-						printf(c.c.App.Writer, "downloaded %d files", numFilesDownloaded.Load())
+						printf(c.c.App.Writer, "Downloaded %d files", numFilesDownloaded.Load())
 					}
 				}(nextID)
 			}
@@ -268,7 +268,7 @@ func (c *viamClient) binaryData(dst string, filter *datapb.Filter, parallelDownl
 			}
 		}
 		if numFilesDownloaded.Load()%logEveryN != 0 {
-			printf(c.c.App.Writer, "downloaded %d files to %s", numFilesDownloaded.Load(), dst)
+			printf(c.c.App.Writer, "Downloaded %d files to %s", numFilesDownloaded.Load(), dst)
 		}
 	}()
 	wg.Wait()
@@ -411,7 +411,7 @@ func (c *viamClient) tabularData(dst string, filter *datapb.Filter) error {
 	}
 	w := bufio.NewWriter(dataFile)
 
-	fmt.Fprintf(c.c.App.Writer, "downloading..") // no newline
+	fmt.Fprintf(c.c.App.Writer, "Downloading..") // no newline
 	var last string
 	mdIndexes := make(map[string]int)
 	mdIndex := 0
@@ -517,7 +517,7 @@ func (c *viamClient) deleteBinaryData(filter *datapb.Filter) error {
 	if err != nil {
 		return errors.Wrapf(err, "received error from server")
 	}
-	printf(c.c.App.Writer, "deleted %d files", resp.GetDeletedCount())
+	printf(c.c.App.Writer, "Deleted %d files", resp.GetDeletedCount())
 	return nil
 }
 
@@ -531,6 +531,6 @@ func (c *viamClient) deleteTabularData(orgID string, deleteOlderThanDays int) er
 	if err != nil {
 		return errors.Wrapf(err, "received error from server")
 	}
-	printf(c.c.App.Writer, "deleted %d datapoints", resp.GetDeletedCount())
+	printf(c.c.App.Writer, "Deleted %d datapoints", resp.GetDeletedCount())
 	return nil
 }

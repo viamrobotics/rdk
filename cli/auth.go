@@ -123,12 +123,13 @@ func LoginAction(cCtx *cli.Context) error {
 
 func (c *viamClient) loginAction(cCtx *cli.Context) error {
 	loggedInMessage := func(t *token, alreadyLoggedIn bool) {
-		already := "already "
+		already := "Already l"
 		if !alreadyLoggedIn {
-			already = ""
+			already = "L"
 			viamLogo(cCtx.App.Writer)
 		}
-		printf(cCtx.App.Writer, "%slogged in as %q, expires %s", already, t.User.Email,
+
+		printf(cCtx.App.Writer, "%sogged in as %q, expires %s", already, t.User.Email,
 			t.ExpiresAt.Format("Mon Jan 2 15:04:05 MST 2006"))
 	}
 
@@ -208,9 +209,9 @@ func (c *viamClient) printAccessTokenAction(cCtx *cli.Context) error {
 	}
 
 	if token, ok := c.conf.Auth.(*token); ok {
-		fmt.Fprintln(cCtx.App.Writer, token.AccessToken)
+		printf(cCtx.App.Writer, token.AccessToken)
 	} else {
-		return errors.New("not logged in as a user. cannot print access token. run \"viam login\" to sign in with your account")
+		return errors.New("not logged in as a user. Cannot print access token. Run \"viam login\" to sign in with your account")
 	}
 	return nil
 }
@@ -236,13 +237,13 @@ func LogoutAction(cCtx *cli.Context) error {
 func (c *viamClient) logoutAction(cCtx *cli.Context) error {
 	auth := c.conf.Auth
 	if auth == nil {
-		printf(cCtx.App.Writer, "already logged out")
+		printf(cCtx.App.Writer, "Already logged out")
 		return nil
 	}
 	if err := c.logout(); err != nil {
 		return errors.Wrap(err, "could not logout")
 	}
-	printf(cCtx.App.Writer, "logged out from %q", auth)
+	printf(cCtx.App.Writer, "Logged out from %q", auth)
 	return nil
 }
 
@@ -256,8 +257,9 @@ func WhoAmIAction(cCtx *cli.Context) error {
 }
 
 func (c *viamClient) whoAmIAction(cCtx *cli.Context) error {
-	if c.conf.Auth == nil {
-		warningf(cCtx.App.Writer, "not logged in. run \"login\" command")
+	auth := c.conf.Auth
+	if auth == nil {
+		warningf(cCtx.App.Writer, "Not logged in. Run \"login\" command")
 		return nil
 	}
 	printf(cCtx.App.Writer, "%s", c.conf.Auth)
@@ -555,8 +557,8 @@ func (a *authFlow) makeDeviceCodeRequest(ctx context.Context, discovery *openIDD
 }
 
 func (a *authFlow) directUser(code *deviceCodeResponse) error {
-	infof(a.console, `you can log into Viam through the opened browser window or follow the URL below.
-ensure the code in the URL matches the one shown in your browser.
+	infof(a.console, `You can log into Viam through the opened browser window or follow the URL below.
+Ensure the code in the URL matches the one shown in your browser.
   %s`, code.VerificationURIComplete)
 
 	if a.disableBrowserOpen {

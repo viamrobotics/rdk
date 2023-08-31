@@ -5,6 +5,8 @@ import (
 	"io"
 	"log"
 	"os"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/fatih/color"
 )
@@ -44,11 +46,20 @@ func warningf(w io.Writer, format string, a ...interface{}) {
 }
 
 // Errorf prints a message prefixed with a bold red "Error: " prefix and exits with 1.
+// It also capitalizes the first letter of the message.
 func Errorf(w io.Writer, format string, a ...interface{}) {
 	if _, err := color.New(color.Bold, color.FgRed).Fprint(w, "Error: "); err != nil {
 		log.Fatal(err)
 	}
-	fmt.Fprintf(w, format+"\n", a...)
+
+	toPrint := fmt.Sprintf(format+"\n", a...)
+	r, i := utf8.DecodeRuneInString(toPrint)
+	if r == utf8.RuneError {
+		log.Fatal("Malformed error message:", toPrint)
+	}
+	upperR := unicode.ToUpper(r)
+	fmt.Fprintf(w, string(upperR)+toPrint[i:])
+
 	os.Exit(1)
 }
 

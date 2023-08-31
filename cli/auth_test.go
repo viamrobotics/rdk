@@ -21,7 +21,7 @@ func TestLoginAction(t *testing.T) {
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
 	test.That(t, len(out.messages), test.ShouldEqual, 1)
 	test.That(t, out.messages[0], test.ShouldContainSubstring,
-		fmt.Sprintf("already logged in as %q", testEmail))
+		fmt.Sprintf("Already logged in as %q", testEmail))
 }
 
 func TestPrintAccessTokenAction(t *testing.T) {
@@ -59,7 +59,7 @@ func TestLogoutAction(t *testing.T) {
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
 	test.That(t, len(out.messages), test.ShouldEqual, 1)
 	test.That(t, out.messages[0], test.ShouldContainSubstring,
-		fmt.Sprintf("logged out from %q", testEmail))
+		fmt.Sprintf("Logged out from %q", testEmail))
 }
 
 func TestWhoAmIAction(t *testing.T) {
