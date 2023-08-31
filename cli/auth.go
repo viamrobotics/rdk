@@ -97,7 +97,6 @@ type token struct {
 	TokenType    string    `json:"token_type"`
 	TokenURL     string    `json:"token_url"`
 	ClientID     string    `json:"client_id"`
-	BaseURL      string    `json:"base_url"`
 
 	User userData `json:"user_data"`
 }
@@ -141,6 +140,11 @@ func (c *viamClient) loginAction(cCtx *cli.Context) error {
 		return nil
 	}
 
+	c.conf.BaseURL = cCtx.String(baseURLFlag)
+	if c.conf.BaseURL == "" {
+		c.conf.BaseURL = defaultBaseURL
+	}
+
 	var t *token
 	var err error
 	if currentToken != nil && currentToken.canRefresh() {
@@ -150,7 +154,7 @@ func (c *viamClient) loginAction(cCtx *cli.Context) error {
 			return err
 		}
 	} else {
-		t, err = c.authFlow.login(c.c.Context, cCtx.String(baseURLFlag))
+		t, err = c.authFlow.loginAsUser(c.c.Context)
 		if err != nil {
 			return err
 		}
@@ -171,6 +175,10 @@ func LoginWithAPIKeyAction(cCtx *cli.Context) error {
 	c, err := newViamClient(cCtx)
 	if err != nil {
 		return err
+	}
+	c.conf.BaseURL = cCtx.String(baseURLFlag)
+	if c.conf.BaseURL == "" {
+		c.conf.BaseURL = defaultBaseURL
 	}
 	key := apiKey{
 		KeyID:     cCtx.String(loginFlagKeyID),
@@ -464,7 +472,7 @@ func newCLIAuthFlowWithAuthDomain(authDomain, audience, clientID string, console
 	}
 }
 
-func (a *authFlow) login(ctx context.Context, baseURL string) (*token, error) {
+func (a *authFlow) loginAsUser(ctx context.Context) (*token, error) {
 	discovery, err := a.loadOIDiscoveryEndpoint(ctx)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed retrieving discovery endpoint")
@@ -484,18 +492,15 @@ func (a *authFlow) login(ctx context.Context, baseURL string) (*token, error) {
 	if err != nil {
 		return nil, err
 	}
-	return buildToken(token, discovery.TokenEndPoint, a.clientID, baseURL)
+	return buildToken(token, discovery.TokenEndPoint, a.clientID)
 }
 
-func buildToken(t *tokenResponse, tokenURL, clientID, baseURL string) (*token, error) {
+func buildToken(t *tokenResponse, tokenURL, clientID string) (*token, error) {
 	userData, err := userDataFromIDToken(t.IDToken)
 	if err != nil {
 		return nil, err
 	}
 
-	if baseURL == "" {
-		baseURL = defaultBaseURL
-	}
 	return &token{
 		TokenType:    tokenTypeUserOAuthToken,
 		AccessToken:  t.AccessToken,
@@ -505,7 +510,6 @@ func buildToken(t *tokenResponse, tokenURL, clientID, baseURL string) (*token, e
 		User:         *userData,
 		TokenURL:     tokenURL,
 		ClientID:     clientID,
-		BaseURL:      baseURL,
 	}, nil
 }
 
@@ -690,7 +694,7 @@ func (a *authFlow) refreshToken(ctx context.Context, t *token) (*token, error) {
 		return nil, errors.New("expecting new token")
 	}
 
-	return buildToken(resp, t.TokenURL, t.ClientID, t.BaseURL)
+	return buildToken(resp, t.TokenURL, t.ClientID)
 }
 
 func processTokenResponse(res *http.Response) (*tokenResponse, error) {

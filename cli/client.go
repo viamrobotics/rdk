@@ -406,20 +406,19 @@ func VersionAction(c *cli.Context) error {
 
 var defaultBaseURL = "https://app.viam.com:443"
 
-func checkBaseURL(c *cli.Context, auth *config) (*url.URL, []rpc.DialOption, error) {
+func checkBaseURL(c *cli.Context, conf *config) (*url.URL, []rpc.DialOption, error) {
 	// If base URL was not specified, assume cached base URL. If no base URL is
 	// cached, assume default base URL.
 	baseURL := c.String(baseURLFlag)
 	if baseURL == "" {
 		baseURL = defaultBaseURL
-		if auth.Auth != nil && auth.Auth.BaseURL != "" {
-			baseURL = auth.Auth.BaseURL
+		if conf.BaseURL != "" {
+			baseURL = conf.BaseURL
 		}
 	}
-
-	if auth.Auth != nil && auth.Auth.BaseURL != baseURL {
+	if conf.BaseURL != baseURL {
 		return nil, nil, fmt.Errorf("cached base URL for this session is %q, "+
-			"please logout and login again to use provided base URL %q", auth.Auth.BaseURL, baseURL)
+			"please logout and login again to use provided base URL %q", conf.BaseURL, baseURL)
 	}
 
 	baseURLParsed, err := url.Parse(baseURL)
@@ -479,6 +478,9 @@ func newViamClient(c *cli.Context) (*viamClient, error) {
 		conf = &config{}
 	}
 
+    if conf.BaseURL == "" {
+        conf.BaseURL = defaultBaseURL
+    }
 	baseURL, rpcOpts, err := checkBaseURL(c, conf)
 	if err != nil {
 		return nil, err

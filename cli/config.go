@@ -56,5 +56,6 @@ func storeConfigToCache(cfg *config) error {
 }
 
 type config struct {
-	Auth authMethod `json:"auth"`
+	BaseURL string     `json:"base_url"`
+	Auth    authMethod `json:"auth"`
 }
