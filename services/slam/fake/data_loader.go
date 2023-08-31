@@ -47,7 +47,7 @@ const (
 	positionTemplate      = "%s/position/position_%d.json"
 )
 
-func fakeGetPointCloudMap(_ context.Context, datasetDir string, slamSvc *SLAM) (func() ([]byte, error), error) {
+func fakePointCloudMap(_ context.Context, datasetDir string, slamSvc *SLAM) (func() ([]byte, error), error) {
 	path := filepath.Clean(artifact.MustPath(fmt.Sprintf(pcdTemplate, datasetDir, slamSvc.getCount())))
 	slamSvc.logger.Debug("Reading " + path)
 	file, err := os.Open(path)
@@ -66,7 +66,7 @@ func fakeGetPointCloudMap(_ context.Context, datasetDir string, slamSvc *SLAM) (
 	return f, nil
 }
 
-func fakeGetInternalState(_ context.Context, datasetDir string, slamSvc *SLAM) (func() ([]byte, error), error) {
+func fakeInternalState(_ context.Context, datasetDir string, slamSvc *SLAM) (func() ([]byte, error), error) {
 	path := filepath.Clean(artifact.MustPath(fmt.Sprintf(internalStateTemplate, datasetDir, slamSvc.getCount())))
 	slamSvc.logger.Debug("Reading " + path)
 	file, err := os.Open(path)
@@ -85,7 +85,7 @@ func fakeGetInternalState(_ context.Context, datasetDir string, slamSvc *SLAM) (
 	return f, nil
 }
 
-func fakeGetPosition(_ context.Context, datasetDir string, slamSvc *SLAM) (spatialmath.Pose, string, error) {
+func fakePosition(_ context.Context, datasetDir string, slamSvc *SLAM) (spatialmath.Pose, string, error) {
 	path := filepath.Clean(artifact.MustPath(fmt.Sprintf(positionTemplate, datasetDir, slamSvc.getCount())))
 	slamSvc.logger.Debug("Reading " + path)
 	data, err := os.ReadFile(path)

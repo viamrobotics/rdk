@@ -39,7 +39,7 @@ func (server *serviceServer) GetPosition(ctx context.Context, req *pb.GetPositio
 		return nil, err
 	}
 
-	p, componentReference, err := svc.GetPosition(ctx)
+	p, componentReference, err := svc.Position(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -65,9 +65,9 @@ func (server *serviceServer) GetPointCloudMap(req *pb.GetPointCloudMapRequest,
 		return err
 	}
 
-	f, err := svc.GetPointCloudMap(ctx)
+	f, err := svc.PointCloudMap(ctx)
 	if err != nil {
-		return errors.Wrap(err, "getting callback function from GetPointCloudMap encountered an issue")
+		return errors.Wrap(err, "getting callback function from PointCloudMap encountered an issue")
 	}
 
 	// In the future, channel buffer could be used here to optimize for latency
@@ -103,7 +103,7 @@ func (server *serviceServer) GetInternalState(req *pb.GetInternalStateRequest,
 		return err
 	}
 
-	f, err := svc.GetInternalState(ctx)
+	f, err := svc.InternalState(ctx)
 	if err != nil {
 		return err
 	}
@@ -139,7 +139,7 @@ func (server *serviceServer) GetLatestMapInfo(ctx context.Context, req *pb.GetLa
 		return nil, err
 	}
 
-	mapTimestamp, err := svc.GetLatestMapInfo(ctx)
+	mapTimestamp, err := svc.LatestMapInfo(ctx)
 	if err != nil {
 		return nil, err
 	}

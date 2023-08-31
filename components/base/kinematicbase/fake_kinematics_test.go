@@ -33,7 +33,7 @@ func TestNewFakeKinematics(t *testing.T) {
 	b, err := fakebase.NewBase(ctx, resource.Dependencies{}, conf, logger)
 	test.That(t, err, test.ShouldBeNil)
 	fakeSLAM := fake.NewSLAM(slam.Named("test"), logger)
-	limits, err := fakeSLAM.GetLimits(ctx)
+	limits, err := fakeSLAM.Limits(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	limits = append(limits, referenceframe.Limit{-2 * math.Pi, 2 * math.Pi})
 
