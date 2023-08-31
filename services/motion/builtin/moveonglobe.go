@@ -35,7 +35,7 @@ type planSession struct {
 	plan              motionplan.Plan
 	executionChan     chan executeResponse
 	positionChan      chan replanResponse
-	obsticleChan      chan replanResponse
+	obstacleChan      chan replanResponse
 	cancelCtx         context.Context
 	cancelFn          context.CancelFunc
 	backgroundWorkers *sync.WaitGroup
@@ -123,7 +123,7 @@ func (ps *planSession) start(
 		startPollingForReplan(
 			ps.cancelCtx,
 			obstaclePollingPeriod,
-			ps.obsticleChan,
+			ps.obstacleChan,
 			ps.backgroundWorkers,
 			func(ctx context.Context) replanResponse {
 				if replanCount == 1 {
@@ -142,30 +142,22 @@ func (ps *planSession) start(
 		}
 
 		// the plan has been fully executed so check to see if the GeoPoint we are at is close enough to the goal.
-		success, err := arrivedAtGoal(
+		ps.executionChan <- arrivedAtGoal(
 			ps.cancelCtx,
 			movementSensor,
 			destination,
 			motionCfg.PlanDeviationMM,
 		)
-		if err != nil {
-			ps.executionChan <- executeResponse{err: err}
-			return
-		}
-
-		ps.executionChan <- executeResponse{success: success}
 	}, ps.backgroundWorkers.Done)
 }
 
-func arrivedAtGoal(ctx context.Context, ms movementsensor.MovementSensor, destination *geo.Point, radiusMM float64) (bool, error) {
+func arrivedAtGoal(ctx context.Context, ms movementsensor.MovementSensor, destination *geo.Point, radiusMM float64) executeResponse {
 	position, _, err := ms.Position(ctx, nil)
 	if err != nil {
-		return false, err
+		return executeResponse{err: err}
 	}
-	if spatialmath.GeoPointToPose(position, destination).Point().Norm() <= radiusMM {
-		return true, nil
-	}
-	return false, nil
+	success := spatialmath.GeoPointToPose(position, destination).Point().Norm() <= radiusMM
+	return executeResponse{success: success}
 }
 
 func newPlanSession(ctx context.Context, plan motionplan.Plan) *planSession {
@@ -178,7 +170,7 @@ func newPlanSession(ctx context.Context, plan motionplan.Plan) *planSession {
 		plan:              plan,
 		executionChan:     make(chan executeResponse),
 		positionChan:      make(chan replanResponse),
-		obsticleChan:      make(chan replanResponse),
+		obstacleChan:      make(chan replanResponse),
 		cancelCtx:         cancelCtx,
 		cancelFn:          cancelFn,
 		backgroundWorkers: &backgroundWorkers,
@@ -193,7 +185,7 @@ func flushChan[T any](c chan T) {
 
 func (ps *planSession) stop() {
 	ps.cancelFn()
-	flushChan(ps.obsticleChan)
+	flushChan(ps.obstacleChan)
 	flushChan(ps.positionChan)
 	flushChan(ps.executionChan)
 	ps.backgroundWorkers.Wait()

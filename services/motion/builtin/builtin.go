@@ -285,7 +285,7 @@ func (ms *builtIn) MoveOnGlobe(
 	}
 
 	ps := newPlanSession(ctx, plan)
-	// TODO: Remove replanCount when read position & obsticle polling is integrated
+	// TODO: Remove replanCount when read position & obstacle polling is integrated
 	var replanCount int
 	ps.start(motionCfg, kb, ms, movementSensor, destination, replanCount)
 
@@ -311,8 +311,8 @@ func (ms *builtIn) MoveOnGlobe(
 
 		// if the obstacle poller hit an error, return the terminal error to the caller
 		// otherwise the obstacle poller detected an obstacle and we should replan
-		case resp := <-ps.obsticleChan:
-			ms.logger.Debugf("obsticle response: %#v", resp)
+		case resp := <-ps.obstacleChan:
+			ms.logger.Debugf("obstacle response: %#v", resp)
 			ps.stop()
 			if resp.err != nil {
 				return false, err
