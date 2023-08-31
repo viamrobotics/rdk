@@ -52,34 +52,11 @@ func plan(
 	return motionplan.PlanMotion(ctx, planRequest)
 }
 
-func (ms *builtIn) execute(ctx context.Context, kinematicBase kinematicbase.KinematicBase, plan motionplan.Plan) error {
-	waypoints, err := plan.GetFrameSteps(kinematicBase.Name().Name)
-	if err != nil {
-		return err
-	}
-
-	for i := 1; i < len(waypoints); i++ {
-		select {
-		case <-ctx.Done():
-			return nil
-		default:
-			ms.logger.Info(waypoints[i])
-			if err := kinematicBase.GoToInputs(ctx, waypoints[i]); err != nil {
-				// If there is an error on GoToInputs, stop the component if possible before returning the error
-				if stopErr := kinematicBase.Stop(ctx, nil); stopErr != nil {
-					return errors.Wrap(err, stopErr.Error())
-				}
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-func startPolling(
+func startPollingForReplan(
 	ctx context.Context,
 	period time.Duration,
 	errChan chan error,
+	replanChan chan bool,
 	doneFn func(),
 	fn func(context.Context,
 	) (bool, error),
@@ -92,12 +69,14 @@ func startPolling(
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				stop, err := fn(ctx)
+				replan, err := fn(ctx)
 				if err != nil {
 					errChan <- err
 					return
 				}
-				if stop {
+				if replan {
+					// TODO: the function that actually monitors obstacles
+					replanChan <- replan
 					return
 				}
 			}
@@ -120,27 +99,26 @@ func spawnExecute(
 	// spawn two goroutines that each have the ability to trigger a replan
 	if positionPollingPeriod > 0 {
 		manager.backgroundWorkers.Add(1)
-		startPolling(
+		startPollingForReplan(
 			manager.cancelCtx,
 			positionPollingPeriod,
 			manager.positionPollingErrChan,
+			manager.replanChan,
 			manager.backgroundWorkers.Done,
 			func(ctx context.Context) (bool, error) {
-				// TODO: the function that actually monitors position
 				return false, nil
 			})
 	}
 	if obstaclePollingPeriod > 0 {
 		manager.backgroundWorkers.Add(1)
-		startPolling(
+		startPollingForReplan(
 			manager.cancelCtx,
 			obstaclePollingPeriod,
 			manager.obsticlePollingErrChan,
+			manager.replanChan,
 			manager.backgroundWorkers.Done,
 			func(ctx context.Context,
 			) (bool, error) {
-				// TODO: the function that actually monitors obstacles
-				manager.replanChan <- true
 				return true, nil
 			})
 	}
@@ -166,9 +144,10 @@ func spawnExecute(
 		}
 
 		if success {
-			manager.successChan <- true
+			manager.successChan <- success
 			return
 		}
+		manager.executionErrChan <- errors.New("failed to arrive at goal")
 	}, manager.backgroundWorkers.Done)
 }
 
@@ -191,11 +170,11 @@ func newExecutionManager(ctx context.Context, plan motionplan.Plan) *execManager
 
 	return &execManager{
 		plan:                   plan,
-		successChan:            make(chan bool),
-		replanChan:             make(chan bool),
-		executionErrChan:       make(chan error),
-		obsticlePollingErrChan: make(chan error),
-		positionPollingErrChan: make(chan error),
+		successChan:            make(chan bool, 1),
+		replanChan:             make(chan bool, 1),
+		executionErrChan:       make(chan error, 1),
+		obsticlePollingErrChan: make(chan error, 1),
+		positionPollingErrChan: make(chan error, 1),
 		cancelCtx:              cancelCtx,
 		cancelFn:               cancelFn,
 		backgroundWorkers:      &backgroundWorkers,
