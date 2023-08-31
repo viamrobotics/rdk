@@ -291,10 +291,10 @@ func (c *viamClient) organizationAPIKeyCreateAction(cCtx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	infof(cCtx.App.Writer, "successfully created key:")
-	fmt.Fprintf(cCtx.App.Writer, "key id: %s\n", resp.GetId())
-	fmt.Fprintf(cCtx.App.Writer, "key value: %s\n\n", resp.GetKey())
-	warningf(cCtx.App.Writer, "keep this key somewhere safe; it has full write access to your organization")
+	infof(cCtx.App.Writer, "Successfully created key:")
+	printf(cCtx.App.Writer, "Key ID: %s\n", resp.GetId())
+	printf(cCtx.App.Writer, "Key Value: %s\n\n", resp.GetKey())
+	warningf(cCtx.App.Writer, "Keep this key somewhere safe; it has full write access to your organization")
 	return nil
 }
 

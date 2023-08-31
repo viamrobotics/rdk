@@ -1026,10 +1026,10 @@ func (c *viamClient) startRobotPartShell(
 			case outputData, ok := <-output:
 				if ok {
 					if outputData.Output != "" {
-						fmt.Fprint(c.c.App.Writer, outputData.Output)
+						fmt.Fprint(c.c.App.Writer, outputData.Output) // no newline
 					}
 					if outputData.Error != "" {
-						fmt.Fprint(c.c.App.ErrWriter, outputData.Error)
+						fmt.Fprint(c.c.App.ErrWriter, outputData.Error) // no newline
 					}
 					if outputData.EOF {
 						return
