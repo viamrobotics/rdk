@@ -390,10 +390,11 @@ func CheckPlan(
 	worldState *frame.WorldState,
 	fs frame.FrameSystem,
 	errorState spatialmath.Pose,
-) (bool, error) {
+) error {
+	// since there are only two states we care about, lets just return err
 	// ensure that we can actually perform the check
 	if len(plan) < 2 {
-		return false, errors.New("plan must have at least two elements")
+		return errors.New("plan must have at least two elements")
 	}
 
 	// construct solverFrame
@@ -401,13 +402,13 @@ func CheckPlan(
 	// entry in the very first plan waypoint
 	sf, err := newSolverFrame(fs, checkFrame.Name(), frame.World, plan[0])
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	// construct planager
 	sfPlanner, err := newPlanManager(sf, fs, golog.NewLogger("checkPlan-logger"), defaultRandomSeed)
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	// convert plan into nodes
@@ -415,13 +416,13 @@ func CheckPlan(
 	for _, step := range plan {
 		stepConfig, err := sf.mapToSlice(step)
 		if err != nil {
-			return false, err
+			return err
 		}
 		pose, err := sf.Transform(stepConfig)
 		// adjust pose based off how much we've deviated from the expected path
 		pose = spatialmath.Compose(pose, errorState)
 		if err != nil {
-			return false, err
+			return err
 		}
 		planNodes = append(planNodes, &basicNode{q: stepConfig, pose: pose})
 	}
@@ -433,7 +434,7 @@ func CheckPlan(
 
 	if relative {
 		if planNodes, err = rectifyTPspacePath(planNodes, sf); err != nil {
-			return false, err
+			return err
 		}
 	}
 	startPose := planNodes[0].Pose()
@@ -448,7 +449,7 @@ func CheckPlan(
 		nil, // no pb.Constraints
 		nil, // no plannOpts
 	); err != nil {
-		return false, err
+		return err
 	}
 
 	// go through plan and check that we can move from plan[i] to plan[i+1]
@@ -463,8 +464,8 @@ func CheckPlan(
 			},
 			sfPlanner.planOpts.Resolution,
 		); !isValid {
-			return false, fmt.Errorf("found collsion in segment:%v", fault)
+			return fmt.Errorf("found collsion in segment:%v", fault)
 		}
 	}
-	return true, nil
+	return nil
 }

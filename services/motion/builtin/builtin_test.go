@@ -622,9 +622,8 @@ func TestCheckPlan(t *testing.T) {
 	errorState := spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0})
 
 	t.Run("check plan without obstacles - ensure success", func(t *testing.T) {
-		b, err := motionplan.CheckPlan(kinBase.Kinematics(), plan, nil, newFS, errorState)
+		err := motionplan.CheckPlan(kinBase.Kinematics(), plan, nil, newFS, errorState)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, b, test.ShouldBeTrue)
 	})
 	t.Run("check plan with a blocking obstacle - ensure failure", func(t *testing.T) {
 		obstacle, err := spatialmath.NewBox(
@@ -638,9 +637,8 @@ func TestCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		b, err := motionplan.CheckPlan(kinBase.Kinematics(), plan, worldState, newFS, errorState)
+		err = motionplan.CheckPlan(kinBase.Kinematics(), plan, worldState, newFS, errorState)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, b, test.ShouldBeFalse)
 	})
 
 	t.Run("non nil error state - ensure success", func(t *testing.T) {
@@ -657,9 +655,8 @@ func TestCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		b, err := motionplan.CheckPlan(kinBase.Kinematics(), plan, worldState, newFS, errorState)
+		err = motionplan.CheckPlan(kinBase.Kinematics(), plan, worldState, newFS, errorState)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, b, test.ShouldBeTrue)
 	})
 
 	// create camera_origin frame
@@ -696,11 +693,26 @@ func TestCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		b, err := motionplan.CheckPlan(kinBase.Kinematics(), plan, worldState, newFS, errorState)
+		err = motionplan.CheckPlan(kinBase.Kinematics(), plan, worldState, newFS, errorState)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, b, test.ShouldBeTrue)
 	})
-	t.Run("ensure transforms of obstacles works - collision", func(t *testing.T) {
+	t.Run("ensure transforms of obstacles works - collision with camera", func(t *testing.T) {
+		// create obstacle
+		obstacle, err := spatialmath.NewBox(
+			spatialmath.NewPoseFromPoint(r3.Vector{150, 0, 0}),
+			r3.Vector{10, 10, 1}, "obstacle",
+		)
+		test.That(t, err, test.ShouldBeNil)
+		geoms := []spatialmath.Geometry{obstacle}
+		gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(cameraFrame.Name(), geoms)}
+
+		worldState, err := referenceframe.NewWorldState(gifs, nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		err = motionplan.CheckPlan(kinBase.Kinematics(), plan, worldState, newFS, errorState)
+		test.That(t, err, test.ShouldNotBeNil)
+	})
+	t.Run("ensure transforms of obstacles works - collision with base", func(t *testing.T) {
 		// create obstacle
 		obstacle, err := spatialmath.NewBox(
 			spatialmath.NewPoseFromPoint(r3.Vector{150, 30, 0}),
@@ -713,9 +725,8 @@ func TestCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		b, err := motionplan.CheckPlan(kinBase.Kinematics(), plan, worldState, newFS, errorState)
+		err = motionplan.CheckPlan(kinBase.Kinematics(), plan, worldState, newFS, errorState)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, b, test.ShouldBeFalse)
 	})
 }
 
@@ -753,8 +764,7 @@ func TestArmGantryPlanCheck(t *testing.T) {
 	errorState := spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0})
 
 	t.Run("check plan with no obstacles", func(t *testing.T) {
-		b, err := motionplan.CheckPlan(fs.Frame("xArm6"), plan, nil, fs, errorState)
-		test.That(t, b, test.ShouldBeTrue)
+		err := motionplan.CheckPlan(fs.Frame("xArm6"), plan, nil, fs, errorState)
 		test.That(t, err, test.ShouldBeNil)
 	})
 	t.Run("check plan with obstacle", func(t *testing.T) {
@@ -770,8 +780,7 @@ func TestArmGantryPlanCheck(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		b, err := motionplan.CheckPlan(fs.Frame("xArm6"), plan, worldState, fs, errorState)
-		test.That(t, b, test.ShouldBeFalse)
+		err = motionplan.CheckPlan(fs.Frame("xArm6"), plan, worldState, fs, errorState)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 }

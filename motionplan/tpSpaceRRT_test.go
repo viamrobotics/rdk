@@ -350,9 +350,8 @@ func TestPtgCheckPlan(t *testing.T) {
 	errorState := spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0})
 
 	t.Run("base case - validate plan without obstacles", func(t *testing.T) {
-		valid, err := CheckPlan(ackermanFrame, steps, nil, fs, errorState)
+		err := CheckPlan(ackermanFrame, steps, nil, fs, errorState)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, valid, test.ShouldBeTrue)
 	})
 
 	t.Run("obstacles blocking path", func(t *testing.T) {
@@ -366,9 +365,8 @@ func TestPtgCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		valid, err := CheckPlan(ackermanFrame, steps, worldState, fs, errorState)
+		err = CheckPlan(ackermanFrame, steps, worldState, fs, errorState)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, valid, test.ShouldBeFalse)
 	})
 
 	t.Run("obstacles blocking path2", func(t *testing.T) {
@@ -382,9 +380,8 @@ func TestPtgCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		valid, err := CheckPlan(ackermanFrame, steps, worldState, fs, errorState)
+		err = CheckPlan(ackermanFrame, steps, worldState, fs, errorState)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, valid, test.ShouldBeFalse)
 	})
 
 	t.Run("obstacles blocking path2.5", func(t *testing.T) {
@@ -398,9 +395,8 @@ func TestPtgCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		valid, err := CheckPlan(ackermanFrame, steps, worldState, fs, errorState)
+		err = CheckPlan(ackermanFrame, steps, worldState, fs, errorState)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, valid, test.ShouldBeFalse)
 	})
 
 	t.Run("obstacles blocking path3", func(t *testing.T) {
@@ -414,9 +410,8 @@ func TestPtgCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		valid, err := CheckPlan(ackermanFrame, steps, worldState, fs, errorState)
+		err = CheckPlan(ackermanFrame, steps, worldState, fs, errorState)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, valid, test.ShouldBeFalse)
 	})
 
 	// create camera_origin frame
@@ -452,9 +447,8 @@ func TestPtgCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		valid, err := CheckPlan(ackermanFrame, steps, worldState, fs, errorState)
+		err = CheckPlan(ackermanFrame, steps, worldState, fs, errorState)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, valid, test.ShouldBeTrue)
 	})
 
 	t.Run("obstacles NOT in world frame - yes collision", func(t *testing.T) {
@@ -470,8 +464,7 @@ func TestPtgCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		valid, err := CheckPlan(ackermanFrame, steps, worldState, fs, errorState)
+		err = CheckPlan(ackermanFrame, steps, worldState, fs, errorState)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, valid, test.ShouldBeFalse)
 	})
 }
