@@ -17,20 +17,11 @@ let centered = false;
 
 const updateLocation = async () => {
   try {
-    const { latitude, longitude } = await navClient.getLocation();
-
-    /*
-     * todo(micheal parks) - This should be abstracted into the TS SDK to return response | null based on this logic.
-     * returning NaN here is non-typical
-     */
-    if (
-      typeof latitude !== 'number' ||
-      typeof longitude !== 'number' ||
-      Number.isNaN(latitude) ||
-      Number.isNaN(longitude)
-    ) {
+    const { location } = await navClient.getLocation();
+    if (!location) {
       return;
     }
+    const { latitude, longitude } = location;
 
     const position = { lat: latitude, lng: longitude };
     if (!centered) {
