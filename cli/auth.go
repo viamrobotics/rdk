@@ -230,7 +230,7 @@ func OrganizationAPIKeyCreateAction(cCtx *cli.Context) error {
 	infof(cCtx.App.Writer, "successfully created key:")
 	fmt.Fprintf(cCtx.App.Writer, "key id: %s\n", resp.GetId())
 	fmt.Fprintf(cCtx.App.Writer, "key value: %s\n\n", resp.GetKey())
-	infof(cCtx.App.Writer, "keep this key somewhere safe; it has full access to your organization")
+	infof(cCtx.App.Writer, "keep this key somewhere safe; it has full write access to your organization")
 	return nil
 }
 
