@@ -507,6 +507,9 @@ func (ms *builtIn) planMoveOnMap(
 	if err != nil {
 		return nil, nil, err
 	}
+	if kinematicsOptions.PositionOnlyMode && len(kb.Kinematics().DoF()) == 2 && len(inputs) == 3 {
+		inputs = inputs[:2]
+	}
 	ms.logger.Debugf("base position: %v", inputs)
 
 	dst := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPoseFromPoint(destination.Point()))

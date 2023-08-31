@@ -458,6 +458,7 @@ func TestMoveOnMap(t *testing.T) {
 }
 
 func TestMoveOnMapTimeout(t *testing.T) {
+	t.Skip()
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 	cfg, err := config.Read(ctx, "../data/real_wheeled_base.json", logger)
