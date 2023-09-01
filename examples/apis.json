@@ -53,7 +53,7 @@
     "args": ["context.Background()", "map[string]interface{}{}"]
   },
   "power_sensor": {
-    "func": "Voltage",
+    "func": "Power",
     "args": ["context.Background()", "map[string]interface{}{}"]
   },
   "pose_tracker": {
