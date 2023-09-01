@@ -25,11 +25,20 @@ import (
 	"go.viam.com/rdk/config"
 )
 
-var filePath string
+var (
+	// GLoggerCamComp is the global logger-to-file for camera components.
+	GLoggerCamComp *Logger
+	filePath       string
+)
 
 func init() {
 	t := time.Now().UTC().Format(time.RFC3339)
 	filePath = filepath.Join(config.ViamDotDir, "debug", "components", "camera", fmt.Sprintf("%s.txt", t))
+
+	var err error
+	if GLoggerCamComp, err = NewLogger(); err != nil && !errors.Is(err, UnsupportedError{}) {
+		log.Println("cannot create new logger: ", err)
+	}
 }
 
 // InfoMap is a map of information to be written to the log.

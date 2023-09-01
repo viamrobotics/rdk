@@ -582,7 +582,7 @@ func (ms *builtIn) planMoveOnMap(
 	}
 
 	// gets the extents of the SLAM map
-	limits, err := slam.GetLimits(ctx, slamSvc)
+	limits, err := slam.Limits(ctx, slamSvc)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -614,7 +614,7 @@ func (ms *builtIn) planMoveOnMap(
 	}
 
 	// get point cloud data in the form of bytes from pcd
-	pointCloudData, err := slam.GetPointCloudMapFull(ctx, slamSvc)
+	pointCloudData, err := slam.PointCloudMapFull(ctx, slamSvc)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -92,6 +92,7 @@ type token struct {
 	TokenType    string    `json:"token_type"`
 	TokenURL     string    `json:"token_url"`
 	ClientID     string    `json:"client_id"`
+	BaseURL      string    `json:"base_url"`
 
 	User userData `json:"user_data"`
 }
@@ -131,7 +132,7 @@ func (c *viamClient) loginAction(cCtx *cli.Context) error {
 			return err
 		}
 	} else {
-		t, err = c.authFlow.login(c.c.Context)
+		t, err = c.authFlow.login(c.c.Context, cCtx.String(baseURLFlag))
 		if err != nil {
 			return err
 		}
@@ -204,6 +205,59 @@ func (c *viamClient) whoAmIAction(cCtx *cli.Context) error {
 	}
 	fmt.Fprintf(cCtx.App.Writer, "%s\n", auth.User.Email)
 	return nil
+}
+
+// OrganizationAPIKeyCreateAction corresponds to `organization api-key create`.
+func OrganizationAPIKeyCreateAction(cCtx *cli.Context) error {
+	c, err := newViamClient(cCtx)
+	if err != nil {
+		return err
+	}
+	return c.organizationAPIKeyCreateAction(cCtx)
+}
+
+func (c *viamClient) organizationAPIKeyCreateAction(cCtx *cli.Context) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+	orgID := cCtx.String(apiKeyCreateFlagOrgID)
+	keyName := cCtx.String(apiKeyCreateFlagName)
+	if keyName == "" {
+		// Formats name as myusername@gmail.com-2009-11-10T23:00:00Z
+		keyName = fmt.Sprintf("%s-%s", c.conf.Auth.User.Email, time.Now().Format(time.RFC3339))
+		infof(cCtx.App.Writer, "using default key name of %q", keyName)
+	}
+	resp, err := c.createOrganizationAPIKey(orgID, keyName)
+	if err != nil {
+		return err
+	}
+	infof(cCtx.App.Writer, "successfully created key:")
+	fmt.Fprintf(cCtx.App.Writer, "key id: %s\n", resp.GetId())
+	fmt.Fprintf(cCtx.App.Writer, "key value: %s\n\n", resp.GetKey())
+	warningf(cCtx.App.Writer, "keep this key somewhere safe; it has full write access to your organization")
+	return nil
+}
+
+func (c *viamClient) createOrganizationAPIKey(orgID, keyName string) (*apppb.CreateKeyResponse, error) {
+	if err := c.ensureLoggedIn(); err != nil {
+		return nil, err
+	}
+
+	req := &apppb.CreateKeyRequest{
+		Authorizations: []*apppb.Authorization{
+			{
+				AuthorizationType: "role",
+				AuthorizationId:   "organization_owner",
+				ResourceType:      "organization",
+				ResourceId:        orgID,
+				IdentityId:        "",
+				OrganizationId:    orgID,
+				IdentityType:      "api-key",
+			},
+		},
+		Name: keyName,
+	}
+	return c.client.CreateKey(c.c.Context, req)
 }
 
 func (c *viamClient) ensureLoggedIn() error {
@@ -340,7 +394,7 @@ func newCLIAuthFlowWithAuthDomain(authDomain, audience, clientID string, console
 	}
 }
 
-func (a *authFlow) login(ctx context.Context) (*token, error) {
+func (a *authFlow) login(ctx context.Context, baseURL string) (*token, error) {
 	discovery, err := a.loadOIDiscoveryEndpoint(ctx)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed retrieving discovery endpoint")
@@ -360,15 +414,18 @@ func (a *authFlow) login(ctx context.Context) (*token, error) {
 	if err != nil {
 		return nil, err
 	}
-	return buildToken(token, discovery.TokenEndPoint, a.clientID)
+	return buildToken(token, discovery.TokenEndPoint, a.clientID, baseURL)
 }
 
-func buildToken(t *tokenResponse, tokenURL, clientID string) (*token, error) {
+func buildToken(t *tokenResponse, tokenURL, clientID, baseURL string) (*token, error) {
 	userData, err := userDataFromIDToken(t.IDToken)
 	if err != nil {
 		return nil, err
 	}
 
+	if baseURL == "" {
+		baseURL = defaultBaseURL
+	}
 	return &token{
 		TokenType:    tokenTypeUserOAuthToken,
 		AccessToken:  t.AccessToken,
@@ -378,6 +435,7 @@ func buildToken(t *tokenResponse, tokenURL, clientID string) (*token, error) {
 		User:         *userData,
 		TokenURL:     tokenURL,
 		ClientID:     clientID,
+		BaseURL:      baseURL,
 	}, nil
 }
 
@@ -562,7 +620,7 @@ func (a *authFlow) refreshToken(ctx context.Context, t *token) (*token, error) {
 		return nil, errors.New("expecting new token")
 	}
 
-	return buildToken(resp, t.TokenURL, t.ClientID)
+	return buildToken(resp, t.TokenURL, t.ClientID, t.BaseURL)
 }
 
 func processTokenResponse(res *http.Response) (*tokenResponse, error) {

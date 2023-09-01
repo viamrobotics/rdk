@@ -90,10 +90,10 @@ func createInjectedMovementSensor(name string, gpsPoint *geo.Point) *inject.Move
 
 func createInjectedSlam(name, pcdPath string) *inject.SLAMService {
 	injectSlam := inject.NewSLAMService(name)
-	injectSlam.GetPointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
+	injectSlam.PointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
 		return getPointCloudMap(filepath.Clean(artifact.MustPath(pcdPath)))
 	}
-	injectSlam.GetPositionFunc = func(ctx context.Context) (spatialmath.Pose, string, error) {
+	injectSlam.PositionFunc = func(ctx context.Context) (spatialmath.Pose, string, error) {
 		return spatialmath.NewZeroPose(), "", nil
 	}
 	return injectSlam

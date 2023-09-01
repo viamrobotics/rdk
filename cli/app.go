@@ -23,6 +23,9 @@ const (
 	runFlagData   = "data"
 	runFlagStream = "stream"
 
+	apiKeyCreateFlagOrgID = "org-id"
+	apiKeyCreateFlagName  = "name"
+
 	moduleFlagName            = "name"
 	moduleFlagPublicNamespace = "public-namespace"
 	moduleFlagOrgID           = "org-id"
@@ -31,23 +34,25 @@ const (
 	moduleFlagPlatform        = "platform"
 	moduleFlagForce           = "force"
 
-	dataFlagDestination       = "destination"
-	dataFlagDataType          = "data-type"
-	dataFlagOrgIDs            = "org-ids"
-	dataFlagLocationIDs       = "location-ids"
-	dataFlagRobotID           = "robot-id"
-	dataFlagPartID            = "part-id"
-	dataFlagRobotName         = "robot-name"
-	dataFlagPartName          = "part-name"
-	dataFlagComponentType     = "component-type"
-	dataFlagComponentName     = "component-name"
-	dataFlagMethod            = "method"
-	dataFlagMimeTypes         = "mime-types"
-	dataFlagStart             = "start"
-	dataFlagEnd               = "end"
-	dataFlagParallelDownloads = "parallel"
-	dataFlagTags              = "tags"
-	dataFlagBboxLabels        = "bbox-labels"
+	dataFlagDestination                    = "destination"
+	dataFlagDataType                       = "data-type"
+	dataFlagOrgIDs                         = "org-ids"
+	dataFlagLocationIDs                    = "location-ids"
+	dataFlagRobotID                        = "robot-id"
+	dataFlagPartID                         = "part-id"
+	dataFlagRobotName                      = "robot-name"
+	dataFlagPartName                       = "part-name"
+	dataFlagComponentType                  = "component-type"
+	dataFlagComponentName                  = "component-name"
+	dataFlagMethod                         = "method"
+	dataFlagMimeTypes                      = "mime-types"
+	dataFlagStart                          = "start"
+	dataFlagEnd                            = "end"
+	dataFlagParallelDownloads              = "parallel"
+	dataFlagTags                           = "tags"
+	dataFlagBboxLabels                     = "bbox-labels"
+	dataFlagOrgID                          = "org-id"
+	dataFlagDeleteTabularDataOlderThanDays = "delete-older-than-days"
 
 	boardFlagName    = "name"
 	boardFlagPath    = "path"
@@ -62,7 +67,6 @@ var app = &cli.App{
 		&cli.StringFlag{
 			Name:   baseURLFlag,
 			Hidden: true,
-			Value:  "https://app.viam.com:443",
 			Usage:  "base URL of app",
 		},
 		&cli.StringFlag{
@@ -111,6 +115,35 @@ var app = &cli.App{
 					Name:   "list",
 					Usage:  "list organizations for the current user",
 					Action: ListOrganizationsAction,
+				},
+			},
+		},
+		{
+			Name:            "organization",
+			Usage:           "work with a organization",
+			HideHelpCommand: true,
+			Subcommands: []*cli.Command{
+				{
+					Name:  "api-key",
+					Usage: "work with an organization's api keys",
+					Subcommands: []*cli.Command{
+						{
+							Name:  "create",
+							Usage: "create an api key for your organization",
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     apiKeyCreateFlagOrgID,
+									Required: true,
+									Usage:    "the org to create an api key for",
+								},
+								&cli.StringFlag{
+									Name:  apiKeyCreateFlagName,
+									Usage: "the name of the key (defaults to your login info with the current time)",
+								},
+							},
+							Action: OrganizationAPIKeyCreateAction,
+						},
+					},
 				},
 			},
 		},
@@ -216,13 +249,13 @@ var app = &cli.App{
 				},
 				{
 					Name:      "delete",
-					Usage:     "delete data from Viam cloud",
+					Usage:     "delete binary data from Viam cloud",
 					UsageText: fmt.Sprintf("viam data delete <%s> [other options]", dataFlagDataType),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     dataFlagDataType,
 							Required: true,
-							Usage:    "data type to be deleted: either binary or tabular",
+							Usage:    "data type to be deleted. should only be binary. if tabular, use delete-tabular instead.",
 						},
 						&cli.StringSliceFlag{
 							Name:  dataFlagOrgIDs,
@@ -273,7 +306,25 @@ var app = &cli.App{
 							Usage: "ISO-8601 timestamp indicating the end of the interval filter",
 						},
 					},
-					Action: DataDeleteAction,
+					Action: DataDeleteBinaryAction,
+				},
+				{
+					Name:      "delete-tabular",
+					Usage:     "delete tabular data from Viam cloud",
+					UsageText: "viam data delete-tabular [other options]",
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     dataFlagOrgID,
+							Usage:    "org",
+							Required: true,
+						},
+						&cli.IntFlag{
+							Name:     dataFlagDeleteTabularDataOlderThanDays,
+							Usage:    "delete any tabular data that is older than X calendar days before now. 0 deletes all data.",
+							Required: true,
+						},
+					},
+					Action: DataDeleteTabularAction,
 				},
 			},
 		},

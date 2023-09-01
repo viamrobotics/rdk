@@ -28,7 +28,6 @@ import (
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage/transform"
-	"go.viam.com/rdk/web/server"
 )
 
 // ModelWebcam is the name of the webcam component.
@@ -111,7 +110,7 @@ func Discover(_ context.Context, getDrivers func() []driver.Driver, logger golog
 		webcams = append(webcams, wc)
 	}
 
-	goutils.UncheckedError(server.GLoggerCamComp.Log("discovery service", webcamsToMap(webcams)))
+	goutils.UncheckedError(debugLogger.GLoggerCamComp.Log("discovery service", webcamsToMap(webcams)))
 	return &pb.Webcams{Webcams: webcams}, nil
 }
 
@@ -279,7 +278,7 @@ func NewWebcam(
 
 	s, err := cam.Stream(ctx)
 	if err != nil {
-		goutils.UncheckedError(server.GLoggerCamComp.Log("camera test results",
+		goutils.UncheckedError(debugLogger.GLoggerCamComp.Log("camera test results",
 			debugLogger.InfoMap{
 				"name":  cam.Name().Name,
 				"error": fmt.Sprint(err),
@@ -289,7 +288,7 @@ func NewWebcam(
 	}
 
 	img, _, err := s.Next(ctx)
-	goutils.UncheckedError(server.GLoggerCamComp.Log("camera test results",
+	goutils.UncheckedError(debugLogger.GLoggerCamComp.Log("camera test results",
 		debugLogger.InfoMap{
 			"camera name":        cam.Name().Name,
 			"has non-nil image?": fmt.Sprintf("%t", img != nil),

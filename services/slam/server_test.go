@@ -78,7 +78,7 @@ func TestWorkingServer(t *testing.T) {
 		poseSucc := spatial.NewPose(r3.Vector{X: 1, Y: 2, Z: 3}, &spatial.OrientationVector{Theta: math.Pi / 2, OX: 0, OY: 0, OZ: -1})
 		componentRefSucc := "cam"
 
-		injectSvc.GetPositionFunc = func(ctx context.Context) (spatial.Pose, string, error) {
+		injectSvc.PositionFunc = func(ctx context.Context) (spatial.Pose, string, error) {
 			return poseSucc, componentRefSucc, nil
 		}
 
@@ -92,7 +92,7 @@ func TestWorkingServer(t *testing.T) {
 	})
 
 	t.Run("working GetPointCloudMap", func(t *testing.T) {
-		injectSvc.GetPointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
+		injectSvc.PointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
 			reader := bytes.NewReader(pcd)
 			serverBuffer := make([]byte, chunkSizeServer)
 			f := func() ([]byte, error) {
@@ -121,7 +121,7 @@ func TestWorkingServer(t *testing.T) {
 	t.Run("working GetInternalState", func(t *testing.T) {
 		internalStateSucc := []byte{0, 1, 2, 3, 4}
 		chunkSizeInternalState := 2
-		injectSvc.GetInternalStateFunc = func(ctx context.Context) (func() ([]byte, error), error) {
+		injectSvc.InternalStateFunc = func(ctx context.Context) (func() ([]byte, error), error) {
 			reader := bytes.NewReader(internalStateSucc)
 			f := func() ([]byte, error) {
 				serverBuffer := make([]byte, chunkSizeInternalState)
@@ -146,7 +146,7 @@ func TestWorkingServer(t *testing.T) {
 
 	t.Run("working GetLatestMapInfo", func(t *testing.T) {
 		timestamp := time.Now().UTC()
-		injectSvc.GetLatestMapInfoFunc = func(ctx context.Context) (time.Time, error) {
+		injectSvc.LatestMapInfoFunc = func(ctx context.Context) (time.Time, error) {
 			return timestamp, nil
 		}
 
@@ -170,11 +170,11 @@ func TestWorkingServer(t *testing.T) {
 		poseSucc := spatial.NewPose(r3.Vector{X: 1, Y: 2, Z: 3}, &spatial.OrientationVector{Theta: math.Pi / 2, OX: 0, OY: 0, OZ: -1})
 		componentRefSucc := "cam"
 
-		injectSvc.GetPositionFunc = func(ctx context.Context) (spatial.Pose, string, error) {
+		injectSvc.PositionFunc = func(ctx context.Context) (spatial.Pose, string, error) {
 			return poseSucc, componentRefSucc, nil
 		}
 
-		injectSvc.GetPointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
+		injectSvc.PointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
 			reader := bytes.NewReader(pcd)
 			serverBuffer := make([]byte, chunkSizeServer)
 			f := func() ([]byte, error) {
@@ -231,7 +231,7 @@ func TestFailingServer(t *testing.T) {
 	slamServer := slam.NewRPCServiceServer(injectAPISvc).(pb.SLAMServiceServer)
 
 	t.Run("failing GetPosition", func(t *testing.T) {
-		injectSvc.GetPositionFunc = func(ctx context.Context) (spatial.Pose, string, error) {
+		injectSvc.PositionFunc = func(ctx context.Context) (spatial.Pose, string, error) {
 			return nil, "", errors.New("failure to get position")
 		}
 
@@ -244,8 +244,8 @@ func TestFailingServer(t *testing.T) {
 	})
 
 	t.Run("failing GetPointCloudMap", func(t *testing.T) {
-		// GetPointCloudMapFunc failure
-		injectSvc.GetPointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
+		// PointCloudMapFunc failure
+		injectSvc.PointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
 			return nil, errors.New("failure to get pointcloud map")
 		}
 
@@ -256,7 +256,7 @@ func TestFailingServer(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "failure to get pointcloud map")
 
 		// Callback failure
-		injectSvc.GetPointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
+		injectSvc.PointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
 			f := func() ([]byte, error) {
 				return []byte{}, errors.New("callback error")
 			}
@@ -269,8 +269,8 @@ func TestFailingServer(t *testing.T) {
 	})
 
 	t.Run("failing GetInternalState", func(t *testing.T) {
-		// GetInternalStateFunc error
-		injectSvc.GetInternalStateFunc = func(ctx context.Context) (func() ([]byte, error), error) {
+		// InternalStateFunc error
+		injectSvc.InternalStateFunc = func(ctx context.Context) (func() ([]byte, error), error) {
 			return nil, errors.New("failure to get internal state")
 		}
 
@@ -280,7 +280,7 @@ func TestFailingServer(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "failure to get internal state")
 
 		// Callback failure
-		injectSvc.GetInternalStateFunc = func(ctx context.Context) (func() ([]byte, error), error) {
+		injectSvc.InternalStateFunc = func(ctx context.Context) (func() ([]byte, error), error) {
 			f := func() ([]byte, error) {
 				return []byte{}, errors.New("callback error")
 			}
@@ -292,7 +292,7 @@ func TestFailingServer(t *testing.T) {
 	})
 
 	t.Run("failing GetLatestMapInfo", func(t *testing.T) {
-		injectSvc.GetLatestMapInfoFunc = func(ctx context.Context) (time.Time, error) {
+		injectSvc.LatestMapInfoFunc = func(ctx context.Context) (time.Time, error) {
 			return time.Time{}, errors.New("failure to get latest map info")
 		}
 		reqInfo := &pb.GetLatestMapInfoRequest{Name: testSlamServiceName}
