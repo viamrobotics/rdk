@@ -190,7 +190,7 @@ func (c viamClient) loginWithAPIKeyAction(cCtx *cli.Context) error {
 	if _, err := c.listOrganizations(); err != nil {
 		return errors.Wrapf(err, "unable to connect to %q using the provided api key", c.conf.BaseURL)
 	}
-	fmt.Fprintf(cCtx.App.Writer, "successfully logged in with api key %q\n", key.KeyID)
+	printf(cCtx.App.Writer, "Successfully logged in with api key %q", key.KeyID)
 	return nil
 }
 
@@ -262,7 +262,7 @@ func (c *viamClient) whoAmIAction(cCtx *cli.Context) error {
 		warningf(cCtx.App.Writer, "Not logged in. Run \"login\" command")
 		return nil
 	}
-	printf(cCtx.App.Writer, "%s", c.conf.Auth)
+	printf(cCtx.App.Writer, "%s", auth)
 	return nil
 }
 
@@ -285,7 +285,7 @@ func (c *viamClient) organizationAPIKeyCreateAction(cCtx *cli.Context) error {
 		// Default name is in the form myusername@gmail.com-2009-11-10T23:00:00Z
 		// or key-uuid-2009-11-10T23:00:00Z if it was created by a key
 		keyName = fmt.Sprintf("%s-%s", c.conf.Auth, time.Now().Format(time.RFC3339))
-		infof(cCtx.App.Writer, "using default key name of %q", keyName)
+		infof(cCtx.App.Writer, "Using default key name of %q", keyName)
 	}
 	resp, err := c.createOrganizationAPIKey(orgID, keyName)
 	if err != nil {
