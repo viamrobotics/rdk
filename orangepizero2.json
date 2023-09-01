@@ -1,0 +1,21 @@
+{"pins": 
+	[
+	  	{"name": "3", "device_name": "gpiochip0", "line_number": 229}, 
+		{"name": "5", "device_name": "gpiochip0", "line_number": 228},
+		{"name": "7", "device_name": "gpiochip0", "line_number": 73},
+		{"name": "11", "device_name": "gpiochip0", "line_number": 70},
+		{"name": "13", "device_name": "gpiochip0", "line_number": 69},
+		{"name": "15", "device_name": "gpiochip0", "line_number": 72},
+		{"name": "19", "device_name": "gpiochip0", "line_number": 231},
+		{"name": "21", "device_name": "gpiochip0", "line_number": 232},
+		{"name": "8", "device_name": "gpiochip0", "line_number": 226, "pwm_chip_sysfs_dir": "300a000.pwm", "pwm_id": 2},
+		{"name": "10", "device_name": "gpiochip0", "line_number": 227, "pwm_chip_sysfs_dir": "300a000.pwm", "pwm_id": 1},
+		{"name": "12", "device_name": "gpiochip0", "line_number": 75},
+		{"name": "16", "device_name": "gpiochip0", "line_number": 79},
+		{"name": "18", "device_name": "gpiochip0", "line_number": 78},
+		{"name": "22", "device_name": "gpiochip0", "line_number": 71},
+		{"name": "24", "device_name": "gpiochip0", "line_number": 233},
+		{"name": "26", "device_name": "gpiochip0", "line_number": 74}
+	
+	]
+}
