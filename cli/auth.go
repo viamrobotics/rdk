@@ -123,12 +123,13 @@ func LoginAction(cCtx *cli.Context) error {
 
 func (c *viamClient) loginAction(cCtx *cli.Context) error {
 	loggedInMessage := func(t *token, alreadyLoggedIn bool) {
-		already := "already "
+		already := "Already l"
 		if !alreadyLoggedIn {
-			already = ""
+			already = "L"
 			viamLogo(cCtx.App.Writer)
 		}
-		fmt.Fprintf(cCtx.App.Writer, "%slogged in as %q, expires %s\n", already, t.User.Email,
+
+		printf(cCtx.App.Writer, "%sogged in as %q, expires %s", already, t.User.Email,
 			t.ExpiresAt.Format("Mon Jan 2 15:04:05 MST 2006"))
 	}
 
@@ -189,7 +190,7 @@ func (c viamClient) loginWithAPIKeyAction(cCtx *cli.Context) error {
 	if _, err := c.listOrganizations(); err != nil {
 		return errors.Wrapf(err, "unable to connect to %q using the provided api key", c.conf.BaseURL)
 	}
-	fmt.Fprintf(cCtx.App.Writer, "successfully logged in with api key %q\n", key.KeyID)
+	printf(cCtx.App.Writer, "Successfully logged in with api key %q", key.KeyID)
 	return nil
 }
 
@@ -208,32 +209,41 @@ func (c *viamClient) printAccessTokenAction(cCtx *cli.Context) error {
 	}
 
 	if token, ok := c.conf.Auth.(*token); ok {
-		fmt.Fprintln(cCtx.App.Writer, token.AccessToken)
+		printf(cCtx.App.Writer, token.AccessToken)
 	} else {
-		return errors.New("not logged in as a user. cannot print access token. run \"viam login\" to sign in with your account")
+		return errors.New("not logged in as a user. Cannot print access token. Run \"viam login\" to sign in with your account")
 	}
 	return nil
 }
 
 // LogoutAction is the corresponding Action for 'logout'.
 func LogoutAction(cCtx *cli.Context) error {
-	c, err := newViamClient(cCtx)
+	// Create basic viam client; no need to check base URL.
+	conf, err := configFromCache()
 	if err != nil {
-		return err
+		if !os.IsNotExist(err) {
+			return err
+		}
+		conf = &config{}
 	}
-	return c.logoutAction(cCtx)
+
+	vc := &viamClient{
+		c:    cCtx,
+		conf: conf,
+	}
+	return vc.logoutAction(cCtx)
 }
 
 func (c *viamClient) logoutAction(cCtx *cli.Context) error {
 	auth := c.conf.Auth
 	if auth == nil {
-		fmt.Fprintf(cCtx.App.Writer, "already logged out\n")
+		printf(cCtx.App.Writer, "Already logged out")
 		return nil
 	}
 	if err := c.logout(); err != nil {
 		return errors.Wrap(err, "could not logout")
 	}
-	fmt.Fprintf(cCtx.App.Writer, "logged out from %q\n", auth)
+	printf(cCtx.App.Writer, "Logged out from %q", auth)
 	return nil
 }
 
@@ -247,11 +257,12 @@ func WhoAmIAction(cCtx *cli.Context) error {
 }
 
 func (c *viamClient) whoAmIAction(cCtx *cli.Context) error {
-	if c.conf.Auth == nil {
-		warningf(cCtx.App.Writer, "not logged in. run \"login\" command")
+	auth := c.conf.Auth
+	if auth == nil {
+		warningf(cCtx.App.Writer, "Not logged in. Run \"login\" command")
 		return nil
 	}
-	fmt.Fprintf(cCtx.App.Writer, "%s\n", c.conf.Auth)
+	printf(cCtx.App.Writer, "%s", auth)
 	return nil
 }
 
@@ -274,16 +285,16 @@ func (c *viamClient) organizationAPIKeyCreateAction(cCtx *cli.Context) error {
 		// Default name is in the form myusername@gmail.com-2009-11-10T23:00:00Z
 		// or key-uuid-2009-11-10T23:00:00Z if it was created by a key
 		keyName = fmt.Sprintf("%s-%s", c.conf.Auth, time.Now().Format(time.RFC3339))
-		infof(cCtx.App.Writer, "using default key name of %q", keyName)
+		infof(cCtx.App.Writer, "Using default key name of %q", keyName)
 	}
 	resp, err := c.createOrganizationAPIKey(orgID, keyName)
 	if err != nil {
 		return err
 	}
-	infof(cCtx.App.Writer, "successfully created key:")
-	fmt.Fprintf(cCtx.App.Writer, "key id: %s\n", resp.GetId())
-	fmt.Fprintf(cCtx.App.Writer, "key value: %s\n\n", resp.GetKey())
-	warningf(cCtx.App.Writer, "keep this key somewhere safe; it has full write access to your organization")
+	infof(cCtx.App.Writer, "Successfully created key:")
+	printf(cCtx.App.Writer, "Key ID: %s\n", resp.GetId())
+	printf(cCtx.App.Writer, "Key Value: %s\n\n", resp.GetKey())
+	warningf(cCtx.App.Writer, "Keep this key somewhere safe; it has full write access to your organization")
 	return nil
 }
 
@@ -546,8 +557,8 @@ func (a *authFlow) makeDeviceCodeRequest(ctx context.Context, discovery *openIDD
 }
 
 func (a *authFlow) directUser(code *deviceCodeResponse) error {
-	infof(a.console, `you can log into Viam through the opened browser window or follow the URL below.
-ensure the code in the URL matches the one shown in your browser.
+	infof(a.console, `You can log into Viam through the opened browser window or follow the URL below.
+Ensure the code in the URL matches the one shown in your browser.
   %s`, code.VerificationURIComplete)
 
 	if a.disableBrowserOpen {
