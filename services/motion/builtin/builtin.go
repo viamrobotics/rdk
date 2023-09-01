@@ -294,6 +294,9 @@ func (ms *builtIn) MoveOnGlobe(
 			ticker := time.NewTicker(period)
 			defer ticker.Stop()
 			for {
+				if err := ctx.Err(); err != nil {
+					return
+				}
 				select {
 				case <-ctx.Done():
 					return
@@ -310,6 +313,9 @@ func (ms *builtIn) MoveOnGlobe(
 	// start the loop that (re)plans when something is read from the replan channel
 	// and exits when something is read from the success channel
 	for {
+		if err := ctx.Err(); err != nil {
+			return false, err
+		}
 		select {
 		case <-ctx.Done():
 			return false, ctx.Err()
@@ -383,8 +389,8 @@ func (ms *builtIn) MoveOnGlobe(
 				}
 				if success {
 					successChan <- true
-					return
 				}
+				replanChan <- true
 			}, backgroundWorkers.Done)
 		}
 	}
