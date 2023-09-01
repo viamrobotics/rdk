@@ -80,7 +80,7 @@ func TestListOrganizationsAction(t *testing.T) {
 	test.That(t, ac.listOrganizationsAction(cCtx), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
 	test.That(t, len(out.messages), test.ShouldEqual, 3)
-	test.That(t, out.messages[0], test.ShouldEqual, fmt.Sprintf("organizations for %q:\n", testEmail))
+	test.That(t, out.messages[0], test.ShouldEqual, fmt.Sprintf("Organizations for %q:\n", testEmail))
 	test.That(t, out.messages[1], test.ShouldContainSubstring, "jedi")
 	test.That(t, out.messages[2], test.ShouldContainSubstring, "mandalorians")
 }
@@ -114,7 +114,7 @@ func TestTabularDataByFilterAction(t *testing.T) {
 	test.That(t, ac.dataExportAction(cCtx), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
 	test.That(t, len(out.messages), test.ShouldEqual, 4)
-	test.That(t, out.messages[0], test.ShouldEqual, "downloading..")
+	test.That(t, out.messages[0], test.ShouldEqual, "Downloading..")
 	test.That(t, out.messages[1], test.ShouldEqual, ".")
 	test.That(t, out.messages[2], test.ShouldEqual, ".")
 	test.That(t, out.messages[3], test.ShouldEqual, "\n")
