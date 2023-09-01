@@ -68,7 +68,7 @@ func (n Name) PrependRemote(remoteName string) Name {
 	if remoteName == "" {
 		return n
 	}
-	if len(n.Remote) > 0 {
+	if len(n.Remote) > 0 && strings.Count(remoteName, ":") == 0 && strings.Count(n.String(), ":") == 0 {
 		remoteName = strings.Join([]string{remoteName, n.Remote}, ":")
 	}
 	return newRemoteName(
