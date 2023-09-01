@@ -164,20 +164,23 @@ func (pi *piPigpio) Reconfigure(
 	}
 
 	pi.mu.Lock()
-	defer pi.mu.Unlock()
 
 	if err := pi.reconfigureI2cs(ctx, cfg); err != nil {
+		pi.mu.Unlock()
 		return err
 	}
 
 	if err := pi.reconfigureSpis(ctx, cfg); err != nil {
+		pi.mu.Unlock()
 		return err
 	}
 
+	pi.mu.Unlock()
 	if err := pi.reconfigureAnalogs(ctx, cfg); err != nil {
 		return err
 	}
-
+	pi.mu.Lock()
+	defer pi.mu.Unlock()
 	// This is the only one that actually uses ctx, but we pass it to all previous helpers, too, to
 	// keep the interface consistent.
 	if err := pi.reconfigureInterrupts(ctx, cfg); err != nil {
@@ -217,7 +220,9 @@ func (pi *piPigpio) reconfigureSpis(ctx context.Context, cfg *genericlinux.Confi
 
 func (pi *piPigpio) reconfigureAnalogs(ctx context.Context, cfg *genericlinux.Config) error {
 	// No need to reconfigure the old analog readers; just throw them out and make new ones.
+	pi.mu.Lock()
 	pi.analogs = map[string]board.AnalogReader{}
+	pi.mu.Unlock()
 	for _, ac := range cfg.Analogs {
 		channel, err := strconv.Atoi(ac.Pin)
 		if err != nil {
@@ -230,7 +235,9 @@ func (pi *piPigpio) reconfigureAnalogs(ctx context.Context, cfg *genericlinux.Co
 		}
 
 		ar := &board.MCP3008AnalogReader{channel, bus, ac.ChipSelect}
+		pi.mu.Lock()
 		pi.analogs[ac.Name] = board.SmoothAnalogReader(ar, ac, pi.logger)
+		pi.mu.Unlock()
 	}
 	return nil
 }
