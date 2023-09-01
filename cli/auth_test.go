@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
@@ -68,4 +69,93 @@ func TestWhoAmIAction(t *testing.T) {
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
 	test.That(t, len(out.messages), test.ShouldEqual, 1)
 	test.That(t, out.messages[0], test.ShouldContainSubstring, testEmail)
+}
+
+func TestConfigMarshalling(t *testing.T) {
+	t.Run("token config", func(t *testing.T) {
+		conf := config{
+			BaseURL: "https://guthib.com:443",
+			Auth: &token{
+				AccessToken: "secret-token",
+				User: userData{
+					Email:   "tipsy@viam.com",
+					Subject: "MAIV",
+				},
+			},
+		}
+
+		bytes, err := json.Marshal(conf)
+		test.That(t, err, test.ShouldBeNil)
+		var newConf config
+		test.That(t, newConf.tryUnmarshallWithAPIKey(bytes), test.ShouldBeError)
+		test.That(t, newConf.tryUnmarshallWithToken(bytes), test.ShouldBeNil)
+		test.That(t, newConf.BaseURL, test.ShouldEqual, "https://guthib.com:443")
+		auth, ok := newConf.Auth.(*token)
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, auth.AccessToken, test.ShouldEqual, "secret-token")
+		test.That(t, auth.User.Email, test.ShouldEqual, "tipsy@viam.com")
+		test.That(t, auth.User.Subject, test.ShouldEqual, "MAIV")
+	})
+
+	t.Run("api-key config", func(t *testing.T) {
+		conf := config{
+			BaseURL: "https://docs.viam.com:443",
+			Auth: &apiKey{
+				KeyID:     "42",
+				KeyCrypto: "secret",
+			},
+		}
+
+		bytes, err := json.Marshal(conf)
+		test.That(t, err, test.ShouldBeNil)
+		var newConf config
+		test.That(t, newConf.tryUnmarshallWithToken(bytes), test.ShouldBeError)
+		test.That(t, newConf.tryUnmarshallWithAPIKey(bytes), test.ShouldBeNil)
+		test.That(t, newConf.BaseURL, test.ShouldEqual, "https://docs.viam.com:443")
+		auth, ok := newConf.Auth.(*apiKey)
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, auth.KeyID, test.ShouldEqual, "42")
+		test.That(t, auth.KeyCrypto, test.ShouldEqual, "secret")
+	})
+}
+
+func TestBaseURLParsing(t *testing.T) {
+	// Test basic parsing
+	url, rpcOpts, err := parseBaseURL("https://app.viam.com:443", false)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, url.Port(), test.ShouldEqual, "443")
+	test.That(t, url.Scheme, test.ShouldEqual, "https")
+	test.That(t, url.Hostname(), test.ShouldEqual, "app.viam.com")
+	test.That(t, rpcOpts, test.ShouldBeNil)
+
+	// Test parsing without a port
+	url, _, err = parseBaseURL("https://app.viam.com", false)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, url.Port(), test.ShouldEqual, "443")
+	test.That(t, url.Hostname(), test.ShouldEqual, "app.viam.com")
+
+	// Test parsing locally
+	url, rpcOpts, err = parseBaseURL("http://127.0.0.1:8081", false)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, url.Scheme, test.ShouldEqual, "http")
+	test.That(t, url.Port(), test.ShouldEqual, "8081")
+	test.That(t, url.Hostname(), test.ShouldEqual, "127.0.0.1")
+	test.That(t, rpcOpts, test.ShouldHaveLength, 2)
+
+	// Test localhost:8080
+	url, _, err = parseBaseURL("http://localhost:8080", false)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, url.Port(), test.ShouldEqual, "8080")
+	test.That(t, url.Hostname(), test.ShouldEqual, "localhost")
+	test.That(t, rpcOpts, test.ShouldHaveLength, 2)
+
+	// Test no scheme remote
+	url, _, err = parseBaseURL("app.viam.com", false)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, url.Scheme, test.ShouldEqual, "https")
+	test.That(t, url.Hostname(), test.ShouldEqual, "app.viam.com")
+
+	// Test invalid url
+	_, _, err = parseBaseURL(":5", false)
+	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "missing protocol scheme")
 }

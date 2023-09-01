@@ -88,6 +88,11 @@ type authMethod interface {
 	dialOpts() rpc.DialOption
 }
 
+var (
+	_ authMethod = (*token)(nil)  // Verify that *token implements authMethod.
+	_ authMethod = (*apiKey)(nil) // Verify that *apiKey implements authMethod.
+)
+
 // token contains an authorization token and details once logged in.
 type token struct {
 	AccessToken  string    `json:"access_token"`
@@ -127,22 +132,14 @@ func (c *viamClient) loginAction(cCtx *cli.Context) error {
 			t.ExpiresAt.Format("Mon Jan 2 15:04:05 MST 2006"))
 	}
 
-	if _, isAPIKey := c.conf.Auth.(*token); isAPIKey {
+	if _, isAPIKey := c.conf.Auth.(*apiKey); isAPIKey {
 		warningf(c.c.App.Writer, "was logged in with an api-key. logging out")
-		if err := c.logout(); err != nil {
-			return err
-		}
+		utils.UncheckedError(c.logout())
 	}
-	// it is okay for this to be nil.
-	currentToken, _ := c.conf.Auth.(*token)
+	currentToken, _ := c.conf.Auth.(*token) // currentToken can be nil
 	if currentToken != nil && !currentToken.isExpired() {
 		loggedInMessage(currentToken, true)
 		return nil
-	}
-
-	c.conf.BaseURL = cCtx.String(baseURLFlag)
-	if c.conf.BaseURL == "" {
-		c.conf.BaseURL = defaultBaseURL
 	}
 
 	var t *token
@@ -176,10 +173,10 @@ func LoginWithAPIKeyAction(cCtx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	c.conf.BaseURL = cCtx.String(baseURLFlag)
-	if c.conf.BaseURL == "" {
-		c.conf.BaseURL = defaultBaseURL
-	}
+	return c.loginWithAPIKeyAction(cCtx)
+}
+
+func (c viamClient) loginWithAPIKeyAction(cCtx *cli.Context) error {
 	key := apiKey{
 		KeyID:     cCtx.String(loginFlagKeyID),
 		KeyCrypto: cCtx.String(loginFlagKey),
@@ -188,10 +185,11 @@ func LoginWithAPIKeyAction(cCtx *cli.Context) error {
 	if err := storeConfigToCache(c.conf); err != nil {
 		return err
 	}
-	if err := c.ensureLoggedIn(); err != nil {
-		return err
+	// test the connection
+	if _, err := c.listOrganizations(); err != nil {
+		return errors.Wrapf(err, "unable to connect to %q using the provided api key", c.conf.BaseURL)
 	}
-	infof(cCtx.App.Writer, "successfully logged in with api key")
+	fmt.Fprintf(cCtx.App.Writer, "successfully logged in with api key\n")
 	return nil
 }
 
@@ -235,7 +233,7 @@ func (c *viamClient) logoutAction(cCtx *cli.Context) error {
 	if err := c.logout(); err != nil {
 		return errors.Wrap(err, "could not logout")
 	}
-	fmt.Fprintf(cCtx.App.Writer, "logged out from %s\n", auth)
+	fmt.Fprintf(cCtx.App.Writer, "logged out from %q\n", auth)
 	return nil
 }
 
@@ -273,8 +271,9 @@ func (c *viamClient) organizationAPIKeyCreateAction(cCtx *cli.Context) error {
 	orgID := cCtx.String(apiKeyCreateFlagOrgID)
 	keyName := cCtx.String(apiKeyCreateFlagName)
 	if keyName == "" {
-		// Formats name as myusername@gmail.com-2009-11-10T23:00:00Z
-		keyName = fmt.Sprintf("%s-%s", c.conf.Auth.User.Email, time.Now().Format(time.RFC3339))
+		// Default name is in the form myusername@gmail.com-2009-11-10T23:00:00Z
+		// or key-uuid-2009-11-10T23:00:00Z if it was created by a key
+		keyName = fmt.Sprintf("%s-%s", c.conf.Auth, time.Now().Format(time.RFC3339))
 		infof(cCtx.App.Writer, "using default key name of %q", keyName)
 	}
 	resp, err := c.createOrganizationAPIKey(orgID, keyName)
@@ -326,13 +325,8 @@ func (c *viamClient) ensureLoggedIn() error {
 			return errors.New("token expired and cannot refresh")
 		}
 
-		currentToken, ok := c.conf.Auth.(*token)
-		if !ok {
-			return errors.New("config auth was not a token or api key")
-		}
-
 		// expired.
-		newToken, err := c.authFlow.refreshToken(c.c.Context, currentToken)
+		newToken, err := c.authFlow.refreshToken(c.c.Context, authToken)
 		if err != nil {
 			utils.UncheckedError(c.logout()) // clear cache if failed to refresh
 			return errors.Wrapf(err, "error while refreshing token")

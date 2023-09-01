@@ -2,9 +2,11 @@ package cli
 
 import (
 	"encoding/json"
-	"errors"
 	"os"
 	"path/filepath"
+
+	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 )
 
 var viamDotDir = filepath.Join(os.Getenv("HOME"), ".viam")
@@ -20,23 +22,16 @@ func configFromCache() (*config, error) {
 	}
 	var conf config
 
-	conf.Auth = &token{}
-	if err := json.Unmarshal(rd, &conf); err != nil {
-		return nil, err
+	tokenErr := conf.tryUnmarshallWithToken(rd)
+	if tokenErr == nil {
+		return &conf, nil
 	}
-	if conf.Auth != nil && conf.Auth.(*token).User.Email != "" {
+	apiKeyErr := conf.tryUnmarshallWithAPIKey(rd)
+	if apiKeyErr == nil {
 		return &conf, nil
 	}
 
-	conf.Auth = &apiKey{}
-	if err := json.Unmarshal(rd, &conf); err != nil {
-		return nil, err
-	}
-	if conf.Auth != nil && conf.Auth.(*apiKey).KeyID != "" {
-		return &conf, nil
-	}
-
-	return nil, errors.New("failed to read config from cache. auth was not an api key or a token")
+	return nil, errors.Wrap(multierr.Combine(tokenErr, apiKeyErr), "failed to read config from cache")
 }
 
 func removeConfigFromCache() error {
@@ -58,4 +53,26 @@ func storeConfigToCache(cfg *config) error {
 type config struct {
 	BaseURL string     `json:"base_url"`
 	Auth    authMethod `json:"auth"`
+}
+
+func (conf *config) tryUnmarshallWithToken(configBytes []byte) error {
+	conf.Auth = &token{}
+	if err := json.Unmarshal(configBytes, &conf); err != nil {
+		return err
+	}
+	if conf.Auth != nil && conf.Auth.(*token).User.Email != "" {
+		return nil
+	}
+	return errors.New("config did not contain a user token")
+}
+
+func (conf *config) tryUnmarshallWithAPIKey(configBytes []byte) error {
+	conf.Auth = &apiKey{}
+	if err := json.Unmarshal(configBytes, &conf); err != nil {
+		return err
+	}
+	if conf.Auth != nil && conf.Auth.(*apiKey).KeyID != "" {
+		return nil
+	}
+	return errors.New("config did not contain an api key")
 }
