@@ -247,7 +247,6 @@ func (d *ina) Voltage(ctx context.Context, extra map[string]interface{}) (float6
 }
 
 func (d *ina) Current(ctx context.Context, extra map[string]interface{}) (float64, bool, error) {
-
 	handle, err := i2c.NewI2C(d.addr, d.bus)
 	if err != nil {
 		d.logger.Errorf("can't open ina i2c: %s", err)
