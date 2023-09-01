@@ -83,6 +83,16 @@ type tokenResponse struct {
 	TokenType    string `json:"token_type"`
 }
 
+type authMethod interface {
+	fmt.Stringer
+	dialOpts() rpc.DialOption
+}
+
+var (
+	_ authMethod = (*token)(nil)  // Verify that *token implements authMethod.
+	_ authMethod = (*apiKey)(nil) // Verify that *apiKey implements authMethod.
+)
+
 // token contains an authorization token and details once logged in.
 type token struct {
 	AccessToken  string    `json:"access_token"`
@@ -92,9 +102,14 @@ type token struct {
 	TokenType    string    `json:"token_type"`
 	TokenURL     string    `json:"token_url"`
 	ClientID     string    `json:"client_id"`
-	BaseURL      string    `json:"base_url"`
 
 	User userData `json:"user_data"`
+}
+
+// apiKey holds an id/value pair used to authenticate with app.viam.
+type apiKey struct {
+	KeyID     string `json:"key_id"`
+	KeyCrypto string `json:"key_crypto"`
 }
 
 // LoginAction is the corresponding Action for 'login'.
@@ -113,26 +128,30 @@ func (c *viamClient) loginAction(cCtx *cli.Context) error {
 			already = ""
 			viamLogo(cCtx.App.Writer)
 		}
-
 		fmt.Fprintf(cCtx.App.Writer, "%slogged in as %q, expires %s\n", already, t.User.Email,
 			t.ExpiresAt.Format("Mon Jan 2 15:04:05 MST 2006"))
 	}
 
-	if c.conf.Auth != nil && !c.conf.Auth.isExpired() {
-		loggedInMessage(c.conf.Auth, true)
+	if _, isAPIKey := c.conf.Auth.(*apiKey); isAPIKey {
+		warningf(c.c.App.Writer, "was logged in with an api-key. logging out")
+		utils.UncheckedError(c.logout())
+	}
+	currentToken, _ := c.conf.Auth.(*token) // currentToken can be nil
+	if currentToken != nil && !currentToken.isExpired() {
+		loggedInMessage(currentToken, true)
 		return nil
 	}
 
 	var t *token
 	var err error
-	if c.conf.Auth != nil && c.conf.Auth.canRefresh() {
-		t, err = c.authFlow.refreshToken(c.c.Context, c.conf.Auth)
+	if currentToken != nil && currentToken.canRefresh() {
+		t, err = c.authFlow.refreshToken(c.c.Context, currentToken)
 		if err != nil {
 			utils.UncheckedError(c.logout())
 			return err
 		}
 	} else {
-		t, err = c.authFlow.login(c.c.Context, cCtx.String(baseURLFlag))
+		t, err = c.authFlow.loginAsUser(c.c.Context)
 		if err != nil {
 			return err
 		}
@@ -144,7 +163,33 @@ func (c *viamClient) loginAction(cCtx *cli.Context) error {
 		return err
 	}
 
-	loggedInMessage(c.conf.Auth, false)
+	loggedInMessage(t, false)
+	return nil
+}
+
+// LoginWithAPIKeyAction is the corresponding Action for `login api-key`.
+func LoginWithAPIKeyAction(cCtx *cli.Context) error {
+	c, err := newViamClient(cCtx)
+	if err != nil {
+		return err
+	}
+	return c.loginWithAPIKeyAction(cCtx)
+}
+
+func (c viamClient) loginWithAPIKeyAction(cCtx *cli.Context) error {
+	key := apiKey{
+		KeyID:     cCtx.String(loginFlagKeyID),
+		KeyCrypto: cCtx.String(loginFlagKey),
+	}
+	c.conf.Auth = &key
+	if err := storeConfigToCache(c.conf); err != nil {
+		return err
+	}
+	// test the connection
+	if _, err := c.listOrganizations(); err != nil {
+		return errors.Wrapf(err, "unable to connect to %q using the provided api key", c.conf.BaseURL)
+	}
+	fmt.Fprintf(cCtx.App.Writer, "successfully logged in with api key %q\n", key.KeyID)
 	return nil
 }
 
@@ -162,7 +207,11 @@ func (c *viamClient) printAccessTokenAction(cCtx *cli.Context) error {
 		return err
 	}
 
-	fmt.Fprintln(cCtx.App.Writer, c.conf.Auth.AccessToken)
+	if token, ok := c.conf.Auth.(*token); ok {
+		fmt.Fprintln(cCtx.App.Writer, token.AccessToken)
+	} else {
+		return errors.New("not logged in as a user. cannot print access token. run \"viam login\" to sign in with your account")
+	}
 	return nil
 }
 
@@ -184,7 +233,7 @@ func (c *viamClient) logoutAction(cCtx *cli.Context) error {
 	if err := c.logout(); err != nil {
 		return errors.Wrap(err, "could not logout")
 	}
-	fmt.Fprintf(cCtx.App.Writer, "logged out from %q\n", auth.User.Email)
+	fmt.Fprintf(cCtx.App.Writer, "logged out from %q\n", auth)
 	return nil
 }
 
@@ -198,12 +247,11 @@ func WhoAmIAction(cCtx *cli.Context) error {
 }
 
 func (c *viamClient) whoAmIAction(cCtx *cli.Context) error {
-	auth := c.conf.Auth
-	if auth == nil {
+	if c.conf.Auth == nil {
 		warningf(cCtx.App.Writer, "not logged in. run \"login\" command")
 		return nil
 	}
-	fmt.Fprintf(cCtx.App.Writer, "%s\n", auth.User.Email)
+	fmt.Fprintf(cCtx.App.Writer, "%s\n", c.conf.Auth)
 	return nil
 }
 
@@ -223,8 +271,9 @@ func (c *viamClient) organizationAPIKeyCreateAction(cCtx *cli.Context) error {
 	orgID := cCtx.String(apiKeyCreateFlagOrgID)
 	keyName := cCtx.String(apiKeyCreateFlagName)
 	if keyName == "" {
-		// Formats name as myusername@gmail.com-2009-11-10T23:00:00Z
-		keyName = fmt.Sprintf("%s-%s", c.conf.Auth.User.Email, time.Now().Format(time.RFC3339))
+		// Default name is in the form myusername@gmail.com-2009-11-10T23:00:00Z
+		// or key-uuid-2009-11-10T23:00:00Z if it was created by a key
+		keyName = fmt.Sprintf("%s-%s", c.conf.Auth, time.Now().Format(time.RFC3339))
 		infof(cCtx.App.Writer, "using default key name of %q", keyName)
 	}
 	resp, err := c.createOrganizationAPIKey(orgID, keyName)
@@ -269,14 +318,15 @@ func (c *viamClient) ensureLoggedIn() error {
 		return errors.New("not logged in: run the following command to login:\n\tviam login")
 	}
 
-	if c.conf.Auth.isExpired() {
-		if !c.conf.Auth.canRefresh() {
+	authToken, ok := c.conf.Auth.(*token)
+	if ok && authToken.isExpired() {
+		if !authToken.canRefresh() {
 			utils.UncheckedError(c.logout())
 			return errors.New("token expired and cannot refresh")
 		}
 
 		// expired.
-		newToken, err := c.authFlow.refreshToken(c.c.Context, c.conf.Auth)
+		newToken, err := c.authFlow.refreshToken(c.c.Context, authToken)
 		if err != nil {
 			utils.UncheckedError(c.logout()) // clear cache if failed to refresh
 			return errors.Wrapf(err, "error while refreshing token")
@@ -289,7 +339,7 @@ func (c *viamClient) ensureLoggedIn() error {
 		}
 	}
 
-	rpcOpts := append(c.copyRPCOpts(), rpc.WithStaticAuthenticationMaterial(c.conf.Auth.AccessToken))
+	rpcOpts := append(c.copyRPCOpts(), c.conf.Auth.dialOpts())
 
 	conn, err := rpc.DialDirectGRPC(
 		c.c.Context,
@@ -343,7 +393,7 @@ func (c *viamClient) prepareDial(
 
 	rpcOpts := append(c.copyRPCOpts(),
 		rpc.WithExternalAuth(c.baseURL.Host, part.Fqdn),
-		rpc.WithStaticExternalAuthenticationMaterial(c.conf.Auth.AccessToken),
+		c.conf.Auth.dialOpts(),
 	)
 
 	if debug {
@@ -359,6 +409,28 @@ func (t *token) isExpired() bool {
 
 func (t *token) canRefresh() bool {
 	return t.RefreshToken != "" && t.TokenURL != "" && t.ClientID != ""
+}
+
+func (t *token) dialOpts() rpc.DialOption {
+	return rpc.WithStaticAuthenticationMaterial(t.AccessToken)
+}
+
+func (t *token) String() string {
+	return t.User.Email
+}
+
+func (k *apiKey) dialOpts() rpc.DialOption {
+	return rpc.WithEntityCredentials(
+		k.KeyID,
+		rpc.Credentials{
+			Type:    "api-key",
+			Payload: k.KeyCrypto,
+		},
+	)
+}
+
+func (k *apiKey) String() string {
+	return fmt.Sprintf("key-%s", k.KeyID)
 }
 
 type userData struct {
@@ -394,7 +466,7 @@ func newCLIAuthFlowWithAuthDomain(authDomain, audience, clientID string, console
 	}
 }
 
-func (a *authFlow) login(ctx context.Context, baseURL string) (*token, error) {
+func (a *authFlow) loginAsUser(ctx context.Context) (*token, error) {
 	discovery, err := a.loadOIDiscoveryEndpoint(ctx)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed retrieving discovery endpoint")
@@ -414,18 +486,15 @@ func (a *authFlow) login(ctx context.Context, baseURL string) (*token, error) {
 	if err != nil {
 		return nil, err
 	}
-	return buildToken(token, discovery.TokenEndPoint, a.clientID, baseURL)
+	return buildToken(token, discovery.TokenEndPoint, a.clientID)
 }
 
-func buildToken(t *tokenResponse, tokenURL, clientID, baseURL string) (*token, error) {
+func buildToken(t *tokenResponse, tokenURL, clientID string) (*token, error) {
 	userData, err := userDataFromIDToken(t.IDToken)
 	if err != nil {
 		return nil, err
 	}
 
-	if baseURL == "" {
-		baseURL = defaultBaseURL
-	}
 	return &token{
 		TokenType:    tokenTypeUserOAuthToken,
 		AccessToken:  t.AccessToken,
@@ -435,7 +504,6 @@ func buildToken(t *tokenResponse, tokenURL, clientID, baseURL string) (*token, e
 		User:         *userData,
 		TokenURL:     tokenURL,
 		ClientID:     clientID,
-		BaseURL:      baseURL,
 	}, nil
 }
 
@@ -620,7 +688,7 @@ func (a *authFlow) refreshToken(ctx context.Context, t *token) (*token, error) {
 		return nil, errors.New("expecting new token")
 	}
 
-	return buildToken(resp, t.TokenURL, t.ClientID, t.BaseURL)
+	return buildToken(resp, t.TokenURL, t.ClientID)
 }
 
 func processTokenResponse(res *http.Response) (*tokenResponse, error) {
