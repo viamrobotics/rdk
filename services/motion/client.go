@@ -152,13 +152,14 @@ func (c *client) MoveOnGlobe(
 	if !math.IsNaN(motionCfg.PositionPollingFreqHz) && motionCfg.PositionPollingFreqHz > 0 {
 		req.MotionConfiguration.PositionPollingFrequencyHz = &motionCfg.PositionPollingFreqHz
 	}
-	if !math.IsNaN(motionCfg.PlanDeviationM) && motionCfg.PlanDeviationM >= 0 {
-		req.MotionConfiguration.PlanDeviationM = &motionCfg.PlanDeviationM
+	if !math.IsNaN(motionCfg.PlanDeviationMM) && motionCfg.PlanDeviationMM >= 0 {
+		planDeviationM := 1e-3 * motionCfg.PlanDeviationMM
+		req.MotionConfiguration.PlanDeviationM = &planDeviationM
 	}
 
-	if len(motionCfg.VisionSvc) > 0 {
+	if len(motionCfg.VisionServices) > 0 {
 		svcs := []*commonpb.ResourceName{}
-		for _, name := range motionCfg.VisionSvc {
+		for _, name := range motionCfg.VisionServices {
 			svcs = append(svcs, protoutils.ResourceNameToProto(name))
 		}
 		req.MotionConfiguration.VisionServices = svcs

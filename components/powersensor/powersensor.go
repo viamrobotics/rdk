@@ -20,12 +20,12 @@ func init() {
 		RPCClient:                   NewClientFromConn,
 	})
 
-	registerCollector("Voltage", func(ctx context.Context, ps PowerSensor) (interface{}, error) {
+	registerCollector("Voltage", func(ctx context.Context, ps PowerSensor, extra map[string]interface{}) (interface{}, error) {
 		type Voltage struct {
 			Volts float64
 			IsAc  bool
 		}
-		v, ac, err := ps.Voltage(ctx, make(map[string]interface{}))
+		v, ac, err := ps.Voltage(ctx, extra)
 		if err != nil {
 			return nil, err
 		}
@@ -33,23 +33,23 @@ func init() {
 		return Voltage{Volts: v, IsAc: ac}, nil
 	})
 
-	registerCollector("Current", func(ctx context.Context, ps PowerSensor) (interface{}, error) {
+	registerCollector("Current", func(ctx context.Context, ps PowerSensor, extra map[string]interface{}) (interface{}, error) {
 		type Current struct {
 			Amperes float64
 			IsAc    bool
 		}
-		c, ac, err := ps.Current(ctx, make(map[string]interface{}))
+		c, ac, err := ps.Current(ctx, extra)
 		if err != nil {
 			return nil, err
 		}
 		return Current{Amperes: c, IsAc: ac}, nil
 	})
 
-	registerCollector("Power", func(ctx context.Context, ps PowerSensor) (interface{}, error) {
+	registerCollector("Power", func(ctx context.Context, ps PowerSensor, extra map[string]interface{}) (interface{}, error) {
 		type Power struct {
 			Watts float64
 		}
-		p, err := ps.Power(ctx, make(map[string]interface{}))
+		p, err := ps.Power(ctx, extra)
 		if err != nil {
 			return nil, err
 		}

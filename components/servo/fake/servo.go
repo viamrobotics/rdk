@@ -17,7 +17,8 @@ func init() {
 		resource.Registration[servo.Servo, resource.NoNativeConfig]{
 			Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (servo.Servo, error) {
 				return &Servo{
-					Named: conf.ResourceName().AsNamed(),
+					Named:  conf.ResourceName().AsNamed(),
+					logger: logger,
 				}, nil
 			},
 		})
@@ -29,6 +30,7 @@ type Servo struct {
 	resource.Named
 	resource.TriviallyReconfigurable
 	resource.TriviallyCloseable
+	logger golog.Logger
 }
 
 // Move sets the given angle.

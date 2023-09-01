@@ -114,7 +114,7 @@ func TestErrorState(t *testing.T) {
 
 	// make injected slam service
 	slam := inject.NewSLAMService("the slammer")
-	slam.GetPositionFunc = func(ctx context.Context) (spatialmath.Pose, string, error) {
+	slam.PositionFunc = func(ctx context.Context) (spatialmath.Pose, string, error) {
 		return spatialmath.NewZeroPose(), "", nil
 	}
 
@@ -151,7 +151,7 @@ func buildTestDDK(
 
 	// make a SLAM service and get its limits
 	fakeSLAM := fake.NewSLAM(slam.Named("test"), logger)
-	limits, err := fakeSLAM.GetLimits(ctx)
+	limits, err := fakeSLAM.Limits(ctx)
 	if err != nil {
 		return nil, err
 	}

@@ -112,7 +112,7 @@ func TestNavSetup(t *testing.T) {
 	test.That(t, len(obs), test.ShouldEqual, 1)
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, len(ns.(*builtIn).visionServices), test.ShouldEqual, 1)
+	test.That(t, len(ns.(*builtIn).motionCfg.VisionServices), test.ShouldEqual, 1)
 }
 
 func TestStartWaypoint(t *testing.T) {
@@ -130,7 +130,7 @@ func TestStartWaypoint(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	fakeSlam := fakeslam.NewSLAM(slam.Named("foo"), logger)
-	limits, err := fakeSlam.GetLimits(ctx)
+	limits, err := fakeSlam.Limits(ctx)
 	test.That(t, err, test.ShouldBeNil)
 
 	localizer := motion.NewSLAMLocalizer(fakeSlam)

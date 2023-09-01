@@ -37,56 +37,70 @@ const (
 
 // DataExportAction is the corresponding action for 'data export'.
 func DataExportAction(c *cli.Context) error {
-	filter, err := createDataFilter(c)
+	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
 
-	client, err := newAppClient(c)
+	return client.dataExportAction(c)
+}
+
+func (c *viamClient) dataExportAction(cCtx *cli.Context) error {
+	filter, err := createDataFilter(cCtx)
 	if err != nil {
 		return err
 	}
 
-	switch c.String(dataFlagDataType) {
+	switch cCtx.String(dataFlagDataType) {
 	case dataTypeBinary:
-		if err := client.binaryData(c.Path(dataFlagDestination), filter, c.Uint(dataFlagParallelDownloads)); err != nil {
+		if err := c.binaryData(cCtx.Path(dataFlagDestination), filter, cCtx.Uint(dataFlagParallelDownloads)); err != nil {
 			return err
 		}
 	case dataTypeTabular:
-		if err := client.tabularData(c.Path(dataFlagDestination), filter); err != nil {
+		if err := c.tabularData(cCtx.Path(dataFlagDestination), filter); err != nil {
 			return err
 		}
 	default:
-		return errors.Errorf("%s must be binary or tabular, got %q", dataFlagDataType, c.String(dataFlagDataType))
+		return errors.Errorf("%s must be binary or tabular, got %q", dataFlagDataType, cCtx.String(dataFlagDataType))
 	}
 	return nil
 }
 
-// DataDeleteAction is the corresponding action for 'data delete'.
-func DataDeleteAction(c *cli.Context) error {
-	filter, err := createDataFilter(c)
-	if err != nil {
-		return err
-	}
-
-	client, err := newAppClient(c)
+// DataDeleteBinaryAction is the corresponding action for 'data delete'.
+func DataDeleteBinaryAction(c *cli.Context) error {
+	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
 
 	switch c.String(dataFlagDataType) {
 	case dataTypeBinary:
+		filter, err := createDataFilter(c)
+		if err != nil {
+			return err
+		}
 		if err := client.deleteBinaryData(filter); err != nil {
 			return err
 		}
 	case dataTypeTabular:
-		if err := client.deleteTabularData(filter); err != nil {
-			return err
-		}
+		return errors.New("use `delete-tabular` action instead of `delete`")
 	default:
 		return errors.Errorf("%s must be binary or tabular, got %q", dataFlagDataType, c.String(dataFlagDataType))
 	}
 
+	return nil
+}
+
+// DataDeleteTabularAction is the corresponding action for 'data delete-tabular'.
+func DataDeleteTabularAction(c *cli.Context) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	if err := client.deleteTabularData(c.String(dataFlagOrgID), c.Int(dataFlagDeleteTabularDataOlderThanDays)); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -170,7 +184,7 @@ func createDataFilter(c *cli.Context) (*datapb.Filter, error) {
 }
 
 // BinaryData downloads binary data matching filter to dst.
-func (c *appClient) binaryData(dst string, filter *datapb.Filter, parallelDownloads uint) error {
+func (c *viamClient) binaryData(dst string, filter *datapb.Filter, parallelDownloads uint) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
@@ -378,7 +392,7 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 }
 
 // tabularData downloads binary data matching filter to dst.
-func (c *appClient) tabularData(dst string, filter *datapb.Filter) error {
+func (c *viamClient) tabularData(dst string, filter *datapb.Filter) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
@@ -494,7 +508,7 @@ func makeDestinationDirs(dst string) error {
 	return nil
 }
 
-func (c *appClient) deleteBinaryData(filter *datapb.Filter) error {
+func (c *viamClient) deleteBinaryData(filter *datapb.Filter) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
@@ -508,12 +522,12 @@ func (c *appClient) deleteBinaryData(filter *datapb.Filter) error {
 }
 
 // deleteTabularData delete tabular data matching filter.
-func (c *appClient) deleteTabularData(filter *datapb.Filter) error {
+func (c *viamClient) deleteTabularData(orgID string, deleteOlderThanDays int) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
-	resp, err := c.dataClient.DeleteTabularDataByFilter(context.Background(),
-		&datapb.DeleteTabularDataByFilterRequest{Filter: filter})
+	resp, err := c.dataClient.DeleteTabularData(context.Background(),
+		&datapb.DeleteTabularDataRequest{OrganizationId: orgID, DeleteOlderThanDays: uint32(deleteOlderThanDays)})
 	if err != nil {
 		return errors.Wrapf(err, "received error from server")
 	}

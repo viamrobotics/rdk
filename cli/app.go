@@ -23,30 +23,40 @@ const (
 	runFlagData   = "data"
 	runFlagStream = "stream"
 
+	apiKeyCreateFlagOrgID = "org-id"
+	apiKeyCreateFlagName  = "name"
+
 	moduleFlagName            = "name"
 	moduleFlagPublicNamespace = "public-namespace"
 	moduleFlagOrgID           = "org-id"
 	moduleFlagPath            = "module"
 	moduleFlagVersion         = "version"
 	moduleFlagPlatform        = "platform"
+	moduleFlagForce           = "force"
 
-	dataFlagDestination       = "destination"
-	dataFlagDataType          = "data-type"
-	dataFlagOrgIDs            = "org-ids"
-	dataFlagLocationIDs       = "location-ids"
-	dataFlagRobotID           = "robot-id"
-	dataFlagPartID            = "part-id"
-	dataFlagRobotName         = "robot-name"
-	dataFlagPartName          = "part-name"
-	dataFlagComponentType     = "component-type"
-	dataFlagComponentName     = "component-name"
-	dataFlagMethod            = "method"
-	dataFlagMimeTypes         = "mime-types"
-	dataFlagStart             = "start"
-	dataFlagEnd               = "end"
-	dataFlagParallelDownloads = "parallel"
-	dataFlagTags              = "tags"
-	dataFlagBboxLabels        = "bbox-labels"
+	dataFlagDestination                    = "destination"
+	dataFlagDataType                       = "data-type"
+	dataFlagOrgIDs                         = "org-ids"
+	dataFlagLocationIDs                    = "location-ids"
+	dataFlagRobotID                        = "robot-id"
+	dataFlagPartID                         = "part-id"
+	dataFlagRobotName                      = "robot-name"
+	dataFlagPartName                       = "part-name"
+	dataFlagComponentType                  = "component-type"
+	dataFlagComponentName                  = "component-name"
+	dataFlagMethod                         = "method"
+	dataFlagMimeTypes                      = "mime-types"
+	dataFlagStart                          = "start"
+	dataFlagEnd                            = "end"
+	dataFlagParallelDownloads              = "parallel"
+	dataFlagTags                           = "tags"
+	dataFlagBboxLabels                     = "bbox-labels"
+	dataFlagOrgID                          = "org-id"
+	dataFlagDeleteTabularDataOlderThanDays = "delete-older-than-days"
+
+	boardFlagName    = "name"
+	boardFlagPath    = "path"
+	boardFlagVersion = "version"
 )
 
 var app = &cli.App{
@@ -57,7 +67,6 @@ var app = &cli.App{
 		&cli.StringFlag{
 			Name:   baseURLFlag,
 			Hidden: true,
-			Value:  "https://app.viam.com:443",
 			Usage:  "base URL of app",
 		},
 		&cli.StringFlag{
@@ -106,6 +115,35 @@ var app = &cli.App{
 					Name:   "list",
 					Usage:  "list organizations for the current user",
 					Action: ListOrganizationsAction,
+				},
+			},
+		},
+		{
+			Name:            "organization",
+			Usage:           "work with a organization",
+			HideHelpCommand: true,
+			Subcommands: []*cli.Command{
+				{
+					Name:  "api-key",
+					Usage: "work with an organization's api keys",
+					Subcommands: []*cli.Command{
+						{
+							Name:  "create",
+							Usage: "create an api key for your organization",
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     apiKeyCreateFlagOrgID,
+									Required: true,
+									Usage:    "the org to create an api key for",
+								},
+								&cli.StringFlag{
+									Name:  apiKeyCreateFlagName,
+									Usage: "the name of the key (defaults to your login info with the current time)",
+								},
+							},
+							Action: OrganizationAPIKeyCreateAction,
+						},
+					},
 				},
 			},
 		},
@@ -211,13 +249,13 @@ var app = &cli.App{
 				},
 				{
 					Name:      "delete",
-					Usage:     "delete data from Viam cloud",
+					Usage:     "delete binary data from Viam cloud",
 					UsageText: fmt.Sprintf("viam data delete <%s> [other options]", dataFlagDataType),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     dataFlagDataType,
 							Required: true,
-							Usage:    "data type to be deleted: either binary or tabular",
+							Usage:    "data type to be deleted. should only be binary. if tabular, use delete-tabular instead.",
 						},
 						&cli.StringSliceFlag{
 							Name:  dataFlagOrgIDs,
@@ -268,7 +306,25 @@ var app = &cli.App{
 							Usage: "ISO-8601 timestamp indicating the end of the interval filter",
 						},
 					},
-					Action: DataDeleteAction,
+					Action: DataDeleteBinaryAction,
+				},
+				{
+					Name:      "delete-tabular",
+					Usage:     "delete tabular data from Viam cloud",
+					UsageText: "viam data delete-tabular [other options]",
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     dataFlagOrgID,
+							Usage:    "org",
+							Required: true,
+						},
+						&cli.IntFlag{
+							Name:     dataFlagDeleteTabularDataOlderThanDays,
+							Usage:    "delete any tabular data that is older than X calendar days before now. 0 deletes all data.",
+							Required: true,
+						},
+					},
+					Action: DataDeleteTabularAction,
 				},
 			},
 		},
@@ -565,6 +621,10 @@ viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.ta
                       darwin/arm64 (for non-intel macs)`,
 							Required: true,
 						},
+						&cli.BoolFlag{
+							Name:  moduleFlagForce,
+							Usage: "skip validation (may result in non-functional versions)",
+						},
 					},
 					Action: UploadModuleAction,
 				},
@@ -574,6 +634,64 @@ viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.ta
 			Name:   "version",
 			Usage:  "print version info for this program",
 			Action: VersionAction,
+		},
+		{
+			Name:            "board",
+			Usage:           "manage your board definition files",
+			HideHelpCommand: true,
+			Subcommands: []*cli.Command{
+				{
+					Name:  "upload",
+					Usage: "upload a board definition file",
+					Description: `Upload a json board definition file for linux boards.
+Example:
+viam board upload --name=orin --org="my org" --version=1.0.0 file.json`,
+					UsageText: "viam board upload <name> <organization> <version> [other options] <file.json>",
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     boardFlagName,
+							Usage:    "name of your board definition file (cannot be changed once set)",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:     organizationFlag,
+							Usage:    "organization that will host the board definitions file. This can be the org's ID or name",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:     boardFlagVersion,
+							Usage:    "version of the file to upload (semver2.0) ex: \"0.1.0\"",
+							Required: true,
+						},
+					},
+					Action: UploadBoardDefsAction,
+				},
+				{
+					Name:  "download",
+					Usage: "download a board definitions package",
+					Description: `download a json board definitions file for generic linux boards.
+Example:
+viam board download --name=test --organization="my org" --version=1.0.0`,
+					UsageText: "viam board download <name> <organization> <version> [other options]",
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     boardFlagName,
+							Usage:    "name of the board definitions file to download",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:     organizationFlag,
+							Usage:    "organization that hosts the board definitions file",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:  boardFlagVersion,
+							Usage: "version of the file to download. defaults to latest if not set.",
+						},
+					},
+					Action: DownloadBoardDefsAction,
+				},
+			},
 		},
 	},
 }

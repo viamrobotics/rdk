@@ -274,6 +274,7 @@ var jetsonOrinNXPins = []genericlinux.PinDefinition{
 	{Name: "26", DeviceName: "gpiochip0", LineNumber: 137, PwmChipSysfsDir: "", PwmID: -1},
 	{Name: "29", DeviceName: "gpiochip0", LineNumber: 105, PwmChipSysfsDir: "", PwmID: -1},
 	{Name: "31", DeviceName: "gpiochip0", LineNumber: 106, PwmChipSysfsDir: "", PwmID: -1},
+	// Pin 32 supposedly has hardware PWM support, but we've been unable to turn it on.
 	{Name: "32", DeviceName: "gpiochip0", LineNumber: 41, PwmChipSysfsDir: "", PwmID: -1},
 	{Name: "33", DeviceName: "gpiochip0", LineNumber: 43, PwmChipSysfsDir: "32c0000.pwm", PwmID: 0},
 	{Name: "35", DeviceName: "gpiochip0", LineNumber: 53, PwmChipSysfsDir: "", PwmID: -1},

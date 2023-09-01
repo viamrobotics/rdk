@@ -3,7 +3,6 @@ package server
 
 import (
 	"context"
-	"log"
 	"net"
 	"os"
 	"path"
@@ -27,18 +26,7 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
-var (
-	// GLoggerCamComp is the global logger-to-file for camera components.
-	GLoggerCamComp *logging.Logger
-	viamDotDir     = filepath.Join(os.Getenv("HOME"), ".viam")
-)
-
-func init() {
-	var err error
-	if GLoggerCamComp, err = logging.NewLogger(); err != nil && !errors.Is(err, logging.UnsupportedError{}) {
-		log.Println("cannot create new logger: ", err)
-	}
-}
+var viamDotDir = filepath.Join(os.Getenv("HOME"), ".viam")
 
 // Arguments for the command.
 type Arguments struct {
@@ -54,6 +42,7 @@ type Arguments struct {
 	RevealSensitiveConfigDiffs bool   `flag:"reveal-sensitive-config-diffs,usage=show config diffs"`
 	UntrustedEnv               bool   `flag:"untrusted-env,usage=disable processes and shell from running in a untrusted environment"`
 	OutputTelemetry            bool   `flag:"output-telemetry,usage=print out telemetry data (metrics and spans)"`
+	DisableMulticastDNS        bool   `flag:"disable-mdns,usage=disable server discovery through multicast DNS"`
 }
 
 type robotServer struct {
@@ -122,7 +111,7 @@ func RunServer(ctx context.Context, args []string, _ golog.Logger) (err error) {
 	}
 
 	if argsParsed.Logging {
-		utils.UncheckedError(GLoggerCamComp.Start(ctx))
+		utils.UncheckedError(logging.GLoggerCamComp.Start(ctx))
 	}
 
 	// Read the config from disk and use it to initialize the remote logger.
@@ -198,6 +187,7 @@ func (s *robotServer) createWebOptions(cfg *config.Config) (weboptions.Options, 
 	options.SharedDir = s.args.SharedDir
 	options.Debug = s.args.Debug || cfg.Debug
 	options.WebRTC = s.args.WebRTC
+	options.DisableMulticastDNS = s.args.DisableMulticastDNS
 	if cfg.Cloud != nil && s.args.AllowInsecureCreds {
 		options.SignalingDialOpts = append(options.SignalingDialOpts, rpc.WithAllowInsecureWithCredentialsDowngrade())
 	}

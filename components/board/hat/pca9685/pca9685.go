@@ -65,7 +65,7 @@ func init() {
 				conf resource.Config,
 				logger golog.Logger,
 			) (board.Board, error) {
-				return New(ctx, deps, conf)
+				return New(ctx, deps, conf, logger)
 			},
 		})
 }
@@ -83,6 +83,7 @@ type PCA9685 struct {
 	gpioPins            [16]gpioPin
 	boardName           string
 	i2cName             string
+	logger              golog.Logger
 }
 
 const (
@@ -96,10 +97,11 @@ const (
 var defaultAddr = 0x40
 
 // New returns a new PCA9685 residing on the given bus and address.
-func New(ctx context.Context, deps resource.Dependencies, conf resource.Config) (*PCA9685, error) {
+func New(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (*PCA9685, error) {
 	pca := PCA9685{
 		Named:               conf.ResourceName().AsNamed(),
 		referenceClockSpeed: defaultReferenceClockSpeed,
+		logger:              logger,
 	}
 	// each PWM combination spans 4 bytes
 	startAddr := byte(0x06)
