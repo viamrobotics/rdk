@@ -150,11 +150,6 @@ func newINA(
 		return nil, err
 	}
 
-	err = s.calibrate()
-	if err != nil {
-		return nil, err
-	}
-
 	return s, nil
 }
 
@@ -260,6 +255,8 @@ func (d *ina) Current(ctx context.Context, extra map[string]interface{}) (float6
 	}
 	defer utils.UncheckedErrorFunc(handle.Close)
 
+	// Calibrate each time the current value is read, so if anything else is also writing to these registers
+	// we have the correct value.
 	err = d.calibrate()
 	if err != nil {
 		return 0, false, err
@@ -283,6 +280,8 @@ func (d *ina) Power(ctx context.Context, extra map[string]interface{}) (float64,
 	}
 	defer utils.UncheckedErrorFunc(handle.Close)
 
+	// Calibrate each time the power value is read, so if anything else is also writing to these registers
+	// we have the correct value.
 	err = d.calibrate()
 	if err != nil {
 		return 0, err
