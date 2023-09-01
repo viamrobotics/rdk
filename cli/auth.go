@@ -189,7 +189,7 @@ func (c viamClient) loginWithAPIKeyAction(cCtx *cli.Context) error {
 	if _, err := c.listOrganizations(); err != nil {
 		return errors.Wrapf(err, "unable to connect to %q using the provided api key", c.conf.BaseURL)
 	}
-	fmt.Fprintf(cCtx.App.Writer, "successfully logged in with api key\n")
+	fmt.Fprintf(cCtx.App.Writer, "successfully logged in with api key %q\n", key.KeyID)
 	return nil
 }
 
