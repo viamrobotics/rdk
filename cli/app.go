@@ -26,6 +26,9 @@ const (
 	apiKeyCreateFlagOrgID = "org-id"
 	apiKeyCreateFlagName  = "name"
 
+	loginFlagKeyID = "key-id"
+	loginFlagKey   = "key"
+
 	moduleFlagName            = "name"
 	moduleFlagPublicNamespace = "public-namespace"
 	moduleFlagOrgID           = "org-id"
@@ -93,6 +96,23 @@ var app = &cli.App{
 					Name:   "print-access-token",
 					Usage:  "print the access token associated with current credentials",
 					Action: PrintAccessTokenAction,
+				},
+				{
+					Name:  "api-key",
+					Usage: "authenticate with an api key",
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     loginFlagKeyID,
+							Required: true,
+							Usage:    "id of the key to authenticate with",
+						},
+						&cli.StringFlag{
+							Name:     loginFlagKey,
+							Required: true,
+							Usage:    "key to authenticate with",
+						},
+					},
+					Action: LoginWithAPIKeyAction,
 				},
 			},
 		},

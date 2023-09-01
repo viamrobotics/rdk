@@ -72,7 +72,7 @@ func (c *viamClient) listOrganizationsAction(cCtx *cli.Context) error {
 	}
 	for i, org := range orgs {
 		if i == 0 {
-			fmt.Fprintf(cCtx.App.Writer, "organizations for %q:\n", c.conf.Auth.User.Email)
+			fmt.Fprintf(cCtx.App.Writer, "organizations for %q:\n", c.conf.Auth)
 		}
 		fmt.Fprintf(cCtx.App.Writer, "\t%s (id: %s)\n", org.Name, org.Id)
 	}
@@ -103,7 +103,7 @@ func ListLocationsAction(c *cli.Context) error {
 		}
 		for i, org := range orgs {
 			if i == 0 {
-				fmt.Fprintf(c.App.Writer, "locations for %q:\n", client.conf.Auth.User.Email)
+				fmt.Fprintf(c.App.Writer, "locations for %q:\n", client.conf.Auth)
 			}
 			fmt.Fprintf(c.App.Writer, "%s:\n", org.Name)
 			if err := listLocations(org.Id); err != nil {
@@ -406,22 +406,7 @@ func VersionAction(c *cli.Context) error {
 
 var defaultBaseURL = "https://app.viam.com:443"
 
-func checkBaseURL(c *cli.Context, auth *config) (*url.URL, []rpc.DialOption, error) {
-	// If base URL was not specified, assume cached base URL. If no base URL is
-	// cached, assume default base URL.
-	baseURL := c.String(baseURLFlag)
-	if baseURL == "" {
-		baseURL = defaultBaseURL
-		if auth.Auth != nil && auth.Auth.BaseURL != "" {
-			baseURL = auth.Auth.BaseURL
-		}
-	}
-
-	if auth.Auth != nil && auth.Auth.BaseURL != baseURL {
-		return nil, nil, fmt.Errorf("cached base URL for this session is %q, "+
-			"please logout and login again to use provided base URL %q", auth.Auth.BaseURL, baseURL)
-	}
-
+func parseBaseURL(baseURL string, verifyConnection bool) (*url.URL, []rpc.DialOption, error) {
 	baseURLParsed, err := url.Parse(baseURL)
 	if err != nil {
 		return nil, nil, err
@@ -451,11 +436,13 @@ func checkBaseURL(c *cli.Context, auth *config) (*url.URL, []rpc.DialOption, err
 	}
 
 	// Check if URL is even valid with a TCP dial.
-	conn, err := net.DialTimeout("tcp", baseURLParsed.Host, time.Second)
-	if err != nil {
-		return nil, nil, fmt.Errorf("value of %q argument %q is an unreachable URL", baseURLFlag, baseURL)
+	if verifyConnection {
+		conn, err := net.DialTimeout("tcp", baseURLParsed.Host, 3*time.Second)
+		if err != nil {
+			return nil, nil, fmt.Errorf("value of %q argument %q is an unreachable URL", baseURLFlag, baseURL)
+		}
+		utils.UncheckedError(conn.Close())
 	}
-	utils.UncheckedError(conn.Close())
 
 	if secure {
 		return baseURLParsed, nil, nil
@@ -479,12 +466,25 @@ func newViamClient(c *cli.Context) (*viamClient, error) {
 		conf = &config{}
 	}
 
-	baseURL, rpcOpts, err := checkBaseURL(c, conf)
+	// If base URL was not specified, assume cached base URL. If no base URL is
+	// cached, assume default base URL.
+	baseURLArg := c.String(baseURLFlag)
+	switch {
+	case conf.BaseURL == "" && baseURLArg == "":
+		conf.BaseURL = defaultBaseURL
+	case conf.BaseURL == "" && baseURLArg != "":
+		conf.BaseURL = baseURLArg
+	case baseURLArg != "" && conf.BaseURL != "" && conf.BaseURL != baseURLArg:
+		return nil, fmt.Errorf("cached base URL for this session is %q, "+
+			"please logout and login again to use provided base URL %q", conf.BaseURL, baseURLArg)
+	}
+
+	if conf.BaseURL != defaultBaseURL {
+		infof(c.App.Writer, "using %q as base URL value", conf.BaseURL)
+	}
+	baseURL, rpcOpts, err := parseBaseURL(conf.BaseURL, true)
 	if err != nil {
 		return nil, err
-	}
-	if baseURL.String() != defaultBaseURL {
-		infof(c.App.Writer, "using %q as base URL value", baseURL.String())
 	}
 
 	var authFlow *authFlow
