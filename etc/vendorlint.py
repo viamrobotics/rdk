@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """vendorlint -- walk go vendor directory and lint projects"""
 
-import argparse, os, logging, subprocess, json, collections
+import argparse, os, logging, subprocess, json, collections, multiprocessing
+from typing import List, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -18,20 +19,28 @@ def ensure_suffix(base: str, suffix: str) -> str:
     "add suffix to base if necessary. not smart about multi-character suffixes"
     return base if base.endswith(suffix) else base + suffix
 
+def lint_subdir(args, mod: str, path: str):
+    "run lint on a directory"
+    logger.info('linting %s', path)
+    if args.dry_run:
+        return (mod, None)
+    # todo: govet by itself may run atomicalign -- is that faster / smaller?
+    # note: --no-config flag is so vendor's own lint config doesn't break this
+    proc = subprocess.run(f"{args.linter} run -v --tests=false --disable-all --enable staticcheck --out-format json --no-config ./...", cwd=path, shell=True, check=False, capture_output=True)
+    if proc.returncode != 0:
+        logger.error('bad result %d mod %s OUT %s... ERR %s...', proc.returncode, mod, proc.stdout[:40], proc.stderr[:40])
+    return (mod, (json.loads(proc.stdout) if proc.stdout else None))
+
 def walk(args) -> dict:
     "walk vendor tree, produce json results"
     prefix = ensure_suffix(args.root, '/')
-    results = {}
+    targets: List[Tuple[str, str]] = []
     for path, _, _ in os.walk(args.root):
         mod = path.removeprefix(prefix)
         if test_path(mod):
-            logger.info('linting %s', path)
-            if not args.dry_run:
-                # note: --no-config flag is so vendor's own lint config doesn't break this
-                proc = subprocess.run(f"{args.linter} run -v --tests=false --disable-all --enable staticcheck --out-format json --no-config ./...", cwd=path, shell=True, check=False, capture_output=True)
-                if proc.returncode != 0:
-                    logger.error('bad result %d mod %s OUT %s... ERR %s...', proc.returncode, mod, proc.stdout[:40], proc.stderr[:40])
-                results[mod] = json.loads(proc.stdout) if proc.stdout else None
+            targets.append((mod, path))
+    with multiprocessing.Pool(args.parallel) as pool:
+        results = dict(pool.starmap(lint_subdir, [(args, *tup) for tup in targets]))
     if args.out:
         logger.info("writing result to file %s", args.out)
         with open(args.out, 'w') as fout:
@@ -70,6 +79,7 @@ def main():
     p.add_argument('--dry-run', action='store_true', help="don't lint, just log")
     p.add_argument('--out', default='vendorlint.json', help="store json result to file")
     p.add_argument('--linter', default="golangci-lint", help="path to linter")
+    p.add_argument('--parallel', '-p', type=int, help="parallelism. by default use os.cpu_count")
     args = p.parse_args()
     logging.basicConfig(level=logging.INFO)
 
