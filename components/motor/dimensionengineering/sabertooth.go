@@ -47,6 +47,7 @@ type Motor struct {
 	resource.Named
 	resource.AlwaysRebuild
 
+	logger golog.Logger
 	// A reference to the actual controller that needs to be commanded for the motor to run
 	c *controller
 	// which channel the motor is connected to on the controller
@@ -66,7 +67,7 @@ type Motor struct {
 	maxRPM float64
 
 	// A manager to ensure only a single operation is happening at any given time since commands could overlap on the serial port
-	opMgr operation.SingleOperationManager
+	opMgr *operation.SingleOperationManager
 }
 
 // Config adds DimensionEngineering-specific config options.
@@ -244,6 +245,8 @@ func NewMotor(ctx context.Context, c *Config, name resource.Name, logger golog.L
 		minPowerPct: c.MinPowerPct,
 		maxPowerPct: c.MaxPowerPct,
 		maxRPM:      c.MaxRPM,
+		opMgr:       operation.NewSingleOperationManager(),
+		logger:      logger,
 	}
 
 	if err := m.configure(c); err != nil {

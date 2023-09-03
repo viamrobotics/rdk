@@ -57,15 +57,18 @@ func init() {
 				if err != nil {
 					return nil, err
 				}
-				return NewSensor(ctx, deps, conf.ResourceName(), newConf)
+				return NewSensor(ctx, deps, conf.ResourceName(), newConf, logger)
 			},
 		})
 }
 
 // NewSensor creates and configures a new ultrasonic sensor.
-func NewSensor(ctx context.Context, deps resource.Dependencies, name resource.Name, config *Config) (sensor.Sensor, error) {
+func NewSensor(ctx context.Context, deps resource.Dependencies,
+	name resource.Name, config *Config, logger golog.Logger,
+) (sensor.Sensor, error) {
 	s := &Sensor{
 		Named:  name.AsNamed(),
+		logger: logger,
 		config: config,
 	}
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
@@ -115,6 +118,7 @@ type Sensor struct {
 	timeoutMs  uint
 	cancelCtx  context.Context
 	cancelFunc func()
+	logger     golog.Logger
 }
 
 func (s *Sensor) namedError(err error) error {

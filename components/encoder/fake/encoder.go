@@ -24,7 +24,7 @@ func init() {
 			conf resource.Config,
 			logger golog.Logger,
 		) (encoder.Encoder, error) {
-			return NewEncoder(ctx, conf)
+			return NewEncoder(ctx, conf, logger)
 		},
 	})
 }
@@ -33,11 +33,13 @@ func init() {
 func NewEncoder(
 	ctx context.Context,
 	cfg resource.Config,
+	logger golog.Logger,
 ) (encoder.Encoder, error) {
 	e := &fakeEncoder{
 		Named:        cfg.ResourceName().AsNamed(),
 		position:     0,
 		positionType: encoder.PositionTypeTicks,
+		logger:       logger,
 	}
 	if err := e.Reconfigure(ctx, nil, cfg); err != nil {
 		return nil, err
@@ -82,6 +84,7 @@ type fakeEncoder struct {
 
 	positionType            encoder.PositionType
 	activeBackgroundWorkers sync.WaitGroup
+	logger                  golog.Logger
 
 	mu         sync.RWMutex
 	position   int64

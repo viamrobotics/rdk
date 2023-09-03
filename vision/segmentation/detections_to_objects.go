@@ -89,7 +89,7 @@ func DetectionSegmenter(detector objectdetection.Detector, meanK int, sigma, con
 			if pc.Size() == 0 {
 				continue
 			}
-			obj, err := vision.NewObjectWithLabel(pc, d.Label())
+			obj, err := vision.NewObjectWithLabel(pc, d.Label(), nil)
 			if err != nil {
 				return nil, err
 			}

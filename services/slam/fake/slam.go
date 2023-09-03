@@ -64,34 +64,34 @@ func (slamSvc *SLAM) getCount() int {
 	return slamSvc.dataCount
 }
 
-// GetPosition returns a Pose and a component reference string of the robot's current location according to SLAM.
-func (slamSvc *SLAM) GetPosition(ctx context.Context) (spatialmath.Pose, string, error) {
-	ctx, span := trace.StartSpan(ctx, "slam::fake::GetPosition")
+// Position returns a Pose and a component reference string of the robot's current location according to SLAM.
+func (slamSvc *SLAM) Position(ctx context.Context) (spatialmath.Pose, string, error) {
+	ctx, span := trace.StartSpan(ctx, "slam::fake::Position")
 	defer span.End()
-	return fakeGetPosition(ctx, datasetDirectory, slamSvc)
+	return fakePosition(ctx, datasetDirectory, slamSvc)
 }
 
-// GetPointCloudMap returns a callback function which will return the next chunk of the current pointcloud
+// PointCloudMap returns a callback function which will return the next chunk of the current pointcloud
 // map.
-func (slamSvc *SLAM) GetPointCloudMap(ctx context.Context) (func() ([]byte, error), error) {
-	ctx, span := trace.StartSpan(ctx, "slam::fake::GetPointCloudMap")
+func (slamSvc *SLAM) PointCloudMap(ctx context.Context) (func() ([]byte, error), error) {
+	ctx, span := trace.StartSpan(ctx, "slam::fake::PointCloudMap")
 	defer span.End()
 	slamSvc.incrementDataCount()
-	return fakeGetPointCloudMap(ctx, datasetDirectory, slamSvc)
+	return fakePointCloudMap(ctx, datasetDirectory, slamSvc)
 }
 
-// GetInternalState returns a callback function which will return the next chunk of the current internal
+// InternalState returns a callback function which will return the next chunk of the current internal
 // state of the slam algo.
-func (slamSvc *SLAM) GetInternalState(ctx context.Context) (func() ([]byte, error), error) {
-	ctx, span := trace.StartSpan(ctx, "slam::fake::GetInternalState")
+func (slamSvc *SLAM) InternalState(ctx context.Context) (func() ([]byte, error), error) {
+	ctx, span := trace.StartSpan(ctx, "slam::fake::InternalState")
 	defer span.End()
-	return fakeGetInternalState(ctx, datasetDirectory, slamSvc)
+	return fakeInternalState(ctx, datasetDirectory, slamSvc)
 }
 
-// GetLatestMapInfo returns information used to determine whether the slam mode is localizing.
+// LatestMapInfo returns information used to determine whether the slam mode is localizing.
 // Fake Slam is always in mapping mode, so it always returns a new timestamp.
-func (slamSvc *SLAM) GetLatestMapInfo(ctx context.Context) (time.Time, error) {
-	_, span := trace.StartSpan(ctx, "slam::fake::GetLatestMapInfo")
+func (slamSvc *SLAM) LatestMapInfo(ctx context.Context) (time.Time, error) {
+	_, span := trace.StartSpan(ctx, "slam::fake::LatestMapInfo")
 	defer span.End()
 	slamSvc.mapTimestamp = time.Now().UTC()
 	return slamSvc.mapTimestamp, nil
@@ -103,9 +103,9 @@ func (slamSvc *SLAM) incrementDataCount() {
 	slamSvc.dataCount = ((slamSvc.dataCount + 1) % maxDataCount)
 }
 
-// GetLimits returns the bounds of the slam map as a list of referenceframe.Limits.
-func (slamSvc *SLAM) GetLimits(ctx context.Context) ([]referenceframe.Limit, error) {
-	data, err := slam.GetPointCloudMapFull(ctx, slamSvc)
+// Limits returns the bounds of the slam map as a list of referenceframe.Limits.
+func (slamSvc *SLAM) Limits(ctx context.Context) ([]referenceframe.Limit, error) {
+	data, err := slam.PointCloudMapFull(ctx, slamSvc)
 	if err != nil {
 		return nil, err
 	}

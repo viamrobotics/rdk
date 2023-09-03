@@ -46,13 +46,13 @@ func init() {
 			conf resource.Config,
 			logger golog.Logger,
 		) (gripper.Gripper, error) {
-			return newGripper(deps, conf)
+			return newGripper(deps, conf, logger)
 		},
 	})
 }
 
 // newGripper instantiates a new Gripper of dofGripper type.
-func newGripper(deps resource.Dependencies, conf resource.Config) (gripper.Gripper, error) {
+func newGripper(deps resource.Dependencies, conf resource.Config, logger golog.Logger) (gripper.Gripper, error) {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return nil, err
@@ -73,7 +73,9 @@ func newGripper(deps resource.Dependencies, conf resource.Config) (gripper.Gripp
 	g := &dofGripper{
 		Named:      conf.ResourceName().AsNamed(),
 		dofArm:     dofArm,
+		opMgr:      operation.NewSingleOperationManager(),
 		geometries: []spatialmath.Geometry{},
+		logger:     logger,
 	}
 
 	if conf.Frame != nil && conf.Frame.Geometry != nil {
@@ -92,8 +94,9 @@ type dofGripper struct {
 	resource.AlwaysRebuild
 	resource.TriviallyCloseable
 	dofArm     *yahboom.Dofbot
-	opMgr      operation.SingleOperationManager
+	opMgr      *operation.SingleOperationManager
 	geometries []spatialmath.Geometry
+	logger     golog.Logger
 }
 
 func (g *dofGripper) Open(ctx context.Context, extra map[string]interface{}) error {

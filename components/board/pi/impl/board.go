@@ -224,7 +224,7 @@ func (pi *piPigpio) reconfigureAnalogs(ctx context.Context, cfg *genericlinux.Co
 			return errors.Errorf("bad analog pin (%s)", ac.Pin)
 		}
 
-		bus, have := pi.SPIByName(ac.SPIBus)
+		bus, have := pi.spis[ac.SPIBus]
 		if !have {
 			return errors.Errorf("can't find SPI bus (%s) requested by AnalogReader", ac.SPIBus)
 		}

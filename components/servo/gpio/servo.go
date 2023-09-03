@@ -103,7 +103,7 @@ type servoGPIO struct {
 	minDeg    float64
 	maxDeg    float64
 	logger    golog.Logger
-	opMgr     operation.SingleOperationManager
+	opMgr     *operation.SingleOperationManager
 	frequency uint
 	minUs     uint
 	maxUs     uint
@@ -188,6 +188,7 @@ func newGPIOServo(ctx context.Context, deps resource.Dependencies, conf resource
 		frequency: frequency,
 		pin:       pin,
 		logger:    logger,
+		opMgr:     operation.NewSingleOperationManager(),
 		minUs:     minUs,
 		maxUs:     maxUs,
 		currPct:   0,

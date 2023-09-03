@@ -9,6 +9,7 @@ import (
 	"math"
 	"sort"
 	"strconv"
+	"sync"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
@@ -17,6 +18,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/viamrobotics/gostream"
 	"go.opencensus.io/trace"
+	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/pointcloud"
@@ -34,10 +36,11 @@ var model = resource.DefaultModelFamily.WithModel("obstacles_depth")
 
 // ObsDepthConfig specifies the parameters to be used for the obstacle depth service.
 type ObsDepthConfig struct {
-	Hmin       float64 `json:"h_min_m"`
-	Hmax       float64 `json:"h_max_m"`
-	ThetaMax   float64 `json:"theta_max_deg"`
-	ReturnPCDs bool    `json:"return_pcds"`
+	Hmin           float64 `json:"h_min_m"`
+	Hmax           float64 `json:"h_max_m"`
+	ThetaMax       float64 `json:"theta_max_deg"`
+	ReturnPCDs     bool    `json:"return_pcds"`
+	WithGeometries *bool   `json:"with_geometries"`
 }
 
 // obsDepth is the underlying struct actually used by the service.
@@ -49,6 +52,7 @@ type obsDepth struct {
 	sinTheta    float64
 	intrinsics  *transform.PinholeCameraIntrinsics
 	returnPCDs  bool
+	withGeoms   bool
 	k           int
 	depthStream gostream.VideoStream
 }
@@ -82,7 +86,7 @@ func init() {
 // Validate ensures all parts of the config are valid.
 func (config *ObsDepthConfig) Validate(path string) ([]string, error) {
 	deps := []string{}
-	if config.Hmin >= config.Hmax {
+	if config.Hmin >= config.Hmax && !(config.Hmin == 0 && config.Hmax == 0) {
 		return nil, errors.New("Hmin should be less than Hmax")
 	}
 	if config.Hmin < 0 {
@@ -105,7 +109,7 @@ func registerObstaclesDepth(
 	r robot.Robot,
 	logger golog.Logger,
 ) (svision.Service, error) {
-	_, span := trace.StartSpan(ctx, "service::vision::registerObstacleDistanceDetector")
+	_, span := trace.StartSpan(ctx, "service::vision::registerObstacleDepth")
 	defer span.End()
 	if conf == nil {
 		return nil, errors.New("config for obstacles_depth cannot be nil")
@@ -118,11 +122,15 @@ func registerObstaclesDepth(
 	if conf.ThetaMax == 0 {
 		conf.ThetaMax = defaultThetamax
 	}
+	if conf.WithGeometries == nil {
+		wg := true
+		conf.WithGeometries = &wg
+	}
 
 	sinTheta := math.Sin(conf.ThetaMax * math.Pi / 180) // sin(radians(theta))
 	myObsDep := obsDepth{
 		hMin: 1000 * conf.Hmin, hMax: 1000 * conf.Hmax, sinTheta: sinTheta,
-		returnPCDs: conf.ReturnPCDs, k: defaultK,
+		returnPCDs: conf.ReturnPCDs, k: defaultK, withGeoms: *conf.WithGeometries,
 	}
 
 	segmenter := myObsDep.buildObsDepth(logger) // does the thing
@@ -142,7 +150,10 @@ func (o *obsDepth) buildObsDepth(logger golog.Logger) func(ctx context.Context, 
 			return o.obsDepthNoIntrinsics(ctx, src)
 		}
 		o.intrinsics = props.IntrinsicParams
-		return o.obsDepthWithIntrinsics(ctx, src)
+		if o.withGeoms {
+			return o.obsDepthWithIntrinsics(ctx, src)
+		}
+		return o.obsDepthNoIntrinsics(ctx, src)
 	}
 }
 
@@ -170,7 +181,6 @@ func (o *obsDepth) obsDepthNoIntrinsics(ctx context.Context, src camera.VideoSou
 	pt := spatialmath.NewPoint(r3.Vector{X: 0, Y: 0, Z: float64(depData[med])}, "")
 	toReturn := make([]*vision.Object, 1)
 	toReturn[0] = &vision.Object{Geometry: pt}
-
 	return toReturn, nil
 }
 
@@ -201,33 +211,45 @@ func (o *obsDepth) obsDepthWithIntrinsics(ctx context.Context, src camera.VideoS
 	w, h := dm.Width(), dm.Height()
 	o.dm = dm
 
-	obstaclePoints := make([]image.Point, 0, w*h/sampleN)
+	var wg sync.WaitGroup
+	obstaclePointChan := make(chan image.Point)
+
 	for i := 0; i < w; i += sampleN {
-		for j := 0; j < h; j++ {
-			candidate := image.Pt(i, j)
-		obs: // for every sub-sampled point, figure out if it is an obstacle
-			for l := 0; l < w; l += sampleN { // continue with the sub-sampling
-				for m := 0; m < h; m++ {
-					compareTo := image.Pt(l, m)
-					if candidate == compareTo {
-						continue
-					}
-					if o.isCompatible(candidate, compareTo) {
-						obstaclePoints = append(obstaclePoints, candidate)
-						break obs
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			for j := 0; j < h; j++ {
+				candidate := image.Pt(i, j)
+			obs: // for every sub-sampled point, figure out if it is an obstacle
+				for l := 0; l < w; l += sampleN { // continue with the sub-sampling
+					for m := 0; m < h; m++ {
+						compareTo := image.Pt(l, m)
+						if candidate == compareTo {
+							continue
+						}
+						if o.isCompatible(candidate, compareTo) {
+							obstaclePointChan <- candidate
+							break obs
+						}
 					}
 				}
 			}
-		}
+		}(i)
+	}
+
+	goutils.ManagedGo(func() {
+		wg.Wait()
+		close(obstaclePointChan)
+	}, nil)
+
+	obstaclePoints := make([]image.Point, 0, w*h/sampleN)
+	for op := range obstaclePointChan {
+		obstaclePoints = append(obstaclePoints, op)
 	}
 	o.obstaclePts = obstaclePoints
 
-	// Cluster on the 2D depth points and then project the 2D clusters into 3D boxes
-	outClusters, err := o.performKMeans(o.k)
-	if err != nil {
-		return nil, err
-	}
-	boxes, err := o.clustersToBoxes(outClusters)
+	// Cluster the points in 3D
+	boxes, outClusters, err := o.performKMeans3D(o.k)
 	if err != nil {
 		return nil, err
 	}
@@ -237,7 +259,7 @@ func (o *obsDepth) obsDepthWithIntrinsics(ctx context.Context, src camera.VideoS
 	toReturn := make([]*vision.Object, n)
 	for i := 0; i < n; i++ { // for each cluster/box make an object
 		if o.returnPCDs {
-			pcdToReturn := pointcloud.New()
+			pcdToReturn := pointcloud.NewWithPrealloc(len(outClusters[i].Observations))
 			basicData := pointcloud.NewBasicData()
 			for _, pt := range outClusters[i].Observations {
 				if len(pt.Coordinates()) >= 3 {
@@ -272,8 +294,18 @@ func (o *obsDepth) isCompatible(p1, p2 image.Point) bool {
 	return true
 }
 
-// clustersToBoxes will turn the clusters we get from kmeans into boxes.
-func (o *obsDepth) clustersToBoxes(clusters clusters.Clusters) ([]spatialmath.Geometry, error) {
+// performKMeans3D will do k-means clustering on projected obstacle points.
+func (o *obsDepth) performKMeans3D(k int) ([]spatialmath.Geometry, clusters.Clusters, error) {
+	var observations3D clusters.Observations
+	for _, pt := range o.obstaclePts {
+		outX, outY, outZ := o.intrinsics.PixelToPoint(float64(pt.X), float64(pt.Y), float64(o.dm.GetDepth(pt.X, pt.Y)))
+		observations3D = append(observations3D, clusters.Coordinates{outX, outY, outZ})
+	}
+	km := kmeans.New()
+	clusters, err := km.Partition(observations3D, k)
+	if err != nil {
+		return nil, nil, err
+	}
 	boxes := make([]spatialmath.Geometry, 0, len(clusters))
 
 	for i, c := range clusters {
@@ -281,8 +313,7 @@ func (o *obsDepth) clustersToBoxes(clusters clusters.Clusters) ([]spatialmath.Ge
 		xmin, ymin, zmin := math.Inf(1), math.Inf(1), math.Inf(1)
 
 		for _, pt := range c.Observations {
-			u, v := pt.Coordinates().Coordinates()[0], pt.Coordinates().Coordinates()[1]
-			x, y, z := o.intrinsics.PixelToPoint(u, v, float64(o.dm.GetDepth(int(u), int(v))))
+			x, y, z := pt.Coordinates().Coordinates()[0], pt.Coordinates().Coordinates()[1], pt.Coordinates().Coordinates()[2]
 
 			if x < xmin {
 				xmin = x
@@ -306,23 +337,13 @@ func (o *obsDepth) clustersToBoxes(clusters clusters.Clusters) ([]spatialmath.Ge
 		// Make a box from those bounds and add it in
 		xdiff, ydiff, zdiff := xmax-xmin, ymax-ymin, zmax-zmin
 		xc, yc, zc := (xmin+xmax)/2, (ymin+ymax)/2, (zmin+zmax)/2
-		pose := spatialmath.NewPose(r3.Vector{xc, yc, zc}, spatialmath.NewZeroOrientation())
+		pose := spatialmath.NewPoseFromPoint(r3.Vector{xc, yc, zc})
 
 		box, err := spatialmath.NewBox(pose, r3.Vector{xdiff, ydiff, zdiff}, strconv.Itoa(i))
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		boxes = append(boxes, box)
 	}
-	return boxes, nil
-}
-
-// performKMeans will do k-means clustering on all the 2D obstacle points.
-func (o *obsDepth) performKMeans(k int) (clusters.Clusters, error) {
-	var d clusters.Observations
-	for _, pt := range o.obstaclePts {
-		d = append(d, clusters.Coordinates{float64(pt.X), float64(pt.Y)})
-	}
-	km := kmeans.New()
-	return km.Partition(d, k)
+	return boxes, clusters, err
 }

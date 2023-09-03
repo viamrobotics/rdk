@@ -52,6 +52,7 @@ type localRobot struct {
 	cloudConnSvc               cloud.ConnectionService
 	logger                     golog.Logger
 	activeBackgroundWorkers    sync.WaitGroup
+	reconfigureWorkers         sync.WaitGroup
 	cancelBackgroundWorkers    func()
 	closeContext               context.Context
 	triggerConfig              chan struct{}
@@ -114,9 +115,6 @@ func (r *localRobot) PackageManager() packages.Manager {
 
 // Close attempts to cleanly close down all constituent parts of the robot.
 func (r *localRobot) Close(ctx context.Context) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	// we will stop and close web ourselves since modules need it to be
 	// removed properly and in the right order, so grab it before its removed
 	// from the graph/closed automatically.
@@ -681,9 +679,11 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 	processInternalResources := func(resName resource.Name, res resource.Resource, resChan chan struct{}) {
 		ctxWithTimeout, timeoutCancel := context.WithTimeout(ctx, timeout)
 		defer timeoutCancel()
+		r.reconfigureWorkers.Add(1)
 		goutils.PanicCapturingGo(func() {
 			defer func() {
 				resChan <- struct{}{}
+				r.reconfigureWorkers.Done()
 			}()
 			switch resName {
 			case web.InternalServiceName:
@@ -748,9 +748,11 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 		ctxWithTimeout, timeoutCancel := context.WithTimeout(ctx, timeout)
 		defer timeoutCancel()
 		resChan := make(chan struct{}, 1)
+		r.reconfigureWorkers.Add(1)
 		goutils.PanicCapturingGo(func() {
 			defer func() {
 				resChan <- struct{}{}
+				r.reconfigureWorkers.Done()
 			}()
 			updateResourceWeakDependents(ctxWithTimeout, conf)
 		})

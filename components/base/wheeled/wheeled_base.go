@@ -62,7 +62,6 @@ type Config struct {
 	SpinSlipFactor       float64  `json:"spin_slip_factor,omitempty"`
 	Left                 []string `json:"left"`
 	Right                []string `json:"right"`
-	MovementSensor       []string `json:"movement_sensor,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -93,10 +92,6 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 	deps = append(deps, cfg.Left...)
 	deps = append(deps, cfg.Right...)
 
-	if len(cfg.MovementSensor) != 0 {
-		deps = append(deps, cfg.MovementSensor...)
-	}
-
 	return deps, nil
 }
 
@@ -115,7 +110,7 @@ type wheeledBase struct {
 	right     []motor.Motor
 	allMotors []motor.Motor
 
-	opMgr  operation.SingleOperationManager
+	opMgr  *operation.SingleOperationManager
 	logger golog.Logger
 
 	mu   sync.Mutex
@@ -139,10 +134,10 @@ func (wb *wheeledBase) Reconfigure(ctx context.Context, deps resource.Dependenci
 	}
 
 	if newConf.SpinSlipFactor == 0 {
-		newConf.SpinSlipFactor = 1
+		wb.spinSlipFactor = 1
+	} else {
+		wb.spinSlipFactor = newConf.SpinSlipFactor
 	}
-
-	wb.spinSlipFactor = newConf.SpinSlipFactor
 
 	updateMotors := func(curr []motor.Motor, fromConfig []string, whichMotor string) ([]motor.Motor, error) {
 		newMotors := make([]motor.Motor, 0)
@@ -224,20 +219,13 @@ func createWheeledBase(
 		widthMm:              newConf.WidthMM,
 		wheelCircumferenceMm: newConf.WheelCircumferenceMM,
 		spinSlipFactor:       newConf.SpinSlipFactor,
+		opMgr:                operation.NewSingleOperationManager(),
 		logger:               logger,
 		name:                 conf.Name,
 	}
 
 	if err := wb.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
-	}
-
-	if len(newConf.MovementSensor) != 0 {
-		sb := sensorBase{wBase: &wb, logger: logger, Named: conf.ResourceName().AsNamed()}
-		if err := sb.Reconfigure(ctx, deps, conf); err != nil {
-			return nil, err
-		}
-		return &sb, nil
 	}
 
 	return &wb, nil
@@ -285,22 +273,30 @@ func (wb *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSe
 	return wb.runAll(ctx, rpm, rotations, rpm, rotations)
 }
 
-// runAll executes motor commands in parallel for left and right motors,
+// runAll executes `motor.GoFor` commands in parallel for left and right motors,
 // with specified speeds and rotations and stops the base if an error occurs.
+// All callers must register an operation via `wb.opMgr.New` to ensure the left and right motors
+// receive consistent instructions.
 func (wb *wheeledBase) runAll(ctx context.Context, leftRPM, leftRotations, rightRPM, rightRotations float64) error {
-	fs := []rdkutils.SimpleFunc{}
+	goForFuncs := func() []rdkutils.SimpleFunc {
+		ret := []rdkutils.SimpleFunc{}
 
-	for _, m := range wb.left {
-		motor := m
-		fs = append(fs, func(ctx context.Context) error { return motor.GoFor(ctx, leftRPM, leftRotations, nil) })
-	}
+		// These reads of `wb.left` and `wb.right` can race with `Reconfigure`.
+		wb.mu.Lock()
+		defer wb.mu.Unlock()
+		for _, m := range wb.left {
+			motor := m
+			ret = append(ret, func(ctx context.Context) error { return motor.GoFor(ctx, leftRPM, leftRotations, nil) })
+		}
 
-	for _, m := range wb.right {
-		motor := m
-		fs = append(fs, func(ctx context.Context) error { return motor.GoFor(ctx, rightRPM, rightRotations, nil) })
-	}
+		for _, m := range wb.right {
+			motor := m
+			ret = append(ret, func(ctx context.Context) error { return motor.GoFor(ctx, rightRPM, rightRotations, nil) })
+		}
+		return ret
+	}()
 
-	if _, err := rdkutils.RunInParallel(ctx, fs); err != nil {
+	if _, err := rdkutils.RunInParallel(ctx, goForFuncs); err != nil {
 		return multierr.Combine(err, wb.Stop(ctx, nil))
 	}
 	return nil
@@ -347,16 +343,38 @@ func (wb *wheeledBase) differentialDrive(forward, left float64) (float64, float6
 
 // SetVelocity commands the base to move at the input linear and angular velocities.
 func (wb *wheeledBase) SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
-	wb.opMgr.CancelRunning(ctx)
-
 	wb.logger.Debugf(
 		"received a SetVelocity with linear.X: %.2f, linear.Y: %.2f linear.Z: %.2f(mmPerSec),"+
 			" angular.X: %.2f, angular.Y: %.2f, angular.Z: %.2f",
 		linear.X, linear.Y, linear.Z, angular.X, angular.Y, angular.Z)
 
-	l, r := wb.velocityMath(linear.Y, angular.Z)
+	leftRPM, rightRPM := wb.velocityMath(linear.Y, angular.Z)
+	// Passing zero revolutions to `motor.GoFor` will have the motor run until
+	// interrupted. Moreover, `motor.GoFor` will return immediately when given zero revolutions.
+	const numRevolutions = 0
+	errs := make([]error, 0)
 
-	return wb.runAll(ctx, l, 0, r, 0)
+	wb.mu.Lock()
+	// Because `SetVelocity` does not create a new operation, canceling must be done atomically with
+	// engaging the underlying motors. Otherwise, for example:
+	//
+	// 1) A new `Spin` command can register an operation
+	// 2) but the motor instructions get overwritten by `SetVelocity`
+	//
+	// Resulting in the spin operation being "leaked" and/or the encoders trying to measure when to
+	// finish "spinning" have undefined behavior due to the motors actually running at a
+	// speed/direction that was not intended.
+	wb.opMgr.CancelRunning(ctx)
+	defer wb.mu.Unlock()
+	for _, m := range wb.left {
+		errs = append(errs, m.GoFor(ctx, leftRPM, numRevolutions, nil))
+	}
+
+	for _, m := range wb.right {
+		errs = append(errs, m.GoFor(ctx, rightRPM, numRevolutions, nil))
+	}
+
+	return multierr.Combine(errs...)
 }
 
 // SetPower commands the base motors to run at powers corresponding to input linear and angular powers.
@@ -371,15 +389,23 @@ func (wb *wheeledBase) SetPower(ctx context.Context, linear, angular r3.Vector, 
 	lPower, rPower := wb.differentialDrive(linear.Y, angular.Z)
 
 	// Send motor commands
-	var err error
-	for _, m := range wb.left {
-		err = multierr.Combine(err, m.SetPower(ctx, lPower, extra))
-	}
+	err := func() error {
+		var err error
 
-	for _, m := range wb.right {
-		err = multierr.Combine(err, m.SetPower(ctx, rPower, extra))
-	}
+		// `wheeledBase.SetPower` does not create a new operation via the `opMgr`. Set the
+		// underlying motor powers atomically.
+		wb.mu.Lock()
+		defer wb.mu.Unlock()
+		for _, m := range wb.left {
+			err = multierr.Combine(err, m.SetPower(ctx, lPower, extra))
+		}
 
+		for _, m := range wb.right {
+			err = multierr.Combine(err, m.SetPower(ctx, rPower, extra))
+		}
+
+		return err
+	}()
 	if err != nil {
 		return multierr.Combine(err, wb.Stop(ctx, nil))
 	}
@@ -458,8 +484,9 @@ func (wb *wheeledBase) Close(ctx context.Context) error {
 
 func (wb *wheeledBase) Properties(ctx context.Context, extra map[string]interface{}) (base.Properties, error) {
 	return base.Properties{
-		TurningRadiusMeters: 0.0,
-		WidthMeters:         float64(wb.widthMm) * 0.001, // convert to meters from mm
+		TurningRadiusMeters:      0.0,
+		WidthMeters:              float64(wb.widthMm) * 0.001,              // convert to meters from mm
+		WheelCircumferenceMeters: float64(wb.wheelCircumferenceMm) * 0.001, // convert to meters from mm
 	}, nil
 }
 

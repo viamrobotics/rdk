@@ -5,6 +5,7 @@ import (
 	"context"
 	"math/rand"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -12,6 +13,7 @@ import (
 	pb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/motionplan/ik"
 	frame "go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -31,22 +33,84 @@ type motionPlanner interface {
 	checkInputs([]frame.Input) bool
 	getSolutions(context.Context, []frame.Input) ([]node, error)
 	opt() *plannerOptions
+	sample(node, int) (node, error)
 }
 
 type plannerConstructor func(frame.Frame, *rand.Rand, golog.Logger, *plannerOptions) (motionPlanner, error)
 
-// PlanMotion plans a motion to destination for a given frame. It takes a given frame system, wraps it with a SolvableFS, and solves.
-func PlanMotion(ctx context.Context,
-	logger golog.Logger,
-	dst *frame.PoseInFrame,
-	f frame.Frame,
-	seedMap map[string][]frame.Input,
-	fs frame.FrameSystem,
-	worldState *frame.WorldState,
-	constraintSpec *pb.Constraints,
-	planningOpts map[string]interface{},
-) ([]map[string][]frame.Input, error) {
-	return motionPlanInternal(ctx, logger, dst, f, seedMap, fs, worldState, constraintSpec, planningOpts)
+// PlanRequest is a struct to store all the data necessary to make a call to PlanMotion.
+type PlanRequest struct {
+	Logger             golog.Logger
+	Goal               *frame.PoseInFrame
+	Frame              frame.Frame
+	FrameSystem        frame.FrameSystem
+	StartConfiguration map[string][]frame.Input
+	WorldState         *frame.WorldState
+	ConstraintSpecs    *pb.Constraints
+	Options            map[string]interface{}
+}
+
+// PlanMotion plans a motion from a provided plan request.
+func PlanMotion(ctx context.Context, request *PlanRequest) (Plan, error) {
+	if request.Goal == nil {
+		return nil, errors.New("no destination passed to Motion")
+	}
+
+	// Create a frame to solve for, and an IK solver with that frame.
+	sf, err := newSolverFrame(request.FrameSystem, request.Frame.Name(), request.Goal.Parent(), request.StartConfiguration)
+	if err != nil {
+		return nil, err
+	}
+	if len(sf.DoF()) == 0 {
+		return nil, errors.New("solver frame has no degrees of freedom, cannot perform inverse kinematics")
+	}
+	seed, err := sf.mapToSlice(request.StartConfiguration)
+	if err != nil {
+		return nil, err
+	}
+	startPose, err := sf.Transform(seed)
+	if err != nil {
+		return nil, err
+	}
+
+	request.Logger.Infof(
+		"planning motion for frame %s\nGoal: %v\nStarting seed map %v\n, startPose %v\n, worldstate: %v\n",
+		request.Frame.Name(),
+		frame.PoseInFrameToProtobuf(request.Goal),
+		request.StartConfiguration,
+		spatialmath.PoseToProtobuf(startPose),
+		request.WorldState.String(),
+	)
+	request.Logger.Debugf("constraint specs for this step: %v", request.ConstraintSpecs)
+	request.Logger.Debugf("motion config for this step: %v", request.Options)
+
+	rseed := defaultRandomSeed
+	if seed, ok := request.Options["rseed"].(int); ok {
+		rseed = seed
+	}
+	sfPlanner, err := newPlanManager(sf, request.FrameSystem, request.Logger, rseed)
+	if err != nil {
+		return nil, err
+	}
+
+	resultSlices, err := sfPlanner.PlanSingleWaypoint(
+		ctx,
+		request.StartConfiguration,
+		request.Goal.Pose(),
+		request.WorldState,
+		request.ConstraintSpecs,
+		request.Options,
+	)
+	if err != nil {
+		return nil, err
+	}
+	plan := Plan{}
+	for _, resultSlice := range resultSlices {
+		stepMap := sf.sliceToMap(resultSlice)
+		plan = append(plan, stepMap)
+	}
+	request.Logger.Debugf("final plan steps: %s", plan.String())
+	return plan, nil
 }
 
 // PlanFrameMotion plans a motion to destination for a given frame with no frame system. It will create a new FS just for the plan.
@@ -64,86 +128,23 @@ func PlanFrameMotion(ctx context.Context,
 	if err := fs.AddFrame(f, fs.World()); err != nil {
 		return nil, err
 	}
-	destination := frame.NewPoseInFrame(frame.World, dst)
-	seedMap := map[string][]frame.Input{f.Name(): seed}
-	solutionMap, err := motionPlanInternal(ctx, logger, destination, f, seedMap, fs, nil, constraintSpec, planningOpts)
+	plan, err := PlanMotion(ctx, &PlanRequest{
+		Logger:             logger,
+		Goal:               frame.NewPoseInFrame(frame.World, dst),
+		Frame:              f,
+		StartConfiguration: map[string][]frame.Input{f.Name(): seed},
+		FrameSystem:        fs,
+		ConstraintSpecs:    constraintSpec,
+		Options:            planningOpts,
+	})
 	if err != nil {
 		return nil, err
 	}
-	return FrameStepsFromRobotPath(f.Name(), solutionMap)
-}
-
-// motionPlanInternal is the internal private function that all motion planning access calls. This will construct the plan manager for each
-// waypoint, and return at the end.
-func motionPlanInternal(ctx context.Context,
-	logger golog.Logger,
-	goal *frame.PoseInFrame,
-	f frame.Frame,
-	seedMap map[string][]frame.Input,
-	fs frame.FrameSystem,
-	worldState *frame.WorldState,
-	constraintSpec *pb.Constraints,
-	motionConfig map[string]interface{},
-) ([]map[string][]frame.Input, error) {
-	if goal == nil {
-		return nil, errors.New("no destination passed to Motion")
-	}
-
-	steps := []map[string][]frame.Input{}
-
-	// Create a frame to solve for, and an IK solver with that frame.
-	sf, err := newSolverFrame(fs, f.Name(), goal.Parent(), seedMap)
-	if err != nil {
-		return nil, err
-	}
-	if len(sf.DoF()) == 0 {
-		return nil, errors.New("solver frame has no degrees of freedom, cannot perform inverse kinematics")
-	}
-	seed, err := sf.mapToSlice(seedMap)
-	if err != nil {
-		return nil, err
-	}
-	startPose, err := sf.Transform(seed)
-	if err != nil {
-		return nil, err
-	}
-
-	logger.Infof(
-		"planning motion for frame %s\nGoal: %v\nStarting seed map %v\n, startPose %v\n, worldstate: %v\n",
-		f.Name(),
-		frame.PoseInFrameToProtobuf(goal),
-		seedMap,
-		spatialmath.PoseToProtobuf(startPose),
-		worldState.String(),
-	)
-	logger.Debugf("constraint specs for this step: %v", constraintSpec)
-	logger.Debugf("motion config for this step: %v", motionConfig)
-
-	rseed := defaultRandomSeed
-	if seed, ok := motionConfig["rseed"].(int); ok {
-		rseed = seed
-	}
-
-	sfPlanner, err := newPlanManager(sf, fs, logger, rseed)
-	if err != nil {
-		return nil, err
-	}
-	resultSlices, err := sfPlanner.PlanSingleWaypoint(ctx, seedMap, goal.Pose(), worldState, constraintSpec, motionConfig)
-	if err != nil {
-		return nil, err
-	}
-	for _, resultSlice := range resultSlices {
-		stepMap := sf.sliceToMap(resultSlice)
-		steps = append(steps, stepMap)
-	}
-
-	logger.Debugf("final plan steps: %v", steps)
-
-	return steps, nil
+	return plan.GetFrameSteps(f.Name())
 }
 
 type planner struct {
-	solver   InverseKinematics
+	solver   ik.InverseKinematics
 	frame    frame.Frame
 	logger   golog.Logger
 	randseed *rand.Rand
@@ -152,12 +153,12 @@ type planner struct {
 }
 
 func newPlanner(frame frame.Frame, seed *rand.Rand, logger golog.Logger, opt *plannerOptions) (*planner, error) {
-	ik, err := CreateCombinedIKSolver(frame, logger, opt.NumThreads, opt.GoalThreshold)
+	solver, err := ik.CreateCombinedIKSolver(frame, logger, opt.NumThreads, opt.GoalThreshold)
 	if err != nil {
 		return nil, err
 	}
 	mp := &planner{
-		solver:   ik,
+		solver:   solver,
 		frame:    frame,
 		logger:   logger,
 		randseed: seed,
@@ -167,7 +168,7 @@ func newPlanner(frame frame.Frame, seed *rand.Rand, logger golog.Logger, opt *pl
 }
 
 func (mp *planner) checkInputs(inputs []frame.Input) bool {
-	ok, _ := mp.planOpts.CheckStateConstraints(&State{
+	ok, _ := mp.planOpts.CheckStateConstraints(&ik.State{
 		Configuration: inputs,
 		Frame:         mp.frame,
 	})
@@ -176,7 +177,7 @@ func (mp *planner) checkInputs(inputs []frame.Input) bool {
 
 func (mp *planner) checkPath(seedInputs, target []frame.Input) bool {
 	ok, _ := mp.planOpts.CheckSegmentAndStateValidity(
-		&Segment{
+		&ik.Segment{
 			StartConfiguration: seedInputs,
 			EndConfiguration:   target,
 			Frame:              mp.frame,
@@ -186,14 +187,18 @@ func (mp *planner) checkPath(seedInputs, target []frame.Input) bool {
 	return ok
 }
 
-func (mp *planner) sample(rSeed node, sampleNum int) ([]frame.Input, error) {
+func (mp *planner) sample(rSeed node, sampleNum int) (node, error) {
 	// If we have done more than 50 iterations, start seeding off completely random positions 2 at a time
 	// The 2 at a time is to ensure random seeds are added onto both the seed and goal maps.
 	if sampleNum >= mp.planOpts.IterBeforeRand && sampleNum%4 >= 2 {
-		return frame.RandomFrameInputs(mp.frame, mp.randseed), nil
+		return newConfigurationNode(frame.RandomFrameInputs(mp.frame, mp.randseed)), nil
 	}
 	// Seeding nearby to valid points results in much faster convergence in less constrained space
-	return frame.RestrictedRandomFrameInputs(mp.frame, mp.randseed, 0.1, rSeed.Q())
+	q, err := frame.RestrictedRandomFrameInputs(mp.frame, mp.randseed, 0.1, rSeed.Q())
+	if err != nil {
+		return nil, err
+	}
+	return newConfigurationNode(q), nil
 }
 
 func (mp *planner) opt() *plannerOptions {
@@ -227,7 +232,6 @@ func (mp *planner) smoothPath(ctx context.Context, path []node) []node {
 		// Intn will return an int in the half-open interval half-open interval [0,n)
 		firstEdge := mp.randseed.Intn(len(path) - 2)
 		secondEdge := firstEdge + 1 + mp.randseed.Intn((len(path)-2)-firstEdge)
-		mp.logger.Debugf("checking shortcut between nodes %d and %d", firstEdge, secondEdge+1)
 
 		wayPoint1 := frame.InterpolateInputs(path[firstEdge].Q(), path[firstEdge+1].Q(), waypoints[mp.randseed.Intn(3)])
 		wayPoint2 := frame.InterpolateInputs(path[secondEdge].Q(), path[secondEdge+1].Q(), waypoints[mp.randseed.Intn(3)])
@@ -265,11 +269,15 @@ func (mp *planner) getSolutions(ctx context.Context, seed []frame.Input) ([]node
 	ctxWithCancel, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	solutionGen := make(chan []frame.Input)
+	solutionGen := make(chan *ik.Solution, mp.planOpts.NumThreads*2)
 	ikErr := make(chan error, 1)
+	var activeSolvers sync.WaitGroup
+	defer activeSolvers.Wait()
+	activeSolvers.Add(1)
 	// Spawn the IK solver to generate solutions until done
 	utils.PanicCapturingGo(func() {
 		defer close(ikErr)
+		defer activeSolvers.Done()
 		ikErr <- mp.solver.Solve(ctxWithCancel, solutionGen, seed, mp.planOpts.goalMetric, mp.randseed.Int())
 	})
 
@@ -289,14 +297,15 @@ IK:
 		}
 
 		select {
-		case step := <-solutionGen:
+		case stepSolution := <-solutionGen:
+			step := stepSolution.Configuration
 			// Ensure the end state is a valid one
-			statePass, failName := mp.planOpts.CheckStateConstraints(&State{
+			statePass, failName := mp.planOpts.CheckStateConstraints(&ik.State{
 				Configuration: step,
 				Frame:         mp.frame,
 			})
 			if statePass {
-				stepArc := &Segment{
+				stepArc := &ik.Segment{
 					StartConfiguration: seed,
 					StartPosition:      seedPos,
 					EndConfiguration:   step,
@@ -342,6 +351,13 @@ IK:
 
 	// Cancel any ongoing processing within the IK solvers if we're done receiving solutions
 	cancel()
+	for done := false; !done; {
+		select {
+		case <-solutionGen:
+		default:
+			done = true
+		}
+	}
 
 	if len(solutions) == 0 {
 		// We have failed to produce a usable IK solution. Let the user know if zero IK solutions were produced, or if non-zero solutions

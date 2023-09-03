@@ -18,6 +18,7 @@ import (
 	"go.viam.com/utils/perf"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/components/camera/videosource/logging"
 	"go.viam.com/rdk/config"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/robot/web"
@@ -33,6 +34,7 @@ type Arguments struct {
 	ConfigFile                 string `flag:"config,usage=robot config file"`
 	CPUProfile                 string `flag:"cpuprofile,usage=write cpu profile to file"`
 	Debug                      bool   `flag:"debug"`
+	Logging                    bool   `flag:"logging,default=true,usage=emit periodic resource status information to Viam's hidden folder"`
 	SharedDir                  string `flag:"shareddir,usage=web resource directory"`
 	Version                    bool   `flag:"version,usage=print version"`
 	WebProfile                 bool   `flag:"webprofile,usage=include profiler in http server"`
@@ -40,6 +42,7 @@ type Arguments struct {
 	RevealSensitiveConfigDiffs bool   `flag:"reveal-sensitive-config-diffs,usage=show config diffs"`
 	UntrustedEnv               bool   `flag:"untrusted-env,usage=disable processes and shell from running in a untrusted environment"`
 	OutputTelemetry            bool   `flag:"output-telemetry,usage=print out telemetry data (metrics and spans)"`
+	DisableMulticastDNS        bool   `flag:"disable-mdns,usage=disable server discovery through multicast DNS"`
 }
 
 type robotServer struct {
@@ -105,6 +108,10 @@ func RunServer(ctx context.Context, args []string, _ golog.Logger) (err error) {
 			return err
 		}
 		defer pprof.StopCPUProfile()
+	}
+
+	if argsParsed.Logging {
+		utils.UncheckedError(logging.GLoggerCamComp.Start(ctx))
 	}
 
 	// Read the config from disk and use it to initialize the remote logger.
@@ -180,6 +187,7 @@ func (s *robotServer) createWebOptions(cfg *config.Config) (weboptions.Options, 
 	options.SharedDir = s.args.SharedDir
 	options.Debug = s.args.Debug || cfg.Debug
 	options.WebRTC = s.args.WebRTC
+	options.DisableMulticastDNS = s.args.DisableMulticastDNS
 	if cfg.Cloud != nil && s.args.AllowInsecureCreds {
 		options.SignalingDialOpts = append(options.SignalingDialOpts, rpc.WithAllowInsecureWithCredentialsDowngrade())
 	}

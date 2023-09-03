@@ -15,7 +15,10 @@ import (
 	v1 "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/protoutils"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/resource"
@@ -27,6 +30,18 @@ var sleepCaptureCutoff = 2 * time.Millisecond
 
 // CaptureFunc allows the creation of simple Capturers with anonymous functions.
 type CaptureFunc func(ctx context.Context, params map[string]*anypb.Any) (interface{}, error)
+
+// FromDMContextKey is used to check whether the context is from data management.
+type FromDMContextKey struct{}
+
+// FromDMString is used to access the 'fromDataManagement' value from a request's Extra struct.
+const FromDMString = "fromDataManagement"
+
+// FromDMExtraMap is a map with 'fromDataManagement' set to true.
+var FromDMExtraMap = map[string]interface{}{FromDMString: true}
+
+// ErrNoCaptureToStore is returned when a modular filter resource filters the capture coming from the base resource.
+var ErrNoCaptureToStore = status.Error(codes.FailedPrecondition, "no capture from filter module")
 
 // Collector collects data to some target.
 type Collector interface {
@@ -186,6 +201,10 @@ func (c *collector) getAndPushNextReading() {
 	reading, err := c.captureFunc(c.cancelCtx, c.params)
 	timeReceived := timestamppb.New(c.clock.Now().UTC())
 	if err != nil {
+		if errors.Is(err, ErrNoCaptureToStore) {
+			c.logger.Debugln("capture filtered out by modular resource")
+			return
+		}
 		c.captureErrors <- errors.Wrap(err, "error while capturing data")
 		return
 	}
@@ -289,4 +308,13 @@ func InvalidInterfaceErr(api resource.API) error {
 // FailedToReadErr is the error describing when a Capturer was unable to get the reading of a method.
 func FailedToReadErr(component, method string, err error) error {
 	return errors.Errorf("failed to get reading of method %s of component %s: %v", method, component, err)
+}
+
+// GetExtraFromContext sets the extra struct with "fromDataManagement": true if the flag is true in the context.
+func GetExtraFromContext(ctx context.Context) (*structpb.Struct, error) {
+	extra := make(map[string]interface{})
+	if ctx.Value(FromDMContextKey{}) == true {
+		extra[FromDMString] = true
+	}
+	return protoutils.StructToStructPb(extra)
 }

@@ -19,6 +19,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 	datapb "go.viam.com/api/app/data/v1"
+	packagepb "go.viam.com/api/app/packages/v1"
 	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -82,6 +83,16 @@ type tokenResponse struct {
 	TokenType    string `json:"token_type"`
 }
 
+type authMethod interface {
+	fmt.Stringer
+	dialOpts() rpc.DialOption
+}
+
+var (
+	_ authMethod = (*token)(nil)  // Verify that *token implements authMethod.
+	_ authMethod = (*apiKey)(nil) // Verify that *apiKey implements authMethod.
+)
+
 // token contains an authorization token and details once logged in.
 type token struct {
 	AccessToken  string    `json:"access_token"`
@@ -95,102 +106,221 @@ type token struct {
 	User userData `json:"user_data"`
 }
 
+// apiKey holds an id/value pair used to authenticate with app.viam.
+type apiKey struct {
+	KeyID     string `json:"key_id"`
+	KeyCrypto string `json:"key_crypto"`
+}
+
 // LoginAction is the corresponding Action for 'login'.
-func LoginAction(c *cli.Context) error {
-	client, err := newAppClient(c)
+func LoginAction(cCtx *cli.Context) error {
+	c, err := newViamClient(cCtx)
 	if err != nil {
 		return err
 	}
+	return c.loginAction(cCtx)
+}
 
+func (c *viamClient) loginAction(cCtx *cli.Context) error {
 	loggedInMessage := func(t *token, alreadyLoggedIn bool) {
-		already := "already "
+		already := "Already l"
 		if !alreadyLoggedIn {
-			already = ""
-			viamLogo(c.App.Writer)
+			already = "L"
+			viamLogo(cCtx.App.Writer)
 		}
 
-		fmt.Fprintf(c.App.Writer, "%slogged in as %q, expires %s\n", already, t.User.Email,
+		printf(cCtx.App.Writer, "%sogged in as %q, expires %s", already, t.User.Email,
 			t.ExpiresAt.Format("Mon Jan 2 15:04:05 MST 2006"))
 	}
 
-	if client.conf.Auth != nil && !client.conf.Auth.isExpired() {
-		loggedInMessage(client.conf.Auth, true)
+	if _, isAPIKey := c.conf.Auth.(*apiKey); isAPIKey {
+		warningf(c.c.App.Writer, "was logged in with an api-key. logging out")
+		utils.UncheckedError(c.logout())
+	}
+	currentToken, _ := c.conf.Auth.(*token) // currentToken can be nil
+	if currentToken != nil && !currentToken.isExpired() {
+		loggedInMessage(currentToken, true)
 		return nil
 	}
 
 	var t *token
-	if client.conf.Auth != nil && client.conf.Auth.canRefresh() {
-		t, err = client.authFlow.refreshToken(client.c.Context, client.conf.Auth)
+	var err error
+	if currentToken != nil && currentToken.canRefresh() {
+		t, err = c.authFlow.refreshToken(c.c.Context, currentToken)
 		if err != nil {
-			utils.UncheckedError(client.logout())
+			utils.UncheckedError(c.logout())
 			return err
 		}
 	} else {
-		t, err = client.authFlow.login(client.c.Context)
+		t, err = c.authFlow.loginAsUser(c.c.Context)
 		if err != nil {
 			return err
 		}
 	}
 
 	// write token to config.
-	client.conf.Auth = t
-	if err := storeConfigToCache(client.conf); err != nil {
+	c.conf.Auth = t
+	if err := storeConfigToCache(c.conf); err != nil {
 		return err
 	}
 
-	loggedInMessage(client.conf.Auth, false)
+	loggedInMessage(t, false)
+	return nil
+}
+
+// LoginWithAPIKeyAction is the corresponding Action for `login api-key`.
+func LoginWithAPIKeyAction(cCtx *cli.Context) error {
+	c, err := newViamClient(cCtx)
+	if err != nil {
+		return err
+	}
+	return c.loginWithAPIKeyAction(cCtx)
+}
+
+func (c viamClient) loginWithAPIKeyAction(cCtx *cli.Context) error {
+	key := apiKey{
+		KeyID:     cCtx.String(loginFlagKeyID),
+		KeyCrypto: cCtx.String(loginFlagKey),
+	}
+	c.conf.Auth = &key
+	if err := storeConfigToCache(c.conf); err != nil {
+		return err
+	}
+	// test the connection
+	if _, err := c.listOrganizations(); err != nil {
+		return errors.Wrapf(err, "unable to connect to %q using the provided api key", c.conf.BaseURL)
+	}
+	printf(cCtx.App.Writer, "Successfully logged in with api key %q", key.KeyID)
 	return nil
 }
 
 // PrintAccessTokenAction is the corresponding Action for 'print-access-token'.
-func PrintAccessTokenAction(c *cli.Context) error {
-	client, err := newAppClient(c)
+func PrintAccessTokenAction(cCtx *cli.Context) error {
+	c, err := newViamClient(cCtx)
 	if err != nil {
 		return err
 	}
+	return c.printAccessTokenAction(cCtx)
+}
 
-	if err := client.ensureLoggedIn(); err != nil {
+func (c *viamClient) printAccessTokenAction(cCtx *cli.Context) error {
+	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
 
-	fmt.Fprintln(c.App.Writer, client.conf.Auth.AccessToken)
+	if token, ok := c.conf.Auth.(*token); ok {
+		printf(cCtx.App.Writer, token.AccessToken)
+	} else {
+		return errors.New("not logged in as a user. Cannot print access token. Run \"viam login\" to sign in with your account")
+	}
 	return nil
 }
 
 // LogoutAction is the corresponding Action for 'logout'.
-func LogoutAction(c *cli.Context) error {
-	client, err := newAppClient(c)
+func LogoutAction(cCtx *cli.Context) error {
+	// Create basic viam client; no need to check base URL.
+	conf, err := configFromCache()
 	if err != nil {
-		return err
+		if !os.IsNotExist(err) {
+			return err
+		}
+		conf = &config{}
 	}
-	auth := client.conf.Auth
+
+	vc := &viamClient{
+		c:    cCtx,
+		conf: conf,
+	}
+	return vc.logoutAction(cCtx)
+}
+
+func (c *viamClient) logoutAction(cCtx *cli.Context) error {
+	auth := c.conf.Auth
 	if auth == nil {
-		fmt.Fprintf(c.App.Writer, "already logged out\n")
+		printf(cCtx.App.Writer, "Already logged out")
 		return nil
 	}
-	if err := client.logout(); err != nil {
+	if err := c.logout(); err != nil {
 		return errors.Wrap(err, "could not logout")
 	}
-	fmt.Fprintf(c.App.Writer, "logged out from %q\n", auth.User.Email)
+	printf(cCtx.App.Writer, "Logged out from %q", auth)
 	return nil
 }
 
 // WhoAmIAction is the corresponding Action for 'whoami'.
-func WhoAmIAction(c *cli.Context) error {
-	client, err := newAppClient(c)
+func WhoAmIAction(cCtx *cli.Context) error {
+	c, err := newViamClient(cCtx)
 	if err != nil {
 		return err
 	}
-	auth := client.conf.Auth
+	return c.whoAmIAction(cCtx)
+}
+
+func (c *viamClient) whoAmIAction(cCtx *cli.Context) error {
+	auth := c.conf.Auth
 	if auth == nil {
-		warningf(c.App.Writer, "not logged in. run \"login\" command")
+		warningf(cCtx.App.Writer, "Not logged in. Run \"login\" command")
 		return nil
 	}
-	fmt.Fprintf(c.App.Writer, "%s\n", auth.User.Email)
+	printf(cCtx.App.Writer, "%s", auth)
 	return nil
 }
 
-func (c *appClient) ensureLoggedIn() error {
+// OrganizationAPIKeyCreateAction corresponds to `organization api-key create`.
+func OrganizationAPIKeyCreateAction(cCtx *cli.Context) error {
+	c, err := newViamClient(cCtx)
+	if err != nil {
+		return err
+	}
+	return c.organizationAPIKeyCreateAction(cCtx)
+}
+
+func (c *viamClient) organizationAPIKeyCreateAction(cCtx *cli.Context) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+	orgID := cCtx.String(apiKeyCreateFlagOrgID)
+	keyName := cCtx.String(apiKeyCreateFlagName)
+	if keyName == "" {
+		// Default name is in the form myusername@gmail.com-2009-11-10T23:00:00Z
+		// or key-uuid-2009-11-10T23:00:00Z if it was created by a key
+		keyName = fmt.Sprintf("%s-%s", c.conf.Auth, time.Now().Format(time.RFC3339))
+		infof(cCtx.App.Writer, "Using default key name of %q", keyName)
+	}
+	resp, err := c.createOrganizationAPIKey(orgID, keyName)
+	if err != nil {
+		return err
+	}
+	infof(cCtx.App.Writer, "Successfully created key:")
+	printf(cCtx.App.Writer, "Key ID: %s\n", resp.GetId())
+	printf(cCtx.App.Writer, "Key Value: %s\n\n", resp.GetKey())
+	warningf(cCtx.App.Writer, "Keep this key somewhere safe; it has full write access to your organization")
+	return nil
+}
+
+func (c *viamClient) createOrganizationAPIKey(orgID, keyName string) (*apppb.CreateKeyResponse, error) {
+	if err := c.ensureLoggedIn(); err != nil {
+		return nil, err
+	}
+
+	req := &apppb.CreateKeyRequest{
+		Authorizations: []*apppb.Authorization{
+			{
+				AuthorizationType: "role",
+				AuthorizationId:   "organization_owner",
+				ResourceType:      "organization",
+				ResourceId:        orgID,
+				IdentityId:        "",
+				OrganizationId:    orgID,
+				IdentityType:      "api-key",
+			},
+		},
+		Name: keyName,
+	}
+	return c.client.CreateKey(c.c.Context, req)
+}
+
+func (c *viamClient) ensureLoggedIn() error {
 	if c.client != nil {
 		return nil
 	}
@@ -199,14 +329,15 @@ func (c *appClient) ensureLoggedIn() error {
 		return errors.New("not logged in: run the following command to login:\n\tviam login")
 	}
 
-	if c.conf.Auth.isExpired() {
-		if !c.conf.Auth.canRefresh() {
+	authToken, ok := c.conf.Auth.(*token)
+	if ok && authToken.isExpired() {
+		if !authToken.canRefresh() {
 			utils.UncheckedError(c.logout())
 			return errors.New("token expired and cannot refresh")
 		}
 
 		// expired.
-		newToken, err := c.authFlow.refreshToken(c.c.Context, c.conf.Auth)
+		newToken, err := c.authFlow.refreshToken(c.c.Context, authToken)
 		if err != nil {
 			utils.UncheckedError(c.logout()) // clear cache if failed to refresh
 			return errors.Wrapf(err, "error while refreshing token")
@@ -219,7 +350,7 @@ func (c *appClient) ensureLoggedIn() error {
 		}
 	}
 
-	rpcOpts := append(c.copyRPCOpts(), rpc.WithStaticAuthenticationMaterial(c.conf.Auth.AccessToken))
+	rpcOpts := append(c.copyRPCOpts(), c.conf.Auth.dialOpts())
 
 	conn, err := rpc.DialDirectGRPC(
 		c.c.Context,
@@ -233,11 +364,12 @@ func (c *appClient) ensureLoggedIn() error {
 
 	c.client = apppb.NewAppServiceClient(conn)
 	c.dataClient = datapb.NewDataServiceClient(conn)
+	c.packageClient = packagepb.NewPackageServiceClient(conn)
 	return nil
 }
 
 // logout logs out the client and clears the config.
-func (c *appClient) logout() error {
+func (c *viamClient) logout() error {
 	if err := removeConfigFromCache(); err != nil && !os.IsNotExist(err) {
 		return err
 	}
@@ -245,7 +377,7 @@ func (c *appClient) logout() error {
 	return nil
 }
 
-func (c *appClient) prepareDial(
+func (c *viamClient) prepareDial(
 	orgStr, locStr, robotStr, partStr string,
 	debug bool,
 ) (context.Context, string, []rpc.DialOption, error) {
@@ -272,7 +404,7 @@ func (c *appClient) prepareDial(
 
 	rpcOpts := append(c.copyRPCOpts(),
 		rpc.WithExternalAuth(c.baseURL.Host, part.Fqdn),
-		rpc.WithStaticExternalAuthenticationMaterial(c.conf.Auth.AccessToken),
+		c.conf.Auth.dialOpts(),
 	)
 
 	if debug {
@@ -288,6 +420,28 @@ func (t *token) isExpired() bool {
 
 func (t *token) canRefresh() bool {
 	return t.RefreshToken != "" && t.TokenURL != "" && t.ClientID != ""
+}
+
+func (t *token) dialOpts() rpc.DialOption {
+	return rpc.WithStaticAuthenticationMaterial(t.AccessToken)
+}
+
+func (t *token) String() string {
+	return t.User.Email
+}
+
+func (k *apiKey) dialOpts() rpc.DialOption {
+	return rpc.WithEntityCredentials(
+		k.KeyID,
+		rpc.Credentials{
+			Type:    "api-key",
+			Payload: k.KeyCrypto,
+		},
+	)
+}
+
+func (k *apiKey) String() string {
+	return fmt.Sprintf("key-%s", k.KeyID)
 }
 
 type userData struct {
@@ -323,7 +477,7 @@ func newCLIAuthFlowWithAuthDomain(authDomain, audience, clientID string, console
 	}
 }
 
-func (a *authFlow) login(ctx context.Context) (*token, error) {
+func (a *authFlow) loginAsUser(ctx context.Context) (*token, error) {
 	discovery, err := a.loadOIDiscoveryEndpoint(ctx)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed retrieving discovery endpoint")
@@ -403,8 +557,8 @@ func (a *authFlow) makeDeviceCodeRequest(ctx context.Context, discovery *openIDD
 }
 
 func (a *authFlow) directUser(code *deviceCodeResponse) error {
-	infof(a.console, `you can log into Viam through the opened browser window or follow the URL below.
-ensure the code in the URL matches the one shown in your browser.
+	infof(a.console, `You can log into Viam through the opened browser window or follow the URL below.
+Ensure the code in the URL matches the one shown in your browser.
   %s`, code.VerificationURIComplete)
 
 	if a.disableBrowserOpen {

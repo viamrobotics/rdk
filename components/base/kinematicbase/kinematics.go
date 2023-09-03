@@ -23,17 +23,17 @@ type KinematicBase interface {
 
 const (
 	// LinearVelocityMMPerSec is the linear velocity the base will drive at in mm/s.
-	defaultLinearVelocityMMPerSec = 100
+	defaultLinearVelocityMMPerSec = 200
 
 	// AngularVelocityMMPerSec is the angular velocity the base will turn with in deg/s.
 	defaultAngularVelocityDegsPerSec = 60
 
 	// distThresholdMM is used when the base is moving to a goal. It is considered successful if it is within this radius.
-	defaultGoalRadiusMM = 100
+	defaultGoalRadiusMM = 300
 
 	// headingThresholdDegrees is used when the base is moving to a goal.
 	// If its heading is within this angle it is considered on the correct path.
-	defaultHeadingThresholdDegrees = 15
+	defaultHeadingThresholdDegrees = 8
 
 	// planDeviationThresholdMM is the amount that the base is allowed to deviate from the straight line path it is intended to travel.
 	// If it ever exceeds this amount the movement will fail and an error will be returned.
@@ -44,6 +44,10 @@ const (
 
 	// minimumMovementThresholdMM is the amount that a base needs to move for it not to be considered stationary.
 	defaultMinimumMovementThresholdMM = 20 // mm
+
+	// maxMoveStraightMM is the maximum distance the base should move with a single MoveStraight command.
+	// used to break up large driving segments to prevent error from building up due to slightly incorrect angle.
+	defaultMaxMoveStraightMM = 1000
 
 	// maxSpinAngleDeg is the maximum amount of degrees the base should turn with a single Spin command.
 	// used to break up large turns into smaller chunks to prevent error from building up.
@@ -78,6 +82,10 @@ type Options struct {
 	// MinimumMovementThresholdMM is the amount that a base needs to move for it not to be considered stationary.
 	MinimumMovementThresholdMM float64
 
+	// MaxMoveStraightMM is the maximum distance the base should move with a single MoveStraight command.
+	// used to break up large driving segments to prevent error from building up due to slightly incorrect angle.
+	MaxMoveStraightMM float64
+
 	// MaxSpinAngleDeg is the maximum amount of degrees the base should turn with a single Spin command.
 	// used to break up large turns into smaller chunks to prevent error from building up.
 	MaxSpinAngleDeg float64
@@ -98,6 +106,7 @@ func NewKinematicBaseOptions() Options {
 		PlanDeviationThresholdMM:   defaultPlanDeviationThresholdMM,
 		Timeout:                    defaultTimeout,
 		MinimumMovementThresholdMM: defaultMinimumMovementThresholdMM,
+		MaxMoveStraightMM:          defaultMaxMoveStraightMM,
 		MaxSpinAngleDeg:            defaultMaxSpinAngleDeg,
 		PositionOnlyMode:           defaultPositionOnlyMode,
 	}
@@ -114,6 +123,10 @@ func WrapWithKinematics(
 	limits []referenceframe.Limit,
 	options Options,
 ) (KinematicBase, error) {
+	if kb, ok := b.(KinematicBase); ok {
+		return kb, nil
+	}
+
 	properties, err := b.Properties(ctx, nil)
 	if err != nil {
 		return nil, err

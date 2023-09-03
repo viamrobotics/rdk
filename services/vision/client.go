@@ -222,7 +222,11 @@ func protoToObjects(pco []*commonpb.PointCloudObject) ([]*vision.Object, error) 
 			}
 			return ""
 		}()
-		objects[i], err = vision.NewObjectWithLabel(pc, label)
+		if len(o.Geometries.Geometries) >= 1 {
+			objects[i], err = vision.NewObjectWithLabel(pc, label, o.Geometries.GetGeometries()[0])
+		} else {
+			objects[i], err = vision.NewObjectWithLabel(pc, label, nil)
+		}
 		if err != nil {
 			return nil, err
 		}

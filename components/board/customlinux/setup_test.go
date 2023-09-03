@@ -18,22 +18,22 @@ func TestConfigParse(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
 
-	emptyPWMID := []byte(`{"pins": [{"name": "7", "ngpio": 86, "line_number": 71, "pwm_chip_sysfs_dir": "hi"}]}`)
+	emptyPWMID := []byte(`{"pins": [{"name": "7", "device_name": "gpiochip1", "line_number": 71, "pwm_chip_sysfs_dir": "hi"}]}`)
 	_, err = parseRawPinData(emptyPWMID, "path")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "must supply pwm_id for the pwm chip")
 
-	invalidLineNumber := []byte(`{"pins": [{"name": "7", "ngpio": 86, "line_number": 100}]}`)
+	invalidLineNumber := []byte(`{"pins": [{"name": "7", "device_name": "gpiochip1", "line_number": -2}]}`)
 	_, err = parseRawPinData(invalidLineNumber, "path")
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "line_number on gpio chip must be less than ngpio")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "line_number on gpio chip must be at least zero")
 
-	validConfig := []byte(`{"pins": [{"name": "7", "ngpio": 86, "line_number": 80}]}`)
+	validConfig := []byte(`{"pins": [{"name": "7", "device_name": "gpiochip1", "line_number": 80}]}`)
 	data, err := parseRawPinData(validConfig, "path")
 	correctData := make([]genericlinux.PinDefinition, 1)
 	correctData[0] = genericlinux.PinDefinition{
 		Name:       "7",
-		Ngpio:      86,
+		DeviceName: "gpiochip1",
 		LineNumber: 80,
 		PwmID:      -1,
 	}

@@ -8,9 +8,9 @@ import (
 	pb "go.viam.com/api/service/slam/v1"
 )
 
-// GetPointCloudMapCallback helps a client request the point cloud stream from a SLAM server,
+// PointCloudMapCallback helps a client request the point cloud stream from a SLAM server,
 // returning a callback function for accessing the stream data.
-func GetPointCloudMapCallback(ctx context.Context, name string, slamClient pb.SLAMServiceClient) (func() ([]byte, error), error) {
+func PointCloudMapCallback(ctx context.Context, name string, slamClient pb.SLAMServiceClient) (func() ([]byte, error), error) {
 	req := &pb.GetPointCloudMapRequest{Name: name}
 
 	// If the target gRPC server returns an error status, this call doesn't return an error.
@@ -33,9 +33,9 @@ func GetPointCloudMapCallback(ctx context.Context, name string, slamClient pb.SL
 	return f, nil
 }
 
-// GetInternalStateCallback helps a client request the internal state stream from a SLAM server,
+// InternalStateCallback helps a client request the internal state stream from a SLAM server,
 // returning a callback function for accessing the stream data.
-func GetInternalStateCallback(ctx context.Context, name string, slamClient pb.SLAMServiceClient) (func() ([]byte, error), error) {
+func InternalStateCallback(ctx context.Context, name string, slamClient pb.SLAMServiceClient) (func() ([]byte, error), error) {
 	req := &pb.GetInternalStateRequest{Name: name}
 
 	// If the target gRPC server returns an error status, this call doesn't return an error.
