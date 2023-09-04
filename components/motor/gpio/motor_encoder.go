@@ -173,6 +173,7 @@ func newEncodedMotor(
 
 // EncodedMotor is a motor that utilizes an encoder to track its position.
 type EncodedMotor struct {
+	rpmMonitorCalls int64
 	resource.Named
 	resource.AlwaysRebuild
 
@@ -195,7 +196,6 @@ type EncodedMotor struct {
 	flip             int64 // defaults to 1, becomes -1 if the motor config has a true DirectionFLip bool
 	ticksPerRotation int64
 
-	rpmMonitorCalls int64
 	logger          golog.Logger
 	cancelCtx       context.Context
 	cancel          func()
