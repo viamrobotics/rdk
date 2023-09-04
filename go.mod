@@ -4,6 +4,8 @@ go 1.19
 
 replace github.com/viamrobotics/gostream => github.com/viamrobotics/gostream v0.0.0-20230829033610-5f340e379696
 
+replace go.viam.com/utils => go.viam.com/utils v0.1.44-0.20230904011840-aa548d3a0bd8
+
 require (
 	github.com/AlekSi/gocov-xml v1.0.0
 	github.com/CPRT/roboclaw v0.0.0-20190825181223-76871438befc
