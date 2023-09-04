@@ -64,7 +64,7 @@ jobs:
         EXTRA_FLAGS: -tags no_tflite,no_pigpio
         GO_TAGS: no_tflite,no_pigpio
         CGO_ENABLED: '1'
-      run: docker run --rm -v $PWD/:/rdk ghcr.io/viamrobotics/viam-server:armv7 sh -c "chown -R $USER .git && go version && go list -json $EXTRA_FLAGS ./... | etc/splitter.py ${{ matrix.index }} --nbins 5 --command \"go test $EXTRA_FLAGS\" --fail-empty"
+      run: docker run --rm -v $PWD/:/rdk ghcr.io/viamrobotics/viam-server:armv7 sh -c "chown -R ${{ '$USER' }} .git && go version && go list -json $EXTRA_FLAGS ./... | etc/splitter.py ${{ matrix.index }} --nbins 5 --command \"go test $EXTRA_FLAGS\" --fail-empty"
   build:
     needs: [test]
     runs-on: buildjet-4vcpu-ubuntu-2204-arm
