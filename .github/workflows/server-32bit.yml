@@ -50,8 +50,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        index: ['0']
-        # index: ['0', '1', '2', '3', '4']
+        index: ['0', '1', '2', '3', '4']
     permissions:
       packages: read
     steps:
@@ -62,10 +61,6 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
     - uses: actions/checkout@v3
     - name: test
-      # env:
-        # EXTRA_FLAGS: -tags no_tflite,no_pigpio
-        # GO_TAGS: no_tflite,no_pigpio
-        # CGO_ENABLED: '1'
       run: |
         docker run --rm \
           -v $PWD/:/rdk \
