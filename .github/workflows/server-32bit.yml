@@ -66,7 +66,7 @@ jobs:
           -v $PWD/:/rdk \
           --env GOFLAGS="-tags=no_tflite,no_pigpio -buildvcs=false" \
           ghcr.io/viamrobotics/viam-server:armv7 \
-          sh -c "go version && go list -json $EXTRA_FLAGS ./... | etc/splitter.py ${{ matrix.index }} --nbins 5 --command \"go test\" --fail-empty"
+          sh -c "go version && go list -json ./... | etc/splitter.py ${{ matrix.index }} --nbins 5 --command \"go test\" --fail-empty --placement etc/splitter-placement.json"
   build:
     needs: [test]
     runs-on: buildjet-4vcpu-ubuntu-2204-arm

@@ -3,9 +3,11 @@
 
 import argparse, json, sys, logging, subprocess
 import os
-from typing import List, Tuple
+from typing import List, Tuple, Iterable, TypeVar, Dict, Callable
 
-SizeList = List[Tuple[str, int]]
+# SizePair is (package, num_tests)
+SizePair = Tuple[str, int]
+SizeList = List[SizePair]
 logger = logging.getLogger(__name__)
 
 def file_or_stdin(path: str):
@@ -48,6 +50,37 @@ def split_bins(sizes: SizeList, bin_size: int) -> List[List[str]]:
     assert len(set(y for x in ret for y in x)) == len(set(sizes)), "split_bins has different number of unique values than input"
     return ret
 
+T = TypeVar('T')
+def partition(sequence: Iterable[T], pred: Callable[[T], bool]) -> Tuple[List[T], List[T]]:
+    "same as more_itertools.partition"
+    false_items = []
+    true_items = []
+    for item in sequence:
+        if pred(item):
+            true_items.append(item)
+        else:
+            false_items.append(item)
+    return false_items, true_items
+
+U = TypeVar('U')
+def keyed_index(sequence: Iterable[T], value: U, key: Callable[[T], U]) -> int:
+    "helper to get index of iterable with key transformation"
+    for i, x in enumerate(sequence):
+        if key(x) == value:
+            return i
+    raise ValueError('not found in sequence')
+
+def apply_placement(args, sizes: SizeList) -> SizeList:
+    "apply placement rules, i.e. 'must come directly after' relationships (limited topo-sort)"
+    rules: Dict[str, str] = json.load(open(args.placement))
+    unmoved, moved = partition(sizes, lambda item: item[0] in rules)
+    for item in moved:
+        target = rules[item[0]]
+        index = keyed_index(unmoved, target, lambda x: x[0]) + 1
+        unmoved.insert(index, item)
+        logger.info('placement: inserted %s after %s at %d', item[0], target, index)
+    return unmoved
+
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('index', type=int, help="")
@@ -57,6 +90,7 @@ def main():
     p.add_argument('-d', '--debug', action='store_true', help="log level debug")
     p.add_argument('-c', '--command', default="go test", help="go test command with optional extra arguments")
     p.add_argument('--fail-empty', action='store_true', help="crash if no tests in input")
+    p.add_argument('--placement', help="path to placement json file with ordering rules")
     args = p.parse_args()
     logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO)
 
@@ -78,6 +112,8 @@ def main():
         return
     bin_size = int(sum(size for _, size in sizes) / args.nbins)
     logger.info('%d packages with tests, bin_size %d', len(sizes), bin_size)
+    if args.placement:
+        sizes = apply_placement(args, sizes)
     splits = split_bins(sizes, bin_size)
     assert len(splits) == args.nbins
     logger.info('bin %d / %d has %d packages', args.index, args.nbins, len(splits[args.index]))

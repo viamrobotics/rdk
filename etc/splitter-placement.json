@@ -1,0 +1,3 @@
+{
+    "./pointcloud": "./components/camera/videosource"
+}
