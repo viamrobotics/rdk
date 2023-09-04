@@ -45,14 +45,14 @@ func MultiplyGrays(g1, g2 *image.Gray) (*image.Gray16, error) {
 
 // GetGrayAvg takes in a grayscale image and returns the average value as an int.
 func GetGrayAvg(pic *image.Gray16) int {
-	var sum int
+	var sum int64
 	for y := pic.Bounds().Min.Y; y < pic.Bounds().Max.Y; y++ {
 		for x := pic.Bounds().Min.X; x < pic.Bounds().Max.X; x++ {
 			val := pic.At(x, y).(color.Gray16).Y
-			sum += int(val)
+			sum += int64(val)
 		}
 	}
-	return sum / (pic.Bounds().Max.X * pic.Bounds().Max.Y)
+	return int(sum / int64(pic.Bounds().Max.X * pic.Bounds().Max.Y))
 }
 
 // GetGraySum takes in a grayscale image and returns the total sum as an int.
