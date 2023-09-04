@@ -27,7 +27,6 @@ jobs:
         cache-to: type=registry,ref=ghcr.io/viamrobotics/viam-server:buildcache
   lint:
     # needs: [docker]
-    if: false
     runs-on: buildjet-4vcpu-ubuntu-2204-arm
     # concurrency: '32bit-${{ github.ref }}'
     permissions:
@@ -43,7 +42,6 @@ jobs:
     - name: lint
       run: docker run --rm -v $PWD/:/rdk ghcr.io/viamrobotics/viam-server:armv7 make lint-32bit
   test:
-    # if: false
     # needs: [docker]
     runs-on: buildjet-4vcpu-ubuntu-2204-arm
     # concurrency: '32bit-${{ github.ref }}'
