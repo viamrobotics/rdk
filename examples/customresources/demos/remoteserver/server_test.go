@@ -52,15 +52,10 @@ func TestGizmo(t *testing.T) {
 	err = tmpConf.Sync()
 	test.That(t, err, test.ShouldBeNil)
 	pmgr := pexec.NewProcessManager(logger.Named("process.inter"))
-        args := []string{"run"}
-	if tags := os.Getenv("GO_TAGS"); len(tags) > 0 {
-		args = append(args, "-tags", tags)
-	}
-	args = append(args, utils.ResolveFile("./web/cmd/server/main.go"), "-config", tmpConf.Name())
 	pCfg := pexec.ProcessConfig{
 		ID:      "Intermediate",
 		Name:    "go",
-		Args:    args,
+		Args:    []string{"run", utils.ResolveFile("./web/cmd/server/main.go"), "-config", tmpConf.Name()},
 		CWD:     "",
 		OneShot: false,
 		Log:     true,
