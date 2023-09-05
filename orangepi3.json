@@ -16,6 +16,6 @@
 		{"name": "18", "device_name": "gpiochip1", "line_number": 112},
 		{"name": "22", "device_name": "gpiochip1", "line_number": 117},
 		{"name": "24", "device_name": "gpiochip1", "line_number": 227},
-        {"name": "26", "device_name": "gpiochip0", "line_number": 8
+        {"name": "26", "device_name": "gpiochip0", "line_number": 8}
 	]
 }
