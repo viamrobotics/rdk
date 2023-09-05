@@ -102,6 +102,8 @@ func TestConfigs(t *testing.T) {
 		s := m.(*gpioStepper)
 
 		test.That(t, err, test.ShouldBeNil)
+		defer m.Close(ctx)
+
 		test.That(t, s.minDelay, test.ShouldEqual, 30*time.Microsecond)
 		test.That(t, s.stepsPerRotation, test.ShouldEqual, 200)
 		test.That(t, s.dirPin, test.ShouldEqual, pinB)
@@ -119,6 +121,8 @@ func TestConfigs(t *testing.T) {
 		s := m.(*gpioStepper)
 
 		test.That(t, err, test.ShouldBeNil)
+		defer m.Close(ctx)
+
 		test.That(t, s.dirPin, test.ShouldEqual, pinB)
 		test.That(t, s.stepPin, test.ShouldEqual, pinC)
 
@@ -150,12 +154,14 @@ func TestConfigs(t *testing.T) {
 		s := m.(*gpioStepper)
 
 		test.That(t, err, test.ShouldBeNil)
+		defer m.Close(ctx)
 		test.That(t, s.minDelay, test.ShouldEqual, 0*time.Microsecond)
 	})
 
 	t.Run("motor supports position reporting", func(t *testing.T) {
 		m, err := newGPIOStepper(ctx, &b, goodConfig, c.ResourceName(), logger)
 		test.That(t, err, test.ShouldBeNil)
+		defer m.Close(ctx)
 
 		properties, err := m.Properties(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
@@ -195,6 +201,7 @@ func TestRunning(t *testing.T) {
 	t.Run("isPowered false after init", func(t *testing.T) {
 		m, err := newGPIOStepper(ctx, &b, goodConfig, c.ResourceName(), logger)
 		test.That(t, err, test.ShouldBeNil)
+		defer m.Close(ctx)
 
 		on, powerPct, err := m.IsPowered(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
@@ -214,7 +221,8 @@ func TestRunning(t *testing.T) {
 		m, err := newGPIOStepper(ctx, &b, goodConfig, c.ResourceName(), logger)
 		s := m.(*gpioStepper)
 		test.That(t, err, test.ShouldBeNil)
-
+		defer m.Close(ctx)
+		
 		// long running goFor
 		err = s.goForInternal(ctx, 100, 3)
 		defer m.Stop(ctx, nil)
@@ -249,6 +257,7 @@ func TestRunning(t *testing.T) {
 		m, err := newGPIOStepper(ctx, &b, goodConfig, c.ResourceName(), logger)
 		s := m.(*gpioStepper)
 		test.That(t, err, test.ShouldBeNil)
+		defer m.Close(ctx)
 
 		err = s.enable(ctx, true)
 		test.That(t, err, test.ShouldBeNil)
@@ -277,7 +286,8 @@ func TestRunning(t *testing.T) {
 		m, err := newGPIOStepper(ctx, &b, goodConfig, c.ResourceName(), logger)
 		s := m.(*gpioStepper)
 		test.That(t, err, test.ShouldBeNil)
-
+		defer m.Close(ctx)
+		
 		err = s.GoFor(ctx, 10000, 1, nil)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -296,6 +306,7 @@ func TestRunning(t *testing.T) {
 		m, err := newGPIOStepper(ctx, &b, goodConfig, c.ResourceName(), logger)
 		s := m.(*gpioStepper)
 		test.That(t, err, test.ShouldBeNil)
+		defer m.Close(ctx)
 
 		err = m.GoFor(ctx, -10000, 1, nil)
 		test.That(t, err, test.ShouldBeNil)
@@ -315,7 +326,8 @@ func TestRunning(t *testing.T) {
 		m, err := newGPIOStepper(ctx, &b, goodConfig, c.ResourceName(), logger)
 		s := m.(*gpioStepper)
 		test.That(t, err, test.ShouldBeNil)
-
+		defer m.Close(ctx)
+		
 		err = m.GoFor(ctx, 10000, -1, nil)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -334,6 +346,7 @@ func TestRunning(t *testing.T) {
 		m, err := newGPIOStepper(ctx, &b, goodConfig, c.ResourceName(), logger)
 		s := m.(*gpioStepper)
 		test.That(t, err, test.ShouldBeNil)
+		defer m.Close(ctx)
 
 		err = m.GoFor(ctx, -10000, -1, nil)
 		test.That(t, err, test.ShouldBeNil)
@@ -353,6 +366,7 @@ func TestRunning(t *testing.T) {
 		m, err := newGPIOStepper(ctx, &b, goodConfig, c.ResourceName(), logger)
 		s := m.(*gpioStepper)
 		test.That(t, err, test.ShouldBeNil)
+		defer m.Close(ctx)
 
 		ctx := context.Background()
 		var wg sync.WaitGroup
@@ -399,6 +413,7 @@ func TestRunning(t *testing.T) {
 	t.Run("enable pins handled properly during GoFor", func(t *testing.T) {
 		m, err := newGPIOStepper(ctx, &b, goodConfig, c.ResourceName(), logger)
 		test.That(t, err, test.ShouldBeNil)
+		defer m.Close(ctx)
 
 		ctx := context.Background()
 		var wg sync.WaitGroup
@@ -450,6 +465,7 @@ func TestRunning(t *testing.T) {
 		m, err := newGPIOStepper(ctx, &b, goodConfig, c.ResourceName(), logger)
 		s := m.(*gpioStepper)
 		test.That(t, err, test.ShouldBeNil)
+		defer m.Close(ctx)
 
 		err = s.goForInternal(ctx, 1000, 200)
 		test.That(t, err, test.ShouldBeNil)
@@ -482,7 +498,8 @@ func TestRunning(t *testing.T) {
 	t.Run("motor testing with 0 rpm", func(t *testing.T) {
 		m, err := newGPIOStepper(ctx, &b, goodConfig, c.ResourceName(), logger)
 		test.That(t, err, test.ShouldBeNil)
-
+		defer m.Close(ctx)
+		
 		err = m.GoFor(ctx, 0, 1, nil)
 		test.That(t, err, test.ShouldBeNil)
 		allObs := obs.All()
