@@ -662,7 +662,6 @@ func TestCheckPlan(t *testing.T) {
 	// orign as gps point
 	originPoint := geo.NewPoint(-70, 40)
 
-
 	destPoint := geo.NewPoint(originPoint.Lat(), originPoint.Lng()+1e-5)
 
 	// create env
