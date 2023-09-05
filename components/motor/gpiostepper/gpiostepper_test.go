@@ -222,7 +222,7 @@ func TestRunning(t *testing.T) {
 		s := m.(*gpioStepper)
 		test.That(t, err, test.ShouldBeNil)
 		defer m.Close(ctx)
-		
+
 		// long running goFor
 		err = s.goForInternal(ctx, 100, 3)
 		defer m.Stop(ctx, nil)
@@ -287,7 +287,7 @@ func TestRunning(t *testing.T) {
 		s := m.(*gpioStepper)
 		test.That(t, err, test.ShouldBeNil)
 		defer m.Close(ctx)
-		
+
 		err = s.GoFor(ctx, 10000, 1, nil)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -327,7 +327,7 @@ func TestRunning(t *testing.T) {
 		s := m.(*gpioStepper)
 		test.That(t, err, test.ShouldBeNil)
 		defer m.Close(ctx)
-		
+
 		err = m.GoFor(ctx, 10000, -1, nil)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -499,7 +499,7 @@ func TestRunning(t *testing.T) {
 		m, err := newGPIOStepper(ctx, &b, goodConfig, c.ResourceName(), logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer m.Close(ctx)
-		
+
 		err = m.GoFor(ctx, 0, 1, nil)
 		test.That(t, err, test.ShouldBeNil)
 		allObs := obs.All()
