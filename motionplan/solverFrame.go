@@ -295,7 +295,7 @@ func (sf *solverFrame) AlmostEquals(otherFrame frame.Frame) bool {
 	return false
 }
 
-// planToNodes a plan and how well the solverFrame is following it as an errorState,
+// planToNodes takes a plan and how well the solverFrame is following it as an errorState,
 // and turns it into a slice of nodes.
 func (sf solverFrame) planToNodes(plan []map[string][]frame.Input, errorState spatial.Pose) ([]node, error) {
 	planNodes := make([]node, 0, len(plan))

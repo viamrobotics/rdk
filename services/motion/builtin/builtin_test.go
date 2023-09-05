@@ -11,6 +11,7 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
@@ -667,6 +668,7 @@ func TestCheckPlan(t *testing.T) {
 	// create env
 	injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, originPoint, destPoint)
 
+	// create motion config
 	motionCfg := make(map[string]interface{})
 	// fail if we don't find a plan in 5 seconds
 	motionCfg["timeout"] = 5.
