@@ -56,6 +56,20 @@ func currentInputsShouldEqual(ctx context.Context, t *testing.T, kinematicBase k
 	test.That(t, actualPt.Lng(), test.ShouldEqual, pt.Lng())
 }
 
+func blockTillCallCount(t *testing.T, callCount int, callChan chan struct{}, timeout time.Duration) {
+	t.Helper()
+	waitForCallsTimeOutCtx, cancelFn := context.WithTimeout(context.Background(), timeout)
+	defer cancelFn()
+	for i := 0; i < callCount; i++ {
+		select {
+		case <-callChan:
+		case <-waitForCallsTimeOutCtx.Done():
+			t.Log("timed out waiting for test to finish")
+			t.FailNow()
+		}
+	}
+}
+
 func deleteAllWaypoints(ctx context.Context, svc navigation.Service) error {
 	waypoints, err := svc.(*builtIn).store.Waypoints(ctx)
 	if err != nil {
@@ -175,6 +189,7 @@ func TestStartWaypoint(t *testing.T) {
 	}()
 
 	t.Run("Reach waypoints successfully", func(t *testing.T) {
+		callChan := make(chan struct{}, 2)
 		injectMS.MoveOnGlobeFunc = func(
 			ctx context.Context,
 			componentName resource.Name,
@@ -186,6 +201,7 @@ func TestStartWaypoint(t *testing.T) {
 			extra map[string]interface{},
 		) (bool, error) {
 			err := kinematicBase.GoToInputs(ctx, referenceframe.FloatsToInputs([]float64{destination.Lat(), destination.Lng()}))
+			callChan <- struct{}{}
 			return true, err
 		}
 		pt := geo.NewPoint(1, 0)
@@ -199,12 +215,15 @@ func TestStartWaypoint(t *testing.T) {
 		ns.(*builtIn).mode = navigation.ModeManual
 		err = ns.SetMode(ctx, navigation.ModeWaypoint, nil)
 		test.That(t, err, test.ShouldBeNil)
+		blockTillCallCount(t, 2, callChan, time.Second*5)
+		ns.(*builtIn).wholeServiceCancelFunc()
 		ns.(*builtIn).activeBackgroundWorkers.Wait()
 
 		currentInputsShouldEqual(ctx, t, kinematicBase, pt)
 	})
 
 	t.Run("Extra defaults to motion_profile", func(t *testing.T) {
+		callChan := make(chan struct{}, 1)
 		// setup injected MoveOnGlobe to test what extra defaults to from startWaypointExperimental function
 		injectMS.MoveOnGlobeFunc = func(
 			ctx context.Context,
@@ -216,6 +235,7 @@ func TestStartWaypoint(t *testing.T) {
 			motionCfg *motion.MotionConfiguration,
 			extra map[string]interface{},
 		) (bool, error) {
+			callChan <- struct{}{}
 			if extra != nil && extra["motion_profile"] != nil {
 				return true, nil
 			}
@@ -227,14 +247,20 @@ func TestStartWaypoint(t *testing.T) {
 		err = ns.AddWaypoint(ctx, pt, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		ns.(*builtIn).startWaypoint(ctx, map[string]interface{}{})
+		cancelCtx, fn := context.WithCancel(ctx)
+		ns.(*builtIn).startWaypoint(cancelCtx, map[string]interface{}{})
+		blockTillCallCount(t, 1, callChan, time.Second*5)
+		fn()
 		ns.(*builtIn).activeBackgroundWorkers.Wait()
 
 		// go to same point again
 		err = ns.AddWaypoint(ctx, pt, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		ns.(*builtIn).startWaypoint(ctx, nil)
+		cancelCtx, fn = context.WithCancel(ctx)
+		ns.(*builtIn).startWaypoint(cancelCtx, nil)
+		blockTillCallCount(t, 1, callChan, time.Second*5)
+		fn()
 		ns.(*builtIn).activeBackgroundWorkers.Wait()
 	})
 
