@@ -210,7 +210,7 @@ func (d *ina) calibrate() error {
 		return err
 	}
 
-	// setting config to 111 sets to normal operating mode
+	// set the config register to all default values.
 	err = handle.WriteRegU16BE(configRegister, uint16(0x399F))
 	if err != nil {
 		return err
