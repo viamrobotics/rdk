@@ -532,6 +532,7 @@ func TestMoveOnGlobe(t *testing.T) {
 
 	gpsPoint := geo.NewPoint(-70, 40)
 
+	// create motion config
 	motionCfg := make(map[string]interface{})
 	// only generate plan for x and y, exclude theta
 	motionCfg["motion_profile"] = "position_only"
