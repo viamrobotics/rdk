@@ -148,7 +148,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 			for i := 1; i < len(waypoints); i++ {
 				select {
 				case <-ctx.Done():
-					return moveResponse{success: false}
+					return moveResponse{}
 				default:
 					ms.logger.Info(waypoints[i])
 					if err := kb.GoToInputs(ctx, waypoints[i]); err != nil {
@@ -169,7 +169,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 			if spatialmath.GeoPointToPose(position, destination).Point().Norm() <= motionCfg.PlanDeviationMM {
 				return moveResponse{success: true}
 			}
-			return moveResponse{success: false}
+			return moveResponse{err: errors.New("reached end of plan but not at goal")}
 		},
 		position: &replanner{
 			period:       time.Duration(1000/motionCfg.PositionPollingFreqHz) * time.Millisecond,
@@ -197,6 +197,6 @@ func (mr *moveRequest) plan(ctx context.Context) (motionplan.Plan, error) {
 	if len(mr.planRequest.Frame.DoF()) == 2 {
 		inputs = inputs[:2]
 	}
-	mr.planRequest.StartConfiguration = map[string][]referenceframe.Input{mr.planRequest.Frame.Name(): inputs}
+	mr.planRequest.StartConfiguration = map[string][]referenceframe.Input{mr.actuator.Kinematics().Name(): inputs}
 	return motionplan.PlanMotion(ctx, mr.planRequest)
 }
