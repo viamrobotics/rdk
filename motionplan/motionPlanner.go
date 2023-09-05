@@ -389,12 +389,12 @@ func CheckPlan(
 	plan []map[string][]frame.Input,
 	worldState *frame.WorldState,
 	fs frame.FrameSystem,
-	startingPosition spatialmath.Pose,
+	currentPosition spatialmath.Pose,
 	errorState spatialmath.Pose,
 ) error {
 	// ensure that we can actually perform the check
-	if len(plan) < 2 {
-		return errors.New("plan must have at least two elements")
+	if len(plan) < 1 {
+		return errors.New("plan must have at least one element")
 	}
 
 	// construct solverFrame
@@ -423,19 +423,19 @@ func CheckPlan(
 	relative := len(sf.PTGs()) > 0
 
 	if relative {
-		planNodes[0] = &basicNode{q: planNodes[0].Q(), pose: startingPosition}
 		if planNodes, err = rectifyTPspacePath(planNodes, sf); err != nil {
 			return err
 		}
 	}
-	startPose := planNodes[0].Pose()
-	goalPose := planNodes[len(planNodes)-1].Pose()
+
+	// pre-pend node with current position of robot to planNodes
+	planNodes = append([]node{&basicNode{pose: currentPosition}}, planNodes...)
 
 	// create constraints
 	if sfPlanner.planOpts, err = sfPlanner.plannerSetupFromMoveRequest(
-		startPose,
-		goalPose,
-		plan[0],
+		currentPosition,                    // starting pose
+		planNodes[len(planNodes)-1].Pose(), // goalPose
+		plan[0],                            // starting configuration
 		worldState,
 		nil, // no pb.Constraints
 		nil, // no plannOpts

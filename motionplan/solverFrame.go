@@ -295,19 +295,6 @@ func (sf *solverFrame) AlmostEquals(otherFrame frame.Frame) bool {
 	return false
 }
 
-// getPoseFromMap is a convience method for constructing a pose from the seedmap.
-func (sf solverFrame) getPoseFromMap(seedMap map[string][]frame.Input) (spatial.Pose, error) {
-	seed, err := sf.mapToSlice(seedMap)
-	if err != nil {
-		return nil, err
-	}
-	startPose, err := sf.Transform(seed)
-	if err != nil {
-		return nil, err
-	}
-	return startPose, nil
-}
-
 // planToNodes a plan and how well the solverFrame is following it as an errorState,
 // and turns it into a slice of nodes.
 func (sf solverFrame) planToNodes(plan []map[string][]frame.Input, errorState spatial.Pose) ([]node, error) {
@@ -318,11 +305,11 @@ func (sf solverFrame) planToNodes(plan []map[string][]frame.Input, errorState sp
 			return nil, err
 		}
 		pose, err := sf.Transform(stepConfig)
-		// adjust pose based off how much we've deviated from the expected path
-		pose = spatial.Compose(pose, errorState)
 		if err != nil {
 			return nil, err
 		}
+		// adjust pose based off how much we've deviated from the expected path
+		pose = spatial.Compose(pose, errorState)
 		planNodes = append(planNodes, &basicNode{q: stepConfig, pose: pose})
 	}
 	return planNodes, nil
