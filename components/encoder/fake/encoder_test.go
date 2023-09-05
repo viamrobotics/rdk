@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
 
@@ -17,7 +18,8 @@ func TestEncoder(t *testing.T) {
 		UpdateRate: 100,
 	}
 	cfg := resource.Config{Name: "enc1", ConvertedAttributes: &ic}
-	e, _ := NewEncoder(ctx, cfg)
+	logger := golog.NewTestLogger(t)
+	e, _ := NewEncoder(ctx, cfg, logger)
 
 	// Get and set position
 	t.Run("get and set position", func(t *testing.T) {

@@ -11,6 +11,7 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
@@ -90,10 +91,10 @@ func createInjectedMovementSensor(name string, gpsPoint *geo.Point) *inject.Move
 
 func createInjectedSlam(name, pcdPath string) *inject.SLAMService {
 	injectSlam := inject.NewSLAMService(name)
-	injectSlam.GetPointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
+	injectSlam.PointCloudMapFunc = func(ctx context.Context) (func() ([]byte, error), error) {
 		return getPointCloudMap(filepath.Clean(artifact.MustPath(pcdPath)))
 	}
-	injectSlam.GetPositionFunc = func(ctx context.Context) (spatialmath.Pose, string, error) {
+	injectSlam.PositionFunc = func(ctx context.Context) (spatialmath.Pose, string, error) {
 		return spatialmath.NewZeroPose(), "", nil
 	}
 	return injectSlam
@@ -133,7 +134,7 @@ func createFrameSystemService(
 	return fsSvc, nil
 }
 
-func createMoveOnGlobeEnvironment(ctx context.Context, t *testing.T, gpsPoint *geo.Point) (
+func createMoveOnGlobeEnvironment(ctx context.Context, t *testing.T, origin, destination *geo.Point) (
 	*inject.MovementSensor, framesystem.Service, base.Base, motion.Service,
 ) {
 	logger := golog.NewTestLogger(t)
@@ -151,7 +152,7 @@ func createMoveOnGlobeEnvironment(ctx context.Context, t *testing.T, gpsPoint *g
 	baseLink := createBaseLink(t, "test-base")
 
 	// create injected MovementSensor
-	injectedMovementSensor := createInjectedMovementSensor("test-gps", gpsPoint)
+	staticMovementSensor := createInjectedMovementSensor("test-gps", origin)
 
 	// create MovementSensor link
 	movementSensorLink := referenceframe.NewLinkInFrame(
@@ -161,14 +162,44 @@ func createMoveOnGlobeEnvironment(ctx context.Context, t *testing.T, gpsPoint *g
 		nil,
 	)
 
+	// create a fake kinematic base
+	localizer := motion.NewMovementSensorLocalizer(staticMovementSensor, origin, spatialmath.NewZeroPose())
+	straightlineDistance := spatialmath.GeoPointToPose(destination, origin).Point().Norm()
+	limits := []referenceframe.Limit{
+		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
+		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
+		{Min: -2 * math.Pi, Max: 2 * math.Pi},
+	}
+	kinematicsOptions := kinematicbase.NewKinematicBaseOptions()
+	kinematicsOptions.PlanDeviationThresholdMM = 1 // can afford to do this for tests
+	kb, err := kinematicbase.WrapWithFakeKinematics(ctx, fakeBase.(*baseFake.Base), localizer, limits, kinematicsOptions)
+	test.That(t, err, test.ShouldBeNil)
+
+	// create injected MovementSensor
+	dynamicMovementSensor := inject.NewMovementSensor("test-gps")
+	dynamicMovementSensor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+		input, err := kb.CurrentInputs(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		heading := rdkutils.RadToDeg(math.Atan2(input[0].Value, input[1].Value))
+		distance := math.Sqrt(input[1].Value*input[1].Value + input[0].Value*input[0].Value)
+		pt := origin.PointAtDistanceAndBearing(distance*1e-6, heading)
+		return pt, 0, nil
+	}
+	dynamicMovementSensor.CompassHeadingFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
+		return 0, nil
+	}
+	dynamicMovementSensor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+		return &movementsensor.Properties{CompassHeadingSupported: true}, nil
+	}
+
 	// create the frame system
 	fsParts := []*referenceframe.FrameSystemPart{
 		{FrameConfig: movementSensorLink},
 		{FrameConfig: baseLink},
 	}
 	deps := resource.Dependencies{
-		fakeBase.Name():               fakeBase,
-		injectedMovementSensor.Name(): injectedMovementSensor,
+		fakeBase.Name():              kb,
+		dynamicMovementSensor.Name(): dynamicMovementSensor,
 	}
 
 	fsSvc, err := createFrameSystemService(ctx, deps, fsParts, logger)
@@ -178,7 +209,7 @@ func createMoveOnGlobeEnvironment(ctx context.Context, t *testing.T, gpsPoint *g
 	ms, err := NewBuiltIn(ctx, deps, conf, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	return injectedMovementSensor, fsSvc, fakeBase, ms
+	return dynamicMovementSensor, fsSvc, fakeBase, ms
 }
 
 func createMoveOnMapEnvironment(ctx context.Context, t *testing.T, pcdPath string) motion.Service {
@@ -495,7 +526,7 @@ func TestMoveOnMapTimeout(t *testing.T) {
 	test.That(t, success, test.ShouldBeFalse)
 }
 
-func TestPlanMoveOnGlobe(t *testing.T) {
+func TestMoveOnGlobe(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 
@@ -509,21 +540,40 @@ func TestPlanMoveOnGlobe(t *testing.T) {
 
 	dst := geo.NewPoint(gpsPoint.Lat(), gpsPoint.Lng()+1e-5)
 	expectedDst := r3.Vector{380, 0, 0}
+	epsilonMM := 15.
 
 	t.Run("ensure success to a nearby geo point", func(t *testing.T) {
 		t.Parallel()
-		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint)
-		solutionMap, kb, err := ms.(*builtIn).planMoveOnGlobe(
+		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, dst)
+
+		planRequest, _, err := ms.(*builtIn).newMoveOnGlobeRequest(
 			context.Background(),
 			fakeBase.Name(),
 			dst,
-			injectedMovementSensor.Name(),
-			nil,
-			kinematicbase.NewKinematicBaseOptions(),
+			injectedMovementSensor,
+			[]*spatialmath.GeoObstacle{},
+			&motion.MotionConfiguration{PositionPollingFreqHz: 4, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM},
 			motionCfg,
 		)
 		test.That(t, err, test.ShouldBeNil)
-		plan, err := motionplan.FrameStepsFromRobotPath(kb.Kinematics().Name(), solutionMap)
+		plan, err := motionplan.PlanMotion(ctx, planRequest)
+		test.That(t, err, test.ShouldBeNil)
+		waypoints, err := plan.GetFrameSteps(fakeBase.Name().Name)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(waypoints), test.ShouldEqual, 2)
+		test.That(t, waypoints[1][0].Value, test.ShouldAlmostEqual, expectedDst.X, epsilonMM)
+		test.That(t, waypoints[1][1].Value, test.ShouldAlmostEqual, expectedDst.Y, epsilonMM)
+
+		success, err := ms.MoveOnGlobe(
+			context.Background(),
+			fakeBase.Name(),
+			dst,
+			0,
+			injectedMovementSensor.Name(),
+			[]*spatialmath.GeoObstacle{},
+			&motion.MotionConfiguration{PositionPollingFreqHz: 4, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM},
+			motionCfg,
+		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(plan), test.ShouldEqual, 2)
 		test.That(t, plan[1][0].Value, test.ShouldAlmostEqual, expectedDst.X, 10)
@@ -532,33 +582,49 @@ func TestPlanMoveOnGlobe(t *testing.T) {
 
 	t.Run("go around an obstacle", func(t *testing.T) {
 		t.Parallel()
-		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint)
+		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, dst)
+
 		boxPose := spatialmath.NewPoseFromPoint(r3.Vector{50, 0, 0})
 		boxDims := r3.Vector{5, 50, 10}
 		geometries, err := spatialmath.NewBox(boxPose, boxDims, "wall")
 		test.That(t, err, test.ShouldBeNil)
 		geoObstacle := spatialmath.NewGeoObstacle(gpsPoint, []spatialmath.Geometry{geometries})
 
-		solutionMap, kb, err := ms.(*builtIn).planMoveOnGlobe(
+		planRequest, _, err := ms.(*builtIn).newMoveOnGlobeRequest(
 			context.Background(),
 			fakeBase.Name(),
 			dst,
-			injectedMovementSensor.Name(),
+			injectedMovementSensor,
 			[]*spatialmath.GeoObstacle{geoObstacle},
-			kinematicbase.NewKinematicBaseOptions(),
+			&motion.MotionConfiguration{PositionPollingFreqHz: 4, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM},
 			motionCfg,
 		)
 		test.That(t, err, test.ShouldBeNil)
-		plan, err := motionplan.FrameStepsFromRobotPath(kb.Kinematics().Name(), solutionMap)
+		plan, err := motionplan.PlanMotion(ctx, planRequest)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(plan), test.ShouldBeGreaterThan, 2)
-		test.That(t, plan[len(plan)-1][0].Value, test.ShouldAlmostEqual, expectedDst.X, 10)
-		test.That(t, plan[len(plan)-1][1].Value, test.ShouldAlmostEqual, expectedDst.Y, 10)
+		waypoints, err := plan.GetFrameSteps(fakeBase.Name().Name)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(waypoints), test.ShouldBeGreaterThan, 2)
+		test.That(t, waypoints[len(waypoints)-1][0].Value, test.ShouldAlmostEqual, expectedDst.X, epsilonMM)
+		test.That(t, waypoints[len(waypoints)-1][1].Value, test.ShouldAlmostEqual, expectedDst.Y, epsilonMM)
+
+		success, err := ms.MoveOnGlobe(
+			context.Background(),
+			fakeBase.Name(),
+			dst,
+			0,
+			injectedMovementSensor.Name(),
+			[]*spatialmath.GeoObstacle{geoObstacle},
+			&motion.MotionConfiguration{PositionPollingFreqHz: 4, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM},
+			motionCfg,
+		)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, success, test.ShouldBeTrue)
 	})
 
 	t.Run("fail because of obstacle", func(t *testing.T) {
 		t.Parallel()
-		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint)
+		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, dst)
 
 		boxPose := spatialmath.NewPoseFromPoint(r3.Vector{50, 0, 0})
 		boxDims := r3.Vector{2, 6660, 10}
@@ -566,22 +632,24 @@ func TestPlanMoveOnGlobe(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		geoObstacle := spatialmath.NewGeoObstacle(gpsPoint, []spatialmath.Geometry{geometries})
 
-		plan, _, err := ms.(*builtIn).planMoveOnGlobe(
+		planRequest, _, err := ms.(*builtIn).newMoveOnGlobeRequest(
 			context.Background(),
 			fakeBase.Name(),
 			dst,
-			injectedMovementSensor.Name(),
+			injectedMovementSensor,
 			[]*spatialmath.GeoObstacle{geoObstacle},
-			kinematicbase.NewKinematicBaseOptions(),
+			&motion.MotionConfiguration{},
 			motionCfg,
 		)
+		test.That(t, err, test.ShouldBeNil)
+		plan, err := motionplan.PlanMotion(ctx, planRequest)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, len(plan), test.ShouldEqual, 0)
 	})
 
 	t.Run("check offset constructed correctly", func(t *testing.T) {
 		t.Parallel()
-		_, fsSvc, _, _ := createMoveOnGlobeEnvironment(ctx, t, gpsPoint)
+		_, fsSvc, _, _ := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, dst)
 		baseOrigin := referenceframe.NewPoseInFrame("test-base", spatialmath.NewZeroPose())
 		movementSensorToBase, err := fsSvc.TransformPose(ctx, baseOrigin, "test-gps", nil)
 		if err != nil {
@@ -1016,8 +1084,10 @@ func TestStoppableMoveFunctions(t *testing.T) {
 
 			goal := geo.NewPoint(gpsPoint.Lat()+1e-4, gpsPoint.Lng()+1e-4)
 			motionCfg := motion.MotionConfiguration{
-				PlanDeviationM: 10,
-				LinearMPerSec:  10,
+				PlanDeviationMM:       10000,
+				LinearMPerSec:         10,
+				PositionPollingFreqHz: 4,
+				ObstaclePollingFreqHz: 1,
 			}
 			success, err := ms.MoveOnGlobe(
 				ctx, injectBase.Name(), goal, 0, injectMovementSensor.Name(),

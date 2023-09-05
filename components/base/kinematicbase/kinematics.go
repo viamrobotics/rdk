@@ -123,6 +123,10 @@ func WrapWithKinematics(
 	limits []referenceframe.Limit,
 	options Options,
 ) (KinematicBase, error) {
+	if kb, ok := b.(KinematicBase); ok {
+		return kb, nil
+	}
+
 	properties, err := b.Properties(ctx, nil)
 	if err != nil {
 		return nil, err

@@ -132,10 +132,10 @@ func setupMotionConfiguration(motionCfg *pb.MotionConfiguration) MotionConfigura
 	}
 
 	return MotionConfiguration{
-		VisionSvc:             visionSvc,
+		VisionServices:        visionSvc,
 		PositionPollingFreqHz: positionPollingHz,
 		ObstaclePollingFreqHz: obstaclePollingHz,
-		PlanDeviationM:        planDeviationM,
+		PlanDeviationMM:       1e3 * planDeviationM,
 		LinearMPerSec:         linearMPerSec,
 		AngularDegsPerSec:     angularDegsPerSec,
 	}

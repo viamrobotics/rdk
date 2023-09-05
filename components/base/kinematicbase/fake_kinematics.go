@@ -2,6 +2,8 @@ package kinematicbase
 
 import (
 	"context"
+	"sync"
+	"time"
 
 	"go.viam.com/rdk/components/base/fake"
 	"go.viam.com/rdk/referenceframe"
@@ -15,6 +17,7 @@ type fakeKinematics struct {
 	localizer                     motion.Localizer
 	inputs                        []referenceframe.Input
 	options                       Options
+	lock                          sync.Mutex
 }
 
 // WrapWithFakeKinematics creates a KinematicBase from the fake Base so that it satisfies the ModelFramer and InputEnabled interfaces.
@@ -33,7 +36,7 @@ func WrapWithFakeKinematics(
 	fk := &fakeKinematics{
 		Base:      b,
 		localizer: localizer,
-		inputs:    []referenceframe.Input{{pt.X}, {pt.Y}, {0}},
+		inputs:    []referenceframe.Input{{pt.X}, {pt.Y}},
 	}
 	var geometry spatialmath.Geometry
 	if len(fk.Base.Geometry) != 0 {
@@ -63,11 +66,21 @@ func (fk *fakeKinematics) Kinematics() referenceframe.Frame {
 }
 
 func (fk *fakeKinematics) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
+	fk.lock.Lock()
+	defer fk.lock.Unlock()
 	return fk.inputs, nil
 }
 
 func (fk *fakeKinematics) GoToInputs(ctx context.Context, inputs []referenceframe.Input) error {
 	_, err := fk.planningFrame.Transform(inputs)
+	if err != nil {
+		return err
+	}
+	fk.lock.Lock()
 	fk.inputs = inputs
-	return err
+	fk.lock.Unlock()
+
+	// Sleep for a short amount to time to simulate a base taking some amount of time to reach the inputs
+	time.Sleep(150 * time.Millisecond)
+	return nil
 }

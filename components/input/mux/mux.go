@@ -46,6 +46,7 @@ func NewController(
 		cancelFunc:    cancel,
 		ctxWithCancel: ctxWithCancel,
 		eventsChan:    make(chan input.Event, 1024),
+		logger:        logger,
 	}
 
 	for _, s := range newConf.Sources {
@@ -84,6 +85,7 @@ type mux struct {
 	cancelFunc              func()
 	callbacks               map[input.Control]map[input.EventType]input.ControlFunction
 	eventsChan              chan input.Event
+	logger                  golog.Logger
 }
 
 func (m *mux) makeCallbacks(eventOut input.Event) {
