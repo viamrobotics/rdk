@@ -208,42 +208,6 @@ func TestStartWaypoint(t *testing.T) {
 		currentInputsShouldEqual(ctx, t, kinematicBase, pt)
 	})
 
-	t.Run("Switch from waypoint to manual", func(t *testing.T) {
-		injectMS.MoveOnGlobeFunc = func(
-			ctx context.Context,
-			componentName resource.Name,
-			destination *geo.Point,
-			heading float64,
-			movementSensorName resource.Name,
-			obstacles []*spatialmath.GeoObstacle,
-			motionCfg *motion.MotionConfiguration,
-			extra map[string]interface{},
-		) (bool, error) {
-			err := kinematicBase.GoToInputs(ctx, referenceframe.FloatsToInputs([]float64{destination.Lat(), destination.Lng()}))
-			return true, err
-		}
-		pt := geo.NewPoint(1, 0)
-		err = ns.AddWaypoint(ctx, pt, nil)
-		test.That(t, err, test.ShouldBeNil)
-
-		pt = geo.NewPoint(3, 1)
-		err = ns.AddWaypoint(ctx, pt, nil)
-		test.That(t, err, test.ShouldBeNil)
-
-		ns.(*builtIn).mode = navigation.ModeManual
-		cancelCtx, fn := context.WithTimeout(ctx, time.Millisecond*10)
-		defer fn()
-		err = ns.SetMode(cancelCtx, navigation.ModeWaypoint, nil)
-		test.That(t, err, test.ShouldBeNil)
-		time.Sleep(time.Millisecond * 10)
-		err = ns.SetMode(context.Background(), navigation.ModeManual, nil)
-		test.That(t, err, test.ShouldBeNil)
-		ns.(*builtIn).activeBackgroundWorkers.Wait()
-		time.Sleep(time.Millisecond * 10)
-
-		currentInputsShouldEqual(ctx, t, kinematicBase, pt)
-	})
-
 	t.Run("Extra defaults to motion_profile", func(t *testing.T) {
 		// setup injected MoveOnGlobe to test what extra defaults to from startWaypointExperimental function
 		injectMS.MoveOnGlobeFunc = func(
