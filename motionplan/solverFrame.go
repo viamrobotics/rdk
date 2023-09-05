@@ -308,6 +308,26 @@ func (sf solverFrame) getPoseFromMap(seedMap map[string][]frame.Input) (spatial.
 	return startPose, nil
 }
 
+// planToNodes a plan and how well the solverFrame is following it as an errorState,
+// and turns it into a slice of nodes.
+func (sf solverFrame) planToNodes(plan []map[string][]frame.Input, errorState spatial.Pose) ([]node, error) {
+	planNodes := make([]node, 0, len(plan))
+	for _, step := range plan {
+		stepConfig, err := sf.mapToSlice(step)
+		if err != nil {
+			return nil, err
+		}
+		pose, err := sf.Transform(stepConfig)
+		// adjust pose based off how much we've deviated from the expected path
+		pose = spatial.Compose(pose, errorState)
+		if err != nil {
+			return nil, err
+		}
+		planNodes = append(planNodes, &basicNode{q: stepConfig, pose: pose})
+	}
+	return planNodes, nil
+}
+
 // uniqInPlaceSlice will deduplicate the values in a slice using in-place replacement on the slice. This is faster than
 // a solution using append().
 // This function does not remove anything from the input slice, but it does rearrange the elements.

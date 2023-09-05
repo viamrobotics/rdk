@@ -412,19 +412,9 @@ func CheckPlan(
 	}
 
 	// convert plan into nodes
-	planNodes := make([]node, 0, len(plan))
-	for _, step := range plan {
-		stepConfig, err := sf.mapToSlice(step)
-		if err != nil {
-			return err
-		}
-		pose, err := sf.Transform(stepConfig)
-		// adjust pose based off how much we've deviated from the expected path
-		pose = spatialmath.Compose(pose, errorState)
-		if err != nil {
-			return err
-		}
-		planNodes = append(planNodes, &basicNode{q: stepConfig, pose: pose})
+	planNodes, err := sf.planToNodes(plan, errorState)
+	if err != nil {
+		return err
 	}
 
 	// This should be done for any plan whose configurations are specified in relative terms rather than absolute ones.
