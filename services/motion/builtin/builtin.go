@@ -231,7 +231,78 @@ func (ms *builtIn) MoveOnMap(
 	return true, nil
 }
 
-func (ms *builtIn) execute(ctx context.Context, kinematicBase kinematicbase.KinematicBase, plan motionplan.Plan) error {
+// MoveOnGlobe will move the given component to the given destination on the globe.
+// Bases are the only component that supports this.
+func (ms *builtIn) MoveOnGlobe(
+	ctx context.Context,
+	componentName resource.Name,
+	destination *geo.Point,
+	heading float64,
+	movementSensorName resource.Name,
+	obstacles []*spatialmath.GeoObstacle,
+	motionCfg *motion.MotionConfiguration,
+	extra map[string]interface{},
+) (bool, error) {
+	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
+
+	movementSensor, ok := ms.movementSensors[movementSensorName]
+	if !ok {
+		return false, resource.DependencyNotFoundError(movementSensorName)
+	}
+
+	moveRequest, err := ms.newMoveOnGlobeRequest(ctx, componentName, destination, movementSensor, obstacles, motionCfg, extra)
+	if err != nil {
+		return false, err
+	}
+
+	ma := newMoveAttempt(ctx, moveRequest)
+	ma.start()
+
+	// start the loop that (re)plans when something is read from the replan channel
+	// and exits when something is read from the success channel
+	for {
+		if err := ctx.Err(); err != nil {
+			ma.cancel()
+			return false, err
+		}
+
+		select {
+		case <-ctx.Done():
+			ma.cancel()
+			return false, ctx.Err()
+
+		// once execution responds: return the result to the caller
+		case resp := <-ma.responseChan:
+			ms.logger.Debugf("execution complete: %#v", resp)
+			ma.cancel()
+			return resp.success, resp.err
+
+		// if the position poller hit an error, return the terminal error to the caller
+		// otherwise it detected something that triggered a replan
+		case resp := <-moveRequest.position.responseChan:
+			ms.logger.Debugf("position response: %#v", resp)
+			ma.cancel()
+			if resp.err != nil {
+				return false, err
+			}
+			ma = newMoveAttempt(ctx, moveRequest)
+			ma.start()
+
+		// if the obstacle poller hit an error, return the terminal error to the caller
+		// otherwise it detected something that triggered a replan
+		case resp := <-moveRequest.obstacle.responseChan:
+			ms.logger.Debugf("obstacle response: %#v", resp)
+			ma.cancel()
+			if resp.err != nil {
+				return false, err
+			}
+			ma = newMoveAttempt(ctx, moveRequest)
+			ma.start()
+		}
+	}
+}
+
+func (ms *builtIn) executePlan(ctx context.Context, kinematicBase kinematicbase.KinematicBase, plan *motionplan.Plan) error {
 	waypoints, err := plan.GetFrameSteps(kinematicBase.Name().Name)
 	if err != nil {
 		return err
@@ -253,86 +324,6 @@ func (ms *builtIn) execute(ctx context.Context, kinematicBase kinematicbase.Kine
 		}
 	}
 	return nil
-}
-
-// MoveOnGlobe will move the given component to the given destination on the globe.
-// Bases are the only component that supports this.
-func (ms *builtIn) MoveOnGlobe(
-	ctx context.Context,
-	componentName resource.Name,
-	destination *geo.Point,
-	_heading float64,
-	movementSensorName resource.Name,
-	obstacles []*spatialmath.GeoObstacle,
-	motionCfg *motion.MotionConfiguration,
-	extra map[string]interface{},
-) (bool, error) {
-	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
-
-	movementSensor, ok := ms.movementSensors[movementSensorName]
-	if !ok {
-		return false, resource.DependencyNotFoundError(movementSensorName)
-	}
-
-	planRequest, kb, err := ms.newMoveOnGlobeRequest(ctx, componentName, destination, movementSensor, obstacles, motionCfg, extra)
-	if err != nil {
-		return false, err
-	}
-
-	plan, err := plan(ctx, planRequest, kb, componentName.Name)
-	if err != nil {
-		return false, err
-	}
-
-	ps := newPlanSession(ctx, plan)
-	// TODO: Remove replanCount when read position & obstacle polling is integrated
-	var replanCount int
-	ps.start(motionCfg, kb, ms, movementSensor, destination, replanCount)
-
-	// start the loop that (re)plans when something is read from the replan channel
-	// and exits when something is read from the success channel
-	for {
-		replanCount++
-		if err := ctx.Err(); err != nil {
-			ps.stop()
-			return false, err
-		}
-
-		select {
-		case <-ctx.Done():
-			ps.stop()
-			return false, ctx.Err()
-
-		// once execution responds: return the result to the caller
-		case resp := <-ps.executionChan:
-			ms.logger.Debugf("execution complete: %#v", resp)
-			ps.stop()
-			return resp.success, resp.err
-
-		// if the obstacle poller hit an error, return the terminal error to the caller
-		// otherwise the obstacle poller detected an obstacle and we should replan
-		case resp := <-ps.obstacleChan:
-			ms.logger.Debugf("obstacle response: %#v", resp)
-			ps.stop()
-			if resp.err != nil {
-				return false, err
-			}
-			ps = newPlanSession(ctx, plan)
-			ps.start(motionCfg, kb, ms, movementSensor, destination, replanCount)
-
-		// if the obstacle poller hit an error, return the terminal error to the caller
-		// otherwise the position poller detected the position has drifted too far
-		// from the plan &  and we should replan
-		case resp := <-ps.positionChan:
-			ms.logger.Debugf("position response: %#v", resp)
-			ps.stop()
-			if resp.err != nil {
-				return false, err
-			}
-			ps = newPlanSession(ctx, plan)
-			ps.start(motionCfg, kb, ms, movementSensor, destination, replanCount)
-		}
-	}
 }
 
 func (ms *builtIn) GetPose(
@@ -372,7 +363,7 @@ func (ms *builtIn) planMoveOnMap(
 	}
 
 	// gets the extents of the SLAM map
-	limits, err := slam.GetLimits(ctx, slamSvc)
+	limits, err := slam.Limits(ctx, slamSvc)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -404,7 +395,7 @@ func (ms *builtIn) planMoveOnMap(
 	}
 
 	// get point cloud data in the form of bytes from pcd
-	pointCloudData, err := slam.GetPointCloudMapFull(ctx, slamSvc)
+	pointCloudData, err := slam.PointCloudMapFull(ctx, slamSvc)
 	if err != nil {
 		return nil, nil, err
 	}

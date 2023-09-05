@@ -436,8 +436,8 @@ func (s *bme280) setOverSample(ctx context.Context, addr, offset, val byte) erro
 	if err != nil {
 		return err
 	}
-	err = s.setMode(ctx, 0b00)
-	if err != nil {
+
+	if err = s.setMode(ctx, 0b00); err != nil {
 		return err
 	}
 
@@ -453,16 +453,19 @@ func (s *bme280) setOverSample(ctx context.Context, addr, offset, val byte) erro
 	controlData &= ^((byte(1) << (offset + 2)) | (byte(1) << (offset + 1)) | (byte(1) << offset))
 	controlData |= (val << offset)
 
-	err = handle.WriteByteData(ctx, addr, controlData)
-	if err != nil {
-		return err
-	}
-	err = s.setMode(ctx, mode)
-	if err != nil {
+	if err = handle.WriteByteData(ctx, addr, controlData); err != nil {
 		return err
 	}
 
-	return handle.Close()
+	if err := handle.Close(); err != nil {
+		return err
+	}
+
+	if err = s.setMode(ctx, mode); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // setupCalibration sets up all calibration data for the chip.

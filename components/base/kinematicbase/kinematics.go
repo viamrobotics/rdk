@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	geo "github.com/kellydunn/golang-geo"
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/referenceframe"
@@ -17,7 +18,7 @@ import (
 type KinematicBase interface {
 	base.Base
 	referenceframe.InputEnabled
-
+	Position() (*geo.Point, error)
 	Kinematics() referenceframe.Frame
 }
 

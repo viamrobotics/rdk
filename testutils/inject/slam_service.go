@@ -12,13 +12,13 @@ import (
 // SLAMService represents a fake instance of a slam service.
 type SLAMService struct {
 	slam.Service
-	name                 resource.Name
-	GetPositionFunc      func(ctx context.Context) (spatialmath.Pose, string, error)
-	GetPointCloudMapFunc func(ctx context.Context) (func() ([]byte, error), error)
-	GetInternalStateFunc func(ctx context.Context) (func() ([]byte, error), error)
-	GetLatestMapInfoFunc func(ctx context.Context) (time.Time, error)
-	DoCommandFunc        func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
-	CloseFunc            func(ctx context.Context) error
+	name              resource.Name
+	PositionFunc      func(ctx context.Context) (spatialmath.Pose, string, error)
+	PointCloudMapFunc func(ctx context.Context) (func() ([]byte, error), error)
+	InternalStateFunc func(ctx context.Context) (func() ([]byte, error), error)
+	LatestMapInfoFunc func(ctx context.Context) (time.Time, error)
+	DoCommandFunc     func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+	CloseFunc         func(ctx context.Context) error
 }
 
 // NewSLAMService returns a new injected SLAM service.
@@ -31,36 +31,36 @@ func (slamSvc *SLAMService) Name() resource.Name {
 	return slamSvc.name
 }
 
-// GetPosition calls the injected GetPositionFunc or the real version.
-func (slamSvc *SLAMService) GetPosition(ctx context.Context) (spatialmath.Pose, string, error) {
-	if slamSvc.GetPositionFunc == nil {
-		return slamSvc.Service.GetPosition(ctx)
+// Position calls the injected PositionFunc or the real version.
+func (slamSvc *SLAMService) Position(ctx context.Context) (spatialmath.Pose, string, error) {
+	if slamSvc.PositionFunc == nil {
+		return slamSvc.Service.Position(ctx)
 	}
-	return slamSvc.GetPositionFunc(ctx)
+	return slamSvc.PositionFunc(ctx)
 }
 
-// GetPointCloudMap calls the injected GetPointCloudMap or the real version.
-func (slamSvc *SLAMService) GetPointCloudMap(ctx context.Context) (func() ([]byte, error), error) {
-	if slamSvc.GetPointCloudMapFunc == nil {
-		return slamSvc.Service.GetPointCloudMap(ctx)
+// PointCloudMap calls the injected PointCloudMap or the real version.
+func (slamSvc *SLAMService) PointCloudMap(ctx context.Context) (func() ([]byte, error), error) {
+	if slamSvc.PointCloudMapFunc == nil {
+		return slamSvc.Service.PointCloudMap(ctx)
 	}
-	return slamSvc.GetPointCloudMapFunc(ctx)
+	return slamSvc.PointCloudMapFunc(ctx)
 }
 
-// GetInternalState calls the injected GetInternalState or the real version.
-func (slamSvc *SLAMService) GetInternalState(ctx context.Context) (func() ([]byte, error), error) {
-	if slamSvc.GetInternalStateFunc == nil {
-		return slamSvc.Service.GetInternalState(ctx)
+// InternalState calls the injected InternalState or the real version.
+func (slamSvc *SLAMService) InternalState(ctx context.Context) (func() ([]byte, error), error) {
+	if slamSvc.InternalStateFunc == nil {
+		return slamSvc.Service.InternalState(ctx)
 	}
-	return slamSvc.GetInternalStateFunc(ctx)
+	return slamSvc.InternalStateFunc(ctx)
 }
 
-// GetLatestMapInfo calls the injected GetLatestMapInfoFunc or the real version.
-func (slamSvc *SLAMService) GetLatestMapInfo(ctx context.Context) (time.Time, error) {
-	if slamSvc.GetLatestMapInfoFunc == nil {
-		return slamSvc.Service.GetLatestMapInfo(ctx)
+// LatestMapInfo calls the injected LatestMapInfoFunc or the real version.
+func (slamSvc *SLAMService) LatestMapInfo(ctx context.Context) (time.Time, error) {
+	if slamSvc.LatestMapInfoFunc == nil {
+		return slamSvc.Service.LatestMapInfo(ctx)
 	}
-	return slamSvc.GetLatestMapInfoFunc(ctx)
+	return slamSvc.LatestMapInfoFunc(ctx)
 }
 
 // DoCommand calls the injected DoCommand or the real variant.
