@@ -213,11 +213,9 @@ func TestStartWaypoint(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		ns.(*builtIn).mode = navigation.ModeManual
-		cancelCtx, fn := context.WithCancel(ctx)
-		err = ns.SetMode(cancelCtx, navigation.ModeWaypoint, nil)
+		err = ns.SetMode(ctx, navigation.ModeWaypoint, nil)
 		test.That(t, err, test.ShouldBeNil)
 		blockTillCallCount(t, 2, callChan, time.Second*5)
-		fn()
 		ns.(*builtIn).wholeServiceCancelFunc()
 		ns.(*builtIn).activeBackgroundWorkers.Wait()
 
@@ -319,16 +317,16 @@ func TestStartWaypoint(t *testing.T) {
 			// Set manual mode to ensure waypoint loop from prior test exits
 			err = ns.SetMode(ctx, navigation.ModeManual, map[string]interface{}{"experimental": true})
 			test.That(t, err, test.ShouldBeNil)
+			ctx, cancelFunc := context.WithCancel(ctx)
 			defer ns.(*builtIn).activeBackgroundWorkers.Wait()
+			defer cancelFunc()
 			err = deleteAllWaypoints(ctx, ns)
 			for _, pt := range points {
 				err = ns.AddWaypoint(ctx, pt, nil)
 				test.That(t, err, test.ShouldBeNil)
 			}
 
-			cancelCtx, fn := context.WithCancel(ctx)
-			defer fn()
-			ns.(*builtIn).startWaypoint(cancelCtx, map[string]interface{}{"experimental": true})
+			ns.(*builtIn).startWaypoint(ctx, map[string]interface{}{"experimental": true})
 
 			// Get the ID of the first waypoint
 			wp1, err := ns.(*builtIn).store.NextWaypoint(ctx)
@@ -404,10 +402,8 @@ func TestStartWaypoint(t *testing.T) {
 				test.That(t, err, test.ShouldBeNil)
 			}
 
-			cancelCtx, fn := context.WithTimeout(ctx, time.Millisecond*10)
-			defer fn()
 			// start navigation - set ModeManual first to ensure navigation starts up
-			err = ns.SetMode(cancelCtx, navigation.ModeWaypoint, map[string]interface{}{"experimental": true})
+			err = ns.SetMode(ctx, navigation.ModeWaypoint, map[string]interface{}{"experimental": true})
 
 			// Get the ID of the first waypoint
 			wp1, err := ns.(*builtIn).store.NextWaypoint(ctx)
