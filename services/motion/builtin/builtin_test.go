@@ -11,7 +11,6 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
-
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
@@ -575,9 +574,7 @@ func TestMoveOnGlobe(t *testing.T) {
 			motionCfg,
 		)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(plan), test.ShouldEqual, 2)
-		test.That(t, plan[1][0].Value, test.ShouldAlmostEqual, expectedDst.X, 10)
-		test.That(t, plan[1][1].Value, test.ShouldAlmostEqual, expectedDst.Y, 10)
+		test.That(t, success, test.ShouldBeTrue)
 	})
 
 	t.Run("go around an obstacle", func(t *testing.T) {
@@ -663,27 +660,34 @@ func TestCheckPlan(t *testing.T) {
 	ctx := context.Background()
 
 	// orign as gps point
-	gpsPoint := geo.NewPoint(-70, 40)
+	originPoint := geo.NewPoint(-70, 40)
+
+
+	destPoint := geo.NewPoint(originPoint.Lat(), originPoint.Lng()+1e-5)
 
 	// create env
-	injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint)
+	injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, originPoint, destPoint)
 
 	motionCfg := make(map[string]interface{})
 	// fail if we don't find a plan in 5 seconds
 	motionCfg["timeout"] = 5.
 
 	// get plan and kinematic base
-	plan, kinBase, err := ms.(*builtIn).planMoveOnGlobe(
+	planRequest, kinBase, err := ms.(*builtIn).newMoveOnGlobeRequest(
 		context.Background(),
 		fakeBase.Name(),
-		geo.NewPoint(gpsPoint.Lat(), gpsPoint.Lng()+1e-5),
-		injectedMovementSensor.Name(),
+		destPoint,
+		injectedMovementSensor,
 		nil,
-		kinematicbase.NewKinematicBaseOptions(),
+		&motion.MotionConfiguration{PositionPollingFreqHz: 4, ObstaclePollingFreqHz: 1, PlanDeviationMM: 15.},
 		motionCfg,
 	)
 	test.That(t, err, test.ShouldBeNil)
 
+	plan, err := motionplan.PlanMotion(ctx, planRequest)
+	test.That(t, err, test.ShouldBeNil)
+
+	// construct framesystem
 	newFS := referenceframe.NewEmptyFrameSystem("test-fs")
 	newFS.AddFrame(kinBase.Kinematics(), newFS.World())
 
@@ -817,17 +821,15 @@ func TestArmGantryPlanCheck(t *testing.T) {
 
 	goal := spatialmath.NewPoseFromPoint(r3.Vector{X: 407, Y: 0, Z: 112})
 
-	plan, err := motionplan.PlanMotion(
-		context.Background(),
-		logger,
-		referenceframe.NewPoseInFrame(referenceframe.World, goal),
-		fs.Frame("xArm6"),
-		referenceframe.StartPositions(fs),
-		fs,
-		nil,
-		nil,
-		nil,
-	)
+	planReq := motionplan.PlanRequest{
+		Logger:             logger,
+		Goal:               referenceframe.NewPoseInFrame(referenceframe.World, goal),
+		Frame:              fs.Frame("xArm6"),
+		FrameSystem:        fs,
+		StartConfiguration: referenceframe.StartPositions(fs),
+	}
+
+	plan, err := motionplan.PlanMotion(context.Background(), &planReq)
 	test.That(t, err, test.ShouldBeNil)
 
 	startPose := spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0})
