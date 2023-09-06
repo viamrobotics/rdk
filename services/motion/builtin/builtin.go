@@ -302,30 +302,6 @@ func (ms *builtIn) MoveOnGlobe(
 	}
 }
 
-func (ms *builtIn) executePlan(ctx context.Context, kinematicBase kinematicbase.KinematicBase, plan *motionplan.Plan) error {
-	waypoints, err := plan.GetFrameSteps(kinematicBase.Name().Name)
-	if err != nil {
-		return err
-	}
-
-	for i := 1; i < len(waypoints); i++ {
-		select {
-		case <-ctx.Done():
-			return nil
-		default:
-			ms.logger.Info(waypoints[i])
-			if err := kinematicBase.GoToInputs(ctx, waypoints[i]); err != nil {
-				// If there is an error on GoToInputs, stop the component if possible before returning the error
-				if stopErr := kinematicBase.Stop(ctx, nil); stopErr != nil {
-					return errors.Wrap(err, stopErr.Error())
-				}
-				return err
-			}
-		}
-	}
-	return nil
-}
-
 func (ms *builtIn) GetPose(
 	ctx context.Context,
 	componentName resource.Name,

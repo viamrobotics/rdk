@@ -2,7 +2,6 @@ package builtin
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	goutils "go.viam.com/utils"
@@ -47,13 +46,11 @@ func (ma *moveAttempt) start() {
 	ma.backgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
 		ma.request.position.startPolling(ma.ctx)
-		fmt.Println("position")
 	}, ma.backgroundWorkers.Done)
 
 	ma.backgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
 		ma.request.obstacle.startPolling(ma.ctx)
-		fmt.Println("obstacle")
 	}, ma.backgroundWorkers.Done)
 
 	// spawn function to execute the plan on the robot

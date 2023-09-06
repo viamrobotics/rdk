@@ -8,6 +8,7 @@ import (
 
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
+
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/base/kinematicbase"
 	"go.viam.com/rdk/components/movementsensor"

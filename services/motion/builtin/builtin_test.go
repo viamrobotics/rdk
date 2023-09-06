@@ -11,7 +11,6 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
-
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
@@ -618,41 +617,41 @@ func TestMoveOnGlobe(t *testing.T) {
 		test.That(t, success, test.ShouldBeTrue)
 	})
 
-	// t.Run("fail because of obstacle", func(t *testing.T) {
-	// 	t.Parallel()
-	// 	injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, dst)
+	t.Run("fail because of obstacle", func(t *testing.T) {
+		t.Parallel()
+		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, dst)
 
-	// 	boxPose := spatialmath.NewPoseFromPoint(r3.Vector{50, 0, 0})
-	// 	boxDims := r3.Vector{2, 6660, 10}
-	// 	geometries, err := spatialmath.NewBox(boxPose, boxDims, "wall")
-	// 	test.That(t, err, test.ShouldBeNil)
-	// 	geoObstacle := spatialmath.NewGeoObstacle(gpsPoint, []spatialmath.Geometry{geometries})
+		boxPose := spatialmath.NewPoseFromPoint(r3.Vector{50, 0, 0})
+		boxDims := r3.Vector{2, 6660, 10}
+		geometries, err := spatialmath.NewBox(boxPose, boxDims, "wall")
+		test.That(t, err, test.ShouldBeNil)
+		geoObstacle := spatialmath.NewGeoObstacle(gpsPoint, []spatialmath.Geometry{geometries})
 
-	// 	moveRequest, err := ms.(*builtIn).newMoveOnGlobeRequest(
-	// 		context.Background(),
-	// 		fakeBase.Name(),
-	// 		dst,
-	// 		injectedMovementSensor,
-	// 		[]*spatialmath.GeoObstacle{geoObstacle},
-	// 		&motion.MotionConfiguration{},
-	// 		motionCfg,
-	// 	)
-	// 	test.That(t, err, test.ShouldBeNil)
-	// 	plan, err := moveRequest.plan(context.Background())
-	// 	test.That(t, err, test.ShouldNotBeNil)
-	// 	test.That(t, len(plan), test.ShouldEqual, 0)
-	// })
+		moveRequest, err := ms.(*builtIn).newMoveOnGlobeRequest(
+			context.Background(),
+			fakeBase.Name(),
+			dst,
+			injectedMovementSensor,
+			[]*spatialmath.GeoObstacle{geoObstacle},
+			&motion.MotionConfiguration{},
+			motionCfg,
+		)
+		test.That(t, err, test.ShouldBeNil)
+		plan, err := moveRequest.plan(context.Background())
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, len(plan), test.ShouldEqual, 0)
+	})
 
-	// t.Run("check offset constructed correctly", func(t *testing.T) {
-	// 	t.Parallel()
-	// 	_, fsSvc, _, _ := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, dst)
-	// 	baseOrigin := referenceframe.NewPoseInFrame("test-base", spatialmath.NewZeroPose())
-	// 	movementSensorToBase, err := fsSvc.TransformPose(ctx, baseOrigin, "test-gps", nil)
-	// 	if err != nil {
-	// 		movementSensorToBase = baseOrigin
-	// 	}
-	// 	test.That(t, movementSensorToBase.Pose().Point(), test.ShouldResemble, r3.Vector{10, 0, 0})
-	// })
+	t.Run("check offset constructed correctly", func(t *testing.T) {
+		t.Parallel()
+		_, fsSvc, _, _ := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, dst)
+		baseOrigin := referenceframe.NewPoseInFrame("test-base", spatialmath.NewZeroPose())
+		movementSensorToBase, err := fsSvc.TransformPose(ctx, baseOrigin, "test-gps", nil)
+		if err != nil {
+			movementSensorToBase = baseOrigin
+		}
+		test.That(t, movementSensorToBase.Pose().Point(), test.ShouldResemble, r3.Vector{10, 0, 0})
+	})
 }
 
 func TestMultiplePieces(t *testing.T) {
