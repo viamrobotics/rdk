@@ -18,6 +18,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/services/motion"
+	motionBuiltin "go.viam.com/rdk/services/motion/builtin"
 	"go.viam.com/rdk/utils"
 )
 
@@ -201,7 +202,7 @@ func TestModularResources(t *testing.T) {
 			Name:                "builtin",
 			API:                 motion.API,
 			Model:               resource.DefaultServiceModel,
-			ConvertedAttributes: &fake.Config{},
+			ConvertedAttributes: &motionBuiltin.Config{},
 			DependsOn:           []string{framesystem.InternalServiceName.String()},
 		}
 		_, err = cfg3.Validate("test", resource.APITypeServiceName)
