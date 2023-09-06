@@ -7,8 +7,6 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
-	// registers all components.
-
 	"go.viam.com/test"
 	"go.viam.com/utils"
 

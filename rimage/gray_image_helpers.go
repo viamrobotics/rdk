@@ -52,7 +52,7 @@ func GetGrayAvg(pic *image.Gray16) int {
 			sum += int64(val)
 		}
 	}
-	return int(sum / int64(pic.Bounds().Max.X * pic.Bounds().Max.Y))
+	return int(sum / int64(pic.Bounds().Max.X*pic.Bounds().Max.Y))
 }
 
 // GetGraySum takes in a grayscale image and returns the total sum as an int.

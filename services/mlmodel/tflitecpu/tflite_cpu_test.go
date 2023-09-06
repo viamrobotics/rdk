@@ -1,4 +1,5 @@
 //go:build !no_tflite
+
 package tflitecpu
 
 import (

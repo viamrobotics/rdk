@@ -2,10 +2,6 @@ module go.viam.com/rdk
 
 go 1.19
 
-replace github.com/viamrobotics/gostream => github.com/viamrobotics/gostream v0.0.0-20230829033610-5f340e379696
-
-replace go.viam.com/utils => go.viam.com/utils v0.1.44-0.20230904011840-aa548d3a0bd8
-
 require (
 	github.com/AlekSi/gocov-xml v1.0.0
 	github.com/CPRT/roboclaw v0.0.0-20190825181223-76871438befc
@@ -78,7 +74,7 @@ require (
 	github.com/urfave/cli/v2 v2.10.3
 	github.com/viam-labs/go-libjpeg v0.3.1
 	github.com/viamrobotics/evdev v0.1.3
-	github.com/viamrobotics/gostream v0.0.0-20230725145737-ed58004e202e
+	github.com/viamrobotics/gostream v0.0.0-20230829033610-5f340e379696
 	github.com/xfmoulet/qoi v0.2.0
 	go-hep.org/x/hep v0.32.1
 	go.einride.tech/vlp16 v0.7.0
@@ -89,7 +85,7 @@ require (
 	go.uber.org/zap v1.24.0
 	go.viam.com/api v0.1.186
 	go.viam.com/test v1.1.1-0.20220913152726-5da9916c08a2
-	go.viam.com/utils v0.1.43
+	go.viam.com/utils v0.1.44-0.20230905200840-300b46e8f195
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.8.0
 	golang.org/x/tools v0.8.0
