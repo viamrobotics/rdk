@@ -3,7 +3,6 @@ package grpc
 import (
 	"context"
 	"strings"
-	"time"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/utils/rpc"
@@ -25,9 +24,6 @@ func Dial(ctx context.Context, address string, logger golog.Logger, opts ...rpc.
 	optsCopy[0] = rpc.WithWebRTCOptions(webrtcOpts)
 	optsCopy[1] = rpc.WithAllowInsecureDowngrade()
 	copy(optsCopy[2:], opts)
-
-	ctx, timeoutCancel := context.WithTimeout(ctx, 20*time.Second)
-	defer timeoutCancel()
 
 	return rpc.Dial(ctx, address, logger, optsCopy...)
 }
