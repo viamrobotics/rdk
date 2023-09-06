@@ -3,8 +3,6 @@ on:
 
 jobs:
   docker:
-    # temporarily suppress this job to work around rate limit
-    if: false
     runs-on: buildjet-4vcpu-ubuntu-2204-arm
     permissions:
       packages: write
@@ -26,9 +24,8 @@ jobs:
         cache-from: type=registry,ref=ghcr.io/viamrobotics/viam-server:buildcache
         cache-to: type=registry,ref=ghcr.io/viamrobotics/viam-server:buildcache
   lint:
-    # needs: [docker]
+    needs: [docker]
     runs-on: buildjet-4vcpu-ubuntu-2204-arm
-    # concurrency: '32bit-${{ github.ref }}'
     permissions:
       packages: read
     steps:
@@ -42,9 +39,8 @@ jobs:
     - name: lint
       run: docker run --rm -v $PWD/:/rdk ghcr.io/viamrobotics/viam-server:armv7 make lint-32bit
   test:
-    # needs: [docker]
+    needs: [docker]
     runs-on: buildjet-4vcpu-ubuntu-2204-arm
-    # concurrency: '32bit-${{ github.ref }}'
     strategy:
       fail-fast: false
       matrix:
