@@ -196,19 +196,17 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 			}
 			return moveResponse{err: errors.New("reached end of plan but not at goal")}
 		},
-		position: &replanner{
-			period:       time.Duration(1000/motionCfg.PositionPollingFreqHz) * time.Millisecond,
-			responseChan: make(chan replanResponse),
-			fnToPoll: func(ctx context.Context) replanResponse {
+		position: newReplanner(
+			time.Duration(1000/motionCfg.PositionPollingFreqHz)*time.Millisecond,
+			func(ctx context.Context) replanResponse {
 				return replanResponse{}
 			},
-		},
-		obstacle: &replanner{
-			period:       time.Duration(1000/motionCfg.ObstaclePollingFreqHz) * time.Millisecond,
-			responseChan: make(chan replanResponse),
-			fnToPoll: func(ctx context.Context) replanResponse {
+		),
+		obstacle: newReplanner(
+			time.Duration(1000/motionCfg.ObstaclePollingFreqHz)*time.Millisecond,
+			func(ctx context.Context) replanResponse {
 				return replanResponse{}
 			},
-		},
+		),
 	}, nil
 }

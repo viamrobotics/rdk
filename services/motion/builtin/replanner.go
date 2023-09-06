@@ -18,6 +18,14 @@ type replanner struct {
 	responseChan chan replanResponse
 }
 
+func newReplanner(period time.Duration, fnToPoll func(context.Context) replanResponse) *replanner {
+	return &replanner{
+		period:       period,
+		fnToPoll:     fnToPoll,
+		responseChan: make(chan replanResponse),
+	}
+}
+
 // startPolling executes the replanner's configured function at its configured period
 // The caller of this function should read from the replanner's responseChan to know when a replan is requested
 func (r *replanner) startPolling(ctx context.Context) {
