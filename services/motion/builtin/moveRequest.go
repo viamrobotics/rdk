@@ -180,7 +180,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 			},
 		},
 		obstacle: &replanner{
-			period:       time.Duration(1000/motionCfg.PositionPollingFreqHz) * time.Millisecond,
+			period:       time.Duration(1000/motionCfg.ObstaclePollingFreqHz) * time.Millisecond,
 			responseChan: make(chan replanResponse),
 			fn: func(ctx context.Context) replanResponse {
 				return replanResponse{replan: true}

@@ -21,7 +21,7 @@ func (r *replanner) startPolling(ctx context.Context) {
 	defer ticker.Stop()
 	for {
 		// this ensures that if the context is cancelled we always return early at the top of the loop
-		if err := ctx.Err(); err != nil {
+		if ctx.Err() != nil {
 			return
 		}
 
