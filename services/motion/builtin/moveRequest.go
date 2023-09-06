@@ -11,7 +11,6 @@ import (
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/base/kinematicbase"
-	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -19,6 +18,7 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
+// moveRequest is a structure that contains all the information necessary for to make a move call.
 type moveRequest struct {
 	planRequest        *motionplan.PlanRequest
 	actuator           kinematicbase.KinematicBase
@@ -26,11 +26,26 @@ type moveRequest struct {
 	position, obstacle *replanner
 }
 
+// plan creates a plan using the currentInputs of the robot and the moveRequest's planRequest
+func (mr *moveRequest) plan(ctx context.Context) (motionplan.Plan, error) {
+	inputs, err := mr.actuator.CurrentInputs(ctx)
+	if err != nil {
+		return make(motionplan.Plan, 0), err
+	}
+	// TODO: this is really hacky and we should figure out a better place to store this information
+	if len(mr.planRequest.Frame.DoF()) == 2 {
+		inputs = inputs[:2]
+	}
+	mr.planRequest.StartConfiguration = map[string][]referenceframe.Input{mr.actuator.Kinematics().Name(): inputs}
+	return motionplan.PlanMotion(ctx, mr.planRequest)
+}
+
+// newMoveOnGlobeRequest instantiates a moveRequest intended to be used in the context of a MoveOnGlobe call
 func (ms *builtIn) newMoveOnGlobeRequest(
 	ctx context.Context,
 	componentName resource.Name,
 	destination *geo.Point,
-	movementSensor movementsensor.MovementSensor,
+	movementSensorName resource.Name,
 	obstacles []*spatialmath.GeoObstacle,
 	motionCfg *motion.MotionConfiguration,
 	extra map[string]interface{},
@@ -49,6 +64,10 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	kinematicsOptions.HeadingThresholdDegrees = 8
 
 	// build the localizer from the movement sensor
+	movementSensor, ok := ms.movementSensors[movementSensorName]
+	if !ok {
+		return nil, resource.DependencyNotFoundError(movementSensorName)
+	}
 	origin, _, err := movementSensor.Position(ctx, nil)
 	if err != nil {
 		return nil, err
@@ -187,17 +206,4 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 			},
 		},
 	}, nil
-}
-
-func (mr *moveRequest) plan(ctx context.Context) (motionplan.Plan, error) {
-	inputs, err := mr.actuator.CurrentInputs(ctx)
-	if err != nil {
-		return make(motionplan.Plan, 0), err
-	}
-	// TODO: this is really hacky and we should figure out a better place to store this information
-	if len(mr.planRequest.Frame.DoF()) == 2 {
-		inputs = inputs[:2]
-	}
-	mr.planRequest.StartConfiguration = map[string][]referenceframe.Input{mr.actuator.Kinematics().Name(): inputs}
-	return motionplan.PlanMotion(ctx, mr.planRequest)
 }

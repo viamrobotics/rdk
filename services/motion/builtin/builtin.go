@@ -245,12 +245,7 @@ func (ms *builtIn) MoveOnGlobe(
 ) (bool, error) {
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
 
-	movementSensor, ok := ms.movementSensors[movementSensorName]
-	if !ok {
-		return false, resource.DependencyNotFoundError(movementSensorName)
-	}
-
-	moveRequest, err := ms.newMoveOnGlobeRequest(ctx, componentName, destination, movementSensor, obstacles, motionCfg, extra)
+	moveRequest, err := ms.newMoveOnGlobeRequest(ctx, componentName, destination, movementSensorName, obstacles, motionCfg, extra)
 	if err != nil {
 		return false, err
 	}
@@ -261,12 +256,14 @@ func (ms *builtIn) MoveOnGlobe(
 	// start the loop that (re)plans when something is read from the replan channel
 	// and exits when something is read from the success channel
 	for {
-		if err := ctx.Err(); err != nil {
+		// this ensures that if the context is cancelled we always return early at the top of the loop
+		if ctx.Err() != nil {
 			ma.cancel()
 			return false, err
 		}
 
 		select {
+		// if context was cancelled by the calling function, error out
 		case <-ctx.Done():
 			ma.cancel()
 			return false, ctx.Err()

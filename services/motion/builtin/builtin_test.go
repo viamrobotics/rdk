@@ -11,6 +11,7 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
@@ -547,7 +548,7 @@ func TestMoveOnGlobe(t *testing.T) {
 			context.Background(),
 			fakeBase.Name(),
 			dst,
-			injectedMovementSensor,
+			injectedMovementSensor.Name(),
 			[]*spatialmath.GeoObstacle{},
 			&motion.MotionConfiguration{PositionPollingFreqHz: 4, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM},
 			motionCfg,
@@ -589,7 +590,7 @@ func TestMoveOnGlobe(t *testing.T) {
 			context.Background(),
 			fakeBase.Name(),
 			dst,
-			injectedMovementSensor,
+			injectedMovementSensor.Name(),
 			[]*spatialmath.GeoObstacle{geoObstacle},
 			&motion.MotionConfiguration{PositionPollingFreqHz: 4, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM},
 			motionCfg,
@@ -631,7 +632,7 @@ func TestMoveOnGlobe(t *testing.T) {
 			context.Background(),
 			fakeBase.Name(),
 			dst,
-			injectedMovementSensor,
+			injectedMovementSensor.Name(),
 			[]*spatialmath.GeoObstacle{geoObstacle},
 			&motion.MotionConfiguration{},
 			motionCfg,
