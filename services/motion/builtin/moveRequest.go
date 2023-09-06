@@ -103,6 +103,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
 		{Min: -2 * math.Pi, Max: 2 * math.Pi},
 	}
+	ms.logger.Debugf("base limits: %v", limits)
 
 	if extra != nil {
 		if profile, ok := extra["motion_profile"]; ok {
@@ -113,7 +114,6 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 			kinematicsOptions.PositionOnlyMode = motionProfile == motionplan.PositionOnlyMotionProfile
 		}
 	}
-	ms.logger.Debugf("base limits: %v", limits)
 
 	// create a KinematicBase from the componentName
 	baseComponent, ok := ms.components[componentName]
@@ -165,6 +165,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 				return moveResponse{err: err}
 			}
 
+			// Iterate through the list of waypoints and issue a command to move to each
 			for i := 1; i < len(waypoints); i++ {
 				select {
 				case <-ctx.Done():
@@ -175,6 +176,10 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 						// If there is an error on GoToInputs, stop the component if possible before returning the error
 						if stopErr := kb.Stop(ctx, nil); stopErr != nil {
 							return moveResponse{err: errors.Wrap(err, stopErr.Error())}
+						}
+						// If the error was simply a cancellation of context return without erroring out
+						if errors.Is(err, context.Canceled) {
+							return moveResponse{}
 						}
 						return moveResponse{err: err}
 					}
@@ -194,15 +199,15 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 		position: &replanner{
 			period:       time.Duration(1000/motionCfg.PositionPollingFreqHz) * time.Millisecond,
 			responseChan: make(chan replanResponse),
-			fn: func(ctx context.Context) replanResponse {
+			fnToPoll: func(ctx context.Context) replanResponse {
 				return replanResponse{}
 			},
 		},
 		obstacle: &replanner{
 			period:       time.Duration(1000/motionCfg.ObstaclePollingFreqHz) * time.Millisecond,
 			responseChan: make(chan replanResponse),
-			fn: func(ctx context.Context) replanResponse {
-				return replanResponse{replan: true}
+			fnToPoll: func(ctx context.Context) replanResponse {
+				return replanResponse{}
 			},
 		},
 	}, nil

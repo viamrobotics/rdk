@@ -14,7 +14,7 @@ type replanResponse struct {
 // replanner bundles everything needed to execute a function at a given interval and return
 type replanner struct {
 	period       time.Duration
-	fn           func(ctx context.Context) replanResponse
+	fnToPoll     func(ctx context.Context) replanResponse
 	responseChan chan replanResponse
 }
 
@@ -33,7 +33,7 @@ func (r *replanner) startPolling(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			response := r.fn(ctx)
+			response := r.fnToPoll(ctx)
 			if response.err != nil || response.replan {
 				r.responseChan <- response
 				return
