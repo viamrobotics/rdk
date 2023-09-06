@@ -353,7 +353,6 @@ func (ms *builtIn) MoveOnGlobe(
 	// and exits when something is read from the success channel
 	for {
 		if err := ctx.Err(); err != nil {
-			//nolint:govet
 			return false, err
 		}
 		select {
@@ -370,14 +369,12 @@ func (ms *builtIn) MoveOnGlobe(
 			}
 			backgroundWorkers.Wait()
 			// context is not lost because it is cancelled above and then cancelled again with defer
-
 			//nolint:govet
 			cancelCtx, cancelFn = context.WithCancel(ctx)
 
 			inputs, err := kb.CurrentInputs(ctx)
 			if err != nil {
-				cancelFn()
-
+				//nolint:govet
 				return false, err
 			}
 			// TODO: this is really hacky and we should figure out a better place to store this information
