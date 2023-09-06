@@ -49,7 +49,7 @@ type resourceManager struct {
 	opts           resourceManagerOptions
 	logger         golog.Logger
 	configLock     sync.Mutex
-	seenResources  map[string]bool // keeps track of all unique resource IDs/Names in the graph, process and config manage
+	seenResources  map[string]bool // keeps track of all unique resources names in the graph and process/module managers
 }
 
 type resourceManagerOptions struct {
@@ -72,7 +72,7 @@ func newResourceManager(
 		processConfigs: make(map[string]pexec.ProcessConfig),
 		opts:           opts,
 		logger:         logger,
-		seenResources:  make(map[string]bool, 0),
+		seenResources:  make(map[string]bool),
 	}
 }
 
@@ -829,7 +829,7 @@ func (manager *resourceManager) validateUniqueResource(resourceName string) erro
 
 func (manager *resourceManager) removeUniqueResource(resourceName string) error {
 	if _, ok := manager.seenResources[resourceName]; !ok {
-		return errors.Errorf("resource %s cannot be removed from seenResources", resourceName)
+		return errors.Errorf("resource %s cannot be removed from seenResources as does not exist", resourceName)
 	}
 	delete(manager.seenResources, resourceName)
 	return nil
@@ -847,7 +847,6 @@ func (manager *resourceManager) updateResources(
 	manager.configLock.Lock()
 	defer manager.configLock.Unlock()
 	var allErrs error
-
 	for _, p := range conf.Added.Packages {
 		if err := manager.validateUniqueResource(p.Package); err != nil {
 			allErrs = multierr.Combine(allErrs, err)
@@ -971,7 +970,6 @@ func (manager *resourceManager) updateResources(
 			allErrs = multierr.Combine(allErrs, err)
 			continue
 		}
-
 		if err := manager.moduleManager.Add(ctx, mod); err != nil {
 			manager.logger.Errorw("error adding module", "module", mod.Name, "error", err)
 			continue
@@ -999,6 +997,7 @@ func (manager *resourceManager) updateResources(
 	}
 
 	for _, p := range conf.Removed.Packages {
+		manager.logger.Infof("removing resource: %s", p.Package)
 		if err := manager.removeUniqueResource(p.Package); err != nil {
 			allErrs = multierr.Combine(allErrs, err)
 		}
