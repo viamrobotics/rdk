@@ -415,7 +415,7 @@ func (svc *builtIn) startWaypoint(ctx context.Context, extra map[string]interfac
 						svc.logger.Infof("skipping waypoint %+v since it was deleted", wp)
 						continue
 					}
-					svc.logger.Info("can't mark waypoint %+v as reached, exiting navigation due to error: %s", wp, err)
+					svc.logger.Infof("can't mark waypoint %+v as reached, exiting navigation due to error: %s", wp, err)
 					return
 				}
 			}
