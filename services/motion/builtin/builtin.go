@@ -388,7 +388,6 @@ func (ms *builtIn) MoveOnGlobe(
 
 			plan, err := motionplan.PlanMotion(ctx, planRequest)
 			if err != nil {
-				cancelFn()
 				return false, err
 			}
 
