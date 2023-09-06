@@ -118,9 +118,9 @@ func (ms *builtIn) Reconfigure(
 	ms.lock.Lock()
 	defer ms.lock.Unlock()
 
-	config, ok := conf.ConvertedAttributes.(*Config)
-	if !ok {
-		return errors.New("converted attributes invalid")
+	config, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return err
 	}
 	if config.LogFilePath != "" {
 		logger, err := newFilePathLoggerConfig(config.LogFilePath).Build()
@@ -353,18 +353,15 @@ func (ms *builtIn) MoveOnGlobe(
 	// and exits when something is read from the success channel
 	for {
 		if err := ctx.Err(); err != nil {
-			cancelFn()
+			//nolint:govet
 			return false, err
 		}
 		select {
 		case <-ctx.Done():
-			cancelFn()
 			return false, ctx.Err()
 		case <-successChan:
-			cancelFn()
 			return true, nil
 		case err := <-errChan:
-			cancelFn()
 			return false, err
 		case <-replanChan:
 			// cancel the goroutines spawned by this function, create a new cancellable context to use in the future
@@ -374,6 +371,7 @@ func (ms *builtIn) MoveOnGlobe(
 			backgroundWorkers.Wait()
 			// context is not lost because it is cancelled above and then cancelled again with defer
 
+			//nolint:govet
 			cancelCtx, cancelFn = context.WithCancel(ctx)
 
 			inputs, err := kb.CurrentInputs(ctx)
