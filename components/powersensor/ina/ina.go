@@ -150,11 +150,6 @@ func newINA(
 		return nil, err
 	}
 
-	err = s.calibrate()
-	if err != nil {
-		return nil, err
-	}
-
 	return s, nil
 }
 
@@ -215,8 +210,8 @@ func (d *ina) calibrate() error {
 		return err
 	}
 
-	// setting config to 111 sets to normal operating mode
-	err = handle.WriteRegU16BE(configRegister, uint16(0x6F))
+	// set the config register to all default values.
+	err = handle.WriteRegU16BE(configRegister, uint16(0x399F))
 	if err != nil {
 		return err
 	}
@@ -231,7 +226,7 @@ func (d *ina) Voltage(ctx context.Context, extra map[string]interface{}) (float6
 	}
 	defer utils.UncheckedErrorFunc(handle.Close)
 
-	bus, err := handle.ReadRegU16BE(busVoltageRegister)
+	bus, err := handle.ReadRegS16BE(busVoltageRegister)
 	if err != nil {
 		return 0, false, err
 	}
@@ -259,7 +254,14 @@ func (d *ina) Current(ctx context.Context, extra map[string]interface{}) (float6
 	}
 	defer utils.UncheckedErrorFunc(handle.Close)
 
-	rawCur, err := handle.ReadRegU16BE(currentRegister)
+	// Calibrate each time the current value is read, so if anything else is also writing to these registers
+	// we have the correct value.
+	err = d.calibrate()
+	if err != nil {
+		return 0, false, err
+	}
+
+	rawCur, err := handle.ReadRegS16BE(currentRegister)
 	if err != nil {
 		return 0, false, err
 	}
@@ -277,7 +279,14 @@ func (d *ina) Power(ctx context.Context, extra map[string]interface{}) (float64,
 	}
 	defer utils.UncheckedErrorFunc(handle.Close)
 
-	pow, err := handle.ReadRegU16BE(powerRegister)
+	// Calibrate each time the power value is read, so if anything else is also writing to these registers
+	// we have the correct value.
+	err = d.calibrate()
+	if err != nil {
+		return 0, err
+	}
+
+	pow, err := handle.ReadRegS16BE(powerRegister)
 	if err != nil {
 		return 0, err
 	}

@@ -63,6 +63,7 @@ import (
 	"go.viam.com/rdk/services/mlmodel"
 	"go.viam.com/rdk/services/mlmodel/tflitecpu"
 	"go.viam.com/rdk/services/motion"
+	motionBuiltin "go.viam.com/rdk/services/motion/builtin"
 	"go.viam.com/rdk/services/navigation"
 	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/services/sensors"
@@ -2409,16 +2410,18 @@ func TestCheckMaxInstanceValid(t *testing.T) {
 	cfg := &config.Config{
 		Services: []resource.Config{
 			{
-				Name:      "fake1",
-				Model:     resource.DefaultServiceModel,
-				API:       motion.API,
-				DependsOn: []string{framesystem.InternalServiceName.String()},
+				Name:                "fake1",
+				Model:               resource.DefaultServiceModel,
+				API:                 motion.API,
+				DependsOn:           []string{framesystem.InternalServiceName.String()},
+				ConvertedAttributes: &motionBuiltin.Config{},
 			},
 			{
-				Name:      "fake2",
-				Model:     resource.DefaultServiceModel,
-				API:       motion.API,
-				DependsOn: []string{framesystem.InternalServiceName.String()},
+				Name:                "fake2",
+				Model:               resource.DefaultServiceModel,
+				API:                 motion.API,
+				DependsOn:           []string{framesystem.InternalServiceName.String()},
+				ConvertedAttributes: &motionBuiltin.Config{},
 			},
 		},
 		Components: []resource.Config{
