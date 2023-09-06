@@ -28,7 +28,7 @@ const (
 	FileExt           = ".capture"
 	readImage         = "ReadImage"
 	nextPointCloud    = "NextPointCloud"
-	getPointCloudMap  = "GetPointCloudMap"
+	pointCloudMap     = "PointCloudMap"
 )
 
 // File is the data structure containing data captured by collectors. It is backed by a file on disk containing
@@ -239,7 +239,7 @@ func getFileTimestampName() string {
 // TODO DATA-246: Implement this in some more robust, programmatic way.
 func getDataType(methodName string) v1.DataType {
 	switch methodName {
-	case nextPointCloud, readImage, getPointCloudMap:
+	case nextPointCloud, readImage, pointCloudMap:
 		return v1.DataType_DATA_TYPE_BINARY_SENSOR
 	default:
 		return v1.DataType_DATA_TYPE_TABULAR_SENSOR
