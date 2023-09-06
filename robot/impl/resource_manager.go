@@ -997,7 +997,6 @@ func (manager *resourceManager) updateResources(
 	}
 
 	for _, p := range conf.Removed.Packages {
-		manager.logger.Infof("removing resource: %s", p.Package)
 		if err := manager.removeUniqueResource(p.Package); err != nil {
 			allErrs = multierr.Combine(allErrs, err)
 		}
