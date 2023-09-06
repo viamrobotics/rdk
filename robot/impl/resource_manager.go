@@ -49,7 +49,6 @@ type resourceManager struct {
 	opts           resourceManagerOptions
 	logger         golog.Logger
 	configLock     sync.Mutex
-	seenResources  map[string]bool // keeps track of all unique resources names in the graph and process/module managers
 }
 
 type resourceManagerOptions struct {
@@ -72,7 +71,6 @@ func newResourceManager(
 		processConfigs: make(map[string]pexec.ProcessConfig),
 		opts:           opts,
 		logger:         logger,
-		seenResources:  make(map[string]bool),
 	}
 }
 
@@ -819,22 +817,6 @@ func (manager *resourceManager) markResourceForUpdate(name resource.Name, conf r
 	return nil
 }
 
-func (manager *resourceManager) validateUniqueResource(resourceName string) error {
-	if _, ok := manager.seenResources[resourceName]; ok {
-		return errors.Errorf("resource %s already exists on the robot", resourceName)
-	}
-	manager.seenResources[resourceName] = true
-	return nil
-}
-
-func (manager *resourceManager) removeUniqueResource(resourceName string) error {
-	if _, ok := manager.seenResources[resourceName]; !ok {
-		return errors.Errorf("resource %s cannot be removed from seenResources as does not exist", resourceName)
-	}
-	delete(manager.seenResources, resourceName)
-	return nil
-}
-
 // updateResources will use the difference between the current config
 // and next one to create resource nodes with configs that completeConfig will later on use.
 // Ideally at the end of this function we should have a complete graph representation of the configuration
@@ -847,20 +829,10 @@ func (manager *resourceManager) updateResources(
 	manager.configLock.Lock()
 	defer manager.configLock.Unlock()
 	var allErrs error
-	for _, p := range conf.Added.Packages {
-		if err := manager.validateUniqueResource(p.Package); err != nil {
-			allErrs = multierr.Combine(allErrs, err)
-		}
-	}
-
 	for _, s := range conf.Added.Services {
 		rName := s.ResourceName()
 		if manager.opts.untrustedEnv && rName.API == shell.API {
 			allErrs = multierr.Combine(allErrs, errShellServiceDisabled)
-			continue
-		}
-		if err := manager.validateUniqueResource(rName.String()); err != nil {
-			allErrs = multierr.Combine(allErrs, err)
 			continue
 		}
 
@@ -868,19 +840,10 @@ func (manager *resourceManager) updateResources(
 	}
 	for _, c := range conf.Added.Components {
 		rName := c.ResourceName()
-		if err := manager.validateUniqueResource(rName.String()); err != nil {
-			allErrs = multierr.Combine(allErrs, err)
-			continue
-		}
 		allErrs = multierr.Combine(allErrs, manager.markResourceForUpdate(rName, c, c.Dependencies()))
 	}
 	for _, r := range conf.Added.Remotes {
 		rName := fromRemoteNameToRemoteNodeName(r.Name)
-		if err := manager.validateUniqueResource(rName.String()); err != nil {
-			allErrs = multierr.Combine(allErrs, err)
-			continue
-		}
-
 		rCopy := r
 		allErrs = multierr.Combine(allErrs, manager.markResourceForUpdate(rName, resource.Config{ConvertedAttributes: &rCopy}, []string{}))
 	}
@@ -910,10 +873,6 @@ func (manager *resourceManager) updateResources(
 			allErrs = multierr.Combine(allErrs, errProcessesDisabled)
 			break
 		}
-		if err := manager.validateUniqueResource(p.ID); err != nil {
-			allErrs = multierr.Combine(allErrs, err)
-			continue
-		}
 
 		// this is done in config validation but partial start rules require us to check again
 		if err := p.Validate(""); err != nil {
@@ -942,9 +901,6 @@ func (manager *resourceManager) updateResources(
 
 		// Remove processConfig from map in case re-addition fails.
 		delete(manager.processConfigs, p.ID)
-		if err := manager.removeUniqueResource(p.ID); err != nil {
-			allErrs = multierr.Combine(allErrs, err)
-		}
 		// this is done in config validation but partial start rules require us to check again
 		if err := p.Validate(""); err != nil {
 			manager.logger.Errorw("process config validation error; skipping", "process", p.Name, "error", err)
@@ -966,10 +922,6 @@ func (manager *resourceManager) updateResources(
 			continue
 		}
 
-		if err := manager.validateUniqueResource(mod.Name); err != nil {
-			allErrs = multierr.Combine(allErrs, err)
-			continue
-		}
 		if err := manager.moduleManager.Add(ctx, mod); err != nil {
 			manager.logger.Errorw("error adding module", "module", mod.Name, "error", err)
 			continue
@@ -990,15 +942,6 @@ func (manager *resourceManager) updateResources(
 				manager.logger.Errorw("error closing now orphaned resource", "resource",
 					resToClose.Name().String(), "module", mod.Name, "error", err)
 			}
-		}
-		if err := manager.removeUniqueResource(mod.Name); err != nil {
-			allErrs = multierr.Combine(allErrs, err)
-		}
-	}
-
-	for _, p := range conf.Removed.Packages {
-		if err := manager.removeUniqueResource(p.Package); err != nil {
-			allErrs = multierr.Combine(allErrs, err)
 		}
 	}
 
@@ -1122,10 +1065,9 @@ func (manager *resourceManager) markResourcesRemoved(
 		if addNames != nil {
 			addNames(subG.Names()...)
 		}
+
 		manager.resources.MarkForRemoval(subG)
-		if err := manager.removeUniqueResource(rName.String()); err != nil {
-			manager.logger.Error(err)
-		}
+		// for all dependents, remove them from the graph as well
 	}
 	return resourcesToCloseBeforeComplete
 }

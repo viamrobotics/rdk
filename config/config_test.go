@@ -21,6 +21,7 @@ import (
 	"go.viam.com/utils/jwks"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
+	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/base"
@@ -32,6 +33,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/services/shell"
 	"go.viam.com/rdk/spatialmath"
 	rutils "go.viam.com/rdk/utils"
 )
@@ -949,6 +951,85 @@ func TestAuthConfigEnsure(t *testing.T) {
 		err := config.Ensure(true, logger)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "must contain at least 1 key")
+	})
+}
+
+func TestValidateUniqueNames(t *testing.T) {
+	component := resource.Config{
+		Name:  "custom",
+		Model: fakeModel,
+		API:   arm.API,
+	}
+	service := resource.Config{
+		Name:  "custom",
+		Model: fakeModel,
+		API:   shell.API,
+	}
+	package1 := config.PackageConfig{
+		Package: "package1",
+		Name:    "package1",
+		Type:    config.PackageTypeMlModel,
+	}
+	module1 := config.Module{
+		Name:     "m1",
+		LogLevel: "info",
+		ExePath:  ".",
+	}
+
+	process1 := pexec.ProcessConfig{
+		ID: "process1", Name: "process1",
+	}
+
+	remote1 := config.Remote{
+		Name: "remote1",
+	}
+	config1 := config.Config{
+		Components: []resource.Config{component, component},
+	}
+	config2 := config.Config{
+		Services: []resource.Config{service, service},
+	}
+
+	config3 := config.Config{
+		Packages: []config.PackageConfig{package1, package1},
+	}
+	config4 := config.Config{
+		Modules: []config.Module{module1, module1},
+	}
+	config5 := config.Config{
+		Processes: []pexec.ProcessConfig{process1, process1},
+	}
+
+	config6 := config.Config{
+		Remotes: []config.Remote{remote1, remote1},
+	}
+	allConfigs := []config.Config{config1, config2, config3, config4, config5, config6}
+
+	for _, config := range allConfigs {
+		// test that the logger returns an error after the ensure method is done
+		logger, logs := golog.NewObservedTestLogger(t)
+
+		err := config.Ensure(false, logger)
+		test.That(t, err, test.ShouldBeNil)
+		// check that the logger correctly reports the issues with the config
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			test.That(tb, logs.FilterMessageSnippet("duplicate resource").Len(), test.ShouldEqual, 1)
+		})
+	}
+
+	// no error config
+	logger, logs := golog.NewObservedTestLogger(t)
+
+	// mix components and services with the same name -- no error as use triplets
+	config7 := config.Config{
+		Components: []resource.Config{component},
+		Services:   []resource.Config{service},
+	}
+
+	err := config7.Ensure(false, logger)
+	test.That(t, err, test.ShouldBeNil)
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		test.That(tb, logs.FilterMessageSnippet("duplicate resource").Len(), test.ShouldEqual, 0)
 	})
 }
 

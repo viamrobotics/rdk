@@ -7,7 +7,6 @@ import (
 	"errors"
 	"os"
 	"sync"
-	"sync/atomic"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -47,8 +46,6 @@ import (
 	fakeservo "go.viam.com/rdk/components/servo/fake"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
-	"go.viam.com/rdk/module/modmanager"
-	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
 	"go.viam.com/rdk/module/modmaninterface"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/pointcloud"
@@ -543,162 +540,6 @@ func TestManagerAdd(t *testing.T) {
 	test.That(t, objectSegmentationService, test.ShouldEqual, injectVisionService)
 }
 
-func TestManagerDuplicateResourceNames(t *testing.T) {
-	fakeModel := resource.DefaultModelFamily.WithModel("fake")
-
-	arm1 := resource.Config{
-		Name:      "arm1",
-		Model:     fakeModel,
-		API:       arm.API,
-		DependsOn: []string{"board1"},
-	}
-	cfg := &config.Config{
-		Components: []resource.Config{arm1},
-	}
-	logger := golog.NewTestLogger(t)
-
-	robotForRemote := &localRobot{
-		manager: newResourceManager(resourceManagerOptions{}, logger),
-	}
-
-	var dummyRemoveOrphanedResourcesCallCount atomic.Uint64
-	dummyRemoveOrphanedResources := func(context.Context, []resource.Name) {
-		dummyRemoveOrphanedResourcesCallCount.Add(1)
-	}
-
-	parentAddr, err := os.MkdirTemp("", "viam-test-*")
-	test.That(t, err, test.ShouldBeNil)
-	mgr := modmanager.NewManager(parentAddr, logger, modmanageroptions.Options{
-		UntrustedEnv:            false,
-		RemoveOrphanedResources: dummyRemoveOrphanedResources,
-	})
-	robotForRemote.manager.moduleManager = mgr
-
-	diff, err := config.DiffConfigs(config.Config{}, *cfg, true)
-	test.That(t, err, test.ShouldBeNil)
-
-	diff.Added.Components = append(diff.Added.Components, arm1)
-
-	err = robotForRemote.manager.updateResources(context.Background(), diff)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "already exists on the robot")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "arm1")
-
-	err = robotForRemote.manager.removeUniqueResource(arm1.ResourceName().String())
-	test.That(t, err, test.ShouldBeNil)
-	diff.Added.Components = []resource.Config{}
-
-	// check services
-	s1 := resource.Config{
-		Name:  "my-service",
-		Model: fakeModel,
-		API:   arm.API,
-	}
-	cfg.Services = []resource.Config{s1}
-
-	diff.Added.Services = append(diff.Added.Services, s1)
-
-	err = robotForRemote.manager.updateResources(context.Background(), diff)
-	test.That(t, err, test.ShouldBeNil)
-
-	err = robotForRemote.manager.updateResources(context.Background(), diff)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "already exists on the robot")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "my-service")
-
-	// check remove service
-	err = robotForRemote.manager.removeUniqueResource(s1.ResourceName().String())
-	test.That(t, err, test.ShouldBeNil)
-
-	// check remotes
-	diff.Added.Services = []resource.Config{}
-	remote := config.Remote{
-		Name: "remote-1",
-	}
-
-	cfg.Remotes = []config.Remote{remote}
-	diff.Added.Remotes = append(diff.Added.Remotes, remote)
-
-	err = robotForRemote.manager.updateResources(context.Background(), diff)
-	test.That(t, err, test.ShouldBeNil)
-
-	err = robotForRemote.manager.updateResources(context.Background(), diff)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "already exists on the robot")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "remote-1")
-
-	err = robotForRemote.manager.removeUniqueResource(fromRemoteNameToRemoteNodeName(remote.Name).String())
-	test.That(t, err, test.ShouldBeNil)
-
-	diff.Added.Remotes = []config.Remote{}
-	// check packages
-	package1 := config.PackageConfig{
-		Package: "package1",
-		Name:    "package1",
-		Type:    "ml-model",
-	}
-
-	cfg.Packages = []config.PackageConfig{package1}
-
-	diff.Added.Packages = []config.PackageConfig{package1}
-
-	err = robotForRemote.manager.updateResources(context.Background(), diff)
-	test.That(t, err, test.ShouldBeNil)
-
-	err = robotForRemote.manager.updateResources(context.Background(), diff)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "already exists on the robot")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "package1")
-
-	// check remove package
-	err = robotForRemote.manager.removeUniqueResource(package1.Package)
-	test.That(t, err, test.ShouldBeNil)
-
-	// check modules
-
-	diff.Added.Packages = []config.PackageConfig{}
-	cfg.Modules = []config.Module{
-		{
-			Name:     "m1",
-			LogLevel: "info",
-			ExePath:  ".",
-		},
-	}
-
-	diff.Added.Modules = append(diff.Added.Modules, config.Module{
-		Name:     "m1",
-		LogLevel: "info",
-		ExePath:  ".",
-	})
-
-	err = robotForRemote.manager.updateResources(context.Background(), diff)
-	test.That(t, err, test.ShouldBeNil)
-
-	err = robotForRemote.manager.updateResources(context.Background(), diff)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "already exists on the robot")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "m1")
-
-	// check processes + removing module works
-	diff.Modified.Modules = diff.Added.Modules
-	diff.Added.Modules = []config.Module{}
-	cfg.Processes = []pexec.ProcessConfig{
-		{ID: "process1", Name: "process1"},
-	}
-
-	diff.Added.Processes = []pexec.ProcessConfig{
-		{ID: "process1", Name: "process1"},
-	}
-
-	err = robotForRemote.manager.updateResources(context.Background(), diff)
-	test.That(t, err, test.ShouldBeNil)
-
-	err = robotForRemote.manager.updateResources(context.Background(), diff)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "already exists on the robot")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "process1")
-}
-
 func TestManagerNewComponent(t *testing.T) {
 	fakeModel := resource.DefaultModelFamily.WithModel("fake")
 	cfg := &config.Config{
@@ -890,7 +731,6 @@ func TestManagerNewComponent(t *testing.T) {
 		Modified: &config.ModifiedConfigDiff{
 			Components: []resource.Config{},
 		},
-		Removed: &config.Config{},
 	}
 
 	diff.Modified.Components = append(diff.Modified.Components, resource.Config{
