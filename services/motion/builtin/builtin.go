@@ -289,14 +289,13 @@ func (ms *builtIn) MoveOnGlobe(
 		return false, err
 	}
 
-	// start the loop that (re)plans when something is read from the replan channel
-	// and exits when something is read from the success channel
+	// start a loop that plans every iteration and exits when something is read from the success channel
 	for {
 		ma := newMoveAttempt(ctx, moveRequest)
 		ma.start()
 
 		// this ensures that if the context is cancelled we always return early at the top of the loop
-		if ctx.Err() != nil {
+		if err := ctx.Err(); err != nil {
 			ma.cancel()
 			return false, err
 		}
@@ -313,8 +312,7 @@ func (ms *builtIn) MoveOnGlobe(
 			ma.cancel()
 			return resp.success, resp.err
 
-		// if the position poller hit an error, return the terminal error to the caller
-		// otherwise it detected something that triggered a replan
+		// if the position poller hit an error return it, otherwise replan
 		case resp := <-moveRequest.position.responseChan:
 			ms.logger.Debugf("position response: %#v", resp)
 			ma.cancel()
@@ -322,8 +320,7 @@ func (ms *builtIn) MoveOnGlobe(
 				return false, err
 			}
 
-		// if the obstacle poller hit an error, return the terminal error to the caller
-		// otherwise it detected something that triggered a replan
+		// if the obstacle poller hit an error return it, otherwise replan
 		case resp := <-moveRequest.obstacle.responseChan:
 			ms.logger.Debugf("obstacle response: %#v", resp)
 			ma.cancel()
