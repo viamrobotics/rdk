@@ -109,7 +109,7 @@ func TestCurrentInputs(t *testing.T) {
 	}
 }
 
-func TestErrorState(t *testing.T) {
+func TestInputDiff(t *testing.T) {
 	ctx := context.Background()
 
 	// make injected slam service
@@ -123,10 +123,10 @@ func TestErrorState(t *testing.T) {
 	ddk, err := buildTestDDK(ctx, testConfig(),
 		defaultLinearVelocityMMPerSec, defaultAngularVelocityDegsPerSec, logger)
 	test.That(t, err, test.ShouldBeNil)
-	ddk.localizer = motion.NewSLAMLocalizer(slam)
+	ddk.Localizer = motion.NewSLAMLocalizer(slam)
 
 	desiredInput := []referenceframe.Input{{3}, {4}, {utils.DegToRad(30)}}
-	distErr, headingErr, err := ddk.errorState(make([]referenceframe.Input, 3), desiredInput)
+	distErr, headingErr, err := ddk.inputDiff(make([]referenceframe.Input, 3), desiredInput)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, distErr, test.ShouldEqual, r3.Vector{desiredInput[0].Value, desiredInput[1].Value, 0}.Norm())
 	test.That(t, headingErr, test.ShouldAlmostEqual, 30)
