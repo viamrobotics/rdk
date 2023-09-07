@@ -33,9 +33,10 @@ func (ptg *ptgDiffDrive) Velocities(alpha, dist float64) (float64, float64, erro
 		return 0, 0, nil
 	}
 	k := math.Copysign(1.0, dist)
-	v := ptg.maxMMPS * k
-	w := (alpha / math.Pi) * ptg.maxRPS * k
-	return v, w, nil
+	if dist <= math.Abs(alpha) {
+		return 0, math.Copysign(ptg.maxRPS, alpha), nil
+	}
+	return ptg.maxMMPS * k, 0, nil
 }
 
 // Transform will return the pose for the given inputs. The first input is [-pi, pi]. This corresponds to the radius of the curve,
