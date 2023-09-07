@@ -586,11 +586,11 @@ func (manager *resourceManager) completeConfig(
 					gNode.SetLastError(errors.Wrap(err, "resource build error"))
 					return
 				}
-				// if the ctxWithTimeout has an error then that means we've timed out. This means
-				// that resource generation is running async, and we don't currently have good
-				// validation around how this might affect the resource graph. So, we avoid updating
-				// the graph to be safe.
-				if ctxWithTimeout.Err() != nil {
+				// if the ctxWithTimeout fails with DeadlineExceeded, then that means that
+				// resource generation is running async, and we don't currently have good
+				// validation around how this might affect the resource graph. So, we avoid
+				// updating the graph to be safe.
+				if ctxWithTimeout.Err() == context.DeadlineExceeded {
 					manager.logger.Errorw("error building resource", "resource", conf.ResourceName(), "model", conf.Model, "error", ctxWithTimeout.Err())
 				} else {
 					gNode.SwapResource(newRes, conf.Model)
@@ -825,6 +825,7 @@ func (manager *resourceManager) markResourceForUpdate(name resource.Name, conf r
 func (manager *resourceManager) updateResources(
 	ctx context.Context,
 	conf *config.Diff,
+	failedModules []string,
 ) error {
 	manager.configLock.Lock()
 	defer manager.configLock.Unlock()
@@ -918,10 +919,20 @@ func (manager *resourceManager) updateResources(
 	}
 
 	// modules are not added into the resource tree as they belong to the module manager
+	failedMods := make(map[string]struct{})
+	for _, modName := range failedModules {
+		failedMods[modName] = struct{}{}
+	}
 	for _, mod := range conf.Added.Modules {
 		// this is done in config validation but partial start rules require us to check again
 		if err := mod.Validate(""); err != nil {
 			manager.logger.Errorw("module config validation error; skipping", "module", mod.Name, "error", err)
+			continue
+		}
+		// we check to see if the module failed to build during the Reconfigure call.
+		// If it did, we skip trying to add it again here in order to prevent timeouts.
+		_, modFailed := failedMods[mod.Name]
+		if modFailed {
 			continue
 		}
 		if err := manager.moduleManager.Add(ctx, mod); err != nil {

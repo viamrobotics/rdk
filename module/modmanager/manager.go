@@ -139,6 +139,13 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, conn *grpc.Clie
 		resources: map[resource.Name]*addedResource{},
 	}
 
+	// add calls startProcess, which can also be called by the OUE handler in the attemptRestart
+	// call. Both of these involve owning a lock, so in unhappy cases of malformed modules
+	// this can lead to a deadlock. To prevent this, we set inRecovery here to indicate to
+	// the OUE handler that it shouldn't act while add is still processing.
+	mod.inRecovery.Store(true)
+	defer mod.inRecovery.Store(false)
+
 	var success bool
 	defer func() {
 		if !success {
@@ -644,7 +651,7 @@ func (m *module) startProcess(
 		return errors.WithMessage(err, "module startup failed")
 	}
 
-	ctxTimeout, cancel := context.WithTimeout(ctx, time.Second)
+	ctxTimeout, cancel := context.WithTimeout(ctx, rutils.GetResourceConfigurationTimeout(logger))
 	defer cancel()
 	for {
 		select {

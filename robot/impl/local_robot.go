@@ -1052,6 +1052,9 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	// Set mostRecentConfig if resources were not equal.
 	r.mostRecentCfg = *newConfig
 
+	// we want to track which modules failed to Add here so we don't attempt
+	// to immediately add them again in the updateResources call below.
+	var failedModules []string
 	// We need to pre-add the new modules so that resource validation can check against the new models
 	// TODO(RSDK-4383) These lines are taken from uppdateResources() and should be refactored as part of this bugfix
 	for _, mod := range diff.Added.Modules {
@@ -1061,6 +1064,7 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 		}
 		if err := r.manager.moduleManager.Add(ctx, mod); err != nil {
 			r.manager.logger.Errorw("error adding module", "module", mod.Name, "error", err)
+			failedModules = append(failedModules, mod.Name)
 			continue
 		}
 	}
@@ -1099,7 +1103,7 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	processesToClose, resourcesToCloseBeforeComplete, _ := r.manager.markRemoved(ctx, diff.Removed, r.logger)
 
 	// Second we update the resource graph and stop any removed processes.
-	allErrs = multierr.Combine(allErrs, r.manager.updateResources(ctx, diff))
+	allErrs = multierr.Combine(allErrs, r.manager.updateResources(ctx, diff, failedModules))
 	allErrs = multierr.Combine(allErrs, processesToClose.Stop())
 
 	// Third we attempt to Close resources.
