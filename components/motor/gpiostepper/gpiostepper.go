@@ -390,6 +390,7 @@ func (m *gpioStepper) ResetZeroPosition(ctx context.Context, offset float64, ext
 	m.lock.Lock()
 	defer m.lock.Unlock()
 	m.stepPosition = int64(-1 * offset * float64(m.stepsPerRotation))
+	m.targetStepPosition = m.stepPosition
 	return nil
 }
 

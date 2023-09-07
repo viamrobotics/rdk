@@ -315,6 +315,7 @@ func (m *uln28byj) ResetZeroPosition(ctx context.Context, offset float64, extra 
 	m.lock.Lock()
 	defer m.lock.Unlock()
 	m.stepPosition = int64(-1 * offset * float64(m.ticksPerRotation))
+	m.targetStepPosition = m.stepPosition
 	return nil
 }
 
