@@ -33,6 +33,8 @@ def lint_subdir(args, mod: str, path: str):
 
 def walk(args) -> dict:
     "walk vendor tree, produce json results"
+    if not os.path.exists(args.root):
+        raise EnvironmentError(f'args.root ${args.root} does not exist')
     prefix = ensure_suffix(args.root, '/')
     targets: List[Tuple[str, str]] = []
     for path, _, _ in os.walk(args.root):
@@ -60,7 +62,6 @@ def analyze(args):
         if result is None:
             logger.warning('empty mod %s', mod)
             continue
-        issues = result['Issues']
         for issue in result['Issues']:
             token = issue['Text'].split()[0]
             if token not in INCLUDE_ISSUES:
