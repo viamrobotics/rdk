@@ -21,7 +21,6 @@ import (
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/internal"
 	"go.viam.com/rdk/motionplan"
-	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
@@ -668,74 +667,4 @@ func (ms *builtIn) planMoveOnMap(
 	}
 	steps, err := plan.GetFrameSteps(f.Name())
 	return steps, kb, err
-}
-
-// ErrorState will provide a pose P that is the kinematic base's offset from where it would be if it were to follow a path perfectly.
-// This pose P is such that spatialmath.Compose(nominalPose, P) will yield the actual pose seen by the localizer.
-func ErrorState(
-	ctx context.Context,
-	kb kinematicbase.KinematicBase,
-	plan [][]referenceframe.Input,
-	currentNode int,
-) (spatialmath.Pose, error) {
-	if currentNode < 0 || currentNode >= len(plan) {
-		return nil, fmt.Errorf("cannot get errorState for node %d, must be >= 0 and less than plan length %d", currentNode, len(plan))
-	}
-
-	// Get pose-in-frame of the base via its localizer. The offset between the localizer and its base should already be accounted for.
-	actualPIF, err := kb.CurrentPosition(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	var nominalPose spatialmath.Pose
-	frame := kb.Kinematics()
-
-	// Determine the nominal pose, that is, the pose where the robot ought be if it had followed the plan perfectly up until this point.
-	// This is done differently depending on what sort of frame we are working with.
-	if _, ok := frame.(tpspace.PTGProvider); ok {
-		// TODO: The `rectifyTPspacePath` in motionplan does basically this. Deduplicate.
-		runningPose := spatialmath.NewZeroPose()
-		for i := 0; i < currentNode; i++ {
-			wp := plan[i]
-			wpPose, err := frame.Transform(wp)
-			if err != nil {
-				return nil, err
-			}
-			runningPose = spatialmath.Compose(runningPose, wpPose)
-		}
-
-		// Determine how far through the current trajectory we are
-		currentInputs, err := kb.CurrentInputs(ctx)
-		if err != nil {
-			return nil, err
-		}
-		currPose, err := frame.Transform(currentInputs)
-		if err != nil {
-			return nil, err
-		}
-		nominalPose = spatialmath.Compose(runningPose, currPose)
-	} else {
-		if len(plan) < 2 {
-			return nil, errors.New("Diff drive motion plan must have at least two waypoints")
-		}
-		nominalPose, err = frame.Transform(plan[currentNode])
-		if err != nil {
-			return nil, err
-		}
-		if currentNode > 0 {
-			pastPose, err := frame.Transform(plan[currentNode-1])
-			if err != nil {
-				return nil, err
-			}
-			// diff drive bases don't have a notion of "distance along the trajectory between waypoints", so instead we compare to the
-			// nearest point on the straight line path.
-			nominalPoint := spatialmath.ClosestPointSegmentPoint(pastPose.Point(), nominalPose.Point(), actualPIF.Pose().Point())
-			pointDiff := nominalPose.Point().Sub(pastPose.Point())
-			desiredHeading := math.Atan2(pointDiff.Y, pointDiff.X)
-			nominalPose = spatialmath.NewPose(nominalPoint, &spatialmath.OrientationVector{OZ: 1, Theta: desiredHeading})
-		}
-	}
-
-	return spatialmath.PoseBetween(nominalPose, actualPIF.Pose()), nil
 }

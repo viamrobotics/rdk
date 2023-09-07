@@ -26,7 +26,7 @@ import (
 // Define a default speed to target for the base in the case where one is not provided.
 const defaultBaseMMps = 600.
 
-var zeroInput = []referenceframe.Input{{Value: 0}, {Value: 0}, {Value: 0}}
+var zeroInput = make([]referenceframe.Input, 3)
 
 const (
 	ptgIndex int = iota

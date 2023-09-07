@@ -310,14 +310,13 @@ func (ddk *differentialDriveKinematics) newValidRegionCapsule(starting, desired 
 	return capsule, nil
 }
 
-//nolint: dupl
 func (ddk *differentialDriveKinematics) ErrorState(
 	ctx context.Context,
 	plan [][]referenceframe.Input,
 	currentNode int,
 ) (spatialmath.Pose, error) {
-	if currentNode < 0 || currentNode >= len(plan) {
-		return nil, fmt.Errorf("cannot get ErrorState for node %d, must be >= 0 and less than plan length %d", currentNode, len(plan))
+	if currentNode <= 0 || currentNode >= len(plan) {
+		return nil, fmt.Errorf("cannot get ErrorState for node %d, must be > 0 and less than plan length %d", currentNode, len(plan))
 	}
 
 	// Get pose-in-frame of the base via its localizer. The offset between the localizer and its base should already be accounted for.
@@ -337,18 +336,16 @@ func (ddk *differentialDriveKinematics) ErrorState(
 	if err != nil {
 		return nil, err
 	}
-	if currentNode > 0 {
-		pastPose, err := ddk.planningFrame.Transform(plan[currentNode-1])
-		if err != nil {
-			return nil, err
-		}
-		// diff drive bases don't have a notion of "distance along the trajectory between waypoints", so instead we compare to the
-		// nearest point on the straight line path.
-		nominalPoint := spatialmath.ClosestPointSegmentPoint(pastPose.Point(), nominalPose.Point(), actualPIF.Pose().Point())
-		pointDiff := nominalPose.Point().Sub(pastPose.Point())
-		desiredHeading := math.Atan2(pointDiff.Y, pointDiff.X)
-		nominalPose = spatialmath.NewPose(nominalPoint, &spatialmath.OrientationVector{OZ: 1, Theta: desiredHeading})
+	pastPose, err := ddk.planningFrame.Transform(plan[currentNode-1])
+	if err != nil {
+		return nil, err
 	}
+	// diff drive bases don't have a notion of "distance along the trajectory between waypoints", so instead we compare to the
+	// nearest point on the straight line path.
+	nominalPoint := spatialmath.ClosestPointSegmentPoint(pastPose.Point(), nominalPose.Point(), actualPIF.Pose().Point())
+	pointDiff := nominalPose.Point().Sub(pastPose.Point())
+	desiredHeading := math.Atan2(pointDiff.Y, pointDiff.X)
+	nominalPose = spatialmath.NewPose(nominalPoint, &spatialmath.OrientationVector{OZ: 1, Theta: desiredHeading})
 
 	return spatialmath.PoseBetween(nominalPose, actualPIF.Pose()), nil
 }
