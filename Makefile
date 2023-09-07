@@ -60,6 +60,8 @@ lint-go: tool-install
 
 lint-32bit: tool-install
 	$(TOOL_BIN)/golangci-lint run -v --build-tags no_tflite,no_pigpio --tests=false --disable-all --enable staticcheck --timeout 30m
+
+vendorlint: tool-install
 	go mod vendor
 	# parallelism is 1 for now because golangci-lint detects parallel runs and complains
 	etc/vendorlint.py all --linter $(abspath $(TOOL_BIN)/golangci-lint) --parallel 1 --out vendorlint.json

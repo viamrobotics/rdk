@@ -38,6 +38,14 @@ jobs:
     # note: we're linting on 32-bit because atomicalign analyzer only works on 32-bit architecture
     - name: lint
       run: docker run --rm -v $PWD/:/rdk ghcr.io/viamrobotics/viam-server:armv7 make lint-32bit
+    - id: changed-files
+      uses: tj-actions/changed-files@v39
+      with:
+        # note: this doesn't provide perfect coverage, but it's a compromise between running all the time + never running
+        since_last_remote_commit: true
+    - name: vendorlint
+      if: contains(steps.changed-files.outputs.modified_files, 'go.sum')
+      run: docker run --rm -v $PWD/:/rdk ghcr.io/viamrobotics/viam-server:armv7 make vendorlint
   test:
     needs: [docker]
     runs-on: buildjet-4vcpu-ubuntu-2204-arm
