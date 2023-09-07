@@ -664,7 +664,10 @@ func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64, extra map
 	if err != nil {
 		return errors.Wrapf(err, "error in ResetZeroPosition from motor (%s)", m.motorName)
 	} else if on {
-		return errors.Errorf("can't zero motor (%s) while moving", m.motorName)
+		m.logger.Warnf("can't zero motor (%s) while moving, position will reset after current movement is completed.", m.motorName)
+	}
+	if err = m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m, m.Stop); err != nil {
+		return err
 	}
 	return multierr.Combine(
 		m.writeReg(ctx, rampMode, modeHold),
