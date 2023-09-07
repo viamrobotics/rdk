@@ -72,9 +72,9 @@ func (c *viamClient) listOrganizationsAction(cCtx *cli.Context) error {
 	}
 	for i, org := range orgs {
 		if i == 0 {
-			fmt.Fprintf(cCtx.App.Writer, "organizations for %q:\n", c.conf.Auth.User.Email)
+			printf(cCtx.App.Writer, "Organizations for %q:", c.conf.Auth)
 		}
-		fmt.Fprintf(cCtx.App.Writer, "\t%s (id: %s)\n", org.Name, org.Id)
+		printf(cCtx.App.Writer, "\t%s (id: %s)", org.Name, org.Id)
 	}
 	return nil
 }
@@ -92,7 +92,7 @@ func ListLocationsAction(c *cli.Context) error {
 			return errors.Wrap(err, "could not list locations")
 		}
 		for _, loc := range locs {
-			fmt.Fprintf(c.App.Writer, "\t%s (id: %s)\n", loc.Name, loc.Id)
+			printf(c.App.Writer, "\t%s (id: %s)", loc.Name, loc.Id)
 		}
 		return nil
 	}
@@ -103,9 +103,9 @@ func ListLocationsAction(c *cli.Context) error {
 		}
 		for i, org := range orgs {
 			if i == 0 {
-				fmt.Fprintf(c.App.Writer, "locations for %q:\n", client.conf.Auth.User.Email)
+				printf(c.App.Writer, "Locations for %q:", client.conf.Auth)
 			}
-			fmt.Fprintf(c.App.Writer, "%s:\n", org.Name)
+			printf(c.App.Writer, "%s:", org.Name)
 			if err := listLocations(org.Id); err != nil {
 				return err
 			}
@@ -129,11 +129,11 @@ func ListRobotsAction(c *cli.Context) error {
 	}
 
 	if orgStr == "" || locStr == "" {
-		fmt.Fprintf(c.App.Writer, "%s -> %s\n", client.selectedOrg.Name, client.selectedLoc.Name)
+		printf(c.App.Writer, "%s -> %s", client.selectedOrg.Name, client.selectedLoc.Name)
 	}
 
 	for _, robot := range robots {
-		fmt.Fprintf(c.App.Writer, "%s (id: %s)\n", robot.Name, robot.Id)
+		printf(c.App.Writer, "%s (id: %s)", robot.Name, robot.Id)
 	}
 	return nil
 }
@@ -157,12 +157,12 @@ func RobotStatusAction(c *cli.Context) error {
 	}
 
 	if orgStr == "" || locStr == "" {
-		fmt.Fprintf(c.App.Writer, "%s -> %s\n", client.selectedOrg.Name, client.selectedLoc.Name)
+		printf(c.App.Writer, "%s -> %s", client.selectedOrg.Name, client.selectedLoc.Name)
 	}
 
-	fmt.Fprintf(
+	printf(
 		c.App.Writer,
-		"ID: %s\nname: %s\nlast access: %s (%s ago)\n",
+		"ID: %s\nName: %s\nLast Access: %s (%s ago)",
 		robot.Id,
 		robot.Name,
 		robot.LastAccess.AsTime().Format(time.UnixDate),
@@ -170,23 +170,23 @@ func RobotStatusAction(c *cli.Context) error {
 	)
 
 	if len(parts) != 0 {
-		fmt.Fprintln(c.App.Writer, "parts:")
+		printf(c.App.Writer, "Parts:")
 	}
 	for i, part := range parts {
 		name := part.Name
 		if part.MainPart {
 			name += " (main)"
 		}
-		fmt.Fprintf(
+		printf(
 			c.App.Writer,
-			"\tID: %s\n\tname: %s\n\tlast access: %s (%s ago)\n",
+			"\tID: %s\n\tName: %s\n\tLast Access: %s (%s ago)",
 			part.Id,
 			name,
 			part.LastAccess.AsTime().Format(time.UnixDate),
 			time.Since(part.LastAccess.AsTime()),
 		)
 		if i != len(parts)-1 {
-			fmt.Fprintln(c.App.Writer, "")
+			printf(c.App.Writer, "")
 		}
 	}
 
@@ -215,7 +215,7 @@ func RobotLogsAction(c *cli.Context) error {
 
 	for i, part := range parts {
 		if i != 0 {
-			fmt.Fprintln(c.App.Writer, "")
+			printf(c.App.Writer, "")
 		}
 
 		var header string
@@ -258,16 +258,16 @@ func RobotPartStatusAction(c *cli.Context) error {
 	}
 
 	if orgStr == "" || locStr == "" || robotStr == "" {
-		fmt.Fprintf(c.App.Writer, "%s -> %s -> %s\n", client.selectedOrg.Name, client.selectedLoc.Name, robot.Name)
+		printf(c.App.Writer, "%s -> %s -> %s", client.selectedOrg.Name, client.selectedLoc.Name, robot.Name)
 	}
 
 	name := part.Name
 	if part.MainPart {
 		name += " (main)"
 	}
-	fmt.Fprintf(
+	printf(
 		c.App.Writer,
-		"ID: %s\nname: %s\nlast access: %s (%s ago)\n",
+		"ID: %s\nName: %s\nLast Access: %s (%s ago)",
 		part.Id,
 		name,
 		part.LastAccess.AsTime().Format(time.UnixDate),
@@ -345,7 +345,7 @@ func RobotPartRunAction(c *cli.Context) error {
 
 // RobotPartShellAction is the corresponding Action for 'robot part shell'.
 func RobotPartShellAction(c *cli.Context) error {
-	infof(c.App.Writer, "ensure robot part has a valid shell type service")
+	infof(c.App.Writer, "Ensure robot part has a valid shell type service")
 
 	client, err := newViamClient(c)
 	if err != nil {
@@ -375,7 +375,7 @@ func VersionAction(c *cli.Context) error {
 		return errors.New("error reading build info")
 	}
 	if c.Bool(debugFlag) {
-		fmt.Fprintf(c.App.Writer, "%s\n", info.String())
+		printf(c.App.Writer, "%s", info.String())
 	}
 	settings := make(map[string]string, len(info.Settings))
 	for _, setting := range info.Settings {
@@ -400,28 +400,13 @@ func VersionAction(c *cli.Context) error {
 	if appVersion == "" {
 		appVersion = "(dev)"
 	}
-	fmt.Fprintf(c.App.Writer, "version %s git=%s api=%s\n", appVersion, version, apiVersion)
+	printf(c.App.Writer, "Version %s Git=%s API=%s", appVersion, version, apiVersion)
 	return nil
 }
 
 var defaultBaseURL = "https://app.viam.com:443"
 
-func checkBaseURL(c *cli.Context, auth *config) (*url.URL, []rpc.DialOption, error) {
-	// If base URL was not specified, assume cached base URL. If no base URL is
-	// cached, assume default base URL.
-	baseURL := c.String(baseURLFlag)
-	if baseURL == "" {
-		baseURL = defaultBaseURL
-		if auth.Auth != nil && auth.Auth.BaseURL != "" {
-			baseURL = auth.Auth.BaseURL
-		}
-	}
-
-	if auth.Auth != nil && auth.Auth.BaseURL != baseURL {
-		return nil, nil, fmt.Errorf("cached base URL for this session is %q, "+
-			"please logout and login again to use provided base URL %q", auth.Auth.BaseURL, baseURL)
-	}
-
+func parseBaseURL(baseURL string, verifyConnection bool) (*url.URL, []rpc.DialOption, error) {
 	baseURLParsed, err := url.Parse(baseURL)
 	if err != nil {
 		return nil, nil, err
@@ -450,12 +435,15 @@ func checkBaseURL(c *cli.Context, auth *config) (*url.URL, []rpc.DialOption, err
 		}
 	}
 
-	// Check if URL is even valid with a TCP dial.
-	conn, err := net.DialTimeout("tcp", baseURLParsed.Host, time.Second)
-	if err != nil {
-		return nil, nil, fmt.Errorf("value of %q argument %q is an unreachable URL", baseURLFlag, baseURL)
+	if verifyConnection {
+		// Check if URL is even valid with a TCP dial.
+		conn, err := net.DialTimeout("tcp", baseURLParsed.Host, 3*time.Second)
+		if err != nil {
+			return nil, nil, fmt.Errorf("base URL %q (needed for auth) is currently unreachable. "+
+				"Ensure URL is valid and you are connected to internet", baseURLParsed.Host)
+		}
+		utils.UncheckedError(conn.Close())
 	}
-	utils.UncheckedError(conn.Close())
 
 	if secure {
 		return baseURLParsed, nil, nil
@@ -479,12 +467,25 @@ func newViamClient(c *cli.Context) (*viamClient, error) {
 		conf = &config{}
 	}
 
-	baseURL, rpcOpts, err := checkBaseURL(c, conf)
+	// If base URL was not specified, assume cached base URL. If no base URL is
+	// cached, assume default base URL.
+	baseURLArg := c.String(baseURLFlag)
+	switch {
+	case conf.BaseURL == "" && baseURLArg == "":
+		conf.BaseURL = defaultBaseURL
+	case conf.BaseURL == "" && baseURLArg != "":
+		conf.BaseURL = baseURLArg
+	case baseURLArg != "" && conf.BaseURL != "" && conf.BaseURL != baseURLArg:
+		return nil, fmt.Errorf("cached base URL for this session is %q. "+
+			"Please logout and login again to use provided base URL %q", conf.BaseURL, baseURLArg)
+	}
+
+	if conf.BaseURL != defaultBaseURL {
+		infof(c.App.Writer, "Using %q as base URL value", conf.BaseURL)
+	}
+	baseURL, rpcOpts, err := parseBaseURL(conf.BaseURL, true)
 	if err != nil {
 		return nil, err
-	}
-	if baseURL.String() != defaultBaseURL {
-		infof(c.App.Writer, "using %q as base URL value", baseURL.String())
 	}
 
 	var authFlow *authFlow
@@ -768,9 +769,9 @@ func (c *viamClient) robotParts(orgStr, locStr, robotStr string) ([]*apppb.Robot
 
 func (c *viamClient) printRobotPartLogsInner(logs []*apppb.LogEntry, indent string) {
 	for _, log := range logs {
-		fmt.Fprintf(
+		printf(
 			c.c.App.Writer,
-			"%s%s\t%s\t%s\t%s\n",
+			"%s%s\t%s\t%s\t%s",
 			indent,
 			log.Time.AsTime().Format("2006-01-02T15:04:05.000Z0700"),
 			log.Level,
@@ -787,10 +788,10 @@ func (c *viamClient) printRobotPartLogs(orgStr, locStr, robotStr, partStr string
 	}
 
 	if header != "" {
-		fmt.Fprintln(c.c.App.Writer, header)
+		printf(c.c.App.Writer, header)
 	}
 	if len(logs) == 0 {
-		fmt.Fprintf(c.c.App.Writer, "%sno recent logs\n", indent)
+		printf(c.c.App.Writer, "%sNo recent logs", indent)
 		return nil
 	}
 	c.printRobotPartLogsInner(logs, indent)
@@ -812,7 +813,7 @@ func (c *viamClient) tailRobotPartLogs(orgStr, locStr, robotStr, partStr string,
 	}
 
 	if header != "" {
-		fmt.Fprintln(c.c.App.Writer, header)
+		printf(c.c.App.Writer, header)
 	}
 
 	for {
@@ -935,7 +936,7 @@ func (c *viamClient) startRobotPartShell(
 	}
 
 	if debug {
-		fmt.Fprintln(c.c.App.Writer, "establishing connection...")
+		printf(c.c.App.Writer, "Establishing connection...")
 	}
 	robotClient, err := client.New(dialCtx, fqdn, logger, client.WithDialOptions(rpcOpts...))
 	if err != nil {
@@ -1026,10 +1027,10 @@ func (c *viamClient) startRobotPartShell(
 			case outputData, ok := <-output:
 				if ok {
 					if outputData.Output != "" {
-						fmt.Fprint(c.c.App.Writer, outputData.Output)
+						fmt.Fprint(c.c.App.Writer, outputData.Output) // no newline
 					}
 					if outputData.Error != "" {
-						fmt.Fprint(c.c.App.ErrWriter, outputData.Error)
+						fmt.Fprint(c.c.App.ErrWriter, outputData.Error) // no newline
 					}
 					if outputData.EOF {
 						return

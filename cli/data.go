@@ -258,7 +258,7 @@ func (c *viamClient) binaryData(dst string, filter *datapb.Filter, parallelDownl
 					}
 					numFilesDownloaded.Add(1)
 					if numFilesDownloaded.Load()%logEveryN == 0 {
-						fmt.Fprintf(c.c.App.Writer, "downloaded %d files\n", numFilesDownloaded.Load())
+						printf(c.c.App.Writer, "Downloaded %d files", numFilesDownloaded.Load())
 					}
 				}(nextID)
 			}
@@ -268,7 +268,7 @@ func (c *viamClient) binaryData(dst string, filter *datapb.Filter, parallelDownl
 			}
 		}
 		if numFilesDownloaded.Load()%logEveryN != 0 {
-			fmt.Fprintf(c.c.App.Writer, "downloaded %d files to %s\n", numFilesDownloaded.Load(), dst)
+			printf(c.c.App.Writer, "Downloaded %d files to %s", numFilesDownloaded.Load(), dst)
 		}
 	}()
 	wg.Wait()
@@ -411,7 +411,7 @@ func (c *viamClient) tabularData(dst string, filter *datapb.Filter) error {
 	}
 	w := bufio.NewWriter(dataFile)
 
-	fmt.Fprintf(c.c.App.Writer, "downloading..")
+	fmt.Fprintf(c.c.App.Writer, "Downloading..") // no newline
 	var last string
 	mdIndexes := make(map[string]int)
 	mdIndex := 0
@@ -425,7 +425,7 @@ func (c *viamClient) tabularData(dst string, filter *datapb.Filter) error {
 				},
 				CountOnly: false,
 			})
-			fmt.Fprintf(c.c.App.Writer, ".")
+			fmt.Fprintf(c.c.App.Writer, ".") // no newline
 			if err == nil {
 				break
 			}
@@ -490,7 +490,7 @@ func (c *viamClient) tabularData(dst string, filter *datapb.Filter) error {
 		}
 	}
 
-	fmt.Fprintf(c.c.App.Writer, "\n")
+	printf(c.c.App.Writer, "") // newline
 	if err := w.Flush(); err != nil {
 		return errors.Wrapf(err, "could not flush writer for %s", dataFile.Name())
 	}
@@ -517,7 +517,7 @@ func (c *viamClient) deleteBinaryData(filter *datapb.Filter) error {
 	if err != nil {
 		return errors.Wrapf(err, "received error from server")
 	}
-	fmt.Fprintf(c.c.App.Writer, "deleted %d files\n", resp.GetDeletedCount())
+	printf(c.c.App.Writer, "Deleted %d files", resp.GetDeletedCount())
 	return nil
 }
 
@@ -531,6 +531,6 @@ func (c *viamClient) deleteTabularData(orgID string, deleteOlderThanDays int) er
 	if err != nil {
 		return errors.Wrapf(err, "received error from server")
 	}
-	fmt.Fprintf(c.c.App.Writer, "deleted %d datapoints\n", resp.GetDeletedCount())
+	printf(c.c.App.Writer, "Deleted %d datapoints", resp.GetDeletedCount())
 	return nil
 }

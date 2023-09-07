@@ -76,7 +76,7 @@ func UploadBoardDefsAction(ctx *cli.Context) error {
 		return err
 	}
 
-	fmt.Fprintf(ctx.App.Writer, "Board definitions file was successfully uploaded!\n")
+	printf(ctx.App.Writer, "Board definitions file was successfully uploaded!")
 	return nil
 }
 
@@ -106,7 +106,7 @@ func DownloadBoardDefsAction(c *cli.Context) error {
 		return err
 	}
 
-	fmt.Fprintf(c.App.Writer, "%s board definitions successfully downloaded!\n", nameArg)
+	printf(c.App.Writer, "%s board definitions successfully downloaded!", nameArg)
 
 	return nil
 }
