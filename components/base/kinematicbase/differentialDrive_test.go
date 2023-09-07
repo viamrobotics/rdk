@@ -126,7 +126,7 @@ func TestErrorState(t *testing.T) {
 	ddk.Localizer = motion.NewSLAMLocalizer(slam)
 
 	desiredInput := []referenceframe.Input{{3}, {4}, {utils.DegToRad(30)}}
-	distErr, headingErr, err := ddk.errorState(make([]referenceframe.Input, 3), desiredInput)
+	distErr, headingErr, err := ddk.inputDiff(make([]referenceframe.Input, 3), desiredInput)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, distErr, test.ShouldEqual, r3.Vector{desiredInput[0].Value, desiredInput[1].Value, 0}.Norm())
 	test.That(t, headingErr, test.ShouldAlmostEqual, 30)

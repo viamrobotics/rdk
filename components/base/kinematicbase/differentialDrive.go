@@ -5,6 +5,7 @@ package kinematicbase
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math"
 	"time"
 
@@ -64,11 +65,6 @@ func wrapWithDifferentialDriveKinematics(
 	} else {
 		ddk.planningFrame = ddk.executionFrame
 	}
-
-	ddk.fs = referenceframe.NewEmptyFrameSystem("")
-	if err := ddk.fs.AddFrame(ddk.executionFrame, ddk.fs.World()); err != nil {
-		return nil, err
-	}
 	return ddk, nil
 }
 
@@ -77,7 +73,6 @@ type differentialDriveKinematics struct {
 	motion.Localizer
 	logger                        golog.Logger
 	planningFrame, executionFrame referenceframe.Model
-	fs                            referenceframe.FrameSystem
 	options                       Options
 }
 
@@ -205,7 +200,7 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 // if it issued a command successfully.  If it is already at the location it will not need to issue another command and can therefore
 // return a false.
 func (ddk *differentialDriveKinematics) issueCommand(ctx context.Context, current, desired []referenceframe.Input) (bool, error) {
-	distErr, headingErr, err := ddk.errorState(current, desired)
+	distErr, headingErr, err := ddk.inputDiff(current, desired)
 	if err != nil {
 		return false, err
 	}
@@ -221,29 +216,23 @@ func (ddk *differentialDriveKinematics) issueCommand(ctx context.Context, curren
 }
 
 // create a function for the error state, which is defined as [positional error, heading error].
-func (ddk *differentialDriveKinematics) errorState(current, desired []referenceframe.Input) (float64, float64, error) {
+func (ddk *differentialDriveKinematics) inputDiff(current, desired []referenceframe.Input) (float64, float64, error) {
 	// create a goal pose in the world frame
-	goal := referenceframe.NewPoseInFrame(
-		referenceframe.World,
-		spatialmath.NewPose(
-			r3.Vector{X: desired[0].Value, Y: desired[1].Value},
-			&spatialmath.OrientationVector{OZ: 1, Theta: desired[2].Value},
-		),
+	goal := spatialmath.NewPose(
+		r3.Vector{X: desired[0].Value, Y: desired[1].Value},
+		&spatialmath.OrientationVector{OZ: 1, Theta: desired[2].Value},
 	)
 
 	// transform the goal pose such that it is in the base frame
-	tf, err := ddk.fs.Transform(map[string][]referenceframe.Input{ddk.planningFrame.Name(): current}, goal, ddk.planningFrame.Name())
+	currentPose, err := ddk.planningFrame.Transform(current)
 	if err != nil {
 		return 0, 0, err
 	}
-	delta, ok := tf.(*referenceframe.PoseInFrame)
-	if !ok {
-		return 0, 0, errors.New("can't interpret transformable as a pose in frame")
-	}
+	delta := spatialmath.PoseBetween(currentPose, goal)
 
 	// calculate the error state
-	headingErr := math.Mod(delta.Pose().Orientation().OrientationVectorDegrees().Theta, 360)
-	positionErr := delta.Pose().Point().Norm()
+	headingErr := math.Mod(delta.Orientation().OrientationVectorDegrees().Theta, 360)
+	positionErr := delta.Point().Norm()
 	return positionErr, headingErr, nil
 }
 
@@ -290,7 +279,7 @@ func CollisionGeometry(cfg *referenceframe.LinkConfig) ([]spatialmath.Geometry, 
 // too far from its path.
 func (ddk *differentialDriveKinematics) newValidRegionCapsule(starting, desired []referenceframe.Input) (spatialmath.Geometry, error) {
 	pt := r3.Vector{X: (desired[0].Value + starting[0].Value) / 2, Y: (desired[1].Value + starting[1].Value) / 2}
-	positionErr, _, err := ddk.errorState(starting, []referenceframe.Input{desired[0], desired[1], {0}})
+	positionErr, _, err := ddk.inputDiff(starting, []referenceframe.Input{desired[0], desired[1], {0}})
 	if err != nil {
 		return nil, err
 	}
@@ -319,4 +308,47 @@ func (ddk *differentialDriveKinematics) newValidRegionCapsule(starting, desired 
 	}
 
 	return capsule, nil
+}
+
+// nolint: dupl
+func (ddk *differentialDriveKinematics) ErrorState(
+	ctx context.Context,
+	plan [][]referenceframe.Input,
+	currentNode int,
+) (spatialmath.Pose, error) {
+	if currentNode < 0 || currentNode >= len(plan) {
+		return nil, fmt.Errorf("cannot get ErrorState for node %d, must be >= 0 and less than plan length %d", currentNode, len(plan))
+	}
+
+	// Get pose-in-frame of the base via its localizer. The offset between the localizer and its base should already be accounted for.
+	actualPIF, err := ddk.CurrentPosition(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var nominalPose spatialmath.Pose
+
+	// Determine the nominal pose, that is, the pose where the robot ought be if it had followed the plan perfectly up until this point.
+	// This is done differently depending on what sort of frame we are working with.
+	if len(plan) < 2 {
+		return nil, errors.New("diff drive motion plan must have at least two waypoints")
+	}
+	nominalPose, err = ddk.planningFrame.Transform(plan[currentNode])
+	if err != nil {
+		return nil, err
+	}
+	if currentNode > 0 {
+		pastPose, err := ddk.planningFrame.Transform(plan[currentNode-1])
+		if err != nil {
+			return nil, err
+		}
+		// diff drive bases don't have a notion of "distance along the trajectory between waypoints", so instead we compare to the
+		// nearest point on the straight line path.
+		nominalPoint := spatialmath.ClosestPointSegmentPoint(pastPose.Point(), nominalPose.Point(), actualPIF.Pose().Point())
+		pointDiff := nominalPose.Point().Sub(pastPose.Point())
+		desiredHeading := math.Atan2(pointDiff.Y, pointDiff.X)
+		nominalPose = spatialmath.NewPose(nominalPoint, &spatialmath.OrientationVector{OZ: 1, Theta: desiredHeading})
+	}
+
+	return spatialmath.PoseBetween(nominalPose, actualPIF.Pose()), nil
 }

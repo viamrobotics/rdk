@@ -682,26 +682,27 @@ func ErrorState(
 		return nil, fmt.Errorf("cannot get errorState for node %d, must be >= 0 and less than plan length %d", currentNode, len(plan))
 	}
 
-	// Get pose of the base via its localizer. The offset between the localizer and its base should already be accounted for.
-	actualPose, err := kb.CurrentPosition(ctx)
+	// Get pose-in-frame of the base via its localizer. The offset between the localizer and its base should already be accounted for.
+	actualPIF, err := kb.CurrentPosition(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	var nominalPose spatialmath.Pose
 	frame := kb.Kinematics()
+
+	// Determine the nominal pose, that is, the pose where the robot ought be if it had followed the plan perfectly up until this point.
+	// This is done differently depending on what sort of frame we are working with.
 	if _, ok := frame.(tpspace.PTGProvider); ok {
 		// TODO: The `rectifyTPspacePath` in motionplan does basically this. Deduplicate.
 		runningPose := spatialmath.NewZeroPose()
-		for i, wp := range plan {
+		for i := 0; i < currentNode; i++ {
+			wp := plan[i]
 			wpPose, err := frame.Transform(wp)
 			if err != nil {
 				return nil, err
 			}
 			runningPose = spatialmath.Compose(runningPose, wpPose)
-			if i == currentNode {
-				break
-			}
 		}
 
 		// Determine how far through the current trajectory we are
@@ -713,7 +714,6 @@ func ErrorState(
 		if err != nil {
 			return nil, err
 		}
-
 		nominalPose = spatialmath.Compose(runningPose, currPose)
 	} else {
 		if len(plan) < 2 {
@@ -730,12 +730,12 @@ func ErrorState(
 			}
 			// diff drive bases don't have a notion of "distance along the trajectory between waypoints", so instead we compare to the
 			// nearest point on the straight line path.
-			nominalPoint := spatialmath.ClosestPointSegmentPoint(pastPose.Point(), nominalPose.Point(), actualPose.Pose().Point())
+			nominalPoint := spatialmath.ClosestPointSegmentPoint(pastPose.Point(), nominalPose.Point(), actualPIF.Pose().Point())
 			pointDiff := nominalPose.Point().Sub(pastPose.Point())
 			desiredHeading := math.Atan2(pointDiff.Y, pointDiff.X)
 			nominalPose = spatialmath.NewPose(nominalPoint, &spatialmath.OrientationVector{OZ: 1, Theta: desiredHeading})
 		}
 	}
 
-	return spatialmath.PoseBetween(nominalPose, actualPose.Pose()), nil
+	return spatialmath.PoseBetween(nominalPose, actualPIF.Pose()), nil
 }

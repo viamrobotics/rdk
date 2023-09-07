@@ -5,6 +5,7 @@ package kinematicbase
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math"
 	"sync"
 	"time"
@@ -18,6 +19,7 @@ import (
 	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/motion"
+	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
@@ -146,12 +148,13 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 		return multierr.Combine(err, ptgk.Base.Stop(ctx, nil))
 	}
 
-	ptgk.inputLock.Lock()
-	ptgk.currentInput = []referenceframe.Input{inputs[0], inputs[1], {0}}
-	ptgk.inputLock.Unlock()
-
+	lastDist := 0.
 	lastTime := 0.
 	for _, trajNode := range selectedTraj {
+		ptgk.inputLock.Lock() // In the case where there's actual contention here, this could cause timing issues; how to solve?
+		ptgk.currentInput = []referenceframe.Input{inputs[0], inputs[1], {lastDist}}
+		ptgk.inputLock.Unlock()
+		lastDist = trajNode.Dist
 		// TODO: Most trajectories update their velocities infrequently, or sometimes never.
 		// This function could be improved by looking ahead through the trajectory and minimizing the amount of SetVelocity calls.
 		timestep := time.Duration((trajNode.Time-lastTime)*1000*1000) * time.Microsecond
@@ -176,10 +179,47 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 			return multierr.Combine(err, ptgk.Base.Stop(ctx, nil))
 		}
 		utils.SelectContextOrWait(ctx, timestep)
-		ptgk.inputLock.Lock() // In the case where there's actual contention here, this could cause timing issues; how to solve?
-		ptgk.currentInput = []referenceframe.Input{inputs[0], inputs[1], {trajNode.Dist}}
-		ptgk.inputLock.Unlock()
 	}
 
 	return ptgk.Base.Stop(ctx, nil)
+}
+
+func (ptgk *ptgBaseKinematics) ErrorState(ctx context.Context, plan [][]referenceframe.Input, currentNode int) (spatialmath.Pose, error) {
+	if currentNode < 0 || currentNode >= len(plan) {
+		return nil, fmt.Errorf("cannot get ErrorState for node %d, must be >= 0 and less than plan length %d", currentNode, len(plan))
+	}
+
+	// Get pose-in-frame of the base via its localizer. The offset between the localizer and its base should already be accounted for.
+	actualPIF, err := ptgk.CurrentPosition(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var nominalPose spatialmath.Pose
+
+	// Determine the nominal pose, that is, the pose where the robot ought be if it had followed the plan perfectly up until this point.
+	// This is done differently depending on what sort of frame we are working with.
+	// TODO: The `rectifyTPspacePath` in motionplan does basically this. Deduplicate.
+	runningPose := spatialmath.NewZeroPose()
+	for i := 0; i < currentNode; i++ {
+		wp := plan[i]
+		wpPose, err := ptgk.frame.Transform(wp)
+		if err != nil {
+			return nil, err
+		}
+		runningPose = spatialmath.Compose(runningPose, wpPose)
+	}
+
+	// Determine how far through the current trajectory we are
+	currentInputs, err := ptgk.CurrentInputs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	currPose, err := ptgk.frame.Transform(currentInputs)
+	if err != nil {
+		return nil, err
+	}
+	nominalPose = spatialmath.Compose(runningPose, currPose)
+
+	return spatialmath.PoseBetween(nominalPose, actualPIF.Pose()), nil
 }

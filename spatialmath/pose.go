@@ -100,7 +100,7 @@ func Compose(a, b Pose) Pose {
 // Example: if PoseBetween(a, b) = c, then Compose(a, c) = b.
 func PoseBetween(a, b Pose) Pose {
 	invA := &dualQuaternion{dualquat.ConjQuat(dualQuaternionFromPose(a).Number)}
-	result :=  &dualQuaternion{invA.Transformation(dualQuaternionFromPose(b).Number)}
+	result := &dualQuaternion{invA.Transformation(dualQuaternionFromPose(b).Number)}
 	// Normalization
 	if vecLen := 1 / quat.Abs(result.Real); vecLen != 1 {
 		result.Real.Real *= vecLen
@@ -115,7 +115,7 @@ func PoseBetween(a, b Pose) Pose {
 // Example: if PoseBetweenInverse(a, b) = c, then Compose(c, a) = b
 // PoseBetweenInverse(a, b) is equivalent to Compose(b, PoseInverse(a)).
 func PoseBetweenInverse(a, b Pose) Pose {
-	result :=  &dualQuaternion{dualQuaternionFromPose(b).Transformation(dualquat.ConjQuat(dualQuaternionFromPose(a).Number))}
+	result := &dualQuaternion{dualQuaternionFromPose(b).Transformation(dualquat.ConjQuat(dualQuaternionFromPose(a).Number))}
 	// Normalization
 	if vecLen := 1 / quat.Abs(result.Real); vecLen != 1 {
 		result.Real.Real *= vecLen
