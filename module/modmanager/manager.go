@@ -71,14 +71,14 @@ type module struct {
 	pendingRemoval bool
 
 	// inStartup stores whether or not the manager of the OnUnexpectedExit function
-	// is trying to start up this module; inStartupLock guards the execution of an
+	// is trying to start up this module; inRecoveryLock guards the execution of an
 	// OnUnexpectedExit function for this module.
 	//
 	// NOTE(benjirewis): Using just an atomic boolean is not sufficient, as OUE
 	// functions for the same module cannot overlap and should not continue after
 	// another OUE has finished.
-	inStartup     atomic.Bool
-	inStartupLock sync.Mutex
+	inStartup      atomic.Bool
+	inRecoveryLock sync.Mutex
 }
 
 type addedResource struct {
@@ -454,8 +454,8 @@ var (
 // for the passed-in module to include in the pexec.ProcessConfig.
 func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) bool {
 	return func(exitCode int) bool {
-		mod.inStartupLock.Lock()
-		defer mod.inStartupLock.Unlock()
+		mod.inRecoveryLock.Lock()
+		defer mod.inRecoveryLock.Unlock()
 		if mod.inStartup.Load() {
 			return false
 		}
