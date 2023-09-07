@@ -2,19 +2,19 @@ package kinematicbase
 
 import (
 	"context"
-	"math"
 	"testing"
 
 	"github.com/edaniels/golog"
+	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/test"
 
 	fakebase "go.viam.com/rdk/components/base/fake"
+	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
-	"go.viam.com/rdk/services/slam"
-	"go.viam.com/rdk/services/slam/fake"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/testutils/inject"
 )
 
 func TestNewFakeKinematics(t *testing.T) {
@@ -32,16 +32,24 @@ func TestNewFakeKinematics(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	b, err := fakebase.NewBase(ctx, resource.Dependencies{}, conf, logger)
 	test.That(t, err, test.ShouldBeNil)
-	fakeSLAM := fake.NewSLAM(slam.Named("test"), logger)
-	limits, err := fakeSLAM.GetLimits(ctx)
-	test.That(t, err, test.ShouldBeNil)
-	limits = append(limits, referenceframe.Limit{-2 * math.Pi, 2 * math.Pi})
+	ms := inject.NewMovementSensor("test")
+	ms.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+		return geo.NewPoint(0, 0), 0, nil
+	}
+	ms.CompassHeadingFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
+		return 0, nil
+	}
+	ms.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+		return &movementsensor.Properties{CompassHeadingSupported: true}, nil
+	}
+	localizer := motion.NewMovementSensorLocalizer(ms, geo.NewPoint(0, 0), spatialmath.NewZeroPose())
+	limits := []referenceframe.Limit{{Min: -100, Max: 100}, {Min: -100, Max: 100}}
 
 	options := NewKinematicBaseOptions()
 	options.PositionOnlyMode = false
-	kb, err := WrapWithFakeKinematics(ctx, b.(*fakebase.Base), motion.NewSLAMLocalizer(fakeSLAM), limits, options)
+	kb, err := WrapWithFakeKinematics(ctx, b.(*fakebase.Base), localizer, limits, options)
 	test.That(t, err, test.ShouldBeNil)
-	expected := referenceframe.FloatsToInputs([]float64{10, 11, 0})
+	expected := referenceframe.FloatsToInputs([]float64{10, 11})
 	test.That(t, kb.GoToInputs(ctx, expected), test.ShouldBeNil)
 	inputs, err := kb.CurrentInputs(ctx)
 	test.That(t, err, test.ShouldBeNil)

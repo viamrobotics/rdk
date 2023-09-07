@@ -157,15 +157,10 @@ type builtIn struct {
 	base           base.Base
 	movementSensor movementsensor.MovementSensor
 	motion         motion.Service
-	visionServices []vision.Service
 	obstacles      []*spatialmath.GeoObstacle
 
-	positionPollingFrequencyHz float64
-	obstaclePollingFrequencyHz float64
-	planDeviationM             float64
-	replanCostFactor           float64
-	metersPerSec               float64
-	degPerSec                  float64
+	motionCfg        *motion.MotionConfiguration
+	replanCostFactor float64
 
 	logger                    golog.Logger
 	wholeServiceCancelFunc    func()
@@ -200,13 +195,13 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		return err
 	}
 
-	var visionSvcs []vision.Service
+	var visionServices []resource.Name
 	for _, svc := range svcConfig.VisionServices {
 		visionSvc, err := vision.FromDependencies(deps, svc)
 		if err != nil {
 			return err
 		}
-		visionSvcs = append(visionSvcs, visionSvc)
+		visionServices = append(visionServices, visionSvc.Name())
 	}
 
 	svc.mu.Lock()
@@ -235,19 +230,22 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		return err
 	}
 
+	svc.mode = navigation.ModeManual
 	svc.store = newStore
 	svc.storeType = string(svcConfig.Store.Type)
 	svc.base = base1
 	svc.movementSensor = movementSensor
 	svc.motion = motionSvc
-	svc.visionServices = visionSvcs
 	svc.obstacles = newObstacles
-	svc.metersPerSec = svcConfig.MetersPerSec
-	svc.degPerSec = svcConfig.DegPerSec
-	svc.obstaclePollingFrequencyHz = svcConfig.ObstaclePollingFrequencyHz
-	svc.positionPollingFrequencyHz = svcConfig.PositionPollingFrequencyHz
-	svc.planDeviationM = svcConfig.PlanDeviationM
 	svc.replanCostFactor = svcConfig.ReplanCostFactor
+	svc.motionCfg = &motion.MotionConfiguration{
+		VisionServices:        visionServices,
+		LinearMPerSec:         svcConfig.MetersPerSec,
+		AngularDegsPerSec:     svcConfig.DegPerSec,
+		PlanDeviationMM:       1e3 * svcConfig.PlanDeviationM,
+		PositionPollingFreqHz: svcConfig.PositionPollingFrequencyHz,
+		ObstaclePollingFreqHz: svcConfig.ObstaclePollingFrequencyHz,
+	}
 
 	return nil
 }
@@ -366,17 +364,6 @@ func (svc *builtIn) startWaypoint(ctx context.Context, extra map[string]interfac
 		extra["motion_profile"] = "position_only"
 	}
 
-	motionCfg := motion.MotionConfiguration{
-		LinearMPerSec:         svc.metersPerSec,
-		AngularDegsPerSec:     svc.degPerSec,
-		PlanDeviationM:        svc.planDeviationM,
-		PositionPollingFreqHz: svc.positionPollingFrequencyHz,
-		ObstaclePollingFreqHz: svc.obstaclePollingFrequencyHz,
-	}
-	for _, vis := range svc.visionServices {
-		motionCfg.VisionSvc = append(motionCfg.VisionSvc, vis.Name())
-	}
-
 	svc.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer svc.activeBackgroundWorkers.Done()
@@ -389,7 +376,7 @@ func (svc *builtIn) startWaypoint(ctx context.Context, extra map[string]interfac
 				math.NaN(),
 				svc.movementSensor.Name(),
 				svc.obstacles,
-				&motionCfg,
+				svc.motionCfg,
 				extra,
 			)
 			if err != nil {
@@ -399,7 +386,7 @@ func (svc *builtIn) startWaypoint(ctx context.Context, extra map[string]interfac
 			return svc.waypointReached(ctx)
 		}
 
-		// loop until no waypoints remaining
+		// do not exit loop - even if there are no waypoints remaining
 		for {
 			if ctx.Err() != nil {
 				return
@@ -407,7 +394,7 @@ func (svc *builtIn) startWaypoint(ctx context.Context, extra map[string]interfac
 
 			wp, err := svc.store.NextWaypoint(ctx)
 			if err != nil {
-				return
+				continue
 			}
 			svc.mu.Lock()
 			svc.waypointInProgress = &wp
@@ -428,7 +415,7 @@ func (svc *builtIn) startWaypoint(ctx context.Context, extra map[string]interfac
 						svc.logger.Infof("skipping waypoint %+v since it was deleted", wp)
 						continue
 					}
-					svc.logger.Info("can't mark waypoint %+v as reached, exiting navigation due to error: %s", wp, err)
+					svc.logger.Infof("can't mark waypoint %+v as reached, exiting navigation due to error: %s", wp, err)
 					return
 				}
 			}

@@ -78,7 +78,7 @@ func CreateModuleAction(c *cli.Context) error {
 	}
 	// Check to make sure the user doesn't accidentally overwrite a module manifest
 	if _, err := os.Stat(defaultManifestFilename); err == nil {
-		return errors.New("another module's meta.json already exists in the current directory. delete it and try again")
+		return errors.New("another module's meta.json already exists in the current directory. Delete it and try again")
 	}
 
 	response, err := client.createModule(moduleNameArg, org.GetId())
@@ -91,9 +91,9 @@ func CreateModuleAction(c *cli.Context) error {
 		return err
 	}
 
-	fmt.Fprintf(c.App.Writer, "successfully created '%s'.\n", returnedModuleID.String())
+	printf(c.App.Writer, "Successfully created '%s'", returnedModuleID.String())
 	if response.GetUrl() != "" {
-		fmt.Fprintf(c.App.Writer, "you can view it here: %s \n", response.GetUrl())
+		printf(c.App.Writer, "You can view it here: %s", response.GetUrl())
 	}
 	emptyManifest := moduleManifest{
 		ModuleID:   returnedModuleID.String(),
@@ -106,7 +106,7 @@ func CreateModuleAction(c *cli.Context) error {
 	if err := writeManifest(defaultManifestFilename, emptyManifest); err != nil {
 		return err
 	}
-	fmt.Fprintf(c.App.Writer, "configuration for the module has been written to meta.json\n")
+	printf(c.App.Writer, "Configuration for the module has been written to meta.json\n")
 	return nil
 }
 
@@ -151,7 +151,7 @@ func UpdateModuleAction(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(c.App.Writer, "module successfully updated! you can view your changes online here: %s\n", response.GetUrl())
+	printf(c.App.Writer, "Module successfully updated! You can view your changes online here: %s\n", response.GetUrl())
 
 	// if we have gotten this far it means that moduleID will have a prefix in it
 	// because the validate command resolves the orgId or namespace to the moduleID with the namespace as the priority
@@ -180,10 +180,10 @@ func UploadModuleAction(c *cli.Context) error {
 	tarballPath := c.Args().First()
 	if c.Args().Len() > 1 {
 		return errors.New("too many arguments passed to upload command. " +
-			"make sure to specify flag and optional arguments before the required positional package argument")
+			"Make sure to specify flag and optional arguments before the required positional package argument")
 	}
 	if tarballPath == "" {
-		return errors.New("no package to upload -- please provide an archive containing your module. use --help for more information")
+		return errors.New("no package to upload -- please provide an archive containing your module. Use --help for more information")
 	}
 
 	client, err := newViamClient(c)
@@ -201,7 +201,7 @@ func UploadModuleAction(c *cli.Context) error {
 		// no manifest found.
 		if nameArg == "" || (publicNamespaceArg == "" && orgIDArg == "") {
 			return errors.New("unable to find the meta.json. " +
-				"if you want to upload a version without a meta.json, you must supply a module name and namespace (or module name and org-id)",
+				"If you want to upload a version without a meta.json, you must supply a module name and namespace (or module name and org-id)",
 			)
 		}
 	} else {
@@ -249,7 +249,7 @@ func UploadModuleAction(c *cli.Context) error {
 		return err
 	}
 
-	fmt.Fprintf(c.App.Writer, "version successfully uploaded! you can view your changes online here: %s\n", response.GetUrl())
+	printf(c.App.Writer, "Version successfully uploaded! you can view your changes online here: %s", response.GetUrl())
 
 	return nil
 }
@@ -351,7 +351,7 @@ func sendModuleUploadRequests(ctx context.Context, stream apppb.AppService_Uploa
 	fileSize := stat.Size()
 	uploadedBytes := 0
 	// Close the line with the progress reading
-	defer fmt.Fprint(stdout, "\n")
+	defer printf(stdout, "")
 
 	//nolint:errcheck
 	defer stream.CloseSend()
@@ -378,7 +378,7 @@ func sendModuleUploadRequests(ctx context.Context, stream apppb.AppService_Uploa
 		uploadedBytes += len(uploadReq.GetFile())
 		// Simple progress reading until we have a proper tui library
 		uploadPercent := int(math.Ceil(100 * float64(uploadedBytes) / float64(fileSize)))
-		fmt.Fprintf(stdout, "\ruploading... %d%% (%d/%d bytes)", uploadPercent, uploadedBytes, fileSize)
+		fmt.Fprintf(stdout, "\rUploading... %d%% (%d/%d bytes)", uploadPercent, uploadedBytes, fileSize) // no newline
 	}
 }
 
@@ -454,7 +454,7 @@ func validateModuleFile(client *viamClient, moduleID moduleID, tarballPath, vers
 	}
 	extraErrInfo := ""
 	if len(filesWithSameNameAsEntrypoint) > 0 {
-		extraErrInfo = fmt.Sprintf(". did you mean to set your entrypoint to %v?", filesWithSameNameAsEntrypoint)
+		extraErrInfo = fmt.Sprintf(". Did you mean to set your entrypoint to %v?", filesWithSameNameAsEntrypoint)
 	}
 	return errors.Errorf("the provided tarball %q does not contain a file at the desired entrypoint %q%s",
 		tarballPath, entrypoint, extraErrInfo)
@@ -490,7 +490,7 @@ func parseModuleID(id string) (moduleID, error) {
 		return moduleID{prefix: splitModuleName[0], name: splitModuleName[1]}, nil
 	default:
 		return moduleID{}, errors.Errorf("invalid module name '%s'."+
-			" module name must be in the form 'prefix:module-name' for public modules"+
+			" Module name must be in the form 'prefix:module-name' for public modules"+
 			" or just 'module-name' for private modules in organizations without a public namespace", id)
 	}
 }
@@ -533,7 +533,7 @@ func validateModuleID(
 				return moduleID{}, errors.Errorf("the meta.json specifies a different org %q than the one provided via args %q",
 					org.GetName(), expectedOrg.GetName())
 			}
-			fmt.Fprintln(c.App.Writer, "the module's meta.json already specifies a full module id. ignoring public-namespace and org-id arg")
+			printf(c.App.Writer, "the module's meta.json already specifies a full module id. Ignoring public-namespace and org-id arg")
 		}
 		return mid, nil
 	}
