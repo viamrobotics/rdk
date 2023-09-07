@@ -23,9 +23,6 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-// Define a default speed to target for the base in the case where one is not provided.
-const defaultBaseMMps = 600.
-
 var zeroInput = make([]referenceframe.Input, 3)
 
 const (
@@ -40,7 +37,7 @@ type ptgBaseKinematics struct {
 	logger       golog.Logger
 	frame        referenceframe.Frame
 	fs           referenceframe.FrameSystem
-	ptgs   []tpspace.PTGSolver
+	ptgs         []tpspace.PTGSolver
 	inputLock    sync.RWMutex
 	currentInput []referenceframe.Input
 }
