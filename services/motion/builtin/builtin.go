@@ -317,7 +317,7 @@ func (ms *builtIn) MoveOnGlobe(
 			ms.logger.Debugf("position response: %#v", resp)
 			ma.cancel()
 			if resp.err != nil {
-				return false, err
+				return false, resp.err
 			}
 
 		// if the obstacle poller hit an error return it, otherwise replan
@@ -325,7 +325,7 @@ func (ms *builtIn) MoveOnGlobe(
 			ms.logger.Debugf("obstacle response: %#v", resp)
 			ma.cancel()
 			if resp.err != nil {
-				return false, err
+				return false, resp.err
 			}
 		}
 	}

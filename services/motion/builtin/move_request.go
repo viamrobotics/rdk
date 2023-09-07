@@ -20,27 +20,64 @@ import (
 
 // moveRequest is a structure that contains all the information necessary for to make a move call.
 type moveRequest struct {
+	config *motion.MotionConfiguration
+
 	planRequest        *motionplan.PlanRequest
-	actuator           kinematicbase.KinematicBase
-	execute            func(context.Context, motionplan.Plan) moveResponse
+	kinematicBase      kinematicbase.KinematicBase
 	position, obstacle *replanner
 }
 
 // plan creates a plan using the currentInputs of the robot and the moveRequest's planRequest.
 func (mr *moveRequest) plan(ctx context.Context) (motionplan.Plan, error) {
-	inputs, err := mr.actuator.CurrentInputs(ctx)
+	inputs, err := mr.kinematicBase.CurrentInputs(ctx)
 	if err != nil {
-		return make(motionplan.Plan, 0), err
+		return nil, err
 	}
 	// TODO: this is really hacky and we should figure out a better place to store this information
-	if len(mr.actuator.Kinematics().DoF()) == 2 {
+	if len(mr.kinematicBase.Kinematics().DoF()) == 2 {
 		inputs = inputs[:2]
 	}
-	mr.planRequest.StartConfiguration = map[string][]referenceframe.Input{mr.actuator.Kinematics().Name(): inputs}
+	mr.planRequest.StartConfiguration = map[string][]referenceframe.Input{mr.kinematicBase.Kinematics().Name(): inputs}
 	return motionplan.PlanMotion(ctx, mr.planRequest)
 }
 
-func 
+func (mr *moveRequest) execute(ctx context.Context, plan motionplan.Plan) moveResponse {
+	waypoints, err := plan.GetFrameSteps(mr.kinematicBase.Kinematics().Name())
+	if err != nil {
+		return moveResponse{err: err}
+	}
+
+	// Iterate through the list of waypoints and issue a command to move to each
+	for i := 1; i < len(waypoints); i++ {
+		select {
+		case <-ctx.Done():
+			return moveResponse{}
+		default:
+			mr.planRequest.Logger.Info(waypoints[i])
+			if err := mr.kinematicBase.GoToInputs(ctx, waypoints[i]); err != nil {
+				// If there is an error on GoToInputs, stop the component if possible before returning the error
+				if stopErr := mr.kinematicBase.Stop(ctx, nil); stopErr != nil {
+					return moveResponse{err: errors.Wrap(err, stopErr.Error())}
+				}
+				// If the error was simply a cancellation of context return without erroring out
+				if errors.Is(err, context.Canceled) {
+					return moveResponse{}
+				}
+				return moveResponse{err: err}
+			}
+		}
+	}
+
+	// the plan has been fully executed so check to see if the GeoPoint we are at is close enough to the goal.
+	errorState, err := mr.kinematicBase.ErrorState(ctx, waypoints, len(waypoints)-1)
+	if err != nil {
+		return moveResponse{err: err}
+	}
+	if errorState.Point().Norm() <= mr.config.PlanDeviationMM {
+		return moveResponse{success: true}
+	}
+	return moveResponse{err: errors.New("reached end of plan but not at goal")}
+}
 
 // newMoveOnGlobeRequest instantiates a moveRequest intended to be used in the context of a MoveOnGlobe call.
 func (ms *builtIn) newMoveOnGlobeRequest(
@@ -52,6 +89,18 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	motionCfg *motion.MotionConfiguration,
 	extra map[string]interface{},
 ) (*moveRequest, error) {
+	// ensure arguments are well behaved
+	if motionCfg == nil {
+		motionCfg = &motion.MotionConfiguration{}
+	}
+	if obstacles == nil {
+		obstacles = []*spatialmath.GeoObstacle{}
+	}
+	if destination == nil {
+		return nil, errors.New("destination cannot be nil")
+	}
+
+	// build kinematic options
 	kinematicsOptions := kinematicbase.NewKinematicBaseOptions()
 	if motionCfg.LinearMPerSec != 0 {
 		kinematicsOptions.LinearVelocityMMPerSec = motionCfg.LinearMPerSec * 1000
@@ -152,6 +201,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	}
 
 	return &moveRequest{
+		config: motionCfg,
 		planRequest: &motionplan.PlanRequest{
 			Logger:             ms.logger,
 			Goal:               referenceframe.NewPoseInFrame(referenceframe.World, goal),
@@ -161,8 +211,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 			WorldState:         worldState,
 			Options:            extra,
 		},
-		actuator: kb,
-		execute: 
+		kinematicBase: kb,
 		position: newReplanner(
 			time.Duration(1000/motionCfg.PositionPollingFreqHz)*time.Millisecond,
 			func(ctx context.Context) replanResponse {

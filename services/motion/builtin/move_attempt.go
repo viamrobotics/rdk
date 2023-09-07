@@ -38,7 +38,7 @@ func newMoveAttempt(ctx context.Context, request *moveRequest) *moveAttempt {
 		backgroundWorkers: &backgroundWorkers,
 
 		request:      request,
-		responseChan: make(chan moveResponse, 1),
+		responseChan: make(chan moveResponse),
 	}
 }
 
@@ -49,6 +49,7 @@ func (ma *moveAttempt) start() {
 	plan, err := ma.request.plan(ma.ctx)
 	if err != nil {
 		ma.responseChan <- moveResponse{err: err}
+		return
 	}
 
 	ma.backgroundWorkers.Add(1)

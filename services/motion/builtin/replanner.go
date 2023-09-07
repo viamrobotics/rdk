@@ -18,6 +18,7 @@ type replanner struct {
 	responseChan chan replanResponse
 }
 
+// newReplanner is a constructor.
 func newReplanner(period time.Duration, fnToPoll func(context.Context) replanResponse) *replanner {
 	return &replanner{
 		period:       period,
