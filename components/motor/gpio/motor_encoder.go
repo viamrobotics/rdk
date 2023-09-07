@@ -122,12 +122,14 @@ func newEncodedMotor(
 		em.loop = cLoop
 	}
 
+	em.logger.Infof("ramp rate = %v", em.rampRate)
 	if em.rampRate < 0 || em.rampRate > 1 {
 		return nil, fmt.Errorf("ramp rate needs to be (0, 1] but is %v", em.rampRate)
 	}
 	if em.rampRate == 0 {
 		em.rampRate = 0.2 // Use a conservative value by default.
 	}
+	em.logger.Infof("ramp rate = %v", em.rampRate)
 
 	if em.maxPowerPct < 0 || em.maxPowerPct > 1 {
 		return nil, fmt.Errorf("max power pct needs to be (0, 1] but is %v", em.maxPowerPct)
@@ -250,9 +252,6 @@ func (m *EncodedMotor) rpmMonitor() {
 
 		if (m.DirectionMoving() == 1 && pos >= m.state.goalPos) || (m.DirectionMoving() == -1 && pos <= m.state.goalPos) {
 			// stop motor when at or past goal position
-			m.logger.Infof("direction moving = %v", m.DirectionMoving())
-			m.logger.Infof("position = %v, goal position = %v", pos, m.state.goalPos)
-			m.logger.Info("goal position reached")
 			m.Stop(m.cancelCtx, nil)
 			continue
 		}
@@ -281,19 +280,37 @@ func (m *EncodedMotor) makeAdjustments(pos, lastPos float64, now, lastTime int64
 
 	dir := m.directionMovingInLock()
 
+	// // "controls"
+	// quartRot := float64(m.ticksPerRotation) / 4.0
+	// if pos < m.state.goalPos+quartRot && pos > m.state.goalPos-quartRot {
+	// 	powerPct := m.state.lastPowerPct - (m.rampRate * 2 * m.directionMovingInLock())
+	// 	if sign(powerPct) != m.directionMovingInLock() {
+	// 		powerPct *= -1
+	// 	}
+	// 	m.state.lastPowerPct = powerPct
+	// 	if err := m.setPower(m.cancelCtx, powerPct, true); err != nil {
+	// 		panic(err)
+	// 	}
+	// 	return
+	// }
+
+	m.logger.Infof("currentRPM = %v, desiredRPM = %v", m.state.currentRPM, m.state.desiredRPM)
+
 	if (dir == 1 && m.state.currentRPM > m.state.desiredRPM) || (dir == -1 && m.state.currentRPM < m.state.desiredRPM) {
+		m.logger.Infof("slowing down")
 		powerPct := m.state.lastPowerPct - (m.rampRate * m.directionMovingInLock())
 		if sign(powerPct) != m.directionMovingInLock() {
-			powerPct *= -1
+			powerPct = m.state.lastPowerPct
 		}
 		if err := m.setPower(m.cancelCtx, powerPct, true); err != nil {
 			panic(err)
 		}
 	}
 	if (dir == 1 && m.state.currentRPM <= m.state.desiredRPM) || (dir == -1 && m.state.currentRPM >= m.state.desiredRPM) {
+		m.logger.Infof("speeding up")
 		powerPct := m.state.lastPowerPct + (m.rampRate * m.directionMovingInLock())
 		if sign(powerPct) != m.directionMovingInLock() {
-			powerPct *= -1
+			powerPct = m.state.lastPowerPct
 		}
 		if err := m.setPower(m.cancelCtx, powerPct, true); err != nil {
 			panic(err)
@@ -362,13 +379,13 @@ func (m *EncodedMotor) SetPower(ctx context.Context, powerPct float64, extra map
 
 // setPower assumes the state lock is held.
 func (m *EncodedMotor) setPower(ctx context.Context, powerPct float64, internal bool) error {
+	m.logger.Infof("set power = %v", powerPct)
 	dir := sign(powerPct)
 	if math.Abs(powerPct) < 0.1 {
 		m.state.lastPowerPct = 0.1 * dir
 	} else {
 		m.state.lastPowerPct = powerPct
 	}
-	m.logger.Infof("powerPct input = %v, last power pct = %v", powerPct, m.state.lastPowerPct)
 	if !internal {
 		m.state.desiredRPM = 0    // if we're setting power externally, don't control RPM
 		m.state.regulated = false // user wants direct control, so we stop trying to control the world
