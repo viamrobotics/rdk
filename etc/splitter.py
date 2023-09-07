@@ -3,12 +3,20 @@
 
 import argparse, json, sys, logging, subprocess
 import os
-from typing import List, Tuple, Iterable, TypeVar, Dict, Callable
+from typing import List, Tuple, Iterable, TypeVar, Callable
 
 # SizePair is (package, num_tests)
 SizePair = Tuple[str, int]
 SizeList = List[SizePair]
 logger = logging.getLogger(__name__)
+
+# Dict of {package1: package2}
+# The package paths in here are what `go list` outputs, i.e. './relative' style.
+# This causes package1 to be run directly after package2.
+PLACEMENT_RULES = {
+    # pointcloud relies on artifacts created in videosource
+    "./pointcloud": "./components/camera/videosource",
+}
 
 def file_or_stdin(path: str):
     "return file that can be used as nullcontext"
@@ -70,12 +78,11 @@ def keyed_index(sequence: Iterable[T], value: U, key: Callable[[T], U]) -> int:
             return i
     raise ValueError('not found in sequence')
 
-def apply_placement(args, sizes: SizeList) -> SizeList:
+def apply_placement(sizes: SizeList) -> SizeList:
     "apply placement rules, i.e. 'must come directly after' relationships (limited topo-sort)"
-    rules: Dict[str, str] = json.load(open(args.placement))
-    unmoved, moved = partition(sizes, lambda item: item[0] in rules)
+    unmoved, moved = partition(sizes, lambda item: item[0] in PLACEMENT_RULES)
     for item in moved:
-        target = rules[item[0]]
+        target = PLACEMENT_RULES[item[0]]
         index = keyed_index(unmoved, target, lambda x: x[0]) + 1
         unmoved.insert(index, item)
         logger.info('placement: inserted %s after %s at %d', item[0], target, index)
@@ -90,7 +97,6 @@ def main():
     p.add_argument('-d', '--debug', action='store_true', help="log level debug")
     p.add_argument('-c', '--command', default="go test", help="go test command with optional extra arguments")
     p.add_argument('--fail-empty', action='store_true', help="crash if no tests in input")
-    p.add_argument('--placement', help="path to placement json file with ordering rules")
     args = p.parse_args()
     logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO)
 
@@ -112,8 +118,8 @@ def main():
         return
     bin_size = int(sum(size for _, size in sizes) / args.nbins)
     logger.info('%d packages with tests, bin_size %d', len(sizes), bin_size)
-    if args.placement:
-        sizes = apply_placement(args, sizes)
+    if PLACEMENT_RULES:
+        sizes = apply_placement(sizes)
     splits = split_bins(sizes, bin_size)
     assert len(splits) == args.nbins
     logger.info('bin %d / %d has %d packages', args.index, args.nbins, len(splits[args.index]))
