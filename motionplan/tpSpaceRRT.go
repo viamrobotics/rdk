@@ -347,10 +347,10 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 	if invert {
 		sqMet := ik.NewSquaredNormMetric(randPosNode.Pose())
 		targetFunc = func(pose *ik.State) float64 {
-			return sqMet(&ik.State{Position: spatialmath.Compose(nearest.Pose(), spatialmath.PoseInverse(pose.Position))})
+			return sqMet(&ik.State{Position: spatialmath.PoseBetweenInverse(pose.Position, nearest.Pose())})
 		}
 	} else {
-		relPose := spatialmath.Compose(spatialmath.PoseInverse(nearest.Pose()), randPosNode.Pose())
+		relPose := spatialmath.PoseBetween(nearest.Pose(), randPosNode.Pose())
 		targetFunc = ik.NewSquaredNormMetric(relPose)
 	}
 	solutionChan := make(chan *ik.Solution, 1)
@@ -385,7 +385,7 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 
 	arcStartPose := nearest.Pose()
 	if invert {
-		arcStartPose = spatialmath.Compose(arcStartPose, spatialmath.PoseInverse(finalTrajNode.Pose))
+		arcStartPose = spatialmath.PoseBetweenInverse(finalTrajNode.Pose, arcStartPose)
 	}
 
 	sinceLastCollideCheck := 0.
@@ -558,7 +558,7 @@ func (mp *tpSpaceRRTMotionPlanner) extendMap(
 
 	arcStartPose := treeNode.Pose()
 	if invert {
-		arcStartPose = spatialmath.Compose(arcStartPose, spatialmath.PoseInverse(trajK[len(trajK)-1].Pose))
+		arcStartPose = spatialmath.PoseBetweenInverse(trajK[len(trajK)-1].Pose, arcStartPose)
 	}
 	lastDist := 0.
 	sinceLastNode := 0.
@@ -650,10 +650,10 @@ func (mp *tpSpaceRRTMotionPlanner) make2DTPSpaceDistanceOptions(ptg tpspace.PTGS
 		if invert {
 			sqMet := ik.NewSquaredNormMetric(seg.StartPosition)
 			targetFunc = func(pose *ik.State) float64 {
-				return sqMet(&ik.State{Position: spatialmath.Compose(seg.EndPosition, spatialmath.PoseInverse(pose.Position))})
+				return sqMet(&ik.State{Position: spatialmath.PoseBetweenInverse(pose.Position, seg.EndPosition)})
 			}
 		} else {
-			relPose := spatialmath.Compose(spatialmath.PoseInverse(seg.EndPosition), seg.StartPosition)
+			relPose := spatialmath.PoseBetween(seg.EndPosition, seg.StartPosition)
 			targetFunc = ik.NewSquaredNormMetric(relPose)
 		}
 		solutionChan := make(chan *ik.Solution, 1)

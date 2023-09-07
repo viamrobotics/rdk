@@ -12,14 +12,19 @@ import (
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/motion"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // KinematicBase is an interface for Bases that also satisfy the ModelFramer and InputEnabled interfaces.
 type KinematicBase interface {
 	base.Base
+	motion.Localizer
 	referenceframe.InputEnabled
 
 	Kinematics() referenceframe.Frame
+	// ErrorState takes a complete motionplan, as well as the index of the currently-executing set of inputs, and computes the pose
+	// difference between where the robot in fact is, and where it ought to be.
+	ErrorState(context.Context, [][]referenceframe.Input, int) (spatialmath.Pose, error)
 }
 
 const (
@@ -155,5 +160,5 @@ func WrapWithKinematics(
 		}
 		return nil, errors.New("must use PTGs with nonzero turning radius")
 	}
-	return wrapWithPTGKinematics(ctx, b, logger, options)
+	return wrapWithPTGKinematics(ctx, b, logger, localizer, options)
 }
