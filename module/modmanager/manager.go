@@ -70,9 +70,9 @@ type module struct {
 	// pendingRemoval allows delaying module close until after resources within it are closed
 	pendingRemoval bool
 
-	// inStartup stores whether or not an OnUnexpectedExit function is trying
-	// to recover a crash of this module; inStartupLock guards the execution of
-	// an OnUnexpectedExit function for this module.
+	// inStartup stores whether or not the manager of the OnUnexpectedExit function
+	// is trying to start up this module; inStartupLock guards the execution of an
+	// OnUnexpectedExit function for this module.
 	//
 	// NOTE(benjirewis): Using just an atomic boolean is not sufficient, as OUE
 	// functions for the same module cannot overlap and should not continue after
