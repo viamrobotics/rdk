@@ -63,10 +63,9 @@ const (
 )
 
 var app = &cli.App{
-	EnableBashCompletion: true,
-	Name:                 "viam",
-	Usage:                "interact with your Viam robots",
-	HideHelpCommand:      true,
+	Name:            "viam",
+	Usage:           "interact with your Viam robots",
+	HideHelpCommand: true,
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name:   baseURLFlag,
