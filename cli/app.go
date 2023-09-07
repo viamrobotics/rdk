@@ -155,7 +155,7 @@ var app = &cli.App{
 									Usage: "the name of the key (defaults to your login info with the current time)",
 								},
 							},
-							Action: OrganizationAPIKeyCreateAction,
+							Action: OrganizationsAPIKeyCreateAction,
 						},
 					},
 				},
@@ -366,7 +366,7 @@ var app = &cli.App{
 				{
 					Name:      "status",
 					Usage:     "display robot status",
-					UsageText: "viam robot status <robot> [other options]",
+					UsageText: "viam robots status <robot> [other options]",
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:        organizationFlag,
@@ -381,12 +381,12 @@ var app = &cli.App{
 							Required: true,
 						},
 					},
-					Action: RobotStatusAction,
+					Action: RobotsStatusAction,
 				},
 				{
 					Name:      "logs",
 					Usage:     "display robot logs",
-					UsageText: "viam robot logs <robot> [other options]",
+					UsageText: "viam robots logs <robot> [other options]",
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:        organizationFlag,
@@ -405,7 +405,7 @@ var app = &cli.App{
 							Usage: "show only errors",
 						},
 					},
-					Action: RobotLogsAction,
+					Action: RobotsLogsAction,
 				},
 				{
 					Name:            "part",
@@ -415,7 +415,7 @@ var app = &cli.App{
 						{
 							Name:      "status",
 							Usage:     "display part status",
-							UsageText: "viam robot part status <robot> <part> [other options]",
+							UsageText: "viam robots part status <robot> <part> [other options]",
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:        organizationFlag,
@@ -434,12 +434,12 @@ var app = &cli.App{
 									Required: true,
 								},
 							},
-							Action: RobotPartStatusAction,
+							Action: RobotsPartStatusAction,
 						},
 						{
 							Name:      "logs",
 							Usage:     "display part logs",
-							UsageText: "viam robot part logs <robot> <part> [other options]",
+							UsageText: "viam robots part logs <robot> <part> [other options]",
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:        organizationFlag,
@@ -467,12 +467,12 @@ var app = &cli.App{
 									Usage:   "follow logs",
 								},
 							},
-							Action: RobotPartLogsAction,
+							Action: RobotsPartLogsAction,
 						},
 						{
 							Name:      "run",
 							Usage:     "run a command on a robot part",
-							UsageText: "viam robot part run <organization> <location> <robot> <part> [other options] <service.method>",
+							UsageText: "viam robots part run <organization> <location> <robot> <part> [other options] <service.method>",
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:     organizationFlag,
@@ -499,13 +499,13 @@ var app = &cli.App{
 									Aliases: []string{"s"},
 								},
 							},
-							Action: RobotPartRunAction,
+							Action: RobotsPartRunAction,
 						},
 						{
 							Name:        "shell",
 							Usage:       "start a shell on a robot part",
 							Description: `In order to use the shell command, the robot must have a valid shell type service.`,
-							UsageText:   "viam robot part shell <organization> <location> <robot> <part>",
+							UsageText:   "viam robots part shell <organization> <location> <robot> <part>",
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:     organizationFlag,
@@ -524,7 +524,7 @@ var app = &cli.App{
 									Required: true,
 								},
 							},
-							Action: RobotPartShellAction,
+							Action: RobotsPartShellAction,
 						},
 					},
 				},
