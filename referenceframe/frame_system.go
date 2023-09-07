@@ -410,7 +410,7 @@ func (sfs *simpleFrameSystem) transformFromParent(inputMap map[string][]Input, s
 	}
 
 	// transform from source to world, world to target parent
-	return NewPoseInFrame(dst.Name(), spatial.Compose(spatial.PoseInverse(dstToWorld), srcToWorld)), nil
+	return NewPoseInFrame(dst.Name(), spatial.PoseBetween(dstToWorld, srcToWorld)), nil
 }
 
 // compose the quaternions from the input frame to the world referenceframe.
