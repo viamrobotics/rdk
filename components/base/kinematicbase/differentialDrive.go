@@ -224,7 +224,7 @@ func (ddk *differentialDriveKinematics) inputDiff(current, desired []referencefr
 	)
 
 	// transform the goal pose such that it is in the base frame
-	currentPose, err := ddk.planningFrame.Transform(current)
+	currentPose, err := ddk.executionFrame.Transform(current)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -332,11 +332,11 @@ func (ddk *differentialDriveKinematics) ErrorState(
 	if len(plan) < 2 {
 		return nil, errors.New("diff drive motion plan must have at least two waypoints")
 	}
-	nominalPose, err = ddk.planningFrame.Transform(plan[currentNode])
+	nominalPose, err = ddk.executionFrame.Transform(plan[currentNode])
 	if err != nil {
 		return nil, err
 	}
-	pastPose, err := ddk.planningFrame.Transform(plan[currentNode-1])
+	pastPose, err := ddk.executionFrame.Transform(plan[currentNode-1])
 	if err != nil {
 		return nil, err
 	}

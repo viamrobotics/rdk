@@ -109,7 +109,7 @@ func TestCurrentInputs(t *testing.T) {
 	}
 }
 
-func TestErrorState(t *testing.T) {
+func TestInputDiff(t *testing.T) {
 	ctx := context.Background()
 
 	// make injected slam service
