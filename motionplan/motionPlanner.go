@@ -11,6 +11,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 	pb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/utils"
 
@@ -386,11 +387,12 @@ IK:
 // CheckPlan checks if obstacles intersect the trajectory of the frame following the plan.
 func CheckPlan(
 	checkFrame frame.Frame,
-	plan []map[string][]frame.Input,
+	plan Plan,
 	worldState *frame.WorldState,
 	fs frame.FrameSystem,
 	currentPosition spatialmath.Pose,
 	errorState spatialmath.Pose,
+	logger *zap.SugaredLogger,
 ) error {
 	// ensure that we can actually perform the check
 	if len(plan) < 1 {
@@ -406,7 +408,7 @@ func CheckPlan(
 	}
 
 	// construct planager
-	sfPlanner, err := newPlanManager(sf, fs, golog.NewLogger("checkPlan-logger"), defaultRandomSeed)
+	sfPlanner, err := newPlanManager(sf, fs, logger, defaultRandomSeed)
 	if err != nil {
 		return err
 	}
@@ -423,12 +425,22 @@ func CheckPlan(
 	relative := len(sf.PTGs()) > 0
 
 	if relative {
-		if planNodes, err = rectifyTPspacePath(planNodes, sf); err != nil {
+		fromInputsPose, err := sf.Transform(planNodes[0].Q())
+		if err != nil {
 			return err
 		}
+		formerRunningPose := spatialmath.PoseBetweenInverse(fromInputsPose, planNodes[0].Pose())
+		if planNodes, err = rectifyTPspacePath(planNodes, sf, formerRunningPose); err != nil {
+			return err
+		}
+		// re-rectify with error
+		for _, node := range planNodes {
+			erroredPose := spatialmath.Compose(node.Pose(), errorState)
+			node.SetPose(erroredPose)
+		}
 	}
-
 	// pre-pend node with current position of robot to planNodes
+	// Note that currentPosition is assumed to have already accounted for the errorState
 	planNodes = append([]node{&basicNode{pose: currentPosition}}, planNodes...)
 
 	// create constraints
@@ -447,7 +459,7 @@ func CheckPlan(
 	for i := 0; i < len(planNodes)-1; i++ {
 		currentPose := planNodes[i].Pose()
 		nextPose := planNodes[i+1].Pose()
-		if isValid, fault := sfPlanner.planOpts.CheckSegmentAndStateValidity(
+		if isValid, _ := sfPlanner.planOpts.CheckSegmentAndStateValidity(
 			&ik.Segment{
 				StartPosition: currentPose,
 				EndPosition:   nextPose,
@@ -455,7 +467,7 @@ func CheckPlan(
 			},
 			sfPlanner.planOpts.Resolution,
 		); !isValid {
-			return fmt.Errorf("found collsion in segment:%v", fault)
+			return fmt.Errorf("found collsion between positions %v and %v", currentPose.Point(), nextPose.Point())
 		}
 	}
 	return nil

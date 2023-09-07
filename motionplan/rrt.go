@@ -147,6 +147,7 @@ type node interface {
 	Pose() spatialmath.Pose
 	Corner() bool
 	SetCorner(bool)
+	SetPose(spatialmath.Pose)
 }
 
 type basicNode struct {
@@ -187,6 +188,10 @@ func (n *basicNode) Corner() bool {
 
 func (n *basicNode) SetCorner(corner bool) {
 	n.corner = corner
+}
+
+func (n *basicNode) SetPose(p spatialmath.Pose) {
+	n.pose = p
 }
 
 // nodePair groups together nodes in a tuple
