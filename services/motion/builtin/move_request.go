@@ -40,6 +40,8 @@ func (mr *moveRequest) plan(ctx context.Context) (motionplan.Plan, error) {
 	return motionplan.PlanMotion(ctx, mr.planRequest)
 }
 
+func 
+
 // newMoveOnGlobeRequest instantiates a moveRequest intended to be used in the context of a MoveOnGlobe call.
 func (ms *builtIn) newMoveOnGlobeRequest(
 	ctx context.Context,
@@ -160,43 +162,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 			Options:            extra,
 		},
 		actuator: kb,
-		execute: func(ctx context.Context, plan motionplan.Plan) moveResponse {
-			waypoints, err := plan.GetFrameSteps(kb.Name().Name)
-			if err != nil {
-				return moveResponse{err: err}
-			}
-
-			// Iterate through the list of waypoints and issue a command to move to each
-			for i := 1; i < len(waypoints); i++ {
-				select {
-				case <-ctx.Done():
-					return moveResponse{}
-				default:
-					ms.logger.Info(waypoints[i])
-					if err := kb.GoToInputs(ctx, waypoints[i]); err != nil {
-						// If there is an error on GoToInputs, stop the component if possible before returning the error
-						if stopErr := kb.Stop(ctx, nil); stopErr != nil {
-							return moveResponse{err: errors.Wrap(err, stopErr.Error())}
-						}
-						// If the error was simply a cancellation of context return without erroring out
-						if errors.Is(err, context.Canceled) {
-							return moveResponse{}
-						}
-						return moveResponse{err: err}
-					}
-				}
-			}
-
-			// the plan has been fully executed so check to see if the GeoPoint we are at is close enough to the goal.
-			position, _, err := movementSensor.Position(ctx, nil)
-			if err != nil {
-				return moveResponse{err: err}
-			}
-			if spatialmath.GeoPointToPose(position, destination).Point().Norm() <= motionCfg.PlanDeviationMM {
-				return moveResponse{success: true}
-			}
-			return moveResponse{err: errors.New("reached end of plan but not at goal")}
-		},
+		execute: 
 		position: newReplanner(
 			time.Duration(1000/motionCfg.PositionPollingFreqHz)*time.Millisecond,
 			func(ctx context.Context) replanResponse {
