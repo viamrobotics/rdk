@@ -77,6 +77,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	baseOrigin := referenceframe.NewPoseInFrame(componentName.ShortName(), spatialmath.NewZeroPose())
 	movementSensorToBase, err := ms.fsService.TransformPose(ctx, baseOrigin, movementSensor.Name().ShortName(), nil)
 	if err != nil {
+		// here we make the assumption the movement sensor is coincident with the base
 		movementSensorToBase = baseOrigin
 	}
 	localizer := motion.NewMovementSensorLocalizer(movementSensor, origin, movementSensorToBase.Pose())
@@ -95,8 +96,8 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 
 	// construct limits
 	straightlineDistance := goal.Point().Norm()
-	if straightlineDistance > maxTravelDistance {
-		return nil, fmt.Errorf("cannot move more than %d kilometers", int(maxTravelDistance*1e-6))
+	if straightlineDistance > maxTravelDistanceMM {
+		return nil, fmt.Errorf("cannot move more than %d kilometers", int(maxTravelDistanceMM*1e-6))
 	}
 	limits := []referenceframe.Limit{
 		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
