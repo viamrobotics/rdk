@@ -310,7 +310,7 @@ func (ddk *differentialDriveKinematics) newValidRegionCapsule(starting, desired 
 	return capsule, nil
 }
 
-// nolint: dupl
+//nolint: dupl
 func (ddk *differentialDriveKinematics) ErrorState(
 	ctx context.Context,
 	plan [][]referenceframe.Input,
