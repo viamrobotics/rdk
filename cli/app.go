@@ -63,9 +63,10 @@ const (
 )
 
 var app = &cli.App{
-	Name:            "viam",
-	Usage:           "interact with your Viam robots",
-	HideHelpCommand: true,
+	EnableBashCompletion: true,
+	Name:                 "viam",
+	Usage:                "interact with your Viam robots",
+	HideHelpCommand:      true,
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name:   baseURLFlag,
@@ -128,6 +129,7 @@ var app = &cli.App{
 		},
 		{
 			Name:            "organizations",
+			Aliases:         []string{"organization", "org"},
 			Usage:           "work with organizations",
 			HideHelpCommand: true,
 			Subcommands: []*cli.Command{
@@ -136,13 +138,6 @@ var app = &cli.App{
 					Usage:  "list organizations for the current user",
 					Action: ListOrganizationsAction,
 				},
-			},
-		},
-		{
-			Name:            "organization",
-			Usage:           "work with a organization",
-			HideHelpCommand: true,
-			Subcommands: []*cli.Command{
 				{
 					Name:  "api-key",
 					Usage: "work with an organization's api keys",
@@ -169,6 +164,7 @@ var app = &cli.App{
 		},
 		{
 			Name:            "locations",
+			Aliases:         []string{"location"},
 			Usage:           "work with locations",
 			HideHelpCommand: true,
 			Subcommands: []*cli.Command{
@@ -350,6 +346,7 @@ var app = &cli.App{
 		},
 		{
 			Name:            "robots",
+			Aliases:         []string{"robot"},
 			Usage:           "work with robots",
 			HideHelpCommand: true,
 			Subcommands: []*cli.Command{
@@ -368,13 +365,6 @@ var app = &cli.App{
 					},
 					Action: ListRobotsAction,
 				},
-			},
-		},
-		{
-			Name:            "robot",
-			Usage:           "work with a robot",
-			HideHelpCommand: true,
-			Subcommands: []*cli.Command{
 				{
 					Name:      "status",
 					Usage:     "display robot status",
