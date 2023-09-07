@@ -21,6 +21,7 @@ const (
 
 // If refDist is not explicitly set, default to pi radians times this adjustment value.
 const refDistHalfCircles = 0.9
+const minTurningRadiusMM = 10.
 
 type ptgFactory func(float64, float64) PTG
 
@@ -47,9 +48,9 @@ type ptgGroupFrame struct {
 	logger             golog.Logger
 }
 
-// NewPTGFrameFromTurningRadius will create a new Frame which is also a PTGProvider. It will precompute the default set of
+// NewPTGFrameFromKinematicOptions will create a new Frame which is also a PTGProvider. It will precompute the default set of
 // trajectories out to a given distance, or a default distance if the given distance is <= 0.
-func NewPTGFrameFromTurningRadius(
+func NewPTGFrameFromKinematicOptions(
 	name string,
 	logger golog.Logger,
 	velocityMMps, angVelocityDegps, turnRadMeters, refDist float64,

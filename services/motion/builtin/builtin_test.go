@@ -490,7 +490,7 @@ func TestMoveOnMap(t *testing.T) {
 }
 
 func TestMoveOnMapTimeout(t *testing.T) {
-	t.Skip()
+	//~ t.Skip()
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 	cfg, err := config.Read(ctx, "../data/real_wheeled_base.json", logger)
@@ -515,12 +515,15 @@ func TestMoveOnMapTimeout(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	easyGoal := spatialmath.NewPoseFromPoint(r3.Vector{X: 1001, Y: 1001})
+	// create motion config
+	motionCfg := make(map[string]interface{})
+	motionCfg["timeout"] = 0.01
 	success, err := ms.MoveOnMap(
 		context.Background(),
 		base.Named("test_base"),
 		easyGoal,
 		slam.Named("test_slam"),
-		nil,
+		motionCfg,
 	)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, success, test.ShouldBeFalse)

@@ -31,7 +31,7 @@ func NewCCPTG(maxMMPS, maxRPS float64) PTG {
 // For this particular driver, turns alpha into a linear + angular velocity. Linear is just max * fwd/back.
 // Note that this will NOT work as-is for 0-radius turning. Robots capable of turning in place will need to be special-cased
 // because they will have zero linear velocity through their turns, not max.
-func (ptg *ptgCC) PTGVelocities(alpha, dist float64) (float64, float64, error) {
+func (ptg *ptgCC) Velocities(alpha, dist float64) (float64, float64, error) {
 	k := math.Copysign(1.0, dist)
 	r := ptg.maxMMPS / ptg.maxRPS
 

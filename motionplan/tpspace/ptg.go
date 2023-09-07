@@ -35,8 +35,8 @@ type PTGProvider interface {
 // PTG coordinates are specified in polar coordinates (alpha, d)
 // One of these is needed for each sort of motion that can be done.
 type PTG interface {
-	// PTGVelocities returns the linear and angular velocity at a specific point along a trajectory
-	PTGVelocities(alpha, dist float64) (float64, float64, error)
+	// Velocities returns the linear and angular velocity at a specific point along a trajectory
+	Velocities(alpha, dist float64) (float64, float64, error)
 	Transform([]referenceframe.Input) (spatialmath.Pose, error)
 }
 
@@ -113,7 +113,7 @@ func ComputePTG(simPTG PTG, alpha, dist, diffT float64) ([]*TrajNode, error) {
 // computePTGNode will return the TrajNode of the requested PTG, at the specified alpha and dist. The provided time is used
 // to fill in the time field.
 func computePTGNode(simPTG PTG, alpha, dist, atT float64) (*TrajNode, error) {
-	v, w, err := simPTG.PTGVelocities(alpha, dist)
+	v, w, err := simPTG.Velocities(alpha, dist)
 	if err != nil {
 		return nil, err
 	}

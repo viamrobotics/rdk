@@ -27,7 +27,7 @@ func NewDiffDrivePTG(maxMMPS, maxRPS float64) PTG {
 // For this particular driver, turns alpha into a linear + angular velocity. Linear is just max * fwd/back.
 // Note that this will NOT work as-is for 0-radius turning. Robots capable of turning in place will need to be special-cased
 // because they will have zero linear velocity through their turns, not max.
-func (ptg *ptgDiffDrive) PTGVelocities(alpha, dist float64) (float64, float64, error) {
+func (ptg *ptgDiffDrive) Velocities(alpha, dist float64) (float64, float64, error) {
 	// (v,w)
 	if dist == 0 {
 		return 0, 0, nil
@@ -43,7 +43,8 @@ func (ptg *ptgDiffDrive) PTGVelocities(alpha, dist float64) (float64, float64, e
 // of (input/pi)*minradius. A negative value denotes turning left. The second input is the distance traveled along this arc.
 func (ptg *ptgDiffDrive) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {
 	if len(inputs) != 2 {
-		return nil, fmt.Errorf("ptgDiffDrive takes 2 inputs, but received %d", len(inputs))
+		return nil, referenceframe.NewIncorrectInputLengthError(len(inputs), 2)
+		//~ return nil, fmt.Errorf("ptgDiffDrive takes 2 inputs, but received %d", len(inputs))
 	}
 	alpha := inputs[0].Value
 	dist := inputs[1].Value
@@ -59,17 +60,14 @@ func (ptg *ptgDiffDrive) Transform(inputs []referenceframe.Input) (spatialmath.P
 	if alpha < -1*math.Pi {
 		alpha = -1 * math.Pi
 	}
-	turnAngle := alpha
-	if dist < math.Abs(turnAngle) {
-		turnAngle = math.Copysign(dist, alpha)
-	}
-
+	turnAngle := math.Copysign(math.Min(dist, math.Abs(alpha)), alpha)
+	
 	pose := spatialmath.NewPoseFromOrientation(&spatialmath.OrientationVector{OZ: 1, Theta: turnAngle})
-
+	
 	if dist <= math.Abs(alpha) {
 		return pose, nil
 	}
-
+	
 	pt := r3.Vector{0, dist - math.Abs(alpha), 0} // Straight line, +Y is "forwards"
 	return spatialmath.Compose(pose, spatialmath.NewPoseFromPoint(pt)), nil
 }

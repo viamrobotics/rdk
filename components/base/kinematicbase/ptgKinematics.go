@@ -67,7 +67,7 @@ func wrapWithPTGKinematics(
 		return nil, err
 	}
 
-	frame, err := tpspace.NewPTGFrameFromTurningRadius(
+	frame, err := tpspace.NewPTGFrameFromKinematicOptions(
 		b.Name().ShortName(),
 		logger,
 		baseMillimetersPerSecond,

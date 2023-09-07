@@ -453,6 +453,9 @@ func (mp *tpSpaceRRTMotionPlanner) attemptExtension(
 	lastIteration := false
 	candChan := make(chan *candidate, len(mp.tpFrame.PTGSolvers()))
 	defer close(candChan)
+	var activeSolvers sync.WaitGroup
+	defer activeSolvers.Wait()
+	
 	for i := 0; i <= maxReseeds; i++ {
 		select {
 		case <-ctx.Done():
@@ -464,7 +467,9 @@ func (mp *tpSpaceRRTMotionPlanner) attemptExtension(
 		for ptgNum, curPtg := range mp.tpFrame.PTGSolvers() {
 			// Find the best traj point for each traj family, and store for later comparison
 			ptgNumPar, curPtgPar := ptgNum, curPtg
+			activeSolvers.Add(1)
 			utils.PanicCapturingGo(func() {
+				defer activeSolvers.Done()
 				cand, err := mp.getExtensionCandidate(ctx, goalNode, ptgNumPar, curPtgPar, rrt, seedNode, invert)
 				if err != nil && !errors.Is(err, errNoNeighbors) && !errors.Is(err, errInvalidCandidate) {
 					candChan <- nil

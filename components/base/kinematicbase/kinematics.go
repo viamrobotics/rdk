@@ -62,7 +62,7 @@ const (
 
 	// defaultNoSkidSteer defines whether motion planning should plan for diff drive bases using skid steer. If true, it will plan using
 	// only rotations and straight lines.
-	defaultNoSkidSteer = false
+	defaultNoSkidSteer = true
 )
 
 // Options contains values used for execution of base movement.
