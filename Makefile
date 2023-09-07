@@ -82,6 +82,10 @@ test-no-race: test-go-no-race test-web
 test-go: tool-install
 	PATH=$(PATH_WITH_TOOLS) ./etc/test.sh race
 
+test-go-split:
+	# run one shard of the test suite using splitter.py
+	go list -json ./... | etc/splitter.py $(INDEX) --nbins $(NBINS) --command "go test" --fail-empty
+
 test-go-no-race: tool-install
 	PATH=$(PATH_WITH_TOOLS) ./etc/test.sh
 

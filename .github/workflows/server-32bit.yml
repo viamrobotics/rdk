@@ -67,8 +67,10 @@ jobs:
         docker run --rm \
           -v $PWD/:/rdk \
           --env GOFLAGS="-tags=no_tflite,no_pigpio -buildvcs=false" \
+          --env INDEX=${{ matrix.index }} \
+          --env NBINS=5 \
           ghcr.io/viamrobotics/viam-server:armv7 \
-          sh -c "go version && go list -json ./... | etc/splitter.py ${{ matrix.index }} --nbins 5 --command \"go test\" --fail-empty"
+          make test-go-split
   build:
     needs: [test, lint]
     runs-on: buildjet-4vcpu-ubuntu-2204-arm
