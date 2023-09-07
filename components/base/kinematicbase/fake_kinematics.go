@@ -13,8 +13,8 @@ import (
 
 type fakeKinematics struct {
 	*fake.Base
+	motion.Localizer
 	planningFrame, executionFrame referenceframe.Frame
-	localizer                     motion.Localizer
 	inputs                        []referenceframe.Input
 	options                       Options
 	lock                          sync.Mutex
@@ -35,7 +35,7 @@ func WrapWithFakeKinematics(
 	pt := position.Pose().Point()
 	fk := &fakeKinematics{
 		Base:      b,
-		localizer: localizer,
+		Localizer: localizer,
 		inputs:    []referenceframe.Input{{pt.X}, {pt.Y}},
 	}
 	var geometry spatialmath.Geometry
@@ -83,4 +83,12 @@ func (fk *fakeKinematics) GoToInputs(ctx context.Context, inputs []referencefram
 	// Sleep for a short amount to time to simulate a base taking some amount of time to reach the inputs
 	time.Sleep(150 * time.Millisecond)
 	return nil
+}
+
+func (fk *fakeKinematics) ErrorState(
+	ctx context.Context,
+	plan [][]referenceframe.Input,
+	currentNode int,
+) (spatialmath.Pose, error) {
+	return spatialmath.NewZeroPose(), nil
 }

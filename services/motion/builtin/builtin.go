@@ -13,6 +13,8 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	servicepb "go.viam.com/api/service/motion/v1"
 	goutils "go.viam.com/utils"
 
@@ -61,7 +63,9 @@ type inputEnabledActuator interface {
 var ErrNotImplemented = errors.New("function coming soon but not yet implemented")
 
 // Config describes how to configure the service; currently only used for specifying dependency on framesystem service.
-type Config struct{}
+type Config struct {
+	LogFilePath string `json:"log_file_path"`
+}
 
 // Validate here adds a dependency on the internal framesystem service.
 func (c *Config) Validate(path string) ([]string, error) {
@@ -81,6 +85,30 @@ func NewBuiltIn(ctx context.Context, deps resource.Dependencies, conf resource.C
 	return ms, nil
 }
 
+func newFilePathLoggerConfig(filepath string) zap.Config {
+	return zap.Config{
+		Level:    zap.NewAtomicLevelAt(zap.DebugLevel),
+		Encoding: "console",
+		EncoderConfig: zapcore.EncoderConfig{
+			TimeKey:        "ts",
+			LevelKey:       "level",
+			NameKey:        "logger",
+			CallerKey:      "caller",
+			FunctionKey:    zapcore.OmitKey,
+			MessageKey:     "msg",
+			StacktraceKey:  "stacktrace",
+			LineEnding:     zapcore.DefaultLineEnding,
+			EncodeLevel:    zapcore.CapitalColorLevelEncoder,
+			EncodeTime:     zapcore.ISO8601TimeEncoder,
+			EncodeDuration: zapcore.StringDurationEncoder,
+			EncodeCaller:   zapcore.ShortCallerEncoder,
+		},
+		DisableStacktrace: true,
+		OutputPaths:       []string{filepath, "stdout"},
+		ErrorOutputPaths:  []string{filepath, "stderr"},
+	}
+}
+
 // Reconfigure updates the motion service when the config has changed.
 func (ms *builtIn) Reconfigure(
 	ctx context.Context,
@@ -90,6 +118,17 @@ func (ms *builtIn) Reconfigure(
 	ms.lock.Lock()
 	defer ms.lock.Unlock()
 
+	config, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return err
+	}
+	if config.LogFilePath != "" {
+		logger, err := newFilePathLoggerConfig(config.LogFilePath).Build()
+		if err != nil {
+			return err
+		}
+		ms.logger = logger.Sugar().Named("motion")
+	}
 	movementSensors := make(map[resource.Name]movementsensor.MovementSensor)
 	slamServices := make(map[resource.Name]slam.Service)
 	components := make(map[resource.Name]resource.Resource)
@@ -559,7 +598,7 @@ func (ms *builtIn) GetPose(
 		ctx,
 		referenceframe.NewPoseInFrame(
 			componentName.ShortName(),
-			spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0}),
+			spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 0}),
 		),
 		destinationFrame,
 		supplementalTransforms,

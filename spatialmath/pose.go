@@ -97,6 +97,7 @@ func Compose(a, b Pose) Pose {
 }
 
 // PoseBetween returns the difference between two dualQuaternions, that is, the dq which if multiplied by one will give the other.
+// Example: if PoseBetween(a, b) = c, then Compose(a, c) = b.
 func PoseBetween(a, b Pose) Pose {
 	return &dualQuaternion{dualquat.Mul(dualQuaternionFromPose(b).Number, dualquat.ConjQuat(dualQuaternionFromPose(a).Number))}
 }
@@ -116,7 +117,22 @@ func PoseBetweenInverse(a, b Pose) Pose {
 	return result
 }
 
-// PoseDelta returns the difference between two dualQuaternion.
+// PoseBetweenInverse returns an origin pose which when composed with the first parameter, yields the second.
+// Example: if PoseBetweenInverse(a, b) = c, then Compose(c, a) = b
+// PoseBetweenInverse(a, b) is equivalent to Compose(b, PoseInverse(a)).
+func PoseBetweenInverse(a, b Pose) Pose {
+	result := &dualQuaternion{dualQuaternionFromPose(b).Transformation(dualquat.ConjQuat(dualQuaternionFromPose(a).Number))}
+	// Normalization
+	if vecLen := 1 / quat.Abs(result.Real); vecLen != 1 {
+		result.Real.Real *= vecLen
+		result.Real.Imag *= vecLen
+		result.Real.Jmag *= vecLen
+		result.Real.Kmag *= vecLen
+	}
+	return result
+}
+
+// PoseDelta returns the difference between two dualQuaternion. Useful for measuring distances, NOT to be used for spatial transformations.
 // We use quaternion/angle axis for this because distances are well-defined.
 func PoseDelta(a, b Pose) Pose {
 	return &distancePose{

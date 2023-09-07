@@ -38,6 +38,10 @@ func newRotateTransform(ctx context.Context, source gostream.VideoSource, stream
 		return nil, camera.UnspecifiedStream, errors.Wrap(err, "cannot parse rotate attribute map")
 	}
 
+	if !am.Has("angle_degs") {
+		conf.Angle = 180 // Default to 180 for backwards-compatibility
+	}
+
 	props, err := propsFromVideoSource(ctx, source)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
