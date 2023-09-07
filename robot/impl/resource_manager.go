@@ -825,7 +825,6 @@ func (manager *resourceManager) markResourceForUpdate(name resource.Name, conf r
 func (manager *resourceManager) updateResources(
 	ctx context.Context,
 	conf *config.Diff,
-	failedModules []string,
 ) error {
 	manager.configLock.Lock()
 	defer manager.configLock.Unlock()
@@ -919,27 +918,6 @@ func (manager *resourceManager) updateResources(
 	}
 
 	// modules are not added into the resource tree as they belong to the module manager
-	failedMods := make(map[string]struct{})
-	for _, modName := range failedModules {
-		failedMods[modName] = struct{}{}
-	}
-	for _, mod := range conf.Added.Modules {
-		// this is done in config validation but partial start rules require us to check again
-		if err := mod.Validate(""); err != nil {
-			manager.logger.Errorw("module config validation error; skipping", "module", mod.Name, "error", err)
-			continue
-		}
-		// we check to see if the module failed to build during the Reconfigure call.
-		// If it did, we skip trying to add it again here in order to prevent timeouts.
-		_, modFailed := failedMods[mod.Name]
-		if modFailed {
-			continue
-		}
-		if err := manager.moduleManager.Add(ctx, mod); err != nil {
-			manager.logger.Errorw("error adding module", "module", mod.Name, "error", err)
-			continue
-		}
-	}
 	for _, mod := range conf.Modified.Modules {
 		// this is done in config validation but partial start rules require us to check again
 		if err := mod.Validate(""); err != nil {
