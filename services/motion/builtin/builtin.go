@@ -284,6 +284,17 @@ func (ms *builtIn) MoveOnGlobe(
 ) (bool, error) {
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
 
+	// ensure arguments are well behaved
+	if motionCfg == nil {
+		motionCfg = &motion.MotionConfiguration{}
+	}
+	if obstacles == nil {
+		obstacles = []*spatialmath.GeoObstacle{}
+	}
+	if destination == nil {
+		return false, errors.New("destination cannot be nil")
+	}
+
 	moveRequest, err := ms.newMoveOnGlobeRequest(ctx, componentName, destination, movementSensorName, obstacles, motionCfg, extra)
 	if err != nil {
 		return false, err
@@ -292,7 +303,9 @@ func (ms *builtIn) MoveOnGlobe(
 	// start a loop that plans every iteration and exits when something is read from the success channel
 	for {
 		ma := newMoveAttempt(ctx, moveRequest)
-		ma.start()
+		if err := ma.start(); err != nil {
+			return false, err
+		}
 
 		// this ensures that if the context is cancelled we always return early at the top of the loop
 		if err := ctx.Err(); err != nil {

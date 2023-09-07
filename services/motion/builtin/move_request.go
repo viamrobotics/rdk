@@ -89,17 +89,6 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	motionCfg *motion.MotionConfiguration,
 	extra map[string]interface{},
 ) (*moveRequest, error) {
-	// ensure arguments are well behaved
-	if motionCfg == nil {
-		motionCfg = &motion.MotionConfiguration{}
-	}
-	if obstacles == nil {
-		obstacles = []*spatialmath.GeoObstacle{}
-	}
-	if destination == nil {
-		return nil, errors.New("destination cannot be nil")
-	}
-
 	// build kinematic options
 	kinematicsOptions := kinematicbase.NewKinematicBaseOptions()
 	if motionCfg.LinearMPerSec != 0 {

@@ -45,11 +45,10 @@ func newMoveAttempt(ctx context.Context, request *moveRequest) *moveAttempt {
 // start begins a new moveAttempt by using its moveRequest to create a plan, spawn relevant replanners, and finally execute the motion.
 // the caller of this function should monitor the moveAttempt's responseChan as well as the replanners' responseChan to get insight
 // into the status of the moveAttempt.
-func (ma *moveAttempt) start() {
+func (ma *moveAttempt) start() error {
 	plan, err := ma.request.plan(ma.ctx)
 	if err != nil {
-		ma.responseChan <- moveResponse{err: err}
-		return
+		return err
 	}
 
 	ma.backgroundWorkers.Add(1)
@@ -69,6 +68,7 @@ func (ma *moveAttempt) start() {
 			ma.responseChan <- resp
 		}
 	}, ma.backgroundWorkers.Done)
+	return nil
 }
 
 // cancel cleans up a moveAttempt
