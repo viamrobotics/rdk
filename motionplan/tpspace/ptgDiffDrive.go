@@ -45,7 +45,7 @@ func (ptg *ptgDiffDrive) Velocities(alpha, dist float64) (float64, float64, erro
 func (ptg *ptgDiffDrive) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {
 	if len(inputs) != 2 {
 		return nil, referenceframe.NewIncorrectInputLengthError(len(inputs), 2)
-		//~ return nil, fmt.Errorf("ptgDiffDrive takes 2 inputs, but received %d", len(inputs))
+		// ~ return nil, fmt.Errorf("ptgDiffDrive takes 2 inputs, but received %d", len(inputs))
 	}
 	alpha := inputs[0].Value
 	dist := inputs[1].Value
@@ -62,13 +62,13 @@ func (ptg *ptgDiffDrive) Transform(inputs []referenceframe.Input) (spatialmath.P
 		alpha = -1 * math.Pi
 	}
 	turnAngle := math.Copysign(math.Min(dist, math.Abs(alpha)), alpha)
-	
+
 	pose := spatialmath.NewPoseFromOrientation(&spatialmath.OrientationVector{OZ: 1, Theta: turnAngle})
-	
+
 	if dist <= math.Abs(alpha) {
 		return pose, nil
 	}
-	
+
 	pt := r3.Vector{0, dist - math.Abs(alpha), 0} // Straight line, +Y is "forwards"
 	return spatialmath.Compose(pose, spatialmath.NewPoseFromPoint(pt)), nil
 }

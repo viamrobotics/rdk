@@ -31,7 +31,7 @@ func TestPtgRrt(t *testing.T) {
 
 	ctx := context.Background()
 
-	ackermanFrame, err := tpspace.NewPTGFrameFromTurningRadius(
+	ackermanFrame, err := tpspace.NewPTGFrameFromKinematicOptions(
 		"ackframe",
 		logger,
 		300.,
@@ -106,7 +106,7 @@ func TestPtgWithObstacle(t *testing.T) {
 	roverGeom, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{10, 10, 10}, "")
 	test.That(t, err, test.ShouldBeNil)
 	geometries := []spatialmath.Geometry{roverGeom}
-	ackermanFrame, err := tpspace.NewPTGFrameFromTurningRadius(
+	ackermanFrame, err := tpspace.NewPTGFrameFromKinematicOptions(
 		"ackframe",
 		logger,
 		300.,
@@ -222,7 +222,7 @@ func TestIKPtgRrt(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	geometries := []spatialmath.Geometry{roverGeom}
 
-	ackermanFrame, err := tpspace.NewPTGFrameFromTurningRadius(
+	ackermanFrame, err := tpspace.NewPTGFrameFromKinematicOptions(
 		"ackframe",
 		logger,
 		300.,
@@ -260,7 +260,7 @@ func TestTPsmoothing(t *testing.T) {
 
 	ctx := context.Background()
 
-	ackermanFrame, err := tpspace.NewPTGFrameFromTurningRadius(
+	ackermanFrame, err := tpspace.NewPTGFrameFromKinematicOptions(
 		"ackframe",
 		logger,
 		300.,

@@ -20,8 +20,9 @@ const (
 )
 
 // If refDist is not explicitly set, default to pi radians times this adjustment value.
-const refDistHalfCircles = 0.9
-const minTurningRadiusMM = 10.
+const (
+	refDistHalfCircles = 0.9
+)
 
 type ptgFactory func(float64, float64) PTG
 

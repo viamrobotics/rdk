@@ -455,7 +455,7 @@ func (mp *tpSpaceRRTMotionPlanner) attemptExtension(
 	defer close(candChan)
 	var activeSolvers sync.WaitGroup
 	defer activeSolvers.Wait()
-	
+
 	for i := 0; i <= maxReseeds; i++ {
 		select {
 		case <-ctx.Done():
