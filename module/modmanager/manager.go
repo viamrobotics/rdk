@@ -70,15 +70,15 @@ type module struct {
 	// pendingRemoval allows delaying module close until after resources within it are closed
 	pendingRemoval bool
 
-	// inRecovery stores whether or not an OnUnexpectedExit function is trying
-	// to recover a crash of this module; inRecoveryLock guards the execution of
+	// inStartup stores whether or not an OnUnexpectedExit function is trying
+	// to recover a crash of this module; inStartupLock guards the execution of
 	// an OnUnexpectedExit function for this module.
 	//
 	// NOTE(benjirewis): Using just an atomic boolean is not sufficient, as OUE
 	// functions for the same module cannot overlap and should not continue after
 	// another OUE has finished.
-	inRecovery     atomic.Bool
-	inRecoveryLock sync.Mutex
+	inStartup     atomic.Bool
+	inStartupLock sync.Mutex
 }
 
 type addedResource struct {
@@ -141,10 +141,10 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, conn *grpc.Clie
 
 	// add calls startProcess, which can also be called by the OUE handler in the attemptRestart
 	// call. Both of these involve owning a lock, so in unhappy cases of malformed modules
-	// this can lead to a deadlock. To prevent this, we set inRecovery here to indicate to
+	// this can lead to a deadlock. To prevent this, we set inStartup here to indicate to
 	// the OUE handler that it shouldn't act while add is still processing.
-	mod.inRecovery.Store(true)
-	defer mod.inRecovery.Store(false)
+	mod.inStartup.Store(true)
+	defer mod.inStartup.Store(false)
 
 	var success bool
 	defer func() {
@@ -454,14 +454,14 @@ var (
 // for the passed-in module to include in the pexec.ProcessConfig.
 func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) bool {
 	return func(exitCode int) bool {
-		mod.inRecoveryLock.Lock()
-		defer mod.inRecoveryLock.Unlock()
-		if mod.inRecovery.Load() {
+		mod.inStartupLock.Lock()
+		defer mod.inStartupLock.Unlock()
+		if mod.inStartup.Load() {
 			return false
 		}
 
-		mod.inRecovery.Store(true)
-		defer mod.inRecovery.Store(false)
+		mod.inStartup.Store(true)
+		defer mod.inStartup.Store(false)
 
 		// Use oueTimeout for entire attempted module restart.
 		ctx, cancel := context.WithTimeout(mgr.restartCtx, oueTimeout)
