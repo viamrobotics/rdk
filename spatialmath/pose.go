@@ -99,7 +99,16 @@ func Compose(a, b Pose) Pose {
 // PoseBetween returns the difference between two dualQuaternions, that is, the dq which if multiplied by one will give the other.
 // Example: if PoseBetween(a, b) = c, then Compose(a, c) = b.
 func PoseBetween(a, b Pose) Pose {
-	return &dualQuaternion{dualquat.Mul(dualQuaternionFromPose(b).Number, dualquat.ConjQuat(dualQuaternionFromPose(a).Number))}
+	invA := &dualQuaternion{dualquat.ConjQuat(dualQuaternionFromPose(a).Number)}
+	result := &dualQuaternion{invA.Transformation(dualQuaternionFromPose(b).Number)}
+	// Normalization
+	if vecLen := 1 / quat.Abs(result.Real); vecLen != 1 {
+		result.Real.Real *= vecLen
+		result.Real.Imag *= vecLen
+		result.Real.Jmag *= vecLen
+		result.Real.Kmag *= vecLen
+	}
+	return result
 }
 
 // PoseBetweenInverse returns an origin pose which when composed with the first parameter, yields the second.
