@@ -26,21 +26,21 @@ type moveRequest struct {
 	position, obstacle *replanner
 }
 
-// plan creates a plan using the currentInputs of the robot and the moveRequest's planRequest
+// plan creates a plan using the currentInputs of the robot and the moveRequest's planRequest.
 func (mr *moveRequest) plan(ctx context.Context) (motionplan.Plan, error) {
 	inputs, err := mr.actuator.CurrentInputs(ctx)
 	if err != nil {
 		return make(motionplan.Plan, 0), err
 	}
 	// TODO: this is really hacky and we should figure out a better place to store this information
-	if len(mr.planRequest.Frame.DoF()) == 2 {
+	if len(mr.actuator.Kinematics().DoF()) == 2 {
 		inputs = inputs[:2]
 	}
 	mr.planRequest.StartConfiguration = map[string][]referenceframe.Input{mr.actuator.Kinematics().Name(): inputs}
 	return motionplan.PlanMotion(ctx, mr.planRequest)
 }
 
-// newMoveOnGlobeRequest instantiates a moveRequest intended to be used in the context of a MoveOnGlobe call
+// newMoveOnGlobeRequest instantiates a moveRequest intended to be used in the context of a MoveOnGlobe call.
 func (ms *builtIn) newMoveOnGlobeRequest(
 	ctx context.Context,
 	componentName resource.Name,

@@ -38,7 +38,7 @@ func newMoveAttempt(ctx context.Context, request *moveRequest) *moveAttempt {
 		backgroundWorkers: &backgroundWorkers,
 
 		request:      request,
-		responseChan: make(chan moveResponse),
+		responseChan: make(chan moveResponse, 1),
 	}
 }
 
@@ -71,12 +71,11 @@ func (ma *moveAttempt) start() {
 }
 
 // cancel cleans up a moveAttempt
-// it cancels the processes spawned by it, drains all the channels that could have been written to and waits on processes to return
+// it cancels the processes spawned by it, drains all the channels that could have been written to and waits on processes to return.
 func (ma *moveAttempt) cancel() {
 	ma.cancelFn()
 	utils.FlushChan(ma.request.position.responseChan)
 	utils.FlushChan(ma.request.obstacle.responseChan)
 	utils.FlushChan(ma.responseChan)
 	ma.backgroundWorkers.Wait()
-	close(ma.responseChan)
 }
