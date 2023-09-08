@@ -74,13 +74,13 @@ func PlanMotion(ctx context.Context, request *PlanRequest) (Plan, error) {
 	}
 
 	request.Logger.Infof(
-		"planning motion for frame %s\nGoal: %v\nStarting seed map %v\n, startPose %v\n, worldstate: %v\n",
+		"planning motion for frame %s\nGoal: %v\nStarting seed map %v\n, startPose %v\n",
 		request.Frame.Name(),
 		frame.PoseInFrameToProtobuf(request.Goal),
 		request.StartConfiguration,
 		spatialmath.PoseToProtobuf(startPose),
 	)
-	request.Logger.Infof(request.WorldState.String())
+	request.Logger.Info(request.WorldState.String())
 	request.Logger.Debugf("constraint specs for this step: %v", request.ConstraintSpecs)
 	request.Logger.Debugf("motion config for this step: %v", request.Options)
 
