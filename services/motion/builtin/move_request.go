@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"sync/atomic"
 	"time"
 
 	geo "github.com/kellydunn/golang-geo"
@@ -41,14 +42,14 @@ func (mr *moveRequest) plan(ctx context.Context) (motionplan.Plan, error) {
 	return motionplan.PlanMotion(ctx, mr.planRequest)
 }
 
-func (mr *moveRequest) execute(ctx context.Context, plan motionplan.Plan) moveResponse {
+func (mr *moveRequest) execute(ctx context.Context, plan motionplan.Plan, waypointIndex *atomic.Int32) moveResponse {
 	waypoints, err := plan.GetFrameSteps(mr.kinematicBase.Kinematics().Name())
 	if err != nil {
 		return moveResponse{err: err}
 	}
 
 	// Iterate through the list of waypoints and issue a command to move to each
-	for i := 1; i < len(waypoints); i++ {
+	for i := waypointIndex.Load(); i < int32(len(waypoints)); i = waypointIndex.Add(1) {
 		select {
 		case <-ctx.Done():
 			return moveResponse{}
@@ -203,13 +204,15 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 		kinematicBase: kb,
 		position: newReplanner(
 			time.Duration(1000/motionCfg.PositionPollingFreqHz)*time.Millisecond,
-			func(ctx context.Context) replanResponse {
+			func(ctx context.Context, plan motionplan.Plan, waypointIndex *atomic.Int32) replanResponse {
+				waypoint := plan[waypointIndex.Load()]
+				fmt.Printf("position poll: %#v\n", waypoint)
 				return replanResponse{}
 			},
 		),
 		obstacle: newReplanner(
 			time.Duration(1000/motionCfg.ObstaclePollingFreqHz)*time.Millisecond,
-			func(ctx context.Context) replanResponse {
+			func(ctx context.Context, plan motionplan.Plan, waypointIndex *atomic.Int32) replanResponse {
 				return replanResponse{}
 			},
 		),

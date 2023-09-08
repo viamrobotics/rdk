@@ -3,6 +3,7 @@ package builtin
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 
 	goutils "go.viam.com/utils"
 
@@ -50,21 +51,23 @@ func (ma *moveAttempt) start() error {
 	if err != nil {
 		return err
 	}
+	var waypointIndex atomic.Int32
+	waypointIndex.Store(1)
 
 	ma.backgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
-		ma.request.position.startPolling(ma.ctx)
+		ma.request.position.startPolling(ma.ctx, plan, &waypointIndex)
 	}, ma.backgroundWorkers.Done)
 
 	ma.backgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
-		ma.request.obstacle.startPolling(ma.ctx)
+		ma.request.obstacle.startPolling(ma.ctx, plan, &waypointIndex)
 	}, ma.backgroundWorkers.Done)
 
 	// spawn function to execute the plan on the robot
 	ma.backgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
-		if resp := ma.request.execute(ma.ctx, plan); resp.success || resp.err != nil {
+		if resp := ma.request.execute(ma.ctx, plan, &waypointIndex); resp.success || resp.err != nil {
 			ma.responseChan <- resp
 		}
 	}, ma.backgroundWorkers.Done)

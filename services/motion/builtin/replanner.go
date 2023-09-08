@@ -2,7 +2,10 @@ package builtin
 
 import (
 	"context"
+	"sync/atomic"
 	"time"
+
+	"go.viam.com/rdk/motionplan"
 )
 
 // replanResponse is the struct returned by the replanner.
@@ -11,15 +14,17 @@ type replanResponse struct {
 	replan bool
 }
 
+type replanFn func(context.Context, motionplan.Plan, *atomic.Int32) replanResponse
+
 // replanner bundles everything needed to execute a function at a given interval and return.
 type replanner struct {
 	period       time.Duration
-	fnToPoll     func(ctx context.Context) replanResponse
+	fnToPoll     replanFn
 	responseChan chan replanResponse
 }
 
 // newReplanner is a constructor.
-func newReplanner(period time.Duration, fnToPoll func(context.Context) replanResponse) *replanner {
+func newReplanner(period time.Duration, fnToPoll replanFn) *replanner {
 	return &replanner{
 		period:       period,
 		fnToPoll:     fnToPoll,
@@ -29,7 +34,7 @@ func newReplanner(period time.Duration, fnToPoll func(context.Context) replanRes
 
 // startPolling executes the replanner's configured function at its configured period
 // The caller of this function should read from the replanner's responseChan to know when a replan is requested.
-func (r *replanner) startPolling(ctx context.Context) {
+func (r *replanner) startPolling(ctx context.Context, plan motionplan.Plan, waypointIndex *atomic.Int32) {
 	ticker := time.NewTicker(r.period)
 	defer ticker.Stop()
 	for {
@@ -42,7 +47,7 @@ func (r *replanner) startPolling(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			response := r.fnToPoll(ctx)
+			response := r.fnToPoll(ctx, plan, waypointIndex)
 			if response.err != nil || response.replan {
 				r.responseChan <- response
 				return
