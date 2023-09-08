@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	goutils "go.viam.com/utils"
 
@@ -25,6 +26,8 @@ type moveAttempt struct {
 
 	request      *moveRequest
 	responseChan chan moveResponse
+
+	position, obstacle *replanner
 }
 
 // newMoveAttempt instantiates a moveAttempt which can later be started.
@@ -40,6 +43,9 @@ func newMoveAttempt(ctx context.Context, request *moveRequest) *moveAttempt {
 
 		request:      request,
 		responseChan: make(chan moveResponse),
+
+		position: newReplanner(time.Duration(1000/request.config.PositionPollingFreqHz)*time.Millisecond, request.deviatedFromPlan),
+		obstacle: newReplanner(time.Duration(1000/request.config.ObstaclePollingFreqHz)*time.Millisecond, request.obstaclesIntersectPlan),
 	}
 }
 
@@ -57,12 +63,12 @@ func (ma *moveAttempt) start() error {
 
 	ma.backgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
-		ma.request.position.startPolling(ma.ctx, waypoints, &waypointIndex)
+		ma.position.startPolling(ma.ctx, waypoints, &waypointIndex)
 	}, ma.backgroundWorkers.Done)
 
 	ma.backgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
-		ma.request.obstacle.startPolling(ma.ctx, waypoints, &waypointIndex)
+		ma.obstacle.startPolling(ma.ctx, waypoints, &waypointIndex)
 	}, ma.backgroundWorkers.Done)
 
 	// spawn function to execute the plan on the robot
@@ -79,8 +85,8 @@ func (ma *moveAttempt) start() error {
 // it cancels the processes spawned by it, drains all the channels that could have been written to and waits on processes to return.
 func (ma *moveAttempt) cancel() {
 	ma.cancelFn()
-	utils.FlushChan(ma.request.position.responseChan)
-	utils.FlushChan(ma.request.obstacle.responseChan)
+	utils.FlushChan(ma.position.responseChan)
+	utils.FlushChan(ma.obstacle.responseChan)
 	utils.FlushChan(ma.responseChan)
 	ma.backgroundWorkers.Wait()
 }

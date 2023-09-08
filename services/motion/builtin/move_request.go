@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math"
 	"sync/atomic"
-	"time"
 
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
@@ -21,11 +20,9 @@ import (
 
 // moveRequest is a structure that contains all the information necessary for to make a move call.
 type moveRequest struct {
-	config *motion.MotionConfiguration
-
-	planRequest        *motionplan.PlanRequest
-	kinematicBase      kinematicbase.KinematicBase
-	position, obstacle *replanner
+	config        *motion.MotionConfiguration
+	planRequest   *motionplan.PlanRequest
+	kinematicBase kinematicbase.KinematicBase
 }
 
 // plan creates a plan using the currentInputs of the robot and the moveRequest's planRequest.
@@ -82,6 +79,11 @@ func (mr *moveRequest) deviatedFromPlan(ctx context.Context, waypoints [][]refer
 		return false, err
 	}
 	return errorState.Point().Norm() > mr.config.PlanDeviationMM, nil
+}
+
+func (mr *moveRequest) obstaclesIntersectPlan(ctx context.Context, waypoints [][]referenceframe.Input, waypointIndex int) (bool, error) {
+	// TODO(RSDK-4507): implement this function
+	return false, nil
 }
 
 // newMoveOnGlobeRequest instantiates a moveRequest intended to be used in the context of a MoveOnGlobe call.
@@ -206,20 +208,5 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 			Options:            extra,
 		},
 		kinematicBase: kb,
-		position: newReplanner(
-			time.Duration(1000/motionCfg.PositionPollingFreqHz)*time.Millisecond,
-			func(ctx context.Context, waypoints [][]referenceframe.Input, waypointIndex int) replanResponse {
-				errorState, err := kb.ErrorState(ctx, waypoints, waypointIndex)
-				if err != nil {
-					return replanResponse{err: err}
-				}
-				return replanResponse{replan: errorState.Point().Norm() > motionCfg.PlanDeviationMM}
-			},
-		),
-		obstacle: newReplanner(
-			time.Duration(1000/motionCfg.ObstaclePollingFreqHz)*time.Millisecond,
-			func(ctx context.Context, waypoints [][]referenceframe.Input, waypointIndex int) replanResponse {
-				return replanResponse{}
-			},
-		)}, nil
+	}, nil
 }

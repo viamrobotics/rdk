@@ -17,12 +17,12 @@ type replanResponse struct {
 // replanner bundles everything needed to execute a function at a given interval and return.
 type replanner struct {
 	period       time.Duration
-	fnToPoll     func(context.Context, [][]referenceframe.Input, int) replanResponse
+	fnToPoll     func(context.Context, [][]referenceframe.Input, int) (bool, error)
 	responseChan chan replanResponse
 }
 
 // newReplanner is a constructor.
-func newReplanner(period time.Duration, fnToPoll func(context.Context, [][]referenceframe.Input, int) replanResponse) *replanner {
+func newReplanner(period time.Duration, fnToPoll func(context.Context, [][]referenceframe.Input, int) (bool, error)) *replanner {
 	return &replanner{
 		period:       period,
 		fnToPoll:     fnToPoll,
@@ -35,19 +35,16 @@ func newReplanner(period time.Duration, fnToPoll func(context.Context, [][]refer
 func (r *replanner) startPolling(ctx context.Context, plan [][]referenceframe.Input, waypointIndex *atomic.Int32) {
 	ticker := time.NewTicker(r.period)
 	defer ticker.Stop()
-	for {
-		// this ensures that if the context is cancelled we always return early at the top of the loop
-		if ctx.Err() != nil {
-			return
-		}
 
+	// this check ensures that if the context is cancelled we always return early at the top of the loop
+	for ctx.Err() != nil {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			response := r.fnToPoll(ctx, plan, int(waypointIndex.Load()))
-			if response.err != nil || response.replan {
-				r.responseChan <- response
+			replan, err := r.fnToPoll(ctx, plan, int(waypointIndex.Load()))
+			if err != nil || replan {
+				r.responseChan <- replanResponse{replan: replan, err: err}
 				return
 			}
 		}

@@ -11,6 +11,7 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
@@ -555,9 +556,7 @@ func TestMoveOnGlobe(t *testing.T) {
 			extra,
 		)
 		test.That(t, err, test.ShouldBeNil)
-		plan, err := moveRequest.plan(ctx)
-		test.That(t, err, test.ShouldBeNil)
-		waypoints, err := plan.GetFrameSteps(fakeBase.Name().Name)
+		waypoints, err := moveRequest.plan(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(waypoints), test.ShouldEqual, 2)
 		test.That(t, waypoints[1][0].Value, test.ShouldAlmostEqual, expectedDst.X, epsilonMM)
@@ -597,9 +596,7 @@ func TestMoveOnGlobe(t *testing.T) {
 			extra,
 		)
 		test.That(t, err, test.ShouldBeNil)
-		plan, err := moveRequest.plan(ctx)
-		test.That(t, err, test.ShouldBeNil)
-		waypoints, err := plan.GetFrameSteps(fakeBase.Name().Name)
+		waypoints, err := moveRequest.plan(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(waypoints), test.ShouldBeGreaterThan, 2)
 		test.That(t, waypoints[len(waypoints)-1][0].Value, test.ShouldAlmostEqual, expectedDst.X, epsilonMM)
