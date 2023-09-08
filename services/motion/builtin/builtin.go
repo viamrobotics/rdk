@@ -637,13 +637,16 @@ func (ms *builtIn) planMoveOnMap(
 		return nil, nil, fmt.Errorf("cannot move component of type %T because it is not a Base", component)
 	}
 
-	if extra != nil {
-		if profile, ok := extra["motion_profile"]; ok {
-			motionProfile, ok := profile.(string)
-			if !ok {
-				return nil, nil, errors.New("could not interpret motion_profile field as string")
+	if false { // TODO: Fix with RSDK-4583
+		if extra != nil {
+			if profile, ok := extra["motion_profile"]; ok {
+				motionProfile, ok := profile.(string)
+				if !ok {
+					return nil, nil, errors.New("could not interpret motion_profile field as string")
+				}
+				kinematicsOptions.PositionOnlyMode = motionProfile == motionplan.PositionOnlyMotionProfile
+				kinematicsOptions.PositionOnlyMode = false
 			}
-			kinematicsOptions.PositionOnlyMode = motionProfile == motionplan.PositionOnlyMotionProfile
 		}
 	}
 
