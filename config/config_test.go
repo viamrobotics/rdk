@@ -21,7 +21,6 @@ import (
 	"go.viam.com/utils/jwks"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
-	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/base"
@@ -955,6 +954,7 @@ func TestAuthConfigEnsure(t *testing.T) {
 }
 
 func TestValidateUniqueNames(t *testing.T) {
+	logger := golog.NewTestLogger(t)
 	component := resource.Config{
 		Name:  "custom",
 		Model: fakeModel,
@@ -1007,18 +1007,10 @@ func TestValidateUniqueNames(t *testing.T) {
 
 	for _, config := range allConfigs {
 		// test that the logger returns an error after the ensure method is done
-		logger, logs := golog.NewObservedTestLogger(t)
-
 		err := config.Ensure(false, logger)
-		test.That(t, err, test.ShouldBeNil)
-		// check that the logger correctly reports the issues with the config
-		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			test.That(tb, logs.FilterMessageSnippet("duplicate resource").Len(), test.ShouldEqual, 1)
-		})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "duplicate resource")
 	}
-
-	// no error config
-	logger, logs := golog.NewObservedTestLogger(t)
 
 	// mix components and services with the same name -- no error as use triplets
 	config7 := config.Config{
@@ -1028,9 +1020,6 @@ func TestValidateUniqueNames(t *testing.T) {
 
 	err := config7.Ensure(false, logger)
 	test.That(t, err, test.ShouldBeNil)
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		test.That(tb, logs.FilterMessageSnippet("duplicate resource").Len(), test.ShouldEqual, 0)
-	})
 }
 
 func keysetToAttributeMap(t *testing.T, keyset jwks.KeySet) rutils.AttributeMap {

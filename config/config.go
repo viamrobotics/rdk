@@ -113,7 +113,7 @@ func (c *Config) Ensure(fromCloud bool, logger golog.Logger) error {
 			logger.Errorw("module config error; starting robot without module", "name", c.Modules[idx].Name, "error", err)
 		}
 		if err := c.validateUniqueResource(seenResources, c.Modules[idx].Name); err != nil {
-			logger.Error(err.Error())
+			return err
 		}
 	}
 
@@ -127,7 +127,7 @@ func (c *Config) Ensure(fromCloud bool, logger golog.Logger) error {
 		// we need to figure out how to make it so that the remote is tied to the API
 		resourceRemoteName := resource.NewName(resource.APINamespaceRDK.WithType("remote").WithSubtype(""), c.Remotes[idx].Name)
 		if err := c.validateUniqueResource(seenResources, resourceRemoteName.Name); err != nil {
-			logger.Error(err.Error())
+			return err
 		}
 	}
 
@@ -143,7 +143,7 @@ func (c *Config) Ensure(fromCloud bool, logger golog.Logger) error {
 			c.Components[idx].ImplicitDependsOn = dependsOn
 		}
 		if err := c.validateUniqueResource(seenResources, c.Components[idx].ResourceName().String()); err != nil {
-			logger.Error(err.Error())
+			return err
 		}
 	}
 
@@ -156,7 +156,7 @@ func (c *Config) Ensure(fromCloud bool, logger golog.Logger) error {
 		}
 
 		if err := c.validateUniqueResource(seenResources, c.Processes[idx].ID); err != nil {
-			logger.Error(err.Error())
+			return err
 		}
 	}
 
@@ -172,7 +172,7 @@ func (c *Config) Ensure(fromCloud bool, logger golog.Logger) error {
 		}
 
 		if err := c.validateUniqueResource(seenResources, c.Services[idx].ResourceName().String()); err != nil {
-			logger.Error(err.Error())
+			return err
 		}
 	}
 
@@ -185,7 +185,7 @@ func (c *Config) Ensure(fromCloud bool, logger golog.Logger) error {
 			logger.Errorw("package config error; starting robot without package", "name", c.Packages[idx].Name, "error", err)
 		}
 		if err := c.validateUniqueResource(seenResources, c.Packages[idx].Package); err != nil {
-			logger.Error(err.Error())
+			return err
 		}
 	}
 
