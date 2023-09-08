@@ -14,6 +14,7 @@ type replanResponse struct {
 	replan bool
 }
 
+// replanFn is an alias for a function that will be polled by a replanner
 type replanFn func(context.Context, [][]referenceframe.Input, int) (bool, error)
 
 // replanner bundles everything needed to execute a function at a given interval and return.
