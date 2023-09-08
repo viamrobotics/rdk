@@ -1,4 +1,5 @@
-//go:build cgo
+//go:build !notc
+
 // Package arm contains a gRPC based arm client.
 package arm
 

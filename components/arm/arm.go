@@ -1,4 +1,5 @@
-//go:build cgo
+//go:build !notc
+
 // Package arm defines the arm that a robot uses to manipulate objects.
 package arm
 

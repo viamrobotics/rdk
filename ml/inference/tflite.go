@@ -1,4 +1,4 @@
-//go:build !arm && !windows && cgo
+//go:build !arm && !windows && !notc
 
 package inference
 

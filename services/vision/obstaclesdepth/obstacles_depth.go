@@ -1,4 +1,5 @@
-//go:build cgo
+//go:build !notc
+
 // Package obstaclesdepth uses an underlying depth camera to fulfill GetObjectPointClouds,
 // using the method outlined in (Manduchi, Roberto, et al. "Obstacle detection and terrain classification
 // for autonomous off-road navigation." Autonomous robots 18 (2005): 81-102.)

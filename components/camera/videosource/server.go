@@ -1,4 +1,5 @@
-//go:build cgo
+//go:build !notc
+
 // Package videosource defines various image sources typically registered as cameras in the API.
 package videosource
 

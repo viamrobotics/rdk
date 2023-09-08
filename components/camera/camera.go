@@ -1,4 +1,5 @@
-//go:build cgo
+//go:build !notc
+
 // Package camera defines an image capturing device.
 package camera
 

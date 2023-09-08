@@ -1,4 +1,5 @@
-//go:build cgo
+//go:build !notc
+
 package depthadapter_test
 
 import (

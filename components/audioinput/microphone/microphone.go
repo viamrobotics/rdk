@@ -1,4 +1,5 @@
-//go:build cgo
+//go:build !notc
+
 // Package microphone implements a microphone audio input. Really the microphone
 // is any audio input device that can be found via gostream.
 package microphone

@@ -1,4 +1,5 @@
-//go:build cgo
+//go:build !notc
+
 // Package motionplan is a motion planning library.
 package motionplan
 

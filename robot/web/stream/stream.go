@@ -1,4 +1,5 @@
-//go:build cgo
+//go:build !notc
+
 // Package webstream provides controls for streaming from the web server.
 package webstream
 

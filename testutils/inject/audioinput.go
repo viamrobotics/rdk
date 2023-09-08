@@ -1,4 +1,5 @@
-//go:build cgo
+//go:build !notc
+
 package inject
 
 import (
