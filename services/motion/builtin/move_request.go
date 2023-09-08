@@ -66,11 +66,11 @@ func (mr *moveRequest) execute(ctx context.Context, waypoints [][]referenceframe
 	}
 
 	// the plan has been fully executed so check to see if the GeoPoint we are at is close enough to the goal.
-	success, err := mr.deviatedFromPlan(ctx, waypoints, len(waypoints)-1)
+	deviated, err := mr.deviatedFromPlan(ctx, waypoints, len(waypoints)-1)
 	if err != nil {
 		return moveResponse{err: err}
 	}
-	return moveResponse{success: success}
+	return moveResponse{success: !deviated}
 }
 
 func (mr *moveRequest) deviatedFromPlan(ctx context.Context, waypoints [][]referenceframe.Input, waypointIndex int) (bool, error) {
@@ -78,7 +78,7 @@ func (mr *moveRequest) deviatedFromPlan(ctx context.Context, waypoints [][]refer
 	if err != nil {
 		return false, err
 	}
-	return errorState.Point().Norm() > mr.config.PlanDeviationMM, nil
+	return errorState.Point().Norm() <= mr.config.PlanDeviationMM, nil
 }
 
 func (mr *moveRequest) obstaclesIntersectPlan(ctx context.Context, waypoints [][]referenceframe.Input, waypointIndex int) (bool, error) {
