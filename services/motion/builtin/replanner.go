@@ -37,7 +37,7 @@ func (r *replanner) startPolling(ctx context.Context, plan [][]referenceframe.In
 	defer ticker.Stop()
 
 	// this check ensures that if the context is cancelled we always return early at the top of the loop
-	for ctx.Err() != nil {
+	for ctx.Err() == nil {
 		select {
 		case <-ctx.Done():
 			return

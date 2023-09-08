@@ -74,7 +74,7 @@ func (mr *moveRequest) execute(ctx context.Context, waypoints [][]referenceframe
 }
 
 func (mr *moveRequest) deviatedFromPlan(ctx context.Context, waypoints [][]referenceframe.Input, waypointIndex int) (bool, error) {
-	errorState, err := mr.kinematicBase.ErrorState(ctx, waypoints, len(waypoints)-1)
+	errorState, err := mr.kinematicBase.ErrorState(ctx, waypoints, waypointIndex)
 	if err != nil {
 		return false, err
 	}
