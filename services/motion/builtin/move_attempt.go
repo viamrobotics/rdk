@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	goutils "go.viam.com/utils"
 
@@ -32,6 +34,13 @@ type moveAttempt struct {
 
 	request      *moveRequest
 	responseChan chan moveResponse
+
+	// replanners for the move attempt
+	// if we ever have to add additional instances we should figure out how to make this more scalable
+	position, obstacle *replanner
+
+	// waypointIndex tracks the waypoint we are currently executing on
+	waypointIndex *atomic.Int32
 }
 
 // newMoveAttempt instantiates a moveAttempt which can later be started.
@@ -40,6 +49,9 @@ func newMoveAttempt(ctx context.Context, request *moveRequest) *moveAttempt {
 	cancelCtx, cancelFn := context.WithCancel(ctx)
 	var backgroundWorkers sync.WaitGroup
 
+	var waypointIndex atomic.Int32
+	waypointIndex.Store(1)
+
 	return &moveAttempt{
 		ctx:               cancelCtx,
 		cancelFn:          cancelFn,
@@ -47,6 +59,11 @@ func newMoveAttempt(ctx context.Context, request *moveRequest) *moveAttempt {
 
 		request:      request,
 		responseChan: make(chan moveResponse),
+
+		position: newReplanner(time.Duration(1000/request.config.PositionPollingFreqHz)*time.Millisecond, request.deviatedFromPlan),
+		obstacle: newReplanner(time.Duration(1000/request.config.ObstaclePollingFreqHz)*time.Millisecond, request.obstaclesIntersectPlan),
+
+		waypointIndex: &waypointIndex,
 	}
 }
 
@@ -54,25 +71,25 @@ func newMoveAttempt(ctx context.Context, request *moveRequest) *moveAttempt {
 // the caller of this function should monitor the moveAttempt's responseChan as well as the replanners' responseChan to get insight
 // into the status of the moveAttempt.
 func (ma *moveAttempt) start() error {
-	plan, err := ma.request.plan(ma.ctx)
+	waypoints, err := ma.request.plan(ma.ctx)
 	if err != nil {
 		return err
 	}
 
 	ma.backgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
-		ma.request.position.startPolling(ma.ctx)
+		ma.position.startPolling(ma.ctx, waypoints, ma.waypointIndex)
 	}, ma.backgroundWorkers.Done)
 
 	ma.backgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
-		ma.request.obstacle.startPolling(ma.ctx)
+		ma.obstacle.startPolling(ma.ctx, waypoints, ma.waypointIndex)
 	}, ma.backgroundWorkers.Done)
 
 	// spawn function to execute the plan on the robot
 	ma.backgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
-		if resp := ma.request.execute(ma.ctx, plan); resp.success || resp.err != nil {
+		if resp := ma.request.execute(ma.ctx, waypoints, ma.waypointIndex); resp.success || resp.err != nil {
 			ma.responseChan <- resp
 		}
 	}, ma.backgroundWorkers.Done)
@@ -83,8 +100,8 @@ func (ma *moveAttempt) start() error {
 // it cancels the processes spawned by it, drains all the channels that could have been written to and waits on processes to return.
 func (ma *moveAttempt) cancel() {
 	ma.cancelFn()
-	utils.FlushChan(ma.request.position.responseChan)
-	utils.FlushChan(ma.request.obstacle.responseChan)
+	utils.FlushChan(ma.position.responseChan)
+	utils.FlushChan(ma.obstacle.responseChan)
 	utils.FlushChan(ma.responseChan)
 	ma.backgroundWorkers.Wait()
 }
