@@ -1,3 +1,4 @@
+//go:build cgo
 // Package kinematicbase contains wrappers that augment bases with information needed for higher level
 // control over the base
 package kinematicbase

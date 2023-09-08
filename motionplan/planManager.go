@@ -1,3 +1,4 @@
+//go:build cgo
 package motionplan
 
 import (

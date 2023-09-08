@@ -1,3 +1,4 @@
+//go:build cgo
 // Package arm contains a gRPC based arm service server.
 package arm
 

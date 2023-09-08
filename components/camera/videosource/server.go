@@ -1,3 +1,4 @@
+//go:build cgo
 // Package videosource defines various image sources typically registered as cameras in the API.
 package videosource
 

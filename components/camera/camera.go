@@ -1,3 +1,4 @@
+//go:build cgo
 // Package camera defines an image capturing device.
 package camera
 

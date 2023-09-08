@@ -1,3 +1,4 @@
+//go:build cgo
 // Package motionplan is a motion planning library.
 package motionplan
 
