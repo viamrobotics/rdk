@@ -79,8 +79,8 @@ func PlanMotion(ctx context.Context, request *PlanRequest) (Plan, error) {
 		frame.PoseInFrameToProtobuf(request.Goal),
 		request.StartConfiguration,
 		spatialmath.PoseToProtobuf(startPose),
-		request.WorldState.String(),
 	)
+	request.Logger.Infof(request.WorldState.String())
 	request.Logger.Debugf("constraint specs for this step: %v", request.ConstraintSpecs)
 	request.Logger.Debugf("motion config for this step: %v", request.Options)
 
