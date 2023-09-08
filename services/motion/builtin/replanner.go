@@ -14,17 +14,24 @@ type replanResponse struct {
 	replan bool
 }
 
-type replanFn func(context.Context, motionplan.Plan, *atomic.Int32) replanResponse
+func checkPosition(context.Context, motionplan.Plan, *atomic.Int32) replanResponse {
+	return replanResponse{}
+}
+
+func checkObstacles(context.Context, motionplan.Plan, *atomic.Int32) replanResponse {
+	// TODO(RSDK-4507): implement this function
+	return replanResponse{}
+}
 
 // replanner bundles everything needed to execute a function at a given interval and return.
 type replanner struct {
 	period       time.Duration
-	fnToPoll     replanFn
+	fnToPoll     func(context.Context, motionplan.Plan, *atomic.Int32) replanResponse
 	responseChan chan replanResponse
 }
 
 // newReplanner is a constructor.
-func newReplanner(period time.Duration, fnToPoll replanFn) *replanner {
+func newReplanner(period time.Duration, fnToPoll func(context.Context, motionplan.Plan, *atomic.Int32) replanResponse) *replanner {
 	return &replanner{
 		period:       period,
 		fnToPoll:     fnToPoll,

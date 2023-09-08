@@ -202,19 +202,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 			Options:            extra,
 		},
 		kinematicBase: kb,
-		position: newReplanner(
-			time.Duration(1000/motionCfg.PositionPollingFreqHz)*time.Millisecond,
-			func(ctx context.Context, plan motionplan.Plan, waypointIndex *atomic.Int32) replanResponse {
-				waypoint := plan[waypointIndex.Load()]
-				fmt.Printf("position poll: %#v\n", waypoint)
-				return replanResponse{}
-			},
-		),
-		obstacle: newReplanner(
-			time.Duration(1000/motionCfg.ObstaclePollingFreqHz)*time.Millisecond,
-			func(ctx context.Context, plan motionplan.Plan, waypointIndex *atomic.Int32) replanResponse {
-				return replanResponse{}
-			},
-		),
+		position:      newReplanner(time.Duration(1000/motionCfg.PositionPollingFreqHz)*time.Millisecond, checkPosition),
+		obstacle:      newReplanner(time.Duration(1000/motionCfg.ObstaclePollingFreqHz)*time.Millisecond, checkObstacles),
 	}, nil
 }
