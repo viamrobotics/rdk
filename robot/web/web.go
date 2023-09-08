@@ -1,3 +1,4 @@
+//go:build cgo
 // Package web provides gRPC/REST/GUI APIs to control and monitor a robot.
 package web
 

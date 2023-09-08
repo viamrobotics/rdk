@@ -1,3 +1,4 @@
+//go:build cgo
 // Package register registers all relevant audio inputs and also API specific functions
 package register
 

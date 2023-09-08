@@ -1,3 +1,4 @@
+//go:build cgo
 // Package webstream provides controls for streaming from the web server.
 package webstream
 

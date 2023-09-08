@@ -1,3 +1,4 @@
+//go:build cgo
 // Package fake implements a fake audio input.
 package fake
 

@@ -1,3 +1,4 @@
+//go:build cgo
 package web
 
 import "github.com/viamrobotics/gostream"
