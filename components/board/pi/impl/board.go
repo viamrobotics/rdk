@@ -1,4 +1,4 @@
-//go:build linux && (arm64 || arm)
+//go:build linux && (arm64 || arm) && !notc
 
 // Package piimpl contains the implementation of a supported Raspberry Pi board.
 package piimpl
