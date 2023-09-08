@@ -47,27 +47,28 @@ func newMoveAttempt(ctx context.Context, request *moveRequest) *moveAttempt {
 // the caller of this function should monitor the moveAttempt's responseChan as well as the replanners' responseChan to get insight
 // into the status of the moveAttempt.
 func (ma *moveAttempt) start() error {
-	plan, err := ma.request.plan(ma.ctx)
+	waypoints, err := ma.request.plan(ma.ctx)
 	if err != nil {
 		return err
 	}
+
 	var waypointIndex atomic.Int32
 	waypointIndex.Store(1)
 
 	ma.backgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
-		ma.request.position.startPolling(ma.ctx, plan, &waypointIndex)
+		ma.request.position.startPolling(ma.ctx, waypoints, &waypointIndex)
 	}, ma.backgroundWorkers.Done)
 
 	ma.backgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
-		ma.request.obstacle.startPolling(ma.ctx, plan, &waypointIndex)
+		ma.request.obstacle.startPolling(ma.ctx, waypoints, &waypointIndex)
 	}, ma.backgroundWorkers.Done)
 
 	// spawn function to execute the plan on the robot
 	ma.backgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
-		if resp := ma.request.execute(ma.ctx, plan, &waypointIndex); resp.success || resp.err != nil {
+		if resp := ma.request.execute(ma.ctx, waypoints, &waypointIndex); resp.success || resp.err != nil {
 			ma.responseChan <- resp
 		}
 	}, ma.backgroundWorkers.Done)

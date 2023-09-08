@@ -5,7 +5,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"go.viam.com/rdk/motionplan"
+	"go.viam.com/rdk/referenceframe"
 )
 
 // replanResponse is the struct returned by the replanner.
@@ -14,24 +14,15 @@ type replanResponse struct {
 	replan bool
 }
 
-func checkPosition(context.Context, motionplan.Plan, *atomic.Int32) replanResponse {
-	return replanResponse{}
-}
-
-func checkObstacles(context.Context, motionplan.Plan, *atomic.Int32) replanResponse {
-	// TODO(RSDK-4507): implement this function
-	return replanResponse{}
-}
-
 // replanner bundles everything needed to execute a function at a given interval and return.
 type replanner struct {
 	period       time.Duration
-	fnToPoll     func(context.Context, motionplan.Plan, *atomic.Int32) replanResponse
+	fnToPoll     func(context.Context, [][]referenceframe.Input, int) replanResponse
 	responseChan chan replanResponse
 }
 
 // newReplanner is a constructor.
-func newReplanner(period time.Duration, fnToPoll func(context.Context, motionplan.Plan, *atomic.Int32) replanResponse) *replanner {
+func newReplanner(period time.Duration, fnToPoll func(context.Context, [][]referenceframe.Input, int) replanResponse) *replanner {
 	return &replanner{
 		period:       period,
 		fnToPoll:     fnToPoll,
@@ -41,7 +32,7 @@ func newReplanner(period time.Duration, fnToPoll func(context.Context, motionpla
 
 // startPolling executes the replanner's configured function at its configured period
 // The caller of this function should read from the replanner's responseChan to know when a replan is requested.
-func (r *replanner) startPolling(ctx context.Context, plan motionplan.Plan, waypointIndex *atomic.Int32) {
+func (r *replanner) startPolling(ctx context.Context, plan [][]referenceframe.Input, waypointIndex *atomic.Int32) {
 	ticker := time.NewTicker(r.period)
 	defer ticker.Stop()
 	for {
@@ -54,7 +45,7 @@ func (r *replanner) startPolling(ctx context.Context, plan motionplan.Plan, wayp
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			response := r.fnToPoll(ctx, plan, waypointIndex)
+			response := r.fnToPoll(ctx, plan, int(waypointIndex.Load()))
 			if response.err != nil || response.replan {
 				r.responseChan <- response
 				return

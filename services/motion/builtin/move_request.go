@@ -29,7 +29,7 @@ type moveRequest struct {
 }
 
 // plan creates a plan using the currentInputs of the robot and the moveRequest's planRequest.
-func (mr *moveRequest) plan(ctx context.Context) (motionplan.Plan, error) {
+func (mr *moveRequest) plan(ctx context.Context) ([][]referenceframe.Input, error) {
 	inputs, err := mr.kinematicBase.CurrentInputs(ctx)
 	if err != nil {
 		return nil, err
@@ -39,15 +39,14 @@ func (mr *moveRequest) plan(ctx context.Context) (motionplan.Plan, error) {
 		inputs = inputs[:2]
 	}
 	mr.planRequest.StartConfiguration = map[string][]referenceframe.Input{mr.kinematicBase.Kinematics().Name(): inputs}
-	return motionplan.PlanMotion(ctx, mr.planRequest)
+	plan, err := motionplan.PlanMotion(ctx, mr.planRequest)
+	if err != nil {
+		return nil, err
+	}
+	return plan.GetFrameSteps(mr.kinematicBase.Kinematics().Name())
 }
 
-func (mr *moveRequest) execute(ctx context.Context, plan motionplan.Plan, waypointIndex *atomic.Int32) moveResponse {
-	waypoints, err := plan.GetFrameSteps(mr.kinematicBase.Kinematics().Name())
-	if err != nil {
-		return moveResponse{err: err}
-	}
-
+func (mr *moveRequest) execute(ctx context.Context, waypoints [][]referenceframe.Input, waypointIndex *atomic.Int32) moveResponse {
 	// Iterate through the list of waypoints and issue a command to move to each
 	for i := waypointIndex.Load(); i < int32(len(waypoints)); i = waypointIndex.Add(1) {
 		select {
@@ -70,14 +69,19 @@ func (mr *moveRequest) execute(ctx context.Context, plan motionplan.Plan, waypoi
 	}
 
 	// the plan has been fully executed so check to see if the GeoPoint we are at is close enough to the goal.
-	errorState, err := mr.kinematicBase.ErrorState(ctx, waypoints, len(waypoints)-1)
+	success, err := mr.deviatedFromPlan(ctx, waypoints, len(waypoints)-1)
 	if err != nil {
 		return moveResponse{err: err}
 	}
-	if errorState.Point().Norm() <= mr.config.PlanDeviationMM {
-		return moveResponse{success: true}
+	return moveResponse{success: success}
+}
+
+func (mr *moveRequest) deviatedFromPlan(ctx context.Context, waypoints [][]referenceframe.Input, waypointIndex int) (bool, error) {
+	errorState, err := mr.kinematicBase.ErrorState(ctx, waypoints, len(waypoints)-1)
+	if err != nil {
+		return false, err
 	}
-	return moveResponse{err: errors.New("reached end of plan but not at goal")}
+	return errorState.Point().Norm() > mr.config.PlanDeviationMM, nil
 }
 
 // newMoveOnGlobeRequest instantiates a moveRequest intended to be used in the context of a MoveOnGlobe call.
@@ -202,7 +206,20 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 			Options:            extra,
 		},
 		kinematicBase: kb,
-		position:      newReplanner(time.Duration(1000/motionCfg.PositionPollingFreqHz)*time.Millisecond, checkPosition),
-		obstacle:      newReplanner(time.Duration(1000/motionCfg.ObstaclePollingFreqHz)*time.Millisecond, checkObstacles),
-	}, nil
+		position: newReplanner(
+			time.Duration(1000/motionCfg.PositionPollingFreqHz)*time.Millisecond,
+			func(ctx context.Context, waypoints [][]referenceframe.Input, waypointIndex int) replanResponse {
+				errorState, err := kb.ErrorState(ctx, waypoints, waypointIndex)
+				if err != nil {
+					return replanResponse{err: err}
+				}
+				return replanResponse{replan: errorState.Point().Norm() > motionCfg.PlanDeviationMM}
+			},
+		),
+		obstacle: newReplanner(
+			time.Duration(1000/motionCfg.ObstaclePollingFreqHz)*time.Millisecond,
+			func(ctx context.Context, waypoints [][]referenceframe.Input, waypointIndex int) replanResponse {
+				return replanResponse{}
+			},
+		)}, nil
 }
