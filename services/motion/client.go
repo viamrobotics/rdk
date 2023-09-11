@@ -279,6 +279,84 @@ func (c *client) MoveOnGlobeNew(
 	return opid, nil
 }
 
+func (c *client) ListPlanStatuses(
+	ctx context.Context,
+	componentName resource.Name,
+	extra map[string]interface{},
+) ([]PlanStatus, error) {
+	ext, err := vprotoutils.StructToStructPb(extra)
+	if err != nil {
+		return nil, err
+	}
+
+	req := &pb.ListPlanStatusesRequest{
+		Name:  c.name,
+		Extra: ext,
+	}
+
+	resp, err := c.client.ListPlanStatuses(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	statuses := []PlanStatus{}
+	for _, s := range resp.Statuses {
+		planID, err := uuid.Parse(s.PlanId)
+		if err != nil {
+			return nil, err
+		}
+
+		opid, err := uuid.Parse(s.OperationId)
+		if err != nil {
+			return nil, err
+		}
+
+		var reason string
+		if s.Reason != nil {
+			reason = *s.Reason
+		}
+
+		ps := PlanStatus{
+			PlanID:      planID,
+			OperationID: opid,
+			State:       int32(s.State.Number()),
+			Reason:      reason,
+			Timestamp:   s.Timestamp.AsTime(),
+		}
+		statuses = append(statuses, ps)
+	}
+	return statuses, nil
+}
+func (c *client) GetPlan(
+	ctx context.Context,
+	componentName resource.Name,
+	r GetPlanRequest,
+) (PlanWithStatus, error) {
+	ext, err := vprotoutils.StructToStructPb(r.Extra)
+	if err != nil {
+		return PlanWithStatus{}, err
+	}
+
+	req := &pb.GetPlanRequest{
+		Name:  c.name,
+		Extra: ext,
+	}
+
+	resp, err := c.client.ListPlanStatuses(ctx, req)
+	if err != nil {
+		return PlanWithStatus{}, err
+	}
+	statuses := []PlanStatus{}
+	for _, s := range resp.Statuses {
+		planID, err := uuid.Parse(s.PlanId)
+		if err != nil {
+			return PlanWithStatus{}, err
+		}
+		statuses = append(statuses, PlanStatus{PlanID: planID})
+	}
+	return statuses, nil
+}
+
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return protoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
 }

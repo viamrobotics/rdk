@@ -3,7 +3,9 @@ package motion
 
 import (
 	"context"
+	"time"
 
+	"github.com/google/uuid"
 	geo "github.com/kellydunn/golang-geo"
 	servicepb "go.viam.com/api/service/motion/v1"
 
@@ -57,6 +59,42 @@ type Service interface {
 		supplementalTransforms []*referenceframe.LinkInFrame,
 		extra map[string]interface{},
 	) (*referenceframe.PoseInFrame, error)
+}
+
+type GetPlanRequest struct {
+	OperationId uuid.UUID
+	Extra       map[string]interface{}
+}
+
+type Step map[string]spatialmath.Pose
+
+type Plan struct {
+	Id    uuid.UUID
+	Steps []Step
+}
+
+type PlanState = int32
+
+const (
+	PLAN_STATE_UNSPECIFIED = iota
+	PLAN_STATE_IN_PROGRESS
+	PLAN_STATE_CANCELLED
+	PLAN_STATE_SUCCEEDED
+	PLAN_STATE_FAILED
+)
+
+type PlanStatus struct {
+	PlanID      uuid.UUID
+	OperationID uuid.UUID
+	State       PlanState
+	Timestamp   time.Time
+	Reason      string
+}
+
+type PlanWithStatus struct {
+	Plan          Plan
+	Status        PlanStatus
+	StatusHistory []PlanStatus
 }
 
 // MotionConfiguration specifies how to configure a call
