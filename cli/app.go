@@ -163,6 +163,7 @@ var app = &cli.App{
 		},
 		{
 			Name:            "locations",
+			Aliases:         []string{"location"},
 			Usage:           "work with locations",
 			HideHelpCommand: true,
 			Subcommands: []*cli.Command{
