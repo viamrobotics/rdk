@@ -290,6 +290,7 @@ func (conf Remote) Equals(other Remote) bool {
 	conf.cachedErr = nil
 	other.alreadyValidated = false
 	other.cachedErr = nil
+
 	//nolint:govet
 	return reflect.DeepEqual(conf, other)
 }

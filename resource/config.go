@@ -172,6 +172,15 @@ func (conf Config) Equals(other Config) bool {
 	other.ImplicitDependsOn = nil
 	other.cachedImplicitDeps = nil
 	other.cachedErr = nil
+
+	// RSDK-4657: Only compare `Config.Attributes` for equality.
+	confConverted, otherConverted := conf.ConvertedAttributes, other.ConvertedAttributes
+	defer func() {
+		conf.ConvertedAttributes, other.ConvertedAttributes = confConverted, otherConverted
+	}()
+	conf.ConvertedAttributes = nil
+	other.ConvertedAttributes = nil
+
 	//nolint:govet
 	return reflect.DeepEqual(conf, other)
 }
