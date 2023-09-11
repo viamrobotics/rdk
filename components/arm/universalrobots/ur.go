@@ -4,6 +4,7 @@ package universalrobots
 import (
 	"bufio"
 	"context"
+
 	// for embedding model file.
 	_ "embed"
 	"encoding/binary"
@@ -209,7 +210,7 @@ func URArmConnect(ctx context.Context, conf resource.Config, logger golog.Logger
 			readerWriter := bufio.NewReadWriter(bufio.NewReader(newArm.dashboardConnection), bufio.NewWriter(newArm.dashboardConnection))
 			err := dashboardReader(cancelCtx, *readerWriter, newArm)
 			if err != nil &&
-				(errors.Is(err, syscall.ECONNRESET) || errors.Is(err, io.ErrClosedPipe) || os.IsTimeout(err) || errors.Is(err, io.ErrUnexpectedEOF)) {
+				(errors.Is(err, syscall.ECONNRESET) || errors.Is(err, io.ErrClosedPipe) || os.IsTimeout(err) || errors.Is(err, io.EOF)) {
 				newArm.mu.Lock()
 				newArm.inRemoteMode = false
 				newArm.mu.Unlock()
@@ -256,7 +257,7 @@ func URArmConnect(ctx context.Context, conf resource.Config, logger golog.Logger
 				})
 			})
 			if err != nil &&
-				(errors.Is(err, syscall.ECONNRESET) || errors.Is(err, io.ErrClosedPipe) || os.IsTimeout(err) || errors.Is(err, io.ErrUnexpectedEOF)) {
+				(errors.Is(err, syscall.ECONNRESET) || errors.Is(err, io.ErrClosedPipe) || os.IsTimeout(err) || errors.Is(err, io.EOF)) {
 				for {
 					if err := cancelCtx.Err(); err != nil {
 						return
