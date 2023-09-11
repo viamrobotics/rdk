@@ -295,9 +295,8 @@ func (sf *solverFrame) AlmostEquals(otherFrame frame.Frame) bool {
 	return false
 }
 
-// planToNodes takes a plan and how well the solverFrame is following it as an errorState,
-// and turns it into a slice of nodes.
-func (sf solverFrame) planToNodes(plan []map[string][]frame.Input, errorState spatial.Pose) ([]node, error) {
+// planToNodes takes a plan and turns it into a slice of nodes.
+func (sf solverFrame) planToNodes(plan Plan) ([]node, error) {
 	planNodes := make([]node, 0, len(plan))
 	for _, step := range plan {
 		stepConfig, err := sf.mapToSlice(step)
@@ -308,8 +307,6 @@ func (sf solverFrame) planToNodes(plan []map[string][]frame.Input, errorState sp
 		if err != nil {
 			return nil, err
 		}
-		// adjust pose based off how much we've deviated from the expected path
-		pose = spatial.Compose(pose, errorState)
 		planNodes = append(planNodes, &basicNode{q: stepConfig, pose: pose})
 	}
 	return planNodes, nil

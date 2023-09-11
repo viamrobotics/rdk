@@ -4,6 +4,7 @@ package motionplan
 import (
 	"context"
 	"fmt"
+	"math"
 	"math/rand"
 	"sort"
 	"sync"
@@ -391,6 +392,7 @@ func CheckPlan(
 	worldState *frame.WorldState,
 	fs frame.FrameSystem,
 	currentPosition spatialmath.Pose,
+	currentInputs []frame.Input,
 	errorState spatialmath.Pose,
 	logger *zap.SugaredLogger,
 ) error {
@@ -398,7 +400,6 @@ func CheckPlan(
 	if len(plan) < 1 {
 		return errors.New("plan must have at least one element")
 	}
-
 	// construct solverFrame
 	// Note that this requires all frames which move as part of the plan, to have an
 	// entry in the very first plan waypoint
@@ -414,7 +415,7 @@ func CheckPlan(
 	}
 
 	// convert plan into nodes
-	planNodes, err := sf.planToNodes(plan, errorState)
+	planNodes, err := sf.planToNodes(plan)
 	if err != nil {
 		return err
 	}
@@ -425,20 +426,37 @@ func CheckPlan(
 	relative := len(sf.PTGs()) > 0
 
 	if relative {
-		fromInputsPose, err := sf.Transform(planNodes[0].Q())
+		// get pose of robot along the current trajectory it is executing
+		ptgs := sf.PTGs()
+		selectedPTG := ptgs[int(math.Round(currentInputs[0].Value))]
+		selectedTraj, err := selectedPTG.Trajectory(
+			currentInputs[1].Value, currentInputs[2].Value,
+		)
 		if err != nil {
 			return err
 		}
-		formerRunningPose := spatialmath.PoseBetweenInverse(fromInputsPose, planNodes[0].Pose())
+		lastPose := spatialmath.NewZeroPose()
+		for _, trajNode := range selectedTraj {
+			if trajNode.Dist > currentInputs[2].Value {
+				break
+			}
+			lastPose = trajNode.Pose
+		}
+
+		// where ought the robot be on the plan
+		truePosition := spatialmath.PoseBetweenInverse(errorState, currentPosition)
+
+		// absolute pose of the previous node we've passed
+		formerRunningPose := spatialmath.PoseBetweenInverse(lastPose, truePosition)
+
+		// convert planNode's poses to be in absolute corrdinated
 		if planNodes, err = rectifyTPspacePath(planNodes, sf, formerRunningPose); err != nil {
 			return err
 		}
-		// re-rectify with error
-		for _, node := range planNodes {
-			erroredPose := spatialmath.Compose(node.Pose(), errorState)
-			node.SetPose(erroredPose)
-		}
 	}
+	// adjust planNodes by the errorState
+	planNodes = transformNodes(planNodes, errorState)
+
 	// pre-pend node with current position of robot to planNodes
 	// Note that currentPosition is assumed to have already accounted for the errorState
 	planNodes = append([]node{&basicNode{pose: currentPosition}}, planNodes...)
