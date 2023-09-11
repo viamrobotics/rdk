@@ -5,6 +5,11 @@ package obstaclesdepth
 
 import (
 	"context"
+	"math"
+	"sort"
+	"strconv"
+	"sync"
+
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/muesli/clusters"
@@ -12,6 +17,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/viamrobotics/gostream"
 	"go.opencensus.io/trace"
+
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
@@ -22,10 +28,6 @@ import (
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 	vision "go.viam.com/rdk/vision"
-	"math"
-	"sort"
-	"strconv"
-	"sync"
 )
 
 var model = resource.DefaultModelFamily.WithModel("obstacles_depth")
@@ -260,24 +262,6 @@ func (o *obsDepth) obsDepthWithIntrinsics(ctx context.Context, src camera.VideoS
 
 // isCompatible will check compatibility between 2 points.
 // as defined by Manduchi et al.
-/*
-
-func (o *obsDepth) isCompatible(p1, p2 image.Point) bool {
-	xdist, ydist := math.Abs(float64(p1.X-p2.X)), math.Abs(float64(p1.Y-p2.Y))
-	zdist := math.Abs(float64(o.dm.Get(p1)) - float64(o.dm.Get(p2)))
-	dist := math.Sqrt((xdist * xdist) + (ydist * ydist) + (zdist * zdist))
-
-	if ydist < o.hMin || ydist > o.hMax {
-		return false
-	}
-	if ydist/dist < o.sinTheta {
-		return false
-	}
-	return true
-}
-
-*/
-
 func (o *obsDepth) isCompatible(p1, p2 []float64) bool {
 	if len(p1) < 3 || len(p2) < 3 {
 		return false
@@ -349,7 +333,7 @@ func (o *obsDepth) performKMeans3D(k int) ([]spatialmath.Geometry, clusters.Clus
 	return boxes, clusters, err
 }
 
-// makePointList will populate o.depthPts with the depth data
+// makePointList will populate o.depthPts with the depth data.
 func (o *obsDepth) makePointList() [][]float64 {
 	width, height := o.dm.Width(), o.dm.Height()
 	out := make([][]float64, 0, width*height)
