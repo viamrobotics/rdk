@@ -981,7 +981,8 @@ func TestValidateUniqueNames(t *testing.T) {
 	}
 
 	remote1 := config.Remote{
-		Name: "remote1",
+		Name:    "remote1",
+		Address: "test",
 	}
 	config1 := config.Config{
 		Components: []resource.Config{component, component},
@@ -1006,10 +1007,20 @@ func TestValidateUniqueNames(t *testing.T) {
 	allConfigs := []config.Config{config1, config2, config3, config4, config5, config6}
 
 	for _, config := range allConfigs {
+		// returns an error instead of logging it
+		config.DisablePartialStart = true
 		// test that the logger returns an error after the ensure method is done
 		err := config.Ensure(false, logger)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "duplicate resource")
+
+		observedLogger, logs := golog.NewObservedTestLogger(t)
+		// now test it with logging enabled
+		config.DisablePartialStart = false
+		err = config.Ensure(false, observedLogger)
+		test.That(t, err, test.ShouldBeNil)
+
+		test.That(t, logs.FilterMessageSnippet("duplicate resource").Len(), test.ShouldBeGreaterThan, 0)
 	}
 
 	// mix components and services with the same name -- no error as use triplets

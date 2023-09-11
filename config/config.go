@@ -79,9 +79,13 @@ type configData struct {
 	DisablePartialStart bool                  `json:"disable_partial_start"`
 }
 
-func (c *Config) validateUniqueResource(seenResources map[string]bool, name string) error {
+func (c *Config) validateUniqueResource(logger golog.Logger, seenResources map[string]bool, name string) error {
 	if _, exists := seenResources[name]; exists {
-		return errors.Errorf("duplicate resource %s in robot config", name)
+		errString := errors.Errorf("duplicate resource %s in robot config", name)
+		if c.DisablePartialStart {
+			return errString
+		}
+		logger.Error(errString)
 	}
 	seenResources[name] = true
 	return nil
@@ -112,7 +116,7 @@ func (c *Config) Ensure(fromCloud bool, logger golog.Logger) error {
 			}
 			logger.Errorw("module config error; starting robot without module", "name", c.Modules[idx].Name, "error", err)
 		}
-		if err := c.validateUniqueResource(seenResources, c.Modules[idx].Name); err != nil {
+		if err := c.validateUniqueResource(logger, seenResources, c.Modules[idx].Name); err != nil {
 			return err
 		}
 	}
@@ -126,7 +130,7 @@ func (c *Config) Ensure(fromCloud bool, logger golog.Logger) error {
 		}
 		// we need to figure out how to make it so that the remote is tied to the API
 		resourceRemoteName := resource.NewName(resource.APINamespaceRDK.WithType("remote").WithSubtype(""), c.Remotes[idx].Name)
-		if err := c.validateUniqueResource(seenResources, resourceRemoteName.Name); err != nil {
+		if err := c.validateUniqueResource(logger, seenResources, resourceRemoteName.Name); err != nil {
 			return err
 		}
 	}
@@ -142,7 +146,7 @@ func (c *Config) Ensure(fromCloud bool, logger golog.Logger) error {
 		} else {
 			c.Components[idx].ImplicitDependsOn = dependsOn
 		}
-		if err := c.validateUniqueResource(seenResources, c.Components[idx].ResourceName().String()); err != nil {
+		if err := c.validateUniqueResource(logger, seenResources, c.Components[idx].ResourceName().String()); err != nil {
 			return err
 		}
 	}
@@ -155,7 +159,7 @@ func (c *Config) Ensure(fromCloud bool, logger golog.Logger) error {
 			logger.Errorw("process config error; starting robot without process", "name", c.Processes[idx].Name, "error", err)
 		}
 
-		if err := c.validateUniqueResource(seenResources, c.Processes[idx].ID); err != nil {
+		if err := c.validateUniqueResource(logger, seenResources, c.Processes[idx].ID); err != nil {
 			return err
 		}
 	}
@@ -171,7 +175,7 @@ func (c *Config) Ensure(fromCloud bool, logger golog.Logger) error {
 			c.Services[idx].ImplicitDependsOn = dependsOn
 		}
 
-		if err := c.validateUniqueResource(seenResources, c.Services[idx].ResourceName().String()); err != nil {
+		if err := c.validateUniqueResource(logger, seenResources, c.Services[idx].ResourceName().String()); err != nil {
 			return err
 		}
 	}
@@ -184,7 +188,7 @@ func (c *Config) Ensure(fromCloud bool, logger golog.Logger) error {
 			}
 			logger.Errorw("package config error; starting robot without package", "name", c.Packages[idx].Name, "error", err)
 		}
-		if err := c.validateUniqueResource(seenResources, c.Packages[idx].Package); err != nil {
+		if err := c.validateUniqueResource(logger, seenResources, c.Packages[idx].Package); err != nil {
 			return err
 		}
 	}
