@@ -4,6 +4,7 @@ import (
 	"context"
 	"math"
 
+	"github.com/google/uuid"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
@@ -207,27 +208,91 @@ func (server *serviceServer) ListPlanStatuses(ctx context.Context, req *pb.ListP
 	if err != nil {
 		return nil, err
 	}
-	statuses, err := svc.ListPlanStatuses(ctx, req.Extra.AsMap())
+
+	planStatuses, err := svc.ListPlanStatuses(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
-	pbStatuses := []*pb.PlanStatus{}
 
-	for _, s := range statuses {
-		status := &pb.PlanStatus{
-			PlanId:      s.PlanID.String(),
-			OperationId: s.OperationID.String(),
-			State:       pb.PlanState(s.State),
-			Timestamp:   timestamppb.New(s.Timestamp),
-			Reason:      &s.Reason,
-		}
-		pbStatuses = append(pbStatuses, status)
+	pbStatuses := []*pb.PlanStatus{}
+	for _, ps := range planStatuses {
+		pbStatuses = append(pbStatuses, planStatusToPB(ps))
 	}
 	return &pb.ListPlanStatusesResponse{Statuses: pbStatuses}, nil
 }
 
 func (server *serviceServer) GetPlan(ctx context.Context, req *pb.GetPlanRequest) (*pb.GetPlanResponse, error) {
-	return nil, errors.New("unimplemented")
+	svc, err := server.coll.Resource(req.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	opID, err := uuid.Parse(req.OperationId)
+	if err != nil {
+		return nil, err
+	}
+
+	opPlans, err := svc.GetPlan(ctx, GetPlanRequest{OperationID: opID, Extra: req.Extra.AsMap()})
+	if err != nil {
+		return nil, err
+	}
+	return opIDPlansToPB(opPlans), nil
+}
+
+func opIDPlansToPB(opIDPlans OpIDPlans) *pb.GetPlanResponse {
+	replanHistory := []*pb.PlanWithStatus{}
+	for _, pws := range opIDPlans.ReplanHistory {
+		replanHistory = append(replanHistory, planWithStatusToPB(pws))
+	}
+	return &pb.GetPlanResponse{
+		CurrentPlanWithStatus: planWithStatusToPB(opIDPlans.CurrentPlanWithPlanWithStatus),
+		ReplanHistory:         replanHistory,
+	}
+}
+
+func planWithStatusToPB(pws PlanWithStatus) *pb.PlanWithStatus {
+	statusHistory := []*pb.PlanStatus{}
+	for _, ps := range pws.StatusHistory {
+		statusHistory = append(statusHistory, planStatusToPB(ps))
+	}
+
+	planWithStatusPB := &pb.PlanWithStatus{
+		Plan:          planToPB(pws.Plan),
+		Status:        planStatusToPB(pws.Status),
+		StatusHistory: statusHistory,
+	}
+	return planWithStatusPB
+}
+
+func planStatusToPB(ps PlanStatus) *pb.PlanStatus {
+	return &pb.PlanStatus{
+		PlanId:      ps.PlanID.String(),
+		OperationId: ps.OperationID.String(),
+		State:       pb.PlanState(ps.State),
+		Timestamp:   timestamppb.New(ps.Timestamp),
+		Reason:      &ps.Reason,
+	}
+}
+
+func planToPB(p Plan) *pb.Plan {
+	steps := []*pb.PlanSteps{}
+	for _, s := range p.Steps {
+		steps = append(steps, stepToPB(s))
+	}
+
+	return &pb.Plan{
+		Id:    p.ID.String(),
+		Steps: steps,
+	}
+}
+
+func stepToPB(s Step) *pb.PlanSteps {
+	step := make(map[string]*pb.ComponentState)
+	for name, pose := range s {
+		pbPose := spatialmath.PoseToProtobuf(pose)
+		step[name.String()] = &pb.ComponentState{Pose: pbPose}
+	}
+	return &pb.PlanSteps{Step: step}
 }
 
 // DoCommand receives arbitrary commands.
