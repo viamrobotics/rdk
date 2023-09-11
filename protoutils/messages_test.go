@@ -15,7 +15,7 @@ func TestStringToAnyPB(t *testing.T) {
 	wrappedVal := wrapperspb.Int64(int64(12))
 	test.That(t, anyVal.MessageIs(wrappedVal), test.ShouldBeTrue)
 
-	anyVal, err = ConvertStringToAnyPB(strconv.Itoa(math.MaxInt64))
+	anyVal, err = ConvertStringToAnyPB(strconv.Itoa(math.MaxInt))
 	test.That(t, err, test.ShouldBeNil)
 	wrappedVal = wrapperspb.Int64(math.MaxInt64)
 	test.That(t, anyVal.MessageIs(wrappedVal), test.ShouldBeTrue)
