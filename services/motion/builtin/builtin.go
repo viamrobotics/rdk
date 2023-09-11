@@ -10,6 +10,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
+	"github.com/google/uuid"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -363,6 +364,35 @@ func (ms *builtIn) GetPose(
 		destinationFrame,
 		supplementalTransforms,
 	)
+}
+
+// MoveOnGlobeNew will move the given component to the given destination on the globe.
+// Bases are the only component that supports this.
+func (ms *builtIn) MoveOnGlobeNew(
+	ctx context.Context,
+	componentName resource.Name,
+	destination *geo.Point,
+	heading float64,
+	movementSensorName resource.Name,
+	obstacles []*spatialmath.GeoObstacle,
+	motionCfg *motion.MotionConfiguration,
+	extra map[string]interface{},
+) (uuid.UUID, error) {
+	return uuid.Nil, errors.New("unimplemented")
+}
+
+func (ms *builtIn) ListPlanStatuses(
+	ctx context.Context,
+	extra map[string]interface{},
+) ([]motion.PlanStatus, error) {
+	return nil, errors.New("unimplemented")
+}
+
+func (ms *builtIn) GetPlan(
+	ctx context.Context,
+	r motion.GetPlanRequest,
+) (motion.OpIDPlans, error) {
+	return motion.OpIDPlans{}, errors.New("unimplemented")
 }
 
 // PlanMoveOnMap returns the plan for MoveOnMap to execute.

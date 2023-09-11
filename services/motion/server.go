@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/motion/v1"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
@@ -161,11 +162,68 @@ func (server *serviceServer) GetPose(ctx context.Context, req *pb.GetPoseRequest
 }
 
 func (server *serviceServer) MoveOnGlobeNew(ctx context.Context, req *pb.MoveOnGlobeNewRequest) (*pb.MoveOnGlobeNewResponse, error) {
-	return nil, errors.New("unimplemented")
+	svc, err := server.coll.Resource(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	if req.Destination == nil {
+		return nil, errors.New("Must provide a destination")
+	}
+
+	// Optionals
+	heading := math.NaN()
+	if req.Heading != nil {
+		heading = req.GetHeading()
+	}
+	obstaclesProto := req.GetObstacles()
+	obstacles := make([]*spatialmath.GeoObstacle, 0, len(obstaclesProto))
+	for _, eachProtoObst := range obstaclesProto {
+		convObst, err := spatialmath.GeoObstacleFromProtobuf(eachProtoObst)
+		if err != nil {
+			return nil, err
+		}
+		obstacles = append(obstacles, convObst)
+	}
+	motionCfg := setupMotionConfiguration(req.MotionConfiguration)
+
+	resp, err := svc.MoveOnGlobeNew(
+		ctx,
+		protoutils.ResourceNameFromProto(req.GetComponentName()),
+		geo.NewPoint(req.GetDestination().GetLatitude(), req.GetDestination().GetLongitude()),
+		heading,
+		protoutils.ResourceNameFromProto(req.GetMovementSensorName()),
+		obstacles,
+		&motionCfg,
+		req.Extra.AsMap(),
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.MoveOnGlobeNewResponse{OperationId: resp.String()}, nil
 }
 
 func (server *serviceServer) ListPlanStatuses(ctx context.Context, req *pb.ListPlanStatusesRequest) (*pb.ListPlanStatusesResponse, error) {
-	return nil, errors.New("unimplemented")
+	svc, err := server.coll.Resource(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	statuses, err := svc.ListPlanStatuses(ctx, req.Extra.AsMap())
+	if err != nil {
+		return nil, err
+	}
+	pbStatuses := []*pb.PlanStatus{}
+
+	for _, s := range statuses {
+		status := &pb.PlanStatus{
+			PlanId:      s.PlanID.String(),
+			OperationId: s.OperationID.String(),
+			State:       pb.PlanState(s.State),
+			Timestamp:   timestamppb.New(s.Timestamp),
+			Reason:      &s.Reason,
+		}
+		pbStatuses = append(pbStatuses, status)
+	}
+	return &pb.ListPlanStatusesResponse{Statuses: pbStatuses}, nil
 }
 
 func (server *serviceServer) GetPlan(ctx context.Context, req *pb.GetPlanRequest) (*pb.GetPlanResponse, error) {

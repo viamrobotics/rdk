@@ -281,7 +281,6 @@ func (c *client) MoveOnGlobeNew(
 
 func (c *client) ListPlanStatuses(
 	ctx context.Context,
-	componentName resource.Name,
 	extra map[string]interface{},
 ) ([]PlanStatus, error) {
 	ext, err := vprotoutils.StructToStructPb(extra)
@@ -312,7 +311,6 @@ func (c *client) ListPlanStatuses(
 
 func (c *client) GetPlan(
 	ctx context.Context,
-	componentName resource.Name,
 	r GetPlanRequest,
 ) (OpIDPlans, error) {
 	ext, err := vprotoutils.StructToStructPb(r.Extra)
