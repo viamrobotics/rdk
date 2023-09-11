@@ -321,8 +321,9 @@ func (c *client) GetPlan(
 	}
 
 	req := &pb.GetPlanRequest{
-		Name:  c.name,
-		Extra: ext,
+		Name:        c.name,
+		OperationId: r.OperationId.String(),
+		Extra:       ext,
 	}
 
 	resp, err := c.client.GetPlan(ctx, req)
@@ -407,17 +408,18 @@ func toPlanWithStatus(pws *pb.PlanWithStatus) (PlanWithStatus, error) {
 		return PlanWithStatus{}, err
 	}
 
-	history := []PlanStatus{}
+	statusHistory := []PlanStatus{}
 	for _, s := range pws.StatusHistory {
 		ps, err := toPlanStatus(s)
 		if err != nil {
 			return PlanWithStatus{}, err
 		}
-		history = append(history, ps)
+		statusHistory = append(statusHistory, ps)
 	}
+
 	return PlanWithStatus{
 		Plan:          plan,
 		Status:        status,
-		StatusHistory: history,
+		StatusHistory: statusHistory,
 	}, nil
 }
