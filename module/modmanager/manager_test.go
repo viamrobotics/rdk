@@ -604,7 +604,7 @@ func TestDebugModule(t *testing.T) {
 }
 
 func TestGracefulShutdownWithMalformedModule(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger, logs := golog.NewObservedTestLogger(t)
 	// Precompile module to avoid timeout issues when building takes too long.
 	modPath, err := rtestutils.BuildTempModule(t, "module/testmodule")
 	test.That(t, err, test.ShouldBeNil)
@@ -637,4 +637,7 @@ func TestGracefulShutdownWithMalformedModule(t *testing.T) {
 	<-channel
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "error while starting module test-module")
+
+	// this message comes from the OUE handler, which shouldn't have been called at this point
+	test.That(t, logs.FilterMessageSnippet("module has unexpectedly exited").Len(), test.ShouldEqual, 0)
 }
