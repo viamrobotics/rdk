@@ -620,7 +620,6 @@ func TestGracefulShutdownWithMalformedModule(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer os.RemoveAll(parentAddr)
 	parentAddr += "/parent.sock"
-	println(parentAddr)
 
 	mgr := NewManager(parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
 
