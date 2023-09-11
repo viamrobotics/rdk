@@ -27,6 +27,8 @@ type moveAttempt struct {
 	request      *moveRequest
 	responseChan chan moveResponse
 
+	// replanners for the move attempt
+	// if we ever have to add additional instances we should figure out how to make this more scalable
 	position, obstacle *replanner
 }
 
