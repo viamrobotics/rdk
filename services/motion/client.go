@@ -5,6 +5,7 @@ import (
 	"math"
 
 	"github.com/edaniels/golog"
+	"github.com/google/uuid"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
@@ -12,7 +13,6 @@ import (
 	vprotoutils "go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -203,7 +203,6 @@ func (c *client) GetPose(
 }
 
 func (c *client) MoveOnGlobeNew(
-	ext, err := vprotoutils.StructToStructPb(extra)
 	ctx context.Context,
 	componentName resource.Name,
 	destination *geo.Point,
@@ -212,17 +211,17 @@ func (c *client) MoveOnGlobeNew(
 	obstacles []*spatialmath.GeoObstacle,
 	motionCfg *MotionConfiguration,
 	extra map[string]interface{},
-) (*operation.Operation, error) {
+) (uuid.UUID, error) {
 	ext, err := vprotoutils.StructToStructPb(extra)
 	if err != nil {
-		return false, err
+		return uuid.Nil, err
 	}
 
 	if destination == nil {
-		return false, errors.New("Must provide a destination")
+		return uuid.Nil, errors.New("Must provide a destination")
 	}
 
-	req := &pb.MoveOnGlobeRequest{
+	req := &pb.MoveOnGlobeNewRequest{
 		Name:                c.name,
 		ComponentName:       protoutils.ResourceNameToProto(componentName),
 		Destination:         &commonpb.GeoPoint{Latitude: destination.Lat(), Longitude: destination.Lng()},
@@ -268,12 +267,16 @@ func (c *client) MoveOnGlobeNew(
 		req.MotionConfiguration.VisionServices = svcs
 	}
 
-	resp, err := c.client.MoveOnGlobe(ctx, req)
+	resp, err := c.client.MoveOnGlobeNew(ctx, req)
 	if err != nil {
-		return false, err
+		return uuid.Nil, err
+	}
+	opid, err := uuid.Parse(resp.OperationId)
+	if err != nil {
+		return uuid.Nil, err
 	}
 
-	return resp.Success, nil
+	return opid, nil
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
