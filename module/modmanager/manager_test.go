@@ -604,6 +604,11 @@ func TestDebugModule(t *testing.T) {
 }
 
 func TestGracefulShutdownWithMalformedModule(t *testing.T) {
+	// This test ensures that module manager's `Add` can be interrupted by a `Close`
+	// call correctly, and no OUE restart goroutines will continue beyond their `inStartup`
+	// check. With our current design, `local_robot.Reconfigure` blocks the main thread,
+	// so the manager will not be `Closed` while a module is being `Add`ed. Future work
+	// (RSDK-4854) may change that though.
 	logger, logs := golog.NewObservedTestLogger(t)
 	// Precompile module to avoid timeout issues when building takes too long.
 	modPath, err := rtestutils.BuildTempModule(t, "module/testmodule")
