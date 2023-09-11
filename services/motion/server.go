@@ -4,10 +4,12 @@ import (
 	"context"
 	"math"
 
+	"github.com/google/uuid"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/motion/v1"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
@@ -158,6 +160,140 @@ func (server *serviceServer) GetPose(ctx context.Context, req *pb.GetPoseRequest
 		return nil, err
 	}
 	return &pb.GetPoseResponse{Pose: referenceframe.PoseInFrameToProtobuf(pose)}, nil
+}
+
+func (server *serviceServer) MoveOnGlobeNew(ctx context.Context, req *pb.MoveOnGlobeNewRequest) (*pb.MoveOnGlobeNewResponse, error) {
+	svc, err := server.coll.Resource(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	if req.Destination == nil {
+		return nil, errors.New("Must provide a destination")
+	}
+
+	// Optionals
+	heading := math.NaN()
+	if req.Heading != nil {
+		heading = req.GetHeading()
+	}
+	obstaclesProto := req.GetObstacles()
+	obstacles := make([]*spatialmath.GeoObstacle, 0, len(obstaclesProto))
+	for _, eachProtoObst := range obstaclesProto {
+		convObst, err := spatialmath.GeoObstacleFromProtobuf(eachProtoObst)
+		if err != nil {
+			return nil, err
+		}
+		obstacles = append(obstacles, convObst)
+	}
+	motionCfg := setupMotionConfiguration(req.MotionConfiguration)
+
+	resp, err := svc.MoveOnGlobeNew(
+		ctx,
+		protoutils.ResourceNameFromProto(req.GetComponentName()),
+		geo.NewPoint(req.GetDestination().GetLatitude(), req.GetDestination().GetLongitude()),
+		heading,
+		protoutils.ResourceNameFromProto(req.GetMovementSensorName()),
+		obstacles,
+		&motionCfg,
+		req.Extra.AsMap(),
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.MoveOnGlobeNewResponse{OperationId: resp.String()}, nil
+}
+
+func (server *serviceServer) ListPlanStatuses(ctx context.Context, req *pb.ListPlanStatusesRequest) (*pb.ListPlanStatusesResponse, error) {
+	svc, err := server.coll.Resource(req.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	planStatuses, err := svc.ListPlanStatuses(ctx, req.Extra.AsMap())
+	if err != nil {
+		return nil, err
+	}
+
+	pbStatuses := []*pb.PlanStatus{}
+	for _, ps := range planStatuses {
+		pbStatuses = append(pbStatuses, planStatusToPB(ps))
+	}
+	return &pb.ListPlanStatusesResponse{Statuses: pbStatuses}, nil
+}
+
+func (server *serviceServer) GetPlan(ctx context.Context, req *pb.GetPlanRequest) (*pb.GetPlanResponse, error) {
+	svc, err := server.coll.Resource(req.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	opID, err := uuid.Parse(req.OperationId)
+	if err != nil {
+		return nil, err
+	}
+
+	opPlans, err := svc.GetPlan(ctx, GetPlanRequest{OperationID: opID, Extra: req.Extra.AsMap()})
+	if err != nil {
+		return nil, err
+	}
+	return opIDPlansToPB(opPlans), nil
+}
+
+func opIDPlansToPB(opIDPlans OpIDPlans) *pb.GetPlanResponse {
+	replanHistory := []*pb.PlanWithStatus{}
+	for _, pws := range opIDPlans.ReplanHistory {
+		replanHistory = append(replanHistory, planWithStatusToPB(pws))
+	}
+	return &pb.GetPlanResponse{
+		CurrentPlanWithStatus: planWithStatusToPB(opIDPlans.CurrentPlanWithPlanWithStatus),
+		ReplanHistory:         replanHistory,
+	}
+}
+
+func planWithStatusToPB(pws PlanWithStatus) *pb.PlanWithStatus {
+	statusHistory := []*pb.PlanStatus{}
+	for _, ps := range pws.StatusHistory {
+		statusHistory = append(statusHistory, planStatusToPB(ps))
+	}
+
+	planWithStatusPB := &pb.PlanWithStatus{
+		Plan:          planToPB(pws.Plan),
+		Status:        planStatusToPB(pws.Status),
+		StatusHistory: statusHistory,
+	}
+	return planWithStatusPB
+}
+
+func planStatusToPB(ps PlanStatus) *pb.PlanStatus {
+	return &pb.PlanStatus{
+		PlanId:      ps.PlanID.String(),
+		OperationId: ps.OperationID.String(),
+		State:       pb.PlanState(ps.State),
+		Timestamp:   timestamppb.New(ps.Timestamp),
+		Reason:      &ps.Reason,
+	}
+}
+
+func planToPB(p Plan) *pb.Plan {
+	steps := []*pb.PlanSteps{}
+	for _, s := range p.Steps {
+		steps = append(steps, stepToPB(s))
+	}
+
+	return &pb.Plan{
+		Id:    p.ID.String(),
+		Steps: steps,
+	}
+}
+
+func stepToPB(s Step) *pb.PlanSteps {
+	step := make(map[string]*pb.ComponentState)
+	for name, pose := range s {
+		pbPose := spatialmath.PoseToProtobuf(pose)
+		step[name.String()] = &pb.ComponentState{Pose: pbPose}
+	}
+
+	return &pb.PlanSteps{Step: step}
 }
 
 // DoCommand receives arbitrary commands.

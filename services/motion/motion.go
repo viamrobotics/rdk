@@ -3,7 +3,9 @@ package motion
 
 import (
 	"context"
+	"time"
 
+	"github.com/google/uuid"
 	geo "github.com/kellydunn/golang-geo"
 	servicepb "go.viam.com/api/service/motion/v1"
 
@@ -57,6 +59,92 @@ type Service interface {
 		supplementalTransforms []*referenceframe.LinkInFrame,
 		extra map[string]interface{},
 	) (*referenceframe.PoseInFrame, error)
+	MoveOnGlobeNew(
+		ctx context.Context,
+		componentName resource.Name,
+		destination *geo.Point,
+		heading float64,
+		movementSensorName resource.Name,
+		obstacles []*spatialmath.GeoObstacle,
+		motionConfig *MotionConfiguration,
+		extra map[string]interface{},
+	) (uuid.UUID, error)
+	ListPlanStatuses(
+		ctx context.Context,
+		extra map[string]interface{},
+	) ([]PlanStatus, error)
+	GetPlan(
+		ctx context.Context,
+		r GetPlanRequest,
+	) (OpIDPlans, error)
+}
+
+// GetPlanRequest describes the request to the GetPlan interface method.
+// Contains the OperationID the returned plan(s) should be associated with
+// and an Extra parameter.
+type GetPlanRequest struct {
+	OperationID uuid.UUID
+	Extra       map[string]interface{}
+}
+
+// Step represents a single step of the plan
+// Describes the pose each resource described by the plan
+// should move to at that step.
+type Step map[resource.Name]spatialmath.Pose
+
+// Plan represnts a motion plan.
+// Has a unique ID and a sequence of Steps
+// which can be executed to follow the plan.
+type Plan struct {
+	ID    uuid.UUID
+	Steps []Step
+}
+
+// PlanState denotes the state a Plan is in.
+type PlanState = int32
+
+const (
+	// PlanStateUnspecified denotes an the Plan is in an unspecified state. This should never happen.
+	PlanStateUnspecified = iota
+
+	// PlanStateInProgress denotes an the Plan is in an in progress state. It is a temporary state.
+	PlanStateInProgress
+
+	// PlanStateCancelled denotes an the Plan is in a cancelled state. It is a terminal state.
+	PlanStateCancelled
+
+	// PlanStateSucceeded denotes an the Plan is in a succeeded state. It is a terminal state.
+	PlanStateSucceeded
+
+	// PlanStateFailed denotes an the Plan is in a failed state. It is a terminal state.
+	PlanStateFailed
+)
+
+// PlanStatus represents a state change of a currently executing or previously executing Plan
+// at a given point in time.
+// Contains the PlanID, OperationID, State, Timestamp, and a Reason for the state change.
+type PlanStatus struct {
+	PlanID      uuid.UUID
+	OperationID uuid.UUID
+	State       PlanState
+	Timestamp   time.Time
+	Reason      string
+}
+
+// PlanWithStatus contains a plan, its current status, and all state changes that came prior
+// sorted by ascending timestamp.
+type PlanWithStatus struct {
+	Plan          Plan
+	Status        PlanStatus
+	StatusHistory []PlanStatus
+}
+
+// OpIDPlans is the response of the GetPlan interface method.
+// It contains the current PlanWithStatus & all prior plans
+// associated with the OpID provided in the request.
+type OpIDPlans struct {
+	CurrentPlanWithPlanWithStatus PlanWithStatus
+	ReplanHistory                 []PlanWithStatus
 }
 
 // MotionConfiguration specifies how to configure a call
