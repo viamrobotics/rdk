@@ -301,40 +301,23 @@ func (c *client) ListPlanStatuses(
 
 	statuses := []PlanStatus{}
 	for _, s := range resp.Statuses {
-		planID, err := uuid.Parse(s.PlanId)
+		ps, err := toPlanStatus(s)
 		if err != nil {
 			return nil, err
-		}
-
-		opid, err := uuid.Parse(s.OperationId)
-		if err != nil {
-			return nil, err
-		}
-
-		var reason string
-		if s.Reason != nil {
-			reason = *s.Reason
-		}
-
-		ps := PlanStatus{
-			PlanID:      planID,
-			OperationID: opid,
-			State:       int32(s.State.Number()),
-			Reason:      reason,
-			Timestamp:   s.Timestamp.AsTime(),
 		}
 		statuses = append(statuses, ps)
 	}
 	return statuses, nil
 }
+
 func (c *client) GetPlan(
 	ctx context.Context,
 	componentName resource.Name,
 	r GetPlanRequest,
-) (PlanWithStatus, error) {
+) (GetPlanResponse, error) {
 	ext, err := vprotoutils.StructToStructPb(r.Extra)
 	if err != nil {
-		return PlanWithStatus{}, err
+		return GetPlanResponse{}, err
 	}
 
 	req := &pb.GetPlanRequest{
@@ -342,21 +325,99 @@ func (c *client) GetPlan(
 		Extra: ext,
 	}
 
-	resp, err := c.client.ListPlanStatuses(ctx, req)
+	resp, err := c.client.GetPlan(ctx, req)
 	if err != nil {
-		return PlanWithStatus{}, err
+		return GetPlanResponse{}, err
 	}
-	statuses := []PlanStatus{}
-	for _, s := range resp.Statuses {
-		planID, err := uuid.Parse(s.PlanId)
+
+	current, err := toPlanWithStatus(resp.CurrentPlanWithStatus)
+	if err != nil {
+		return GetPlanResponse{}, err
+	}
+
+	replanHistory := []PlanWithStatus{}
+	for _, pws := range resp.ReplanHistory {
+		p, err := toPlanWithStatus(pws)
 		if err != nil {
-			return PlanWithStatus{}, err
+			return GetPlanResponse{}, err
 		}
-		statuses = append(statuses, PlanStatus{PlanID: planID})
+		replanHistory = append(replanHistory, p)
 	}
-	return statuses, nil
+
+	return GetPlanResponse{
+		CurrentPlanWithPlanWithStatus: current,
+		ReplanHistory:                 replanHistory,
+	}, nil
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return protoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
+}
+
+func toPlan(p *pb.Plan) (Plan, error) {
+	id, err := uuid.Parse(p.Id)
+	if err != nil {
+		return Plan{}, err
+	}
+
+	steps := []Step{}
+	for _, s := range p.Steps {
+		step := make(Step)
+		for k, v := range s.Step {
+			step[k] = spatialmath.NewPoseFromProtobuf(v.Pose)
+		}
+		steps = append(steps, step)
+	}
+	return Plan{Id: id, Steps: steps}, nil
+}
+
+func toPlanStatus(ps *pb.PlanStatus) (PlanStatus, error) {
+	planID, err := uuid.Parse(ps.PlanId)
+	if err != nil {
+		return PlanStatus{}, err
+	}
+
+	opid, err := uuid.Parse(ps.OperationId)
+	if err != nil {
+		return PlanStatus{}, err
+	}
+
+	var reason string
+	if ps.Reason != nil {
+		reason = *ps.Reason
+	}
+
+	return PlanStatus{
+		PlanID:      planID,
+		OperationID: opid,
+		State:       int32(ps.State.Number()),
+		Reason:      reason,
+		Timestamp:   ps.Timestamp.AsTime(),
+	}, nil
+}
+
+func toPlanWithStatus(pws *pb.PlanWithStatus) (PlanWithStatus, error) {
+	plan, err := toPlan(pws.Plan)
+	if err != nil {
+		return PlanWithStatus{}, err
+	}
+
+	status, err := toPlanStatus(pws.Status)
+	if err != nil {
+		return PlanWithStatus{}, err
+	}
+
+	history := []PlanStatus{}
+	for _, s := range pws.StatusHistory {
+		ps, err := toPlanStatus(s)
+		if err != nil {
+			return PlanWithStatus{}, err
+		}
+		history = append(history, ps)
+	}
+	return PlanWithStatus{
+		Plan:          plan,
+		Status:        status,
+		StatusHistory: history,
+	}, nil
 }

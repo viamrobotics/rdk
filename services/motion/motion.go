@@ -97,6 +97,11 @@ type PlanWithStatus struct {
 	StatusHistory []PlanStatus
 }
 
+type GetPlanResponse struct {
+	CurrentPlanWithPlanWithStatus PlanWithStatus
+	ReplanHistory                 []PlanWithStatus
+}
+
 // MotionConfiguration specifies how to configure a call
 //
 //nolint:revive
