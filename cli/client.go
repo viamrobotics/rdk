@@ -138,8 +138,8 @@ func ListRobotsAction(c *cli.Context) error {
 	return nil
 }
 
-// RobotStatusAction is the corresponding Action for 'robot status'.
-func RobotStatusAction(c *cli.Context) error {
+// RobotsStatusAction is the corresponding Action for 'robots status'.
+func RobotsStatusAction(c *cli.Context) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
@@ -193,8 +193,8 @@ func RobotStatusAction(c *cli.Context) error {
 	return nil
 }
 
-// RobotLogsAction is the corresponding Action for 'robot logs'.
-func RobotLogsAction(c *cli.Context) error {
+// RobotsLogsAction is the corresponding Action for 'robots logs'.
+func RobotsLogsAction(c *cli.Context) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
@@ -237,8 +237,8 @@ func RobotLogsAction(c *cli.Context) error {
 	return nil
 }
 
-// RobotPartStatusAction is the corresponding Action for 'robot part status'.
-func RobotPartStatusAction(c *cli.Context) error {
+// RobotsPartStatusAction is the corresponding Action for 'robots part status'.
+func RobotsPartStatusAction(c *cli.Context) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
@@ -277,8 +277,8 @@ func RobotPartStatusAction(c *cli.Context) error {
 	return nil
 }
 
-// RobotPartLogsAction is the corresponding Action for 'robot part logs'.
-func RobotPartLogsAction(c *cli.Context) error {
+// RobotsPartLogsAction is the corresponding Action for 'robots part logs'.
+func RobotsPartLogsAction(c *cli.Context) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
@@ -312,8 +312,8 @@ func RobotPartLogsAction(c *cli.Context) error {
 	)
 }
 
-// RobotPartRunAction is the corresponding Action for 'robot part run'.
-func RobotPartRunAction(c *cli.Context) error {
+// RobotsPartRunAction is the corresponding Action for 'robots part run'.
+func RobotsPartRunAction(c *cli.Context) error {
 	svcMethod := c.Args().First()
 	if svcMethod == "" {
 		return errors.New("service method required")
@@ -343,8 +343,8 @@ func RobotPartRunAction(c *cli.Context) error {
 	)
 }
 
-// RobotPartShellAction is the corresponding Action for 'robot part shell'.
-func RobotPartShellAction(c *cli.Context) error {
+// RobotsPartShellAction is the corresponding Action for 'robots part shell'.
+func RobotsPartShellAction(c *cli.Context) error {
 	infof(c.App.Writer, "Ensure robot part has a valid shell type service")
 
 	client, err := newViamClient(c)

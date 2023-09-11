@@ -266,16 +266,16 @@ func (c *viamClient) whoAmIAction(cCtx *cli.Context) error {
 	return nil
 }
 
-// OrganizationAPIKeyCreateAction corresponds to `organization api-key create`.
-func OrganizationAPIKeyCreateAction(cCtx *cli.Context) error {
+// OrganizationsAPIKeyCreateAction corresponds to `organizations api-key create`.
+func OrganizationsAPIKeyCreateAction(cCtx *cli.Context) error {
 	c, err := newViamClient(cCtx)
 	if err != nil {
 		return err
 	}
-	return c.organizationAPIKeyCreateAction(cCtx)
+	return c.organizationsAPIKeyCreateAction(cCtx)
 }
 
-func (c *viamClient) organizationAPIKeyCreateAction(cCtx *cli.Context) error {
+func (c *viamClient) organizationsAPIKeyCreateAction(cCtx *cli.Context) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
