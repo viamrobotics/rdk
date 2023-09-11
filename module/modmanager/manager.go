@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/fs"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -608,8 +609,8 @@ func (m *module) startProcess(
 	oue func(int) bool,
 	logger golog.Logger,
 ) error {
-	m.addr = filepath.ToSlash(filepath.Join(filepath.Dir(parentAddr), m.name+".sock"))
-	if err := modlib.CheckSocketAddressLength(m.addr); err != nil {
+	var err error
+	if m.addr, err = modlib.TruncatedSocketAddress(filepath.Dir(parentAddr), m.name, runtime.GOOS); err != nil {
 		return err
 	}
 
@@ -630,8 +631,7 @@ func (m *module) startProcess(
 
 	m.process = pexec.NewManagedProcess(pconf, logger)
 
-	err := m.process.Start(context.Background())
-	if err != nil {
+	if err := m.process.Start(context.Background()); err != nil {
 		return errors.WithMessage(err, "module startup failed")
 	}
 

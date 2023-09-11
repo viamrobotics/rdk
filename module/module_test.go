@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
 	"path/filepath"
 	"testing"
 
@@ -665,4 +666,69 @@ func TestAttributeConversion(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, mc.Motors, test.ShouldResemble, []string{motor.Named("motor1").String()})
 	})
+}
+
+func TestModuleSocketAddrTruncation(t *testing.T) {
+	rand.Seed(0)
+	// test with a short base path
+	path, err := module.TruncatedSocketAddress("/tmp", "my-cool-module", "linux")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, path, test.ShouldEqual, "/tmp/my-cool-module.sock")
+
+	// test exactly 107 chars on linux
+	path, err = module.TruncatedSocketAddress(
+		"/tmp",
+		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		"linux",
+	)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, path, test.ShouldHaveLength, 107)
+	test.That(t, path, test.ShouldEqual,
+		"/tmp/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.sock",
+	)
+
+	// test 108 chars on linux
+	path, err = module.TruncatedSocketAddress(
+		"/tmp",
+		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		"linux",
+	)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, path, test.ShouldHaveLength, 107)
+	test.That(t, path, test.ShouldEqual,
+		"/tmp/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-mPGBa.sock",
+	)
+
+	// test with a truncated path on linux
+	path, err = module.TruncatedSocketAddress(
+		"/run/user/1000/viam-module",
+		"my_extra_extremely_extraordinarily_superfluously_tremendously_surprisingly_long_module_name",
+		"linux",
+	)
+
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, path, test.ShouldHaveLength, 107)
+	test.That(t, path, test.ShouldEqual,
+		"/run/user/1000/viam-module/my_extra_extremely_extraordinarily_superfluously_tremendously_surpris-yA47K.sock",
+	)
+
+	// test with a truncated path on macos
+	path, err = module.TruncatedSocketAddress(
+		"/var/folders/pc/yyrlrx8n0yq_xr550xh62pq80000gn/T/viam-module-2923273079",
+		"my_extra_long_module_name_service",
+		"darwin",
+	)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, path, test.ShouldHaveLength, 103)
+	test.That(t, path, test.ShouldEqual,
+		"/var/folders/pc/yyrlrx8n0yq_xr550xh62pq80000gn/T/viam-module-2923273079/my_extra_long_module-B4vMT.sock",
+	)
+
+	// test with an extra-long base path
+	_, err = module.TruncatedSocketAddress(
+		"/var/folders/pc/yyrlrx8n0yq_xr550xh62pq80000gn/T/viam-module-2923273079--------------------------",
+		"a",
+		"darwin",
+	)
+	test.That(t, err, test.ShouldBeError)
 }

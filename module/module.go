@@ -3,9 +3,10 @@ package module
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"net"
 	"os"
-	"runtime"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -31,17 +32,50 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
-// CheckSocketAddressLength returns an error if the socket path is too long for the OS.
-func CheckSocketAddressLength(addr string) error {
+const (
+	socketSuffix = ".sock"
+	// If we assume each robot has 10 modules running on it, and they would all have colliding truncated names,
+	// P(collision) = 1-(58^5)!/((58^5-10)!*(58^(5*10))) ~ 6.8E-8.
+	socketRandomSuffixLen int = 5
+	base58Chars               = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
+)
+
+// TruncatedSocketAddress returns a socket address of the form parentDir/desiredName.sock
+// if it is shorter than the max socket length on the given os. If this path would be too long, this function
+// truncates desiredName and returns parentDir/truncatedName-randomStr.sock.
+func TruncatedSocketAddress(parentDir, desiredName, goos string) (string, error) {
 	// maxSocketAddressLength is the length (-1 for null terminator) of the .sun_path field as used in kernel bind()/connect() syscalls.
-	maxSocketAddressLength := 103
-	if runtime.GOOS == "linux" {
-		maxSocketAddressLength = 107
+	maxSocketAddressLength := func() int {
+		if goos == "linux" {
+			return 107
+		}
+		return 103
+	}()
+	baseAddr := filepath.ToSlash(parentDir)
+	numRemainingChars := maxSocketAddressLength -
+		len(baseAddr) -
+		len(socketSuffix) -
+		1 // `/` between baseAddr and name
+
+	if numRemainingChars < len(desiredName) && numRemainingChars < socketRandomSuffixLen+1 {
+		return "", errors.Errorf("module socket base path would result in a path greater than the OS limit of %d characters: %s",
+			maxSocketAddressLength, baseAddr)
 	}
-	if len(addr) > maxSocketAddressLength {
-		return errors.Errorf("module socket path exceeds OS limit of %d characters: %s", maxSocketAddressLength, addr)
+
+	if numRemainingChars >= len(desiredName) {
+		return filepath.Join(baseAddr, desiredName+socketSuffix), nil
 	}
-	return nil
+
+	numRemainingChars -= socketRandomSuffixLen + 1 // save one character for the `-` between truncatedName and socketRandomSuffix
+
+	// generate the random suffix using base58Chars
+	socketRandomSuffix := make([]byte, socketRandomSuffixLen)
+	for i := range socketRandomSuffix {
+		//nolint:gosec // okay to use a weak random number generator here
+		socketRandomSuffix[i] = base58Chars[rand.Intn(len(base58Chars))]
+	}
+	truncatedName := desiredName[:numRemainingChars]
+	return filepath.Join(baseAddr, fmt.Sprintf("%s-%s%s", truncatedName, string(socketRandomSuffix), socketSuffix)), nil
 }
 
 // HandlerMap is the format for api->model pairs that the module will service.

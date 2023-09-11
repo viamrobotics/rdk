@@ -378,7 +378,11 @@ func (svc *webService) StartModule(ctx context.Context) error {
 		if err != nil {
 			return errors.WithMessage(err, "module startup failed")
 		}
-		addr = filepath.ToSlash(filepath.Join(dir, "parent.sock"))
+		addr, err = module.TruncatedSocketAddress(dir, "parent", runtime.GOOS)
+		if err != nil {
+			return errors.WithMessage(err, "module startup failed")
+		}
+
 		if runtime.GOOS == "windows" {
 			// on windows, we need to craft a good enough looking URL for gRPC which
 			// means we need to take out the volume which will have the current drive
@@ -387,9 +391,6 @@ func (svc *webService) StartModule(ctx context.Context) error {
 			// of dialing without any resolver modifications to gRPC, they must initially
 			// agree on using the same drive.
 			addr = addr[2:]
-		}
-		if err := module.CheckSocketAddressLength(addr); err != nil {
-			return err
 		}
 		svc.modAddr = addr
 		lis, err = net.Listen("unix", addr)
