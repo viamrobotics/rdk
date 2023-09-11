@@ -2,6 +2,7 @@ package videosource
 
 import (
 	"context"
+	_ "embed"
 	"fmt"
 	"image"
 	"path/filepath"
@@ -594,13 +595,41 @@ func (c *monitoredWebcam) NextPointCloud(ctx context.Context) (pointcloud.PointC
 	return c.exposedProjector.NextPointCloud(ctx)
 }
 
+//go:embed data/intrinsics.json
+var intrinsicsjson []byte
+
 func (c *monitoredWebcam) Properties(ctx context.Context) (camera.Properties, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	if err := c.ensureActive(); err != nil {
 		return camera.Properties{}, err
 	}
-	return c.exposedProjector.Properties(ctx)
+	//return c.exposedProjector.Properties(ctx)
+	props, err := c.exposedProjector.Properties(ctx)
+	if err != nil {
+		return camera.Properties{}, err
+	}
+	if props.IntrinsicParams == nil {
+		dInfo, err := c.DriverInfo()
+		if err != nil {
+			return camera.Properties{}, err
+		}
+		var data map[string]transform.PinholeCameraIntrinsics
+		if err := json.Unmarshal(intrinsicsjson, &data); err != nil {
+			c.logger.Errorw("MON VIE")
+			return camera.Properties{}, err
+		}
+
+		cameraIntrinsics, exists := data[dInfo.Name]
+		if !exists {
+			fmt.Println("Camera Model not found in Known Camera Models:", dInfo)
+			return camera.Properties{}, err
+		}
+
+		props.IntrinsicParams = &cameraIntrinsics
+	}
+
+	return props, err
 }
 
 var (
