@@ -146,13 +146,15 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	}
 	ms.logger.Debugf("base limits: %v", limits)
 
-	if extra != nil {
-		if profile, ok := extra["motion_profile"]; ok {
-			motionProfile, ok := profile.(string)
-			if !ok {
-				return nil, errors.New("could not interpret motion_profile field as string")
+	if false { // TODO: Fix with RSDK-4583
+		if extra != nil {
+			if profile, ok := extra["motion_profile"]; ok {
+				motionProfile, ok := profile.(string)
+				if !ok {
+					return nil, errors.New("could not interpret motion_profile field as string")
+				}
+				kinematicsOptions.PositionOnlyMode = motionProfile == motionplan.PositionOnlyMotionProfile
 			}
-			kinematicsOptions.PositionOnlyMode = motionProfile == motionplan.PositionOnlyMotionProfile
 		}
 	}
 
