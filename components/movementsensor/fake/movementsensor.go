@@ -18,26 +18,22 @@ var model = resource.DefaultModelFamily.WithModel("fake")
 // Config is used for converting fake movementsensor attributes.
 type Config struct {
 	resource.TriviallyValidateConfig
-	ConnectionType string `json:"connection_type,omitempty"`
 }
 
 func init() {
 	resource.RegisterComponent(
 		movementsensor.API,
 		model,
-		resource.Registration[movementsensor.MovementSensor, *Config]{
-			Constructor: func(
-				ctx context.Context,
-				deps resource.Dependencies,
-				conf resource.Config,
-				logger golog.Logger,
-			) (movementsensor.MovementSensor, error) {
-				return movementsensor.MovementSensor(&MovementSensor{
-					Named:  conf.ResourceName().AsNamed(),
-					logger: logger,
-				}), nil
-			},
-		})
+		resource.Registration[movementsensor.MovementSensor, *Config]{Constructor: NewMovementSensor})
+}
+
+// NewMovementSensor makes a new fake movement sensor.
+func NewMovementSensor(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger,
+) (movementsensor.MovementSensor, error) {
+	return &MovementSensor{
+		Named:  conf.ResourceName().AsNamed(),
+		logger: logger,
+	}, nil
 }
 
 // MovementSensor implements is a fake movement sensor interface.
