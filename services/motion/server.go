@@ -292,6 +292,7 @@ func stepToPB(s Step) *pb.PlanSteps {
 		pbPose := spatialmath.PoseToProtobuf(pose)
 		step[name.String()] = &pb.ComponentState{Pose: pbPose}
 	}
+
 	return &pb.PlanSteps{Step: step}
 }
 
