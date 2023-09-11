@@ -638,5 +638,7 @@ func TestGracefulShutdownWithMalformedModule(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "error while starting module test-module")
 
 	// this message comes from the OUE handler, which shouldn't have been called at this point
+	// (we closed the mgr before `Add` hits its normal timeout). At any rate, the OUE handler
+	// will always exit quickly without doing anything so long as `Add` is mid-call.
 	test.That(t, logs.FilterMessageSnippet("module has unexpectedly exited").Len(), test.ShouldEqual, 0)
 }
