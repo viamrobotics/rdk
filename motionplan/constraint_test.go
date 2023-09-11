@@ -49,6 +49,7 @@ func TestIKTolerances(t *testing.T) {
 }
 
 func TestConstraintPath(t *testing.T) {
+	interpolationMode := configuration
 	homePos := frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
 	toPos := frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 1})
 
@@ -62,14 +63,14 @@ func TestConstraintPath(t *testing.T) {
 	handler := &ConstraintHandler{}
 
 	// No constraints, should pass
-	ok, failCI := handler.CheckSegmentAndStateValidity(ci, 0.5)
+	ok, failCI := handler.CheckSegmentAndStateValidity(ci, 0.5, interpolationMode)
 	test.That(t, failCI, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
 
 	// Test interpolating
 	constraint, _ := NewProportionalLinearInterpolatingConstraint(ci.StartPosition, ci.EndPosition, 0.01)
 	handler.AddStateConstraint("interp", constraint)
-	ok, failCI = handler.CheckSegmentAndStateValidity(ci, 0.5)
+	ok, failCI = handler.CheckSegmentAndStateValidity(ci, 0.5, interpolationMode)
 	test.That(t, failCI, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
 
@@ -79,12 +80,13 @@ func TestConstraintPath(t *testing.T) {
 	ciBad := &ik.Segment{StartConfiguration: homePos, EndConfiguration: badInterpPos, Frame: modelXarm}
 	err = resolveSegmentsToPositions(ciBad)
 	test.That(t, err, test.ShouldBeNil)
-	ok, failCI = handler.CheckSegmentAndStateValidity(ciBad, 0.5)
+	ok, failCI = handler.CheckSegmentAndStateValidity(ciBad, 0.5, interpolationMode)
 	test.That(t, failCI, test.ShouldNotBeNil) // With linear constraint, should be valid at the first step
 	test.That(t, ok, test.ShouldBeFalse)
 }
 
 func TestLineFollow(t *testing.T) {
+	interpolationMode := configuration
 	p1 := spatial.NewPoseFromProtobuf(&commonpb.Pose{
 		X:  440,
 		Y:  -447,
@@ -166,6 +168,7 @@ func TestLineFollow(t *testing.T) {
 			Frame:              sf,
 		},
 		1,
+		interpolationMode,
 	)
 	test.That(t, ok, test.ShouldBeFalse)
 	// lastGood.StartConfiguration and EndConfiguration should pass constraints

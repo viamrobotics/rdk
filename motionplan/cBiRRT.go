@@ -328,6 +328,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 	seedInputs,
 	target []referenceframe.Input,
 ) []referenceframe.Input {
+	interpolationMode := configuration
 	for i := 0; i < maxNearIter; i++ {
 		select {
 		case <-ctx.Done():
@@ -353,7 +354,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 		}
 
 		// Check if the arc of "seedInputs" to "target" is valid
-		ok, _ := mp.planOpts.CheckSegmentAndStateValidity(newArc, mp.planOpts.Resolution)
+		ok, _ := mp.planOpts.CheckSegmentAndStateValidity(newArc, mp.planOpts.Resolution, interpolationMode)
 		if ok {
 			return target
 		}
@@ -374,6 +375,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 		ok, failpos := mp.planOpts.CheckSegmentAndStateValidity(
 			&ik.Segment{StartConfiguration: seedInputs, EndConfiguration: solved.Configuration, Frame: mp.frame},
 			mp.planOpts.Resolution,
+			interpolationMode,
 		)
 		if ok {
 			return solved.Configuration

@@ -11,7 +11,6 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
-
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
@@ -676,23 +675,23 @@ func TestCheckPlan(t *testing.T) {
 	motionCfg["timeout"] = 5.
 
 	// get plan and kinematic base
-	planRequest, kinBase, err := ms.(*builtIn).newMoveOnGlobeRequest(
+	moveRequest, err := ms.(*builtIn).newMoveOnGlobeRequest(
 		context.Background(),
 		fakeBase.Name(),
 		destPoint,
-		injectedMovementSensor,
+		injectedMovementSensor.Name(),
 		nil,
 		&motion.MotionConfiguration{PositionPollingFreqHz: 4, ObstaclePollingFreqHz: 1, PlanDeviationMM: 15.},
 		motionCfg,
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	plan, err := motionplan.PlanMotion(ctx, planRequest)
+	plan, err := motionplan.PlanMotion(ctx, moveRequest.planRequest)
 	test.That(t, err, test.ShouldBeNil)
 
 	// construct framesystem
 	newFS := referenceframe.NewEmptyFrameSystem("test-fs")
-	newFS.AddFrame(kinBase.Kinematics(), newFS.World())
+	newFS.AddFrame(moveRequest.kinematicBase.Kinematics(), newFS.World())
 
 	startPose := spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0})
 	errorState := startPose
@@ -700,7 +699,7 @@ func TestCheckPlan(t *testing.T) {
 	inputs := referenceframe.FloatsToInputs(floatList)
 
 	t.Run("check plan without obstacles - ensure success", func(t *testing.T) {
-		err := motionplan.CheckPlan(kinBase.Kinematics(), plan, nil, newFS, startPose, inputs, errorState, logger)
+		err := motionplan.CheckPlan(moveRequest.kinematicBase.Kinematics(), plan, nil, newFS, startPose, inputs, errorState, logger)
 		test.That(t, err, test.ShouldBeNil)
 	})
 	t.Run("check plan with a blocking obstacle - ensure failure", func(t *testing.T) {
@@ -715,7 +714,7 @@ func TestCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = motionplan.CheckPlan(kinBase.Kinematics(), plan, worldState, newFS, startPose, inputs, errorState, logger)
+		err = motionplan.CheckPlan(moveRequest.kinematicBase.Kinematics(), plan, worldState, newFS, startPose, inputs, errorState, logger)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
@@ -733,14 +732,14 @@ func TestCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = motionplan.CheckPlan(kinBase.Kinematics(), plan, worldState, newFS, startPose, inputs, errorState, logger)
+		err = motionplan.CheckPlan(moveRequest.kinematicBase.Kinematics(), plan, worldState, newFS, startPose, inputs, errorState, logger)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
 	// create camera_origin frame
 	cameraOriginFrame, err := referenceframe.NewStaticFrame("camera-origin", spatialmath.NewPoseFromPoint(r3.Vector{0, -30, 0}))
 	test.That(t, err, test.ShouldBeNil)
-	err = newFS.AddFrame(cameraOriginFrame, kinBase.Kinematics())
+	err = newFS.AddFrame(cameraOriginFrame, moveRequest.kinematicBase.Kinematics())
 	test.That(t, err, test.ShouldBeNil)
 
 	// create camera geometry
@@ -771,7 +770,7 @@ func TestCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = motionplan.CheckPlan(kinBase.Kinematics(), plan, worldState, newFS, startPose, inputs, errorState, logger)
+		err = motionplan.CheckPlan(moveRequest.kinematicBase.Kinematics(), plan, worldState, newFS, startPose, inputs, errorState, logger)
 		test.That(t, err, test.ShouldBeNil)
 	})
 	t.Run("ensure transforms of obstacles works - collision with camera", func(t *testing.T) {
@@ -787,7 +786,7 @@ func TestCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = motionplan.CheckPlan(kinBase.Kinematics(), plan, worldState, newFS, startPose, inputs, errorState, logger)
+		err = motionplan.CheckPlan(moveRequest.kinematicBase.Kinematics(), plan, worldState, newFS, startPose, inputs, errorState, logger)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 	t.Run("ensure transforms of obstacles works - collision with base", func(t *testing.T) {
@@ -803,7 +802,7 @@ func TestCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = motionplan.CheckPlan(kinBase.Kinematics(), plan, worldState, newFS, startPose, inputs, errorState, logger)
+		err = motionplan.CheckPlan(moveRequest.kinematicBase.Kinematics(), plan, worldState, newFS, startPose, inputs, errorState, logger)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 }

@@ -63,6 +63,7 @@ type rrtMaps struct {
 // initRRTsolutions will create the maps to be used by a RRT-based algorithm. It will generate IK solutions to pre-populate the goal
 // map, and will check if any of those goals are able to be directly interpolated to.
 func initRRTSolutions(ctx context.Context, mp motionPlanner, seed []referenceframe.Input) *rrtPlanReturn {
+	interpolationMode := configuration
 	rrt := &rrtPlanReturn{
 		maps: &rrtMaps{
 			startMap: map[node]node{},
@@ -91,7 +92,7 @@ func initRRTSolutions(ctx context.Context, mp motionPlanner, seed []referencefra
 		if canInterp {
 			cost := mp.opt().DistanceFunc(&ik.Segment{StartConfiguration: seed, EndConfiguration: solution.Q()})
 			if cost < optimalCost*defaultOptimalityMultiple {
-				if mp.checkPath(seed, solution.Q()) {
+				if mp.checkPath(seed, solution.Q(), interpolationMode) {
 					rrt.steps = []node{seedNode, solution}
 					return rrt
 				}

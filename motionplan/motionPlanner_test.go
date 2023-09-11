@@ -321,7 +321,7 @@ func testPlanner(t *testing.T, plannerFunc plannerConstructor, config planConfig
 			StartConfiguration: path[j],
 			EndConfiguration:   path[j+1],
 			Frame:              cfg.RobotFrame,
-		}, cfg.Options.Resolution)
+		}, cfg.Options.Resolution, 0)
 		test.That(t, ok, test.ShouldBeTrue)
 	}
 }

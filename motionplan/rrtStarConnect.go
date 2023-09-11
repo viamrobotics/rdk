@@ -229,6 +229,7 @@ func (mp *rrtStarConnectMotionPlanner) extend(
 	// 5) we have iterated more than maxExtendIter times
 	near := kNearestNeighbors(mp.planOpts, rrtMap, &basicNode{q: target.Q()}, mp.algOpts.NeighborhoodSize)[0].node
 	oldNear := near
+	interpolationMode := configuration
 	for i := 0; i < maxExtendIter; i++ {
 		select {
 		case <-ctx.Done():
@@ -246,7 +247,7 @@ func (mp *rrtStarConnectMotionPlanner) extend(
 		oldNear = near
 		newNear := fixedStepInterpolation(near, target, mp.planOpts.qstep)
 		// Check whether oldNear -> newNear path is a valid segment, and if not then set to nil
-		if !mp.checkPath(oldNear.Q(), newNear) {
+		if !mp.checkPath(oldNear.Q(), newNear, interpolationMode) {
 			break
 		}
 
@@ -269,7 +270,7 @@ func (mp *rrtStarConnectMotionPlanner) extend(
 			cost := connectionCost + near.Cost()
 
 			// If 1) we have a lower cost, and 2) the putative updated path is valid
-			if cost < thisNeighbor.node.Cost() && mp.checkPath(target.Q(), thisNeighbor.node.Q()) {
+			if cost < thisNeighbor.node.Cost() && mp.checkPath(target.Q(), thisNeighbor.node.Q(), interpolationMode) {
 				// Alter the cost of the node
 				// This needs to edit the existing node, rather than make a new one, as there are pointers in the tree
 				thisNeighbor.node.SetCost(cost)

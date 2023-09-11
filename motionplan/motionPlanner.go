@@ -32,7 +32,7 @@ type motionPlanner interface {
 
 	// Everything below this point should be covered by anything that wraps the generic `planner`
 	smoothPath(context.Context, []node) []node
-	checkPath([]frame.Input, []frame.Input) bool
+	checkPath([]frame.Input, []frame.Input, int) bool
 	checkInputs([]frame.Input) bool
 	getSolutions(context.Context, []frame.Input) ([]node, error)
 	opt() *plannerOptions
@@ -178,7 +178,7 @@ func (mp *planner) checkInputs(inputs []frame.Input) bool {
 	return ok
 }
 
-func (mp *planner) checkPath(seedInputs, target []frame.Input) bool {
+func (mp *planner) checkPath(seedInputs, target []frame.Input, interpolationMode int) bool {
 	ok, _ := mp.planOpts.CheckSegmentAndStateValidity(
 		&ik.Segment{
 			StartConfiguration: seedInputs,
@@ -186,6 +186,7 @@ func (mp *planner) checkPath(seedInputs, target []frame.Input) bool {
 			Frame:              mp.frame,
 		},
 		mp.planOpts.Resolution,
+		interpolationMode,
 	)
 	return ok
 }
@@ -239,7 +240,9 @@ func (mp *planner) smoothPath(ctx context.Context, path []node) []node {
 		wayPoint1 := frame.InterpolateInputs(path[firstEdge].Q(), path[firstEdge+1].Q(), waypoints[mp.randseed.Intn(3)])
 		wayPoint2 := frame.InterpolateInputs(path[secondEdge].Q(), path[secondEdge+1].Q(), waypoints[mp.randseed.Intn(3)])
 
-		if mp.checkPath(wayPoint1, wayPoint2) {
+		interpolationMode := configuration
+
+		if mp.checkPath(wayPoint1, wayPoint2, interpolationMode) {
 			newpath := []node{}
 			newpath = append(newpath, path[:firstEdge+1]...)
 			newpath = append(newpath, newConfigurationNode(wayPoint1), newConfigurationNode(wayPoint2))
@@ -473,17 +476,23 @@ func CheckPlan(
 		return err
 	}
 
+	// set the interpolation mode to pose to exclude information given by poses
+	interpolationMode := pose
+
 	// go through plan and check that we can move from plan[i] to plan[i+1]
 	for i := 0; i < len(planNodes)-1; i++ {
 		currentPose := planNodes[i].Pose()
 		nextPose := planNodes[i+1].Pose()
 		if isValid, _ := sfPlanner.planOpts.CheckSegmentAndStateValidity(
 			&ik.Segment{
-				StartPosition: currentPose,
-				EndPosition:   nextPose,
-				Frame:         sf,
+				StartPosition:      currentPose,
+				EndPosition:        nextPose,
+				StartConfiguration: planNodes[i].Q(),
+				EndConfiguration:   planNodes[i+1].Q(),
+				Frame:              sf,
 			},
 			sfPlanner.planOpts.Resolution,
+			interpolationMode,
 		); !isValid {
 			return fmt.Errorf("found collsion between positions %v and %v", currentPose.Point(), nextPose.Point())
 		}

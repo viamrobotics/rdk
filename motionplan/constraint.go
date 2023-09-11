@@ -13,6 +13,11 @@ import (
 	spatial "go.viam.com/rdk/spatialmath"
 )
 
+const (
+	configuration int = iota
+	pose
+)
+
 // Given a constraint input with only frames and input positions, calculates the corresponding poses as needed.
 func resolveSegmentsToPositions(segment *ik.Segment) error {
 	if segment.StartPosition == nil {
@@ -119,7 +124,11 @@ func (c *ConstraintHandler) CheckSegmentConstraints(segment *ik.Segment) (bool, 
 // If any constraints fail, this will return false, and an Segment representing the valid portion of the segment, if any. If no
 // part of the segment is valid, then `false, nil` is returned.
 // update function comment to explain how resolution works.
-func (c *ConstraintHandler) CheckStateConstraintsAcrossSegment(ci *ik.Segment, resolution float64) (bool, *ik.Segment) {
+func (c *ConstraintHandler) CheckStateConstraintsAcrossSegment(
+	ci *ik.Segment,
+	resolution float64,
+	interpolationMode int,
+) (bool, *ik.Segment) {
 	// ensure we have cartesian positions
 	err := resolveSegmentsToPositions(ci)
 	if err != nil {
@@ -132,14 +141,14 @@ func (c *ConstraintHandler) CheckStateConstraintsAcrossSegment(ci *ik.Segment, r
 	for i := 0; i <= steps; i++ {
 		interp := float64(i) / float64(steps)
 		interpC := &ik.State{Frame: ci.Frame}
-		// only interpolate through poses iff either start or end configuration are nil
-		if ci.StartPosition != nil && ci.EndPosition != nil && ci.StartConfiguration == nil || ci.EndConfiguration == nil {
-			interpC.Position = spatial.Interpolate(ci.StartPosition, ci.EndPosition, interp)
-		} else {
+		switch interpolationMode {
+		case configuration:
 			interpC.Configuration = referenceframe.InterpolateInputs(ci.StartConfiguration, ci.EndConfiguration, interp)
 			if resolveStatesToPositions(interpC) != nil {
 				return false, nil
 			}
+		case pose:
+			interpC.Position = spatial.Interpolate(ci.StartPosition, ci.EndPosition, interp)
 		}
 		pass, _ := c.CheckStateConstraints(interpC)
 		if !pass {
@@ -158,8 +167,12 @@ func (c *ConstraintHandler) CheckStateConstraintsAcrossSegment(ci *ik.Segment, r
 // CheckSegmentAndStateValidity will check an segment input and confirm that it 1) meets all segment constraints, and 2) meets all
 // state constraints across the segment at some resolution. If it fails an intermediate state, it will return the shortest valid segment,
 // provided that segment also meets segment constraints.
-func (c *ConstraintHandler) CheckSegmentAndStateValidity(segment *ik.Segment, resolution float64) (bool, *ik.Segment) {
-	valid, subSegment := c.CheckStateConstraintsAcrossSegment(segment, resolution)
+func (c *ConstraintHandler) CheckSegmentAndStateValidity(
+	segment *ik.Segment,
+	resolution float64,
+	interpolationMode int,
+) (bool, *ik.Segment) {
+	valid, subSegment := c.CheckStateConstraintsAcrossSegment(segment, resolution, interpolationMode)
 	if !valid {
 		if subSegment != nil {
 			subSegmentValid, _ := c.CheckSegmentConstraints(subSegment)
