@@ -367,11 +367,19 @@ func (wb *wheeledBase) SetVelocity(ctx context.Context, linear, angular r3.Vecto
 	wb.opMgr.CancelRunning(ctx)
 	defer wb.mu.Unlock()
 	for _, m := range wb.left {
-		errs = append(errs, m.GoFor(ctx, leftRPM, numRevolutions, nil))
+		if leftRPM != 0 {
+			errs = append(errs, m.GoFor(ctx, leftRPM, numRevolutions, nil))
+		} else {
+			errs = append(errs, m.Stop(ctx, nil))
+		}
 	}
 
 	for _, m := range wb.right {
-		errs = append(errs, m.GoFor(ctx, rightRPM, numRevolutions, nil))
+		if leftRPM != 0 {
+			errs = append(errs, m.GoFor(ctx, rightRPM, numRevolutions, nil))
+		} else {
+			errs = append(errs, m.Stop(ctx, nil))
+		}
 	}
 
 	return multierr.Combine(errs...)
