@@ -82,7 +82,7 @@ func (mr *moveRequest) deviatedFromPlan(ctx context.Context, waypoints [][]refer
 	if err != nil {
 		return false, err
 	}
-	return errorState.Point().Norm() <= mr.config.PlanDeviationMM, nil
+	return errorState.Point().Norm() > mr.config.PlanDeviationMM, nil
 }
 
 func (mr *moveRequest) obstaclesIntersectPlan(ctx context.Context, waypoints [][]referenceframe.Input, waypointIndex int) (bool, error) {
