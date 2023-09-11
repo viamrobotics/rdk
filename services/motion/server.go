@@ -160,6 +160,18 @@ func (server *serviceServer) GetPose(ctx context.Context, req *pb.GetPoseRequest
 	return &pb.GetPoseResponse{Pose: referenceframe.PoseInFrameToProtobuf(pose)}, nil
 }
 
+func (server *serviceServer) MoveOnGlobeNew(ctx context.Context, req *pb.MoveOnGlobeNewRequest) (*pb.MoveOnGlobeNewResponse, error) {
+	return nil, errors.New("unimplemented")
+}
+
+func (server *serviceServer) ListPlanStatuses(ctx context.Context, req *pb.ListPlanStatusesRequest) (*pb.ListPlanStatusesResponse, error) {
+	return nil, errors.New("unimplemented")
+}
+
+func (server *serviceServer) GetPlan(ctx context.Context, req *pb.GetPlanRequest) (*pb.GetPlanResponse, error) {
+	return nil, errors.New("unimplemented")
+}
+
 // DoCommand receives arbitrary commands.
 func (server *serviceServer) DoCommand(ctx context.Context,
 	req *commonpb.DoCommandRequest,
