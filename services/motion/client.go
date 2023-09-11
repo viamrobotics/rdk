@@ -314,38 +314,38 @@ func (c *client) GetPlan(
 	ctx context.Context,
 	componentName resource.Name,
 	r GetPlanRequest,
-) (GetPlanResponse, error) {
+) (OpIDPlans, error) {
 	ext, err := vprotoutils.StructToStructPb(r.Extra)
 	if err != nil {
-		return GetPlanResponse{}, err
+		return OpIDPlans{}, err
 	}
 
 	req := &pb.GetPlanRequest{
 		Name:        c.name,
-		OperationId: r.OperationId.String(),
+		OperationId: r.OperationID.String(),
 		Extra:       ext,
 	}
 
 	resp, err := c.client.GetPlan(ctx, req)
 	if err != nil {
-		return GetPlanResponse{}, err
+		return OpIDPlans{}, err
 	}
 
 	current, err := toPlanWithStatus(resp.CurrentPlanWithStatus)
 	if err != nil {
-		return GetPlanResponse{}, err
+		return OpIDPlans{}, err
 	}
 
 	replanHistory := []PlanWithStatus{}
 	for _, pws := range resp.ReplanHistory {
 		p, err := toPlanWithStatus(pws)
 		if err != nil {
-			return GetPlanResponse{}, err
+			return OpIDPlans{}, err
 		}
 		replanHistory = append(replanHistory, p)
 	}
 
-	return GetPlanResponse{
+	return OpIDPlans{
 		CurrentPlanWithPlanWithStatus: current,
 		ReplanHistory:                 replanHistory,
 	}, nil
@@ -365,11 +365,15 @@ func toPlan(p *pb.Plan) (Plan, error) {
 	for _, s := range p.Steps {
 		step := make(Step)
 		for k, v := range s.Step {
-			step[k] = spatialmath.NewPoseFromProtobuf(v.Pose)
+			name, err := resource.NewFromString(k)
+			if err != nil {
+				return Plan{}, err
+			}
+			step[name] = spatialmath.NewPoseFromProtobuf(v.Pose)
 		}
 		steps = append(steps, step)
 	}
-	return Plan{Id: id, Steps: steps}, nil
+	return Plan{ID: id, Steps: steps}, nil
 }
 
 func toPlanStatus(ps *pb.PlanStatus) (PlanStatus, error) {

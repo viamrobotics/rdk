@@ -61,28 +61,50 @@ type Service interface {
 	) (*referenceframe.PoseInFrame, error)
 }
 
+// GetPlanRequest describes the request to the GetPlan interface method.
+// Contains the OperationID the returned plan(s) should be associated with
+// and an Extra parameter.
 type GetPlanRequest struct {
-	OperationId uuid.UUID
+	OperationID uuid.UUID
 	Extra       map[string]interface{}
 }
 
-type Step map[string]spatialmath.Pose
+// Step represents a single step of the plan
+// Describes the pose each resource described by the plan
+// should move to at that step.
+type Step map[resource.Name]spatialmath.Pose
 
+// Plan represnts a motion plan.
+// Has a unique ID and a sequence of Steps
+// which can be executed to follow the plan.
 type Plan struct {
-	Id    uuid.UUID
+	ID    uuid.UUID
 	Steps []Step
 }
 
+// PlanState denotes the state a Plan is in.
 type PlanState = int32
 
 const (
-	PLAN_STATE_UNSPECIFIED = iota
-	PLAN_STATE_IN_PROGRESS
-	PLAN_STATE_CANCELLED
-	PLAN_STATE_SUCCEEDED
-	PLAN_STATE_FAILED
+	// PlanStateUnspecified denotes an the Plan is in an unspecified state. This should never happen.
+	PlanStateUnspecified = iota
+
+	// PlanStateInProgress denotes an the Plan is in an in progress state. It is a temporary state.
+	PlanStateInProgress
+
+	// PlanStateCancelled denotes an the Plan is in a cancelled state. It is a terminal state.
+	PlanStateCancelled
+
+	// PlanStateSucceeded denotes an the Plan is in a succeeded state. It is a terminal state.
+	PlanStateSucceeded
+
+	// PlanStateFailed denotes an the Plan is in a failed state. It is a terminal state.
+	PlanStateFailed
 )
 
+// PlanStatus represents a state change of a currently executing or previously executing Plan
+// at a given point in time.
+// Contains the PlanID, OperationID, State, Timestamp, and a Reason for the state change.
 type PlanStatus struct {
 	PlanID      uuid.UUID
 	OperationID uuid.UUID
@@ -91,13 +113,18 @@ type PlanStatus struct {
 	Reason      string
 }
 
+// PlanWithStatus contains a plan, its current status, and all state changes that came prior
+// sorted by ascending timestamp.
 type PlanWithStatus struct {
 	Plan          Plan
 	Status        PlanStatus
 	StatusHistory []PlanStatus
 }
 
-type GetPlanResponse struct {
+// OpIDPlans is the response of the GetPlan interface method.
+// It contains the current PlanWithStatus & all prior plans
+// associated with the OpID provided in the request.
+type OpIDPlans struct {
 	CurrentPlanWithPlanWithStatus PlanWithStatus
 	ReplanHistory                 []PlanWithStatus
 }
