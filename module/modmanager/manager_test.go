@@ -602,3 +602,39 @@ func TestDebugModule(t *testing.T) {
 		})
 	}
 }
+
+func TestGracefulShutdownWithMalformedModule(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	// Precompile module to avoid timeout issues when building takes too long.
+	modPath, err := rtestutils.BuildTempModule(t, "module/testmodule")
+	test.That(t, err, test.ShouldBeNil)
+
+	modCfg := config.Module{
+		Name:     "test-module",
+		ExePath:  modPath,
+		LogLevel: "info",
+	}
+
+	// This cannot use t.TempDir() as the path it gives on MacOS exceeds module.MaxSocketAddressLength.
+	parentAddr, err := os.MkdirTemp("", "viam-test-*")
+	test.That(t, err, test.ShouldBeNil)
+	defer os.RemoveAll(parentAddr)
+	parentAddr += "/parent.sock"
+	println(parentAddr)
+
+	mgr := NewManager(parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
+
+	channel := make(chan struct{})
+	go func() {
+		err = mgr.Add(context.Background(), modCfg)
+		channel <- struct{}{}
+	}()
+	// close the mgr so we can confirm that `Add` still finishes, despite manager being closed
+	err = mgr.Close(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+
+	// Confirm that the call to `Add` has completed and `err` has been set to its return value
+	<-channel
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "error while starting module test-module")
+}
