@@ -59,16 +59,6 @@ type Service interface {
 		supplementalTransforms []*referenceframe.LinkInFrame,
 		extra map[string]interface{},
 	) (*referenceframe.PoseInFrame, error)
-	MoveOnGlobeNew(
-		ctx context.Context,
-		componentName resource.Name,
-		destination *geo.Point,
-		heading float64,
-		movementSensorName resource.Name,
-		obstacles []*spatialmath.GeoObstacle,
-		motionConfig *MotionConfiguration,
-		extra map[string]interface{},
-	) (uuid.UUID, error)
 	ListPlanStatuses(
 		ctx context.Context,
 		extra map[string]interface{},
