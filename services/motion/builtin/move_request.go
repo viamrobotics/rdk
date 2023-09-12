@@ -156,7 +156,6 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 				kinematicsOptions.PositionOnlyMode = motionProfile == motionplan.PositionOnlyMotionProfile
 			}
 		}
-		extra["motion_profile"] = "nothing"
 	}
 
 	// create a KinematicBase from the componentName
