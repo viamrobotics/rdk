@@ -11,6 +11,8 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	"go.viam.com/utils"
+
 	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/components/encoder/single"
 	"go.viam.com/rdk/components/motor"
@@ -18,7 +20,6 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 	rdkutils "go.viam.com/rdk/utils"
-	"go.viam.com/utils"
 )
 
 // WrapMotorWithEncoder takes a motor and adds an encoder onto it in order to understand its odometry.
@@ -195,7 +196,7 @@ func (m *EncodedMotor) RPMMonitorStart() {
 	}, m.activeBackgroundWorkers.Done)
 }
 
-// rpmMonitor keeps track of the desired RPM and position
+// rpmMonitor keeps track of the desired RPM and position.
 func (m *EncodedMotor) rpmMonitor() {
 	if m.encoder == nil {
 		panic("started rpmMonitor but have no encoder")
@@ -243,7 +244,10 @@ func (m *EncodedMotor) rpmMonitor() {
 
 		if (m.DirectionMoving() == 1 && pos >= m.state.goalPos) || (m.DirectionMoving() == -1 && pos <= m.state.goalPos) {
 			// stop motor when at or past goal position
-			m.Stop(m.cancelCtx, nil)
+			if err := m.Stop(m.cancelCtx, nil); err != nil {
+				m.logger.Error(err)
+				return
+			}
 			continue
 		}
 
@@ -255,7 +259,7 @@ func (m *EncodedMotor) rpmMonitor() {
 }
 
 // makeAdjustments does the math required to see if the RPM is too high or too low,
-// and if the goal position has been reached
+// and if the goal position has been reached.
 func (m *EncodedMotor) makeAdjustments(pos, lastPos float64, now, lastTime int64) {
 	m.stateMu.Lock()
 	defer m.stateMu.Unlock()
@@ -304,8 +308,6 @@ func (m *EncodedMotor) makeAdjustments(pos, lastPos float64, now, lastTime int64
 			panic(err)
 		}
 	}
-
-	return
 }
 
 // RPMMonitorCalls returns the number of calls RPM monitor has made.
@@ -350,14 +352,18 @@ func (m *EncodedMotor) DirectionMoving() int64 {
 }
 
 func (m *EncodedMotor) directionMovingInLock() float64 {
-	if move, _ := m.real.IsMoving(context.Background()); move {
+	move, err := m.real.IsMoving(context.Background())
+	if move {
 		return sign(m.state.lastPowerPct)
+	}
+	if err != nil {
+		m.logger.Error(err)
 	}
 	return 0
 }
 
 // SetPower sets the percentage of power the motor should employ between -1 and 1.
-// Negative power implies a backward directional rotational
+// Negative power implies a backward directional rotational.
 func (m *EncodedMotor) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
 	m.opMgr.CancelRunning(ctx)
 	m.stateMu.Lock()
@@ -454,7 +460,7 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float
 // GoTo instructs the motor to go to a specific position (provided in revolutions from home/zero),
 // at a specific speed. Regardless of the directionality of the RPM this function will move the motor
 // towards the specified target/position
-// This will block until the position has been reached
+// This will block until the position has been reached.
 func (m *EncodedMotor) GoTo(ctx context.Context, rpm, targetPosition float64, extra map[string]interface{}) error {
 	pos, _, err := m.encoder.Position(ctx, encoder.PositionTypeUnspecified, extra)
 	if err != nil {
@@ -471,7 +477,7 @@ func (m *EncodedMotor) GoTo(ctx context.Context, rpm, targetPosition float64, ex
 	return m.GoFor(ctx, rpm, rotations, extra)
 }
 
-// Set the current position (+/- offset) to be the new zero (home) position.
+// ResetZeroPosition sets the current position (+/- offset) to be the new zero (home) position.
 func (m *EncodedMotor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
 	return m.encoder.ResetPosition(ctx, extra)
 }
@@ -506,6 +512,7 @@ func (m *EncodedMotor) IsMoving(ctx context.Context) (bool, error) {
 	return m.real.IsMoving(ctx)
 }
 
+// Stop stops rpmMonitor and stops the real motor.
 func (m *EncodedMotor) Stop(ctx context.Context, extra map[string]interface{}) error {
 	m.stateMu.Lock()
 	m.state.desiredRPM = 0
