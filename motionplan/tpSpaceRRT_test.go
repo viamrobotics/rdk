@@ -358,7 +358,7 @@ func TestPtgCheckPlan(t *testing.T) {
 
 	t.Run("obstacles blocking path", func(t *testing.T) {
 		// create obstacle blocking path
-		obstacle, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{1000, 0, 0}), r3.Vector{20, 2000, 1}, "")
+		obstacle, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{2000, 0, 0}), r3.Vector{20, 2000, 1}, "")
 		test.That(t, err, test.ShouldBeNil)
 
 		geoms := []spatialmath.Geometry{obstacle}

@@ -2,6 +2,7 @@ package motionplan
 
 import (
 	"errors"
+	"fmt"
 	"math"
 
 	"github.com/golang/geo/r3"
@@ -11,11 +12,6 @@ import (
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
-)
-
-const (
-	configuration int = iota
-	pose
 )
 
 // Given a constraint input with only frames and input positions, calculates the corresponding poses as needed.
@@ -82,7 +78,9 @@ type SegmentConstraint func(*ik.Segment) bool
 
 // StateConstraint tests whether a given robot configuration is valid
 // If the returned bool is true, the constraint is satisfied and the state is valid.
-type StateConstraint func(*ik.State) bool
+type StateConstraint func(*ik.State, spatial.Pose, spatial.Pose) bool
+
+// type StateConstraint func(*ik.State) bool
 
 // ConstraintHandler is a convenient wrapper for constraint handling which is likely to be common among most motion
 // planners. Including a constraint handler as an anonymous struct member allows reuse.
@@ -95,9 +93,11 @@ type ConstraintHandler struct {
 // Return values are:
 // -- a bool representing whether all constraints passed
 // -- if failing, a string naming the failed constraint.
-func (c *ConstraintHandler) CheckStateConstraints(state *ik.State) (bool, string) {
+func (c *ConstraintHandler) CheckStateConstraints(state *ik.State, errorState spatial.Pose, currentPosition spatial.Pose) (bool, string) {
+
 	for name, cFunc := range c.stateConstraints {
-		pass := cFunc(state)
+		// state.Frame.Geometries()
+		pass := cFunc(state, errorState, currentPosition)
 		if !pass {
 			return false, name
 		}
@@ -127,7 +127,8 @@ func (c *ConstraintHandler) CheckSegmentConstraints(segment *ik.Segment) (bool, 
 func (c *ConstraintHandler) CheckStateConstraintsAcrossSegment(
 	ci *ik.Segment,
 	resolution float64,
-	interpolationMode int,
+	errorState spatial.Pose,
+	currentPosition spatial.Pose,
 ) (bool, *ik.Segment) {
 	// ensure we have cartesian positions
 	err := resolveSegmentsToPositions(ci)
@@ -140,17 +141,12 @@ func (c *ConstraintHandler) CheckStateConstraintsAcrossSegment(
 
 	for i := 0; i <= steps; i++ {
 		interp := float64(i) / float64(steps)
-		interpC := &ik.State{Frame: ci.Frame}
-		switch interpolationMode {
-		case configuration:
-			interpC.Configuration = referenceframe.InterpolateInputs(ci.StartConfiguration, ci.EndConfiguration, interp)
-			if resolveStatesToPositions(interpC) != nil {
-				return false, nil
-			}
-		case pose:
-			interpC.Position = spatial.Interpolate(ci.StartPosition, ci.EndPosition, interp)
+		interpConfig := referenceframe.InterpolateInputs(ci.StartConfiguration, ci.EndConfiguration, interp)
+		interpC := &ik.State{Frame: ci.Frame, Configuration: interpConfig}
+		if resolveStatesToPositions(interpC) != nil {
+			return false, nil
 		}
-		pass, _ := c.CheckStateConstraints(interpC)
+		pass, _ := c.CheckStateConstraints(interpC, errorState, currentPosition)
 		if !pass {
 			if i == 0 {
 				// fail on start pos
@@ -170,9 +166,10 @@ func (c *ConstraintHandler) CheckStateConstraintsAcrossSegment(
 func (c *ConstraintHandler) CheckSegmentAndStateValidity(
 	segment *ik.Segment,
 	resolution float64,
-	interpolationMode int,
+	errorState spatial.Pose,
+	currentPosition spatial.Pose,
 ) (bool, *ik.Segment) {
-	valid, subSegment := c.CheckStateConstraintsAcrossSegment(segment, resolution, interpolationMode)
+	valid, subSegment := c.CheckStateConstraintsAcrossSegment(segment, resolution, errorState, currentPosition)
 	if !valid {
 		if subSegment != nil {
 			subSegmentValid, _ := c.CheckSegmentConstraints(subSegment)
@@ -335,7 +332,7 @@ func newCollisionConstraint(
 	}
 
 	// create constraint from reference collision graph
-	constraint := func(state *ik.State) bool {
+	constraint := func(state *ik.State, errorState spatial.Pose, currentPosition spatial.Pose) bool {
 		var internalGeoms []spatial.Geometry
 		switch {
 		case state.Configuration != nil:
@@ -344,6 +341,14 @@ func newCollisionConstraint(
 				return false
 			}
 			internalGeoms = internal.Geometries()
+			for i, geom := range internalGeoms {
+				transformBy := spatial.Compose(currentPosition, errorState)
+				fmt.Println("transformBy: ", transformBy.Point())
+				fmt.Println("geom.Pose().Point(): ", geom.Pose().Point())
+				internalGeoms[i] = geom.Transform(transformBy)
+				fmt.Println("internalGeoms[i].Pose(): ", internalGeoms[i].Pose().Point())
+				fmt.Println(" ")
+			}
 		case state.Position != nil:
 			// If we didn't pass a Configuration, but we do have a Position, then get the geometries at the zero state and
 			// transform them to the Position
@@ -377,8 +382,8 @@ func NewAbsoluteLinearInterpolatingConstraint(from, to spatial.Pose, linTol, ori
 	lineConstraint, lineMetric := NewLineConstraint(from.Point(), to.Point(), linTol)
 	interpMetric := ik.CombineMetrics(orientMetric, lineMetric)
 
-	f := func(state *ik.State) bool {
-		return orientConstraint(state) && lineConstraint(state)
+	f := func(state *ik.State, _ spatial.Pose, _ spatial.Pose) bool {
+		return orientConstraint(state, spatial.NewZeroPose(), spatial.NewZeroPose()) && lineConstraint(state, spatial.NewZeroPose(), spatial.NewZeroPose())
 	}
 	return f, interpMetric
 }
@@ -410,7 +415,7 @@ func NewSlerpOrientationConstraint(start, goal spatial.Pose, tolerance float64) 
 		return (sDist + gDist) - origDist
 	}
 
-	validFunc := func(state *ik.State) bool {
+	validFunc := func(state *ik.State, _ spatial.Pose, _ spatial.Pose) bool {
 		err := resolveStatesToPositions(state)
 		if err != nil {
 			return false
@@ -448,7 +453,7 @@ func NewPlaneConstraint(pNorm, pt r3.Vector, writingAngle, epsilon float64) (Sta
 		return pDist*pDist + oDist*oDist
 	}
 
-	validFunc := func(state *ik.State) bool {
+	validFunc := func(state *ik.State, _ spatial.Pose, _ spatial.Pose) bool {
 		err := resolveStatesToPositions(state)
 		if err != nil {
 			return false
@@ -472,7 +477,7 @@ func NewLineConstraint(pt1, pt2 r3.Vector, tolerance float64) (StateConstraint, 
 		return math.Max(spatial.DistToLineSegment(pt1, pt2, state.Position.Point())-tolerance, 0)
 	}
 
-	validFunc := func(state *ik.State) bool {
+	validFunc := func(state *ik.State, _ spatial.Pose, _ spatial.Pose) bool {
 		err := resolveStatesToPositions(state)
 		if err != nil {
 			return false
@@ -487,14 +492,14 @@ func NewLineConstraint(pt1, pt2 r3.Vector, tolerance float64) (StateConstraint, 
 // intersect with points in the octree. Threshold sets the confidence level required for a point to be considered, and buffer is the
 // distance to a point that is considered a collision in mm.
 func NewOctreeCollisionConstraint(octree *pointcloud.BasicOctree, threshold int, buffer float64) StateConstraint {
-	constraint := func(state *ik.State) bool {
+	constraint := func(state *ik.State, errorState spatial.Pose, currentPosition spatial.Pose) bool {
 		geometries, err := state.Frame.Geometries(state.Configuration)
 		if err != nil && geometries == nil {
 			return false
 		}
 
 		for _, geom := range geometries.Geometries() {
-			collides, err := octree.CollidesWithGeometry(geom, threshold, buffer)
+			collides, err := octree.CollidesWithGeometry(geom.Transform(errorState), threshold, buffer)
 			if err != nil || collides {
 				return false
 			}

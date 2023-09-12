@@ -4,7 +4,6 @@ package motionplan
 import (
 	"context"
 	"fmt"
-	"math"
 	"math/rand"
 	"sort"
 	"sync"
@@ -32,7 +31,7 @@ type motionPlanner interface {
 
 	// Everything below this point should be covered by anything that wraps the generic `planner`
 	smoothPath(context.Context, []node) []node
-	checkPath([]frame.Input, []frame.Input, int) bool
+	checkPath([]frame.Input, []frame.Input, spatialmath.Pose) bool
 	checkInputs([]frame.Input) bool
 	getSolutions(context.Context, []frame.Input) ([]node, error)
 	opt() *plannerOptions
@@ -174,11 +173,11 @@ func (mp *planner) checkInputs(inputs []frame.Input) bool {
 	ok, _ := mp.planOpts.CheckStateConstraints(&ik.State{
 		Configuration: inputs,
 		Frame:         mp.frame,
-	})
+	}, spatialmath.NewZeroPose(), spatialmath.NewZeroPose())
 	return ok
 }
 
-func (mp *planner) checkPath(seedInputs, target []frame.Input, interpolationMode int) bool {
+func (mp *planner) checkPath(seedInputs, target []frame.Input, errorState spatialmath.Pose) bool {
 	ok, _ := mp.planOpts.CheckSegmentAndStateValidity(
 		&ik.Segment{
 			StartConfiguration: seedInputs,
@@ -186,7 +185,8 @@ func (mp *planner) checkPath(seedInputs, target []frame.Input, interpolationMode
 			Frame:              mp.frame,
 		},
 		mp.planOpts.Resolution,
-		interpolationMode,
+		errorState,
+		spatialmath.NewZeroPose(),
 	)
 	return ok
 }
@@ -240,9 +240,7 @@ func (mp *planner) smoothPath(ctx context.Context, path []node) []node {
 		wayPoint1 := frame.InterpolateInputs(path[firstEdge].Q(), path[firstEdge+1].Q(), waypoints[mp.randseed.Intn(3)])
 		wayPoint2 := frame.InterpolateInputs(path[secondEdge].Q(), path[secondEdge+1].Q(), waypoints[mp.randseed.Intn(3)])
 
-		interpolationMode := configuration
-
-		if mp.checkPath(wayPoint1, wayPoint2, interpolationMode) {
+		if mp.checkPath(wayPoint1, wayPoint2, spatialmath.NewZeroPose()) {
 			newpath := []node{}
 			newpath = append(newpath, path[:firstEdge+1]...)
 			newpath = append(newpath, newConfigurationNode(wayPoint1), newConfigurationNode(wayPoint2))
@@ -309,7 +307,7 @@ IK:
 			statePass, failName := mp.planOpts.CheckStateConstraints(&ik.State{
 				Configuration: step,
 				Frame:         mp.frame,
-			})
+			}, spatialmath.NewZeroPose(), spatialmath.NewZeroPose())
 			if statePass {
 				stepArc := &ik.Segment{
 					StartConfiguration: seed,
@@ -430,27 +428,16 @@ func CheckPlan(
 
 	if relative {
 		// get pose of robot along the current trajectory it is executing
-		ptgs := sf.PTGs()
-		selectedPTG := ptgs[int(math.Round(currentInputs[0].Value))]
-		selectedTraj, err := selectedPTG.Trajectory(
-			currentInputs[1].Value, currentInputs[2].Value,
-		)
+		lastPose, err := sf.Transform(currentInputs)
 		if err != nil {
 			return err
 		}
-		lastPose := spatialmath.NewZeroPose()
-		for _, trajNode := range selectedTraj {
-			if trajNode.Dist > currentInputs[2].Value {
-				break
-			}
-			lastPose = trajNode.Pose
-		}
 
 		// where ought the robot be on the plan
-		truePosition := spatialmath.PoseBetweenInverse(errorState, currentPosition)
+		pathPosition := spatialmath.PoseBetweenInverse(errorState, currentPosition)
 
 		// absolute pose of the previous node we've passed
-		formerRunningPose := spatialmath.PoseBetweenInverse(lastPose, truePosition)
+		formerRunningPose := spatialmath.PoseBetweenInverse(lastPose, pathPosition)
 
 		// convert planNode's poses to be in absolute corrdinated
 		if planNodes, err = rectifyTPspacePath(planNodes, sf, formerRunningPose); err != nil {
@@ -462,7 +449,7 @@ func CheckPlan(
 
 	// pre-pend node with current position of robot to planNodes
 	// Note that currentPosition is assumed to have already accounted for the errorState
-	planNodes = append([]node{&basicNode{pose: currentPosition}}, planNodes...)
+	planNodes = append([]node{&basicNode{pose: currentPosition, q: currentInputs}}, planNodes...)
 
 	// create constraints
 	if sfPlanner.planOpts, err = sfPlanner.plannerSetupFromMoveRequest(
@@ -476,23 +463,37 @@ func CheckPlan(
 		return err
 	}
 
-	// set the interpolation mode to pose to exclude information given by poses
-	interpolationMode := pose
-
 	// go through plan and check that we can move from plan[i] to plan[i+1]
 	for i := 0; i < len(planNodes)-1; i++ {
+		if i == 2 {
+			fmt.Println("stop here")
+		}
+
 		currentPose := planNodes[i].Pose()
+		fmt.Println("i: ", i)
+		fmt.Println("currentPose: ", currentPose.Point())
 		nextPose := planNodes[i+1].Pose()
+		fmt.Println("nextPose: ", nextPose.Point())
+		fmt.Println("startConfiguration: ", planNodes[i].Q())
+		fmt.Println("endConfiguration:", planNodes[i+1].Q())
+
+		newStartConfig := []frame.Input{
+			{Value: planNodes[i+1].Q()[0].Value}, {Value: planNodes[i+1].Q()[1].Value}, {Value: 0},
+		}
+		fmt.Println("newStartConfig: ", newStartConfig)
+
+		fmt.Println(" ")
 		if isValid, _ := sfPlanner.planOpts.CheckSegmentAndStateValidity(
 			&ik.Segment{
 				StartPosition:      currentPose,
 				EndPosition:        nextPose,
-				StartConfiguration: planNodes[i].Q(),
+				StartConfiguration: newStartConfig,
 				EndConfiguration:   planNodes[i+1].Q(),
 				Frame:              sf,
 			},
 			sfPlanner.planOpts.Resolution,
-			interpolationMode,
+			errorState,
+			currentPose,
 		); !isValid {
 			return fmt.Errorf("found collsion between positions %v and %v", currentPose.Point(), nextPose.Point())
 		}
