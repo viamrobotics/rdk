@@ -139,6 +139,7 @@ func (c *ConstraintHandler) CheckStateConstraintsAcrossSegment(ci *ik.Segment, r
 		}
 		lastGood = interpC.Configuration
 	}
+
 	return true, nil
 }
 
