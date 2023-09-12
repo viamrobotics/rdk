@@ -165,7 +165,8 @@ func TestLineFollow(t *testing.T) {
 			EndConfiguration:   sf.InputFromProtobuf(mp2),
 			Frame:              sf,
 		},
-		1)
+		1,
+	)
 	test.That(t, ok, test.ShouldBeFalse)
 	// lastGood.StartConfiguration and EndConfiguration should pass constraints
 	lastGood.Frame = sf
@@ -226,8 +227,7 @@ func TestCollisionConstraints(t *testing.T) {
 	// loop through cases and check constraint handler processes them correctly
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("Test %d", i), func(t *testing.T) {
-			response, failName := handler.CheckStateConstraints(
-				&ik.State{Configuration: c.input, Frame: model})
+			response, failName := handler.CheckStateConstraints(&ik.State{Configuration: c.input, Frame: model})
 			test.That(t, response, test.ShouldEqual, c.expected)
 			test.That(t, failName, test.ShouldEqual, c.failName)
 		})
@@ -267,8 +267,7 @@ func BenchmarkCollisionConstraints(b *testing.B) {
 	// loop through cases and check constraint handler processes them correctly
 	for n = 0; n < b.N; n++ {
 		rfloats := frame.GenerateRandomConfiguration(model, rseed)
-		b1, _ = handler.CheckStateConstraints(
-			&ik.State{Configuration: frame.FloatsToInputs(rfloats), Frame: model})
+		b1, _ = handler.CheckStateConstraints(&ik.State{Configuration: frame.FloatsToInputs(rfloats), Frame: model})
 	}
 	bt = b1
 }

@@ -373,7 +373,8 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 
 		ok, failpos := mp.planOpts.CheckSegmentAndStateValidity(
 			&ik.Segment{StartConfiguration: seedInputs, EndConfiguration: solved.Configuration, Frame: mp.frame},
-			mp.planOpts.Resolution)
+			mp.planOpts.Resolution,
+		)
 		if ok {
 			return solved.Configuration
 		}
