@@ -2,7 +2,6 @@ package motionplan
 
 import (
 	"errors"
-	"fmt"
 	"math"
 
 	"github.com/golang/geo/r3"
@@ -343,11 +342,11 @@ func newCollisionConstraint(
 			internalGeoms = internal.Geometries()
 			for i, geom := range internalGeoms {
 				transformBy := spatial.Compose(currentPosition, errorState)
-				fmt.Println("transformBy: ", transformBy.Point())
-				fmt.Println("geom.Pose().Point(): ", geom.Pose().Point())
+				// fmt.Println("transformBy: ", transformBy.Point())
+				// fmt.Println("geom.Pose().Point(): ", geom.Pose().Point())
 				internalGeoms[i] = geom.Transform(transformBy)
-				fmt.Println("internalGeoms[i].Pose(): ", internalGeoms[i].Pose().Point())
-				fmt.Println(" ")
+				// fmt.Println("internalGeoms[i].Pose(): ", internalGeoms[i].Pose().Point())
+				// fmt.Println(" ")
 			}
 		case state.Position != nil:
 			// If we didn't pass a Configuration, but we do have a Position, then get the geometries at the zero state and
