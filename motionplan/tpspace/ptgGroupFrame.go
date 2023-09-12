@@ -245,10 +245,7 @@ func (pf *ptgGroupFrame) PTGSolvers() []PTGSolver {
 func initializePTGs(maxMps, maxRPS float64, constructors []ptgFactory) []PTG {
 	ptgs := []PTG{}
 	for _, ptg := range constructors {
-		newptg := ptg(maxMps, maxRPS)
-		if newptg != nil {
-			ptgs = append(ptgs, newptg)
-		}
+		ptgs = append(ptgs, ptg(maxMps, maxRPS))
 	}
 	return ptgs
 }

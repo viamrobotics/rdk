@@ -262,7 +262,7 @@ func (mp *tpSpaceRRTMotionPlanner) planRunner(
 				return
 			}
 		}
-		if iter%mp.algOpts.attemptSolveEvery == 0  { // RSDK-4583
+		if iter%mp.algOpts.attemptSolveEvery == 0 { // RSDK-4583
 			// Attempt a solve; we exhaustively iterate through our goal tree and attempt to find any connection to the seed tree
 			paths := [][]node{}
 			for goalMapNode := range rrt.maps.goalMap {
