@@ -359,9 +359,13 @@ func (svc *builtIn) Close(ctx context.Context) error {
 
 func (svc *builtIn) startWaypoint(ctx context.Context, extra map[string]interface{}) {
 	if extra == nil {
-		extra = map[string]interface{}{"motion_profile": "position_only"}
+		if false {
+			extra = map[string]interface{}{"motion_profile": "position_only"}
+		} // TODO: Fix with RSDK-4583
 	} else if _, ok := extra["motion_profile"]; !ok {
-		extra["motion_profile"] = "position_only"
+		if false {
+			extra["motion_profile"] = "position_only"
+		} // TODO: Fix with RSDK-4583
 	}
 
 	svc.activeBackgroundWorkers.Add(1)

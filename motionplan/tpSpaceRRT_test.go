@@ -31,13 +31,15 @@ func TestPtgRrt(t *testing.T) {
 
 	ctx := context.Background()
 
-	ackermanFrame, err := tpspace.NewPTGFrameFromTurningRadius(
+	ackermanFrame, err := tpspace.NewPTGFrameFromKinematicOptions(
 		"ackframe",
 		logger,
 		300.,
+		0,
 		testTurnRad,
 		0,
 		geometries,
+		false,
 	)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -59,7 +61,7 @@ func TestPtgRrt(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(plan), test.ShouldBeGreaterThanOrEqualTo, 2)
 
-	allPtgs := ackermanFrame.(tpspace.PTGProvider).PTGs()
+	allPtgs := ackermanFrame.(tpspace.PTGProvider).PTGSolvers()
 	lastPose := spatialmath.NewZeroPose()
 
 	if tp.algOpts.pathdebug {
@@ -104,13 +106,15 @@ func TestPtgWithObstacle(t *testing.T) {
 	roverGeom, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{10, 10, 10}, "")
 	test.That(t, err, test.ShouldBeNil)
 	geometries := []spatialmath.Geometry{roverGeom}
-	ackermanFrame, err := tpspace.NewPTGFrameFromTurningRadius(
+	ackermanFrame, err := tpspace.NewPTGFrameFromKinematicOptions(
 		"ackframe",
 		logger,
 		300.,
+		0,
 		testTurnRad,
 		0,
 		geometries,
+		false,
 	)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -172,7 +176,7 @@ func TestPtgWithObstacle(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(plan), test.ShouldBeGreaterThan, 2)
 
-	allPtgs := ackermanFrame.(tpspace.PTGProvider).PTGs()
+	allPtgs := ackermanFrame.(tpspace.PTGProvider).PTGSolvers()
 	lastPose := spatialmath.NewZeroPose()
 
 	if tp.algOpts.pathdebug {
@@ -218,13 +222,15 @@ func TestIKPtgRrt(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	geometries := []spatialmath.Geometry{roverGeom}
 
-	ackermanFrame, err := tpspace.NewPTGFrameFromTurningRadius(
+	ackermanFrame, err := tpspace.NewPTGFrameFromKinematicOptions(
 		"ackframe",
 		logger,
 		300.,
+		0,
 		testTurnRad,
 		0,
 		geometries,
+		false,
 	)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -254,13 +260,15 @@ func TestTPsmoothing(t *testing.T) {
 
 	ctx := context.Background()
 
-	ackermanFrame, err := tpspace.NewPTGFrameFromTurningRadius(
+	ackermanFrame, err := tpspace.NewPTGFrameFromKinematicOptions(
 		"ackframe",
 		logger,
 		300.,
+		0,
 		testTurnRad,
 		0,
 		geometries,
+		false,
 	)
 	test.That(t, err, test.ShouldBeNil)
 
