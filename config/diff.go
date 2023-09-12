@@ -63,7 +63,6 @@ func DiffConfigs(left, right Config, revealSensitiveConfigDiffs bool) (_ *Diff, 
 	// Note: generics would be nice here!
 	different := diffRemotes(left.Remotes, right.Remotes, &diff)
 	componentsDifferent := diffComponents(left.Components, right.Components, &diff)
-
 	different = componentsDifferent || different
 	servicesDifferent := diffServices(left.Services, right.Services, &diff)
 
