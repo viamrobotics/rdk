@@ -32,6 +32,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/services/shell"
 	"go.viam.com/rdk/spatialmath"
 	rutils "go.viam.com/rdk/utils"
 )
@@ -950,6 +951,93 @@ func TestAuthConfigEnsure(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "must contain at least 1 key")
 	})
+}
+
+func TestValidateUniqueNames(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	component := resource.Config{
+		Name:  "custom",
+		Model: fakeModel,
+		API:   arm.API,
+	}
+	service := resource.Config{
+		Name:  "custom",
+		Model: fakeModel,
+		API:   shell.API,
+	}
+	package1 := config.PackageConfig{
+		Package: "package1",
+		Name:    "package1",
+		Type:    config.PackageTypeMlModel,
+	}
+	module1 := config.Module{
+		Name:     "m1",
+		LogLevel: "info",
+		ExePath:  ".",
+	}
+
+	process1 := pexec.ProcessConfig{
+		ID: "process1", Name: "process1",
+	}
+
+	remote1 := config.Remote{
+		Name:    "remote1",
+		Address: "test",
+	}
+	config1 := config.Config{
+		Components: []resource.Config{component, component},
+	}
+	config2 := config.Config{
+		Services: []resource.Config{service, service},
+	}
+
+	config3 := config.Config{
+		Packages: []config.PackageConfig{package1, package1},
+	}
+	config4 := config.Config{
+		Modules: []config.Module{module1, module1},
+	}
+	config5 := config.Config{
+		Processes: []pexec.ProcessConfig{process1, process1},
+	}
+
+	config6 := config.Config{
+		Remotes: []config.Remote{remote1, remote1},
+	}
+	allConfigs := []config.Config{config1, config2, config3, config4, config5, config6}
+
+	for _, config := range allConfigs {
+		// returns an error instead of logging it
+		config.DisablePartialStart = true
+		// test that the logger returns an error after the ensure method is done
+		err := config.Ensure(false, logger)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "duplicate resource")
+
+		observedLogger, logs := golog.NewObservedTestLogger(t)
+		// now test it with logging enabled
+		config.DisablePartialStart = false
+		err = config.Ensure(false, observedLogger)
+		test.That(t, err, test.ShouldBeNil)
+
+		test.That(t, logs.FilterMessageSnippet("duplicate resource").Len(), test.ShouldBeGreaterThan, 0)
+	}
+
+	// mix components and services with the same name -- no error as use triplets
+	config7 := config.Config{
+		Components: []resource.Config{component},
+		Services:   []resource.Config{service},
+		Modules:    []config.Module{module1},
+		Remotes: []config.Remote{
+			{
+				Name:    module1.Name,
+				Address: "test1",
+			},
+		},
+	}
+	config7.DisablePartialStart = true
+	err := config7.Ensure(false, logger)
+	test.That(t, err, test.ShouldBeNil)
 }
 
 func keysetToAttributeMap(t *testing.T, keyset jwks.KeySet) rutils.AttributeMap {
