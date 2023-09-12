@@ -9,7 +9,6 @@ import (
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/motion/v1"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
@@ -175,7 +174,7 @@ func (server *serviceServer) ListPlanStatuses(ctx context.Context, req *pb.ListP
 
 	pbStatuses := []*pb.PlanStatus{}
 	for _, ps := range planStatuses {
-		pbStatuses = append(pbStatuses, planStatusToPB(ps))
+		pbStatuses = append(pbStatuses, ps.toPB())
 	}
 	return &pb.ListPlanStatusesResponse{Statuses: pbStatuses}, nil
 }
@@ -195,64 +194,7 @@ func (server *serviceServer) GetPlan(ctx context.Context, req *pb.GetPlanRequest
 	if err != nil {
 		return nil, err
 	}
-	return opIDPlansToPB(opPlans), nil
-}
-
-func opIDPlansToPB(opIDPlans OpIDPlans) *pb.GetPlanResponse {
-	replanHistory := []*pb.PlanWithStatus{}
-	for _, pws := range opIDPlans.ReplanHistory {
-		replanHistory = append(replanHistory, planWithStatusToPB(pws))
-	}
-	return &pb.GetPlanResponse{
-		CurrentPlanWithStatus: planWithStatusToPB(opIDPlans.CurrentPlanWithPlanWithStatus),
-		ReplanHistory:         replanHistory,
-	}
-}
-
-func planWithStatusToPB(pws PlanWithStatus) *pb.PlanWithStatus {
-	statusHistory := []*pb.PlanStatus{}
-	for _, ps := range pws.StatusHistory {
-		statusHistory = append(statusHistory, planStatusToPB(ps))
-	}
-
-	planWithStatusPB := &pb.PlanWithStatus{
-		Plan:          planToPB(pws.Plan),
-		Status:        planStatusToPB(pws.Status),
-		StatusHistory: statusHistory,
-	}
-	return planWithStatusPB
-}
-
-func planStatusToPB(ps PlanStatus) *pb.PlanStatus {
-	return &pb.PlanStatus{
-		PlanId:      ps.PlanID.String(),
-		OperationId: ps.OperationID.String(),
-		State:       pb.PlanState(ps.State),
-		Timestamp:   timestamppb.New(ps.Timestamp),
-		Reason:      &ps.Reason,
-	}
-}
-
-func planToPB(p Plan) *pb.Plan {
-	steps := []*pb.PlanSteps{}
-	for _, s := range p.Steps {
-		steps = append(steps, stepToPB(s))
-	}
-
-	return &pb.Plan{
-		Id:    p.ID.String(),
-		Steps: steps,
-	}
-}
-
-func stepToPB(s Step) *pb.PlanSteps {
-	step := make(map[string]*pb.ComponentState)
-	for name, pose := range s {
-		pbPose := spatialmath.PoseToProtobuf(pose)
-		step[name.String()] = &pb.ComponentState{Pose: pbPose}
-	}
-
-	return &pb.PlanSteps{Step: step}
+	return opPlans.toPB(), nil
 }
 
 // DoCommand receives arbitrary commands.

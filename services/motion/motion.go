@@ -7,7 +7,8 @@ import (
 
 	"github.com/google/uuid"
 	geo "github.com/kellydunn/golang-geo"
-	servicepb "go.viam.com/api/service/motion/v1"
+	pb "go.viam.com/api/service/motion/v1"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -18,8 +19,8 @@ import (
 func init() {
 	resource.RegisterAPI(API, resource.APIRegistration[Service]{
 		RPCServiceServerConstructor: NewRPCServiceServer,
-		RPCServiceHandler:           servicepb.RegisterMotionServiceHandlerFromEndpoint,
-		RPCServiceDesc:              &servicepb.MotionService_ServiceDesc,
+		RPCServiceHandler:           pb.RegisterMotionServiceHandlerFromEndpoint,
+		RPCServiceDesc:              &pb.MotionService_ServiceDesc,
 		RPCClient:                   NewClientFromConn,
 	})
 }
@@ -32,7 +33,7 @@ type Service interface {
 		componentName resource.Name,
 		destination *referenceframe.PoseInFrame,
 		worldState *referenceframe.WorldState,
-		constraints *servicepb.Constraints,
+		constraints *pb.Constraints,
 		extra map[string]interface{},
 	) (bool, error)
 	MoveOnMap(
@@ -133,8 +134,66 @@ type PlanWithStatus struct {
 // It contains the current PlanWithStatus & all prior plans
 // associated with the OpID provided in the request.
 type OpIDPlans struct {
-	CurrentPlanWithPlanWithStatus PlanWithStatus
-	ReplanHistory                 []PlanWithStatus
+	CurrentPlanWithStatus PlanWithStatus
+	ReplanHistory         []PlanWithStatus
+}
+
+func (opIDPlans OpIDPlans) toPB() *pb.GetPlanResponse {
+	replanHistory := []*pb.PlanWithStatus{}
+	for _, pws := range opIDPlans.ReplanHistory {
+		replanHistory = append(replanHistory, pws.toPB())
+	}
+
+	return &pb.GetPlanResponse{
+		CurrentPlanWithStatus: opIDPlans.CurrentPlanWithStatus.toPB(),
+		ReplanHistory:         replanHistory,
+	}
+}
+
+func (pws PlanWithStatus) toPB() *pb.PlanWithStatus {
+	statusHistory := []*pb.PlanStatus{}
+	for _, ps := range pws.StatusHistory {
+		statusHistory = append(statusHistory, ps.toPB())
+	}
+
+	planWithStatusPB := &pb.PlanWithStatus{
+		Plan:          pws.Plan.toPB(),
+		Status:        pws.Status.toPB(),
+		StatusHistory: statusHistory,
+	}
+	return planWithStatusPB
+}
+
+func (ps PlanStatus) toPB() *pb.PlanStatus {
+	return &pb.PlanStatus{
+		PlanId:      ps.PlanID.String(),
+		OperationId: ps.OperationID.String(),
+		State:       pb.PlanState(ps.State),
+		Timestamp:   timestamppb.New(ps.Timestamp),
+		Reason:      &ps.Reason,
+	}
+}
+
+func (p Plan) toPB() *pb.Plan {
+	steps := []*pb.PlanSteps{}
+	for _, s := range p.Steps {
+		steps = append(steps, s.toPB())
+	}
+
+	return &pb.Plan{
+		Id:    p.ID.String(),
+		Steps: steps,
+	}
+}
+
+func (s Step) toPB() *pb.PlanSteps {
+	step := make(map[string]*pb.ComponentState)
+	for name, pose := range s {
+		pbPose := spatialmath.PoseToProtobuf(pose)
+		step[name.String()] = &pb.ComponentState{Pose: pbPose}
+	}
+
+	return &pb.PlanSteps{Step: step}
 }
 
 // MotionConfiguration specifies how to configure a call

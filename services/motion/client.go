@@ -5,7 +5,6 @@ import (
 	"math"
 
 	"github.com/edaniels/golog"
-	"github.com/google/uuid"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
@@ -223,7 +222,7 @@ func (c *client) ListPlanStatuses(
 
 	statuses := []PlanStatus{}
 	for _, s := range resp.Statuses {
-		ps, err := toPlanStatus(s)
+		ps, err := pbToPlanStatus(s)
 		if err != nil {
 			return nil, err
 		}
@@ -252,14 +251,14 @@ func (c *client) GetPlan(
 		return OpIDPlans{}, err
 	}
 
-	current, err := toPlanWithStatus(resp.CurrentPlanWithStatus)
+	current, err := pbToPlanWithStatus(resp.CurrentPlanWithStatus)
 	if err != nil {
 		return OpIDPlans{}, err
 	}
 
 	replanHistory := []PlanWithStatus{}
 	for _, pws := range resp.ReplanHistory {
-		p, err := toPlanWithStatus(pws)
+		p, err := pbToPlanWithStatus(pws)
 		if err != nil {
 			return OpIDPlans{}, err
 		}
@@ -267,84 +266,11 @@ func (c *client) GetPlan(
 	}
 
 	return OpIDPlans{
-		CurrentPlanWithPlanWithStatus: current,
-		ReplanHistory:                 replanHistory,
+		CurrentPlanWithStatus: current,
+		ReplanHistory:         replanHistory,
 	}, nil
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return protoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
-}
-
-func toPlan(p *pb.Plan) (Plan, error) {
-	id, err := uuid.Parse(p.Id)
-	if err != nil {
-		return Plan{}, err
-	}
-
-	steps := []Step{}
-	for _, s := range p.Steps {
-		step := make(Step)
-		for k, v := range s.Step {
-			name, err := resource.NewFromString(k)
-			if err != nil {
-				return Plan{}, err
-			}
-			step[name] = spatialmath.NewPoseFromProtobuf(v.Pose)
-		}
-		steps = append(steps, step)
-	}
-	return Plan{ID: id, Steps: steps}, nil
-}
-
-func toPlanStatus(ps *pb.PlanStatus) (PlanStatus, error) {
-	planID, err := uuid.Parse(ps.PlanId)
-	if err != nil {
-		return PlanStatus{}, err
-	}
-
-	opid, err := uuid.Parse(ps.OperationId)
-	if err != nil {
-		return PlanStatus{}, err
-	}
-
-	var reason string
-	if ps.Reason != nil {
-		reason = *ps.Reason
-	}
-
-	return PlanStatus{
-		PlanID:      planID,
-		OperationID: opid,
-		State:       int32(ps.State.Number()),
-		Reason:      reason,
-		Timestamp:   ps.Timestamp.AsTime(),
-	}, nil
-}
-
-func toPlanWithStatus(pws *pb.PlanWithStatus) (PlanWithStatus, error) {
-	plan, err := toPlan(pws.Plan)
-	if err != nil {
-		return PlanWithStatus{}, err
-	}
-
-	status, err := toPlanStatus(pws.Status)
-	if err != nil {
-		return PlanWithStatus{}, err
-	}
-
-	statusHistory := []PlanStatus{}
-	for _, s := range pws.StatusHistory {
-		ps, err := toPlanStatus(s)
-		if err != nil {
-			return PlanWithStatus{}, err
-		}
-		statusHistory = append(statusHistory, ps)
-	}
-
-	return PlanWithStatus{
-		Plan:          plan,
-		Status:        status,
-		StatusHistory: statusHistory,
-	}, nil
 }
