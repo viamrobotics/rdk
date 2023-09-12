@@ -10,7 +10,8 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-// ptgDiffDrive defines a PTG family composed of circular trajectories with an alpha-dependent radius.
+// ptgDiffDrive defines a PTG family composed of a rotation in place, whose magnitude is determined by alpha, followed by moving straight.
+// This is essentially the same as the CS PTG, but with a turning radius of zero.
 type ptgDiffDrive struct {
 	maxMMPS float64 // millimeters per second velocity to target
 	maxRPS  float64 // radians per second of rotation when driving at maxMMPS and turning at max turning radius
@@ -25,8 +26,6 @@ func NewDiffDrivePTG(maxMMPS, maxRPS float64) PTG {
 }
 
 // For this particular driver, turns alpha into a linear + angular velocity. Linear is just max * fwd/back.
-// Note that this will NOT work as-is for 0-radius turning. Robots capable of turning in place will need to be special-cased
-// because they will have zero linear velocity through their turns, not max.
 func (ptg *ptgDiffDrive) Velocities(alpha, dist float64) (float64, float64, error) {
 	// (v,w)
 	if dist == 0 {
@@ -39,9 +38,8 @@ func (ptg *ptgDiffDrive) Velocities(alpha, dist float64) (float64, float64, erro
 	return ptg.maxMMPS * k, 0, nil
 }
 
-// Transform will return the pose for the given inputs. The first input is [-pi, pi]. This corresponds to the radius of the curve,
-// where 0 is straight ahead, pi is turning at min turning radius to the right, and a value between 0 and pi represents turning at a radius
-// of (input/pi)*minradius. A negative value denotes turning left. The second input is the distance traveled along this arc.
+// Transform will return the pose for the given inputs. The first input is [-pi, pi]. This corresponds to the direction and amount of
+// of rotation. For distance, dist is equal to the number of radians rotated plus the number of millimeters of straight motion.
 func (ptg *ptgDiffDrive) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {
 	if len(inputs) != 2 {
 		return nil, referenceframe.NewIncorrectInputLengthError(len(inputs), 2)
