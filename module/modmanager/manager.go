@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io/fs"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -610,7 +609,7 @@ func (m *module) startProcess(
 	logger golog.Logger,
 ) error {
 	var err error
-	if m.addr, err = modlib.TruncatedSocketAddress(filepath.Dir(parentAddr), m.name, runtime.GOOS); err != nil {
+	if m.addr, err = modlib.TruncatedSocketAddress(filepath.Dir(parentAddr), m.name); err != nil {
 		return err
 	}
 

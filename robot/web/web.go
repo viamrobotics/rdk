@@ -378,7 +378,7 @@ func (svc *webService) StartModule(ctx context.Context) error {
 		if err != nil {
 			return errors.WithMessage(err, "module startup failed")
 		}
-		addr, err = module.TruncatedSocketAddress(dir, "parent", runtime.GOOS)
+		addr, err = module.TruncatedSocketAddress(dir, "parent")
 		if err != nil {
 			return errors.WithMessage(err, "module startup failed")
 		}
