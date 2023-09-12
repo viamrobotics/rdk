@@ -901,7 +901,7 @@ func TestStoppableMoveFunctions(t *testing.T) {
 			)
 			test.That(t, err, test.ShouldBeNil)
 
-			goal := spatialmath.NewPoseFromPoint(r3.Vector{X: 1.32 * 1000, Y: 0})
+			goal := spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 500})
 			success, err := ms.MoveOnMap(ctx, injectBase.Name(), goal, injectSlam.Name(), nil)
 			testIfStoppable(t, success, err)
 		})

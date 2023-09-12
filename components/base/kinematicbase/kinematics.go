@@ -110,7 +110,7 @@ type Options struct {
 	// UsePTGs defines whether motion planning should plan using PTGs.
 	UsePTGs bool
 
-	// SkidSteer defines whether motion planning should plan for diff drive bases using skid steer. If true, it will plan using
+	// NoSkidSteer defines whether motion planning should plan for diff drive bases using skid steer. If true, it will plan using
 	// only rotations and straight lines. Not used if turning radius > 0, or if UsePTGs is false.
 	NoSkidSteer bool
 }

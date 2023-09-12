@@ -41,7 +41,6 @@ type ptgGroupFrame struct {
 	name               string
 	limits             []referenceframe.Limit
 	geometries         []spatialmath.Geometry
-	ptgs               []PTG
 	solvers            []PTGSolver
 	velocityMMps       float64
 	angVelocityRadps   float64
@@ -117,7 +116,6 @@ func NewPTGFrameFromKinematicOptions(
 		return nil, err
 	}
 
-	pf.ptgs = ptgs
 	pf.solvers = solvers
 
 	pf.geometries = geoms
@@ -126,7 +124,7 @@ func NewPTGFrameFromKinematicOptions(
 	pf.turnRadMillimeters = turnRadMillimeters
 
 	pf.limits = []referenceframe.Limit{
-		{Min: 0, Max: float64(len(pf.ptgs) - 1)},
+		{Min: 0, Max: float64(len(pf.solvers) - 1)},
 		{Min: -math.Pi, Max: math.Pi},
 		{Min: 0, Max: refDist},
 	}
@@ -152,12 +150,16 @@ func NewPTGFrameFromPTGFrame(frame referenceframe.Frame, refDist float64) (refer
 
 	// Get max angular velocity in radians per second
 	pf := &ptgGroupFrame{name: ptgFrame.name}
-	solvers, err := initializeSolvers(ptgFrame.logger, refDist, ptgFrame.ptgs)
+	ptgs := []PTG{}
+	// Go doesn't let us do this all at once
+	for _, solver := range ptgFrame.solvers {
+		ptgs = append(ptgs, solver)
+	}
+	solvers, err := initializeSolvers(ptgFrame.logger, refDist, ptgs)
 	if err != nil {
 		return nil, err
 	}
 
-	pf.ptgs = ptgFrame.ptgs
 	pf.solvers = solvers
 	pf.geometries = ptgFrame.geometries
 	pf.angVelocityRadps = ptgFrame.angVelocityRadps
@@ -165,7 +167,7 @@ func NewPTGFrameFromPTGFrame(frame referenceframe.Frame, refDist float64) (refer
 	pf.velocityMMps = ptgFrame.velocityMMps
 
 	pf.limits = []referenceframe.Limit{
-		{Min: 0, Max: float64(len(pf.ptgs) - 1)},
+		{Min: 0, Max: float64(len(pf.solvers) - 1)},
 		{Min: -math.Pi, Max: math.Pi},
 		{Min: 0, Max: refDist},
 	}

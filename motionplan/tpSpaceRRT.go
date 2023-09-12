@@ -178,7 +178,7 @@ func (mp *tpSpaceRRTMotionPlanner) planRunner(
 	rrt *rrtParallelPlannerShared,
 ) {
 	defer close(rrt.solutionChan)
-
+	bidirectional := true // TODO: Make configurable with RSDK4583
 	// get start and goal poses
 	var startPose spatialmath.Pose
 	var goalPose spatialmath.Pose
@@ -263,7 +263,7 @@ func (mp *tpSpaceRRTMotionPlanner) planRunner(
 				return
 			}
 		}
-		if iter%mp.algOpts.attemptSolveEvery == 0 {
+		if iter%mp.algOpts.attemptSolveEvery == 0 && !bidirectional { // RSDK-4583
 			// Attempt a solve; we exhaustively iterate through our goal tree and attempt to find any connection to the seed tree
 			paths := [][]node{}
 			for goalMapNode := range rrt.maps.goalMap {
