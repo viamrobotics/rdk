@@ -208,7 +208,8 @@ func URArmConnect(ctx context.Context, conf resource.Config, logger golog.Logger
 		for {
 			readerWriter := bufio.NewReadWriter(bufio.NewReader(newArm.dashboardConnection), bufio.NewWriter(newArm.dashboardConnection))
 			err := dashboardReader(cancelCtx, *readerWriter, newArm)
-			if err != nil && (errors.Is(err, syscall.ECONNRESET) || errors.Is(err, io.ErrClosedPipe) || os.IsTimeout(err)) {
+			if err != nil &&
+				(errors.Is(err, syscall.ECONNRESET) || errors.Is(err, io.ErrClosedPipe) || os.IsTimeout(err) || errors.Is(err, io.EOF)) {
 				newArm.mu.Lock()
 				newArm.inRemoteMode = false
 				newArm.mu.Unlock()
@@ -254,7 +255,8 @@ func URArmConnect(ctx context.Context, conf resource.Config, logger golog.Logger
 					close(onData)
 				})
 			})
-			if err != nil && (errors.Is(err, syscall.ECONNRESET) || errors.Is(err, io.ErrClosedPipe) || os.IsTimeout(err)) {
+			if err != nil &&
+				(errors.Is(err, syscall.ECONNRESET) || errors.Is(err, io.ErrClosedPipe) || os.IsTimeout(err) || errors.Is(err, io.EOF)) {
 				for {
 					if err := cancelCtx.Err(); err != nil {
 						return
