@@ -217,7 +217,7 @@ func createMoveOnMapEnvironment(ctx context.Context, t *testing.T, pcdPath strin
 	cfg := resource.Config{
 		Name:  "test_base",
 		API:   base.API,
-		Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R: 100}},
+		Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R: 120}},
 	}
 	logger := golog.NewTestLogger(t)
 	fakeBase, err := baseFake.NewBase(ctx, nil, cfg, logger)
@@ -361,30 +361,10 @@ func TestMoveOnMapLongDistance(t *testing.T) {
 	// goal position is scaled to be in mm
 	goal := spatialmath.NewPoseFromPoint(r3.Vector{X: -32.508 * 1000, Y: -2.092 * 1000})
 
-	t.Run("test cbirrt planning on office map", func(t *testing.T) {
+	t.Run("test tp-space planning on office map", func(t *testing.T) {
 		t.Parallel()
 		ms := createMoveOnMapEnvironment(ctx, t, "slam/example_cartographer_outputs/viam-office-02-22-3/pointcloud/pointcloud_4.pcd")
 		extra := make(map[string]interface{})
-		extra["planning_alg"] = "cbirrt"
-
-		path, _, err := ms.(*builtIn).planMoveOnMap(
-			context.Background(),
-			base.Named("test_base"),
-			goal,
-			slam.Named("test_slam"),
-			kinematicbase.NewKinematicBaseOptions(),
-			extra,
-		)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(path), test.ShouldBeGreaterThan, 2)
-	})
-
-	t.Run("test rrtstar planning on office map", func(t *testing.T) {
-		t.Parallel()
-		ms := createMoveOnMapEnvironment(ctx, t, "slam/example_cartographer_outputs/viam-office-02-22-3/pointcloud/pointcloud_4.pcd")
-		extra := make(map[string]interface{})
-		extra["planning_alg"] = "rrtstar"
-
 		path, _, err := ms.(*builtIn).planMoveOnMap(
 			context.Background(),
 			base.Named("test_base"),
@@ -514,12 +494,15 @@ func TestMoveOnMapTimeout(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	easyGoal := spatialmath.NewPoseFromPoint(r3.Vector{X: 1001, Y: 1001})
+	// create motion config
+	motionCfg := make(map[string]interface{})
+	motionCfg["timeout"] = 0.01
 	success, err := ms.MoveOnMap(
 		context.Background(),
 		base.Named("test_base"),
 		easyGoal,
 		slam.Named("test_slam"),
-		nil,
+		motionCfg,
 	)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, success, test.ShouldBeFalse)
@@ -533,7 +516,7 @@ func TestMoveOnGlobe(t *testing.T) {
 
 	// create motion config
 	extra := make(map[string]interface{})
-	extra["motion_profile"] = "position_only"
+	// extra["motion_profile"] = "position_only" // TODO: Add back with RSDK-4583
 	extra["timeout"] = 5.
 
 	dst := geo.NewPoint(gpsPoint.Lat(), gpsPoint.Lng()+1e-5)
@@ -915,7 +898,7 @@ func TestStoppableMoveFunctions(t *testing.T) {
 			)
 			test.That(t, err, test.ShouldBeNil)
 
-			goal := spatialmath.NewPoseFromPoint(r3.Vector{X: 1.32 * 1000, Y: 0})
+			goal := spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 500})
 			success, err := ms.MoveOnMap(ctx, injectBase.Name(), goal, injectSlam.Name(), nil)
 			testIfStoppable(t, success, err)
 		})

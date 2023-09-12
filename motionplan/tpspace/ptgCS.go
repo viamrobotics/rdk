@@ -11,9 +11,9 @@ const (
 	turnStraightConst = 1.2 // turn at max for this many radians, then go straight, depending on alpha
 )
 
-// ptgDiffDriveCS defines a PTG family combined of two stages; first driving forwards while turning at radius, going straight.
+// ptgCS defines a PTG family combined of two stages; first driving forwards while turning at radius, going straight.
 // Alpha determines how far to turn before going straight.
-type ptgDiffDriveCS struct {
+type ptgCS struct {
 	maxMMPS float64 // millimeters per second velocity to target
 	maxRPS  float64 // radians per second of rotation when driving at maxMMPS and turning at max turning radius
 
@@ -21,11 +21,11 @@ type ptgDiffDriveCS struct {
 	turnStraight float64
 }
 
-// NewCSPTG creates a new PrecomputePTG of type ptgDiffDriveCS.
-func NewCSPTG(maxMMPS, maxRPS float64) PrecomputePTG {
+// NewCSPTG creates a new PTG of type ptgCS.
+func NewCSPTG(maxMMPS, maxRPS float64) PTG {
 	r := maxMMPS / maxRPS
 	turnStraight := turnStraightConst * r
-	return &ptgDiffDriveCS{
+	return &ptgCS{
 		maxMMPS:      maxMMPS,
 		maxRPS:       maxRPS,
 		r:            r,
@@ -36,7 +36,7 @@ func NewCSPTG(maxMMPS, maxRPS float64) PrecomputePTG {
 // For this particular driver, turns alpha into a linear + angular velocity. Linear is just max * fwd/back.
 // Note that this will NOT work as-is for 0-radius turning. Robots capable of turning in place will need to be special-cased
 // because they will have zero linear velocity through their turns, not max.
-func (ptg *ptgDiffDriveCS) PTGVelocities(alpha, dist float64) (float64, float64, error) {
+func (ptg *ptgCS) Velocities(alpha, dist float64) (float64, float64, error) {
 	// Magic number; rotate this much before going straight
 	turnDist := math.Sqrt(math.Abs(alpha)) * ptg.turnStraight
 	k := math.Copysign(1.0, dist)
@@ -60,12 +60,12 @@ func (ptg *ptgDiffDriveCS) PTGVelocities(alpha, dist float64) (float64, float64,
 	return v, w, nil
 }
 
-func (ptg *ptgDiffDriveCS) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {
+func (ptg *ptgCS) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {
 	alpha := inputs[0].Value
 	dist := inputs[1].Value
 
 	actualRPS := ptg.maxRPS * math.Min(1.0, 1.0-math.Exp(-1*alpha*alpha))
-	circle := NewCirclePTG(ptg.maxMMPS, actualRPS).(*ptgDiffDriveC)
+	circle := NewCirclePTG(ptg.maxMMPS, actualRPS).(*ptgC)
 
 	arcDistance := ptg.turnStraight * math.Sqrt(math.Abs(alpha))
 	flip := math.Copysign(1., alpha)     // left or right

@@ -11,13 +11,11 @@ import (
 
 const floatEpsilon = 0.0001 // If floats are closer than this consider them equal
 
-// PTG is a Parameterized Trajectory Generator, which defines how to map back and forth from cartesian space to TP-space
-// PTG coordinates are specified in polar coordinates (alpha, d)
-// One of these is needed for each sort of motion that can be done.
-type PTG interface {
+// PTGSolver wraps a PTG with the ability to perform Inverse Kinematics.
+type PTGSolver interface {
 	// Solve will return the (alpha, dist) TP-space coordinates whose corresponding relative pose minimizes the given function
 	ik.InverseKinematics
-	PrecomputePTG
+	PTG
 
 	// MaxDistance returns the maximum distance that a single trajectory may travel
 	MaxDistance() float64
@@ -30,13 +28,15 @@ type PTG interface {
 // a number of PTGs.
 type PTGProvider interface {
 	// PTGs returns the list of PTGs associated with this provider
-	PTGs() []PTG
+	PTGSolvers() []PTGSolver
 }
 
-// PrecomputePTG is a precomputable PTG.
-type PrecomputePTG interface {
-	// PTGVelocities returns the linear and angular velocity at a specific point along a trajectory
-	PTGVelocities(alpha, dist float64) (float64, float64, error)
+// PTG is a Parameterized Trajectory Generator, which defines how to map back and forth from cartesian space to TP-space
+// PTG coordinates are specified in polar coordinates (alpha, d)
+// One of these is needed for each sort of motion that can be done.
+type PTG interface {
+	// Velocities returns the linear and angular velocity at a specific point along a trajectory
+	Velocities(alpha, dist float64) (float64, float64, error)
 	Transform([]referenceframe.Input) (spatialmath.Pose, error)
 }
 
@@ -69,7 +69,7 @@ func wrapTo2Pi(theta float64) float64 {
 }
 
 // ComputePTG will compute all nodes of simPTG at the requested alpha, out to the requested distance, at the specified diffT resolution.
-func ComputePTG(simPTG PrecomputePTG, alpha, dist, diffT float64) ([]*TrajNode, error) {
+func ComputePTG(simPTG PTG, alpha, dist, diffT float64) ([]*TrajNode, error) {
 	// Initialize trajectory with an all-zero node
 	alphaTraj := []*TrajNode{{Pose: spatialmath.NewZeroPose()}}
 
@@ -112,8 +112,8 @@ func ComputePTG(simPTG PrecomputePTG, alpha, dist, diffT float64) ([]*TrajNode, 
 
 // computePTGNode will return the TrajNode of the requested PTG, at the specified alpha and dist. The provided time is used
 // to fill in the time field.
-func computePTGNode(simPTG PrecomputePTG, alpha, dist, atT float64) (*TrajNode, error) {
-	v, w, err := simPTG.PTGVelocities(alpha, dist)
+func computePTGNode(simPTG PTG, alpha, dist, atT float64) (*TrajNode, error) {
+	v, w, err := simPTG.Velocities(alpha, dist)
 	if err != nil {
 		return nil, err
 	}
