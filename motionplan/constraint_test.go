@@ -62,14 +62,14 @@ func TestConstraintPath(t *testing.T) {
 	handler := &ConstraintHandler{}
 
 	// No constraints, should pass
-	ok, failCI := handler.CheckSegmentAndStateValidity(ci, 0.5, spatial.NewZeroPose(), spatial.NewZeroPose())
+	ok, failCI := handler.CheckSegmentAndStateValidity(ci, 0.5)
 	test.That(t, failCI, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
 
 	// Test interpolating
 	constraint, _ := NewProportionalLinearInterpolatingConstraint(ci.StartPosition, ci.EndPosition, 0.01)
 	handler.AddStateConstraint("interp", constraint)
-	ok, failCI = handler.CheckSegmentAndStateValidity(ci, 0.5, spatial.NewZeroPose(), spatial.NewZeroPose())
+	ok, failCI = handler.CheckSegmentAndStateValidity(ci, 0.5)
 	test.That(t, failCI, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
 
@@ -79,7 +79,7 @@ func TestConstraintPath(t *testing.T) {
 	ciBad := &ik.Segment{StartConfiguration: homePos, EndConfiguration: badInterpPos, Frame: modelXarm}
 	err = resolveSegmentsToPositions(ciBad)
 	test.That(t, err, test.ShouldBeNil)
-	ok, failCI = handler.CheckSegmentAndStateValidity(ciBad, 0.5, spatial.NewZeroPose(), spatial.NewZeroPose())
+	ok, failCI = handler.CheckSegmentAndStateValidity(ciBad, 0.5)
 	test.That(t, failCI, test.ShouldNotBeNil) // With linear constraint, should be valid at the first step
 	test.That(t, ok, test.ShouldBeFalse)
 }
@@ -165,26 +165,23 @@ func TestLineFollow(t *testing.T) {
 			EndConfiguration:   sf.InputFromProtobuf(mp2),
 			Frame:              sf,
 		},
-		1,
-		spatial.NewZeroPose(),
-		spatial.NewZeroPose(),
-	)
+		1)
 	test.That(t, ok, test.ShouldBeFalse)
 	// lastGood.StartConfiguration and EndConfiguration should pass constraints
 	lastGood.Frame = sf
 	stateCheck := &ik.State{Configuration: lastGood.StartConfiguration, Frame: lastGood.Frame}
-	pass, _ := opt.CheckStateConstraints(stateCheck, spatial.NewZeroPose(), spatial.NewZeroPose())
+	pass, _ := opt.CheckStateConstraints(stateCheck)
 	test.That(t, pass, test.ShouldBeTrue)
 
 	stateCheck.Configuration = lastGood.EndConfiguration
 	stateCheck.Position = nil
-	pass, _ = opt.CheckStateConstraints(stateCheck, spatial.NewZeroPose(), spatial.NewZeroPose())
+	pass, _ = opt.CheckStateConstraints(stateCheck)
 	test.That(t, pass, test.ShouldBeTrue)
 
 	// Check that a deviating configuration will fail
 	stateCheck.Configuration = sf.InputFromProtobuf(mpFail)
 	stateCheck.Position = nil
-	pass, failName := opt.CheckStateConstraints(stateCheck, spatial.NewZeroPose(), spatial.NewZeroPose())
+	pass, failName := opt.CheckStateConstraints(stateCheck)
 	test.That(t, pass, test.ShouldBeFalse)
 	test.That(t, failName, test.ShouldEqual, "whiteboard")
 }
@@ -230,10 +227,7 @@ func TestCollisionConstraints(t *testing.T) {
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("Test %d", i), func(t *testing.T) {
 			response, failName := handler.CheckStateConstraints(
-				&ik.State{Configuration: c.input, Frame: model},
-				spatial.NewZeroPose(),
-				spatial.NewZeroPose(),
-			)
+				&ik.State{Configuration: c.input, Frame: model})
 			test.That(t, response, test.ShouldEqual, c.expected)
 			test.That(t, failName, test.ShouldEqual, c.failName)
 		})
@@ -274,10 +268,7 @@ func BenchmarkCollisionConstraints(b *testing.B) {
 	for n = 0; n < b.N; n++ {
 		rfloats := frame.GenerateRandomConfiguration(model, rseed)
 		b1, _ = handler.CheckStateConstraints(
-			&ik.State{Configuration: frame.FloatsToInputs(rfloats), Frame: model},
-			spatial.NewZeroPose(),
-			spatial.NewZeroPose(),
-		)
+			&ik.State{Configuration: frame.FloatsToInputs(rfloats), Frame: model})
 	}
 	bt = b1
 }

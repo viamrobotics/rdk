@@ -246,7 +246,7 @@ func (mp *rrtStarConnectMotionPlanner) extend(
 		oldNear = near
 		newNear := fixedStepInterpolation(near, target, mp.planOpts.qstep)
 		// Check whether oldNear -> newNear path is a valid segment, and if not then set to nil
-		if !mp.checkPath(oldNear.Q(), newNear, spatialmath.NewZeroPose()) {
+		if !mp.checkPath(oldNear.Q(), newNear) {
 			break
 		}
 
@@ -269,7 +269,7 @@ func (mp *rrtStarConnectMotionPlanner) extend(
 			cost := connectionCost + near.Cost()
 
 			// If 1) we have a lower cost, and 2) the putative updated path is valid
-			if cost < thisNeighbor.node.Cost() && mp.checkPath(target.Q(), thisNeighbor.node.Q(), spatialmath.NewZeroPose()) {
+			if cost < thisNeighbor.node.Cost() && mp.checkPath(target.Q(), thisNeighbor.node.Q()) {
 				// Alter the cost of the node
 				// This needs to edit the existing node, rather than make a new one, as there are pointers in the tree
 				thisNeighbor.node.SetCost(cost)

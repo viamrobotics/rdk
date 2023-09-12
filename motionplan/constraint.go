@@ -77,9 +77,7 @@ type SegmentConstraint func(*ik.Segment) bool
 
 // StateConstraint tests whether a given robot configuration is valid
 // If the returned bool is true, the constraint is satisfied and the state is valid.
-type StateConstraint func(*ik.State, spatial.Pose, spatial.Pose) bool
-
-// type StateConstraint func(*ik.State) bool
+type StateConstraint func(*ik.State) bool
 
 // ConstraintHandler is a convenient wrapper for constraint handling which is likely to be common among most motion
 // planners. Including a constraint handler as an anonymous struct member allows reuse.
@@ -92,9 +90,9 @@ type ConstraintHandler struct {
 // Return values are:
 // -- a bool representing whether all constraints passed
 // -- if failing, a string naming the failed constraint.
-func (c *ConstraintHandler) CheckStateConstraints(state *ik.State, errorState, currentPosition spatial.Pose) (bool, string) {
+func (c *ConstraintHandler) CheckStateConstraints(state *ik.State) (bool, string) {
 	for name, cFunc := range c.stateConstraints {
-		pass := cFunc(state, errorState, currentPosition)
+		pass := cFunc(state)
 		if !pass {
 			return false, name
 		}
@@ -121,29 +119,18 @@ func (c *ConstraintHandler) CheckSegmentConstraints(segment *ik.Segment) (bool, 
 // If any constraints fail, this will return false, and an Segment representing the valid portion of the segment, if any. If no
 // part of the segment is valid, then `false, nil` is returned.
 // update function comment to explain how resolution works.
-func (c *ConstraintHandler) CheckStateConstraintsAcrossSegment(
-	ci *ik.Segment,
-	resolution float64,
-	errorState spatial.Pose,
-	currentPosition spatial.Pose,
-) (bool, *ik.Segment) {
-	// ensure we have cartesian positions
-	err := resolveSegmentsToPositions(ci)
+func (c *ConstraintHandler) CheckStateConstraintsAcrossSegment(ci *ik.Segment, resolution float64) (bool, *ik.Segment) {
+	interpolatedConfigurations, err := getInterpolations(ci, resolution)
 	if err != nil {
 		return false, nil
 	}
-	steps := PathStepCount(ci.StartPosition, ci.EndPosition, resolution)
-
 	var lastGood []referenceframe.Input
-
-	for i := 0; i <= steps; i++ {
-		interp := float64(i) / float64(steps)
-		interpConfig := referenceframe.InterpolateInputs(ci.StartConfiguration, ci.EndConfiguration, interp)
+	for i, interpConfig := range interpolatedConfigurations {
 		interpC := &ik.State{Frame: ci.Frame, Configuration: interpConfig}
 		if resolveStatesToPositions(interpC) != nil {
 			return false, nil
 		}
-		pass, _ := c.CheckStateConstraints(interpC, errorState, currentPosition)
+		pass, _ := c.CheckStateConstraints(interpC)
 		if !pass {
 			if i == 0 {
 				// fail on start pos
@@ -153,20 +140,33 @@ func (c *ConstraintHandler) CheckStateConstraintsAcrossSegment(
 		}
 		lastGood = interpC.Configuration
 	}
-
 	return true, nil
+}
+
+// getInterpolations is a helper function which produces a list of intermediate inputs, between the start and end configuration of a segment
+// at a given resolution value.
+func getInterpolations(ci *ik.Segment, resolution float64) ([][]referenceframe.Input, error) {
+	// ensure we have cartesian positions
+	if err := resolveSegmentsToPositions(ci); err != nil {
+		return nil, err
+	}
+
+	steps := PathStepCount(ci.StartPosition, ci.EndPosition, resolution)
+
+	var interpolatedConfigurations [][]referenceframe.Input
+	for i := 0; i <= steps; i++ {
+		interp := float64(i) / float64(steps)
+		interpConfig := referenceframe.InterpolateInputs(ci.StartConfiguration, ci.EndConfiguration, interp)
+		interpolatedConfigurations = append(interpolatedConfigurations, interpConfig)
+	}
+	return interpolatedConfigurations, nil
 }
 
 // CheckSegmentAndStateValidity will check an segment input and confirm that it 1) meets all segment constraints, and 2) meets all
 // state constraints across the segment at some resolution. If it fails an intermediate state, it will return the shortest valid segment,
 // provided that segment also meets segment constraints.
-func (c *ConstraintHandler) CheckSegmentAndStateValidity(
-	segment *ik.Segment,
-	resolution float64,
-	errorState spatial.Pose,
-	currentPosition spatial.Pose,
-) (bool, *ik.Segment) {
-	valid, subSegment := c.CheckStateConstraintsAcrossSegment(segment, resolution, errorState, currentPosition)
+func (c *ConstraintHandler) CheckSegmentAndStateValidity(segment *ik.Segment, resolution float64) (bool, *ik.Segment) {
+	valid, subSegment := c.CheckStateConstraintsAcrossSegment(segment, resolution)
 	if !valid {
 		if subSegment != nil {
 			subSegmentValid, _ := c.CheckSegmentConstraints(subSegment)
@@ -329,7 +329,7 @@ func newCollisionConstraint(
 	}
 
 	// create constraint from reference collision graph
-	constraint := func(state *ik.State, errorState, currentPosition spatial.Pose) bool {
+	constraint := func(state *ik.State) bool {
 		var internalGeoms []spatial.Geometry
 		switch {
 		case state.Configuration != nil:
@@ -338,10 +338,6 @@ func newCollisionConstraint(
 				return false
 			}
 			internalGeoms = internal.Geometries()
-			for i, geom := range internalGeoms {
-				transformBy := spatial.Compose(currentPosition, errorState)
-				internalGeoms[i] = geom.Transform(transformBy)
-			}
 		case state.Position != nil:
 			// If we didn't pass a Configuration, but we do have a Position, then get the geometries at the zero state and
 			// transform them to the Position
@@ -375,16 +371,8 @@ func NewAbsoluteLinearInterpolatingConstraint(from, to spatial.Pose, linTol, ori
 	lineConstraint, lineMetric := NewLineConstraint(from.Point(), to.Point(), linTol)
 	interpMetric := ik.CombineMetrics(orientMetric, lineMetric)
 
-	f := func(state *ik.State, _, _ spatial.Pose) bool {
-		return orientConstraint(
-			state,
-			spatial.NewZeroPose(),
-			spatial.NewZeroPose(),
-		) && lineConstraint(
-			state,
-			spatial.NewZeroPose(),
-			spatial.NewZeroPose(),
-		)
+	f := func(state *ik.State) bool {
+		return orientConstraint(state) && lineConstraint(state)
 	}
 	return f, interpMetric
 }
@@ -416,7 +404,7 @@ func NewSlerpOrientationConstraint(start, goal spatial.Pose, tolerance float64) 
 		return (sDist + gDist) - origDist
 	}
 
-	validFunc := func(state *ik.State, _, _ spatial.Pose) bool {
+	validFunc := func(state *ik.State) bool {
 		err := resolveStatesToPositions(state)
 		if err != nil {
 			return false
@@ -454,7 +442,7 @@ func NewPlaneConstraint(pNorm, pt r3.Vector, writingAngle, epsilon float64) (Sta
 		return pDist*pDist + oDist*oDist
 	}
 
-	validFunc := func(state *ik.State, _, _ spatial.Pose) bool {
+	validFunc := func(state *ik.State) bool {
 		err := resolveStatesToPositions(state)
 		if err != nil {
 			return false
@@ -478,7 +466,7 @@ func NewLineConstraint(pt1, pt2 r3.Vector, tolerance float64) (StateConstraint, 
 		return math.Max(spatial.DistToLineSegment(pt1, pt2, state.Position.Point())-tolerance, 0)
 	}
 
-	validFunc := func(state *ik.State, _, _ spatial.Pose) bool {
+	validFunc := func(state *ik.State) bool {
 		err := resolveStatesToPositions(state)
 		if err != nil {
 			return false
@@ -493,14 +481,14 @@ func NewLineConstraint(pt1, pt2 r3.Vector, tolerance float64) (StateConstraint, 
 // intersect with points in the octree. Threshold sets the confidence level required for a point to be considered, and buffer is the
 // distance to a point that is considered a collision in mm.
 func NewOctreeCollisionConstraint(octree *pointcloud.BasicOctree, threshold int, buffer float64) StateConstraint {
-	constraint := func(state *ik.State, errorState, currentPosition spatial.Pose) bool {
+	constraint := func(state *ik.State) bool {
 		geometries, err := state.Frame.Geometries(state.Configuration)
 		if err != nil && geometries == nil {
 			return false
 		}
 
 		for _, geom := range geometries.Geometries() {
-			collides, err := octree.CollidesWithGeometry(geom.Transform(errorState), threshold, buffer)
+			collides, err := octree.CollidesWithGeometry(geom, threshold, buffer)
 			if err != nil || collides {
 				return false
 			}

@@ -404,7 +404,7 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 		trajState := &ik.State{Position: spatialmath.Compose(arcStartPose, trajPt.Pose), Frame: mp.frame}
 		nodePose = trajState.Position // This will get rewritten later for inverted trees
 		if sinceLastCollideCheck > mp.planOpts.Resolution {
-			ok, _ := mp.planOpts.CheckStateConstraints(trajState, spatialmath.NewZeroPose(), spatialmath.NewZeroPose())
+			ok, _ := mp.planOpts.CheckStateConstraints(trajState)
 			if !ok {
 				return nil, errInvalidCandidate
 			}

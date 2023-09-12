@@ -695,14 +695,14 @@ func TestCheckPlan(t *testing.T) {
 
 	startPose := spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0})
 	errorState := startPose
-	floatList := []float64{0, 0, 0}
+	floatList := []float64{0, 0}
 	inputs := referenceframe.FloatsToInputs(floatList)
 
-	t.Run("check plan without obstacles - ensure success", func(t *testing.T) {
+	t.Run("without obstacles - ensure success", func(t *testing.T) {
 		err := motionplan.CheckPlan(moveRequest.kinematicBase.Kinematics(), plan, nil, newFS, startPose, inputs, errorState, logger)
 		test.That(t, err, test.ShouldBeNil)
 	})
-	t.Run("check plan with a blocking obstacle - ensure failure", func(t *testing.T) {
+	t.Run("with a blocking obstacle - ensure failure", func(t *testing.T) {
 		obstacle, err := spatialmath.NewBox(
 			spatialmath.NewPoseFromPoint(r3.Vector{150, 0, 0}),
 			r3.Vector{10, 10, 1}, "obstacle",

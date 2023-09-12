@@ -91,7 +91,7 @@ func initRRTSolutions(ctx context.Context, mp motionPlanner, seed []referencefra
 		if canInterp {
 			cost := mp.opt().DistanceFunc(&ik.Segment{StartConfiguration: seed, EndConfiguration: solution.Q()})
 			if cost < optimalCost*defaultOptimalityMultiple {
-				if mp.checkPath(seed, solution.Q(), spatialmath.NewZeroPose()) {
+				if mp.checkPath(seed, solution.Q()) {
 					rrt.steps = []node{seedNode, solution}
 					return rrt
 				}

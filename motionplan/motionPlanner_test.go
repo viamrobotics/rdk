@@ -107,7 +107,7 @@ func constrainedXArmMotion() (*planConfig, error) {
 		}
 		return oFunc(from.Position.Orientation())
 	}
-	orientConstraint := func(cInput *ik.State, _, _ spatialmath.Pose) bool {
+	orientConstraint := func(cInput *ik.State) bool {
 		err := resolveStatesToPositions(cInput)
 		if err != nil {
 			return false
@@ -321,7 +321,7 @@ func testPlanner(t *testing.T, plannerFunc plannerConstructor, config planConfig
 			StartConfiguration: path[j],
 			EndConfiguration:   path[j+1],
 			Frame:              cfg.RobotFrame,
-		}, cfg.Options.Resolution, spatialmath.NewZeroPose(), spatialmath.NewZeroPose())
+		}, cfg.Options.Resolution)
 		test.That(t, ok, test.ShouldBeTrue)
 	}
 }
