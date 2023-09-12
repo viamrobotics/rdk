@@ -130,7 +130,7 @@ func (c *Config) Ensure(fromCloud bool, logger golog.Logger) error {
 		}
 		// we need to figure out how to make it so that the remote is tied to the API
 		resourceRemoteName := resource.NewName(resource.APINamespaceRDK.WithType("remote").WithSubtype(""), c.Remotes[idx].Name)
-		if err := c.validateUniqueResource(logger, seenResources, resourceRemoteName.Name); err != nil {
+		if err := c.validateUniqueResource(logger, seenResources, resourceRemoteName.String()); err != nil {
 			return err
 		}
 	}

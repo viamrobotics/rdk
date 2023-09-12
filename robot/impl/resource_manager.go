@@ -1067,7 +1067,6 @@ func (manager *resourceManager) markResourcesRemoved(
 		}
 
 		manager.resources.MarkForRemoval(subG)
-		// for all dependents, remove them from the graph as well
 	}
 	return resourcesToCloseBeforeComplete
 }

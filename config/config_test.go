@@ -1027,8 +1027,15 @@ func TestValidateUniqueNames(t *testing.T) {
 	config7 := config.Config{
 		Components: []resource.Config{component},
 		Services:   []resource.Config{service},
+		Modules:    []config.Module{module1},
+		Remotes: []config.Remote{
+			{
+				Name:    module1.Name,
+				Address: "test1",
+			},
+		},
 	}
-
+	config7.DisablePartialStart = true
 	err := config7.Ensure(false, logger)
 	test.That(t, err, test.ShouldBeNil)
 }
