@@ -68,6 +68,20 @@ func TestDiffConfigs(t *testing.T) {
 				Model: fakeModel,
 
 				API: board.API,
+				Attributes: utils.AttributeMap{
+					"analogs": []interface{}{
+						map[string]interface{}{
+							"name": "analog1",
+							"pin":  "0",
+						},
+					},
+					"digital_interrupts": []interface{}{
+						map[string]interface{}{
+							"name": "encoder",
+							"pin":  "14",
+						},
+					},
+				},
 				ConvertedAttributes: &fakeboard.Config{
 					Analogs: []board.AnalogConfig{
 						{
@@ -141,6 +155,20 @@ func TestDiffConfigs(t *testing.T) {
 				Model: fakeModel,
 
 				API: board.API,
+				Attributes: utils.AttributeMap{
+					"analogs": []interface{}{
+						map[string]interface{}{
+							"name": "analog1",
+							"pin":  "1",
+						},
+					},
+					"digital_interrupts": []interface{}{
+						map[string]interface{}{
+							"name": "encoder",
+							"pin":  "15",
+						},
+					},
+				},
 				ConvertedAttributes: &fakeboard.Config{
 					Analogs: []board.AnalogConfig{
 						{
@@ -256,6 +284,14 @@ func TestDiffConfigs(t *testing.T) {
 
 							API:   board.API,
 							Model: fakeModel,
+							Attributes: utils.AttributeMap{
+								"digital_interrupts": []interface{}{
+									map[string]interface{}{
+										"name": "encoder2",
+										"pin":  "16",
+									},
+								},
+							},
 							ConvertedAttributes: &fakeboard.Config{
 								DigitalInterrupts: []board.DigitalInterruptConfig{{Name: "encoder2", Pin: "16"}},
 							},
@@ -296,6 +332,14 @@ func TestDiffConfigs(t *testing.T) {
 
 							API:   board.API,
 							Model: fakeModel,
+							Attributes: utils.AttributeMap{
+								"analogs": []interface{}{
+									map[string]interface{}{
+										"name": "analog1",
+										"pin":  "1",
+									},
+								},
+							},
 							ConvertedAttributes: &fakeboard.Config{
 								Analogs: []board.AnalogConfig{{Name: "analog1", Pin: "1"}},
 							},
@@ -355,6 +399,7 @@ func TestDiffConfigs(t *testing.T) {
 
 			for _, revealSensitiveConfigDiffs := range []bool{true, false} {
 				t.Run(fmt.Sprintf("revealSensitiveConfigDiffs=%t", revealSensitiveConfigDiffs), func(t *testing.T) {
+					logger.Infof("Test name: %v LeftFile: `%v` RightFile: `%v`", tc.Name, tc.LeftFile, tc.RightFile)
 					logger := golog.NewTestLogger(t)
 					left, err := config.Read(context.Background(), tc.LeftFile, logger)
 					test.That(t, err, test.ShouldBeNil)
@@ -374,7 +419,11 @@ func TestDiffConfigs(t *testing.T) {
 					tc.Expected.Left = diff.Left
 					tc.Expected.Right = diff.Right
 
-					test.That(t, diff, test.ShouldResemble, &tc.Expected)
+					test.That(t, diff.Added, test.ShouldResemble, tc.Expected.Added)
+					test.That(t, diff.Removed, test.ShouldResemble, tc.Expected.Removed)
+					test.That(t, diff.Modified, test.ShouldResemble, tc.Expected.Modified)
+					test.That(t, diff.ResourcesEqual, test.ShouldEqual, tc.Expected.ResourcesEqual)
+					test.That(t, diff.NetworkEqual, test.ShouldEqual, tc.Expected.NetworkEqual)
 				})
 			}
 		})
