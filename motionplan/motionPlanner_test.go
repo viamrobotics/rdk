@@ -16,7 +16,6 @@ import (
 	"go.viam.com/rdk/motionplan/ik"
 	frame "go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
-	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
 
@@ -108,7 +107,7 @@ func constrainedXArmMotion() (*planConfig, error) {
 		}
 		return oFunc(from.Position.Orientation())
 	}
-	orientConstraint := func(cInput *ik.State, _ spatial.Pose, _ spatial.Pose) bool {
+	orientConstraint := func(cInput *ik.State, _, _ spatialmath.Pose) bool {
 		err := resolveStatesToPositions(cInput)
 		if err != nil {
 			return false
@@ -322,7 +321,7 @@ func testPlanner(t *testing.T, plannerFunc plannerConstructor, config planConfig
 			StartConfiguration: path[j],
 			EndConfiguration:   path[j+1],
 			Frame:              cfg.RobotFrame,
-		}, cfg.Options.Resolution, spatial.NewZeroPose(), spatial.NewZeroPose())
+		}, cfg.Options.Resolution, spatialmath.NewZeroPose(), spatialmath.NewZeroPose())
 		test.That(t, ok, test.ShouldBeTrue)
 	}
 }

@@ -229,7 +229,11 @@ func TestCollisionConstraints(t *testing.T) {
 	// loop through cases and check constraint handler processes them correctly
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("Test %d", i), func(t *testing.T) {
-			response, failName := handler.CheckStateConstraints(&ik.State{Configuration: c.input, Frame: model}, spatial.NewZeroPose(), spatial.NewZeroPose())
+			response, failName := handler.CheckStateConstraints(
+				&ik.State{Configuration: c.input, Frame: model},
+				spatial.NewZeroPose(),
+				spatial.NewZeroPose(),
+			)
 			test.That(t, response, test.ShouldEqual, c.expected)
 			test.That(t, failName, test.ShouldEqual, c.failName)
 		})
@@ -269,7 +273,11 @@ func BenchmarkCollisionConstraints(b *testing.B) {
 	// loop through cases and check constraint handler processes them correctly
 	for n = 0; n < b.N; n++ {
 		rfloats := frame.GenerateRandomConfiguration(model, rseed)
-		b1, _ = handler.CheckStateConstraints(&ik.State{Configuration: frame.FloatsToInputs(rfloats), Frame: model}, spatial.NewZeroPose(), spatial.NewZeroPose())
+		b1, _ = handler.CheckStateConstraints(
+			&ik.State{Configuration: frame.FloatsToInputs(rfloats), Frame: model},
+			spatial.NewZeroPose(),
+			spatial.NewZeroPose(),
+		)
 	}
 	bt = b1
 }

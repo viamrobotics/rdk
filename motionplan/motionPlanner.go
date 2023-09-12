@@ -465,21 +465,11 @@ func CheckPlan(
 
 	// go through plan and check that we can move from plan[i] to plan[i+1]
 	for i := 0; i < len(planNodes)-1; i++ {
-
 		currentPose := planNodes[i].Pose()
-		// fmt.Println("i: ", i)
-		// fmt.Println("currentPose: ", currentPose.Point())
 		nextPose := planNodes[i+1].Pose()
-		// fmt.Println("nextPose: ", nextPose.Point())
-		// fmt.Println("startConfiguration: ", planNodes[i].Q())
-		// fmt.Println("endConfiguration:", planNodes[i+1].Q())
-
 		newStartConfig := []frame.Input{
 			{Value: planNodes[i+1].Q()[0].Value}, {Value: planNodes[i+1].Q()[1].Value}, {Value: 0},
 		}
-		// fmt.Println("newStartConfig: ", newStartConfig)
-
-		// fmt.Println(" ")
 		if isValid, _ := sfPlanner.planOpts.CheckSegmentAndStateValidity(
 			&ik.Segment{
 				StartPosition:      currentPose,

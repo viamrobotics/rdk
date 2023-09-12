@@ -92,10 +92,8 @@ type ConstraintHandler struct {
 // Return values are:
 // -- a bool representing whether all constraints passed
 // -- if failing, a string naming the failed constraint.
-func (c *ConstraintHandler) CheckStateConstraints(state *ik.State, errorState spatial.Pose, currentPosition spatial.Pose) (bool, string) {
-
+func (c *ConstraintHandler) CheckStateConstraints(state *ik.State, errorState, currentPosition spatial.Pose) (bool, string) {
 	for name, cFunc := range c.stateConstraints {
-		// state.Frame.Geometries()
 		pass := cFunc(state, errorState, currentPosition)
 		if !pass {
 			return false, name
@@ -331,7 +329,7 @@ func newCollisionConstraint(
 	}
 
 	// create constraint from reference collision graph
-	constraint := func(state *ik.State, errorState spatial.Pose, currentPosition spatial.Pose) bool {
+	constraint := func(state *ik.State, errorState, currentPosition spatial.Pose) bool {
 		var internalGeoms []spatial.Geometry
 		switch {
 		case state.Configuration != nil:
@@ -342,11 +340,7 @@ func newCollisionConstraint(
 			internalGeoms = internal.Geometries()
 			for i, geom := range internalGeoms {
 				transformBy := spatial.Compose(currentPosition, errorState)
-				// fmt.Println("transformBy: ", transformBy.Point())
-				// fmt.Println("geom.Pose().Point(): ", geom.Pose().Point())
 				internalGeoms[i] = geom.Transform(transformBy)
-				// fmt.Println("internalGeoms[i].Pose(): ", internalGeoms[i].Pose().Point())
-				// fmt.Println(" ")
 			}
 		case state.Position != nil:
 			// If we didn't pass a Configuration, but we do have a Position, then get the geometries at the zero state and
@@ -381,8 +375,16 @@ func NewAbsoluteLinearInterpolatingConstraint(from, to spatial.Pose, linTol, ori
 	lineConstraint, lineMetric := NewLineConstraint(from.Point(), to.Point(), linTol)
 	interpMetric := ik.CombineMetrics(orientMetric, lineMetric)
 
-	f := func(state *ik.State, _ spatial.Pose, _ spatial.Pose) bool {
-		return orientConstraint(state, spatial.NewZeroPose(), spatial.NewZeroPose()) && lineConstraint(state, spatial.NewZeroPose(), spatial.NewZeroPose())
+	f := func(state *ik.State, _, _ spatial.Pose) bool {
+		return orientConstraint(
+			state,
+			spatial.NewZeroPose(),
+			spatial.NewZeroPose(),
+		) && lineConstraint(
+			state,
+			spatial.NewZeroPose(),
+			spatial.NewZeroPose(),
+		)
 	}
 	return f, interpMetric
 }
@@ -414,7 +416,7 @@ func NewSlerpOrientationConstraint(start, goal spatial.Pose, tolerance float64) 
 		return (sDist + gDist) - origDist
 	}
 
-	validFunc := func(state *ik.State, _ spatial.Pose, _ spatial.Pose) bool {
+	validFunc := func(state *ik.State, _, _ spatial.Pose) bool {
 		err := resolveStatesToPositions(state)
 		if err != nil {
 			return false
@@ -452,7 +454,7 @@ func NewPlaneConstraint(pNorm, pt r3.Vector, writingAngle, epsilon float64) (Sta
 		return pDist*pDist + oDist*oDist
 	}
 
-	validFunc := func(state *ik.State, _ spatial.Pose, _ spatial.Pose) bool {
+	validFunc := func(state *ik.State, _, _ spatial.Pose) bool {
 		err := resolveStatesToPositions(state)
 		if err != nil {
 			return false
@@ -476,7 +478,7 @@ func NewLineConstraint(pt1, pt2 r3.Vector, tolerance float64) (StateConstraint, 
 		return math.Max(spatial.DistToLineSegment(pt1, pt2, state.Position.Point())-tolerance, 0)
 	}
 
-	validFunc := func(state *ik.State, _ spatial.Pose, _ spatial.Pose) bool {
+	validFunc := func(state *ik.State, _, _ spatial.Pose) bool {
 		err := resolveStatesToPositions(state)
 		if err != nil {
 			return false
@@ -491,7 +493,7 @@ func NewLineConstraint(pt1, pt2 r3.Vector, tolerance float64) (StateConstraint, 
 // intersect with points in the octree. Threshold sets the confidence level required for a point to be considered, and buffer is the
 // distance to a point that is considered a collision in mm.
 func NewOctreeCollisionConstraint(octree *pointcloud.BasicOctree, threshold int, buffer float64) StateConstraint {
-	constraint := func(state *ik.State, errorState spatial.Pose, currentPosition spatial.Pose) bool {
+	constraint := func(state *ik.State, errorState, currentPosition spatial.Pose) bool {
 		geometries, err := state.Frame.Geometries(state.Configuration)
 		if err != nil && geometries == nil {
 			return false
