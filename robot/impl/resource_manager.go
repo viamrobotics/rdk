@@ -829,13 +829,13 @@ func (manager *resourceManager) updateResources(
 	manager.configLock.Lock()
 	defer manager.configLock.Unlock()
 	var allErrs error
+
 	for _, s := range conf.Added.Services {
 		rName := s.ResourceName()
 		if manager.opts.untrustedEnv && rName.API == shell.API {
 			allErrs = multierr.Combine(allErrs, errShellServiceDisabled)
 			continue
 		}
-
 		allErrs = multierr.Combine(allErrs, manager.markResourceForUpdate(rName, s, s.Dependencies()))
 	}
 	for _, c := range conf.Added.Components {
@@ -853,6 +853,7 @@ func (manager *resourceManager) updateResources(
 	}
 	for _, s := range conf.Modified.Services {
 		rName := s.ResourceName()
+
 		// Disable shell service when in untrusted env
 		if manager.opts.untrustedEnv && rName.API == shell.API {
 			allErrs = multierr.Combine(allErrs, errShellServiceDisabled)
@@ -891,6 +892,7 @@ func (manager *resourceManager) updateResources(
 			allErrs = multierr.Combine(allErrs, errProcessesDisabled)
 			break
 		}
+
 		if oldProc, ok := manager.processManager.RemoveProcessByID(p.ID); ok {
 			if err := oldProc.Stop(); err != nil {
 				manager.logger.Errorw("couldn't stop process", "process", p.ID, "error", err)
@@ -901,6 +903,7 @@ func (manager *resourceManager) updateResources(
 
 		// Remove processConfig from map in case re-addition fails.
 		delete(manager.processConfigs, p.ID)
+
 		// this is done in config validation but partial start rules require us to check again
 		if err := p.Validate(""); err != nil {
 			manager.logger.Errorw("process config validation error; skipping", "process", p.Name, "error", err)
@@ -915,18 +918,6 @@ func (manager *resourceManager) updateResources(
 	}
 
 	// modules are not added into the resource tree as they belong to the module manager
-	for _, mod := range conf.Added.Modules {
-		// this is done in config validation but partial start rules require us to check again
-		if err := mod.Validate(""); err != nil {
-			manager.logger.Errorw("module config validation error; skipping", "module", mod.Name, "error", err)
-			continue
-		}
-
-		if err := manager.moduleManager.Add(ctx, mod); err != nil {
-			manager.logger.Errorw("error adding module", "module", mod.Name, "error", err)
-			continue
-		}
-	}
 	for _, mod := range conf.Modified.Modules {
 		// this is done in config validation but partial start rules require us to check again
 		if err := mod.Validate(""); err != nil {
@@ -944,7 +935,6 @@ func (manager *resourceManager) updateResources(
 			}
 		}
 	}
-
 	return allErrs
 }
 
@@ -1065,7 +1055,6 @@ func (manager *resourceManager) markResourcesRemoved(
 		if addNames != nil {
 			addNames(subG.Names()...)
 		}
-
 		manager.resources.MarkForRemoval(subG)
 	}
 	return resourcesToCloseBeforeComplete
