@@ -39,7 +39,7 @@ func (ptg *ptgDiffDrive) Velocities(alpha, dist float64) (float64, float64, erro
 }
 
 // Transform will return the pose for the given inputs. The first input is [-pi, pi]. This corresponds to the direction and amount of
-// of rotation. For distance, dist is equal to the number of radians rotated plus the number of millimeters of straight motion.
+// rotation. For distance, dist is equal to the number of radians rotated plus the number of millimeters of straight motion.
 func (ptg *ptgDiffDrive) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {
 	if len(inputs) != 2 {
 		return nil, referenceframe.NewIncorrectInputLengthError(len(inputs), 2)
