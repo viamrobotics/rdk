@@ -152,7 +152,9 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 			if !ok {
 				return nil, errors.New("could not interpret motion_profile field as string")
 			}
-			kinematicsOptions.PositionOnlyMode = motionProfile == motionplan.PositionOnlyMotionProfile
+			if false { // TODO: Fix with RSDK-4583
+				kinematicsOptions.PositionOnlyMode = motionProfile == motionplan.PositionOnlyMotionProfile
+			}
 		}
 	}
 
