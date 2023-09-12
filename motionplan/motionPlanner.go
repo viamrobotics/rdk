@@ -492,7 +492,7 @@ func CheckPlan(
 			}
 			if relative {
 				rectifyBy := spatialmath.Compose(currentPose, errorState)
-				poseInPath = spatialmath.Compose(poseInPath, rectifyBy)
+				poseInPath = spatialmath.Compose(rectifyBy, poseInPath)
 			} else {
 				poseInPath = spatialmath.Compose(poseInPath, errorState)
 			}
