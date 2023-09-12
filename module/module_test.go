@@ -670,12 +670,12 @@ func TestAttributeConversion(t *testing.T) {
 
 func TestModuleSocketAddrTruncation(t *testing.T) {
 	// test with a short base path
-	path, err := module.TruncatedSocketAddress("/tmp", "my-cool-module")
+	path, err := module.CreateSocketAddress("/tmp", "my-cool-module")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, path, test.ShouldEqual, "/tmp/my-cool-module.sock")
 
 	// test exactly 104
-	path, err = module.TruncatedSocketAddress(
+	path, err = module.CreateSocketAddress(
 		"/tmp",
 		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 	)
@@ -686,7 +686,7 @@ func TestModuleSocketAddrTruncation(t *testing.T) {
 	)
 
 	// test 105 chars
-	path, err = module.TruncatedSocketAddress(
+	path, err = module.CreateSocketAddress(
 		"/tmp",
 		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 	)
@@ -697,7 +697,7 @@ func TestModuleSocketAddrTruncation(t *testing.T) {
 	test.That(t, matches, test.ShouldBeTrue)
 
 	// test with an extra-long base path
-	_, err = module.TruncatedSocketAddress(
+	_, err = module.CreateSocketAddress(
 		"/var/folders/pc/yyrlrx8n0yq_xr550xh62pq80000gn/T/viam-module-29232730790000000000000000000000000000000000",
 		"a",
 	)

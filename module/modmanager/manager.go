@@ -609,7 +609,7 @@ func (m *module) startProcess(
 	logger golog.Logger,
 ) error {
 	var err error
-	if m.addr, err = modlib.TruncatedSocketAddress(filepath.Dir(parentAddr), m.name); err != nil {
+	if m.addr, err = modlib.CreateSocketAddress(filepath.Dir(parentAddr), m.name); err != nil {
 		return err
 	}
 

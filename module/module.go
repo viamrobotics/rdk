@@ -41,10 +41,10 @@ const (
 	socketMaxAddressLength int = 103
 )
 
-// TruncatedSocketAddress returns a socket address of the form parentDir/desiredName.sock
+// CreateSocketAddress returns a socket address of the form parentDir/desiredName.sock
 // if it is shorter than the max socket length on the given os. If this path would be too long, this function
 // truncates desiredName and returns parentDir/truncatedName-randomStr.sock.
-func TruncatedSocketAddress(parentDir, desiredName string) (string, error) {
+func CreateSocketAddress(parentDir, desiredName string) (string, error) {
 	baseAddr := filepath.ToSlash(parentDir)
 	numRemainingChars := socketMaxAddressLength -
 		len(baseAddr) -
