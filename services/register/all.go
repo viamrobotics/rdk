@@ -5,7 +5,6 @@ import (
 	// register services.
 	_ "go.viam.com/rdk/services/baseremotecontrol/register"
 	_ "go.viam.com/rdk/services/datamanager/register"
-	_ "go.viam.com/rdk/services/mlmodel/register"
 	_ "go.viam.com/rdk/services/motion/register"
 	_ "go.viam.com/rdk/services/navigation/register"
 	_ "go.viam.com/rdk/services/sensors/register"
