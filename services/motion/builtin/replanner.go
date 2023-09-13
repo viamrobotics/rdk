@@ -2,6 +2,7 @@ package builtin
 
 import (
 	"context"
+	"fmt"
 	"time"
 )
 
@@ -9,6 +10,13 @@ import (
 type replanResponse struct {
 	err    error
 	replan bool
+}
+
+func (rr replanResponse) String() string {
+	if rr.err == nil {
+		return fmt.Sprintf("builtin.replanResponse{replan: %t, err: nil}", rr.replan)
+	}
+	return fmt.Sprintf("builtin.replanResponse{replan: %t, err: %s}", rr.replan, rr.err.Error())
 }
 
 // replanner bundles everything needed to execute a function at a given interval and return.
