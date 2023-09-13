@@ -268,7 +268,7 @@ func (m *EncodedMotor) makeAdjustments(pos, lastPos float64, now, lastTime int64
 	defer m.stateMu.Unlock()
 
 	// calculate RPM based on change in position and change in time
-	deltaPos := (pos - lastPos) / float64(m.ticksPerRotation)
+	deltaPos := (pos - lastPos) / m.ticksPerRotation
 	// time is polled in nanoseconds, convert to minutes for rpm
 	deltaTime := (float64(now) - float64(lastTime)) / float64(6e10)
 	if deltaTime == 0.0 {
@@ -280,7 +280,7 @@ func (m *EncodedMotor) makeAdjustments(pos, lastPos float64, now, lastTime int64
 	dir := m.directionMovingInLock()
 
 	// "controls"
-	quartRot := float64(m.ticksPerRotation) / 4.0
+	quartRot := m.ticksPerRotation / 4.0
 	if pos < m.state.goalPos+quartRot && pos > m.state.goalPos-quartRot {
 		powerPct := m.state.lastPowerPct - (m.rampRate * 2 * m.directionMovingInLock())
 		if sign(powerPct) != m.directionMovingInLock() {
@@ -433,7 +433,7 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float
 	if err != nil {
 		return err
 	}
-	goalPos := (math.Abs(revolutions) * float64(m.ticksPerRotation) * m.state.direction) + currentPos
+	goalPos := (math.Abs(revolutions) * m.ticksPerRotation * m.state.direction) + currentPos
 
 	m.state.goalRPM = math.Abs(rpm) * m.state.direction
 	m.state.goalPos = goalPos
@@ -455,7 +455,7 @@ func (m *EncodedMotor) GoTo(ctx context.Context, rpm, targetPosition float64, ex
 	if err != nil {
 		return err
 	}
-	currRotations := pos / float64(m.ticksPerRotation)
+	currRotations := pos / m.ticksPerRotation
 	rotations := targetPosition - currRotations
 	// if you call GoFor with 0 revolutions, the motor will spin forever. If we are at the target,
 	// we must avoid this by not calling GoFor.
@@ -471,7 +471,7 @@ func (m *EncodedMotor) ResetZeroPosition(ctx context.Context, offset float64, ex
 	return m.encoder.ResetPosition(ctx, extra)
 }
 
-// report position in ticks
+// report position in ticks.
 func (m *EncodedMotor) position(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	ticks, _, err := m.encoder.Position(ctx, encoder.PositionTypeTicks, extra)
 	if err != nil {
@@ -489,7 +489,7 @@ func (m *EncodedMotor) Position(ctx context.Context, extra map[string]interface{
 		return 0, err
 	}
 
-	return ticks / float64(m.ticksPerRotation), nil
+	return ticks / m.ticksPerRotation, nil
 }
 
 // Properties returns whether or not the motor supports certain optional properties.
