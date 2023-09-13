@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/test"
 
@@ -47,11 +48,15 @@ func TestNewFakeKinematics(t *testing.T) {
 
 	options := NewKinematicBaseOptions()
 	options.PositionOnlyMode = false
-	kb, err := WrapWithFakeKinematics(ctx, b.(*fakebase.Base), localizer, limits, options)
+	noise := spatialmath.NewPoseFromPoint(r3.Vector{1, 0, 0})
+	kb, err := WrapWithFakeKinematics(ctx, b.(*fakebase.Base), localizer, limits, options, noise)
 	test.That(t, err, test.ShouldBeNil)
 	expected := referenceframe.FloatsToInputs([]float64{10, 11})
 	test.That(t, kb.GoToInputs(ctx, expected), test.ShouldBeNil)
 	inputs, err := kb.CurrentInputs(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, inputs, test.ShouldResemble, expected)
+	pose, err := kb.CurrentPosition(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, spatialmath.PoseAlmostCoincident(pose.Pose(), spatialmath.NewPoseFromPoint(r3.Vector{11, 11, 0})), test.ShouldBeTrue)
 }

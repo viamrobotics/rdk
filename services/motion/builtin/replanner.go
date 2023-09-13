@@ -2,6 +2,7 @@ package builtin
 
 import (
 	"context"
+	"fmt"
 	"sync/atomic"
 	"time"
 
@@ -45,7 +46,12 @@ func (r *replanner) startPolling(ctx context.Context, plan [][]referenceframe.In
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			replan, err := r.needReplan(ctx, plan, int(waypointIndex.Load()))
+			index := int(waypointIndex.Load())
+			if index >= len(plan) {
+				index = len(plan) - 1
+			}
+			replan, err := r.needReplan(ctx, plan, index)
+			fmt.Printf("do i need a replan?  answer: %v", replan)
 			if err != nil || replan {
 				r.responseChan <- replanResponse{replan: replan, err: err}
 				return

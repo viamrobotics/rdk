@@ -44,7 +44,7 @@ func (mr *moveRequest) plan(ctx context.Context) ([][]referenceframe.Input, erro
 }
 
 // execute attempts to follow a given Plan starting from the index percribed by waypointIndex.
-// Note that waypointIndex is an atomic int that is incremented in this function after each waypoint has been successfully reached.
+// Note that waypointIndex is an atomic int that is incremented in this function after each waypoint has been successfully reached.bui
 func (mr *moveRequest) execute(ctx context.Context, waypoints [][]referenceframe.Input, waypointIndex *atomic.Int32) moveResponse {
 	// Iterate through the list of waypoints and issue a command to move to each
 	for i := waypointIndex.Load(); i < int32(len(waypoints)); i = waypointIndex.Add(1) {
@@ -82,6 +82,7 @@ func (mr *moveRequest) deviatedFromPlan(ctx context.Context, waypoints [][]refer
 	if err != nil {
 		return false, err
 	}
+	fmt.Println(errorState.Point().Norm())
 	return errorState.Point().Norm() > mr.config.PlanDeviationMM, nil
 }
 

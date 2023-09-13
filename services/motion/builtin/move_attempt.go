@@ -30,6 +30,9 @@ type moveAttempt struct {
 	// replanners for the move attempt
 	// if we ever have to add additional instances we should figure out how to make this more scalable
 	position, obstacle *replanner
+
+	// waypointIndex tracks the waypoint we are currently executing on
+	waypointIndex *atomic.Int32
 }
 
 // newMoveAttempt instantiates a moveAttempt which can later be started.
@@ -37,6 +40,9 @@ type moveAttempt struct {
 func newMoveAttempt(ctx context.Context, request *moveRequest) *moveAttempt {
 	cancelCtx, cancelFn := context.WithCancel(ctx)
 	var backgroundWorkers sync.WaitGroup
+
+	var waypointIndex atomic.Int32
+	waypointIndex.Store(1)
 
 	return &moveAttempt{
 		ctx:               cancelCtx,
@@ -48,6 +54,8 @@ func newMoveAttempt(ctx context.Context, request *moveRequest) *moveAttempt {
 
 		position: newReplanner(time.Duration(1000/request.config.PositionPollingFreqHz)*time.Millisecond, request.deviatedFromPlan),
 		obstacle: newReplanner(time.Duration(1000/request.config.ObstaclePollingFreqHz)*time.Millisecond, request.obstaclesIntersectPlan),
+
+		waypointIndex: &waypointIndex,
 	}
 }
 
@@ -60,23 +68,20 @@ func (ma *moveAttempt) start() error {
 		return err
 	}
 
-	var waypointIndex atomic.Int32
-	waypointIndex.Store(1)
-
 	ma.backgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
-		ma.position.startPolling(ma.ctx, waypoints, &waypointIndex)
+		ma.position.startPolling(ma.ctx, waypoints, ma.waypointIndex)
 	}, ma.backgroundWorkers.Done)
 
 	ma.backgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
-		ma.obstacle.startPolling(ma.ctx, waypoints, &waypointIndex)
+		ma.obstacle.startPolling(ma.ctx, waypoints, ma.waypointIndex)
 	}, ma.backgroundWorkers.Done)
 
 	// spawn function to execute the plan on the robot
 	ma.backgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
-		if resp := ma.request.execute(ma.ctx, waypoints, &waypointIndex); resp.success || resp.err != nil {
+		if resp := ma.request.execute(ma.ctx, waypoints, ma.waypointIndex); resp.success || resp.err != nil {
 			ma.responseChan <- resp
 		}
 	}, ma.backgroundWorkers.Done)
