@@ -314,7 +314,8 @@ func (m *uln28byj) GoTo(ctx context.Context, rpm, positionRevolutions float64, e
 func (m *uln28byj) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
-	m.stepPosition = int64(offset * float64(m.ticksPerRotation))
+	m.stepPosition = int64(-1 * offset * float64(m.ticksPerRotation))
+	m.targetStepPosition = m.stepPosition
 	return nil
 }
 
