@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"runtime"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -31,17 +31,36 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
-// CheckSocketAddressLength returns an error if the socket path is too long for the OS.
-func CheckSocketAddressLength(addr string) error {
+const (
+	socketSuffix = ".sock"
+	// If we assume each robot has 10 modules running on it, and they would all have colliding truncated names,
+	// P(collision) = 1-(48^5)!/((48^5-10)!*(48^(5*10))) ~ 1.8E-7.
+	socketRandomSuffixLen int = 5
 	// maxSocketAddressLength is the length (-1 for null terminator) of the .sun_path field as used in kernel bind()/connect() syscalls.
-	maxSocketAddressLength := 103
-	if runtime.GOOS == "linux" {
-		maxSocketAddressLength = 107
+	// Linux allows for a max length of 107 but to simplify this code, we truncate to the macOS limit of 103.
+	socketMaxAddressLength int = 103
+)
+
+// CreateSocketAddress returns a socket address of the form parentDir/desiredName.sock
+// if it is shorter than the max socket length on the given os. If this path would be too long, this function
+// truncates desiredName and returns parentDir/truncatedName-randomStr.sock.
+func CreateSocketAddress(parentDir, desiredName string) (string, error) {
+	baseAddr := filepath.ToSlash(parentDir)
+	numRemainingChars := socketMaxAddressLength -
+		len(baseAddr) -
+		len(socketSuffix) -
+		1 // `/` between baseAddr and name
+	if numRemainingChars < len(desiredName) && numRemainingChars < socketRandomSuffixLen+1 {
+		return "", errors.Errorf("module socket base path would result in a path greater than the OS limit of %d characters: %s",
+			socketMaxAddressLength, baseAddr)
 	}
-	if len(addr) > maxSocketAddressLength {
-		return errors.Errorf("module socket path exceeds OS limit of %d characters: %s", maxSocketAddressLength, addr)
+	if numRemainingChars >= len(desiredName) {
+		return filepath.Join(baseAddr, desiredName+socketSuffix), nil
 	}
-	return nil
+	numRemainingChars -= socketRandomSuffixLen + 1 // save one character for the `-` between truncatedName and socketRandomSuffix
+	socketRandomSuffix := utils.RandomAlphaString(socketRandomSuffixLen)
+	truncatedName := desiredName[:numRemainingChars]
+	return filepath.Join(baseAddr, fmt.Sprintf("%s-%s%s", truncatedName, socketRandomSuffix, socketSuffix)), nil
 }
 
 // HandlerMap is the format for api->model pairs that the module will service.
