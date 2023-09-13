@@ -624,8 +624,8 @@ func (m *module) startProcess(
 	oue func(int) bool,
 	logger golog.Logger,
 ) error {
-	m.addr = filepath.ToSlash(filepath.Join(filepath.Dir(parentAddr), m.name+".sock"))
-	if err := modlib.CheckSocketAddressLength(m.addr); err != nil {
+	var err error
+	if m.addr, err = modlib.CreateSocketAddress(filepath.Dir(parentAddr), m.name); err != nil {
 		return err
 	}
 
@@ -646,8 +646,7 @@ func (m *module) startProcess(
 
 	m.process = pexec.NewManagedProcess(pconf, logger)
 
-	err := m.process.Start(context.Background())
-	if err != nil {
+	if err := m.process.Start(context.Background()); err != nil {
 		return errors.WithMessage(err, "module startup failed")
 	}
 
