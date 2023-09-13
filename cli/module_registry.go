@@ -97,7 +97,7 @@ func CreateModuleAction(c *cli.Context) error {
 	}
 	emptyManifest := moduleManifest{
 		ModuleID:   returnedModuleID.String(),
-		Visibility: "",
+		Visibility: moduleVisibilityPrivate,
 		// This is done so that the json has an empty example
 		Models: []moduleComponent{
 			{},
