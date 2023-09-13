@@ -33,7 +33,7 @@ const (
 var (
 	// Model is the name of the sensor_controlled model of a base component.
 	Model           = resource.DefaultModelFamily.WithModel("sensor-controlled")
-	errNoGoodSensor = errors.New("no appropriate sensor for orientaiton or velocity feedback")
+	errNoGoodSensor = errors.New("no appropriate sensor for orientation or velocity feedback")
 )
 
 // Config configures a sencor controlled base.
