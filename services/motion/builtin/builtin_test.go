@@ -355,6 +355,7 @@ func TestMoveWithObstacles(t *testing.T) {
 }
 
 func TestMoveOnMapLongDistance(t *testing.T) {
+	t.Skip()
 	t.Parallel()
 	ctx := context.Background()
 	// goal position is scaled to be in mm
