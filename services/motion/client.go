@@ -250,25 +250,7 @@ func (c *client) GetPlan(
 	if err != nil {
 		return OpIDPlans{}, err
 	}
-
-	current, err := pbToPlanWithStatus(resp.CurrentPlanWithStatus)
-	if err != nil {
-		return OpIDPlans{}, err
-	}
-
-	replanHistory := []PlanWithStatus{}
-	for _, pws := range resp.ReplanHistory {
-		p, err := pbToPlanWithStatus(pws)
-		if err != nil {
-			return OpIDPlans{}, err
-		}
-		replanHistory = append(replanHistory, p)
-	}
-
-	return OpIDPlans{
-		CurrentPlanWithStatus: current,
-		ReplanHistory:         replanHistory,
-	}, nil
+	return pbToOpIDPlans(resp)
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
