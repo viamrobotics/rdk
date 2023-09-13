@@ -351,7 +351,7 @@ func (wb *wheeledBase) SetVelocity(ctx context.Context, linear, angular r3.Vecto
 	// check if we're receiving a vector of magnitude zero (all components zero) from linear and angular velcoity
 	// and interpret that as a signal to stop the base
 	if linear.Norm() == 0 && angular.Norm() == 0 {
-		wb.logger.Debug("receiver a SetVelocity command of linear 0,0,0, and angular 0,0,0, stopping base")
+		wb.logger.Debug("received a SetVelocity command of linear 0,0,0, and angular 0,0,0, stopping base")
 		return wb.Stop(ctx, nil)
 	}
 
