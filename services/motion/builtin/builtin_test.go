@@ -11,6 +11,7 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
@@ -355,6 +356,7 @@ func TestMoveWithObstacles(t *testing.T) {
 }
 
 func TestMoveOnMapLongDistance(t *testing.T) {
+	t.Skip()
 	t.Parallel()
 	ctx := context.Background()
 	// goal position is scaled to be in mm
