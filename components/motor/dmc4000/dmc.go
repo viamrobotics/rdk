@@ -557,7 +557,7 @@ func (m *Motor) GoTo(ctx context.Context, rpm, position float64, extra map[strin
 func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
 	m.c.mu.Lock()
 	defer m.c.mu.Unlock()
-	_, err := m.c.sendCmd(fmt.Sprintf("DP%s=%d", m.Axis, int(offset*float64(m.TicksPerRotation))))
+	_, err := m.c.sendCmd(fmt.Sprintf("DP%s=%d", m.Axis, int(-1*offset*float64(m.TicksPerRotation))))
 	if err != nil {
 		return errors.Wrap(err, "error in ResetZeroPosition")
 	}
