@@ -171,6 +171,7 @@ func TestWheelBaseMath(t *testing.T) {
 		}
 	})
 
+	// Spin tests
 	t.Run("spin math", func(t *testing.T) {
 		rpms, rotations := wb.spinMath(90, 10)
 		test.That(t, rpms, test.ShouldAlmostEqual, 0.523, 0.001)
