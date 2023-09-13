@@ -275,8 +275,12 @@ func (o *odometry) Readings(ctx context.Context, extra map[string]interface{}) (
 		return nil, err
 	}
 
-	readings["position X"] = o.position.X
-	readings["position Y"] = o.position.Y
+	// movementsensor.Readings calls all the APIs with their owm mutex lock in this driver
+	// the lock has been released, so for the last two readings we lock again to append them to the readings map
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	readings["position_meters_X"] = o.position.X
+	readings["position_meters_Y"] = o.position.Y
 
 	return readings, nil
 }
@@ -379,7 +383,7 @@ func (o *odometry) trackPosition(ctx context.Context) {
 
 			distance := math.Hypot(o.position.X, o.position.Y)
 			heading := math.Atan2(o.position.Y, o.position.X)
-			o.coord = geoOrigin.PointAtDistanceAndBearing(distance, heading)
+			o.coord = geoOrigin.PointAtDistanceAndBearing(distance*mToKm, heading)
 
 			// Update the linear and angular velocity values using the provided time interval.
 			o.linearVelocity.Y = centerDist / (o.timeIntervalMSecs / 1000)
