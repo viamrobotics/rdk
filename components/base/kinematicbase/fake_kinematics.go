@@ -2,7 +2,6 @@ package kinematicbase
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
@@ -97,12 +96,10 @@ func (fk *fakeKinematics) ErrorState(
 	plan [][]referenceframe.Input,
 	currentNode int,
 ) (spatialmath.Pose, error) {
-	fmt.Println("the index ", currentNode)
 	current, err := fk.CurrentPosition(ctx)
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("the current ", current.Pose().Point())
 	desiredPose, err := fk.planningFrame.Transform(plan[currentNode])
 	if err != nil {
 		return nil, err

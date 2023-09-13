@@ -2,7 +2,6 @@ package builtin
 
 import (
 	"context"
-	"fmt"
 	"sync/atomic"
 	"time"
 
@@ -15,7 +14,7 @@ type replanResponse struct {
 	replan bool
 }
 
-// replanFn is an alias for a function that will be polled by a replanner
+// replanFn is an alias for a function that will be polled by a replanner.
 type replanFn func(context.Context, [][]referenceframe.Input, int) (bool, error)
 
 // replanner bundles everything needed to execute a function at a given interval and return.
@@ -51,7 +50,6 @@ func (r *replanner) startPolling(ctx context.Context, plan [][]referenceframe.In
 				index = len(plan) - 1
 			}
 			replan, err := r.needReplan(ctx, plan, index)
-			fmt.Printf("do i need a replan?  answer: %v", replan)
 			if err != nil || replan {
 				r.responseChan <- replanResponse{replan: replan, err: err}
 				return
