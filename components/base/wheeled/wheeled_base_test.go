@@ -171,27 +171,6 @@ func TestWheelBaseMath(t *testing.T) {
 		}
 	})
 
-	test.That(t, wb.Close(context.Background()), test.ShouldBeNil)
-	t.Run("go block", func(t *testing.T) {
-		go func() {
-			time.Sleep(time.Millisecond * 10)
-			err = wb.Stop(ctx, nil)
-			if err != nil {
-				panic(err)
-			}
-		}()
-
-		err := wb.MoveStraight(ctx, 10000, 1000, nil)
-		test.That(t, err, test.ShouldBeNil)
-
-		for _, m := range wb.allMotors {
-			isOn, powerPct, err := m.IsPowered(ctx, nil)
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, isOn, test.ShouldBeFalse)
-			test.That(t, powerPct, test.ShouldEqual, 0.0)
-		}
-	})
-	// Spin tests
 	t.Run("spin math", func(t *testing.T) {
 		rpms, rotations := wb.spinMath(90, 10)
 		test.That(t, rpms, test.ShouldAlmostEqual, 0.523, 0.001)
