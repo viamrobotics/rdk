@@ -12,6 +12,8 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/base"
@@ -77,6 +79,7 @@ type Config struct {
 	ObstaclePollingFrequencyHz float64                          `json:"obstacle_polling_frequency_hz,omitempty"`
 	PlanDeviationM             float64                          `json:"plan_deviation_m,omitempty"`
 	ReplanCostFactor           float64                          `json:"replan_cost_factor,omitempty"`
+	LogFilePath                string                           `json:"log_file_path"`
 }
 
 // Validate creates the list of implicit dependencies.
@@ -143,6 +146,7 @@ func NewBuiltIn(ctx context.Context, deps resource.Dependencies, conf resource.C
 	if err := navSvc.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
+
 	return navSvc, nil
 }
 
@@ -181,6 +185,14 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	svcConfig, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return err
+	}
+
+	if svcConfig.LogFilePath != "" {
+		logger, err := newFilePathLoggerConfig(svcConfig.LogFilePath).Build()
+		if err != nil {
+			return err
+		}
+		svc.logger = logger.Sugar().Named("navigation")
 	}
 	base1, err := base.FromDependencies(deps, svcConfig.BaseName)
 	if err != nil {
@@ -261,6 +273,7 @@ func (svc *builtIn) SetMode(ctx context.Context, mode navigation.Mode, extra map
 	defer svc.actionMu.Unlock()
 
 	svc.mu.RLock()
+	svc.logger.Infof("SetMode called with mode: %s, when in state %s", mode, svc.mode)
 	if svc.mode == mode {
 		svc.mu.RUnlock()
 		return nil
@@ -314,6 +327,7 @@ func (svc *builtIn) Waypoints(ctx context.Context, extra map[string]interface{})
 }
 
 func (svc *builtIn) AddWaypoint(ctx context.Context, point *geo.Point, extra map[string]interface{}) error {
+	svc.logger.Infof("AddWaypoint called with %#v", *point)
 	_, err := svc.store.AddWaypoint(ctx, point)
 	return err
 }
@@ -321,6 +335,7 @@ func (svc *builtIn) AddWaypoint(ctx context.Context, point *geo.Point, extra map
 func (svc *builtIn) RemoveWaypoint(ctx context.Context, id primitive.ObjectID, extra map[string]interface{}) error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
+	svc.logger.Infof("RemoveWaypoint called with waypointID: %s", id.String())
 	if svc.waypointInProgress != nil && svc.waypointInProgress.ID == id {
 		if svc.currentWaypointCancelFunc != nil {
 			svc.currentWaypointCancelFunc()
@@ -373,7 +388,7 @@ func (svc *builtIn) startWaypoint(ctx context.Context, extra map[string]interfac
 		defer svc.activeBackgroundWorkers.Done()
 
 		navOnce := func(ctx context.Context, wp navigation.Waypoint) error {
-			_, err := svc.motion.MoveOnGlobe(
+			success, err := svc.motion.MoveOnGlobe(
 				ctx,
 				svc.base.Name(),
 				wp.ToPoint(),
@@ -384,10 +399,14 @@ func (svc *builtIn) startWaypoint(ctx context.Context, extra map[string]interfac
 				extra,
 			)
 			if err != nil {
+				svc.logger.Infof("hit motion error %s when navigating to waypoint %+v", err.Error(), wp)
 				return err
 			}
 
-			return svc.waypointReached(ctx)
+			if !success {
+				return errors.New("failed to reach goal")
+			}
+			return nil
 		}
 
 		// do not exit loop - even if there are no waypoints remaining
@@ -412,17 +431,21 @@ func (svc *builtIn) startWaypoint(ctx context.Context, extra map[string]interfac
 					svc.logger.Infof("skipping waypoint %+v since it was deleted", wp)
 					continue
 				}
-
-				svc.logger.Infof("skipping waypoint %+v due to error while navigating towards it: %s", wp, err)
-				if err := svc.waypointReached(ctx); err != nil {
-					if svc.waypointIsDeleted() {
-						svc.logger.Infof("skipping waypoint %+v since it was deleted", wp)
-						continue
-					}
-					svc.logger.Infof("can't mark waypoint %+v as reached, exiting navigation due to error: %s", wp, err)
-					return
-				}
+				svc.logger.Warnf("failed to navigate to waypoint: %+v due to error %s", wp, err.Error())
+				continue
 			}
+
+			// mark the waypoint as reached if the motion service hit no error
+			// TODO: We probably need to terminate if we can't reach the mongo DB
+
+			if err = svc.waypointReached(ctx); err != nil {
+				svc.logger.Errorf("failed to update the waypoint db %+v, calling Close() on nav", wp)
+				if err = svc.Close(ctx); err != nil {
+					svc.logger.Errorf("navigation Close() returned an error", err)
+				}
+				return
+			}
+			svc.logger.Infof("reached waypoint %+v", wp)
 		}
 	})
 }
@@ -437,4 +460,28 @@ func (svc *builtIn) GetObstacles(ctx context.Context, extra map[string]interface
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 	return svc.obstacles, nil
+}
+
+func newFilePathLoggerConfig(filepath string) zap.Config {
+	return zap.Config{
+		Level:    zap.NewAtomicLevelAt(zap.DebugLevel),
+		Encoding: "console",
+		EncoderConfig: zapcore.EncoderConfig{
+			TimeKey:        "ts",
+			LevelKey:       "level",
+			NameKey:        "logger",
+			CallerKey:      "caller",
+			FunctionKey:    zapcore.OmitKey,
+			MessageKey:     "msg",
+			StacktraceKey:  "stacktrace",
+			LineEnding:     zapcore.DefaultLineEnding,
+			EncodeLevel:    zapcore.CapitalColorLevelEncoder,
+			EncodeTime:     zapcore.ISO8601TimeEncoder,
+			EncodeDuration: zapcore.StringDurationEncoder,
+			EncodeCaller:   zapcore.ShortCallerEncoder,
+		},
+		DisableStacktrace: true,
+		OutputPaths:       []string{filepath, "stdout"},
+		ErrorOutputPaths:  []string{filepath, "stderr"},
+	}
 }
