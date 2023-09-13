@@ -119,7 +119,7 @@ func (c *ConstraintHandler) CheckSegmentConstraints(segment *ik.Segment) (bool, 
 // If any constraints fail, this will return false, and an Segment representing the valid portion of the segment, if any. If no
 // part of the segment is valid, then `false, nil` is returned.
 func (c *ConstraintHandler) CheckStateConstraintsAcrossSegment(ci *ik.Segment, resolution float64) (bool, *ik.Segment) {
-	interpolatedConfigurations, err := getInterpolations(ci, resolution)
+	interpolatedConfigurations, err := interpolateSegment(ci, resolution)
 	if err != nil {
 		return false, nil
 	}
@@ -143,9 +143,9 @@ func (c *ConstraintHandler) CheckStateConstraintsAcrossSegment(ci *ik.Segment, r
 	return true, nil
 }
 
-// getInterpolations is a helper function which produces a list of intermediate inputs, between the start and end configuration of a segment
+// interpolateSegment is a helper function which produces a list of intermediate inputs, between the start and end configuration of a segment
 // at a given resolution value.
-func getInterpolations(ci *ik.Segment, resolution float64) ([][]referenceframe.Input, error) {
+func interpolateSegment(ci *ik.Segment, resolution float64) ([][]referenceframe.Input, error) {
 	// ensure we have cartesian positions
 	if err := resolveSegmentsToPositions(ci); err != nil {
 		return nil, err

@@ -481,7 +481,7 @@ func CheckPlan(
 			EndConfiguration:   endConfiguration,
 			Frame:              sf,
 		}
-		interpolatedConfigurations, err := getInterpolations(segment, sfPlanner.planOpts.Resolution)
+		interpolatedConfigurations, err := interpolateSegment(segment, sfPlanner.planOpts.Resolution)
 		if err != nil {
 			return err
 		}
