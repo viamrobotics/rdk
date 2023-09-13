@@ -34,15 +34,15 @@ const (
 )
 
 var (
-	// model is the model of a replay camera.
-	model = resource.DefaultModelFamily.WithModel("replay_pcd")
+	// Model is the model of a replay camera.
+	Model = resource.DefaultModelFamily.WithModel("replay_pcd")
 
 	// ErrEndOfDataset represents that the replay sensor has reached the end of the dataset.
 	ErrEndOfDataset = errors.New("reached end of dataset")
 )
 
 func init() {
-	resource.RegisterComponent(camera.API, model, resource.Registration[camera.Camera, *Config]{
+	resource.RegisterComponent(camera.API, Model, resource.Registration[camera.Camera, *Config]{
 		Constructor: newPCDCamera,
 	})
 }

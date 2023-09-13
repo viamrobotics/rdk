@@ -33,8 +33,8 @@ const (
 )
 
 var (
-	// model is the model of a replay movement sensor.
-	model = resource.DefaultModelFamily.WithModel("replay")
+	// Model is the model of a replay movement sensor.
+	Model = resource.DefaultModelFamily.WithModel("replay")
 
 	// ErrEndOfDataset represents that the replay sensor has reached the end of the dataset.
 	ErrEndOfDataset = errors.New("reached end of dataset")
@@ -44,7 +44,7 @@ var (
 )
 
 func init() {
-	resource.RegisterComponent(movementsensor.API, model, resource.Registration[movementsensor.MovementSensor, *Config]{
+	resource.RegisterComponent(movementsensor.API, Model, resource.Registration[movementsensor.MovementSensor, *Config]{
 		Constructor: newReplayMovementSensor,
 	})
 }
