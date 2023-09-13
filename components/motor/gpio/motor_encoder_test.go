@@ -130,14 +130,6 @@ func TestMotorEncoder1(t *testing.T) {
 		test.That(t, properties.PositionReporting, test.ShouldBeTrue)
 	})
 
-	t.Run("encoded motor testing regulation", func(t *testing.T) {
-		test.That(t, motorDep.IsRegulated(), test.ShouldBeFalse)
-		motorDep.SetRegulated(true)
-		test.That(t, motorDep.IsRegulated(), test.ShouldBeTrue)
-		motorDep.SetRegulated(false)
-		test.That(t, motorDep.IsRegulated(), test.ShouldBeFalse)
-	})
-
 	t.Run("encoded motor testing SetPower", func(t *testing.T) {
 		test.That(t, motorDep.SetPower(context.Background(), .01, nil), test.ShouldBeNil)
 		test.That(t, fakeMotor.Direction(), test.ShouldEqual, 1)
@@ -300,7 +292,7 @@ func TestMotorEncoder1(t *testing.T) {
 		wg.Wait()
 
 		test.That(t, ctx.Err(), test.ShouldNotBeNil)
-		test.That(t, motorDep.state.desiredRPM, test.ShouldEqual, 0)
+		test.That(t, motorDep.state.goalRPM, test.ShouldEqual, 0)
 	})
 }
 
