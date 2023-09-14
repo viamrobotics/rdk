@@ -70,7 +70,7 @@ func TestTFLiteCPUDetector(t *testing.T) {
 		tensor.WithShape(got.metadata.Inputs[0].Shape[1], got.metadata.Inputs[0].Shape[2], 3),
 		tensor.WithBacking(imgBytes),
 	)
-	gotOutput, _, err := got.Infer(ctx, inputMap, nil)
+	gotOutput, err := got.Infer(ctx, inputMap)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gotOutput, test.ShouldNotBeNil)
 
@@ -132,7 +132,7 @@ func TestTFLiteCPUClassifier(t *testing.T) {
 		tensor.WithBacking(imgBytes),
 	)
 
-	gotOutput, _, err := got.Infer(ctx, inputMap, nil)
+	gotOutput, err := got.Infer(ctx, inputMap)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gotOutput, test.ShouldNotBeNil)
 
@@ -180,7 +180,7 @@ func TestTFLiteCPUTextModel(t *testing.T) {
 	test.That(t, inputMap["input_ids"].Shape(), test.ShouldResemble, tensor.Shape{384})
 	inputMap["input_mask"] = tensor.New(tensor.WithShape(384), tensor.WithBacking(zeros))
 	inputMap["segment_ids"] = tensor.New(tensor.WithShape(384), tensor.WithBacking(zeros))
-	gotOutput, _, err := got.Infer(ctx, inputMap, nil)
+	gotOutput, err := got.Infer(ctx, inputMap)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gotOutput, test.ShouldNotBeNil)
 	test.That(t, len(gotOutput), test.ShouldEqual, 2)
@@ -250,7 +250,7 @@ func TestTFLiteCPUClient(t *testing.T) {
 	test.That(t, gotMD.Outputs[1].AssociatedFiles[0].Name, test.ShouldResemble, "labelmap.txt")
 
 	// Test call to Infer
-	gotOutput, _, err := client.Infer(context.Background(), inputMap, nil)
+	gotOutput, err := client.Infer(context.Background(), inputMap)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gotOutput, test.ShouldNotBeNil)
 	test.That(t, len(gotOutput), test.ShouldEqual, 4)

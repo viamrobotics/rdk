@@ -68,7 +68,7 @@ func attemptToBuildClassifier(mlm mlmodel.Service, nameMap *sync.Map) (classific
 		default:
 			return nil, errors.New("invalid input type. try uint8 or float32")
 		}
-		outMap, _, err := mlm.Infer(ctx, inMap, nil)
+		outMap, err := mlm.Infer(ctx, inMap)
 		if err != nil {
 			return nil, err
 		}
