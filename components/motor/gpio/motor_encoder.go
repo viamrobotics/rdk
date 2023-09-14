@@ -216,8 +216,8 @@ func (m *EncodedMotor) rpmMonitor() {
 	}
 	lastTime := time.Now().UnixNano()
 
+	timer := time.NewTimer(50 * time.Millisecond)
 	for {
-		timer := time.NewTimer(50 * time.Millisecond)
 		select {
 		case <-m.cancelCtx.Done():
 			timer.Stop()
