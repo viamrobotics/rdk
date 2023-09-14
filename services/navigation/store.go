@@ -2,6 +2,7 @@ package navigation
 
 import (
 	"context"
+	"math"
 	"sync"
 	"time"
 
@@ -119,7 +120,10 @@ func (store *MemoryNavigationStore) RemoveWaypoint(ctx context.Context, id primi
 	}
 	store.mu.Lock()
 	defer store.mu.Unlock()
-	newWps := make([]*Waypoint, 0, len(store.waypoints)-1)
+	// the math.Max is to avoid a panic if the store is already empty
+	// when RemoveWaypoihnt is called.
+	newCapacity := int(math.Max(float64(len(store.waypoints)-1), 0))
+	newWps := make([]*Waypoint, 0, newCapacity)
 	for _, wp := range store.waypoints {
 		if wp.ID == id {
 			continue
