@@ -373,6 +373,7 @@ func (svc *builtIn) Close(ctx context.Context) error {
 }
 
 func (svc *builtIn) startWaypoint(ctx context.Context, extra map[string]interface{}) {
+	svc.logger.Debug("startWaypoint called")
 	if extra == nil {
 		if false {
 			extra = map[string]interface{}{"motion_profile": "position_only"}
@@ -388,6 +389,7 @@ func (svc *builtIn) startWaypoint(ctx context.Context, extra map[string]interfac
 		defer svc.activeBackgroundWorkers.Done()
 
 		navOnce := func(ctx context.Context, wp navigation.Waypoint) error {
+			svc.logger.Debugf("MoveOnGlobe called going to waypoint %+v", wp)
 			success, err := svc.motion.MoveOnGlobe(
 				ctx,
 				svc.base.Name(),
@@ -404,7 +406,9 @@ func (svc *builtIn) startWaypoint(ctx context.Context, extra map[string]interfac
 			}
 
 			if !success {
-				return errors.New("failed to reach goal")
+				err := errors.New("failed to reach goal")
+				svc.logger.Infof("hit motion failed to reach goal %s when navigating to waypoint %+v", err.Error(), wp)
+				return err
 			}
 			return nil
 		}
