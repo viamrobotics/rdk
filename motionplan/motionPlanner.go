@@ -469,6 +469,8 @@ func CheckPlan(
 		startConfiguration := planNodes[i].Q()
 		endConfiguration := planNodes[i+1].Q()
 
+		// If we are working with a PTG plan we redefine the startConfiguration in terms of the endConfiguration.
+		// This allows us the properly interpolate along the same arc family and sub-arc within that family.
 		if relative {
 			startConfiguration = []frame.Input{
 				{Value: endConfiguration[0].Value}, {Value: endConfiguration[1].Value}, {Value: 0},
@@ -490,6 +492,11 @@ func CheckPlan(
 			if err != nil {
 				return err
 			}
+			// If we are working with a PTG plan the returned value for poseInPath will only
+			// tell us how far along the arc we have travelled. Since this is only the relative position,
+			// i.e. relative to where the robot started executing the arc,
+			// we must compose poseInPath with with currentPose to get the absolute position.
+			// In both cases we ultimately compose poseInPath with errorState.
 			if relative {
 				rectifyBy := spatialmath.Compose(currentPose, errorState)
 				poseInPath = spatialmath.Compose(rectifyBy, poseInPath)
