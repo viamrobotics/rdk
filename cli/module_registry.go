@@ -414,7 +414,8 @@ func validateModuleFile(client *viamClient, moduleID moduleID, tarballPath, vers
 		return err
 	}
 	// TODO(APP-2226): support .tar.xz
-	if !strings.HasSuffix(file.Name(), ".tar.gz") && !strings.HasSuffix(file.Name(), ".tgz") {
+	if !strings.HasSuffix(strings.ToLower(file.Name()), ".tar.gz") &&
+		!strings.HasSuffix(strings.ToLower(file.Name()), ".tgz") {
 		return errors.New("you must upload your module in the form of a .tar.gz")
 	}
 	archive, err := gzip.NewReader(file)
