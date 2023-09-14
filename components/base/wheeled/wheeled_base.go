@@ -348,6 +348,13 @@ func (wb *wheeledBase) SetVelocity(ctx context.Context, linear, angular r3.Vecto
 			" angular.X: %.2f, angular.Y: %.2f, angular.Z: %.2f",
 		linear.X, linear.Y, linear.Z, angular.X, angular.Y, angular.Z)
 
+	// check if we're receiving a vector of magnitude zero (all components zero) from linear and angular velcoity
+	// and interpret that as a signal to stop the base
+	if linear.Norm() == 0 && angular.Norm() == 0 {
+		wb.logger.Debug("received a SetVelocity command of linear 0,0,0, and angular 0,0,0, stopping base")
+		return wb.Stop(ctx, nil)
+	}
+
 	leftRPM, rightRPM := wb.velocityMath(linear.Y, angular.Z)
 	// Passing zero revolutions to `motor.GoFor` will have the motor run until
 	// interrupted. Moreover, `motor.GoFor` will return immediately when given zero revolutions.
@@ -385,6 +392,13 @@ func (wb *wheeledBase) SetPower(ctx context.Context, linear, angular r3.Vector, 
 		"received a SetPower with linear.X: %.2f, linear.Y: %.2f linear.Z: %.2f,"+
 			" angular.X: %.2f, angular.Y: %.2f, angular.Z: %.2f",
 		linear.X, linear.Y, linear.Z, angular.X, angular.Y, angular.Z)
+
+	// check if we're receiving a vector of magnitude zero (all components zero) from linear and angular velcoity
+	// and interpret that as a signal to stop the base
+	if linear.Norm() == 0 && angular.Norm() == 0 {
+		wb.logger.Debug("received a SetPower command of linear 0,0,0, and angular 0,0,0, stopping base")
+		return wb.Stop(ctx, nil)
+	}
 
 	lPower, rPower := wb.differentialDrive(linear.Y, angular.Z)
 
