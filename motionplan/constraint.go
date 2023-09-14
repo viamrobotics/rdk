@@ -143,8 +143,8 @@ func (c *ConstraintHandler) CheckStateConstraintsAcrossSegment(ci *ik.Segment, r
 	return true, nil
 }
 
-// interpolateSegment is a helper function which produces a list of intermediate inputs, between the start and end configuration of a segment
-// at a given resolution value.
+// interpolateSegment is a helper function which produces a list of intermediate inputs, between the start and end
+// configuration of a segment at a given resolution value.
 func interpolateSegment(ci *ik.Segment, resolution float64) ([][]referenceframe.Input, error) {
 	// ensure we have cartesian positions
 	if err := resolveSegmentsToPositions(ci); err != nil {

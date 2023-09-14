@@ -495,8 +495,8 @@ func CheckPlan(
 			// If we are working with a PTG plan the returned value for poseInPath will only
 			// tell us how far along the arc we have travelled. Since this is only the relative position,
 			// i.e. relative to where the robot started executing the arc,
-			// we must compose poseInPath with with currentPose to get the absolute position.
-			// In both cases we ultimately compose poseInPath with errorState.
+			// we must compose poseInPath with currentPose to get the absolute position.
+			// In both cases we ultimately compose with errorState.
 			if relative {
 				rectifyBy := spatialmath.Compose(currentPose, errorState)
 				poseInPath = spatialmath.Compose(rectifyBy, poseInPath)

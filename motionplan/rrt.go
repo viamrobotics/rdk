@@ -253,8 +253,10 @@ func transformNodes(path []node, transformBy spatialmath.Pose) []node {
 	transformedNodes := []node{}
 	for _, n := range path {
 		newNode := &basicNode{
-			q:    n.Q(),
-			pose: spatialmath.Compose(n.Pose(), transformBy),
+			q:      n.Q(),
+			cost:   n.Cost(),
+			pose:   spatialmath.Compose(n.Pose(), transformBy),
+			corner: n.Corner(),
 		}
 		transformedNodes = append(transformedNodes, newNode)
 	}
