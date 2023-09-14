@@ -67,6 +67,7 @@ type Config struct {
 	MovementSensorName string                 `json:"movement_sensor"`
 	MotionServiceName  string                 `json:"motion_service"`
 	VisionServices     []string               `json:"vision_services"`
+	MapType            string                 `json:"map_type"`
 
 	// DegPerSec and MetersPerSec are targets and not hard limits on speed
 	DegPerSec    float64 `json:"degs_per_sec,omitempty"`
@@ -153,6 +154,7 @@ type builtIn struct {
 	store     navigation.NavStore
 	storeType string
 	mode      navigation.Mode
+	mapType   string
 
 	base           base.Base
 	movementSensor movementsensor.MovementSensor
@@ -230,6 +232,7 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		return err
 	}
 
+	svc.mapType = svcConfig.MapType
 	svc.mode = navigation.ModeManual
 	svc.store = newStore
 	svc.storeType = string(svcConfig.Store.Type)
@@ -280,6 +283,9 @@ func (svc *builtIn) SetMode(ctx context.Context, mode navigation.Mode, extra map
 	svc.mode = mode
 	if svc.mode == navigation.ModeWaypoint {
 		svc.startWaypoint(cancelCtx, extra)
+	}
+	if svc.mode == navigation.ModeAutoExplore {
+		svc.startAutoExplore(cancelCtx, extra)
 	}
 	return nil
 }
