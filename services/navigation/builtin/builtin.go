@@ -389,7 +389,14 @@ func (svc *builtIn) startWaypoint(ctx context.Context, extra map[string]interfac
 		defer svc.activeBackgroundWorkers.Done()
 
 		navOnce := func(ctx context.Context, wp navigation.Waypoint) error {
-			svc.logger.Debugf("MoveOnGlobe called going to waypoint %+v", wp)
+			svc.logger.Debugf("MoveOnGlobe called going to waypoint %+v, heading: %f, movementSensor: %s, obstacles: %v, motionCfg: %#v, extra: %s",
+				wp,
+				math.NaN(),
+				svc.movementSensor.Name(),
+				svc.obstacles,
+				svc.motionCfg,
+				extra,
+			)
 			success, err := svc.motion.MoveOnGlobe(
 				ctx,
 				svc.base.Name(),
@@ -449,7 +456,7 @@ func (svc *builtIn) startWaypoint(ctx context.Context, extra map[string]interfac
 				}
 				return
 			}
-			svc.logger.Infof("reached waypoint %+v", wp)
+			svc.logger.Infof("reached waypoint %s", wp.ID)
 		}
 	})
 }
