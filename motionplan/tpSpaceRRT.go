@@ -291,7 +291,7 @@ func (mp *tpSpaceRRTMotionPlanner) planRunner(
 						bestPath = goodPath
 					}
 				}
-				correctedPath, err := rectifyTPspacePath(bestPath, mp.frame, spatialmath.NewZeroPose())
+				correctedPath, err := rectifyTPspacePath(bestPath, mp.frame)
 				if err != nil {
 					rrt.solutionChan <- &rrtPlanReturn{planerr: err, maps: rrt.maps}
 					return
@@ -781,7 +781,7 @@ func (mp *tpSpaceRRTMotionPlanner) attemptSmooth(
 	if secondEdge < len(path)-1 {
 		newInputSteps = append(newInputSteps, path[secondEdge+1:]...)
 	}
-	return rectifyTPspacePath(newInputSteps, mp.frame, spatialmath.NewZeroPose())
+	return rectifyTPspacePath(newInputSteps, mp.frame)
 }
 
 func (mp *tpSpaceRRTMotionPlanner) sample(rSeed node, iter int) (node, error) {
@@ -805,9 +805,9 @@ func (mp *tpSpaceRRTMotionPlanner) sample(rSeed node, iter int) (node, error) {
 // When this becomes a single path, poses should reflect the transformation at the end of each traj. Here we go through and recompute
 // each pose in order to ensure correctness.
 // TODO: if trees are stored as segments rather than nodes, then this becomes simpler/unnecessary. Related to RSDK-4139.
-func rectifyTPspacePath(path []node, frame referenceframe.Frame, startPose spatialmath.Pose) ([]node, error) {
+func rectifyTPspacePath(path []node, frame referenceframe.Frame) ([]node, error) {
 	correctedPath := []node{}
-	runningPose := startPose
+	runningPose := spatialmath.NewZeroPose()
 	for _, wp := range path {
 		wpPose, err := frame.Transform(wp.Q())
 		if err != nil {

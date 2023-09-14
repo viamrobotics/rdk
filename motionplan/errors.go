@@ -19,8 +19,6 @@ var (
 	errInvalidCandidate = errors.New("candidate did not meet constraints")
 
 	errNoCandidates = errors.New("no candidates passed in, skipping")
-
-	errInvalidConstraint = errors.New("invalid constraint input")
 )
 
 func genIKConstraintErr(failures map[string]int, constraintFailCnt int) error {
