@@ -329,7 +329,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 				restartInterval = newRestartInterval
 
 				if mustRestart {
-					s.logger.Debug(string(debug.Stack()))
+					s.logger.Debugf("backtrace at robot restart, %s", string(debug.Stack()))
 					cancel()
 					return
 				}
