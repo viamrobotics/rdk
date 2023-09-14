@@ -361,8 +361,6 @@ func (wb *wheeledBase) SetVelocity(ctx context.Context, linear, angular r3.Vecto
 	const numRevolutions = 0
 	errs := make([]error, 0)
 
-	wb.logger.Debugf("leftrpm %v, rightrpm %v", leftRPM, rightRPM)
-
 	wb.mu.Lock()
 	// Because `SetVelocity` does not create a new operation, canceling must be done atomically with
 	// engaging the underlying motors. Otherwise, for example:
