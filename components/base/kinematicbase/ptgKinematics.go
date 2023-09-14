@@ -173,7 +173,10 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 		if err != nil {
 			return multierr.Combine(err, ptgk.Base.Stop(ctx, nil))
 		}
-		utils.SelectContextOrWait(ctx, timestep)
+		if !utils.SelectContextOrWait(ctx, timestep) {
+			// context cancelled
+			break
+		}
 	}
 
 	return ptgk.Base.Stop(ctx, nil)
