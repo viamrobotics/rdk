@@ -119,7 +119,7 @@ func (store *MemoryNavigationStore) RemoveWaypoint(ctx context.Context, id primi
 	}
 	store.mu.Lock()
 	defer store.mu.Unlock()
-	newWps := make([]*Waypoint, 0, len(store.waypoints)-1)
+	newWps := []*Waypoint{}
 	for _, wp := range store.waypoints {
 		if wp.ID == id {
 			continue
