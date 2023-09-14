@@ -323,6 +323,8 @@ func (ms *builtIn) MoveOnGlobe(
 		case resp := <-ma.responseChan:
 			if failed(resp) {
 				ms.logger.Debugf("execution failed: %s", resp)
+				ma.cancel()
+				return resp.success, resp.err
 			}
 			ms.logger.Debug("execution complete successfully")
 			ma.cancel()

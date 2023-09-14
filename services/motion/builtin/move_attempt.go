@@ -2,6 +2,7 @@ package builtin
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	goutils "go.viam.com/utils"
@@ -13,6 +14,13 @@ import (
 type moveResponse struct {
 	err     error
 	success bool
+}
+
+func (mr moveResponse) String() string {
+	if mr.err == nil {
+		return fmt.Sprintf("builtin.moveResponse{success: %t, err: nil}", mr.success)
+	}
+	return fmt.Sprintf("builtin.moveResponse{success: %t, err: %s}", mr.success, mr.err.Error())
 }
 
 // moveAttempt is a struct whose lifetime lasts the duration of an attempt to complete a moveRequest
