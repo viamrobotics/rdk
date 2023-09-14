@@ -279,20 +279,6 @@ func (m *EncodedMotor) makeAdjustments(pos, lastPos float64, now, lastTime int64
 
 	dir := m.directionMovingInLock()
 
-	// "controls"
-	quartRot := m.ticksPerRotation / 4.0
-	if pos < m.state.goalPos+quartRot && pos > m.state.goalPos-quartRot {
-		powerPct := m.state.lastPowerPct - (m.rampRate * 2 * m.directionMovingInLock())
-		if sign(powerPct) != m.directionMovingInLock() {
-			powerPct *= -1
-		}
-		m.state.lastPowerPct = powerPct
-		if err := m.setPower(m.cancelCtx, powerPct, true); err != nil {
-			return err
-		}
-		return nil
-	}
-
 	if (dir == 1 && m.state.currentRPM > m.state.goalRPM) || (dir == -1 && m.state.currentRPM < m.state.goalRPM) {
 		powerPct := m.state.lastPowerPct - (m.rampRate * m.directionMovingInLock())
 		if sign(powerPct) != m.directionMovingInLock() {
