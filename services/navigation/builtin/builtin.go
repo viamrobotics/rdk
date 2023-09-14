@@ -232,7 +232,12 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		return err
 	}
 
-	svc.mapType = svcConfig.MapType
+	mapType, err := validateMapType(svcConfig.MapType)
+	if err != nil {
+		return err
+	}
+
+	svc.mapType = mapType
 	svc.mode = navigation.ModeManual
 	svc.store = newStore
 	svc.storeType = string(svcConfig.Store.Type)
@@ -443,4 +448,13 @@ func (svc *builtIn) GetObstacles(ctx context.Context, extra map[string]interface
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 	return svc.obstacles, nil
+}
+
+func validateMapType(mapType string) (string, error) {
+	for _, validMapType := range []string{"SLAM", "GPS", ""} {
+		if mapType == validMapType {
+			return mapType, nil
+		}
+	}
+	return "", errors.New("invalid map type given")
 }
