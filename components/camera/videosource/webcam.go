@@ -58,7 +58,6 @@ type CameraConfig struct {
 
 // Discover webcam attributes.
 func Discover(_ context.Context, getDrivers func() []driver.Driver, logger golog.Logger) (*pb.Webcams, error) {
-	mediadevicescamera.Initialize()
 	var webcams []*pb.Webcam
 	drivers := getDrivers()
 	for _, d := range drivers {
