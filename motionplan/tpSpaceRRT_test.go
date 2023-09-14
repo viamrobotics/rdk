@@ -317,13 +317,15 @@ func TestPtgCheckPlan(t *testing.T) {
 	roverGeom, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{10, 10, 10}, "")
 	test.That(t, err, test.ShouldBeNil)
 	geometries := []spatialmath.Geometry{roverGeom}
-	ackermanFrame, err := tpspace.NewPTGFrameFromTurningRadius(
+	ackermanFrame, err := tpspace.NewPTGFrameFromKinematicOptions(
 		"ackframe",
 		logger,
 		300.,
+		0,
 		testTurnRad,
 		0,
 		geometries,
+		false,
 	)
 	test.That(t, err, test.ShouldBeNil)
 
