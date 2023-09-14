@@ -7,6 +7,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime/debug"
 	"runtime/pprof"
 	"time"
 
@@ -328,6 +329,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 				restartInterval = newRestartInterval
 
 				if mustRestart {
+					s.logger.Debug(string(debug.Stack()))
 					cancel()
 					return
 				}
