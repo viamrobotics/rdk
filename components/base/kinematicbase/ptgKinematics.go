@@ -145,7 +145,9 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 
 	lastDist := 0.
 	lastTime := 0.
-	for _, trajNode := range selectedTraj {
+	lastLinVel := r3.Vector{}
+	lastAngVel := r3.Vector{}
+	for i, trajNode := range selectedTraj {
 		ptgk.inputLock.Lock() // In the case where there's actual contention here, this could cause timing issues; how to solve?
 		ptgk.currentInput = []referenceframe.Input{inputs[0], inputs[1], {lastDist}}
 		ptgk.inputLock.Unlock()
@@ -157,21 +159,28 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 		linVel := r3.Vector{0, trajNode.LinVelMMPS, 0}
 		angVel := r3.Vector{0, 0, rdkutils.RadToDeg(trajNode.AngVelRPS)}
 
-		ptgk.logger.Debugf(
-			"setting velocity to linear %v angular %v and running velocity step for %s",
-			linVel,
-			angVel,
-			timestep,
-		)
+		// This should call SetVelocity if:
+		// 1) this is the first iteration of the loop, or
+		// 2) either of the linear or angular velocities has changed
+		if i == 0 || !(linVel.ApproxEqual(lastLinVel) && angVel.ApproxEqual(lastAngVel)) {
+			ptgk.logger.Debugf(
+				"setting velocity to linear %v angular %v and running velocity step for %s",
+				linVel,
+				angVel,
+				timestep,
+			)
 
-		err := ptgk.Base.SetVelocity(
-			ctx,
-			linVel,
-			angVel,
-			nil,
-		)
-		if err != nil {
-			return multierr.Combine(err, ptgk.Base.Stop(ctx, nil))
+			err := ptgk.Base.SetVelocity(
+				ctx,
+				linVel,
+				angVel,
+				nil,
+			)
+			if err != nil {
+				return multierr.Combine(err, ptgk.Base.Stop(ctx, nil))
+			}
+			lastLinVel = linVel
+			lastAngVel = angVel
 		}
 		if !utils.SelectContextOrWait(ctx, timestep) {
 			// context cancelled
