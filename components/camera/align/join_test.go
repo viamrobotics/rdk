@@ -3,6 +3,7 @@ package align
 import (
 	"context"
 	"errors"
+	"os"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -12,10 +13,58 @@ import (
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/camera/videosource"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
+	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
 )
+
+func TestJoinWithImages(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	cam := inject.NewCamera("cam")
+	params := &transform.PinholeCameraIntrinsics{ // D435 intrinsics
+		Width:  640,
+		Height: 480,
+		Fx:     608.2598876953125,
+		Fy:     608.554443359375,
+		Ppx:    322.95932006835938,
+		Ppy:    249.26702880859375,
+	}
+	img, err := rimage.NewImageFromFile(artifact.MustPath("pointcloud/the_color_image_intel.jpg"))
+	test.That(t, err, test.ShouldBeNil)
+	dm, err := rimage.NewDepthMapFromFile(context.Background(), artifact.MustPath("pointcloud/the_depth_image_intel.png"))
+	test.That(t, err, test.ShouldBeNil)
+	cam.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+		return camera.Properties{
+			IntrinsicParams: params,
+		}, nil
+	}
+	cam.ImagesFunc = func(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+		imgs := []camera.NamedImage{{img, "color"}, {dm, "depth"}}
+		return imgs, resource.ResponseMetadata{}, nil
+	}
+	cfg := &joinConfig{
+		ImageType: "color",
+		Color:     "intel",
+		Depth:     "intel",
+	}
+	joinCam, err := newJoinColorDepth(context.Background(), cam, cam, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	alignedPointCloud, err := joinCam.NextPointCloud(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, alignedPointCloud, test.ShouldNotBeNil)
+	tempPCD, err := os.CreateTemp(t.TempDir(), "*.pcd")
+	test.That(t, err, test.ShouldBeNil)
+	defer os.Remove(tempPCD.Name())
+	err = pointcloud.ToPCD(alignedPointCloud, tempPCD, pointcloud.PCDBinary)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, joinCam.Close(context.Background()), test.ShouldBeNil)
+
+}
 
 func TestJoin(t *testing.T) {
 	logger := golog.NewTestLogger(t)
