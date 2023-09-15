@@ -1,5 +1,5 @@
 {
-  "FaceTime HD Camera": {   //Macbook Air M1 2020
+  "FaceTime HD Camera": {
     "ppx": 446,
     "ppy": 585,
     "height_px": 720,
@@ -7,7 +7,7 @@
     "fy": 1209,
     "width_px": 1280
   },
-  "Logitech BRIO": {  //Logitech brio4k
+  "Logitech BRIO": {
     "fx": 740.0304302692135,
     "fy": 740.4105603669158,
     "height_px": 720,
@@ -15,7 +15,7 @@
     "ppy": 371.8080142996358,
     "width_px": 1280
   },
-  "C270 HD WEBCAM": {  //Logitech c270
+  "C270 HD WEBCAM": {
     "fx": 911.4644040206691,
     "fy": 912.7619272761438,
     "height_px": 480,
@@ -23,7 +23,7 @@
     "ppy": 218.83896179564766,
     "width_px": 640
   },
-  "HD Webcam eMeet C950": {  //this is the round one
+  "HD Webcam eMeet C950": {
     "fx": 1630.8007951390407,
     "fy": 1640.6785145222568,
     "height_px": 1080,
@@ -31,7 +31,7 @@
     "ppy": 485.6573920452437,
     "width_px": 1920
   },
-  "GENERAL WEBCAM": {  //webcam the Viam rover
+  "GENERAL WEBCAM": {
     "fx": 724.2002169657624,
     "fy": 729.8226006721098,
     "height_px": 480,

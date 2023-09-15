@@ -3,6 +3,7 @@ package videosource
 import (
 	"context"
 	_ "embed"
+	"encoding/json"
 	"fmt"
 	"image"
 	"path/filepath"
@@ -594,9 +595,21 @@ func (c *monitoredWebcam) NextPointCloud(ctx context.Context) (pointcloud.PointC
 	}
 	return c.exposedProjector.NextPointCloud(ctx)
 }
+func (c *monitoredWebcam) DriverInfo() (driver.Info, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.underlyingSource == nil {
+		return driver.Info{}, errors.New("no configured camera")
+	}
+	d, err := gostream.DriverFromMediaSource[image.Image, prop.Video](c.underlyingSource)
+	if err != nil {
+		return driver.Info{}, errors.Wrap(err, "cannot get driver from media source")
+	}
+	return d.Info(), nil
+}
 
 //go:embed data/intrinsics.json
-var intrinsicsjson []byte
+var intrinsics []byte
 
 func (c *monitoredWebcam) Properties(ctx context.Context) (camera.Properties, error) {
 	c.mu.RLock()
@@ -604,7 +617,7 @@ func (c *monitoredWebcam) Properties(ctx context.Context) (camera.Properties, er
 	if err := c.ensureActive(); err != nil {
 		return camera.Properties{}, err
 	}
-	//return c.exposedProjector.Properties(ctx)
+
 	props, err := c.exposedProjector.Properties(ctx)
 	if err != nil {
 		return camera.Properties{}, err
@@ -612,24 +625,25 @@ func (c *monitoredWebcam) Properties(ctx context.Context) (camera.Properties, er
 	if props.IntrinsicParams == nil {
 		dInfo, err := c.DriverInfo()
 		if err != nil {
-			return camera.Properties{}, err
+			c.logger.Info("can't find driver info for camera.")
+			return props, nil
 		}
 		var data map[string]transform.PinholeCameraIntrinsics
-		if err := json.Unmarshal(intrinsicsjson, &data); err != nil {
-			c.logger.Errorw("MON VIE")
-			return camera.Properties{}, err
+		if err := json.Unmarshal(intrinsics, &data); err != nil {
+			c.logger.Errorw("cannot parse intrinsics json: ", err)
+			return props, nil
 		}
 
 		cameraIntrinsics, exists := data[dInfo.Name]
 		if !exists {
-			fmt.Println("Camera Model not found in Known Camera Models:", dInfo)
-			return camera.Properties{}, err
+			c.logger.Info("Camera model not found in known camera models for: ", dInfo.Name, ". Returning properties without intrinsics")
+			return props, nil
 		}
-
+		c.logger.Info("Intrinsics are known for camera model: ", dInfo.Name, ". Adding intrinsics to camera properties.")
 		props.IntrinsicParams = &cameraIntrinsics
 	}
 
-	return props, err
+	return props, nil
 }
 
 var (
