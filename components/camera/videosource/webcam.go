@@ -625,7 +625,7 @@ func (c *monitoredWebcam) Properties(ctx context.Context) (camera.Properties, er
 	if props.IntrinsicParams == nil {
 		dInfo, err := c.DriverInfo()
 		if err != nil {
-			c.logger.Info("can't find driver info for camera.")
+			c.logger.Infow("can't find driver info for camera.")
 			return props, nil
 		}
 		var data map[string]transform.PinholeCameraIntrinsics
@@ -636,10 +636,10 @@ func (c *monitoredWebcam) Properties(ctx context.Context) (camera.Properties, er
 
 		cameraIntrinsics, exists := data[dInfo.Name]
 		if !exists {
-			c.logger.Info("Camera model not found in known camera models for: ", dInfo.Name, ". Returning properties without intrinsics")
+			c.logger.Infow("Camera model not found in known camera models for: ", dInfo.Name, ". Returning properties without intrinsics")
 			return props, nil
 		}
-		c.logger.Info("Intrinsics are known for camera model: ", dInfo.Name, ". Adding intrinsics to camera properties.")
+		c.logger.Infow("Intrinsics are known for camera model: ", dInfo.Name, ". Adding intrinsics to camera properties.")
 		props.IntrinsicParams = &cameraIntrinsics
 	}
 
