@@ -324,7 +324,7 @@
       icon="stop-circle-outline"
       label="Stop"
       on:click={stop}
-      on:keyup={(event) => handleOnKeyUp(event, stop)}
+      on:keyup={(event: KeyboardInput) => handleOnKeyUp(event, stop)}
       role="button"
       tabindex="0"
     />
@@ -437,7 +437,7 @@
               variant="success"
               label="Run"
               on:click={baseRun}
-              on:keyup={(event) => handleOnKeyUp(event, baseRun)}
+              on:keyup={(event: KeyboardInput) => handleOnKeyUp(event, baseRun)}
               role="button"
               tabindex="0"
             />
