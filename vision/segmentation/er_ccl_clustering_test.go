@@ -51,9 +51,10 @@ func TestERCCL(t *testing.T) {
 }
 
 func BenchmarkERCCL(b *testing.B) {
+	logger := golog.NewTestLogger(b)
 	injectCamera := &inject.Camera{}
 	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
-		return pc.NewFromLASFile(artifact.MustPath("pointcloud/test.las"), nil)
+		return pc.NewFromFile(artifact.MustPath("pointcloud/test.pcd"), logger)
 	}
 	var pts []*vision.Object
 	var err error
