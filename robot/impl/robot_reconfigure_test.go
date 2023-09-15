@@ -2407,7 +2407,7 @@ func TestUpdateWeakDependents(t *testing.T) {
 	}()
 
 	// Create a configuration with a single component that has an explicit, unresolved
-	// dependency. Reconfiguring will succed, but getting a handle on the `weak1Name` resource fails
+	// dependency. Reconfiguring will succeed, but getting a handle on the `weak1Name` resource fails
 	// with `unresolved dependencies`.
 	base1Name := base.Named("base1")
 	weakCfg1 := config.Config{
