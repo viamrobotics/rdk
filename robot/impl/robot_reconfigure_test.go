@@ -2453,7 +2453,7 @@ func TestUpdateWeakDependents(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	weak1, err := resource.AsType[*someTypeWithWeakAndStrongDeps](res)
 	test.That(t, err, test.ShouldBeNil)
-	// Assert that the implicit dependency was tracked.
+	// Assert that the weak dependency was tracked.
 	test.That(t, weak1.resources, test.ShouldHaveLength, 1)
 	test.That(t, weak1.resources, test.ShouldContainKey, base1Name)
 
