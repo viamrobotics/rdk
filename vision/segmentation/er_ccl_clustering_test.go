@@ -2,6 +2,7 @@ package segmentation_test
 
 import (
 	"context"
+	"os"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -9,6 +10,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
+	"go.viam.com/rdk/pointcloud"
 	pc "go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
@@ -36,18 +38,30 @@ func TestERCCL(t *testing.T) {
 		// "clustering_granularity":      2,
 
 		// realsense config
-		"min_points_in_plane":         1500,
+		"min_points_in_plane":         3500,
 		"max_dist_from_plane_mm":      10.0,
-		"min_points_in_segment":       250,
+		"min_points_in_segment":       1000,
 		"ground_angle_tolerance_degs": 20,
 		"ground_plane_normal_vec":     r3.Vector{0, -1, 0},
-		"clustering_radius":           5,
-		"clustering_granularity":      3,
+		"clustering_radius":           30,
+		"clustering_strictness":       3,
 	}
 
 	segmenter, err := segmentation.NewERCCLClustering(objConfig)
 	test.That(t, err, test.ShouldBeNil)
-	_, err = segmenter(context.Background(), injectCamera)
+	objects, err := segmenter(context.Background(), injectCamera)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(objects), test.ShouldEqual, 21)
+
+	pcs := make([]pointcloud.PointCloud, len(objects))
+	for i, pc := range objects {
+		pcs[i] = pc.PointCloud
+	}
+	mergedPc, err := pointcloud.MergePointCloudsWithColor(pcs)
+	test.That(t, err, test.ShouldBeNil)
+	tempPCD, err := os.CreateTemp(".", "*.pcd")
+	test.That(t, err, test.ShouldBeNil)
+	err = pointcloud.ToPCD(mergedPc, tempPCD, pointcloud.PCDBinary)
 	test.That(t, err, test.ShouldBeNil)
 }
 
@@ -72,12 +86,12 @@ func BenchmarkERCCL(b *testing.B) {
 		// "clustering_strictness":      2,
 
 		// realsense config
-		"min_points_in_plane":         1500,
+		"min_points_in_plane":         3500,
 		"max_dist_from_plane_mm":      10.0,
-		"min_points_in_segment":       250,
+		"min_points_in_segment":       2000,
 		"ground_angle_tolerance_degs": 20,
 		"ground_plane_normal_vec":     r3.Vector{0, -1, 0},
-		"clustering_radius":           5,
+		"clustering_radius":           30,
 		"clustering_strictness":       3,
 	}
 
