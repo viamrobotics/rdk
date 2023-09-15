@@ -287,6 +287,12 @@
     angle = event.detail.value;
   };
 
+  const handleOnKeyUp = (event: KeyboardInput, callback: () => void) => {
+    if (event.KeyCode === 13) {
+      callback();
+    }
+  };
+
   onMount(() => {
     window.addEventListener('visibilitychange', handleVisibilityChange);
 
@@ -318,7 +324,7 @@
       icon="stop-circle-outline"
       label="Stop"
       on:click={stop}
-      on:keyup={stop}
+      on:keyup={(event) => handleOnKeyUp(event, stop)}
       role="button"
       tabindex="0"
     />
@@ -431,7 +437,7 @@
               variant="success"
               label="Run"
               on:click={baseRun}
-              on:keyup={baseRun}
+              on:keyup={(event) => handleOnKeyUp(event, baseRun)}
               role="button"
               tabindex="0"
             />
