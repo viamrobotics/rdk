@@ -22,7 +22,7 @@ func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, f
 	md := &v1.UploadMetadata{
 		PartId:        partID,
 		Type:          v1.DataType_DATA_TYPE_FILE,
-		FileName:      filepath.Base(f.Name()),
+		FileName:      f.Name(),
 		FileExtension: filepath.Ext(f.Name()),
 		Tags:          tags,
 	}
