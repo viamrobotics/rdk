@@ -11,6 +11,7 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	datapb "go.viam.com/api/app/data/v1"
+	"go.viam.com/utils"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
@@ -138,6 +139,14 @@ type cacheEntry struct {
 	timeReceived  *timestamppb.Timestamp
 }
 
+type propertiesStatus int
+
+const (
+	notInitialized propertiesStatus = iota
+	failedToInitialize
+	successfullyInitialized
+)
+
 // replayMovementSensor is a movement sensor model that plays back pre-captured movement sensor data.
 type replayMovementSensor struct {
 	resource.Named
@@ -153,8 +162,11 @@ type replayMovementSensor struct {
 
 	cache map[method][]*cacheEntry
 
-	mu     sync.RWMutex
-	closed bool
+	mu                      sync.RWMutex
+	activeBackgroundWorkers sync.WaitGroup
+	closed                  bool
+	propertiesStatus        propertiesStatus
+	properties              movementsensor.Properties
 }
 
 // newReplayMovementSensor creates a new replay movement sensor based on the inputted config and dependencies.
@@ -181,6 +193,14 @@ func (replay *replayMovementSensor) Position(ctx context.Context, extra map[stri
 		return nil, 0, errors.New("session closed")
 	}
 
+	if err := replay.checkPropertiesStatus(ctx); err != nil {
+		return nil, 0, err
+	}
+
+	if !replay.properties.PositionSupported {
+		return nil, 0, errors.New("Position is not supported")
+	}
+
 	data, err := replay.getDataFromCache(ctx, position)
 	if err != nil {
 		return nil, 0, err
@@ -197,6 +217,14 @@ func (replay *replayMovementSensor) LinearVelocity(ctx context.Context, extra ma
 	defer replay.mu.Unlock()
 	if replay.closed {
 		return r3.Vector{}, errors.New("session closed")
+	}
+
+	if err := replay.checkPropertiesStatus(ctx); err != nil {
+		return r3.Vector{}, err
+	}
+
+	if !replay.properties.LinearVelocitySupported {
+		return r3.Vector{}, errors.New("LinearVelocity is not supported")
 	}
 
 	data, err := replay.getDataFromCache(ctx, linearVelocity)
@@ -221,6 +249,14 @@ func (replay *replayMovementSensor) AngularVelocity(ctx context.Context, extra m
 		return spatialmath.AngularVelocity{}, errors.New("session closed")
 	}
 
+	if err := replay.checkPropertiesStatus(ctx); err != nil {
+		return spatialmath.AngularVelocity{}, err
+	}
+
+	if !replay.properties.AngularVelocitySupported {
+		return spatialmath.AngularVelocity{}, errors.New("AngularVelocity is not supported")
+	}
+
 	data, err := replay.getDataFromCache(ctx, angularVelocity)
 	if err != nil {
 		return spatialmath.AngularVelocity{}, err
@@ -239,6 +275,14 @@ func (replay *replayMovementSensor) LinearAcceleration(ctx context.Context, extr
 	defer replay.mu.Unlock()
 	if replay.closed {
 		return r3.Vector{}, errors.New("session closed")
+	}
+
+	if err := replay.checkPropertiesStatus(ctx); err != nil {
+		return r3.Vector{}, err
+	}
+
+	if !replay.properties.LinearAccelerationSupported {
+		return r3.Vector{}, errors.New("LinearAcceleration is not supported")
 	}
 
 	data, err := replay.getDataFromCache(ctx, linearAcceleration)
@@ -261,6 +305,14 @@ func (replay *replayMovementSensor) CompassHeading(ctx context.Context, extra ma
 		return 0., errors.New("session closed")
 	}
 
+	if err := replay.checkPropertiesStatus(ctx); err != nil {
+		return 0., err
+	}
+
+	if !replay.properties.CompassHeadingSupported {
+		return 0., errors.New("CompassHeading is not supported")
+	}
+
 	data, err := replay.getDataFromCache(ctx, compassHeading)
 	if err != nil {
 		return 0., err
@@ -275,6 +327,14 @@ func (replay *replayMovementSensor) Orientation(ctx context.Context, extra map[s
 	defer replay.mu.Unlock()
 	if replay.closed {
 		return nil, errors.New("session closed")
+	}
+
+	if err := replay.checkPropertiesStatus(ctx); err != nil {
+		return nil, err
+	}
+
+	if !replay.properties.OrientationSupported {
+		return nil, errors.New("Orientation is not supported")
 	}
 
 	data, err := replay.getDataFromCache(ctx, orientation)
@@ -292,14 +352,9 @@ func (replay *replayMovementSensor) Orientation(ctx context.Context, extra map[s
 
 // Properties returns the available properties for the given replay movement sensor.
 func (replay *replayMovementSensor) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
-	return &movementsensor.Properties{
-		PositionSupported:           true,
-		LinearVelocitySupported:     true,
-		AngularVelocitySupported:    true,
-		LinearAccelerationSupported: true,
-		CompassHeadingSupported:     true,
-		OrientationSupported:        true,
-	}, nil
+	replay.mu.Lock()
+	defer replay.mu.Unlock()
+	return &replay.properties, replay.checkPropertiesStatus(ctx)
 }
 
 // Accuracy is currently not defined for replay movement sensors.
@@ -314,6 +369,7 @@ func (replay *replayMovementSensor) Close(ctx context.Context) error {
 
 	replay.closed = true
 	replay.closeCloudConnection(ctx)
+	replay.activeBackgroundWorkers.Wait()
 	return nil
 }
 
@@ -394,6 +450,16 @@ func (replay *replayMovementSensor) Reconfigure(ctx context.Context, deps resour
 		replay.filter.Interval.End = timestamppb.New(endTime)
 	}
 
+	replay.activeBackgroundWorkers.Add(1)
+	go func() {
+		ctx, cancel := context.WithTimeout(ctx, downloadTimeout)
+		defer cancel()
+		if err := replay.setProperties(ctx); err != nil {
+			replay.logger.Warn(err)
+		}
+		replay.activeBackgroundWorkers.Done()
+	}()
+
 	return nil
 }
 
@@ -454,7 +520,79 @@ func addGRPCMetadata(ctx context.Context, timeRequested, timeReceived *timestamp
 	return nil
 }
 
-// extractDataAndMetadata retrieves the next cached data and removes it from the cache. It assumes the write lock is being held.
+func (replay *replayMovementSensor) setProperty(method string, supported bool) error {
+	switch method {
+	case "LinearVelocity":
+		replay.properties.LinearVelocitySupported = supported
+	case "AngularVelocity":
+		replay.properties.AngularVelocitySupported = supported
+	case "Orientation":
+		replay.properties.OrientationSupported = supported
+	case "Position":
+		replay.properties.PositionSupported = supported
+	case "CompassHeading":
+		replay.properties.CompassHeadingSupported = supported
+	case "LinearAcceleration":
+		replay.properties.LinearAccelerationSupported = supported
+	default:
+		return errors.New("can't set property, invalid method: " + method)
+	}
+	return nil
+}
+
+func (replay *replayMovementSensor) attemptToInitializeProperty(ctx context.Context, method string) (bool, error) {
+	replay.mu.Lock()
+	defer replay.mu.Unlock()
+
+	var initializedProperty bool
+	if replay.closed {
+		return false, errors.New("session closed")
+	}
+	if err := replay.updateCache(ctx, method); err != nil && err != ErrEndOfDataset {
+		return false, errors.Wrap(err, "could not update the cache")
+	}
+	if len(replay.cache[method]) != 0 {
+		initializedProperty = true
+		if err := replay.setProperty(method, true); err != nil {
+			return false, errors.Wrap(err, "could not set property")
+		}
+	}
+	return initializedProperty, nil
+}
+
+func (replay *replayMovementSensor) setProperties(ctx context.Context) error {
+	var initializedProperty bool
+	var err error
+	for {
+		if !utils.SelectContextOrWait(ctx, time.Duration(time.Second)) {
+			return ctx.Err()
+		}
+		for _, method := range methodList {
+			if initializedProperty, err = replay.attemptToInitializeProperty(ctx, method); err != nil {
+				return err
+			}
+		}
+		if initializedProperty {
+			replay.mu.Lock()
+			defer replay.mu.Unlock()
+			replay.propertiesStatus = successfullyInitialized
+			return nil
+		}
+	}
+}
+
+func (replay *replayMovementSensor) checkPropertiesStatus(ctx context.Context) error {
+	switch replay.propertiesStatus {
+	case notInitialized:
+		return errors.New("properties are not initialized yet")
+	case failedToInitialize:
+		return errors.New("properties failed to initialize")
+	default:
+		return nil
+	}
+}
+
+// getDataFromCache retrieves the next cached data and removes it from the cache. It assumes the write lock is being held.
 func (replay *replayMovementSensor) getDataFromCache(ctx context.Context, method method) (*structpb.Struct, error) {
 	// If no data remains in the cache, download a new batch of data
 	if len(replay.cache[method]) == 0 {
