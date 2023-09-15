@@ -2430,7 +2430,7 @@ func TestUpdateWeakDependents(t *testing.T) {
 
 	// Reconfigure without the explicit dependency. While also adding a second component that would
 	// have satisfied the dependency from the prior `weakCfg1`. Due to the weak dependency wildcard
-	// matcher, this `base1` component will be parsed as an implicit dependency to `weak1`.
+	// matcher, this `base1` component will be parsed as a weak dependency of `weak1`.
 	weakCfg2 := config.Config{
 		Components: []resource.Config{
 			{
