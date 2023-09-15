@@ -164,6 +164,8 @@ func (assoc AssociatedResourceConfig) MarshalJSON() ([]byte, error) {
 // Equals checks if the two configs are deeply equal to each other. Validation
 // related fields and implicit dependencies will be ignored.
 func (conf Config) Equals(other Config) bool {
+	// These `Config` objects are copies. Changing the members here for equality checking does not
+	// impact the original versions.
 	conf.alreadyValidated = false
 	conf.ImplicitDependsOn = nil
 	conf.cachedImplicitDeps = nil
@@ -174,10 +176,6 @@ func (conf Config) Equals(other Config) bool {
 	other.cachedErr = nil
 
 	// RSDK-4657: Only compare `Config.Attributes` for equality.
-	confConverted, otherConverted := conf.ConvertedAttributes, other.ConvertedAttributes
-	defer func() {
-		conf.ConvertedAttributes, other.ConvertedAttributes = confConverted, otherConverted
-	}()
 	conf.ConvertedAttributes = nil
 	other.ConvertedAttributes = nil
 
