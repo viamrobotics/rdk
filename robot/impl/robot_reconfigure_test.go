@@ -2379,7 +2379,7 @@ func TestUpdateWeakDependents(t *testing.T) {
 		test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
 	}()
 
-	// Register a `Resource` that generates weak/implicit dependencies. Specifically instance of
+	// Register a `Resource` that generates weak dependencies. Specifically instance of
 	// this resource will depend on every `component` resource. See the definition of
 	// `internal.ComponentDependencyWildcardMatcher`.
 	weakAPI := resource.NewAPI(uuid.NewString(), "component", "weaktype")
