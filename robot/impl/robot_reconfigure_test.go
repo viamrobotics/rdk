@@ -2379,7 +2379,7 @@ func TestUpdateWeakDependents(t *testing.T) {
 		test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
 	}()
 
-	// Register a `Resource` that generates weak/implicit dependencies. Specifically instance of
+	// Register a `Resource` that generates weak dependencies. Specifically instance of
 	// this resource will depend on every `component` resource. See the definition of
 	// `internal.ComponentDependencyWildcardMatcher`.
 	weakAPI := resource.NewAPI(uuid.NewString(), "component", "weaktype")
@@ -2407,7 +2407,7 @@ func TestUpdateWeakDependents(t *testing.T) {
 	}()
 
 	// Create a configuration with a single component that has an explicit, unresolved
-	// dependency. Reconfiguring will succed, but getting a handle on the `weak1Name` resource fails
+	// dependency. Reconfiguring will succeed, but getting a handle on the `weak1Name` resource fails
 	// with `unresolved dependencies`.
 	base1Name := base.Named("base1")
 	weakCfg1 := config.Config{
@@ -2430,7 +2430,7 @@ func TestUpdateWeakDependents(t *testing.T) {
 
 	// Reconfigure without the explicit dependency. While also adding a second component that would
 	// have satisfied the dependency from the prior `weakCfg1`. Due to the weak dependency wildcard
-	// matcher, this `base1` component will be parsed as an implicit dependency to `weak1`.
+	// matcher, this `base1` component will be parsed as a weak dependency of `weak1`.
 	weakCfg2 := config.Config{
 		Components: []resource.Config{
 			{
@@ -2453,7 +2453,7 @@ func TestUpdateWeakDependents(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	weak1, err := resource.AsType[*someTypeWithWeakAndStrongDeps](res)
 	test.That(t, err, test.ShouldBeNil)
-	// Assert that the implicit dependency was tracked.
+	// Assert that the weak dependency was tracked.
 	test.That(t, weak1.resources, test.ShouldHaveLength, 1)
 	test.That(t, weak1.resources, test.ShouldContainKey, base1Name)
 
@@ -2486,7 +2486,7 @@ func TestUpdateWeakDependents(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	weak1, err = resource.AsType[*someTypeWithWeakAndStrongDeps](res)
 	test.That(t, err, test.ShouldBeNil)
-	// With two other components, `weak1` now has two (implicit) depencies.
+	// With two other components, `weak1` now has two (weak) dependencies.
 	test.That(t, weak1.resources, test.ShouldHaveLength, 2)
 	test.That(t, weak1.resources, test.ShouldContainKey, base1Name)
 	test.That(t, weak1.resources, test.ShouldContainKey, arm1Name)
