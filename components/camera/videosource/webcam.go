@@ -595,6 +595,7 @@ func (c *monitoredWebcam) NextPointCloud(ctx context.Context) (pointcloud.PointC
 	}
 	return c.exposedProjector.NextPointCloud(ctx)
 }
+
 func (c *monitoredWebcam) DriverInfo() (driver.Info, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -625,7 +626,7 @@ func (c *monitoredWebcam) Properties(ctx context.Context) (camera.Properties, er
 	if props.IntrinsicParams == nil {
 		dInfo, err := c.DriverInfo()
 		if err != nil {
-			return camera.Properties{}, errors.Wrap(err, "can't find driver info for camera.")
+			return camera.Properties{}, errors.Wrap(err, "can't find driver info for camera")
 		}
 		var data map[string]transform.PinholeCameraIntrinsics
 		if err := json.Unmarshal(intrinsics, &data); err != nil {
@@ -633,10 +634,10 @@ func (c *monitoredWebcam) Properties(ctx context.Context) (camera.Properties, er
 		}
 		cameraIntrinsics, exists := data[dInfo.Name]
 		if !exists {
-			c.logger.Info("Camera model not found in known camera models for: ", dInfo.Name, ". Returning properties without intrinsics.")
+			c.logger.Info("Camera model not found in known camera models for: ", dInfo.Name, ". returning properties without intrinsics")
 			return props, nil
 		}
-		c.logger.Info("Intrinsics are known for camera model: ", dInfo.Name, ". Adding intrinsics to camera properties.")
+		c.logger.Info("Intrinsics are known for camera model: ", dInfo.Name, ". adding intrinsics to camera properties")
 		props.IntrinsicParams = &cameraIntrinsics
 	}
 
