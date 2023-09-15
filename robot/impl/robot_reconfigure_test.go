@@ -2486,7 +2486,7 @@ func TestUpdateWeakDependents(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	weak1, err = resource.AsType[*someTypeWithWeakAndStrongDeps](res)
 	test.That(t, err, test.ShouldBeNil)
-	// With two other components, `weak1` now has two (implicit) depencies.
+	// With two other components, `weak1` now has two (weak) dependencies.
 	test.That(t, weak1.resources, test.ShouldHaveLength, 2)
 	test.That(t, weak1.resources, test.ShouldContainKey, base1Name)
 	test.That(t, weak1.resources, test.ShouldContainKey, arm1Name)
