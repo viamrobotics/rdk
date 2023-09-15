@@ -287,9 +287,15 @@
     angle = event.detail.value;
   };
 
-  const handleOnKeyUp = (event: KeyboardInput, callback: () => void) => {
-    if (event.KeyCode === 13) {
-      callback();
+  const handleOnKeyUpRun = (event: KeyboardInput) => {
+    if (event.key === 13) {
+      baseRun();
+    }
+  };
+
+  const handleOnKeyUpStop = (event: KeyboardInput) => {
+    if (event.key === 13) {
+      stop();
     }
   };
 
@@ -324,7 +330,7 @@
       icon="stop-circle-outline"
       label="Stop"
       on:click={stop}
-      on:keyup={(event: KeyboardInput) => handleOnKeyUp(event, stop)}
+      on:keyup={handleOnKeyUpStop}
       role="button"
       tabindex="0"
     />
@@ -437,7 +443,7 @@
               variant="success"
               label="Run"
               on:click={baseRun}
-              on:keyup={(event: KeyboardInput) => handleOnKeyUp(event, baseRun)}
+              on:keyup={handleOnKeyUpRun}
               role="button"
               tabindex="0"
             />
