@@ -11,7 +11,7 @@ func NewResetZeroPositionUnsupportedError(motorName string) error {
 // NewPropertyUnsupportedError returns an error representing the need
 // for a motor to support a particular property.
 func NewPropertyUnsupportedError(prop Properties, motorName string) error {
-	return errors.Errorf("motor named %s has wrong support for property %#v", motorName, prop.PositionReporting)
+	return errors.Errorf("motor named %s has wrong support for property %#v", motorName, prop)
 }
 
 // NewZeroRPMError returns an error representing a request to move a motor at
