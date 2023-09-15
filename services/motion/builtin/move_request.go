@@ -67,6 +67,8 @@ func (mr *moveRequest) execute(ctx context.Context, waypoints [][]referenceframe
 		}
 	}
 
+	// the waypointIndex is now one too long to index into the plan, decrementing makes it equal to the last element
+	waypointIndex.Add(-1)
 	// the plan has been fully executed so check to see if the GeoPoint we are at is close enough to the goal.
 	deviated, err := mr.deviatedFromPlan(ctx, waypoints, len(waypoints)-1)
 	if err != nil {
@@ -82,6 +84,7 @@ func (mr *moveRequest) deviatedFromPlan(ctx context.Context, waypoints [][]refer
 	if err != nil {
 		return false, err
 	}
+	mr.planRequest.Logger.Debug("deviation from plan: %v", errorState.Point())
 	return errorState.Point().Norm() > mr.config.PlanDeviationMM, nil
 }
 

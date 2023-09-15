@@ -12,6 +12,7 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
@@ -659,11 +660,13 @@ func TestReplanning(t *testing.T) {
 		ma.start()
 		select {
 		case <-ma.ctx.Done():
+			t.Log("move attempt should not have timed out")
 			t.FailNow()
 		case resp := <-ma.responseChan:
 			test.That(t, resp.err, test.ShouldBeNil)
 			test.That(t, resp.success, test.ShouldBeTrue)
 		case <-ma.position.responseChan:
+			t.Log("move attempt should not be replanned")
 			t.FailNow()
 		}
 		test.That(t, ma.waypointIndex.Load(), test.ShouldEqual, 2)
@@ -682,8 +685,10 @@ func TestReplanning(t *testing.T) {
 		ma.start()
 		select {
 		case <-ma.ctx.Done():
+			t.Log("move attempt should not have timed out")
 			t.FailNow()
 		case <-ma.responseChan:
+			t.Log("move attempt should not have returned a response")
 			t.FailNow()
 		case resp := <-ma.position.responseChan:
 			test.That(t, resp.err, test.ShouldBeNil)

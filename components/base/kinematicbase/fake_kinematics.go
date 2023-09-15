@@ -13,7 +13,7 @@ import (
 
 type fakeKinematics struct {
 	*fake.Base
-	origin                        *referenceframe.PoseInFrame
+	parentFrame                   string
 	planningFrame, executionFrame referenceframe.Frame
 	inputs                        []referenceframe.Input
 	options                       Options
@@ -40,8 +40,8 @@ func WrapWithFakeKinematics(
 	}
 	fk := &fakeKinematics{
 		Base:        b,
-		origin:      position,
-		inputs:      []referenceframe.Input{{pt.X}, {pt.Y}},
+		parentFrame: position.Parent(),
+		inputs:      referenceframe.FloatsToInputs([]float64{pt.X, pt.Y}),
 		sensorNoise: sensorNoise,
 	}
 	var geometry spatialmath.Geometry
@@ -115,5 +115,5 @@ func (fk *fakeKinematics) CurrentPosition(ctx context.Context) (*referenceframe.
 	if err != nil {
 		return nil, err
 	}
-	return referenceframe.NewPoseInFrame(fk.origin.Parent(), spatialmath.Compose(currentPose, fk.sensorNoise)), nil
+	return referenceframe.NewPoseInFrame(fk.parentFrame, spatialmath.Compose(currentPose, fk.sensorNoise)), nil
 }

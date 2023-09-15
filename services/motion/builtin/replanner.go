@@ -20,8 +20,10 @@ type replanFn func(context.Context, [][]referenceframe.Input, int) (bool, error)
 // replanner bundles everything needed to execute a function at a given interval and return.
 type replanner struct {
 	period       time.Duration
-	needReplan   replanFn
 	responseChan chan replanResponse
+
+	// needReplan is a function that returns a bool describing if a replan is needed, as well as an error
+	needReplan replanFn
 }
 
 // newReplanner is a constructor.
@@ -45,11 +47,7 @@ func (r *replanner) startPolling(ctx context.Context, plan [][]referenceframe.In
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			index := int(waypointIndex.Load())
-			if index >= len(plan) {
-				index = len(plan) - 1
-			}
-			replan, err := r.needReplan(ctx, plan, index)
+			replan, err := r.needReplan(ctx, plan, int(waypointIndex.Load()))
 			if err != nil || replan {
 				r.responseChan <- replanResponse{replan: replan, err: err}
 				return
