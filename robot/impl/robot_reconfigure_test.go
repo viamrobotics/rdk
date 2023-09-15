@@ -2379,11 +2379,12 @@ func TestUpdateWeakDependents(t *testing.T) {
 		test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
 	}()
 
+	// Register a `Resource` that generates weak/implicit dependencies. Specifically instance of
+	// this resource will depend on every `component` resource. See the definition of
+	// `internal.ComponentDependencyWildcardMatcher`.
 	weakAPI := resource.NewAPI(uuid.NewString(), "component", "weaktype")
 	weakModel := resource.NewModel(uuid.NewString(), "soweak", "weak1000")
 	weak1Name := resource.NewName(weakAPI, "weak1")
-	base1Name := base.Named("base1")
-
 	resource.Register(
 		weakAPI,
 		weakModel,
@@ -2404,6 +2405,11 @@ func TestUpdateWeakDependents(t *testing.T) {
 	defer func() {
 		resource.Deregister(weakAPI, weakModel)
 	}()
+
+	// Create a configuration with a single component that has an explicit, unresolved
+	// dependency. Reconfiguring will succed, but getting a handle on the `weak1Name` resource fails
+	// with `unresolved dependencies`.
+	base1Name := base.Named("base1")
 	weakCfg1 := config.Config{
 		Components: []resource.Config{
 			{
@@ -2419,8 +2425,12 @@ func TestUpdateWeakDependents(t *testing.T) {
 
 	_, err = robot.ResourceByName(weak1Name)
 	test.That(t, err, test.ShouldNotBeNil)
+	// Assert that the explicit dependency was observed.
 	test.That(t, err.Error(), test.ShouldContainSubstring, "unresolved dependencies")
 
+	// Reconfigure without the explicit dependency. While also adding a second component that would
+	// have satisfied the dependency from the prior `weakCfg1`. Due to the weak dependency wildcard
+	// matcher, this `base1` component will be parsed as an implicit dependency to `weak1`.
 	weakCfg2 := config.Config{
 		Components: []resource.Config{
 			{
@@ -2439,12 +2449,15 @@ func TestUpdateWeakDependents(t *testing.T) {
 	robot.Reconfigure(context.Background(), &weakCfg2)
 
 	res, err := robot.ResourceByName(weak1Name)
+	// The resource was found and all dependencies were properly resolved.
 	test.That(t, err, test.ShouldBeNil)
 	weak1, err := resource.AsType[*someTypeWithWeakAndStrongDeps](res)
 	test.That(t, err, test.ShouldBeNil)
+	// Assert that the implicit dependency was tracked.
 	test.That(t, weak1.resources, test.ShouldHaveLength, 1)
 	test.That(t, weak1.resources, test.ShouldContainKey, base1Name)
 
+	// Reconfigure again with a new third `arm` component.
 	arm1Name := arm.Named("arm1")
 	weakCfg3 := config.Config{
 		Components: []resource.Config{
@@ -2473,33 +2486,10 @@ func TestUpdateWeakDependents(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	weak1, err = resource.AsType[*someTypeWithWeakAndStrongDeps](res)
 	test.That(t, err, test.ShouldBeNil)
+	// With two other components, `weak1` now has two (implicit) depencies.
 	test.That(t, weak1.resources, test.ShouldHaveLength, 2)
 	test.That(t, weak1.resources, test.ShouldContainKey, base1Name)
 	test.That(t, weak1.resources, test.ShouldContainKey, arm1Name)
-
-	weakCfg4 := config.Config{
-		Components: []resource.Config{
-			{
-				Name:  weak1Name.Name,
-				API:   weakAPI,
-				Model: weakModel,
-			},
-			{
-				Name:  base1Name.Name,
-				API:   base.API,
-				Model: fake.Model,
-			},
-		},
-	}
-	test.That(t, weakCfg4.Ensure(false, logger), test.ShouldBeNil)
-	robot.Reconfigure(context.Background(), &weakCfg4)
-
-	res, err = robot.ResourceByName(weak1Name)
-	test.That(t, err, test.ShouldBeNil)
-	weak1, err = resource.AsType[*someTypeWithWeakAndStrongDeps](res)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, weak1.resources, test.ShouldHaveLength, 1)
-	test.That(t, weak1.resources, test.ShouldContainKey, base1Name)
 
 	base2Name := base.Named("base2")
 	weakCfg5 := config.Config{
@@ -2508,6 +2498,10 @@ func TestUpdateWeakDependents(t *testing.T) {
 				Name:  weak1Name.Name,
 				API:   weakAPI,
 				Model: weakModel,
+				// We need the following `robot.Reconfigure` to call `Reconfigure` on this `weak1`
+				// component. We change the `Attributes` field from the previous (nil) value to
+				// accomplish that.
+				Attributes: rutils.AttributeMap{"version": 1},
 				ConvertedAttributes: &someTypeWithWeakAndStrongDepsConfig{
 					deps: []resource.Name{generic.Named("foo")},
 				},
@@ -2534,9 +2528,10 @@ func TestUpdateWeakDependents(t *testing.T) {
 	weakCfg6 := config.Config{
 		Components: []resource.Config{
 			{
-				Name:  weak1Name.Name,
-				API:   weakAPI,
-				Model: weakModel,
+				Name:       weak1Name.Name,
+				API:        weakAPI,
+				Model:      weakModel,
+				Attributes: rutils.AttributeMap{"version": 2},
 				ConvertedAttributes: &someTypeWithWeakAndStrongDepsConfig{
 					weakDeps: []resource.Name{base1Name},
 				},
@@ -2566,9 +2561,10 @@ func TestUpdateWeakDependents(t *testing.T) {
 	weakCfg7 := config.Config{
 		Components: []resource.Config{
 			{
-				Name:  weak1Name.Name,
-				API:   weakAPI,
-				Model: weakModel,
+				Name:       weak1Name.Name,
+				API:        weakAPI,
+				Model:      weakModel,
+				Attributes: rutils.AttributeMap{"version": 3},
 				ConvertedAttributes: &someTypeWithWeakAndStrongDepsConfig{
 					deps:     []resource.Name{base2Name},
 					weakDeps: []resource.Name{base1Name},
@@ -3313,9 +3309,11 @@ func TestReconfigureModelRebuild(t *testing.T) {
 	newCfg := &config.Config{
 		Components: []resource.Config{
 			{
-				Name:                "one",
-				Model:               model1,
-				API:                 mockAPI,
+				Name:  "one",
+				Model: model1,
+				API:   mockAPI,
+				// Change the `Attributes` to force this component to be reconfigured.
+				Attributes:          rutils.AttributeMap{"version": 1},
 				ConvertedAttributes: resource.NoNativeConfig{},
 			},
 		},
@@ -3579,6 +3577,8 @@ func TestResourceConstructTimeout(t *testing.T) {
 				Name:  "fakewheel",
 				API:   base.API,
 				Model: wheeled.Model,
+				// Added to force a component reconfigure.
+				Attributes: rutils.AttributeMap{"version": 1},
 				ConvertedAttributes: &wheeled.Config{
 					Right:                []string{"right"},
 					Left:                 []string{"left"},

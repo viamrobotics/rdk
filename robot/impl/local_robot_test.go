@@ -19,6 +19,7 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -1565,13 +1566,17 @@ func TestConfigStartsInvalidReconfiguresValid(t *testing.T) {
 				Name:  "test",
 				API:   base.API,
 				Model: fakeModel,
+				// Added to force a component reconfigure.
+				Attributes: rutils.AttributeMap{"version": 1},
 			},
 		},
 		Services: []resource.Config{
 			{
-				Name:                "fake1",
-				API:                 datamanager.API,
-				Model:               resource.DefaultServiceModel,
+				Name:  "fake1",
+				API:   datamanager.API,
+				Model: resource.DefaultServiceModel,
+				// Added to force a service reconfigure.
+				Attributes:          rutils.AttributeMap{"version": 1},
 				ConvertedAttributes: &builtin.Config{},
 			},
 		},
@@ -1676,16 +1681,20 @@ func TestConfigStartsValidReconfiguresInvalid(t *testing.T) {
 	badConfig := &config.Config{
 		Components: []resource.Config{
 			{
-				Name:                "test",
-				API:                 base.API,
-				Model:               fakeModel,
+				Name:  "test",
+				API:   base.API,
+				Model: fakeModel,
+				// Added to force a component reconfigure.
+				Attributes:          rutils.AttributeMap{"version": 1},
 				ConvertedAttributes: someConfig{},
 			},
 		},
 		Services: []resource.Config{
 			{
-				Name:                "fake1",
-				API:                 datamanager.API,
+				Name: "fake1",
+				API:  datamanager.API,
+				// Added to force a service reconfigure.
+				Attributes:          rutils.AttributeMap{"version": 1},
 				ConvertedAttributes: someConfig{},
 			},
 		},

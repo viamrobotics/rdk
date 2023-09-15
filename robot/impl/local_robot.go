@@ -6,7 +6,6 @@ package robotimpl
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -1013,7 +1012,6 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 			}
 		}
 
-		fmt.Printf("DBG. Converted: %v Attr: %v\n", svcCfg.ConvertedAttributes != nil, svcCfg.Attributes != nil)
 		if svcCfg.ConvertedAttributes != nil || svcCfg.Attributes != nil {
 			// previously processed
 			continue
@@ -1049,7 +1047,6 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 		return
 	}
 	if diff.ResourcesEqual {
-		fmt.Printf("Resources are equal.\n")
 		return
 	}
 	// Set mostRecentConfig if resources were not equal.
