@@ -607,19 +607,33 @@ func (b *Board) SetPowerMode(
 	return grpc.UnimplementedError
 }
 
+func (b *Board) slowLog(message string) {
+		b.logger.Info(message)
+		time.Sleep(10 * time.Second)
+}
+
 // Close attempts to cleanly close each part of the board.
 func (b *Board) Close(ctx context.Context) error {
+	b.slowLog("Starting to close board...")
 	b.mu.Lock()
+	b.slowLog("Acquired lock...")
 	b.cancelFunc()
+	b.slowLog("Canceled background context...")
 	b.mu.Unlock()
+	b.slowLog("Unlocked lock...")
 	b.activeBackgroundWorkers.Wait()
 
 	var err error
-	for _, pin := range b.gpios {
+	b.slowLog("Closing GPIO pins...")
+	for i, pin := range b.gpios {
+		b.slowLog(fmt.Sprintf("closing GPIO pin %d", i))
 		err = multierr.Combine(err, pin.Close())
 	}
-	for _, interrupt := range b.interrupts {
+	b.slowLog("Closing interrupt pins...")
+	for i, interrupt := range b.interrupts {
+		b.slowLog(fmt.Sprintf("closing interrupt pin %d", i))
 		err = multierr.Combine(err, interrupt.Close())
 	}
+	b.slowLog("Done closing the board!")
 	return err
 }
