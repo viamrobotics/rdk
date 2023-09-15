@@ -288,13 +288,13 @@
   };
 
   const handleOnKeyUpRun = (event: KeyboardInput) => {
-    if (event.key === 13) {
+    if (event.key === 'Enter') {
       baseRun();
     }
   };
 
   const handleOnKeyUpStop = (event: KeyboardInput) => {
-    if (event.key === 13) {
+    if (event.key === 'Enter') {
       stop();
     }
   };
