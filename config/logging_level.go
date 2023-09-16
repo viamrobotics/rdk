@@ -20,17 +20,18 @@ var globalLogger struct {
 	mu                   sync.Mutex
 	fileConfigDebugFlag  bool
 	cloudConfigDebugFlag bool
-	currentLevel         zapcore.Level
 }
 
+// InitLoggingSettings initializes the global logging settings.
 func InitLoggingSettings(logger golog.Logger, cmdLineDebugFlag bool, logLevel zap.AtomicLevel) {
 	globalLogger.logger = logger
 	globalLogger.cmdLineDebugFlag = cmdLineDebugFlag
 	globalLogger.logLevel = logLevel
-	globalLogger.currentLevel = logLevel.Level()
-	globalLogger.logger.Info("Log level initialized: ", globalLogger.currentLevel)
+	globalLogger.logger.Info("Log level initialized: ", globalLogger.logLevel.Level())
 }
 
+// UpdateFileConfigDebug is used to update the debug flag whenever a file-based viam config is
+// refreshed.
 func UpdateFileConfigDebug(fileDebug bool) {
 	globalLogger.mu.Lock()
 	defer globalLogger.mu.Unlock()
@@ -39,6 +40,8 @@ func UpdateFileConfigDebug(fileDebug bool) {
 	refreshLogLevelInLock()
 }
 
+// UpdateCloudConfigDebug is used to update the debug flag whenever a cloud-based viam config
+// is refreshed.
 func UpdateCloudConfigDebug(cloudDebug bool) {
 	globalLogger.mu.Lock()
 	defer globalLogger.mu.Unlock()
