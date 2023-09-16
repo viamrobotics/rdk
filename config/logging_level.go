@@ -55,7 +55,6 @@ func refreshLogLevelInLock() {
 	if globalLogger.cmdLineDebugFlag ||
 		globalLogger.fileConfigDebugFlag ||
 		globalLogger.cloudConfigDebugFlag {
-
 		// If anything wants debug logs, set the level to `Debug`.
 		newLevel = zap.DebugLevel
 	} else {
