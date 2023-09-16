@@ -61,10 +61,9 @@ func refreshLogLevelInLock() {
 		newLevel = zap.InfoLevel
 	}
 
-	if globalLogger.currentLevel == newLevel {
+	if globalLogger.logLevel.Level() == newLevel {
 		return
 	}
 	globalLogger.logger.Info("New log level: ", newLevel)
 	globalLogger.logLevel.SetLevel(newLevel)
-	globalLogger.currentLevel = newLevel
 }
