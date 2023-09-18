@@ -38,21 +38,20 @@ func TestERCCL(t *testing.T) {
 		// "clustering_granularity":      2,
 
 		// realsense config
-		"min_points_in_plane":         1500,
-		"max_dist_from_plane_mm":      10.0,
-		"min_points_in_segment":       700,
-		"ground_angle_tolerance_degs": 15,
+		"min_points_in_plane":         2000,
+		"max_dist_from_plane_mm":      12.0,
+		"min_points_in_segment":       500,
+		"ground_angle_tolerance_degs": 20,
 		"ground_plane_normal_vec":     r3.Vector{0, -1, 0},
-		"clustering_radius":           15,
-		"clustering_strictness":       1,
+		"clustering_radius":           18,
+		"clustering_strictness":       5,
 	}
 
 	segmenter, err := segmentation.NewERCCLClustering(objConfig)
 	test.That(t, err, test.ShouldBeNil)
 	objects, err := segmenter(context.Background(), injectCamera)
 	test.That(t, err, test.ShouldBeNil)
-	t.Logf("number of objects: %v", len(objects))
-	//test.That(t, len(objects), test.ShouldEqual, 3)
+	test.That(t, len(objects), test.ShouldEqual, 3)
 
 	pcs := make([]pointcloud.PointCloud, len(objects))
 	for i, pc := range objects {
@@ -60,8 +59,9 @@ func TestERCCL(t *testing.T) {
 	}
 	mergedPc, err := pointcloud.MergePointCloudsWithColor(pcs)
 	test.That(t, err, test.ShouldBeNil)
-	tempPCD, err := os.CreateTemp(".", "*.pcd")
+	tempPCD, err := os.CreateTemp(t.TempDir(), "*.pcd")
 	test.That(t, err, test.ShouldBeNil)
+	defer os.Remove(tempPCD.Name())
 	err = pointcloud.ToPCD(mergedPc, tempPCD, pointcloud.PCDBinary)
 	test.That(t, err, test.ShouldBeNil)
 }
@@ -71,7 +71,7 @@ func BenchmarkERCCL(b *testing.B) {
 	injectCamera := &inject.Camera{}
 	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
 		//return pc.NewFromLASFile(artifact.MustPath("pointcloud/test.las"), logger) // small pc for tests
-		return pc.NewFromFile(artifact.MustPath("pointcloud/intel_d435_pointcloud.pcd"), logger)
+		return pc.NewFromFile(artifact.MustPath("pointcloud/intel_d435_pointcloud_424.pcd"), logger)
 	}
 	var pts []*vision.Object
 	var err error
@@ -87,17 +87,18 @@ func BenchmarkERCCL(b *testing.B) {
 		// "clustering_strictness":      2,
 
 		// realsense config
-		"min_points_in_plane":         3500,
-		"max_dist_from_plane_mm":      10.0,
-		"min_points_in_segment":       2000,
+		"min_points_in_plane":         2000,
+		"max_dist_from_plane_mm":      12.0,
+		"min_points_in_segment":       500,
 		"ground_angle_tolerance_degs": 20,
 		"ground_plane_normal_vec":     r3.Vector{0, -1, 0},
-		"clustering_radius":           30,
-		"clustering_strictness":       3,
+		"clustering_radius":           18,
+		"clustering_strictness":       5,
 	}
 
 	segmenter, err := segmentation.NewERCCLClustering(objConfig)
 
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		pts, err = segmenter(context.Background(), injectCamera)
 	}

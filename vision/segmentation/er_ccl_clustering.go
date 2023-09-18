@@ -16,7 +16,10 @@ import (
 )
 
 // MaxCCLIterations is a value to stop the CCL algo from going on for too long.
-const MaxCCLIterations = 300000
+const (
+	MaxCCLIterations = 300000
+	GridSize         = 300
+)
 
 // ErCCLConfig specifies the necessary parameters to apply the
 // connected components based clustering algo.
@@ -139,12 +142,12 @@ func (erCCL *ErCCLConfig) ErCCLAlgorithm(ctx context.Context, src camera.VideoSo
 	// if height is not y, then height is going to be z
 	heightIsY := erCCL.NormalVec.Y != 0
 
-	// calculating s value, want 200 x 200 graph
-	resolution := math.Ceil((nonPlane.MetaData().MaxX - nonPlane.MetaData().MinX) / 200)
+	// calculating s value, want GridSize x GridSize graph
+	resolution := math.Ceil((nonPlane.MetaData().MaxX - nonPlane.MetaData().MinX) / GridSize)
 	if heightIsY {
-		resolution = math.Ceil((math.Ceil((nonPlane.MetaData().MaxZ-nonPlane.MetaData().MinZ)/200) + resolution) / 2)
+		resolution = math.Ceil((math.Ceil((nonPlane.MetaData().MaxZ-nonPlane.MetaData().MinZ)/GridSize) + resolution) / 2)
 	} else {
-		resolution = math.Ceil((math.Ceil((nonPlane.MetaData().MaxY-nonPlane.MetaData().MinY)/200) + resolution) / 2)
+		resolution = math.Ceil((math.Ceil((nonPlane.MetaData().MaxY-nonPlane.MetaData().MinY)/GridSize) + resolution) / 2)
 	}
 
 	// create obstacle flag map, return that 2d slice of nodes
@@ -182,7 +185,7 @@ func (erCCL *ErCCLConfig) ErCCLAlgorithm(ctx context.Context, src camera.VideoSo
 		return nil, iterateErr
 	}
 	// prune smaller clusters. Default minimum number of points determined by size of original point cloud.
-	minPtsInSegment := int(math.Max(float64(nonPlane.Size())/200.0, 10.0))
+	minPtsInSegment := int(math.Max(float64(nonPlane.Size())/float64(GridSize), 10.0))
 	if erCCL.MinPtsInSegment != 0 {
 		minPtsInSegment = erCCL.MinPtsInSegment
 	}
