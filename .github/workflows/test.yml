@@ -61,6 +61,16 @@ jobs:
         echo "GITHUB_X_PR_BASE_SHA=${{ github.event.pull_request.base.sha }}" >> $GITHUB_ENV
         echo "GITHUB_X_PR_BASE_REF=${{ github.event.pull_request.base.ref }}" >> $GITHUB_ENV
 
+    - name: Install dependencies
+      run: |
+        sudo apt-get update -qq \
+        && sudo apt-get install --no-install-recommends -y \
+          libopus-dev \
+          libopusfile-dev \
+          libva-dev \
+          libvpx-dev \
+          libx264-dev
+
     - name: Verify no uncommitted changes from "make build lint"
       run: |
         git init

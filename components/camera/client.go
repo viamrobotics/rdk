@@ -9,9 +9,9 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-	"github.com/viamrobotics/gostream"
 	"go.opencensus.io/trace"
 	pb "go.viam.com/api/component/camera/v1"
+	"go.viam.com/rdk/gostream"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 

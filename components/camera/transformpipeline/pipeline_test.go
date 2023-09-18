@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/pion/mediadevices/pkg/prop"
-	"github.com/viamrobotics/gostream"
+	"go.viam.com/rdk/gostream"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 

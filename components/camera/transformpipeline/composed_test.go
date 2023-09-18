@@ -6,7 +6,7 @@ import (
 	"image/color"
 	"testing"
 
-	"github.com/viamrobotics/gostream"
+	"go.viam.com/rdk/gostream"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/camera"

@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/viamrobotics/gostream"
 	pb "go.viam.com/api/component/camera/v1"
+	"go.viam.com/rdk/gostream"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/camera"

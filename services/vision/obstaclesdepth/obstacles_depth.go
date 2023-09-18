@@ -17,8 +17,8 @@ import (
 	"github.com/muesli/clusters"
 	"github.com/muesli/kmeans"
 	"github.com/pkg/errors"
-	"github.com/viamrobotics/gostream"
 	"go.opencensus.io/trace"
+	"go.viam.com/rdk/gostream"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/pointcloud"

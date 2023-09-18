@@ -28,6 +28,8 @@ import (
 	"github.com/rs/cors"
 	"go.opencensus.io/trace"
 	pb "go.viam.com/api/robot/v1"
+	"go.viam.com/rdk/gostream"
+	streampb "go.viam.com/rdk/gostream/proto/stream/v1"
 	"go.viam.com/utils"
 	echopb "go.viam.com/utils/proto/rpc/examples/echo/v1"
 	"go.viam.com/utils/rpc"

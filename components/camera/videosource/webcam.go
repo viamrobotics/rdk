@@ -19,9 +19,9 @@ import (
 	"github.com/pion/mediadevices/pkg/frame"
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pkg/errors"
-	"github.com/viamrobotics/gostream"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/camera/v1"
+	"go.viam.com/rdk/gostream"
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"

@@ -12,7 +12,7 @@ import (
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pion/mediadevices/pkg/wave"
 	"github.com/pion/webrtc/v3"
-	"github.com/viamrobotics/gostream"
+	"go.viam.com/rdk/gostream"
 	"go.viam.com/test"
 
 	webstream "go.viam.com/rdk/robot/web/stream"

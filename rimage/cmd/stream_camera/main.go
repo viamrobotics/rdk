@@ -5,9 +5,9 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
-	"github.com/viamrobotics/gostream"
-	"github.com/viamrobotics/gostream/codec/x264"
 	"go.uber.org/multierr"
+	"go.viam.com/rdk/gostream"
+	"go.viam.com/rdk/gostream/codec/x264"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"

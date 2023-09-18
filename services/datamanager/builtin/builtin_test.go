@@ -12,7 +12,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
-	"github.com/viamrobotics/gostream"
+	"go.viam.com/rdk/gostream"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/arm"

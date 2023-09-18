@@ -9,8 +9,8 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-	"github.com/viamrobotics/gostream"
 	datapb "go.viam.com/api/app/data/v1"
+	"go.viam.com/rdk/gostream"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"

@@ -11,7 +11,7 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
-	"github.com/viamrobotics/gostream"
+	"go.viam.com/rdk/gostream"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 

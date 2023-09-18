@@ -13,9 +13,9 @@ import (
 
 	"github.com/edaniels/golog"
 	ffmpeg "github.com/u2takey/ffmpeg-go"
-	"github.com/viamrobotics/gostream"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapio"
+	"go.viam.com/rdk/gostream"
 	viamutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"

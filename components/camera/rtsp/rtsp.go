@@ -17,8 +17,8 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pion/rtp"
 	"github.com/pkg/errors"
-	"github.com/viamrobotics/gostream"
 	"go.uber.org/multierr"
+	"go.viam.com/rdk/gostream"
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"

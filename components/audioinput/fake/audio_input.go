@@ -14,7 +14,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pion/mediadevices/pkg/wave"
-	"github.com/viamrobotics/gostream"
+	"go.viam.com/rdk/gostream"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/audioinput"
