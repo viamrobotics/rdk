@@ -167,14 +167,18 @@ func (erCCL *ErCCLConfig) ErCCLAlgorithm(ctx context.Context, src camera.VideoSo
 	// look up label value of point by looking at 2d array and seeing what label inside that struct
 	// set this label
 	var iterateErr error
-	segments := NewSegments()
+	segments := make(map[int]pc.PointCloud)
 	nonPlane.Iterate(0, 0, func(p r3.Vector, d pc.Data) bool {
 		i := int(math.Ceil((p.X - nonPlane.MetaData().MinX) / resolution))
 		j := int(math.Ceil((p.Z - nonPlane.MetaData().MinZ) / resolution))
 		if !heightIsY {
 			j = int(math.Ceil((p.Y - nonPlane.MetaData().MinY) / resolution))
 		}
-		err := segments.AssignCluster(p, d, labelMap[i][j].label)
+		_, ok := segments[labelMap[i][j].label]
+		if !ok {
+			segments[labelMap[i][j].label] = pc.New()
+		}
+		err := segments[labelMap[i][j].label].Set(p, d)
 		if err != nil {
 			iterateErr = err
 			return false
@@ -189,13 +193,17 @@ func (erCCL *ErCCLConfig) ErCCLAlgorithm(ctx context.Context, src camera.VideoSo
 	if erCCL.MinPtsInSegment != 0 {
 		minPtsInSegment = erCCL.MinPtsInSegment
 	}
-	validClouds := pc.PrunePointClouds(segments.PointClouds(), minPtsInSegment)
-	// wrap
-	objects, err := vision.NewObjectsFromSlice(validClouds, "")
-	if err != nil {
-		return nil, err
+	validObjects := make([]*vision.Object, 0, len(segments))
+	for _, cloud := range segments {
+		if cloud.Size() >= minPtsInSegment {
+			obj, err := vision.NewObject(cloud)
+			if err != nil {
+				return nil, err
+			}
+			validObjects = append(validObjects, obj)
+		}
 	}
-	return objects, nil
+	return validObjects, nil
 }
 
 // LabelMapUpdate updates the label map until it converges or errors.
