@@ -19,10 +19,14 @@ func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, f
 		return err
 	}
 
+	path, err := filepath.Abs(f.Name())
+	if err != nil {
+		return err
+	}
 	md := &v1.UploadMetadata{
 		PartId:        partID,
 		Type:          v1.DataType_DATA_TYPE_FILE,
-		FileName:      f.Name(),
+		FileName:      path,
 		FileExtension: filepath.Ext(f.Name()),
 		Tags:          tags,
 	}

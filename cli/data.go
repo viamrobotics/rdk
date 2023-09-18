@@ -189,10 +189,6 @@ func (c *viamClient) binaryData(dst string, filter *datapb.Filter, parallelDownl
 		return err
 	}
 
-	if err := makeDestinationDirs(dst); err != nil {
-		return errors.Wrapf(err, "could not create destination directories")
-	}
-
 	if parallelDownloads == 0 {
 		parallelDownloads = defaultParallelDownloads
 	}
@@ -349,16 +345,21 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 	}
 
 	timeRequested := datum.GetMetadata().GetTimeRequested().AsTime().Format(time.RFC3339Nano)
-	var fileName string
-	if datum.GetMetadata().GetFileName() != "" {
-		// Can use file ext directly from metadata.
-		fileName = timeRequested + "_" + strings.TrimSuffix(datum.GetMetadata().GetFileName(), datum.GetMetadata().GetFileExt())
-	} else {
+	fileName := datum.GetMetadata().GetFileName()
+	if fileName == "" {
 		fileName = timeRequested + "_" + datum.GetMetadata().GetId()
+	} else if filepath.Dir(fileName) == "." {
+		// If the file name does not contain a directory, prepend if with a requested time so that it is sorted.
+		// Otherwise, keep the file name as-is to maintain the directory structure that the user uploaded the file with.
+		fileName = timeRequested + "_" + strings.TrimSuffix(datum.GetMetadata().GetFileName(), datum.GetMetadata().GetFileExt())
 	}
 
 	//nolint:gosec
-	jsonFile, err := os.Create(filepath.Join(dst, metadataDir, fileName+".json"))
+	jsonPath := filepath.Join(dst, metadataDir, fileName+".json")
+	if err := os.MkdirAll(filepath.Dir(jsonPath), 0o700); err != nil {
+		return errors.Wrapf(err, "could not create metadata directory %s", filepath.Dir(jsonPath))
+	}
+	jsonFile, err := os.Create(jsonPath)
 	if err != nil {
 		return err
 	}
@@ -377,7 +378,11 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 	}
 
 	//nolint:gosec
-	dataFile, err := os.Create(filepath.Join(dst, dataDir, fileName+datum.GetMetadata().GetFileExt()))
+	dataPath := filepath.Join(dst, dataDir, fileName+datum.GetMetadata().GetFileExt())
+	if err := os.MkdirAll(filepath.Dir(dataPath), 0o700); err != nil {
+		return errors.Wrapf(err, "could not create data directory %s", filepath.Dir(dataPath))
+	}
+	dataFile, err := os.Create(dataPath)
 	if err != nil {
 		return errors.Wrapf(err, fmt.Sprintf("could not create file for datum %s", datum.GetMetadata().GetId()))
 	}
