@@ -324,7 +324,6 @@ func (svc *webService) initStreamServer(ctx context.Context, options *weboptions
 		return err
 	}
 	if svc.streamServer.HasStreams {
-		// ATTN REVIEW: does options need to be a pointer for this? // DONOTMERGE
 		// force WebRTC template rendering
 		options.WebRTC = true
 	}
