@@ -43,15 +43,15 @@ func TestERCCL(t *testing.T) {
 		"min_points_in_segment":       1000,
 		"ground_angle_tolerance_degs": 20,
 		"ground_plane_normal_vec":     r3.Vector{0, -1, 0},
-		"clustering_radius":           30,
-		"clustering_strictness":       3,
+		"clustering_radius":           20,
+		"clustering_strictness":       2,
 	}
 
 	segmenter, err := segmentation.NewERCCLClustering(objConfig)
 	test.That(t, err, test.ShouldBeNil)
 	objects, err := segmenter(context.Background(), injectCamera)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(objects), test.ShouldEqual, 21)
+	test.That(t, len(objects), test.ShouldEqual, 3)
 
 	pcs := make([]pointcloud.PointCloud, len(objects))
 	for i, pc := range objects {

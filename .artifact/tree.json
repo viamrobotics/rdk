@@ -3737,8 +3737,8 @@
       "size": 25
     },
     "intel_d435_pointcloud.pcd": {
-      "hash": "b511e65d30ca28a5a99d61189bbb6dd3",
-      "size": 4627756
+      "hash": "58064673691232898f51f5add1fd6fd1",
+      "size": 4802236
     },
     "octagonspace.pcd": {
       "hash": "f4242cf8d1831790ef626757d4db510e",
@@ -3765,16 +3765,16 @@
       "size": 1734
     },
     "the_color_image_intel.jpg": {
-      "hash": "dd0faf9476283a255e92a1981ca40b81",
-      "size": 32780
+      "hash": "bd4eb2b9abe59c841dade033926e549d",
+      "size": 23032
     },
     "the_color_image_intel_d435.jpg": {
       "hash": "7f918ec63491476f2da2fb68dff00d2a",
       "size": 32907
     },
     "the_depth_image_intel.png": {
-      "hash": "2fe9571f3438713606c1d4c1dd57eb30",
-      "size": 88402
+      "hash": "50f9589f7ec18cde5ecfb36917f9161f",
+      "size": 71076
     },
     "the_depth_image_intel_d435.png": {
       "hash": "92bcb1fc11abfbff475d723705cbf891",
