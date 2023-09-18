@@ -1,4 +1,4 @@
-//go:build !no_tflite
+//go:build !no_tflite && !notc
 
 // Package register registers all relevant ML model services
 package register
