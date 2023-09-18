@@ -3,10 +3,12 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
 	"runtime/pprof"
 	"time"
 
@@ -328,6 +330,14 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 				restartInterval = newRestartInterval
 
 				if mustRestart {
+					bufSize := 1 << 20
+					traces := make([]byte, bufSize)
+					traceSize := runtime.Stack(traces, true)
+					message := "backtrace at robot restart"
+					if traceSize == bufSize {
+						message = fmt.Sprintf("%s (warning: backtrace truncated to %v bytes)", message, bufSize)
+					}
+					s.logger.Infof("%s, %s", message, traces)
 					cancel()
 					return
 				}
