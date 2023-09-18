@@ -12,7 +12,6 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
-
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
@@ -665,7 +664,8 @@ func TestReplanning(t *testing.T) {
 		},
 	}
 
-	testFn := func(tc testCase) {
+	testFn := func(t *testing.T, tc testCase) {
+		t.Helper()
 		injectedMovementSensor, _, kb, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, dst, spatialmath.NewPoseFromPoint(tc.noise))
 		moveRequest, err := ms.(*builtIn).newMoveOnGlobeRequest(ctx, kb.Name(), dst, injectedMovementSensor.Name(), nil, motionCfg, nil)
 		test.That(t, err, test.ShouldBeNil)
@@ -695,14 +695,15 @@ func TestReplanning(t *testing.T) {
 				t.Log("move attempt should not be replanned")
 				t.FailNow()
 			}
-
 		}
 		test.That(t, ma.waypointIndex.Load(), test.ShouldEqual, 1)
 	}
 
 	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			testFn(tc)
+		c := tc // needed to workaround loop variable not being captured by func literals
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			testFn(t, c)
 		})
 	}
 }
