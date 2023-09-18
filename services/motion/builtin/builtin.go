@@ -326,7 +326,7 @@ func (ms *builtIn) MoveOnGlobe(
 			return resp.success, resp.err
 
 		// if the position poller hit an error return it, otherwise replan
-		case resp := <-moveRequest.position.responseChan:
+		case resp := <-ma.position.responseChan:
 			ms.logger.Debugf("position response: %#v", resp)
 			ma.cancel()
 			if resp.err != nil {
@@ -334,7 +334,7 @@ func (ms *builtIn) MoveOnGlobe(
 			}
 
 		// if the obstacle poller hit an error return it, otherwise replan
-		case resp := <-moveRequest.obstacle.responseChan:
+		case resp := <-ma.obstacle.responseChan:
 			ms.logger.Debugf("obstacle response: %#v", resp)
 			ma.cancel()
 			if resp.err != nil {

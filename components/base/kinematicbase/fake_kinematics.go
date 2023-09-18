@@ -13,10 +13,11 @@ import (
 
 type fakeKinematics struct {
 	*fake.Base
-	motion.Localizer
+	parentFrame                   string
 	planningFrame, executionFrame referenceframe.Frame
 	inputs                        []referenceframe.Input
 	options                       Options
+	sensorNoise                   spatialmath.Pose
 	lock                          sync.Mutex
 }
 
@@ -27,16 +28,21 @@ func WrapWithFakeKinematics(
 	localizer motion.Localizer,
 	limits []referenceframe.Limit,
 	options Options,
+	sensorNoise spatialmath.Pose,
 ) (KinematicBase, error) {
 	position, err := localizer.CurrentPosition(ctx)
 	if err != nil {
 		return nil, err
 	}
 	pt := position.Pose().Point()
+	if sensorNoise == nil {
+		sensorNoise = spatialmath.NewZeroPose()
+	}
 	fk := &fakeKinematics{
-		Base:      b,
-		Localizer: localizer,
-		inputs:    []referenceframe.Input{{pt.X}, {pt.Y}},
+		Base:        b,
+		parentFrame: position.Parent(),
+		inputs:      referenceframe.FloatsToInputs([]float64{pt.X, pt.Y}),
+		sensorNoise: sensorNoise,
 	}
 	var geometry spatialmath.Geometry
 	if len(fk.Base.Geometry) != 0 {
@@ -90,5 +96,24 @@ func (fk *fakeKinematics) ErrorState(
 	plan [][]referenceframe.Input,
 	currentNode int,
 ) (spatialmath.Pose, error) {
-	return spatialmath.NewZeroPose(), nil
+	current, err := fk.CurrentPosition(ctx)
+	if err != nil {
+		return nil, err
+	}
+	desiredPose, err := fk.planningFrame.Transform(plan[currentNode])
+	if err != nil {
+		return nil, err
+	}
+	return spatialmath.PoseBetween(current.Pose(), desiredPose), nil
+}
+
+func (fk *fakeKinematics) CurrentPosition(ctx context.Context) (*referenceframe.PoseInFrame, error) {
+	fk.lock.Lock()
+	inputs := fk.inputs
+	fk.lock.Unlock()
+	currentPose, err := fk.planningFrame.Transform(inputs)
+	if err != nil {
+		return nil, err
+	}
+	return referenceframe.NewPoseInFrame(fk.parentFrame, spatialmath.Compose(currentPose, fk.sensorNoise)), nil
 }
