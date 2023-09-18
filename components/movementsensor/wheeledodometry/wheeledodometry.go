@@ -156,7 +156,6 @@ func (o *odometry) Reconfigure(ctx context.Context, deps resource.Dependencies, 
 	// check if new motors have been added, or the existing motors have been changed, and update the motorPairs accorodingly
 	for i := range newConf.LeftMotors {
 		var motorLeft, motorRight motor.Motor
-		var changed, added bool
 
 		motorLeft, err = motor.FromDependencies(deps, newConf.LeftMotors[i])
 		if err != nil {
@@ -182,18 +181,12 @@ func (o *odometry) Reconfigure(ctx context.Context, deps resource.Dependencies, 
 			return motor.NewPropertyUnsupportedError(properties, newConf.LeftMotors[i])
 		}
 
-		if i >= len(o.motors) {
-			added = true
-		} else if (o.motors[i].left.Name().ShortName() != newConf.LeftMotors[i]) ||
-			(o.motors[i].right.Name().ShortName() != newConf.RightMotors[i]) {
-			changed = true
-		}
-
 		// append if motors have been added, replace if motors have changed
 		thisPair := motorPair{left: motorLeft, right: motorRight}
-		if added {
+		if i >= len(o.motors) {
 			o.motors = append(o.motors, thisPair)
-		} else if changed {
+		} else if (o.motors[i].left.Name().ShortName() != newConf.LeftMotors[i]) ||
+			(o.motors[i].right.Name().ShortName() != newConf.RightMotors[i]) {
 			o.motors[i].left = motorLeft
 			o.motors[i].right = motorRight
 		}
@@ -383,10 +376,10 @@ func (o *odometry) trackPosition(ctx context.Context) {
 			o.orientation.Yaw = math.Mod(o.orientation.Yaw+oneTurn, oneTurn)
 
 			// Calculate X and Y by using centerDist and the current orientation yaw (theta).
-			o.position.Y += (centerDist * math.Cos(o.orientation.Yaw))
 			o.position.X += (centerDist * math.Sin(o.orientation.Yaw))
+			o.position.Y += (centerDist * math.Cos(o.orientation.Yaw))
 
-			distance := math.Hypot(o.position.Y, o.position.X)
+			distance := math.Hypot(o.position.X, o.position.Y)
 			heading := math.Atan2(o.position.X, o.position.Y)
 			o.coord = geoOrigin.PointAtDistanceAndBearing(distance*mToKm, heading)
 
