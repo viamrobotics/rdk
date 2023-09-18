@@ -10,13 +10,13 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/viamrobotics/gostream"
-	streampb "github.com/viamrobotics/gostream/proto/stream/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/audioinput"
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/gostream"
+	streampb "go.viam.com/rdk/gostream/proto/stream/v1"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"

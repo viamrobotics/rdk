@@ -1,0 +1,15 @@
+version: v1
+plugins:
+  - remote: buf.build/protocolbuffers/plugins/js:v3.20.1-1
+    out: dist/js
+    opt:
+      - import_style=commonjs
+  - remote: buf.build/grpc/plugins/web:v1.3.1-2
+    out: dist/js
+    opt:
+      - import_style=commonjs
+      - mode=grpcwebtext
+  - remote: buf.build/euskadi31/plugins/protoc-gen-ts:v0.15.0-1
+    out: dist/js
+    opt:
+      - service=grpc-web

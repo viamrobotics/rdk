@@ -1,0 +1,13 @@
+version: v1
+name: buf.build/erdaniels/gostream
+build:
+  excludes:
+    - vendor
+    - frontend/node_modules
+lint:
+  use:
+    - DEFAULT
+breaking:
+  use:
+    - FILE
+  
