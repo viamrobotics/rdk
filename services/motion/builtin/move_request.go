@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"time"
+	"sync/atomic"
 
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
@@ -20,15 +20,13 @@ import (
 
 // moveRequest is a structure that contains all the information necessary for to make a move call.
 type moveRequest struct {
-	config *motion.MotionConfiguration
-
-	planRequest        *motionplan.PlanRequest
-	kinematicBase      kinematicbase.KinematicBase
-	position, obstacle *replanner
+	config        *motion.MotionConfiguration
+	planRequest   *motionplan.PlanRequest
+	kinematicBase kinematicbase.KinematicBase
 }
 
 // plan creates a plan using the currentInputs of the robot and the moveRequest's planRequest.
-func (mr *moveRequest) plan(ctx context.Context) (motionplan.Plan, error) {
+func (mr *moveRequest) plan(ctx context.Context) ([][]referenceframe.Input, error) {
 	inputs, err := mr.kinematicBase.CurrentInputs(ctx)
 	if err != nil {
 		return nil, err
@@ -38,17 +36,18 @@ func (mr *moveRequest) plan(ctx context.Context) (motionplan.Plan, error) {
 		inputs = inputs[:2]
 	}
 	mr.planRequest.StartConfiguration = map[string][]referenceframe.Input{mr.kinematicBase.Kinematics().Name(): inputs}
-	return motionplan.PlanMotion(ctx, mr.planRequest)
+	plan, err := motionplan.PlanMotion(ctx, mr.planRequest)
+	if err != nil {
+		return nil, err
+	}
+	return plan.GetFrameSteps(mr.kinematicBase.Kinematics().Name())
 }
 
-func (mr *moveRequest) execute(ctx context.Context, plan motionplan.Plan) moveResponse {
-	waypoints, err := plan.GetFrameSteps(mr.kinematicBase.Kinematics().Name())
-	if err != nil {
-		return moveResponse{err: err}
-	}
-
+// execute attempts to follow a given Plan starting from the index percribed by waypointIndex.
+// Note that waypointIndex is an atomic int that is incremented in this function after each waypoint has been successfully reached.
+func (mr *moveRequest) execute(ctx context.Context, waypoints [][]referenceframe.Input, waypointIndex *atomic.Int32) moveResponse {
 	// Iterate through the list of waypoints and issue a command to move to each
-	for i := 1; i < len(waypoints); i++ {
+	for i := int(waypointIndex.Load()); i < len(waypoints); i++ {
 		select {
 		case <-ctx.Done():
 			return moveResponse{}
@@ -65,18 +64,34 @@ func (mr *moveRequest) execute(ctx context.Context, plan motionplan.Plan) moveRe
 				}
 				return moveResponse{err: err}
 			}
+			if i < len(waypoints)-1 {
+				waypointIndex.Add(1)
+			}
 		}
 	}
 
 	// the plan has been fully executed so check to see if the GeoPoint we are at is close enough to the goal.
-	errorState, err := mr.kinematicBase.ErrorState(ctx, waypoints, len(waypoints)-1)
+	deviated, err := mr.deviatedFromPlan(ctx, waypoints, len(waypoints)-1)
 	if err != nil {
 		return moveResponse{err: err}
 	}
-	if errorState.Point().Norm() <= mr.config.PlanDeviationMM {
-		return moveResponse{success: true}
+	return moveResponse{success: !deviated}
+}
+
+// deviatedFromPlan takes a list of waypoints and an index of a waypoint on that Plan and returns whether or not it is still
+// following the plan as described by the PlanDeviation specified for the moveRequest.
+func (mr *moveRequest) deviatedFromPlan(ctx context.Context, waypoints [][]referenceframe.Input, waypointIndex int) (bool, error) {
+	errorState, err := mr.kinematicBase.ErrorState(ctx, waypoints, waypointIndex)
+	if err != nil {
+		return false, err
 	}
-	return moveResponse{err: errors.New("reached end of plan but not at goal")}
+	mr.planRequest.Logger.Debug("deviation from plan: %v", errorState.Point())
+	return errorState.Point().Norm() > mr.config.PlanDeviationMM, nil
+}
+
+func (mr *moveRequest) obstaclesIntersectPlan(ctx context.Context, waypoints [][]referenceframe.Input, waypointIndex int) (bool, error) {
+	// TODO(RSDK-4507): implement this function
+	return false, nil
 }
 
 // newMoveOnGlobeRequest instantiates a moveRequest intended to be used in the context of a MoveOnGlobe call.
@@ -203,17 +218,5 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 			Options:            extra,
 		},
 		kinematicBase: kb,
-		position: newReplanner(
-			time.Duration(1000/motionCfg.PositionPollingFreqHz)*time.Millisecond,
-			func(ctx context.Context) replanResponse {
-				return replanResponse{}
-			},
-		),
-		obstacle: newReplanner(
-			time.Duration(1000/motionCfg.ObstaclePollingFreqHz)*time.Millisecond,
-			func(ctx context.Context) replanResponse {
-				return replanResponse{}
-			},
-		),
 	}, nil
 }
