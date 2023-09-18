@@ -354,11 +354,11 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 		fileName = timeRequested + "_" + strings.TrimSuffix(datum.GetMetadata().GetFileName(), datum.GetMetadata().GetFileExt())
 	}
 
-	//nolint:gosec
 	jsonPath := filepath.Join(dst, metadataDir, fileName+".json")
 	if err := os.MkdirAll(filepath.Dir(jsonPath), 0o700); err != nil {
 		return errors.Wrapf(err, "could not create metadata directory %s", filepath.Dir(jsonPath))
 	}
+	//nolint:gosec
 	jsonFile, err := os.Create(jsonPath)
 	if err != nil {
 		return err
@@ -380,17 +380,16 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 		if err != nil {
 			return err
 		}
-	} else {
+	} else if filepath.Ext(dataPath) != ext {
 		// If the file name did not already include the extension (e.g. for data capture files), add it.
 		// Don't do this for files that we're unzipping.
-		if filepath.Ext(dataPath) != ext {
-			dataPath += ext
-		}
+		dataPath += ext
 	}
 
 	if err := os.MkdirAll(filepath.Dir(dataPath), 0o700); err != nil {
 		return errors.Wrapf(err, "could not create data directory %s", filepath.Dir(dataPath))
 	}
+	//nolint:gosec
 	dataFile, err := os.Create(dataPath)
 	if err != nil {
 		return errors.Wrapf(err, fmt.Sprintf("could not create file for datum %s", datum.GetMetadata().GetId()))
