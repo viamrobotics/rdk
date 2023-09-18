@@ -203,10 +203,7 @@
 
   const handleOnBlur = () => {
     stop();
-
-    if (pressed.size <= 0) {
-      pressed.clear();
-    }
+    pressed.clear();
   };
 
   const handleVisibilityChange = () => {
