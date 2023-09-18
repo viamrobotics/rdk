@@ -50,6 +50,19 @@ func NewEmptyObject() *Object {
 	return &Object{PointCloud: cloud}
 }
 
+// NewObjectsFromSlice creates a slice of Objects from a slice of point clouds.
+func NewObjectsFromSlice(clouds []pc.PointCloud, label string) ([]*Object, error) {
+	objects := make([]*Object, 0, len(clouds))
+	for _, cloud := range clouds {
+		seg, err := NewObjectWithLabel(cloud, label, nil)
+		if err != nil {
+			return nil, err
+		}
+		objects = append(objects, seg)
+	}
+	return objects, nil
+}
+
 // Distance calculates and returns the distance from the center point of the object to the origin.
 func (o *Object) Distance() (float64, error) {
 	if o.Geometry == nil {

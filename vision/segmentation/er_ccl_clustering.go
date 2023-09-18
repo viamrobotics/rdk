@@ -191,13 +191,11 @@ func (erCCL *ErCCLConfig) ErCCLAlgorithm(ctx context.Context, src camera.VideoSo
 	}
 	validClouds := pc.PrunePointClouds(segments.PointClouds(), minPtsInSegment)
 	// wrap
-	objects, err := NewSegmentsFromSlice(validClouds, "")
+	objects, err := vision.NewObjectsFromSlice(validClouds, "")
 	if err != nil {
 		return nil, err
 	}
-	return objects.Objects, nil
-	// this seems a bit wasteful to make segments then make more segments after filtering, but rolling with it for now
-	// TODO: RSDK-4613
+	return objects, nil
 }
 
 // LabelMapUpdate updates the label map until it converges or errors.
