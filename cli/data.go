@@ -33,6 +33,8 @@ const (
 
 	dataTypeBinary  = "binary"
 	dataTypeTabular = "tabular"
+
+	gzFileExt = ".gz"
 )
 
 // DataExportAction is the corresponding action for 'data export'.
@@ -346,6 +348,13 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 
 	timeRequested := datum.GetMetadata().GetTimeRequested().AsTime().Format(time.RFC3339Nano)
 	fileName := datum.GetMetadata().GetFileName()
+
+	// The file name will end with .gz if the user uploaded a gzipped file. We will unzip it below, so remove the last
+	// .gz from the file name. If the user has gzipped the file multiple times, we will only unzip once.
+	if filepath.Ext(fileName) == gzFileExt {
+		fileName = strings.TrimSuffix(fileName, gzFileExt)
+	}
+
 	if fileName == "" {
 		fileName = timeRequested + "_" + datum.GetMetadata().GetId()
 	} else if filepath.Dir(fileName) == "." {
@@ -375,7 +384,7 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 	ext := datum.GetMetadata().GetFileExt()
 
 	// If the file is gzipped, unzip.
-	if ext == ".gz" {
+	if ext == gzFileExt {
 		r, err = gzip.NewReader(r)
 		if err != nil {
 			return err
