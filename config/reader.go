@@ -429,7 +429,6 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger golog.Logge
 			if err != nil {
 				return errors.Wrapf(err, "error converting attributes for (%s, %s)", resName.API, copied.Model)
 			}
-			confs[idx].Attributes = nil
 			confs[idx].ConvertedAttributes = converted
 		}
 		return nil

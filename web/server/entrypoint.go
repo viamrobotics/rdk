@@ -3,10 +3,12 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
 	"runtime/pprof"
 	"time"
 
@@ -71,8 +73,8 @@ func RunServer(ctx context.Context, args []string, _ golog.Logger) (err error) {
 	} else {
 		logConfig = golog.NewDevelopmentLoggerConfig()
 	}
-	rdkLogLevel := logConfig.Level
 	logger := zap.Must(logConfig.Build()).Sugar().Named("robot_server")
+	config.InitLoggingSettings(logger, argsParsed.Debug, logConfig.Level)
 	golog.ReplaceGloabl(logger)
 
 	// Always log the version, return early if the '-version' flag was provided
@@ -135,7 +137,7 @@ func RunServer(ctx context.Context, args []string, _ golog.Logger) (err error) {
 	// This is to ensure we make our best effort to write logs for failures loading the remote config.
 	if cfgFromDisk.Cloud != nil && (cfgFromDisk.Cloud.LogPath != "" || cfgFromDisk.Cloud.AppAddress != "") {
 		var closer func()
-		logger, closer, err = addCloudLogger(logger, rdkLogLevel, cfgFromDisk.Cloud)
+		logger, closer, err = addCloudLogger(logger, logConfig.Level, cfgFromDisk.Cloud)
 		if err != nil {
 			return err
 		}
@@ -328,6 +330,14 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 				restartInterval = newRestartInterval
 
 				if mustRestart {
+					bufSize := 1 << 20
+					traces := make([]byte, bufSize)
+					traceSize := runtime.Stack(traces, true)
+					message := "backtrace at robot restart"
+					if traceSize == bufSize {
+						message = fmt.Sprintf("%s (warning: backtrace truncated to %v bytes)", message, bufSize)
+					}
+					s.logger.Infof("%s, %s", message, traces)
 					cancel()
 					return
 				}

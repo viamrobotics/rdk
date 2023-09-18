@@ -76,6 +76,7 @@ func newCloudWatcher(ctx context.Context, config *Config, logger golog.Logger) *
 			if checkForNewCert {
 				nextCheckForNewCert = time.Now().Add(checkForNewCertInterval)
 			}
+			UpdateCloudConfigDebug(newConfig.Debug)
 			select {
 			case <-cancelCtx.Done():
 				return
@@ -152,6 +153,7 @@ func newFSWatcher(ctx context.Context, configPath string, logger golog.Logger) (
 							logger.Errorw("error reading config after write", "error", err)
 							return
 						}
+						UpdateFileConfigDebug(newConfig.Debug)
 						select {
 						case <-cancelCtx.Done():
 							return
