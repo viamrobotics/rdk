@@ -275,12 +275,29 @@ func (pin *gpioPin) Close() error {
 	pin.mu.Lock()
 	defer pin.mu.Unlock()
 
-	// If the entire server is shutting down, it's important to turn off all pins so they don't
-	// continue outputting signals we can no longer control.
-	if err := pin.setInternal(false); err != nil {
-		return err
+	if pin.hwPwm != nil {
+		if err := pin.hwPwm.Close(); err != nil {
+			return err
+		}
 	}
-	return pin.closeGpioFd()
+
+	// If a pin has never been used, leave it alone. This is more important than you might expect:
+	// on some boards (e.g., the Beaglebone AI-64), turning off a GPIO pin tells the kernel that
+	// the pin is in use by the GPIO system and therefore it cannot be used for I2C or other
+	// functions. Make sure that closing a pin here doesn't disable I2C!
+	if pin.line != nil {
+		// If the entire server is shutting down, it's important to turn off all pins so they don't
+		// continue outputting signals we can no longer control.
+		if err := pin.setInternal(false); err != nil { // setInternal won't double-lock the mutex
+			return err
+		}
+
+		if err := pin.closeGpioFd(); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (b *Board) createGpioPin(mapping GPIOBoardMapping) *gpioPin {
