@@ -163,8 +163,8 @@ type replayMovementSensor struct {
 	cache map[method][]*cacheEntry
 
 	mu                      sync.RWMutex
-	activeBackgroundWorkers sync.WaitGroup
 	closed                  bool
+	activeBackgroundWorkers sync.WaitGroup
 	propertiesStatus        propertiesStatus
 	properties              movementsensor.Properties
 }
