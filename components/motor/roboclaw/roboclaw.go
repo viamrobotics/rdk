@@ -315,7 +315,7 @@ func (m *roboclawMotor) GoTo(ctx context.Context, rpm, positionRevolutions float
 }
 
 func (m *roboclawMotor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
-	newTicks := int32(offset * float64(m.conf.TicksPerRotation))
+	newTicks := int32(-1 * offset * float64(m.conf.TicksPerRotation))
 	switch m.conf.Channel {
 	case 1:
 		return m.conn.SetEncM1(m.addr, newTicks)

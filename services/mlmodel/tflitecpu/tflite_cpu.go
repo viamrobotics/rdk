@@ -1,3 +1,5 @@
+//go:build !no_tflite
+
 // Package tflitecpu runs tflite model files on the host's CPU, as an implementation the ML model service.
 package tflitecpu
 
@@ -109,15 +111,13 @@ func NewTFLiteCPUModel(ctx context.Context, params *TFLiteConfig, name resource.
 
 // Infer takes the input map and uses the inference package to
 // return the result from the tflite cpu model as a map.
-func (m *Model) Infer(ctx context.Context, tensors ml.Tensors, input map[string]interface{}) (ml.Tensors, map[string]interface{}, error) {
+func (m *Model) Infer(ctx context.Context, tensors ml.Tensors) (ml.Tensors, error) {
 	_, span := trace.StartSpan(ctx, "service::mlmodel::tflite_cpu::Infer")
 	defer span.End()
-	if input != nil {
-		return nil, nil, errors.New("input maps for tflite_cpu.Infer is no longer supported. Use tensor inputs")
-	}
+
 	outTensors, err := m.model.Infer(tensors)
 	if err != nil {
-		return nil, nil, errors.Wrapf(err, "couldn't infer from model %q", m.Name())
+		return nil, errors.Wrapf(err, "couldn't infer from model %q", m.Name())
 	}
 	// Fill in the output map with the names from metadata if u have them
 	// if at any point this fails, just use the default name.
@@ -137,7 +137,7 @@ func (m *Model) Infer(ctx context.Context, tensors ml.Tensors, input map[string]
 		}
 		results[outName] = tensor
 	}
-	return results, nil, nil
+	return results, nil
 }
 
 // Metadata reads the metadata from your tflite cpu model into the metadata struct

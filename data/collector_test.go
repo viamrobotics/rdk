@@ -142,9 +142,9 @@ func TestSuccessfulWrite(t *testing.T) {
 			// We need to avoid adding time until after the the underlying goroutine has started sleeping.
 			// If we add time before that point, data will never be captured, because time will never be greater than
 			// the initially calculated time.
-			// Sleeping for 1ms is a hacky way to ensure that we don't encounter this situation. It gives 1ms
+			// Sleeping for 10ms is a hacky way to ensure that we don't encounter this situation. It gives 10ms
 			// for those few sequential lines in collector.go to execute, so that that occurs before we add time below.
-			time.Sleep(time.Millisecond)
+			time.Sleep(10 * time.Millisecond)
 			for i := 0; i < tc.expectReadings; i++ {
 				mockClock.Add(params.Interval)
 				select {

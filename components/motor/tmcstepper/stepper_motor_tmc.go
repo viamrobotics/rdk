@@ -668,8 +668,8 @@ func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64, extra map
 	}
 	return multierr.Combine(
 		m.writeReg(ctx, rampMode, modeHold),
-		m.writeReg(ctx, xTarget, int32(offset*float64(m.stepsPerRev))),
-		m.writeReg(ctx, xActual, int32(offset*float64(m.stepsPerRev))),
+		m.writeReg(ctx, xTarget, int32(-1*offset*float64(m.stepsPerRev))),
+		m.writeReg(ctx, xActual, int32(-1*offset*float64(m.stepsPerRev))),
 	)
 }
 
