@@ -288,7 +288,7 @@ func (pin *gpioPin) Close() error {
 	if pin.line != nil {
 		// If the entire server is shutting down, it's important to turn off all pins so they don't
 		// continue outputting signals we can no longer control.
-		if err := pin.setInternal(false); err != nil {
+		if err := pin.setInternal(false); err != nil { // setInternal won't double-lock the mutex
 			return err
 		}
 
