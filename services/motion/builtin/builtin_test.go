@@ -646,11 +646,27 @@ func TestReplanning(t *testing.T) {
 	epsilonMM := 15.
 	motionCfg := &motion.MotionConfiguration{PositionPollingFreqHz: 100, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM}
 
-	t.Run("check we dont replan with a good sensor", func(t *testing.T) {
-		t.Parallel()
-		noise := spatialmath.NewPoseFromPoint(r3.Vector{Y: epsilonMM - 0.1})
-		injectedMovementSensor, _, kb, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, dst, noise)
+	type testCase struct {
+		name           string
+		noise          r3.Vector
+		expectedReplan bool
+	}
 
+	testCases := []testCase{
+		{
+			name:           "check we dont replan with a good sensor",
+			noise:          r3.Vector{Y: epsilonMM - 0.1},
+			expectedReplan: false,
+		},
+		{
+			name:           "check we replan with a noisy sensor",
+			noise:          r3.Vector{Y: epsilonMM + 0.1},
+			expectedReplan: true,
+		},
+	}
+
+	testFn := func(tc testCase) {
+		injectedMovementSensor, _, kb, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, dst, spatialmath.NewPoseFromPoint(tc.noise))
 		moveRequest, err := ms.(*builtIn).newMoveOnGlobeRequest(ctx, kb.Name(), dst, injectedMovementSensor.Name(), nil, motionCfg, nil)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -658,44 +674,37 @@ func TestReplanning(t *testing.T) {
 		defer cancel()
 		ma := newMoveAttempt(ctx, moveRequest)
 		ma.start()
+		defer ma.cancel()
 		select {
 		case <-ma.ctx.Done():
 			t.Log("move attempt should not have timed out")
 			t.FailNow()
 		case resp := <-ma.responseChan:
-			test.That(t, resp.err, test.ShouldBeNil)
-			test.That(t, resp.success, test.ShouldBeTrue)
-		case <-ma.position.responseChan:
-			t.Log("move attempt should not be replanned")
-			t.FailNow()
-		}
-		test.That(t, ma.waypointIndex.Load(), test.ShouldEqual, 2)
-	})
-	t.Run("check we replan with a noisy sensor", func(t *testing.T) {
-		t.Parallel()
-		noise := spatialmath.NewPoseFromPoint(r3.Vector{Y: epsilonMM + 0.1})
-		injectedMovementSensor, _, kb, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, dst, noise)
-
-		moveRequest, err := ms.(*builtIn).newMoveOnGlobeRequest(ctx, kb.Name(), dst, injectedMovementSensor.Name(), nil, motionCfg, nil)
-		test.That(t, err, test.ShouldBeNil)
-
-		ctx, cancel := context.WithTimeout(ctx, time.Second)
-		defer cancel()
-		ma := newMoveAttempt(ctx, moveRequest)
-		ma.start()
-		select {
-		case <-ma.ctx.Done():
-			t.Log("move attempt should not have timed out")
-			t.FailNow()
-		case <-ma.responseChan:
-			t.Log("move attempt should not have returned a response")
-			t.FailNow()
+			if tc.expectedReplan {
+				t.Log("move attempt should not have returned a response")
+				t.FailNow()
+			} else {
+				test.That(t, resp.err, test.ShouldBeNil)
+				test.That(t, resp.success, test.ShouldBeTrue)
+			}
 		case resp := <-ma.position.responseChan:
-			test.That(t, resp.err, test.ShouldBeNil)
-			test.That(t, resp.replan, test.ShouldBeTrue)
+			if tc.expectedReplan {
+				test.That(t, resp.err, test.ShouldBeNil)
+				test.That(t, resp.replan, test.ShouldBeTrue)
+			} else {
+				t.Log("move attempt should not be replanned")
+				t.FailNow()
+			}
+
 		}
 		test.That(t, ma.waypointIndex.Load(), test.ShouldEqual, 1)
-	})
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			testFn(tc)
+		})
+	}
 }
 
 func TestMultiplePieces(t *testing.T) {

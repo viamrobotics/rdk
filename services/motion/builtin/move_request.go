@@ -44,10 +44,10 @@ func (mr *moveRequest) plan(ctx context.Context) ([][]referenceframe.Input, erro
 }
 
 // execute attempts to follow a given Plan starting from the index percribed by waypointIndex.
-// Note that waypointIndex is an atomic int that is incremented in this function after each waypoint has been successfully reached.bui.
+// Note that waypointIndex is an atomic int that is incremented in this function after each waypoint has been successfully reached.
 func (mr *moveRequest) execute(ctx context.Context, waypoints [][]referenceframe.Input, waypointIndex *atomic.Int32) moveResponse {
 	// Iterate through the list of waypoints and issue a command to move to each
-	for i := waypointIndex.Load(); i < int32(len(waypoints)); i = waypointIndex.Add(1) {
+	for i := int(waypointIndex.Load()); i < len(waypoints); i++ {
 		select {
 		case <-ctx.Done():
 			return moveResponse{}
@@ -64,11 +64,12 @@ func (mr *moveRequest) execute(ctx context.Context, waypoints [][]referenceframe
 				}
 				return moveResponse{err: err}
 			}
+			if i < len(waypoints)-1 {
+				waypointIndex.Add(1)
+			}
 		}
 	}
 
-	// the waypointIndex is now one too long to index into the plan, decrementing makes it equal to the last element
-	waypointIndex.Add(-1)
 	// the plan has been fully executed so check to see if the GeoPoint we are at is close enough to the goal.
 	deviated, err := mr.deviatedFromPlan(ctx, waypoints, len(waypoints)-1)
 	if err != nil {
