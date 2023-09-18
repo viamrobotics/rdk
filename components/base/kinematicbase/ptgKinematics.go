@@ -25,9 +25,6 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-// Define a default speed to target for the base in the case where one is not provided.
-const defaultBaseMMps = 600.
-
 var zeroInput = make([]referenceframe.Input, 3)
 
 const (
@@ -42,7 +39,7 @@ type ptgBaseKinematics struct {
 	logger       golog.Logger
 	frame        referenceframe.Frame
 	fs           referenceframe.FrameSystem
-	ptgs         []tpspace.PTG
+	ptgs         []tpspace.PTGSolver
 	inputLock    sync.RWMutex
 	currentInput []referenceframe.Input
 }
@@ -60,25 +57,21 @@ func wrapWithPTGKinematics(
 		return nil, err
 	}
 
-	baseMillimetersPerSecond := defaultBaseMMps
-	if options.LinearVelocityMMPerSec > 0 {
-		baseMillimetersPerSecond = options.LinearVelocityMMPerSec
+	baseMillimetersPerSecond := options.LinearVelocityMMPerSec
+	if baseMillimetersPerSecond == 0 {
+		baseMillimetersPerSecond = defaultLinearVelocityMMPerSec
 	}
 
-	baseTurningRadius := properties.TurningRadiusMeters
-	if options.AngularVelocityDegsPerSec > 0 {
-		// Compute smallest allowable turning radius permitted by the given speeds. Use the greater of the two.
-		calcTurnRadius := (baseMillimetersPerSecond / rdkutils.DegToRad(options.AngularVelocityDegsPerSec)) / 1000.
-		baseTurningRadius = math.Max(baseTurningRadius, calcTurnRadius)
-	}
+	baseTurningRadiusMeters := properties.TurningRadiusMeters
+
 	logger.Infof(
 		"using baseMillimetersPerSecond %f and baseTurningRadius %f for PTG base kinematics",
 		baseMillimetersPerSecond,
-		baseTurningRadius,
+		baseTurningRadiusMeters,
 	)
 
-	if baseTurningRadius <= 0 {
-		return nil, errors.New("can only wrap with PTG kinematics if turning radius is greater than zero")
+	if baseTurningRadiusMeters < 0 {
+		return nil, errors.New("can only wrap with PTG kinematics if turning radius is greater than or equal to zero")
 	}
 
 	geometries, err := b.Geometries(ctx, nil)
@@ -86,13 +79,15 @@ func wrapWithPTGKinematics(
 		return nil, err
 	}
 
-	frame, err := tpspace.NewPTGFrameFromTurningRadius(
+	frame, err := tpspace.NewPTGFrameFromKinematicOptions(
 		b.Name().ShortName(),
 		logger,
 		baseMillimetersPerSecond,
-		baseTurningRadius,
-		0, // pass 0 to use the default refDist
+		options.AngularVelocityDegsPerSec,
+		baseTurningRadiusMeters,
+		options.MaxMoveStraightMM, // If zero, will use default on the receiver end.
 		geometries,
+		options.NoSkidSteer,
 	)
 	if err != nil {
 		return nil, err
@@ -107,7 +102,7 @@ func wrapWithPTGKinematics(
 	if !ok {
 		return nil, errors.New("unable to cast ptgk frame to a PTG Provider")
 	}
-	ptgs := ptgProv.PTGs()
+	ptgs := ptgProv.PTGSolvers()
 
 	return &ptgBaseKinematics{
 		Base:         b,
@@ -152,7 +147,9 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 
 	lastDist := 0.
 	lastTime := 0.
-	for _, trajNode := range selectedTraj {
+	lastLinVel := r3.Vector{}
+	lastAngVel := r3.Vector{}
+	for i, trajNode := range selectedTraj {
 		ptgk.inputLock.Lock() // In the case where there's actual contention here, this could cause timing issues; how to solve?
 		ptgk.currentInput = []referenceframe.Input{inputs[0], inputs[1], {lastDist}}
 		ptgk.inputLock.Unlock()
@@ -164,23 +161,33 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 		linVel := r3.Vector{0, trajNode.LinVelMMPS, 0}
 		angVel := r3.Vector{0, 0, rdkutils.RadToDeg(trajNode.AngVelRPS)}
 
-		ptgk.logger.Debugf(
-			"setting velocity to linear %v angular %v and running velocity step for %s",
-			linVel,
-			angVel,
-			timestep,
-		)
+		// This should call SetVelocity if:
+		// 1) this is the first iteration of the loop, or
+		// 2) either of the linear or angular velocities has changed
+		if i == 0 || !(linVel.ApproxEqual(lastLinVel) && angVel.ApproxEqual(lastAngVel)) {
+			ptgk.logger.Debugf(
+				"setting velocity to linear %v angular %v and running velocity step for %s",
+				linVel,
+				angVel,
+				timestep,
+			)
 
-		err := ptgk.Base.SetVelocity(
-			ctx,
-			linVel,
-			angVel,
-			nil,
-		)
-		if err != nil {
-			return multierr.Combine(err, ptgk.Base.Stop(ctx, nil))
+			err := ptgk.Base.SetVelocity(
+				ctx,
+				linVel,
+				angVel,
+				nil,
+			)
+			if err != nil {
+				return multierr.Combine(err, ptgk.Base.Stop(ctx, nil))
+			}
+			lastLinVel = linVel
+			lastAngVel = angVel
 		}
-		utils.SelectContextOrWait(ctx, timestep)
+		if !utils.SelectContextOrWait(ctx, timestep) {
+			// context cancelled
+			break
+		}
 	}
 
 	return ptgk.Base.Stop(ctx, nil)

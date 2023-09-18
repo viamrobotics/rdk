@@ -28,7 +28,7 @@ type solverFrame struct {
 	worldRooted bool
 	origSeed    map[string][]frame.Input // stores starting locations of all frames in fss that are NOT in `frames`
 
-	ptgs []tpspace.PTG
+	ptgs []tpspace.PTGSolver
 }
 
 func newSolverFrame(fs frame.FrameSystem, solveFrameName, goalFrameName string, seedMap map[string][]frame.Input) (*solverFrame, error) {
@@ -250,8 +250,8 @@ func (sf *solverFrame) DoF() []frame.Limit {
 	return limits
 }
 
-// PTGs passes through the PTGs of the solving tp-space frame if it exists, otherwise nil.
-func (sf *solverFrame) PTGs() []tpspace.PTG {
+// PTGSolvers passes through the PTGs of the solving tp-space frame if it exists, otherwise nil.
+func (sf *solverFrame) PTGSolvers() []tpspace.PTGSolver {
 	return sf.ptgs
 }
 
@@ -293,6 +293,23 @@ func (sf solverFrame) MarshalJSON() ([]byte, error) {
 
 func (sf *solverFrame) AlmostEquals(otherFrame frame.Frame) bool {
 	return false
+}
+
+// planToNodes takes a plan and turns it into a slice of nodes.
+func (sf solverFrame) planToNodes(plan Plan) ([]node, error) {
+	planNodes := make([]node, 0, len(plan))
+	for _, step := range plan {
+		stepConfig, err := sf.mapToSlice(step)
+		if err != nil {
+			return nil, err
+		}
+		pose, err := sf.Transform(stepConfig)
+		if err != nil {
+			return nil, err
+		}
+		planNodes = append(planNodes, &basicNode{q: stepConfig, pose: pose})
+	}
+	return planNodes, nil
 }
 
 // uniqInPlaceSlice will deduplicate the values in a slice using in-place replacement on the slice. This is faster than

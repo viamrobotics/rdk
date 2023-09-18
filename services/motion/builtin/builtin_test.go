@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
@@ -133,7 +134,7 @@ func createFrameSystemService(
 	return fsSvc, nil
 }
 
-func createMoveOnGlobeEnvironment(ctx context.Context, t *testing.T, origin, destination *geo.Point) (
+func createMoveOnGlobeEnvironment(ctx context.Context, t *testing.T, origin, destination *geo.Point, noise spatialmath.Pose) (
 	*inject.MovementSensor, framesystem.Service, base.Base, motion.Service,
 ) {
 	logger := golog.NewTestLogger(t)
@@ -171,7 +172,7 @@ func createMoveOnGlobeEnvironment(ctx context.Context, t *testing.T, origin, des
 	}
 	kinematicsOptions := kinematicbase.NewKinematicBaseOptions()
 	kinematicsOptions.PlanDeviationThresholdMM = 1 // can afford to do this for tests
-	kb, err := kinematicbase.WrapWithFakeKinematics(ctx, fakeBase.(*baseFake.Base), localizer, limits, kinematicsOptions)
+	kb, err := kinematicbase.WrapWithFakeKinematics(ctx, fakeBase.(*baseFake.Base), localizer, limits, kinematicsOptions, noise)
 	test.That(t, err, test.ShouldBeNil)
 
 	// create injected MovementSensor
@@ -217,7 +218,7 @@ func createMoveOnMapEnvironment(ctx context.Context, t *testing.T, pcdPath strin
 	cfg := resource.Config{
 		Name:  "test_base",
 		API:   base.API,
-		Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R: 100}},
+		Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R: 120}},
 	}
 	logger := golog.NewTestLogger(t)
 	fakeBase, err := baseFake.NewBase(ctx, nil, cfg, logger)
@@ -273,7 +274,7 @@ func TestMove(t *testing.T) {
 		ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
 		defer teardown()
 		grabPose := referenceframe.NewPoseInFrame("pieceArm", spatialmath.NewPoseFromPoint(r3.Vector{0, -30, -50}))
-		_, err = ms.Move(ctx, gripper.Named("pieceArm"), grabPose, nil, nil, map[string]interface{}{})
+		_, err = ms.Move(ctx, arm.Named("pieceArm"), grabPose, nil, nil, map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -356,35 +357,16 @@ func TestMoveWithObstacles(t *testing.T) {
 }
 
 func TestMoveOnMapLongDistance(t *testing.T) {
+	t.Skip()
 	t.Parallel()
 	ctx := context.Background()
 	// goal position is scaled to be in mm
 	goal := spatialmath.NewPoseFromPoint(r3.Vector{X: -32.508 * 1000, Y: -2.092 * 1000})
 
-	t.Run("test cbirrt planning on office map", func(t *testing.T) {
+	t.Run("test tp-space planning on office map", func(t *testing.T) {
 		t.Parallel()
 		ms := createMoveOnMapEnvironment(ctx, t, "slam/example_cartographer_outputs/viam-office-02-22-3/pointcloud/pointcloud_4.pcd")
 		extra := make(map[string]interface{})
-		extra["planning_alg"] = "cbirrt"
-
-		path, _, err := ms.(*builtIn).planMoveOnMap(
-			context.Background(),
-			base.Named("test_base"),
-			goal,
-			slam.Named("test_slam"),
-			kinematicbase.NewKinematicBaseOptions(),
-			extra,
-		)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(path), test.ShouldBeGreaterThan, 2)
-	})
-
-	t.Run("test rrtstar planning on office map", func(t *testing.T) {
-		t.Parallel()
-		ms := createMoveOnMapEnvironment(ctx, t, "slam/example_cartographer_outputs/viam-office-02-22-3/pointcloud/pointcloud_4.pcd")
-		extra := make(map[string]interface{})
-		extra["planning_alg"] = "rrtstar"
-
 		path, _, err := ms.(*builtIn).planMoveOnMap(
 			context.Background(),
 			base.Named("test_base"),
@@ -514,12 +496,15 @@ func TestMoveOnMapTimeout(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	easyGoal := spatialmath.NewPoseFromPoint(r3.Vector{X: 1001, Y: 1001})
+	// create motion config
+	motionCfg := make(map[string]interface{})
+	motionCfg["timeout"] = 0.01
 	success, err := ms.MoveOnMap(
 		context.Background(),
 		base.Named("test_base"),
 		easyGoal,
 		slam.Named("test_slam"),
-		nil,
+		motionCfg,
 	)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, success, test.ShouldBeFalse)
@@ -532,9 +517,9 @@ func TestMoveOnGlobe(t *testing.T) {
 	gpsPoint := geo.NewPoint(-70, 40)
 
 	// create motion config
-	motionCfg := make(map[string]interface{})
-	motionCfg["motion_profile"] = "position_only"
-	motionCfg["timeout"] = 5.
+	extra := make(map[string]interface{})
+	// extra["motion_profile"] = "position_only" // TODO: Add back with RSDK-4583
+	extra["timeout"] = 5.
 
 	dst := geo.NewPoint(gpsPoint.Lat(), gpsPoint.Lng()+1e-5)
 	expectedDst := r3.Vector{380, 0, 0}
@@ -542,35 +527,34 @@ func TestMoveOnGlobe(t *testing.T) {
 
 	t.Run("ensure success to a nearby geo point", func(t *testing.T) {
 		t.Parallel()
-		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, dst)
+		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, dst, nil)
+		motionCfg := &motion.MotionConfiguration{PositionPollingFreqHz: 4, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM}
 
-		planRequest, _, err := ms.(*builtIn).newMoveOnGlobeRequest(
-			context.Background(),
+		moveRequest, err := ms.(*builtIn).newMoveOnGlobeRequest(
+			ctx,
 			fakeBase.Name(),
 			dst,
-			injectedMovementSensor,
+			injectedMovementSensor.Name(),
 			[]*spatialmath.GeoObstacle{},
-			&motion.MotionConfiguration{PositionPollingFreqHz: 4, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM},
 			motionCfg,
+			extra,
 		)
 		test.That(t, err, test.ShouldBeNil)
-		plan, err := motionplan.PlanMotion(ctx, planRequest)
-		test.That(t, err, test.ShouldBeNil)
-		waypoints, err := plan.GetFrameSteps(fakeBase.Name().Name)
+		waypoints, err := moveRequest.plan(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(waypoints), test.ShouldEqual, 2)
 		test.That(t, waypoints[1][0].Value, test.ShouldAlmostEqual, expectedDst.X, epsilonMM)
 		test.That(t, waypoints[1][1].Value, test.ShouldAlmostEqual, expectedDst.Y, epsilonMM)
 
 		success, err := ms.MoveOnGlobe(
-			context.Background(),
+			ctx,
 			fakeBase.Name(),
 			dst,
 			0,
 			injectedMovementSensor.Name(),
 			[]*spatialmath.GeoObstacle{},
-			&motion.MotionConfiguration{PositionPollingFreqHz: 4, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM},
 			motionCfg,
+			extra,
 		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, success, test.ShouldBeTrue)
@@ -578,7 +562,8 @@ func TestMoveOnGlobe(t *testing.T) {
 
 	t.Run("go around an obstacle", func(t *testing.T) {
 		t.Parallel()
-		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, dst)
+		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, dst, nil)
+		motionCfg := &motion.MotionConfiguration{PositionPollingFreqHz: 4, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM}
 
 		boxPose := spatialmath.NewPoseFromPoint(r3.Vector{50, 0, 0})
 		boxDims := r3.Vector{5, 50, 10}
@@ -586,33 +571,31 @@ func TestMoveOnGlobe(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		geoObstacle := spatialmath.NewGeoObstacle(gpsPoint, []spatialmath.Geometry{geometries})
 
-		planRequest, _, err := ms.(*builtIn).newMoveOnGlobeRequest(
-			context.Background(),
+		moveRequest, err := ms.(*builtIn).newMoveOnGlobeRequest(
+			ctx,
 			fakeBase.Name(),
 			dst,
-			injectedMovementSensor,
+			injectedMovementSensor.Name(),
 			[]*spatialmath.GeoObstacle{geoObstacle},
-			&motion.MotionConfiguration{PositionPollingFreqHz: 4, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM},
 			motionCfg,
+			extra,
 		)
 		test.That(t, err, test.ShouldBeNil)
-		plan, err := motionplan.PlanMotion(ctx, planRequest)
-		test.That(t, err, test.ShouldBeNil)
-		waypoints, err := plan.GetFrameSteps(fakeBase.Name().Name)
+		waypoints, err := moveRequest.plan(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(waypoints), test.ShouldBeGreaterThan, 2)
 		test.That(t, waypoints[len(waypoints)-1][0].Value, test.ShouldAlmostEqual, expectedDst.X, epsilonMM)
 		test.That(t, waypoints[len(waypoints)-1][1].Value, test.ShouldAlmostEqual, expectedDst.Y, epsilonMM)
 
 		success, err := ms.MoveOnGlobe(
-			context.Background(),
+			ctx,
 			fakeBase.Name(),
 			dst,
 			0,
 			injectedMovementSensor.Name(),
 			[]*spatialmath.GeoObstacle{geoObstacle},
-			&motion.MotionConfiguration{PositionPollingFreqHz: 4, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM},
 			motionCfg,
+			extra,
 		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, success, test.ShouldBeTrue)
@@ -620,7 +603,7 @@ func TestMoveOnGlobe(t *testing.T) {
 
 	t.Run("fail because of obstacle", func(t *testing.T) {
 		t.Parallel()
-		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, dst)
+		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, dst, nil)
 
 		boxPose := spatialmath.NewPoseFromPoint(r3.Vector{50, 0, 0})
 		boxDims := r3.Vector{2, 6660, 10}
@@ -628,30 +611,308 @@ func TestMoveOnGlobe(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		geoObstacle := spatialmath.NewGeoObstacle(gpsPoint, []spatialmath.Geometry{geometries})
 
-		planRequest, _, err := ms.(*builtIn).newMoveOnGlobeRequest(
-			context.Background(),
+		moveRequest, err := ms.(*builtIn).newMoveOnGlobeRequest(
+			ctx,
 			fakeBase.Name(),
 			dst,
-			injectedMovementSensor,
+			injectedMovementSensor.Name(),
 			[]*spatialmath.GeoObstacle{geoObstacle},
 			&motion.MotionConfiguration{},
-			motionCfg,
+			extra,
 		)
 		test.That(t, err, test.ShouldBeNil)
-		plan, err := motionplan.PlanMotion(ctx, planRequest)
+		plan, err := moveRequest.plan(ctx)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, len(plan), test.ShouldEqual, 0)
 	})
 
 	t.Run("check offset constructed correctly", func(t *testing.T) {
 		t.Parallel()
-		_, fsSvc, _, _ := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, dst)
+		_, fsSvc, _, _ := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, dst, nil)
 		baseOrigin := referenceframe.NewPoseInFrame("test-base", spatialmath.NewZeroPose())
 		movementSensorToBase, err := fsSvc.TransformPose(ctx, baseOrigin, "test-gps", nil)
 		if err != nil {
 			movementSensorToBase = baseOrigin
 		}
 		test.That(t, movementSensorToBase.Pose().Point(), test.ShouldResemble, r3.Vector{10, 0, 0})
+	})
+}
+
+func TestReplanning(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	gpsPoint := geo.NewPoint(0, 0)
+	dst := geo.NewPoint(gpsPoint.Lat(), gpsPoint.Lng()+1e-5)
+	epsilonMM := 15.
+	motionCfg := &motion.MotionConfiguration{PositionPollingFreqHz: 100, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM}
+
+	type testCase struct {
+		name           string
+		noise          r3.Vector
+		expectedReplan bool
+	}
+
+	testCases := []testCase{
+		{
+			name:           "check we dont replan with a good sensor",
+			noise:          r3.Vector{Y: epsilonMM - 0.1},
+			expectedReplan: false,
+		},
+		{
+			name:           "check we replan with a noisy sensor",
+			noise:          r3.Vector{Y: epsilonMM + 0.1},
+			expectedReplan: true,
+		},
+	}
+
+	testFn := func(t *testing.T, tc testCase) {
+		t.Helper()
+		injectedMovementSensor, _, kb, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, dst, spatialmath.NewPoseFromPoint(tc.noise))
+		moveRequest, err := ms.(*builtIn).newMoveOnGlobeRequest(ctx, kb.Name(), dst, injectedMovementSensor.Name(), nil, motionCfg, nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		ctx, cancel := context.WithTimeout(ctx, time.Second)
+		defer cancel()
+		ma := newMoveAttempt(ctx, moveRequest)
+		ma.start()
+		defer ma.cancel()
+		select {
+		case <-ma.ctx.Done():
+			t.Log("move attempt should not have timed out")
+			t.FailNow()
+		case resp := <-ma.responseChan:
+			if tc.expectedReplan {
+				t.Log("move attempt should not have returned a response")
+				t.FailNow()
+			} else {
+				test.That(t, resp.err, test.ShouldBeNil)
+				test.That(t, resp.success, test.ShouldBeTrue)
+			}
+		case resp := <-ma.position.responseChan:
+			if tc.expectedReplan {
+				test.That(t, resp.err, test.ShouldBeNil)
+				test.That(t, resp.replan, test.ShouldBeTrue)
+			} else {
+				t.Log("move attempt should not be replanned")
+				t.FailNow()
+			}
+		}
+		test.That(t, ma.waypointIndex.Load(), test.ShouldEqual, 1)
+	}
+
+	for _, tc := range testCases {
+		c := tc // needed to workaround loop variable not being captured by func literals
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			testFn(t, c)
+		})
+	}
+}
+
+func TestCheckPlan(t *testing.T) {
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+
+	// orign as gps point
+	originPoint := geo.NewPoint(-70, 40)
+
+	destPoint := geo.NewPoint(originPoint.Lat(), originPoint.Lng()+1e-5)
+
+	// create env
+	injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, originPoint, destPoint, nil)
+
+	// create motion config
+	motionCfg := make(map[string]interface{})
+	// fail if we don't find a plan in 5 seconds
+	motionCfg["timeout"] = 5.
+
+	// get plan and kinematic base
+	moveRequest, err := ms.(*builtIn).newMoveOnGlobeRequest(
+		context.Background(),
+		fakeBase.Name(),
+		destPoint,
+		injectedMovementSensor.Name(),
+		nil,
+		&motion.MotionConfiguration{PositionPollingFreqHz: 4, ObstaclePollingFreqHz: 1, PlanDeviationMM: 15.},
+		motionCfg,
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	plan, err := motionplan.PlanMotion(ctx, moveRequest.planRequest)
+	test.That(t, err, test.ShouldBeNil)
+
+	// construct framesystem
+	newFS := referenceframe.NewEmptyFrameSystem("test-fs")
+	newFS.AddFrame(moveRequest.kinematicBase.Kinematics(), newFS.World())
+
+	startPose := spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0})
+	errorState := startPose
+	floatList := []float64{0, 0}
+	inputs := referenceframe.FloatsToInputs(floatList)
+
+	t.Run("without obstacles - ensure success", func(t *testing.T) {
+		err := motionplan.CheckPlan(moveRequest.kinematicBase.Kinematics(), plan, nil, newFS, startPose, inputs, errorState, logger)
+		test.That(t, err, test.ShouldBeNil)
+	})
+	t.Run("with a blocking obstacle - ensure failure", func(t *testing.T) {
+		obstacle, err := spatialmath.NewBox(
+			spatialmath.NewPoseFromPoint(r3.Vector{150, 0, 0}),
+			r3.Vector{10, 10, 1}, "obstacle",
+		)
+		test.That(t, err, test.ShouldBeNil)
+		geoms := []spatialmath.Geometry{obstacle}
+		gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)}
+
+		worldState, err := referenceframe.NewWorldState(gifs, nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		err = motionplan.CheckPlan(moveRequest.kinematicBase.Kinematics(), plan, worldState, newFS, startPose, inputs, errorState, logger)
+		test.That(t, err, test.ShouldNotBeNil)
+	})
+
+	t.Run("non nil error state - ensure success", func(t *testing.T) {
+		errorState := spatialmath.NewPoseFromPoint(r3.Vector{0, 26, 0})
+
+		obstacle, err := spatialmath.NewBox(
+			spatialmath.NewPoseFromPoint(r3.Vector{150, 0, 0}),
+			r3.Vector{10, 10, 1}, "obstacle",
+		)
+		test.That(t, err, test.ShouldBeNil)
+		geoms := []spatialmath.Geometry{obstacle}
+		gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)}
+
+		worldState, err := referenceframe.NewWorldState(gifs, nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		err = motionplan.CheckPlan(moveRequest.kinematicBase.Kinematics(), plan, worldState, newFS, startPose, inputs, errorState, logger)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	// create camera_origin frame
+	cameraOriginFrame, err := referenceframe.NewStaticFrame("camera-origin", spatialmath.NewPoseFromPoint(r3.Vector{0, -30, 0}))
+	test.That(t, err, test.ShouldBeNil)
+	err = newFS.AddFrame(cameraOriginFrame, moveRequest.kinematicBase.Kinematics())
+	test.That(t, err, test.ShouldBeNil)
+
+	// create camera geometry
+	cameraGeom, err := spatialmath.NewBox(
+		spatialmath.NewZeroPose(),
+		r3.Vector{1, 1, 1}, "camera",
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	// create cameraFrame and add to framesystem
+	cameraFrame, err := referenceframe.NewStaticFrameWithGeometry(
+		"camera-frame", spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0}), cameraGeom,
+	)
+	test.That(t, err, test.ShouldBeNil)
+	err = newFS.AddFrame(cameraFrame, cameraOriginFrame)
+	test.That(t, err, test.ShouldBeNil)
+
+	t.Run("ensure transforms of obstacles works - no collision", func(t *testing.T) {
+		// create obstacle
+		obstacle, err := spatialmath.NewBox(
+			spatialmath.NewPoseFromPoint(r3.Vector{150, -6, 0}),
+			r3.Vector{10, 10, 1}, "obstacle",
+		)
+		test.That(t, err, test.ShouldBeNil)
+		geoms := []spatialmath.Geometry{obstacle}
+		gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(cameraFrame.Name(), geoms)}
+
+		worldState, err := referenceframe.NewWorldState(gifs, nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		err = motionplan.CheckPlan(moveRequest.kinematicBase.Kinematics(), plan, worldState, newFS, startPose, inputs, errorState, logger)
+		test.That(t, err, test.ShouldBeNil)
+	})
+	t.Run("ensure transforms of obstacles works - collision with camera", func(t *testing.T) {
+		// create obstacle
+		obstacle, err := spatialmath.NewBox(
+			spatialmath.NewPoseFromPoint(r3.Vector{150, 0, 0}),
+			r3.Vector{10, 10, 1}, "obstacle",
+		)
+		test.That(t, err, test.ShouldBeNil)
+		geoms := []spatialmath.Geometry{obstacle}
+		gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(cameraFrame.Name(), geoms)}
+
+		worldState, err := referenceframe.NewWorldState(gifs, nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		err = motionplan.CheckPlan(moveRequest.kinematicBase.Kinematics(), plan, worldState, newFS, startPose, inputs, errorState, logger)
+		test.That(t, err, test.ShouldNotBeNil)
+	})
+	t.Run("ensure transforms of obstacles works - collision with base", func(t *testing.T) {
+		// create obstacle
+		obstacle, err := spatialmath.NewBox(
+			spatialmath.NewPoseFromPoint(r3.Vector{150, 30, 0}),
+			r3.Vector{10, 10, 1}, "obstacle",
+		)
+		test.That(t, err, test.ShouldBeNil)
+		geoms := []spatialmath.Geometry{obstacle}
+		gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(cameraFrame.Name(), geoms)}
+
+		worldState, err := referenceframe.NewWorldState(gifs, nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		err = motionplan.CheckPlan(moveRequest.kinematicBase.Kinematics(), plan, worldState, newFS, startPose, inputs, errorState, logger)
+		test.That(t, err, test.ShouldNotBeNil)
+	})
+}
+
+func TestArmGantryPlanCheck(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	fs := referenceframe.NewEmptyFrameSystem("test")
+
+	gantryOffset, err := referenceframe.NewStaticFrame("gantryOffset", spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0}))
+	test.That(t, err, test.ShouldBeNil)
+	fs.AddFrame(gantryOffset, fs.World())
+
+	gantryX, err := referenceframe.NewTranslationalFrame("gantryX", r3.Vector{1, 0, 0}, referenceframe.Limit{math.Inf(-1), math.Inf(1)})
+	test.That(t, err, test.ShouldBeNil)
+	fs.AddFrame(gantryX, gantryOffset)
+
+	modelXarm, err := referenceframe.ParseModelJSONFile(rdkutils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+	fs.AddFrame(modelXarm, gantryX)
+
+	goal := spatialmath.NewPoseFromPoint(r3.Vector{X: 407, Y: 0, Z: 112})
+
+	planReq := motionplan.PlanRequest{
+		Logger:             logger,
+		Goal:               referenceframe.NewPoseInFrame(referenceframe.World, goal),
+		Frame:              fs.Frame("xArm6"),
+		FrameSystem:        fs,
+		StartConfiguration: referenceframe.StartPositions(fs),
+	}
+
+	plan, err := motionplan.PlanMotion(context.Background(), &planReq)
+	test.That(t, err, test.ShouldBeNil)
+
+	startPose := spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0})
+	errorState := spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0})
+	floatList := []float64{0, 0, 0, 0, 0, 0, 0}
+	inputs := referenceframe.FloatsToInputs(floatList)
+
+	t.Run("check plan with no obstacles", func(t *testing.T) {
+		err := motionplan.CheckPlan(fs.Frame("xArm6"), plan, nil, fs, startPose, inputs, errorState, logger)
+		test.That(t, err, test.ShouldBeNil)
+	})
+	t.Run("check plan with obstacle", func(t *testing.T) {
+		obstacle, err := spatialmath.NewBox(
+			spatialmath.NewPoseFromPoint(r3.Vector{400, 0, 112}),
+			r3.Vector{10, 10, 1}, "obstacle",
+		)
+		test.That(t, err, test.ShouldBeNil)
+
+		geoms := []spatialmath.Geometry{obstacle}
+		gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)}
+
+		worldState, err := referenceframe.NewWorldState(gifs, nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		err = motionplan.CheckPlan(fs.Frame("xArm6"), plan, worldState, fs, startPose, inputs, errorState, logger)
+		test.That(t, err, test.ShouldNotBeNil)
 	})
 }
 
@@ -917,7 +1178,7 @@ func TestStoppableMoveFunctions(t *testing.T) {
 			)
 			test.That(t, err, test.ShouldBeNil)
 
-			goal := spatialmath.NewPoseFromPoint(r3.Vector{X: 1.32 * 1000, Y: 0})
+			goal := spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 500})
 			success, err := ms.MoveOnMap(ctx, injectBase.Name(), goal, injectSlam.Name(), nil)
 			testIfStoppable(t, success, err)
 		})

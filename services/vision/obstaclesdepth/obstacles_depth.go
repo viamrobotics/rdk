@@ -7,7 +7,6 @@ package obstaclesdepth
 
 import (
 	"context"
-	"image"
 	"math"
 	"sort"
 	"strconv"
@@ -20,7 +19,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/viamrobotics/gostream"
 	"go.opencensus.io/trace"
-	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/pointcloud"
@@ -48,7 +46,8 @@ type ObsDepthConfig struct {
 // obsDepth is the underlying struct actually used by the service.
 type obsDepth struct {
 	dm          *rimage.DepthMap
-	obstaclePts []image.Point
+	obstaclePts [][]float64
+	depthPts    [][]float64
 	hMin        float64
 	hMax        float64
 	sinTheta    float64
@@ -214,40 +213,23 @@ func (o *obsDepth) obsDepthWithIntrinsics(ctx context.Context, src camera.VideoS
 	o.dm = dm
 
 	var wg sync.WaitGroup
-	obstaclePointChan := make(chan image.Point)
+	var lock sync.Mutex
+	obstaclePoints := make([][]float64, 0, w*h/sampleN)
+	o.makePointList()
 
-	for i := 0; i < w; i += sampleN {
+	for i := 0; i < len(o.depthPts); i++ {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			for j := 0; j < h; j++ {
-				candidate := image.Pt(i, j)
-			obs: // for every sub-sampled point, figure out if it is an obstacle
-				for l := 0; l < w; l += sampleN { // continue with the sub-sampling
-					for m := 0; m < h; m++ {
-						compareTo := image.Pt(l, m)
-						if candidate == compareTo {
-							continue
-						}
-						if o.isCompatible(candidate, compareTo) {
-							obstaclePointChan <- candidate
-							break obs
-						}
-					}
-				}
+			if o.isObstaclePoint(o.depthPts[i]) {
+				lock.Lock()
+				obstaclePoints = append(obstaclePoints, o.depthPts[i])
+				lock.Unlock()
 			}
 		}(i)
 	}
 
-	goutils.ManagedGo(func() {
-		wg.Wait()
-		close(obstaclePointChan)
-	}, nil)
-
-	obstaclePoints := make([]image.Point, 0, w*h/sampleN)
-	for op := range obstaclePointChan {
-		obstaclePoints = append(obstaclePoints, op)
-	}
+	wg.Wait()
 	o.obstaclePts = obstaclePoints
 
 	// Cluster the points in 3D
@@ -282,9 +264,12 @@ func (o *obsDepth) obsDepthWithIntrinsics(ctx context.Context, src camera.VideoS
 
 // isCompatible will check compatibility between 2 points.
 // as defined by Manduchi et al.
-func (o *obsDepth) isCompatible(p1, p2 image.Point) bool {
-	xdist, ydist := math.Abs(float64(p1.X-p2.X)), math.Abs(float64(p1.Y-p2.Y))
-	zdist := math.Abs(float64(o.dm.Get(p1)) - float64(o.dm.Get(p2)))
+func (o *obsDepth) isCompatible(p1, p2 []float64) bool {
+	if len(p1) < 3 || len(p2) < 3 {
+		return false
+	}
+	xdist, ydist := math.Abs(p1[0]-p2[0]), math.Abs(p1[1]-p2[1])
+	zdist := math.Abs(p1[2] - p2[2])
 	dist := math.Sqrt((xdist * xdist) + (ydist * ydist) + (zdist * zdist))
 
 	if ydist < o.hMin || ydist > o.hMax {
@@ -300,7 +285,7 @@ func (o *obsDepth) isCompatible(p1, p2 image.Point) bool {
 func (o *obsDepth) performKMeans3D(k int) ([]spatialmath.Geometry, clusters.Clusters, error) {
 	var observations3D clusters.Observations
 	for _, pt := range o.obstaclePts {
-		outX, outY, outZ := o.intrinsics.PixelToPoint(float64(pt.X), float64(pt.Y), float64(o.dm.GetDepth(pt.X, pt.Y)))
+		outX, outY, outZ := o.intrinsics.PixelToPoint(pt[0], pt[1], pt[2])
 		observations3D = append(observations3D, clusters.Coordinates{outX, outY, outZ})
 	}
 	km := kmeans.New()
@@ -348,4 +333,29 @@ func (o *obsDepth) performKMeans3D(k int) ([]spatialmath.Geometry, clusters.Clus
 		boxes = append(boxes, box)
 	}
 	return boxes, clusters, err
+}
+
+// makePointList will populate o.depthPts with the depth data.
+func (o *obsDepth) makePointList() [][]float64 {
+	width, height := o.dm.Width(), o.dm.Height()
+	out := make([][]float64, 0, width*height)
+	for i := 0; i < width; i += sampleN {
+		for j := 0; j < height; j++ {
+			out = append(out, []float64{float64(i), float64(j), float64(o.dm.GetDepth(i, j))})
+		}
+	}
+	o.depthPts = out
+	return out
+}
+
+func (o *obsDepth) isObstaclePoint(candidate []float64) bool {
+	for _, pt := range o.depthPts {
+		if candidate[0] == pt[0] && candidate[1] == pt[1] {
+			continue
+		}
+		if o.isCompatible(candidate, pt) {
+			return true
+		}
+	}
+	return false
 }

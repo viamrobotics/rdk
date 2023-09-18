@@ -30,9 +30,6 @@ func init() {
 // Encoder keeps track of a motor position using a rotary incremental encoder.
 type Encoder struct {
 	resource.Named
-
-	positionType encoder.PositionType
-
 	mu   sync.Mutex
 	A, B board.DigitalInterrupt
 	// The position is pRaw with the least significant bit chopped off.
@@ -53,6 +50,7 @@ type Encoder struct {
 	cancelCtx               context.Context
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
+	positionType            encoder.PositionType
 }
 
 // Pins describes the configuration of Pins for a quadrature encoder.

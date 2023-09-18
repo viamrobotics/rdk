@@ -1,4 +1,4 @@
-//go:build !arm && !windows && !notc
+//go:build !arm && !windows && !no_tflite && !notc
 
 package inference
 

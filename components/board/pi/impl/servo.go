@@ -1,4 +1,4 @@
-//go:build linux && (arm64 || arm) && !notc
+//go:build linux && (arm64 || arm) && !no_pigpio && !notc
 
 package piimpl
 

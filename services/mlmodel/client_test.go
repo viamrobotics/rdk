@@ -62,7 +62,7 @@ func TestClient(t *testing.T) {
 		client, err := mlmodel.NewClientFromConn(context.Background(), conn, "", mlmodel.Named(testMLModelServiceName), logger)
 		test.That(t, err, test.ShouldBeNil)
 		// Infer Command
-		result, _, err := client.Infer(context.Background(), inputTensors, nil)
+		result, err := client.Infer(context.Background(), inputTensors)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(result), test.ShouldEqual, 4)
 		test.That(t, err, test.ShouldBeNil)
@@ -83,7 +83,7 @@ func TestClient(t *testing.T) {
 		test.That(t, locations.Size(), test.ShouldEqual, 4)
 		test.That(t, locations.Data().([]float32), test.ShouldResemble, []float32{0.1, 0.4, 0.22, 0.4})
 		// nil data should work too
-		result, _, err = client.Infer(context.Background(), nil, nil)
+		result, err = client.Infer(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(result), test.ShouldEqual, 4)
 		// close the client

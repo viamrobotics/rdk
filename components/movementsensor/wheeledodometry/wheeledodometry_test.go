@@ -40,6 +40,8 @@ var position = positions{
 	rightPos: 0.0,
 }
 
+var relativePos = map[string]interface{}{returnRelative: true}
+
 func createFakeMotor(dir bool) motor.Motor {
 	return &inject.Motor{
 		PropertiesFunc: func(ctx context.Context, extra map[string]interface{}) (motor.Properties, error) {
@@ -317,7 +319,7 @@ func TestMoveStraight(t *testing.T) {
 	setPositions(5, 5)
 	time.Sleep(time.Duration(od.timeIntervalMSecs*1.15) * time.Millisecond)
 
-	pos, _, err := od.Position(ctx, nil)
+	pos, _, err := od.Position(ctx, relativePos)
 	or, _ := od.Orientation(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, or.OrientationVectorDegrees().Theta, test.ShouldAlmostEqual, 0, 0.1)
@@ -328,7 +330,7 @@ func TestMoveStraight(t *testing.T) {
 	setPositions(-10, -10)
 	time.Sleep(time.Duration(od.timeIntervalMSecs*1.15) * time.Millisecond)
 
-	pos, _, err = od.Position(ctx, nil)
+	pos, _, err = od.Position(ctx, relativePos)
 	or, _ = od.Orientation(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, or.OrientationVectorDegrees().Theta, test.ShouldAlmostEqual, 0, 0.1)
@@ -357,7 +359,7 @@ func TestComplicatedPath(t *testing.T) {
 	setPositions(5, 5)
 	time.Sleep(time.Duration(od.timeIntervalMSecs*1.15) * time.Millisecond)
 
-	pos, _, err := od.Position(ctx, nil)
+	pos, _, err := od.Position(ctx, relativePos)
 	test.That(t, err, test.ShouldBeNil)
 	or, _ := od.Orientation(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
@@ -369,7 +371,7 @@ func TestComplicatedPath(t *testing.T) {
 	setPositions(1*(math.Pi/4), -1*(math.Pi/4))
 	time.Sleep(time.Duration(od.timeIntervalMSecs*1.15) * time.Millisecond)
 
-	pos, _, err = od.Position(ctx, nil)
+	pos, _, err = od.Position(ctx, relativePos)
 	test.That(t, err, test.ShouldBeNil)
 	or, err = od.Orientation(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
@@ -381,7 +383,7 @@ func TestComplicatedPath(t *testing.T) {
 	setPositions(5, 5)
 	time.Sleep(time.Duration(od.timeIntervalMSecs*1.15) * time.Millisecond)
 
-	pos, _, err = od.Position(ctx, nil)
+	pos, _, err = od.Position(ctx, relativePos)
 	test.That(t, err, test.ShouldBeNil)
 	or, err = od.Orientation(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
@@ -393,7 +395,7 @@ func TestComplicatedPath(t *testing.T) {
 	setPositions(-1*(math.Pi/8), 1*(math.Pi/8))
 	time.Sleep(time.Duration(od.timeIntervalMSecs*1.15) * time.Millisecond)
 
-	pos, _, err = od.Position(ctx, nil)
+	pos, _, err = od.Position(ctx, relativePos)
 	test.That(t, err, test.ShouldBeNil)
 	or, err = od.Orientation(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
@@ -405,7 +407,7 @@ func TestComplicatedPath(t *testing.T) {
 	setPositions(2, 2)
 	time.Sleep(time.Duration(od.timeIntervalMSecs*1.15) * time.Millisecond)
 
-	pos, _, err = od.Position(ctx, nil)
+	pos, _, err = od.Position(ctx, relativePos)
 	test.That(t, err, test.ShouldBeNil)
 	or, err = od.Orientation(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
@@ -417,7 +419,7 @@ func TestComplicatedPath(t *testing.T) {
 	setPositions(1*(math.Pi/4), 2*(math.Pi/4))
 	time.Sleep(time.Duration(od.timeIntervalMSecs*1.15) * time.Millisecond)
 
-	pos, _, err = od.Position(ctx, nil)
+	pos, _, err = od.Position(ctx, relativePos)
 	test.That(t, err, test.ShouldBeNil)
 	or, err = od.Orientation(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)

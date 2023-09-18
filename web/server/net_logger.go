@@ -298,7 +298,10 @@ type remoteLogWriter interface {
 }
 
 type remoteLogWriterGRPC struct {
-	cfg         *config.Cloud
+	cfg *config.Cloud
+
+	// `service` and `rpcClient` are lazily initialized on first call to `write`. The `clientMutex`
+	// serializes access to ensure that only one caller creates them.
 	service     apppb.RobotServiceClient
 	rpcClient   rpc.ClientConn
 	clientMutex sync.Mutex
@@ -328,22 +331,27 @@ func (w *remoteLogWriterGRPC) write(logs []*apppb.LogEntry) error {
 }
 
 func (w *remoteLogWriterGRPC) getOrCreateClient(ctx context.Context) (apppb.RobotServiceClient, error) {
-	if w.service == nil {
-		w.clientMutex.Lock()
-		defer w.clientMutex.Unlock()
+	w.clientMutex.Lock()
+	defer w.clientMutex.Unlock()
 
-		client, err := config.CreateNewGRPCClient(ctx, w.cfg, w.loggerWithoutNet)
-		if err != nil {
-			return nil, err
-		}
-
-		w.rpcClient = client
-		w.service = apppb.NewRobotServiceClient(w.rpcClient)
+	if w.service != nil {
+		return w.service, nil
 	}
+
+	client, err := config.CreateNewGRPCClient(ctx, w.cfg, w.loggerWithoutNet)
+	if err != nil {
+		return nil, err
+	}
+
+	w.rpcClient = client
+	w.service = apppb.NewRobotServiceClient(w.rpcClient)
 	return w.service, nil
 }
 
 func (w *remoteLogWriterGRPC) close() {
+	w.clientMutex.Lock()
+	defer w.clientMutex.Unlock()
+
 	if w.rpcClient != nil {
 		utils.UncheckedErrorFunc(w.rpcClient.Close)
 	}

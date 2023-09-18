@@ -5,6 +5,7 @@ package motionplan
 
 import (
 	"context"
+	"fmt"
 	"math/rand"
 	"sort"
 	"sync"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 	pb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/utils"
 
@@ -382,4 +384,133 @@ IK:
 		orderedSolutions = append(orderedSolutions, &basicNode{q: solutions[key], cost: key})
 	}
 	return orderedSolutions, nil
+}
+
+// CheckPlan checks if obstacles intersect the trajectory of the frame following the plan.
+func CheckPlan(
+	checkFrame frame.Frame,
+	plan Plan,
+	worldState *frame.WorldState,
+	fs frame.FrameSystem,
+	currentPosition spatialmath.Pose,
+	currentInputs []frame.Input,
+	errorState spatialmath.Pose,
+	logger *zap.SugaredLogger,
+) error {
+	// ensure that we can actually perform the check
+	if len(plan) < 1 {
+		return errors.New("plan must have at least one element")
+	}
+
+	// construct solverFrame
+	// Note that this requires all frames which move as part of the plan, to have an
+	// entry in the very first plan waypoint
+	sf, err := newSolverFrame(fs, checkFrame.Name(), frame.World, plan[0])
+	if err != nil {
+		return err
+	}
+
+	// construct planager
+	sfPlanner, err := newPlanManager(sf, fs, logger, defaultRandomSeed)
+	if err != nil {
+		return err
+	}
+
+	// convert plan into nodes
+	planNodes, err := sf.planToNodes(plan)
+	if err != nil {
+		return err
+	}
+
+	// This should be done for any plan whose configurations are specified in relative terms rather than absolute ones.
+	// Currently this is only TP-space, so we check if the PTG length is >0.
+	// The solver frame will have had its PTGs filled in the newPlanManager() call, if applicable.
+	relative := len(sf.PTGSolvers()) > 0
+
+	if relative {
+		// get pose of robot along the current trajectory it is executing
+		lastPose, err := sf.Transform(currentInputs)
+		if err != nil {
+			return err
+		}
+
+		// where ought the robot be on the plan
+		pathPosition := spatialmath.PoseBetweenInverse(errorState, currentPosition)
+
+		// absolute pose of the previous node we've passed
+		formerRunningPose := spatialmath.PoseBetweenInverse(lastPose, pathPosition)
+
+		// convert planNode's poses to be in absolute corrdinated
+		if planNodes, err = rectifyTPspacePath(planNodes, sf, formerRunningPose); err != nil {
+			return err
+		}
+	}
+	// adjust planNodes by the errorState
+	planNodes = transformNodes(planNodes, errorState)
+
+	// pre-pend node with current position of robot to planNodes
+	// Note that currentPosition is assumed to have already accounted for the errorState
+	planNodes = append([]node{&basicNode{pose: currentPosition, q: currentInputs}}, planNodes...)
+
+	// create constraints
+	if sfPlanner.planOpts, err = sfPlanner.plannerSetupFromMoveRequest(
+		currentPosition,                    // starting pose
+		planNodes[len(planNodes)-1].Pose(), // goalPose
+		plan[0],                            // starting configuration
+		worldState,
+		nil, // no pb.Constraints
+		nil, // no plannOpts
+	); err != nil {
+		return err
+	}
+
+	// go through plan and check that we can move from plan[i] to plan[i+1]
+	for i := 0; i < len(planNodes)-1; i++ {
+		currentPose := planNodes[i].Pose()
+		nextPose := planNodes[i+1].Pose()
+		startConfiguration := planNodes[i].Q()
+		endConfiguration := planNodes[i+1].Q()
+
+		// If we are working with a PTG plan we redefine the startConfiguration in terms of the endConfiguration.
+		// This allows us the properly interpolate along the same arc family and sub-arc within that family.
+		if relative {
+			startConfiguration = []frame.Input{
+				{Value: endConfiguration[0].Value}, {Value: endConfiguration[1].Value}, {Value: 0},
+			}
+		}
+		segment := &ik.Segment{
+			StartPosition:      currentPose,
+			EndPosition:        nextPose,
+			StartConfiguration: startConfiguration,
+			EndConfiguration:   endConfiguration,
+			Frame:              sf,
+		}
+		interpolatedConfigurations, err := interpolateSegment(segment, sfPlanner.planOpts.Resolution)
+		if err != nil {
+			return err
+		}
+		for _, interpConfig := range interpolatedConfigurations {
+			poseInPath, err := sf.Transform(interpConfig)
+			if err != nil {
+				return err
+			}
+			// If we are working with a PTG plan the returned value for poseInPath will only
+			// tell us how far along the arc we have travelled. Since this is only the relative position,
+			// i.e. relative to where the robot started executing the arc,
+			// we must compose poseInPath with currentPose to get the absolute position.
+			// In both cases we ultimately compose with errorState.
+			if relative {
+				rectifyBy := spatialmath.Compose(currentPose, errorState)
+				poseInPath = spatialmath.Compose(rectifyBy, poseInPath)
+			} else {
+				poseInPath = spatialmath.Compose(poseInPath, errorState)
+			}
+
+			modifiedSegment := &ik.State{Frame: sf, Position: poseInPath}
+			if isValid, _ := sfPlanner.planOpts.CheckStateConstraints(modifiedSegment); !isValid {
+				return fmt.Errorf("found collsion between positions %v and %v", currentPose.Point(), nextPose.Point())
+			}
+		}
+	}
+	return nil
 }

@@ -132,7 +132,7 @@ func newTPSpaceMotionPlanner(
 	}
 	tpPlanner.setupTPSpaceOptions()
 
-	tpPlanner.algOpts.ikSeed = []referenceframe.Input{{math.Pi / 2}, {tpFrame.PTGs()[0].MaxDistance() / 2}}
+	tpPlanner.algOpts.ikSeed = []referenceframe.Input{{math.Pi / 2}, {tpFrame.PTGSolvers()[0].MaxDistance() / 2}}
 
 	return tpPlanner, nil
 }
@@ -178,7 +178,6 @@ func (mp *tpSpaceRRTMotionPlanner) planRunner(
 	rrt *rrtParallelPlannerShared,
 ) {
 	defer close(rrt.solutionChan)
-
 	// get start and goal poses
 	var startPose spatialmath.Pose
 	var goalPose spatialmath.Pose
@@ -263,7 +262,7 @@ func (mp *tpSpaceRRTMotionPlanner) planRunner(
 				return
 			}
 		}
-		if iter%mp.algOpts.attemptSolveEvery == 0 {
+		if iter%mp.algOpts.attemptSolveEvery == 0 { // RSDK-4583
 			// Attempt a solve; we exhaustively iterate through our goal tree and attempt to find any connection to the seed tree
 			paths := [][]node{}
 			for goalMapNode := range rrt.maps.goalMap {
@@ -292,7 +291,7 @@ func (mp *tpSpaceRRTMotionPlanner) planRunner(
 						bestPath = goodPath
 					}
 				}
-				correctedPath, err := rectifyTPspacePath(bestPath, mp.frame)
+				correctedPath, err := rectifyTPspacePath(bestPath, mp.frame, spatialmath.NewZeroPose())
 				if err != nil {
 					rrt.solutionChan <- &rrtPlanReturn{planerr: err, maps: rrt.maps}
 					return
@@ -317,12 +316,12 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 	ctx context.Context,
 	randPosNode node,
 	ptgNum int,
-	curPtg tpspace.PTG,
+	curPtg tpspace.PTGSolver,
 	rrt rrtMap,
 	nearest node,
 	invert bool,
 ) (*candidate, error) {
-	nm := &neighborManager{nCPU: mp.planOpts.NumThreads / len(mp.tpFrame.PTGs())}
+	nm := &neighborManager{nCPU: mp.planOpts.NumThreads / len(mp.tpFrame.PTGSolvers())}
 	nm.parallelNeighbors = 10
 
 	var successNode node
@@ -451,8 +450,11 @@ func (mp *tpSpaceRRTMotionPlanner) attemptExtension(
 	var seedNode node
 	maxReseeds := 1 // Will be updated as necessary
 	lastIteration := false
-	candChan := make(chan *candidate, len(mp.tpFrame.PTGs()))
+	candChan := make(chan *candidate, len(mp.tpFrame.PTGSolvers()))
 	defer close(candChan)
+	var activeSolvers sync.WaitGroup
+	defer activeSolvers.Wait()
+
 	for i := 0; i <= maxReseeds; i++ {
 		select {
 		case <-ctx.Done():
@@ -461,10 +463,12 @@ func (mp *tpSpaceRRTMotionPlanner) attemptExtension(
 		}
 		candidates := []*candidate{}
 
-		for ptgNum, curPtg := range mp.tpFrame.PTGs() {
+		for ptgNum, curPtg := range mp.tpFrame.PTGSolvers() {
 			// Find the best traj point for each traj family, and store for later comparison
 			ptgNumPar, curPtgPar := ptgNum, curPtg
+			activeSolvers.Add(1)
 			utils.PanicCapturingGo(func() {
+				defer activeSolvers.Done()
 				cand, err := mp.getExtensionCandidate(ctx, goalNode, ptgNumPar, curPtgPar, rrt, seedNode, invert)
 				if err != nil && !errors.Is(err, errNoNeighbors) && !errors.Is(err, errInvalidCandidate) {
 					candChan <- nil
@@ -480,7 +484,7 @@ func (mp *tpSpaceRRTMotionPlanner) attemptExtension(
 			})
 		}
 
-		for i := 0; i < len(mp.tpFrame.PTGs()); i++ {
+		for i := 0; i < len(mp.tpFrame.PTGSolvers()); i++ {
 			select {
 			case <-ctx.Done():
 				return &nodeAndError{nil, ctx.Err()}
@@ -546,7 +550,7 @@ func (mp *tpSpaceRRTMotionPlanner) extendMap(
 	randAlpha := newNode.Q()[1].Value
 	randDist := newNode.Q()[2].Value
 
-	trajK, err := mp.tpFrame.PTGs()[ptgNum].Trajectory(randAlpha, randDist)
+	trajK, err := mp.tpFrame.PTGSolvers()[ptgNum].Trajectory(randAlpha, randDist)
 	if err != nil {
 		return nil, err
 	}
@@ -617,7 +621,7 @@ func (mp *tpSpaceRRTMotionPlanner) setupTPSpaceOptions() {
 		invertDistOptions: map[tpspace.PTG]*plannerOptions{},
 	}
 
-	for _, curPtg := range mp.tpFrame.PTGs() {
+	for _, curPtg := range mp.tpFrame.PTGSolvers() {
 		tpOpt.distOptions[curPtg] = mp.make2DTPSpaceDistanceOptions(curPtg, false)
 		tpOpt.invertDistOptions[curPtg] = mp.make2DTPSpaceDistanceOptions(curPtg, true)
 	}
@@ -627,7 +631,7 @@ func (mp *tpSpaceRRTMotionPlanner) setupTPSpaceOptions() {
 
 // make2DTPSpaceDistanceOptions will create a plannerOptions object with a custom DistanceFunc constructed such that
 // distances can be computed in TP space using the given PTG.
-func (mp *tpSpaceRRTMotionPlanner) make2DTPSpaceDistanceOptions(ptg tpspace.PTG, invert bool) *plannerOptions {
+func (mp *tpSpaceRRTMotionPlanner) make2DTPSpaceDistanceOptions(ptg tpspace.PTGSolver, invert bool) *plannerOptions {
 	opts := newBasicPlannerOptions(mp.frame)
 	mp.mu.Lock()
 	//nolint: gosec
@@ -744,7 +748,7 @@ func (mp *tpSpaceRRTMotionPlanner) attemptSmooth(
 		for _, adj := range []float64{0.25, 0.5, 0.75} {
 			fullQ := pathNode.Q()
 			newQ := []referenceframe.Input{fullQ[0], fullQ[1], {fullQ[2].Value * adj}}
-			trajK, err := smoother.tpFrame.PTGs()[int(math.Round(newQ[0].Value))].Trajectory(newQ[1].Value, newQ[2].Value)
+			trajK, err := smoother.tpFrame.PTGSolvers()[int(math.Round(newQ[0].Value))].Trajectory(newQ[1].Value, newQ[2].Value)
 			if err != nil {
 				continue
 			}
@@ -777,7 +781,7 @@ func (mp *tpSpaceRRTMotionPlanner) attemptSmooth(
 	if secondEdge < len(path)-1 {
 		newInputSteps = append(newInputSteps, path[secondEdge+1:]...)
 	}
-	return rectifyTPspacePath(newInputSteps, mp.frame)
+	return rectifyTPspacePath(newInputSteps, mp.frame, spatialmath.NewZeroPose())
 }
 
 func (mp *tpSpaceRRTMotionPlanner) sample(rSeed node, iter int) (node, error) {
@@ -801,9 +805,9 @@ func (mp *tpSpaceRRTMotionPlanner) sample(rSeed node, iter int) (node, error) {
 // When this becomes a single path, poses should reflect the transformation at the end of each traj. Here we go through and recompute
 // each pose in order to ensure correctness.
 // TODO: if trees are stored as segments rather than nodes, then this becomes simpler/unnecessary. Related to RSDK-4139.
-func rectifyTPspacePath(path []node, frame referenceframe.Frame) ([]node, error) {
+func rectifyTPspacePath(path []node, frame referenceframe.Frame, startPose spatialmath.Pose) ([]node, error) {
 	correctedPath := []node{}
-	runningPose := spatialmath.NewZeroPose()
+	runningPose := startPose
 	for _, wp := range path {
 		wpPose, err := frame.Transform(wp.Q())
 		if err != nil {

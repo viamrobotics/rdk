@@ -43,6 +43,7 @@ var (
 
 // NewManager returns a Manager.
 func NewManager(parentAddr string, logger golog.Logger, options modmanageroptions.Options) modmaninterface.ModuleManager {
+	restartCtx, restartCtxCancel := context.WithCancel(context.Background())
 	return &Manager{
 		logger:                  logger,
 		modules:                 map[string]*module{},
@@ -50,6 +51,8 @@ func NewManager(parentAddr string, logger golog.Logger, options modmanageroption
 		rMap:                    map[resource.Name]*module{},
 		untrustedEnv:            options.UntrustedEnv,
 		removeOrphanedResources: options.RemoveOrphanedResources,
+		restartCtx:              restartCtx,
+		restartCtxCancel:        restartCtxCancel,
 	}
 }
 
@@ -67,14 +70,14 @@ type module struct {
 	// pendingRemoval allows delaying module close until after resources within it are closed
 	pendingRemoval bool
 
-	// inRecovery stores whether or not an OnUnexpectedExit function is trying
-	// to recover a crash of this module; inRecoveryLock guards the execution of
-	// an OnUnexpectedExit function for this module.
+	// inStartup stores whether or not the manager of the OnUnexpectedExit function
+	// is trying to start up this module; inRecoveryLock guards the execution of an
+	// OnUnexpectedExit function for this module.
 	//
 	// NOTE(benjirewis): Using just an atomic boolean is not sufficient, as OUE
 	// functions for the same module cannot overlap and should not continue after
 	// another OUE has finished.
-	inRecovery     atomic.Bool
+	inStartup      atomic.Bool
 	inRecoveryLock sync.Mutex
 }
 
@@ -92,12 +95,18 @@ type Manager struct {
 	rMap                    map[resource.Name]*module
 	untrustedEnv            bool
 	removeOrphanedResources func(ctx context.Context, rNames []resource.Name)
+	restartCtx              context.Context
+	restartCtxCancel        context.CancelFunc
 }
 
 // Close terminates module connections and processes.
 func (mgr *Manager) Close(ctx context.Context) error {
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
+
+	if mgr.restartCtxCancel != nil {
+		mgr.restartCtxCancel()
+	}
 	var err error
 	for _, mod := range mgr.modules {
 		err = multierr.Combine(err, mgr.remove(mod, false))
@@ -130,6 +139,13 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, conn *grpc.Clie
 		resources: map[resource.Name]*addedResource{},
 	}
 
+	// add calls startProcess, which can also be called by the OUE handler in the attemptRestart
+	// call. Both of these involve owning a lock, so in unhappy cases of malformed modules
+	// this can lead to a deadlock. To prevent this, we set inStartup here to indicate to
+	// the OUE handler that it shouldn't act while add is still processing.
+	mod.inStartup.Store(true)
+	defer mod.inStartup.Store(false)
+
 	var success bool
 	defer func() {
 		if !success {
@@ -137,7 +153,7 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, conn *grpc.Clie
 		}
 	}()
 
-	if err := mod.startProcess(ctx, mgr.parentAddr,
+	if err := mod.startProcess(mgr.restartCtx, mgr.parentAddr,
 		mgr.newOnUnexpectedExitHandler(mod), mgr.logger); err != nil {
 		return errors.WithMessage(err, "error while starting module "+mod.name)
 	}
@@ -440,15 +456,15 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) b
 	return func(exitCode int) bool {
 		mod.inRecoveryLock.Lock()
 		defer mod.inRecoveryLock.Unlock()
-		if mod.inRecovery.Load() {
+		if mod.inStartup.Load() {
 			return false
 		}
 
-		mod.inRecovery.Store(true)
-		defer mod.inRecovery.Store(false)
+		mod.inStartup.Store(true)
+		defer mod.inStartup.Store(false)
 
 		// Use oueTimeout for entire attempted module restart.
-		ctx, cancel := context.WithTimeout(context.Background(), oueTimeout)
+		ctx, cancel := context.WithTimeout(mgr.restartCtx, oueTimeout)
 		defer cancel()
 
 		// Log error immediately, as this is unexpected behavior.
@@ -521,7 +537,7 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 
 	// Attempt to restart module process 3 times.
 	for attempt := 1; attempt < 4; attempt++ {
-		if err := mod.startProcess(ctx, mgr.parentAddr,
+		if err := mod.startProcess(mgr.restartCtx, mgr.parentAddr,
 			mgr.newOnUnexpectedExitHandler(mod), mgr.logger); err != nil {
 			mgr.logger.Errorf("attempt %d: error while restarting crashed module %s: %v",
 				attempt, mod.name, err)
@@ -608,8 +624,8 @@ func (m *module) startProcess(
 	oue func(int) bool,
 	logger golog.Logger,
 ) error {
-	m.addr = filepath.ToSlash(filepath.Join(filepath.Dir(parentAddr), m.name+".sock"))
-	if err := modlib.CheckSocketAddressLength(m.addr); err != nil {
+	var err error
+	if m.addr, err = modlib.CreateSocketAddress(filepath.Dir(parentAddr), m.name); err != nil {
 		return err
 	}
 
@@ -630,8 +646,7 @@ func (m *module) startProcess(
 
 	m.process = pexec.NewManagedProcess(pconf, logger)
 
-	err := m.process.Start(context.Background())
-	if err != nil {
+	if err := m.process.Start(context.Background()); err != nil {
 		return errors.WithMessage(err, "module startup failed")
 	}
 

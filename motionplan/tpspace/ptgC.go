@@ -10,15 +10,15 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-// ptgDiffDriveC defines a PTG family composed of circular trajectories with an alpha-dependent radius.
-type ptgDiffDriveC struct {
+// ptgC defines a PTG family composed of circular trajectories with an alpha-dependent radius.
+type ptgC struct {
 	maxMMPS float64 // millimeters per second velocity to target
 	maxRPS  float64 // radians per second of rotation when driving at maxMMPS and turning at max turning radius
 }
 
-// NewCirclePTG creates a new PrecomputePTG of type ptgDiffDriveC.
-func NewCirclePTG(maxMMPS, maxRPS float64) PrecomputePTG {
-	return &ptgDiffDriveC{
+// NewCirclePTG creates a new PTG of type ptgC.
+func NewCirclePTG(maxMMPS, maxRPS float64) PTG {
+	return &ptgC{
 		maxMMPS: maxMMPS,
 		maxRPS:  maxRPS,
 	}
@@ -27,7 +27,7 @@ func NewCirclePTG(maxMMPS, maxRPS float64) PrecomputePTG {
 // For this particular driver, turns alpha into a linear + angular velocity. Linear is just max * fwd/back.
 // Note that this will NOT work as-is for 0-radius turning. Robots capable of turning in place will need to be special-cased
 // because they will have zero linear velocity through their turns, not max.
-func (ptg *ptgDiffDriveC) PTGVelocities(alpha, dist float64) (float64, float64, error) {
+func (ptg *ptgC) Velocities(alpha, dist float64) (float64, float64, error) {
 	// (v,w)
 	if dist == 0 {
 		return 0, 0, nil
@@ -41,7 +41,7 @@ func (ptg *ptgDiffDriveC) PTGVelocities(alpha, dist float64) (float64, float64, 
 // Transform will return the pose for the given inputs. The first input is [-pi, pi]. This corresponds to the radius of the curve,
 // where 0 is straight ahead, pi is turning at min turning radius to the right, and a value between 0 and pi represents turning at a radius
 // of (input/pi)*minradius. A negative value denotes turning left. The second input is the distance traveled along this arc.
-func (ptg *ptgDiffDriveC) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {
+func (ptg *ptgC) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {
 	turnRad := ptg.maxMMPS / ptg.maxRPS
 
 	if len(inputs) != 2 {

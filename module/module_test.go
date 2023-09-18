@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"regexp"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -665,4 +666,40 @@ func TestAttributeConversion(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, mc.Motors, test.ShouldResemble, []string{motor.Named("motor1").String()})
 	})
+}
+
+func TestModuleSocketAddrTruncation(t *testing.T) {
+	// test with a short base path
+	path, err := module.CreateSocketAddress("/tmp", "my-cool-module")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, path, test.ShouldEqual, "/tmp/my-cool-module.sock")
+
+	// test exactly 104
+	path, err = module.CreateSocketAddress(
+		"/tmp",
+		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+	)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, path, test.ShouldHaveLength, 103)
+	test.That(t, path, test.ShouldEqual,
+		"/tmp/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.sock",
+	)
+
+	// test 105 chars
+	path, err = module.CreateSocketAddress(
+		"/tmp",
+		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+	)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, path, test.ShouldHaveLength, 103)
+	matches, err := regexp.MatchString(`\/tmp\/a+-.{5}\.sock`, path)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, matches, test.ShouldBeTrue)
+
+	// test with an extra-long base path
+	_, err = module.CreateSocketAddress(
+		"/var/folders/pc/yyrlrx8n0yq_xr550xh62pq80000gn/T/viam-module-29232730790000000000000000000000000000000000",
+		"a",
+	)
+	test.That(t, err, test.ShouldBeError)
 }
