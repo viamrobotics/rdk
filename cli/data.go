@@ -370,15 +370,24 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 	bin := datum.GetBinary()
 
 	r := io.NopCloser(bytes.NewReader(bin))
-	if datum.GetMetadata().GetFileExt() == ".gz" {
+
+	dataPath := filepath.Join(dst, dataDir, fileName)
+	ext := datum.GetMetadata().GetFileExt()
+
+	// If the file is gzipped, unzip.
+	if ext == ".gz" {
 		r, err = gzip.NewReader(r)
 		if err != nil {
 			return err
 		}
+	} else {
+		// If the file name did not already include the extension (e.g. for data capture files), add it.
+		// Don't do this for files that we're unzipping.
+		if filepath.Ext(dataPath) != ext {
+			dataPath += ext
+		}
 	}
 
-	//nolint:gosec
-	dataPath := filepath.Join(dst, dataDir, fileName+datum.GetMetadata().GetFileExt())
 	if err := os.MkdirAll(filepath.Dir(dataPath), 0o700); err != nil {
 		return errors.Wrapf(err, "could not create data directory %s", filepath.Dir(dataPath))
 	}
