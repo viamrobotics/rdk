@@ -127,7 +127,7 @@ func TestNewReplayMovementSensor(t *testing.T) {
 				OrganizationID: validOrganizationID,
 			},
 			validCloudConnection: false,
-			expectedErr:          errors.New("failure to connect to the cloud: cloud connection error"),
+			expectedErr:          errors.New(cloudConnectionFailureError + ": " + cloudConnectionError),
 		},
 		{
 			description: "bad start timestamp",

@@ -26,10 +26,10 @@ import (
 )
 
 const (
-	timeFormat            = time.RFC3339
-	grpcConnectionTimeout = 10 * time.Second
-	downloadTimeout       = 30 * time.Second
-	maxCacheSize          = 1000
+	timeFormat                  = time.RFC3339
+	grpcConnectionTimeout       = 10 * time.Second
+	maxCacheSize                = 1000
+	cloudConnectionFailureError = "failure to connect to the cloud"
 )
 
 var (
@@ -40,7 +40,7 @@ var (
 	ErrEndOfDataset = errors.New("reached end of dataset")
 
 	// methodList is a list of all the base methods possible for a movement sensor to implement.
-	methodList = []string{"Position", "Orientation", "AngularVelocity", "LinearVelocity", "LinearAcceleration", "CompassHeading"}
+	methodList = []string{"LinearVelocity", "AngularVelocity", "Orientation", "Position", "CompassHeading", "LinearAcceleration"}
 )
 
 func init() {
@@ -103,13 +103,12 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 
 // Config describes how to configure the replay movement sensor.
 type Config struct {
-	Source         string          `json:"source,omitempty"`
-	RobotID        string          `json:"robot_id,omitempty"`
-	LocationID     string          `json:"location_id,omitempty"`
-	OrganizationID string          `json:"organization_id,omitempty"`
-	Interval       TimeInterval    `json:"time_interval,omitempty"`
-	BatchSize      *uint64         `json:"batch_size,omitempty"`
-	Properties     map[string]bool `json:"properties,omitempty"`
+	Source         string       `json:"source,omitempty"`
+	RobotID        string       `json:"robot_id,omitempty"`
+	LocationID     string       `json:"location_id,omitempty"`
+	OrganizationID string       `json:"organization_id,omitempty"`
+	Interval       TimeInterval `json:"time_interval,omitempty"`
+	BatchSize      *uint64      `json:"batch_size,omitempty"`
 }
 
 // TimeInterval holds the start and end time used to filter data.
@@ -336,7 +335,7 @@ func (replay *replayMovementSensor) Reconfigure(ctx context.Context, deps resour
 
 		if err := replay.initCloudConnection(ctx); err != nil {
 			replay.closeCloudConnection(ctx)
-			return errors.Wrap(err, "failure to connect to the cloud")
+			return errors.Wrap(err, cloudConnectionFailureError)
 		}
 	}
 

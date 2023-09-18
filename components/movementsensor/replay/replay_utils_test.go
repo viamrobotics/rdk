@@ -29,7 +29,8 @@ import (
 )
 
 const (
-	testTime = "2000-01-01T12:00:%02dZ"
+	testTime             = "2000-01-01T12:00:%02dZ"
+	cloudConnectionError = "cloud connection error"
 )
 
 // mockDataServiceServer is a struct that includes unimplemented versions of all the Data Service endpoints. These
@@ -160,7 +161,8 @@ func checkDataEndCondition(i, endIntervalIndex, availableDataNum int) (int, erro
 
 // createMockCloudDependencies creates a mockDataServiceServer and rpc client connection to it which is then
 // stored in a mockCloudConnectionService.
-func createMockCloudDependencies(ctx context.Context, t *testing.T, logger golog.Logger, b bool) (resource.Dependencies, func() error) {
+func createMockCloudDependencies(ctx context.Context, t *testing.T, logger golog.Logger, validCloudConnection bool,
+) (resource.Dependencies, func() error) {
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
@@ -182,8 +184,8 @@ func createMockCloudDependencies(ctx context.Context, t *testing.T, logger golog
 		Named: cloud.InternalServiceName.AsNamed(),
 		Conn:  conn,
 	}
-	if !b {
-		mockCloudConnectionService.AcquireConnectionErr = errors.New("cloud connection error")
+	if !validCloudConnection {
+		mockCloudConnectionService.AcquireConnectionErr = errors.New(cloudConnectionError)
 	}
 
 	r := &inject.Robot{}
@@ -196,11 +198,11 @@ func createMockCloudDependencies(ctx context.Context, t *testing.T, logger golog
 
 // createNewReplayMovementSensor will create a new replay movement sensor based on the provided config with either
 // a valid or invalid data client.
-func createNewReplayMovementSensor(ctx context.Context, t *testing.T, replayMovementSensorCfg *Config, validDeps bool,
+func createNewReplayMovementSensor(ctx context.Context, t *testing.T, replayMovementSensorCfg *Config, validCloudConnection bool,
 ) (movementsensor.MovementSensor, resource.Dependencies, func() error, error) {
 	logger := golog.NewTestLogger(t)
 
-	resources, closeRPCFunc := createMockCloudDependencies(ctx, t, logger, validDeps)
+	resources, closeRPCFunc := createMockCloudDependencies(ctx, t, logger, validCloudConnection)
 
 	cfg := resource.Config{ConvertedAttributes: replayMovementSensorCfg}
 	replay, err := newReplayMovementSensor(ctx, resources, cfg, logger)
