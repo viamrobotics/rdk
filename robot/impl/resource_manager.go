@@ -90,12 +90,13 @@ func fromRemoteNameToRemoteNodeName(name string) resource.Name {
 
 func (manager *resourceManager) startModuleManager(
 	parentAddr string,
+	removeOrphanedResources func(context.Context, []resource.Name),
 	untrustedEnv bool,
 	logger golog.Logger,
 ) {
 	mmOpts := modmanageroptions.Options{
 		UntrustedEnv:            untrustedEnv,
-		RemoveOrphanedResources: manager.removeOrphanedResources,
+		RemoveOrphanedResources: removeOrphanedResources,
 	}
 	manager.moduleManager = modmanager.NewManager(parentAddr, logger, mmOpts)
 }
@@ -1058,18 +1059,6 @@ func (manager *resourceManager) markResourcesRemoved(
 		manager.resources.MarkForRemoval(subG)
 	}
 	return resourcesToCloseBeforeComplete
-}
-
-// removeOrphanedResources is called by the module manager to remove resources
-// orphaned due to module crashes.
-func (manager *resourceManager) removeOrphanedResources(ctx context.Context,
-	rNames []resource.Name,
-) {
-	manager.markResourcesRemoved(rNames, nil)
-	if err := manager.removeMarkedAndClose(ctx, nil); err != nil {
-		manager.logger.Errorw("error removing and closing marked resources",
-			"error", err)
-	}
 }
 
 // createConfig will create a config.Config based on the current state of the
