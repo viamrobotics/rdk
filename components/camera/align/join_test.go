@@ -63,7 +63,6 @@ func TestJoinWithImages(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, joinCam.Close(context.Background()), test.ShouldBeNil)
-
 }
 
 func TestJoin(t *testing.T) {

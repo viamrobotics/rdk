@@ -11,7 +11,6 @@ import (
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/pointcloud"
-	pc "go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
@@ -22,9 +21,8 @@ func TestERCCL(t *testing.T) {
 	t.Parallel()
 	logger := golog.NewTestLogger(t)
 	injectCamera := &inject.Camera{}
-	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
-		//return pc.NewFromLASFile(artifact.MustPath("pointcloud/test.las"), logger)
-		return pc.NewFromFile(artifact.MustPath("pointcloud/intel_d435_pointcloud_424.pcd"), logger)
+	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+		return pointcloud.NewFromFile(artifact.MustPath("pointcloud/intel_d435_pointcloud_424.pcd"), logger)
 	}
 
 	objConfig := utils.AttributeMap{
@@ -69,9 +67,8 @@ func TestERCCL(t *testing.T) {
 func BenchmarkERCCL(b *testing.B) {
 	logger := golog.NewTestLogger(b)
 	injectCamera := &inject.Camera{}
-	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
-		//return pc.NewFromLASFile(artifact.MustPath("pointcloud/test.las"), logger) // small pc for tests
-		return pc.NewFromFile(artifact.MustPath("pointcloud/intel_d435_pointcloud_424.pcd"), logger)
+	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+		return pointcloud.NewFromFile(artifact.MustPath("pointcloud/intel_d435_pointcloud_424.pcd"), logger)
 	}
 	var pts []*vision.Object
 	var err error
