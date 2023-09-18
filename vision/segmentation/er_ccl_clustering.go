@@ -18,7 +18,7 @@ import (
 // MaxCCLIterations is a value to stop the CCL algo from going on for too long.
 const (
 	MaxCCLIterations = 300000
-	GridSize         = 300
+	GridSize         = 200
 )
 
 // ErCCLConfig specifies the necessary parameters to apply the

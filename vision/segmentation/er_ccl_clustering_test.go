@@ -43,8 +43,8 @@ func TestERCCL(t *testing.T) {
 		"min_points_in_segment":       500,
 		"ground_angle_tolerance_degs": 20,
 		"ground_plane_normal_vec":     r3.Vector{0, -1, 0},
-		"clustering_radius":           18,
-		"clustering_strictness":       5,
+		"clustering_radius":           10,
+		"clustering_strictness":       0.00000001,
 	}
 
 	segmenter, err := segmentation.NewERCCLClustering(objConfig)
@@ -92,8 +92,8 @@ func BenchmarkERCCL(b *testing.B) {
 		"min_points_in_segment":       500,
 		"ground_angle_tolerance_degs": 20,
 		"ground_plane_normal_vec":     r3.Vector{0, -1, 0},
-		"clustering_radius":           18,
-		"clustering_strictness":       5,
+		"clustering_radius":           10,
+		"clustering_strictness":       0.00000001,
 	}
 
 	segmenter, err := segmentation.NewERCCLClustering(objConfig)
