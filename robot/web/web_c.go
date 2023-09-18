@@ -309,7 +309,7 @@ func (svc *webService) closeStreamServer() {
 	}
 }
 
-func (svc *webService) initStreamServer(ctx context.Context, options weboptions.Options) error {
+func (svc *webService) initStreamServer(ctx context.Context, options *weboptions.Options) error {
 	var err error
 	svc.streamServer, err = svc.makeStreamServer(ctx)
 	if err != nil {

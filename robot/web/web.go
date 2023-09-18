@@ -529,7 +529,7 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 		return err
 	}
 
-	if err := svc.initStreamServer(ctx, options); err != nil {
+	if err := svc.initStreamServer(ctx, &options); err != nil {
 		return err
 	}
 
