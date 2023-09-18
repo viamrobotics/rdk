@@ -202,9 +202,10 @@
   };
 
   const handleOnBlur = () => {
+    stop();
+
     if (pressed.size <= 0) {
       pressed.clear();
-      stop();
     }
   };
 
