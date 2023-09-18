@@ -720,7 +720,7 @@ func TestCheckPlan(t *testing.T) {
 	destPoint := geo.NewPoint(originPoint.Lat(), originPoint.Lng()+1e-5)
 
 	// create env
-	injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, originPoint, destPoint)
+	injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, originPoint, destPoint, nil)
 
 	// create motion config
 	motionCfg := make(map[string]interface{})
