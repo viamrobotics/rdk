@@ -24,17 +24,17 @@ import (
 func TestJoinWithImages(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	cam := inject.NewCamera("cam")
-	params := &transform.PinholeCameraIntrinsics{ // D435 intrinsics
-		Width:  640,
-		Height: 480,
-		Fx:     608.2598876953125,
-		Fy:     608.554443359375,
-		Ppx:    322.95932006835938,
-		Ppy:    249.26702880859375,
+	params := &transform.PinholeCameraIntrinsics{ // D435 intrinsics for 424x240
+		Width:  424,
+		Height: 240,
+		Fx:     304.1299133300781,
+		Fy:     304.2772216796875,
+		Ppx:    213.47967529296875,
+		Ppy:    124.63351440429688,
 	}
-	img, err := rimage.NewImageFromFile(artifact.MustPath("pointcloud/the_color_image_intel.jpg"))
+	img, err := rimage.NewImageFromFile(artifact.MustPath("pointcloud/the_color_image_intel_424.jpg"))
 	test.That(t, err, test.ShouldBeNil)
-	dm, err := rimage.NewDepthMapFromFile(context.Background(), artifact.MustPath("pointcloud/the_depth_image_intel.png"))
+	dm, err := rimage.NewDepthMapFromFile(context.Background(), artifact.MustPath("pointcloud/the_depth_image_intel_424.png"))
 	test.That(t, err, test.ShouldBeNil)
 	cam.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
 		return camera.Properties{
