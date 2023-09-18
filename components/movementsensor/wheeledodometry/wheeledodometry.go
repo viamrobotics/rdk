@@ -156,39 +156,37 @@ func (o *odometry) Reconfigure(ctx context.Context, deps resource.Dependencies, 
 	// check if new motors have been added, or the existing motors have been changed, and update the motorPairs accorodingly
 	for i := range newConf.LeftMotors {
 		var motorLeft, motorRight motor.Motor
-		if i >= len(o.motors) || o.motors[i].left.Name().ShortName() != newConf.LeftMotors[i] {
-			motorLeft, err = motor.FromDependencies(deps, newConf.LeftMotors[i])
-			if err != nil {
-				return err
-			}
-			properties, err := motorLeft.Properties(ctx, nil)
-			if err != nil {
-				return err
-			}
-			if !properties.PositionReporting {
-				return motor.NewPropertyUnsupportedError(properties, newConf.LeftMotors[i])
-			}
+
+		motorLeft, err = motor.FromDependencies(deps, newConf.LeftMotors[i])
+		if err != nil {
+			return err
+		}
+		properties, err := motorLeft.Properties(ctx, nil)
+		if err != nil {
+			return err
+		}
+		if !properties.PositionReporting {
+			return motor.NewPropertyUnsupportedError(properties, newConf.LeftMotors[i])
 		}
 
-		if i >= len(o.motors) || o.motors[i].right.Name().ShortName() != newConf.RightMotors[i] {
-			motorRight, err = motor.FromDependencies(deps, newConf.RightMotors[i])
-			if err != nil {
-				return err
-			}
-			properties, err := motorRight.Properties(ctx, nil)
-			if err != nil {
-				return err
-			}
-			if !properties.PositionReporting {
-				return motor.NewPropertyUnsupportedError(properties, newConf.LeftMotors[i])
-			}
+		motorRight, err = motor.FromDependencies(deps, newConf.RightMotors[i])
+		if err != nil {
+			return err
+		}
+		properties, err = motorRight.Properties(ctx, nil)
+		if err != nil {
+			return err
+		}
+		if !properties.PositionReporting {
+			return motor.NewPropertyUnsupportedError(properties, newConf.LeftMotors[i])
 		}
 
 		// append if motors have been added, replace if motors have changed
 		thisPair := motorPair{left: motorLeft, right: motorRight}
 		if i >= len(o.motors) {
 			o.motors = append(o.motors, thisPair)
-		} else {
+		} else if (o.motors[i].left.Name().ShortName() != newConf.LeftMotors[i]) ||
+			(o.motors[i].right.Name().ShortName() != newConf.RightMotors[i]) {
 			o.motors[i].left = motorLeft
 			o.motors[i].right = motorRight
 		}
@@ -262,7 +260,7 @@ func (o *odometry) Position(ctx context.Context, extra map[string]interface{}) (
 
 	if relative, ok := extra[returnRelative]; ok {
 		if relative.(bool) {
-			return geo.NewPoint(o.position.X, o.position.Y), o.position.Z, nil
+			return geo.NewPoint(o.position.Y, o.position.X), o.position.Z, nil
 		}
 	}
 
@@ -378,11 +376,11 @@ func (o *odometry) trackPosition(ctx context.Context) {
 			o.orientation.Yaw = math.Mod(o.orientation.Yaw+oneTurn, oneTurn)
 
 			// Calculate X and Y by using centerDist and the current orientation yaw (theta).
-			o.position.X += (centerDist * math.Cos(o.orientation.Yaw))
-			o.position.Y += (centerDist * math.Sin(o.orientation.Yaw))
+			o.position.X += (centerDist * math.Sin(o.orientation.Yaw))
+			o.position.Y += (centerDist * math.Cos(o.orientation.Yaw))
 
 			distance := math.Hypot(o.position.X, o.position.Y)
-			heading := math.Atan2(o.position.Y, o.position.X)
+			heading := math.Atan2(o.position.X, o.position.Y)
 			o.coord = geoOrigin.PointAtDistanceAndBearing(distance*mToKm, heading)
 
 			// Update the linear and angular velocity values using the provided time interval.
