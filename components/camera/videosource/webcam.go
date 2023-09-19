@@ -35,6 +35,11 @@ import (
 // ModelWebcam is the name of the webcam component.
 var ModelWebcam = resource.DefaultModelFamily.WithModel("webcam")
 
+//go:embed data/intrinsics.json
+var intrinsics []byte
+
+var data map[string]transform.PinholeCameraIntrinsics
+
 func init() {
 	resource.RegisterComponent(
 		camera.API,
@@ -45,6 +50,9 @@ func init() {
 				return Discover(ctx, getVideoDrivers, logger)
 			},
 		})
+	if err := json.Unmarshal(intrinsics, &data); err != nil {
+		golog.Global().Errorw("cannot parse intrinsics json", err)
+	}
 }
 
 func getVideoDrivers() []driver.Driver {
@@ -350,6 +358,8 @@ func (c *monitoredWebcam) Reconfigure(
 		return err
 	}
 
+	c.hasLoggedIntrinsicsInfo = false
+
 	// only set once we're good
 	c.conf = *newConf
 	return nil
@@ -408,7 +418,8 @@ func getNamedVideoSource(
 // monitoredWebcam tries to ensure its underlying camera stays connected.
 type monitoredWebcam struct {
 	resource.Named
-	mu sync.RWMutex
+	mu                      sync.RWMutex
+	hasLoggedIntrinsicsInfo bool
 
 	underlyingSource gostream.VideoSource
 	exposedSwapper   gostream.HotSwappableVideoSource
@@ -600,7 +611,7 @@ func (c *monitoredWebcam) DriverInfo() (driver.Info, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	if c.underlyingSource == nil {
-		return driver.Info{}, errors.New("no configured camera")
+		return driver.Info{}, errors.New("no underlying source found in camera")
 	}
 	d, err := gostream.DriverFromMediaSource[image.Image, prop.Video](c.underlyingSource)
 	if err != nil {
@@ -608,9 +619,6 @@ func (c *monitoredWebcam) DriverInfo() (driver.Info, error) {
 	}
 	return d.Info(), nil
 }
-
-//go:embed data/intrinsics.json
-var intrinsics []byte
 
 func (c *monitoredWebcam) Properties(ctx context.Context) (camera.Properties, error) {
 	c.mu.RLock()
@@ -626,21 +634,48 @@ func (c *monitoredWebcam) Properties(ctx context.Context) (camera.Properties, er
 	if props.IntrinsicParams == nil {
 		dInfo, err := c.DriverInfo()
 		if err != nil {
-			return camera.Properties{}, errors.Wrap(err, "can't find driver info for camera")
+			if !c.hasLoggedIntrinsicsInfo {
+				c.logger.Errorw("can't find driver info for camera")
+				c.hasLoggedIntrinsicsInfo = true
+			}
 		}
-		var data map[string]transform.PinholeCameraIntrinsics
-		if err := json.Unmarshal(intrinsics, &data); err != nil {
-			return camera.Properties{}, errors.Wrap(err, "cannot parse intrinsics json")
-		}
+
 		cameraIntrinsics, exists := data[dInfo.Name]
 		if !exists {
-			c.logger.Info("Camera model not found in known camera models for: ", dInfo.Name, ". returning properties without intrinsics")
+			if !c.hasLoggedIntrinsicsInfo {
+				c.logger.Info("camera model not found in known camera models for: ", dInfo.Name, ". returning "+
+					"properties without intrinsics")
+				c.hasLoggedIntrinsicsInfo = true
+			}
 			return props, nil
 		}
-		c.logger.Info("Intrinsics are known for camera model: ", dInfo.Name, ". adding intrinsics to camera properties")
+		if c.conf.Width != 0 {
+			if c.conf.Width != cameraIntrinsics.Width {
+				if !c.hasLoggedIntrinsicsInfo {
+					c.logger.Info("camera model found in known camera models for: ", dInfo.Name, " but "+
+						"intrinsics width doesn't match configured image width")
+					c.hasLoggedIntrinsicsInfo = true
+				}
+				return props, nil
+			}
+		}
+		if c.conf.Height != 0 {
+			if c.conf.Height != cameraIntrinsics.Height {
+				if !c.hasLoggedIntrinsicsInfo {
+					c.logger.Info("camera model found in known camera models for: ", dInfo.Name, " but "+
+						"intrinsics height doesn't match configured image height")
+					c.hasLoggedIntrinsicsInfo = true
+				}
+				return props, nil
+			}
+		}
+		if !c.hasLoggedIntrinsicsInfo {
+			c.logger.Info("Intrinsics are known for camera model: ", dInfo.Name, ". adding intrinsics "+
+				"to camera properties")
+			c.hasLoggedIntrinsicsInfo = true
+		}
 		props.IntrinsicParams = &cameraIntrinsics
 	}
-
 	return props, nil
 }
 
