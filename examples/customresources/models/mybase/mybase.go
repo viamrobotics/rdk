@@ -101,8 +101,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 		return nil, fmt.Errorf(`expected "motorR" attribute for mybase %q`, path)
 	}
 
-	// append the left and right motor names to the dependencies list
-	// so that the mybase constructor can access them as motor dependencies
+	// Return the left and right motor names so that `newBase` can access them as dependencies.
 	return []string{cfg.LeftMotor, cfg.RightMotor}, nil
 }
 

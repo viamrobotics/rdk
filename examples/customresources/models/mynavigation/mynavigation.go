@@ -28,8 +28,9 @@ type Config struct {
 	Lat  *float64 `json:"lat,omitempty"` // omitempty for a pointer to a float64 defaults to nil in golang
 	Long *float64 `json:"long,omitempty"`
 
-	// a helper function to denote that we are not checking if any attributes exist or are set to anything in particular
-	// Config structures require Validate functions if they exist in a model
+	// Embed TriviallyValidateConfig to make config validation a no-op. We will not check if any attributes exist
+	// or are set to anything in particular, and there will be no implicit dependencies.
+	// Config structs used in resource registration must implement Validate.
 	resource.TriviallyValidateConfig
 }
 

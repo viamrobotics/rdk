@@ -20,11 +20,11 @@ type Config struct {
 	Arg1 string `json:"arg1"`
 }
 
-// Validate checks the attribute of myGizmo to ensure that an "arg1" attribute exists
-// the model will not initialize if this is not set.
+// Validate ensures that `Arg1` is a non-empty string.
+// Validation error will stop the associated resource from building.
 func (cfg *Config) Validate(path string) ([]string, error) {
 	if cfg.Arg1 == "" {
-		return nil, fmt.Errorf(`expected "Arg1" attribute for myGizmo %q`, path)
+		return nil, fmt.Errorf(`expected "arg1" attribute for myGizmo %q`, path)
 	}
 
 	// there are no dependencies for this model, so we return an empty list of strings

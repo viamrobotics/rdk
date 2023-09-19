@@ -19,6 +19,7 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -2631,6 +2632,9 @@ func TestOrphanedResources(t *testing.T) {
 					Name:  "g",
 					Model: gizmoModel,
 					API:   gizmoAPI,
+					Attributes: rutils.AttributeMap{
+						"arg1": "foo",
+					},
 				},
 			},
 			Services: []resource.Config{
@@ -2658,6 +2662,9 @@ func TestOrphanedResources(t *testing.T) {
 					Name:  "g",
 					Model: gizmoModel,
 					API:   gizmoAPI,
+					Attributes: rutils.AttributeMap{
+						"arg1": "foo",
+					},
 				},
 			},
 			Services: []resource.Config{
@@ -2686,6 +2693,9 @@ func TestOrphanedResources(t *testing.T) {
 					Name:  "g",
 					Model: gizmoModel,
 					API:   gizmoAPI,
+					Attributes: rutils.AttributeMap{
+						"arg1": "foo",
+					},
 				},
 			},
 			Services: []resource.Config{
@@ -2881,6 +2891,9 @@ func TestDependentAndOrphanedResources(t *testing.T) {
 				API:       resource.APINamespace("acme").WithComponentType("gizmo"),
 				Model:     gizmoModel,
 				DependsOn: []string{"m"},
+				Attributes: rutils.AttributeMap{
+					"arg1": "foo",
+				},
 			},
 			{
 				Name:                "m",
@@ -2918,6 +2931,9 @@ func TestDependentAndOrphanedResources(t *testing.T) {
 				API:       resource.APINamespace("acme").WithComponentType("gizmo"),
 				Model:     gizmoModel,
 				DependsOn: []string{"m"},
+				Attributes: rutils.AttributeMap{
+					"arg1": "foo",
+				},
 			},
 			{
 				Name:                "m",
@@ -2954,6 +2970,9 @@ func TestDependentAndOrphanedResources(t *testing.T) {
 				API:       resource.APINamespace("acme").WithComponentType("gizmo"),
 				Model:     gizmoModel,
 				DependsOn: []string{"m"},
+				Attributes: rutils.AttributeMap{
+					"arg1": "foo",
+				},
 			},
 			{
 				Name:                "m",
