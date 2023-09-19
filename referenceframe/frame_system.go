@@ -424,12 +424,11 @@ func (sfs *simpleFrameSystem) ReplaceFrame(replacementFrame Frame) error {
 		return err
 	}
 
+	// remove replaceMe from the frame system
+	delete(sfs.frames, replaceMe.Name())
+	delete(sfs.parents, replaceMe)
+
 	for f, parent := range sfs.parents {
-		// if frame is replaceMe remove it entirely
-		if f == replaceMe {
-			delete(sfs.frames, f.Name())
-			delete(sfs.parents, f)
-		}
 		// replace frame with parent as replaceMe with replaceWith
 		if parent == replaceMe {
 			delete(sfs.parents, f)
