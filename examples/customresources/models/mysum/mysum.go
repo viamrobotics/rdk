@@ -17,7 +17,7 @@ var Model = resource.NewModel("acme", "demo", "mysum")
 
 // Config is the sum model's config.
 type Config struct {
-	Subtract bool `json:"subtract,omitempty"`
+	Subtract bool `json:"subtract,omitempty"` // the omitempty defaults the bool to golang's default of false
 
 	// a helper function to denote that we are not checking if any attributes exist or are set to anything in particular
 	// Config structures require Validate functions if they exist in a model

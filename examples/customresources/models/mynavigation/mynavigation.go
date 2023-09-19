@@ -25,7 +25,7 @@ func init() {
 
 // Config is the navigation model's config.
 type Config struct {
-	Lat  *float64 `json:"lat,omitempty"`
+	Lat  *float64 `json:"lat,omitempty"` // omitempty for a pointer to a float64 defaults to nil in golang
 	Long *float64 `json:"long,omitempty"`
 
 	// a helper function to denote that we are not checking if any attributes exist or are set to anything in particular
@@ -41,11 +41,15 @@ func newNav(ctx context.Context, deps resource.Dependencies, conf resource.Confi
 		return nil, err
 	}
 
+	// here we set a default latitude, if the config latitude field is not omitted (omitempty)
+	// we use the value it is set to and return it in the nav service struct.
 	lat := -48.876667
 	if navConfig.Lat != nil {
 		lat = *navConfig.Lat
 	}
 
+	// here we set a default longitude, if the config latitude field is not omitted (omitempty)
+	// we use the value it is set to and return it in the nav service struct.
 	lng := -48.876667
 	if navConfig.Lat != nil {
 		lng = *navConfig.Long
