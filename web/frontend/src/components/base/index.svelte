@@ -287,6 +287,18 @@
     angle = event.detail.value;
   };
 
+  const handleOnKeyUpRun = (event: KeyboardInput) => {
+    if (event.key === 'Enter') {
+      baseRun();
+    }
+  };
+
+  const handleOnKeyUpStop = (event: KeyboardInput) => {
+    if (event.key === 'Enter') {
+      stop();
+    }
+  };
+
   onMount(() => {
     window.addEventListener('visibilitychange', handleVisibilityChange);
 
@@ -318,7 +330,7 @@
       icon="stop-circle-outline"
       label="Stop"
       on:click={stop}
-      on:keyup={stop}
+      on:keyup={handleOnKeyUpStop}
       role="button"
       tabindex="0"
     />
@@ -431,7 +443,7 @@
               variant="success"
               label="Run"
               on:click={baseRun}
-              on:keyup={baseRun}
+              on:keyup={handleOnKeyUpRun}
               role="button"
               tabindex="0"
             />

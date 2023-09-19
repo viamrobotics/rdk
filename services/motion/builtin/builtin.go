@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"sync"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
@@ -70,6 +69,17 @@ func (c *Config) Validate(path string) ([]string, error) {
 	return []string{framesystem.InternalServiceName.String()}, nil
 }
 
+type builtIn struct {
+	resource.Named
+	resource.TriviallyCloseable
+	resource.AlwaysRebuild
+	logger          golog.Logger
+	fsService       framesystem.Service
+	movementSensors map[resource.Name]movementsensor.MovementSensor
+	slamServices    map[resource.Name]slam.Service
+	components      map[resource.Name]resource.Resource
+}
+
 // NewBuiltIn returns a new move and grab service for the given robot.
 func NewBuiltIn(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (motion.Service, error) {
 	ms := &builtIn{
@@ -77,9 +87,35 @@ func NewBuiltIn(ctx context.Context, deps resource.Dependencies, conf resource.C
 		logger: logger,
 	}
 
-	if err := ms.Reconfigure(ctx, deps, conf); err != nil {
+	config, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
 		return nil, err
 	}
+	if config.LogFilePath != "" {
+		logger, err := newFilePathLoggerConfig(config.LogFilePath).Build()
+		if err != nil {
+			return nil, err
+		}
+		ms.logger = logger.Sugar().Named("motion")
+	}
+	movementSensors := make(map[resource.Name]movementsensor.MovementSensor)
+	slamServices := make(map[resource.Name]slam.Service)
+	components := make(map[resource.Name]resource.Resource)
+	for name, dep := range deps {
+		switch dep := dep.(type) {
+		case framesystem.Service:
+			ms.fsService = dep
+		case movementsensor.MovementSensor:
+			movementSensors[name] = dep
+		case slam.Service:
+			slamServices[name] = dep
+		default:
+			components[name] = dep
+		}
+	}
+	ms.movementSensors = movementSensors
+	ms.slamServices = slamServices
+	ms.components = components
 	return ms, nil
 }
 
@@ -105,58 +141,6 @@ func newFilePathLoggerConfig(filepath string) zap.Config {
 		OutputPaths:       []string{filepath, "stdout"},
 		ErrorOutputPaths:  []string{filepath, "stderr"},
 	}
-}
-
-// Reconfigure updates the motion service when the config has changed.
-func (ms *builtIn) Reconfigure(
-	ctx context.Context,
-	deps resource.Dependencies,
-	conf resource.Config,
-) (err error) {
-	ms.lock.Lock()
-	defer ms.lock.Unlock()
-
-	config, err := resource.NativeConfig[*Config](conf)
-	if err != nil {
-		return err
-	}
-	if config.LogFilePath != "" {
-		logger, err := newFilePathLoggerConfig(config.LogFilePath).Build()
-		if err != nil {
-			return err
-		}
-		ms.logger = logger.Sugar().Named("motion")
-	}
-	movementSensors := make(map[resource.Name]movementsensor.MovementSensor)
-	slamServices := make(map[resource.Name]slam.Service)
-	components := make(map[resource.Name]resource.Resource)
-	for name, dep := range deps {
-		switch dep := dep.(type) {
-		case framesystem.Service:
-			ms.fsService = dep
-		case movementsensor.MovementSensor:
-			movementSensors[name] = dep
-		case slam.Service:
-			slamServices[name] = dep
-		default:
-			components[name] = dep
-		}
-	}
-	ms.movementSensors = movementSensors
-	ms.slamServices = slamServices
-	ms.components = components
-	return nil
-}
-
-type builtIn struct {
-	resource.Named
-	resource.TriviallyCloseable
-	fsService       framesystem.Service
-	movementSensors map[resource.Name]movementsensor.MovementSensor
-	slamServices    map[resource.Name]slam.Service
-	components      map[resource.Name]resource.Resource
-	logger          golog.Logger
-	lock            sync.Mutex
 }
 
 // Move takes a goal location and will plan and execute a movement to move a component specified by its name to that destination.
