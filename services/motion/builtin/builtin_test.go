@@ -498,7 +498,6 @@ func TestMoveOnMapTimeout(t *testing.T) {
 
 	fsSvc, err := framesystem.New(ctx, deps, logger)
 	test.That(t, err, test.ShouldBeNil)
-
 	ms.(*builtIn).fsService = fsSvc
 
 	easyGoal := spatialmath.NewPoseFromPoint(r3.Vector{X: 1001, Y: 1001})
@@ -732,8 +731,6 @@ func TestCheckPlan(t *testing.T) {
 	motionCfg := make(map[string]interface{})
 	// fail if we don't find a plan in 5 seconds
 	motionCfg["timeout"] = 5.
-
-	// ms.(*builtIn).fsService = fsSvc
 
 	// get plan and kinematic base
 	moveRequest, err := ms.(*builtIn).newMoveOnGlobeRequest(

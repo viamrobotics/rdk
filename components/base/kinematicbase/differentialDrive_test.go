@@ -132,7 +132,6 @@ func TestInputDiff(t *testing.T) {
 	test.That(t, headingErr, test.ShouldAlmostEqual, 30)
 }
 
-// TODO: THIS TEST SHOULD CHECK FS STUFF
 func buildTestDDK(
 	ctx context.Context,
 	cfg resource.Config,
