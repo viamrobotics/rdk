@@ -182,7 +182,6 @@ func (sfs *simpleFrameSystem) RemoveFrame(frame Frame) {
 	// Remove all descendents
 	for f, parent := range sfs.parents {
 		if parent == frame {
-			fmt.Println("REMOVING FRAME F: ", f.Name())
 			sfs.RemoveFrame(f)
 		}
 	}
