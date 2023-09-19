@@ -140,6 +140,9 @@ func newTPSpaceMotionPlanner(
 		tpFrame: tpFrame,
 	}
 	tpPlanner.setupTPSpaceOptions()
+	if opt.profile == PositionOnlyMotionProfile {
+		tpPlanner.algOpts.bidirectional = false
+	}
 
 	tpPlanner.algOpts.ikSeed = []referenceframe.Input{{math.Pi / 2}, {tpFrame.PTGSolvers()[0].MaxDistance() / 2}}
 

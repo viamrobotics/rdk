@@ -130,8 +130,6 @@ func TestPtgRrtUnidirectional(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	tp, ok := mp.(*tpSpaceRRTMotionPlanner)
 	tp.algOpts.pathdebug = printPath
-	tp.algOpts.bidirectional = false
-	tp.algOpts.goalMetricConstructor = ik.NewPositionOnlyMetric
 	if tp.algOpts.pathdebug {
 		tp.logger.Debug("$type,X,Y")
 		tp.logger.Debugf("$SG,%f,%f\n", 0., 0.)

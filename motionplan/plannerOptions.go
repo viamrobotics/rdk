@@ -153,6 +153,9 @@ type plannerOptions struct {
 	// DistanceFunc is the function that the planner will use to measure the degree of "closeness" between two states of the robot
 	DistanceFunc ik.SegmentMetric
 
+	// profile is the string representing the motion profile
+	profile string
+
 	PlannerConstructor plannerConstructor
 
 	Fallback *plannerOptions
