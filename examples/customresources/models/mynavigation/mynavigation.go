@@ -23,14 +23,33 @@ func init() {
 	})
 }
 
+type Config struct {
+	Lat  *float64 `json:"lat,omitempty"`
+	Long *float64 `json:"long,omitempty"`
+	resource.TriviallyValidateConfig
+}
+
 func newNav(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (navigation.Service, error) {
+
+	navConfig, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return nil, err
+	}
+
+	lat := -48.876667
+	if navConfig.Lat != nil {
+		lat = *navConfig.Lat
+	}
+
+	lng := -48.876667
+	if navConfig.Lat != nil {
+		lng = *navConfig.Long
+	}
+
 	navSvc := &navSvc{
 		Named:  conf.ResourceName().AsNamed(),
 		logger: logger,
-		loc: geo.NewPoint(
-			conf.Attributes.Float64("lat", -48.876667),
-			conf.Attributes.Float64("long", -123.393333),
-		),
+		loc:    geo.NewPoint(lat, lng),
 	}
 	return navSvc, nil
 }

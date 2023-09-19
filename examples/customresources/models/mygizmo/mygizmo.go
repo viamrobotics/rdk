@@ -15,6 +15,11 @@ import (
 // Model is the full model definition.
 var Model = resource.NewModel("acme", "demo", "mygizmo")
 
+type Config struct {
+	Arg string `json:"myArg"`
+	resource.TriviallyValidateConfig
+}
+
 func init() {
 	resource.RegisterComponent(gizmoapi.API, Model, resource.Registration[gizmoapi.Gizmo, resource.NoNativeConfig]{
 		Constructor: func(
@@ -52,8 +57,13 @@ func NewMyGizmo(
 }
 
 func (g *myActualGizmo) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+	gizmoConfig, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return err
+	}
+
 	g.myArgMu.Lock()
-	g.myArg = conf.Attributes.String("arg1")
+	g.myArg = gizmoConfig.Arg
 	g.myArgMu.Unlock()
 	return nil
 }

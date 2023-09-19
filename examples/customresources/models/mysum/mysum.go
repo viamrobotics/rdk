@@ -12,6 +12,11 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
+type Config struct {
+	Subtract bool `json:"subtract"`
+	resource.TriviallyValidateConfig
+}
+
 // Model is the full model definition.
 var Model = resource.NewModel("acme", "demo", "mysum")
 
@@ -59,8 +64,13 @@ func (m *mySum) Sum(ctx context.Context, nums []float64) (float64, error) {
 }
 
 func (m *mySum) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+	sumConfig, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return err
+	}
+
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.subtract = conf.Attributes.Bool("subtract", false)
+	m.subtract = sumConfig.Subtract
 	return nil
 }
