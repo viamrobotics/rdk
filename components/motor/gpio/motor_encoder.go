@@ -54,8 +54,6 @@ func WrapMotorWithEncoder(
 		logger.Info("direction attached to single encoder from encoded motor")
 	}
 
-	mm.RPMMonitorStart()
-
 	return mm, nil
 }
 
@@ -183,7 +181,7 @@ type EncodedMotorState struct {
 }
 
 // RPMMonitorStart starts the RPM monitor.
-func (m *EncodedMotor) RPMMonitorStart() {
+func (m *EncodedMotor) rpmMonitorStart() {
 	m.startedRPMMonitorMu.Lock()
 	startedRPMMonitor := m.startedRPMMonitor
 	m.startedRPMMonitorMu.Unlock()
@@ -383,7 +381,7 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 }
 
 func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float64) error {
-	m.RPMMonitorStart()
+	m.rpmMonitorStart()
 	m.state.direction = sign(rpm * revolutions)
 
 	switch speed := math.Abs(rpm); {

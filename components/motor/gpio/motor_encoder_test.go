@@ -369,7 +369,6 @@ func TestMotorEncoderIncremental(t *testing.T) {
 		motor, ok := motorIfc.(*EncodedMotor)
 		test.That(t, ok, test.ShouldBeTrue)
 
-		motor.RPMMonitorStart()
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			pos := enc.RawPosition()
