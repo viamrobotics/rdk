@@ -12,6 +12,7 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
@@ -492,7 +493,7 @@ func TestMoveOnMapTimeout(t *testing.T) {
 		realBase.Name():   realBase,
 	}
 	fsParts := []*referenceframe.FrameSystemPart{
-		{FrameConfig: createBaseLink(t, "test-base")},
+		{FrameConfig: createBaseLink(t, "test_base")},
 	}
 
 	conf := resource.Config{ConvertedAttributes: &Config{}}
@@ -509,7 +510,7 @@ func TestMoveOnMapTimeout(t *testing.T) {
 	motionCfg["timeout"] = 0.01
 	success, err := ms.MoveOnMap(
 		context.Background(),
-		base.Named("test-base"),
+		base.Named("test_base"),
 		easyGoal,
 		slam.Named("test_slam"),
 		motionCfg,

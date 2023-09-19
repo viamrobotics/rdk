@@ -338,7 +338,6 @@ func TestFrameSystemGeometries(t *testing.T) {
 func TestReplaceFrame(t *testing.T) {
 	fs := NewEmptyFrameSystem("test")
 	// fill framesystem
-	// replaceMe := NewZeroStaticFrame("replaceMe")
 	pose := spatial.NewZeroPose()
 	box, err := spatial.NewBox(pose, r3.Vector{1, 1, 1}, "box")
 	test.That(t, err, test.ShouldBeNil)
