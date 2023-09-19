@@ -193,6 +193,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 		return nil, err
 	}
 
+	// replace original base frame with kb frame
 	if err = fs.ReplaceFrame(kb.Kinematics()); err != nil {
 		return nil, err
 	}

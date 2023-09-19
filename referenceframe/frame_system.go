@@ -410,13 +410,12 @@ func (sfs *simpleFrameSystem) getFrameToWorldTransform(inputMap map[string][]Inp
 func (sfs *simpleFrameSystem) ReplaceFrame(replacementFrame Frame) error {
 	var replaceMe Frame
 	if replaceMe = sfs.Frame(replacementFrame.Name()); replaceMe == nil {
-		return fmt.Errorf("%s not found in framesystem", replacementFrame.Name())
+		return fmt.Errorf("%s not found in frame system", replacementFrame.Name())
 	} else if replaceMe == replacementFrame {
-		fmt.Println("WE ARE REPLACING THE SAME FRAME")
-		return nil
+		return fmt.Errorf("%s already exists in frame system", replacementFrame.Name())
 	}
 	if replaceMe == sfs.World() {
-		return fmt.Errorf("%s is the world of the framsystem - which cannot be replaced", replaceMe.Name())
+		return fmt.Errorf("%s is the world of the frame system - which cannot be replaced", replaceMe.Name())
 	}
 
 	// get replaceMe's parent
