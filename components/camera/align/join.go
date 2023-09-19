@@ -111,10 +111,10 @@ func newJoinColorDepth(ctx context.Context, color, depth camera.VideoSource, con
 	}
 	err := camParams.CheckValid()
 	if err != nil {
-		return nil, errors.Wrap(
-			err,
-			"the intrinsic_parameters field in attributes, or the intrinsics from the underlying camera, encountered an error",
-		)
+		if conf.CameraParameters != nil {
+			return nil, errors.Wrap(err, "error in the intrinsic_parameters field of the attributes")
+		}
+		return nil, errors.Wrap(err, "error in the intrinsic parameters of the underlying camera")
 	}
 	videoSrc := &joinColorDepth{
 		colorName: conf.Color,
