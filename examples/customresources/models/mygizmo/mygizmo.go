@@ -21,7 +21,7 @@ type Config struct {
 }
 
 // Validate checks the attribute of myGizmo to ensure that an "arg1" attribute exists
-// the model will not initialize if this is not set
+// the model will not initialize if this is not set.
 func (cfg *Config) Validate(path string) ([]string, error) {
 	if cfg.Arg1 == "" {
 		return nil, fmt.Errorf(`expected "Arg1" attribute for myGizmo %q`, path)
@@ -68,8 +68,8 @@ func NewMyGizmo(
 }
 
 func (g *myActualGizmo) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
-	// This takes the generic resource.Config passed down from the parent and converts it to the model-specific (aka "native") Config structure defined above
-	// making it easier to directly access attributes.
+	// This takes the generic resource.Config passed down from the parent and converts it to the
+	// model-specific (aka "native") Config structure defined above making it easier to directly access attributes.
 	gizmoConfig, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return err
