@@ -51,7 +51,7 @@ func init() {
 			},
 		})
 	if err := json.Unmarshal(intrinsics, &data); err != nil {
-		golog.Global().Errorw("cannot parse intrinsics json", err)
+		golog.Global().Errorw("cannot parse intrinsics json", "error", err)
 	}
 }
 
