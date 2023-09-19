@@ -63,6 +63,8 @@ type FrameSystem interface {
 	// MergeFrameSystem combines two frame systems together, placing the world of systemToMerge at the attachTo frame in the frame system
 	MergeFrameSystem(systemToMerge FrameSystem, attachTo Frame) error
 
+	// ReplaceFrame transfers replaceMe's children and parentage to replaceWith. ReplaceMe is removed entirely from the frame system.
+	// ReplaceWith is not allowed to exist within the frame system at the time of the call.
 	ReplaceFrame(fs FrameSystem, replaceMe, replaceWith Frame) error
 }
 
@@ -399,6 +401,8 @@ func (sfs *simpleFrameSystem) getFrameToWorldTransform(inputMap map[string][]Inp
 	return srcToWorld, err
 }
 
+// ReplaceFrame transfers replaceMe's children and parentage to replaceWith. ReplaceMe is removed entirely from the frame system.
+// ReplaceWith is not allowed to exist within the frame system at the time of the call.
 func (sfs *simpleFrameSystem) ReplaceFrame(fs FrameSystem, replaceMe, replaceWith Frame) error {
 	// loop through and replace frame with parent as replaceMe with replaceWith
 	for f, parent := range sfs.parents {
@@ -407,21 +411,17 @@ func (sfs *simpleFrameSystem) ReplaceFrame(fs FrameSystem, replaceMe, replaceWit
 			sfs.parents[f] = replaceWith
 		}
 	}
-
 	// get replaceMe's parent
 	replaceMeParent, err := fs.Parent(replaceMe)
 	if err != nil {
 		return err
 	}
-
 	// remove replaceMe
 	fs.RemoveFrame(replaceMe)
-
 	// add replaceWith to fs with parent of replaceMe
 	if err = fs.AddFrame(replaceWith, replaceMeParent); err != nil {
 		return err
 	}
-
 	return nil
 }
 
