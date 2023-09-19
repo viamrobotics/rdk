@@ -17,8 +17,13 @@ import (
 
 // MaxCCLIterations is a value to stop the CCL algo from going on for too long.
 const (
-	MaxCCLIterations = 300000
-	GridSize         = 200
+	MaxCCLIterations            = 300000
+	GridSize                    = 200
+	MinPtsInPlaneDefault        = 500
+	MaxDistFromPlaneDefault     = 100
+	AngleToleranceDefault       = 30.0
+	ClusteringRadiusDefault     = 5
+	ClusteringStrictnessDefault = 1
 )
 
 // ErCCLConfig specifies the necessary parameters to apply the
@@ -46,7 +51,7 @@ type node struct {
 func (erCCL *ErCCLConfig) CheckValid() error {
 	// min_points_in_plane
 	if erCCL.MinPtsInPlane == 0 {
-		erCCL.MinPtsInPlane = 500
+		erCCL.MinPtsInPlane = MinPtsInPlaneDefault
 	}
 	if erCCL.MinPtsInPlane <= 0 {
 		return errors.Errorf("min_points_in_plane must be greater than 0, got %v", erCCL.MinPtsInPlane)
@@ -57,7 +62,7 @@ func (erCCL *ErCCLConfig) CheckValid() error {
 	}
 	// max_dist_from_plane_mm
 	if erCCL.MaxDistFromPlane == 0 {
-		erCCL.MaxDistFromPlane = 100
+		erCCL.MaxDistFromPlane = MaxDistFromPlaneDefault
 	}
 	if erCCL.MaxDistFromPlane <= 0 {
 		return errors.Errorf("max_dist_from_plane must be greater than 0, got %v", erCCL.MaxDistFromPlane)
@@ -72,21 +77,21 @@ func (erCCL *ErCCLConfig) CheckValid() error {
 	}
 	// ground_angle_tolerance_degs
 	if erCCL.AngleTolerance == 0.0 {
-		erCCL.AngleTolerance = 30.0
+		erCCL.AngleTolerance = AngleToleranceDefault
 	}
 	if erCCL.AngleTolerance > 180 || erCCL.AngleTolerance < 0 {
 		return errors.Errorf("max_angle_of_plane must between 0 & 180 (inclusive), got %v", erCCL.AngleTolerance)
 	}
 	// clustering_radius
 	if erCCL.ClusteringRadius == 0 {
-		erCCL.ClusteringRadius = 1
+		erCCL.ClusteringRadius = ClusteringRadiusDefault
 	}
 	if erCCL.ClusteringRadius < 0 {
 		return errors.Errorf("radius must be greater than 0, got %v", erCCL.ClusteringRadius)
 	}
 	// clustering_strictness
 	if erCCL.ClusteringStrictness == 0 {
-		erCCL.ClusteringStrictness = 5
+		erCCL.ClusteringStrictness = ClusteringStrictnessDefault
 	}
 	if erCCL.ClusteringStrictness < 0 {
 		return errors.Errorf("clustering_strictness must be greater than 0, got %v", erCCL.ClusteringStrictness)
