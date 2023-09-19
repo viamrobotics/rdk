@@ -519,7 +519,8 @@ func FrameSystemGeometries(fs FrameSystem, inputMap map[string][]Input) (map[str
 		if len(geosInFrame.Geometries()) > 0 {
 			transformed, err := fs.Transform(inputMap, geosInFrame, World)
 			if err != nil {
-				return nil, err
+				errAll = multierr.Append(errAll, err)
+				continue
 			}
 			allGeometries[name] = transformed.(*GeometriesInFrame)
 		}
