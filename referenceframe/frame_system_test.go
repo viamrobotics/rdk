@@ -367,6 +367,11 @@ func TestReplaceFrame(t *testing.T) {
 	err = fs.ReplaceFrame(fs, ghostFrame, frame1)
 	test.That(t, err, test.ShouldNotBeNil)
 
+	// ------ fail replacing frame with another with the same name
+	replaceMeCopy := NewZeroStaticFrame("replaceMe")
+	err = fs.ReplaceFrame(fs, replaceMe, replaceMeCopy)
+	test.That(t, err, test.ShouldNotBeNil)
+
 	// ------ replace a non-leaf node
 	replaceWith := NewZeroStaticFrame("replaceWith")
 	err = fs.ReplaceFrame(fs, replaceMe, replaceWith)
