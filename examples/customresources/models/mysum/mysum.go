@@ -12,13 +12,14 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
+// Model is the full model definition.
+var Model = resource.NewModel("acme", "demo", "mysum")
+
+// Sum is the sum model's config
 type Config struct {
 	Subtract bool `json:"subtract,omitempty"`
 	resource.TriviallyValidateConfig
 }
-
-// Model is the full model definition.
-var Model = resource.NewModel("acme", "demo", "mysum")
 
 func init() {
 	resource.RegisterService(summationapi.API, Model, resource.Registration[summationapi.Summation, resource.NoNativeConfig]{

@@ -23,6 +23,7 @@ func init() {
 	})
 }
 
+// Config is the navigation model's config
 type Config struct {
 	Lat  *float64 `json:"lat,omitempty"`
 	Long *float64 `json:"long,omitempty"`
@@ -30,7 +31,6 @@ type Config struct {
 }
 
 func newNav(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (navigation.Service, error) {
-
 	navConfig, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return nil, err

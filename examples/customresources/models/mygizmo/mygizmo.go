@@ -15,6 +15,7 @@ import (
 // Model is the full model definition.
 var Model = resource.NewModel("acme", "demo", "mygizmo")
 
+// Config is the gizmo model's's config
 type Config struct {
 	Arg string `json:"arg1"`
 	resource.TriviallyValidateConfig
