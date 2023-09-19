@@ -3,6 +3,8 @@ package replay
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -365,10 +367,10 @@ func (replay *replayMovementSensor) Accuracy(ctx context.Context, extra map[stri
 // Close stops the replay movement sensor, closes its channels and its connections to the cloud.
 func (replay *replayMovementSensor) Close(ctx context.Context) error {
 	replay.mu.Lock()
-	defer replay.mu.Unlock()
-
 	replay.closed = true
 	replay.closeCloudConnection(ctx)
+	replay.mu.Unlock()
+
 	replay.activeBackgroundWorkers.Wait()
 	return nil
 }
@@ -452,10 +454,15 @@ func (replay *replayMovementSensor) Reconfigure(ctx context.Context, deps resour
 
 	replay.activeBackgroundWorkers.Add(1)
 	go func() {
-		ctx, cancel := context.WithTimeout(ctx, downloadTimeout)
-		defer cancel()
-		if err := replay.setProperties(ctx); err != nil {
-			replay.logger.Warn(err)
+		func(ctx context.Context) {
+			ctx, cancel := context.WithTimeout(ctx, downloadTimeout)
+			defer cancel()
+			if err := replay.setProperties(ctx); err != nil {
+				replay.logger.Warn(err)
+			}
+		}(ctx)
+		if replay.propertiesStatus == notInitialized {
+			replay.propertiesStatus = failedToInitialize
 		}
 		replay.activeBackgroundWorkers.Done()
 	}()
@@ -548,7 +555,9 @@ func (replay *replayMovementSensor) attemptToInitializeProperty(ctx context.Cont
 	if replay.closed {
 		return false, errors.New("session closed")
 	}
-	if err := replay.updateCache(ctx, method); err != nil && err != ErrEndOfDataset {
+	if err := replay.updateCache(ctx, method); err != nil && !strings.Contains(err.Error(), ErrEndOfDataset.Error()) {
+		fmt.Println("attemptToInitializeProperty -> method: ", method)
+		fmt.Println("attemptToInitializeProperty -> updateCache --> err: ", err)
 		return false, errors.Wrap(err, "could not update the cache")
 	}
 	if len(replay.cache[method]) != 0 {
@@ -569,8 +578,12 @@ func (replay *replayMovementSensor) setProperties(ctx context.Context) error {
 		}
 		for _, method := range methodList {
 			if initializedProperty, err = replay.attemptToInitializeProperty(ctx, method); err != nil {
+				fmt.Println("In setProperties, method: ", method)
+				fmt.Println("error, initializedProperty results: ", initializedProperty, err)
 				return err
 			}
+			fmt.Println("-- In setProperties, method: ", method)
+			fmt.Println("-- initializedProperty results: ", initializedProperty)
 		}
 		if initializedProperty {
 			replay.mu.Lock()
