@@ -32,7 +32,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 }
 
 func init() {
-	resource.RegisterComponent(gizmoapi.API, Model, resource.Registration[gizmoapi.Gizmo, resource.NoNativeConfig]{
+	resource.RegisterComponent(gizmoapi.API, Model, resource.Registration[gizmoapi.Gizmo, *Config]{
 		Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,

@@ -18,7 +18,7 @@ import (
 var Model = resource.NewModel("acme", "demo", "mynavigation")
 
 func init() {
-	resource.RegisterService(navigation.API, Model, resource.Registration[navigation.Service, resource.NoNativeConfig]{
+	resource.RegisterService(navigation.API, Model, resource.Registration[navigation.Service, *Config]{
 		Constructor: newNav,
 	})
 }

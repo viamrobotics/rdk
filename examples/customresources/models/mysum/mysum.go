@@ -25,7 +25,7 @@ type Config struct {
 }
 
 func init() {
-	resource.RegisterService(summationapi.API, Model, resource.Registration[summationapi.Summation, resource.NoNativeConfig]{
+	resource.RegisterService(summationapi.API, Model, resource.Registration[summationapi.Summation, *Config]{
 		Constructor: newMySum,
 	})
 }
