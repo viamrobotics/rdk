@@ -17,11 +17,18 @@ var Model = resource.NewModel("acme", "demo", "mygizmo")
 
 // Config is the gizmo model's config.
 type Config struct {
-	Arg string `json:"arg1"`
+	Arg1 string `json:"arg1"`
+}
 
-	// a helper function to denote that we are not checking if any attributes exist or are set to anything in particular
-	// Config structures require Validate functions if they exist in a model
-	resource.TriviallyValidateConfig
+// Validate checks the attribute of myGizmo to ensure that an "arg1" attribute exists
+// the model will not initialize if this is not set
+func (cfg *Config) Validate(path string) ([]string, error) {
+	if cfg.Arg1 == "" {
+		return nil, fmt.Errorf(`expected "Arg1" attribute for myGizmo %q`, path)
+	}
+
+	// there are no dependencies for this model, so we return an empty list of strings
+	return []string{}, nil
 }
 
 func init() {
@@ -62,14 +69,14 @@ func NewMyGizmo(
 
 func (g *myActualGizmo) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	// This takes the generic resource.Config passed down from the parent and converts it to the model-specific (aka "native") Config structure defined above
-	// making it easier use directly to access attributes.
+	// making it easier to directly access attributes.
 	gizmoConfig, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return err
 	}
 
 	g.myArgMu.Lock()
-	g.myArg = gizmoConfig.Arg
+	g.myArg = gizmoConfig.Arg1
 	g.myArgMu.Unlock()
 	return nil
 }
