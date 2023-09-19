@@ -18,6 +18,9 @@ var Model = resource.NewModel("acme", "demo", "mygizmo")
 // Config is the gizmo model's's config.
 type Config struct {
 	Arg string `json:"arg1"`
+
+	// a helper function to denote that we are not checking if any attributes exist or are set to anything in particular
+	// Config structures require Validate functions if they exist in a model
 	resource.TriviallyValidateConfig
 }
 
@@ -58,6 +61,8 @@ func NewMyGizmo(
 }
 
 func (g *myActualGizmo) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+	// A good practice is to use our helper function to access the converted attributes in the same
+	// form as the Config struct in this file
 	gizmoConfig, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return err

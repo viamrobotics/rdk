@@ -27,10 +27,15 @@ func init() {
 type Config struct {
 	Lat  *float64 `json:"lat,omitempty"`
 	Long *float64 `json:"long,omitempty"`
+
+	// a helper function to denote that we are not checking if any attributes exist or are set to anything in particular
+	// Config structures require Validate functions if they exist in a model
 	resource.TriviallyValidateConfig
 }
 
 func newNav(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (navigation.Service, error) {
+	// A good practice is to use our helper function to access the converted attributes in the same
+	// form as the Config struct in this file
 	navConfig, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return nil, err

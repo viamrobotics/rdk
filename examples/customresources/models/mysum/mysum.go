@@ -18,6 +18,9 @@ var Model = resource.NewModel("acme", "demo", "mysum")
 // Config is the sum model's config.
 type Config struct {
 	Subtract bool `json:"subtract,omitempty"`
+
+	// a helper function to denote that we are not checking if any attributes exist or are set to anything in particular
+	// Config structures require Validate functions if they exist in a model
 	resource.TriviallyValidateConfig
 }
 
@@ -65,6 +68,8 @@ func (m *mySum) Sum(ctx context.Context, nums []float64) (float64, error) {
 }
 
 func (m *mySum) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+	// A good practice is to use our helper function to access the converted attributes in the same
+	// form as the Config struct in this file
 	sumConfig, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return err
