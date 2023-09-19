@@ -420,7 +420,7 @@ func (ms *builtIn) planMoveOnMap(
 		return nil, nil, err
 	}
 
-	// replace original base frame with kb frame
+	// replace original base frame with one that knows how to move itself and allow planning for
 	if err = fs.ReplaceFrame(kb.Kinematics()); err != nil {
 		return nil, nil, err
 	}

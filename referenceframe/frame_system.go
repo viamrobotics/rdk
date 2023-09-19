@@ -435,10 +435,7 @@ func (sfs *simpleFrameSystem) ReplaceFrame(replacementFrame Frame) error {
 		}
 	}
 	// add replacementFrame to frame system with parent of replaceMe
-	if err = sfs.AddFrame(replacementFrame, replaceMeParent); err != nil {
-		return err
-	}
-	return nil
+	return sfs.AddFrame(replacementFrame, replaceMeParent)
 }
 
 // Returns the relative pose between the parent and the destination frame.
