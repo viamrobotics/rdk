@@ -12,7 +12,6 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
 
-	"go.viam.com/rdk/spatialmath"
 	spatial "go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -315,7 +314,7 @@ func TestFrameSystemGeometries(t *testing.T) {
 		g1, ok := geometries[name2]
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, g1.Parent(), test.ShouldResemble, World)
-		test.That(t, spatialmath.PoseAlmostCoincident(g1.Geometries()[0].Pose(), spatialmath.Compose(eePose, pose1)), test.ShouldBeTrue)
+		test.That(t, spatial.PoseAlmostCoincident(g1.Geometries()[0].Pose(), spatial.Compose(eePose, pose1)), test.ShouldBeTrue)
 	}
 
 	// test that boxes are where they should be regardless of input, since neither depend on input to be located
