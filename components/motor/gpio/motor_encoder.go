@@ -349,8 +349,8 @@ func (m *EncodedMotor) SetPower(ctx context.Context, powerPct float64, extra map
 // setPower assumes the state lock is held.
 func (m *EncodedMotor) setPower(ctx context.Context, powerPct float64, internal bool) error {
 	dir := sign(powerPct)
-	if math.Abs(powerPct) < 0.2 {
-		m.state.lastPowerPct = 0.2 * dir
+	if math.Abs(powerPct) < 0.1 {
+		m.state.lastPowerPct = 0.1 * dir
 	} else {
 		m.state.lastPowerPct = powerPct
 	}
@@ -383,6 +383,7 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 }
 
 func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float64) error {
+	m.RPMMonitorStart()
 	m.state.direction = sign(rpm * revolutions)
 
 	switch speed := math.Abs(rpm); {
