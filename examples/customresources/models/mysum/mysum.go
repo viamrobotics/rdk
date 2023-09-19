@@ -68,8 +68,8 @@ func (m *mySum) Sum(ctx context.Context, nums []float64) (float64, error) {
 }
 
 func (m *mySum) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
-	// A good practice is to use our helper function to access the converted attributes in the same
-	// form as the Config struct in this file
+	// This takes the generic resource.Config passed down from the parent and converts it to the model-specific (aka "native") Config structure defined above
+	// making it easier use directly to access attributes.
 	sumConfig, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return err
