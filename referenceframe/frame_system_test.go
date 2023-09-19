@@ -1,16 +1,11 @@
 package referenceframe
 
 import (
-	"bytes"
-	"crypto/md5"
-	"encoding/gob"
 	"encoding/json"
 	"math"
 	"os"
-	"sort"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
 	robotpb "go.viam.com/api/robot/v1"
@@ -238,311 +233,104 @@ func TestConvertTransformProtobufToFrameSystemPart(t *testing.T) {
 	})
 }
 
-func TestFrameSystemToPCD(t *testing.T) {
-	//nolint:dupl
-	checkAgainst0 := []r3.Vector{
-		{-3.500000000000000000000000, -4, -4},
-		{-4.500000000000000000000000, -4, -4},
-		{-3.500000000000000000000000, -4, -3.500000000000000000000000},
-		{-3.500000000000000000000000, -4, -4.500000000000000000000000},
-		{-4.500000000000000000000000, -4, -3.500000000000000000000000},
-		{-4.500000000000000000000000, -4, -4.500000000000000000000000},
-		{-4, -3.500000000000000000000000, -4},
-		{-4, -4.500000000000000000000000, -4},
-		{-4, -3.500000000000000000000000, -3.500000000000000000000000},
-		{-4, -3.500000000000000000000000, -4.500000000000000000000000},
-		{-4, -4.500000000000000000000000, -3.500000000000000000000000},
-		{-4, -4.500000000000000000000000, -4.500000000000000000000000},
-		{-3.500000000000000000000000, -3.500000000000000000000000, -4},
-		{-3.500000000000000000000000, -4.500000000000000000000000, -4},
-		{-4.500000000000000000000000, -3.500000000000000000000000, -4},
-		{-4.500000000000000000000000, -4.500000000000000000000000, -4},
-		{-3.500000000000000000000000, -3.500000000000000000000000, -3.500000000000000000000000},
-		{-3.500000000000000000000000, -3.500000000000000000000000, -4.500000000000000000000000},
-		{-3.500000000000000000000000, -4.500000000000000000000000, -3.500000000000000000000000},
-		{-3.500000000000000000000000, -4.500000000000000000000000, -4.500000000000000000000000},
-		{-4.500000000000000000000000, -3.500000000000000000000000, -3.500000000000000000000000},
-		{-4.500000000000000000000000, -3.500000000000000000000000, -4.500000000000000000000000},
-		{-4.500000000000000000000000, -4.500000000000000000000000, -4.500000000000000000000000},
-		{-4.500000000000000000000000, -4.500000000000000000000000, -3.500000000000000000000000},
-		{-4, -4, -3.500000000000000000000000},
-		{-4, -4, -4.500000000000000000000000},
-	}
-	//nolint:dupl
-	checkAgainst1 := []r3.Vector{
-		{-1.500000000000000000000000, -2, -2},
-		{-2.500000000000000000000000, -2, -2},
-		{-1.500000000000000000000000, -2, -1.500000000000000000000000},
-		{-1.500000000000000000000000, -2, -2.500000000000000000000000},
-		{-2.500000000000000000000000, -2, -1.500000000000000000000000},
-		{-2.500000000000000000000000, -2, -2.500000000000000000000000},
-		{-2, -1.500000000000000000000000, -2},
-		{-2, -2.500000000000000000000000, -2},
-		{-2, -1.500000000000000000000000, -1.500000000000000000000000},
-		{-2, -1.500000000000000000000000, -2.500000000000000000000000},
-		{-2, -2.500000000000000000000000, -1.500000000000000000000000},
-		{-2, -2.500000000000000000000000, -2.500000000000000000000000},
-		{-1.500000000000000000000000, -1.500000000000000000000000, -2},
-		{-1.500000000000000000000000, -2.500000000000000000000000, -2},
-		{-2.500000000000000000000000, -1.500000000000000000000000, -2},
-		{-2.500000000000000000000000, -2.500000000000000000000000, -2},
-		{-1.500000000000000000000000, -1.500000000000000000000000, -1.500000000000000000000000},
-		{-1.500000000000000000000000, -1.500000000000000000000000, -2.500000000000000000000000},
-		{-1.500000000000000000000000, -2.500000000000000000000000, -1.500000000000000000000000},
-		{-1.500000000000000000000000, -2.500000000000000000000000, -2.500000000000000000000000},
-		{-2.500000000000000000000000, -1.500000000000000000000000, -1.500000000000000000000000},
-		{-2.500000000000000000000000, -1.500000000000000000000000, -2.500000000000000000000000},
-		{-2.500000000000000000000000, -2.500000000000000000000000, -2.500000000000000000000000},
-		{-2.500000000000000000000000, -2.500000000000000000000000, -1.500000000000000000000000},
-		{-2, -2, -1.500000000000000000000000},
-		{-2, -2, -2.500000000000000000000000},
+func TestFrameSystemGeometries(t *testing.T) {
+	fs := NewEmptyFrameSystem("test")
+	dims := r3.Vector{1, 1, 1}
+
+	// add a static frame with a box
+	name0 := "frame0"
+	pose0 := spatial.NewPoseFromPoint(r3.Vector{-4, -4, -4})
+	box0, err := spatial.NewBox(pose0, dims, name0)
+	test.That(t, err, test.ShouldBeNil)
+	frame0, err := NewStaticFrameWithGeometry(name0, pose0, box0)
+	test.That(t, err, test.ShouldBeNil)
+	fs.AddFrame(frame0, fs.World())
+
+	// add a static frame with a box as a child of the first
+	name1 := "frame1"
+	pose1 := spatial.NewPoseFromPoint(r3.Vector{2, 2, 2})
+	box1, err := spatial.NewBox(pose1, dims, name1)
+	test.That(t, err, test.ShouldBeNil)
+	frame1, err := NewStaticFrameWithGeometry(name1, pose1, box1)
+	test.That(t, err, test.ShouldBeNil)
+	fs.AddFrame(frame1, frame0)
+
+	// function to check that boxes are returned and where they are supposed to be
+	staticGeometriesOK := func(t *testing.T, geometries map[string]*GeometriesInFrame) {
+		t.Helper()
+		g0, ok := geometries[name0]
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, g0.Parent(), test.ShouldResemble, World)
+		test.That(t, g0.Geometries()[0].AlmostEqual(box0), test.ShouldBeTrue)
+		g1, ok := geometries[name1]
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, g1.Parent(), test.ShouldResemble, World)
+		test.That(t, spatial.PoseAlmostCoincident(g1.Geometries()[0].Pose(), spatial.Compose(pose0, pose1)), test.ShouldBeTrue)
 	}
 
-	t.Run("displaced box with another box as its child", func(t *testing.T) {
-		fs := NewEmptyFrameSystem("test")
-		logger := golog.NewTestLogger(t)
-		// ------
-		name0 := "frame0"
-		pose0 := spatial.NewPoseFromPoint(r3.Vector{-4, -4, -4})
-		dims0 := r3.Vector{1, 1, 1}
-		geomCreator0, err := spatial.NewBox(pose0, dims0, "box0")
-		test.That(t, err, test.ShouldBeNil)
-		frame0, err := NewStaticFrameWithGeometry(name0, pose0, geomCreator0)
-		test.That(t, err, test.ShouldBeNil)
-		fs.AddFrame(frame0, fs.World())
-		// -----
-		name1 := "frame1"
-		pose1 := spatial.NewPoseFromPoint(r3.Vector{2, 2, 2})
-		dims1 := r3.Vector{1, 1, 1}
-		geomCreator1, err := spatial.NewBox(pose1, dims1, "box1")
-		test.That(t, err, test.ShouldBeNil)
-		frame1, err := NewStaticFrameWithGeometry(name1, pose1, geomCreator1)
-		test.That(t, err, test.ShouldBeNil)
-		fs.AddFrame(frame1, frame0)
-		// -----
-		inputs := StartPositions(fs)
-		outMap, err := FrameSystemToPCD(fs, inputs, logger)
-		test.That(t, err, test.ShouldBeNil)
+	type testCase struct {
+		name    string
+		inputs  map[string][]Input
+		success bool
+	}
 
-		for i, v := range outMap["frame0"] {
-			test.That(t, spatial.R3VectorAlmostEqual(v, checkAgainst0[i], 1e-2), test.ShouldBeTrue)
-		}
-		for i, v := range outMap["frame1"] {
-			test.That(t, spatial.R3VectorAlmostEqual(v, checkAgainst1[i], 1e-2), test.ShouldBeTrue)
-		}
-	})
-	t.Run("displaced box with another box as its child with nil inputs", func(t *testing.T) {
-		fs := NewEmptyFrameSystem("test")
-		logger := golog.NewTestLogger(t)
-		// ------
-		name0 := "frame0"
-		pose0 := spatial.NewPoseFromPoint(r3.Vector{-4, -4, -4})
-		dims0 := r3.Vector{1, 1, 1}
-		geomCreator0, err := spatial.NewBox(pose0, dims0, "box0")
-		test.That(t, err, test.ShouldBeNil)
-		frame0, err := NewStaticFrameWithGeometry(name0, pose0, geomCreator0)
-		test.That(t, err, test.ShouldBeNil)
-		fs.AddFrame(frame0, fs.World())
-		// -----
-		name1 := "frame1"
-		pose1 := spatial.NewPoseFromPoint(r3.Vector{2, 2, 2})
-		dims1 := r3.Vector{1, 1, 1}
-		geomCreator1, err := spatial.NewBox(pose1, dims1, "box1")
-		test.That(t, err, test.ShouldBeNil)
-		frame1, err := NewStaticFrameWithGeometry(name1, pose1, geomCreator1)
-		test.That(t, err, test.ShouldBeNil)
-		fs.AddFrame(frame1, frame0)
-		// -----
-		outMap, err := FrameSystemToPCD(fs, nil, logger)
-		test.That(t, err, test.ShouldBeNil)
-
-		for i, v := range outMap["frame0"] {
-			test.That(t, spatial.R3VectorAlmostEqual(v, checkAgainst0[i], 1e-2), test.ShouldBeTrue)
-		}
-		for i, v := range outMap["frame1"] {
-			test.That(t, spatial.R3VectorAlmostEqual(v, checkAgainst1[i], 1e-2), test.ShouldBeTrue)
-		}
-	})
-
-	t.Run("incorrectly defined frame system, i.e. with nil parent for frame0", func(t *testing.T) {
-		fs := NewEmptyFrameSystem("test")
-		logger := golog.NewTestLogger(t)
-		// ------
-		name := "frame"
-		pose := spatial.NewPoseFromPoint(r3.Vector{-4, -4, -4})
-		dims := r3.Vector{1, 1, 1}
-		geomCreator, err := spatial.NewBox(pose, dims, "box")
-		test.That(t, err, test.ShouldBeNil)
-		frame, err := NewStaticFrameWithGeometry(name, pose, geomCreator)
-		test.That(t, err, test.ShouldBeNil)
-		fs.AddFrame(frame, nil)
-		// -----
-		inputs := StartPositions(fs)
-		outMap, err := FrameSystemToPCD(fs, inputs, logger)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, outMap, test.ShouldBeEmpty)
-	})
-
-	t.Run("correct frame system with nil input and DOF = 0", func(t *testing.T) {
-		fs := NewEmptyFrameSystem("test")
-		logger := golog.NewTestLogger(t)
-		// ------
-		name := "frame"
-		pose := spatial.NewPoseFromPoint(r3.Vector{-4, -4, -4})
-		dims := r3.Vector{1, 1, 1}
-		geomCreator, err := spatial.NewBox(pose, dims, "box")
-		test.That(t, err, test.ShouldBeNil)
-		frame, err := NewStaticFrameWithGeometry(name, pose, geomCreator)
-		test.That(t, err, test.ShouldBeNil)
-		fs.AddFrame(frame, fs.World())
-		// -----
-		outMap, err := FrameSystemToPCD(fs, nil, logger)
-		test.That(t, err, test.ShouldBeNil)
-		for i, v := range outMap["frame"] {
-			test.That(t, spatial.R3VectorAlmostEqual(v, checkAgainst0[i], 1e-2), test.ShouldBeTrue)
-		}
-	})
-
-	t.Run("correct frame system with nil input and DOF != 0", func(t *testing.T) {
-		fs := NewEmptyFrameSystem("test")
-		logger := golog.NewTestLogger(t)
-		jsonData, err := os.ReadFile(rdkutils.ResolveFile("config/data/model_frame_geoms.json"))
-		test.That(t, err, test.ShouldBeNil)
-		model, err := UnmarshalModelJSON(jsonData, "")
-		test.That(t, err, test.ShouldBeNil)
-		orientConf, err := spatial.NewOrientationConfig(spatial.NewZeroOrientation())
-		test.That(t, err, test.ShouldBeNil)
-		lc := &LinkConfig{
-			ID:          "arm",
-			Parent:      "world",
-			Translation: r3.Vector{1, 2, 3},
-			Orientation: orientConf,
-		}
-		lif, err := lc.ParseConfig()
-		test.That(t, err, test.ShouldBeNil)
-		// fully specified part
-		part := &FrameSystemPart{
-			FrameConfig: lif,
-			ModelFrame:  model,
-		}
-		armFrame, _, err := createFramesFromPart(part)
-		test.That(t, err, test.ShouldBeNil)
-		fs.AddFrame(armFrame, fs.World())
-		// -----
-		outMap, err := FrameSystemToPCD(fs, nil, logger)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, outMap, test.ShouldBeEmpty)
-	})
-	t.Run("correct frame system with a parent child relationship, with nil input and DOF != 0", func(t *testing.T) {
-		fs := NewEmptyFrameSystem("test")
-		logger := golog.NewTestLogger(t)
-		jsonData, err := os.ReadFile(rdkutils.ResolveFile("config/data/model_frame_geoms.json"))
-		test.That(t, err, test.ShouldBeNil)
-		model, err := UnmarshalModelJSON(jsonData, "")
-		test.That(t, err, test.ShouldBeNil)
-		orientConf, err := spatial.NewOrientationConfig(spatial.NewZeroOrientation())
-		test.That(t, err, test.ShouldBeNil)
-		lc := &LinkConfig{
-			ID:          "arm",
-			Parent:      "world",
-			Translation: r3.Vector{1, 2, 3},
-			Orientation: orientConf,
-		}
-		lif, err := lc.ParseConfig()
-		test.That(t, err, test.ShouldBeNil)
-		// fully specified part
-		part := &FrameSystemPart{
-			FrameConfig: lif,
-			ModelFrame:  model,
-		}
-		armFrame, _, err := createFramesFromPart(part)
-		test.That(t, err, test.ShouldBeNil)
-		fs.AddFrame(armFrame, fs.World())
-		// -----
-		blockName := "block"
-		blockPose := spatial.NewPoseFromPoint(r3.Vector{2, 2, 2})
-		blockdims := r3.Vector{10, 10, 10}
-		blockGeomCreator, err := spatial.NewBox(blockPose, blockdims, "box")
-		test.That(t, err, test.ShouldBeNil)
-		blockFrame, err := NewStaticFrameWithGeometry(blockName, blockPose, blockGeomCreator)
-		test.That(t, err, test.ShouldBeNil)
-		fs.AddFrame(blockFrame, armFrame)
-		// -----
-		name := "frame"
-		pose := spatial.NewPoseFromPoint(r3.Vector{-4, -4, -4})
-		dims := r3.Vector{1, 1, 1}
-		geomCreator, err := spatial.NewBox(pose, dims, "box")
-		test.That(t, err, test.ShouldBeNil)
-		frame, err := NewStaticFrameWithGeometry(name, pose, geomCreator)
-		test.That(t, err, test.ShouldBeNil)
-		fs.AddFrame(frame, fs.World())
-		// -----
-		outMap, err := FrameSystemToPCD(fs, nil, logger)
-		test.That(t, err, test.ShouldBeNil)
-		for i, v := range outMap["frame"] {
-			test.That(t, spatial.R3VectorAlmostEqual(v, checkAgainst0[i], 1e-2), test.ShouldBeTrue)
-		}
-	})
-
-	t.Run("arm with a block attached to the end effector", func(t *testing.T) {
-		fs := NewEmptyFrameSystem("test")
-		logger := golog.NewTestLogger(t)
-		jsonData, err := os.ReadFile(rdkutils.ResolveFile("config/data/model_frame_geoms.json"))
-		test.That(t, err, test.ShouldBeNil)
-		model, err := UnmarshalModelJSON(jsonData, "")
-		test.That(t, err, test.ShouldBeNil)
-		orientConf, err := spatial.NewOrientationConfig(spatial.NewZeroOrientation())
-		test.That(t, err, test.ShouldBeNil)
-		lc := &LinkConfig{
-			ID:          "arm",
-			Parent:      "world",
-			Translation: r3.Vector{1, 2, 3},
-			Orientation: orientConf,
-		}
-		lif, err := lc.ParseConfig()
-		test.That(t, err, test.ShouldBeNil)
-		// fully specified part
-		part := &FrameSystemPart{
-			FrameConfig: lif,
-			ModelFrame:  model,
-		}
-		armFrame, _, err := createFramesFromPart(part)
-		test.That(t, err, test.ShouldBeNil)
-		fs.AddFrame(armFrame, fs.World())
-		blockName := "block"
-		blockPose := spatial.NewPoseFromPoint(r3.Vector{2, 2, 2})
-		blockdims := r3.Vector{10, 10, 10}
-		blockGeomCreator, err := spatial.NewBox(blockPose, blockdims, "box1")
-		test.That(t, err, test.ShouldBeNil)
-		blockFrame, err := NewStaticFrameWithGeometry(blockName, blockPose, blockGeomCreator)
-		test.That(t, err, test.ShouldBeNil)
-		fs.AddFrame(blockFrame, armFrame)
-		// -----
-		inputs := StartPositions(fs)
-		outMap, err := FrameSystemToPCD(fs, inputs, logger)
-		test.That(t, err, test.ShouldBeNil)
-
-		// 0. get output values
-		total := outMap["test"]
-		total = append(total, outMap["block"]...)
-		// 1. round all values
-		for i := range total {
-			total[i].X = math.Round(total[i].X*10) / 10
-			total[i].Y = math.Round(total[i].Y*10) / 10
-			total[i].Z = math.Round(total[i].Z*10) / 10
-		}
-		// 2. sort
-		sort.SliceStable(total, func(i, j int) bool {
-			return total[i].X < total[j].X
+	// test that boxes are where they should be regardless of input, since neither depend on input to be located
+	for _, tc := range []testCase{
+		{name: "non-nil inputs, zero DOF", inputs: StartPositions(fs)},
+		{name: "nil inputs, zero DOF", inputs: nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			geometries, err := FrameSystemGeometries(fs, tc.inputs)
+			test.That(t, err, test.ShouldBeNil)
+			staticGeometriesOK(t, geometries)
 		})
-		// 3. encode the value
-		var network bytes.Buffer        // Stand-in for a network connection
-		enc := gob.NewEncoder(&network) // Will write to network.
-		err = enc.Encode(total)
-		test.That(t, err, test.ShouldBeNil)
-		// 4. Hash the bytes
-		asBytes := md5.Sum(network.Bytes())
-		checkAgainst := [16]uint8{242, 99, 115, 21, 213, 207, 247, 66, 243, 191, 235, 225, 126, 164, 176, 42}
-		test.That(t, asBytes, test.ShouldEqual, checkAgainst)
-	})
+	}
+
+	// add an arm model to the fs
+	jsonData, err := os.ReadFile(rdkutils.ResolveFile("config/data/model_frame_geoms.json"))
+	test.That(t, err, test.ShouldBeNil)
+	model, err := UnmarshalModelJSON(jsonData, "")
+	test.That(t, err, test.ShouldBeNil)
+	fs.AddFrame(model, fs.World())
+	eePose, err := model.Transform(make([]Input, len(model.DoF())))
+	test.That(t, err, test.ShouldBeNil)
+
+	// add a static frame as a child of the model
+	name2 := "block"
+	pose2 := spatial.NewPoseFromPoint(r3.Vector{2, 2, 2})
+	box2, err := spatial.NewBox(pose2, dims, name2)
+	test.That(t, err, test.ShouldBeNil)
+	blockFrame, err := NewStaticFrameWithGeometry(name2, pose2, box2)
+	test.That(t, err, test.ShouldBeNil)
+	fs.AddFrame(blockFrame, model)
+
+	// function to check that boxes relying on inputs are returned and where they are supposed to be
+	dynamicGeometriesOK := func(t *testing.T, geometries map[string]*GeometriesInFrame) {
+		t.Helper()
+		g0, ok := geometries[model.Name()]
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, g0.Parent(), test.ShouldResemble, World)
+		test.That(t, len(g0.Geometries()), test.ShouldBeGreaterThan, 0)
+		g1, ok := geometries[name2]
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, g1.Parent(), test.ShouldResemble, World)
+		test.That(t, spatial.PoseAlmostCoincident(g1.Geometries()[0].Pose(), spatial.Compose(eePose, pose1)), test.ShouldBeTrue)
+	}
+
+	// test that boxes are where they should be regardless of input, since neither depend on input to be located
+	for _, tc := range []testCase{
+		{name: "non-nil inputs, non-zero DOF", inputs: StartPositions(fs), success: true},
+		{name: "nil inputs, non-zero DOF", inputs: nil, success: false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			geometries, err := FrameSystemGeometries(fs, tc.inputs)
+			if !tc.success {
+				test.That(t, err, test.ShouldNotBeNil)
+			} else {
+				test.That(t, err, test.ShouldBeNil)
+				dynamicGeometriesOK(t, geometries)
+			}
+			staticGeometriesOK(t, geometries)
+		})
+	}
 }
