@@ -19,6 +19,7 @@ type fakeKinematics struct {
 	options                       Options
 	sensorNoise                   spatialmath.Pose
 	lock                          sync.Mutex
+	fs                            referenceframe.FrameSystem
 }
 
 // WrapWithFakeKinematics creates a KinematicBase from the fake Base so that it satisfies the ModelFramer and InputEnabled interfaces.
@@ -64,7 +65,15 @@ func WrapWithFakeKinematics(
 	}
 
 	fk.options = options
+
+	fs := referenceframe.NewEmptyFrameSystem("fakeKinematics")
+	fs.AddFrame(fk.planningFrame, fs.World())
+	fk.fs = fs
 	return fk, nil
+}
+
+func (fk *fakeKinematics) FrameSystem() referenceframe.FrameSystem {
+	return fk.fs
 }
 
 func (fk *fakeKinematics) Kinematics() referenceframe.Frame {

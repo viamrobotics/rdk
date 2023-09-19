@@ -49,6 +49,7 @@ func wrapWithPTGKinematics(
 	logger golog.Logger,
 	localizer motion.Localizer,
 	options Options,
+	fs referenceframe.FrameSystem,
 ) (KinematicBase, error) {
 	properties, err := b.Properties(ctx, nil)
 	if err != nil {
@@ -77,7 +78,7 @@ func wrapWithPTGKinematics(
 		return nil, err
 	}
 
-	frame, err := tpspace.NewPTGFrameFromKinematicOptions(
+	ptgFrame, err := tpspace.NewPTGFrameFromKinematicOptions(
 		b.Name().ShortName(),
 		logger,
 		baseMillimetersPerSecond,
@@ -91,12 +92,12 @@ func wrapWithPTGKinematics(
 		return nil, err
 	}
 
-	fs := referenceframe.NewEmptyFrameSystem("")
-	if err := fs.AddFrame(frame, fs.World()); err != nil {
+	// replace the base frame with ptgFrame
+	if err := fs.ReplaceFrame(fs, fs.Frame(b.Name().Name), ptgFrame); err != nil {
 		return nil, err
 	}
 
-	ptgProv, ok := frame.(tpspace.PTGProvider)
+	ptgProv, ok := ptgFrame.(tpspace.PTGProvider)
 	if !ok {
 		return nil, errors.New("unable to cast ptgk frame to a PTG Provider")
 	}
@@ -106,11 +107,15 @@ func wrapWithPTGKinematics(
 		Base:         b,
 		Localizer:    localizer,
 		logger:       logger,
-		frame:        frame,
+		frame:        ptgFrame,
 		fs:           fs,
 		ptgs:         ptgs,
 		currentInput: zeroInput,
 	}, nil
+}
+
+func (ptgk *ptgBaseKinematics) FrameSystem() referenceframe.FrameSystem {
+	return ptgk.fs
 }
 
 func (ptgk *ptgBaseKinematics) Kinematics() referenceframe.Frame {

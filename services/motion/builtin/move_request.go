@@ -183,26 +183,13 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 		return nil, fmt.Errorf("cannot move component of type %T because it is not a Base", baseComponent)
 	}
 
-	kb, err := kinematicbase.WrapWithKinematics(ctx, b, ms.logger, localizer, limits, kinematicsOptions)
+	fs, err := ms.fsService.FrameSystem(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	// create a new empty framesystem which we add the kinematic base to
-	fs := referenceframe.NewEmptyFrameSystem("")
-	kbf := kb.Kinematics()
-	if err := fs.AddFrame(kbf, fs.World()); err != nil {
-		return nil, err
-	}
-
-	// TODO(RSDK-3407): this does not adequately account for geometries right now since it is a transformation after the fact.
-	// This is probably acceptable for the time being, but long term the construction of the frame system for the kinematic base should
-	// be moved under the purview of the kinematic base wrapper instead of being done here.
-	offsetFrame, err := referenceframe.NewStaticFrame("offset", movementSensorToBase.Pose())
+	kb, err := kinematicbase.WrapWithKinematics(ctx, b, ms.logger, localizer, limits, kinematicsOptions, fs)
 	if err != nil {
-		return nil, err
-	}
-	if err := fs.AddFrame(offsetFrame, kbf); err != nil {
 		return nil, err
 	}
 
@@ -211,9 +198,9 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 		planRequest: &motionplan.PlanRequest{
 			Logger:             ms.logger,
 			Goal:               referenceframe.NewPoseInFrame(referenceframe.World, goal),
-			Frame:              offsetFrame,
-			FrameSystem:        fs,
-			StartConfiguration: referenceframe.StartPositions(fs),
+			Frame:              kb.Kinematics(),
+			FrameSystem:        kb.FrameSystem(),
+			StartConfiguration: referenceframe.StartPositions(kb.FrameSystem()),
 			WorldState:         worldState,
 			Options:            extra,
 		},

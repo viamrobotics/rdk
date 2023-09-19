@@ -12,6 +12,7 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
@@ -495,6 +496,11 @@ func TestMoveOnMapTimeout(t *testing.T) {
 	ms, err := NewBuiltIn(ctx, deps, conf, logger)
 	test.That(t, err, test.ShouldBeNil)
 
+	fsSvc, err := framesystem.New(ctx, deps, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	ms.(*builtIn).fsService = fsSvc
+
 	easyGoal := spatialmath.NewPoseFromPoint(r3.Vector{X: 1001, Y: 1001})
 	// create motion config
 	motionCfg := make(map[string]interface{})
@@ -726,6 +732,8 @@ func TestCheckPlan(t *testing.T) {
 	motionCfg := make(map[string]interface{})
 	// fail if we don't find a plan in 5 seconds
 	motionCfg["timeout"] = 5.
+
+	// ms.(*builtIn).fsService = fsSvc
 
 	// get plan and kinematic base
 	moveRequest, err := ms.(*builtIn).newMoveOnGlobeRequest(
@@ -1177,6 +1185,11 @@ func TestStoppableMoveFunctions(t *testing.T) {
 				logger,
 			)
 			test.That(t, err, test.ShouldBeNil)
+
+			fsSvc, err := framesystem.New(ctx, deps, logger)
+			test.That(t, err, test.ShouldBeNil)
+
+			ms.(*builtIn).fsService = fsSvc
 
 			goal := spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 500})
 			success, err := ms.MoveOnMap(ctx, injectBase.Name(), goal, injectSlam.Name(), nil)

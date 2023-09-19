@@ -161,7 +161,7 @@ func buildTestDDK(
 	options := NewKinematicBaseOptions()
 	options.LinearVelocityMMPerSec = linVel
 	options.AngularVelocityDegsPerSec = angVel
-	kb, err := wrapWithDifferentialDriveKinematics(ctx, b, logger, motion.NewSLAMLocalizer(fakeSLAM), limits, options)
+	kb, err := wrapWithDifferentialDriveKinematics(ctx, b, logger, motion.NewSLAMLocalizer(fakeSLAM), limits, options, referenceframe.NewEmptyFrameSystem("test"))
 	if err != nil {
 		return nil, err
 	}

@@ -32,6 +32,7 @@ func wrapWithDifferentialDriveKinematics(
 	localizer motion.Localizer,
 	limits []referenceframe.Limit,
 	options Options,
+	fs referenceframe.FrameSystem,
 ) (KinematicBase, error) {
 	ddk := &differentialDriveKinematics{
 		Base:      b,
@@ -65,6 +66,12 @@ func wrapWithDifferentialDriveKinematics(
 	} else {
 		ddk.planningFrame = ddk.executionFrame
 	}
+
+	// replace the base frame with ddk.planningFrame
+	if err = fs.ReplaceFrame(fs, fs.Frame(b.Name().Name), ddk.executionFrame); err != nil {
+		return nil, err
+	}
+	ddk.fs = fs
 	return ddk, nil
 }
 
@@ -74,10 +81,15 @@ type differentialDriveKinematics struct {
 	logger                        golog.Logger
 	planningFrame, executionFrame referenceframe.Model
 	options                       Options
+	fs                            referenceframe.FrameSystem
 }
 
 func (ddk *differentialDriveKinematics) Kinematics() referenceframe.Frame {
 	return ddk.planningFrame
+}
+
+func (ddk *differentialDriveKinematics) FrameSystem() referenceframe.FrameSystem {
+	return ddk.fs
 }
 
 func (ddk *differentialDriveKinematics) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {

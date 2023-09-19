@@ -32,7 +32,7 @@ func TestPTGKinematics(t *testing.T) {
 
 	ctx := context.Background()
 
-	kb, err := WrapWithKinematics(ctx, b, logger, nil, nil, NewKinematicBaseOptions())
+	kb, err := WrapWithKinematics(ctx, b, logger, nil, nil, NewKinematicBaseOptions(), referenceframe.NewEmptyFrameSystem("test"))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, kb, test.ShouldNotBeNil)
 	ptgBase, ok := kb.(*ptgBaseKinematics)
@@ -78,7 +78,7 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 
 	kbOpt := NewKinematicBaseOptions()
 	kbOpt.AngularVelocityDegsPerSec = 0
-	kb, err := WrapWithKinematics(ctx, b, logger, nil, nil, kbOpt)
+	kb, err := WrapWithKinematics(ctx, b, logger, nil, nil, kbOpt, referenceframe.NewEmptyFrameSystem("test"))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, kb, test.ShouldNotBeNil)
 	ptgBase, ok := kb.(*ptgBaseKinematics)
