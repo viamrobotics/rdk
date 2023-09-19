@@ -59,17 +59,7 @@ func WrapMotorWithEncoder(
 	return mm, nil
 }
 
-// NewEncodedMotor creates a new motor that supports an arbitrary source of encoder information.
-func NewEncodedMotor(
-	conf resource.Config,
-	motorConfig Config,
-	realMotor motor.Motor,
-	encoder encoder.Encoder,
-	logger golog.Logger,
-) (motor.Motor, error) {
-	return newEncodedMotor(conf.ResourceName(), motorConfig, realMotor, encoder, logger)
-}
-
+// newEncodedMotor creates a new motor that supports an arbitrary source of encoder information.
 func newEncodedMotor(
 	name resource.Name,
 	motorConfig Config,
