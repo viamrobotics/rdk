@@ -75,15 +75,13 @@ func BenchmarkERCCL(b *testing.B) {
 		Ppx:    213.47967529296875,
 		Ppy:    124.63351440429688,
 	}
-	img, err := rimage.NewImageFromFile(artifact.MustPath("pointcloud/the_color_image_intel_424.jpg"))
-	test.That(b, err, test.ShouldBeNil)
-	dm, err := rimage.NewDepthMapFromFile(context.Background(), artifact.MustPath("pointcloud/the_depth_image_intel_424.png"))
-	test.That(b, err, test.ShouldBeNil)
 	// create the fake camera
-	//logger := golog.NewTestLogger(b)
 	injectCamera := &inject.Camera{}
 	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
-		//return pointcloud.NewFromFile(artifact.MustPath("pointcloud/intel_d435_pointcloud_424.pcd"), logger)
+		img, err := rimage.NewImageFromFile(artifact.MustPath("pointcloud/the_color_image_intel_424.jpg"))
+		test.That(b, err, test.ShouldBeNil)
+		dm, err := rimage.NewDepthMapFromFile(context.Background(), artifact.MustPath("pointcloud/the_depth_image_intel_424.png"))
+		test.That(b, err, test.ShouldBeNil)
 		return params.RGBDToPointCloud(img, dm)
 	}
 	var pts []*vision.Object
