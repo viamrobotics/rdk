@@ -266,7 +266,7 @@ func TestFrameSystemGeometries(t *testing.T) {
 		g1, ok := geometries[name1]
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, g1.Parent(), test.ShouldResemble, World)
-		test.That(t, spatialmath.PoseAlmostCoincident(g1.Geometries()[0].Pose(), spatialmath.Compose(pose0, pose1)), test.ShouldBeTrue)
+		test.That(t, spatial.PoseAlmostCoincident(g1.Geometries()[0].Pose(), spatial.Compose(pose0, pose1)), test.ShouldBeTrue)
 	}
 
 	type testCase struct {
