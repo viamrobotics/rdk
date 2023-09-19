@@ -2631,6 +2631,9 @@ func TestOrphanedResources(t *testing.T) {
 					Name:  "g",
 					Model: gizmoModel,
 					API:   gizmoAPI,
+					Attributes: rutils.AttributeMap{
+						"arg1": "foo",
+					},
 				},
 			},
 			Services: []resource.Config{
@@ -2658,6 +2661,9 @@ func TestOrphanedResources(t *testing.T) {
 					Name:  "g",
 					Model: gizmoModel,
 					API:   gizmoAPI,
+					Attributes: rutils.AttributeMap{
+						"arg1": "foo",
+					},
 				},
 			},
 			Services: []resource.Config{
@@ -2686,6 +2692,9 @@ func TestOrphanedResources(t *testing.T) {
 					Name:  "g",
 					Model: gizmoModel,
 					API:   gizmoAPI,
+					Attributes: rutils.AttributeMap{
+						"arg1": "foo",
+					},
 				},
 			},
 			Services: []resource.Config{
@@ -2881,6 +2890,9 @@ func TestDependentAndOrphanedResources(t *testing.T) {
 				API:       resource.APINamespace("acme").WithComponentType("gizmo"),
 				Model:     gizmoModel,
 				DependsOn: []string{"m"},
+				Attributes: rutils.AttributeMap{
+					"arg1": "foo",
+				},
 			},
 			{
 				Name:                "m",
@@ -2918,6 +2930,9 @@ func TestDependentAndOrphanedResources(t *testing.T) {
 				API:       resource.APINamespace("acme").WithComponentType("gizmo"),
 				Model:     gizmoModel,
 				DependsOn: []string{"m"},
+				Attributes: rutils.AttributeMap{
+					"arg1": "foo",
+				},
 			},
 			{
 				Name:                "m",
@@ -2954,6 +2969,9 @@ func TestDependentAndOrphanedResources(t *testing.T) {
 				API:       resource.APINamespace("acme").WithComponentType("gizmo"),
 				Model:     gizmoModel,
 				DependsOn: []string{"m"},
+				Attributes: rutils.AttributeMap{
+					"arg1": "foo",
+				},
 			},
 			{
 				Name:                "m",
