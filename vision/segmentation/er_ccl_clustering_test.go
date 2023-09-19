@@ -11,6 +11,8 @@ import (
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
@@ -65,13 +67,26 @@ func TestERCCL(t *testing.T) {
 }
 
 func BenchmarkERCCL(b *testing.B) {
-	logger := golog.NewTestLogger(b)
+	params := &transform.PinholeCameraIntrinsics{ // D435 intrinsics for 424x240
+		Width:  424,
+		Height: 240,
+		Fx:     304.1299133300781,
+		Fy:     304.2772216796875,
+		Ppx:    213.47967529296875,
+		Ppy:    124.63351440429688,
+	}
+	img, err := rimage.NewImageFromFile(artifact.MustPath("pointcloud/the_color_image_intel_424.jpg"))
+	test.That(b, err, test.ShouldBeNil)
+	dm, err := rimage.NewDepthMapFromFile(context.Background(), artifact.MustPath("pointcloud/the_depth_image_intel_424.png"))
+	test.That(b, err, test.ShouldBeNil)
+	// create the fake camera
+	//logger := golog.NewTestLogger(b)
 	injectCamera := &inject.Camera{}
 	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
-		return pointcloud.NewFromFile(artifact.MustPath("pointcloud/intel_d435_pointcloud_424.pcd"), logger)
+		//return pointcloud.NewFromFile(artifact.MustPath("pointcloud/intel_d435_pointcloud_424.pcd"), logger)
+		return params.RGBDToPointCloud(img, dm)
 	}
 	var pts []*vision.Object
-	var err error
 	// do segmentation
 	objConfig := utils.AttributeMap{
 		// lidar config
