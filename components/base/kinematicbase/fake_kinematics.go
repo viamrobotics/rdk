@@ -67,7 +67,9 @@ func WrapWithFakeKinematics(
 	fk.options = options
 
 	fs := referenceframe.NewEmptyFrameSystem("fakeKinematics")
-	fs.AddFrame(fk.planningFrame, fs.World())
+	if err = fs.AddFrame(fk.planningFrame, fs.World()); err != nil {
+		return nil, err
+	}
 	fk.fs = fs
 	return fk, nil
 }

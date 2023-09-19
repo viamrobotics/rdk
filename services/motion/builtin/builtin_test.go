@@ -12,7 +12,6 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
-
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
@@ -492,11 +491,15 @@ func TestMoveOnMapTimeout(t *testing.T) {
 		injectSlam.Name(): injectSlam,
 		realBase.Name():   realBase,
 	}
+	fsParts := []*referenceframe.FrameSystemPart{
+		{FrameConfig: createBaseLink(t, "test-base")},
+	}
+
 	conf := resource.Config{ConvertedAttributes: &Config{}}
 	ms, err := NewBuiltIn(ctx, deps, conf, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	fsSvc, err := framesystem.New(ctx, deps, logger)
+	fsSvc, err := createFrameSystemService(ctx, deps, fsParts, logger)
 	test.That(t, err, test.ShouldBeNil)
 	ms.(*builtIn).fsService = fsSvc
 
@@ -506,7 +509,7 @@ func TestMoveOnMapTimeout(t *testing.T) {
 	motionCfg["timeout"] = 0.01
 	success, err := ms.MoveOnMap(
 		context.Background(),
-		base.Named("test_base"),
+		base.Named("test-base"),
 		easyGoal,
 		slam.Named("test_slam"),
 		motionCfg,
@@ -1141,12 +1144,14 @@ func TestStoppableMoveFunctions(t *testing.T) {
 				injectMovementSensor.Name(): injectMovementSensor,
 			}
 
-			_, err := createFrameSystemService(ctx, deps, fsParts, logger)
+			fsSvc, err := createFrameSystemService(ctx, deps, fsParts, logger)
 			test.That(t, err, test.ShouldBeNil)
 
 			conf := resource.Config{ConvertedAttributes: &Config{}}
 			ms, err := NewBuiltIn(ctx, deps, conf, logger)
 			test.That(t, err, test.ShouldBeNil)
+
+			ms.(*builtIn).fsService = fsSvc
 
 			goal := geo.NewPoint(gpsPoint.Lat()+1e-4, gpsPoint.Lng()+1e-4)
 			motionCfg := motion.MotionConfiguration{
@@ -1174,6 +1179,9 @@ func TestStoppableMoveFunctions(t *testing.T) {
 				injectBase.Name(): injectBase,
 				injectSlam.Name(): injectSlam,
 			}
+			fsParts := []*referenceframe.FrameSystemPart{
+				{FrameConfig: baseLink},
+			}
 
 			ms, err := NewBuiltIn(
 				ctx,
@@ -1183,9 +1191,8 @@ func TestStoppableMoveFunctions(t *testing.T) {
 			)
 			test.That(t, err, test.ShouldBeNil)
 
-			fsSvc, err := framesystem.New(ctx, deps, logger)
+			fsSvc, err := createFrameSystemService(ctx, deps, fsParts, logger)
 			test.That(t, err, test.ShouldBeNil)
-
 			ms.(*builtIn).fsService = fsSvc
 
 			goal := spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 500})

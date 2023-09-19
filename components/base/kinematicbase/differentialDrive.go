@@ -68,7 +68,7 @@ func wrapWithDifferentialDriveKinematics(
 	}
 
 	// replace the base frame with ddk.planningFrame
-	if err = fs.ReplaceFrame(fs, fs.Frame(b.Name().Name), ddk.executionFrame); err != nil {
+	if err = fs.ReplaceFrame(fs, fs.Frame(b.Name().Name), ddk.planningFrame); err != nil {
 		return nil, err
 	}
 	ddk.fs = fs
