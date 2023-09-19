@@ -18,7 +18,7 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-var printPath = true
+var printPath = false
 
 const testTurnRad = 0.3
 
@@ -47,7 +47,6 @@ func TestPtgRrtBidirectional(t *testing.T) {
 
 	opt := newBasicPlannerOptions(ackermanFrame)
 	opt.DistanceFunc = ik.NewSquaredNormSegmentMetric(30.)
-	opt.SetGoalMetric(ik.NewSquaredNormMetric(goalPos))
 	mp, err := newTPSpaceMotionPlanner(ackermanFrame, rand.New(rand.NewSource(42)), logger, opt)
 	test.That(t, err, test.ShouldBeNil)
 	tp, ok := mp.(*tpSpaceRRTMotionPlanner)
@@ -81,24 +80,24 @@ func TestPtgRrtBidirectional(t *testing.T) {
 			}
 		}
 	}
-	//~ plan = tp.smoothPath(ctx, plan)
-	//~ if tp.algOpts.pathdebug {
-		//~ lastPose = spatialmath.NewZeroPose()
-		//~ for _, mynode := range plan {
-			//~ trajPts, _ := allPtgs[int(mynode.Q()[0].Value)].Trajectory(mynode.Q()[1].Value, mynode.Q()[2].Value)
-			//~ for i, pt := range trajPts {
-				//~ intPose := spatialmath.Compose(lastPose, pt.Pose)
-				//~ if i == 0 {
-					//~ tp.logger.Debugf("$SMOOTHWP,%f,%f\n", intPose.Point().X, intPose.Point().Y)
-				//~ }
-				//~ tp.logger.Debugf("$SMOOTHPATH,%f,%f\n", intPose.Point().X, intPose.Point().Y)
-				//~ if pt.Dist >= mynode.Q()[2].Value {
-					//~ lastPose = intPose
-					//~ break
-				//~ }
-			//~ }
-		//~ }
-	//~ }
+	plan = tp.smoothPath(ctx, plan)
+	if tp.algOpts.pathdebug {
+		lastPose = spatialmath.NewZeroPose()
+		for _, mynode := range plan {
+			trajPts, _ := allPtgs[int(mynode.Q()[0].Value)].Trajectory(mynode.Q()[1].Value, mynode.Q()[2].Value)
+			for i, pt := range trajPts {
+				intPose := spatialmath.Compose(lastPose, pt.Pose)
+				if i == 0 {
+					tp.logger.Debugf("$SMOOTHWP,%f,%f\n", intPose.Point().X, intPose.Point().Y)
+				}
+				tp.logger.Debugf("$SMOOTHPATH,%f,%f\n", intPose.Point().X, intPose.Point().Y)
+				if pt.Dist >= mynode.Q()[2].Value {
+					lastPose = intPose
+					break
+				}
+			}
+		}
+	}
 }
 
 func TestPtgRrtUnidirectional(t *testing.T) {
@@ -126,7 +125,7 @@ func TestPtgRrtUnidirectional(t *testing.T) {
 
 	opt := newBasicPlannerOptions(ackermanFrame)
 	opt.DistanceFunc = ik.SquaredNormNoOrientSegmentMetric
-	opt.SetGoalMetric(ik.NewPositionOnlyMetric(goalPos))
+	opt.goalMetricConstructor = ik.NewPositionOnlyMetric
 	mp, err := newTPSpaceMotionPlanner(ackermanFrame, rand.New(rand.NewSource(42)), logger, opt)
 	test.That(t, err, test.ShouldBeNil)
 	tp, ok := mp.(*tpSpaceRRTMotionPlanner)
@@ -208,9 +207,7 @@ func TestPtgWithObstacle(t *testing.T) {
 	fs.AddFrame(ackermanFrame, fs.World())
 
 	opt := newBasicPlannerOptions(ackermanFrame)
-	opt.DistanceFunc = ik.SquaredNormNoOrientSegmentMetric
-	opt.SetGoalMetric(ik.NewPositionOnlyMetric(goalPos))
-	//~ opt.DistanceFunc = ik.NewSquaredNormSegmentMetric(30.)
+	opt.DistanceFunc = ik.NewSquaredNormSegmentMetric(30.)
 	opt.GoalThreshold = 5
 	// obstacles
 	obstacle1, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{3300, -500, 0}), r3.Vector{180, 1800, 1}, "")
@@ -297,41 +294,6 @@ func TestPtgWithObstacle(t *testing.T) {
 			}
 		}
 	}
-}
-
-func TestIKPtgRrt(t *testing.T) {
-	t.Parallel()
-	logger := golog.NewTestLogger(t)
-	roverGeom, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{10, 10, 10}, "")
-	test.That(t, err, test.ShouldBeNil)
-	geometries := []spatialmath.Geometry{roverGeom}
-
-	ackermanFrame, err := tpspace.NewPTGFrameFromKinematicOptions(
-		"ackframe",
-		logger,
-		300.,
-		0,
-		testTurnRad,
-		0,
-		geometries,
-		false,
-	)
-	test.That(t, err, test.ShouldBeNil)
-
-	goalPos := spatialmath.NewPose(r3.Vector{X: 50, Y: 10, Z: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 180})
-
-	opt := newBasicPlannerOptions(ackermanFrame)
-	opt.SetGoalMetric(ik.NewPositionOnlyMetric(goalPos))
-	opt.DistanceFunc = ik.SquaredNormNoOrientSegmentMetric
-	opt.GoalThreshold = 10.
-	mp, err := newTPSpaceMotionPlanner(ackermanFrame, rand.New(rand.NewSource(42)), logger, opt)
-	test.That(t, err, test.ShouldBeNil)
-	tp, ok := mp.(*tpSpaceRRTMotionPlanner)
-	test.That(t, ok, test.ShouldBeTrue)
-
-	plan, err := tp.plan(context.Background(), goalPos, nil)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(plan), test.ShouldBeGreaterThanOrEqualTo, 2)
 }
 
 func TestTPsmoothing(t *testing.T) {

@@ -136,6 +136,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 			if err != nil {
 				return nil, err
 			}
+			opt.SetGoal(to)
 			opts = append(opts, opt)
 
 			from = to
@@ -147,6 +148,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
+	opt.SetGoal(goalPos)
 	opts = append(opts, opt)
 
 	planners := make([]motionPlanner, 0, len(opts))
@@ -447,7 +449,6 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 
 	// Start with normal options
 	opt := newBasicPlannerOptions(pm.frame)
-	opt.SetGoalMetric(ik.NewSquaredNormMetric(to))
 
 	opt.extra = planningOpts
 
@@ -557,7 +558,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		opt.AddStateConstraint(defaultOrientationConstraintDesc, constraint)
 		opt.pathMetric = pathMetric
 	case PositionOnlyMotionProfile:
-		opt.SetGoalMetric(ik.NewPositionOnlyMetric(to))
+		opt.goalMetricConstructor = ik.NewPositionOnlyMetric
 	case FreeMotionProfile:
 		// No restrictions on motion
 		fallthrough

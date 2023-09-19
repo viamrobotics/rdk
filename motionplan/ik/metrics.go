@@ -98,14 +98,16 @@ func NewSquaredNormMetric(goal spatial.Pose) StateMetric {
 	return weightedSqNormDist
 }
 
-// NewPoseFlexOVMetric will provide a distance function which will converge on a pose with an OV within an arclength of `alpha`
+// NewPoseFlexOVMetricConstructor will provide a distance function which will converge on a pose with an OV within an arclength of `alpha`
 // of the ov of the goal given.
-func NewPoseFlexOVMetric(goal spatial.Pose, alpha float64) StateMetric {
-	oDistFunc := OrientDistToRegion(goal.Orientation(), alpha)
-	return func(state *State) float64 {
-		pDist := state.Position.Point().Distance(goal.Point())
-		oDist := oDistFunc(state.Position.Orientation())
-		return pDist*pDist + oDist*oDist
+func NewPoseFlexOVMetricConstructor(alpha float64) func(spatial.Pose) StateMetric {
+	return func(goal spatial.Pose) StateMetric {
+		oDistFunc := OrientDistToRegion(goal.Orientation(), alpha)
+		return func(state *State) float64 {
+			pDist := state.Position.Point().Distance(goal.Point())
+			oDist := oDistFunc(state.Position.Orientation())
+			return pDist*pDist + oDist*oDist
+		}
 	}
 }
 

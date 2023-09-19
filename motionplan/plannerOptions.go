@@ -70,6 +70,7 @@ const (
 // NewBasicPlannerOptions specifies a set of basic options for the planner.
 func newBasicPlannerOptions(frame referenceframe.Frame) *plannerOptions {
 	opt := &plannerOptions{}
+	opt.goalMetricConstructor = ik.NewSquaredNormMetric
 	opt.goalArcScore = ik.JointMetric
 	opt.DistanceFunc = ik.L2InputMetric
 	opt.pathMetric = ik.NewZeroMetric() // By default, the distance to the valid manifold is zero, unless constraints say otherwise
@@ -102,6 +103,7 @@ func newBasicPlannerOptions(frame referenceframe.Frame) *plannerOptions {
 // plannerOptions are a set of options to be passed to a planner which will specify how to solve a motion planning problem.
 type plannerOptions struct {
 	ConstraintHandler
+	goalMetricConstructor func(spatialmath.Pose) ik.StateMetric
 	goalMetric   ik.StateMetric // Distance function which converges to the final goal position
 	goalArcScore ik.SegmentMetric
 	pathMetric   ik.StateMetric // Distance function which converges on the valid manifold of intermediate path states
@@ -157,8 +159,8 @@ type plannerOptions struct {
 }
 
 // SetMetric sets the distance metric for the solver.
-func (p *plannerOptions) SetGoalMetric(m ik.StateMetric) {
-	p.goalMetric = m
+func (p *plannerOptions) SetGoal(goal spatialmath.Pose) {
+	p.goalMetric = p.goalMetricConstructor(goal)
 }
 
 // SetPathDist sets the distance metric for the solver to move a constraint-violating point into a valid manifold.
