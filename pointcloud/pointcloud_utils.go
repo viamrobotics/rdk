@@ -26,15 +26,8 @@ func BoundingBoxFromPointCloudWithLabel(cloud PointCloud, label string) (spatial
 	dims := r3.Vector{math.Abs(meta.MaxX - meta.MinX), math.Abs(meta.MaxY - meta.MinY), math.Abs(meta.MaxZ - meta.MinZ)}
 
 	// calculate the spatial average center of a given point cloud
-	x, y, z := 0.0, 0.0, 0.0
 	n := float64(cloud.Size())
-	cloud.Iterate(0, 0, func(v r3.Vector, d Data) bool {
-		x += v.X
-		y += v.Y
-		z += v.Z
-		return true
-	})
-	mean := r3.Vector{x / n, y / n, z / n}
+	mean := r3.Vector{meta.TotalX() / n, meta.TotalY() / n, meta.TotalZ() / n}
 
 	// calculate the dimensions of the bounding box formed by finding the dimensions of each axes' extrema
 	return spatialmath.NewBox(spatialmath.NewPoseFromPoint(mean), dims, label)
