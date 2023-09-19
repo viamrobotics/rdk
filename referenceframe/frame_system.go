@@ -2,6 +2,7 @@ package referenceframe
 
 import (
 	"encoding/json"
+	"fmt"
 	"sort"
 
 	"github.com/edaniels/golog"
@@ -404,14 +405,17 @@ func (sfs *simpleFrameSystem) getFrameToWorldTransform(inputMap map[string][]Inp
 // ReplaceFrame transfers replaceMe's children and parentage to replaceWith. ReplaceMe is removed entirely from the frame system.
 // ReplaceWith is not allowed to exist within the frame system at the time of the call.
 func (sfs *simpleFrameSystem) ReplaceFrame(fs FrameSystem, replaceMe, replaceWith Frame) error {
-	if len(fs.FrameNames()) == 0 {
-		return errors.New("cannot replace frames within an empty framesystem")
-	}
 	if replaceMe.Name() == replaceWith.Name() {
-		return errors.New("replaceWith cannot have the same name as replaceMe")
+		return fmt.Errorf("%s (replaceMe) cannot have the same name as %s (replaceWith)", replaceWith.Name(), replaceMe.Name())
+	}
+	if fs.Frame(replaceMe.Name()) == nil {
+		return fmt.Errorf("%s not found in framesystem", replaceMe.Name())
+	}
+	if replaceMe == fs.World() {
+		return fmt.Errorf("%s is the world of the framsystem - which cannot be replaced", replaceMe.Name())
 	}
 	if fs.Frame(replaceWith.Name()) != nil {
-		return errors.New("replaceWith is not allowed to exist within the framesystem at the time of this call")
+		return fmt.Errorf("%s is not allowed to exist within the framesystem at the time of this call", replaceWith.Name())
 	}
 
 	// get replaceMe's parent
