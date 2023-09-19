@@ -439,7 +439,7 @@ func TestArbitraryFileUpload(t *testing.T) {
 				actMD := urs[0].GetMetadata()
 				test.That(t, actMD, test.ShouldNotBeNil)
 				test.That(t, actMD.Type, test.ShouldEqual, v1.DataType_DATA_TYPE_FILE)
-				test.That(t, actMD.FileName, test.ShouldEqual, fileName)
+				test.That(t, filepath.Base(actMD.FileName), test.ShouldEqual, fileName)
 				test.That(t, actMD.FileExtension, test.ShouldEqual, fileExt)
 				test.That(t, actMD.PartId, test.ShouldNotBeBlank)
 
