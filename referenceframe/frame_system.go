@@ -404,20 +404,34 @@ func (sfs *simpleFrameSystem) getFrameToWorldTransform(inputMap map[string][]Inp
 // ReplaceFrame transfers replaceMe's children and parentage to replaceWith. ReplaceMe is removed entirely from the frame system.
 // ReplaceWith is not allowed to exist within the frame system at the time of the call.
 func (sfs *simpleFrameSystem) ReplaceFrame(fs FrameSystem, replaceMe, replaceWith Frame) error {
-	// loop through and replace frame with parent as replaceMe with replaceWith
-	for f, parent := range sfs.parents {
-		if parent == replaceMe {
-			delete(sfs.parents, f)
-			sfs.parents[f] = replaceWith
-		}
+	if len(fs.FrameNames()) == 0 {
+		return errors.New("cannot replace frames within an empty framesystem")
 	}
+	if replaceMe.Name() == replaceWith.Name() {
+		return errors.New("replaceWith cannot have the same name as replaceMe")
+	}
+	if fs.Frame(replaceWith.Name()) != nil {
+		return errors.New("replaceWith is not allowed to exist within the framesystem at the time of this call")
+	}
+
 	// get replaceMe's parent
 	replaceMeParent, err := fs.Parent(replaceMe)
 	if err != nil {
 		return err
 	}
-	// remove replaceMe
-	fs.RemoveFrame(replaceMe)
+
+	for f, parent := range sfs.parents {
+		// if frame is replaceMe remove it entirely
+		if f == replaceMe {
+			delete(sfs.frames, f.Name())
+			delete(sfs.parents, f)
+		}
+		// replace frame with parent as replaceMe with replaceWith
+		if parent == replaceMe {
+			delete(sfs.parents, f)
+			sfs.parents[f] = replaceWith
+		}
+	}
 	// add replaceWith to fs with parent of replaceMe
 	if err = fs.AddFrame(replaceWith, replaceMeParent); err != nil {
 		return err

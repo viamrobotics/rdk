@@ -79,7 +79,7 @@ func wrapWithPTGKinematics(
 	}
 
 	ptgFrame, err := tpspace.NewPTGFrameFromKinematicOptions(
-		b.Name().ShortName(),
+		b.Name().ShortName()+"-PTGKinematics",
 		logger,
 		baseMillimetersPerSecond,
 		options.AngularVelocityDegsPerSec,

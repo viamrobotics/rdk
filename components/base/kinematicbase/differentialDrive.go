@@ -53,13 +53,14 @@ func wrapWithDifferentialDriveKinematics(
 	if len(geometries) > 0 {
 		geometry = geometries[0]
 	}
-	ddk.executionFrame, err = referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits, geometry)
+	frameName := b.Name().ShortName() + "-differentialDrive"
+	ddk.executionFrame, err = referenceframe.New2DMobileModelFrame(frameName, limits, geometry)
 	if err != nil {
 		return nil, err
 	}
 
 	if options.PositionOnlyMode {
-		ddk.planningFrame, err = referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits[:2], geometry)
+		ddk.planningFrame, err = referenceframe.New2DMobileModelFrame(frameName, limits[:2], geometry)
 		if err != nil {
 			return nil, err
 		}

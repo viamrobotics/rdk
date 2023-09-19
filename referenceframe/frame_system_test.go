@@ -546,3 +546,63 @@ func TestFrameSystemToPCD(t *testing.T) {
 		test.That(t, asBytes, test.ShouldEqual, checkAgainst)
 	})
 }
+
+func TestReplaceFrame(t *testing.T) {
+	fs := NewEmptyFrameSystem("test")
+	pose := spatial.NewZeroPose()
+	dims := r3.Vector{1, 1, 1}
+	box, err := spatial.NewBox(pose, dims, "box")
+	test.That(t, err, test.ShouldBeNil)
+
+	// ------ replaceMe frame
+	replaceMe, err := NewStaticFrameWithGeometry("replaceMe", pose, box)
+	test.That(t, err, test.ShouldBeNil)
+	err = fs.AddFrame(replaceMe, fs.World())
+	test.That(t, err, test.ShouldBeNil)
+
+	// ------ frame1
+	frame1, err := NewStaticFrameWithGeometry("frame1", pose, box)
+	test.That(t, err, test.ShouldBeNil)
+	err = fs.AddFrame(frame1, replaceMe)
+	test.That(t, err, test.ShouldBeNil)
+
+	// ------ frame2
+	frame2, err := NewStaticFrameWithGeometry("frame2", pose, box)
+	test.That(t, err, test.ShouldBeNil)
+	err = fs.AddFrame(frame2, frame1)
+	test.That(t, err, test.ShouldBeNil)
+
+	// ------ frame3
+	frame3, err := NewStaticFrameWithGeometry("frame3", pose, box)
+	test.That(t, err, test.ShouldBeNil)
+	err = fs.AddFrame(frame3, fs.World())
+	test.That(t, err, test.ShouldBeNil)
+
+	// ------ replaceWith frame
+	replaceWith, err := NewStaticFrameWithGeometry("replaceWith", pose, box)
+	test.That(t, err, test.ShouldBeNil)
+
+	err = fs.ReplaceFrame(fs, replaceMe, replaceWith)
+	test.That(t, err, test.ShouldBeNil)
+
+	// make sure replaceMe is gone
+	test.That(t, fs.Frame(replaceMe.Name()), test.ShouldBeNil)
+
+	// make sure parentage is transferred successfully
+	f, err := fs.Parent(replaceWith)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, f.Name(), test.ShouldEqual, fs.World().Name())
+
+	// make sure parentage is preserved
+	f, err = fs.Parent(frame1)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, f.Name(), test.ShouldEqual, replaceWith.Name())
+
+	f, err = fs.Parent(frame2)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, f.Name(), test.ShouldEqual, frame1.Name())
+
+	f, err = fs.Parent(frame3)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, f.Name(), test.ShouldEqual, fs.World().Name())
+}
