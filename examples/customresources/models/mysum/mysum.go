@@ -13,7 +13,7 @@ import (
 )
 
 type Config struct {
-	Subtract bool `json:"subtract"`
+	Subtract bool `json:"subtract,omitempty"`
 	resource.TriviallyValidateConfig
 }
 

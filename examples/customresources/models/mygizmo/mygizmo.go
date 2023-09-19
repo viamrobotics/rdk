@@ -16,7 +16,7 @@ import (
 var Model = resource.NewModel("acme", "demo", "mygizmo")
 
 type Config struct {
-	Arg string `json:"myArg"`
+	Arg string `json:"arg1"`
 	resource.TriviallyValidateConfig
 }
 
