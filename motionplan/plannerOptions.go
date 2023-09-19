@@ -104,9 +104,9 @@ func newBasicPlannerOptions(frame referenceframe.Frame) *plannerOptions {
 type plannerOptions struct {
 	ConstraintHandler
 	goalMetricConstructor func(spatialmath.Pose) ik.StateMetric
-	goalMetric   ik.StateMetric // Distance function which converges to the final goal position
-	goalArcScore ik.SegmentMetric
-	pathMetric   ik.StateMetric // Distance function which converges on the valid manifold of intermediate path states
+	goalMetric            ik.StateMetric // Distance function which converges to the final goal position
+	goalArcScore          ik.SegmentMetric
+	pathMetric            ik.StateMetric // Distance function which converges on the valid manifold of intermediate path states
 
 	extra map[string]interface{}
 

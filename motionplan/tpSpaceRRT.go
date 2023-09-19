@@ -49,7 +49,7 @@ const (
 	// For a unidirectional solve, this means attempting to reach the goal rather than a random point
 	// For a bidirectional solve, this means trying to connect the two trees directly.
 	defaultAttemptSolveEvery = 15
-	
+
 	defaultBidirectional = true
 )
 
@@ -279,7 +279,6 @@ func (mp *tpSpaceRRTMotionPlanner) planRunner(
 				return
 			}
 		}
-		//~ if iter%mp.algOpts.attemptSolveEvery == 0 && !mp.algOpts.bidirectional{
 		if iter%mp.algOpts.attemptSolveEvery == 0 {
 			// Attempt a solve; we exhaustively iterate through our goal tree and attempt to find any connection to the seed tree
 			paths := [][]node{}
@@ -292,7 +291,7 @@ func (mp *tpSpaceRRTMotionPlanner) planRunner(
 				if seedReached.node == nil {
 					continue
 				}
-				reachedDelta := math.Inf(1)
+				var reachedDelta float64
 				if mp.algOpts.bidirectional {
 					reachedDelta = mp.planOpts.DistanceFunc(&ik.Segment{StartPosition: seedReached.node.Pose(), EndPosition: goalMapNode.Pose()})
 				} else {
@@ -642,8 +641,8 @@ func (mp *tpSpaceRRTMotionPlanner) setupTPSpaceOptions() {
 
 		distOptions:       map[tpspace.PTG]*plannerOptions{},
 		invertDistOptions: map[tpspace.PTG]*plannerOptions{},
-		
-		bidirectional: defaultBidirectional,
+
+		bidirectional:         defaultBidirectional,
 		goalMetricConstructor: defaultGoalMetricConstructor,
 	}
 
