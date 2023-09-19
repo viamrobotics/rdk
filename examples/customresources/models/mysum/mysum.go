@@ -15,7 +15,7 @@ import (
 // Model is the full model definition.
 var Model = resource.NewModel("acme", "demo", "mysum")
 
-// Sum is the sum model's config
+// Config is the sum model's config.
 type Config struct {
 	Subtract bool `json:"subtract,omitempty"`
 	resource.TriviallyValidateConfig

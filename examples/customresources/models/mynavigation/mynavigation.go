@@ -23,7 +23,7 @@ func init() {
 	})
 }
 
-// Config is the navigation model's config
+// Config is the navigation model's config.
 type Config struct {
 	Lat  *float64 `json:"lat,omitempty"`
 	Long *float64 `json:"long,omitempty"`
