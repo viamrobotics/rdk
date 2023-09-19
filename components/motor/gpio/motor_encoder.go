@@ -496,6 +496,20 @@ func (m *EncodedMotor) IsMoving(ctx context.Context) (bool, error) {
 	return m.real.IsMoving(ctx)
 }
 
+// SetMotorState allows users to set the motor state values.
+func (m *EncodedMotor) SetMotorState(ctx context.Context, newState EncodedMotorState) {
+	m.stateMu.Lock()
+	defer m.stateMu.Unlock()
+	m.state = newState
+}
+
+// GetMotorState allows users to get the motor state values.
+func (m *EncodedMotor) GetMotorState(ctx context.Context) EncodedMotorState {
+	m.stateMu.Lock()
+	defer m.stateMu.Unlock()
+	return m.state
+}
+
 // Stop stops rpmMonitor and stops the real motor.
 func (m *EncodedMotor) Stop(ctx context.Context, extra map[string]interface{}) error {
 	m.stateMu.Lock()
