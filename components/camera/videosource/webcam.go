@@ -631,6 +631,8 @@ func (c *monitoredWebcam) Properties(ctx context.Context) (camera.Properties, er
 	if err != nil {
 		return camera.Properties{}, err
 	}
+	// Looking for intrinsics in map built using viam camera
+	// calibration here https://github.com/viam-labs/camera-calibration/tree/main
 	if props.IntrinsicParams == nil {
 		dInfo, err := c.DriverInfo()
 		if err != nil {
