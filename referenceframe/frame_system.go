@@ -400,32 +400,28 @@ func (sfs *simpleFrameSystem) getFrameToWorldTransform(inputMap map[string][]Inp
 }
 
 func (sfs *simpleFrameSystem) ReplaceFrame(fs FrameSystem, replaceMe, replaceWith Frame) error {
-	if len(fs.FrameNames()) == 0 {
-		fs.AddFrame(replaceWith, fs.World())
-		return nil
-	}
-
+	// loop through and replace frame with parent as replaceMe with replaceWith
 	for f, parent := range sfs.parents {
-		// replace frame with parent as replaceMe with replaceWith
 		if parent == replaceMe {
 			delete(sfs.parents, f)
 			sfs.parents[f] = replaceWith
 		}
 	}
 
-	// do this here in case replaceMe and replaceWith have the same name
 	// get replaceMe's parent
 	replaceMeParent, err := fs.Parent(replaceMe)
 	if err != nil {
 		return err
 	}
 
+	// remove replaceMe
 	fs.RemoveFrame(replaceMe)
 
 	// add replaceWith to fs with parent of replaceMe
 	if err = fs.AddFrame(replaceWith, replaceMeParent); err != nil {
 		return err
 	}
+
 	return nil
 }
 

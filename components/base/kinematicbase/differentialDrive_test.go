@@ -132,6 +132,7 @@ func TestInputDiff(t *testing.T) {
 	test.That(t, headingErr, test.ShouldAlmostEqual, 30)
 }
 
+// TODO: THIS TEST SHOULD CHECK FS STUFF
 func buildTestDDK(
 	ctx context.Context,
 	cfg resource.Config,
@@ -157,11 +158,19 @@ func buildTestDDK(
 	}
 	limits = append(limits, referenceframe.Limit{-2 * math.Pi, 2 * math.Pi})
 
+	// construct fs
+	fs := referenceframe.NewEmptyFrameSystem("baseFS")
+	baseFrame, err := referenceframe.NewStaticFrameWithGeometry(b.Name().Name, spatialmath.NewZeroPose(), geometries[0])
+	if err != nil {
+		return nil, err
+	}
+	fs.AddFrame(baseFrame, fs.World())
+
 	// construct differential drive kinematic base
 	options := NewKinematicBaseOptions()
 	options.LinearVelocityMMPerSec = linVel
 	options.AngularVelocityDegsPerSec = angVel
-	kb, err := wrapWithDifferentialDriveKinematics(ctx, b, logger, motion.NewSLAMLocalizer(fakeSLAM), limits, options, referenceframe.NewEmptyFrameSystem("test"))
+	kb, err := wrapWithDifferentialDriveKinematics(ctx, b, logger, motion.NewSLAMLocalizer(fakeSLAM), limits, options, fs)
 	if err != nil {
 		return nil, err
 	}
