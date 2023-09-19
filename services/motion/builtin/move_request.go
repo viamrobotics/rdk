@@ -188,8 +188,12 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 		return nil, err
 	}
 
-	kb, err := kinematicbase.WrapWithKinematics(ctx, b, ms.logger, localizer, limits, kinematicsOptions, fs)
+	kb, err := kinematicbase.WrapWithKinematics(ctx, b, ms.logger, localizer, limits, kinematicsOptions)
 	if err != nil {
+		return nil, err
+	}
+
+	if err = fs.ReplaceFrame(kb.Kinematics()); err != nil {
 		return nil, err
 	}
 
@@ -199,8 +203,8 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 			Logger:             ms.logger,
 			Goal:               referenceframe.NewPoseInFrame(referenceframe.World, goal),
 			Frame:              kb.Kinematics(),
-			FrameSystem:        kb.FrameSystem(),
-			StartConfiguration: referenceframe.StartPositions(kb.FrameSystem()),
+			FrameSystem:        fs,
+			StartConfiguration: referenceframe.StartPositions(fs),
 			WorldState:         worldState,
 			Options:            extra,
 		},

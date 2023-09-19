@@ -25,8 +25,6 @@ type KinematicBase interface {
 	// ErrorState takes a complete motionplan, as well as the index of the currently-executing set of inputs, and computes the pose
 	// difference between where the robot in fact is, and where it ought to be.
 	ErrorState(context.Context, [][]referenceframe.Input, int) (spatialmath.Pose, error)
-
-	FrameSystem() referenceframe.FrameSystem
 }
 
 const (
@@ -146,7 +144,6 @@ func WrapWithKinematics(
 	localizer motion.Localizer,
 	limits []referenceframe.Limit,
 	options Options,
-	fs referenceframe.FrameSystem,
 ) (KinematicBase, error) {
 	if kb, ok := b.(KinematicBase); ok {
 		return kb, nil
@@ -159,9 +156,9 @@ func WrapWithKinematics(
 
 	if !options.UsePTGs {
 		if properties.TurningRadiusMeters == 0 {
-			return wrapWithDifferentialDriveKinematics(ctx, b, logger, localizer, limits, options, fs)
+			return wrapWithDifferentialDriveKinematics(ctx, b, logger, localizer, limits, options)
 		}
 		return nil, errors.New("must use PTGs with nonzero turning radius")
 	}
-	return wrapWithPTGKinematics(ctx, b, logger, localizer, options, fs)
+	return wrapWithPTGKinematics(ctx, b, logger, localizer, options)
 }

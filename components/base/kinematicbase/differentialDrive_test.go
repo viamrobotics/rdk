@@ -72,7 +72,7 @@ func TestWrapWithDifferentialDriveKinematics(t *testing.T) {
 			test.That(t, limits[1].Max, test.ShouldBeGreaterThan, 0)
 			geometry, err := ddk.executionFrame.(*referenceframe.SimpleModel).Geometries(make([]referenceframe.Input, len(limits)))
 			test.That(t, err, test.ShouldBeNil)
-			equivalent := geometry.GeometryByName(testCfg.Name + "-differentialDrive:" + testCfg.Frame.Geometry.Label).AlmostEqual(expectedSphere)
+			equivalent := geometry.GeometryByName(testCfg.Name + ":" + testCfg.Frame.Geometry.Label).AlmostEqual(expectedSphere)
 			test.That(t, equivalent, test.ShouldBeTrue)
 		})
 	}
@@ -157,19 +157,11 @@ func buildTestDDK(
 	}
 	limits = append(limits, referenceframe.Limit{-2 * math.Pi, 2 * math.Pi})
 
-	// construct fs
-	fs := referenceframe.NewEmptyFrameSystem("baseFS")
-	baseFrame, err := referenceframe.NewStaticFrameWithGeometry(b.Name().Name, spatialmath.NewZeroPose(), geometries[0])
-	if err != nil {
-		return nil, err
-	}
-	fs.AddFrame(baseFrame, fs.World())
-
 	// construct differential drive kinematic base
 	options := NewKinematicBaseOptions()
 	options.LinearVelocityMMPerSec = linVel
 	options.AngularVelocityDegsPerSec = angVel
-	kb, err := wrapWithDifferentialDriveKinematics(ctx, b, logger, motion.NewSLAMLocalizer(fakeSLAM), limits, options, fs)
+	kb, err := wrapWithDifferentialDriveKinematics(ctx, b, logger, motion.NewSLAMLocalizer(fakeSLAM), limits, options)
 	if err != nil {
 		return nil, err
 	}

@@ -64,9 +64,10 @@ type FrameSystem interface {
 	// MergeFrameSystem combines two frame systems together, placing the world of systemToMerge at the attachTo frame in the frame system
 	MergeFrameSystem(systemToMerge FrameSystem, attachTo Frame) error
 
-	// ReplaceFrame transfers replaceMe's children and parentage to replaceWith. ReplaceMe is removed entirely from the frame system.
-	// ReplaceWith is not allowed to exist within the frame system at the time of the call.
-	ReplaceFrame(fs FrameSystem, replaceMe, replaceWith Frame) error
+	// ReplaceFrame finds the original frame which shares its name with replacementFrame. We then transfer the original
+	// frame's children and parentage to replacementFrame. The original frame is removed entirely from the frame system.
+	// replacementFrame is not allowed to exist within the frame system at the time of the call.
+	ReplaceFrame(replacementFrame Frame) error
 }
 
 // FrameSystemPart is used to collect all the info need from a named robot part to build the frame node in a frame system.
@@ -181,6 +182,7 @@ func (sfs *simpleFrameSystem) RemoveFrame(frame Frame) {
 	// Remove all descendents
 	for f, parent := range sfs.parents {
 		if parent == frame {
+			fmt.Println("REMOVING FRAME F: ", f.Name())
 			sfs.RemoveFrame(f)
 		}
 	}
@@ -402,24 +404,23 @@ func (sfs *simpleFrameSystem) getFrameToWorldTransform(inputMap map[string][]Inp
 	return srcToWorld, err
 }
 
-// ReplaceFrame transfers replaceMe's children and parentage to replaceWith. ReplaceMe is removed entirely from the frame system.
-// ReplaceWith is not allowed to exist within the frame system at the time of the call.
-func (sfs *simpleFrameSystem) ReplaceFrame(fs FrameSystem, replaceMe, replaceWith Frame) error {
-	if replaceMe.Name() == replaceWith.Name() {
-		return fmt.Errorf("%s (replaceMe) cannot have the same name as %s (replaceWith)", replaceWith.Name(), replaceMe.Name())
+// ReplaceFrame finds the original frame which shares its name with replacementFrame. We then transfer the original
+// frame's children and parentage to replacementFrame. The original frame is removed entirely from the frame system.
+// replacementFrame is not allowed to exist within the frame system at the time of the call.
+func (sfs *simpleFrameSystem) ReplaceFrame(replacementFrame Frame) error {
+	var replaceMe Frame
+	if replaceMe = sfs.Frame(replacementFrame.Name()); replaceMe == nil {
+		return fmt.Errorf("%s not found in framesystem", replacementFrame.Name())
+	} else if replaceMe == replacementFrame {
+		fmt.Println("WE ARE REPLACING THE SAME FRAME")
+		return nil
 	}
-	if fs.Frame(replaceMe.Name()) == nil {
-		return fmt.Errorf("%s not found in framesystem", replaceMe.Name())
-	}
-	if replaceMe == fs.World() {
+	if replaceMe == sfs.World() {
 		return fmt.Errorf("%s is the world of the framsystem - which cannot be replaced", replaceMe.Name())
-	}
-	if fs.Frame(replaceWith.Name()) != nil {
-		return fmt.Errorf("%s is not allowed to exist within the framesystem at the time of this call", replaceWith.Name())
 	}
 
 	// get replaceMe's parent
-	replaceMeParent, err := fs.Parent(replaceMe)
+	replaceMeParent, err := sfs.Parent(replaceMe)
 	if err != nil {
 		return err
 	}
@@ -433,11 +434,11 @@ func (sfs *simpleFrameSystem) ReplaceFrame(fs FrameSystem, replaceMe, replaceWit
 		// replace frame with parent as replaceMe with replaceWith
 		if parent == replaceMe {
 			delete(sfs.parents, f)
-			sfs.parents[f] = replaceWith
+			sfs.parents[f] = replacementFrame
 		}
 	}
-	// add replaceWith to fs with parent of replaceMe
-	if err = fs.AddFrame(replaceWith, replaceMeParent); err != nil {
+	// add replacementFrame to frame system with parent of replaceMe
+	if err = sfs.AddFrame(replacementFrame, replaceMeParent); err != nil {
 		return err
 	}
 	return nil

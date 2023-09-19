@@ -415,8 +415,12 @@ func (ms *builtIn) planMoveOnMap(
 		return nil, nil, err
 	}
 
-	kb, err := kinematicbase.WrapWithKinematics(ctx, b, ms.logger, motion.NewSLAMLocalizer(slamSvc), limits, kinematicsOptions, fs)
+	kb, err := kinematicbase.WrapWithKinematics(ctx, b, ms.logger, motion.NewSLAMLocalizer(slamSvc), limits, kinematicsOptions)
 	if err != nil {
+		return nil, nil, err
+	}
+
+	if err = fs.ReplaceFrame(kb.Kinematics()); err != nil {
 		return nil, nil, err
 	}
 
@@ -460,7 +464,7 @@ func (ms *builtIn) planMoveOnMap(
 		Goal:               dst,
 		Frame:              f,
 		StartConfiguration: seedMap,
-		FrameSystem:        kb.FrameSystem(),
+		FrameSystem:        fs,
 		WorldState:         worldState,
 		ConstraintSpecs:    nil,
 		Options:            extra,

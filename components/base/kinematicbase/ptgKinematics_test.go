@@ -32,12 +32,7 @@ func TestPTGKinematics(t *testing.T) {
 
 	ctx := context.Background()
 
-	fs := referenceframe.NewEmptyFrameSystem("baseFS")
-	baseFrame, err := referenceframe.NewStaticFrame(b.Name().Name, spatialmath.NewZeroPose())
-	test.That(t, err, test.ShouldBeNil)
-	fs.AddFrame(baseFrame, fs.World())
-
-	kb, err := WrapWithKinematics(ctx, b, logger, nil, nil, NewKinematicBaseOptions(), fs)
+	kb, err := WrapWithKinematics(ctx, b, logger, nil, nil, NewKinematicBaseOptions())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, kb, test.ShouldNotBeNil)
 	ptgBase, ok := kb.(*ptgBaseKinematics)
@@ -46,7 +41,10 @@ func TestPTGKinematics(t *testing.T) {
 
 	dstPIF := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPoseFromPoint(r3.Vector{X: 999, Y: 0, Z: 0}))
 
+	fs := referenceframe.NewEmptyFrameSystem("test")
 	f := kb.Kinematics()
+	test.That(t, err, test.ShouldBeNil)
+	fs.AddFrame(f, fs.World())
 	inputMap := referenceframe.StartPositions(fs)
 
 	plan, err := motionplan.PlanMotion(ctx, &motionplan.PlanRequest{
@@ -78,14 +76,9 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 
 	ctx := context.Background()
 
-	fs := referenceframe.NewEmptyFrameSystem("baseFS")
-	baseFrame, err := referenceframe.NewStaticFrameWithGeometry(b.Name().Name, spatialmath.NewZeroPose(), baseGeom)
-	test.That(t, err, test.ShouldBeNil)
-	fs.AddFrame(baseFrame, fs.World())
-
 	kbOpt := NewKinematicBaseOptions()
 	kbOpt.AngularVelocityDegsPerSec = 0
-	kb, err := WrapWithKinematics(ctx, b, logger, nil, nil, kbOpt, fs)
+	kb, err := WrapWithKinematics(ctx, b, logger, nil, nil, kbOpt)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, kb, test.ShouldNotBeNil)
 	ptgBase, ok := kb.(*ptgBaseKinematics)
@@ -94,7 +87,10 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 
 	dstPIF := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPoseFromPoint(r3.Vector{X: 2000, Y: 0, Z: 0}))
 
+	fs := referenceframe.NewEmptyFrameSystem("test")
 	f := kb.Kinematics()
+	test.That(t, err, test.ShouldBeNil)
+	fs.AddFrame(f, fs.World())
 	inputMap := referenceframe.StartPositions(fs)
 
 	obstacle, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{1000, 0, 0}), r3.Vector{1, 1, 1}, "")

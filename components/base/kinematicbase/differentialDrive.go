@@ -32,7 +32,6 @@ func wrapWithDifferentialDriveKinematics(
 	localizer motion.Localizer,
 	limits []referenceframe.Limit,
 	options Options,
-	fs referenceframe.FrameSystem,
 ) (KinematicBase, error) {
 	ddk := &differentialDriveKinematics{
 		Base:      b,
@@ -53,26 +52,19 @@ func wrapWithDifferentialDriveKinematics(
 	if len(geometries) > 0 {
 		geometry = geometries[0]
 	}
-	frameName := b.Name().ShortName() + "-differentialDrive"
-	ddk.executionFrame, err = referenceframe.New2DMobileModelFrame(frameName, limits, geometry)
+	ddk.executionFrame, err = referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits, geometry)
 	if err != nil {
 		return nil, err
 	}
 
 	if options.PositionOnlyMode {
-		ddk.planningFrame, err = referenceframe.New2DMobileModelFrame(frameName, limits[:2], geometry)
+		ddk.planningFrame, err = referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits[:2], geometry)
 		if err != nil {
 			return nil, err
 		}
 	} else {
 		ddk.planningFrame = ddk.executionFrame
 	}
-
-	// replace the base frame with ddk.planningFrame
-	if err = fs.ReplaceFrame(fs, fs.Frame(b.Name().Name), ddk.planningFrame); err != nil {
-		return nil, err
-	}
-	ddk.fs = fs
 	return ddk, nil
 }
 
@@ -82,15 +74,10 @@ type differentialDriveKinematics struct {
 	logger                        golog.Logger
 	planningFrame, executionFrame referenceframe.Model
 	options                       Options
-	fs                            referenceframe.FrameSystem
 }
 
 func (ddk *differentialDriveKinematics) Kinematics() referenceframe.Frame {
 	return ddk.planningFrame
-}
-
-func (ddk *differentialDriveKinematics) FrameSystem() referenceframe.FrameSystem {
-	return ddk.fs
 }
 
 func (ddk *differentialDriveKinematics) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
