@@ -795,11 +795,10 @@ func (manager *resourceManager) processResource(
 	if err != nil {
 		gNode.UnsetResource()
 		manager.logger.Debugw(
-			"failed to rebuild resource of different model, removing closed resource from graph node",
-			"name",
-			resName,
-			"new_model",
-			conf.Model,
+			"failed to build resource of new model, removing closed resource of old model from graph node",
+			"name", resName,
+			"old_model", gNode.ResourceModel(),
+			"new_model", conf.Model,
 		)
 		return nil, false, err
 	}
