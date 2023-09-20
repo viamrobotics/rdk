@@ -6,6 +6,8 @@ import (
 
 	"google.golang.org/protobuf/types/known/anypb"
 
+	v1 "go.viam.com/api/common/v1"
+	pb "go.viam.com/api/component/arm/v1"
 	"go.viam.com/rdk/data"
 )
 
@@ -42,7 +44,20 @@ func newEndPositionCollector(resource interface{}, params data.CollectorParams) 
 			}
 			return nil, data.FailedToReadErr(params.ComponentName, endPosition.String(), err)
 		}
-		return v, nil
+		o := v.Orientation().OrientationVectorRadians()
+		ret := pb.GetEndPositionResponse{
+			Pose: &v1.Pose{
+				X:     v.Point().X,
+				Y:     v.Point().Y,
+				Z:     v.Point().Z,
+				OX:    o.OX,
+				OY:    o.OY,
+				OZ:    o.OZ,
+				Theta: o.Theta,
+			},
+		}
+		return ret, nil
+
 	})
 	return data.NewCollector(cFunc, params)
 }
