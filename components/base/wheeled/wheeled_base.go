@@ -249,7 +249,7 @@ func (wb *wheeledBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, e
 	// Spin math
 	rpm, revolutions := wb.spinMath(angleDeg, degsPerSec)
 
-	return wb.runAll(ctx, -rpm, revolutions, rpm, revolutions)
+	return wb.runAllGoFor(ctx, -rpm, revolutions, rpm, revolutions)
 }
 
 // MoveStraight commands a base to drive forward or backwards  at a linear speed and for a specific distance.
@@ -270,14 +270,14 @@ func (wb *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSe
 	// Straight math
 	rpm, rotations := wb.straightDistanceToMotorInputs(distanceMm, mmPerSec)
 
-	return wb.runAll(ctx, rpm, rotations, rpm, rotations)
+	return wb.runAllGoFor(ctx, rpm, rotations, rpm, rotations)
 }
 
-// runAll executes `motor.GoFor` commands in parallel for left and right motors,
+// runAllGoFor executes `motor.GoFor` commands in parallel for left and right motors,
 // with specified speeds and rotations and stops the base if an error occurs.
 // All callers must register an operation via `wb.opMgr.New` to ensure the left and right motors
 // receive consistent instructions.
-func (wb *wheeledBase) runAll(ctx context.Context, leftRPM, leftRotations, rightRPM, rightRotations float64) error {
+func (wb *wheeledBase) runAllGoFor(ctx context.Context, leftRPM, leftRotations, rightRPM, rightRotations float64) error {
 	goForFuncs := func() []rdkutils.SimpleFunc {
 		ret := []rdkutils.SimpleFunc{}
 
@@ -372,7 +372,10 @@ func (wb *wheeledBase) SetVelocity(ctx context.Context, linear, angular r3.Vecto
 	// speed/direction that was not intended.
 	wb.opMgr.CancelRunning(ctx)
 	wb.mu.Unlock()
-	return wb.runAll(ctx, leftRPM, numRevolutions, rightRPM, numRevolutions)
+
+	ctx, done := wb.opMgr.New(ctx)
+	defer done()
+	return wb.runAllGoFor(ctx, leftRPM, numRevolutions, rightRPM, numRevolutions)
 }
 
 // SetPower commands the base motors to run at powers corresponding to input linear and angular powers.
@@ -485,16 +488,33 @@ func (wb *wheeledBase) Stop(ctx context.Context, extra map[string]interface{}) e
 }
 
 func (wb *wheeledBase) IsMoving(ctx context.Context) (bool, error) {
-	for _, m := range wb.allMotors {
-		isMoving, _, err := m.IsPowered(ctx, nil)
-		if err != nil {
-			return false, err
+	moveFuncs := func() []rdkutils.ReturnFunc[bool] {
+		ret := []rdkutils.ReturnFunc[bool]{}
+
+		wb.mu.Lock()
+		defer wb.mu.Unlock()
+		for _, m := range wb.left {
+			motor := m
+			ret = append(ret, func(ctx context.Context) (bool, error) { return motor.IsMoving(ctx) })
 		}
-		if isMoving {
-			return true, err
+
+		for _, m := range wb.right {
+			motor := m
+			ret = append(ret, func(ctx context.Context) (bool, error) { return motor.IsMoving(ctx) })
 		}
+		return ret
+	}()
+
+	_, bools, err := rdkutils.GetInParallel(ctx, moveFuncs)
+	if err != nil {
+		return false, multierr.Combine(err, wb.Stop(ctx, nil))
 	}
-	return false, nil
+
+	result := false
+	for _, b := range bools {
+		result = result || b
+	}
+	return result, nil
 }
 
 // Close is called from the client to close the instance of the wheeledBase.
