@@ -1,4 +1,4 @@
-//go:build !no_tflite && !notc
+//go:build !no_tflite && !no_cgo
 
 // Package tflitecpu runs tflite model files on the host's CPU, as an implementation the ML model service.
 package tflitecpu

@@ -1,4 +1,4 @@
-//go:build (linux || darwin) && !notc
+//go:build (linux || darwin) && !no_cgo
 
 package server
 

@@ -1,4 +1,4 @@
-//go:build !windows && !notc
+//go:build !windows && !no_cgo
 
 package motionplan
 

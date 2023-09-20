@@ -1,4 +1,4 @@
-//go:build !notc
+//go:build !no_cgo
 
 // Package kinematicbase contains wrappers that augment bases with information needed for higher level
 // control over the base

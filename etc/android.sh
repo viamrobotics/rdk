@@ -10,5 +10,5 @@ NDK_ROOT=~/build/android-ndk-r25c
 GOOS=android GOARCH=arm64 CGO_ENABLED=1 \
 	CC=$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android30-clang \
 	go build -v \
-	-tags notc \
+	-tags no_cgo \
 	./web/cmd/server
