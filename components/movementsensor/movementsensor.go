@@ -10,6 +10,7 @@ import (
 	pb "go.viam.com/api/component/movementsensor/v1"
 
 	"go.viam.com/rdk/components/sensor"
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/spatialmath"
@@ -22,44 +23,30 @@ func init() {
 		RPCServiceDesc:              &pb.MovementSensorService_ServiceDesc,
 		RPCClient:                   NewClientFromConn,
 	})
-
-	registerCollector("Position", func(ctx context.Context, ms MovementSensor, extra map[string]interface{}) (interface{}, error) {
-		type Position struct {
-			Lat float64
-			Lng float64
-		}
-		p, _, err := ms.Position(ctx, extra)
-		if err != nil {
-			return nil, err
-		}
-		return Position{Lat: p.Lat(), Lng: p.Lng()}, nil
-	})
-	registerCollector("LinearVelocity", func(ctx context.Context, ms MovementSensor, extra map[string]interface{}) (interface{}, error) {
-		v, err := ms.LinearVelocity(ctx, extra)
-		return v, err
-	})
-	registerCollector("AngularVelocity", func(ctx context.Context, ms MovementSensor, extra map[string]interface{}) (interface{}, error) {
-		v, err := ms.AngularVelocity(ctx, extra)
-		return v, err
-	})
-	registerCollector("CompassHeading", func(ctx context.Context, ms MovementSensor, extra map[string]interface{}) (interface{}, error) {
-		type Heading struct {
-			Heading float64
-		}
-		h, err := ms.CompassHeading(ctx, extra)
-		if err != nil {
-			return nil, err
-		}
-		return Heading{Heading: h}, nil
-	})
-	registerCollector("LinearAcceleration", func(ctx context.Context, ms MovementSensor, extra map[string]interface{}) (interface{}, error) {
-		v, err := ms.LinearAcceleration(ctx, extra)
-		return v, err
-	})
-	registerCollector("Orientation", func(ctx context.Context, ms MovementSensor, extra map[string]interface{}) (interface{}, error) {
-		v, err := ms.Orientation(ctx, extra)
-		return v, err
-	})
+	data.RegisterCollector(data.MethodMetadata{
+		API:        API,
+		MethodName: position.String(),
+	}, newPositionCollector)
+	data.RegisterCollector(data.MethodMetadata{
+		API:        API,
+		MethodName: linearVelocity.String(),
+	}, newLinearVelocityCollector)
+	data.RegisterCollector(data.MethodMetadata{
+		API:        API,
+		MethodName: angularVelocity.String(),
+	}, newAngularVelocityCollector)
+	data.RegisterCollector(data.MethodMetadata{
+		API:        API,
+		MethodName: compassHeading.String(),
+	}, newCompassHeadingCollector)
+	data.RegisterCollector(data.MethodMetadata{
+		API:        API,
+		MethodName: linearAcceleration.String(),
+	}, newLinearAccelerationCollector)
+	data.RegisterCollector(data.MethodMetadata{
+		API:        API,
+		MethodName: orientation.String(),
+	}, newOrientationCollector)
 }
 
 // SubtypeName is a constant that identifies the component resource API string "movement_sensor".

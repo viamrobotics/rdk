@@ -6,6 +6,7 @@ import (
 
 	"google.golang.org/protobuf/types/known/anypb"
 
+	pb "go.viam.com/api/component/motor/v1"
 	"go.viam.com/rdk/data"
 )
 
@@ -47,15 +48,11 @@ func newPositionCollector(resource interface{}, params data.CollectorParams) (da
 			}
 			return nil, data.FailedToReadErr(params.ComponentName, position.String(), err)
 		}
-		return Position{Position: v}, nil
+		return pb.GetPositionResponse{
+			Position: v,
+		}, nil
 	})
 	return data.NewCollector(cFunc, params)
-}
-
-// Powered wraps the returned IsPowered value.
-type Powered struct {
-	IsPowered bool
-	PowerPct  float64
 }
 
 func newIsPoweredCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
@@ -74,7 +71,10 @@ func newIsPoweredCollector(resource interface{}, params data.CollectorParams) (d
 			}
 			return nil, data.FailedToReadErr(params.ComponentName, isPowered.String(), err)
 		}
-		return Powered{IsPowered: v, PowerPct: powerPct}, nil
+		return pb.IsPoweredResponse{
+			IsOn:     v,
+			PowerPct: powerPct,
+		}, nil
 	})
 	return data.NewCollector(cFunc, params)
 }

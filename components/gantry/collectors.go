@@ -6,6 +6,7 @@ import (
 
 	"google.golang.org/protobuf/types/known/anypb"
 
+	pb "go.viam.com/api/component/gantry/v1"
 	"go.viam.com/rdk/data"
 )
 
@@ -47,7 +48,9 @@ func newPositionCollector(resource interface{}, params data.CollectorParams) (da
 			}
 			return nil, data.FailedToReadErr(params.ComponentName, position.String(), err)
 		}
-		return Position{Position: v}, nil
+		return pb.GetPositionResponse{
+			PositionsMm: v,
+		}, nil
 	})
 	return data.NewCollector(cFunc, params)
 }
@@ -73,7 +76,9 @@ func newLengthsCollector(resource interface{}, params data.CollectorParams) (dat
 			}
 			return nil, data.FailedToReadErr(params.ComponentName, lengths.String(), err)
 		}
-		return Lengths{Lengths: v}, nil
+		return pb.GetLengthsResponse{
+			LengthsMm: v,
+		}, nil
 	})
 	return data.NewCollector(cFunc, params)
 }

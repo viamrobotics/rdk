@@ -78,7 +78,10 @@ func newJointPositionsCollector(resource interface{}, params data.CollectorParam
 			}
 			return nil, data.FailedToReadErr(params.ComponentName, jointPositions.String(), err)
 		}
-		return v, nil
+		ret := pb.GetJointPositionsResponse{
+			Positions: v,
+		}
+		return ret, nil
 	})
 	return data.NewCollector(cFunc, params)
 }

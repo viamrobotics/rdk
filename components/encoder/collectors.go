@@ -6,6 +6,7 @@ import (
 
 	"google.golang.org/protobuf/types/known/anypb"
 
+	pb "go.viam.com/api/component/encoder/v1"
 	"go.viam.com/rdk/data"
 )
 
@@ -34,7 +35,7 @@ func newTicksCountCollector(resource interface{}, params data.CollectorParams) (
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
-		v, _, err := encoder.Position(ctx, PositionTypeUnspecified, data.FromDMExtraMap)
+		v, positionType, err := encoder.Position(ctx, PositionTypeUnspecified, data.FromDMExtraMap)
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
@@ -43,7 +44,10 @@ func newTicksCountCollector(resource interface{}, params data.CollectorParams) (
 			}
 			return nil, data.FailedToReadErr(params.ComponentName, ticksCount.String(), err)
 		}
-		return Ticks{Ticks: int64(v)}, nil
+		return pb.GetPositionResponse{
+			Value:        float32(v),
+			PositionType: pb.PositionType(positionType),
+		}, nil
 	})
 	return data.NewCollector(cFunc, params)
 }
