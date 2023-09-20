@@ -149,8 +149,7 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 		return errNoGoodSensor
 	}
 
-	controlledBase, err := base.FromDependencies(deps, newConf.Base)
-	sb.controlledBase = controlledBase
+	sb.controlledBase, err = base.FromDependencies(deps, newConf.Base)
 	if err != nil {
 		return errors.Wrapf(err, "no base named (%s)", newConf.Base)
 	}
