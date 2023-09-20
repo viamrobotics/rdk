@@ -18,19 +18,48 @@ import (
 var Model = resource.NewModel("acme", "demo", "mynavigation")
 
 func init() {
-	resource.RegisterService(navigation.API, Model, resource.Registration[navigation.Service, resource.NoNativeConfig]{
+	resource.RegisterService(navigation.API, Model, resource.Registration[navigation.Service, *Config]{
 		Constructor: newNav,
 	})
 }
 
+// Config is the navigation model's config.
+type Config struct {
+	Lat  *float64 `json:"lat,omitempty"` // omitempty for a pointer to a float64 defaults to nil in golang
+	Long *float64 `json:"long,omitempty"`
+
+	// Embed TriviallyValidateConfig to make config validation a no-op. We will not check if any attributes exist
+	// or are set to anything in particular, and there will be no implicit dependencies.
+	// Config structs used in resource registration must implement Validate.
+	resource.TriviallyValidateConfig
+}
+
 func newNav(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (navigation.Service, error) {
+	// This takes the generic resource.Config passed down from the parent and converts it to the
+	// model-specific (aka "native") Config structure defined above making it easier to directly access attributes.
+	navConfig, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return nil, err
+	}
+
+	// here we set a default latitude, if the config latitude field is not omitted (omitempty)
+	// we use the value it is set to and return it in the nav service struct.
+	lat := -48.876667
+	if navConfig.Lat != nil {
+		lat = *navConfig.Lat
+	}
+
+	// here we set a default longitude, if the config latitude field is not omitted (omitempty)
+	// we use the value it is set to and return it in the nav service struct.
+	lng := -48.876667
+	if navConfig.Lat != nil {
+		lng = *navConfig.Long
+	}
+
 	navSvc := &navSvc{
 		Named:  conf.ResourceName().AsNamed(),
 		logger: logger,
-		loc: geo.NewPoint(
-			conf.Attributes.Float64("lat", -48.876667),
-			conf.Attributes.Float64("long", -123.393333),
-		),
+		loc:    geo.NewPoint(lat, lng),
 	}
 	return navSvc, nil
 }

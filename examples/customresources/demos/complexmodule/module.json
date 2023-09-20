@@ -21,7 +21,8 @@
 			"namespace": "acme",
 			"type": "summation",
 			"name": "adder",
-			"model": "acme:demo:mysum"
+			"model": "acme:demo:mysum",
+			"attributes" : {}
 		},
 		{
 			"namespace": "acme",

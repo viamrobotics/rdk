@@ -21,8 +21,6 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-// setupMotorWithEncoder(encType string) {}
-
 func nowNanosTest() uint64 {
 	return uint64(time.Now().UnixNano())
 }
@@ -109,7 +107,7 @@ func TestMotorEncoder1(t *testing.T) {
 	defer enc.Close(context.Background())
 
 	enc.AttachDirectionalAwareness(&fakeDirectionAware{m: fakeMotor})
-	dirFMotor, err := NewEncodedMotor(resource.Config{}, cfg, fakeMotor, e, logger)
+	dirFMotor, err := WrapMotorWithEncoder(context.Background(), e, resource.Config{}, cfg, fakeMotor, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer dirFMotor.Close(context.Background())
 	motorDep, ok := dirFMotor.(*EncodedMotor)
@@ -363,7 +361,7 @@ func TestMotorEncoderIncremental(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		enc := e.(*incremental.Encoder)
 
-		motorIfc, err := NewEncodedMotor(resource.Config{}, cfg, fakeMotor, enc, logger)
+		motorIfc, err := WrapMotorWithEncoder(context.Background(), enc, resource.Config{}, cfg, fakeMotor, logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		motor, ok := motorIfc.(*EncodedMotor)
@@ -771,7 +769,7 @@ func TestDirFlipMotor(t *testing.T) {
 	defer enc.Close(context.Background())
 
 	enc.AttachDirectionalAwareness(&fakeDirectionAware{m: dirflipFakeMotor})
-	dirFMotor, err := NewEncodedMotor(resource.Config{}, cfg, dirflipFakeMotor, e, logger)
+	dirFMotor, err := WrapMotorWithEncoder(context.Background(), e, resource.Config{}, cfg, dirflipFakeMotor, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer dirFMotor.Close(context.Background())
 	_dirFMotor, ok := dirFMotor.(*EncodedMotor)
