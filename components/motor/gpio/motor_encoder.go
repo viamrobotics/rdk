@@ -54,22 +54,10 @@ func WrapMotorWithEncoder(
 		logger.Info("direction attached to single encoder from encoded motor")
 	}
 
-	mm.RPMMonitorStart()
-
 	return mm, nil
 }
 
-// NewEncodedMotor creates a new motor that supports an arbitrary source of encoder information.
-func NewEncodedMotor(
-	conf resource.Config,
-	motorConfig Config,
-	realMotor motor.Motor,
-	encoder encoder.Encoder,
-	logger golog.Logger,
-) (motor.Motor, error) {
-	return newEncodedMotor(conf.ResourceName(), motorConfig, realMotor, encoder, logger)
-}
-
+// newEncodedMotor creates a new motor that supports an arbitrary source of encoder information.
 func newEncodedMotor(
 	name resource.Name,
 	motorConfig Config,
@@ -183,7 +171,7 @@ type EncodedMotorState struct {
 }
 
 // RPMMonitorStart starts the RPM monitor.
-func (m *EncodedMotor) RPMMonitorStart() {
+func (m *EncodedMotor) rpmMonitorStart() {
 	m.startedRPMMonitorMu.Lock()
 	startedRPMMonitor := m.startedRPMMonitor
 	m.startedRPMMonitorMu.Unlock()
@@ -216,8 +204,8 @@ func (m *EncodedMotor) rpmMonitor() {
 	}
 	lastTime := time.Now().UnixNano()
 
-	timer := time.NewTimer(50 * time.Millisecond)
 	for {
+		timer := time.NewTimer(50 * time.Millisecond)
 		select {
 		case <-m.cancelCtx.Done():
 			timer.Stop()
@@ -349,8 +337,8 @@ func (m *EncodedMotor) SetPower(ctx context.Context, powerPct float64, extra map
 // setPower assumes the state lock is held.
 func (m *EncodedMotor) setPower(ctx context.Context, powerPct float64, internal bool) error {
 	dir := sign(powerPct)
-	if math.Abs(powerPct) < 0.2 {
-		m.state.lastPowerPct = 0.2 * dir
+	if math.Abs(powerPct) < 0.1 {
+		m.state.lastPowerPct = 0.1 * dir
 	} else {
 		m.state.lastPowerPct = powerPct
 	}
@@ -383,6 +371,7 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 }
 
 func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float64) error {
+	m.rpmMonitorStart()
 	m.state.direction = sign(rpm * revolutions)
 
 	switch speed := math.Abs(rpm); {
@@ -494,6 +483,20 @@ func (m *EncodedMotor) IsPowered(ctx context.Context, extra map[string]interface
 // IsMoving returns if the motor is moving or not.
 func (m *EncodedMotor) IsMoving(ctx context.Context) (bool, error) {
 	return m.real.IsMoving(ctx)
+}
+
+// SetMotorState allows users to set the motor state values.
+func (m *EncodedMotor) SetMotorState(ctx context.Context, newState EncodedMotorState) {
+	m.stateMu.Lock()
+	defer m.stateMu.Unlock()
+	m.state = newState
+}
+
+// GetMotorState allows users to get the motor state values.
+func (m *EncodedMotor) GetMotorState(ctx context.Context) EncodedMotorState {
+	m.stateMu.Lock()
+	defer m.stateMu.Unlock()
+	return m.state
 }
 
 // Stop stops rpmMonitor and stops the real motor.

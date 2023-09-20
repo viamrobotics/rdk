@@ -26,6 +26,8 @@ var model = resource.DefaultModelFamily.WithModel("wheeled-odometry")
 const (
 	defaultTimeIntervalMSecs = 500
 	oneTurn                  = 2 * math.Pi
+	mToKm                    = 1e-3
+	returnRelative           = "return_relative_pos_m"
 )
 
 // Config is the config for a wheeledodometry MovementSensor.
@@ -57,6 +59,7 @@ type odometry struct {
 	linearVelocity  r3.Vector
 	position        r3.Vector
 	orientation     spatialmath.EulerAngles
+	coord           *geo.Point
 
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
@@ -153,39 +156,37 @@ func (o *odometry) Reconfigure(ctx context.Context, deps resource.Dependencies, 
 	// check if new motors have been added, or the existing motors have been changed, and update the motorPairs accorodingly
 	for i := range newConf.LeftMotors {
 		var motorLeft, motorRight motor.Motor
-		if i >= len(o.motors) || o.motors[i].left.Name().ShortName() != newConf.LeftMotors[i] {
-			motorLeft, err = motor.FromDependencies(deps, newConf.LeftMotors[i])
-			if err != nil {
-				return err
-			}
-			properties, err := motorLeft.Properties(ctx, nil)
-			if err != nil {
-				return err
-			}
-			if !properties.PositionReporting {
-				return motor.NewPropertyUnsupportedError(properties, newConf.LeftMotors[i])
-			}
+
+		motorLeft, err = motor.FromDependencies(deps, newConf.LeftMotors[i])
+		if err != nil {
+			return err
+		}
+		properties, err := motorLeft.Properties(ctx, nil)
+		if err != nil {
+			return err
+		}
+		if !properties.PositionReporting {
+			return motor.NewPropertyUnsupportedError(properties, newConf.LeftMotors[i])
 		}
 
-		if i >= len(o.motors) || o.motors[i].right.Name().ShortName() != newConf.RightMotors[i] {
-			motorRight, err = motor.FromDependencies(deps, newConf.RightMotors[i])
-			if err != nil {
-				return err
-			}
-			properties, err := motorRight.Properties(ctx, nil)
-			if err != nil {
-				return err
-			}
-			if !properties.PositionReporting {
-				return motor.NewPropertyUnsupportedError(properties, newConf.LeftMotors[i])
-			}
+		motorRight, err = motor.FromDependencies(deps, newConf.RightMotors[i])
+		if err != nil {
+			return err
+		}
+		properties, err = motorRight.Properties(ctx, nil)
+		if err != nil {
+			return err
+		}
+		if !properties.PositionReporting {
+			return motor.NewPropertyUnsupportedError(properties, newConf.LeftMotors[i])
 		}
 
 		// append if motors have been added, replace if motors have changed
 		thisPair := motorPair{left: motorLeft, right: motorRight}
 		if i >= len(o.motors) {
 			o.motors = append(o.motors, thisPair)
-		} else {
+		} else if (o.motors[i].left.Name().ShortName() != newConf.LeftMotors[i]) ||
+			(o.motors[i].right.Name().ShortName() != newConf.RightMotors[i]) {
 			o.motors[i].left = motorLeft
 			o.motors[i].right = motorRight
 		}
@@ -256,11 +257,30 @@ func (o *odometry) LinearVelocity(ctx context.Context, extra map[string]interfac
 func (o *odometry) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
-	return geo.NewPoint(o.position.X, o.position.Y), o.position.Z, nil
+
+	if relative, ok := extra[returnRelative]; ok {
+		if relative.(bool) {
+			return geo.NewPoint(o.position.Y, o.position.X), o.position.Z, nil
+		}
+	}
+
+	return o.coord, o.position.Z, nil
 }
 
 func (o *odometry) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-	return movementsensor.Readings(ctx, o, extra)
+	readings, err := movementsensor.Readings(ctx, o, extra)
+	if err != nil {
+		return nil, err
+	}
+
+	// movementsensor.Readings calls all the APIs with their owm mutex lock in this driver
+	// the lock has been released, so for the last two readings we lock again to append them to the readings map
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	readings["position_meters_X"] = o.position.X
+	readings["position_meters_Y"] = o.position.Y
+
+	return readings, nil
 }
 
 func (o *odometry) Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32, error) {
@@ -287,6 +307,8 @@ func (o *odometry) Close(ctx context.Context) error {
 // The estimations in this function are based on the math outlined in this article:
 // https://stuff.mit.edu/afs/athena/course/6/6.186/OldFiles/2005/doc/odomtutorial/odomtutorial.pdf
 func (o *odometry) trackPosition(ctx context.Context) {
+	geoOrigin := geo.NewPoint(0, 0)
+
 	o.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer o.activeBackgroundWorkers.Done()
@@ -354,8 +376,12 @@ func (o *odometry) trackPosition(ctx context.Context) {
 			o.orientation.Yaw = math.Mod(o.orientation.Yaw+oneTurn, oneTurn)
 
 			// Calculate X and Y by using centerDist and the current orientation yaw (theta).
-			o.position.X += (centerDist * math.Cos(o.orientation.Yaw))
-			o.position.Y += (centerDist * math.Sin(o.orientation.Yaw))
+			o.position.X += (centerDist * math.Sin(o.orientation.Yaw))
+			o.position.Y += (centerDist * math.Cos(o.orientation.Yaw))
+
+			distance := math.Hypot(o.position.X, o.position.Y)
+			heading := math.Atan2(o.position.X, o.position.Y)
+			o.coord = geoOrigin.PointAtDistanceAndBearing(distance*mToKm, heading)
 
 			// Update the linear and angular velocity values using the provided time interval.
 			o.linearVelocity.Y = centerDist / (o.timeIntervalMSecs / 1000)

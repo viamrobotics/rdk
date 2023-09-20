@@ -414,8 +414,9 @@ func validateModuleFile(client *viamClient, moduleID moduleID, tarballPath, vers
 		return err
 	}
 	// TODO(APP-2226): support .tar.xz
-	if !strings.HasSuffix(file.Name(), ".tar.gz") {
-		return errors.New("you must upload your module in the form of a .tar.gz")
+	if !strings.HasSuffix(strings.ToLower(file.Name()), ".tar.gz") &&
+		!strings.HasSuffix(strings.ToLower(file.Name()), ".tgz") {
+		return errors.New("you must upload your module in the form of a .tar.gz or .tgz")
 	}
 	archive, err := gzip.NewReader(file)
 	if err != nil {
@@ -531,7 +532,7 @@ func validateModuleID(
 				// Preferring org name rather than orgid here because the manifest probably has it specified in terms of
 				// public_namespace so returning the ids would be frustrating
 				return moduleID{}, errors.Errorf("the meta.json specifies a different org %q than the one provided via args %q",
-					org.GetName(), expectedOrg.GetName())
+					expectedOrg.GetName(), org.GetName())
 			}
 			printf(c.App.Writer, "the module's meta.json already specifies a full module id. Ignoring public-namespace and org-id arg")
 		}
