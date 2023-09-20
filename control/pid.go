@@ -29,8 +29,8 @@ type basicPID struct {
 	int      float64
 	sat      int
 	y        []*Signal
-	satLimUp float64
-	limUp    float64
+	satLimUp float64 `default:"255.0"`
+	limUp    float64 `default:"255.0"`
 	satLimLo float64
 	limLo    float64
 	tuner    pidTuner
@@ -101,14 +101,12 @@ func (p *basicPID) reset() error {
 	p.kD = p.cfg.Attribute["kD"].(float64)
 	p.kP = p.cfg.Attribute["kP"].(float64)
 
-	p.satLimUp = 255.0
-	if p.cfg.Attribute.Has("int_sat_lim_up") {
-		p.satLimUp = p.cfg.Attribute["int_sat_lim_up"].(float64)
+	if satLimUp, ok := p.cfg.Attribute["int_sat_lim_up"].(float64); ok {
+		p.satLimUp = satLimUp
 	}
 
-	p.limUp = 255.0
-	if p.cfg.Attribute.Has("limit_up") {
-		p.limUp = p.cfg.Attribute["limit_up"].(float64)
+	if limup, ok := p.cfg.Attribute["limit_up"].(float64); ok {
+		p.limUp = limup
 	}
 
 	if p.cfg.Attribute.Has("int_sat_lim_lo") {
@@ -121,7 +119,7 @@ func (p *basicPID) reset() error {
 
 	p.tuning = false
 	if p.kI == 0.0 && p.kD == 0.0 && p.kP == 0.0 {
-		ssrVal := 2.0
+		var ssrVal float64
 		if p.cfg.Attribute["tune_ssr_value"] != nil {
 			ssrVal = p.cfg.Attribute["tune_ssr_value"].(float64)
 		}
@@ -220,7 +218,7 @@ type pidTuner struct {
 	stepPct      float64
 	limUp        float64
 	limLo        float64
-	ssRValue     float64
+	ssRValue     float64 `default:"2.0"`
 	ccT2         time.Duration
 	ccT3         time.Duration
 	out          float64
