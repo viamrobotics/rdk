@@ -1,3 +1,5 @@
+//go:build !no_cgo
+
 package depthadapter_test
 
 import (
