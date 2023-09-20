@@ -482,7 +482,7 @@ func (wb *wheeledBase) Stop(ctx context.Context, extra map[string]interface{}) e
 	}()
 
 	if _, err := rdkutils.RunInParallel(ctx, stopFuncs); err != nil {
-		return multierr.Combine(err, wb.Stop(ctx, nil))
+		return multierr.Combine(err)
 	}
 	return nil
 }
