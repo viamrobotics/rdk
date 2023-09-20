@@ -122,8 +122,8 @@ func (w *GraphNode) IsUninitialized() bool {
 // UnsetResource unsets the current resource. This function does not clean up
 // or close the resource and should be used carefully.
 func (w *GraphNode) UnsetResource() {
-	w.mu.RLock()
-	defer w.mu.RUnlock()
+	w.mu.Lock()
+	defer w.mu.Unlock()
 	w.current = nil
 }
 
