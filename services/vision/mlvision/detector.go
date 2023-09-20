@@ -106,8 +106,9 @@ func attemptToBuildDetector(mlm mlmodel.Service, nameMap *sync.Map) (objectdetec
 		detections := make([]objectdetection.Detection, 0, len(scores))
 		detectionBoxesAreProportional := false
 		for i := 0; i < len(scores); i++ {
-			// heuristic for knowing if bounding boxes are abosolute pixel locations, or
-			// proprotional pixel locations. Absolute bounding boxes will not usually be less than a pixel.
+			// heuristic for knowing if bounding box coodinates are abolute pixel locations, or
+			// proportional pixel locations. Absolute bounding boxes will not usually be less than a pixel
+			// and purely located in the upper left corner.
 			if i == 0 && (locations[0]+locations[1]+locations[2]+locations[3] < 4.) {
 				detectionBoxesAreProportional = true
 			}
