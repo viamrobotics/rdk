@@ -6,6 +6,7 @@ import (
 
 	"google.golang.org/protobuf/types/known/anypb"
 
+	pb "go.viam.com/api/component/servo/v1"
 	"go.viam.com/rdk/data"
 )
 
@@ -34,7 +35,7 @@ func newPositionCollector(resource interface{}, params data.CollectorParams) (da
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
-		v, err := servo.Position(ctx, data.FromDMExtraMap)
+		pos, err := servo.Position(ctx, data.FromDMExtraMap)
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
@@ -43,7 +44,9 @@ func newPositionCollector(resource interface{}, params data.CollectorParams) (da
 			}
 			return nil, data.FailedToReadErr(params.ComponentName, position.String(), err)
 		}
-		return Position{Position: v}, nil
+		return pb.GetPositionResponse{
+			PositionDeg: pos,
+		}, nil
 	})
 	return data.NewCollector(cFunc, params)
 }

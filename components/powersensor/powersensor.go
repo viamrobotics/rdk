@@ -8,6 +8,7 @@ import (
 	pb "go.viam.com/api/component/powersensor/v1"
 
 	"go.viam.com/rdk/components/sensor"
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 )
@@ -19,42 +20,18 @@ func init() {
 		RPCServiceDesc:              &pb.PowerSensorService_ServiceDesc,
 		RPCClient:                   NewClientFromConn,
 	})
-
-	registerCollector("Voltage", func(ctx context.Context, ps PowerSensor, extra map[string]interface{}) (interface{}, error) {
-		type Voltage struct {
-			Volts float64
-			IsAc  bool
-		}
-		v, ac, err := ps.Voltage(ctx, extra)
-		if err != nil {
-			return nil, err
-		}
-
-		return Voltage{Volts: v, IsAc: ac}, nil
-	})
-
-	registerCollector("Current", func(ctx context.Context, ps PowerSensor, extra map[string]interface{}) (interface{}, error) {
-		type Current struct {
-			Amperes float64
-			IsAc    bool
-		}
-		c, ac, err := ps.Current(ctx, extra)
-		if err != nil {
-			return nil, err
-		}
-		return Current{Amperes: c, IsAc: ac}, nil
-	})
-
-	registerCollector("Power", func(ctx context.Context, ps PowerSensor, extra map[string]interface{}) (interface{}, error) {
-		type Power struct {
-			Watts float64
-		}
-		p, err := ps.Power(ctx, extra)
-		if err != nil {
-			return nil, err
-		}
-		return Power{Watts: p}, nil
-	})
+	data.RegisterCollector(data.MethodMetadata{
+		API:        API,
+		MethodName: voltage.String(),
+	}, newVoltageCollector)
+	data.RegisterCollector(data.MethodMetadata{
+		API:        API,
+		MethodName: current.String(),
+	}, newCurrentCollector)
+	data.RegisterCollector(data.MethodMetadata{
+		API:        API,
+		MethodName: power.String(),
+	}, newPowerCollector)
 }
 
 // SubtypeName is a constant that identifies the component resource API string "power_sensor".
