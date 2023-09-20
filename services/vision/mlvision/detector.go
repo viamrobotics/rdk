@@ -104,11 +104,25 @@ func attemptToBuildDetector(mlm mlmodel.Service, nameMap *sync.Map) (objectdetec
 			return nil, errors.New("output tensor sizes did not match each other as expected")
 		}
 		detections := make([]objectdetection.Detection, 0, len(scores))
+		detectionBoxesAreProportional := false
 		for i := 0; i < len(scores); i++ {
-			xmin, ymin, xmax, ymax := utils.Clamp(locations[4*i+getIndex(boxOrder, 0)], 0, 1)*float64(origW),
-				utils.Clamp(locations[4*i+getIndex(boxOrder, 1)], 0, 1)*float64(origH),
-				utils.Clamp(locations[4*i+getIndex(boxOrder, 2)], 0, 1)*float64(origW),
-				utils.Clamp(locations[4*i+getIndex(boxOrder, 3)], 0, 1)*float64(origH)
+			// heuristic for knowing if bounding boxes are abosolute pixel locations, or
+			// proprotional pixel locations. Absolute bounding boxes will not usually be less than a pixel.
+			if i == 0 && (locations[0]+locations[1]+locations[2]+locations[3] < 4.) {
+				detectionBoxesAreProportional = true
+			}
+			var xmin, ymin, xmax, ymax float64
+			if detectionBoxesAreProportional {
+				xmin = utils.Clamp(locations[4*i+getIndex(boxOrder, 0)], 0, 1) * float64(origW)
+				ymin = utils.Clamp(locations[4*i+getIndex(boxOrder, 1)], 0, 1) * float64(origH)
+				xmax = utils.Clamp(locations[4*i+getIndex(boxOrder, 2)], 0, 1) * float64(origW)
+				ymax = utils.Clamp(locations[4*i+getIndex(boxOrder, 3)], 0, 1) * float64(origH)
+			} else {
+				xmin = utils.Clamp(locations[4*i+getIndex(boxOrder, 0)], 0, float64(origW))
+				ymin = utils.Clamp(locations[4*i+getIndex(boxOrder, 1)], 0, float64(origH))
+				xmax = utils.Clamp(locations[4*i+getIndex(boxOrder, 2)], 0, float64(origW))
+				ymax = utils.Clamp(locations[4*i+getIndex(boxOrder, 3)], 0, float64(origH))
+			}
 			rect := image.Rect(int(xmin), int(ymin), int(xmax), int(ymax))
 			labelNum := int(utils.Clamp(categories[i], 0, math.MaxInt))
 			if labels != nil {
