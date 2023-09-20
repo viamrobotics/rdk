@@ -67,7 +67,7 @@ func (f *filterStruct) initFilter() error {
 			return errors.Errorf("filter %s of type %s should have a kernel_size field", f.cfg.Name, fType)
 		}
 		flt := firWindowedSinc{
-
+			smpFreq:    f.cfg.Attribute["fs"].(float64),
 			cutOffFreq: f.cfg.Attribute["fc"].(float64),      // default 0.0,
 			kernelSize: f.cfg.Attribute["kernel_size"].(int), // default 0,
 		}
@@ -90,7 +90,7 @@ func (f *filterStruct) initFilter() error {
 			return errors.Errorf("filter %s of type %s should have a order field", f.cfg.Name, fType)
 		}
 		flt := iirFilter{
-
+			smpFreq:    f.cfg.Attribute["fs"].(float64),
 			n:          f.cfg.Attribute["order"].(int),  // default 0
 			cutOffFreq: f.cfg.Attribute["fc"].(float64), // default 0.0
 			ripple:     0.0,
@@ -121,8 +121,8 @@ func (f *filterStruct) initFilter() error {
 			return errors.Errorf("filter %s of type %s should have a filter_type field", f.cfg.Name, fType)
 		}
 		flt := iirFilter{
-			smpFreq:    f.cfg.Attribute["fs"].(float64),     // default 0,0
-
+			smpFreq:    f.cfg.Attribute["fs"].(float64), // default 0,0
+			n:          f.cfg.Attribute["order"].(int),
 			cutOffFreq: f.cfg.Attribute["fc"].(float64),     // default 0.0
 			ripple:     f.cfg.Attribute["ripple"].(float64), // default 0.0
 			fltType:    f.cfg.Attribute["filter_type"].(string),
