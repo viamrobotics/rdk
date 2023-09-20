@@ -2,13 +2,16 @@ package kinematicbase
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/rdk/components/base/fake"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/motionplan/tpspace"
 )
 
 type fakeDiffDriveKinematics struct {
@@ -112,10 +115,12 @@ func (fk *fakeDiffDriveKinematics) CurrentPosition(ctx context.Context) (*refere
 
 type fakePTGKinematics struct {
 	*fake.Base
-	motion.Localizer
-	planningFrame, executionFrame referenceframe.Frame
+	parentFrame                   string
+	frame referenceframe.Frame
 	inputs                        []referenceframe.Input
 	options                       Options
+	sensorNoise                   spatialmath.Pose
+	currentPosition               spatialmath.Pose
 	lock                          sync.Mutex
 }
 
@@ -123,37 +128,62 @@ type fakePTGKinematics struct {
 func WrapWithFakePTGKinematics(
 	ctx context.Context,
 	b *fake.Base,
+	logger golog.Logger,
 	localizer motion.Localizer,
-	limits []referenceframe.Limit,
 	options Options,
+	sensorNoise spatialmath.Pose,
 ) (KinematicBase, error) {
+	
 	position, err := localizer.CurrentPosition(ctx)
 	if err != nil {
 		return nil, err
 	}
-	pt := position.Pose().Point()
-	fk := &fakePTGKinematics{
-		Base:      b,
-		Localizer: localizer,
-		inputs:    []referenceframe.Input{{pt.X}, {pt.Y}},
-	}
-	var geometry spatialmath.Geometry
-	if len(fk.Base.Geometry) != 0 {
-		geometry = fk.Base.Geometry[0]
-	}
-
-	fk.executionFrame, err = referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits, geometry)
+	
+	properties, err := b.Properties(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	if options.PositionOnlyMode {
-		fk.planningFrame, err = referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits[:2], geometry)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		fk.planningFrame = fk.executionFrame
+	baseMillimetersPerSecond := options.LinearVelocityMMPerSec
+	if baseMillimetersPerSecond == 0 {
+		baseMillimetersPerSecond = defaultLinearVelocityMMPerSec
+	}
+
+	baseTurningRadiusMeters := properties.TurningRadiusMeters
+
+
+	if baseTurningRadiusMeters < 0 {
+		return nil, errors.New("can only wrap with PTG kinematics if turning radius is greater than or equal to zero")
+	}
+
+	geometries, err := b.Geometries(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	frame, err := tpspace.NewPTGFrameFromKinematicOptions(
+		b.Name().ShortName(),
+		logger,
+		baseMillimetersPerSecond,
+		options.AngularVelocityDegsPerSec,
+		baseTurningRadiusMeters,
+		options.MaxMoveStraightMM, // If zero, will use default on the receiver end.
+		geometries,
+		options.NoSkidSteer,
+	)
+	if err != nil {
+		return nil, err
+	}
+	
+	if sensorNoise == nil {
+		sensorNoise = spatialmath.NewZeroPose()
+	}
+	fk := &fakePTGKinematics{
+		Base:        b,
+		frame: frame,
+		parentFrame: position.Parent(),
+		currentPosition: position.Pose(),
+		sensorNoise: sensorNoise,
 	}
 
 	fk.options = options
@@ -161,7 +191,7 @@ func WrapWithFakePTGKinematics(
 }
 
 func (fk *fakePTGKinematics) Kinematics() referenceframe.Frame {
-	return fk.planningFrame
+	return fk.frame
 }
 
 func (fk *fakePTGKinematics) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
@@ -171,12 +201,13 @@ func (fk *fakePTGKinematics) CurrentInputs(ctx context.Context) ([]referencefram
 }
 
 func (fk *fakePTGKinematics) GoToInputs(ctx context.Context, inputs []referenceframe.Input) error {
-	_, err := fk.planningFrame.Transform(inputs)
+	newPose, err := fk.frame.Transform(inputs)
 	if err != nil {
 		return err
 	}
+	
 	fk.lock.Lock()
-	fk.inputs = inputs
+	fk.currentPosition = spatialmath.Compose(fk.currentPosition, newPose)
 	fk.lock.Unlock()
 
 	// Sleep for a short amount to time to simulate a base taking some amount of time to reach the inputs
@@ -189,13 +220,12 @@ func (fk *fakePTGKinematics) ErrorState(
 	plan [][]referenceframe.Input,
 	currentNode int,
 ) (spatialmath.Pose, error) {
-	current, err := fk.CurrentPosition(ctx)
-	if err != nil {
-		return nil, err
-	}
-	desiredPose, err := fk.planningFrame.Transform(plan[currentNode])
-	if err != nil {
-		return nil, err
-	}
-	return spatialmath.PoseBetween(current.Pose(), desiredPose), nil
+	return spatialmath.NewZeroPose(), nil
+}
+
+func (fk *fakePTGKinematics) CurrentPosition(ctx context.Context) (*referenceframe.PoseInFrame, error) {
+	fk.lock.Lock()
+	currentPosition := fk.currentPosition
+	fk.lock.Unlock()
+	return referenceframe.NewPoseInFrame(fk.parentFrame, spatialmath.Compose(currentPosition, fk.sensorNoise)), nil
 }
