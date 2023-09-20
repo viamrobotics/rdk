@@ -109,12 +109,12 @@ func (s *trapezoidVelocityGenerator) reset() error {
 	s.maxVel = s.cfg.Attribute["max_vel"].(float64) // default 0.0
 
 	s.posWindow = 0
-	if s.cfg.Attribute["pos_window"] != nil {
+	if s.cfg.Attribute.Has("pos_window") {
 		s.posWindow = s.cfg.Attribute["pos_window"].(float64)
 	}
 
 	s.kppGain = 0
-	if s.cfg.Attribute["kpp_gain"] != nil {
+	if s.cfg.Attribute.Has("kpp_gain") {
 		s.kppGain = s.cfg.Attribute["kpp_gain"].(float64)
 	}
 	if s.kppGain == 0 {

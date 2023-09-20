@@ -102,20 +102,20 @@ func (p *basicPID) reset() error {
 	p.kP = p.cfg.Attribute["kP"].(float64)
 
 	p.satLimUp = 255.0
-	if p.cfg.Attribute["int_sat_lim_up"] != nil {
+	if p.cfg.Attribute.Has("int_sat_lim_up") {
 		p.satLimUp = p.cfg.Attribute["int_sat_lim_up"].(float64)
 	}
 
 	p.limUp = 255.0
-	if p.cfg.Attribute["limit_up"] != nil {
+	if p.cfg.Attribute.Has("limit_up") {
 		p.limUp = p.cfg.Attribute["limit_up"].(float64)
 	}
 
-	if p.cfg.Attribute["int_sat_lim_lo"] != nil {
+	if p.cfg.Attribute.Has("int_sat_lim_lo") {
 		p.satLimLo = p.cfg.Attribute["int_sat_lim_lo"].(float64)
 	}
 
-	if p.cfg.Attribute["limit_lo"] != nil {
+	if p.cfg.Attribute.Has("limit_lo") {
 		p.satLimLo = p.cfg.Attribute["limit_lo"].(float64)
 	}
 
@@ -127,12 +127,12 @@ func (p *basicPID) reset() error {
 		}
 
 		tuneStepPct := 0.35
-		if p.cfg.Attribute["tune_step_pct"] != nil {
+		if p.cfg.Attribute.Has("tune_step_pct") {
 			tuneStepPct = p.cfg.Attribute["tune_step_pct"].(float64)
 		}
 
-		tuneMethod := tuneCalcMethod("")
-		if p.cfg.Attribute["tune_method"] != nil {
+		tuneMethod := tuneMethodZiegerNicholsPID
+		if p.cfg.Attribute.Has("tune_method") {
 			tuneMethod = tuneCalcMethod(p.cfg.Attribute["tune_method"].(string))
 		}
 
