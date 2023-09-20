@@ -607,7 +607,7 @@ func (c *monitoredWebcam) NextPointCloud(ctx context.Context) (pointcloud.PointC
 	return c.exposedProjector.NextPointCloud(ctx)
 }
 
-func (c *monitoredWebcam) DriverInfo() (driver.Info, error) {
+func (c *monitoredWebcam) driverInfo() (driver.Info, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	if c.underlyingSource == nil {
@@ -634,7 +634,7 @@ func (c *monitoredWebcam) Properties(ctx context.Context) (camera.Properties, er
 	// Looking for intrinsics in map built using viam camera
 	// calibration here https://github.com/viam-labs/camera-calibration/tree/main
 	if props.IntrinsicParams == nil {
-		dInfo, err := c.DriverInfo()
+		dInfo, err := c.driverInfo()
 		if err != nil {
 			if !c.hasLoggedIntrinsicsInfo {
 				c.logger.Errorw("can't find driver info for camera")
