@@ -3,7 +3,7 @@ version: 1
 script:
  - rm -rf $TARGET_APPDIR | true
  - mkdir -p "$TARGET_APPDIR/usr/bin"
- - cp ../../../bin/Linux-aarch64/viam-server "$TARGET_APPDIR/usr/bin/viam-server"
+ - cp ../../../bin/Linux-${UNAME_M}/viam-server "$TARGET_APPDIR/usr/bin/"
  - mkdir -p "$TARGET_APPDIR/usr/share/icons/viam/256x256/apps/"
  - wget https://storage.googleapis.com/appimage-assets/viam-server.png -O "$TARGET_APPDIR/usr/share/icons/viam/256x256/apps/viam-server.png"
  - mkdir -p "$TARGET_APPDIR/aix.d/"
@@ -26,7 +26,7 @@ AppDir:
     exec_args: $@
   apt:
     arch:
-    - arm64
+    - ${DPKG_ARCH}
     allow_unauthenticated: true
     sources:
     - sourceline: deb [trusted=yes] http://deb.debian.org/debian bullseye main
@@ -46,5 +46,5 @@ AppDir:
     env:
         AIX_TARGET: usr/bin/viam-server
 AppImage:
-  arch: aarch64
-  update-information: zsync|https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${BUILD_CHANNEL}-aarch64.AppImage.zsync
+  arch: ${UNAME_M}
+  update-information: zsync|https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${BUILD_CHANNEL}-${UNAME_M}.AppImage.zsync
