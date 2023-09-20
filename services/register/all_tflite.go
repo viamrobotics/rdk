@@ -1,4 +1,4 @@
-//go:build !no_tflite
+//go:build !no_tflite && !no_cgo
 
 // Package register registers all services
 package register
