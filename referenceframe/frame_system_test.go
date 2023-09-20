@@ -334,3 +334,69 @@ func TestFrameSystemGeometries(t *testing.T) {
 		})
 	}
 }
+
+func TestReplaceFrame(t *testing.T) {
+	fs := NewEmptyFrameSystem("test")
+	// fill framesystem
+	pose := spatial.NewZeroPose()
+	box, err := spatial.NewBox(pose, r3.Vector{1, 1, 1}, "box")
+	test.That(t, err, test.ShouldBeNil)
+	replaceMe, err := NewStaticFrameWithGeometry("replaceMe", pose, box)
+	test.That(t, err, test.ShouldBeNil)
+	err = fs.AddFrame(replaceMe, fs.World())
+	test.That(t, err, test.ShouldBeNil)
+
+	frame1 := NewZeroStaticFrame("frame1")
+	err = fs.AddFrame(frame1, replaceMe)
+	test.That(t, err, test.ShouldBeNil)
+
+	frame2 := NewZeroStaticFrame("frame2")
+	err = fs.AddFrame(frame2, frame1)
+	test.That(t, err, test.ShouldBeNil)
+
+	leafNode, err := NewStaticFrameWithGeometry("leafNode", pose, box)
+	test.That(t, err, test.ShouldBeNil)
+	err = fs.AddFrame(leafNode, fs.World())
+	test.That(t, err, test.ShouldBeNil)
+
+	// ------ fail with replacing world
+	err = fs.ReplaceFrame(fs.World())
+	test.That(t, err, test.ShouldNotBeNil)
+
+	// ------ fail replacing a frame not found in the framesystem
+	ghostFrame := NewZeroStaticFrame("ghost")
+	err = fs.ReplaceFrame(ghostFrame)
+	test.That(t, err, test.ShouldNotBeNil)
+
+	// ------ replace a non-leaf node
+	replaceWith := NewZeroStaticFrame("replaceMe")
+	err = fs.ReplaceFrame(replaceWith)
+	test.That(t, err, test.ShouldBeNil)
+
+	// ------ replace a leaf node
+	newLeafNode := NewZeroStaticFrame("leafNode")
+	err = fs.ReplaceFrame(newLeafNode)
+	test.That(t, err, test.ShouldBeNil)
+
+	// make sure replaceMe and leafNode are gone
+	test.That(t, fs.Frame(replaceWith.Name()), test.ShouldNotResemble, replaceMe)
+	test.That(t, fs.Frame(newLeafNode.Name()), test.ShouldNotResemble, leafNode)
+
+	// make sure parentage is transferred successfully
+	f, err := fs.Parent(replaceWith)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, f, test.ShouldResemble, fs.World())
+
+	// make sure parentage is preserved
+	f, err = fs.Parent(frame1)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, f, test.ShouldResemble, replaceWith)
+
+	f, err = fs.Parent(frame2)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, f, test.ShouldResemble, frame1)
+
+	f, err = fs.Parent(newLeafNode)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, f, test.ShouldResemble, fs.World())
+}

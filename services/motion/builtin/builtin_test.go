@@ -491,9 +491,17 @@ func TestMoveOnMapTimeout(t *testing.T) {
 		injectSlam.Name(): injectSlam,
 		realBase.Name():   realBase,
 	}
+	fsParts := []*referenceframe.FrameSystemPart{
+		{FrameConfig: createBaseLink(t, "test_base")},
+	}
+
 	conf := resource.Config{ConvertedAttributes: &Config{}}
 	ms, err := NewBuiltIn(ctx, deps, conf, logger)
 	test.That(t, err, test.ShouldBeNil)
+
+	fsSvc, err := createFrameSystemService(ctx, deps, fsParts, logger)
+	test.That(t, err, test.ShouldBeNil)
+	ms.(*builtIn).fsService = fsSvc
 
 	easyGoal := spatialmath.NewPoseFromPoint(r3.Vector{X: 1001, Y: 1001})
 	// create motion config
@@ -1136,12 +1144,14 @@ func TestStoppableMoveFunctions(t *testing.T) {
 				injectMovementSensor.Name(): injectMovementSensor,
 			}
 
-			_, err := createFrameSystemService(ctx, deps, fsParts, logger)
+			fsSvc, err := createFrameSystemService(ctx, deps, fsParts, logger)
 			test.That(t, err, test.ShouldBeNil)
 
 			conf := resource.Config{ConvertedAttributes: &Config{}}
 			ms, err := NewBuiltIn(ctx, deps, conf, logger)
 			test.That(t, err, test.ShouldBeNil)
+
+			ms.(*builtIn).fsService = fsSvc
 
 			goal := geo.NewPoint(gpsPoint.Lat()+1e-4, gpsPoint.Lng()+1e-4)
 			motionCfg := motion.MotionConfiguration{
@@ -1169,6 +1179,9 @@ func TestStoppableMoveFunctions(t *testing.T) {
 				injectBase.Name(): injectBase,
 				injectSlam.Name(): injectSlam,
 			}
+			fsParts := []*referenceframe.FrameSystemPart{
+				{FrameConfig: baseLink},
+			}
 
 			ms, err := NewBuiltIn(
 				ctx,
@@ -1177,6 +1190,10 @@ func TestStoppableMoveFunctions(t *testing.T) {
 				logger,
 			)
 			test.That(t, err, test.ShouldBeNil)
+
+			fsSvc, err := createFrameSystemService(ctx, deps, fsParts, logger)
+			test.That(t, err, test.ShouldBeNil)
+			ms.(*builtIn).fsService = fsSvc
 
 			goal := spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 500})
 			success, err := ms.MoveOnMap(ctx, injectBase.Name(), goal, injectSlam.Name(), nil)

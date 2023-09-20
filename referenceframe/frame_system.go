@@ -2,6 +2,7 @@ package referenceframe
 
 import (
 	"encoding/json"
+	"fmt"
 	"sort"
 
 	"github.com/edaniels/golog"
@@ -62,6 +63,11 @@ type FrameSystem interface {
 
 	// MergeFrameSystem combines two frame systems together, placing the world of systemToMerge at the attachTo frame in the frame system
 	MergeFrameSystem(systemToMerge FrameSystem, attachTo Frame) error
+
+	// ReplaceFrame finds the original frame which shares its name with replacementFrame. We then transfer the original
+	// frame's children and parentage to replacementFrame. The original frame is removed entirely from the frame system.
+	// replacementFrame is not allowed to exist within the frame system at the time of the call.
+	ReplaceFrame(replacementFrame Frame) error
 }
 
 // FrameSystemPart is used to collect all the info need from a named robot part to build the frame node in a frame system.
@@ -395,6 +401,39 @@ func (sfs *simpleFrameSystem) getFrameToWorldTransform(inputMap map[string][]Inp
 		}
 	}
 	return srcToWorld, err
+}
+
+// ReplaceFrame finds the original frame which shares its name with replacementFrame. We then transfer the original
+// frame's children and parentage to replacementFrame. The original frame is removed entirely from the frame system.
+// replacementFrame is not allowed to exist within the frame system at the time of the call.
+func (sfs *simpleFrameSystem) ReplaceFrame(replacementFrame Frame) error {
+	var replaceMe Frame
+	if replaceMe = sfs.Frame(replacementFrame.Name()); replaceMe == nil {
+		return fmt.Errorf("%s not found in frame system", replacementFrame.Name())
+	}
+	if replaceMe == sfs.World() {
+		return errors.New("cannot replace the World frame of a frame system")
+	}
+
+	// get replaceMe's parent
+	replaceMeParent, err := sfs.Parent(replaceMe)
+	if err != nil {
+		return err
+	}
+
+	// remove replaceMe from the frame system
+	delete(sfs.frames, replaceMe.Name())
+	delete(sfs.parents, replaceMe)
+
+	for f, parent := range sfs.parents {
+		// replace frame with parent as replaceMe with replaceWith
+		if parent == replaceMe {
+			delete(sfs.parents, f)
+			sfs.parents[f] = replacementFrame
+		}
+	}
+	// add replacementFrame to frame system with parent of replaceMe
+	return sfs.AddFrame(replacementFrame, replaceMeParent)
 }
 
 // Returns the relative pose between the parent and the destination frame.

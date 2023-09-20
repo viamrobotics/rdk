@@ -410,8 +410,18 @@ func (ms *builtIn) planMoveOnMap(
 		}
 	}
 
+	fs, err := ms.fsService.FrameSystem(ctx, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	kb, err := kinematicbase.WrapWithKinematics(ctx, b, ms.logger, motion.NewSLAMLocalizer(slamSvc), limits, kinematicsOptions)
 	if err != nil {
+		return nil, nil, err
+	}
+
+	// replace original base frame with one that knows how to move itself and allow planning for
+	if err = fs.ReplaceFrame(kb.Kinematics()); err != nil {
 		return nil, nil, err
 	}
 
@@ -439,10 +449,6 @@ func (ms *builtIn) planMoveOnMap(
 	dst := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPoseFromPoint(destination.Point()))
 
 	f := kb.Kinematics()
-	fs := referenceframe.NewEmptyFrameSystem("")
-	if err := fs.AddFrame(f, fs.World()); err != nil {
-		return nil, nil, err
-	}
 
 	worldState, err := referenceframe.NewWorldState([]*referenceframe.GeometriesInFrame{
 		referenceframe.NewGeometriesInFrame(referenceframe.World, []spatialmath.Geometry{octree}),
