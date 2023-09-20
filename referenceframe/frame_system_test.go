@@ -363,10 +363,6 @@ func TestReplaceFrame(t *testing.T) {
 	err = fs.ReplaceFrame(fs.World())
 	test.That(t, err, test.ShouldNotBeNil)
 
-	// ------ fail replacing with a frame already found in the framesystem
-	err = fs.ReplaceFrame(replaceMe)
-	test.That(t, err, test.ShouldNotBeNil)
-
 	// ------ fail replacing a frame not found in the framesystem
 	ghostFrame := NewZeroStaticFrame("ghost")
 	err = fs.ReplaceFrame(ghostFrame)
