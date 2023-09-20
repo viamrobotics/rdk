@@ -171,7 +171,7 @@ func createMoveOnGlobeEnvironment(ctx context.Context, t *testing.T, origin, des
 	}
 	kinematicsOptions := kinematicbase.NewKinematicBaseOptions()
 	kinematicsOptions.PlanDeviationThresholdMM = 1 // can afford to do this for tests
-	kb, err := kinematicbase.WrapWithFakeKinematics(ctx, fakeBase.(*baseFake.Base), localizer, limits, kinematicsOptions)
+	kb, err := kinematicbase.WrapWithKinematics(ctx, fakeBase.(*baseFake.Base), logger, localizer, limits, kinematicsOptions)
 	test.That(t, err, test.ShouldBeNil)
 
 	// create injected MovementSensor
@@ -517,7 +517,7 @@ func TestMoveOnGlobe(t *testing.T) {
 
 	// create motion config
 	extra := make(map[string]interface{})
-	// extra["motion_profile"] = "position_only" // TODO: Add back with RSDK-4583
+	extra["motion_profile"] = "position_only"
 	extra["timeout"] = 5.
 
 	dst := geo.NewPoint(gpsPoint.Lat(), gpsPoint.Lng()+1e-5)
@@ -544,9 +544,7 @@ func TestMoveOnGlobe(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		waypoints, err := plan.GetFrameSteps(fakeBase.Name().Name)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(waypoints), test.ShouldEqual, 2)
-		test.That(t, waypoints[1][0].Value, test.ShouldAlmostEqual, expectedDst.X, epsilonMM)
-		test.That(t, waypoints[1][1].Value, test.ShouldAlmostEqual, expectedDst.Y, epsilonMM)
+		test.That(t, len(waypoints), test.ShouldBeGreaterThan, 2)
 
 		success, err := ms.MoveOnGlobe(
 			ctx,

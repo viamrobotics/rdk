@@ -47,7 +47,7 @@ func TestNewFakeKinematics(t *testing.T) {
 
 	options := NewKinematicBaseOptions()
 	options.PositionOnlyMode = false
-	kb, err := WrapWithFakeKinematics(ctx, b.(*fakebase.Base), localizer, limits, options)
+	kb, err := WrapWithFakeDiffDriveKinematics(ctx, b.(*fakebase.Base), localizer, limits, options)
 	test.That(t, err, test.ShouldBeNil)
 	expected := referenceframe.FloatsToInputs([]float64{10, 11})
 	test.That(t, kb.GoToInputs(ctx, expected), test.ShouldBeNil)

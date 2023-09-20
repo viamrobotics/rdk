@@ -11,7 +11,7 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-type fakeKinematics struct {
+type fakeDiffDriveKinematics struct {
 	*fake.Base
 	motion.Localizer
 	planningFrame, executionFrame referenceframe.Frame
@@ -21,7 +21,7 @@ type fakeKinematics struct {
 }
 
 // WrapWithFakeKinematics creates a KinematicBase from the fake Base so that it satisfies the ModelFramer and InputEnabled interfaces.
-func WrapWithFakeKinematics(
+func WrapWithFakeDiffDriveKinematics(
 	ctx context.Context,
 	b *fake.Base,
 	localizer motion.Localizer,
@@ -33,7 +33,7 @@ func WrapWithFakeKinematics(
 		return nil, err
 	}
 	pt := position.Pose().Point()
-	fk := &fakeKinematics{
+	fk := &fakeDiffDriveKinematics{
 		Base:      b,
 		Localizer: localizer,
 		inputs:    []referenceframe.Input{{pt.X}, {pt.Y}},
@@ -61,17 +61,17 @@ func WrapWithFakeKinematics(
 	return fk, nil
 }
 
-func (fk *fakeKinematics) Kinematics() referenceframe.Frame {
+func (fk *fakeDiffDriveKinematics) Kinematics() referenceframe.Frame {
 	return fk.planningFrame
 }
 
-func (fk *fakeKinematics) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
+func (fk *fakeDiffDriveKinematics) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	fk.lock.Lock()
 	defer fk.lock.Unlock()
 	return fk.inputs, nil
 }
 
-func (fk *fakeKinematics) GoToInputs(ctx context.Context, inputs []referenceframe.Input) error {
+func (fk *fakeDiffDriveKinematics) GoToInputs(ctx context.Context, inputs []referenceframe.Input) error {
 	_, err := fk.planningFrame.Transform(inputs)
 	if err != nil {
 		return err
@@ -85,7 +85,89 @@ func (fk *fakeKinematics) GoToInputs(ctx context.Context, inputs []referencefram
 	return nil
 }
 
-func (fk *fakeKinematics) ErrorState(
+func (fk *fakeDiffDriveKinematics) ErrorState(
+	ctx context.Context,
+	plan [][]referenceframe.Input,
+	currentNode int,
+) (spatialmath.Pose, error) {
+	return spatialmath.NewZeroPose(), nil
+}
+
+type fakePTGKinematics struct {
+	*fake.Base
+	motion.Localizer
+	planningFrame, executionFrame referenceframe.Frame
+	inputs                        []referenceframe.Input
+	options                       Options
+	lock                          sync.Mutex
+}
+
+// WrapWithFakeKinematics creates a KinematicBase from the fake Base so that it satisfies the ModelFramer and InputEnabled interfaces.
+func WrapWithFakePTGKinematics(
+	ctx context.Context,
+	b *fake.Base,
+	localizer motion.Localizer,
+	limits []referenceframe.Limit,
+	options Options,
+) (KinematicBase, error) {
+	position, err := localizer.CurrentPosition(ctx)
+	if err != nil {
+		return nil, err
+	}
+	pt := position.Pose().Point()
+	fk := &fakePTGKinematics{
+		Base:      b,
+		Localizer: localizer,
+		inputs:    []referenceframe.Input{{pt.X}, {pt.Y}},
+	}
+	var geometry spatialmath.Geometry
+	if len(fk.Base.Geometry) != 0 {
+		geometry = fk.Base.Geometry[0]
+	}
+
+	fk.executionFrame, err = referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits, geometry)
+	if err != nil {
+		return nil, err
+	}
+
+	if options.PositionOnlyMode {
+		fk.planningFrame, err = referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits[:2], geometry)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		fk.planningFrame = fk.executionFrame
+	}
+
+	fk.options = options
+	return fk, nil
+}
+
+func (fk *fakePTGKinematics) Kinematics() referenceframe.Frame {
+	return fk.planningFrame
+}
+
+func (fk *fakePTGKinematics) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
+	fk.lock.Lock()
+	defer fk.lock.Unlock()
+	return fk.inputs, nil
+}
+
+func (fk *fakePTGKinematics) GoToInputs(ctx context.Context, inputs []referenceframe.Input) error {
+	_, err := fk.planningFrame.Transform(inputs)
+	if err != nil {
+		return err
+	}
+	fk.lock.Lock()
+	fk.inputs = inputs
+	fk.lock.Unlock()
+
+	// Sleep for a short amount to time to simulate a base taking some amount of time to reach the inputs
+	time.Sleep(150 * time.Millisecond)
+	return nil
+}
+
+func (fk *fakePTGKinematics) ErrorState(
 	ctx context.Context,
 	plan [][]referenceframe.Input,
 	currentNode int,
