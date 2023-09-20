@@ -6,9 +6,10 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"go.viam.com/utils"
+
 	"go.viam.com/rdk/components/movementsensor"
 	rdkutils "go.viam.com/rdk/utils"
-	"go.viam.com/utils"
 )
 
 func (sb *sensorBase) stopSpinWithSensor(
