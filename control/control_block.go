@@ -32,6 +32,8 @@ type BlockConfig struct {
 	DependsOn []string           `json:"depends_on"` // List of blocks needed for calling Next
 }
 
+
+
 // Block interface for a control block.
 type Block interface {
 	// Reset will reset the control block to initial state. Returns an error on failure

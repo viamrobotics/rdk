@@ -105,10 +105,22 @@ func (s *trapezoidVelocityGenerator) reset() error {
 	if !s.cfg.Attribute.Has("max_vel") {
 		return errors.Errorf("trapezoidale velocity profile block %s needs max_vel field", s.cfg.Name)
 	}
-	s.maxAcc = s.cfg.Attribute.Float64("max_acc", 0.0)
-	s.maxVel = s.cfg.Attribute.Float64("max_vel", 0.0)
-	s.posWindow = s.cfg.Attribute.Float64("pos_window", 10.0)
-	s.kppGain = s.cfg.Attribute.Float64("kpp_gain", 0.45)
+	s.maxAcc = s.cfg.Attribute["max_acc"].(float64) // default 0.0
+	s.maxVel = s.cfg.Attribute["max_vel"].(float64) // default 0.0
+
+	s.posWindow = 0
+	if s.cfg.Attribute["pos_window"] != nil {
+		s.posWindow = s.cfg.Attribute["pos_window"].(float64)
+	}
+
+	s.kppGain = 0
+	if s.cfg.Attribute["kpp_gain"] != nil {
+		s.kppGain = s.cfg.Attribute["kpp_gain"].(float64)
+	}
+	if s.kppGain == 0 {
+		s.kppGain = 0.45
+	}
+
 	s.currentPhase = rest
 	s.y = make([]*Signal, 1)
 	s.y[0] = makeSignal(s.cfg.Name)
