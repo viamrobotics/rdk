@@ -603,7 +603,8 @@ func (rc *RobotClient) createClient(name resource.Name) (resource.Resource, erro
 }
 
 func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resource.RPCAPI, error) {
-	ctx = contextutils.ContextWithTimeoutIfNoDeadline(ctx, resourcesTimeout)
+	ctx, cancel := contextutils.ContextWithTimeoutIfNoDeadline(ctx, resourcesTimeout)
+	defer cancel()
 	resp, err := rc.client.ResourceNames(ctx, &pb.ResourceNamesRequest{})
 	if err != nil {
 		return nil, nil, err
