@@ -5,9 +5,7 @@ import (
 	"errors"
 
 	"google.golang.org/protobuf/types/known/anypb"
-	"google.golang.org/protobuf/types/known/structpb"
 
-	pb "go.viam.com/api/component/sensor/v1"
 	"go.viam.com/rdk/data"
 )
 
@@ -42,6 +40,7 @@ func newSensorCollector(resource interface{}, params data.CollectorParams) (data
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, arg map[string]*anypb.Any) (interface{}, error) {
+		var records []ReadingRecord
 		values, err := sensorResource.Readings(ctx, data.FromDMExtraMap) // TODO (RSDK-1972): pass in something here from the config?
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
@@ -51,7 +50,6 @@ func newSensorCollector(resource interface{}, params data.CollectorParams) (data
 			}
 			return nil, data.FailedToReadErr(params.ComponentName, readings.String(), err)
 		}
-		records := make(map[string]*structpb.Value)
 		for name, value := range values {
 			if len(arg) != 0 {
 				// If specific sensor reading names were passed in the robot config, report only those
@@ -60,15 +58,9 @@ func newSensorCollector(resource interface{}, params data.CollectorParams) (data
 					continue
 				}
 			}
-			reading, err := structpb.NewValue(value)
-			if err != nil {
-				return nil, data.FailedToReadErr(params.ComponentName, reading.String(), err)
-			}
-			records[name] = reading
+			records = append(records, ReadingRecord{ReadingName: name, Reading: value})
 		}
-		return pb.GetReadingsResponse{
-			Readings: records,
-		}, nil
+		return ReadingRecords{Readings: records}, nil
 	})
 	return data.NewCollector(cFunc, params)
 }
