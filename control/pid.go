@@ -101,18 +101,26 @@ func (p *basicPID) reset() error {
 	p.kD = p.cfg.Attribute["kD"].(float64)
 	p.kP = p.cfg.Attribute["kP"].(float64)
 
+	// ensure a default of 255
+	p.satLimUp = 255
 	if satLimUp, ok := p.cfg.Attribute["int_sat_lim_up"].(float64); ok {
 		p.satLimUp = satLimUp
 	}
 
+	// ensure a default of 255
+	p.limUp = 255
 	if limup, ok := p.cfg.Attribute["limit_up"].(float64); ok {
 		p.limUp = limup
 	}
 
+	// zero float64 for this value is default in the pid struct
+	// by golang
 	if p.cfg.Attribute.Has("int_sat_lim_lo") {
 		p.satLimLo = p.cfg.Attribute["int_sat_lim_lo"].(float64)
 	}
 
+	//  zero float64 for this value is default in the pid struct
+	// by golang
 	if p.cfg.Attribute.Has("limit_lo") {
 		p.satLimLo = p.cfg.Attribute["limit_lo"].(float64)
 	}
@@ -215,7 +223,7 @@ type pidTuner struct {
 	pPeakL       []float64
 	pFindDir     int
 	tuneMethod   tuneCalcMethod
-	stepPct      float64
+	stepPct      float64 `default:".35"`
 	limUp        float64
 	limLo        float64
 	ssRValue     float64 `default:"2.0"`
