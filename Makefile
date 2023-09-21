@@ -2,6 +2,9 @@ BIN_OUTPUT_PATH = bin/$(shell uname -s)-$(shell uname -m)
 
 TOOL_BIN = bin/gotools/$(shell uname -s)-$(shell uname -m)
 
+NDK_ROOT = ~/android-ndk-r25c
+SERVER_RELEASE = dev
+
 PATH_WITH_TOOLS="`pwd`/$(TOOL_BIN):`pwd`/node_modules/.bin:${PATH}"
 
 GIT_REVISION = $(shell git rev-parse HEAD | tr -d '\n')
@@ -103,6 +106,17 @@ server-static: build-web
 	if [ -z "${NO_UPX}" ]; then\
 		upx --best --lzma $(BIN_OUTPUT_PATH)/viam-server;\
 	fi
+
+ndk-root:
+	echo $(NDK_ROOT)
+
+bin/viam-server-android-$(SERVER_RELEASE):
+	GOOS=android GOARCH=arm64 CGO_ENABLED=1 \
+		CC=$(NDK_ROOT)/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android30-clang \
+		go build -v \
+		-tags no_cgo \
+		-o $@ \
+		./web/cmd/server
 
 clean-all:
 	git clean -fxd

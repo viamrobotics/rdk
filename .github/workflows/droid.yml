@@ -17,6 +17,7 @@ on:
 
 env:
   NDK_ZIP: android-ndk-r26-linux.zip
+  TARGET: bin/viam-server-android-${{ inputs.release_type }}
 
 jobs:
   droid:
@@ -46,12 +47,15 @@ jobs:
       run: unzip android-ndk-r26-linux.zip
 
     - name: build
-      run: |
-        NDK_ROOT=$(realpath android-ndk-r26) etc/android.sh
-        mv server viam-server-android
-        file viam-server-android
+      run: make $TARGET \
+        NDK_ROOT=$(realpath android-ndk-r26) \
+        SERVER_RELEASE=${{ inputs.release_type }}
 
     - uses: actions/upload-artifact@v3
       with:
         name: viam-server-android
-        path: viam-server-android
+        path: ${{ env.TARGET }}
+
+    - name: upload if release
+      if: inputs.release_type == 'stable' || inputs.release_type == 'latest'
+      run: echo todo upload maybe
