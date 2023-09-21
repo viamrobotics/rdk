@@ -47,7 +47,7 @@ func newEndPositionCollector(resource interface{}, params data.CollectorParams) 
 			return nil, data.FailedToReadErr(params.ComponentName, endPosition.String(), err)
 		}
 		o := v.Orientation().OrientationVectorRadians()
-		ret := pb.GetEndPositionResponse{
+		return pb.GetEndPositionResponse{
 			Pose: &v1.Pose{
 				X:     v.Point().X,
 				Y:     v.Point().Y,
@@ -57,8 +57,7 @@ func newEndPositionCollector(resource interface{}, params data.CollectorParams) 
 				OZ:    o.OZ,
 				Theta: o.Theta,
 			},
-		}
-		return ret, nil
+		}, nil
 
 	})
 	return data.NewCollector(cFunc, params)
@@ -80,10 +79,9 @@ func newJointPositionsCollector(resource interface{}, params data.CollectorParam
 			}
 			return nil, data.FailedToReadErr(params.ComponentName, jointPositions.String(), err)
 		}
-		ret := pb.GetJointPositionsResponse{
+		return pb.GetJointPositionsResponse{
 			Positions: v,
-		}
-		return ret, nil
+		}, nil
 	})
 	return data.NewCollector(cFunc, params)
 }
