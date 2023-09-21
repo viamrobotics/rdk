@@ -20,7 +20,7 @@ import (
 
 // moveRequest is a structure that contains all the information necessary for to make a move call.
 type moveRequest struct {
-	config        *motion.MotionConfiguration
+	config        *motion.Configuration
 	planRequest   *motionplan.PlanRequest
 	kinematicBase kinematicbase.KinematicBase
 }
@@ -101,7 +101,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	destination *geo.Point,
 	movementSensorName resource.Name,
 	obstacles []*spatialmath.GeoObstacle,
-	motionCfg *motion.MotionConfiguration,
+	motionCfg *motion.Configuration,
 	extra map[string]interface{},
 ) (*moveRequest, error) {
 	// build kinematic options

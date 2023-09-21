@@ -5,9 +5,11 @@ import (
 	"math"
 	"net"
 	"testing"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
+	"github.com/google/uuid"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	servicepb "go.viam.com/api/service/motion/v1"
@@ -51,8 +53,13 @@ func TestClient(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, svc), test.ShouldBeNil)
 
-	go rpcServer.Serve(listener1)
-	defer rpcServer.Stop()
+	go func() {
+		test.That(t, rpcServer.Serve(listener1), test.ShouldBeNil)
+	}()
+
+	defer func() {
+		test.That(t, rpcServer.Stop(), test.ShouldBeNil)
+	}()
 
 	zeroPose := spatialmath.NewZeroPose()
 	zeroPoseInFrame := referenceframe.NewPoseInFrame("", zeroPose)
@@ -100,7 +107,7 @@ func TestClient(t *testing.T) {
 			heading float64,
 			movementSensorName resource.Name,
 			obstacles []*spatialmath.GeoObstacle,
-			motionCfg *motion.MotionConfiguration,
+			motionCfg *motion.Configuration,
 			extra map[string]interface{},
 		) (bool, error) {
 			return false, errors.New("Not yet implemented")
@@ -116,7 +123,7 @@ func TestClient(t *testing.T) {
 				receivedTransforms[tf.Name()] = tf
 			}
 			return referenceframe.NewPoseInFrame(
-				destinationFrame+componentName.Name, spatialmath.NewPoseFromPoint(r3.Vector{1, 2, 3})), nil
+				destinationFrame+componentName.Name, spatialmath.NewPoseFromPoint(r3.Vector{X: 1, Y: 2, Z: 3})), nil
 		}
 
 		// Move
@@ -125,7 +132,7 @@ func TestClient(t *testing.T) {
 		test.That(t, result, test.ShouldEqual, success)
 
 		// MoveOnGlobe
-		globeResult, err := client.MoveOnGlobe(ctx, baseName, globeDest, math.NaN(), gpsName, nil, &motion.MotionConfiguration{}, nil)
+		globeResult, err := client.MoveOnGlobe(ctx, baseName, globeDest, math.NaN(), gpsName, nil, &motion.Configuration{}, nil)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, notYetImplementedErr.Error())
 		test.That(t, globeResult, test.ShouldEqual, false)
@@ -195,7 +202,7 @@ func TestClient(t *testing.T) {
 			heading float64,
 			movementSensorName resource.Name,
 			obstacles []*spatialmath.GeoObstacle,
-			motionCfg *motion.MotionConfiguration,
+			motionCfg *motion.Configuration,
 			extra map[string]interface{},
 		) (bool, error) {
 			return false, passedErr
@@ -217,7 +224,7 @@ func TestClient(t *testing.T) {
 		test.That(t, resp, test.ShouldEqual, false)
 
 		// MoveOnGlobe
-		resp, err = client2.MoveOnGlobe(ctx, baseName, globeDest, math.NaN(), gpsName, nil, &motion.MotionConfiguration{}, nil)
+		resp, err = client2.MoveOnGlobe(ctx, baseName, globeDest, math.NaN(), gpsName, nil, &motion.Configuration{}, nil)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
 		test.That(t, resp, test.ShouldEqual, false)
@@ -226,6 +233,337 @@ func TestClient(t *testing.T) {
 		_, err = client2.GetPose(context.Background(), arm.Named("arm1"), "foo", nil, map[string]interface{}{})
 		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
 		test.That(t, client2.Close(context.Background()), test.ShouldBeNil)
+		test.That(t, conn.Close(), test.ShouldBeNil)
+	})
+
+	t.Run("MoveOnGlobeNew", func(t *testing.T) {
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
+
+		test.That(t, err, test.ShouldBeNil)
+
+		client, err := motion.NewClientFromConn(context.Background(), conn, "", testMotionServiceName, logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		t.Run("returns error without calling client if params can't be cast to proto", func(t *testing.T) {
+			injectMS.MoveOnGlobeNewFunc = func(
+				ctx context.Context,
+				componentName resource.Name,
+				destination *geo.Point,
+				heading float64,
+				movementSensorName resource.Name,
+				obstacles []*spatialmath.GeoObstacle,
+				motionCfg *motion.Configuration,
+				extra map[string]interface{},
+			) (string, error) {
+				t.Log("should not be called")
+				t.FailNow()
+				return "", errors.New("should not be reached")
+			}
+
+			// nil destination is can't be converted to proto
+			executionID, err := client.MoveOnGlobeNew(ctx, baseName, nil, math.NaN(), gpsName, nil, &motion.Configuration{}, nil)
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err, test.ShouldBeError, errors.New("Must provide a destination"))
+			test.That(t, executionID, test.ShouldEqual, "")
+		})
+
+		t.Run("returns error if client returns error", func(t *testing.T) {
+			errExpected := errors.New("some client error")
+			injectMS.MoveOnGlobeNewFunc = func(
+				ctx context.Context,
+				componentName resource.Name,
+				destination *geo.Point,
+				heading float64,
+				movementSensorName resource.Name,
+				obstacles []*spatialmath.GeoObstacle,
+				motionCfg *motion.Configuration,
+				extra map[string]interface{},
+			) (string, error) {
+				return "", errExpected
+			}
+
+			executionID, err := client.MoveOnGlobeNew(ctx, baseName, globeDest, math.NaN(), gpsName, nil, &motion.Configuration{}, nil)
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err.Error(), test.ShouldContainSubstring, errExpected.Error())
+			test.That(t, executionID, test.ShouldEqual, "")
+		})
+
+		t.Run("otherwise returns success with an executionID", func(t *testing.T) {
+			expectedExecutionID := "some execution id"
+			injectMS.MoveOnGlobeNewFunc = func(
+				ctx context.Context,
+				componentName resource.Name,
+				destination *geo.Point,
+				heading float64,
+				movementSensorName resource.Name,
+				obstacles []*spatialmath.GeoObstacle,
+				motionCfg *motion.Configuration,
+				extra map[string]interface{},
+			) (string, error) {
+				return expectedExecutionID, nil
+			}
+
+			executionID, err := client.MoveOnGlobeNew(ctx, baseName, globeDest, math.NaN(), gpsName, nil, &motion.Configuration{}, nil)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, executionID, test.ShouldEqual, expectedExecutionID)
+		})
+
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
+		test.That(t, conn.Close(), test.ShouldBeNil)
+	})
+
+	t.Run("StopPlan", func(t *testing.T) {
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
+
+		test.That(t, err, test.ShouldBeNil)
+
+		client, err := motion.NewClientFromConn(context.Background(), conn, "", testMotionServiceName, logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		t.Run("returns error if client returns error", func(t *testing.T) {
+			errExpected := errors.New("some client error")
+			injectMS.StopPlanFunc = func(
+				ctx context.Context,
+				componentName resource.Name,
+				extra map[string]interface{},
+			) error {
+				return errExpected
+			}
+
+			err := client.StopPlan(ctx, base.Named("mybase"), nil)
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err.Error(), test.ShouldContainSubstring, errExpected.Error())
+		})
+
+		t.Run("otherwise returns nil", func(t *testing.T) {
+			injectMS.StopPlanFunc = func(
+				ctx context.Context,
+				componentName resource.Name,
+				extra map[string]interface{},
+			) error {
+				return nil
+			}
+
+			err := client.StopPlan(ctx, base.Named("mybase"), nil)
+			test.That(t, err, test.ShouldBeNil)
+		})
+
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
+		test.That(t, conn.Close(), test.ShouldBeNil)
+	})
+
+	t.Run("ListPlanStatuses", func(t *testing.T) {
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		client, err := motion.NewClientFromConn(context.Background(), conn, "", testMotionServiceName, logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		t.Run("returns error if client returns error", func(t *testing.T) {
+			errExpected := errors.New("some client error")
+			injectMS.ListPlanStatusesFunc = func(
+				ctx context.Context,
+				onlyActivePlans bool,
+				extra map[string]interface{},
+			) ([]motion.PlanStatusWithID, error) {
+				return nil, errExpected
+			}
+
+			resp, err := client.ListPlanStatuses(ctx, false, nil)
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err.Error(), test.ShouldContainSubstring, errExpected.Error())
+			test.That(t, resp, test.ShouldBeEmpty)
+		})
+
+		t.Run("otherwise returns a slice of PlanStautsWithID", func(t *testing.T) {
+			planID, err := uuid.NewUUID()
+			test.That(t, err, test.ShouldBeNil)
+
+			executionID, err := uuid.NewUUID()
+			test.That(t, err, test.ShouldBeNil)
+
+			status := motion.PlanStatus{State: motion.PlanStateInProgress, Timestamp: time.Now().UTC(), Reason: nil}
+
+			expectedResp := []motion.PlanStatusWithID{
+				{PlanID: planID, ComponentName: base.Named("mybase"), ExecutionID: executionID, Status: status},
+			}
+
+			injectMS.ListPlanStatusesFunc = func(
+				ctx context.Context,
+				onlyActivePlans bool,
+				extra map[string]interface{},
+			) ([]motion.PlanStatusWithID, error) {
+				return expectedResp, nil
+			}
+
+			resp, err := client.ListPlanStatuses(ctx, false, nil)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, resp, test.ShouldResemble, expectedResp)
+		})
+
+		t.Run("supportbs returning multiple PlanStautsWithID", func(t *testing.T) {
+			planIDA, err := uuid.NewUUID()
+			test.That(t, err, test.ShouldBeNil)
+
+			executionIDA, err := uuid.NewUUID()
+			test.That(t, err, test.ShouldBeNil)
+
+			statusA := motion.PlanStatus{State: motion.PlanStateInProgress, Timestamp: time.Now().UTC(), Reason: nil}
+
+			planIDB, err := uuid.NewUUID()
+			test.That(t, err, test.ShouldBeNil)
+
+			executionIDB, err := uuid.NewUUID()
+			test.That(t, err, test.ShouldBeNil)
+
+			reason := "failed reason"
+			statusB := motion.PlanStatus{State: motion.PlanStateInProgress, Timestamp: time.Now().UTC(), Reason: &reason}
+
+			expectedResp := []motion.PlanStatusWithID{
+				{PlanID: planIDA, ComponentName: base.Named("mybase"), ExecutionID: executionIDA, Status: statusA},
+				{PlanID: planIDB, ComponentName: base.Named("mybase"), ExecutionID: executionIDB, Status: statusB},
+			}
+
+			injectMS.ListPlanStatusesFunc = func(
+				ctx context.Context,
+				onlyActivePlans bool,
+				extra map[string]interface{},
+			) ([]motion.PlanStatusWithID, error) {
+				return expectedResp, nil
+			}
+
+			resp, err := client.ListPlanStatuses(ctx, false, nil)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, resp, test.ShouldResemble, expectedResp)
+		})
+
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
+		test.That(t, conn.Close(), test.ShouldBeNil)
+	})
+
+	t.Run("PlanHistory", func(t *testing.T) {
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		client, err := motion.NewClientFromConn(context.Background(), conn, "", testMotionServiceName, logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		t.Run("returns error if client returns error", func(t *testing.T) {
+			errExpected := errors.New("some client error")
+			injectMS.PlanHistoryFunc = func(
+				ctx context.Context,
+				componentName resource.Name,
+				lastPlanOnly bool,
+				executionID string,
+				extra map[string]interface{},
+			) ([]motion.PlanWithStatus, error) {
+				return nil, errExpected
+			}
+
+			resp, err := client.PlanHistory(ctx, base.Named("mybase"), false, "", nil)
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err.Error(), test.ShouldContainSubstring, errExpected.Error())
+			test.That(t, resp, test.ShouldBeEmpty)
+		})
+
+		t.Run("otherwise returns a slice of PlanWithStatus", func(t *testing.T) {
+			steps := []motion.PlanStep{
+				{base.Named("mybase"): zeroPose},
+			}
+			reason := "some reason"
+			id, err := uuid.NewUUID()
+			test.That(t, err, test.ShouldBeNil)
+			executionID, err := uuid.NewUUID()
+			test.That(t, err, test.ShouldBeNil)
+
+			timeA := time.Now().UTC()
+			timeB := time.Now().UTC()
+
+			plan := motion.Plan{
+				ID:            id,
+				ComponentName: base.Named("mybase"),
+				ExecutionID:   executionID,
+				Steps:         steps,
+			}
+			statusHistory := []motion.PlanStatus{
+				{motion.PlanStateFailed, timeB, &reason},
+				{motion.PlanStateInProgress, timeA, nil},
+			}
+			expectedResp := []motion.PlanWithStatus{{Plan: plan, StatusHistory: statusHistory}}
+			injectMS.PlanHistoryFunc = func(
+				ctx context.Context,
+				componentName resource.Name,
+				lastPlanOnly bool,
+				executionID string,
+				extra map[string]interface{},
+			) ([]motion.PlanWithStatus, error) {
+				return expectedResp, nil
+			}
+
+			resp, err := client.PlanHistory(ctx, base.Named("mybase"), false, "", nil)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, resp, test.ShouldResemble, expectedResp)
+		})
+
+		t.Run("supports returning a slice of PlanWithStatus with more than one plan", func(t *testing.T) {
+			steps := []motion.PlanStep{{base.Named("mybase"): zeroPose}}
+			reason := "some reason"
+
+			idA, err := uuid.NewUUID()
+			test.That(t, err, test.ShouldBeNil)
+
+			executionID, err := uuid.NewUUID()
+			test.That(t, err, test.ShouldBeNil)
+
+			timeAA := time.Now().UTC()
+			timeAB := time.Now().UTC()
+
+			planA := motion.Plan{
+				ID:            idA,
+				ComponentName: base.Named("mybase"),
+				ExecutionID:   executionID,
+				Steps:         steps,
+			}
+			statusHistoryA := []motion.PlanStatus{
+				{motion.PlanStateFailed, timeAB, &reason},
+				{motion.PlanStateInProgress, timeAA, nil},
+			}
+
+			idB, err := uuid.NewUUID()
+			test.That(t, err, test.ShouldBeNil)
+			timeBA := time.Now().UTC()
+			planB := motion.Plan{
+				ID:            idB,
+				ComponentName: base.Named("mybase"),
+				ExecutionID:   executionID,
+				Steps:         steps,
+			}
+
+			statusHistoryB := []motion.PlanStatus{
+				{motion.PlanStateInProgress, timeBA, nil},
+			}
+
+			expectedResp := []motion.PlanWithStatus{
+				{Plan: planB, StatusHistory: statusHistoryB},
+				{Plan: planA, StatusHistory: statusHistoryA},
+			}
+
+			injectMS.PlanHistoryFunc = func(
+				ctx context.Context,
+				componentName resource.Name,
+				lastPlanOnly bool,
+				executionID string,
+				extra map[string]interface{},
+			) ([]motion.PlanWithStatus, error) {
+				return expectedResp, nil
+			}
+
+			resp, err := client.PlanHistory(ctx, base.Named("mybase"), false, "", nil)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, resp, test.ShouldResemble, expectedResp)
+		})
+
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 }

@@ -3,8 +3,12 @@ package motion_test
 import (
 	"context"
 	"errors"
+	"math"
 	"testing"
+	"time"
 
+	"github.com/golang/geo/r3"
+	"github.com/google/uuid"
 	geo "github.com/kellydunn/golang-geo"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/motion/v1"
@@ -18,6 +22,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
+	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
@@ -126,7 +131,7 @@ func TestServerMoveOnGlobe(t *testing.T) {
 		heading float64,
 		movementSensorName resource.Name,
 		obstacles []*spatialmath.GeoObstacle,
-		motionCfg *motion.MotionConfiguration,
+		motionCfg *motion.Configuration,
 		extra map[string]interface{},
 	) (bool, error) {
 		return false, notYetImplementedErr
@@ -135,6 +140,561 @@ func TestServerMoveOnGlobe(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, notYetImplementedErr.Error())
 	test.That(t, moveOnGlobeResponse.GetSuccess(), test.ShouldBeFalse)
+}
+
+func TestServerMoveOnGlobeNew(t *testing.T) {
+	injectMS := &inject.MotionService{}
+	resources := map[resource.Name]motion.Service{
+		testMotionServiceName: injectMS,
+	}
+	server, err := newServer(resources)
+	test.That(t, err, test.ShouldBeNil)
+	t.Run("returns error without calling  MoveOnGlobeNew if req.Name doesn't map to a resource", func(t *testing.T) {
+		moveOnGlobeNewRequest := &pb.MoveOnGlobeNewRequest{
+			ComponentName:      protoutils.ResourceNameToProto(base.Named("test-base")),
+			Destination:        &commonpb.GeoPoint{Latitude: 0.0, Longitude: 0.0},
+			MovementSensorName: protoutils.ResourceNameToProto(movementsensor.Named("test-gps")),
+		}
+		injectMS.MoveOnGlobeNewFunc = func(
+			ctx context.Context,
+			componentName resource.Name,
+			destination *geo.Point,
+			heading float64,
+			movementSensorName resource.Name,
+			obstacles []*spatialmath.GeoObstacle,
+			motionCfg *motion.Configuration,
+			extra map[string]interface{},
+		) (string, error) {
+			t.Log("should not be called")
+			t.FailNow()
+			return "", errors.New("should not be called")
+		}
+
+		moveOnGlobeNewResponse, err := server.MoveOnGlobeNew(context.Background(), moveOnGlobeNewRequest)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:service:motion/\" not found"))
+		test.That(t, moveOnGlobeNewResponse, test.ShouldBeNil)
+	})
+
+	t.Run("returns error if destination is nil without calling MoveOnGlobeNew", func(t *testing.T) {
+		moveOnGlobeNewRequest := &pb.MoveOnGlobeNewRequest{
+			Name:               testMotionServiceName.ShortName(),
+			ComponentName:      protoutils.ResourceNameToProto(base.Named("test-base")),
+			MovementSensorName: protoutils.ResourceNameToProto(movementsensor.Named("test-gps")),
+		}
+		injectMS.MoveOnGlobeNewFunc = func(
+			ctx context.Context,
+			componentName resource.Name,
+			destination *geo.Point,
+			heading float64,
+			movementSensorName resource.Name,
+			obstacles []*spatialmath.GeoObstacle,
+			motionCfg *motion.Configuration,
+			extra map[string]interface{},
+		) (string, error) {
+			t.Log("should not be called")
+			t.FailNow()
+			return "", errors.New("should not be called")
+		}
+
+		moveOnGlobeNewResponse, err := server.MoveOnGlobeNew(context.Background(), moveOnGlobeNewRequest)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldBeError, errors.New("Must provide a destination"))
+		test.That(t, moveOnGlobeNewResponse, test.ShouldBeNil)
+	})
+
+	validMoveOnGlobeNewRequest := &pb.MoveOnGlobeNewRequest{
+		Name:               testMotionServiceName.ShortName(),
+		ComponentName:      protoutils.ResourceNameToProto(base.Named("test-base")),
+		Destination:        &commonpb.GeoPoint{Latitude: 0.0, Longitude: 0.0},
+		MovementSensorName: protoutils.ResourceNameToProto(movementsensor.Named("test-gps")),
+	}
+
+	t.Run("returns error when MoveOnGlobeNew returns an error", func(t *testing.T) {
+		notYetImplementedErr := errors.New("Not yet implemented")
+
+		injectMS.MoveOnGlobeNewFunc = func(
+			ctx context.Context,
+			componentName resource.Name,
+			destination *geo.Point,
+			heading float64,
+			movementSensorName resource.Name,
+			obstacles []*spatialmath.GeoObstacle,
+			motionCfg *motion.Configuration,
+			extra map[string]interface{},
+		) (string, error) {
+			return "", notYetImplementedErr
+		}
+		moveOnGlobeNewResponse, err := server.MoveOnGlobeNew(context.Background(), validMoveOnGlobeNewRequest)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, notYetImplementedErr.Error())
+		test.That(t, moveOnGlobeNewResponse, test.ShouldBeNil)
+	})
+
+	t.Run("sets heading to NaN if nil in request", func(t *testing.T) {
+		injectMS.MoveOnGlobeNewFunc = func(
+			ctx context.Context,
+			componentName resource.Name,
+			destination *geo.Point,
+			heading float64,
+			movementSensorName resource.Name,
+			obstacles []*spatialmath.GeoObstacle,
+			motionCfg *motion.Configuration,
+			extra map[string]interface{},
+		) (string, error) {
+			test.That(t, math.IsNaN(heading), test.ShouldBeTrue)
+			return "some execution id", nil
+		}
+		moveOnGlobeNewResponse, err := server.MoveOnGlobeNew(context.Background(), validMoveOnGlobeNewRequest)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, moveOnGlobeNewResponse.ExecutionId, test.ShouldEqual, "some execution id")
+
+		reqHeading := 6.
+		injectMS.MoveOnGlobeNewFunc = func(
+			ctx context.Context,
+			componentName resource.Name,
+			destination *geo.Point,
+			heading float64,
+			movementSensorName resource.Name,
+			obstacles []*spatialmath.GeoObstacle,
+			motionCfg *motion.Configuration,
+			extra map[string]interface{},
+		) (string, error) {
+			test.That(t, heading, test.ShouldAlmostEqual, reqHeading)
+			return "some other execution id", nil
+		}
+
+		validMoveOnGlobeNewRequest.Heading = &reqHeading
+		moveOnGlobeNewResponse, err = server.MoveOnGlobeNew(context.Background(), validMoveOnGlobeNewRequest)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, moveOnGlobeNewResponse.ExecutionId, test.ShouldEqual, "some other execution id")
+	})
+
+	t.Run("returns success when MoveOnGlobeNew returns success", func(t *testing.T) {
+		expectedComponentName := base.Named("test-base")
+		expectedMovSensorName := movementsensor.Named("test-gps")
+		reqHeading := 3.
+
+		boxDims := r3.Vector{X: 5, Y: 50, Z: 10}
+
+		geometries1, err := spatialmath.NewBox(
+			spatialmath.NewPoseFromPoint(r3.Vector{X: 50, Y: 0, Z: 0}),
+			boxDims,
+			"wall")
+		test.That(t, err, test.ShouldBeNil)
+
+		geometries2, err := spatialmath.NewBox(
+			spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 70, Z: 0}),
+			boxDims,
+			"other wall")
+		test.That(t, err, test.ShouldBeNil)
+
+		geoObstacle1 := spatialmath.NewGeoObstacle(geo.NewPoint(70, 40), []spatialmath.Geometry{geometries1})
+		geoObstacle2 := spatialmath.NewGeoObstacle(geo.NewPoint(-70, 40), []spatialmath.Geometry{geometries2})
+		obs := []*commonpb.GeoObstacle{
+			spatialmath.GeoObstacleToProtobuf(geoObstacle1),
+			spatialmath.GeoObstacleToProtobuf(geoObstacle2),
+		}
+		angularDegsPerSec := 1.
+		linearMPerSec := 2.
+		planDeviationM := 3.
+		obstaclePollingFrequencyHz := 4.
+		positionPollingFrequencyHz := 5.
+		vis1 := vision.Named("vision service 1")
+		vis2 := vision.Named("vision service 2")
+		visionServices := []*commonpb.ResourceName{
+			protoutils.ResourceNameToProto(vis1),
+			protoutils.ResourceNameToProto(vis2),
+		}
+
+		moveOnGlobeNewRequest := &pb.MoveOnGlobeNewRequest{
+			Name:               testMotionServiceName.ShortName(),
+			Heading:            &reqHeading,
+			ComponentName:      protoutils.ResourceNameToProto(expectedComponentName),
+			Destination:        &commonpb.GeoPoint{Latitude: 1.0, Longitude: 2.0},
+			MovementSensorName: protoutils.ResourceNameToProto(expectedMovSensorName),
+			Obstacles:          obs,
+			MotionConfiguration: &pb.MotionConfiguration{
+				AngularDegsPerSec:          &angularDegsPerSec,
+				LinearMPerSec:              &linearMPerSec,
+				PlanDeviationM:             &planDeviationM,
+				ObstaclePollingFrequencyHz: &obstaclePollingFrequencyHz,
+				PositionPollingFrequencyHz: &positionPollingFrequencyHz,
+				VisionServices:             visionServices,
+			},
+		}
+
+		injectMS.MoveOnGlobeNewFunc = func(
+			ctx context.Context,
+			componentName resource.Name,
+			destination *geo.Point,
+			heading float64,
+			movementSensorName resource.Name,
+			obstacles []*spatialmath.GeoObstacle,
+			motionCfg *motion.Configuration,
+			extra map[string]interface{},
+		) (string, error) {
+			test.That(t, componentName, test.ShouldResemble, expectedComponentName)
+			test.That(t, destination, test.ShouldNotBeNil)
+			test.That(t, destination, test.ShouldResemble, geo.NewPoint(1, 2))
+			test.That(t, heading, test.ShouldResemble, reqHeading)
+			test.That(t, movementSensorName, test.ShouldResemble, expectedMovSensorName)
+			test.That(t, len(obstacles), test.ShouldEqual, 2)
+			test.That(t, obstacles[0], test.ShouldResemble, geoObstacle1)
+			test.That(t, obstacles[1], test.ShouldResemble, geoObstacle2)
+			test.That(t, motionCfg.AngularDegsPerSec, test.ShouldAlmostEqual, angularDegsPerSec)
+			test.That(t, motionCfg.LinearMPerSec, test.ShouldAlmostEqual, linearMPerSec)
+			test.That(t, motionCfg.PlanDeviationMM, test.ShouldAlmostEqual, planDeviationM*1000)
+			test.That(t, motionCfg.ObstaclePollingFreqHz, test.ShouldAlmostEqual, obstaclePollingFrequencyHz)
+			test.That(t, motionCfg.PositionPollingFreqHz, test.ShouldAlmostEqual, positionPollingFrequencyHz)
+			test.That(t, len(motionCfg.VisionServices), test.ShouldAlmostEqual, 2)
+			test.That(t, motionCfg.VisionServices[0], test.ShouldResemble, vis1)
+			test.That(t, motionCfg.VisionServices[1], test.ShouldResemble, vis2)
+			return "some execution id", nil
+		}
+		moveOnGlobeNewResponse, err := server.MoveOnGlobeNew(context.Background(), moveOnGlobeNewRequest)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, moveOnGlobeNewResponse.ExecutionId, test.ShouldEqual, "some execution id")
+	})
+}
+
+func TestServerStopPlan(t *testing.T) {
+	injectMS := &inject.MotionService{}
+	resources := map[resource.Name]motion.Service{
+		testMotionServiceName: injectMS,
+	}
+	server, err := newServer(resources)
+	test.That(t, err, test.ShouldBeNil)
+
+	expectedComponentName := base.Named("test-base")
+
+	validStopPlanRequest := &pb.StopPlanRequest{
+		ComponentName: protoutils.ResourceNameToProto(expectedComponentName),
+		Name:          testMotionServiceName.ShortName(),
+	}
+
+	t.Run("returns error without calling StopPlan if req.Name doesn't map to a resource", func(t *testing.T) {
+		stopPlanRequest := &pb.StopPlanRequest{
+			ComponentName: protoutils.ResourceNameToProto(expectedComponentName),
+		}
+
+		injectMS.StopPlanFunc = func(
+			ctx context.Context,
+			componentName resource.Name,
+			extra map[string]interface{},
+		) error {
+			t.Log("should not be called")
+			t.FailNow()
+			return errors.New("should not be called")
+		}
+
+		stopPlanResponse, err := server.StopPlan(context.Background(), stopPlanRequest)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:service:motion/\" not found"))
+		test.That(t, stopPlanResponse, test.ShouldBeNil)
+	})
+
+	t.Run("returns error if StopPlan returns an error", func(t *testing.T) {
+		errExpected := errors.New("stop error")
+		injectMS.StopPlanFunc = func(
+			ctx context.Context,
+			componentName resource.Name,
+			extra map[string]interface{},
+		) error {
+			return errExpected
+		}
+
+		stopPlanResponse, err := server.StopPlan(context.Background(), validStopPlanRequest)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldBeError, errExpected)
+		test.That(t, stopPlanResponse, test.ShouldBeNil)
+	})
+
+	t.Run("otherwise returns a success response", func(t *testing.T) {
+		injectMS.StopPlanFunc = func(
+			ctx context.Context,
+			componentName resource.Name,
+			extra map[string]interface{},
+		) error {
+			test.That(t, componentName, test.ShouldResemble, expectedComponentName)
+			return nil
+		}
+
+		stopPlanResponse, err := server.StopPlan(context.Background(), validStopPlanRequest)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, stopPlanResponse, test.ShouldResemble, &pb.StopPlanResponse{})
+	})
+}
+
+func TestServerListPlanStatuses(t *testing.T) {
+	injectMS := &inject.MotionService{}
+	resources := map[resource.Name]motion.Service{
+		testMotionServiceName: injectMS,
+	}
+	server, err := newServer(resources)
+	test.That(t, err, test.ShouldBeNil)
+
+	validListPlanStatusesRequest := &pb.ListPlanStatusesRequest{
+		Name: testMotionServiceName.ShortName(),
+	}
+
+	t.Run("returns error without calling ListPlanStatuses if req.Name doesn't map to a resource", func(t *testing.T) {
+		listPlanStatusesRequest := &pb.ListPlanStatusesRequest{}
+		injectMS.ListPlanStatusesFunc = func(
+			ctx context.Context,
+			onlyActivePlans bool,
+			extra map[string]interface{},
+		) ([]motion.PlanStatusWithID, error) {
+			t.Log("should not be called")
+			t.FailNow()
+			return nil, errors.New("should not be called")
+		}
+
+		listPlanStatusesResponse, err := server.ListPlanStatuses(context.Background(), listPlanStatusesRequest)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:service:motion/\" not found"))
+		test.That(t, listPlanStatusesResponse, test.ShouldBeNil)
+	})
+
+	t.Run("returns error if ListPlanStatuses returns an error", func(t *testing.T) {
+		errExpected := errors.New("ListPlanStatuses error")
+		injectMS.ListPlanStatusesFunc = func(
+			ctx context.Context,
+			onlyActivePlans bool,
+			extra map[string]interface{},
+		) ([]motion.PlanStatusWithID, error) {
+			return nil, errExpected
+		}
+
+		listPlanStatusesResponse, err := server.ListPlanStatuses(context.Background(), validListPlanStatusesRequest)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldBeError, errExpected)
+		test.That(t, listPlanStatusesResponse, test.ShouldBeNil)
+	})
+
+	t.Run("otherwise returns a success response", func(t *testing.T) {
+		executionID, err := uuid.NewUUID()
+		test.That(t, err, test.ShouldBeNil)
+
+		planID1, err := uuid.NewUUID()
+		test.That(t, err, test.ShouldBeNil)
+
+		planID2, err := uuid.NewUUID()
+		test.That(t, err, test.ShouldBeNil)
+
+		planID3, err := uuid.NewUUID()
+		test.That(t, err, test.ShouldBeNil)
+
+		planID4, err := uuid.NewUUID()
+		test.That(t, err, test.ShouldBeNil)
+
+		expectedComponentName := base.Named("test-base")
+		failedReason := "some reason for failure"
+
+		status1 := motion.PlanStatus{State: motion.PlanStateFailed, Timestamp: time.Now(), Reason: &failedReason}
+		status2 := motion.PlanStatus{State: motion.PlanStateSucceeded, Timestamp: time.Now()}
+		status3 := motion.PlanStatus{State: motion.PlanStateStopped, Timestamp: time.Now()}
+		status4 := motion.PlanStatus{State: motion.PlanStateInProgress, Timestamp: time.Now()}
+
+		pswid1 := motion.PlanStatusWithID{
+			PlanID:        planID1,
+			ExecutionID:   executionID,
+			ComponentName: expectedComponentName,
+			Status:        status1,
+		}
+		pswid2 := motion.PlanStatusWithID{
+			PlanID:        planID2,
+			ExecutionID:   executionID,
+			ComponentName: expectedComponentName,
+			Status:        status2,
+		}
+		pswid3 := motion.PlanStatusWithID{
+			PlanID:        planID3,
+			ExecutionID:   executionID,
+			ComponentName: expectedComponentName,
+			Status:        status3,
+		}
+		pswid4 := motion.PlanStatusWithID{
+			PlanID:        planID4,
+			ExecutionID:   executionID,
+			ComponentName: expectedComponentName,
+			Status:        status4,
+		}
+
+		injectMS.ListPlanStatusesFunc = func(
+			ctx context.Context,
+			onlyActivePlans bool,
+			extra map[string]interface{},
+		) ([]motion.PlanStatusWithID, error) {
+			return []motion.PlanStatusWithID{
+				pswid1,
+				pswid2,
+				pswid3,
+				pswid4,
+			}, nil
+		}
+
+		listPlanStatusesResponse, err := server.ListPlanStatuses(context.Background(), validListPlanStatusesRequest)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(listPlanStatusesResponse.PlanStatusesWithIds), test.ShouldEqual, 4)
+		test.That(t, listPlanStatusesResponse.PlanStatusesWithIds[0], test.ShouldResemble, pswid1.ToProto())
+		test.That(t, listPlanStatusesResponse.PlanStatusesWithIds[1], test.ShouldResemble, pswid2.ToProto())
+		test.That(t, listPlanStatusesResponse.PlanStatusesWithIds[2], test.ShouldResemble, pswid3.ToProto())
+		test.That(t, listPlanStatusesResponse.PlanStatusesWithIds[3], test.ShouldResemble, pswid4.ToProto())
+	})
+}
+
+func TestServerGetPlan(t *testing.T) {
+	injectMS := &inject.MotionService{}
+	resources := map[resource.Name]motion.Service{
+		testMotionServiceName: injectMS,
+	}
+	server, err := newServer(resources)
+	test.That(t, err, test.ShouldBeNil)
+
+	expectedComponentName := base.Named("test-base")
+	uuidID, err := uuid.NewUUID()
+	test.That(t, err, test.ShouldBeNil)
+	id := uuidID.String()
+
+	validGetPlanRequest := &pb.GetPlanRequest{
+		ComponentName: protoutils.ResourceNameToProto(expectedComponentName),
+		Name:          testMotionServiceName.ShortName(),
+		LastPlanOnly:  false,
+		ExecutionId:   &id,
+	}
+
+	t.Run("returns error without calling GetPlan if req.Name doesn't map to a resource", func(t *testing.T) {
+		getPlanRequest := &pb.GetPlanRequest{}
+
+		injectMS.PlanHistoryFunc = func(
+			ctx context.Context,
+			componentName resource.Name,
+			lastPlanOnly bool,
+			executionID string,
+			extra map[string]interface{},
+		) ([]motion.PlanWithStatus, error) {
+			t.Log("should not be called")
+			t.FailNow()
+			return nil, errors.New("should not be called")
+		}
+
+		getPlanResponse, err := server.GetPlan(context.Background(), getPlanRequest)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:service:motion/\" not found"))
+		test.That(t, getPlanResponse, test.ShouldBeNil)
+	})
+
+	t.Run("returns error if GetPlan returns an error", func(t *testing.T) {
+		errExpected := errors.New("stop error")
+		injectMS.PlanHistoryFunc = func(
+			ctx context.Context,
+			componentName resource.Name,
+			lastPlanOnly bool,
+			executionID string,
+			extra map[string]interface{},
+		) ([]motion.PlanWithStatus, error) {
+			return nil, errExpected
+		}
+
+		getPlanResponse, err := server.GetPlan(context.Background(), validGetPlanRequest)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldBeError, errExpected)
+		test.That(t, getPlanResponse, test.ShouldBeNil)
+	})
+
+	t.Run("otherwise returns a success response", func(t *testing.T) {
+		executionID, err := uuid.NewUUID()
+		test.That(t, err, test.ShouldBeNil)
+
+		planID1, err := uuid.NewUUID()
+		test.That(t, err, test.ShouldBeNil)
+
+		planID2, err := uuid.NewUUID()
+		test.That(t, err, test.ShouldBeNil)
+
+		base1 := base.Named("base1")
+		steps := []motion.PlanStep{{base1: spatialmath.NewZeroPose()}}
+
+		plan1 := motion.Plan{
+			ID:            planID1,
+			ComponentName: base1,
+			ExecutionID:   executionID,
+			Steps:         steps,
+		}
+
+		plan2 := motion.Plan{
+			ID:            planID2,
+			ComponentName: base1,
+			ExecutionID:   executionID,
+			Steps:         steps,
+		}
+
+		time1A := time.Now()
+		time1B := time.Now()
+
+		statusHistory1 := []motion.PlanStatus{
+			{
+				State:     motion.PlanStateSucceeded,
+				Timestamp: time1B,
+				Reason:    nil,
+			},
+			{
+				State:     motion.PlanStateInProgress,
+				Timestamp: time1A,
+				Reason:    nil,
+			},
+		}
+
+		time2A := time.Now()
+		time2B := time.Now()
+
+		reason := "some failed reason"
+		statusHistory2 := []motion.PlanStatus{
+			{
+				State:     motion.PlanStateFailed,
+				Timestamp: time2B,
+				Reason:    &reason,
+			},
+			{
+				State:     motion.PlanStateInProgress,
+				Timestamp: time2A,
+				Reason:    nil,
+			},
+		}
+
+		planWithStatus2 := motion.PlanWithStatus{Plan: plan2, StatusHistory: statusHistory2}
+		planWithStatus1 := motion.PlanWithStatus{Plan: plan1, StatusHistory: statusHistory1}
+
+		injectMS.PlanHistoryFunc = func(
+			ctx context.Context,
+			componentName resource.Name,
+			lastPlanOnly bool,
+			executionID string,
+			extra map[string]interface{},
+		) ([]motion.PlanWithStatus, error) {
+			test.That(t, componentName, test.ShouldResemble, expectedComponentName)
+			test.That(t, lastPlanOnly, test.ShouldResemble, validGetPlanRequest.LastPlanOnly)
+			test.That(t, executionID, test.ShouldResemble, *validGetPlanRequest.ExecutionId)
+			return []motion.PlanWithStatus{
+				planWithStatus2,
+				planWithStatus1,
+			}, nil
+		}
+
+		getPlanResponse, err := server.GetPlan(context.Background(), validGetPlanRequest)
+		test.That(t, err, test.ShouldBeNil)
+
+		expectedResponse := &pb.GetPlanResponse{
+			CurrentPlanWithStatus: &pb.PlanWithStatus{
+				Plan:          plan2.ToProto(),
+				Status:        statusHistory2[0].ToProto(),
+				StatusHistory: []*pb.PlanStatus{statusHistory2[1].ToProto()},
+			},
+			ReplanHistory: []*pb.PlanWithStatus{planWithStatus1.ToProto()},
+		}
+		test.That(t, getPlanResponse, test.ShouldResemble, expectedResponse)
+	})
 }
 
 func TestServerDoCommand(t *testing.T) {

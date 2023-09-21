@@ -168,7 +168,7 @@ type builtIn struct {
 	motion         motion.Service
 	obstacles      []*spatialmath.GeoObstacle
 
-	motionCfg        *motion.MotionConfiguration
+	motionCfg        *motion.Configuration
 	replanCostFactor float64
 
 	logger                    golog.Logger
@@ -243,7 +243,7 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	svc.motion = motionSvc
 	svc.obstacles = newObstacles
 	svc.replanCostFactor = svcConfig.ReplanCostFactor
-	svc.motionCfg = &motion.MotionConfiguration{
+	svc.motionCfg = &motion.Configuration{
 		VisionServices:        visionServices,
 		LinearMPerSec:         svcConfig.MetersPerSec,
 		AngularDegsPerSec:     svcConfig.DegPerSec,

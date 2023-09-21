@@ -39,9 +39,19 @@ type MotionService struct {
 		heading float64,
 		movementSensorName resource.Name,
 		obstacles []*spatialmath.GeoObstacle,
-		motionCfg *motion.MotionConfiguration,
+		motionCfg *motion.Configuration,
 		extra map[string]interface{},
 	) (bool, error)
+	MoveOnGlobeNewFunc func(
+		ctx context.Context,
+		componentName resource.Name,
+		destination *geo.Point,
+		heading float64,
+		movementSensorName resource.Name,
+		obstacles []*spatialmath.GeoObstacle,
+		motionCfg *motion.Configuration,
+		extra map[string]interface{},
+	) (string, error)
 	GetPoseFunc func(
 		ctx context.Context,
 		componentName resource.Name,
@@ -49,6 +59,23 @@ type MotionService struct {
 		supplementalTransforms []*referenceframe.LinkInFrame,
 		extra map[string]interface{},
 	) (*referenceframe.PoseInFrame, error)
+	StopPlanFunc func(
+		ctx context.Context,
+		rootComponent resource.Name,
+		extra map[string]interface{},
+	) error
+	ListPlanStatusesFunc func(
+		ctx context.Context,
+		onlyActivePlans bool,
+		extra map[string]interface{},
+	) ([]motion.PlanStatusWithID, error)
+	PlanHistoryFunc func(
+		ctx context.Context,
+		componentName resource.Name,
+		lastPlanOnly bool,
+		executionID string,
+		extra map[string]interface{},
+	) ([]motion.PlanWithStatus, error)
 	DoCommandFunc func(ctx context.Context,
 		cmd map[string]interface{}) (map[string]interface{}, error)
 	CloseFunc func(ctx context.Context) error
@@ -101,13 +128,30 @@ func (mgs *MotionService) MoveOnGlobe(
 	heading float64,
 	movementSensorName resource.Name,
 	obstacles []*spatialmath.GeoObstacle,
-	motionCfg *motion.MotionConfiguration,
+	motionCfg *motion.Configuration,
 	extra map[string]interface{},
 ) (bool, error) {
 	if mgs.MoveOnGlobeFunc == nil {
 		return mgs.Service.MoveOnGlobe(ctx, componentName, destination, heading, movementSensorName, obstacles, motionCfg, extra)
 	}
 	return mgs.MoveOnGlobeFunc(ctx, componentName, destination, heading, movementSensorName, obstacles, motionCfg, extra)
+}
+
+// MoveOnGlobeNew calls the injected MoveOnGlobeNew or the real variant.
+func (mgs *MotionService) MoveOnGlobeNew(
+	ctx context.Context,
+	componentName resource.Name,
+	destination *geo.Point,
+	heading float64,
+	movementSensorName resource.Name,
+	obstacles []*spatialmath.GeoObstacle,
+	motionCfg *motion.Configuration,
+	extra map[string]interface{},
+) (string, error) {
+	if mgs.MoveOnGlobeNewFunc == nil {
+		return mgs.Service.MoveOnGlobeNew(ctx, componentName, destination, heading, movementSensorName, obstacles, motionCfg, extra)
+	}
+	return mgs.MoveOnGlobeNewFunc(ctx, componentName, destination, heading, movementSensorName, obstacles, motionCfg, extra)
 }
 
 // GetPose calls the injected GetPose or the real variant.
@@ -122,6 +166,44 @@ func (mgs *MotionService) GetPose(
 		return mgs.Service.GetPose(ctx, componentName, destinationFrame, supplementalTransforms, extra)
 	}
 	return mgs.GetPoseFunc(ctx, componentName, destinationFrame, supplementalTransforms, extra)
+}
+
+// StopPlan calls the injected StopPlan or the real variant.
+func (mgs *MotionService) StopPlan(
+	ctx context.Context,
+	componentName resource.Name,
+	extra map[string]interface{},
+) error {
+	if mgs.StopPlanFunc == nil {
+		return mgs.Service.StopPlan(ctx, componentName, extra)
+	}
+	return mgs.StopPlanFunc(ctx, componentName, extra)
+}
+
+// ListPlanStatuses calls the injected ListPlanStatuses or the real variant.
+func (mgs *MotionService) ListPlanStatuses(
+	ctx context.Context,
+	onlyActivePlans bool,
+	extra map[string]interface{},
+) ([]motion.PlanStatusWithID, error) {
+	if mgs.ListPlanStatusesFunc == nil {
+		return mgs.Service.ListPlanStatuses(ctx, onlyActivePlans, extra)
+	}
+	return mgs.ListPlanStatusesFunc(ctx, onlyActivePlans, extra)
+}
+
+// PlanHistory calls the injected PlanHistory or the real variant.
+func (mgs *MotionService) PlanHistory(
+	ctx context.Context,
+	componentName resource.Name,
+	lastPlanOnly bool,
+	executionID string,
+	extra map[string]interface{},
+) ([]motion.PlanWithStatus, error) {
+	if mgs.PlanHistoryFunc == nil {
+		return mgs.Service.PlanHistory(ctx, componentName, lastPlanOnly, executionID, extra)
+	}
+	return mgs.PlanHistoryFunc(ctx, componentName, lastPlanOnly, executionID, extra)
 }
 
 // DoCommand calls the injected DoCommand or the real variant.

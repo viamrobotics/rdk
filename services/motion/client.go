@@ -28,6 +28,17 @@ type client struct {
 	logger golog.Logger
 }
 
+type moveOnGlobeRequest struct {
+	name               string
+	componentName      resource.Name
+	destination        *geo.Point
+	heading            float64
+	movementSensorName resource.Name
+	obstacles          []*spatialmath.GeoObstacle
+	motionCfg          *Configuration
+	extra              map[string]interface{}
+}
+
 // NewClientFromConn constructs a new Client from connection passed in.
 func NewClientFromConn(
 	ctx context.Context,
@@ -107,62 +118,21 @@ func (c *client) MoveOnGlobe(
 	heading float64,
 	movementSensorName resource.Name,
 	obstacles []*spatialmath.GeoObstacle,
-	motionCfg *MotionConfiguration,
+	motionCfg *Configuration,
 	extra map[string]interface{},
 ) (bool, error) {
-	ext, err := vprotoutils.StructToStructPb(extra)
+	req, err := moveOnGlobeRequest{
+		name:               c.name,
+		componentName:      componentName,
+		destination:        destination,
+		heading:            heading,
+		movementSensorName: movementSensorName,
+		obstacles:          obstacles,
+		motionCfg:          motionCfg,
+		extra:              extra,
+	}.toProto()
 	if err != nil {
 		return false, err
-	}
-
-	if destination == nil {
-		return false, errors.New("Must provide a destination")
-	}
-
-	req := &pb.MoveOnGlobeRequest{
-		Name:                c.name,
-		ComponentName:       protoutils.ResourceNameToProto(componentName),
-		Destination:         &commonpb.GeoPoint{Latitude: destination.Lat(), Longitude: destination.Lng()},
-		MovementSensorName:  protoutils.ResourceNameToProto(movementSensorName),
-		MotionConfiguration: &pb.MotionConfiguration{},
-		Extra:               ext,
-	}
-
-	// Optionals
-	if !math.IsNaN(heading) {
-		req.Heading = &heading
-	}
-	if len(obstacles) > 0 {
-		obstaclesProto := make([]*commonpb.GeoObstacle, 0, len(obstacles))
-		for _, obstacle := range obstacles {
-			obstaclesProto = append(obstaclesProto, spatialmath.GeoObstacleToProtobuf(obstacle))
-		}
-		req.Obstacles = obstaclesProto
-	}
-
-	if !math.IsNaN(motionCfg.LinearMPerSec) && motionCfg.LinearMPerSec != 0 {
-		req.MotionConfiguration.LinearMPerSec = &motionCfg.LinearMPerSec
-	}
-	if !math.IsNaN(motionCfg.AngularDegsPerSec) && motionCfg.AngularDegsPerSec != 0 {
-		req.MotionConfiguration.AngularDegsPerSec = &motionCfg.AngularDegsPerSec
-	}
-	if !math.IsNaN(motionCfg.ObstaclePollingFreqHz) && motionCfg.ObstaclePollingFreqHz > 0 {
-		req.MotionConfiguration.ObstaclePollingFrequencyHz = &motionCfg.ObstaclePollingFreqHz
-	}
-	if !math.IsNaN(motionCfg.PositionPollingFreqHz) && motionCfg.PositionPollingFreqHz > 0 {
-		req.MotionConfiguration.PositionPollingFrequencyHz = &motionCfg.PositionPollingFreqHz
-	}
-	if !math.IsNaN(motionCfg.PlanDeviationMM) && motionCfg.PlanDeviationMM >= 0 {
-		planDeviationM := 1e-3 * motionCfg.PlanDeviationMM
-		req.MotionConfiguration.PlanDeviationM = &planDeviationM
-	}
-
-	if len(motionCfg.VisionServices) > 0 {
-		svcs := []*commonpb.ResourceName{}
-		for _, name := range motionCfg.VisionServices {
-			svcs = append(svcs, protoutils.ResourceNameToProto(name))
-		}
-		req.MotionConfiguration.VisionServices = svcs
 	}
 
 	resp, err := c.client.MoveOnGlobe(ctx, req)
@@ -171,6 +141,38 @@ func (c *client) MoveOnGlobe(
 	}
 
 	return resp.Success, nil
+}
+
+func (c *client) MoveOnGlobeNew(
+	ctx context.Context,
+	componentName resource.Name,
+	destination *geo.Point,
+	heading float64,
+	movementSensorName resource.Name,
+	obstacles []*spatialmath.GeoObstacle,
+	motionCfg *Configuration,
+	extra map[string]interface{},
+) (string, error) {
+	req, err := moveOnGlobeRequest{
+		name:               c.name,
+		componentName:      componentName,
+		destination:        destination,
+		heading:            heading,
+		movementSensorName: movementSensorName,
+		obstacles:          obstacles,
+		motionCfg:          motionCfg,
+		extra:              extra,
+	}.toProtoNew()
+	if err != nil {
+		return "", err
+	}
+
+	resp, err := c.client.MoveOnGlobeNew(ctx, req)
+	if err != nil {
+		return "", err
+	}
+
+	return resp.ExecutionId, nil
 }
 
 func (c *client) GetPose(
@@ -201,6 +203,155 @@ func (c *client) GetPose(
 	return referenceframe.ProtobufToPoseInFrame(resp.Pose), nil
 }
 
+func (c *client) StopPlan(ctx context.Context, componentName resource.Name, extra map[string]interface{}) error {
+	ext, err := vprotoutils.StructToStructPb(extra)
+	if err != nil {
+		return err
+	}
+	_, err = c.client.StopPlan(ctx, &pb.StopPlanRequest{
+		Name:          c.name,
+		ComponentName: protoutils.ResourceNameToProto(componentName),
+		Extra:         ext,
+	})
+	return err
+}
+
+func (c *client) ListPlanStatuses(ctx context.Context, onlyActivePlans bool, extra map[string]interface{}) ([]PlanStatusWithID, error) {
+	ext, err := vprotoutils.StructToStructPb(extra)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.client.ListPlanStatuses(ctx, &pb.ListPlanStatusesRequest{
+		Name:            c.name,
+		OnlyActivePlans: onlyActivePlans,
+		Extra:           ext,
+	})
+	if err != nil {
+		return nil, err
+	}
+	pswids := make([]PlanStatusWithID, 0, len(resp.PlanStatusesWithIds))
+	for _, status := range resp.PlanStatusesWithIds {
+		pswid, err := planStatusWithIDFromProto(status)
+		if err != nil {
+			return nil, err
+		}
+
+		pswids = append(pswids, pswid)
+	}
+	return pswids, err
+}
+
+func (c *client) PlanHistory(
+	ctx context.Context,
+	componentName resource.Name,
+	lastPlanOnly bool,
+	executionID string,
+	extra map[string]interface{},
+) ([]PlanWithStatus, error) {
+	ext, err := vprotoutils.StructToStructPb(extra)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.client.GetPlan(ctx, &pb.GetPlanRequest{
+		Name:          c.name,
+		ComponentName: protoutils.ResourceNameToProto(componentName),
+		LastPlanOnly:  lastPlanOnly,
+		Extra:         ext,
+	})
+	if err != nil {
+		return nil, err
+	}
+	statusHistory := make([]PlanWithStatus, 0, len(resp.ReplanHistory))
+	for _, status := range resp.ReplanHistory {
+		s, err := planWithStatusFromProto(status)
+		if err != nil {
+			return nil, err
+		}
+		statusHistory = append(statusHistory, s)
+	}
+	pws, err := planWithStatusFromProto(resp.CurrentPlanWithStatus)
+	if err != nil {
+		return nil, err
+	}
+	return append([]PlanWithStatus{pws}, statusHistory...), err
+}
+
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return protoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
+}
+
+//nolint:dupl
+func (r moveOnGlobeRequest) toProto() (*pb.MoveOnGlobeRequest, error) {
+	ext, err := vprotoutils.StructToStructPb(r.extra)
+	if err != nil {
+		return nil, err
+	}
+
+	if r.destination == nil {
+		return nil, errors.New("Must provide a destination")
+	}
+
+	if r.motionCfg == nil {
+		return nil, errors.New("Must provide a non nil motion configuration")
+	}
+
+	req := &pb.MoveOnGlobeRequest{
+		Name:                r.name,
+		ComponentName:       protoutils.ResourceNameToProto(r.componentName),
+		Destination:         &commonpb.GeoPoint{Latitude: r.destination.Lat(), Longitude: r.destination.Lng()},
+		MovementSensorName:  protoutils.ResourceNameToProto(r.movementSensorName),
+		MotionConfiguration: r.motionCfg.toProto(),
+		Extra:               ext,
+	}
+
+	if !math.IsNaN(r.heading) {
+		req.Heading = &r.heading
+	}
+
+	if len(r.obstacles) > 0 {
+		obstaclesProto := make([]*commonpb.GeoObstacle, 0, len(r.obstacles))
+		for _, obstacle := range r.obstacles {
+			obstaclesProto = append(obstaclesProto, spatialmath.GeoObstacleToProtobuf(obstacle))
+		}
+		req.Obstacles = obstaclesProto
+	}
+	return req, nil
+}
+
+//nolint:dupl
+func (r moveOnGlobeRequest) toProtoNew() (*pb.MoveOnGlobeNewRequest, error) {
+	ext, err := vprotoutils.StructToStructPb(r.extra)
+	if err != nil {
+		return nil, err
+	}
+
+	if r.destination == nil {
+		return nil, errors.New("Must provide a destination")
+	}
+
+	if r.motionCfg == nil {
+		return nil, errors.New("Must provide a non nil motion configuration")
+	}
+
+	req := &pb.MoveOnGlobeNewRequest{
+		Name:                r.name,
+		ComponentName:       protoutils.ResourceNameToProto(r.componentName),
+		Destination:         &commonpb.GeoPoint{Latitude: r.destination.Lat(), Longitude: r.destination.Lng()},
+		MovementSensorName:  protoutils.ResourceNameToProto(r.movementSensorName),
+		MotionConfiguration: r.motionCfg.toProto(),
+		Extra:               ext,
+	}
+
+	if !math.IsNaN(r.heading) {
+		req.Heading = &r.heading
+	}
+
+	if len(r.obstacles) > 0 {
+		obstaclesProto := make([]*commonpb.GeoObstacle, 0, len(r.obstacles))
+		for _, obstacle := range r.obstacles {
+			obstaclesProto = append(obstaclesProto, spatialmath.GeoObstacleToProtobuf(obstacle))
+		}
+		req.Obstacles = obstaclesProto
+	}
+	return req, nil
 }

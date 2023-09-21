@@ -600,7 +600,7 @@ func TestMoveOnGlobe(t *testing.T) {
 	t.Run("ensure success to a nearby geo point", func(t *testing.T) {
 		t.Parallel()
 		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
-		motionCfg := &motion.MotionConfiguration{PositionPollingFreqHz: 4, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM}
+		motionCfg := &motion.Configuration{PositionPollingFreqHz: 4, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM}
 
 		moveRequest, err := ms.(*builtIn).newMoveOnGlobeRequest(
 			ctx,
@@ -633,7 +633,7 @@ func TestMoveOnGlobe(t *testing.T) {
 	t.Run("go around an obstacle", func(t *testing.T) {
 		t.Parallel()
 		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
-		motionCfg := &motion.MotionConfiguration{PositionPollingFreqHz: 4, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM}
+		motionCfg := &motion.Configuration{PositionPollingFreqHz: 4, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM}
 
 		boxPose := spatialmath.NewPoseFromPoint(r3.Vector{50, 0, 0})
 		boxDims := r3.Vector{5, 50, 10}
@@ -706,7 +706,7 @@ func TestMoveOnGlobe(t *testing.T) {
 			dst,
 			injectedMovementSensor.Name(),
 			[]*spatialmath.GeoObstacle{geoObstacle},
-			&motion.MotionConfiguration{},
+			&motion.Configuration{},
 			extra,
 		)
 		test.That(t, err, test.ShouldBeNil)
@@ -734,7 +734,7 @@ func TestReplanning(t *testing.T) {
 	gpsPoint := geo.NewPoint(0, 0)
 	dst := geo.NewPoint(gpsPoint.Lat(), gpsPoint.Lng()+1e-5)
 	epsilonMM := 15.
-	motionCfg := &motion.MotionConfiguration{PositionPollingFreqHz: 100, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM}
+	motionCfg := &motion.Configuration{PositionPollingFreqHz: 100, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM}
 
 	type testCase struct {
 		name           string
@@ -823,7 +823,7 @@ func TestCheckPlan(t *testing.T) {
 		destPoint,
 		injectedMovementSensor.Name(),
 		nil,
-		&motion.MotionConfiguration{PositionPollingFreqHz: 4, ObstaclePollingFreqHz: 1, PlanDeviationMM: 15.},
+		&motion.Configuration{PositionPollingFreqHz: 4, ObstaclePollingFreqHz: 1, PlanDeviationMM: 15.},
 		motionCfg,
 	)
 	test.That(t, err, test.ShouldBeNil)
@@ -1218,7 +1218,7 @@ func TestStoppableMoveFunctions(t *testing.T) {
 			ms.(*builtIn).fsService = fsSvc
 
 			goal := geo.NewPoint(gpsPoint.Lat()+1e-4, gpsPoint.Lng()+1e-4)
-			motionCfg := motion.MotionConfiguration{
+			motionCfg := motion.Configuration{
 				PlanDeviationMM:       10000,
 				LinearMPerSec:         10,
 				PositionPollingFreqHz: 4,
@@ -1264,4 +1264,58 @@ func TestStoppableMoveFunctions(t *testing.T) {
 			testIfStoppable(t, success, err)
 		})
 	})
+}
+
+func TestMoveOnGlobeNew(t *testing.T) {
+	ctx := context.Background()
+	gpsPoint := geo.NewPoint(0, 0)
+	injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
+	defer ms.Close(ctx)
+	dst := geo.NewPoint(gpsPoint.Lat(), gpsPoint.Lng()+1e-5)
+
+	executionID, err := ms.MoveOnGlobeNew(
+		ctx,
+		fakeBase.Name(),
+		dst,
+		0,
+		injectedMovementSensor.Name(),
+		nil,
+		nil,
+		nil,
+	)
+	test.That(t, err, test.ShouldBeError, errUnimplemented)
+	test.That(t, executionID, test.ShouldBeEmpty)
+}
+
+func TestStopPlan(t *testing.T) {
+	ctx := context.Background()
+	gpsPoint := geo.NewPoint(0, 0)
+	_, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
+	defer ms.Close(ctx)
+
+	err := ms.StopPlan(ctx, fakeBase.Name(), nil)
+	test.That(t, err, test.ShouldEqual, errUnimplemented)
+}
+
+func TestListPlanStatuses(t *testing.T) {
+	ctx := context.Background()
+	gpsPoint := geo.NewPoint(0, 0)
+	//nolint:dogsled
+	_, _, _, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
+	defer ms.Close(ctx)
+
+	planStatusesWithIDs, err := ms.ListPlanStatuses(ctx, false, nil)
+	test.That(t, err, test.ShouldEqual, errUnimplemented)
+	test.That(t, planStatusesWithIDs, test.ShouldBeNil)
+}
+
+func TestPlanHistory(t *testing.T) {
+	ctx := context.Background()
+	gpsPoint := geo.NewPoint(0, 0)
+	_, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
+	defer ms.Close(ctx)
+
+	history, err := ms.PlanHistory(ctx, fakeBase.Name(), false, "", nil)
+	test.That(t, err, test.ShouldEqual, errUnimplemented)
+	test.That(t, history, test.ShouldBeNil)
 }

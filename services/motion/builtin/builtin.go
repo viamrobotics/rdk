@@ -30,6 +30,8 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
+var errUnimplemented = errors.New("unimplemented")
+
 func init() {
 	resource.RegisterDefaultService(
 		motion.API,
@@ -254,7 +256,7 @@ func (ms *builtIn) MoveOnGlobe(
 	heading float64,
 	movementSensorName resource.Name,
 	obstacles []*spatialmath.GeoObstacle,
-	motionCfg *motion.MotionConfiguration,
+	motionCfg *motion.Configuration,
 	extra map[string]interface{},
 ) (bool, error) {
 	t := "MoveOnGlobe called for component: %s, destination: %+v, heading: %f, movementSensor: %s, obstacles: %v, motionCfg: %#v, extra: %s"
@@ -271,7 +273,7 @@ func (ms *builtIn) MoveOnGlobe(
 
 	// ensure arguments are well behaved
 	if motionCfg == nil {
-		motionCfg = &motion.MotionConfiguration{}
+		motionCfg = &motion.Configuration{}
 	}
 	if obstacles == nil {
 		obstacles = []*spatialmath.GeoObstacle{}
@@ -329,6 +331,19 @@ func (ms *builtIn) MoveOnGlobe(
 	}
 }
 
+func (ms *builtIn) MoveOnGlobeNew(
+	ctx context.Context,
+	componentName resource.Name,
+	destination *geo.Point,
+	heading float64,
+	movementSensorName resource.Name,
+	obstacles []*spatialmath.GeoObstacle,
+	motionCfg *motion.Configuration,
+	extra map[string]interface{},
+) (string, error) {
+	return "", errUnimplemented
+}
+
 func (ms *builtIn) GetPose(
 	ctx context.Context,
 	componentName resource.Name,
@@ -348,6 +363,32 @@ func (ms *builtIn) GetPose(
 		destinationFrame,
 		supplementalTransforms,
 	)
+}
+
+func (ms *builtIn) StopPlan(
+	ctx context.Context,
+	componentName resource.Name,
+	extra map[string]interface{},
+) error {
+	return errUnimplemented
+}
+
+func (ms *builtIn) ListPlanStatuses(
+	ctx context.Context,
+	onlyActivePlans bool,
+	extra map[string]interface{},
+) ([]motion.PlanStatusWithID, error) {
+	return nil, errUnimplemented
+}
+
+func (ms *builtIn) PlanHistory(
+	ctx context.Context,
+	componentName resource.Name,
+	lastPlanOnly bool,
+	executionID string,
+	extra map[string]interface{},
+) ([]motion.PlanWithStatus, error) {
+	return nil, errUnimplemented
 }
 
 // PlanMoveOnMap returns the plan for MoveOnMap to execute.
