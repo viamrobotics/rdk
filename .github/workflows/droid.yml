@@ -56,6 +56,9 @@ jobs:
         name: viam-server-android
         path: ${{ env.TARGET }}
 
-    - name: upload if release
-      if: inputs.release_type == 'stable' || inputs.release_type == 'latest'
-      run: echo todo upload maybe
+    - if: inputs.release_type == 'stable' || inputs.release_type == 'latest'
+      uses: google-github-actions/upload-cloud-storage@v1
+      with:
+        headers: "cache-control: no-cache"
+        path: ${{ env.TARGET }}
+        destination: 'packages.viam.com/apps/viam-server/'
