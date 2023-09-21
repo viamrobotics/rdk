@@ -39,7 +39,6 @@ type Config struct {
 	RampRate         float64        `json:"ramp_rate_rpm_per_sec,omitempty"` // how fast to ramp power to motor when using rpm control
 	MaxRPM           float64        `json:"max_rpm,omitempty"`
 	TicksPerRotation int            `json:"ticks_per_rotation,omitempty"`
-	Debug            bool           `json:"rpm_debug,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
