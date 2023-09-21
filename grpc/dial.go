@@ -31,6 +31,7 @@ func Dial(ctx context.Context, address string, logger golog.Logger, opts ...rpc.
 
 	ctx, cancel := contextutils.ContextWithTimeoutIfNoDeadline(ctx, 60*time.Second)
 	defer cancel()
+
 	return rpc.Dial(ctx, address, logger, optsCopy...)
 }
 
