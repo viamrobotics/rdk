@@ -3,7 +3,6 @@ package replaypcd
 
 import (
 	"bytes"
-	"compress/gzip"
 	"context"
 	"sync"
 	"time"
@@ -440,18 +439,7 @@ func decodeResponseData(respData []*datapb.BinaryData, logger golog.Logger) (poi
 		return nil, errors.New("no response data; this should never happen")
 	}
 
-	r, err := gzip.NewReader(bytes.NewBuffer(respData[0].GetBinary()))
-	if err != nil {
-		return nil, err
-	}
-
-	defer func() {
-		if err = r.Close(); err != nil {
-			logger.Warnw("Failed to close gzip reader", "warn", err)
-		}
-	}()
-
-	pc, err := pointcloud.ReadPCD(r)
+	pc, err := pointcloud.ReadPCD(bytes.NewBuffer(respData[0].GetBinary()))
 	if err != nil {
 		return nil, err
 	}
