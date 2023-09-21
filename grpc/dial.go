@@ -6,8 +6,9 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-	"go.viam.com/rdk/utils/contextutils"
 	"go.viam.com/utils/rpc"
+
+	"go.viam.com/rdk/utils/contextutils"
 )
 
 // Dial dials a gRPC server.
@@ -27,7 +28,7 @@ func Dial(ctx context.Context, address string, logger golog.Logger, opts ...rpc.
 	optsCopy[1] = rpc.WithAllowInsecureDowngrade()
 	copy(optsCopy[2:], opts)
 
-	ctx = contextutils.ContextWithTimeoutIfNoDeadline(ctx, 20 * time.Second)
+	ctx = contextutils.ContextWithTimeoutIfNoDeadline(ctx, 20*time.Second)
 	return rpc.Dial(ctx, address, logger, optsCopy...)
 }
 

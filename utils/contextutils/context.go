@@ -67,7 +67,7 @@ func ContextWithMetadataUnaryClientInterceptor(
 }
 
 // ContextWithTimeoutIfNoDeadline returns a child timeout context derived from `ctx`
-// only if `ctx` doesn't already have a deadline set. Returns `ctx` if `ctx` already has a deadline
+// only if `ctx` doesn't already have a deadline set. Returns `ctx` if `ctx` already has a deadline.
 func ContextWithTimeoutIfNoDeadline(ctx context.Context, timeout time.Duration) context.Context {
 	if _, ok := ctx.Deadline(); !ok {
 		newTimeoutCtx, cancel := context.WithTimeout(ctx, timeout)
