@@ -2,6 +2,7 @@ package wheeled
 
 import (
 	"context"
+	"errors"
 	"math"
 	"testing"
 	"time"
@@ -16,7 +17,14 @@ import (
 	"go.viam.com/rdk/components/motor/fake"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/testutils/inject"
 )
+
+func createFakeMotor() motor.Motor {
+	return &inject.Motor{
+		StopFunc: func(ctx context.Context, extra map[string]interface{}) error { return errors.New("stop error") },
+	}
+}
 
 func newTestCfg() resource.Config {
 	return resource.Config{
@@ -30,6 +38,14 @@ func newTestCfg() resource.Config {
 			Right:                []string{"fr-m", "br-m"},
 		},
 	}
+}
+
+func createMockDeps(t *testing.T) resource.Dependencies {
+	t.Helper()
+	deps := make(resource.Dependencies)
+	deps[motor.Named("right")] = createFakeMotor()
+	deps[motor.Named("left")] = createFakeMotor()
+	return deps
 }
 
 func fakeMotorDependencies(t *testing.T, deps []string) resource.Dependencies {
@@ -302,6 +318,27 @@ func TestWheelBaseMath(t *testing.T) {
 		test.That(t, spinL, test.ShouldBeGreaterThan, 0)
 		test.That(t, spinR, test.ShouldBeLessThanOrEqualTo, 0)
 	})
+}
+
+func TestStopError(t *testing.T) {
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+	deps := createMockDeps(t)
+
+	fakecfg := resource.Config{
+		Name: "base",
+		ConvertedAttributes: &Config{
+			WidthMM:              100,
+			WheelCircumferenceMM: 100,
+			Left:                 []string{"left"},
+			Right:                []string{"right"},
+		},
+	}
+	base, err := createWheeledBase(ctx, deps, fakecfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	err = base.Stop(ctx, nil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "stop error")
 }
 
 func TestWheeledBaseConstructor(t *testing.T) {
