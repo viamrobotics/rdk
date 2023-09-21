@@ -3,6 +3,8 @@ package arm
 
 import (
 	"context"
+	"log"
+	rdebug "runtime/debug"
 
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
@@ -122,20 +124,26 @@ func (s *serviceServer) Geometries(ctx context.Context, req *commonpb.GetGeometr
 
 // GetKinematics returns the kinematics information associated with the arm.
 func (s *serviceServer) GetKinematics(ctx context.Context, req *commonpb.GetKinematicsRequest) (*commonpb.GetKinematicsResponse, error) {
+	log.Printf("BENJI: received a GetKinematicsRequest of %+v\n", req)
 	arm, err := s.coll.Resource(req.GetName())
 	if err != nil {
 		return nil, err
 	}
+	log.Printf("BENJI: found actual arm named %q\n", arm.Name().String())
 	model := arm.ModelFrame()
+	log.Printf("BENJI: created arm model frame\n")
 	if model == nil {
 		return &commonpb.GetKinematicsResponse{Format: commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED}, nil
 	}
 	filedata, err := model.MarshalJSON()
+	log.Printf("BENJI: marshaled model frame\n")
 	if err != nil {
 		return nil, err
 	}
 	// Marshalled models always marshal to SVA
 	format := commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_SVA
+	log.Printf("BENJI: finished GetKinematics on server\n")
+	log.Printf("BENJI: debug stack %v\n", string(rdebug.Stack()))
 	return &commonpb.GetKinematicsResponse{Format: format, KinematicsData: filedata}, nil
 }
 
