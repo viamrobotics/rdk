@@ -106,7 +106,7 @@ func attemptToBuildDetector(mlm mlmodel.Service, nameMap *sync.Map) (objectdetec
 		detections := make([]objectdetection.Detection, 0, len(scores))
 		detectionBoxesAreProportional := false
 		for i := 0; i < len(scores); i++ {
-			// heuristic for knowing if bounding box coodinates are abolute pixel locations, or
+			// heuristic for knowing if bounding box coordinates are abolute pixel locations, or
 			// proportional pixel locations. Absolute bounding boxes will not usually be less than a pixel
 			// and purely located in the upper left corner.
 			if i == 0 && (locations[0]+locations[1]+locations[2]+locations[3] < 4.) {
@@ -114,10 +114,10 @@ func attemptToBuildDetector(mlm mlmodel.Service, nameMap *sync.Map) (objectdetec
 			}
 			var xmin, ymin, xmax, ymax float64
 			if detectionBoxesAreProportional {
-				xmin = utils.Clamp(locations[4*i+getIndex(boxOrder, 0)], 0, 1) * float64(origW)
-				ymin = utils.Clamp(locations[4*i+getIndex(boxOrder, 1)], 0, 1) * float64(origH)
-				xmax = utils.Clamp(locations[4*i+getIndex(boxOrder, 2)], 0, 1) * float64(origW)
-				ymax = utils.Clamp(locations[4*i+getIndex(boxOrder, 3)], 0, 1) * float64(origH)
+				xmin = utils.Clamp(locations[4*i+getIndex(boxOrder, 0)], 0, 1) * float64(origW-1)
+				ymin = utils.Clamp(locations[4*i+getIndex(boxOrder, 1)], 0, 1) * float64(origH-1)
+				xmax = utils.Clamp(locations[4*i+getIndex(boxOrder, 2)], 0, 1) * float64(origW-1)
+				ymax = utils.Clamp(locations[4*i+getIndex(boxOrder, 3)], 0, 1) * float64(origH-1)
 			} else {
 				xmin = utils.Clamp(locations[4*i+getIndex(boxOrder, 0)], 0, float64(origW-1))
 				ymin = utils.Clamp(locations[4*i+getIndex(boxOrder, 1)], 0, float64(origH-1))
