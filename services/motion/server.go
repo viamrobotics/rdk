@@ -85,7 +85,6 @@ func (server *serviceServer) MoveOnGlobe(ctx context.Context, req *pb.MoveOnGlob
 		}
 		obstacles = append(obstacles, convObst)
 	}
-	motionCfg := setupMotionConfiguration(req.MotionConfiguration)
 
 	success, err := svc.MoveOnGlobe(
 		ctx,
@@ -94,51 +93,10 @@ func (server *serviceServer) MoveOnGlobe(ctx context.Context, req *pb.MoveOnGlob
 		heading,
 		protoutils.ResourceNameFromProto(req.GetMovementSensorName()),
 		obstacles,
-		&motionCfg,
+		motionConfigurationFromProto(req.MotionConfiguration),
 		req.Extra.AsMap(),
 	)
 	return &pb.MoveOnGlobeResponse{Success: success}, err
-}
-
-func setupMotionConfiguration(motionCfg *pb.MotionConfiguration) MotionConfiguration {
-	visionSvc := []resource.Name{}
-	planDeviationM := 0.
-	positionPollingHz := 0.
-	obstaclePollingHz := 0.
-	linearMPerSec := 0.
-	angularDegsPerSec := 0.
-
-	if motionCfg != nil {
-		if motionCfg.VisionServices != nil {
-			for _, name := range motionCfg.GetVisionServices() {
-				visionSvc = append(visionSvc, protoutils.ResourceNameFromProto(name))
-			}
-		}
-		if motionCfg.PositionPollingFrequencyHz != nil {
-			positionPollingHz = motionCfg.GetPositionPollingFrequencyHz()
-		}
-		if motionCfg.ObstaclePollingFrequencyHz != nil {
-			obstaclePollingHz = motionCfg.GetObstaclePollingFrequencyHz()
-		}
-		if motionCfg.PlanDeviationM != nil {
-			planDeviationM = motionCfg.GetPlanDeviationM()
-		}
-		if motionCfg.LinearMPerSec != nil {
-			linearMPerSec = motionCfg.GetLinearMPerSec()
-		}
-		if motionCfg.AngularDegsPerSec != nil {
-			angularDegsPerSec = motionCfg.GetAngularDegsPerSec()
-		}
-	}
-
-	return MotionConfiguration{
-		VisionServices:        visionSvc,
-		PositionPollingFreqHz: positionPollingHz,
-		ObstaclePollingFreqHz: obstaclePollingHz,
-		PlanDeviationMM:       1e3 * planDeviationM,
-		LinearMPerSec:         linearMPerSec,
-		AngularDegsPerSec:     angularDegsPerSec,
-	}
 }
 
 func (server *serviceServer) GetPose(ctx context.Context, req *pb.GetPoseRequest) (*pb.GetPoseResponse, error) {

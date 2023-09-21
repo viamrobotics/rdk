@@ -59,18 +59,6 @@ type Service interface {
 	) (*referenceframe.PoseInFrame, error)
 }
 
-// MotionConfiguration specifies how to configure a call
-//
-//nolint:revive
-type MotionConfiguration struct {
-	VisionServices        []resource.Name
-	PositionPollingFreqHz float64
-	ObstaclePollingFreqHz float64
-	PlanDeviationMM       float64
-	LinearMPerSec         float64
-	AngularDegsPerSec     float64
-}
-
 // SubtypeName is the name of the type of service.
 const SubtypeName = "motion"
 
