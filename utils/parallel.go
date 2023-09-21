@@ -165,15 +165,11 @@ func RunInParallel(ctx context.Context, fs []SimpleFunc) (time.Duration, error) 
 	return time.Since(start), bigError
 }
 
-type value interface {
-	float64 | bool
-}
-
-// ReturnFunc is for GetInParallel.
-type ReturnFunc[V value] func(ctx context.Context) (V, error)
+// FloatFunc is for GetInParallel.
+type FloatFunc func(ctx context.Context) (float64, error)
 
 // GetInParallel runs all functions in parallel, return is elapsed time, a list of floats, and an error.
-func GetInParallel[K int, V value](ctx context.Context, fs []ReturnFunc[V]) (time.Duration, []V, error) {
+func GetInParallel(ctx context.Context, fs []FloatFunc) (time.Duration, []float64, error) {
 	start := time.Now()
 	ctx, cancel := context.WithCancel(ctx)
 
@@ -189,9 +185,9 @@ func GetInParallel[K int, V value](ctx context.Context, fs []ReturnFunc[V]) (tim
 		}
 	}
 
-	results := make([]V, len(fs))
+	results := make([]float64, len(fs))
 
-	helper := func(f ReturnFunc[V], i int) {
+	helper := func(f FloatFunc, i int) {
 		defer func() {
 			if thePanic := recover(); thePanic != nil {
 				storeError(fmt.Errorf("got panic getting something in parallel: %v", thePanic))

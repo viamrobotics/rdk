@@ -330,8 +330,8 @@ func (o *odometry) trackPosition(ctx context.Context) {
 			}
 
 			// Use GetInParallel to ensure the left and right motors are polled at the same time.
-			positionFuncs := func() []rdkutils.ReturnFunc[float64] {
-				fs := []rdkutils.ReturnFunc[float64]{}
+			positionFuncs := func() []rdkutils.FloatFunc {
+				fs := []rdkutils.FloatFunc{}
 
 				// Always use the first pair until more than one pair of motors is supported in this model.
 				fs = append(fs, func(ctx context.Context) (float64, error) { return o.motors[0].left.Position(ctx, nil) })

@@ -488,33 +488,16 @@ func (wb *wheeledBase) Stop(ctx context.Context, extra map[string]interface{}) e
 }
 
 func (wb *wheeledBase) IsMoving(ctx context.Context) (bool, error) {
-	moveFuncs := func() []rdkutils.ReturnFunc[bool] {
-		ret := []rdkutils.ReturnFunc[bool]{}
-
-		wb.mu.Lock()
-		defer wb.mu.Unlock()
-		for _, m := range wb.left {
-			motor := m
-			ret = append(ret, func(ctx context.Context) (bool, error) { return motor.IsMoving(ctx) })
+	for _, m := range wb.allMotors {
+		isMoving, _, err := m.IsPowered(ctx, nil)
+		if err != nil {
+			return false, err
 		}
-
-		for _, m := range wb.right {
-			motor := m
-			ret = append(ret, func(ctx context.Context) (bool, error) { return motor.IsMoving(ctx) })
+		if isMoving {
+			return true, err
 		}
-		return ret
-	}()
-
-	_, bools, err := rdkutils.GetInParallel(ctx, moveFuncs)
-	if err != nil {
-		return false, multierr.Combine(err, wb.Stop(ctx, nil))
 	}
-
-	result := false
-	for _, b := range bools {
-		result = result || b
-	}
-	return result, nil
+	return false, nil
 }
 
 // Close is called from the client to close the instance of the wheeledBase.
