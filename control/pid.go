@@ -29,8 +29,8 @@ type basicPID struct {
 	int      float64
 	sat      int
 	y        []*Signal
-	satLimUp float64
-	limUp    float64
+	satLimUp float64 `default:"255.0"`
+	limUp    float64 `default:"255.0"`
 	satLimLo float64
 	limLo    float64
 	tuner    pidTuner
@@ -97,21 +97,57 @@ func (p *basicPID) reset() error {
 	if len(p.cfg.DependsOn) != 1 {
 		return errors.Errorf("pid block %s should have 1 input got %d", p.cfg.Name, len(p.cfg.DependsOn))
 	}
-	p.kI = p.cfg.Attribute.Float64("kI", 0.0)
-	p.kD = p.cfg.Attribute.Float64("kD", 0.0)
-	p.kP = p.cfg.Attribute.Float64("kP", 0.0)
-	p.satLimUp = p.cfg.Attribute.Float64("int_sat_lim_up", 255.0)
-	p.limUp = p.cfg.Attribute.Float64("limit_up", 255.0)
-	p.satLimLo = p.cfg.Attribute.Float64("int_sat_lim_lo", 0)
-	p.limLo = p.cfg.Attribute.Float64("limit_lo", 0)
+	p.kI = p.cfg.Attribute["kI"].(float64)
+	p.kD = p.cfg.Attribute["kD"].(float64)
+	p.kP = p.cfg.Attribute["kP"].(float64)
+
+	// ensure a default of 255
+	p.satLimUp = 255
+	if satLimUp, ok := p.cfg.Attribute["int_sat_lim_up"].(float64); ok {
+		p.satLimUp = satLimUp
+	}
+
+	// ensure a default of 255
+	p.limUp = 255
+	if limup, ok := p.cfg.Attribute["limit_up"].(float64); ok {
+		p.limUp = limup
+	}
+
+	// zero float64 for this value is default in the pid struct
+	// by golang
+	if p.cfg.Attribute.Has("int_sat_lim_lo") {
+		p.satLimLo = p.cfg.Attribute["int_sat_lim_lo"].(float64)
+	}
+
+	//  zero float64 for this value is default in the pid struct
+	// by golang
+	if p.cfg.Attribute.Has("limit_lo") {
+		p.satLimLo = p.cfg.Attribute["limit_lo"].(float64)
+	}
+
 	p.tuning = false
 	if p.kI == 0.0 && p.kD == 0.0 && p.kP == 0.0 {
+		var ssrVal float64
+		if p.cfg.Attribute["tune_ssr_value"] != nil {
+			ssrVal = p.cfg.Attribute["tune_ssr_value"].(float64)
+		}
+
+		tuneStepPct := 0.35
+		if p.cfg.Attribute.Has("tune_step_pct") {
+			tuneStepPct = p.cfg.Attribute["tune_step_pct"].(float64)
+		}
+
+		tuneMethod := tuneMethodZiegerNicholsPID
+		if p.cfg.Attribute.Has("tune_method") {
+			tuneMethod = tuneCalcMethod(p.cfg.Attribute["tune_method"].(string))
+		}
+
 		p.tuner = pidTuner{
 			limUp:      p.limUp,
 			limLo:      p.limLo,
-			ssRValue:   p.cfg.Attribute.Float64("tune_ssr_value", 2.0),
-			tuneMethod: tuneCalcMethod(p.cfg.Attribute.String("tune_method")),
-			stepPct:    p.cfg.Attribute.Float64("tune_step_pct", 0.35),
+			ssRValue:   ssrVal,
+			tuneMethod: tuneMethod,
+			stepPct:    tuneStepPct,
 		}
 		err := p.tuner.reset()
 		if err != nil {
@@ -187,10 +223,10 @@ type pidTuner struct {
 	pPeakL       []float64
 	pFindDir     int
 	tuneMethod   tuneCalcMethod
-	stepPct      float64
+	stepPct      float64 `default:".35"`
 	limUp        float64
 	limLo        float64
-	ssRValue     float64
+	ssRValue     float64 `default:"2.0"`
 	ccT2         time.Duration
 	ccT3         time.Duration
 	out          float64

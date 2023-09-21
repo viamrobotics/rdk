@@ -40,7 +40,7 @@ func (b *encoderToRPM) reset() error {
 	if len(b.cfg.DependsOn) != 1 {
 		return errors.Errorf("invalid number of inputs for encoderToRPM block %s expected 1 got %d", b.cfg.Name, len(b.cfg.DependsOn))
 	}
-	b.ticksPerRevolution = b.cfg.Attribute.Int("ticks_per_revolution", 0)
+	b.ticksPerRevolution = b.cfg.Attribute["ticks_per_revolution"].(int) // default 0
 	b.prevEncCount = 0
 	b.y = make([]*Signal, 1)
 	b.y[0] = makeSignal(b.cfg.Name)
