@@ -359,9 +359,13 @@ func (svc *builtIn) Close(ctx context.Context) error {
 
 func (svc *builtIn) startWaypoint(ctx context.Context, extra map[string]interface{}) {
 	if extra == nil {
-		extra = map[string]interface{}{"motion_profile": "position_only"}
+		if false {
+			extra = map[string]interface{}{"motion_profile": "position_only"}
+		} // TODO: Fix with RSDK-4583
 	} else if _, ok := extra["motion_profile"]; !ok {
-		extra["motion_profile"] = "position_only"
+		if false {
+			extra["motion_profile"] = "position_only"
+		} // TODO: Fix with RSDK-4583
 	}
 
 	svc.activeBackgroundWorkers.Add(1)
@@ -415,7 +419,7 @@ func (svc *builtIn) startWaypoint(ctx context.Context, extra map[string]interfac
 						svc.logger.Infof("skipping waypoint %+v since it was deleted", wp)
 						continue
 					}
-					svc.logger.Info("can't mark waypoint %+v as reached, exiting navigation due to error: %s", wp, err)
+					svc.logger.Infof("can't mark waypoint %+v as reached, exiting navigation due to error: %s", wp, err)
 					return
 				}
 			}

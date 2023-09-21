@@ -32,12 +32,14 @@ var boardInfoMappings = map[string]genericlinux.BoardInformation{
 			{Name: "810", DeviceName: "gpiochip1", LineNumber: 16, PwmChipSysfsDir: "", PwmID: -1},
 			{Name: "811", DeviceName: "gpiochip1", LineNumber: 60, PwmChipSysfsDir: "", PwmID: -1}, // BOOTMODE7
 			{Name: "812", DeviceName: "gpiochip1", LineNumber: 59, PwmChipSysfsDir: "", PwmID: -1},
+			// We're unable to get GPIO to work on pin 813 despite Beaglebone's docs. PWM works.
 			{Name: "813", DeviceName: "gpiochip1", LineNumber: 89, PwmChipSysfsDir: "3000000.pwm", PwmID: 1}, // pwmchip0 V27 EHRPWM0_A
 			{Name: "814", DeviceName: "gpiochip1", LineNumber: 75, PwmChipSysfsDir: "", PwmID: -1},
 			{Name: "815", DeviceName: "gpiochip1", LineNumber: 61, PwmChipSysfsDir: "", PwmID: -1},
 			{Name: "816", DeviceName: "gpiochip1", LineNumber: 62, PwmChipSysfsDir: "", PwmID: -1},
 			{Name: "817", DeviceName: "gpiochip1", LineNumber: 3, PwmChipSysfsDir: "", PwmID: -1},
 			{Name: "818", DeviceName: "gpiochip1", LineNumber: 4, PwmChipSysfsDir: "", PwmID: -1},
+			// We're unable to get GPIO to work on pin 819 despite Beaglebone's docs. PWM works.
 			{Name: "819", DeviceName: "gpiochip1", LineNumber: 88, PwmChipSysfsDir: "3000000.pwm", PwmID: 0}, // pwmchip0 V29 EHRPWM0_B
 			{Name: "820", DeviceName: "gpiochip1", LineNumber: 76, PwmChipSysfsDir: "", PwmID: -1},
 			{Name: "821", DeviceName: "gpiochip1", LineNumber: 30, PwmChipSysfsDir: "", PwmID: -1},
@@ -69,8 +71,10 @@ var boardInfoMappings = map[string]genericlinux.BoardInformation{
 			{Name: "911", DeviceName: "gpiochip1", LineNumber: 1, PwmChipSysfsDir: "", PwmID: -1},
 			{Name: "912", DeviceName: "gpiochip1", LineNumber: 45, PwmChipSysfsDir: "", PwmID: -1},
 			{Name: "913", DeviceName: "gpiochip1", LineNumber: 2, PwmChipSysfsDir: "", PwmID: -1},
+			// We're unable to get GPIO to work on pin 914 despite Beaglebone's docs. PWM works.
 			{Name: "914", DeviceName: "gpiochip1", LineNumber: 93, PwmChipSysfsDir: "3020000.pwm", PwmID: 0},
 			{Name: "915", DeviceName: "gpiochip1", LineNumber: 47, PwmChipSysfsDir: "", PwmID: -1},
+			// We're unable to get GPIO to work on pin 916 despite Beaglebone's docs. PWM works.
 			{Name: "916", DeviceName: "gpiochip1", LineNumber: 94, PwmChipSysfsDir: "3020000.pwm", PwmID: 1},
 			{Name: "917", DeviceName: "gpiochip1", LineNumber: 28, PwmChipSysfsDir: "", PwmID: -1},
 			{Name: "918", DeviceName: "gpiochip1", LineNumber: 40, PwmChipSysfsDir: "", PwmID: -1},

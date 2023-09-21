@@ -119,6 +119,14 @@ func (w *GraphNode) IsUninitialized() bool {
 	return w.current == nil
 }
 
+// UnsetResource unsets the current resource. This function does not clean up
+// or close the resource and should be used carefully.
+func (w *GraphNode) UnsetResource() {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.current = nil
+}
+
 // SwapResource emplaces the new resource. It may be the same as before
 // and expects the caller to close the old one. This is considered
 // to be a working resource and as such we unmark it for removal

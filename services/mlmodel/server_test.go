@@ -120,8 +120,7 @@ var injectedMetadataFunc = func(ctx context.Context) (mlmodel.MLMetadata, error)
 var injectedInferFunc = func(
 	ctx context.Context,
 	tensors ml.Tensors,
-	input map[string]interface{},
-) (ml.Tensors, map[string]interface{}, error) {
+) (ml.Tensors, error) {
 	// this is a possible form of what a detection tensor with 3 detection in 1 image would look like
 	outputMap := ml.Tensors{}
 	outputMap["n_detections"] = tensor.New(
@@ -140,7 +139,7 @@ var injectedInferFunc = func(
 		tensor.WithShape(1, 3, 4),
 		tensor.WithBacking([]float32{0.1, 0.4, 0.22, 0.4, 0.02, 0.22, 0.77, 0.90, 0.40, 0.50, 0.40, 0.50}),
 	)
-	return outputMap, nil, nil
+	return outputMap, nil
 }
 
 func TestServerInfer(t *testing.T) {

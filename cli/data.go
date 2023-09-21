@@ -33,6 +33,8 @@ const (
 
 	dataTypeBinary  = "binary"
 	dataTypeTabular = "tabular"
+
+	gzFileExt = ".gz"
 )
 
 // DataExportAction is the corresponding action for 'data export'.
@@ -187,10 +189,6 @@ func createDataFilter(c *cli.Context) (*datapb.Filter, error) {
 func (c *viamClient) binaryData(dst string, filter *datapb.Filter, parallelDownloads uint) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
-	}
-
-	if err := makeDestinationDirs(dst); err != nil {
-		return errors.Wrapf(err, "could not create destination directories")
 	}
 
 	if parallelDownloads == 0 {
@@ -349,16 +347,28 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 	}
 
 	timeRequested := datum.GetMetadata().GetTimeRequested().AsTime().Format(time.RFC3339Nano)
-	var fileName string
-	if datum.GetMetadata().GetFileName() != "" {
-		// Can use file ext directly from metadata.
-		fileName = timeRequested + "_" + strings.TrimSuffix(datum.GetMetadata().GetFileName(), datum.GetMetadata().GetFileExt())
-	} else {
-		fileName = timeRequested + "_" + datum.GetMetadata().GetId()
+	fileName := datum.GetMetadata().GetFileName()
+
+	// The file name will end with .gz if the user uploaded a gzipped file. We will unzip it below, so remove the last
+	// .gz from the file name. If the user has gzipped the file multiple times, we will only unzip once.
+	if filepath.Ext(fileName) == gzFileExt {
+		fileName = strings.TrimSuffix(fileName, gzFileExt)
 	}
 
+	if fileName == "" {
+		fileName = timeRequested + "_" + datum.GetMetadata().GetId()
+	} else if filepath.Dir(fileName) == "." {
+		// If the file name does not contain a directory, prepend if with a requested time so that it is sorted.
+		// Otherwise, keep the file name as-is to maintain the directory structure that the user uploaded the file with.
+		fileName = timeRequested + "_" + strings.TrimSuffix(datum.GetMetadata().GetFileName(), datum.GetMetadata().GetFileExt())
+	}
+
+	jsonPath := filepath.Join(dst, metadataDir, fileName+".json")
+	if err := os.MkdirAll(filepath.Dir(jsonPath), 0o700); err != nil {
+		return errors.Wrapf(err, "could not create metadata directory %s", filepath.Dir(jsonPath))
+	}
 	//nolint:gosec
-	jsonFile, err := os.Create(filepath.Join(dst, metadataDir, fileName+".json"))
+	jsonFile, err := os.Create(jsonPath)
 	if err != nil {
 		return err
 	}
@@ -369,15 +379,27 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 	bin := datum.GetBinary()
 
 	r := io.NopCloser(bytes.NewReader(bin))
-	if datum.GetMetadata().GetFileExt() == ".gz" {
+
+	dataPath := filepath.Join(dst, dataDir, fileName)
+	ext := datum.GetMetadata().GetFileExt()
+
+	// If the file is gzipped, unzip.
+	if ext == gzFileExt {
 		r, err = gzip.NewReader(r)
 		if err != nil {
 			return err
 		}
+	} else if filepath.Ext(dataPath) != ext {
+		// If the file name did not already include the extension (e.g. for data capture files), add it.
+		// Don't do this for files that we're unzipping.
+		dataPath += ext
 	}
 
+	if err := os.MkdirAll(filepath.Dir(dataPath), 0o700); err != nil {
+		return errors.Wrapf(err, "could not create data directory %s", filepath.Dir(dataPath))
+	}
 	//nolint:gosec
-	dataFile, err := os.Create(filepath.Join(dst, dataDir, fileName+datum.GetMetadata().GetFileExt()))
+	dataFile, err := os.Create(dataPath)
 	if err != nil {
 		return errors.Wrapf(err, fmt.Sprintf("could not create file for datum %s", datum.GetMetadata().GetId()))
 	}

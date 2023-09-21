@@ -1,3 +1,5 @@
+//go:build !no_cgo
+
 package tpspace
 
 import (
@@ -18,20 +20,20 @@ const (
 )
 
 type ptgIK struct {
-	PrecomputePTG
+	PTG
 	refDist         float64
 	ptgFrame        referenceframe.Frame
 	fastGradDescent *ik.NloptIK
 
-	gridSim PTG
+	gridSim PTGSolver
 
 	mu        sync.RWMutex
 	trajCache map[float64][]*TrajNode
 }
 
-// NewPTGIK creates a new ptgIK, which creates a frame using the provided PrecomputePTG, and wraps it providing functions to fill the PTG
+// NewPTGIK creates a new ptgIK, which creates a frame using the provided PTG, and wraps it providing functions to fill the PTG
 // interface, allowing inverse kinematics queries to be run against it.
-func NewPTGIK(simPTG PrecomputePTG, logger golog.Logger, refDist float64, randSeed int) (PTG, error) {
+func NewPTGIK(simPTG PTG, logger golog.Logger, refDist float64, randSeed int) (PTGSolver, error) {
 	if refDist <= 0 {
 		return nil, errors.New("refDist must be greater than zero")
 	}
@@ -50,7 +52,7 @@ func NewPTGIK(simPTG PrecomputePTG, logger golog.Logger, refDist float64, randSe
 	}
 
 	ptg := &ptgIK{
-		PrecomputePTG:   simPTG,
+		PTG:             simPTG,
 		refDist:         refDist,
 		ptgFrame:        ptgFrame,
 		fastGradDescent: nlopt,

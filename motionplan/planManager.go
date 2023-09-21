@@ -1,3 +1,5 @@
+//go:build !no_cgo
+
 package motionplan
 
 import (
@@ -52,7 +54,7 @@ func newPlanManager(
 				return nil, errors.New("only one PTG frame can be planned for at a time")
 			}
 			anyPTG = true
-			frame.ptgs = ptgFrame.PTGs()
+			frame.ptgs = ptgFrame.PTGSolvers()
 		} else if len(movingFrame.DoF()) > 0 {
 			anyNonzero = true
 		}

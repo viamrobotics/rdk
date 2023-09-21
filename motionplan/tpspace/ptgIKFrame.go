@@ -9,16 +9,16 @@ import (
 	"go.viam.com/rdk/referenceframe"
 )
 
-// ptgFrame wraps a tpspace.PrecomputePTG so that it fills the Frame interface and can be used by IK.
+// ptgFrame wraps a tpspace.PTG so that it fills the Frame interface and can be used by IK.
 type ptgIKFrame struct {
-	PrecomputePTG
+	PTG
 	limits []referenceframe.Limit
 }
 
 // NewPTGIKFrame will create a new frame intended to be passed to an Inverse Kinematics solver, allowing IK to solve for parameters
 // for the passed in PTG.
-func newPTGIKFrame(ptg PrecomputePTG, dist float64) referenceframe.Frame {
-	pf := &ptgIKFrame{PrecomputePTG: ptg}
+func newPTGIKFrame(ptg PTG, dist float64) referenceframe.Frame {
+	pf := &ptgIKFrame{PTG: ptg}
 
 	pf.limits = []referenceframe.Limit{
 		{Min: -math.Pi, Max: math.Pi},

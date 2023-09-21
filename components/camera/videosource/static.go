@@ -1,3 +1,5 @@
+//go:build !no_cgo
+
 package videosource
 
 import (
@@ -33,7 +35,7 @@ func init() {
 }
 
 func newCamera(ctx context.Context, name resource.Name, newConf *fileSourceConfig) (camera.Camera, error) {
-	videoSrc := &fileSource{newConf.Color, newConf.Depth, newConf.PointCloud, newConf.CameraParameters, nil, nil}
+	videoSrc := &fileSource{newConf.Color, newConf.Depth, newConf.PointCloud, newConf.CameraParameters}
 	imgType := camera.ColorStream
 	if newConf.Color == "" {
 		imgType = camera.DepthStream
@@ -57,8 +59,6 @@ type fileSource struct {
 	DepthFN      string
 	PointCloudFN string
 	Intrinsics   *transform.PinholeCameraIntrinsics
-	colorImg     image.Image
-	pc           pointcloud.PointCloud
 }
 
 // fileSourceConfig is the attribute struct for fileSource.
@@ -85,10 +85,6 @@ func (fs *fileSource) Read(ctx context.Context) (image.Image, func(), error) {
 		return img, func() {}, err
 	}
 
-	if fs.colorImg != nil {
-		return fs.colorImg, func() {}, nil
-	}
-
 	img, err := rimage.NewImageFromFile(fs.ColorFN)
 	if err != nil {
 		return nil, nil, err
@@ -108,26 +104,16 @@ func (fs *fileSource) Read(ctx context.Context) (image.Image, func(), error) {
 		if oddHeight {
 			newHeight--
 		}
-		fs.colorImg = img.SubImage(image.Rect(0, 0, newWidth, newHeight))
-	} else {
-		fs.colorImg = img
+		img = img.SubImage(image.Rect(0, 0, newWidth, newHeight))
 	}
-
-	return fs.colorImg, func() {}, err
+	return img, func() {}, err
 }
 
 // NextPointCloud returns the point cloud from projecting the rgb and depth image using the intrinsic parameters,
 // or the pointcloud from file if set.
 func (fs *fileSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
-	if fs.PointCloudFN != "" && fs.pc == nil {
-		newPc, err := pointcloud.NewFromFile(fs.PointCloudFN, nil)
-		if err != nil {
-			return nil, err
-		}
-		fs.pc = newPc
-	}
-	if fs.pc != nil {
-		return fs.pc, nil
+	if fs.PointCloudFN != "" {
+		return pointcloud.NewFromFile(fs.PointCloudFN, nil)
 	}
 	if fs.Intrinsics == nil {
 		return nil, transform.NewNoIntrinsicsError("camera intrinsics not found in config")

@@ -1,3 +1,5 @@
+//go:build !no_cgo
+
 // Package rimage defines fundamental image and color processing primitives.
 //
 // The golang standard library, while useful, is not very productive when it

@@ -9,22 +9,22 @@ import (
 
 const defaultCountersteer = 1.5
 
-// ptgDiffDriveSideS defines a PTG family which makes a forwards turn, then a counter turn the other direction, and goes straight.
+// ptgSideS defines a PTG family which makes a forwards turn, then a counter turn the other direction, and goes straight.
 // This has the effect of translating to one side or the other without orientation change.
-type ptgDiffDriveSideS struct {
+type ptgSideS struct {
 	maxMMPS      float64 // millimeters per second velocity to target
 	maxRPS       float64 // radians per second of rotation when driving at maxMMPS and turning at max turning radius
 	r            float64 // turning radius
 	countersteer float64 // scale the length of the second arc by this much
-	circle       *ptgDiffDriveC
+	circle       *ptgC
 }
 
-// NewSideSPTG creates a new PrecomputePTG of type ptgDiffDriveSideS.
-func NewSideSPTG(maxMMPS, maxRPS float64) PrecomputePTG {
+// NewSideSPTG creates a new PTG of type ptgSideS.
+func NewSideSPTG(maxMMPS, maxRPS float64) PTG {
 	r := maxMMPS / maxRPS
-	circle := NewCirclePTG(maxMMPS, maxRPS).(*ptgDiffDriveC)
+	circle := NewCirclePTG(maxMMPS, maxRPS).(*ptgC)
 
-	return &ptgDiffDriveSideS{
+	return &ptgSideS{
 		maxMMPS:      maxMMPS,
 		maxRPS:       maxRPS,
 		r:            r,
@@ -33,13 +33,13 @@ func NewSideSPTG(maxMMPS, maxRPS float64) PrecomputePTG {
 	}
 }
 
-// NewSideSOverturnPTG creates a new PrecomputePTG of type ptgDiffDriveSideS which overturns.
+// NewSideSOverturnPTG creates a new PTG of type ptgSideS which overturns.
 // It turns X amount in one direction, then countersteers X*countersteerFactor in the other direction.
-func NewSideSOverturnPTG(maxMMPS, maxRPS float64) PrecomputePTG {
+func NewSideSOverturnPTG(maxMMPS, maxRPS float64) PTG {
 	r := maxMMPS / maxRPS
-	circle := NewCirclePTG(maxMMPS, maxRPS).(*ptgDiffDriveC)
+	circle := NewCirclePTG(maxMMPS, maxRPS).(*ptgC)
 
-	return &ptgDiffDriveSideS{
+	return &ptgSideS{
 		maxMMPS:      maxMMPS,
 		maxRPS:       maxRPS,
 		r:            r,
@@ -51,7 +51,7 @@ func NewSideSOverturnPTG(maxMMPS, maxRPS float64) PrecomputePTG {
 // For this particular driver, turns alpha into a linear + angular velocity. Linear is just max * fwd/back.
 // Note that this will NOT work as-is for 0-radius turning. Robots capable of turning in place will need to be special-cased
 // because they will have zero linear velocity through their turns, not max.
-func (ptg *ptgDiffDriveSideS) PTGVelocities(alpha, dist float64) (float64, float64, error) {
+func (ptg *ptgSideS) Velocities(alpha, dist float64) (float64, float64, error) {
 	arcLength := math.Abs(alpha) * 0.5 * ptg.r
 	v := ptg.maxMMPS
 	w := 0.
@@ -69,7 +69,7 @@ func (ptg *ptgDiffDriveSideS) PTGVelocities(alpha, dist float64) (float64, float
 	return v, w, nil
 }
 
-func (ptg *ptgDiffDriveSideS) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {
+func (ptg *ptgSideS) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {
 	alpha := inputs[0].Value
 	dist := inputs[1].Value
 

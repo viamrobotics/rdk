@@ -90,12 +90,13 @@ func fromRemoteNameToRemoteNodeName(name string) resource.Name {
 
 func (manager *resourceManager) startModuleManager(
 	parentAddr string,
+	removeOrphanedResources func(context.Context, []resource.Name),
 	untrustedEnv bool,
 	logger golog.Logger,
 ) {
 	mmOpts := modmanageroptions.Options{
 		UntrustedEnv:            untrustedEnv,
-		RemoveOrphanedResources: manager.removeOrphanedResources,
+		RemoveOrphanedResources: removeOrphanedResources,
 	}
 	manager.moduleManager = modmanager.NewManager(parentAddr, logger, mmOpts)
 }
@@ -586,11 +587,11 @@ func (manager *resourceManager) completeConfig(
 					gNode.SetLastError(errors.Wrap(err, "resource build error"))
 					return
 				}
-				// if the ctxWithTimeout has an error then that means we've timed out. This means
-				// that resource generation is running async, and we don't currently have good
-				// validation around how this might affect the resource graph. So, we avoid updating
-				// the graph to be safe.
-				if ctxWithTimeout.Err() != nil {
+				// if the ctxWithTimeout fails with DeadlineExceeded, then that means that
+				// resource generation is running async, and we don't currently have good
+				// validation around how this might affect the resource graph. So, we avoid
+				// updating the graph to be safe.
+				if errors.Is(ctxWithTimeout.Err(), context.DeadlineExceeded) {
 					manager.logger.Errorw("error building resource", "resource", conf.ResourceName(), "model", conf.Model, "error", ctxWithTimeout.Err())
 				} else {
 					gNode.SwapResource(newRes, conf.Model)
@@ -792,6 +793,13 @@ func (manager *resourceManager) processResource(
 	}
 	newRes, err := r.newResource(ctx, gNode, conf)
 	if err != nil {
+		gNode.UnsetResource()
+		manager.logger.Debugw(
+			"failed to build resource of new model, removing closed resource of old model from graph node",
+			"name", resName,
+			"old_model", gNode.ResourceModel(),
+			"new_model", conf.Model,
+		)
 		return nil, false, err
 	}
 	return newRes, true, nil
@@ -918,17 +926,6 @@ func (manager *resourceManager) updateResources(
 	}
 
 	// modules are not added into the resource tree as they belong to the module manager
-	for _, mod := range conf.Added.Modules {
-		// this is done in config validation but partial start rules require us to check again
-		if err := mod.Validate(""); err != nil {
-			manager.logger.Errorw("module config validation error; skipping", "module", mod.Name, "error", err)
-			continue
-		}
-		if err := manager.moduleManager.Add(ctx, mod); err != nil {
-			manager.logger.Errorw("error adding module", "module", mod.Name, "error", err)
-			continue
-		}
-	}
 	for _, mod := range conf.Modified.Modules {
 		// this is done in config validation but partial start rules require us to check again
 		if err := mod.Validate(""); err != nil {
@@ -1069,18 +1066,6 @@ func (manager *resourceManager) markResourcesRemoved(
 		manager.resources.MarkForRemoval(subG)
 	}
 	return resourcesToCloseBeforeComplete
-}
-
-// removeOrphanedResources is called by the module manager to remove resources
-// orphaned due to module crashes.
-func (manager *resourceManager) removeOrphanedResources(ctx context.Context,
-	rNames []resource.Name,
-) {
-	manager.markResourcesRemoved(rNames, nil)
-	if err := manager.removeMarkedAndClose(ctx, nil); err != nil {
-		manager.logger.Errorw("error removing and closing marked resources",
-			"error", err)
-	}
 }
 
 // createConfig will create a config.Config based on the current state of the

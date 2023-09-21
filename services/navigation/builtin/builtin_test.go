@@ -98,6 +98,10 @@ func TestNavSetup(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, navMode, test.ShouldEqual, navigation.ModeWaypoint)
 
+	// Prevent race
+	err = ns.SetMode(ctx, navigation.ModeManual, nil)
+	test.That(t, err, test.ShouldBeNil)
+
 	geoPose, err := ns.Location(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	expectedGeoPose := spatialmath.NewGeoPose(geo.NewPoint(40.7, -73.98), 25.)
@@ -157,7 +161,7 @@ func TestStartWaypoint(t *testing.T) {
 	options := kinematicbase.NewKinematicBaseOptions()
 	options.PositionOnlyMode = false
 
-	kinematicBase, err := kinematicbase.WrapWithFakeKinematics(ctx, fake, localizer, limits, options)
+	kinematicBase, err := kinematicbase.WrapWithFakeKinematics(ctx, fake, localizer, limits, options, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	injectMovementSensor := inject.NewMovementSensor("test_movement")

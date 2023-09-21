@@ -45,7 +45,7 @@ func TestAPIKeyCreateAction(t *testing.T) {
 	}
 	cCtx, ac, out, errOut := setup(asc, nil)
 
-	test.That(t, ac.organizationAPIKeyCreateAction(cCtx), test.ShouldBeNil)
+	test.That(t, ac.organizationsAPIKeyCreateAction(cCtx), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
 	test.That(t, len(out.messages), test.ShouldEqual, 8)
 	test.That(t, strings.Join(out.messages, ""), test.ShouldContainSubstring, "id-xxx")

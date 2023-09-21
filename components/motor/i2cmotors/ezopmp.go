@@ -313,8 +313,8 @@ func (m *Ezopmp) GoTo(ctx context.Context, mLPerMin, mins float64, extra map[str
 
 // ResetZeroPosition clears the amount of volume that has been dispensed.
 func (m *Ezopmp) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
-	command := []byte(clear)
-	return m.writeRegWithCheck(ctx, command)
+	m.logger.Warnf("cannot reset position of motor (%v) because position refers to the total volume dispensed", m.Name().ShortName())
+	return motor.NewResetZeroPositionUnsupportedError(m.Name().ShortName())
 }
 
 // Position will return the total volume dispensed.

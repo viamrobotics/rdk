@@ -50,6 +50,9 @@ func newBase(ctx context.Context, deps resource.Dependencies, conf resource.Conf
 func (b *myBase) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	b.left = nil
 	b.right = nil
+
+	// This takes the generic resource.Config passed down from the parent and converts it to the
+	// model-specific (aka "native") Config structure defined above making it easier to directly access attributes.
 	baseConfig, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return err
@@ -86,8 +89,11 @@ type Config struct {
 	RightMotor string `json:"motorR"`
 }
 
-// Validate validates the config and returns implicit dependencies.
+// Validate validates the config and returns implicit dependencies,
+// this Validate checks if the left and right motors exist for the module's base model.
 func (cfg *Config) Validate(path string) ([]string, error) {
+	// check if the attribute fields for the right and left motors are non-empty
+	// this makes them reuqired for the model to successfully build
 	if cfg.LeftMotor == "" {
 		return nil, fmt.Errorf(`expected "motorL" attribute for mybase %q`, path)
 	}
@@ -95,6 +101,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 		return nil, fmt.Errorf(`expected "motorR" attribute for mybase %q`, path)
 	}
 
+	// Return the left and right motor names so that `newBase` can access them as dependencies.
 	return []string{cfg.LeftMotor, cfg.RightMotor}, nil
 }
 
