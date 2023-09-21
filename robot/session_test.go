@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
-	"runtime/debug"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -429,12 +429,14 @@ func TestSessionsWithRemote(t *testing.T) {
 
 	motor1, err := motor.FromRobot(roboClient, "rem1:motor1")
 	if err != nil {
-		stack := string(debug.Stack())
-		logger.Errorf(
-			"error accessing remote from roboClient: %s. logging stacktrace for debugging purposes,\n %s",
-			err.Error(),
-			stack,
-		)
+		bufSize := 1 << 20
+		traces := make([]byte, bufSize)
+		traceSize := runtime.Stack(traces, true)
+		message := fmt.Sprintf("error accessing remote from roboClient: %s. logging stack trace for debugging purposes", err.Error())
+		if traceSize == bufSize {
+			message = fmt.Sprintf("%s (warning: backtrace truncated to %v bytes)", message, bufSize)
+		}
+		logger.Errorf("%s,\n %s", message, traces)
 	}
 	test.That(t, err, test.ShouldBeNil)
 
@@ -516,12 +518,14 @@ func TestSessionsWithRemote(t *testing.T) {
 
 	motor2, err := motor.FromRobot(roboClient, "rem1:motor2")
 	if err != nil {
-		stack := string(debug.Stack())
-		logger.Errorf(
-			"error accessing remote from roboClient: %s. logging stacktrace for debugging purposes,\n %s",
-			err.Error(),
-			stack,
-		)
+		bufSize := 1 << 20
+		traces := make([]byte, bufSize)
+		traceSize := runtime.Stack(traces, true)
+		message := fmt.Sprintf("error accessing remote from roboClient: %s. logging stack trace for debugging purposes", err.Error())
+		if traceSize == bufSize {
+			message = fmt.Sprintf("%s (warning: backtrace truncated to %v bytes)", message, bufSize)
+		}
+		logger.Errorf("%s,\n %s", message, traces)
 	}
 	test.That(t, err, test.ShouldBeNil)
 
