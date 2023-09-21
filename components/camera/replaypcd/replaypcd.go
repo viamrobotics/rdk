@@ -199,7 +199,7 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 	// If using a batch size of 1, we already received the data itself, so decode and return the
 	// binary data directly
 	if replay.limit == 1 {
-		pc, err := decodeResponseData(resp.GetData(), replay.logger)
+		pc, err := decodeResponseData(resp.GetData())
 		if err != nil {
 			return nil, err
 		}
@@ -255,7 +255,7 @@ func (replay *pcdCamera) downloadBatch(ctx context.Context) {
 			}
 
 			// Decode response data
-			data.pc, data.err = decodeResponseData(resp.GetData(), replay.logger)
+			data.pc, data.err = decodeResponseData(resp.GetData())
 			if data.err == nil {
 				data.timeRequested = resp.GetData()[0].GetMetadata().GetTimeRequested()
 				data.timeReceived = resp.GetData()[0].GetMetadata().GetTimeReceived()
@@ -433,8 +433,8 @@ func (replay *pcdCamera) initCloudConnection(ctx context.Context) error {
 	return nil
 }
 
-// decodeResponseData decompresses the gzipped byte array.
-func decodeResponseData(respData []*datapb.BinaryData, logger golog.Logger) (pointcloud.PointCloud, error) {
+// decodeResponseData decodes the pcd file byte array.
+func decodeResponseData(respData []*datapb.BinaryData) (pointcloud.PointCloud, error) {
 	if len(respData) == 0 {
 		return nil, errors.New("no response data; this should never happen")
 	}
