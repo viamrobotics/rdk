@@ -17,7 +17,8 @@ on:
 
 env:
   NDK_ZIP: android-ndk-r26-linux.zip
-  TARGET: bin/viam-server-android-${{ inputs.release_type }}
+  TARGET: bin/viam-server-android-latest
+  # ${{ inputs.release_type }}
 
 jobs:
   droid:
@@ -56,8 +57,8 @@ jobs:
         name: viam-server-android
         path: ${{ env.TARGET }}
 
-    - if: inputs.release_type == 'stable' || inputs.release_type == 'latest'
-      uses: google-github-actions/upload-cloud-storage@v1
+    # - if: inputs.release_type == 'stable' || inputs.release_type == 'latest'
+    - uses: google-github-actions/upload-cloud-storage@v1
       with:
         headers: "cache-control: no-cache"
         path: ${{ env.TARGET }}
