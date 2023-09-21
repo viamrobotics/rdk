@@ -22,6 +22,8 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
+var rpmDebug = false
+
 // WrapMotorWithEncoder takes a motor and adds an encoder onto it in order to understand its odometry.
 func WrapMotorWithEncoder(
 	ctx context.Context,
@@ -124,6 +126,8 @@ func newEncodedMotor(
 	if em.maxPowerPct == 0 {
 		em.maxPowerPct = 1.0
 	}
+
+	rpmDebug = motorConfig.Debug
 
 	return em, nil
 }
@@ -265,12 +269,22 @@ func (m *EncodedMotor) makeAdjustments(pos, lastPos float64, now, lastTime int64
 		m.state.currentRPM = deltaPos / deltaTime
 	}
 
+	if rpmDebug {
+		m.logger.Debug("making adjustments")
+		m.logger.Debugf("lastPos: %v, pos: %v, goalPos: %v", lastPos, pos, m.state.goalPos)
+		m.logger.Debugf("lastTime: %v, now: %v", lastTime, now)
+		m.logger.Debugf("currentRPM: %v, goalRPM: %v", m.state.currentRPM, m.state.goalRPM)
+	}
+
 	dir := m.directionMovingInLock()
 
 	if (dir == 1 && m.state.currentRPM > m.state.goalRPM) || (dir == -1 && m.state.currentRPM < m.state.goalRPM) {
 		powerPct := m.state.lastPowerPct - (m.rampRate * m.directionMovingInLock())
 		if sign(powerPct) != m.directionMovingInLock() {
 			powerPct = m.state.lastPowerPct
+		}
+		if rpmDebug {
+			m.logger.Debugf("decreasing powerPct to %v", powerPct)
 		}
 		if err := m.setPower(m.cancelCtx, powerPct, true); err != nil {
 			return err
@@ -280,6 +294,9 @@ func (m *EncodedMotor) makeAdjustments(pos, lastPos float64, now, lastTime int64
 		powerPct := m.state.lastPowerPct + (m.rampRate * m.directionMovingInLock())
 		if sign(powerPct) != m.directionMovingInLock() {
 			powerPct = m.state.lastPowerPct
+		}
+		if rpmDebug {
+			m.logger.Debugf("increasing powerPct to %v", powerPct)
 		}
 		if err := m.setPower(m.cancelCtx, powerPct, true); err != nil {
 			return err
