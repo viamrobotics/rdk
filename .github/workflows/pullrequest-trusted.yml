@@ -66,5 +66,13 @@ jobs:
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
+  droid:
+    # needs: [test]
+    uses: ./.github/workflows/droid.yml
+    with:
+      release_type: 'pr'
+    secrets:
+      GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+
   license_finder:
     uses: viamrobotics/rdk/.github/workflows/license_finder.yml@main

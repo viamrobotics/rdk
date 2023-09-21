@@ -48,4 +48,10 @@ jobs:
     - name: build
       run: |
         NDK_ROOT=$(realpath android-ndk-r26) etc/android.sh
-        file ./server
+        mv server viam-server-android
+        file viam-server-android
+
+    - uses: actions/upload-artifact@v3
+      with:
+        name: viam-server-android
+        path: viam-server-android
