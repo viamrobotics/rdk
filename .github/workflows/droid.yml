@@ -50,7 +50,8 @@ jobs:
     - name: build
       run: make $TARGET \
         NDK_ROOT=$(realpath android-ndk-r26) \
-        SERVER_RELEASE=${{ inputs.release_type }}
+        SERVER_RELEASE=latest
+        # ${{ inputs.release_type }} # DONOTMERGE
 
     - uses: actions/upload-artifact@v3
       with:
