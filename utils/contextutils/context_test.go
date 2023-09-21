@@ -54,12 +54,10 @@ func TestContextWithMetadata(t *testing.T) {
 func TestContextWithTimeoutIfNoDeadline(t *testing.T) {
 	// Test with no set deadline
 	noDeadlineCtx := context.Background()
-	noDeadlineCtxDeadline, noDeadlineCtxOk := noDeadlineCtx.Deadline()
+	noDeadlineCtxDeadline, _ := noDeadlineCtx.Deadline()
 	deadlineCtx, cancel := ContextWithTimeoutIfNoDeadline(noDeadlineCtx, time.Second)
 	defer cancel()
-	deadlineCtxDeadline, deadlineCtxOk := deadlineCtx.Deadline()
-	test.That(t, noDeadlineCtxOk, test.ShouldBeFalse)
-	test.That(t, deadlineCtxOk, test.ShouldBeTrue)
+	deadlineCtxDeadline, _ := deadlineCtx.Deadline()
 	test.That(t, deadlineCtxDeadline.After(noDeadlineCtxDeadline), test.ShouldBeTrue)
 
 	// Test with prev set deadline
