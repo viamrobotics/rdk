@@ -597,6 +597,7 @@ func TestMoveOnGlobe(t *testing.T) {
 		t.Parallel()
 		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
 
+		// Construct a set of obstacles that entirely enclose the goal point
 		boxPose := spatialmath.NewPoseFromPoint(r3.Vector{50, 0, 0})
 		boxDims := r3.Vector{2, 6660, 10}
 		geometry1, err := spatialmath.NewBox(boxPose, boxDims, "wall1")

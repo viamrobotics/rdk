@@ -191,8 +191,8 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 		return nil, err
 	}
 
-	kinematicFrame := kb.Kinematics()
 	// replace original base frame with one that knows how to move itself and allow planning for
+	kinematicFrame := kb.Kinematics()
 	if err = fs.ReplaceFrame(kinematicFrame); err != nil {
 		return nil, err
 	}

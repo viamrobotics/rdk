@@ -103,7 +103,7 @@ func (fk *fakeDiffDriveKinematics) ErrorState(
 	plan [][]referenceframe.Input,
 	currentNode int,
 ) (spatialmath.Pose, error) {
-	return spatialmath.NewZeroPose(), nil
+	return fk.sensorNoise, nil
 }
 
 func (fk *fakeDiffDriveKinematics) CurrentPosition(ctx context.Context) (*referenceframe.PoseInFrame, error) {
