@@ -438,7 +438,7 @@ func newWithResources(
 	}
 
 	// Once web service is started, start module manager
-	r.manager.startModuleManager(r.webSvc.ModuleAddress(), cfg.UntrustedEnv, logger)
+	r.manager.startModuleManager(r.webSvc.ModuleAddress(), r.removeOrphanedResources, cfg.UntrustedEnv, logger)
 
 	r.activeBackgroundWorkers.Add(1)
 	r.configTicker = time.NewTicker(5 * time.Second)
@@ -495,6 +495,19 @@ func New(
 	opts ...Option,
 ) (robot.LocalRobot, error) {
 	return newWithResources(ctx, cfg, nil, logger, opts...)
+}
+
+// removeOrphanedResources is called by the module manager to remove resources
+// orphaned due to module crashes.
+func (r *localRobot) removeOrphanedResources(ctx context.Context,
+	rNames []resource.Name,
+) {
+	r.manager.markResourcesRemoved(rNames, nil)
+	if err := r.manager.removeMarkedAndClose(ctx, nil); err != nil {
+		r.logger.Errorw("error removing and closing marked resources",
+			"error", err)
+	}
+	r.updateWeakDependents(ctx)
 }
 
 // getDependencies derives a collection of dependencies from a robot for a given
@@ -732,6 +745,7 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 		if len(r.getWeakDependencyMatchers(conf.API, conf.Model)) == 0 {
 			return
 		}
+		r.Logger().Debugw("handling weak update for resource", "resource", resName)
 		deps, err := r.getDependencies(ctx, resName, resNode)
 		if err != nil {
 			r.Logger().Errorw("failed to get dependencies during weak update; skipping", "resource", resName, "error", err)
