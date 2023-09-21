@@ -404,7 +404,6 @@ func (ms *builtIn) planMoveOnMap(
 				return nil, nil, errors.New("could not interpret motion_profile field as string")
 			}
 			kinematicsOptions.PositionOnlyMode = motionProfile == motionplan.PositionOnlyMotionProfile
-			kinematicsOptions.PositionOnlyMode = false
 		}
 	}
 
