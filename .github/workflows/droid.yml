@@ -1,0 +1,51 @@
+name: Build for Android
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_type:
+        required: true
+        type: string
+  workflow_call:
+    inputs:
+      release_type:
+        required: true
+        type: string
+    secrets:
+      GCP_CREDENTIALS:
+        required: true
+
+env:
+  NDK_ZIP: android-ndk-r26-linux.zip
+
+jobs:
+  droid:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+      if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+
+    - uses: actions/checkout@v3
+      if: github.event_name == 'pull_request_target'
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
+
+    - uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+
+    - id: cache-ndk
+      uses: actions/cache@v3
+      with:
+        path: ${{ env.NDK_ZIP }}
+        key: ${{ env.NDK_ZIP }}
+    - name: download ndk
+      if: steps.cache-ndk.outputs.cache-hit != 'true'
+      run: wget https://dl.google.com/android/repository/${{ env.NDK_ZIP }}
+    - name: unzip ndk
+      run: unzip android-ndk-r26-linux.zip
+
+    - name: build
+      run: |
+        NDK_ROOT=$(realpath android-ndk-r26) etc/android.sh
+        file ./server
