@@ -138,6 +138,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 			if err != nil {
 				return nil, err
 			}
+			opt.SetGoal(to)
 			opts = append(opts, opt)
 
 			from = to
@@ -149,6 +150,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
+	opt.SetGoal(goalPos)
 	opts = append(opts, opt)
 
 	planners := make([]motionPlanner, 0, len(opts))
@@ -449,7 +451,6 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 
 	// Start with normal options
 	opt := newBasicPlannerOptions(pm.frame)
-	opt.SetGoalMetric(ik.NewSquaredNormMetric(to))
 
 	opt.extra = planningOpts
 
@@ -526,6 +527,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 
 	switch motionProfile {
 	case LinearMotionProfile:
+		opt.profile = LinearMotionProfile
 		// Linear constraints
 		linTol, ok := planningOpts["line_tolerance"].(float64)
 		if !ok {
@@ -541,6 +543,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		opt.AddStateConstraint(defaultLinearConstraintDesc, constraint)
 		opt.pathMetric = pathMetric
 	case PseudolinearMotionProfile:
+		opt.profile = PseudolinearMotionProfile
 		tolerance, ok := planningOpts["tolerance"].(float64)
 		if !ok {
 			// Default
@@ -550,6 +553,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		opt.AddStateConstraint(defaultPseudolinearConstraintDesc, constraint)
 		opt.pathMetric = pathMetric
 	case OrientationMotionProfile:
+		opt.profile = OrientationMotionProfile
 		tolerance, ok := planningOpts["tolerance"].(float64)
 		if !ok {
 			// Default
@@ -559,11 +563,13 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		opt.AddStateConstraint(defaultOrientationConstraintDesc, constraint)
 		opt.pathMetric = pathMetric
 	case PositionOnlyMotionProfile:
-		opt.SetGoalMetric(ik.NewPositionOnlyMetric(to))
+		opt.profile = PositionOnlyMotionProfile
+		opt.goalMetricConstructor = ik.NewPositionOnlyMetric
 	case FreeMotionProfile:
 		// No restrictions on motion
 		fallthrough
 	default:
+		opt.profile = FreeMotionProfile
 		if planAlg == "" {
 			// set up deep copy for fallback
 			try1 := deepAtomicCopyMap(planningOpts)
