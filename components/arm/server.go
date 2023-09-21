@@ -131,18 +131,18 @@ func (s *serviceServer) GetKinematics(ctx context.Context, req *commonpb.GetKine
 	}
 	log.Printf("BENJI: found actual arm named %q\n", arm.Name().String())
 	model := arm.ModelFrame()
-	log.Printf("BENJI: created arm model frame\n")
+	log.Println("BENJI: created arm model frame")
 	if model == nil {
 		return &commonpb.GetKinematicsResponse{Format: commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED}, nil
 	}
 	filedata, err := model.MarshalJSON()
-	log.Printf("BENJI: marshaled model frame\n")
+	log.Println("BENJI: marshaled model frame")
 	if err != nil {
 		return nil, err
 	}
 	// Marshalled models always marshal to SVA
 	format := commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_SVA
-	log.Printf("BENJI: finished GetKinematics on server\n")
+	log.Println("BENJI: finished GetKinematics on server")
 	log.Printf("BENJI: debug stack %v\n", string(rdebug.Stack()))
 	return &commonpb.GetKinematicsResponse{Format: format, KinematicsData: filedata}, nil
 }
