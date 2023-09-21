@@ -117,7 +117,7 @@ func TestPIDBasicIntegralWindup(t *testing.T) {
 	test.That(t, pid.error, test.ShouldEqual, 0)
 }
 
-func TestPIDTunner(t *testing.T) {
+func TestPIDTuner(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 	cfg := BlockConfig{
