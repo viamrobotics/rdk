@@ -397,16 +397,13 @@ func (ms *builtIn) planMoveOnMap(
 		return nil, nil, fmt.Errorf("cannot move component of type %T because it is not a Base", component)
 	}
 
-	if false { // TODO: Fix with RSDK-4583
-		if extra != nil {
-			if profile, ok := extra["motion_profile"]; ok {
-				motionProfile, ok := profile.(string)
-				if !ok {
-					return nil, nil, errors.New("could not interpret motion_profile field as string")
-				}
-				kinematicsOptions.PositionOnlyMode = motionProfile == motionplan.PositionOnlyMotionProfile
-				kinematicsOptions.PositionOnlyMode = false
+	if extra != nil {
+		if profile, ok := extra["motion_profile"]; ok {
+			motionProfile, ok := profile.(string)
+			if !ok {
+				return nil, nil, errors.New("could not interpret motion_profile field as string")
 			}
+			kinematicsOptions.PositionOnlyMode = motionProfile == motionplan.PositionOnlyMotionProfile
 		}
 	}
 
@@ -446,7 +443,7 @@ func (ms *builtIn) planMoveOnMap(
 	}
 	ms.logger.Debugf("base position: %v", inputs)
 
-	dst := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPoseFromPoint(destination.Point()))
+	dst := referenceframe.NewPoseInFrame(referenceframe.World, destination)
 
 	f := kb.Kinematics()
 
