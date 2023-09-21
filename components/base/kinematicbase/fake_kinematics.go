@@ -208,7 +208,7 @@ func (fk *fakePTGKinematics) GoToInputs(ctx context.Context, inputs []referencef
 	fk.lock.Unlock()
 
 	// Sleep for a short amount to time to simulate a base taking some amount of time to reach the inputs
-	time.Sleep(150 * time.Millisecond)
+	time.Sleep(50 * time.Millisecond)
 	return nil
 }
 
@@ -217,7 +217,7 @@ func (fk *fakePTGKinematics) ErrorState(
 	plan [][]referenceframe.Input,
 	currentNode int,
 ) (spatialmath.Pose, error) {
-	return spatialmath.NewZeroPose(), nil
+	return fk.sensorNoise, nil
 }
 
 func (fk *fakePTGKinematics) CurrentPosition(ctx context.Context) (*referenceframe.PoseInFrame, error) {

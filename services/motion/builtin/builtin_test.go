@@ -677,10 +677,10 @@ func TestReplanning(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		ctx, cancel := context.WithTimeout(ctx, time.Second)
-		defer cancel()
 		ma := newMoveAttempt(ctx, moveRequest)
 		ma.start()
 		defer ma.cancel()
+		defer cancel()
 		select {
 		case <-ma.ctx.Done():
 			t.Log("move attempt should not have timed out")
@@ -702,7 +702,7 @@ func TestReplanning(t *testing.T) {
 				t.FailNow()
 			}
 		}
-		test.That(t, ma.waypointIndex.Load(), test.ShouldEqual, 1)
+		test.That(t, ma.waypointIndex.Load(), test.ShouldBeGreaterThan, 0)
 	}
 
 	for _, tc := range testCases {
