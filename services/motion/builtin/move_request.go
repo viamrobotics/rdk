@@ -207,7 +207,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 		return nil, err
 	}
 	headingFrame, err := referenceframe.NewStaticFrame(
-		kinematicFrame.Name() + "_heading",
+		kinematicFrame.Name()+"_heading",
 		spatialmath.NewPoseFromOrientation(currentPosition.Pose().Orientation()),
 	)
 	if err != nil {

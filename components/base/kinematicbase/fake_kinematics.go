@@ -7,11 +7,12 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+
 	"go.viam.com/rdk/components/base/fake"
+	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/motionplan/tpspace"
 )
 
 type fakeDiffDriveKinematics struct {
@@ -24,7 +25,8 @@ type fakeDiffDriveKinematics struct {
 	lock                          sync.Mutex
 }
 
-// WrapWithFakeKinematics creates a KinematicBase from the fake Base so that it satisfies the ModelFramer and InputEnabled interfaces.
+// WrapWithFakeDiffDriveKinematics creates a DiffDRive KinematicBase from the fake Base so that it satisfies the ModelFramer and
+// InputEnabled interfaces.
 func WrapWithFakeDiffDriveKinematics(
 	ctx context.Context,
 	b *fake.Base,
@@ -115,15 +117,15 @@ func (fk *fakeDiffDriveKinematics) CurrentPosition(ctx context.Context) (*refere
 
 type fakePTGKinematics struct {
 	*fake.Base
-	parentFrame                   string
-	frame referenceframe.Frame
-	options                       Options
-	sensorNoise                   spatialmath.Pose
-	currentPosition               spatialmath.Pose
-	lock                          sync.Mutex
+	parentFrame     string
+	frame           referenceframe.Frame
+	options         Options
+	sensorNoise     spatialmath.Pose
+	currentPosition spatialmath.Pose
+	lock            sync.Mutex
 }
 
-// WrapWithFakeKinematics creates a KinematicBase from the fake Base so that it satisfies the ModelFramer and InputEnabled interfaces.
+// WrapWithFakePTGKinematics creates a PTG KinematicBase from the fake Base so that it satisfies the ModelFramer and InputEnabled interfaces.
 func WrapWithFakePTGKinematics(
 	ctx context.Context,
 	b *fake.Base,
@@ -132,12 +134,11 @@ func WrapWithFakePTGKinematics(
 	options Options,
 	sensorNoise spatialmath.Pose,
 ) (KinematicBase, error) {
-	
 	position, err := localizer.CurrentPosition(ctx)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	properties, err := b.Properties(ctx, nil)
 	if err != nil {
 		return nil, err
@@ -149,8 +150,6 @@ func WrapWithFakePTGKinematics(
 	}
 
 	baseTurningRadiusMeters := properties.TurningRadiusMeters
-
-
 	if baseTurningRadiusMeters < 0 {
 		return nil, errors.New("can only wrap with PTG kinematics if turning radius is greater than or equal to zero")
 	}
@@ -173,16 +172,16 @@ func WrapWithFakePTGKinematics(
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if sensorNoise == nil {
 		sensorNoise = spatialmath.NewZeroPose()
 	}
 	fk := &fakePTGKinematics{
-		Base:        b,
-		frame: frame,
-		parentFrame: position.Parent(),
+		Base:            b,
+		frame:           frame,
+		parentFrame:     position.Parent(),
 		currentPosition: position.Pose(),
-		sensorNoise: sensorNoise,
+		sensorNoise:     sensorNoise,
 	}
 
 	fk.options = options
@@ -202,7 +201,7 @@ func (fk *fakePTGKinematics) GoToInputs(ctx context.Context, inputs []referencef
 	if err != nil {
 		return err
 	}
-	
+
 	fk.lock.Lock()
 	fk.currentPosition = spatialmath.Compose(fk.currentPosition, newPose)
 	fk.lock.Unlock()

@@ -93,11 +93,11 @@ func TestNewFakePTGKinematics(t *testing.T) {
 	noise := spatialmath.NewPoseFromPoint(r3.Vector{1, 0, 0})
 	kb, err := WrapWithFakePTGKinematics(ctx, b.(*fakebase.Base), logger, localizer, options, noise)
 	test.That(t, err, test.ShouldBeNil)
-	
+
 	startpose, err := kb.CurrentPosition(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	realStartPose := spatialmath.PoseBetweenInverse(noise, startpose.Pose())
-	
+
 	expected := referenceframe.FloatsToInputs([]float64{0, 1.23, 110})
 	expectedPose, err := kb.Kinematics().Transform(expected)
 	test.That(t, err, test.ShouldBeNil)

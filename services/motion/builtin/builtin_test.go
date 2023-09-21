@@ -134,7 +134,7 @@ func createFrameSystemService(
 	return fsSvc, nil
 }
 
-func createMoveOnGlobeEnvironment(ctx context.Context, t *testing.T, origin, destination *geo.Point, noise spatialmath.Pose) (
+func createMoveOnGlobeEnvironment(ctx context.Context, t *testing.T, origin, _ *geo.Point, noise spatialmath.Pose) (
 	*inject.MovementSensor, framesystem.Service, kinematicbase.KinematicBase, motion.Service,
 ) {
 	logger := golog.NewTestLogger(t)
@@ -585,7 +585,7 @@ func TestMoveOnGlobe(t *testing.T) {
 		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, success, test.ShouldBeTrue)
-		
+
 		endPose, err := fakeBase.CurrentPosition(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		movedPose := spatialmath.PoseBetween(startPose.Pose(), endPose.Pose())
