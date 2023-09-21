@@ -17,8 +17,7 @@ on:
 
 env:
   NDK_ZIP: android-ndk-r26-linux.zip
-  TARGET: bin/viam-server-android-latest
-  # ${{ inputs.release_type }}
+  TARGET: bin/viam-server-android-${{ inputs.release_type }}
 
 jobs:
   droid:
@@ -28,7 +27,7 @@ jobs:
       if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
 
     - uses: actions/checkout@v3
-      if: github.event_name == 'pull_request_target' || github.event_name == 'pull_request' # DONOTMERGE: pull_request for testing
+      if: github.event_name == 'pull_request_target'
       with:
         ref: ${{ github.event.pull_request.head.sha }}
 
@@ -45,21 +44,20 @@ jobs:
       if: steps.cache-ndk.outputs.cache-hit != 'true'
       run: wget https://dl.google.com/android/repository/${{ env.NDK_ZIP }}
     - name: unzip ndk
-      run: unzip android-ndk-r26-linux.zip
+      run: unzip ${{ env.NDK_ZIP }}
 
     - name: build
       run: make $TARGET \
         NDK_ROOT=$(realpath android-ndk-r26) \
-        SERVER_RELEASE=latest
-        # ${{ inputs.release_type }} # DONOTMERGE
+        SERVER_RELEASE=${{ inputs.release_type }}
 
     - uses: actions/upload-artifact@v3
       with:
         name: viam-server-android
         path: ${{ env.TARGET }}
 
-    # - if: inputs.release_type == 'stable' || inputs.release_type == 'latest'
-    - uses: google-github-actions/upload-cloud-storage@v1
+    - if: inputs.release_type == 'stable' || inputs.release_type == 'latest'
+      uses: google-github-actions/upload-cloud-storage@v1
       with:
         headers: "cache-control: no-cache"
         path: ${{ env.TARGET }}
