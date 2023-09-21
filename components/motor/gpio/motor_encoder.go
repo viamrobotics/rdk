@@ -100,7 +100,7 @@ func newEncodedMotor(
 	em.encoder = realEncoder
 
 	if len(motorConfig.ControlLoop.Blocks) != 0 {
-		cLoop, err := control.NewLoop(logger, motorConfig.ControlLoop, em)
+		cLoop, err := control.NewLoop(logger, *motorConfig.ControlLoop, em)
 		if err != nil {
 			return nil, err
 		}
