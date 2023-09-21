@@ -11,6 +11,11 @@ import (
 	"go.viam.com/rdk/utils/contextutils"
 )
 
+var (
+	// defaultDialTimeout is the default timeout for dialing a robot.
+	defaultDialTimeout = 20 * time.Second
+)
+
 // Dial dials a gRPC server. `ctx` can be used to set a timeout/deadline for Dial.
 // However, the max timeout is 20 seconds.
 func Dial(ctx context.Context, address string, logger golog.Logger, opts ...rpc.DialOption) (rpc.ClientConn, error) {
@@ -29,7 +34,7 @@ func Dial(ctx context.Context, address string, logger golog.Logger, opts ...rpc.
 	optsCopy[1] = rpc.WithAllowInsecureDowngrade()
 	copy(optsCopy[2:], opts)
 
-	ctx, cancel := contextutils.ContextWithTimeoutIfNoDeadline(ctx, 60*time.Second)
+	ctx, cancel := contextutils.ContextWithTimeoutIfNoDeadline(ctx, defaultDialTimeout)
 	defer cancel()
 
 	return rpc.Dial(ctx, address, logger, optsCopy...)
