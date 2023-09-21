@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"testing"
@@ -427,6 +428,13 @@ func TestSessionsWithRemote(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	motor1, err := motor.FromRobot(roboClient, "rem1:motor1")
+	if err != nil {
+		stack := string(debug.Stack())
+		logger.Errorf(
+			"error accessing remote from roboClient. logging stacktrace for debugging purposes,\n %s",
+			stack,
+		)
+	}
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Log("get position of rem1:motor1 which will not be safety monitored")
@@ -506,6 +514,13 @@ func TestSessionsWithRemote(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	motor2, err := motor.FromRobot(roboClient, "rem1:motor2")
+	if err != nil {
+		stack := string(debug.Stack())
+		logger.Errorf(
+			"error accessing remote from roboClient. logging stacktrace for debugging purposes,\n %s",
+			stack,
+		)
+	}
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Log("set power of rem1:motor2 which will be safety monitored")
