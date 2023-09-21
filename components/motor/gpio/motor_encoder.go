@@ -270,10 +270,10 @@ func (m *EncodedMotor) makeAdjustments(pos, lastPos float64, now, lastTime int64
 	}
 
 	if rpmDebug {
-		m.logger.Info("making adjustments")
-		m.logger.Infof("lastPos: %v, pos: %v, goalPos: %v", lastPos, pos, m.state.goalPos)
-		m.logger.Infof("lastTime: %v, now: %v", lastTime, now)
-		m.logger.Infof("currentRPM: %v, goalRPM: %v", m.state.currentRPM, m.state.goalRPM)
+		m.logger.Debug("making adjustments")
+		m.logger.Debugf("lastPos: %v, pos: %v, goalPos: %v", lastPos, pos, m.state.goalPos)
+		m.logger.Debugf("lastTime: %v, now: %v", lastTime, now)
+		m.logger.Debugf("currentRPM: %v, goalRPM: %v", m.state.currentRPM, m.state.goalRPM)
 	}
 
 	dir := m.directionMovingInLock()
@@ -284,7 +284,7 @@ func (m *EncodedMotor) makeAdjustments(pos, lastPos float64, now, lastTime int64
 			powerPct = m.state.lastPowerPct
 		}
 		if rpmDebug {
-			m.logger.Infof("decreasing powerPct to %v", powerPct)
+			m.logger.Debugf("decreasing powerPct to %v", powerPct)
 		}
 		if err := m.setPower(m.cancelCtx, powerPct, true); err != nil {
 			return err
@@ -296,7 +296,7 @@ func (m *EncodedMotor) makeAdjustments(pos, lastPos float64, now, lastTime int64
 			powerPct = m.state.lastPowerPct
 		}
 		if rpmDebug {
-			m.logger.Infof("increasing powerPct to %v", powerPct)
+			m.logger.Debugf("increasing powerPct to %v", powerPct)
 		}
 		if err := m.setPower(m.cancelCtx, powerPct, true); err != nil {
 			return err
