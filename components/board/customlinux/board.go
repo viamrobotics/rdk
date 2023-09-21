@@ -79,7 +79,8 @@ func parsePinConfig(filePath string) ([]genericlinux.PinDefinition, error) {
 	return parseRawPinData(pinData, filePath)
 }
 
-// filePath passed in for logging purposes.
+// This function is separate from parsePinConfig to make it testable without interacting with the
+// file system. The filePath is passed in just for logging purposes.
 func parseRawPinData(pinData []byte, filePath string) ([]genericlinux.PinDefinition, error) {
 	var parsedPinData genericlinux.PinDefinitions
 	if err := json.Unmarshal(pinData, &parsedPinData); err != nil {
@@ -89,6 +90,12 @@ func parseRawPinData(pinData []byte, filePath string) ([]genericlinux.PinDefinit
 	var err error
 	for _, pin := range parsedPinData.Pins {
 		err = multierr.Combine(err, pin.Validate(filePath))
+
+		// Until we get hardware PWM working reliably on lots of boards (likely by being able to
+		// set the pin mode directly), we disable all hardware PWM on these boards.
+		// TODO(RSDK-5105): Undo this when we're ready to support hardware PWM.
+		pin.PwmChipSysfsDir = ""
+		pin.PwmID = -1
 	}
 	if err != nil {
 		return nil, err
