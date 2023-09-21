@@ -117,7 +117,6 @@ type fakePTGKinematics struct {
 	*fake.Base
 	parentFrame                   string
 	frame referenceframe.Frame
-	inputs                        []referenceframe.Input
 	options                       Options
 	sensorNoise                   spatialmath.Pose
 	currentPosition               spatialmath.Pose
@@ -195,9 +194,7 @@ func (fk *fakePTGKinematics) Kinematics() referenceframe.Frame {
 }
 
 func (fk *fakePTGKinematics) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	fk.lock.Lock()
-	defer fk.lock.Unlock()
-	return fk.inputs, nil
+	return make([]referenceframe.Input, 3), nil
 }
 
 func (fk *fakePTGKinematics) GoToInputs(ctx context.Context, inputs []referenceframe.Input) error {

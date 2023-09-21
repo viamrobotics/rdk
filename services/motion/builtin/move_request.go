@@ -158,7 +158,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
 		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
 		{Min: -2 * math.Pi, Max: 2 * math.Pi},
-	}
+	} // Note: this is only for diff drive, not used for PTGs
 	ms.logger.Debugf("base limits: %v", limits)
 
 	if extra != nil {
@@ -191,8 +191,35 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 		return nil, err
 	}
 
+	kinematicFrame := kb.Kinematics()
 	// replace original base frame with one that knows how to move itself and allow planning for
-	if err = fs.ReplaceFrame(kb.Kinematics()); err != nil {
+	if err = fs.ReplaceFrame(kinematicFrame); err != nil {
+		return nil, err
+	}
+	// We want to disregard anything in the FS whose eventual parent is not the base, because we don't know where it is.
+	baseOnlyFS, err := fs.FrameSystemSubset(kinematicFrame)
+	if err != nil {
+		return nil, err
+	}
+	// Place the base at the correct heading relative to the frame system
+	currentPosition, err := kb.CurrentPosition(ctx)
+	if err != nil {
+		return nil, err
+	}
+	headingFrame, err := referenceframe.NewStaticFrame(
+		kinematicFrame.Name() + "_heading",
+		spatialmath.NewPoseFromOrientation(currentPosition.Pose().Orientation()),
+	)
+	if err != nil {
+		return nil, err
+	}
+	baseFSWithOrient := referenceframe.NewEmptyFrameSystem("baseFS")
+	err = baseFSWithOrient.AddFrame(headingFrame, baseFSWithOrient.World())
+	if err != nil {
+		return nil, err
+	}
+	err = baseFSWithOrient.MergeFrameSystem(baseOnlyFS, headingFrame)
+	if err != nil {
 		return nil, err
 	}
 
@@ -202,8 +229,8 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 			Logger:             ms.logger,
 			Goal:               referenceframe.NewPoseInFrame(referenceframe.World, goal),
 			Frame:              kb.Kinematics(),
-			FrameSystem:        fs,
-			StartConfiguration: referenceframe.StartPositions(fs),
+			FrameSystem:        baseFSWithOrient,
+			StartConfiguration: referenceframe.StartPositions(baseFSWithOrient),
 			WorldState:         worldState,
 			Options:            extra,
 		},
