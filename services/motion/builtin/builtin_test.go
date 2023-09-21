@@ -573,6 +573,20 @@ func TestMoveOnGlobe(t *testing.T) {
 		startPose, err := fakeBase.CurrentPosition(ctx)
 		test.That(t, err, test.ShouldBeNil)
 
+		moveRequest, err := ms.(*builtIn).newMoveOnGlobeRequest(
+			ctx,
+			fakeBase.Name(),
+			dst,
+			injectedMovementSensor.Name(),
+			[]*spatialmath.GeoObstacle{geoObstacle},
+			motionCfg,
+			extra,
+		)
+		test.That(t, err, test.ShouldBeNil)
+		waypoints, err := moveRequest.plan(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(waypoints), test.ShouldBeGreaterThan, 2)
+
 		success, err := ms.MoveOnGlobe(
 			ctx,
 			fakeBase.Name(),
