@@ -119,10 +119,10 @@ func attemptToBuildDetector(mlm mlmodel.Service, nameMap *sync.Map) (objectdetec
 				xmax = utils.Clamp(locations[4*i+getIndex(boxOrder, 2)], 0, 1) * float64(origW)
 				ymax = utils.Clamp(locations[4*i+getIndex(boxOrder, 3)], 0, 1) * float64(origH)
 			} else {
-				xmin = utils.Clamp(locations[4*i+getIndex(boxOrder, 0)], 0, float64(origW))
-				ymin = utils.Clamp(locations[4*i+getIndex(boxOrder, 1)], 0, float64(origH))
-				xmax = utils.Clamp(locations[4*i+getIndex(boxOrder, 2)], 0, float64(origW))
-				ymax = utils.Clamp(locations[4*i+getIndex(boxOrder, 3)], 0, float64(origH))
+				xmin = utils.Clamp(locations[4*i+getIndex(boxOrder, 0)], 0, float64(origW-1))
+				ymin = utils.Clamp(locations[4*i+getIndex(boxOrder, 1)], 0, float64(origH-1))
+				xmax = utils.Clamp(locations[4*i+getIndex(boxOrder, 2)], 0, float64(origW-1))
+				ymax = utils.Clamp(locations[4*i+getIndex(boxOrder, 3)], 0, float64(origH-1))
 			}
 			rect := image.Rect(int(xmin), int(ymin), int(xmax), int(ymax))
 			labelNum := int(utils.Clamp(categories[i], 0, math.MaxInt))
