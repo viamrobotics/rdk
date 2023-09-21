@@ -45,7 +45,7 @@ jobs:
         uses: peter-evans/create-pull-request@v3
         with:
           commit-message: '[WORKFLOW] Updating remote-control'
-          branch: 'workflow/bump-remote-control'
+          branch: 'workflow/bump-remote-control/${{ github.ref_name }}'
           delete-branch: true
           base: ${{ github.ref_name }}
           title: Automated remote-control Version Update
