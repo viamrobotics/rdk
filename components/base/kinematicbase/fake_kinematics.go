@@ -125,7 +125,8 @@ type fakePTGKinematics struct {
 	lock            sync.Mutex
 }
 
-// WrapWithFakePTGKinematics creates a PTG KinematicBase from the fake Base so that it satisfies the ModelFramer and InputEnabled interfaces.
+// WrapWithFakePTGKinematics creates a PTG KinematicBase from the fake Base so that it satisfies the ModelFramer and InputEnabled
+// interfaces.
 func WrapWithFakePTGKinematics(
 	ctx context.Context,
 	b *fake.Base,
