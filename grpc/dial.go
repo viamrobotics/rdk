@@ -11,7 +11,8 @@ import (
 	"go.viam.com/rdk/utils/contextutils"
 )
 
-// Dial dials a gRPC server.
+// Dial dials a gRPC server. `ctx` can be used to set a timeout/deadline for Dial.
+// However, the max timeout is 20 seconds.
 func Dial(ctx context.Context, address string, logger golog.Logger, opts ...rpc.DialOption) (rpc.ClientConn, error) {
 	webrtcOpts := rpc.DialWebRTCOptions{
 		Config: &DefaultWebRTCConfiguration,
