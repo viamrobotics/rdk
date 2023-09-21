@@ -431,7 +431,8 @@ func TestSessionsWithRemote(t *testing.T) {
 	if err != nil {
 		stack := string(debug.Stack())
 		logger.Errorf(
-			"error accessing remote from roboClient. logging stacktrace for debugging purposes,\n %s",
+			"error accessing remote from roboClient: %s. logging stacktrace for debugging purposes,\n %s",
+			err.Error(),
 			stack,
 		)
 	}
@@ -517,7 +518,8 @@ func TestSessionsWithRemote(t *testing.T) {
 	if err != nil {
 		stack := string(debug.Stack())
 		logger.Errorf(
-			"error accessing remote from roboClient. logging stacktrace for debugging purposes,\n %s",
+			"error accessing remote from roboClient: %s. logging stacktrace for debugging purposes,\n %s",
+			err.Error(),
 			stack,
 		)
 	}
