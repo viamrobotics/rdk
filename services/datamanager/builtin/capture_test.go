@@ -2,6 +2,7 @@ package builtin
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -266,12 +267,13 @@ func TestSwitchResource(t *testing.T) {
 	for _, d := range initialData {
 		// Each resource's mocked capture method outputs a different value.
 		// Assert that we see the expected data captured by the initial arm1 resource.
+		b := d.GetStruct().GetFields()["pose"].GetStructValue().GetFields()["o_z"].GetNumberValue()
 		test.That(
 			t,
-			d.GetStruct().GetFields()["Number"].GetStructValue().GetFields()["Dual"].GetStructValue().GetFields()["Jmag"].GetNumberValue(),
-			test.ShouldEqual,
+			d.GetStruct().GetFields()["pose"].GetStructValue().GetFields()["o_z"].GetNumberValue(), test.ShouldEqual,
 			float64(1),
 		)
+		fmt.Println(b)
 	}
 	// Assert that the initial arm1 resource isn't capturing any more data.
 	test.That(t, len(initialData), test.ShouldEqual, len(dataBeforeSwitch))
@@ -282,9 +284,9 @@ func TestSwitchResource(t *testing.T) {
 		// Assert that we see the expected data captured by the updated arm1 resource.
 		test.That(
 			t,
-			d.GetStruct().GetFields()["Number"].GetStructValue().GetFields()["Dual"].GetStructValue().GetFields()["Jmag"].GetNumberValue(),
+			d.GetStruct().GetFields()["pose"].GetStructValue().GetFields()["x"].GetNumberValue(),
 			test.ShouldEqual,
-			float64(444),
+			float64(888),
 		)
 	}
 	// Assert that the updated arm1 resource is capturing data.
