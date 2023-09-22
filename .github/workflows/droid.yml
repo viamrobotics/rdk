@@ -17,7 +17,7 @@ on:
 
 env:
   NDK_ZIP: android-ndk-r26-linux.zip
-  TARGET: bin/viam-server-android-${{ inputs.release_type }}
+  TARGET: bin/viam-server-android-${{ inputs.release_type }}-aarch64
 
 jobs:
   droid-build:
