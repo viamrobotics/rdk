@@ -44,13 +44,12 @@ jobs:
       if: steps.cache-ndk.outputs.cache-hit != 'true'
       run: wget https://dl.google.com/android/repository/${{ env.NDK_ZIP }}
     - name: unzip ndk
-      run: unzip ${{ env.NDK_ZIP }}
+      run: unzip -d etc ${{ env.NDK_ZIP }}
 
     - name: build
       env:
         BUILD_CHANNEL: ${{ inputs.release_type }}
-      run: |
-        NDK_ROOT=$(realpath android-ndk-r26) make server-android
+      run: make server-android
 
     - uses: actions/upload-artifact@v3
       with:
