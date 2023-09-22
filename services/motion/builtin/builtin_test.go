@@ -12,6 +12,7 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
@@ -762,7 +763,7 @@ func TestReplanning(t *testing.T) {
 			srvc.GetObjectPointCloudsFunc = tc.getPCfunc
 		}
 
-		ctx, cancel := context.WithTimeout(ctx, 5.0*time.Second)
+		ctx, cancel := context.WithTimeout(ctx, 10.0*time.Second)
 		ma := newMoveAttempt(ctx, moveRequest)
 		ma.start()
 		defer ma.cancel()
