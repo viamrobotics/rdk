@@ -102,10 +102,3 @@ func parseRawPinData(pinData []byte, filePath string) ([]genericlinux.PinDefinit
 	}
 	return parsedPinData.Pins, nil
 }
-
-func createGenericLinuxConfig(conf *Config) genericlinux.Config {
-	return genericlinux.Config{
-		I2Cs:              conf.I2Cs,
-		SPIs:              conf.SPIs,
-	}
-}
