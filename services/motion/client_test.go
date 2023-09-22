@@ -144,7 +144,7 @@ func TestClient(t *testing.T) {
 		for _, tf := range transforms {
 			tfMap[tf.Name()] = tf
 		}
-		poseResult, err := client.GetPose(context.Background(), arm.Named("arm1"), "foo", transforms, map[string]interface{}{})
+		poseResult, err := client.Pose(context.Background(), arm.Named("arm1"), "foo", transforms, map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, poseResult.Parent(), test.ShouldEqual, "fooarm1")
 		test.That(t, poseResult.Pose().Point().X, test.ShouldEqual, 1)
@@ -223,7 +223,7 @@ func TestClient(t *testing.T) {
 		test.That(t, resp, test.ShouldEqual, false)
 
 		// GetPose
-		_, err = client2.GetPose(context.Background(), arm.Named("arm1"), "foo", nil, map[string]interface{}{})
+		_, err = client2.Pose(context.Background(), arm.Named("arm1"), "foo", nil, map[string]interface{}{})
 		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
 		test.That(t, client2.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)

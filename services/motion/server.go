@@ -99,6 +99,43 @@ func (server *serviceServer) MoveOnGlobe(ctx context.Context, req *pb.MoveOnGlob
 	return &pb.MoveOnGlobeResponse{Success: success}, err
 }
 
+func (server *serviceServer) MoveOnGlobeNew(ctx context.Context, req *pb.MoveOnGlobeRequest) (*pb.MoveOnGlobeNewResponse, error) {
+	svc, err := server.coll.Resource(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	if req.Destination == nil {
+		return nil, errors.New("Must provide a destination")
+	}
+
+	// Optionals
+	heading := math.NaN()
+	if req.Heading != nil {
+		heading = req.GetHeading()
+	}
+	obstaclesProto := req.GetObstacles()
+	obstacles := make([]*spatialmath.GeoObstacle, 0, len(obstaclesProto))
+	for _, eachProtoObst := range obstaclesProto {
+		convObst, err := spatialmath.GeoObstacleFromProtobuf(eachProtoObst)
+		if err != nil {
+			return nil, err
+		}
+		obstacles = append(obstacles, convObst)
+	}
+
+	id, err := svc.MoveOnGlobeNew(
+		ctx,
+		protoutils.ResourceNameFromProto(req.GetComponentName()),
+		geo.NewPoint(req.GetDestination().GetLatitude(), req.GetDestination().GetLongitude()),
+		heading,
+		protoutils.ResourceNameFromProto(req.GetMovementSensorName()),
+		obstacles,
+		motionConfigurationFromProto(req.MotionConfiguration),
+		req.Extra.AsMap(),
+	)
+	return &pb.MoveOnGlobeNewResponse{ExecutionId: id}, err
+}
+
 func (server *serviceServer) GetPose(ctx context.Context, req *pb.GetPoseRequest) (*pb.GetPoseResponse, error) {
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
@@ -111,11 +148,43 @@ func (server *serviceServer) GetPose(ctx context.Context, req *pb.GetPoseRequest
 	if err != nil {
 		return nil, err
 	}
-	pose, err := svc.GetPose(ctx, protoutils.ResourceNameFromProto(req.ComponentName), req.DestinationFrame, transforms, req.Extra.AsMap())
+	pose, err := svc.Pose(ctx, protoutils.ResourceNameFromProto(req.ComponentName), req.DestinationFrame, transforms, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
 	return &pb.GetPoseResponse{Pose: referenceframe.PoseInFrameToProtobuf(pose)}, nil
+}
+
+func (server *serviceServer) StopPlan(ctx context.Context, req *pb.StopPlanRequest) (*pb.StopPlanResponse, error) {
+	svc, err := server.coll.Resource(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.StopPlanResponse{}, svc.StopPlan(ctx, protoutils.ResourceNameFromProto(req.GetRootComponent()), req.Extra.AsMap())
+}
+
+func (server *serviceServer) ListPlanStatuses(ctx context.Context, req *pb.ListPlanStatusesRequest) (*pb.ListPlanStatusesResponse, error) {
+	svc, err := server.coll.Resource(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	statuses, err := svc.ListPlanStatuses(ctx, req.GetOnlyActivePlans(), req.Extra.AsMap())
+	return &pb.ListPlanStatusesResponse{Statuses: statuses}, nil
+}
+
+func (server *serviceServer) GetPlan(ctx context.Context, req *pb.GetPlanRequest) (*pb.GetPlanResponse, error) {
+	svc, err := server.coll.Resource(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	currentPlan, err := svc.Plan(
+		ctx,
+		protoutils.ResourceNameFromProto(req.GetComponentName()),
+		req.GetLastPlanOnly(),
+		req.GetExecutionId(),
+		req.Extra.AsMap(),
+	)
+	return &pb.GetPlanResponse{CurrentPlanWithStatus: currentPlan}, nil
 }
 
 // DoCommand receives arbitrary commands.

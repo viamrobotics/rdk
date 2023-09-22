@@ -50,13 +50,40 @@ type Service interface {
 		motionConfig *MotionConfiguration,
 		extra map[string]interface{},
 	) (bool, error)
-	GetPose(
+	MoveOnGlobeNew(
+		ctx context.Context,
+		componentName resource.Name,
+		destination *geo.Point,
+		heading float64,
+		movementSensorName resource.Name,
+		obstacles []*spatialmath.GeoObstacle,
+		motionConfig *MotionConfiguration,
+		extra map[string]interface{},
+	) (string, error)
+	Pose(
 		ctx context.Context,
 		componentName resource.Name,
 		destinationFrame string,
 		supplementalTransforms []*referenceframe.LinkInFrame,
 		extra map[string]interface{},
 	) (*referenceframe.PoseInFrame, error)
+	StopPlan(
+		ctx context.Context,
+		rootComponent resource.Name,
+		extra map[string]interface{},
+	) error
+	ListPlanStatuses(
+		ctx context.Context,
+		onlyActivePlans bool,
+		extra map[string]interface{},
+	) ([]PlanStatus, error)
+	Plan(
+		ctx context.Context,
+		componentName resource.Name,
+		lastPlanOnly bool,
+		executionID string,
+		extra map[string]interface{},
+	) ([]PlanWithStatus, error)
 }
 
 // SubtypeName is the name of the type of service.
