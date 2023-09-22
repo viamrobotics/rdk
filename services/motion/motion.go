@@ -60,7 +60,7 @@ type Service interface {
 		motionConfig *MotionConfiguration,
 		extra map[string]interface{},
 	) (string, error)
-	Pose(
+	GetPose(
 		ctx context.Context,
 		componentName resource.Name,
 		destinationFrame string,
@@ -77,7 +77,7 @@ type Service interface {
 		onlyActivePlans bool,
 		extra map[string]interface{},
 	) ([]PlanStatus, error)
-	Plan(
+	CurrentPlanHistory(
 		ctx context.Context,
 		componentName resource.Name,
 		lastPlanOnly bool,

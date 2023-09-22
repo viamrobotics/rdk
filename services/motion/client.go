@@ -286,7 +286,7 @@ func (c *client) ListPlanStatuses(ctx context.Context, onlyActivePlans bool, ext
 	return nil, grpc.UnimplementedError
 }
 
-func (c *client) Plan(
+func (c *client) CurrentPlanHistory(
 	ctx context.Context,
 	componentName resource.Name,
 	lastPlanOnly bool,

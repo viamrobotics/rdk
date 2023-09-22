@@ -344,6 +344,19 @@ func (ms *builtIn) MoveOnGlobe(
 	}
 }
 
+func (ms *builtIn) MoveOnGlobeNew(
+	ctx context.Context,
+	componentName resource.Name,
+	destination *geo.Point,
+	heading float64,
+	movementSensorName resource.Name,
+	obstacles []*spatialmath.GeoObstacle,
+	motionCfg *motion.MotionConfiguration,
+	extra map[string]interface{},
+) (string, error) {
+	return "", errors.New("unimplemented")
+}
+
 func (ms *builtIn) GetPose(
 	ctx context.Context,
 	componentName resource.Name,
@@ -363,6 +376,27 @@ func (ms *builtIn) GetPose(
 		destinationFrame,
 		supplementalTransforms,
 	)
+}
+
+func (ms *builtIn) StopPlan(ctx context.Context, rootComponent resource.Name, extra map[string]interface{}) error {
+	// TODO
+	return errors.New("unimplemented")
+}
+
+func (ms *builtIn) ListPlanStatuses(ctx context.Context, onlyActivePlans bool, extra map[string]interface{}) ([]motion.PlanStatus, error) {
+	// TODO
+	return nil, errors.New("unimplemented")
+}
+
+func (ms *builtIn) CurrentPlanHistory(
+	ctx context.Context,
+	componentName resource.Name,
+	lastPlanOnly bool,
+	executionID string,
+	extra map[string]interface{},
+) ([]motion.PlanWithStatus, error) {
+	// TODO
+	return nil, errors.New("unimplemented")
 }
 
 // PlanMoveOnMap returns the plan for MoveOnMap to execute.

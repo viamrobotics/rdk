@@ -148,7 +148,7 @@ func (server *serviceServer) GetPose(ctx context.Context, req *pb.GetPoseRequest
 	if err != nil {
 		return nil, err
 	}
-	pose, err := svc.Pose(ctx, protoutils.ResourceNameFromProto(req.ComponentName), req.DestinationFrame, transforms, req.Extra.AsMap())
+	pose, err := svc.GetPose(ctx, protoutils.ResourceNameFromProto(req.ComponentName), req.DestinationFrame, transforms, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -169,7 +169,14 @@ func (server *serviceServer) ListPlanStatuses(ctx context.Context, req *pb.ListP
 		return nil, err
 	}
 	statuses, err := svc.ListPlanStatuses(ctx, req.GetOnlyActivePlans(), req.Extra.AsMap())
-	return &pb.ListPlanStatusesResponse{Statuses: statuses}, nil
+	if err != nil {
+		return nil, err
+	}
+	protoStatuses := make([]*pb.PlanStatus, 0, len(statuses))
+	for _, status := range statuses {
+		protoStatuses = append(protoStatuses, planStatusToProto(status))
+	}
+	return &pb.ListPlanStatusesResponse{Statuses: protoStatuses}, nil
 }
 
 func (server *serviceServer) GetPlan(ctx context.Context, req *pb.GetPlanRequest) (*pb.GetPlanResponse, error) {
@@ -177,14 +184,23 @@ func (server *serviceServer) GetPlan(ctx context.Context, req *pb.GetPlanRequest
 	if err != nil {
 		return nil, err
 	}
-	currentPlan, err := svc.Plan(
+	planHistory, err := svc.CurrentPlanHistory(
 		ctx,
 		protoutils.ResourceNameFromProto(req.GetComponentName()),
 		req.GetLastPlanOnly(),
 		req.GetExecutionId(),
 		req.Extra.AsMap(),
 	)
-	return &pb.GetPlanResponse{CurrentPlanWithStatus: currentPlan}, nil
+	if err != nil {
+		return nil, err
+	}
+	history := []*pb.PlanWithStatus{}
+	if len(planHistory) > 1 {
+		for _, plan := range planHistory[1:] {
+			history = append(history, planWithStatusToProto(plan))
+		}
+	}
+	return &pb.GetPlanResponse{CurrentPlanWithStatus: planWithStatusToProto(planHistory[0]), ReplanHistory: history}, nil
 }
 
 // DoCommand receives arbitrary commands.
