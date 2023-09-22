@@ -51,7 +51,7 @@ func pinDefsFromFile(conf resource.Config) (*genericlinux.LinuxBoardConfig, erro
 		return nil, err
 	}
 
-	pinDefs, err := parsePinConfig(newConf.PinConfigFilePath)
+	pinDefs, err := parsePinConfig(newConf.BoardDefsFilePath)
 	if err != nil {
 		return nil, err
 	}
