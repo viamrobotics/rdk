@@ -34,7 +34,8 @@ func newPwmDevice(chipPath string, line int, logger golog.Logger) *pwmDevice {
 	return &pwmDevice{chipPath: chipPath, line: line, logger: logger}
 }
 
-func writeValue(filepath string, value uint64) error {
+func writeValue(filepath string, value uint64, logger golog.Logger) error {
+	logger.Debugf("Writing %d to %s", value, filepath)
 	data := []byte(fmt.Sprintf("%d", value))
 	// The file permissions (the third argument) aren't important: if the file needs to be created,
 	// something has gone horribly wrong!
@@ -43,7 +44,7 @@ func writeValue(filepath string, value uint64) error {
 }
 
 func (pwm *pwmDevice) writeChip(filename string, value uint64) error {
-	return writeValue(fmt.Sprintf("%s/%s", pwm.chipPath, filename), value)
+	return writeValue(fmt.Sprintf("%s/%s", pwm.chipPath, filename), value, pwm.logger)
 }
 
 func (pwm *pwmDevice) linePath() string {
@@ -51,7 +52,7 @@ func (pwm *pwmDevice) linePath() string {
 }
 
 func (pwm *pwmDevice) writeLine(filename string, value uint64) error {
-	return writeValue(fmt.Sprintf("%s/%s", pwm.linePath(), filename), value)
+	return writeValue(fmt.Sprintf("%s/%s", pwm.linePath(), filename), value, pwm.logger)
 }
 
 // Export tells the OS that this pin is in use, and enables configuration via sysfs.
