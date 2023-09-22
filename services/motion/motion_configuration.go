@@ -1,6 +1,9 @@
 package motion
 
 import (
+	"math"
+
+	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
@@ -55,4 +58,33 @@ func motionConfigurationFromProto(motionCfg *pb.MotionConfiguration) *MotionConf
 		LinearMPerSec:         linearMPerSec,
 		AngularDegsPerSec:     angularDegsPerSec,
 	}
+}
+
+func motionConfigurationToProto(motionCfg *MotionConfiguration) *pb.MotionConfiguration {
+	proto := &pb.MotionConfiguration{}
+	if !math.IsNaN(motionCfg.LinearMPerSec) && motionCfg.LinearMPerSec != 0 {
+		proto.LinearMPerSec = &motionCfg.LinearMPerSec
+	}
+	if !math.IsNaN(motionCfg.AngularDegsPerSec) && motionCfg.AngularDegsPerSec != 0 {
+		proto.AngularDegsPerSec = &motionCfg.AngularDegsPerSec
+	}
+	if !math.IsNaN(motionCfg.ObstaclePollingFreqHz) && motionCfg.ObstaclePollingFreqHz > 0 {
+		proto.ObstaclePollingFrequencyHz = &motionCfg.ObstaclePollingFreqHz
+	}
+	if !math.IsNaN(motionCfg.PositionPollingFreqHz) && motionCfg.PositionPollingFreqHz > 0 {
+		proto.PositionPollingFrequencyHz = &motionCfg.PositionPollingFreqHz
+	}
+	if !math.IsNaN(motionCfg.PlanDeviationMM) && motionCfg.PlanDeviationMM >= 0 {
+		planDeviationM := 1e-3 * motionCfg.PlanDeviationMM
+		proto.PlanDeviationM = &planDeviationM
+	}
+
+	if len(motionCfg.VisionServices) > 0 {
+		svcs := []*commonpb.ResourceName{}
+		for _, name := range motionCfg.VisionServices {
+			svcs = append(svcs, protoutils.ResourceNameToProto(name))
+		}
+		proto.VisionServices = svcs
+	}
+	return proto
 }

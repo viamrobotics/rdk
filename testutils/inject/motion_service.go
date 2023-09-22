@@ -49,6 +49,23 @@ type MotionService struct {
 		supplementalTransforms []*referenceframe.LinkInFrame,
 		extra map[string]interface{},
 	) (*referenceframe.PoseInFrame, error)
+	StopPlanFunc func(
+		ctx context.Context,
+		rootComponent resource.Name,
+		extra map[string]interface{},
+	) error
+	ListPlanStatusesFunc func(
+		ctx context.Context,
+		onlyActivePlans bool,
+		extra map[string]interface{},
+	) ([]motion.PlanStatus, error)
+	CurrentPlanHistoryFunc func(
+		ctx context.Context,
+		componentName resource.Name,
+		lastPlanOnly bool,
+		executionID string,
+		extra map[string]interface{},
+	) ([]motion.PlanWithStatus, error)
 	DoCommandFunc func(ctx context.Context,
 		cmd map[string]interface{}) (map[string]interface{}, error)
 	CloseFunc func(ctx context.Context) error
@@ -122,6 +139,41 @@ func (mgs *MotionService) GetPose(
 		return mgs.Service.GetPose(ctx, componentName, destinationFrame, supplementalTransforms, extra)
 	}
 	return mgs.GetPoseFunc(ctx, componentName, destinationFrame, supplementalTransforms, extra)
+}
+
+func (mgs *MotionService) StopPlan(
+	ctx context.Context,
+	rootComponent resource.Name,
+	extra map[string]interface{},
+) error {
+	if mgs.StopPlanFunc == nil {
+		return mgs.Service.StopPlan(ctx, rootComponent, extra)
+	}
+	return mgs.StopPlanFunc(ctx, rootComponent, extra)
+}
+
+func (mgs *MotionService) ListPlanStatuses(
+	ctx context.Context,
+	onlyActivePlans bool,
+	extra map[string]interface{},
+) ([]motion.PlanStatus, error) {
+	if mgs.ListPlanStatusesFunc == nil {
+		return mgs.Service.ListPlanStatuses(ctx, onlyActivePlans, extra)
+	}
+	return mgs.ListPlanStatusesFunc(ctx, onlyActivePlans, extra)
+}
+
+func (mgs *MotionService) CurrentPlanHistory(
+	ctx context.Context,
+	componentName resource.Name,
+	lastPlanOnly bool,
+	executionID string,
+	extra map[string]interface{},
+) ([]motion.PlanWithStatus, error) {
+	if mgs.CurrentPlanHistoryFunc == nil {
+		return mgs.Service.CurrentPlanHistory(ctx, componentName, lastPlanOnly, executionID, extra)
+	}
+	return mgs.CurrentPlanHistoryFunc(ctx, componentName, lastPlanOnly, executionID, extra)
 }
 
 // DoCommand calls the injected DoCommand or the real variant.

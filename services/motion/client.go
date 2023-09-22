@@ -12,7 +12,6 @@ import (
 	vprotoutils "go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -125,7 +124,7 @@ func (c *client) MoveOnGlobe(
 		ComponentName:       protoutils.ResourceNameToProto(componentName),
 		Destination:         &commonpb.GeoPoint{Latitude: destination.Lat(), Longitude: destination.Lng()},
 		MovementSensorName:  protoutils.ResourceNameToProto(movementSensorName),
-		MotionConfiguration: &pb.MotionConfiguration{},
+		MotionConfiguration: motionConfigurationToProto(motionCfg),
 		Extra:               ext,
 	}
 
@@ -139,31 +138,6 @@ func (c *client) MoveOnGlobe(
 			obstaclesProto = append(obstaclesProto, spatialmath.GeoObstacleToProtobuf(obstacle))
 		}
 		req.Obstacles = obstaclesProto
-	}
-
-	if !math.IsNaN(motionCfg.LinearMPerSec) && motionCfg.LinearMPerSec != 0 {
-		req.MotionConfiguration.LinearMPerSec = &motionCfg.LinearMPerSec
-	}
-	if !math.IsNaN(motionCfg.AngularDegsPerSec) && motionCfg.AngularDegsPerSec != 0 {
-		req.MotionConfiguration.AngularDegsPerSec = &motionCfg.AngularDegsPerSec
-	}
-	if !math.IsNaN(motionCfg.ObstaclePollingFreqHz) && motionCfg.ObstaclePollingFreqHz > 0 {
-		req.MotionConfiguration.ObstaclePollingFrequencyHz = &motionCfg.ObstaclePollingFreqHz
-	}
-	if !math.IsNaN(motionCfg.PositionPollingFreqHz) && motionCfg.PositionPollingFreqHz > 0 {
-		req.MotionConfiguration.PositionPollingFrequencyHz = &motionCfg.PositionPollingFreqHz
-	}
-	if !math.IsNaN(motionCfg.PlanDeviationMM) && motionCfg.PlanDeviationMM >= 0 {
-		planDeviationM := 1e-3 * motionCfg.PlanDeviationMM
-		req.MotionConfiguration.PlanDeviationM = &planDeviationM
-	}
-
-	if len(motionCfg.VisionServices) > 0 {
-		svcs := []*commonpb.ResourceName{}
-		for _, name := range motionCfg.VisionServices {
-			svcs = append(svcs, protoutils.ResourceNameToProto(name))
-		}
-		req.MotionConfiguration.VisionServices = svcs
 	}
 
 	resp, err := c.client.MoveOnGlobe(ctx, req)
@@ -201,45 +175,20 @@ func (c *client) MoveOnGlobeNew(
 		ComponentName:       protoutils.ResourceNameToProto(componentName),
 		Destination:         &commonpb.GeoPoint{Latitude: destination.Lat(), Longitude: destination.Lng()},
 		MovementSensorName:  protoutils.ResourceNameToProto(movementSensorName),
-		MotionConfiguration: &pb.MotionConfiguration{},
+		MotionConfiguration: motionConfigurationToProto(motionCfg),
 		Extra:               ext,
 	}
 
-	// Optionals
 	if !math.IsNaN(heading) {
 		req.Heading = &heading
 	}
+
 	if len(obstacles) > 0 {
 		obstaclesProto := make([]*commonpb.GeoObstacle, 0, len(obstacles))
 		for _, obstacle := range obstacles {
 			obstaclesProto = append(obstaclesProto, spatialmath.GeoObstacleToProtobuf(obstacle))
 		}
 		req.Obstacles = obstaclesProto
-	}
-
-	if !math.IsNaN(motionCfg.LinearMPerSec) && motionCfg.LinearMPerSec != 0 {
-		req.MotionConfiguration.LinearMPerSec = &motionCfg.LinearMPerSec
-	}
-	if !math.IsNaN(motionCfg.AngularDegsPerSec) && motionCfg.AngularDegsPerSec != 0 {
-		req.MotionConfiguration.AngularDegsPerSec = &motionCfg.AngularDegsPerSec
-	}
-	if !math.IsNaN(motionCfg.ObstaclePollingFreqHz) && motionCfg.ObstaclePollingFreqHz > 0 {
-		req.MotionConfiguration.ObstaclePollingFrequencyHz = &motionCfg.ObstaclePollingFreqHz
-	}
-	if !math.IsNaN(motionCfg.PositionPollingFreqHz) && motionCfg.PositionPollingFreqHz > 0 {
-		req.MotionConfiguration.PositionPollingFrequencyHz = &motionCfg.PositionPollingFreqHz
-	}
-	if !math.IsNaN(motionCfg.PlanDeviationMM) && motionCfg.PlanDeviationMM >= 0 {
-		planDeviationM := 1e-3 * motionCfg.PlanDeviationMM
-		req.MotionConfiguration.PlanDeviationM = &planDeviationM
-	}
-
-	if len(motionCfg.VisionServices) > 0 {
-		svcs := []*commonpb.ResourceName{}
-		for _, name := range motionCfg.VisionServices {
-			svcs = append(svcs, protoutils.ResourceNameToProto(name))
-		}
-		req.MotionConfiguration.VisionServices = svcs
 	}
 
 	resp, err := c.client.MoveOnGlobeNew(ctx, req)
@@ -279,11 +228,36 @@ func (c *client) GetPose(
 }
 
 func (c *client) StopPlan(ctx context.Context, rootComponent resource.Name, extra map[string]interface{}) error {
-	return grpc.UnimplementedError
+	ext, err := vprotoutils.StructToStructPb(extra)
+	if err != nil {
+		return err
+	}
+	_, err = c.client.StopPlan(ctx, &pb.StopPlanRequest{
+		Name:          c.name,
+		RootComponent: protoutils.ResourceNameToProto(rootComponent),
+		Extra:         ext,
+	})
+	return err
 }
 
 func (c *client) ListPlanStatuses(ctx context.Context, onlyActivePlans bool, extra map[string]interface{}) ([]PlanStatus, error) {
-	return nil, grpc.UnimplementedError
+	ext, err := vprotoutils.StructToStructPb(extra)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.client.ListPlanStatuses(ctx, &pb.ListPlanStatusesRequest{
+		Name:            c.name,
+		OnlyActivePlans: onlyActivePlans,
+		Extra:           ext,
+	})
+	if err != nil {
+		return nil, err
+	}
+	statuses := make([]PlanStatus, 0, len(resp.Statuses))
+	for _, status := range resp.Statuses {
+		statuses = append(statuses, planStatusFromProto(status))
+	}
+	return statuses, err
 }
 
 func (c *client) CurrentPlanHistory(
@@ -293,7 +267,24 @@ func (c *client) CurrentPlanHistory(
 	executionID string,
 	extra map[string]interface{},
 ) ([]PlanWithStatus, error) {
-	return nil, grpc.UnimplementedError
+	ext, err := vprotoutils.StructToStructPb(extra)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.client.GetPlan(ctx, &pb.GetPlanRequest{
+		Name:          c.name,
+		ComponentName: protoutils.ResourceNameToProto(componentName),
+		LastPlanOnly:  lastPlanOnly,
+		Extra:         ext,
+	})
+	if err != nil {
+		return nil, err
+	}
+	statusHistory := make([]PlanWithStatus, 0, len(resp.ReplanHistory))
+	for _, status := range resp.ReplanHistory {
+		statusHistory = append(statusHistory, planWithStatusFromProto(status))
+	}
+	return append([]PlanWithStatus{planWithStatusFromProto(resp.CurrentPlanWithStatus)}, statusHistory...), err
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
