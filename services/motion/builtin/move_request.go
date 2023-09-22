@@ -15,6 +15,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
+	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -23,6 +24,8 @@ type moveRequest struct {
 	config        *motion.MotionConfiguration
 	planRequest   *motionplan.PlanRequest
 	kinematicBase kinematicbase.KinematicBase
+	visionSvcs    []vision.Service
+	cameraNames   []resource.Name
 }
 
 // plan creates a plan using the currentInputs of the robot and the moveRequest's planRequest.
@@ -72,7 +75,9 @@ func (mr *moveRequest) execute(ctx context.Context, waypoints [][]referenceframe
 
 	// the plan has been fully executed so check to see if the GeoPoint we are at is close enough to the goal.
 	deviated, err := mr.deviatedFromPlan(ctx, waypoints, len(waypoints)-1)
-	if err != nil {
+	if errors.Is(err, context.Canceled) {
+		return moveResponse{}
+	} else if err != nil {
 		return moveResponse{err: err}
 	}
 	return moveResponse{success: !deviated}
@@ -85,12 +90,79 @@ func (mr *moveRequest) deviatedFromPlan(ctx context.Context, waypoints [][]refer
 	if err != nil {
 		return false, err
 	}
-	mr.planRequest.Logger.Debug("deviation from plan: %v", errorState.Point())
+	mr.planRequest.Logger.Debugf("deviation from plan: %v", errorState.Point())
 	return errorState.Point().Norm() > mr.config.PlanDeviationMM, nil
 }
 
 func (mr *moveRequest) obstaclesIntersectPlan(ctx context.Context, waypoints [][]referenceframe.Input, waypointIndex int) (bool, error) {
-	// TODO(RSDK-4507): implement this function
+	// convert waypoints to type of motionplan.Plan
+	var plan []map[string][]referenceframe.Input
+	for i, inputs := range waypoints {
+		// We only care to check against waypoints we have not reached yet.
+		if i >= waypointIndex {
+			input := make(map[string][]referenceframe.Input)
+			input[mr.kinematicBase.Name().Name] = inputs
+			plan = append(plan, input)
+		}
+	}
+
+	// iterate through vision services
+	for _, srvc := range mr.visionSvcs {
+		// iterate through all cameras on the robot
+		// any camera may be used by any vision service
+		for _, camName := range mr.cameraNames {
+			// get detections from vision service
+			detections, err := srvc.GetObjectPointClouds(ctx, camName.Name, nil)
+			if err != nil {
+				return false, err
+			}
+			// Any obstacles specified by the worldstate of the moveRequest will also re-detected here.
+			// There is no need to append the new detections to the existing worldstate.
+			// We can safely build from scratch without excluding any valuable information.
+			geoms := []spatialmath.Geometry{}
+			for _, detection := range detections {
+				detection.Geometry.SetLabel("transient" + detection.Geometry.Label())
+				geoms = append(geoms, detection.Geometry)
+			}
+			gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(camName.Name, geoms)}
+			worldState, err := referenceframe.NewWorldState(gifs, nil)
+			if err != nil {
+				return false, err
+			}
+
+			currentPosition, err := mr.kinematicBase.CurrentPosition(ctx)
+			if err != nil {
+				return false, err
+			}
+			// fmt.Println("currentPosition: ", currentPosition.Pose().Point())
+			currentInputs, err := mr.kinematicBase.CurrentInputs(ctx)
+			if err != nil {
+				return false, err
+			}
+			// fmt.Println("currentInputs: ", currentInputs)
+
+			// get the pose difference between where the robot is versus where it ought to be.
+			errorState, err := mr.kinematicBase.ErrorState(ctx, waypoints, waypointIndex)
+			if err != nil {
+				return false, err
+			}
+			// fmt.Println("errorState: ", errorState.Point())
+
+			if err := motionplan.CheckPlan(
+				mr.kinematicBase.Kinematics(), // frame we wish to check for collisions
+				plan,                          // remainder of plan we wish to check against
+				worldState,                    // detected obstacles by this instance of camera + service
+				mr.planRequest.FrameSystem,
+				currentPosition.Pose(), // currentPosition of robot accounts for errorState
+				currentInputs,
+				errorState, // deviation of robot from plan
+				mr.planRequest.Logger,
+			); err != nil {
+				mr.planRequest.Logger.Debug("found collision with detected obstacle")
+				return true, err
+			}
+		}
+	}
 	return false, nil
 }
 
@@ -223,6 +295,16 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 		return nil, err
 	}
 
+	// add vision services to move request
+	visionServices := []vision.Service{}
+	for _, serviceName := range motionCfg.VisionServices {
+		srvc, ok := ms.visionServices[serviceName]
+		if !ok {
+			return nil, resource.DependencyNotFoundError(serviceName)
+		}
+		visionServices = append(visionServices, srvc)
+	}
+
 	return &moveRequest{
 		config: motionCfg,
 		planRequest: &motionplan.PlanRequest{
@@ -235,5 +317,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 			Options:            extra,
 		},
 		kinematicBase: kb,
+		visionSvcs:    visionServices,
+		cameraNames:   ms.cameras,
 	}, nil
 }
