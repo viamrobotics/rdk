@@ -11,6 +11,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/mkch/gpio"
+	"github.com/pkg/errors"
 	"go.viam.com/utils"
 )
 
