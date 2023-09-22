@@ -21,7 +21,7 @@ type PTGSolver interface {
 	MaxDistance() float64
 
 	// Returns the set of trajectory nodes along the given trajectory, out to the requested distance
-	Trajectory(alpha, dist float64) ([]*TrajNode, error)
+	Trajectory([]referenceframe.Input) ([]*TrajNode, error)
 }
 
 // PTGProvider is something able to provide a set of PTGs associsated with it. For example, a frame which precomputes

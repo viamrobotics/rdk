@@ -4,6 +4,7 @@ package motionplan
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"math/rand"
 	"testing"
@@ -18,7 +19,7 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-var printPath = false
+var printPath = true
 
 const testTurnRad = 0.3
 
@@ -66,7 +67,7 @@ func TestPtgRrtBidirectional(t *testing.T) {
 
 	if tp.algOpts.pathdebug {
 		for _, mynode := range plan {
-			trajPts, _ := allPtgs[int(mynode.Q()[0].Value)].Trajectory(mynode.Q()[1].Value, mynode.Q()[2].Value)
+			trajPts, _ := allPtgs[int(mynode.Q()[0].Value)].Trajectory(mynode.Q()[1:])
 			for i, pt := range trajPts {
 				intPose := spatialmath.Compose(lastPose, pt.Pose)
 				if i == 0 {
@@ -84,7 +85,7 @@ func TestPtgRrtBidirectional(t *testing.T) {
 	if tp.algOpts.pathdebug {
 		lastPose = spatialmath.NewZeroPose()
 		for _, mynode := range plan {
-			trajPts, _ := allPtgs[int(mynode.Q()[0].Value)].Trajectory(mynode.Q()[1].Value, mynode.Q()[2].Value)
+			trajPts, _ := allPtgs[int(mynode.Q()[0].Value)].Trajectory(mynode.Q()[1:])
 			for i, pt := range trajPts {
 				intPose := spatialmath.Compose(lastPose, pt.Pose)
 				if i == 0 {
@@ -145,7 +146,7 @@ func TestPtgRrtUnidirectional(t *testing.T) {
 
 	if tp.algOpts.pathdebug {
 		for _, mynode := range plan {
-			trajPts, _ := allPtgs[int(mynode.Q()[0].Value)].Trajectory(mynode.Q()[1].Value, mynode.Q()[2].Value)
+			trajPts, _ := allPtgs[int(mynode.Q()[0].Value)].Trajectory(mynode.Q()[1:])
 			for i, pt := range trajPts {
 				intPose := spatialmath.Compose(lastPose, pt.Pose)
 				if i == 0 {
@@ -163,7 +164,7 @@ func TestPtgRrtUnidirectional(t *testing.T) {
 	if tp.algOpts.pathdebug {
 		lastPose = spatialmath.NewZeroPose()
 		for _, mynode := range plan {
-			trajPts, _ := allPtgs[int(mynode.Q()[0].Value)].Trajectory(mynode.Q()[1].Value, mynode.Q()[2].Value)
+			trajPts, _ := allPtgs[int(mynode.Q()[0].Value)].Trajectory(mynode.Q()[1:])
 			for i, pt := range trajPts {
 				intPose := spatialmath.Compose(lastPose, pt.Pose)
 				if i == 0 {
@@ -260,7 +261,7 @@ func TestPtgWithObstacle(t *testing.T) {
 
 	if tp.algOpts.pathdebug {
 		for _, mynode := range plan {
-			trajPts, _ := allPtgs[int(mynode.Q()[0].Value)].Trajectory(mynode.Q()[1].Value, mynode.Q()[2].Value)
+			trajPts, _ := allPtgs[int(mynode.Q()[0].Value)].Trajectory(mynode.Q()[1:])
 			for i, pt := range trajPts {
 				intPose := spatialmath.Compose(lastPose, pt.Pose)
 				if i == 0 {
@@ -274,11 +275,12 @@ func TestPtgWithObstacle(t *testing.T) {
 			}
 		}
 	}
+	fmt.Println("solved, smoothing")
 	plan = tp.smoothPath(ctx, plan)
 	if tp.algOpts.pathdebug {
 		lastPose = spatialmath.NewZeroPose()
 		for _, mynode := range plan {
-			trajPts, _ := allPtgs[int(mynode.Q()[0].Value)].Trajectory(mynode.Q()[1].Value, mynode.Q()[2].Value)
+			trajPts, _ := allPtgs[int(mynode.Q()[0].Value)].Trajectory(mynode.Q()[1:])
 			for i, pt := range trajPts {
 				intPose := spatialmath.Compose(lastPose, pt.Pose)
 				if i == 0 {

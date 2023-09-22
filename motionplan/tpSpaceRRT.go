@@ -144,7 +144,10 @@ func newTPSpaceMotionPlanner(
 		tpPlanner.algOpts.bidirectional = false
 	}
 
-	tpPlanner.algOpts.ikSeed = []referenceframe.Input{{math.Pi / 2}, {tpFrame.PTGSolvers()[0].MaxDistance() / 2}}
+	tpPlanner.algOpts.ikSeed = []referenceframe.Input{
+		{math.Pi / 2}, {tpFrame.PTGSolvers()[0].MaxDistance() / 2},
+		{math.Pi / 2}, {tpFrame.PTGSolvers()[0].MaxDistance() / 2},
+	}
 
 	return tpPlanner, nil
 }
@@ -358,6 +361,7 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 
 	if nearest == nil {
 		// Get nearest neighbor to rand config in tree using this PTG
+		// TODO: running nearestNeighbor actually involves a ptg.Solve() call, duplicating work. 
 		nearest = nm.nearestNeighbor(ctx, ptgDistOpt, randPosNode, rrt)
 		if nearest == nil {
 			return nil, errNoNeighbors
@@ -397,11 +401,11 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 	}
 
 	bestDist := targetFunc(&ik.State{Position: pose})
-	goalAlpha := bestNode.Configuration[0].Value
-	goalD := bestNode.Configuration[1].Value
+	//~ goalAlpha := bestNode.Configuration[0].Value
+	//~ goalD := bestNode.Configuration[1].Value
 
 	// Check collisions along this traj and get the longest distance viable
-	trajK, err := curPtg.Trajectory(goalAlpha, goalD)
+	trajK, err := curPtg.Trajectory(bestNode.Configuration)
 	if err != nil {
 		return nil, err
 	}
@@ -442,7 +446,7 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 
 	// add the last node in trajectory
 	successNode = &basicNode{
-		q:      referenceframe.FloatsToInputs([]float64{float64(ptgNum), goalAlpha, finalTrajNode.Dist}),
+		q:      append([]referenceframe.Input{{float64(ptgNum)}}, bestNode.Configuration...),
 		cost:   finalTrajNode.Dist,
 		pose:   nodePose,
 		corner: false,
@@ -568,14 +572,15 @@ func (mp *tpSpaceRRTMotionPlanner) extendMap(
 			bestDist = cand.dist
 		}
 	}
+	//~ fmt.Println(bestCand)
 	treeNode := bestCand.treeNode // The node already in the tree to which we are parenting
 	newNode := bestCand.newNode   // The node we are adding because it was the best extending PTG
 
 	ptgNum := int(newNode.Q()[0].Value)
 	randAlpha := newNode.Q()[1].Value
-	randDist := newNode.Q()[2].Value
+	//~ randDist := newNode.Q()[2].Value
 
-	trajK, err := mp.tpFrame.PTGSolvers()[ptgNum].Trajectory(randAlpha, randDist)
+	trajK, err := mp.tpFrame.PTGSolvers()[ptgNum].Trajectory(newNode.Q()[1:])
 	if err != nil {
 		return nil, err
 	}
@@ -776,7 +781,8 @@ func (mp *tpSpaceRRTMotionPlanner) attemptSmooth(
 		for _, adj := range []float64{0.25, 0.5, 0.75} {
 			fullQ := pathNode.Q()
 			newQ := []referenceframe.Input{fullQ[0], fullQ[1], {fullQ[2].Value * adj}}
-			trajK, err := smoother.tpFrame.PTGSolvers()[int(math.Round(newQ[0].Value))].Trajectory(newQ[1].Value, newQ[2].Value)
+			//~ trajK, err := smoother.tpFrame.PTGSolvers()[int(math.Round(newQ[0].Value))].Trajectory(newQ[1].Value, newQ[2].Value)
+			trajK, err := smoother.tpFrame.PTGSolvers()[int(math.Round(newQ[0].Value))].Trajectory(newQ[1:])
 			if err != nil {
 				continue
 			}

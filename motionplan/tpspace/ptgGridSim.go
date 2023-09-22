@@ -114,8 +114,8 @@ func (ptg *ptgGridSim) MaxDistance() float64 {
 	return ptg.refDist
 }
 
-func (ptg *ptgGridSim) Trajectory(alpha, dist float64) ([]*TrajNode, error) {
-	return ComputePTG(ptg, alpha, dist, defaultDiffT)
+func (ptg *ptgGridSim) Trajectory(inputs []referenceframe.Input) ([]*TrajNode, error) {
+	return ComputePTG(ptg, inputs[0].Value, inputs[1].Value, defaultDiffT)
 }
 
 func (ptg *ptgGridSim) simulateTrajectories() ([][]*TrajNode, error) {

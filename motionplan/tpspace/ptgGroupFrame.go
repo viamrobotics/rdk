@@ -195,12 +195,10 @@ func (pf *ptgGroupFrame) Transform(inputs []referenceframe.Input) (spatialmath.P
 	if len(inputs) != len(pf.DoF()) {
 		return nil, referenceframe.NewIncorrectInputLengthError(len(inputs), len(pf.DoF()))
 	}
-	alpha := inputs[trajectoryAlphaWithinPTG].Value
-	dist := inputs[distanceAlongTrajectoryIndex].Value
 
 	ptgIdx := int(math.Round(inputs[ptgIndex].Value))
 
-	traj, err := pf.solvers[ptgIdx].Trajectory(alpha, dist)
+	traj, err := pf.solvers[ptgIdx].Trajectory(inputs[1:])
 	if err != nil {
 		return nil, err
 	}

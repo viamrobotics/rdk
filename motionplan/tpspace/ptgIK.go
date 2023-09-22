@@ -113,7 +113,9 @@ func (ptg *ptgIK) MaxDistance() float64 {
 	return ptg.refDist
 }
 
-func (ptg *ptgIK) Trajectory(alpha, dist float64) ([]*TrajNode, error) {
+func (ptg *ptgIK) Trajectory(inputs []referenceframe.Input) ([]*TrajNode, error) {
+	alpha := inputs[0].Value
+	dist := inputs[1].Value
 	ptg.mu.RLock()
 	precomp := ptg.trajCache[alpha]
 	ptg.mu.RUnlock()

@@ -7,6 +7,7 @@ import (
 	pb "go.viam.com/api/component/arm/v1"
 
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // ptgFrame wraps a tpspace.PTG so that it fills the Frame interface and can be used by IK.
@@ -21,6 +22,8 @@ func newPTGIKFrame(ptg PTG, dist float64) referenceframe.Frame {
 	pf := &ptgIKFrame{PTG: ptg}
 
 	pf.limits = []referenceframe.Limit{
+		{Min: -math.Pi, Max: math.Pi},
+		{Min: 0, Max: dist},
 		{Min: -math.Pi, Max: math.Pi},
 		{Min: 0, Max: dist},
 	}
@@ -57,4 +60,16 @@ func (pf *ptgIKFrame) ProtobufFromInput(input []referenceframe.Input) *pb.JointP
 
 func (pf *ptgIKFrame) Geometries(inputs []referenceframe.Input) (*referenceframe.GeometriesInFrame, error) {
 	return nil, errors.New("geometries not implemented for ptg IK frame")
+}
+
+func (pf *ptgIKFrame) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {
+	p1, err := pf.PTG.Transform(inputs[:2])
+	if err != nil {
+		return nil, err
+	}
+	p2, err := pf.PTG.Transform(inputs[2:4])
+	if err != nil {
+		return nil, err
+	}
+	return spatialmath.Compose(p1, p2), nil
 }
