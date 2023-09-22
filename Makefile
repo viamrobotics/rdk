@@ -2,8 +2,8 @@ BIN_OUTPUT_PATH = bin/$(shell uname -s)-$(shell uname -m)
 
 TOOL_BIN = bin/gotools/$(shell uname -s)-$(shell uname -m)
 
-NDK_ROOT = ~/android-ndk-r25c
-SERVER_RELEASE = dev
+NDK_ROOT ?= ~/android-ndk-r26
+BUILD_CHANNEL ?= local
 
 PATH_WITH_TOOLS="`pwd`/$(TOOL_BIN):`pwd`/node_modules/.bin:${PATH}"
 
@@ -107,15 +107,13 @@ server-static: build-web
 		upx --best --lzma $(BIN_OUTPUT_PATH)/viam-server;\
 	fi
 
-ndk-root:
-	echo $(NDK_ROOT)
-
-bin/viam-server-android-$(SERVER_RELEASE):
+.PHONY: server-android
+server-android:
 	GOOS=android GOARCH=arm64 CGO_ENABLED=1 \
 		CC=$(NDK_ROOT)/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android30-clang \
 		go build -v \
 		-tags no_cgo \
-		-o $@ \
+		-o bin/viam-server-android-$(BUILD_CHANNEL) \
 		./web/cmd/server
 
 clean-all:
