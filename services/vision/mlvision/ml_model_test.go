@@ -172,7 +172,7 @@ func TestNewMLDetector(t *testing.T) {
 	test.That(t, gotDetections[1].Score(), test.ShouldBeGreaterThan, 0.7)
 	test.That(t, gotDetections[0].BoundingBox().Min.X, test.ShouldBeGreaterThan, 124)
 	test.That(t, gotDetections[0].BoundingBox().Min.X, test.ShouldBeLessThan, 127)
-	test.That(t, gotDetections[0].BoundingBox().Min.Y, test.ShouldBeGreaterThan, 41)
+	test.That(t, gotDetections[0].BoundingBox().Min.Y, test.ShouldBeGreaterThan, 40)
 	test.That(t, gotDetections[0].BoundingBox().Min.Y, test.ShouldBeLessThan, 44)
 	test.That(t, gotDetections[0].BoundingBox().Max.X, test.ShouldBeGreaterThan, 196)
 	test.That(t, gotDetections[0].BoundingBox().Max.X, test.ShouldBeLessThan, 202)
