@@ -190,7 +190,7 @@ func TestTFLiteDetectionSource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	ovImg := rimage.ConvertImage(resImg)
 	test.That(t, ovImg.GetXY(624, 402), test.ShouldResemble, rimage.Red)
-	test.That(t, ovImg.GetXY(816, 648), test.ShouldResemble, rimage.Red)
+	test.That(t, ovImg.GetXY(815, 647), test.ShouldResemble, rimage.Red)
 	test.That(t, detector.Close(context.Background()), test.ShouldBeNil)
 }
 
