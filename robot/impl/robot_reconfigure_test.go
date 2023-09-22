@@ -3507,7 +3507,7 @@ func TestResourceConstructTimeout(t *testing.T) {
 	timeOutErrorCount := func() int {
 		return logs.Filter(func(o observer.LoggedEntry) bool {
 			for k, v := range o.ContextMap() {
-				if k == "error" && strings.Contains(fmt.Sprint(v), "timed out during reconfigure") {
+				if k == "error" && strings.Contains(fmt.Sprint(v), "timed out after") {
 					return true
 				}
 			}
