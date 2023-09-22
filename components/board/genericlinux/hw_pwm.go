@@ -40,6 +40,11 @@ func writeValue(filepath string, value uint64, logger golog.Logger) error {
 	// The file permissions (the third argument) aren't important: if the file needs to be created,
 	// something has gone horribly wrong!
 	err := os.WriteFile(filepath, data, 0o600)
+	// Some errors (e.g., trying to unexport an already-unexported pin) should get suppressed. If
+	// we're trying to debug something in here, log the error even if it will later be ignored.
+	if err != nil {
+		logger.Debugf("Encountered error writing to sysfs: %s", err)
+	}
 	return errors.Wrap(err, filepath)
 }
 
