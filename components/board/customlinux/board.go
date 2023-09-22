@@ -88,14 +88,16 @@ func parseRawPinData(pinData []byte, filePath string) ([]genericlinux.PinDefinit
 	}
 
 	var err error
-	for _, pin := range parsedPinData.Pins {
+	for name, pin := range parsedPinData.Pins {
 		err = multierr.Combine(err, pin.Validate(filePath))
 
 		// Until we get hardware PWM working reliably on lots of boards (likely by being able to
 		// set the pin mode directly), we disable all hardware PWM on these boards.
+		// The range operator makes a copy of the value, so to change the original, we need to look
+		// it up in the map again.
 		// TODO(RSDK-5105): Undo this when we're ready to support hardware PWM.
-		pin.PwmChipSysfsDir = ""
-		pin.PwmID = -1
+		parsedPinData.Pins[name].PwmChipSysfsDir = ""
+		parsedPinData.Pins[name].PwmID = -1
 	}
 	if err != nil {
 		return nil, err
