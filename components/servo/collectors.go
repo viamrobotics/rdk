@@ -4,10 +4,9 @@ import (
 	"context"
 	"errors"
 
-	"google.golang.org/protobuf/types/known/anypb"
-
 	pb "go.viam.com/api/component/servo/v1"
 	"go.viam.com/rdk/data"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 type method int64
