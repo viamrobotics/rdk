@@ -6,8 +6,9 @@ import (
 
 	v1 "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/movementsensor/v1"
-	"go.viam.com/rdk/data"
 	"google.golang.org/protobuf/types/known/anypb"
+
+	"go.viam.com/rdk/data"
 )
 
 // TODO: add tests for this file.
