@@ -20,7 +20,7 @@ env:
   TARGET: bin/viam-server-android-${{ inputs.release_type }}
 
 jobs:
-  droid:
+  droid-build:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
@@ -47,9 +47,10 @@ jobs:
       run: unzip ${{ env.NDK_ZIP }}
 
     - name: build
-      run: make $TARGET \
-        NDK_ROOT=$(realpath android-ndk-r26) \
-        SERVER_RELEASE=${{ inputs.release_type }}
+      env:
+        BUILD_CHANNEL: ${{ inputs.release_type }}
+      run: |
+        NDK_ROOT=$(realpath android-ndk-r26) make server-android
 
     - uses: actions/upload-artifact@v3
       with:
