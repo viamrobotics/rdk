@@ -49,8 +49,8 @@ var (
 	// eventually be implemented server side or faked client side.
 	errUnimplemented = errors.New("unimplemented")
 
-	// resourcesTimeout is the default timeout for getting resources.
-	resourcesTimeout = 5 * time.Second
+	// defaultResourcesTimeout is the default timeout for getting resources.
+	defaultResourcesTimeout = 5 * time.Second
 )
 
 type reconfigurableClientConn struct {
@@ -603,7 +603,7 @@ func (rc *RobotClient) createClient(name resource.Name) (resource.Resource, erro
 }
 
 func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resource.RPCAPI, error) {
-	ctx, cancel := context.WithTimeout(ctx, resourcesTimeout)
+	ctx, cancel := contextutils.ContextWithTimeoutIfNoDeadline(ctx, defaultResourcesTimeout)
 	defer cancel()
 	resp, err := rc.client.ResourceNames(ctx, &pb.ResourceNamesRequest{})
 	if err != nil {

@@ -1,8 +1,10 @@
-// Package contextutils provides utility for adding and retrieving metadata to/from a context.
+// Package contextutils provides utilities for dealing with contexts such as adding and
+// retrieving metadata to/from a context, and handling context timeouts.
 package contextutils
 
 import (
 	"context"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -62,4 +64,13 @@ func ContextWithMetadataUnaryClientInterceptor(
 	}
 
 	return nil
+}
+
+// ContextWithTimeoutIfNoDeadline returns a child timeout context derived from `ctx` if a
+// deadline does not exist. Returns a cancel context and cancel func from `ctx` if deadline exists.
+func ContextWithTimeoutIfNoDeadline(ctx context.Context, timeout time.Duration) (context.Context, context.CancelFunc) {
+	if _, ok := ctx.Deadline(); !ok {
+		return context.WithTimeout(ctx, timeout)
+	}
+	return context.WithCancel(ctx)
 }
