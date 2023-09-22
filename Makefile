@@ -113,7 +113,7 @@ server-android:
 		CC=$(NDK_ROOT)/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android30-clang \
 		go build -v \
 		-tags no_cgo \
-		-o bin/viam-server-android-$(BUILD_CHANNEL)-aarch64 \
+		-o bin/viam-server-$(BUILD_CHANNEL)-android-aarch64 \
 		./web/cmd/server
 
 clean-all:
