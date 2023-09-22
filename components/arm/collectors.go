@@ -57,7 +57,6 @@ func newEndPositionCollector(resource interface{}, params data.CollectorParams) 
 				Theta: o.Theta,
 			},
 		}, nil
-
 	})
 	return data.NewCollector(cFunc, params)
 }
