@@ -134,19 +134,16 @@ func (mr *moveRequest) obstaclesIntersectPlan(ctx context.Context, waypoints [][
 			if err != nil {
 				return false, err
 			}
-			// fmt.Println("currentPosition: ", currentPosition.Pose().Point())
 			currentInputs, err := mr.kinematicBase.CurrentInputs(ctx)
 			if err != nil {
 				return false, err
 			}
-			// fmt.Println("currentInputs: ", currentInputs)
 
 			// get the pose difference between where the robot is versus where it ought to be.
 			errorState, err := mr.kinematicBase.ErrorState(ctx, waypoints, waypointIndex)
 			if err != nil {
 				return false, err
 			}
-			// fmt.Println("errorState: ", errorState.Point())
 
 			if err := motionplan.CheckPlan(
 				mr.kinematicBase.Kinematics(), // frame we wish to check for collisions
