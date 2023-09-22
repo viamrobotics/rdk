@@ -24,9 +24,9 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	}
 
 	boardConfig := genericlinux.Config{
-        I2Cs: conf.I2Cs,
-        SPIs: conf.SPIs,
-    }
+		I2Cs: conf.I2Cs,
+		SPIs: conf.SPIs,
+	}
 	if deps, err := boardConfig.Validate(path); err != nil {
 		return deps, err
 	}
