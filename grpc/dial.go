@@ -14,8 +14,8 @@ import (
 // defaultDialTimeout is the default timeout for dialing a robot.
 var defaultDialTimeout = 20 * time.Second
 
-// Dial dials a gRPC server. `ctx` can be used to set a timeout/deadline for Dial.
-// However, the max timeout is 20 seconds.
+// Dial dials a gRPC server. `ctx` can be used to set a timeout/deadline for Dial. However, the signaling
+// server may have other timeouts which may prevent the full timeout from being respected.
 func Dial(ctx context.Context, address string, logger golog.Logger, opts ...rpc.DialOption) (rpc.ClientConn, error) {
 	webrtcOpts := rpc.DialWebRTCOptions{
 		Config: &DefaultWebRTCConfiguration,
