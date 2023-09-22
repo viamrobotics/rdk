@@ -3,6 +3,7 @@ package contextutils
 import (
 	"context"
 	"testing"
+	"time"
 
 	"go.viam.com/test"
 )
@@ -48,4 +49,20 @@ func TestContextWithMetadata(t *testing.T) {
 	test.That(t, ok, test.ShouldEqual, true)
 	test.That(t, mdMap, test.ShouldBeEmpty)
 	test.That(t, ctx.Value(MetadataContextKey), test.ShouldBeEmpty)
+}
+
+func TestContextWithTimeoutIfNoDeadline(t *testing.T) {
+	// Test with no set deadline
+	noDeadlineCtx := context.Background()
+	noDeadlineCtxDeadline, _ := noDeadlineCtx.Deadline()
+	deadlineCtx, cancel := ContextWithTimeoutIfNoDeadline(noDeadlineCtx, time.Second)
+	defer cancel()
+	deadlineCtxDeadline, _ := deadlineCtx.Deadline()
+	test.That(t, deadlineCtxDeadline.After(noDeadlineCtxDeadline), test.ShouldBeTrue)
+
+	// Test with prev set deadline
+	ctx, cancel := ContextWithTimeoutIfNoDeadline(deadlineCtx, 2*time.Second)
+	defer cancel()
+	ctxDeadline, _ := ctx.Deadline()
+	test.That(t, ctxDeadline, test.ShouldEqual, deadlineCtxDeadline)
 }
