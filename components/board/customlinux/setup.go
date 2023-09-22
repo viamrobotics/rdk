@@ -12,9 +12,9 @@ import (
 
 // A Config describes the configuration of a board and all of its connected parts.
 type Config struct {
-	BoardDefsFilePath string                         `json:"board_defs_file_path"`
-	I2Cs              []board.I2CConfig              `json:"i2cs,omitempty"`
-	SPIs              []board.SPIConfig              `json:"spis,omitempty"`
+	BoardDefsFilePath string            `json:"board_defs_file_path"`
+	I2Cs              []board.I2CConfig `json:"i2cs,omitempty"`
+	SPIs              []board.SPIConfig `json:"spis,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.

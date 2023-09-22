@@ -8,7 +8,6 @@ import (
 
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/board/genericlinux"
 )
 
