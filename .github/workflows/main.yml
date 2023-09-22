@@ -5,76 +5,76 @@ concurrency:
 
 on:
   workflow_dispatch:
-  push: # DONOTMERGE testing this file
-    # branches: [ main ]
-    # paths-ignore:
-    #   - 'README.md'
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - 'README.md'
 
 # To test workflow updates you need to work in a branch directly on viamrobotics/rdk
 # and tag your working branch instead of @main in any viamrobotics/rdk "uses" below.
 # Don't forget to tag back to @main before merge.
 
 jobs:
-  # test:
-  #   uses: viamrobotics/rdk/.github/workflows/test.yml@main
-  #   secrets:
-  #     MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
+  test:
+    uses: viamrobotics/rdk/.github/workflows/test.yml@main
+    secrets:
+      MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
 
-  # appimage:
-  #   needs: test
-  #   uses: viamrobotics/rdk/.github/workflows/appimage.yml@main
-  #   with:
-  #     release_type: 'latest'
-  #   secrets:
-  #     GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
-
-  # staticbuild:
-  #   needs: test
-  #   uses: viamrobotics/rdk/.github/workflows/staticbuild.yml@main
-  #   with:
-  #     release_type: 'latest'
-  #   secrets:
-  #     GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
-
-  droid:
-    # needs: test
-    uses: ./.github/workflows/droid.yml
+  appimage:
+    needs: test
+    uses: viamrobotics/rdk/.github/workflows/appimage.yml@main
     with:
       release_type: 'latest'
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
-  # cli:
-  #   uses: viamrobotics/rdk/.github/workflows/cli.yml@main
-  #   with:
-  #     release_type: 'latest'
-  #   secrets:
-  #     GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+  staticbuild:
+    needs: test
+    uses: viamrobotics/rdk/.github/workflows/staticbuild.yml@main
+    with:
+      release_type: 'latest'
+    secrets:
+      GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
-  # npm_publish:
-  #   uses: viamrobotics/rdk/.github/workflows/npm-publish.yml@main
-  #   needs: test
-  #   secrets:
-  #     NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+  droid:
+    needs: test
+    uses: viamrobotics/rdk/.github/workflows/droid.yml@main
+    with:
+      release_type: 'latest'
+    secrets:
+      GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
-  # license_finder:
-  #   uses: viamrobotics/rdk/.github/workflows/license_finder.yml@main
+  cli:
+    uses: viamrobotics/rdk/.github/workflows/cli.yml@main
+    with:
+      release_type: 'latest'
+    secrets:
+      GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
-  # slack-workflow-status:
-  #   if: ${{ failure() }}
-  #   name: Post Workflow Status To Slack
-  #   needs:
-  #     - test
-  #     - appimage
-  #     - staticbuild
-  #   runs-on: ubuntu-latest
-  #   permissions:
-  #     actions: 'read'
-  #   steps:
-  #     - name: Slack Workflow Notification
-  #       uses: Gamesight/slack-workflow-status@master
-  #       with:
-  #         repo_token: ${{secrets.GITHUB_TOKEN}}
-  #         slack_webhook_url: ${{secrets.SLACK_WEBHOOK_URL}}
-  #         channel: '#team-devops'
-  #         name: 'Workflow Status'
+  npm_publish:
+    uses: viamrobotics/rdk/.github/workflows/npm-publish.yml@main
+    needs: test
+    secrets:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  license_finder:
+    uses: viamrobotics/rdk/.github/workflows/license_finder.yml@main
+
+  slack-workflow-status:
+    if: ${{ failure() }}
+    name: Post Workflow Status To Slack
+    needs:
+      - test
+      - appimage
+      - staticbuild
+    runs-on: ubuntu-latest
+    permissions:
+      actions: 'read'
+    steps:
+      - name: Slack Workflow Notification
+        uses: Gamesight/slack-workflow-status@master
+        with:
+          repo_token: ${{secrets.GITHUB_TOKEN}}
+          slack_webhook_url: ${{secrets.SLACK_WEBHOOK_URL}}
+          channel: '#team-devops'
+          name: 'Workflow Status'
