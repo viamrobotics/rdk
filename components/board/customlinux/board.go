@@ -107,7 +107,5 @@ func createGenericLinuxConfig(conf *Config) genericlinux.Config {
 	return genericlinux.Config{
 		I2Cs:              conf.I2Cs,
 		SPIs:              conf.SPIs,
-		Analogs:           conf.Analogs,
-		DigitalInterrupts: conf.DigitalInterrupts,
 	}
 }
