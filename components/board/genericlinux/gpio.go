@@ -34,6 +34,10 @@ type gpioPin struct {
 	logger    golog.Logger
 }
 
+func (pin *gpioPin) wrapError(err error) error {
+	return errors.Wrapf(err, "from GPIO device %s line %d", pin.devicePath, pin.offset)
+}
+
 // This is a private helper function that should only be called when the mutex is locked. It sets
 // pin.line to a valid struct or returns an error.
 func (pin *gpioPin) openGpioFd(isInput bool) error {
@@ -41,7 +45,7 @@ func (pin *gpioPin) openGpioFd(isInput bool) error {
 		// We're switching from an input pin to an output one or vice versa. Close the line and
 		// repoen in the other mode.
 		if err := pin.closeGpioFd(); err != nil {
-			return err
+			return err // Already wrapped
 		}
 		pin.isInput = isInput
 	}
@@ -54,13 +58,13 @@ func (pin *gpioPin) openGpioFd(isInput bool) error {
 		// If the pin is currently used by the hardware PWM chip, shut that down before we can open
 		// it for basic GPIO use.
 		if err := pin.hwPwm.Close(); err != nil {
-			return err
+			return pin.wrapError(err)
 		}
 	}
 
 	chip, err := gpio.OpenChip(pin.devicePath)
 	if err != nil {
-		return err
+		return pin.wrapError(err)
 	}
 	defer utils.UncheckedErrorFunc(chip.Close)
 
@@ -75,7 +79,7 @@ func (pin *gpioPin) openGpioFd(isInput bool) error {
 	// we haven't done that yet, and we instead go with whatever the default on the board is.
 	line, err := chip.OpenLine(pin.offset, 0, direction, "viam-gpio")
 	if err != nil {
-		return err
+		return pin.wrapError(err)
 	}
 	pin.line = line
 	return nil
@@ -86,7 +90,7 @@ func (pin *gpioPin) closeGpioFd() error {
 		return nil // The pin is already closed.
 	}
 	if err := pin.line.Close(); err != nil {
-		return err
+		return pin.wrapError(err)
 	}
 	pin.line = nil
 	return nil
@@ -117,7 +121,7 @@ func (pin *gpioPin) setInternal(isHigh bool) (err error) {
 		return err
 	}
 
-	return pin.line.SetValue(value)
+	return pin.wrapError(pin.line.SetValue(value))
 }
 
 // This helps implement the board.GPIOPin interface for gpioPin.
@@ -133,7 +137,7 @@ func (pin *gpioPin) Get(
 
 	value, err := pin.line.Value()
 	if err != nil {
-		return false, err
+		return false, pin.wrapError(err)
 	}
 
 	// We'd expect value to be either 0 or 1, but any non-zero value should be considered high.

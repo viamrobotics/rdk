@@ -121,7 +121,7 @@ func (pwm *pwmDevice) disable() error {
 // Only call this from public functions, to avoid double-wrapping the errors.
 func (pwm *pwmDevice) wrapError(err error) error {
 	// Note that if err is nil, errors.Wrap() will return nil, too.
-	return errors.Wrap(err, fmt.Sprintf("HW PWM chipPath %s, line %d", pwm.chipPath, pwm.line))
+	return errors.Wrapf(err, "HW PWM chipPath %s, line %d", pwm.chipPath, pwm.line)
 }
 
 // SetPwm configures an exported pin and enables its output signal.
