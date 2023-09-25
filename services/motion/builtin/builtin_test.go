@@ -720,7 +720,7 @@ func TestReplanning(t *testing.T) {
 				PositionPollingFreqHz: 1, ObstaclePollingFreqHz: 100, PlanDeviationMM: epsilonMM, VisionServices: visionNames,
 			},
 			getPCfunc: func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
-				obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{200, 0, 0})
+				obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{200, -200, 0})
 				box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{10, 10, 10}, "test-case-2")
 				test.That(t, err, test.ShouldBeNil)
 
@@ -762,7 +762,7 @@ func TestReplanning(t *testing.T) {
 			srvc.GetObjectPointCloudsFunc = tc.getPCfunc
 		}
 
-		ctx, cancel := context.WithTimeout(ctx, 10.0*time.Second)
+		ctx, cancel := context.WithTimeout(ctx, 5.0*time.Second)
 		ma := newMoveAttempt(ctx, moveRequest)
 		ma.start()
 		defer ma.cancel()
