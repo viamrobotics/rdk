@@ -77,6 +77,7 @@ type Config struct {
 	ObstaclePollingFrequencyHz float64                          `json:"obstacle_polling_frequency_hz,omitempty"`
 	PlanDeviationM             float64                          `json:"plan_deviation_m,omitempty"`
 	ReplanCostFactor           float64                          `json:"replan_cost_factor,omitempty"`
+	LogFilePath                string                           `json:"log_file_path"`
 }
 
 // Validate creates the list of implicit dependencies.
@@ -143,6 +144,7 @@ func NewBuiltIn(ctx context.Context, deps resource.Dependencies, conf resource.C
 	if err := navSvc.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
+
 	return navSvc, nil
 }
 
@@ -173,14 +175,19 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	svc.actionMu.Lock()
 	defer svc.actionMu.Unlock()
 
-	if svc.wholeServiceCancelFunc != nil {
-		svc.wholeServiceCancelFunc()
-	}
-	svc.activeBackgroundWorkers.Wait()
+	svc.stopWaypointMode()
 
 	svcConfig, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return err
+	}
+
+	if svcConfig.LogFilePath != "" {
+		logger, err := rdkutils.NewFilePathDebugLogger(svcConfig.LogFilePath, "navigation")
+		if err != nil {
+			return err
+		}
+		svc.logger = logger
 	}
 	base1, err := base.FromDependencies(deps, svcConfig.BaseName)
 	if err != nil {
@@ -261,6 +268,7 @@ func (svc *builtIn) SetMode(ctx context.Context, mode navigation.Mode, extra map
 	defer svc.actionMu.Unlock()
 
 	svc.mu.RLock()
+	svc.logger.Infof("SetMode called with mode: %s, transitioning to mode: %s", mode, svc.mode)
 	if svc.mode == mode {
 		svc.mu.RUnlock()
 		return nil
@@ -268,18 +276,14 @@ func (svc *builtIn) SetMode(ctx context.Context, mode navigation.Mode, extra map
 	svc.mu.RUnlock()
 
 	// switch modes
-	if svc.wholeServiceCancelFunc != nil {
-		svc.wholeServiceCancelFunc()
-	}
-	svc.activeBackgroundWorkers.Wait()
-
+	svc.stopWaypointMode()
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	svc.wholeServiceCancelFunc = cancelFunc
 	svc.mode = mode
 	if svc.mode == navigation.ModeWaypoint {
-		svc.startWaypoint(cancelCtx, extra)
+		svc.startWaypointMode(cancelCtx, extra)
 	}
 	return nil
 }
@@ -314,6 +318,7 @@ func (svc *builtIn) Waypoints(ctx context.Context, extra map[string]interface{})
 }
 
 func (svc *builtIn) AddWaypoint(ctx context.Context, point *geo.Point, extra map[string]interface{}) error {
+	svc.logger.Infof("AddWaypoint called with %#v", *point)
 	_, err := svc.store.AddWaypoint(ctx, point)
 	return err
 }
@@ -321,6 +326,7 @@ func (svc *builtIn) AddWaypoint(ctx context.Context, point *geo.Point, extra map
 func (svc *builtIn) RemoveWaypoint(ctx context.Context, id primitive.ObjectID, extra map[string]interface{}) error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
+	svc.logger.Infof("RemoveWaypoint called with waypointID: %s", id)
 	if svc.waypointInProgress != nil && svc.waypointInProgress.ID == id {
 		if svc.currentWaypointCancelFunc != nil {
 			svc.currentWaypointCancelFunc()
@@ -349,15 +355,12 @@ func (svc *builtIn) Close(ctx context.Context) error {
 	svc.actionMu.Lock()
 	defer svc.actionMu.Unlock()
 
-	if svc.wholeServiceCancelFunc != nil {
-		svc.wholeServiceCancelFunc()
-	}
-	svc.activeBackgroundWorkers.Wait()
-
+	svc.stopWaypointMode()
 	return svc.store.Close(ctx)
 }
 
-func (svc *builtIn) startWaypoint(ctx context.Context, extra map[string]interface{}) {
+func (svc *builtIn) startWaypointMode(ctx context.Context, extra map[string]interface{}) {
+	svc.logger.Debug("startWaypointMode called")
 	if extra == nil {
 		if false {
 			extra = map[string]interface{}{"motion_profile": "position_only"}
@@ -373,7 +376,8 @@ func (svc *builtIn) startWaypoint(ctx context.Context, extra map[string]interfac
 		defer svc.activeBackgroundWorkers.Done()
 
 		navOnce := func(ctx context.Context, wp navigation.Waypoint) error {
-			_, err := svc.motion.MoveOnGlobe(
+			svc.logger.Debugf("MoveOnGlobe called going to waypoint %+v", wp)
+			success, err := svc.motion.MoveOnGlobe(
 				ctx,
 				svc.base.Name(),
 				wp.ToPoint(),
@@ -384,10 +388,17 @@ func (svc *builtIn) startWaypoint(ctx context.Context, extra map[string]interfac
 				extra,
 			)
 			if err != nil {
+				err = errors.Wrapf(err, "hit motion error when navigating to waypoint %+v", wp)
 				return err
 			}
 
-			return svc.waypointReached(ctx)
+			if !success {
+				err := errors.New("failed to reach goal")
+				err = errors.Wrapf(err, "hit motion error when navigating to waypoint %+v", wp)
+				return err
+			}
+			svc.logger.Debug("MoveOnGlobe succeeded")
+			return nil
 		}
 
 		// do not exit loop - even if there are no waypoints remaining
@@ -409,22 +420,36 @@ func (svc *builtIn) startWaypoint(ctx context.Context, extra map[string]interfac
 			svc.logger.Infof("navigating to waypoint: %+v", wp)
 			if err := navOnce(cancelCtx, wp); err != nil {
 				if svc.waypointIsDeleted() {
-					svc.logger.Infof("skipping waypoint %+v since it was deleted", wp)
-					continue
+					svc.logger.Debug(errors.Wrapf(err, "skipping waypoint %+v since it was deleted", wp))
+				} else {
+					svc.logger.Warn(err)
 				}
-
-				svc.logger.Infof("skipping waypoint %+v due to error while navigating towards it: %s", wp, err)
-				if err := svc.waypointReached(ctx); err != nil {
-					if svc.waypointIsDeleted() {
-						svc.logger.Infof("skipping waypoint %+v since it was deleted", wp)
-						continue
-					}
-					svc.logger.Infof("can't mark waypoint %+v as reached, exiting navigation due to error: %s", wp, err)
-					return
-				}
+				continue
 			}
+
+			// mark the waypoint as reached if the motion service hit no error
+			if err = svc.waypointReached(ctx); err != nil {
+				// If waypointReached returned an error it indicates the store didn't
+				// record the waypoint as being reached, so we Close the nav service
+				// as otherwise we will try to continue navigating to a waypoint
+				// we have already reached.
+				err = errors.Wrapf(err, "failed to update the waypoint db for waypoint %+v, calling Close() on nav", wp)
+				svc.logger.Error(err)
+				if closeErr := svc.Close(ctx); closeErr != nil {
+					svc.logger.Error(errors.Wrapf(err, "navigation Close() returned an error %s", closeErr))
+				}
+				return
+			}
+			svc.logger.Infof("reached waypoint %s", wp.ID)
 		}
 	})
+}
+
+func (svc *builtIn) stopWaypointMode() {
+	if svc.wholeServiceCancelFunc != nil {
+		svc.wholeServiceCancelFunc()
+	}
+	svc.activeBackgroundWorkers.Wait()
 }
 
 func (svc *builtIn) waypointIsDeleted() bool {
