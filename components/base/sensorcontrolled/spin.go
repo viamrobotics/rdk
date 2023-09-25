@@ -133,9 +133,9 @@ func (sb *sensorBase) stopSpinWithSensor(
 
 				if sensorDebug {
 					sb.logger.Debugf("minTravel %t, atTarget %t, overshot %t", minTravel, atTarget, overShot)
-					sb.logger.Debugf("angleDeg %.2f", angleDeg)
-					sb.logger.Debugf(
-						"currYaw %.2f, startYaw %.2f, targetYaw %.2f",
+					sb.logger.Debugf("angleDeg %.2f, // , fullTurns %d",
+						angleDeg) // , fullTurns)
+					sb.logger.Debugf("currYaw %.2f, startYaw %.2f, targetYaw %.2f",
 						currYaw, startYaw, targetYaw)
 				}
 
