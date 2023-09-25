@@ -70,7 +70,7 @@ func CreateNloptIKSolver(mdl referenceframe.Frame, logger golog.Logger, iter int
 	ik.maxIterations = iter
 	ik.lowerBound, ik.upperBound = limitsToArrays(mdl.DoF())
 	// How much to adjust joints to determine slope
-	ik.jump = 0.00000001
+	ik.jump = 0.00001
 	ik.exact = exact
 
 	return ik, nil

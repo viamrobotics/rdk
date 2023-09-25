@@ -24,6 +24,8 @@ const (
 // If refDist is not explicitly set, default to pi radians times this adjustment value.
 const (
 	refDistHalfCircles = 0.9
+	seed               = 2 // this can be anything
+	defaultTrajCount   = 2
 )
 
 type ptgFactory func(float64, float64) PTG
@@ -47,6 +49,7 @@ type ptgGroupFrame struct {
 	velocityMMps       float64
 	angVelocityRadps   float64
 	turnRadMillimeters float64
+	trajCount          int
 	logger             golog.Logger
 }
 
@@ -113,7 +116,7 @@ func NewPTGFrameFromKinematicOptions(
 	pf := &ptgGroupFrame{name: name}
 
 	ptgs := initializePTGs(velocityMMps, angVelocityRadps, ptgsToUse)
-	solvers, err := initializeSolvers(logger, refDist, ptgs)
+	solvers, err := initializeSolvers(logger, refDist, defaultTrajCount, ptgs)
 	if err != nil {
 		return nil, err
 	}
@@ -124,6 +127,7 @@ func NewPTGFrameFromKinematicOptions(
 	pf.velocityMMps = velocityMMps
 	pf.angVelocityRadps = angVelocityRadps
 	pf.turnRadMillimeters = turnRadMillimeters
+	pf.trajCount = defaultTrajCount
 
 	pf.limits = []referenceframe.Limit{
 		{Min: 0, Max: float64(len(pf.solvers) - 1)},
@@ -157,7 +161,7 @@ func NewPTGFrameFromPTGFrame(frame referenceframe.Frame, refDist float64) (refer
 	for _, solver := range ptgFrame.solvers {
 		ptgs = append(ptgs, solver)
 	}
-	solvers, err := initializeSolvers(ptgFrame.logger, refDist, ptgs)
+	solvers, err := initializeSolvers(ptgFrame.logger, refDist, ptgFrame.trajCount, ptgs)
 	if err != nil {
 		return nil, err
 	}
@@ -167,6 +171,7 @@ func NewPTGFrameFromPTGFrame(frame referenceframe.Frame, refDist float64) (refer
 	pf.angVelocityRadps = ptgFrame.angVelocityRadps
 	pf.turnRadMillimeters = ptgFrame.turnRadMillimeters
 	pf.velocityMMps = ptgFrame.velocityMMps
+	pf.trajCount = ptgFrame.trajCount
 
 	pf.limits = []referenceframe.Limit{
 		{Min: 0, Max: float64(len(pf.solvers) - 1)},
@@ -197,8 +202,10 @@ func (pf *ptgGroupFrame) Transform(inputs []referenceframe.Input) (spatialmath.P
 	}
 
 	ptgIdx := int(math.Round(inputs[ptgIndex].Value))
+	alpha := inputs[trajectoryAlphaWithinPTG].Value
+	dist := inputs[distanceAlongTrajectoryIndex].Value
 
-	traj, err := pf.solvers[ptgIdx].Trajectory(inputs[1:])
+	traj, err := pf.solvers[ptgIdx].Trajectory(alpha, dist)
 	if err != nil {
 		return nil, err
 	}
@@ -250,10 +257,10 @@ func initializePTGs(maxMps, maxRPS float64, constructors []ptgFactory) []PTG {
 	return ptgs
 }
 
-func initializeSolvers(logger golog.Logger, simDist float64, ptgs []PTG) ([]PTGSolver, error) {
+func initializeSolvers(logger golog.Logger, simDist float64, trajCount int, ptgs []PTG) ([]PTGSolver, error) {
 	solvers := []PTGSolver{}
 	for _, ptg := range ptgs {
-		solver, err := NewPTGIK(ptg, logger, simDist, 2)
+		solver, err := NewPTGIK(ptg, logger, simDist, seed, trajCount)
 		if err != nil {
 			return nil, err
 		}

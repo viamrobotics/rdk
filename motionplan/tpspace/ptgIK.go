@@ -11,6 +11,7 @@ import (
 
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/spatialmath"
 )
 
 const (
@@ -33,12 +34,12 @@ type ptgIK struct {
 
 // NewPTGIK creates a new ptgIK, which creates a frame using the provided PTG, and wraps it providing functions to fill the PTG
 // interface, allowing inverse kinematics queries to be run against it.
-func NewPTGIK(simPTG PTG, logger golog.Logger, refDist float64, randSeed int) (PTGSolver, error) {
+func NewPTGIK(simPTG PTG, logger golog.Logger, refDist float64, randSeed, trajCount int) (PTGSolver, error) {
 	if refDist <= 0 {
 		return nil, errors.New("refDist must be greater than zero")
 	}
 
-	ptgFrame := newPTGIKFrame(simPTG, refDist)
+	ptgFrame := newPTGIKFrame(simPTG, trajCount, refDist)
 
 	nlopt, err := ik.CreateNloptIKSolver(ptgFrame, logger, 1, false)
 	if err != nil {
@@ -82,8 +83,10 @@ func (ptg *ptgIK) Solve(
 	case solved = <-internalSolutionGen:
 	default:
 	}
+	// ~ fmt.Println("solved, err", solved, err)
 	if err != nil || solved == nil || solved.Configuration[1].Value < defaultZeroDist {
 		// nlopt did not return a valid solution or otherwise errored. Fall back fully to the grid check.
+		// ~ fmt.Println("grid check!")
 		return ptg.gridSim.Solve(ctx, solutionChan, seed, solveMetric, nloptSeed)
 	}
 
@@ -113,41 +116,49 @@ func (ptg *ptgIK) MaxDistance() float64 {
 	return ptg.refDist
 }
 
-func (ptg *ptgIK) Trajectory(inputs []referenceframe.Input) ([]*TrajNode, error) {
-	alpha := inputs[0].Value
-	dist := inputs[1].Value
+func (ptg *ptgIK) Trajectory(alpha, dist float64) ([]*TrajNode, error) {
+	traj := []*TrajNode{}
 	ptg.mu.RLock()
 	precomp := ptg.trajCache[alpha]
 	ptg.mu.RUnlock()
-	if precomp != nil {
-		if precomp[len(precomp)-1].Dist >= dist {
-			// Caching here provides a ~33% speedup to a solve call
-			subTraj := []*TrajNode{}
-			for _, wp := range precomp {
-				if wp.Dist < dist {
-					subTraj = append(subTraj, wp)
-				} else {
-					break
+	if precomp != nil && precomp[len(precomp)-1].Dist >= dist {
+		// Caching here provides a ~33% speedup to a solve call
+		exact := false
+		for _, wp := range precomp {
+			if wp.Dist <= dist {
+				if wp.Dist == dist {
+					exact = true
 				}
+				traj = append(traj, wp)
+			} else {
+				break
 			}
+		}
+		if !exact {
 			time := 0.
-			if len(subTraj) > 0 {
-				time = subTraj[len(subTraj)-1].Time
+			if len(traj) > 0 {
+				time = traj[len(traj)-1].Time
 			}
 			lastNode, err := computePTGNode(ptg, alpha, dist, time)
 			if err != nil {
 				return nil, err
 			}
-			subTraj = append(subTraj, lastNode)
-			return subTraj, nil
+			traj = append(traj, lastNode)
 		}
+	} else {
+		var err error
+		traj, err = ComputePTG(ptg, alpha, dist, defaultResolutionSeconds)
+		if err != nil {
+			return nil, err
+		}
+		ptg.mu.Lock()
+		ptg.trajCache[alpha] = traj
+		ptg.mu.Unlock()
 	}
-	traj, err := ComputePTG(ptg, alpha, dist, defaultResolutionSeconds)
-	if err != nil {
-		return nil, err
-	}
-	ptg.mu.Lock()
-	ptg.trajCache[alpha] = traj
-	ptg.mu.Unlock()
+
 	return traj, nil
+}
+
+func (ptg *ptgIK) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {
+	return ptg.ptgFrame.Transform(inputs)
 }
