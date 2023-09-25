@@ -12,7 +12,6 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
-
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
@@ -738,7 +737,7 @@ func TestReplanning(t *testing.T) {
 				VisionServices: []resource.Name{vision.Named("injectedVisionSvc")},
 			},
 			getPCfunc: func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
-				obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{200, 80, 0})
+				obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{10, 0, 0})
 				box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{10, 10, 10}, "test-case-1")
 				test.That(t, err, test.ShouldBeNil)
 
