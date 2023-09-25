@@ -48,7 +48,7 @@ const (
 	// Make an attempt to solve the tree every this many iterations
 	// For a unidirectional solve, this means attempting to reach the goal rather than a random point
 	// For a bidirectional solve, this means trying to connect the two trees directly.
-	defaultAttemptSolveEvery = 30
+	defaultAttemptSolveEvery = 15
 
 	defaultBidirectional = true
 )
