@@ -103,9 +103,9 @@ server: build-web
 server-static: build-web
 	rm -f $(BIN_OUTPUT_PATH)/viam-server
 	VIAM_STATIC_BUILD=1 go build $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/viam-server web/cmd/server/main.go
-	if [ -z "${NO_UPX}" ]; then\
-		upx --best --lzma $(BIN_OUTPUT_PATH)/viam-server;\
-	fi
+
+server-static-compressed: server-static
+	upx --best --lzma $(BIN_OUTPUT_PATH)/viam-server
 
 $(NDK_ROOT):
 	# download ndk (used by server-android)
