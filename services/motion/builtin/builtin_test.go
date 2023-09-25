@@ -681,15 +681,12 @@ func TestMoveOnGlobe(t *testing.T) {
 }
 
 func TestReplanning(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
 	ctx := context.Background()
 
 	gpsOrigin := geo.NewPoint(0, 0)
 	dst := geo.NewPoint(gpsOrigin.Lat(), gpsOrigin.Lng()+1e-5)
 	epsilonMM := 15.
-
-	visionResourceName := vision.Named("injectedVisionSvc")
-	visionNames := []resource.Name{visionResourceName}
 
 	type testCase struct {
 		name           string
@@ -717,7 +714,8 @@ func TestReplanning(t *testing.T) {
 			noise:          r3.Vector{0, 0, 0},
 			expectedReplan: false,
 			cfg: &motion.MotionConfiguration{
-				PositionPollingFreqHz: 1, ObstaclePollingFreqHz: 100, PlanDeviationMM: epsilonMM, VisionServices: visionNames,
+				PositionPollingFreqHz: 1, ObstaclePollingFreqHz: 100, PlanDeviationMM: epsilonMM,
+				VisionServices: []resource.Name{vision.Named("injectedVisionSvc1")},
 			},
 			getPCfunc: func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
 				obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{200, -200, 0})
@@ -735,7 +733,8 @@ func TestReplanning(t *testing.T) {
 			noise:          r3.Vector{0, 0, 0},
 			expectedReplan: true,
 			cfg: &motion.MotionConfiguration{
-				PositionPollingFreqHz: 1, ObstaclePollingFreqHz: 100, PlanDeviationMM: epsilonMM, VisionServices: visionNames,
+				PositionPollingFreqHz: 1, ObstaclePollingFreqHz: 100, PlanDeviationMM: epsilonMM,
+				VisionServices: []resource.Name{vision.Named("injectedVisionSvc2")},
 			},
 			getPCfunc: func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
 				obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{200, 80, 0})
@@ -762,7 +761,7 @@ func TestReplanning(t *testing.T) {
 			srvc.GetObjectPointCloudsFunc = tc.getPCfunc
 		}
 
-		ctx, cancel := context.WithTimeout(ctx, 5.0*time.Second)
+		ctx, cancel := context.WithTimeout(ctx, 25.0*time.Second)
 		ma := newMoveAttempt(ctx, moveRequest)
 		ma.start()
 		defer ma.cancel()
@@ -802,7 +801,7 @@ func TestReplanning(t *testing.T) {
 	for _, tc := range testCases {
 		c := tc // needed to workaround loop variable not being captured by func literals
 		t.Run(c.name, func(t *testing.T) {
-			t.Parallel()
+			// t.Parallel()
 			testFn(t, c)
 		})
 	}

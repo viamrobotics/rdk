@@ -97,13 +97,11 @@ func (mr *moveRequest) deviatedFromPlan(ctx context.Context, waypoints [][]refer
 func (mr *moveRequest) obstaclesIntersectPlan(ctx context.Context, waypoints [][]referenceframe.Input, waypointIndex int) (bool, error) {
 	// convert waypoints to type of motionplan.Plan
 	var plan []map[string][]referenceframe.Input
-	for i, inputs := range waypoints {
-		// We only care to check against waypoints we have not reached yet.
-		if i >= waypointIndex {
-			input := make(map[string][]referenceframe.Input)
-			input[mr.kinematicBase.Name().Name] = inputs
-			plan = append(plan, input)
-		}
+	// We only care to check against waypoints we have not reached yet.
+	for _, inputs := range waypoints[waypointIndex:] {
+		input := make(map[string][]referenceframe.Input)
+		input[mr.kinematicBase.Name().Name] = inputs
+		plan = append(plan, input)
 	}
 
 	// iterate through vision services
