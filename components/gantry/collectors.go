@@ -48,20 +48,11 @@ func newPositionCollector(resource interface{}, params data.CollectorParams) (da
 			}
 			return nil, data.FailedToReadErr(params.ComponentName, position.String(), err)
 		}
-		// Done to scale position from meters to mm
-		for i := range v {
-			v[i] *= 1000
-		}
 		return pb.GetPositionResponse{
-			PositionsMm: v,
+			PositionsMm: scaleMetersToMm(v),
 		}, nil
 	})
 	return data.NewCollector(cFunc, params)
-}
-
-// Lengths wraps the returns lengths values.
-type Lengths struct {
-	Lengths []float64
 }
 
 func newLengthsCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
@@ -80,15 +71,20 @@ func newLengthsCollector(resource interface{}, params data.CollectorParams) (dat
 			}
 			return nil, data.FailedToReadErr(params.ComponentName, lengths.String(), err)
 		}
-		// Done to scale length from meters to mm
-		for i := range v {
-			v[i] *= 1000
-		}
 		return pb.GetLengthsResponse{
-			LengthsMm: v,
+			LengthsMm: scaleMetersToMm(v),
 		}, nil
 	})
 	return data.NewCollector(cFunc, params)
+}
+
+func scaleMetersToMm(meters []float64) []float64 {
+	ret := make([]float64, len(meters))
+	copy(ret, meters)
+	for i := range ret {
+		ret[i] *= 1000
+	}
+	return ret
 }
 
 func assertGantry(resource interface{}) (Gantry, error) {
