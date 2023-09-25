@@ -377,7 +377,7 @@ func (svc *builtIn) startWaypointMode(ctx context.Context, extra map[string]inte
 
 		navOnce := func(ctx context.Context, wp navigation.Waypoint) error {
 			svc.logger.Debugf("MoveOnGlobe called going to waypoint %+v", wp)
-			success, err := svc.motion.MoveOnGlobe(
+			_, err := svc.motion.MoveOnGlobe(
 				ctx,
 				svc.base.Name(),
 				wp.ToPoint(),
@@ -392,13 +392,8 @@ func (svc *builtIn) startWaypointMode(ctx context.Context, extra map[string]inte
 				return err
 			}
 
-			if !success {
-				err := errors.New("failed to reach goal")
-				err = errors.Wrapf(err, "hit motion error when navigating to waypoint %+v", wp)
-				return err
-			}
 			svc.logger.Debug("MoveOnGlobe succeeded")
-			return nil
+			return svc.waypointReached(ctx)
 		}
 
 		// do not exit loop - even if there are no waypoints remaining
@@ -420,27 +415,20 @@ func (svc *builtIn) startWaypointMode(ctx context.Context, extra map[string]inte
 			svc.logger.Infof("navigating to waypoint: %+v", wp)
 			if err := navOnce(cancelCtx, wp); err != nil {
 				if svc.waypointIsDeleted() {
-					svc.logger.Debug(errors.Wrapf(err, "skipping waypoint %+v since it was deleted", wp))
-				} else {
-					svc.logger.Warn(err)
+					svc.logger.Infof("skipping waypoint %+v since it was deleted", wp)
+					continue
 				}
-				continue
-			}
 
-			// mark the waypoint as reached if the motion service hit no error
-			if err = svc.waypointReached(ctx); err != nil {
-				// If waypointReached returned an error it indicates the store didn't
-				// record the waypoint as being reached, so we Close the nav service
-				// as otherwise we will try to continue navigating to a waypoint
-				// we have already reached.
-				err = errors.Wrapf(err, "failed to update the waypoint db for waypoint %+v, calling Close() on nav", wp)
-				svc.logger.Error(err)
-				if closeErr := svc.Close(ctx); closeErr != nil {
-					svc.logger.Error(errors.Wrapf(err, "navigation Close() returned an error %s", closeErr))
+				svc.logger.Infof("skipping waypoint %+v due to error while navigating towards it: %s", wp, err)
+				if err := svc.waypointReached(ctx); err != nil {
+					if svc.waypointIsDeleted() {
+						svc.logger.Infof("skipping waypoint %+v since it was deleted", wp)
+						continue
+					}
+					svc.logger.Infof("can't mark waypoint %+v as reached, exiting navigation due to error: %s", wp, err)
+					return
 				}
-				return
 			}
-			svc.logger.Infof("reached waypoint %s", wp.ID)
 		}
 	})
 }
