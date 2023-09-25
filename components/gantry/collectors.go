@@ -48,6 +48,10 @@ func newPositionCollector(resource interface{}, params data.CollectorParams) (da
 			}
 			return nil, data.FailedToReadErr(params.ComponentName, position.String(), err)
 		}
+		// Done to scale position from meters to mm
+		for i := range v {
+			v[i] *= 1000
+		}
 		return pb.GetPositionResponse{
 			PositionsMm: v,
 		}, nil
@@ -75,6 +79,10 @@ func newLengthsCollector(resource interface{}, params data.CollectorParams) (dat
 				return nil, err
 			}
 			return nil, data.FailedToReadErr(params.ComponentName, lengths.String(), err)
+		}
+		// Done to scale length from meters to mm
+		for i := range v {
+			v[i] *= 1000
 		}
 		return pb.GetLengthsResponse{
 			LengthsMm: v,

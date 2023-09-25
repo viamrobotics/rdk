@@ -46,7 +46,7 @@ func newEndPositionCollector(resource interface{}, params data.CollectorParams) 
 			}
 			return nil, data.FailedToReadErr(params.ComponentName, endPosition.String(), err)
 		}
-		o := v.Orientation().OrientationVectorRadians()
+		o := v.Orientation().OrientationVectorDegrees()
 		return pb.GetEndPositionResponse{
 			Pose: &v1.Pose{
 				X:     v.Point().X,

@@ -49,7 +49,7 @@ func assertMovementSensor(resource interface{}) (MovementSensor, error) {
 	return ms, nil
 }
 
-func newPositionCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+func newLinearVelocityCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	ms, err := assertMovementSensor(resource)
 	if err != nil {
 		return nil, err
@@ -76,7 +76,7 @@ func newPositionCollector(resource interface{}, params data.CollectorParams) (da
 	return data.NewCollector(cFunc, params)
 }
 
-func newLinearVelocityCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+func newPositionCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	ms, err := assertMovementSensor(resource)
 	if err != nil {
 		return nil, err
