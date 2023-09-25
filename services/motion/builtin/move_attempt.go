@@ -52,10 +52,8 @@ func newMoveAttempt(ctx context.Context, request *moveRequest) *moveAttempt {
 		request:      request,
 		responseChan: make(chan moveResponse),
 
-		position: newReplanner(time.Duration(1000/request.config.PositionPollingFreqHz)*time.Millisecond,
-			request.deviatedFromPlan, "position", request.planRequest.Logger),
-		obstacle: newReplanner(time.Duration(1000/request.config.ObstaclePollingFreqHz)*time.Millisecond,
-			request.obstaclesIntersectPlan, "obstalce", request.planRequest.Logger),
+		position: newReplanner(time.Duration(1000/request.config.PositionPollingFreqHz)*time.Millisecond, request.deviatedFromPlan),
+		obstacle: newReplanner(time.Duration(1000/request.config.ObstaclePollingFreqHz)*time.Millisecond, request.obstaclesIntersectPlan),
 
 		waypointIndex: &waypointIndex,
 	}

@@ -688,6 +688,8 @@ func TestReplanning(t *testing.T) {
 	dst := geo.NewPoint(gpsOrigin.Lat(), gpsOrigin.Lng()+1e-5)
 	epsilonMM := 15.
 
+	visSvcs := []resource.Name{vision.Named("injectedVisionSvc")}
+
 	type testCase struct {
 		name           string
 		noise          r3.Vector
@@ -714,8 +716,7 @@ func TestReplanning(t *testing.T) {
 			noise:          r3.Vector{0, 0, 0},
 			expectedReplan: false,
 			cfg: &motion.MotionConfiguration{
-				PositionPollingFreqHz: 1, ObstaclePollingFreqHz: 100, PlanDeviationMM: epsilonMM,
-				VisionServices: []resource.Name{vision.Named("injectedVisionSvc")},
+				PositionPollingFreqHz: 1, ObstaclePollingFreqHz: 100, PlanDeviationMM: epsilonMM, VisionServices: visSvcs,
 			},
 			getPCfunc: func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
 				obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{-200, -200, 0})
@@ -733,8 +734,7 @@ func TestReplanning(t *testing.T) {
 			noise:          r3.Vector{0, 0, 0},
 			expectedReplan: true,
 			cfg: &motion.MotionConfiguration{
-				PositionPollingFreqHz: 1, ObstaclePollingFreqHz: 100, PlanDeviationMM: epsilonMM,
-				VisionServices: []resource.Name{vision.Named("injectedVisionSvc")},
+				PositionPollingFreqHz: 1, ObstaclePollingFreqHz: 100, PlanDeviationMM: epsilonMM, VisionServices: visSvcs,
 			},
 			getPCfunc: func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
 				obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{10, 0, 0})
