@@ -295,9 +295,7 @@ func (mp *tpSpaceRRTMotionPlanner) planRunner(
 				} else {
 					reachedDelta = mp.planOpts.goalMetric(&ik.State{Position: seedReached.node.Pose()})
 				}
-				fmt.Println(reachedDelta, seedReached.node.Pose().Point(), goalMapNode.Pose().Point())
 				if reachedDelta <= mp.algOpts.poseSolveDist {
-					fmt.Println("solved!")
 					// If we've reached the goal, extract the path from the RRT trees and return
 					path := extractPath(rrt.maps.startMap, rrt.maps.goalMap, &nodePair{a: seedReached.node, b: goalMapNode}, false)
 					paths = append(paths, path)
@@ -407,7 +405,6 @@ NODECHECK:
 	for _, subNode := range bestNodes {
 		subNodePose, err := curPtg.Transform(subNode.Q())
 		if err != nil {
-			fmt.Println("err1", err)
 			return nil, err
 		}
 		if invert {
@@ -420,7 +417,6 @@ NODECHECK:
 		// Check collisions along this traj and get the longest distance viable
 		trajK, err := curPtg.Trajectory(subNode.Q()[0].Value, subNode.Q()[1].Value)
 		if err != nil {
-			fmt.Println("err2", err)
 			return nil, err
 		}
 		finalTrajNode := trajK[len(trajK)-1]
@@ -440,11 +436,9 @@ NODECHECK:
 			sinceLastCollideCheck += math.Abs(trajPt.Dist - lastDist)
 			trajState := &ik.State{Position: spatialmath.Compose(arcStartPose, trajPt.Pose), Frame: mp.frame}
 			nodePose = trajState.Position
-			mp.logger.Debugf("$CHECKTREE,%f,%f\n", trajState.Position.Point().X, trajState.Position.Point().Y)
 			if sinceLastCollideCheck > mp.planOpts.Resolution {
 				ok, _ := mp.planOpts.CheckStateConstraints(trajState)
 				if !ok {
-					//~ fmt.Println("collide")
 					break NODECHECK
 				}
 				sinceLastCollideCheck = 0.
@@ -541,7 +535,6 @@ func (mp *tpSpaceRRTMotionPlanner) attemptExtension(
 				}
 			}
 		}
-		fmt.Println("got", len(candidates), "candidates")
 		var err error
 		reseedCandidate, err = mp.extendMap(ctx, candidates, rrt, invert)
 		if err != nil && !errors.Is(err, errNoCandidates) {
@@ -748,6 +741,7 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 		return path
 	}
 	smoothPlanner := smoothPlannerMP.(*tpSpaceRRTMotionPlanner)
+	smoothPlanner.algOpts.bidirectional = true
 	for i := 0; i < toIter; i++ {
 		select {
 		case <-ctx.Done():

@@ -4,7 +4,6 @@ package motionplan
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"math/rand"
 	"testing"
@@ -19,7 +18,7 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-var printPath = true
+var printPath = false
 
 const testTurnRad = 0.3
 
@@ -82,7 +81,6 @@ func TestPtgRrtBidirectional(t *testing.T) {
 			}
 		}
 	}
-	fmt.Println("planned, smoothing")
 	plan = tp.smoothPath(ctx, plan)
 	if tp.algOpts.pathdebug {
 		lastPose = spatialmath.NewZeroPose()
@@ -283,24 +281,24 @@ func TestPtgWithObstacle(t *testing.T) {
 			}
 		}
 	}
-	//~ plan = tp.smoothPath(ctx, plan)
-	//~ if tp.algOpts.pathdebug {
-		//~ lastPose = spatialmath.NewZeroPose()
-		//~ for _, mynode := range plan {
-			//~ trajPts, _ := allPtgs[int(mynode.Q()[0].Value)].Trajectory(mynode.Q()[1].Value, mynode.Q()[2].Value)
-			//~ for i, pt := range trajPts {
-				//~ intPose := spatialmath.Compose(lastPose, pt.Pose)
-				//~ if i == 0 {
-					//~ tp.logger.Debugf("$SMOOTHWP,%f,%f\n", intPose.Point().X, intPose.Point().Y)
-				//~ }
-				//~ tp.logger.Debugf("$SMOOTHPATH,%f,%f\n", intPose.Point().X, intPose.Point().Y)
-				//~ if pt.Dist >= mynode.Q()[2].Value {
-					//~ lastPose = intPose
-					//~ break
-				//~ }
-			//~ }
-		//~ }
-	//~ }
+	plan = tp.smoothPath(ctx, plan)
+	if tp.algOpts.pathdebug {
+		lastPose = spatialmath.NewZeroPose()
+		for _, mynode := range plan {
+			trajPts, _ := allPtgs[int(mynode.Q()[0].Value)].Trajectory(mynode.Q()[1].Value, mynode.Q()[2].Value)
+			for i, pt := range trajPts {
+				intPose := spatialmath.Compose(lastPose, pt.Pose)
+				if i == 0 {
+					tp.logger.Debugf("$SMOOTHWP,%f,%f\n", intPose.Point().X, intPose.Point().Y)
+				}
+				tp.logger.Debugf("$SMOOTHPATH,%f,%f\n", intPose.Point().X, intPose.Point().Y)
+				if pt.Dist >= mynode.Q()[2].Value {
+					lastPose = intPose
+					break
+				}
+			}
+		}
+	}
 }
 
 func TestTPsmoothing(t *testing.T) {

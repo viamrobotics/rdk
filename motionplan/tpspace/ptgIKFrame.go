@@ -3,7 +3,6 @@ package tpspace
 import (
 	"errors"
 	"math"
-	"fmt"
 
 	pb "go.viam.com/api/component/arm/v1"
 
@@ -66,23 +65,17 @@ func (pf *ptgIKFrame) Geometries(inputs []referenceframe.Input) (*referenceframe
 }
 
 func (pf *ptgIKFrame) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {
-	fmt.Println("inp", inputs)
 	if len(inputs) != len(pf.DoF()) && len(inputs) != 2 {
 		// We also want to always support 2 inputs
 		return nil, referenceframe.NewIncorrectInputLengthError(len(inputs), len(pf.DoF()))
 	}
-	p1, err := pf.PTG.Transform(inputs[:2])
-	if err != nil {
-		return nil, err
-	}
-	for i := 2; i < len(inputs); i += 2 {
-		if len(inputs) > 2 {
-			p2, err := pf.PTG.Transform(inputs[2:4])
-			if err != nil {
-				return nil, err
-			}
-			p1 = spatialmath.Compose(p1, p2)
+	p1 := spatialmath.NewZeroPose()
+	for i := 0; i < len(inputs); i += 2 {
+		p2, err := pf.PTG.Transform(inputs[i : i+2])
+		if err != nil {
+			return nil, err
 		}
+		p1 = spatialmath.Compose(p1, p2)
 	}
 	return p1, nil
 }

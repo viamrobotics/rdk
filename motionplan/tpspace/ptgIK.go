@@ -5,7 +5,6 @@ package tpspace
 import (
 	"context"
 	"errors"
-	"math"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -29,8 +28,8 @@ type ptgIK struct {
 
 	gridSim PTGSolver
 
-	mu        sync.RWMutex
-	trajCache map[float64][]*TrajNode
+	mu          sync.RWMutex
+	trajCache   map[float64][]*TrajNode
 	defaultSeed []referenceframe.Input
 }
 
@@ -53,12 +52,12 @@ func NewPTGIK(simPTG PTG, logger golog.Logger, refDist float64, randSeed, trajCo
 	if err != nil {
 		return nil, err
 	}
-	
+
 	inputs := []referenceframe.Input{}
 	for i := 0; i < trajCount; i++ {
 		inputs = append(inputs,
-			referenceframe.Input{math.Pi / 3},
-			referenceframe.Input{refDist / 20},
+			referenceframe.Input{0},
+			referenceframe.Input{refDist / 10},
 		)
 	}
 
@@ -85,7 +84,7 @@ func (ptg *ptgIK) Solve(
 	internalSolutionGen := make(chan *ik.Solution, 1)
 	defer close(internalSolutionGen)
 	var solved *ik.Solution
-	
+
 	if seed == nil {
 		seed = ptg.defaultSeed
 	}

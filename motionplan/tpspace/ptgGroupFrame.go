@@ -24,7 +24,7 @@ const (
 // If refDist is not explicitly set, default to pi radians times this adjustment value.
 const (
 	refDistHalfCircles = 0.9
-	defaultTrajCount   = 5
+	defaultTrajCount   = 3
 )
 
 type ptgFactory func(float64, float64) PTG
@@ -74,7 +74,7 @@ func NewPTGFrameFromKinematicOptions(
 	if diffDriveOnly && turnRadMeters != 0 {
 		return nil, errors.New("if diffDriveOnly is used, turning radius must be zero")
 	}
-	
+
 	if trajCount <= 0 {
 		trajCount = defaultTrajCount
 	}
