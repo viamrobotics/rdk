@@ -2,6 +2,7 @@ package navigation
 
 import (
 	"context"
+	"math"
 	"sync"
 	"time"
 
@@ -67,6 +68,12 @@ func (wp *Waypoint) ToPoint() *geo.Point {
 	return geo.NewPoint(wp.Lat, wp.Long)
 }
 
+// LatLongApproxEqual returns true if the lat / long of the waypoint is within a small epsilon of the parameter.
+func (wp *Waypoint) LatLongApproxEqual(wp2 Waypoint) bool {
+	const epsilon = 1e-16
+	return math.Abs(wp.Lat-wp2.Lat) < epsilon && math.Abs(wp.Long-wp2.Long) < epsilon
+}
+
 // NewMemoryNavigationStore returns and empty MemoryNavigationStore.
 func NewMemoryNavigationStore() *MemoryNavigationStore {
 	return &MemoryNavigationStore{}
@@ -119,7 +126,10 @@ func (store *MemoryNavigationStore) RemoveWaypoint(ctx context.Context, id primi
 	}
 	store.mu.Lock()
 	defer store.mu.Unlock()
-	newWps := make([]*Waypoint, 0, len(store.waypoints)-1)
+	// the math.Max is to avoid a panic if the store is already empty
+	// when RemoveWaypoint is called.
+	newCapacity := int(math.Max(float64(len(store.waypoints)-1), 0))
+	newWps := make([]*Waypoint, 0, newCapacity)
 	for _, wp := range store.waypoints {
 		if wp.ID == id {
 			continue

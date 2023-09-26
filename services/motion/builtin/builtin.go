@@ -12,8 +12,6 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 	servicepb "go.viam.com/api/service/motion/v1"
 
 	"go.viam.com/rdk/components/base"
@@ -29,6 +27,7 @@ import (
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 func init() {
@@ -83,30 +82,6 @@ func NewBuiltIn(ctx context.Context, deps resource.Dependencies, conf resource.C
 	return ms, nil
 }
 
-func newFilePathLoggerConfig(filepath string) zap.Config {
-	return zap.Config{
-		Level:    zap.NewAtomicLevelAt(zap.DebugLevel),
-		Encoding: "console",
-		EncoderConfig: zapcore.EncoderConfig{
-			TimeKey:        "ts",
-			LevelKey:       "level",
-			NameKey:        "logger",
-			CallerKey:      "caller",
-			FunctionKey:    zapcore.OmitKey,
-			MessageKey:     "msg",
-			StacktraceKey:  "stacktrace",
-			LineEnding:     zapcore.DefaultLineEnding,
-			EncodeLevel:    zapcore.CapitalColorLevelEncoder,
-			EncodeTime:     zapcore.ISO8601TimeEncoder,
-			EncodeDuration: zapcore.StringDurationEncoder,
-			EncodeCaller:   zapcore.ShortCallerEncoder,
-		},
-		DisableStacktrace: true,
-		OutputPaths:       []string{filepath, "stdout"},
-		ErrorOutputPaths:  []string{filepath, "stderr"},
-	}
-}
-
 // Reconfigure updates the motion service when the config has changed.
 func (ms *builtIn) Reconfigure(
 	ctx context.Context,
@@ -121,11 +96,11 @@ func (ms *builtIn) Reconfigure(
 		return err
 	}
 	if config.LogFilePath != "" {
-		logger, err := newFilePathLoggerConfig(config.LogFilePath).Build()
+		logger, err := rdkutils.NewFilePathDebugLogger(config.LogFilePath, "motion")
 		if err != nil {
 			return err
 		}
-		ms.logger = logger.Sugar().Named("motion")
+		ms.logger = logger
 	}
 	movementSensors := make(map[resource.Name]movementsensor.MovementSensor)
 	slamServices := make(map[resource.Name]slam.Service)
@@ -282,6 +257,16 @@ func (ms *builtIn) MoveOnGlobe(
 	motionCfg *motion.MotionConfiguration,
 	extra map[string]interface{},
 ) (bool, error) {
+	t := "MoveOnGlobe called for component: %s, destination: %+v, heading: %f, movementSensor: %s, obstacles: %v, motionCfg: %#v, extra: %s"
+	ms.logger.Debugf(t,
+		componentName,
+		destination,
+		heading,
+		movementSensorName,
+		obstacles,
+		motionCfg,
+		extra,
+	)
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
 
 	// ensure arguments are well behaved
@@ -321,13 +306,13 @@ func (ms *builtIn) MoveOnGlobe(
 
 		// once execution responds: return the result to the caller
 		case resp := <-ma.responseChan:
-			ms.logger.Debugf("execution complete: %#v", resp)
+			ms.logger.Debugf("execution completed: %s", resp)
 			ma.cancel()
 			return resp.success, resp.err
 
 		// if the position poller hit an error return it, otherwise replan
 		case resp := <-ma.position.responseChan:
-			ms.logger.Debugf("position response: %#v", resp)
+			ms.logger.Debugf("position response: %s", resp)
 			ma.cancel()
 			if resp.err != nil {
 				return false, resp.err
@@ -335,7 +320,7 @@ func (ms *builtIn) MoveOnGlobe(
 
 		// if the obstacle poller hit an error return it, otherwise replan
 		case resp := <-ma.obstacle.responseChan:
-			ms.logger.Debugf("obstacle response: %#v", resp)
+			ms.logger.Debugf("obstacle response: %s", resp)
 			ma.cancel()
 			if resp.err != nil {
 				return false, resp.err
