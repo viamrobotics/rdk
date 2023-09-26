@@ -20,8 +20,8 @@ type method int64
 
 const (
 	nextPointCloud method = iota
-	readImage      method = iota
-	readImages     method = iota
+	readImage
+	readImages
 )
 
 func (m method) String() string {
@@ -160,18 +160,17 @@ func newReadImagesCollector(resource interface{}, params data.CollectorParams) (
 
 		var imgsConverted []*pb.Image
 		for _, img := range imgs {
-			imgBytes, err := rimage.EncodeImage(ctx, img.Image, mimeStr.Value)
+			format, imgBytes, err := encodeImageFromUnderlyingType(ctx, img.Image)
 			if err != nil {
 				return nil, err
 			}
 			imgPb := &pb.Image{
 				SourceName: img.SourceName,
-				Format:     pb.Format_FORMAT_JPEG, // what should this be?
+				Format:     format,
 				Image:      imgBytes,
 			}
 			imgsConverted = append(imgsConverted, imgPb)
 		}
-
 		return pb.GetImagesResponse{
 			Images:           imgsConverted,
 			ResponseMetadata: res.AsProto(),
