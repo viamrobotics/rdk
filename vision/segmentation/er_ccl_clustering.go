@@ -9,7 +9,6 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/pointcloud"
 	pc "go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
@@ -139,8 +138,8 @@ func (erCCL *ErCCLConfig) ErCCLAlgorithm(ctx context.Context, src camera.VideoSo
 	return ApplyERCCLToPointCloud(ctx, cloud, erCCL)
 }
 
-// ApplyERCCLToPointCloud clusters a point cloud according to the ER-CCL algorithm
-func ApplyERCCLToPointCloud(ctx context.Context, cloud pointcloud.PointCloud, cfg *ErCCLConfig) ([]*vision.Object, error) {
+// ApplyERCCLToPointCloud clusters a point cloud according to the ER-CCL algorithm.
+func ApplyERCCLToPointCloud(ctx context.Context, cloud pc.PointCloud, cfg *ErCCLConfig) ([]*vision.Object, error) {
 	// run ransac, get pointcloud without ground plane
 	ps := NewPointCloudGroundPlaneSegmentation(cloud, cfg.MaxDistFromPlane, cfg.MinPtsInPlane, cfg.AngleTolerance, cfg.NormalVec)
 	// if there are found planes, remove them, and keep all the non-plane points

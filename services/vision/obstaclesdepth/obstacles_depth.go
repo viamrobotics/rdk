@@ -28,7 +28,7 @@ import (
 
 var model = resource.DefaultModelFamily.WithModel("obstacles_depth")
 
-// AngleToleranceDefault is the maximum incline the ground plane can have
+// AngleToleranceDefault is the maximum incline the ground plane can have.
 const AngleToleranceDefault = 30.0
 
 func init() {
