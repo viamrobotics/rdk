@@ -3,14 +3,13 @@ package camera
 import (
 	"bytes"
 	"context"
-	"fmt"
 
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
+	pb "go.viam.com/api/component/camera/v1"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
-	pb "go.viam.com/api/component/camera/v1"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
@@ -146,7 +145,7 @@ func newReadImagesCollector(resource interface{}, params data.CollectorParams) (
 
 		ctx = context.WithValue(ctx, data.FromDMContextKey{}, true)
 
-		imgs, _, err := camera.Images(ctx)
+		imgs, res, err := camera.Images(ctx)
 		if err != nil {
 			if errors.Is(err, data.ErrNoCaptureToStore) {
 				return nil, err
@@ -159,9 +158,24 @@ func newReadImagesCollector(resource interface{}, params data.CollectorParams) (
 			return nil, err
 		}
 
-		// Next question for Alexa - how to change `imgs` to the struct needed within GetImagesResponse
-		fmt.Sprint(imgs)
-		return pb.GetImagesResponse{}, nil
+		var imgsConverted []*pb.Image
+		for _, img := range imgs {
+			imgBytes, err := rimage.EncodeImage(ctx, img.Image, mimeStr.Value)
+			if err != nil {
+				return nil, err
+			}
+			imgPb := &pb.Image{
+				SourceName: img.SourceName,
+				Format:     pb.Format_FORMAT_JPEG, // what should this be?
+				Image:      imgBytes,
+			}
+			imgsConverted = append(imgsConverted, imgPb)
+		}
+
+		return pb.GetImagesResponse{
+			Images:           imgsConverted,
+			ResponseMetadata: res.AsProto(),
+		}, nil
 	})
 	return data.NewCollector(cFunc, params)
 }
