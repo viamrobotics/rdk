@@ -28,9 +28,6 @@ import (
 
 var model = resource.DefaultModelFamily.WithModel("obstacles_depth")
 
-// AngleToleranceDefault is the maximum incline the ground plane can have.
-const AngleToleranceDefault = 20.0
-
 func init() {
 	resource.RegisterService(svision.API, model, resource.Registration[svision.Service, *ObsDepthConfig]{
 		DeprecatedRobotConstructor: func(ctx context.Context, r any, c resource.Config, logger golog.Logger) (svision.Service, error) {
@@ -55,6 +52,7 @@ type ObsDepthConfig struct {
 	MaxDistFromPlane     float64 `json:"max_dist_from_plane_mm"`
 	ClusteringRadius     int     `json:"clustering_radius"`
 	ClusteringStrictness float64 `json:"clustering_strictness"`
+	AngleTolerance       float64 `json:"ground_angle_tolerance_degs"`
 }
 
 // obsDepth is the underlying struct actually used by the service.
@@ -81,7 +79,7 @@ func registerObstaclesDepth(
 		MinPtsInSegment:      conf.MinPtsInSegment,
 		MaxDistFromPlane:     conf.MaxDistFromPlane,
 		NormalVec:            r3.Vector{0, -1, 0},
-		AngleTolerance:       AngleToleranceDefault,
+		AngleTolerance:       conf.AngleTolerance,
 		ClusteringRadius:     conf.ClusteringRadius,
 		ClusteringStrictness: conf.ClusteringStrictness,
 	}
