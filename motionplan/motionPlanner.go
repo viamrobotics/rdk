@@ -387,6 +387,7 @@ IK:
 }
 
 // CheckPlan checks if obstacles intersect the trajectory of the frame following the plan.
+// We assume the errorState to remain constant for the duration of the plan.
 func CheckPlan(
 	checkFrame frame.Frame,
 	plan Plan,
@@ -427,15 +428,15 @@ func CheckPlan(
 	// The solver frame will have had its PTGs filled in the newPlanManager() call, if applicable.
 	relative := len(sf.PTGSolvers()) > 0
 
-	// where ought the robot be on the plan
-	pathPosition := spatialmath.PoseBetweenInverse(errorState, currentPosition)
-
 	if relative {
 		// get pose of robot along the current trajectory it is executing
 		lastPose, err := sf.Transform(currentInputs)
 		if err != nil {
 			return err
 		}
+
+		// where ought the robot be on the plan
+		pathPosition := spatialmath.PoseBetweenInverse(errorState, currentPosition)
 
 		// absolute pose of the previous node we've passed
 		formerRunningPose := spatialmath.PoseBetweenInverse(lastPose, pathPosition)
@@ -451,15 +452,9 @@ func CheckPlan(
 	planNodes = transformNodes(planNodes, errorState)
 
 	// pre-pend node with current position of robot to planNodes
-	// Note that currentPosition is assumed to have already accounted for the errorState
-	if relative {
-		planNodes = append([]node{&basicNode{pose: currentPosition, q: currentInputs}}, planNodes...)
-	} else {
-		// we adjust the current inputs if we are working with
-		currentInputs[0].Value = pathPosition.Point().X
-		currentInputs[1].Value = pathPosition.Point().Y
-		planNodes = append([]node{&basicNode{pose: currentPosition, q: currentInputs}}, planNodes...)
-	}
+	// Note that currentPosition is assumed to have accounted for the errorState
+	// Note that currentInputs is assumed to have NOT accounted for the errorState
+	planNodes = append([]node{&basicNode{pose: currentPosition, q: currentInputs}}, planNodes...)
 
 	// create constraints
 	if sfPlanner.planOpts, err = sfPlanner.plannerSetupFromMoveRequest(
@@ -514,8 +509,8 @@ func CheckPlan(
 			} else {
 				poseInPath = spatialmath.Compose(poseInPath, errorState)
 			}
-
 			modifiedSegment := &ik.State{Frame: sf, Position: poseInPath}
+			// check the state of the robot for collision
 			if isValid, _ := sfPlanner.planOpts.CheckStateConstraints(modifiedSegment); !isValid {
 				return fmt.Errorf("found collsion between positions %v and %v", currentPose.Point(), poseInPath.Point())
 			}

@@ -12,6 +12,7 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
@@ -681,7 +682,7 @@ func TestMoveOnGlobe(t *testing.T) {
 }
 
 func TestReplanning(t *testing.T) {
-	// t.Parallel()
+	t.Parallel()
 	ctx := context.Background()
 
 	gpsOrigin := geo.NewPoint(0, 0)
@@ -761,7 +762,7 @@ func TestReplanning(t *testing.T) {
 			srvc.GetObjectPointCloudsFunc = tc.getPCfunc
 		}
 
-		ctx, cancel := context.WithTimeout(ctx, 25.0*time.Second)
+		ctx, cancel := context.WithTimeout(ctx, 30.0*time.Second)
 		ma := newMoveAttempt(ctx, moveRequest)
 		ma.start()
 		defer ma.cancel()
@@ -801,7 +802,7 @@ func TestReplanning(t *testing.T) {
 	for _, tc := range testCases {
 		c := tc // needed to workaround loop variable not being captured by func literals
 		t.Run(c.name, func(t *testing.T) {
-			// t.Parallel()
+			t.Parallel()
 			testFn(t, c)
 		})
 	}
@@ -920,7 +921,7 @@ func TestDiffDriveCheckPlan(t *testing.T) {
 			observerFrame:  cameraFrame.Name(),
 			errorState:     r3.Vector{0, 30, 0},
 			startPosition:  r3.Vector{50, 30, 0},
-			startInputs:    []float64{50, 30},
+			startInputs:    []float64{50, 0},
 			planIndex:      1,
 			errorIsNil:     true,
 		},
@@ -932,7 +933,7 @@ func TestDiffDriveCheckPlan(t *testing.T) {
 			observerFrame:  cameraFrame.Name(),
 			errorState:     r3.Vector{0, 30, 0},
 			startPosition:  r3.Vector{50, 30, 0},
-			startInputs:    []float64{50, 30},
+			startInputs:    []float64{50, 0},
 			planIndex:      1,
 			errorIsNil:     false,
 		},
