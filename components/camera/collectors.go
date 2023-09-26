@@ -3,12 +3,14 @@ package camera
 import (
 	"bytes"
 	"context"
+	"fmt"
 
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
+	pb "go.viam.com/api/component/camera/v1"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
@@ -157,15 +159,9 @@ func newReadImagesCollector(resource interface{}, params data.CollectorParams) (
 			return nil, err
 		}
 
-		var imgsbytes []byte
-		for _, img := range imgs {
-			tobytes, err := rimage.EncodeImage(ctx, img.Image, mimeStr.Value)
-			if err != nil {
-				return nil, err
-			}
-			imgsbytes = append(imgsbytes, tobytes...)
-		}
-		return imgsbytes, nil
+		// Next question for Alexa - how to change `imgs` to the struct needed within GetImagesResponse
+		fmt.Sprint(imgs)
+		return pb.GetImagesResponse{}, nil
 	})
 	return data.NewCollector(cFunc, params)
 }
