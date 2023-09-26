@@ -33,6 +33,7 @@ import (
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/services/slam"
+	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/session"
 	"go.viam.com/rdk/utils"
 )
@@ -568,6 +569,7 @@ func (r *localRobot) getWeakDependencies(resName resource.Name, api resource.API
 	internalResources := map[resource.Name]resource.Resource{}
 	components := map[resource.Name]resource.Resource{}
 	slamServices := map[resource.Name]resource.Resource{}
+	visionServices := map[resource.Name]resource.Resource{}
 	for _, n := range r.manager.resources.Names() {
 		if !(n.API.IsComponent() || n.API.IsService()) {
 			continue
@@ -585,6 +587,8 @@ func (r *localRobot) getWeakDependencies(resName resource.Name, api resource.API
 			components[n] = res
 		case n.API.SubtypeName == slam.API.SubtypeName:
 			slamServices[n] = res
+		case n.API.SubtypeName == vision.API.SubtypeName:
+			visionServices[n] = res
 		case n.API.Type.Namespace == resource.APINamespaceRDKInternal:
 			internalResources[n] = res
 		}
@@ -605,6 +609,8 @@ func (r *localRobot) getWeakDependencies(resName resource.Name, api resource.API
 			match(components)
 		case internal.SLAMDependencyWildcardMatcher:
 			match(slamServices)
+		case internal.VisionDependencyWildcardMatcher:
+			match(visionServices)
 		default:
 			// no other matchers supported right now. you could imagine a LiteralMatcher in the future
 		}

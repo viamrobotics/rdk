@@ -42,6 +42,7 @@ func init() {
 			WeakDependencies: []internal.ResourceMatcher{
 				internal.SLAMDependencyWildcardMatcher,
 				internal.ComponentDependencyWildcardMatcher,
+				internal.VisionDependencyWildcardMatcher,
 			},
 		})
 }

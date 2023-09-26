@@ -201,7 +201,7 @@ func createMoveOnGlobeEnvironment(ctx context.Context, t *testing.T, origin *geo
 	injectedCamera := inject.NewCamera("injectedCamera")
 	cameraLink := referenceframe.NewLinkInFrame(
 		baseLink.Name(),
-		spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0}),
+		spatialmath.NewZeroPose(),
 		"injectedCamera",
 		cameraGeom,
 	)
@@ -681,7 +681,7 @@ func TestMoveOnGlobe(t *testing.T) {
 }
 
 func TestReplanning(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
 	ctx := context.Background()
 
 	gpsOrigin := geo.NewPoint(0, 0)
@@ -801,7 +801,7 @@ func TestReplanning(t *testing.T) {
 	for _, tc := range testCases {
 		c := tc // needed to workaround loop variable not being captured by func literals
 		t.Run(c.name, func(t *testing.T) {
-			t.Parallel()
+			// t.Parallel()
 			testFn(t, c)
 		})
 	}
