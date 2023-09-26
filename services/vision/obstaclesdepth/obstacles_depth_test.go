@@ -50,21 +50,16 @@ func (r fullReader) Close(ctx context.Context) error {
 }
 
 func TestObstacleDepth(t *testing.T) {
-	no := false
-	noIntrinsicsCfg := ObsDepthConfig{
-		Hmin:           defaultHmin,
-		Hmax:           defaultHmax,
-		ThetaMax:       defaultThetamax,
-		ReturnPCDs:     false,
-		WithGeometries: &no,
+	someIntrinsics := transform.PinholeCameraIntrinsics{
+		Fx:     604.5,
+		Fy:     609.6,
+		Ppx:    324.6,
+		Ppy:    238.9,
+		Width:  640,
+		Height: 480,
 	}
-	someIntrinsics := transform.PinholeCameraIntrinsics{Fx: 604.5, Fy: 609.6, Ppx: 324.6, Ppy: 238.9, Width: 640, Height: 480}
-	withIntrinsicsCfg := ObsDepthConfig{
-		Hmin:       defaultHmin,
-		Hmax:       defaultHmax,
-		ThetaMax:   defaultThetamax,
-		ReturnPCDs: true,
-	}
+	noIntrinsicsCfg := ObsDepthConfig{}
+	withIntrinsicsCfg := ObsDepthConfig{}
 
 	ctx := context.Background()
 	testLogger := golog.NewLogger("test")
@@ -125,7 +120,7 @@ func TestObstacleDepth(t *testing.T) {
 		obs, err := srv2.GetObjectPointClouds(ctx, "testCam", nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, obs, test.ShouldNotBeNil)
-		test.That(t, len(obs), test.ShouldEqual, defaultK)
+		test.That(t, len(obs), test.ShouldEqual, 1)
 		for _, o := range obs {
 			test.That(t, o.PointCloud, test.ShouldNotBeNil)
 			test.That(t, o.Geometry, test.ShouldNotBeNil)
@@ -134,13 +129,15 @@ func TestObstacleDepth(t *testing.T) {
 }
 
 func BenchmarkObstacleDepthIntrinsics(b *testing.B) {
-	someIntrinsics := transform.PinholeCameraIntrinsics{Fx: 604.5, Fy: 609.6, Ppx: 324.6, Ppy: 238.9, Width: 640, Height: 480}
-	withIntrinsicsCfg := ObsDepthConfig{
-		Hmin:       defaultHmin,
-		Hmax:       defaultHmax,
-		ThetaMax:   defaultThetamax,
-		ReturnPCDs: true,
+	someIntrinsics := transform.PinholeCameraIntrinsics{
+		Fx:     604.5,
+		Fy:     609.6,
+		Ppx:    324.6,
+		Ppy:    238.9,
+		Width:  640,
+		Height: 480,
 	}
+	withIntrinsicsCfg := ObsDepthConfig{}
 
 	ctx := context.Background()
 	testLogger := golog.NewLogger("test")
@@ -168,11 +165,7 @@ func BenchmarkObstacleDepthIntrinsics(b *testing.B) {
 }
 
 func BenchmarkObstacleDepthNoIntrinsics(b *testing.B) {
-	no := false
-	noIntrinsicsCfg := ObsDepthConfig{
-		ReturnPCDs:     false,
-		WithGeometries: &no,
-	}
+	noIntrinsicsCfg := ObsDepthConfig{}
 
 	ctx := context.Background()
 	testLogger := golog.NewLogger("test")
