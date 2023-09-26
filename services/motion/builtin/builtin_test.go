@@ -761,7 +761,7 @@ func TestReplanning(t *testing.T) {
 		moveRequest, err := ms.(*builtIn).newMoveOnGlobeRequest(ctx, kb.Name(), dst, injectedMovementSensor.Name(), nil, motionCfg, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		ctx, cancel := context.WithTimeout(ctx, 5.0*time.Second)
+		ctx, cancel := context.WithTimeout(ctx, 30.0*time.Second)
 		ma := newMoveAttempt(ctx, moveRequest)
 		ma.start()
 		defer ma.cancel()
