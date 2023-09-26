@@ -13,6 +13,7 @@ import (
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/control"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
@@ -71,6 +72,11 @@ type sensorBase struct {
 	allSensors  []movementsensor.MovementSensor
 	orientation movementsensor.MovementSensor
 	velocities  movementsensor.MovementSensor
+
+	lvctrl              *linearVelControllable
+	avctrl              *angularVelControllable
+	linearVelocityLoop  *control.Loop
+	angularVelocityLoop *control.Loop
 }
 
 func init() {
@@ -113,6 +119,8 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 	sb.velocities = nil
 	sb.orientation = nil
 	sb.controlledBase = nil
+	sb.avctrl = nil
+	sb.lvctrl = nil
 
 	for _, name := range newConf.MovementSensor {
 		ms, err := movementsensor.FromDependencies(deps, name)
@@ -151,6 +159,39 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 		return errors.Wrapf(err, "no base named (%s)", newConf.Base)
 	}
 
+	if sb.velocities != nil {
+		sb.lvctrl = &linearVelControllable{
+			sb: sb.controlledBase,
+			ms: sb.velocities,
+		}
+
+		lLoop, err := control.NewLoop(sb.logger, linearControlAttributes, sb.lvctrl)
+		if err != nil {
+			return err
+		}
+		sb.linearVelocityLoop = lLoop
+
+		if err := lLoop.Start(); err != nil {
+			return err
+		}
+
+		sb.avctrl = &angularVelControllable{
+			sb: sb.controlledBase,
+			ms: sb.velocities,
+		}
+
+		aLoop, err := control.NewLoop(sb.logger, angularControlAttributes, sb.avctrl)
+		if err != nil {
+			return err
+		}
+		sb.angularVelocityLoop = aLoop
+
+		if err := aLoop.Start(); err != nil {
+			return err
+		}
+
+	}
+
 	return nil
 }
 
@@ -176,33 +217,13 @@ func (sb *sensorBase) MoveStraight(
 	ctx, done := sb.opMgr.New(ctx)
 	defer done()
 	sb.setPolling(false)
+	if sb.angularVelocityLoop != nil {
+		sb.angularVelocityLoop.Stop()
+	}
+	if sb.linearVelocityLoop != nil {
+		sb.linearVelocityLoop.Stop()
+	}
 	return sb.controlledBase.MoveStraight(ctx, distanceMm, mmPerSec, extra)
-}
-
-func (sb *sensorBase) SetVelocity(
-	ctx context.Context, linear, angular r3.Vector, extra map[string]interface{},
-) error {
-	sb.opMgr.CancelRunning(ctx)
-	// check if a sensor context has been started
-	if sb.sensorLoopDone != nil {
-		sb.sensorLoopDone()
-	}
-
-	sb.setPolling(true)
-	// start a sensor context for the sensor loop based on the longstanding base
-	// creator context, and add a timeout for the context
-	timeOut := 10 * time.Second
-	var sensorCtx context.Context
-	sensorCtx, sb.sensorLoopDone = context.WithTimeout(context.Background(), timeOut)
-
-	if sb.velocities != nil {
-		sb.logger.Warn("not using sensor for SetVelocityfeedback, this feature will be implemented soon")
-		// TODO RSDK-3695 implement control loop here instead of placeholder sensor pllling function
-		sb.pollsensors(sensorCtx, extra)
-		return errors.New(
-			"setvelocity with sensor feedback not currently implemented, remove movement sensor reporting linear and angular velocity ")
-	}
-	return sb.controlledBase.SetVelocity(ctx, linear, angular, extra)
 }
 
 func (sb *sensorBase) pollsensors(ctx context.Context, extra map[string]interface{}) {
@@ -251,12 +272,24 @@ func (sb *sensorBase) SetPower(
 ) error {
 	sb.opMgr.CancelRunning(ctx)
 	sb.setPolling(false)
+	if sb.angularVelocityLoop != nil {
+		sb.angularVelocityLoop.Stop()
+	}
+	if sb.linearVelocityLoop != nil {
+		sb.linearVelocityLoop.Stop()
+	}
 	return sb.controlledBase.SetPower(ctx, linear, angular, extra)
 }
 
 func (sb *sensorBase) Stop(ctx context.Context, extra map[string]interface{}) error {
 	sb.opMgr.CancelRunning(ctx)
 	sb.setPolling(false)
+	if sb.angularVelocityLoop != nil {
+		sb.angularVelocityLoop.Stop()
+	}
+	if sb.linearVelocityLoop != nil {
+		sb.linearVelocityLoop.Stop()
+	}
 	return sb.controlledBase.Stop(ctx, extra)
 }
 
@@ -279,6 +312,14 @@ func (sb *sensorBase) Close(ctx context.Context) error {
 	// check if a sensor context is still alive
 	if sb.sensorLoopDone != nil {
 		sb.sensorLoopDone()
+	}
+
+	if sb.angularVelocityLoop != nil {
+		sb.angularVelocityLoop.Stop()
+	}
+
+	if sb.linearVelocityLoop != nil {
+		sb.linearVelocityLoop.Stop()
 	}
 
 	sb.activeBackgroundWorkers.Wait()
