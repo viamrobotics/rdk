@@ -646,7 +646,12 @@ func (manager *resourceManager) completeConfig(
 		case <-ctx.Done():
 			return
 		}
-	} // for-each resource name
+	}
+
+	robot.logger.Debug("Here I go exporting graphs again")
+	if err := manager.resources.Export(); err != nil {
+		robot.logger.Warn("Failed to generate graph!")
+	}
 }
 
 // cleanAppImageEnv attempts to revert environment variable changes so
