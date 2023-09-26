@@ -3,7 +3,6 @@ package sensorcontrolled
 
 import (
 	"context"
-	"math"
 	"sync"
 	"time"
 
@@ -24,8 +23,6 @@ const (
 	velocitiesPollTime = 5 * time.Millisecond
 	boundCheckTurn     = 2.0
 	boundCheckTarget   = 5.0
-	oneTurn            = 360.0
-	increment          = 0.01
 	sensorDebug        = false
 )
 
@@ -171,55 +168,6 @@ func (sb *sensorBase) isPolling() bool {
 	sb.sensorLoopMu.Lock()
 	defer sb.sensorLoopMu.Unlock()
 	return sb.sensorLoopPolling
-}
-
-// Spin commands a base to turn about its center at a angular speed and for a specific angle.
-func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
-	if int(angleDeg) >= 360 {
-		sb.setPolling(false)
-		sb.logger.Warn("feedback for spin calls over 360 not supported yet, spinning without sensor")
-		return sb.controlledBase.Spin(ctx, angleDeg, degsPerSec, nil)
-	}
-	ctx, done := sb.opMgr.New(ctx)
-	defer done()
-	// check if a sensor context has been started
-	if sb.sensorLoopDone != nil {
-		sb.sensorLoopDone()
-	}
-
-	sb.setPolling(true)
-	// start a sensor context for the sensor loop based on the longstanding base
-	// creator context
-	var sensorCtx context.Context
-	sensorCtx, sb.sensorLoopDone = context.WithCancel(context.Background())
-	if err := sb.stopSpinWithSensor(sensorCtx, angleDeg, degsPerSec); err != nil {
-		return err
-	}
-
-	// starts a goroutine from within wheeled base's runAll function to run motors in the background
-	if err := sb.startRunningMotors(ctx, angleDeg, degsPerSec); err != nil {
-		return err
-	}
-
-	// IsMoving returns true when moving, which is not a success condition for our control loop
-	baseStopped := func(ctx context.Context) (bool, error) {
-		moving, err := sb.IsMoving(ctx)
-		return !moving, err
-	}
-	return sb.opMgr.WaitForSuccess(
-		ctx,
-		yawPollTime,
-		baseStopped,
-	)
-}
-
-func (sb *sensorBase) startRunningMotors(ctx context.Context, angleDeg, degsPerSec float64) error {
-	if math.Signbit(angleDeg) != math.Signbit(degsPerSec) {
-		degsPerSec *= -1
-	}
-	return sb.controlledBase.SetVelocity(ctx,
-		r3.Vector{X: 0, Y: 0, Z: 0},
-		r3.Vector{X: 0, Y: 0, Z: degsPerSec}, nil)
 }
 
 func (sb *sensorBase) MoveStraight(

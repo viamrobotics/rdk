@@ -4,8 +4,7 @@ UNAME_M ?= $(shell uname -m)
 DPKG_ARCH ?= $(shell dpkg --print-architecture)
 APPIMAGE_ARCH ?= $(shell dpkg --print-architecture)
 
-appimage: NO_UPX=1
-appimage: # server-static
+appimage: server-static
 	cd etc/packaging/appimages && BUILD_CHANNEL=${BUILD_CHANNEL} UNAME_M=$(UNAME_M) DPKG_ARCH=$(DPKG_ARCH) appimage-builder --recipe viam-server.yml
 	if [ "${RELEASE_TYPE}" = "stable" ]; then \
 		cd etc/packaging/appimages; \
@@ -27,7 +26,7 @@ appimage-arm64:
 appimage-deploy:
 	gsutil -m -h "Cache-Control: no-cache" cp etc/packaging/appimages/deploy/* gs://packages.viam.com/apps/viam-server/
 
-static-release: server-static
+static-release: server-static-compressed
 	rm -rf etc/packaging/static/deploy/
 	mkdir -p etc/packaging/static/deploy/
 	cp $(BIN_OUTPUT_PATH)/viam-server etc/packaging/static/deploy/viam-server-${BUILD_CHANNEL}-`uname -m`

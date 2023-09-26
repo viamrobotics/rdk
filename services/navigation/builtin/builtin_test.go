@@ -161,7 +161,8 @@ func TestStartWaypoint(t *testing.T) {
 	options := kinematicbase.NewKinematicBaseOptions()
 	options.PositionOnlyMode = false
 
-	kinematicBase, err := kinematicbase.WrapWithFakeKinematics(ctx, fake, localizer, limits, options, nil)
+	// TODO: Test this with PTGs
+	kinematicBase, err := kinematicbase.WrapWithFakeDiffDriveKinematics(ctx, fake, localizer, limits, options, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	injectMovementSensor := inject.NewMovementSensor("test_movement")

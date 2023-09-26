@@ -11,7 +11,7 @@ import (
 
 // A Config describes the configuration of a board and all of its connected parts.
 type Config struct {
-	PinConfigFilePath string                         `json:"pin_config_file_path"`
+	BoardDefsFilePath string                         `json:"board_defs_file_path"`
 	I2Cs              []board.I2CConfig              `json:"i2cs,omitempty"`
 	SPIs              []board.SPIConfig              `json:"spis,omitempty"`
 	Analogs           []board.AnalogConfig           `json:"analogs,omitempty"`
@@ -20,7 +20,7 @@ type Config struct {
 
 // Validate ensures all parts of the config are valid.
 func (conf *Config) Validate(path string) ([]string, error) {
-	if _, err := os.Stat(conf.PinConfigFilePath); err != nil {
+	if _, err := os.Stat(conf.BoardDefsFilePath); err != nil {
 		return nil, err
 	}
 

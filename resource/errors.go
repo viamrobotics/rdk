@@ -3,6 +3,7 @@ package resource
 import (
 	"fmt"
 
+	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/utils"
@@ -70,9 +71,15 @@ func (e *mustRebuildError) Error() string {
 
 // NewBuildTimeoutError is used when a resource times out during construction or reconfiguration.
 func NewBuildTimeoutError(name Name) error {
+	timeout := utils.GetResourceConfigurationTimeout(golog.Global())
+	extraMsg := ""
+	if timeout == utils.DefaultResourceConfigurationTimeout {
+		extraMsg = fmt.Sprintf(" Update %s env variable to override", utils.ResourceConfigurationTimeoutEnvVar)
+	}
 	return fmt.Errorf(
-		"resource %s timed out during reconfigure. The default timeout is %v; update %s env variable to override",
-		name, utils.DefaultResourceConfigurationTimeout, utils.ResourceConfigurationTimeoutEnvVar)
+		"resource %s timed out after %v during reconfigure.%v",
+		name, timeout, extraMsg,
+	)
 }
 
 // DependencyNotFoundError is used when a resource is not found in a dependencies.

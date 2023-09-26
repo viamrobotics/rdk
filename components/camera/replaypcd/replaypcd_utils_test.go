@@ -1,8 +1,6 @@
 package replaypcd
 
 import (
-	"bytes"
-	"compress/gzip"
 	"context"
 	"fmt"
 	"math"
@@ -294,7 +292,7 @@ func getFile(i, end int) (int, error) {
 }
 
 // getCompressedBytesFromArtifact will return an array of bytes from the
-// provided artifact path, compressing them using gzip.
+// provided artifact path.
 func getCompressedBytesFromArtifact(inputPath string) ([]byte, error) {
 	artifactPath, err := artifact.Path(inputPath)
 	if err != nil {
@@ -306,12 +304,7 @@ func getCompressedBytesFromArtifact(inputPath string) ([]byte, error) {
 		return nil, ErrEndOfDataset
 	}
 
-	var dataBuf bytes.Buffer
-	gz := gzip.NewWriter(&dataBuf)
-	gz.Write(data)
-	gz.Close()
-
-	return dataBuf.Bytes(), nil
+	return data, nil
 }
 
 // getPointCloudFromArtifact will return a point cloud based on the provided artifact path.
