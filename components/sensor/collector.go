@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 
+	pb "go.viam.com/api/component/sensor/v1"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/data"
 )
@@ -22,17 +24,6 @@ func (m method) String() string {
 	return "Unknown"
 }
 
-// ReadingRecords a collection of ReadingRecord.
-type ReadingRecords struct {
-	Readings []ReadingRecord
-}
-
-// ReadingRecord a single analog reading.
-type ReadingRecord struct {
-	ReadingName string
-	Reading     interface{}
-}
-
 func newSensorCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	sensorResource, err := assertSensor(resource)
 	if err != nil {
@@ -40,7 +31,6 @@ func newSensorCollector(resource interface{}, params data.CollectorParams) (data
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, arg map[string]*anypb.Any) (interface{}, error) {
-		var records []ReadingRecord
 		values, err := sensorResource.Readings(ctx, data.FromDMExtraMap) // TODO (RSDK-1972): pass in something here from the config?
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
@@ -50,17 +40,17 @@ func newSensorCollector(resource interface{}, params data.CollectorParams) (data
 			}
 			return nil, data.FailedToReadErr(params.ComponentName, readings.String(), err)
 		}
+		readings := make(map[string]*structpb.Value)
 		for name, value := range values {
-			if len(arg) != 0 {
-				// If specific sensor reading names were passed in the robot config, report only those
-				// Otherwise, report all sensor values
-				if _, ok := arg[name]; !ok {
-					continue
-				}
+			val, err := structpb.NewValue(value)
+			if err != nil {
+				return nil, err
 			}
-			records = append(records, ReadingRecord{ReadingName: name, Reading: value})
+			readings[name] = val
 		}
-		return ReadingRecords{Readings: records}, nil
+		return pb.GetReadingsResponse{
+			Readings: readings,
+		}, nil
 	})
 	return data.NewCollector(cFunc, params)
 }
