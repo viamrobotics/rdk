@@ -41,7 +41,7 @@ type fullReader struct{}
 
 func (r fullReader) Read(ctx context.Context) (image.Image, func(), error) {
 	// We want this to return a valid depth image of known size (640 x 480)
-	pic, err := rimage.NewDepthMapFromFile(context.Background(), artifact.MustPath("vision/exampleDepth.png"))
+	pic, err := rimage.NewDepthMapFromFile(context.Background(), artifact.MustPath("pointcloud/the_depth_image_intel.png"))
 	return pic, nil, err
 }
 
@@ -51,15 +51,21 @@ func (r fullReader) Close(ctx context.Context) error {
 
 func TestObstacleDepth(t *testing.T) {
 	someIntrinsics := transform.PinholeCameraIntrinsics{
-		Fx:     604.5,
-		Fy:     609.6,
-		Ppx:    324.6,
-		Ppy:    238.9,
+		Fx:     608.2598,
+		Fy:     608.5544,
+		Ppx:    322.9593,
+		Ppy:    249.2670,
 		Width:  640,
 		Height: 480,
 	}
 	noIntrinsicsCfg := ObsDepthConfig{}
-	withIntrinsicsCfg := ObsDepthConfig{}
+	withIntrinsicsCfg := ObsDepthConfig{
+		MinPtsInPlane:        2000,
+		MinPtsInSegment:      500,
+		MaxDistFromPlane:     12.0,
+		ClusteringRadius:     10,
+		ClusteringStrictness: 0.0001,
+	}
 
 	ctx := context.Background()
 	testLogger := golog.NewLogger("test")
@@ -130,14 +136,20 @@ func TestObstacleDepth(t *testing.T) {
 
 func BenchmarkObstacleDepthIntrinsics(b *testing.B) {
 	someIntrinsics := transform.PinholeCameraIntrinsics{
-		Fx:     604.5,
-		Fy:     609.6,
-		Ppx:    324.6,
-		Ppy:    238.9,
+		Fx:     608.2598,
+		Fy:     608.5544,
+		Ppx:    322.9593,
+		Ppy:    249.2670,
 		Width:  640,
 		Height: 480,
 	}
-	withIntrinsicsCfg := ObsDepthConfig{}
+	withIntrinsicsCfg := ObsDepthConfig{
+		MinPtsInPlane:        2000,
+		MinPtsInSegment:      500,
+		MaxDistFromPlane:     12.0,
+		ClusteringRadius:     10,
+		ClusteringStrictness: 0.0001,
+	}
 
 	ctx := context.Background()
 	testLogger := golog.NewLogger("test")
