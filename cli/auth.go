@@ -321,6 +321,101 @@ func (c *viamClient) createOrganizationAPIKey(orgID, keyName string) (*apppb.Cre
 	return c.client.CreateKey(c.c.Context, req)
 }
 
+func (c *viamClient) RobotAPIKeyCreateAction(cCtx *cli.Context) error {
+	c, err := newViamClient(cCtx)
+	if err != nil {
+		return err
+	}
+	key, err := c.robotAPIKeyCreateAction(cCtx)
+	if err != nil {
+		return err
+	}
+	infof(cCtx.App.Writer, "Successfully created key:")
+	printf(cCtx.App.Writer, "Key ID: %s \n", key.GetId())
+	printf(cCtx.App.Writer, "Key Value: %s \n", key.GetId())
+	// do we want to show the name here?
+	// if we do we need to change the api call
+	return nil
+}
+
+func (c *viamClient) robotAPIKeyCreateAction(cCtx *cli.Context) (*apppb.CreateKeyResponse, error) {
+
+	if err := c.ensureLoggedIn(); err != nil {
+		return nil, err
+	}
+
+	robotID := cCtx.String(dataFlagRobotID)
+	keyName := cCtx.String(apiKeyCreateFlagName)
+	orgID := cCtx.String(dataFlagOrgID)
+
+	if robotID == "" {
+		return nil, errors.New("cannot create an api-key for a robot without an ID")
+	}
+
+	if keyName == "" {
+		// need to auto-generate something so its not "" as that is what it is when it's auto-generated
+		// on robot create
+		keyName = fmt.Sprintf("%s-%s", robotID, time.Now())
+	}
+
+	if orgID == "" {
+
+		// if there is only 1 org on the location then you can assume that that is the org-id
+		// and try to create a key using that org. If the user is not in the org to create the key, then it should
+		// not be able to create the key
+
+		robotResp, err := c.client.GetRobot(c.c.Context, &apppb.GetRobotRequest{
+			Id: robotID,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		if robotResp.GetRobot() == nil {
+			return nil, errors.New("cannot match a robot to this robotID")
+		}
+
+		locResp, err := c.client.GetLocation(c.c.Context, &apppb.GetLocationRequest{
+			LocationId: robotResp.Robot.Location,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		if locResp.GetLocation() == nil {
+			return nil, errors.New("err finding the org for robot: cannot find a location attached to this robot")
+		}
+
+		if len(locResp.Location.Organizations) > 1 {
+			return nil, errors.New("cannot create the robot api-key as there are multiple orgs on the location. Please re-run the command and specificy the orgID")
+		}
+
+		orgID = locResp.Location.Organizations[0].GetOrganizationId()
+		if orgID == "" {
+			return nil, errors.New("OrgID linked to the location is empty. Please re-run the command with an orgID")
+		}
+
+	}
+
+	req := &apppb.CreateKeyRequest{
+		Name: keyName,
+		Authorizations: []*apppb.Authorization{
+			{
+				AuthorizationType: "role",
+				AuthorizationId:   "robot_owner",
+				ResourceType:      "robot",
+				ResourceId:        robotID,
+				OrganizationId:    orgID,
+				IdentityType:      "api-key",
+				IdentityId:        "",
+			},
+		},
+	}
+
+	return c.client.CreateKey(c.c.Context, req)
+
+}
+
 func (c *viamClient) ensureLoggedIn() error {
 	if c.client != nil {
 		return nil

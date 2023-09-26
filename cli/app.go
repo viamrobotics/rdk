@@ -513,6 +513,32 @@ var app = &cli.App{
 					Action: ListRobotsAction,
 				},
 				{
+					Name:  "api-key",
+					Usage: "work with a robot's api keys",
+					Subcommands: []*cli.Command{
+						{
+							Name:  "create",
+							Usage: "create an api-key for your robot",
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     dataFlagRobotID,
+									Required: true,
+									Usage:    "The robot to create an api-key for",
+								},
+								&cli.StringFlag{
+									Name:  apiKeyCreateFlagName,
+									Usage: "the name of the key (defaults to robotID and timestamp at which the key was created)",
+								},
+								&cli.StringFlag{
+									Name:     dataFlagOrgID,
+									Required: true,
+									Usage:    "The OrgID to attach this api-key to. If left empty will default to the primary OrgID that is attached to the location of the robot.",
+								},
+							},
+						},
+					},
+				},
+				{
 					Name:      "status",
 					Usage:     "display robot status",
 					UsageText: "viam robots status <robot> [other options]",
