@@ -40,7 +40,8 @@ func (r testReader) Close(ctx context.Context) error {
 type fullReader struct{}
 
 func (r fullReader) Read(ctx context.Context) (image.Image, func(), error) {
-	// We want this to return a valid depth image of known size (640 x 480)
+	// We want this to return a valid depth image of known size (424 x 240)
+	// pic, err := rimage.NewDepthMapFromFile(context.Background(), artifact.MustPath("pointcloud/the_depth_image_intel.png"))
 	pic, err := rimage.NewDepthMapFromFile(context.Background(), artifact.MustPath("pointcloud/the_depth_image_intel_424.png"))
 	return pic, nil, err
 }
@@ -219,6 +220,7 @@ func BenchmarkObstacleDepthNoIntrinsics(b *testing.B) {
 	name := vision.Named("test")
 	srv, _ := registerObstaclesDepth(ctx, name, &noIntrinsicsCfg, r, testLogger)
 
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		srv.GetObjectPointClouds(ctx, "testCam", nil)
 	}
