@@ -20,6 +20,7 @@ type method int64
 const (
 	nextPointCloud method = iota
 	readImage      method = iota
+	readImages     method = iota
 )
 
 func (m method) String() string {
@@ -28,6 +29,8 @@ func (m method) String() string {
 		return "NextPointCloud"
 	case readImage:
 		return "ReadImage"
+	case readImages:
+		return "ReadImages"
 	}
 	return "Unknown"
 }
@@ -116,6 +119,53 @@ func newReadImageCollector(resource interface{}, params data.CollectorParams) (d
 			return nil, err
 		}
 		return outBytes, nil
+	})
+	return data.NewCollector(cFunc, params)
+}
+
+func newReadImagesCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+	camera, err := assertCamera(resource)
+	if err != nil {
+		return nil, err
+	}
+	// choose the best/fastest representation
+	mimeType := params.MethodParams["mime_type"]
+	if mimeType == nil {
+		// TODO: Potentially log the actual mime type at collector instantiation or include in response.
+		strWrapper := wrapperspb.String(utils.MimeTypeRawRGBA)
+		mimeType, err = anypb.New(strWrapper)
+		if err != nil {
+			return nil, err
+		}
+	}
+	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
+		_, span := trace.StartSpan(ctx, "camera::data::collector::CaptureFunc::ReadImage")
+		defer span.End()
+
+		ctx = context.WithValue(ctx, data.FromDMContextKey{}, true)
+
+		imgs, _, err := camera.Images(ctx)
+		if err != nil {
+			if errors.Is(err, data.ErrNoCaptureToStore) {
+				return nil, err
+			}
+			return nil, data.FailedToReadErr(params.ComponentName, readImages.String(), err)
+		}
+
+		mimeStr := new(wrapperspb.StringValue)
+		if err := mimeType.UnmarshalTo(mimeStr); err != nil {
+			return nil, err
+		}
+
+		var imgsbytes []byte
+		for _, img := range imgs {
+			tobytes, err := rimage.EncodeImage(ctx, img.Image, mimeStr.Value)
+			if err != nil {
+				return nil, err
+			}
+			imgsbytes = append(imgsbytes, tobytes...)
+		}
+		return imgsbytes, nil
 	})
 	return data.NewCollector(cFunc, params)
 }
