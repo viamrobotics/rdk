@@ -14,46 +14,6 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-func (sb *sensorBase) SetVelocity(
-	ctx context.Context, linear, angular r3.Vector, extra map[string]interface{},
-) error {
-	sb.opMgr.CancelRunning(ctx)
-	// check if a sensor context has been started
-	if sb.sensorLoopDone != nil {
-		sb.sensorLoopDone()
-	}
-
-	sb.setPolling(true)
-	// start a sensor context for the sensor loop based on the longstanding base
-	// creator context, and add a timeout for the context
-	timeOut := 10 * time.Second
-	var sensorCtx context.Context
-	sensorCtx, sb.sensorLoopDone = context.WithTimeout(context.Background(), timeOut)
-
-	if err := sb.angularVelocityLoop.Start(); err != nil {
-		return err
-	}
-
-	if err := sb.linearVelocityLoop.Start(); err != nil {
-		return err
-	}
-
-	if sb.velocities != nil {
-		sb.logger.Warn("not using sensor for SetVelocityfeedback, this feature will be implemented soon")
-		// TODO RSDK-3695 implement control loop here instead of placeholder sensor pllling function
-		sb.pollsensors(sensorCtx, extra)
-		if err := sb.angularVelocityLoop.Start(); err != nil {
-			return err
-		}
-		if err := sb.linearVelocityLoop.Start(); err != nil {
-			return err
-		}
-		return errors.New(
-			"setvelocity with sensor feedback not currently implemented, remove movement sensor reporting linear and angular velocity ")
-	}
-	return sb.controlledBase.SetVelocity(ctx, linear, angular, extra)
-}
-
 type linearVelControllable struct {
 	control.Controllable // is this necessary?
 	sb                   base.Base
@@ -94,7 +54,7 @@ func (l *angularVelControllable) State(ctx context.Context) (float64, error) {
 
 var linearControlAttributes = control.Config{
 	Blocks: []control.BlockConfig{
-		control.BlockConfig{
+		{
 			Name: "sensor-base",
 			Type: "endpoint",
 			Attribute: utils.AttributeMap{
@@ -102,7 +62,7 @@ var linearControlAttributes = control.Config{
 			},
 			DependsOn: []string{"PID"},
 		},
-		control.BlockConfig{
+		{
 			Name: "pid_block",
 			Type: "PID",
 			Attribute: utils.AttributeMap{
@@ -112,7 +72,7 @@ var linearControlAttributes = control.Config{
 			},
 			DependsOn: []string{"sumA"},
 		},
-		control.BlockConfig{
+		{
 			Name: "sumA",
 			Type: "sum",
 			Attribute: utils.AttributeMap{
@@ -120,7 +80,7 @@ var linearControlAttributes = control.Config{
 			},
 			DependsOn: []string{"sensor-base", "constant"},
 		},
-		control.BlockConfig{
+		{
 			Name: "sumA",
 			Type: "constant",
 			Attribute: utils.AttributeMap{
@@ -136,7 +96,7 @@ var linearControlAttributes = control.Config{
 // sends the SetState and State methods.
 var angularControlAttributes = control.Config{
 	Blocks: []control.BlockConfig{
-		control.BlockConfig{
+		{
 			Name: "sensor-base",
 			Type: "endpoint",
 			Attribute: utils.AttributeMap{
@@ -144,7 +104,7 @@ var angularControlAttributes = control.Config{
 			},
 			DependsOn: []string{"PID"},
 		},
-		control.BlockConfig{
+		{
 			Name: "pid_block",
 			Type: "PID",
 			Attribute: utils.AttributeMap{
@@ -154,7 +114,7 @@ var angularControlAttributes = control.Config{
 			},
 			DependsOn: []string{"sumA"},
 		},
-		control.BlockConfig{
+		{
 			Name: "sumA",
 			Type: "sum",
 			Attribute: utils.AttributeMap{
@@ -162,7 +122,7 @@ var angularControlAttributes = control.Config{
 			},
 			DependsOn: []string{"sensor-base", "constant"},
 		},
-		control.BlockConfig{
+		{
 			Name: "sumA",
 			Type: "constant",
 			Attribute: utils.AttributeMap{
