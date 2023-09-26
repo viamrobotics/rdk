@@ -83,9 +83,6 @@ type tpspaceOptions struct {
 	// Whether to attempt to solve with both trees simultaneously or just one
 	bidirectional bool
 
-	// random value to seed the IK solver. Can be anything in the middle of the valid manifold.
-	ikSeed []referenceframe.Input
-
 	goalMetricConstructor func(spatialmath.Pose) ik.StateMetric
 
 	// Cached functions for calculating TP-space distances for each PTG
@@ -141,13 +138,6 @@ func newTPSpaceMotionPlanner(
 	tpPlanner.setupTPSpaceOptions()
 	if opt.profile == PositionOnlyMotionProfile {
 		tpPlanner.algOpts.bidirectional = false
-	}
-
-	tpPlanner.algOpts.ikSeed = []referenceframe.Input{
-		{-math.Pi / 2},
-		{tpFrame.PTGSolvers()[0].MaxDistance() / 2},
-		{0},
-		{tpFrame.PTGSolvers()[0].MaxDistance() / 2},
 	}
 
 	return tpPlanner, nil
@@ -231,6 +221,7 @@ func (mp *tpSpaceRRTMotionPlanner) planRunner(
 	var randPosNode node = midptNode
 
 	for iter := 0; iter < mp.planOpts.PlanIter; iter++ {
+		mp.logger.Debugf("TP Space RRT iteration %d", iter)
 		if ctx.Err() != nil {
 			mp.logger.Debugf("TP Space RRT timed out after %d iterations", iter)
 			rrt.solutionChan <- &rrtPlanReturn{planerr: fmt.Errorf("TP Space RRT timeout %w", ctx.Err()), maps: rrt.maps}
@@ -304,7 +295,9 @@ func (mp *tpSpaceRRTMotionPlanner) planRunner(
 				} else {
 					reachedDelta = mp.planOpts.goalMetric(&ik.State{Position: seedReached.node.Pose()})
 				}
+				fmt.Println(reachedDelta, seedReached.node.Pose().Point(), goalMapNode.Pose().Point())
 				if reachedDelta <= mp.algOpts.poseSolveDist {
+					fmt.Println("solved!")
 					// If we've reached the goal, extract the path from the RRT trees and return
 					path := extractPath(rrt.maps.startMap, rrt.maps.goalMap, &nodePair{a: seedReached.node, b: goalMapNode}, false)
 					paths = append(paths, path)
@@ -386,7 +379,7 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 	mp.mu.Lock()
 	rseed := mp.randseed.Int()
 	mp.mu.Unlock()
-	err := curPtg.Solve(context.Background(), solutionChan, mp.algOpts.ikSeed, targetFunc, rseed)
+	err := curPtg.Solve(context.Background(), solutionChan, nil, targetFunc, rseed)
 
 	var bestNode *ik.Solution
 	select {
@@ -414,6 +407,7 @@ NODECHECK:
 	for _, subNode := range bestNodes {
 		subNodePose, err := curPtg.Transform(subNode.Q())
 		if err != nil {
+			fmt.Println("err1", err)
 			return nil, err
 		}
 		if invert {
@@ -426,6 +420,7 @@ NODECHECK:
 		// Check collisions along this traj and get the longest distance viable
 		trajK, err := curPtg.Trajectory(subNode.Q()[0].Value, subNode.Q()[1].Value)
 		if err != nil {
+			fmt.Println("err2", err)
 			return nil, err
 		}
 		finalTrajNode := trajK[len(trajK)-1]
@@ -445,9 +440,11 @@ NODECHECK:
 			sinceLastCollideCheck += math.Abs(trajPt.Dist - lastDist)
 			trajState := &ik.State{Position: spatialmath.Compose(arcStartPose, trajPt.Pose), Frame: mp.frame}
 			nodePose = trajState.Position
+			mp.logger.Debugf("$CHECKTREE,%f,%f\n", trajState.Position.Point().X, trajState.Position.Point().Y)
 			if sinceLastCollideCheck > mp.planOpts.Resolution {
 				ok, _ := mp.planOpts.CheckStateConstraints(trajState)
 				if !ok {
+					//~ fmt.Println("collide")
 					break NODECHECK
 				}
 				sinceLastCollideCheck = 0.
@@ -544,6 +541,7 @@ func (mp *tpSpaceRRTMotionPlanner) attemptExtension(
 				}
 			}
 		}
+		fmt.Println("got", len(candidates), "candidates")
 		var err error
 		reseedCandidate, err = mp.extendMap(ctx, candidates, rrt, invert)
 		if err != nil && !errors.Is(err, errNoCandidates) {
@@ -711,7 +709,7 @@ func (mp *tpSpaceRRTMotionPlanner) make2DTPSpaceDistanceOptions(ptg tpspace.PTGS
 			targetFunc = mp.algOpts.goalMetricConstructor(relPose)
 		}
 		solutionChan := make(chan *ik.Solution, 1)
-		err := ptg.Solve(context.Background(), solutionChan, mp.algOpts.ikSeed, targetFunc, randSeed.Int())
+		err := ptg.Solve(context.Background(), solutionChan, nil, targetFunc, randSeed.Int())
 
 		var closeNode *ik.Solution
 		select {

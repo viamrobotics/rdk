@@ -3,6 +3,7 @@ package tpspace
 import (
 	"errors"
 	"math"
+	"fmt"
 
 	pb "go.viam.com/api/component/arm/v1"
 
@@ -18,11 +19,11 @@ type ptgIKFrame struct {
 
 // NewPTGIKFrame will create a new frame intended to be passed to an Inverse Kinematics solver, allowing IK to solve for parameters
 // for the passed in PTG.
-func newPTGIKFrame(ptg PTG, count int, dist float64) referenceframe.Frame {
+func newPTGIKFrame(ptg PTG, trajCount int, dist float64) referenceframe.Frame {
 	pf := &ptgIKFrame{PTG: ptg}
 
 	limits := []referenceframe.Limit{}
-	for i := 0; i < count; i++ {
+	for i := 0; i < trajCount; i++ {
 		limits = append(limits,
 			referenceframe.Limit{Min: -math.Pi, Max: math.Pi},
 			referenceframe.Limit{Min: 0, Max: dist},
@@ -65,6 +66,11 @@ func (pf *ptgIKFrame) Geometries(inputs []referenceframe.Input) (*referenceframe
 }
 
 func (pf *ptgIKFrame) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {
+	fmt.Println("inp", inputs)
+	if len(inputs) != len(pf.DoF()) && len(inputs) != 2 {
+		// We also want to always support 2 inputs
+		return nil, referenceframe.NewIncorrectInputLengthError(len(inputs), len(pf.DoF()))
+	}
 	p1, err := pf.PTG.Transform(inputs[:2])
 	if err != nil {
 		return nil, err
