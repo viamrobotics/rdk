@@ -572,6 +572,7 @@ func TestWebWithBadAuthHandlers(t *testing.T) {
 }
 
 func TestWebReconfigure(t *testing.T) {
+	t.Parallel()
 	logger := golog.NewTestLogger(t)
 	ctx, robot := setupRobotCtx(t)
 

@@ -57,6 +57,7 @@ import (
 	"go.viam.com/rdk/robot/packages"
 	putils "go.viam.com/rdk/robot/packages/testutils"
 	"go.viam.com/rdk/robot/server"
+	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/datamanager/builtin"
@@ -762,6 +763,58 @@ func (da *dummyArm) DoCommand(ctx context.Context, cmd map[string]interface{}) (
 
 func (da *dummyArm) Close(ctx context.Context) error {
 	return nil
+}
+
+var pos = spatialmath.NewPoseFromPoint(r3.Vector{X: 1, Y: 2, Z: 3})
+
+const arm1String = "arm1"
+
+var resources = []resource.Name{arm.Named(arm1String)}
+
+func TestWebReconfigure2(t *testing.T) {
+	t.Parallel()
+	logger := golog.NewTestLogger(t)
+	ctx, robot := setupRobotCtx(t)
+
+	svc := web.New(robot, logger)
+
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+	err := svc.Start(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+
+	conn, err := rgrpc.Dial(context.Background(), addr, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	arm1, err := arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	arm1Position, err := arm1.EndPosition(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, arm1Position, test.ShouldResemble, pos)
+	test.That(t, conn.Close(), test.ShouldBeNil)
+	test.That(t, svc.Close(context.Background()), test.ShouldBeNil)
+}
+
+func setupRobotCtx(t *testing.T) (context.Context, robot.Robot) {
+	t.Helper()
+
+	injectArm := &inject.Arm{}
+	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
+		return pos, nil
+	}
+	injectRobot := &inject.Robot{}
+	injectRobot.ConfigFunc = func() *config.Config { return &config.Config{} }
+	injectRobot.ResourceNamesFunc = func() []resource.Name { return resources }
+	injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return nil }
+	injectRobot.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
+		return injectArm, nil
+	}
+	injectRobot.LoggerFunc = func() golog.Logger { return golog.NewTestLogger(t) }
+	injectRobot.FrameSystemConfigFunc = func(ctx context.Context) (*framesystem.Config, error) {
+		return &framesystem.Config{}, nil
+	}
+
+	return context.Background(), injectRobot
 }
 
 func TestStopAll(t *testing.T) {
