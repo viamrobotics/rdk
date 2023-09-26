@@ -29,7 +29,7 @@ import (
 var model = resource.DefaultModelFamily.WithModel("obstacles_depth")
 
 // AngleToleranceDefault is the maximum incline the ground plane can have.
-const AngleToleranceDefault = 30.0
+const AngleToleranceDefault = 20.0
 
 func init() {
 	resource.RegisterService(svision.API, model, resource.Registration[svision.Service, *ObsDepthConfig]{
