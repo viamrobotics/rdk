@@ -10,9 +10,7 @@ script:
  - cp ./install ./postupdate "$TARGET_APPDIR/aix.d/"
  - chmod 755 "$TARGET_APPDIR/aix.d/install" "$TARGET_APPDIR/aix.d/postupdate"
  - cp ./viam-server.service "$TARGET_APPDIR/"
- - go install -ldflags "-s -w" -tags osusergo,netgo github.com/Otterverse/aix@latest
- - cp `go env GOPATH`/bin/aix "$TARGET_APPDIR/usr/bin/"
- - cp `which env` "$TARGET_APPDIR/usr/bin/"
+ - cp ../../../bin/Linux-${UNAME_M}/aix $TARGET_APPDIR/usr/bin
  - chmod 755 "$TARGET_APPDIR/usr/bin/"*
 
 AppDir:
@@ -46,5 +44,5 @@ AppDir:
     env:
         AIX_TARGET: usr/bin/viam-server
 AppImage:
-  arch: ${UNAME_M}
+  arch: ${APPIMAGE_ARCH}
   update-information: zsync|https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${BUILD_CHANNEL}-${UNAME_M}.AppImage.zsync

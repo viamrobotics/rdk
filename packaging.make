@@ -1,13 +1,15 @@
 BUILD_CHANNEL?=local
 # note: UNAME_M is overrideable because it is wrong in 32-bit arm container executing natively on 64-bit arm
-UNAME_M=$(shell uname -m)
+UNAME_M ?= $(shell uname -m)
+DPKG_ARCH ?= $(shell dpkg --print-architecture)
+APPIMAGE_ARCH ?= $(shell dpkg --print-architecture)
 
 appimage: NO_UPX=1
-appimage: server-static
-	cd etc/packaging/appimages && BUILD_CHANNEL=${BUILD_CHANNEL} UNAME_M=$(UNAME_M) DPKG_ARCH=`dpkg --print-architecture` appimage-builder --recipe viam-server.yml
+appimage: # server-static
+	cd etc/packaging/appimages && BUILD_CHANNEL=${BUILD_CHANNEL} UNAME_M=$(UNAME_M) DPKG_ARCH=$(DPKG_ARCH) appimage-builder --recipe viam-server.yml
 	if [ "${RELEASE_TYPE}" = "stable" ]; then \
 		cd etc/packaging/appimages; \
-		BUILD_CHANNEL=stable UNAME_M=$(UNAME_M) DPKG_ARCH=`dpkg --print-architecture` appimage-builder --recipe viam-server.yml; \
+		BUILD_CHANNEL=stable UNAME_M=$(UNAME_M) DPKG_ARCH=$(DPKG_ARCH) appimage-builder --recipe viam-server.yml; \
 	fi
 	mkdir -p etc/packaging/appimages/deploy/
 	mv etc/packaging/appimages/*.AppImage* etc/packaging/appimages/deploy/
