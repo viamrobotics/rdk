@@ -140,7 +140,7 @@ func newReadImagesCollector(resource interface{}, params data.CollectorParams) (
 		}
 	}
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
-		_, span := trace.StartSpan(ctx, "camera::data::collector::CaptureFunc::ReadImage")
+		_, span := trace.StartSpan(ctx, "camera::data::collector::CaptureFunc::ReadImages")
 		defer span.End()
 
 		ctx = context.WithValue(ctx, data.FromDMContextKey{}, true)
