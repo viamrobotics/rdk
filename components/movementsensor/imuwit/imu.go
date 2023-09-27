@@ -124,26 +124,59 @@ func (imu *wit) getMagnetometer() (r3.Vector, error) {
 }
 
 func (imu *wit) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
+	var err error
+
 	imu.mu.Lock()
 	defer imu.mu.Unlock()
 
-	var err error
-	// this only works when the imu is level to the surface of the earth, no inclines
+	// this will compensate for a tilted IMU if the tilt is less than 45 degrees
 	// do not let the imu near permanent magnets or things that make a strong magnetic field
-	imu.compassheading = calculateCompassHeading(imu.magnetometer.X, imu.magnetometer.Y)
+	imu.compassheading = imu.calculateCompassHeading()
 
 	return imu.compassheading, err
 }
 
-func calculateCompassHeading(x, y float64) float64 {
+// Helper function to calculate compass heading with tilt compensation.
+func (imu *wit) calculateCompassHeading() float64 {
+	pitch := imu.orientation.Pitch
+	roll := -imu.orientation.Roll
+	var x, y float64
+
+	// Tilt compensation only works if the pitch and roll are between -45 and 45 degrees.
+	if roll >= -0.785 && roll <= 0.785 && pitch >= -0.785 && pitch <= 0.785 {
+		x, y = imu.calculateTiltCompensation(roll, pitch)
+	} else {
+		x = imu.magnetometer.X
+		y = imu.magnetometer.Y
+	}
+
 	// calculate -180 to 180 heading from radians
 	// North (y) is 0 so  the π/2 - atan2(y, x) identity is used
-	// directl
+	// directly
 	rad := math.Atan2(y, x) // -180 to 180 heading
 	compass := rutils.RadToDeg(rad)
 	compass = math.Mod(compass, 360)
 	compass = math.Mod(compass+360, 360)
-	return compass // change domain to 0 to 360
+
+	rad2 := math.Atan2(imu.magnetometer.Y, imu.magnetometer.X) // -180 to 180 heading
+	compass2 := rutils.RadToDeg(rad2)
+	compass2 = math.Mod(compass2, 360)
+	compass2 = math.Mod(compass2+360, 360)
+
+	fmt.Printf("compoensated: %f\n", compass)
+	fmt.Printf("orginal: %f\n", compass2)
+
+	return compass
+
+}
+
+func (imu *wit) calculateTiltCompensation(roll, pitch float64) (float64, float64) {
+
+	// calculate adjusted magnetometer readings
+	xComp := imu.magnetometer.X*math.Cos(pitch) + imu.magnetometer.Z*math.Sin(pitch)
+	yComp := imu.magnetometer.X*math.Sin(roll)*math.Sin(pitch) + imu.magnetometer.Y*math.Cos(roll) - imu.magnetometer.Z*math.Sin(roll)*math.Cos(pitch)
+
+	return xComp, yComp
 }
 
 func (imu *wit) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
