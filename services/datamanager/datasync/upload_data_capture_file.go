@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/docker/go-units"
+	"github.com/google/martian/log"
 	mapstructure "github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
@@ -71,6 +72,7 @@ func uploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient,
 			if err := helperUploadDataCaptureFile(ctx, client, newUploadMD, newSensorData, partID, f.Size()); err != nil {
 				return err
 			}
+			log.Info("GetImages uploaded, I think.")
 		}
 	} else {
 		// Build UploadMetadata
@@ -84,7 +86,10 @@ func uploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient,
 			FileExtension:    md.GetFileExtension(),
 			Tags:             md.GetTags(),
 		}
-		helperUploadDataCaptureFile(ctx, client, uploadMD, sensorData, partID, f.Size())
+		if err := helperUploadDataCaptureFile(ctx, client, uploadMD, sensorData, partID, f.Size()); err != nil {
+			return err
+		}
+		log.Info("Something else uploaded, I think.")
 	}
 	return nil
 }
