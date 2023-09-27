@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	// default configuration for Store parameter
+	// default configuration for Store parameter.
 	defaultStoreType = navigation.StoreTypeMemory
 
 	// desired speeds to maintain for the base.

@@ -54,6 +54,7 @@ func (config *StoreConfig) Validate(path string) error {
 	return nil
 }
 
+// NewStoreFromConfig builds a NavStore from the provided StoreConfig and returns it.
 func NewStoreFromConfig(ctx context.Context, conf StoreConfig) (NavStore, error) {
 	switch conf.Type {
 	case StoreTypeMemory:
