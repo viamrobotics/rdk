@@ -34,10 +34,6 @@ func uploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient,
 
 	if md.GetType() == v1.DataType_DATA_TYPE_BINARY_SENSOR && md.GetMethodName() == "GetImages" {
 
-		if len(sensorData) > 1 {
-			return errors.New("binary sensor data file with more than one sensor reading is not supported")
-		}
-
 		// Pull timestamps out of metadata
 		timeReq := sensorData[0].GetMetadata().GetTimeRequested()
 		timeRec := sensorData[0].GetMetadata().GetTimeReceived()
