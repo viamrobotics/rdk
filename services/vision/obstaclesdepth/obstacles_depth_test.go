@@ -75,7 +75,7 @@ func TestObstacleDepth(t *testing.T) {
 		MinPtsInSegment:      500,
 		MaxDistFromPlane:     12.0,
 		ClusteringRadius:     10,
-		ClusteringStrictness: 0.0001,
+		ClusteringStrictness: 0.00000001,
 	}
 
 	ctx := context.Background()
@@ -83,16 +83,20 @@ func TestObstacleDepth(t *testing.T) {
 	r := &inject.Robot{ResourceNamesFunc: func() []resource.Name {
 		return []resource.Name{camera.Named("testCam"), camera.Named("noIntrinsicsCam")}
 	}}
-	tr := testReader{}
+	// camera with intrinsics
+	fr := fullReader{}
 	syst := transform.PinholeCameraModel{&someIntrinsics, nil}
-	myCamSrcIntrinsics, err := camera.NewVideoSourceFromReader(ctx, tr, &syst, camera.DepthStream)
+	myCamSrcIntrinsics, err := camera.NewVideoSourceFromReader(ctx, fr, &syst, camera.DepthStream)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, myCamSrcIntrinsics, test.ShouldNotBeNil)
+	myIntrinsicsCam := camera.FromVideoSource(resource.Name{Name: "testCam"}, myCamSrcIntrinsics)
+	// camera without intrinsics
+	tr := testReader{}
 	myCamSrcNoIntrinsics, err := camera.NewVideoSourceFromReader(ctx, tr, nil, camera.DepthStream)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, myCamSrcNoIntrinsics, test.ShouldNotBeNil)
-	myIntrinsicsCam := camera.FromVideoSource(resource.Name{Name: "testCam"}, myCamSrcIntrinsics)
 	noIntrinsicsCam := camera.FromVideoSource(resource.Name{Name: "noIntrinsicsCam"}, myCamSrcNoIntrinsics)
+	// set up the fake robot
 	r.ResourceByNameFunc = func(n resource.Name) (resource.Resource, error) {
 		switch n.Name {
 		case "testCam":
@@ -137,7 +141,7 @@ func TestObstacleDepth(t *testing.T) {
 		obs, err := srv2.GetObjectPointClouds(ctx, "testCam", nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, obs, test.ShouldNotBeNil)
-		test.That(t, len(obs), test.ShouldEqual, 1)
+		test.That(t, len(obs), test.ShouldEqual, 2)
 		for _, o := range obs {
 			test.That(t, o.PointCloud, test.ShouldNotBeNil)
 			test.That(t, o.Geometry, test.ShouldNotBeNil)
