@@ -42,7 +42,7 @@ func uploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient,
 		var getImgsRes pb.GetImagesResponse
 		mp := sensorData[0].GetStruct().AsMap() // This is a GetImagesResponse, need to cast structpb to correct type
 		if err := mapstructure.Decode(mp, &getImgsRes); err != nil {
-			return nil
+			return err
 		}
 
 		for _, img := range getImgsRes.Images {
@@ -174,6 +174,8 @@ func getFileExtFromImageFormat(res pb.Format) string {
 		return ".depth"
 	case pb.Format_FORMAT_RAW_RGBA:
 		return ".rgba"
+	case pb.Format_FORMAT_UNSPECIFIED:
+		fallthrough
 	default:
 		return defaultFileExt
 	}
