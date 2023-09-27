@@ -4,6 +4,7 @@ package universalrobots
 import (
 	"bufio"
 	"context"
+
 	// for embedding model file.
 	_ "embed"
 	"encoding/binary"
@@ -21,6 +22,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/arm/v1"
+	rdkutils "go.viam.com/rdk/utils"
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/arm"
@@ -46,7 +48,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 	if cfg.Host == "" {
 		return nil, goutils.NewConfigValidationFieldRequiredError(path, "host")
 	}
-	if cfg.Speed > 1 || cfg.Speed < .1 {
+	if cfg.Speed > 180 || cfg.Speed < 18 {
 		return nil, errors.New("speed for universalrobots has to be between .1 and 1")
 	}
 	return []string{}, nil
@@ -165,10 +167,6 @@ func URArmConnect(ctx context.Context, conf resource.Config, logger golog.Logger
 		return nil, err
 	}
 
-	if newConf.Speed > 1 || newConf.Speed < .1 {
-		return nil, errors.New("speed for universalrobots has to be between .1 and 1")
-	}
-
 	model, err := MakeModelFrame(conf.Name)
 	if err != nil {
 		return nil, err
@@ -188,7 +186,7 @@ func URArmConnect(ctx context.Context, conf resource.Config, logger golog.Logger
 	newArm := &URArm{
 		Named:                    conf.ResourceName().AsNamed(),
 		connControl:              nil,
-		speed:                    newConf.Speed,
+		speed:                    rdkutils.DegToRad(newConf.Speed),
 		debug:                    false,
 		haveData:                 false,
 		logger:                   logger,
