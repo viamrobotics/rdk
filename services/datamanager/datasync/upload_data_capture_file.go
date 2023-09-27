@@ -28,6 +28,10 @@ func uploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient,
 		return nil
 	}
 
+	if md.GetType() == v1.DataType_DATA_TYPE_BINARY_SENSOR && len(sensorData) > 1 {
+		return errors.New("binary sensor data file with more than one sensor reading is not supported")
+	}
+
 	if md.GetType() == v1.DataType_DATA_TYPE_BINARY_SENSOR && md.GetMethodName() == "GetImages" {
 
 		if len(sensorData) > 1 {
@@ -35,23 +39,22 @@ func uploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient,
 		}
 
 		// Pull timestamps out of metadata
-		treq := sensorData[0].GetMetadata().GetTimeRequested()
-		trec := sensorData[0].GetMetadata().GetTimeReceived()
+		timeReq := sensorData[0].GetMetadata().GetTimeRequested()
+		timeRec := sensorData[0].GetMetadata().GetTimeReceived()
 
 		// Convert SensorData into a GetImagesResponse
-		var getimgsres pb.GetImagesResponse
-		spbstruct := sensorData[0].GetStruct() // This is a GetImagesResponse, need to cast structpb to correct type
-		mp := spbstruct.AsMap()
-		if err := mapstructure.Decode(mp, &getimgsres); err != nil {
+		var getImgsRes pb.GetImagesResponse
+		mp := sensorData[0].GetStruct().AsMap() // This is a GetImagesResponse, need to cast structpb to correct type
+		if err := mapstructure.Decode(mp, &getImgsRes); err != nil {
 			return nil
 		}
 
-		for _, img := range getimgsres.Images {
+		for _, img := range getImgsRes.Images {
 			newSensorData := []*v1.SensorData{
 				{
 					Metadata: &v1.SensorMetadata{
-						TimeRequested: treq,
-						TimeReceived:  trec,
+						TimeRequested: timeReq,
+						TimeReceived:  timeRec,
 					},
 					Data: &v1.SensorData_Binary{
 						Binary: img.GetImage(),
@@ -68,9 +71,7 @@ func uploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient,
 				FileExtension:    getFileExtFromImageFormat(img.GetFormat()),
 				Tags:             md.GetTags(),
 			}
-			if err := helperUploadDataCaptureFile(ctx, client, newUploadMD, newSensorData, partID, f.Size()); err != nil {
-				return err
-			}
+			return uploadSensorData(ctx, client, newUploadMD, newSensorData, f.Size())
 		}
 	} else {
 		// Build UploadMetadata
@@ -84,21 +85,15 @@ func uploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient,
 			FileExtension:    md.GetFileExtension(),
 			Tags:             md.GetTags(),
 		}
-		if err := helperUploadDataCaptureFile(ctx, client, uploadMD, sensorData, partID, f.Size()); err != nil {
-			return err
-		}
+		return uploadSensorData(ctx, client, uploadMD, sensorData, f.Size())
 	}
 	return nil
 }
 
-func helperUploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient, uploadMD *v1.UploadMetadata, sensorData []*v1.SensorData, partID string, fileSize int64) error {
+func uploadSensorData(ctx context.Context, client v1.DataSyncServiceClient, uploadMD *v1.UploadMetadata, sensorData []*v1.SensorData, fileSize int64) error {
 
 	// If it's a large binary file, we need to upload it in chunks.
 	if uploadMD.GetType() == v1.DataType_DATA_TYPE_BINARY_SENSOR && fileSize > MaxUnaryFileSize {
-
-		if len(sensorData) > 1 {
-			return errors.New("binary sensor data file with more than one sensor reading is not supported")
-		}
 
 		c, err := client.StreamingDataCaptureUpload(ctx)
 		if err != nil {
