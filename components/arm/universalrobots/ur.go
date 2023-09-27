@@ -420,8 +420,8 @@ func (ua *URArm) MoveToJointPositionRadians(ctx context.Context, radians []float
 		radians[3],
 		radians[4],
 		radians[5],
-		5.0*ua.speed,
-		4.0*ua.speed,
+		ua.speed,
+		ua.speed,
 	)
 
 	_, err := ua.connControl.Write([]byte(cmd))
