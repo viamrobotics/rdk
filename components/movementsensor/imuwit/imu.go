@@ -46,6 +46,9 @@ var model = resource.DefaultModelFamily.WithModel("imu-wit")
 
 var baudRateList = []uint{115200, 9600, 0}
 
+// max tilt to use tilt compensation is 45 degrees.
+var maxTiltInRad = rutils.DegToRad(45)
+
 // Config is used for converting a witmotion IMU MovementSensor config attributes.
 type Config struct {
 	Port     string `json:"serial_path"`
@@ -144,7 +147,7 @@ func (imu *wit) calculateCompassHeading() float64 {
 	var x, y float64
 
 	// Tilt compensation only works if the pitch and roll are between -45 and 45 degrees.
-	if roll >= -0.785 && roll <= 0.785 && pitch >= -0.785 && pitch <= 0.785 {
+	if math.Abs(roll) <= maxTiltInRad && math.Abs(pitch) <= maxTiltInRad {
 		x, y = imu.calculateTiltCompensation(roll, pitch)
 	} else {
 		x = imu.magnetometer.X
@@ -157,13 +160,13 @@ func (imu *wit) calculateCompassHeading() float64 {
 	rad := math.Atan2(y, x) // -180 to 180 heading
 	compass := rutils.RadToDeg(rad)
 	compass = math.Mod(compass, 360)
-	compass = math.Mod(compass+360, 360)
+	compass = math.Mod(compass+360, 360) // compass 0 to 360
 
 	return compass
 }
 
 func (imu *wit) calculateTiltCompensation(roll, pitch float64) (float64, float64) {
-	// calculate adjusted magnetometer readings
+	// calculate adjusted magnetometer readings. These get less accurate as the tilt angle increases.
 	xComp := imu.magnetometer.X*math.Cos(pitch) + imu.magnetometer.Z*math.Sin(pitch)
 	yComp := imu.magnetometer.X*math.Sin(roll)*math.Sin(pitch) +
 		imu.magnetometer.Y*math.Cos(roll) - imu.magnetometer.Z*math.Sin(roll)*math.Cos(pitch)
