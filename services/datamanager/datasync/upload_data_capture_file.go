@@ -169,7 +169,7 @@ func getFileExtFromImageFormat(res pb.Format) string {
 	case pb.Format_FORMAT_PNG:
 		return ".png"
 	case pb.Format_FORMAT_RAW_DEPTH:
-		return ".depth"
+		return ".dep"
 	case pb.Format_FORMAT_RAW_RGBA:
 		return ".rgba"
 	case pb.Format_FORMAT_UNSPECIFIED:
