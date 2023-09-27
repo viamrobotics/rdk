@@ -139,7 +139,8 @@ func (imu *wit) CompassHeading(ctx context.Context, extra map[string]interface{}
 // Helper function to calculate compass heading with tilt compensation.
 func (imu *wit) calculateCompassHeading() float64 {
 	pitch := imu.orientation.Pitch
-	roll := -imu.orientation.Roll
+	roll := imu.orientation.Roll
+
 	var x, y float64
 
 	// Tilt compensation only works if the pitch and roll are between -45 and 45 degrees.
@@ -157,14 +158,6 @@ func (imu *wit) calculateCompassHeading() float64 {
 	compass := rutils.RadToDeg(rad)
 	compass = math.Mod(compass, 360)
 	compass = math.Mod(compass+360, 360)
-
-	rad2 := math.Atan2(imu.magnetometer.Y, imu.magnetometer.X) // -180 to 180 heading
-	compass2 := rutils.RadToDeg(rad2)
-	compass2 = math.Mod(compass2, 360)
-	compass2 = math.Mod(compass2+360, 360)
-
-	fmt.Printf("compoensated: %f\n", compass)
-	fmt.Printf("orginal: %f\n", compass2)
 
 	return compass
 
