@@ -68,11 +68,11 @@ jobs:
           libopus-dev \
           libopusfile-dev \
           libva-dev \
-          libvpx-dev \
-          libx264-dev
+          libvpx-dev
 
     - name: Verify no uncommitted changes from "make build lint"
       run: |
+        cat ./.github/workflows/test.yml
         git init
         git add .
         chown -R testbot:testbot .
