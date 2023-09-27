@@ -208,7 +208,7 @@ func (r *localRobot) StartWeb(ctx context.Context, o weboptions.Options) (err er
 
 // StopWeb stops the web server, will be a noop if server is not up.
 func (r *localRobot) StopWeb(ctx context.Context) error {
-	return r.webSvc.Close(ctx)
+	return r.webSvc.Stop()
 }
 
 // WebAddress return the web service's address.

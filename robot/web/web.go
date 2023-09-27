@@ -188,7 +188,7 @@ type Service interface {
 	Start(context.Context, weboptions.Options) error
 
 	// Stop stops the main web service (but leaves module server socket running.)
-	Stop()
+	Stop() error
 
 	// StartModule starts the module server socket.
 	StartModule(context.Context) error
@@ -334,9 +334,9 @@ func (svc *webService) StartModule(ctx context.Context) error {
 		return err
 	}
 
-	svc.activeBackgroundWorkers.Add(1)
+	svc.modWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
-		defer svc.activeBackgroundWorkers.Done()
+		defer svc.modWorkers.Done()
 		svc.logger.Debugw("module server listening", "socket path", lis.Addr())
 		defer utils.UncheckedErrorFunc(func() error { return os.RemoveAll(filepath.Dir(addr)) })
 		if err := svc.modServer.Serve(lis); err != nil {
@@ -410,28 +410,31 @@ func (svc *webService) updateResources(resources map[resource.Name]resource.Reso
 }
 
 // Stop stops the main web service prior to actually closing (it leaves the module server running.)
-func (svc *webService) Stop() {
+func (svc *webService) Stop() error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
+	svc.stopWeb()
+	return nil
+}
+
+func (svc *webService) stopWeb() {
 	if svc.cancelFunc != nil {
 		svc.cancelFunc()
 	}
 	svc.isRunning = false
+	svc.webWorkers.Wait()
 }
 
 // Close closes a webService via calls to its Cancel func.
 func (svc *webService) Close(ctx context.Context) error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
+	svc.stopWeb()
 	var err error
-	if svc.cancelFunc != nil {
-		svc.cancelFunc()
-	}
-	svc.isRunning = false
 	if svc.modServer != nil {
 		err = svc.modServer.Stop()
 	}
-	svc.activeBackgroundWorkers.Wait()
+	svc.modWorkers.Wait()
 	return err
 }
 
@@ -551,9 +554,9 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 
 	// Serve
 
-	svc.activeBackgroundWorkers.Add(1)
+	svc.webWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
-		defer svc.activeBackgroundWorkers.Done()
+		defer svc.webWorkers.Done()
 		<-ctx.Done()
 		defer func() {
 			if err := httpServer.Shutdown(context.Background()); err != nil {
@@ -567,9 +570,9 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 		}()
 		svc.closeStreamServer()
 	})
-	svc.activeBackgroundWorkers.Add(1)
+	svc.webWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
-		defer svc.activeBackgroundWorkers.Done()
+		defer svc.webWorkers.Done()
 		if err := svc.rpcServer.Start(); err != nil {
 			svc.logger.Errorw("error starting rpc server", "error", err)
 		}
@@ -594,9 +597,9 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 	}
 	svc.logger.Infow("serving", urlFields...)
 
-	svc.activeBackgroundWorkers.Add(1)
+	svc.webWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
-		defer svc.activeBackgroundWorkers.Done()
+		defer svc.webWorkers.Done()
 		var serveErr error
 		if options.Secure {
 			serveErr = httpServer.ServeTLS(listener, options.Network.TLSCertFile, options.Network.TLSKeyFile)
