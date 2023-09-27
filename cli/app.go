@@ -344,6 +344,82 @@ var app = &cli.App{
 			},
 		},
 		{
+			Name:            "dataset",
+			Usage:           "work with datasets",
+			HideHelpCommand: true,
+			Subcommands: []*cli.Command{
+				{
+					Name:  "create",
+					Usage: "create a new dataset",
+					UsageText: fmt.Sprintf("viam dataset create <%s> <%s>",
+						datasetFlagOrgID, datasetFlagName),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     datasetFlagOrgID,
+							Required: true,
+							Usage:    "organization for which dataset will be created",
+						},
+						&cli.StringFlag{
+							Name:     datasetFlagName,
+							Required: true,
+							Usage:    "name of the new dataset",
+						},
+					},
+					Action: DatasetCreateAction,
+				},
+				{
+					Name:  "rename",
+					Usage: "rename an existing dataset",
+					UsageText: fmt.Sprintf("viam dataset rename <%s> <%s>",
+						datasetFlagDatasetID, datasetFlagName),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     datasetFlagDatasetID,
+							Required: true,
+							Usage:    "dataset ID of the dataset that will be renamed",
+						},
+						&cli.StringFlag{
+							Name:     datasetFlagName,
+							Required: true,
+							Usage:    "new name for the dataset",
+						},
+					},
+					Action: DatasetRenameAction,
+				},
+				{
+					Name:  "list",
+					Usage: "list dataset information from specified IDs or for an organization ID",
+					UsageText: fmt.Sprintf("viam dataset list <%s> <%s>",
+						datasetFlagDatasetIDs, datasetFlagOrgID),
+					Flags: []cli.Flag{
+						&cli.StringSliceFlag{
+							Name:  datasetFlagDatasetIDs,
+							Usage: "dataset ID of the dataset that will be renamed",
+						},
+						&cli.StringFlag{
+							Name:  datasetFlagOrgID,
+							Usage: "new name for the dataset",
+						},
+					},
+					Action: DatasetListAction,
+				},
+				{
+					Name:  "delete",
+					Usage: "delete a dataset",
+					UsageText: fmt.Sprintf("viam dataset delete <%s>",
+						datasetFlagDatasetID),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     datasetFlagDatasetID,
+							Required: true,
+							Usage:    "ID of the dataset to be deleted",
+						},
+					},
+					Action: DatasetCreateAction,
+				},
+			},
+		},
+		{
 			Name:            "robots",
 			Aliases:         []string{"robot"},
 			Usage:           "work with robots",
