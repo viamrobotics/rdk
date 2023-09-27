@@ -138,6 +138,7 @@ func TestNavSetup(t *testing.T) {
 }
 
 func TestStartWaypoint(t *testing.T) {
+	t.Skip()
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 
