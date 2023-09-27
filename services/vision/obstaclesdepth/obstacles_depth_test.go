@@ -41,7 +41,6 @@ type fullReader struct{}
 
 func (r fullReader) Read(ctx context.Context) (image.Image, func(), error) {
 	// We want this to return a valid depth image of known size (424 x 240)
-	// pic, err := rimage.NewDepthMapFromFile(context.Background(), artifact.MustPath("pointcloud/the_depth_image_intel.png"))
 	pic, err := rimage.NewDepthMapFromFile(context.Background(), artifact.MustPath("pointcloud/the_depth_image_intel_424.png"))
 	return pic, nil, err
 }
@@ -51,16 +50,6 @@ func (r fullReader) Close(ctx context.Context) error {
 }
 
 func TestObstacleDepth(t *testing.T) {
-	/*
-		someIntrinsics := transform.PinholeCameraIntrinsics{
-			Fx:     608.2598,
-			Fy:     608.5544,
-			Ppx:    322.9593,
-			Ppy:    249.2670,
-			Width:  640,
-			Height: 480,
-		}
-	*/
 	someIntrinsics := transform.PinholeCameraIntrinsics{
 		Width:  424,
 		Height: 240,
@@ -150,16 +139,6 @@ func TestObstacleDepth(t *testing.T) {
 }
 
 func BenchmarkObstacleDepthIntrinsics(b *testing.B) {
-	/*
-		someIntrinsics := transform.PinholeCameraIntrinsics{
-			Fx:     608.2598,
-			Fy:     608.5544,
-			Ppx:    322.9593,
-			Ppy:    249.2670,
-			Width:  640,
-			Height: 480,
-		}
-	*/
 	someIntrinsics := transform.PinholeCameraIntrinsics{
 		Width:  424,
 		Height: 240,
