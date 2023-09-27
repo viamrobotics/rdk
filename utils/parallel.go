@@ -44,9 +44,9 @@ type (
 func GroupWorkParallel(ctx context.Context, totalSize int, before BeforeParallelGroupWorkFunc, groupWork GroupWorkFunc) error {
 	extra := 0
 	if totalSize > ParallelFactor {
-		extra = totalSize % ParallelFactor
+		extra = (totalSize % ParallelFactor)
 	}
-	groupSize := int(math.Ceil(float64(totalSize) / float64(ParallelFactor)))
+	groupSize := int(math.Floor(float64(totalSize) / float64(ParallelFactor)))
 
 	numGroups := ParallelFactor
 	before(numGroups)
