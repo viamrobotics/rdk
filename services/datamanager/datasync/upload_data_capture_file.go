@@ -10,6 +10,7 @@ import (
 	pb "go.viam.com/api/component/camera/v1"
 
 	"go.viam.com/rdk/services/datamanager/datacapture"
+	"go.viam.com/rdk/utils"
 )
 
 // MaxUnaryFileSize is the max number of bytes to send using the unary DataCaptureUpload, as opposed to the
@@ -162,19 +163,18 @@ func sendStreamingDCRequests(ctx context.Context, stream v1.DataSyncService_Stre
 }
 
 func getFileExtFromImageFormat(res pb.Format) string {
-	defaultFileExt := ""
 	switch res {
 	case pb.Format_FORMAT_JPEG:
-		return ".jpeg"
+		return utils.MimeTypeJPEG
 	case pb.Format_FORMAT_PNG:
-		return ".png"
+		return utils.MimeTypePNG
 	case pb.Format_FORMAT_RAW_DEPTH:
-		return ".dep"
+		return utils.MimeTypeRawDepth
 	case pb.Format_FORMAT_RAW_RGBA:
-		return ".rgba"
+		return utils.MimeTypeRawRGBA
 	case pb.Format_FORMAT_UNSPECIFIED:
 		fallthrough
 	default:
-		return defaultFileExt
+		return utils.MimeTypeDefault
 	}
 }
