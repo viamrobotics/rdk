@@ -124,7 +124,7 @@ func newReadImageCollector(resource interface{}, params data.CollectorParams) (d
 	return data.NewCollector(cFunc, params)
 }
 
-func newReadImagesCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+func newGetImagesCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	camera, err := assertCamera(resource)
 	if err != nil {
 		return nil, err
