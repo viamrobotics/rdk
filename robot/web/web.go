@@ -188,7 +188,7 @@ type Service interface {
 	Start(context.Context, weboptions.Options) error
 
 	// Stop stops the main web service (but leaves module server socket running.)
-	Stop() error
+	Stop()
 
 	// StartModule starts the module server socket.
 	StartModule(context.Context) error
@@ -410,11 +410,10 @@ func (svc *webService) updateResources(resources map[resource.Name]resource.Reso
 }
 
 // Stop stops the main web service prior to actually closing (it leaves the module server running.)
-func (svc *webService) Stop() error {
+func (svc *webService) Stop() {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
 	svc.stopWeb()
-	return nil
 }
 
 func (svc *webService) stopWeb() {
