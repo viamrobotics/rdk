@@ -160,11 +160,9 @@ func (imu *wit) calculateCompassHeading() float64 {
 	compass = math.Mod(compass+360, 360)
 
 	return compass
-
 }
 
 func (imu *wit) calculateTiltCompensation(roll, pitch float64) (float64, float64) {
-
 	// calculate adjusted magnetometer readings
 	xComp := imu.magnetometer.X*math.Cos(pitch) + imu.magnetometer.Z*math.Sin(pitch)
 	yComp := imu.magnetometer.X*math.Sin(roll)*math.Sin(pitch) +
