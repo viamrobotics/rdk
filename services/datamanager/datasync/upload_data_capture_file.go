@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/docker/go-units"
+	mapstructure "github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
 	pb "go.viam.com/api/component/camera/v1"
@@ -29,112 +30,69 @@ func uploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient,
 
 	if md.GetType() == v1.DataType_DATA_TYPE_BINARY_SENSOR && md.GetMethodName() == "GetImages" {
 
+		if len(sensorData) > 1 {
+			return errors.New("binary sensor data file with more than one sensor reading is not supported")
+		}
+
+		// Pull timestamps out of metadata
+		treq := sensorData[0].GetMetadata().GetTimeRequested()
+		trec := sensorData[0].GetMetadata().GetTimeReceived()
+
 		// Convert SensorData into a GetImagesResponse
-		var accImgs []*pb.Image
-		toPbImage := func(sd *v1.SensorData) *pb.Image {
-			var format pb.Format // need to figure this out (it uses the infer logic)
-			return &pb.Image{
-				SourceName: "",
-				Format:     format,
-				Image:      sd.GetBinary(),
-			}
-		}
-		for _, sd := range sensorData {
-			accImgs = append(accImgs, toPbImage(sd))
-		}
-		getImagesResponse := &pb.GetImagesResponse{
-			Images:           accImgs,
-			ResponseMetadata: nil, // what goes here ?!!
+		var getimgsres pb.GetImagesResponse
+		spbstruct := sensorData[0].GetStruct() // This is a GetImagesResponse, need to cast structpb to correct type
+		mp := spbstruct.AsMap()
+		if err := mapstructure.Decode(mp, &getimgsres); err != nil {
+			return nil
 		}
 
-		// Iterate through each Image in GetImagesResponse.Images
-		for _, img := range getImagesResponse.GetImages() {
-
-			// Construct a new SensorData
-			newSensorData := &v1.SensorData{
-				Metadata: &v1.SensorMetadata{TimeRequested: nil, TimeReceived: nil}, // where do I get this Metadata ?
-				Data:     &v1.SensorData_Binary{Binary: img.GetImage()},
-			}
-
-			// Construct a new UploadMetadata
-			var uploadMetadata *v1.UploadMetadata
-			switch img.GetFormat() {
-			case pb.Format_FORMAT_JPEG:
-				uploadMetadata = &v1.UploadMetadata{
-					PartId:           partID,
-					ComponentType:    md.GetComponentType(),
-					ComponentName:    md.GetComponentName(),
-					MethodName:       md.GetMethodName(),
-					Type:             md.GetType(),
-					MethodParameters: md.GetMethodParameters(),
-					FileExtension:    ".jpeg",
-					Tags:             md.GetTags(),
-				}
-			case pb.Format_FORMAT_PNG:
-				uploadMetadata = &v1.UploadMetadata{
-					PartId:           partID,
-					ComponentType:    md.GetComponentType(),
-					ComponentName:    md.GetComponentName(),
-					MethodName:       md.GetMethodName(),
-					Type:             md.GetType(),
-					MethodParameters: md.GetMethodParameters(),
-					FileExtension:    ".png",
-					Tags:             md.GetTags(),
-				}
-			case pb.Format_FORMAT_RAW_DEPTH:
-				uploadMetadata = &v1.UploadMetadata{
-					PartId:           partID,
-					ComponentType:    md.GetComponentType(),
-					ComponentName:    md.GetComponentName(),
-					MethodName:       md.GetMethodName(),
-					Type:             md.GetType(),
-					MethodParameters: md.GetMethodParameters(),
-					FileExtension:    "whatgoeshere",
-					Tags:             md.GetTags(),
-				}
-			case pb.Format_FORMAT_RAW_RGBA:
-				uploadMetadata = &v1.UploadMetadata{
-					PartId:           partID,
-					ComponentType:    md.GetComponentType(),
-					ComponentName:    md.GetComponentName(),
-					MethodName:       md.GetMethodName(),
-					Type:             md.GetType(),
-					MethodParameters: md.GetMethodParameters(),
-					FileExtension:    "whatgoeshere",
-					Tags:             md.GetTags(),
-				}
-			default:
-				uploadMetadata = &v1.UploadMetadata{}
-			}
-
-			ur := &v1.DataCaptureUploadRequest{
-				Metadata: uploadMetadata,
-				SensorContents: []*v1.SensorData{
-					newSensorData,
+		for _, img := range getimgsres.Images {
+			newSensorData := []*v1.SensorData{
+				{
+					Metadata: &v1.SensorMetadata{
+						TimeRequested: treq,
+						TimeReceived:  trec,
+					},
+					Data: &v1.SensorData_Binary{
+						Binary: img.GetImage(),
+					},
 				},
 			}
-			_, err := client.DataCaptureUpload(ctx, ur)
-			if err != nil {
+			newUploadMD := &v1.UploadMetadata{
+				PartId:           partID,
+				ComponentType:    md.GetComponentType(),
+				ComponentName:    md.GetComponentName(),
+				MethodName:       md.GetMethodName(),
+				Type:             md.GetType(),
+				MethodParameters: md.GetMethodParameters(),
+				FileExtension:    getFileExtFromImageFormat(img.GetFormat()),
+				Tags:             md.GetTags(),
+			}
+			if err := helperUploadDataCaptureFile(ctx, client, newUploadMD, newSensorData, partID, f.Size()); err != nil {
 				return err
 			}
 		}
-
-		return nil
+	} else {
+		// Build UploadMetadata
+		uploadMD := &v1.UploadMetadata{
+			PartId:           partID,
+			ComponentType:    md.GetComponentType(),
+			ComponentName:    md.GetComponentName(),
+			MethodName:       md.GetMethodName(),
+			Type:             md.GetType(),
+			MethodParameters: md.GetMethodParameters(),
+			FileExtension:    md.GetFileExtension(),
+			Tags:             md.GetTags(),
+		}
+		helperUploadDataCaptureFile(ctx, client, uploadMD, sensorData, partID, f.Size())
 	}
+	return nil
+}
 
-	uploadMD := &v1.UploadMetadata{
-		PartId:           partID,
-		ComponentType:    md.GetComponentType(),
-		ComponentName:    md.GetComponentName(),
-		MethodName:       md.GetMethodName(),
-		Type:             md.GetType(),
-		MethodParameters: md.GetMethodParameters(),
-		FileExtension:    md.GetFileExtension(),
-		Tags:             md.GetTags(),
-	}
+func helperUploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient, uploadMD *v1.UploadMetadata, sensorData []*v1.SensorData, partID string, fileSize int64) error {
 
 	// If it's a large binary file, we need to upload it in chunks.
-	if md.GetType() == v1.DataType_DATA_TYPE_BINARY_SENSOR && f.Size() > MaxUnaryFileSize {
+	if uploadMD.GetType() == v1.DataType_DATA_TYPE_BINARY_SENSOR && fileSize > MaxUnaryFileSize {
 
 		if len(sensorData) > 1 {
 			return errors.New("binary sensor data file with more than one sensor reading is not supported")
@@ -171,8 +129,7 @@ func uploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient,
 			Metadata:       uploadMD,
 			SensorContents: sensorData,
 		}
-		_, err = client.DataCaptureUpload(ctx, ur)
-		if err != nil {
+		if _, err := client.DataCaptureUpload(ctx, ur); err != nil {
 			return err
 		}
 	}
@@ -211,4 +168,20 @@ func sendStreamingDCRequests(ctx context.Context, stream v1.DataSyncService_Stre
 	}
 
 	return nil
+}
+
+func getFileExtFromImageFormat(res pb.Format) string {
+	defaultFileExt := ""
+	switch res {
+	case pb.Format_FORMAT_JPEG:
+		return ".jpeg"
+	case pb.Format_FORMAT_PNG:
+		return ".png"
+	case pb.Format_FORMAT_RAW_DEPTH:
+		return ".depth"
+	case pb.Format_FORMAT_RAW_RGBA:
+		return ".rgba"
+	default:
+		return defaultFileExt
+	}
 }
