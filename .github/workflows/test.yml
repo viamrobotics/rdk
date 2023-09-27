@@ -72,7 +72,6 @@ jobs:
 
     - name: Verify no uncommitted changes from "make build lint"
       run: |
-        cat ./.github/workflows/test.yml
         git init
         git add .
         chown -R testbot:testbot .
