@@ -16,7 +16,7 @@ on:
 jobs:
   test:
     if: (github.event.label.name == 'safe to test' || github.event.label.name == 'appimage')
-    uses: viamrobotics/rdk/.github/workflows/test.yml@main
+    uses: viamrobotics/rdk/.github/workflows/test.yml@RSDK-4567
     secrets:
       MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
 
