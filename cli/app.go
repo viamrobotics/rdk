@@ -42,6 +42,7 @@ const (
 	dataFlagDataType                       = "data-type"
 	dataFlagOrgIDs                         = "org-ids"
 	dataFlagLocationIDs                    = "location-ids"
+	dataFlagLocationID                     = "location-id"
 	dataFlagRobotID                        = "robot-id"
 	dataFlagPartID                         = "part-id"
 	dataFlagRobotName                      = "robot-name"
@@ -179,6 +180,26 @@ var app = &cli.App{
 					Usage:     "list locations for the current user",
 					ArgsUsage: "[organization]",
 					Action:    ListLocationsAction,
+				},
+				{
+					Name:  "create",
+					Usage: "create an api-key for your location",
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     dataFlagLocationID,
+							Required: true,
+							Usage:    "The location to create an api-key for",
+						},
+						&cli.StringFlag{
+							Name:  apiKeyCreateFlagName,
+							Usage: "the name of the location to create an api-key for. This will default to location-id-created_at_timestamp",
+						},
+						&cli.StringFlag{
+							Name: dataFlagOrgID,
+							Usage: "the org ID attached to attach the key to" +
+								"If not provided, will attempt to attach itself to the org of the location if only one org is attached to the location",
+						},
+					},
 				},
 			},
 		},
@@ -531,8 +552,9 @@ var app = &cli.App{
 								},
 								&cli.StringFlag{
 									Name:     dataFlagOrgID,
-									Required: true,
-									Usage:    "The OrgID to attach this api-key to. If left empty will default to the primary OrgID that is attached to the location of the robot.",
+									Required: false,
+									Usage: "The OrgID to attach this api-key to. If not provided," +
+										"we will attempt to use the org attached to the robot if only one exists",
 								},
 							},
 						},
