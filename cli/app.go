@@ -654,7 +654,7 @@ viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.ta
 					Usage: "upload a board definition file",
 					Description: `Upload a json board definition file for linux boards.
 Example:
-viam board upload --name=orin --org="my org" --version=1.0.0 file.json`,
+viam board upload --name=orin --organization="my org" --version=1.0.0 file.json`,
 					UsageText: "viam board upload <name> <organization> <version> [other options] <file.json>",
 					Flags: []cli.Flag{
 						&cli.StringFlag{
@@ -699,6 +699,22 @@ viam board download --name=test --organization="my org" --version=1.0.0`,
 						},
 					},
 					Action: DownloadBoardDefsAction,
+				},
+				{
+					Name:  "list",
+					Usage: "list all board defintions packages",
+					Description: `list the board defintions packages available from an organization.
+Example:
+viam board list --organization="my org"`,
+					UsageText: "viam board list <organization>[other options]",
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     organizationFlag,
+							Usage:    "organization that hosts the board definitions files",
+							Required: true,
+						},
+					},
+					Action: ListBoardDefsAction,
 				},
 			},
 		},
