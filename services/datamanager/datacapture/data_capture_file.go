@@ -27,6 +27,7 @@ const (
 	InProgressFileExt = ".prog"
 	FileExt           = ".capture"
 	readImage         = "ReadImage"
+	getImages         = "GetImages"
 	nextPointCloud    = "NextPointCloud"
 	pointCloudMap     = "PointCloudMap"
 )
@@ -239,7 +240,7 @@ func getFileTimestampName() string {
 // TODO DATA-246: Implement this in some more robust, programmatic way.
 func getDataType(methodName string) v1.DataType {
 	switch methodName {
-	case nextPointCloud, readImage, pointCloudMap:
+	case nextPointCloud, readImage, pointCloudMap, getImages:
 		return v1.DataType_DATA_TYPE_BINARY_SENSOR
 	default:
 		return v1.DataType_DATA_TYPE_TABULAR_SENSOR
@@ -258,13 +259,17 @@ func GetFileExt(dataType v1.DataType, methodName string, parameters map[string]s
 		if methodName == nextPointCloud {
 			return ".pcd"
 		}
-		if methodName == readImage {
+		if methodName == readImage || methodName == getImages {
 			// TODO: Add explicit file extensions for all mime types.
 			switch parameters["mime_type"] {
 			case utils.MimeTypeJPEG:
 				return ".jpeg"
 			case utils.MimeTypePNG:
 				return ".png"
+			case utils.MimeTypeRawRGBA:
+				return ".rgba"
+			case utils.MimeTypeRawDepth:
+				return ".dep"
 			case utils.MimeTypePCD:
 				return ".pcd"
 			default:
