@@ -21,7 +21,7 @@ type method int64
 const (
 	nextPointCloud method = iota
 	readImage
-	readImages
+	getImages
 )
 
 func (m method) String() string {
@@ -30,8 +30,8 @@ func (m method) String() string {
 		return "NextPointCloud"
 	case readImage:
 		return "ReadImage"
-	case readImages:
-		return "ReadImages"
+	case getImages:
+		return "GetImages"
 	}
 	return "Unknown"
 }
@@ -129,37 +129,22 @@ func newReadImagesCollector(resource interface{}, params data.CollectorParams) (
 	if err != nil {
 		return nil, err
 	}
-	// choose the best/fastest representation
-	mimeType := params.MethodParams["mime_type"]
-	if mimeType == nil {
-		// TODO: Potentially log the actual mime type at collector instantiation or include in response.
-		strWrapper := wrapperspb.String(utils.MimeTypeRawRGBA)
-		mimeType, err = anypb.New(strWrapper)
-		if err != nil {
-			return nil, err
-		}
-	}
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
-		_, span := trace.StartSpan(ctx, "camera::data::collector::CaptureFunc::ReadImages")
+		_, span := trace.StartSpan(ctx, "camera::data::collector::CaptureFunc::GetImages")
 		defer span.End()
 
 		ctx = context.WithValue(ctx, data.FromDMContextKey{}, true)
 
-		imgs, res, err := camera.Images(ctx)
+		resImgs, resMetadata, err := camera.Images(ctx)
 		if err != nil {
 			if errors.Is(err, data.ErrNoCaptureToStore) {
 				return nil, err
 			}
-			return nil, data.FailedToReadErr(params.ComponentName, readImages.String(), err)
-		}
-
-		mimeStr := new(wrapperspb.StringValue)
-		if err := mimeType.UnmarshalTo(mimeStr); err != nil {
-			return nil, err
+			return nil, data.FailedToReadErr(params.ComponentName, getImages.String(), err)
 		}
 
 		var imgsConverted []*pb.Image
-		for _, img := range imgs {
+		for _, img := range resImgs {
 			format, imgBytes, err := encodeImageFromUnderlyingType(ctx, img.Image)
 			if err != nil {
 				return nil, err
@@ -173,7 +158,7 @@ func newReadImagesCollector(resource interface{}, params data.CollectorParams) (
 		}
 		return pb.GetImagesResponse{
 			Images:           imgsConverted,
-			ResponseMetadata: res.AsProto(),
+			ResponseMetadata: resMetadata.AsProto(),
 		}, nil
 	})
 	return data.NewCollector(cFunc, params)

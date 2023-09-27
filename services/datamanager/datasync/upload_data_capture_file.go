@@ -6,6 +6,7 @@ import (
 	"github.com/docker/go-units"
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
+	pb "go.viam.com/api/component/camera/v1"
 
 	"go.viam.com/rdk/services/datamanager/datacapture"
 )
@@ -26,6 +27,101 @@ func uploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient,
 		return nil
 	}
 
+	if md.GetType() == v1.DataType_DATA_TYPE_BINARY_SENSOR && md.GetMethodName() == "GetImages" {
+
+		// Convert SensorData into a GetImagesResponse
+		var accImgs []*pb.Image
+		toPbImage := func(sd *v1.SensorData) *pb.Image {
+			var format pb.Format // need to figure this out (it uses the infer logic)
+			return &pb.Image{
+				SourceName: "",
+				Format:     format,
+				Image:      sd.GetBinary(),
+			}
+		}
+		for _, sd := range sensorData {
+			accImgs = append(accImgs, toPbImage(sd))
+		}
+		getImagesResponse := &pb.GetImagesResponse{
+			Images:           accImgs,
+			ResponseMetadata: nil, // what goes here ?!!
+		}
+
+		// Iterate through each Image in GetImagesResponse.Images
+		for _, img := range getImagesResponse.GetImages() {
+
+			// Construct a new SensorData
+			newSensorData := &v1.SensorData{
+				Metadata: &v1.SensorMetadata{TimeRequested: nil, TimeReceived: nil}, // where do I get this Metadata ?
+				Data:     &v1.SensorData_Binary{Binary: img.GetImage()},
+			}
+
+			// Construct a new UploadMetadata
+			var uploadMetadata *v1.UploadMetadata
+			switch img.GetFormat() {
+			case pb.Format_FORMAT_JPEG:
+				uploadMetadata = &v1.UploadMetadata{
+					PartId:           partID,
+					ComponentType:    md.GetComponentType(),
+					ComponentName:    md.GetComponentName(),
+					MethodName:       md.GetMethodName(),
+					Type:             md.GetType(),
+					MethodParameters: md.GetMethodParameters(),
+					FileExtension:    ".jpeg",
+					Tags:             md.GetTags(),
+				}
+			case pb.Format_FORMAT_PNG:
+				uploadMetadata = &v1.UploadMetadata{
+					PartId:           partID,
+					ComponentType:    md.GetComponentType(),
+					ComponentName:    md.GetComponentName(),
+					MethodName:       md.GetMethodName(),
+					Type:             md.GetType(),
+					MethodParameters: md.GetMethodParameters(),
+					FileExtension:    ".png",
+					Tags:             md.GetTags(),
+				}
+			case pb.Format_FORMAT_RAW_DEPTH:
+				uploadMetadata = &v1.UploadMetadata{
+					PartId:           partID,
+					ComponentType:    md.GetComponentType(),
+					ComponentName:    md.GetComponentName(),
+					MethodName:       md.GetMethodName(),
+					Type:             md.GetType(),
+					MethodParameters: md.GetMethodParameters(),
+					FileExtension:    "whatgoeshere",
+					Tags:             md.GetTags(),
+				}
+			case pb.Format_FORMAT_RAW_RGBA:
+				uploadMetadata = &v1.UploadMetadata{
+					PartId:           partID,
+					ComponentType:    md.GetComponentType(),
+					ComponentName:    md.GetComponentName(),
+					MethodName:       md.GetMethodName(),
+					Type:             md.GetType(),
+					MethodParameters: md.GetMethodParameters(),
+					FileExtension:    "whatgoeshere",
+					Tags:             md.GetTags(),
+				}
+			default:
+				uploadMetadata = &v1.UploadMetadata{}
+			}
+
+			ur := &v1.DataCaptureUploadRequest{
+				Metadata: uploadMetadata,
+				SensorContents: []*v1.SensorData{
+					newSensorData,
+				},
+			}
+			_, err := client.DataCaptureUpload(ctx, ur)
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	}
+
 	uploadMD := &v1.UploadMetadata{
 		PartId:           partID,
 		ComponentType:    md.GetComponentType(),
@@ -39,6 +135,7 @@ func uploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient,
 
 	// If it's a large binary file, we need to upload it in chunks.
 	if md.GetType() == v1.DataType_DATA_TYPE_BINARY_SENSOR && f.Size() > MaxUnaryFileSize {
+
 		if len(sensorData) > 1 {
 			return errors.New("binary sensor data file with more than one sensor reading is not supported")
 		}
