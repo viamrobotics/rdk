@@ -25,6 +25,10 @@ import (
 )
 
 const (
+	// default configuration for Store parameter.
+	defaultStoreType = navigation.StoreTypeMemory
+
+	// desired speeds to maintain for the base.
 	defaultLinearVelocityMPerSec     = 0.5
 	defaultAngularVelocityDegsPerSec = 45
 
@@ -95,7 +99,7 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	deps = append(deps, conf.MovementSensorName)
 
 	if conf.MotionServiceName == "" {
-		conf.MotionServiceName = "builtin"
+		conf.MotionServiceName = resource.DefaultServiceName
 	}
 	deps = append(deps, resource.NewName(motion.API, conf.MotionServiceName).String())
 
@@ -104,6 +108,9 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	}
 
 	// get default speeds from config if set, else defaults from nav services const
+	if conf.Store.Validate(path) != nil {
+		conf.Store.Type = defaultStoreType
+	}
 	if conf.MetersPerSec == 0 {
 		conf.MetersPerSec = defaultLinearVelocityMPerSec
 	}
@@ -213,22 +220,14 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
-	var newStore navigation.NavStore
+
+	// Reconfigure the store if necessary
 	if svc.storeType != string(svcConfig.Store.Type) {
-		switch svcConfig.Store.Type {
-		case navigation.StoreTypeMemory:
-			newStore = navigation.NewMemoryNavigationStore()
-		case navigation.StoreTypeMongoDB:
-			var err error
-			newStore, err = navigation.NewMongoDBNavigationStore(ctx, svcConfig.Store.Config)
-			if err != nil {
-				return err
-			}
-		default:
-			return errors.Errorf("unknown store type %q", svcConfig.Store.Type)
+		newStore, err := navigation.NewStoreFromConfig(ctx, svcConfig.Store)
+		if err != nil {
+			return err
 		}
-	} else {
-		newStore = svc.store
+		svc.store = newStore
 	}
 
 	// Parse obstacles from the passed in configuration
@@ -238,7 +237,6 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	}
 
 	svc.mode = navigation.ModeManual
-	svc.store = newStore
 	svc.storeType = string(svcConfig.Store.Type)
 	svc.base = base1
 	svc.movementSensor = movementSensor
