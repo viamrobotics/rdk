@@ -606,7 +606,7 @@ func TestMoveOnMapTimeout(t *testing.T) {
 }
 
 func TestMoveOnGlobe(t *testing.T) {
-	// t.Parallel()
+	t.Parallel()
 	ctx := context.Background()
 
 	gpsPoint := geo.NewPoint(-70, 40)
@@ -621,7 +621,7 @@ func TestMoveOnGlobe(t *testing.T) {
 	epsilonMM := 15.
 
 	t.Run("ensure success to a nearby geo point", func(t *testing.T) {
-		// t.Parallel()
+		t.Parallel()
 		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
 		motionCfg := &motion.MotionConfiguration{PositionPollingFreqHz: 4, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM}
 
@@ -654,7 +654,7 @@ func TestMoveOnGlobe(t *testing.T) {
 	})
 
 	t.Run("go around an obstacle", func(t *testing.T) {
-		// t.Parallel()
+		t.Parallel()
 		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
 		motionCfg := &motion.MotionConfiguration{PositionPollingFreqHz: 4, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM}
 
@@ -701,7 +701,7 @@ func TestMoveOnGlobe(t *testing.T) {
 	})
 
 	t.Run("fail because of obstacle", func(t *testing.T) {
-		// t.Parallel()
+		t.Parallel()
 		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
 
 		// Construct a set of obstacles that entirely enclose the goal point
@@ -739,7 +739,7 @@ func TestMoveOnGlobe(t *testing.T) {
 	})
 
 	t.Run("check offset constructed correctly", func(t *testing.T) {
-		// t.Parallel()
+		t.Parallel()
 		_, fsSvc, _, _ := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
 		baseOrigin := referenceframe.NewPoseInFrame("test-base", spatialmath.NewZeroPose())
 		movementSensorToBase, err := fsSvc.TransformPose(ctx, baseOrigin, "test-gps", nil)
@@ -751,7 +751,7 @@ func TestMoveOnGlobe(t *testing.T) {
 }
 
 func TestReplanning(t *testing.T) {
-	// t.Parallel()
+	t.Parallel()
 	ctx := context.Background()
 
 	gpsOrigin := geo.NewPoint(0, 0)
@@ -871,7 +871,7 @@ func TestReplanning(t *testing.T) {
 	for _, tc := range testCases {
 		c := tc // needed to workaround loop variable not being captured by func literals
 		t.Run(c.name, func(t *testing.T) {
-			// t.Parallel()
+			t.Parallel()
 			testFn(t, c)
 		})
 	}
