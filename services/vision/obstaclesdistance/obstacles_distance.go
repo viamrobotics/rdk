@@ -24,7 +24,7 @@ import (
 
 var model = resource.DefaultModelFamily.WithModel("obstacle_distance")
 
-// DefaultNumQueries is the default number of times the camera should be queried before averaging
+// DefaultNumQueries is the default number of times the camera should be queried before averaging.
 const DefaultNumQueries = 10
 
 // DistanceDetectorConfig specifies the parameters for the camera to be used
