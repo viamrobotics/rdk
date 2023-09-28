@@ -48,7 +48,17 @@ func testUR5eInverseKinematics(t *testing.T, pos spatialmath.Pose) {
 
 	m, err := referenceframe.UnmarshalModelJSON(ur5modeljson, "")
 	test.That(t, err, test.ShouldBeNil)
-	steps, err := motionplan.PlanFrameMotion(ctx, logger, pos, m, referenceframe.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0}), nil, nil)
+	planRequest := motionplan.PlanRequest{
+		Logger:             logger,
+		Goal:               referenceframe.NewPoseInFrame(referenceframe.World, pos),
+		Frame:              m,
+		FrameSystem:        nil,
+		StartConfiguration: map[string][]referenceframe.Input{m.Name(): referenceframe.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})},
+	}
+	plan, err := motionplan.PlanMotion(ctx, &planRequest)
+	test.That(t, err, test.ShouldBeNil)
+	steps, err := plan.GetFrameSteps(m.Name())
+	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, err, test.ShouldBeNil)
 	solution := steps[len(steps)-1]
