@@ -570,7 +570,7 @@ func DataAddToDataset(c *cli.Context) error {
 }
 
 // dataAddToDataset adds data, with the specified org ID, location ID, and file IDs to the dataset corresponding to the dataset ID.
-func (c *viamClient) dataAddToDataset(datasetID string, orgID string, locationID string, fileIDs []string) error {
+func (c *viamClient) dataAddToDataset(datasetID, orgID, locationID string, fileIDs []string) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
@@ -604,7 +604,7 @@ func DataRemoveFromDataset(c *cli.Context) error {
 }
 
 // dataRemoveFromDataset removes data, with the specified org ID, location ID, and file IDs from the dataset corresponding to the dataset ID.
-func (c *viamClient) dataRemoveFromDataset(datasetID string, orgID string, locationID string, fileIDs []string) error {
+func (c *viamClient) dataRemoveFromDataset(datasetID, orgID, locationID string, fileIDs []string) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}

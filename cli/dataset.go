@@ -29,7 +29,7 @@ func DatasetCreateAction(c *cli.Context) error {
 }
 
 // createDataset creates a dataset with the a dataset ID.
-func (c *viamClient) createDataset(orgID string, datasetName string) error {
+func (c *viamClient) createDataset(orgID, datasetName string) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
@@ -55,7 +55,7 @@ func DatasetRenameAction(c *cli.Context) error {
 }
 
 // renameDataset renames an existing datasetID with the newDatasetName.
-func (c *viamClient) renameDataset(datasetID string, newDatasetName string) error {
+func (c *viamClient) renameDataset(datasetID, newDatasetName string) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
