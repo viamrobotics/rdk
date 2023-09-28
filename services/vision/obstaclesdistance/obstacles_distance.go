@@ -153,7 +153,7 @@ func getClosestPoint(cloud pointcloud.PointCloud) r3.Vector {
 	return minPoint
 }
 
-// to calculate the median, will need to sort the vectors by distance from origin
+// to calculate the median, will need to sort the vectors by distance from origin.
 func sortVectors(v []r3.Vector) {
 	sort.Sort(points(v))
 }
@@ -166,6 +166,6 @@ func (p points) Less(i, j int) bool { return p[i].Norm2() < p[j].Norm2() }
 
 func getMedianPoint(pts []r3.Vector) r3.Vector {
 	sortVectors(pts)
-	index := int((len(pts) - 1) / 2)
+	index := (len(pts) - 1) / 2
 	return pts[index]
 }
