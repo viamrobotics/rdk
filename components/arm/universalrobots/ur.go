@@ -49,7 +49,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 		return nil, goutils.NewConfigValidationFieldRequiredError(path, "host")
 	}
 	if cfg.Speed > 180 || cfg.Speed < 18 {
-		return nil, errors.New("speed for universalrobots has to be between .1 and 1")
+		return nil, errors.New("speed for universalrobots has to be between 18 and 180 degrees per second")
 	}
 	return []string{}, nil
 }
