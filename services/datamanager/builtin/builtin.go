@@ -210,7 +210,7 @@ func (svc *builtIn) initializeOrUpdateCollector(
 		config.Tags,
 	)
 	if err != nil {
-		return nil, errors.Wrap(err, "this is where we're in trouble")
+		return nil, err
 	}
 
 	// TODO(DATA-451): validate method params
