@@ -42,6 +42,10 @@ func init() {
 		API:        API,
 		MethodName: readImage.String(),
 	}, newReadImageCollector)
+	data.RegisterCollector(data.MethodMetadata{
+		API:        API,
+		MethodName: getImages.String(),
+	}, newGetImagesCollector)
 }
 
 // SubtypeName is a constant that identifies the camera resource subtype string.
