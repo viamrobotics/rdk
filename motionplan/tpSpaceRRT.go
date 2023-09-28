@@ -534,6 +534,11 @@ func (mp *tpSpaceRRTMotionPlanner) attemptExtension(
 		for i := 0; i < len(mp.tpFrame.PTGSolvers()); i++ {
 			select {
 			case <-ctx.Done():
+				// Drain channel
+				for i < len(mp.tpFrame.PTGSolvers()) {
+					<-candChan
+					i++
+				}
 				return &nodeAndError{nil, ctx.Err()}
 			case cand := <-candChan:
 				if cand != nil {
