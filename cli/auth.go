@@ -328,21 +328,13 @@ func (c *viamClient) LocationAPIKeyCreateAction(cCtx *cli.Context) error {
 		return err
 	}
 
-	key, err := c.locationAPIKeyCreateAction(cCtx)
-	if err != nil {
-		return err
-	}
-
-	infof(cCtx.App.Writer, "Successfully created key: ")
-	printf(cCtx.App.Writer, "Key ID %s \n", key.GetId())
-	printf(cCtx.App.Writer, "Key Value %s \n", key.GetKey())
-
-	return nil
+	err = c.locationAPIKeyCreateAction(cCtx)
+	return err
 }
 
-func (c *viamClient) locationAPIKeyCreateAction(cCtx *cli.Context) (*apppb.CreateKeyResponse, error) {
+func (c *viamClient) locationAPIKeyCreateAction(cCtx *cli.Context) error {
 	if err := c.ensureLoggedIn(); err != nil {
-		return nil, err
+		return err
 	}
 
 	locationID := cCtx.String(dataFlagLocationID)
@@ -350,12 +342,14 @@ func (c *viamClient) locationAPIKeyCreateAction(cCtx *cli.Context) (*apppb.Creat
 	keyName := cCtx.String(apiKeyCreateFlagName)
 
 	if locationID == "" {
-		return nil, errors.New("cannot create an api-key for a location without an ID")
+		return errors.New("cannot create an api-key for a location without an ID")
 	}
 
 	if keyName == "" {
-		keyName = fmt.Sprintf("%s-%s", locationID, time.Now().Format(time.RFC3339))
-		infof(cCtx.App.Writer, "Using default key name of %s", keyName)
+		// Default name is in the form myusername@gmail.com-2009-11-10T23:00:00Z
+		// or key-uuid-2009-11-10T23:00:00Z if it was created by a key
+		keyName = fmt.Sprintf("%s-%s", c.conf.Auth, time.Now().Format(time.RFC3339))
+		infof(cCtx.App.Writer, "using default key name of %s", keyName)
 	}
 
 	if orgID == "" {
@@ -366,15 +360,15 @@ func (c *viamClient) locationAPIKeyCreateAction(cCtx *cli.Context) (*apppb.Creat
 			LocationId: locationID,
 		})
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		if loc.GetLocation() == nil {
-			return nil, errors.Errorf("cannot create api-key for locationID: %s, empty location", locationID)
+			return errors.Errorf("cannot create api-key for locationID: %s, empty location", locationID)
 		}
 
 		if len(loc.GetLocation().GetOrganizations()) != 1 {
-			return nil, errors.Errorf("cannot create api-key for locationID: %s as there are mutiple orgs attached", locationID)
+			return errors.Errorf("cannot create api-key for locationID: %s as there are mutiple orgs attached", locationID)
 		}
 
 		orgID = loc.GetLocation().GetOrganizations()[0].GetOrganizationId()
@@ -395,7 +389,15 @@ func (c *viamClient) locationAPIKeyCreateAction(cCtx *cli.Context) (*apppb.Creat
 		},
 	}
 
-	return c.client.CreateKey(c.c.Context, req)
+	key, err := c.client.CreateKey(c.c.Context, req)
+	if err != nil {
+		return err
+	}
+
+	infof(cCtx.App.Writer, "Successfully created key: ")
+	printf(cCtx.App.Writer, "Key ID: %s \n", key.GetId())
+	printf(cCtx.App.Writer, "Key Value: %s \n", key.GetKey())
+	return nil
 }
 
 // RobotAPIKeyCreateAction corresponds to `robot api-key create`.
@@ -404,21 +406,13 @@ func (c *viamClient) RobotAPIKeyCreateAction(cCtx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	key, err := c.robotAPIKeyCreateAction(cCtx)
-	if err != nil {
-		return err
-	}
-	infof(cCtx.App.Writer, "Successfully created key:")
-	printf(cCtx.App.Writer, "Key ID: %s \n", key.GetId())
-	printf(cCtx.App.Writer, "Key Value: %s \n", key.GetId())
-	// do we want to show the name here?
-	// if we do we need to change the api call
-	return nil
+	err = c.robotAPIKeyCreateAction(cCtx)
+	return err
 }
 
-func (c *viamClient) robotAPIKeyCreateAction(cCtx *cli.Context) (*apppb.CreateKeyResponse, error) {
+func (c *viamClient) robotAPIKeyCreateAction(cCtx *cli.Context) error {
 	if err := c.ensureLoggedIn(); err != nil {
-		return nil, err
+		return err
 	}
 
 	robotID := cCtx.String(dataFlagRobotID)
@@ -426,14 +420,14 @@ func (c *viamClient) robotAPIKeyCreateAction(cCtx *cli.Context) (*apppb.CreateKe
 	orgID := cCtx.String(dataFlagOrgID)
 
 	if robotID == "" {
-		return nil, errors.New("cannot create an api-key for a robot without an ID")
+		return errors.New("cannot create an api-key for a robot without an ID")
 	}
 
 	if keyName == "" {
-		// need to auto-generate something so its not "" as that is what it is when it's auto-generated
-		// on robot create
-		keyName = fmt.Sprintf("%s-%s", robotID, time.Now().Format(time.RFC3339))
-		infof(cCtx.App.Writer, "using defaul key name of %s", keyName)
+		// Default name is in the form myusername@gmail.com-2009-11-10T23:00:00Z
+		// or key-uuid-2009-11-10T23:00:00Z if it was created by a key
+		keyName = fmt.Sprintf("%s-%s", c.conf.Auth, time.Now().Format(time.RFC3339))
+		infof(cCtx.App.Writer, "using default key name of %s", keyName)
 	}
 
 	if orgID == "" {
@@ -445,34 +439,34 @@ func (c *viamClient) robotAPIKeyCreateAction(cCtx *cli.Context) (*apppb.CreateKe
 			Id: robotID,
 		})
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		if robotResp.GetRobot() == nil {
-			return nil, errors.New("cannot match a robot to this robotID")
+			return errors.New("cannot match a robot to this robotID")
 		}
 
 		locResp, err := c.client.GetLocation(c.c.Context, &apppb.GetLocationRequest{
 			LocationId: robotResp.Robot.Location,
 		})
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		if locResp.GetLocation() == nil {
-			return nil, errors.New("err finding the org for robot: cannot find a location attached to this robot")
+			return errors.New("err finding the org for robot: cannot find a location attached to this robot")
 		}
 
 		if len(locResp.Location.Organizations) != 1 {
-			return nil, errors.New("cannot create the robot api-key as there are multiple orgs on the location." +
+			return errors.New("cannot create the robot api-key as there are multiple orgs on the location." +
 				"Please re-run the command and specificy the orgID")
 		}
 
 		orgID = locResp.Location.Organizations[0].GetOrganizationId()
 		if orgID == "" {
-			return nil, errors.New("OrgID linked to the location is empty. Please re-run the command with an orgID")
+			return errors.New("OrgID linked to the location is empty. Please re-run the command with an orgID")
 		}
-		infof(cCtx.App.Writer, "creating key with default org on robot: %s", orgID)
+		warningf(cCtx.App.Writer, "creating key with default org %s on robot: %s", orgID, robotID)
 	}
 
 	req := &apppb.CreateKeyRequest{
@@ -490,7 +484,15 @@ func (c *viamClient) robotAPIKeyCreateAction(cCtx *cli.Context) (*apppb.CreateKe
 		},
 	}
 
-	return c.client.CreateKey(c.c.Context, req)
+	key, err := c.client.CreateKey(c.c.Context, req)
+	if err != nil {
+		return err
+	}
+	infof(cCtx.App.Writer, "Successfully created key:")
+	printf(cCtx.App.Writer, "Key ID: %s \n", key.GetId())
+	printf(cCtx.App.Writer, "Key Value: %s \n", key.GetKey())
+
+	return nil
 }
 
 func (c *viamClient) ensureLoggedIn() error {

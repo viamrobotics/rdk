@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"strings"
 	"testing"
@@ -15,7 +16,7 @@ import (
 )
 
 func TestLoginAction(t *testing.T) {
-	cCtx, ac, out, errOut := setup(nil, nil)
+	cCtx, ac, out, errOut := setup(nil, nil, nil)
 
 	test.That(t, ac.loginAction(cCtx), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
@@ -26,7 +27,7 @@ func TestLoginAction(t *testing.T) {
 
 func TestPrintAccessTokenAction(t *testing.T) {
 	// AppServiceClient needed for any Action that calls ensureLoggedIn.
-	cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, nil)
+	cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, nil, nil)
 
 	test.That(t, ac.printAccessTokenAction(cCtx), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
@@ -43,7 +44,7 @@ func TestAPIKeyCreateAction(t *testing.T) {
 	asc := &inject.AppServiceClient{
 		CreateKeyFunc: createKeyFunc,
 	}
-	cCtx, ac, out, errOut := setup(asc, nil)
+	cCtx, ac, out, errOut := setup(asc, nil, nil)
 
 	test.That(t, ac.organizationsAPIKeyCreateAction(cCtx), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
@@ -52,8 +53,228 @@ func TestAPIKeyCreateAction(t *testing.T) {
 	test.That(t, strings.Join(out.messages, ""), test.ShouldContainSubstring, "key-yyy")
 }
 
+func TestRobotAPIKeyCreateAction(t *testing.T) {
+	createKeyFunc := func(ctx context.Context, in *apppb.CreateKeyRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.CreateKeyResponse, error) {
+		return &apppb.CreateKeyResponse{Id: "id-xxx", Key: "key-yyy"}, nil
+	}
+
+	fakeLocID := "fake-loc-id"
+	fakeOrgID := "fake-org-id"
+	fakeRobotID := "fake-robot"
+
+	getRobotFunc := func(ctx context.Context, in *apppb.GetRobotRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.GetRobotResponse, error) {
+		return &apppb.GetRobotResponse{Robot: &apppb.Robot{Id: in.Id, Location: fakeLocID, Name: "test-robot"}}, nil
+	}
+
+	locationOrgs := make([]*apppb.LocationOrganization, 0)
+	locationOrgs = append(locationOrgs, &apppb.LocationOrganization{
+		OrganizationId: fakeOrgID,
+		Primary:        true,
+	})
+
+	getLocationFunc := func(ctx context.Context, in *apppb.GetLocationRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.GetLocationResponse, error) {
+		return &apppb.GetLocationResponse{
+			Location: &apppb.Location{
+				Id:            fakeLocID,
+				Organizations: locationOrgs,
+			},
+		}, nil
+	}
+
+	asc := &inject.AppServiceClient{
+		CreateKeyFunc:   createKeyFunc,
+		GetRobotFunc:    getRobotFunc,
+		GetLocationFunc: getLocationFunc,
+	}
+
+	flags := &flag.FlagSet{}
+	flags.String(dataFlagOrgID, fakeOrgID, "")
+	flags.String(dataFlagRobotID, fakeRobotID, "")
+	flags.String(apiKeyCreateFlagName, "my-name", "")
+	cCtx, ac, out, errOut := setup(asc, nil, flags)
+
+	test.That(t, ac.robotAPIKeyCreateAction(cCtx), test.ShouldBeNil)
+	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+	test.That(t, len(out.messages), test.ShouldEqual, 4)
+	test.That(t, out.messages[1], test.ShouldContainSubstring, "Successfully created key")
+	test.That(t, out.messages[2], test.ShouldContainSubstring, "Key ID: id-xxx")
+	test.That(t, out.messages[3], test.ShouldContainSubstring, "Key Value: key-yyy")
+
+	// test that without name still works
+
+	cCtx.Set(apiKeyCreateFlagName, "")
+	test.That(t, cCtx.Value(apiKeyCreateFlagName), test.ShouldEqual, "")
+
+	test.That(t, ac.robotAPIKeyCreateAction(cCtx), test.ShouldBeNil)
+	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+	test.That(t, strings.Join(out.messages, " "), test.ShouldContainSubstring, "using default key name of")
+
+	// test without an orgID
+	cCtx.Set(dataFlagOrgID, "")
+	test.That(t, cCtx.Value(dataFlagOrgID), test.ShouldEqual, "")
+
+	test.That(t, ac.robotAPIKeyCreateAction(cCtx), test.ShouldBeNil)
+	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+
+	allMessages := strings.Join(out.messages, " ")
+	test.That(t, allMessages, test.ShouldContainSubstring, "using default key name of ")
+
+	test.That(t, allMessages, test.ShouldContainSubstring, "Successfully created key")
+	test.That(t, allMessages, test.ShouldContainSubstring, "Key ID: id-xxx")
+	test.That(t, allMessages, test.ShouldContainSubstring, "Key Value: key-yyy")
+
+	// test without a robot ID should fail
+	cCtx.Set(dataFlagRobotID, "")
+	test.That(t, cCtx.Value(dataFlagRobotID), test.ShouldEqual, "")
+	err := ac.robotAPIKeyCreateAction(cCtx)
+	test.That(t, err, test.ShouldNotBeNil)
+
+	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot create an api-key for a robot without an ID")
+
+	// test for a location with multiple orgs doesn't work if you don't provide an orgID
+
+	locationOrgs = append(locationOrgs, &apppb.LocationOrganization{
+		OrganizationId: "a-secondary-loc",
+		Primary:        false,
+	})
+
+	getLocationFunc = func(ctx context.Context, in *apppb.GetLocationRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.GetLocationResponse, error) {
+		return &apppb.GetLocationResponse{
+			Location: &apppb.Location{
+				Id:            fakeLocID,
+				Organizations: locationOrgs,
+			},
+		}, nil
+	}
+
+	asc = &inject.AppServiceClient{
+		CreateKeyFunc:   createKeyFunc,
+		GetRobotFunc:    getRobotFunc,
+		GetLocationFunc: getLocationFunc,
+	}
+
+	flags = &flag.FlagSet{}
+	flags.String(dataFlagRobotID, fakeRobotID, "")
+	flags.String(dataFlagOrgID, "", "")
+	flags.String(apiKeyCreateFlagName, "test-me", "")
+
+	cCtx, ac, out, _ = setup(asc, nil, flags)
+	err = ac.robotAPIKeyCreateAction(cCtx)
+	test.That(t, err, test.ShouldNotBeNil)
+
+	test.That(t, len(out.messages), test.ShouldEqual, 0)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot create the robot api-key as there are multiple orgs on the location.")
+}
+
+func TestLocationAPIKeyCreateAction(t *testing.T) {
+	fakeLocID := "fake-loc-id"
+	fakeOrgID := "fake-org-id"
+
+	locationOrgs := make([]*apppb.LocationOrganization, 0)
+	locationOrgs = append(locationOrgs, &apppb.LocationOrganization{
+		OrganizationId: fakeOrgID,
+		Primary:        true,
+	})
+
+	getLocationFunc := func(ctx context.Context, in *apppb.GetLocationRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.GetLocationResponse, error) {
+		return &apppb.GetLocationResponse{
+			Location: &apppb.Location{
+				Id:            fakeLocID,
+				Organizations: locationOrgs,
+			},
+		}, nil
+	}
+
+	createKeyFunc := func(ctx context.Context, in *apppb.CreateKeyRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.CreateKeyResponse, error) {
+		return &apppb.CreateKeyResponse{Id: "id-xxx", Key: "key-yyy"}, nil
+	}
+
+	asc := &inject.AppServiceClient{
+		GetLocationFunc: getLocationFunc,
+		CreateKeyFunc:   createKeyFunc,
+	}
+
+	flags := &flag.FlagSet{}
+	flags.String(dataFlagLocationID, "", "")
+	flags.String(dataFlagOrgID, "", "")
+	flags.String(apiKeyCreateFlagName, "", "")
+
+	// testing no locationID
+	cCtx, ac, out, errOut := setup(asc, nil, flags)
+	err := ac.locationAPIKeyCreateAction(cCtx)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot create an api-key for a location without an ID")
+
+	cCtx.Set(dataFlagLocationID, fakeLocID)
+	// will create an api-key with a default name
+	test.That(t, ac.locationAPIKeyCreateAction(cCtx), test.ShouldBeNil)
+	allMessages := strings.Join(out.messages, " ")
+
+	test.That(t, allMessages, test.ShouldContainSubstring, "using default key name of ")
+	test.That(t, allMessages, test.ShouldContainSubstring, "Successfully created key")
+	test.That(t, allMessages, test.ShouldContainSubstring, "Key ID: id-xxx")
+	test.That(t, allMessages, test.ShouldContainSubstring, "Key Value: key-yyy")
+
+	// test that multiple organizations on the location will error out
+
+	locationOrgs = append(locationOrgs, &apppb.LocationOrganization{
+		OrganizationId: "a-secondary-loc",
+		Primary:        false,
+	})
+
+	getLocationFunc = func(ctx context.Context, in *apppb.GetLocationRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.GetLocationResponse, error) {
+		return &apppb.GetLocationResponse{
+			Location: &apppb.Location{
+				Id:            fakeLocID,
+				Organizations: locationOrgs,
+			},
+		}, nil
+	}
+
+	asc = &inject.AppServiceClient{
+		CreateKeyFunc:   createKeyFunc,
+		GetLocationFunc: getLocationFunc,
+	}
+
+	flags = &flag.FlagSet{}
+	flags.String(dataFlagLocationID, fakeLocID, "")
+	flags.String(dataFlagOrgID, "", "")
+	flags.String(apiKeyCreateFlagName, "test-name", "")
+
+	cCtx, ac, out, _ = setup(asc, nil, flags)
+
+	err = ac.locationAPIKeyCreateAction(cCtx)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring,
+		fmt.Sprintf("cannot create api-key for locationID: %s as there are mutiple orgs attached", fakeLocID))
+
+	// test with an orgID is fine
+	cCtx.Set(dataFlagOrgID, fakeOrgID)
+	test.That(t, ac.locationAPIKeyCreateAction(cCtx), test.ShouldBeNil)
+	allMessages = strings.Join(out.messages, " ")
+
+	test.That(t, allMessages, test.ShouldContainSubstring, "Successfully created key")
+	test.That(t, allMessages, test.ShouldContainSubstring, "Key ID: id-xxx")
+	test.That(t, allMessages, test.ShouldContainSubstring, "Key Value: key-yyy")
+}
+
 func TestLogoutAction(t *testing.T) {
-	cCtx, ac, out, errOut := setup(nil, nil)
+	cCtx, ac, out, errOut := setup(nil, nil, nil)
 
 	test.That(t, ac.logoutAction(cCtx), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
@@ -63,7 +284,7 @@ func TestLogoutAction(t *testing.T) {
 }
 
 func TestWhoAmIAction(t *testing.T) {
-	cCtx, ac, out, errOut := setup(nil, nil)
+	cCtx, ac, out, errOut := setup(nil, nil, nil)
 
 	test.That(t, ac.whoAmIAction(cCtx), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
