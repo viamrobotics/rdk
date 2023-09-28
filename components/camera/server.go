@@ -116,8 +116,8 @@ func (s *serviceServer) GetImages(
 	if err != nil {
 		return nil, errors.Wrap(err, "camera server GetImages could not call Images on the camera")
 	}
-	imagesMessage := []*pb.Image{}
-	for _, img := range imgs {
+	imagesMessage := make([]*pb.Image, 0, len(imgs))
+	for i, img := range imgs {
 		format, outBytes, err := encodeImageFromUnderlyingType(ctx, img.Image)
 		if err != nil {
 			return nil, errors.Wrap(err, "camera server GetImages could not encode the images")
@@ -127,7 +127,7 @@ func (s *serviceServer) GetImages(
 			Format:     format,
 			Image:      outBytes,
 		}
-		imagesMessage = append(imagesMessage, imgMes)
+		imagesMessage[i] = imgMes
 	}
 	resp := &pb.GetImagesResponse{
 		Images:           imagesMessage,

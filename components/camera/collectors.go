@@ -16,21 +16,23 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-type method int64
+// Method is a data capture method.
+type Method int64
 
 const (
-	nextPointCloud method = iota
+	nextPointCloud Method = iota
 	readImage
-	getImages
+	// GetImages is used for getting simultaneous images from different imagers.
+	GetImages
 )
 
-func (m method) String() string {
+func (m Method) String() string {
 	switch m {
 	case nextPointCloud:
 		return "NextPointCloud"
 	case readImage:
 		return "ReadImage"
-	case getImages:
+	case GetImages:
 		return "GetImages"
 	}
 	return "Unknown"
@@ -140,7 +142,7 @@ func newGetImagesCollector(resource interface{}, params data.CollectorParams) (d
 			if errors.Is(err, data.ErrNoCaptureToStore) {
 				return nil, err
 			}
-			return nil, data.FailedToReadErr(params.ComponentName, getImages.String(), err)
+			return nil, data.FailedToReadErr(params.ComponentName, GetImages.String(), err)
 		}
 
 		var imgsConverted []*pb.Image

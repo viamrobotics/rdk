@@ -9,6 +9,7 @@ import (
 	v1 "go.viam.com/api/app/datasync/v1"
 	pb "go.viam.com/api/component/camera/v1"
 
+	cam "go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/services/datamanager/datacapture"
 )
 
@@ -32,7 +33,7 @@ func uploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient,
 		return errors.New("binary sensor data file with more than one sensor reading is not supported")
 	}
 
-	if md.GetType() == v1.DataType_DATA_TYPE_BINARY_SENSOR && md.GetMethodName() == "GetImages" {
+	if md.GetType() == v1.DataType_DATA_TYPE_BINARY_SENSOR && md.GetMethodName() == cam.GetImages.String() {
 		timeReq := sensorData[0].GetMetadata().GetTimeRequested()
 		timeRec := sensorData[0].GetMetadata().GetTimeReceived()
 		var getImgsRes pb.GetImagesResponse
@@ -168,7 +169,7 @@ func getFileExtFromImageFormat(res pb.Format) string {
 	case pb.Format_FORMAT_PNG:
 		return ".png"
 	case pb.Format_FORMAT_RAW_DEPTH:
-		return ".dep"
+		return ".depth"
 	case pb.Format_FORMAT_RAW_RGBA:
 		return ".rgba"
 	case pb.Format_FORMAT_UNSPECIFIED:
