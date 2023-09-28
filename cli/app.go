@@ -26,8 +26,9 @@ const (
 	apiKeyCreateFlagOrgID = "org-id"
 	apiKeyCreateFlagName  = "name"
 
-	loginFlagKeyID = "key-id"
-	loginFlagKey   = "key"
+	loginBrowserFlag = "disable-browser-open"
+	loginFlagKeyID   = "key-id"
+	loginFlagKey     = "key"
 
 	moduleFlagName            = "name"
 	moduleFlagPublicNamespace = "public-namespace"
@@ -90,7 +91,13 @@ var app = &cli.App{
 			Aliases:         []string{"auth"},
 			Usage:           "login to app.viam.com",
 			HideHelpCommand: true,
-			Action:          LoginAction,
+			Flags: []cli.Flag{
+				&cli.BoolFlag{
+					Name:  loginBrowserFlag,
+					Usage: "prevent opening the default browser during login",
+				},
+			},
+			Action: LoginAction,
 			Subcommands: []*cli.Command{
 				{
 					Name:   "print-access-token",

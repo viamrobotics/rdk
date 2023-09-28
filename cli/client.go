@@ -491,10 +491,11 @@ func newViamClient(c *cli.Context) (*viamClient, error) {
 	}
 
 	var authFlow *authFlow
+	disableBrowserOpen := c.Bool(loginBrowserFlag)
 	if isProdBaseURL(baseURL) {
-		authFlow = newCLIAuthFlow(c.App.Writer)
+		authFlow = newCLIAuthFlow(c.App.Writer, disableBrowserOpen)
 	} else {
-		authFlow = newStgCLIAuthFlow(c.App.Writer)
+		authFlow = newStgCLIAuthFlow(c.App.Writer, disableBrowserOpen)
 	}
 
 	return &viamClient{
