@@ -347,9 +347,10 @@ var app = &cli.App{
 					UsageText: "viam data dataset [other options]",
 					Subcommands: []*cli.Command{
 						{
-							Name:      "add",
-							Usage:     "adds binary data with file IDs in a single org and location to dataset",
-							UsageText: fmt.Sprintf("viam data dataset add <%s> <%s> <%s> <%s> [other options]", datasetFlagDatasetID, dataFlagOrgID, dataFlagLocationID, dataFlagFileIDs),
+							Name:  "add",
+							Usage: "adds binary data with file IDs in a single org and location to dataset",
+							UsageText: fmt.Sprintf("viam data dataset add <%s> <%s> <%s> <%s> [other options]",
+								datasetFlagDatasetID, dataFlagOrgID, dataFlagLocationID, dataFlagFileIDs),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:     datasetFlagDatasetID,
@@ -375,9 +376,10 @@ var app = &cli.App{
 							Action: DataAddToDataset,
 						},
 						{
-							Name:      "remove",
-							Usage:     "removes binary data with file IDs in a single org and location from dataset",
-							UsageText: fmt.Sprintf("viam data dataset remove <%s> <%s> <%s> <%s> [other options]", datasetFlagDatasetID, dataFlagOrgID, dataFlagLocationID, dataFlagFileIDs),
+							Name:  "remove",
+							Usage: "removes binary data with file IDs in a single org and location from dataset",
+							UsageText: fmt.Sprintf("viam data dataset remove <%s> <%s> <%s> <%s> [other options]",
+								datasetFlagDatasetID, dataFlagOrgID, dataFlagLocationID, dataFlagFileIDs),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:     datasetFlagDatasetID,

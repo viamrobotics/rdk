@@ -563,7 +563,8 @@ func DataAddToDataset(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := client.dataAddToDataset(c.String(datasetFlagDatasetID), c.String(dataFlagOrgID), c.String(dataFlagLocationID), c.StringSlice(dataFlagFileIDs)); err != nil {
+	if err := client.dataAddToDataset(c.String(datasetFlagDatasetID), c.String(dataFlagOrgID),
+		c.String(dataFlagLocationID), c.StringSlice(dataFlagFileIDs)); err != nil {
 		return err
 	}
 	return nil
@@ -597,13 +598,15 @@ func DataRemoveFromDataset(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := client.dataRemoveFromDataset(c.String(datasetFlagDatasetID), c.String(dataFlagOrgID), c.String(dataFlagLocationID), c.StringSlice(dataFlagFileIDs)); err != nil {
+	if err := client.dataRemoveFromDataset(c.String(datasetFlagDatasetID), c.String(dataFlagOrgID),
+		c.String(dataFlagLocationID), c.StringSlice(dataFlagFileIDs)); err != nil {
 		return err
 	}
 	return nil
 }
 
-// dataRemoveFromDataset removes data, with the specified org ID, location ID, and file IDs from the dataset corresponding to the dataset ID.
+// dataRemoveFromDataset removes data, with the specified org ID, location ID,
+// and file IDs from the dataset corresponding to the dataset ID.
 func (c *viamClient) dataRemoveFromDataset(datasetID, orgID, locationID string, fileIDs []string) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
