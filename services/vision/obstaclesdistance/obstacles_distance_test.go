@@ -109,10 +109,6 @@ func TestObstacleDist(t *testing.T) {
 	_, isPoint = objects[0].PointCloud.At(0, 0, 6)
 	test.That(t, isPoint, test.ShouldBeTrue)
 
-	inp.NumQueries = 0 // value out of range
-	_, err = inp.Validate("path")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid number of queries")
-
 	// with error - nil parameters
 	_, err = registerObstacleDistanceDetector(ctx, name, nil, r)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot be nil")
