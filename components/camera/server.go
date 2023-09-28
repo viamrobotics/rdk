@@ -116,8 +116,8 @@ func (s *serviceServer) GetImages(
 	if err != nil {
 		return nil, errors.Wrap(err, "camera server GetImages could not call Images on the camera")
 	}
-	imagesMessage := make([]*pb.Image, 0, len(imgs))
-	for i, img := range imgs {
+	imagesMessage := []*pb.Image{}
+	for _, img := range imgs {
 		format, outBytes, err := encodeImageFromUnderlyingType(ctx, img.Image)
 		if err != nil {
 			return nil, errors.Wrap(err, "camera server GetImages could not encode the images")
@@ -127,9 +127,8 @@ func (s *serviceServer) GetImages(
 			Format:     format,
 			Image:      outBytes,
 		}
-		imagesMessage[i] = imgMes
+		imagesMessage = append(imagesMessage, imgMes)
 	}
-	// right now the only metadata is timestamp
 	resp := &pb.GetImagesResponse{
 		Images:           imagesMessage,
 		ResponseMetadata: metadata.AsProto(),
