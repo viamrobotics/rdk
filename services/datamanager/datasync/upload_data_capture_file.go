@@ -85,7 +85,8 @@ func uploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient,
 }
 
 func uploadSensorData(ctx context.Context, client v1.DataSyncServiceClient, uploadMD *v1.UploadMetadata,
-	sensorData []*v1.SensorData, fileSize int64) error {
+	sensorData []*v1.SensorData, fileSize int64,
+) error {
 	// If it's a large binary file, we need to upload it in chunks.
 	if uploadMD.GetType() == v1.DataType_DATA_TYPE_BINARY_SENSOR && fileSize > MaxUnaryFileSize {
 		c, err := client.StreamingDataCaptureUpload(ctx)
