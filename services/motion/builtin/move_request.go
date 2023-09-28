@@ -153,8 +153,8 @@ func (mr *moveRequest) obstaclesIntersectPlan(ctx context.Context, waypoints [][
 				errorState, // deviation of robot from plan
 				mr.planRequest.Logger,
 			); err != nil {
-				mr.planRequest.Logger.Info("found collision with detected obstacle")
-				return true, err
+				mr.planRequest.Logger.Info(err.Error())
+				return true, nil
 			}
 		}
 	}
