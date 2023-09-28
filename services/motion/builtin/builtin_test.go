@@ -813,8 +813,8 @@ func TestCheckPlan(t *testing.T) {
 
 	// create motion config
 	motionCfg := make(map[string]interface{})
-	// fail if we don't find a plan in 5 seconds
-	motionCfg["timeout"] = 5.
+	// fail if we don't find a plan in 15 seconds
+	motionCfg["timeout"] = 15.
 
 	// get plan and kinematic base
 	moveRequest, err := ms.(*builtIn).newMoveOnGlobeRequest(

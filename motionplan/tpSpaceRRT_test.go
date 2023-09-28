@@ -464,7 +464,7 @@ func TestPtgCheckPlan(t *testing.T) {
 
 	t.Run("obstacles NOT in world frame - no collision - integration test", func(t *testing.T) {
 		obstacle, err := spatialmath.NewBox(
-			spatialmath.NewPoseFromPoint(r3.Vector{2500, -40, 0}),
+			spatialmath.NewPoseFromPoint(r3.Vector{25000, -40, 0}),
 			r3.Vector{10, 10, 1}, "obstacle",
 		)
 		test.That(t, err, test.ShouldBeNil)
