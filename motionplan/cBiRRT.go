@@ -1,4 +1,4 @@
-//go:build !windows
+//go:build !windows && !no_cgo
 
 package motionplan
 
@@ -94,6 +94,7 @@ func (mp *cBiRRTMotionPlanner) plan(ctx context.Context,
 	goal spatialmath.Pose,
 	seed []referenceframe.Input,
 ) ([]node, error) {
+	mp.planOpts.SetGoal(goal)
 	solutionChan := make(chan *rrtPlanReturn, 1)
 	utils.PanicCapturingGo(func() {
 		mp.rrtBackgroundRunner(ctx, seed, &rrtParallelPlannerShared{nil, nil, solutionChan})

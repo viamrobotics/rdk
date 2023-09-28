@@ -1,3 +1,5 @@
+//go:build !no_cgo
+
 // Package camera defines an image capturing device.
 package camera
 
@@ -40,6 +42,10 @@ func init() {
 		API:        API,
 		MethodName: readImage.String(),
 	}, newReadImageCollector)
+	data.RegisterCollector(data.MethodMetadata{
+		API:        API,
+		MethodName: getImages.String(),
+	}, newGetImagesCollector)
 }
 
 // SubtypeName is a constant that identifies the camera resource subtype string.

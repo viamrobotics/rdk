@@ -4,7 +4,7 @@ ARG BASE_TAG=amd64
 FROM $MAIN_TAG:$BASE_TAG as builder
 COPY --chown=1000:1000 ./ /tmp/rdk
 # we don't care about the actual binary, so save time by faking the front-end build with a touched file
-RUN --mount=type=secret,id=netrc,uid=1000,dst=/home/testbot/.netrc sudo -Hu testbot bash -lc 'cd /tmp/rdk && mkdir -p web/runtime-shared/static/ && touch web/runtime-shared/static/control.js && NO_UPX=1 make server-static'
+RUN --mount=type=secret,id=netrc,uid=1000,dst=/home/testbot/.netrc sudo -Hu testbot bash -lc 'cd /tmp/rdk && mkdir -p web/runtime-shared/static/ && touch web/runtime-shared/static/control.js && make server-static'
 
 FROM $MAIN_TAG:$BASE_TAG
 COPY --from=builder --chown=1000:1000 /home/testbot/go /home/testbot/go

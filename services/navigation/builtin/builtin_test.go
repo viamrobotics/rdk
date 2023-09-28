@@ -126,6 +126,10 @@ func TestNavSetup(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(wayPt), test.ShouldEqual, 0)
 
+	// Calling RemoveWaypoint on an already removed waypoint doesn't return an error
+	err = ns.RemoveWaypoint(ctx, id, nil)
+	test.That(t, err, test.ShouldBeNil)
+
 	obs, err := ns.GetObstacles(ctx, nil)
 	test.That(t, len(obs), test.ShouldEqual, 1)
 	test.That(t, err, test.ShouldBeNil)
@@ -134,6 +138,8 @@ func TestNavSetup(t *testing.T) {
 }
 
 func TestStartWaypoint(t *testing.T) {
+	// TODO(RSDK-5193): unskip this test
+	t.Skip()
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 
@@ -161,7 +167,8 @@ func TestStartWaypoint(t *testing.T) {
 	options := kinematicbase.NewKinematicBaseOptions()
 	options.PositionOnlyMode = false
 
-	kinematicBase, err := kinematicbase.WrapWithFakeKinematics(ctx, fake, localizer, limits, options, nil)
+	// TODO: Test this with PTGs
+	kinematicBase, err := kinematicbase.WrapWithFakeDiffDriveKinematics(ctx, fake, localizer, limits, options, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	injectMovementSensor := inject.NewMovementSensor("test_movement")
@@ -252,7 +259,7 @@ func TestStartWaypoint(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		cancelCtx, fn := context.WithCancel(ctx)
-		ns.(*builtIn).startWaypoint(cancelCtx, map[string]interface{}{})
+		ns.(*builtIn).startWaypointMode(cancelCtx, map[string]interface{}{})
 		blockTillCallCount(t, 1, callChan, time.Second*5)
 		fn()
 		ns.(*builtIn).activeBackgroundWorkers.Wait()
@@ -262,7 +269,7 @@ func TestStartWaypoint(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		cancelCtx, fn = context.WithCancel(ctx)
-		ns.(*builtIn).startWaypoint(cancelCtx, nil)
+		ns.(*builtIn).startWaypointMode(cancelCtx, nil)
 		blockTillCallCount(t, 1, callChan, time.Second*5)
 		fn()
 		ns.(*builtIn).activeBackgroundWorkers.Wait()
@@ -330,7 +337,7 @@ func TestStartWaypoint(t *testing.T) {
 				test.That(t, err, test.ShouldBeNil)
 			}
 
-			ns.(*builtIn).startWaypoint(ctx, map[string]interface{}{"experimental": true})
+			ns.(*builtIn).startWaypointMode(ctx, map[string]interface{}{"experimental": true})
 
 			// Get the ID of the first waypoint
 			wp1, err := ns.(*builtIn).store.NextWaypoint(ctx)

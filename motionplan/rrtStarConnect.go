@@ -1,3 +1,5 @@
+//go:build !no_cgo
+
 package motionplan
 
 import (
@@ -79,6 +81,7 @@ func (mp *rrtStarConnectMotionPlanner) plan(ctx context.Context,
 	goal spatialmath.Pose,
 	seed []referenceframe.Input,
 ) ([]node, error) {
+	mp.planOpts.SetGoal(goal)
 	solutionChan := make(chan *rrtPlanReturn, 1)
 	utils.PanicCapturingGo(func() {
 		mp.rrtBackgroundRunner(ctx, seed, &rrtParallelPlannerShared{nil, nil, solutionChan})

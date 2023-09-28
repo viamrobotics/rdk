@@ -107,7 +107,7 @@ func (d *derivative) reset() error {
 	if len(d.cfg.DependsOn) != 1 {
 		return errors.Errorf("derive block %s only supports one input got %d", d.cfg.Name, len(d.cfg.DependsOn))
 	}
-	switch finiteDifferenceType(d.cfg.Attribute.String("derive_type")) {
+	switch finiteDifferenceType(d.cfg.Attribute["derive_type"].(string)) {
 	case backward1st1:
 		d.stencil = backward1st1Stencil
 	case backward1st2:
@@ -119,7 +119,7 @@ func (d *derivative) reset() error {
 	case backward2nd2:
 		d.stencil = backward2nd2Stencil
 	default:
-		return errors.Errorf("unsupported derive_type %s for block %s", d.cfg.Attribute.String("derive_type"), d.cfg.Name)
+		return errors.Errorf("unsupported derive_type %s for block %s", d.cfg.Attribute["derive_type"].(string), d.cfg.Name)
 	}
 	d.px = make([][]float64, len(d.cfg.DependsOn))
 	d.y = make([]*Signal, len(d.cfg.DependsOn))

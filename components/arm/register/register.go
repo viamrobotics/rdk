@@ -8,5 +8,4 @@ import (
 	_ "go.viam.com/rdk/components/arm/universalrobots"
 	_ "go.viam.com/rdk/components/arm/wrapper"
 	_ "go.viam.com/rdk/components/arm/xarm"
-	_ "go.viam.com/rdk/components/arm/yahboom"
 )

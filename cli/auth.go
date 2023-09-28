@@ -19,6 +19,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 	datapb "go.viam.com/api/app/data/v1"
+	datasetpb "go.viam.com/api/app/dataset/v1"
 	packagepb "go.viam.com/api/app/packages/v1"
 	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/utils"
@@ -365,6 +366,8 @@ func (c *viamClient) ensureLoggedIn() error {
 	c.client = apppb.NewAppServiceClient(conn)
 	c.dataClient = datapb.NewDataServiceClient(conn)
 	c.packageClient = packagepb.NewPackageServiceClient(conn)
+	c.datasetClient = datasetpb.NewDatasetServiceClient(conn)
+
 	return nil
 }
 

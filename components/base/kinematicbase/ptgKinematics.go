@@ -1,3 +1,5 @@
+//go:build !no_cgo
+
 // Package kinematicbase contains wrappers that augment bases with information needed for higher level
 // control over the base
 package kinematicbase
@@ -36,7 +38,6 @@ type ptgBaseKinematics struct {
 	motion.Localizer
 	logger       golog.Logger
 	frame        referenceframe.Frame
-	fs           referenceframe.FrameSystem
 	ptgs         []tpspace.PTGSolver
 	inputLock    sync.RWMutex
 	currentInput []referenceframe.Input
@@ -91,11 +92,6 @@ func wrapWithPTGKinematics(
 		return nil, err
 	}
 
-	fs := referenceframe.NewEmptyFrameSystem("")
-	if err := fs.AddFrame(frame, fs.World()); err != nil {
-		return nil, err
-	}
-
 	ptgProv, ok := frame.(tpspace.PTGProvider)
 	if !ok {
 		return nil, errors.New("unable to cast ptgk frame to a PTG Provider")
@@ -107,7 +103,6 @@ func wrapWithPTGKinematics(
 		Localizer:    localizer,
 		logger:       logger,
 		frame:        frame,
-		fs:           fs,
 		ptgs:         ptgs,
 		currentInput: zeroInput,
 	}, nil

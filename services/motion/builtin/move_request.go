@@ -158,7 +158,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
 		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
 		{Min: -2 * math.Pi, Max: 2 * math.Pi},
-	}
+	} // Note: this is only for diff drive, not used for PTGs
 	ms.logger.Debugf("base limits: %v", limits)
 
 	if extra != nil {
@@ -167,9 +167,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 			if !ok {
 				return nil, errors.New("could not interpret motion_profile field as string")
 			}
-			if false { // TODO: Fix with RSDK-4583
-				kinematicsOptions.PositionOnlyMode = motionProfile == motionplan.PositionOnlyMotionProfile
-			}
+			kinematicsOptions.PositionOnlyMode = motionProfile == motionplan.PositionOnlyMotionProfile
 		}
 	}
 
@@ -183,26 +181,45 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 		return nil, fmt.Errorf("cannot move component of type %T because it is not a Base", baseComponent)
 	}
 
+	fs, err := ms.fsService.FrameSystem(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+
 	kb, err := kinematicbase.WrapWithKinematics(ctx, b, ms.logger, localizer, limits, kinematicsOptions)
 	if err != nil {
 		return nil, err
 	}
 
-	// create a new empty framesystem which we add the kinematic base to
-	fs := referenceframe.NewEmptyFrameSystem("")
-	kbf := kb.Kinematics()
-	if err := fs.AddFrame(kbf, fs.World()); err != nil {
+	// replace original base frame with one that knows how to move itself and allow planning for
+	kinematicFrame := kb.Kinematics()
+	if err = fs.ReplaceFrame(kinematicFrame); err != nil {
 		return nil, err
 	}
-
-	// TODO(RSDK-3407): this does not adequately account for geometries right now since it is a transformation after the fact.
-	// This is probably acceptable for the time being, but long term the construction of the frame system for the kinematic base should
-	// be moved under the purview of the kinematic base wrapper instead of being done here.
-	offsetFrame, err := referenceframe.NewStaticFrame("offset", movementSensorToBase.Pose())
+	// We want to disregard anything in the FS whose eventual parent is not the base, because we don't know where it is.
+	baseOnlyFS, err := fs.FrameSystemSubset(kinematicFrame)
 	if err != nil {
 		return nil, err
 	}
-	if err := fs.AddFrame(offsetFrame, kbf); err != nil {
+	// Place the base at the correct heading relative to the frame system
+	currentPosition, err := kb.CurrentPosition(ctx)
+	if err != nil {
+		return nil, err
+	}
+	headingFrame, err := referenceframe.NewStaticFrame(
+		kinematicFrame.Name()+"_origin",
+		spatialmath.NewPoseFromOrientation(currentPosition.Pose().Orientation()),
+	)
+	if err != nil {
+		return nil, err
+	}
+	baseFSWithOrient := referenceframe.NewEmptyFrameSystem("baseFS")
+	err = baseFSWithOrient.AddFrame(headingFrame, baseFSWithOrient.World())
+	if err != nil {
+		return nil, err
+	}
+	err = baseFSWithOrient.MergeFrameSystem(baseOnlyFS, headingFrame)
+	if err != nil {
 		return nil, err
 	}
 
@@ -211,9 +228,9 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 		planRequest: &motionplan.PlanRequest{
 			Logger:             ms.logger,
 			Goal:               referenceframe.NewPoseInFrame(referenceframe.World, goal),
-			Frame:              offsetFrame,
-			FrameSystem:        fs,
-			StartConfiguration: referenceframe.StartPositions(fs),
+			Frame:              kb.Kinematics(),
+			FrameSystem:        baseFSWithOrient,
+			StartConfiguration: referenceframe.StartPositions(baseFSWithOrient),
 			WorldState:         worldState,
 			Options:            extra,
 		},

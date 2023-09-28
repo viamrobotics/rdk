@@ -59,7 +59,7 @@ type joinConfig struct {
 	ImageType            string                             `json:"output_image_type"`
 	Color                string                             `json:"color_camera_name"`
 	Depth                string                             `json:"depth_camera_name"`
-	CameraParameters     *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters"`
+	CameraParameters     *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters,omitempty"`
 	Debug                bool                               `json:"debug,omitempty"`
 	DistortionParameters *transform.BrownConrady            `json:"distortion_parameters,omitempty"`
 }
@@ -81,6 +81,7 @@ func (cfg *joinConfig) Validate(path string) ([]string, error) {
 type joinColorDepth struct {
 	color, depth         gostream.VideoStream
 	colorName, depthName string
+	underlyingCamera     camera.VideoSource
 	projector            transform.Projector
 	imageType            camera.ImageType
 	debug                bool
@@ -90,19 +91,43 @@ type joinColorDepth struct {
 // newJoinColorDepth creates a gostream.VideoSource that aligned color and depth channels.
 func newJoinColorDepth(ctx context.Context, color, depth camera.VideoSource, conf *joinConfig, logger golog.Logger,
 ) (camera.VideoSource, error) {
-	if conf.CameraParameters == nil {
-		return nil, errors.Wrap(transform.ErrNoIntrinsics, "intrinsic_parameters field in attributes cannot be empty")
-	}
 	imgType := camera.ImageType(conf.ImageType)
+	// get intrinsic parameters from config, or from the underlying camera
+	var camParams *transform.PinholeCameraIntrinsics
+	if conf.CameraParameters == nil {
+		if imgType == camera.DepthStream {
+			props, err := depth.Properties(ctx)
+			if err == nil {
+				camParams = props.IntrinsicParams
+			}
+		} else {
+			props, err := color.Properties(ctx)
+			if err == nil {
+				camParams = props.IntrinsicParams
+			}
+		}
+	} else {
+		camParams = conf.CameraParameters
+	}
+	err := camParams.CheckValid()
+	if err != nil {
+		if conf.CameraParameters != nil {
+			return nil, errors.Wrap(err, "error in the intrinsic_parameters field of the attributes")
+		}
+		return nil, errors.Wrap(err, "error in the intrinsic parameters of the underlying camera")
+	}
 	videoSrc := &joinColorDepth{
-		color:     gostream.NewEmbeddedVideoStream(color),
 		colorName: conf.Color,
-		depth:     gostream.NewEmbeddedVideoStream(depth),
 		depthName: conf.Depth,
-		projector: conf.CameraParameters,
+		color:     gostream.NewEmbeddedVideoStream(color),
+		depth:     gostream.NewEmbeddedVideoStream(depth),
+		projector: camParams,
 		imageType: imgType,
 		debug:     conf.Debug,
 		logger:    logger,
+	}
+	if conf.Color == conf.Depth { // store the underlying VideoSource for an Images call
+		videoSrc.underlyingCamera = color
 	}
 	cameraModel := camera.NewPinholeModelWithBrownConradyDistortion(conf.CameraParameters, conf.DistortionParameters)
 	return camera.NewVideoSourceFromReader(
@@ -134,6 +159,9 @@ func (jcd *joinColorDepth) NextPointCloud(ctx context.Context) (pointcloud.Point
 	if jcd.projector == nil {
 		return nil, transform.NewNoIntrinsicsError("no intrinsic_parameters in camera attributes")
 	}
+	if jcd.colorName == jcd.depthName {
+		return jcd.nextPointCloudFromImages(ctx)
+	}
 	col, dm := camera.SimultaneousColorDepthNext(ctx, jcd.color, jcd.depth)
 	if col == nil {
 		return nil, errors.Errorf("could not get color image from source camera %q for join_color_depth camera", jcd.colorName)
@@ -142,6 +170,27 @@ func (jcd *joinColorDepth) NextPointCloud(ctx context.Context) (pointcloud.Point
 		return nil, errors.Errorf("could not get depth image from source camera %q for join_color_depth camera", jcd.depthName)
 	}
 	return jcd.projector.RGBDToPointCloud(rimage.ConvertImage(col), dm)
+}
+
+func (jcd *joinColorDepth) nextPointCloudFromImages(ctx context.Context) (pointcloud.PointCloud, error) {
+	imgs, _, err := jcd.underlyingCamera.Images(ctx)
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not call Images on underlying camera %q", jcd.colorName)
+	}
+	var col *rimage.Image
+	var dm *rimage.DepthMap
+	for _, img := range imgs {
+		if img.SourceName == "color" {
+			col = rimage.ConvertImage(img.Image)
+		}
+		if img.SourceName == "depth" {
+			dm, err = rimage.ConvertImageToDepthMap(ctx, img.Image)
+			if err != nil {
+				return nil, errors.Wrap(err, "image called 'depth' from Images not actually a depth map")
+			}
+		}
+	}
+	return jcd.projector.RGBDToPointCloud(col, dm)
 }
 
 func (jcd *joinColorDepth) Close(ctx context.Context) error {

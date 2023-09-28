@@ -1,6 +1,8 @@
 # CustomResources
 This example demonstrates several ways RDK can be extended with custom resources. It contains several sections. Note that `make` is used throughout to help script commands. The actual commands being run should be printed as they are used. You can also look in the various "Makefile" named files throughout, to see the exact targets and what they do.
 
+For a fully fleshed-out example of a Golang module that uses Github CI to upload to the Viam Registry, take a look at [wifi-sensor](https://github.com/viam-labs/wifi-sensor). For a list of example modules in different Viam SDKs, take a look [here](https://github.com/viamrobotics/upload-module/#example-repos).
+
 ## APIs
 APIs represent new types of components or services, with a new interface definition. They consist of protobuf descriptions for the wire level protocol, matching Go interfaces, and concrete Go implementations of a gRPC client and server.
 

@@ -345,9 +345,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		})
 	}
 
-	streamConfig := makeStreamConfig()
-
-	robotOptions := []robotimpl.Option{robotimpl.WithWebOptions(web.WithStreamConfig(streamConfig))}
+	robotOptions := createRobotOptions()
 	if s.args.RevealSensitiveConfigDiffs {
 		robotOptions = append(robotOptions, robotimpl.WithRevealSensitiveConfigDiffs())
 	}
@@ -399,10 +397,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 
 				if !diff.NetworkEqual {
 					// TODO(RSDK-2694): use internal web service reconfiguration instead
-					if err := myRobot.StopWeb(ctx); err != nil {
-						s.logger.Errorw("reconfiguration failed: error stopping web service while reconfiguring", "error", err)
-						continue
-					}
+					myRobot.StopWeb()
 					options, err = s.createWebOptions(processedConfig)
 					if err != nil {
 						s.logger.Errorw("reconfiguration aborted: error creating weboptions", "error", err)

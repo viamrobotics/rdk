@@ -18,7 +18,7 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
-func TestNewFakeKinematics(t *testing.T) {
+func TestNewFakeDiffDriveKinematics(t *testing.T) {
 	conf := resource.Config{
 		Name: "test",
 		Frame: &referenceframe.LinkConfig{
@@ -49,7 +49,7 @@ func TestNewFakeKinematics(t *testing.T) {
 	options := NewKinematicBaseOptions()
 	options.PositionOnlyMode = false
 	noise := spatialmath.NewPoseFromPoint(r3.Vector{1, 0, 0})
-	kb, err := WrapWithFakeKinematics(ctx, b.(*fakebase.Base), localizer, limits, options, noise)
+	kb, err := WrapWithFakeDiffDriveKinematics(ctx, b.(*fakebase.Base), localizer, limits, options, noise)
 	test.That(t, err, test.ShouldBeNil)
 	expected := referenceframe.FloatsToInputs([]float64{10, 11})
 	test.That(t, kb.GoToInputs(ctx, expected), test.ShouldBeNil)
@@ -59,4 +59,51 @@ func TestNewFakeKinematics(t *testing.T) {
 	pose, err := kb.CurrentPosition(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, spatialmath.PoseAlmostCoincident(pose.Pose(), spatialmath.NewPoseFromPoint(r3.Vector{11, 11, 0})), test.ShouldBeTrue)
+}
+
+func TestNewFakePTGKinematics(t *testing.T) {
+	conf := resource.Config{
+		Name: "test",
+		Frame: &referenceframe.LinkConfig{
+			Parent: referenceframe.World,
+			Geometry: &spatialmath.GeometryConfig{
+				R: 10,
+			},
+		},
+	}
+
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+	b, err := fakebase.NewBase(ctx, resource.Dependencies{}, conf, logger)
+	test.That(t, err, test.ShouldBeNil)
+	ms := inject.NewMovementSensor("test")
+	ms.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+		return geo.NewPoint(0, 0), 0, nil
+	}
+	ms.CompassHeadingFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
+		return 0, nil
+	}
+	ms.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+		return &movementsensor.Properties{CompassHeadingSupported: true}, nil
+	}
+	localizer := motion.NewMovementSensorLocalizer(ms, geo.NewPoint(0, 0), spatialmath.NewZeroPose())
+
+	options := NewKinematicBaseOptions()
+	options.PositionOnlyMode = false
+	noise := spatialmath.NewPoseFromPoint(r3.Vector{1, 0, 0})
+	kb, err := WrapWithFakePTGKinematics(ctx, b.(*fakebase.Base), logger, localizer, options, noise)
+	test.That(t, err, test.ShouldBeNil)
+
+	startpose, err := kb.CurrentPosition(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	realStartPose := spatialmath.PoseBetweenInverse(noise, startpose.Pose())
+
+	expected := referenceframe.FloatsToInputs([]float64{0, 1.23, 110})
+	expectedPose, err := kb.Kinematics().Transform(expected)
+	test.That(t, err, test.ShouldBeNil)
+	expectedPose = spatialmath.Compose(spatialmath.Compose(realStartPose, expectedPose), noise)
+	test.That(t, kb.GoToInputs(ctx, expected), test.ShouldBeNil)
+	pose, err := kb.CurrentPosition(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, spatialmath.PoseAlmostCoincident(pose.Pose(), expectedPose), test.ShouldBeTrue)
 }
