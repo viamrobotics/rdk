@@ -388,6 +388,7 @@ IK:
 
 // CheckPlan checks if obstacles intersect the trajectory of the frame following the plan.
 // We assume the errorState to remain constant for the duration of the plan.
+// Currently, this function does not support checking a plan for an arm.
 func CheckPlan(
 	checkFrame frame.Frame,
 	plan Plan,
