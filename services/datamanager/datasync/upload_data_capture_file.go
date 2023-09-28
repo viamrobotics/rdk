@@ -70,7 +70,6 @@ func uploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient,
 				return err
 			}
 		}
-		return nil
 	} else {
 		// Build UploadMetadata
 		uploadMD := &v1.UploadMetadata{

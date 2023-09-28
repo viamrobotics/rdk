@@ -61,19 +61,19 @@ func ReadFile(f *os.File) (*File, error) {
 	md := &v1.DataCaptureMetadata{}
 	initOffset, err := pbutil.ReadDelimited(f, md)
 	if err != nil {
-		// we're getting an EOF here
-		if errors.Is(err, io.EOF) {
-			return &File{
-				path:              f.Name(),
-				file:              f,
-				writer:            bufio.NewWriter(f),
-				size:              finfo.Size(),
-				metadata:          md,
-				initialReadOffset: int64(initOffset),
-				readOffset:        int64(initOffset),
-				writeOffset:       int64(initOffset),
-			}, nil
-		}
+		// // we're getting an EOF here
+		// if errors.Is(err, io.EOF) {
+		// 	return &File{
+		// 		path:              f.Name(),
+		// 		file:              f,
+		// 		writer:            bufio.NewWriter(f),
+		// 		size:              finfo.Size(),
+		// 		metadata:          md,
+		// 		initialReadOffset: int64(initOffset),
+		// 		readOffset:        int64(initOffset),
+		// 		writeOffset:       int64(initOffset),
+		// 	}, nil
+		// }
 		return nil, errors.Wrapf(err, fmt.Sprintf("failed to read DataCaptureMetadata from %s", f.Name()))
 	}
 
