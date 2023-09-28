@@ -4,7 +4,6 @@ package universalrobots
 import (
 	"bufio"
 	"context"
-
 	// for embedding model file.
 	_ "embed"
 	"encoding/binary"
@@ -22,7 +21,6 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/arm/v1"
-	rdkutils "go.viam.com/rdk/utils"
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/arm"
@@ -31,6 +29,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 // Model is the name of the UR5e model of an arm component.
@@ -38,7 +37,7 @@ var Model = resource.DefaultModelFamily.WithModel("ur5e")
 
 // Config is used for converting config attributes.
 type Config struct {
-	Speed               float64 `json:"speed_degs_per_sec"`
+	SpeedDegsPerSec     float64 `json:"speed_degs_per_sec"`
 	Host                string  `json:"host"`
 	ArmHostedKinematics bool    `json:"arm_hosted_kinematics,omitempty"`
 }
@@ -48,7 +47,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 	if cfg.Host == "" {
 		return nil, goutils.NewConfigValidationFieldRequiredError(path, "host")
 	}
-	if cfg.Speed > 180 || cfg.Speed < 18 {
+	if cfg.SpeedDegsPerSec > 180 || cfg.SpeedDegsPerSec < 18 {
 		return nil, errors.New("speed for universalrobots has to be between 18 and 180 degrees per second")
 	}
 	return []string{}, nil
@@ -117,7 +116,7 @@ func (ua *URArm) Reconfigure(ctx context.Context, deps resource.Dependencies, co
 		}
 		return nil
 	}
-	ua.speed = newConf.Speed
+	ua.speed = newConf.SpeedDegsPerSec
 	ua.urHostedKinematics = newConf.ArmHostedKinematics
 	return nil
 }
@@ -186,7 +185,7 @@ func URArmConnect(ctx context.Context, conf resource.Config, logger golog.Logger
 	newArm := &URArm{
 		Named:                    conf.ResourceName().AsNamed(),
 		connControl:              nil,
-		speed:                    rdkutils.DegToRad(newConf.Speed),
+		speed:                    rdkutils.DegToRad(newConf.SpeedDegsPerSec),
 		debug:                    false,
 		haveData:                 false,
 		logger:                   logger,
