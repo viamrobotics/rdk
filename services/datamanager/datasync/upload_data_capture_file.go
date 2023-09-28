@@ -42,34 +42,29 @@ func uploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient,
 		}
 
 		for _, img := range getImgsRes.Images {
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			default:
-				newSensorData := []*v1.SensorData{
-					{
-						Metadata: &v1.SensorMetadata{
-							TimeRequested: timeReq,
-							TimeReceived:  timeRec,
-						},
-						Data: &v1.SensorData_Binary{
-							Binary: img.GetImage(),
-						},
+			newSensorData := []*v1.SensorData{
+				{
+					Metadata: &v1.SensorMetadata{
+						TimeRequested: timeReq,
+						TimeReceived:  timeRec,
 					},
-				}
-				newUploadMD := &v1.UploadMetadata{
-					PartId:           partID,
-					ComponentType:    md.GetComponentType(),
-					ComponentName:    md.GetComponentName(),
-					MethodName:       md.GetMethodName(),
-					Type:             md.GetType(),
-					MethodParameters: md.GetMethodParameters(),
-					FileExtension:    getFileExtFromImageFormat(img.GetFormat()),
-					Tags:             md.GetTags(),
-				}
-				if err := uploadSensorData(ctx, client, newUploadMD, newSensorData, f.Size()); err != nil {
-					return err
-				}
+					Data: &v1.SensorData_Binary{
+						Binary: img.GetImage(),
+					},
+				},
+			}
+			newUploadMD := &v1.UploadMetadata{
+				PartId:           partID,
+				ComponentType:    md.GetComponentType(),
+				ComponentName:    md.GetComponentName(),
+				MethodName:       md.GetMethodName(),
+				Type:             md.GetType(),
+				MethodParameters: md.GetMethodParameters(),
+				FileExtension:    getFileExtFromImageFormat(img.GetFormat()),
+				Tags:             md.GetTags(),
+			}
+			if err := uploadSensorData(ctx, client, newUploadMD, newSensorData, f.Size()); err != nil {
+				return err
 			}
 		}
 	} else {
