@@ -31,12 +31,22 @@ const (
 	ModeWaypoint
 )
 
+func (m Mode) String() string {
+	switch m {
+	case ModeManual:
+		return "Manual"
+	case ModeWaypoint:
+		return "Waypoint"
+	default:
+		return "UNKNOWN"
+	}
+}
+
 // A Service controls the navigation for a robot.
 type Service interface {
 	resource.Resource
 	Mode(ctx context.Context, extra map[string]interface{}) (Mode, error)
 	SetMode(ctx context.Context, mode Mode, extra map[string]interface{}) error
-
 	Location(ctx context.Context, extra map[string]interface{}) (*spatialmath.GeoPose, error)
 
 	// Waypoint

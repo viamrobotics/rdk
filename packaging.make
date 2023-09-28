@@ -1,6 +1,5 @@
 BUILD_CHANNEL?=local
 
-appimage: NO_UPX=1
 appimage: server-static
 	cd etc/packaging/appimages && BUILD_CHANNEL=${BUILD_CHANNEL} appimage-builder --recipe viam-server-`uname -m`.yml
 	if [ "${RELEASE_TYPE}" = "stable" ]; then \
@@ -23,7 +22,7 @@ appimage-arm64:
 appimage-deploy:
 	gsutil -m -h "Cache-Control: no-cache" cp etc/packaging/appimages/deploy/* gs://packages.viam.com/apps/viam-server/
 
-static-release: server-static
+static-release: server-static-compressed
 	rm -rf etc/packaging/static/deploy/
 	mkdir -p etc/packaging/static/deploy/
 	cp $(BIN_OUTPUT_PATH)/viam-server etc/packaging/static/deploy/viam-server-${BUILD_CHANNEL}-`uname -m`
