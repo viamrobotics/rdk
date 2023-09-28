@@ -22,8 +22,7 @@ type Method int64
 const (
 	nextPointCloud Method = iota
 	readImage
-	// GetImages is used for getting simultaneous images from different imagers.
-	GetImages
+	getImages
 )
 
 func (m Method) String() string {
@@ -32,7 +31,7 @@ func (m Method) String() string {
 		return "NextPointCloud"
 	case readImage:
 		return "ReadImage"
-	case GetImages:
+	case getImages:
 		return "GetImages"
 	}
 	return "Unknown"
@@ -142,7 +141,7 @@ func newGetImagesCollector(resource interface{}, params data.CollectorParams) (d
 			if errors.Is(err, data.ErrNoCaptureToStore) {
 				return nil, err
 			}
-			return nil, data.FailedToReadErr(params.ComponentName, GetImages.String(), err)
+			return nil, data.FailedToReadErr(params.ComponentName, getImages.String(), err)
 		}
 
 		var imgsConverted []*pb.Image

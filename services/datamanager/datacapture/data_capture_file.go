@@ -27,9 +27,10 @@ const (
 	InProgressFileExt = ".prog"
 	FileExt           = ".capture"
 	readImage         = "ReadImage"
-	getImages         = "GetImages"
-	nextPointCloud    = "NextPointCloud"
-	pointCloudMap     = "PointCloudMap"
+	// GetImages is used for getting simultaneous images from different imagers.
+	GetImages      = "GetImages"
+	nextPointCloud = "NextPointCloud"
+	pointCloudMap  = "PointCloudMap"
 )
 
 // File is the data structure containing data captured by collectors. It is backed by a file on disk containing
@@ -240,7 +241,7 @@ func getFileTimestampName() string {
 // TODO DATA-246: Implement this in some more robust, programmatic way.
 func getDataType(methodName string) v1.DataType {
 	switch methodName {
-	case nextPointCloud, readImage, pointCloudMap, getImages:
+	case nextPointCloud, readImage, pointCloudMap, GetImages:
 		return v1.DataType_DATA_TYPE_BINARY_SENSOR
 	default:
 		return v1.DataType_DATA_TYPE_TABULAR_SENSOR

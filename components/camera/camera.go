@@ -44,7 +44,7 @@ func init() {
 	}, newReadImageCollector)
 	data.RegisterCollector(data.MethodMetadata{
 		API:        API,
-		MethodName: GetImages.String(),
+		MethodName: getImages.String(),
 	}, newGetImagesCollector)
 }
 
