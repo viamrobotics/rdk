@@ -66,7 +66,9 @@ func uploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient,
 				FileExtension:    getFileExtFromImageFormat(img.GetFormat()),
 				Tags:             md.GetTags(),
 			}
-			return uploadSensorData(ctx, client, newUploadMD, newSensorData, f.Size())
+			if err := uploadSensorData(ctx, client, newUploadMD, newSensorData, f.Size()); err != nil {
+				return err
+			}
 		}
 	} else {
 		// Build UploadMetadata
