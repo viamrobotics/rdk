@@ -16,16 +16,15 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// Method is a data capture method.
-type Method int64
+type method int64
 
 const (
-	nextPointCloud Method = iota
+	nextPointCloud method = iota
 	readImage
 	getImages
 )
 
-func (m Method) String() string {
+func (m method) String() string {
 	switch m {
 	case nextPointCloud:
 		return "NextPointCloud"
