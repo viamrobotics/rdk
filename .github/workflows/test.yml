@@ -18,7 +18,7 @@ jobs:
       matrix:
         include:
           - arch: [buildjet-8vcpu-ubuntu-2204]
-            image: ghcr.io/viamrobotics/rdk-devenv:amd64-beta-c0c8a3d
+            image: ghcr.io/viamrobotics/rdk-devenv:amd64-beta-908b3d4
             platform: linux/amd64
             platform_name: linux-amd64
             test_cmd: "make cover test-web"
@@ -142,7 +142,7 @@ jobs:
   test_e2e:
     name: Test End-to-End
     runs-on: [buildjet-8vcpu-ubuntu-2204]
-    container: ghcr.io/viamrobotics/rdk-devenv:amd64-beta-c0c8a3d
+    container: ghcr.io/viamrobotics/rdk-devenv:amd64-beta-908b3d4
     steps:
       - name: Check out main branch code
         if: github.event_name != 'pull_request_target'
