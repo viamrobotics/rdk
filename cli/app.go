@@ -422,7 +422,7 @@ var app = &cli.App{
 						&cli.StringFlag{
 							Name:     dataFlagOrgID,
 							Required: true,
-							Usage:    "organization for which dataset will be created",
+							Usage:    "org ID for which dataset will be created",
 						},
 						&cli.StringFlag{
 							Name:     datasetFlagName,
@@ -453,8 +453,8 @@ var app = &cli.App{
 				},
 				{
 					Name:  "list",
-					Usage: "list dataset information from specified IDs or for an organization ID",
-					UsageText: fmt.Sprintf("viam dataset list <%s> <%s>",
+					Usage: "list dataset information from specified IDs or for an org ID",
+					UsageText: fmt.Sprintf("viam dataset list [<%s> | <%s>]",
 						datasetFlagDatasetIDs, dataFlagOrgID),
 					Flags: []cli.Flag{
 						&cli.StringSliceFlag{
