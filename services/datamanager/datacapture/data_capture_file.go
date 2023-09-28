@@ -273,8 +273,12 @@ func GetFileExt(dataType v1.DataType, methodName string, parameters map[string]s
 			}
 		}
 		if methodName == getImages {
-			return "thiscouldbethespot"
+			return "thiscouldbethespot1"
 		}
+		if methodName == pointCloudMap {
+			return "thiscouldbethespot2"
+		}
+		return "shouldnotgethere"
 	case v1.DataType_DATA_TYPE_UNSPECIFIED:
 		return defaultFileExt
 	default:
