@@ -341,6 +341,69 @@ var app = &cli.App{
 					},
 					Action: DataDeleteTabularAction,
 				},
+				{
+					Name:      "dataset",
+					Usage:     "add or remove data from datasets",
+					UsageText: "viam data dataset [other options]",
+					Subcommands: []*cli.Command{
+						{
+							Name:      "add",
+							Usage:     "adds binary data with file IDs in a single org and location to dataset",
+							UsageText: fmt.Sprintf("viam data dataset add <%s> <%s> <%s> <%s> [other options]", datasetFlagDatasetID, dataFlagOrgID, dataFlagLocationID, dataFlagFileIDs),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     datasetFlagDatasetID,
+									Usage:    "dataset ID to which data will be added",
+									Required: true,
+								},
+								&cli.StringFlag{
+									Name:     dataFlagOrgID,
+									Usage:    "org ID to which data belongs",
+									Required: true,
+								},
+								&cli.StringFlag{
+									Name:     dataFlagLocationID,
+									Usage:    "location ID to which data belongs",
+									Required: true,
+								},
+								&cli.StringSliceFlag{
+									Name:     dataFlagFileIDs,
+									Usage:    "file IDs of data belonging to specified org and location",
+									Required: true,
+								},
+							},
+							Action: DataAddToDataset,
+						},
+						{
+							Name:      "remove",
+							Usage:     "removes binary data with file IDs in a single org and location from dataset",
+							UsageText: fmt.Sprintf("viam data dataset remove <%s> <%s> <%s> <%s> [other options]", datasetFlagDatasetID, dataFlagOrgID, dataFlagLocationID, dataFlagFileIDs),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     datasetFlagDatasetID,
+									Usage:    "dataset ID from which data will be removed",
+									Required: true,
+								},
+								&cli.StringFlag{
+									Name:     dataFlagOrgID,
+									Usage:    "org ID to which data belongs",
+									Required: true,
+								},
+								&cli.StringFlag{
+									Name:     dataFlagLocationID,
+									Usage:    "location ID to which data belongs",
+									Required: true,
+								},
+								&cli.StringSliceFlag{
+									Name:     dataFlagFileIDs,
+									Usage:    "file IDs of data belonging to specified org and location",
+									Required: true,
+								},
+							},
+							Action: DataRemoveFromDataset,
+						},
+					},
+				},
 			},
 		},
 		{
@@ -352,10 +415,10 @@ var app = &cli.App{
 					Name:  "create",
 					Usage: "create a new dataset",
 					UsageText: fmt.Sprintf("viam dataset create <%s> <%s>",
-						datasetFlagOrgID, datasetFlagName),
+						dataFlagOrgID, datasetFlagName),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
-							Name:     datasetFlagOrgID,
+							Name:     dataFlagOrgID,
 							Required: true,
 							Usage:    "organization for which dataset will be created",
 						},
@@ -390,15 +453,15 @@ var app = &cli.App{
 					Name:  "list",
 					Usage: "list dataset information from specified IDs or for an organization ID",
 					UsageText: fmt.Sprintf("viam dataset list <%s> <%s>",
-						datasetFlagDatasetIDs, datasetFlagOrgID),
+						datasetFlagDatasetIDs, dataFlagOrgID),
 					Flags: []cli.Flag{
 						&cli.StringSliceFlag{
 							Name:  datasetFlagDatasetIDs,
-							Usage: "dataset ID of the dataset that will be renamed",
+							Usage: "dataset IDs of datasets to be listed",
 						},
 						&cli.StringFlag{
-							Name:  datasetFlagOrgID,
-							Usage: "new name for the dataset",
+							Name:  dataFlagOrgID,
+							Usage: "org ID for which datasets will be listed",
 						},
 					},
 					Action: DatasetListAction,

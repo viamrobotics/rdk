@@ -8,11 +8,12 @@ import (
 	datasetpb "go.viam.com/api/app/dataset/v1"
 )
 
-var (
+const (
 	datasetFlagName       = "name"
 	datasetFlagDatasetID  = "dataset-id"
 	datasetFlagDatasetIDs = "dataset-ids"
-	datasetFlagOrgID      = "org-id"
+	dataFlagLocationID    = "location-id"
+	dataFlagFileIDs       = "file-ids"
 )
 
 // DatasetCreateAction is the corresponding action for 'dataset create'.
@@ -21,7 +22,7 @@ func DatasetCreateAction(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := client.createDataset(c.String(datasetFlagOrgID), c.String(datasetFlagName)); err != nil {
+	if err := client.createDataset(c.String(dataFlagOrgID), c.String(datasetFlagName)); err != nil {
 		return err
 	}
 	return nil
@@ -74,10 +75,10 @@ func DatasetListAction(c *cli.Context) error {
 		return err
 	}
 	datasetIDs := c.StringSlice(datasetFlagDatasetIDs)
-	orgID := c.String(datasetFlagOrgID)
+	orgID := c.String(dataFlagOrgID)
 
 	if orgID != "" && datasetIDs != nil {
-		return errors.Errorf("must specify either dataset IDs or organization ID, got both")
+		return errors.New("must specify either dataset IDs or organization ID, got both")
 	}
 	if datasetIDs != nil {
 		if err := client.listDatasetByIDs(datasetIDs); err != nil {
