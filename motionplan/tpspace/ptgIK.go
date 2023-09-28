@@ -97,10 +97,8 @@ func (ptg *ptgIK) Solve(
 	case solved = <-internalSolutionGen:
 	default:
 	}
-	// ~ fmt.Println("solved, err", solved, err)
 	if err != nil || solved == nil || solved.Configuration[1].Value < defaultZeroDist {
 		// nlopt did not return a valid solution or otherwise errored. Fall back fully to the grid check.
-		// ~ fmt.Println("grid check!")
 		return ptg.gridSim.Solve(ctx, solutionChan, seed, solveMetric, nloptSeed)
 	}
 
@@ -136,7 +134,6 @@ func (ptg *ptgIK) Trajectory(alpha, dist float64) ([]*TrajNode, error) {
 	precomp := ptg.trajCache[alpha]
 	ptg.mu.RUnlock()
 	if precomp != nil && precomp[len(precomp)-1].Dist >= dist {
-		// Caching here provides a ~33% speedup to a solve call
 		exact := false
 		for _, wp := range precomp {
 			if wp.Dist <= dist {
@@ -166,6 +163,7 @@ func (ptg *ptgIK) Trajectory(alpha, dist float64) ([]*TrajNode, error) {
 			return nil, err
 		}
 		ptg.mu.Lock()
+		// Caching here provides a ~33% speedup to a solve call
 		ptg.trajCache[alpha] = traj
 		ptg.mu.Unlock()
 	}

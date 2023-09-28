@@ -32,7 +32,7 @@ const (
 	defaultAddInt = true
 	// Add a subnode every this many mm along a valid trajectory. Large values run faster, small gives better paths
 	// Meaningless if the above is false.
-	defaultAddNodeEvery = 100.
+	defaultAddNodeEvery = 250.
 
 	// Don't add new RRT tree nodes if there is an existing node within this distance.
 	// Consider nodes on trees to be connected if they are within this distance.
@@ -387,31 +387,28 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 	if err != nil || bestNode == nil {
 		return nil, err
 	}
-	bestNodes := []node{}
-	pose := spatialmath.NewZeroPose()
-	// We may produce more than one consecutive arc. Reduce the one configuration to several 2dof arcs
-	for i := 0; i < len(bestNode.Configuration); i += 2 {
-		subNode := newConfigurationNode(bestNode.Configuration[i : i+2])
-		if invert {
-			bestNodes = append([]node{subNode}, bestNodes...)
-		} else {
-			bestNodes = append(bestNodes, subNode)
-		}
-	}
-
 	arcStartPose := nearest.Pose()
 	successNodes := []node{}
-NODECHECK:
-	for _, subNode := range bestNodes {
+	arcPose := spatialmath.NewZeroPose() // This will be the full pose that is the delta from one end of the combined traj to the other.
+	// We may produce more than one consecutive arc. Reduce the one configuration to several 2dof arcs
+	for i := 0; i < len(bestNode.Configuration); i += 2 {
+		var subNode node
+		if invert {
+			nodeIdx := len(bestNode.Configuration) - (i + 2)
+			subNode = newConfigurationNode(bestNode.Configuration[nodeIdx : nodeIdx+2])
+		} else {
+			subNode = newConfigurationNode(bestNode.Configuration[i : i+2])
+		}
+
 		subNodePose, err := curPtg.Transform(subNode.Q())
 		if err != nil {
 			return nil, err
 		}
 		if invert {
 			arcStartPose = spatialmath.PoseBetweenInverse(subNodePose, arcStartPose)
-			pose = spatialmath.Compose(subNodePose, pose)
+			arcPose = spatialmath.Compose(subNodePose, arcPose)
 		} else {
-			pose = spatialmath.Compose(pose, subNodePose)
+			arcPose = spatialmath.Compose(arcPose, subNodePose)
 		}
 
 		// Check collisions along this traj and get the longest distance viable
@@ -420,31 +417,9 @@ NODECHECK:
 			return nil, err
 		}
 		finalTrajNode := trajK[len(trajK)-1]
-		sinceLastCollideCheck := 0.
-		lastDist := 0.
-		var nodePose spatialmath.Pose
-		// Check each point along the trajectory to confirm constraints are met
-		// TODO: RSDK-5104 this could return the last good point along the given trajectory instead of erroring
-		for i := 0; i < len(trajK); i++ {
-			trajPt := trajK[i]
-			if invert {
-				// Start at known-good map point and extend
-				// For the goal tree this means iterating backwards
-				trajPt = trajK[(len(trajK)-1)-i]
-			}
-
-			sinceLastCollideCheck += math.Abs(trajPt.Dist - lastDist)
-			trajState := &ik.State{Position: spatialmath.Compose(arcStartPose, trajPt.Pose), Frame: mp.frame}
-			nodePose = trajState.Position
-			if sinceLastCollideCheck > mp.planOpts.Resolution {
-				ok, _ := mp.planOpts.CheckStateConstraints(trajState)
-				if !ok {
-					break NODECHECK
-				}
-				sinceLastCollideCheck = 0.
-			}
-
-			lastDist = trajPt.Dist
+		nodePose := mp.checkTraj(trajK, invert, arcStartPose)
+		if nodePose == nil {
+			break
 		}
 
 		// add the last node in trajectory
@@ -462,7 +437,7 @@ NODECHECK:
 		return nil, errInvalidCandidate
 	}
 
-	bestDist := targetFunc(&ik.State{Position: pose})
+	bestDist := targetFunc(&ik.State{Position: arcPose})
 
 	cand := &candidate{dist: bestDist, treeNode: nearest, newNodes: successNodes}
 	// check if this  successNode is too close to nodes already in the tree, and if so, do not add.
@@ -479,6 +454,36 @@ NODECHECK:
 	return cand, nil
 }
 
+func (mp *tpSpaceRRTMotionPlanner) checkTraj(trajK []*tpspace.TrajNode, invert bool, arcStartPose spatialmath.Pose) spatialmath.Pose {
+	sinceLastCollideCheck := 0.
+	lastDist := 0.
+	var nodePose spatialmath.Pose
+	// Check each point along the trajectory to confirm constraints are met
+	// TODO: RSDK-5104 this could return the last good point along the given trajectory instead of erroring
+	// TODO: RSDK-5007 will allow this to use a Segment and be better integrated into our existing frameworks.
+	for i := 0; i < len(trajK); i++ {
+		trajPt := trajK[i]
+		if invert {
+			// Start at known-good map point and extend
+			// For the goal tree this means iterating backwards
+			trajPt = trajK[(len(trajK)-1)-i]
+		}
+
+		sinceLastCollideCheck += math.Abs(trajPt.Dist - lastDist)
+		trajState := &ik.State{Position: spatialmath.Compose(arcStartPose, trajPt.Pose), Frame: mp.frame}
+		nodePose = trajState.Position
+		if sinceLastCollideCheck > mp.planOpts.Resolution {
+			ok, _ := mp.planOpts.CheckStateConstraints(trajState)
+			if !ok {
+				return nil
+			}
+			sinceLastCollideCheck = 0.
+		}
+
+		lastDist = trajPt.Dist
+	}
+	return nodePose
+}
 // attemptExtension will attempt to extend the rrt map towards the goal node, and will return the candidate added to the map that is
 // closest to that goal.
 func (mp *tpSpaceRRTMotionPlanner) attemptExtension(
@@ -732,7 +737,7 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 			maxCost = wp.Cost()
 		}
 	}
-	newFrame, err := tpspace.NewPTGFrameFromPTGFrame(mp.frame, maxCost*mp.algOpts.smoothScaleFactor)
+	newFrame, err := tpspace.NewPTGFrameFromPTGFrame(mp.frame, maxCost*mp.algOpts.smoothScaleFactor, 0)
 	if err != nil {
 		return path
 	}
