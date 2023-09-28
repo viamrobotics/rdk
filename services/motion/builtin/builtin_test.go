@@ -12,6 +12,7 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
@@ -861,7 +862,7 @@ func TestCheckPlan(t *testing.T) {
 	})
 
 	t.Run("non nil error state - ensure success", func(t *testing.T) {
-		errorState := spatialmath.NewPoseFromPoint(r3.Vector{0, 26, 0})
+		errorState := spatialmath.NewPoseFromPoint(r3.Vector{0, 2600, 0})
 
 		obstacle, err := spatialmath.NewBox(
 			spatialmath.NewPoseFromPoint(r3.Vector{150, 0, 0}),
