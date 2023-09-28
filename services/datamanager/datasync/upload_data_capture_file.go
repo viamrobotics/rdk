@@ -33,13 +33,10 @@ func uploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient,
 	}
 
 	if md.GetType() == v1.DataType_DATA_TYPE_BINARY_SENSOR && md.GetMethodName() == "GetImages" {
-		// Pull timestamps out of metadata
 		timeReq := sensorData[0].GetMetadata().GetTimeRequested()
 		timeRec := sensorData[0].GetMetadata().GetTimeReceived()
-
-		// Convert SensorData into a GetImagesResponse
 		var getImgsRes pb.GetImagesResponse
-		mp := sensorData[0].GetStruct().AsMap() // This is a GetImagesResponse, need to cast structpb to correct type
+		mp := sensorData[0].GetStruct().AsMap()
 		if err := mapstructure.Decode(mp, &getImgsRes); err != nil {
 			return err
 		}

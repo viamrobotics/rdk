@@ -157,8 +157,8 @@ func newGetImagesCollector(resource interface{}, params data.CollectorParams) (d
 			imgsConverted = append(imgsConverted, imgPb)
 		}
 		return pb.GetImagesResponse{
-			Images:           imgsConverted,
 			ResponseMetadata: resMetadata.AsProto(),
+			Images:           imgsConverted,
 		}, nil
 	})
 	return data.NewCollector(cFunc, params)
