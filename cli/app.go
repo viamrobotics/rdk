@@ -182,22 +182,28 @@ var app = &cli.App{
 					Action:    ListLocationsAction,
 				},
 				{
-					Name:  "create",
-					Usage: "create an api-key for your location",
-					Flags: []cli.Flag{
-						&cli.StringFlag{
-							Name:     dataFlagLocationID,
-							Required: true,
-							Usage:    "The location to create an api-key for",
-						},
-						&cli.StringFlag{
-							Name:  apiKeyCreateFlagName,
-							Usage: "the name of the location to create an api-key for. This will default to location-id-created_at_timestamp",
-						},
-						&cli.StringFlag{
-							Name: dataFlagOrgID,
-							Usage: "the org ID attached to attach the key to" +
-								"If not provided, will attempt to attach itself to the org of the location if only one org is attached to the location",
+					Name:  "api-key",
+					Usage: "work with an api-key for your location",
+					Subcommands: []*cli.Command{
+						{
+							Name:  "create",
+							Usage: "create an api key for your location",
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     dataFlagLocationID,
+									Required: true,
+									Usage:    "The location to create an api-key for",
+								},
+								&cli.StringFlag{
+									Name:  apiKeyCreateFlagName,
+									Usage: "the name of the location to create an api-key for. This will default to location-id-created_at_timestamp",
+								},
+								&cli.StringFlag{
+									Name: dataFlagOrgID,
+									Usage: "the org ID attached to attach the key to" +
+										"If not provided, will attempt to attach itself to the org of the location if only one org is attached to the location",
+								},
+							},
 						},
 					},
 				},
@@ -557,6 +563,7 @@ var app = &cli.App{
 										"we will attempt to use the org attached to the robot if only one exists",
 								},
 							},
+							Action: RobotAPIKeyCreateAction,
 						},
 					},
 				},

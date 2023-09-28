@@ -322,7 +322,7 @@ func (c *viamClient) createOrganizationAPIKey(orgID, keyName string) (*apppb.Cre
 }
 
 // LocationAPIKeyCreateAction corresponds to `location api-key create`.
-func (c *viamClient) LocationAPIKeyCreateAction(cCtx *cli.Context) error {
+func LocationAPIKeyCreateAction(cCtx *cli.Context) error {
 	c, err := newViamClient(cCtx)
 	if err != nil {
 		return err
@@ -401,7 +401,7 @@ func (c *viamClient) locationAPIKeyCreateAction(cCtx *cli.Context) error {
 }
 
 // RobotAPIKeyCreateAction corresponds to `robot api-key create`.
-func (c *viamClient) RobotAPIKeyCreateAction(cCtx *cli.Context) error {
+func RobotAPIKeyCreateAction(cCtx *cli.Context) error {
 	c, err := newViamClient(cCtx)
 	if err != nil {
 		return err

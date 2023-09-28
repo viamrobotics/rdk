@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"strings"
 	"testing"
@@ -93,11 +92,11 @@ func TestRobotAPIKeyCreateAction(t *testing.T) {
 		GetLocationFunc: getLocationFunc,
 	}
 
-	flags := &flag.FlagSet{}
-	flags.String(dataFlagOrgID, fakeOrgID, "")
-	flags.String(dataFlagRobotID, fakeRobotID, "")
-	flags.String(apiKeyCreateFlagName, "my-name", "")
-	cCtx, ac, out, errOut := setup(asc, nil, flags)
+	flags := make(map[string]string)
+	flags[dataFlagOrgID] = fakeOrgID
+	flags[dataFlagRobotID] = fakeRobotID
+	flags[apiKeyCreateFlagName] = "my-name"
+	cCtx, ac, out, errOut := setup(asc, nil, &flags)
 
 	test.That(t, ac.robotAPIKeyCreateAction(cCtx), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
@@ -161,12 +160,11 @@ func TestRobotAPIKeyCreateAction(t *testing.T) {
 		GetLocationFunc: getLocationFunc,
 	}
 
-	flags = &flag.FlagSet{}
-	flags.String(dataFlagRobotID, fakeRobotID, "")
-	flags.String(dataFlagOrgID, "", "")
-	flags.String(apiKeyCreateFlagName, "test-me", "")
-
-	cCtx, ac, out, _ = setup(asc, nil, flags)
+	flags = make(map[string]string)
+	flags[dataFlagRobotID] = fakeRobotID
+	flags[dataFlagOrgID] = ""
+	flags[apiKeyCreateFlagName] = "test-me"
+	cCtx, ac, out, _ = setup(asc, nil, &flags)
 	err = ac.robotAPIKeyCreateAction(cCtx)
 	test.That(t, err, test.ShouldNotBeNil)
 
@@ -206,13 +204,11 @@ func TestLocationAPIKeyCreateAction(t *testing.T) {
 		CreateKeyFunc:   createKeyFunc,
 	}
 
-	flags := &flag.FlagSet{}
-	flags.String(dataFlagLocationID, "", "")
-	flags.String(dataFlagOrgID, "", "")
-	flags.String(apiKeyCreateFlagName, "", "")
-
-	// testing no locationID
-	cCtx, ac, out, errOut := setup(asc, nil, flags)
+	flags := make(map[string]string)
+	flags[dataFlagOrgID] = ""
+	flags[dataFlagLocationID] = ""
+	flags[apiKeyCreateFlagName] = "" // testing no locationID
+	cCtx, ac, out, errOut := setup(asc, nil, &flags)
 	err := ac.locationAPIKeyCreateAction(cCtx)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
@@ -251,12 +247,11 @@ func TestLocationAPIKeyCreateAction(t *testing.T) {
 		GetLocationFunc: getLocationFunc,
 	}
 
-	flags = &flag.FlagSet{}
-	flags.String(dataFlagLocationID, fakeLocID, "")
-	flags.String(dataFlagOrgID, "", "")
-	flags.String(apiKeyCreateFlagName, "test-name", "")
-
-	cCtx, ac, out, _ = setup(asc, nil, flags)
+	flags = make(map[string]string)
+	flags[dataFlagLocationID] = fakeLocID
+	flags[dataFlagOrgID] = ""
+	flags[apiKeyCreateFlagName] = "test-name"
+	cCtx, ac, out, _ = setup(asc, nil, &flags)
 
 	err = ac.locationAPIKeyCreateAction(cCtx)
 	test.That(t, err, test.ShouldNotBeNil)

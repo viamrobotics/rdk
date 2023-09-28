@@ -38,11 +38,19 @@ func (tw *testWriter) Write(b []byte) (int, error) {
 // in AppServiceClient and DataServiceClient. It also returns testWriters that capture Stdout and
 // Stdin.
 func setup(asc apppb.AppServiceClient, dataClient datapb.DataServiceClient,
-	defaultFlags *flag.FlagSet,
+	defaultFlags *map[string]string,
 ) (*cli.Context, *viamClient, *testWriter, *testWriter) {
 	out := &testWriter{}
 	errOut := &testWriter{}
-	flags := defaultFlags
+	flags := &flag.FlagSet{}
+	// init all the default flags from the input
+
+	if defaultFlags != nil {
+		for name, val := range *defaultFlags {
+			flags.String(name, val, "")
+		}
+	}
+
 	if dataClient != nil {
 		// these flags are only relevant when testing a dataClient
 		flags.String(dataFlagDataType, dataTypeTabular, "")
