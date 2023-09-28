@@ -88,10 +88,10 @@ func TestObstacleDist(t *testing.T) {
 
 	test.That(t, len(objects), test.ShouldEqual, 1)
 
-	_, isPoint = objects[0].PointCloud.At(0, 0, 5.5)
+	_, isPoint = objects[0].PointCloud.At(0, 0, 5)
 	test.That(t, isPoint, test.ShouldBeTrue)
 
-	// error more than one point in cloud
+	// more than one point in cloud
 	count = 0
 	cam.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
 		cloud := pc.New()
@@ -101,8 +101,13 @@ func TestObstacleDist(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		return cloud, err
 	}
-	_, err = srv.GetObjectPointClouds(ctx, "fakeCamera", nil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "obstacles_distance expects one point in the point cloud")
+	objects, err = srv.GetObjectPointClouds(ctx, "fakeCamera", nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, len(objects), test.ShouldEqual, 1)
+
+	_, isPoint = objects[0].PointCloud.At(0, 0, 6)
+	test.That(t, isPoint, test.ShouldBeTrue)
 
 	inp.NumQueries = 0 // value out of range
 	_, err = inp.Validate("path")
