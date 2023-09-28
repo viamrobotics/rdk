@@ -7,7 +7,7 @@ name: Pull Request Update
 on:
   pull_request:
     # branches: [ main ]
-    # types: [ labeled ]
+    types: [ labeled ]
 
 # To test workflow updates you need to work in a branch directly on viamrobotics/rdk
 # and tag your working branch instead of @main in any viamrobotics/rdk "uses" below.
