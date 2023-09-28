@@ -484,6 +484,7 @@ func (mp *tpSpaceRRTMotionPlanner) checkTraj(trajK []*tpspace.TrajNode, invert b
 	}
 	return nodePose
 }
+
 // attemptExtension will attempt to extend the rrt map towards the goal node, and will return the candidate added to the map that is
 // closest to that goal.
 func (mp *tpSpaceRRTMotionPlanner) attemptExtension(
