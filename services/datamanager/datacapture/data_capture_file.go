@@ -209,7 +209,6 @@ func BuildCaptureMetadata(
 	additionalParams map[string]string,
 	tags []string,
 ) (*v1.DataCaptureMetadata, error) {
-	panic("this is a big problem")
 	methodParams, err := protoutils.ConvertStringMapToAnyPBMap(additionalParams)
 	if err != nil {
 		return nil, err

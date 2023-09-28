@@ -210,7 +210,7 @@ func (svc *builtIn) initializeOrUpdateCollector(
 		config.Tags,
 	)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "this is where we're in trouble")
 	}
 
 	// TODO(DATA-451): validate method params
@@ -505,7 +505,7 @@ func (svc *builtIn) sync() {
 	}
 }
 
-//nolint
+// nolint
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
