@@ -151,7 +151,6 @@ func encodeImageFromUnderlyingType(ctx context.Context, img image.Image) (pb.For
 			format = pb.Format_FORMAT_JPEG
 		case utils.MimeTypePNG:
 			format = pb.Format_FORMAT_PNG
-		case utils.MimeTypePCD:
 		default:
 		}
 		return format, v.RawData(), nil
