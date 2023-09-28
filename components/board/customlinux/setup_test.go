@@ -48,7 +48,7 @@ func TestConfigValidate(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no such file or directory")
 
-	validConfig.PinConfigFilePath = "./"
+	validConfig.BoardDefsFilePath = "./"
 	_, err = validConfig.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
 

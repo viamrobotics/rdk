@@ -13,7 +13,6 @@ import (
 	"go.viam.com/rdk/components/arm/eva"
 	ur "go.viam.com/rdk/components/arm/universalrobots"
 	"go.viam.com/rdk/components/arm/xarm"
-	"go.viam.com/rdk/components/arm/yahboom"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -38,8 +37,6 @@ func modelFromName(model, name string) (referenceframe.Model, error) {
 		return xarm.MakeModelFrame(name, model)
 	case ur.Model.Name:
 		return ur.MakeModelFrame(name)
-	case yahboom.Model.Name:
-		return yahboom.MakeModelFrame(name)
 	case eva.Model.Name:
 		return eva.MakeModelFrame(name)
 	default:
