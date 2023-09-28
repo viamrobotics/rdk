@@ -494,7 +494,8 @@ func (a *authFlow) loginAsUser(ctx context.Context) (*token, error) {
 
 	err = a.directUser(deviceCode)
 	if err != nil {
-		return nil, fmt.Errorf("Unable to open the browser to complete the login flow due to \"%w\". You can use the --disable-browser-open flag to skip this behavior.", err)
+		return nil, fmt.Errorf("unable to open the browser to complete the login flow due to %w."+
+			"You can use the --%s flag to skip this behavior", err, loginFlagDisableBrowser)
 	}
 
 	token, err := a.waitForUser(ctx, deviceCode, discovery)

@@ -26,9 +26,9 @@ const (
 	apiKeyCreateFlagOrgID = "org-id"
 	apiKeyCreateFlagName  = "name"
 
-	loginBrowserFlag = "disable-browser-open"
-	loginFlagKeyID   = "key-id"
-	loginFlagKey     = "key"
+	loginFlagDisableBrowser = "disable-browser-open"
+	loginFlagKeyID          = "key-id"
+	loginFlagKey            = "key"
 
 	moduleFlagName            = "name"
 	moduleFlagPublicNamespace = "public-namespace"
@@ -93,7 +93,7 @@ var app = &cli.App{
 			HideHelpCommand: true,
 			Flags: []cli.Flag{
 				&cli.BoolFlag{
-					Name:  loginBrowserFlag,
+					Name:  loginFlagDisableBrowser,
 					Usage: "prevent opening the default browser during login",
 				},
 			},
