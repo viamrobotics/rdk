@@ -18,15 +18,15 @@ jobs:
       matrix:
         include:
           - arch: [buildjet-8vcpu-ubuntu-2204]
-            image: ghcr.io/viamrobotics/canon:amd64-cache
+            image: ghcr.io/viamrobotics/rdk-devenv:amd64-beta-c0c8a3d
             platform: linux/amd64
             platform_name: linux-amd64
             test_cmd: "make cover test-web"
-          - arch: [buildjet-8vcpu-ubuntu-2204-arm]
-            image: ghcr.io/viamrobotics/canon:arm64-cache
-            platform: linux/arm64
-            platform_name: linux-arm64
-            test_cmd: "make cover test-web"
+          # - arch: [buildjet-8vcpu-ubuntu-2204-arm]
+          #   image: ghcr.io/viamrobotics/rdk-devenv:arm64-beta-c0c8a3d
+          #   platform: linux/arm64
+          #   platform_name: linux-arm64
+          #   test_cmd: "make cover test-web"
     runs-on: ${{ matrix.arch }}
     container:
       image: ${{ matrix.image }}
@@ -142,9 +142,7 @@ jobs:
   test_e2e:
     name: Test End-to-End
     runs-on: [buildjet-8vcpu-ubuntu-2204]
-    container:
-      image: ghcr.io/viamrobotics/canon:amd64-cache
-      options: --platform linux/amd64
+    container: ghcr.io/viamrobotics/rdk-devenv:amd64-beta-c0c8a3d
     steps:
       - name: Check out main branch code
         if: github.event_name != 'pull_request_target'
