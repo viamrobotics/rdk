@@ -15,7 +15,7 @@ on:
 
 jobs:
   test:
-    if: (github.event.label.name == 'safe to test' || github.event.label.name == 'appimage')
+    # if: (github.event.label.name == 'safe to test' || github.event.label.name == 'appimage')
     uses: ./.github/workflows/test.yml
     secrets:
       MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
