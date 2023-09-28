@@ -22,11 +22,11 @@ jobs:
             platform: linux/amd64
             platform_name: linux-amd64
             test_cmd: "make cover test-web"
-          # - arch: [buildjet-8vcpu-ubuntu-2204-arm]
-          #   image: ghcr.io/viamrobotics/rdk-devenv:arm64-beta-30cf9f0
-          #   platform: linux/arm64
-          #   platform_name: linux-arm64
-          #   test_cmd: "make cover test-web"
+          - arch: [buildjet-8vcpu-ubuntu-2204-arm]
+            image: ghcr.io/viamrobotics/rdk-devenv:arm64-beta-81a6398
+            platform: linux/arm64
+            platform_name: linux-arm64
+            test_cmd: "make cover test-web"
     runs-on: ${{ matrix.arch }}
     container:
       image: ${{ matrix.image }}
