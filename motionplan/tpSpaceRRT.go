@@ -32,7 +32,7 @@ const (
 	defaultAddInt = true
 	// Add a subnode every this many mm along a valid trajectory. Large values run faster, small gives better paths
 	// Meaningless if the above is false.
-	defaultAddNodeEvery = 250.
+	defaultAddNodeEvery = 100.
 
 	// Don't add new RRT tree nodes if there is an existing node within this distance.
 	// Consider nodes on trees to be connected if they are within this distance.
