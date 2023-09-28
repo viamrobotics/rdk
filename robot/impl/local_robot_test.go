@@ -782,7 +782,7 @@ func TestWebReconfigure2(t *testing.T) {
 	err := svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	conn, err := rgrpc.Dial(context.Background(), addr, logger)
+	conn, err := rgrpc.Dial(context.Background(), addr, logger, rpc.WithForceDirectGRPC())
 	test.That(t, err, test.ShouldBeNil)
 
 	arm1, err := arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
