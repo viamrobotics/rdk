@@ -7,7 +7,7 @@ name: Pull Request Update
 on:
   pull_request:
     # branches: [ main ]
-    types: [ labeled ]
+    # types: [ labeled ]
 
 # To test workflow updates you need to work in a branch directly on viamrobotics/rdk
 # and tag your working branch instead of @main in any viamrobotics/rdk "uses" below.
@@ -56,15 +56,14 @@ jobs:
   #   secrets:
   #     GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
-  # static-ignore-tests:
-  #   if: |
-  #      always() && !cancelled() && contains(github.event.pull_request.labels.*.name, 'safe to test') &&
-  #      contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
-  #   uses: viamrobotics/rdk/.github/workflows/staticbuild.yml@main
-  #   with:
-  #     release_type: 'pr'
-  #   secrets:
-  #     GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+  static-ignore-tests:
+    if: |
+       always() && !cancelled() && contains(github.event.pull_request.labels.*.name, 'safe to test')
+    uses: ./.github/workflows/staticbuild.yml
+    with:
+      release_type: 'pr'
+    secrets:
+      GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
   # droid:
   #   needs: test
