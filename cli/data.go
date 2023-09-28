@@ -556,3 +556,74 @@ func (c *viamClient) deleteTabularData(orgID string, deleteOlderThanDays int) er
 	printf(c.c.App.Writer, "Deleted %d datapoints", resp.GetDeletedCount())
 	return nil
 }
+
+// DataAddToDataset is the corresponding action for 'data dataset add'.
+func DataAddToDataset(c *cli.Context) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+	if err := client.dataAddToDataset(c.String(datasetFlagDatasetID), c.String(dataFlagOrgID),
+		c.String(dataFlagLocationID), c.StringSlice(dataFlagFileIDs)); err != nil {
+		return err
+	}
+	return nil
+}
+
+// dataAddToDataset adds data, with the specified org ID, location ID, and file IDs to the dataset corresponding to the dataset ID.
+func (c *viamClient) dataAddToDataset(datasetID, orgID, locationID string, fileIDs []string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+	binaryData := make([]*datapb.BinaryID, 0, len(fileIDs))
+	for _, fileID := range fileIDs {
+		binaryData = append(binaryData, &datapb.BinaryID{
+			OrganizationId: orgID,
+			LocationId:     locationID,
+			FileId:         fileID,
+		})
+	}
+	_, err := c.dataClient.AddBinaryDataToDatasetByIDs(context.Background(),
+		&datapb.AddBinaryDataToDatasetByIDsRequest{DatasetId: datasetID, BinaryIds: binaryData})
+	if err != nil {
+		return errors.Wrapf(err, "received error from server")
+	}
+	printf(c.c.App.Writer, "Added data to dataset ID %s", datasetID)
+	return nil
+}
+
+// DataRemoveFromDataset is the corresponding action for 'data dataset remove'.
+func DataRemoveFromDataset(c *cli.Context) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+	if err := client.dataRemoveFromDataset(c.String(datasetFlagDatasetID), c.String(dataFlagOrgID),
+		c.String(dataFlagLocationID), c.StringSlice(dataFlagFileIDs)); err != nil {
+		return err
+	}
+	return nil
+}
+
+// dataRemoveFromDataset removes data, with the specified org ID, location ID,
+// and file IDs from the dataset corresponding to the dataset ID.
+func (c *viamClient) dataRemoveFromDataset(datasetID, orgID, locationID string, fileIDs []string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+	binaryData := make([]*datapb.BinaryID, 0, len(fileIDs))
+	for _, fileID := range fileIDs {
+		binaryData = append(binaryData, &datapb.BinaryID{
+			OrganizationId: orgID,
+			LocationId:     locationID,
+			FileId:         fileID,
+		})
+	}
+	_, err := c.dataClient.RemoveBinaryDataFromDatasetByIDs(context.Background(),
+		&datapb.RemoveBinaryDataFromDatasetByIDsRequest{DatasetId: datasetID, BinaryIds: binaryData})
+	if err != nil {
+		return errors.Wrapf(err, "received error from server")
+	}
+	printf(c.c.App.Writer, "Removed data from dataset ID %s", datasetID)
+	return nil
+}

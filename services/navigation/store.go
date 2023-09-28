@@ -54,6 +54,18 @@ func (config *StoreConfig) Validate(path string) error {
 	return nil
 }
 
+// NewStoreFromConfig builds a NavStore from the provided StoreConfig and returns it.
+func NewStoreFromConfig(ctx context.Context, conf StoreConfig) (NavStore, error) {
+	switch conf.Type {
+	case StoreTypeMemory:
+		return NewMemoryNavigationStore(), nil
+	case StoreTypeMongoDB:
+		return NewMongoDBNavigationStore(ctx, conf.Config)
+	default:
+		return nil, errors.Errorf("unknown store type %q", conf.Type)
+	}
+}
+
 // A Waypoint designates a location within a path to navigate to.
 type Waypoint struct {
 	ID      primitive.ObjectID `bson:"_id"`
