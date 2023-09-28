@@ -20,6 +20,9 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	pbArm "go.viam.com/api/component/arm/v1"
+	pbEnc "go.viam.com/api/component/encoder/v1"
+	pbGan "go.viam.com/api/component/gantry/v1"
+	pbMot "go.viam.com/api/component/motor/v1"
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/encoder"
@@ -353,6 +356,7 @@ func getSensorData(dir string) ([]*v1.SensorData, error) {
 }
 
 func TestCollector(t *testing.T) {
+	const basePath = "services/datamanager/data/collectortests/"
 	tests := []struct {
 		name                        string
 		config                      string
@@ -360,13 +364,38 @@ func TestCollector(t *testing.T) {
 	}{
 		{
 			name:                        "arm end position capture should match format",
-			config:                      "services/datamanager/data/collectortests/arm_endposition_collector.json",
+			config:                      basePath + "arm_endposition_collector.json",
 			expectedCollectedDataFormat: getKeys(toProto(pbArm.GetEndPositionResponse{}).AsMap()),
 		},
 		{
 			name:                        "arm joint position capture should match format",
-			config:                      "services/datamanager/data/collectortests/arm_jointposition_collector.json",
+			config:                      basePath + "arm_jointposition_collector.json",
 			expectedCollectedDataFormat: getKeys(toProto(pbArm.GetJointPositionsResponse{}).AsMap()),
+		},
+		{
+			name:                        "encoder tick count capture should match format",
+			config:                      basePath + "encoder_tickcount_collector.json",
+			expectedCollectedDataFormat: getKeys(toProto(pbEnc.GetPositionResponse{}).AsMap()),
+		},
+		{
+			name:                        "gantry position capture should match format",
+			config:                      basePath + "gantry_position_collector.json",
+			expectedCollectedDataFormat: getKeys(toProto(pbGan.GetPositionResponse{}).AsMap()),
+		},
+		{
+			name:                        "gantry lengths capture should match format",
+			config:                      basePath + "gantry_lengths_collector.json",
+			expectedCollectedDataFormat: getKeys(toProto(pbGan.GetLengthsResponse{}).AsMap()),
+		},
+		{
+			name:                        "motor isPowered capture should match format",
+			config:                      basePath + "motor_ispowered_collector.json",
+			expectedCollectedDataFormat: getKeys(toProto(pbMot.IsPoweredResponse{}).AsMap()),
+		},
+		{
+			name:                        "motor position capture should match format",
+			config:                      basePath + "motor_position_collector.json",
+			expectedCollectedDataFormat: getKeys(toProto(pbMot.GetPositionResponse{}).AsMap()),
 		},
 	}
 	for _, tc := range tests {
