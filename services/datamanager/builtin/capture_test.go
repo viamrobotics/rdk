@@ -24,6 +24,7 @@ import (
 var (
 	// Robot config which specifies data manager service.
 	enabledTabularCollectorConfigPath           = "services/datamanager/data/fake_robot_with_data_manager.json"
+	enabledTabularAllCollectorsConfigPath       = "services/datamanager/data/fake_robot_with_data_manager_all_collectors.json"
 	enabledTabularCollectorEmptyConfigPath      = "services/datamanager/data/fake_robot_with_data_manager_empty.json"
 	disabledTabularCollectorConfigPath          = "services/datamanager/data/fake_robot_with_disabled_collector.json"
 	enabledBinaryCollectorConfigPath            = "services/datamanager/data/robot_with_cam_capture.json"
@@ -331,6 +332,45 @@ func getSensorData(dir string) ([]*v1.SensorData, error) {
 		sd = append(sd, d...)
 	}
 	return sd, nil
+}
+
+func TestCollector(t *testing.T) {
+	t.Run("working", func(t *testing.T) {
+		initCaptureDir := t.TempDir()
+		mockClock := clk.NewMock()
+		// Make mockClock the package level clock used by the dmsvc so that we can simulate time's passage
+		clock = mockClock
+
+		// Set up robot config.
+		var initConfig *Config
+		var deps []string
+		initConfig, deps = setupConfig(t, enabledTabularAllCollectorsConfigPath)
+
+		// further set up service config.
+		initConfig.ScheduledSyncDisabled = true
+		initConfig.CaptureDir = initCaptureDir
+
+		// Build and start data manager.
+		dmsvc, r := newTestDataManager(t)
+		defer func() {
+			test.That(t, dmsvc.Close(context.Background()), test.ShouldBeNil)
+		}()
+
+		resources := resourcesFromDeps(t, r, deps)
+		err := dmsvc.Reconfigure(context.Background(), resources, resource.Config{
+			ConvertedAttributes: initConfig,
+		})
+		time.Sleep(5 * time.Second)
+		test.That(t, err, test.ShouldBeNil)
+		passTimeCtx1, cancelPassTime1 := context.WithCancel(context.Background())
+		donePassingTime1 := passTime(passTimeCtx1, mockClock, captureInterval)
+
+		waitForCaptureFilesToExceedNFiles(initCaptureDir, 10)
+		testFilesContainSensorData(t, initCaptureDir)
+		cancelPassTime1()
+		<-donePassingTime1
+
+	})
 }
 
 // testFilesContainSensorData verifies that the files in `dir` contain sensor data.
