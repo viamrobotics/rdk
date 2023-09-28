@@ -59,7 +59,7 @@ type joinConfig struct {
 	ImageType            string                             `json:"output_image_type"`
 	Color                string                             `json:"color_camera_name"`
 	Depth                string                             `json:"depth_camera_name"`
-	CameraParameters     *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters"`
+	CameraParameters     *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters,omitempty"`
 	Debug                bool                               `json:"debug,omitempty"`
 	DistortionParameters *transform.BrownConrady            `json:"distortion_parameters,omitempty"`
 }
