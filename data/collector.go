@@ -223,7 +223,7 @@ func (c *collector) getAndPushNextReading() {
 		}
 	default:
 		// If it's not bytes, it's a struct.
-		pbReading, err := protoutils.StructToStructPb(reading)
+		pbReading, err := protoutils.StructToStructPbIgnoreOmitEmpty(reading)
 		if err != nil {
 			c.captureErrors <- errors.Wrap(err, "error while converting reading to structpb.Struct")
 			return

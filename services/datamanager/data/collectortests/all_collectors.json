@@ -14,12 +14,14 @@
                     "attributes": {
                         "capture_methods": [
                             {
+                                "method": "JointPositions",
+                                "additional_params": {},
+                                "capture_frequency_hz": 100
+                            },
+                            {
                                 "method": "EndPosition",
-                                "capture_frequency_hz": 0,
-                                "tags": [
-                                    "a",
-                                    "b"
-                                ]
+                                "additional_params": {},
+                                "capture_frequency_hz": 100
                             }
                         ]
                     }
@@ -121,18 +123,7 @@
                 {
                     "type": "data_manager",
                     "attributes": {
-                        "capture_methods": [
-                            {
-                                "method": "Analogs",
-                                "additional_params": {},
-                                "capture_frequency_hz": 100
-                            },
-                            {
-                                "method": "Gpios",
-                                "additional_params": {},
-                                "capture_frequency_hz": 100
-                            }
-                        ]
+                        "capture_methods": []
                     }
                 }
             ]
