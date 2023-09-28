@@ -24,6 +24,9 @@ import (
 
 var model = resource.DefaultModelFamily.WithModel("obstacle_distance")
 
+// DefaultNumQueries is the default number of times the camera should be queried before averaging
+const DefaultNumQueries = 10
+
 // DistanceDetectorConfig specifies the parameters for the camera to be used
 // for the obstacle distance detection service.
 type DistanceDetectorConfig struct {
@@ -49,6 +52,9 @@ func init() {
 // Validate ensures all parts of the config are valid.
 func (config *DistanceDetectorConfig) Validate(path string) ([]string, error) {
 	deps := []string{}
+	if config.NumQueries == 0 {
+		config.NumQueries = DefaultNumQueries
+	}
 	if config.NumQueries < 1 || config.NumQueries > 20 {
 		return nil, errors.New("invalid number of queries, pick a number between 1 and 20")
 	}
