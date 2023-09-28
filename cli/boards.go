@@ -111,6 +111,37 @@ func DownloadBoardDefsAction(c *cli.Context) error {
 	return nil
 }
 
+// ListBoardDefsAction is the corresponding action for "board list".
+func ListBoardDefsAction(c *cli.Context) error {
+	orgArg := c.String(organizationFlag)
+
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	// get the org from the name or id.
+	org, err := client.getOrg(orgArg)
+	if err != nil {
+		return err
+	}
+
+	resp, err := client.listBoardDefsFiles(org.Id)
+	if err != nil {
+		return err
+	}
+
+	if len(resp.Packages) == 0 {
+		printf(c.App.Writer, "orginization %s does not have any board definitions packages", orgArg)
+	}
+
+	for i := range resp.Packages {
+		printf(c.App.Writer, "%s version %s", resp.Packages[i].Info.Name, resp.Packages[i].Info.Version)
+	}
+
+	return nil
+}
+
 func (c *viamClient) uploadBoardDefsFile(
 	name string,
 	version string,
@@ -218,6 +249,26 @@ func (c *viamClient) downloadBoardDefsFile(
 	}
 
 	return nil
+}
+
+func (c *viamClient) listBoardDefsFiles(orgID string) (*packagepb.ListPackagesResponse, error) {
+	if err := c.ensureLoggedIn(); err != nil {
+		return nil, err
+	}
+	ctx := c.c.Context
+
+	packageType := packagepb.PackageType_PACKAGE_TYPE_BOARD_DEFS
+
+	req := &packagepb.ListPackagesRequest{
+		Type:           &packageType,
+		OrganizationId: orgID,
+	}
+
+	response, err := c.packageClient.ListPackages(ctx, req)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not list the requested packages")
+	}
+	return response, nil
 }
 
 // helper function to check if a package with this name and version already exists.
