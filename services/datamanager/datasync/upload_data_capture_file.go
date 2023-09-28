@@ -69,7 +69,9 @@ func uploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient,
 			if err := uploadSensorData(ctx, client, newUploadMD, newSensorData, f.Size()); err != nil {
 				return err
 			}
+			panic("got here")
 		}
+		return nil
 	} else {
 		// Build UploadMetadata
 		uploadMD := &v1.UploadMetadata{
