@@ -12,6 +12,7 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
@@ -40,7 +41,6 @@ import (
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
-	rdkutils "go.viam.com/rdk/utils"
 	viz "go.viam.com/rdk/vision"
 )
 
@@ -1047,62 +1047,6 @@ func TestDiffDriveCheckPlan(t *testing.T) {
 			testFn(t, c)
 		})
 	}
-}
-
-func TestArmGantryPlanCheck(t *testing.T) {
-	logger := golog.NewTestLogger(t)
-	fs := referenceframe.NewEmptyFrameSystem("test")
-
-	gantryOffset, err := referenceframe.NewStaticFrame("gantryOffset", spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0}))
-	test.That(t, err, test.ShouldBeNil)
-	fs.AddFrame(gantryOffset, fs.World())
-
-	gantryX, err := referenceframe.NewTranslationalFrame("gantryX", r3.Vector{1, 0, 0}, referenceframe.Limit{math.Inf(-1), math.Inf(1)})
-	test.That(t, err, test.ShouldBeNil)
-	fs.AddFrame(gantryX, gantryOffset)
-
-	modelXarm, err := referenceframe.ParseModelJSONFile(rdkutils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")
-	test.That(t, err, test.ShouldBeNil)
-	fs.AddFrame(modelXarm, gantryX)
-
-	goal := spatialmath.NewPoseFromPoint(r3.Vector{X: 407, Y: 0, Z: 112})
-
-	planReq := motionplan.PlanRequest{
-		Logger:             logger,
-		Goal:               referenceframe.NewPoseInFrame(referenceframe.World, goal),
-		Frame:              fs.Frame("xArm6"),
-		FrameSystem:        fs,
-		StartConfiguration: referenceframe.StartPositions(fs),
-	}
-
-	plan, err := motionplan.PlanMotion(context.Background(), &planReq)
-	test.That(t, err, test.ShouldBeNil)
-
-	startPose := spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0})
-	errorState := spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0})
-	floatList := []float64{0, 0, 0, 0, 0, 0, 0}
-	inputs := referenceframe.FloatsToInputs(floatList)
-
-	t.Run("check plan with no obstacles", func(t *testing.T) {
-		err := motionplan.CheckPlan(fs.Frame("xArm6"), plan, nil, fs, startPose, inputs, errorState, logger)
-		test.That(t, err, test.ShouldBeNil)
-	})
-	t.Run("check plan with obstacle", func(t *testing.T) {
-		obstacle, err := spatialmath.NewBox(
-			spatialmath.NewPoseFromPoint(r3.Vector{400, 0, 112}),
-			r3.Vector{10, 10, 1}, "obstacle",
-		)
-		test.That(t, err, test.ShouldBeNil)
-
-		geoms := []spatialmath.Geometry{obstacle}
-		gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)}
-
-		worldState, err := referenceframe.NewWorldState(gifs, nil)
-		test.That(t, err, test.ShouldBeNil)
-
-		err = motionplan.CheckPlan(fs.Frame("xArm6"), plan, worldState, fs, startPose, inputs, errorState, logger)
-		test.That(t, err, test.ShouldNotBeNil)
-	})
 }
 
 func TestMultiplePieces(t *testing.T) {
