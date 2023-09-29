@@ -33,15 +33,15 @@ jobs:
   #   secrets:
   #     GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
-  # appimage-ignore-tests:
-  #   if: |
-  #      always() && !cancelled() && contains(github.event.pull_request.labels.*.name, 'safe to test') &&
-  #      contains(github.event.pull_request.labels.*.name, 'appimage-ignore-tests')
-  #   uses: viamrobotics/rdk/.github/workflows/appimage.yml@main
-  #   with:
-  #     release_type: 'pr'
-  #   secrets:
-  #     GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+  appimage-ignore-tests:
+    if: |
+       always() && !cancelled() && contains(github.event.pull_request.labels.*.name, 'safe to test') &&
+       contains(github.event.pull_request.labels.*.name, 'appimage-ignore-tests')
+    uses: ./.github/workflows/appimage.yml
+    with:
+      release_type: 'pr'
+    secrets:
+      GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
   # This lets people add a "static-build" tag to have static binaries built for the PR
   # static:
