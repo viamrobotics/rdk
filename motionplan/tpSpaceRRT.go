@@ -158,8 +158,8 @@ func (mp *tpSpaceRRTMotionPlanner) plan(ctx context.Context,
 
 	var planRunners sync.WaitGroup
 
+	planRunners.Add(1)
 	utils.PanicCapturingGo(func() {
-		planRunners.Add(1)
 		defer planRunners.Done()
 		mp.planRunner(ctx, seed, &rrtParallelPlannerShared{
 			&rrtMaps{
