@@ -54,48 +54,51 @@ type PlanRequest struct {
 	Options            map[string]interface{}
 }
 
-// PlanRequestValidation ensures PlanRequests are not malformed.
-func PlanRequestValidation(req PlanRequest) (*PlanRequest, error) {
+// validatePlanRequest ensures PlanRequests are not malformed.
+func (req *PlanRequest) validatePlanRequest() error {
 	if req.Logger == nil {
 		req.Logger = golog.NewLogger("plan-request-logger")
-		req.Logger.Info("no logger was given, so we created one")
-	}
-	if req.Goal == nil {
-		return &req, errors.New("PlanRequest cannot have nil goal")
 	}
 	if req.Frame == nil {
-		return &req, errors.New("PlanRequest cannot have nil frame")
+		return errors.New("PlanRequest cannot have nil frame")
 	}
 	if req.FrameSystem == nil {
-		req.Logger.Info("no FrameSystem was given, so we ephemerally create a framesystem containing just the frame for the solve")
+		req.Logger.Debug("no FrameSystem was given, so we ephemerally create a frame system containing just the frame for the solve")
 		fs := frame.NewEmptyFrameSystem("")
 		if err := fs.AddFrame(req.Frame, fs.World()); err != nil {
-			return &req, err
+			return err
 		}
 		req.FrameSystem = fs
 	} else if req.FrameSystem.Frame(req.Frame.Name()) == nil {
-		return &req, errors.New("FrameSystem of PlanRequest does not contain the Frame of PlanRequest")
+		return errors.New("FrameSystem of PlanRequest does not contain the Frame of PlanRequest")
+	}
+	if req.Goal == nil {
+		return errors.New("PlanRequest cannot have nil goal")
+	} else if req.Goal != nil {
+		goalParentFrame := req.Goal.Parent()
+		if req.FrameSystem.Frame(goalParentFrame) == nil {
+			return errors.Errorf("%s was specified as the parent frame of the goal, but was not found in frame system", goalParentFrame)
+		}
 	}
 	if len(req.StartConfiguration) == 0 {
-		return &req, errors.New("PlanRequest cannot have nil StartConfiguration")
+		return errors.New("PlanRequest cannot have nil StartConfiguration")
 	}
 	if req.WorldState == nil {
-		req.Logger.Info("no WorldState was given, so we created one")
+		req.Logger.Debug("no WorldState was given, so we created one")
 		wordstate, err := frame.NewWorldState(nil, nil)
 		if err != nil {
-			return &req, err
+			return err
 		}
 		req.WorldState = wordstate
 	}
 
-	return &req, nil
+	return nil
 }
 
 // PlanMotion plans a motion from a provided plan request.
 func PlanMotion(ctx context.Context, request *PlanRequest) (Plan, error) {
 	// make sure request is well formed and not missing vital information
-	request, err := PlanRequestValidation(*request)
-	if err != nil {
+	if err := request.validatePlanRequest(); err != nil {
 		return nil, err
 	}
 
@@ -154,6 +157,44 @@ func PlanMotion(ctx context.Context, request *PlanRequest) (Plan, error) {
 	}
 	request.Logger.Debugf("final plan steps: %s", plan.String())
 	return plan, nil
+}
+
+// PlanFrameMotion plans a motion to destination for a given frame with no frame system. It will create a new FS just for the plan.
+// WorldState is not supported in the absence of a real frame system.
+func PlanFrameMotion(ctx context.Context,
+	logger golog.Logger,
+	dst spatialmath.Pose,
+	f frame.Frame,
+	seed []frame.Input,
+	constraintSpec *pb.Constraints,
+	planningOpts map[string]interface{},
+) ([][]frame.Input, error) {
+	// ephemerally create a framesystem containing just the frame for the solve
+	fs := frame.NewEmptyFrameSystem("")
+	if err := fs.AddFrame(f, fs.World()); err != nil {
+		return nil, err
+	}
+
+	request := &PlanRequest{
+		Logger:             logger,
+		Goal:               frame.NewPoseInFrame(frame.World, dst),
+		Frame:              f,
+		StartConfiguration: map[string][]frame.Input{f.Name(): seed},
+		FrameSystem:        fs,
+		ConstraintSpecs:    constraintSpec,
+		Options:            planningOpts,
+	}
+
+	// make sure request is well formed and not missing vital information
+	if err := request.validatePlanRequest(); err != nil {
+		return nil, err
+	}
+
+	plan, err := PlanMotion(ctx, request)
+	if err != nil {
+		return nil, err
+	}
+	return plan.GetFrameSteps(f.Name())
 }
 
 type planner struct {

@@ -861,7 +861,7 @@ func TestCheckPlan(t *testing.T) {
 	})
 
 	t.Run("non nil error state - ensure success", func(t *testing.T) {
-		errorState := spatialmath.NewPoseFromPoint(r3.Vector{0, 2600, 0})
+		errorState := spatialmath.NewPoseFromPoint(r3.Vector{0, 26, 0})
 
 		obstacle, err := spatialmath.NewBox(
 			spatialmath.NewPoseFromPoint(r3.Vector{150, 0, 0}),
