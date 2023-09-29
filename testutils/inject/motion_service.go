@@ -39,18 +39,12 @@ type MotionService struct {
 		heading float64,
 		movementSensorName resource.Name,
 		obstacles []*spatialmath.GeoObstacle,
-		motionCfg *motion.Configuration,
+		motionCfg *motion.MotionConfiguration,
 		extra map[string]interface{},
 	) (bool, error)
 	MoveOnGlobeNewFunc func(
 		ctx context.Context,
-		componentName resource.Name,
-		destination *geo.Point,
-		heading float64,
-		movementSensorName resource.Name,
-		obstacles []*spatialmath.GeoObstacle,
-		motionCfg *motion.Configuration,
-		extra map[string]interface{},
+		req motion.MoveOnGlobeReq,
 	) (string, error)
 	GetPoseFunc func(
 		ctx context.Context,
@@ -128,7 +122,7 @@ func (mgs *MotionService) MoveOnGlobe(
 	heading float64,
 	movementSensorName resource.Name,
 	obstacles []*spatialmath.GeoObstacle,
-	motionCfg *motion.Configuration,
+	motionCfg *motion.MotionConfiguration,
 	extra map[string]interface{},
 ) (bool, error) {
 	if mgs.MoveOnGlobeFunc == nil {
@@ -138,20 +132,11 @@ func (mgs *MotionService) MoveOnGlobe(
 }
 
 // MoveOnGlobeNew calls the injected MoveOnGlobeNew or the real variant.
-func (mgs *MotionService) MoveOnGlobeNew(
-	ctx context.Context,
-	componentName resource.Name,
-	destination *geo.Point,
-	heading float64,
-	movementSensorName resource.Name,
-	obstacles []*spatialmath.GeoObstacle,
-	motionCfg *motion.Configuration,
-	extra map[string]interface{},
-) (string, error) {
+func (mgs *MotionService) MoveOnGlobeNew(ctx context.Context, req motion.MoveOnGlobeReq) (string, error) {
 	if mgs.MoveOnGlobeNewFunc == nil {
-		return mgs.Service.MoveOnGlobeNew(ctx, componentName, destination, heading, movementSensorName, obstacles, motionCfg, extra)
+		return mgs.Service.MoveOnGlobeNew(ctx, req)
 	}
-	return mgs.MoveOnGlobeNewFunc(ctx, componentName, destination, heading, movementSensorName, obstacles, motionCfg, extra)
+	return mgs.MoveOnGlobeNewFunc(ctx, req)
 }
 
 // GetPose calls the injected GetPose or the real variant.

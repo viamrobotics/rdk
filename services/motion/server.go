@@ -2,9 +2,7 @@ package motion
 
 import (
 	"context"
-	"math"
 
-	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/motion/v1"
@@ -71,34 +69,20 @@ func (server *serviceServer) MoveOnGlobe(ctx context.Context, req *pb.MoveOnGlob
 	if err != nil {
 		return nil, err
 	}
-	if req.Destination == nil {
-		return nil, errors.New("Must provide a destination")
-	}
-
-	// Optionals
-	heading := math.NaN()
-	if req.Heading != nil {
-		heading = req.GetHeading()
-	}
-	obstaclesProto := req.GetObstacles()
-	obstacles := make([]*spatialmath.GeoObstacle, 0, len(obstaclesProto))
-	for _, eachProtoObst := range obstaclesProto {
-		convObst, err := spatialmath.GeoObstacleFromProtobuf(eachProtoObst)
-		if err != nil {
-			return nil, err
-		}
-		obstacles = append(obstacles, convObst)
+	r, err := moveOnGlobeRequestFromProto(req)
+	if err != nil {
+		return nil, err
 	}
 
 	success, err := svc.MoveOnGlobe(
 		ctx,
-		protoutils.ResourceNameFromProto(req.GetComponentName()),
-		geo.NewPoint(req.GetDestination().GetLatitude(), req.GetDestination().GetLongitude()),
-		heading,
-		protoutils.ResourceNameFromProto(req.GetMovementSensorName()),
-		obstacles,
-		configurationFromProto(req.MotionConfiguration),
-		req.Extra.AsMap(),
+		r.ComponentName,
+		r.Destination,
+		r.Heading,
+		r.MovementSensorName,
+		r.Obstacles,
+		r.MotionCfg,
+		r.Extra,
 	)
 	return &pb.MoveOnGlobeResponse{Success: success}, err
 }
@@ -112,35 +96,12 @@ func (server *serviceServer) MoveOnGlobeNew(ctx context.Context, req *pb.MoveOnG
 	if err != nil {
 		return nil, err
 	}
-	if req.Destination == nil {
-		return nil, errors.New("Must provide a destination")
+	r, err := moveOnGlobeNewRequestFromProto(req)
+	if err != nil {
+		return nil, err
 	}
 
-	// Optionals
-	heading := math.NaN()
-	if req.Heading != nil {
-		heading = req.GetHeading()
-	}
-	obstaclesProto := req.GetObstacles()
-	obstacles := make([]*spatialmath.GeoObstacle, 0, len(obstaclesProto))
-	for _, eachProtoObst := range obstaclesProto {
-		convObst, err := spatialmath.GeoObstacleFromProtobuf(eachProtoObst)
-		if err != nil {
-			return nil, err
-		}
-		obstacles = append(obstacles, convObst)
-	}
-
-	id, err := svc.MoveOnGlobeNew(
-		ctx,
-		protoutils.ResourceNameFromProto(req.GetComponentName()),
-		geo.NewPoint(req.GetDestination().GetLatitude(), req.GetDestination().GetLongitude()),
-		heading,
-		protoutils.ResourceNameFromProto(req.GetMovementSensorName()),
-		obstacles,
-		configurationFromProto(req.MotionConfiguration),
-		req.Extra.AsMap(),
-	)
+	id, err := svc.MoveOnGlobeNew(ctx, r)
 	if err != nil {
 		return nil, err
 	}

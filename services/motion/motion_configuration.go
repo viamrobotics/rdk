@@ -10,8 +10,10 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-// Configuration specifies how to configure a call to the a motion service.
-type Configuration struct {
+// MotionConfiguration specifies how to configure a call to the a motion service.
+//
+//nolint:revive
+type MotionConfiguration struct {
 	VisionServices        []resource.Name
 	PositionPollingFreqHz float64
 	ObstaclePollingFreqHz float64
@@ -20,7 +22,7 @@ type Configuration struct {
 	AngularDegsPerSec     float64
 }
 
-func configurationFromProto(motionCfg *pb.MotionConfiguration) *Configuration {
+func configurationFromProto(motionCfg *pb.MotionConfiguration) *MotionConfiguration {
 	visionSvc := []resource.Name{}
 	planDeviationM := 0.
 	positionPollingHz := 0.
@@ -51,7 +53,7 @@ func configurationFromProto(motionCfg *pb.MotionConfiguration) *Configuration {
 		}
 	}
 
-	return &Configuration{
+	return &MotionConfiguration{
 		VisionServices:        visionSvc,
 		PositionPollingFreqHz: positionPollingHz,
 		ObstaclePollingFreqHz: obstaclePollingHz,
@@ -61,7 +63,7 @@ func configurationFromProto(motionCfg *pb.MotionConfiguration) *Configuration {
 	}
 }
 
-func (motionCfg Configuration) toProto() *pb.MotionConfiguration {
+func (motionCfg MotionConfiguration) toProto() *pb.MotionConfiguration {
 	proto := &pb.MotionConfiguration{}
 	if !math.IsNaN(motionCfg.LinearMPerSec) && motionCfg.LinearMPerSec != 0 {
 		proto.LinearMPerSec = &motionCfg.LinearMPerSec

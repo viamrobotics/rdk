@@ -107,7 +107,7 @@ func TestClient(t *testing.T) {
 			heading float64,
 			movementSensorName resource.Name,
 			obstacles []*spatialmath.GeoObstacle,
-			motionCfg *motion.Configuration,
+			motionCfg *motion.MotionConfiguration,
 			extra map[string]interface{},
 		) (bool, error) {
 			return false, errors.New("Not yet implemented")
@@ -132,7 +132,7 @@ func TestClient(t *testing.T) {
 		test.That(t, result, test.ShouldEqual, success)
 
 		// MoveOnGlobe
-		globeResult, err := client.MoveOnGlobe(ctx, baseName, globeDest, math.NaN(), gpsName, nil, &motion.Configuration{}, nil)
+		globeResult, err := client.MoveOnGlobe(ctx, baseName, globeDest, math.NaN(), gpsName, nil, &motion.MotionConfiguration{}, nil)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, notYetImplementedErr.Error())
 		test.That(t, globeResult, test.ShouldEqual, false)
@@ -202,7 +202,7 @@ func TestClient(t *testing.T) {
 			heading float64,
 			movementSensorName resource.Name,
 			obstacles []*spatialmath.GeoObstacle,
-			motionCfg *motion.Configuration,
+			motionCfg *motion.MotionConfiguration,
 			extra map[string]interface{},
 		) (bool, error) {
 			return false, passedErr
@@ -224,7 +224,7 @@ func TestClient(t *testing.T) {
 		test.That(t, resp, test.ShouldEqual, false)
 
 		// MoveOnGlobe
-		resp, err = client2.MoveOnGlobe(ctx, baseName, globeDest, math.NaN(), gpsName, nil, &motion.Configuration{}, nil)
+		resp, err = client2.MoveOnGlobe(ctx, baseName, globeDest, math.NaN(), gpsName, nil, &motion.MotionConfiguration{}, nil)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
 		test.That(t, resp, test.ShouldEqual, false)
@@ -245,23 +245,20 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		t.Run("returns error without calling client if params can't be cast to proto", func(t *testing.T) {
-			injectMS.MoveOnGlobeNewFunc = func(
-				ctx context.Context,
-				componentName resource.Name,
-				destination *geo.Point,
-				heading float64,
-				movementSensorName resource.Name,
-				obstacles []*spatialmath.GeoObstacle,
-				motionCfg *motion.Configuration,
-				extra map[string]interface{},
-			) (string, error) {
+			injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (string, error) {
 				t.Log("should not be called")
 				t.FailNow()
 				return "", errors.New("should not be reached")
 			}
 
+			req := motion.MoveOnGlobeReq{
+				ComponentName:      baseName,
+				Heading:            math.NaN(),
+				MovementSensorName: gpsName,
+				MotionCfg:          &motion.MotionConfiguration{},
+			}
 			// nil destination is can't be converted to proto
-			executionID, err := client.MoveOnGlobeNew(ctx, baseName, nil, math.NaN(), gpsName, nil, &motion.Configuration{}, nil)
+			executionID, err := client.MoveOnGlobeNew(ctx, req)
 			test.That(t, err, test.ShouldNotBeNil)
 			test.That(t, err, test.ShouldBeError, errors.New("Must provide a destination"))
 			test.That(t, executionID, test.ShouldEqual, "")
@@ -269,20 +266,18 @@ func TestClient(t *testing.T) {
 
 		t.Run("returns error if client returns error", func(t *testing.T) {
 			errExpected := errors.New("some client error")
-			injectMS.MoveOnGlobeNewFunc = func(
-				ctx context.Context,
-				componentName resource.Name,
-				destination *geo.Point,
-				heading float64,
-				movementSensorName resource.Name,
-				obstacles []*spatialmath.GeoObstacle,
-				motionCfg *motion.Configuration,
-				extra map[string]interface{},
-			) (string, error) {
+			injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (string, error) {
 				return "", errExpected
 			}
 
-			executionID, err := client.MoveOnGlobeNew(ctx, baseName, globeDest, math.NaN(), gpsName, nil, &motion.Configuration{}, nil)
+			req := motion.MoveOnGlobeReq{
+				ComponentName:      baseName,
+				Destination:        globeDest,
+				Heading:            math.NaN(),
+				MovementSensorName: gpsName,
+				MotionCfg:          &motion.MotionConfiguration{},
+			}
+			executionID, err := client.MoveOnGlobeNew(ctx, req)
 			test.That(t, err, test.ShouldNotBeNil)
 			test.That(t, err.Error(), test.ShouldContainSubstring, errExpected.Error())
 			test.That(t, executionID, test.ShouldEqual, "")
@@ -290,20 +285,18 @@ func TestClient(t *testing.T) {
 
 		t.Run("otherwise returns success with an executionID", func(t *testing.T) {
 			expectedExecutionID := "some execution id"
-			injectMS.MoveOnGlobeNewFunc = func(
-				ctx context.Context,
-				componentName resource.Name,
-				destination *geo.Point,
-				heading float64,
-				movementSensorName resource.Name,
-				obstacles []*spatialmath.GeoObstacle,
-				motionCfg *motion.Configuration,
-				extra map[string]interface{},
-			) (string, error) {
+			injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (string, error) {
 				return expectedExecutionID, nil
 			}
 
-			executionID, err := client.MoveOnGlobeNew(ctx, baseName, globeDest, math.NaN(), gpsName, nil, &motion.Configuration{}, nil)
+			req := motion.MoveOnGlobeReq{
+				ComponentName:      baseName,
+				Destination:        globeDest,
+				Heading:            math.NaN(),
+				MovementSensorName: gpsName,
+				MotionCfg:          &motion.MotionConfiguration{},
+			}
+			executionID, err := client.MoveOnGlobeNew(ctx, req)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, executionID, test.ShouldEqual, expectedExecutionID)
 		})

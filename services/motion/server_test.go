@@ -131,7 +131,7 @@ func TestServerMoveOnGlobe(t *testing.T) {
 		heading float64,
 		movementSensorName resource.Name,
 		obstacles []*spatialmath.GeoObstacle,
-		motionCfg *motion.Configuration,
+		motionCfg *motion.MotionConfiguration,
 		extra map[string]interface{},
 	) (bool, error) {
 		return false, notYetImplementedErr
@@ -155,16 +155,7 @@ func TestServerMoveOnGlobeNew(t *testing.T) {
 			Destination:        &commonpb.GeoPoint{Latitude: 0.0, Longitude: 0.0},
 			MovementSensorName: protoutils.ResourceNameToProto(movementsensor.Named("test-gps")),
 		}
-		injectMS.MoveOnGlobeNewFunc = func(
-			ctx context.Context,
-			componentName resource.Name,
-			destination *geo.Point,
-			heading float64,
-			movementSensorName resource.Name,
-			obstacles []*spatialmath.GeoObstacle,
-			motionCfg *motion.Configuration,
-			extra map[string]interface{},
-		) (string, error) {
+		injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (string, error) {
 			t.Log("should not be called")
 			t.FailNow()
 			return "", errors.New("should not be called")
@@ -182,16 +173,7 @@ func TestServerMoveOnGlobeNew(t *testing.T) {
 			ComponentName:      protoutils.ResourceNameToProto(base.Named("test-base")),
 			MovementSensorName: protoutils.ResourceNameToProto(movementsensor.Named("test-gps")),
 		}
-		injectMS.MoveOnGlobeNewFunc = func(
-			ctx context.Context,
-			componentName resource.Name,
-			destination *geo.Point,
-			heading float64,
-			movementSensorName resource.Name,
-			obstacles []*spatialmath.GeoObstacle,
-			motionCfg *motion.Configuration,
-			extra map[string]interface{},
-		) (string, error) {
+		injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (string, error) {
 			t.Log("should not be called")
 			t.FailNow()
 			return "", errors.New("should not be called")
@@ -213,16 +195,7 @@ func TestServerMoveOnGlobeNew(t *testing.T) {
 	t.Run("returns error when MoveOnGlobeNew returns an error", func(t *testing.T) {
 		notYetImplementedErr := errors.New("Not yet implemented")
 
-		injectMS.MoveOnGlobeNewFunc = func(
-			ctx context.Context,
-			componentName resource.Name,
-			destination *geo.Point,
-			heading float64,
-			movementSensorName resource.Name,
-			obstacles []*spatialmath.GeoObstacle,
-			motionCfg *motion.Configuration,
-			extra map[string]interface{},
-		) (string, error) {
+		injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (string, error) {
 			return "", notYetImplementedErr
 		}
 		moveOnGlobeNewResponse, err := server.MoveOnGlobeNew(context.Background(), validMoveOnGlobeNewRequest)
@@ -232,17 +205,8 @@ func TestServerMoveOnGlobeNew(t *testing.T) {
 	})
 
 	t.Run("sets heading to NaN if nil in request", func(t *testing.T) {
-		injectMS.MoveOnGlobeNewFunc = func(
-			ctx context.Context,
-			componentName resource.Name,
-			destination *geo.Point,
-			heading float64,
-			movementSensorName resource.Name,
-			obstacles []*spatialmath.GeoObstacle,
-			motionCfg *motion.Configuration,
-			extra map[string]interface{},
-		) (string, error) {
-			test.That(t, math.IsNaN(heading), test.ShouldBeTrue)
+		injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (string, error) {
+			test.That(t, math.IsNaN(req.Heading), test.ShouldBeTrue)
 			return "some execution id", nil
 		}
 		moveOnGlobeNewResponse, err := server.MoveOnGlobeNew(context.Background(), validMoveOnGlobeNewRequest)
@@ -250,17 +214,8 @@ func TestServerMoveOnGlobeNew(t *testing.T) {
 		test.That(t, moveOnGlobeNewResponse.ExecutionId, test.ShouldEqual, "some execution id")
 
 		reqHeading := 6.
-		injectMS.MoveOnGlobeNewFunc = func(
-			ctx context.Context,
-			componentName resource.Name,
-			destination *geo.Point,
-			heading float64,
-			movementSensorName resource.Name,
-			obstacles []*spatialmath.GeoObstacle,
-			motionCfg *motion.Configuration,
-			extra map[string]interface{},
-		) (string, error) {
-			test.That(t, heading, test.ShouldAlmostEqual, reqHeading)
+		injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (string, error) {
+			test.That(t, req.Heading, test.ShouldAlmostEqual, reqHeading)
 			return "some other execution id", nil
 		}
 
@@ -324,32 +279,23 @@ func TestServerMoveOnGlobeNew(t *testing.T) {
 			},
 		}
 
-		injectMS.MoveOnGlobeNewFunc = func(
-			ctx context.Context,
-			componentName resource.Name,
-			destination *geo.Point,
-			heading float64,
-			movementSensorName resource.Name,
-			obstacles []*spatialmath.GeoObstacle,
-			motionCfg *motion.Configuration,
-			extra map[string]interface{},
-		) (string, error) {
-			test.That(t, componentName, test.ShouldResemble, expectedComponentName)
-			test.That(t, destination, test.ShouldNotBeNil)
-			test.That(t, destination, test.ShouldResemble, geo.NewPoint(1, 2))
-			test.That(t, heading, test.ShouldResemble, reqHeading)
-			test.That(t, movementSensorName, test.ShouldResemble, expectedMovSensorName)
-			test.That(t, len(obstacles), test.ShouldEqual, 2)
-			test.That(t, obstacles[0], test.ShouldResemble, geoObstacle1)
-			test.That(t, obstacles[1], test.ShouldResemble, geoObstacle2)
-			test.That(t, motionCfg.AngularDegsPerSec, test.ShouldAlmostEqual, angularDegsPerSec)
-			test.That(t, motionCfg.LinearMPerSec, test.ShouldAlmostEqual, linearMPerSec)
-			test.That(t, motionCfg.PlanDeviationMM, test.ShouldAlmostEqual, planDeviationM*1000)
-			test.That(t, motionCfg.ObstaclePollingFreqHz, test.ShouldAlmostEqual, obstaclePollingFrequencyHz)
-			test.That(t, motionCfg.PositionPollingFreqHz, test.ShouldAlmostEqual, positionPollingFrequencyHz)
-			test.That(t, len(motionCfg.VisionServices), test.ShouldAlmostEqual, 2)
-			test.That(t, motionCfg.VisionServices[0], test.ShouldResemble, vis1)
-			test.That(t, motionCfg.VisionServices[1], test.ShouldResemble, vis2)
+		injectMS.MoveOnGlobeNewFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (string, error) {
+			test.That(t, req.ComponentName, test.ShouldResemble, expectedComponentName)
+			test.That(t, req.Destination, test.ShouldNotBeNil)
+			test.That(t, req.Destination, test.ShouldResemble, geo.NewPoint(1, 2))
+			test.That(t, req.Heading, test.ShouldResemble, reqHeading)
+			test.That(t, req.MovementSensorName, test.ShouldResemble, expectedMovSensorName)
+			test.That(t, len(req.Obstacles), test.ShouldEqual, 2)
+			test.That(t, req.Obstacles[0], test.ShouldResemble, geoObstacle1)
+			test.That(t, req.Obstacles[1], test.ShouldResemble, geoObstacle2)
+			test.That(t, req.MotionCfg.AngularDegsPerSec, test.ShouldAlmostEqual, angularDegsPerSec)
+			test.That(t, req.MotionCfg.LinearMPerSec, test.ShouldAlmostEqual, linearMPerSec)
+			test.That(t, req.MotionCfg.PlanDeviationMM, test.ShouldAlmostEqual, planDeviationM*1000)
+			test.That(t, req.MotionCfg.ObstaclePollingFreqHz, test.ShouldAlmostEqual, obstaclePollingFrequencyHz)
+			test.That(t, req.MotionCfg.PositionPollingFreqHz, test.ShouldAlmostEqual, positionPollingFrequencyHz)
+			test.That(t, len(req.MotionCfg.VisionServices), test.ShouldAlmostEqual, 2)
+			test.That(t, req.MotionCfg.VisionServices[0], test.ShouldResemble, vis1)
+			test.That(t, req.MotionCfg.VisionServices[1], test.ShouldResemble, vis2)
 			return "some execution id", nil
 		}
 		moveOnGlobeNewResponse, err := server.MoveOnGlobeNew(context.Background(), moveOnGlobeNewRequest)

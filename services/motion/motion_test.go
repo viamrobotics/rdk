@@ -877,17 +877,17 @@ func TestPlanStep(t *testing.T) {
 func TestConfiguration(t *testing.T) {
 	t.Run("configurationFromProto", func(t *testing.T) {
 		t.Run("returns mostly empty struct when passed a nil pointer", func(t *testing.T) {
-			test.That(t, configurationFromProto(nil), test.ShouldResemble, &Configuration{VisionServices: []resource.Name{}})
+			test.That(t, configurationFromProto(nil), test.ShouldResemble, &MotionConfiguration{VisionServices: []resource.Name{}})
 		})
 
 		t.Run("returns non empty struct", func(t *testing.T) {
-			test.That(t, configurationFromProto(nil), test.ShouldResemble, &Configuration{VisionServices: []resource.Name{}})
+			test.That(t, configurationFromProto(nil), test.ShouldResemble, &MotionConfiguration{VisionServices: []resource.Name{}})
 		})
 	})
 
 	t.Run("toProto", func(t *testing.T) {
 		visionServices := []resource.Name{vision.Named("vision service 1"), vision.Named("vision service 2")}
-		cfg := &Configuration{
+		cfg := &MotionConfiguration{
 			VisionServices:        visionServices,
 			LinearMPerSec:         1,
 			AngularDegsPerSec:     2,
@@ -914,33 +914,34 @@ func TestConfiguration(t *testing.T) {
 }
 
 func TestMoveOnGlobeRequest(t *testing.T) {
+	name := "somename"
 	//nolint:dupl
 	t.Run("toProto", func(t *testing.T) {
 		t.Run("error due to nil destination", func(t *testing.T) {
 			mogReq := validMoveOnGlobeRequest()
-			mogReq.destination = nil
-			_, err := mogReq.toProto()
+			mogReq.Destination = nil
+			_, err := mogReq.ToProto(name)
 			test.That(t, err, test.ShouldBeError, errors.New("Must provide a destination"))
 		})
 
 		t.Run("error due to nil motion config", func(t *testing.T) {
 			mogReq := validMoveOnGlobeRequest()
-			mogReq.motionCfg = nil
-			_, err := mogReq.toProto()
+			mogReq.MotionCfg = nil
+			_, err := mogReq.ToProto(name)
 			test.That(t, err, test.ShouldBeError, errors.New("Must provide a non nil motion configuration"))
 		})
 
 		t.Run("sets heading to nil if set to NaN", func(t *testing.T) {
 			mogReq := validMoveOnGlobeRequest()
-			mogReq.heading = math.NaN()
-			req, err := mogReq.toProto()
+			mogReq.Heading = math.NaN()
+			req, err := mogReq.ToProto(name)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, req.Heading, test.ShouldBeNil)
 		})
 
 		t.Run("success", func(t *testing.T) {
 			mogReq := validMoveOnGlobeRequest()
-			req, err := mogReq.toProto()
+			req, err := mogReq.ToProto(name)
 
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, req.Name, test.ShouldResemble, "somename")
@@ -951,7 +952,7 @@ func TestMoveOnGlobeRequest(t *testing.T) {
 			test.That(t, *req.Heading, test.ShouldAlmostEqual, 0.5)
 			test.That(t, req.MovementSensorName.Name, test.ShouldResemble, "my-movementsensor")
 			test.That(t, req.Obstacles, test.ShouldBeEmpty)
-			test.That(t, req.MotionConfiguration, test.ShouldResemble, mogReq.motionCfg.toProto())
+			test.That(t, req.MotionConfiguration, test.ShouldResemble, mogReq.MotionCfg.toProto())
 			test.That(t, req.Extra.AsMap(), test.ShouldBeEmpty)
 		})
 	})
@@ -960,29 +961,29 @@ func TestMoveOnGlobeRequest(t *testing.T) {
 	t.Run("toProtoNew", func(t *testing.T) {
 		t.Run("error due to nil destination", func(t *testing.T) {
 			mogReq := validMoveOnGlobeRequest()
-			mogReq.destination = nil
-			_, err := mogReq.toProtoNew()
+			mogReq.Destination = nil
+			_, err := mogReq.ToProtoNew(name)
 			test.That(t, err, test.ShouldBeError, errors.New("Must provide a destination"))
 		})
 
 		t.Run("error due to nil motion config", func(t *testing.T) {
 			mogReq := validMoveOnGlobeRequest()
-			mogReq.motionCfg = nil
-			_, err := mogReq.toProtoNew()
+			mogReq.MotionCfg = nil
+			_, err := mogReq.ToProtoNew(name)
 			test.That(t, err, test.ShouldBeError, errors.New("Must provide a non nil motion configuration"))
 		})
 
 		t.Run("sets heading to nil if set to NaN", func(t *testing.T) {
 			mogReq := validMoveOnGlobeRequest()
-			mogReq.heading = math.NaN()
-			req, err := mogReq.toProtoNew()
+			mogReq.Heading = math.NaN()
+			req, err := mogReq.ToProtoNew(name)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, req.Heading, test.ShouldBeNil)
 		})
 
 		t.Run("success", func(t *testing.T) {
 			mogReq := validMoveOnGlobeRequest()
-			req, err := mogReq.toProtoNew()
+			req, err := mogReq.ToProtoNew(name)
 
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, req.Name, test.ShouldResemble, "somename")
@@ -993,26 +994,25 @@ func TestMoveOnGlobeRequest(t *testing.T) {
 			test.That(t, *req.Heading, test.ShouldAlmostEqual, 0.5)
 			test.That(t, req.MovementSensorName.Name, test.ShouldResemble, "my-movementsensor")
 			test.That(t, req.Obstacles, test.ShouldBeEmpty)
-			test.That(t, req.MotionConfiguration, test.ShouldResemble, mogReq.motionCfg.toProto())
+			test.That(t, req.MotionConfiguration, test.ShouldResemble, mogReq.MotionCfg.toProto())
 
 			test.That(t, req.Extra.AsMap(), test.ShouldBeEmpty)
 		})
 	})
 }
 
-func validMoveOnGlobeRequest() moveOnGlobeRequest {
+func validMoveOnGlobeRequest() MoveOnGlobeReq {
 	gpsPoint := geo.NewPoint(0, 0)
 	dst := geo.NewPoint(gpsPoint.Lat(), gpsPoint.Lng()+1e-5)
 
 	visionServices := []resource.Name{vision.Named("vision service 1"), vision.Named("vision service 2")}
-	return moveOnGlobeRequest{
-		name:               "somename",
-		componentName:      base.Named("my-base"),
-		destination:        dst,
-		heading:            0.5,
-		movementSensorName: movementsensor.Named("my-movementsensor"),
-		obstacles:          nil,
-		motionCfg: &Configuration{
+	return MoveOnGlobeReq{
+		ComponentName:      base.Named("my-base"),
+		Destination:        dst,
+		Heading:            0.5,
+		MovementSensorName: movementsensor.Named("my-movementsensor"),
+		Obstacles:          nil,
+		MotionCfg: &MotionConfiguration{
 			VisionServices:        visionServices,
 			LinearMPerSec:         1,
 			AngularDegsPerSec:     2,
@@ -1020,6 +1020,6 @@ func validMoveOnGlobeRequest() moveOnGlobeRequest {
 			PositionPollingFreqHz: 4,
 			ObstaclePollingFreqHz: 5,
 		},
-		extra: nil,
+		Extra: nil,
 	}
 }

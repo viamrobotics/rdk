@@ -2,12 +2,9 @@ package motion
 
 import (
 	"context"
-	"math"
 
 	"github.com/edaniels/golog"
 	geo "github.com/kellydunn/golang-geo"
-	"github.com/pkg/errors"
-	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/motion/v1"
 	vprotoutils "go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
@@ -26,17 +23,6 @@ type client struct {
 	name   string
 	client pb.MotionServiceClient
 	logger golog.Logger
-}
-
-type moveOnGlobeRequest struct {
-	name               string
-	componentName      resource.Name
-	destination        *geo.Point
-	heading            float64
-	movementSensorName resource.Name
-	obstacles          []*spatialmath.GeoObstacle
-	motionCfg          *Configuration
-	extra              map[string]interface{}
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
@@ -118,19 +104,18 @@ func (c *client) MoveOnGlobe(
 	heading float64,
 	movementSensorName resource.Name,
 	obstacles []*spatialmath.GeoObstacle,
-	motionCfg *Configuration,
+	motionCfg *MotionConfiguration,
 	extra map[string]interface{},
 ) (bool, error) {
-	req, err := moveOnGlobeRequest{
-		name:               c.name,
-		componentName:      componentName,
-		destination:        destination,
-		heading:            heading,
-		movementSensorName: movementSensorName,
-		obstacles:          obstacles,
-		motionCfg:          motionCfg,
-		extra:              extra,
-	}.toProto()
+	req, err := MoveOnGlobeReq{
+		ComponentName:      componentName,
+		Destination:        destination,
+		Heading:            heading,
+		MovementSensorName: movementSensorName,
+		Obstacles:          obstacles,
+		MotionCfg:          motionCfg,
+		Extra:              extra,
+	}.ToProto(c.name)
 	if err != nil {
 		return false, err
 	}
@@ -145,29 +130,14 @@ func (c *client) MoveOnGlobe(
 
 func (c *client) MoveOnGlobeNew(
 	ctx context.Context,
-	componentName resource.Name,
-	destination *geo.Point,
-	heading float64,
-	movementSensorName resource.Name,
-	obstacles []*spatialmath.GeoObstacle,
-	motionCfg *Configuration,
-	extra map[string]interface{},
+	req MoveOnGlobeReq,
 ) (string, error) {
-	req, err := moveOnGlobeRequest{
-		name:               c.name,
-		componentName:      componentName,
-		destination:        destination,
-		heading:            heading,
-		movementSensorName: movementSensorName,
-		obstacles:          obstacles,
-		motionCfg:          motionCfg,
-		extra:              extra,
-	}.toProtoNew()
+	protoReq, err := req.ToProtoNew(c.name)
 	if err != nil {
 		return "", err
 	}
 
-	resp, err := c.client.MoveOnGlobeNew(ctx, req)
+	resp, err := c.client.MoveOnGlobeNew(ctx, protoReq)
 	if err != nil {
 		return "", err
 	}
@@ -278,80 +248,4 @@ func (c *client) PlanHistory(
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return protoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
-}
-
-//nolint:dupl
-func (r moveOnGlobeRequest) toProto() (*pb.MoveOnGlobeRequest, error) {
-	ext, err := vprotoutils.StructToStructPb(r.extra)
-	if err != nil {
-		return nil, err
-	}
-
-	if r.destination == nil {
-		return nil, errors.New("Must provide a destination")
-	}
-
-	if r.motionCfg == nil {
-		return nil, errors.New("Must provide a non nil motion configuration")
-	}
-
-	req := &pb.MoveOnGlobeRequest{
-		Name:                r.name,
-		ComponentName:       protoutils.ResourceNameToProto(r.componentName),
-		Destination:         &commonpb.GeoPoint{Latitude: r.destination.Lat(), Longitude: r.destination.Lng()},
-		MovementSensorName:  protoutils.ResourceNameToProto(r.movementSensorName),
-		MotionConfiguration: r.motionCfg.toProto(),
-		Extra:               ext,
-	}
-
-	if !math.IsNaN(r.heading) {
-		req.Heading = &r.heading
-	}
-
-	if len(r.obstacles) > 0 {
-		obstaclesProto := make([]*commonpb.GeoObstacle, 0, len(r.obstacles))
-		for _, obstacle := range r.obstacles {
-			obstaclesProto = append(obstaclesProto, spatialmath.GeoObstacleToProtobuf(obstacle))
-		}
-		req.Obstacles = obstaclesProto
-	}
-	return req, nil
-}
-
-//nolint:dupl
-func (r moveOnGlobeRequest) toProtoNew() (*pb.MoveOnGlobeNewRequest, error) {
-	ext, err := vprotoutils.StructToStructPb(r.extra)
-	if err != nil {
-		return nil, err
-	}
-
-	if r.destination == nil {
-		return nil, errors.New("Must provide a destination")
-	}
-
-	if r.motionCfg == nil {
-		return nil, errors.New("Must provide a non nil motion configuration")
-	}
-
-	req := &pb.MoveOnGlobeNewRequest{
-		Name:                r.name,
-		ComponentName:       protoutils.ResourceNameToProto(r.componentName),
-		Destination:         &commonpb.GeoPoint{Latitude: r.destination.Lat(), Longitude: r.destination.Lng()},
-		MovementSensorName:  protoutils.ResourceNameToProto(r.movementSensorName),
-		MotionConfiguration: r.motionCfg.toProto(),
-		Extra:               ext,
-	}
-
-	if !math.IsNaN(r.heading) {
-		req.Heading = &r.heading
-	}
-
-	if len(r.obstacles) > 0 {
-		obstaclesProto := make([]*commonpb.GeoObstacle, 0, len(r.obstacles))
-		for _, obstacle := range r.obstacles {
-			obstaclesProto = append(obstaclesProto, spatialmath.GeoObstacleToProtobuf(obstacle))
-		}
-		req.Obstacles = obstaclesProto
-	}
-	return req, nil
 }

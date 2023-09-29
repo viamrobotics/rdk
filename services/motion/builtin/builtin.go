@@ -256,7 +256,7 @@ func (ms *builtIn) MoveOnGlobe(
 	heading float64,
 	movementSensorName resource.Name,
 	obstacles []*spatialmath.GeoObstacle,
-	motionCfg *motion.Configuration,
+	motionCfg *motion.MotionConfiguration,
 	extra map[string]interface{},
 ) (bool, error) {
 	t := "MoveOnGlobe called for component: %s, destination: %+v, heading: %f, movementSensor: %s, obstacles: %v, motionCfg: %#v, extra: %s"
@@ -273,7 +273,7 @@ func (ms *builtIn) MoveOnGlobe(
 
 	// ensure arguments are well behaved
 	if motionCfg == nil {
-		motionCfg = &motion.Configuration{}
+		motionCfg = &motion.MotionConfiguration{}
 	}
 	if obstacles == nil {
 		obstacles = []*spatialmath.GeoObstacle{}
@@ -331,16 +331,7 @@ func (ms *builtIn) MoveOnGlobe(
 	}
 }
 
-func (ms *builtIn) MoveOnGlobeNew(
-	ctx context.Context,
-	componentName resource.Name,
-	destination *geo.Point,
-	heading float64,
-	movementSensorName resource.Name,
-	obstacles []*spatialmath.GeoObstacle,
-	motionCfg *motion.Configuration,
-	extra map[string]interface{},
-) (string, error) {
+func (ms *builtIn) MoveOnGlobeNew(ctx context.Context, req motion.MoveOnGlobeReq) (string, error) {
 	return "", errUnimplemented
 }
 
