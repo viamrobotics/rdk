@@ -97,9 +97,9 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 		if err != nil {
 			return nil, errors.New("invalid time format for start time (UTC), use RFC3339")
 		}
-		if startTime.After(time.Now()) {
-			return nil, errors.New("invalid config, start time (UTC) must be in the past")
-		}
+		// if startTime.After(time.Now()) {
+		// 	return nil, errors.New("invalid config, start time (UTC) must be in the past")
+		// }
 	}
 
 	var endTime time.Time
@@ -108,9 +108,9 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 		if err != nil {
 			return nil, errors.New("invalid time format for end time (UTC), use RFC3339")
 		}
-		if endTime.After(time.Now()) {
-			return nil, errors.New("invalid config, end time (UTC) must be in the past")
-		}
+		// if endTime.After(time.Now()) {
+		// 	return nil, errors.New("invalid config, end time (UTC) must be in the past")
+		// }
 	}
 
 	if cfg.Interval.Start != "" && cfg.Interval.End != "" && startTime.After(endTime) {
