@@ -47,6 +47,7 @@ jobs:
     - name: Build and Push
       env: ${{ matrix.env }}
       run: |
+        echo platform $PLATFORM arm_tag $ARM_TAG
         make ${{ matrix.make_target}}
 
   # test:
