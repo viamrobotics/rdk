@@ -1,0 +1,13 @@
+name: flex-checkout
+description: "Check out branch head in PR target case, otherwise checkout local"
+runs:
+  using: composite
+  steps:
+  - name: normal checkout
+    if: github.event_name != 'pull_request_target'
+    uses: actions/checkout@v3
+  - name: PR branch checkout
+    if: github.event_name == 'pull_request_target'
+    uses: actions/checkout@v3
+    with:
+      ref: ${{ github.event.pull_request.head.sha }}
