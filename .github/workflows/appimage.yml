@@ -23,11 +23,13 @@ jobs:
       matrix:
         include:
           - arch: [ubuntu-latest]
-            image: ghcr.io/viamrobotics/rdk-devenv:amd64-beta-c0c8a3d
+            image: ghcr.io/viamrobotics/rdk-devenv:amd64-beta-81a6398-cache
             platform: linux/amd64
-          # - arch: [buildjet-2vcpu-ubuntu-2204-arm]
-          #   image: ghcr.io/viamrobotics/rdk-devenv:arm64-beta-c0c8a3d
-          #   platform: linux/arm64
+            label: amd64
+          - arch: [buildjet-2vcpu-ubuntu-2204-arm]
+            image: ghcr.io/viamrobotics/rdk-devenv:arm64-beta-81a6398-cache
+            platform: linux/arm64
+            label: arm64
     runs-on: ${{ matrix.arch }}
     container:
       image: ${{ matrix.image }}
@@ -97,6 +99,11 @@ jobs:
         glob: '*'
         parent: false
         gzip: false
+
+    - uses: actions/upload-artifact@v3
+      with:
+        name: appimage-${{ matrix.label }}
+        path: etc/packaging/appimages/deploy
 
   output_summary:
     name: Output Summary
