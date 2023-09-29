@@ -43,6 +43,8 @@ jobs:
       date: ${{ steps.build_date.outputs.date }}
 
     steps:
+    - if: ${{ matrix.platform }} == 'linux/arm/v7'
+      uses: docker/setup-qemu-action@v3
     - name: Check out code
       if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
       uses: actions/checkout@v3
