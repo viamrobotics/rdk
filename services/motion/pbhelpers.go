@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	geo "github.com/kellydunn/golang-geo"
 	pb "go.viam.com/api/service/motion/v1"
+	vprotoutils "go.viam.com/utils/protoutils"
 
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
@@ -240,5 +241,37 @@ func moveOnGlobeRequestFromProto(req *pb.MoveOnGlobeRequest) (MoveOnGlobeReq, er
 		Obstacles:          obstacles,
 		MotionCfg:          motionCfg,
 		Extra:              req.Extra.AsMap(),
+	}, nil
+}
+
+func (req PlanHistoryReq) toProto(name string) (*pb.GetPlanRequest, error) {
+	ext, err := vprotoutils.StructToStructPb(req.Extra)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.GetPlanRequest{
+		Name:          name,
+		ComponentName: rprotoutils.ResourceNameToProto(req.ComponentName),
+		LastPlanOnly:  req.LastPlanOnly,
+		Extra:         ext,
+	}, nil
+}
+
+func getPlanRequestFromProto(req *pb.GetPlanRequest) (PlanHistoryReq, error) {
+	if req.GetComponentName() == nil {
+		return PlanHistoryReq{}, errors.New("received nil *commonpb.ResourceName")
+	}
+
+	executionID, err := uuid.Parse(req.GetExecutionId())
+	if err != nil {
+		return PlanHistoryReq{}, err
+	}
+
+	return PlanHistoryReq{
+		ComponentName: rprotoutils.ResourceNameFromProto(req.GetComponentName()),
+		LastPlanOnly:  req.GetLastPlanOnly(),
+		ExecutionID:   executionID,
+		Extra:         req.Extra.AsMap(),
 	}, nil
 }

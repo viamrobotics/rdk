@@ -4,9 +4,7 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
-	"github.com/google/uuid"
 	geo "github.com/kellydunn/golang-geo"
-	"github.com/pkg/errors"
 	pb "go.viam.com/api/service/motion/v1"
 	vprotoutils "go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
@@ -211,38 +209,6 @@ func (c *client) ListPlanStatuses(ctx context.Context, onlyActivePlans bool, ext
 		pswids = append(pswids, pswid)
 	}
 	return pswids, err
-}
-
-func (req PlanHistoryReq) toProto(name string) (*pb.GetPlanRequest, error) {
-	ext, err := vprotoutils.StructToStructPb(req.Extra)
-	if err != nil {
-		return nil, err
-	}
-
-	return &pb.GetPlanRequest{
-		Name:          name,
-		ComponentName: protoutils.ResourceNameToProto(req.ComponentName),
-		LastPlanOnly:  req.LastPlanOnly,
-		Extra:         ext,
-	}, nil
-}
-
-func getPlanRequestFromProto(req *pb.GetPlanRequest) (PlanHistoryReq, error) {
-	if req.GetComponentName() == nil {
-		return PlanHistoryReq{}, errors.New("received nil *commonpb.ResourceName")
-	}
-
-	executionID, err := uuid.Parse(req.GetExecutionId())
-	if err != nil {
-		return PlanHistoryReq{}, err
-	}
-
-	return PlanHistoryReq{
-		ComponentName: protoutils.ResourceNameFromProto(req.GetComponentName()),
-		LastPlanOnly:  req.GetLastPlanOnly(),
-		ExecutionID:   executionID,
-		Extra:         req.Extra.AsMap(),
-	}, nil
 }
 
 func (c *client) PlanHistory(
