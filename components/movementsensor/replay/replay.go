@@ -29,9 +29,11 @@ import (
 )
 
 const (
-	timeFormat            = time.RFC3339
-	grpcConnectionTimeout = 10 * time.Second
-	maxCacheSize          = 1000
+	timeFormat                       = time.RFC3339
+	grpcConnectionTimeout            = 10 * time.Second
+	initializePropertiesTimeout      = 10 * time.Second
+	initializePropertiesLoopWaitTime = time.Second
+	maxCacheSize                     = 1000
 )
 
 type method string
@@ -195,7 +197,7 @@ func (replay *replayMovementSensor) Position(ctx context.Context, extra map[stri
 		return nil, 0, errors.New("session closed")
 	}
 
-	if err := replay.checkPropertiesStatus(ctx); err != nil {
+	if err := replay.ensurePropertiesAreInitialized(ctx); err != nil {
 		return nil, 0, err
 	}
 
@@ -221,7 +223,7 @@ func (replay *replayMovementSensor) LinearVelocity(ctx context.Context, extra ma
 		return r3.Vector{}, errors.New("session closed")
 	}
 
-	if err := replay.checkPropertiesStatus(ctx); err != nil {
+	if err := replay.ensurePropertiesAreInitialized(ctx); err != nil {
 		return r3.Vector{}, err
 	}
 
@@ -251,7 +253,7 @@ func (replay *replayMovementSensor) AngularVelocity(ctx context.Context, extra m
 		return spatialmath.AngularVelocity{}, errors.New("session closed")
 	}
 
-	if err := replay.checkPropertiesStatus(ctx); err != nil {
+	if err := replay.ensurePropertiesAreInitialized(ctx); err != nil {
 		return spatialmath.AngularVelocity{}, err
 	}
 
@@ -279,7 +281,7 @@ func (replay *replayMovementSensor) LinearAcceleration(ctx context.Context, extr
 		return r3.Vector{}, errors.New("session closed")
 	}
 
-	if err := replay.checkPropertiesStatus(ctx); err != nil {
+	if err := replay.ensurePropertiesAreInitialized(ctx); err != nil {
 		return r3.Vector{}, err
 	}
 
@@ -307,7 +309,7 @@ func (replay *replayMovementSensor) CompassHeading(ctx context.Context, extra ma
 		return 0., errors.New("session closed")
 	}
 
-	if err := replay.checkPropertiesStatus(ctx); err != nil {
+	if err := replay.ensurePropertiesAreInitialized(ctx); err != nil {
 		return 0., err
 	}
 
@@ -331,7 +333,7 @@ func (replay *replayMovementSensor) Orientation(ctx context.Context, extra map[s
 		return nil, errors.New("session closed")
 	}
 
-	if err := replay.checkPropertiesStatus(ctx); err != nil {
+	if err := replay.ensurePropertiesAreInitialized(ctx); err != nil {
 		return nil, err
 	}
 
@@ -356,7 +358,7 @@ func (replay *replayMovementSensor) Orientation(ctx context.Context, extra map[s
 func (replay *replayMovementSensor) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
 	replay.mu.Lock()
 	defer replay.mu.Unlock()
-	return &replay.properties, replay.checkPropertiesStatus(ctx)
+	return &replay.properties, replay.ensurePropertiesAreInitialized(ctx)
 }
 
 // Accuracy is currently not defined for replay movement sensors.
@@ -455,9 +457,9 @@ func (replay *replayMovementSensor) Reconfigure(ctx context.Context, deps resour
 	replay.activeBackgroundWorkers.Add(1)
 	go func() {
 		func(ctx context.Context) {
-			ctx, cancel := context.WithTimeout(ctx, downloadTimeout)
+			ctx, cancel := context.WithTimeout(ctx, initializePropertiesTimeout)
 			defer cancel()
-			if err := replay.setProperties(ctx); err != nil {
+			if err := replay.initializeProperties(ctx); err != nil {
 				replay.logger.Warn(err)
 			}
 		}(ctx)
@@ -527,7 +529,7 @@ func addGRPCMetadata(ctx context.Context, timeRequested, timeReceived *timestamp
 	return nil
 }
 
-func (replay *replayMovementSensor) setProperty(method string, supported bool) error {
+func (replay *replayMovementSensor) setProperty(method Method, supported bool) error {
 	switch method {
 	case "LinearVelocity":
 		replay.properties.LinearVelocitySupported = supported
@@ -542,12 +544,13 @@ func (replay *replayMovementSensor) setProperty(method string, supported bool) e
 	case "LinearAcceleration":
 		replay.properties.LinearAccelerationSupported = supported
 	default:
-		return errors.New("can't set property, invalid method: " + method)
+		return errors.New("can't set property, invalid method: " + string(method))
 	}
 	return nil
 }
 
-func (replay *replayMovementSensor) attemptToInitializeProperty(ctx context.Context, method string) (bool, error) {
+// attemptToInitializeProperty will try to update the cache for the provided method
+func (replay *replayMovementSensor) attemptToInitializeProperty(ctx context.Context, method Method) (bool, error) {
 	replay.mu.Lock()
 	defer replay.mu.Unlock()
 
@@ -569,23 +572,35 @@ func (replay *replayMovementSensor) attemptToInitializeProperty(ctx context.Cont
 	return initializedProperty, nil
 }
 
-func (replay *replayMovementSensor) setProperties(ctx context.Context) error {
+// initializeProperties will set the properties by repeatedly attempting to poll data from all the methods
+// until at least one of them returns data.
+func (replay *replayMovementSensor) initializeProperties(ctx context.Context) error {
 	var initializedProperty bool
 	var err error
+	// Repeatedly attempt to poll data from the movement sensor for each method until at least
+	// one of the methods receives data.
 	for {
-		if !utils.SelectContextOrWait(ctx, time.Duration(time.Second)) {
+		if !utils.SelectContextOrWait(ctx, time.Duration(initializePropertiesLoopWaitTime)) {
 			return ctx.Err()
 		}
 		for _, method := range methodList {
 			if initializedProperty, err = replay.attemptToInitializeProperty(ctx, method); err != nil {
-				fmt.Println("In setProperties, method: ", method)
+				fmt.Println("In initializeProperties, method: ", method)
 				fmt.Println("error, initializedProperty results: ", initializedProperty, err)
 				return err
 			}
-			fmt.Println("-- In setProperties, method: ", method)
+			fmt.Println("-- In initializeProperties, method: ", method)
 			fmt.Println("-- initializedProperty results: ", initializedProperty)
 		}
+		// If at least one method successfully managed to initialize, we know that data reached the cloud and
+		// that we can finish initializing the properties.
 		if initializedProperty {
+			// Loop once more through all methods to ensure we didn't miss out on catching that they're supported
+			for _, method := range methodList {
+				if _, err = replay.attemptToInitializeProperty(ctx, method); err != nil {
+					return err
+				}
+			}
 			replay.mu.Lock()
 			defer replay.mu.Unlock()
 			replay.propertiesStatus = successfullyInitialized
@@ -594,7 +609,7 @@ func (replay *replayMovementSensor) setProperties(ctx context.Context) error {
 	}
 }
 
-func (replay *replayMovementSensor) checkPropertiesStatus(ctx context.Context) error {
+func (replay *replayMovementSensor) ensurePropertiesAreInitialized(ctx context.Context) error {
 	switch replay.propertiesStatus {
 	case notInitialized:
 		return errors.New("properties are not initialized yet")

@@ -325,7 +325,7 @@ func TestReplayMovementSensorFunctions(t *testing.T) {
 				compassHeading:     allMethodsMaxDataLength[compassHeading],
 				orientation:        -1,
 			},
-			expectedErr: map[string]error{"Orientation": errors.New("Orientation is not supported")},
+			expectedErr: map[Method]error{orientation: errors.New("Orientation is not supported")},
 		},
 		{
 			description: "Calling methods with start and end filter",
@@ -602,13 +602,13 @@ func TestReplayMovementSensorProperties(t *testing.T) {
 
 	cases := []struct {
 		description           string
-		methods               []string
+		methods               []Method
 		cfg                   *Config
-		startFileNum          map[string]int
-		endFileNum            map[string]int
+		startFileNum          map[Method]int
+		endFileNum            map[Method]int
 		propertiesExpectedErr error
-		methodsExpectedErr    map[string]error
-		methodSupported       map[string]bool
+		methodsExpectedErr    map[Method]error
+		methodSupported       map[Method]bool
 	}{
 		{
 			description: "All methods are supported",
@@ -619,16 +619,16 @@ func TestReplayMovementSensorProperties(t *testing.T) {
 				OrganizationID: validOrganizationID,
 				BatchSize:      &batchSizeNonZero,
 			},
-			methods:      []string{"LinearAcceleration", "AngularVelocity", "Position", "LinearVelocity", "CompassHeading", "Orientation"},
+			methods:      methodList,
 			startFileNum: defaultMinDataLength,
 			endFileNum:   defaultMaxDataLength,
-			methodSupported: map[string]bool{
-				"LinearAcceleration": true,
-				"AngularVelocity":    true,
-				"Position":           true,
-				"LinearVelocity":     true,
-				"CompassHeading":     true,
-				"Orientation":        true,
+			methodSupported: map[Method]bool{
+				linearAcceleration: true,
+				angularVelocity:    true,
+				position:           true,
+				linearVelocity:     true,
+				compassHeading:     true,
+				orientation:        true,
 			},
 		},
 		{
@@ -644,18 +644,18 @@ func TestReplayMovementSensorProperties(t *testing.T) {
 					End:   "2000-01-01T12:00:40Z",
 				},
 			},
-			methods:               []string{"LinearAcceleration"},
-			startFileNum:          map[string]int{"LinearAcceleration": -1},
-			endFileNum:            map[string]int{"LinearAcceleration": -1},
+			methods:               []Method{linearAcceleration},
+			startFileNum:          map[Method]int{linearAcceleration: -1},
+			endFileNum:            map[Method]int{linearAcceleration: -1},
 			propertiesExpectedErr: errors.New("properties failed to initialize"),
-			methodsExpectedErr:    map[string]error{"LinearAcceleration": errors.New("properties are not initialized yet")},
-			methodSupported: map[string]bool{
-				"LinearAcceleration": false,
-				"AngularVelocity":    false,
-				"Position":           false,
-				"LinearVelocity":     false,
-				"CompassHeading":     false,
-				"Orientation":        false,
+			methodsExpectedErr:    map[Method]error{linearAcceleration: errors.New("properties are not initialized yet")},
+			methodSupported: map[Method]bool{
+				linearAcceleration: false,
+				angularVelocity:    false,
+				position:           false,
+				linearVelocity:     false,
+				compassHeading:     false,
+				orientation:        false,
 			},
 		},
 		{
@@ -670,23 +670,23 @@ func TestReplayMovementSensorProperties(t *testing.T) {
 					End: "2000-01-01T12:00:03Z",
 				},
 			},
-			methods:      []string{"LinearAcceleration", "AngularVelocity", "Position", "LinearVelocity", "CompassHeading", "Orientation"},
+			methods:      methodList,
 			startFileNum: defaultMinDataLength,
-			endFileNum: map[string]int{
-				"LinearAcceleration": 3,
-				"AngularVelocity":    3,
-				"Position":           3,
-				"LinearVelocity":     3,
-				"CompassHeading":     3,
-				"Orientation":        2,
+			endFileNum: map[Method]int{
+				linearAcceleration: 3,
+				angularVelocity:    3,
+				position:           3,
+				linearVelocity:     3,
+				compassHeading:     3,
+				orientation:        2,
 			},
-			methodSupported: map[string]bool{
-				"LinearAcceleration": true,
-				"AngularVelocity":    true,
-				"Position":           true,
-				"LinearVelocity":     true,
-				"CompassHeading":     true,
-				"Orientation":        true,
+			methodSupported: map[Method]bool{
+				linearAcceleration: true,
+				angularVelocity:    true,
+				position:           true,
+				linearVelocity:     true,
+				compassHeading:     true,
+				orientation:        true,
 			},
 		},
 		{
@@ -701,31 +701,31 @@ func TestReplayMovementSensorProperties(t *testing.T) {
 					Start: "2000-01-01T12:00:02Z",
 				},
 			},
-			methods: []string{"LinearAcceleration", "AngularVelocity", "Position", "LinearVelocity", "CompassHeading", "Orientation"},
-			startFileNum: map[string]int{
-				"LinearAcceleration": 2,
-				"AngularVelocity":    2,
-				"Position":           2,
-				"LinearVelocity":     2,
-				"CompassHeading":     2,
-				"Orientation":        -1,
+			methods: methodList,
+			startFileNum: map[Method]int{
+				linearAcceleration: 2,
+				angularVelocity:    2,
+				position:           2,
+				linearVelocity:     2,
+				compassHeading:     2,
+				orientation:        -1,
 			},
-			endFileNum: map[string]int{
-				"LinearAcceleration": defaultMaxDataLength["LinearAcceleration"],
-				"AngularVelocity":    defaultMaxDataLength["AngularVelocity"],
-				"Position":           defaultMaxDataLength["Position"],
-				"LinearVelocity":     defaultMaxDataLength["LinearVelocity"],
-				"CompassHeading":     defaultMaxDataLength["CompassHeading"],
-				"Orientation":        -1,
+			endFileNum: map[Method]int{
+				linearAcceleration: defaultMaxDataLength[linearAcceleration],
+				angularVelocity:    defaultMaxDataLength[angularVelocity],
+				position:           defaultMaxDataLength[position],
+				linearVelocity:     defaultMaxDataLength[linearVelocity],
+				compassHeading:     defaultMaxDataLength[compassHeading],
+				orientation:        -1,
 			},
-			methodsExpectedErr: map[string]error{"Orientation": errors.New("Orientation is not supported")},
-			methodSupported: map[string]bool{
-				"LinearAcceleration": true,
-				"AngularVelocity":    true,
-				"Position":           true,
-				"LinearVelocity":     true,
-				"CompassHeading":     true,
-				"Orientation":        false,
+			methodsExpectedErr: map[Method]error{orientation: errors.New("Orientation is not supported")},
+			methodSupported: map[Method]bool{
+				linearAcceleration: true,
+				angularVelocity:    true,
+				position:           true,
+				linearVelocity:     true,
+				compassHeading:     true,
+				orientation:        false,
 			},
 		},
 		{
@@ -741,30 +741,30 @@ func TestReplayMovementSensorProperties(t *testing.T) {
 					End:   "2000-01-01T12:00:03Z",
 				},
 			},
-			methods: []string{"LinearAcceleration", "AngularVelocity", "Position", "LinearVelocity", "CompassHeading", "Orientation"},
-			startFileNum: map[string]int{
-				"LinearAcceleration": 1,
-				"AngularVelocity":    1,
-				"Position":           1,
-				"LinearVelocity":     1,
-				"CompassHeading":     1,
-				"Orientation":        1,
+			methods: methodList,
+			startFileNum: map[Method]int{
+				linearAcceleration: 1,
+				angularVelocity:    1,
+				position:           1,
+				linearVelocity:     1,
+				compassHeading:     1,
+				orientation:        1,
 			},
-			endFileNum: map[string]int{
-				"LinearAcceleration": 3,
-				"AngularVelocity":    3,
-				"Position":           3,
-				"LinearVelocity":     3,
-				"CompassHeading":     3,
-				"Orientation":        defaultMaxDataLength["Orientation"],
+			endFileNum: map[Method]int{
+				linearAcceleration: 3,
+				angularVelocity:    3,
+				position:           3,
+				linearVelocity:     3,
+				compassHeading:     3,
+				orientation:        defaultMaxDataLength[orientation],
 			},
-			methodSupported: map[string]bool{
-				"LinearAcceleration": true,
-				"AngularVelocity":    true,
-				"Position":           true,
-				"LinearVelocity":     true,
-				"CompassHeading":     true,
-				"Orientation":        true,
+			methodSupported: map[Method]bool{
+				linearAcceleration: true,
+				angularVelocity:    true,
+				position:           true,
+				linearVelocity:     true,
+				compassHeading:     true,
+				orientation:        true,
 			},
 		},
 	}
@@ -784,12 +784,12 @@ func TestReplayMovementSensorProperties(t *testing.T) {
 			} else {
 				test.That(t, err, test.ShouldEqual, tt.propertiesExpectedErr)
 			}
-			test.That(t, props.PositionSupported, test.ShouldEqual, tt.methodSupported["Position"])
-			test.That(t, props.OrientationSupported, test.ShouldEqual, tt.methodSupported["Orientation"])
-			test.That(t, props.AngularVelocitySupported, test.ShouldEqual, tt.methodSupported["AngularVelocity"])
-			test.That(t, props.LinearAccelerationSupported, test.ShouldEqual, tt.methodSupported["LinearAcceleration"])
-			test.That(t, props.LinearVelocitySupported, test.ShouldEqual, tt.methodSupported["LinearVelocity"])
-			test.That(t, props.CompassHeadingSupported, test.ShouldEqual, tt.methodSupported["CompassHeading"])
+			test.That(t, props.PositionSupported, test.ShouldEqual, tt.methodSupported[position])
+			test.That(t, props.OrientationSupported, test.ShouldEqual, tt.methodSupported[orientation])
+			test.That(t, props.AngularVelocitySupported, test.ShouldEqual, tt.methodSupported[angularVelocity])
+			test.That(t, props.LinearAccelerationSupported, test.ShouldEqual, tt.methodSupported[linearAcceleration])
+			test.That(t, props.LinearVelocitySupported, test.ShouldEqual, tt.methodSupported[linearVelocity])
+			test.That(t, props.CompassHeadingSupported, test.ShouldEqual, tt.methodSupported[compassHeading])
 
 			for _, method := range tt.methods {
 				// Iterate through all files that meet the provided filter
