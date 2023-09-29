@@ -12,6 +12,7 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/test"
+	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/components/base"
@@ -21,8 +22,6 @@ import (
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
 )
-
-var dst = geo.NewPoint(1, 2)
 
 func TestPlanWithStatus(t *testing.T) {
 	planID, err := uuid.NewUUID()
@@ -879,45 +878,122 @@ func TestPlanStep(t *testing.T) {
 
 func TestConfiguration(t *testing.T) {
 	t.Run("configurationFromProto", func(t *testing.T) {
-		t.Run("returns mostly empty struct when passed a nil pointer", func(t *testing.T) {
-			test.That(t, configurationFromProto(nil), test.ShouldResemble, &MotionConfiguration{VisionServices: []resource.Name{}})
-		})
+		type testCase struct {
+			description string
+			input       *pb.MotionConfiguration
+			result      *MotionConfiguration
+		}
+		visionServices := []resource.Name{vision.Named("vision service 1"), vision.Named("vision service 2")}
+		visionServicesPB := []*commonpb.ResourceName{}
+		for _, vs := range visionServices {
+			visionServicesPB = append(visionServicesPB, rprotoutils.ResourceNameToProto(vs))
+		}
+		linearMPerSec := 1.
+		angularDegsPerSec := 2.
+		planDeviationMM := 3000.
+		planDeviationM := planDeviationMM / 1000
+		positionPollingFreqHz := 4.
+		obstaclePollingFreqHz := 5.
 
-		t.Run("returns non empty struct", func(t *testing.T) {
-			test.That(t, configurationFromProto(nil), test.ShouldResemble, &MotionConfiguration{VisionServices: []resource.Name{}})
-		})
+		testCases := []testCase{
+			{
+				description: "when passed a nil pointer returns mostly empty struct",
+				input:       nil,
+				result:      &MotionConfiguration{VisionServices: []resource.Name{}},
+			},
+			{
+				description: "when passed an empty struct returns mostly empty struct",
+				input:       &pb.MotionConfiguration{},
+				result:      &MotionConfiguration{VisionServices: []resource.Name{}},
+			},
+			{
+				description: "when passed a full struct returns a full struct",
+				input: &pb.MotionConfiguration{
+					VisionServices:             visionServicesPB,
+					LinearMPerSec:              &linearMPerSec,
+					AngularDegsPerSec:          &angularDegsPerSec,
+					PlanDeviationM:             &planDeviationM,
+					PositionPollingFrequencyHz: &positionPollingFreqHz,
+					ObstaclePollingFrequencyHz: &obstaclePollingFreqHz,
+				},
+				result: &MotionConfiguration{
+					VisionServices:        visionServices,
+					LinearMPerSec:         linearMPerSec,
+					AngularDegsPerSec:     angularDegsPerSec,
+					PlanDeviationMM:       planDeviationMM,
+					PositionPollingFreqHz: positionPollingFreqHz,
+					ObstaclePollingFreqHz: obstaclePollingFreqHz,
+				},
+			},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.description, func(t *testing.T) {
+				res := configurationFromProto(tc.input)
+				test.That(t, res, test.ShouldResemble, tc.result)
+			})
+		}
 	})
 
 	t.Run("toProto", func(t *testing.T) {
-		visionServices := []resource.Name{vision.Named("vision service 1"), vision.Named("vision service 2")}
-		cfg := &MotionConfiguration{
-			VisionServices:        visionServices,
-			LinearMPerSec:         1,
-			AngularDegsPerSec:     2,
-			PlanDeviationMM:       3,
-			PositionPollingFreqHz: 4,
-			ObstaclePollingFreqHz: 5,
+		type testCase struct {
+			description string
+			input       *MotionConfiguration
+			result      *pb.MotionConfiguration
 		}
-		mCfg := cfg.toProto()
 
-		test.That(t, len(mCfg.VisionServices), test.ShouldEqual, 2)
-		test.That(t, mCfg.VisionServices[0].Name, test.ShouldResemble, "vision service 1")
-		test.That(t, mCfg.VisionServices[1].Name, test.ShouldResemble, "vision service 2")
-		test.That(t, mCfg.LinearMPerSec, test.ShouldNotBeNil)
-		test.That(t, *mCfg.LinearMPerSec, test.ShouldEqual, 1)
-		test.That(t, mCfg.AngularDegsPerSec, test.ShouldNotBeNil)
-		test.That(t, *mCfg.AngularDegsPerSec, test.ShouldEqual, 2)
-		test.That(t, mCfg.PlanDeviationM, test.ShouldNotBeNil)
-		test.That(t, *mCfg.PlanDeviationM, test.ShouldAlmostEqual, 0.003)
-		test.That(t, mCfg.PositionPollingFrequencyHz, test.ShouldNotBeNil)
-		test.That(t, *mCfg.PositionPollingFrequencyHz, test.ShouldEqual, 4)
-		test.That(t, mCfg.ObstaclePollingFrequencyHz, test.ShouldNotBeNil)
-		test.That(t, *mCfg.ObstaclePollingFrequencyHz, test.ShouldEqual, 5)
+		visionServices := []resource.Name{vision.Named("vision service 1"), vision.Named("vision service 2")}
+		visionServicesPB := []*commonpb.ResourceName{}
+		for _, vs := range visionServices {
+			visionServicesPB = append(visionServicesPB, rprotoutils.ResourceNameToProto(vs))
+		}
+		linearMPerSec := 1.
+		angularDegsPerSec := 2.
+		planDeviationMM := 3000.
+		planDeviationM := planDeviationMM / 1000
+		positionPollingFreqHz := 4.
+		obstaclePollingFreqHz := 5.
+		zero := 0.
+
+		testCases := []testCase{
+			{
+				description: "when passed an empty struct returns mostly empty struct",
+				input:       &MotionConfiguration{},
+				result:      &pb.MotionConfiguration{PlanDeviationM: &zero},
+			},
+			{
+				description: "when passed a full struct returns a full struct",
+				input: &MotionConfiguration{
+					VisionServices:        visionServices,
+					LinearMPerSec:         linearMPerSec,
+					AngularDegsPerSec:     angularDegsPerSec,
+					PlanDeviationMM:       planDeviationMM,
+					PositionPollingFreqHz: positionPollingFreqHz,
+					ObstaclePollingFreqHz: obstaclePollingFreqHz,
+				},
+				result: &pb.MotionConfiguration{
+					VisionServices:             visionServicesPB,
+					LinearMPerSec:              &linearMPerSec,
+					AngularDegsPerSec:          &angularDegsPerSec,
+					PlanDeviationM:             &planDeviationM,
+					PositionPollingFrequencyHz: &positionPollingFreqHz,
+					ObstaclePollingFrequencyHz: &obstaclePollingFreqHz,
+				},
+			},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.description, func(t *testing.T) {
+				res := tc.input.toProto()
+				test.That(t, res, test.ShouldResemble, tc.result)
+			})
+		}
 	})
 }
 
 func TestMoveOnGlobeReq(t *testing.T) {
 	name := "somename"
+	dst := geo.NewPoint(1, 2)
 	//nolint:dupl
 	t.Run("ToProto", func(t *testing.T) {
 		t.Run("error due to nil destination", func(t *testing.T) {
@@ -1275,16 +1351,125 @@ func TestMoveOnGlobeReq(t *testing.T) {
 }
 
 func TestPlanHistoryReq(t *testing.T) {
-	// t.Run("toProto", func(t *testing.T) {
-	// 	t.FailNow()
-	// })
+	t.Run("toProto", func(t *testing.T) {
+		type testCase struct {
+			description string
+			input       PlanHistoryReq
+			name        string
+			result      *pb.GetPlanRequest
+			err         error
+		}
 
-	// t.Run("getPlanRequestFromProto", func(t *testing.T) {
-	// 	t.FailNow()
-	// })
+		executionID, err := uuid.NewUUID()
+		test.That(t, err, test.ShouldBeNil)
+		mybase := base.Named("mybase")
+		executionIDStr := executionID.String()
+
+		testCases := []testCase{
+			{
+				description: "empty struct returns an empty struct",
+				input:       PlanHistoryReq{},
+				name:        "some name",
+				result: &pb.GetPlanRequest{
+					Name:          "some name",
+					ComponentName: rprotoutils.ResourceNameToProto(resource.Name{}),
+					Extra:         &structpb.Struct{},
+				},
+			},
+			{
+				description: "full struct returns a full struct",
+				input: PlanHistoryReq{
+					ComponentName: mybase,
+					ExecutionID:   executionID,
+					LastPlanOnly:  true,
+				},
+				name: "some name",
+				result: &pb.GetPlanRequest{
+					Name:          "some name",
+					ComponentName: rprotoutils.ResourceNameToProto(mybase),
+					ExecutionId:   &executionIDStr,
+					LastPlanOnly:  true,
+					Extra:         &structpb.Struct{},
+				},
+			},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.description, func(t *testing.T) {
+				res, err := tc.input.toProto(tc.name)
+
+				if tc.err != nil {
+					test.That(t, err, test.ShouldBeError, tc.err)
+				} else {
+					test.That(t, err, test.ShouldBeNil)
+				}
+				test.That(t, res, test.ShouldResemble, tc.result)
+			})
+		}
+	})
+
+	t.Run("getPlanRequestFromProto", func(t *testing.T) {
+		type testCase struct {
+			description string
+			input       *pb.GetPlanRequest
+			result      PlanHistoryReq
+			err         error
+		}
+
+		executionID, err := uuid.NewUUID()
+		test.That(t, err, test.ShouldBeNil)
+		mybase := base.Named("mybase")
+		executionIDStr := executionID.String()
+
+		testCases := []testCase{
+			{
+				description: "returns an error if component name is nil",
+				input:       &pb.GetPlanRequest{},
+				result:      PlanHistoryReq{},
+				err:         errors.New("received nil *commonpb.ResourceName"),
+			},
+			{
+				description: "empty struct returns an empty struct",
+				input: &pb.GetPlanRequest{
+					ComponentName: rprotoutils.ResourceNameToProto(resource.Name{}),
+				},
+				result: PlanHistoryReq{Extra: map[string]interface{}{}},
+			},
+			{
+				description: "full struct returns a full struct",
+				input: &pb.GetPlanRequest{
+					Name:          "some name",
+					ComponentName: rprotoutils.ResourceNameToProto(mybase),
+					ExecutionId:   &executionIDStr,
+					LastPlanOnly:  true,
+					Extra:         &structpb.Struct{},
+				},
+				result: PlanHistoryReq{
+					ComponentName: mybase,
+					ExecutionID:   executionID,
+					LastPlanOnly:  true,
+					Extra:         map[string]interface{}{},
+				},
+			},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.description, func(t *testing.T) {
+				res, err := getPlanRequestFromProto(tc.input)
+
+				if tc.err != nil {
+					test.That(t, err, test.ShouldBeError, tc.err)
+				} else {
+					test.That(t, err, test.ShouldBeNil)
+				}
+				test.That(t, res, test.ShouldResemble, tc.result)
+			})
+		}
+	})
 }
 
 func validMoveOnGlobeRequest() MoveOnGlobeReq {
+	dst := geo.NewPoint(1, 2)
 	visionServices := []resource.Name{vision.Named("vision service 1"), vision.Named("vision service 2")}
 	return MoveOnGlobeReq{
 		ComponentName:      base.Named("my-base"),

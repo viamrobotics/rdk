@@ -273,13 +273,17 @@ func (req PlanHistoryReq) toProto(name string) (*pb.GetPlanRequest, error) {
 		return nil, err
 	}
 
-	executionID := req.ExecutionID.String()
+	var executionIDPtr *string
+	if req.ExecutionID != uuid.Nil {
+		executionID := req.ExecutionID.String()
+		executionIDPtr = &executionID
+	}
 	return &pb.GetPlanRequest{
 		Name:          name,
 		ComponentName: rprotoutils.ResourceNameToProto(req.ComponentName),
 		LastPlanOnly:  req.LastPlanOnly,
 		Extra:         ext,
-		ExecutionId:   &executionID,
+		ExecutionId:   executionIDPtr,
 	}, nil
 }
 
@@ -288,9 +292,13 @@ func getPlanRequestFromProto(req *pb.GetPlanRequest) (PlanHistoryReq, error) {
 		return PlanHistoryReq{}, errors.New("received nil *commonpb.ResourceName")
 	}
 
-	executionID, err := uuid.Parse(req.GetExecutionId())
-	if err != nil {
-		return PlanHistoryReq{}, err
+	executionID := uuid.Nil
+	if executionIDStr := req.GetExecutionId(); executionIDStr != "" {
+		id, err := uuid.Parse(executionIDStr)
+		if err != nil {
+			return PlanHistoryReq{}, err
+		}
+		executionID = id
 	}
 
 	return PlanHistoryReq{
