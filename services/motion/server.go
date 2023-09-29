@@ -168,13 +168,12 @@ func (server *serviceServer) GetPlan(ctx context.Context, req *pb.GetPlanRequest
 		return nil, err
 	}
 
-	planHistory, err := svc.PlanHistory(
-		ctx,
-		protoutils.ResourceNameFromProto(req.GetComponentName()),
-		req.GetLastPlanOnly(),
-		req.GetExecutionId(),
-		req.Extra.AsMap(),
-	)
+	r, err := getPlanRequestFromProto(req)
+	if err != nil {
+		return nil, err
+	}
+
+	planHistory, err := svc.PlanHistory(ctx, r)
 	if err != nil {
 		return nil, err
 	}

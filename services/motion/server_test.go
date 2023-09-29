@@ -513,13 +513,7 @@ func TestServerGetPlan(t *testing.T) {
 	t.Run("returns error without calling GetPlan if req.Name doesn't map to a resource", func(t *testing.T) {
 		getPlanRequest := &pb.GetPlanRequest{}
 
-		injectMS.PlanHistoryFunc = func(
-			ctx context.Context,
-			componentName resource.Name,
-			lastPlanOnly bool,
-			executionID string,
-			extra map[string]interface{},
-		) ([]motion.PlanWithStatus, error) {
+		injectMS.PlanHistoryFunc = func(ctx context.Context, req motion.PlanHistoryReq) ([]motion.PlanWithStatus, error) {
 			t.Log("should not be called")
 			t.FailNow()
 			return nil, errors.New("should not be called")
@@ -533,13 +527,7 @@ func TestServerGetPlan(t *testing.T) {
 
 	t.Run("returns error if GetPlan returns an error", func(t *testing.T) {
 		errExpected := errors.New("stop error")
-		injectMS.PlanHistoryFunc = func(
-			ctx context.Context,
-			componentName resource.Name,
-			lastPlanOnly bool,
-			executionID string,
-			extra map[string]interface{},
-		) ([]motion.PlanWithStatus, error) {
+		injectMS.PlanHistoryFunc = func(ctx context.Context, req motion.PlanHistoryReq) ([]motion.PlanWithStatus, error) {
 			return nil, errExpected
 		}
 
@@ -612,16 +600,10 @@ func TestServerGetPlan(t *testing.T) {
 		planWithStatus2 := motion.PlanWithStatus{Plan: plan2, StatusHistory: statusHistory2}
 		planWithStatus1 := motion.PlanWithStatus{Plan: plan1, StatusHistory: statusHistory1}
 
-		injectMS.PlanHistoryFunc = func(
-			ctx context.Context,
-			componentName resource.Name,
-			lastPlanOnly bool,
-			executionID string,
-			extra map[string]interface{},
-		) ([]motion.PlanWithStatus, error) {
-			test.That(t, componentName, test.ShouldResemble, expectedComponentName)
-			test.That(t, lastPlanOnly, test.ShouldResemble, validGetPlanRequest.LastPlanOnly)
-			test.That(t, executionID, test.ShouldResemble, *validGetPlanRequest.ExecutionId)
+		injectMS.PlanHistoryFunc = func(ctx context.Context, req motion.PlanHistoryReq) ([]motion.PlanWithStatus, error) {
+			test.That(t, req.ComponentName, test.ShouldResemble, expectedComponentName)
+			test.That(t, req.LastPlanOnly, test.ShouldResemble, validGetPlanRequest.LastPlanOnly)
+			test.That(t, req.ExecutionID, test.ShouldResemble, *validGetPlanRequest.ExecutionId)
 			return []motion.PlanWithStatus{
 				planWithStatus2,
 				planWithStatus1,

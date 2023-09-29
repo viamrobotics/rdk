@@ -167,10 +167,7 @@ type Service interface {
 	) ([]PlanStatusWithID, error)
 	PlanHistory(
 		ctx context.Context,
-		componentName resource.Name,
-		lastPlanOnly bool,
-		executionID string,
-		extra map[string]interface{},
+		req PlanHistoryReq,
 	) ([]PlanWithStatus, error)
 }
 

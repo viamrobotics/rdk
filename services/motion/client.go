@@ -4,7 +4,9 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
+	"github.com/google/uuid"
 	geo "github.com/kellydunn/golang-geo"
+	"github.com/pkg/errors"
 	pb "go.viam.com/api/service/motion/v1"
 	vprotoutils "go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
@@ -211,23 +213,47 @@ func (c *client) ListPlanStatuses(ctx context.Context, onlyActivePlans bool, ext
 	return pswids, err
 }
 
-func (c *client) PlanHistory(
-	ctx context.Context,
-	componentName resource.Name,
-	lastPlanOnly bool,
-	executionID string,
-	extra map[string]interface{},
-) ([]PlanWithStatus, error) {
-	ext, err := vprotoutils.StructToStructPb(extra)
+func (req PlanHistoryReq) toProto(name string) (*pb.GetPlanRequest, error) {
+	ext, err := vprotoutils.StructToStructPb(req.Extra)
 	if err != nil {
 		return nil, err
 	}
-	resp, err := c.client.GetPlan(ctx, &pb.GetPlanRequest{
-		Name:          c.name,
-		ComponentName: protoutils.ResourceNameToProto(componentName),
-		LastPlanOnly:  lastPlanOnly,
+
+	return &pb.GetPlanRequest{
+		Name:          name,
+		ComponentName: protoutils.ResourceNameToProto(req.ComponentName),
+		LastPlanOnly:  req.LastPlanOnly,
 		Extra:         ext,
-	})
+	}, nil
+}
+
+func getPlanRequestFromProto(req *pb.GetPlanRequest) (PlanHistoryReq, error) {
+	if req.GetComponentName() == nil {
+		return PlanHistoryReq{}, errors.New("received nil *commonpb.ResourceName")
+	}
+
+	executionID, err := uuid.Parse(req.GetExecutionId())
+	if err != nil {
+		return PlanHistoryReq{}, err
+	}
+
+	return PlanHistoryReq{
+		ComponentName: protoutils.ResourceNameFromProto(req.GetComponentName()),
+		LastPlanOnly:  req.GetLastPlanOnly(),
+		ExecutionID:   executionID,
+		Extra:         req.Extra.AsMap(),
+	}, nil
+}
+
+func (c *client) PlanHistory(
+	ctx context.Context,
+	req PlanHistoryReq,
+) ([]PlanWithStatus, error) {
+	protoReq, err := req.toProto(c.name)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.client.GetPlan(ctx, protoReq)
 	if err != nil {
 		return nil, err
 	}
@@ -243,7 +269,7 @@ func (c *client) PlanHistory(
 	if err != nil {
 		return nil, err
 	}
-	return append([]PlanWithStatus{pws}, statusHistory...), err
+	return append([]PlanWithStatus{pws}, statusHistory...), nil
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {

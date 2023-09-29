@@ -65,10 +65,7 @@ type MotionService struct {
 	) ([]motion.PlanStatusWithID, error)
 	PlanHistoryFunc func(
 		ctx context.Context,
-		componentName resource.Name,
-		lastPlanOnly bool,
-		executionID string,
-		extra map[string]interface{},
+		req motion.PlanHistoryReq,
 	) ([]motion.PlanWithStatus, error)
 	DoCommandFunc func(ctx context.Context,
 		cmd map[string]interface{}) (map[string]interface{}, error)
@@ -180,15 +177,12 @@ func (mgs *MotionService) ListPlanStatuses(
 // PlanHistory calls the injected PlanHistory or the real variant.
 func (mgs *MotionService) PlanHistory(
 	ctx context.Context,
-	componentName resource.Name,
-	lastPlanOnly bool,
-	executionID string,
-	extra map[string]interface{},
+	req motion.PlanHistoryReq,
 ) ([]motion.PlanWithStatus, error) {
 	if mgs.PlanHistoryFunc == nil {
-		return mgs.Service.PlanHistory(ctx, componentName, lastPlanOnly, executionID, extra)
+		return mgs.Service.PlanHistory(ctx, req)
 	}
-	return mgs.PlanHistoryFunc(ctx, componentName, lastPlanOnly, executionID, extra)
+	return mgs.PlanHistoryFunc(ctx, req)
 }
 
 // DoCommand calls the injected DoCommand or the real variant.

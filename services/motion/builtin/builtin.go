@@ -374,10 +374,7 @@ func (ms *builtIn) ListPlanStatuses(
 
 func (ms *builtIn) PlanHistory(
 	ctx context.Context,
-	componentName resource.Name,
-	lastPlanOnly bool,
-	executionID string,
-	extra map[string]interface{},
+	req motion.PlanHistoryReq,
 ) ([]motion.PlanWithStatus, error) {
 	return nil, errUnimplemented
 }

@@ -443,17 +443,12 @@ func TestClient(t *testing.T) {
 
 		t.Run("returns error if client returns error", func(t *testing.T) {
 			errExpected := errors.New("some client error")
-			injectMS.PlanHistoryFunc = func(
-				ctx context.Context,
-				componentName resource.Name,
-				lastPlanOnly bool,
-				executionID string,
-				extra map[string]interface{},
-			) ([]motion.PlanWithStatus, error) {
+			injectMS.PlanHistoryFunc = func(ctx context.Context, req motion.PlanHistoryReq) ([]motion.PlanWithStatus, error) {
 				return nil, errExpected
 			}
 
-			resp, err := client.PlanHistory(ctx, base.Named("mybase"), false, "", nil)
+			req := motion.PlanHistoryReq{ComponentName: base.Named("mybase")}
+			resp, err := client.PlanHistory(ctx, req)
 			test.That(t, err, test.ShouldNotBeNil)
 			test.That(t, err.Error(), test.ShouldContainSubstring, errExpected.Error())
 			test.That(t, resp, test.ShouldBeEmpty)
@@ -483,17 +478,12 @@ func TestClient(t *testing.T) {
 				{motion.PlanStateInProgress, timeA, nil},
 			}
 			expectedResp := []motion.PlanWithStatus{{Plan: plan, StatusHistory: statusHistory}}
-			injectMS.PlanHistoryFunc = func(
-				ctx context.Context,
-				componentName resource.Name,
-				lastPlanOnly bool,
-				executionID string,
-				extra map[string]interface{},
-			) ([]motion.PlanWithStatus, error) {
+			injectMS.PlanHistoryFunc = func(ctx context.Context, req motion.PlanHistoryReq) ([]motion.PlanWithStatus, error) {
 				return expectedResp, nil
 			}
 
-			resp, err := client.PlanHistory(ctx, base.Named("mybase"), false, "", nil)
+			req := motion.PlanHistoryReq{ComponentName: base.Named("mybase")}
+			resp, err := client.PlanHistory(ctx, req)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, resp, test.ShouldResemble, expectedResp)
 		})
@@ -541,17 +531,12 @@ func TestClient(t *testing.T) {
 				{Plan: planA, StatusHistory: statusHistoryA},
 			}
 
-			injectMS.PlanHistoryFunc = func(
-				ctx context.Context,
-				componentName resource.Name,
-				lastPlanOnly bool,
-				executionID string,
-				extra map[string]interface{},
-			) ([]motion.PlanWithStatus, error) {
+			injectMS.PlanHistoryFunc = func(ctx context.Context, req motion.PlanHistoryReq) ([]motion.PlanWithStatus, error) {
 				return expectedResp, nil
 			}
 
-			resp, err := client.PlanHistory(ctx, base.Named("mybase"), false, "", nil)
+			req := motion.PlanHistoryReq{ComponentName: base.Named("mybase")}
+			resp, err := client.PlanHistory(ctx, req)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, resp, test.ShouldResemble, expectedResp)
 		})
