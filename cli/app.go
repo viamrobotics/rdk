@@ -25,6 +25,8 @@ const (
 
 	apiKeyCreateFlagOrgID = "org-id"
 	apiKeyCreateFlagName  = "name"
+	apiKeyFlagRobotID     = "robot-id"
+	apiKeyFlagLocationID  = "location-id"
 
 	loginFlagDisableBrowser = "disable-browser-open"
 	loginFlagKeyID          = "key-id"
@@ -120,7 +122,7 @@ var app = &cli.App{
 							Usage:    "key to authenticate with",
 						},
 					},
-					Action: LoginWithAPIKeyAction,
+					Action: LoginAction,
 				},
 			},
 		},
@@ -190,20 +192,21 @@ var app = &cli.App{
 							Usage: "create an api key for your location",
 							Flags: []cli.Flag{
 								&cli.StringFlag{
-									Name:     dataFlagLocationID,
+									Name:     apiKeyFlagLocationID,
 									Required: true,
-									Usage:    "The location to create an api-key for",
+									Usage:    "the location to create an api-key for",
 								},
 								&cli.StringFlag{
 									Name:  apiKeyCreateFlagName,
-									Usage: "the name of the location to create an api-key for. This will default to location-id-created_at_timestamp",
+									Usage: "the name of the key (defaults to your login info with the current time)",
 								},
 								&cli.StringFlag{
-									Name: dataFlagOrgID,
-									Usage: "the org ID attached to attach the key to" +
+									Name: apiKeyCreateFlagOrgID,
+									Usage: "the org-id to attach the key to" +
 										"If not provided, will attempt to attach itself to the org of the location if only one org is attached to the location",
 								},
 							},
+							Action: LocationAPIKeyCreateAction,
 						},
 					},
 				},
@@ -548,18 +551,17 @@ var app = &cli.App{
 							Usage: "create an api-key for your robot",
 							Flags: []cli.Flag{
 								&cli.StringFlag{
-									Name:     dataFlagRobotID,
+									Name:     apiKeyFlagRobotID,
 									Required: true,
-									Usage:    "The robot to create an api-key for",
+									Usage:    "the robot to create an api-key for",
 								},
 								&cli.StringFlag{
 									Name:  apiKeyCreateFlagName,
-									Usage: "the name of the key (defaults to robotID and timestamp at which the key was created)",
+									Usage: "the name of the key (defaults to your login info with the current time)",
 								},
 								&cli.StringFlag{
-									Name:     dataFlagOrgID,
-									Required: false,
-									Usage: "The OrgID to attach this api-key to. If not provided," +
+									Name: apiKeyCreateFlagOrgID,
+									Usage: "the org-id to attach this api-key to. If not provided," +
 										"we will attempt to use the org attached to the robot if only one exists",
 								},
 							},
