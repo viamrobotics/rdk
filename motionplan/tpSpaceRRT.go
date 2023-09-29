@@ -156,7 +156,11 @@ func (mp *tpSpaceRRTMotionPlanner) plan(ctx context.Context,
 	startNode := &basicNode{q: make([]referenceframe.Input, len(mp.frame.DoF())), cost: 0, pose: seedPos, corner: false}
 	goalNode := &basicNode{q: make([]referenceframe.Input, len(mp.frame.DoF())), cost: 0, pose: goal, corner: false}
 
+	var planRunners sync.WaitGroup
+
 	utils.PanicCapturingGo(func() {
+		planRunners.Add(1)
+		defer planRunners.Done()
 		mp.planRunner(ctx, seed, &rrtParallelPlannerShared{
 			&rrtMaps{
 				startMap: map[node]node{startNode: nil},
@@ -168,6 +172,7 @@ func (mp *tpSpaceRRTMotionPlanner) plan(ctx context.Context,
 	})
 	select {
 	case <-ctx.Done():
+		planRunners.Wait()
 		return nil, ctx.Err()
 	case plan := <-solutionChan:
 		if plan != nil {
@@ -534,11 +539,6 @@ func (mp *tpSpaceRRTMotionPlanner) attemptExtension(
 		for i := 0; i < len(mp.tpFrame.PTGSolvers()); i++ {
 			select {
 			case <-ctx.Done():
-				// Drain channel
-				for i < len(mp.tpFrame.PTGSolvers()) {
-					<-candChan
-					i++
-				}
 				return &nodeAndError{nil, ctx.Err()}
 			case cand := <-candChan:
 				if cand != nil {
