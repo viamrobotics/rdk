@@ -27,7 +27,7 @@ func BenchmarkFK(b *testing.B) {
 // This should test forward kinematics functions.
 func TestForwardKinematics(t *testing.T) {
 	// Test the 5DOF yahboom arm to confirm kinematics works with non-6dof arms
-	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/yahboom/dofbot.json"), "")
+	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/dofbot.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	// Confirm end effector starts at 248.55, 0, 115

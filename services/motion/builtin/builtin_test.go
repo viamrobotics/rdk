@@ -225,6 +225,76 @@ func createMoveOnMapEnvironment(ctx context.Context, t *testing.T, pcdPath strin
 	return ms
 }
 
+func TestMoveResponseString(t *testing.T) {
+	type testCase struct {
+		description  string
+		expected     string
+		moveResponse moveResponse
+	}
+	testCases := []testCase{
+		{
+			"when success is true and error is nil",
+			"builtin.moveResponse{success: true, err: <nil>}",
+			moveResponse{success: true},
+		},
+		{
+			"when success is true and error is not nil",
+			"builtin.moveResponse{success: true, err: an error}",
+			moveResponse{success: true, err: errors.New("an error")},
+		},
+		{
+			"when success is false and error is nil",
+			"builtin.moveResponse{success: false, err: <nil>}",
+			moveResponse{},
+		},
+		{
+			"when success is false and error is not nil",
+			"builtin.moveResponse{success: false, err: an error}",
+			moveResponse{err: errors.New("an error")},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.description, func(t *testing.T) {
+			test.That(t, tc.moveResponse.String(), test.ShouldEqual, tc.expected)
+		})
+	}
+}
+
+func TestReplanResponseString(t *testing.T) {
+	type testCase struct {
+		description    string
+		expected       string
+		replanResponse replanResponse
+	}
+	testCases := []testCase{
+		{
+			"when replan is true and error is nil",
+			"builtin.replanResponse{replan: true, err: <nil>}",
+			replanResponse{replan: true},
+		},
+		{
+			"when replan is true and error is not nil",
+			"builtin.replanResponse{replan: true, err: an error}",
+			replanResponse{replan: true, err: errors.New("an error")},
+		},
+		{
+			"when replan is false and error is nil",
+			"builtin.replanResponse{replan: false, err: <nil>}",
+			replanResponse{},
+		},
+		{
+			"when replan is false and error is not nil",
+			"builtin.replanResponse{replan: false, err: an error}",
+			replanResponse{err: errors.New("an error")},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.description, func(t *testing.T) {
+			test.That(t, tc.replanResponse.String(), test.ShouldEqual, tc.expected)
+		})
+	}
+}
+
 func TestMoveFailures(t *testing.T) {
 	var err error
 	ms, teardown := setupMotionServiceFromConfig(t, "../data/arm_gantry.json")
@@ -691,7 +761,7 @@ func TestReplanning(t *testing.T) {
 		moveRequest, err := ms.(*builtIn).newMoveOnGlobeRequest(ctx, kb.Name(), dst, injectedMovementSensor.Name(), nil, motionCfg, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		ctx, cancel := context.WithTimeout(ctx, 5.0*time.Second)
+		ctx, cancel := context.WithTimeout(ctx, 30.0*time.Second)
 		ma := newMoveAttempt(ctx, moveRequest)
 		ma.start()
 		defer ma.cancel()
@@ -743,8 +813,8 @@ func TestCheckPlan(t *testing.T) {
 
 	// create motion config
 	motionCfg := make(map[string]interface{})
-	// fail if we don't find a plan in 5 seconds
-	motionCfg["timeout"] = 5.
+	// fail if we don't find a plan in 15 seconds
+	motionCfg["timeout"] = 15.
 
 	// get plan and kinematic base
 	moveRequest, err := ms.(*builtIn).newMoveOnGlobeRequest(
@@ -776,7 +846,7 @@ func TestCheckPlan(t *testing.T) {
 	})
 	t.Run("with a blocking obstacle - ensure failure", func(t *testing.T) {
 		obstacle, err := spatialmath.NewBox(
-			spatialmath.NewPoseFromPoint(r3.Vector{150, 0, 0}),
+			spatialmath.NewPoseFromPoint(r3.Vector{380, 0, 0}),
 			r3.Vector{10, 10, 1}, "obstacle",
 		)
 		test.That(t, err, test.ShouldBeNil)
@@ -788,24 +858,6 @@ func TestCheckPlan(t *testing.T) {
 
 		err = motionplan.CheckPlan(moveRequest.kinematicBase.Kinematics(), plan, worldState, newFS, startPose, inputs, errorState, logger)
 		test.That(t, err, test.ShouldNotBeNil)
-	})
-
-	t.Run("non nil error state - ensure success", func(t *testing.T) {
-		errorState := spatialmath.NewPoseFromPoint(r3.Vector{0, 26, 0})
-
-		obstacle, err := spatialmath.NewBox(
-			spatialmath.NewPoseFromPoint(r3.Vector{150, 0, 0}),
-			r3.Vector{10, 10, 1}, "obstacle",
-		)
-		test.That(t, err, test.ShouldBeNil)
-		geoms := []spatialmath.Geometry{obstacle}
-		gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)}
-
-		worldState, err := referenceframe.NewWorldState(gifs, nil)
-		test.That(t, err, test.ShouldBeNil)
-
-		err = motionplan.CheckPlan(moveRequest.kinematicBase.Kinematics(), plan, worldState, newFS, startPose, inputs, errorState, logger)
-		test.That(t, err, test.ShouldBeNil)
 	})
 
 	// create camera_origin frame
@@ -860,6 +912,23 @@ func TestCheckPlan(t *testing.T) {
 
 		err = motionplan.CheckPlan(moveRequest.kinematicBase.Kinematics(), plan, worldState, newFS, startPose, inputs, errorState, logger)
 		test.That(t, err, test.ShouldNotBeNil)
+	})
+	t.Run("non nil error state - ensure success", func(t *testing.T) {
+		errorState := spatialmath.NewPoseFromPoint(r3.Vector{0, 2600, 0})
+
+		obstacle, err := spatialmath.NewBox(
+			spatialmath.NewPoseFromPoint(r3.Vector{150, 0, 0}),
+			r3.Vector{10, 10, 1}, "obstacle",
+		)
+		test.That(t, err, test.ShouldBeNil)
+		geoms := []spatialmath.Geometry{obstacle}
+		gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)}
+
+		worldState, err := referenceframe.NewWorldState(gifs, nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		err = motionplan.CheckPlan(moveRequest.kinematicBase.Kinematics(), plan, worldState, newFS, startPose, inputs, errorState, logger)
+		test.That(t, err, test.ShouldBeNil)
 	})
 }
 

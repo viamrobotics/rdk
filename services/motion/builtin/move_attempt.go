@@ -2,6 +2,7 @@ package builtin
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -15,6 +16,10 @@ import (
 type moveResponse struct {
 	err     error
 	success bool
+}
+
+func (mr moveResponse) String() string {
+	return fmt.Sprintf("builtin.moveResponse{success: %t, err: %v}", mr.success, mr.err)
 }
 
 // moveAttempt is a struct whose lifetime lasts the duration of an attempt to complete a moveRequest

@@ -46,6 +46,9 @@ var model = resource.DefaultModelFamily.WithModel("imu-wit")
 
 var baudRateList = []uint{115200, 9600, 0}
 
+// max tilt to use tilt compensation is 45 degrees.
+var maxTiltInRad = rutils.DegToRad(45)
+
 // Config is used for converting a witmotion IMU MovementSensor config attributes.
 type Config struct {
 	Port     string `json:"serial_path"`
@@ -124,26 +127,51 @@ func (imu *wit) getMagnetometer() (r3.Vector, error) {
 }
 
 func (imu *wit) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
+	var err error
+
 	imu.mu.Lock()
 	defer imu.mu.Unlock()
 
-	var err error
-	// this only works when the imu is level to the surface of the earth, no inclines
+	// this will compensate for a tilted IMU if the tilt is less than 45 degrees
 	// do not let the imu near permanent magnets or things that make a strong magnetic field
-	imu.compassheading = calculateCompassHeading(imu.magnetometer.X, imu.magnetometer.Y)
+	imu.compassheading = imu.calculateCompassHeading()
 
 	return imu.compassheading, err
 }
 
-func calculateCompassHeading(x, y float64) float64 {
+// Helper function to calculate compass heading with tilt compensation.
+func (imu *wit) calculateCompassHeading() float64 {
+	pitch := imu.orientation.Pitch
+	roll := imu.orientation.Roll
+
+	var x, y float64
+
+	// Tilt compensation only works if the pitch and roll are between -45 and 45 degrees.
+	if math.Abs(roll) <= maxTiltInRad && math.Abs(pitch) <= maxTiltInRad {
+		x, y = imu.calculateTiltCompensation(roll, pitch)
+	} else {
+		x = imu.magnetometer.X
+		y = imu.magnetometer.Y
+	}
+
 	// calculate -180 to 180 heading from radians
 	// North (y) is 0 so  the π/2 - atan2(y, x) identity is used
-	// directl
+	// directly
 	rad := math.Atan2(y, x) // -180 to 180 heading
 	compass := rutils.RadToDeg(rad)
 	compass = math.Mod(compass, 360)
-	compass = math.Mod(compass+360, 360)
-	return compass // change domain to 0 to 360
+	compass = math.Mod(compass+360, 360) // compass 0 to 360
+
+	return compass
+}
+
+func (imu *wit) calculateTiltCompensation(roll, pitch float64) (float64, float64) {
+	// calculate adjusted magnetometer readings. These get less accurate as the tilt angle increases.
+	xComp := imu.magnetometer.X*math.Cos(pitch) + imu.magnetometer.Z*math.Sin(pitch)
+	yComp := imu.magnetometer.X*math.Sin(roll)*math.Sin(pitch) +
+		imu.magnetometer.Y*math.Cos(roll) - imu.magnetometer.Z*math.Sin(roll)*math.Cos(pitch)
+
+	return xComp, yComp
 }
 
 func (imu *wit) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {

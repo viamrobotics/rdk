@@ -2,6 +2,7 @@ package builtin
 
 import (
 	"context"
+	"fmt"
 	"sync/atomic"
 	"time"
 
@@ -16,6 +17,10 @@ type replanResponse struct {
 
 // replanFn is an alias for a function that will be polled by a replanner.
 type replanFn func(context.Context, [][]referenceframe.Input, int) (bool, error)
+
+func (rr replanResponse) String() string {
+	return fmt.Sprintf("builtin.replanResponse{replan: %t, err: %v}", rr.replan, rr.err)
+}
 
 // replanner bundles everything needed to execute a function at a given interval and return.
 type replanner struct {

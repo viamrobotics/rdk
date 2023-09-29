@@ -26,8 +26,9 @@ const (
 	apiKeyCreateFlagOrgID = "org-id"
 	apiKeyCreateFlagName  = "name"
 
-	loginFlagKeyID = "key-id"
-	loginFlagKey   = "key"
+	loginFlagDisableBrowser = "disable-browser-open"
+	loginFlagKeyID          = "key-id"
+	loginFlagKey            = "key"
 
 	moduleFlagName            = "name"
 	moduleFlagPublicNamespace = "public-namespace"
@@ -90,7 +91,13 @@ var app = &cli.App{
 			Aliases:         []string{"auth"},
 			Usage:           "login to app.viam.com",
 			HideHelpCommand: true,
-			Action:          LoginAction,
+			Flags: []cli.Flag{
+				&cli.BoolFlag{
+					Name:  loginFlagDisableBrowser,
+					Usage: "prevent opening the default browser during login",
+				},
+			},
+			Action: LoginAction,
 			Subcommands: []*cli.Command{
 				{
 					Name:   "print-access-token",
@@ -340,6 +347,147 @@ var app = &cli.App{
 						},
 					},
 					Action: DataDeleteTabularAction,
+				},
+				{
+					Name:      "dataset",
+					Usage:     "add or remove data from datasets",
+					UsageText: "viam data dataset [other options]",
+					Subcommands: []*cli.Command{
+						{
+							Name:  "add",
+							Usage: "adds binary data with file IDs in a single org and location to dataset",
+							UsageText: fmt.Sprintf("viam data dataset add <%s> <%s> <%s> <%s> [other options]",
+								datasetFlagDatasetID, dataFlagOrgID, dataFlagLocationID, dataFlagFileIDs),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     datasetFlagDatasetID,
+									Usage:    "dataset ID to which data will be added",
+									Required: true,
+								},
+								&cli.StringFlag{
+									Name:     dataFlagOrgID,
+									Usage:    "org ID to which data belongs",
+									Required: true,
+								},
+								&cli.StringFlag{
+									Name:     dataFlagLocationID,
+									Usage:    "location ID to which data belongs",
+									Required: true,
+								},
+								&cli.StringSliceFlag{
+									Name:     dataFlagFileIDs,
+									Usage:    "file IDs of data belonging to specified org and location",
+									Required: true,
+								},
+							},
+							Action: DataAddToDataset,
+						},
+						{
+							Name:  "remove",
+							Usage: "removes binary data with file IDs in a single org and location from dataset",
+							UsageText: fmt.Sprintf("viam data dataset remove <%s> <%s> <%s> <%s> [other options]",
+								datasetFlagDatasetID, dataFlagOrgID, dataFlagLocationID, dataFlagFileIDs),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     datasetFlagDatasetID,
+									Usage:    "dataset ID from which data will be removed",
+									Required: true,
+								},
+								&cli.StringFlag{
+									Name:     dataFlagOrgID,
+									Usage:    "org ID to which data belongs",
+									Required: true,
+								},
+								&cli.StringFlag{
+									Name:     dataFlagLocationID,
+									Usage:    "location ID to which data belongs",
+									Required: true,
+								},
+								&cli.StringSliceFlag{
+									Name:     dataFlagFileIDs,
+									Usage:    "file IDs of data belonging to specified org and location",
+									Required: true,
+								},
+							},
+							Action: DataRemoveFromDataset,
+						},
+					},
+				},
+			},
+		},
+		{
+			Name:            "dataset",
+			Usage:           "work with datasets",
+			HideHelpCommand: true,
+			Subcommands: []*cli.Command{
+				{
+					Name:  "create",
+					Usage: "create a new dataset",
+					UsageText: fmt.Sprintf("viam dataset create <%s> <%s>",
+						dataFlagOrgID, datasetFlagName),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     dataFlagOrgID,
+							Required: true,
+							Usage:    "org ID for which dataset will be created",
+						},
+						&cli.StringFlag{
+							Name:     datasetFlagName,
+							Required: true,
+							Usage:    "name of the new dataset",
+						},
+					},
+					Action: DatasetCreateAction,
+				},
+				{
+					Name:  "rename",
+					Usage: "rename an existing dataset",
+					UsageText: fmt.Sprintf("viam dataset rename <%s> <%s>",
+						datasetFlagDatasetID, datasetFlagName),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     datasetFlagDatasetID,
+							Required: true,
+							Usage:    "dataset ID of the dataset that will be renamed",
+						},
+						&cli.StringFlag{
+							Name:     datasetFlagName,
+							Required: true,
+							Usage:    "new name for the dataset",
+						},
+					},
+					Action: DatasetRenameAction,
+				},
+				{
+					Name:  "list",
+					Usage: "list dataset information from specified IDs or for an org ID",
+					UsageText: fmt.Sprintf("viam dataset list [<%s> | <%s>]",
+						datasetFlagDatasetIDs, dataFlagOrgID),
+					Flags: []cli.Flag{
+						&cli.StringSliceFlag{
+							Name:  datasetFlagDatasetIDs,
+							Usage: "dataset IDs of datasets to be listed",
+						},
+						&cli.StringFlag{
+							Name:  dataFlagOrgID,
+							Usage: "org ID for which datasets will be listed",
+						},
+					},
+					Action: DatasetListAction,
+				},
+				{
+					Name:  "delete",
+					Usage: "delete a dataset",
+					UsageText: fmt.Sprintf("viam dataset delete <%s>",
+						datasetFlagDatasetID),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     datasetFlagDatasetID,
+							Required: true,
+							Usage:    "ID of the dataset to be deleted",
+						},
+					},
+					Action: DatasetCreateAction,
 				},
 			},
 		},
@@ -654,7 +802,7 @@ viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.ta
 					Usage: "upload a board definition file",
 					Description: `Upload a json board definition file for linux boards.
 Example:
-viam board upload --name=orin --org="my org" --version=1.0.0 file.json`,
+viam board upload --name=orin --organization="my org" --version=1.0.0 file.json`,
 					UsageText: "viam board upload <name> <organization> <version> [other options] <file.json>",
 					Flags: []cli.Flag{
 						&cli.StringFlag{
@@ -699,6 +847,22 @@ viam board download --name=test --organization="my org" --version=1.0.0`,
 						},
 					},
 					Action: DownloadBoardDefsAction,
+				},
+				{
+					Name:  "list",
+					Usage: "list all board defintions packages",
+					Description: `list the board defintions packages available from an organization.
+Example:
+viam board list --organization="my org"`,
+					UsageText: "viam board list <organization>[other options]",
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     organizationFlag,
+							Usage:    "organization that hosts the board definitions files",
+							Required: true,
+						},
+					},
+					Action: ListBoardDefsAction,
 				},
 			},
 		},

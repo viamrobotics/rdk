@@ -21,6 +21,7 @@ import (
 	"github.com/urfave/cli/v2"
 	"go.uber.org/zap"
 	datapb "go.viam.com/api/app/data/v1"
+	datasetpb "go.viam.com/api/app/dataset/v1"
 	packagepb "go.viam.com/api/app/packages/v1"
 	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/utils"
@@ -44,6 +45,7 @@ type viamClient struct {
 	client        apppb.AppServiceClient
 	dataClient    datapb.DataServiceClient
 	packageClient packagepb.PackageServiceClient
+	datasetClient datasetpb.DatasetServiceClient
 	baseURL       *url.URL
 	rpcOpts       []rpc.DialOption
 	authFlow      *authFlow
@@ -489,10 +491,11 @@ func newViamClient(c *cli.Context) (*viamClient, error) {
 	}
 
 	var authFlow *authFlow
+	disableBrowserOpen := c.Bool(loginFlagDisableBrowser)
 	if isProdBaseURL(baseURL) {
-		authFlow = newCLIAuthFlow(c.App.Writer)
+		authFlow = newCLIAuthFlow(c.App.Writer, disableBrowserOpen)
 	} else {
-		authFlow = newStgCLIAuthFlow(c.App.Writer)
+		authFlow = newStgCLIAuthFlow(c.App.Writer, disableBrowserOpen)
 	}
 
 	return &viamClient{
