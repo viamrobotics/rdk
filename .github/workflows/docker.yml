@@ -21,15 +21,15 @@ jobs:
         include:
         - arch: ubuntu-latest
           env:
-            PLATFORM: linux/amd64
+            PLATFORM: amd64
           make_target: 'canon-cache-amd64-ci'
         - arch: buildjet-2vcpu-ubuntu-2204-arm
           env:
-            PLATFORM: linux/arm64
+            PLATFORM: arm64
           make_target: 'canon-cache-arm64-ci'
         - arch: buildjet-2vcpu-ubuntu-2204-arm
           env:
-            PLATFORM: linux/arm/v7
+            PLATFORM: arm/v7
             ARM_TAG: armhf-beta-81a6398
           make_target: 'canon-cache-arm64-ci'
     runs-on: ${{ matrix.arch }}
