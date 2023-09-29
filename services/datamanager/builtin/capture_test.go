@@ -20,6 +20,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	pbArm "go.viam.com/api/component/arm/v1"
+	pbBoard "go.viam.com/api/component/board/v1"
 	pbEnc "go.viam.com/api/component/encoder/v1"
 	pbGan "go.viam.com/api/component/gantry/v1"
 	pbMot "go.viam.com/api/component/motor/v1"
@@ -377,6 +378,16 @@ func TestCollector(t *testing.T) {
 			expectedCollectedDataFormat: getKeys(toProto(pbArm.GetJointPositionsResponse{}).AsMap()),
 		},
 		{
+			name:                        "board analog capture should match format",
+			config:                      basePath + "board/analog_collector.json",
+			expectedCollectedDataFormat: getKeys(toProto(pbBoard.ReadAnalogReaderResponse{}).AsMap()),
+		},
+		{
+			name:                        "board gpio capture should match format",
+			config:                      basePath + "board/gpio_collector.json",
+			expectedCollectedDataFormat: getKeys(toProto(pbBoard.GetGPIOResponse{}).AsMap()),
+		},
+		{
 			name:                        "encoder tick count capture should match format",
 			config:                      basePath + "encoder/tickcount_collector.json",
 			expectedCollectedDataFormat: getKeys(toProto(pbEnc.GetPositionResponse{}).AsMap()),
@@ -575,6 +586,20 @@ func getInjectedAllCollectedComponentsRobot() *inject.Robot {
 	rs[arm.Named("arm1")] = injectedArm
 
 	injectedBoard := &inject.Board{}
+	injectedAnalogReader := &inject.AnalogReader{}
+	injectedAnalogReader.ReadFunc = func(ctx context.Context, extra map[string]interface{}) (int, error) {
+		return 1, nil
+	}
+	injectedBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
+		return injectedAnalogReader, true
+	}
+	injectedGpioReader := &inject.GPIOPin{}
+	injectedGpioReader.GetFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {
+		return true, nil
+	}
+	injectedBoard.GPIOPinByNameFunc = func(name string) (board.GPIOPin, error) {
+		return injectedGpioReader, nil
+	}
 	rs[board.Named("board")] = injectedBoard
 
 	injectedEncoder := &inject.Encoder{}
