@@ -81,6 +81,7 @@ func TestPtgRrtBidirectional(t *testing.T) {
 			}
 		}
 	}
+	tp.planOpts.SmoothIter = 20
 	plan = tp.smoothPath(ctx, plan)
 	if tp.algOpts.pathdebug {
 		lastPose = spatialmath.NewZeroPose()
@@ -161,6 +162,7 @@ func TestPtgRrtUnidirectional(t *testing.T) {
 			}
 		}
 	}
+	tp.planOpts.SmoothIter = 20
 	plan = tp.smoothPath(ctx, plan)
 	if tp.algOpts.pathdebug {
 		lastPose = spatialmath.NewZeroPose()
@@ -281,6 +283,7 @@ func TestPtgWithObstacle(t *testing.T) {
 			}
 		}
 	}
+	tp.planOpts.SmoothIter = 20
 	plan = tp.smoothPath(ctx, plan)
 	if tp.algOpts.pathdebug {
 		lastPose = spatialmath.NewZeroPose()
@@ -359,6 +362,8 @@ func TestTPsmoothing(t *testing.T) {
 	}
 	plan, err = rectifyTPspacePath(plan, tp.frame, spatialmath.NewZeroPose())
 	test.That(t, err, test.ShouldBeNil)
+
+	tp.planOpts.SmoothIter = 20
 
 	newplan := tp.smoothPath(ctx, plan)
 	test.That(t, newplan, test.ShouldNotBeNil)
