@@ -56,20 +56,21 @@ func New(r robot.Robot, logger golog.Logger, opts ...Option) Service {
 type webService struct {
 	resource.Named
 
-	mu                      sync.Mutex
-	r                       robot.Robot
-	rpcServer               rpc.Server
-	modServer               rpc.Server
-	streamServer            *StreamServer
-	services                map[resource.API]resource.APIResourceCollection[resource.Resource]
-	opts                    options
-	addr                    string
-	modAddr                 string
-	logger                  golog.Logger
-	cancelCtx               context.Context
-	cancelFunc              func()
-	isRunning               bool
-	activeBackgroundWorkers sync.WaitGroup
+	mu           sync.Mutex
+	r            robot.Robot
+	rpcServer    rpc.Server
+	modServer    rpc.Server
+	streamServer *StreamServer
+	services     map[resource.API]resource.APIResourceCollection[resource.Resource]
+	opts         options
+	addr         string
+	modAddr      string
+	logger       golog.Logger
+	cancelCtx    context.Context
+	cancelFunc   func()
+	isRunning    bool
+	webWorkers   sync.WaitGroup
+	modWorkers   sync.WaitGroup
 
 	videoSources map[string]gostream.HotSwappableVideoSource
 	audioSources map[string]gostream.HotSwappableAudioSource
@@ -219,9 +220,9 @@ func (svc *webService) makeStreamServer(ctx context.Context) (*StreamServer, err
 
 func (svc *webService) startStream(streamFunc func(opts *webstream.BackoffTuningOptions) error) {
 	waitCh := make(chan struct{})
-	svc.activeBackgroundWorkers.Add(1)
+	svc.webWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
-		defer svc.activeBackgroundWorkers.Done()
+		defer svc.webWorkers.Done()
 		close(waitCh)
 		opts := &webstream.BackoffTuningOptions{
 			BaseSleep: 50 * time.Microsecond,

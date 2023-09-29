@@ -33,3 +33,17 @@ jobs:
       release_type: 'rc'
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+
+  droid:
+    needs: test
+    uses: viamrobotics/rdk/.github/workflows/droid.yml@main
+    with:
+      release_type: 'rc'
+    secrets:
+      GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+
+  npm_publish:
+    uses: viamrobotics/rdk/.github/workflows/npm-publish.yml@main
+    needs: test
+    secrets:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

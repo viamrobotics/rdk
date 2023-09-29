@@ -33,19 +33,20 @@ func New(r robot.Robot, logger golog.Logger, opts ...Option) Service {
 type webService struct {
 	resource.Named
 
-	mu                      sync.Mutex
-	r                       robot.Robot
-	rpcServer               rpc.Server
-	modServer               rpc.Server
-	services                map[resource.API]resource.APIResourceCollection[resource.Resource]
-	opts                    options
-	addr                    string
-	modAddr                 string
-	logger                  golog.Logger
-	cancelCtx               context.Context
-	cancelFunc              func()
-	isRunning               bool
-	activeBackgroundWorkers sync.WaitGroup
+	mu         sync.Mutex
+	r          robot.Robot
+	rpcServer  rpc.Server
+	modServer  rpc.Server
+	services   map[resource.API]resource.APIResourceCollection[resource.Resource]
+	opts       options
+	addr       string
+	modAddr    string
+	logger     golog.Logger
+	cancelCtx  context.Context
+	cancelFunc func()
+	isRunning  bool
+	webWorkers sync.WaitGroup
+	modWorkers sync.WaitGroup
 }
 
 // Update updates the web service when the robot has changed.

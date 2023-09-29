@@ -26,27 +26,28 @@ func newEndpoint(config BlockConfig, logger golog.Logger, ctr Controllable) (Blo
 }
 
 func (e *endpoint) Next(ctx context.Context, x []*Signal, dt time.Duration) ([]*Signal, bool) {
-	if len(x) == 1 {
+	switch len(x) {
+	case 1:
 		power := x[0].GetSignalValueAt(0)
 		if e.ctr != nil {
-			err := e.ctr.SetPower(ctx, power, nil)
+			err := e.ctr.SetState(ctx, power)
 			if err != nil {
 				return []*Signal{}, false
 			}
 		}
 		return []*Signal{}, false
-	}
-	if len(x) == 0 {
+	case 0:
 		if e.ctr != nil {
-			pos, err := e.ctr.Position(ctx, nil)
+			pos, err := e.ctr.State(ctx)
 			if err != nil {
 				return []*Signal{}, false
 			}
 			e.y[0].SetSignalValueAt(0, pos)
 		}
 		return e.y, true
+	default:
+		return e.y, false
 	}
-	return e.y, false
 }
 
 func (e *endpoint) reset() error {

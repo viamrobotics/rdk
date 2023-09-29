@@ -2164,7 +2164,7 @@ func TestReconnectRemote(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// close/disconnect the robot
-	test.That(t, robot.StopWeb(context.Background()), test.ShouldBeNil)
+	robot.StopWeb()
 	test.That(t, <-remoteRobotClient.Changed(), test.ShouldBeTrue)
 	test.That(t, len(remoteRobotClient.ResourceNames()), test.ShouldEqual, 0)
 	testutils.WaitForAssertion(t, func(tb testing.TB) {

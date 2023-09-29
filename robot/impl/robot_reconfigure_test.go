@@ -3419,6 +3419,90 @@ func TestReconfigureModelSwitch(t *testing.T) {
 	test.That(t, res3.(*mockFake2).closeCount, test.ShouldEqual, 0)
 }
 
+func TestReconfigureModelSwitchErr(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+
+	mockAPI := resource.APINamespaceRDK.WithComponentType("mock")
+	mockNamed := func(name string) resource.Name {
+		return resource.NewName(mockAPI, name)
+	}
+	modelName1 := utils.RandomAlphaString(5)
+	model1 := resource.DefaultModelFamily.WithModel(modelName1)
+
+	newCount := 0
+	resource.RegisterComponent(mockAPI, model1, resource.Registration[resource.Resource, resource.NoNativeConfig]{
+		Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger golog.Logger,
+		) (resource.Resource, error) {
+			newCount++
+			return &mockFake{Named: conf.ResourceName().AsNamed()}, nil
+		},
+	})
+
+	defer func() {
+		resource.Deregister(mockAPI, model1)
+	}()
+
+	cfg := &config.Config{
+		Components: []resource.Config{
+			{
+				Name:  "one",
+				Model: model1,
+				API:   mockAPI,
+			},
+		},
+	}
+
+	ctx := context.Background()
+
+	r, err := New(ctx, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, newCount, test.ShouldEqual, 1)
+	defer func() {
+		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+	}()
+
+	name1 := mockNamed("one")
+	res1, err := r.ResourceByName(name1)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res1.(*mockFake).reconfCount, test.ShouldEqual, 0)
+	test.That(t, res1.(*mockFake).closeCount, test.ShouldEqual, 0)
+
+	modelName2 := utils.RandomAlphaString(5)
+	model2 := resource.DefaultModelFamily.WithModel(modelName2)
+
+	newCfg := &config.Config{
+		Components: []resource.Config{
+			{
+				Name:  "one",
+				Model: model2,
+				API:   mockAPI,
+			},
+		},
+	}
+	r.Reconfigure(ctx, newCfg)
+	test.That(t, newCount, test.ShouldEqual, 1)
+
+	_, err = r.ResourceByName(name1)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, res1.(*mockFake).reconfCount, test.ShouldEqual, 0)
+	test.That(t, res1.(*mockFake).closeCount, test.ShouldEqual, 1)
+
+	r.Reconfigure(ctx, cfg)
+	test.That(t, newCount, test.ShouldEqual, 2)
+
+	res2, err := r.ResourceByName(name1)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res2, test.ShouldNotEqual, res1)
+	test.That(t, res1.(*mockFake).reconfCount, test.ShouldEqual, 0)
+	test.That(t, res1.(*mockFake).closeCount, test.ShouldEqual, 1)
+	test.That(t, res2.(*mockFake).reconfCount, test.ShouldEqual, 0)
+	test.That(t, res2.(*mockFake).closeCount, test.ShouldEqual, 0)
+}
+
 func TestReconfigureRename(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
@@ -3507,7 +3591,7 @@ func TestResourceConstructTimeout(t *testing.T) {
 	timeOutErrorCount := func() int {
 		return logs.Filter(func(o observer.LoggedEntry) bool {
 			for k, v := range o.ContextMap() {
-				if k == "error" && strings.Contains(fmt.Sprint(v), "timed out during reconfigure") {
+				if k == "error" && strings.Contains(fmt.Sprint(v), "timed out after") {
 					return true
 				}
 			}

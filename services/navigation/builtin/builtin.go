@@ -25,6 +25,10 @@ import (
 )
 
 const (
+	// default configuration for Store parameter.
+	defaultStoreType = navigation.StoreTypeMemory
+
+	// desired speeds to maintain for the base.
 	defaultLinearVelocityMPerSec     = 0.5
 	defaultAngularVelocityDegsPerSec = 45
 
@@ -77,6 +81,7 @@ type Config struct {
 	ObstaclePollingFrequencyHz float64                          `json:"obstacle_polling_frequency_hz,omitempty"`
 	PlanDeviationM             float64                          `json:"plan_deviation_m,omitempty"`
 	ReplanCostFactor           float64                          `json:"replan_cost_factor,omitempty"`
+	LogFilePath                string                           `json:"log_file_path"`
 }
 
 // Validate creates the list of implicit dependencies.
@@ -94,7 +99,7 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	deps = append(deps, conf.MovementSensorName)
 
 	if conf.MotionServiceName == "" {
-		conf.MotionServiceName = "builtin"
+		conf.MotionServiceName = resource.DefaultServiceName
 	}
 	deps = append(deps, resource.NewName(motion.API, conf.MotionServiceName).String())
 
@@ -103,6 +108,9 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	}
 
 	// get default speeds from config if set, else defaults from nav services const
+	if conf.Store.Validate(path) != nil {
+		conf.Store.Type = defaultStoreType
+	}
 	if conf.MetersPerSec == 0 {
 		conf.MetersPerSec = defaultLinearVelocityMPerSec
 	}
@@ -143,6 +151,7 @@ func NewBuiltIn(ctx context.Context, deps resource.Dependencies, conf resource.C
 	if err := navSvc.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
+
 	return navSvc, nil
 }
 
@@ -173,14 +182,19 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	svc.actionMu.Lock()
 	defer svc.actionMu.Unlock()
 
-	if svc.wholeServiceCancelFunc != nil {
-		svc.wholeServiceCancelFunc()
-	}
-	svc.activeBackgroundWorkers.Wait()
+	svc.stopWaypointMode()
 
 	svcConfig, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return err
+	}
+
+	if svcConfig.LogFilePath != "" {
+		logger, err := rdkutils.NewFilePathDebugLogger(svcConfig.LogFilePath, "navigation")
+		if err != nil {
+			return err
+		}
+		svc.logger = logger
 	}
 	base1, err := base.FromDependencies(deps, svcConfig.BaseName)
 	if err != nil {
@@ -206,22 +220,14 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
-	var newStore navigation.NavStore
+
+	// Reconfigure the store if necessary
 	if svc.storeType != string(svcConfig.Store.Type) {
-		switch svcConfig.Store.Type {
-		case navigation.StoreTypeMemory:
-			newStore = navigation.NewMemoryNavigationStore()
-		case navigation.StoreTypeMongoDB:
-			var err error
-			newStore, err = navigation.NewMongoDBNavigationStore(ctx, svcConfig.Store.Config)
-			if err != nil {
-				return err
-			}
-		default:
-			return errors.Errorf("unknown store type %q", svcConfig.Store.Type)
+		newStore, err := navigation.NewStoreFromConfig(ctx, svcConfig.Store)
+		if err != nil {
+			return err
 		}
-	} else {
-		newStore = svc.store
+		svc.store = newStore
 	}
 
 	// Parse obstacles from the passed in configuration
@@ -231,7 +237,6 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	}
 
 	svc.mode = navigation.ModeManual
-	svc.store = newStore
 	svc.storeType = string(svcConfig.Store.Type)
 	svc.base = base1
 	svc.movementSensor = movementSensor
@@ -261,6 +266,7 @@ func (svc *builtIn) SetMode(ctx context.Context, mode navigation.Mode, extra map
 	defer svc.actionMu.Unlock()
 
 	svc.mu.RLock()
+	svc.logger.Infof("SetMode called with mode: %s, transitioning to mode: %s", mode, svc.mode)
 	if svc.mode == mode {
 		svc.mu.RUnlock()
 		return nil
@@ -268,18 +274,14 @@ func (svc *builtIn) SetMode(ctx context.Context, mode navigation.Mode, extra map
 	svc.mu.RUnlock()
 
 	// switch modes
-	if svc.wholeServiceCancelFunc != nil {
-		svc.wholeServiceCancelFunc()
-	}
-	svc.activeBackgroundWorkers.Wait()
-
+	svc.stopWaypointMode()
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	svc.wholeServiceCancelFunc = cancelFunc
 	svc.mode = mode
 	if svc.mode == navigation.ModeWaypoint {
-		svc.startWaypoint(cancelCtx, extra)
+		svc.startWaypointMode(cancelCtx, extra)
 	}
 	return nil
 }
@@ -314,6 +316,7 @@ func (svc *builtIn) Waypoints(ctx context.Context, extra map[string]interface{})
 }
 
 func (svc *builtIn) AddWaypoint(ctx context.Context, point *geo.Point, extra map[string]interface{}) error {
+	svc.logger.Infof("AddWaypoint called with %#v", *point)
 	_, err := svc.store.AddWaypoint(ctx, point)
 	return err
 }
@@ -321,6 +324,7 @@ func (svc *builtIn) AddWaypoint(ctx context.Context, point *geo.Point, extra map
 func (svc *builtIn) RemoveWaypoint(ctx context.Context, id primitive.ObjectID, extra map[string]interface{}) error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
+	svc.logger.Infof("RemoveWaypoint called with waypointID: %s", id)
 	if svc.waypointInProgress != nil && svc.waypointInProgress.ID == id {
 		if svc.currentWaypointCancelFunc != nil {
 			svc.currentWaypointCancelFunc()
@@ -349,15 +353,12 @@ func (svc *builtIn) Close(ctx context.Context) error {
 	svc.actionMu.Lock()
 	defer svc.actionMu.Unlock()
 
-	if svc.wholeServiceCancelFunc != nil {
-		svc.wholeServiceCancelFunc()
-	}
-	svc.activeBackgroundWorkers.Wait()
-
+	svc.stopWaypointMode()
 	return svc.store.Close(ctx)
 }
 
-func (svc *builtIn) startWaypoint(ctx context.Context, extra map[string]interface{}) {
+func (svc *builtIn) startWaypointMode(ctx context.Context, extra map[string]interface{}) {
+	svc.logger.Debug("startWaypointMode called")
 	if extra == nil {
 		if false {
 			extra = map[string]interface{}{"motion_profile": "position_only"}
@@ -373,6 +374,7 @@ func (svc *builtIn) startWaypoint(ctx context.Context, extra map[string]interfac
 		defer svc.activeBackgroundWorkers.Done()
 
 		navOnce := func(ctx context.Context, wp navigation.Waypoint) error {
+			svc.logger.Debugf("MoveOnGlobe called going to waypoint %+v", wp)
 			_, err := svc.motion.MoveOnGlobe(
 				ctx,
 				svc.base.Name(),
@@ -384,9 +386,11 @@ func (svc *builtIn) startWaypoint(ctx context.Context, extra map[string]interfac
 				extra,
 			)
 			if err != nil {
+				err = errors.Wrapf(err, "hit motion error when navigating to waypoint %+v", wp)
 				return err
 			}
 
+			svc.logger.Debug("MoveOnGlobe succeeded")
 			return svc.waypointReached(ctx)
 		}
 
@@ -425,6 +429,13 @@ func (svc *builtIn) startWaypoint(ctx context.Context, extra map[string]interfac
 			}
 		}
 	})
+}
+
+func (svc *builtIn) stopWaypointMode() {
+	if svc.wholeServiceCancelFunc != nil {
+		svc.wholeServiceCancelFunc()
+	}
+	svc.activeBackgroundWorkers.Wait()
 }
 
 func (svc *builtIn) waypointIsDeleted() bool {

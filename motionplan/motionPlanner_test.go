@@ -97,7 +97,8 @@ func constrainedXArmMotion() (*planConfig, error) {
 	pos := spatialmath.NewPoseFromProtobuf(&commonpb.Pose{X: -206, Y: 100, Z: 120, OZ: -1})
 
 	opt := newBasicPlannerOptions(model)
-	orientMetric := ik.NewPoseFlexOVMetric(pos, 0.09)
+	opt.SmoothIter = 2
+	orientMetric := ik.NewPoseFlexOVMetricConstructor(0.09)
 
 	oFunc := ik.OrientDistToRegion(pos.Orientation(), 0.1)
 	oFuncMet := func(from *ik.State) float64 {
@@ -116,7 +117,7 @@ func constrainedXArmMotion() (*planConfig, error) {
 		return oFunc(cInput.Position.Orientation()) == 0
 	}
 
-	opt.SetGoalMetric(orientMetric)
+	opt.goalMetricConstructor = orientMetric
 	opt.SetPathMetric(oFuncMet)
 	opt.AddStateConstraint("orientation", orientConstraint)
 
@@ -206,7 +207,7 @@ func simple2DMap() (*planConfig, error) {
 	startInput := frame.StartPositions(fs)
 	startInput[modelName] = frame.FloatsToInputs([]float64{-90., 90., 0})
 	goal := spatialmath.NewPoseFromPoint(r3.Vector{X: 90, Y: 90, Z: 0})
-	opt.SetGoalMetric(ik.NewSquaredNormMetric(goal))
+	opt.SetGoal(goal)
 	sf, err := newSolverFrame(fs, modelName, frame.World, startInput)
 	if err != nil {
 		return nil, err
@@ -244,7 +245,8 @@ func simpleXArmMotion() (*planConfig, error) {
 
 	// setup planner options
 	opt := newBasicPlannerOptions(xarm)
-	opt.SetGoalMetric(ik.NewSquaredNormMetric(goal))
+	opt.SmoothIter = 20
+	opt.SetGoal(goal)
 	sf, err := newSolverFrame(fs, xarm.Name(), frame.World, frame.StartPositions(fs))
 	if err != nil {
 		return nil, err
@@ -279,7 +281,8 @@ func simpleUR5eMotion() (*planConfig, error) {
 
 	// setup planner options
 	opt := newBasicPlannerOptions(ur5e)
-	opt.SetGoalMetric(ik.NewSquaredNormMetric(goal))
+	opt.SmoothIter = 20
+	opt.SetGoal(goal)
 	sf, err := newSolverFrame(fs, ur5e.Name(), frame.World, frame.StartPositions(fs))
 	if err != nil {
 		return nil, err
@@ -412,6 +415,7 @@ func TestArmObstacleSolve(t *testing.T) {
 }
 
 func TestArmAndGantrySolve(t *testing.T) {
+	t.Parallel()
 	fs := makeTestFS(t)
 	positions := frame.StartPositions(fs)
 	pointXarmGripper := spatialmath.NewPoseFromPoint(r3.Vector{157., -50, -288})
@@ -431,6 +435,7 @@ func TestArmAndGantrySolve(t *testing.T) {
 		Frame:              fs.Frame("xArmVgripper"),
 		StartConfiguration: positions,
 		FrameSystem:        fs,
+		Options:            map[string]interface{}{"smooth_iter": 5},
 	})
 	test.That(t, err, test.ShouldBeNil)
 	solvedPose, err := fs.Transform(
@@ -443,17 +448,18 @@ func TestArmAndGantrySolve(t *testing.T) {
 }
 
 func TestMultiArmSolve(t *testing.T) {
+	t.Parallel()
 	fs := makeTestFS(t)
 	positions := frame.StartPositions(fs)
-	// Solve such that the ur5 and xArm are pointing at each other, 60mm from gripper to camera
-	goal2 := spatialmath.NewPose(r3.Vector{Z: 60}, &spatialmath.OrientationVectorDegrees{OZ: -1})
+	// Solve such that the ur5 and xArm are pointing at each other, 40mm from gripper to camera
+	goal2 := spatialmath.NewPose(r3.Vector{Z: 40}, &spatialmath.OrientationVectorDegrees{OZ: -1})
 	plan, err := PlanMotion(context.Background(), &PlanRequest{
 		Logger:             logger.Sugar(),
 		Goal:               frame.NewPoseInFrame("urCamera", goal2),
 		Frame:              fs.Frame("xArmVgripper"),
 		StartConfiguration: positions,
 		FrameSystem:        fs,
-		Options:            map[string]interface{}{"max_ik_solutions": 100, "timeout": 150.0},
+		Options:            map[string]interface{}{"max_ik_solutions": 100, "timeout": 150.0, "smooth_iter": 5},
 	})
 	test.That(t, err, test.ShouldBeNil)
 
@@ -471,6 +477,7 @@ func TestMultiArmSolve(t *testing.T) {
 }
 
 func TestReachOverArm(t *testing.T) {
+	t.Parallel()
 	// setup frame system with an xarm
 	xarm, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
@@ -504,7 +511,7 @@ func TestReachOverArm(t *testing.T) {
 	fs.AddFrame(ur5, fs.World())
 
 	// the plan should no longer be able to interpolate, but it should still be able to get there
-	opts = map[string]interface{}{"max_ik_solutions": 100, "timeout": 150.0}
+	opts = map[string]interface{}{"max_ik_solutions": 100, "timeout": 150.0, "smooth_iter": 5}
 	plan, err = PlanMotion(context.Background(), &PlanRequest{
 		Logger:             logger.Sugar(),
 		Goal:               goal,
@@ -585,6 +592,7 @@ func TestSliceUniq(t *testing.T) {
 }
 
 func TestSolverFrameGeometries(t *testing.T) {
+	t.Parallel()
 	fs := makeTestFS(t)
 	sf, err := newSolverFrame(fs, "xArmVgripper", frame.World, frame.StartPositions(fs))
 	test.That(t, err, test.ShouldBeNil)
@@ -597,7 +605,7 @@ func TestSolverFrameGeometries(t *testing.T) {
 		spatialmath.NewPoseFromPoint(r3.Vector{300, 300, 100}),
 		nil,
 		nil,
-		nil,
+		map[string]interface{}{"smooth_iter": 5},
 	)
 	test.That(t, err, test.ShouldBeNil)
 	gf, _ := sf.Geometries(position[len(position)-1])

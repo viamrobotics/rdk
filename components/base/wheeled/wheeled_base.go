@@ -249,7 +249,7 @@ func (wb *wheeledBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, e
 	// Spin math
 	rpm, revolutions := wb.spinMath(angleDeg, degsPerSec)
 
-	return wb.runAll(ctx, -rpm, revolutions, rpm, revolutions)
+	return wb.runAllGoFor(ctx, -rpm, revolutions, rpm, revolutions)
 }
 
 // MoveStraight commands a base to drive forward or backwards  at a linear speed and for a specific distance.
@@ -270,14 +270,14 @@ func (wb *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSe
 	// Straight math
 	rpm, rotations := wb.straightDistanceToMotorInputs(distanceMm, mmPerSec)
 
-	return wb.runAll(ctx, rpm, rotations, rpm, rotations)
+	return wb.runAllGoFor(ctx, rpm, rotations, rpm, rotations)
 }
 
-// runAll executes `motor.GoFor` commands in parallel for left and right motors,
+// runAllGoFor executes `motor.GoFor` commands in parallel for left and right motors,
 // with specified speeds and rotations and stops the base if an error occurs.
 // All callers must register an operation via `wb.opMgr.New` to ensure the left and right motors
 // receive consistent instructions.
-func (wb *wheeledBase) runAll(ctx context.Context, leftRPM, leftRotations, rightRPM, rightRotations float64) error {
+func (wb *wheeledBase) runAllGoFor(ctx context.Context, leftRPM, leftRotations, rightRPM, rightRotations float64) error {
 	goForFuncs := func() []rdkutils.SimpleFunc {
 		ret := []rdkutils.SimpleFunc{}
 
@@ -359,7 +359,6 @@ func (wb *wheeledBase) SetVelocity(ctx context.Context, linear, angular r3.Vecto
 	// Passing zero revolutions to `motor.GoFor` will have the motor run until
 	// interrupted. Moreover, `motor.GoFor` will return immediately when given zero revolutions.
 	const numRevolutions = 0
-	errs := make([]error, 0)
 
 	wb.mu.Lock()
 	// Because `SetVelocity` does not create a new operation, canceling must be done atomically with
@@ -372,16 +371,11 @@ func (wb *wheeledBase) SetVelocity(ctx context.Context, linear, angular r3.Vecto
 	// finish "spinning" have undefined behavior due to the motors actually running at a
 	// speed/direction that was not intended.
 	wb.opMgr.CancelRunning(ctx)
-	defer wb.mu.Unlock()
-	for _, m := range wb.left {
-		errs = append(errs, m.GoFor(ctx, leftRPM, numRevolutions, nil))
-	}
+	wb.mu.Unlock()
 
-	for _, m := range wb.right {
-		errs = append(errs, m.GoFor(ctx, rightRPM, numRevolutions, nil))
-	}
-
-	return multierr.Combine(errs...)
+	ctx, done := wb.opMgr.New(ctx)
+	defer done()
+	return wb.runAllGoFor(ctx, leftRPM, numRevolutions, rightRPM, numRevolutions)
 }
 
 // SetPower commands the base motors to run at powers corresponding to input linear and angular powers.
@@ -403,27 +397,26 @@ func (wb *wheeledBase) SetPower(ctx context.Context, linear, angular r3.Vector, 
 	lPower, rPower := wb.differentialDrive(linear.Y, angular.Z)
 
 	// Send motor commands
-	err := func() error {
-		var err error
+	setPowerFuncs := func() []rdkutils.SimpleFunc {
+		ret := []rdkutils.SimpleFunc{}
 
-		// `wheeledBase.SetPower` does not create a new operation via the `opMgr`. Set the
-		// underlying motor powers atomically.
 		wb.mu.Lock()
 		defer wb.mu.Unlock()
 		for _, m := range wb.left {
-			err = multierr.Combine(err, m.SetPower(ctx, lPower, extra))
+			motor := m
+			ret = append(ret, func(ctx context.Context) error { return motor.SetPower(ctx, lPower, extra) })
 		}
 
 		for _, m := range wb.right {
-			err = multierr.Combine(err, m.SetPower(ctx, rPower, extra))
+			motor := m
+			ret = append(ret, func(ctx context.Context) error { return motor.SetPower(ctx, rPower, extra) })
 		}
-
-		return err
+		return ret
 	}()
-	if err != nil {
+
+	if _, err := rdkutils.RunInParallel(ctx, setPowerFuncs); err != nil {
 		return multierr.Combine(err, wb.Stop(ctx, nil))
 	}
-
 	return nil
 }
 
@@ -471,11 +464,27 @@ func (wb *wheeledBase) straightDistanceToMotorInputs(distanceMm int, mmPerSec fl
 
 // Stop commands the base to stop moving.
 func (wb *wheeledBase) Stop(ctx context.Context, extra map[string]interface{}) error {
-	var err error
-	for _, m := range wb.allMotors {
-		err = multierr.Combine(err, m.Stop(ctx, extra))
+	stopFuncs := func() []rdkutils.SimpleFunc {
+		ret := []rdkutils.SimpleFunc{}
+
+		wb.mu.Lock()
+		defer wb.mu.Unlock()
+		for _, m := range wb.left {
+			motor := m
+			ret = append(ret, func(ctx context.Context) error { return motor.Stop(ctx, extra) })
+		}
+
+		for _, m := range wb.right {
+			motor := m
+			ret = append(ret, func(ctx context.Context) error { return motor.Stop(ctx, extra) })
+		}
+		return ret
+	}()
+
+	if _, err := rdkutils.RunInParallel(ctx, stopFuncs); err != nil {
+		return multierr.Combine(err)
 	}
-	return err
+	return nil
 }
 
 func (wb *wheeledBase) IsMoving(ctx context.Context) (bool, error) {
