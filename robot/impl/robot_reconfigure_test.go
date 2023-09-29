@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -3696,6 +3697,59 @@ func TestResourceConstructTimeout(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 
 	rr.reconfigureWorkers.Wait()
+}
+
+func TestResourceConstructCtxCancel(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+
+	contructCount := 0
+	var wg sync.WaitGroup
+
+	mockAPI := resource.APINamespaceRDK.WithComponentType("mock")
+	modelName1 := utils.RandomAlphaString(5)
+	model1 := resource.DefaultModelFamily.WithModel(modelName1)
+
+	ctxWithCancel, cancel := context.WithCancel(context.Background())
+	resource.RegisterComponent(mockAPI, model1, resource.Registration[resource.Resource, resource.NoNativeConfig]{
+		Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger golog.Logger,
+		) (resource.Resource, error) {
+			contructCount++
+			wg.Add(1)
+			defer wg.Done()
+			cancel()
+			<-ctx.Done()
+			return &mockFake{Named: conf.ResourceName().AsNamed()}, nil
+		},
+	})
+	defer func() {
+		resource.Deregister(mockAPI, model1)
+	}()
+
+	cfg := &config.Config{
+		Components: []resource.Config{
+			{
+				Name:  "one",
+				Model: model1,
+				API:   mockAPI,
+			},
+			{
+				Name:  "two",
+				Model: model1,
+				API:   mockAPI,
+			},
+		},
+	}
+
+	r, err := New(ctxWithCancel, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+
+	wg.Wait()
+	test.That(t, contructCount, test.ShouldEqual, 1)
 }
 
 type mockFake struct {
