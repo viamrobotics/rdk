@@ -81,5 +81,7 @@ jobs:
     - name: Check out code
       uses: actions/checkout@v3
     - name: Build and Push
+      env:
+        PLATFORM: ${{ matrix.platform }}
       run: |
         make ${{ matrix.make_target}}
