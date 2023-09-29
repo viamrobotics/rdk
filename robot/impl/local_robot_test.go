@@ -57,6 +57,7 @@ import (
 	"go.viam.com/rdk/robot/packages"
 	putils "go.viam.com/rdk/robot/packages/testutils"
 	"go.viam.com/rdk/robot/server"
+	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/datamanager/builtin"
@@ -72,6 +73,54 @@ import (
 	"go.viam.com/rdk/testutils/robottestutils"
 	rutils "go.viam.com/rdk/utils"
 )
+
+const arm1String = "arm1"
+
+var resources = []resource.Name{arm.Named(arm1String)}
+var pos = spatialmath.NewPoseFromPoint(r3.Vector{X: 1, Y: 2, Z: 3})
+
+func setupRobotCtx(t *testing.T) (context.Context, robot.Robot) {
+	t.Helper()
+
+	injectArm := &inject.Arm{}
+	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
+		return pos, nil
+	}
+	injectRobot := &inject.Robot{}
+	injectRobot.ConfigFunc = func() *config.Config { return &config.Config{} }
+	injectRobot.ResourceNamesFunc = func() []resource.Name { return resources }
+	injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return nil }
+	injectRobot.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
+		return injectArm, nil
+	}
+	injectRobot.LoggerFunc = func() golog.Logger { return golog.NewTestLogger(t) }
+	injectRobot.FrameSystemConfigFunc = func(ctx context.Context) (*framesystem.Config, error) {
+		return &framesystem.Config{}, nil
+	}
+
+	return context.Background(), injectRobot
+}
+
+func TestParallelWebRTCDialAndConnUsage2(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	ctx, robot := setupRobotCtx(t)
+
+	svc := web.New(robot, logger)
+
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+	err := svc.Start(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+
+	conn, err := rgrpc.Dial(context.Background(), addr, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	// NewClientFromConn will also call GetKinematics, a gRPC request that may
+	// hang within RecvMsg.
+	_, err = arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, conn.Close(), test.ShouldBeNil)
+}
 
 var fakeModel = resource.DefaultModelFamily.WithModel("fake")
 

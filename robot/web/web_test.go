@@ -572,35 +572,6 @@ func TestWebWithBadAuthHandlers(t *testing.T) {
 }
 
 func TestParallelWebRTCDialAndConnUsage(t *testing.T) {
-	// Mark this test and copy below with t.Parallel() to see a hang in one of
-	// them ~1/10000 times.
-	t.Parallel()
-
-	logger := golog.NewTestLogger(t)
-	ctx, robot := setupRobotCtx(t)
-
-	svc := web.New(robot, logger)
-
-	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
-	err := svc.Start(ctx, options)
-	test.That(t, err, test.ShouldBeNil)
-
-	conn, err := rgrpc.Dial(context.Background(), addr, logger)
-	test.That(t, err, test.ShouldBeNil)
-
-	// NewClientFromConn will also call GetKinematics, a gRPC request that may
-	// hang within RecvMsg.
-	_, err = arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
-	test.That(t, err, test.ShouldBeNil)
-
-	test.That(t, conn.Close(), test.ShouldBeNil)
-}
-
-func TestParallelWebRTCDialAndConnUsage2(t *testing.T) {
-	// Mark this test and copy below with t.Parallel() to see a hang in one of
-	// them ~1/10000 times.
-	t.Parallel()
-
 	logger := golog.NewTestLogger(t)
 	ctx, robot := setupRobotCtx(t)
 
