@@ -10,7 +10,7 @@ PATH_WITH_TOOLS="`pwd`/$(TOOL_BIN):`pwd`/node_modules/.bin:${PATH}"
 GIT_REVISION = $(shell git rev-parse HEAD | tr -d '\n')
 TAG_VERSION?=$(shell git tag --points-at | sort -Vr | head -n1)
 LDFLAGS = -ldflags "-s -w -extld="$(shell pwd)/etc/ld_wrapper.sh" -X 'go.viam.com/rdk/config.Version=${TAG_VERSION}' -X 'go.viam.com/rdk/config.GitRevision=${GIT_REVISION}'"
-GOFLAGS=$(shell [ `uname` = Linux ] && [ `dpkg --print-architecture` = armhf ] && echo -tags=no_cgo || echo)
+GOFLAGS=$(shell [ `uname` = Linux ] && [ `dpkg --print-architecture` = armhf ] && echo -tags=no_tflite || echo)
 
 default: build lint server
 
@@ -20,7 +20,7 @@ setup:
 build: build-web build-go
 
 build-go:
-	GOFLAGS=$(GOFLAGS) go build ./...
+	GOFLAGS=$(GOFLAGS) go build ./web/cmd/server
 
 GOOS ?= $(shell go env GOOS)
 GOARCH ?= $(shell go env GOARCH)
