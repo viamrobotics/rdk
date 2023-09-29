@@ -3,8 +3,8 @@ BUILD_CMD = docker buildx build --pull $(BUILD_PUSH) --force-rm --no-cache --bui
 BUILD_PUSH = --load
 BUILD_FILE = etc/Dockerfile.cache
 CANON_IMAGE ?= rdk-devenv
-X86_TAG ?= amd64-beta-c0c8a3d
-ARM_TAG ?= arm64-beta-c0c8a3d
+X86_TAG ?= amd64-beta-81a6398
+ARM_TAG ?= arm64-beta-81a6398
 ANTIQUE_X86 ?= amd64-beta-30cf9f0
 ANTIQUE_ARM ?= arm64-beta-81a6398
 
