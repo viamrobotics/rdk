@@ -3,7 +3,8 @@ ARG BASE_TAG=amd64
 
 FROM $MAIN_TAG:$BASE_TAG as builder
 COPY --chown=1000:1000 ./ /tmp/rdk
-RUN --mount=type=secret,id=netrc,uid=1000,dst=/home/testbot/.netrc sudo -Hu testbot bash -lc 'cd /tmp/rdk && make build-go lint-go'
+RUN --mount=type=secret,id=netrc,uid=1000,dst=/home/testbot/.netrc sudo -Hu testbot bash -lc 'cd /tmp/rdk && make build-go'
+RUN --mount=type=secret,id=netrc,uid=1000,dst=/home/testbot/.netrc sudo -Hu testbot bash -lc 'cd /tmp/rdk && make lint-go'
 
 FROM $MAIN_TAG:$BASE_TAG
 COPY --from=builder --chown=1000:1000 /home/testbot/go /home/testbot/go
