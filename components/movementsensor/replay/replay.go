@@ -531,17 +531,17 @@ func addGRPCMetadata(ctx context.Context, timeRequested, timeReceived *timestamp
 
 func (replay *replayMovementSensor) setProperty(method Method, supported bool) error {
 	switch method {
-	case "LinearVelocity":
+	case linearVelocity:
 		replay.properties.LinearVelocitySupported = supported
-	case "AngularVelocity":
+	case angularVelocity:
 		replay.properties.AngularVelocitySupported = supported
-	case "Orientation":
+	case orientation:
 		replay.properties.OrientationSupported = supported
-	case "Position":
+	case position:
 		replay.properties.PositionSupported = supported
-	case "CompassHeading":
+	case compassHeading:
 		replay.properties.CompassHeadingSupported = supported
-	case "LinearAcceleration":
+	case linearAcceleration:
 		replay.properties.LinearAccelerationSupported = supported
 	default:
 		return errors.New("can't set property, invalid method: " + string(method))
@@ -556,17 +556,17 @@ func (replay *replayMovementSensor) attemptToInitializeProperty(ctx context.Cont
 
 	var initializedProperty bool
 	if replay.closed {
-		return false, errors.New("session closed")
+		return initializedProperty, errors.New("session closed")
 	}
 	if err := replay.updateCache(ctx, method); err != nil && !strings.Contains(err.Error(), ErrEndOfDataset.Error()) {
 		fmt.Println("attemptToInitializeProperty -> method: ", method)
 		fmt.Println("attemptToInitializeProperty -> updateCache --> err: ", err)
-		return false, errors.Wrap(err, "could not update the cache")
+		return initializedProperty, errors.Wrap(err, "could not update the cache")
 	}
 	if len(replay.cache[method]) != 0 {
 		initializedProperty = true
 		if err := replay.setProperty(method, true); err != nil {
-			return false, errors.Wrap(err, "could not set property")
+			return initializedProperty, errors.Wrap(err, "could not set property")
 		}
 	}
 	return initializedProperty, nil
