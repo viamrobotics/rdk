@@ -100,9 +100,10 @@ server: build-web
 	rm -f $(BIN_OUTPUT_PATH)/viam-server
 	go build $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/viam-server web/cmd/server/main.go
 
+server-static: GOFLAGS=$(shell [ `dpkg --print-architecture` = armhf ] && echo -tags=no_cgo || echo)
 server-static: build-web
 	rm -f $(BIN_OUTPUT_PATH)/viam-server
-	VIAM_STATIC_BUILD=1 go build $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/viam-server web/cmd/server/main.go
+	VIAM_STATIC_BUILD=1 GOFLAGS=$(GOFLAGS) go build $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/viam-server web/cmd/server/main.go
 
 server-static-compressed: server-static
 	upx --best --lzma $(BIN_OUTPUT_PATH)/viam-server
