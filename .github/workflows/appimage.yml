@@ -30,6 +30,10 @@ jobs:
             image: ghcr.io/viamrobotics/rdk-devenv:arm64-beta-81a6398-cache
             platform: linux/arm64
             label: arm64
+          - arch: [buildjet-2vcpu-ubuntu-2204-arm]
+            image: ghcr.io/viamrobotics/rdk-devenv:armhf-beta-81a6398-cache
+            platform: linux/arm/v7
+            label: armhf
     runs-on: ${{ matrix.arch }}
     container:
       image: ${{ matrix.image }}
@@ -44,7 +48,7 @@ jobs:
       uses: actions/checkout@v3
 
     - name: Check out PR branch code
-      if: github.event_name == 'pull_request_target'
+      if: github.event_name == 'pull_request_target' || github.event_name == 'pull_request'
       uses: actions/checkout@v3
       with:
         ref: ${{ github.event.pull_request.head.sha }}
