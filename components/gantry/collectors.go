@@ -81,7 +81,7 @@ func newLengthsCollector(resource interface{}, params data.CollectorParams) (dat
 func scaleMetersToMm(meters []float64) []float64 {
 	ret := make([]float64, len(meters))
 	for i := range ret {
-		ret[i] *= meters[i] * 1000
+		ret[i] = meters[i] * 1000
 	}
 	return ret
 }
