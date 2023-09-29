@@ -112,7 +112,7 @@ jobs:
       image: ghcr.io/viamrobotics/rdk-devenv:armhf-beta-81a6398-cache
       options: --platform linux/arm/v7
     steps:
-    - uses: ./.github/actions/flex-checkout.yml
+    - uses: ./.github/actions/flex-checkout
     - name: build
       run: make server-static
     - uses: actions/upload-artifact@v3
