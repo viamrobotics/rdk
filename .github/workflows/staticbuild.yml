@@ -22,14 +22,18 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - arch: [ubuntu-latest]
+          - arch: ubuntu-latest
             image: ghcr.io/viamrobotics/antique:amd64-beta-30cf9f0-cache
             platform: linux/amd64
             label: amd64
-          - arch: [buildjet-2vcpu-ubuntu-2204-arm]
+          - arch: buildjet-2vcpu-ubuntu-2204-arm
             image: ghcr.io/viamrobotics/antique:arm64-beta-81a6398-cache
             platform: linux/arm64
             label: arm64
+          - arch: buildjet-2vcpu-ubuntu-2204-arm
+            image: ghcr.io/viamrobotics/antique:armhf-beta-81a6398-cache
+            platform: linux/arm/v7
+            label: armhf
     runs-on: ${{ matrix.arch }}
     container:
       image: ${{ matrix.image }}
