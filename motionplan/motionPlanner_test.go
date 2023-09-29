@@ -435,7 +435,7 @@ func TestArmAndGantrySolve(t *testing.T) {
 		Frame:              fs.Frame("xArmVgripper"),
 		StartConfiguration: positions,
 		FrameSystem:        fs,
-		Options:            map[string]interface{}{"timeout": 150.0, "smooth_iter": 5},
+		Options:            map[string]interface{}{"smooth_iter": 5},
 	})
 	test.That(t, err, test.ShouldBeNil)
 	solvedPose, err := fs.Transform(
@@ -605,7 +605,7 @@ func TestSolverFrameGeometries(t *testing.T) {
 		spatialmath.NewPoseFromPoint(r3.Vector{300, 300, 100}),
 		nil,
 		nil,
-		map[string]interface{}{"timeout": 150.0, "smooth_iter": 5},
+		map[string]interface{}{"smooth_iter": 5},
 	)
 	test.That(t, err, test.ShouldBeNil)
 	gf, _ := sf.Geometries(position[len(position)-1])
