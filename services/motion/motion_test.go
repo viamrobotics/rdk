@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
+	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/test"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -20,6 +21,8 @@ import (
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
 )
+
+var dst = geo.NewPoint(1, 2)
 
 func TestPlanWithStatus(t *testing.T) {
 	planID, err := uuid.NewUUID()
@@ -913,10 +916,10 @@ func TestConfiguration(t *testing.T) {
 	})
 }
 
-func TestMoveOnGlobeRequest(t *testing.T) {
+func TestMoveOnGlobeReq(t *testing.T) {
 	name := "somename"
 	//nolint:dupl
-	t.Run("toProto", func(t *testing.T) {
+	t.Run("ToProto", func(t *testing.T) {
 		t.Run("error due to nil destination", func(t *testing.T) {
 			mogReq := validMoveOnGlobeRequest()
 			mogReq.Destination = nil
@@ -946,8 +949,8 @@ func TestMoveOnGlobeRequest(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, req.Name, test.ShouldResemble, "somename")
 			test.That(t, req.ComponentName.Name, test.ShouldResemble, "my-base")
-			test.That(t, req.Destination.Latitude, test.ShouldAlmostEqual, 0)
-			test.That(t, req.Destination.Longitude, test.ShouldAlmostEqual, 1e-5)
+			test.That(t, req.Destination.Latitude, test.ShouldAlmostEqual, dst.Lat())
+			test.That(t, req.Destination.Longitude, test.ShouldAlmostEqual, dst.Lng())
 			test.That(t, req.Heading, test.ShouldNotBeNil)
 			test.That(t, *req.Heading, test.ShouldAlmostEqual, 0.5)
 			test.That(t, req.MovementSensorName.Name, test.ShouldResemble, "my-movementsensor")
@@ -958,7 +961,7 @@ func TestMoveOnGlobeRequest(t *testing.T) {
 	})
 
 	//nolint:dupl
-	t.Run("toProtoNew", func(t *testing.T) {
+	t.Run("ToProtoNew", func(t *testing.T) {
 		t.Run("error due to nil destination", func(t *testing.T) {
 			mogReq := validMoveOnGlobeRequest()
 			mogReq.Destination = nil
@@ -988,8 +991,8 @@ func TestMoveOnGlobeRequest(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, req.Name, test.ShouldResemble, "somename")
 			test.That(t, req.ComponentName.Name, test.ShouldResemble, "my-base")
-			test.That(t, req.Destination.Latitude, test.ShouldAlmostEqual, 0)
-			test.That(t, req.Destination.Longitude, test.ShouldAlmostEqual, 1e-5)
+			test.That(t, req.Destination.Latitude, test.ShouldAlmostEqual, dst.Lat())
+			test.That(t, req.Destination.Longitude, test.ShouldAlmostEqual, dst.Lng())
 			test.That(t, req.Heading, test.ShouldNotBeNil)
 			test.That(t, *req.Heading, test.ShouldAlmostEqual, 0.5)
 			test.That(t, req.MovementSensorName.Name, test.ShouldResemble, "my-movementsensor")
@@ -997,14 +1000,291 @@ func TestMoveOnGlobeRequest(t *testing.T) {
 			test.That(t, req.MotionConfiguration, test.ShouldResemble, mogReq.MotionCfg.toProto())
 
 			test.That(t, req.Extra.AsMap(), test.ShouldBeEmpty)
+		})
+	})
+
+	//nolint:dupl
+	t.Run("moveOnGlobeNewRequestFromProto", func(t *testing.T) {
+		type testCase struct {
+			description string
+			input       *pb.MoveOnGlobeNewRequest
+			result      MoveOnGlobeReq
+			err         error
+		}
+
+		heading := 1.
+		visionServices := []resource.Name{vision.Named("vision service 1"), vision.Named("vision service 2")}
+		visionServicesPB := []*commonpb.ResourceName{}
+		for _, vs := range visionServices {
+			visionServicesPB = append(visionServicesPB, rprotoutils.ResourceNameToProto(vs))
+		}
+		linearMPerSec := 1.
+		angularDegsPerSec := 2.
+		planDeviationMM := 3000.
+		planDeviationM := planDeviationMM / 1000
+		positionPollingFreqHz := 4.
+		obstaclePollingFreqHz := 5.
+
+		mybase := base.Named("my-base")
+
+		testCases := []testCase{
+			{
+				description: "an nil *pb.MoveOnGlobeNewRequest returns an error",
+				input:       nil,
+				result:      MoveOnGlobeReq{},
+				err:         errors.New("received nil *pb.MoveOnGlobeNewRequest"),
+			},
+			{
+				description: "an empty destination returns an error",
+				input:       &pb.MoveOnGlobeNewRequest{},
+				result:      MoveOnGlobeReq{},
+				err:         errors.New("must provide a destination"),
+			},
+			{
+				description: "an empty compnent name returns an error",
+				input: &pb.MoveOnGlobeNewRequest{
+					Destination: &commonpb.GeoPoint{Latitude: 1, Longitude: 2},
+				},
+				result: MoveOnGlobeReq{},
+				err:    errors.New("received nil *commonpb.ResourceName"),
+			},
+			{
+				description: "an empty movement sensor name returns an error",
+				input: &pb.MoveOnGlobeNewRequest{
+					Destination:   &commonpb.GeoPoint{Latitude: 1, Longitude: 2},
+					ComponentName: rprotoutils.ResourceNameToProto(mybase),
+				},
+				result: MoveOnGlobeReq{},
+				err:    errors.New("received nil *commonpb.ResourceName"),
+			},
+			{
+				description: "an empty *pb.MoveOnGlobeNewRequest returns an empty MoveOnGlobeReq",
+				input: &pb.MoveOnGlobeNewRequest{
+					Heading:            &heading,
+					Destination:        &commonpb.GeoPoint{Latitude: 1, Longitude: 2},
+					ComponentName:      rprotoutils.ResourceNameToProto(mybase),
+					MovementSensorName: rprotoutils.ResourceNameToProto(movementsensor.Named("my-movementsensor")),
+				},
+				result: MoveOnGlobeReq{
+					Heading:            heading,
+					Destination:        geo.NewPoint(1, 2),
+					ComponentName:      mybase,
+					MovementSensorName: movementsensor.Named("my-movementsensor"),
+					Obstacles:          []*spatialmath.GeoObstacle{},
+					MotionCfg: &MotionConfiguration{
+						VisionServices: []resource.Name{},
+					},
+					Extra: map[string]interface{}{},
+				},
+			},
+			{
+				description: "a full *pb.MoveOnGlobeNewRequest returns a full MoveOnGlobeReq",
+				input: &pb.MoveOnGlobeNewRequest{
+					Heading:            &heading,
+					Destination:        &commonpb.GeoPoint{Latitude: 1, Longitude: 2},
+					ComponentName:      rprotoutils.ResourceNameToProto(mybase),
+					MovementSensorName: rprotoutils.ResourceNameToProto(movementsensor.Named("my-movementsensor")),
+					Obstacles:          []*commonpb.GeoObstacle{},
+					MotionConfiguration: &pb.MotionConfiguration{
+						VisionServices:             visionServicesPB,
+						LinearMPerSec:              &linearMPerSec,
+						AngularDegsPerSec:          &angularDegsPerSec,
+						PlanDeviationM:             &planDeviationM,
+						PositionPollingFrequencyHz: &positionPollingFreqHz,
+						ObstaclePollingFrequencyHz: &obstaclePollingFreqHz,
+					},
+				},
+				result: MoveOnGlobeReq{
+					Heading:            heading,
+					Destination:        dst,
+					ComponentName:      mybase,
+					MovementSensorName: movementsensor.Named("my-movementsensor"),
+					Obstacles:          []*spatialmath.GeoObstacle{},
+					MotionCfg: &MotionConfiguration{
+						VisionServices:        visionServices,
+						LinearMPerSec:         linearMPerSec,
+						AngularDegsPerSec:     angularDegsPerSec,
+						PlanDeviationMM:       planDeviationMM,
+						PositionPollingFreqHz: positionPollingFreqHz,
+						ObstaclePollingFreqHz: obstaclePollingFreqHz,
+					},
+					Extra: map[string]interface{}{},
+				},
+			},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.description, func(t *testing.T) {
+				res, err := moveOnGlobeNewRequestFromProto(tc.input)
+
+				if tc.err != nil {
+					test.That(t, err, test.ShouldBeError, tc.err)
+				} else {
+					test.That(t, err, test.ShouldBeNil)
+				}
+				test.That(t, res, test.ShouldResemble, tc.result)
+			})
+		}
+
+		t.Run("nil heading is converted into a NaN heading", func(t *testing.T) {
+			input := &pb.MoveOnGlobeNewRequest{
+				Destination:        &commonpb.GeoPoint{Latitude: 1, Longitude: 2},
+				ComponentName:      rprotoutils.ResourceNameToProto(mybase),
+				MovementSensorName: rprotoutils.ResourceNameToProto(movementsensor.Named("my-movementsensor")),
+			}
+			res, err := moveOnGlobeNewRequestFromProto(input)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, math.IsNaN(res.Heading), test.ShouldBeTrue)
+		})
+	})
+
+	//nolint:dupl
+	t.Run("moveOnGlobeRequestFromProto", func(t *testing.T) {
+		type testCase struct {
+			description string
+			input       *pb.MoveOnGlobeRequest
+			result      MoveOnGlobeReq
+			err         error
+		}
+
+		heading := 1.
+		visionServices := []resource.Name{vision.Named("vision service 1"), vision.Named("vision service 2")}
+		visionServicesPB := []*commonpb.ResourceName{}
+		for _, vs := range visionServices {
+			visionServicesPB = append(visionServicesPB, rprotoutils.ResourceNameToProto(vs))
+		}
+		linearMPerSec := 1.
+		angularDegsPerSec := 2.
+		planDeviationMM := 3000.
+		planDeviationM := planDeviationMM / 1000
+		positionPollingFreqHz := 4.
+		obstaclePollingFreqHz := 5.
+
+		mybase := base.Named("my-base")
+
+		testCases := []testCase{
+			{
+				description: "an nil *pb.MoveOnGlobeNewRequest returns an error",
+				input:       nil,
+				result:      MoveOnGlobeReq{},
+				err:         errors.New("received nil *pb.MoveOnGlobeNewRequest"),
+			},
+			{
+				description: "an empty destination returns an error",
+				input:       &pb.MoveOnGlobeRequest{},
+				result:      MoveOnGlobeReq{},
+				err:         errors.New("must provide a destination"),
+			},
+			{
+				description: "an empty compnent name returns an error",
+				input: &pb.MoveOnGlobeRequest{
+					Destination: &commonpb.GeoPoint{Latitude: 1, Longitude: 2},
+				},
+				result: MoveOnGlobeReq{},
+				err:    errors.New("received nil *commonpb.ResourceName"),
+			},
+			{
+				description: "an empty movement sensor name returns an error",
+				input: &pb.MoveOnGlobeRequest{
+					Destination:   &commonpb.GeoPoint{Latitude: 1, Longitude: 2},
+					ComponentName: rprotoutils.ResourceNameToProto(mybase),
+				},
+				result: MoveOnGlobeReq{},
+				err:    errors.New("received nil *commonpb.ResourceName"),
+			},
+			{
+				description: "an empty *pb.MoveOnGlobeNewRequest returns an empty MoveOnGlobeReq",
+				input: &pb.MoveOnGlobeRequest{
+					Heading:            &heading,
+					Destination:        &commonpb.GeoPoint{Latitude: 1, Longitude: 2},
+					ComponentName:      rprotoutils.ResourceNameToProto(mybase),
+					MovementSensorName: rprotoutils.ResourceNameToProto(movementsensor.Named("my-movementsensor")),
+				},
+				result: MoveOnGlobeReq{
+					Heading:            heading,
+					Destination:        geo.NewPoint(1, 2),
+					ComponentName:      mybase,
+					MovementSensorName: movementsensor.Named("my-movementsensor"),
+					Obstacles:          []*spatialmath.GeoObstacle{},
+					MotionCfg: &MotionConfiguration{
+						VisionServices: []resource.Name{},
+					},
+					Extra: map[string]interface{}{},
+				},
+			},
+			{
+				description: "a full *pb.MoveOnGlobeNewRequest returns a full MoveOnGlobeReq",
+				input: &pb.MoveOnGlobeRequest{
+					Heading:            &heading,
+					Destination:        &commonpb.GeoPoint{Latitude: 1, Longitude: 2},
+					ComponentName:      rprotoutils.ResourceNameToProto(mybase),
+					MovementSensorName: rprotoutils.ResourceNameToProto(movementsensor.Named("my-movementsensor")),
+					Obstacles:          []*commonpb.GeoObstacle{},
+					MotionConfiguration: &pb.MotionConfiguration{
+						VisionServices:             visionServicesPB,
+						LinearMPerSec:              &linearMPerSec,
+						AngularDegsPerSec:          &angularDegsPerSec,
+						PlanDeviationM:             &planDeviationM,
+						PositionPollingFrequencyHz: &positionPollingFreqHz,
+						ObstaclePollingFrequencyHz: &obstaclePollingFreqHz,
+					},
+				},
+				result: MoveOnGlobeReq{
+					Heading:            heading,
+					Destination:        dst,
+					ComponentName:      mybase,
+					MovementSensorName: movementsensor.Named("my-movementsensor"),
+					Obstacles:          []*spatialmath.GeoObstacle{},
+					MotionCfg: &MotionConfiguration{
+						VisionServices:        visionServices,
+						LinearMPerSec:         linearMPerSec,
+						AngularDegsPerSec:     angularDegsPerSec,
+						PlanDeviationMM:       planDeviationMM,
+						PositionPollingFreqHz: positionPollingFreqHz,
+						ObstaclePollingFreqHz: obstaclePollingFreqHz,
+					},
+					Extra: map[string]interface{}{},
+				},
+			},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.description, func(t *testing.T) {
+				res, err := moveOnGlobeRequestFromProto(tc.input)
+
+				if tc.err != nil {
+					test.That(t, err, test.ShouldBeError, tc.err)
+				} else {
+					test.That(t, err, test.ShouldBeNil)
+				}
+				test.That(t, res, test.ShouldResemble, tc.result)
+			})
+		}
+
+		t.Run("nil heading is converted into a NaN heading", func(t *testing.T) {
+			input := &pb.MoveOnGlobeRequest{
+				Destination:        &commonpb.GeoPoint{Latitude: 1, Longitude: 2},
+				ComponentName:      rprotoutils.ResourceNameToProto(mybase),
+				MovementSensorName: rprotoutils.ResourceNameToProto(movementsensor.Named("my-movementsensor")),
+			}
+			res, err := moveOnGlobeRequestFromProto(input)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, math.IsNaN(res.Heading), test.ShouldBeTrue)
 		})
 	})
 }
 
-func validMoveOnGlobeRequest() MoveOnGlobeReq {
-	gpsPoint := geo.NewPoint(0, 0)
-	dst := geo.NewPoint(gpsPoint.Lat(), gpsPoint.Lng()+1e-5)
+func TestPlanHistoryReq(t *testing.T) {
+	// t.Run("toProto", func(t *testing.T) {
+	// 	t.FailNow()
+	// })
 
+	// t.Run("getPlanRequestFromProto", func(t *testing.T) {
+	// 	t.FailNow()
+	// })
+}
+
+func validMoveOnGlobeRequest() MoveOnGlobeReq {
 	visionServices := []resource.Name{vision.Named("vision service 1"), vision.Named("vision service 2")}
 	return MoveOnGlobeReq{
 		ComponentName:      base.Named("my-base"),

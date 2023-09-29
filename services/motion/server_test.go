@@ -181,7 +181,7 @@ func TestServerMoveOnGlobeNew(t *testing.T) {
 
 		moveOnGlobeNewResponse, err := server.MoveOnGlobeNew(context.Background(), moveOnGlobeNewRequest)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err, test.ShouldBeError, errors.New("Must provide a destination"))
+		test.That(t, err, test.ShouldBeError, errors.New("must provide a destination"))
 		test.That(t, moveOnGlobeNewResponse, test.ShouldBeNil)
 	})
 
@@ -603,7 +603,7 @@ func TestServerGetPlan(t *testing.T) {
 		injectMS.PlanHistoryFunc = func(ctx context.Context, req motion.PlanHistoryReq) ([]motion.PlanWithStatus, error) {
 			test.That(t, req.ComponentName, test.ShouldResemble, expectedComponentName)
 			test.That(t, req.LastPlanOnly, test.ShouldResemble, validGetPlanRequest.LastPlanOnly)
-			test.That(t, req.ExecutionID, test.ShouldResemble, *validGetPlanRequest.ExecutionId)
+			test.That(t, req.ExecutionID.String(), test.ShouldResemble, *validGetPlanRequest.ExecutionId)
 			return []motion.PlanWithStatus{
 				planWithStatus2,
 				planWithStatus1,

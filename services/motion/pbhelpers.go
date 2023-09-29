@@ -172,6 +172,10 @@ func planStateFromProto(ps pb.PlanState) PlanState {
 
 //nolint:dupl
 func moveOnGlobeNewRequestFromProto(req *pb.MoveOnGlobeNewRequest) (MoveOnGlobeReq, error) {
+	if req == nil {
+		return MoveOnGlobeReq{}, errors.New("received nil *pb.MoveOnGlobeNewRequest")
+	}
+
 	if req.Destination == nil {
 		return MoveOnGlobeReq{}, errors.New("must provide a destination")
 	}
@@ -190,10 +194,17 @@ func moveOnGlobeNewRequestFromProto(req *pb.MoveOnGlobeNewRequest) (MoveOnGlobeR
 		}
 		obstacles = append(obstacles, convObst)
 	}
-
-	componentName := rprotoutils.ResourceNameFromProto(req.GetComponentName())
+	protoComponentName := req.GetComponentName()
+	if protoComponentName == nil {
+		return MoveOnGlobeReq{}, errors.New("received nil *commonpb.ResourceName")
+	}
+	componentName := rprotoutils.ResourceNameFromProto(protoComponentName)
 	destination := geo.NewPoint(req.GetDestination().GetLatitude(), req.GetDestination().GetLongitude())
-	movementSensorName := rprotoutils.ResourceNameFromProto(req.GetMovementSensorName())
+	protoMovementSensorName := req.GetMovementSensorName()
+	if protoMovementSensorName == nil {
+		return MoveOnGlobeReq{}, errors.New("received nil *commonpb.ResourceName")
+	}
+	movementSensorName := rprotoutils.ResourceNameFromProto(protoMovementSensorName)
 	motionCfg := configurationFromProto(req.MotionConfiguration)
 
 	return MoveOnGlobeReq{
@@ -209,6 +220,10 @@ func moveOnGlobeNewRequestFromProto(req *pb.MoveOnGlobeNewRequest) (MoveOnGlobeR
 
 //nolint:dupl
 func moveOnGlobeRequestFromProto(req *pb.MoveOnGlobeRequest) (MoveOnGlobeReq, error) {
+	if req == nil {
+		return MoveOnGlobeReq{}, errors.New("received nil *pb.MoveOnGlobeNewRequest")
+	}
+
 	if req.Destination == nil {
 		return MoveOnGlobeReq{}, errors.New("must provide a destination")
 	}
@@ -228,9 +243,17 @@ func moveOnGlobeRequestFromProto(req *pb.MoveOnGlobeRequest) (MoveOnGlobeReq, er
 		obstacles = append(obstacles, convObst)
 	}
 
-	componentName := rprotoutils.ResourceNameFromProto(req.GetComponentName())
+	protoComponentName := req.GetComponentName()
+	if protoComponentName == nil {
+		return MoveOnGlobeReq{}, errors.New("received nil *commonpb.ResourceName")
+	}
+	componentName := rprotoutils.ResourceNameFromProto(protoComponentName)
 	destination := geo.NewPoint(req.GetDestination().GetLatitude(), req.GetDestination().GetLongitude())
-	movementSensorName := rprotoutils.ResourceNameFromProto(req.GetMovementSensorName())
+	protoMovementSensorName := req.GetMovementSensorName()
+	if protoMovementSensorName == nil {
+		return MoveOnGlobeReq{}, errors.New("received nil *commonpb.ResourceName")
+	}
+	movementSensorName := rprotoutils.ResourceNameFromProto(protoMovementSensorName)
 	motionCfg := configurationFromProto(req.MotionConfiguration)
 
 	return MoveOnGlobeReq{
@@ -250,11 +273,13 @@ func (req PlanHistoryReq) toProto(name string) (*pb.GetPlanRequest, error) {
 		return nil, err
 	}
 
+	executionID := req.ExecutionID.String()
 	return &pb.GetPlanRequest{
 		Name:          name,
 		ComponentName: rprotoutils.ResourceNameToProto(req.ComponentName),
 		LastPlanOnly:  req.LastPlanOnly,
 		Extra:         ext,
+		ExecutionId:   &executionID,
 	}, nil
 }
 
