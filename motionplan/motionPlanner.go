@@ -91,7 +91,6 @@ func (req *PlanRequest) validatePlanRequest() error {
 		}
 		req.WorldState = wordstate
 	}
-
 	return nil
 }
 
