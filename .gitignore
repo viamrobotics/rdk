@@ -81,3 +81,6 @@ google-credentials.json
 web/runtime-shared/static
 
 etc/android-ndk-*
+
+# ignore server so `go build` doesn't break 'changes not in git' for lint
+server
