@@ -23,6 +23,10 @@ import (
 	pbEnc "go.viam.com/api/component/encoder/v1"
 	pbGan "go.viam.com/api/component/gantry/v1"
 	pbMot "go.viam.com/api/component/motor/v1"
+	pbMov "go.viam.com/api/component/movementsensor/v1"
+	pbPwr "go.viam.com/api/component/powersensor/v1"
+	pbSens "go.viam.com/api/component/sensor/v1"
+	pbServ "go.viam.com/api/component/servo/v1"
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/encoder"
@@ -364,38 +368,88 @@ func TestCollector(t *testing.T) {
 	}{
 		{
 			name:                        "arm end position capture should match format",
-			config:                      basePath + "arm_endposition_collector.json",
+			config:                      basePath + "arm/endposition_collector.json",
 			expectedCollectedDataFormat: getKeys(toProto(pbArm.GetEndPositionResponse{}).AsMap()),
 		},
 		{
 			name:                        "arm joint position capture should match format",
-			config:                      basePath + "arm_jointposition_collector.json",
+			config:                      basePath + "arm/jointposition_collector.json",
 			expectedCollectedDataFormat: getKeys(toProto(pbArm.GetJointPositionsResponse{}).AsMap()),
 		},
 		{
 			name:                        "encoder tick count capture should match format",
-			config:                      basePath + "encoder_tickcount_collector.json",
+			config:                      basePath + "encoder/tickcount_collector.json",
 			expectedCollectedDataFormat: getKeys(toProto(pbEnc.GetPositionResponse{}).AsMap()),
 		},
 		{
 			name:                        "gantry position capture should match format",
-			config:                      basePath + "gantry_position_collector.json",
+			config:                      basePath + "gantry/position_collector.json",
 			expectedCollectedDataFormat: getKeys(toProto(pbGan.GetPositionResponse{}).AsMap()),
 		},
 		{
 			name:                        "gantry lengths capture should match format",
-			config:                      basePath + "gantry_lengths_collector.json",
+			config:                      basePath + "gantry/lengths_collector.json",
 			expectedCollectedDataFormat: getKeys(toProto(pbGan.GetLengthsResponse{}).AsMap()),
 		},
 		{
 			name:                        "motor isPowered capture should match format",
-			config:                      basePath + "motor_ispowered_collector.json",
+			config:                      basePath + "motor/ispowered_collector.json",
 			expectedCollectedDataFormat: getKeys(toProto(pbMot.IsPoweredResponse{}).AsMap()),
 		},
 		{
 			name:                        "motor position capture should match format",
-			config:                      basePath + "motor_position_collector.json",
+			config:                      basePath + "motor/position_collector.json",
 			expectedCollectedDataFormat: getKeys(toProto(pbMot.GetPositionResponse{}).AsMap()),
+		},
+		{
+			name:                        "movement sensor angular velocity capture should match format",
+			config:                      basePath + "movement_sensor/angular_velocity_collector.json",
+			expectedCollectedDataFormat: getKeys(toProto(pbMov.GetAngularVelocityResponse{}).AsMap()),
+		},
+		{
+			name:                        "movement sensor compass heading capture should match format",
+			config:                      basePath + "movement_sensor/compass_heading_collector.json",
+			expectedCollectedDataFormat: getKeys(toProto(pbMov.GetCompassHeadingResponse{}).AsMap()),
+		},
+		{
+			name:                        "movement sensor linear acceleration capture should match format",
+			config:                      basePath + "movement_sensor/linear_acceleration_collector.json",
+			expectedCollectedDataFormat: getKeys(toProto(pbMov.GetLinearAccelerationResponse{}).AsMap()),
+		},
+		{
+			name:                        "movement sensor linear velocity capture should match format",
+			config:                      basePath + "movement_sensor/linear_velocity_collector.json",
+			expectedCollectedDataFormat: getKeys(toProto(pbMov.GetLinearVelocityResponse{}).AsMap()),
+		},
+		{
+			name:                        "movement sensor orientation capture should match format",
+			config:                      basePath + "movement_sensor/orientation_collector.json",
+			expectedCollectedDataFormat: getKeys(toProto(pbMov.GetOrientationResponse{}).AsMap()),
+		},
+		{
+			name:                        "movement sensor position capture should match format",
+			config:                      basePath + "movement_sensor/position_collector.json",
+			expectedCollectedDataFormat: getKeys(toProto(pbMov.GetPositionResponse{}).AsMap()),
+		},
+		{
+			name:                        "power sensor current capture should match format",
+			config:                      basePath + "power_sensor/current_collector.json",
+			expectedCollectedDataFormat: getKeys(toProto(pbPwr.GetCurrentResponse{}).AsMap()),
+		},
+		{
+			name:                        "power sensor power capture should match format",
+			config:                      basePath + "power_sensor/power_collector.json",
+			expectedCollectedDataFormat: getKeys(toProto(pbPwr.GetPowerResponse{}).AsMap()),
+		},
+		{
+			name:                        "sensor reading capture should match format",
+			config:                      basePath + "sensor/readings_collector.json",
+			expectedCollectedDataFormat: getKeys(toProto(pbSens.GetReadingsResponse{}).AsMap()),
+		},
+		{
+			name:                        "servo position capture should match format",
+			config:                      basePath + "servo/position_collector.json",
+			expectedCollectedDataFormat: getKeys(toProto(pbServ.GetPositionResponse{}).AsMap()),
 		},
 	}
 	for _, tc := range tests {

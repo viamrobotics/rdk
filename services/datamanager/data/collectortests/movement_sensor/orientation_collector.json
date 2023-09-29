@@ -5,9 +5,9 @@
     },
     "components": [
         {
-            "name": "gan",
+            "name": "mov",
             "model": "fake",
-            "type": "gantry",
+            "type": "movement_sensor",
             "namespace": "rdk",
             "attributes": {},
             "depends_on": [],
@@ -17,9 +17,9 @@
                     "attributes": {
                         "capture_methods": [
                             {
-                                "method": "Lengths",
+                                "method": "Orientation",
                                 "additional_params": {},
-                                "capture_frequency_hz": 100
+                                "capture_frequency_hz": 50
                             }
                         ]
                     }

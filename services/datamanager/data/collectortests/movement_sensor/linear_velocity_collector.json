@@ -1,0 +1,43 @@
+{
+    "network": {
+        "fqdn": "something-unique",
+        "bind_address": ":8080"
+    },
+    "components": [
+        {
+            "name": "mov",
+            "model": "fake",
+            "type": "movement_sensor",
+            "namespace": "rdk",
+            "attributes": {},
+            "depends_on": [],
+            "service_configs": [
+                {
+                    "type": "data_manager",
+                    "attributes": {
+                        "capture_methods": [
+                            {
+                                "method": "LinearVelocity",
+                                "additional_params": {},
+                                "capture_frequency_hz": 50
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    ],
+    "services": [
+        {
+            "name": "data_manager1",
+            "type": "data_manager",
+            "model": "builtin",
+            "attributes": {
+                "sync_disabled": false,
+                "sync_interval_mins": 0,
+                "capture_dir": "/tmp/capture",
+                "capture_disabled": false
+            }
+        }
+    ]
+}

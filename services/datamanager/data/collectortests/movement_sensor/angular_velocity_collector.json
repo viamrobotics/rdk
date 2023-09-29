@@ -5,17 +5,11 @@
     },
     "components": [
         {
-            "name": "mot",
+            "name": "mov",
             "model": "fake",
-            "type": "motor",
+            "type": "movement_sensor",
             "namespace": "rdk",
-            "attributes": {
-                "pins": {
-                    "dir": "",
-                    "pwm": ""
-                },
-                "board": "board"
-            },
+            "attributes": {},
             "depends_on": [],
             "service_configs": [
                 {
@@ -23,29 +17,11 @@
                     "attributes": {
                         "capture_methods": [
                             {
-                                "method": "Position",
+                                "method": "AngularVelocity",
                                 "additional_params": {},
-                                "capture_frequency_hz": 100
+                                "capture_frequency_hz": 50
                             }
                         ]
-                    }
-                }
-            ]
-        },
-        {
-            "name": "board",
-            "model": "fake",
-            "type": "board",
-            "namespace": "rdk",
-            "attributes": {
-                "fail_new": false
-            },
-            "depends_on": [],
-            "service_configs": [
-                {
-                    "type": "data_manager",
-                    "attributes": {
-                        "capture_methods": []
                     }
                 }
             ]

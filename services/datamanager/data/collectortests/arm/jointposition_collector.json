@@ -16,7 +16,7 @@
                             {
                                 "method": "JointPositions",
                                 "additional_params": {},
-                                "capture_frequency_hz": 100
+                                "capture_frequency_hz": 50
                             }
                         ]
                     }

@@ -5,21 +5,17 @@
     },
     "components": [
         {
-            "name": "gan",
+            "name": "arm1",
+            "type": "arm",
             "model": "fake",
-            "type": "gantry",
-            "namespace": "rdk",
-            "attributes": {},
-            "depends_on": [],
             "service_configs": [
                 {
                     "type": "data_manager",
                     "attributes": {
                         "capture_methods": [
                             {
-                                "method": "Position",
-                                "additional_params": {},
-                                "capture_frequency_hz": 100
+                                "method": "EndPosition",
+                                "capture_frequency_hz": 50
                             }
                         ]
                     }

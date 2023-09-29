@@ -5,9 +5,9 @@
     },
     "components": [
         {
-            "name": "fakeenc",
+            "name": "pwr",
             "model": "fake",
-            "type": "encoder",
+            "type": "power_sensor",
             "namespace": "rdk",
             "attributes": {},
             "depends_on": [],
@@ -17,7 +17,7 @@
                     "attributes": {
                         "capture_methods": [
                             {
-                                "method": "TicksCount",
+                                "method": "Voltage",
                                 "additional_params": {},
                                 "capture_frequency_hz": 100
                             }
