@@ -28,13 +28,13 @@ type GraphNode struct {
 	markedForRemoval          bool
 	unresolvedDependencies    []string
 	needsDependencyResolution bool
-	timesReconfigured		  uint8
+	timesReconfigured         uint8
 }
 
 var (
-	MAX_RECONFIG_ATTEMPTS uint8 = 5
-	errNotInitalized  = errors.New("resource not initialized yet")
-	errPendingRemoval = errors.New("resource is pending removal")
+	maxReconfigAttempts uint8 = 5
+	errNotInitalized          = errors.New("resource not initialized yet")
+	errPendingRemoval         = errors.New("resource is pending removal")
 )
 
 // NewUninitializedNode returns a node that is brand new and not yet initialized.
@@ -192,11 +192,11 @@ func (w *GraphNode) NeedsReconfigure() bool {
 }
 
 // CanTryReconfigure returns whether or not we can reconfigure based on how
-// many previous attempts were made
+// many previous attempts were made.
 func (w *GraphNode) CanTryReconfigure() bool {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
-	return w.timesReconfigured < MAX_RECONFIG_ATTEMPTS
+	return w.timesReconfigured < maxReconfigAttempts
 }
 
 // hasUnresolvedDependencies returns whether or not this node has any
@@ -262,12 +262,15 @@ func (w *GraphNode) setDependenciesResolved() {
 	w.needsDependencyResolution = false
 }
 
+// IncrementTimesReconfigured increments the number of times the resource has been
+// reconfigured by 1.
 func (w *GraphNode) IncrementTimesReconfigured() {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	w.timesReconfigured += 1
+	w.timesReconfigured++
 }
 
+// ResetTimesReconfigured resets the number of times the resource has been reconfigured.
 func (w *GraphNode) ResetTimesReconfigured() {
 	w.mu.Lock()
 	defer w.mu.Unlock()
