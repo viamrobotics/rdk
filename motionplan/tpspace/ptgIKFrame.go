@@ -7,6 +7,7 @@ import (
 	pb "go.viam.com/api/component/arm/v1"
 
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // ptgFrame wraps a tpspace.PTG so that it fills the Frame interface and can be used by IK.
@@ -17,13 +18,17 @@ type ptgIKFrame struct {
 
 // NewPTGIKFrame will create a new frame intended to be passed to an Inverse Kinematics solver, allowing IK to solve for parameters
 // for the passed in PTG.
-func newPTGIKFrame(ptg PTG, dist float64) referenceframe.Frame {
+func newPTGIKFrame(ptg PTG, trajCount int, dist float64) referenceframe.Frame {
 	pf := &ptgIKFrame{PTG: ptg}
 
-	pf.limits = []referenceframe.Limit{
-		{Min: -math.Pi, Max: math.Pi},
-		{Min: 0, Max: dist},
+	limits := []referenceframe.Limit{}
+	for i := 0; i < trajCount; i++ {
+		limits = append(limits,
+			referenceframe.Limit{Min: -math.Pi, Max: math.Pi},
+			referenceframe.Limit{Min: 0, Max: dist},
+		)
 	}
+	pf.limits = limits
 	return pf
 }
 
@@ -57,4 +62,20 @@ func (pf *ptgIKFrame) ProtobufFromInput(input []referenceframe.Input) *pb.JointP
 
 func (pf *ptgIKFrame) Geometries(inputs []referenceframe.Input) (*referenceframe.GeometriesInFrame, error) {
 	return nil, errors.New("geometries not implemented for ptg IK frame")
+}
+
+func (pf *ptgIKFrame) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {
+	if len(inputs) != len(pf.DoF()) && len(inputs) != 2 {
+		// We also want to always support 2 inputs
+		return nil, referenceframe.NewIncorrectInputLengthError(len(inputs), len(pf.DoF()))
+	}
+	p1 := spatialmath.NewZeroPose()
+	for i := 0; i < len(inputs); i += 2 {
+		p2, err := pf.PTG.Transform(inputs[i : i+2])
+		if err != nil {
+			return nil, err
+		}
+		p1 = spatialmath.Compose(p1, p2)
+	}
+	return p1, nil
 }

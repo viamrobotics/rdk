@@ -38,6 +38,7 @@ func TestPtgRrtBidirectional(t *testing.T) {
 		0,
 		testTurnRad,
 		0,
+		0,
 		geometries,
 		false,
 	)
@@ -116,6 +117,7 @@ func TestPtgRrtUnidirectional(t *testing.T) {
 		0,
 		testTurnRad,
 		0,
+		0,
 		geometries,
 		false,
 	)
@@ -192,6 +194,7 @@ func TestPtgWithObstacle(t *testing.T) {
 		0,
 		testTurnRad,
 		0,
+		0,
 		geometries,
 		false,
 	)
@@ -216,8 +219,12 @@ func TestPtgWithObstacle(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	obstacle4, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{2500, 2400, 0}), r3.Vector{50000, 30, 1}, "")
 	test.That(t, err, test.ShouldBeNil)
+	obstacle5, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{-2500, 0, 0}), r3.Vector{50, 5000, 1}, "")
+	test.That(t, err, test.ShouldBeNil)
+	obstacle6, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{8500, 0, 0}), r3.Vector{50, 5000, 1}, "")
+	test.That(t, err, test.ShouldBeNil)
 
-	geoms := []spatialmath.Geometry{obstacle1, obstacle2, obstacle3, obstacle4}
+	geoms := []spatialmath.Geometry{obstacle1, obstacle2, obstacle3, obstacle4, obstacle5, obstacle6}
 
 	worldState, err := referenceframe.NewWorldState(
 		[]*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)},
@@ -311,6 +318,7 @@ func TestTPsmoothing(t *testing.T) {
 		0,
 		testTurnRad,
 		0,
+		0,
 		geometries,
 		false,
 	)
@@ -352,8 +360,17 @@ func TestTPsmoothing(t *testing.T) {
 	plan, err = rectifyTPspacePath(plan, tp.frame, spatialmath.NewZeroPose())
 	test.That(t, err, test.ShouldBeNil)
 
-	plan = tp.smoothPath(ctx, plan)
-	test.That(t, plan, test.ShouldNotBeNil)
+	newplan := tp.smoothPath(ctx, plan)
+	test.That(t, newplan, test.ShouldNotBeNil)
+	oldcost := 0.
+	smoothcost := 0.
+	for _, planNode := range plan {
+		oldcost += planNode.Cost()
+	}
+	for _, planNode := range newplan {
+		smoothcost += planNode.Cost()
+	}
+	test.That(t, smoothcost, test.ShouldBeLessThan, oldcost)
 }
 
 func TestPtgCheckPlan(t *testing.T) {
@@ -367,6 +384,7 @@ func TestPtgCheckPlan(t *testing.T) {
 		300.,
 		0,
 		testTurnRad,
+		0,
 		0,
 		geometries,
 		false,
@@ -446,7 +464,7 @@ func TestPtgCheckPlan(t *testing.T) {
 
 	t.Run("obstacles NOT in world frame - no collision - integration test", func(t *testing.T) {
 		obstacle, err := spatialmath.NewBox(
-			spatialmath.NewPoseFromPoint(r3.Vector{2500, -40, 0}),
+			spatialmath.NewPoseFromPoint(r3.Vector{25000, -40, 0}),
 			r3.Vector{10, 10, 1}, "obstacle",
 		)
 		test.That(t, err, test.ShouldBeNil)
