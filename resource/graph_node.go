@@ -28,9 +28,11 @@ type GraphNode struct {
 	markedForRemoval          bool
 	unresolvedDependencies    []string
 	needsDependencyResolution bool
+	timesReconfigured		  uint8
 }
 
 var (
+	MAX_RECONFIG_ATTEMPTS uint8 = 5
 	errNotInitalized  = errors.New("resource not initialized yet")
 	errPendingRemoval = errors.New("resource is pending removal")
 )
@@ -189,6 +191,14 @@ func (w *GraphNode) NeedsReconfigure() bool {
 	return !w.markedForRemoval && w.needsReconfigure
 }
 
+// CanTryReconfigure returns whether or not we can reconfigure based on how
+// many previous attempts were made
+func (w *GraphNode) CanTryReconfigure() bool {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	return w.timesReconfigured < MAX_RECONFIG_ATTEMPTS
+}
+
 // hasUnresolvedDependencies returns whether or not this node has any
 // dependencies to be resolved (even if they are empty).
 func (w *GraphNode) hasUnresolvedDependencies() bool {
@@ -250,6 +260,18 @@ func (w *GraphNode) setDependenciesResolved() {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.needsDependencyResolution = false
+}
+
+func (w *GraphNode) IncrementTimesReconfigured() {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.timesReconfigured += 1
+}
+
+func (w *GraphNode) ResetTimesReconfigured() {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.timesReconfigured = 0
 }
 
 // UnresolvedDependencies returns the set of names that are yet to be resolved as

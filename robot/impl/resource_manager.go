@@ -472,6 +472,12 @@ func (manager *resourceManager) completeConfig(
 		if !ok || !gNode.NeedsReconfigure() {
 			continue
 		}
+		if !gNode.CanTryReconfigure() {
+			manager.logger.Errorw("reached max reconfigure attempts for resource", "resName", resName)
+			gNode.SetLastError(errors.Errorf("%s has hit max reconfigure attempts", resName))
+			continue
+		}
+		gNode.IncrementTimesReconfigured()
 		var verb string
 		if gNode.IsUninitialized() {
 			verb = "configuring"
@@ -512,6 +518,7 @@ func (manager *resourceManager) completeConfig(
 				// is detected.
 				select {
 				case <-robot.closeContext.Done():
+					gNode.ResetTimesReconfigured()
 					return
 				case robot.triggerConfig <- struct{}{}:
 				}
@@ -545,6 +552,12 @@ func (manager *resourceManager) completeConfig(
 			if !ok || !gNode.NeedsReconfigure() {
 				return
 			}
+			if !gNode.CanTryReconfigure() {
+				manager.logger.Errorw("Reconfiguration error: reached max reconfigure attempts for", "resName", resName)
+				gNode.SetLastError(errors.Errorf("%s has hit max reconfigure attempts", resName))
+				return
+			}
+			gNode.IncrementTimesReconfigured()
 			if !(resName.API.IsComponent() || resName.API.IsService()) {
 				return
 			}
@@ -594,6 +607,7 @@ func (manager *resourceManager) completeConfig(
 				if errors.Is(ctxWithTimeout.Err(), context.DeadlineExceeded) {
 					manager.logger.Errorw("error building resource", "resource", conf.ResourceName(), "model", conf.Model, "error", ctxWithTimeout.Err())
 				} else {
+					gNode.ResetTimesReconfigured()
 					gNode.SwapResource(newRes, conf.Model)
 				}
 			default:
