@@ -3709,7 +3709,11 @@ func TestResourceConstructCtxCancel(t *testing.T) {
 	modelName1 := utils.RandomAlphaString(5)
 	model1 := resource.DefaultModelFamily.WithModel(modelName1)
 
-	ctxWithCancel, cancel := context.WithCancel(context.Background())
+	type cancelFunc struct {
+		c context.CancelFunc
+	}
+	var cFunc cancelFunc
+
 	resource.RegisterComponent(mockAPI, model1, resource.Registration[resource.Resource, resource.NoNativeConfig]{
 		Constructor: func(
 			ctx context.Context,
@@ -3720,7 +3724,7 @@ func TestResourceConstructCtxCancel(t *testing.T) {
 			contructCount++
 			wg.Add(1)
 			defer wg.Done()
-			cancel()
+			cFunc.c()
 			<-ctx.Done()
 			return &mockFake{Named: conf.ResourceName().AsNamed()}, nil
 		},
@@ -3743,13 +3747,32 @@ func TestResourceConstructCtxCancel(t *testing.T) {
 			},
 		},
 	}
+	t.Run("new", func(t *testing.T) {
+		contructCount = 0
+		ctxWithCancel, cancel := context.WithCancel(context.Background())
+		cFunc.c = cancel
+		r, err := New(ctxWithCancel, cfg, logger)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 
-	r, err := New(ctxWithCancel, cfg, logger)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+		wg.Wait()
+		test.That(t, contructCount, test.ShouldEqual, 1)
+	})
+	t.Run("reconfigure", func(t *testing.T) {
+		contructCount = 0
+		r, err := New(context.Background(), &config.Config{}, logger)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, contructCount, test.ShouldEqual, 0)
 
-	wg.Wait()
-	test.That(t, contructCount, test.ShouldEqual, 1)
+		ctxWithCancel, cancel := context.WithCancel(context.Background())
+		cFunc.c = cancel
+		r.Reconfigure(ctxWithCancel, cfg)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+
+		wg.Wait()
+		test.That(t, contructCount, test.ShouldEqual, 1)
+	})
 }
 
 type mockFake struct {
