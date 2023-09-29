@@ -76,8 +76,10 @@ import (
 
 const arm1String = "arm1"
 
-var resources = []resource.Name{arm.Named(arm1String)}
-var pos = spatialmath.NewPoseFromPoint(r3.Vector{X: 1, Y: 2, Z: 3})
+var (
+	resources = []resource.Name{arm.Named(arm1String)}
+	pos       = spatialmath.NewPoseFromPoint(r3.Vector{X: 1, Y: 2, Z: 3})
+)
 
 func setupRobotCtx(t *testing.T) (context.Context, robot.Robot) {
 	t.Helper()
