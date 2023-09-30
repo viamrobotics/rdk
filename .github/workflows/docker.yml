@@ -20,18 +20,14 @@ jobs:
       matrix:
         include:
         - arch: ubuntu-latest
-          env:
-            PLATFORM: linux/amd64
-          make_target: 'canon-cache-amd64-ci'
+          tag: amd64-beta-81a6398
+          platform: linux/amd64
         - arch: buildjet-2vcpu-ubuntu-2204-arm
-          env:
-            PLATFORM: linux/arm64
-          make_target: 'canon-cache-arm64-ci'
+          tag: arm64-beta-81a6398
+          platform: linux/arm64
         - arch: buildjet-2vcpu-ubuntu-2204-arm
-          env:
-            PLATFORM: linux/arm/v7
-            ARM_TAG: armhf-beta-81a6398
-          make_target: 'canon-cache-arm64-ci'
+          tag: armhf-beta-81a6398
+          platform: linux/arm/v7
     runs-on: ${{ matrix.arch }}
     timeout-minutes: 30
     steps:
@@ -44,11 +40,19 @@ jobs:
     - uses: docker/setup-buildx-action@v2
     - name: Check out code
       uses: actions/checkout@v3
-    - name: Build and Push
-      env: ${{ matrix.env }}
-      run: |
-        echo platform $PLATFORM arm_tag $ARM_TAG
-        make ${{ matrix.make_target}}
+    - uses: docker/build-push-action@v5
+      with:
+        # push: true
+        pull: true
+        tags: 'ghcr.io/viamrobotics/rdk-devenv:${{ matrix.tag }}-cache'
+        platform: ${{ matrix.platform }}
+        build-args: MAIN_TAG=ghcr.io/viamrobotics/rdk-devenv,BASE_TAG=${{ matrix.tag }}
+        file: etc/Dockerfile.cache
+    # - name: Build and Push
+    #   env: ${{ matrix.env }}
+    #   run: |
+    #     echo platform $PLATFORM arm_tag $ARM_TAG
+    #     make ${{ matrix.make_target}}
 
   # test:
   #   needs: canon-cache

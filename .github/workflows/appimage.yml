@@ -113,9 +113,9 @@ jobs:
       options: --platform linux/arm/v7
     steps:
     - uses: actions/checkout@v4
-      with:
-        # todo: github.ref may be right even in target case
-        ref: ${{ github.event == 'pull_request_target' ? github.event.pull_request.head.sha : github.ref }}
+      # with:
+      #   # todo: github.ref may be right even in target case
+      #   ref: ${{ github.event == 'pull_request_target' ? github.event.pull_request.head.sha : github.ref }}
     - name: inspect
       run: echo head-sha ${{ github.event.pull_request.head.sha }} ref ${{ github.ref }}
     - name: build
