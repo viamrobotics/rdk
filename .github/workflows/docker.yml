@@ -19,15 +19,38 @@ jobs:
     strategy:
       matrix:
         include:
+        # rdk-devenv
         - arch: ubuntu-latest
           tag: amd64-beta-81a6398
           platform: linux/amd64
+          image: rdk-devenv
+          file: etc/Dockerfile.cache
         - arch: buildjet-2vcpu-ubuntu-2204-arm
           tag: arm64-beta-81a6398
           platform: linux/arm64
+          image: rdk-devenv
+          file: etc/Dockerfile.cache
         - arch: buildjet-2vcpu-ubuntu-2204-arm
           tag: armhf-beta-81a6398
           platform: linux/arm/v7
+          image: rdk-devenv
+          file: etc/Dockerfile.cache
+        # antique
+        - arch: ubuntu-latest
+          platform: linux/amd64
+          image: antique
+          file: etc/Dockerfile.antique-cache
+          tag: amd64-beta-30cf9f0
+        - arch: buildjet-2vcpu-ubuntu-2204-arm
+          platform: linux/arm64
+          image: antique
+          file: etc/Dockerfile.antique-cache
+          tag: arm64-beta-81a6398
+        - arch: buildjet-2vcpu-ubuntu-2204-arm
+          platform: linux/arm/v7
+          image: antique
+          file: etc/Dockerfile.antique-cache
+          tag: armhf-beta-81a6398
     runs-on: ${{ matrix.arch }}
     timeout-minutes: 30
     steps:
@@ -42,57 +65,17 @@ jobs:
       uses: actions/checkout@v3
     - uses: docker/build-push-action@v5
       with:
-        # push: true
+        push: true
         pull: true
-        tags: 'ghcr.io/viamrobotics/rdk-devenv:${{ matrix.tag }}-cache'
+        tags: 'ghcr.io/viamrobotics/${{ matrix.image }}:${{ matrix.tag }}-cache'
         platforms: ${{ matrix.platform }}
         build-args: |
-          MAIN_TAG=ghcr.io/viamrobotics/rdk-devenv
+          MAIN_TAG=ghcr.io/viamrobotics/${{ matrix.image }}
           BASE_TAG=${{ matrix.tag }}
-        file: etc/Dockerfile.cache
-    # - name: Build and Push
-    #   env: ${{ matrix.env }}
-    #   run: |
-    #     echo platform $PLATFORM arm_tag $ARM_TAG
-    #     make ${{ matrix.make_target}}
+        file: ${{ matrix.file }}
 
   # test:
   #   needs: canon-cache
   #   uses: viamrobotics/rdk/.github/workflows/test.yml@main
   #   secrets:
   #     MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
-
-  antique-cache:
-    name: Build Antique Cache Docker Images
-    strategy:
-      matrix:
-        include:
-        - arch: [ubuntu-latest]
-          env:
-            PLATFORM: linux/amd64
-          make_target: 'antique-cache-amd64-ci'
-        - arch: [buildjet-2vcpu-ubuntu-2204-arm]
-          env:
-            PLATFORM: linux/arm64
-          make_target: 'antique-cache-arm64-ci'
-        - arch: [buildjet-2vcpu-ubuntu-2204-arm]
-          env:
-            PLATFORM: linux/arm/v7
-            ARM_TAG: armhf-beta-81a6398
-          make_target: 'antique-cache-arm64-ci'
-    runs-on: ${{ matrix.arch }}
-    timeout-minutes: 30
-    steps:
-    - name: Login to GitHub Container Registry
-      uses: docker/login-action@v2
-      with:
-        registry: ghcr.io
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-    - name: Check out code
-      uses: actions/checkout@v3
-    - uses: docker/setup-buildx-action@v2
-    - name: Build and Push
-      env: ${{ matrix.env }}
-      run: |
-        make ${{ matrix.make_target}}
