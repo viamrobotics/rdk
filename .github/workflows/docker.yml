@@ -45,8 +45,8 @@ jobs:
         # push: true
         pull: true
         tags: 'ghcr.io/viamrobotics/rdk-devenv:${{ matrix.tag }}-cache'
-        platform: ${{ matrix.platform }}
-        build-args: MAIN_TAG=ghcr.io/viamrobotics/rdk-devenv,BASE_TAG=${{ matrix.tag }}
+        platforms: ${{ matrix.platform }}
+        build-args: MAIN_TAG=ghcr.io/viamrobotics/rdk-devenv BASE_TAG=${{ matrix.tag }}
         file: etc/Dockerfile.cache
     # - name: Build and Push
     #   env: ${{ matrix.env }}
