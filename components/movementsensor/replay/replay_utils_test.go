@@ -270,74 +270,75 @@ func createDataByMovementSensorMethod(method method, index int) *structpb.Struct
 	return &data
 }
 
-// testReplayMovementSensorMethod tests the specified replay movement sensor function, both success and failure cases.
-func testReplayMovementSensorMethod(ctx context.Context, t *testing.T, replay movementsensor.MovementSensor, method method,
-	i int, expectedErr error,
+func testReplayMovementSensorMethodData(ctx context.Context, t *testing.T, replay movementsensor.MovementSensor, method Method,
+	index int) {
+	var extra map[string]interface{}
+	switch method {
+	case position:
+		point, altitude, err := replay.Position(ctx, extra)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, point, test.ShouldResemble, positionPointData[index])
+		test.That(t, altitude, test.ShouldResemble, positionAltitudeData[index])
+	case linearVelocity:
+		data, err := replay.LinearVelocity(ctx, extra)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, data, test.ShouldResemble, linearVelocityData[index])
+	case angularVelocity:
+		data, err := replay.AngularVelocity(ctx, extra)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, data, test.ShouldResemble, angularVelocityData[index])
+	case linearAcceleration:
+		data, err := replay.LinearAcceleration(ctx, extra)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, data, test.ShouldResemble, linearAccelerationData[index])
+	case compassHeading:
+		data, err := replay.CompassHeading(ctx, extra)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, data, test.ShouldEqual, compassHeadingData[index])
+	case orientation:
+		data, err := replay.Orientation(ctx, extra)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, data, test.ShouldResemble, orientationData[index])
+	}
+
+}
+
+func testReplayMovementSensorMethodError(ctx context.Context, t *testing.T, replay movementsensor.MovementSensor, method Method,
+	expectedErr error,
 ) {
 	var extra map[string]interface{}
 	switch method {
 	case position:
 		point, altitude, err := replay.Position(ctx, extra)
-		if expectedErr == nil {
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, point, test.ShouldResemble, positionPointData[i])
-			test.That(t, altitude, test.ShouldResemble, positionAltitudeData[i])
-		} else {
-			test.That(t, err, test.ShouldNotBeNil)
-			test.That(t, err.Error(), test.ShouldContainSubstring, expectedErr.Error())
-			test.That(t, point, test.ShouldBeNil)
-			test.That(t, altitude, test.ShouldEqual, 0)
-		}
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, expectedErr.Error())
+		test.That(t, point, test.ShouldBeNil)
+		test.That(t, altitude, test.ShouldEqual, 0)
 	case linearVelocity:
 		data, err := replay.LinearVelocity(ctx, extra)
-		if expectedErr == nil {
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, data, test.ShouldResemble, linearVelocityData[i])
-		} else {
-			test.That(t, err, test.ShouldNotBeNil)
-			test.That(t, err.Error(), test.ShouldContainSubstring, expectedErr.Error())
-			test.That(t, data, test.ShouldResemble, r3.Vector{})
-		}
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, expectedErr.Error())
+		test.That(t, data, test.ShouldResemble, r3.Vector{})
 	case angularVelocity:
 		data, err := replay.AngularVelocity(ctx, extra)
-		if expectedErr == nil {
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, data, test.ShouldResemble, angularVelocityData[i])
-		} else {
-			test.That(t, err, test.ShouldNotBeNil)
-			test.That(t, err.Error(), test.ShouldContainSubstring, expectedErr.Error())
-			test.That(t, data, test.ShouldResemble, spatialmath.AngularVelocity{})
-		}
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, expectedErr.Error())
+		test.That(t, data, test.ShouldResemble, spatialmath.AngularVelocity{})
 	case linearAcceleration:
 		data, err := replay.LinearAcceleration(ctx, extra)
-		if success {
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, data, test.ShouldResemble, linearAccelerationData[i])
-		} else {
-			test.That(t, err, test.ShouldNotBeNil)
-			test.That(t, err.Error(), test.ShouldContainSubstring, ErrEndOfDataset.Error())
-			test.That(t, data, test.ShouldResemble, r3.Vector{})
-		}
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, expectedErr.Error())
+		test.That(t, data, test.ShouldResemble, r3.Vector{})
 	case compassHeading:
 		data, err := replay.CompassHeading(ctx, extra)
-		if expectedErr == nil {
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, data, test.ShouldEqual, compassHeadingData[i])
-		} else {
-			test.That(t, err, test.ShouldNotBeNil)
-			test.That(t, err.Error(), test.ShouldContainSubstring, expectedErr.Error())
-			test.That(t, data, test.ShouldEqual, 0)
-		}
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, expectedErr.Error())
+		test.That(t, data, test.ShouldEqual, 0)
 	case orientation:
 		data, err := replay.Orientation(ctx, extra)
-		if expectedErr == nil {
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, data, test.ShouldResemble, orientationData[i])
-		} else {
-			test.That(t, err, test.ShouldNotBeNil)
-			test.That(t, err.Error(), test.ShouldContainSubstring, expectedErr.Error())
-			test.That(t, data, test.ShouldBeNil)
-		}
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, expectedErr.Error())
+		test.That(t, data, test.ShouldBeNil)
 	}
 }
