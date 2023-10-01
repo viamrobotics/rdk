@@ -129,7 +129,8 @@ jobs:
     - uses: actions/upload-artifact@v3
       with:
         name: appimage-static-32bit
-        path: bin/*/viam-server
+        path: bin/
+        glob: '*viam-server*'
 
   # note: we're installing appimage-builder outside the 32-bit docker image because it is hard to run in 32-bit env
   appimage-32bit:
@@ -142,7 +143,10 @@ jobs:
     - uses: actions/download-artifact@v3
       with:
         name: appimage-static-32bit
-        path: bin/`uname -s`-armv7l
+    - name: check artifact dir
+      run: |
+        ls
+        find bin
     # note: setup-python doesn't work on arm64
     - uses: actions/setup-python@v4
       with:
