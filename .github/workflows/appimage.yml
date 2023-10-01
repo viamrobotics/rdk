@@ -142,6 +142,7 @@ jobs:
     - uses: actions/download-artifact@v3
       with:
         name: appimage-static-32bit
+        path: bin/`uname -s`-armv7l
     # note: setup-python doesn't work on arm64
     - uses: actions/setup-python@v4
       with:
