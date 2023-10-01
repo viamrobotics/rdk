@@ -118,19 +118,31 @@ jobs:
         registry: ghcr.io
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
-    # note: we run this way instead of using rdk-devenv as the container because of https://github.com/actions/runner/issues/2115 (js-based actions install incomaptible node on 32-bit)
+    # note: we run this way instead of using rdk-devenv as the job's container because of https://github.com/actions/runner/issues/2115 (js-based actions install incomaptible node on 32-bit)
     - name: build
       run: docker run --rm -v $PWD:/rdk ghcr.io/viamrobotics/rdk-devenv:armhf-beta-81a6398-cache sh -c "cd /rdk && make server-static"
     - name: permissions
       run: sudo chown -R $USER bin
-    # this exists because appimage-builder has issues on 32-bit arm
+    - uses: actions/upload-artifact@v3
+      with:
+        name: appimage-static-32bit
+        path: bin/*/viam-server
+
+  # note: we're installing appimage-builder outside the 32-bit docker image because it is hard to run in 32-bit env
+  appimage-32bit:
+    runs-on: ubuntu-latest
+    needs: appimage-static-32bit
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event == 'pull_request_target' && github.event.pull_request.head.sha || github.ref }}
+    # note: setup-python doesn't work on arm64
+    - uses: actions/download-artifact@v3
+      with:
+        name: appimage-static-32bit
     - uses: actions/setup-python@v4
       with:
         python-version: '3.11'
-    # - name: Clean and Fix Permissions
-    #   run: |
-    #     chown testbot:testbot -R .
-    #     sudo -Hu testbot bash -lc 'make clean-all'
     - name: deps
       run: pip install appimage-builder git+https://github.com/AppImageCrafters/appimage-builder.git@42d32f11496de43a9f6a9ada7882a11296e357ca
     - name: build
