@@ -122,7 +122,7 @@ jobs:
     - name: build server
       run: docker run --rm -v $PWD:/rdk ghcr.io/viamrobotics/rdk-devenv:armhf-beta-81a6398-cache sh -c "cd /rdk && make server-static"
     - name: build aix
-      run: docker run --rm -v $PWD:/rdk ghcr.io/viamrobotics/rdk-devenv:armhf-beta-81a6398-cache sh -c "cd /rdk && go install -ldflags \"-s -w\" -tags osusergo,netgo github.com/Otterverse/aix@latest && mv $(go env GOPATH)/bin/aix bin/`uname -s`-`uname -m` && ls $(go env GOPATH)/bin"
+      run: docker run --rm -v $PWD:/rdk ghcr.io/viamrobotics/rdk-devenv:armhf-beta-81a6398-cache sh -c 'cd /rdk && go install -ldflags "-s -w" -tags osusergo,netgo github.com/Otterverse/aix@latest && mv $(go env GOPATH)/bin/aix bin/`uname -s`-`uname -m` && ls $(go env GOPATH)/bin'
     - name: permissions
       run: sudo chown -R $USER bin
     # note: we do this because uname sees the arm64 kernel underneath the armhf container
