@@ -129,8 +129,7 @@ jobs:
     - uses: actions/upload-artifact@v3
       with:
         name: appimage-static-32bit
-        path: .
-        glob: bin/*/viam-server
+        path: bin/*/viam-server
 
   # note: we're installing appimage-builder outside the 32-bit docker image because it is hard to run in 32-bit env
   appimage-32bit:
@@ -143,7 +142,7 @@ jobs:
     - uses: actions/download-artifact@v3
       with:
         name: appimage-static-32bit
-        # path: bin/
+        path: bin/
     - name: check artifact dir
       run: |
         ls
