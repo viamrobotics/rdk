@@ -119,8 +119,10 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
     # note: we run this way instead of using rdk-devenv as the job's container because of https://github.com/actions/runner/issues/2115 (js-based actions install incomaptible node on 32-bit)
-    - name: build
+    - name: build server
       run: docker run --rm -v $PWD:/rdk ghcr.io/viamrobotics/rdk-devenv:armhf-beta-81a6398-cache sh -c "cd /rdk && make server-static"
+    - name: build aix
+      run: docker run --rm -v $PWD:/rdk ghcr.io/viamrobotics/rdk-devenv:armhf-beta-81a6398-cache sh -c "cd /rdk && go install -ldflags "-s -w" -tags osusergo,netgo github.com/Otterverse/aix@latest && mv $(go env GOPATH)/bin/aix bin/`uname -s`-`uname -m`"
     - name: permissions
       run: sudo chown -R $USER bin
     # note: we do this because uname sees the arm64 kernel underneath the armhf container
@@ -129,9 +131,11 @@ jobs:
     - uses: actions/upload-artifact@v3
       with:
         name: appimage-static-32bit
-        path: bin/*/viam-server
+        path: |
+          bin/*/viam-server
+          bin/*/aix
 
-  # note: we're installing appimage-builder outside the 32-bit docker image because it is hard to run in 32-bit env
+  # note: this is a separate job because 1) appimage-builder doesn't work on 32-bit, 2) setup-python doesn't work on arm64
   appimage-32bit:
     runs-on: ubuntu-latest
     needs: appimage-static-32bit
@@ -143,11 +147,6 @@ jobs:
       with:
         name: appimage-static-32bit
         path: bin/
-    - name: check artifact dir
-      run: |
-        ls
-        find bin
-    # note: setup-python doesn't work on arm64
     - uses: actions/setup-python@v4
       with:
         python-version: '3.11'
