@@ -30,10 +30,6 @@ jobs:
             image: ghcr.io/viamrobotics/antique:arm64-beta-81a6398-cache
             platform: linux/arm64
             label: arm64
-          - arch: buildjet-2vcpu-ubuntu-2204-arm
-            image: ghcr.io/viamrobotics/antique:armhf-beta-81a6398-cache
-            platform: linux/arm/v7
-            label: armhf
     runs-on: ${{ matrix.arch }}
     container:
       image: ${{ matrix.image }}

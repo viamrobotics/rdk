@@ -123,6 +123,9 @@ jobs:
       run: docker run --rm -v $PWD:/rdk ghcr.io/viamrobotics/rdk-devenv:armhf-beta-81a6398-cache sh -c "cd /rdk && make server-static"
     - name: permissions
       run: sudo chown -R $USER bin
+    # note: we do this because uname sees the arm64 kernel underneath the armhf container
+    - name: fix platform detection
+      run: mv bin/`uname -s`-`uname -m` bin/`uname -s`-armv7l
     - uses: actions/upload-artifact@v3
       with:
         name: appimage-static-32bit
@@ -136,10 +139,10 @@ jobs:
     - uses: actions/checkout@v4
       with:
         ref: ${{ github.event == 'pull_request_target' && github.event.pull_request.head.sha || github.ref }}
-    # note: setup-python doesn't work on arm64
     - uses: actions/download-artifact@v3
       with:
         name: appimage-static-32bit
+    # note: setup-python doesn't work on arm64
     - uses: actions/setup-python@v4
       with:
         python-version: '3.11'
