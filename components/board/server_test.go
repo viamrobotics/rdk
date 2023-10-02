@@ -623,7 +623,6 @@ func TestServerReadAnalogReader(t *testing.T) {
 	}
 }
 
-//nolint:dupl
 func TestServerWriteAnalog(t *testing.T) {
 	type request = pb.WriteAnalogRequest
 	type response = pb.WriteAnalogResponse
@@ -678,7 +677,7 @@ func TestServerWriteAnalog(t *testing.T) {
 			expRespErr:             "unknown analog writer: analogwriter1",
 		},
 		{
-			name:                   "An error on write should be returned",
+			name:                   "An error on the analog writer write should be returned",
 			injectAnalogWriter:     &inject.AnalogWriter{},
 			injectAnalogWriterOk:   true,
 			injectErr:              errFoo,

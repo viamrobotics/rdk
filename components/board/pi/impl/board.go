@@ -688,6 +688,11 @@ func (pi *piPigpio) AnalogReaderNames() []string {
 	return names
 }
 
+// AnalogReaderNames returns the names of all known analog readers.
+func (pi *piPigpio) AnalogWriterNames() []string {
+	return nil
+}
+
 // DigitalInterruptNames returns the names of all known digital interrupts.
 func (pi *piPigpio) DigitalInterruptNames() []string {
 	pi.mu.Lock()
@@ -705,6 +710,11 @@ func (pi *piPigpio) AnalogReaderByName(name string) (board.AnalogReader, bool) {
 	defer pi.mu.Unlock()
 	a, ok := pi.analogs[name]
 	return a, ok
+}
+
+// AnalogWriterByName returns an analog writer by name.
+func (pi *piPigpio) AnalogWriterByName(name string) (board.AnalogWriter, bool) {
+	return nil, false
 }
 
 // SPIByName returns an SPI bus by name.

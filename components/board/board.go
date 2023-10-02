@@ -148,7 +148,7 @@ type AnalogReader interface {
 	Close(ctx context.Context) error
 }
 
-// AnalogWriter represents an analog writer on a board
+// AnalogWriter represents an analog writer on a board.
 type AnalogWriter interface {
 	// Write writes the value to the analog writer.
 	Write(ctx context.Context, value int32, extra map[string]interface{}) error

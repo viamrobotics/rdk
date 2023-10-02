@@ -164,6 +164,14 @@ func (b *Board) AnalogReaderNames() []string {
 	return b.AnalogReaderNamesFunc()
 }
 
+// AnalogWriterNames calls the injected AnalogWriterNames or the real version.
+func (b *Board) AnalogWriterNames() []string {
+	if b.AnalogWriterNamesFunc == nil {
+		return b.LocalBoard.AnalogWriterNames()
+	}
+	return b.AnalogWriterNamesFunc()
+}
+
 // DigitalInterruptNames calls the injected DigitalInterruptNames or the real version.
 func (b *Board) DigitalInterruptNames() []string {
 	if b.DigitalInterruptNamesFunc == nil {

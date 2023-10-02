@@ -234,7 +234,6 @@ func (b *Board) AnalogReaderByName(name string) (board.AnalogReader, bool) {
 }
 
 // AnalogWriterByName returns the analog writer by the given name if it exists.
-// Unimplemented
 func (b *Board) AnalogWriterByName(name string) (board.AnalogWriter, bool) {
 	return nil, false
 }
@@ -294,7 +293,7 @@ func (b *Board) AnalogReaderNames() []string {
 }
 
 // AnalogWriterNames returns the names of all known analog writers.
-// Unimplemented
+// Unimplemented.
 func (b *Board) AnalogWriterNames() []string {
 	return nil
 }

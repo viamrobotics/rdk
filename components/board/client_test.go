@@ -265,6 +265,9 @@ func TestClientWithStatus(t *testing.T) {
 	respI2Cs := client.I2CNames()
 	test.That(t, respI2Cs, test.ShouldResemble, []string{})
 
+	respAnalogWriters := client.AnalogWriterNames()
+	test.That(t, respAnalogWriters, test.ShouldResemble, []string{})
+
 	err = client.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, conn.Close(), test.ShouldBeNil)
@@ -298,6 +301,7 @@ func TestClientWithoutStatus(t *testing.T) {
 	test.That(t, injectBoard.StatusCap()[1:], test.ShouldResemble, []interface{}{})
 
 	test.That(t, rClient.AnalogReaderNames(), test.ShouldResemble, []string{})
+	test.That(t, rClient.AnalogWriterNames(), test.ShouldResemble, []string{})
 	test.That(t, rClient.DigitalInterruptNames(), test.ShouldResemble, []string{})
 	test.That(t, rClient.SPINames(), test.ShouldResemble, []string{})
 	test.That(t, rClient.I2CNames(), test.ShouldResemble, []string{})
