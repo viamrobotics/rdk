@@ -103,7 +103,7 @@ func TestNavExploreMode(t *testing.T) {
 		},
 		{
 			description: "setting mode to explore",
-			mode:        navigation.ModeManual,
+			mode:        navigation.ModeExplore,
 			expectedErr: errors.New("navigation mode 'explore' is not currently available"),
 		},
 	}

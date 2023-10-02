@@ -273,8 +273,10 @@ func (svc *builtIn) SetMode(ctx context.Context, mode navigation.Mode, extra map
 	}
 	svc.mu.RUnlock()
 
-	// switch modes
+	// stop passed active sessions
 	svc.stopActiveMode()
+
+	// switch modes
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
