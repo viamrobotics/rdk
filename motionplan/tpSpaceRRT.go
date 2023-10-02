@@ -316,7 +316,6 @@ func (mp *tpSpaceRRTMotionPlanner) planRunner(
 						bestPath = goodPath
 					}
 				}
-				fmt.Println("CALLING RECITFY FROM HERE1111")
 				correctedPath, err := rectifyTPspacePath(bestPath, mp.frame, spatialmath.NewZeroPose())
 				if err != nil {
 					rrt.solutionChan <- &rrtPlanReturn{planerr: err, maps: rrt.maps}
@@ -840,7 +839,6 @@ func (mp *tpSpaceRRTMotionPlanner) attemptSmooth(
 	if secondEdge < len(path)-1 {
 		newInputSteps = append(newInputSteps, path[secondEdge+1:]...)
 	}
-	fmt.Println("CALLING RECITFY FROM HERE22222")
 	return rectifyTPspacePath(newInputSteps, mp.frame, spatialmath.NewZeroPose())
 }
 
@@ -869,15 +867,11 @@ func rectifyTPspacePath(path []node, frame referenceframe.Frame, startPose spati
 	correctedPath := []node{}
 	runningPose := startPose
 	for _, wp := range path {
-		fmt.Println("wp.Q(): ", wp.Q())
 		wpPose, err := frame.Transform(wp.Q())
 		if err != nil {
 			return nil, err
 		}
-		fmt.Println("wpPose: ", spatialmath.PoseToProtobuf(wpPose))
 		runningPose = spatialmath.Compose(runningPose, wpPose)
-		fmt.Println("runningPose: ", spatialmath.PoseToProtobuf(runningPose))
-		fmt.Println(" ")
 
 		thisNode := &basicNode{
 			q:      wp.Q(),

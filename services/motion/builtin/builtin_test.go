@@ -2,7 +2,6 @@ package builtin
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"os"
 	"path/filepath"
@@ -13,7 +12,6 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
-
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
@@ -176,7 +174,6 @@ func createMoveOnGlobeEnvironment(ctx context.Context, t *testing.T, origin *geo
 	// create injected MovementSensor
 	dynamicMovementSensor := inject.NewMovementSensor("test-gps")
 	dynamicMovementSensor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
-		fmt.Println("INJECT MS POSITION FUNC")
 		poseInFrame, err := kb.CurrentPosition(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		heading := poseInFrame.Pose().Orientation().OrientationVectorDegrees().Theta

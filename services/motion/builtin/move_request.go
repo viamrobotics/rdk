@@ -103,7 +103,6 @@ func (mr *moveRequest) obstaclesIntersectPlan(ctx context.Context, waypoints [][
 		input[mr.kinematicBase.Name().Name] = inputs
 		plan = append(plan, input)
 	}
-	mr.planRequest.Logger.Info("CALLING OBSTACLES INTERSECT PLAN")
 
 	// iterate through vision services
 	for _, srvc := range mr.visionSvcs {
@@ -121,7 +120,6 @@ func (mr *moveRequest) obstaclesIntersectPlan(ctx context.Context, waypoints [][
 			if err != nil {
 				return false, err
 			}
-			fmt.Println("currentPosition: ", currentPosition.Pose().Point())
 			// get transform of camera to kinematic base origin
 			kinBaseOrigin := referenceframe.NewPoseInFrame(mr.kinematicBase.Name().ShortName(), spatialmath.NewZeroPose())
 			cameraToBase, err := mr.frameSystemService.TransformPose(ctx, kinBaseOrigin, camName.ShortName(), nil)
@@ -137,7 +135,6 @@ func (mr *moveRequest) obstaclesIntersectPlan(ctx context.Context, waypoints [][
 			geoms := []spatialmath.Geometry{}
 			for _, detection := range detections {
 				geometry := detection.Geometry.Transform(transformBy)
-				fmt.Println("DETECTION'S POSE: ", geometry.Pose().Point())
 				geometry.SetLabel("transient" + detection.Geometry.Label())
 				geoms = append(geoms, geometry)
 			}
@@ -160,8 +157,6 @@ func (mr *moveRequest) obstaclesIntersectPlan(ctx context.Context, waypoints [][
 				return false, err
 			}
 
-			mr.planRequest.Logger.Info("CALLING CHECKPLAN")
-
 			if err := motionplan.CheckPlan(
 				mr.kinematicBase.Kinematics(), // frame we wish to check for collisions
 				plan,                          // remainder of plan we wish to check against
@@ -172,11 +167,9 @@ func (mr *moveRequest) obstaclesIntersectPlan(ctx context.Context, waypoints [][
 				errorState, // deviation of robot from plan
 				mr.planRequest.Logger,
 			); err != nil {
-				mr.planRequest.Logger.Info("WE DID IT - RETURNING NON-NIL ERROR - YAYYYY")
 				mr.planRequest.Logger.Info(err.Error())
 				return true, nil
 			}
-			mr.planRequest.Logger.Info("RETURNING NIL ERROR")
 		}
 	}
 	return false, nil
