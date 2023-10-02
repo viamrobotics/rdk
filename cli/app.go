@@ -44,7 +44,6 @@ const (
 	dataFlagDataType                       = "data-type"
 	dataFlagOrgIDs                         = "org-ids"
 	dataFlagLocationIDs                    = "location-ids"
-	dataFlagLocationID                     = "location-id"
 	dataFlagRobotID                        = "robot-id"
 	dataFlagPartID                         = "part-id"
 	dataFlagRobotName                      = "robot-name"
@@ -122,7 +121,7 @@ var app = &cli.App{
 							Usage:    "key to authenticate with",
 						},
 					},
-					Action: LoginAction,
+					Action: LoginWithAPIKeyAction,
 				},
 			},
 		},

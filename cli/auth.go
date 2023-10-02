@@ -381,6 +381,7 @@ func (c *viamClient) locationAPIKeyCreateAction(cCtx *cli.Context) error {
 	infof(cCtx.App.Writer, "Successfully created key: ")
 	printf(cCtx.App.Writer, "Key ID: %s", key.GetId())
 	printf(cCtx.App.Writer, "Key Value: %s", key.GetKey())
+	warningf(cCtx.App.Writer, "Keep this key somewhere safe; it has full write access to your location")
 	return nil
 }
 
@@ -442,6 +443,7 @@ func (c *viamClient) robotAPIKeyCreateAction(cCtx *cli.Context) error {
 	infof(cCtx.App.Writer, "Successfully created key:")
 	printf(cCtx.App.Writer, "Key ID: %s", key.GetId())
 	printf(cCtx.App.Writer, "Key Value: %s", key.GetKey())
+	warningf(cCtx.App.Writer, "Keep this key somewhere safe; it has full write access to your robot")
 
 	return nil
 }

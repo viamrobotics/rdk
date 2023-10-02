@@ -75,7 +75,7 @@ func TestRobotAPIKeyCreateAction(t *testing.T) {
 
 	test.That(t, ac.robotAPIKeyCreateAction(cCtx), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
-	test.That(t, len(out.messages), test.ShouldEqual, 4)
+	test.That(t, len(out.messages), test.ShouldEqual, 6)
 	test.That(t, out.messages[1], test.ShouldContainSubstring, "Successfully created key")
 	test.That(t, out.messages[2], test.ShouldContainSubstring, "Key ID: id-xxx")
 	test.That(t, out.messages[3], test.ShouldContainSubstring, "Key Value: key-yyy")
