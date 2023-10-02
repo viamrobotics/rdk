@@ -98,7 +98,7 @@ var (
 
 	defaultReplayMovementSensorFunction = linearAcceleration
 
-	allMethodsSupported = map[Method]bool{
+	allMethodsSupported = map[method]bool{
 		position:           true,
 		linearAcceleration: true,
 		angularVelocity:    true,
@@ -107,7 +107,7 @@ var (
 		compassHeading:     true,
 	}
 
-	noMethodsSupported = map[Method]bool{
+	noMethodsSupported = map[method]bool{
 		position:           false,
 		linearAcceleration: false,
 		angularVelocity:    false,
@@ -116,7 +116,7 @@ var (
 		compassHeading:     false,
 	}
 
-	allMethodsReportFailedToInitialize = map[Method]error{
+	allMethodsReportFailedToInitialize = map[method]error{
 		linearAcceleration: errPropertiesFailedToInitialize,
 		angularVelocity:    errPropertiesFailedToInitialize,
 		position:           errPropertiesFailedToInitialize,
@@ -215,7 +215,6 @@ func TestReplayMovementSensorFunctions(t *testing.T) {
 		cfg                   *Config
 		startFileNum          map[method]int
 		endFileNum            map[method]int
-		expectedErr           map[method]error
 		propertiesExpectedErr error
 		methodsExpectedErr    map[method]error
 		methodSupported       map[method]bool
@@ -368,22 +367,22 @@ func TestReplayMovementSensorFunctions(t *testing.T) {
 					Start: "2000-01-01T12:00:06Z",
 				},
 			},
-			startFileNum: map[Method]int{
+			startFileNum: map[method]int{
 				angularVelocity: 6,
 				linearVelocity:  6,
 				compassHeading:  6,
 			},
-			endFileNum: map[Method]int{
+			endFileNum: map[method]int{
 				angularVelocity: allMethodsMaxDataLength[angularVelocity],
 				linearVelocity:  allMethodsMaxDataLength[linearVelocity],
 				compassHeading:  allMethodsMaxDataLength[compassHeading],
 			},
-			methodsExpectedErr: map[Method]error{
+			methodsExpectedErr: map[method]error{
 				linearAcceleration: errLinearAccelerationNotSupported,
 				position:           errPositionNotSupported,
 				orientation:        errOrientationNotSupported,
 			},
-			methodSupported: map[Method]bool{
+			methodSupported: map[method]bool{
 				linearAcceleration: false,
 				angularVelocity:    true,
 				position:           false,
@@ -404,21 +403,21 @@ func TestReplayMovementSensorFunctions(t *testing.T) {
 					Start: "2000-01-01T12:00:08Z",
 				},
 			},
-			startFileNum: map[Method]int{
+			startFileNum: map[method]int{
 				linearVelocity: 8,
 				compassHeading: 8,
 			},
-			endFileNum: map[Method]int{
+			endFileNum: map[method]int{
 				linearVelocity: allMethodsMaxDataLength[linearVelocity],
 				compassHeading: allMethodsMaxDataLength[compassHeading],
 			},
-			methodsExpectedErr: map[Method]error{
+			methodsExpectedErr: map[method]error{
 				linearAcceleration: errLinearAccelerationNotSupported,
 				angularVelocity:    errAngularVelocityNotSupported,
 				position:           errPositionNotSupported,
 				orientation:        errOrientationNotSupported,
 			},
-			methodSupported: map[Method]bool{
+			methodSupported: map[method]bool{
 				linearAcceleration: false,
 				angularVelocity:    false,
 				position:           false,
@@ -439,20 +438,20 @@ func TestReplayMovementSensorFunctions(t *testing.T) {
 					Start: "2000-01-01T12:00:10Z",
 				},
 			},
-			startFileNum: map[Method]int{
+			startFileNum: map[method]int{
 				compassHeading: 10,
 			},
-			endFileNum: map[Method]int{
+			endFileNum: map[method]int{
 				compassHeading: allMethodsMaxDataLength[compassHeading],
 			},
-			methodsExpectedErr: map[Method]error{
+			methodsExpectedErr: map[method]error{
 				linearAcceleration: errLinearAccelerationNotSupported,
 				angularVelocity:    errAngularVelocityNotSupported,
 				position:           errPositionNotSupported,
 				linearVelocity:     errLinearVelocityNotSupported,
 				orientation:        errOrientationNotSupported,
 			},
-			methodSupported: map[Method]bool{
+			methodSupported: map[method]bool{
 				linearAcceleration: false,
 				angularVelocity:    false,
 				position:           false,
@@ -475,7 +474,7 @@ func TestReplayMovementSensorFunctions(t *testing.T) {
 			},
 			propertiesExpectedErr: errPropertiesFailedToInitialize,
 			methodsExpectedErr:    allMethodsReportFailedToInitialize,
-			methodSupported: map[Method]bool{
+			methodSupported: map[method]bool{
 				linearAcceleration: false,
 				angularVelocity:    false,
 				position:           false,

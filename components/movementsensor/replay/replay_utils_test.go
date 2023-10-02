@@ -32,7 +32,7 @@ const (
 	testTime = "2000-01-01T12:00:%02dZ"
 )
 
-var errTestCloudConnection = errors.New("cloud connection error")
+var ErrCloudConnection = errors.New("cloud connection error")
 
 // mockDataServiceServer is a struct that includes unimplemented versions of all the Data Service endpoints. These
 // can be overwritten to allow developers to trigger desired behaviors during testing.
@@ -270,8 +270,9 @@ func createDataByMovementSensorMethod(method method, index int) *structpb.Struct
 	return &data
 }
 
-func testReplayMovementSensorMethodData(ctx context.Context, t *testing.T, replay movementsensor.MovementSensor, method Method,
-	index int) {
+func testReplayMovementSensorMethodData(ctx context.Context, t *testing.T, replay movementsensor.MovementSensor, method method,
+	index int,
+) {
 	var extra map[string]interface{}
 	switch method {
 	case position:
@@ -301,10 +302,9 @@ func testReplayMovementSensorMethodData(ctx context.Context, t *testing.T, repla
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, data, test.ShouldResemble, orientationData[index])
 	}
-
 }
 
-func testReplayMovementSensorMethodError(ctx context.Context, t *testing.T, replay movementsensor.MovementSensor, method Method,
+func testReplayMovementSensorMethodError(ctx context.Context, t *testing.T, replay movementsensor.MovementSensor, method method,
 	expectedErr error,
 ) {
 	var extra map[string]interface{}

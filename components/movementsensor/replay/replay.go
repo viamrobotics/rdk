@@ -12,7 +12,6 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	datapb "go.viam.com/api/app/data/v1"
-	"go.viam.com/utils"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
@@ -219,7 +218,7 @@ func (replay *replayMovementSensor) Position(ctx context.Context, extra map[stri
 		return nil, 0, errors.New("session closed")
 	}
 
-	if err := replay.ensurePropertiesAreInitialized(ctx); err != nil {
+	if err := replay.ensurePropertiesAreInitialized(); err != nil {
 		return nil, 0, err
 	}
 
@@ -245,7 +244,7 @@ func (replay *replayMovementSensor) LinearVelocity(ctx context.Context, extra ma
 		return r3.Vector{}, errors.New("session closed")
 	}
 
-	if err := replay.ensurePropertiesAreInitialized(ctx); err != nil {
+	if err := replay.ensurePropertiesAreInitialized(); err != nil {
 		return r3.Vector{}, err
 	}
 
@@ -275,7 +274,7 @@ func (replay *replayMovementSensor) AngularVelocity(ctx context.Context, extra m
 		return spatialmath.AngularVelocity{}, errors.New("session closed")
 	}
 
-	if err := replay.ensurePropertiesAreInitialized(ctx); err != nil {
+	if err := replay.ensurePropertiesAreInitialized(); err != nil {
 		return spatialmath.AngularVelocity{}, err
 	}
 
@@ -303,7 +302,7 @@ func (replay *replayMovementSensor) LinearAcceleration(ctx context.Context, extr
 		return r3.Vector{}, errors.New("session closed")
 	}
 
-	if err := replay.ensurePropertiesAreInitialized(ctx); err != nil {
+	if err := replay.ensurePropertiesAreInitialized(); err != nil {
 		return r3.Vector{}, err
 	}
 
@@ -331,7 +330,7 @@ func (replay *replayMovementSensor) CompassHeading(ctx context.Context, extra ma
 		return 0., errors.New("session closed")
 	}
 
-	if err := replay.ensurePropertiesAreInitialized(ctx); err != nil {
+	if err := replay.ensurePropertiesAreInitialized(); err != nil {
 		return 0., err
 	}
 
@@ -355,7 +354,7 @@ func (replay *replayMovementSensor) Orientation(ctx context.Context, extra map[s
 		return nil, errors.New("session closed")
 	}
 
-	if err := replay.ensurePropertiesAreInitialized(ctx); err != nil {
+	if err := replay.ensurePropertiesAreInitialized(); err != nil {
 		return nil, err
 	}
 
@@ -380,7 +379,7 @@ func (replay *replayMovementSensor) Orientation(ctx context.Context, extra map[s
 func (replay *replayMovementSensor) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
 	replay.mu.Lock()
 	defer replay.mu.Unlock()
-	return &replay.properties, replay.ensurePropertiesAreInitialized(ctx)
+	return &replay.properties, replay.ensurePropertiesAreInitialized()
 }
 
 // Accuracy is currently not defined for replay movement sensors.
@@ -551,7 +550,7 @@ func addGRPCMetadata(ctx context.Context, timeRequested, timeReceived *timestamp
 	return nil
 }
 
-func (replay *replayMovementSensor) setProperty(method Method, supported bool) error {
+func (replay *replayMovementSensor) setProperty(method method, supported bool) error {
 	switch method {
 	case linearVelocity:
 		replay.properties.LinearVelocitySupported = supported
@@ -571,8 +570,8 @@ func (replay *replayMovementSensor) setProperty(method Method, supported bool) e
 	return nil
 }
 
-// attemptToInitializeProperty will try to update the cache for the provided method
-func (replay *replayMovementSensor) attemptToInitializeProperty(ctx context.Context, method Method) (bool, error) {
+// attemptToInitializeProperty will try to update the cache for the provided method.
+func (replay *replayMovementSensor) attemptToInitializeProperty(ctx context.Context, method method) (bool, error) {
 	replay.mu.Lock()
 	defer replay.mu.Unlock()
 
@@ -600,7 +599,7 @@ func (replay *replayMovementSensor) initializeProperties(ctx context.Context) er
 	// Repeatedly attempt to poll data from the movement sensor for each method until at least
 	// one of the methods receives data.
 	for {
-		if !utils.SelectContextOrWait(ctx, time.Duration(initializePropertiesLoopWaitTime)) {
+		if !goutils.SelectContextOrWait(ctx, initializePropertiesLoopWaitTime) {
 			return ctx.Err()
 		}
 		for _, method := range methodList {
@@ -621,21 +620,23 @@ func (replay *replayMovementSensor) initializeProperties(ctx context.Context) er
 				}
 			}
 			replay.mu.Lock()
-			defer replay.mu.Unlock()
 			replay.propertiesStatus = successfullyInitialized
+			replay.mu.Unlock()
 			return nil
 		}
 	}
 }
 
-func (replay *replayMovementSensor) ensurePropertiesAreInitialized(ctx context.Context) error {
+func (replay *replayMovementSensor) ensurePropertiesAreInitialized() error {
 	switch replay.propertiesStatus {
 	case notInitialized:
 		return errPropertiesNotInitializedYet
 	case failedToInitialize:
 		return errPropertiesFailedToInitialize
-	default:
+	case successfullyInitialized:
 		return nil
+	default:
+		return errors.New("this case should never happen")
 	}
 }
 
