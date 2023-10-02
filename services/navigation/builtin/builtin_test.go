@@ -83,7 +83,7 @@ func deleteAllWaypoints(ctx context.Context, svc navigation.Service) error {
 	return nil
 }
 
-func TestNavExploreMode(t *testing.T) {
+func TestSetMode(t *testing.T) {
 	ctx := context.Background()
 
 	cases := []struct {
@@ -124,7 +124,7 @@ func TestNavExploreMode(t *testing.T) {
 			}
 
 			err = ns.SetMode(ctx, tt.mode, nil)
-			test.That(t, err, test.ShouldBeNil)
+			test.That(t, err, test.ShouldEqual, tt.expectedErr)
 		})
 	}
 }
