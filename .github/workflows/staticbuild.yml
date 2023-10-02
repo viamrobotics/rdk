@@ -23,11 +23,11 @@ jobs:
       matrix:
         include:
           - arch: ubuntu-latest
-            image: ghcr.io/viamrobotics/antique:amd64-beta-30cf9f0-cache
+            image: ghcr.io/viamrobotics/antique2:amd64-cache
             platform: linux/amd64
             label: amd64
           - arch: buildjet-2vcpu-ubuntu-2204-arm
-            image: ghcr.io/viamrobotics/antique:arm64-beta-81a6398-cache
+            image: ghcr.io/viamrobotics/antique2:arm64-cache
             platform: linux/arm64
             label: arm64
     runs-on: ${{ matrix.arch }}

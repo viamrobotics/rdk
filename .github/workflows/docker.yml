@@ -21,36 +21,36 @@ jobs:
         include:
         # rdk-devenv
         - arch: ubuntu-latest
-          tag: amd64-beta-81a6398
+          tag: amd64
           platform: linux/amd64
           image: rdk-devenv
           file: etc/Dockerfile.cache
         - arch: buildjet-2vcpu-ubuntu-2204-arm
-          tag: arm64-beta-81a6398
+          tag: arm64
           platform: linux/arm64
           image: rdk-devenv
           file: etc/Dockerfile.cache
         - arch: buildjet-2vcpu-ubuntu-2204-arm
-          tag: armhf-beta-81a6398
+          tag: armhf
           platform: linux/arm/v7
           image: rdk-devenv
           file: etc/Dockerfile.cache
         # antique
         - arch: ubuntu-latest
           platform: linux/amd64
-          image: antique
+          image: antique2
           file: etc/Dockerfile.antique-cache
-          tag: amd64-beta-30cf9f0
+          tag: amd64
         - arch: buildjet-2vcpu-ubuntu-2204-arm
           platform: linux/arm64
-          image: antique
+          image: antique2
           file: etc/Dockerfile.antique-cache
-          tag: arm64-beta-81a6398
+          tag: arm64
         - arch: buildjet-2vcpu-ubuntu-2204-arm
           platform: linux/arm/v7
-          image: antique
+          image: antique2
           file: etc/Dockerfile.antique-cache
-          tag: armhf-beta-81a6398
+          tag: armhf
     runs-on: ${{ matrix.arch }}
     timeout-minutes: 30
     steps:
