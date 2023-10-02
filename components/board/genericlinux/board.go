@@ -477,7 +477,7 @@ func (b *Board) AnalogReaderByName(name string) (board.AnalogReader, bool) {
 
 // AnalogWriterByName returns the analog writer by the given name if it exists.
 func (b *Board) AnalogWriterByName(name string) (board.AnalogWriter, bool) {
-	return nil, 0
+	return nil, false
 }
 
 // DigitalInterruptByName returns the interrupt by the given name if it exists.
