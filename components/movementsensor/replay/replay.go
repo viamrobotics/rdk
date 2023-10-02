@@ -3,7 +3,6 @@ package replay
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -51,34 +50,34 @@ var (
 	// model is the model of a replay movement sensor.
 	model = resource.DefaultModelFamily.WithModel("replay")
 
-	// ErrEndOfDataset represents that the replay sensor has reached the end of the dataset.
-	ErrEndOfDataset = errors.New("reached end of dataset")
+	// errEndOfDataset represents that the replay sensor has reached the end of the dataset.
+	errEndOfDataset = errors.New("reached end of dataset")
 
 	// errCloudConnectionFailure represents that the attempt to connect to the cloud failed.
 	errCloudConnectionFailure = errors.New("failure to connect to the cloud")
 	// ErrPropertiesNotInitializedYet represents that the properties are not initialized yet.
 	ErrPropertiesNotInitializedYet = errors.New("Properties are not initialized yet")
 
-	// ErrPropertiesFailedToInitialize represents that the properties failed to initialize.
-	ErrPropertiesFailedToInitialize = errors.New("Properties failed to initialize")
+	// errPropertiesFailedToInitialize represents that the properties failed to initialize.
+	errPropertiesFailedToInitialize = errors.New("Properties failed to initialize")
 
-	// ErrLinearVelocityNotSupported represents that the LinearVelocity method does not provide any data.
-	ErrLinearVelocityNotSupported = errors.New("LinearVelocity is not supported")
+	// errLinearVelocityNotSupported represents that the LinearVelocity method does not provide any data.
+	errLinearVelocityNotSupported = errors.New("LinearVelocity is not supported")
 
-	// ErrAngularVelocityNotSupported represents that the AngularVelocity endpoint does not provide any data.
-	ErrAngularVelocityNotSupported = errors.New("AngularVelocity is not supported")
+	// errAngularVelocityNotSupported represents that the AngularVelocity endpoint does not provide any data.
+	errAngularVelocityNotSupported = errors.New("AngularVelocity is not supported")
 
-	// ErrOrientationNotSupported represents that the Orientation endpoint does not provide any data.
-	ErrOrientationNotSupported = errors.New("Orientation is not supported")
+	// errOrientationNotSupported represents that the Orientation endpoint does not provide any data.
+	errOrientationNotSupported = errors.New("Orientation is not supported")
 
-	// ErrPositionNotSupported represents that the Position endpoint does not provide any data.
-	ErrPositionNotSupported = errors.New("Position is not supported")
+	// errPositionNotSupported represents that the Position endpoint does not provide any data.
+	errPositionNotSupported = errors.New("Position is not supported")
 
-	// ErrCompassHeadingNotSupported represents that the CompassHeading endpoint does not provide any data.
-	ErrCompassHeadingNotSupported = errors.New("CompassHeading is not supported")
+	// errCompassHeadingNotSupported represents that the CompassHeading endpoint does not provide any data.
+	errCompassHeadingNotSupported = errors.New("CompassHeading is not supported")
 
-	// ErrLinearAccelerationNotSupported represents that the LinearAcceleration endpoint does not provide any data.
-	ErrLinearAccelerationNotSupported = errors.New("LinearAcceleration is not supported")
+	// errLinearAccelerationNotSupported represents that the LinearAcceleration endpoint does not provide any data.
+	errLinearAccelerationNotSupported = errors.New("LinearAcceleration is not supported")
 
 	// methodList is a list of all the base methods possible for a movement sensor to implement.
 	methodList = []method{position, linearVelocity, angularVelocity, linearAcceleration, compassHeading, orientation}
@@ -225,7 +224,7 @@ func (replay *replayMovementSensor) Position(ctx context.Context, extra map[stri
 	}
 
 	if !replay.properties.PositionSupported {
-		return nil, 0, ErrPositionNotSupported
+		return nil, 0, errPositionNotSupported
 	}
 
 	data, err := replay.getDataFromCache(ctx, position)
@@ -251,7 +250,7 @@ func (replay *replayMovementSensor) LinearVelocity(ctx context.Context, extra ma
 	}
 
 	if !replay.properties.LinearVelocitySupported {
-		return r3.Vector{}, ErrLinearVelocityNotSupported
+		return r3.Vector{}, errLinearVelocityNotSupported
 	}
 
 	data, err := replay.getDataFromCache(ctx, linearVelocity)
@@ -281,7 +280,7 @@ func (replay *replayMovementSensor) AngularVelocity(ctx context.Context, extra m
 	}
 
 	if !replay.properties.AngularVelocitySupported {
-		return spatialmath.AngularVelocity{}, ErrAngularVelocityNotSupported
+		return spatialmath.AngularVelocity{}, errAngularVelocityNotSupported
 	}
 
 	data, err := replay.getDataFromCache(ctx, angularVelocity)
@@ -309,7 +308,7 @@ func (replay *replayMovementSensor) LinearAcceleration(ctx context.Context, extr
 	}
 
 	if !replay.properties.LinearAccelerationSupported {
-		return r3.Vector{}, ErrLinearAccelerationNotSupported
+		return r3.Vector{}, errLinearAccelerationNotSupported
 	}
 
 	data, err := replay.getDataFromCache(ctx, linearAcceleration)
@@ -337,7 +336,7 @@ func (replay *replayMovementSensor) CompassHeading(ctx context.Context, extra ma
 	}
 
 	if !replay.properties.CompassHeadingSupported {
-		return 0., ErrCompassHeadingNotSupported
+		return 0., errCompassHeadingNotSupported
 	}
 
 	data, err := replay.getDataFromCache(ctx, compassHeading)
@@ -361,7 +360,7 @@ func (replay *replayMovementSensor) Orientation(ctx context.Context, extra map[s
 	}
 
 	if !replay.properties.OrientationSupported {
-		return nil, ErrOrientationNotSupported
+		return nil, errOrientationNotSupported
 	}
 
 	data, err := replay.getDataFromCache(ctx, orientation)
@@ -517,7 +516,7 @@ func (replay *replayMovementSensor) updateCache(ctx context.Context, method meth
 
 	// Check if data exists
 	if len(resp.GetData()) == 0 {
-		return ErrEndOfDataset
+		return errEndOfDataset
 	}
 	replay.lastData[method] = resp.GetLast()
 
@@ -581,9 +580,7 @@ func (replay *replayMovementSensor) attemptToInitializeProperty(ctx context.Cont
 	if replay.closed {
 		return initializedProperty, errors.New("session closed")
 	}
-	if err := replay.updateCache(ctx, method); err != nil && !strings.Contains(err.Error(), ErrEndOfDataset.Error()) {
-		fmt.Println("attemptToInitializeProperty -> method: ", method)
-		fmt.Println("attemptToInitializeProperty -> updateCache --> err: ", err)
+	if err := replay.updateCache(ctx, method); err != nil && !strings.Contains(err.Error(), errEndOfDataset.Error()) {
 		return initializedProperty, errors.Wrap(err, "could not update the cache")
 	}
 	if len(replay.cache[method]) != 0 {
@@ -598,7 +595,7 @@ func (replay *replayMovementSensor) attemptToInitializeProperty(ctx context.Cont
 // initializeProperties will set the properties by repeatedly attempting to poll data from all the methods
 // until at least one of them returns data.
 func (replay *replayMovementSensor) initializeProperties(ctx context.Context) error {
-	var initializedProperty bool
+	var initializedAtLeastOneProperty, initializedProperty bool
 	var err error
 	// Repeatedly attempt to poll data from the movement sensor for each method until at least
 	// one of the methods receives data.
@@ -608,16 +605,15 @@ func (replay *replayMovementSensor) initializeProperties(ctx context.Context) er
 		}
 		for _, method := range methodList {
 			if initializedProperty, err = replay.attemptToInitializeProperty(ctx, method); err != nil {
-				fmt.Println("In initializeProperties, method: ", method)
-				fmt.Println("error, initializedProperty results: ", initializedProperty, err)
 				return err
 			}
-			fmt.Println("-- In initializeProperties, method: ", method)
-			fmt.Println("-- initializedProperty results: ", initializedProperty)
+			if !initializedAtLeastOneProperty {
+				initializedAtLeastOneProperty = initializedProperty
+			}
 		}
 		// If at least one method successfully managed to initialize, we know that data reached the cloud and
 		// that we can finish initializing the properties.
-		if initializedProperty {
+		if initializedAtLeastOneProperty {
 			// Loop once more through all methods to ensure we didn't miss out on catching that they're supported
 			for _, method := range methodList {
 				if _, err = replay.attemptToInitializeProperty(ctx, method); err != nil {
@@ -635,9 +631,9 @@ func (replay *replayMovementSensor) initializeProperties(ctx context.Context) er
 func (replay *replayMovementSensor) ensurePropertiesAreInitialized(ctx context.Context) error {
 	switch replay.propertiesStatus {
 	case notInitialized:
-		return ErrPropertiesNotInitializedYet
+		return errPropertiesNotInitializedYet
 	case failedToInitialize:
-		return ErrPropertiesFailedToInitialize
+		return errPropertiesFailedToInitialize
 	default:
 		return nil
 	}
