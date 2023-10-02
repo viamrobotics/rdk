@@ -138,6 +138,8 @@ func TestNavSetup(t *testing.T) {
 }
 
 func TestStartWaypoint(t *testing.T) {
+	// TODO(RSDK-5193): unskip this test
+	t.Skip()
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 

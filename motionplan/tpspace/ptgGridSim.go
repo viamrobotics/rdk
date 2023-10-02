@@ -10,7 +10,7 @@ import (
 
 const (
 	defaultMaxTime       = 15.
-	defaultDiffT         = 0.005
+	defaultDiffT         = 0.01
 	defaultAlphaCnt uint = 91
 )
 

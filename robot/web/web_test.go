@@ -254,12 +254,15 @@ func TestWebWithAuth(t *testing.T) {
 					entityName = options.LocalFQDN
 				}
 
+				// TODO(RSDK-4473) Reenable WebRTC when we figure out why multiple
+				// WebRTC connections across unix sockets can create deadlock in CI.
 				conn, err := rgrpc.Dial(context.Background(), addr, logger,
 					rpc.WithAllowInsecureWithCredentialsDowngrade(),
 					rpc.WithEntityCredentials(entityName, rpc.Credentials{
 						Type:    rpc.CredentialsTypeAPIKey,
 						Payload: apiKey,
 					}),
+					rpc.WithForceDirectGRPC(),
 				)
 				test.That(t, err, test.ShouldBeNil)
 				arm1, err := arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
@@ -272,12 +275,15 @@ func TestWebWithAuth(t *testing.T) {
 				test.That(t, arm1.Close(context.Background()), test.ShouldBeNil)
 				test.That(t, conn.Close(), test.ShouldBeNil)
 
+				// TODO(RSDK-4473) Reenable WebRTC when we figure out why multiple
+				// WebRTC connections across unix sockets can create deadlock in CI.
 				conn, err = rgrpc.Dial(context.Background(), addr, logger,
 					rpc.WithAllowInsecureWithCredentialsDowngrade(),
 					rpc.WithEntityCredentials(entityName, rpc.Credentials{
 						Type:    rutils.CredentialsTypeRobotLocationSecret,
 						Payload: locationSecrets[0],
 					}),
+					rpc.WithForceDirectGRPC(),
 				)
 				test.That(t, err, test.ShouldBeNil)
 				arm1, err = arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
@@ -290,12 +296,15 @@ func TestWebWithAuth(t *testing.T) {
 				test.That(t, arm1.Close(context.Background()), test.ShouldBeNil)
 				test.That(t, conn.Close(), test.ShouldBeNil)
 
+				// TODO(RSDK-4473) Reenable WebRTC when we figure out why multiple
+				// WebRTC connections across unix sockets can create deadlock in CI.
 				conn, err = rgrpc.Dial(context.Background(), addr, logger,
 					rpc.WithAllowInsecureWithCredentialsDowngrade(),
 					rpc.WithEntityCredentials(entityName, rpc.Credentials{
 						Type:    rutils.CredentialsTypeRobotLocationSecret,
 						Payload: locationSecrets[1],
 					}),
+					rpc.WithForceDirectGRPC(),
 				)
 				test.That(t, err, test.ShouldBeNil)
 				arm1, err = arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
@@ -318,21 +327,27 @@ func TestWebWithAuth(t *testing.T) {
 							"key-id-1",
 						)
 						test.That(t, err, test.ShouldBeNil)
+						// TODO(RSDK-4473) Reenable WebRTC when we figure out why multiple
+						// WebRTC connections across unix sockets can create deadlock in CI.
 						conn, err = rgrpc.Dial(context.Background(), addr, logger,
 							rpc.WithAllowInsecureWithCredentialsDowngrade(),
 							rpc.WithStaticAuthenticationMaterial(accessToken),
+							rpc.WithForceDirectGRPC(),
 						)
 						test.That(t, err, test.ShouldBeNil)
 						test.That(t, conn.Close(), test.ShouldBeNil)
 					})
 				}
 			} else {
+				// TODO(RSDK-4473) Reenable WebRTC when we figure out why multiple
+				// WebRTC connections across unix sockets can create deadlock in CI.
 				conn, err := rgrpc.Dial(context.Background(), addr, logger,
 					rpc.WithAllowInsecureWithCredentialsDowngrade(),
 					rpc.WithCredentials(rpc.Credentials{
 						Type:    rpc.CredentialsTypeAPIKey,
 						Payload: apiKey,
 					}),
+					rpc.WithForceDirectGRPC(),
 				)
 				test.That(t, err, test.ShouldBeNil)
 
@@ -346,12 +361,15 @@ func TestWebWithAuth(t *testing.T) {
 				test.That(t, arm1.Close(context.Background()), test.ShouldBeNil)
 				test.That(t, conn.Close(), test.ShouldBeNil)
 
+				// TODO(RSDK-4473) Reenable WebRTC when we figure out why multiple
+				// WebRTC connections across unix sockets can create deadlock in CI.
 				conn, err = rgrpc.Dial(context.Background(), addr, logger,
 					rpc.WithAllowInsecureWithCredentialsDowngrade(),
 					rpc.WithCredentials(rpc.Credentials{
 						Type:    rutils.CredentialsTypeRobotLocationSecret,
 						Payload: locationSecrets[0],
 					}),
+					rpc.WithForceDirectGRPC(),
 				)
 				test.That(t, err, test.ShouldBeNil)
 
@@ -581,7 +599,9 @@ func TestWebReconfigure(t *testing.T) {
 	err := svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	conn, err := rgrpc.Dial(context.Background(), addr, logger)
+	// TODO(RSDK-4473) Reenable WebRTC when we figure out why multiple
+	// WebRTC connections across unix sockets can create deadlock in CI.
+	conn, err := rgrpc.Dial(context.Background(), addr, logger, rpc.WithForceDirectGRPC())
 	test.That(t, err, test.ShouldBeNil)
 
 	arm1, err := arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
@@ -602,7 +622,9 @@ func TestWebReconfigure(t *testing.T) {
 	err = svc.Reconfigure(context.Background(), rs, resource.Config{})
 	test.That(t, err, test.ShouldBeNil)
 
-	conn, err = rgrpc.Dial(context.Background(), addr, logger)
+	// TODO(RSDK-4473) Reenable WebRTC when we figure out why multiple
+	// WebRTC connections across unix sockets can create deadlock in CI.
+	conn, err = rgrpc.Dial(context.Background(), addr, logger, rpc.WithForceDirectGRPC())
 	test.That(t, err, test.ShouldBeNil)
 	aClient, err := arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -629,8 +651,11 @@ func TestWebReconfigure(t *testing.T) {
 
 	err = svc2.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, conn.Close(), test.ShouldBeNil)
 
-	conn, err = rgrpc.Dial(context.Background(), addr, logger)
+	// TODO(RSDK-4473) Reenable WebRTC when we figure out why multiple
+	// WebRTC connections across unix sockets can create deadlock in CI.
+	conn, err = rgrpc.Dial(context.Background(), addr, logger, rpc.WithForceDirectGRPC())
 	test.That(t, err, test.ShouldBeNil)
 
 	arm1, err = arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
@@ -639,8 +664,11 @@ func TestWebReconfigure(t *testing.T) {
 	arm1Position, err = arm1.EndPosition(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, arm1Position, test.ShouldResemble, newPos)
+	test.That(t, conn.Close(), test.ShouldBeNil)
 
-	conn, err = rgrpc.Dial(context.Background(), addr, logger)
+	// TODO(RSDK-4473) Reenable WebRTC when we figure out why multiple
+	// WebRTC connections across unix sockets can create deadlock in CI.
+	conn, err = rgrpc.Dial(context.Background(), addr, logger, rpc.WithForceDirectGRPC())
 	test.That(t, err, test.ShouldBeNil)
 	aClient2, err := arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -842,7 +870,9 @@ func TestForeignResource(t *testing.T) {
 	err := svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	conn, err := rgrpc.Dial(context.Background(), addr, logger)
+	// TODO(RSDK-4473) Reenable WebRTC when we figure out why multiple
+	// WebRTC connections across unix sockets can create deadlock in CI.
+	conn, err := rgrpc.Dial(context.Background(), addr, logger, rpc.WithForceDirectGRPC())
 	test.That(t, err, test.ShouldBeNil)
 
 	myCompClient := gizmopb.NewGizmoServiceClient(conn)
@@ -863,7 +893,10 @@ func TestForeignResource(t *testing.T) {
 	go remoteServer.Serve(listenerR)
 	defer remoteServer.Stop()
 
-	remoteConn, err := rgrpc.Dial(context.Background(), listenerR.Addr().String(), logger)
+	// TODO(RSDK-4473) Reenable WebRTC when we figure out why multiple
+	// WebRTC connections across unix sockets can create deadlock in CI.
+	remoteConn, err := rgrpc.Dial(context.Background(), listenerR.Addr().String(),
+		logger, rpc.WithForceDirectGRPC())
 	test.That(t, err, test.ShouldBeNil)
 
 	resourceAPI := resource.NewAPI(
@@ -893,12 +926,13 @@ func TestForeignResource(t *testing.T) {
 	listener := testutils.ReserveRandomListener(t)
 	addr = listener.Addr().String()
 	options.Network.Listener = listener
-	options.Debug = true
 	svc = web.New(injectRobot, logger)
 	err = svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	conn, err = rgrpc.Dial(context.Background(), addr, logger, rpc.WithDialDebug())
+	// TODO(RSDK-4473) Reenable WebRTC when we figure out why multiple
+	// WebRTC connections across unix sockets can create deadlock in CI.
+	conn, err = rgrpc.Dial(context.Background(), addr, logger, rpc.WithForceDirectGRPC())
 	test.That(t, err, test.ShouldBeNil)
 
 	myCompClient = gizmopb.NewGizmoServiceClient(conn)
