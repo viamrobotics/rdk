@@ -41,6 +41,7 @@ jobs:
         GOOS=linux GOARCH=arm64 make cli-ci
         GOOS=darwin GOARCH=amd64 make cli-ci
         GOOS=darwin GOARCH=arm64 make cli-ci
+        GOOS=windows GOARCH=amd64 EXE_SUFFIX=.exe make cli-ci
 
     - name: tagged alias
       env:
@@ -51,6 +52,7 @@ jobs:
         GOOS=linux GOARCH=arm64 make cli-ci
         GOOS=darwin GOARCH=amd64 make cli-ci
         GOOS=darwin GOARCH=arm64 make cli-ci
+        GOOS=windows GOARCH=amd64 EXE_SUFFIX=.exe make cli-ci
 
     - name: Authorize GCP Upload
       uses: google-github-actions/auth@v1
