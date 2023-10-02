@@ -321,7 +321,7 @@ func TestArmReconnection(t *testing.T) {
 	cfg := resource.Config{
 		Name: "testarm",
 		ConvertedAttributes: &Config{
-			Speed:               0.3,
+			SpeedDegsPerSec:     0.3,
 			Host:                "localhost",
 			ArmHostedKinematics: false,
 		},
@@ -396,7 +396,7 @@ func TestReconfigure(t *testing.T) {
 	cfg := resource.Config{
 		Name: "testarm",
 		ConvertedAttributes: &Config{
-			Speed:               0.3,
+			SpeedDegsPerSec:     0.3,
 			Host:                "localhost",
 			ArmHostedKinematics: false,
 		},
@@ -405,7 +405,7 @@ func TestReconfigure(t *testing.T) {
 	conf1 := resource.Config{
 		Name: "testarm",
 		ConvertedAttributes: &Config{
-			Speed:               0.5,
+			SpeedDegsPerSec:     0.5,
 			Host:                "localhost",
 			ArmHostedKinematics: false,
 		},
@@ -414,7 +414,7 @@ func TestReconfigure(t *testing.T) {
 	conf2 := resource.Config{
 		Name: "testarm",
 		ConvertedAttributes: &Config{
-			Speed:               0.5,
+			SpeedDegsPerSec:     0.5,
 			Host:                "new",
 			ArmHostedKinematics: false,
 		},
@@ -424,17 +424,17 @@ func TestReconfigure(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	ur5e := &URArm{
-		speed:              conf.Speed,
+		speedRadPerSec:     conf.SpeedDegsPerSec,
 		urHostedKinematics: conf.ArmHostedKinematics,
 		host:               conf.Host,
 	}
 
 	// scenario where we do not reconfigure
 	test.That(t, ur5e.Reconfigure(context.Background(), nil, conf1), test.ShouldBeNil)
-	test.That(t, ur5e.speed, test.ShouldEqual, 0.5)
+	test.That(t, ur5e.speedRadPerSec, test.ShouldEqual, utils.DegToRad(0.5))
 
 	// scenario where we have to configure
 	test.That(t, ur5e.Reconfigure(context.Background(), nil, conf2), test.ShouldBeNil)
-	test.That(t, ur5e.speed, test.ShouldEqual, 0.5)
+	test.That(t, ur5e.speedRadPerSec, test.ShouldEqual, utils.DegToRad(0.5))
 	test.That(t, ur5e.host, test.ShouldEqual, "new")
 }
