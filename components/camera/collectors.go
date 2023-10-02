@@ -6,6 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
+	pb "go.viam.com/api/component/camera/v1"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -19,7 +20,8 @@ type method int64
 
 const (
 	nextPointCloud method = iota
-	readImage      method = iota
+	readImage
+	getImages
 )
 
 func (m method) String() string {
@@ -28,6 +30,8 @@ func (m method) String() string {
 		return "NextPointCloud"
 	case readImage:
 		return "ReadImage"
+	case getImages:
+		return "GetImages"
 	}
 	return "Unknown"
 }
@@ -116,6 +120,46 @@ func newReadImageCollector(resource interface{}, params data.CollectorParams) (d
 			return nil, err
 		}
 		return outBytes, nil
+	})
+	return data.NewCollector(cFunc, params)
+}
+
+func newGetImagesCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+	camera, err := assertCamera(resource)
+	if err != nil {
+		return nil, err
+	}
+	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
+		_, span := trace.StartSpan(ctx, "camera::data::collector::CaptureFunc::GetImages")
+		defer span.End()
+
+		ctx = context.WithValue(ctx, data.FromDMContextKey{}, true)
+
+		resImgs, resMetadata, err := camera.Images(ctx)
+		if err != nil {
+			if errors.Is(err, data.ErrNoCaptureToStore) {
+				return nil, err
+			}
+			return nil, data.FailedToReadErr(params.ComponentName, getImages.String(), err)
+		}
+
+		var imgsConverted []*pb.Image
+		for _, img := range resImgs {
+			format, imgBytes, err := encodeImageFromUnderlyingType(ctx, img.Image)
+			if err != nil {
+				return nil, err
+			}
+			imgPb := &pb.Image{
+				SourceName: img.SourceName,
+				Format:     format,
+				Image:      imgBytes,
+			}
+			imgsConverted = append(imgsConverted, imgPb)
+		}
+		return pb.GetImagesResponse{
+			ResponseMetadata: resMetadata.AsProto(),
+			Images:           imgsConverted,
+		}, nil
 	})
 	return data.NewCollector(cFunc, params)
 }

@@ -207,8 +207,8 @@ func (r *localRobot) StartWeb(ctx context.Context, o weboptions.Options) (err er
 }
 
 // StopWeb stops the web server, will be a noop if server is not up.
-func (r *localRobot) StopWeb(ctx context.Context) error {
-	return r.webSvc.Close(ctx)
+func (r *localRobot) StopWeb() {
+	r.webSvc.Stop()
 }
 
 // WebAddress return the web service's address.
@@ -721,11 +721,20 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 		select {
 		case <-resChan:
 		case <-ctxWithTimeout.Done():
-			r.logger.Warn(resource.NewBuildTimeoutError(resName))
+			if errors.Is(ctxWithTimeout.Err(), context.DeadlineExceeded) {
+				r.logger.Warn(resource.NewBuildTimeoutError(resName))
+			}
+		case <-ctx.Done():
+			return
 		}
 	}
 
 	for resName, res := range internalResources {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
 		resChan := make(chan struct{}, 1)
 		resName := resName
 		res := res
@@ -758,6 +767,11 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 
 	cfg := r.Config()
 	for _, conf := range append(cfg.Components, cfg.Services...) {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
 		conf := conf
 		ctxWithTimeout, timeoutCancel := context.WithTimeout(ctx, timeout)
 		defer timeoutCancel()
@@ -773,7 +787,11 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 		select {
 		case <-resChan:
 		case <-ctxWithTimeout.Done():
-			r.logger.Warn(resource.NewBuildTimeoutError(conf.ResourceName()))
+			if errors.Is(ctxWithTimeout.Err(), context.DeadlineExceeded) {
+				r.logger.Warn(resource.NewBuildTimeoutError(conf.ResourceName()))
+			}
+		case <-ctx.Done():
+			return
 		}
 	}
 }

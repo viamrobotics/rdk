@@ -10,6 +10,8 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
+const maxTurnAmount = 0.95
+
 // ptgC defines a PTG family composed of circular trajectories with an alpha-dependent radius.
 type ptgC struct {
 	maxMMPS float64 // millimeters per second velocity to target
@@ -32,6 +34,7 @@ func (ptg *ptgC) Velocities(alpha, dist float64) (float64, float64, error) {
 	if dist == 0 {
 		return 0, 0, nil
 	}
+	dist = ptg.isOverTurn(alpha, dist)
 	k := math.Copysign(1.0, dist)
 	v := ptg.maxMMPS * k
 	w := (alpha / math.Pi) * ptg.maxRPS * k
@@ -49,6 +52,7 @@ func (ptg *ptgC) Transform(inputs []referenceframe.Input) (spatialmath.Pose, err
 	}
 	alpha := inputs[0].Value
 	dist := inputs[1].Value
+	dist = ptg.isOverTurn(alpha, dist)
 
 	// Check for OOB within FP error
 	if math.Pi-math.Abs(alpha) > math.Pi+floatEpsilon {
@@ -77,4 +81,15 @@ func (ptg *ptgC) Transform(inputs []referenceframe.Input) (spatialmath.Pose, err
 	pose := spatialmath.NewPose(pt, &spatialmath.OrientationVector{OZ: 1, Theta: -angleRads})
 
 	return pose, nil
+}
+
+func (ptg *ptgC) isOverTurn(alpha, dist float64) float64 {
+	turnRad := ptg.maxMMPS / ptg.maxRPS
+	arcRadius := math.Pi * turnRad / math.Abs(alpha)
+	turnCircumference := arcRadius * math.Pi * 2
+
+	if dist > (turnCircumference*maxTurnAmount)+floatEpsilon {
+		return turnCircumference * maxTurnAmount
+	}
+	return dist
 }

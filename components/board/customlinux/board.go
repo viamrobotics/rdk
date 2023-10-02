@@ -62,11 +62,9 @@ func pinDefsFromFile(conf resource.Config) (*genericlinux.LinuxBoardConfig, erro
 	}
 
 	return &genericlinux.LinuxBoardConfig{
-		I2Cs:              newConf.I2Cs,
-		SPIs:              newConf.SPIs,
-		Analogs:           newConf.Analogs,
-		DigitalInterrupts: newConf.DigitalInterrupts,
-		GpioMappings:      gpioMappings,
+		I2Cs:         newConf.I2Cs,
+		SPIs:         newConf.SPIs,
+		GpioMappings: gpioMappings,
 	}, nil
 }
 
@@ -103,13 +101,4 @@ func parseRawPinData(pinData []byte, filePath string) ([]genericlinux.PinDefinit
 		return nil, err
 	}
 	return parsedPinData.Pins, nil
-}
-
-func createGenericLinuxConfig(conf *Config) genericlinux.Config {
-	return genericlinux.Config{
-		I2Cs:              conf.I2Cs,
-		SPIs:              conf.SPIs,
-		Analogs:           conf.Analogs,
-		DigitalInterrupts: conf.DigitalInterrupts,
-	}
 }

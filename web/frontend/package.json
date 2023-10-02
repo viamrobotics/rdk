@@ -1,6 +1,6 @@
 {
   "name": "@viamrobotics/remote-control",
-  "version": "2.0.20",
+  "version": "2.0.22",
   "license": "Apache-2.0",
   "type": "module",
   "files": [
@@ -17,7 +17,7 @@
     "@improbable-eng/grpc-web": ">=0.15",
     "@viamrobotics/prime": ">=0.5",
     "@viamrobotics/rpc": ">=0.1",
-    "@viamrobotics/sdk": "0.3.3-rc.0",
+    "@viamrobotics/sdk": "0.4.0-rc.0",
     "google-protobuf": ">=3",
     "tailwindcss": ">=3.3",
     "three": ">=0.155",
@@ -35,7 +35,7 @@
     "@typescript-eslint/parser": "^6.3.0",
     "@viamrobotics/prime": "0.5.2",
     "@viamrobotics/rpc": "0.1.37",
-    "@viamrobotics/sdk": "0.3.3-rc.0",
+    "@viamrobotics/sdk": "0.4.0-rc.0",
     "@viamrobotics/three": "^0.0.2",
     "@viamrobotics/typescript-config": "^0.0.4",
     "cypress": "12.17.3",

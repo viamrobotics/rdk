@@ -97,6 +97,7 @@ func constrainedXArmMotion() (*planConfig, error) {
 	pos := spatialmath.NewPoseFromProtobuf(&commonpb.Pose{X: -206, Y: 100, Z: 120, OZ: -1})
 
 	opt := newBasicPlannerOptions(model)
+	opt.SmoothIter = 2
 	orientMetric := ik.NewPoseFlexOVMetricConstructor(0.09)
 
 	oFunc := ik.OrientDistToRegion(pos.Orientation(), 0.1)
@@ -244,6 +245,7 @@ func simpleXArmMotion() (*planConfig, error) {
 
 	// setup planner options
 	opt := newBasicPlannerOptions(xarm)
+	opt.SmoothIter = 20
 	opt.SetGoal(goal)
 	sf, err := newSolverFrame(fs, xarm.Name(), frame.World, frame.StartPositions(fs))
 	if err != nil {
@@ -279,6 +281,7 @@ func simpleUR5eMotion() (*planConfig, error) {
 
 	// setup planner options
 	opt := newBasicPlannerOptions(ur5e)
+	opt.SmoothIter = 20
 	opt.SetGoal(goal)
 	sf, err := newSolverFrame(fs, ur5e.Name(), frame.World, frame.StartPositions(fs))
 	if err != nil {
@@ -432,6 +435,7 @@ func TestArmAndGantrySolve(t *testing.T) {
 		Frame:              fs.Frame("xArmVgripper"),
 		StartConfiguration: positions,
 		FrameSystem:        fs,
+		Options:            map[string]interface{}{"smooth_iter": 5},
 	})
 	test.That(t, err, test.ShouldBeNil)
 	solvedPose, err := fs.Transform(
@@ -455,7 +459,7 @@ func TestMultiArmSolve(t *testing.T) {
 		Frame:              fs.Frame("xArmVgripper"),
 		StartConfiguration: positions,
 		FrameSystem:        fs,
-		Options:            map[string]interface{}{"max_ik_solutions": 100, "timeout": 150.0},
+		Options:            map[string]interface{}{"max_ik_solutions": 100, "timeout": 150.0, "smooth_iter": 5},
 	})
 	test.That(t, err, test.ShouldBeNil)
 
@@ -507,7 +511,7 @@ func TestReachOverArm(t *testing.T) {
 	fs.AddFrame(ur5, fs.World())
 
 	// the plan should no longer be able to interpolate, but it should still be able to get there
-	opts = map[string]interface{}{"max_ik_solutions": 100, "timeout": 150.0}
+	opts = map[string]interface{}{"max_ik_solutions": 100, "timeout": 150.0, "smooth_iter": 5}
 	plan, err = PlanMotion(context.Background(), &PlanRequest{
 		Logger:             logger.Sugar(),
 		Goal:               goal,
@@ -601,7 +605,7 @@ func TestSolverFrameGeometries(t *testing.T) {
 		spatialmath.NewPoseFromPoint(r3.Vector{300, 300, 100}),
 		nil,
 		nil,
-		nil,
+		map[string]interface{}{"smooth_iter": 5},
 	)
 	test.That(t, err, test.ShouldBeNil)
 	gf, _ := sf.Geometries(position[len(position)-1])
