@@ -324,7 +324,7 @@ func TestReplayMovementSensorFunctions(t *testing.T) {
 				position:           3,
 				linearVelocity:     3,
 				compassHeading:     3,
-				orientation:        defaultMaxDataLength[orientation],
+				orientation:        allMethodsMaxDataLength[orientation],
 			},
 			methodSupported: allMethodsSupported,
 		},
