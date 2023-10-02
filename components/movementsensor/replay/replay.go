@@ -483,7 +483,7 @@ func (replay *replayMovementSensor) Reconfigure(ctx context.Context, deps resour
 			if err := replay.initializeProperties(ctx); err != nil {
 				replay.logger.Warn(err)
 			}
-		}(ctx)
+		}(context.Background())
 		if replay.propertiesStatus == notInitialized {
 			replay.propertiesStatus = failedToInitialize
 		}
