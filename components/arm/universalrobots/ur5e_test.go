@@ -431,10 +431,10 @@ func TestReconfigure(t *testing.T) {
 
 	// scenario where we do not reconfigure
 	test.That(t, ur5e.Reconfigure(context.Background(), nil, conf1), test.ShouldBeNil)
-	test.That(t, ur5e.speedRadPerSec, test.ShouldEqual, 0.5)
+	test.That(t, ur5e.speedRadPerSec, test.ShouldEqual, utils.DegToRad(0.5))
 
 	// scenario where we have to configure
 	test.That(t, ur5e.Reconfigure(context.Background(), nil, conf2), test.ShouldBeNil)
-	test.That(t, ur5e.speedRadPerSec, test.ShouldEqual, 0.5)
+	test.That(t, ur5e.speedRadPerSec, test.ShouldEqual, utils.DegToRad(0.5))
 	test.That(t, ur5e.host, test.ShouldEqual, "new")
 }
