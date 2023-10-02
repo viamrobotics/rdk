@@ -14,6 +14,7 @@ import (
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
@@ -21,11 +22,12 @@ import (
 
 // moveRequest is a structure that contains all the information necessary for to make a move call.
 type moveRequest struct {
-	config        *motion.MotionConfiguration
-	planRequest   *motionplan.PlanRequest
-	kinematicBase kinematicbase.KinematicBase
-	visionSvcs    []vision.Service
-	cameraNames   []resource.Name
+	config             *motion.MotionConfiguration
+	planRequest        *motionplan.PlanRequest
+	kinematicBase      kinematicbase.KinematicBase
+	visionSvcs         []vision.Service
+	cameraNames        []resource.Name
+	frameSystemService framesystem.Service
 }
 
 // plan creates a plan using the currentInputs of the robot and the moveRequest's planRequest.
@@ -75,9 +77,7 @@ func (mr *moveRequest) execute(ctx context.Context, waypoints [][]referenceframe
 
 	// the plan has been fully executed so check to see if the GeoPoint we are at is close enough to the goal.
 	deviated, err := mr.deviatedFromPlan(ctx, waypoints, len(waypoints)-1)
-	if errors.Is(err, context.Canceled) {
-		return moveResponse{}
-	} else if err != nil {
+	if err != nil {
 		return moveResponse{err: err}
 	}
 	return moveResponse{success: !deviated}
@@ -103,6 +103,7 @@ func (mr *moveRequest) obstaclesIntersectPlan(ctx context.Context, waypoints [][
 		input[mr.kinematicBase.Name().Name] = inputs
 		plan = append(plan, input)
 	}
+	mr.planRequest.Logger.Info("CALLING OBSTACLES INTERSECT PLAN")
 
 	// iterate through vision services
 	for _, srvc := range mr.visionSvcs {
@@ -114,24 +115,40 @@ func (mr *moveRequest) obstaclesIntersectPlan(ctx context.Context, waypoints [][
 			if err != nil {
 				return false, err
 			}
+
+			// get the current position of the base which we will use to transform the detection into world coordinates
+			currentPosition, err := mr.kinematicBase.CurrentPosition(ctx)
+			if err != nil {
+				return false, err
+			}
+			fmt.Println("currentPosition: ", currentPosition.Pose().Point())
+			// get transform of camera to kinematic base origin
+			kinBaseOrigin := referenceframe.NewPoseInFrame(mr.kinematicBase.Name().ShortName(), spatialmath.NewZeroPose())
+			cameraToBase, err := mr.frameSystemService.TransformPose(ctx, kinBaseOrigin, camName.ShortName(), nil)
+			if err != nil {
+				// here we make the assumption the movement sensor is coincident with the base
+				cameraToBase = kinBaseOrigin
+			}
+			transformBy := spatialmath.Compose(currentPosition.Pose(), cameraToBase.Pose())
+
 			// Any obstacles specified by the worldstate of the moveRequest will also re-detected here.
 			// There is no need to append the new detections to the existing worldstate.
 			// We can safely build from scratch without excluding any valuable information.
 			geoms := []spatialmath.Geometry{}
 			for _, detection := range detections {
-				detection.Geometry.SetLabel("transient" + detection.Geometry.Label())
-				geoms = append(geoms, detection.Geometry)
+				geometry := detection.Geometry.Transform(transformBy)
+				fmt.Println("DETECTION'S POSE: ", geometry.Pose().Point())
+				geometry.SetLabel("transient" + detection.Geometry.Label())
+				geoms = append(geoms, geometry)
 			}
+			// consider having geoms be from the frame of world
+			// to accomplish this we need to know the transform from the base to the camera
 			gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(camName.Name, geoms)}
 			worldState, err := referenceframe.NewWorldState(gifs, nil)
 			if err != nil {
 				return false, err
 			}
 
-			currentPosition, err := mr.kinematicBase.CurrentPosition(ctx)
-			if err != nil {
-				return false, err
-			}
 			currentInputs, err := mr.kinematicBase.CurrentInputs(ctx)
 			if err != nil {
 				return false, err
@@ -143,6 +160,8 @@ func (mr *moveRequest) obstaclesIntersectPlan(ctx context.Context, waypoints [][
 				return false, err
 			}
 
+			mr.planRequest.Logger.Info("CALLING CHECKPLAN")
+
 			if err := motionplan.CheckPlan(
 				mr.kinematicBase.Kinematics(), // frame we wish to check for collisions
 				plan,                          // remainder of plan we wish to check against
@@ -153,9 +172,11 @@ func (mr *moveRequest) obstaclesIntersectPlan(ctx context.Context, waypoints [][
 				errorState, // deviation of robot from plan
 				mr.planRequest.Logger,
 			); err != nil {
+				mr.planRequest.Logger.Info("WE DID IT - RETURNING NON-NIL ERROR - YAYYYY")
 				mr.planRequest.Logger.Info(err.Error())
 				return true, nil
 			}
+			mr.planRequest.Logger.Info("RETURNING NIL ERROR")
 		}
 	}
 	return false, nil
@@ -311,8 +332,9 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 			WorldState:         worldState,
 			Options:            extra,
 		},
-		kinematicBase: kb,
-		visionSvcs:    visionServices,
-		cameraNames:   ms.cameras,
+		kinematicBase:      kb,
+		visionSvcs:         visionServices,
+		cameraNames:        ms.cameras,
+		frameSystemService: ms.fsService,
 	}, nil
 }

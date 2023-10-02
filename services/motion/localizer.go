@@ -2,6 +2,7 @@ package motion
 
 import (
 	"context"
+	"fmt"
 	"math"
 
 	geo "github.com/kellydunn/golang-geo"
@@ -79,6 +80,7 @@ func (m *movementSensorLocalizer) CurrentPosition(ctx context.Context) (*referen
 	}
 
 	pose := spatialmath.NewPose(spatialmath.GeoPointToPose(gp, m.origin).Point(), o)
+	fmt.Println("POSE FROM LOCALIZER BEFORE CORRECTION: ", pose.Point())
 	alignEast := spatialmath.NewPoseFromOrientation(&spatialmath.OrientationVector{OZ: 1, Theta: -math.Pi / 2})
 	correction := spatialmath.Compose(m.calibration, alignEast)
 	return referenceframe.NewPoseInFrame(m.Name().Name, spatialmath.Compose(pose, correction)), nil

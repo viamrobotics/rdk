@@ -5,6 +5,7 @@ package kinematicbase
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -201,13 +202,23 @@ func (fk *fakePTGKinematics) CurrentInputs(ctx context.Context) ([]referencefram
 }
 
 func (fk *fakePTGKinematics) GoToInputs(ctx context.Context, inputs []referenceframe.Input) error {
+	fmt.Println("GO TO INPUTS CALLED")
+	fmt.Println("inputs: ", inputs)
 	newPose, err := fk.frame.Transform(inputs)
 	if err != nil {
 		return err
 	}
 
+	fmt.Println("newPose: ", spatialmath.PoseToProtobuf(newPose))
+
+	// alignEast := spatialmath.NewPoseFromOrientation(&spatialmath.OrientationVector{OZ: 1, Theta: -math.Pi / 2})
+	// pose := spatialmath.Compose(newPose, alignEast)
+	// fmt.Println("newer pose: ", pose.Point())
+
 	fk.lock.Lock()
+	// fk.currentPosition = spatialmath.Compose(fk.currentPosition, pose)
 	fk.currentPosition = spatialmath.Compose(fk.currentPosition, newPose)
+	fmt.Println("FK CURRENT POSITION: ", spatialmath.PoseToProtobuf(fk.currentPosition))
 	fk.lock.Unlock()
 
 	// Sleep for a short amount to time to simulate a base taking some amount of time to reach the inputs

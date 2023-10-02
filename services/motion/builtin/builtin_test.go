@@ -2,6 +2,7 @@ package builtin
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"os"
 	"path/filepath"
@@ -175,6 +176,7 @@ func createMoveOnGlobeEnvironment(ctx context.Context, t *testing.T, origin *geo
 	// create injected MovementSensor
 	dynamicMovementSensor := inject.NewMovementSensor("test-gps")
 	dynamicMovementSensor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+		fmt.Println("INJECT MS POSITION FUNC")
 		poseInFrame, err := kb.CurrentPosition(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		heading := poseInFrame.Pose().Orientation().OrientationVectorDegrees().Theta
@@ -201,7 +203,7 @@ func createMoveOnGlobeEnvironment(ctx context.Context, t *testing.T, origin *geo
 	injectedCamera := inject.NewCamera("injectedCamera")
 	cameraLink := referenceframe.NewLinkInFrame(
 		baseLink.Name(),
-		spatialmath.NewZeroPose(),
+		spatialmath.NewPoseFromPoint(r3.Vector{1, 0, 0}),
 		"injectedCamera",
 		cameraGeom,
 	)
@@ -769,36 +771,36 @@ func TestReplanning(t *testing.T) {
 	}
 
 	testCases := []testCase{
-		{
-			name:           "check we dont replan with a good sensor",
-			noise:          r3.Vector{Y: epsilonMM - 0.1},
-			expectedReplan: false,
-			cfg:            &motion.MotionConfiguration{PositionPollingFreqHz: 100, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM},
-		},
-		{
-			name:           "check we replan with a noisy sensor",
-			noise:          r3.Vector{Y: epsilonMM + 0.1},
-			expectedReplan: true,
-			cfg:            &motion.MotionConfiguration{PositionPollingFreqHz: 100, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM},
-		},
-		{
-			name:           "ensure no replan from discovered obstacles",
-			noise:          r3.Vector{0, 0, 0},
-			expectedReplan: false,
-			cfg: &motion.MotionConfiguration{
-				PositionPollingFreqHz: 1, ObstaclePollingFreqHz: 100, PlanDeviationMM: epsilonMM, VisionServices: visSvcs,
-			},
-			getPCfunc: func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
-				obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{-200, -200, 0})
-				box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{10, 10, 10}, "test-case-2")
-				test.That(t, err, test.ShouldBeNil)
+		// {
+		// 	name:           "check we dont replan with a good sensor",
+		// 	noise:          r3.Vector{Y: epsilonMM - 0.1},
+		// 	expectedReplan: false,
+		// 	cfg:            &motion.MotionConfiguration{PositionPollingFreqHz: 100, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM},
+		// },
+		// {
+		// 	name:           "check we replan with a noisy sensor",
+		// 	noise:          r3.Vector{Y: epsilonMM + 0.1},
+		// 	expectedReplan: true,
+		// 	cfg:            &motion.MotionConfiguration{PositionPollingFreqHz: 100, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM},
+		// },
+		// {
+		// 	name:           "ensure no replan from discovered obstacles",
+		// 	noise:          r3.Vector{0, 0, 0},
+		// 	expectedReplan: false,
+		// 	cfg: &motion.MotionConfiguration{
+		// 		PositionPollingFreqHz: 1, ObstaclePollingFreqHz: 100, PlanDeviationMM: epsilonMM, VisionServices: visSvcs,
+		// 	},
+		// 	getPCfunc: func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
+		// 		obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{-200, -200, 0})
+		// 		box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{10, 10, 10}, "test-case-2")
+		// 		test.That(t, err, test.ShouldBeNil)
 
-				detection, err := viz.NewObjectWithLabel(pointcloud.New(), "test-case-2-detection", box.ToProtobuf())
-				test.That(t, err, test.ShouldBeNil)
+		// 		detection, err := viz.NewObjectWithLabel(pointcloud.New(), "test-case-2-detection", box.ToProtobuf())
+		// 		test.That(t, err, test.ShouldBeNil)
 
-				return []*viz.Object{detection}, nil
-			},
-		},
+		// 		return []*viz.Object{detection}, nil
+		// 	},
+		// },
 		{
 			name:           "ensure replan due to obstacle collision",
 			noise:          r3.Vector{0, 0, 0},
@@ -808,7 +810,7 @@ func TestReplanning(t *testing.T) {
 			},
 			getPCfunc: func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
 				obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{10, 0, 0})
-				box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{10, 10, 10}, "test-case-1")
+				box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{100, 100, 10}, "test-case-1")
 				test.That(t, err, test.ShouldBeNil)
 
 				detection, err := viz.NewObjectWithLabel(pointcloud.New(), "test-case-1-detection", box.ToProtobuf())

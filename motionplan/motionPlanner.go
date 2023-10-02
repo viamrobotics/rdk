@@ -499,6 +499,7 @@ func CheckPlan(
 			if err != nil {
 				return err
 			}
+			// fmt.Println("poseInPath1: ", poseInPath.Point())
 			// If we are working with a PTG plan the returned value for poseInPath will only
 			// tell us how far along the arc we have travelled. Since this is only the relative position,
 			// i.e. relative to where the robot started executing the arc,
@@ -511,8 +512,10 @@ func CheckPlan(
 				poseInPath = spatialmath.Compose(poseInPath, errorState)
 			}
 			modifiedSegment := &ik.State{Frame: sf, Position: poseInPath}
+			// fmt.Println("poseInPath2: ", poseInPath.Point())
 			// check the state of the robot for collision
 			if isValid, _ := sfPlanner.planOpts.CheckStateConstraints(modifiedSegment); !isValid {
+				fmt.Println("DO I EVER GET HERE 2")
 				return fmt.Errorf("found collsion between positions %v and %v", currentPose.Point(), poseInPath.Point())
 			}
 		}
