@@ -22,7 +22,7 @@ import (
 	vision "go.viam.com/rdk/vision"
 )
 
-var model = resource.DefaultModelFamily.WithModel("obstacle_distance")
+var model = resource.DefaultModelFamily.WithModel("obstacles_distance")
 
 // DefaultNumQueries is the default number of times the camera should be queried before averaging.
 const DefaultNumQueries = 10
@@ -70,7 +70,7 @@ func registerObstacleDistanceDetector(
 	_, span := trace.StartSpan(ctx, "service::vision::registerObstacleDistanceDetector")
 	defer span.End()
 	if conf == nil {
-		return nil, errors.New("config for obstacle_distance cannot be nil")
+		return nil, errors.New("config for obstacles_distance cannot be nil")
 	}
 
 	segmenter := func(ctx context.Context, src camera.VideoSource) ([]*vision.Object, error) {
