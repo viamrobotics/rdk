@@ -88,7 +88,7 @@ type URArm struct {
 	state                    RobotState
 	runtimeError             error
 	inRemoteMode             bool
-	speed                    float64
+	speedRadPerSec           float64
 	urHostedKinematics       bool
 	dashboardConnection      net.Conn
 	readRobotStateConnection net.Conn
@@ -117,7 +117,7 @@ func (ua *URArm) Reconfigure(ctx context.Context, deps resource.Dependencies, co
 		}
 		return nil
 	}
-	ua.speed = rdkutils.DegToRad(newConf.SpeedDegsPerSec)
+	ua.speedRadPerSec = rdkutils.DegToRad(newConf.SpeedDegsPerSec)
 	ua.urHostedKinematics = newConf.ArmHostedKinematics
 	return nil
 }
@@ -186,7 +186,7 @@ func URArmConnect(ctx context.Context, conf resource.Config, logger golog.Logger
 	newArm := &URArm{
 		Named:                    conf.ResourceName().AsNamed(),
 		connControl:              nil,
-		speed:                    rdkutils.DegToRad(newConf.SpeedDegsPerSec),
+		speedRadPerSec:           rdkutils.DegToRad(newConf.SpeedDegsPerSec),
 		debug:                    false,
 		haveData:                 false,
 		logger:                   logger,
@@ -387,7 +387,7 @@ func (ua *URArm) Stop(ctx context.Context, extra map[string]interface{}) error {
 	}
 	_, done := ua.opMgr.New(ctx)
 	defer done()
-	cmd := fmt.Sprintf("stopj(a=%1.2f)\r\n", 5.0*ua.speed)
+	cmd := fmt.Sprintf("stopj(a=%1.2f)\r\n", 5.0*ua.speedRadPerSec)
 
 	_, err := ua.connControl.Write([]byte(cmd))
 	return err
@@ -420,8 +420,8 @@ func (ua *URArm) MoveToJointPositionRadians(ctx context.Context, radians []float
 		radians[3],
 		radians[4],
 		radians[5],
-		0.8*ua.speed,
-		ua.speed,
+		0.8*ua.speedRadPerSec,
+		ua.speedRadPerSec,
 	)
 
 	_, err := ua.connControl.Write([]byte(cmd))
