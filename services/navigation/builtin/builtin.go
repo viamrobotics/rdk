@@ -280,9 +280,15 @@ func (svc *builtIn) SetMode(ctx context.Context, mode navigation.Mode, extra map
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	svc.wholeServiceCancelFunc = cancelFunc
 	svc.mode = mode
-	if svc.mode == navigation.ModeWaypoint {
+
+	switch svc.mode {
+	case navigation.ModeManual:
+	case navigation.ModeWaypoint:
 		svc.startWaypointMode(cancelCtx, extra)
+	case navigation.ModeExplore:
+		return errors.New("navigation mode 'explore' is not currently available")
 	}
+
 	return nil
 }
 

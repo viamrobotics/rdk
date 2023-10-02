@@ -60,6 +60,8 @@ func (c *client) Mode(ctx context.Context, extra map[string]interface{}) (Mode, 
 		return ModeManual, nil
 	case pb.Mode_MODE_WAYPOINT:
 		return ModeWaypoint, nil
+	case pb.Mode_MODE_EXPLORE:
+		return ModeExplore, nil
 	case pb.Mode_MODE_UNSPECIFIED:
 		fallthrough
 	default:

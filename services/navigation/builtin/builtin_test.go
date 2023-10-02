@@ -137,6 +137,19 @@ func TestNavSetup(t *testing.T) {
 	test.That(t, len(ns.(*builtIn).motionCfg.VisionServices), test.ShouldEqual, 1)
 }
 
+func TestNavExploreMode(t *testing.T) {
+	ns, teardown := setupNavigationServiceFromConfig(t, "../data/nav_cfg.json")
+	defer teardown()
+	ctx := context.Background()
+
+	navMode, err := ns.Mode(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, navMode, test.ShouldEqual, navigation.ModeManual)
+
+	err = ns.SetMode(ctx, navigation.ModeExplore, nil)
+	test.That(t, err.Error(), test.ShouldEqual, "navigation mode 'explore' is not currently available")
+}
+
 func TestStartWaypoint(t *testing.T) {
 	// TODO(RSDK-5193): unskip this test
 	t.Skip()

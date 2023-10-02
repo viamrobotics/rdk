@@ -146,6 +146,16 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldNotBeNil)
 		test.That(t, currentMode, test.ShouldEqual, navigation.ModeWaypoint)
+
+		// set explore mode
+		req = &pb.SetModeRequest{
+			Name: testSvcName1.ShortName(),
+			Mode: pb.Mode_MODE_EXPLORE,
+		}
+		resp, err = navServer.SetMode(context.Background(), req)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldNotBeNil)
+		test.That(t, currentMode, test.ShouldEqual, navigation.ModeExplore)
 	})
 
 	t.Run("failing set mode function", func(t *testing.T) {

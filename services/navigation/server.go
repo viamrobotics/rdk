@@ -41,6 +41,8 @@ func (server *serviceServer) GetMode(ctx context.Context, req *pb.GetModeRequest
 		protoMode = pb.Mode_MODE_MANUAL
 	case ModeWaypoint:
 		protoMode = pb.Mode_MODE_WAYPOINT
+	case ModeExplore:
+		protoMode = pb.mode_MODE_EXPLORE
 	}
 	return &pb.GetModeResponse{
 		Mode: protoMode,
