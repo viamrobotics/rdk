@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	geo "github.com/kellydunn/golang-geo"
+	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/motion/v1"
 	vprotoutils "go.viam.com/utils/protoutils"
 
@@ -168,6 +169,86 @@ func planStateFromProto(ps pb.PlanState) PlanState {
 	default:
 		return PlanStateUnspecified
 	}
+}
+
+// toProto converts a MoveOnGlobeRequest to a *pb.MoveOnGlobeRequest.
+//
+//nolint:dupl
+func (r MoveOnGlobeReq) toProto(name string) (*pb.MoveOnGlobeRequest, error) {
+	ext, err := vprotoutils.StructToStructPb(r.Extra)
+	if err != nil {
+		return nil, err
+	}
+
+	if r.Destination == nil {
+		return nil, errors.New("must provide a destination")
+	}
+
+	if r.MotionCfg == nil {
+		return nil, errors.New("must provide a non nil motion configuration")
+	}
+
+	req := &pb.MoveOnGlobeRequest{
+		Name:                name,
+		ComponentName:       rprotoutils.ResourceNameToProto(r.ComponentName),
+		Destination:         &commonpb.GeoPoint{Latitude: r.Destination.Lat(), Longitude: r.Destination.Lng()},
+		MovementSensorName:  rprotoutils.ResourceNameToProto(r.MovementSensorName),
+		MotionConfiguration: r.MotionCfg.toProto(),
+		Extra:               ext,
+	}
+
+	if !math.IsNaN(r.Heading) {
+		req.Heading = &r.Heading
+	}
+
+	if len(r.Obstacles) > 0 {
+		obstaclesProto := make([]*commonpb.GeoObstacle, 0, len(r.Obstacles))
+		for _, obstacle := range r.Obstacles {
+			obstaclesProto = append(obstaclesProto, spatialmath.GeoObstacleToProtobuf(obstacle))
+		}
+		req.Obstacles = obstaclesProto
+	}
+	return req, nil
+}
+
+// toProtoNew converts a MoveOnGlobeRequest to a *pb.MoveOnGlobeNewRequest.
+//
+//nolint:dupl
+func (r MoveOnGlobeReq) toProtoNew(name string) (*pb.MoveOnGlobeNewRequest, error) {
+	ext, err := vprotoutils.StructToStructPb(r.Extra)
+	if err != nil {
+		return nil, err
+	}
+
+	if r.Destination == nil {
+		return nil, errors.New("must provide a destination")
+	}
+
+	if r.MotionCfg == nil {
+		return nil, errors.New("must provide a non nil motion configuration")
+	}
+
+	req := &pb.MoveOnGlobeNewRequest{
+		Name:                name,
+		ComponentName:       rprotoutils.ResourceNameToProto(r.ComponentName),
+		Destination:         &commonpb.GeoPoint{Latitude: r.Destination.Lat(), Longitude: r.Destination.Lng()},
+		MovementSensorName:  rprotoutils.ResourceNameToProto(r.MovementSensorName),
+		MotionConfiguration: r.MotionCfg.toProto(),
+		Extra:               ext,
+	}
+
+	if !math.IsNaN(r.Heading) {
+		req.Heading = &r.Heading
+	}
+
+	if len(r.Obstacles) > 0 {
+		obstaclesProto := make([]*commonpb.GeoObstacle, 0, len(r.Obstacles))
+		for _, obstacle := range r.Obstacles {
+			obstaclesProto = append(obstaclesProto, spatialmath.GeoObstacleToProtobuf(obstacle))
+		}
+		req.Obstacles = obstaclesProto
+	}
+	return req, nil
 }
 
 //nolint:dupl

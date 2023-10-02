@@ -3,15 +3,11 @@ package motion
 
 import (
 	"context"
-	"math"
 	"time"
 
 	"github.com/google/uuid"
 	geo "github.com/kellydunn/golang-geo"
-	"github.com/pkg/errors"
-	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/motion/v1"
-	vprotoutils "go.viam.com/utils/protoutils"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	rprotoutils "go.viam.com/rdk/protoutils"
@@ -190,86 +186,6 @@ func FromRobot(r robot.Robot, name string) (Service, error) {
 // FromDependencies is a helper for getting the named motion service from a collection of dependencies.
 func FromDependencies(deps resource.Dependencies, name string) (Service, error) {
 	return resource.FromDependencies[Service](deps, Named(name))
-}
-
-// ToProto converts a MoveOnGlobeRequest to a *pb.MoveOnGlobeRequest.
-//
-//nolint:dupl
-func (r MoveOnGlobeReq) ToProto(name string) (*pb.MoveOnGlobeRequest, error) {
-	ext, err := vprotoutils.StructToStructPb(r.Extra)
-	if err != nil {
-		return nil, err
-	}
-
-	if r.Destination == nil {
-		return nil, errors.New("Must provide a destination")
-	}
-
-	if r.MotionCfg == nil {
-		return nil, errors.New("Must provide a non nil motion configuration")
-	}
-
-	req := &pb.MoveOnGlobeRequest{
-		Name:                name,
-		ComponentName:       rprotoutils.ResourceNameToProto(r.ComponentName),
-		Destination:         &commonpb.GeoPoint{Latitude: r.Destination.Lat(), Longitude: r.Destination.Lng()},
-		MovementSensorName:  rprotoutils.ResourceNameToProto(r.MovementSensorName),
-		MotionConfiguration: r.MotionCfg.toProto(),
-		Extra:               ext,
-	}
-
-	if !math.IsNaN(r.Heading) {
-		req.Heading = &r.Heading
-	}
-
-	if len(r.Obstacles) > 0 {
-		obstaclesProto := make([]*commonpb.GeoObstacle, 0, len(r.Obstacles))
-		for _, obstacle := range r.Obstacles {
-			obstaclesProto = append(obstaclesProto, spatialmath.GeoObstacleToProtobuf(obstacle))
-		}
-		req.Obstacles = obstaclesProto
-	}
-	return req, nil
-}
-
-// ToProtoNew converts a MoveOnGlobeRequest to a *pb.MoveOnGlobeNewRequest.
-//
-//nolint:dupl
-func (r MoveOnGlobeReq) ToProtoNew(name string) (*pb.MoveOnGlobeNewRequest, error) {
-	ext, err := vprotoutils.StructToStructPb(r.Extra)
-	if err != nil {
-		return nil, err
-	}
-
-	if r.Destination == nil {
-		return nil, errors.New("Must provide a destination")
-	}
-
-	if r.MotionCfg == nil {
-		return nil, errors.New("Must provide a non nil motion configuration")
-	}
-
-	req := &pb.MoveOnGlobeNewRequest{
-		Name:                name,
-		ComponentName:       rprotoutils.ResourceNameToProto(r.ComponentName),
-		Destination:         &commonpb.GeoPoint{Latitude: r.Destination.Lat(), Longitude: r.Destination.Lng()},
-		MovementSensorName:  rprotoutils.ResourceNameToProto(r.MovementSensorName),
-		MotionConfiguration: r.MotionCfg.toProto(),
-		Extra:               ext,
-	}
-
-	if !math.IsNaN(r.Heading) {
-		req.Heading = &r.Heading
-	}
-
-	if len(r.Obstacles) > 0 {
-		obstaclesProto := make([]*commonpb.GeoObstacle, 0, len(r.Obstacles))
-		for _, obstacle := range r.Obstacles {
-			obstaclesProto = append(obstaclesProto, spatialmath.GeoObstacleToProtobuf(obstacle))
-		}
-		req.Obstacles = obstaclesProto
-	}
-	return req, nil
 }
 
 // ToProto converts a PlanWithStatus to a *pb.PlanWithStatus.

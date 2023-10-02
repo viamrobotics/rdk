@@ -115,7 +115,7 @@ func (c *client) MoveOnGlobe(
 		Obstacles:          obstacles,
 		MotionCfg:          motionCfg,
 		Extra:              extra,
-	}.ToProto(c.name)
+	}.toProto(c.name)
 	if err != nil {
 		return false, err
 	}
@@ -132,7 +132,7 @@ func (c *client) MoveOnGlobeNew(
 	ctx context.Context,
 	req MoveOnGlobeReq,
 ) (string, error) {
-	protoReq, err := req.ToProtoNew(c.name)
+	protoReq, err := req.toProtoNew(c.name)
 	if err != nil {
 		return "", err
 	}

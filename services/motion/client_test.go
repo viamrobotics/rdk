@@ -260,7 +260,7 @@ func TestClient(t *testing.T) {
 			// nil destination is can't be converted to proto
 			executionID, err := client.MoveOnGlobeNew(ctx, req)
 			test.That(t, err, test.ShouldNotBeNil)
-			test.That(t, err, test.ShouldBeError, errors.New("Must provide a destination"))
+			test.That(t, err, test.ShouldBeError, errors.New("must provide a destination"))
 			test.That(t, executionID, test.ShouldEqual, "")
 		})
 

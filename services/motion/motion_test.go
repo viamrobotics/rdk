@@ -995,32 +995,32 @@ func TestMoveOnGlobeReq(t *testing.T) {
 	name := "somename"
 	dst := geo.NewPoint(1, 2)
 	//nolint:dupl
-	t.Run("ToProto", func(t *testing.T) {
+	t.Run("toProto", func(t *testing.T) {
 		t.Run("error due to nil destination", func(t *testing.T) {
 			mogReq := validMoveOnGlobeRequest()
 			mogReq.Destination = nil
-			_, err := mogReq.ToProto(name)
-			test.That(t, err, test.ShouldBeError, errors.New("Must provide a destination"))
+			_, err := mogReq.toProto(name)
+			test.That(t, err, test.ShouldBeError, errors.New("must provide a destination"))
 		})
 
 		t.Run("error due to nil motion config", func(t *testing.T) {
 			mogReq := validMoveOnGlobeRequest()
 			mogReq.MotionCfg = nil
-			_, err := mogReq.ToProto(name)
-			test.That(t, err, test.ShouldBeError, errors.New("Must provide a non nil motion configuration"))
+			_, err := mogReq.toProto(name)
+			test.That(t, err, test.ShouldBeError, errors.New("must provide a non nil motion configuration"))
 		})
 
 		t.Run("sets heading to nil if set to NaN", func(t *testing.T) {
 			mogReq := validMoveOnGlobeRequest()
 			mogReq.Heading = math.NaN()
-			req, err := mogReq.ToProto(name)
+			req, err := mogReq.toProto(name)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, req.Heading, test.ShouldBeNil)
 		})
 
 		t.Run("success", func(t *testing.T) {
 			mogReq := validMoveOnGlobeRequest()
-			req, err := mogReq.ToProto(name)
+			req, err := mogReq.toProto(name)
 
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, req.Name, test.ShouldResemble, "somename")
@@ -1037,32 +1037,32 @@ func TestMoveOnGlobeReq(t *testing.T) {
 	})
 
 	//nolint:dupl
-	t.Run("ToProtoNew", func(t *testing.T) {
+	t.Run("toProtoNew", func(t *testing.T) {
 		t.Run("error due to nil destination", func(t *testing.T) {
 			mogReq := validMoveOnGlobeRequest()
 			mogReq.Destination = nil
-			_, err := mogReq.ToProtoNew(name)
-			test.That(t, err, test.ShouldBeError, errors.New("Must provide a destination"))
+			_, err := mogReq.toProtoNew(name)
+			test.That(t, err, test.ShouldBeError, errors.New("must provide a destination"))
 		})
 
 		t.Run("error due to nil motion config", func(t *testing.T) {
 			mogReq := validMoveOnGlobeRequest()
 			mogReq.MotionCfg = nil
-			_, err := mogReq.ToProtoNew(name)
-			test.That(t, err, test.ShouldBeError, errors.New("Must provide a non nil motion configuration"))
+			_, err := mogReq.toProtoNew(name)
+			test.That(t, err, test.ShouldBeError, errors.New("must provide a non nil motion configuration"))
 		})
 
 		t.Run("sets heading to nil if set to NaN", func(t *testing.T) {
 			mogReq := validMoveOnGlobeRequest()
 			mogReq.Heading = math.NaN()
-			req, err := mogReq.ToProtoNew(name)
+			req, err := mogReq.toProtoNew(name)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, req.Heading, test.ShouldBeNil)
 		})
 
 		t.Run("success", func(t *testing.T) {
 			mogReq := validMoveOnGlobeRequest()
-			req, err := mogReq.ToProtoNew(name)
+			req, err := mogReq.toProtoNew(name)
 
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, req.Name, test.ShouldResemble, "somename")
