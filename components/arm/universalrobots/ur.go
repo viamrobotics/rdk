@@ -4,6 +4,7 @@ package universalrobots
 import (
 	"bufio"
 	"context"
+
 	// for embedding model file.
 	_ "embed"
 	"encoding/binary"
@@ -116,7 +117,7 @@ func (ua *URArm) Reconfigure(ctx context.Context, deps resource.Dependencies, co
 		}
 		return nil
 	}
-	ua.speed = newConf.SpeedDegsPerSec
+	ua.speed = rdkutils.DegToRad(newConf.SpeedDegsPerSec)
 	ua.urHostedKinematics = newConf.ArmHostedKinematics
 	return nil
 }
@@ -419,7 +420,7 @@ func (ua *URArm) MoveToJointPositionRadians(ctx context.Context, radians []float
 		radians[3],
 		radians[4],
 		radians[5],
-		ua.speed,
+		0.8*ua.speed,
 		ua.speed,
 	)
 
