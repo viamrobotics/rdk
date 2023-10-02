@@ -25,11 +25,9 @@ jobs:
           - arch: ubuntu-latest
             image: ghcr.io/viamrobotics/antique2:amd64-cache
             platform: linux/amd64
-            label: amd64
           - arch: buildjet-2vcpu-ubuntu-2204-arm
             image: ghcr.io/viamrobotics/antique2:arm64-cache
             platform: linux/arm64
-            label: arm64
     runs-on: ${{ matrix.arch }}
     container:
       image: ${{ matrix.image }}
@@ -84,11 +82,6 @@ jobs:
       if: inputs.release_type == 'stable' || inputs.release_type == 'rc'
       run: |
         sudo -Hu testbot bash -lc 'make RELEASE_TYPE="${{ inputs.release_type }}" BUILD_CHANNEL="${{ github.ref_name }}" static-release'
-
-    - uses: actions/upload-artifact@v3
-      with:
-        name: staticbuild-${{ matrix.label }}
-        path: bin/*/viam-server
 
     - name: Set Date
       id: build_date

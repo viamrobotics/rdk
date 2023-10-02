@@ -20,7 +20,7 @@ setup:
 build: build-web build-go
 
 build-go:
-	GOFLAGS=$(GOFLAGS) go build ./web/cmd/server
+	go build ./...
 
 GOOS ?= $(shell go env GOOS)
 GOARCH ?= $(shell go env GOARCH)
