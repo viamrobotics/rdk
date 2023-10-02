@@ -763,7 +763,9 @@ func TestReplanning(t *testing.T) {
 
 		ctx, cancel := context.WithTimeout(ctx, 30.0*time.Second)
 		ma := newMoveAttempt(ctx, moveRequest)
-		ma.start()
+		err = ma.start()
+		test.That(t, err, test.ShouldBeNil)
+
 		defer ma.cancel()
 		defer cancel()
 		select {
@@ -833,7 +835,8 @@ func TestCheckPlan(t *testing.T) {
 
 	// construct framesystem
 	newFS := referenceframe.NewEmptyFrameSystem("test-fs")
-	newFS.AddFrame(moveRequest.kinematicBase.Kinematics(), newFS.World())
+	err = newFS.AddFrame(moveRequest.kinematicBase.Kinematics(), newFS.World())
+	test.That(t, err, test.ShouldBeNil)
 
 	startPose := spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0})
 	errorState := startPose
@@ -938,15 +941,19 @@ func TestArmGantryPlanCheck(t *testing.T) {
 
 	gantryOffset, err := referenceframe.NewStaticFrame("gantryOffset", spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0}))
 	test.That(t, err, test.ShouldBeNil)
-	fs.AddFrame(gantryOffset, fs.World())
-
-	gantryX, err := referenceframe.NewTranslationalFrame("gantryX", r3.Vector{1, 0, 0}, referenceframe.Limit{math.Inf(-1), math.Inf(1)})
+	err = fs.AddFrame(gantryOffset, fs.World())
 	test.That(t, err, test.ShouldBeNil)
-	fs.AddFrame(gantryX, gantryOffset)
+
+	lim := referenceframe.Limit{Min: math.Inf(-1), Max: math.Inf(1)}
+	gantryX, err := referenceframe.NewTranslationalFrame("gantryX", r3.Vector{1, 0, 0}, lim)
+	test.That(t, err, test.ShouldBeNil)
+	err = fs.AddFrame(gantryX, gantryOffset)
+	test.That(t, err, test.ShouldBeNil)
 
 	modelXarm, err := referenceframe.ParseModelJSONFile(rdkutils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
-	fs.AddFrame(modelXarm, gantryX)
+	err = fs.AddFrame(modelXarm, gantryX)
+	test.That(t, err, test.ShouldBeNil)
 
 	goal := spatialmath.NewPoseFromPoint(r3.Vector{X: 407, Y: 0, Z: 112})
 
@@ -1264,4 +1271,57 @@ func TestStoppableMoveFunctions(t *testing.T) {
 			testIfStoppable(t, success, err)
 		})
 	})
+}
+
+func TestMoveOnGlobeNew(t *testing.T) {
+	ctx := context.Background()
+	gpsPoint := geo.NewPoint(0, 0)
+	injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
+	defer ms.Close(ctx)
+	dst := geo.NewPoint(gpsPoint.Lat(), gpsPoint.Lng()+1e-5)
+
+	req := motion.MoveOnGlobeReq{
+		ComponentName:      fakeBase.Name(),
+		MovementSensorName: injectedMovementSensor.Name(),
+		Destination:        dst,
+	}
+	executionID, err := ms.MoveOnGlobeNew(ctx, req)
+	test.That(t, err, test.ShouldBeError, errUnimplemented)
+	test.That(t, executionID, test.ShouldBeEmpty)
+}
+
+func TestStopPlan(t *testing.T) {
+	ctx := context.Background()
+	gpsPoint := geo.NewPoint(0, 0)
+	_, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
+	defer ms.Close(ctx)
+
+	req := motion.StopPlanReq{ComponentName: fakeBase.Name()}
+	err := ms.StopPlan(ctx, req)
+	test.That(t, err, test.ShouldEqual, errUnimplemented)
+}
+
+func TestListPlanStatuses(t *testing.T) {
+	ctx := context.Background()
+	gpsPoint := geo.NewPoint(0, 0)
+	//nolint:dogsled
+	_, _, _, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
+	defer ms.Close(ctx)
+
+	req := motion.ListPlanStatusesReq{}
+	planStatusesWithIDs, err := ms.ListPlanStatuses(ctx, req)
+	test.That(t, err, test.ShouldEqual, errUnimplemented)
+	test.That(t, planStatusesWithIDs, test.ShouldBeNil)
+}
+
+func TestPlanHistory(t *testing.T) {
+	ctx := context.Background()
+	gpsPoint := geo.NewPoint(0, 0)
+	_, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
+	defer ms.Close(ctx)
+
+	req := motion.PlanHistoryReq{ComponentName: fakeBase.Name()}
+	history, err := ms.PlanHistory(ctx, req)
+	test.That(t, err, test.ShouldEqual, errUnimplemented)
+	test.That(t, history, test.ShouldBeNil)
 }

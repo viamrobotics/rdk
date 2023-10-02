@@ -42,6 +42,10 @@ type MotionService struct {
 		motionCfg *motion.MotionConfiguration,
 		extra map[string]interface{},
 	) (bool, error)
+	MoveOnGlobeNewFunc func(
+		ctx context.Context,
+		req motion.MoveOnGlobeReq,
+	) (string, error)
 	GetPoseFunc func(
 		ctx context.Context,
 		componentName resource.Name,
@@ -49,6 +53,18 @@ type MotionService struct {
 		supplementalTransforms []*referenceframe.LinkInFrame,
 		extra map[string]interface{},
 	) (*referenceframe.PoseInFrame, error)
+	StopPlanFunc func(
+		ctx context.Context,
+		req motion.StopPlanReq,
+	) error
+	ListPlanStatusesFunc func(
+		ctx context.Context,
+		req motion.ListPlanStatusesReq,
+	) ([]motion.PlanStatusWithID, error)
+	PlanHistoryFunc func(
+		ctx context.Context,
+		req motion.PlanHistoryReq,
+	) ([]motion.PlanWithStatus, error)
 	DoCommandFunc func(ctx context.Context,
 		cmd map[string]interface{}) (map[string]interface{}, error)
 	CloseFunc func(ctx context.Context) error
@@ -110,6 +126,14 @@ func (mgs *MotionService) MoveOnGlobe(
 	return mgs.MoveOnGlobeFunc(ctx, componentName, destination, heading, movementSensorName, obstacles, motionCfg, extra)
 }
 
+// MoveOnGlobeNew calls the injected MoveOnGlobeNew or the real variant.
+func (mgs *MotionService) MoveOnGlobeNew(ctx context.Context, req motion.MoveOnGlobeReq) (string, error) {
+	if mgs.MoveOnGlobeNewFunc == nil {
+		return mgs.Service.MoveOnGlobeNew(ctx, req)
+	}
+	return mgs.MoveOnGlobeNewFunc(ctx, req)
+}
+
 // GetPose calls the injected GetPose or the real variant.
 func (mgs *MotionService) GetPose(
 	ctx context.Context,
@@ -122,6 +146,39 @@ func (mgs *MotionService) GetPose(
 		return mgs.Service.GetPose(ctx, componentName, destinationFrame, supplementalTransforms, extra)
 	}
 	return mgs.GetPoseFunc(ctx, componentName, destinationFrame, supplementalTransforms, extra)
+}
+
+// StopPlan calls the injected StopPlan or the real variant.
+func (mgs *MotionService) StopPlan(
+	ctx context.Context,
+	req motion.StopPlanReq,
+) error {
+	if mgs.StopPlanFunc == nil {
+		return mgs.Service.StopPlan(ctx, req)
+	}
+	return mgs.StopPlanFunc(ctx, req)
+}
+
+// ListPlanStatuses calls the injected ListPlanStatuses or the real variant.
+func (mgs *MotionService) ListPlanStatuses(
+	ctx context.Context,
+	req motion.ListPlanStatusesReq,
+) ([]motion.PlanStatusWithID, error) {
+	if mgs.ListPlanStatusesFunc == nil {
+		return mgs.Service.ListPlanStatuses(ctx, req)
+	}
+	return mgs.ListPlanStatusesFunc(ctx, req)
+}
+
+// PlanHistory calls the injected PlanHistory or the real variant.
+func (mgs *MotionService) PlanHistory(
+	ctx context.Context,
+	req motion.PlanHistoryReq,
+) ([]motion.PlanWithStatus, error) {
+	if mgs.PlanHistoryFunc == nil {
+		return mgs.Service.PlanHistory(ctx, req)
+	}
+	return mgs.PlanHistoryFunc(ctx, req)
 }
 
 // DoCommand calls the injected DoCommand or the real variant.

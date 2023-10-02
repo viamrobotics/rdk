@@ -531,6 +531,11 @@ func (manager *resourceManager) completeConfig(
 	resourceNames := manager.resources.ReverseTopologicalSort()
 	timeout := rutils.GetResourceConfigurationTimeout(manager.logger)
 	for _, resName := range resourceNames {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
 		resChan := make(chan struct{}, 1)
 		resName := resName
 		ctxWithTimeout, timeoutCancel := context.WithTimeout(ctx, timeout)
@@ -605,7 +610,11 @@ func (manager *resourceManager) completeConfig(
 		select {
 		case <-resChan:
 		case <-ctxWithTimeout.Done():
-			robot.logger.Warn(resource.NewBuildTimeoutError(resName))
+			if errors.Is(ctxWithTimeout.Err(), context.DeadlineExceeded) {
+				robot.logger.Warn(resource.NewBuildTimeoutError(resName))
+			}
+		case <-ctx.Done():
+			return
 		}
 	}
 }

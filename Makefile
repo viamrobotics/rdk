@@ -34,7 +34,7 @@ cli: bin/$(GOOS)-$(GOARCH)/viam-cli
 cli-ci: bin/$(GOOS)-$(GOARCH)/viam-cli
 	if [ -n "$(CI_RELEASE)" ]; then \
 		mkdir -p bin/deploy-ci/; \
-		cp $< bin/deploy-ci/viam-cli-$(CI_RELEASE)-$(GOOS)-$(GOARCH); \
+		cp $< bin/deploy-ci/viam-cli-$(CI_RELEASE)-$(GOOS)-$(GOARCH)$(EXE_SUFFIX); \
 	fi
 
 build-web: web/runtime-shared/static/control.js
