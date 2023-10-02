@@ -80,6 +80,8 @@ func (c *client) SetMode(ctx context.Context, mode Mode, extra map[string]interf
 		pbMode = pb.Mode_MODE_MANUAL
 	case ModeWaypoint:
 		pbMode = pb.Mode_MODE_WAYPOINT
+	case ModeExplore:
+		pbMode = pb.Mode_MODE_EXPLORE
 	default:
 		pbMode = pb.Mode_MODE_UNSPECIFIED
 	}

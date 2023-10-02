@@ -42,7 +42,7 @@ func (server *serviceServer) GetMode(ctx context.Context, req *pb.GetModeRequest
 	case ModeWaypoint:
 		protoMode = pb.Mode_MODE_WAYPOINT
 	case ModeExplore:
-		protoMode = pb.mode_MODE_EXPLORE
+		protoMode = pb.Mode_MODE_EXPLORE
 	}
 	return &pb.GetModeResponse{
 		Mode: protoMode,
@@ -61,6 +61,10 @@ func (server *serviceServer) SetMode(ctx context.Context, req *pb.SetModeRequest
 		}
 	case pb.Mode_MODE_WAYPOINT:
 		if err := svc.SetMode(ctx, ModeWaypoint, req.Extra.AsMap()); err != nil {
+			return nil, err
+		}
+	case pb.Mode_MODE_EXPLORE:
+		if err := svc.SetMode(ctx, ModeExplore, req.Extra.AsMap()); err != nil {
 			return nil, err
 		}
 	case pb.Mode_MODE_UNSPECIFIED:

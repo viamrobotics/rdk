@@ -83,6 +83,52 @@ func deleteAllWaypoints(ctx context.Context, svc navigation.Service) error {
 	return nil
 }
 
+func TestNavExploreMode(t *testing.T) {
+	ctx := context.Background()
+
+	cases := []struct {
+		description string
+		mode        navigation.Mode
+		expectedErr error
+	}{
+		{
+			description: "setting mode to manual",
+			mode:        navigation.ModeManual,
+			expectedErr: nil,
+		},
+		{
+			description: "setting mode to waypoint",
+			mode:        navigation.ModeManual,
+			expectedErr: nil,
+		},
+		{
+			description: "setting mode to explore",
+			mode:        navigation.ModeManual,
+			expectedErr: errors.New("navigation mode 'explore' is not currently available"),
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.description, func(t *testing.T) {
+			ns, teardown := setupNavigationServiceFromConfig(t, "../data/nav_cfg.json")
+			defer teardown()
+
+			navMode, err := ns.Mode(ctx, nil)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, navMode, test.ShouldEqual, navigation.ModeManual)
+
+			// Since navigation starts in manual mode, we need to set it to another mode first in order to test
+			if tt.mode == navigation.ModeManual {
+				err = ns.SetMode(ctx, navigation.ModeWaypoint, nil)
+				test.That(t, err, test.ShouldBeNil)
+			}
+
+			err = ns.SetMode(ctx, tt.mode, nil)
+			test.That(t, err, test.ShouldBeNil)
+		})
+	}
+}
+
 func TestNavSetup(t *testing.T) {
 	ns, teardown := setupNavigationServiceFromConfig(t, "../data/nav_cfg.json")
 	defer teardown()
@@ -135,19 +181,6 @@ func TestNavSetup(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, len(ns.(*builtIn).motionCfg.VisionServices), test.ShouldEqual, 1)
-}
-
-func TestNavExploreMode(t *testing.T) {
-	ns, teardown := setupNavigationServiceFromConfig(t, "../data/nav_cfg.json")
-	defer teardown()
-	ctx := context.Background()
-
-	navMode, err := ns.Mode(ctx, nil)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, navMode, test.ShouldEqual, navigation.ModeManual)
-
-	err = ns.SetMode(ctx, navigation.ModeExplore, nil)
-	test.That(t, err.Error(), test.ShouldEqual, "navigation mode 'explore' is not currently available")
 }
 
 func TestStartWaypoint(t *testing.T) {
@@ -511,7 +544,7 @@ func TestValidateGeometry(t *testing.T) {
 
 	createBox := func(translation r3.Vector) Config {
 		boxPose := spatialmath.NewPoseFromPoint(translation)
-		geometries, err := spatialmath.NewBox(boxPose, r3.Vector{10, 10, 10}, "")
+		geometries, err := spatialmath.NewBox(boxPose, r3.Vector{X: 10, Y: 10, Z: 10}, "")
 		test.That(t, err, test.ShouldBeNil)
 
 		geoObstacle := spatialmath.NewGeoObstacle(geo.NewPoint(0, 0), []spatialmath.Geometry{geometries})
@@ -524,7 +557,7 @@ func TestValidateGeometry(t *testing.T) {
 	}
 
 	t.Run("fail case", func(t *testing.T) {
-		cfg = createBox(r3.Vector{10, 10, 10})
+		cfg = createBox(r3.Vector{X: 10, Y: 10, Z: 10})
 		_, err := cfg.Validate("")
 		expectedErr := "geometries specified through the navigation are not allowed to have a translation"
 		test.That(t, err, test.ShouldNotBeNil)
