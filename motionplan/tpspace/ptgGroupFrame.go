@@ -8,7 +8,9 @@ import (
 	"math"
 
 	"github.com/edaniels/golog"
+	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/arm/v1"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
@@ -24,6 +26,7 @@ const (
 // If refDist is not explicitly set, default to pi radians times this adjustment value.
 const (
 	refDistHalfCircles = 0.9
+	defaultTrajCount   = 3
 )
 
 type ptgFactory func(float64, float64) PTG
@@ -47,6 +50,7 @@ type ptgGroupFrame struct {
 	velocityMMps       float64
 	angVelocityRadps   float64
 	turnRadMillimeters float64
+	trajCount          int
 	logger             golog.Logger
 }
 
@@ -56,6 +60,7 @@ func NewPTGFrameFromKinematicOptions(
 	name string,
 	logger golog.Logger,
 	velocityMMps, angVelocityDegps, turnRadMeters, refDist float64,
+	trajCount int,
 	geoms []spatialmath.Geometry,
 	diffDriveOnly bool,
 ) (referenceframe.Frame, error) {
@@ -70,6 +75,10 @@ func NewPTGFrameFromKinematicOptions(
 	}
 	if diffDriveOnly && turnRadMeters != 0 {
 		return nil, errors.New("if diffDriveOnly is used, turning radius must be zero")
+	}
+
+	if trajCount <= 0 {
+		trajCount = defaultTrajCount
 	}
 
 	turnRadMillimeters := turnRadMeters * 1000
@@ -113,7 +122,7 @@ func NewPTGFrameFromKinematicOptions(
 	pf := &ptgGroupFrame{name: name}
 
 	ptgs := initializePTGs(velocityMMps, angVelocityRadps, ptgsToUse)
-	solvers, err := initializeSolvers(logger, refDist, ptgs)
+	solvers, err := initializeSolvers(logger, refDist, trajCount, ptgs)
 	if err != nil {
 		return nil, err
 	}
@@ -124,6 +133,7 @@ func NewPTGFrameFromKinematicOptions(
 	pf.velocityMMps = velocityMMps
 	pf.angVelocityRadps = angVelocityRadps
 	pf.turnRadMillimeters = turnRadMillimeters
+	pf.trajCount = trajCount
 
 	pf.limits = []referenceframe.Limit{
 		{Min: 0, Max: float64(len(pf.solvers) - 1)},
@@ -136,7 +146,7 @@ func NewPTGFrameFromKinematicOptions(
 
 // NewPTGFrameFromPTGFrame will create a new Frame from a preexisting ptgGroupFrame, allowing the adjustment of `refDist` while keeping
 // other params the same. This may be expanded to allow altering turning radius, geometries, etc.
-func NewPTGFrameFromPTGFrame(frame referenceframe.Frame, refDist float64) (referenceframe.Frame, error) {
+func NewPTGFrameFromPTGFrame(frame referenceframe.Frame, refDist float64, trajCount int) (referenceframe.Frame, error) {
 	ptgFrame, ok := frame.(*ptgGroupFrame)
 	if !ok {
 		return nil, errors.New("cannot create ptg framem given frame is not a ptgGroupFrame")
@@ -150,6 +160,10 @@ func NewPTGFrameFromPTGFrame(frame referenceframe.Frame, refDist float64) (refer
 		ptgFrame.logger.Debugf("refDist was zero, calculating default %f", refDist)
 	}
 
+	if trajCount <= 0 {
+		trajCount = ptgFrame.trajCount
+	}
+
 	// Get max angular velocity in radians per second
 	pf := &ptgGroupFrame{name: ptgFrame.name}
 	ptgs := []PTG{}
@@ -157,7 +171,7 @@ func NewPTGFrameFromPTGFrame(frame referenceframe.Frame, refDist float64) (refer
 	for _, solver := range ptgFrame.solvers {
 		ptgs = append(ptgs, solver)
 	}
-	solvers, err := initializeSolvers(ptgFrame.logger, refDist, ptgs)
+	solvers, err := initializeSolvers(ptgFrame.logger, refDist, trajCount, ptgs)
 	if err != nil {
 		return nil, err
 	}
@@ -167,6 +181,7 @@ func NewPTGFrameFromPTGFrame(frame referenceframe.Frame, refDist float64) (refer
 	pf.angVelocityRadps = ptgFrame.angVelocityRadps
 	pf.turnRadMillimeters = ptgFrame.turnRadMillimeters
 	pf.velocityMMps = ptgFrame.velocityMMps
+	pf.trajCount = trajCount
 
 	pf.limits = []referenceframe.Limit{
 		{Min: 0, Max: float64(len(pf.solvers) - 1)},
@@ -195,10 +210,10 @@ func (pf *ptgGroupFrame) Transform(inputs []referenceframe.Input) (spatialmath.P
 	if len(inputs) != len(pf.DoF()) {
 		return nil, referenceframe.NewIncorrectInputLengthError(len(inputs), len(pf.DoF()))
 	}
-	alpha := inputs[trajectoryAlphaWithinPTG].Value
-	dist := inputs[distanceAlongTrajectoryIndex].Value
 
 	ptgIdx := int(math.Round(inputs[ptgIndex].Value))
+	alpha := inputs[trajectoryAlphaWithinPTG].Value
+	dist := inputs[distanceAlongTrajectoryIndex].Value
 
 	traj, err := pf.solvers[ptgIdx].Trajectory(alpha, dist)
 	if err != nil {
@@ -252,14 +267,33 @@ func initializePTGs(maxMps, maxRPS float64, constructors []ptgFactory) []PTG {
 	return ptgs
 }
 
-func initializeSolvers(logger golog.Logger, simDist float64, ptgs []PTG) ([]PTGSolver, error) {
-	solvers := []PTGSolver{}
-	for _, ptg := range ptgs {
-		solver, err := NewPTGIK(ptg, logger, simDist, 2)
-		if err != nil {
-			return nil, err
+type solverAndError struct {
+	idx    int
+	solver PTGSolver
+	err    error
+}
+
+func initializeSolvers(logger golog.Logger, simDist float64, trajCount int, ptgs []PTG) ([]PTGSolver, error) {
+	solvers := make([]PTGSolver, len(ptgs))
+	solverChan := make(chan *solverAndError, len(ptgs))
+	for i := range ptgs {
+		j := i
+		utils.PanicCapturingGo(func() {
+			solver, err := NewPTGIK(ptgs[j], logger, simDist, j, trajCount)
+			solverChan <- &solverAndError{j, solver, err}
+		})
+	}
+	var allErr error
+	for range ptgs {
+		solverReturn := <-solverChan
+		if solverReturn.solver != nil {
+			// Consistent ordering, so that if we create a child frame with NewPTGFrameFromPTGFrame, then the same inputs still work
+			solvers[solverReturn.idx] = solverReturn.solver
 		}
-		solvers = append(solvers, solver)
+		allErr = multierr.Combine(allErr, solverReturn.err)
+	}
+	if allErr != nil {
+		return nil, allErr
 	}
 	return solvers, nil
 }

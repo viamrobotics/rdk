@@ -38,6 +38,7 @@ func TestPtgRrtBidirectional(t *testing.T) {
 		0,
 		testTurnRad,
 		0,
+		0,
 		geometries,
 		false,
 	)
@@ -80,6 +81,7 @@ func TestPtgRrtBidirectional(t *testing.T) {
 			}
 		}
 	}
+	tp.planOpts.SmoothIter = 20
 	plan = tp.smoothPath(ctx, plan)
 	if tp.algOpts.pathdebug {
 		lastPose = spatialmath.NewZeroPose()
@@ -115,6 +117,7 @@ func TestPtgRrtUnidirectional(t *testing.T) {
 		300.,
 		0,
 		testTurnRad,
+		0,
 		0,
 		geometries,
 		false,
@@ -159,6 +162,7 @@ func TestPtgRrtUnidirectional(t *testing.T) {
 			}
 		}
 	}
+	tp.planOpts.SmoothIter = 20
 	plan = tp.smoothPath(ctx, plan)
 	if tp.algOpts.pathdebug {
 		lastPose = spatialmath.NewZeroPose()
@@ -192,6 +196,7 @@ func TestPtgWithObstacle(t *testing.T) {
 		0,
 		testTurnRad,
 		0,
+		0,
 		geometries,
 		false,
 	)
@@ -216,8 +221,12 @@ func TestPtgWithObstacle(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	obstacle4, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{2500, 2400, 0}), r3.Vector{50000, 30, 1}, "")
 	test.That(t, err, test.ShouldBeNil)
+	obstacle5, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{-2500, 0, 0}), r3.Vector{50, 5000, 1}, "")
+	test.That(t, err, test.ShouldBeNil)
+	obstacle6, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{8500, 0, 0}), r3.Vector{50, 5000, 1}, "")
+	test.That(t, err, test.ShouldBeNil)
 
-	geoms := []spatialmath.Geometry{obstacle1, obstacle2, obstacle3, obstacle4}
+	geoms := []spatialmath.Geometry{obstacle1, obstacle2, obstacle3, obstacle4, obstacle5, obstacle6}
 
 	worldState, err := referenceframe.NewWorldState(
 		[]*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)},
@@ -274,6 +283,7 @@ func TestPtgWithObstacle(t *testing.T) {
 			}
 		}
 	}
+	tp.planOpts.SmoothIter = 20
 	plan = tp.smoothPath(ctx, plan)
 	if tp.algOpts.pathdebug {
 		lastPose = spatialmath.NewZeroPose()
@@ -310,6 +320,7 @@ func TestTPsmoothing(t *testing.T) {
 		300.,
 		0,
 		testTurnRad,
+		0,
 		0,
 		geometries,
 		false,
@@ -352,8 +363,19 @@ func TestTPsmoothing(t *testing.T) {
 	plan, err = rectifyTPspacePath(plan, tp.frame, spatialmath.NewZeroPose())
 	test.That(t, err, test.ShouldBeNil)
 
-	plan = tp.smoothPath(ctx, plan)
-	test.That(t, plan, test.ShouldNotBeNil)
+	tp.planOpts.SmoothIter = 20
+
+	newplan := tp.smoothPath(ctx, plan)
+	test.That(t, newplan, test.ShouldNotBeNil)
+	oldcost := 0.
+	smoothcost := 0.
+	for _, planNode := range plan {
+		oldcost += planNode.Cost()
+	}
+	for _, planNode := range newplan {
+		smoothcost += planNode.Cost()
+	}
+	test.That(t, smoothcost, test.ShouldBeLessThan, oldcost)
 }
 
 func TestPtgCheckPlan(t *testing.T) {
@@ -368,6 +390,7 @@ func TestPtgCheckPlan(t *testing.T) {
 		300.,
 		0,
 		testTurnRad,
+		0,
 		0,
 		geometries,
 		false,

@@ -459,24 +459,25 @@ type tokenErrorResponse struct {
 	ErrorDescription string `json:"error_description"`
 }
 
-func newCLIAuthFlow(console io.Writer) *authFlow {
-	return newCLIAuthFlowWithAuthDomain(prodAuthDomain, prodAudience, prodClientID, console)
+func newCLIAuthFlow(console io.Writer, disableBrowserOpen bool) *authFlow {
+	return newCLIAuthFlowWithAuthDomain(prodAuthDomain, prodAudience, prodClientID, console, disableBrowserOpen)
 }
 
-func newStgCLIAuthFlow(console io.Writer) *authFlow {
-	return newCLIAuthFlowWithAuthDomain(stgAuthDomain, stgAudience, stgClientID, console)
+func newStgCLIAuthFlow(console io.Writer, disableBrowserOpen bool) *authFlow {
+	return newCLIAuthFlowWithAuthDomain(stgAuthDomain, stgAudience, stgClientID, console, disableBrowserOpen)
 }
 
-func newCLIAuthFlowWithAuthDomain(authDomain, audience, clientID string, console io.Writer) *authFlow {
+func newCLIAuthFlowWithAuthDomain(authDomain, audience, clientID string, console io.Writer, disableBrowserOpen bool) *authFlow {
 	return &authFlow{
 		clientID:              clientID,
 		scopes:                []string{"email", "openid", "offline_access"},
 		audience:              audience,
 		oidcDiscoveryEndpoint: fmt.Sprintf("%s%s", authDomain, defaultOpenIDDiscoveryPath),
 
-		httpClient: &http.Client{Timeout: time.Second * 30},
-		logger:     golog.Global(),
-		console:    console,
+		disableBrowserOpen: disableBrowserOpen,
+		httpClient:         &http.Client{Timeout: time.Second * 30},
+		logger:             golog.Global(),
+		console:            console,
 	}
 }
 
@@ -493,7 +494,8 @@ func (a *authFlow) loginAsUser(ctx context.Context) (*token, error) {
 
 	err = a.directUser(deviceCode)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to open the browser to complete the login flow due to %w."+
+			"You can use the --%s flag to skip this behavior", err, loginFlagDisableBrowser)
 	}
 
 	token, err := a.waitForUser(ctx, deviceCode, discovery)
