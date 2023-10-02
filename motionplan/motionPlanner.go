@@ -59,9 +59,11 @@ func (req *PlanRequest) validatePlanRequest() error {
 	if req.Logger == nil {
 		req.Logger = golog.NewLogger("plan-request-logger")
 	}
+
 	if req.Frame == nil {
 		return errors.New("PlanRequest cannot have nil frame")
 	}
+
 	if req.FrameSystem == nil {
 		req.Logger.Debug("no FrameSystem was given, so we ephemerally create a frame system containing just the frame for the solve")
 		fs := frame.NewEmptyFrameSystem("")
@@ -70,19 +72,22 @@ func (req *PlanRequest) validatePlanRequest() error {
 		}
 		req.FrameSystem = fs
 	} else if req.FrameSystem.Frame(req.Frame.Name()) == nil {
-		return errors.New("FrameSystem of PlanRequest does not contain the Frame of PlanRequest")
+		return frame.NewFrameMissingError(req.Frame.Name())
 	}
+
 	if req.Goal == nil {
 		return errors.New("PlanRequest cannot have nil goal")
 	} else if req.Goal != nil {
 		goalParentFrame := req.Goal.Parent()
 		if req.FrameSystem.Frame(goalParentFrame) == nil {
-			return errors.Errorf("%s was specified as the parent frame of the goal, but was not found in frame system", goalParentFrame)
+			return frame.NewParentFrameMissingError(req.Goal.Name(), goalParentFrame)
 		}
 	}
-	if len(req.StartConfiguration) == 0 {
-		return errors.New("PlanRequest cannot have nil StartConfiguration")
+
+	if len(req.Frame.DoF()) != len(req.StartConfiguration) {
+		return frame.NewIncorrectInputLengthError(len(req.StartConfiguration), len(req.Frame.DoF()))
 	}
+
 	if req.WorldState == nil {
 		req.Logger.Debug("no WorldState was given, so we created one")
 		wordstate, err := frame.NewWorldState(nil, nil)
@@ -91,6 +96,7 @@ func (req *PlanRequest) validatePlanRequest() error {
 		}
 		req.WorldState = wordstate
 	}
+
 	return nil
 }
 

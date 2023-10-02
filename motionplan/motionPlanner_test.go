@@ -8,6 +8,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	commonpb "go.viam.com/api/common/v1"
 	motionpb "go.viam.com/api/service/motion/v1"
@@ -760,4 +761,84 @@ func TestMovementWithGripper(t *testing.T) {
 	solution, err = sfPlanner.PlanSingleWaypoint(context.Background(), zeroPosition, goal, worldState, nil, motionConfig)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, solution, test.ShouldNotBeNil)
+}
+
+func TestValidatePlanRequest(t *testing.T) {
+	t.Parallel()
+	type testCase struct {
+		name        string
+		request     PlanRequest
+		expectedErr error
+	}
+
+	fs := frame.NewEmptyFrameSystem("test")
+	frame1 := frame.NewZeroStaticFrame("frame1")
+	err := fs.AddFrame(frame1, fs.World())
+	test.That(t, err, test.ShouldBeNil)
+
+	validGoal := frame.NewPoseInFrame("frame1", spatialmath.NewZeroPose())
+	badGoal := frame.NewPoseInFrame("non-existent", spatialmath.NewZeroPose())
+	badConfig := frame.FloatsToInputs([]float64{0})
+
+	testCases := []testCase{
+		{
+			name:        "empty request - fail",
+			request:     PlanRequest{},
+			expectedErr: errors.New("PlanRequest cannot have nil frame"),
+		},
+		{
+			name: "fs does not contain frame - fail",
+			request: PlanRequest{
+				Frame:       frame1,
+				FrameSystem: frame.NewEmptyFrameSystem("test"),
+			},
+			expectedErr: errors.Errorf("frame with name %q not in frame system", frame1.Name()),
+		},
+		{
+			name: "nil goal - fail",
+			request: PlanRequest{
+				Frame:       frame1,
+				FrameSystem: fs,
+			},
+			expectedErr: errors.New("PlanRequest cannot have nil goal"),
+		},
+		{
+			name: "goal's parent not in frame system - fail",
+			request: PlanRequest{
+				Frame:       frame1,
+				FrameSystem: fs,
+				Goal:        badGoal,
+			},
+			expectedErr: errors.New("part with name  references non-existent parent non-existent"),
+		},
+		{
+			name: "incorrect StartConfiguration - fail",
+			request: PlanRequest{
+				Frame:       frame1,
+				FrameSystem: fs,
+				Goal:        validGoal,
+				StartConfiguration: map[string][]frame.Input{
+					"smth": badConfig,
+				},
+			},
+			expectedErr: errors.New("number of inputs does not match frame DoF, expected 0 but got 1"),
+		},
+	}
+
+	testFn := func(t *testing.T, tc testCase) {
+		err := tc.request.validatePlanRequest()
+		if tc.expectedErr != nil {
+			test.That(t, err.Error(), test.ShouldEqual, tc.expectedErr.Error())
+		} else {
+			test.That(t, err, test.ShouldBeNil)
+		}
+	}
+
+	for _, tc := range testCases {
+		c := tc // needed to workaround loop variable not being captured by func literals
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			testFn(t, c)
+		})
+	}
 }
