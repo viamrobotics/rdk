@@ -98,7 +98,7 @@ func TestSetMode(t *testing.T) {
 		},
 		{
 			description: "setting mode to waypoint",
-			mode:        navigation.ModeManual,
+			mode:        navigation.ModeWaypoint,
 			expectedErr: nil,
 		},
 		{
@@ -124,7 +124,12 @@ func TestSetMode(t *testing.T) {
 			}
 
 			err = ns.SetMode(ctx, tt.mode, nil)
-			test.That(t, err, test.ShouldEqual, tt.expectedErr)
+			if tt.expectedErr == nil {
+				test.That(t, err, test.ShouldEqual, tt.expectedErr)
+			} else {
+				test.That(t, err, test.ShouldNotBeNil)
+				test.That(t, err.Error(), test.ShouldEqual, tt.expectedErr.Error())
+			}
 		})
 	}
 }
