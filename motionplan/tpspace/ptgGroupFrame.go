@@ -93,6 +93,8 @@ func NewPTGFrameFromKinematicOptions(
 		// Compute smallest allowable turning radius permitted by the given speeds. Use the greater of the two.
 		calcTurnRadius := (velocityMMps / angVelocityRadps)
 		if calcTurnRadius > turnRadMillimeters {
+			// This is a debug message because the user will never notice the difference; the trajectories executed by the base will be a
+			// subset of the ones that would have been had this conditional not been hit.
 			logger.Debugf(
 				"given turning radius was %f but a linear velocity of %f "+
 					"meters per sec and angular velocity of %f degs per sec only allow a turning radius of %f, using that instead",
@@ -102,6 +104,12 @@ func NewPTGFrameFromKinematicOptions(
 			// If max allowed angular velocity would turn tighter than given turn radius, shrink the max used angular velocity
 			// to match the requested tightest turn radius.
 			angVelocityRadps = velocityMMps / turnRadMillimeters
+			// This is a warning message because the user will observe the base turning at a different speed than the one requested.
+			logger.Warnf(
+				"given turning radius was %f but a linear velocity of %f "+
+					"meters per sec and angular velocity of %f degs per sec would turn at a radius of %f. Decreasing angular velocity to %f.",
+				turnRadMeters, velocityMMps/1000., angVelocityDegps, calcTurnRadius, rdkutils.RadToDeg(angVelocityRadps),
+			)
 		}
 	}
 
