@@ -424,7 +424,7 @@ func TestReconfigure(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	ur5e := &URArm{
-		speedRadPerSec:              conf.SpeedDegsPerSec,
+		speedRadPerSec:     conf.SpeedDegsPerSec,
 		urHostedKinematics: conf.ArmHostedKinematics,
 		host:               conf.Host,
 	}
