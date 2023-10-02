@@ -141,6 +141,7 @@ func (w *GraphNode) SwapResource(newRes Resource, newModel Model) {
 	w.lastErr = nil
 	w.needsReconfigure = false
 	w.markedForRemoval = false
+	w.timesReconfigured = 0
 
 	// these should already be set
 	w.unresolvedDependencies = nil
@@ -191,12 +192,13 @@ func (w *GraphNode) NeedsReconfigure() bool {
 	return !w.markedForRemoval && w.needsReconfigure
 }
 
-// CanTryReconfigure returns whether or not we can reconfigure based on how
+// ShouldTryReconfigure returns whether or not we should reconfigure based on how
 // many previous attempts were made.
-func (w *GraphNode) CanTryReconfigure() bool {
+func (w *GraphNode) ShouldTryReconfigure() bool {
+	needsReconfigure := w.NeedsReconfigure()
 	w.mu.RLock()
 	defer w.mu.RUnlock()
-	return w.timesReconfigured < maxReconfigAttempts
+	return needsReconfigure && w.timesReconfigured < maxReconfigAttempts
 }
 
 // hasUnresolvedDependencies returns whether or not this node has any
@@ -219,6 +221,7 @@ func (w *GraphNode) setNeedsReconfigure(newConfig Config, mustReconfigure bool, 
 	}
 	if mustReconfigure {
 		w.needsDependencyResolution = true
+		w.timesReconfigured = 0
 	}
 	w.config = newConfig
 	w.needsReconfigure = true
@@ -263,18 +266,11 @@ func (w *GraphNode) setDependenciesResolved() {
 }
 
 // IncrementTimesReconfigured increments the number of times the resource has been
-// reconfigured by 1.
+// reconfigured by 1. Value resetting handled in other methods situationally.
 func (w *GraphNode) IncrementTimesReconfigured() {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.timesReconfigured++
-}
-
-// ResetTimesReconfigured resets the number of times the resource has been reconfigured.
-func (w *GraphNode) ResetTimesReconfigured() {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	w.timesReconfigured = 0
 }
 
 // UnresolvedDependencies returns the set of names that are yet to be resolved as
