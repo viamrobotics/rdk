@@ -147,6 +147,12 @@ func PlanFrameMotion(ctx context.Context,
 	return plan.GetFrameSteps(f.Name())
 }
 
+func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan) (Plan, error) {
+	
+	
+	
+}
+
 type planner struct {
 	solver   ik.InverseKinematics
 	frame    frame.Frame
