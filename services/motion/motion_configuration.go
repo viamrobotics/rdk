@@ -10,18 +10,6 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-// MotionConfiguration specifies how to configure a call to the a motion service.
-//
-//nolint:revive
-type MotionConfiguration struct {
-	VisionServices        []resource.Name
-	PositionPollingFreqHz float64
-	ObstaclePollingFreqHz float64
-	PlanDeviationMM       float64
-	LinearMPerSec         float64
-	AngularDegsPerSec     float64
-}
-
 func configurationFromProto(motionCfg *pb.MotionConfiguration) *MotionConfiguration {
 	visionSvc := []resource.Name{}
 	planDeviationM := 0.
