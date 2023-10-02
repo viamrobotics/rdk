@@ -100,11 +100,6 @@ jobs:
         parent: false
         gzip: false
 
-    - uses: actions/upload-artifact@v3
-      with:
-        name: appimage-${{ matrix.label }}
-        path: etc/packaging/appimages/deploy
-
   appimage-static-32bit:
     name: static 32-bit for appimage
     runs-on: buildjet-2vcpu-ubuntu-2204-arm

@@ -1,13 +1,13 @@
 name: Pull Request Update
 
-# concurrency: 
-#   group: pullrequest-${{ github.head_ref }}
-#   cancel-in-progress: true
+concurrency:
+  group: pullrequest-${{ github.head_ref }}
+  cancel-in-progress: true
 
 on:
-  pull_request:
-    # branches: [ main ]
-    # types: [ labeled ]
+  pull_request_target:
+    branches: [ main ]
+    types: [ labeled ]
 
 # To test workflow updates you need to work in a branch directly on viamrobotics/rdk
 # and tag your working branch instead of @main in any viamrobotics/rdk "uses" below.
@@ -15,63 +15,64 @@ on:
 
 jobs:
   test:
-    # if: (github.event.label.name == 'safe to test' || github.event.label.name == 'appimage')
-    uses: ./.github/workflows/test.yml
+    if: (github.event.label.name == 'safe to test' || github.event.label.name == 'appimage')
+    uses: viamrobotics/rdk/.github/workflows/test.yml@main
     secrets:
       MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
 
-  # # This lets people add an "appimage" tag to have appimages built for the PR
-  # appimage:
-  #   needs: [test]
-  #   if: |
-  #     always() && !cancelled() && contains(github.event.pull_request.labels.*.name, 'safe to test') &&
-  #     !contains(github.event.pull_request.labels.*.name, 'appimage-ignore-tests') &&
-  #     contains(github.event.pull_request.labels.*.name, 'appimage') && needs.test.result == 'success'
-  #   uses: ./.github/workflows/appimage.yml
-  #   with:
-  #     release_type: 'pr'
-  #   secrets:
-  #     GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+  # This lets people add an "appimage" tag to have appimages built for the PR
+  appimage:
+    needs: [test]
+    if: |
+      always() && !cancelled() && contains(github.event.pull_request.labels.*.name, 'safe to test') &&
+      !contains(github.event.pull_request.labels.*.name, 'appimage-ignore-tests') &&
+      contains(github.event.pull_request.labels.*.name, 'appimage') && needs.test.result == 'success'
+    uses: viamrobotics/rdk/.github/workflows/appimage.yml@main
+    with:
+      release_type: 'pr'
+    secrets:
+      GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
   appimage-ignore-tests:
     if: |
        always() && !cancelled() && contains(github.event.pull_request.labels.*.name, 'safe to test') &&
        contains(github.event.pull_request.labels.*.name, 'appimage-ignore-tests')
-    uses: ./.github/workflows/appimage.yml
+    uses: viamrobotics/rdk/.github/workflows/appimage.yml@main
     with:
       release_type: 'pr'
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
   # This lets people add a "static-build" tag to have static binaries built for the PR
-  # static:
-  #   needs: [test]
-  #   if: |
-  #     always() && !cancelled() && contains(github.event.pull_request.labels.*.name, 'safe to test') &&
-  #     !contains(github.event.pull_request.labels.*.name, 'static-ignore-tests') &&
-  #     contains(github.event.pull_request.labels.*.name, 'static-build') && needs.test.result == 'success'
-  #   uses: ./.github/workflows/staticbuild.yml
-  #   with:
-  #     release_type: 'pr'
-  #   secrets:
-  #     GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
-
-  static-ignore-tests:
+  static:
+    needs: [test]
     if: |
-       always() && !cancelled() && contains(github.event.pull_request.labels.*.name, 'safe to test')
-    uses: ./.github/workflows/staticbuild.yml
+      always() && !cancelled() && contains(github.event.pull_request.labels.*.name, 'safe to test') &&
+      !contains(github.event.pull_request.labels.*.name, 'static-ignore-tests') &&
+      contains(github.event.pull_request.labels.*.name, 'static-build') && needs.test.result == 'success'
+    uses: viamrobotics/rdk/.github/workflows/staticbuild.yml@main
     with:
       release_type: 'pr'
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
-  # droid:
-  #   needs: test
-  #   uses: viamrobotics/rdk/.github/workflows/droid.yml@main
-  #   with:
-  #     release_type: 'pr'
-  #   secrets:
-  #     GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+  static-ignore-tests:
+    if: |
+       always() && !cancelled() && contains(github.event.pull_request.labels.*.name, 'safe to test') &&
+       contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
+    uses: viamrobotics/rdk/.github/workflows/staticbuild.yml@main
+    with:
+      release_type: 'pr'
+    secrets:
+      GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
-  # license_finder:
-  #   uses: viamrobotics/rdk/.github/workflows/license_finder.yml@main
+  droid:
+    needs: test
+    uses: viamrobotics/rdk/.github/workflows/droid.yml@main
+    with:
+      release_type: 'pr'
+    secrets:
+      GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+
+  license_finder:
+    uses: viamrobotics/rdk/.github/workflows/license_finder.yml@main

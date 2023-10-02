@@ -1,12 +1,12 @@
 name: Docker
 
-# concurrency:
-#   group: ${{ github.workflow }}-${{ github.ref }}
-#   cancel-in-progress: true
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 on:
-  # schedule:
-  #   - cron: '0 6 * * *' # once a day at 6AM UTC (1AM/EST, 2AM/EDT)
+  schedule:
+    - cron: '0 6 * * *' # once a day at 6AM UTC (1AM/EST, 2AM/EDT)
   workflow_dispatch:
 
 # To test workflow updates you need to work in a branch directly on viamrobotics/rdk
@@ -74,8 +74,8 @@ jobs:
           BASE_TAG=${{ matrix.tag }}
         file: ${{ matrix.file }}
 
-  # test:
-  #   needs: canon-cache
-  #   uses: viamrobotics/rdk/.github/workflows/test.yml@main
-  #   secrets:
-  #     MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
+  test:
+    needs: canon-cache
+    uses: viamrobotics/rdk/.github/workflows/test.yml@main
+    secrets:
+      MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}

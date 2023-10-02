@@ -42,7 +42,7 @@ jobs:
       uses: actions/checkout@v3
 
     - name: Check out PR branch code
-      if: github.event_name == 'pull_request' # DONOTMERGE
+      if: github.event_name == 'pull_request_target'
       uses: actions/checkout@v3
       with:
         ref: ${{ github.event.pull_request.head.sha }}
@@ -58,7 +58,7 @@ jobs:
         credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
 
     - name: Build (PR)
-      # if: contains(github.event.pull_request.labels.*.name, 'static-build') || contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
+      if: contains(github.event.pull_request.labels.*.name, 'static-build') || contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
       run: |
         sudo -Hu testbot bash -lc 'make BUILD_CHANNEL="pr-${{ github.event.pull_request.number }}" static-release'
 

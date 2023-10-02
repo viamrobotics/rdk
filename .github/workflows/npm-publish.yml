@@ -11,14 +11,14 @@ jobs:
   publish:
     if: github.repository_owner == 'viamrobotics'
     runs-on: [ubuntu-latest]
+    container:
+      image: ghcr.io/viamrobotics/canon:amd64-cache
+
     steps:
       - name: Checkout
         uses: actions/checkout@v3
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v3
-        with:
-          node-version: 18
 
       - name: Install and Build 🔧
         run: |
