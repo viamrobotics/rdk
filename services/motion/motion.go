@@ -51,6 +51,22 @@ type MoveOnGlobeReq struct {
 	Extra              map[string]interface{}
 }
 
+// StopPlanReq describes the request to the StopPlan interface method.
+// Contains the ComponentName of the plan which should be stopped
+// & an Extra parameter.
+type StopPlanReq struct {
+	ComponentName resource.Name
+	Extra         map[string]interface{}
+}
+
+// ListPlanStatusesReq describes the request to the ListPlanStatuses interface method.
+// If OnlyActivePlans is true then only active plans will be returned.
+// Also contains an Extra parameter.
+type ListPlanStatusesReq struct {
+	OnlyActivePlans bool
+	Extra           map[string]interface{}
+}
+
 // PlanStep represents a single step of the plan
 // Describes the pose each resource described by the plan
 // should move to at that step.
@@ -153,13 +169,11 @@ type Service interface {
 	) (*referenceframe.PoseInFrame, error)
 	StopPlan(
 		ctx context.Context,
-		componentName resource.Name,
-		extra map[string]interface{},
+		req StopPlanReq,
 	) error
 	ListPlanStatuses(
 		ctx context.Context,
-		onlyActivePlans bool,
-		extra map[string]interface{},
+		req ListPlanStatusesReq,
 	) ([]PlanStatusWithID, error)
 	PlanHistory(
 		ctx context.Context,

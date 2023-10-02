@@ -358,16 +358,14 @@ func (ms *builtIn) GetPose(
 
 func (ms *builtIn) StopPlan(
 	ctx context.Context,
-	componentName resource.Name,
-	extra map[string]interface{},
+	req motion.StopPlanReq,
 ) error {
 	return errUnimplemented
 }
 
 func (ms *builtIn) ListPlanStatuses(
 	ctx context.Context,
-	onlyActivePlans bool,
-	extra map[string]interface{},
+	req motion.ListPlanStatusesReq,
 ) ([]motion.PlanStatusWithID, error) {
 	return nil, errUnimplemented
 }

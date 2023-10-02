@@ -317,13 +317,13 @@ func TestClient(t *testing.T) {
 			errExpected := errors.New("some client error")
 			injectMS.StopPlanFunc = func(
 				ctx context.Context,
-				componentName resource.Name,
-				extra map[string]interface{},
+				req motion.StopPlanReq,
 			) error {
 				return errExpected
 			}
 
-			err := client.StopPlan(ctx, base.Named("mybase"), nil)
+			req := motion.StopPlanReq{ComponentName: base.Named("mybase")}
+			err := client.StopPlan(ctx, req)
 			test.That(t, err, test.ShouldNotBeNil)
 			test.That(t, err.Error(), test.ShouldContainSubstring, errExpected.Error())
 		})
@@ -331,13 +331,13 @@ func TestClient(t *testing.T) {
 		t.Run("otherwise returns nil", func(t *testing.T) {
 			injectMS.StopPlanFunc = func(
 				ctx context.Context,
-				componentName resource.Name,
-				extra map[string]interface{},
+				req motion.StopPlanReq,
 			) error {
 				return nil
 			}
 
-			err := client.StopPlan(ctx, base.Named("mybase"), nil)
+			req := motion.StopPlanReq{ComponentName: base.Named("mybase")}
+			err := client.StopPlan(ctx, req)
 			test.That(t, err, test.ShouldBeNil)
 		})
 
@@ -356,13 +356,12 @@ func TestClient(t *testing.T) {
 			errExpected := errors.New("some client error")
 			injectMS.ListPlanStatusesFunc = func(
 				ctx context.Context,
-				onlyActivePlans bool,
-				extra map[string]interface{},
+				req motion.ListPlanStatusesReq,
 			) ([]motion.PlanStatusWithID, error) {
 				return nil, errExpected
 			}
-
-			resp, err := client.ListPlanStatuses(ctx, false, nil)
+			req := motion.ListPlanStatusesReq{}
+			resp, err := client.ListPlanStatuses(ctx, req)
 			test.That(t, err, test.ShouldNotBeNil)
 			test.That(t, err.Error(), test.ShouldContainSubstring, errExpected.Error())
 			test.That(t, resp, test.ShouldBeEmpty)
@@ -383,18 +382,18 @@ func TestClient(t *testing.T) {
 
 			injectMS.ListPlanStatusesFunc = func(
 				ctx context.Context,
-				onlyActivePlans bool,
-				extra map[string]interface{},
+				req motion.ListPlanStatusesReq,
 			) ([]motion.PlanStatusWithID, error) {
 				return expectedResp, nil
 			}
 
-			resp, err := client.ListPlanStatuses(ctx, false, nil)
+			req := motion.ListPlanStatusesReq{}
+			resp, err := client.ListPlanStatuses(ctx, req)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, resp, test.ShouldResemble, expectedResp)
 		})
 
-		t.Run("supportbs returning multiple PlanStautsWithID", func(t *testing.T) {
+		t.Run("supports returning multiple PlanStautsWithID", func(t *testing.T) {
 			planIDA, err := uuid.NewUUID()
 			test.That(t, err, test.ShouldBeNil)
 
@@ -419,13 +418,13 @@ func TestClient(t *testing.T) {
 
 			injectMS.ListPlanStatusesFunc = func(
 				ctx context.Context,
-				onlyActivePlans bool,
-				extra map[string]interface{},
+				req motion.ListPlanStatusesReq,
 			) ([]motion.PlanStatusWithID, error) {
 				return expectedResp, nil
 			}
 
-			resp, err := client.ListPlanStatuses(ctx, false, nil)
+			req := motion.ListPlanStatusesReq{}
+			resp, err := client.ListPlanStatuses(ctx, req)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, resp, test.ShouldResemble, expectedResp)
 		})

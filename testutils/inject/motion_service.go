@@ -55,13 +55,11 @@ type MotionService struct {
 	) (*referenceframe.PoseInFrame, error)
 	StopPlanFunc func(
 		ctx context.Context,
-		rootComponent resource.Name,
-		extra map[string]interface{},
+		req motion.StopPlanReq,
 	) error
 	ListPlanStatusesFunc func(
 		ctx context.Context,
-		onlyActivePlans bool,
-		extra map[string]interface{},
+		req motion.ListPlanStatusesReq,
 	) ([]motion.PlanStatusWithID, error)
 	PlanHistoryFunc func(
 		ctx context.Context,
@@ -153,25 +151,23 @@ func (mgs *MotionService) GetPose(
 // StopPlan calls the injected StopPlan or the real variant.
 func (mgs *MotionService) StopPlan(
 	ctx context.Context,
-	componentName resource.Name,
-	extra map[string]interface{},
+	req motion.StopPlanReq,
 ) error {
 	if mgs.StopPlanFunc == nil {
-		return mgs.Service.StopPlan(ctx, componentName, extra)
+		return mgs.Service.StopPlan(ctx, req)
 	}
-	return mgs.StopPlanFunc(ctx, componentName, extra)
+	return mgs.StopPlanFunc(ctx, req)
 }
 
 // ListPlanStatuses calls the injected ListPlanStatuses or the real variant.
 func (mgs *MotionService) ListPlanStatuses(
 	ctx context.Context,
-	onlyActivePlans bool,
-	extra map[string]interface{},
+	req motion.ListPlanStatusesReq,
 ) ([]motion.PlanStatusWithID, error) {
 	if mgs.ListPlanStatusesFunc == nil {
-		return mgs.Service.ListPlanStatuses(ctx, onlyActivePlans, extra)
+		return mgs.Service.ListPlanStatuses(ctx, req)
 	}
-	return mgs.ListPlanStatusesFunc(ctx, onlyActivePlans, extra)
+	return mgs.ListPlanStatusesFunc(ctx, req)
 }
 
 // PlanHistory calls the injected PlanHistory or the real variant.

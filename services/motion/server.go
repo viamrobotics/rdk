@@ -135,7 +135,8 @@ func (server *serviceServer) StopPlan(ctx context.Context, req *pb.StopPlanReque
 	}
 
 	componentName := protoutils.ResourceNameFromProto(req.GetComponentName())
-	err = svc.StopPlan(ctx, componentName, req.Extra.AsMap())
+	r := StopPlanReq{ComponentName: componentName, Extra: req.Extra.AsMap()}
+	err = svc.StopPlan(ctx, r)
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +150,8 @@ func (server *serviceServer) ListPlanStatuses(ctx context.Context, req *pb.ListP
 		return nil, err
 	}
 
-	statuses, err := svc.ListPlanStatuses(ctx, req.GetOnlyActivePlans(), req.Extra.AsMap())
+	r := ListPlanStatusesReq{OnlyActivePlans: req.GetOnlyActivePlans(), Extra: req.Extra.AsMap()}
+	statuses, err := svc.ListPlanStatuses(ctx, r)
 	if err != nil {
 		return nil, err
 	}

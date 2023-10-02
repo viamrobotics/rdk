@@ -326,8 +326,7 @@ func TestServerStopPlan(t *testing.T) {
 
 		injectMS.StopPlanFunc = func(
 			ctx context.Context,
-			componentName resource.Name,
-			extra map[string]interface{},
+			req motion.StopPlanReq,
 		) error {
 			t.Log("should not be called")
 			t.FailNow()
@@ -344,8 +343,7 @@ func TestServerStopPlan(t *testing.T) {
 		errExpected := errors.New("stop error")
 		injectMS.StopPlanFunc = func(
 			ctx context.Context,
-			componentName resource.Name,
-			extra map[string]interface{},
+			req motion.StopPlanReq,
 		) error {
 			return errExpected
 		}
@@ -359,10 +357,9 @@ func TestServerStopPlan(t *testing.T) {
 	t.Run("otherwise returns a success response", func(t *testing.T) {
 		injectMS.StopPlanFunc = func(
 			ctx context.Context,
-			componentName resource.Name,
-			extra map[string]interface{},
+			req motion.StopPlanReq,
 		) error {
-			test.That(t, componentName, test.ShouldResemble, expectedComponentName)
+			test.That(t, req.ComponentName, test.ShouldResemble, expectedComponentName)
 			return nil
 		}
 
@@ -388,8 +385,7 @@ func TestServerListPlanStatuses(t *testing.T) {
 		listPlanStatusesRequest := &pb.ListPlanStatusesRequest{}
 		injectMS.ListPlanStatusesFunc = func(
 			ctx context.Context,
-			onlyActivePlans bool,
-			extra map[string]interface{},
+			req motion.ListPlanStatusesReq,
 		) ([]motion.PlanStatusWithID, error) {
 			t.Log("should not be called")
 			t.FailNow()
@@ -406,8 +402,7 @@ func TestServerListPlanStatuses(t *testing.T) {
 		errExpected := errors.New("ListPlanStatuses error")
 		injectMS.ListPlanStatusesFunc = func(
 			ctx context.Context,
-			onlyActivePlans bool,
-			extra map[string]interface{},
+			req motion.ListPlanStatusesReq,
 		) ([]motion.PlanStatusWithID, error) {
 			return nil, errExpected
 		}
@@ -469,8 +464,7 @@ func TestServerListPlanStatuses(t *testing.T) {
 
 		injectMS.ListPlanStatusesFunc = func(
 			ctx context.Context,
-			onlyActivePlans bool,
-			extra map[string]interface{},
+			req motion.ListPlanStatusesReq,
 		) ([]motion.PlanStatusWithID, error) {
 			return []motion.PlanStatusWithID{
 				pswid1,

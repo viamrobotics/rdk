@@ -173,27 +173,27 @@ func (c *client) GetPose(
 	return referenceframe.ProtobufToPoseInFrame(resp.Pose), nil
 }
 
-func (c *client) StopPlan(ctx context.Context, componentName resource.Name, extra map[string]interface{}) error {
-	ext, err := vprotoutils.StructToStructPb(extra)
+func (c *client) StopPlan(ctx context.Context, req StopPlanReq) error {
+	ext, err := vprotoutils.StructToStructPb(req.Extra)
 	if err != nil {
 		return err
 	}
 	_, err = c.client.StopPlan(ctx, &pb.StopPlanRequest{
 		Name:          c.name,
-		ComponentName: protoutils.ResourceNameToProto(componentName),
+		ComponentName: protoutils.ResourceNameToProto(req.ComponentName),
 		Extra:         ext,
 	})
 	return err
 }
 
-func (c *client) ListPlanStatuses(ctx context.Context, onlyActivePlans bool, extra map[string]interface{}) ([]PlanStatusWithID, error) {
-	ext, err := vprotoutils.StructToStructPb(extra)
+func (c *client) ListPlanStatuses(ctx context.Context, req ListPlanStatusesReq) ([]PlanStatusWithID, error) {
+	ext, err := vprotoutils.StructToStructPb(req.Extra)
 	if err != nil {
 		return nil, err
 	}
 	resp, err := c.client.ListPlanStatuses(ctx, &pb.ListPlanStatusesRequest{
 		Name:            c.name,
-		OnlyActivePlans: onlyActivePlans,
+		OnlyActivePlans: req.OnlyActivePlans,
 		Extra:           ext,
 	})
 	if err != nil {

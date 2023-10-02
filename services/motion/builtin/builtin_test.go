@@ -1296,7 +1296,8 @@ func TestStopPlan(t *testing.T) {
 	_, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
 	defer ms.Close(ctx)
 
-	err := ms.StopPlan(ctx, fakeBase.Name(), nil)
+	req := motion.StopPlanReq{ComponentName: fakeBase.Name()}
+	err := ms.StopPlan(ctx, req)
 	test.That(t, err, test.ShouldEqual, errUnimplemented)
 }
 
@@ -1307,7 +1308,8 @@ func TestListPlanStatuses(t *testing.T) {
 	_, _, _, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
 	defer ms.Close(ctx)
 
-	planStatusesWithIDs, err := ms.ListPlanStatuses(ctx, false, nil)
+	req := motion.ListPlanStatusesReq{}
+	planStatusesWithIDs, err := ms.ListPlanStatuses(ctx, req)
 	test.That(t, err, test.ShouldEqual, errUnimplemented)
 	test.That(t, planStatusesWithIDs, test.ShouldBeNil)
 }
