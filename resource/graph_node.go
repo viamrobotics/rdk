@@ -274,7 +274,7 @@ func (w *GraphNode) IncrementTimesReconfigured() {
 }
 
 // resetTimesReconfigured is a private method (no mutex!!!) that sets timesReconfigured
-// back to 0
+// back to 0.
 func (w *GraphNode) resetTimesReconfigured() {
 	w.timesReconfigured = 0
 }
