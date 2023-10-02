@@ -237,6 +237,11 @@ func (b *numatoBoard) AnalogReaderByName(name string) (board.AnalogReader, bool)
 	return ar, ok
 }
 
+// AnalogWriterByName returns an analog writer by name.
+func (b *numatoBoard) AnalogWriterByName(name string) (board.AnalogWriter, bool) {
+	return nil, false
+}
+
 // DigitalInterruptByName returns a digital interrupt by name.
 func (b *numatoBoard) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
 	return nil, false
@@ -259,6 +264,11 @@ func (b *numatoBoard) AnalogReaderNames() []string {
 		names = append(names, n)
 	}
 	return names
+}
+
+// AnalogWriterNames returns the names of all known analog writers.
+func (b *numatoBoard) AnalogWriterNames() []string {
+	return nil
 }
 
 // DigitalInterruptNames returns the names of all known digital interrupts.

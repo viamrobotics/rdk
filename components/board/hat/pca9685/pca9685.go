@@ -296,6 +296,11 @@ func (pca *PCA9685) AnalogReaderNames() []string {
 	return nil
 }
 
+// AnalogWriterNames returns the names of all known analog writers.
+func (pca *PCA9685) AnalogWriterNames() []string {
+	return nil
+}
+
 // DigitalInterruptNames returns the names of all known digital interrupts.
 func (pca *PCA9685) DigitalInterruptNames() []string {
 	return nil
@@ -313,6 +318,11 @@ func (pca *PCA9685) I2CByName(name string) (board.I2C, bool) {
 
 // AnalogReaderByName returns the analog reader by the given name if it exists.
 func (pca *PCA9685) AnalogReaderByName(name string) (board.AnalogReader, bool) {
+	return nil, false
+}
+
+// AnalogWriterByName returns the analog writer by the given name if it exists.
+func (pca *PCA9685) AnalogWriterByName(name string) (board.AnalogWriter, bool) {
 	return nil, false
 }
 

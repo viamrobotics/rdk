@@ -233,6 +233,12 @@ func (b *Board) AnalogReaderByName(name string) (board.AnalogReader, bool) {
 	return a, ok
 }
 
+// AnalogWriterByName returns the analog writer by the given name if it exists.
+// Unimplemented
+func (b *Board) AnalogWriterByName(name string) (board.AnalogWriter, bool) {
+	return nil, false
+}
+
 // DigitalInterruptByName returns the interrupt by the given name if it exists.
 func (b *Board) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
 	b.mu.RLock()
@@ -285,6 +291,12 @@ func (b *Board) AnalogReaderNames() []string {
 		names = append(names, k)
 	}
 	return names
+}
+
+// AnalogWriterNames returns the names of all known analog writers.
+// Unimplemented
+func (b *Board) AnalogWriterNames() []string {
+	return nil
 }
 
 // DigitalInterruptNames returns the names of all known digital interrupts.

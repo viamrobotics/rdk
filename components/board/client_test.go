@@ -144,7 +144,7 @@ func TestWorkingClient(t *testing.T) {
 		test.That(t, actualExtra, test.ShouldResemble, expectedExtra)
 		actualExtra = nil
 
-		// Analog
+		// Analog Reader
 		injectAnalogReader := &inject.AnalogReader{}
 		injectBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
 			return injectAnalogReader, true
@@ -153,7 +153,7 @@ func TestWorkingClient(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, injectBoard.AnalogReaderByNameCap(), test.ShouldResemble, []interface{}{"analog1"})
 
-		// Analog:Read
+		// Analog Reader:Read
 		injectAnalogReader.ReadFunc = func(ctx context.Context, extra map[string]interface{}) (int, error) {
 			actualExtra = extra
 			return 6, nil
@@ -161,6 +161,25 @@ func TestWorkingClient(t *testing.T) {
 		readVal, err := analog1.Read(context.Background(), expectedExtra)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, readVal, test.ShouldEqual, 6)
+		test.That(t, actualExtra, test.ShouldResemble, expectedExtra)
+		actualExtra = nil
+
+		// Analog Writer
+		injectAnalogWriter := &inject.AnalogWriter{}
+		injectBoard.AnalogWriterByNameFunc = func(name string) (board.AnalogWriter, bool) {
+			return injectAnalogWriter, true
+		}
+		analogwriter, ok := injectBoard.AnalogWriterByName("analogwriter1")
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, injectBoard.AnalogWriterByNameCap(), test.ShouldResemble, []interface{}{"analogwriter1"})
+
+		// Analog Writer: Write
+		injectAnalogWriter.WriteFunc = func(ctx context.Context, value int32, extra map[string]interface{}) error {
+			actualExtra = extra
+			return nil
+		}
+		err = analogwriter.Write(context.Background(), 6, expectedExtra)
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, actualExtra, test.ShouldResemble, expectedExtra)
 		actualExtra = nil
 

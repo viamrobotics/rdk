@@ -16,8 +16,8 @@ import (
 )
 
 var (
-	errFoo           = errors.New("whoops")
-	errUnimplemented = errors.New("not found")
+	errFoo      = errors.New("whoops")
+	errNotFound = errors.New("not found")
 )
 
 func newServer() (pb.BoardServiceServer, *inject.Board, error) {
@@ -64,7 +64,7 @@ func TestServerStatus(t *testing.T) {
 			req:          &request{Name: missingBoardName},
 			expCapArgs:   []interface{}(nil),
 			expResp:      nil,
-			expRespErr:   errUnimplemented.Error(),
+			expRespErr:   errNotFound.Error(),
 		},
 		{
 			injectResult: status,
@@ -128,7 +128,7 @@ func TestServerSetGPIO(t *testing.T) {
 			injectErr:  nil,
 			req:        &request{Name: missingBoardName},
 			expCapArgs: []interface{}(nil),
-			expRespErr: errUnimplemented.Error(),
+			expRespErr: errNotFound.Error(),
 		},
 		{
 			injectErr:  errFoo,
@@ -197,7 +197,7 @@ func TestServerGetGPIO(t *testing.T) {
 			req:          &request{Name: missingBoardName},
 			expCapArgs:   []interface{}(nil),
 			expResp:      nil,
-			expRespErr:   errUnimplemented.Error(),
+			expRespErr:   errNotFound.Error(),
 		},
 		{
 			injectResult: false,
@@ -272,7 +272,7 @@ func TestServerPWM(t *testing.T) {
 			req:          &request{Name: missingBoardName},
 			expCapArgs:   []interface{}(nil),
 			expResp:      nil,
-			expRespErr:   errUnimplemented.Error(),
+			expRespErr:   errNotFound.Error(),
 		},
 		{
 			injectResult: 0,
@@ -340,7 +340,7 @@ func TestServerSetPWM(t *testing.T) {
 			injectErr:  nil,
 			req:        &request{Name: missingBoardName},
 			expCapArgs: []interface{}(nil),
-			expRespErr: errUnimplemented.Error(),
+			expRespErr: errNotFound.Error(),
 		},
 		{
 			injectErr:  errFoo,
@@ -410,7 +410,7 @@ func TestServerPWMFrequency(t *testing.T) {
 			req:          &request{Name: missingBoardName},
 			expCapArgs:   []interface{}(nil),
 			expResp:      nil,
-			expRespErr:   errUnimplemented.Error(),
+			expRespErr:   errNotFound.Error(),
 		},
 		{
 			injectResult: 0,
@@ -478,7 +478,7 @@ func TestServerSetPWMFrequency(t *testing.T) {
 			injectErr:  nil,
 			req:        &request{Name: missingBoardName},
 			expCapArgs: []interface{}(nil),
-			expRespErr: errUnimplemented.Error(),
+			expRespErr: errNotFound.Error(),
 		},
 		{
 			injectErr:  errFoo,
@@ -554,7 +554,7 @@ func TestServerReadAnalogReader(t *testing.T) {
 			expCapAnalogReaderArgs: []interface{}(nil),
 			expCapArgs:             []interface{}(nil),
 			expResp:                nil,
-			expRespErr:             errUnimplemented.Error(),
+			expRespErr:             errNotFound.Error(),
 		},
 		{
 			injectAnalogReader:     nil,
@@ -624,6 +624,105 @@ func TestServerReadAnalogReader(t *testing.T) {
 }
 
 //nolint:dupl
+func TestServerWriteAnalog(t *testing.T) {
+	type request = pb.WriteAnalogRequest
+	type response = pb.WriteAnalogResponse
+	ctx := context.Background()
+
+	expectedExtra := map[string]interface{}{"foo": "bar", "baz": []interface{}{1., 2., 3.}}
+	pbExpectedExtra, err := protoutils.StructToStructPb(expectedExtra)
+	test.That(t, err, test.ShouldBeNil)
+
+	tests := []struct {
+		name                   string
+		injectAnalogWriter     *inject.AnalogWriter
+		injectAnalogWriterOk   bool
+		injectErr              error
+		req                    *request
+		expCapAnalogWriterArgs []interface{}
+		expCapArgs             []interface{}
+		expResp                *response
+		expRespErr             string
+	}{
+		{
+			name:                   "Successful analog write",
+			injectAnalogWriter:     &inject.AnalogWriter{},
+			injectAnalogWriterOk:   true,
+			injectErr:              nil,
+			req:                    &request{Name: testBoardName, Pin: "analogwriter1", Extra: pbExpectedExtra},
+			expCapAnalogWriterArgs: []interface{}{"analogwriter1"},
+			expCapArgs:             []interface{}{ctx},
+			expResp:                &response{},
+			expRespErr:             "",
+		},
+		{
+			name:                   "Analog write called on a board that does not exist should return not found error",
+			injectAnalogWriter:     nil,
+			injectAnalogWriterOk:   false,
+			injectErr:              nil,
+			req:                    &request{Name: missingBoardName},
+			expCapAnalogWriterArgs: []interface{}(nil),
+			expCapArgs:             []interface{}(nil),
+			expResp:                nil,
+			expRespErr:             errNotFound.Error(),
+		},
+		{
+			name:                   "Analog write called on a nonexistent analog writer should return unknown analog error",
+			injectAnalogWriter:     nil,
+			injectAnalogWriterOk:   false,
+			injectErr:              nil,
+			req:                    &request{Name: testBoardName, Pin: "analogwriter1"},
+			expCapAnalogWriterArgs: []interface{}{"analogwriter1"},
+			expCapArgs:             []interface{}(nil),
+			expResp:                nil,
+			expRespErr:             "unknown analog writer: analogwriter1",
+		},
+		{
+			name:                   "An error on write should be returned",
+			injectAnalogWriter:     &inject.AnalogWriter{},
+			injectAnalogWriterOk:   true,
+			injectErr:              errFoo,
+			req:                    &request{Name: testBoardName, Pin: "analogwriter1"},
+			expCapAnalogWriterArgs: []interface{}{"analogwriter1"},
+			expCapArgs:             []interface{}{ctx},
+			expResp:                nil,
+			expRespErr:             errFoo.Error(),
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run("", func(t *testing.T) {
+			server, injectBoard, err := newServer()
+			test.That(t, err, test.ShouldBeNil)
+			var actualExtra map[string]interface{}
+
+			injectBoard.AnalogWriterByNameFunc = func(name string) (board.AnalogWriter, bool) {
+				return tc.injectAnalogWriter, tc.injectAnalogWriterOk
+			}
+
+			if tc.injectAnalogWriter != nil {
+				tc.injectAnalogWriter.WriteFunc = func(ctx context.Context, value int32, extra map[string]interface{}) error {
+					actualExtra = extra
+					return tc.injectErr
+				}
+			}
+
+			resp, err := server.WriteAnalog(ctx, tc.req)
+			if tc.expRespErr == "" {
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, resp, test.ShouldResemble, tc.expResp)
+				test.That(t, actualExtra, test.ShouldResemble, expectedExtra)
+			} else {
+				test.That(t, err, test.ShouldNotBeNil)
+				test.That(t, err.Error(), test.ShouldContainSubstring, tc.expRespErr)
+			}
+			test.That(t, injectBoard.AnalogWriterByNameCap(), test.ShouldResemble, tc.expCapAnalogWriterArgs)
+			test.That(t, tc.injectAnalogWriter.WriteCap(), test.ShouldResemble, tc.expCapArgs)
+		})
+	}
+}
+
+//nolint:dupl
 func TestServerGetDigitalInterruptValue(t *testing.T) {
 	type request = pb.GetDigitalInterruptValueRequest
 	type response = pb.GetDigitalInterruptValueResponse
@@ -653,7 +752,7 @@ func TestServerGetDigitalInterruptValue(t *testing.T) {
 			expCapDigitalInterruptArgs: []interface{}(nil),
 			expCapArgs:                 []interface{}(nil),
 			expResp:                    nil,
-			expRespErr:                 errUnimplemented.Error(),
+			expRespErr:                 errNotFound.Error(),
 		},
 		{
 			injectDigitalInterrupt:     nil,

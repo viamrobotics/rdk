@@ -41,6 +41,7 @@ type boardInfo struct {
 	spiNames              []string
 	i2cNames              []string
 	analogReaderNames     []string
+	analogWriterNames     []string
 	digitalInterruptNames []string
 	gpioPinNames          []string
 }
@@ -72,6 +73,14 @@ func (c *client) AnalogReaderByName(name string) (AnalogReader, bool) {
 		client:           c,
 		boardName:        c.info.name,
 		analogReaderName: name,
+	}, true
+}
+
+func (c *client) AnalogWriterByName(name string) (AnalogWriter, bool) {
+	return &analogWriterClient{
+		client:    c,
+		boardName: c.info.name,
+		pinName:   name,
 	}, true
 }
 
@@ -113,6 +122,14 @@ func (c *client) AnalogReaderNames() []string {
 		return []string{}
 	}
 	return copyStringSlice(c.info.analogReaderNames)
+}
+
+func (c *client) AnalogWriterNames() []string {
+	if c.getCachedStatus() == nil {
+		c.logger.Debugw("no cached status")
+		return []string{}
+	}
+	return copyStringSlice(c.info.analogWriterNames)
 }
 
 func (c *client) DigitalInterruptNames() []string {
@@ -230,6 +247,29 @@ func (arc *analogReaderClient) Read(ctx context.Context, extra map[string]interf
 		return 0, err
 	}
 	return int(resp.Value), nil
+}
+
+// analogWriterClient satisfies a gRPC based board.AnalogWriter. Refer to the interface
+// for descriptions of its methods.
+type analogWriterClient struct {
+	*client
+	boardName string
+	pinName   string
+}
+
+func (awc *analogWriterClient) Write(ctx context.Context, value int32, extra map[string]interface{}) error {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return err
+	}
+	_, err = awc.client.client.WriteAnalog(ctx, &pb.WriteAnalogRequest{
+		Name:  awc.boardName,
+		Pin:   awc.pinName,
+		Value: value,
+		Extra: ext,
+	})
+
+	return err
 }
 
 // digitalInterruptClient satisfies a gRPC based board.DigitalInterrupt. Refer to the

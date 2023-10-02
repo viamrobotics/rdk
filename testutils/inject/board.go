@@ -22,6 +22,8 @@ type Board struct {
 	i2cByNameCap               []interface{}
 	AnalogReaderByNameFunc     func(name string) (board.AnalogReader, bool)
 	analogReaderByNameCap      []interface{}
+	AnalogWriterByNameFunc     func(name string) (board.AnalogWriter, bool)
+	analogWriterByNameCap      []interface{}
 	DigitalInterruptByNameFunc func(name string) (board.DigitalInterrupt, bool)
 	digitalInterruptByNameCap  []interface{}
 	GPIOPinByNameFunc          func(name string) (board.GPIOPin, error)
@@ -29,6 +31,7 @@ type Board struct {
 	SPINamesFunc               func() []string
 	I2CNamesFunc               func() []string
 	AnalogReaderNamesFunc      func() []string
+	AnalogWriterNamesFunc      func() []string
 	DigitalInterruptNamesFunc  func() []string
 	GPIOPinNamesFunc           func() []string
 	CloseFunc                  func(ctx context.Context) error
@@ -81,6 +84,24 @@ func (b *Board) AnalogReaderByNameCap() []interface{} {
 	}
 	defer func() { b.analogReaderByNameCap = nil }()
 	return b.analogReaderByNameCap
+}
+
+// AnalogWriterByName calls the injected AnalogWriterByName or the real version.
+func (b *Board) AnalogWriterByName(name string) (board.AnalogWriter, bool) {
+	b.analogWriterByNameCap = []interface{}{name}
+	if b.AnalogWriterByNameFunc == nil {
+		return b.LocalBoard.AnalogWriterByName(name)
+	}
+	return b.AnalogWriterByNameFunc(name)
+}
+
+// AnalogWriterByNameCap returns the last parameters received by AnalogWriterByName, and then clears them.
+func (b *Board) AnalogWriterByNameCap() []interface{} {
+	if b == nil {
+		return nil
+	}
+	defer func() { b.analogWriterByNameCap = nil }()
+	return b.analogWriterByNameCap
 }
 
 // DigitalInterruptByName calls the injected DigitalInterruptByName or the real version.
