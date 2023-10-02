@@ -12,6 +12,7 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
@@ -832,7 +833,9 @@ func TestReplanning(t *testing.T) {
 
 		ctx, cancel := context.WithTimeout(ctx, 30.0*time.Second)
 		ma := newMoveAttempt(ctx, moveRequest)
-		ma.start()
+		err = ma.start()
+		test.That(t, err, test.ShouldBeNil)
+
 		defer ma.cancel()
 		defer cancel()
 		select {
@@ -1324,4 +1327,57 @@ func TestStoppableMoveFunctions(t *testing.T) {
 			testIfStoppable(t, success, err)
 		})
 	})
+}
+
+func TestMoveOnGlobeNew(t *testing.T) {
+	ctx := context.Background()
+	gpsPoint := geo.NewPoint(0, 0)
+	injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
+	defer ms.Close(ctx)
+	dst := geo.NewPoint(gpsPoint.Lat(), gpsPoint.Lng()+1e-5)
+
+	req := motion.MoveOnGlobeReq{
+		ComponentName:      fakeBase.Name(),
+		MovementSensorName: injectedMovementSensor.Name(),
+		Destination:        dst,
+	}
+	executionID, err := ms.MoveOnGlobeNew(ctx, req)
+	test.That(t, err, test.ShouldBeError, errUnimplemented)
+	test.That(t, executionID, test.ShouldBeEmpty)
+}
+
+func TestStopPlan(t *testing.T) {
+	ctx := context.Background()
+	gpsPoint := geo.NewPoint(0, 0)
+	_, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
+	defer ms.Close(ctx)
+
+	req := motion.StopPlanReq{ComponentName: fakeBase.Name()}
+	err := ms.StopPlan(ctx, req)
+	test.That(t, err, test.ShouldEqual, errUnimplemented)
+}
+
+func TestListPlanStatuses(t *testing.T) {
+	ctx := context.Background()
+	gpsPoint := geo.NewPoint(0, 0)
+	//nolint:dogsled
+	_, _, _, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
+	defer ms.Close(ctx)
+
+	req := motion.ListPlanStatusesReq{}
+	planStatusesWithIDs, err := ms.ListPlanStatuses(ctx, req)
+	test.That(t, err, test.ShouldEqual, errUnimplemented)
+	test.That(t, planStatusesWithIDs, test.ShouldBeNil)
+}
+
+func TestPlanHistory(t *testing.T) {
+	ctx := context.Background()
+	gpsPoint := geo.NewPoint(0, 0)
+	_, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
+	defer ms.Close(ctx)
+
+	req := motion.PlanHistoryReq{ComponentName: fakeBase.Name()}
+	history, err := ms.PlanHistory(ctx, req)
+	test.That(t, err, test.ShouldEqual, errUnimplemented)
+	test.That(t, history, test.ShouldBeNil)
 }

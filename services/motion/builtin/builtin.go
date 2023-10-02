@@ -32,6 +32,8 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
+var errUnimplemented = errors.New("unimplemented")
+
 func init() {
 	resource.RegisterDefaultService(
 		motion.API,
@@ -349,6 +351,10 @@ func (ms *builtIn) MoveOnGlobe(
 	}
 }
 
+func (ms *builtIn) MoveOnGlobeNew(ctx context.Context, req motion.MoveOnGlobeReq) (string, error) {
+	return "", errUnimplemented
+}
+
 func (ms *builtIn) GetPose(
 	ctx context.Context,
 	componentName resource.Name,
@@ -368,6 +374,27 @@ func (ms *builtIn) GetPose(
 		destinationFrame,
 		supplementalTransforms,
 	)
+}
+
+func (ms *builtIn) StopPlan(
+	ctx context.Context,
+	req motion.StopPlanReq,
+) error {
+	return errUnimplemented
+}
+
+func (ms *builtIn) ListPlanStatuses(
+	ctx context.Context,
+	req motion.ListPlanStatusesReq,
+) ([]motion.PlanStatusWithID, error) {
+	return nil, errUnimplemented
+}
+
+func (ms *builtIn) PlanHistory(
+	ctx context.Context,
+	req motion.PlanHistoryReq,
+) ([]motion.PlanWithStatus, error) {
+	return nil, errUnimplemented
 }
 
 // PlanMoveOnMap returns the plan for MoveOnMap to execute.
