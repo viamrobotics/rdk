@@ -156,6 +156,16 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldNotBeNil)
 		test.That(t, currentMode, test.ShouldEqual, navigation.ModeExplore)
+
+		// set unknown mode
+		req = &pb.SetModeRequest{
+			Name: testSvcName1.ShortName(),
+			Mode: 99,
+		}
+		resp, err = navServer.SetMode(context.Background(), req)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "unknown mode")
+		test.That(t, resp, test.ShouldBeNil)
 	})
 
 	t.Run("failing set mode function", func(t *testing.T) {
