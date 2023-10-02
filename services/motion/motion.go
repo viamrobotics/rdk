@@ -181,7 +181,7 @@ type Service interface {
 	) ([]PlanWithStatus, error)
 }
 
-// MotionConfiguration specifies how to configure a call to the a motion service.
+// MotionConfiguration specifies how to configure a call
 //
 //nolint:revive
 type MotionConfiguration struct {
