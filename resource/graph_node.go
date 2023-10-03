@@ -29,12 +29,12 @@ type GraphNode struct {
 	markedForRemoval          bool
 	unresolvedDependencies    []string
 	needsDependencyResolution bool
-	timesReconfigured         atomic.Uint32
+	timesReconfigured         atomic.Uint64
 }
 
 var (
 	// MaxReconfigAttempts is the max number of reconfigure attempts per node/resource.
-	MaxReconfigAttempts   uint32 = 5
+	MaxReconfigAttempts   uint64 = 5
 	errReconfigMaxReached        = errors.Errorf(
 		"Reconfiguration error: reached max of %d reconfiguration attempts for ",
 		MaxReconfigAttempts,
@@ -198,15 +198,14 @@ func (w *GraphNode) NeedsReconfigure() bool {
 	return !w.markedForRemoval && w.needsReconfigure
 }
 
-// CanReconfigure returns whether or not we can (are allowed to) reconfigure
-// based on how many previous attempts were made. Also returns appropriate error
-// when maxReconfigAttempts is reached and we cannot reconfigure the resource anymore.
-func (w *GraphNode) CanReconfigure() (bool, error) {
-	timesReconfiguredValue := w.timesReconfigured.Load()
-	if timesReconfiguredValue < MaxReconfigAttempts {
-		return true, nil
+// ValidateReconfigure returns whether or not the resource is able to be reconfigured
+// based on how many previous attempts were made— nil if we are able to reconfigure,
+// or the appropriate error with the reason why we cannot reconfigure.
+func (w *GraphNode) ValidateReconfigure() error {
+	if w.timesReconfigured.Load() < MaxReconfigAttempts {
+		return nil
 	}
-	return false, fmt.Errorf("%w%s", errReconfigMaxReached, w.config.ResourceName())
+	return fmt.Errorf("%w%s", errReconfigMaxReached, w.config.ResourceName())
 }
 
 // hasUnresolvedDependencies returns whether or not this node has any

@@ -457,6 +457,22 @@ func (manager *resourceManager) Close(ctx context.Context) error {
 	return allErrs
 }
 
+// validateReconfigure returns whether or not the resource can be reconfigured based on the state of the graph node.
+// It also handles error management based on aforementioned state.
+func validateReconfigure(manager *resourceManager, gNode *resource.GraphNode) bool {
+	err := gNode.ValidateReconfigure()
+	if err != nil {
+		if res, lastErr := gNode.Resource(); res == nil && lastErr.Error() == err.Error() {
+			manager.logger.Debug(err)
+		} else {
+			manager.logger.Error(err)
+			gNode.SetLastError(err)
+		}
+		return false
+	}
+	return true
+}
+
 // completeConfig process the tree in reverse order and attempts to build
 // or reconfigure resources that are wrapped in a placeholderResource.
 func (manager *resourceManager) completeConfig(
@@ -472,13 +488,8 @@ func (manager *resourceManager) completeConfig(
 		if !ok || !gNode.NeedsReconfigure() {
 			continue
 		}
-		ok, err := gNode.CanReconfigure()
-		if !ok {
-			if err != nil {
-				manager.logger.Error(err)
-				gNode.SetLastError(err)
-			}
-			gNode.MarkForRemoval()
+		shouldTryReconfigure := validateReconfigure(manager, gNode)
+		if !shouldTryReconfigure {
 			continue
 		}
 		gNode.IncrementTimesReconfigured()
@@ -555,13 +566,8 @@ func (manager *resourceManager) completeConfig(
 			if !ok || !gNode.NeedsReconfigure() {
 				return
 			}
-			ok, err := gNode.CanReconfigure()
-			if !ok {
-				if err != nil {
-					manager.logger.Error(err)
-					gNode.SetLastError(err)
-				}
-				gNode.MarkForRemoval()
+			shouldTryReconfigure := validateReconfigure(manager, gNode)
+			if !shouldTryReconfigure {
 				return
 			}
 			gNode.IncrementTimesReconfigured()
