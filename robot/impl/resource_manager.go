@@ -477,8 +477,8 @@ func (manager *resourceManager) completeConfig(
 			if err != nil {
 				manager.logger.Error(err)
 				gNode.SetLastError(err)
-				gNode.MarkForRemoval()
 			}
+			gNode.MarkForRemoval()
 			continue
 		}
 		gNode.IncrementTimesReconfigured()
@@ -560,8 +560,8 @@ func (manager *resourceManager) completeConfig(
 				if err != nil {
 					manager.logger.Error(err)
 					gNode.SetLastError(err)
-					gNode.MarkForRemoval()
 				}
+				gNode.MarkForRemoval()
 				return
 			}
 			gNode.IncrementTimesReconfigured()
