@@ -26,18 +26,19 @@ import (
 )
 
 const (
-	timeFormat                  = time.RFC3339
-	grpcConnectionTimeout       = 10 * time.Second
-	maxCacheSize                = 1000
-	cloudConnectionFailureError = "failure to connect to the cloud"
+	timeFormat            = time.RFC3339
+	grpcConnectionTimeout = 10 * time.Second
+	maxCacheSize          = 1000
 )
 
 var (
 	// model is the model of a replay movement sensor.
 	model = resource.DefaultModelFamily.WithModel("replay")
 
-	// ErrEndOfDataset represents that the replay sensor has reached the end of the dataset.
-	ErrEndOfDataset = errors.New("reached end of dataset")
+	// errEndOfDataset represents that the replay sensor has reached the end of the dataset.
+	errEndOfDataset = errors.New("reached end of dataset")
+
+	errCloudConnectionFailure = errors.New("failure to connect to the cloud")
 
 	// methodList is a list of all the base methods possible for a movement sensor to implement.
 	methodList = []string{"LinearVelocity", "AngularVelocity", "Orientation", "Position", "CompassHeading", "LinearAcceleration"}
@@ -335,7 +336,7 @@ func (replay *replayMovementSensor) Reconfigure(ctx context.Context, deps resour
 
 		if err := replay.initCloudConnection(ctx); err != nil {
 			replay.closeCloudConnection(ctx)
-			return errors.Wrap(err, cloudConnectionFailureError)
+			return errors.Wrap(err, errCloudConnectionFailure.Error())
 		}
 	}
 
@@ -406,7 +407,7 @@ func (replay *replayMovementSensor) updateCache(ctx context.Context, method stri
 
 	// Check if data exists
 	if len(resp.GetData()) == 0 {
-		return ErrEndOfDataset
+		return errEndOfDataset
 	}
 	replay.lastData[method] = resp.GetLast()
 

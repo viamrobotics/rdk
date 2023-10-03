@@ -127,7 +127,7 @@ func TestNewReplayMovementSensor(t *testing.T) {
 				OrganizationID: validOrganizationID,
 			},
 			validCloudConnection: false,
-			expectedErr:          errors.New(cloudConnectionFailureError + ": " + cloudConnectionError),
+			expectedErr:          errors.Wrap(errTestCloudConnection, errCloudConnectionFailure.Error()),
 		},
 		{
 			description: "bad start timestamp",
@@ -674,7 +674,7 @@ func TestReplayMovementSensorReadings(t *testing.T) {
 
 	readings, err := replay.Readings(ctx, map[string]interface{}{})
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, ErrEndOfDataset.Error())
+	test.That(t, err.Error(), test.ShouldContainSubstring, errEndOfDataset.Error())
 	test.That(t, readings, test.ShouldBeNil)
 
 	err = replay.Close(ctx)
