@@ -182,6 +182,26 @@ func (c *client) GetObstacles(ctx context.Context, extra map[string]interface{})
 	return geos, nil
 }
 
+func (c *client) GetPaths(ctx context.Context, extra map[string]interface{}) ([]*Path, error) {
+	req := &pb.GetPathsRequest{}
+	resp, err := c.client.GetPaths(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	var paths []*Path
+	for _, path := range resp.GetPaths() {
+		var geoPoints []*geo.Point
+		for _, gp := range path.GetGeopoints() {
+			geoPoints = append(geoPoints, geo.NewPoint(gp.GetLatitude(), gp.GetLongitude()))
+		}
+		paths = append(paths, &Path{
+			DestinationWaypointID: path.GetDestinationWaypointId(),
+			GeoPoints:             geoPoints,
+		})
+	}
+	return paths, nil
+}
+
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
 }

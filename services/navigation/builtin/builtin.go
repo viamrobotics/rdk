@@ -449,3 +449,7 @@ func (svc *builtIn) GetObstacles(ctx context.Context, extra map[string]interface
 	defer svc.mu.RUnlock()
 	return svc.obstacles, nil
 }
+
+func (svc *builtIn) GetPaths(ctx context.Context, extra map[string]interface{}) ([]*navigation.Path, error) {
+	return nil, errors.New("unimplemented")
+}

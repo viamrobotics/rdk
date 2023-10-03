@@ -149,6 +149,29 @@ func (server *serviceServer) GetObstacles(ctx context.Context, req *pb.GetObstac
 	return &pb.GetObstaclesResponse{Obstacles: protoObs}, nil
 }
 
+func (server *serviceServer) GetPaths(ctx context.Context, req *pb.GetObstaclesRequest) (*pb.GetPathsResponse, error) {
+	svc, err := server.coll.Resource(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	paths, err := svc.GetPaths(ctx, req.Extra.AsMap())
+	if err != nil {
+		return nil, err
+	}
+	var pbPaths []*pb.Path
+	for _, path := range paths {
+		var pbGeoPt []*commonpb.GeoPoint
+		for _, pt := range path.GeoPoints {
+			pbGeoPt = append(pbGeoPt, &commonpb.GeoPoint{Latitude: pt.Lat(), Longitude: pt.Lng()})
+		}
+		pbPaths = append(pbPaths, &pb.Path{
+			DestinationWaypointId: path.DestinationWaypointID,
+			Geopoints:             pbGeoPt,
+		})
+	}
+	return &pb.GetPathsResponse{Paths: pbPaths}, nil
+}
+
 // DoCommand receives arbitrary commands.
 func (server *serviceServer) DoCommand(
 	ctx context.Context,
