@@ -261,11 +261,6 @@ func (b *numatoBoard) AnalogReaderNames() []string {
 	return names
 }
 
-// AnalogWriterNames returns the names of all known analog writers.
-func (b *numatoBoard) AnalogWriterNames() []string {
-	return nil
-}
-
 // DigitalInterruptNames returns the names of all known digital interrupts.
 func (b *numatoBoard) DigitalInterruptNames() []string {
 	return nil

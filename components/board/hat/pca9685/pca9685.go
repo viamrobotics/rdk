@@ -301,11 +301,6 @@ func (pca *PCA9685) AnalogReaderNames() []string {
 	return nil
 }
 
-// AnalogWriterNames returns the names of all known analog writers.
-func (pca *PCA9685) AnalogWriterNames() []string {
-	return nil
-}
-
 // DigitalInterruptNames returns the names of all known digital interrupts.
 func (pca *PCA9685) DigitalInterruptNames() []string {
 	return nil
