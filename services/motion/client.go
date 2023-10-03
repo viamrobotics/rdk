@@ -2,12 +2,9 @@ package motion
 
 import (
 	"context"
-	"math"
 
 	"github.com/edaniels/golog"
 	geo "github.com/kellydunn/golang-geo"
-	"github.com/pkg/errors"
-	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/motion/v1"
 	vprotoutils "go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
@@ -110,59 +107,17 @@ func (c *client) MoveOnGlobe(
 	motionCfg *MotionConfiguration,
 	extra map[string]interface{},
 ) (bool, error) {
-	ext, err := vprotoutils.StructToStructPb(extra)
+	req, err := MoveOnGlobeReq{
+		ComponentName:      componentName,
+		Destination:        destination,
+		Heading:            heading,
+		MovementSensorName: movementSensorName,
+		Obstacles:          obstacles,
+		MotionCfg:          motionCfg,
+		Extra:              extra,
+	}.toProto(c.name)
 	if err != nil {
 		return false, err
-	}
-
-	if destination == nil {
-		return false, errors.New("Must provide a destination")
-	}
-
-	req := &pb.MoveOnGlobeRequest{
-		Name:                c.name,
-		ComponentName:       protoutils.ResourceNameToProto(componentName),
-		Destination:         &commonpb.GeoPoint{Latitude: destination.Lat(), Longitude: destination.Lng()},
-		MovementSensorName:  protoutils.ResourceNameToProto(movementSensorName),
-		MotionConfiguration: &pb.MotionConfiguration{},
-		Extra:               ext,
-	}
-
-	// Optionals
-	if !math.IsNaN(heading) {
-		req.Heading = &heading
-	}
-	if len(obstacles) > 0 {
-		obstaclesProto := make([]*commonpb.GeoObstacle, 0, len(obstacles))
-		for _, obstacle := range obstacles {
-			obstaclesProto = append(obstaclesProto, spatialmath.GeoObstacleToProtobuf(obstacle))
-		}
-		req.Obstacles = obstaclesProto
-	}
-
-	if !math.IsNaN(motionCfg.LinearMPerSec) && motionCfg.LinearMPerSec != 0 {
-		req.MotionConfiguration.LinearMPerSec = &motionCfg.LinearMPerSec
-	}
-	if !math.IsNaN(motionCfg.AngularDegsPerSec) && motionCfg.AngularDegsPerSec != 0 {
-		req.MotionConfiguration.AngularDegsPerSec = &motionCfg.AngularDegsPerSec
-	}
-	if !math.IsNaN(motionCfg.ObstaclePollingFreqHz) && motionCfg.ObstaclePollingFreqHz > 0 {
-		req.MotionConfiguration.ObstaclePollingFrequencyHz = &motionCfg.ObstaclePollingFreqHz
-	}
-	if !math.IsNaN(motionCfg.PositionPollingFreqHz) && motionCfg.PositionPollingFreqHz > 0 {
-		req.MotionConfiguration.PositionPollingFrequencyHz = &motionCfg.PositionPollingFreqHz
-	}
-	if !math.IsNaN(motionCfg.PlanDeviationMM) && motionCfg.PlanDeviationMM >= 0 {
-		planDeviationM := 1e-3 * motionCfg.PlanDeviationMM
-		req.MotionConfiguration.PlanDeviationM = &planDeviationM
-	}
-
-	if len(motionCfg.VisionServices) > 0 {
-		svcs := []*commonpb.ResourceName{}
-		for _, name := range motionCfg.VisionServices {
-			svcs = append(svcs, protoutils.ResourceNameToProto(name))
-		}
-		req.MotionConfiguration.VisionServices = svcs
 	}
 
 	resp, err := c.client.MoveOnGlobe(ctx, req)
@@ -171,6 +126,23 @@ func (c *client) MoveOnGlobe(
 	}
 
 	return resp.Success, nil
+}
+
+func (c *client) MoveOnGlobeNew(
+	ctx context.Context,
+	req MoveOnGlobeReq,
+) (string, error) {
+	protoReq, err := req.toProtoNew(c.name)
+	if err != nil {
+		return "", err
+	}
+
+	resp, err := c.client.MoveOnGlobeNew(ctx, protoReq)
+	if err != nil {
+		return "", err
+	}
+
+	return resp.ExecutionId, nil
 }
 
 func (c *client) GetPose(
@@ -199,6 +171,71 @@ func (c *client) GetPose(
 		return nil, err
 	}
 	return referenceframe.ProtobufToPoseInFrame(resp.Pose), nil
+}
+
+func (c *client) StopPlan(ctx context.Context, req StopPlanReq) error {
+	ext, err := vprotoutils.StructToStructPb(req.Extra)
+	if err != nil {
+		return err
+	}
+	_, err = c.client.StopPlan(ctx, &pb.StopPlanRequest{
+		Name:          c.name,
+		ComponentName: protoutils.ResourceNameToProto(req.ComponentName),
+		Extra:         ext,
+	})
+	return err
+}
+
+func (c *client) ListPlanStatuses(ctx context.Context, req ListPlanStatusesReq) ([]PlanStatusWithID, error) {
+	ext, err := vprotoutils.StructToStructPb(req.Extra)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.client.ListPlanStatuses(ctx, &pb.ListPlanStatusesRequest{
+		Name:            c.name,
+		OnlyActivePlans: req.OnlyActivePlans,
+		Extra:           ext,
+	})
+	if err != nil {
+		return nil, err
+	}
+	pswids := make([]PlanStatusWithID, 0, len(resp.PlanStatusesWithIds))
+	for _, status := range resp.PlanStatusesWithIds {
+		pswid, err := planStatusWithIDFromProto(status)
+		if err != nil {
+			return nil, err
+		}
+
+		pswids = append(pswids, pswid)
+	}
+	return pswids, err
+}
+
+func (c *client) PlanHistory(
+	ctx context.Context,
+	req PlanHistoryReq,
+) ([]PlanWithStatus, error) {
+	protoReq, err := req.toProto(c.name)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.client.GetPlan(ctx, protoReq)
+	if err != nil {
+		return nil, err
+	}
+	statusHistory := make([]PlanWithStatus, 0, len(resp.ReplanHistory))
+	for _, status := range resp.ReplanHistory {
+		s, err := planWithStatusFromProto(status)
+		if err != nil {
+			return nil, err
+		}
+		statusHistory = append(statusHistory, s)
+	}
+	pws, err := planWithStatusFromProto(resp.CurrentPlanWithStatus)
+	if err != nil {
+		return nil, err
+	}
+	return append([]PlanWithStatus{pws}, statusHistory...), nil
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
