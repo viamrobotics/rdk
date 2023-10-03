@@ -488,7 +488,7 @@ func TestPtgCheckPlan(t *testing.T) {
 		{
 			name:             "obstacles NOT in world frame - no collision - integration test",
 			obstaclesExist:   true,
-			obsPosition:      r3.Vector{2500, -40, 0},
+			obsPosition:      r3.Vector{-2500, -40, 0},
 			obsDims:          r3.Vector{10, 10, 1},
 			observerFrame:    cameraFrame.Name(),
 			errorState:       r3.Vector{0, 0, 0},
