@@ -180,7 +180,7 @@ func PlanFrameMotion(ctx context.Context,
 		return nil, err
 	}
 
-	request := &PlanRequest{
+	plan, err := PlanMotion(ctx, &PlanRequest{
 		Logger:             logger,
 		Goal:               frame.NewPoseInFrame(frame.World, dst),
 		Frame:              f,
@@ -188,14 +188,7 @@ func PlanFrameMotion(ctx context.Context,
 		FrameSystem:        fs,
 		ConstraintSpecs:    constraintSpec,
 		Options:            planningOpts,
-	}
-
-	// make sure request is well formed and not missing vital information
-	if err := request.validatePlanRequest(); err != nil {
-		return nil, err
-	}
-
-	plan, err := PlanMotion(ctx, request)
+	})
 	if err != nil {
 		return nil, err
 	}
