@@ -31,11 +31,6 @@ const (
 	ModeWaypoint
 )
 
-type Path struct {
-	destinationWayPointID string
-	geopoints             []*geo.Point
-}
-
 func (m Mode) String() string {
 	switch m {
 	case ModeManual:
@@ -60,8 +55,6 @@ type Service interface {
 	RemoveWaypoint(ctx context.Context, id primitive.ObjectID, extra map[string]interface{}) error
 
 	GetObstacles(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoObstacle, error)
-
-	GetPaths(ctx context.Context, extra map[string]interface{}) ([]Path, error)
 }
 
 // SubtypeName is the name of the type of service.
