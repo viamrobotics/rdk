@@ -42,7 +42,7 @@ func TestUninitializedLifecycle(t *testing.T) {
 		test.That(t, node.IsUninitialized(), test.ShouldBeTrue)
 	}
 	test.That(t, node.ValidateReconfigure(), test.ShouldNotBeNil)
-	test.That(t, node.ValidateReconfigure().Error(), test.ShouldContainSubstring, "Configuration error")
+	test.That(t, node.ValidateReconfigure().Error(), test.ShouldContainSubstring, "configuration error")
 
 	lifecycleTest(t, node, []string(nil))
 }
@@ -187,7 +187,7 @@ func lifecycleTest(t *testing.T, node *resource.GraphNode, initialDeps []string)
 		test.That(t, node.IsUninitialized(), test.ShouldBeFalse)
 	}
 	test.That(t, node.ValidateReconfigure(), test.ShouldNotBeNil)
-	test.That(t, node.ValidateReconfigure().Error(), test.ShouldContainSubstring, "Reconfiguration error")
+	test.That(t, node.ValidateReconfigure().Error(), test.ShouldContainSubstring, "reconfiguration error")
 
 	// retry with new config
 	ourConf = resource.Config{Attributes: utils.AttributeMap{"1": 2}}
@@ -216,13 +216,13 @@ func lifecycleTest(t *testing.T, node *resource.GraphNode, initialDeps []string)
 		test.That(t, res, test.ShouldEqual, ourRes3)
 	}
 	test.That(t, node.ValidateReconfigure(), test.ShouldNotBeNil)
-	test.That(t, node.ValidateReconfigure().Error(), test.ShouldContainSubstring, "Reconfiguration error")
+	test.That(t, node.ValidateReconfigure().Error(), test.ShouldContainSubstring, "reconfiguration error")
 
 	// set needs update is called
 	node.SetNeedsUpdate()
 
 	test.That(t, node.ValidateReconfigure(), test.ShouldNotBeNil) // test that SetNeedsUpdate does not reset timesReconfigured
-	test.That(t, node.ValidateReconfigure().Error(), test.ShouldContainSubstring, "Reconfiguration error")
+	test.That(t, node.ValidateReconfigure().Error(), test.ShouldContainSubstring, "reconfiguration error")
 
 	// it finally reconfigured
 	ourRes4 := &someResource{Resource: testutils.NewUnimplementedResource(generic.Named("fooa"))}

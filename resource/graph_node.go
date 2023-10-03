@@ -2,7 +2,6 @@ package resource
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"sync/atomic"
 
@@ -34,17 +33,9 @@ type GraphNode struct {
 
 var (
 	// MaxReconfigAttempts is the max number of reconfigure attempts per node/resource.
-	MaxReconfigAttempts   uint64 = 5
-	errConfigMaxReached          = errors.Errorf(
-		"Configuration error: reached max of %d configuration attempts for ",
-		MaxReconfigAttempts,
-	)
-	errReconfigMaxReached        = errors.Errorf(
-		"Reconfiguration error: reached max of %d reconfiguration attempts for ",
-		MaxReconfigAttempts,
-	)
-	errNotInitalized  = errors.New("resource not initialized yet")
-	errPendingRemoval = errors.New("resource is pending removal")
+	MaxReconfigAttempts uint64 = 5
+	errNotInitalized           = errors.New("resource not initialized yet")
+	errPendingRemoval          = errors.New("resource is pending removal")
 )
 
 // NewUninitializedNode returns a node that is brand new and not yet initialized.
@@ -202,6 +193,22 @@ func (w *GraphNode) NeedsReconfigure() bool {
 	return !w.markedForRemoval && w.needsReconfigure
 }
 
+func (w *GraphNode) timesReconfiguredErr() error {
+	var noun string
+	if w.IsUninitialized() {
+		noun = "configuration"
+	} else {
+		noun = "reconfiguration"
+	}
+	return errors.Errorf(
+		"%s error: reached max of %d %s attempts for %s",
+		noun,
+		MaxReconfigAttempts,
+		noun,
+		w.config.ResourceName(),
+	)
+}
+
 // ValidateReconfigure returns whether or not the resource is able to be reconfigured
 // based on how many previous attempts were made— nil if we are able to reconfigure,
 // or the appropriate error with the reason why we cannot reconfigure.
@@ -209,10 +216,7 @@ func (w *GraphNode) ValidateReconfigure() error {
 	if w.timesReconfigured.Load() < MaxReconfigAttempts {
 		return nil
 	}
-	if w.IsUninitialized() {
-		return fmt.Errorf("%w%s", errConfigMaxReached, w.config.ResourceName())
-	}
-	return fmt.Errorf("%w%s", errReconfigMaxReached, w.config.ResourceName())
+	return w.timesReconfiguredErr()
 }
 
 // hasUnresolvedDependencies returns whether or not this node has any
