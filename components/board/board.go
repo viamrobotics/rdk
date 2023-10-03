@@ -55,9 +55,6 @@ type Board interface {
 	// AnalogReaderByName returns an analog reader by name.
 	AnalogReaderByName(name string) (AnalogReader, bool)
 
-	// AnalogWriterByName returns an analog writer by name.
-	AnalogWriterByName(name string) (AnalogWriter, bool)
-
 	// DigitalInterruptByName returns a digital interrupt by name.
 	DigitalInterruptByName(name string) (DigitalInterrupt, bool)
 
@@ -91,6 +88,9 @@ type Board interface {
 	// provided, the board will exit the given power mode after
 	// the specified duration.
 	SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *time.Duration) error
+
+	// WriteAnalog writes an analog value to a pin on the board.
+	WriteAnalog(ctx context.Context, pin string, value int32, extra map[string]interface{}) error
 }
 
 // A LocalBoard represents a Board where you can request SPIs and I2Cs by name.
@@ -142,13 +142,6 @@ type SPIHandle interface {
 type AnalogReader interface {
 	// Read reads off the current value.
 	Read(ctx context.Context, extra map[string]interface{}) (int, error)
-	Close(ctx context.Context) error
-}
-
-// AnalogWriter represents an analog writer on a board.
-type AnalogWriter interface {
-	// Write writes the value to the analog writer.
-	Write(ctx context.Context, value int32, extra map[string]interface{}) error
 	Close(ctx context.Context) error
 }
 

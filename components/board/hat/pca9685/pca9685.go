@@ -183,6 +183,11 @@ func (pca *PCA9685) SetPowerMode(ctx context.Context, mode pb.PowerMode, duratio
 	return grpc.UnimplementedError
 }
 
+// WriteAnalog writes the value to the given pin.
+func (pca *PCA9685) WriteAnalog(ctx context.Context, pin string, value int32, extra map[string]interface{}) error {
+	return grpc.UnimplementedError
+}
+
 // Status returns the board status which is always empty.
 func (pca *PCA9685) Status(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
 	return &commonpb.BoardStatus{}, nil
@@ -318,11 +323,6 @@ func (pca *PCA9685) I2CByName(name string) (board.I2C, bool) {
 
 // AnalogReaderByName returns the analog reader by the given name if it exists.
 func (pca *PCA9685) AnalogReaderByName(name string) (board.AnalogReader, bool) {
-	return nil, false
-}
-
-// AnalogWriterByName returns the analog writer by the given name if it exists.
-func (pca *PCA9685) AnalogWriterByName(name string) (board.AnalogWriter, bool) {
 	return nil, false
 }
 

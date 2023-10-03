@@ -164,21 +164,12 @@ func TestWorkingClient(t *testing.T) {
 		test.That(t, actualExtra, test.ShouldResemble, expectedExtra)
 		actualExtra = nil
 
-		// Analog Writer
-		injectAnalogWriter := &inject.AnalogWriter{}
-		injectBoard.AnalogWriterByNameFunc = func(name string) (board.AnalogWriter, bool) {
-			return injectAnalogWriter, true
-		}
-		analogwriter, ok := injectBoard.AnalogWriterByName("analogwriter1")
-		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, injectBoard.AnalogWriterByNameCapture(), test.ShouldResemble, []interface{}{"analogwriter1"})
-
-		// Analog Writer: Write
-		injectAnalogWriter.WriteFunc = func(ctx context.Context, value int32, extra map[string]interface{}) error {
+		// write analog
+		injectBoard.WriteAnalogFunc = func(ctx context.Context, pin string, value int32, extra map[string]interface{}) error {
 			actualExtra = extra
 			return nil
 		}
-		err = analogwriter.Write(context.Background(), 6, expectedExtra)
+		err = injectBoard.WriteAnalog(context.Background(), "pin1", 6, expectedExtra)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, actualExtra, test.ShouldResemble, expectedExtra)
 		actualExtra = nil

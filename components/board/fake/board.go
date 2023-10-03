@@ -233,11 +233,6 @@ func (b *Board) AnalogReaderByName(name string) (board.AnalogReader, bool) {
 	return a, ok
 }
 
-// AnalogWriterByName returns the analog writer by the given name if it exists.
-func (b *Board) AnalogWriterByName(name string) (board.AnalogWriter, bool) {
-	return nil, false
-}
-
 // DigitalInterruptByName returns the interrupt by the given name if it exists.
 func (b *Board) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
 	b.mu.RLock()
@@ -334,6 +329,11 @@ func (b *Board) ModelAttributes() board.ModelAttributes {
 // the board will exit the given power mode after the specified
 // duration.
 func (b *Board) SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *time.Duration) error {
+	return grpc.UnimplementedError
+}
+
+// WriteAnalog writes the value to the given pin.
+func (b *Board) WriteAnalog(ctx context.Context, pin string, value int32, extra map[string]interface{}) error {
 	return grpc.UnimplementedError
 }
 

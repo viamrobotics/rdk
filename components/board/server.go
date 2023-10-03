@@ -3,6 +3,7 @@ package board
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
@@ -150,6 +151,8 @@ func (s *serviceServer) ReadAnalogReader(
 	ctx context.Context,
 	req *pb.ReadAnalogReaderRequest,
 ) (*pb.ReadAnalogReaderResponse, error) {
+
+	fmt.Println("in read analog reader")
 	b, err := s.coll.Resource(req.BoardName)
 	if err != nil {
 		return nil, err
@@ -172,20 +175,19 @@ func (s *serviceServer) WriteAnalog(
 	ctx context.Context,
 	req *pb.WriteAnalogRequest,
 ) (*pb.WriteAnalogResponse, error) {
+	fmt.Println("in here write analog")
 	b, err := s.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
 
-	writer, ok := b.AnalogWriterByName(req.Pin)
-	if !ok {
-		return nil, errors.Errorf("unknown analog writer: %s", req.Pin)
-	}
-
-	err = writer.Write(ctx, req.Value, req.Extra.AsMap())
+	err = b.WriteAnalog(ctx, req.Pin, req.Value, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
+
+	fmt.Println("here")
+
 	return &pb.WriteAnalogResponse{}, nil
 }
 

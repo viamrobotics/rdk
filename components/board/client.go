@@ -75,14 +75,6 @@ func (c *client) AnalogReaderByName(name string) (AnalogReader, bool) {
 	}, true
 }
 
-func (c *client) AnalogWriterByName(name string) (AnalogWriter, bool) {
-	return &analogWriterClient{
-		client:    c,
-		boardName: c.info.name,
-		pinName:   name,
-	}, true
-}
-
 func (c *client) DigitalInterruptByName(name string) (DigitalInterrupt, bool) {
 	return &digitalInterruptClient{
 		client:               c,
@@ -216,6 +208,22 @@ func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map
 	return rprotoutils.DoFromResourceClient(ctx, c.client, c.info.name, cmd)
 }
 
+// WriteAnalog writes the analog value to the specified pin.
+func (c *client) WriteAnalog(ctx context.Context, pin string, value int32, extra map[string]interface{}) error {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return err
+	}
+	_, err = c.client.WriteAnalog(ctx, &pb.WriteAnalogRequest{
+		Name:  c.info.name,
+		Pin:   pin,
+		Value: value,
+		Extra: ext,
+	})
+
+	return err
+}
+
 // analogReaderClient satisfies a gRPC based board.AnalogReader. Refer to the interface
 // for descriptions of its methods.
 type analogReaderClient struct {
@@ -238,29 +246,6 @@ func (arc *analogReaderClient) Read(ctx context.Context, extra map[string]interf
 		return 0, err
 	}
 	return int(resp.Value), nil
-}
-
-// analogWriterClient satisfies a gRPC based board.AnalogWriter. Refer to the interface
-// for descriptions of its methods.
-type analogWriterClient struct {
-	*client
-	boardName string
-	pinName   string
-}
-
-func (awc *analogWriterClient) Write(ctx context.Context, value int32, extra map[string]interface{}) error {
-	ext, err := protoutils.StructToStructPb(extra)
-	if err != nil {
-		return err
-	}
-	_, err = awc.client.client.WriteAnalog(ctx, &pb.WriteAnalogRequest{
-		Name:  awc.boardName,
-		Pin:   awc.pinName,
-		Value: value,
-		Extra: ext,
-	})
-
-	return err
 }
 
 // digitalInterruptClient satisfies a gRPC based board.DigitalInterrupt. Refer to the

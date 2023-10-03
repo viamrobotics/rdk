@@ -237,11 +237,6 @@ func (b *numatoBoard) AnalogReaderByName(name string) (board.AnalogReader, bool)
 	return ar, ok
 }
 
-// AnalogWriterByName returns an analog writer by name.
-func (b *numatoBoard) AnalogWriterByName(name string) (board.AnalogWriter, bool) {
-	return nil, false
-}
-
 // DigitalInterruptByName returns a digital interrupt by name.
 func (b *numatoBoard) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
 	return nil, false
@@ -346,6 +341,11 @@ func (b *numatoBoard) ModelAttributes() board.ModelAttributes {
 }
 
 func (b *numatoBoard) SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *time.Duration) error {
+	return grpc.UnimplementedError
+}
+
+// WriteAnalog writes the value to the given pin.
+func (b *numatoBoard) WriteAnalog(ctx context.Context, pin string, value int32, extra map[string]interface{}) error {
 	return grpc.UnimplementedError
 }
 
