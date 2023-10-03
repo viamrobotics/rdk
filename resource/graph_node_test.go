@@ -207,7 +207,7 @@ func lifecycleTest(t *testing.T, node *resource.GraphNode, initialDeps []string)
 	// set needs update is called
 	node.SetNeedsUpdate()
 
-	test.That(t, node.ValidateReconfigure(), test.ShouldNotBeNil)  // test that SetNeedsUpdate does not reset timesReconfigured
+	test.That(t, node.ValidateReconfigure(), test.ShouldNotBeNil) // test that SetNeedsUpdate does not reset timesReconfigured
 	test.That(t, node.ValidateReconfigure().Error(), test.ShouldContainSubstring, "Reconfiguration error")
 
 	// it finally reconfigured
