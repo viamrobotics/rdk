@@ -778,12 +778,15 @@ func TestValidatePlanRequest(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	fs := frame.NewEmptyFrameSystem("test")
 	frame1 := frame.NewZeroStaticFrame("frame1")
-	err := fs.AddFrame(frame1, fs.World())
+	frame2, err := frame.NewTranslationalFrame("frame2", r3.Vector{1, 0, 0}, frame.Limit{1, 1})
+	test.That(t, err, test.ShouldBeNil)
+	err = fs.AddFrame(frame1, fs.World())
+	test.That(t, err, test.ShouldBeNil)
+	err = fs.AddFrame(frame2, fs.World())
 	test.That(t, err, test.ShouldBeNil)
 
 	validGoal := frame.NewPoseInFrame("frame1", spatialmath.NewZeroPose())
 	badGoal := frame.NewPoseInFrame("non-existent", spatialmath.NewZeroPose())
-	badConfig := frame.FloatsToInputs([]float64{0})
 
 	testCases := []testCase{
 		{
@@ -835,19 +838,6 @@ func TestValidatePlanRequest(t *testing.T) {
 			expectedErr: errors.New("part with name  references non-existent parent non-existent"),
 		},
 		{
-			name: "missing StartConfiguration - fail",
-			request: PlanRequest{
-				Logger:      logger,
-				Frame:       frame1,
-				FrameSystem: fs,
-				Goal:        validGoal,
-				StartConfiguration: map[string][]frame.Input{
-					"smth": badConfig,
-				},
-			},
-			expectedErr: errors.Errorf("%s does not have a start configuration", frame1.Name()),
-		},
-		{
 			name: "incorrect length StartConfiguration - fail",
 			request: PlanRequest{
 				Logger:      logger,
@@ -858,7 +848,30 @@ func TestValidatePlanRequest(t *testing.T) {
 					"frame1": frame.FloatsToInputs([]float64{0}),
 				},
 			},
-			expectedErr: errors.Errorf("number of inputs does not match frame DoF, expected %d but got %d", 0, 1),
+			expectedErr: errors.New("number of inputs does not match frame DoF, expected 0 but got 1"),
+		},
+		{
+			name: "incorrect length StartConfiguration - fail",
+			request: PlanRequest{
+				Logger:      logger,
+				Frame:       frame2,
+				FrameSystem: fs,
+				Goal:        validGoal,
+			},
+			expectedErr: errors.New("frame2 does not have a start configuration"),
+		},
+		{
+			name: "incorrect length StartConfiguration - fail",
+			request: PlanRequest{
+				Logger:      logger,
+				Frame:       frame2,
+				FrameSystem: fs,
+				Goal:        validGoal,
+				StartConfiguration: map[string][]frame.Input{
+					"frame2": frame.FloatsToInputs([]float64{0, 0, 0, 0, 0}),
+				},
+			},
+			expectedErr: errors.New("number of inputs does not match frame DoF, expected 1 but got 5"),
 		},
 		{
 			name: "well formed PlanRequest",
