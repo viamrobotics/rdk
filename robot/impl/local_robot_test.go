@@ -104,6 +104,8 @@ func setupRobotCtx(t *testing.T) (context.Context, robot.Robot) {
 }
 
 func TestParallelWebRTCDialAndConnUsage2(t *testing.T) {
+	t.Parallel()
+
 	logger := golog.NewTestLogger(t)
 	ctx, robot := setupRobotCtx(t)
 

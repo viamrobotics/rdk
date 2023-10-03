@@ -572,6 +572,8 @@ func TestWebWithBadAuthHandlers(t *testing.T) {
 }
 
 func TestParallelWebRTCDialAndConnUsage(t *testing.T) {
+	t.Parallel()
+
 	logger := golog.NewTestLogger(t)
 	ctx, robot := setupRobotCtx(t)
 
