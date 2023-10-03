@@ -182,6 +182,24 @@ func (c *client) GetObstacles(ctx context.Context, extra map[string]interface{})
 	return geos, nil
 }
 
+func (c *client) GetPaths(ctx context.Context, extra map[string]interface{}) ([]Path, error) {
+	// req := &pb.
+	resp, err := c.client.GetObstacles(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	protoObs := resp.GetObstacles()
+	geos := []*spatialmath.GeoObstacle{}
+	for _, o := range protoObs {
+		obstacle, err := spatialmath.GeoObstacleFromProtobuf(o)
+		if err != nil {
+			return nil, err
+		}
+		geos = append(geos, obstacle)
+	}
+	return geos, nil
+}
+
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
 }
