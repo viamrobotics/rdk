@@ -474,9 +474,11 @@ func (manager *resourceManager) completeConfig(
 		}
 		ok, err := gNode.CanReconfigure()
 		if !ok {
-			manager.logger.Error(err)
-			gNode.SetLastError(err)
-			gNode.MarkForRemoval()
+			if err != nil {
+				manager.logger.Error(err)
+				gNode.SetLastError(err)
+				gNode.MarkForRemoval()
+			}
 			continue
 		}
 		gNode.IncrementTimesReconfigured()
@@ -554,10 +556,12 @@ func (manager *resourceManager) completeConfig(
 				return
 			}
 			ok, err := gNode.CanReconfigure()
-			if !ok && err != nil {
-				manager.logger.Error(err)
-				gNode.SetLastError(err)
-				gNode.MarkForRemoval()
+			if !ok {
+				if err != nil {
+					manager.logger.Error(err)
+					gNode.SetLastError(err)
+					gNode.MarkForRemoval()
+				}
 				return
 			}
 			gNode.IncrementTimesReconfigured()
