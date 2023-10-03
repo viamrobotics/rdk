@@ -12,7 +12,6 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
-
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
@@ -769,36 +768,36 @@ func TestReplanning(t *testing.T) {
 	}
 
 	testCases := []testCase{
-		// {
-		// 	name:           "check we dont replan with a good sensor",
-		// 	noise:          r3.Vector{Y: epsilonMM - 0.1},
-		// 	expectedReplan: false,
-		// 	cfg:            &motion.MotionConfiguration{PositionPollingFreqHz: 100, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM},
-		// },
-		// {
-		// 	name:           "check we replan with a noisy sensor",
-		// 	noise:          r3.Vector{Y: epsilonMM + 0.1},
-		// 	expectedReplan: true,
-		// 	cfg:            &motion.MotionConfiguration{PositionPollingFreqHz: 100, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM},
-		// },
-		// {
-		// 	name:           "ensure no replan from discovered obstacles",
-		// 	noise:          r3.Vector{0, 0, 0},
-		// 	expectedReplan: false,
-		// 	cfg: &motion.MotionConfiguration{
-		// 		PositionPollingFreqHz: 1, ObstaclePollingFreqHz: 100, PlanDeviationMM: epsilonMM, VisionServices: visSvcs,
-		// 	},
-		// 	getPCfunc: func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
-		// 		obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{-200, -200, 0})
-		// 		box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{10, 10, 10}, "test-case-2")
-		// 		test.That(t, err, test.ShouldBeNil)
+		{
+			name:           "check we dont replan with a good sensor",
+			noise:          r3.Vector{Y: epsilonMM - 0.1},
+			expectedReplan: false,
+			cfg:            &motion.MotionConfiguration{PositionPollingFreqHz: 100, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM},
+		},
+		{
+			name:           "check we replan with a noisy sensor",
+			noise:          r3.Vector{Y: epsilonMM + 0.1},
+			expectedReplan: true,
+			cfg:            &motion.MotionConfiguration{PositionPollingFreqHz: 100, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM},
+		},
+		{
+			name:           "ensure no replan from discovered obstacles",
+			noise:          r3.Vector{0, 0, 0},
+			expectedReplan: false,
+			cfg: &motion.MotionConfiguration{
+				PositionPollingFreqHz: 1, ObstaclePollingFreqHz: 100, PlanDeviationMM: epsilonMM, VisionServices: visSvcs,
+			},
+			getPCfunc: func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
+				obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{-200, -200, 0})
+				box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{10, 10, 10}, "test-case-2")
+				test.That(t, err, test.ShouldBeNil)
 
-		// 		detection, err := viz.NewObjectWithLabel(pointcloud.New(), "test-case-2-detection", box.ToProtobuf())
-		// 		test.That(t, err, test.ShouldBeNil)
+				detection, err := viz.NewObjectWithLabel(pointcloud.New(), "test-case-2-detection", box.ToProtobuf())
+				test.That(t, err, test.ShouldBeNil)
 
-		// 		return []*viz.Object{detection}, nil
-		// 	},
-		// },
+				return []*viz.Object{detection}, nil
+			},
+		},
 		{
 			name:           "ensure replan due to obstacle collision",
 			noise:          r3.Vector{0, 0, 0},

@@ -76,6 +76,10 @@ func PlanMotion(ctx context.Context, request *PlanRequest) (Plan, error) {
 	if err != nil {
 		return nil, err
 	}
+	// make sure there is no transformation between the PTG frame and World frame in the Solver frame
+	if len(sf.PTGSolvers()) > 0 && !spatialmath.PoseAlmostEqual(startPose, spatialmath.NewZeroPose()) {
+		return nil, errors.New("cannot have non-zero transformation between the PTG frame and World frame in the Solver frame")
+	}
 
 	request.Logger.Infof(
 		"planning motion for frame %s\nGoal: %v\nStarting seed map %v\n, startPose %v\n, worldstate: %v\n",
