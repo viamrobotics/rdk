@@ -835,7 +835,7 @@ func TestValidatePlanRequest(t *testing.T) {
 			expectedErr: errors.New("part with name  references non-existent parent non-existent"),
 		},
 		{
-			name: "incorrect StartConfiguration - fail",
+			name: "missing StartConfiguration - fail",
 			request: PlanRequest{
 				Logger:      logger,
 				Frame:       frame1,
@@ -845,7 +845,33 @@ func TestValidatePlanRequest(t *testing.T) {
 					"smth": badConfig,
 				},
 			},
-			expectedErr: errors.New("number of inputs does not match frame DoF, expected 0 but got 1"),
+			expectedErr: errors.Errorf("%s does not have a start configuration", frame1.Name()),
+		},
+		{
+			name: "incorrect length StartConfiguration - fail",
+			request: PlanRequest{
+				Logger:      logger,
+				Frame:       frame1,
+				FrameSystem: fs,
+				Goal:        validGoal,
+				StartConfiguration: map[string][]frame.Input{
+					"frame1": frame.FloatsToInputs([]float64{0}),
+				},
+			},
+			expectedErr: errors.Errorf("number of inputs does not match frame DoF, expected %d but got %d", 0, 1),
+		},
+		{
+			name: "well formed PlanRequest",
+			request: PlanRequest{
+				Logger:      logger,
+				Frame:       frame1,
+				FrameSystem: fs,
+				Goal:        validGoal,
+				StartConfiguration: map[string][]frame.Input{
+					"frame1": {},
+				},
+			},
+			expectedErr: nil,
 		},
 	}
 

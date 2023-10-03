@@ -62,7 +62,6 @@ func (req *PlanRequest) validatePlanRequest() error {
 	if req.Logger == nil {
 		return errors.New("PlanRequest cannot have nil logger")
 	}
-
 	if req.Frame == nil {
 		return errors.New("PlanRequest cannot have nil frame")
 	}
@@ -75,14 +74,17 @@ func (req *PlanRequest) validatePlanRequest() error {
 
 	if req.Goal == nil {
 		return errors.New("PlanRequest cannot have nil goal")
-	} else if req.Goal != nil {
-		goalParentFrame := req.Goal.Parent()
-		if req.FrameSystem.Frame(goalParentFrame) == nil {
-			return frame.NewParentFrameMissingError(req.Goal.Name(), goalParentFrame)
-		}
+	}
+	goalParentFrame := req.Goal.Parent()
+	if req.FrameSystem.Frame(goalParentFrame) == nil {
+		return frame.NewParentFrameMissingError(req.Goal.Name(), goalParentFrame)
 	}
 
-	if len(req.Frame.DoF()) != len(req.StartConfiguration[req.Frame.Name()]) {
+	seedMap, ok := req.StartConfiguration[req.Frame.Name()]
+	if !ok {
+		return errors.Errorf("%s does not have a start configuration", req.Frame.Name())
+	}
+	if len(req.Frame.DoF()) != len(seedMap) {
 		return frame.NewIncorrectInputLengthError(len(req.StartConfiguration), len(req.Frame.DoF()))
 	}
 
