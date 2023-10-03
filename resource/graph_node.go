@@ -35,9 +35,12 @@ type GraphNode struct {
 var (
 	maxReconfigAttempts    uint8 = 5
 	maxReconfigAttemptsStr       = fmt.Sprintf("%d", maxReconfigAttempts)
-	errReconfigMaxReached        = errors.Errorf("Reconfiguration error: reached max of %s reconfiguration attempts for ", maxReconfigAttemptsStr)
-	errNotInitalized             = errors.New("resource not initialized yet")
-	errPendingRemoval            = errors.New("resource is pending removal")
+	errReconfigMaxReached        = errors.Errorf(
+		"Reconfiguration error: reached max of %s reconfiguration attempts for ",
+		maxReconfigAttemptsStr,
+	)
+	errNotInitalized  = errors.New("resource not initialized yet")
+	errPendingRemoval = errors.New("resource is pending removal")
 )
 
 // NewUninitializedNode returns a node that is brand new and not yet initialized.
