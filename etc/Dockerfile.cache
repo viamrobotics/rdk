@@ -7,7 +7,7 @@ WORKDIR /tmp/rdk
 RUN --mount=type=secret,id=netrc,uid=1000,dst=/home/testbot/.netrc sudo -Hu testbot bash -lc 'if [ `dpkg --print-architecture` = armhf ]; then \
         go mod download \
         && GOFLAGS=-tags=no_tflite go build ./web/cmd/server \
-        && make build-go tool-install; \
+        && make tool-install; \
     else \
         make build-go lint-go; \
     fi'
