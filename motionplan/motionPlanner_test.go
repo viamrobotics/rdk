@@ -775,6 +775,7 @@ func TestValidatePlanRequest(t *testing.T) {
 		expectedErr error
 	}
 
+	logger := golog.NewTestLogger(t)
 	fs := frame.NewEmptyFrameSystem("test")
 	frame1 := frame.NewZeroStaticFrame("frame1")
 	err := fs.AddFrame(frame1, fs.World())
@@ -788,11 +789,27 @@ func TestValidatePlanRequest(t *testing.T) {
 		{
 			name:        "empty request - fail",
 			request:     PlanRequest{},
+			expectedErr: errors.New("PlanRequest cannot have nil logger"),
+		},
+		{
+			name: "nil frame - fail",
+			request: PlanRequest{
+				Logger: logger,
+			},
 			expectedErr: errors.New("PlanRequest cannot have nil frame"),
 		},
 		{
-			name: "fs does not contain frame - fail",
+			name: "nil framesystem - fail",
 			request: PlanRequest{
+				Logger: logger,
+				Frame:  frame1,
+			},
+			expectedErr: errors.New("PlanRequest cannot have nil framesystem"),
+		},
+		{
+			name: "framesystem does not contain frame - fail",
+			request: PlanRequest{
+				Logger:      logger,
 				Frame:       frame1,
 				FrameSystem: frame.NewEmptyFrameSystem("test"),
 			},
@@ -801,6 +818,7 @@ func TestValidatePlanRequest(t *testing.T) {
 		{
 			name: "nil goal - fail",
 			request: PlanRequest{
+				Logger:      logger,
 				Frame:       frame1,
 				FrameSystem: fs,
 			},
@@ -809,6 +827,7 @@ func TestValidatePlanRequest(t *testing.T) {
 		{
 			name: "goal's parent not in frame system - fail",
 			request: PlanRequest{
+				Logger:      logger,
 				Frame:       frame1,
 				FrameSystem: fs,
 				Goal:        badGoal,
@@ -818,6 +837,7 @@ func TestValidatePlanRequest(t *testing.T) {
 		{
 			name: "incorrect StartConfiguration - fail",
 			request: PlanRequest{
+				Logger:      logger,
 				Frame:       frame1,
 				FrameSystem: fs,
 				Goal:        validGoal,
@@ -845,4 +865,8 @@ func TestValidatePlanRequest(t *testing.T) {
 			testFn(t, c)
 		})
 	}
+
+	// ensure nil PlanRequests are caught
+	_, err = PlanMotion(context.Background(), nil)
+	test.That(t, err.Error(), test.ShouldEqual, "PlanRequest cannot be nil")
 }

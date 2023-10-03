@@ -56,8 +56,11 @@ type PlanRequest struct {
 
 // validatePlanRequest ensures PlanRequests are not malformed.
 func (req *PlanRequest) validatePlanRequest() error {
+	if req == nil {
+		return errors.New("PlanRequest cannot be nil")
+	}
 	if req.Logger == nil {
-		req.Logger = golog.NewLogger("plan-request-logger")
+		return errors.New("PlanRequest cannot have nil logger")
 	}
 
 	if req.Frame == nil {
@@ -65,12 +68,7 @@ func (req *PlanRequest) validatePlanRequest() error {
 	}
 
 	if req.FrameSystem == nil {
-		req.Logger.Debug("no FrameSystem was given, so we ephemerally create a frame system containing just the frame for the solve")
-		fs := frame.NewEmptyFrameSystem("")
-		if err := fs.AddFrame(req.Frame, fs.World()); err != nil {
-			return err
-		}
-		req.FrameSystem = fs
+		return errors.New("PlanRequest cannot have nil framesystem")
 	} else if req.FrameSystem.Frame(req.Frame.Name()) == nil {
 		return frame.NewFrameMissingError(req.Frame.Name())
 	}
@@ -84,17 +82,8 @@ func (req *PlanRequest) validatePlanRequest() error {
 		}
 	}
 
-	if len(req.Frame.DoF()) != len(req.StartConfiguration) {
+	if len(req.Frame.DoF()) != len(req.StartConfiguration[req.Frame.Name()]) {
 		return frame.NewIncorrectInputLengthError(len(req.StartConfiguration), len(req.Frame.DoF()))
-	}
-
-	if req.WorldState == nil {
-		req.Logger.Debug("no WorldState was given, so we created one")
-		wordstate, err := frame.NewWorldState(nil, nil)
-		if err != nil {
-			return err
-		}
-		req.WorldState = wordstate
 	}
 
 	return nil
