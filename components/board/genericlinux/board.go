@@ -608,7 +608,7 @@ func (b *Board) SetPowerMode(
 }
 
 // WriteAnalog writes the value to the given pin.
-func (b *BoardServiceServer) WriteAnalog(ctx context.Context, pin string, value int32, extra map[string]interface{}) error {
+func (b *Board) WriteAnalog(ctx context.Context, pin string, value int32, extra map[string]interface{}) error {
 	return grpc.UnimplementedError
 }
 
