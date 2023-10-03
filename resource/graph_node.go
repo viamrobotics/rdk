@@ -29,15 +29,15 @@ type GraphNode struct {
 	markedForRemoval          bool
 	unresolvedDependencies    []string
 	needsDependencyResolution bool
-	timesReconfigured         uint8
+	timesReconfigured         atomic.Uint32
 }
 
 var (
-	maxReconfigAttempts    uint8 = 5
-	maxReconfigAttemptsStr       = fmt.Sprintf("%d", maxReconfigAttempts)
+	// MaxReconfigAttempts is the max number of reconfigure attempts per node/resource.
+	MaxReconfigAttempts   uint32 = 5
 	errReconfigMaxReached        = errors.Errorf(
-		"Reconfiguration error: reached max of %s reconfiguration attempts for ",
-		maxReconfigAttemptsStr,
+		"Reconfiguration error: reached max of %d reconfiguration attempts for ",
+		MaxReconfigAttempts,
 	)
 	errNotInitalized  = errors.New("resource not initialized yet")
 	errPendingRemoval = errors.New("resource is pending removal")
@@ -147,7 +147,7 @@ func (w *GraphNode) SwapResource(newRes Resource, newModel Model) {
 	w.lastErr = nil
 	w.needsReconfigure = false
 	w.markedForRemoval = false
-	w.resetTimesReconfigured()
+	w.timesReconfigured.Store(0)
 
 	// these should already be set
 	w.unresolvedDependencies = nil
@@ -202,9 +202,8 @@ func (w *GraphNode) NeedsReconfigure() bool {
 // based on how many previous attempts were made. Also returns appropriate error
 // when maxReconfigAttempts is reached and we cannot reconfigure the resource anymore.
 func (w *GraphNode) CanReconfigure() (bool, error) {
-	w.mu.RLock()
-	defer w.mu.RUnlock()
-	if w.timesReconfigured < maxReconfigAttempts {
+	timesReconfiguredValue := w.timesReconfigured.Load()
+	if timesReconfiguredValue < MaxReconfigAttempts {
 		return true, nil
 	}
 	return false, fmt.Errorf("%w%s", errReconfigMaxReached, w.config.ResourceName())
@@ -230,7 +229,7 @@ func (w *GraphNode) setNeedsReconfigure(newConfig Config, mustReconfigure bool, 
 	}
 	if mustReconfigure {
 		w.needsDependencyResolution = true
-		w.resetTimesReconfigured()
+		w.timesReconfigured.Store(0)
 	}
 	w.config = newConfig
 	w.needsReconfigure = true
@@ -277,15 +276,7 @@ func (w *GraphNode) setDependenciesResolved() {
 // IncrementTimesReconfigured increments the number of times the resource has been
 // reconfigured by 1. Value resetting handled in other methods situationally.
 func (w *GraphNode) IncrementTimesReconfigured() {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	w.timesReconfigured++
-}
-
-// resetTimesReconfigured is a private method (no mutex!!!) that sets timesReconfigured
-// back to 0.
-func (w *GraphNode) resetTimesReconfigured() {
-	w.timesReconfigured = 0
+	w.timesReconfigured.Add(1)
 }
 
 // UnresolvedDependencies returns the set of names that are yet to be resolved as

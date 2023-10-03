@@ -165,8 +165,9 @@ func lifecycleTest(t *testing.T, node *resource.GraphNode, initialDeps []string)
 	test.That(t, node.Config(), test.ShouldResemble, resource.Config{Attributes: utils.AttributeMap{"1": 2}})
 	test.That(t, node.UnresolvedDependencies(), test.ShouldResemble, []string{"3", "4", "5"})
 
-	// an error happens 5 (maxReconfigAttempts) times
-	for i := 0; i < 5; i++ {
+	// an error happens 5 (MaxReconfigAttempts) times
+	var i uint32
+	for i = 0; i < resource.MaxReconfigAttempts; i++ {
 		ok, _ = node.CanReconfigure()
 		test.That(t, ok, test.ShouldBeTrue)
 		node.IncrementTimesReconfigured()
@@ -199,8 +200,8 @@ func lifecycleTest(t *testing.T, node *resource.GraphNode, initialDeps []string)
 	test.That(t, res, test.ShouldEqual, ourRes3)
 	test.That(t, node.Config(), test.ShouldResemble, resource.Config{Attributes: utils.AttributeMap{"1": 2}})
 
-	// but maxReconfigAttempts errors happen
-	for i := 0; i < 5; i++ {
+	// but MaxReconfigAttempts errors happen
+	for i = 0; i < resource.MaxReconfigAttempts; i++ {
 		ok, _ = node.CanReconfigure()
 		test.That(t, ok, test.ShouldBeTrue)
 		node.IncrementTimesReconfigured()
