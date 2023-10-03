@@ -73,9 +73,6 @@ type Board interface {
 	// AnalogReaderNames returns the names of all known analog readers.
 	AnalogReaderNames() []string
 
-	// AnalogWriterNames returns the names of all known analog writers.
-	AnalogWriterNames() []string
-
 	// DigitalInterruptNames returns the names of all known digital interrupts.
 	DigitalInterruptNames() []string
 

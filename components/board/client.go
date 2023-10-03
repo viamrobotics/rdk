@@ -41,7 +41,6 @@ type boardInfo struct {
 	spiNames              []string
 	i2cNames              []string
 	analogReaderNames     []string
-	analogWriterNames     []string
 	digitalInterruptNames []string
 	gpioPinNames          []string
 }
@@ -122,14 +121,6 @@ func (c *client) AnalogReaderNames() []string {
 		return []string{}
 	}
 	return copyStringSlice(c.info.analogReaderNames)
-}
-
-func (c *client) AnalogWriterNames() []string {
-	if c.getCachedStatus() == nil {
-		c.logger.Debugw("no cached status")
-		return []string{}
-	}
-	return copyStringSlice(c.info.analogWriterNames)
 }
 
 func (c *client) DigitalInterruptNames() []string {

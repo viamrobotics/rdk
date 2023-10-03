@@ -23,7 +23,7 @@ type Board struct {
 	AnalogReaderByNameFunc     func(name string) (board.AnalogReader, bool)
 	analogReaderByNameCap      []interface{}
 	AnalogWriterByNameFunc     func(name string) (board.AnalogWriter, bool)
-	analogWriterByNameCap      []interface{}
+	analogWriterByNameCapture  []interface{}
 	DigitalInterruptByNameFunc func(name string) (board.DigitalInterrupt, bool)
 	digitalInterruptByNameCap  []interface{}
 	GPIOPinByNameFunc          func(name string) (board.GPIOPin, error)
@@ -31,7 +31,6 @@ type Board struct {
 	SPINamesFunc               func() []string
 	I2CNamesFunc               func() []string
 	AnalogReaderNamesFunc      func() []string
-	AnalogWriterNamesFunc      func() []string
 	DigitalInterruptNamesFunc  func() []string
 	GPIOPinNamesFunc           func() []string
 	CloseFunc                  func(ctx context.Context) error
@@ -88,20 +87,20 @@ func (b *Board) AnalogReaderByNameCap() []interface{} {
 
 // AnalogWriterByName calls the injected AnalogWriterByName or the real version.
 func (b *Board) AnalogWriterByName(name string) (board.AnalogWriter, bool) {
-	b.analogWriterByNameCap = []interface{}{name}
+	b.analogWriterByNameCapture = []interface{}{name}
 	if b.AnalogWriterByNameFunc == nil {
 		return b.LocalBoard.AnalogWriterByName(name)
 	}
 	return b.AnalogWriterByNameFunc(name)
 }
 
-// AnalogWriterByNameCap returns the last parameters received by AnalogWriterByName, and then clears them.
-func (b *Board) AnalogWriterByNameCap() []interface{} {
+// AnalogWriterByNameCapture returns the last parameters received by AnalogWriterByName, and then clears them.
+func (b *Board) AnalogWriterByNameCapture() []interface{} {
 	if b == nil {
 		return nil
 	}
-	defer func() { b.analogWriterByNameCap = nil }()
-	return b.analogWriterByNameCap
+	defer func() { b.analogWriterByNameCapture = nil }()
+	return b.analogWriterByNameCapture
 }
 
 // DigitalInterruptByName calls the injected DigitalInterruptByName or the real version.
@@ -162,14 +161,6 @@ func (b *Board) AnalogReaderNames() []string {
 		return b.LocalBoard.AnalogReaderNames()
 	}
 	return b.AnalogReaderNamesFunc()
-}
-
-// AnalogWriterNames calls the injected AnalogWriterNames or the real version.
-func (b *Board) AnalogWriterNames() []string {
-	if b.AnalogWriterNamesFunc == nil {
-		return b.LocalBoard.AnalogWriterNames()
-	}
-	return b.AnalogWriterNamesFunc()
 }
 
 // DigitalInterruptNames calls the injected DigitalInterruptNames or the real version.

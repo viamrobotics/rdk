@@ -171,7 +171,7 @@ func TestWorkingClient(t *testing.T) {
 		}
 		analogwriter, ok := injectBoard.AnalogWriterByName("analogwriter1")
 		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, injectBoard.AnalogWriterByNameCap(), test.ShouldResemble, []interface{}{"analogwriter1"})
+		test.That(t, injectBoard.AnalogWriterByNameCapture(), test.ShouldResemble, []interface{}{"analogwriter1"})
 
 		// Analog Writer: Write
 		injectAnalogWriter.WriteFunc = func(ctx context.Context, value int32, extra map[string]interface{}) error {
@@ -265,9 +265,6 @@ func TestClientWithStatus(t *testing.T) {
 	respI2Cs := client.I2CNames()
 	test.That(t, respI2Cs, test.ShouldResemble, []string{})
 
-	respAnalogWriters := client.AnalogWriterNames()
-	test.That(t, respAnalogWriters, test.ShouldResemble, []string{})
-
 	err = client.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, conn.Close(), test.ShouldBeNil)
@@ -301,7 +298,6 @@ func TestClientWithoutStatus(t *testing.T) {
 	test.That(t, injectBoard.StatusCap()[1:], test.ShouldResemble, []interface{}{})
 
 	test.That(t, rClient.AnalogReaderNames(), test.ShouldResemble, []string{})
-	test.That(t, rClient.AnalogWriterNames(), test.ShouldResemble, []string{})
 	test.That(t, rClient.DigitalInterruptNames(), test.ShouldResemble, []string{})
 	test.That(t, rClient.SPINames(), test.ShouldResemble, []string{})
 	test.That(t, rClient.I2CNames(), test.ShouldResemble, []string{})

@@ -2,6 +2,7 @@ package board_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/pkg/errors"
@@ -633,59 +634,59 @@ func TestServerWriteAnalog(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	tests := []struct {
-		name                   string
-		injectAnalogWriter     *inject.AnalogWriter
-		injectAnalogWriterOk   bool
-		injectErr              error
-		req                    *request
-		expCapAnalogWriterArgs []interface{}
-		expCapArgs             []interface{}
-		expResp                *response
-		expRespErr             string
+		name                       string
+		injectAnalogWriter         *inject.AnalogWriter
+		injectAnalogWriterOk       bool
+		injectErr                  error
+		req                        *request
+		expCaptureAnalogWriterArgs []interface{}
+		expCaptureArgs             []interface{}
+		expResp                    *response
+		expRespErr                 string
 	}{
 		{
-			name:                   "Successful analog write",
-			injectAnalogWriter:     &inject.AnalogWriter{},
-			injectAnalogWriterOk:   true,
-			injectErr:              nil,
-			req:                    &request{Name: testBoardName, Pin: "analogwriter1", Extra: pbExpectedExtra},
-			expCapAnalogWriterArgs: []interface{}{"analogwriter1"},
-			expCapArgs:             []interface{}{ctx},
-			expResp:                &response{},
-			expRespErr:             "",
+			name:                       "Successful analog write",
+			injectAnalogWriter:         &inject.AnalogWriter{},
+			injectAnalogWriterOk:       true,
+			injectErr:                  nil,
+			req:                        &request{Name: testBoardName, Pin: "analogwriter1", Value: 1, Extra: pbExpectedExtra},
+			expCaptureAnalogWriterArgs: []interface{}{"analogwriter1"},
+			expCaptureArgs:             []interface{}{ctx, 1},
+			expResp:                    &response{},
+			expRespErr:                 "",
 		},
 		{
-			name:                   "Analog write called on a board that does not exist should return not found error",
-			injectAnalogWriter:     nil,
-			injectAnalogWriterOk:   false,
-			injectErr:              nil,
-			req:                    &request{Name: missingBoardName},
-			expCapAnalogWriterArgs: []interface{}(nil),
-			expCapArgs:             []interface{}(nil),
-			expResp:                nil,
-			expRespErr:             errNotFound.Error(),
+			name:                       "Analog write called on a board that does not exist should return not found error",
+			injectAnalogWriter:         nil,
+			injectAnalogWriterOk:       false,
+			injectErr:                  nil,
+			req:                        &request{Name: missingBoardName},
+			expCaptureAnalogWriterArgs: []interface{}(nil),
+			expCaptureArgs:             []interface{}(nil),
+			expResp:                    nil,
+			expRespErr:                 errNotFound.Error(),
 		},
 		{
-			name:                   "Analog write called on a nonexistent analog writer should return unknown analog error",
-			injectAnalogWriter:     nil,
-			injectAnalogWriterOk:   false,
-			injectErr:              nil,
-			req:                    &request{Name: testBoardName, Pin: "analogwriter1"},
-			expCapAnalogWriterArgs: []interface{}{"analogwriter1"},
-			expCapArgs:             []interface{}(nil),
-			expResp:                nil,
-			expRespErr:             "unknown analog writer: analogwriter1",
+			name:                       "Analog write called on a nonexistent analog writer should return unknown analog error",
+			injectAnalogWriter:         nil,
+			injectAnalogWriterOk:       false,
+			injectErr:                  nil,
+			req:                        &request{Name: testBoardName, Pin: "analogwriter1", Value: 2},
+			expCaptureAnalogWriterArgs: []interface{}{"analogwriter1"},
+			expCaptureArgs:             []interface{}(nil),
+			expResp:                    nil,
+			expRespErr:                 "unknown analog writer: analogwriter1",
 		},
 		{
-			name:                   "An error on the analog writer write should be returned",
-			injectAnalogWriter:     &inject.AnalogWriter{},
-			injectAnalogWriterOk:   true,
-			injectErr:              errFoo,
-			req:                    &request{Name: testBoardName, Pin: "analogwriter1"},
-			expCapAnalogWriterArgs: []interface{}{"analogwriter1"},
-			expCapArgs:             []interface{}{ctx},
-			expResp:                nil,
-			expRespErr:             errFoo.Error(),
+			name:                       "An error on the analog writer write should be returned",
+			injectAnalogWriter:         &inject.AnalogWriter{},
+			injectAnalogWriterOk:       true,
+			injectErr:                  errFoo,
+			req:                        &request{Name: testBoardName, Pin: "analogwriter1", Value: 3},
+			expCaptureAnalogWriterArgs: []interface{}{"analogwriter1"},
+			expCaptureArgs:             []interface{}{ctx, 3},
+			expResp:                    nil,
+			expRespErr:                 errFoo.Error(),
 		},
 	}
 
@@ -715,8 +716,9 @@ func TestServerWriteAnalog(t *testing.T) {
 				test.That(t, err, test.ShouldNotBeNil)
 				test.That(t, err.Error(), test.ShouldContainSubstring, tc.expRespErr)
 			}
-			test.That(t, injectBoard.AnalogWriterByNameCap(), test.ShouldResemble, tc.expCapAnalogWriterArgs)
-			test.That(t, tc.injectAnalogWriter.WriteCap(), test.ShouldResemble, tc.expCapArgs)
+
+			test.That(t, injectBoard.AnalogWriterByNameCapture(), test.ShouldResemble, tc.expCaptureAnalogWriterArgs)
+			test.That(t, fmt.Sprintf("%v", tc.injectAnalogWriter.WriteCapture()), test.ShouldResemble, fmt.Sprintf("%v", tc.expCaptureArgs))
 		})
 	}
 }
