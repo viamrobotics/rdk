@@ -19,6 +19,17 @@ jobs:
     strategy:
       matrix:
         include:
+        # canon
+        - arch: ubuntu-latest
+          tag: amd64
+          platform: linux/amd64
+          image: canon
+          file: etc/Dockerfile.cache
+        - arch: buildjet-2vcpu-ubuntu-2204-arm
+          tag: arm64
+          platform: linux/arm64
+          image: canon
+          file: etc/Dockerfile.cache
         # rdk-devenv
         - arch: ubuntu-latest
           tag: amd64
@@ -36,6 +47,17 @@ jobs:
           image: rdk-devenv
           file: etc/Dockerfile.cache
         # antique
+        - arch: ubuntu-latest
+          platform: linux/amd64
+          image: antique
+          file: etc/Dockerfile.antique-cache
+          tag: amd64
+        - arch: buildjet-2vcpu-ubuntu-2204-arm
+          platform: linux/arm64
+          image: antique
+          file: etc/Dockerfile.antique-cache
+          tag: arm64
+        # antique2
         - arch: ubuntu-latest
           platform: linux/amd64
           image: antique2
