@@ -78,25 +78,25 @@ var (
 		{OX: 2, OY: 1, OZ: 1, Theta: 0},
 	}
 
-	defaultMaxDataLength = map[string]int{
-		"Position":           len(positionPointData),
-		"LinearAcceleration": len(linearAccelerationData),
-		"AngularVelocity":    len(angularVelocityData),
-		"LinearVelocity":     len(linearVelocityData),
-		"Orientation":        len(orientationData),
-		"CompassHeading":     len(compassHeadingData),
+	allMethodsMaxDataLength = map[method]int{
+		position:           len(positionPointData),
+		linearAcceleration: len(linearAccelerationData),
+		angularVelocity:    len(angularVelocityData),
+		linearVelocity:     len(linearVelocityData),
+		orientation:        len(orientationData),
+		compassHeading:     len(compassHeadingData),
 	}
 
-	defaultMinDataLength = map[string]int{
-		"Position":           0,
-		"LinearAcceleration": 0,
-		"AngularVelocity":    0,
-		"LinearVelocity":     0,
-		"Orientation":        0,
-		"CompassHeading":     0,
+	allMethodsMinDataLength = map[method]int{
+		position:           0,
+		linearAcceleration: 0,
+		angularVelocity:    0,
+		linearVelocity:     0,
+		orientation:        0,
+		compassHeading:     0,
 	}
 
-	defaultReplayMovementSensorFunction = "LinearAcceleration"
+	defaultReplayMovementSensorFunction = linearAcceleration
 )
 
 func TestNewReplayMovementSensor(t *testing.T) {
@@ -185,23 +185,11 @@ func TestReplayMovementSensorFunctions(t *testing.T) {
 
 	cases := []struct {
 		description  string
-		methods      []string
+		methods      []method
 		cfg          *Config
-		startFileNum map[string]int
-		endFileNum   map[string]int
+		startFileNum map[method]int
+		endFileNum   map[method]int
 	}{
-		{
-			description: "Calling method no filter",
-			cfg: &Config{
-				Source:         validSource,
-				RobotID:        validRobotID,
-				LocationID:     validLocationID,
-				OrganizationID: validOrganizationID,
-			},
-			methods:      []string{"LinearAcceleration", "AngularVelocity", "Position", "LinearVelocity", "CompassHeading", "Orientation"},
-			startFileNum: defaultMinDataLength,
-			endFileNum:   defaultMaxDataLength,
-		},
 		{
 			description: "Calling method with valid filter",
 			cfg: &Config{
@@ -210,9 +198,9 @@ func TestReplayMovementSensorFunctions(t *testing.T) {
 				LocationID:     validLocationID,
 				OrganizationID: validOrganizationID,
 			},
-			methods:      []string{"LinearAcceleration", "AngularVelocity", "Position", "LinearVelocity", "CompassHeading", "Orientation"},
-			startFileNum: defaultMinDataLength,
-			endFileNum:   defaultMaxDataLength,
+			methods:      methodList,
+			startFileNum: allMethodsMinDataLength,
+			endFileNum:   allMethodsMaxDataLength,
 		},
 		{
 			description: "Calling method with bad source",
@@ -222,9 +210,9 @@ func TestReplayMovementSensorFunctions(t *testing.T) {
 				LocationID:     validLocationID,
 				OrganizationID: validOrganizationID,
 			},
-			methods:      []string{"LinearAcceleration"},
-			startFileNum: map[string]int{"LinearAcceleration": -1},
-			endFileNum:   map[string]int{"LinearAcceleration": -1},
+			methods:      []method{linearAcceleration},
+			startFileNum: map[method]int{linearAcceleration: -1},
+			endFileNum:   map[method]int{linearAcceleration: -1},
 		},
 		{
 			description: "Calling method with bad robot_id",
@@ -234,9 +222,9 @@ func TestReplayMovementSensorFunctions(t *testing.T) {
 				LocationID:     validLocationID,
 				OrganizationID: validOrganizationID,
 			},
-			methods:      []string{"LinearAcceleration"},
-			startFileNum: map[string]int{"LinearAcceleration": -1},
-			endFileNum:   map[string]int{"LinearAcceleration": -1},
+			methods:      []method{linearAcceleration},
+			startFileNum: map[method]int{linearAcceleration: -1},
+			endFileNum:   map[method]int{linearAcceleration: -1},
 		},
 		{
 			description: "Calling method with bad location_id",
@@ -246,9 +234,9 @@ func TestReplayMovementSensorFunctions(t *testing.T) {
 				LocationID:     "bad_location_id",
 				OrganizationID: validOrganizationID,
 			},
-			methods:      []string{"LinearAcceleration"},
-			startFileNum: map[string]int{"LinearAcceleration": -1},
-			endFileNum:   map[string]int{"LinearAcceleration": -1},
+			methods:      []method{linearAcceleration},
+			startFileNum: map[method]int{linearAcceleration: -1},
+			endFileNum:   map[method]int{linearAcceleration: -1},
 		},
 		{
 			description: "Calling method with bad organization_id",
@@ -258,9 +246,9 @@ func TestReplayMovementSensorFunctions(t *testing.T) {
 				LocationID:     validLocationID,
 				OrganizationID: "bad_organization_id",
 			},
-			methods:      []string{"LinearAcceleration"},
-			startFileNum: map[string]int{"LinearAcceleration": -1},
-			endFileNum:   map[string]int{"LinearAcceleration": -1},
+			methods:      []method{linearAcceleration},
+			startFileNum: map[method]int{linearAcceleration: -1},
+			endFileNum:   map[method]int{linearAcceleration: -1},
 		},
 		{
 			description: "Calling method with filter no data",
@@ -275,9 +263,9 @@ func TestReplayMovementSensorFunctions(t *testing.T) {
 					End:   "2000-01-01T12:00:40Z",
 				},
 			},
-			methods:      []string{"LinearAcceleration"},
-			startFileNum: map[string]int{"LinearAcceleration": -1},
-			endFileNum:   map[string]int{"LinearAcceleration": -1},
+			methods:      []method{linearAcceleration},
+			startFileNum: map[method]int{linearAcceleration: -1},
+			endFileNum:   map[method]int{linearAcceleration: -1},
 		},
 		{
 			description: "Calling methods with end filter",
@@ -291,15 +279,15 @@ func TestReplayMovementSensorFunctions(t *testing.T) {
 					End: "2000-01-01T12:00:03Z",
 				},
 			},
-			methods:      []string{"LinearAcceleration", "AngularVelocity", "Position", "LinearVelocity", "CompassHeading", "Orientation"},
-			startFileNum: defaultMinDataLength,
-			endFileNum: map[string]int{
-				"LinearAcceleration": 3,
-				"AngularVelocity":    3,
-				"Position":           3,
-				"LinearVelocity":     3,
-				"CompassHeading":     3,
-				"Orientation":        2,
+			methods:      methodList,
+			startFileNum: allMethodsMinDataLength,
+			endFileNum: map[method]int{
+				linearAcceleration: 3,
+				angularVelocity:    3,
+				position:           3,
+				linearVelocity:     3,
+				compassHeading:     3,
+				orientation:        2,
 			},
 		},
 		{
@@ -314,22 +302,22 @@ func TestReplayMovementSensorFunctions(t *testing.T) {
 					Start: "2000-01-01T12:00:02Z",
 				},
 			},
-			methods: []string{"LinearAcceleration", "AngularVelocity", "Position", "LinearVelocity", "CompassHeading", "Orientation"},
-			startFileNum: map[string]int{
-				"LinearAcceleration": 2,
-				"AngularVelocity":    2,
-				"Position":           2,
-				"LinearVelocity":     2,
-				"CompassHeading":     2,
-				"Orientation":        -1,
+			methods: methodList,
+			startFileNum: map[method]int{
+				linearAcceleration: 2,
+				angularVelocity:    2,
+				position:           2,
+				linearVelocity:     2,
+				compassHeading:     2,
+				orientation:        -1,
 			},
-			endFileNum: map[string]int{
-				"LinearAcceleration": defaultMaxDataLength["LinearAcceleration"],
-				"AngularVelocity":    defaultMaxDataLength["AngularVelocity"],
-				"Position":           defaultMaxDataLength["Position"],
-				"LinearVelocity":     defaultMaxDataLength["LinearVelocity"],
-				"CompassHeading":     defaultMaxDataLength["CompassHeading"],
-				"Orientation":        -1,
+			endFileNum: map[method]int{
+				linearAcceleration: allMethodsMaxDataLength[linearAcceleration],
+				angularVelocity:    allMethodsMaxDataLength[angularVelocity],
+				position:           allMethodsMaxDataLength[position],
+				linearVelocity:     allMethodsMaxDataLength[linearVelocity],
+				compassHeading:     allMethodsMaxDataLength[compassHeading],
+				orientation:        -1,
 			},
 		},
 		{
@@ -345,22 +333,22 @@ func TestReplayMovementSensorFunctions(t *testing.T) {
 					End:   "2000-01-01T12:00:03Z",
 				},
 			},
-			methods: []string{"LinearAcceleration", "AngularVelocity", "Position", "LinearVelocity", "CompassHeading", "Orientation"},
-			startFileNum: map[string]int{
-				"LinearAcceleration": 1,
-				"AngularVelocity":    1,
-				"Position":           1,
-				"LinearVelocity":     1,
-				"CompassHeading":     1,
-				"Orientation":        1,
+			methods: methodList,
+			startFileNum: map[method]int{
+				linearAcceleration: 1,
+				angularVelocity:    1,
+				position:           1,
+				linearVelocity:     1,
+				compassHeading:     1,
+				orientation:        1,
 			},
-			endFileNum: map[string]int{
-				"LinearAcceleration": 3,
-				"AngularVelocity":    3,
-				"Position":           3,
-				"LinearVelocity":     3,
-				"CompassHeading":     3,
-				"Orientation":        defaultMaxDataLength["Orientation"],
+			endFileNum: map[method]int{
+				linearAcceleration: 3,
+				angularVelocity:    3,
+				position:           3,
+				linearVelocity:     3,
+				compassHeading:     3,
+				orientation:        allMethodsMaxDataLength[orientation],
 			},
 		},
 	}
@@ -660,7 +648,7 @@ func TestReplayMovementSensorReadings(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// For loop depends on the data length of orientation as it has the fewest points of data
-	for i := 0; i < defaultMaxDataLength["Orientation"]; i++ {
+	for i := 0; i < allMethodsMaxDataLength[orientation]; i++ {
 		readings, err := replay.Readings(ctx, map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, readings["position"], test.ShouldResemble, positionPointData[i])
@@ -698,7 +686,7 @@ func TestReplayMovementSensorTimestampsMetadata(t *testing.T) {
 	test.That(t, replay, test.ShouldNotBeNil)
 
 	// Repeatedly call the default method, checking for timestamps in the gRPC header.
-	for i := 0; i < defaultMaxDataLength[defaultReplayMovementSensorFunction]; i++ {
+	for i := 0; i < allMethodsMaxDataLength[defaultReplayMovementSensorFunction]; i++ {
 		serverStream := testutils.NewServerTransportStream()
 		ctx = grpc.NewContextWithServerTransportStream(ctx, serverStream)
 
@@ -756,7 +744,7 @@ func TestReplayMovementSensorReconfigure(t *testing.T) {
 	replay.Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
 
 	// Again verify dataset starts from beginning
-	for i := 0; i < defaultMaxDataLength[defaultReplayMovementSensorFunction]; i++ {
+	for i := 0; i < allMethodsMaxDataLength[defaultReplayMovementSensorFunction]; i++ {
 		testReplayMovementSensorMethod(ctx, t, replay, defaultReplayMovementSensorFunction, i, true)
 	}
 
