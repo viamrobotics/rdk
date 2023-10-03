@@ -107,15 +107,6 @@ var (
 		orientation:        true,
 		compassHeading:     true,
 	}
-
-	noMethodsSupported = map[method]bool{
-		position:           false,
-		linearAcceleration: false,
-		angularVelocity:    false,
-		linearVelocity:     false,
-		orientation:        false,
-		compassHeading:     false,
-	}
 )
 
 func TestNewReplayMovementSensor(t *testing.T) {
@@ -807,7 +798,6 @@ func TestReplayMovementSensorReadings(t *testing.T) {
 }
 
 func TestReplayMovementSensorTimestampsMetadata(t *testing.T) {
-
 	initializePropertiesTimeout = 2 * time.Second
 
 	// Construct replay movement sensor.
@@ -850,7 +840,6 @@ func TestReplayMovementSensorTimestampsMetadata(t *testing.T) {
 }
 
 func TestReplayMovementSensorReconfigure(t *testing.T) {
-
 	initializePropertiesTimeout = 2 * time.Second
 
 	// Construct replay movement sensor
