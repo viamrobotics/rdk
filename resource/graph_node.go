@@ -2,6 +2,7 @@ package resource
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"sync/atomic"
 
@@ -32,9 +33,11 @@ type GraphNode struct {
 }
 
 var (
-	maxReconfigAttempts uint8 = 5
-	errNotInitalized          = errors.New("resource not initialized yet")
-	errPendingRemoval         = errors.New("resource is pending removal")
+	maxReconfigAttempts    uint8 = 5
+	maxReconfigAttemptsStr       = fmt.Sprintf("%d", maxReconfigAttempts)
+	errReconfigMaxReached        = errors.Errorf("Reconfiguration error: reached max of %s reconfiguration attempts for ", maxReconfigAttemptsStr)
+	errNotInitalized             = errors.New("resource not initialized yet")
+	errPendingRemoval            = errors.New("resource is pending removal")
 )
 
 // NewUninitializedNode returns a node that is brand new and not yet initialized.
@@ -192,13 +195,16 @@ func (w *GraphNode) NeedsReconfigure() bool {
 	return !w.markedForRemoval && w.needsReconfigure
 }
 
-// ShouldTryReconfigure returns whether or not we should reconfigure based on how
-// many previous attempts were made.
-func (w *GraphNode) ShouldTryReconfigure() bool {
-	needsReconfigure := w.NeedsReconfigure()
+// CanReconfigure returns whether or not we can (are allowed to) reconfigure
+// based on how many previous attempts were made. Also returns appropriate error
+// when maxReconfigAttempts is reached and we cannot reconfigure the resource anymore.
+func (w *GraphNode) CanReconfigure() (bool, error) {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
-	return needsReconfigure && w.timesReconfigured < maxReconfigAttempts
+	if w.timesReconfigured < maxReconfigAttempts {
+		return true, nil
+	}
+	return false, fmt.Errorf("%w%s", errReconfigMaxReached, w.config.ResourceName())
 }
 
 // hasUnresolvedDependencies returns whether or not this node has any

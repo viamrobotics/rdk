@@ -472,8 +472,8 @@ func (manager *resourceManager) completeConfig(
 		if !ok || !gNode.NeedsReconfigure() {
 			continue
 		}
-		if !gNode.ShouldTryReconfigure() {
-			err := errors.Errorf("Reconfiguration error: reached max reconfiguration attempts for %s", gNode.Config().Name)
+		ok, err := gNode.CanReconfigure()
+		if !ok {
 			manager.logger.Error(err)
 			gNode.SetLastError(err)
 			gNode.MarkForRemoval()
@@ -553,8 +553,8 @@ func (manager *resourceManager) completeConfig(
 			if !ok || !gNode.NeedsReconfigure() {
 				return
 			}
-			if !gNode.ShouldTryReconfigure() {
-				err := errors.Errorf("Reconfiguration error: reached max reconfiguration attempts for %s", gNode.Config().Name)
+			ok, err := gNode.CanReconfigure()
+			if !ok && err != nil {
 				manager.logger.Error(err)
 				gNode.SetLastError(err)
 				gNode.MarkForRemoval()
