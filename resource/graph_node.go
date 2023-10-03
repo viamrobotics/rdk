@@ -35,6 +35,10 @@ type GraphNode struct {
 var (
 	// MaxReconfigAttempts is the max number of reconfigure attempts per node/resource.
 	MaxReconfigAttempts   uint64 = 5
+	errConfigMaxReached          = errors.Errorf(
+		"Configuration error: reached max of %d configuration attempts for ",
+		MaxReconfigAttempts,
+	)
 	errReconfigMaxReached        = errors.Errorf(
 		"Reconfiguration error: reached max of %d reconfiguration attempts for ",
 		MaxReconfigAttempts,
@@ -204,6 +208,9 @@ func (w *GraphNode) NeedsReconfigure() bool {
 func (w *GraphNode) ValidateReconfigure() error {
 	if w.timesReconfigured.Load() < MaxReconfigAttempts {
 		return nil
+	}
+	if w.IsUninitialized() {
+		return fmt.Errorf("%w%s", errConfigMaxReached, w.config.ResourceName())
 	}
 	return fmt.Errorf("%w%s", errReconfigMaxReached, w.config.ResourceName())
 }

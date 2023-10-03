@@ -30,6 +30,20 @@ func TestUninitializedLifecycle(t *testing.T) {
 	test.That(t, node.Config(), test.ShouldResemble, resource.Config{})
 	test.That(t, node.NeedsReconfigure(), test.ShouldBeFalse)
 
+	ourErr := errors.New("whoops")
+	var i uint64
+	for i = 0; i < resource.MaxReconfigAttempts; i++ {
+		test.That(t, node.ValidateReconfigure(), test.ShouldBeNil)
+		node.IncrementTimesReconfigured()
+		node.SetLastError(ourErr)
+		_, err := node.Resource()
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "whoops")
+		test.That(t, node.IsUninitialized(), test.ShouldBeTrue)
+	}
+	test.That(t, node.ValidateReconfigure(), test.ShouldNotBeNil)
+	test.That(t, node.ValidateReconfigure().Error(), test.ShouldContainSubstring, "Configuration error")
+
 	lifecycleTest(t, node, []string(nil))
 }
 
