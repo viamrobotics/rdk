@@ -49,6 +49,7 @@ var (
 	// errEndOfDataset represents that the replay sensor has reached the end of the dataset.
 	errEndOfDataset = errors.New("reached end of dataset")
 
+	// errCloudConnectionFailure represents that the attempt to connect to the cloud failed.
 	errCloudConnectionFailure = errors.New("failure to connect to the cloud")
 
 	// methodList is a list of all the base methods possible for a movement sensor to implement.
