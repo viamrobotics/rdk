@@ -5,8 +5,8 @@ concurrency:
   cancel-in-progress: true
 
 on:
-  schedule:
-    - cron: '0 6 * * *' # once a day at 6AM UTC (1AM/EST, 2AM/EDT)
+  # schedule:
+  #   - cron: '0 6 * * *' # once a day at 6AM UTC (1AM/EST, 2AM/EDT)
   workflow_dispatch:
 
 # To test workflow updates you need to work in a branch directly on viamrobotics/rdk
@@ -65,7 +65,7 @@ jobs:
       uses: actions/checkout@v3
     - uses: docker/build-push-action@v5
       with:
-        push: true
+        # push: true
         pull: true
         tags: 'ghcr.io/viamrobotics/${{ matrix.image }}:${{ matrix.tag }}-cache'
         platforms: ${{ matrix.platform }}
