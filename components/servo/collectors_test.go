@@ -1,4 +1,4 @@
-package encoder
+package servo
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 
 	clk "github.com/benbjohnson/clock"
 	"github.com/edaniels/golog"
-	pb "go.viam.com/api/component/encoder/v1"
+	pb "go.viam.com/api/component/servo/v1"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/resource"
 	tu "go.viam.com/rdk/testutils"
@@ -15,9 +15,9 @@ import (
 	"go.viam.com/utils/protoutils"
 )
 
-const componentName = "encoder"
+const componentName = "servo"
 
-func TestEncoderCollector(t *testing.T) {
+func TestServoCollector(t *testing.T) {
 	mockClock := clk.NewMock()
 	buf := tu.MockBuffer{}
 	params := data.CollectorParams{
@@ -28,8 +28,8 @@ func TestEncoderCollector(t *testing.T) {
 		Clock:         mockClock,
 	}
 
-	enc := newEncoder(componentName)
-	col, err := newTicksCountCollector(enc, params)
+	servo := newServo(componentName)
+	col, err := newPositionCollector(servo, params)
 	test.That(t, err, test.ShouldBeNil)
 
 	defer col.Close()
@@ -38,27 +38,27 @@ func TestEncoderCollector(t *testing.T) {
 
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(buf.Writes), test.ShouldEqual, 1)
-	test.That(t, buf.Writes[0].GetStruct().AsMap(), test.ShouldResemble, toProtoMap(pb.GetPositionResponse{
-		Value:        1.0,
-		PositionType: pb.PositionType_POSITION_TYPE_TICKS_COUNT,
-	}))
+	test.That(t, buf.Writes[0].GetStruct().AsMap(), test.ShouldResemble,
+		toProtoMap(pb.GetPositionResponse{
+			PositionDeg: 1.0,
+		}))
 }
 
-type fakeEncoder struct {
-	Encoder
+type fakeServo struct {
+	Servo
 	name resource.Name
 }
 
-func newEncoder(name string) Encoder {
-	return &fakeEncoder{name: resource.Name{Name: name}}
+func newServo(name string) Servo {
+	return &fakeServo{name: resource.Name{Name: name}}
 }
 
-func (e *fakeEncoder) Position(
-	ctx context.Context,
-	positionType PositionType,
-	extra map[string]interface{},
-) (float64, PositionType, error) {
-	return 1.0, PositionTypeTicks, nil
+func (s *fakeServo) Name() resource.Name {
+	return s.name
+}
+
+func (s *fakeServo) Position(ctx context.Context, extra map[string]interface{}) (uint32, error) {
+	return 1.0, nil
 }
 
 func toProtoMap(data any) map[string]any {
