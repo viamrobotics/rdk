@@ -688,11 +688,6 @@ func (pi *piPigpio) AnalogReaderNames() []string {
 	return names
 }
 
-// AnalogReaderNames returns the names of all known analog readers.
-func (pi *piPigpio) AnalogWriterNames() []string {
-	return nil
-}
-
 // DigitalInterruptNames returns the names of all known digital interrupts.
 func (pi *piPigpio) DigitalInterruptNames() []string {
 	pi.mu.Lock()
@@ -710,11 +705,6 @@ func (pi *piPigpio) AnalogReaderByName(name string) (board.AnalogReader, bool) {
 	defer pi.mu.Unlock()
 	a, ok := pi.analogs[name]
 	return a, ok
-}
-
-// AnalogWriterByName returns an analog writer by name.
-func (pi *piPigpio) AnalogWriterByName(name string) (board.AnalogWriter, bool) {
-	return nil, false
 }
 
 // SPIByName returns an SPI bus by name.
@@ -774,6 +764,11 @@ func (pi *piPigpio) ModelAttributes() board.ModelAttributes {
 }
 
 func (pi *piPigpio) SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *time.Duration) error {
+	return grpc.UnimplementedError
+}
+
+// WriteAnalog writes the value to the given pin.
+func (pi *piPigpio) WriteAnalog(ctx context.Context, pin string, value int32, extra map[string]interface{}) error {
 	return grpc.UnimplementedError
 }
 
