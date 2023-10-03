@@ -168,7 +168,6 @@ func PlanFrameMotion(ctx context.Context,
 	if err := fs.AddFrame(f, fs.World()); err != nil {
 		return nil, err
 	}
-
 	plan, err := PlanMotion(ctx, &PlanRequest{
 		Logger:             logger,
 		Goal:               frame.NewPoseInFrame(frame.World, dst),
