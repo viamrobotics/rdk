@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"os/exec"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	"go.uber.org/multierr"
 
+	v1 "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/rdk/utils"
 )
 
@@ -24,4 +26,31 @@ func BuildTempModule(tb testing.TB, dir string) (string, error) {
 		return modPath, multierr.Combine(err, fmt.Errorf(`output from "go build .": %s`, out))
 	}
 	return modPath, nil
+}
+
+// MockBuffer is a buffered writer that just appends data to an array to read
+// without needing a real file system for testing.
+type MockBuffer struct {
+	lock   sync.Mutex
+	Writes []*v1.SensorData
+}
+
+// Write adds a collected sensor reading to the array.
+func (m *MockBuffer) Write(item *v1.SensorData) error {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	m.Writes = append(m.Writes, item)
+	return nil
+}
+
+// Flush does nothing in this implementation as all data will be stored in memory.
+func (m *MockBuffer) Flush() error {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	return nil
+}
+
+// Path returns a hardcoded fake path.
+func (m *MockBuffer) Path() string {
+	return "mock dir"
 }
