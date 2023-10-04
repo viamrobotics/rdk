@@ -29,7 +29,7 @@ const (
 	// default configuration for Store parameter.
 	defaultStoreType = navigation.StoreTypeMemory
 
-	// default map type
+	// default map type is GPS.
 	defaultMapType = "GPS"
 
 	// desired speeds to maintain for the base.

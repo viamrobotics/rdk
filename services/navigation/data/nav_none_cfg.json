@@ -10,7 +10,7 @@
     "services":
     [
         {
-            "name": "blue_square",
+            "name": "test_vision",
             "type": "vision",
             "model": "color_detector",
             "attributes": {
@@ -27,7 +27,7 @@
             "base":"test_base",
             "map_type": "None",
             "vision_services": [
-                "blue_square"
+                "test_vision"
             ]
         }
     }]
