@@ -238,15 +238,15 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		return err
 	}
 
-	var visionServices []resource.Name
-	var visionSvcs []vision.Service
+	var visionServiceNames []resource.Name
+	var visionServices []vision.Service
 	for _, svc := range svcConfig.VisionServices {
 		visionSvc, err := vision.FromDependencies(deps, svc)
 		if err != nil {
 			return err
 		}
-		visionServices = append(visionServices, visionSvc.Name())
-		visionSvcs = append(visionSvcs, visionSvc)
+		visionServiceNames = append(visionServiceNames, visionSvc.Name())
+		visionServices = append(visionServices, visionSvc)
 	}
 
 	svc.mu.Lock()
@@ -274,9 +274,9 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	svc.motion = motionSvc
 	svc.obstacles = newObstacles
 	svc.replanCostFactor = svcConfig.ReplanCostFactor
-	svc.vision = visionSvcs
+	svc.vision = visionServices
 	svc.motionCfg = &motion.MotionConfiguration{
-		VisionServices:        visionServices,
+		VisionServices:        visionServiceNames,
 		LinearMPerSec:         svcConfig.MetersPerSec,
 		AngularDegsPerSec:     svcConfig.DegPerSec,
 		PlanDeviationMM:       1e3 * svcConfig.PlanDeviationM,
