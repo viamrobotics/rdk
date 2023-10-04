@@ -158,42 +158,56 @@ func TestSetMode(t *testing.T) {
 
 	cases := []struct {
 		description string
+		cfg         string
 		mapType     navigation.MapType
 		mode        navigation.Mode
 		expectedErr error
 	}{
 		{
 			description: "setting mode to manual when map_type is None",
+			cfg:         "../data/nav_none_cfg.json",
 			mapType:     navigation.NoMap,
 			mode:        navigation.ModeManual,
 			expectedErr: nil,
 		},
 		{
 			description: "setting mode to waypoint when map_type is None",
+			cfg:         "../data/nav_none_cfg.json",
 			mapType:     navigation.NoMap,
 			mode:        navigation.ModeWaypoint,
 			expectedErr: errors.New("Waypoint mode is unavailable for map type None"),
 		},
 		{
 			description: "setting mode to explore when map_type is None",
+			cfg:         "../data/nav_none_cfg.json",
 			mapType:     navigation.NoMap,
 			mode:        navigation.ModeExplore,
 			expectedErr: errors.New("navigation mode 'explore' is not currently available"),
 		},
 		{
+			description: "setting mode to explore when map_type is None and no vision service is configured",
+			cfg:         "../data/nav_none_cfg_no_vision.json",
+			mapType:     navigation.GPSMap,
+			mode:        navigation.ModeExplore,
+			expectedErr: errors.New("explore mode requires at least one vision service"),
+		},
+		{
 			description: "setting mode to manual when map_type is GPS",
+			cfg:         "../data/nav_gps_cfg.json",
 			mapType:     navigation.GPSMap,
 			mode:        navigation.ModeManual,
 			expectedErr: nil,
 		},
 		{
 			description: "setting mode to waypoint when map_type is GPS",
+			cfg:         "../data/nav_gps_cfg.json",
 			mapType:     navigation.GPSMap,
 			mode:        navigation.ModeWaypoint,
 			expectedErr: nil,
 		},
 		{
 			description: "setting mode to explore when map_type is GPS",
+			cfg:         "../data/nav_gps_cfg.json",
 			mapType:     navigation.GPSMap,
 			mode:        navigation.ModeExplore,
 			expectedErr: errors.New("navigation mode 'explore' is not currently available"),
@@ -202,14 +216,7 @@ func TestSetMode(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.description, func(t *testing.T) {
-			var ns navigation.Service
-			var teardown func()
-			switch tt.mapType {
-			case navigation.NoMap:
-				ns, teardown = setupNavigationServiceFromConfig(t, "../data/nav_none_cfg.json")
-			case navigation.GPSMap:
-				ns, teardown = setupNavigationServiceFromConfig(t, "../data/nav_gps_cfg.json")
-			}
+			ns, teardown := setupNavigationServiceFromConfig(t, tt.cfg)
 			defer teardown()
 
 			navMode, err := ns.Mode(ctx, nil)

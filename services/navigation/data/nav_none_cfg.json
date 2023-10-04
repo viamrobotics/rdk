@@ -26,36 +26,9 @@
         "attributes":{
             "base":"test_base",
             "map_type": "None",
-            "movement_sensor":"test_movement",
             "vision_services": [
                 "blue_square"
-            ],
-            "obstacles":
-            [{
-                "geometries":
-                [{
-                    "label":"aLabel",
-                    "orientation":{
-                        "type":"ov_degrees",
-                        "value":{
-                            "X":1,
-                            "Y":0,
-                            "Z":0,
-                            "Th": 90
-                        }
-                    },
-                    "x":10,
-                    "y":10,
-                    "z":10
-                }],
-                "location":{
-                    "latitude": 1,
-                    "longitude": 1
-                }
-            }],
-            "store":{
-                "type":"memory"
-            }
+            ]
         }
     }]
 }
