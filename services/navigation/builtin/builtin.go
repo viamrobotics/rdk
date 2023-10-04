@@ -29,6 +29,9 @@ const (
 	// default configuration for Store parameter.
 	defaultStoreType = navigation.StoreTypeMemory
 
+	// default map type
+	defaultMapType = "GPS"
+
 	// desired speeds to maintain for the base.
 	defaultLinearVelocityMPerSec     = 0.5
 	defaultAngularVelocityDegsPerSec = 45
@@ -101,11 +104,11 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	deps = append(deps, resource.NewName(motion.API, conf.MotionServiceName).String())
 
 	if conf.MapTypeName == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "map_type")
+		conf.MapTypeName = defaultMapType
 	}
 
 	if !slices.Contains([]string{"None", "GPS"}, conf.MapTypeName) {
-		return nil, errors.New("invalid map_type, map_type must be one of the following ['None', 'GPS']")
+		return nil, errors.New("invalid map_type, when defined map_type must be one of the following ['None', 'GPS']")
 	}
 
 	if conf.MapTypeName == "GPS" {

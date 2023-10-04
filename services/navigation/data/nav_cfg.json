@@ -28,7 +28,6 @@
         "type": "navigation",
         "attributes":{
             "base":"test_base",
-            "map_type": "GPS",
             "movement_sensor":"test_movement",
             "vision_services": [
                 "blue_square"

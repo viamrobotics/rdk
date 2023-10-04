@@ -5,6 +5,7 @@ import (
 	"context"
 
 	geo "github.com/kellydunn/golang-geo"
+	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	servicepb "go.viam.com/api/service/navigation/v1"
 
@@ -77,8 +78,10 @@ func StringToMapType(mapTypeName string) (MapType, error) {
 		return NoMap, nil
 	case "GPS":
 		return GPSMap, nil
+	case "":
+		return GPSMap, nil
 	}
-	return 0, nil
+	return 0, errors.Errorf("invalid map_type '%v' given", mapTypeName)
 }
 
 // A Service controls the navigation for a robot.
