@@ -38,6 +38,14 @@ const (
 	GPSMap
 )
 
+// Available modes for each MapType.
+var (
+	AvailableModesByMapType = map[MapType][]Mode{
+		NoMap:  {ModeManual, ModeExplore},
+		GPSMap: {ModeManual, ModeWaypoint, ModeExplore},
+	}
+)
+
 func (m Mode) String() string {
 	switch m {
 	case ModeManual:
@@ -49,6 +57,28 @@ func (m Mode) String() string {
 	default:
 		return "UNKNOWN"
 	}
+}
+
+func (m MapType) String() string {
+	switch m {
+	case NoMap:
+		return "None"
+	case GPSMap:
+		return "GPS"
+	default:
+		return "UNKNOWN"
+	}
+}
+
+// StringToMapType converts an input string into one of the valid map type if possible.
+func StringToMapType(mapTypeName string) (MapType, error) {
+	switch mapTypeName {
+	case "None":
+		return NoMap, nil
+	case "GPS":
+		return GPSMap, nil
+	}
+	return 0, nil
 }
 
 // A Service controls the navigation for a robot.

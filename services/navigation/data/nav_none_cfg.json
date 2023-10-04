@@ -1,15 +1,12 @@
 {
     "components":
-    [{
-        "model": "fake",
-        "name": "test_base",
-        "type": "base"
-    },
-    {
-        "name": "test_movement",
-        "type": "movement_sensor",
-        "model": "fake"
-    }],
+    [
+        {
+            "model": "fake",
+            "name": "test_base",
+            "type": "base"
+        }
+    ],
     "services":
     [
         {
@@ -28,6 +25,7 @@
         "type": "navigation",
         "attributes":{
             "base":"test_base",
+            "map_type": "None",
             "movement_sensor":"test_movement",
             "vision_services": [
                 "blue_square"

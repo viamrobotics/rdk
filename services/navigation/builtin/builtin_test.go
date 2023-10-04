@@ -10,6 +10,7 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/test"
+	"go.viam.com/utils"
 	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/components/base"
@@ -83,26 +84,127 @@ func deleteAllWaypoints(ctx context.Context, svc navigation.Service) error {
 	return nil
 }
 
+func TestValidateConfig(t *testing.T) {
+	t.Run("invalid config no base", func(t *testing.T) {
+		cfg := Config{}
+
+		deps, err := cfg.Validate("")
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, utils.NewConfigValidationFieldRequiredError("", "base").Error())
+		test.That(t, len(deps), test.ShouldEqual, 0)
+	})
+
+	t.Run("invalid config no map type", func(t *testing.T) {
+		cfg := Config{
+			BaseName: "base",
+		}
+
+		deps, err := cfg.Validate("")
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, utils.NewConfigValidationFieldRequiredError("", "map_type").Error())
+		test.That(t, len(deps), test.ShouldEqual, 0)
+	})
+
+	t.Run("invalid config bad map type", func(t *testing.T) {
+		cfg := Config{
+			BaseName:    "base",
+			MapTypeName: "gibberish",
+		}
+
+		deps, err := cfg.Validate("")
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "invalid map_type")
+		test.That(t, len(deps), test.ShouldEqual, 0)
+	})
+
+	t.Run("invalid config no vision_service given for map type None", func(t *testing.T) {
+		cfg := Config{
+			BaseName:    "base",
+			MapTypeName: "None",
+		}
+		deps, err := cfg.Validate("")
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no vision service given for map_type None")
+		test.That(t, len(deps), test.ShouldEqual, 0)
+	})
+
+	t.Run("invalid config no movement_sensor given for map type GPS", func(t *testing.T) {
+		cfg := Config{
+			BaseName:    "base",
+			MapTypeName: "GPS",
+		}
+		deps, err := cfg.Validate("")
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, utils.NewConfigValidationFieldRequiredError("", "movement_sensor").Error())
+		test.That(t, len(deps), test.ShouldEqual, 0)
+	})
+
+	t.Run("valid config for map_type none", func(t *testing.T) {
+		cfg := Config{
+			BaseName:       "base",
+			MapTypeName:    "None",
+			VisionServices: []string{"blue_square"},
+		}
+
+		deps, err := cfg.Validate("")
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(deps), test.ShouldEqual, 3)
+	})
+
+	t.Run("valid config for map_type GPS", func(t *testing.T) {
+		cfg := Config{
+			BaseName:           "base",
+			MapTypeName:        "GPS",
+			MovementSensorName: "localizer",
+		}
+		deps, err := cfg.Validate("")
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(deps), test.ShouldEqual, 3)
+	})
+}
+
 func TestSetMode(t *testing.T) {
 	ctx := context.Background()
 
 	cases := []struct {
 		description string
+		mapType     navigation.MapType
 		mode        navigation.Mode
 		expectedErr error
 	}{
 		{
-			description: "setting mode to manual",
+			description: "setting mode to manual when map_type is None",
+			mapType:     navigation.NoMap,
 			mode:        navigation.ModeManual,
 			expectedErr: nil,
 		},
 		{
-			description: "setting mode to waypoint",
+			description: "setting mode to waypoint when map_type is None",
+			mapType:     navigation.NoMap,
+			mode:        navigation.ModeWaypoint,
+			expectedErr: errors.New("Waypoint mode is unavailable for map type None"),
+		},
+		{
+			description: "setting mode to explore when map_type is None",
+			mapType:     navigation.NoMap,
+			mode:        navigation.ModeExplore,
+			expectedErr: errors.New("navigation mode 'explore' is not currently available"),
+		},
+		{
+			description: "setting mode to manual when map_type is GPS",
+			mapType:     navigation.GPSMap,
+			mode:        navigation.ModeManual,
+			expectedErr: nil,
+		},
+		{
+			description: "setting mode to waypoint when map_type is GPS",
+			mapType:     navigation.GPSMap,
 			mode:        navigation.ModeWaypoint,
 			expectedErr: nil,
 		},
 		{
-			description: "setting mode to explore",
+			description: "setting mode to explore when map_type is GPS",
+			mapType:     navigation.GPSMap,
 			mode:        navigation.ModeExplore,
 			expectedErr: errors.New("navigation mode 'explore' is not currently available"),
 		},
@@ -110,18 +212,19 @@ func TestSetMode(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.description, func(t *testing.T) {
-			ns, teardown := setupNavigationServiceFromConfig(t, "../data/nav_cfg.json")
+			var ns navigation.Service
+			var teardown func()
+			switch tt.mapType {
+			case navigation.NoMap:
+				ns, teardown = setupNavigationServiceFromConfig(t, "../data/nav_none_cfg.json")
+			case navigation.GPSMap:
+				ns, teardown = setupNavigationServiceFromConfig(t, "../data/nav_gps_cfg.json")
+			}
 			defer teardown()
 
 			navMode, err := ns.Mode(ctx, nil)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, navMode, test.ShouldEqual, navigation.ModeManual)
-
-			// Since navigation starts in manual mode, we need to set it to another mode first in order to test
-			if tt.mode == navigation.ModeManual {
-				err = ns.SetMode(ctx, navigation.ModeWaypoint, nil)
-				test.That(t, err, test.ShouldBeNil)
-			}
 
 			err = ns.SetMode(ctx, tt.mode, nil)
 			if tt.expectedErr == nil {
@@ -135,7 +238,7 @@ func TestSetMode(t *testing.T) {
 }
 
 func TestNavSetup(t *testing.T) {
-	ns, teardown := setupNavigationServiceFromConfig(t, "../data/nav_cfg.json")
+	ns, teardown := setupNavigationServiceFromConfig(t, "../data/nav_gps_cfg.json")
 	defer teardown()
 	ctx := context.Background()
 
@@ -544,6 +647,7 @@ func TestStartWaypoint(t *testing.T) {
 func TestValidateGeometry(t *testing.T) {
 	cfg := Config{
 		BaseName:           "base",
+		MapTypeName:        "GPS",
 		MovementSensorName: "localizer",
 	}
 

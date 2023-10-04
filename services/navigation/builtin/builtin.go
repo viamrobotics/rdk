@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.viam.com/utils"
+	"golang.org/x/exp/slices"
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/movementsensor"
@@ -94,6 +95,19 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	}
 	deps = append(deps, conf.BaseName)
 
+	if conf.MotionServiceName == "" {
+		conf.MotionServiceName = resource.DefaultServiceName
+	}
+	deps = append(deps, resource.NewName(motion.API, conf.MotionServiceName).String())
+
+	if conf.MapTypeName == "" {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "map_type")
+	}
+
+	if !slices.Contains([]string{"None", "GPS"}, conf.MapTypeName) {
+		return nil, errors.New("invalid map_type, map_type must be one of the following ['None', 'GPS']")
+	}
+
 	if conf.MapTypeName == "GPS" {
 		if conf.MovementSensorName == "" {
 			return nil, utils.NewConfigValidationFieldRequiredError(path, "movement_sensor")
@@ -101,10 +115,9 @@ func (conf *Config) Validate(path string) ([]string, error) {
 		deps = append(deps, conf.MovementSensorName)
 	}
 
-	if conf.MotionServiceName == "" {
-		conf.MotionServiceName = resource.DefaultServiceName
+	if conf.MapTypeName == "None" && len(conf.VisionServices) == 0 {
+		return nil, errors.New("no vision service given for map_type None")
 	}
-	deps = append(deps, resource.NewName(motion.API, conf.MotionServiceName).String())
 
 	for _, v := range conf.VisionServices {
 		deps = append(deps, resource.NewName(vision.API, v).String())
@@ -206,14 +219,9 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		return err
 	}
 
-	var mapType navigation.MapType
-	switch svcConfig.MapTypeName {
-	case "":
-		mapType = navigation.GPSMap
-	case "GPS":
-		mapType = navigation.GPSMap
-	default:
-		return errors.New("invalid map_type, map_type must be one of the following ['', 'GPS']")
+	mapType, err := navigation.StringToMapType(svcConfig.MapTypeName)
+	if err != nil {
+		return err
 	}
 
 	// Movement sensor required in map type is GPS
@@ -303,6 +311,10 @@ func (svc *builtIn) SetMode(ctx context.Context, mode navigation.Mode, extra map
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	svc.wholeServiceCancelFunc = cancelFunc
 	svc.mode = mode
+
+	if !slices.Contains(navigation.AvailableModesByMapType[svc.mapType], svc.mode) {
+		return errors.Errorf("%v mode is unavailable for map type %v", svc.mode.String(), svc.mapType.String())
+	}
 
 	switch svc.mode {
 	case navigation.ModeManual:
