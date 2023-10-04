@@ -34,12 +34,12 @@ const (
 type method string
 
 const (
+	position           method = "Position"
 	linearVelocity     method = "LinearVelocity"
 	angularVelocity    method = "AngularVelocity"
-	orientation        method = "Orientation"
-	position           method = "Position"
-	compassHeading     method = "CompassHeading"
 	linearAcceleration method = "LinearAcceleration"
+	compassHeading     method = "CompassHeading"
+	orientation        method = "Orientation"
 )
 
 var (
@@ -53,7 +53,7 @@ var (
 	errCloudConnectionFailure = errors.New("failure to connect to the cloud")
 
 	// methodList is a list of all the base methods possible for a movement sensor to implement.
-	methodList = []method{linearVelocity, angularVelocity, orientation, position, compassHeading, linearAcceleration}
+	methodList = []method{position, linearVelocity, angularVelocity, linearAcceleration, compassHeading, orientation}
 )
 
 func init() {
@@ -293,12 +293,12 @@ func (replay *replayMovementSensor) Orientation(ctx context.Context, extra map[s
 // Properties returns the available properties for the given replay movement sensor.
 func (replay *replayMovementSensor) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
 	return &movementsensor.Properties{
+		PositionSupported:           true,
 		LinearVelocitySupported:     true,
 		AngularVelocitySupported:    true,
-		OrientationSupported:        true,
-		PositionSupported:           true,
-		CompassHeadingSupported:     true,
 		LinearAccelerationSupported: true,
+		CompassHeadingSupported:     true,
+		OrientationSupported:        true,
 	}, nil
 }
 

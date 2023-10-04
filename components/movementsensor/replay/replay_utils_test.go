@@ -231,6 +231,12 @@ func resourcesFromDeps(t *testing.T, r robot.Robot, deps []string) resource.Depe
 func createDataByMovementSensorMethod(method method, index int) *structpb.Struct {
 	var data structpb.Struct
 	switch method {
+	case position:
+		data.Fields = map[string]*structpb.Value{
+			"Latitude":  structpb.NewNumberValue(positionPointData[index].Lat()),
+			"Longitude": structpb.NewNumberValue(positionPointData[index].Lng()),
+			"Altitude":  structpb.NewNumberValue(positionAltitudeData[index]),
+		}
 	case linearVelocity:
 		data.Fields = map[string]*structpb.Value{
 			"X": structpb.NewNumberValue(linearVelocityData[index].X),
@@ -243,28 +249,22 @@ func createDataByMovementSensorMethod(method method, index int) *structpb.Struct
 			"Y": structpb.NewNumberValue(angularVelocityData[index].Y),
 			"Z": structpb.NewNumberValue(angularVelocityData[index].Z),
 		}
+	case linearAcceleration:
+		data.Fields = map[string]*structpb.Value{
+			"X": structpb.NewNumberValue(linearAccelerationData[index].X),
+			"Y": structpb.NewNumberValue(linearAccelerationData[index].Y),
+			"Z": structpb.NewNumberValue(linearAccelerationData[index].Z),
+		}
+	case compassHeading:
+		data.Fields = map[string]*structpb.Value{
+			"Compass": structpb.NewNumberValue(compassHeadingData[index]),
+		}
 	case orientation:
 		data.Fields = map[string]*structpb.Value{
 			"OX":    structpb.NewNumberValue(orientationData[index].OX),
 			"OY":    structpb.NewNumberValue(orientationData[index].OY),
 			"OZ":    structpb.NewNumberValue(orientationData[index].OZ),
 			"Theta": structpb.NewNumberValue(orientationData[index].Theta),
-		}
-	case position:
-		data.Fields = map[string]*structpb.Value{
-			"Latitude":  structpb.NewNumberValue(positionPointData[index].Lat()),
-			"Longitude": structpb.NewNumberValue(positionPointData[index].Lng()),
-			"Altitude":  structpb.NewNumberValue(positionAltitudeData[index]),
-		}
-	case compassHeading:
-		data.Fields = map[string]*structpb.Value{
-			"Compass": structpb.NewNumberValue(compassHeadingData[index]),
-		}
-	case linearAcceleration:
-		data.Fields = map[string]*structpb.Value{
-			"X": structpb.NewNumberValue(linearAccelerationData[index].X),
-			"Y": structpb.NewNumberValue(linearAccelerationData[index].Y),
-			"Z": structpb.NewNumberValue(linearAccelerationData[index].Z),
 		}
 	}
 	return &data
@@ -276,6 +276,18 @@ func testReplayMovementSensorMethod(ctx context.Context, t *testing.T, replay mo
 ) {
 	var extra map[string]interface{}
 	switch method {
+	case position:
+		point, altitude, err := replay.Position(ctx, extra)
+		if success {
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, point, test.ShouldResemble, positionPointData[i])
+			test.That(t, altitude, test.ShouldResemble, positionAltitudeData[i])
+		} else {
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err.Error(), test.ShouldContainSubstring, ErrEndOfDataset.Error())
+			test.That(t, point, test.ShouldBeNil)
+			test.That(t, altitude, test.ShouldEqual, 0)
+		}
 	case linearVelocity:
 		data, err := replay.LinearVelocity(ctx, extra)
 		if success {
@@ -296,28 +308,15 @@ func testReplayMovementSensorMethod(ctx context.Context, t *testing.T, replay mo
 			test.That(t, err.Error(), test.ShouldContainSubstring, ErrEndOfDataset.Error())
 			test.That(t, data, test.ShouldResemble, spatialmath.AngularVelocity{})
 		}
-	case orientation:
-		data, err := replay.Orientation(ctx, extra)
+	case linearAcceleration:
+		data, err := replay.LinearAcceleration(ctx, extra)
 		if success {
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, data, test.ShouldResemble, orientationData[i])
+			test.That(t, data, test.ShouldResemble, linearAccelerationData[i])
 		} else {
 			test.That(t, err, test.ShouldNotBeNil)
 			test.That(t, err.Error(), test.ShouldContainSubstring, ErrEndOfDataset.Error())
-			test.That(t, data, test.ShouldBeNil)
-		}
-	case position:
-		point, altitude, err := replay.Position(ctx, extra)
-		if success {
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, point, test.ShouldResemble, positionPointData[i])
-			test.That(t, altitude, test.ShouldResemble, positionAltitudeData[i])
-		} else {
-			test.That(t, err, test.ShouldNotBeNil)
-			test.That(t, err.Error(), test.ShouldContainSubstring, ErrEndOfDataset.Error())
-			test.That(t, point, test.ShouldBeNil)
-			test.That(t, altitude, test.ShouldEqual, 0)
+			test.That(t, data, test.ShouldResemble, r3.Vector{})
 		}
 	case compassHeading:
 		data, err := replay.CompassHeading(ctx, extra)
@@ -329,15 +328,16 @@ func testReplayMovementSensorMethod(ctx context.Context, t *testing.T, replay mo
 			test.That(t, err.Error(), test.ShouldContainSubstring, ErrEndOfDataset.Error())
 			test.That(t, data, test.ShouldEqual, 0)
 		}
-	case linearAcceleration:
-		data, err := replay.LinearAcceleration(ctx, extra)
+	case orientation:
+		data, err := replay.Orientation(ctx, extra)
 		if success {
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, data, test.ShouldResemble, linearAccelerationData[i])
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, data, test.ShouldResemble, orientationData[i])
 		} else {
 			test.That(t, err, test.ShouldNotBeNil)
 			test.That(t, err.Error(), test.ShouldContainSubstring, ErrEndOfDataset.Error())
-			test.That(t, data, test.ShouldResemble, r3.Vector{})
+			test.That(t, data, test.ShouldBeNil)
 		}
 	}
 }

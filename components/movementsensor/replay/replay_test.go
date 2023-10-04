@@ -41,14 +41,6 @@ var (
 
 	positionAltitudeData = []float64{0, 1, 2, 3, 4}
 
-	linearAccelerationData = []r3.Vector{
-		{X: 0, Y: 0, Z: 0},
-		{X: 1, Y: 0, Z: 0},
-		{X: 0, Y: 1, Z: 0},
-		{X: 0, Y: 2, Z: 0},
-		{X: 0, Y: 3, Z: 3},
-	}
-
 	linearVelocityData = []r3.Vector{
 		{X: 0, Y: 0, Z: 0},
 		{X: 1, Y: 0, Z: 0},
@@ -71,6 +63,14 @@ var (
 		{X: 0, Y: 0, Z: 12},
 	}
 
+	linearAccelerationData = []r3.Vector{
+		{X: 0, Y: 0, Z: 0},
+		{X: 1, Y: 0, Z: 0},
+		{X: 0, Y: 1, Z: 0},
+		{X: 0, Y: 2, Z: 0},
+		{X: 0, Y: 3, Z: 3},
+	}
+
 	compassHeadingData = []float64{0, 1, 2, 3, 4, 5, 6, 4, 3, 2, 1}
 
 	orientationData = []*spatialmath.OrientationVector{
@@ -80,20 +80,20 @@ var (
 
 	allMethodsMaxDataLength = map[method]int{
 		position:           len(positionPointData),
-		linearAcceleration: len(linearAccelerationData),
-		angularVelocity:    len(angularVelocityData),
 		linearVelocity:     len(linearVelocityData),
-		orientation:        len(orientationData),
+		angularVelocity:    len(angularVelocityData),
+		linearAcceleration: len(linearAccelerationData),
 		compassHeading:     len(compassHeadingData),
+		orientation:        len(orientationData),
 	}
 
 	allMethodsMinDataLength = map[method]int{
 		position:           0,
-		linearAcceleration: 0,
-		angularVelocity:    0,
 		linearVelocity:     0,
-		orientation:        0,
+		angularVelocity:    0,
+		linearAcceleration: 0,
 		compassHeading:     0,
+		orientation:        0,
 	}
 
 	defaultReplayMovementSensorFunction = linearAcceleration
@@ -312,10 +312,10 @@ func TestReplayMovementSensorFunctions(t *testing.T) {
 				orientation:        -1,
 			},
 			endFileNum: map[method]int{
-				linearAcceleration: allMethodsMaxDataLength[linearAcceleration],
-				angularVelocity:    allMethodsMaxDataLength[angularVelocity],
 				position:           allMethodsMaxDataLength[position],
 				linearVelocity:     allMethodsMaxDataLength[linearVelocity],
+				angularVelocity:    allMethodsMaxDataLength[angularVelocity],
+				linearAcceleration: allMethodsMaxDataLength[linearAcceleration],
 				compassHeading:     allMethodsMaxDataLength[compassHeading],
 				orientation:        -1,
 			},
@@ -335,18 +335,18 @@ func TestReplayMovementSensorFunctions(t *testing.T) {
 			},
 			methods: methodList,
 			startFileNum: map[method]int{
-				linearAcceleration: 1,
-				angularVelocity:    1,
 				position:           1,
 				linearVelocity:     1,
+				angularVelocity:    1,
+				linearAcceleration: 1,
 				compassHeading:     1,
 				orientation:        1,
 			},
 			endFileNum: map[method]int{
-				linearAcceleration: 3,
-				angularVelocity:    3,
 				position:           3,
 				linearVelocity:     3,
+				angularVelocity:    3,
+				linearAcceleration: 3,
 				compassHeading:     3,
 				orientation:        allMethodsMaxDataLength[orientation],
 			},
@@ -601,11 +601,11 @@ func TestReplayMovementSensorProperties(t *testing.T) {
 	props, err := replay.Properties(ctx, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, props.PositionSupported, test.ShouldBeTrue)
-	test.That(t, props.OrientationSupported, test.ShouldBeTrue)
+	test.That(t, props.LinearVelocitySupported, test.ShouldBeTrue)
 	test.That(t, props.AngularVelocitySupported, test.ShouldBeTrue)
 	test.That(t, props.LinearAccelerationSupported, test.ShouldBeTrue)
-	test.That(t, props.LinearVelocitySupported, test.ShouldBeTrue)
 	test.That(t, props.CompassHeadingSupported, test.ShouldBeTrue)
+	test.That(t, props.OrientationSupported, test.ShouldBeTrue)
 
 	err = replay.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)
@@ -654,8 +654,8 @@ func TestReplayMovementSensorReadings(t *testing.T) {
 		test.That(t, readings["position"], test.ShouldResemble, positionPointData[i])
 		test.That(t, readings["altitude"], test.ShouldResemble, positionAltitudeData[i])
 		test.That(t, readings["linear_velocity"], test.ShouldResemble, linearVelocityData[i])
-		test.That(t, readings["linear_acceleration"], test.ShouldResemble, linearAccelerationData[i])
 		test.That(t, readings["angular_velocity"], test.ShouldResemble, angularVelocityData[i])
+		test.That(t, readings["linear_acceleration"], test.ShouldResemble, linearAccelerationData[i])
 		test.That(t, readings["compass"], test.ShouldResemble, compassHeadingData[i])
 		test.That(t, readings["orientation"], test.ShouldResemble, orientationData[i])
 	}
