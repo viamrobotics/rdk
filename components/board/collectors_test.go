@@ -2,55 +2,93 @@ package board
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 	"time"
 
 	clk "github.com/benbjohnson/clock"
 	"github.com/edaniels/golog"
+	"github.com/golang/protobuf/ptypes/wrappers"
 	pb "go.viam.com/api/component/board/v1"
 	"go.viam.com/test"
-	"go.viam.com/utils/protoutils"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/resource"
 	tu "go.viam.com/rdk/testutils"
 )
 
-type collectorFunc func(resource interface{}, params data.CollectorParams) (data.Collector, error)
-
-const componentName = "board"
+const (
+	componentName   = "board"
+	captureInterval = time.Second
+)
 
 func TestCollectors(t *testing.T) {
 	tests := []struct {
-		name      string
-		params    data.CollectorParams
-		collector collectorFunc
-		expected  map[string]any
+		name          string
+		params        data.CollectorParams
+		collector     data.CollectorConstructor
+		expected      map[string]any
+		shouldError   bool
+		expectedError error
 	}{
 		{
 			name: "Board analog collector should write an analog response",
 			params: data.CollectorParams{
 				ComponentName: componentName,
-				Interval:      time.Second,
+				Interval:      captureInterval,
 				Logger:        golog.NewTestLogger(t),
+				MethodParams: map[string]*anypb.Any{
+					"reader_name": convertInterfaceToAny("analog"),
+				},
 			},
 			collector: newAnalogCollector,
-			expected: toProtoMap(pb.ReadAnalogReaderResponse{
+			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.ReadAnalogReaderResponse{
 				Value: 1,
 			}),
+			shouldError: false,
 		},
+		// {
+		// 	name: "Board analog collector without a reader_name should error",
+		// 	params: data.CollectorParams{
+		// 		ComponentName: componentName,
+		// 		Interval:      captureInterval,
+		// 		Logger:        golog.NewTestLogger(t),
+		// 	},
+		// 	collector:   newAnalogCollector,
+		// 	shouldError: true,
+		// 	expectedError: data.FailedToReadErr(componentName, analogs.String(),
+		// 		errors.New("Must supply reader_name for analog collector")),
+		// },
 		{
 			name: "Board gpio collector should write a gpio response",
 			params: data.CollectorParams{
 				ComponentName: componentName,
-				Interval:      time.Second,
+				Interval:      captureInterval,
 				Logger:        golog.NewTestLogger(t),
+				MethodParams: map[string]*anypb.Any{
+					"reader_name": convertInterfaceToAny("gpio"),
+				},
 			},
 			collector: newGPIOCollector,
-			expected: toProtoMap(pb.GetGPIOResponse{
+			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.GetGPIOResponse{
 				High: true,
 			}),
+			shouldError: false,
 		},
+		// {
+		// 	name: "Board gpio collector without a reader_name should error",
+		// 	params: data.CollectorParams{
+		// 		ComponentName: componentName,
+		// 		Interval:      captureInterval,
+		// 		Logger:        golog.NewTestLogger(t),
+		// 	},
+		// 	collector:   newGPIOCollector,
+		// 	shouldError: true,
+		// 	expectedError: data.FailedToReadErr(componentName, gpios.String(),
+		// 		errors.New("Must supply reader_name for gpio collector")),
+		// },
 	}
 
 	for _, tc := range tests {
@@ -66,10 +104,8 @@ func TestCollectors(t *testing.T) {
 
 			defer col.Close()
 			col.Collect()
-			mockClock.Add(1 * time.Second)
-
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, len(buf.Writes), test.ShouldEqual, 1)
+			mockClock.Add(captureInterval)
+			test.That(t, buf.Length(), test.ShouldEqual, 1)
 			test.That(t, buf.Writes[0].GetStruct().AsMap(), test.ShouldResemble, tc.expected)
 		})
 	}
@@ -112,10 +148,13 @@ func (a *fakeAnalogReader) Read(ctx context.Context, extra map[string]interface{
 	return 1, nil
 }
 
-func toProtoMap(data any) map[string]any {
-	ret, err := protoutils.StructToStructPbIgnoreOmitEmpty(data)
-	if err != nil {
-		return nil
+func convertInterfaceToAny(v interface{}) *anypb.Any {
+	anyValue := &anypb.Any{}
+	bytes, _ := json.Marshal(v)
+	bytesValue := &wrappers.BytesValue{
+		Value: bytes,
 	}
-	return ret.AsMap()
+	//nolint:errcheck
+	anypb.MarshalFrom(anyValue, bytesValue, proto.MarshalOptions{})
+	return anyValue
 }

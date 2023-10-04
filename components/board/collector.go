@@ -35,6 +35,10 @@ func newAnalogCollector(resource interface{}, params data.CollectorParams) (data
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, arg map[string]*anypb.Any) (interface{}, error) {
 		var value int
+		if _, ok := arg["reader_name"]; !ok {
+			return nil, data.FailedToReadErr(params.ComponentName, analogs.String(),
+				errors.New("Must supply reader_name for analog collector"))
+		}
 		if reader, ok := board.AnalogReaderByName(arg["reader_name"].String()); ok {
 			value, err = reader.Read(ctx, data.FromDMExtraMap)
 			if err != nil {
@@ -61,6 +65,10 @@ func newGPIOCollector(resource interface{}, params data.CollectorParams) (data.C
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, arg map[string]*anypb.Any) (interface{}, error) {
 		var value bool
+		if _, ok := arg["reader_name"]; !ok {
+			return nil, data.FailedToReadErr(params.ComponentName, gpios.String(),
+				errors.New("Must supply reader_name for gpio collector"))
+		}
 		if gpio, err := board.GPIOPinByName(arg["reader_name"].String()); err == nil {
 			value, err = gpio.Get(ctx, data.FromDMExtraMap)
 			if err != nil {
