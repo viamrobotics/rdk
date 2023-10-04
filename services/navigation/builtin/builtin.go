@@ -103,12 +103,12 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	}
 	deps = append(deps, resource.NewName(motion.API, conf.MotionServiceName).String())
 
-	if conf.MapType == "" {
+	if conf.MapType != "" {
+		if !slices.Contains([]string{"None", "GPS"}, conf.MapType) {
+			return nil, errors.New("invalid map_type, when defined map_type must be one of the following ['None', 'GPS']")
+		}
+	} else {
 		conf.MapType = defaultMapType
-	}
-
-	if !slices.Contains([]string{"None", "GPS"}, conf.MapType) {
-		return nil, errors.New("invalid map_type, when defined map_type must be one of the following ['None', 'GPS']")
 	}
 
 	if conf.MapType == "GPS" {
