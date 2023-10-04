@@ -11,12 +11,13 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	v1 "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/movementsensor/v1"
+	"go.viam.com/test"
+	"go.viam.com/utils/protoutils"
+
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	tu "go.viam.com/rdk/testutils"
-	"go.viam.com/test"
-	"go.viam.com/utils/protoutils"
 )
 
 type collectorFunc func(resource interface{}, params data.CollectorParams) (data.Collector, error)
@@ -171,7 +172,6 @@ func (i *fakeMovementSensor) LinearAcceleration(ctx context.Context, extra map[s
 
 func (i *fakeMovementSensor) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
 	return spatialmath.NewZeroOrientation(), nil
-
 }
 
 func (i *fakeMovementSensor) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
