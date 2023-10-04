@@ -135,6 +135,9 @@ func TestNavSetup(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, len(ns.(*builtIn).motionCfg.VisionServices), test.ShouldEqual, 1)
+
+	_, err = ns.GetPaths(ctx, nil)
+	test.That(t, err.Error(), test.ShouldEqual, "unimplemented")
 }
 
 func TestStartWaypoint(t *testing.T) {
