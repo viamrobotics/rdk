@@ -72,7 +72,7 @@ func init() {
 type Config struct {
 	Store              navigation.StoreConfig `json:"store"`
 	BaseName           string                 `json:"base"`
-	MapTypeName        string                 `json:"map_type"`
+	MapType            string                 `json:"map_type"`
 	MovementSensorName string                 `json:"movement_sensor"`
 	MotionServiceName  string                 `json:"motion_service"`
 	VisionServices     []string               `json:"vision_services"`
@@ -103,15 +103,15 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	}
 	deps = append(deps, resource.NewName(motion.API, conf.MotionServiceName).String())
 
-	if conf.MapTypeName == "" {
-		conf.MapTypeName = defaultMapType
+	if conf.MapType == "" {
+		conf.MapType = defaultMapType
 	}
 
-	if !slices.Contains([]string{"None", "GPS"}, conf.MapTypeName) {
+	if !slices.Contains([]string{"None", "GPS"}, conf.MapType) {
 		return nil, errors.New("invalid map_type, when defined map_type must be one of the following ['None', 'GPS']")
 	}
 
-	if conf.MapTypeName == "GPS" {
+	if conf.MapType == "GPS" {
 		if conf.MovementSensorName == "" {
 			return nil, utils.NewConfigValidationFieldRequiredError(path, "movement_sensor")
 		}
@@ -219,7 +219,7 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		return err
 	}
 
-	mapType, err := navigation.StringToMapType(svcConfig.MapTypeName)
+	mapType, err := navigation.StringToMapType(svcConfig.MapType)
 	if err != nil {
 		return err
 	}

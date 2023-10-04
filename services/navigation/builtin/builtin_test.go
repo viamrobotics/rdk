@@ -97,8 +97,8 @@ func TestValidateConfig(t *testing.T) {
 
 	t.Run("invalid config bad map type", func(t *testing.T) {
 		cfg := Config{
-			BaseName:    "base",
-			MapTypeName: "gibberish",
+			BaseName: "base",
+			MapType:  "gibberish",
 		}
 
 		deps, err := cfg.Validate(path)
@@ -109,8 +109,8 @@ func TestValidateConfig(t *testing.T) {
 
 	t.Run("invalid config no movement_sensor given for map type GPS", func(t *testing.T) {
 		cfg := Config{
-			BaseName:    "base",
-			MapTypeName: "GPS",
+			BaseName: "base",
+			MapType:  "GPS",
 		}
 		deps, err := cfg.Validate(path)
 		test.That(t, err, test.ShouldNotBeNil)
@@ -120,8 +120,8 @@ func TestValidateConfig(t *testing.T) {
 
 	t.Run("valid config for map_type none given", func(t *testing.T) {
 		cfg := Config{
-			BaseName:    "base",
-			MapTypeName: "None",
+			BaseName: "base",
+			MapType:  "None",
 		}
 
 		deps, err := cfg.Validate(path)
@@ -132,7 +132,7 @@ func TestValidateConfig(t *testing.T) {
 	t.Run("valid config for map_type GPS given", func(t *testing.T) {
 		cfg := Config{
 			BaseName:           "base",
-			MapTypeName:        "GPS",
+			MapType:            "GPS",
 			MovementSensorName: "localizer",
 		}
 		deps, err := cfg.Validate(path)
@@ -643,7 +643,7 @@ func TestStartWaypoint(t *testing.T) {
 func TestValidateGeometry(t *testing.T) {
 	cfg := Config{
 		BaseName:           "base",
-		MapTypeName:        "GPS",
+		MapType:            "GPS",
 		MovementSensorName: "localizer",
 	}
 
