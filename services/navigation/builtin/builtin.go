@@ -115,10 +115,6 @@ func (conf *Config) Validate(path string) ([]string, error) {
 		deps = append(deps, conf.MovementSensorName)
 	}
 
-	if conf.MapTypeName == "None" && len(conf.VisionServices) == 0 {
-		return nil, errors.New("no vision service given for map_type None")
-	}
-
 	for _, v := range conf.VisionServices {
 		deps = append(deps, resource.NewName(vision.API, v).String())
 	}
@@ -182,6 +178,7 @@ type builtIn struct {
 
 	base           base.Base
 	movementSensor movementsensor.MovementSensor
+	vision         []vision.Service
 	motion         motion.Service
 	obstacles      []*spatialmath.GeoObstacle
 
@@ -239,12 +236,14 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	}
 
 	var visionServices []resource.Name
+	var visionSvcs []vision.Service
 	for _, svc := range svcConfig.VisionServices {
 		visionSvc, err := vision.FromDependencies(deps, svc)
 		if err != nil {
 			return err
 		}
 		visionServices = append(visionServices, visionSvc.Name())
+		visionSvcs = append(visionSvcs, visionSvc)
 	}
 
 	svc.mu.Lock()
@@ -272,6 +271,7 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	svc.motion = motionSvc
 	svc.obstacles = newObstacles
 	svc.replanCostFactor = svcConfig.ReplanCostFactor
+	svc.vision = visionSvcs
 	svc.motionCfg = &motion.MotionConfiguration{
 		VisionServices:        visionServices,
 		LinearMPerSec:         svcConfig.MetersPerSec,
@@ -322,6 +322,9 @@ func (svc *builtIn) SetMode(ctx context.Context, mode navigation.Mode, extra map
 	case navigation.ModeWaypoint:
 		svc.startWaypointMode(cancelCtx, extra)
 	case navigation.ModeExplore:
+		if len(svc.vision) == 0 {
+			return errors.New("explore mode requires at least one vision service")
+		}
 		svc.startExploreMode(cancelCtx)
 		return errors.New("navigation mode 'explore' is not currently available")
 	}

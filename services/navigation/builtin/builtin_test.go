@@ -117,17 +117,6 @@ func TestValidateConfig(t *testing.T) {
 		test.That(t, len(deps), test.ShouldEqual, 0)
 	})
 
-	t.Run("invalid config no vision_service given for map type None", func(t *testing.T) {
-		cfg := Config{
-			BaseName:    "base",
-			MapTypeName: "None",
-		}
-		deps, err := cfg.Validate("")
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no vision service given for map_type None")
-		test.That(t, len(deps), test.ShouldEqual, 0)
-	})
-
 	t.Run("invalid config no movement_sensor given for map type GPS", func(t *testing.T) {
 		cfg := Config{
 			BaseName:    "base",
