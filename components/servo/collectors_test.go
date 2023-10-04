@@ -37,10 +37,9 @@ func TestServoCollector(t *testing.T) {
 
 	defer col.Close()
 	col.Collect()
-	mockClock.Add(1 * time.Second)
+	mockClock.Add(captureInterval)
 
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(buf.Writes), test.ShouldEqual, 1)
+	test.That(t, buf.Length(), test.ShouldEqual, 1)
 	test.That(t, buf.Writes[0].GetStruct().AsMap(), test.ShouldResemble,
 		tu.ToProtoMapIgnoreOmitEmpty(pb.GetPositionResponse{
 			PositionDeg: 1.0,

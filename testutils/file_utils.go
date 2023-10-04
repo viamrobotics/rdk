@@ -54,3 +54,10 @@ func (m *MockBuffer) Flush() error {
 func (m *MockBuffer) Path() string {
 	return "mock dir"
 }
+
+// Length gets the length of the buffer without race conditions.
+func (m *MockBuffer) Length() int {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	return len(m.Writes)
+}

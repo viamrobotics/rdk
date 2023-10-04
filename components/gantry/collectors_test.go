@@ -70,8 +70,7 @@ func TestGantryCollectors(t *testing.T) {
 			col.Collect()
 			mockClock.Add(captureInterval)
 
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, len(buf.Writes), test.ShouldEqual, 1)
+			test.That(t, buf.Length(), test.ShouldEqual, 1)
 			test.That(t, buf.Writes[0].GetStruct().AsMap(), test.ShouldResemble, tc.expected)
 		})
 	}
