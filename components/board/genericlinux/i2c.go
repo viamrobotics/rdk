@@ -154,28 +154,28 @@ func (h *I2cHandle) Close() error {
 	return nil
 }
 
-// GetI2CBus retrieves an I2C interface. If the bus_num is specified, it uses that on the local
+// GetI2CBus retrieves an I2C interface. If the bus number is specified, it uses that on the local
 // machine, and otherwise it tries to get the named bus from the named board.
 // TODO(RSDK-5254): remove this once all I2C devices are talking directly to the bus without going
 // through the board.
-func GetI2CBus(deps resource.Dependencies, board_name string, bus_name string, bus_num int) (board.I2C, error) {
-    if bus_num != 0 {
-        return NewI2cBus(fmt.Sprintf("%d", bus_num))
-    }
+func GetI2CBus(deps resource.Dependencies, boardName, busName string, busNum int) (board.I2C, error) {
+	if busNum != 0 {
+		return NewI2cBus(fmt.Sprintf("%d", busNum))
+	}
 
-    // Otherwise, look things up through the board.
-    b, err := board.FromDependencies(deps, board_name)
-    if err != nil {
-        return nil, err
-    }
-    localBoard, ok := b.(board.LocalBoard)
-    if !ok {
-        return nil, fmt.Errorf("Cannot get I2C bus '%s' from nonlocal board '%s'",
-                               bus_name, board_name)
-    }
-    bus, success := localBoard.I2CByName(bus_name)
-    if !success {
-        return nil, fmt.Errorf("Unknown I2C bus %s on board %s", bus_name, board_name)
-    }
-    return bus, nil
+	// Otherwise, look things up through the board.
+	b, err := board.FromDependencies(deps, boardName)
+	if err != nil {
+		return nil, err
+	}
+	localBoard, ok := b.(board.LocalBoard)
+	if !ok {
+		return nil, fmt.Errorf("cannot get I2C bus '%s' from nonlocal board '%s'",
+			busName, boardName)
+	}
+	bus, success := localBoard.I2CByName(busName)
+	if !success {
+		return nil, fmt.Errorf("unknown I2C bus %s on board %s", busName, boardName)
+	}
+	return bus, nil
 }
