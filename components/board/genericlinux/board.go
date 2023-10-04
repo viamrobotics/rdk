@@ -59,7 +59,7 @@ func NewBoard(
 		cancelFunc: cancelFunc,
 
 		spis:          map[string]*spiBus{},
-		analogReaders: map[string]*wrappedAnalog{},
+		analogReaders: map[string]*wrappedAnalogReader{},
 		i2cs:          map[string]*I2cBus{},
 		gpios:         map[string]*gpioPin{},
 		interrupts:    map[string]*digitalInterrupt{},
@@ -279,12 +279,12 @@ func (b *Board) reconfigureAnalogReaders(ctx context.Context, newConf *LinuxBoar
 		if curr, ok := b.analogReaders[c.Name]; ok {
 			if curr.chipSelect != c.ChipSelect {
 				ar := &board.MCP3008AnalogReader{channel, bus, c.ChipSelect}
-				curr.reset(ctx, curr.chipSelect, board.SmoothAnalogReader(ar, c, b.logger))
+				curr.reset(ctx, curr.chipSelect, board.SmoothAnalogReader(ar, board.AnalogConfig{AverageOverMillis: ac.AverageOverMillis, SamplesPerSecond: ac.SamplesPerSecond}, b.logger))
 			}
 			continue
 		}
 		ar := &board.MCP3008AnalogReader{channel, bus, c.ChipSelect}
-		b.analogReaders[c.Name] = newWrappedAnalog(ctx, c.ChipSelect, board.SmoothAnalogReader(ar, c, b.logger))
+		b.analogReaders[c.Name] = newWrappedAnalogReader(ctx, c.ChipSelect, board.SmoothAnalogReader(ar, board.AnalogConfig{AverageOverMillis: ac.AverageOverMillis, SamplesPerSecond: ac.SamplesPerSecond}, b.logger))
 	}
 
 	for name := range b.analogReaders {
@@ -408,7 +408,7 @@ type wrappedAnalogReader struct {
 	reader     *board.AnalogSmoother
 }
 
-func newWrappedAnalogReader(ctx context.Context, chipSelect string, reader *board.AnalogSmoother) *wrappedAnalog {
+func newWrappedAnalogReader(ctx context.Context, chipSelect string, reader *board.AnalogSmoother) *wrappedAnalogReader {
 	var wrapped wrappedAnalogReader
 	wrapped.reset(ctx, chipSelect, reader)
 	return &wrapped
