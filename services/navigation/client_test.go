@@ -165,6 +165,20 @@ func TestClient(t *testing.T) {
 		test.That(t, receivedMode, test.ShouldEqual, navigation.ModeManual)
 		test.That(t, extraOptions, test.ShouldResemble, extra)
 
+		err = workingNavClient.SetMode(context.Background(), navigation.ModeWaypoint, extra)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, receivedMode, test.ShouldEqual, navigation.ModeWaypoint)
+		test.That(t, extraOptions, test.ShouldResemble, extra)
+
+		err = workingNavClient.SetMode(context.Background(), navigation.ModeExplore, extra)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, receivedMode, test.ShouldEqual, navigation.ModeExplore)
+		test.That(t, extraOptions, test.ShouldResemble, extra)
+
+		err = workingNavClient.SetMode(context.Background(), 99, extra)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "MODE_UNSPECIFIED")
+
 		// test add waypoint
 		point := geo.NewPoint(90, 1)
 		extra = map[string]interface{}{"foo": "AddWaypoint"}
