@@ -158,10 +158,9 @@ func (h *I2cHandle) Close() error {
 // machine, and otherwise it tries to get the named bus from the named board.
 // TODO(RSDK-5254): remove this once all I2C devices are talking directly to the bus without going
 // through the board.
-func GetI2CBus(
-    deps resource.Dependencies, board_name string, bus_name string, bus_num int) (board.I2C, error) {
+func GetI2CBus(deps resource.Dependencies, board_name string, bus_name string, bus_num int) (board.I2C, error) {
     if bus_num != 0 {
-        return NewI2cBus(fmt.Sprintf("%s", bus_num))
+        return NewI2cBus(fmt.Sprintf("%d", bus_num))
     }
 
     // Otherwise, look things up through the board.

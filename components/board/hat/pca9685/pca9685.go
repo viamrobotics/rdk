@@ -4,7 +4,6 @@ package pca9685
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 	"sync"
 	"time"
@@ -16,6 +15,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/board/genericlinux"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/resource"
 )
@@ -29,8 +29,9 @@ var (
 
 // Config describes a PCA9685 board attached to some other board via I2C.
 type Config struct {
-	BoardName      string `json:"board_name"`
-	I2CName        string `json:"i2c_name"`
+	BoardName      string `json:"board_name,omitempty"`
+	I2CName        string `json:"i2c_name,omitempty"`
+	I2CBus         *int   `json:"i2c_bus,omitempty"`
 	I2CAddress     *int   `json:"i2c_address,omitempty"`
 	PWMFrequencyHz int    `json:"pwm_frequency_hz,omitempty"`
 }
@@ -38,19 +39,30 @@ type Config struct {
 // Validate ensures all parts of the config are valid.
 func (conf *Config) Validate(path string) ([]string, error) {
 	var deps []string
-	if conf.BoardName == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "board_name")
+	// Either the i2c bus or both the board name and i2c name is required.
+	if conf.I2CBus == nil {
+		if conf.BoardName == "" && conf.I2CName == "" {
+			// If all 3 are missing, prefer the i2c_bus approach.
+			return nil, utils.NewConfigValidationFieldRequiredError(path, "i2c_bus")
+		}
+		// Otherwise, we're just missing either the board name or i2c name.
+		if conf.BoardName == "" {
+			return nil, utils.NewConfigValidationFieldRequiredError(path, "board_name")
+		}
+		if conf.I2CName == "" {
+			return nil, utils.NewConfigValidationFieldRequiredError(path, "i2c_name")
+		}
 	}
-	if conf.I2CName == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "i2c_name")
-	}
+
 	if conf.I2CAddress == nil {
 		conf.I2CAddress = &defaultAddr
 	}
 	if *conf.I2CAddress < 0 || *conf.I2CAddress > 255 {
 		return nil, utils.NewConfigValidationError(path, errors.New("i2c_address must be an unsigned byte"))
 	}
-	deps = append(deps, conf.BoardName)
+	if conf.BoardName != "" {
+		deps = append(deps, conf.BoardName)
+	}
 	return deps, nil
 }
 
@@ -126,28 +138,19 @@ func (pca *PCA9685) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		return err
 	}
 
-	b, err := board.FromDependencies(deps, newConf.BoardName)
-	if err != nil {
-		return err
-	}
-	localBoard, ok := b.(board.LocalBoard)
-	if !ok {
-		return fmt.Errorf("board %s is not local", newConf.BoardName)
+	bus_num := 0
+	if newConf.I2CBus != nil {
+		bus_num = *newConf.I2CBus
 	}
 
-	bus, ok := localBoard.I2CByName(newConf.I2CName)
-	if !ok {
-		return errors.Errorf("can't find I2C bus (%s) requested by Motor", newConf.I2CName)
+	bus, err := genericlinux.GetI2CBus(deps, newConf.BoardName, newConf.I2CName, bus_num)
+	if err != nil {
+		return err
 	}
 	address := byte(*newConf.I2CAddress)
 
 	pca.mu.Lock()
 	defer pca.mu.Unlock()
-
-	needsReset := pca.boardName != newConf.BoardName || pca.i2cName != newConf.I2CName
-	if !needsReset {
-		return nil
-	}
 
 	pca.bus = bus
 	pca.address = address
