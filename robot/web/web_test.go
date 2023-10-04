@@ -588,10 +588,12 @@ func TestParallelWebRTCDialAndConnUsage(t *testing.T) {
 
 	// NewClientFromConn will also call GetKinematics, a gRPC request that may
 	// hang within RecvMsg.
-	_, err = arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
+	a, err := arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
 	test.That(t, err, test.ShouldBeNil)
 
+	test.That(t, a.Close(ctx), test.ShouldBeNil)
 	test.That(t, conn.Close(), test.ShouldBeNil)
+	test.That(t, svc.Close(ctx), test.ShouldBeNil)
 }
 
 func TestWebWithStreams(t *testing.T) {
