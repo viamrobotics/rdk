@@ -25,11 +25,17 @@ func init() {
 // Mode describes what mode to operate the service in.
 type Mode uint8
 
+// MapType describes what map the navigation service is operating on.
+type MapType uint8
+
 // The set of known modes.
 const (
 	ModeManual = Mode(iota)
 	ModeWaypoint
 	ModeExplore
+
+	NoMap = MapType(iota)
+	GPSMap
 )
 
 func (m Mode) String() string {

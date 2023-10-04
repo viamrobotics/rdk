@@ -68,6 +68,7 @@ func init() {
 type Config struct {
 	Store              navigation.StoreConfig `json:"store"`
 	BaseName           string                 `json:"base"`
+	MapTypeName        string                 `json:"map_type"`
 	MovementSensorName string                 `json:"movement_sensor"`
 	MotionServiceName  string                 `json:"motion_service"`
 	VisionServices     []string               `json:"vision_services"`
@@ -93,10 +94,12 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	}
 	deps = append(deps, conf.BaseName)
 
-	if conf.MovementSensorName == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "movement_sensor")
+	if conf.MapTypeName == "GPS" {
+		if conf.MovementSensorName == "" {
+			return nil, utils.NewConfigValidationFieldRequiredError(path, "movement_sensor")
+		}
+		deps = append(deps, conf.MovementSensorName)
 	}
-	deps = append(deps, conf.MovementSensorName)
 
 	if conf.MotionServiceName == "" {
 		conf.MotionServiceName = resource.DefaultServiceName
@@ -162,6 +165,7 @@ type builtIn struct {
 	store     navigation.NavStore
 	storeType string
 	mode      navigation.Mode
+	mapType   navigation.MapType
 
 	base           base.Base
 	movementSensor movementsensor.MovementSensor
@@ -196,14 +200,31 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		}
 		svc.logger = logger
 	}
+
 	base1, err := base.FromDependencies(deps, svcConfig.BaseName)
 	if err != nil {
 		return err
 	}
-	movementSensor, err := movementsensor.FromDependencies(deps, svcConfig.MovementSensorName)
-	if err != nil {
-		return err
+
+	var mapType navigation.MapType
+	switch svcConfig.MapTypeName {
+	case "":
+		mapType = navigation.GPSMap
+	case "GPS":
+		mapType = navigation.GPSMap
+	default:
+		return errors.New("invalid map_type, map_type must be one of the following ['', 'GPS']")
 	}
+
+	// Movement sensor required in map type is GPS
+	if mapType == navigation.GPSMap {
+		movementSensor, err := movementsensor.FromDependencies(deps, svcConfig.MovementSensorName)
+		if err != nil {
+			return err
+		}
+		svc.movementSensor = movementSensor
+	}
+
 	motionSvc, err := motion.FromDependencies(deps, svcConfig.MotionServiceName)
 	if err != nil {
 		return err
@@ -239,7 +260,7 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	svc.mode = navigation.ModeManual
 	svc.storeType = string(svcConfig.Store.Type)
 	svc.base = base1
-	svc.movementSensor = movementSensor
+	svc.mapType = mapType
 	svc.motion = motionSvc
 	svc.obstacles = newObstacles
 	svc.replanCostFactor = svcConfig.ReplanCostFactor
@@ -289,6 +310,7 @@ func (svc *builtIn) SetMode(ctx context.Context, mode navigation.Mode, extra map
 	case navigation.ModeWaypoint:
 		svc.startWaypointMode(cancelCtx, extra)
 	case navigation.ModeExplore:
+		svc.startExploreMode(cancelCtx)
 		return errors.New("navigation mode 'explore' is not currently available")
 	}
 
