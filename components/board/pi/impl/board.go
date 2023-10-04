@@ -767,6 +767,11 @@ func (pi *piPigpio) SetPowerMode(ctx context.Context, mode pb.PowerMode, duratio
 	return grpc.UnimplementedError
 }
 
+// WriteAnalog writes the value to the given pin.
+func (pi *piPigpio) WriteAnalog(ctx context.Context, pin string, value int32, extra map[string]interface{}) error {
+	return grpc.UnimplementedError
+}
+
 // Close attempts to close all parts of the board cleanly.
 func (pi *piPigpio) Close(ctx context.Context) error {
 	var terminate bool
