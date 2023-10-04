@@ -239,8 +239,8 @@ func (w *GraphNode) setNeedsReconfigure(newConfig Config, mustReconfigure bool, 
 	}
 	if mustReconfigure {
 		w.needsDependencyResolution = true
-		w.timesReconfigured.Store(0)
 	}
+	w.timesReconfigured.Store(0)
 	w.config = newConfig
 	w.needsReconfigure = true
 	w.markedForRemoval = false

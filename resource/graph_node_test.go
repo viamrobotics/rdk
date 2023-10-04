@@ -218,10 +218,23 @@ func lifecycleTest(t *testing.T, node *resource.GraphNode, initialDeps []string)
 	test.That(t, node.CheckReconfigure(), test.ShouldNotBeNil)
 	test.That(t, node.CheckReconfigure().Error(), test.ShouldContainSubstring, "reconfiguration error")
 
-	// set needs update is called
+	// parent was (re)configured
 	node.SetNeedsUpdate()
+	test.That(t, node.CheckReconfigure(), test.ShouldBeNil) // test that SetNeedsUpdate resets timesReconfigured
 
-	test.That(t, node.CheckReconfigure(), test.ShouldNotBeNil) // test that SetNeedsUpdate does not reset timesReconfigured
+	// but MaxReconfigAttempts errors happen in spite of this
+	for i = 0; i < resource.MaxReconfigAttempts; i++ {
+		test.That(t, node.CheckReconfigure(), test.ShouldBeNil)
+		node.IncrementTimesReconfigured()
+		node.SetLastError(ourErr)
+		_, err = node.Resource()
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, ourErr.Error())
+		res, err = node.UnsafeResource()
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, res, test.ShouldEqual, ourRes3)
+	}
+	test.That(t, node.CheckReconfigure(), test.ShouldNotBeNil)
 	test.That(t, node.CheckReconfigure().Error(), test.ShouldContainSubstring, "reconfiguration error")
 
 	// it finally reconfigured
