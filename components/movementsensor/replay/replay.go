@@ -51,8 +51,8 @@ var (
 	// initializePropertiesTimeout defines the amount of time we allot to the attempt to initialize Properties.
 	initializePropertiesTimeout = 10 * time.Second
 
-	// errEndOfDataset represents that the replay sensor has reached the end of the dataset.
-	errEndOfDataset = errors.New("reached end of dataset")
+	// ErrEndOfDataset represents that the replay sensor has reached the end of the dataset.
+	ErrEndOfDataset = errors.New("reached end of dataset")
 
 	// errCloudConnectionFailure represents that the attempt to connect to the cloud failed.
 	errCloudConnectionFailure = errors.New("failure to connect to the cloud")
@@ -60,23 +60,23 @@ var (
 	// errPropertiesFailedToInitialize represents that the properties failed to initialize.
 	errPropertiesFailedToInitialize = errors.New("Properties failed to initialize")
 
+	// errPositionNotSupported represents that the Position endpoint does not provide any data.
+	errPositionNotSupported = errors.New("Position is not supported")
+
 	// errLinearVelocityNotSupported represents that the LinearVelocity method does not provide any data.
 	errLinearVelocityNotSupported = errors.New("LinearVelocity is not supported")
 
 	// errAngularVelocityNotSupported represents that the AngularVelocity endpoint does not provide any data.
 	errAngularVelocityNotSupported = errors.New("AngularVelocity is not supported")
 
-	// errOrientationNotSupported represents that the Orientation endpoint does not provide any data.
-	errOrientationNotSupported = errors.New("Orientation is not supported")
-
-	// errPositionNotSupported represents that the Position endpoint does not provide any data.
-	errPositionNotSupported = errors.New("Position is not supported")
+	// errLinearAccelerationNotSupported represents that the LinearAcceleration endpoint does not provide any data.
+	errLinearAccelerationNotSupported = errors.New("LinearAcceleration is not supported")
 
 	// errCompassHeadingNotSupported represents that the CompassHeading endpoint does not provide any data.
 	errCompassHeadingNotSupported = errors.New("CompassHeading is not supported")
 
-	// errLinearAccelerationNotSupported represents that the LinearAcceleration endpoint does not provide any data.
-	errLinearAccelerationNotSupported = errors.New("LinearAcceleration is not supported")
+	// errOrientationNotSupported represents that the Orientation endpoint does not provide any data.
+	errOrientationNotSupported = errors.New("Orientation is not supported")
 
 	// methodList is a list of all the base methods possible for a movement sensor to implement.
 	methodList = []method{position, linearVelocity, angularVelocity, linearAcceleration, compassHeading, orientation}
@@ -471,7 +471,7 @@ func (replay *replayMovementSensor) updateCache(ctx context.Context, method meth
 
 	// Check if data exists
 	if len(resp.GetData()) == 0 {
-		return errEndOfDataset
+		return ErrEndOfDataset
 	}
 	replay.lastData[method] = resp.GetLast()
 
@@ -508,18 +508,18 @@ func addGRPCMetadata(ctx context.Context, timeRequested, timeReceived *timestamp
 
 func (replay *replayMovementSensor) setProperty(method method, supported bool) error {
 	switch method {
+	case position:
+		replay.properties.PositionSupported = supported
 	case linearVelocity:
 		replay.properties.LinearVelocitySupported = supported
 	case angularVelocity:
 		replay.properties.AngularVelocitySupported = supported
-	case orientation:
-		replay.properties.OrientationSupported = supported
-	case position:
-		replay.properties.PositionSupported = supported
-	case compassHeading:
-		replay.properties.CompassHeadingSupported = supported
 	case linearAcceleration:
 		replay.properties.LinearAccelerationSupported = supported
+	case compassHeading:
+		replay.properties.CompassHeadingSupported = supported
+	case orientation:
+		replay.properties.OrientationSupported = supported
 	default:
 		return errors.New("can't set property, invalid method: " + string(method))
 	}
@@ -532,7 +532,7 @@ func (replay *replayMovementSensor) attemptToInitializeProperty(ctx context.Cont
 	if replay.closed {
 		return initializedProperty, errors.New("session closed")
 	}
-	if err := replay.updateCache(ctx, method); err != nil && !strings.Contains(err.Error(), errEndOfDataset.Error()) {
+	if err := replay.updateCache(ctx, method); err != nil && !strings.Contains(err.Error(), ErrEndOfDataset.Error()) {
 		return initializedProperty, errors.Wrap(err, "could not update the cache")
 	}
 	if len(replay.cache[method]) != 0 {

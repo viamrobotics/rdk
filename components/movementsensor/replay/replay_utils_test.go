@@ -101,12 +101,12 @@ func timestampsFromIndex(index int) (*timestamppb.Timestamp, *timestamppb.Timest
 func getNextDataAfterFilter(filter *datapb.Filter, last string) (int, error) {
 	// Basic component part (source) filter
 	if filter.ComponentName != "" && filter.ComponentName != validSource {
-		return 0, errEndOfDataset
+		return 0, ErrEndOfDataset
 	}
 
 	// Basic robot_id filter
 	if filter.RobotId != "" && filter.RobotId != validRobotID {
-		return 0, errEndOfDataset
+		return 0, ErrEndOfDataset
 	}
 
 	// Basic location_id filter
@@ -114,7 +114,7 @@ func getNextDataAfterFilter(filter *datapb.Filter, last string) (int, error) {
 		return 0, errors.New("issue occurred with transmitting LocationIds to the cloud")
 	}
 	if filter.LocationIds[0] != "" && filter.LocationIds[0] != validLocationID {
-		return 0, errEndOfDataset
+		return 0, ErrEndOfDataset
 	}
 
 	// Basic organization_id filter
@@ -122,7 +122,7 @@ func getNextDataAfterFilter(filter *datapb.Filter, last string) (int, error) {
 		return 0, errors.New("issue occurred with transmitting OrganizationIds to the cloud")
 	}
 	if filter.OrganizationIds[0] != "" && filter.OrganizationIds[0] != validOrganizationID {
-		return 0, errEndOfDataset
+		return 0, ErrEndOfDataset
 	}
 
 	// Apply the time-based filter based on the seconds value in the start and end fields. Because our mock data
@@ -157,7 +157,7 @@ func checkDataEndCondition(i, endIntervalIndex, availableDataNum int) (int, erro
 	if i < endIntervalIndex && i < availableDataNum {
 		return i, nil
 	}
-	return 0, errEndOfDataset
+	return 0, ErrEndOfDataset
 }
 
 // createMockCloudDependencies creates a mockDataServiceServer and rpc client connection to it which is then

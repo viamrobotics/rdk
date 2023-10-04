@@ -101,11 +101,11 @@ var (
 
 	allMethodsSupported = map[method]bool{
 		position:           true,
-		linearAcceleration: true,
-		angularVelocity:    true,
 		linearVelocity:     true,
-		orientation:        true,
+		angularVelocity:    true,
+		linearAcceleration: true,
 		compassHeading:     true,
+		orientation:        true,
 	}
 )
 
@@ -287,10 +287,10 @@ func TestReplayMovementSensorFunctions(t *testing.T) {
 			},
 			startFileNum: allMethodsMinDataLength,
 			endFileNum: map[method]int{
-				linearAcceleration: 3,
-				angularVelocity:    3,
 				position:           3,
 				linearVelocity:     3,
+				angularVelocity:    3,
+				linearAcceleration: 3,
 				compassHeading:     3,
 				orientation:        allMethodsMaxDataLength[orientation],
 			},
@@ -309,10 +309,10 @@ func TestReplayMovementSensorFunctions(t *testing.T) {
 				},
 			},
 			startFileNum: map[method]int{
-				linearAcceleration: 2,
-				angularVelocity:    2,
 				position:           2,
 				linearVelocity:     2,
+				angularVelocity:    2,
+				linearAcceleration: 2,
 				compassHeading:     2,
 			},
 			endFileNum: map[method]int{
@@ -345,25 +345,25 @@ func TestReplayMovementSensorFunctions(t *testing.T) {
 				},
 			},
 			startFileNum: map[method]int{
-				angularVelocity: 6,
 				linearVelocity:  6,
+				angularVelocity: 6,
 				compassHeading:  6,
 			},
 			endFileNum: map[method]int{
-				angularVelocity: allMethodsMaxDataLength[angularVelocity],
 				linearVelocity:  allMethodsMaxDataLength[linearVelocity],
+				angularVelocity: allMethodsMaxDataLength[angularVelocity],
 				compassHeading:  allMethodsMaxDataLength[compassHeading],
 			},
 			methodsExpectedErr: map[method]error{
-				linearAcceleration: errLinearAccelerationNotSupported,
 				position:           errPositionNotSupported,
+				linearAcceleration: errLinearAccelerationNotSupported,
 				orientation:        errOrientationNotSupported,
 			},
 			methodSupported: map[method]bool{
-				linearAcceleration: false,
-				angularVelocity:    true,
 				position:           false,
 				linearVelocity:     true,
+				angularVelocity:    true,
+				linearAcceleration: false,
 				compassHeading:     true,
 				orientation:        false,
 			},
@@ -389,16 +389,16 @@ func TestReplayMovementSensorFunctions(t *testing.T) {
 				compassHeading: allMethodsMaxDataLength[compassHeading],
 			},
 			methodsExpectedErr: map[method]error{
-				linearAcceleration: errLinearAccelerationNotSupported,
-				angularVelocity:    errAngularVelocityNotSupported,
 				position:           errPositionNotSupported,
+				angularVelocity:    errAngularVelocityNotSupported,
+				linearAcceleration: errLinearAccelerationNotSupported,
 				orientation:        errOrientationNotSupported,
 			},
 			methodSupported: map[method]bool{
-				linearAcceleration: false,
-				angularVelocity:    false,
 				position:           false,
 				linearVelocity:     true,
+				angularVelocity:    false,
+				linearAcceleration: false,
 				compassHeading:     true,
 				orientation:        false,
 			},
@@ -422,17 +422,17 @@ func TestReplayMovementSensorFunctions(t *testing.T) {
 				compassHeading: allMethodsMaxDataLength[compassHeading],
 			},
 			methodsExpectedErr: map[method]error{
-				linearAcceleration: errLinearAccelerationNotSupported,
-				angularVelocity:    errAngularVelocityNotSupported,
 				position:           errPositionNotSupported,
 				linearVelocity:     errLinearVelocityNotSupported,
+				angularVelocity:    errAngularVelocityNotSupported,
+				linearAcceleration: errLinearAccelerationNotSupported,
 				orientation:        errOrientationNotSupported,
 			},
 			methodSupported: map[method]bool{
-				linearAcceleration: false,
-				angularVelocity:    false,
 				position:           false,
 				linearVelocity:     false,
+				angularVelocity:    false,
+				linearAcceleration: false,
 				compassHeading:     true,
 				orientation:        false,
 			},
@@ -498,11 +498,11 @@ func TestReplayMovementSensorFunctions(t *testing.T) {
 				props, err := replay.Properties(ctx, map[string]interface{}{})
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, props.PositionSupported, test.ShouldEqual, tt.methodSupported[position])
-				test.That(t, props.OrientationSupported, test.ShouldEqual, tt.methodSupported[orientation])
+				test.That(t, props.LinearVelocitySupported, test.ShouldEqual, tt.methodSupported[linearVelocity])
 				test.That(t, props.AngularVelocitySupported, test.ShouldEqual, tt.methodSupported[angularVelocity])
 				test.That(t, props.LinearAccelerationSupported, test.ShouldEqual, tt.methodSupported[linearAcceleration])
-				test.That(t, props.LinearVelocitySupported, test.ShouldEqual, tt.methodSupported[linearVelocity])
 				test.That(t, props.CompassHeadingSupported, test.ShouldEqual, tt.methodSupported[compassHeading])
+				test.That(t, props.OrientationSupported, test.ShouldEqual, tt.methodSupported[orientation])
 
 				for _, method := range methodList {
 					if tt.methodsExpectedErr[method] != nil {
@@ -515,7 +515,7 @@ func TestReplayMovementSensorFunctions(t *testing.T) {
 							}
 						}
 						// Confirm the end of the dataset was reached when expected
-						testReplayMovementSensorMethodError(ctx, t, replay, method, errEndOfDataset)
+						testReplayMovementSensorMethodError(ctx, t, replay, method, ErrEndOfDataset)
 					}
 				}
 
@@ -788,7 +788,7 @@ func TestReplayMovementSensorReadings(t *testing.T) {
 
 	readings, err := replay.Readings(ctx, map[string]interface{}{})
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, errEndOfDataset.Error())
+	test.That(t, err.Error(), test.ShouldContainSubstring, ErrEndOfDataset.Error())
 	test.That(t, readings, test.ShouldBeNil)
 
 	err = replay.Close(ctx)
@@ -831,7 +831,7 @@ func TestReplayMovementSensorTimestampsMetadata(t *testing.T) {
 	}
 
 	// Confirm the end of the dataset was reached when expected
-	testReplayMovementSensorMethodError(ctx, t, replay, defaultReplayMovementSensorFunction, errEndOfDataset)
+	testReplayMovementSensorMethodError(ctx, t, replay, defaultReplayMovementSensorFunction, ErrEndOfDataset)
 
 	err = replay.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)
@@ -879,7 +879,7 @@ func TestReplayMovementSensorReconfigure(t *testing.T) {
 	}
 
 	// Confirm the end of the dataset was reached when expected
-	testReplayMovementSensorMethodError(ctx, t, replay, defaultReplayMovementSensorFunction, errEndOfDataset)
+	testReplayMovementSensorMethodError(ctx, t, replay, defaultReplayMovementSensorFunction, ErrEndOfDataset)
 
 	err = replay.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)
