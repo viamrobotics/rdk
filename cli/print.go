@@ -38,6 +38,12 @@ func infof(w io.Writer, format string, a ...interface{}) {
 }
 
 // warningf prints a message prefixed with a bold yellow "Warning: ".
+//
+// NOTE(benjirewis): we disable the unparam linter here. Our usages of warningf
+// do not currently make use of the variadic `a` parameter but may in the
+// future. unparam will complain until it does.
+//
+//nolint:unparam
 func warningf(w io.Writer, format string, a ...interface{}) {
 	if _, err := color.New(color.Bold, color.FgYellow).Fprint(w, "Warning: "); err != nil {
 		log.Fatal(err)

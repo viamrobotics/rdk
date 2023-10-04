@@ -25,6 +25,8 @@ const (
 
 	apiKeyCreateFlagOrgID = "org-id"
 	apiKeyCreateFlagName  = "name"
+	apiKeyFlagRobotID     = "robot-id"
+	apiKeyFlagLocationID  = "location-id"
 
 	loginFlagDisableBrowser = "disable-browser-open"
 	loginFlagKeyID          = "key-id"
@@ -179,6 +181,33 @@ var app = &cli.App{
 					Usage:     "list locations for the current user",
 					ArgsUsage: "[organization]",
 					Action:    ListLocationsAction,
+				},
+				{
+					Name:  "api-key",
+					Usage: "work with an api-key for your location",
+					Subcommands: []*cli.Command{
+						{
+							Name:  "create",
+							Usage: "create an api key for your location",
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     apiKeyFlagLocationID,
+									Required: true,
+									Usage:    "the location to create an api-key for",
+								},
+								&cli.StringFlag{
+									Name:  apiKeyCreateFlagName,
+									Usage: "the name of the key (defaults to your login info with the current time)",
+								},
+								&cli.StringFlag{
+									Name: apiKeyCreateFlagOrgID,
+									Usage: "the org-id to attach the key to" +
+										"If not provided, will attempt to attach itself to the org of the location if only one org is attached to the location",
+								},
+							},
+							Action: LocationAPIKeyCreateAction,
+						},
+					},
 				},
 			},
 		},
@@ -511,6 +540,33 @@ var app = &cli.App{
 						},
 					},
 					Action: ListRobotsAction,
+				},
+				{
+					Name:  "api-key",
+					Usage: "work with a robot's api keys",
+					Subcommands: []*cli.Command{
+						{
+							Name:  "create",
+							Usage: "create an api-key for your robot",
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     apiKeyFlagRobotID,
+									Required: true,
+									Usage:    "the robot to create an api-key for",
+								},
+								&cli.StringFlag{
+									Name:  apiKeyCreateFlagName,
+									Usage: "the name of the key (defaults to your login info with the current time)",
+								},
+								&cli.StringFlag{
+									Name: apiKeyCreateFlagOrgID,
+									Usage: "the org-id to attach this api-key to. If not provided," +
+										"we will attempt to use the org attached to the robot if only one exists",
+								},
+							},
+							Action: RobotAPIKeyCreateAction,
+						},
+					},
 				},
 				{
 					Name:      "status",
