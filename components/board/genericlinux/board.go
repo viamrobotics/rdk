@@ -281,14 +281,16 @@ func (b *Board) reconfigureAnalogReaders(ctx context.Context, newConf *LinuxBoar
 				ar := &board.MCP3008AnalogReader{channel, bus, c.ChipSelect}
 				curr.reset(ctx, curr.chipSelect,
 					board.SmoothAnalogReader(ar, board.AnalogConfig{
-						AverageOverMillis: c.AverageOverMillis, SamplesPerSecond: c.SamplesPerSecond}, b.logger))
+						AverageOverMillis: c.AverageOverMillis, SamplesPerSecond: c.SamplesPerSecond,
+					}, b.logger))
 			}
 			continue
 		}
 		ar := &board.MCP3008AnalogReader{channel, bus, c.ChipSelect}
 		b.analogReaders[c.Name] = newWrappedAnalogReader(ctx, c.ChipSelect,
 			board.SmoothAnalogReader(ar, board.AnalogConfig{
-				AverageOverMillis: c.AverageOverMillis, SamplesPerSecond: c.SamplesPerSecond}, b.logger))
+				AverageOverMillis: c.AverageOverMillis, SamplesPerSecond: c.SamplesPerSecond,
+			}, b.logger))
 	}
 
 	for name := range b.analogReaders {

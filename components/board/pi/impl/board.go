@@ -231,7 +231,9 @@ func (pi *piPigpio) reconfigureAnalogReaders(ctx context.Context, cfg *genericli
 
 		ar := &board.MCP3008AnalogReader{channel, bus, ac.ChipSelect}
 
-		pi.analogReaders[ac.Name] = board.SmoothAnalogReader(ar, board.AnalogConfig{AverageOverMillis: ac.AverageOverMillis, SamplesPerSecond: ac.SamplesPerSecond}, pi.logger)
+		pi.analogReaders[ac.Name] = board.SmoothAnalogReader(ar, board.AnalogConfig{
+			AverageOverMillis: ac.AverageOverMillis, SamplesPerSecond: ac.SamplesPerSecond,
+		}, pi.logger)
 	}
 	return nil
 }
