@@ -143,7 +143,7 @@ const handlePwmFrequencyInput = (event: CustomEvent) => {
           <div class="flex flex-wrap items-end gap-2">
             <v-input
               label="Pin"
-              type="integer"
+              type="text"
               value={getPin}
               on:input={handleGetPinInput}
             />
@@ -174,7 +174,7 @@ const handlePwmFrequencyInput = (event: CustomEvent) => {
           <div class="flex flex-wrap items-end gap-2">
             <v-input
               value={setPin}
-              type="integer"
+              type="text"
               class="mr-2"
               label="Pin"
               on:input={handleSetPinInput}

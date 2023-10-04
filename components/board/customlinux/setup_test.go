@@ -8,7 +8,6 @@ import (
 
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/board/genericlinux"
 )
 
@@ -51,16 +50,4 @@ func TestConfigValidate(t *testing.T) {
 	validConfig.BoardDefsFilePath = "./"
 	_, err = validConfig.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
-
-	validConfig.DigitalInterrupts = []board.DigitalInterruptConfig{{}}
-	_, err = validConfig.Validate("path")
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "path.digital_interrupts.0")
-	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
-
-	validConfig.DigitalInterrupts = []board.DigitalInterruptConfig{{Name: "20"}}
-	_, err = validConfig.Validate("path")
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "path.digital_interrupts.0")
-	test.That(t, err.Error(), test.ShouldContainSubstring, `"pin" is required`)
 }

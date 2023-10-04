@@ -40,8 +40,8 @@ func (r testReader) Close(ctx context.Context) error {
 type fullReader struct{}
 
 func (r fullReader) Read(ctx context.Context) (image.Image, func(), error) {
-	// We want this to return a valid depth image of known size (640 x 480)
-	pic, err := rimage.NewDepthMapFromFile(context.Background(), artifact.MustPath("vision/exampleDepth.png"))
+	// We want this to return a valid depth image of known size (424 x 240)
+	pic, err := rimage.NewDepthMapFromFile(context.Background(), artifact.MustPath("pointcloud/the_depth_image_intel_424.png"))
 	return pic, nil, err
 }
 
@@ -50,20 +50,21 @@ func (r fullReader) Close(ctx context.Context) error {
 }
 
 func TestObstacleDepth(t *testing.T) {
-	no := false
-	noIntrinsicsCfg := ObsDepthConfig{
-		Hmin:           defaultHmin,
-		Hmax:           defaultHmax,
-		ThetaMax:       defaultThetamax,
-		ReturnPCDs:     false,
-		WithGeometries: &no,
+	someIntrinsics := transform.PinholeCameraIntrinsics{
+		Width:  424,
+		Height: 240,
+		Fx:     304.1299133300781,
+		Fy:     304.2772216796875,
+		Ppx:    213.47967529296875,
+		Ppy:    124.63351440429688,
 	}
-	someIntrinsics := transform.PinholeCameraIntrinsics{Fx: 604.5, Fy: 609.6, Ppx: 324.6, Ppy: 238.9, Width: 640, Height: 480}
+	noIntrinsicsCfg := ObsDepthConfig{}
 	withIntrinsicsCfg := ObsDepthConfig{
-		Hmin:       defaultHmin,
-		Hmax:       defaultHmax,
-		ThetaMax:   defaultThetamax,
-		ReturnPCDs: true,
+		MinPtsInPlane:        2000,
+		MinPtsInSegment:      500,
+		MaxDistFromPlane:     12.0,
+		ClusteringRadius:     10,
+		ClusteringStrictness: 0.00000001,
 	}
 
 	ctx := context.Background()
@@ -71,16 +72,20 @@ func TestObstacleDepth(t *testing.T) {
 	r := &inject.Robot{ResourceNamesFunc: func() []resource.Name {
 		return []resource.Name{camera.Named("testCam"), camera.Named("noIntrinsicsCam")}
 	}}
-	tr := testReader{}
+	// camera with intrinsics
+	fr := fullReader{}
 	syst := transform.PinholeCameraModel{&someIntrinsics, nil}
-	myCamSrcIntrinsics, err := camera.NewVideoSourceFromReader(ctx, tr, &syst, camera.DepthStream)
+	myCamSrcIntrinsics, err := camera.NewVideoSourceFromReader(ctx, fr, &syst, camera.DepthStream)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, myCamSrcIntrinsics, test.ShouldNotBeNil)
+	myIntrinsicsCam := camera.FromVideoSource(resource.Name{Name: "testCam"}, myCamSrcIntrinsics)
+	// camera without intrinsics
+	tr := testReader{}
 	myCamSrcNoIntrinsics, err := camera.NewVideoSourceFromReader(ctx, tr, nil, camera.DepthStream)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, myCamSrcNoIntrinsics, test.ShouldNotBeNil)
-	myIntrinsicsCam := camera.FromVideoSource(resource.Name{Name: "testCam"}, myCamSrcIntrinsics)
 	noIntrinsicsCam := camera.FromVideoSource(resource.Name{Name: "noIntrinsicsCam"}, myCamSrcNoIntrinsics)
+	// set up the fake robot
 	r.ResourceByNameFunc = func(n resource.Name) (resource.Resource, error) {
 		switch n.Name {
 		case "testCam":
@@ -125,7 +130,7 @@ func TestObstacleDepth(t *testing.T) {
 		obs, err := srv2.GetObjectPointClouds(ctx, "testCam", nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, obs, test.ShouldNotBeNil)
-		test.That(t, len(obs), test.ShouldEqual, defaultK)
+		test.That(t, len(obs), test.ShouldEqual, 2)
 		for _, o := range obs {
 			test.That(t, o.PointCloud, test.ShouldNotBeNil)
 			test.That(t, o.Geometry, test.ShouldNotBeNil)
@@ -134,12 +139,20 @@ func TestObstacleDepth(t *testing.T) {
 }
 
 func BenchmarkObstacleDepthIntrinsics(b *testing.B) {
-	someIntrinsics := transform.PinholeCameraIntrinsics{Fx: 604.5, Fy: 609.6, Ppx: 324.6, Ppy: 238.9, Width: 640, Height: 480}
+	someIntrinsics := transform.PinholeCameraIntrinsics{
+		Width:  424,
+		Height: 240,
+		Fx:     304.1299133300781,
+		Fy:     304.2772216796875,
+		Ppx:    213.47967529296875,
+		Ppy:    124.63351440429688,
+	}
 	withIntrinsicsCfg := ObsDepthConfig{
-		Hmin:       defaultHmin,
-		Hmax:       defaultHmax,
-		ThetaMax:   defaultThetamax,
-		ReturnPCDs: true,
+		MinPtsInPlane:        2000,
+		MinPtsInSegment:      500,
+		MaxDistFromPlane:     12.0,
+		ClusteringRadius:     10,
+		ClusteringStrictness: 0.0001,
 	}
 
 	ctx := context.Background()
@@ -162,17 +175,14 @@ func BenchmarkObstacleDepthIntrinsics(b *testing.B) {
 	name := vision.Named("test")
 	srv, _ := registerObstaclesDepth(ctx, name, &withIntrinsicsCfg, r, testLogger)
 
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		srv.GetObjectPointClouds(ctx, "testCam", nil)
 	}
 }
 
 func BenchmarkObstacleDepthNoIntrinsics(b *testing.B) {
-	no := false
-	noIntrinsicsCfg := ObsDepthConfig{
-		ReturnPCDs:     false,
-		WithGeometries: &no,
-	}
+	noIntrinsicsCfg := ObsDepthConfig{}
 
 	ctx := context.Background()
 	testLogger := golog.NewLogger("test")
@@ -193,6 +203,7 @@ func BenchmarkObstacleDepthNoIntrinsics(b *testing.B) {
 	name := vision.Named("test")
 	srv, _ := registerObstaclesDepth(ctx, name, &noIntrinsicsCfg, r, testLogger)
 
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		srv.GetObjectPointClouds(ctx, "testCam", nil)
 	}
