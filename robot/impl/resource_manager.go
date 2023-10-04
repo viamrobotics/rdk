@@ -457,10 +457,10 @@ func (manager *resourceManager) Close(ctx context.Context) error {
 	return allErrs
 }
 
-// validateReconfigure returns whether or not the resource can be reconfigured based on the state of the graph node.
+// checkReconfigure returns whether or not the resource can be (re)configured based on the state of the graph node.
 // It also handles error management based on aforementioned state.
-func validateReconfigure(manager *resourceManager, gNode *resource.GraphNode) bool {
-	err := gNode.ValidateReconfigure()
+func checkReconfigure(manager *resourceManager, gNode *resource.GraphNode) bool {
+	err := gNode.CheckReconfigure()
 	if err != nil {
 		if res, lastErr := gNode.Resource(); res == nil && lastErr.Error() == err.Error() {
 			manager.logger.Debug(err)
@@ -488,7 +488,7 @@ func (manager *resourceManager) completeConfig(
 		if !ok || !gNode.NeedsReconfigure() {
 			continue
 		}
-		shouldTryReconfigure := validateReconfigure(manager, gNode)
+		shouldTryReconfigure := checkReconfigure(manager, gNode)
 		if !shouldTryReconfigure {
 			continue
 		}
@@ -566,7 +566,7 @@ func (manager *resourceManager) completeConfig(
 			if !ok || !gNode.NeedsReconfigure() {
 				return
 			}
-			shouldTryReconfigure := validateReconfigure(manager, gNode)
+			shouldTryReconfigure := checkReconfigure(manager, gNode)
 			if !shouldTryReconfigure {
 				return
 			}

@@ -209,10 +209,10 @@ func (w *GraphNode) timesReconfiguredErr() error {
 	)
 }
 
-// ValidateReconfigure returns whether or not the resource is able to be reconfigured
-// based on how many previous attempts were made— nil if we are able to reconfigure,
-// or the appropriate error with the reason why we cannot reconfigure.
-func (w *GraphNode) ValidateReconfigure() error {
+// CheckReconfigure returns whether or not the resource is able to be (re)configured
+// based on how many previous attempts were made— nil if it is able to be (re)configured,
+// or the appropriate error with the reason why it cannot (re)configure.
+func (w *GraphNode) CheckReconfigure() error {
 	if w.timesReconfigured.Load() < MaxReconfigAttempts {
 		return nil
 	}
