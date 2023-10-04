@@ -124,6 +124,7 @@ func TestParallelWebRTCDialAndConnUsage2(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, a.Close(ctx), test.ShouldBeNil)
+	test.That(t, robot.Close(ctx), test.ShouldBeNil)
 	test.That(t, conn.Close(), test.ShouldBeNil)
 	test.That(t, svc.Close(ctx), test.ShouldBeNil)
 }
