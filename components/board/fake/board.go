@@ -25,7 +25,7 @@ import (
 type Config struct {
 	I2Cs              []board.I2CConfig              `json:"i2cs,omitempty"`
 	SPIs              []board.SPIConfig              `json:"spis,omitempty"`
-	Analogs           []board.AnalogConfig           `json:"analogs,omitempty"`
+	AnalogReaders     []board.AnalogReaderConfig     `json:"analog_readers,omitempty"`
 	DigitalInterrupts []board.DigitalInterruptConfig `json:"digital_interrupts,omitempty"`
 	Attributes        rdkutils.AttributeMap          `json:"attributes,omitempty"`
 	FailNew           bool                           `json:"fail_new"`
@@ -43,11 +43,16 @@ func (conf *Config) Validate(path string) ([]string, error) {
 			return nil, err
 		}
 	}
-	for idx, conf := range conf.Analogs {
-		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "analogs", idx)); err != nil {
+	for idx, conf := range conf.AnalogReaders {
+		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "analog_readers", idx)); err != nil {
 			return nil, err
 		}
 	}
+	// for idx, conf := range conf.AnalogWriters {
+	// 	if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "analog_writers", idx)); err != nil {
+	// 		return nil, err
+	// 	}
+	// }
 	for idx, conf := range conf.DigitalInterrupts {
 		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "digital_interrupts", idx)); err != nil {
 			return nil, err
@@ -82,10 +87,11 @@ func init() {
 // NewBoard returns a new fake board.
 func NewBoard(ctx context.Context, conf resource.Config, logger golog.Logger) (*Board, error) {
 	b := &Board{
-		Named:    conf.ResourceName().AsNamed(),
-		I2Cs:     map[string]*I2C{},
-		SPIs:     map[string]*SPI{},
-		Analogs:  map[string]*Analog{},
+		Named:         conf.ResourceName().AsNamed(),
+		I2Cs:          map[string]*I2C{},
+		SPIs:          map[string]*SPI{},
+		AnalogReaders: map[string]*AnalogReader{},
+		// AnalogWriters: map[string]*AnalogWriter{},
 		Digitals: map[string]*DigitalInterruptWrapper{},
 		GPIOPins: map[string]*GPIOPin{},
 		logger:   logger,
@@ -147,21 +153,39 @@ func (b *Board) processConfig(conf resource.Config) error {
 	}
 	stillExists = map[string]struct{}{}
 
-	for _, c := range newConf.Analogs {
+	for _, c := range newConf.AnalogReaders {
 		stillExists[c.Name] = struct{}{}
-		if curr, ok := b.Analogs[c.Name]; ok {
-			if curr.chipSelect != c.ChipSelect {
-				curr.reset(c.ChipSelect)
+		if curr, ok := b.AnalogReaders[c.Name]; ok {
+			if curr.pin != c.Pin {
+				curr.reset(c.Pin)
 			}
 			continue
 		}
-		b.Analogs[c.Name] = newAnalog(c.ChipSelect)
+		b.AnalogReaders[c.Name] = newAnalogReader(c.Pin)
 	}
-	for name := range b.Analogs {
+	for name := range b.AnalogReaders {
 		if _, ok := stillExists[name]; ok {
 			continue
 		}
-		delete(b.Analogs, name)
+		delete(b.AnalogReaders, name)
+	}
+	stillExists = map[string]struct{}{}
+
+	// for _, c := range newConf.AnalogWriters {
+	// 	stillExists[c.Name] = struct{}{}
+	// 	if curr, ok := b.AnalogWriters[c.Name]; ok {
+	// 		if curr.pin != c.Pin {
+	// 			curr.reset(c.Pin)
+	// 		}
+	// 		continue
+	// 	}
+	// 	b.AnalogWriters[c.Name] = newAnalogWriter(c.Pin)
+	// }
+	for name := range b.AnalogReaders {
+		if _, ok := stillExists[name]; ok {
+			continue
+		}
+		delete(b.AnalogReaders, name)
 	}
 	stillExists = map[string]struct{}{}
 
@@ -199,10 +223,11 @@ func (b *Board) Reconfigure(ctx context.Context, deps resource.Dependencies, con
 type Board struct {
 	resource.Named
 
-	mu         sync.RWMutex
-	SPIs       map[string]*SPI
-	I2Cs       map[string]*I2C
-	Analogs    map[string]*Analog
+	mu            sync.RWMutex
+	SPIs          map[string]*SPI
+	I2Cs          map[string]*I2C
+	AnalogReaders map[string]*AnalogReader
+	// AnalogWriters map[string]*AnalogWriter
 	Digitals   map[string]*DigitalInterruptWrapper
 	GPIOPins   map[string]*GPIOPin
 	logger     golog.Logger
@@ -229,7 +254,7 @@ func (b *Board) I2CByName(name string) (board.I2C, bool) {
 func (b *Board) AnalogReaderByName(name string) (board.AnalogReader, bool) {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
-	a, ok := b.Analogs[name]
+	a, ok := b.AnalogReaders[name]
 	return a, ok
 }
 
@@ -281,7 +306,7 @@ func (b *Board) AnalogReaderNames() []string {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 	names := []string{}
-	for k := range b.Analogs {
+	for k := range b.AnalogReaders {
 		names = append(names, k)
 	}
 	return names
@@ -326,9 +351,30 @@ func (b *Board) SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *t
 	return grpc.UnimplementedError
 }
 
+// AnalogWriter is to test AnalogWrite on a fake board.
+type AnalogWriter struct {
+	mu    sync.Mutex
+	value int32
+	pin   string
+}
+
+func (aw *AnalogWriter) reset(pin string) {
+	aw.mu.Lock()
+	aw.pin = pin
+	aw.mu.Unlock()
+}
+
+func newAnalogWriter(pin string) *AnalogWriter {
+	return &AnalogWriter{pin: pin}
+}
+
 // WriteAnalog writes the value to the given pin.
 func (b *Board) WriteAnalog(ctx context.Context, pin string, value int32, extra map[string]interface{}) error {
-	return grpc.UnimplementedError
+	aw := newAnalogWriter(pin)
+	aw.mu.Lock()
+	aw.value = value
+	aw.mu.Unlock()
+	return nil
 }
 
 // Close attempts to cleanly close each part of the board.
@@ -339,7 +385,7 @@ func (b *Board) Close(ctx context.Context) error {
 	b.CloseCount++
 	var err error
 
-	for _, analog := range b.Analogs {
+	for _, analog := range b.AnalogReaders {
 		err = multierr.Combine(err, analog.Close(ctx))
 	}
 	for _, digital := range b.Digitals {
@@ -462,39 +508,39 @@ func (h *I2CHandle) Close() error {
 }
 
 // A Analog reads back the same set value.
-type Analog struct {
+type AnalogReader struct {
+	pin        string
 	Value      int
 	CloseCount int
 	Mu         sync.RWMutex
-	chipSelect string
 }
 
-func newAnalog(chipSelect string) *Analog {
-	return &Analog{chipSelect: chipSelect}
+func newAnalogReader(pin string) *AnalogReader {
+	return &AnalogReader{pin: pin}
 }
 
-func (a *Analog) reset(chipSelect string) {
+func (a *AnalogReader) reset(pin string) {
 	a.Mu.Lock()
-	a.chipSelect = chipSelect
+	a.pin = pin
 	a.Value = 0
 	a.Mu.Unlock()
 }
 
-func (a *Analog) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
+func (a *AnalogReader) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
 	a.Mu.RLock()
 	defer a.Mu.RUnlock()
 	return a.Value, nil
 }
 
 // Set is used during testing.
-func (a *Analog) Set(value int) {
+func (a *AnalogReader) Set(value int) {
 	a.Mu.Lock()
 	defer a.Mu.Unlock()
 	a.Value = value
 }
 
 // Close does nothing.
-func (a *Analog) Close(ctx context.Context) error {
+func (a *AnalogReader) Close(ctx context.Context) error {
 	a.CloseCount++
 	return nil
 }

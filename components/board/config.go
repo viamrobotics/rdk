@@ -53,6 +53,22 @@ func (config *AnalogConfig) Validate(path string) error {
 	return nil
 }
 
+// AnalogConfig describes the configuration of an analog reader on a board.
+type AnalogReaderConfig struct {
+	Name              string `json:"name"`
+	Pin               string `json:"pin"`
+	AverageOverMillis int    `json:"average_over_ms,omitempty"`
+	SamplesPerSecond  int    `json:"samples_per_sec,omitempty"`
+}
+
+// Validate ensures all parts of the config are valid.
+func (config *AnalogReaderConfig) Validate(path string) error {
+	if config.Name == "" {
+		return utils.NewConfigValidationFieldRequiredError(path, "name")
+	}
+	return nil
+}
+
 // DigitalInterruptConfig describes the configuration of digital interrupt for a board.
 type DigitalInterruptConfig struct {
 	Name    string `json:"name"`

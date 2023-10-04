@@ -83,7 +83,7 @@ func TestDiffConfigs(t *testing.T) {
 					},
 				},
 				ConvertedAttributes: &fakeboard.Config{
-					Analogs: []board.AnalogConfig{
+					AnalogReaders: []board.AnalogReaderConfig{
 						{
 							Name: "analog1",
 							Pin:  "0",
@@ -170,7 +170,7 @@ func TestDiffConfigs(t *testing.T) {
 					},
 				},
 				ConvertedAttributes: &fakeboard.Config{
-					Analogs: []board.AnalogConfig{
+					AnalogReaders: []board.AnalogReaderConfig{
 						{
 							Name: "analog1",
 							Pin:  "1",
@@ -341,7 +341,7 @@ func TestDiffConfigs(t *testing.T) {
 								},
 							},
 							ConvertedAttributes: &fakeboard.Config{
-								Analogs: []board.AnalogConfig{{Name: "analog1", Pin: "1"}},
+								AnalogReaders: []board.AnalogReaderConfig{{Name: "analog1", Pin: "1"}},
 							},
 						},
 					},

@@ -20,9 +20,12 @@ func TestFakeBoard(t *testing.T) {
 		SPIs: []board.SPIConfig{
 			{Name: "aux", BusSelect: "1"},
 		},
-		Analogs: []board.AnalogConfig{
+		AnalogReaders: []board.AnalogReaderConfig{
 			{Name: "blue", Pin: "0"},
 		},
+		// AnalogWriters: []board.AnalogWriterConfig{
+		// 	{Name: "writer", Pin: "3"},
+		// },
 		DigitalInterrupts: []board.DigitalInterruptConfig{
 			{Name: "i1", Pin: "35"},
 			{Name: "i2", Pin: "31", Type: "servo"},
@@ -66,13 +69,23 @@ func TestFakeBoard(t *testing.T) {
 func TestConfigValidate(t *testing.T) {
 	validConfig := Config{}
 
-	validConfig.Analogs = []board.AnalogConfig{{}}
+	validConfig.AnalogReaders = []board.AnalogReaderConfig{{}}
 	_, err := validConfig.Validate("path")
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `path.analogs.0`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `path.analog_readers.0`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
 
-	validConfig.Analogs = []board.AnalogConfig{{Name: "bar"}}
+	validConfig.AnalogReaders = []board.AnalogReaderConfig{{Name: "bar"}}
+	_, err = validConfig.Validate("path")
+	test.That(t, err, test.ShouldBeNil)
+
+	// validConfig.AnalogWriters = []board.AnalogWriterConfig{{}}
+	// _, err = validConfig.Validate("path")
+	// test.That(t, err, test.ShouldNotBeNil)
+	// test.That(t, err.Error(), test.ShouldContainSubstring, `path.analog_writers.0`)
+	// test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
+
+	validConfig.AnalogReaders = []board.AnalogReaderConfig{{Name: "bar"}}
 	_, err = validConfig.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
 
