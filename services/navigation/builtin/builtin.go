@@ -224,7 +224,7 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		return err
 	}
 
-	// Movement sensor required in map type is GPS
+	// Movement sensor required if map type is GPS
 	if mapType == navigation.GPSMap {
 		movementSensor, err := movementsensor.FromDependencies(deps, svcConfig.MovementSensorName)
 		if err != nil {

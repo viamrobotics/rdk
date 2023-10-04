@@ -78,8 +78,6 @@ func StringToMapType(mapTypeName string) (MapType, error) {
 		return NoMap, nil
 	case "GPS":
 		return GPSMap, nil
-	case "":
-		return GPSMap, nil
 	}
 	return 0, errors.Errorf("invalid map_type '%v' given", mapTypeName)
 }
