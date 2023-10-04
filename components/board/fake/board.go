@@ -48,11 +48,6 @@ func (conf *Config) Validate(path string) ([]string, error) {
 			return nil, err
 		}
 	}
-	// for idx, conf := range conf.AnalogWriters {
-	// 	if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "analog_writers", idx)); err != nil {
-	// 		return nil, err
-	// 	}
-	// }
 	for idx, conf := range conf.DigitalInterrupts {
 		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "digital_interrupts", idx)); err != nil {
 			return nil, err
@@ -91,10 +86,9 @@ func NewBoard(ctx context.Context, conf resource.Config, logger golog.Logger) (*
 		I2Cs:          map[string]*I2C{},
 		SPIs:          map[string]*SPI{},
 		AnalogReaders: map[string]*AnalogReader{},
-		// AnalogWriters: map[string]*AnalogWriter{},
-		Digitals: map[string]*DigitalInterruptWrapper{},
-		GPIOPins: map[string]*GPIOPin{},
-		logger:   logger,
+		Digitals:      map[string]*DigitalInterruptWrapper{},
+		GPIOPins:      map[string]*GPIOPin{},
+		logger:        logger,
 	}
 
 	if err := b.processConfig(conf); err != nil {
@@ -171,16 +165,6 @@ func (b *Board) processConfig(conf resource.Config) error {
 	}
 	stillExists = map[string]struct{}{}
 
-	// for _, c := range newConf.AnalogWriters {
-	// 	stillExists[c.Name] = struct{}{}
-	// 	if curr, ok := b.AnalogWriters[c.Name]; ok {
-	// 		if curr.pin != c.Pin {
-	// 			curr.reset(c.Pin)
-	// 		}
-	// 		continue
-	// 	}
-	// 	b.AnalogWriters[c.Name] = newAnalogWriter(c.Pin)
-	// }
 	for name := range b.AnalogReaders {
 		if _, ok := stillExists[name]; ok {
 			continue
@@ -227,11 +211,10 @@ type Board struct {
 	SPIs          map[string]*SPI
 	I2Cs          map[string]*I2C
 	AnalogReaders map[string]*AnalogReader
-	// AnalogWriters map[string]*AnalogWriter
-	Digitals   map[string]*DigitalInterruptWrapper
-	GPIOPins   map[string]*GPIOPin
-	logger     golog.Logger
-	CloseCount int
+	Digitals      map[string]*DigitalInterruptWrapper
+	GPIOPins      map[string]*GPIOPin
+	logger        golog.Logger
+	CloseCount    int
 }
 
 // SPIByName returns the SPI by the given name if it exists.
@@ -351,29 +334,8 @@ func (b *Board) SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *t
 	return grpc.UnimplementedError
 }
 
-// AnalogWriter is to test AnalogWrite on a fake board.
-type AnalogWriter struct {
-	mu    sync.Mutex
-	value int32
-	pin   string
-}
-
-func (aw *AnalogWriter) reset(pin string) {
-	aw.mu.Lock()
-	aw.pin = pin
-	aw.mu.Unlock()
-}
-
-func newAnalogWriter(pin string) *AnalogWriter {
-	return &AnalogWriter{pin: pin}
-}
-
 // WriteAnalog writes the value to the given pin.
 func (b *Board) WriteAnalog(ctx context.Context, pin string, value int32, extra map[string]interface{}) error {
-	aw := newAnalogWriter(pin)
-	aw.mu.Lock()
-	aw.value = value
-	aw.mu.Unlock()
 	return nil
 }
 
