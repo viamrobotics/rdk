@@ -49,7 +49,7 @@ func TestGenericLinux(t *testing.T) {
 		Named:         board.Named("foo").AsNamed(),
 		gpioMappings:  nil,
 		spis:          boardSPIs,
-		analogReaders: map[string]*wrappedAnalogReaders{"an": {}},
+		analogReaders: map[string]*wrappedAnalogReader{"an": {}},
 		logger:        golog.NewTestLogger(t),
 		cancelCtx:     ctx,
 		cancelFunc: func() {
@@ -61,7 +61,7 @@ func TestGenericLinux(t *testing.T) {
 		test.That(t, ans, test.ShouldResemble, []string{"an"})
 
 		an1, ok := b.AnalogReaderByName("an")
-		test.That(t, an1, test.ShouldHaveSameTypeAs, &wrappedAnalogReaders{})
+		test.That(t, an1, test.ShouldHaveSameTypeAs, &wrappedAnalogReader{})
 		test.That(t, ok, test.ShouldBeTrue)
 
 		an2, ok := b.AnalogReaderByName("missing")
