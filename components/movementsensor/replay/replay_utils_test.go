@@ -101,12 +101,12 @@ func timestampsFromIndex(index int) (*timestamppb.Timestamp, *timestamppb.Timest
 func getNextDataAfterFilter(filter *datapb.Filter, last string) (int, error) {
 	// Basic component part (source) filter
 	if filter.ComponentName != "" && filter.ComponentName != validSource {
-		return 0, errEndOfDataset
+		return 0, ErrEndOfDataset
 	}
 
 	// Basic robot_id filter
 	if filter.RobotId != "" && filter.RobotId != validRobotID {
-		return 0, errEndOfDataset
+		return 0, ErrEndOfDataset
 	}
 
 	// Basic location_id filter
@@ -114,7 +114,7 @@ func getNextDataAfterFilter(filter *datapb.Filter, last string) (int, error) {
 		return 0, errors.New("issue occurred with transmitting LocationIds to the cloud")
 	}
 	if filter.LocationIds[0] != "" && filter.LocationIds[0] != validLocationID {
-		return 0, errEndOfDataset
+		return 0, ErrEndOfDataset
 	}
 
 	// Basic organization_id filter
@@ -122,7 +122,7 @@ func getNextDataAfterFilter(filter *datapb.Filter, last string) (int, error) {
 		return 0, errors.New("issue occurred with transmitting OrganizationIds to the cloud")
 	}
 	if filter.OrganizationIds[0] != "" && filter.OrganizationIds[0] != validOrganizationID {
-		return 0, errEndOfDataset
+		return 0, ErrEndOfDataset
 	}
 
 	// Apply the time-based filter based on the seconds value in the start and end fields. Because our mock data
@@ -157,7 +157,7 @@ func checkDataEndCondition(i, endIntervalIndex, availableDataNum int) (int, erro
 	if i < endIntervalIndex && i < availableDataNum {
 		return i, nil
 	}
-	return 0, errEndOfDataset
+	return 0, ErrEndOfDataset
 }
 
 // createMockCloudDependencies creates a mockDataServiceServer and rpc client connection to it which is then
@@ -283,7 +283,7 @@ func testReplayMovementSensorMethod(ctx context.Context, t *testing.T, replay mo
 			test.That(t, data, test.ShouldResemble, linearVelocityData[i])
 		} else {
 			test.That(t, err, test.ShouldNotBeNil)
-			test.That(t, err.Error(), test.ShouldContainSubstring, errEndOfDataset.Error())
+			test.That(t, err.Error(), test.ShouldContainSubstring, ErrEndOfDataset.Error())
 			test.That(t, data, test.ShouldResemble, r3.Vector{})
 		}
 	case angularVelocity:
@@ -293,7 +293,7 @@ func testReplayMovementSensorMethod(ctx context.Context, t *testing.T, replay mo
 			test.That(t, data, test.ShouldResemble, angularVelocityData[i])
 		} else {
 			test.That(t, err, test.ShouldNotBeNil)
-			test.That(t, err.Error(), test.ShouldContainSubstring, errEndOfDataset.Error())
+			test.That(t, err.Error(), test.ShouldContainSubstring, ErrEndOfDataset.Error())
 			test.That(t, data, test.ShouldResemble, spatialmath.AngularVelocity{})
 		}
 	case orientation:
@@ -304,7 +304,7 @@ func testReplayMovementSensorMethod(ctx context.Context, t *testing.T, replay mo
 			test.That(t, data, test.ShouldResemble, orientationData[i])
 		} else {
 			test.That(t, err, test.ShouldNotBeNil)
-			test.That(t, err.Error(), test.ShouldContainSubstring, errEndOfDataset.Error())
+			test.That(t, err.Error(), test.ShouldContainSubstring, ErrEndOfDataset.Error())
 			test.That(t, data, test.ShouldBeNil)
 		}
 	case position:
@@ -315,7 +315,7 @@ func testReplayMovementSensorMethod(ctx context.Context, t *testing.T, replay mo
 			test.That(t, altitude, test.ShouldResemble, positionAltitudeData[i])
 		} else {
 			test.That(t, err, test.ShouldNotBeNil)
-			test.That(t, err.Error(), test.ShouldContainSubstring, errEndOfDataset.Error())
+			test.That(t, err.Error(), test.ShouldContainSubstring, ErrEndOfDataset.Error())
 			test.That(t, point, test.ShouldBeNil)
 			test.That(t, altitude, test.ShouldEqual, 0)
 		}
@@ -326,7 +326,7 @@ func testReplayMovementSensorMethod(ctx context.Context, t *testing.T, replay mo
 			test.That(t, data, test.ShouldEqual, compassHeadingData[i])
 		} else {
 			test.That(t, err, test.ShouldNotBeNil)
-			test.That(t, err.Error(), test.ShouldContainSubstring, errEndOfDataset.Error())
+			test.That(t, err.Error(), test.ShouldContainSubstring, ErrEndOfDataset.Error())
 			test.That(t, data, test.ShouldEqual, 0)
 		}
 	case linearAcceleration:
@@ -336,7 +336,7 @@ func testReplayMovementSensorMethod(ctx context.Context, t *testing.T, replay mo
 			test.That(t, data, test.ShouldResemble, linearAccelerationData[i])
 		} else {
 			test.That(t, err, test.ShouldNotBeNil)
-			test.That(t, err.Error(), test.ShouldContainSubstring, errEndOfDataset.Error())
+			test.That(t, err.Error(), test.ShouldContainSubstring, ErrEndOfDataset.Error())
 			test.That(t, data, test.ShouldResemble, r3.Vector{})
 		}
 	}

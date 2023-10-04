@@ -46,8 +46,8 @@ var (
 	// model is the model of a replay movement sensor.
 	model = resource.DefaultModelFamily.WithModel("replay")
 
-	// errEndOfDataset represents that the replay sensor has reached the end of the dataset.
-	errEndOfDataset = errors.New("reached end of dataset")
+	// ErrEndOfDataset represents that the replay sensor has reached the end of the dataset.
+	ErrEndOfDataset = errors.New("reached end of dataset")
 
 	// errCloudConnectionFailure represents that the attempt to connect to the cloud failed.
 	errCloudConnectionFailure = errors.New("failure to connect to the cloud")
@@ -419,7 +419,7 @@ func (replay *replayMovementSensor) updateCache(ctx context.Context, method meth
 
 	// Check if data exists
 	if len(resp.GetData()) == 0 {
-		return errEndOfDataset
+		return ErrEndOfDataset
 	}
 	replay.lastData[method] = resp.GetLast()
 
