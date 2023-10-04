@@ -73,7 +73,7 @@ type piPigpio struct {
 	cancelFunc    context.CancelFunc
 	duty          int // added for mutex
 	gpioConfigSet map[int]bool
-	analogs       map[string]board.AnalogReader
+	analogReaders map[string]board.AnalogReader
 	i2cs          map[string]board.I2C
 	spis          map[string]board.SPI
 	// `interrupts` maps interrupt names to the interrupts. `interruptsHW` maps broadcom addresses
@@ -174,7 +174,7 @@ func (pi *piPigpio) Reconfigure(
 		return err
 	}
 
-	if err := pi.reconfigureAnalogs(ctx, cfg); err != nil {
+	if err := pi.reconfigureAnalogReaders(ctx, cfg); err != nil {
 		return err
 	}
 
@@ -215,10 +215,10 @@ func (pi *piPigpio) reconfigureSpis(ctx context.Context, cfg *genericlinux.Confi
 	return nil
 }
 
-func (pi *piPigpio) reconfigureAnalogs(ctx context.Context, cfg *genericlinux.Config) error {
+func (pi *piPigpio) reconfigureAnalogReaders(ctx context.Context, cfg *genericlinux.Config) error {
 	// No need to reconfigure the old analog readers; just throw them out and make new ones.
-	pi.analogs = map[string]board.AnalogReader{}
-	for _, ac := range cfg.Analogs {
+	pi.analogReaders = map[string]board.AnalogReader{}
+	for _, ac := range cfg.AnalogReaders {
 		channel, err := strconv.Atoi(ac.Pin)
 		if err != nil {
 			return errors.Errorf("bad analog pin (%s)", ac.Pin)
@@ -230,7 +230,8 @@ func (pi *piPigpio) reconfigureAnalogs(ctx context.Context, cfg *genericlinux.Co
 		}
 
 		ar := &board.MCP3008AnalogReader{channel, bus, ac.ChipSelect}
-		pi.analogs[ac.Name] = board.SmoothAnalogReader(ar, ac, pi.logger)
+
+		pi.analogReaders[ac.Name] = board.SmoothAnalogReader(ar, board.AnalogConfig{AverageOverMillis: ac.AverageOverMillis, SamplesPerSecond: ac.SamplesPerSecond}, pi.logger)
 	}
 	return nil
 }
@@ -682,7 +683,7 @@ func (pi *piPigpio) AnalogReaderNames() []string {
 	pi.mu.Lock()
 	defer pi.mu.Unlock()
 	names := []string{}
-	for k := range pi.analogs {
+	for k := range pi.analogReaders {
 		names = append(names, k)
 	}
 	return names
@@ -703,7 +704,7 @@ func (pi *piPigpio) DigitalInterruptNames() []string {
 func (pi *piPigpio) AnalogReaderByName(name string) (board.AnalogReader, bool) {
 	pi.mu.Lock()
 	defer pi.mu.Unlock()
-	a, ok := pi.analogs[name]
+	a, ok := pi.analogReaders[name]
 	return a, ok
 }
 
@@ -791,10 +792,10 @@ func (pi *piPigpio) Close(ctx context.Context) error {
 	}
 	pi.spis = map[string]board.SPI{}
 
-	for _, analog := range pi.analogs {
+	for _, analog := range pi.analogReaders {
 		err = multierr.Combine(err, analog.Close(ctx))
 	}
-	pi.analogs = map[string]board.AnalogReader{}
+	pi.analogReaders = map[string]board.AnalogReader{}
 
 	for bcom, interrupt := range pi.interruptsHW {
 		err = multierr.Combine(err, interrupt.Close(ctx))
