@@ -9,7 +9,6 @@ import (
 	"github.com/edaniels/golog"
 	pb "go.viam.com/api/component/powersensor/v1"
 	"go.viam.com/test"
-	"go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/resource"
@@ -18,7 +17,10 @@ import (
 
 type collectorFunc func(resource interface{}, params data.CollectorParams) (data.Collector, error)
 
-const componentName = "powersensor"
+const (
+	componentName   = "powersensor"
+	captureInterval = time.Second
+)
 
 func TestPowerSensorCollectors(t *testing.T) {
 	tests := []struct {
@@ -31,11 +33,11 @@ func TestPowerSensorCollectors(t *testing.T) {
 			name: "Power sensor voltage collector should write a voltage response",
 			params: data.CollectorParams{
 				ComponentName: componentName,
-				Interval:      time.Second,
+				Interval:      captureInterval,
 				Logger:        golog.NewTestLogger(t),
 			},
 			collector: newVoltageCollector,
-			expected: toProtoMap(pb.GetVoltageResponse{
+			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.GetVoltageResponse{
 				Volts: 1.0,
 				IsAc:  false,
 			}),
@@ -44,11 +46,11 @@ func TestPowerSensorCollectors(t *testing.T) {
 			name: "Power sensor current collector should write a current response",
 			params: data.CollectorParams{
 				ComponentName: componentName,
-				Interval:      time.Second,
+				Interval:      captureInterval,
 				Logger:        golog.NewTestLogger(t),
 			},
 			collector: newCurrentCollector,
-			expected: toProtoMap(pb.GetCurrentResponse{
+			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.GetCurrentResponse{
 				Amperes: 1.0,
 				IsAc:    true,
 			}),
@@ -57,11 +59,11 @@ func TestPowerSensorCollectors(t *testing.T) {
 			name: "Power sensor power collector should write a power response",
 			params: data.CollectorParams{
 				ComponentName: componentName,
-				Interval:      time.Second,
+				Interval:      captureInterval,
 				Logger:        golog.NewTestLogger(t),
 			},
 			collector: newPowerCollector,
-			expected: toProtoMap(pb.GetPowerResponse{
+			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.GetPowerResponse{
 				Watts: 1.0,
 			}),
 		},
@@ -80,7 +82,7 @@ func TestPowerSensorCollectors(t *testing.T) {
 
 			defer col.Close()
 			col.Collect()
-			mockClock.Add(1 * time.Second)
+			mockClock.Add(captureInterval)
 
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, len(buf.Writes), test.ShouldEqual, 1)
@@ -112,12 +114,4 @@ func (i *fakePowerSensor) Current(ctx context.Context, cmd map[string]interface{
 
 func (i *fakePowerSensor) Power(ctx context.Context, cmd map[string]interface{}) (float64, error) {
 	return 1.0, nil
-}
-
-func toProtoMap(data any) map[string]any {
-	ret, err := protoutils.StructToStructPbIgnoreOmitEmpty(data)
-	if err != nil {
-		return nil
-	}
-	return ret.AsMap()
 }

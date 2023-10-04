@@ -9,16 +9,16 @@ import (
 	"github.com/edaniels/golog"
 	pb "go.viam.com/api/component/gantry/v1"
 	"go.viam.com/test"
-	"go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/resource"
 	tu "go.viam.com/rdk/testutils"
 )
 
-type collectorFunc func(resource interface{}, params data.CollectorParams) (data.Collector, error)
-
-const componentName = "gantry"
+const (
+	componentName   = "gantry"
+	captureInterval = time.Second
+)
 
 var floatList = []float64{1.0, 2.0, 3.0}
 
@@ -26,18 +26,18 @@ func TestGantryCollectors(t *testing.T) {
 	tests := []struct {
 		name      string
 		params    data.CollectorParams
-		collector collectorFunc
+		collector data.CollectorConstructor
 		expected  map[string]any
 	}{
 		{
 			name: "Length collector should write a lengths response",
 			params: data.CollectorParams{
 				ComponentName: componentName,
-				Interval:      time.Second,
+				Interval:      captureInterval,
 				Logger:        golog.NewTestLogger(t),
 			},
 			collector: newLengthsCollector,
-			expected: toProtoMap(pb.GetLengthsResponse{
+			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.GetLengthsResponse{
 				LengthsMm: scaleMetersToMm(floatList),
 			}),
 		},
@@ -45,11 +45,11 @@ func TestGantryCollectors(t *testing.T) {
 			name: "End position collector should write a list of positions",
 			params: data.CollectorParams{
 				ComponentName: componentName,
-				Interval:      time.Second,
+				Interval:      captureInterval,
 				Logger:        golog.NewTestLogger(t),
 			},
 			collector: newPositionCollector,
-			expected: toProtoMap(pb.GetPositionResponse{
+			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.GetPositionResponse{
 				PositionsMm: scaleMetersToMm(floatList),
 			}),
 		},
@@ -68,7 +68,7 @@ func TestGantryCollectors(t *testing.T) {
 
 			defer col.Close()
 			col.Collect()
-			mockClock.Add(1 * time.Second)
+			mockClock.Add(captureInterval)
 
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, len(buf.Writes), test.ShouldEqual, 1)
@@ -92,12 +92,4 @@ func (g *fakeGantry) Position(ctx context.Context, extra map[string]interface{})
 
 func (g *fakeGantry) Lengths(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 	return floatList, nil
-}
-
-func toProtoMap(data any) map[string]any {
-	ret, err := protoutils.StructToStructPbIgnoreOmitEmpty(data)
-	if err != nil {
-		return nil
-	}
-	return ret.AsMap()
 }

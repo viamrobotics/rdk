@@ -12,7 +12,6 @@ import (
 	v1 "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/movementsensor/v1"
 	"go.viam.com/test"
-	"go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/resource"
@@ -20,9 +19,10 @@ import (
 	tu "go.viam.com/rdk/testutils"
 )
 
-type collectorFunc func(resource interface{}, params data.CollectorParams) (data.Collector, error)
-
-const componentName = "movementsensor"
+const (
+	componentName   = "movementsensor"
+	captureInterval = time.Second
+)
 
 var vec = r3.Vector{
 	X: 1.0,
@@ -34,18 +34,18 @@ func TestMovementSensorCollectors(t *testing.T) {
 	tests := []struct {
 		name      string
 		params    data.CollectorParams
-		collector collectorFunc
+		collector data.CollectorConstructor
 		expected  map[string]any
 	}{
 		{
 			name: "Movement sensor linear velocity collector should write a velocity response",
 			params: data.CollectorParams{
 				ComponentName: componentName,
-				Interval:      time.Second,
+				Interval:      captureInterval,
 				Logger:        golog.NewTestLogger(t),
 			},
 			collector: newLinearVelocityCollector,
-			expected: toProtoMap(pb.GetLinearVelocityResponse{
+			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.GetLinearVelocityResponse{
 				LinearVelocity: r3VectorToV1Vector(vec),
 			}),
 		},
@@ -53,11 +53,11 @@ func TestMovementSensorCollectors(t *testing.T) {
 			name: "Movement sensor position collector should write a position response",
 			params: data.CollectorParams{
 				ComponentName: componentName,
-				Interval:      time.Second,
+				Interval:      captureInterval,
 				Logger:        golog.NewTestLogger(t),
 			},
 			collector: newPositionCollector,
-			expected: toProtoMap(pb.GetPositionResponse{
+			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.GetPositionResponse{
 				Coordinate: &v1.GeoPoint{
 					Latitude:  1.0,
 					Longitude: 2.0,
@@ -69,11 +69,11 @@ func TestMovementSensorCollectors(t *testing.T) {
 			name: "Movement sensor angular velocity collector should write a velocity response",
 			params: data.CollectorParams{
 				ComponentName: componentName,
-				Interval:      time.Second,
+				Interval:      captureInterval,
 				Logger:        golog.NewTestLogger(t),
 			},
 			collector: newAngularVelocityCollector,
-			expected: toProtoMap(pb.GetAngularVelocityResponse{
+			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.GetAngularVelocityResponse{
 				AngularVelocity: r3VectorToV1Vector(vec),
 			}),
 		},
@@ -81,11 +81,11 @@ func TestMovementSensorCollectors(t *testing.T) {
 			name: "Movement sensor compass heading collector should write a heading response",
 			params: data.CollectorParams{
 				ComponentName: componentName,
-				Interval:      time.Second,
+				Interval:      captureInterval,
 				Logger:        golog.NewTestLogger(t),
 			},
 			collector: newCompassHeadingCollector,
-			expected: toProtoMap(pb.GetCompassHeadingResponse{
+			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.GetCompassHeadingResponse{
 				Value: 1.0,
 			}),
 		},
@@ -93,11 +93,11 @@ func TestMovementSensorCollectors(t *testing.T) {
 			name: "Movement sensor linear acceleration collector should write an acceleration response",
 			params: data.CollectorParams{
 				ComponentName: componentName,
-				Interval:      time.Second,
+				Interval:      captureInterval,
 				Logger:        golog.NewTestLogger(t),
 			},
 			collector: newLinearAccelerationCollector,
-			expected: toProtoMap(pb.GetLinearAccelerationResponse{
+			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.GetLinearAccelerationResponse{
 				LinearAcceleration: r3VectorToV1Vector(vec),
 			}),
 		},
@@ -105,11 +105,11 @@ func TestMovementSensorCollectors(t *testing.T) {
 			name: "Movement sensor orientation collector should write an orientation response",
 			params: data.CollectorParams{
 				ComponentName: componentName,
-				Interval:      time.Second,
+				Interval:      captureInterval,
 				Logger:        golog.NewTestLogger(t),
 			},
 			collector: newOrientationCollector,
-			expected: toProtoMap(pb.GetOrientationResponse{
+			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.GetOrientationResponse{
 				Orientation: getExpectedOrientation(),
 			}),
 		},
@@ -128,7 +128,7 @@ func TestMovementSensorCollectors(t *testing.T) {
 
 			defer col.Close()
 			col.Collect()
-			mockClock.Add(1 * time.Second)
+			mockClock.Add(captureInterval)
 
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, len(buf.Writes), test.ShouldEqual, 1)
@@ -194,12 +194,4 @@ func getExpectedOrientation() *v1.Orientation {
 		OZ:    convertedAngles.RZ,
 		Theta: convertedAngles.Theta,
 	}
-}
-
-func toProtoMap(data any) map[string]any {
-	ret, err := protoutils.StructToStructPbIgnoreOmitEmpty(data)
-	if err != nil {
-		return nil
-	}
-	return ret.AsMap()
 }

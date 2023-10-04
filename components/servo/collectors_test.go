@@ -9,21 +9,23 @@ import (
 	"github.com/edaniels/golog"
 	pb "go.viam.com/api/component/servo/v1"
 	"go.viam.com/test"
-	"go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/resource"
 	tu "go.viam.com/rdk/testutils"
 )
 
-const componentName = "servo"
+const (
+	componentName   = "servo"
+	captureInterval = time.Second
+)
 
 func TestServoCollector(t *testing.T) {
 	mockClock := clk.NewMock()
 	buf := tu.MockBuffer{}
 	params := data.CollectorParams{
 		ComponentName: componentName,
-		Interval:      time.Second,
+		Interval:      captureInterval,
 		Logger:        golog.NewTestLogger(t),
 		Target:        &buf,
 		Clock:         mockClock,
@@ -40,7 +42,7 @@ func TestServoCollector(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(buf.Writes), test.ShouldEqual, 1)
 	test.That(t, buf.Writes[0].GetStruct().AsMap(), test.ShouldResemble,
-		toProtoMap(pb.GetPositionResponse{
+		tu.ToProtoMapIgnoreOmitEmpty(pb.GetPositionResponse{
 			PositionDeg: 1.0,
 		}))
 }
@@ -60,12 +62,4 @@ func (s *fakeServo) Name() resource.Name {
 
 func (s *fakeServo) Position(ctx context.Context, extra map[string]interface{}) (uint32, error) {
 	return 1.0, nil
-}
-
-func toProtoMap(data any) map[string]any {
-	ret, err := protoutils.StructToStructPbIgnoreOmitEmpty(data)
-	if err != nil {
-		return nil
-	}
-	return ret.AsMap()
 }

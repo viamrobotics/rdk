@@ -9,33 +9,33 @@ import (
 	"github.com/edaniels/golog"
 	pb "go.viam.com/api/component/motor/v1"
 	"go.viam.com/test"
-	"go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/resource"
 	tu "go.viam.com/rdk/testutils"
 )
 
-type collectorFunc func(resource interface{}, params data.CollectorParams) (data.Collector, error)
-
-const componentName = "motor"
+const (
+	componentName   = "motor"
+	captureInterval = time.Second
+)
 
 func TestMotorCollectors(t *testing.T) {
 	tests := []struct {
 		name      string
 		params    data.CollectorParams
-		collector collectorFunc
+		collector data.CollectorConstructor
 		expected  map[string]any
 	}{
 		{
 			name: "Motor position collector should write a position response",
 			params: data.CollectorParams{
 				ComponentName: componentName,
-				Interval:      time.Second,
+				Interval:      captureInterval,
 				Logger:        golog.NewTestLogger(t),
 			},
 			collector: newPositionCollector,
-			expected: toProtoMap(pb.GetPositionResponse{
+			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.GetPositionResponse{
 				Position: 1.0,
 			}),
 		},
@@ -43,11 +43,11 @@ func TestMotorCollectors(t *testing.T) {
 			name: "Motor isPowered collector should write an isPowered response",
 			params: data.CollectorParams{
 				ComponentName: componentName,
-				Interval:      time.Second,
+				Interval:      captureInterval,
 				Logger:        golog.NewTestLogger(t),
 			},
 			collector: newIsPoweredCollector,
-			expected: toProtoMap(pb.IsPoweredResponse{
+			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.IsPoweredResponse{
 				IsOn:     false,
 				PowerPct: .5,
 			}),
@@ -67,7 +67,7 @@ func TestMotorCollectors(t *testing.T) {
 
 			defer col.Close()
 			col.Collect()
-			mockClock.Add(1 * time.Second)
+			mockClock.Add(captureInterval)
 
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, len(buf.Writes), test.ShouldEqual, 1)
@@ -95,12 +95,4 @@ func (m *fakeMotor) Position(ctx context.Context, extra map[string]interface{}) 
 
 func (m *fakeMotor) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
 	return false, .5, nil
-}
-
-func toProtoMap(data any) map[string]any {
-	ret, err := protoutils.StructToStructPbIgnoreOmitEmpty(data)
-	if err != nil {
-		return nil
-	}
-	return ret.AsMap()
 }
