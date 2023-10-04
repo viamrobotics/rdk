@@ -147,10 +147,76 @@ func PlanFrameMotion(ctx context.Context,
 	return plan.GetFrameSteps(f.Name())
 }
 
-func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan) (Plan, error) {
+func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanCostFactor float64) (Plan, error) {
 	
+	if request.Goal == nil {
+		return nil, errors.New("no destination passed to Motion")
+	}
+
+	// Create a frame to solve for, and an IK solver with that frame.
+	sf, err := newSolverFrame(request.FrameSystem, request.Frame.Name(), request.Goal.Parent(), request.StartConfiguration)
+	if err != nil {
+		return nil, err
+	}
+	if len(sf.DoF()) == 0 {
+		return nil, errors.New("solver frame has no degrees of freedom, cannot perform inverse kinematics")
+	}
+	seed, err := sf.mapToSlice(request.StartConfiguration)
+	if err != nil {
+		return nil, err
+	}
+	startPose, err := sf.Transform(seed)
+	if err != nil {
+		return nil, err
+	}
+
+	request.Logger.Infof(
+		"planning motion for frame %s\nGoal: %v\nStarting seed map %v\n, startPose %v\n, worldstate: %v\n",
+		request.Frame.Name(),
+		frame.PoseInFrameToProtobuf(request.Goal),
+		request.StartConfiguration,
+		spatialmath.PoseToProtobuf(startPose),
+		request.WorldState.String(),
+	)
+	request.Logger.Debugf("constraint specs for this step: %v", request.ConstraintSpecs)
+	request.Logger.Debugf("motion config for this step: %v", request.Options)
+
+	rseed := defaultRandomSeed
+	if seed, ok := request.Options["rseed"].(int); ok {
+		rseed = seed
+	}
+	sfPlanner, err := newPlanManager(sf, request.FrameSystem, request.Logger, rseed)
+	if err != nil {
+		return nil, err
+	}
+
+	resultSlices, err := sfPlanner.PlanSingleWaypoint(
+		ctx,
+		request.StartConfiguration,
+		request.Goal.Pose(),
+		request.WorldState,
+		request.ConstraintSpecs,
+		request.Options,
+	)
+	if err != nil {
+		return nil, err
+	}
+	newPlan := Plan{}
+	for _, resultSlice := range resultSlices {
+		stepMap := sf.sliceToMap(resultSlice)
+		newPlan = append(newPlan, stepMap)
+	}
 	
+	initialPlanCost := EvaluatePlan(currentPlan, sfPlanner.planOpts.DistanceFunc)
+	finalPlanCost := EvaluatePlan(newPlan, sfPlanner.planOpts.DistanceFunc)
+	fmt.Println("initialPlanCost", initialPlanCost, "with cost factor", initialPlanCost * replanCostFactor)
+	fmt.Println("finalPlanCost", finalPlanCost)
 	
+	if finalPlanCost > initialPlanCost * replanCostFactor {
+		return nil, errors.New("unable to create a new plan within replanCostFactor from the original")
+	}
+	
+	return newPlan, nil
 }
 
 type planner struct {

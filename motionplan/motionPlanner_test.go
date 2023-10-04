@@ -2,6 +2,7 @@ package motionplan
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"math/rand"
 	"testing"
@@ -16,6 +17,7 @@ import (
 	"go.viam.com/rdk/motionplan/ik"
 	frame "go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/utils"
 )
 
@@ -764,4 +766,61 @@ func TestMovementWithGripper(t *testing.T) {
 	solution, err = sfPlanner.PlanSingleWaypoint(context.Background(), zeroPosition, goal, worldState, nil, motionConfig)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, solution, test.ShouldNotBeNil)
+}
+
+func TestReplan(t *testing.T) {
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+	
+	sphere, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 10, "base")
+	test.That(t, err, test.ShouldBeNil)
+	
+	kinematicFrame, err := tpspace.NewPTGFrameFromKinematicOptions(
+		"itsabase",
+		logger,
+		200, 60, 0, 1000,
+		2,
+		[]spatialmath.Geometry{sphere},
+		false,
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	goal := spatialmath.NewPoseFromPoint(r3.Vector{1000, 8000, 0})
+
+	baseFS := frame.NewEmptyFrameSystem("baseFS")
+	err = baseFS.AddFrame(kinematicFrame, baseFS.World())
+	test.That(t, err, test.ShouldBeNil)
+
+	planRequest := &PlanRequest{
+		Logger:             logger,
+		Goal:               frame.NewPoseInFrame(frame.World, goal),
+		Frame:              kinematicFrame,
+		FrameSystem:        baseFS,
+		StartConfiguration: frame.StartPositions(baseFS),
+		WorldState:         nil,
+		Options:            nil,
+	}
+	
+	firstplan, err := PlanMotion(ctx, planRequest)
+	fmt.Println("firstplan", firstplan)
+	test.That(t, err, test.ShouldBeNil)
+	
+	// The goal is now closer
+	goal = spatialmath.NewPoseFromPoint(r3.Vector{1000, 5000, 0})
+	planRequest.Goal = frame.NewPoseInFrame(frame.World, goal)
+	
+	// A wild obstacle appears!
+	obstacle, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{1500, 2500, 0}), r3.Vector{15000, 50, 50}, "")
+	test.That(t, err, test.ShouldBeNil)
+	worldState, err := frame.NewWorldState(
+		[]*frame.GeometriesInFrame{frame.NewGeometriesInFrame(frame.World, []spatialmath.Geometry{obstacle})},
+		nil,
+	)
+	test.That(t, err, test.ShouldBeNil)
+	planRequest.WorldState = worldState
+	
+	newPlan1, err := Replan(ctx, planRequest, firstplan, 1.0)
+	test.That(t, newPlan1, test.ShouldBeNil)
+	test.That(t, err, test.ShouldNotBeNil) // Replan factor too low!
+	fmt.Println(err)
 }

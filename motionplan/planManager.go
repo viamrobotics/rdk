@@ -372,7 +372,7 @@ func (pm *planManager) planParallelRRTMotion(
 		// If there *was* an error, then either the fallback will not error and will replace it, or the error will be returned
 		if finalSteps.err() == nil {
 			if fallbackPlanner != nil {
-				if ok, score := goodPlan(finalSteps, pm.opt()); ok {
+				if ok, score := pm.goodPlan(finalSteps, pm.opt()); ok {
 					pm.logger.Debugf("got path with score %f, close enough to optimal %f", score, maps.optNode.Cost())
 					fallbackPlanner = nil
 				} else {
@@ -410,7 +410,7 @@ func (pm *planManager) planParallelRRTMotion(
 
 		// Receive the newly smoothed path from our original solve, and score it
 		finalSteps.steps = <-smoothChan
-		_, score := goodPlan(finalSteps, pathPlanner.opt())
+		_, score := pm.goodPlan(finalSteps, pathPlanner.opt())
 
 		// If we ran a fallback, retrieve the result and compare to the smoothed path
 		if alternateFuture != nil {
@@ -418,7 +418,12 @@ func (pm *planManager) planParallelRRTMotion(
 			if err == nil {
 				// If the fallback successfully found a path, check if it is better than our smoothed previous path.
 				// The fallback should emerge pre-smoothed, so that should be a non-issue
-				altCost := EvaluatePlan(alternate, pathPlanner.opt().DistanceFunc)
+				plan := Plan{}
+				for _, resultSlice := range alternate {
+					stepMap := pm.frame.sliceToMap(resultSlice)
+					plan = append(plan, stepMap)
+				}
+				altCost := EvaluatePlan(plan, pathPlanner.opt().DistanceFunc)
 				if altCost < score {
 					pm.logger.Debugf("replacing path with score %f with better score %f", score, altCost)
 					finalSteps = &rrtPlanReturn{steps: stepsToNodes(alternate)}
@@ -591,13 +596,18 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 }
 
 // check whether the solution is within some amount of the optimal.
-func goodPlan(pr *rrtPlanReturn, opt *plannerOptions) (bool, float64) {
+func (pm *planManager) goodPlan(pr *rrtPlanReturn, opt *plannerOptions) (bool, float64) {
 	solutionCost := math.Inf(1)
 	if pr.steps != nil {
 		if pr.maps.optNode.Cost() <= 0 {
 			return true, solutionCost
 		}
-		solutionCost = EvaluatePlan(nodesToInputs(pr.steps), opt.DistanceFunc)
+		plan := Plan{}
+		for _, resultSlice := range nodesToInputs(pr.steps) {
+			stepMap := pm.frame.sliceToMap(resultSlice)
+			plan = append(plan, stepMap)
+		}
+		solutionCost = EvaluatePlan(plan, opt.DistanceFunc)
 		if solutionCost < pr.maps.optNode.Cost()*defaultOptimalityMultiple {
 			return true, solutionCost
 		}
