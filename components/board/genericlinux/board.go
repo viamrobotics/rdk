@@ -607,6 +607,11 @@ func (b *Board) SetPowerMode(
 	return grpc.UnimplementedError
 }
 
+// WriteAnalog writes the value to the given pin.
+func (b *Board) WriteAnalog(ctx context.Context, pin string, value int32, extra map[string]interface{}) error {
+	return grpc.UnimplementedError
+}
+
 // Close attempts to cleanly close each part of the board.
 func (b *Board) Close(ctx context.Context) error {
 	b.mu.Lock()
