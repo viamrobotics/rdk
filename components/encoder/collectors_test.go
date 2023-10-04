@@ -9,21 +9,23 @@ import (
 	"github.com/edaniels/golog"
 	pb "go.viam.com/api/component/encoder/v1"
 	"go.viam.com/test"
-	"go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/resource"
 	tu "go.viam.com/rdk/testutils"
 )
 
-const componentName = "encoder"
+const (
+	componentName   = "encoder"
+	captureInterval = time.Second
+)
 
 func TestEncoderCollector(t *testing.T) {
 	mockClock := clk.NewMock()
 	buf := tu.MockBuffer{}
 	params := data.CollectorParams{
 		ComponentName: componentName,
-		Interval:      time.Second,
+		Interval:      captureInterval,
 		Logger:        golog.NewTestLogger(t),
 		Target:        &buf,
 		Clock:         mockClock,
@@ -35,14 +37,14 @@ func TestEncoderCollector(t *testing.T) {
 
 	defer col.Close()
 	col.Collect()
-	mockClock.Add(1 * time.Second)
+	mockClock.Add(captureInterval)
 
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(buf.Writes), test.ShouldEqual, 1)
-	test.That(t, buf.Writes[0].GetStruct().AsMap(), test.ShouldResemble, toProtoMap(pb.GetPositionResponse{
-		Value:        1.0,
-		PositionType: pb.PositionType_POSITION_TYPE_TICKS_COUNT,
-	}))
+	test.That(t, buf.Length(), test.ShouldEqual, 1)
+	test.That(t, buf.Writes[0].GetStruct().AsMap(), test.ShouldResemble,
+		tu.ToProtoMapIgnoreOmitEmpty(pb.GetPositionResponse{
+			Value:        1.0,
+			PositionType: pb.PositionType_POSITION_TYPE_TICKS_COUNT,
+		}))
 }
 
 type fakeEncoder struct {
@@ -60,12 +62,4 @@ func (e *fakeEncoder) Position(
 	extra map[string]interface{},
 ) (float64, PositionType, error) {
 	return 1.0, PositionTypeTicks, nil
-}
-
-func toProtoMap(data any) map[string]any {
-	ret, err := protoutils.StructToStructPbIgnoreOmitEmpty(data)
-	if err != nil {
-		return nil
-	}
-	return ret.AsMap()
 }

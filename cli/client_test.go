@@ -37,15 +37,26 @@ func (tw *testWriter) Write(b []byte) (int, error) {
 // setup creates a new cli.Context and viamClient with fake auth and the passed
 // in AppServiceClient and DataServiceClient. It also returns testWriters that capture Stdout and
 // Stdin.
-func setup(asc apppb.AppServiceClient, dataClient datapb.DataServiceClient) (*cli.Context, *viamClient, *testWriter, *testWriter) {
+func setup(asc apppb.AppServiceClient, dataClient datapb.DataServiceClient,
+	defaultFlags *map[string]string,
+) (*cli.Context, *viamClient, *testWriter, *testWriter) {
 	out := &testWriter{}
 	errOut := &testWriter{}
 	flags := &flag.FlagSet{}
+	// init all the default flags from the input
+
+	if defaultFlags != nil {
+		for name, val := range *defaultFlags {
+			flags.String(name, val, "")
+		}
+	}
+
 	if dataClient != nil {
 		// these flags are only relevant when testing a dataClient
 		flags.String(dataFlagDataType, dataTypeTabular, "")
 		flags.String(dataFlagDestination, utils.ResolveFile(""), "")
 	}
+
 	cCtx := cli.NewContext(NewApp(out, errOut), flags, nil)
 	conf := &config{
 		Auth: &token{
@@ -75,7 +86,7 @@ func TestListOrganizationsAction(t *testing.T) {
 	asc := &inject.AppServiceClient{
 		ListOrganizationsFunc: listOrganizationsFunc,
 	}
-	cCtx, ac, out, errOut := setup(asc, nil)
+	cCtx, ac, out, errOut := setup(asc, nil, nil)
 
 	test.That(t, ac.listOrganizationsAction(cCtx), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
@@ -109,7 +120,7 @@ func TestTabularDataByFilterAction(t *testing.T) {
 		TabularDataByFilterFunc: tabularDataByFilterFunc,
 	}
 
-	cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, dsc)
+	cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, dsc, nil)
 
 	test.That(t, ac.dataExportAction(cCtx), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)

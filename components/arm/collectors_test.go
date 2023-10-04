@@ -11,7 +11,6 @@ import (
 	v1 "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
 	"go.viam.com/test"
-	"go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/resource"
@@ -19,9 +18,10 @@ import (
 	tu "go.viam.com/rdk/testutils"
 )
 
-type collectorFunc func(resource interface{}, params data.CollectorParams) (data.Collector, error)
-
-const componentName = "arm"
+const (
+	componentName   = "arm"
+	captureInterval = time.Second
+)
 
 var floatList = []float64{1.0, 2.0, 3.0}
 
@@ -29,18 +29,18 @@ func TestCollectors(t *testing.T) {
 	tests := []struct {
 		name      string
 		params    data.CollectorParams
-		collector collectorFunc
+		collector data.CollectorConstructor
 		expected  map[string]any
 	}{
 		{
 			name: "End position collector should write a pose",
 			params: data.CollectorParams{
 				ComponentName: componentName,
-				Interval:      time.Second,
+				Interval:      captureInterval,
 				Logger:        golog.NewTestLogger(t),
 			},
 			collector: newEndPositionCollector,
-			expected: toProtoMap(pb.GetEndPositionResponse{
+			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.GetEndPositionResponse{
 				Pose: &v1.Pose{
 					OX:    0,
 					OY:    0,
@@ -56,11 +56,11 @@ func TestCollectors(t *testing.T) {
 			name: "Joint positions collector should write a list of positions",
 			params: data.CollectorParams{
 				ComponentName: componentName,
-				Interval:      time.Second,
+				Interval:      captureInterval,
 				Logger:        golog.NewTestLogger(t),
 			},
 			collector: newJointPositionsCollector,
-			expected: toProtoMap(pb.GetJointPositionsResponse{
+			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.GetJointPositionsResponse{
 				Positions: &pb.JointPositions{
 					Values: floatList,
 				},
@@ -81,10 +81,9 @@ func TestCollectors(t *testing.T) {
 
 			defer col.Close()
 			col.Collect()
-			mockClock.Add(1 * time.Second)
+			mockClock.Add(captureInterval)
 
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, len(buf.Writes), test.ShouldEqual, 1)
+			test.That(t, buf.Length(), test.ShouldEqual, 1)
 			test.That(t, buf.Writes[0].GetStruct().AsMap(), test.ShouldResemble, tc.expected)
 		})
 	}
@@ -107,12 +106,4 @@ func (a *fakeArm) JointPositions(ctx context.Context, extra map[string]interface
 	return &pb.JointPositions{
 		Values: floatList,
 	}, nil
-}
-
-func toProtoMap(data any) map[string]any {
-	ret, err := protoutils.StructToStructPbIgnoreOmitEmpty(data)
-	if err != nil {
-		return nil
-	}
-	return ret.AsMap()
 }

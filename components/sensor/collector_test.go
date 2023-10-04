@@ -9,7 +9,6 @@ import (
 	"github.com/edaniels/golog"
 	pb "go.viam.com/api/component/sensor/v1"
 	"go.viam.com/test"
-	"go.viam.com/utils/protoutils"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/data"
@@ -17,7 +16,10 @@ import (
 	tu "go.viam.com/rdk/testutils"
 )
 
-const componentName = "sensor"
+const (
+	componentName   = "sensor"
+	captureInterval = time.Second
+)
 
 var readingMap = map[string]any{"reading1": false, "reading2": "test"}
 
@@ -26,7 +28,7 @@ func TestSensorCollector(t *testing.T) {
 	buf := tu.MockBuffer{}
 	params := data.CollectorParams{
 		ComponentName: componentName,
-		Interval:      time.Second,
+		Interval:      captureInterval,
 		Logger:        golog.NewTestLogger(t),
 		Target:        &buf,
 		Clock:         mockClock,
@@ -38,11 +40,10 @@ func TestSensorCollector(t *testing.T) {
 
 	defer col.Close()
 	col.Collect()
-	mockClock.Add(1 * time.Second)
+	mockClock.Add(captureInterval)
 
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(buf.Writes), test.ShouldEqual, 1)
-	test.That(t, buf.Writes[0].GetStruct().AsMap(), test.ShouldResemble, toProtoMap(getExpectedMap(readingMap)))
+	test.That(t, buf.Length(), test.ShouldEqual, 1)
+	test.That(t, buf.Writes[0].GetStruct().AsMap(), test.ShouldResemble, tu.ToProtoMapIgnoreOmitEmpty(getExpectedMap(readingMap)))
 }
 
 type fakeSensor struct {
@@ -71,12 +72,4 @@ func getExpectedMap(data map[string]any) pb.GetReadingsResponse {
 	return pb.GetReadingsResponse{
 		Readings: readings,
 	}
-}
-
-func toProtoMap(data any) map[string]any {
-	ret, err := protoutils.StructToStructPbIgnoreOmitEmpty(data)
-	if err != nil {
-		return nil
-	}
-	return ret.AsMap()
 }
