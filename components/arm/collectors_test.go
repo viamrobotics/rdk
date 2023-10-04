@@ -10,12 +10,13 @@ import (
 	"github.com/golang/geo/r3"
 	v1 "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
+	"go.viam.com/test"
+	"go.viam.com/utils/protoutils"
+
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	tu "go.viam.com/rdk/testutils"
-	"go.viam.com/test"
-	"go.viam.com/utils/protoutils"
 )
 
 type collectorFunc func(resource interface{}, params data.CollectorParams) (data.Collector, error)

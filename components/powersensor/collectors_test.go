@@ -8,11 +8,12 @@ import (
 	clk "github.com/benbjohnson/clock"
 	"github.com/edaniels/golog"
 	pb "go.viam.com/api/component/powersensor/v1"
+	"go.viam.com/test"
+	"go.viam.com/utils/protoutils"
+
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/resource"
 	tu "go.viam.com/rdk/testutils"
-	"go.viam.com/test"
-	"go.viam.com/utils/protoutils"
 )
 
 type collectorFunc func(resource interface{}, params data.CollectorParams) (data.Collector, error)

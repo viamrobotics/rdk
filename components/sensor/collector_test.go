@@ -8,12 +8,13 @@ import (
 	clk "github.com/benbjohnson/clock"
 	"github.com/edaniels/golog"
 	pb "go.viam.com/api/component/sensor/v1"
-	"go.viam.com/rdk/data"
-	"go.viam.com/rdk/resource"
-	tu "go.viam.com/rdk/testutils"
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
 	"google.golang.org/protobuf/types/known/structpb"
+
+	"go.viam.com/rdk/data"
+	"go.viam.com/rdk/resource"
+	tu "go.viam.com/rdk/testutils"
 )
 
 const componentName = "sensor"
