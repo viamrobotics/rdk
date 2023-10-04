@@ -85,12 +85,13 @@ func deleteAllWaypoints(ctx context.Context, svc navigation.Service) error {
 }
 
 func TestValidateConfig(t *testing.T) {
+	path := ""
 	t.Run("invalid config no base", func(t *testing.T) {
 		cfg := Config{}
 
-		deps, err := cfg.Validate("")
+		deps, err := cfg.Validate(path)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, utils.NewConfigValidationFieldRequiredError("", "base").Error())
+		test.That(t, err.Error(), test.ShouldContainSubstring, utils.NewConfigValidationFieldRequiredError(path, "base").Error())
 		test.That(t, len(deps), test.ShouldEqual, 0)
 	})
 
@@ -99,9 +100,9 @@ func TestValidateConfig(t *testing.T) {
 			BaseName: "base",
 		}
 
-		deps, err := cfg.Validate("")
+		deps, err := cfg.Validate(path)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, utils.NewConfigValidationFieldRequiredError("", "map_type").Error())
+		test.That(t, err.Error(), test.ShouldContainSubstring, utils.NewConfigValidationFieldRequiredError(path, "map_type").Error())
 		test.That(t, len(deps), test.ShouldEqual, 0)
 	})
 
@@ -111,7 +112,7 @@ func TestValidateConfig(t *testing.T) {
 			MapTypeName: "gibberish",
 		}
 
-		deps, err := cfg.Validate("")
+		deps, err := cfg.Validate(path)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "invalid map_type")
 		test.That(t, len(deps), test.ShouldEqual, 0)
@@ -122,9 +123,9 @@ func TestValidateConfig(t *testing.T) {
 			BaseName:    "base",
 			MapTypeName: "GPS",
 		}
-		deps, err := cfg.Validate("")
+		deps, err := cfg.Validate(path)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, utils.NewConfigValidationFieldRequiredError("", "movement_sensor").Error())
+		test.That(t, err.Error(), test.ShouldContainSubstring, utils.NewConfigValidationFieldRequiredError(path, "movement_sensor").Error())
 		test.That(t, len(deps), test.ShouldEqual, 0)
 	})
 
@@ -135,7 +136,7 @@ func TestValidateConfig(t *testing.T) {
 			VisionServices: []string{"blue_square"},
 		}
 
-		deps, err := cfg.Validate("")
+		deps, err := cfg.Validate(path)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(deps), test.ShouldEqual, 3)
 	})
@@ -146,7 +147,7 @@ func TestValidateConfig(t *testing.T) {
 			MapTypeName:        "GPS",
 			MovementSensorName: "localizer",
 		}
-		deps, err := cfg.Validate("")
+		deps, err := cfg.Validate(path)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(deps), test.ShouldEqual, 3)
 	})
