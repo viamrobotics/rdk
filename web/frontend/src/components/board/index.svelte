@@ -114,6 +114,7 @@ const handlePwmFrequencyInput = (event: CustomEvent) => {
         </tr>
       {/each}
       </table>
+      
     <h3 class="mb-2">
       Digital Interrupts
     </h3>
@@ -129,6 +130,7 @@ const handlePwmFrequencyInput = (event: CustomEvent) => {
         </tr>
       {/each}
     </table>
+
     <h3 class="mb-2">
       GPIO
     </h3>
