@@ -33,7 +33,6 @@ type Config struct {
 	I2CName        string `json:"i2c_name,omitempty"`
 	I2CBus         *int   `json:"i2c_bus,omitempty"`
 	I2CAddress     *int   `json:"i2c_address,omitempty"`
-	PWMFrequencyHz int    `json:"pwm_frequency_hz,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
