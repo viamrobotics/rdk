@@ -864,10 +864,7 @@ func TestCheckPlan(t *testing.T) {
 	})
 
 	// create camera_origin frame
-	cameraOriginFrame, err := referenceframe.NewStaticFrame(
-		"camera-origin",
-		spatialmath.NewPose(r3.Vector{0, -30, 0}, &spatialmath.OrientationVector{OY: 1}),
-	)
+	cameraOriginFrame, err := referenceframe.NewStaticFrame("camera-origin", spatialmath.NewPoseFromPoint(r3.Vector{0, -30, 0}))
 	test.That(t, err, test.ShouldBeNil)
 	err = newFS.AddFrame(cameraOriginFrame, moveRequest.kinematicBase.Kinematics())
 	test.That(t, err, test.ShouldBeNil)
@@ -906,8 +903,8 @@ func TestCheckPlan(t *testing.T) {
 	t.Run("ensure transforms of obstacles works - collision with camera", func(t *testing.T) {
 		// create obstacle
 		obstacle, err := spatialmath.NewBox(
-			spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 380}),
-			r3.Vector{10, 10, 10}, "obstacle",
+			spatialmath.NewPoseFromPoint(r3.Vector{0, 400, 0}),
+			r3.Vector{50, 50, 10}, "obstacle",
 		)
 		test.That(t, err, test.ShouldBeNil)
 		geoms := []spatialmath.Geometry{obstacle}
