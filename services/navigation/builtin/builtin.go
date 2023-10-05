@@ -256,12 +256,11 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 			return err
 		}
 	}
-	store := navigation.StoreConfig{Type: defaultStoreType}
+	storeCfg := navigation.StoreConfig{Type: defaultStoreType}
 	if svcConfig.Store.Type != navigation.StoreTypeUnset {
-		store = svcConfig.Store
+		storeCfg = svcConfig.Store
 	}
 
-	// Mutex lock before making changes to svc
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
 
@@ -272,15 +271,6 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 			return err
 		}
 		svc.logger = logger
-	}
-
-	// Reconfigure the store if necessary
-	if svc.storeType != string(store.Type) {
-		newStore, err := navigation.NewStoreFromConfig(ctx, svcConfig.Store)
-		if err != nil {
-			return err
-		}
-		svc.store = newStore
 	}
 
 	// Parse base from the configuration
@@ -317,7 +307,7 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	}
 
 	// Reconfigure the store if necessary
-	if svc.storeType != string(store.Type) {
+	if svc.storeType != string(storeCfg.Type) {
 		newStore, err := navigation.NewStoreFromConfig(ctx, svcConfig.Store)
 		if err != nil {
 			return err
