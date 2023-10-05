@@ -141,6 +141,15 @@ func (m *Model) UnmarshalJSON(data []byte) error {
 		return nil
 	}
 
+	// Models can also be specified with nested JSON. If data contains a `{`, try
+	// to unmarshal as JSON. Otherwise, describe valid models.
+	if !strings.ContainsRune(modelStr, '{') {
+		return fmt.Errorf(
+			"%q is not a valid model. "+
+				`models must be of the form "namespace:family:name", "name", or be valid nested JSON `+
+				`with "namespace", "model_family" and "name" fields`, modelStr)
+	}
+
 	var tempModel map[string]string
 	if err := json.Unmarshal(data, &tempModel); err != nil {
 		return err

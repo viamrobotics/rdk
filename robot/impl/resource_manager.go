@@ -457,6 +457,22 @@ func (manager *resourceManager) Close(ctx context.Context) error {
 	return allErrs
 }
 
+// checkReconfigure returns whether or not the resource can be (re)configured based on the state of the graph node.
+// It also handles error management based on aforementioned state.
+func checkReconfigure(manager *resourceManager, gNode *resource.GraphNode) bool {
+	err := gNode.CheckReconfigure()
+	if err != nil {
+		if res, lastErr := gNode.Resource(); res == nil && lastErr.Error() == err.Error() {
+			manager.logger.Debug(err)
+		} else {
+			manager.logger.Error(err)
+			gNode.SetLastError(err)
+		}
+		return false
+	}
+	return true
+}
+
 // completeConfig process the tree in reverse order and attempts to build
 // or reconfigure resources that are wrapped in a placeholderResource.
 func (manager *resourceManager) completeConfig(
@@ -472,6 +488,11 @@ func (manager *resourceManager) completeConfig(
 		if !ok || !gNode.NeedsReconfigure() {
 			continue
 		}
+		shouldTryReconfigure := checkReconfigure(manager, gNode)
+		if !shouldTryReconfigure {
+			continue
+		}
+		gNode.IncrementTimesReconfigured()
 		var verb string
 		if gNode.IsUninitialized() {
 			verb = "configuring"
@@ -550,6 +571,11 @@ func (manager *resourceManager) completeConfig(
 			if !ok || !gNode.NeedsReconfigure() {
 				return
 			}
+			shouldTryReconfigure := checkReconfigure(manager, gNode)
+			if !shouldTryReconfigure {
+				return
+			}
+			gNode.IncrementTimesReconfigured()
 			if !(resName.API.IsComponent() || resName.API.IsService()) {
 				return
 			}
