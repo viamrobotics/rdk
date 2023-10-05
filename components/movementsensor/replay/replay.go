@@ -28,8 +28,18 @@ import (
 const (
 	timeFormat            = time.RFC3339
 	grpcConnectionTimeout = 10 * time.Second
-	downloadTimeout       = 30 * time.Second
 	maxCacheSize          = 1000
+)
+
+type method string
+
+const (
+	position           method = "Position"
+	linearVelocity     method = "LinearVelocity"
+	angularVelocity    method = "AngularVelocity"
+	linearAcceleration method = "LinearAcceleration"
+	compassHeading     method = "CompassHeading"
+	orientation        method = "Orientation"
 )
 
 var (
@@ -39,8 +49,11 @@ var (
 	// ErrEndOfDataset represents that the replay sensor has reached the end of the dataset.
 	ErrEndOfDataset = errors.New("reached end of dataset")
 
+	// errCloudConnectionFailure represents that the attempt to connect to the cloud failed.
+	errCloudConnectionFailure = errors.New("failure to connect to the cloud")
+
 	// methodList is a list of all the base methods possible for a movement sensor to implement.
-	methodList = []string{"Position", "Orientation", "AngularVelocity", "LinearVelocity", "LinearAcceleration", "CompassHeading"}
+	methodList = []method{position, linearVelocity, angularVelocity, linearAcceleration, compassHeading, orientation}
 )
 
 func init() {
@@ -74,9 +87,6 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 		if err != nil {
 			return nil, errors.New("invalid time format for start time (UTC), use RFC3339")
 		}
-		if startTime.After(time.Now()) {
-			return nil, errors.New("invalid config, start time (UTC) must be in the past")
-		}
 	}
 
 	var endTime time.Time
@@ -84,9 +94,6 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 		endTime, err = time.Parse(timeFormat, cfg.Interval.End)
 		if err != nil {
 			return nil, errors.New("invalid time format for end time (UTC), use RFC3339")
-		}
-		if endTime.After(time.Now()) {
-			return nil, errors.New("invalid config, end time (UTC) must be in the past")
 		}
 	}
 
@@ -103,13 +110,12 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 
 // Config describes how to configure the replay movement sensor.
 type Config struct {
-	Source         string          `json:"source,omitempty"`
-	RobotID        string          `json:"robot_id,omitempty"`
-	LocationID     string          `json:"location_id,omitempty"`
-	OrganizationID string          `json:"organization_id,omitempty"`
-	Interval       TimeInterval    `json:"time_interval,omitempty"`
-	BatchSize      *uint64         `json:"batch_size,omitempty"`
-	Properties     map[string]bool `json:"properties,omitempty"`
+	Source         string       `json:"source,omitempty"`
+	RobotID        string       `json:"robot_id,omitempty"`
+	LocationID     string       `json:"location_id,omitempty"`
+	OrganizationID string       `json:"organization_id,omitempty"`
+	Interval       TimeInterval `json:"time_interval,omitempty"`
+	BatchSize      *uint64      `json:"batch_size,omitempty"`
 }
 
 // TimeInterval holds the start and end time used to filter data.
@@ -135,11 +141,11 @@ type replayMovementSensor struct {
 	cloudConn    rpc.ClientConn
 	dataClient   datapb.DataServiceClient
 
-	lastData map[string]string
+	lastData map[method]string
 	limit    uint64
 	filter   *datapb.Filter
 
-	cache map[string][]*cacheEntry
+	cache map[method][]*cacheEntry
 
 	mu     sync.RWMutex
 	closed bool
@@ -169,7 +175,7 @@ func (replay *replayMovementSensor) Position(ctx context.Context, extra map[stri
 		return nil, 0, errors.New("session closed")
 	}
 
-	data, err := replay.getDataFromCache(ctx, "Position")
+	data, err := replay.getDataFromCache(ctx, position)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -187,7 +193,7 @@ func (replay *replayMovementSensor) LinearVelocity(ctx context.Context, extra ma
 		return r3.Vector{}, errors.New("session closed")
 	}
 
-	data, err := replay.getDataFromCache(ctx, "LinearVelocity")
+	data, err := replay.getDataFromCache(ctx, linearVelocity)
 	if err != nil {
 		return r3.Vector{}, err
 	}
@@ -209,7 +215,7 @@ func (replay *replayMovementSensor) AngularVelocity(ctx context.Context, extra m
 		return spatialmath.AngularVelocity{}, errors.New("session closed")
 	}
 
-	data, err := replay.getDataFromCache(ctx, "AngularVelocity")
+	data, err := replay.getDataFromCache(ctx, angularVelocity)
 	if err != nil {
 		return spatialmath.AngularVelocity{}, err
 	}
@@ -229,7 +235,7 @@ func (replay *replayMovementSensor) LinearAcceleration(ctx context.Context, extr
 		return r3.Vector{}, errors.New("session closed")
 	}
 
-	data, err := replay.getDataFromCache(ctx, "LinearAcceleration")
+	data, err := replay.getDataFromCache(ctx, linearAcceleration)
 	if err != nil {
 		return r3.Vector{}, err
 	}
@@ -249,7 +255,7 @@ func (replay *replayMovementSensor) CompassHeading(ctx context.Context, extra ma
 		return 0., errors.New("session closed")
 	}
 
-	data, err := replay.getDataFromCache(ctx, "CompassHeading")
+	data, err := replay.getDataFromCache(ctx, compassHeading)
 	if err != nil {
 		return 0., err
 	}
@@ -265,7 +271,7 @@ func (replay *replayMovementSensor) Orientation(ctx context.Context, extra map[s
 		return nil, errors.New("session closed")
 	}
 
-	data, err := replay.getDataFromCache(ctx, "Orientation")
+	data, err := replay.getDataFromCache(ctx, orientation)
 	if err != nil {
 		return nil, err
 	}
@@ -281,12 +287,12 @@ func (replay *replayMovementSensor) Orientation(ctx context.Context, extra map[s
 // Properties returns the available properties for the given replay movement sensor.
 func (replay *replayMovementSensor) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
 	return &movementsensor.Properties{
+		PositionSupported:           true,
 		LinearVelocitySupported:     true,
 		AngularVelocitySupported:    true,
-		OrientationSupported:        true,
-		PositionSupported:           true,
-		CompassHeadingSupported:     true,
 		LinearAccelerationSupported: true,
+		CompassHeadingSupported:     true,
+		OrientationSupported:        true,
 	}, nil
 }
 
@@ -336,7 +342,7 @@ func (replay *replayMovementSensor) Reconfigure(ctx context.Context, deps resour
 
 		if err := replay.initCloudConnection(ctx); err != nil {
 			replay.closeCloudConnection(ctx)
-			return errors.Wrap(err, "failure to connect to the cloud")
+			return errors.Wrap(err, errCloudConnectionFailure.Error())
 		}
 	}
 
@@ -346,12 +352,12 @@ func (replay *replayMovementSensor) Reconfigure(ctx context.Context, deps resour
 		replay.limit = *replayMovementSensorConfig.BatchSize
 	}
 
-	replay.cache = map[string][]*cacheEntry{}
+	replay.cache = map[method][]*cacheEntry{}
 	for _, k := range methodList {
 		replay.cache[k] = nil
 	}
 
-	replay.lastData = map[string]string{}
+	replay.lastData = map[method]string{}
 	for _, k := range methodList {
 		replay.lastData[k] = ""
 	}
@@ -385,11 +391,11 @@ func (replay *replayMovementSensor) Reconfigure(ctx context.Context, deps resour
 	return nil
 }
 
-// updateCache will update the cache with an additional batch of data downloaded from the cloud via TabularDataByFilter based on the given
-// filter, and the last data accessed.
-func (replay *replayMovementSensor) updateCache(ctx context.Context, method string) error {
+// updateCache will update the cache with an additional batch of data downloaded from the cloud
+// via TabularDataByFilter based on the given filter, and the last data accessed.
+func (replay *replayMovementSensor) updateCache(ctx context.Context, method method) error {
 	filter := replay.filter
-	filter.Method = method
+	filter.Method = string(method)
 
 	// Retrieve data from the cloud
 	resp, err := replay.dataClient.TabularDataByFilter(ctx, &datapb.TabularDataByFilterRequest{
@@ -443,7 +449,7 @@ func addGRPCMetadata(ctx context.Context, timeRequested, timeReceived *timestamp
 }
 
 // extractDataAndMetadata retrieves the next cached data and removes it from the cache. It assumes the write lock is being held.
-func (replay *replayMovementSensor) getDataFromCache(ctx context.Context, method string) (*structpb.Struct, error) {
+func (replay *replayMovementSensor) getDataFromCache(ctx context.Context, method method) (*structpb.Struct, error) {
 	// If no data remains in the cache, download a new batch of data
 	if len(replay.cache[method]) == 0 {
 		if err := replay.updateCache(ctx, method); err != nil {

@@ -35,6 +35,7 @@ type Board struct {
 	StatusFunc                 func(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error)
 	statusCap                  []interface{}
 	SetPowerModeFunc           func(ctx context.Context, mode boardpb.PowerMode, duration *time.Duration) error
+	WriteAnalogFunc            func(ctx context.Context, pin string, value int32, extra map[string]interface{}) error
 }
 
 // NewBoard returns a new injected board.
@@ -204,4 +205,12 @@ func (b *Board) SetPowerMode(ctx context.Context, mode boardpb.PowerMode, durati
 		return b.LocalBoard.SetPowerMode(ctx, mode, duration)
 	}
 	return b.SetPowerModeFunc(ctx, mode, duration)
+}
+
+// WriteAnalog calls the injected WriteAnalog or the real version.
+func (b *Board) WriteAnalog(ctx context.Context, pin string, value int32, extra map[string]interface{}) error {
+	if b.WriteAnalogFunc == nil {
+		return b.LocalBoard.WriteAnalog(ctx, pin, value, extra)
+	}
+	return b.WriteAnalogFunc(ctx, pin, value, extra)
 }

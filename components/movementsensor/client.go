@@ -104,21 +104,6 @@ func (c *client) LinearAcceleration(ctx context.Context, extra map[string]interf
 	return protoutils.ConvertVectorProtoToR3(resp.LinearAcceleration), nil
 }
 
-func (c *client) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
-	ext, err := structpb.NewStruct(extra)
-	if err != nil {
-		return spatialmath.NewZeroOrientation(), err
-	}
-	resp, err := c.client.GetOrientation(ctx, &pb.GetOrientationRequest{
-		Name:  c.name,
-		Extra: ext,
-	})
-	if err != nil {
-		return spatialmath.NewZeroOrientation(), err
-	}
-	return protoutils.ConvertProtoToOrientation(resp.Orientation), nil
-}
-
 func (c *client) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	ext, err := structpb.NewStruct(extra)
 	if err != nil {
@@ -132,6 +117,21 @@ func (c *client) CompassHeading(ctx context.Context, extra map[string]interface{
 		return 0, err
 	}
 	return resp.Value, nil
+}
+
+func (c *client) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
+	ext, err := structpb.NewStruct(extra)
+	if err != nil {
+		return spatialmath.NewZeroOrientation(), err
+	}
+	resp, err := c.client.GetOrientation(ctx, &pb.GetOrientationRequest{
+		Name:  c.name,
+		Extra: ext,
+	})
+	if err != nil {
+		return spatialmath.NewZeroOrientation(), err
+	}
+	return protoutils.ConvertProtoToOrientation(resp.Orientation), nil
 }
 
 func (c *client) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
