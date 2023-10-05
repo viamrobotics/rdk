@@ -358,6 +358,7 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 		// Otherwise, keep the file name as-is to maintain the directory structure that the user uploaded the file with.
 		fileName = timeRequested + "_" + strings.TrimSuffix(datum.GetMetadata().GetFileName(), datum.GetMetadata().GetFileExt())
 	}
+	// Modify the file name in the metadata to reflect what it will be saved as.
 	metadata := datum.GetMetadata()
 	metadata.FileName = fileName
 	if filepath.Ext(fileName) != datum.GetMetadata().GetFileExt() {
