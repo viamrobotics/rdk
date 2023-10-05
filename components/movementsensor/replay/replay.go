@@ -54,11 +54,14 @@ var (
 	// ErrEndOfDataset represents that the replay sensor has reached the end of the dataset.
 	ErrEndOfDataset = errors.New("reached end of dataset")
 
+	// errPropertiesFailedToInitialize represents that the properties failed to initialize.
+	errPropertiesFailedToInitialize = errors.New("Properties failed to initialize")
+
 	// errCloudConnectionFailure represents that the attempt to connect to the cloud failed.
 	errCloudConnectionFailure = errors.New("failure to connect to the cloud")
 
-	// errPropertiesFailedToInitialize represents that the properties failed to initialize.
-	errPropertiesFailedToInitialize = errors.New("Properties failed to initialize")
+	// errSessionClosed represents that the session has ended.
+	errSessionClosed = errors.New("session closed")
 
 	// errPositionNotSupported represents that the Position endpoint does not provide any data.
 	errPositionNotSupported = errors.New("Position is not supported")
@@ -205,7 +208,7 @@ func (replay *replayMovementSensor) Position(ctx context.Context, extra map[stri
 	replay.mu.Lock()
 	defer replay.mu.Unlock()
 	if replay.closed {
-		return nil, 0, errors.New("session closed")
+		return nil, 0, errSessionClosed
 	}
 
 	if !replay.properties.PositionSupported {
@@ -227,7 +230,7 @@ func (replay *replayMovementSensor) LinearVelocity(ctx context.Context, extra ma
 	replay.mu.Lock()
 	defer replay.mu.Unlock()
 	if replay.closed {
-		return r3.Vector{}, errors.New("session closed")
+		return r3.Vector{}, errSessionClosed
 	}
 
 	if !replay.properties.LinearVelocitySupported {
@@ -253,7 +256,7 @@ func (replay *replayMovementSensor) AngularVelocity(ctx context.Context, extra m
 	replay.mu.Lock()
 	defer replay.mu.Unlock()
 	if replay.closed {
-		return spatialmath.AngularVelocity{}, errors.New("session closed")
+		return spatialmath.AngularVelocity{}, errSessionClosed
 	}
 
 	if !replay.properties.AngularVelocitySupported {
@@ -277,7 +280,7 @@ func (replay *replayMovementSensor) LinearAcceleration(ctx context.Context, extr
 	replay.mu.Lock()
 	defer replay.mu.Unlock()
 	if replay.closed {
-		return r3.Vector{}, errors.New("session closed")
+		return r3.Vector{}, errSessionClosed
 	}
 
 	if !replay.properties.LinearAccelerationSupported {
@@ -301,7 +304,7 @@ func (replay *replayMovementSensor) CompassHeading(ctx context.Context, extra ma
 	replay.mu.Lock()
 	defer replay.mu.Unlock()
 	if replay.closed {
-		return 0., errors.New("session closed")
+		return 0., errSessionClosed
 	}
 
 	if !replay.properties.CompassHeadingSupported {
@@ -321,7 +324,7 @@ func (replay *replayMovementSensor) Orientation(ctx context.Context, extra map[s
 	replay.mu.Lock()
 	defer replay.mu.Unlock()
 	if replay.closed {
-		return nil, errors.New("session closed")
+		return nil, errSessionClosed
 	}
 
 	if !replay.properties.OrientationSupported {
@@ -374,7 +377,7 @@ func (replay *replayMovementSensor) Reconfigure(ctx context.Context, deps resour
 	replay.mu.Lock()
 	defer replay.mu.Unlock()
 	if replay.closed {
-		return errors.New("session closed")
+		return errSessionClosed
 	}
 
 	replayMovementSensorConfig, err := resource.NativeConfig[*Config](conf)
@@ -443,7 +446,11 @@ func (replay *replayMovementSensor) Reconfigure(ctx context.Context, deps resour
 	ctx, cancel := context.WithTimeout(ctx, initializePropertiesTimeout)
 	defer cancel()
 	if err := replay.initializeProperties(ctx); err != nil {
-		return errors.Wrap(err, "Properties failed to initialize")
+		err = errors.Wrap(err, errPropertiesFailedToInitialize.Error())
+		if errors.Is(err, context.DeadlineExceeded) {
+			err = errors.Wrap(err, "none of the endpoints returned data")
+		}
+		return err
 	}
 
 	return nil
@@ -528,24 +535,25 @@ func (replay *replayMovementSensor) setProperty(method method, supported bool) e
 
 // attemptToInitializeProperty will try to update the cache for the provided method.
 func (replay *replayMovementSensor) attemptToInitializeProperty(ctx context.Context, method method) (bool, error) {
-	var initializedProperty bool
+	initializedProperty := false
 	if replay.closed {
-		return initializedProperty, errors.New("session closed")
+		return initializedProperty, errSessionClosed
 	}
 	if err := replay.updateCache(ctx, method); err != nil && !strings.Contains(err.Error(), ErrEndOfDataset.Error()) {
 		return initializedProperty, errors.Wrap(err, "could not update the cache")
 	}
 	if len(replay.cache[method]) != 0 {
-		initializedProperty = true
 		if err := replay.setProperty(method, true); err != nil {
 			return initializedProperty, errors.Wrap(err, "could not set property")
 		}
+		initializedProperty = true
 	}
 	return initializedProperty, nil
 }
 
 // initializeProperties will set the properties by repeatedly attempting to poll data from all the methods
-// until at least one of them returns data.
+// until at least one of them returns data. The properties are set to `true` for the endpoints that
+// returned data.
 func (replay *replayMovementSensor) initializeProperties(ctx context.Context) error {
 	var initializedAtLeastOneProperty, initializedProperty bool
 	var err error
@@ -559,8 +567,8 @@ func (replay *replayMovementSensor) initializeProperties(ctx context.Context) er
 			if initializedProperty, err = replay.attemptToInitializeProperty(ctx, method); err != nil {
 				return err
 			}
-			if !initializedAtLeastOneProperty {
-				initializedAtLeastOneProperty = initializedProperty
+			if initializedProperty {
+				initializedAtLeastOneProperty = true
 			}
 		}
 		// If at least one method successfully managed to initialize, we know that data reached the cloud and

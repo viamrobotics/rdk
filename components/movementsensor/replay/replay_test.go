@@ -322,7 +322,7 @@ func TestReplayMovementSensorFunctions(t *testing.T) {
 				linearAcceleration: allMethodsMaxDataLength[linearAcceleration],
 				compassHeading:     allMethodsMaxDataLength[compassHeading],
 			},
-			methodsExpectedErr: map[method]error{orientation: ErrOrientationNotSupported},
+			methodsExpectedErr: map[method]error{orientation: errOrientationNotSupported},
 			methodSupported: map[method]bool{
 				position:           true,
 				linearVelocity:     true,
@@ -875,7 +875,7 @@ func TestReplayMovementSensorReconfigure(t *testing.T) {
 
 	// Again verify dataset starts from beginning
 	for i := 0; i < allMethodsMaxDataLength[defaultReplayMovementSensorFunction]; i++ {
-		testReplayMovementSensorMethod(ctx, t, replay, defaultReplayMovementSensorFunction, i, nil)
+		testReplayMovementSensorMethodData(ctx, t, replay, defaultReplayMovementSensorFunction, i)
 	}
 
 	// Confirm the end of the dataset was reached when expected

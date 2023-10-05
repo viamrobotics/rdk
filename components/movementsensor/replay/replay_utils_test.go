@@ -32,7 +32,7 @@ const (
 	testTime = "2000-01-01T12:00:%02dZ"
 )
 
-var ErrCloudConnection = errors.New("cloud connection error")
+var errTestCloudConnection = errors.New("cloud connection error")
 
 // mockDataServiceServer is a struct that includes unimplemented versions of all the Data Service endpoints. These
 // can be overwritten to allow developers to trigger desired behaviors during testing.
