@@ -73,10 +73,7 @@ type sensorBase struct {
 	orientation movementsensor.MovementSensor
 	velocities  movementsensor.MovementSensor
 
-	lvctrl              *linearVelControllable
-	avctrl              *angularVelControllable
-	linearVelocityLoop  *control.Loop
-	angularVelocityLoop *control.Loop
+	loop *control.Loop
 }
 
 func init() {
@@ -119,8 +116,6 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 	sb.velocities = nil
 	sb.orientation = nil
 	sb.controlledBase = nil
-	sb.avctrl = nil
-	sb.lvctrl = nil
 
 	for _, name := range newConf.MovementSensor {
 		ms, err := movementsensor.FromDependencies(deps, name)
@@ -150,6 +145,7 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 		}
 	}
 
+	// TODO: remove duplicate check to validation check.
 	if sb.orientation == nil && sb.velocities == nil {
 		return errNoGoodSensor
 	}
@@ -160,33 +156,7 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 	}
 
 	if sb.velocities != nil {
-		sb.lvctrl = &linearVelControllable{
-			sb: sb.controlledBase,
-			ms: sb.velocities,
-		}
-
-		lLoop, err := control.NewLoop(sb.logger, linearControlAttributes, sb.lvctrl)
-		if err != nil {
-			return err
-		}
-		sb.linearVelocityLoop = lLoop
-
-		if err := lLoop.Start(); err != nil {
-			return err
-		}
-
-		sb.avctrl = &angularVelControllable{
-			sb: sb.controlledBase,
-			ms: sb.velocities,
-		}
-
-		aLoop, err := control.NewLoop(sb.logger, angularControlAttributes, sb.avctrl)
-		if err != nil {
-			return err
-		}
-		sb.angularVelocityLoop = aLoop
-
-		if err := aLoop.Start(); err != nil {
+		if err := setupControlLoops(sb); err != nil {
 			return err
 		}
 	}
@@ -216,94 +186,11 @@ func (sb *sensorBase) MoveStraight(
 	ctx, done := sb.opMgr.New(ctx)
 	defer done()
 	sb.setPolling(false)
-	if sb.angularVelocityLoop != nil {
-		sb.angularVelocityLoop.Stop()
+	if sb.loop != nil {
+		sb.loop.Stop()
 	}
-	if sb.linearVelocityLoop != nil {
-		sb.linearVelocityLoop.Stop()
-	}
+
 	return sb.controlledBase.MoveStraight(ctx, distanceMm, mmPerSec, extra)
-}
-
-func (sb *sensorBase) SetVelocity(
-	ctx context.Context, linear, angular r3.Vector, extra map[string]interface{},
-) error {
-	sb.opMgr.CancelRunning(ctx)
-	// check if a sensor context has been started
-	if sb.sensorLoopDone != nil {
-		sb.sensorLoopDone()
-	}
-
-	sb.setPolling(true)
-	// start a sensor context for the sensor loop based on the longstanding base
-	// creator context, and add a timeout for the context
-	timeOut := 10 * time.Second
-	var sensorCtx context.Context
-	sensorCtx, sb.sensorLoopDone = context.WithTimeout(context.Background(), timeOut)
-
-	if err := sb.angularVelocityLoop.Start(); err != nil {
-		return err
-	}
-
-	if err := sb.linearVelocityLoop.Start(); err != nil {
-		return err
-	}
-
-	if sb.velocities != nil {
-		sb.logger.Warn("not using sensor for SetVelocityfeedback, this feature will be implemented soon")
-		// TODO RSDK-3695 implement control loop here instead of placeholder sensor pllling function
-		sb.pollsensors(sensorCtx, extra)
-		if err := sb.angularVelocityLoop.Start(); err != nil {
-			return err
-		}
-		if err := sb.linearVelocityLoop.Start(); err != nil {
-			return err
-		}
-		return errors.New(
-			"setvelocity with sensor feedback not currently implemented, remove movement sensor reporting linear and angular velocity ")
-	}
-	return sb.controlledBase.SetVelocity(ctx, linear, angular, extra)
-}
-
-func (sb *sensorBase) pollsensors(ctx context.Context, extra map[string]interface{}) {
-	sb.activeBackgroundWorkers.Add(1)
-	utils.ManagedGo(func() {
-		ticker := time.NewTicker(velocitiesPollTime)
-		defer ticker.Stop()
-
-		for {
-			// check if we want to poll the sensor at all
-			// other API calls set this to false so that this for loop stops
-			if !sb.isPolling() {
-				ticker.Stop()
-			}
-
-			if err := ctx.Err(); err != nil {
-				return
-			}
-
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				linvel, err := sb.velocities.LinearVelocity(ctx, extra)
-				if err != nil {
-					sb.logger.Error(err)
-					return
-				}
-
-				angvel, err := sb.velocities.AngularVelocity(ctx, extra)
-				if err != nil {
-					sb.logger.Error(err)
-					return
-				}
-
-				if sensorDebug {
-					sb.logger.Infof("sensor readings: linear: %#v, angular %#v", linvel, angvel)
-				}
-			}
-		}
-	}, sb.activeBackgroundWorkers.Done)
 }
 
 func (sb *sensorBase) SetPower(
@@ -311,24 +198,20 @@ func (sb *sensorBase) SetPower(
 ) error {
 	sb.opMgr.CancelRunning(ctx)
 	sb.setPolling(false)
-	if sb.angularVelocityLoop != nil {
-		sb.angularVelocityLoop.Stop()
+	if sb.loop != nil {
+		sb.loop.Stop()
 	}
-	if sb.linearVelocityLoop != nil {
-		sb.linearVelocityLoop.Stop()
-	}
+
 	return sb.controlledBase.SetPower(ctx, linear, angular, extra)
 }
 
 func (sb *sensorBase) Stop(ctx context.Context, extra map[string]interface{}) error {
 	sb.opMgr.CancelRunning(ctx)
 	sb.setPolling(false)
-	if sb.angularVelocityLoop != nil {
-		sb.angularVelocityLoop.Stop()
+	if sb.loop != nil {
+		sb.loop.Stop()
 	}
-	if sb.linearVelocityLoop != nil {
-		sb.linearVelocityLoop.Stop()
-	}
+
 	return sb.controlledBase.Stop(ctx, extra)
 }
 
@@ -353,12 +236,8 @@ func (sb *sensorBase) Close(ctx context.Context) error {
 		sb.sensorLoopDone()
 	}
 
-	if sb.angularVelocityLoop != nil {
-		sb.angularVelocityLoop.Stop()
-	}
-
-	if sb.linearVelocityLoop != nil {
-		sb.linearVelocityLoop.Stop()
+	if sb.loop != nil {
+		sb.loop.Stop()
 	}
 
 	sb.activeBackgroundWorkers.Wait()
