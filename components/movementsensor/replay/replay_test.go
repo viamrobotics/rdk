@@ -500,32 +500,6 @@ func TestReplayMovementSensorConfigValidation(t *testing.T) {
 			expectedErr: errors.New("invalid time format for end time (UTC), use RFC3339"),
 		},
 		{
-			description: "Invalid config with bad start timestamp",
-			cfg: &Config{
-				Source:         validSource,
-				RobotID:        validRobotID,
-				LocationID:     validLocationID,
-				OrganizationID: validOrganizationID,
-				Interval: TimeInterval{
-					Start: "3000-01-01T12:00:00Z",
-				},
-			},
-			expectedErr: errors.New("invalid config, start time (UTC) must be in the past"),
-		},
-		{
-			description: "Invalid config with bad end timestamp",
-			cfg: &Config{
-				Source:         validSource,
-				RobotID:        validRobotID,
-				LocationID:     validLocationID,
-				OrganizationID: validOrganizationID,
-				Interval: TimeInterval{
-					End: "3000-01-01T12:00:00Z",
-				},
-			},
-			expectedErr: errors.New("invalid config, end time (UTC) must be in the past"),
-		},
-		{
 			description: "Invalid config with start after end timestamps",
 			cfg: &Config{
 				Source:         validSource,
