@@ -137,40 +137,6 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	}
 	localizer := motion.NewMovementSensorLocalizer(movementSensor, origin, movementSensorToBase.Pose())
 
-	// convert destination into spatialmath.Pose with respect to where the localizer was initialized
-	goal := spatialmath.GeoPointToPose(destination, origin)
-
-	// convert GeoObstacles into GeometriesInFrame with respect to the base's starting point
-	geoms := spatialmath.GeoObstaclesToGeometries(obstacles, origin)
-
-	gif := referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)
-	worldState, err := referenceframe.NewWorldState([]*referenceframe.GeometriesInFrame{gif}, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	// construct limits
-	straightlineDistance := goal.Point().Norm()
-	if straightlineDistance > maxTravelDistanceMM {
-		return nil, fmt.Errorf("cannot move more than %d kilometers", int(maxTravelDistanceMM*1e-6))
-	}
-	limits := []referenceframe.Limit{
-		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
-		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
-		{Min: -2 * math.Pi, Max: 2 * math.Pi},
-	} // Note: this is only for diff drive, not used for PTGs
-	ms.logger.Debugf("base limits: %v", limits)
-
-	if extra != nil {
-		if profile, ok := extra["motion_profile"]; ok {
-			motionProfile, ok := profile.(string)
-			if !ok {
-				return nil, errors.New("could not interpret motion_profile field as string")
-			}
-			kinematicsOptions.PositionOnlyMode = motionProfile == motionplan.PositionOnlyMotionProfile
-		}
-	}
-
 	// create a KinematicBase from the componentName
 	baseComponent, ok := ms.components[componentName]
 	if !ok {
@@ -185,6 +151,20 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	if err != nil {
 		return nil, err
 	}
+
+	// Important: this assumes a 0 degree heading. This, and the geoms below, need to be transformed to the correct pose.
+	goalPoseRaw := spatialmath.GeoPointToPose(destination, origin)
+	// construct limits
+	straightlineDistance := goalPoseRaw.Point().Norm()
+	if straightlineDistance > maxTravelDistanceMM {
+		return nil, fmt.Errorf("cannot move more than %d kilometers", int(maxTravelDistanceMM*1e-6))
+	}
+	limits := []referenceframe.Limit{
+		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
+		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
+		{Min: -2 * math.Pi, Max: 2 * math.Pi},
+	} // Note: this is only for diff drive, not used for PTGs
+	ms.logger.Debugf("base limits: %v", limits)
 
 	kb, err := kinematicbase.WrapWithKinematics(ctx, b, ms.logger, localizer, limits, kinematicsOptions)
 	if err != nil {
@@ -201,36 +181,45 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	if err != nil {
 		return nil, err
 	}
-	// Place the base at the correct heading relative to the frame system
-	currentPosition, err := kb.CurrentPosition(ctx)
+	startPose, err := kb.CurrentPosition(ctx)
 	if err != nil {
 		return nil, err
 	}
-	headingFrame, err := referenceframe.NewStaticFrame(
-		kinematicFrame.Name()+"_origin",
-		spatialmath.NewPoseFromOrientation(currentPosition.Pose().Orientation()),
-	)
+	startPoseToWorld := spatialmath.PoseInverse(startPose.Pose())
+
+	goal := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.PoseBetween(startPose.Pose(), goalPoseRaw))
+
+	// convert GeoObstacles into GeometriesInFrame with respect to the base's starting point
+	geomsRaw := spatialmath.GeoObstaclesToGeometries(obstacles, origin)
+	geoms := make([]spatialmath.Geometry, 0, len(geomsRaw))
+	for _, geom := range geomsRaw {
+		geoms = append(geoms, geom.Transform(startPoseToWorld))
+	}
+
+	gif := referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)
+	worldState, err := referenceframe.NewWorldState([]*referenceframe.GeometriesInFrame{gif}, nil)
 	if err != nil {
 		return nil, err
 	}
-	baseFSWithOrient := referenceframe.NewEmptyFrameSystem("baseFS")
-	err = baseFSWithOrient.AddFrame(headingFrame, baseFSWithOrient.World())
-	if err != nil {
-		return nil, err
-	}
-	err = baseFSWithOrient.MergeFrameSystem(baseOnlyFS, headingFrame)
-	if err != nil {
-		return nil, err
+
+	if extra != nil {
+		if profile, ok := extra["motion_profile"]; ok {
+			motionProfile, ok := profile.(string)
+			if !ok {
+				return nil, errors.New("could not interpret motion_profile field as string")
+			}
+			kinematicsOptions.PositionOnlyMode = motionProfile == motionplan.PositionOnlyMotionProfile
+		}
 	}
 
 	return &moveRequest{
 		config: motionCfg,
 		planRequest: &motionplan.PlanRequest{
 			Logger:             ms.logger,
-			Goal:               referenceframe.NewPoseInFrame(referenceframe.World, goal),
+			Goal:               goal,
 			Frame:              kb.Kinematics(),
-			FrameSystem:        baseFSWithOrient,
-			StartConfiguration: referenceframe.StartPositions(baseFSWithOrient),
+			FrameSystem:        baseOnlyFS,
+			StartConfiguration: referenceframe.StartPositions(baseOnlyFS),
 			WorldState:         worldState,
 			Options:            extra,
 		},
