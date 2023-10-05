@@ -279,12 +279,16 @@ func (b *Board) reconfigureAnalogs(ctx context.Context, newConf *LinuxBoardConfi
 		if curr, ok := b.analogs[c.Name]; ok {
 			if curr.chipSelect != c.ChipSelect {
 				ar := &board.MCP3008AnalogReader{channel, bus, c.ChipSelect}
-				curr.reset(ctx, curr.chipSelect, board.SmoothAnalogReader(ar, board.AnalogReaderConfig{SamplesPerSecond: c.SamplesPerSecond, AverageOverMillis: c.AverageOverMillis}, b.logger))
+				curr.reset(ctx, curr.chipSelect,
+					board.SmoothAnalogReader(ar, board.AnalogReaderConfig{SamplesPerSecond: c.SamplesPerSecond, AverageOverMillis: c.AverageOverMillis},
+						b.logger))
 			}
 			continue
 		}
 		ar := &board.MCP3008AnalogReader{channel, bus, c.ChipSelect}
-		b.analogs[c.Name] = newWrappedAnalog(ctx, c.ChipSelect, board.SmoothAnalogReader(ar, board.AnalogReaderConfig{SamplesPerSecond: c.SamplesPerSecond, AverageOverMillis: c.AverageOverMillis}, b.logger))
+		b.analogs[c.Name] = newWrappedAnalog(ctx, c.ChipSelect, board.SmoothAnalogReader(ar,
+			board.AnalogReaderConfig{SamplesPerSecond: c.SamplesPerSecond, AverageOverMillis: c.AverageOverMillis},
+			b.logger))
 	}
 
 	for name := range b.analogs {

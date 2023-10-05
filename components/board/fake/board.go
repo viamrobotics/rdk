@@ -469,7 +469,7 @@ func (h *I2CHandle) Close() error {
 	return nil
 }
 
-// An AnalogerReader reads back the same set value.
+// An AnalogReader reads back the same set value.
 type AnalogReader struct {
 	pin        string
 	Value      int
