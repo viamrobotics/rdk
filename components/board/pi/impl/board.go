@@ -48,7 +48,7 @@ func init() {
 	resource.RegisterComponent(
 		board.API,
 		picommon.Model,
-		resource.Registration[board.Board, *genericlinux.Config]{
+		resource.Registration[board.Board, *Config]{
 			Constructor: func(
 				ctx context.Context,
 				_ resource.Dependencies,
@@ -58,6 +58,40 @@ func init() {
 				return newPigpio(ctx, conf.ResourceName(), conf, logger)
 			},
 		})
+}
+
+// A Config describes the configuration of a board and all of its connected parts.
+type Config struct {
+	I2Cs              []board.I2CConfig              `json:"i2cs,omitempty"`
+	SPIs              []board.SPIConfig              `json:"spis,omitempty"`
+	AnalogReaders     []board.MCP3008AnalogConfig    `json:"analogs,omitempty"`
+	DigitalInterrupts []board.DigitalInterruptConfig `json:"digital_interrupts,omitempty"`
+	Attributes        rdkutils.AttributeMap          `json:"attributes,omitempty"`
+}
+
+// Validate ensures all parts of the config are valid.
+func (conf *Config) Validate(path string) ([]string, error) {
+	for idx, c := range conf.SPIs {
+		if err := c.Validate(fmt.Sprintf("%s.%s.%d", path, "spis", idx)); err != nil {
+			return nil, err
+		}
+	}
+	for idx, c := range conf.I2Cs {
+		if err := c.Validate(fmt.Sprintf("%s.%s.%d", path, "i2cs", idx)); err != nil {
+			return nil, err
+		}
+	}
+	for idx, c := range conf.AnalogReaders {
+		if err := c.Validate(fmt.Sprintf("%s.%s.%d", path, "analogs", idx)); err != nil {
+			return nil, err
+		}
+	}
+	for idx, c := range conf.DigitalInterrupts {
+		if err := c.Validate(fmt.Sprintf("%s.%s.%d", path, "digital_interrupts", idx)); err != nil {
+			return nil, err
+		}
+	}
+	return nil, nil
 }
 
 // piPigpio is an implementation of a board.Board of a Raspberry Pi
