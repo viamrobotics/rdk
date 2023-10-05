@@ -341,10 +341,6 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 	}
 
 	datum := data[0]
-	mdJSONBytes, err := protojson.Marshal(datum.GetMetadata())
-	if err != nil {
-		return err
-	}
 
 	timeRequested := datum.GetMetadata().GetTimeRequested().AsTime().Format(time.RFC3339Nano)
 	fileName := datum.GetMetadata().GetFileName()
@@ -362,6 +358,11 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 		// Otherwise, keep the file name as-is to maintain the directory structure that the user uploaded the file with.
 		fileName = timeRequested + "_" + strings.TrimSuffix(datum.GetMetadata().GetFileName(), datum.GetMetadata().GetFileExt())
 	}
+	metadata := datum.GetMetadata()
+	metadata.FileName = fileName
+	if filepath.Ext(fileName) != datum.GetMetadata().GetFileExt() {
+		metadata.FileName += datum.GetMetadata().GetFileExt()
+	}
 
 	jsonPath := filepath.Join(dst, metadataDir, fileName+".json")
 	if err := os.MkdirAll(filepath.Dir(jsonPath), 0o700); err != nil {
@@ -369,6 +370,10 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 	}
 	//nolint:gosec
 	jsonFile, err := os.Create(jsonPath)
+	if err != nil {
+		return err
+	}
+	mdJSONBytes, err := protojson.Marshal(metadata)
 	if err != nil {
 		return err
 	}
