@@ -36,7 +36,6 @@ import (
 	pb "go.viam.com/api/component/board/v1"
 
 	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/components/board/genericlinux"
 	picommon "go.viam.com/rdk/components/board/pi/common"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/resource"
@@ -192,7 +191,7 @@ func (pi *piPigpio) Reconfigure(
 	_ resource.Dependencies,
 	conf resource.Config,
 ) error {
-	cfg, err := resource.NativeConfig[*genericlinux.Config](conf)
+	cfg, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return err
 	}
@@ -224,7 +223,7 @@ func (pi *piPigpio) Reconfigure(
 	return nil
 }
 
-func (pi *piPigpio) reconfigureI2cs(ctx context.Context, cfg *genericlinux.Config) error {
+func (pi *piPigpio) reconfigureI2cs(ctx context.Context, cfg *Config) error {
 	// No need to reconfigure the old I2C buses; just throw them out and make new ones.
 	pi.i2cs = make(map[string]board.I2C, len(cfg.I2Cs))
 	for _, sc := range cfg.I2Cs {
@@ -237,7 +236,7 @@ func (pi *piPigpio) reconfigureI2cs(ctx context.Context, cfg *genericlinux.Confi
 	return nil
 }
 
-func (pi *piPigpio) reconfigureSpis(ctx context.Context, cfg *genericlinux.Config) error {
+func (pi *piPigpio) reconfigureSpis(ctx context.Context, cfg *Config) error {
 	// No need to reconfigure the old SPI buses; just throw them out and make new ones.
 	pi.spis = make(map[string]board.SPI, len(cfg.SPIs))
 	for _, sc := range cfg.SPIs {
@@ -249,7 +248,7 @@ func (pi *piPigpio) reconfigureSpis(ctx context.Context, cfg *genericlinux.Confi
 	return nil
 }
 
-func (pi *piPigpio) reconfigureAnalogReaders(ctx context.Context, cfg *genericlinux.Config) error {
+func (pi *piPigpio) reconfigureAnalogReaders(ctx context.Context, cfg *Config) error {
 	// No need to reconfigure the old analog readers; just throw them out and make new ones.
 	pi.analogReaders = map[string]board.AnalogReader{}
 	for _, ac := range cfg.AnalogReaders {
@@ -299,7 +298,7 @@ func findInterruptBcom(
 	return 0, false
 }
 
-func (pi *piPigpio) reconfigureInterrupts(ctx context.Context, cfg *genericlinux.Config) error {
+func (pi *piPigpio) reconfigureInterrupts(ctx context.Context, cfg *Config) error {
 	// We reuse the old interrupts when possible.
 	oldInterrupts := pi.interrupts
 	oldInterruptsHW := pi.interruptsHW
