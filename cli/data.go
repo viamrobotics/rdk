@@ -399,7 +399,10 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 	return nil
 }
 
-// create the destination path
+// non-exhaustive list of characters to strip from filenames on windows
+const windowsReservedChars = ":"
+
+// transform datum's filename to a destination path on this computer
 func filenameForDownload(meta *datapb.BinaryMetadata) string {
 	timeRequested := meta.GetTimeRequested().AsTime().Format(time.RFC3339Nano)
 	fileName := meta.GetFileName()
@@ -419,7 +422,13 @@ func filenameForDownload(meta *datapb.BinaryMetadata) string {
 	}
 
 	if runtime.GOOS == "windows" {
-		panic("todo: windows-specific reserved character rules")
+		fileName = strings.Map(func(c rune) rune {
+			if strings.ContainsRune(windowsReservedChars, c) {
+				return '_'
+			} else {
+				return c
+			}
+		}, fileName)
 	}
 	return fileName
 }
