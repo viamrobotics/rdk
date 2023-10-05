@@ -16,10 +16,9 @@ package gpsrtkpmtk
 		"type": "movement_sensor",
 		"model": "gps-nmea-rtk-pmtk",
 		"attributes": {
-			"board": "local",
+			"i2c_bus": 1,
 			"i2c_addr": 66,
 			"i2c_baud_rate": 115200,
-			"i2c_bus": "default_bus",
 			"ntrip_connect_attempts": 12,
 			"ntrip_mountpoint": "MNTPT",
 			"ntrip_password": "pass",
@@ -62,10 +61,9 @@ const i2cStr = "i2c"
 
 // Config is used for converting NMEA MovementSensor with RTK capabilities config attributes.
 type Config struct {
-	Board       string `json:"board"`
-	I2CBus      string `json:"i2c_bus"`
-	I2CAddr     int    `json:"i2c_addr"`
-	I2CBaudRate int    `json:"i2c_baud_rate,omitempty"`
+	I2CBus      int `json:"i2c_bus"`
+	I2CAddr     int `json:"i2c_addr"`
+	I2CBaudRate int `json:"i2c_baud_rate,omitempty"`
 
 	NtripURL             string `json:"ntrip_url"`
 	NtripConnectAttempts int    `json:"ntrip_connect_attempts,omitempty"`
@@ -76,8 +74,6 @@ type Config struct {
 
 // Validate ensures all parts of the config are valid.
 func (cfg *Config) Validate(path string) ([]string, error) {
-	var deps []string
-
 	err := cfg.validateI2C(path)
 	if err != nil {
 		return nil, err
@@ -88,13 +84,12 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 		return nil, err
 	}
 
-	deps = append(deps, cfg.Board)
-	return deps, nil
+	return []string{}, nil
 }
 
 // validateI2C ensures all parts of the config are valid.
 func (cfg *Config) validateI2C(path string) error {
-	if cfg.I2CBus == "" {
+	if cfg.I2CBus == 0 {
 		return utils.NewConfigValidationFieldRequiredError(path, "i2c_bus")
 	}
 	if cfg.I2CAddr == 0 {
@@ -164,18 +159,9 @@ func (g *rtkI2C) Reconfigure(ctx context.Context, deps resource.Dependencies, co
 
 	g.addr = byte(newConf.I2CAddr)
 
-	b, err := board.FromDependencies(deps, newConf.Board)
+	i2cbus, err := genericlinux.NewI2cBus(fmt.Sprintf("%d", newConf.I2CBus)
 	if err != nil {
-		return fmt.Errorf("gps init: failed to find board: %w", err)
-	}
-	localB, ok := b.(board.LocalBoard)
-	if !ok {
-		return fmt.Errorf("board %s is not local", newConf.Board)
-	}
-
-	i2cbus, ok := localB.I2CByName(newConf.I2CBus)
-	if !ok {
-		return fmt.Errorf("gps init: failed to find i2c bus %s", newConf.I2CBus)
+		return fmt.Errorf("gps init: failed to find i2c bus %s: %w", newConf.I2CBus, err)
 	}
 	g.bus = i2cbus
 
@@ -241,7 +227,7 @@ func newRTKI2C(
 	}
 
 	// Init NMEAMovementSensor
-	nmeaConf.I2CConfig = &gpsnmea.I2CConfig{
+	nmeaConf.I2CConfig = &gpsnmea.I2CConfig{ // TODO: update this one to match
 		Board:       newConf.Board,
 		I2CBus:      newConf.I2CBus,
 		I2CBaudRate: newConf.I2CBaudRate,
@@ -367,6 +353,7 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 		g.err.Set(err)
 		return
 	}
+	// TODO: defer closing the handle here, so it doesn't lock up on error
 
 	// Send GLL, RMC, VTG, GGA, GSA, and GSV sentences each 1000ms
 	baudcmd := fmt.Sprintf("PMTK251,%d", g.wbaud)
