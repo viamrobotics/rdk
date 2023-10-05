@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"strings"
 	"sync/atomic"
 
 	geo "github.com/kellydunn/golang-geo"
@@ -25,8 +26,7 @@ type moveRequest struct {
 	config             *motion.MotionConfiguration
 	planRequest        *motionplan.PlanRequest
 	kinematicBase      kinematicbase.KinematicBase
-	visionSvcs         []vision.Service
-	cameraNames        []resource.Name
+	cameraVisionPairs  []map[resource.Name]vision.Service
 	frameSystemService framesystem.Service
 }
 
@@ -96,21 +96,21 @@ func (mr *moveRequest) deviatedFromPlan(ctx context.Context, waypoints [][]refer
 
 func (mr *moveRequest) obstaclesIntersectPlan(ctx context.Context, waypoints [][]referenceframe.Input, waypointIndex int) (bool, error) {
 	// convert waypoints to type of motionplan.Plan
-	var plan []map[string][]referenceframe.Input
+	var plan motionplan.Plan
 	// We only care to check against waypoints we have not reached yet.
 	for _, inputs := range waypoints[waypointIndex:] {
 		input := make(map[string][]referenceframe.Input)
 		input[mr.kinematicBase.Name().Name] = inputs
 		plan = append(plan, input)
 	}
-
-	// iterate through vision services
-	for _, srvc := range mr.visionSvcs {
-		// iterate through all cameras on the robot
-		// any camera may be used by any vision service
-		for _, camName := range mr.cameraNames {
+	for _, vcMap := range mr.cameraVisionPairs {
+		for camName, srvc := range vcMap {
 			// get detections from vision service
 			detections, err := srvc.GetObjectPointClouds(ctx, camName.Name, nil)
+			if strings.Contains(err.Error(), "does not implement a 3D segmenter") {
+				mr.planRequest.Logger.Infof("cannot call GetObjectPointClouds on %q as it does not implement a 3D segmenter", srvc.Name())
+				break
+			}
 			if err != nil {
 				return false, err
 			}
@@ -304,14 +304,27 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 		return nil, err
 	}
 
-	// add vision services to move request
-	visionServices := []vision.Service{}
+	var cameraVisionPairing []map[resource.Name]vision.Service
+	pair := make(map[resource.Name]vision.Service)
+	// construct pairs of cameras which may be used by the available vision services
 	for _, serviceName := range motionCfg.VisionServices {
-		srvc, ok := ms.visionServices[serviceName]
-		if !ok {
-			return nil, resource.DependencyNotFoundError(serviceName)
+		for _, cameraName := range ms.cameras {
+			srvc, ok := ms.visionServices[serviceName]
+			if !ok {
+				return nil, resource.DependencyNotFoundError(serviceName)
+			}
+			switch {
+			case serviceName.ContainsRemoteNames() && cameraName.ContainsRemoteNames():
+				// vision services which are remote only have access to remote cameras
+				pair[cameraName] = srvc
+			case serviceName.ContainsRemoteNames() && !cameraName.ContainsRemoteNames():
+				continue
+			default:
+				// vision services which are main have access to both main and remote cameras
+				pair[cameraName] = srvc
+			}
+			cameraVisionPairing = append(cameraVisionPairing, pair)
 		}
-		visionServices = append(visionServices, srvc)
 	}
 
 	return &moveRequest{
@@ -326,8 +339,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 			Options:            extra,
 		},
 		kinematicBase:      kb,
-		visionSvcs:         visionServices,
-		cameraNames:        ms.cameras,
+		cameraVisionPairs:  cameraVisionPairing,
 		frameSystemService: ms.fsService,
 	}, nil
 }
