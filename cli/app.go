@@ -944,8 +944,14 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 					Name:  "upload",
 					Usage: "upload a new version of your module",
 					Description: `Upload an archive containing your module's file(s) for a specified platform
+Example uploading a single file:
+# This will expect an entrypoint of "bin/my-module".
+viam module upload --version "0.1.0" --platform "linux/amd64" ./bin/my-module
 
-Example for linux/amd64:
+Example uploading a whole directory:
+viam module upload --version "0.1.0" --platform "linux/amd64" ./bin
+
+Example uploading a custom tarball of a binary:
 tar -czf packaged-module.tar.gz my-binary   # the meta.json entrypoint is relative to the root of the archive, so it should be "./my-binary"
 viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.tar.gz
                       `,
@@ -979,8 +985,8 @@ viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.ta
 							Usage: `platform of the binary you are uploading. Must be one of:
                       linux/amd64
                       linux/arm64
-                      darwin/amd64 (for intel macs)
-                      darwin/arm64 (for non-intel macs)`,
+                      darwin/amd64 (Intel macs)
+                      darwin/arm64 (Apple silicon macs)`,
 							Required: true,
 						},
 						&cli.BoolFlag{

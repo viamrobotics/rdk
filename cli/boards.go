@@ -2,7 +2,6 @@ package cli
 
 import (
 	"archive/tar"
-	"bufio"
 	"bytes"
 	"compress/gzip"
 	"context"
@@ -153,14 +152,14 @@ func (c *viamClient) uploadBoardDefsFile(
 	}
 	ctx := c.c.Context
 
-	jsonFile, err := os.Open(filepath.Clean(jsonPath))
+	stats, err := os.Stat(filepath.Clean(jsonPath))
 	if err != nil {
 		return nil, err
 	}
 
+	file := new(bytes.Buffer)
 	// Create an archive tar.gz file (required for packages).
-	file, err := createArchive(jsonFile)
-	if err != nil {
+	if err := createArchive([]string{jsonPath}, file, nil); err != nil {
 		return nil, errors.Wrap(err, "error creating archive")
 	}
 
@@ -176,10 +175,6 @@ func (c *viamClient) uploadBoardDefsFile(
 		return nil, errors.Wrapf(err, "error starting CreatePackage stream")
 	}
 
-	stats, err := jsonFile.Stat()
-	if err != nil {
-		return nil, err
-	}
 	boardDefsFile := []*packagepb.FileInfo{{Name: name, Size: uint64(stats.Size())}}
 
 	packageInfo := &packagepb.PackageInfo{
@@ -243,8 +238,7 @@ func (c *viamClient) downloadBoardDefsFile(
 	}
 
 	// download the file from the gcs url into the current directory.
-	err = downloadFile(ctx, currentDir, response.Package.Url)
-	if err != nil {
+	if err := downloadFile(ctx, currentDir, response.Package.Url); err != nil {
 		return err
 	}
 
@@ -311,56 +305,6 @@ func sendPackageRequests(stream packagepb.PackageService_CreatePackageClient,
 	return nil
 }
 
-// createArchive creates a tar.gz from the file provided.
-func createArchive(file *os.File) (*bytes.Buffer, error) {
-	// Create output buffer
-	out := new(bytes.Buffer)
-
-	// These writers are chained. Writing to the tar writer will
-	// write to the gzip writer which in turn will write to
-	// the "out" writer
-	gw := gzip.NewWriter(out)
-	defer utils.UncheckedErrorFunc(gw.Close)
-	tw := tar.NewWriter(gw)
-	defer utils.UncheckedErrorFunc(tw.Close)
-
-	// Get FileInfo about our file providing file size, mode, etc.
-	info, err := file.Stat()
-	if err != nil {
-		return nil, err
-	}
-
-	// the raw file can be 100 times more than the max TAR size.
-	if info.Size() > 100*boardUploadMaximumSize {
-		return nil, errors.New("the json file is too large")
-	}
-	// Create a tar Header from the FileInfo data
-	header, err := tar.FileInfoHeader(info, info.Name())
-	if err != nil {
-		return nil, err
-	}
-
-	// Write file header to the tar archive
-	err = tw.WriteHeader(header)
-	if err != nil {
-		return nil, err
-	}
-
-	// Read the file into a byte slice
-	bytes := make([]byte, info.Size())
-	_, err = bufio.NewReader(file).Read(bytes)
-	if err != nil && !errors.Is(err, io.EOF) {
-		return nil, err
-	}
-
-	// Copy file content to tar archive
-	if _, err := tw.Write(bytes); err != nil {
-		return nil, err
-	}
-
-	return out, nil
-}
-
 // helper function to download a url to a local file.
 func downloadFile(ctx context.Context, filepath, url string) error {
 	getReq, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
@@ -374,8 +318,11 @@ func downloadFile(ctx context.Context, filepath, url string) error {
 	if err != nil {
 		return errors.Wrap(err, "error downloading the requested package")
 	}
-
 	defer utils.UncheckedErrorFunc(resp.Body.Close)
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("invalid status code %q for url %q", resp.Status, url)
+	}
 
 	err = untar(filepath, resp.Body)
 	if err != nil {

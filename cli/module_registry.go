@@ -2,6 +2,7 @@ package cli
 
 import (
 	"archive/tar"
+	"bufio"
 	"compress/gzip"
 	"context"
 	"encoding/json"
@@ -177,13 +178,13 @@ func UploadModuleAction(c *cli.Context) error {
 	versionArg := c.String(moduleFlagVersion)
 	platformArg := c.String(moduleFlagPlatform)
 	forceUploadArg := c.Bool(moduleFlagForce)
-	tarballPath := c.Args().First()
+	moduleUploadPath := c.Args().First()
 	if c.Args().Len() > 1 {
 		return errors.New("too many arguments passed to upload command. " +
 			"Make sure to specify flag and optional arguments before the required positional package argument")
 	}
-	if tarballPath == "" {
-		return errors.New("no package to upload -- please provide an archive containing your module. Use --help for more information")
+	if moduleUploadPath == "" {
+		return errors.New("no package to upload -- please provide an path to your module. Use --help for more information")
 	}
 
 	// Clean the version argument to ensure compatibility with github tag standards
@@ -237,6 +238,18 @@ func UploadModuleAction(c *cli.Context) error {
 	moduleID, err = validateModuleID(c, client, nameArg, publicNamespaceArg, orgIDArg)
 	if err != nil {
 		return err
+	}
+	tarballPath := moduleUploadPath
+	if !isTarball(tarballPath) {
+		tarballPath, err = createTarballForUpload(moduleUploadPath, c.App.Writer)
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err := os.Remove(tarballPath); err != nil {
+				Errorf(c.App.ErrWriter, "failed to cleanup temporary module tarball for upload %q", tarballPath)
+			}
+		}()
 	}
 
 	if !forceUploadArg {
@@ -416,11 +429,6 @@ func validateModuleFile(client *viamClient, moduleID moduleID, tarballPath, vers
 	if err != nil {
 		return err
 	}
-	// TODO(APP-2226): support .tar.xz
-	if !strings.HasSuffix(strings.ToLower(file.Name()), ".tar.gz") &&
-		!strings.HasSuffix(strings.ToLower(file.Name()), ".tgz") {
-		return errors.New("you must upload your module in the form of a .tar.gz or .tgz")
-	}
 	archive, err := gzip.NewReader(file)
 	if err != nil {
 		return err
@@ -446,8 +454,8 @@ func validateModuleFile(client *viamClient, moduleID moduleID, tarballPath, vers
 			info := header.FileInfo()
 			if info.Mode().Perm()&0o100 == 0 {
 				return errors.Errorf(
-					"the provided tarball %q contained a file at the entrypoint %q, but that file is not marked as executable",
-					tarballPath, entrypoint)
+					"the provided archive contained a file at the entrypoint %q, but that file is not marked as executable",
+					entrypoint)
 			}
 			// executable file at entrypoint. validation succeeded.
 			return nil
@@ -460,8 +468,8 @@ func validateModuleFile(client *viamClient, moduleID moduleID, tarballPath, vers
 	if len(filesWithSameNameAsEntrypoint) > 0 {
 		extraErrInfo = fmt.Sprintf(". Did you mean to set your entrypoint to %v?", filesWithSameNameAsEntrypoint)
 	}
-	return errors.Errorf("the provided tarball %q does not contain a file at the desired entrypoint %q%s",
-		tarballPath, entrypoint, extraErrInfo)
+	return errors.Errorf("the provided archive does not contain a file at the desired entrypoint %q%s",
+		entrypoint, extraErrInfo)
 }
 
 func visibilityToProto(visibility moduleVisibility) (apppb.Visibility, error) {
@@ -639,4 +647,36 @@ func getEntrypointForVersion(mod *apppb.Module, version string) (string, error) 
 	}
 	// if there is no entrypoint set yet, use the last uploaded entrypoint
 	return mod.Entrypoint, nil
+}
+
+func isTarball(path string) bool {
+	return strings.HasSuffix(path, ".tar.gz") || strings.HasSuffix(path, ".tgz")
+}
+
+func createTarballForUpload(moduleUploadPath string, stdout io.Writer) (string, error) {
+	tmpFile, err := os.CreateTemp("", "module-upload-*.tar.gz")
+	if err != nil {
+		return "", errors.Wrap(err, "failed to create temporary archive file")
+	}
+	defer func() {
+		if err := tmpFile.Close(); err != nil {
+			Errorf(stdout, "failed to close temporary archive file %q", tmpFile.Name())
+		}
+	}()
+
+	tmpFileWriter := bufio.NewWriter(tmpFile)
+	archiveFiles, err := getArchiveFilePaths([]string{moduleUploadPath})
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to find files to compress in %q", moduleUploadPath)
+	}
+	if len(archiveFiles) == 0 {
+		return "", errors.Errorf("failed to find any files in %q", moduleUploadPath)
+	}
+	if err := createArchive(archiveFiles, tmpFileWriter, &stdout); err != nil {
+		return "", errors.Wrap(err, "failed to create temp archive")
+	}
+	if err := tmpFileWriter.Flush(); err != nil {
+		return "", errors.Wrap(err, "failed to flush buffer while creating temp archive")
+	}
+	return tmpFile.Name(), nil
 }
