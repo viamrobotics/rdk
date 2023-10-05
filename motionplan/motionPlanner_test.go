@@ -8,6 +8,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	commonpb "go.viam.com/api/common/v1"
 	motionpb "go.viam.com/api/service/motion/v1"
@@ -459,7 +460,7 @@ func TestMultiArmSolve(t *testing.T) {
 		Frame:              fs.Frame("xArmVgripper"),
 		StartConfiguration: positions,
 		FrameSystem:        fs,
-		Options:            map[string]interface{}{"max_ik_solutions": 100, "timeout": 150.0, "smooth_iter": 5},
+		Options:            map[string]interface{}{"max_ik_solutions": 10, "timeout": 150.0, "smooth_iter": 5},
 	})
 	test.That(t, err, test.ShouldBeNil)
 
@@ -492,7 +493,7 @@ func TestReachOverArm(t *testing.T) {
 	fs.AddFrame(xarm, offset)
 
 	// plan to a location, it should interpolate to get there
-	opts := map[string]interface{}{"max_ik_solutions": 100, "timeout": 150.0}
+	opts := map[string]interface{}{"timeout": 150.0}
 	plan, err := PlanMotion(context.Background(), &PlanRequest{
 		Logger:             logger.Sugar(),
 		Goal:               goal,
@@ -511,7 +512,7 @@ func TestReachOverArm(t *testing.T) {
 	fs.AddFrame(ur5, fs.World())
 
 	// the plan should no longer be able to interpolate, but it should still be able to get there
-	opts = map[string]interface{}{"max_ik_solutions": 100, "timeout": 150.0, "smooth_iter": 5}
+	opts = map[string]interface{}{"timeout": 150.0, "smooth_iter": 5}
 	plan, err = PlanMotion(context.Background(), &PlanRequest{
 		Logger:             logger.Sugar(),
 		Goal:               goal,
@@ -764,4 +765,147 @@ func TestMovementWithGripper(t *testing.T) {
 	solution, err = sfPlanner.PlanSingleWaypoint(context.Background(), zeroPosition, goal, worldState, nil, motionConfig)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, solution, test.ShouldNotBeNil)
+}
+
+func TestValidatePlanRequest(t *testing.T) {
+	t.Parallel()
+	type testCase struct {
+		name        string
+		request     PlanRequest
+		expectedErr error
+	}
+
+	logger := golog.NewTestLogger(t)
+	fs := frame.NewEmptyFrameSystem("test")
+	frame1 := frame.NewZeroStaticFrame("frame1")
+	frame2, err := frame.NewTranslationalFrame("frame2", r3.Vector{1, 0, 0}, frame.Limit{1, 1})
+	test.That(t, err, test.ShouldBeNil)
+	err = fs.AddFrame(frame1, fs.World())
+	test.That(t, err, test.ShouldBeNil)
+	err = fs.AddFrame(frame2, fs.World())
+	test.That(t, err, test.ShouldBeNil)
+
+	validGoal := frame.NewPoseInFrame("frame1", spatialmath.NewZeroPose())
+	badGoal := frame.NewPoseInFrame("non-existent", spatialmath.NewZeroPose())
+
+	testCases := []testCase{
+		{
+			name:        "empty request - fail",
+			request:     PlanRequest{},
+			expectedErr: errors.New("PlanRequest cannot have nil logger"),
+		},
+		{
+			name: "nil frame - fail",
+			request: PlanRequest{
+				Logger: logger,
+			},
+			expectedErr: errors.New("PlanRequest cannot have nil frame"),
+		},
+		{
+			name: "nil framesystem - fail",
+			request: PlanRequest{
+				Logger: logger,
+				Frame:  frame1,
+			},
+			expectedErr: errors.New("PlanRequest cannot have nil framesystem"),
+		},
+		{
+			name: "framesystem does not contain frame - fail",
+			request: PlanRequest{
+				Logger:      logger,
+				Frame:       frame1,
+				FrameSystem: frame.NewEmptyFrameSystem("test"),
+			},
+			expectedErr: errors.Errorf("frame with name %q not in frame system", frame1.Name()),
+		},
+		{
+			name: "nil goal - fail",
+			request: PlanRequest{
+				Logger:      logger,
+				Frame:       frame1,
+				FrameSystem: fs,
+			},
+			expectedErr: errors.New("PlanRequest cannot have nil goal"),
+		},
+		{
+			name: "goal's parent not in frame system - fail",
+			request: PlanRequest{
+				Logger:      logger,
+				Frame:       frame1,
+				FrameSystem: fs,
+				Goal:        badGoal,
+			},
+			expectedErr: errors.New("part with name  references non-existent parent non-existent"),
+		},
+		{
+			name: "incorrect length StartConfiguration - fail",
+			request: PlanRequest{
+				Logger:      logger,
+				Frame:       frame1,
+				FrameSystem: fs,
+				Goal:        validGoal,
+				StartConfiguration: map[string][]frame.Input{
+					"frame1": frame.FloatsToInputs([]float64{0}),
+				},
+			},
+			expectedErr: errors.New("number of inputs does not match frame DoF, expected 0 but got 1"),
+		},
+		{
+			name: "incorrect length StartConfiguration - fail",
+			request: PlanRequest{
+				Logger:      logger,
+				Frame:       frame2,
+				FrameSystem: fs,
+				Goal:        validGoal,
+			},
+			expectedErr: errors.New("frame2 does not have a start configuration"),
+		},
+		{
+			name: "incorrect length StartConfiguration - fail",
+			request: PlanRequest{
+				Logger:      logger,
+				Frame:       frame2,
+				FrameSystem: fs,
+				Goal:        validGoal,
+				StartConfiguration: map[string][]frame.Input{
+					"frame2": frame.FloatsToInputs([]float64{0, 0, 0, 0, 0}),
+				},
+			},
+			expectedErr: errors.New("number of inputs does not match frame DoF, expected 1 but got 5"),
+		},
+		{
+			name: "well formed PlanRequest",
+			request: PlanRequest{
+				Logger:      logger,
+				Frame:       frame1,
+				FrameSystem: fs,
+				Goal:        validGoal,
+				StartConfiguration: map[string][]frame.Input{
+					"frame1": {},
+				},
+			},
+			expectedErr: nil,
+		},
+	}
+
+	testFn := func(t *testing.T, tc testCase) {
+		err := tc.request.validatePlanRequest()
+		if tc.expectedErr != nil {
+			test.That(t, err.Error(), test.ShouldEqual, tc.expectedErr.Error())
+		} else {
+			test.That(t, err, test.ShouldBeNil)
+		}
+	}
+
+	for _, tc := range testCases {
+		c := tc // needed to workaround loop variable not being captured by func literals
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			testFn(t, c)
+		})
+	}
+
+	// ensure nil PlanRequests are caught
+	_, err = PlanMotion(context.Background(), nil)
+	test.That(t, err.Error(), test.ShouldEqual, "PlanRequest cannot be nil")
 }

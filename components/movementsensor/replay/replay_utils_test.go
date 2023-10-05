@@ -32,6 +32,8 @@ const (
 	testTime = "2000-01-01T12:00:%02dZ"
 )
 
+var errTestCloudConnection = errors.New("cloud connection error")
+
 // mockDataServiceServer is a struct that includes unimplemented versions of all the Data Service endpoints. These
 // can be overwritten to allow developers to trigger desired behaviors during testing.
 type mockDataServiceServer struct {
@@ -59,7 +61,7 @@ func (mDServer *mockDataServiceServer) TabularDataByFilter(ctx context.Context, 
 		}
 
 		// Call desired function
-		data := createDataByMovementSensorMethod(filter.Method, dataIndex)
+		data := createDataByMovementSensorMethod(method(filter.Method), dataIndex)
 
 		timeReq, timeRec, err := timestampsFromIndex(dataIndex)
 		if err != nil {
@@ -130,7 +132,7 @@ func getNextDataAfterFilter(filter *datapb.Filter, last string) (int, error) {
 	// we will return data from indices 10 to 14.
 	startIntervalIndex := 0
 	endIntervalIndex := math.MaxInt
-	availableDataNum := defaultMaxDataLength[filter.Method]
+	availableDataNum := allMethodsMaxDataLength[method(filter.Method)]
 
 	if filter.Interval.Start != nil {
 		startIntervalIndex = filter.Interval.Start.AsTime().Second()
@@ -160,7 +162,8 @@ func checkDataEndCondition(i, endIntervalIndex, availableDataNum int) (int, erro
 
 // createMockCloudDependencies creates a mockDataServiceServer and rpc client connection to it which is then
 // stored in a mockCloudConnectionService.
-func createMockCloudDependencies(ctx context.Context, t *testing.T, logger golog.Logger, b bool) (resource.Dependencies, func() error) {
+func createMockCloudDependencies(ctx context.Context, t *testing.T, logger golog.Logger, validCloudConnection bool,
+) (resource.Dependencies, func() error) {
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
@@ -182,8 +185,8 @@ func createMockCloudDependencies(ctx context.Context, t *testing.T, logger golog
 		Named: cloud.InternalServiceName.AsNamed(),
 		Conn:  conn,
 	}
-	if !b {
-		mockCloudConnectionService.AcquireConnectionErr = errors.New("cloud connection error")
+	if !validCloudConnection {
+		mockCloudConnectionService.AcquireConnectionErr = errTestCloudConnection
 	}
 
 	r := &inject.Robot{}
@@ -196,11 +199,11 @@ func createMockCloudDependencies(ctx context.Context, t *testing.T, logger golog
 
 // createNewReplayMovementSensor will create a new replay movement sensor based on the provided config with either
 // a valid or invalid data client.
-func createNewReplayMovementSensor(ctx context.Context, t *testing.T, replayMovementSensorCfg *Config, validDeps bool,
+func createNewReplayMovementSensor(ctx context.Context, t *testing.T, replayMovementSensorCfg *Config, validCloudConnection bool,
 ) (movementsensor.MovementSensor, resource.Dependencies, func() error, error) {
 	logger := golog.NewTestLogger(t)
 
-	resources, closeRPCFunc := createMockCloudDependencies(ctx, t, logger, validDeps)
+	resources, closeRPCFunc := createMockCloudDependencies(ctx, t, logger, validCloudConnection)
 
 	cfg := resource.Config{ConvertedAttributes: replayMovementSensorCfg}
 	replay, err := newReplayMovementSensor(ctx, resources, cfg, logger)
@@ -225,55 +228,55 @@ func resourcesFromDeps(t *testing.T, r robot.Robot, deps []string) resource.Depe
 }
 
 // createDataByMovementSensorMethod will create the mocked structpb.Struct containing the next data returned by calls in tabular data.
-func createDataByMovementSensorMethod(method string, index int) *structpb.Struct {
+func createDataByMovementSensorMethod(method method, index int) *structpb.Struct {
 	var data structpb.Struct
 	switch method {
-	case "Position":
+	case position:
 		data.Fields = map[string]*structpb.Value{
 			"Latitude":  structpb.NewNumberValue(positionPointData[index].Lat()),
 			"Longitude": structpb.NewNumberValue(positionPointData[index].Lng()),
 			"Altitude":  structpb.NewNumberValue(positionAltitudeData[index]),
 		}
-	case "LinearAcceleration":
-		data.Fields = map[string]*structpb.Value{
-			"X": structpb.NewNumberValue(linearAccelerationData[index].X),
-			"Y": structpb.NewNumberValue(linearAccelerationData[index].Y),
-			"Z": structpb.NewNumberValue(linearAccelerationData[index].Z),
-		}
-	case "AngularVelocity":
-		data.Fields = map[string]*structpb.Value{
-			"X": structpb.NewNumberValue(angularVelocityData[index].X),
-			"Y": structpb.NewNumberValue(angularVelocityData[index].Y),
-			"Z": structpb.NewNumberValue(angularVelocityData[index].Z),
-		}
-	case "LinearVelocity":
+	case linearVelocity:
 		data.Fields = map[string]*structpb.Value{
 			"X": structpb.NewNumberValue(linearVelocityData[index].X),
 			"Y": structpb.NewNumberValue(linearVelocityData[index].Y),
 			"Z": structpb.NewNumberValue(linearVelocityData[index].Z),
 		}
-	case "Orientation":
+	case angularVelocity:
+		data.Fields = map[string]*structpb.Value{
+			"X": structpb.NewNumberValue(angularVelocityData[index].X),
+			"Y": structpb.NewNumberValue(angularVelocityData[index].Y),
+			"Z": structpb.NewNumberValue(angularVelocityData[index].Z),
+		}
+	case linearAcceleration:
+		data.Fields = map[string]*structpb.Value{
+			"X": structpb.NewNumberValue(linearAccelerationData[index].X),
+			"Y": structpb.NewNumberValue(linearAccelerationData[index].Y),
+			"Z": structpb.NewNumberValue(linearAccelerationData[index].Z),
+		}
+	case compassHeading:
+		data.Fields = map[string]*structpb.Value{
+			"Compass": structpb.NewNumberValue(compassHeadingData[index]),
+		}
+	case orientation:
 		data.Fields = map[string]*structpb.Value{
 			"OX":    structpb.NewNumberValue(orientationData[index].OX),
 			"OY":    structpb.NewNumberValue(orientationData[index].OY),
 			"OZ":    structpb.NewNumberValue(orientationData[index].OZ),
 			"Theta": structpb.NewNumberValue(orientationData[index].Theta),
 		}
-	case "CompassHeading":
-		data.Fields = map[string]*structpb.Value{
-			"Compass": structpb.NewNumberValue(compassHeadingData[index]),
-		}
 	}
 	return &data
 }
 
 // testReplayMovementSensorMethod tests the specified replay movement sensor function, both success and failure cases.
-func testReplayMovementSensorMethod(ctx context.Context, t *testing.T, replay movementsensor.MovementSensor, method string,
+func testReplayMovementSensorMethod(ctx context.Context, t *testing.T, replay movementsensor.MovementSensor, method method,
 	i int, success bool,
 ) {
 	var extra map[string]interface{}
 	switch method {
-	case "Position":
+	case position:
 		point, altitude, err := replay.Position(ctx, extra)
 		if success {
 			test.That(t, err, test.ShouldBeNil)
@@ -285,7 +288,7 @@ func testReplayMovementSensorMethod(ctx context.Context, t *testing.T, replay mo
 			test.That(t, point, test.ShouldBeNil)
 			test.That(t, altitude, test.ShouldEqual, 0)
 		}
-	case "LinearVelocity":
+	case linearVelocity:
 		data, err := replay.LinearVelocity(ctx, extra)
 		if success {
 			test.That(t, err, test.ShouldBeNil)
@@ -295,17 +298,7 @@ func testReplayMovementSensorMethod(ctx context.Context, t *testing.T, replay mo
 			test.That(t, err.Error(), test.ShouldContainSubstring, ErrEndOfDataset.Error())
 			test.That(t, data, test.ShouldResemble, r3.Vector{})
 		}
-	case "LinearAcceleration":
-		data, err := replay.LinearAcceleration(ctx, extra)
-		if success {
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, data, test.ShouldResemble, linearAccelerationData[i])
-		} else {
-			test.That(t, err, test.ShouldNotBeNil)
-			test.That(t, err.Error(), test.ShouldContainSubstring, ErrEndOfDataset.Error())
-			test.That(t, data, test.ShouldResemble, r3.Vector{})
-		}
-	case "AngularVelocity":
+	case angularVelocity:
 		data, err := replay.AngularVelocity(ctx, extra)
 		if success {
 			test.That(t, err, test.ShouldBeNil)
@@ -315,7 +308,17 @@ func testReplayMovementSensorMethod(ctx context.Context, t *testing.T, replay mo
 			test.That(t, err.Error(), test.ShouldContainSubstring, ErrEndOfDataset.Error())
 			test.That(t, data, test.ShouldResemble, spatialmath.AngularVelocity{})
 		}
-	case "CompassHeading":
+	case linearAcceleration:
+		data, err := replay.LinearAcceleration(ctx, extra)
+		if success {
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, data, test.ShouldResemble, linearAccelerationData[i])
+		} else {
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err.Error(), test.ShouldContainSubstring, ErrEndOfDataset.Error())
+			test.That(t, data, test.ShouldResemble, r3.Vector{})
+		}
+	case compassHeading:
 		data, err := replay.CompassHeading(ctx, extra)
 		if success {
 			test.That(t, err, test.ShouldBeNil)
@@ -325,7 +328,7 @@ func testReplayMovementSensorMethod(ctx context.Context, t *testing.T, replay mo
 			test.That(t, err.Error(), test.ShouldContainSubstring, ErrEndOfDataset.Error())
 			test.That(t, data, test.ShouldEqual, 0)
 		}
-	case "Orientation":
+	case orientation:
 		data, err := replay.Orientation(ctx, extra)
 		if success {
 			test.That(t, err, test.ShouldBeNil)

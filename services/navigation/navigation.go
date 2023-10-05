@@ -29,6 +29,7 @@ type Mode uint8
 const (
 	ModeManual = Mode(iota)
 	ModeWaypoint
+	ModeExplore
 )
 
 func (m Mode) String() string {
@@ -37,6 +38,8 @@ func (m Mode) String() string {
 		return "Manual"
 	case ModeWaypoint:
 		return "Waypoint"
+	case ModeExplore:
+		return "Explore"
 	default:
 		return "UNKNOWN"
 	}

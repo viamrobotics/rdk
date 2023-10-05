@@ -339,6 +339,11 @@ func (b *numatoBoard) SetPowerMode(ctx context.Context, mode pb.PowerMode, durat
 	return grpc.UnimplementedError
 }
 
+// WriteAnalog writes the value to the given pin.
+func (b *numatoBoard) WriteAnalog(ctx context.Context, pin string, value int32, extra map[string]interface{}) error {
+	return grpc.UnimplementedError
+}
+
 func (b *numatoBoard) Close(ctx context.Context) error {
 	atomic.AddInt32(&b.closed, 1)
 	if err := b.port.Close(); err != nil {

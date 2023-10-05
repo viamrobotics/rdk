@@ -182,7 +182,7 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	svc.actionMu.Lock()
 	defer svc.actionMu.Unlock()
 
-	svc.stopWaypointMode()
+	svc.stopActiveMode()
 
 	svcConfig, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
@@ -273,16 +273,25 @@ func (svc *builtIn) SetMode(ctx context.Context, mode navigation.Mode, extra map
 	}
 	svc.mu.RUnlock()
 
+	// stop passed active sessions
+	svc.stopActiveMode()
+
 	// switch modes
-	svc.stopWaypointMode()
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	svc.wholeServiceCancelFunc = cancelFunc
 	svc.mode = mode
-	if svc.mode == navigation.ModeWaypoint {
+
+	switch svc.mode {
+	case navigation.ModeManual:
+		// do nothing
+	case navigation.ModeWaypoint:
 		svc.startWaypointMode(cancelCtx, extra)
+	case navigation.ModeExplore:
+		return errors.New("navigation mode 'explore' is not currently available")
 	}
+
 	return nil
 }
 
@@ -353,7 +362,7 @@ func (svc *builtIn) Close(ctx context.Context) error {
 	svc.actionMu.Lock()
 	defer svc.actionMu.Unlock()
 
-	svc.stopWaypointMode()
+	svc.stopActiveMode()
 	return svc.store.Close(ctx)
 }
 
@@ -431,7 +440,7 @@ func (svc *builtIn) startWaypointMode(ctx context.Context, extra map[string]inte
 	})
 }
 
-func (svc *builtIn) stopWaypointMode() {
+func (svc *builtIn) stopActiveMode() {
 	if svc.wholeServiceCancelFunc != nil {
 		svc.wholeServiceCancelFunc()
 	}
