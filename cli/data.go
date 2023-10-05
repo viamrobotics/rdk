@@ -347,9 +347,6 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 	// Modify the file name in the metadata to reflect what it will be saved as.
 	metadata := datum.GetMetadata()
 	metadata.FileName = fileName
-	if filepath.Ext(fileName) != gzFileExt && filepath.Ext(fileName) != datum.GetMetadata().GetFileExt() {
-		metadata.FileName += datum.GetMetadata().GetFileExt()
-	}
 
 	jsonPath := filepath.Join(dst, metadataDir, fileName+".json")
 	if err := os.MkdirAll(filepath.Dir(jsonPath), 0o700); err != nil {
