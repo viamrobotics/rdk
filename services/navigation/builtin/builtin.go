@@ -38,11 +38,11 @@ const (
 	defaultStoreType = navigation.StoreTypeMemory
 
 	// default map type is GPS.
-	defaultMapType = "GPS"
+	defaultMapType = navigation.GPSMap
 
 	// desired speeds to maintain for the base.
 	defaultLinearVelocityMPerSec     = 0.5
-	defaultAngularVelocityDegsPerSec = 45
+	defaultAngularVelocityDegsPerSec = 45.
 
 	// how far off the path must the robot be to trigger replanning.
 	defaultPlanDeviationM = 1e9
@@ -101,59 +101,64 @@ type Config struct {
 func (conf *Config) Validate(path string) ([]string, error) {
 	var deps []string
 
+	// Add base dependencies
 	if conf.BaseName == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "base")
 	}
 	deps = append(deps, conf.BaseName)
 
-	if conf.MotionServiceName == "" {
-		conf.MotionServiceName = resource.DefaultServiceName
-	}
-	deps = append(deps, resource.NewName(motion.API, conf.MotionServiceName).String())
-
-	if conf.MapType != "" {
-		if !slices.Contains([]string{"None", "GPS"}, conf.MapType) {
-			return nil, errors.New("invalid map_type, when defined map_type must be one of the following ['None', 'GPS']")
-		}
-	} else {
-		conf.MapType = defaultMapType
-	}
-
-	if conf.MapType == "GPS" {
-		if conf.MovementSensorName == "" {
-			return nil, utils.NewConfigValidationFieldRequiredError(path, "movement_sensor")
-		}
+	// Add movement sensor dependencies
+	if conf.MovementSensorName != "" {
 		deps = append(deps, conf.MovementSensorName)
 	}
 
+	// Add motion service dependencies
+	if conf.MotionServiceName != "" {
+		deps = append(deps, resource.NewName(motion.API, conf.MotionServiceName).String())
+	} else {
+		deps = append(deps, resource.NewName(motion.API, resource.DefaultServiceName).String())
+	}
+
+	// Add vision service dependencies
 	for _, v := range conf.VisionServices {
 		deps = append(deps, resource.NewName(vision.API, v).String())
 	}
 
-	// get default speeds from config if set, else defaults from nav services const
-	if conf.Store.Validate(path) != nil {
-		conf.Store.Type = defaultStoreType
+	// Ensure map_type is valid and a movement sensor is available if MapType is GPS (or default)
+	mapType, err := navigation.StringToMapType(conf.MapType)
+	if err != nil {
+		return nil, err
 	}
-	if conf.MetersPerSec == 0 {
-		conf.MetersPerSec = defaultLinearVelocityMPerSec
-	}
-	if conf.DegPerSec == 0 {
-		conf.DegPerSec = defaultAngularVelocityDegsPerSec
-	}
-	if conf.PositionPollingFrequencyHz == 0 {
-		conf.PositionPollingFrequencyHz = defaultPositionPollingFrequencyHz
-	}
-	if conf.ObstaclePollingFrequencyHz == 0 {
-		conf.ObstaclePollingFrequencyHz = defaultObstaclePollingFrequencyHz
-	}
-	if conf.PlanDeviationM == 0 {
-		conf.PlanDeviationM = defaultPlanDeviationM
-	}
-	if conf.ReplanCostFactor == 0 {
-		conf.ReplanCostFactor = defaultReplanCostFactor
+	if mapType == navigation.GPSMap && conf.MovementSensorName == "" {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "movement_sensor")
 	}
 
-	// ensure obstacles have no translation
+	// Ensure store is valid
+	if err := conf.Store.Validate(path); err != nil {
+		return nil, err
+	}
+
+	// Ensure inputs are non-negative
+	if conf.DegPerSec < 0 {
+		return nil, errors.New("degs_per_sec must be non-negative if set")
+	}
+	if conf.MetersPerSec < 0 {
+		return nil, errors.New("meters_per_sec must be non-negative if set")
+	}
+	if conf.PositionPollingFrequencyHz < 0 {
+		return nil, errors.New("position_polling_frequency_hz must be non-negative if set")
+	}
+	if conf.ObstaclePollingFrequencyHz < 0 {
+		return nil, errors.New("obstacle_polling_frequency_hz must be non-negative if set")
+	}
+	if conf.PlanDeviationM < 0 {
+		return nil, errors.New("plan_deviation_m must be non-negative if set")
+	}
+	if conf.ReplanCostFactor < 0 {
+		return nil, errors.New("replan_cost_factor must be non-negative if set")
+	}
+
+	// Ensure obstacles have no translation
 	for _, obs := range conf.Obstacles {
 		for _, geoms := range obs.Geometries {
 			if !geoms.TranslationOffset.ApproxEqual(r3.Vector{}) {
@@ -214,6 +219,53 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		return err
 	}
 
+	// Set optional variables
+	metersPerSec := defaultLinearVelocityMPerSec
+	if metersPerSec != 0 {
+		metersPerSec = svcConfig.MetersPerSec
+	}
+	degPerSec := defaultAngularVelocityDegsPerSec
+	if svcConfig.DegPerSec != 0 {
+		degPerSec = svcConfig.DegPerSec
+	}
+	positionPollingFrequencyHz := defaultPositionPollingFrequencyHz
+	if svcConfig.PositionPollingFrequencyHz != 0 {
+		positionPollingFrequencyHz = svcConfig.PositionPollingFrequencyHz
+	}
+	obstaclePollingFrequencyHz := defaultObstaclePollingFrequencyHz
+	if svcConfig.ObstaclePollingFrequencyHz != 0 {
+		obstaclePollingFrequencyHz = svcConfig.PositionPollingFrequencyHz
+	}
+	planDeviationM := defaultPlanDeviationM
+	if svcConfig.PlanDeviationM != 0 {
+		planDeviationM = svcConfig.PlanDeviationM
+	}
+	replanCostFactor := defaultReplanCostFactor
+	if svcConfig.ReplanCostFactor != 0 {
+		replanCostFactor = svcConfig.ReplanCostFactor
+	}
+
+	motionServiceName := resource.DefaultServiceName
+	if svcConfig.MotionServiceName != "" {
+		motionServiceName = svcConfig.MotionServiceName
+	}
+	mapType := defaultMapType
+	if svcConfig.MapType != "" {
+		mapType, err = navigation.StringToMapType(svcConfig.MapType)
+		if err != nil {
+			return err
+		}
+	}
+	store := navigation.StoreConfig{Type: defaultStoreType}
+	if svcConfig.Store.Type != navigation.StoreTypeUnset {
+		store = svcConfig.Store
+	}
+
+	// Mutex lock before making changes to svc
+	svc.mu.Lock()
+	defer svc.mu.Unlock()
+
+	// Parse logger file from the configuration if given
 	if svcConfig.LogFilePath != "" {
 		logger, err := rdkutils.NewFilePathDebugLogger(svcConfig.LogFilePath, "navigation")
 		if err != nil {
@@ -222,30 +274,28 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		svc.logger = logger
 	}
 
-	base1, err := base.FromDependencies(deps, svcConfig.BaseName)
-	if err != nil {
-		return err
-	}
-
-	mapType, err := navigation.StringToMapType(svcConfig.MapType)
-	if err != nil {
-		return err
-	}
-
-	// Movement sensor required if map type is GPS
-	if mapType == navigation.GPSMap {
-		movementSensor, err := movementsensor.FromDependencies(deps, svcConfig.MovementSensorName)
+	// Reconfigure the store if necessary
+	if svc.storeType != string(store.Type) {
+		newStore, err := navigation.NewStoreFromConfig(ctx, svcConfig.Store)
 		if err != nil {
 			return err
 		}
-		svc.movementSensor = movementSensor
+		svc.store = newStore
 	}
 
-	motionSvc, err := motion.FromDependencies(deps, svcConfig.MotionServiceName)
+	// Parse base from the configuration
+	baseComponent, err := base.FromDependencies(deps, svcConfig.BaseName)
 	if err != nil {
 		return err
 	}
 
+	// Parse motion services from the configuration
+	motionSvc, err := motion.FromDependencies(deps, motionServiceName)
+	if err != nil {
+		return err
+	}
+
+	// Parse vision services from the configuration
 	var visionServiceNames []resource.Name
 	var visionServices []vision.Service
 	for _, svc := range svcConfig.VisionServices {
@@ -257,11 +307,17 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		visionServices = append(visionServices, visionSvc)
 	}
 
-	svc.mu.Lock()
-	defer svc.mu.Unlock()
+	// Parse movement sensor from the configuration if map type is GPS
+	if mapType == navigation.GPSMap {
+		movementSensor, err := movementsensor.FromDependencies(deps, svcConfig.MovementSensorName)
+		if err != nil {
+			return err
+		}
+		svc.movementSensor = movementSensor
+	}
 
 	// Reconfigure the store if necessary
-	if svc.storeType != string(svcConfig.Store.Type) {
+	if svc.storeType != string(store.Type) {
 		newStore, err := navigation.NewStoreFromConfig(ctx, svcConfig.Store)
 		if err != nil {
 			return err
@@ -269,7 +325,7 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		svc.store = newStore
 	}
 
-	// Parse obstacles from the passed in configuration
+	// Parse obstacles from the configuration
 	newObstacles, err := spatialmath.GeoObstaclesFromConfigs(svcConfig.Obstacles)
 	if err != nil {
 		return err
@@ -277,19 +333,19 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 
 	svc.mode = navigation.ModeManual
 	svc.storeType = string(svcConfig.Store.Type)
-	svc.base = base1
+	svc.base = baseComponent
 	svc.mapType = mapType
 	svc.motion = motionSvc
 	svc.obstacles = newObstacles
-	svc.replanCostFactor = svcConfig.ReplanCostFactor
+	svc.replanCostFactor = replanCostFactor
 	svc.vision = visionServices
 	svc.motionCfg = &motion.MotionConfiguration{
 		VisionServices:        visionServiceNames,
-		LinearMPerSec:         svcConfig.MetersPerSec,
-		AngularDegsPerSec:     svcConfig.DegPerSec,
-		PlanDeviationMM:       1e3 * svcConfig.PlanDeviationM,
-		PositionPollingFreqHz: svcConfig.PositionPollingFrequencyHz,
-		ObstaclePollingFreqHz: svcConfig.ObstaclePollingFrequencyHz,
+		LinearMPerSec:         metersPerSec,
+		AngularDegsPerSec:     degPerSec,
+		PlanDeviationMM:       1e3 * planDeviationM,
+		PositionPollingFreqHz: positionPollingFrequencyHz,
+		ObstaclePollingFreqHz: obstaclePollingFrequencyHz,
 	}
 
 	return nil

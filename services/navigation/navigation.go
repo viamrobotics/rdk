@@ -39,14 +39,6 @@ const (
 	GPSMap
 )
 
-// Available modes for each MapType.
-var (
-	AvailableModesByMapType = map[MapType][]Mode{
-		NoMap:  {ModeManual, ModeExplore},
-		GPSMap: {ModeManual, ModeWaypoint, ModeExplore},
-	}
-)
-
 func (m Mode) String() string {
 	switch m {
 	case ModeManual:
@@ -76,7 +68,7 @@ func StringToMapType(mapTypeName string) (MapType, error) {
 	switch mapTypeName {
 	case "None":
 		return NoMap, nil
-	case "GPS":
+	case "GPS", "":
 		return GPSMap, nil
 	}
 	return 0, errors.Errorf("invalid map_type '%v' given", mapTypeName)
