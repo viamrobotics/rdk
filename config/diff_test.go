@@ -69,7 +69,7 @@ func TestDiffConfigs(t *testing.T) {
 
 				API: board.API,
 				Attributes: utils.AttributeMap{
-					"analogs": []interface{}{
+					"analog_readers": []interface{}{
 						map[string]interface{}{
 							"name": "analog1",
 							"pin":  "0",
@@ -156,7 +156,7 @@ func TestDiffConfigs(t *testing.T) {
 
 				API: board.API,
 				Attributes: utils.AttributeMap{
-					"analogs": []interface{}{
+					"analog_readers": []interface{}{
 						map[string]interface{}{
 							"name": "analog1",
 							"pin":  "1",
@@ -333,7 +333,7 @@ func TestDiffConfigs(t *testing.T) {
 							API:   board.API,
 							Model: fakeModel,
 							Attributes: utils.AttributeMap{
-								"analogs": []interface{}{
+								"analog_readers": []interface{}{
 									map[string]interface{}{
 										"name": "analog1",
 										"pin":  "1",
