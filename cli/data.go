@@ -425,9 +425,8 @@ func filenameForDownload(meta *datapb.BinaryMetadata) string {
 		fileName = strings.Map(func(c rune) rune {
 			if strings.ContainsRune(windowsReservedChars, c) {
 				return '_'
-			} else {
-				return c
 			}
+			return c
 		}, fileName)
 	}
 	return fileName
