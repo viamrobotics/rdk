@@ -152,7 +152,9 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 		return nil, err
 	}
 
-	// Important: this assumes a 0 degree heading. This, and the geoms below, need to be transformed to the correct pose.
+	// Important: GeoPointToPose will create a pose such that incrementing latitude towards north increments +Y, and incrementing
+	// longitude towards east increments +X. Heading is not taken into account. This pose must therefore be transformed based on the
+	// orientation of the base such that it is a pose relative to the base's current location.
 	goalPoseRaw := spatialmath.GeoPointToPose(destination, origin)
 	// construct limits
 	straightlineDistance := goalPoseRaw.Point().Norm()
