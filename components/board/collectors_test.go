@@ -15,7 +15,6 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 
 	"go.viam.com/rdk/data"
-	"go.viam.com/rdk/resource"
 	tu "go.viam.com/rdk/testutils"
 )
 
@@ -98,7 +97,7 @@ func TestCollectors(t *testing.T) {
 			tc.params.Clock = mockClock
 			tc.params.Target = &buf
 
-			board := newBoard(componentName)
+			board := newBoard()
 			col, err := tc.collector(board, tc.params)
 			test.That(t, err, test.ShouldBeNil)
 
@@ -113,15 +112,10 @@ func TestCollectors(t *testing.T) {
 
 type fakeBoard struct {
 	LocalBoard
-	name resource.Name
 }
 
-func newBoard(name string) Board {
-	return &fakeBoard{name: resource.Name{Name: name}}
-}
-
-func (b *fakeBoard) Name() resource.Name {
-	return b.name
+func newBoard() Board {
+	return &fakeBoard{}
 }
 
 func (b *fakeBoard) AnalogReaderByName(name string) (AnalogReader, bool) {
