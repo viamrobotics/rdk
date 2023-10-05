@@ -70,7 +70,6 @@ func TestNewSerialMovementSensor(t *testing.T) {
 				SerialPath:     path,
 				SerialBaudRate: 0,
 			},
-			I2CConfig: &I2CConfig{Board: "local"},
 		},
 	}
 	g, err = newNMEAGPS(ctx, deps, cfig, logger)
