@@ -107,11 +107,10 @@ func (mr *moveRequest) obstaclesIntersectPlan(ctx context.Context, waypoints [][
 		for camName, srvc := range vcMap {
 			// get detections from vision service
 			detections, err := srvc.GetObjectPointClouds(ctx, camName.Name, nil)
-			if strings.Contains(err.Error(), "does not implement a 3D segmenter") {
+			if err != nil && strings.Contains(err.Error(), "does not implement a 3D segmenter") {
 				mr.planRequest.Logger.Infof("cannot call GetObjectPointClouds on %q as it does not implement a 3D segmenter", srvc.Name())
 				break
-			}
-			if err != nil {
+			} else if err != nil {
 				return false, err
 			}
 
