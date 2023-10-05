@@ -165,14 +165,6 @@ func (b *Board) processConfig(conf resource.Config) error {
 	}
 	stillExists = map[string]struct{}{}
 
-	for name := range b.AnalogReaders {
-		if _, ok := stillExists[name]; ok {
-			continue
-		}
-		delete(b.AnalogReaders, name)
-	}
-	stillExists = map[string]struct{}{}
-
 	var errs error
 	for _, c := range newConf.DigitalInterrupts {
 		stillExists[c.Name] = struct{}{}
