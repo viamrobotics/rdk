@@ -399,10 +399,10 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 	return nil
 }
 
-// non-exhaustive list of characters to strip from filenames on windows
+// non-exhaustive list of characters to strip from filenames on windows.
 const windowsReservedChars = ":"
 
-// transform datum's filename to a destination path on this computer
+// transform datum's filename to a destination path on this computer.
 func filenameForDownload(meta *datapb.BinaryMetadata) string {
 	timeRequested := meta.GetTimeRequested().AsTime().Format(time.RFC3339Nano)
 	fileName := meta.GetFileName()
