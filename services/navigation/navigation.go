@@ -31,11 +31,6 @@ const (
 	ModeWaypoint
 )
 
-type Path struct {
-	DestinationWaypointID string
-	GeoPoints             []*geo.Point
-}
-
 func (m Mode) String() string {
 	switch m {
 	case ModeManual:
@@ -45,6 +40,12 @@ func (m Mode) String() string {
 	default:
 		return "UNKNOWN"
 	}
+}
+
+// Path describes a series of geo points the robot will travel through
+type Path struct {
+	DestinationWaypointID string
+	GeoPoints             []*geo.Point
 }
 
 // A Service controls the navigation for a robot.
