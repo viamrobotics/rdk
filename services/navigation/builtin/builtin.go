@@ -25,6 +25,14 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
+// available modes for each MapType.
+var (
+	availableModesByMapType = map[navigation.MapType][]navigation.Mode{
+		navigation.NoMap:  {navigation.ModeManual, navigation.ModeExplore},
+		navigation.GPSMap: {navigation.ModeManual, navigation.ModeWaypoint, navigation.ModeExplore},
+	}
+)
+
 const (
 	// default configuration for Store parameter.
 	defaultStoreType = navigation.StoreTypeMemory
@@ -315,7 +323,7 @@ func (svc *builtIn) SetMode(ctx context.Context, mode navigation.Mode, extra map
 	svc.wholeServiceCancelFunc = cancelFunc
 	svc.mode = mode
 
-	if !slices.Contains(navigation.AvailableModesByMapType[svc.mapType], svc.mode) {
+	if !slices.Contains(availableModesByMapType[svc.mapType], svc.mode) {
 		return errors.Errorf("%v mode is unavailable for map type %v", svc.mode.String(), svc.mapType.String())
 	}
 

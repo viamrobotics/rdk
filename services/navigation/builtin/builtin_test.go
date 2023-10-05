@@ -164,28 +164,28 @@ func TestSetMode(t *testing.T) {
 	}{
 		{
 			description: "setting mode to manual when map_type is None",
-			cfg:         "../data/nav_none_cfg.json",
+			cfg:         "../data/nav_no_map_cfg.json",
 			mapType:     navigation.NoMap,
 			mode:        navigation.ModeManual,
 			expectedErr: nil,
 		},
 		{
 			description: "setting mode to waypoint when map_type is None",
-			cfg:         "../data/nav_none_cfg.json",
+			cfg:         "../data/nav_no_map_cfg.json",
 			mapType:     navigation.NoMap,
 			mode:        navigation.ModeWaypoint,
 			expectedErr: errors.New("Waypoint mode is unavailable for map type None"),
 		},
 		{
 			description: "setting mode to explore when map_type is None",
-			cfg:         "../data/nav_none_cfg.json",
+			cfg:         "../data/nav_no_map_cfg.json",
 			mapType:     navigation.NoMap,
 			mode:        navigation.ModeExplore,
 			expectedErr: errors.New("navigation mode 'explore' is not currently available"),
 		},
 		{
 			description: "setting mode to explore when map_type is None and no vision service is configured",
-			cfg:         "../data/nav_none_cfg_no_vision.json",
+			cfg:         "../data/nav_no_map_cfg_no_vision.json",
 			mapType:     navigation.GPSMap,
 			mode:        navigation.ModeExplore,
 			expectedErr: errors.New("explore mode requires at least one vision service"),
@@ -524,34 +524,52 @@ func TestStartWaypoint(t *testing.T) {
 			test.That(t, <-statusChannel, test.ShouldEqual, arrivedAtWaypointMsg)
 			currentInputsShouldEqual(ctx, t, kinematicBase, pt3)
 		})
-		t.Run("Calling SetMode cancels current and future MoveOnGlobe calls", func(t *testing.T) {
-			// Set manual mode to ensure waypoint loop from prior test exits
-			err = deleteAllWaypoints(ctx, ns)
-			test.That(t, err, test.ShouldBeNil)
-			for _, pt := range points {
-				err = ns.AddWaypoint(ctx, pt, nil)
+
+		// Calling SetMode cancels current and future MoveOnGlobe calls
+		cases := []struct {
+			description string
+			mode        navigation.Mode
+		}{
+			{
+				description: "Calling SetMode manual cancels current and future MoveOnGlobe calls",
+				mode:        navigation.ModeManual,
+			},
+			{
+				description: "Calling SetMode explore cancels current and future MoveOnGlobe calls",
+				mode:        navigation.ModeExplore,
+			},
+		}
+
+		for _, tt := range cases {
+			t.Run(tt.description, func(t *testing.T) {
+				// Set manual mode to ensure waypoint loop from prior test exits
+				err = deleteAllWaypoints(ctx, ns)
 				test.That(t, err, test.ShouldBeNil)
-			}
+				for _, pt := range points {
+					err = ns.AddWaypoint(ctx, pt, nil)
+					test.That(t, err, test.ShouldBeNil)
+				}
 
-			// start navigation - set ModeManual first to ensure navigation starts up
-			err = ns.SetMode(ctx, navigation.ModeWaypoint, map[string]interface{}{"experimental": true})
+				// start navigation - set ModeManual first to ensure navigation starts up
+				err = ns.SetMode(ctx, navigation.ModeWaypoint, map[string]interface{}{"experimental": true})
 
-			// Reach the first waypoint
-			eventChannel <- arrivedAtWaypointMsg
-			test.That(t, <-statusChannel, test.ShouldEqual, arrivedAtWaypointMsg)
-			currentInputsShouldEqual(ctx, t, kinematicBase, pt1)
+				// Reach the first waypoint
+				eventChannel <- arrivedAtWaypointMsg
+				test.That(t, <-statusChannel, test.ShouldEqual, arrivedAtWaypointMsg)
+				currentInputsShouldEqual(ctx, t, kinematicBase, pt1)
 
-			// Change the mode to manual --> stops navigation to waypoints
-			err = ns.SetMode(ctx, navigation.ModeManual, map[string]interface{}{"experimental": true})
-			test.That(t, err, test.ShouldBeNil)
-			select {
-			case msg := <-statusChannel:
-				test.That(t, msg, test.ShouldEqual, cancelledContextMsg)
-			case <-time.After(5 * time.Second):
-				ns.(*builtIn).activeBackgroundWorkers.Wait()
-			}
-			currentInputsShouldEqual(ctx, t, kinematicBase, pt1)
-		})
+				// Change the mode --> stops navigation to waypoints
+				err = ns.SetMode(ctx, tt.mode, map[string]interface{}{"experimental": true})
+				test.That(t, err, test.ShouldBeNil)
+				select {
+				case msg := <-statusChannel:
+					test.That(t, msg, test.ShouldEqual, cancelledContextMsg)
+				case <-time.After(5 * time.Second):
+					ns.(*builtIn).activeBackgroundWorkers.Wait()
+				}
+				currentInputsShouldEqual(ctx, t, kinematicBase, pt1)
+			})
+		}
 
 		t.Run("Calling RemoveWaypoint on the waypoint in progress cancels current MoveOnGlobe call", func(t *testing.T) {
 			// Set manual mode to ensure waypoint loop from prior test exits
