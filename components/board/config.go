@@ -53,7 +53,7 @@ func (config *AnalogConfig) Validate(path string) error {
 	return nil
 }
 
-// AnalogConfig describes the configuration of an analog reader on a board.
+// AnalogReaderConfig describes the configuration of an analog reader on a board.
 type AnalogReaderConfig struct {
 	Name              string `json:"name"`
 	Pin               string `json:"pin"`

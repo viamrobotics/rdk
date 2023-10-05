@@ -230,7 +230,9 @@ func (pi *piPigpio) reconfigureAnalogs(ctx context.Context, cfg *genericlinux.Co
 		}
 
 		ar := &board.MCP3008AnalogReader{channel, bus, ac.ChipSelect}
-		pi.analogs[ac.Name] = board.SmoothAnalogReader(ar, ac, pi.logger)
+		pi.analogs[ac.Name] = board.SmoothAnalogReader(ar,
+			board.AnalogReaderConfig{SamplesPerSecond: ac.SamplesPerSecond, AverageOverMillis: ac.AverageOverMillis},
+			pi.logger)
 	}
 	return nil
 }

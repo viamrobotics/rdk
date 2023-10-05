@@ -102,9 +102,6 @@ const handlePwmFrequencyInput = (event: CustomEvent) => {
     <h3 class="mb-2">
       Analogs
     </h3>
-    <h5>
-      Analog Reader
-    </h5>
     <table class="mb-4 table-auto border border-medium">
       {#each Object.entries(status?.analogs ?? {}) as [analogName, analog] (analogName)}
         <tr>
@@ -116,34 +113,7 @@ const handlePwmFrequencyInput = (event: CustomEvent) => {
           </td>
         </tr>
       {/each}
-    </table>
-
-    <h3 class="mb-2">
-     Analog Writers
-    </h3>
-    <td class="border border-medium p-2">
-      <div class="flex flex-wrap items-end gap-2">
-        <v-input
-          label="Pin"
-          type="text"
-          value={getPin}
-          on:input={handleGetPinInput}
-        />
-        <v-input
-        label="Value"
-        type="text"
-        value={getPin}
-        on:input={handleGetPinInput}
-      />
-      <v-button
-      class="mr-2"
-      label="Set Analog Value"
-      on:click={setGPIO}
-    />
-      </div>
-    </td>
-
-
+      </table>
     <h3 class="mb-2">
       Digital Interrupts
     </h3>
@@ -159,7 +129,6 @@ const handlePwmFrequencyInput = (event: CustomEvent) => {
         </tr>
       {/each}
     </table>
-
     <h3 class="mb-2">
       GPIO
     </h3>
