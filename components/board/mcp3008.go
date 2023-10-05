@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"go.uber.org/multierr"
+	"go.viam.com/utils"
 )
 
 // MCP3008AnalogReader implements a board.AnalogReader using an MCP3008 ADC via SPI.
@@ -11,6 +12,24 @@ type MCP3008AnalogReader struct {
 	Channel int
 	Bus     SPI
 	Chip    string
+}
+
+// MCP3008AnalogConfig describes the configuration of a MCP3008 analog reader on a board.
+type MCP3008AnalogConfig struct {
+	Name              string `json:"name"`
+	Pin               string `json:"pin"`         // analog input pin on the ADC itself
+	SPIBus            string `json:"spi_bus"`     // name of the SPI bus (which is configured elsewhere in the config file)
+	ChipSelect        string `json:"chip_select"` // the CS line for the ADC chip, typically a pin number on the board
+	AverageOverMillis int    `json:"average_over_ms,omitempty"`
+	SamplesPerSecond  int    `json:"samples_per_sec,omitempty"`
+}
+
+// Validate ensures all parts of the config are valid.
+func (config *MCP3008AnalogConfig) Validate(path string) error {
+	if config.Name == "" {
+		return utils.NewConfigValidationFieldRequiredError(path, "name")
+	}
+	return nil
 }
 
 func (mar *MCP3008AnalogReader) Read(ctx context.Context, extra map[string]interface{}) (value int, err error) {
