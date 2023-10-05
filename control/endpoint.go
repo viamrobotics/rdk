@@ -27,10 +27,9 @@ func newEndpoint(config BlockConfig, logger golog.Logger, ctr Controllable) (Blo
 
 func (e *endpoint) Next(ctx context.Context, x []*Signal, dt time.Duration) ([]*Signal, bool) {
 	switch len(x) {
-	case 1:
-		power := x[0].GetSignalValueAt(0)
+	case 1, 2:
 		if e.ctr != nil {
-			err := e.ctr.SetState(ctx, power)
+			err := e.ctr.SetState(ctx, x)
 			if err != nil {
 				return []*Signal{}, false
 			}
@@ -38,11 +37,13 @@ func (e *endpoint) Next(ctx context.Context, x []*Signal, dt time.Duration) ([]*
 		return []*Signal{}, false
 	case 0:
 		if e.ctr != nil {
-			pos, err := e.ctr.State(ctx)
+			vals, err := e.ctr.State(ctx)
 			if err != nil {
 				return []*Signal{}, false
 			}
-			e.y[0].SetSignalValueAt(0, pos)
+			for idx, val := range vals {
+				e.y[idx].SetSignalValueAt(0, val)
+			}
 		}
 		return e.y, true
 	default:
