@@ -460,7 +460,7 @@ func TestMultiArmSolve(t *testing.T) {
 		Frame:              fs.Frame("xArmVgripper"),
 		StartConfiguration: positions,
 		FrameSystem:        fs,
-		Options:            map[string]interface{}{"max_ik_solutions": 100, "timeout": 150.0, "smooth_iter": 5},
+		Options:            map[string]interface{}{"max_ik_solutions": 10, "timeout": 150.0, "smooth_iter": 5},
 	})
 	test.That(t, err, test.ShouldBeNil)
 
@@ -493,7 +493,7 @@ func TestReachOverArm(t *testing.T) {
 	fs.AddFrame(xarm, offset)
 
 	// plan to a location, it should interpolate to get there
-	opts := map[string]interface{}{"max_ik_solutions": 100, "timeout": 150.0}
+	opts := map[string]interface{}{"timeout": 150.0}
 	plan, err := PlanMotion(context.Background(), &PlanRequest{
 		Logger:             logger.Sugar(),
 		Goal:               goal,
@@ -512,7 +512,7 @@ func TestReachOverArm(t *testing.T) {
 	fs.AddFrame(ur5, fs.World())
 
 	// the plan should no longer be able to interpolate, but it should still be able to get there
-	opts = map[string]interface{}{"max_ik_solutions": 100, "timeout": 150.0, "smooth_iter": 5}
+	opts = map[string]interface{}{"timeout": 150.0, "smooth_iter": 5}
 	plan, err = PlanMotion(context.Background(), &PlanRequest{
 		Logger:             logger.Sugar(),
 		Goal:               goal,
