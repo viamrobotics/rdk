@@ -11,7 +11,6 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/data"
-	"go.viam.com/rdk/resource"
 	tu "go.viam.com/rdk/testutils"
 )
 
@@ -25,29 +24,18 @@ var floatList = []float64{1.0, 2.0, 3.0}
 func TestGantryCollectors(t *testing.T) {
 	tests := []struct {
 		name      string
-		params    data.CollectorParams
 		collector data.CollectorConstructor
 		expected  map[string]any
 	}{
 		{
-			name: "Length collector should write a lengths response",
-			params: data.CollectorParams{
-				ComponentName: componentName,
-				Interval:      captureInterval,
-				Logger:        golog.NewTestLogger(t),
-			},
+			name:      "Length collector should write a lengths response",
 			collector: newLengthsCollector,
 			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.GetLengthsResponse{
 				LengthsMm: scaleMetersToMm(floatList),
 			}),
 		},
 		{
-			name: "End position collector should write a list of positions",
-			params: data.CollectorParams{
-				ComponentName: componentName,
-				Interval:      captureInterval,
-				Logger:        golog.NewTestLogger(t),
-			},
+			name:      "End position collector should write a list of positions",
 			collector: newPositionCollector,
 			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.GetPositionResponse{
 				PositionsMm: scaleMetersToMm(floatList),
@@ -59,11 +47,16 @@ func TestGantryCollectors(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			mockClock := clk.NewMock()
 			buf := tu.MockBuffer{}
-			tc.params.Clock = mockClock
-			tc.params.Target = &buf
+			params := data.CollectorParams{
+				ComponentName: componentName,
+				Interval:      captureInterval,
+				Logger:        golog.NewTestLogger(t),
+				Clock:         mockClock,
+				Target:        &buf,
+			}
 
-			gantry := newGantry(componentName)
-			col, err := tc.collector(gantry, tc.params)
+			gantry := newGantry()
+			col, err := tc.collector(gantry, params)
 			test.That(t, err, test.ShouldBeNil)
 
 			defer col.Close()
@@ -78,11 +71,10 @@ func TestGantryCollectors(t *testing.T) {
 
 type fakeGantry struct {
 	Gantry
-	name resource.Name
 }
 
-func newGantry(name string) Gantry {
-	return &fakeGantry{name: resource.Name{Name: name}}
+func newGantry() Gantry {
+	return &fakeGantry{}
 }
 
 func (g *fakeGantry) Position(ctx context.Context, extra map[string]interface{}) ([]float64, error) {

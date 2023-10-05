@@ -11,11 +11,8 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/data"
-	"go.viam.com/rdk/resource"
 	tu "go.viam.com/rdk/testutils"
 )
-
-type collectorFunc func(resource interface{}, params data.CollectorParams) (data.Collector, error)
 
 const (
 	componentName   = "powersensor"
@@ -25,17 +22,11 @@ const (
 func TestPowerSensorCollectors(t *testing.T) {
 	tests := []struct {
 		name      string
-		params    data.CollectorParams
-		collector collectorFunc
+		collector data.CollectorConstructor
 		expected  map[string]any
 	}{
 		{
-			name: "Power sensor voltage collector should write a voltage response",
-			params: data.CollectorParams{
-				ComponentName: componentName,
-				Interval:      captureInterval,
-				Logger:        golog.NewTestLogger(t),
-			},
+			name:      "Power sensor voltage collector should write a voltage response",
 			collector: newVoltageCollector,
 			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.GetVoltageResponse{
 				Volts: 1.0,
@@ -43,12 +34,7 @@ func TestPowerSensorCollectors(t *testing.T) {
 			}),
 		},
 		{
-			name: "Power sensor current collector should write a current response",
-			params: data.CollectorParams{
-				ComponentName: componentName,
-				Interval:      captureInterval,
-				Logger:        golog.NewTestLogger(t),
-			},
+			name:      "Power sensor current collector should write a current response",
 			collector: newCurrentCollector,
 			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.GetCurrentResponse{
 				Amperes: 1.0,
@@ -56,12 +42,7 @@ func TestPowerSensorCollectors(t *testing.T) {
 			}),
 		},
 		{
-			name: "Power sensor power collector should write a power response",
-			params: data.CollectorParams{
-				ComponentName: componentName,
-				Interval:      captureInterval,
-				Logger:        golog.NewTestLogger(t),
-			},
+			name:      "Power sensor power collector should write a power response",
 			collector: newPowerCollector,
 			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.GetPowerResponse{
 				Watts: 1.0,
@@ -73,11 +54,16 @@ func TestPowerSensorCollectors(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			mockClock := clk.NewMock()
 			buf := tu.MockBuffer{}
-			tc.params.Clock = mockClock
-			tc.params.Target = &buf
+			params := data.CollectorParams{
+				ComponentName: componentName,
+				Interval:      captureInterval,
+				Logger:        golog.NewTestLogger(t),
+				Clock:         mockClock,
+				Target:        &buf,
+			}
 
-			pwrSens := newPowerSensor(componentName)
-			col, err := tc.collector(pwrSens, tc.params)
+			pwrSens := newPowerSensor()
+			col, err := tc.collector(pwrSens, params)
 			test.That(t, err, test.ShouldBeNil)
 
 			defer col.Close()
@@ -92,15 +78,10 @@ func TestPowerSensorCollectors(t *testing.T) {
 
 type fakePowerSensor struct {
 	PowerSensor
-	name resource.Name
 }
 
-func newPowerSensor(name string) PowerSensor {
-	return &fakePowerSensor{name: resource.Name{Name: name}}
-}
-
-func (i *fakePowerSensor) Name() resource.Name {
-	return i.name
+func newPowerSensor() PowerSensor {
+	return &fakePowerSensor{}
 }
 
 func (i *fakePowerSensor) Voltage(ctx context.Context, cmd map[string]interface{}) (float64, bool, error) {

@@ -23,11 +23,6 @@ func (m method) String() string {
 	return "Unknown"
 }
 
-// Ticks wraps the returned ticks value.
-type Ticks struct {
-	Ticks int64
-}
-
 func newTicksCountCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	encoder, err := assertEncoder(resource)
 	if err != nil {

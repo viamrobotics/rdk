@@ -11,27 +11,23 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/data"
-	"go.viam.com/rdk/resource"
 	tu "go.viam.com/rdk/testutils"
 )
 
-const (
-	componentName   = "encoder"
-	captureInterval = time.Second
-)
+const captureInterval = time.Second
 
 func TestEncoderCollector(t *testing.T) {
 	mockClock := clk.NewMock()
 	buf := tu.MockBuffer{}
 	params := data.CollectorParams{
-		ComponentName: componentName,
+		ComponentName: "encoder",
 		Interval:      captureInterval,
 		Logger:        golog.NewTestLogger(t),
 		Target:        &buf,
 		Clock:         mockClock,
 	}
 
-	enc := newEncoder(componentName)
+	enc := newEncoder()
 	col, err := newTicksCountCollector(enc, params)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -49,11 +45,10 @@ func TestEncoderCollector(t *testing.T) {
 
 type fakeEncoder struct {
 	Encoder
-	name resource.Name
 }
 
-func newEncoder(name string) Encoder {
-	return &fakeEncoder{name: resource.Name{Name: name}}
+func newEncoder() Encoder {
+	return &fakeEncoder{}
 }
 
 func (e *fakeEncoder) Position(

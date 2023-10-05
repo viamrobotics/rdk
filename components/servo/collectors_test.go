@@ -11,27 +11,23 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/data"
-	"go.viam.com/rdk/resource"
 	tu "go.viam.com/rdk/testutils"
 )
 
-const (
-	componentName   = "servo"
-	captureInterval = time.Second
-)
+const captureInterval = time.Second
 
 func TestServoCollector(t *testing.T) {
 	mockClock := clk.NewMock()
 	buf := tu.MockBuffer{}
 	params := data.CollectorParams{
-		ComponentName: componentName,
+		ComponentName: "servo",
 		Interval:      captureInterval,
 		Logger:        golog.NewTestLogger(t),
 		Target:        &buf,
 		Clock:         mockClock,
 	}
 
-	servo := newServo(componentName)
+	servo := newServo()
 	col, err := newPositionCollector(servo, params)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -48,15 +44,10 @@ func TestServoCollector(t *testing.T) {
 
 type fakeServo struct {
 	Servo
-	name resource.Name
 }
 
-func newServo(name string) Servo {
-	return &fakeServo{name: resource.Name{Name: name}}
-}
-
-func (s *fakeServo) Name() resource.Name {
-	return s.name
+func newServo() Servo {
+	return &fakeServo{}
 }
 
 func (s *fakeServo) Position(ctx context.Context, extra map[string]interface{}) (uint32, error) {
