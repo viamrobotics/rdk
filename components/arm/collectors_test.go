@@ -13,7 +13,6 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/data"
-	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	tu "go.viam.com/rdk/testutils"
 )
@@ -28,17 +27,11 @@ var floatList = []float64{1.0, 2.0, 3.0}
 func TestCollectors(t *testing.T) {
 	tests := []struct {
 		name      string
-		params    data.CollectorParams
 		collector data.CollectorConstructor
 		expected  map[string]any
 	}{
 		{
-			name: "End position collector should write a pose",
-			params: data.CollectorParams{
-				ComponentName: componentName,
-				Interval:      captureInterval,
-				Logger:        golog.NewTestLogger(t),
-			},
+			name:      "End position collector should write a pose",
 			collector: newEndPositionCollector,
 			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.GetEndPositionResponse{
 				Pose: &v1.Pose{
@@ -53,12 +46,7 @@ func TestCollectors(t *testing.T) {
 			}),
 		},
 		{
-			name: "Joint positions collector should write a list of positions",
-			params: data.CollectorParams{
-				ComponentName: componentName,
-				Interval:      captureInterval,
-				Logger:        golog.NewTestLogger(t),
-			},
+			name:      "Joint positions collector should write a list of positions",
 			collector: newJointPositionsCollector,
 			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.GetJointPositionsResponse{
 				Positions: &pb.JointPositions{
@@ -72,11 +60,16 @@ func TestCollectors(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			mockClock := clk.NewMock()
 			buf := tu.MockBuffer{}
-			tc.params.Clock = mockClock
-			tc.params.Target = &buf
+			params := data.CollectorParams{
+				ComponentName: componentName,
+				Interval:      captureInterval,
+				Logger:        golog.NewTestLogger(t),
+				Clock:         mockClock,
+				Target:        &buf,
+			}
 
-			arm := newArm(componentName)
-			col, err := tc.collector(arm, tc.params)
+			arm := newArm()
+			col, err := tc.collector(arm, params)
 			test.That(t, err, test.ShouldBeNil)
 
 			defer col.Close()
@@ -91,11 +84,10 @@ func TestCollectors(t *testing.T) {
 
 type fakeArm struct {
 	Arm
-	name resource.Name
 }
 
-func newArm(name string) Arm {
-	return &fakeArm{name: resource.Name{Name: name}}
+func newArm() Arm {
+	return &fakeArm{}
 }
 
 func (a *fakeArm) EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {

@@ -27,11 +27,6 @@ func (m method) String() string {
 	return "Unknown"
 }
 
-// Position wraps the returned position value.
-type Position struct {
-	Position float64
-}
-
 func newPositionCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	motor, err := assertMotor(resource)
 	if err != nil {

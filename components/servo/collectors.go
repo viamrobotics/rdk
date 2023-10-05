@@ -23,11 +23,6 @@ func (m method) String() string {
 	return "Unknown"
 }
 
-// Position wraps the returned set angle (degrees) value.
-type Position struct {
-	Position uint32
-}
-
 func newPositionCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	servo, err := assertServo(resource)
 	if err != nil {

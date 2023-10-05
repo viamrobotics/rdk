@@ -11,7 +11,6 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/data"
-	"go.viam.com/rdk/resource"
 	tu "go.viam.com/rdk/testutils"
 )
 
@@ -23,29 +22,18 @@ const (
 func TestMotorCollectors(t *testing.T) {
 	tests := []struct {
 		name      string
-		params    data.CollectorParams
 		collector data.CollectorConstructor
 		expected  map[string]any
 	}{
 		{
-			name: "Motor position collector should write a position response",
-			params: data.CollectorParams{
-				ComponentName: componentName,
-				Interval:      captureInterval,
-				Logger:        golog.NewTestLogger(t),
-			},
+			name:      "Motor position collector should write a position response",
 			collector: newPositionCollector,
 			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.GetPositionResponse{
 				Position: 1.0,
 			}),
 		},
 		{
-			name: "Motor isPowered collector should write an isPowered response",
-			params: data.CollectorParams{
-				ComponentName: componentName,
-				Interval:      captureInterval,
-				Logger:        golog.NewTestLogger(t),
-			},
+			name:      "Motor isPowered collector should write an isPowered response",
 			collector: newIsPoweredCollector,
 			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.IsPoweredResponse{
 				IsOn:     false,
@@ -58,11 +46,16 @@ func TestMotorCollectors(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			mockClock := clk.NewMock()
 			buf := tu.MockBuffer{}
-			tc.params.Clock = mockClock
-			tc.params.Target = &buf
+			params := data.CollectorParams{
+				ComponentName: componentName,
+				Interval:      captureInterval,
+				Logger:        golog.NewTestLogger(t),
+				Clock:         mockClock,
+				Target:        &buf,
+			}
 
-			motor := newMotor(componentName)
-			col, err := tc.collector(motor, tc.params)
+			motor := newMotor()
+			col, err := tc.collector(motor, params)
 			test.That(t, err, test.ShouldBeNil)
 
 			defer col.Close()
@@ -77,15 +70,10 @@ func TestMotorCollectors(t *testing.T) {
 
 type fakeMotor struct {
 	Motor
-	name resource.Name
 }
 
-func newMotor(name string) Motor {
-	return &fakeMotor{name: resource.Name{Name: name}}
-}
-
-func (m *fakeMotor) Name() resource.Name {
-	return m.name
+func newMotor() Motor {
+	return &fakeMotor{}
 }
 
 func (m *fakeMotor) Position(ctx context.Context, extra map[string]interface{}) (float64, error) {

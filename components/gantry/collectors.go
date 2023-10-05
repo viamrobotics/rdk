@@ -27,11 +27,6 @@ func (m method) String() string {
 	return "Unknown"
 }
 
-// Position wraps the returned position values.
-type Position struct {
-	Position []float64
-}
-
 func newPositionCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	gantry, err := assertGantry(resource)
 	if err != nil {
