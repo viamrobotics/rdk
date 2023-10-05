@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -346,22 +347,7 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 		return err
 	}
 
-	timeRequested := datum.GetMetadata().GetTimeRequested().AsTime().Format(time.RFC3339Nano)
-	fileName := datum.GetMetadata().GetFileName()
-
-	// The file name will end with .gz if the user uploaded a gzipped file. We will unzip it below, so remove the last
-	// .gz from the file name. If the user has gzipped the file multiple times, we will only unzip once.
-	if filepath.Ext(fileName) == gzFileExt {
-		fileName = strings.TrimSuffix(fileName, gzFileExt)
-	}
-
-	if fileName == "" {
-		fileName = timeRequested + "_" + datum.GetMetadata().GetId()
-	} else if filepath.Dir(fileName) == "." {
-		// If the file name does not contain a directory, prepend if with a requested time so that it is sorted.
-		// Otherwise, keep the file name as-is to maintain the directory structure that the user uploaded the file with.
-		fileName = timeRequested + "_" + strings.TrimSuffix(datum.GetMetadata().GetFileName(), datum.GetMetadata().GetFileExt())
-	}
+	fileName := filenameForDownload(datum.GetMetadata())
 
 	jsonPath := filepath.Join(dst, metadataDir, fileName+".json")
 	if err := os.MkdirAll(filepath.Dir(jsonPath), 0o700); err != nil {
@@ -411,6 +397,39 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 		return err
 	}
 	return nil
+}
+
+// non-exhaustive list of characters to strip from filenames on windows.
+const windowsReservedChars = ":"
+
+// transform datum's filename to a destination path on this computer.
+func filenameForDownload(meta *datapb.BinaryMetadata) string {
+	timeRequested := meta.GetTimeRequested().AsTime().Format(time.RFC3339Nano)
+	fileName := meta.GetFileName()
+
+	// The file name will end with .gz if the user uploaded a gzipped file. We will unzip it below, so remove the last
+	// .gz from the file name. If the user has gzipped the file multiple times, we will only unzip once.
+	if filepath.Ext(fileName) == gzFileExt {
+		fileName = strings.TrimSuffix(fileName, gzFileExt)
+	}
+
+	if fileName == "" {
+		fileName = timeRequested + "_" + meta.GetId()
+	} else if filepath.Dir(fileName) == "." {
+		// If the file name does not contain a directory, prepend if with a requested time so that it is sorted.
+		// Otherwise, keep the file name as-is to maintain the directory structure that the user uploaded the file with.
+		fileName = timeRequested + "_" + strings.TrimSuffix(meta.GetFileName(), meta.GetFileExt())
+	}
+
+	if runtime.GOOS == "windows" {
+		fileName = strings.Map(func(c rune) rune {
+			if strings.ContainsRune(windowsReservedChars, c) {
+				return '_'
+			}
+			return c
+		}, fileName)
+	}
+	return fileName
 }
 
 // tabularData downloads binary data matching filter to dst.
