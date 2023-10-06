@@ -16,6 +16,7 @@ import (
 	"go.viam.com/rdk/components/base"
 	fakebase "go.viam.com/rdk/components/base/fake"
 	"go.viam.com/rdk/components/base/kinematicbase"
+	"go.viam.com/rdk/components/movementsensor"
 	_ "go.viam.com/rdk/components/movementsensor/fake"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/referenceframe"
@@ -26,7 +27,7 @@ import (
 	"go.viam.com/rdk/services/navigation"
 	"go.viam.com/rdk/services/slam"
 	fakeslam "go.viam.com/rdk/services/slam/fake"
-	_ "go.viam.com/rdk/services/vision"
+	"go.viam.com/rdk/services/vision"
 	_ "go.viam.com/rdk/services/vision/colordetector"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
@@ -86,70 +87,257 @@ func deleteAllWaypoints(ctx context.Context, svc navigation.Service) error {
 
 func TestValidateConfig(t *testing.T) {
 	path := ""
-	t.Run("invalid config no base", func(t *testing.T) {
-		cfg := Config{}
 
-		deps, err := cfg.Validate(path)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, utils.NewConfigValidationFieldRequiredError(path, "base").Error())
-		test.That(t, len(deps), test.ShouldEqual, 0)
+	cases := []struct {
+		description string
+		cfg         Config
+		numDeps     int
+		expectedErr error
+	}{
+		{
+			description: "valid config default map type (GPS) give",
+			cfg: Config{
+				BaseName:           "base",
+				MovementSensorName: "localizer",
+			},
+			numDeps:     3,
+			expectedErr: nil,
+		},
+		{
+			description: "valid config for map_type none given",
+			cfg: Config{
+				BaseName: "base",
+				MapType:  "None",
+			},
+			numDeps:     2,
+			expectedErr: nil,
+		},
+		{
+			description: "valid config for map_type GPS given",
+			cfg: Config{
+				BaseName:           "base",
+				MapType:            "GPS",
+				MovementSensorName: "localizer",
+			},
+			numDeps:     3,
+			expectedErr: nil,
+		},
+		{
+			description: "invalid config no base",
+			cfg:         Config{},
+			numDeps:     0,
+			expectedErr: utils.NewConfigValidationFieldRequiredError(path, "base"),
+		},
+		{
+			description: "invalid config no movement_sensor given for map type GPS",
+			cfg: Config{
+				BaseName: "base",
+				MapType:  "GPS",
+			},
+			numDeps:     0,
+			expectedErr: utils.NewConfigValidationFieldRequiredError(path, "movement_sensor"),
+		},
+		{
+			description: "invalid config negative degs_per_sec",
+			cfg: Config{
+				BaseName:           "base",
+				MovementSensorName: "localizer",
+				DegPerSec:          -1,
+			},
+			numDeps:     0,
+			expectedErr: errNegativeDegPerSec,
+		},
+		{
+			description: "invalid config negative meters_per_sec",
+			cfg: Config{
+				BaseName:           "base",
+				MovementSensorName: "localizer",
+				MetersPerSec:       -1,
+			},
+			numDeps:     0,
+			expectedErr: errNegativeMetersPerSec,
+		},
+		{
+			description: "invalid config negative position_polling_frequency_hz",
+			cfg: Config{
+				BaseName:                   "base",
+				MovementSensorName:         "localizer",
+				PositionPollingFrequencyHz: -1,
+			},
+			numDeps:     0,
+			expectedErr: errNegativePositionPollingFrequencyHz,
+		},
+		{
+			description: "invalid config negative obstacle_polling_frequency_hz",
+			cfg: Config{
+				BaseName:                   "base",
+				MovementSensorName:         "localizer",
+				ObstaclePollingFrequencyHz: -1,
+			},
+			numDeps:     0,
+			expectedErr: errNegativeObstaclePollingFrequencyHz,
+		},
+		{
+			description: "invalid config negative plan_deviation_m",
+			cfg: Config{
+				BaseName:           "base",
+				MovementSensorName: "localizer",
+				PlanDeviationM:     -1,
+			},
+			numDeps:     0,
+			expectedErr: errNegativePlanDeviationM,
+		},
+		{
+			description: "invalid config negative replan_cost_factor",
+			cfg: Config{
+				BaseName:           "base",
+				MovementSensorName: "localizer",
+				ReplanCostFactor:   -1,
+			},
+			numDeps:     0,
+			expectedErr: errNegativeReplanCostFactor,
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.description, func(t *testing.T) {
+			deps, err := tt.cfg.Validate(path)
+			if tt.expectedErr == nil {
+				test.That(t, err, test.ShouldBeNil)
+			} else {
+				test.That(t, err, test.ShouldNotBeNil)
+				test.That(t, err.Error(), test.ShouldContainSubstring, tt.expectedErr.Error())
+			}
+			test.That(t, len(deps), test.ShouldEqual, tt.numDeps)
+		})
+	}
+}
+
+func TestNew(t *testing.T) {
+	ctx := context.Background()
+
+	svc, closeNavSvc := setupNavigationServiceFromConfig(t, "../data/nav_no_map_cfg_minimal.json")
+
+	t.Run("checking defaults have been set", func(t *testing.T) {
+		svcStruct := svc.(*builtIn)
+
+		test.That(t, svcStruct.base.Name().Name, test.ShouldEqual, "test_base")
+		test.That(t, svcStruct.motion.Name().Name, test.ShouldEqual, "builtin")
+		test.That(t, svcStruct.vision, test.ShouldBeNil)
+
+		test.That(t, svcStruct.mapType, test.ShouldEqual, navigation.NoMap)
+		test.That(t, svcStruct.mode, test.ShouldEqual, navigation.ModeManual)
+		test.That(t, svcStruct.replanCostFactor, test.ShouldEqual, defaultReplanCostFactor)
+
+		test.That(t, svcStruct.storeType, test.ShouldEqual, string(navigation.StoreTypeMemory))
+		test.That(t, svcStruct.store, test.ShouldResemble, navigation.NewMemoryNavigationStore())
+
+		test.That(t, svcStruct.motionCfg.VisionServices, test.ShouldBeNil)
+		test.That(t, svcStruct.motionCfg.AngularDegsPerSec, test.ShouldEqual, defaultAngularVelocityDegsPerSec)
+		test.That(t, svcStruct.motionCfg.LinearMPerSec, test.ShouldEqual, defaultLinearVelocityMPerSec)
+		test.That(t, svcStruct.motionCfg.PositionPollingFreqHz, test.ShouldEqual, defaultPositionPollingFrequencyHz)
+		test.That(t, svcStruct.motionCfg.ObstaclePollingFreqHz, test.ShouldEqual, defaultObstaclePollingFrequencyHz)
+		test.That(t, svcStruct.motionCfg.PlanDeviationMM, test.ShouldEqual, defaultPlanDeviationM*1e3)
 	})
 
-	t.Run("invalid config bad map type", func(t *testing.T) {
-		cfg := Config{
-			BaseName: "base",
-			MapType:  "gibberish",
+	t.Run("setting parameters for None map_type", func(t *testing.T) {
+		cfg := &Config{
+			BaseName:           "base",
+			MapType:            "None",
+			MovementSensorName: "movement_sensor",
+		}
+		deps := resource.Dependencies{
+			resource.NewName(base.API, "base"):                      inject.NewBase("new_base"),
+			resource.NewName(motion.API, "builtin"):                 inject.NewMotionService("new_motion"),
+			resource.NewName(movementsensor.API, "movement_sensor"): inject.NewMovementSensor("movement_sensor"),
 		}
 
-		deps, err := cfg.Validate(path)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "invalid map_type")
-		test.That(t, len(deps), test.ShouldEqual, 0)
-	})
-
-	t.Run("invalid config no movement_sensor given for map type GPS", func(t *testing.T) {
-		cfg := Config{
-			BaseName: "base",
-			MapType:  "GPS",
-		}
-		deps, err := cfg.Validate(path)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, utils.NewConfigValidationFieldRequiredError(path, "movement_sensor").Error())
-		test.That(t, len(deps), test.ShouldEqual, 0)
-	})
-
-	t.Run("valid config for map_type none given", func(t *testing.T) {
-		cfg := Config{
-			BaseName: "base",
-			MapType:  "None",
-		}
-
-		deps, err := cfg.Validate(path)
+		err := svc.Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(deps), test.ShouldEqual, 2)
+		svcStruct := svc.(*builtIn)
+
+		test.That(t, svcStruct.mapType, test.ShouldEqual, navigation.NoMap)
+		test.That(t, svcStruct.base.Name().Name, test.ShouldEqual, "new_base")
+		test.That(t, svcStruct.motion.Name().Name, test.ShouldEqual, "new_motion")
+		test.That(t, svcStruct.movementSensor, test.ShouldBeNil)
 	})
 
-	t.Run("valid config for map_type GPS given", func(t *testing.T) {
-		cfg := Config{
+	t.Run("setting parameters for GPS map_type", func(t *testing.T) {
+		cfg := &Config{
 			BaseName:           "base",
 			MapType:            "GPS",
-			MovementSensorName: "localizer",
+			MovementSensorName: "movement_sensor",
 		}
-		deps, err := cfg.Validate(path)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(deps), test.ShouldEqual, 3)
-	})
-
-	t.Run("valid config default map type (GPS) given", func(t *testing.T) {
-		cfg := Config{
-			BaseName:           "base",
-			MovementSensorName: "localizer",
+		deps := resource.Dependencies{
+			resource.NewName(base.API, "base"):                      inject.NewBase("new_base"),
+			resource.NewName(motion.API, "builtin"):                 inject.NewMotionService("new_motion"),
+			resource.NewName(movementsensor.API, "movement_sensor"): inject.NewMovementSensor("movement_sensor"),
 		}
 
-		deps, err := cfg.Validate(path)
+		err := svc.Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(deps), test.ShouldEqual, 3)
+		svcStruct := svc.(*builtIn)
+
+		test.That(t, svcStruct.mapType, test.ShouldEqual, navigation.GPSMap)
+		test.That(t, svcStruct.base.Name().Name, test.ShouldEqual, "new_base")
+		test.That(t, svcStruct.motion.Name().Name, test.ShouldEqual, "new_motion")
+		test.That(t, svcStruct.movementSensor.Name().Name, test.ShouldEqual, cfg.MovementSensorName)
 	})
+
+	t.Run("setting motion parameters", func(t *testing.T) {
+		cfg := &Config{
+			BaseName:                   "base",
+			MapType:                    "None",
+			DegPerSec:                  1,
+			MetersPerSec:               2,
+			PositionPollingFrequencyHz: 3,
+			ObstaclePollingFrequencyHz: 4,
+			PlanDeviationM:             5,
+			VisionServices:             []string{"vision"},
+		}
+		deps := resource.Dependencies{
+			resource.NewName(base.API, "base"):      &inject.Base{},
+			resource.NewName(motion.API, "builtin"): inject.NewMotionService("motion"),
+			resource.NewName(vision.API, "vision"):  inject.NewVisionService("vision"),
+		}
+
+		err := svc.Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
+		test.That(t, err, test.ShouldBeNil)
+		svcStruct := svc.(*builtIn)
+
+		test.That(t, len(svcStruct.motionCfg.VisionServices), test.ShouldEqual, 1)
+		test.That(t, svcStruct.motionCfg.VisionServices[0].Name, test.ShouldEqual, cfg.VisionServices[0])
+
+		test.That(t, svcStruct.motionCfg.AngularDegsPerSec, test.ShouldEqual, cfg.DegPerSec)
+		test.That(t, svcStruct.motionCfg.LinearMPerSec, test.ShouldEqual, cfg.MetersPerSec)
+		test.That(t, svcStruct.motionCfg.PositionPollingFreqHz, test.ShouldEqual, cfg.PositionPollingFrequencyHz)
+		test.That(t, svcStruct.motionCfg.ObstaclePollingFreqHz, test.ShouldEqual, cfg.ObstaclePollingFrequencyHz)
+		test.That(t, svcStruct.motionCfg.PlanDeviationMM, test.ShouldEqual, cfg.PlanDeviationM*1e3)
+	})
+
+	t.Run("setting additional parameters", func(t *testing.T) {
+		cfg := &Config{
+			BaseName:         "base",
+			MapType:          "None",
+			ReplanCostFactor: 1,
+			VisionServices:   []string{"vision"},
+		}
+		deps := resource.Dependencies{
+			resource.NewName(base.API, "base"):      &inject.Base{},
+			resource.NewName(motion.API, "builtin"): inject.NewMotionService("motion"),
+			resource.NewName(vision.API, "vision"):  inject.NewVisionService("vision"),
+		}
+
+		err := svc.Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
+		test.That(t, err, test.ShouldBeNil)
+		svcStruct := svc.(*builtIn)
+
+		test.That(t, len(svcStruct.vision), test.ShouldEqual, 1)
+		test.That(t, svcStruct.vision[0].Name().Name, test.ShouldEqual, cfg.VisionServices[0])
+		test.That(t, svcStruct.replanCostFactor, test.ShouldEqual, cfg.ReplanCostFactor)
+	})
+
+	closeNavSvc()
 }
 
 func TestSetMode(t *testing.T) {
@@ -185,7 +373,7 @@ func TestSetMode(t *testing.T) {
 		},
 		{
 			description: "setting mode to explore when map_type is None and no vision service is configured",
-			cfg:         "../data/nav_no_map_cfg_no_vision.json",
+			cfg:         "../data/nav_no_map_cfg_minimal.json",
 			mapType:     navigation.GPSMap,
 			mode:        navigation.ModeExplore,
 			expectedErr: errors.New("explore mode requires at least one vision service"),

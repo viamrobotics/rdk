@@ -31,6 +31,13 @@ var (
 		navigation.NoMap:  {navigation.ModeManual, navigation.ModeExplore},
 		navigation.GPSMap: {navigation.ModeManual, navigation.ModeWaypoint, navigation.ModeExplore},
 	}
+
+	errNegativeDegPerSec                  = errors.New("degs_per_sec must be non-negative if set")
+	errNegativeMetersPerSec               = errors.New("meters_per_sec must be non-negative if set")
+	errNegativePositionPollingFrequencyHz = errors.New("position_polling_frequency_hz must be non-negative if set")
+	errNegativeObstaclePollingFrequencyHz = errors.New("obstacle_polling_frequency_hz must be non-negative if set")
+	errNegativePlanDeviationM             = errors.New("plan_deviation_m must be non-negative if set")
+	errNegativeReplanCostFactor           = errors.New("replan_cost_factor must be non-negative if set")
 )
 
 const (
@@ -140,22 +147,22 @@ func (conf *Config) Validate(path string) ([]string, error) {
 
 	// Ensure inputs are non-negative
 	if conf.DegPerSec < 0 {
-		return nil, errors.New("degs_per_sec must be non-negative if set")
+		return nil, errNegativeDegPerSec
 	}
 	if conf.MetersPerSec < 0 {
-		return nil, errors.New("meters_per_sec must be non-negative if set")
+		return nil, errNegativeMetersPerSec
 	}
 	if conf.PositionPollingFrequencyHz < 0 {
-		return nil, errors.New("position_polling_frequency_hz must be non-negative if set")
+		return nil, errNegativePositionPollingFrequencyHz
 	}
 	if conf.ObstaclePollingFrequencyHz < 0 {
-		return nil, errors.New("obstacle_polling_frequency_hz must be non-negative if set")
+		return nil, errNegativeObstaclePollingFrequencyHz
 	}
 	if conf.PlanDeviationM < 0 {
-		return nil, errors.New("plan_deviation_m must be non-negative if set")
+		return nil, errNegativePlanDeviationM
 	}
 	if conf.ReplanCostFactor < 0 {
-		return nil, errors.New("replan_cost_factor must be non-negative if set")
+		return nil, errNegativeReplanCostFactor
 	}
 
 	// Ensure obstacles have no translation
@@ -221,7 +228,7 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 
 	// Set optional variables
 	metersPerSec := defaultLinearVelocityMPerSec
-	if metersPerSec != 0 {
+	if svcConfig.MetersPerSec != 0 {
 		metersPerSec = svcConfig.MetersPerSec
 	}
 	degPerSec := defaultAngularVelocityDegsPerSec
@@ -234,7 +241,7 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	}
 	obstaclePollingFrequencyHz := defaultObstaclePollingFrequencyHz
 	if svcConfig.ObstaclePollingFrequencyHz != 0 {
-		obstaclePollingFrequencyHz = svcConfig.PositionPollingFrequencyHz
+		obstaclePollingFrequencyHz = svcConfig.ObstaclePollingFrequencyHz
 	}
 	planDeviationM := defaultPlanDeviationM
 	if svcConfig.PlanDeviationM != 0 {
@@ -256,6 +263,7 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 			return err
 		}
 	}
+
 	storeCfg := navigation.StoreConfig{Type: defaultStoreType}
 	if svcConfig.Store.Type != navigation.StoreTypeUnset {
 		storeCfg = svcConfig.Store
@@ -313,6 +321,7 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 			return err
 		}
 		svc.store = newStore
+		svc.storeType = string(storeCfg.Type)
 	}
 
 	// Parse obstacles from the configuration
@@ -322,7 +331,6 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	}
 
 	svc.mode = navigation.ModeManual
-	svc.storeType = string(svcConfig.Store.Type)
 	svc.base = baseComponent
 	svc.mapType = mapType
 	svc.motion = motionSvc
