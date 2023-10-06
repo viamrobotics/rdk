@@ -16,6 +16,7 @@ import (
 	"go.viam.com/rdk/components/base"
 	fakebase "go.viam.com/rdk/components/base/fake"
 	"go.viam.com/rdk/components/base/kinematicbase"
+	"go.viam.com/rdk/components/camera"
 	_ "go.viam.com/rdk/components/camera/fake"
 	"go.viam.com/rdk/components/movementsensor"
 	_ "go.viam.com/rdk/components/movementsensor/fake"
@@ -233,7 +234,7 @@ func TestNew(t *testing.T) {
 		test.That(t, svcStruct.storeType, test.ShouldEqual, string(navigation.StoreTypeMemory))
 		test.That(t, svcStruct.store, test.ShouldResemble, navigation.NewMemoryNavigationStore())
 
-		test.That(t, svcStruct.motionCfg.VisionServices, test.ShouldBeNil)
+		test.That(t, svcStruct.motionCfg.ObstacleDetectors, test.ShouldBeNil)
 		test.That(t, svcStruct.motionCfg.AngularDegsPerSec, test.ShouldEqual, defaultAngularVelocityDegsPerSec)
 		test.That(t, svcStruct.motionCfg.LinearMPerSec, test.ShouldEqual, defaultLinearVelocityMPerSec)
 		test.That(t, svcStruct.motionCfg.PositionPollingFreqHz, test.ShouldEqual, defaultPositionPollingFrequencyHz)
@@ -294,10 +295,16 @@ func TestNew(t *testing.T) {
 			PositionPollingFrequencyHz: 3,
 			ObstaclePollingFrequencyHz: 4,
 			PlanDeviationM:             5,
-			VisionServices:             []string{"vision"},
+			ObstacleDetectors: []*motion.ObstacleDetectorConfig{
+				&motion.ObstacleDetectorConfig{
+					VisionService: "vision",
+					Camera:        "camera",
+				},
+			},
 		}
 		deps := resource.Dependencies{
 			resource.NewName(base.API, "base"):      &inject.Base{},
+			resource.NewName(camera.API, "camera"):  inject.NewCamera("camera"),
 			resource.NewName(motion.API, "builtin"): inject.NewMotionService("motion"),
 			resource.NewName(vision.API, "vision"):  inject.NewVisionService("vision"),
 		}
@@ -306,8 +313,9 @@ func TestNew(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		svcStruct := svc.(*builtIn)
 
-		test.That(t, len(svcStruct.motionCfg.VisionServices), test.ShouldEqual, 1)
-		test.That(t, svcStruct.motionCfg.VisionServices[0].Name, test.ShouldEqual, cfg.VisionServices[0])
+		test.That(t, len(svcStruct.motionCfg.ObstacleDetectors), test.ShouldEqual, 1)
+		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].VisionService.Name, test.ShouldEqual, "vision")
+		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].Camera.Name, test.ShouldEqual, "camera")
 
 		test.That(t, svcStruct.motionCfg.AngularDegsPerSec, test.ShouldEqual, cfg.DegPerSec)
 		test.That(t, svcStruct.motionCfg.LinearMPerSec, test.ShouldEqual, cfg.MetersPerSec)
@@ -321,10 +329,16 @@ func TestNew(t *testing.T) {
 			BaseName:         "base",
 			MapType:          "None",
 			ReplanCostFactor: 1,
-			VisionServices:   []string{"vision"},
+			ObstacleDetectors: []*motion.ObstacleDetectorConfig{
+				&motion.ObstacleDetectorConfig{
+					VisionService: "vision",
+					Camera:        "camera",
+				},
+			},
 		}
 		deps := resource.Dependencies{
 			resource.NewName(base.API, "base"):      &inject.Base{},
+			resource.NewName(camera.API, "camera"):  inject.NewCamera("camera"),
 			resource.NewName(motion.API, "builtin"): inject.NewMotionService("motion"),
 			resource.NewName(vision.API, "vision"):  inject.NewVisionService("vision"),
 		}
@@ -334,7 +348,8 @@ func TestNew(t *testing.T) {
 		svcStruct := svc.(*builtIn)
 
 		test.That(t, len(svcStruct.visionServices), test.ShouldEqual, 1)
-		test.That(t, svcStruct.visionServices[0].Name().Name, test.ShouldEqual, cfg.VisionServices[0])
+		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].VisionService.Name, test.ShouldEqual, "vision")
+		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].Camera.Name, test.ShouldEqual, "camera")
 		test.That(t, svcStruct.replanCostFactor, test.ShouldEqual, cfg.ReplanCostFactor)
 	})
 

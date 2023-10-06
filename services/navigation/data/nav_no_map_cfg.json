@@ -5,6 +5,11 @@
             "model": "fake",
             "name": "test_base",
             "type": "base"
+        },
+        {
+            "model": "fake",
+            "name": "test_camera",
+            "type": "camera"
         }
     ],
     "services":
@@ -26,9 +31,10 @@
         "attributes":{
             "base":"test_base",
             "map_type": "None",
-            "vision_services": [
-                "test_vision"
-            ]
+            "obstacle_detectors": [{
+                "vision_service": "test_vision",
+                "camera": "test_camera"
+            }]
         }
     }]
 }
