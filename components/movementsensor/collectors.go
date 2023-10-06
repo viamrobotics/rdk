@@ -49,7 +49,9 @@ func assertMovementSensor(resource interface{}) (MovementSensor, error) {
 	return ms, nil
 }
 
-func newLinearVelocityCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+// NewLinearVelocityCollector returns a collector to register a linear velocity method. If one is already registered
+// with the same MethodMetadata it will panic.
+func NewLinearVelocityCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	ms, err := assertMovementSensor(resource)
 	if err != nil {
 		return nil, err
@@ -76,7 +78,9 @@ func newLinearVelocityCollector(resource interface{}, params data.CollectorParam
 	return data.NewCollector(cFunc, params)
 }
 
-func newPositionCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+// NewPositionCollector returns a collector to register a position method. If one is already registered
+// with the same MethodMetadata it will panic.
+func NewPositionCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	ms, err := assertMovementSensor(resource)
 	if err != nil {
 		return nil, err
@@ -103,7 +107,9 @@ func newPositionCollector(resource interface{}, params data.CollectorParams) (da
 	return data.NewCollector(cFunc, params)
 }
 
-func newAngularVelocityCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+// NewAngularVelocityCollector returns a collector to register an angular velocity method. If one is already registered
+// with the same MethodMetadata it will panic.
+func NewAngularVelocityCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	ms, err := assertMovementSensor(resource)
 	if err != nil {
 		return nil, err
@@ -130,7 +136,9 @@ func newAngularVelocityCollector(resource interface{}, params data.CollectorPara
 	return data.NewCollector(cFunc, params)
 }
 
-func newCompassHeadingCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+// NewCompassHeadingCollector returns a collector to register a compass heading method. If one is already registered
+// with the same MethodMetadata it will panic.
+func NewCompassHeadingCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	ms, err := assertMovementSensor(resource)
 	if err != nil {
 		return nil, err
@@ -153,7 +161,9 @@ func newCompassHeadingCollector(resource interface{}, params data.CollectorParam
 	return data.NewCollector(cFunc, params)
 }
 
-func newLinearAccelerationCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+// NewLinearAccelerationCollector returns a collector to register a linear acceleration method. If one is already registered
+// with the same MethodMetadata it will panic.
+func NewLinearAccelerationCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	ms, err := assertMovementSensor(resource)
 	if err != nil {
 		return nil, err
@@ -180,7 +190,9 @@ func newLinearAccelerationCollector(resource interface{}, params data.CollectorP
 	return data.NewCollector(cFunc, params)
 }
 
-func newOrientationCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+// NewOrientationCollector returns a collector to register an orientation method. If one is already registered
+// with the same MethodMetadata it will panic.
+func NewOrientationCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	ms, err := assertMovementSensor(resource)
 	if err != nil {
 		return nil, err

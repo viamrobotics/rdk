@@ -21,7 +21,7 @@ func init() {
 	data.RegisterCollector(data.MethodMetadata{
 		API:        API,
 		MethodName: readings.String(),
-	}, newSensorCollector)
+	}, NewSensorCollector)
 }
 
 // SubtypeName is a constant that identifies the component resource API string "Sensor".

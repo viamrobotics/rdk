@@ -1,4 +1,4 @@
-package arm
+package arm_test
 
 import (
 	"context"
@@ -12,9 +12,11 @@ import (
 	pb "go.viam.com/api/component/arm/v1"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/spatialmath"
 	tu "go.viam.com/rdk/testutils"
+	"go.viam.com/rdk/testutils/inject"
 )
 
 const (
@@ -32,7 +34,7 @@ func TestCollectors(t *testing.T) {
 	}{
 		{
 			name:      "End position collector should write a pose",
-			collector: newEndPositionCollector,
+			collector: arm.NewEndPositionCollector,
 			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.GetEndPositionResponse{
 				Pose: &v1.Pose{
 					OX:    0,
@@ -47,7 +49,7 @@ func TestCollectors(t *testing.T) {
 		},
 		{
 			name:      "Joint positions collector should write a list of positions",
-			collector: newJointPositionsCollector,
+			collector: arm.NewJointPositionsCollector,
 			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.GetJointPositionsResponse{
 				Positions: &pb.JointPositions{
 					Values: floatList,
@@ -82,20 +84,15 @@ func TestCollectors(t *testing.T) {
 	}
 }
 
-type fakeArm struct {
-	Arm
-}
-
-func newArm() Arm {
-	return &fakeArm{}
-}
-
-func (a *fakeArm) EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
-	return spatialmath.NewPoseFromPoint(r3.Vector{X: 1, Y: 2, Z: 3}), nil
-}
-
-func (a *fakeArm) JointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
-	return &pb.JointPositions{
-		Values: floatList,
-	}, nil
+func newArm() arm.Arm {
+	a := &inject.Arm{}
+	a.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
+		return spatialmath.NewPoseFromPoint(r3.Vector{X: 1, Y: 2, Z: 3}), nil
+	}
+	a.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
+		return &pb.JointPositions{
+			Values: floatList,
+		}, nil
+	}
+	return a
 }

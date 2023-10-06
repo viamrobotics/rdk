@@ -21,7 +21,7 @@ func init() {
 	data.RegisterCollector(data.MethodMetadata{
 		API:        API,
 		MethodName: position.String(),
-	}, newPositionCollector)
+	}, NewPositionCollector)
 }
 
 // SubtypeName is a constant that identifies the component resource API string "servo".

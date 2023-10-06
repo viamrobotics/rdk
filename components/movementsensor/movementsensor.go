@@ -26,27 +26,27 @@ func init() {
 	data.RegisterCollector(data.MethodMetadata{
 		API:        API,
 		MethodName: position.String(),
-	}, newPositionCollector)
+	}, NewPositionCollector)
 	data.RegisterCollector(data.MethodMetadata{
 		API:        API,
 		MethodName: linearVelocity.String(),
-	}, newLinearVelocityCollector)
+	}, NewLinearVelocityCollector)
 	data.RegisterCollector(data.MethodMetadata{
 		API:        API,
 		MethodName: angularVelocity.String(),
-	}, newAngularVelocityCollector)
+	}, NewAngularVelocityCollector)
 	data.RegisterCollector(data.MethodMetadata{
 		API:        API,
 		MethodName: compassHeading.String(),
-	}, newCompassHeadingCollector)
+	}, NewCompassHeadingCollector)
 	data.RegisterCollector(data.MethodMetadata{
 		API:        API,
 		MethodName: linearAcceleration.String(),
-	}, newLinearAccelerationCollector)
+	}, NewLinearAccelerationCollector)
 	data.RegisterCollector(data.MethodMetadata{
 		API:        API,
 		MethodName: orientation.String(),
-	}, newOrientationCollector)
+	}, NewOrientationCollector)
 }
 
 // SubtypeName is a constant that identifies the component resource API string "movement_sensor".

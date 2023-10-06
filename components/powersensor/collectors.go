@@ -38,7 +38,9 @@ func assertPowerSensor(resource interface{}) (PowerSensor, error) {
 	return ps, nil
 }
 
-func newVoltageCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+// NewVoltageCollector returns a collector to register a voltage method. If one is already registered
+// with the same MethodMetadata it will panic.
+func NewVoltageCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	ps, err := assertPowerSensor(resource)
 	if err != nil {
 		return nil, err
@@ -62,7 +64,9 @@ func newVoltageCollector(resource interface{}, params data.CollectorParams) (dat
 	return data.NewCollector(cFunc, params)
 }
 
-func newCurrentCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+// NewCurrentCollector returns a collector to register a current method. If one is already registered
+// with the same MethodMetadata it will panic.
+func NewCurrentCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	ps, err := assertPowerSensor(resource)
 	if err != nil {
 		return nil, err
@@ -86,7 +90,9 @@ func newCurrentCollector(resource interface{}, params data.CollectorParams) (dat
 	return data.NewCollector(cFunc, params)
 }
 
-func newPowerCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+// NewPowerCollector returns a collector to register a power method. If one is already registered
+// with the same MethodMetadata it will panic.
+func NewPowerCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	ps, err := assertPowerSensor(resource)
 	if err != nil {
 		return nil, err
