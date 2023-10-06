@@ -322,7 +322,7 @@ func TestReplayMovementSensorFunctions(t *testing.T) {
 				linearAcceleration: allMethodsMaxDataLength[linearAcceleration],
 				compassHeading:     allMethodsMaxDataLength[compassHeading],
 			},
-			methodsExpectedErr: map[method]error{orientation: errOrientationNotSupported},
+			methodsExpectedErr: map[method]error{orientation: movementsensor.ErrMethodUnimplementedOrientation},
 			methodSupported: map[method]bool{
 				position:           true,
 				linearVelocity:     true,
@@ -355,9 +355,9 @@ func TestReplayMovementSensorFunctions(t *testing.T) {
 				compassHeading:  allMethodsMaxDataLength[compassHeading],
 			},
 			methodsExpectedErr: map[method]error{
-				position:           errPositionNotSupported,
-				linearAcceleration: errLinearAccelerationNotSupported,
-				orientation:        errOrientationNotSupported,
+				position:           movementsensor.ErrMethodUnimplementedPosition,
+				linearAcceleration: movementsensor.ErrMethodUnimplementedLinearAcceleration,
+				orientation:        movementsensor.ErrMethodUnimplementedOrientation,
 			},
 			methodSupported: map[method]bool{
 				position:           false,
@@ -389,10 +389,10 @@ func TestReplayMovementSensorFunctions(t *testing.T) {
 				compassHeading: allMethodsMaxDataLength[compassHeading],
 			},
 			methodsExpectedErr: map[method]error{
-				position:           errPositionNotSupported,
-				angularVelocity:    errAngularVelocityNotSupported,
-				linearAcceleration: errLinearAccelerationNotSupported,
-				orientation:        errOrientationNotSupported,
+				position:           movementsensor.ErrMethodUnimplementedPosition,
+				angularVelocity:    movementsensor.ErrMethodUnimplementedAngularVelocity,
+				linearAcceleration: movementsensor.ErrMethodUnimplementedLinearAcceleration,
+				orientation:        movementsensor.ErrMethodUnimplementedOrientation,
 			},
 			methodSupported: map[method]bool{
 				position:           false,
@@ -422,11 +422,11 @@ func TestReplayMovementSensorFunctions(t *testing.T) {
 				compassHeading: allMethodsMaxDataLength[compassHeading],
 			},
 			methodsExpectedErr: map[method]error{
-				position:           errPositionNotSupported,
-				linearVelocity:     errLinearVelocityNotSupported,
-				angularVelocity:    errAngularVelocityNotSupported,
-				linearAcceleration: errLinearAccelerationNotSupported,
-				orientation:        errOrientationNotSupported,
+				position:           movementsensor.ErrMethodUnimplementedPosition,
+				linearVelocity:     movementsensor.ErrMethodUnimplementedLinearVelocity,
+				angularVelocity:    movementsensor.ErrMethodUnimplementedAngularVelocity,
+				linearAcceleration: movementsensor.ErrMethodUnimplementedLinearAcceleration,
+				orientation:        movementsensor.ErrMethodUnimplementedOrientation,
 			},
 			methodSupported: map[method]bool{
 				position:           false,

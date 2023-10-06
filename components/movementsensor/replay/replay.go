@@ -63,24 +63,6 @@ var (
 	// errSessionClosed represents that the session has ended.
 	errSessionClosed = errors.New("session closed")
 
-	// errPositionNotSupported represents that the Position endpoint does not provide any data.
-	errPositionNotSupported = errors.New("Position is not supported")
-
-	// errLinearVelocityNotSupported represents that the LinearVelocity method does not provide any data.
-	errLinearVelocityNotSupported = errors.New("LinearVelocity is not supported")
-
-	// errAngularVelocityNotSupported represents that the AngularVelocity endpoint does not provide any data.
-	errAngularVelocityNotSupported = errors.New("AngularVelocity is not supported")
-
-	// errLinearAccelerationNotSupported represents that the LinearAcceleration endpoint does not provide any data.
-	errLinearAccelerationNotSupported = errors.New("LinearAcceleration is not supported")
-
-	// errCompassHeadingNotSupported represents that the CompassHeading endpoint does not provide any data.
-	errCompassHeadingNotSupported = errors.New("CompassHeading is not supported")
-
-	// errOrientationNotSupported represents that the Orientation endpoint does not provide any data.
-	errOrientationNotSupported = errors.New("Orientation is not supported")
-
 	// methodList is a list of all the base methods possible for a movement sensor to implement.
 	methodList = []method{position, linearVelocity, angularVelocity, linearAcceleration, compassHeading, orientation}
 )
@@ -212,7 +194,7 @@ func (replay *replayMovementSensor) Position(ctx context.Context, extra map[stri
 	}
 
 	if !replay.properties.PositionSupported {
-		return nil, 0, errPositionNotSupported
+		return nil, 0, movementsensor.ErrMethodUnimplementedPosition
 	}
 
 	data, err := replay.getDataFromCache(ctx, position)
@@ -234,7 +216,7 @@ func (replay *replayMovementSensor) LinearVelocity(ctx context.Context, extra ma
 	}
 
 	if !replay.properties.LinearVelocitySupported {
-		return r3.Vector{}, errLinearVelocityNotSupported
+		return r3.Vector{}, movementsensor.ErrMethodUnimplementedLinearVelocity
 	}
 
 	data, err := replay.getDataFromCache(ctx, linearVelocity)
@@ -260,7 +242,7 @@ func (replay *replayMovementSensor) AngularVelocity(ctx context.Context, extra m
 	}
 
 	if !replay.properties.AngularVelocitySupported {
-		return spatialmath.AngularVelocity{}, errAngularVelocityNotSupported
+		return spatialmath.AngularVelocity{}, movementsensor.ErrMethodUnimplementedAngularVelocity
 	}
 
 	data, err := replay.getDataFromCache(ctx, angularVelocity)
@@ -284,7 +266,7 @@ func (replay *replayMovementSensor) LinearAcceleration(ctx context.Context, extr
 	}
 
 	if !replay.properties.LinearAccelerationSupported {
-		return r3.Vector{}, errLinearAccelerationNotSupported
+		return r3.Vector{}, movementsensor.ErrMethodUnimplementedLinearAcceleration
 	}
 
 	data, err := replay.getDataFromCache(ctx, linearAcceleration)
@@ -308,7 +290,7 @@ func (replay *replayMovementSensor) CompassHeading(ctx context.Context, extra ma
 	}
 
 	if !replay.properties.CompassHeadingSupported {
-		return 0., errCompassHeadingNotSupported
+		return 0., movementsensor.ErrMethodUnimplementedCompassHeading
 	}
 
 	data, err := replay.getDataFromCache(ctx, compassHeading)
@@ -328,7 +310,7 @@ func (replay *replayMovementSensor) Orientation(ctx context.Context, extra map[s
 	}
 
 	if !replay.properties.OrientationSupported {
-		return nil, errOrientationNotSupported
+		return nil, movementsensor.ErrMethodUnimplementedOrientation
 	}
 
 	data, err := replay.getDataFromCache(ctx, orientation)
