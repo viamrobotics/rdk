@@ -201,8 +201,8 @@ type builtIn struct {
 
 	base           base.Base
 	movementSensor movementsensor.MovementSensor
-	vision         []vision.Service
-	motion         motion.Service
+	visionServices []vision.Service
+	motionService  motion.Service
 	obstacles      []*spatialmath.GeoObstacle
 
 	motionCfg        *motion.MotionConfiguration
@@ -333,10 +333,10 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	svc.mode = navigation.ModeManual
 	svc.base = baseComponent
 	svc.mapType = mapType
-	svc.motion = motionSvc
+	svc.motionService = motionSvc
 	svc.obstacles = newObstacles
 	svc.replanCostFactor = replanCostFactor
-	svc.vision = visionServices
+	svc.visionServices = visionServices
 	svc.motionCfg = &motion.MotionConfiguration{
 		VisionServices:        visionServiceNames,
 		LinearMPerSec:         metersPerSec,
@@ -387,7 +387,7 @@ func (svc *builtIn) SetMode(ctx context.Context, mode navigation.Mode, extra map
 	case navigation.ModeWaypoint:
 		svc.startWaypointMode(cancelCtx, extra)
 	case navigation.ModeExplore:
-		if len(svc.vision) == 0 {
+		if len(svc.visionServices) == 0 {
 			return errors.New("explore mode requires at least one vision service")
 		}
 		svc.startExploreMode(cancelCtx)
@@ -486,7 +486,7 @@ func (svc *builtIn) startWaypointMode(ctx context.Context, extra map[string]inte
 
 		navOnce := func(ctx context.Context, wp navigation.Waypoint) error {
 			svc.logger.Debugf("MoveOnGlobe called going to waypoint %+v", wp)
-			_, err := svc.motion.MoveOnGlobe(
+			_, err := svc.motionService.MoveOnGlobe(
 				ctx,
 				svc.base.Name(),
 				wp.ToPoint(),

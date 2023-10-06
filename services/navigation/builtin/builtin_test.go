@@ -222,8 +222,8 @@ func TestNew(t *testing.T) {
 		svcStruct := svc.(*builtIn)
 
 		test.That(t, svcStruct.base.Name().Name, test.ShouldEqual, "test_base")
-		test.That(t, svcStruct.motion.Name().Name, test.ShouldEqual, "builtin")
-		test.That(t, svcStruct.vision, test.ShouldBeNil)
+		test.That(t, svcStruct.motionService.Name().Name, test.ShouldEqual, "builtin")
+		test.That(t, svcStruct.visionServices, test.ShouldBeNil)
 
 		test.That(t, svcStruct.mapType, test.ShouldEqual, navigation.NoMap)
 		test.That(t, svcStruct.mode, test.ShouldEqual, navigation.ModeManual)
@@ -258,7 +258,7 @@ func TestNew(t *testing.T) {
 
 		test.That(t, svcStruct.mapType, test.ShouldEqual, navigation.NoMap)
 		test.That(t, svcStruct.base.Name().Name, test.ShouldEqual, "new_base")
-		test.That(t, svcStruct.motion.Name().Name, test.ShouldEqual, "new_motion")
+		test.That(t, svcStruct.motionService.Name().Name, test.ShouldEqual, "new_motion")
 		test.That(t, svcStruct.movementSensor, test.ShouldBeNil)
 	})
 
@@ -280,7 +280,7 @@ func TestNew(t *testing.T) {
 
 		test.That(t, svcStruct.mapType, test.ShouldEqual, navigation.GPSMap)
 		test.That(t, svcStruct.base.Name().Name, test.ShouldEqual, "new_base")
-		test.That(t, svcStruct.motion.Name().Name, test.ShouldEqual, "new_motion")
+		test.That(t, svcStruct.motionService.Name().Name, test.ShouldEqual, "new_motion")
 		test.That(t, svcStruct.movementSensor.Name().Name, test.ShouldEqual, cfg.MovementSensorName)
 	})
 
@@ -332,8 +332,8 @@ func TestNew(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		svcStruct := svc.(*builtIn)
 
-		test.That(t, len(svcStruct.vision), test.ShouldEqual, 1)
-		test.That(t, svcStruct.vision[0].Name().Name, test.ShouldEqual, cfg.VisionServices[0])
+		test.That(t, len(svcStruct.visionServices), test.ShouldEqual, 1)
+		test.That(t, svcStruct.visionServices[0].Name().Name, test.ShouldEqual, cfg.VisionServices[0])
 		test.That(t, svcStruct.replanCostFactor, test.ShouldEqual, cfg.ReplanCostFactor)
 	})
 
