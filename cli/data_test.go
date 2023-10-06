@@ -27,7 +27,7 @@ func TestFilenameForDownload(t *testing.T) {
 	gzAtRoot := filenameForDownload(&datapb.BinaryMetadata{
 		FileName: "whatever.gz",
 	})
-	test.That(t, gzAtRoot, test.ShouldEqual, utc0+"_whatever.gz")
+	test.That(t, gzAtRoot, test.ShouldEqual, utc0+"_whatever")
 
 	gzInFolder := filenameForDownload(&datapb.BinaryMetadata{
 		FileName: "dir/whatever.gz",

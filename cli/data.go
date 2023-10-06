@@ -410,18 +410,19 @@ func filenameForDownload(meta *datapb.BinaryMetadata) string {
 	timeRequested := meta.GetTimeRequested().AsTime().Format(time.RFC3339Nano)
 	fileName := meta.GetFileName()
 
+	// If there is no file name, this is a data capture file.
+	if fileName == "" {
+		fileName = timeRequested + "_" + meta.GetId() + meta.GetFileExt()
+	} else if filepath.Dir(fileName) == "." {
+		// If the file name does not contain a directory, prepend if with a requested time so that it is sorted.
+		// Otherwise, keep the file name as-is to maintain the directory structure that the user uploaded the file with.
+		fileName = timeRequested + "_" + fileName
+	}
+
 	// The file name will end with .gz if the user uploaded a gzipped file. We will unzip it below, so remove the last
 	// .gz from the file name. If the user has gzipped the file multiple times, we will only unzip once.
 	if filepath.Ext(fileName) == gzFileExt {
 		fileName = strings.TrimSuffix(fileName, gzFileExt)
-	}
-
-	if fileName == "" {
-		fileName = timeRequested + "_" + meta.GetId()
-	} else if filepath.Dir(fileName) == "." {
-		// If the file name does not contain a directory, prepend if with a requested time so that it is sorted.
-		// Otherwise, keep the file name as-is to maintain the directory structure that the user uploaded the file with.
-		fileName = timeRequested + "_" + strings.TrimSuffix(meta.GetFileName(), meta.GetFileExt())
 	}
 
 	if runtime.GOOS == "windows" {
