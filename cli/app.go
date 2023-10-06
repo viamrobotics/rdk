@@ -476,9 +476,8 @@ var app = &cli.App{
 									Required: true,
 								},
 								&cli.StringFlag{
-									Name: trainFlagModelVersion,
-									Usage: "version of ML model. defaults to current timestamp " +
-										"if unspecified.",
+									Name:  trainFlagModelVersion,
+									Usage: "version of ML model. defaults to current timestamp if unspecified.",
 								},
 								&cli.StringFlag{
 									Name:  datasetFlagDatasetID,
@@ -583,8 +582,9 @@ var app = &cli.App{
 									Required: true,
 								},
 								&cli.StringFlag{
-									Name:  trainFlagJobStatus,
-									Usage: "training status to filter for. can be one of [unspecified, pending, in_progress, completed, failed, canceled, canceling]",
+									Name: trainFlagJobStatus,
+									Usage: "training status to filter for. can be one of " +
+										"[unspecified, pending, in_progress, completed, failed, canceled, canceling]",
 								},
 							},
 							Action: DataListTrainingJobs,
