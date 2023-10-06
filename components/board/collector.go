@@ -13,7 +13,9 @@ import (
 type method int64
 
 const (
-	analogs method = iota
+	analogReaderNameKey        = "reader_name"
+	gpioPinNameKey             = "pin_name"
+	analogs             method = iota
 	gpios
 )
 
@@ -37,11 +39,11 @@ func NewAnalogCollector(resource interface{}, params data.CollectorParams) (data
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, arg map[string]*anypb.Any) (interface{}, error) {
 		var value int
-		if _, ok := arg["reader_name"]; !ok {
+		if _, ok := arg[analogReaderNameKey]; !ok {
 			return nil, data.FailedToReadErr(params.ComponentName, analogs.String(),
-				errors.New("Must supply reader_name for analog collector"))
+				errors.New("Must supply reader_name in additional_params for analog collector"))
 		}
-		if reader, ok := board.AnalogReaderByName(arg["reader_name"].String()); ok {
+		if reader, ok := board.AnalogReaderByName(arg[analogReaderNameKey].String()); ok {
 			value, err = reader.Read(ctx, data.FromDMExtraMap)
 			if err != nil {
 				// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
@@ -69,11 +71,11 @@ func NewGPIOCollector(resource interface{}, params data.CollectorParams) (data.C
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, arg map[string]*anypb.Any) (interface{}, error) {
 		var value bool
-		if _, ok := arg["reader_name"]; !ok {
+		if _, ok := arg[gpioPinNameKey]; !ok {
 			return nil, data.FailedToReadErr(params.ComponentName, gpios.String(),
-				errors.New("Must supply reader_name for gpio collector"))
+				errors.New("Must supply pin_name in additional params for gpio collector"))
 		}
-		if gpio, err := board.GPIOPinByName(arg["reader_name"].String()); err == nil {
+		if gpio, err := board.GPIOPinByName(arg[gpioPinNameKey].String()); err == nil {
 			value, err = gpio.Get(ctx, data.FromDMExtraMap)
 			if err != nil {
 				// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
