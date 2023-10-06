@@ -65,6 +65,9 @@ var (
 	// errSessionClosed represents that the session has ended.
 	errSessionClosed = errors.New("session closed")
 
+	// ererMessageNoDataAvailable indicates that no data was available for the given filter.
+	errMessageNoDataAvailable = "no data available for given filter"
+
 	// methodList is a list of all the base methods possible for a movement sensor to implement.
 	methodList = []method{position, linearVelocity, angularVelocity, linearAcceleration, compassHeading, orientation}
 )
@@ -432,7 +435,7 @@ func (replay *replayMovementSensor) Reconfigure(ctx context.Context, deps resour
 	if err := replay.initializeProperties(ctxWithTimeout); err != nil {
 		err = errors.Wrap(err, errPropertiesFailedToInitialize.Error())
 		if errors.Is(err, context.DeadlineExceeded) {
-			err = errors.Wrap(err, "none of the endpoints returned data")
+			err = errors.Wrap(err, errMessageNoDataAvailable)
 		}
 		return err
 	}
