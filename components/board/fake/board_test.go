@@ -69,7 +69,7 @@ func TestConfigValidate(t *testing.T) {
 	validConfig.AnalogReaders = []board.AnalogReaderConfig{{}}
 	_, err := validConfig.Validate("path")
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `path.analog_readers.0`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `path.analogs.0`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
 
 	validConfig.AnalogReaders = []board.AnalogReaderConfig{{Name: "bar"}}

@@ -25,7 +25,7 @@ import (
 type Config struct {
 	I2Cs              []board.I2CConfig              `json:"i2cs,omitempty"`
 	SPIs              []board.SPIConfig              `json:"spis,omitempty"`
-	AnalogReaders     []board.AnalogReaderConfig     `json:"analog_readers,omitempty"`
+	AnalogReaders     []board.AnalogReaderConfig     `json:"analogs,omitempty"`
 	DigitalInterrupts []board.DigitalInterruptConfig `json:"digital_interrupts,omitempty"`
 	Attributes        rdkutils.AttributeMap          `json:"attributes,omitempty"`
 	FailNew           bool                           `json:"fail_new"`
@@ -44,7 +44,7 @@ func (conf *Config) Validate(path string) ([]string, error) {
 		}
 	}
 	for idx, conf := range conf.AnalogReaders {
-		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "analog_readers", idx)); err != nil {
+		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "analogs", idx)); err != nil {
 			return nil, err
 		}
 	}

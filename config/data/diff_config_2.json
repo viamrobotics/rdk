@@ -38,7 +38,7 @@
             "type": "board",
             "model": "fake",
             "attributes": {
-                "analog_readers": [
+                "analogs": [
                     {
                         "name": "analog1",
                         "pin": "1"

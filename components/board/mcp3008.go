@@ -14,7 +14,7 @@ type MCP3008AnalogReader struct {
 	Chip    string
 }
 
-// MCP3008AnalogConfig describes the configuration of an analog reader on a board.
+// MCP3008AnalogConfig describes the configuration of a MCP3008 analog reader on a board.
 type MCP3008AnalogConfig struct {
 	Name              string `json:"name"`
 	Pin               string `json:"pin"`         // analog input pin on the ADC itself
