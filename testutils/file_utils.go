@@ -52,7 +52,7 @@ func (m *MockBuffer) Flush() error {
 
 // Path returns a hardcoded fake path.
 func (m *MockBuffer) Path() string {
-	return "mock dir"
+	return "/mock/dir"
 }
 
 // Length gets the length of the buffer without race conditions.

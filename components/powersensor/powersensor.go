@@ -23,15 +23,15 @@ func init() {
 	data.RegisterCollector(data.MethodMetadata{
 		API:        API,
 		MethodName: voltage.String(),
-	}, newVoltageCollector)
+	}, NewVoltageCollector)
 	data.RegisterCollector(data.MethodMetadata{
 		API:        API,
 		MethodName: current.String(),
-	}, newCurrentCollector)
+	}, NewCurrentCollector)
 	data.RegisterCollector(data.MethodMetadata{
 		API:        API,
 		MethodName: power.String(),
-	}, newPowerCollector)
+	}, NewPowerCollector)
 }
 
 // SubtypeName is a constant that identifies the component resource API string "power_sensor".

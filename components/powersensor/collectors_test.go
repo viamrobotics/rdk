@@ -1,4 +1,4 @@
-package powersensor
+package powersensor_test
 
 import (
 	"context"
@@ -10,8 +10,10 @@ import (
 	pb "go.viam.com/api/component/powersensor/v1"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/components/powersensor"
 	"go.viam.com/rdk/data"
 	tu "go.viam.com/rdk/testutils"
+	"go.viam.com/rdk/testutils/inject"
 )
 
 const (
@@ -27,7 +29,7 @@ func TestPowerSensorCollectors(t *testing.T) {
 	}{
 		{
 			name:      "Power sensor voltage collector should write a voltage response",
-			collector: newVoltageCollector,
+			collector: powersensor.NewVoltageCollector,
 			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.GetVoltageResponse{
 				Volts: 1.0,
 				IsAc:  false,
@@ -35,15 +37,15 @@ func TestPowerSensorCollectors(t *testing.T) {
 		},
 		{
 			name:      "Power sensor current collector should write a current response",
-			collector: newCurrentCollector,
+			collector: powersensor.NewCurrentCollector,
 			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.GetCurrentResponse{
 				Amperes: 1.0,
-				IsAc:    true,
+				IsAc:    false,
 			}),
 		},
 		{
 			name:      "Power sensor power collector should write a power response",
-			collector: newPowerCollector,
+			collector: powersensor.NewPowerCollector,
 			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.GetPowerResponse{
 				Watts: 1.0,
 			}),
@@ -76,22 +78,16 @@ func TestPowerSensorCollectors(t *testing.T) {
 	}
 }
 
-type fakePowerSensor struct {
-	PowerSensor
-}
-
-func newPowerSensor() PowerSensor {
-	return &fakePowerSensor{}
-}
-
-func (i *fakePowerSensor) Voltage(ctx context.Context, cmd map[string]interface{}) (float64, bool, error) {
-	return 1.0, false, nil
-}
-
-func (i *fakePowerSensor) Current(ctx context.Context, cmd map[string]interface{}) (float64, bool, error) {
-	return 1.0, true, nil
-}
-
-func (i *fakePowerSensor) Power(ctx context.Context, cmd map[string]interface{}) (float64, error) {
-	return 1.0, nil
+func newPowerSensor() powersensor.PowerSensor {
+	p := &inject.PowerSensor{}
+	p.VoltageFunc = func(ctx context.Context, extra map[string]interface{}) (float64, bool, error) {
+		return 1.0, false, nil
+	}
+	p.CurrentFunc = func(ctx context.Context, extra map[string]interface{}) (float64, bool, error) {
+		return 1.0, false, nil
+	}
+	p.PowerFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
+		return 1.0, nil
+	}
+	return p
 }

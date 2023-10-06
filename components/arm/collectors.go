@@ -30,7 +30,9 @@ func (m method) String() string {
 	return "Unknown"
 }
 
-func newEndPositionCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+// NewEndPositionCollector returns a collector to register an end position method. If one is already registered
+// with the same MethodMetadata it will panic.
+func NewEndPositionCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	arm, err := assertArm(resource)
 	if err != nil {
 		return nil, err
@@ -62,7 +64,9 @@ func newEndPositionCollector(resource interface{}, params data.CollectorParams) 
 	return data.NewCollector(cFunc, params)
 }
 
-func newJointPositionsCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+// NewJointPositionsCollector returns a collector to register a joint positions method. If one is already registered
+// with the same MethodMetadata it will panic.
+func NewJointPositionsCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	arm, err := assertArm(resource)
 	if err != nil {
 		return nil, err

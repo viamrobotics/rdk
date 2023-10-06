@@ -1,4 +1,4 @@
-package servo
+package servo_test
 
 import (
 	"context"
@@ -10,8 +10,10 @@ import (
 	pb "go.viam.com/api/component/servo/v1"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/components/servo"
 	"go.viam.com/rdk/data"
 	tu "go.viam.com/rdk/testutils"
+	"go.viam.com/rdk/testutils/inject"
 )
 
 const captureInterval = time.Second
@@ -27,8 +29,8 @@ func TestServoCollector(t *testing.T) {
 		Clock:         mockClock,
 	}
 
-	servo := newServo()
-	col, err := newPositionCollector(servo, params)
+	serv := newServo()
+	col, err := servo.NewPositionCollector(serv, params)
 	test.That(t, err, test.ShouldBeNil)
 
 	defer col.Close()
@@ -42,14 +44,10 @@ func TestServoCollector(t *testing.T) {
 		}))
 }
 
-type fakeServo struct {
-	Servo
-}
-
-func newServo() Servo {
-	return &fakeServo{}
-}
-
-func (s *fakeServo) Position(ctx context.Context, extra map[string]interface{}) (uint32, error) {
-	return 1.0, nil
+func newServo() servo.Servo {
+	s := &inject.Servo{}
+	s.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (uint32, error) {
+		return 1.0, nil
+	}
+	return s
 }

@@ -1,4 +1,4 @@
-package movementsensor
+package movementsensor_test
 
 import (
 	"context"
@@ -13,9 +13,11 @@ import (
 	pb "go.viam.com/api/component/movementsensor/v1"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/spatialmath"
 	tu "go.viam.com/rdk/testutils"
+	"go.viam.com/rdk/testutils/inject"
 )
 
 const (
@@ -37,14 +39,14 @@ func TestMovementSensorCollectors(t *testing.T) {
 	}{
 		{
 			name:      "Movement sensor linear velocity collector should write a velocity response",
-			collector: newLinearVelocityCollector,
+			collector: movementsensor.NewLinearVelocityCollector,
 			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.GetLinearVelocityResponse{
 				LinearVelocity: r3VectorToV1Vector(vec),
 			}),
 		},
 		{
 			name:      "Movement sensor position collector should write a position response",
-			collector: newPositionCollector,
+			collector: movementsensor.NewPositionCollector,
 			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.GetPositionResponse{
 				Coordinate: &v1.GeoPoint{
 					Latitude:  1.0,
@@ -55,28 +57,28 @@ func TestMovementSensorCollectors(t *testing.T) {
 		},
 		{
 			name:      "Movement sensor angular velocity collector should write a velocity response",
-			collector: newAngularVelocityCollector,
+			collector: movementsensor.NewAngularVelocityCollector,
 			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.GetAngularVelocityResponse{
 				AngularVelocity: r3VectorToV1Vector(vec),
 			}),
 		},
 		{
 			name:      "Movement sensor compass heading collector should write a heading response",
-			collector: newCompassHeadingCollector,
+			collector: movementsensor.NewCompassHeadingCollector,
 			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.GetCompassHeadingResponse{
 				Value: 1.0,
 			}),
 		},
 		{
 			name:      "Movement sensor linear acceleration collector should write an acceleration response",
-			collector: newLinearAccelerationCollector,
+			collector: movementsensor.NewLinearAccelerationCollector,
 			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.GetLinearAccelerationResponse{
 				LinearAcceleration: r3VectorToV1Vector(vec),
 			}),
 		},
 		{
 			name:      "Movement sensor orientation collector should write an orientation response",
-			collector: newOrientationCollector,
+			collector: movementsensor.NewOrientationCollector,
 			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.GetOrientationResponse{
 				Orientation: getExpectedOrientation(),
 			}),
@@ -109,40 +111,31 @@ func TestMovementSensorCollectors(t *testing.T) {
 	}
 }
 
-type fakeMovementSensor struct {
-	MovementSensor
-}
-
-func newMovementSensor() MovementSensor {
-	return &fakeMovementSensor{}
-}
-
-func (i *fakeMovementSensor) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
-	return geo.NewPoint(1.0, 2.0), 3.0, nil
-}
-
-func (i *fakeMovementSensor) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
-	return vec, nil
-}
-
-func (i *fakeMovementSensor) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
-	return spatialmath.AngularVelocity{
-		X: 1.0,
-		Y: 2.0,
-		Z: 3.0,
-	}, nil
-}
-
-func (i *fakeMovementSensor) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
-	return vec, nil
-}
-
-func (i *fakeMovementSensor) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
-	return spatialmath.NewZeroOrientation(), nil
-}
-
-func (i *fakeMovementSensor) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
-	return 1.0, nil
+func newMovementSensor() movementsensor.MovementSensor {
+	m := &inject.MovementSensor{}
+	m.LinearVelocityFunc = func(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+		return vec, nil
+	}
+	m.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+		return geo.NewPoint(1.0, 2.0), 3.0, nil
+	}
+	m.AngularVelocityFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
+		return spatialmath.AngularVelocity{
+			X: 1.0,
+			Y: 2.0,
+			Z: 3.0,
+		}, nil
+	}
+	m.CompassHeadingFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
+		return 1.0, nil
+	}
+	m.LinearAccelerationFunc = func(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+		return vec, nil
+	}
+	m.OrientationFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
+		return spatialmath.NewZeroOrientation(), nil
+	}
+	return m
 }
 
 func r3VectorToV1Vector(vec r3.Vector) *v1.Vector3 {

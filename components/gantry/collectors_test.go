@@ -1,4 +1,4 @@
-package gantry
+package gantry_test
 
 import (
 	"context"
@@ -10,8 +10,10 @@ import (
 	pb "go.viam.com/api/component/gantry/v1"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/components/gantry"
 	"go.viam.com/rdk/data"
 	tu "go.viam.com/rdk/testutils"
+	"go.viam.com/rdk/testutils/inject"
 )
 
 const (
@@ -29,14 +31,14 @@ func TestGantryCollectors(t *testing.T) {
 	}{
 		{
 			name:      "Length collector should write a lengths response",
-			collector: newLengthsCollector,
+			collector: gantry.NewLengthsCollector,
 			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.GetLengthsResponse{
 				LengthsMm: scaleMetersToMm(floatList),
 			}),
 		},
 		{
-			name:      "End position collector should write a list of positions",
-			collector: newPositionCollector,
+			name:      "Position collector should write a list of positions",
+			collector: gantry.NewPositionCollector,
 			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.GetPositionResponse{
 				PositionsMm: scaleMetersToMm(floatList),
 			}),
@@ -69,18 +71,21 @@ func TestGantryCollectors(t *testing.T) {
 	}
 }
 
-type fakeGantry struct {
-	Gantry
+func newGantry() gantry.Gantry {
+	g := &inject.Gantry{}
+	g.PositionFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+		return floatList, nil
+	}
+	g.LengthsFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+		return floatList, nil
+	}
+	return g
 }
 
-func newGantry() Gantry {
-	return &fakeGantry{}
-}
-
-func (g *fakeGantry) Position(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
-	return floatList, nil
-}
-
-func (g *fakeGantry) Lengths(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
-	return floatList, nil
+func scaleMetersToMm(meters []float64) []float64 {
+	ret := make([]float64, len(meters))
+	for i := range ret {
+		ret[i] = meters[i] * 1000
+	}
+	return ret
 }
