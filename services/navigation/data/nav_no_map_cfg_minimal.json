@@ -1,0 +1,20 @@
+{
+    "components":
+    [
+        {
+            "model": "fake",
+            "name": "test_base",
+            "type": "base"
+        }
+    ],
+    "services":
+    [
+        {
+        "name":"test_navigation",
+        "type": "navigation",
+        "attributes":{
+            "base":"test_base",
+            "map_type": "None"
+        }
+    }]
+}
