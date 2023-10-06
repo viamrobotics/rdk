@@ -533,9 +533,9 @@ func (replay *replayMovementSensor) attemptToInitializeProperty(ctx context.Cont
 	return initializedProperty, nil
 }
 
-// initializeProperties will set the properties by repeatedly attempting to poll data from all the methods
-// until at least one of them returns data. The properties are set to `true` for the endpoints that
-// returned data.
+// initializeProperties will set the properties by repeatedly polling the cloud for data from
+// the available methods until at least one returns data. The properties are set to
+// `true` for the endpoints that returned data.
 func (replay *replayMovementSensor) initializeProperties(ctx context.Context) error {
 	var initializedAtLeastOneProperty, initializedProperty bool
 	var err error
