@@ -27,7 +27,9 @@ func (m method) String() string {
 	return "Unknown"
 }
 
-func newAnalogCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+// NewAnalogCollector returns a collector to register an analog reading method. If one is already registered
+// with the same MethodMetadata it will panic.
+func NewAnalogCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	board, err := assertBoard(resource)
 	if err != nil {
 		return nil, err
@@ -57,7 +59,9 @@ func newAnalogCollector(resource interface{}, params data.CollectorParams) (data
 	return data.NewCollector(cFunc, params)
 }
 
-func newGPIOCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+// NewGPIOCollector returns a collector to register a gpio get method. If one is already registered
+// with the same MethodMetadata it will panic.
+func NewGPIOCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	board, err := assertBoard(resource)
 	if err != nil {
 		return nil, err
