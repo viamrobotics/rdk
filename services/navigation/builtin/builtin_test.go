@@ -15,6 +15,7 @@ import (
 	"go.viam.com/rdk/components/base"
 	fakebase "go.viam.com/rdk/components/base/fake"
 	"go.viam.com/rdk/components/base/kinematicbase"
+	_ "go.viam.com/rdk/components/camera/fake"
 	_ "go.viam.com/rdk/components/movementsensor/fake"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/referenceframe"
@@ -185,7 +186,7 @@ func TestNavSetup(t *testing.T) {
 	test.That(t, len(obs), test.ShouldEqual, 1)
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, len(ns.(*builtIn).motionCfg.VisionServices), test.ShouldEqual, 1)
+	test.That(t, len(ns.(*builtIn).motionCfg.ObstacleDetectors), test.ShouldEqual, 1)
 }
 
 func TestStartWaypoint(t *testing.T) {

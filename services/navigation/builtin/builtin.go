@@ -15,6 +15,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/base"
+	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
@@ -66,11 +67,11 @@ func init() {
 
 // Config describes how to configure the service.
 type Config struct {
-	Store              navigation.StoreConfig `json:"store"`
-	BaseName           string                 `json:"base"`
-	MovementSensorName string                 `json:"movement_sensor"`
-	MotionServiceName  string                 `json:"motion_service"`
-	VisionServices     []string               `json:"vision_services"`
+	Store              navigation.StoreConfig           `json:"store"`
+	BaseName           string                           `json:"base"`
+	MovementSensorName string                           `json:"movement_sensor"`
+	MotionServiceName  string                           `json:"motion_service"`
+	ObstacleDetectors  []*motion.ObstacleDetectorConfig `json:"obstacle_detectors"`
 
 	// DegPerSec and MetersPerSec are targets and not hard limits on speed
 	DegPerSec    float64 `json:"degs_per_sec,omitempty"`
@@ -103,8 +104,9 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	}
 	deps = append(deps, resource.NewName(motion.API, conf.MotionServiceName).String())
 
-	for _, v := range conf.VisionServices {
-		deps = append(deps, resource.NewName(vision.API, v).String())
+	for _, obstacleDetectorPair := range conf.ObstacleDetectors {
+		deps = append(deps, resource.NewName(vision.API, obstacleDetectorPair.VisionService).String())
+		deps = append(deps, resource.NewName(camera.API, obstacleDetectorPair.Camera).String())
 	}
 
 	// get default speeds from config if set, else defaults from nav services const
@@ -209,13 +211,20 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		return err
 	}
 
-	var visionServices []resource.Name
-	for _, svc := range svcConfig.VisionServices {
-		visionSvc, err := vision.FromDependencies(deps, svc)
+	var obstacleDetectorPairs []motion.ObstacleDetector
+	for _, pbObstacleDetectorPair := range svcConfig.ObstacleDetectors {
+		visionSvc, err := vision.FromDependencies(deps, pbObstacleDetectorPair.VisionService)
 		if err != nil {
 			return err
 		}
-		visionServices = append(visionServices, visionSvc.Name())
+		camera, err := camera.FromDependencies(deps, pbObstacleDetectorPair.Camera)
+		if err != nil {
+			return err
+		}
+		obstacleDetectorPairs = append(obstacleDetectorPairs, motion.ObstacleDetector{
+			VisionService: visionSvc.Name(),
+			Camera:        camera.Name(),
+		})
 	}
 
 	svc.mu.Lock()
@@ -244,7 +253,7 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	svc.obstacles = newObstacles
 	svc.replanCostFactor = svcConfig.ReplanCostFactor
 	svc.motionCfg = &motion.MotionConfiguration{
-		VisionServices:        visionServices,
+		ObstacleDetectors:     obstacleDetectorPairs,
 		LinearMPerSec:         svcConfig.MetersPerSec,
 		AngularDegsPerSec:     svcConfig.DegPerSec,
 		PlanDeviationMM:       1e3 * svcConfig.PlanDeviationM,

@@ -16,6 +16,7 @@ import (
 	vprotoutils "go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/components/base"
+	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/protoutils"
@@ -255,11 +256,15 @@ func TestServerMoveOnGlobeNew(t *testing.T) {
 		planDeviationM := 3.
 		obstaclePollingFrequencyHz := 4.
 		positionPollingFrequencyHz := 5.
-		vis1 := vision.Named("vision service 1")
-		vis2 := vision.Named("vision service 2")
-		visionServices := []*commonpb.ResourceName{
-			protoutils.ResourceNameToProto(vis1),
-			protoutils.ResourceNameToProto(vis2),
+		obstacleDetectorsPB := []*pb.ObstacleDetector{
+			&pb.ObstacleDetector{
+				VisionService: protoutils.ResourceNameToProto(vision.Named("vision service 1")),
+				Camera:        protoutils.ResourceNameToProto(camera.Named("camera 1")),
+			},
+			&pb.ObstacleDetector{
+				VisionService: protoutils.ResourceNameToProto(vision.Named("vision service 2")),
+				Camera:        protoutils.ResourceNameToProto(camera.Named("camera 2")),
+			},
 		}
 
 		moveOnGlobeNewRequest := &pb.MoveOnGlobeNewRequest{
@@ -275,7 +280,7 @@ func TestServerMoveOnGlobeNew(t *testing.T) {
 				PlanDeviationM:             &planDeviationM,
 				ObstaclePollingFrequencyHz: &obstaclePollingFrequencyHz,
 				PositionPollingFrequencyHz: &positionPollingFrequencyHz,
-				VisionServices:             visionServices,
+				ObstacleDetectors:          obstacleDetectorsPB,
 			},
 		}
 
@@ -293,9 +298,11 @@ func TestServerMoveOnGlobeNew(t *testing.T) {
 			test.That(t, req.MotionCfg.PlanDeviationMM, test.ShouldAlmostEqual, planDeviationM*1000)
 			test.That(t, req.MotionCfg.ObstaclePollingFreqHz, test.ShouldAlmostEqual, obstaclePollingFrequencyHz)
 			test.That(t, req.MotionCfg.PositionPollingFreqHz, test.ShouldAlmostEqual, positionPollingFrequencyHz)
-			test.That(t, len(req.MotionCfg.VisionServices), test.ShouldAlmostEqual, 2)
-			test.That(t, req.MotionCfg.VisionServices[0], test.ShouldResemble, vis1)
-			test.That(t, req.MotionCfg.VisionServices[1], test.ShouldResemble, vis2)
+			test.That(t, len(req.MotionCfg.ObstacleDetectors), test.ShouldAlmostEqual, 2)
+			test.That(t, req.MotionCfg.ObstacleDetectors[0].VisionService, test.ShouldResemble, vision.Named("vision service 1"))
+			test.That(t, req.MotionCfg.ObstacleDetectors[0].Camera, test.ShouldResemble, camera.Named("camera 1"))
+			test.That(t, req.MotionCfg.ObstacleDetectors[1].VisionService, test.ShouldResemble, vision.Named("vision service 2"))
+			test.That(t, req.MotionCfg.ObstacleDetectors[1].Camera, test.ShouldResemble, camera.Named("camera 2"))
 			return "some execution id", nil
 		}
 		moveOnGlobeNewResponse, err := server.MoveOnGlobeNew(context.Background(), moveOnGlobeNewRequest)
