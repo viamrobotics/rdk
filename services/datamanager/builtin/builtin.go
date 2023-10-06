@@ -250,10 +250,10 @@ func (svc *builtIn) initializeOrUpdateCollector(
 	additionalParamKey, ok := metadataToAdditionalParamFields[generateMetadataKey(
 		md.MethodMetadata.API.String(),
 		md.MethodMetadata.MethodName)]
-	// only check additional params if it is a board
 	if ok {
 		if _, ok := config.AdditionalParams[additionalParamKey]; !ok {
-			return nil, errors.Errorf("failed to validate additional_params for board, must supply %s", additionalParamKey)
+			return nil, errors.Errorf("failed to validate additional_params for %s, must supply %s",
+				md.MethodMetadata.API.String(), additionalParamKey)
 		}
 	}
 	methodParams, err := protoutils.ConvertStringMapToAnyPBMap(config.AdditionalParams)
