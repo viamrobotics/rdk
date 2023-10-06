@@ -402,8 +402,8 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 	return nil
 }
 
-// non-exhaustive list of characters to strip from filenames on windows.
-const windowsReservedChars = ":"
+// non-exhaustive list of characters to strip from filenames on windows and darwin (macOS).
+const windowsDarwinReservedChars = ":"
 
 // transform datum's filename to a destination path on this computer.
 func filenameForDownload(meta *datapb.BinaryMetadata) string {
@@ -425,9 +425,9 @@ func filenameForDownload(meta *datapb.BinaryMetadata) string {
 		fileName = strings.TrimSuffix(fileName, gzFileExt)
 	}
 
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == "windows" || runtime.GOOS == "darwin" {
 		fileName = strings.Map(func(c rune) rune {
-			if strings.ContainsRune(windowsReservedChars, c) {
+			if strings.ContainsRune(windowsDarwinReservedChars, c) {
 				return '_'
 			}
 			return c
