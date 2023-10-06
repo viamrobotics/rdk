@@ -343,7 +343,7 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 
 	datum := data[0]
 
-	fileName := filenameForDownload(datum.GetMetadata())
+	fileName := filenameForDownload(datum.GetMetadata(), runtime.GOOS)
 	// Modify the file name in the metadata to reflect what it will be saved as.
 	metadata := datum.GetMetadata()
 	metadata.FileName = fileName
@@ -406,7 +406,7 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 const windowsDarwinReservedChars = ":"
 
 // transform datum's filename to a destination path on this computer.
-func filenameForDownload(meta *datapb.BinaryMetadata) string {
+func filenameForDownload(meta *datapb.BinaryMetadata, runtimeOS string) string {
 	timeRequested := meta.GetTimeRequested().AsTime().Format(time.RFC3339Nano)
 	fileName := meta.GetFileName()
 
@@ -425,7 +425,7 @@ func filenameForDownload(meta *datapb.BinaryMetadata) string {
 		fileName = strings.TrimSuffix(fileName, gzFileExt)
 	}
 
-	if runtime.GOOS == "windows" || runtime.GOOS == "darwin" {
+	if runtimeOS == "windows" || runtimeOS == "darwin" {
 		fileName = strings.Map(func(c rune) rune {
 			if strings.ContainsRune(windowsDarwinReservedChars, c) {
 				return '_'
