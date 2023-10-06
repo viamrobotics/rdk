@@ -563,7 +563,9 @@ func (replay *replayMovementSensor) initializeProperties(ctx context.Context) er
 	}
 
 	for method, supported := range dataReceived {
-		replay.setProperty(method, supported)
+		if err := replay.setProperty(method, supported); err != nil {
+			return err
+		}
 	}
 	return nil
 }

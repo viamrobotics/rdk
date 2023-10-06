@@ -780,7 +780,6 @@ func TestReplayMovementSensorReadings(t *testing.T) {
 }
 
 func TestReplayMovementSensorTimestampsMetadata(t *testing.T) {
-
 	// Construct replay movement sensor.
 	ctx := context.Background()
 	cfg := &Config{
@@ -821,7 +820,6 @@ func TestReplayMovementSensorTimestampsMetadata(t *testing.T) {
 }
 
 func TestReplayMovementSensorReconfigure(t *testing.T) {
-
 	// Construct replay movement sensor
 	cfg := &Config{
 		Source:         validSource,
