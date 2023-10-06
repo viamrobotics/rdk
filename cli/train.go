@@ -31,7 +31,9 @@ func DataSubmitTrainingJob(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	trainingJobID, err := client.dataSubmitTrainingJob(filter, c.String(trainFlagModelOrgID), c.String(trainFlagModelName), c.String(trainFlagModelVersion), c.String(trainFlagModelType), c.StringSlice(trainFlagModelLabels))
+	trainingJobID, err := client.dataSubmitTrainingJob(
+		filter, c.String(trainFlagModelOrgID), c.String(trainFlagModelName), c.String(trainFlagModelVersion), c.String(trainFlagModelType),
+		c.StringSlice(trainFlagModelLabels))
 	if err != nil {
 		return err
 	}
@@ -40,7 +42,9 @@ func DataSubmitTrainingJob(c *cli.Context) error {
 }
 
 // dataSubmitTrainingJob trains on data with the specified filter.
-func (c *viamClient) dataSubmitTrainingJob(filter *datapb.Filter, orgID string, modelName string, modelVersion string, modelType string, labels []string) (string, error) {
+func (c *viamClient) dataSubmitTrainingJob(filter *datapb.Filter, orgID, modelName, modelVersion, modelType string,
+	labels []string,
+) (string, error) {
 	if err := c.ensureLoggedIn(); err != nil {
 		return "", err
 	}
@@ -49,11 +53,15 @@ func (c *viamClient) dataSubmitTrainingJob(filter *datapb.Filter, orgID string, 
 	}
 	modelTypeEnum, ok := mltrainingpb.ModelType_value["MODEL_TYPE_"+strings.ToUpper(modelType)]
 	if !ok || modelTypeEnum == int32(mltrainingpb.ModelType_MODEL_TYPE_UNSPECIFIED) {
-		return "", errors.Errorf("%s must be a valid ModelType, got %s. See `viam data train submit --help` for supported options.", trainFlagModelType, modelType)
+		return "", errors.Errorf("%s must be a valid ModelType, got %s. See `viam data train submit --help` for supported options",
+			trainFlagModelType, modelType)
 	}
 
 	resp, err := c.mlTrainingClient.SubmitTrainingJob(context.Background(),
-		&mltrainingpb.SubmitTrainingJobRequest{Filter: filter, OrganizationId: orgID, ModelName: modelName, ModelVersion: modelVersion, ModelType: mltrainingpb.ModelType(modelTypeEnum), Tags: labels})
+		&mltrainingpb.SubmitTrainingJobRequest{
+			Filter: filter, OrganizationId: orgID, ModelName: modelName, ModelVersion: modelVersion,
+			ModelType: mltrainingpb.ModelType(modelTypeEnum), Tags: labels,
+		})
 	if err != nil {
 		return "", errors.Wrapf(err, "received error from server")
 	}
@@ -105,7 +113,8 @@ func (c *viamClient) dataCancelTrainingJob(trainingJobID string) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
-	if _, err := c.mlTrainingClient.CancelTrainingJob(context.Background(), &mltrainingpb.CancelTrainingJobRequest{Id: trainingJobID}); err != nil {
+	if _, err := c.mlTrainingClient.CancelTrainingJob(
+		context.Background(), &mltrainingpb.CancelTrainingJobRequest{Id: trainingJobID}); err != nil {
 		return err
 	}
 	return nil
@@ -136,10 +145,14 @@ func (c *viamClient) dataListTrainingJobs(orgID, status string) (interface{}, er
 	}
 	statusEnum, ok := mltrainingpb.TrainingStatus_value["TRAINING_STATUS_"+strings.ToUpper(status)]
 	if !ok {
-		return nil, errors.Errorf("%s must be a valid TrainingStatus, got %s. See `viam data train list --help` for supported options.", trainFlagJobStatus, status)
+		return nil, errors.Errorf("%s must be a valid TrainingStatus, got %s. See `viam data train list --help` for supported options",
+			trainFlagJobStatus, status)
 	}
 
-	resp, err := c.mlTrainingClient.ListTrainingJobs(context.Background(), &mltrainingpb.ListTrainingJobsRequest{OrganizationId: orgID, Status: mltrainingpb.TrainingStatus(statusEnum)})
+	resp, err := c.mlTrainingClient.ListTrainingJobs(context.Background(), &mltrainingpb.ListTrainingJobsRequest{
+		OrganizationId: orgID,
+		Status:         mltrainingpb.TrainingStatus(statusEnum),
+	})
 	if err != nil {
 		return nil, err
 	}
