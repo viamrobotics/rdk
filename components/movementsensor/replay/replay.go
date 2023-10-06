@@ -14,6 +14,8 @@ import (
 	datapb "go.viam.com/api/app/data/v1"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
+	"golang.org/x/exp/maps"
+	"golang.org/x/exp/slices"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -27,10 +29,10 @@ import (
 )
 
 const (
-	timeFormat                       = time.RFC3339
-	grpcConnectionTimeout            = 10 * time.Second
-	initializePropertiesLoopWaitTime = time.Second
-	maxCacheSize                     = 1000
+	timeFormat               = time.RFC3339
+	grpcConnectionTimeout    = 10 * time.Second
+	dataReceivedLoopWaitTime = time.Second
+	maxCacheSize             = 1000
 )
 
 type method string
@@ -425,9 +427,9 @@ func (replay *replayMovementSensor) Reconfigure(ctx context.Context, deps resour
 		replay.filter.Interval.End = timestamppb.New(endTime)
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, initializePropertiesTimeout)
+	ctxWithTimeout, cancel := context.WithTimeout(ctx, initializePropertiesTimeout)
 	defer cancel()
-	if err := replay.initializeProperties(ctx); err != nil {
+	if err := replay.initializeProperties(ctxWithTimeout); err != nil {
 		err = errors.Wrap(err, errPropertiesFailedToInitialize.Error())
 		if errors.Is(err, context.DeadlineExceeded) {
 			err = errors.Wrap(err, "none of the endpoints returned data")
@@ -515,56 +517,52 @@ func (replay *replayMovementSensor) setProperty(method method, supported bool) e
 	return nil
 }
 
-// attemptToInitializeProperty will try to update the cache for the provided method.
-func (replay *replayMovementSensor) attemptToInitializeProperty(ctx context.Context, method method) (bool, error) {
-	initializedProperty := false
+// attemptToGetData will try to update the cache for the provided method. Returns a bool that
+// indicates whether or not the endpoint has data.
+func (replay *replayMovementSensor) attemptToGetData(ctx context.Context, method method) (bool, error) {
 	if replay.closed {
-		return initializedProperty, errSessionClosed
+		return false, errSessionClosed
 	}
 	if err := replay.updateCache(ctx, method); err != nil && !strings.Contains(err.Error(), ErrEndOfDataset.Error()) {
-		return initializedProperty, errors.Wrap(err, "could not update the cache")
+		return false, errors.Wrap(err, "could not update the cache")
 	}
-	if len(replay.cache[method]) != 0 {
-		if err := replay.setProperty(method, true); err != nil {
-			return initializedProperty, errors.Wrap(err, "could not set property")
-		}
-		initializedProperty = true
-	}
-	return initializedProperty, nil
+	return len(replay.cache[method]) != 0, nil
 }
 
 // initializeProperties will set the properties by repeatedly polling the cloud for data from
 // the available methods until at least one returns data. The properties are set to
 // `true` for the endpoints that returned data.
 func (replay *replayMovementSensor) initializeProperties(ctx context.Context) error {
-	var initializedAtLeastOneProperty, initializedProperty bool
+	dataReceived := make(map[method]bool)
 	var err error
 	// Repeatedly attempt to poll data from the movement sensor for each method until at least
 	// one of the methods receives data.
 	for {
-		if !goutils.SelectContextOrWait(ctx, initializePropertiesLoopWaitTime) {
+		if !goutils.SelectContextOrWait(ctx, dataReceivedLoopWaitTime) {
 			return ctx.Err()
 		}
 		for _, method := range methodList {
-			if initializedProperty, err = replay.attemptToInitializeProperty(ctx, method); err != nil {
+			if dataReceived[method], err = replay.attemptToGetData(ctx, method); err != nil {
 				return err
 			}
-			if initializedProperty {
-				initializedAtLeastOneProperty = true
-			}
 		}
-		// If at least one method successfully managed to initialize, we know that data reached the cloud and
+		// If at least one method successfully managed to return data, we know
 		// that we can finish initializing the properties.
-		if initializedAtLeastOneProperty {
-			// Loop once more through all methods to ensure we didn't miss out on catching that they're supported
-			for _, method := range methodList {
-				if _, err = replay.attemptToInitializeProperty(ctx, method); err != nil {
-					return err
-				}
-			}
-			return nil
+		if slices.Contains(maps.Values(dataReceived), true) {
+			break
 		}
 	}
+	// Loop once more through all methods to ensure we didn't miss out on catching that they're supported
+	for _, method := range methodList {
+		if dataReceived[method], err = replay.attemptToGetData(ctx, method); err != nil {
+			return err
+		}
+	}
+
+	for method, supported := range dataReceived {
+		replay.setProperty(method, supported)
+	}
+	return nil
 }
 
 // getDataFromCache retrieves the next cached data and removes it from the cache. It assumes the write lock is being held.
