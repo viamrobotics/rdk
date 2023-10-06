@@ -32,6 +32,8 @@ type NavStore interface {
 type storeType string
 
 const (
+	// StoreTypeUnset represents when a store type was not set.
+	StoreTypeUnset = ""
 	// StoreTypeMemory is the constant for the memory store type.
 	StoreTypeMemory = "memory"
 	// StoreTypeMongoDB is the constant for the mongodb store type.
@@ -47,7 +49,7 @@ type StoreConfig struct {
 // Validate ensures all parts of the config are valid.
 func (config *StoreConfig) Validate(path string) error {
 	switch config.Type {
-	case StoreTypeMemory, StoreTypeMongoDB:
+	case StoreTypeMemory, StoreTypeMongoDB, StoreTypeUnset:
 	default:
 		return errors.Errorf("unknown store type %q", config.Type)
 	}
@@ -57,7 +59,7 @@ func (config *StoreConfig) Validate(path string) error {
 // NewStoreFromConfig builds a NavStore from the provided StoreConfig and returns it.
 func NewStoreFromConfig(ctx context.Context, conf StoreConfig) (NavStore, error) {
 	switch conf.Type {
-	case StoreTypeMemory:
+	case StoreTypeMemory, StoreTypeUnset:
 		return NewMemoryNavigationStore(), nil
 	case StoreTypeMongoDB:
 		return NewMongoDBNavigationStore(ctx, conf.Config)
