@@ -1,4 +1,4 @@
-package encoder
+package encoder_test
 
 import (
 	"context"
@@ -10,8 +10,10 @@ import (
 	pb "go.viam.com/api/component/encoder/v1"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/data"
 	tu "go.viam.com/rdk/testutils"
+	"go.viam.com/rdk/testutils/inject"
 )
 
 const captureInterval = time.Second
@@ -28,7 +30,7 @@ func TestEncoderCollector(t *testing.T) {
 	}
 
 	enc := newEncoder()
-	col, err := newTicksCountCollector(enc, params)
+	col, err := encoder.NewTicksCountCollector(enc, params)
 	test.That(t, err, test.ShouldBeNil)
 
 	defer col.Close()
@@ -43,18 +45,13 @@ func TestEncoderCollector(t *testing.T) {
 		}))
 }
 
-type fakeEncoder struct {
-	Encoder
-}
-
-func newEncoder() Encoder {
-	return &fakeEncoder{}
-}
-
-func (e *fakeEncoder) Position(
-	ctx context.Context,
-	positionType PositionType,
-	extra map[string]interface{},
-) (float64, PositionType, error) {
-	return 1.0, PositionTypeTicks, nil
+func newEncoder() encoder.Encoder {
+	e := &inject.Encoder{}
+	e.PositionFunc = func(ctx context.Context,
+		positionType encoder.PositionType,
+		extra map[string]interface{},
+	) (float64, encoder.PositionType, error) {
+		return 1.0, encoder.PositionTypeTicks, nil
+	}
+	return e
 }
