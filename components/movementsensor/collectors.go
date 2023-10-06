@@ -11,7 +11,6 @@ import (
 	"go.viam.com/rdk/data"
 )
 
-// TODO: DATA-2012 add tests for this file.
 type method int64
 
 const (
