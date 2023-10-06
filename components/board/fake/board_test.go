@@ -76,10 +76,6 @@ func TestConfigValidate(t *testing.T) {
 	_, err = validConfig.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
 
-	validConfig.AnalogReaders = []board.AnalogReaderConfig{{Name: "bar"}}
-	_, err = validConfig.Validate("path")
-	test.That(t, err, test.ShouldBeNil)
-
 	validConfig.DigitalInterrupts = []board.DigitalInterruptConfig{{}}
 	_, err = validConfig.Validate("path")
 	test.That(t, err, test.ShouldNotBeNil)
