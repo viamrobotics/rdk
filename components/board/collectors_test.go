@@ -57,7 +57,7 @@ func TestCollectors(t *testing.T) {
 				Interval:      captureInterval,
 				Logger:        golog.NewTestLogger(t),
 				MethodParams: map[string]*anypb.Any{
-					"reader_name": convertInterfaceToAny("gpio"),
+					"pin_name": convertInterfaceToAny("gpio"),
 				},
 			},
 			collector: board.NewGPIOCollector,
