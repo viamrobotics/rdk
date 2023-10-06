@@ -464,18 +464,21 @@ var app = &cli.App{
 									Required: true,
 								},
 								&cli.StringFlag{
-									Name:     trainFlagModelType,
-									Usage:    "type of model to train. can be one of [single_label_classification, multi_label_classification, or object_detection]",
+									Name: trainFlagModelType,
+									Usage: "type of model to train. can be one of " +
+										"[single_label_classification, multi_label_classification, or object_detection]",
 									Required: true,
 								},
 								&cli.StringSliceFlag{
-									Name:     trainFlagModelLabels,
-									Usage:    "labels to train on. this will either be classification or object detection labels",
+									Name: trainFlagModelLabels,
+									Usage: "labels to train on. " +
+										"this will either be classification or object detection labels",
 									Required: true,
 								},
 								&cli.StringFlag{
-									Name:  trainFlagModelVersion,
-									Usage: "version of ML model. defaults to current timestamp if unspecified.",
+									Name: trainFlagModelVersion,
+									Usage: "version of ML model. defaults to current timestamp " +
+										"if unspecified.",
 								},
 								&cli.StringFlag{
 									Name:  datasetFlagDatasetID,
@@ -532,7 +535,8 @@ var app = &cli.App{
 								&cli.StringSliceFlag{
 									Name: dataFlagTags,
 									Usage: "tags filter. " +
-										"accepts tagged for all tagged data, untagged for all untagged data, or a list of tags for all data matching any of the tags",
+										"accepts tagged for all tagged data, untagged for all untagged data, " +
+										"or a list of tags for all data matching any of the tags",
 								},
 								&cli.StringSliceFlag{
 									Name: dataFlagBboxLabels,
