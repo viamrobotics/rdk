@@ -1,3 +1,5 @@
+//go:build linux
+
 // Package pca9685 implements a PCA9685 HAT. It's probably also a generic PCA9685
 // but that has not been verified yet.
 package pca9685
@@ -29,11 +31,10 @@ var (
 
 // Config describes a PCA9685 board attached to some other board via I2C.
 type Config struct {
-	BoardName      string `json:"board_name,omitempty"`
-	I2CName        string `json:"i2c_name,omitempty"`
-	I2CBus         *int   `json:"i2c_bus,omitempty"`
-	I2CAddress     *int   `json:"i2c_address,omitempty"`
-	PWMFrequencyHz int    `json:"pwm_frequency_hz,omitempty"`
+	BoardName  string `json:"board_name,omitempty"`
+	I2CName    string `json:"i2c_name,omitempty"`
+	I2CBus     *int   `json:"i2c_bus,omitempty"`
+	I2CAddress *int   `json:"i2c_address,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.

@@ -46,22 +46,22 @@ func TestGenericLinux(t *testing.T) {
 	boardSPIs["open"].openHandle.bus.bus.Store(&twoStr)
 
 	b = &Board{
-		Named:        board.Named("foo").AsNamed(),
-		gpioMappings: nil,
-		spis:         boardSPIs,
-		analogs:      map[string]*wrappedAnalog{"an": {}},
-		logger:       golog.NewTestLogger(t),
-		cancelCtx:    ctx,
+		Named:         board.Named("foo").AsNamed(),
+		gpioMappings:  nil,
+		spis:          boardSPIs,
+		analogReaders: map[string]*wrappedAnalogReader{"an": {}},
+		logger:        golog.NewTestLogger(t),
+		cancelCtx:     ctx,
 		cancelFunc: func() {
 		},
 	}
 
-	t.Run("test analogs spis i2cs digital-interrupts and gpio names", func(t *testing.T) {
+	t.Run("test analog-readers spis i2cs digital-interrupts and gpio names", func(t *testing.T) {
 		ans := b.AnalogReaderNames()
 		test.That(t, ans, test.ShouldResemble, []string{"an"})
 
 		an1, ok := b.AnalogReaderByName("an")
-		test.That(t, an1, test.ShouldHaveSameTypeAs, &wrappedAnalog{})
+		test.That(t, an1, test.ShouldHaveSameTypeAs, &wrappedAnalogReader{})
 		test.That(t, ok, test.ShouldBeTrue)
 
 		an2, ok := b.AnalogReaderByName("missing")
@@ -122,13 +122,13 @@ func TestGenericLinux(t *testing.T) {
 func TestConfigValidate(t *testing.T) {
 	validConfig := Config{}
 
-	validConfig.Analogs = []board.AnalogConfig{{}}
+	validConfig.AnalogReaders = []board.MCP3008AnalogConfig{{}}
 	_, err := validConfig.Validate("path")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `path.analogs.0`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
 
-	validConfig.Analogs = []board.AnalogConfig{{Name: "bar"}}
+	validConfig.AnalogReaders = []board.MCP3008AnalogConfig{{Name: "bar"}}
 	_, err = validConfig.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
 
