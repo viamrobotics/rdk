@@ -361,7 +361,7 @@ func TestServer(t *testing.T) {
 		req := &pb.GetPathsRequest{Name: testSvcName1.ShortName()}
 		resp, err := navServer.GetPaths(context.Background(), req)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp.Paths[0], test.ShouldResemble, navigation.PathToProto(expectedOutput[0]))
+		test.That(t, navigation.ProtoSliceToPaths(resp.Paths), test.ShouldResemble, expectedOutput)
 	})
 	t.Run("failing getPaths", func(t *testing.T) {
 		expectedErr := errors.New("unimplemented")

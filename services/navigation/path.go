@@ -7,9 +7,6 @@ import (
 	pb "go.viam.com/api/service/navigation/v1"
 )
 
-// Paths is a slice of Path.
-// type Paths []*Path
-
 // Path describes a series of geo points the robot will travel through.
 type Path struct {
 	destinationWaypointID string
@@ -57,4 +54,19 @@ func PathToProto(path *Path) *pb.Path {
 	}
 }
 
-// Proto to Path TODO
+func ProtoSliceToPaths(pbPaths []*pb.Path) []*Path {
+	var paths []*Path
+	for _, path := range pbPaths {
+		paths = append(paths, ProtoToPath(path))
+	}
+	return paths
+}
+
+// ProtoToPath converts the Path Protobuf message into an equivalent struct.
+func ProtoToPath(path *pb.Path) *Path {
+	var geoPoints []*geo.Point
+	for _, pt := range path.GetGeopoints() {
+		geoPoints = append(geoPoints, geo.NewPoint(pt.GetLatitude(), pt.GetLongitude()))
+	}
+	return NewPath(path.GetDestinationWaypointId(), geoPoints)
+}
