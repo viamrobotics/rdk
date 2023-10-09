@@ -523,12 +523,12 @@ var app = &cli.App{
 		{
 			Name:      "train",
 			Usage:     "train on data",
-			UsageText: "viam data train [other options]",
+			UsageText: "viam train [other options]",
 			Subcommands: []*cli.Command{
 				{
 					Name:  "submit",
 					Usage: "submits training job on data in Viam cloud",
-					UsageText: fmt.Sprintf("viam data train submit <%s> [other options]",
+					UsageText: fmt.Sprintf("viam train submit <%s> [other options]",
 						dataFlagOrgIDs),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
@@ -626,7 +626,7 @@ var app = &cli.App{
 				{
 					Name:      "get",
 					Usage:     "gets training job from Viam cloud based on training job ID",
-					UsageText: fmt.Sprintf("viam data train get <%s>", trainFlagJobID),
+					UsageText: fmt.Sprintf("viam train get <%s>", trainFlagJobID),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     trainFlagJobID,
@@ -639,7 +639,7 @@ var app = &cli.App{
 				{
 					Name:      "cancel",
 					Usage:     "cancels training job in Viam cloud based on training job ID",
-					UsageText: fmt.Sprintf("viam data train cancel <%s>", trainFlagJobID),
+					UsageText: fmt.Sprintf("viam train cancel <%s>", trainFlagJobID),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     trainFlagJobID,
@@ -652,7 +652,7 @@ var app = &cli.App{
 				{
 					Name:      "list",
 					Usage:     "list training jobs in Viam cloud based on organization ID",
-					UsageText: fmt.Sprintf("viam data train list <%s> <%s>", dataFlagOrgID, trainFlagJobStatus),
+					UsageText: fmt.Sprintf("viam train list <%s> <%s>", dataFlagOrgID, trainFlagJobStatus),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     dataFlagOrgID,
