@@ -74,11 +74,11 @@ func DataGetTrainingJob(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	metadata, err := client.dataGetTrainingJob(c.String(trainFlagJobID))
+	job, err := client.dataGetTrainingJob(c.String(trainFlagJobID))
 	if err != nil {
 		return err
 	}
-	printf(c.App.Writer, "Training job metadata: %s", metadata)
+	printf(c.App.Writer, "Training job: %s", job)
 	return nil
 }
 
@@ -126,16 +126,18 @@ func DataListTrainingJobs(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	resp, err := client.dataListTrainingJobs(c.String(dataFlagOrgID), c.String(trainFlagJobStatus))
+	jobs, err := client.dataListTrainingJobs(c.String(dataFlagOrgID), c.String(trainFlagJobStatus))
 	if err != nil {
 		return err
 	}
-	printf(c.App.Writer, "Training jobs: %s", resp)
+	for _, job := range jobs {
+		printf(c.App.Writer, "Training job: %s\n", job)
+	}
 	return nil
 }
 
 // dataListTrainingJobs lists training jobs for the given org.
-func (c *viamClient) dataListTrainingJobs(orgID, status string) (interface{}, error) {
+func (c *viamClient) dataListTrainingJobs(orgID, status string) ([]*mltrainingpb.TrainingJobMetadata, error) {
 	if err := c.ensureLoggedIn(); err != nil {
 		return nil, err
 	}
