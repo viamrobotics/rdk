@@ -139,12 +139,12 @@ func (server *serviceServer) RemoveWaypoint(ctx context.Context, req *pb.RemoveW
 	return &pb.RemoveWaypointResponse{}, nil
 }
 
-func (server *serviceServer) GetObstacles(ctx context.Context, req *pb.GetObstaclesRequest) (*pb.GetObstaclesResponse, error) {
+func (server *serviceServer) Obstacles(ctx context.Context, req *pb.GetObstaclesRequest) (*pb.GetObstaclesResponse, error) {
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
-	obstacles, err := svc.GetObstacles(ctx, req.Extra.AsMap())
+	obstacles, err := svc.Obstacles(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -160,7 +160,7 @@ func (server *serviceServer) GetPaths(ctx context.Context, req *pb.GetPathsReque
 	if err != nil {
 		return nil, err
 	}
-	paths, err := svc.GetPaths(ctx, req.Extra.AsMap())
+	paths, err := svc.Paths(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}

@@ -555,13 +555,13 @@ func (svc *builtIn) waypointIsDeleted() bool {
 	return svc.waypointInProgress == nil
 }
 
-func (svc *builtIn) GetObstacles(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoObstacle, error) {
+func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoObstacle, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 	return svc.obstacles, nil
 }
 
-func (svc *builtIn) GetPaths(ctx context.Context, extra map[string]interface{}) ([]*navigation.Path, error) {
+func (svc *builtIn) Paths(ctx context.Context, extra map[string]interface{}) ([]*navigation.Path, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 	return nil, errors.New("unimplemented")

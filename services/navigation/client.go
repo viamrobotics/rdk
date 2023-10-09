@@ -168,8 +168,8 @@ func (c *client) RemoveWaypoint(ctx context.Context, id primitive.ObjectID, extr
 	return nil
 }
 
-func (c *client) GetObstacles(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoObstacle, error) {
-	req := &pb.GetObstaclesRequest{}
+func (c *client) Obstacles(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoObstacle, error) {
+	req := &pb.GetObstaclesRequest{Name: c.name}
 	resp, err := c.client.GetObstacles(ctx, req)
 	if err != nil {
 		return nil, err
@@ -186,8 +186,8 @@ func (c *client) GetObstacles(ctx context.Context, extra map[string]interface{})
 	return geos, nil
 }
 
-func (c *client) GetPaths(ctx context.Context, extra map[string]interface{}) ([]*Path, error) {
-	req := &pb.GetPathsRequest{}
+func (c *client) Paths(ctx context.Context, extra map[string]interface{}) ([]*Path, error) {
+	req := &pb.GetPathsRequest{Name: c.name}
 	resp, err := c.client.GetPaths(ctx, req)
 	if err != nil {
 		return nil, err

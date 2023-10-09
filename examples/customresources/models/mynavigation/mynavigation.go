@@ -120,10 +120,10 @@ func (svc *navSvc) RemoveWaypoint(ctx context.Context, id primitive.ObjectID, ex
 	return nil
 }
 
-func (svc *navSvc) GetObstacles(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoObstacle, error) {
+func (svc *navSvc) Obstacles(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoObstacle, error) {
 	return []*spatialmath.GeoObstacle{}, nil
 }
 
-func (svc *navSvc) GetPaths(ctx context.Context, extra map[string]interface{}) ([]*navigation.Path, error) {
+func (svc *navSvc) Paths(ctx context.Context, extra map[string]interface{}) ([]*navigation.Path, error) {
 	return []*navigation.Path{}, nil
 }

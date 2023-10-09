@@ -56,3 +56,5 @@ func PathToProto(path *Path) *pb.Path {
 		Geopoints:             pbGeoPoints,
 	}
 }
+
+// Proto to Path TODO
