@@ -650,7 +650,8 @@ func getEntrypointForVersion(mod *apppb.Module, version string) (string, error) 
 }
 
 func isTarball(path string) bool {
-	return strings.HasSuffix(path, ".tar.gz") || strings.HasSuffix(path, ".tgz")
+	return strings.HasSuffix(strings.ToLower(path), ".tar.gz") ||
+		!strings.HasSuffix(strings.ToLower(path), ".tgz")
 }
 
 func createTarballForUpload(moduleUploadPath string, stdout io.Writer) (string, error) {

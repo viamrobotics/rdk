@@ -951,7 +951,7 @@ viam module upload --version "0.1.0" --platform "linux/amd64" ./bin/my-module
 Example uploading a whole directory:
 viam module upload --version "0.1.0" --platform "linux/amd64" ./bin
 
-Example uploading a custom tarball of a binary:
+Example uploading a custom tarball of your module:
 tar -czf packaged-module.tar.gz my-binary   # the meta.json entrypoint is relative to the root of the archive, so it should be "./my-binary"
 viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.tar.gz
                       `,
