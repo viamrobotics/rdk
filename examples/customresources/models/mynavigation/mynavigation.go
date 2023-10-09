@@ -125,5 +125,5 @@ func (svc *navSvc) GetObstacles(ctx context.Context, extra map[string]interface{
 }
 
 func (svc *navSvc) GetPaths(ctx context.Context, extra map[string]interface{}) ([]*navigation.Path, error) {
-	return nil, nil
+	return []*navigation.Path{}, nil
 }
