@@ -53,7 +53,7 @@ func (c *viamClient) dataSubmitTrainingJob(filter *datapb.Filter, orgID, modelNa
 	}
 	modelTypeEnum, ok := mltrainingpb.ModelType_value["MODEL_TYPE_"+strings.ToUpper(modelType)]
 	if !ok || modelTypeEnum == int32(mltrainingpb.ModelType_MODEL_TYPE_UNSPECIFIED) {
-		return "", errors.Errorf("%s must be a valid ModelType, got %s. See `viam data train submit --help` for supported options",
+		return "", errors.Errorf("%s must be a valid ModelType, got %s. See `viam train submit --help` for supported options",
 			trainFlagModelType, modelType)
 	}
 
@@ -147,7 +147,7 @@ func (c *viamClient) dataListTrainingJobs(orgID, status string) ([]*mltrainingpb
 	}
 	statusEnum, ok := mltrainingpb.TrainingStatus_value["TRAINING_STATUS_"+strings.ToUpper(status)]
 	if !ok {
-		return nil, errors.Errorf("%s must be a valid TrainingStatus, got %s. See `viam data train list --help` for supported options",
+		return nil, errors.Errorf("%s must be a valid TrainingStatus, got %s. See `viam train list --help` for supported options",
 			trainFlagJobStatus, status)
 	}
 
