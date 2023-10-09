@@ -20,6 +20,7 @@ import (
 	"github.com/urfave/cli/v2"
 	datapb "go.viam.com/api/app/data/v1"
 	datasetpb "go.viam.com/api/app/dataset/v1"
+	mltrainingpb "go.viam.com/api/app/mltraining/v1"
 	packagepb "go.viam.com/api/app/packages/v1"
 	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/utils"
@@ -494,6 +495,7 @@ func (c *viamClient) ensureLoggedIn() error {
 	c.dataClient = datapb.NewDataServiceClient(conn)
 	c.packageClient = packagepb.NewPackageServiceClient(conn)
 	c.datasetClient = datasetpb.NewDatasetServiceClient(conn)
+	c.mlTrainingClient = mltrainingpb.NewMLTrainingServiceClient(conn)
 
 	return nil
 }
