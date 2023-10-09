@@ -1,3 +1,5 @@
+//go:build linux
+
 // Package pca9685 implements a PCA9685 HAT. It's probably also a generic PCA9685
 // but that has not been verified yet.
 package pca9685

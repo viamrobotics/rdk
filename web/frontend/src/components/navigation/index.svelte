@@ -3,6 +3,7 @@
 <script lang="ts">
 
 import 'maplibre-gl/dist/maplibre-gl.css';
+import { NavigationMap } from '@viamrobotics/prime-blocks';
 import { notify } from '@viamrobotics/prime';
 import { navigationApi, NavigationClient, type ServiceError } from '@viamrobotics/sdk';
 import { getObstacles } from '@/api/navigation';
@@ -102,7 +103,13 @@ const handleEnter = async () => {
       <Nav {name} />
 
       <div class='relative grow'>
-        <Map {name} />
+        <NavigationMap
+          environment='debug'
+          waypoints={[]}
+          obstacles={[]}
+          on:click={() => {}}
+          on:delete-waypoint={() => {}}
+        />
       </div>
 
     </div>
