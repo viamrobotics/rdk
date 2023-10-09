@@ -5,6 +5,7 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
+	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/sensor/v1"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -45,7 +46,7 @@ func (c *client) Readings(ctx context.Context, extra map[string]interface{}) (ma
 	if err != nil {
 		return nil, err
 	}
-	resp, err := c.client.GetReadings(ctx, &pb.GetReadingsRequest{
+	resp, err := c.client.GetReadings(ctx, &commonpb.GetReadingsRequest{
 		Name:  c.name,
 		Extra: ext,
 	})

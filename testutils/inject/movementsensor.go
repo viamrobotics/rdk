@@ -33,9 +33,9 @@ type MovementSensor struct {
 	PropertiesFunc              func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error)
 	AccuracyFuncExtraCap        map[string]interface{}
 	AccuracyFunc                func(ctx context.Context, extra map[string]interface{}) (map[string]float32, error)
-
-	DoFunc    func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
-	CloseFunc func() error
+	ReadingsFunc                func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error)
+	DoFunc                      func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+	CloseFunc                   func() error
 }
 
 // NewMovementSensor returns a new injected movement sensor.

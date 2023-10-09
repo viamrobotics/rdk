@@ -2,8 +2,6 @@
 package sensor
 
 import (
-	"context"
-
 	pb "go.viam.com/api/component/sensor/v1"
 
 	"go.viam.com/rdk/data"
@@ -39,8 +37,9 @@ func Named(name string) resource.Name {
 // of some thing that it is sensing.
 type Sensor interface {
 	resource.Resource
+	resource.Sensor
 	// Readings return data specific to the type of sensor and can be of any type.
-	Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error)
+	// Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error)
 }
 
 // FromDependencies is a helper for getting the named sensor from a collection of

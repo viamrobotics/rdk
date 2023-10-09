@@ -5,8 +5,11 @@ import (
 	"errors"
 	"testing"
 
+	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/powersensor/v1"
 	"go.viam.com/test"
+	"go.viam.com/utils/protoutils"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/components/powersensor"
 	"go.viam.com/rdk/components/sensor"
@@ -22,6 +25,7 @@ var (
 	errCurrentFailed       = errors.New("can't get current")
 	errPowerFailed         = errors.New("can't get power")
 	errPowerSensorNotFound = errors.New("not found")
+	errReadingsFailed      = errors.New("can't get readings")
 )
 
 func newServer() (pb.PowerSensorServiceServer, *inject.PowerSensor, *inject.PowerSensor, error) {
@@ -139,4 +143,43 @@ func TestServerGetPower(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, errPowerSensorNotFound.Error())
 	test.That(t, resp, test.ShouldBeNil)
+}
+
+func TestServerGetReadings(t *testing.T) {
+	powerSensorServer, testPowerSensor, failingPowerSensor, err := newServer()
+	test.That(t, err, test.ShouldBeNil)
+
+	rs := map[string]interface{}{"a": 1.1, "b": 2.2}
+
+	var extraCap map[string]interface{}
+	testPowerSensor.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+		extraCap = extra
+		return rs, nil
+	}
+
+	failingPowerSensor.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+		return nil, errReadingsFailed
+	}
+
+	expected := map[string]*structpb.Value{}
+	for k, v := range rs {
+		vv, err := structpb.NewValue(v)
+		test.That(t, err, test.ShouldBeNil)
+		expected[k] = vv
+	}
+	extra, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "bar"})
+	test.That(t, err, test.ShouldBeNil)
+
+	resp, err := powerSensorServer.GetReadings(context.Background(), &commonpb.GetReadingsRequest{Name: "testSensorName", Extra: extra})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp.Readings, test.ShouldResemble, expected)
+	test.That(t, extraCap, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
+
+	_, err = powerSensorServer.GetReadings(context.Background(), &commonpb.GetReadingsRequest{Name: "failSensorName"})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, errReadingsFailed.Error())
+
+	_, err = powerSensorServer.GetReadings(context.Background(), &commonpb.GetReadingsRequest{Name: "missingSensorName"})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 }
