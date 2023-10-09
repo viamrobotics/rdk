@@ -54,6 +54,7 @@ func PathToProto(path *Path) *pb.Path {
 	}
 }
 
+// ProtoSliceToPaths converts a slice of Path Protobuf messages into an equivalent struct.
 func ProtoSliceToPaths(pbPaths []*pb.Path) []*Path {
 	var paths []*Path
 	for _, path := range pbPaths {
