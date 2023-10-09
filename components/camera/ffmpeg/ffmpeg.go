@@ -51,7 +51,7 @@ func init() {
 			if err != nil {
 				return nil, err
 			}
-			src, err := NewFFMPEGCamera(ctx, newConf, logger)
+			src, err := NewFFMPEGCamera(ctx, conf, newConf, logger)
 			if err != nil {
 				return nil, err
 			}
@@ -61,6 +61,7 @@ func init() {
 }
 
 type ffmpegCamera struct {
+	resource.Named
 	gostream.VideoReader
 	cancelFunc              context.CancelFunc
 	activeBackgroundWorkers sync.WaitGroup
@@ -69,14 +70,14 @@ type ffmpegCamera struct {
 }
 
 // NewFFMPEGCamera instantiates a new camera which leverages ffmpeg to handle a variety of potential video types.
-func NewFFMPEGCamera(ctx context.Context, conf *Config, logger golog.Logger) (camera.VideoSource, error) {
+func NewFFMPEGCamera(ctx context.Context, resourceConf resource.Config, nativeConf *Config, logger golog.Logger) (camera.VideoSource, error) {
 	// make sure ffmpeg is in the path before doing anything else
 	if _, err := exec.LookPath("ffmpeg"); err != nil {
 		return nil, err
 	}
 	// parse attributes into ffmpeg keyword maps
-	outArgs := make(map[string]interface{}, len(conf.OutputKWArgs))
-	for key, value := range conf.OutputKWArgs {
+	outArgs := make(map[string]interface{}, len(nativeConf.OutputKWArgs))
+	for key, value := range nativeConf.OutputKWArgs {
 		outArgs[key] = value
 	}
 	outArgs["update"] = 1        // always interpret the filename as just a filename, not a pattern
@@ -84,7 +85,7 @@ func NewFFMPEGCamera(ctx context.Context, conf *Config, logger golog.Logger) (ca
 
 	// instantiate camera with cancellable context that will be applied to all spawned processes
 	cancelableCtx, cancel := context.WithCancel(context.Background())
-	ffCam := &ffmpegCamera{cancelFunc: cancel}
+	ffCam := &ffmpegCamera{Named: resourceConf.ResourceName().AsNamed(), cancelFunc: cancel}
 
 	// launch thread to run ffmpeg and pull images from the url and put them into the pipe
 	in, out := io.Pipe()
@@ -98,8 +99,8 @@ func NewFFMPEGCamera(ctx context.Context, conf *Config, logger golog.Logger) (ca
 
 	ffCam.activeBackgroundWorkers.Add(1)
 	viamutils.ManagedGo(func() {
-		stream := ffmpeg.Input(conf.VideoPath, conf.InputKWArgs)
-		for _, filter := range conf.Filters {
+		stream := ffmpeg.Input(nativeConf.VideoPath, nativeConf.InputKWArgs)
+		for _, filter := range nativeConf.Filters {
 			stream = stream.Filter(filter.Name, filter.Args, filter.KWArgs)
 		}
 		stream = stream.Output("pipe:", outArgs)
@@ -162,7 +163,7 @@ func NewFFMPEGCamera(ctx context.Context, conf *Config, logger golog.Logger) (ca
 	return camera.NewVideoSourceFromReader(
 		ctx,
 		ffCam,
-		&transform.PinholeCameraModel{PinholeCameraIntrinsics: conf.CameraParameters},
+		&transform.PinholeCameraModel{PinholeCameraIntrinsics: nativeConf.CameraParameters},
 		camera.ColorStream)
 }
 
