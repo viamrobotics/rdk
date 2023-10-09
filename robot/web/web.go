@@ -275,29 +275,23 @@ func (svc *webService) ModuleAddress() string {
 
 // StartModule starts the grpc module server.
 func (svc *webService) StartModule(ctx context.Context) error {
-	fmt.Println("hi1")
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
-	fmt.Println("hi2")
 	if svc.modServer != nil {
 		return errors.New("module service already started")
 	}
-	fmt.Println("hi3")
 
 	var lis net.Listener
 	var addr string
 	if err := module.MakeSelfOwnedFilesFunc(func() error {
-		fmt.Println("hi4")
 		dir, err := os.MkdirTemp("", "viam-module-*")
 		if err != nil {
 			return errors.WithMessage(err, "module startup failed")
 		}
-		fmt.Println("hi5")
 		addr, err = module.CreateSocketAddress(dir, "parent")
 		if err != nil {
 			return errors.WithMessage(err, "module startup failed")
 		}
-		fmt.Println("hi6")
 
 		if runtime.GOOS == "windows" {
 			// on windows, we need to craft a good enough looking URL for gRPC which
@@ -308,16 +302,13 @@ func (svc *webService) StartModule(ctx context.Context) error {
 			// agree on using the same drive.
 			addr = addr[2:]
 		}
-		fmt.Println("hi7")
 		svc.modAddr = addr
 		lis, err = net.Listen("unix", addr)
 		if err != nil {
 			return errors.WithMessage(err, "failed to listen")
 		}
-		fmt.Println("hi8")
 		return nil
 	}); err != nil {
-		fmt.Println("hi9")
 		return err
 	}
 	var (
@@ -333,20 +324,15 @@ func (svc *webService) StartModule(ctx context.Context) error {
 	// TODO(PRODUCT-343): Add session manager interceptors
 
 	svc.modServer = module.NewServer(unaryInterceptors, streamInterceptors)
-	fmt.Println("hi 10")
 	if err := svc.modServer.RegisterServiceServer(ctx, &pb.RobotService_ServiceDesc, grpcserver.New(svc.r)); err != nil {
 		return err
 	}
-	fmt.Println("hi 11")
 	if err := svc.refreshResources(); err != nil {
 		return err
 	}
-	fmt.Println("hi 12")
 	if err := svc.initAPIResourceCollections(ctx, true); err != nil {
-		fmt.Println("hi 12.111111")
 		return err
 	}
-	fmt.Println("hi 13")
 
 	svc.modWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
@@ -806,8 +792,6 @@ func (svc *webService) initAPIResourceCollections(ctx context.Context, mod bool)
 		if mod {
 			server = svc.modServer
 		}
-		fmt.Println("in loop")
-		fmt.Println("apiResColl: ", apiResColl)
 		if err := rs.RegisterRPCService(ctx, server, apiResColl); err != nil {
 			return err
 		}

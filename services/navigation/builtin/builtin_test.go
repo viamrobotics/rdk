@@ -3,7 +3,6 @@ package builtin
 import (
 	"context"
 	"errors"
-	"fmt"
 	"testing"
 	"time"
 
@@ -36,20 +35,14 @@ import (
 
 func setupNavigationServiceFromConfig(t *testing.T, configFilename string) (navigation.Service, func()) {
 	t.Helper()
-	fmt.Println("hello1")
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
-	fmt.Println("hello2")
 	cfg, err := config.Read(ctx, configFilename, logger)
 	test.That(t, err, test.ShouldBeNil)
-	fmt.Println("hello3")
 	test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
-	fmt.Println("hello3.5")
 	myRobot, err := robotimpl.New(ctx, cfg, logger)
-	fmt.Println("hello4")
 	test.That(t, err, test.ShouldBeNil)
 	svc, err := navigation.FromRobot(myRobot, "test_navigation")
-	fmt.Println("hello5")
 	test.That(t, err, test.ShouldBeNil)
 	return svc, func() {
 		myRobot.Close(context.Background())

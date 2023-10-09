@@ -155,7 +155,7 @@ func (server *serviceServer) GetObstacles(ctx context.Context, req *pb.GetObstac
 	return &pb.GetObstaclesResponse{Obstacles: protoObs}, nil
 }
 
-func (server *serviceServer) GetPaths(ctx context.Context, req *pb.GetObstaclesRequest) (*pb.GetPathsResponse, error) {
+func (server *serviceServer) GetPaths(ctx context.Context, req *pb.GetPathsRequest) (*pb.GetPathsResponse, error) {
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
