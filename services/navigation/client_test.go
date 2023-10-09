@@ -90,6 +90,14 @@ func TestClient(t *testing.T) {
 		return nil
 	}
 
+	// var receviedPaths []*navigation.Path
+	// workingNavigationService.GetPathsFunc = func(ctx context.Context, extra map[string]interface{}) ([]*navigation.Path, error) {
+	// 	receviedPaths = []*navigation.Path{
+	// 		navigation.NewPath("test", []*geo.Point{geo.NewPoint(0, 0)}),
+	// 	}
+	// 	return receviedPaths, nil
+	// }
+
 	failingNavigationService.ModeFunc = func(ctx context.Context, extra map[string]interface{}) (navigation.Mode, error) {
 		return navigation.ModeManual, errors.New("failure to retrieve mode")
 	}
@@ -114,6 +122,9 @@ func TestClient(t *testing.T) {
 		receivedFailingID = id
 		return errors.New("failure to remove waypoint")
 	}
+	// failingNavigationService.GetObstaclesFunc = func(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoObstacle, error) {
+	// 	return nil, errors.New("unimplemented")
+	// }
 
 	workingSvc, err := resource.NewAPIResourceCollection(navigation.API, map[resource.Name]navigation.Service{
 		testSvcName1: workingNavigationService,
@@ -186,6 +197,11 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, receivedPoint, test.ShouldResemble, point)
 		test.That(t, extraOptions, test.ShouldResemble, extra)
+
+		// test GetPaths
+		// paths, err := workingNavClient.GetPaths(context.Background(), nil)
+		// test.That(t, err, test.ShouldBeNil)
+		// test.That(t, paths, test.ShouldResemble, receviedPaths)
 
 		// test do command
 		workingNavigationService.DoCommandFunc = testutils.EchoFunc
@@ -261,6 +277,11 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, receivedFailingPoint, test.ShouldResemble, point)
 		test.That(t, conn.Close(), test.ShouldBeNil)
+
+		// test GetPaths
+		// paths, err := failingNavClient.GetPaths(context.Background(), nil)
+		// test.That(t, err.Error(), test.ShouldEqual, "unimplemented")
+		// test.That(t, paths, test.ShouldBeNil)
 	})
 
 	t.Run("dialed client test for failing navigation service", func(t *testing.T) {

@@ -52,12 +52,6 @@ func (m Mode) String() string {
 	}
 }
 
-// Path describes a series of geo points the robot will travel through.
-type Path struct {
-	DestinationWaypointID string
-	GeoPoints             []*geo.Point
-}
-
 func (m MapType) String() string {
 	switch m {
 	case NoMap:

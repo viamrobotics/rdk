@@ -198,10 +198,7 @@ func (c *client) GetPaths(ctx context.Context, extra map[string]interface{}) ([]
 		for _, gp := range path.GetGeopoints() {
 			geoPoints = append(geoPoints, geo.NewPoint(gp.GetLatitude(), gp.GetLongitude()))
 		}
-		paths = append(paths, &Path{
-			DestinationWaypointID: path.GetDestinationWaypointId(),
-			GeoPoints:             geoPoints,
-		})
+		paths = append(paths, NewPath(path.GetDestinationWaypointId(), geoPoints))
 	}
 	return paths, nil
 }

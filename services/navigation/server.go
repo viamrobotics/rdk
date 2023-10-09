@@ -167,11 +167,11 @@ func (server *serviceServer) GetPaths(ctx context.Context, req *pb.GetObstaclesR
 	var pbPaths []*pb.Path
 	for _, path := range paths {
 		var pbGeoPt []*commonpb.GeoPoint
-		for _, pt := range path.GeoPoints {
+		for _, pt := range path.geoPoints {
 			pbGeoPt = append(pbGeoPt, &commonpb.GeoPoint{Latitude: pt.Lat(), Longitude: pt.Lng()})
 		}
 		pbPaths = append(pbPaths, &pb.Path{
-			DestinationWaypointId: path.DestinationWaypointID,
+			DestinationWaypointId: path.destinationWaypointID,
 			Geopoints:             pbGeoPt,
 		})
 	}

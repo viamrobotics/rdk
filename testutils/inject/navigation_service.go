@@ -23,7 +23,11 @@ type NavigationService struct {
 	WaypointsFunc      func(ctx context.Context, extra map[string]interface{}) ([]navigation.Waypoint, error)
 	AddWaypointFunc    func(ctx context.Context, point *geo.Point, extra map[string]interface{}) error
 	RemoveWaypointFunc func(ctx context.Context, id primitive.ObjectID, extra map[string]interface{}) error
-	DoCommandFunc      func(ctx context.Context,
+
+	GetObstaclesFunc func(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoObstacle, error)
+	GetPathsFunc     func(ctx context.Context, extra map[string]interface{}) ([]*navigation.Path, error)
+
+	DoCommandFunc func(ctx context.Context,
 		cmd map[string]interface{}) (map[string]interface{}, error)
 	CloseFunc func(ctx context.Context) error
 }
@@ -84,6 +88,22 @@ func (ns *NavigationService) RemoveWaypoint(ctx context.Context, id primitive.Ob
 		return ns.Service.RemoveWaypoint(ctx, id, extra)
 	}
 	return ns.RemoveWaypointFunc(ctx, id, extra)
+}
+
+// GetObstacles calls the injected GetObstacles or the real version.
+func (ns *NavigationService) GetObstacles(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoObstacle, error) {
+	if ns.GetObstaclesFunc == nil {
+		return ns.Service.GetObstacles(ctx, extra)
+	}
+	return ns.GetObstaclesFunc(ctx, extra)
+}
+
+// GetPaths calls the injected GetPaths or the real version.
+func (ns *NavigationService) GetPaths(ctx context.Context, extra map[string]interface{}) ([]*navigation.Path, error) {
+	if ns.GetPathsFunc == nil {
+		return ns.Service.GetPaths(ctx, extra)
+	}
+	return ns.GetPathsFunc(ctx, extra)
 }
 
 // DoCommand calls the injected DoCommand or the real variant.

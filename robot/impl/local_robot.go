@@ -6,6 +6,7 @@ package robotimpl
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -404,42 +405,51 @@ func newWithResources(
 	if err := r.manager.processManager.Start(ctx); err != nil {
 		return nil, err
 	}
+	fmt.Println("1")
 
 	// we assume these never appear in our configs and as such will not be removed from the
 	// resource graph
 	r.webSvc = web.New(r, logger, rOpts.webOptions...)
+	fmt.Println("2")
 	r.frameSvc, err = framesystem.New(ctx, resource.Dependencies{}, logger)
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("3")
 	if err := r.manager.resources.AddNode(
 		web.InternalServiceName,
 		resource.NewConfiguredGraphNode(resource.Config{}, r.webSvc, builtinModel)); err != nil {
 		return nil, err
 	}
+	fmt.Println("4")
 	if err := r.manager.resources.AddNode(
 		framesystem.InternalServiceName,
 		resource.NewConfiguredGraphNode(resource.Config{}, r.frameSvc, builtinModel)); err != nil {
 		return nil, err
 	}
+	fmt.Println("5")
 	if err := r.manager.resources.AddNode(
 		r.packageManager.Name(),
 		resource.NewConfiguredGraphNode(resource.Config{}, r.packageManager, builtinModel)); err != nil {
 		return nil, err
 	}
+	fmt.Println("5.1")
 	if err := r.manager.resources.AddNode(
 		r.cloudConnSvc.Name(),
 		resource.NewConfiguredGraphNode(resource.Config{}, r.cloudConnSvc, builtinModel)); err != nil {
 		return nil, err
 	}
+	fmt.Println("5.2")
 
 	if err := r.webSvc.StartModule(ctx); err != nil {
 		return nil, err
 	}
+	fmt.Println("5.3")
 
 	// Once web service is started, start module manager
 	r.manager.startModuleManager(r.webSvc.ModuleAddress(), r.removeOrphanedResources, cfg.UntrustedEnv, logger)
 
+	fmt.Println("6")
 	r.activeBackgroundWorkers.Add(1)
 	r.configTicker = time.NewTicker(5 * time.Second)
 	// This goroutine tries to complete the config and update weak dependencies
@@ -472,6 +482,7 @@ func newWithResources(
 	r.mostRecentCfg = config.Config{}
 	r.Reconfigure(ctx, cfg)
 
+	fmt.Println("7")
 	for name, res := range resources {
 		if err := r.manager.resources.AddNode(
 			name, resource.NewConfiguredGraphNode(resource.Config{}, res, unknownModel)); err != nil {
