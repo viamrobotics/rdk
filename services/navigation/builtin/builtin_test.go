@@ -16,6 +16,7 @@ import (
 	"go.viam.com/rdk/components/base"
 	fakebase "go.viam.com/rdk/components/base/fake"
 	"go.viam.com/rdk/components/base/kinematicbase"
+	"go.viam.com/rdk/components/movementsensor"
 	_ "go.viam.com/rdk/components/movementsensor"
 	_ "go.viam.com/rdk/components/movementsensor/fake"
 	"go.viam.com/rdk/config"
@@ -27,6 +28,7 @@ import (
 	"go.viam.com/rdk/services/navigation"
 	"go.viam.com/rdk/services/slam"
 	fakeslam "go.viam.com/rdk/services/slam/fake"
+	"go.viam.com/rdk/services/vision"
 	_ "go.viam.com/rdk/services/vision"
 	_ "go.viam.com/rdk/services/vision/colordetector"
 	"go.viam.com/rdk/spatialmath"
@@ -214,128 +216,128 @@ func TestValidateConfig(t *testing.T) {
 }
 
 func TestNew(t *testing.T) {
-	// ctx := context.Background()
+	ctx := context.Background()
 
-	_, closeNavSvc := setupNavigationServiceFromConfig(t, "../data/nav_no_map_cfg_minimal.json")
+	svc, closeNavSvc := setupNavigationServiceFromConfig(t, "../data/nav_no_map_cfg_minimal.json")
 
-	// t.Run("checking defaults have been set", func(t *testing.T) {
-	// 	svcStruct := svc.(*builtIn)
+	t.Run("checking defaults have been set", func(t *testing.T) {
+		svcStruct := svc.(*builtIn)
 
-	// 	test.That(t, svcStruct.base.Name().Name, test.ShouldEqual, "test_base")
-	// 	test.That(t, svcStruct.motionService.Name().Name, test.ShouldEqual, "builtin")
-	// 	test.That(t, svcStruct.visionServices, test.ShouldBeNil)
+		test.That(t, svcStruct.base.Name().Name, test.ShouldEqual, "test_base")
+		test.That(t, svcStruct.motionService.Name().Name, test.ShouldEqual, "builtin")
+		test.That(t, svcStruct.visionServices, test.ShouldBeNil)
 
-	// 	test.That(t, svcStruct.mapType, test.ShouldEqual, navigation.NoMap)
-	// 	test.That(t, svcStruct.mode, test.ShouldEqual, navigation.ModeManual)
-	// 	test.That(t, svcStruct.replanCostFactor, test.ShouldEqual, defaultReplanCostFactor)
+		test.That(t, svcStruct.mapType, test.ShouldEqual, navigation.NoMap)
+		test.That(t, svcStruct.mode, test.ShouldEqual, navigation.ModeManual)
+		test.That(t, svcStruct.replanCostFactor, test.ShouldEqual, defaultReplanCostFactor)
 
-	// 	test.That(t, svcStruct.storeType, test.ShouldEqual, string(navigation.StoreTypeMemory))
-	// 	test.That(t, svcStruct.store, test.ShouldResemble, navigation.NewMemoryNavigationStore())
+		test.That(t, svcStruct.storeType, test.ShouldEqual, string(navigation.StoreTypeMemory))
+		test.That(t, svcStruct.store, test.ShouldResemble, navigation.NewMemoryNavigationStore())
 
-	// 	test.That(t, svcStruct.motionCfg.VisionServices, test.ShouldBeNil)
-	// 	test.That(t, svcStruct.motionCfg.AngularDegsPerSec, test.ShouldEqual, defaultAngularVelocityDegsPerSec)
-	// 	test.That(t, svcStruct.motionCfg.LinearMPerSec, test.ShouldEqual, defaultLinearVelocityMPerSec)
-	// 	test.That(t, svcStruct.motionCfg.PositionPollingFreqHz, test.ShouldEqual, defaultPositionPollingFrequencyHz)
-	// 	test.That(t, svcStruct.motionCfg.ObstaclePollingFreqHz, test.ShouldEqual, defaultObstaclePollingFrequencyHz)
-	// 	test.That(t, svcStruct.motionCfg.PlanDeviationMM, test.ShouldEqual, defaultPlanDeviationM*1e3)
-	// })
+		test.That(t, svcStruct.motionCfg.VisionServices, test.ShouldBeNil)
+		test.That(t, svcStruct.motionCfg.AngularDegsPerSec, test.ShouldEqual, defaultAngularVelocityDegsPerSec)
+		test.That(t, svcStruct.motionCfg.LinearMPerSec, test.ShouldEqual, defaultLinearVelocityMPerSec)
+		test.That(t, svcStruct.motionCfg.PositionPollingFreqHz, test.ShouldEqual, defaultPositionPollingFrequencyHz)
+		test.That(t, svcStruct.motionCfg.ObstaclePollingFreqHz, test.ShouldEqual, defaultObstaclePollingFrequencyHz)
+		test.That(t, svcStruct.motionCfg.PlanDeviationMM, test.ShouldEqual, defaultPlanDeviationM*1e3)
+	})
 
-	// t.Run("setting parameters for None map_type", func(t *testing.T) {
-	// 	cfg := &Config{
-	// 		BaseName:           "base",
-	// 		MapType:            "None",
-	// 		MovementSensorName: "movement_sensor",
-	// 	}
-	// 	deps := resource.Dependencies{
-	// 		resource.NewName(base.API, "base"):                      inject.NewBase("new_base"),
-	// 		resource.NewName(motion.API, "builtin"):                 inject.NewMotionService("new_motion"),
-	// 		resource.NewName(movementsensor.API, "movement_sensor"): inject.NewMovementSensor("movement_sensor"),
-	// 	}
+	t.Run("setting parameters for None map_type", func(t *testing.T) {
+		cfg := &Config{
+			BaseName:           "base",
+			MapType:            "None",
+			MovementSensorName: "movement_sensor",
+		}
+		deps := resource.Dependencies{
+			resource.NewName(base.API, "base"):                      inject.NewBase("new_base"),
+			resource.NewName(motion.API, "builtin"):                 inject.NewMotionService("new_motion"),
+			resource.NewName(movementsensor.API, "movement_sensor"): inject.NewMovementSensor("movement_sensor"),
+		}
 
-	// 	err := svc.Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
-	// 	test.That(t, err, test.ShouldBeNil)
-	// 	svcStruct := svc.(*builtIn)
+		err := svc.Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
+		test.That(t, err, test.ShouldBeNil)
+		svcStruct := svc.(*builtIn)
 
-	// 	test.That(t, svcStruct.mapType, test.ShouldEqual, navigation.NoMap)
-	// 	test.That(t, svcStruct.base.Name().Name, test.ShouldEqual, "new_base")
-	// 	test.That(t, svcStruct.motionService.Name().Name, test.ShouldEqual, "new_motion")
-	// 	test.That(t, svcStruct.movementSensor, test.ShouldBeNil)
-	// })
+		test.That(t, svcStruct.mapType, test.ShouldEqual, navigation.NoMap)
+		test.That(t, svcStruct.base.Name().Name, test.ShouldEqual, "new_base")
+		test.That(t, svcStruct.motionService.Name().Name, test.ShouldEqual, "new_motion")
+		test.That(t, svcStruct.movementSensor, test.ShouldBeNil)
+	})
 
-	// t.Run("setting parameters for GPS map_type", func(t *testing.T) {
-	// 	cfg := &Config{
-	// 		BaseName:           "base",
-	// 		MapType:            "GPS",
-	// 		MovementSensorName: "movement_sensor",
-	// 	}
-	// 	deps := resource.Dependencies{
-	// 		resource.NewName(base.API, "base"):                      inject.NewBase("new_base"),
-	// 		resource.NewName(motion.API, "builtin"):                 inject.NewMotionService("new_motion"),
-	// 		resource.NewName(movementsensor.API, "movement_sensor"): inject.NewMovementSensor("movement_sensor"),
-	// 	}
+	t.Run("setting parameters for GPS map_type", func(t *testing.T) {
+		cfg := &Config{
+			BaseName:           "base",
+			MapType:            "GPS",
+			MovementSensorName: "movement_sensor",
+		}
+		deps := resource.Dependencies{
+			resource.NewName(base.API, "base"):                      inject.NewBase("new_base"),
+			resource.NewName(motion.API, "builtin"):                 inject.NewMotionService("new_motion"),
+			resource.NewName(movementsensor.API, "movement_sensor"): inject.NewMovementSensor("movement_sensor"),
+		}
 
-	// 	err := svc.Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
-	// 	test.That(t, err, test.ShouldBeNil)
-	// 	svcStruct := svc.(*builtIn)
+		err := svc.Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
+		test.That(t, err, test.ShouldBeNil)
+		svcStruct := svc.(*builtIn)
 
-	// 	test.That(t, svcStruct.mapType, test.ShouldEqual, navigation.GPSMap)
-	// 	test.That(t, svcStruct.base.Name().Name, test.ShouldEqual, "new_base")
-	// 	test.That(t, svcStruct.motionService.Name().Name, test.ShouldEqual, "new_motion")
-	// 	test.That(t, svcStruct.movementSensor.Name().Name, test.ShouldEqual, cfg.MovementSensorName)
-	// })
+		test.That(t, svcStruct.mapType, test.ShouldEqual, navigation.GPSMap)
+		test.That(t, svcStruct.base.Name().Name, test.ShouldEqual, "new_base")
+		test.That(t, svcStruct.motionService.Name().Name, test.ShouldEqual, "new_motion")
+		test.That(t, svcStruct.movementSensor.Name().Name, test.ShouldEqual, cfg.MovementSensorName)
+	})
 
-	// t.Run("setting motion parameters", func(t *testing.T) {
-	// 	cfg := &Config{
-	// 		BaseName:                   "base",
-	// 		MapType:                    "None",
-	// 		DegPerSec:                  1,
-	// 		MetersPerSec:               2,
-	// 		PositionPollingFrequencyHz: 3,
-	// 		ObstaclePollingFrequencyHz: 4,
-	// 		PlanDeviationM:             5,
-	// 		VisionServices:             []string{"vision"},
-	// 	}
-	// 	deps := resource.Dependencies{
-	// 		resource.NewName(base.API, "base"):      &inject.Base{},
-	// 		resource.NewName(motion.API, "builtin"): inject.NewMotionService("motion"),
-	// 		resource.NewName(vision.API, "vision"):  inject.NewVisionService("vision"),
-	// 	}
+	t.Run("setting motion parameters", func(t *testing.T) {
+		cfg := &Config{
+			BaseName:                   "base",
+			MapType:                    "None",
+			DegPerSec:                  1,
+			MetersPerSec:               2,
+			PositionPollingFrequencyHz: 3,
+			ObstaclePollingFrequencyHz: 4,
+			PlanDeviationM:             5,
+			VisionServices:             []string{"vision"},
+		}
+		deps := resource.Dependencies{
+			resource.NewName(base.API, "base"):      &inject.Base{},
+			resource.NewName(motion.API, "builtin"): inject.NewMotionService("motion"),
+			resource.NewName(vision.API, "vision"):  inject.NewVisionService("vision"),
+		}
 
-	// 	err := svc.Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
-	// 	test.That(t, err, test.ShouldBeNil)
-	// 	svcStruct := svc.(*builtIn)
+		err := svc.Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
+		test.That(t, err, test.ShouldBeNil)
+		svcStruct := svc.(*builtIn)
 
-	// 	test.That(t, len(svcStruct.motionCfg.VisionServices), test.ShouldEqual, 1)
-	// 	test.That(t, svcStruct.motionCfg.VisionServices[0].Name, test.ShouldEqual, cfg.VisionServices[0])
+		test.That(t, len(svcStruct.motionCfg.VisionServices), test.ShouldEqual, 1)
+		test.That(t, svcStruct.motionCfg.VisionServices[0].Name, test.ShouldEqual, cfg.VisionServices[0])
 
-	// 	test.That(t, svcStruct.motionCfg.AngularDegsPerSec, test.ShouldEqual, cfg.DegPerSec)
-	// 	test.That(t, svcStruct.motionCfg.LinearMPerSec, test.ShouldEqual, cfg.MetersPerSec)
-	// 	test.That(t, svcStruct.motionCfg.PositionPollingFreqHz, test.ShouldEqual, cfg.PositionPollingFrequencyHz)
-	// 	test.That(t, svcStruct.motionCfg.ObstaclePollingFreqHz, test.ShouldEqual, cfg.ObstaclePollingFrequencyHz)
-	// 	test.That(t, svcStruct.motionCfg.PlanDeviationMM, test.ShouldEqual, cfg.PlanDeviationM*1e3)
-	// })
+		test.That(t, svcStruct.motionCfg.AngularDegsPerSec, test.ShouldEqual, cfg.DegPerSec)
+		test.That(t, svcStruct.motionCfg.LinearMPerSec, test.ShouldEqual, cfg.MetersPerSec)
+		test.That(t, svcStruct.motionCfg.PositionPollingFreqHz, test.ShouldEqual, cfg.PositionPollingFrequencyHz)
+		test.That(t, svcStruct.motionCfg.ObstaclePollingFreqHz, test.ShouldEqual, cfg.ObstaclePollingFrequencyHz)
+		test.That(t, svcStruct.motionCfg.PlanDeviationMM, test.ShouldEqual, cfg.PlanDeviationM*1e3)
+	})
 
-	// t.Run("setting additional parameters", func(t *testing.T) {
-	// 	cfg := &Config{
-	// 		BaseName:         "base",
-	// 		MapType:          "None",
-	// 		ReplanCostFactor: 1,
-	// 		VisionServices:   []string{"vision"},
-	// 	}
-	// 	deps := resource.Dependencies{
-	// 		resource.NewName(base.API, "base"):      &inject.Base{},
-	// 		resource.NewName(motion.API, "builtin"): inject.NewMotionService("motion"),
-	// 		resource.NewName(vision.API, "vision"):  inject.NewVisionService("vision"),
-	// 	}
+	t.Run("setting additional parameters", func(t *testing.T) {
+		cfg := &Config{
+			BaseName:         "base",
+			MapType:          "None",
+			ReplanCostFactor: 1,
+			VisionServices:   []string{"vision"},
+		}
+		deps := resource.Dependencies{
+			resource.NewName(base.API, "base"):      &inject.Base{},
+			resource.NewName(motion.API, "builtin"): inject.NewMotionService("motion"),
+			resource.NewName(vision.API, "vision"):  inject.NewVisionService("vision"),
+		}
 
-	// 	err := svc.Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
-	// 	test.That(t, err, test.ShouldBeNil)
-	// 	svcStruct := svc.(*builtIn)
+		err := svc.Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
+		test.That(t, err, test.ShouldBeNil)
+		svcStruct := svc.(*builtIn)
 
-	// 	test.That(t, len(svcStruct.visionServices), test.ShouldEqual, 1)
-	// 	test.That(t, svcStruct.visionServices[0].Name().Name, test.ShouldEqual, cfg.VisionServices[0])
-	// 	test.That(t, svcStruct.replanCostFactor, test.ShouldEqual, cfg.ReplanCostFactor)
-	// })
+		test.That(t, len(svcStruct.visionServices), test.ShouldEqual, 1)
+		test.That(t, svcStruct.visionServices[0].Name().Name, test.ShouldEqual, cfg.VisionServices[0])
+		test.That(t, svcStruct.replanCostFactor, test.ShouldEqual, cfg.ReplanCostFactor)
+	})
 
 	closeNavSvc()
 }
