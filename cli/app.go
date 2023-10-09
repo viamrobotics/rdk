@@ -299,15 +299,10 @@ var app = &cli.App{
 					Action: DataExportAction,
 				},
 				{
-					Name:      "delete",
+					Name:      "delete-binary",
 					Usage:     "delete binary data from Viam cloud",
-					UsageText: fmt.Sprintf("viam data delete <%s> [other options]", dataFlagDataType),
+					UsageText: fmt.Sprintf("viam data delete-binary <%s> [other options]", dataFlagDataType),
 					Flags: []cli.Flag{
-						&cli.StringFlag{
-							Name:     dataFlagDataType,
-							Required: true,
-							Usage:    "data type to be deleted. should only be binary. if tabular, use delete-tabular instead.",
-						},
 						&cli.StringSliceFlag{
 							Name:  dataFlagOrgIDs,
 							Usage: "orgs filter",
