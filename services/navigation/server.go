@@ -139,7 +139,7 @@ func (server *serviceServer) RemoveWaypoint(ctx context.Context, req *pb.RemoveW
 	return &pb.RemoveWaypointResponse{}, nil
 }
 
-func (server *serviceServer) Obstacles(ctx context.Context, req *pb.GetObstaclesRequest) (*pb.GetObstaclesResponse, error) {
+func (server *serviceServer) GetObstacles(ctx context.Context, req *pb.GetObstaclesRequest) (*pb.GetObstaclesResponse, error) {
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
