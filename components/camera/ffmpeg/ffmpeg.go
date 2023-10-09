@@ -67,6 +67,7 @@ type ffmpegCamera struct {
 	activeBackgroundWorkers sync.WaitGroup
 	inClose                 func() error
 	outClose                func() error
+	logger                  golog.Logger
 }
 
 // NewFFMPEGCamera instantiates a new camera which leverages ffmpeg to handle a variety of potential video types.
@@ -85,7 +86,7 @@ func NewFFMPEGCamera(ctx context.Context, resourceConf resource.Config, nativeCo
 
 	// instantiate camera with cancellable context that will be applied to all spawned processes
 	cancelableCtx, cancel := context.WithCancel(context.Background())
-	ffCam := &ffmpegCamera{Named: resourceConf.ResourceName().AsNamed(), cancelFunc: cancel}
+	ffCam := &ffmpegCamera{Named: resourceConf.ResourceName().AsNamed(), cancelFunc: cancel, logger: logger}
 
 	// launch thread to run ffmpeg and pull images from the url and put them into the pipe
 	in, out := io.Pipe()
