@@ -46,7 +46,7 @@ func TestNumato1(t *testing.T) {
 		board.Named("foo"),
 		&Config{
 			Attributes: rutils.AttributeMap{"pins": 128},
-			Analogs:    []board.AnalogConfig{{Name: "foo", Pin: "01"}},
+			Analogs:    []board.AnalogReaderConfig{{Name: "foo", Pin: "01"}},
 			Pins:       2,
 		},
 		logger,
@@ -114,13 +114,13 @@ func TestNumato1(t *testing.T) {
 func TestConfigValidate(t *testing.T) {
 	validConfig := Config{}
 
-	validConfig.Analogs = []board.AnalogConfig{{}}
+	validConfig.Analogs = []board.AnalogReaderConfig{{}}
 	_, err := validConfig.Validate("path")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `path.analogs.0`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
 
-	validConfig.Analogs = []board.AnalogConfig{{Name: "bar"}}
+	validConfig.Analogs = []board.AnalogReaderConfig{{Name: "bar"}}
 	_, err = validConfig.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
 }
