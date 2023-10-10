@@ -879,15 +879,15 @@ func TestPlanStep(t *testing.T) {
 
 func TestConfiguration(t *testing.T) {
 	visionCameraPairs := [][]resource.Name{
-		[]resource.Name{vision.Named("vision service 1"), camera.Named("camera 1")},
-		[]resource.Name{vision.Named("vision service 2"), camera.Named("camera 2")},
+		{vision.Named("vision service 1"), camera.Named("camera 1")},
+		{vision.Named("vision service 2"), camera.Named("camera 2")},
 	}
 	obstacleDetectorsPB := []*pb.ObstacleDetector{}
-	obstacleDetectors := []ObstacleDetector{}
+	obstacleDetectors := []ObstacleDetectorName{}
 	for _, pair := range visionCameraPairs {
-		obstacleDetectors = append(obstacleDetectors, ObstacleDetector{
-			VisionService: pair[0],
-			Camera:        pair[1],
+		obstacleDetectors = append(obstacleDetectors, ObstacleDetectorName{
+			VisionServiceName: pair[0],
+			CameraName:        pair[1],
 		})
 		obstacleDetectorsPB = append(obstacleDetectorsPB, &pb.ObstacleDetector{
 			VisionService: rprotoutils.ResourceNameToProto(pair[0]),
@@ -913,12 +913,12 @@ func TestConfiguration(t *testing.T) {
 			{
 				description: "when passed a nil pointer returns mostly empty struct",
 				input:       nil,
-				result:      &MotionConfiguration{ObstacleDetectors: []ObstacleDetector{}},
+				result:      &MotionConfiguration{ObstacleDetectors: []ObstacleDetectorName{}},
 			},
 			{
 				description: "when passed an empty struct returns mostly empty struct",
 				input:       &pb.MotionConfiguration{},
-				result:      &MotionConfiguration{ObstacleDetectors: []ObstacleDetector{}},
+				result:      &MotionConfiguration{ObstacleDetectors: []ObstacleDetectorName{}},
 			},
 			{
 				description: "when passed a full struct returns a full struct",
@@ -1089,15 +1089,15 @@ func TestMoveOnGlobeReq(t *testing.T) {
 	})
 
 	visionCameraPairs := [][]resource.Name{
-		[]resource.Name{vision.Named("vision service 1"), camera.Named("camera 1")},
-		[]resource.Name{vision.Named("vision service 2"), camera.Named("camera 2")},
+		{vision.Named("vision service 1"), camera.Named("camera 1")},
+		{vision.Named("vision service 2"), camera.Named("camera 2")},
 	}
 	obstacleDetectorsPB := []*pb.ObstacleDetector{}
-	obstacleDetectors := []ObstacleDetector{}
+	obstacleDetectors := []ObstacleDetectorName{}
 	for _, pair := range visionCameraPairs {
-		obstacleDetectors = append(obstacleDetectors, ObstacleDetector{
-			VisionService: pair[0],
-			Camera:        pair[1],
+		obstacleDetectors = append(obstacleDetectors, ObstacleDetectorName{
+			VisionServiceName: pair[0],
+			CameraName:        pair[1],
 		})
 		obstacleDetectorsPB = append(obstacleDetectorsPB, &pb.ObstacleDetector{
 			VisionService: rprotoutils.ResourceNameToProto(pair[0]),
@@ -1169,7 +1169,7 @@ func TestMoveOnGlobeReq(t *testing.T) {
 					MovementSensorName: movementsensor.Named("my-movementsensor"),
 					Obstacles:          []*spatialmath.GeoObstacle{},
 					MotionCfg: &MotionConfiguration{
-						ObstacleDetectors: []ObstacleDetector{},
+						ObstacleDetectors: []ObstacleDetectorName{},
 					},
 					Extra: map[string]interface{}{},
 				},
@@ -1299,7 +1299,7 @@ func TestMoveOnGlobeReq(t *testing.T) {
 					MovementSensorName: movementsensor.Named("my-movementsensor"),
 					Obstacles:          []*spatialmath.GeoObstacle{},
 					MotionCfg: &MotionConfiguration{
-						ObstacleDetectors: []ObstacleDetector{},
+						ObstacleDetectors: []ObstacleDetectorName{},
 					},
 					Extra: map[string]interface{}{},
 				},
@@ -1487,14 +1487,14 @@ func TestPlanHistoryReq(t *testing.T) {
 func validMoveOnGlobeRequest() MoveOnGlobeReq {
 	dst := geo.NewPoint(1, 2)
 	visionCameraPairs := [][]resource.Name{
-		[]resource.Name{vision.Named("vision service 1"), camera.Named("camera 1")},
-		[]resource.Name{vision.Named("vision service 2"), camera.Named("camera 2")},
+		{vision.Named("vision service 1"), camera.Named("camera 1")},
+		{vision.Named("vision service 2"), camera.Named("camera 2")},
 	}
-	obstacleDetectors := []ObstacleDetector{}
+	obstacleDetectors := []ObstacleDetectorName{}
 	for _, pair := range visionCameraPairs {
-		obstacleDetectors = append(obstacleDetectors, ObstacleDetector{
-			VisionService: pair[0],
-			Camera:        pair[1],
+		obstacleDetectors = append(obstacleDetectors, ObstacleDetectorName{
+			VisionServiceName: pair[0],
+			CameraName:        pair[1],
 		})
 	}
 	return MoveOnGlobeReq{

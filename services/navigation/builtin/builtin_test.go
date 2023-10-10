@@ -225,7 +225,7 @@ func TestNew(t *testing.T) {
 
 		test.That(t, svcStruct.base.Name().Name, test.ShouldEqual, "test_base")
 		test.That(t, svcStruct.motionService.Name().Name, test.ShouldEqual, "builtin")
-		test.That(t, svcStruct.visionServices, test.ShouldBeNil)
+		test.That(t, svcStruct.obstacleDetectors, test.ShouldBeNil)
 
 		test.That(t, svcStruct.mapType, test.ShouldEqual, navigation.NoMap)
 		test.That(t, svcStruct.mode, test.ShouldEqual, navigation.ModeManual)
@@ -295,10 +295,10 @@ func TestNew(t *testing.T) {
 			PositionPollingFrequencyHz: 3,
 			ObstaclePollingFrequencyHz: 4,
 			PlanDeviationM:             5,
-			ObstacleDetectors: []*motion.ObstacleDetectorConfig{
+			ObstacleDetectors: []*motion.ObstacleDetectorNameConfig{
 				{
-					VisionService: "vision",
-					Camera:        "camera",
+					VisionServiceName: "vision",
+					CameraName:        "camera",
 				},
 			},
 		}
@@ -313,9 +313,10 @@ func TestNew(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		svcStruct := svc.(*builtIn)
 
+		test.That(t, len(svcStruct.obstacleDetectors), test.ShouldEqual, 1)
 		test.That(t, len(svcStruct.motionCfg.ObstacleDetectors), test.ShouldEqual, 1)
-		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].VisionService.Name, test.ShouldEqual, "vision")
-		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].Camera.Name, test.ShouldEqual, "camera")
+		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].VisionServiceName.Name, test.ShouldEqual, "vision")
+		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].CameraName.Name, test.ShouldEqual, "camera")
 
 		test.That(t, svcStruct.motionCfg.AngularDegsPerSec, test.ShouldEqual, cfg.DegPerSec)
 		test.That(t, svcStruct.motionCfg.LinearMPerSec, test.ShouldEqual, cfg.MetersPerSec)
@@ -329,10 +330,10 @@ func TestNew(t *testing.T) {
 			BaseName:         "base",
 			MapType:          "None",
 			ReplanCostFactor: 1,
-			ObstacleDetectors: []*motion.ObstacleDetectorConfig{
+			ObstacleDetectors: []*motion.ObstacleDetectorNameConfig{
 				{
-					VisionService: "vision",
-					Camera:        "camera",
+					VisionServiceName: "vision",
+					CameraName:        "camera",
 				},
 			},
 		}
@@ -347,9 +348,9 @@ func TestNew(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		svcStruct := svc.(*builtIn)
 
-		test.That(t, len(svcStruct.visionServices), test.ShouldEqual, 1)
-		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].VisionService.Name, test.ShouldEqual, "vision")
-		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].Camera.Name, test.ShouldEqual, "camera")
+		test.That(t, len(svcStruct.obstacleDetectors), test.ShouldEqual, 1)
+		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].VisionServiceName.Name, test.ShouldEqual, "vision")
+		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].CameraName.Name, test.ShouldEqual, "camera")
 		test.That(t, svcStruct.replanCostFactor, test.ShouldEqual, cfg.ReplanCostFactor)
 	})
 
@@ -394,9 +395,9 @@ func TestNew(t *testing.T) {
 		cfg := &Config{
 			BaseName:           "base",
 			MovementSensorName: "movement_sensor",
-			ObstacleDetectors: []*motion.ObstacleDetectorConfig{
+			ObstacleDetectors: []*motion.ObstacleDetectorNameConfig{
 				{
-					Camera: "camera",
+					CameraName: "camera",
 				},
 			},
 		}
@@ -416,9 +417,9 @@ func TestNew(t *testing.T) {
 		cfg := &Config{
 			BaseName:           "base",
 			MovementSensorName: "movement_sensor",
-			ObstacleDetectors: []*motion.ObstacleDetectorConfig{
+			ObstacleDetectors: []*motion.ObstacleDetectorNameConfig{
 				{
-					VisionService: "vision",
+					VisionServiceName: "vision",
 				},
 			},
 		}
@@ -437,10 +438,10 @@ func TestNew(t *testing.T) {
 		cfg := &Config{
 			BaseName:           "base",
 			MovementSensorName: "movement_sensor",
-			ObstacleDetectors: []*motion.ObstacleDetectorConfig{
+			ObstacleDetectors: []*motion.ObstacleDetectorNameConfig{
 				{
-					VisionService: "vision",
-					Camera:        "camera",
+					VisionServiceName: "vision",
+					CameraName:        "camera",
 				},
 			},
 		}
@@ -456,9 +457,9 @@ func TestNew(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		svcStruct := svc.(*builtIn)
 
-		test.That(t, len(svcStruct.visionServices), test.ShouldEqual, 1)
-		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].VisionService.Name, test.ShouldEqual, "vision")
-		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].Camera.Name, test.ShouldEqual, "camera")
+		test.That(t, len(svcStruct.obstacleDetectors), test.ShouldEqual, 1)
+		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].VisionServiceName.Name, test.ShouldEqual, "vision")
+		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].CameraName.Name, test.ShouldEqual, "camera")
 	})
 
 	closeNavSvc()
@@ -494,13 +495,6 @@ func TestSetMode(t *testing.T) {
 			mapType:     navigation.NoMap,
 			mode:        navigation.ModeExplore,
 			expectedErr: errors.New("navigation mode 'explore' is not currently available"),
-		},
-		{
-			description: "setting mode to explore when map_type is None and no vision service is configured",
-			cfg:         "../data/nav_no_map_cfg_minimal.json",
-			mapType:     navigation.GPSMap,
-			mode:        navigation.ModeExplore,
-			expectedErr: errors.New("explore mode requires at least one vision service"),
 		},
 		{
 			description: "setting mode to manual when map_type is GPS",
@@ -975,6 +969,12 @@ func TestValidateGeometry(t *testing.T) {
 		BaseName:           "base",
 		MapType:            "GPS",
 		MovementSensorName: "localizer",
+		ObstacleDetectors: []*motion.ObstacleDetectorNameConfig{
+			{
+				VisionServiceName: "vision",
+				CameraName:        "camera",
+			},
+		},
 	}
 
 	createBox := func(translation r3.Vector) Config {

@@ -257,11 +257,11 @@ func TestServerMoveOnGlobeNew(t *testing.T) {
 		obstaclePollingFrequencyHz := 4.
 		positionPollingFrequencyHz := 5.
 		obstacleDetectorsPB := []*pb.ObstacleDetector{
-			&pb.ObstacleDetector{
+			{
 				VisionService: protoutils.ResourceNameToProto(vision.Named("vision service 1")),
 				Camera:        protoutils.ResourceNameToProto(camera.Named("camera 1")),
 			},
-			&pb.ObstacleDetector{
+			{
 				VisionService: protoutils.ResourceNameToProto(vision.Named("vision service 2")),
 				Camera:        protoutils.ResourceNameToProto(camera.Named("camera 2")),
 			},
@@ -299,10 +299,10 @@ func TestServerMoveOnGlobeNew(t *testing.T) {
 			test.That(t, req.MotionCfg.ObstaclePollingFreqHz, test.ShouldAlmostEqual, obstaclePollingFrequencyHz)
 			test.That(t, req.MotionCfg.PositionPollingFreqHz, test.ShouldAlmostEqual, positionPollingFrequencyHz)
 			test.That(t, len(req.MotionCfg.ObstacleDetectors), test.ShouldAlmostEqual, 2)
-			test.That(t, req.MotionCfg.ObstacleDetectors[0].VisionService, test.ShouldResemble, vision.Named("vision service 1"))
-			test.That(t, req.MotionCfg.ObstacleDetectors[0].Camera, test.ShouldResemble, camera.Named("camera 1"))
-			test.That(t, req.MotionCfg.ObstacleDetectors[1].VisionService, test.ShouldResemble, vision.Named("vision service 2"))
-			test.That(t, req.MotionCfg.ObstacleDetectors[1].Camera, test.ShouldResemble, camera.Named("camera 2"))
+			test.That(t, req.MotionCfg.ObstacleDetectors[0].VisionServiceName, test.ShouldResemble, vision.Named("vision service 1"))
+			test.That(t, req.MotionCfg.ObstacleDetectors[0].CameraName, test.ShouldResemble, camera.Named("camera 1"))
+			test.That(t, req.MotionCfg.ObstacleDetectors[1].VisionServiceName, test.ShouldResemble, vision.Named("vision service 2"))
+			test.That(t, req.MotionCfg.ObstacleDetectors[1].CameraName, test.ShouldResemble, camera.Named("camera 2"))
 			return "some execution id", nil
 		}
 		moveOnGlobeNewResponse, err := server.MoveOnGlobeNew(context.Background(), moveOnGlobeNewRequest)

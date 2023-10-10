@@ -9,7 +9,7 @@ import (
 )
 
 func configurationFromProto(motionCfg *pb.MotionConfiguration) *MotionConfiguration {
-	obstacleDetectors := []ObstacleDetector{}
+	obstacleDetectors := []ObstacleDetectorName{}
 	planDeviationM := 0.
 	positionPollingHz := 0.
 	obstaclePollingHz := 0.
@@ -19,9 +19,9 @@ func configurationFromProto(motionCfg *pb.MotionConfiguration) *MotionConfigurat
 	if motionCfg != nil {
 		if motionCfg.ObstacleDetectors != nil {
 			for _, obstacleDetectorPair := range motionCfg.GetObstacleDetectors() {
-				obstacleDetectors = append(obstacleDetectors, ObstacleDetector{
-					VisionService: protoutils.ResourceNameFromProto(obstacleDetectorPair.VisionService),
-					Camera:        protoutils.ResourceNameFromProto(obstacleDetectorPair.Camera),
+				obstacleDetectors = append(obstacleDetectors, ObstacleDetectorName{
+					VisionServiceName: protoutils.ResourceNameFromProto(obstacleDetectorPair.VisionService),
+					CameraName:        protoutils.ResourceNameFromProto(obstacleDetectorPair.Camera),
 				})
 			}
 		}
@@ -75,8 +75,8 @@ func (motionCfg MotionConfiguration) toProto() *pb.MotionConfiguration {
 		pbObstacleDetector := []*pb.ObstacleDetector{}
 		for _, obstacleDetectorPair := range motionCfg.ObstacleDetectors {
 			pbObstacleDetector = append(pbObstacleDetector, &pb.ObstacleDetector{
-				VisionService: protoutils.ResourceNameToProto(obstacleDetectorPair.VisionService),
-				Camera:        protoutils.ResourceNameToProto(obstacleDetectorPair.Camera),
+				VisionService: protoutils.ResourceNameToProto(obstacleDetectorPair.VisionServiceName),
+				Camera:        protoutils.ResourceNameToProto(obstacleDetectorPair.CameraName),
 			})
 		}
 		proto.ObstacleDetectors = pbObstacleDetector
