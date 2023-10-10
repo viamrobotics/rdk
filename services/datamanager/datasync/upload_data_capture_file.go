@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
 	pb "go.viam.com/api/component/camera/v1"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/services/datamanager/datacapture"
 )
@@ -37,14 +38,26 @@ func uploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient,
 		if err := mapstructure.Decode(sensorData[0].GetStruct().AsMap(), &res); err != nil {
 			return err
 		}
-		captureTimestamp := res.GetResponseMetadata().GetCapturedAt()
+
+		// If the GetImagesResponse metadata contains a capture timestamp, use that to
+		// populate SensorMetadata. Otherwise, use the timestamps that the data management
+		// system sent a GetImageRequest and received the GetImagesResponse.
+		var timeRequested, timeReceived *timestamppb.Timestamp
+		timeCaptured := res.GetResponseMetadata().GetCapturedAt()
+		if timeCaptured != nil {
+			timeRequested, timeReceived = timeCaptured, timeCaptured
+		} else {
+			sensorMD := sensorData[0].GetMetadata()
+			timeRequested = sensorMD.GetTimeRequested()
+			timeReceived = sensorMD.GetTimeReceived()
+		}
 
 		for _, img := range res.Images {
 			newSensorData := []*v1.SensorData{
 				{
 					Metadata: &v1.SensorMetadata{
-						TimeRequested: captureTimestamp,
-						TimeReceived:  captureTimestamp,
+						TimeRequested: timeRequested,
+						TimeReceived:  timeReceived,
 					},
 					Data: &v1.SensorData_Binary{
 						Binary: img.GetImage(),
