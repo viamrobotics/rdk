@@ -61,6 +61,7 @@ func NewCamera(
 		Model:  resModel,
 		Width:  width,
 		Height: height,
+		logger: logger,
 	}
 	src, err := camera.NewVideoSourceFromReader(ctx, cam, resModel, camera.ColorStream)
 	if err != nil {
@@ -168,6 +169,7 @@ type Camera struct {
 	Height          int
 	cacheImage      *image.RGBA
 	cachePointCloud pointcloud.PointCloud
+	logger          golog.Logger
 }
 
 // Read always returns the same image of a yellow to blue gradient.
