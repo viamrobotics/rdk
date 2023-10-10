@@ -186,7 +186,7 @@ func UploadModuleAction(c *cli.Context) error {
 		return errors.New("no package to upload -- please provide an archive containing your module. Use --help for more information")
 	}
 
-	// Clean the version argument to ensure compatability with github tag standards
+	// Clean the version argument to ensure compatibility with github tag standards
 	versionArg = strings.TrimPrefix(versionArg, "v")
 
 	client, err := newViamClient(c)
