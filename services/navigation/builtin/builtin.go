@@ -136,8 +136,8 @@ func (conf *Config) Validate(path string) ([]string, error) {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "movement_sensor")
 	}
 
-	// Ensure we have obstacle detector(s)
-	if len(conf.ObstacleDetectors) == 0 {
+	// Ensure we have obstacle detector(s) available if MapType is GPS (or default)
+	if mapType == navigation.GPSMap && len(conf.ObstacleDetectors) == 0 {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "obstacle_detector")
 	}
 	for _, obstacleDetectorPair := range conf.ObstacleDetectors {
