@@ -51,6 +51,7 @@
   let durationInterval: number | undefined;
   let newMapName = "";
   let mapNameError = "";
+  let mappingSessionStarted = false;
 
   $: pointcloudLoaded = !!pointcloud?.length && pose !== undefined;
   $: moveClicked = $operations.find(({ op }) =>
@@ -332,6 +333,7 @@
       try {
         hasActiveSession = true;
         sessionId = await overrides.startMappingSession(mapName);
+        mappingSessionStarted = true;
         startMappingIntervals(Date.now());
       } catch {
         hasActiveSession = false;
@@ -571,84 +573,90 @@
         </div>
       {/if}
 
-      {#if pointcloudLoaded && show2d}
-        <div>
-          <div class="flex flex-row pl-5 py-2 border-b border-b-light">
-            <div class="flex flex-col gap-0.5">
-              <div class="flex gap-2">
-                <p class="text-xs">Current position</p>
-                <button
-                  class="text-xs hover:underline"
-                  on:click={() =>
-                    (labelUnits = labelUnits === "mm" ? "m" : "mm")}
-                >
-                  ({labelUnits})
-                </button>
+      {#if show2d}
+        {#if pointcloudLoaded}
+          <div>
+            <div class="flex flex-row pl-5 py-2 border-b border-b-light">
+              <div class="flex flex-col gap-0.5">
+                <div class="flex gap-2">
+                  <p class="text-xs">Current position</p>
+                  <button
+                    class="text-xs hover:underline"
+                    on:click={() =>
+                      (labelUnits = labelUnits === "mm" ? "m" : "mm")}
+                  >
+                    ({labelUnits})
+                  </button>
+                </div>
+
+                {#if pose}
+                  <div class="flex flex-row items-center">
+                    <p class="items-end pr-1.5 text-xs text-gray-500">x</p>
+                    <p>{(pose.x * unitScale).toFixed(1)}</p>
+
+                    <p class="pl-6 pr-1.5 text-xs text-gray-500">y</p>
+                    <p>{(pose.y * unitScale).toFixed(1)}</p>
+
+                    <p class="pl-6 pr-1.5 text-xs text-gray-500">z</p>
+                    <p>{(pose.z * unitScale).toFixed(1)}</p>
+                  </div>
+                {/if}
+              </div>
+              <div class="flex flex-col gap-0.5 pl-10">
+                <p class="text-xs">Current orientation</p>
+
+                {#if pose}
+                  <div class="flex flex-row items-center">
+                    <p class="pr-1.5 text-xs text-gray-500">o<sub>x</sub></p>
+                    <p>{pose.oX.toFixed(1)}</p>
+
+                    <p class="pl-6 pr-1.5 text-xs text-gray-500">o<sub>y</sub></p>
+                    <p>{pose.oY.toFixed(1)}</p>
+
+                    <p class="pl-6 pr-1.5 text-xs text-gray-500">o<sub>z</sub></p>
+                    <p>{pose.oZ.toFixed(1)}</p>
+
+                    <p class="pl-6 pr-1.5 text-xs text-gray-500">&theta;</p>
+                    <p>{pose.theta.toFixed(1)}</p>
+                  </div>
+                {/if}
               </div>
 
-              {#if pose}
-                <div class="flex flex-row items-center">
-                  <p class="items-end pr-1.5 text-xs text-gray-500">x</p>
-                  <p>{(pose.x * unitScale).toFixed(1)}</p>
-
-                  <p class="pl-6 pr-1.5 text-xs text-gray-500">y</p>
-                  <p>{(pose.y * unitScale).toFixed(1)}</p>
-
-                  <p class="pl-6 pr-1.5 text-xs text-gray-500">z</p>
-                  <p>{(pose.z * unitScale).toFixed(1)}</p>
-                </div>
-              {/if}
-            </div>
-            <div class="flex flex-col gap-0.5 pl-10">
-              <p class="text-xs">Current orientation</p>
-
-              {#if pose}
-                <div class="flex flex-row items-center">
-                  <p class="pr-1.5 text-xs text-gray-500">o<sub>x</sub></p>
-                  <p>{pose.oX.toFixed(1)}</p>
-
-                  <p class="pl-6 pr-1.5 text-xs text-gray-500">o<sub>y</sub></p>
-                  <p>{pose.oY.toFixed(1)}</p>
-
-                  <p class="pl-6 pr-1.5 text-xs text-gray-500">o<sub>z</sub></p>
-                  <p>{pose.oZ.toFixed(1)}</p>
-
-                  <p class="pl-6 pr-1.5 text-xs text-gray-500">&theta;</p>
-                  <p>{pose.theta.toFixed(1)}</p>
-                </div>
-              {/if}
+              <v-button
+                tooltip="Copy pose to clipboard"
+                class="pl-4 pt-2"
+                variant="icon"
+                icon="content-copy"
+                on:click={baseCopyPosition}
+                on:keydown={baseCopyPosition}
+              />
             </div>
 
-            <v-button
-              tooltip="Copy pose to clipboard"
-              class="pl-4 pt-2"
-              variant="icon"
-              icon="content-copy"
-              on:click={baseCopyPosition}
-              on:keydown={baseCopyPosition}
+            <Slam2D
+              {pointcloud}
+              {pose}
+              {destination}
+              helpers={showAxes}
+              on:click={handle2dRenderClick}
             />
           </div>
-
-          <Slam2D
-            {pointcloud}
-            {pose}
-            {destination}
-            helpers={showAxes}
-            on:click={handle2dRenderClick}
-          />
-        </div>
-      {:else if overrides?.isCloudSlam && sessionId}
-        <div
-          class="flex flex-col h-full w-full items-center justify-center gap-4"
-        >
-          <div class="animate-[spin_3s_linear_infinite]">
-            <v-icon name="cog" size="4xl" />
+        {:else if overrides?.isCloudSlam && sessionId}
+          <div
+            class="flex flex-col h-full w-full items-center justify-center gap-4"
+          >
+            <div class="animate-[spin_3s_linear_infinite]">
+              <v-icon name="cog" size="4xl" />
+            </div>
+            <div class="flex flex-col items-center text-xs">
+              {#if mappingSessionStarted}
+                <span>Starting slam session in the cloud.</span>
+                <span>This typically takes about 2 minutes.</span>
+              {:else}
+                <span>Loading pointcloud...</span>
+              {/if}
+            </div>
           </div>
-          <div class="flex flex-col items-center text-xs">
-            <span>Starting slam session in the cloud.</span>
-            <span>This typically takes about 2 minutes.</span>
-          </div>
-        </div>
+        {/if}
       {/if}
     </div>
   </div>
