@@ -21,7 +21,7 @@ import (
 
 var homographyModel = resource.DefaultModelFamily.WithModel("align_color_depth_homography")
 
-//nolint:dupl
+
 func init() {
 	resource.RegisterComponent(camera.API, homographyModel,
 		resource.Registration[camera.Camera, *homographyConfig]{

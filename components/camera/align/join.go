@@ -22,6 +22,7 @@ import (
 )
 
 var joinModel = resource.DefaultModelFamily.WithModel("join_color_depth")
+
 func init() {
 	resource.RegisterComponent(camera.API, joinModel,
 		resource.Registration[camera.Camera, *joinConfig]{

@@ -6,6 +6,7 @@ import (
 	"image/color"
 	"testing"
 
+	"github.com/edaniels/golog"
 	"github.com/viamrobotics/gostream"
 	"go.viam.com/test"
 
@@ -23,6 +24,7 @@ func TestTransformSegmenterProps(t *testing.T) {
 	r := &inject.Robot{}
 	cam := &inject.Camera{}
 	vizServ := &inject.VisionService{}
+	logger := golog.NewTestLogger(t)
 
 	cam.StreamFunc = func(ctx context.Context,
 		errHandlers ...gostream.ErrorHandler,
@@ -61,7 +63,7 @@ func TestTransformSegmenterProps(t *testing.T) {
 	_, err = conf.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = newTransformPipeline(context.Background(), cam, transformConf, r)
+	_, err = newTransformPipeline(context.Background(), cam, transformConf, r, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	transformConf = &transformConfig{
@@ -86,6 +88,7 @@ func TestTransformSegmenterFunctionality(t *testing.T) {
 	r := &inject.Robot{}
 	cam := &inject.Camera{}
 	vizServ := &inject.VisionService{}
+	logger := golog.NewTestLogger(t)
 
 	cam.StreamFunc = func(ctx context.Context,
 		errHandlers ...gostream.ErrorHandler,
@@ -148,7 +151,7 @@ func TestTransformSegmenterFunctionality(t *testing.T) {
 		},
 	}
 
-	pipeline, err := newTransformPipeline(context.Background(), cam, transformConf, r)
+	pipeline, err := newTransformPipeline(context.Background(), cam, transformConf, r, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	pc, err := pipeline.NextPointCloud(context.Background())
