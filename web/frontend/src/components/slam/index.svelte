@@ -610,10 +610,14 @@
                     <p class="pr-1.5 text-xs text-gray-500">o<sub>x</sub></p>
                     <p>{pose.oX.toFixed(1)}</p>
 
-                    <p class="pl-6 pr-1.5 text-xs text-gray-500">o<sub>y</sub></p>
+                    <p class="pl-6 pr-1.5 text-xs text-gray-500">
+                      o<sub>y</sub>
+                    </p>
                     <p>{pose.oY.toFixed(1)}</p>
 
-                    <p class="pl-6 pr-1.5 text-xs text-gray-500">o<sub>z</sub></p>
+                    <p class="pl-6 pr-1.5 text-xs text-gray-500">
+                      o<sub>z</sub>
+                    </p>
                     <p>{pose.oZ.toFixed(1)}</p>
 
                     <p class="pl-6 pr-1.5 text-xs text-gray-500">&theta;</p>
@@ -640,7 +644,7 @@
               on:click={handle2dRenderClick}
             />
           </div>
-        {:else if overrides?.isCloudSlam && sessionId}
+        {:else if overrides?.isCloudSlam && sessionId && refresh2dRate !== "manual"}
           <div
             class="flex flex-col h-full w-full items-center justify-center gap-4"
           >
@@ -652,7 +656,7 @@
                 <span>Starting slam session in the cloud.</span>
                 <span>This typically takes about 2 minutes.</span>
               {:else}
-                <span>Loading pointcloud...</span>
+                <span>Loading point cloud...</span>
               {/if}
             </div>
           </div>
