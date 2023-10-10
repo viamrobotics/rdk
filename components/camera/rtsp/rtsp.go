@@ -35,7 +35,7 @@ func init() {
 			if err != nil {
 				return nil, err
 			}
-			return NewRTSPCamera(ctx, conf.ResourceName(), conf, newConf, logger)
+			return NewRTSPCamera(ctx, conf.ResourceName(), newConf, logger)
 		},
 	})
 }
@@ -188,14 +188,14 @@ func (rc *rtspCamera) reconnectClient() (err error) {
 
 // NewRTSPCamera creates a camera client using RTSP given the server URL.
 // Right now, only supports servers that have MJPEG video tracks.
-func NewRTSPCamera(ctx context.Context, name resource.Name, resourceConf resource.Config, nativeConf *Config, logger golog.Logger) (camera.Camera, error) {
-	u, err := url.Parse(nativeConf.Address)
+func NewRTSPCamera(ctx context.Context, name resource.Name, conf *Config, logger golog.Logger) (camera.Camera, error) {
+	u, err := url.Parse(conf.Address)
 	if err != nil {
 		return nil, err
 	}
 	gotFirstFrame := make(chan struct{})
 	rtspCam := &rtspCamera{
-		Named:         resourceConf.ResourceName().AsNamed(),
+		Named:         name.AsNamed(),
 		u:             u,
 		logger:        logger,
 		gotFirstFrame: gotFirstFrame,
@@ -229,7 +229,7 @@ func NewRTSPCamera(ctx context.Context, name resource.Name, resourceConf resourc
 	rtspCam.VideoReader = reader
 	rtspCam.cancelCtx = cancelCtx
 	rtspCam.cancelFunc = cancel
-	cameraModel := camera.NewPinholeModelWithBrownConradyDistortion(nativeConf.IntrinsicParams, nativeConf.DistortionParams)
+	cameraModel := camera.NewPinholeModelWithBrownConradyDistortion(conf.IntrinsicParams, conf.DistortionParams)
 	rtspCam.clientReconnectBackgroundWorker()
 	src, err := camera.NewVideoSourceFromReader(ctx, rtspCam, &cameraModel, camera.ColorStream)
 	if err != nil {
