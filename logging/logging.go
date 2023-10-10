@@ -39,7 +39,7 @@ func (level Level) String() string {
 		return "Error"
 	}
 
-	panic(fmt.Sprintf("uUnreachable: %d", level))
+	panic(fmt.Sprintf("unreachable: %d", level))
 }
 
 // LevelFromString parses an input string to a log level. The string must be one of `debug`, `info`,
