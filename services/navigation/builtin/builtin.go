@@ -16,6 +16,7 @@ import (
 	"golang.org/x/exp/slices"
 
 	"go.viam.com/rdk/components/base"
+	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
@@ -85,12 +86,12 @@ func init() {
 
 // Config describes how to configure the service.
 type Config struct {
-	Store              navigation.StoreConfig `json:"store"`
-	BaseName           string                 `json:"base"`
-	MapType            string                 `json:"map_type"`
-	MovementSensorName string                 `json:"movement_sensor"`
-	MotionServiceName  string                 `json:"motion_service"`
-	VisionServices     []string               `json:"vision_services"`
+	Store              navigation.StoreConfig           `json:"store"`
+	BaseName           string                           `json:"base"`
+	MapType            string                           `json:"map_type"`
+	MovementSensorName string                           `json:"movement_sensor"`
+	MotionServiceName  string                           `json:"motion_service"`
+	ObstacleDetectors  []*motion.ObstacleDetectorConfig `json:"obstacle_detectors"`
 
 	// DegPerSec and MetersPerSec are targets and not hard limits on speed
 	DegPerSec    float64 `json:"degs_per_sec,omitempty"`
@@ -126,11 +127,6 @@ func (conf *Config) Validate(path string) ([]string, error) {
 		deps = append(deps, resource.NewName(motion.API, resource.DefaultServiceName).String())
 	}
 
-	// Add vision service dependencies
-	for _, v := range conf.VisionServices {
-		deps = append(deps, resource.NewName(vision.API, v).String())
-	}
-
 	// Ensure map_type is valid and a movement sensor is available if MapType is GPS (or default)
 	mapType, err := navigation.StringToMapType(conf.MapType)
 	if err != nil {
@@ -138,6 +134,18 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	}
 	if mapType == navigation.GPSMap && conf.MovementSensorName == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "movement_sensor")
+	}
+
+	// Ensure we have obstacle detector(s) if MapType is GPS (or default)
+	if mapType == navigation.GPSMap && len(conf.ObstacleDetectors) == 0 {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "obstacle_detector")
+	}
+	for _, obstacleDetectorPair := range conf.ObstacleDetectors {
+		if obstacleDetectorPair.VisionService == "" || obstacleDetectorPair.Camera == "" {
+			return nil, utils.NewConfigValidationError(path, errors.New("an obstacle detector is missing either a camera or vision service"))
+		}
+		deps = append(deps, resource.NewName(vision.API, obstacleDetectorPair.VisionService).String())
+		deps = append(deps, resource.NewName(camera.API, obstacleDetectorPair.Camera).String())
 	}
 
 	// Ensure store is valid
@@ -293,15 +301,21 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		return err
 	}
 
-	// Parse vision services from the configuration
-	var visionServiceNames []resource.Name
+	var obstacleDetectorPairs []motion.ObstacleDetector
 	var visionServices []vision.Service
-	for _, svc := range svcConfig.VisionServices {
-		visionSvc, err := vision.FromDependencies(deps, svc)
+	for _, pbObstacleDetectorPair := range svcConfig.ObstacleDetectors {
+		visionSvc, err := vision.FromDependencies(deps, pbObstacleDetectorPair.VisionService)
 		if err != nil {
 			return err
 		}
-		visionServiceNames = append(visionServiceNames, visionSvc.Name())
+		camera, err := camera.FromDependencies(deps, pbObstacleDetectorPair.Camera)
+		if err != nil {
+			return err
+		}
+		obstacleDetectorPairs = append(obstacleDetectorPairs, motion.ObstacleDetector{
+			VisionService: visionSvc.Name(),
+			Camera:        camera.Name(),
+		})
 		visionServices = append(visionServices, visionSvc)
 	}
 
@@ -338,7 +352,7 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	svc.replanCostFactor = replanCostFactor
 	svc.visionServices = visionServices
 	svc.motionCfg = &motion.MotionConfiguration{
-		VisionServices:        visionServiceNames,
+		ObstacleDetectors:     obstacleDetectorPairs,
 		LinearMPerSec:         metersPerSec,
 		AngularDegsPerSec:     degPerSec,
 		PlanDeviationMM:       1e3 * planDeviationM,

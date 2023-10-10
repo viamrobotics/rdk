@@ -181,11 +181,23 @@ type Service interface {
 	) ([]PlanWithStatus, error)
 }
 
+// ObstacleDetectorConfig is the protobuf version of ObstacleDetector
+type ObstacleDetectorConfig struct {
+	VisionService string `json:"vision_service"`
+	Camera        string `json:"camera"`
+}
+
+// ObstacleDetector pairs a vision service with a camera, informing the service about which camera it may use
+type ObstacleDetector struct {
+	VisionService resource.Name
+	Camera        resource.Name
+}
+
 // MotionConfiguration specifies how to configure a call
 //
 //nolint:revive
 type MotionConfiguration struct {
-	VisionServices        []resource.Name
+	ObstacleDetectors     []ObstacleDetector
 	PositionPollingFreqHz float64
 	ObstaclePollingFreqHz float64
 	PlanDeviationMM       float64
