@@ -46,7 +46,7 @@ func TestAnalogSmoother1(t *testing.T) {
 	}()
 
 	logger := golog.NewTestLogger(t)
-	as := SmoothAnalogReader(&testReader, AnalogConfig{
+	as := SmoothAnalogReader(&testReader, AnalogReaderConfig{
 		AverageOverMillis: 10,
 		SamplesPerSecond:  10000,
 	}, logger)

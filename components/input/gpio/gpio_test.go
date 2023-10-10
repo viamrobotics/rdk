@@ -37,13 +37,13 @@ func setup(t *testing.T) *setupResult {
 	s.logger = golog.NewTestLogger(t)
 
 	s.b = &fakeboard.Board{
-		Digitals: map[string]*fakeboard.DigitalInterruptWrapper{},
-		Analogs:  map[string]*fakeboard.Analog{},
+		Digitals:      map[string]*fakeboard.DigitalInterruptWrapper{},
+		AnalogReaders: map[string]*fakeboard.AnalogReader{},
 	}
 
-	s.b.Analogs["analog1"] = &fakeboard.Analog{}
-	s.b.Analogs["analog2"] = &fakeboard.Analog{}
-	s.b.Analogs["analog3"] = &fakeboard.Analog{}
+	s.b.AnalogReaders["analog1"] = &fakeboard.AnalogReader{}
+	s.b.AnalogReaders["analog2"] = &fakeboard.AnalogReader{}
+	s.b.AnalogReaders["analog3"] = &fakeboard.AnalogReader{}
 
 	var err error
 	s.b.Digitals["interrupt1"], err = fakeboard.NewDigitalInterruptWrapper(board.DigitalInterruptConfig{})
@@ -383,7 +383,7 @@ func TestGPIOInput(t *testing.T) {
 			test.That(tb, atomic.LoadInt64(&s.axis1Callbacks), test.ShouldEqual, 0)
 		})
 
-		s.b.Analogs["analog1"].Set(1023)
+		s.b.AnalogReaders["analog1"].Set(1023)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			state, err := s.dev.Events(s.ctx, map[string]interface{}{})
@@ -393,7 +393,7 @@ func TestGPIOInput(t *testing.T) {
 			test.That(tb, atomic.LoadInt64(&s.axis1Callbacks), test.ShouldEqual, 1)
 		})
 
-		s.b.Analogs["analog1"].Set(511)
+		s.b.AnalogReaders["analog1"].Set(511)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			state, err := s.dev.Events(s.ctx, map[string]interface{}{})
@@ -408,7 +408,7 @@ func TestGPIOInput(t *testing.T) {
 		s := setup(t)
 		defer teardown(t, s)
 
-		s.b.Analogs["analog2"].Set(511)
+		s.b.AnalogReaders["analog2"].Set(511)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			state, err := s.dev.Events(s.ctx, map[string]interface{}{})
@@ -418,7 +418,7 @@ func TestGPIOInput(t *testing.T) {
 			test.That(tb, atomic.LoadInt64(&s.axis2Callbacks), test.ShouldEqual, 1)
 		})
 
-		s.b.Analogs["analog2"].Set(511 + 20)
+		s.b.AnalogReaders["analog2"].Set(511 + 20)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			state, err := s.dev.Events(s.ctx, map[string]interface{}{})
@@ -428,7 +428,7 @@ func TestGPIOInput(t *testing.T) {
 			test.That(tb, atomic.LoadInt64(&s.axis2Callbacks), test.ShouldEqual, 2)
 		})
 
-		s.b.Analogs["analog2"].Set(511 - 20)
+		s.b.AnalogReaders["analog2"].Set(511 - 20)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			state, err := s.dev.Events(s.ctx, map[string]interface{}{})
@@ -438,7 +438,7 @@ func TestGPIOInput(t *testing.T) {
 			test.That(tb, atomic.LoadInt64(&s.axis2Callbacks), test.ShouldEqual, 3)
 		})
 
-		s.b.Analogs["analog2"].Set(511 + 19)
+		s.b.AnalogReaders["analog2"].Set(511 + 19)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			state, err := s.dev.Events(s.ctx, map[string]interface{}{})
@@ -448,7 +448,7 @@ func TestGPIOInput(t *testing.T) {
 			test.That(tb, atomic.LoadInt64(&s.axis2Callbacks), test.ShouldEqual, 4)
 		})
 
-		s.b.Analogs["analog2"].Set(511 - 19)
+		s.b.AnalogReaders["analog2"].Set(511 - 19)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			state, err := s.dev.Events(s.ctx, map[string]interface{}{})
@@ -463,7 +463,7 @@ func TestGPIOInput(t *testing.T) {
 		s := setup(t)
 		defer teardown(t, s)
 
-		s.b.Analogs["analog2"].Set(600)
+		s.b.AnalogReaders["analog2"].Set(600)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			state, err := s.dev.Events(s.ctx, map[string]interface{}{})
@@ -473,7 +473,7 @@ func TestGPIOInput(t *testing.T) {
 			test.That(tb, atomic.LoadInt64(&s.axis2Callbacks), test.ShouldEqual, 1)
 		})
 
-		s.b.Analogs["analog2"].Set(600 + 14)
+		s.b.AnalogReaders["analog2"].Set(600 + 14)
 		time.Sleep(time.Millisecond * 30)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
@@ -484,7 +484,7 @@ func TestGPIOInput(t *testing.T) {
 			test.That(tb, atomic.LoadInt64(&s.axis2Callbacks), test.ShouldEqual, 1)
 		})
 
-		s.b.Analogs["analog2"].Set(600 - 14)
+		s.b.AnalogReaders["analog2"].Set(600 - 14)
 		time.Sleep(time.Millisecond * 30)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
@@ -495,7 +495,7 @@ func TestGPIOInput(t *testing.T) {
 			test.That(tb, atomic.LoadInt64(&s.axis2Callbacks), test.ShouldEqual, 1)
 		})
 
-		s.b.Analogs["analog2"].Set(600 - 15)
+		s.b.AnalogReaders["analog2"].Set(600 - 15)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			state, err := s.dev.Events(s.ctx, map[string]interface{}{})
@@ -510,7 +510,7 @@ func TestGPIOInput(t *testing.T) {
 		s := setup(t)
 		defer teardown(t, s)
 
-		s.b.Analogs["analog3"].Set(5000)
+		s.b.AnalogReaders["analog3"].Set(5000)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			state, err := s.dev.Events(s.ctx, map[string]interface{}{})
@@ -520,7 +520,7 @@ func TestGPIOInput(t *testing.T) {
 			test.That(tb, atomic.LoadInt64(&s.axis3Callbacks), test.ShouldEqual, 1)
 		})
 
-		s.b.Analogs["analog3"].Set(-1000)
+		s.b.AnalogReaders["analog3"].Set(-1000)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			state, err := s.dev.Events(s.ctx, map[string]interface{}{})
@@ -535,7 +535,7 @@ func TestGPIOInput(t *testing.T) {
 		s := setup(t)
 		defer teardown(t, s)
 
-		s.b.Analogs["analog3"].Set(-6000)
+		s.b.AnalogReaders["analog3"].Set(-6000)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			state, err := s.dev.Events(s.ctx, map[string]interface{}{})
@@ -545,7 +545,7 @@ func TestGPIOInput(t *testing.T) {
 			test.That(tb, atomic.LoadInt64(&s.axis3Callbacks), test.ShouldEqual, 1)
 		})
 
-		s.b.Analogs["analog3"].Set(6000)
+		s.b.AnalogReaders["analog3"].Set(6000)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			state, err := s.dev.Events(s.ctx, map[string]interface{}{})
@@ -555,7 +555,7 @@ func TestGPIOInput(t *testing.T) {
 			test.That(tb, atomic.LoadInt64(&s.axis3Callbacks), test.ShouldEqual, 2)
 		})
 
-		s.b.Analogs["analog3"].Set(0)
+		s.b.AnalogReaders["analog3"].Set(0)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			state, err := s.dev.Events(s.ctx, map[string]interface{}{})

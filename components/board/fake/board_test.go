@@ -20,7 +20,7 @@ func TestFakeBoard(t *testing.T) {
 		SPIs: []board.SPIConfig{
 			{Name: "aux", BusSelect: "1"},
 		},
-		Analogs: []board.AnalogConfig{
+		AnalogReaders: []board.AnalogReaderConfig{
 			{Name: "blue", Pin: "0"},
 		},
 		DigitalInterrupts: []board.DigitalInterruptConfig{
@@ -66,13 +66,13 @@ func TestFakeBoard(t *testing.T) {
 func TestConfigValidate(t *testing.T) {
 	validConfig := Config{}
 
-	validConfig.Analogs = []board.AnalogConfig{{}}
+	validConfig.AnalogReaders = []board.AnalogReaderConfig{{}}
 	_, err := validConfig.Validate("path")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `path.analogs.0`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
 
-	validConfig.Analogs = []board.AnalogConfig{{Name: "bar"}}
+	validConfig.AnalogReaders = []board.AnalogReaderConfig{{Name: "bar"}}
 	_, err = validConfig.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
 

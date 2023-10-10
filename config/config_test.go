@@ -90,7 +90,7 @@ func TestConfig3(t *testing.T) {
 	test.That(t, cfg.Components[0].Attributes.Float64("bar5-no", 1.1), test.ShouldEqual, 1.1)
 
 	test.That(t, cfg.Components[1].ConvertedAttributes, test.ShouldResemble, &fakeboard.Config{
-		Analogs: []board.AnalogConfig{
+		AnalogReaders: []board.AnalogReaderConfig{
 			{Name: "analog1", Pin: "0"},
 		},
 		DigitalInterrupts: []board.DigitalInterruptConfig{
