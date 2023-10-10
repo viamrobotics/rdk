@@ -127,11 +127,6 @@ func (conf *Config) Validate(path string) ([]string, error) {
 		deps = append(deps, resource.NewName(motion.API, resource.DefaultServiceName).String())
 	}
 
-	for _, obstacleDetectorPair := range conf.ObstacleDetectors {
-		deps = append(deps, resource.NewName(vision.API, obstacleDetectorPair.VisionService).String())
-		deps = append(deps, resource.NewName(camera.API, obstacleDetectorPair.Camera).String())
-	}
-
 	// Ensure map_type is valid and a movement sensor is available if MapType is GPS (or default)
 	mapType, err := navigation.StringToMapType(conf.MapType)
 	if err != nil {
@@ -139,6 +134,18 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	}
 	if mapType == navigation.GPSMap && conf.MovementSensorName == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "movement_sensor")
+	}
+
+	// Ensure we have obstacle detector(s) if MapType is GPS (or default)
+	if mapType == navigation.GPSMap && len(conf.ObstacleDetectors) == 0 {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "obstacle_detector")
+	}
+	for _, obstacleDetectorPair := range conf.ObstacleDetectors {
+		if obstacleDetectorPair.VisionService == "" || obstacleDetectorPair.Camera == "" {
+			return nil, utils.NewConfigValidationError(path, errors.New("an obstacle detector is missing either a camera or vision service"))
+		}
+		deps = append(deps, resource.NewName(vision.API, obstacleDetectorPair.VisionService).String())
+		deps = append(deps, resource.NewName(camera.API, obstacleDetectorPair.Camera).String())
 	}
 
 	// Ensure store is valid
