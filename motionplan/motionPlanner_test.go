@@ -2,7 +2,6 @@ package motionplan
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"math/rand"
 	"testing"
@@ -15,9 +14,9 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/motionplan/ik"
+	"go.viam.com/rdk/motionplan/tpspace"
 	frame "go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/utils"
 )
 
@@ -771,10 +770,10 @@ func TestMovementWithGripper(t *testing.T) {
 func TestReplan(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
-	
+
 	sphere, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 10, "base")
 	test.That(t, err, test.ShouldBeNil)
-	
+
 	kinematicFrame, err := tpspace.NewPTGFrameFromKinematicOptions(
 		"itsabase",
 		logger,
@@ -800,27 +799,21 @@ func TestReplan(t *testing.T) {
 		WorldState:         nil,
 		Options:            nil,
 	}
-	
+
 	firstplan, err := PlanMotion(ctx, planRequest)
-	fmt.Println("firstplan", firstplan)
 	test.That(t, err, test.ShouldBeNil)
-	
-	// The goal is now closer
+
+	// Let's pretend we've moved towards the goal, so the goal is now closer
 	goal = spatialmath.NewPoseFromPoint(r3.Vector{1000, 5000, 0})
 	planRequest.Goal = frame.NewPoseInFrame(frame.World, goal)
-	
-	// A wild obstacle appears!
-	obstacle, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{1500, 2500, 0}), r3.Vector{15000, 50, 50}, "")
-	test.That(t, err, test.ShouldBeNil)
-	worldState, err := frame.NewWorldState(
-		[]*frame.GeometriesInFrame{frame.NewGeometriesInFrame(frame.World, []spatialmath.Geometry{obstacle})},
-		nil,
-	)
-	test.That(t, err, test.ShouldBeNil)
-	planRequest.WorldState = worldState
-	
+
+	// This should easily pass
 	newPlan1, err := Replan(ctx, planRequest, firstplan, 1.0)
-	test.That(t, newPlan1, test.ShouldBeNil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, newPlan1, test.ShouldNotBeNil)
+
+	// But if we drop the replan factor to a very low number, it should now fail
+	newPlan2, err := Replan(ctx, planRequest, firstplan, 0.1)
+	test.That(t, newPlan2, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil) // Replan factor too low!
-	fmt.Println(err)
 }
