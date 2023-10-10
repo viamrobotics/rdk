@@ -6,9 +6,10 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
-	"go.viam.com/rdk/resource"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
+
+	"go.viam.com/rdk/resource"
 )
 
 func TestFFMPEGCamera(t *testing.T) {
