@@ -158,7 +158,7 @@ func setupInjectRobot(logger golog.Logger) *inject.Robot {
 				case camera.API:
 					conf := resource.NewEmptyConfig(name, resource.DefaultModelFamily.WithModel("fake"))
 					conf.ConvertedAttributes = &fakecamera.Config{}
-					return fakecamera.NewCamera(context.Background(), conf)
+					return fakecamera.NewCamera(context.Background(), conf, logger)
 				case gripper.API:
 					return &fakegripper.Gripper{Named: name.AsNamed()}, nil
 				case input.API:

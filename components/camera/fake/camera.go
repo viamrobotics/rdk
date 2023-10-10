@@ -36,7 +36,7 @@ func init() {
 				cfg resource.Config,
 				logger golog.Logger,
 			) (camera.Camera, error) {
-				return NewCamera(ctx, cfg)
+				return NewCamera(ctx, cfg, logger)
 			},
 		})
 }
@@ -45,6 +45,7 @@ func init() {
 func NewCamera(
 	ctx context.Context,
 	conf resource.Config,
+	logger golog.Logger,
 ) (camera.Camera, error) {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
@@ -65,7 +66,7 @@ func NewCamera(
 	if err != nil {
 		return nil, err
 	}
-	return camera.FromVideoSource(conf.ResourceName(), src), nil
+	return camera.FromVideoSource(conf.ResourceName(), src, logger), nil
 }
 
 // Config are the attributes of the fake camera config.
