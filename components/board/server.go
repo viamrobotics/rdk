@@ -167,6 +167,24 @@ func (s *serviceServer) ReadAnalogReader(
 	return &pb.ReadAnalogReaderResponse{Value: int32(val)}, nil
 }
 
+// WriteAnalog writes the analog value to the analog writer pin of the underlying robot.
+func (s *serviceServer) WriteAnalog(
+	ctx context.Context,
+	req *pb.WriteAnalogRequest,
+) (*pb.WriteAnalogResponse, error) {
+	b, err := s.coll.Resource(req.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	err = b.WriteAnalog(ctx, req.Pin, req.Value, req.Extra.AsMap())
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.WriteAnalogResponse{}, nil
+}
+
 // GetDigitalInterruptValue returns the current value of the interrupt which is based on the type of interrupt.
 func (s *serviceServer) GetDigitalInterruptValue(
 	ctx context.Context,

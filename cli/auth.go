@@ -20,6 +20,7 @@ import (
 	"github.com/urfave/cli/v2"
 	datapb "go.viam.com/api/app/data/v1"
 	datasetpb "go.viam.com/api/app/dataset/v1"
+	mltrainingpb "go.viam.com/api/app/mltraining/v1"
 	packagepb "go.viam.com/api/app/packages/v1"
 	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/utils"
@@ -267,6 +268,12 @@ func (c *viamClient) whoAmIAction(cCtx *cli.Context) error {
 	return nil
 }
 
+func (c *viamClient) generateDefaultKeyName() string {
+	// Default name is in the form myusername@gmail.com-2009-11-10T23:00:00Z
+	// or key-uuid-2009-11-10T23:00:00Z if it was created by a key
+	return fmt.Sprintf("%s-%s", c.conf.Auth, time.Now().Format(time.RFC3339))
+}
+
 // OrganizationsAPIKeyCreateAction corresponds to `organizations api-key create`.
 func OrganizationsAPIKeyCreateAction(cCtx *cli.Context) error {
 	c, err := newViamClient(cCtx)
@@ -283,18 +290,16 @@ func (c *viamClient) organizationsAPIKeyCreateAction(cCtx *cli.Context) error {
 	orgID := cCtx.String(apiKeyCreateFlagOrgID)
 	keyName := cCtx.String(apiKeyCreateFlagName)
 	if keyName == "" {
-		// Default name is in the form myusername@gmail.com-2009-11-10T23:00:00Z
-		// or key-uuid-2009-11-10T23:00:00Z if it was created by a key
-		keyName = fmt.Sprintf("%s-%s", c.conf.Auth, time.Now().Format(time.RFC3339))
-		infof(cCtx.App.Writer, "Using default key name of %q", keyName)
+		keyName = c.generateDefaultKeyName()
+		infof(cCtx.App.Writer, "using default key name of %q", keyName)
 	}
 	resp, err := c.createOrganizationAPIKey(orgID, keyName)
 	if err != nil {
 		return err
 	}
 	infof(cCtx.App.Writer, "Successfully created key:")
-	printf(cCtx.App.Writer, "Key ID: %s\n", resp.GetId())
-	printf(cCtx.App.Writer, "Key Value: %s\n\n", resp.GetKey())
+	printf(cCtx.App.Writer, "Key ID: %s ", resp.GetId())
+	printf(cCtx.App.Writer, "Key Value: %s", resp.GetKey())
 	warningf(cCtx.App.Writer, "Keep this key somewhere safe; it has full write access to your organization")
 	return nil
 }
@@ -319,6 +324,129 @@ func (c *viamClient) createOrganizationAPIKey(orgID, keyName string) (*apppb.Cre
 		Name: keyName,
 	}
 	return c.client.CreateKey(c.c.Context, req)
+}
+
+// LocationAPIKeyCreateAction corresponds to `location api-key create`.
+func LocationAPIKeyCreateAction(cCtx *cli.Context) error {
+	c, err := newViamClient(cCtx)
+	if err != nil {
+		return err
+	}
+
+	err = c.locationAPIKeyCreateAction(cCtx)
+	return err
+}
+
+func (c *viamClient) locationAPIKeyCreateAction(cCtx *cli.Context) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+
+	locationID := cCtx.String(apiKeyFlagLocationID)
+	orgID := cCtx.String(apiKeyCreateFlagOrgID)
+	keyName := cCtx.String(apiKeyCreateFlagName)
+
+	if locationID == "" {
+		return errors.New("cannot create an api-key for a location without an ID")
+	}
+
+	if keyName == "" {
+		keyName = c.generateDefaultKeyName()
+		infof(cCtx.App.Writer, "using default key name of %s", keyName)
+	}
+
+	req := &apppb.CreateKeyRequest{
+		Name: keyName,
+		Authorizations: []*apppb.Authorization{
+			{
+				AuthorizationType: "role",
+				AuthorizationId:   "location_owner",
+				ResourceType:      "location",
+				ResourceId:        locationID,
+				OrganizationId:    orgID,
+				IdentityType:      "api-key",
+				IdentityId:        "",
+			},
+		},
+	}
+
+	key, err := c.client.CreateKey(c.c.Context, req)
+	if err != nil {
+		if strings.Contains(err.Error(), "multiple orgs") {
+			return errors.Errorf("cannot create api-key for location: %s as there are multiple orgs on the location. "+
+				"Please re-run the command with an organization-id flag set", locationID)
+		}
+		return err
+	}
+
+	infof(cCtx.App.Writer, "Successfully created key: ")
+	printf(cCtx.App.Writer, "Key ID: %s", key.GetId())
+	printf(cCtx.App.Writer, "Key Value: %s", key.GetKey())
+	warningf(cCtx.App.Writer, "Keep this key somewhere safe; it has full write access to your location")
+	return nil
+}
+
+// RobotAPIKeyCreateAction corresponds to `robot api-key create`.
+func RobotAPIKeyCreateAction(cCtx *cli.Context) error {
+	c, err := newViamClient(cCtx)
+	if err != nil {
+		return err
+	}
+	err = c.robotAPIKeyCreateAction(cCtx)
+	return err
+}
+
+func (c *viamClient) robotAPIKeyCreateAction(cCtx *cli.Context) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+
+	robotID := cCtx.String(apiKeyFlagRobotID)
+	keyName := cCtx.String(apiKeyCreateFlagName)
+	orgID := cCtx.String(dataFlagOrgID)
+
+	if robotID == "" {
+		return errors.New("cannot create an api-key for a robot without an ID")
+	}
+
+	if keyName == "" {
+		keyName = c.generateDefaultKeyName()
+		infof(cCtx.App.Writer, "using default key name of %q", keyName)
+	}
+
+	// If we pass in an empty OrgID the CreateAPIKey endpoint
+	// will try and tie it to the default org on the location tied to the robot
+	// This only works if there is a single org on the robot
+
+	req := &apppb.CreateKeyRequest{
+		Name: keyName,
+		Authorizations: []*apppb.Authorization{
+			{
+				AuthorizationType: "role",
+				AuthorizationId:   "robot_owner",
+				ResourceType:      "robot",
+				ResourceId:        robotID,
+				OrganizationId:    orgID,
+				IdentityType:      "api-key",
+				IdentityId:        "",
+			},
+		},
+	}
+
+	key, err := c.client.CreateKey(c.c.Context, req)
+	if err != nil {
+		if strings.Contains(err.Error(), "multiple orgs") {
+			return errors.New("cannot create the robot api-key as there are multiple orgs on the location. " +
+				"Please re-run the command with an organization-id flag set")
+		}
+		return err
+	}
+	infof(cCtx.App.Writer, "Successfully created key:")
+	printf(cCtx.App.Writer, "Key ID: %s", key.GetId())
+	printf(cCtx.App.Writer, "Key Value: %s", key.GetKey())
+	warningf(cCtx.App.Writer, "Keep this key somewhere safe; it has full write access to your robot")
+
+	return nil
 }
 
 func (c *viamClient) ensureLoggedIn() error {
@@ -367,6 +495,7 @@ func (c *viamClient) ensureLoggedIn() error {
 	c.dataClient = datapb.NewDataServiceClient(conn)
 	c.packageClient = packagepb.NewPackageServiceClient(conn)
 	c.datasetClient = datasetpb.NewDatasetServiceClient(conn)
+	c.mlTrainingClient = mltrainingpb.NewMLTrainingServiceClient(conn)
 
 	return nil
 }

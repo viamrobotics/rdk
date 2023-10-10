@@ -35,9 +35,9 @@ var errNoBoard = errors.New("no numato boards found")
 
 // A Config describes the configuration of a board and all of its connected parts.
 type Config struct {
-	Analogs    []board.AnalogConfig  `json:"analogs,omitempty"`
-	Attributes rdkutils.AttributeMap `json:"attributes,omitempty"`
-	Pins       int                   `json:"pins"`
+	Analogs    []board.AnalogReaderConfig `json:"analogs,omitempty"`
+	Attributes rdkutils.AttributeMap      `json:"attributes,omitempty"`
+	Pins       int                        `json:"pins"`
 }
 
 func init() {
@@ -336,6 +336,11 @@ func (b *numatoBoard) ModelAttributes() board.ModelAttributes {
 }
 
 func (b *numatoBoard) SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *time.Duration) error {
+	return grpc.UnimplementedError
+}
+
+// WriteAnalog writes the value to the given pin.
+func (b *numatoBoard) WriteAnalog(ctx context.Context, pin string, value int32, extra map[string]interface{}) error {
 	return grpc.UnimplementedError
 }
 

@@ -5,6 +5,7 @@ import (
 	"context"
 
 	geo "github.com/kellydunn/golang-geo"
+	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	servicepb "go.viam.com/api/service/navigation/v1"
 
@@ -25,10 +26,17 @@ func init() {
 // Mode describes what mode to operate the service in.
 type Mode uint8
 
+// MapType describes what map the navigation service is operating on.
+type MapType uint8
+
 // The set of known modes.
 const (
 	ModeManual = Mode(iota)
 	ModeWaypoint
+	ModeExplore
+
+	NoMap = MapType(iota)
+	GPSMap
 )
 
 func (m Mode) String() string {
@@ -37,9 +45,33 @@ func (m Mode) String() string {
 		return "Manual"
 	case ModeWaypoint:
 		return "Waypoint"
+	case ModeExplore:
+		return "Explore"
 	default:
 		return "UNKNOWN"
 	}
+}
+
+func (m MapType) String() string {
+	switch m {
+	case NoMap:
+		return "None"
+	case GPSMap:
+		return "GPS"
+	default:
+		return "UNKNOWN"
+	}
+}
+
+// StringToMapType converts an input string into one of the valid map type if possible.
+func StringToMapType(mapTypeName string) (MapType, error) {
+	switch mapTypeName {
+	case "None":
+		return NoMap, nil
+	case "GPS", "":
+		return GPSMap, nil
+	}
+	return 0, errors.Errorf("invalid map_type '%v' given", mapTypeName)
 }
 
 // A Service controls the navigation for a robot.

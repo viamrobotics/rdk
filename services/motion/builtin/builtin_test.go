@@ -594,7 +594,7 @@ func TestMoveOnGlobe(t *testing.T) {
 	extra["timeout"] = 5.
 
 	dst := geo.NewPoint(gpsPoint.Lat(), gpsPoint.Lng()+1e-5)
-	expectedDst := r3.Vector{380, 0, 0}
+	expectedDst := r3.Vector{0, 380, 0} // Relative pose to the starting point of the base; facing east, Y = forwards
 	epsilonMM := 15.
 
 	t.Run("ensure success to a nearby geo point", func(t *testing.T) {
@@ -849,8 +849,8 @@ func TestCheckPlan(t *testing.T) {
 	})
 	t.Run("with a blocking obstacle - ensure failure", func(t *testing.T) {
 		obstacle, err := spatialmath.NewBox(
-			spatialmath.NewPoseFromPoint(r3.Vector{380, 0, 0}),
-			r3.Vector{10, 10, 1}, "obstacle",
+			spatialmath.NewPoseFromPoint(r3.Vector{0, 380, 0}), // Y means forwards from the base's pose at the start of the motion
+			r3.Vector{10, 10, 10}, "obstacle",
 		)
 		test.That(t, err, test.ShouldBeNil)
 		geoms := []spatialmath.Geometry{obstacle}
@@ -876,9 +876,9 @@ func TestCheckPlan(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	// create cameraFrame and add to framesystem
+	// create cameraFrame and add to framesystem. Camera should be pointed forwards.
 	cameraFrame, err := referenceframe.NewStaticFrameWithGeometry(
-		"camera-frame", spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0}), cameraGeom,
+		"camera-frame", spatialmath.NewZeroPose(), cameraGeom,
 	)
 	test.That(t, err, test.ShouldBeNil)
 	err = newFS.AddFrame(cameraFrame, cameraOriginFrame)
@@ -888,7 +888,7 @@ func TestCheckPlan(t *testing.T) {
 		// create obstacle
 		obstacle, err := spatialmath.NewBox(
 			spatialmath.NewPoseFromPoint(r3.Vector{1500, -6, 0}),
-			r3.Vector{10, 10, 1}, "obstacle",
+			r3.Vector{10, 10, 10}, "obstacle",
 		)
 		test.That(t, err, test.ShouldBeNil)
 		geoms := []spatialmath.Geometry{obstacle}
@@ -903,8 +903,8 @@ func TestCheckPlan(t *testing.T) {
 	t.Run("ensure transforms of obstacles works - collision with camera", func(t *testing.T) {
 		// create obstacle
 		obstacle, err := spatialmath.NewBox(
-			spatialmath.NewPoseFromPoint(r3.Vector{380, 0, 0}),
-			r3.Vector{10, 10, 1}, "obstacle",
+			spatialmath.NewPoseFromPoint(r3.Vector{0, 400, 0}),
+			r3.Vector{50, 50, 10}, "obstacle",
 		)
 		test.That(t, err, test.ShouldBeNil)
 		geoms := []spatialmath.Geometry{obstacle}

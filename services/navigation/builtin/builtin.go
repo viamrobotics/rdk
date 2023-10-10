@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.viam.com/utils"
+	"golang.org/x/exp/slices"
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/movementsensor"
@@ -24,13 +25,31 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
+// available modes for each MapType.
+var (
+	availableModesByMapType = map[navigation.MapType][]navigation.Mode{
+		navigation.NoMap:  {navigation.ModeManual, navigation.ModeExplore},
+		navigation.GPSMap: {navigation.ModeManual, navigation.ModeWaypoint, navigation.ModeExplore},
+	}
+
+	errNegativeDegPerSec                  = errors.New("degs_per_sec must be non-negative if set")
+	errNegativeMetersPerSec               = errors.New("meters_per_sec must be non-negative if set")
+	errNegativePositionPollingFrequencyHz = errors.New("position_polling_frequency_hz must be non-negative if set")
+	errNegativeObstaclePollingFrequencyHz = errors.New("obstacle_polling_frequency_hz must be non-negative if set")
+	errNegativePlanDeviationM             = errors.New("plan_deviation_m must be non-negative if set")
+	errNegativeReplanCostFactor           = errors.New("replan_cost_factor must be non-negative if set")
+)
+
 const (
 	// default configuration for Store parameter.
 	defaultStoreType = navigation.StoreTypeMemory
 
+	// default map type is GPS.
+	defaultMapType = navigation.GPSMap
+
 	// desired speeds to maintain for the base.
 	defaultLinearVelocityMPerSec     = 0.5
-	defaultAngularVelocityDegsPerSec = 45
+	defaultAngularVelocityDegsPerSec = 45.
 
 	// how far off the path must the robot be to trigger replanning.
 	defaultPlanDeviationM = 1e9
@@ -68,6 +87,7 @@ func init() {
 type Config struct {
 	Store              navigation.StoreConfig `json:"store"`
 	BaseName           string                 `json:"base"`
+	MapType            string                 `json:"map_type"`
 	MovementSensorName string                 `json:"movement_sensor"`
 	MotionServiceName  string                 `json:"motion_service"`
 	VisionServices     []string               `json:"vision_services"`
@@ -88,49 +108,64 @@ type Config struct {
 func (conf *Config) Validate(path string) ([]string, error) {
 	var deps []string
 
+	// Add base dependencies
 	if conf.BaseName == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "base")
 	}
 	deps = append(deps, conf.BaseName)
 
-	if conf.MovementSensorName == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "movement_sensor")
+	// Add movement sensor dependencies
+	if conf.MovementSensorName != "" {
+		deps = append(deps, conf.MovementSensorName)
 	}
-	deps = append(deps, conf.MovementSensorName)
 
-	if conf.MotionServiceName == "" {
-		conf.MotionServiceName = resource.DefaultServiceName
+	// Add motion service dependencies
+	if conf.MotionServiceName != "" {
+		deps = append(deps, resource.NewName(motion.API, conf.MotionServiceName).String())
+	} else {
+		deps = append(deps, resource.NewName(motion.API, resource.DefaultServiceName).String())
 	}
-	deps = append(deps, resource.NewName(motion.API, conf.MotionServiceName).String())
 
+	// Add vision service dependencies
 	for _, v := range conf.VisionServices {
 		deps = append(deps, resource.NewName(vision.API, v).String())
 	}
 
-	// get default speeds from config if set, else defaults from nav services const
-	if conf.Store.Validate(path) != nil {
-		conf.Store.Type = defaultStoreType
+	// Ensure map_type is valid and a movement sensor is available if MapType is GPS (or default)
+	mapType, err := navigation.StringToMapType(conf.MapType)
+	if err != nil {
+		return nil, err
 	}
-	if conf.MetersPerSec == 0 {
-		conf.MetersPerSec = defaultLinearVelocityMPerSec
-	}
-	if conf.DegPerSec == 0 {
-		conf.DegPerSec = defaultAngularVelocityDegsPerSec
-	}
-	if conf.PositionPollingFrequencyHz == 0 {
-		conf.PositionPollingFrequencyHz = defaultPositionPollingFrequencyHz
-	}
-	if conf.ObstaclePollingFrequencyHz == 0 {
-		conf.ObstaclePollingFrequencyHz = defaultObstaclePollingFrequencyHz
-	}
-	if conf.PlanDeviationM == 0 {
-		conf.PlanDeviationM = defaultPlanDeviationM
-	}
-	if conf.ReplanCostFactor == 0 {
-		conf.ReplanCostFactor = defaultReplanCostFactor
+	if mapType == navigation.GPSMap && conf.MovementSensorName == "" {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "movement_sensor")
 	}
 
-	// ensure obstacles have no translation
+	// Ensure store is valid
+	if err := conf.Store.Validate(path); err != nil {
+		return nil, err
+	}
+
+	// Ensure inputs are non-negative
+	if conf.DegPerSec < 0 {
+		return nil, errNegativeDegPerSec
+	}
+	if conf.MetersPerSec < 0 {
+		return nil, errNegativeMetersPerSec
+	}
+	if conf.PositionPollingFrequencyHz < 0 {
+		return nil, errNegativePositionPollingFrequencyHz
+	}
+	if conf.ObstaclePollingFrequencyHz < 0 {
+		return nil, errNegativeObstaclePollingFrequencyHz
+	}
+	if conf.PlanDeviationM < 0 {
+		return nil, errNegativePlanDeviationM
+	}
+	if conf.ReplanCostFactor < 0 {
+		return nil, errNegativeReplanCostFactor
+	}
+
+	// Ensure obstacles have no translation
 	for _, obs := range conf.Obstacles {
 		for _, geoms := range obs.Geometries {
 			if !geoms.TranslationOffset.ApproxEqual(r3.Vector{}) {
@@ -162,10 +197,12 @@ type builtIn struct {
 	store     navigation.NavStore
 	storeType string
 	mode      navigation.Mode
+	mapType   navigation.MapType
 
 	base           base.Base
 	movementSensor movementsensor.MovementSensor
-	motion         motion.Service
+	visionServices []vision.Service
+	motionService  motion.Service
 	obstacles      []*spatialmath.GeoObstacle
 
 	motionCfg        *motion.MotionConfiguration
@@ -182,13 +219,60 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	svc.actionMu.Lock()
 	defer svc.actionMu.Unlock()
 
-	svc.stopWaypointMode()
+	svc.stopActiveMode()
 
 	svcConfig, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return err
 	}
 
+	// Set optional variables
+	metersPerSec := defaultLinearVelocityMPerSec
+	if svcConfig.MetersPerSec != 0 {
+		metersPerSec = svcConfig.MetersPerSec
+	}
+	degPerSec := defaultAngularVelocityDegsPerSec
+	if svcConfig.DegPerSec != 0 {
+		degPerSec = svcConfig.DegPerSec
+	}
+	positionPollingFrequencyHz := defaultPositionPollingFrequencyHz
+	if svcConfig.PositionPollingFrequencyHz != 0 {
+		positionPollingFrequencyHz = svcConfig.PositionPollingFrequencyHz
+	}
+	obstaclePollingFrequencyHz := defaultObstaclePollingFrequencyHz
+	if svcConfig.ObstaclePollingFrequencyHz != 0 {
+		obstaclePollingFrequencyHz = svcConfig.ObstaclePollingFrequencyHz
+	}
+	planDeviationM := defaultPlanDeviationM
+	if svcConfig.PlanDeviationM != 0 {
+		planDeviationM = svcConfig.PlanDeviationM
+	}
+	replanCostFactor := defaultReplanCostFactor
+	if svcConfig.ReplanCostFactor != 0 {
+		replanCostFactor = svcConfig.ReplanCostFactor
+	}
+
+	motionServiceName := resource.DefaultServiceName
+	if svcConfig.MotionServiceName != "" {
+		motionServiceName = svcConfig.MotionServiceName
+	}
+	mapType := defaultMapType
+	if svcConfig.MapType != "" {
+		mapType, err = navigation.StringToMapType(svcConfig.MapType)
+		if err != nil {
+			return err
+		}
+	}
+
+	storeCfg := navigation.StoreConfig{Type: defaultStoreType}
+	if svcConfig.Store.Type != navigation.StoreTypeUnset {
+		storeCfg = svcConfig.Store
+	}
+
+	svc.mu.Lock()
+	defer svc.mu.Unlock()
+
+	// Parse logger file from the configuration if given
 	if svcConfig.LogFilePath != "" {
 		logger, err := rdkutils.NewFilePathDebugLogger(svcConfig.LogFilePath, "navigation")
 		if err != nil {
@@ -196,60 +280,70 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		}
 		svc.logger = logger
 	}
-	base1, err := base.FromDependencies(deps, svcConfig.BaseName)
-	if err != nil {
-		return err
-	}
-	movementSensor, err := movementsensor.FromDependencies(deps, svcConfig.MovementSensorName)
-	if err != nil {
-		return err
-	}
-	motionSvc, err := motion.FromDependencies(deps, svcConfig.MotionServiceName)
+
+	// Parse base from the configuration
+	baseComponent, err := base.FromDependencies(deps, svcConfig.BaseName)
 	if err != nil {
 		return err
 	}
 
-	var visionServices []resource.Name
+	// Parse motion services from the configuration
+	motionSvc, err := motion.FromDependencies(deps, motionServiceName)
+	if err != nil {
+		return err
+	}
+
+	// Parse vision services from the configuration
+	var visionServiceNames []resource.Name
+	var visionServices []vision.Service
 	for _, svc := range svcConfig.VisionServices {
 		visionSvc, err := vision.FromDependencies(deps, svc)
 		if err != nil {
 			return err
 		}
-		visionServices = append(visionServices, visionSvc.Name())
+		visionServiceNames = append(visionServiceNames, visionSvc.Name())
+		visionServices = append(visionServices, visionSvc)
 	}
 
-	svc.mu.Lock()
-	defer svc.mu.Unlock()
+	// Parse movement sensor from the configuration if map type is GPS
+	if mapType == navigation.GPSMap {
+		movementSensor, err := movementsensor.FromDependencies(deps, svcConfig.MovementSensorName)
+		if err != nil {
+			return err
+		}
+		svc.movementSensor = movementSensor
+	}
 
 	// Reconfigure the store if necessary
-	if svc.storeType != string(svcConfig.Store.Type) {
+	if svc.storeType != string(storeCfg.Type) {
 		newStore, err := navigation.NewStoreFromConfig(ctx, svcConfig.Store)
 		if err != nil {
 			return err
 		}
 		svc.store = newStore
+		svc.storeType = string(storeCfg.Type)
 	}
 
-	// Parse obstacles from the passed in configuration
+	// Parse obstacles from the configuration
 	newObstacles, err := spatialmath.GeoObstaclesFromConfigs(svcConfig.Obstacles)
 	if err != nil {
 		return err
 	}
 
 	svc.mode = navigation.ModeManual
-	svc.storeType = string(svcConfig.Store.Type)
-	svc.base = base1
-	svc.movementSensor = movementSensor
-	svc.motion = motionSvc
+	svc.base = baseComponent
+	svc.mapType = mapType
+	svc.motionService = motionSvc
 	svc.obstacles = newObstacles
-	svc.replanCostFactor = svcConfig.ReplanCostFactor
+	svc.replanCostFactor = replanCostFactor
+	svc.visionServices = visionServices
 	svc.motionCfg = &motion.MotionConfiguration{
-		VisionServices:        visionServices,
-		LinearMPerSec:         svcConfig.MetersPerSec,
-		AngularDegsPerSec:     svcConfig.DegPerSec,
-		PlanDeviationMM:       1e3 * svcConfig.PlanDeviationM,
-		PositionPollingFreqHz: svcConfig.PositionPollingFrequencyHz,
-		ObstaclePollingFreqHz: svcConfig.ObstaclePollingFrequencyHz,
+		VisionServices:        visionServiceNames,
+		LinearMPerSec:         metersPerSec,
+		AngularDegsPerSec:     degPerSec,
+		PlanDeviationMM:       1e3 * planDeviationM,
+		PositionPollingFreqHz: positionPollingFrequencyHz,
+		ObstaclePollingFreqHz: obstaclePollingFrequencyHz,
 	}
 
 	return nil
@@ -273,16 +367,33 @@ func (svc *builtIn) SetMode(ctx context.Context, mode navigation.Mode, extra map
 	}
 	svc.mu.RUnlock()
 
+	// stop passed active sessions
+	svc.stopActiveMode()
+
 	// switch modes
-	svc.stopWaypointMode()
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	svc.wholeServiceCancelFunc = cancelFunc
 	svc.mode = mode
-	if svc.mode == navigation.ModeWaypoint {
-		svc.startWaypointMode(cancelCtx, extra)
+
+	if !slices.Contains(availableModesByMapType[svc.mapType], svc.mode) {
+		return errors.Errorf("%v mode is unavailable for map type %v", svc.mode.String(), svc.mapType.String())
 	}
+
+	switch svc.mode {
+	case navigation.ModeManual:
+		// do nothing
+	case navigation.ModeWaypoint:
+		svc.startWaypointMode(cancelCtx, extra)
+	case navigation.ModeExplore:
+		if len(svc.visionServices) == 0 {
+			return errors.New("explore mode requires at least one vision service")
+		}
+		svc.startExploreMode(cancelCtx)
+		return errors.New("navigation mode 'explore' is not currently available")
+	}
+
 	return nil
 }
 
@@ -353,7 +464,7 @@ func (svc *builtIn) Close(ctx context.Context) error {
 	svc.actionMu.Lock()
 	defer svc.actionMu.Unlock()
 
-	svc.stopWaypointMode()
+	svc.stopActiveMode()
 	return svc.store.Close(ctx)
 }
 
@@ -375,7 +486,7 @@ func (svc *builtIn) startWaypointMode(ctx context.Context, extra map[string]inte
 
 		navOnce := func(ctx context.Context, wp navigation.Waypoint) error {
 			svc.logger.Debugf("MoveOnGlobe called going to waypoint %+v", wp)
-			_, err := svc.motion.MoveOnGlobe(
+			_, err := svc.motionService.MoveOnGlobe(
 				ctx,
 				svc.base.Name(),
 				wp.ToPoint(),
@@ -431,7 +542,7 @@ func (svc *builtIn) startWaypointMode(ctx context.Context, extra map[string]inte
 	})
 }
 
-func (svc *builtIn) stopWaypointMode() {
+func (svc *builtIn) stopActiveMode() {
 	if svc.wholeServiceCancelFunc != nil {
 		svc.wholeServiceCancelFunc()
 	}

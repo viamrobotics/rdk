@@ -55,6 +55,49 @@ type PlanRequest struct {
 	Options            map[string]interface{}
 }
 
+// validatePlanRequest ensures PlanRequests are not malformed.
+func (req *PlanRequest) validatePlanRequest() error {
+	if req == nil {
+		return errors.New("PlanRequest cannot be nil")
+	}
+	if req.Logger == nil {
+		return errors.New("PlanRequest cannot have nil logger")
+	}
+	if req.Frame == nil {
+		return errors.New("PlanRequest cannot have nil frame")
+	}
+
+	if req.FrameSystem == nil {
+		return errors.New("PlanRequest cannot have nil framesystem")
+	} else if req.FrameSystem.Frame(req.Frame.Name()) == nil {
+		return frame.NewFrameMissingError(req.Frame.Name())
+	}
+
+	if req.Goal == nil {
+		return errors.New("PlanRequest cannot have nil goal")
+	}
+
+	goalParentFrame := req.Goal.Parent()
+	if req.FrameSystem.Frame(goalParentFrame) == nil {
+		return frame.NewParentFrameMissingError(req.Goal.Name(), goalParentFrame)
+	}
+
+	frameDOF := len(req.Frame.DoF())
+	seedMap, ok := req.StartConfiguration[req.Frame.Name()]
+	if frameDOF > 0 {
+		if !ok {
+			return errors.Errorf("%s does not have a start configuration", req.Frame.Name())
+		}
+		if frameDOF != len(seedMap) {
+			return frame.NewIncorrectInputLengthError(len(seedMap), len(req.Frame.DoF()))
+		}
+	} else if ok && frameDOF != len(seedMap) {
+		return frame.NewIncorrectInputLengthError(len(seedMap), len(req.Frame.DoF()))
+	}
+
+	return nil
+}
+
 // PlanMotion plans a motion from a provided plan request.
 func PlanMotion(ctx context.Context, request *PlanRequest) (Plan, error) {
 	return planMotionInternal(ctx, request, nil, 0)
@@ -97,8 +140,9 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 }
 
 func planMotionInternal(ctx context.Context, request *PlanRequest, currentPlan Plan, replanCostFactor float64) (Plan, error) {
-	if request.Goal == nil {
-		return nil, errors.New("no destination passed to Motion")
+	// make sure request is well formed and not missing vital information
+	if err := request.validatePlanRequest(); err != nil {
+		return nil, err
 	}
 
 	// Create a frame to solve for, and an IK solver with that frame.

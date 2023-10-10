@@ -73,6 +73,23 @@ func (s *serviceServer) GetAngularVelocity(
 	}, nil
 }
 
+func (s *serviceServer) GetLinearAcceleration(
+	ctx context.Context,
+	req *pb.GetLinearAccelerationRequest,
+) (*pb.GetLinearAccelerationResponse, error) {
+	msDevice, err := s.coll.Resource(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	la, err := msDevice.LinearAcceleration(ctx, req.Extra.AsMap())
+	if err != nil {
+		return nil, err
+	}
+	return &pb.GetLinearAccelerationResponse{
+		LinearAcceleration: protoutils.ConvertVectorR3ToProto(la),
+	}, nil
+}
+
 func (s *serviceServer) GetCompassHeading(
 	ctx context.Context,
 	req *pb.GetCompassHeadingRequest,
@@ -132,23 +149,6 @@ func (s *serviceServer) GetAccuracy(
 	}
 	acc, err := msDevice.Accuracy(ctx, req.Extra.AsMap())
 	return &pb.GetAccuracyResponse{Accuracy: acc}, err
-}
-
-func (s *serviceServer) GetLinearAcceleration(
-	ctx context.Context,
-	req *pb.GetLinearAccelerationRequest,
-) (*pb.GetLinearAccelerationResponse, error) {
-	msDevice, err := s.coll.Resource(req.Name)
-	if err != nil {
-		return nil, err
-	}
-	la, err := msDevice.LinearAcceleration(ctx, req.Extra.AsMap())
-	if err != nil {
-		return nil, err
-	}
-	return &pb.GetLinearAccelerationResponse{
-		LinearAcceleration: protoutils.ConvertVectorR3ToProto(la),
-	}, nil
 }
 
 // DoCommand receives arbitrary commands.
