@@ -296,7 +296,7 @@ func TestNew(t *testing.T) {
 			ObstaclePollingFrequencyHz: 4,
 			PlanDeviationM:             5,
 			ObstacleDetectors: []*motion.ObstacleDetectorConfig{
-				&motion.ObstacleDetectorConfig{
+				{
 					VisionService: "vision",
 					Camera:        "camera",
 				},
@@ -330,7 +330,7 @@ func TestNew(t *testing.T) {
 			MapType:          "None",
 			ReplanCostFactor: 1,
 			ObstacleDetectors: []*motion.ObstacleDetectorConfig{
-				&motion.ObstacleDetectorConfig{
+				{
 					VisionService: "vision",
 					Camera:        "camera",
 				},
@@ -351,6 +351,114 @@ func TestNew(t *testing.T) {
 		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].VisionService.Name, test.ShouldEqual, "vision")
 		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].Camera.Name, test.ShouldEqual, "camera")
 		test.That(t, svcStruct.replanCostFactor, test.ShouldEqual, cfg.ReplanCostFactor)
+	})
+
+	t.Run("base missing from deps", func(t *testing.T) {
+		expectedErr := resource.DependencyNotFoundError(base.Named(""))
+		cfg := &Config{}
+		deps := resource.Dependencies{}
+
+		err := svc.Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
+		test.That(t, err.Error(), test.ShouldEqual, expectedErr.Error())
+	})
+
+	t.Run("motion missing from deps", func(t *testing.T) {
+		expectedErr := resource.DependencyNotFoundError(motion.Named("builtin"))
+		cfg := &Config{
+			BaseName: "base",
+		}
+		deps := resource.Dependencies{
+			resource.NewName(base.API, "base"): &inject.Base{},
+		}
+
+		err := svc.Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
+		test.That(t, err.Error(), test.ShouldEqual, expectedErr.Error())
+	})
+
+	t.Run("movement sensor missing from deps", func(t *testing.T) {
+		expectedErr := resource.DependencyNotFoundError(movementsensor.Named(""))
+		cfg := &Config{
+			BaseName: "base",
+		}
+		deps := resource.Dependencies{
+			resource.NewName(base.API, "base"):      &inject.Base{},
+			resource.NewName(motion.API, "builtin"): inject.NewMotionService("motion"),
+		}
+
+		err := svc.Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
+		test.That(t, err.Error(), test.ShouldEqual, expectedErr.Error())
+	})
+
+	t.Run("vision missing from deps", func(t *testing.T) {
+		expectedErr := resource.DependencyNotFoundError(vision.Named(""))
+		cfg := &Config{
+			BaseName:           "base",
+			MovementSensorName: "movement_sensor",
+			ObstacleDetectors: []*motion.ObstacleDetectorConfig{
+				{
+					Camera: "camera",
+				},
+			},
+		}
+		deps := resource.Dependencies{
+			resource.NewName(base.API, "base"):                      &inject.Base{},
+			resource.NewName(motion.API, "builtin"):                 inject.NewMotionService("motion"),
+			resource.NewName(camera.API, "camera"):                  inject.NewCamera("camera"),
+			resource.NewName(movementsensor.API, "movement_sensor"): inject.NewMovementSensor("movement_sensor"),
+		}
+
+		err := svc.Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
+		test.That(t, err.Error(), test.ShouldEqual, expectedErr.Error())
+	})
+
+	t.Run("camera missing from deps", func(t *testing.T) {
+		expectedErr := resource.DependencyNotFoundError(camera.Named(""))
+		cfg := &Config{
+			BaseName:           "base",
+			MovementSensorName: "movement_sensor",
+			ObstacleDetectors: []*motion.ObstacleDetectorConfig{
+				{
+					VisionService: "vision",
+				},
+			},
+		}
+		deps := resource.Dependencies{
+			resource.NewName(base.API, "base"):                      &inject.Base{},
+			resource.NewName(motion.API, "builtin"):                 inject.NewMotionService("motion"),
+			resource.NewName(vision.API, "vision"):                  inject.NewVisionService("vision"),
+			resource.NewName(movementsensor.API, "movement_sensor"): inject.NewMovementSensor("movement_sensor"),
+		}
+
+		err := svc.Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
+		test.That(t, err.Error(), test.ShouldEqual, expectedErr.Error())
+	})
+
+	t.Run("necessary for MoveOnGlobe", func(t *testing.T) {
+		cfg := &Config{
+			BaseName:           "base",
+			MovementSensorName: "movement_sensor",
+			ObstacleDetectors: []*motion.ObstacleDetectorConfig{
+				{
+					VisionService: "vision",
+					Camera:        "camera",
+				},
+			},
+		}
+		deps := resource.Dependencies{
+			resource.NewName(base.API, "base"):                      &inject.Base{},
+			resource.NewName(motion.API, "builtin"):                 inject.NewMotionService("motion"),
+			resource.NewName(vision.API, "vision"):                  inject.NewVisionService("vision"),
+			resource.NewName(camera.API, "camera"):                  inject.NewCamera("camera"),
+			resource.NewName(movementsensor.API, "movement_sensor"): inject.NewMovementSensor("movement_sensor"),
+		}
+
+		err := svc.Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
+		test.That(t, err, test.ShouldBeNil)
+		svcStruct := svc.(*builtIn)
+
+		test.That(t, len(svcStruct.visionServices), test.ShouldEqual, 1)
+		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].VisionService.Name, test.ShouldEqual, "vision")
+		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].Camera.Name, test.ShouldEqual, "camera")
 	})
 
 	closeNavSvc()
