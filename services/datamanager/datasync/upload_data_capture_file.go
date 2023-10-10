@@ -33,20 +33,18 @@ func uploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient,
 	}
 
 	if md.GetType() == v1.DataType_DATA_TYPE_BINARY_SENSOR && md.GetMethodName() == datacapture.GetImages {
-		timeReq := sensorData[0].GetMetadata().GetTimeRequested()
-		timeRec := sensorData[0].GetMetadata().GetTimeReceived()
-		var getImgsRes pb.GetImagesResponse
-		mp := sensorData[0].GetStruct().AsMap()
-		if err := mapstructure.Decode(mp, &getImgsRes); err != nil {
+		var res pb.GetImagesResponse
+		if err := mapstructure.Decode(sensorData[0].GetStruct().AsMap(), &res); err != nil {
 			return err
 		}
+		captureTimestamp := res.GetResponseMetadata().GetCapturedAt()
 
-		for _, img := range getImgsRes.Images {
+		for _, img := range res.Images {
 			newSensorData := []*v1.SensorData{
 				{
 					Metadata: &v1.SensorMetadata{
-						TimeRequested: timeReq,
-						TimeReceived:  timeRec,
+						TimeRequested: captureTimestamp,
+						TimeReceived:  captureTimestamp,
 					},
 					Data: &v1.SensorData_Binary{
 						Binary: img.GetImage(),
