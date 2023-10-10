@@ -41,7 +41,7 @@ func uploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient,
 
 		// If the GetImagesResponse metadata contains a capture timestamp, use that to
 		// populate SensorMetadata. Otherwise, use the timestamps that the data management
-		// system sent a GetImageRequest and received the GetImagesResponse.
+		// system stored of when a request was sent and response was received.
 		var timeRequested, timeReceived *timestamppb.Timestamp
 		timeCaptured := res.GetResponseMetadata().GetCapturedAt()
 		if timeCaptured != nil {
