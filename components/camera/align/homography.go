@@ -21,7 +21,6 @@ import (
 
 var homographyModel = resource.DefaultModelFamily.WithModel("align_color_depth_homography")
 
-//nolint:dupl
 func init() {
 	resource.RegisterComponent(camera.API, homographyModel,
 		resource.Registration[camera.Camera, *homographyConfig]{
@@ -135,6 +134,8 @@ func newColorDepthHomography(ctx context.Context, color, depth camera.VideoSourc
 
 // Read aligns the next images from the color and the depth sources to the frame of the color camera.
 // imageType parameter will determine which channel gets streamed.
+//
+//nolint:dupl
 func (acd *colorDepthHomography) Read(ctx context.Context) (image.Image, func(), error) {
 	ctx, span := trace.StartSpan(ctx, "align::colorDepthHomography::Read")
 	defer span.End()
