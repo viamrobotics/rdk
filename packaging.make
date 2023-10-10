@@ -1,8 +1,10 @@
 BUILD_CHANNEL?=local
 # note: UNAME_M is overrideable because it is wrong in 32-bit arm container executing natively on 64-bit arm
 UNAME_M ?= $(shell uname -m)
+ifneq ($(shell which dpkg), "")
 DPKG_ARCH ?= $(shell dpkg --print-architecture)
 APPIMAGE_ARCH ?= $(shell dpkg --print-architecture)
+endif
 
 appimage-arch:
 	# build appimage for a target architecture using existing aix + viam-server binaries
