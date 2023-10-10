@@ -1,22 +1,22 @@
 <script lang="ts">
   /* eslint-disable require-atomic-updates */
 
-  import * as THREE from 'three';
-  import { onMount, onDestroy } from 'svelte';
+  import * as THREE from "three";
+  import { onMount, onDestroy } from "svelte";
 
-  import { SlamClient, type Pose, type ServiceError } from '@viamrobotics/sdk';
-  import { copyToClipboard } from '@/lib/copy-to-clipboard';
-  import { filterSubtype } from '@/lib/resource';
-  import { moveOnMap, stopMoveOnMap } from '@/api/motion';
-  import { notify } from '@viamrobotics/prime';
-  import { setAsyncInterval } from '@/lib/schedule';
-  import { components } from '@/stores/resources';
-  import Collapse from '@/lib/components/collapse.svelte';
-  import PCD from '@/components/pcd/pcd-view.svelte';
-  import Slam2D from './2d/index.svelte';
-  import { useRobotClient, useDisconnect } from '@/hooks/robot-client';
-  import type { SLAMOverrides } from '@/types/overrides';
-  import { rcLogConditionally } from '@/lib/log';
+  import { SlamClient, type Pose, type ServiceError } from "@viamrobotics/sdk";
+  import { copyToClipboard } from "@/lib/copy-to-clipboard";
+  import { filterSubtype } from "@/lib/resource";
+  import { moveOnMap, stopMoveOnMap } from "@/api/motion";
+  import { notify } from "@viamrobotics/prime";
+  import { setAsyncInterval } from "@/lib/schedule";
+  import { components } from "@/stores/resources";
+  import Collapse from "@/lib/components/collapse.svelte";
+  import PCD from "@/components/pcd/pcd-view.svelte";
+  import Slam2D from "./2d/index.svelte";
+  import { useRobotClient, useDisconnect } from "@/hooks/robot-client";
+  import type { SLAMOverrides } from "@/types/overrides";
+  import { rcLogConditionally } from "@/lib/log";
 
   export let name: string;
   export let overrides: SLAMOverrides | undefined;
@@ -27,15 +27,15 @@
   });
 
   const refreshErrorMessage =
-    'Error refreshing map. The map shown may be stale.';
+    "Error refreshing map. The map shown may be stale.";
 
   let clear2dRefresh: (() => void) | undefined;
   let clear3dRefresh: (() => void) | undefined;
 
   let refreshErrorMessage2d: string | undefined;
   let refreshErrorMessage3d: string | undefined;
-  let refresh2dRate = 'manual';
-  let refresh3dRate = 'manual';
+  let refresh2dRate = "manual";
+  let refresh3dRate = "manual";
   let pointcloud: Uint8Array | undefined;
   let pose: Pose | undefined;
   let lastTimestamp = new Date();
@@ -43,22 +43,23 @@
   let show3d = false;
   let showAxes = true;
   let destination: THREE.Vector2 | undefined;
-  let labelUnits = 'm';
+  let labelUnits = "m";
   let hasActiveSession = false;
-  let sessionId = '';
+  let sessionId = "";
   let mappingSessionEnded = false;
   let sessionDuration = 0;
   let durationInterval: number | undefined;
-  let newMapName = '';
-  let mapNameError = '';
+  let newMapName = "";
+  let mapNameError = "";
 
-  $: loaded2d = pointcloud !== undefined && pose !== undefined;
+  $: pointcloudLoaded = !!pointcloud?.length && pose !== undefined;
   $: moveClicked = $operations.find(({ op }) =>
-    op.method.includes('MoveOnMap'));
-  $: unitScale = labelUnits === 'm' ? 1 : 1000;
+    op.method.includes("MoveOnMap")
+  );
+  $: unitScale = labelUnits === "m" ? 1 : 1000;
 
   // get all resources which are bases
-  $: bases = filterSubtype($components, 'base');
+  $: bases = filterSubtype($components, "base");
 
   // allowMove is only true if we have a base, there exists a destination and there is no in-flight MoveOnMap req
   $: allowMove = bases.length === 1 && destination && !moveClicked;
@@ -123,9 +124,10 @@
         nextPose.z /= 1000;
       }
       pose = nextPose;
+      refreshErrorMessage2d = undefined;
     } catch (error) {
       refreshErrorMessage2d =
-        error !== null && typeof error === 'object' && 'message' in error
+        error !== null && typeof error === "object" && "message" in error
           ? `${refreshErrorMessage} ${error.message}`
           : `${refreshErrorMessage} ${error}`;
     }
@@ -151,9 +153,10 @@
           lastTimestamp = mapTimestamp;
         }
       }
+      refreshErrorMessage3d = undefined;
     } catch (error) {
       refreshErrorMessage3d =
-        error !== null && typeof error === 'object' && 'message' in error
+        error !== null && typeof error === "object" && "message" in error
           ? `${refreshErrorMessage} ${error.message}`
           : `${refreshErrorMessage} ${error}`;
     }
@@ -165,7 +168,7 @@
 
     refreshErrorMessage2d = undefined;
 
-    if (refresh2dRate !== 'manual') {
+    if (refresh2dRate !== "manual") {
       clear2dRefresh = setAsyncInterval(
         refresh2d,
         Number.parseFloat(refresh2dRate) * 1000
@@ -179,7 +182,7 @@
 
     refreshErrorMessage3d = undefined;
 
-    if (refresh3dRate !== 'manual') {
+    if (refresh3dRate !== "manual") {
       clear3dRefresh = setAsyncInterval(
         refresh3d,
         Number.parseFloat(refresh3dRate) * 1000
@@ -190,7 +193,7 @@
   const toggle3dExpand = () => {
     show3d = !show3d;
     if (!show3d) {
-      refresh3dRate = 'manual';
+      refresh3dRate = "manual";
       return;
     }
     updateSLAM3dRefreshFrequency();
@@ -199,36 +202,44 @@
   const toggle2dExpand = () => {
     show2d = !show2d;
     if (!show2d) {
-      refresh2dRate = 'manual';
+      refresh2dRate = "manual";
       return;
     }
     updateSLAM2dRefreshFrequency();
   };
 
   const refresh2dMap = () => {
-    refresh2dRate = 'manual';
+    refresh2dRate = "manual";
     updateSLAM2dRefreshFrequency();
   };
 
   const refresh3dMap = () => {
-    refresh2dRate = 'manual';
+    refresh2dRate = "manual";
     updateSLAM3dRefreshFrequency();
   };
 
   const handle2dRenderClick = (event: CustomEvent) => {
-    destination = event.detail;
+    if (!overrides?.isCloudSlam) {
+      destination = event.detail;
+    }
   };
 
   const handleUpdateDestX = (event: CustomEvent<{ value: string }>) => {
-    destination ??= new THREE.Vector2();
-    destination.x =
-      Number.parseFloat(event.detail.value) * (labelUnits === 'mm' ? 0.001 : 1);
+    if (!overrides?.isCloudSlam) {
+      destination ??= new THREE.Vector2();
+      destination.x =
+        Number.parseFloat(event.detail.value) *
+        (labelUnits === "mm" ? 0.001 : 1);
+    }
   };
 
   const handleUpdateDestY = (event: CustomEvent<{ value: string }>) => {
-    destination ??= new THREE.Vector2();
-    destination.y =
-      Number.parseFloat(event.detail.value) * (labelUnits === 'mm' ? 0.001 : 1);
+    if (!overrides?.isCloudSlam) {
+      destination ??= new THREE.Vector2();
+      destination.y =
+        Number.parseFloat(event.detail.value) *
+        (labelUnits === "mm" ? 0.001 : 1);
+    }
   };
 
   const baseCopyPosition = () => {
@@ -314,7 +325,7 @@
       // error may not be present if user has not yet typed in input
       const mapName = overrides.mappingDetails.name || newMapName;
       if (!mapName) {
-        mapNameError = 'Please enter a name for this map';
+        mapNameError = "Please enter a name for this map";
         return;
       }
 
@@ -369,7 +380,7 @@
 
   const handleMapNameChange = (event: CustomEvent) => {
     newMapName = event.detail.value;
-    mapNameError = overrides?.validateMapName(newMapName) || '';
+    mapNameError = overrides?.validateMapName(newMapName) || "";
   };
 </script>
 
@@ -379,7 +390,7 @@
     slot="header"
     variant="danger"
     icon="stop-circle-outline"
-    disabled={moveClicked ? 'false' : 'true'}
+    disabled={moveClicked ? "false" : "true"}
     label="Stop"
     on:click={handleStopMoveClick}
     on:keydown={handleStopMoveClick}
@@ -419,7 +430,7 @@
               <v-input
                 label="Map name"
                 value={newMapName}
-                state={mapNameError ? 'error' : ''}
+                state={mapNameError ? "error" : ""}
                 message={mapNameError}
                 on:input={handleMapNameChange}
               />
@@ -438,7 +449,7 @@
                       class:bg-3={mappingSessionEnded}
                       class:text-default={mappingSessionEnded}
                     >
-                      <span>{mappingSessionEnded ? 'Saved' : 'Running'}</span>
+                      <span>{mappingSessionEnded ? "Saved" : "Running"}</span>
                     </div>
                     <span class="text-subtle-2"
                       >{formatDuration(sessionDuration)}</span
@@ -470,7 +481,7 @@
                 <button
                   class="text-xs hover:underline"
                   on:click={() =>
-                    (labelUnits = labelUnits === 'mm' ? 'm' : 'mm')}
+                    (labelUnits = labelUnits === "mm" ? "m" : "mm")}
                 >
                   ({labelUnits})
                 </button>
@@ -482,8 +493,8 @@
                   incrementor="slider"
                   value={destination
                     ? (destination.x * unitScale).toFixed(5)
-                    : ''}
-                  step={labelUnits === 'mm' ? '10' : '1'}
+                    : ""}
+                  step={labelUnits === "mm" ? "10" : "1"}
                   on:input={handleUpdateDestX}
                 />
                 <v-input
@@ -492,8 +503,8 @@
                   incrementor="slider"
                   value={destination
                     ? (destination.y * unitScale).toFixed(5)
-                    : ''}
-                  step={labelUnits === 'mm' ? '10' : '1'}
+                    : ""}
+                  step={labelUnits === "mm" ? "10" : "1"}
                   on:input={handleUpdateDestY}
                 />
                 <v-button
@@ -501,7 +512,7 @@
                   label="Move"
                   variant="success"
                   icon="play-circle-outline"
-                  disabled={allowMove ? 'false' : 'true'}
+                  disabled={allowMove ? "false" : "true"}
                   on:click={handleMoveClick}
                   on:keydown={handleMoveClick}
                 />
@@ -549,7 +560,7 @@
       <v-switch
         class="pt-2"
         label="Show grid"
-        value={showAxes ? 'on' : 'off'}
+        value={showAxes ? "on" : "off"}
         on:input={toggleAxes}
       />
     </div>
@@ -560,7 +571,7 @@
         </div>
       {/if}
 
-      {#if loaded2d && show2d}
+      {#if pointcloudLoaded && show2d}
         <div>
           <div class="flex flex-row pl-5 py-2 border-b border-b-light">
             <div class="flex flex-col gap-0.5">
@@ -569,7 +580,7 @@
                 <button
                   class="text-xs hover:underline"
                   on:click={() =>
-                    (labelUnits = labelUnits === 'mm' ? 'm' : 'mm')}
+                    (labelUnits = labelUnits === "mm" ? "m" : "mm")}
                 >
                   ({labelUnits})
                 </button>
@@ -626,6 +637,18 @@
             on:click={handle2dRenderClick}
           />
         </div>
+      {:else if overrides?.isCloudSlam && sessionId}
+        <div
+          class="flex flex-col h-full w-full items-center justify-center gap-4"
+        >
+          <div class="animate-[spin_3s_linear_infinite]">
+            <v-icon name="cog" size="4xl" />
+          </div>
+          <div class="flex flex-col items-center text-xs">
+            <span>Starting slam session in the cloud.</span>
+            <span>This typically takes about 2 minutes.</span>
+          </div>
+        </div>
       {/if}
     </div>
   </div>
@@ -633,7 +656,7 @@
   <div class="border border-medium border-t-transparent p-4">
     <v-switch
       label="View SLAM map (3D)"
-      value={show3d ? 'on' : 'off'}
+      value={show3d ? "on" : "off"}
       on:input={toggle3dExpand}
     />
     {#if refreshErrorMessage3d && show3d}
@@ -642,7 +665,7 @@
       </div>
     {/if}
 
-    {#if show3d}
+    {#if pointcloudLoaded && show3d}
       <div class="flex items-end gap-2">
         <div class="w-56 mt-3">
           <p class="mb-1 text-xs text-gray-500">Refresh frequency</p>
