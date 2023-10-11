@@ -22,6 +22,7 @@ import (
 )
 
 var extrinsicsModel = resource.DefaultModelFamily.WithModel("align_color_depth_extrinsics")
+
 func init() {
 	resource.RegisterComponent(camera.API, extrinsicsModel,
 		resource.Registration[camera.Camera, *extrinsicsConfig]{
