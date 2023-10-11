@@ -110,6 +110,7 @@ func TestAPIStringParsing(t *testing.T) {
 }
 
 func TestAPIObjectParsing(t *testing.T) {
+	//nolint:dupl
 	// Test that an API object with all three types parses correctly.
 	var resConfig Config
 	err := resConfig.UnmarshalJSON([]byte(`
@@ -140,4 +141,487 @@ func TestAPIObjectParsing(t *testing.T) {
 }`))
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "namespace field for resource missing or invalid")
+}
+
+func TestModel(t *testing.T) {
+	for _, tc := range []struct {
+		TestName  string
+		Namespace ModelNamespace
+		Family    string
+		Model     string
+		Expected  Model
+		Err       string
+	}{
+		{
+			"missing namespace",
+			"",
+			"test",
+			"modelA",
+			Model{
+				Family: ModelFamily{Namespace: "", Name: "test"},
+				Name:   "modelA",
+			},
+			"namespace field for model missing",
+		},
+		{
+			"missing family",
+			"acme",
+			"",
+			"modelA",
+			Model{
+				Family: ModelFamily{Namespace: "acme", Name: ""},
+				Name:   "modelA",
+			},
+			"model_family field for model missing",
+		},
+		{
+			"missing name",
+			"acme",
+			"test",
+			"",
+			Model{
+				Family: ModelFamily{Namespace: "acme", Name: "test"},
+				Name:   "",
+			},
+			"name field for model missing",
+		},
+		{
+			"reserved character in model namespace",
+			"ac:me",
+			"test",
+			"modelA",
+			Model{
+				Family: ModelFamily{Namespace: "ac:me", Name: "test"},
+				Name:   "modelA",
+			},
+			"reserved character : used",
+		},
+		{
+			"reserved character in model family",
+			"acme",
+			"te:st",
+			"modelA",
+			Model{
+				Family: ModelFamily{Namespace: "acme", Name: "te:st"},
+				Name:   "modelA",
+			},
+			"reserved character : used",
+		},
+		{
+			"reserved character in model name",
+			"acme",
+			"test",
+			"model:A",
+			Model{
+				Family: ModelFamily{Namespace: "acme", Name: "test"},
+				Name:   "model:A",
+			},
+			"reserved character : used",
+		},
+		{
+			"valid model",
+			"acme",
+			"test",
+			"modelA",
+			Model{
+				Family: ModelFamily{Namespace: "acme", Name: "test"},
+				Name:   "modelA",
+			},
+			"",
+		},
+	} {
+		t.Run(tc.TestName, func(t *testing.T) {
+			observed := tc.Namespace.WithFamily(tc.Family).WithModel(tc.Model)
+			test.That(t, observed, test.ShouldResemble, tc.Expected)
+			err := observed.Validate()
+			if tc.Err == "" {
+				test.That(t, err, test.ShouldBeNil)
+			} else {
+				test.That(t, err, test.ShouldNotBeNil)
+				test.That(t, err.Error(), test.ShouldContainSubstring, tc.Err)
+			}
+		})
+	}
+}
+
+func TestModelFromString(t *testing.T) {
+	//nolint:dupl
+	for _, tc := range []struct {
+		TestName string
+		StrModel string
+		Expected Model
+		Err      string
+		ErrJSON  string
+	}{
+		{
+			"valid",
+			`acme:test:modelA`,
+			Model{
+				Family: ModelFamily{Namespace: "acme", Name: "test"},
+				Name:   "modelA",
+			},
+			"",
+			"",
+		},
+		{
+			"valid with special characters and numbers",
+			"acme_corp1:test-collection99:model_a2",
+			Model{
+				Family: ModelFamily{Namespace: "acme_corp1", Name: "test-collection99"},
+				Name:   "model_a2",
+			},
+			"",
+			"",
+		},
+		{
+			"invalid with slash",
+			"acme/corp:test:modelA",
+			Model{},
+			"not a valid model name",
+			"models must be of the form",
+		},
+		{
+			"invalid with caret",
+			"acme:test:model^A",
+			Model{},
+			"not a valid model name",
+			"models must be of the form",
+		},
+		{
+			"missing field",
+			"acme:test",
+			Model{},
+			"not a valid model name",
+			"models must be of the form",
+		},
+		{
+			"empty namespace",
+			":test:modelA",
+			Model{},
+			"not a valid model name",
+			"models must be of the form",
+		},
+		{
+			"empty family",
+			"acme::modelA",
+			Model{},
+			"not a valid model name",
+			"models must be of the form",
+		},
+		{
+			"empty name",
+			"acme:test::",
+			Model{},
+			"not a valid model name",
+			"models must be of the form",
+		},
+		{
+			"extra field",
+			"acme:test:modelA:fail",
+			Model{},
+			"not a valid model name",
+			"models must be of the form",
+		},
+		{
+			"mistaken resource name",
+			"acme:test:modelA/fail",
+			Model{},
+			"not a valid model name",
+			"models must be of the form",
+		},
+		{
+			"short form",
+			"modelB",
+			Model{
+				Family: DefaultModelFamily,
+				Name:   "modelB",
+			},
+			"",
+			"",
+		},
+		{
+			"invalid short form",
+			"model^B",
+			Model{},
+			"not a valid model name",
+			"models must be of the form",
+		},
+		{
+			"valid nested json",
+			`{"namespace": "acme", "model_family": "test", "name": "modelB"}`,
+			Model{
+				Family: ModelFamily{Namespace: "acme", Name: "test"},
+				Name:   "modelB",
+			},
+			"not a valid model name",
+			"",
+		},
+		{
+			"invalid nested json family",
+			`{"namespace": "acme", "model_family": "te^st", "name": "modelB"}`,
+			Model{},
+			"not a valid model name",
+			"not a valid model family",
+		},
+		{
+			"invalid nested json namespace",
+			`{"namespace": "$acme", "model_family": "test", "name": "modelB"}`,
+			Model{},
+			"not a valid model name",
+			"not a valid model namespace",
+		},
+		{
+			"invalid nested json name",
+			`{"namespace": "acme", "model_family": "test", "name": "model#B"}`,
+			Model{},
+			"not a valid model name",
+			"not a valid model name",
+		},
+		{
+			"missing nested json field",
+			`{"namespace": "acme", "name": "model#B"}`,
+			Model{},
+			"not a valid model name",
+			"field for model missing",
+		},
+	} {
+		t.Run(tc.TestName, func(t *testing.T) {
+			observed, err := NewModelFromString(tc.StrModel)
+			if tc.Err == "" {
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, observed.Validate(), test.ShouldBeNil)
+				test.That(t, observed, test.ShouldResemble, tc.Expected)
+				test.That(t, observed.String(), test.ShouldResemble, tc.Expected.String())
+			} else {
+				test.That(t, err, test.ShouldNotBeNil)
+				test.That(t, err.Error(), test.ShouldContainSubstring, tc.Err)
+			}
+		})
+	}
+}
+
+func TestModelFromJSONObject(t *testing.T) {
+	//nolint:dupl
+	for _, tc := range []struct {
+		TestName string
+		StrModel string
+		Expected Model
+		Err      string
+		ErrJSON  string
+	}{
+		{
+			"valid nested json",
+			`{"namespace": "acme", "model_family": "test", "name": "modelB"}`,
+			Model{
+				Family: ModelFamily{Namespace: "acme", Name: "test"},
+				Name:   "modelB",
+			},
+			"not a valid model name",
+			"",
+		},
+		{
+			"invalid nested json family",
+			`{"namespace": "acme", "model_family": "te^st", "name": "modelB"}`,
+			Model{},
+			"not a valid model name",
+			"not a valid model family",
+		},
+		{
+			"invalid nested json namespace",
+			`{"namespace": "$acme", "model_family": "test", "name": "modelB"}`,
+			Model{},
+			"not a valid model name",
+			"not a valid model namespace",
+		},
+		{
+			"invalid nested json name",
+			`{"namespace": "acme", "model_family": "test", "name": "model#B"}`,
+			Model{},
+			"not a valid model name",
+			"not a valid model name",
+		},
+		{
+			"missing nested json field",
+			`{"namespace": "acme", "name": "model#B"}`,
+			Model{},
+			"not a valid model name",
+			"field for model missing",
+		},
+	} {
+		t.Run(tc.TestName, func(t *testing.T) {
+			fromJSON := &Model{}
+			errJSON := fromJSON.UnmarshalJSON([]byte(tc.StrModel))
+			if tc.ErrJSON == "" {
+				test.That(t, errJSON, test.ShouldBeNil)
+				test.That(t, fromJSON.Validate(), test.ShouldBeNil)
+				test.That(t, fromJSON, test.ShouldResemble, &tc.Expected)
+				test.That(t, fromJSON.String(), test.ShouldResemble, tc.Expected.String())
+			} else {
+				test.That(t, errJSON, test.ShouldNotBeNil)
+				test.That(t, errJSON.Error(), test.ShouldContainSubstring, tc.ErrJSON)
+			}
+		})
+	}
+}
+
+func TestAPIFromString(t *testing.T) {
+	//nolint:dupl
+	for _, tc := range []struct {
+		TestName string
+		StrAPI   string
+		Expected API
+		Err      string
+		ErrJSON  string
+	}{
+		{
+			"valid",
+			"rdk:component:arm",
+			APINamespaceRDK.WithComponentType("arm"),
+			"",
+			"",
+		},
+		{
+			"valid with special characters and numbers",
+			"acme_corp1:test-collection99:api_a2",
+			API{
+				Type:        APIType{Namespace: "acme_corp1", Name: "test-collection99"},
+				SubtypeName: "api_a2",
+			},
+			"",
+			"",
+		},
+		{
+			"invalid with slash",
+			"acme/corp:test:subtypeA",
+			API{},
+			"not a valid api name",
+			"invalid character",
+		},
+		{
+			"invalid with caret",
+			"acme:test:subtype^A",
+			API{},
+			"not a valid api name",
+			"invalid character",
+		},
+		{
+			"missing field",
+			"acme:test",
+			API{},
+			"not a valid api name",
+			"invalid character",
+		},
+		{
+			"empty namespace",
+			":test:subtypeA",
+			API{},
+			"not a valid api name",
+			"invalid character",
+		},
+		{
+			"empty family",
+			"acme::subtypeA",
+			API{},
+			"not a valid api name",
+			"invalid character",
+		},
+		{
+			"empty name",
+			"acme:test::",
+			API{},
+			"not a valid api name",
+			"invalid character",
+		},
+		{
+			"extra field",
+			"acme:test:subtypeA:fail",
+			API{},
+			"not a valid api name",
+			"invalid character",
+		},
+		{
+			"mistaken resource name",
+			"acme:test:subtypeA/fail",
+			API{},
+			"not a valid api name",
+			"invalid character",
+		},
+	} {
+		t.Run(tc.TestName, func(t *testing.T) {
+			observed, err := NewAPIFromString(tc.StrAPI)
+			if tc.Err == "" {
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, observed.Validate(), test.ShouldBeNil)
+				test.That(t, observed, test.ShouldResemble, tc.Expected)
+				test.That(t, observed.String(), test.ShouldResemble, tc.Expected.String())
+			} else {
+				test.That(t, err, test.ShouldNotBeNil)
+				test.That(t, err.Error(), test.ShouldContainSubstring, tc.Err)
+			}
+		})
+	}
+}
+
+func TestAPIFromJSONObject(t *testing.T) {
+	//nolint:dupl
+	for _, tc := range []struct {
+		TestName string
+		StrAPI   string
+		Expected API
+		Err      string
+		ErrJSON  string
+	}{
+		{
+			"valid nested json",
+			`{"namespace": "acme", "type": "test", "subtype": "subtypeB"}`,
+			API{
+				Type:        APIType{Namespace: "acme", Name: "test"},
+				SubtypeName: "subtypeB",
+			},
+			"not a valid api name",
+			"",
+		},
+		{
+			"invalid nested json type",
+			`{"namespace": "acme", "type": "te^st", "subtype": "subtypeB"}`,
+			API{},
+			"not a valid api name",
+			"not a valid type name",
+		},
+		{
+			"invalid nested json namespace",
+			`{"namespace": "$acme", "type": "test", "subtype": "subtypeB"}`,
+			API{},
+			"not a valid api name",
+			"not a valid type namespace",
+		},
+		{
+			"invalid nested json subtype",
+			`{"namespace": "acme", "type": "test", "subtype": "subtype#B"}`,
+			API{},
+			"not a valid api name",
+			"not a valid subtype name",
+		},
+		{
+			"missing nested json field",
+			`{"namespace": "acme", "name": "subtype#B"}`,
+			API{},
+			"not a valid api name",
+			"field for resource missing",
+		},
+	} {
+		t.Run(tc.TestName, func(t *testing.T) {
+			fromJSON := &API{}
+			errJSON := fromJSON.UnmarshalJSON([]byte(tc.StrAPI))
+			if tc.ErrJSON == "" {
+				test.That(t, errJSON, test.ShouldBeNil)
+				test.That(t, fromJSON.Validate(), test.ShouldBeNil)
+				test.That(t, fromJSON, test.ShouldResemble, &tc.Expected)
+				test.That(t, fromJSON.String(), test.ShouldResemble, tc.Expected.String())
+			} else {
+				test.That(t, errJSON, test.ShouldNotBeNil)
+				test.That(t, errJSON.Error(), test.ShouldContainSubstring, tc.ErrJSON)
+			}
+		})
+	}
 }
