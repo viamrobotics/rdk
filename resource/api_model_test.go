@@ -251,16 +251,14 @@ func TestModelFromString(t *testing.T) {
 		StrModel string
 		Expected Model
 		Err      string
-		ErrJSON  string
 	}{
 		{
 			"valid",
-			`acme:test:modelA`,
+			"acme:test:modelA",
 			Model{
 				Family: ModelFamily{Namespace: "acme", Name: "test"},
 				Name:   "modelA",
 			},
-			"",
 			"",
 		},
 		{
@@ -271,63 +269,54 @@ func TestModelFromString(t *testing.T) {
 				Name:   "model_a2",
 			},
 			"",
-			"",
 		},
 		{
 			"invalid with slash",
 			"acme/corp:test:modelA",
 			Model{},
 			"not a valid model name",
-			"models must be of the form",
 		},
 		{
 			"invalid with caret",
 			"acme:test:model^A",
 			Model{},
 			"not a valid model name",
-			"models must be of the form",
 		},
 		{
 			"missing field",
 			"acme:test",
 			Model{},
 			"not a valid model name",
-			"models must be of the form",
 		},
 		{
 			"empty namespace",
 			":test:modelA",
 			Model{},
 			"not a valid model name",
-			"models must be of the form",
 		},
 		{
 			"empty family",
 			"acme::modelA",
 			Model{},
 			"not a valid model name",
-			"models must be of the form",
 		},
 		{
 			"empty name",
 			"acme:test::",
 			Model{},
 			"not a valid model name",
-			"models must be of the form",
 		},
 		{
 			"extra field",
 			"acme:test:modelA:fail",
 			Model{},
 			"not a valid model name",
-			"models must be of the form",
 		},
 		{
 			"mistaken resource name",
 			"acme:test:modelA/fail",
 			Model{},
 			"not a valid model name",
-			"models must be of the form",
 		},
 		{
 			"short form",
@@ -337,52 +326,12 @@ func TestModelFromString(t *testing.T) {
 				Name:   "modelB",
 			},
 			"",
-			"",
 		},
 		{
 			"invalid short form",
 			"model^B",
 			Model{},
 			"not a valid model name",
-			"models must be of the form",
-		},
-		{
-			"valid nested json",
-			`{"namespace": "acme", "model_family": "test", "name": "modelB"}`,
-			Model{
-				Family: ModelFamily{Namespace: "acme", Name: "test"},
-				Name:   "modelB",
-			},
-			"not a valid model name",
-			"",
-		},
-		{
-			"invalid nested json family",
-			`{"namespace": "acme", "model_family": "te^st", "name": "modelB"}`,
-			Model{},
-			"not a valid model name",
-			"not a valid model family",
-		},
-		{
-			"invalid nested json namespace",
-			`{"namespace": "$acme", "model_family": "test", "name": "modelB"}`,
-			Model{},
-			"not a valid model name",
-			"not a valid model namespace",
-		},
-		{
-			"invalid nested json name",
-			`{"namespace": "acme", "model_family": "test", "name": "model#B"}`,
-			Model{},
-			"not a valid model name",
-			"not a valid model name",
-		},
-		{
-			"missing nested json field",
-			`{"namespace": "acme", "name": "model#B"}`,
-			Model{},
-			"not a valid model name",
-			"field for model missing",
 		},
 	} {
 		t.Run(tc.TestName, func(t *testing.T) {
@@ -406,7 +355,6 @@ func TestModelFromJSONObject(t *testing.T) {
 		TestName string
 		StrModel string
 		Expected Model
-		Err      string
 		ErrJSON  string
 	}{
 		{
@@ -416,21 +364,18 @@ func TestModelFromJSONObject(t *testing.T) {
 				Family: ModelFamily{Namespace: "acme", Name: "test"},
 				Name:   "modelB",
 			},
-			"not a valid model name",
 			"",
 		},
 		{
 			"invalid nested json family",
 			`{"namespace": "acme", "model_family": "te^st", "name": "modelB"}`,
 			Model{},
-			"not a valid model name",
 			"not a valid model family",
 		},
 		{
 			"invalid nested json namespace",
 			`{"namespace": "$acme", "model_family": "test", "name": "modelB"}`,
 			Model{},
-			"not a valid model name",
 			"not a valid model namespace",
 		},
 		{
@@ -438,13 +383,11 @@ func TestModelFromJSONObject(t *testing.T) {
 			`{"namespace": "acme", "model_family": "test", "name": "model#B"}`,
 			Model{},
 			"not a valid model name",
-			"not a valid model name",
 		},
 		{
 			"missing nested json field",
 			`{"namespace": "acme", "name": "model#B"}`,
 			Model{},
-			"not a valid model name",
 			"field for model missing",
 		},
 	} {
@@ -471,13 +414,11 @@ func TestAPIFromString(t *testing.T) {
 		StrAPI   string
 		Expected API
 		Err      string
-		ErrJSON  string
 	}{
 		{
 			"valid",
 			"rdk:component:arm",
 			APINamespaceRDK.WithComponentType("arm"),
-			"",
 			"",
 		},
 		{
@@ -488,63 +429,54 @@ func TestAPIFromString(t *testing.T) {
 				SubtypeName: "api_a2",
 			},
 			"",
-			"",
 		},
 		{
 			"invalid with slash",
 			"acme/corp:test:subtypeA",
 			API{},
 			"not a valid api name",
-			"invalid character",
 		},
 		{
 			"invalid with caret",
 			"acme:test:subtype^A",
 			API{},
 			"not a valid api name",
-			"invalid character",
 		},
 		{
 			"missing field",
 			"acme:test",
 			API{},
 			"not a valid api name",
-			"invalid character",
 		},
 		{
 			"empty namespace",
 			":test:subtypeA",
 			API{},
 			"not a valid api name",
-			"invalid character",
 		},
 		{
 			"empty family",
 			"acme::subtypeA",
 			API{},
 			"not a valid api name",
-			"invalid character",
 		},
 		{
 			"empty name",
 			"acme:test::",
 			API{},
 			"not a valid api name",
-			"invalid character",
 		},
 		{
 			"extra field",
 			"acme:test:subtypeA:fail",
 			API{},
 			"not a valid api name",
-			"invalid character",
 		},
 		{
 			"mistaken resource name",
 			"acme:test:subtypeA/fail",
 			API{},
 			"not a valid api name",
-			"invalid character",
 		},
 	} {
 		t.Run(tc.TestName, func(t *testing.T) {
@@ -568,7 +500,6 @@ func TestAPIFromJSONObject(t *testing.T) {
 		TestName string
 		StrAPI   string
 		Expected API
-		Err      string
 		ErrJSON  string
 	}{
 		{
@@ -578,35 +509,30 @@ func TestAPIFromJSONObject(t *testing.T) {
 				Type:        APIType{Namespace: "acme", Name: "test"},
 				SubtypeName: "subtypeB",
 			},
-			"not a valid api name",
 			"",
 		},
 		{
 			"invalid nested json type",
 			`{"namespace": "acme", "type": "te^st", "subtype": "subtypeB"}`,
 			API{},
-			"not a valid api name",
 			"not a valid type name",
 		},
 		{
 			"invalid nested json namespace",
 			`{"namespace": "$acme", "type": "test", "subtype": "subtypeB"}`,
 			API{},
-			"not a valid api name",
 			"not a valid type namespace",
 		},
 		{
 			"invalid nested json subtype",
 			`{"namespace": "acme", "type": "test", "subtype": "subtype#B"}`,
 			API{},
-			"not a valid api name",
 			"not a valid subtype name",
 		},
 		{
 			"missing nested json field",
 			`{"namespace": "acme", "name": "subtype#B"}`,
 			API{},
-			"not a valid api name",
 			"field for resource missing",
 		},
 	} {
