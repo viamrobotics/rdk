@@ -43,11 +43,8 @@ func (sb *sensorBase) SetVelocity(
 	var sensorCtx context.Context
 	sensorCtx, sb.sensorLoopDone = context.WithTimeout(context.Background(), timeOut)
 
-	if err := sb.loop.Start(); err != nil {
-		return err
-	}
 	// TODO: RSDK-XXXX remove control loop bool after testing
-	if useControlLoop {
+	if useControlLoop && sb.loop != nil {
 		// if we have a loop, ;et's use the SetState function to call the SetVelocity command
 		if err := sb.loop.Start(); err != nil {
 			return err
@@ -140,7 +137,7 @@ var controlLoopConfig = control.Config{
 			Name: "sensor-base",
 			Type: "endpoint",
 			Attribute: rdkutils.AttributeMap{
-				"endpoint_name": "base", // How to input this
+				"motor_name": "base", // How to input this
 			},
 			DependsOn: []string{"pid_block"},
 		},
@@ -148,8 +145,8 @@ var controlLoopConfig = control.Config{
 			Name: "pid_block",
 			Type: "PID",
 			Attribute: rdkutils.AttributeMap{
-				"kp": 1.0, // random for now
-				"kd": 0.5,
+				"kP": 1.0, // random for now
+				"kD": 0.5,
 				"kI": 0.2,
 			},
 			DependsOn: []string{"sum_block"},
@@ -168,7 +165,7 @@ var controlLoopConfig = control.Config{
 			Attribute: rdkutils.AttributeMap{
 				"constant_val": 0.0, // need to update dynamically? Or should I just use the trapezoidal velocity profile
 			},
-			DependsOn: []string{""},
+			DependsOn: []string{},
 		},
 	},
 	Frequency: 50,
