@@ -120,6 +120,10 @@ func PlanMotion(ctx context.Context, request *PlanRequest) (Plan, error) {
 	if err != nil {
 		return nil, err
 	}
+	// make sure there is no transformation between the PTG frame and World frame in the Solver frame
+	if len(sf.PTGSolvers()) > 0 && !spatialmath.PoseAlmostEqual(startPose, spatialmath.NewZeroPose()) {
+		return nil, errors.New("cannot have non-zero transformation between the PTG frame and World frame in the Solver frame")
+	}
 
 	request.Logger.Infof(
 		"planning motion for frame %s\nGoal: %v\nStarting seed map %v\n, startPose %v\n, worldstate: %v\n",
@@ -431,6 +435,8 @@ IK:
 }
 
 // CheckPlan checks if obstacles intersect the trajectory of the frame following the plan.
+// We assume the errorState to remain constant for the duration of the plan.
+// Currently, this function does not support checking a plan for an arm.
 func CheckPlan(
 	checkFrame frame.Frame,
 	plan Plan,
@@ -484,23 +490,26 @@ func CheckPlan(
 		// absolute pose of the previous node we've passed
 		formerRunningPose := spatialmath.PoseBetweenInverse(lastPose, pathPosition)
 
-		// convert planNode's poses to be in absolute corrdinated
+		// convert planNode's poses to be in absolute coordinates
 		if planNodes, err = rectifyTPspacePath(planNodes, sf, formerRunningPose); err != nil {
 			return err
 		}
 	}
+
 	// adjust planNodes by the errorState
+	// this only changes a node's pose and not its inputs
 	planNodes = transformNodes(planNodes, errorState)
 
 	// pre-pend node with current position of robot to planNodes
-	// Note that currentPosition is assumed to have already accounted for the errorState
+	// Note that currentPosition is assumed to have accounted for the errorState
+	// Note that currentInputs is assumed to have NOT accounted for the errorState
 	planNodes = append([]node{&basicNode{pose: currentPosition, q: currentInputs}}, planNodes...)
 
 	// create constraints
 	if sfPlanner.planOpts, err = sfPlanner.plannerSetupFromMoveRequest(
 		currentPosition,                    // starting pose
 		planNodes[len(planNodes)-1].Pose(), // goalPose
-		plan[0],                            // starting configuration
+		sf.sliceToMap(currentInputs),       // starting configuration
 		worldState,
 		nil, // no pb.Constraints
 		nil, // no plannOpts
@@ -549,10 +558,10 @@ func CheckPlan(
 			} else {
 				poseInPath = spatialmath.Compose(poseInPath, errorState)
 			}
-
 			modifiedSegment := &ik.State{Frame: sf, Position: poseInPath}
+			// check the state of the robot for collision
 			if isValid, _ := sfPlanner.planOpts.CheckStateConstraints(modifiedSegment); !isValid {
-				return fmt.Errorf("found collsion between positions %v and %v", currentPose.Point(), nextPose.Point())
+				return fmt.Errorf("found collsion between positions %v and %v", currentPose.Point(), poseInPath.Point())
 			}
 		}
 	}

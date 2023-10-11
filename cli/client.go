@@ -22,6 +22,7 @@ import (
 	"go.uber.org/zap"
 	datapb "go.viam.com/api/app/data/v1"
 	datasetpb "go.viam.com/api/app/dataset/v1"
+	mltrainingpb "go.viam.com/api/app/mltraining/v1"
 	packagepb "go.viam.com/api/app/packages/v1"
 	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/utils"
@@ -40,15 +41,16 @@ import (
 // viamClient wraps a cli.Context and provides all the CLI command functionality
 // needed to talk to the app and data services but not directly to robot parts.
 type viamClient struct {
-	c             *cli.Context
-	conf          *config
-	client        apppb.AppServiceClient
-	dataClient    datapb.DataServiceClient
-	packageClient packagepb.PackageServiceClient
-	datasetClient datasetpb.DatasetServiceClient
-	baseURL       *url.URL
-	rpcOpts       []rpc.DialOption
-	authFlow      *authFlow
+	c                *cli.Context
+	conf             *config
+	client           apppb.AppServiceClient
+	dataClient       datapb.DataServiceClient
+	packageClient    packagepb.PackageServiceClient
+	datasetClient    datasetpb.DatasetServiceClient
+	mlTrainingClient mltrainingpb.MLTrainingServiceClient
+	baseURL          *url.URL
+	rpcOpts          []rpc.DialOption
+	authFlow         *authFlow
 
 	selectedOrg *apppb.Organization
 	selectedLoc *apppb.Location

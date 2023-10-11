@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"strings"
 	"sync/atomic"
 
 	geo "github.com/kellydunn/golang-geo"
@@ -14,15 +15,19 @@ import (
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/services/motion"
+	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
 )
 
 // moveRequest is a structure that contains all the information necessary for to make a move call.
 type moveRequest struct {
-	config        *motion.MotionConfiguration
-	planRequest   *motionplan.PlanRequest
-	kinematicBase kinematicbase.KinematicBase
+	config             *motion.MotionConfiguration
+	planRequest        *motionplan.PlanRequest
+	kinematicBase      kinematicbase.KinematicBase
+	cameraVisionPairs  []map[resource.Name]vision.Service
+	frameSystemService framesystem.Service
 }
 
 // plan creates a plan using the currentInputs of the robot and the moveRequest's planRequest.
@@ -85,12 +90,87 @@ func (mr *moveRequest) deviatedFromPlan(ctx context.Context, waypoints [][]refer
 	if err != nil {
 		return false, err
 	}
-	mr.planRequest.Logger.Debug("deviation from plan: %v", errorState.Point())
+	mr.planRequest.Logger.Debugf("deviation from plan: %v", errorState.Point())
 	return errorState.Point().Norm() > mr.config.PlanDeviationMM, nil
 }
 
 func (mr *moveRequest) obstaclesIntersectPlan(ctx context.Context, waypoints [][]referenceframe.Input, waypointIndex int) (bool, error) {
-	// TODO(RSDK-4507): implement this function
+	// convert waypoints to type of motionplan.Plan
+	var plan motionplan.Plan
+	// We only care to check against waypoints we have not reached yet.
+	for _, inputs := range waypoints[waypointIndex:] {
+		input := make(map[string][]referenceframe.Input)
+		input[mr.kinematicBase.Name().Name] = inputs
+		plan = append(plan, input)
+	}
+	for _, vcMap := range mr.cameraVisionPairs {
+		for camName, srvc := range vcMap {
+			// get detections from vision service
+			detections, err := srvc.GetObjectPointClouds(ctx, camName.Name, nil)
+			if err != nil && strings.Contains(err.Error(), "does not implement a 3D segmenter") {
+				mr.planRequest.Logger.Infof("cannot call GetObjectPointClouds on %q as it does not implement a 3D segmenter", srvc.Name())
+				break
+			} else if err != nil {
+				return false, err
+			}
+
+			// get the current position of the base which we will use to transform the detection into world coordinates
+			currentPosition, err := mr.kinematicBase.CurrentPosition(ctx)
+			if err != nil {
+				return false, err
+			}
+			// get transform of camera to kinematic base origin
+			kinBaseOrigin := referenceframe.NewPoseInFrame(mr.kinematicBase.Name().ShortName(), spatialmath.NewZeroPose())
+			cameraToBase, err := mr.frameSystemService.TransformPose(ctx, kinBaseOrigin, camName.ShortName(), nil)
+			if err != nil {
+				// here we make the assumption the movement sensor is coincident with the base
+				cameraToBase = kinBaseOrigin
+			}
+			transformBy := spatialmath.Compose(currentPosition.Pose(), cameraToBase.Pose())
+
+			// Any obstacles specified by the worldstate of the moveRequest will also re-detected here.
+			// There is no need to append the new detections to the existing worldstate.
+			// We can safely build from scratch without excluding any valuable information.
+			geoms := []spatialmath.Geometry{}
+			for _, detection := range detections {
+				geometry := detection.Geometry.Transform(transformBy)
+				geometry.SetLabel("transient" + detection.Geometry.Label())
+				geoms = append(geoms, geometry)
+			}
+			// consider having geoms be from the frame of world
+			// to accomplish this we need to know the transform from the base to the camera
+			gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(camName.Name, geoms)}
+			worldState, err := referenceframe.NewWorldState(gifs, nil)
+			if err != nil {
+				return false, err
+			}
+
+			currentInputs, err := mr.kinematicBase.CurrentInputs(ctx)
+			if err != nil {
+				return false, err
+			}
+
+			// get the pose difference between where the robot is versus where it ought to be.
+			errorState, err := mr.kinematicBase.ErrorState(ctx, waypoints, waypointIndex)
+			if err != nil {
+				return false, err
+			}
+
+			if err := motionplan.CheckPlan(
+				mr.kinematicBase.Kinematics(), // frame we wish to check for collisions
+				plan,                          // remainder of plan we wish to check against
+				worldState,                    // detected obstacles by this instance of camera + service
+				mr.planRequest.FrameSystem,
+				currentPosition.Pose(), // currentPosition of robot accounts for errorState
+				currentInputs,
+				errorState, // deviation of robot from plan
+				mr.planRequest.Logger,
+			); err != nil {
+				mr.planRequest.Logger.Info(err.Error())
+				return true, nil
+			}
+		}
+	}
 	return false, nil
 }
 
@@ -214,6 +294,29 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 		}
 	}
 
+	var cameraVisionPairing []map[resource.Name]vision.Service
+	pair := make(map[resource.Name]vision.Service)
+	// construct pairs of cameras which may be used by the available vision services
+	for _, serviceName := range motionCfg.VisionServices {
+		for _, cameraName := range ms.cameras {
+			srvc, ok := ms.visionServices[serviceName]
+			if !ok {
+				return nil, resource.DependencyNotFoundError(serviceName)
+			}
+			switch {
+			case serviceName.ContainsRemoteNames() && cameraName.ContainsRemoteNames():
+				// vision services which are remote only have access to remote cameras
+				pair[cameraName] = srvc
+			case serviceName.ContainsRemoteNames() && !cameraName.ContainsRemoteNames():
+				continue
+			default:
+				// vision services which are main have access to both main and remote cameras
+				pair[cameraName] = srvc
+			}
+			cameraVisionPairing = append(cameraVisionPairing, pair)
+		}
+	}
+
 	return &moveRequest{
 		config: motionCfg,
 		planRequest: &motionplan.PlanRequest{
@@ -225,6 +328,8 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 			WorldState:         worldState,
 			Options:            extra,
 		},
-		kinematicBase: kb,
+		kinematicBase:      kb,
+		cameraVisionPairs:  cameraVisionPairing,
+		frameSystemService: ms.fsService,
 	}, nil
 }

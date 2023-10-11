@@ -379,6 +379,7 @@ func TestTPsmoothing(t *testing.T) {
 }
 
 func TestPtgCheckPlan(t *testing.T) {
+	t.Parallel()
 	logger := golog.NewTestLogger(t)
 	roverGeom, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{10, 10, 10}, "")
 	test.That(t, err, test.ShouldBeNil)
@@ -413,6 +414,7 @@ func TestPtgCheckPlan(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	tp, _ := mp.(*tpSpaceRRTMotionPlanner)
 
+	// get plan
 	plan, err := tp.plan(context.Background(), goalPos, nil)
 	test.That(t, err, test.ShouldBeNil)
 	planAsInputs := nodesToInputs(plan)
@@ -422,29 +424,6 @@ func TestPtgCheckPlan(t *testing.T) {
 		stepMap := sf.sliceToMap(resultSlice)
 		steps = append(steps, stepMap)
 	}
-
-	startPose := spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0})
-	errorState := startPose
-	inputs := referenceframe.FloatsToInputs([]float64{0, 0, 0})
-
-	t.Run("base case - validate plan without obstacles", func(t *testing.T) {
-		err := CheckPlan(ackermanFrame, steps, nil, fs, startPose, inputs, errorState, logger)
-		test.That(t, err, test.ShouldBeNil)
-	})
-
-	t.Run("obstacles blocking path", func(t *testing.T) {
-		obstacle, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{2000, 0, 0}), r3.Vector{20, 2000, 1}, "")
-		test.That(t, err, test.ShouldBeNil)
-
-		geoms := []spatialmath.Geometry{obstacle}
-		gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)}
-
-		worldState, err := referenceframe.NewWorldState(gifs, nil)
-		test.That(t, err, test.ShouldBeNil)
-
-		err = CheckPlan(ackermanFrame, steps, worldState, fs, startPose, inputs, errorState, logger)
-		test.That(t, err, test.ShouldNotBeNil)
-	})
 
 	// create camera_origin frame
 	cameraOriginFrame, err := referenceframe.NewStaticFrame("camera-origin", spatialmath.NewPoseFromPoint(r3.Vector{0, -20, 0}))
@@ -467,76 +446,129 @@ func TestPtgCheckPlan(t *testing.T) {
 	err = fs.AddFrame(cameraFrame, cameraOriginFrame)
 	test.That(t, err, test.ShouldBeNil)
 
-	t.Run("obstacles NOT in world frame - no collision - integration test", func(t *testing.T) {
-		obstacle, err := spatialmath.NewBox(
-			spatialmath.NewPoseFromPoint(r3.Vector{25000, -40, 0}),
-			r3.Vector{10, 10, 1}, "obstacle",
-		)
-		test.That(t, err, test.ShouldBeNil)
-		geoms := []spatialmath.Geometry{obstacle}
-		gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(cameraFrame.Name(), geoms)}
+	type testCase struct {
+		name             string
+		obstaclesExist   bool
+		obsPosition      r3.Vector
+		obsDims          r3.Vector
+		observerFrame    string
+		errorState       r3.Vector
+		startPosition    r3.Vector
+		startOrientation *spatialmath.OrientationVectorDegrees
+		planIndex        int
+		errorIsNil       bool
+	}
 
-		worldState, err := referenceframe.NewWorldState(gifs, nil)
-		test.That(t, err, test.ShouldBeNil)
+	ov := spatialmath.NewOrientationVector().Degrees()
+	ov.OZ = 1.0000000000000004
+	ov.Theta = -101.42430306111874
 
-		err = CheckPlan(ackermanFrame, steps, worldState, fs, startPose, inputs, errorState, logger)
-		test.That(t, err, test.ShouldBeNil)
-	})
-	t.Run("obstacles NOT in world frame cause collision - integration test", func(t *testing.T) {
-		obstacle, err := spatialmath.NewBox(
-			spatialmath.NewPoseFromPoint(r3.Vector{2500, 20, 0}),
-			r3.Vector{10, 2000, 1}, "obstacle",
-		)
-		test.That(t, err, test.ShouldBeNil)
-		geoms := []spatialmath.Geometry{obstacle}
-		gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(cameraFrame.Name(), geoms)}
+	testCases := []testCase{
+		{
+			name:             "base case - validate plan without obstacles",
+			obstaclesExist:   false,
+			errorState:       r3.Vector{0, 0, 0},
+			startPosition:    r3.Vector{0, 0, 0},
+			startOrientation: spatialmath.NewOrientationVector().Degrees(),
+			planIndex:        0,
+			errorIsNil:       true,
+		},
+		{
+			name:             "obstacles blocking path",
+			obstaclesExist:   true,
+			obsPosition:      r3.Vector{2000, 0, 0},
+			obsDims:          r3.Vector{20, 2000, 1},
+			observerFrame:    referenceframe.World,
+			errorState:       r3.Vector{0, 0, 0},
+			startPosition:    r3.Vector{0, 0, 0},
+			startOrientation: spatialmath.NewOrientationVector().Degrees(),
+			planIndex:        0,
+			errorIsNil:       false,
+		},
+		{
+			name:             "obstacles NOT in world frame - no collision - integration test",
+			obstaclesExist:   true,
+			obsPosition:      r3.Vector{-2500, -40, 0},
+			obsDims:          r3.Vector{10, 10, 1},
+			observerFrame:    cameraFrame.Name(),
+			errorState:       r3.Vector{0, 0, 0},
+			startPosition:    r3.Vector{0, 0, 0},
+			startOrientation: spatialmath.NewOrientationVector().Degrees(),
+			planIndex:        0,
+			errorIsNil:       true,
+		},
+		{
+			name:             "obstacles NOT in world frame cause collision - integration test",
+			obstaclesExist:   true,
+			obsPosition:      r3.Vector{2500, 20, 0},
+			obsDims:          r3.Vector{10, 2000, 1},
+			observerFrame:    cameraFrame.Name(),
+			errorState:       r3.Vector{0, 0, 0},
+			startPosition:    r3.Vector{0, 0, 0},
+			startOrientation: spatialmath.NewOrientationVector().Degrees(),
+			planIndex:        0,
+			errorIsNil:       false,
+		},
+		{
+			name:             "checking from partial-plan, ensure success with obstacles - integration test",
+			obstaclesExist:   true,
+			obsPosition:      r3.Vector{0, 20, 0},
+			obsDims:          r3.Vector{10, 200, 1},
+			observerFrame:    referenceframe.World,
+			errorState:       r3.Vector{0, 0, 0},
+			startPosition:    r3.Vector{0, 0, 0},
+			startOrientation: ov,
+			planIndex:        2,
+			errorIsNil:       true,
+		},
+		{
+			name:             "verify partial plan with non-nil errorState and obstacle",
+			obstaclesExist:   true,
+			obsPosition:      r3.Vector{0, 0, 0},
+			obsDims:          r3.Vector{10, 10, 1},
+			observerFrame:    referenceframe.World,
+			errorState:       r3.Vector{0, 1000, 0},
+			startPosition:    r3.Vector{0, 1000, 0},
+			startOrientation: ov,
+			planIndex:        2,
+			errorIsNil:       true,
+		},
+	}
 
-		worldState, err := referenceframe.NewWorldState(gifs, nil)
-		test.That(t, err, test.ShouldBeNil)
+	testFn := func(t *testing.T, tc testCase) {
+		t.Helper()
+		var worldState *referenceframe.WorldState
+		if tc.obstaclesExist {
+			position := spatialmath.NewPoseFromPoint(tc.obsPosition)
+			obstacle, err := spatialmath.NewBox(position, tc.obsDims, "box")
+			test.That(t, err, test.ShouldBeNil)
 
-		err = CheckPlan(ackermanFrame, steps, worldState, fs, startPose, inputs, errorState, logger)
-		test.That(t, err, test.ShouldNotBeNil)
-	})
-	t.Run("checking from partial-plan, ensure success with obstacles - integration test", func(t *testing.T) {
-		// create obstacle behind where we are
-		obstacle, err := spatialmath.NewBox(
-			spatialmath.NewPoseFromPoint(r3.Vector{0, 20, 0}),
-			r3.Vector{10, 200, 1}, "obstacle",
-		)
-		test.That(t, err, test.ShouldBeNil)
-		geoms := []spatialmath.Geometry{obstacle}
-		gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)}
+			geoms := []spatialmath.Geometry{obstacle}
+			gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(tc.observerFrame, geoms)}
 
-		worldState, err := referenceframe.NewWorldState(gifs, nil)
-		test.That(t, err, test.ShouldBeNil)
+			worldState, err = referenceframe.NewWorldState(gifs, nil)
+			test.That(t, err, test.ShouldBeNil)
+		} else {
+			worldState = referenceframe.NewEmptyWorldState()
+		}
 
-		ov := spatialmath.NewOrientationVector().Degrees()
-		ov.OZ = 1.0000000000000004
-		ov.Theta = -101.42430306111874
-		vector := r3.Vector{669.0803080526971, 234.2834571597409, 0}
+		errorState := spatialmath.NewPoseFromPoint(tc.errorState)
+		inputs := referenceframe.FloatsToInputs([]float64{0, 0, 0})
+		startPose := spatialmath.NewPose(tc.startPosition, tc.startOrientation)
 
-		startPose := spatialmath.NewPose(vector, ov)
+		err := CheckPlan(ackermanFrame, steps[tc.planIndex:], worldState, fs, startPose, inputs, errorState, logger)
+		if tc.errorIsNil {
+			test.That(t, err, test.ShouldBeNil)
+		} else {
+			test.That(t, err, test.ShouldNotBeNil)
+		}
+	}
 
-		err = CheckPlan(ackermanFrame, steps[2:len(steps)-1], worldState, fs, startPose, inputs, errorState, logger)
-		test.That(t, err, test.ShouldBeNil)
-	})
-	t.Run("verify partial plan with non-nil errorState and obstacle", func(t *testing.T) {
-		// create obstacle which is behind where the robot already is, but is on the path it has already traveled
-		obstacle, err := spatialmath.NewBox(
-			spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0}),
-			r3.Vector{10, 10, 1}, "obstacle",
-		)
-		test.That(t, err, test.ShouldBeNil)
-		geoms := []spatialmath.Geometry{obstacle}
-		gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)}
-
-		worldState, err := referenceframe.NewWorldState(gifs, nil)
-		test.That(t, err, test.ShouldBeNil)
-
-		errorState := spatialmath.NewPoseFromPoint(r3.Vector{0, 1000, 0})
-		startPose = errorState
-
-		err = CheckPlan(ackermanFrame, steps[2:len(steps)-1], worldState, fs, startPose, inputs, errorState, logger)
-		test.That(t, err, test.ShouldBeNil)
-	})
+	for _, tc := range testCases {
+		c := tc // needed to workaround loop variable not being captured by func literals
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			testFn(t, c)
+		})
+	}
 }
