@@ -40,12 +40,23 @@ var (
 	logLevelArgumentTemplate    = "--log-level=%s"
 	errModularResourcesDisabled = errors.New("modular resources disabled in untrusted environment")
 
-	// NOTE(benjirewis): these error messages are referenced in the CLI to
+	// NOTE(benjirewis): the error messages below are referenced in the CLI to
 	// determine why a module may be invalid.
-	ErrMsgCouldNotStartModule     = "error while starting module "
-	ErrMsgCouldNotDialModule      = "error while dialing module "
-	ErrMsgModuleNoReadyResp       = "error while waiting for module to be ready "
-	ErrMsgCouldNotStopModule      = "error while stopping module "
+
+	// ErrMsgCouldNotStartModule is returned when there was an error starting a
+	// module.
+	ErrMsgCouldNotStartModule = "error while starting module "
+	// ErrMsgCouldNotDialModule is returned when there was an error dialing a
+	// module.
+	ErrMsgCouldNotDialModule = "error while dialing module "
+	// ErrMsgModuleNoReadyResp is returned when a module did not respond to a
+	// ready request in time.
+	ErrMsgModuleNoReadyResp = "error while waiting for module to be ready "
+	// ErrMsgCouldNotStopModule is returned when there was an error stopping a
+	// module.
+	ErrMsgCouldNotStopModule = "error while stopping module "
+	// ErrMsgCouldNotCloseModuleConn is returned when there was an error closing
+	// the connection to a module.
 	ErrMsgCouldNotCloseModuleConn = "error while closing connection from module "
 )
 

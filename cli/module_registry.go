@@ -20,6 +20,8 @@ import (
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	apppb "go.viam.com/api/app/v1"
+	"go.viam.com/utils"
+
 	rconfig "go.viam.com/rdk/config"
 	"go.viam.com/rdk/module/modmanager"
 	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
@@ -304,7 +306,12 @@ func verifyModule(executablePath string, w io.Writer) error {
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(parentAddr)
+	defer utils.UncheckedErrorFunc(func() error {
+		if _, err := os.Stat(parentAddr); err == nil {
+			return os.RemoveAll(parentAddr)
+		}
+		return nil
+	})
 	parentAddr += "/parent.sock"
 
 	// Set up module manager with a dummy RemoveOrphanedResources function; we
