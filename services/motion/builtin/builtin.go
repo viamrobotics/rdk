@@ -16,7 +16,6 @@ import (
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/base/kinematicbase"
-	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/internal"
 	"go.viam.com/rdk/motionplan"
@@ -110,7 +109,6 @@ func (ms *builtIn) Reconfigure(
 	movementSensors := make(map[resource.Name]movementsensor.MovementSensor)
 	slamServices := make(map[resource.Name]slam.Service)
 	visionServices := make(map[resource.Name]vision.Service)
-	cameraComponents := []resource.Name{}
 	components := make(map[resource.Name]resource.Resource)
 	for name, dep := range deps {
 		switch dep := dep.(type) {
@@ -122,8 +120,6 @@ func (ms *builtIn) Reconfigure(
 			slamServices[name] = dep
 		case vision.Service:
 			visionServices[name] = dep
-		case camera.Camera:
-			cameraComponents = append(cameraComponents, name)
 		default:
 			components[name] = dep
 		}
@@ -132,7 +128,6 @@ func (ms *builtIn) Reconfigure(
 	ms.slamServices = slamServices
 	ms.visionServices = visionServices
 	ms.components = components
-	ms.cameras = cameraComponents
 	return nil
 }
 
@@ -143,7 +138,6 @@ type builtIn struct {
 	movementSensors map[resource.Name]movementsensor.MovementSensor
 	slamServices    map[resource.Name]slam.Service
 	visionServices  map[resource.Name]vision.Service
-	cameras         []resource.Name
 	components      map[resource.Name]resource.Resource
 	logger          golog.Logger
 	lock            sync.Mutex

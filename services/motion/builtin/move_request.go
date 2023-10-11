@@ -294,26 +294,29 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 		}
 	}
 
-	var cameraVisionPairing []map[resource.Name]vision.Service
-	pair := make(map[resource.Name]vision.Service)
-	// construct pairs of cameras which may be used by the available vision services
-	for _, serviceName := range motionCfg.VisionServices {
-		for _, cameraName := range ms.cameras {
-			srvc, ok := ms.visionServices[serviceName]
-			if !ok {
-				return nil, resource.DependencyNotFoundError(serviceName)
-			}
-			switch {
-			case serviceName.ContainsRemoteNames() && cameraName.ContainsRemoteNames():
-				// vision services which are remote only have access to remote cameras
-				pair[cameraName] = srvc
-			case serviceName.ContainsRemoteNames() && !cameraName.ContainsRemoteNames():
-				continue
-			default:
-				// vision services which are main have access to both main and remote cameras
-				pair[cameraName] = srvc
-			}
-			cameraVisionPairing = append(cameraVisionPairing, pair)
+	var obstacleDetectors []map[resource.Name]vision.Service
+	for _, obstacleDetectorNamePair := range motionCfg.ObstacleDetectors {
+		pair := make(map[resource.Name]vision.Service)
+		visionServiceName := obstacleDetectorNamePair.VisionServiceName
+		visionSvc, ok := ms.visionServices[visionServiceName]
+		if !ok {
+			return nil, resource.DependencyNotFoundError(visionServiceName)
+		}
+		cameraName := obstacleDetectorNamePair.CameraName
+		// make sure the pairs are correct
+		switch {
+		case visionServiceName.ContainsRemoteNames() && cameraName.ContainsRemoteNames():
+			// vision services which are remote only have access to remote cameras
+			pair[cameraName] = visionSvc
+		case visionServiceName.ContainsRemoteNames() && !cameraName.ContainsRemoteNames():
+			ms.logger.Debugf("%s is remote and %s is not, so they cannot be paired together", visionServiceName, cameraName)
+			continue
+		default:
+			// vision services which are main have access to both main and remote cameras
+			pair[cameraName] = visionSvc
+		}
+		if len(pair) == 1 {
+			obstacleDetectors = append(obstacleDetectors, pair)
 		}
 	}
 
@@ -329,7 +332,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 			Options:            extra,
 		},
 		kinematicBase:      kb,
-		cameraVisionPairs:  cameraVisionPairing,
+		cameraVisionPairs:  obstacleDetectors,
 		frameSystemService: ms.fsService,
 	}, nil
 }

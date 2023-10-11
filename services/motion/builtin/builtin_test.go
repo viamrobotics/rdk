@@ -758,7 +758,9 @@ func TestReplanning(t *testing.T) {
 	dst := geo.NewPoint(gpsOrigin.Lat(), gpsOrigin.Lng()+1e-5)
 	epsilonMM := 15.
 
-	visSvcs := []resource.Name{vision.Named("injectedVisionSvc")}
+	obstacleDetectorSlice := []motion.ObstacleDetectorName{
+		{VisionServiceName: vision.Named("injectedVisionSvc"), CameraName: camera.Named("injectedCamera")},
+	}
 
 	type testCase struct {
 		name           string
@@ -786,7 +788,7 @@ func TestReplanning(t *testing.T) {
 			noise:          r3.Vector{0, 0, 0},
 			expectedReplan: false,
 			cfg: &motion.MotionConfiguration{
-				PositionPollingFreqHz: 1, ObstaclePollingFreqHz: 100, PlanDeviationMM: epsilonMM, VisionServices: visSvcs,
+				PositionPollingFreqHz: 1, ObstaclePollingFreqHz: 100, PlanDeviationMM: epsilonMM, ObstacleDetectors: obstacleDetectorSlice,
 			},
 			getPCfunc: func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
 				obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{-1000, -1000, 0})
@@ -804,7 +806,7 @@ func TestReplanning(t *testing.T) {
 			noise:          r3.Vector{0, 0, 0},
 			expectedReplan: true,
 			cfg: &motion.MotionConfiguration{
-				PositionPollingFreqHz: 1, ObstaclePollingFreqHz: 100, PlanDeviationMM: epsilonMM, VisionServices: visSvcs,
+				PositionPollingFreqHz: 1, ObstaclePollingFreqHz: 100, PlanDeviationMM: epsilonMM, ObstacleDetectors: obstacleDetectorSlice,
 			},
 			getPCfunc: func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
 				obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{10, 0, 0})
@@ -825,8 +827,8 @@ func TestReplanning(t *testing.T) {
 		moveRequest, err := ms.(*builtIn).newMoveOnGlobeRequest(ctx, kb.Name(), dst, injectedMovementSensor.Name(), nil, tc.cfg, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		if len(tc.cfg.VisionServices) > 0 {
-			srvc, ok := ms.(*builtIn).visionServices[tc.cfg.VisionServices[0]].(*inject.VisionService)
+		if len(tc.cfg.ObstacleDetectors) > 0 {
+			srvc, ok := ms.(*builtIn).visionServices[tc.cfg.ObstacleDetectors[0].VisionServiceName].(*inject.VisionService)
 			test.That(t, ok, test.ShouldBeTrue)
 			srvc.GetObjectPointCloudsFunc = tc.getPCfunc
 		}
