@@ -882,6 +882,8 @@ func TestReplanning(t *testing.T) {
 }
 
 func TestDiffDriveCheckPlan(t *testing.T) {
+	//TODO: THESE NUMBERS NEED TO BE UPDATED
+	// WE ALSO SHOULD MAKE SURE WE HAVE TestReplanResponseString
 	t.Parallel()
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
