@@ -18,10 +18,13 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
+const defaultReplanCostFactor = 1.0
+
 // moveRequest is a structure that contains all the information necessary for to make a move call.
 type moveRequest struct {
 	config        *motion.MotionConfiguration
 	planRequest   *motionplan.PlanRequest
+	seedPlan      motionplan.Plan
 	kinematicBase kinematicbase.KinematicBase
 }
 
@@ -36,11 +39,22 @@ func (mr *moveRequest) plan(ctx context.Context) ([][]referenceframe.Input, erro
 		inputs = inputs[:2]
 	}
 	mr.planRequest.StartConfiguration = map[string][]referenceframe.Input{mr.kinematicBase.Kinematics().Name(): inputs}
-	plan, err := motionplan.PlanMotion(ctx, mr.planRequest)
-	if err != nil {
-		return nil, err
+	if mr.seedPlan == nil {
+		fmt.Println("planning")
+		plan, err := motionplan.PlanMotion(ctx, mr.planRequest)
+		if err != nil {
+			return nil, err
+		}
+		mr.seedPlan = plan
+	} else {
+		fmt.Println("replanning")
+		plan, err := motionplan.Replan(ctx, mr.planRequest, mr.seedPlan, defaultReplanCostFactor)
+		if err != nil {
+			return nil, err
+		}
+		mr.seedPlan = plan
 	}
-	return plan.GetFrameSteps(mr.kinematicBase.Kinematics().Name())
+	return mr.seedPlan.GetFrameSteps(mr.kinematicBase.Kinematics().Name())
 }
 
 // execute attempts to follow a given Plan starting from the index percribed by waypointIndex.

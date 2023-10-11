@@ -282,14 +282,14 @@ func (ms *builtIn) MoveOnGlobe(
 		return false, errors.New("destination cannot be nil")
 	}
 
-	moveRequest, err := ms.newMoveOnGlobeRequest(ctx, componentName, destination, movementSensorName, obstacles, motionCfg, extra)
+	mr, err := ms.newMoveOnGlobeRequest(ctx, componentName, destination, movementSensorName, obstacles, motionCfg, extra)
 	if err != nil {
 		return false, err
 	}
 
 	// start a loop that plans every iteration and exits when something is read from the success channel
 	for {
-		ma := newMoveAttempt(ctx, moveRequest)
+		ma := newMoveAttempt(ctx, mr)
 		if err := ma.start(); err != nil {
 			return false, err
 		}
@@ -299,6 +299,7 @@ func (ms *builtIn) MoveOnGlobe(
 			ma.cancel()
 			return false, err
 		}
+		var resp replanResponse
 
 		select {
 		// if context was cancelled by the calling function, error out
@@ -327,6 +328,16 @@ func (ms *builtIn) MoveOnGlobe(
 			if resp.err != nil {
 				return false, resp.err
 			}
+		}
+		fmt.Println("resp", resp)
+		if resp.replan {
+			lastPlan := mr.seedPlan
+			// TODO: RSDK-4509 obstacles should include any transient obstacles which may have triggered a replan, if any.
+			mr, err = ms.newMoveOnGlobeRequest(ctx, componentName, destination, movementSensorName, obstacles, motionCfg, extra)
+			if err != nil {
+				return false, err
+			}
+			mr.seedPlan = lastPlan
 		}
 	}
 }
