@@ -51,7 +51,7 @@ func init() {
 			if err != nil {
 				return nil, err
 			}
-			src, err := NewFFMPEGCamera(ctx, conf.ResourceName(), newConf, logger)
+			src, err := NewFFMPEGCamera(ctx, newConf, logger)
 			if err != nil {
 				return nil, err
 			}
@@ -71,7 +71,7 @@ type ffmpegCamera struct {
 }
 
 // NewFFMPEGCamera instantiates a new camera which leverages ffmpeg to handle a variety of potential video types.
-func NewFFMPEGCamera(ctx context.Context, name resource.Name, conf *Config, logger golog.Logger) (camera.VideoSource, error) {
+func NewFFMPEGCamera(ctx context.Context, conf *Config, logger golog.Logger) (camera.VideoSource, error) {
 	// make sure ffmpeg is in the path before doing anything else
 	if _, err := exec.LookPath("ffmpeg"); err != nil {
 		return nil, err
@@ -86,7 +86,7 @@ func NewFFMPEGCamera(ctx context.Context, name resource.Name, conf *Config, logg
 
 	// instantiate camera with cancellable context that will be applied to all spawned processes
 	cancelableCtx, cancel := context.WithCancel(context.Background())
-	ffCam := &ffmpegCamera{Named: name.AsNamed(), cancelFunc: cancel, logger: logger}
+	ffCam := &ffmpegCamera{cancelFunc: cancel, logger: logger}
 
 	// launch thread to run ffmpeg and pull images from the url and put them into the pipe
 	in, out := io.Pipe()

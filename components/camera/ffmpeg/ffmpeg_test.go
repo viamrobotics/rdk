@@ -8,15 +8,13 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
-
-	"go.viam.com/rdk/resource"
 )
 
 func TestFFMPEGCamera(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 	path := artifact.MustPath("components/camera/ffmpeg/testsrc.mpg")
-	cam, err := NewFFMPEGCamera(ctx, resource.Name{}, &Config{VideoPath: path}, logger)
+	cam, err := NewFFMPEGCamera(ctx, &Config{VideoPath: path}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	stream, err := cam.Stream(ctx)
 	test.That(t, err, test.ShouldBeNil)
@@ -34,6 +32,6 @@ func TestFFMPEGNotFound(t *testing.T) {
 		os.Setenv("PATH", oldpath)
 	}()
 	os.Unsetenv("PATH")
-	_, err := NewFFMPEGCamera(context.Background(), resource.Name{Name: "foo"}, nil, nil)
+	_, err := NewFFMPEGCamera(context.Background(), nil, nil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 }
