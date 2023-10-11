@@ -68,7 +68,6 @@ func (conf *Config) Validate(path string) ([]string, error) {
 
 // rtspCamera contains the rtsp client, and the reader function that fulfills the camera interface.
 type rtspCamera struct {
-	resource.Named
 	gostream.VideoReader
 	u                       *url.URL
 	client                  *gortsplib.Client
@@ -195,7 +194,6 @@ func NewRTSPCamera(ctx context.Context, name resource.Name, conf *Config, logger
 	}
 	gotFirstFrame := make(chan struct{})
 	rtspCam := &rtspCamera{
-		Named:         name.AsNamed(),
 		u:             u,
 		logger:        logger,
 		gotFirstFrame: gotFirstFrame,
