@@ -192,15 +192,7 @@ func (c *client) Paths(ctx context.Context, extra map[string]interface{}) ([]*Pa
 	if err != nil {
 		return nil, err
 	}
-	var paths []*Path
-	for _, path := range resp.GetPaths() {
-		var geoPoints []*geo.Point
-		for _, gp := range path.GetGeopoints() {
-			geoPoints = append(geoPoints, geo.NewPoint(gp.GetLatitude(), gp.GetLongitude()))
-		}
-		paths = append(paths, NewPath(path.GetDestinationWaypointId(), geoPoints))
-	}
-	return paths, nil
+	return ProtoSliceToPaths(resp.GetPaths()), nil
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {

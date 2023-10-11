@@ -164,17 +164,7 @@ func (server *serviceServer) GetPaths(ctx context.Context, req *pb.GetPathsReque
 	if err != nil {
 		return nil, err
 	}
-	var pbPaths []*pb.Path
-	for _, path := range paths {
-		var pbGeoPt []*commonpb.GeoPoint
-		for _, pt := range path.geoPoints {
-			pbGeoPt = append(pbGeoPt, &commonpb.GeoPoint{Latitude: pt.Lat(), Longitude: pt.Lng()})
-		}
-		pbPaths = append(pbPaths, &pb.Path{
-			DestinationWaypointId: path.destinationWaypointID,
-			Geopoints:             pbGeoPt,
-		})
-	}
+	pbPaths := PathSliceToProto(paths)
 	return &pb.GetPathsResponse{Paths: pbPaths}, nil
 }
 

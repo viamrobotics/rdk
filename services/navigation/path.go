@@ -31,8 +31,8 @@ func (p *Path) GeoPoints() []*geo.Point {
 	return p.geoPoints
 }
 
-// PathsToProto converts a slice of Path into an equivalent Protobuf message.
-func PathsToProto(paths []*Path) []*pb.Path {
+// PathSliceToProto converts a slice of Path into an equivalent Protobuf message.
+func PathSliceToProto(paths []*Path) []*pb.Path {
 	var pbPaths []*pb.Path
 	for _, path := range paths {
 		pbPaths = append(pbPaths, PathToProto(path))
