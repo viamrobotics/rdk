@@ -50,7 +50,7 @@ func TestJoinWithImages(t *testing.T) {
 		Color:     "intel",
 		Depth:     "intel",
 	}
-	joinCam, err := newJoinColorDepth(context.Background(), cam, cam, resource.Name{Name: "foo"}, cfg, logger)
+	joinCam, err := newJoinColorDepth(context.Background(), cam, cam, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	alignedPointCloud, err := joinCam.NextPointCloud(context.Background())
@@ -89,7 +89,7 @@ func TestJoin(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// create the join camera
-	is, err := newJoinColorDepth(context.Background(), colorVideoSrc, depthVideoSrc, resource.Name{Name: "foo"}, joinConf, logger)
+	is, err := newJoinColorDepth(context.Background(), colorVideoSrc, depthVideoSrc, joinConf, logger)
 	test.That(t, err, test.ShouldBeNil)
 	// get images and point clouds
 	alignedPointCloud, err := is.NextPointCloud(context.Background())
@@ -106,6 +106,6 @@ func TestJoin(t *testing.T) {
 	test.That(t, is.Close(context.Background()), test.ShouldBeNil)
 	// set necessary fields to nil, expect errors
 	joinConf.CameraParameters = nil
-	_, err = newJoinColorDepth(context.Background(), colorVideoSrc, depthVideoSrc, resource.Name{Name: "foo"}, joinConf, logger)
+	_, err = newJoinColorDepth(context.Background(), colorVideoSrc, depthVideoSrc, joinConf, logger)
 	test.That(t, errors.Is(err, transform.ErrNoIntrinsics), test.ShouldBeTrue)
 }

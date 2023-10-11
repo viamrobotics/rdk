@@ -22,7 +22,6 @@ import (
 )
 
 var extrinsicsModel = resource.DefaultModelFamily.WithModel("align_color_depth_extrinsics")
-
 func init() {
 	resource.RegisterComponent(camera.API, extrinsicsModel,
 		resource.Registration[camera.Camera, *extrinsicsConfig]{
@@ -153,8 +152,6 @@ func newColorDepthExtrinsics(ctx context.Context, color, depth camera.VideoSourc
 
 // Read aligns the next images from the color and the depth sources to the frame of the color camera.
 // stream parameter will determine which channel gets streamed.
-//
-//nolint:dupl
 func (cde *colorDepthExtrinsics) Read(ctx context.Context) (image.Image, func(), error) {
 	ctx, span := trace.StartSpan(ctx, "align::colorDepthExtrinsics::Read")
 	defer span.End()

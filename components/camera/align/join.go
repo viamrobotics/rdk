@@ -23,6 +23,7 @@ import (
 
 var joinModel = resource.DefaultModelFamily.WithModel("join_color_depth")
 
+//nolint:dupl
 func init() {
 	resource.RegisterComponent(camera.API, joinModel,
 		resource.Registration[camera.Camera, *joinConfig]{
@@ -44,7 +45,7 @@ func init() {
 				if err != nil {
 					return nil, fmt.Errorf("no depth camera (%s): %w", depthName, err)
 				}
-				src, err := newJoinColorDepth(ctx, color, depth, conf.ResourceName(), newConf, logger)
+				src, err := newJoinColorDepth(ctx, color, depth, newConf, logger)
 				if err != nil {
 					return nil, err
 				}
@@ -78,7 +79,6 @@ func (cfg *joinConfig) Validate(path string) ([]string, error) {
 
 // joinColorDepth takes a color and depth image source and aligns them together.
 type joinColorDepth struct {
-	resource.Named
 	color, depth         gostream.VideoStream
 	colorName, depthName string
 	underlyingCamera     camera.VideoSource
@@ -89,7 +89,7 @@ type joinColorDepth struct {
 }
 
 // newJoinColorDepth creates a gostream.VideoSource that aligned color and depth channels.
-func newJoinColorDepth(ctx context.Context, color, depth camera.VideoSource, name resource.Name, conf *joinConfig, logger golog.Logger,
+func newJoinColorDepth(ctx context.Context, color, depth camera.VideoSource, conf *joinConfig, logger golog.Logger,
 ) (camera.VideoSource, error) {
 	imgType := camera.ImageType(conf.ImageType)
 	// get intrinsic parameters from config, or from the underlying camera
@@ -117,7 +117,6 @@ func newJoinColorDepth(ctx context.Context, color, depth camera.VideoSource, nam
 		return nil, errors.Wrap(err, "error in the intrinsic parameters of the underlying camera")
 	}
 	videoSrc := &joinColorDepth{
-		Named:     name.AsNamed(),
 		colorName: conf.Color,
 		depthName: conf.Depth,
 		color:     gostream.NewEmbeddedVideoStream(color),
