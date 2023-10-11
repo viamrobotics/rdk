@@ -78,7 +78,7 @@
   },
   "dependencies": {
     "@floating-ui/dom": "^1.5.3",
-    "@viamrobotics/prime-blocks": "^0.0.7",
-    "@viamrobotics/prime-core": "^0.0.43"
+    "@viamrobotics/prime-blocks": "^0.0.9",
+    "@viamrobotics/prime-core": "^0.0.46"
   }
 }

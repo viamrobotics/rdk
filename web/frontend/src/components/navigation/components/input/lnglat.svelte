@@ -1,7 +1,6 @@
 <script lang='ts'>
 
 import { createEventDispatcher } from 'svelte';
-import { mapZoom } from '../../stores';
 import type { LngLat } from '@/api/navigation';
 
 export let label: string | undefined = undefined;
@@ -36,7 +35,7 @@ const handleLat = (event: CustomEvent<{ value: string }>) => {
     placeholder='0'
     incrementor={readonly ? undefined : 'slider'}
     value={lat}
-    step={$mapZoom ** 5}
+    step={1}
     class='w-full'
     on:input={handleLat}
     {readonly}
@@ -47,7 +46,7 @@ const handleLat = (event: CustomEvent<{ value: string }>) => {
     placeholder='0'
     incrementor={readonly ? undefined : 'slider'}
     value={lng}
-    step={$mapZoom ** 5}
+    step={1}
     class='w-full'
     on:input={handleLng}
     {readonly}
