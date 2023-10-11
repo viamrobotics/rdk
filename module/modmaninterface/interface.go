@@ -5,6 +5,7 @@ import (
 	"context"
 
 	"go.viam.com/rdk/config"
+	modlib "go.viam.com/rdk/module"
 	"go.viam.com/rdk/resource"
 )
 
@@ -19,6 +20,7 @@ type ModuleManager interface {
 	RemoveResource(ctx context.Context, name resource.Name) error
 	IsModularResource(name resource.Name) bool
 	ValidateConfig(ctx context.Context, cfg resource.Config) ([]string, error)
+	HandlerMap(modName string) (modlib.HandlerMap, error)
 
 	Configs() []config.Module
 	Provides(cfg resource.Config) bool

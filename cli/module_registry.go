@@ -13,11 +13,17 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/edaniels/golog"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 	"go.uber.org/multierr"
+	"go.uber.org/zap"
 	apppb "go.viam.com/api/app/v1"
+	rconfig "go.viam.com/rdk/config"
+	"go.viam.com/rdk/module/modmanager"
+	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
+	"go.viam.com/rdk/resource"
 )
 
 // moduleUploadChunkSize sets the number of bytes included in each chunk of the upload stream.
@@ -254,6 +260,117 @@ func UploadModuleAction(c *cli.Context) error {
 
 	printf(c.App.Writer, "Version successfully uploaded! you can view your changes online here: %s", response.GetUrl())
 
+	return nil
+}
+
+// VerifyModuleAction is the corresponding action for 'module verify'.
+func VerifyModuleAction(c *cli.Context) error {
+	executablePath := c.Args().First()
+	if c.Args().Len() > 1 {
+		return errors.New("too many arguments passed to verify command. Use --help for more information")
+	}
+	if executablePath == "" {
+		return errors.New("no module to verify -- please provide the path to your module. " +
+			"Use --help for more information")
+	}
+	return verifyModule(executablePath, c.App.Writer)
+}
+
+// noOpLogger returns a golog.Logger that ignores all logs.
+func noOpLogger() (golog.Logger, error) {
+	// Using a zap config with no OutputPaths will not output logs anywhere.
+	// Level and Encoding are required fields.
+	cfg := zap.Config{
+		Level:    zap.NewAtomicLevelAt(zap.InfoLevel),
+		Encoding: "console",
+	}
+	logger, err := cfg.Build()
+	if err != nil {
+		return nil, err
+	}
+	return logger.Sugar().Named("noop"), nil
+}
+
+func verifyModule(executablePath string, w io.Writer) error {
+	if w != nil {
+		printf(w, "Verifying module at %q...", executablePath)
+	}
+	logger, err := noOpLogger()
+	if err != nil {
+		return fmt.Errorf("could not create logger for manager: %w", err)
+	}
+
+	parentAddr, err := os.MkdirTemp("", "cli-module-verify-*")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(parentAddr)
+	parentAddr += "/parent.sock"
+
+	// Set up module manager with a dummy RemoveOrphanedResources function; we
+	// have no sense of resources/resource management in this context.
+	mgr := modmanager.NewManager(parentAddr, logger, modmanageroptions.Options{
+		RemoveOrphanedResources: func(context.Context, []resource.Name) {},
+	})
+	defer func() {
+		if err := mgr.Close(context.Background()); err != nil {
+			Errorf(w, "could not close module manager after verification attempt: %w", err)
+		}
+	}()
+
+	modName := "cli-module-to-verify"
+	modCfg := rconfig.Module{
+		ExePath: executablePath,
+		Name:    modName,
+	}
+	if err := mgr.Add(context.Background(), modCfg); err != nil {
+		if strings.Contains(err.Error(), modmanager.ErrMsgCouldNotStartModule) {
+			return fmt.Errorf("verification failed. Module did not start: %w", err)
+		}
+		if strings.Contains(err.Error(), modmanager.ErrMsgCouldNotDialModule) {
+			return fmt.Errorf("verification failed. Could not dial started module: %w", err)
+		}
+		if strings.Contains(err.Error(), modmanager.ErrMsgModuleNoReadyResp) {
+			return fmt.Errorf("verification failed. Started module was unresponsive: %w", err)
+		}
+		return fmt.Errorf("verification failed. Unknown error starting module: %w", err)
+	}
+
+	if w != nil {
+		printf(w, "Module successfully started and was responsive")
+		handlerMap, err := mgr.HandlerMap(modName)
+		if err != nil {
+			// Should be unreachable.
+			return fmt.Errorf("verification failed. Internal error: %w", err)
+		}
+
+		if len(handlerMap) == 0 {
+			warningf(w, "Module does not serve any API/model pairs. "+
+				"Ensure module is registering custom APIs and adding custom models to registry correctly")
+		} else {
+			printf(w, "Module serves API and model pairs:")
+		}
+		for api, models := range handlerMap {
+			for _, model := range models {
+				printf(w, "\tAPI %s and model %s", api.API, model)
+			}
+		}
+	}
+
+	// Ignore orphaned resources.
+	if _, err := mgr.Remove(modName); err != nil {
+		if strings.Contains(err.Error(), modmanager.ErrMsgCouldNotStopModule) {
+			return fmt.Errorf("verification failed. Stopping module process resulted in error: %w", err)
+		}
+		if strings.Contains(err.Error(), modmanager.ErrMsgCouldNotCloseModuleConn) {
+			return fmt.Errorf("verification failed. Error closing connection to module: %w", err)
+		}
+		return fmt.Errorf("verification failed. Unknown error stopping module: %w", err)
+	}
+
+	if w != nil {
+		printf(w, "Module successfully stopped. Verification successful!")
+	}
 	return nil
 }
 

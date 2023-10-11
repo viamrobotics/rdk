@@ -990,6 +990,31 @@ viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.ta
 					},
 					Action: UploadModuleAction,
 				},
+				{
+					Name:  "verify",
+					Usage: "verify that your module qualifies as a Viam module",
+					Description: `Verifies that the provided module can properly function as a Viam module.
+
+A module can be built in any language, with or without support of the Viam SDKs. A module must have the
+following properties.
+  - Is an executable file by UNIX standards. This can be a compiled binary, or a script with the proper
+    shebang to its interpreter, such as Python.
+  - Looks at the first argument passed to it at execution, and uses that as its gRPC socket path.
+  - Listens with plaintext gRPC on that socket.
+  - gRPC must provide the Module service (https://github.com/viamrobotics/api/tree/main/proto/viam/module/v1/module.proto),
+    a reflection service, and any APIs needed for the resources it intends to serve. Note that the "robot"
+    service itself is NOT required.
+  - Handles the Module service's calls for Ready(), and Add/Remove/ReconfigureResource()
+  - Cleanly exits when sent a SIGINT or SIGTERM signal.
+
+See our example modules in Golang, C++ and Python for more information. They all fulfill the above
+requirements.
+  - Golang: https://github.com/viamrobotics/rdk/tree/main/examples/customresources/demos
+  - C++: https://github.com/viamrobotics/viam-cpp-sdk/tree/main/src/viam/examples/modules
+  - Python: https://github.com/viamrobotics/viam-python-sdk/tree/main/examples`,
+					UsageText: "viam module verify <path/to/module>",
+					Action:    VerifyModuleAction,
+				},
 			},
 		},
 		{

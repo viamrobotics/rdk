@@ -39,6 +39,14 @@ var (
 	errMessageExitStatus143     = "exit status 143"
 	logLevelArgumentTemplate    = "--log-level=%s"
 	errModularResourcesDisabled = errors.New("modular resources disabled in untrusted environment")
+
+	// NOTE(benjirewis): these error messages are referenced in the CLI to
+	// determine why a module may be invalid.
+	ErrMsgCouldNotStartModule     = "error while starting module "
+	ErrMsgCouldNotDialModule      = "error while dialing module "
+	ErrMsgModuleNoReadyResp       = "error while waiting for module to be ready "
+	ErrMsgCouldNotStopModule      = "error while stopping module "
+	ErrMsgCouldNotCloseModuleConn = "error while closing connection from module "
 )
 
 // NewManager returns a Manager.
@@ -155,16 +163,16 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, conn *grpc.Clie
 
 	if err := mod.startProcess(mgr.restartCtx, mgr.parentAddr,
 		mgr.newOnUnexpectedExitHandler(mod), mgr.logger); err != nil {
-		return errors.WithMessage(err, "error while starting module "+mod.name)
+		return errors.WithMessage(err, ErrMsgCouldNotStartModule+mod.name)
 	}
 
 	// dial will re-use mod.conn if it's non-nil (module being added in a Reconfigure).
 	if err := mod.dial(); err != nil {
-		return errors.WithMessage(err, "error while dialing module "+mod.name)
+		return errors.WithMessage(err, ErrMsgCouldNotDialModule+mod.name)
 	}
 
 	if err := mod.checkReady(ctx, mgr.parentAddr, mgr.logger); err != nil {
-		return errors.WithMessage(err, "error while waiting for module to be ready "+mod.name)
+		return errors.WithMessage(err, ErrMsgModuleNoReadyResp+mod.name)
 	}
 
 	mod.registerResources(mgr, mgr.logger)
@@ -253,14 +261,14 @@ func (mgr *Manager) remove(mod *module, reconfigure bool) error {
 	}
 
 	if err := mod.stopProcess(); err != nil {
-		return errors.WithMessage(err, "error while stopping module "+mod.name)
+		return errors.WithMessage(err, ErrMsgCouldNotStopModule+mod.name)
 	}
 
 	// Do not close connection if module is being reconfigured.
 	if !reconfigure {
 		if mod.conn != nil {
 			if err := mod.conn.Close(); err != nil {
-				return errors.WithMessage(err, "error while closing connection from module "+mod.name)
+				return errors.WithMessage(err, ErrMsgCouldNotCloseModuleConn+mod.name)
 			}
 		}
 	}
@@ -351,6 +359,14 @@ func (mgr *Manager) Provides(conf resource.Config) bool {
 	defer mgr.mu.RUnlock()
 	_, ok := mgr.getModule(conf)
 	return ok
+}
+
+// HandlerMap returns the handler map of the module named modName.
+func (mgr *Manager) HandlerMap(modName string) (modlib.HandlerMap, error) {
+	if mod, ok := mgr.modules[modName]; ok {
+		return mod.handles, nil
+	}
+	return nil, errors.Errorf("cannot return handler map for module %s as it does not exist", modName)
 }
 
 // IsModularResource returns true if an existing resource IS handled by a module.
