@@ -4,11 +4,11 @@ import (
 	"context"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
@@ -17,7 +17,7 @@ import (
 func setupNewLocalRobot(t *testing.T) robot.LocalRobot {
 	t.Helper()
 
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	cfg, err := config.Read(context.Background(), "data/fake.json", logger)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -46,17 +46,21 @@ var (
 
 func init() {
 	resource.Register(workingQ.API, workingQ.Model, resource.Registration[resource.Resource, resource.NoNativeConfig]{
-		Constructor: func(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (resource.Resource, error) {
+		Constructor: func(
+			ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
+		) (resource.Resource, error) {
 			return nil, errors.New("no")
 		},
-		Discover: func(ctx context.Context, logger golog.Logger) (interface{}, error) { return workingDiscovery, nil },
+		Discover: func(ctx context.Context, logger logging.Logger) (interface{}, error) { return workingDiscovery, nil },
 	})
 
 	resource.Register(failQ.API, failQ.Model, resource.Registration[resource.Resource, resource.NoNativeConfig]{
-		Constructor: func(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (resource.Resource, error) {
+		Constructor: func(
+			ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
+		) (resource.Resource, error) {
 			return nil, errors.New("no")
 		},
-		Discover: func(ctx context.Context, logger golog.Logger) (interface{}, error) { return nil, errFailed },
+		Discover: func(ctx context.Context, logger logging.Logger) (interface{}, error) { return nil, errFailed },
 	})
 }
 

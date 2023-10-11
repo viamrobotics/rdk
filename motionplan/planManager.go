@@ -12,10 +12,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	pb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
@@ -43,7 +43,7 @@ type planManager struct {
 func newPlanManager(
 	frame *solverFrame,
 	fs referenceframe.FrameSystem,
-	logger golog.Logger,
+	logger logging.Logger,
 	seed int,
 ) (*planManager, error) {
 	anyPTG := false     // Whether PTG frames have been observed

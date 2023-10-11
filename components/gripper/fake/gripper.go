@@ -5,9 +5,8 @@ import (
 	"context"
 	"sync"
 
-	"github.com/edaniels/golog"
-
 	"go.viam.com/rdk/components/gripper"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
@@ -30,11 +29,11 @@ type Gripper struct {
 	resource.TriviallyCloseable
 	geometries []spatialmath.Geometry
 	mu         sync.Mutex
-	logger     golog.Logger
+	logger     logging.Logger
 }
 
 // NewGripper instantiates a new gripper of the fake model type.
-func NewGripper(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (gripper.Gripper, error) {
+func NewGripper(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger) (gripper.Gripper, error) {
 	g := &Gripper{
 		Named:      conf.ResourceName().AsNamed(),
 		geometries: []spatialmath.Geometry{},

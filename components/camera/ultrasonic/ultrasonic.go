@@ -6,11 +6,10 @@ import (
 	"errors"
 	"image"
 
-	"github.com/edaniels/golog"
-
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/sensor"
 	ultrasense "go.viam.com/rdk/components/sensor/ultrasonic"
+	"go.viam.com/rdk/logging"
 	pointcloud "go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 )
@@ -30,7 +29,7 @@ func init() {
 				ctx context.Context,
 				deps resource.Dependencies,
 				conf resource.Config,
-				logger golog.Logger,
+				logger logging.Logger,
 			) (camera.Camera, error) {
 				newConf, err := resource.NativeConfig[*ultrasense.Config](conf)
 				if err != nil {
@@ -42,7 +41,7 @@ func init() {
 }
 
 func newCamera(ctx context.Context, deps resource.Dependencies, name resource.Name,
-	newConf *ultrasense.Config, logger golog.Logger,
+	newConf *ultrasense.Config, logger logging.Logger,
 ) (camera.Camera, error) {
 	usSensor, err := ultrasense.NewSensor(ctx, deps, name, newConf, logger)
 	if err != nil {

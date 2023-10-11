@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"github.com/google/uuid"
 	commonpb "go.viam.com/api/common/v1"
 	genericpb "go.viam.com/api/component/generic/v1"
@@ -21,6 +20,7 @@ import (
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	rtestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/robottestutils"
@@ -28,7 +28,7 @@ import (
 )
 
 func TestOpID(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	cfgFilename, port, err := makeConfig(t, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
@@ -132,7 +132,7 @@ func TestOpID(t *testing.T) {
 	}
 }
 
-func makeConfig(t *testing.T, logger golog.Logger) (string, string, error) {
+func makeConfig(t *testing.T, logger logging.Logger) (string, string, error) {
 	// Precompile module to avoid timeout issues when building takes too long.
 	modPath, err := rtestutils.BuildTempModule(t, "module/testmodule")
 	if err != nil {

@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
@@ -17,6 +16,7 @@ import (
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/gantry"
 	"go.viam.com/rdk/components/motor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -103,13 +103,13 @@ type singleAxis struct {
 	frame r3.Vector
 
 	cancelFunc              func()
-	logger                  golog.Logger
+	logger                  logging.Logger
 	opMgr                   *operation.SingleOperationManager
 	activeBackgroundWorkers sync.WaitGroup
 }
 
 // newSingleAxis creates a new single axis gantry.
-func newSingleAxis(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (gantry.Gantry, error) {
+func newSingleAxis(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger) (gantry.Gantry, error) {
 	sAx := &singleAxis{
 		Named:  conf.ResourceName().AsNamed(),
 		logger: logger,

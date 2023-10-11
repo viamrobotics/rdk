@@ -3,13 +3,14 @@ package config
 import (
 	"testing"
 
-	"github.com/edaniels/golog"
 	"go.uber.org/zap"
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/logging"
 )
 
 func TestConfigDebugFlag(t *testing.T) {
-	logConfig := golog.NewDevelopmentLoggerConfig()
+	logConfig := logging.NewDevelopmentLoggerConfig()
 	logger := zap.Must(logConfig.Build()).Sugar()
 
 	for _, cmdLineValue := range []bool{true, false} {

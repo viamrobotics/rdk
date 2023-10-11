@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/board"
@@ -28,7 +28,7 @@ func TestPiHardware(t *testing.T) {
 		return
 	}
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	cfg := genericlinux.Config{
 		DigitalInterrupts: []board.DigitalInterruptConfig{

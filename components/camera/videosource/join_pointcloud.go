@@ -6,13 +6,13 @@ import (
 	"image"
 	"math"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -89,7 +89,7 @@ type joinPointCloudCamera struct {
 	targetName    string
 	fsService     framesystem.Service
 	mergeMethod   MergeMethodType
-	logger        golog.Logger
+	logger        logging.Logger
 	debug         bool
 	closeness     float64
 	src           camera.VideoSource
@@ -101,7 +101,7 @@ func newJoinPointCloudCamera(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (camera.Camera, error) {
 	joinCam := &joinPointCloudCamera{
 		Named:  conf.ResourceName().AsNamed(),

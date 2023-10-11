@@ -5,9 +5,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
+
+	"go.viam.com/rdk/logging"
 )
 
 // controlBlockInternal Holds internal variables to control the flow of data between blocks.
@@ -30,7 +31,7 @@ type Loop struct {
 	cfg                     Config
 	blocks                  map[string]*controlBlockInternal
 	ct                      controlTicker
-	logger                  golog.Logger
+	logger                  logging.Logger
 	ts                      []chan time.Time
 	dt                      time.Duration
 	activeBackgroundWorkers sync.WaitGroup
@@ -40,11 +41,11 @@ type Loop struct {
 }
 
 // NewLoop construct a new control loop for a specific endpoint.
-func NewLoop(logger golog.Logger, cfg Config, m Controllable) (*Loop, error) {
+func NewLoop(logger logging.Logger, cfg Config, m Controllable) (*Loop, error) {
 	return createLoop(logger, cfg, m)
 }
 
-func createLoop(logger golog.Logger, cfg Config, m Controllable) (*Loop, error) {
+func createLoop(logger logging.Logger, cfg Config, m Controllable) (*Loop, error) {
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	l := Loop{
 		logger:    logger,

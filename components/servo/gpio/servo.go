@@ -6,12 +6,12 @@ import (
 	"math"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	viamutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/servo"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 )
@@ -102,7 +102,7 @@ type servoGPIO struct {
 	pin       board.GPIOPin
 	minDeg    float64
 	maxDeg    float64
-	logger    golog.Logger
+	logger    logging.Logger
 	opMgr     *operation.SingleOperationManager
 	frequency uint
 	minUs     uint
@@ -111,7 +111,7 @@ type servoGPIO struct {
 	currPct   float64
 }
 
-func newGPIOServo(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (servo.Servo, error) {
+func newGPIOServo(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger) (servo.Servo, error) {
 	newConf, err := resource.NativeConfig[*servoConfig](conf)
 	if err != nil {
 		return nil, err

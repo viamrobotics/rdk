@@ -5,8 +5,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+
+	"go.viam.com/rdk/logging"
 )
 
 type endpoint struct {
@@ -14,10 +15,10 @@ type endpoint struct {
 	ctr    Controllable
 	cfg    BlockConfig
 	y      []*Signal
-	logger golog.Logger
+	logger logging.Logger
 }
 
-func newEndpoint(config BlockConfig, logger golog.Logger, ctr Controllable) (Block, error) {
+func newEndpoint(config BlockConfig, logger logging.Logger, ctr Controllable) (Block, error) {
 	e := &endpoint{cfg: config, logger: logger, ctr: ctr}
 	if err := e.reset(); err != nil {
 		return nil, err

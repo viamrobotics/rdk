@@ -7,11 +7,11 @@ import (
 	"image/color"
 	"math"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
@@ -34,7 +34,7 @@ func init() {
 				ctx context.Context,
 				_ resource.Dependencies,
 				cfg resource.Config,
-				logger golog.Logger,
+				logger logging.Logger,
 			) (camera.Camera, error) {
 				return NewCamera(ctx, cfg, logger)
 			},

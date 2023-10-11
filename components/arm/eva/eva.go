@@ -16,13 +16,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/arm/v1"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
@@ -45,7 +45,7 @@ var evamodeljson []byte
 
 func init() {
 	resource.RegisterComponent(arm.API, Model, resource.Registration[arm.Arm, *Config]{
-		Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (arm.Arm, error) {
+		Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger logging.Logger) (arm.Arm, error) {
 			return NewEva(ctx, conf, logger)
 		},
 	})
@@ -86,7 +86,7 @@ type eva struct {
 	sessionToken string
 
 	moveLock sync.Mutex
-	logger   golog.Logger
+	logger   logging.Logger
 	model    referenceframe.Model
 
 	frameJSON []byte
@@ -95,7 +95,7 @@ type eva struct {
 }
 
 // NewEva TODO.
-func NewEva(ctx context.Context, conf resource.Config, logger golog.Logger) (arm.Arm, error) {
+func NewEva(ctx context.Context, conf resource.Config, logger logging.Logger) (arm.Arm, error) {
 	model, err := MakeModelFrame(conf.Name)
 	if err != nil {
 		return nil, err

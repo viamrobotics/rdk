@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	echopb "go.viam.com/api/component/testecho/v1"
@@ -27,6 +26,7 @@ import (
 	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/client"
 	robotimpl "go.viam.com/rdk/robot/impl"
@@ -52,7 +52,7 @@ func init() {
 			conn rpc.ClientConn,
 			remoteName string,
 			name resource.Name,
-			logger golog.Logger,
+			logger logging.Logger,
 		) (resource.Resource, error) {
 			return NewClientFromConn(ctx, conn, remoteName, name, logger), nil
 		},
@@ -65,7 +65,7 @@ func TestSessions(t *testing.T) {
 		time.Second * 5,
 	} {
 		t.Run(fmt.Sprintf("window size=%s", windowSize), func(t *testing.T) {
-			logger := golog.NewTestLogger(t)
+			logger := logging.NewTestLogger(t)
 
 			stopChs := map[string]*StopChan{
 				"motor1": {make(chan struct{}), "motor1"},
@@ -101,7 +101,7 @@ func TestSessions(t *testing.T) {
 					ctx context.Context,
 					deps resource.Dependencies,
 					conf resource.Config,
-					logger golog.Logger,
+					logger logging.Logger,
 				) (motor.Motor, error) {
 					if conf.Name == "motor1" {
 						return &dummyMotor1, nil
@@ -116,7 +116,7 @@ func TestSessions(t *testing.T) {
 						ctx context.Context,
 						_ resource.Dependencies,
 						conf resource.Config,
-						logger golog.Logger,
+						logger logging.Logger,
 					) (resource.Resource, error) {
 						return &dummyEcho1, nil
 					},
@@ -130,7 +130,7 @@ func TestSessions(t *testing.T) {
 						ctx context.Context,
 						_ resource.Dependencies,
 						conf resource.Config,
-						logger golog.Logger,
+						logger logging.Logger,
 					) (base.Base, error) {
 						return &dummyBase1, nil
 					},
@@ -263,7 +263,7 @@ func TestSessions(t *testing.T) {
 }
 
 func TestSessionsWithRemote(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	stopChs := map[string]*StopChan{
 		"remMotor1": {make(chan struct{}), "remMotor1"},
@@ -300,7 +300,7 @@ func TestSessionsWithRemote(t *testing.T) {
 				ctx context.Context,
 				deps resource.Dependencies,
 				conf resource.Config,
-				logger golog.Logger,
+				logger logging.Logger,
 			) (motor.Motor, error) {
 				if conf.Attributes.Bool("rem", false) {
 					if conf.Name == "motor1" {
@@ -319,7 +319,7 @@ func TestSessionsWithRemote(t *testing.T) {
 				ctx context.Context,
 				_ resource.Dependencies,
 				conf resource.Config,
-				logger golog.Logger,
+				logger logging.Logger,
 			) (resource.Resource, error) {
 				return &dummyRemEcho1, nil
 			},
@@ -333,7 +333,7 @@ func TestSessionsWithRemote(t *testing.T) {
 				ctx context.Context,
 				_ resource.Dependencies,
 				conf resource.Config,
-				logger golog.Logger,
+				logger logging.Logger,
 			) (base.Base, error) {
 				if conf.Attributes.Bool("rem", false) {
 					return &dummyRemBase1, nil
@@ -565,7 +565,7 @@ func TestSessionsWithRemote(t *testing.T) {
 }
 
 func TestSessionsMixedClients(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	stopChMotor1 := make(chan struct{})
 
 	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
@@ -579,7 +579,7 @@ func TestSessionsMixedClients(t *testing.T) {
 				ctx context.Context,
 				deps resource.Dependencies,
 				conf resource.Config,
-				logger golog.Logger,
+				logger logging.Logger,
 			) (motor.Motor, error) {
 				return &dummyMotor1, nil
 			},
@@ -654,7 +654,7 @@ func TestSessionsMixedClients(t *testing.T) {
 }
 
 func TestSessionsMixedOwnersNoAuth(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	stopChMotor1 := make(chan struct{})
 
 	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
@@ -668,7 +668,7 @@ func TestSessionsMixedOwnersNoAuth(t *testing.T) {
 				ctx context.Context,
 				deps resource.Dependencies,
 				conf resource.Config,
-				logger golog.Logger,
+				logger logging.Logger,
 			) (motor.Motor, error) {
 				return &dummyMotor1, nil
 			},
@@ -755,7 +755,7 @@ func TestSessionsMixedOwnersNoAuth(t *testing.T) {
 
 // TODO(RSDK-890): add explicit auth test once subjects are actually unique.
 func TestSessionsMixedOwnersImplicitAuth(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	stopChMotor1 := make(chan struct{})
 
 	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
@@ -769,7 +769,7 @@ func TestSessionsMixedOwnersImplicitAuth(t *testing.T) {
 				ctx context.Context,
 				deps resource.Dependencies,
 				conf resource.Config,
-				logger golog.Logger,
+				logger logging.Logger,
 			) (motor.Motor, error) {
 				return &dummyMotor1, nil
 			},
@@ -954,7 +954,7 @@ func NewClientFromConn(
 	conn rpc.ClientConn,
 	remoteName string,
 	name resource.Name,
-	logger golog.Logger,
+	logger logging.Logger,
 ) resource.Resource {
 	c := echopb.NewTestEchoServiceClient(conn)
 	return &dummyClient{

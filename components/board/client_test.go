@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
 	commonpb "go.viam.com/api/common/v1"
 	boardpb "go.viam.com/api/component/board/v1"
 	"go.viam.com/test"
@@ -14,6 +13,7 @@ import (
 
 	"go.viam.com/rdk/components/board"
 	viamgrpc "go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
@@ -26,7 +26,7 @@ var (
 
 func setupService(t *testing.T, injectBoard *inject.Board) (net.Listener, func()) {
 	t.Helper()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
@@ -44,7 +44,7 @@ func setupService(t *testing.T, injectBoard *inject.Board) (net.Listener, func()
 }
 
 func TestFailingClient(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	injectBoard := &inject.Board{}
 
@@ -60,7 +60,7 @@ func TestFailingClient(t *testing.T) {
 }
 
 func TestWorkingClient(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	injectBoard := &inject.Board{}
 
 	listener, cleanup := setupService(t, injectBoard)
@@ -218,7 +218,7 @@ func TestWorkingClient(t *testing.T) {
 }
 
 func TestClientWithStatus(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	injectStatus := &commonpb.BoardStatus{
 		Analogs: map[string]*commonpb.AnalogStatus{
@@ -262,7 +262,7 @@ func TestClientWithStatus(t *testing.T) {
 }
 
 func TestClientWithoutStatus(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	injectBoard := &inject.Board{}
 

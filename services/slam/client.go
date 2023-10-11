@@ -5,11 +5,11 @@ import (
 	"errors"
 	"time"
 
-	"github.com/edaniels/golog"
 	"go.opencensus.io/trace"
 	pb "go.viam.com/api/service/slam/v1"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/logging"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/slam/grpchelper"
@@ -23,7 +23,7 @@ type client struct {
 	resource.TriviallyCloseable
 	name   string
 	client pb.SLAMServiceClient
-	logger golog.Logger
+	logger logging.Logger
 }
 
 // NewClientFromConn constructs a new Client from the connection passed in.
@@ -32,7 +32,7 @@ func NewClientFromConn(
 	conn rpc.ClientConn,
 	remoteName string,
 	name resource.Name,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (Service, error) {
 	grpcClient := pb.NewSLAMServiceClient(conn)
 	c := &client{

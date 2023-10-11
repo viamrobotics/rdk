@@ -8,7 +8,6 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/edaniels/golog"
 	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
 	v1 "go.viam.com/api/app/v1"
 	pb "go.viam.com/api/module/v1"
@@ -27,6 +26,7 @@ import (
 	"go.viam.com/rdk/examples/customresources/models/mybase"
 	"go.viam.com/rdk/examples/customresources/models/mygizmo"
 	"go.viam.com/rdk/examples/customresources/models/mysum"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/module"
 	"go.viam.com/rdk/resource"
 	robotimpl "go.viam.com/rdk/robot/impl"
@@ -37,7 +37,7 @@ import (
 
 func TestAddModelFromRegistry(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	// Use 'foo.sock' for arbitrary module to test AddModelFromRegistry.
 	m, err := module.NewModule(ctx, filepath.Join(t.TempDir(), "foo.sock"), logger)
@@ -121,7 +121,7 @@ func TestAddModelFromRegistry(t *testing.T) {
 
 func TestModuleFunctions(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	gizmoConf := &v1.ComponentConfig{
 		Name: "gizmo1", Api: "acme:component:gizmo", Model: "acme:demo:mygizmo",
@@ -372,7 +372,7 @@ func TestAttributeConversion(t *testing.T) {
 
 	setupTest := func(t *testing.T) (*testHarness, func()) {
 		ctx := context.Background()
-		logger := golog.NewTestLogger(t)
+		logger := logging.NewTestLogger(t)
 
 		cfg := &config.Config{Components: []resource.Config{
 			{
@@ -408,7 +408,7 @@ func TestAttributeConversion(t *testing.T) {
 
 		// register the non-reconfigurable one
 		resource.RegisterService(shell.API, model, resource.Registration[shell.Service, *MockConfig]{
-			Constructor: func(ctx context.Context, deps resource.Dependencies, cfg resource.Config, logger golog.Logger) (shell.Service, error) {
+			Constructor: func(ctx context.Context, deps resource.Dependencies, cfg resource.Config, logger logging.Logger) (shell.Service, error) {
 				createConf1 = cfg
 				createDeps1 = deps
 				return &inject.ShellService{}, nil
@@ -418,7 +418,7 @@ func TestAttributeConversion(t *testing.T) {
 
 		// register the reconfigurable version
 		resource.RegisterService(shell.API, modelWithReconfigure, resource.Registration[shell.Service, *MockConfig]{
-			Constructor: func(ctx context.Context, deps resource.Dependencies, cfg resource.Config, logger golog.Logger) (shell.Service, error) {
+			Constructor: func(ctx context.Context, deps resource.Dependencies, cfg resource.Config, logger logging.Logger) (shell.Service, error) {
 				injectable := &inject.ShellService{}
 				injectable.ReconfigureFunc = func(ctx context.Context, deps resource.Dependencies, cfg resource.Config) error {
 					reconfigConf2 = cfg

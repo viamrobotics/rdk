@@ -4,7 +4,6 @@ package main
 import (
 	"context"
 
-	"github.com/edaniels/golog"
 	"github.com/viamrobotics/gostream"
 	"github.com/viamrobotics/gostream/codec/x264"
 	"go.uber.org/multierr"
@@ -12,6 +11,7 @@ import (
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/camera/videosource"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	rutils "go.viam.com/rdk/utils"
 )
@@ -22,7 +22,7 @@ func main() {
 
 var (
 	defaultPort = 5555
-	logger      = golog.NewDebugLogger("stream_camera")
+	logger      = logging.NewDebugLogger("stream_camera")
 )
 
 // Arguments for the command.
@@ -35,7 +35,7 @@ type Arguments struct {
 	PathPattern string            `flag:"pathPattern"`
 }
 
-func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error {
+func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) error {
 	// both argesParsed and argsMap are similar, and should at some point be merged or refactored
 	var argsParsed Arguments
 	var argsMap videosource.WebcamConfig
@@ -87,7 +87,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 	return viewCamera(ctx, argsMap, int(argsParsed.Port), argsParsed.Debug, logger)
 }
 
-func viewCamera(ctx context.Context, conf videosource.WebcamConfig, port int, debug bool, logger golog.Logger) error {
+func viewCamera(ctx context.Context, conf videosource.WebcamConfig, port int, debug bool, logger logging.Logger) error {
 	webcam, err := videosource.NewWebcam(ctx, nil, resource.Config{
 		Name:                "camera",
 		ConvertedAttributes: &conf,

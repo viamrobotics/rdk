@@ -10,12 +10,12 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/edaniels/golog"
 	"go.uber.org/multierr"
 	"periph.io/x/host/v3"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/board/genericlinux"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
@@ -23,7 +23,7 @@ const modelName = "customlinux"
 
 func init() {
 	if _, err := host.Init(); err != nil {
-		golog.Global().Debugw("error initializing host", "error", err)
+		logging.Global().Debugw("error initializing host", "error", err)
 	}
 
 	resource.RegisterComponent(
@@ -38,7 +38,7 @@ func createNewBoard(
 	ctx context.Context,
 	_ resource.Dependencies,
 	conf resource.Config,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (board.Board, error) {
 	return genericlinux.NewBoard(ctx, conf, pinDefsFromFile, logger)
 }

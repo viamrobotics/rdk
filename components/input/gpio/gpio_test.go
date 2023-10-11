@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
 	"go.uber.org/zap"
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
@@ -15,6 +14,7 @@ import (
 	"go.viam.com/rdk/components/board"
 	fakeboard "go.viam.com/rdk/components/board/fake"
 	"go.viam.com/rdk/components/input"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
@@ -34,7 +34,7 @@ func setup(t *testing.T) *setupResult {
 	s := setupResult{}
 
 	s.ctx = context.Background()
-	s.logger = golog.NewTestLogger(t)
+	s.logger = logging.NewTestLogger(t)
 
 	s.b = &fakeboard.Board{
 		Digitals:      map[string]*fakeboard.DigitalInterruptWrapper{},

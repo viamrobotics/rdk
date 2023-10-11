@@ -6,13 +6,13 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/edaniels/golog"
 	robotpb "go.viam.com/api/robot/v1"
 	"go.viam.com/test"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/robottestutils"
 	"go.viam.com/rdk/utils"
@@ -23,7 +23,7 @@ import (
 const numResources = 20
 
 func TestNumResources(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	cfgFilename := utils.ResolveFile("/etc/configs/fake.json")
 	cfg, err := config.Read(context.Background(), cfgFilename, logger)
 	test.That(t, err, test.ShouldBeNil)

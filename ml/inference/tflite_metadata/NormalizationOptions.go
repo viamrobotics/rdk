@@ -8,11 +8,13 @@ import (
 
 type NormalizationOptionsT struct {
 	Mean []float32
-	Std []float32
+	Std  []float32
 }
 
 func (t *NormalizationOptionsT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
-	if t == nil { return 0 }
+	if t == nil {
+		return 0
+	}
 	meanOffset := flatbuffers.UOffsetT(0)
 	if t.Mean != nil {
 		meanLength := len(t.Mean)
@@ -51,7 +53,9 @@ func (rcv *NormalizationOptions) UnPackTo(t *NormalizationOptionsT) {
 }
 
 func (rcv *NormalizationOptions) UnPack() *NormalizationOptionsT {
-	if rcv == nil { return nil }
+	if rcv == nil {
+		return nil
+	}
 	t := &NormalizationOptionsT{}
 	rcv.UnPackTo(t)
 	return t

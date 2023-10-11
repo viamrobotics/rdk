@@ -9,7 +9,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/fullstorydev/grpcurl"
 	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
 	"github.com/jhump/protoreflect/desc"
@@ -28,6 +27,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/pointcloud"
 	rprotoutils "go.viam.com/rdk/protoutils"
@@ -128,7 +128,7 @@ type RobotClient struct {
 	activeBackgroundWorkers sync.WaitGroup
 	backgroundCtx           context.Context
 	backgroundCtxCancel     func()
-	logger                  golog.Logger
+	logger                  logging.Logger
 
 	// sessions
 	sessionsDisabled bool
@@ -251,7 +251,7 @@ func (rc *RobotClient) handleStreamDisconnect(
 
 // New constructs a new RobotClient that is served at the given address. The given
 // context can be used to cancel the operation.
-func New(ctx context.Context, address string, logger golog.Logger, opts ...RobotClientOption) (*RobotClient, error) {
+func New(ctx context.Context, address string, logger logging.Logger, opts ...RobotClientOption) (*RobotClient, error) {
 	var rOpts robotClientOpts
 
 	for _, opt := range opts {
@@ -760,7 +760,7 @@ func (rc *RobotClient) ResourceRPCAPIs() []resource.RPCAPI {
 }
 
 // Logger returns the logger being used for this robot.
-func (rc *RobotClient) Logger() golog.Logger {
+func (rc *RobotClient) Logger() logging.Logger {
 	return rc.logger
 }
 

@@ -8,7 +8,6 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	apppb "go.viam.com/api/app/v1"
@@ -16,6 +15,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/logging"
 )
 
 func TestNetLoggerQueueOperations(t *testing.T) {
@@ -84,7 +84,7 @@ type serverForRobotLogger struct {
 }
 
 func makeServerForRobotLogger(t *testing.T) serverForRobotLogger {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
@@ -110,7 +110,7 @@ func TestNetLoggerBatchWrites(t *testing.T) {
 	server := makeServerForRobotLogger(t)
 	defer server.stop()
 
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	nl, err := newNetLogger(server.cloudConfig, logger, zap.NewAtomicLevelAt(zap.InfoLevel))
 	test.That(t, err, test.ShouldBeNil)
 
@@ -140,7 +140,7 @@ func TestNetLoggerBatchFailureAndRetry(t *testing.T) {
 	server := makeServerForRobotLogger(t)
 	defer server.stop()
 
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	nl, err := newNetLogger(server.cloudConfig, logger, zap.NewAtomicLevelAt(zap.InfoLevel))
 	test.That(t, err, test.ShouldBeNil)
 
@@ -177,7 +177,7 @@ func TestNetLoggerUnderlyingLoggerDoesntRecurse(t *testing.T) {
 	server := makeServerForRobotLogger(t)
 	defer server.stop()
 
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	nl, err := newNetLogger(server.cloudConfig, logger, zap.NewAtomicLevelAt(zap.InfoLevel))
 	test.That(t, err, test.ShouldBeNil)
 
@@ -202,7 +202,7 @@ func TestNetLoggerLogLevel(t *testing.T) {
 	server := makeServerForRobotLogger(t)
 	defer server.stop()
 
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	level := zap.NewAtomicLevelAt(zap.InfoLevel)
 	nl, err := newNetLogger(server.cloudConfig, logger, level)
 	test.That(t, err, test.ShouldBeNil)

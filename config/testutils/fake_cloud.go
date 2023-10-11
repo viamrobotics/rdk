@@ -8,13 +8,13 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/edaniels/golog"
 	pb "go.viam.com/api/app/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"go.viam.com/rdk/logging"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -42,7 +42,7 @@ type configAndCerts struct {
 }
 
 // NewFakeCloudServer creates and starts a new grpc server for the Viam Cloud.
-func NewFakeCloudServer(ctx context.Context, logger golog.Logger) (*FakeCloudServer, error) {
+func NewFakeCloudServer(ctx context.Context, logger logging.Logger) (*FakeCloudServer, error) {
 	listener, err := net.ListenTCP("tcp", &net.TCPAddr{Port: 0})
 	if err != nil {
 		return nil, err

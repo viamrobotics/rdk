@@ -11,12 +11,12 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/edaniels/golog"
 	"github.com/montanaflynn/stats"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	"golang.org/x/exp/constraints"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/ml"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -39,7 +39,7 @@ const (
 
 func init() {
 	resource.RegisterService(vision.API, model, resource.Registration[vision.Service, *MLModelConfig]{
-		DeprecatedRobotConstructor: func(ctx context.Context, r any, c resource.Config, logger golog.Logger) (vision.Service, error) {
+		DeprecatedRobotConstructor: func(ctx context.Context, r any, c resource.Config, logger logging.Logger) (vision.Service, error) {
 			attrs, err := resource.NativeConfig[*MLModelConfig](c)
 			if err != nil {
 				return nil, err
@@ -71,7 +71,7 @@ func registerMLModelVisionService(
 	name resource.Name,
 	params *MLModelConfig,
 	r robot.Robot,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (vision.Service, error) {
 	_, span := trace.StartSpan(ctx, "service::vision::registerMLModelVisionService")
 	defer span.End()
@@ -139,7 +139,7 @@ func getLabelsFromMetadata(md mlmodel.MLMetadata) []string {
 		}
 		defer func() {
 			if err := f.Close(); err != nil {
-				logger := golog.NewLogger("labelFile")
+				logger := logging.NewLogger("labelFile")
 				logger.Warnw("could not get labels from file", "error", err)
 				return
 			}

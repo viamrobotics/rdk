@@ -4,10 +4,10 @@ package summationapi
 import (
 	"context"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/utils/rpc"
 
 	pb "go.viam.com/rdk/examples/customresources/apis/proto/api/service/summation/v1"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 )
@@ -35,7 +35,7 @@ func init() {
 			conn rpc.ClientConn,
 			remoteName string,
 			name resource.Name,
-			logger golog.Logger,
+			logger logging.Logger,
 		) (Summation, error) {
 			return newClientFromConn(conn, remoteName, name, logger), nil
 		},
@@ -71,12 +71,12 @@ func (s *serviceServer) Sum(ctx context.Context, req *pb.SumRequest) (*pb.SumRes
 	return &pb.SumResponse{Sum: resp}, nil
 }
 
-func newClientFromConn(conn rpc.ClientConn, remoteName string, name resource.Name, logger golog.Logger) Summation {
+func newClientFromConn(conn rpc.ClientConn, remoteName string, name resource.Name, logger logging.Logger) Summation {
 	sc := newSvcClientFromConn(conn, remoteName, name, logger)
 	return clientFromSvcClient(sc, name.ShortName())
 }
 
-func newSvcClientFromConn(conn rpc.ClientConn, remoteName string, name resource.Name, logger golog.Logger) *serviceClient {
+func newSvcClientFromConn(conn rpc.ClientConn, remoteName string, name resource.Name, logger logging.Logger) *serviceClient {
 	client := pb.NewSummationServiceClient(conn)
 	sc := &serviceClient{
 		Named:  name.PrependRemote(remoteName).AsNamed(),
@@ -91,7 +91,7 @@ type serviceClient struct {
 	resource.AlwaysRebuild
 	resource.TriviallyCloseable
 	client pb.SummationServiceClient
-	logger golog.Logger
+	logger logging.Logger
 }
 
 type client struct {

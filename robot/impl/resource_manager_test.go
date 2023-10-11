@@ -9,7 +9,6 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"github.com/google/go-cmp/cmp"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
@@ -46,6 +45,7 @@ import (
 	fakeservo "go.viam.com/rdk/components/servo/fake"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/module/modmaninterface"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/pointcloud"
@@ -66,7 +66,7 @@ import (
 	viz "go.viam.com/rdk/vision"
 )
 
-func setupInjectRobot(logger golog.Logger) *inject.Robot {
+func setupInjectRobot(logger logging.Logger) *inject.Robot {
 	injectRobot := &inject.Robot{}
 	armNames := []resource.Name{
 		arm.Named("arm1"),
@@ -118,7 +118,7 @@ func setupInjectRobot(logger golog.Logger) *inject.Robot {
 		)
 	}
 	injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return nil }
-	injectRobot.LoggerFunc = func() golog.Logger {
+	injectRobot.LoggerFunc = func() logging.Logger {
 		return logger
 	}
 
@@ -180,7 +180,7 @@ func setupInjectRobot(logger golog.Logger) *inject.Robot {
 }
 
 func TestManagerForRemoteRobot(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	injectRobot := setupInjectRobot(logger)
 
 	manager := managerForDummyRobot(injectRobot)
@@ -245,7 +245,7 @@ func TestManagerForRemoteRobot(t *testing.T) {
 }
 
 func TestManagerMergeNamesWithRemotes(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	injectRobot := setupInjectRobot(logger)
 
 	manager := managerForDummyRobot(injectRobot)
@@ -368,7 +368,7 @@ func TestManagerMergeNamesWithRemotes(t *testing.T) {
 }
 
 func TestManagerResourceRemoteName(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	injectRobot := &inject.Robot{}
 	armNames := []resource.Name{arm.Named("arm1"), arm.Named("arm2")}
 	injectRobot.ResourceNamesFunc = func() []resource.Name { return armNames }
@@ -376,7 +376,7 @@ func TestManagerResourceRemoteName(t *testing.T) {
 	injectRobot.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
 		return rdktestutils.NewUnimplementedResource(name), nil
 	}
-	injectRobot.LoggerFunc = func() golog.Logger { return logger }
+	injectRobot.LoggerFunc = func() logging.Logger { return logger }
 
 	manager := managerForDummyRobot(injectRobot)
 	defer func() {
@@ -389,7 +389,7 @@ func TestManagerResourceRemoteName(t *testing.T) {
 	injectRemote.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
 		return rdktestutils.NewUnimplementedResource(name), nil
 	}
-	injectRemote.LoggerFunc = func() golog.Logger { return logger }
+	injectRemote.LoggerFunc = func() logging.Logger { return logger }
 	manager.addRemote(
 		context.Background(),
 		newDummyRobot(injectRemote),
@@ -410,7 +410,7 @@ func TestManagerResourceRemoteName(t *testing.T) {
 }
 
 func TestManagerWithSameNameInRemoteNoPrefix(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	injectRobot := setupInjectRobot(logger)
 
 	manager := managerForDummyRobot(injectRobot)
@@ -437,7 +437,7 @@ func TestManagerWithSameNameInRemoteNoPrefix(t *testing.T) {
 }
 
 func TestManagerWithSameNameInBaseAndRemote(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	injectRobot := setupInjectRobot(logger)
 
 	manager := managerForDummyRobot(injectRobot)
@@ -458,7 +458,7 @@ func TestManagerWithSameNameInBaseAndRemote(t *testing.T) {
 }
 
 func TestManagerAdd(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	manager := newResourceManager(resourceManagerOptions{}, logger)
 
 	injectArm := &inject.Arm{}
@@ -717,7 +717,7 @@ func TestManagerNewComponent(t *testing.T) {
 			},
 		},
 	}
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	robotForRemote := &localRobot{
 		manager: newResourceManager(resourceManagerOptions{}, logger),
 	}
@@ -748,7 +748,7 @@ func TestManagerNewComponent(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "board3")
 }
 
-func managerForTest(ctx context.Context, t *testing.T, l golog.Logger) *resourceManager {
+func managerForTest(ctx context.Context, t *testing.T, l logging.Logger) *resourceManager {
 	t.Helper()
 	injectRobot := setupInjectRobot(l)
 	manager := managerForDummyRobot(injectRobot)
@@ -773,7 +773,7 @@ func managerForTest(ctx context.Context, t *testing.T, l golog.Logger) *resource
 }
 
 func TestManagerMarkRemoved(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	manager := managerForTest(ctx, t, logger)
@@ -1248,7 +1248,7 @@ func TestManagerMarkRemoved(t *testing.T) {
 }
 
 func TestConfigRemoteAllowInsecureCreds(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	cfg, err := config.Read(context.Background(), "data/fake.json", logger)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -1329,7 +1329,7 @@ func TestConfigRemoteAllowInsecureCreds(t *testing.T) {
 }
 
 func TestConfigUntrustedEnv(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 
 	manager := newResourceManager(resourceManagerOptions{
@@ -1399,9 +1399,9 @@ func (fp *fakeProcess) Stop() error {
 }
 
 func TestManagerResourceRPCAPIs(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	injectRobot := &inject.Robot{}
-	injectRobot.LoggerFunc = func() golog.Logger {
+	injectRobot.LoggerFunc = func() logging.Logger {
 		return logger
 	}
 	injectRobot.ResourceNamesFunc = func() []resource.Name {
@@ -1438,7 +1438,7 @@ func TestManagerResourceRPCAPIs(t *testing.T) {
 	resName2 := resource.NewName(api2, "thing2")
 
 	injectRobotRemote1 := &inject.Robot{}
-	injectRobotRemote1.LoggerFunc = func() golog.Logger {
+	injectRobotRemote1.LoggerFunc = func() logging.Logger {
 		return logger
 	}
 	injectRobotRemote1.ResourceNamesFunc = func() []resource.Name {
@@ -1489,7 +1489,7 @@ func TestManagerResourceRPCAPIs(t *testing.T) {
 	)
 
 	injectRobotRemote2 := &inject.Robot{}
-	injectRobotRemote2.LoggerFunc = func() golog.Logger {
+	injectRobotRemote2.LoggerFunc = func() logging.Logger {
 		return logger
 	}
 	injectRobotRemote2.ResourceNamesFunc = func() []resource.Name {
@@ -1557,9 +1557,9 @@ func TestManagerResourceRPCAPIs(t *testing.T) {
 }
 
 func TestManagerEmptyResourceDesc(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	injectRobot := &inject.Robot{}
-	injectRobot.LoggerFunc = func() golog.Logger {
+	injectRobot.LoggerFunc = func() logging.Logger {
 		return logger
 	}
 	api := resource.APINamespaceRDK.WithComponentType("mockDesc")
@@ -1592,7 +1592,7 @@ func TestReconfigure(t *testing.T) {
 
 	api := resource.APINamespaceRDK.WithServiceType(subtypeName)
 
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	cfg, err := config.Read(context.Background(), "data/fake.json", logger)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -1612,7 +1612,7 @@ func TestReconfigure(t *testing.T) {
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger golog.Logger,
+			logger logging.Logger,
 		) (resource.Resource, error) {
 			return &mock{
 				Named: conf.ResourceName().AsNamed(),
@@ -1656,7 +1656,7 @@ func TestReconfigure(t *testing.T) {
 }
 
 func TestResourceCreationPanic(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 
 	r, err := New(ctx, &config.Config{}, logger)
@@ -1674,7 +1674,7 @@ func TestResourceCreationPanic(t *testing.T) {
 		model := resource.DefaultModelFamily.WithModel("test")
 
 		resource.RegisterComponent(api, model, resource.Registration[resource.Resource, resource.NoNativeConfig]{
-			Constructor: func(ctx context.Context, deps resource.Dependencies, c resource.Config, logger golog.Logger) (resource.Resource, error) {
+			Constructor: func(ctx context.Context, deps resource.Dependencies, c resource.Config, logger logging.Logger) (resource.Resource, error) {
 				panic("hello")
 			},
 		})
@@ -1703,7 +1703,7 @@ func TestResourceCreationPanic(t *testing.T) {
 				ctx context.Context,
 				deps resource.Dependencies,
 				c resource.Config,
-				logger golog.Logger,
+				logger logging.Logger,
 			) (resource.Resource, error) {
 				panic("hello")
 			},
@@ -1842,7 +1842,7 @@ func (rr *dummyRobot) PackageManager() packages.Manager {
 	panic("change to return nil")
 }
 
-func (rr *dummyRobot) Logger() golog.Logger {
+func (rr *dummyRobot) Logger() logging.Logger {
 	return rr.robot.Logger()
 }
 

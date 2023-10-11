@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	pb "go.viam.com/api/module/v1"
@@ -13,12 +12,13 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	"go.viam.com/rdk/components/generic"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/module"
 	"go.viam.com/rdk/resource"
 )
 
 var (
-	logger     = golog.NewDevelopmentLogger("SimpleModule")
+	logger     = logging.NewDevelopmentLogger("SimpleModule")
 	ctx        = context.Background()
 	myModel    = resource.NewModel("acme", "demo", "mycounter")
 	socketPath = "/tmp/viam-module-example.socket"

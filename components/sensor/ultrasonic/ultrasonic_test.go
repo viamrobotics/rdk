@@ -4,11 +4,11 @@ import (
 	"context"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/sensor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -67,7 +67,7 @@ func TestNewSensor(t *testing.T) {
 	fakecfg := &Config{TriggerPin: triggerPin, EchoInterrupt: echoInterrupt, Board: board1}
 	ctx := context.Background()
 	deps := setupDependencies(t)
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	_, err := NewSensor(ctx, deps, sensor.Named(testSensorName), fakecfg, logger)
 	test.That(t, err, test.ShouldBeNil)

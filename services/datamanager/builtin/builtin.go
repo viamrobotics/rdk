@@ -11,7 +11,6 @@ import (
 	"time"
 
 	clk "github.com/benbjohnson/clock"
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
 	goutils "go.viam.com/utils"
@@ -20,6 +19,7 @@ import (
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/internal"
 	"go.viam.com/rdk/internal/cloud"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/datamanager"
@@ -85,7 +85,7 @@ func (c *Config) Validate(path string) ([]string, error) {
 // builtIn initializes and orchestrates data capture collectors for registered component/methods.
 type builtIn struct {
 	resource.Named
-	logger                      golog.Logger
+	logger                      logging.Logger
 	captureDir                  string
 	captureDisabled             bool
 	collectors                  map[resourceMethodMetadata]*collectorAndConfig
@@ -112,7 +112,7 @@ func NewBuiltIn(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (datamanager.Service, error) {
 	svc := &builtIn{
 		Named:                       conf.ResourceName().AsNamed(),

@@ -4,9 +4,8 @@ package fake
 import (
 	"context"
 
-	"github.com/edaniels/golog"
-
 	"go.viam.com/rdk/components/servo"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
@@ -15,7 +14,7 @@ func init() {
 		servo.API,
 		resource.DefaultModelFamily.WithModel("fake"),
 		resource.Registration[servo.Servo, resource.NoNativeConfig]{
-			Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (servo.Servo, error) {
+			Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger logging.Logger) (servo.Servo, error) {
 				return &Servo{
 					Named:  conf.ResourceName().AsNamed(),
 					logger: logger,
@@ -30,7 +29,7 @@ type Servo struct {
 	resource.Named
 	resource.TriviallyReconfigurable
 	resource.TriviallyCloseable
-	logger golog.Logger
+	logger logging.Logger
 }
 
 // Move sets the given angle.

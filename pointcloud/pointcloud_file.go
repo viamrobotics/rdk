@@ -13,7 +13,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/edaniels/golog"
 	"github.com/edaniels/lidario"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
@@ -21,6 +20,7 @@ import (
 	"go.viam.com/utils"
 	"gonum.org/v1/gonum/num/quat"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -37,7 +37,7 @@ const (
 )
 
 // NewFromFile returns a pointcloud read in from the given file.
-func NewFromFile(fn string, logger golog.Logger) (PointCloud, error) {
+func NewFromFile(fn string, logger logging.Logger) (PointCloud, error) {
 	switch filepath.Ext(fn) {
 	case ".las":
 		return NewFromLASFile(fn, logger)
@@ -58,7 +58,7 @@ const pointValueDataTag = "rc|pv"
 // NewFromLASFile returns a point cloud from reading a LAS file. If any
 // lossiness of points could occur from reading it in, it's reported but is not
 // an error.
-func NewFromLASFile(fn string, logger golog.Logger) (PointCloud, error) {
+func NewFromLASFile(fn string, logger logging.Logger) (PointCloud, error) {
 	lf, err := lidario.NewLasFile(fn, "r")
 	if err != nil {
 		return nil, err

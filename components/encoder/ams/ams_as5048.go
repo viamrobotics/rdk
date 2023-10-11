@@ -7,13 +7,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/encoder"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
@@ -107,7 +107,7 @@ func (cfg *I2CConfig) ValidateI2C(path string) error {
 type Encoder struct {
 	resource.Named
 	mu                      sync.RWMutex
-	logger                  golog.Logger
+	logger                  logging.Logger
 	position                float64
 	positionOffset          float64
 	rotations               int

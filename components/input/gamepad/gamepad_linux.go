@@ -13,12 +13,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"github.com/viamrobotics/evdev"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/input"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
@@ -39,7 +39,7 @@ func init() {
 	})
 }
 
-func createController(_ context.Context, name resource.Name, logger golog.Logger, devFile string, reconnect bool) input.Controller {
+func createController(_ context.Context, name resource.Name, logger logging.Logger, devFile string, reconnect bool) input.Controller {
 	ctxWithCancel, cancel := context.WithCancel(context.Background())
 	g := gamepad{
 		Named:      name.AsNamed(),
@@ -77,7 +77,7 @@ func createController(_ context.Context, name resource.Name, logger golog.Logger
 }
 
 // NewController creates a new gamepad.
-func NewController(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (input.Controller, error) {
+func NewController(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger logging.Logger) (input.Controller, error) {
 	return createController(
 		ctx,
 		conf.ResourceName(),
@@ -96,7 +96,7 @@ type gamepad struct {
 	Mapping                 Mapping
 	controls                []input.Control
 	lastEvents              map[input.Control]input.Event
-	logger                  golog.Logger
+	logger                  logging.Logger
 	mu                      sync.RWMutex
 	activeBackgroundWorkers sync.WaitGroup
 	cancelFunc              func()

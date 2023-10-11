@@ -20,6 +20,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/logging"
 )
 
 const (
@@ -55,7 +56,7 @@ func (l *wrappedLogger) Sync() error {
 	return l.base.Sync()
 }
 
-func newNetLogger(config *config.Cloud, loggerWithoutNet golog.Logger, logLevel zap.AtomicLevel) (*netLogger, error) {
+func newNetLogger(config *config.Cloud, loggerWithoutNet logging.Logger, logLevel zap.AtomicLevel) (*netLogger, error) {
 	hostname, err := os.Hostname()
 	if err != nil {
 		return nil, err
@@ -95,7 +96,7 @@ type netLogger struct {
 
 	// Use this logger for library errors that will not be reported through
 	// the netLogger causing a recursive loop.
-	loggerWithoutNet golog.Logger
+	loggerWithoutNet logging.Logger
 
 	// Log level of the rdk system
 	logLevel zap.AtomicLevel
@@ -280,7 +281,7 @@ func (nl *netLogger) Sync() error {
 	}
 }
 
-func addCloudLogger(logger golog.Logger, logLevel zap.AtomicLevel, cfg *config.Cloud) (golog.Logger, func(), error) {
+func addCloudLogger(logger logging.Logger, logLevel zap.AtomicLevel, cfg *config.Cloud) (golog.Logger, func(), error) {
 	nl, err := newNetLogger(cfg, logger, logLevel)
 	if err != nil {
 		return nil, nil, err
@@ -308,7 +309,7 @@ type remoteLogWriterGRPC struct {
 
 	// Use this logger for library errors that will not be reported through
 	// the netLogger causing a recursive loop.
-	loggerWithoutNet golog.Logger
+	loggerWithoutNet logging.Logger
 }
 
 func (w *remoteLogWriterGRPC) write(logs []*apppb.LogEntry) error {

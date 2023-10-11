@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	commonpb "go.viam.com/api/common/v1"
@@ -17,6 +16,7 @@ import (
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -72,7 +72,7 @@ func init() {
 				ctx context.Context,
 				_ resource.Dependencies,
 				cfg resource.Config,
-				logger golog.Logger,
+				logger logging.Logger,
 			) (board.Board, error) {
 				return NewBoard(ctx, cfg, logger)
 			},
@@ -80,7 +80,7 @@ func init() {
 }
 
 // NewBoard returns a new fake board.
-func NewBoard(ctx context.Context, conf resource.Config, logger golog.Logger) (*Board, error) {
+func NewBoard(ctx context.Context, conf resource.Config, logger logging.Logger) (*Board, error) {
 	b := &Board{
 		Named:         conf.ResourceName().AsNamed(),
 		I2Cs:          map[string]*I2C{},
@@ -205,7 +205,7 @@ type Board struct {
 	AnalogReaders map[string]*AnalogReader
 	Digitals      map[string]*DigitalInterruptWrapper
 	GPIOPins      map[string]*GPIOPin
-	logger        golog.Logger
+	logger        logging.Logger
 	CloseCount    int
 }
 

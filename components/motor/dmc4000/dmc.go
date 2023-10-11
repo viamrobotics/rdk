@@ -12,13 +12,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/jacobsa/go-serial/serial"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 	"go.viam.com/utils/usb"
 
 	"go.viam.com/rdk/components/motor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 )
@@ -40,7 +40,7 @@ type controller struct {
 	mu           sync.Mutex
 	port         io.ReadWriteCloser
 	serialDevice string
-	logger       golog.Logger
+	logger       logging.Logger
 	activeAxes   map[string]bool
 	ampModel1    string
 	ampModel2    string
@@ -60,7 +60,7 @@ type Motor struct {
 	jogging          bool
 	opMgr            *operation.SingleOperationManager
 	powerPct         float64
-	logger           golog.Logger
+	logger           logging.Logger
 }
 
 // Config adds DMC-specific config options.
@@ -89,7 +89,7 @@ func init() {
 	controllers = make(map[string]*controller)
 
 	resource.RegisterComponent(motor.API, model, resource.Registration[motor.Motor, *Config]{
-		Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (motor.Motor, error) {
+		Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger logging.Logger) (motor.Motor, error) {
 			newConf, err := resource.NativeConfig[*Config](conf)
 			if err != nil {
 				return nil, err
@@ -100,7 +100,7 @@ func init() {
 }
 
 // NewMotor returns a DMC4000 driven motor.
-func NewMotor(ctx context.Context, c *Config, name resource.Name, logger golog.Logger) (motor.Motor, error) {
+func NewMotor(ctx context.Context, c *Config, name resource.Name, logger logging.Logger) (motor.Motor, error) {
 	if c.SerialDevice == "" {
 		devs := usb.Search(usbFilter, func(vendorID, productID int) bool {
 			if vendorID == 0x403 && productID == 0x6001 {
@@ -210,7 +210,7 @@ func (m *Motor) Close(ctx context.Context) error {
 	return nil
 }
 
-func newController(c *Config, logger golog.Logger) (*controller, error) {
+func newController(c *Config, logger logging.Logger) (*controller, error) {
 	ctrl := new(controller)
 	ctrl.activeAxes = make(map[string]bool)
 	ctrl.serialDevice = c.SerialDevice

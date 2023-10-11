@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 	"go.viam.com/utils"
@@ -16,6 +15,7 @@ import (
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -27,7 +27,7 @@ import (
 
 func makeFakeRobot(t *testing.T) resource.Dependencies {
 	t.Helper()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	cam1 := &inject.Camera{}
 	cam1.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		pc1 := pointcloud.NewWithPrealloc(1)
@@ -211,7 +211,7 @@ func makeFakeRobotICP(t *testing.T) resource.Dependencies {
 	// Cam 1 and 2 Are programatically set to have a difference of 100 in the Z direction.
 	// Cam 3 and 4 Sensors are approximately 33 cm apart with an unknown slight rotation.
 	t.Helper()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	cam1 := &inject.Camera{}
 	startPC, err := makePointCloudFromArtifact(t, "pointcloud/test.pcd", 100)
 	if err != nil {

@@ -6,9 +6,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/edaniels/golog"
 	"go.opencensus.io/trace"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -29,7 +29,7 @@ func init() {
 				ctx context.Context,
 				_ resource.Dependencies,
 				conf resource.Config,
-				logger golog.Logger,
+				logger logging.Logger,
 			) (slam.Service, error) {
 				return NewSLAM(conf.ResourceName(), logger), nil
 			},
@@ -43,12 +43,12 @@ type SLAM struct {
 	resource.TriviallyReconfigurable
 	resource.TriviallyCloseable
 	dataCount    int
-	logger       golog.Logger
+	logger       logging.Logger
 	mapTimestamp time.Time
 }
 
 // NewSLAM is a constructor for a fake slam service.
-func NewSLAM(name resource.Name, logger golog.Logger) *SLAM {
+func NewSLAM(name resource.Name, logger logging.Logger) *SLAM {
 	return &SLAM{
 		Named:        name.AsNamed(),
 		logger:       logger,

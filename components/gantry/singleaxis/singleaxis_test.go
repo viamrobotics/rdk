@@ -5,13 +5,13 @@ import (
 	"math"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/motor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -116,7 +116,7 @@ func TestValidate(t *testing.T) {
 
 func TestNewSingleAxis(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	deps := createFakeDepsForTestNewSingleAxis(t)
 	fakecfg := resource.Config{Name: testGName}
 	_, err := newSingleAxis(ctx, deps, fakecfg, logger)
@@ -230,7 +230,7 @@ func TestNewSingleAxis(t *testing.T) {
 
 func TestReconfigure(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	deps := createFakeDepsForTestNewSingleAxis(t)
 	fakecfg := resource.Config{
 		Name:  testGName,
@@ -273,7 +273,7 @@ func TestReconfigure(t *testing.T) {
 
 func TestHome(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	fakegantry := &singleAxis{
 		motor:           createFakeMotor(),
 		board:           createFakeBoard(),
@@ -351,7 +351,7 @@ func TestHome(t *testing.T) {
 
 func TestHomeLimitSwitch(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	fakegantry := &singleAxis{
 		motor:           createFakeMotor(),
 		board:           createFakeBoard(),
@@ -448,7 +448,7 @@ func TestHomeLimitSwitch(t *testing.T) {
 
 func TestHomeLimitSwitch2(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	fakegantry := &singleAxis{
 		motor:           createFakeMotor(),
 		board:           createFakeBoard(),
@@ -561,7 +561,7 @@ func TestLimitHit(t *testing.T) {
 }
 
 func TestPosition(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 	fakegantry := &singleAxis{
 		motor: &inject.Motor{
@@ -618,7 +618,7 @@ func TestLengths(t *testing.T) {
 
 func TestMoveToPosition(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	fakegantry := &singleAxis{
 		logger:        logger,
 		board:         createFakeBoard(),
@@ -689,7 +689,7 @@ func TestMoveToPosition(t *testing.T) {
 
 func TestModelFrame(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	deps := createFakeDepsForTestNewSingleAxis(t)
 	fakecfg := resource.Config{
 		Name:  testGName,
@@ -709,7 +709,7 @@ func TestModelFrame(t *testing.T) {
 }
 
 func TestStop(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 
 	fakegantry := &singleAxis{
@@ -728,7 +728,7 @@ func TestStop(t *testing.T) {
 }
 
 func TestCurrentInputs(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 
 	fakegantry := &singleAxis{
@@ -789,7 +789,7 @@ func TestCurrentInputs(t *testing.T) {
 func TestGoToInputs(t *testing.T) {
 	ctx := context.Background()
 	inputs := []referenceframe.Input{}
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	fakecfg := resource.Config{
 		Name:  "fakeGantry",

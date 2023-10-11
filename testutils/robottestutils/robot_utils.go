@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
 	"go.uber.org/zap"
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
@@ -17,6 +16,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/robot/client"
 	weboptions "go.viam.com/rdk/robot/web/options"
 )
@@ -67,7 +67,7 @@ func Connect(port string) (*grpc.ClientConn, error) {
 }
 
 // MakeTempConfig writes a config.Config object to a temporary file for testing.
-func MakeTempConfig(t *testing.T, cfg *config.Config, logger golog.Logger) (string, error) {
+func MakeTempConfig(t *testing.T, cfg *config.Config, logger logging.Logger) (string, error) {
 	if err := cfg.Ensure(false, logger); err != nil {
 		return "", err
 	}

@@ -3,7 +3,6 @@ package gpio
 import (
 	"context"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	goutils "go.viam.com/utils"
 
@@ -11,6 +10,7 @@ import (
 	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/control"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
@@ -84,7 +84,7 @@ func getBoardFromRobotConfig(deps resource.Dependencies, conf resource.Config) (
 	return b, motorConfig, nil
 }
 
-func createNewMotor(ctx context.Context, deps resource.Dependencies, cfg resource.Config, logger golog.Logger) (motor.Motor, error) {
+func createNewMotor(ctx context.Context, deps resource.Dependencies, cfg resource.Config, logger logging.Logger) (motor.Motor, error) {
 	actualBoard, motorConfig, err := getBoardFromRobotConfig(deps, cfg)
 	if err != nil {
 		return nil, err

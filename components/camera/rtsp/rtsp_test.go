@@ -13,16 +13,16 @@ import (
 	"github.com/aler9/gortsplib/v2/pkg/format"
 	"github.com/aler9/gortsplib/v2/pkg/headers"
 	"github.com/aler9/gortsplib/v2/pkg/media"
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 	viamutils "go.viam.com/utils"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage/transform"
 )
 
 func TestRTSPCamera(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	host := "127.0.0.1"
 	port := "32512"
 	outputURL := fmt.Sprintf("rtsp://%s:%s/mystream", host, port)

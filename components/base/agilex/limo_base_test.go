@@ -4,15 +4,15 @@ import (
 	"context"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
 func TestLimoBaseConstructor(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	deps := resource.Dependencies{}
 	expectedWidth := float64(defaultBaseTreadMm) * 0.001
 	expectedTurningRadius := minTurningRadiusM // only for ackerman

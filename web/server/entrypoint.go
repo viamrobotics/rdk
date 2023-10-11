@@ -12,7 +12,6 @@ import (
 	"runtime/pprof"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
@@ -20,8 +19,9 @@ import (
 	"go.viam.com/utils/perf"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/components/camera/videosource/logging"
+	vlogging "go.viam.com/rdk/components/camera/videosource/logging"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/logging"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
@@ -55,7 +55,7 @@ type robotServer struct {
 
 // RunServer is an entry point to starting the web server that can be called by main in a code
 // sample or otherwise be used to initialize the server.
-func RunServer(ctx context.Context, args []string, _ golog.Logger) (err error) {
+func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error) {
 	var argsParsed Arguments
 	if err := utils.ParseFlags(args, &argsParsed); err != nil {
 		return err
@@ -69,13 +69,13 @@ func RunServer(ctx context.Context, args []string, _ golog.Logger) (err error) {
 	// Replace logger with logger based on flags.
 	var logConfig zap.Config
 	if argsParsed.Debug {
-		logConfig = golog.NewDebugLoggerConfig()
+		logConfig = logging.NewDebugLoggerConfig()
 	} else {
-		logConfig = golog.NewDevelopmentLoggerConfig()
+		logConfig = logging.NewDevelopmentLoggerConfig()
 	}
 	logger := zap.Must(logConfig.Build()).Sugar().Named("robot_server")
 	config.InitLoggingSettings(logger, argsParsed.Debug, logConfig.Level)
-	golog.ReplaceGloabl(logger)
+	logging.ReplaceGloabl(logger)
 
 	// Always log the version, return early if the '-version' flag was provided
 	// fmt.Println would be better but fails linting. Good enough.
@@ -113,7 +113,7 @@ func RunServer(ctx context.Context, args []string, _ golog.Logger) (err error) {
 	}
 
 	if argsParsed.Logging {
-		utils.UncheckedError(logging.GLoggerCamComp.Start(ctx))
+		utils.UncheckedError(vlogging.GLoggerCamComp.Start(ctx))
 	}
 
 	// Read the config from disk and use it to initialize the remote logger.
@@ -143,7 +143,7 @@ func RunServer(ctx context.Context, args []string, _ golog.Logger) (err error) {
 		}
 		defer closer()
 
-		golog.ReplaceGloabl(logger)
+		logging.ReplaceGloabl(logger)
 	}
 
 	server := robotServer{

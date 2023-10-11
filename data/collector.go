@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/benbjohnson/clock"
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	v1 "go.viam.com/api/app/datasync/v1"
@@ -21,6 +20,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/datamanager/datacapture"
 )
@@ -57,7 +57,7 @@ type collector struct {
 	interval       time.Duration
 	params         map[string]*anypb.Any
 	lock           sync.Mutex
-	logger         golog.Logger
+	logger         logging.Logger
 	captureWorkers sync.WaitGroup
 	logRoutine     sync.WaitGroup
 	cancelCtx      context.Context

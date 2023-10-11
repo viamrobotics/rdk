@@ -6,7 +6,6 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -14,6 +13,7 @@ import (
 	motionpb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/ik"
 	frame "go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
@@ -527,7 +527,7 @@ func TestReachOverArm(t *testing.T) {
 
 func TestPlanMapMotion(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	// build kinematic base model
 	sphere, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 10, "base")
@@ -549,7 +549,7 @@ func TestPlanMapMotion(t *testing.T) {
 
 	PlanMapMotion := func(
 		ctx context.Context,
-		logger golog.Logger,
+		logger logging.Logger,
 		dst spatialmath.Pose,
 		f frame.Frame,
 		seed []frame.Input,
@@ -775,7 +775,7 @@ func TestValidatePlanRequest(t *testing.T) {
 		expectedErr error
 	}
 
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	fs := frame.NewEmptyFrameSystem("test")
 	frame1 := frame.NewZeroStaticFrame("frame1")
 	frame2, err := frame.NewTranslationalFrame("frame2", r3.Vector{1, 0, 0}, frame.Limit{1, 1})

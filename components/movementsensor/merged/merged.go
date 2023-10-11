@@ -7,13 +7,13 @@ import (
 	"math"
 	"sync"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"go.uber.org/multierr"
 	"golang.org/x/exp/maps"
 
 	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -46,7 +46,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 
 type merged struct {
 	resource.Named
-	logger golog.Logger
+	logger logging.Logger
 
 	mu sync.Mutex
 
@@ -66,7 +66,7 @@ func init() {
 		})
 }
 
-func newMergedModel(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (
+func newMergedModel(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger) (
 	movementsensor.MovementSensor, error,
 ) {
 	m := merged{
@@ -91,7 +91,7 @@ func (m *merged) Reconfigure(ctx context.Context, deps resource.Dependencies, co
 	defer m.mu.Unlock()
 
 	firstGoodSensorWithProperties := func(
-		deps resource.Dependencies, names []string, logger golog.Logger,
+		deps resource.Dependencies, names []string, logger logging.Logger,
 		want *movementsensor.Properties, propname string,
 	) (movementsensor.MovementSensor, error) {
 		// check if the config names and dependencies have been passed at all

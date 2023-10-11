@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/jacobsa/go-serial/serial"
 	"github.com/pkg/errors"
@@ -19,6 +18,7 @@ import (
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/base/kinematicbase"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
@@ -83,7 +83,7 @@ type limoBase struct {
 	maxAngularVelocity int
 	geometries         []spatialmath.Geometry
 
-	logger golog.Logger
+	logger logging.Logger
 
 	serialMutex sync.Mutex
 	serialPort  io.ReadWriteCloser
@@ -104,7 +104,7 @@ type Config struct {
 }
 
 // createLimoBase returns a AgileX limo base.
-func createLimoBase(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (base.Base, error) {
+func createLimoBase(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger logging.Logger) (base.Base, error) {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return nil, err

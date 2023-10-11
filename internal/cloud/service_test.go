@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 	echopb "go.viam.com/utils/proto/rpc/examples/echo/v1"
 	"go.viam.com/utils/rpc"
@@ -16,11 +15,12 @@ import (
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/internal/cloud"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils"
 )
 
 func TestNotCloudManaged(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	svc := cloud.NewCloudConnectionService(nil, logger)
 	_, _, err := svc.AcquireConnection(context.Background())
 	test.That(t, err, test.ShouldEqual, cloud.ErrNotCloudManaged)
@@ -30,7 +30,7 @@ func TestNotCloudManaged(t *testing.T) {
 }
 
 func TestCloudManaged(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	server, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
@@ -143,7 +143,7 @@ func TestCloudManaged(t *testing.T) {
 }
 
 func TestCloudManagedWithAuth(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	server, err := rpc.NewServer(
 		logger,

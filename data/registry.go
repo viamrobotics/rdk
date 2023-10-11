@@ -4,11 +4,11 @@ import (
 	"time"
 
 	"github.com/benbjohnson/clock"
-	"github.com/edaniels/golog"
 	"github.com/mitchellh/copystructure"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/types/known/anypb"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/datamanager/datacapture"
 )
@@ -24,7 +24,7 @@ type CollectorParams struct {
 	Target        datacapture.BufferedWriter
 	QueueSize     int
 	BufferSize    int
-	Logger        golog.Logger
+	Logger        logging.Logger
 	Clock         clock.Clock
 }
 

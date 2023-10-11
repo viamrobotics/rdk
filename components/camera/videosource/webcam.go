@@ -11,7 +11,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pion/mediadevices"
 	"github.com/pion/mediadevices/pkg/driver"
 	"github.com/pion/mediadevices/pkg/driver/availability"
@@ -27,6 +26,7 @@ import (
 	"go.viam.com/rdk/components/camera"
 	jetsoncamera "go.viam.com/rdk/components/camera/platforms/jetson"
 	debugLogger "go.viam.com/rdk/components/camera/videosource/logging"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage/transform"
@@ -46,12 +46,12 @@ func init() {
 		ModelWebcam,
 		resource.Registration[camera.Camera, *WebcamConfig]{
 			Constructor: NewWebcam,
-			Discover: func(ctx context.Context, logger golog.Logger) (interface{}, error) {
+			Discover: func(ctx context.Context, logger logging.Logger) (interface{}, error) {
 				return Discover(ctx, getVideoDrivers, logger)
 			},
 		})
 	if err := json.Unmarshal(intrinsics, &data); err != nil {
-		golog.Global().Errorw("cannot parse intrinsics json", "error", err)
+		logging.Global().Errorw("cannot parse intrinsics json", "error", err)
 	}
 }
 
@@ -67,7 +67,7 @@ type CameraConfig struct {
 }
 
 // Discover webcam attributes.
-func Discover(_ context.Context, getDrivers func() []driver.Driver, logger golog.Logger) (*pb.Webcams, error) {
+func Discover(_ context.Context, getDrivers func() []driver.Driver, logger logging.Logger) (*pb.Webcams, error) {
 	mediadevicescamera.Initialize()
 	var webcams []*pb.Webcam
 	drivers := getDrivers()
@@ -181,7 +181,7 @@ func (c WebcamConfig) needsDriverReinit(other WebcamConfig) bool {
 		c.Height == other.Height)
 }
 
-func makeConstraints(conf *WebcamConfig, debug bool, logger golog.Logger) mediadevices.MediaStreamConstraints {
+func makeConstraints(conf *WebcamConfig, debug bool, logger logging.Logger) mediadevices.MediaStreamConstraints {
 	return mediadevices.MediaStreamConstraints{
 		Video: func(constraint *mediadevices.MediaTrackConstraints) {
 			if conf.Width > 0 {
@@ -230,7 +230,7 @@ func findAndMakeVideoSource(
 	ctx context.Context,
 	conf *WebcamConfig,
 	label string,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (gostream.VideoSource, string, error) {
 	mediadevicescamera.Initialize()
 	debug := conf.Debug
@@ -256,7 +256,7 @@ func findAndMakeVideoSource(
 }
 
 // getLabelFromVideoSource returns the path from the camera or an empty string if a path is not found.
-func getLabelFromVideoSource(src gostream.VideoSource, logger golog.Logger) string {
+func getLabelFromVideoSource(src gostream.VideoSource, logger logging.Logger) string {
 	labels, err := gostream.LabelsFromMediaSource[image.Image, prop.Video](src)
 	if err != nil || len(labels) == 0 {
 		logger.Errorw("could not get labels from media source", "error", err)
@@ -271,7 +271,7 @@ func NewWebcam(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (camera.Camera, error) {
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	cam := &monitoredWebcam{
@@ -373,7 +373,7 @@ func tryWebcamOpen(
 	path string,
 	fromLabel bool,
 	constraints mediadevices.MediaStreamConstraints,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (gostream.VideoSource, error) {
 	source, err := getNamedVideoSource(path, fromLabel, constraints, logger)
 	if err != nil {
@@ -404,7 +404,7 @@ func getNamedVideoSource(
 	path string,
 	fromLabel bool,
 	constraints mediadevices.MediaStreamConstraints,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (gostream.MediaSource[image.Image], error) {
 	if !fromLabel {
 		resolvedPath, err := filepath.EvalSymlinks(path)
@@ -435,8 +435,8 @@ type monitoredWebcam struct {
 	closed                  bool
 	disconnected            bool
 	activeBackgroundWorkers sync.WaitGroup
-	logger                  golog.Logger
-	originalLogger          golog.Logger
+	logger                  logging.Logger
+	originalLogger          logging.Logger
 }
 
 func (c *monitoredWebcam) MediaProperties(ctx context.Context) (prop.Video, error) {

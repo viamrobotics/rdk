@@ -11,7 +11,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/app/packages/v1"
@@ -22,6 +21,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/internal"
 	"go.viam.com/rdk/internal/cloud"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
@@ -50,7 +50,7 @@ type localRobot struct {
 	sessionManager             session.Manager
 	packageManager             packages.ManagerSyncer
 	cloudConnSvc               cloud.ConnectionService
-	logger                     golog.Logger
+	logger                     logging.Logger
 	activeBackgroundWorkers    sync.WaitGroup
 	reconfigureWorkers         sync.WaitGroup
 	cancelBackgroundWorkers    func()
@@ -199,7 +199,7 @@ func (r *localRobot) Config() *config.Config {
 }
 
 // Logger returns the logger the robot is using.
-func (r *localRobot) Logger() golog.Logger {
+func (r *localRobot) Logger() logging.Logger {
 	return r.logger
 }
 
@@ -336,7 +336,7 @@ func newWithResources(
 	ctx context.Context,
 	cfg *config.Config,
 	resources map[resource.Name]resource.Resource,
-	logger golog.Logger,
+	logger logging.Logger,
 	opts ...Option,
 ) (robot.LocalRobot, error) {
 	var rOpts options
@@ -493,7 +493,7 @@ func newWithResources(
 func New(
 	ctx context.Context,
 	cfg *config.Config,
-	logger golog.Logger,
+	logger logging.Logger,
 	opts ...Option,
 ) (robot.LocalRobot, error) {
 	return newWithResources(ctx, cfg, nil, logger, opts...)
@@ -930,7 +930,7 @@ func (r *localRobot) TransformPointCloud(
 }
 
 // RobotFromConfigPath is a helper to read and process a config given its path and then create a robot based on it.
-func RobotFromConfigPath(ctx context.Context, cfgPath string, logger golog.Logger, opts ...Option) (robot.LocalRobot, error) {
+func RobotFromConfigPath(ctx context.Context, cfgPath string, logger logging.Logger, opts ...Option) (robot.LocalRobot, error) {
 	cfg, err := config.Read(ctx, cfgPath, logger)
 	if err != nil {
 		logger.Error("cannot read config")
@@ -940,7 +940,7 @@ func RobotFromConfigPath(ctx context.Context, cfgPath string, logger golog.Logge
 }
 
 // RobotFromConfig is a helper to process a config and then create a robot based on it.
-func RobotFromConfig(ctx context.Context, cfg *config.Config, logger golog.Logger, opts ...Option) (robot.LocalRobot, error) {
+func RobotFromConfig(ctx context.Context, cfg *config.Config, logger logging.Logger, opts ...Option) (robot.LocalRobot, error) {
 	tlsConfig := config.NewTLSConfig(cfg)
 	processedCfg, err := config.ProcessConfig(cfg, tlsConfig)
 	if err != nil {
@@ -954,7 +954,7 @@ func RobotFromConfig(ctx context.Context, cfg *config.Config, logger golog.Logge
 func RobotFromResources(
 	ctx context.Context,
 	resources map[resource.Name]resource.Resource,
-	logger golog.Logger,
+	logger logging.Logger,
 	opts ...Option,
 ) (robot.LocalRobot, error) {
 	return newWithResources(ctx, &config.Config{}, resources, logger, opts...)
@@ -991,7 +991,7 @@ func (r *localRobot) DiscoverComponents(ctx context.Context, qs []resource.Disco
 func dialRobotClient(
 	ctx context.Context,
 	config config.Remote,
-	logger golog.Logger,
+	logger logging.Logger,
 	dialOpts ...rpc.DialOption,
 ) (*client.RobotClient, error) {
 	rOpts := []client.RobotClientOption{client.WithDialOptions(dialOpts...), client.WithRemoteName(config.Name)}

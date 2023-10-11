@@ -9,13 +9,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.einride.tech/vlp16"
 	gutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
@@ -95,7 +95,7 @@ func init() {
 				ctx context.Context,
 				_ resource.Dependencies,
 				conf resource.Config,
-				logger golog.Logger,
+				logger logging.Logger,
 			) (camera.Camera, error) {
 				newConf, err := resource.NativeConfig[*Config](conf)
 				if err != nil {
@@ -123,7 +123,7 @@ type client struct {
 	bindAddress     string
 	ttlMilliseconds int
 
-	logger golog.Logger
+	logger logging.Logger
 
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
@@ -137,7 +137,7 @@ type client struct {
 }
 
 // New creates a connection to a Velodyne lidar and generates pointclouds from it.
-func New(ctx context.Context, name resource.Name, logger golog.Logger, port, ttlMilliseconds int) (camera.Camera, error) {
+func New(ctx context.Context, name resource.Name, logger logging.Logger, port, ttlMilliseconds int) (camera.Camera, error) {
 	bindAddress := fmt.Sprintf("0.0.0.0:%d", port)
 	listener, err := vlp16.ListenUDP(ctx, bindAddress)
 	if err != nil {

@@ -5,12 +5,12 @@ import (
 	"os"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/robot"
@@ -22,7 +22,7 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
-func buildRobotWithClassifier(logger golog.Logger) (robot.Robot, error) {
+func buildRobotWithClassifier(logger logging.Logger) (robot.Robot, error) {
 	cfg := &config.Config{}
 
 	// create fake source camera
@@ -99,7 +99,7 @@ func buildRobotWithClassifier(logger golog.Logger) (robot.Robot, error) {
 
 //nolint:dupl
 func TestClassifierSource(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
