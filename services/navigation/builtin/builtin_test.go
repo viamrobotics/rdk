@@ -101,11 +101,8 @@ func TestValidateConfig(t *testing.T) {
 			cfg: Config{
 				BaseName:           "base",
 				MovementSensorName: "localizer",
-				ObstacleDetectors: []*motion.ObstacleDetectorNameConfig{
-					{VisionServiceName: "vision", CameraName: "camera"},
-				},
 			},
-			numDeps:     5,
+			numDeps:     3,
 			expectedErr: nil,
 		},
 		{
@@ -123,11 +120,8 @@ func TestValidateConfig(t *testing.T) {
 				BaseName:           "base",
 				MapType:            "GPS",
 				MovementSensorName: "localizer",
-				ObstacleDetectors: []*motion.ObstacleDetectorNameConfig{
-					{VisionServiceName: "vision", CameraName: "camera"},
-				},
 			},
-			numDeps:     5,
+			numDeps:     3,
 			expectedErr: nil,
 		},
 		{
@@ -151,9 +145,6 @@ func TestValidateConfig(t *testing.T) {
 				BaseName:           "base",
 				MovementSensorName: "localizer",
 				DegPerSec:          -1,
-				ObstacleDetectors: []*motion.ObstacleDetectorNameConfig{
-					{VisionServiceName: "vision", CameraName: "camera"},
-				},
 			},
 			numDeps:     0,
 			expectedErr: errNegativeDegPerSec,
@@ -164,9 +155,6 @@ func TestValidateConfig(t *testing.T) {
 				BaseName:           "base",
 				MovementSensorName: "localizer",
 				MetersPerSec:       -1,
-				ObstacleDetectors: []*motion.ObstacleDetectorNameConfig{
-					{VisionServiceName: "vision", CameraName: "camera"},
-				},
 			},
 			numDeps:     0,
 			expectedErr: errNegativeMetersPerSec,
@@ -177,9 +165,6 @@ func TestValidateConfig(t *testing.T) {
 				BaseName:                   "base",
 				MovementSensorName:         "localizer",
 				PositionPollingFrequencyHz: -1,
-				ObstacleDetectors: []*motion.ObstacleDetectorNameConfig{
-					{VisionServiceName: "vision", CameraName: "camera"},
-				},
 			},
 			numDeps:     0,
 			expectedErr: errNegativePositionPollingFrequencyHz,
@@ -190,9 +175,6 @@ func TestValidateConfig(t *testing.T) {
 				BaseName:                   "base",
 				MovementSensorName:         "localizer",
 				ObstaclePollingFrequencyHz: -1,
-				ObstacleDetectors: []*motion.ObstacleDetectorNameConfig{
-					{VisionServiceName: "vision", CameraName: "camera"},
-				},
 			},
 			numDeps:     0,
 			expectedErr: errNegativeObstaclePollingFrequencyHz,
@@ -203,9 +185,6 @@ func TestValidateConfig(t *testing.T) {
 				BaseName:           "base",
 				MovementSensorName: "localizer",
 				PlanDeviationM:     -1,
-				ObstacleDetectors: []*motion.ObstacleDetectorNameConfig{
-					{VisionServiceName: "vision", CameraName: "camera"},
-				},
 			},
 			numDeps:     0,
 			expectedErr: errNegativePlanDeviationM,
@@ -216,9 +195,6 @@ func TestValidateConfig(t *testing.T) {
 				BaseName:           "base",
 				MovementSensorName: "localizer",
 				ReplanCostFactor:   -1,
-				ObstacleDetectors: []*motion.ObstacleDetectorNameConfig{
-					{VisionServiceName: "vision", CameraName: "camera"},
-				},
 			},
 			numDeps:     0,
 			expectedErr: errNegativeReplanCostFactor,
@@ -519,6 +495,13 @@ func TestSetMode(t *testing.T) {
 			mapType:     navigation.NoMap,
 			mode:        navigation.ModeExplore,
 			expectedErr: errors.New("navigation mode 'explore' is not currently available"),
+		},
+		{
+			description: "setting mode to explore when map_type is None and no vision service is configured",
+			cfg:         "../data/nav_no_map_cfg_minimal.json",
+			mapType:     navigation.GPSMap,
+			mode:        navigation.ModeExplore,
+			expectedErr: errors.New("explore mode requires at least one vision service"),
 		},
 		{
 			description: "setting mode to manual when map_type is GPS",
