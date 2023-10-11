@@ -232,7 +232,7 @@ func (o *odometry) AngularVelocity(ctx context.Context, extra map[string]interfa
 }
 
 func (o *odometry) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
-	return r3.Vector{}, movementsensor.ErrMethodUnimplementedAngularVelocity
+	return r3.Vector{}, movementsensor.ErrMethodUnimplementedLinearAcceleration
 }
 
 func (o *odometry) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
