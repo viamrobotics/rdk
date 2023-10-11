@@ -64,10 +64,12 @@ func (m *movementSensorLocalizer) CurrentPosition(ctx context.Context) (*referen
 	}
 	switch {
 	case properties.CompassHeadingSupported:
-		heading, err := m.CompassHeading(ctx, nil)
+		headingLeft, err := m.CompassHeading(ctx, nil)
 		if err != nil {
 			return nil, err
 		}
+		// CompassHeading is a left-handed value. Convert to be right-handed. Use math.Mod to ensure that 0 reports 0 rather than 360.
+		heading := math.Mod(math.Abs(headingLeft - 360), 360)
 		o = &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: heading}
 	case properties.OrientationSupported:
 		o, err = m.Orientation(ctx, nil)
