@@ -643,7 +643,7 @@
               on:click={handle2dRenderClick}
             />
           </div>
-        {:else if overrides?.isCloudSlam && sessionId && refresh2dRate !== 'manual'}
+        {:else if overrides?.isCloudSlam && sessionId}
           <div
             class="flex flex-col h-full w-full items-center justify-center gap-4"
           >
