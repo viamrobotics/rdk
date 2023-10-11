@@ -26,7 +26,12 @@ func newPackageManager(t *testing.T,
 	packageDir := t.TempDir()
 	logger.Info(packageDir)
 
-	pm, err := NewCloudManager(client, packageDir, logger)
+	testCloudConfig := &config.Cloud{
+		ID:     "some-id",
+		Secret: "some-secret",
+	}
+
+	pm, err := NewCloudManager(testCloudConfig, client, packageDir, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	return packageDir, pm
