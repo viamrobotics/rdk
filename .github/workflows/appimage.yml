@@ -179,9 +179,22 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        arch: [[ubuntu-latest], [buildjet-2vcpu-ubuntu-2204-arm], [arm64, pi4]]
-    needs: appimage
+        include:
+        - arch: ubuntu-latest
+          label: x86_64
+        - arch: buildjet-2vcpu-ubuntu-2204-arm
+          label: aarch64
+        - arch: [arm64, pi4]
+          label: aarch64
+        - arch: buildjet-2vcpu-ubuntu-2204-arm
+          container:
+            image: debian
+            options: --platform linux/arm/v7
+          # note: `uname -m` will not detect armhf in our 32-on-64 setup, so we provide label in matrix
+          label: armhf
+    needs: [appimage, appimage-32bit]
     runs-on: ${{ matrix.arch }}
+    container: ${{ matrix.container }}
     timeout-minutes: 15
     outputs:
       date: ${{ needs.appimage.outputs.date }}
@@ -206,7 +219,7 @@ jobs:
         export TEST_DIR=`mktemp -d -t test-viam-server-XXXXXX`
         cd $TEST_DIR
 
-        curl -o viam-server https://storage.googleapis.com/packages.viam.com/apps/viam-server/testing/appimage/${{ needs.appimage.outputs.date }}/${{ github.sha }}/viam-server-${channel}-`uname -m`.AppImage
+        curl -o viam-server https://storage.googleapis.com/packages.viam.com/apps/viam-server/testing/appimage/${{ needs.appimage.outputs.date }}/${{ github.sha }}/viam-server-${channel}-${{ matrix.label }}.AppImage
         chmod 755 viam-server
 
         export RAND_PORT=$((30000 + $RANDOM))
@@ -249,4 +262,5 @@ jobs:
         echo "### Built AppImages for ${channel}" >> $GITHUB_STEP_SUMMARY
         echo "- arm64: https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${channel}-aarch64.AppImage" >> $GITHUB_STEP_SUMMARY
         echo "- x86_64: https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${channel}-x86_64.AppImage" >> $GITHUB_STEP_SUMMARY
+        echo "- armhf: https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${channel}-armhf.AppImage" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY

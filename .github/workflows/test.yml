@@ -36,7 +36,8 @@ jobs:
             image: ghcr.io/viamrobotics/rdk-devenv:armhf-cache
             platform: linux/arm/v7
             platform_name: linux-armv7
-            test_cmd: make cover
+            # note: -race detection not supported on arm 32-bit, and test.sh overrides GOFLAGS
+            test_cmd: go test -v -tags=no_tflite ./...
     runs-on: ${{ matrix.arch }}
     container:
       image: ${{ matrix.image }}
