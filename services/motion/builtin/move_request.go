@@ -320,6 +320,29 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 		}
 	}
 
+	var cameraVisionPairing []map[resource.Name]vision.Service
+	pair := make(map[resource.Name]vision.Service)
+	// construct pairs of cameras which may be used by the available vision services
+	for _, serviceName := range motionCfg.VisionServices {
+		for _, cameraName := range ms.cameras {
+			srvc, ok := ms.visionServices[serviceName]
+			if !ok {
+				return nil, resource.DependencyNotFoundError(serviceName)
+			}
+			switch {
+			case serviceName.ContainsRemoteNames() && cameraName.ContainsRemoteNames():
+				// vision services which are remote only have access to remote cameras
+				pair[cameraName] = srvc
+			case serviceName.ContainsRemoteNames() && !cameraName.ContainsRemoteNames():
+				continue
+			default:
+				// vision services which are main have access to both main and remote cameras
+				pair[cameraName] = srvc
+			}
+			cameraVisionPairing = append(cameraVisionPairing, pair)
+		}
+	}
+
 	return &moveRequest{
 		config: motionCfg,
 		planRequest: &motionplan.PlanRequest{
