@@ -10,6 +10,9 @@ PATH_WITH_TOOLS="`pwd`/$(TOOL_BIN):`pwd`/node_modules/.bin:${PATH}"
 GIT_REVISION = $(shell git rev-parse HEAD | tr -d '\n')
 TAG_VERSION?=$(shell git tag --points-at | sort -Vr | head -n1)
 LDFLAGS = -ldflags "-s -w -extld="$(shell pwd)/etc/ld_wrapper.sh" -X 'go.viam.com/rdk/config.Version=${TAG_VERSION}' -X 'go.viam.com/rdk/config.GitRevision=${GIT_REVISION}'"
+ifeq ($(shell command -v dpkg >/dev/null && dpkg --print-architecture),armhf)
+GOFLAGS += -tags=no_tflite
+endif
 
 default: build lint server
 
@@ -102,7 +105,7 @@ server: build-web
 
 server-static: build-web
 	rm -f $(BIN_OUTPUT_PATH)/viam-server
-	VIAM_STATIC_BUILD=1 go build $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/viam-server web/cmd/server/main.go
+	VIAM_STATIC_BUILD=1 GOFLAGS=$(GOFLAGS) go build $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/viam-server web/cmd/server/main.go
 
 server-static-compressed: server-static
 	upx --best --lzma $(BIN_OUTPUT_PATH)/viam-server
