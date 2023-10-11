@@ -14,8 +14,8 @@ type PowerSensor struct {
 	VoltageFunc  func(ctx context.Context, extra map[string]interface{}) (float64, bool, error)
 	CurrentFunc  func(ctx context.Context, extra map[string]interface{}) (float64, bool, error)
 	PowerFunc    func(ctx context.Context, extra map[string]interface{}) (float64, error)
-	DoFunc       func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	ReadingsFunc func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error)
+	DoFunc       func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 }
 
 // NewPowerSensor returns a new injected movement sensor.
