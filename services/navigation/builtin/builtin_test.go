@@ -295,7 +295,7 @@ func TestNew(t *testing.T) {
 			PositionPollingFrequencyHz: 3,
 			ObstaclePollingFrequencyHz: 4,
 			PlanDeviationM:             5,
-			ObstacleDetectors: []*motion.ObstacleDetectorNameConfig{
+			ObstacleDetectors: []*ObstacleDetectorNameConfig{
 				{
 					VisionServiceName: "vision",
 					CameraName:        "camera",
@@ -330,7 +330,7 @@ func TestNew(t *testing.T) {
 			BaseName:         "base",
 			MapType:          "None",
 			ReplanCostFactor: 1,
-			ObstacleDetectors: []*motion.ObstacleDetectorNameConfig{
+			ObstacleDetectors: []*ObstacleDetectorNameConfig{
 				{
 					VisionServiceName: "vision",
 					CameraName:        "camera",
@@ -360,7 +360,7 @@ func TestNew(t *testing.T) {
 		deps := resource.Dependencies{}
 
 		err := svc.Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
-		test.That(t, err.Error(), test.ShouldEqual, expectedErr.Error())
+		test.That(t, err, test.ShouldBeError, expectedErr)
 	})
 
 	t.Run("motion missing from deps", func(t *testing.T) {
@@ -373,7 +373,7 @@ func TestNew(t *testing.T) {
 		}
 
 		err := svc.Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
-		test.That(t, err.Error(), test.ShouldEqual, expectedErr.Error())
+		test.That(t, err, test.ShouldBeError, expectedErr)
 	})
 
 	t.Run("movement sensor missing from deps", func(t *testing.T) {
@@ -387,7 +387,7 @@ func TestNew(t *testing.T) {
 		}
 
 		err := svc.Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
-		test.That(t, err.Error(), test.ShouldEqual, expectedErr.Error())
+		test.That(t, err, test.ShouldBeError, expectedErr)
 	})
 
 	t.Run("vision missing from deps", func(t *testing.T) {
@@ -395,7 +395,7 @@ func TestNew(t *testing.T) {
 		cfg := &Config{
 			BaseName:           "base",
 			MovementSensorName: "movement_sensor",
-			ObstacleDetectors: []*motion.ObstacleDetectorNameConfig{
+			ObstacleDetectors: []*ObstacleDetectorNameConfig{
 				{
 					CameraName: "camera",
 				},
@@ -409,7 +409,7 @@ func TestNew(t *testing.T) {
 		}
 
 		err := svc.Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
-		test.That(t, err.Error(), test.ShouldEqual, expectedErr.Error())
+		test.That(t, err, test.ShouldBeError, expectedErr)
 	})
 
 	t.Run("camera missing from deps", func(t *testing.T) {
@@ -417,7 +417,7 @@ func TestNew(t *testing.T) {
 		cfg := &Config{
 			BaseName:           "base",
 			MovementSensorName: "movement_sensor",
-			ObstacleDetectors: []*motion.ObstacleDetectorNameConfig{
+			ObstacleDetectors: []*ObstacleDetectorNameConfig{
 				{
 					VisionServiceName: "vision",
 				},
@@ -431,14 +431,14 @@ func TestNew(t *testing.T) {
 		}
 
 		err := svc.Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
-		test.That(t, err.Error(), test.ShouldEqual, expectedErr.Error())
+		test.That(t, err, test.ShouldBeError, expectedErr)
 	})
 
 	t.Run("necessary for MoveOnGlobe", func(t *testing.T) {
 		cfg := &Config{
 			BaseName:           "base",
 			MovementSensorName: "movement_sensor",
-			ObstacleDetectors: []*motion.ObstacleDetectorNameConfig{
+			ObstacleDetectors: []*ObstacleDetectorNameConfig{
 				{
 					VisionServiceName: "vision",
 					CameraName:        "camera",
@@ -976,7 +976,7 @@ func TestValidateGeometry(t *testing.T) {
 		BaseName:           "base",
 		MapType:            "GPS",
 		MovementSensorName: "localizer",
-		ObstacleDetectors: []*motion.ObstacleDetectorNameConfig{
+		ObstacleDetectors: []*ObstacleDetectorNameConfig{
 			{
 				VisionServiceName: "vision",
 				CameraName:        "camera",

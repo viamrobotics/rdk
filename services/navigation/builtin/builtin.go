@@ -84,14 +84,20 @@ func init() {
 	})
 }
 
+// ObstacleDetectorNameConfig is the protobuf version of ObstacleDetectorName.
+type ObstacleDetectorNameConfig struct {
+	VisionServiceName string `json:"vision_service"`
+	CameraName        string `json:"camera"`
+}
+
 // Config describes how to configure the service.
 type Config struct {
-	Store              navigation.StoreConfig               `json:"store"`
-	BaseName           string                               `json:"base"`
-	MapType            string                               `json:"map_type"`
-	MovementSensorName string                               `json:"movement_sensor"`
-	MotionServiceName  string                               `json:"motion_service"`
-	ObstacleDetectors  []*motion.ObstacleDetectorNameConfig `json:"obstacle_detectors"`
+	Store              navigation.StoreConfig        `json:"store"`
+	BaseName           string                        `json:"base"`
+	MapType            string                        `json:"map_type"`
+	MovementSensorName string                        `json:"movement_sensor"`
+	MotionServiceName  string                        `json:"motion_service"`
+	ObstacleDetectors  []*ObstacleDetectorNameConfig `json:"obstacle_detectors"`
 
 	// DegPerSec and MetersPerSec are targets and not hard limits on speed
 	DegPerSec    float64 `json:"degs_per_sec,omitempty"`

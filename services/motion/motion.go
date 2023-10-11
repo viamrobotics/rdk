@@ -181,12 +181,6 @@ type Service interface {
 	) ([]PlanWithStatus, error)
 }
 
-// ObstacleDetectorNameConfig is the protobuf version of ObstacleDetector.
-type ObstacleDetectorNameConfig struct {
-	VisionServiceName string `json:"vision_service"`
-	CameraName        string `json:"camera"`
-}
-
 // ObstacleDetectorName pairs a vision service name with a camera name.
 type ObstacleDetectorName struct {
 	VisionServiceName resource.Name
