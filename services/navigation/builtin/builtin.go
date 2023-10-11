@@ -90,6 +90,12 @@ type ObstacleDetectorNameConfig struct {
 	CameraName        string `json:"camera"`
 }
 
+// ObstacleDetector pairs a vision service with a camera, informing the service about which camera it may use.
+type ObstacleDetector struct {
+	VisionService vision.Service
+	Camera        camera.Camera
+}
+
 // Config describes how to configure the service.
 type Config struct {
 	Store              navigation.StoreConfig        `json:"store"`
@@ -211,7 +217,7 @@ type builtIn struct {
 
 	base              base.Base
 	movementSensor    movementsensor.MovementSensor
-	obstacleDetectors []*navigation.ObstacleDetector
+	obstacleDetectors []*ObstacleDetector
 	motionService     motion.Service
 	obstacles         []*spatialmath.GeoObstacle
 
@@ -304,7 +310,7 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	}
 
 	var obstacleDetectorNamePairs []motion.ObstacleDetectorName
-	var obstacleDetectors []*navigation.ObstacleDetector
+	var obstacleDetectors []*ObstacleDetector
 	for _, pbObstacleDetectorPair := range svcConfig.ObstacleDetectors {
 		visionSvc, err := vision.FromDependencies(deps, pbObstacleDetectorPair.VisionServiceName)
 		if err != nil {
@@ -317,7 +323,7 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		obstacleDetectorNamePairs = append(obstacleDetectorNamePairs, motion.ObstacleDetectorName{
 			VisionServiceName: visionSvc.Name(), CameraName: camera.Name(),
 		})
-		obstacleDetectors = append(obstacleDetectors, &navigation.ObstacleDetector{
+		obstacleDetectors = append(obstacleDetectors, &ObstacleDetector{
 			VisionService: visionSvc, Camera: camera,
 		})
 	}

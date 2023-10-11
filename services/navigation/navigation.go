@@ -9,10 +9,8 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	servicepb "go.viam.com/api/service/navigation/v1"
 
-	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -74,12 +72,6 @@ func StringToMapType(mapTypeName string) (MapType, error) {
 		return GPSMap, nil
 	}
 	return 0, errors.Errorf("invalid map_type '%v' given", mapTypeName)
-}
-
-// ObstacleDetector pairs a vision service with a camera, informing the service about which camera it may use.
-type ObstacleDetector struct {
-	VisionService vision.Service
-	Camera        camera.Camera
 }
 
 // A Service controls the navigation for a robot.
