@@ -1,3 +1,4 @@
+//nolint:dupl
 package resource
 
 import (
@@ -7,8 +8,6 @@ import (
 )
 
 func TestLegacyAPIParsingWithoutNamespace(t *testing.T) {
-	//nolint:dupl
-
 	// A legacy API configuration on a component/service does not include the `api` field. But
 	// rather a `type` field and optionally a `namespace` field.
 	var resConfig Config
@@ -36,8 +35,6 @@ func TestLegacyAPIParsingWithoutNamespace(t *testing.T) {
 }
 
 func TestLegacyAPIParsing(t *testing.T) {
-	//nolint:dupl
-
 	// A legacy API configuration on a component/service does not include the `api` field. But
 	// rather a `type` field and optionally a `namespace` field.
 	var resConfig Config
@@ -85,8 +82,6 @@ func TestServiceAdjustPartialNames(t *testing.T) {
 }
 
 func TestAPIStringParsing(t *testing.T) {
-	//nolint:dupl
-
 	// Test that a colon-delimited triplet string for the `API` is parsed into its
 	// namespace/type/subtype tuple.
 	var resConfig Config
@@ -116,8 +111,6 @@ func TestAPIStringParsing(t *testing.T) {
 }
 
 func TestAPIObjectParsing(t *testing.T) {
-	//nolint:dupl
-
 	// Test that an API object with all three types parses correctly.
 	var resConfig Config
 	err := resConfig.UnmarshalJSON([]byte(`
@@ -151,7 +144,6 @@ func TestAPIObjectParsing(t *testing.T) {
 }
 
 func TestModel(t *testing.T) {
-	//nolint:dupl
 	for _, tc := range []struct {
 		TestName  string
 		Namespace ModelNamespace
@@ -253,7 +245,6 @@ func TestModel(t *testing.T) {
 }
 
 func TestModelFromString(t *testing.T) {
-	//nolint:dupl
 	for _, tc := range []struct {
 		TestName string
 		StrModel string
@@ -358,7 +349,6 @@ func TestModelFromString(t *testing.T) {
 }
 
 func TestModelFromJSONObject(t *testing.T) {
-	//nolint:dupl
 	for _, tc := range []struct {
 		TestName string
 		StrModel string
@@ -416,7 +406,6 @@ func TestModelFromJSONObject(t *testing.T) {
 }
 
 func TestAPIFromString(t *testing.T) {
-	//nolint:dupl
 	for _, tc := range []struct {
 		TestName string
 		StrAPI   string
@@ -503,7 +492,6 @@ func TestAPIFromString(t *testing.T) {
 }
 
 func TestAPIFromJSONObject(t *testing.T) {
-	//nolint:dupl
 	for _, tc := range []struct {
 		TestName string
 		StrAPI   string
