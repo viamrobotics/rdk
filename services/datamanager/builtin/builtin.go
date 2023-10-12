@@ -366,7 +366,6 @@ func (svc *builtIn) Reconfigure(
 	if svcConfig.CaptureDir == "" {
 		svc.captureDir = viamCaptureDotDir
 	}
-	// if svcConfig.
 	svc.captureDisabled = svcConfig.CaptureDisabled
 	// Service is disabled, so close all collectors and clear the map so we can instantiate new ones if we enable this service.
 	if svc.captureDisabled {
