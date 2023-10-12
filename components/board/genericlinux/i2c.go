@@ -160,7 +160,7 @@ func (h *I2cHandle) Close() error {
 // a devicetree overlay on some unusual board to make it non-numerical.
 // TODO(RSDK-5254): remove this once all I2C devices are talking directly to the bus without going
 // through the board.
-func GetI2CBus(deps resource.Dependencies, boardName, busName string, busNum string) (board.I2C, error) {
+func GetI2CBus(deps resource.Dependencies, boardName, busName, busNum string) (board.I2C, error) {
 	if busNum != "" {
 		return NewI2cBus(busNum)
 	}
