@@ -38,14 +38,21 @@ func TestPaths(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, shouldBeNil, test.ShouldBeNil)
 
-	// test converting slice of malformed pbPath to slice of path
-	malformedPbSlice := []*pb.Path{
+	// test converting slice of nil pbPath to slice of path
+	nilSlice := []*pb.Path{nil}
+	_, err = navigation.ProtoSliceToPaths(nilSlice)
+	test.That(t, err, test.ShouldBeError, errors.New("cannot convert nil path"))
+
+	// test converting pb path with nil geoPoints
+	malformedPath := []*pb.Path{
 		{
 			DestinationWaypointId: "malformed",
 			Geopoints:             nil,
 		},
-		nil,
 	}
-	_, err = navigation.ProtoSliceToPaths(malformedPbSlice)
-	test.That(t, err, test.ShouldBeError, errors.New("cannot convert nil path"))
+	malformedPathConverted, err := navigation.ProtoSliceToPaths(malformedPath)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(malformedPathConverted), test.ShouldEqual, 1)
+	test.That(t, len(malformedPathConverted[0].GeoPoints()), test.ShouldEqual, 0)
+	test.That(t, malformedPathConverted[0].DestinationWaypointID(), test.ShouldEqual, "malformed")
 }
