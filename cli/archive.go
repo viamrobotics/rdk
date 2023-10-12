@@ -15,7 +15,7 @@ import (
 )
 
 // getArchiveFilePaths traverses the provided rootpaths recursively,
-// collecting the file paths of all regular files and returns them in a slice.
+// collecting the file paths of all regular files and symlinks.
 // This list of paths should be passed to createArchive.
 func getArchiveFilePaths(rootpaths []string) ([]string, error) {
 	files := map[string]bool{}
@@ -24,7 +24,10 @@ func getArchiveFilePaths(rootpaths []string) ([]string, error) {
 			if err != nil {
 				return err
 			}
-			if info.Type().IsRegular() {
+			// If the file is regular (no mode type set) or is a symlink, add it to the files
+			// The only files we are excluding are special files:
+			// 	 ModeNamedPipe | ModeSocket | ModeDevice | ModeCharDevice | ModeIrregular
+			if info.Type()&fs.ModeType&^fs.ModeSymlink == 0 {
 				files[path] = true
 			}
 			return nil
@@ -39,25 +42,27 @@ func getArchiveFilePaths(rootpaths []string) ([]string, error) {
 // createArchive compresses and archives the provided file paths into a tar.gz format,
 // writing the resulting binary data to the supplied "buf" writer.
 // If "stdout" is provided, the function outputs compression progress information.
-func createArchive(files []string, buf io.Writer, stdout *io.Writer) error {
+func createArchive(files []string, buf, stdout io.Writer) error {
 	// Create new Writers for gzip and tar
 	// These writers are chained. Writing to the tar writer will
 	// write to the gzip writer which in turn will write to
 	// the "buf" writer
 	gw := gzip.NewWriter(buf)
-	defer utils.UncheckedErrorFunc(gw.Close)
+	//nolint:errcheck
+	defer gw.Close()
 	tw := tar.NewWriter(gw)
-	defer utils.UncheckedErrorFunc(tw.Close)
+	//nolint:errcheck
+	defer tw.Close()
 
 	// Close the line with the progress reading
 	defer func() {
 		if stdout != nil {
-			printf(*stdout, "")
+			printf(stdout, "")
 		}
 	}()
 
 	if stdout != nil {
-		fmt.Fprintf(*stdout, "\rCompressing... %d%% (%d/%d files)", 0, 1, len(files)) // no newline
+		fmt.Fprintf(stdout, "\rCompressing... %d%% (%d/%d files)", 0, 1, len(files)) // no newline
 	}
 	// Iterate over files and add them to the tar archive
 	for i, file := range files {
@@ -67,7 +72,7 @@ func createArchive(files []string, buf io.Writer, stdout *io.Writer) error {
 		}
 		if stdout != nil {
 			compressPercent := int(math.Ceil(100 * float64(i+1) / float64(len(files))))
-			fmt.Fprintf(*stdout, "\rCompressing... %d%% (%d/%d files)", compressPercent, i+1, len(files)) // no newline
+			fmt.Fprintf(stdout, "\rCompressing... %d%% (%d/%d files)", compressPercent, i+1, len(files)) // no newline
 		}
 	}
 	return nil
@@ -82,7 +87,6 @@ func addToArchive(tw *tar.Writer, filename string) error {
 	}
 	defer utils.UncheckedErrorFunc(file.Close)
 
-	// Get FileInfo about our file providing file size, mode, etc.
 	info, err := file.Stat()
 	if err != nil {
 		return err

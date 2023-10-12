@@ -19,6 +19,8 @@ import (
 	"github.com/urfave/cli/v2"
 	"go.uber.org/multierr"
 	apppb "go.viam.com/api/app/v1"
+
+	"go.viam.com/rdk/utils"
 )
 
 // moduleUploadChunkSize sets the number of bytes included in each chunk of the upload stream.
@@ -184,7 +186,7 @@ func UploadModuleAction(c *cli.Context) error {
 			"Make sure to specify flag and optional arguments before the required positional package argument")
 	}
 	if moduleUploadPath == "" {
-		return errors.New("no package to upload -- please provide an path to your module. Use --help for more information")
+		return errors.New("nothing to upload -- please provide a path to your module. Use --help for more information")
 	}
 
 	// Clean the version argument to ensure compatibility with github tag standards
@@ -245,11 +247,7 @@ func UploadModuleAction(c *cli.Context) error {
 		if err != nil {
 			return err
 		}
-		defer func() {
-			if err := os.Remove(tarballPath); err != nil {
-				Errorf(c.App.ErrWriter, "failed to cleanup temporary module tarball for upload %q", tarballPath)
-			}
-		}()
+		defer utils.RemoveFileNoError(tarballPath)
 	}
 
 	if !forceUploadArg {
@@ -454,7 +452,7 @@ func validateModuleFile(client *viamClient, moduleID moduleID, tarballPath, vers
 			info := header.FileInfo()
 			if info.Mode().Perm()&0o100 == 0 {
 				return errors.Errorf(
-					"the provided archive contained a file at the entrypoint %q, but that file is not marked as executable",
+					"the archive contained a file at the entrypoint %q, but that file is not marked as executable",
 					entrypoint)
 			}
 			// executable file at entrypoint. validation succeeded.
@@ -468,7 +466,7 @@ func validateModuleFile(client *viamClient, moduleID moduleID, tarballPath, vers
 	if len(filesWithSameNameAsEntrypoint) > 0 {
 		extraErrInfo = fmt.Sprintf(". Did you mean to set your entrypoint to %v?", filesWithSameNameAsEntrypoint)
 	}
-	return errors.Errorf("the provided archive does not contain a file at the desired entrypoint %q%s",
+	return errors.Errorf("the archive does not contain a file at the desired entrypoint %q%s",
 		entrypoint, extraErrInfo)
 }
 
@@ -651,7 +649,7 @@ func getEntrypointForVersion(mod *apppb.Module, version string) (string, error) 
 
 func isTarball(path string) bool {
 	return strings.HasSuffix(strings.ToLower(path), ".tar.gz") ||
-		!strings.HasSuffix(strings.ToLower(path), ".tgz")
+		strings.HasSuffix(strings.ToLower(path), ".tgz")
 }
 
 func createTarballForUpload(moduleUploadPath string, stdout io.Writer) (string, error) {
@@ -673,7 +671,7 @@ func createTarballForUpload(moduleUploadPath string, stdout io.Writer) (string, 
 	if len(archiveFiles) == 0 {
 		return "", errors.Errorf("failed to find any files in %q", moduleUploadPath)
 	}
-	if err := createArchive(archiveFiles, tmpFileWriter, &stdout); err != nil {
+	if err := createArchive(archiveFiles, tmpFileWriter, stdout); err != nil {
 		return "", errors.Wrap(err, "failed to create temp archive")
 	}
 	if err := tmpFileWriter.Flush(); err != nil {
