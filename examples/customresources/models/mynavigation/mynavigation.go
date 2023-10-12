@@ -3,6 +3,7 @@ package mynavigation
 
 import (
 	"context"
+	"errors"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -121,9 +122,9 @@ func (svc *navSvc) RemoveWaypoint(ctx context.Context, id primitive.ObjectID, ex
 }
 
 func (svc *navSvc) Obstacles(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoObstacle, error) {
-	return []*spatialmath.GeoObstacle{}, nil
+	return []*spatialmath.GeoObstacle{}, errors.New("umimplemented")
 }
 
 func (svc *navSvc) Paths(ctx context.Context, extra map[string]interface{}) ([]*navigation.Path, error) {
-	return []*navigation.Path{}, nil
+	return []*navigation.Path{}, errors.New("umimplemented")
 }

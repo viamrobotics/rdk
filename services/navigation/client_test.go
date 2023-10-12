@@ -198,7 +198,7 @@ func TestClient(t *testing.T) {
 		test.That(t, receivedPoint, test.ShouldResemble, point)
 		test.That(t, extraOptions, test.ShouldResemble, extra)
 
-		// test GetPaths
+		// test Paths
 		ctx := context.Background()
 		paths, err := workingNavClient.Paths(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
@@ -278,9 +278,9 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, receivedFailingPoint, test.ShouldResemble, point)
 
-		// test GetPaths
+		// test Paths
 		paths, err := failingNavClient.Paths(context.Background(), nil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "unimplemented")
+		test.That(t, err, test.ShouldBeError, errors.New("unimplemented"))
 		test.That(t, paths, test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
