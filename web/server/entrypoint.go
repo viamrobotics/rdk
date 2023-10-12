@@ -12,7 +12,6 @@ import (
 	"runtime/pprof"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
@@ -56,7 +55,7 @@ type robotServer struct {
 
 // RunServer is an entry point to starting the web server that can be called by main in a code
 // sample or otherwise be used to initialize the server.
-func RunServer(ctx context.Context, args []string, _ golog.Logger) (err error) {
+func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error) {
 	var argsParsed Arguments
 	if err := utils.ParseFlags(args, &argsParsed); err != nil {
 		return err

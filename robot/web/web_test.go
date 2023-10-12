@@ -12,7 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
@@ -997,7 +996,7 @@ func setupRobotCtx(t *testing.T) (context.Context, robot.Robot) {
 	injectRobot.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
 		return injectArm, nil
 	}
-	injectRobot.LoggerFunc = func() logging.Logger { return &logging.ZLogger{golog.NewTestLogger(t)} }
+	injectRobot.LoggerFunc = func() logging.Logger { return logging.NewTestLogger(t) }
 	injectRobot.FrameSystemConfigFunc = func(ctx context.Context) (*framesystem.Config, error) {
 		return &framesystem.Config{}, nil
 	}
