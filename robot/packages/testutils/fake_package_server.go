@@ -104,7 +104,7 @@ func NewFakePackageServer(ctx context.Context, logger logging.Logger) (*FakePack
 		}
 	})
 
-	server.rpcServer, err = rpc.NewServer(logger,
+	server.rpcServer, err = rpc.NewServer(logger.AsZap(),
 		rpc.WithDisableMulticastDNS(),
 		rpc.WithUnauthenticated(),
 		rpc.WithWebRTCServerOptions(rpc.WebRTCServerOptions{Enable: false}))
@@ -142,7 +142,7 @@ func (c *FakePackagesClientAndGCSServer) Addr() net.Addr {
 
 // Client returns a connect client to the server and connection.
 func (c *FakePackagesClientAndGCSServer) Client(ctx context.Context) (pb.PackageServiceClient, rpc.ClientConn, error) {
-	conn, err := rpc.DialDirectGRPC(ctx, c.listener.Addr().String(), c.logger, rpc.WithInsecure())
+	conn, err := rpc.DialDirectGRPC(ctx, c.listener.Addr().String(), c.logger.AsZap(), rpc.WithInsecure())
 	if err != nil {
 		return nil, nil, err
 	}

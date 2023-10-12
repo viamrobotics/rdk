@@ -53,7 +53,7 @@ func NewFakeCloudServer(ctx context.Context, logger logging.Logger) (*FakeCloudS
 		deviceConfigs: map[string]*configAndCerts{},
 	}
 
-	server.rpcServer, err = rpc.NewServer(logger,
+	server.rpcServer, err = rpc.NewServer(logger.AsZap(),
 		rpc.WithDisableMulticastDNS(),
 		rpc.WithAuthHandler(rutils.CredentialsTypeRobotSecret, rpc.AuthHandlerFunc(
 			server.robotSecretAuthenticate,
