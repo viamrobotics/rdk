@@ -3,15 +3,13 @@ package motion
 import (
 	"math"
 
-	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/motion/v1"
 
 	"go.viam.com/rdk/protoutils"
-	"go.viam.com/rdk/resource"
 )
 
 func configurationFromProto(motionCfg *pb.MotionConfiguration) *MotionConfiguration {
-	visionSvc := []resource.Name{}
+	obstacleDetectors := []ObstacleDetectorName{}
 	planDeviationM := 0.
 	positionPollingHz := 0.
 	obstaclePollingHz := 0.
@@ -19,9 +17,12 @@ func configurationFromProto(motionCfg *pb.MotionConfiguration) *MotionConfigurat
 	angularDegsPerSec := 0.
 
 	if motionCfg != nil {
-		if motionCfg.VisionServices != nil {
-			for _, name := range motionCfg.GetVisionServices() {
-				visionSvc = append(visionSvc, protoutils.ResourceNameFromProto(name))
+		if motionCfg.ObstacleDetectors != nil {
+			for _, obstacleDetectorPair := range motionCfg.GetObstacleDetectors() {
+				obstacleDetectors = append(obstacleDetectors, ObstacleDetectorName{
+					VisionServiceName: protoutils.ResourceNameFromProto(obstacleDetectorPair.VisionService),
+					CameraName:        protoutils.ResourceNameFromProto(obstacleDetectorPair.Camera),
+				})
 			}
 		}
 		if motionCfg.PositionPollingFrequencyHz != nil {
@@ -42,7 +43,7 @@ func configurationFromProto(motionCfg *pb.MotionConfiguration) *MotionConfigurat
 	}
 
 	return &MotionConfiguration{
-		VisionServices:        visionSvc,
+		ObstacleDetectors:     obstacleDetectors,
 		PositionPollingFreqHz: positionPollingHz,
 		ObstaclePollingFreqHz: obstaclePollingHz,
 		PlanDeviationMM:       1e3 * planDeviationM,
@@ -70,12 +71,15 @@ func (motionCfg MotionConfiguration) toProto() *pb.MotionConfiguration {
 		proto.PlanDeviationM = &planDeviationM
 	}
 
-	if len(motionCfg.VisionServices) > 0 {
-		svcs := []*commonpb.ResourceName{}
-		for _, name := range motionCfg.VisionServices {
-			svcs = append(svcs, protoutils.ResourceNameToProto(name))
+	if len(motionCfg.ObstacleDetectors) > 0 {
+		pbObstacleDetector := []*pb.ObstacleDetector{}
+		for _, obstacleDetectorPair := range motionCfg.ObstacleDetectors {
+			pbObstacleDetector = append(pbObstacleDetector, &pb.ObstacleDetector{
+				VisionService: protoutils.ResourceNameToProto(obstacleDetectorPair.VisionServiceName),
+				Camera:        protoutils.ResourceNameToProto(obstacleDetectorPair.CameraName),
+			})
 		}
-		proto.VisionServices = svcs
+		proto.ObstacleDetectors = pbObstacleDetector
 	}
 	return proto
 }

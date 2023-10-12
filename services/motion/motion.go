@@ -181,11 +181,17 @@ type Service interface {
 	) ([]PlanWithStatus, error)
 }
 
+// ObstacleDetectorName pairs a vision service name with a camera name.
+type ObstacleDetectorName struct {
+	VisionServiceName resource.Name
+	CameraName        resource.Name
+}
+
 // MotionConfiguration specifies how to configure a call
 //
 //nolint:revive
 type MotionConfiguration struct {
-	VisionServices        []resource.Name
+	ObstacleDetectors     []ObstacleDetectorName
 	PositionPollingFreqHz float64
 	ObstaclePollingFreqHz float64
 	PlanDeviationMM       float64
