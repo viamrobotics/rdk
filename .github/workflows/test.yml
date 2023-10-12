@@ -13,6 +13,7 @@ env:
 jobs:
   build_and_test:
     name: Build and Test
+    if: false # DONOTMERGE
     strategy:
       fail-fast: false
       matrix:
@@ -166,7 +167,7 @@ jobs:
     - name: Test
       run: |
         docker run \
-          --platform linux/arm/v7
+          --platform linux/arm/v7 \
           ghcr.io/viamrobotics/rdk-devenv:armhf-cache \
           -v `pwd`:/rdk \
           sudo -Hu testbot bash -lc 'cd /rdk && go test -v -tags=no_tflite ./...'
