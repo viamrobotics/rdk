@@ -582,7 +582,7 @@ func (svc *builtIn) waypointIsDeleted() bool {
 func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoObstacle, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
-	return svc.obstacles, errUnimplemented
+	return svc.obstacles, nil
 }
 
 func (svc *builtIn) Paths(ctx context.Context, extra map[string]interface{}) ([]*navigation.Path, error) {
