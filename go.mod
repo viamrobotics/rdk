@@ -2,8 +2,6 @@ module go.viam.com/rdk
 
 go 1.19
 
-replace go.viam.com/utils => ./goutils
-
 require (
 	github.com/AlekSi/gocov-xml v1.0.0
 	github.com/CPRT/roboclaw v0.0.0-20190825181223-76871438befc
@@ -87,7 +85,7 @@ require (
 	go.uber.org/zap v1.24.0
 	go.viam.com/api v0.1.215
 	go.viam.com/test v1.1.1-0.20220913152726-5da9916c08a2
-	go.viam.com/utils v0.1.48
+	go.viam.com/utils v0.1.49
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.8.0
 	golang.org/x/tools v0.8.0
