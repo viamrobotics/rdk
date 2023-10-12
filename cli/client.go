@@ -78,11 +78,12 @@ func (c *viamClient) listOrganizationsAction(cCtx *cli.Context) error {
 		if i == 0 {
 			printf(cCtx.App.Writer, "Organizations for %q:", c.conf.Auth)
 		}
-		printf(cCtx.App.Writer, "\t%s", org.Name)
-		printf(cCtx.App.Writer, "\t\tid: %s", org.Id)
+		idInfo := fmt.Sprintf("(id: %s)", org.Id)
+		namespaceInfo := ""
 		if org.PublicNamespace != "" {
-			printf(cCtx.App.Writer, "\t\tnamespace: %s", org.PublicNamespace)
+			namespaceInfo = fmt.Sprintf(" (namespace: %s)", org.PublicNamespace)
 		}
+		printf(cCtx.App.Writer, "\t%s %s%s", org.Name, idInfo, namespaceInfo)
 	}
 	return nil
 }
