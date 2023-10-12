@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
@@ -97,19 +98,34 @@ var (
 	}
 
 	defaultReplayMovementSensorFunction = linearAcceleration
+
+	allMethodsSupported = &movementsensor.Properties{
+		PositionSupported:           true,
+		LinearVelocitySupported:     true,
+		AngularVelocitySupported:    true,
+		LinearAccelerationSupported: true,
+		CompassHeadingSupported:     true,
+		OrientationSupported:        true,
+	}
+
+	errPropertiesFailedToInitializeTest = errors.Wrap(
+		errors.Wrap(context.DeadlineExceeded, errPropertiesFailedToInitialize.Error()),
+		errMessageNoDataAvailable)
 )
 
 func TestNewReplayMovementSensor(t *testing.T) {
 	ctx := context.Background()
 
+	initializePropertiesTimeout = 2 * time.Second
+
 	cases := []struct {
 		description          string
 		cfg                  *Config
-		expectedErr          error
 		validCloudConnection bool
+		expectedErr          error
 	}{
 		{
-			description: "valid config with internal cloud service",
+			description: "Valid config with internal cloud service",
 			cfg: &Config{
 				Source:         validSource,
 				RobotID:        validRobotID,
@@ -119,7 +135,7 @@ func TestNewReplayMovementSensor(t *testing.T) {
 			validCloudConnection: true,
 		},
 		{
-			description: "bad internal cloud service",
+			description: "Bad internal cloud service",
 			cfg: &Config{
 				Source:         validSource,
 				RobotID:        validRobotID,
@@ -130,7 +146,7 @@ func TestNewReplayMovementSensor(t *testing.T) {
 			expectedErr:          errors.Wrap(errTestCloudConnection, errCloudConnectionFailure.Error()),
 		},
 		{
-			description: "bad start timestamp",
+			description: "Bad start timestamp",
 			cfg: &Config{
 				Source:         validSource,
 				RobotID:        validRobotID,
@@ -144,7 +160,7 @@ func TestNewReplayMovementSensor(t *testing.T) {
 			expectedErr:          errors.New("invalid time format for start time, missed during config validation"),
 		},
 		{
-			description: "bad end timestamp",
+			description: "Bad end timestamp",
 			cfg: &Config{
 				Source:         validSource,
 				RobotID:        validRobotID,
@@ -157,12 +173,73 @@ func TestNewReplayMovementSensor(t *testing.T) {
 			validCloudConnection: true,
 			expectedErr:          errors.New("invalid time format for end time, missed during config validation"),
 		},
+		{
+			description: "Bad source, initialization of Properties fails",
+			cfg: &Config{
+				Source:         "bad_source",
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
+			},
+			validCloudConnection: true,
+			expectedErr:          errPropertiesFailedToInitializeTest,
+		},
+		{
+			description: "Bad robot_id, initialization of Properties fails",
+			cfg: &Config{
+				Source:         validSource,
+				RobotID:        "bad_robot_id",
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
+			},
+			validCloudConnection: true,
+			expectedErr:          errPropertiesFailedToInitializeTest,
+		},
+		{
+			description: "Bad location_id, initialization of Properties fails",
+			cfg: &Config{
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     "bad_location_id",
+				OrganizationID: validOrganizationID,
+			},
+			validCloudConnection: true,
+			expectedErr:          errPropertiesFailedToInitializeTest,
+		},
+		{
+			description: "Bad organization_id, initialization of Properties fails",
+			cfg: &Config{
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: "bad_organization_id",
+			},
+			validCloudConnection: true,
+			expectedErr:          errPropertiesFailedToInitializeTest,
+		},
+		{
+			description: "Filter results in no data, initialization of Properties fails",
+			cfg: &Config{
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
+				BatchSize:      &batchSizeNonZero,
+				Interval: TimeInterval{
+					Start: "2000-01-01T12:00:30Z",
+					End:   "2000-01-01T12:00:40Z",
+				},
+			},
+			validCloudConnection: true,
+			expectedErr:          errPropertiesFailedToInitializeTest,
+		},
 	}
 
 	for _, tt := range cases {
 		t.Run(tt.description, func(t *testing.T) {
 			replay, _, serverClose, err := createNewReplayMovementSensor(ctx, t, tt.cfg, tt.validCloudConnection)
-			if err != nil {
+			if tt.expectedErr != nil {
+				test.That(t, err, test.ShouldNotBeNil)
 				test.That(t, err, test.ShouldBeError, tt.expectedErr)
 				test.That(t, replay, test.ShouldBeNil)
 			} else {
@@ -183,92 +260,30 @@ func TestNewReplayMovementSensor(t *testing.T) {
 func TestReplayMovementSensorFunctions(t *testing.T) {
 	ctx := context.Background()
 
+	initializePropertiesTimeout = 2 * time.Second
+
 	cases := []struct {
-		description  string
-		methods      []method
-		cfg          *Config
-		startFileNum map[method]int
-		endFileNum   map[method]int
+		description        string
+		cfg                *Config
+		startFileNum       map[method]int
+		endFileNum         map[method]int
+		expectedMethodsErr map[method]error
+		expectedProperties *movementsensor.Properties
 	}{
 		{
-			description: "Calling method with valid filter",
+			description: "Calling method with valid filter, all methods are supported",
 			cfg: &Config{
 				Source:         validSource,
 				RobotID:        validRobotID,
 				LocationID:     validLocationID,
 				OrganizationID: validOrganizationID,
 			},
-			methods:      methodList,
-			startFileNum: allMethodsMinDataLength,
-			endFileNum:   allMethodsMaxDataLength,
+			startFileNum:       allMethodsMinDataLength,
+			endFileNum:         allMethodsMaxDataLength,
+			expectedProperties: allMethodsSupported,
 		},
 		{
-			description: "Calling method with bad source",
-			cfg: &Config{
-				Source:         "bad_source",
-				RobotID:        validRobotID,
-				LocationID:     validLocationID,
-				OrganizationID: validOrganizationID,
-			},
-			methods:      []method{linearAcceleration},
-			startFileNum: map[method]int{linearAcceleration: -1},
-			endFileNum:   map[method]int{linearAcceleration: -1},
-		},
-		{
-			description: "Calling method with bad robot_id",
-			cfg: &Config{
-				Source:         validSource,
-				RobotID:        "bad_robot_id",
-				LocationID:     validLocationID,
-				OrganizationID: validOrganizationID,
-			},
-			methods:      []method{linearAcceleration},
-			startFileNum: map[method]int{linearAcceleration: -1},
-			endFileNum:   map[method]int{linearAcceleration: -1},
-		},
-		{
-			description: "Calling method with bad location_id",
-			cfg: &Config{
-				Source:         validSource,
-				RobotID:        validRobotID,
-				LocationID:     "bad_location_id",
-				OrganizationID: validOrganizationID,
-			},
-			methods:      []method{linearAcceleration},
-			startFileNum: map[method]int{linearAcceleration: -1},
-			endFileNum:   map[method]int{linearAcceleration: -1},
-		},
-		{
-			description: "Calling method with bad organization_id",
-			cfg: &Config{
-				Source:         validSource,
-				RobotID:        validRobotID,
-				LocationID:     validLocationID,
-				OrganizationID: "bad_organization_id",
-			},
-			methods:      []method{linearAcceleration},
-			startFileNum: map[method]int{linearAcceleration: -1},
-			endFileNum:   map[method]int{linearAcceleration: -1},
-		},
-		{
-			description: "Calling method with filter no data",
-			cfg: &Config{
-				Source:         validSource,
-				RobotID:        validRobotID,
-				LocationID:     validLocationID,
-				OrganizationID: validOrganizationID,
-				BatchSize:      &batchSizeNonZero,
-				Interval: TimeInterval{
-					Start: "2000-01-01T12:00:30Z",
-					End:   "2000-01-01T12:00:40Z",
-				},
-			},
-			methods:      []method{linearAcceleration},
-			startFileNum: map[method]int{linearAcceleration: -1},
-			endFileNum:   map[method]int{linearAcceleration: -1},
-		},
-		{
-			description: "Calling methods with end filter",
+			description: "Calling methods with end filter, all methods supported",
 			cfg: &Config{
 				Source:         validSource,
 				RobotID:        validRobotID,
@@ -279,19 +294,19 @@ func TestReplayMovementSensorFunctions(t *testing.T) {
 					End: "2000-01-01T12:00:03Z",
 				},
 			},
-			methods:      methodList,
 			startFileNum: allMethodsMinDataLength,
 			endFileNum: map[method]int{
-				linearAcceleration: 3,
-				angularVelocity:    3,
 				position:           3,
 				linearVelocity:     3,
+				angularVelocity:    3,
+				linearAcceleration: 3,
 				compassHeading:     3,
-				orientation:        2,
+				orientation:        allMethodsMaxDataLength[orientation],
 			},
+			expectedProperties: allMethodsSupported,
 		},
 		{
-			description: "Calling methods with start filter",
+			description: "Calling methods with start filter starting at 2",
 			cfg: &Config{
 				Source:         validSource,
 				RobotID:        validRobotID,
@@ -302,14 +317,12 @@ func TestReplayMovementSensorFunctions(t *testing.T) {
 					Start: "2000-01-01T12:00:02Z",
 				},
 			},
-			methods: methodList,
 			startFileNum: map[method]int{
-				linearAcceleration: 2,
-				angularVelocity:    2,
 				position:           2,
 				linearVelocity:     2,
+				angularVelocity:    2,
+				linearAcceleration: 2,
 				compassHeading:     2,
-				orientation:        -1,
 			},
 			endFileNum: map[method]int{
 				position:           allMethodsMaxDataLength[position],
@@ -317,7 +330,122 @@ func TestReplayMovementSensorFunctions(t *testing.T) {
 				angularVelocity:    allMethodsMaxDataLength[angularVelocity],
 				linearAcceleration: allMethodsMaxDataLength[linearAcceleration],
 				compassHeading:     allMethodsMaxDataLength[compassHeading],
-				orientation:        -1,
+			},
+			expectedMethodsErr: map[method]error{
+				orientation: movementsensor.ErrMethodUnimplementedOrientation,
+			},
+			expectedProperties: &movementsensor.Properties{
+				PositionSupported:           true,
+				LinearVelocitySupported:     true,
+				AngularVelocitySupported:    true,
+				LinearAccelerationSupported: true,
+				CompassHeadingSupported:     true,
+				OrientationSupported:        false,
+			},
+		},
+		{
+			description: "Calling methods with start filter starting at 6",
+			cfg: &Config{
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
+				BatchSize:      &batchSizeNonZero,
+				Interval: TimeInterval{
+					Start: "2000-01-01T12:00:06Z",
+				},
+			},
+			startFileNum: map[method]int{
+				linearVelocity:  6,
+				angularVelocity: 6,
+				compassHeading:  6,
+			},
+			endFileNum: map[method]int{
+				linearVelocity:  allMethodsMaxDataLength[linearVelocity],
+				angularVelocity: allMethodsMaxDataLength[angularVelocity],
+				compassHeading:  allMethodsMaxDataLength[compassHeading],
+			},
+			expectedMethodsErr: map[method]error{
+				position:           movementsensor.ErrMethodUnimplementedPosition,
+				linearAcceleration: movementsensor.ErrMethodUnimplementedLinearAcceleration,
+				orientation:        movementsensor.ErrMethodUnimplementedOrientation,
+			},
+			expectedProperties: &movementsensor.Properties{
+				PositionSupported:           false,
+				LinearVelocitySupported:     true,
+				AngularVelocitySupported:    true,
+				LinearAccelerationSupported: false,
+				CompassHeadingSupported:     true,
+				OrientationSupported:        false,
+			},
+		},
+		{
+			description: "Calling methods with start filter starting at 8",
+			cfg: &Config{
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
+				BatchSize:      &batchSizeNonZero,
+				Interval: TimeInterval{
+					Start: "2000-01-01T12:00:08Z",
+				},
+			},
+			startFileNum: map[method]int{
+				linearVelocity: 8,
+				compassHeading: 8,
+			},
+			endFileNum: map[method]int{
+				linearVelocity: allMethodsMaxDataLength[linearVelocity],
+				compassHeading: allMethodsMaxDataLength[compassHeading],
+			},
+			expectedMethodsErr: map[method]error{
+				position:           movementsensor.ErrMethodUnimplementedPosition,
+				angularVelocity:    movementsensor.ErrMethodUnimplementedAngularVelocity,
+				linearAcceleration: movementsensor.ErrMethodUnimplementedLinearAcceleration,
+				orientation:        movementsensor.ErrMethodUnimplementedOrientation,
+			},
+			expectedProperties: &movementsensor.Properties{
+				PositionSupported:           false,
+				LinearVelocitySupported:     true,
+				AngularVelocitySupported:    false,
+				LinearAccelerationSupported: false,
+				CompassHeadingSupported:     true,
+				OrientationSupported:        false,
+			},
+		},
+		{
+			description: "Calling methods with start filter starting at 10",
+			cfg: &Config{
+				Source:         validSource,
+				RobotID:        validRobotID,
+				LocationID:     validLocationID,
+				OrganizationID: validOrganizationID,
+				BatchSize:      &batchSizeNonZero,
+				Interval: TimeInterval{
+					Start: "2000-01-01T12:00:10Z",
+				},
+			},
+			startFileNum: map[method]int{
+				compassHeading: 10,
+			},
+			endFileNum: map[method]int{
+				compassHeading: allMethodsMaxDataLength[compassHeading],
+			},
+			expectedMethodsErr: map[method]error{
+				position:           movementsensor.ErrMethodUnimplementedPosition,
+				linearVelocity:     movementsensor.ErrMethodUnimplementedLinearVelocity,
+				angularVelocity:    movementsensor.ErrMethodUnimplementedAngularVelocity,
+				linearAcceleration: movementsensor.ErrMethodUnimplementedLinearAcceleration,
+				orientation:        movementsensor.ErrMethodUnimplementedOrientation,
+			},
+			expectedProperties: &movementsensor.Properties{
+				PositionSupported:           false,
+				LinearVelocitySupported:     false,
+				AngularVelocitySupported:    false,
+				LinearAccelerationSupported: false,
+				CompassHeadingSupported:     true,
+				OrientationSupported:        false,
 			},
 		},
 		{
@@ -333,7 +461,6 @@ func TestReplayMovementSensorFunctions(t *testing.T) {
 					End:   "2000-01-01T12:00:03Z",
 				},
 			},
-			methods: methodList,
 			startFileNum: map[method]int{
 				position:           1,
 				linearVelocity:     1,
@@ -350,6 +477,7 @@ func TestReplayMovementSensorFunctions(t *testing.T) {
 				compassHeading:     3,
 				orientation:        allMethodsMaxDataLength[orientation],
 			},
+			expectedProperties: allMethodsSupported,
 		},
 	}
 
@@ -359,15 +487,23 @@ func TestReplayMovementSensorFunctions(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, replay, test.ShouldNotBeNil)
 
-			for _, method := range tt.methods {
-				// Iterate through all files that meet the provided filter
-				if tt.startFileNum[method] != -1 {
-					for i := tt.startFileNum[method]; i < tt.endFileNum[method]; i++ {
-						testReplayMovementSensorMethod(ctx, t, replay, method, i, true)
+			actualProperties, err := replay.Properties(ctx, map[string]interface{}{})
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, actualProperties, test.ShouldResemble, tt.expectedProperties)
+
+			for _, method := range methodList {
+				if tt.expectedMethodsErr[method] != nil {
+					testReplayMovementSensorMethodError(ctx, t, replay, method, tt.expectedMethodsErr[method])
+				} else {
+					// Iterate through all files that meet the provided filter
+					if _, ok := tt.startFileNum[method]; ok {
+						for i := tt.startFileNum[method]; i < tt.endFileNum[method]; i++ {
+							testReplayMovementSensorMethodData(ctx, t, replay, method, i)
+						}
 					}
+					// Confirm the end of the dataset was reached when expected
+					testReplayMovementSensorMethodError(ctx, t, replay, method, ErrEndOfDataset)
 				}
-				// Confirm the end of the dataset was reached when expected
-				testReplayMovementSensorMethod(ctx, t, replay, method, -1, false)
 			}
 
 			err = replay.Close(ctx)
@@ -558,35 +694,6 @@ func TestReplayMovementSensorConfigValidation(t *testing.T) {
 	}
 }
 
-func TestReplayMovementSensorProperties(t *testing.T) {
-	// Construct replay movement sensor.
-	ctx := context.Background()
-	cfg := &Config{
-		Source:         validSource,
-		RobotID:        validRobotID,
-		LocationID:     validLocationID,
-		OrganizationID: validOrganizationID,
-		BatchSize:      &batchSizeNonZero,
-	}
-	replay, _, serverClose, err := createNewReplayMovementSensor(ctx, t, cfg, true)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, replay, test.ShouldNotBeNil)
-
-	props, err := replay.Properties(ctx, map[string]interface{}{})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, props.PositionSupported, test.ShouldBeTrue)
-	test.That(t, props.LinearVelocitySupported, test.ShouldBeTrue)
-	test.That(t, props.AngularVelocitySupported, test.ShouldBeTrue)
-	test.That(t, props.LinearAccelerationSupported, test.ShouldBeTrue)
-	test.That(t, props.CompassHeadingSupported, test.ShouldBeTrue)
-	test.That(t, props.OrientationSupported, test.ShouldBeTrue)
-
-	err = replay.Close(ctx)
-	test.That(t, err, test.ShouldBeNil)
-
-	test.That(t, serverClose(), test.ShouldBeNil)
-}
-
 func TestUnimplementedFunctionAccuracy(t *testing.T) {
 	ctx := context.Background()
 
@@ -620,6 +727,7 @@ func TestReplayMovementSensorReadings(t *testing.T) {
 	}
 	replay, _, serverClose, err := createNewReplayMovementSensor(ctx, t, cfg, true)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, replay, test.ShouldNotBeNil)
 
 	// For loop depends on the data length of orientation as it has the fewest points of data
 	for i := 0; i < allMethodsMaxDataLength[orientation]; i++ {
@@ -664,7 +772,7 @@ func TestReplayMovementSensorTimestampsMetadata(t *testing.T) {
 		serverStream := testutils.NewServerTransportStream()
 		ctx = grpc.NewContextWithServerTransportStream(ctx, serverStream)
 
-		testReplayMovementSensorMethod(ctx, t, replay, defaultReplayMovementSensorFunction, i, true)
+		testReplayMovementSensorMethodData(ctx, t, replay, defaultReplayMovementSensorFunction, i)
 
 		expectedTimeReq := fmt.Sprintf(testTime, i)
 		expectedTimeRec := fmt.Sprintf(testTime, i+1)
@@ -677,7 +785,7 @@ func TestReplayMovementSensorTimestampsMetadata(t *testing.T) {
 	}
 
 	// Confirm the end of the dataset was reached when expected
-	testReplayMovementSensorMethod(ctx, t, replay, defaultReplayMovementSensorFunction, -1, false)
+	testReplayMovementSensorMethodError(ctx, t, replay, defaultReplayMovementSensorFunction, ErrEndOfDataset)
 
 	err = replay.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)
@@ -700,7 +808,7 @@ func TestReplayMovementSensorReconfigure(t *testing.T) {
 
 	// Call default movement sensor function to iterate through a few files
 	for i := 0; i < 3; i++ {
-		testReplayMovementSensorMethod(ctx, t, replay, defaultReplayMovementSensorFunction, i, true)
+		testReplayMovementSensorMethodData(ctx, t, replay, defaultReplayMovementSensorFunction, i)
 	}
 
 	// Reconfigure with a new batch size
@@ -710,7 +818,7 @@ func TestReplayMovementSensorReconfigure(t *testing.T) {
 	// Call the default movement sensor function a couple more times, ensuring that we start over from
 	// the beginning of the dataset after calling Reconfigure
 	for i := 0; i < 5; i++ {
-		testReplayMovementSensorMethod(ctx, t, replay, defaultReplayMovementSensorFunction, i, true)
+		testReplayMovementSensorMethodData(ctx, t, replay, defaultReplayMovementSensorFunction, i)
 	}
 
 	// Reconfigure again, batch size 1
@@ -719,11 +827,11 @@ func TestReplayMovementSensorReconfigure(t *testing.T) {
 
 	// Again verify dataset starts from beginning
 	for i := 0; i < allMethodsMaxDataLength[defaultReplayMovementSensorFunction]; i++ {
-		testReplayMovementSensorMethod(ctx, t, replay, defaultReplayMovementSensorFunction, i, true)
+		testReplayMovementSensorMethodData(ctx, t, replay, defaultReplayMovementSensorFunction, i)
 	}
 
 	// Confirm the end of the dataset was reached when expected
-	testReplayMovementSensorMethod(ctx, t, replay, defaultReplayMovementSensorFunction, -1, false)
+	testReplayMovementSensorMethodError(ctx, t, replay, defaultReplayMovementSensorFunction, ErrEndOfDataset)
 
 	err = replay.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)
