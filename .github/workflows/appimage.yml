@@ -223,7 +223,8 @@ jobs:
 
   appimage_deploy:
     name: AppImage Deploy
-    needs: [appimage_test, appimage-32bit]
+    needs: [appimage-32bit]
+    # needs: [appimage_test, appimage-32bit]
     runs-on: ubuntu-latest
     env:
       channel: ${{ github.ref_name == 'main' && 'latest' || github.ref_name }}
@@ -249,6 +250,9 @@ jobs:
         path: etc/packaging/appimages/deploy/viam-server-${{ env.channel }}-armhf.AppImage
         destination: 'packages.viam.com/apps/viam-server/'
         parent: false
+
+    - name: short-circuit
+      run: exit 1
 
     - name: Publish AppImage
       run: |
