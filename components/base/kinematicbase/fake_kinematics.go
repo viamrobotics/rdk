@@ -184,7 +184,7 @@ func WrapWithFakePTGKinematics(
 		Base:            b,
 		frame:           frame,
 		parentFrame:     position.Parent(),
-		currentPosition: spatialmath.NewZeroPose(),
+		currentPosition: position.Pose(),
 		sensorNoise:     sensorNoise,
 	}
 
