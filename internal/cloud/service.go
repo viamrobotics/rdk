@@ -45,6 +45,7 @@ func NewCloudConnectionService(cfg *config.Cloud, logger logging.Logger) Connect
 		managed:  true,
 		dialer:   rpc.NewCachedDialer(),
 		cloudCfg: *cfg,
+		logger:   logger,
 	}
 }
 
