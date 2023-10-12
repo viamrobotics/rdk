@@ -17,16 +17,27 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - arch: [buildjet-8vcpu-ubuntu-2204]
+          - arch: buildjet-8vcpu-ubuntu-2204
             image: ghcr.io/viamrobotics/rdk-devenv:amd64-cache
             platform: linux/amd64
             platform_name: linux-amd64
-            test_cmd: "make cover test-web"
-          - arch: [buildjet-8vcpu-ubuntu-2204-arm]
+            test_cmd: make test-web
+          - arch: buildjet-8vcpu-ubuntu-2204
+            image: ghcr.io/viamrobotics/rdk-devenv:amd64-cache
+            platform: linux/amd64
+            platform_name: linux-amd64
+            test_cmd: make cover
+          - arch: buildjet-8vcpu-ubuntu-2204-arm
             image: ghcr.io/viamrobotics/rdk-devenv:arm64-cache
             platform: linux/arm64
             platform_name: linux-arm64
-            test_cmd: "make cover test-web"
+            test_cmd: make cover
+          - arch: buildjet-8vcpu-ubuntu-2204-arm
+            image: ghcr.io/viamrobotics/rdk-devenv:armhf-cache
+            platform: linux/arm/v7
+            platform_name: linux-armv7
+            # note: -race detection not supported on arm 32-bit, and test.sh overrides GOFLAGS
+            test_cmd: go test -v -tags=no_tflite ./...
     runs-on: ${{ matrix.arch }}
     container:
       image: ${{ matrix.image }}
