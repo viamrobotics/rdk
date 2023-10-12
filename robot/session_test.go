@@ -179,7 +179,7 @@ func TestSessions(t *testing.T) {
 			err = r.StartWeb(ctx, options)
 			test.That(t, err, test.ShouldBeNil)
 
-			roboClient, err := client.New(ctx, addr, logger)
+			roboClient, err := client.New(ctx, addr, logger.AsZap())
 			test.That(t, err, test.ShouldBeNil)
 
 			motor1, err := motor.FromRobot(roboClient, "motor1")
@@ -195,7 +195,7 @@ func TestSessions(t *testing.T) {
 			// kind of racy but it's okay
 			ensureStop(t, "", stopChNames)
 
-			roboClient, err = client.New(ctx, addr, logger)
+			roboClient, err = client.New(ctx, addr, logger.AsZap())
 			test.That(t, err, test.ShouldBeNil)
 
 			motor1, err = motor.FromRobot(roboClient, "motor1")
@@ -221,7 +221,7 @@ func TestSessions(t *testing.T) {
 			dummyMotor1.stopCh = stopChs["motor1"].Chan
 			dummyMotor1.mu.Unlock()
 
-			roboClient, err = client.New(ctx, addr, logger)
+			roboClient, err = client.New(ctx, addr, logger.AsZap())
 			test.That(t, err, test.ShouldBeNil)
 
 			motor2, err := motor.FromRobot(roboClient, "motor2")
@@ -424,7 +424,7 @@ func TestSessionsWithRemote(t *testing.T) {
 	err = r.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	roboClient, err := client.New(ctx, addr, logger)
+	roboClient, err := client.New(ctx, addr, logger.AsZap())
 	test.That(t, err, test.ShouldBeNil)
 
 	motor1, err := motor.FromRobot(roboClient, "rem1:motor1")
@@ -450,7 +450,7 @@ func TestSessionsWithRemote(t *testing.T) {
 	// kind of racy but it's okay
 	ensureStop(t, "", stopChNames)
 
-	roboClient, err = client.New(ctx, addr, logger)
+	roboClient, err = client.New(ctx, addr, logger.AsZap())
 	test.That(t, err, test.ShouldBeNil)
 
 	motor1, err = motor.FromRobot(roboClient, "rem1:motor1")
@@ -478,7 +478,7 @@ func TestSessionsWithRemote(t *testing.T) {
 
 	logger.Info("close robot instead of client")
 
-	roboClient, err = client.New(ctx, addr, logger)
+	roboClient, err = client.New(ctx, addr, logger.AsZap())
 	test.That(t, err, test.ShouldBeNil)
 
 	motor1, err = motor.FromRobot(roboClient, "rem1:motor1")
@@ -513,7 +513,7 @@ func TestSessionsWithRemote(t *testing.T) {
 	err = r.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	roboClient, err = client.New(ctx, addr, logger)
+	roboClient, err = client.New(ctx, addr, logger.AsZap())
 	test.That(t, err, test.ShouldBeNil)
 
 	motor2, err := motor.FromRobot(roboClient, "rem1:motor2")
@@ -607,9 +607,9 @@ func TestSessionsMixedClients(t *testing.T) {
 	err = r.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	roboClient1, err := client.New(ctx, addr, logger)
+	roboClient1, err := client.New(ctx, addr, logger.AsZap())
 	test.That(t, err, test.ShouldBeNil)
-	roboClient2, err := client.New(ctx, addr, logger)
+	roboClient2, err := client.New(ctx, addr, logger.AsZap())
 	test.That(t, err, test.ShouldBeNil)
 
 	motor1Client1, err := motor.FromRobot(roboClient1, "motor1")
@@ -697,7 +697,7 @@ func TestSessionsMixedOwnersNoAuth(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// with no auth turned on, we will have no session owner, meaning mixing sessions technically works, for now
-	roboClient1, err := client.New(ctx, addr, logger, client.WithDialOptions(rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{
+	roboClient1, err := client.New(ctx, addr, logger.AsZap(), client.WithDialOptions(rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{
 		Disable: true,
 	})))
 	test.That(t, err, test.ShouldBeNil)
@@ -798,7 +798,7 @@ func TestSessionsMixedOwnersImplicitAuth(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// TODO(RSDK-890): using WebRTC (the default) gives us an implicit auth subject, for now
-	roboClient1, err := client.New(ctx, addr, logger)
+	roboClient1, err := client.New(ctx, addr, logger.AsZap())
 	test.That(t, err, test.ShouldBeNil)
 
 	roboClientConn2, err := grpc.Dial(ctx, addr, logger, rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{

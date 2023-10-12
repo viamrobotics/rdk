@@ -14,7 +14,7 @@ func main() {
 	robot, err := client.New(
 		context.Background(),
 		"localhost:8081",
-		logger,
+		logger.AsZap(),
 	)
 	if err != nil {
 		logger.Fatal(err)

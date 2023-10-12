@@ -98,7 +98,7 @@ var finalResources = []resource.Name{
 var pose1 = spatialmath.NewZeroPose()
 
 func TestStatusClient(t *testing.T) {
-	logger := logging.NewTestLogger(t)
+	logger := logging.NewTestLogger(t).AsZap()
 	listener1, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	listener2, err := net.Listen("tcp", "localhost:0")
@@ -464,7 +464,7 @@ func TestStatusClient(t *testing.T) {
 }
 
 func TestClientRefresh(t *testing.T) {
-	logger := logging.NewTestLogger(t)
+	logger := logging.NewTestLogger(t).AsZap()
 
 	listener := gotestutils.ReserveRandomListener(t)
 	gServer := grpc.NewServer()
@@ -681,7 +681,7 @@ func TestClientDisconnect(t *testing.T) {
 	client, err := New(
 		context.Background(),
 		listener.Addr().String(),
-		logger,
+		logger.AsZap(),
 		WithCheckConnectedEvery(dur),
 		WithReconnectEvery(2*dur),
 	)
@@ -742,7 +742,7 @@ func TestClientUnaryDisconnectHandler(t *testing.T) {
 	client, err := New(
 		context.Background(),
 		listener.Addr().String(),
-		logger,
+		logger.AsZap(),
 		WithCheckConnectedEvery(never),
 		WithReconnectEvery(never),
 	)
@@ -816,7 +816,7 @@ func TestClientStreamDisconnectHandler(t *testing.T) {
 	client, err := New(
 		context.Background(),
 		listener.Addr().String(),
-		logger,
+		logger.AsZap(),
 		WithCheckConnectedEvery(never),
 		WithReconnectEvery(never),
 	)
@@ -918,7 +918,7 @@ func TestClientReconnect(t *testing.T) {
 	client, err := New(
 		context.Background(),
 		listener.Addr().String(),
-		logger,
+		logger.AsZap(),
 		WithCheckConnectedEvery(dur),
 		WithReconnectEvery(dur),
 	)
@@ -1017,7 +1017,7 @@ func TestClientRefreshNoReconfigure(t *testing.T) {
 	client, err := New(
 		context.Background(),
 		listener.Addr().String(),
-		logger,
+		logger.AsZap(),
 		WithRefreshEvery(dur),
 	)
 	test.That(t, err, test.ShouldBeNil)
@@ -1047,11 +1047,11 @@ func TestClientDialerOption(t *testing.T) {
 
 	td := &testutils.TrackingDialer{Dialer: rpc.NewCachedDialer()}
 	ctx := rpc.ContextWithDialer(context.Background(), td)
-	client1, err := New(ctx, listener.Addr().String(), logger)
+	client1, err := New(ctx, listener.Addr().String(), logger.AsZap())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, td.NewConnections, test.ShouldEqual, 3)
 
-	client2, err := New(ctx, listener.Addr().String(), logger)
+	client2, err := New(ctx, listener.Addr().String(), logger.AsZap())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, td.NewConnections, test.ShouldEqual, 3)
 
@@ -1092,7 +1092,7 @@ func TestClientResources(t *testing.T) {
 
 	go gServer.Serve(listener)
 
-	client, err := New(context.Background(), listener.Addr().String(), logger)
+	client, err := New(context.Background(), listener.Addr().String(), logger.AsZap())
 	test.That(t, err, test.ShouldBeNil)
 
 	// no reflection
@@ -1115,7 +1115,7 @@ func TestClientResources(t *testing.T) {
 	go gServer.Serve(listener)
 	defer gServer.Stop()
 
-	client, err = New(context.Background(), listener.Addr().String(), logger)
+	client, err = New(context.Background(), listener.Addr().String(), logger.AsZap())
 	test.That(t, err, test.ShouldBeNil)
 
 	resources, rpcAPIs, err = client.resources(context.Background())
@@ -1156,7 +1156,7 @@ func TestClientDiscovery(t *testing.T) {
 	go gServer.Serve(listener)
 	defer gServer.Stop()
 
-	client, err := New(context.Background(), listener.Addr().String(), logger)
+	client, err := New(context.Background(), listener.Addr().String(), logger.AsZap())
 	test.That(t, err, test.ShouldBeNil)
 
 	resp, err := client.DiscoverComponents(context.Background(), []resource.DiscoveryQuery{q})
@@ -1268,12 +1268,12 @@ func TestClientConfig(t *testing.T) {
 	t.Run("Failing client due to cancellation", func(t *testing.T) {
 		cancelCtx, cancel := context.WithCancel(ctx)
 		cancel()
-		_, err = New(cancelCtx, listener1.Addr().String(), logger)
+		_, err = New(cancelCtx, listener1.Addr().String(), logger.AsZap())
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 	})
 
-	workingFSClient, err := New(ctx, listener1.Addr().String(), logger)
+	workingFSClient, err := New(ctx, listener1.Addr().String(), logger.AsZap())
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("client test config for working frame service", func(t *testing.T) {
@@ -1289,7 +1289,7 @@ func TestClientConfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("dialed client test config for working frame service", func(t *testing.T) {
-		workingDialedClient, err := New(ctx, listener1.Addr().String(), logger)
+		workingDialedClient, err := New(ctx, listener1.Addr().String(), logger.AsZap())
 		test.That(t, err, test.ShouldBeNil)
 		config, err := workingDialedClient.FrameSystemConfig(ctx)
 		test.That(t, err, test.ShouldBeNil)
@@ -1304,7 +1304,7 @@ func TestClientConfig(t *testing.T) {
 	go failingServer.Serve(listener2)
 	defer failingServer.Stop()
 
-	failingFSClient, err := New(ctx, listener2.Addr().String(), logger)
+	failingFSClient, err := New(ctx, listener2.Addr().String(), logger.AsZap())
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("client test config for failing frame service", func(t *testing.T) {
@@ -1317,7 +1317,7 @@ func TestClientConfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("dialed client test config for failing frame service with failing config", func(t *testing.T) {
-		failingDialedClient, err := New(ctx, listener2.Addr().String(), logger)
+		failingDialedClient, err := New(ctx, listener2.Addr().String(), logger.AsZap())
 		test.That(t, err, test.ShouldBeNil)
 		parts, err := failingDialedClient.FrameSystemConfig(ctx)
 		test.That(t, parts, test.ShouldBeNil)
@@ -1357,13 +1357,13 @@ func TestClientStatus(t *testing.T) {
 	t.Run("failing client", func(t *testing.T) {
 		cancelCtx, cancel := context.WithCancel(context.Background())
 		cancel()
-		_, err = New(cancelCtx, listener1.Addr().String(), logger)
+		_, err = New(cancelCtx, listener1.Addr().String(), logger.AsZap())
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 	})
 
 	t.Run("working status service", func(t *testing.T) {
-		client, err := New(context.Background(), listener1.Addr().String(), logger)
+		client, err := New(context.Background(), listener1.Addr().String(), logger.AsZap())
 		test.That(t, err, test.ShouldBeNil)
 
 		gStatus := robot.Status{Name: movementsensor.Named("gps"), Status: map[string]interface{}{"efg": []string{"hello"}}}
@@ -1410,7 +1410,7 @@ func TestClientStatus(t *testing.T) {
 	})
 
 	t.Run("failing status client", func(t *testing.T) {
-		client2, err := New(context.Background(), listener2.Addr().String(), logger)
+		client2, err := New(context.Background(), listener2.Addr().String(), logger.AsZap())
 		test.That(t, err, test.ShouldBeNil)
 
 		passedErr := errors.New("can't get status")
@@ -1469,7 +1469,7 @@ func TestForeignResource(t *testing.T) {
 	go gServer.Serve(listener)
 	defer gServer.Stop()
 
-	client, err := New(context.Background(), listener.Addr().String(), logger)
+	client, err := New(context.Background(), listener.Addr().String(), logger.AsZap())
 	test.That(t, err, test.ShouldBeNil)
 
 	res1, err := client.ResourceByName(respWithResources[0])
@@ -1513,7 +1513,7 @@ func TestNewRobotClientRefresh(t *testing.T) {
 	client, err := New(
 		context.Background(),
 		listener.Addr().String(),
-		logger,
+		logger.AsZap(),
 		WithRefreshEvery(dur),
 	)
 
@@ -1529,7 +1529,7 @@ func TestNewRobotClientRefresh(t *testing.T) {
 	client, err = New(
 		context.Background(),
 		listener.Addr().String(),
-		logger,
+		logger.AsZap(),
 		WithRefreshEvery(dur),
 	)
 	test.That(t, err, test.ShouldBeNil)
@@ -1566,7 +1566,7 @@ func TestClientStopAll(t *testing.T) {
 	go gServer1.Serve(listener1)
 	defer gServer1.Stop()
 
-	client, err := New(context.Background(), listener1.Addr().String(), logger)
+	client, err := New(context.Background(), listener1.Addr().String(), logger.AsZap())
 	test.That(t, err, test.ShouldBeNil)
 
 	err = client.StopAll(context.Background(), nil)
@@ -1611,7 +1611,7 @@ func TestRemoteClientMatch(t *testing.T) {
 	client, err := New(
 		context.Background(),
 		listener1.Addr().String(),
-		logger,
+		logger.AsZap(),
 		WithRefreshEvery(dur),
 	)
 	test.That(t, err, test.ShouldBeNil)
@@ -1659,7 +1659,7 @@ func TestRemoteClientDuplicate(t *testing.T) {
 	client, err := New(
 		context.Background(),
 		listener1.Addr().String(),
-		logger,
+		logger.AsZap(),
 		WithRefreshEvery(dur),
 	)
 	test.That(t, err, test.ShouldBeNil)
@@ -1695,7 +1695,7 @@ func TestClientOperationIntercept(t *testing.T) {
 	fakeOp := operation.Get(ctx)
 	test.That(t, fakeOp, test.ShouldNotBeNil)
 
-	client, err := New(ctx, listener1.Addr().String(), logger)
+	client, err := New(ctx, listener1.Addr().String(), logger.AsZap())
 	test.That(t, err, test.ShouldBeNil)
 
 	injectRobot.StatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
@@ -1736,7 +1736,7 @@ func TestGetUnknownResource(t *testing.T) {
 	go gServer.Serve(listener1)
 	defer gServer.Stop()
 
-	client, err := New(context.Background(), listener1.Addr().String(), logger)
+	client, err := New(context.Background(), listener1.Addr().String(), logger.AsZap())
 	test.That(t, err, test.ShouldBeNil)
 
 	// grabbing known resource is fine

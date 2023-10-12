@@ -15,6 +15,7 @@ import (
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	"go.uber.org/zap"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils"
@@ -251,7 +252,8 @@ func (rc *RobotClient) handleStreamDisconnect(
 
 // New constructs a new RobotClient that is served at the given address. The given
 // context can be used to cancel the operation.
-func New(ctx context.Context, address string, logger logging.Logger, opts ...RobotClientOption) (*RobotClient, error) {
+func New(ctx context.Context, address string, clientLogger *zap.SugaredLogger, opts ...RobotClientOption) (*RobotClient, error) {
+	logger := &logging.ZLogger{clientLogger}
 	var rOpts robotClientOpts
 
 	for _, opt := range opts {
