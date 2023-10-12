@@ -11,7 +11,9 @@ import (
 	"io/fs"
 	"math"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/google/uuid"
@@ -251,7 +253,21 @@ func UploadModuleAction(c *cli.Context) error {
 	}
 
 	if !forceUploadArg {
-		if err := validateModuleFile(client, moduleID, tarballPath, versionArg); err != nil {
+
+		getModuleResp, err := client.getModule(moduleID)
+		if err != nil {
+			return err
+		}
+		entrypoint, err := getEntrypointForVersion(getModuleResp.Module, versionArg)
+		if err != nil {
+			return err
+		}
+		if err := validateModuleFile(client, moduleID, tarballPath, entrypoint); err != nil {
+			return fmt.Errorf(
+				"error validating module: %w. For more details, please visit: https://docs.viam.com/manage/cli/#command-options-3 ",
+				err)
+		}
+		if err := validateDynamicExecutableLinkedLibaries(client, tarballPath, entrypoint, platformArg); err != nil {
 			return fmt.Errorf(
 				"error validating module: %w. For more details, please visit: https://docs.viam.com/manage/cli/#command-options-3 ",
 				err)
@@ -378,15 +394,7 @@ func (c *viamClient) uploadModuleFile(
 	return resp, errs
 }
 
-func validateModuleFile(client *viamClient, moduleID moduleID, tarballPath, version string) error {
-	getModuleResp, err := client.getModule(moduleID)
-	if err != nil {
-		return err
-	}
-	entrypoint, err := getEntrypointForVersion(getModuleResp.Module, version)
-	if err != nil {
-		return err
-	}
+func validateModuleFile(client *viamClient, moduleID moduleID, tarballPath, entrypoint string) error {
 	//nolint:gosec
 	file, err := os.Open(tarballPath)
 	if err != nil {
@@ -409,6 +417,13 @@ func validateModuleFile(client *viamClient, moduleID moduleID, tarballPath, vers
 		}
 		if err != nil {
 			return errors.Wrapf(err, "error reading %s", file.Name())
+		}
+		if header.Typeflag == tar.TypeLink || header.Typeflag == tar.TypeSymlink {
+			base := filepath.Base(tarballPath)
+			if filepath.IsAbs(header.Linkname) ||
+				!strings.HasPrefix(filepath.Join(base, header.Linkname), base) {
+				warningf(client.c.App.ErrWriter, "Module contains a symlink to a file outside the package. This might cause issues on other computers. %s -> %s", header.Name, header.Linkname)
+			}
 		}
 		path := header.Name
 
@@ -433,6 +448,57 @@ func validateModuleFile(client *viamClient, moduleID moduleID, tarballPath, vers
 	}
 	return errors.Errorf("the archive does not contain a file at the desired entrypoint %q%s",
 		entrypoint, extraErrInfo)
+}
+
+func validateDynamicExecutableLinkedLibaries(client *viamClient, tarballPath, entrypoint, platform string) error {
+	if runtime.GOOS != "linux" || !strings.HasPrefix(platform, "linux") {
+		return nil
+	}
+	tempDir := os.TempDir()
+	//nolint:errcheck
+	defer os.Remove(tempDir)
+	err := unpackArchive(tarballPath, tempDir)
+	if err != nil {
+		return errors.Wrapf(err, "failed to unpack archive for validation")
+	}
+	cmd := exec.Command("ldd", filepath.Join(tempDir, entrypoint))
+	out, err := cmd.Output()
+	if err != nil {
+		exitErr, ok := err.(*exec.ExitError)
+		if !ok {
+			return errors.Wrapf(err, "err from exec.Command was not an ExitError")
+		}
+		// this is fine -- the entrypoint is likely a script or static binary
+		if strings.Contains(string(exitErr.Stderr), "not a dynamic executable") {
+			return nil
+		}
+		return errors.Wrapf(err, "failed to run ldd on the module entrypoint")
+	}
+	legalLines := []string{
+		"ld-linux",
+		"glibc",
+		"linux-vdso",
+		tempDir,
+	}
+	lines := strings.Split(string(out), "\n")
+	for _, line := range lines {
+		line := strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		foundLegalSubstr := false
+		for _, legalSubstr := range legalLines {
+			if strings.Contains(line, legalSubstr) {
+				foundLegalSubstr = true
+				break
+			}
+		}
+		if !foundLegalSubstr {
+			warningf(client.c.App.ErrWriter, "The module's entrypoint is a dynamic executable which depends on a library not present in the package itself. This could cause issues on other systems. %q", line)
+		}
+
+	}
+	return nil
 }
 
 func visibilityToProto(visibility moduleVisibility) (apppb.Visibility, error) {
