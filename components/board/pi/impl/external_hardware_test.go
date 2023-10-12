@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"go.viam.com/rdk/logging"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/board"
@@ -19,6 +18,7 @@ import (
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/motor/gpio"
 	"go.viam.com/rdk/components/servo"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 

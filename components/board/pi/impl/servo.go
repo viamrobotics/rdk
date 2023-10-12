@@ -14,11 +14,11 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"go.viam.com/rdk/logging"
 	"go.viam.com/utils"
 
 	picommon "go.viam.com/rdk/components/board/pi/common"
 	"go.viam.com/rdk/components/servo"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 )

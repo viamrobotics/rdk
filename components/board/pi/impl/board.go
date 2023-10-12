@@ -33,11 +33,11 @@ import (
 	"go.uber.org/multierr"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/board/v1"
-	"go.viam.com/rdk/logging"
 
 	"go.viam.com/rdk/components/board"
 	picommon "go.viam.com/rdk/components/board/pi/common"
 	"go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	rdkutils "go.viam.com/rdk/utils"
 )
