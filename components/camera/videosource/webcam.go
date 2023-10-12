@@ -243,7 +243,7 @@ func findAndMakeVideoSource(
 		return cam, label, nil
 	}
 
-	source, err := gostream.GetAnyVideoSource(constraints, logger)
+	source, err := gostream.GetAnyVideoSource(constraints, logger.AsZap())
 	if err != nil {
 		return nil, "", errors.Wrap(err, "found no webcams")
 	}
@@ -276,7 +276,7 @@ func NewWebcam(
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	cam := &monitoredWebcam{
 		Named:          conf.ResourceName().AsNamed(),
-		logger:         logger.With("camera_name", conf.ResourceName().ShortName()),
+		logger:         &logging.ZLogger{logger.With("camera_name", conf.ResourceName().ShortName())},
 		originalLogger: logger,
 		cancelCtx:      cancelCtx,
 		cancel:         cancel,
@@ -412,7 +412,7 @@ func getNamedVideoSource(
 			path = resolvedPath
 		}
 	}
-	return gostream.GetNamedVideoSource(filepath.Base(path), constraints, logger)
+	return gostream.GetNamedVideoSource(filepath.Base(path), constraints, logger.AsZap())
 }
 
 // monitoredWebcam tries to ensure its underlying camera stays connected.
@@ -501,7 +501,7 @@ func (c *monitoredWebcam) reconnectCamera(conf *WebcamConfig) error {
 	if c.targetPath == "" {
 		c.targetPath = foundLabel
 	}
-	c.logger = c.originalLogger.With("camera_label", c.targetPath)
+	c.logger = &logging.ZLogger{c.originalLogger.With("camera_label", c.targetPath)}
 
 	return nil
 }

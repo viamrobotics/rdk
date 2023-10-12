@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -281,7 +280,7 @@ func (nl *netLogger) Sync() error {
 	}
 }
 
-func addCloudLogger(logger logging.Logger, logLevel zap.AtomicLevel, cfg *config.Cloud) (golog.Logger, func(), error) {
+func addCloudLogger(logger logging.Logger, logLevel zap.AtomicLevel, cfg *config.Cloud) (logging.Logger, func(), error) {
 	nl, err := newNetLogger(cfg, logger, logLevel)
 	if err != nil {
 		return nil, nil, err
@@ -290,7 +289,8 @@ func addCloudLogger(logger logging.Logger, logLevel zap.AtomicLevel, cfg *config
 	l = l.WithOptions(zap.WrapCore(func(c zapcore.Core) zapcore.Core {
 		return zapcore.NewTee(c, nl)
 	}))
-	return l.Sugar(), nl.Close, nil
+
+	return &logging.ZLogger{l.Sugar()}, nl.Close, nil
 }
 
 type remoteLogWriter interface {

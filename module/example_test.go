@@ -6,7 +6,6 @@ import (
 	"sync/atomic"
 
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
 	pb "go.viam.com/api/module/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -91,7 +90,7 @@ func newCounter(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
-	logger *zap.SugaredLogger,
+	logger logging.Logger,
 ) (resource.Resource, error) {
 	return &counter{
 		name: conf.ResourceName(),

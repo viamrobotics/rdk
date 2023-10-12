@@ -11,8 +11,68 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 )
 
-// Logger class for logging to.
-type Logger = *zap.SugaredLogger
+// Logger interface for logging to.
+type Logger interface {
+	Desugar() *zap.Logger
+	Level() zapcore.Level
+	Named(name string) *zap.SugaredLogger
+	Sync() error
+	With(args ...interface{}) *zap.SugaredLogger
+	WithOptions(opts ...zap.Option) *zap.SugaredLogger
+
+	AsZap() *zap.SugaredLogger
+
+	Debug(args ...interface{})
+	Debugf(template string, args ...interface{})
+	Debugln(args ...interface{})
+	Debugw(msg string, keysAndValues ...interface{})
+
+	Info(args ...interface{})
+	Infof(template string, args ...interface{})
+	Infoln(args ...interface{})
+	Infow(msg string, keysAndValues ...interface{})
+
+	Warn(args ...interface{})
+	Warnf(template string, args ...interface{})
+	Warnln(args ...interface{})
+	Warnw(msg string, keysAndValues ...interface{})
+
+	Error(args ...interface{})
+	Errorf(template string, args ...interface{})
+	Errorln(args ...interface{})
+	Errorw(msg string, keysAndValues ...interface{})
+
+	Fatal(args ...interface{})
+	Fatalf(template string, args ...interface{})
+	Fatalln(args ...interface{})
+	Fatalw(msg string, keysAndValues ...interface{})
+
+	Panic(args ...interface{})
+	Panicf(template string, args ...interface{})
+	Panicln(args ...interface{})
+	Panicw(msg string, keysAndValues ...interface{})
+
+	DPanic(args ...interface{})
+	DPanicf(template string, args ...interface{})
+	DPanicln(args ...interface{})
+	DPanicw(msg string, keysAndValues ...interface{})
+}
+
+type VLogger struct {
+}
+
+func (logger *VLogger) AsZap() *zap.SugaredLogger {
+	return zap.Must(NewDevelopmentLoggerConfig().Build()).Sugar().Named("grpc")
+}
+
+// ZLogger type for logging to.
+type ZLogger struct {
+	*zap.SugaredLogger
+}
+
+func (logger ZLogger) AsZap() *zap.SugaredLogger {
+	return logger.SugaredLogger
+}
 
 var (
 	globalMu     sync.RWMutex
@@ -20,7 +80,7 @@ var (
 )
 
 func newDefaultLogger() Logger {
-	return zap.Must(NewDebugLoggerConfig().Build()).Sugar()
+	return ZLogger{zap.Must(NewDebugLoggerConfig().Build()).Sugar()}
 }
 
 // ReplaceGloabl replaces the global loggers and returns a function to reset
@@ -143,7 +203,7 @@ func NewLogger(name string) Logger {
 	if err != nil {
 		Global().Fatal(err)
 	}
-	return logger.Sugar().Named(name)
+	return &ZLogger{logger.Sugar().Named(name)}
 }
 
 // NewLoggerForGCP returns a new logger using the default production configuration.
@@ -152,7 +212,7 @@ func NewLoggerForGCP(name string) Logger {
 	if err != nil {
 		Global().Fatal(err)
 	}
-	return logger.Sugar().Named(name)
+	return &ZLogger{logger.Sugar().Named(name)}
 }
 
 // NewDevelopmentLogger returns a new logger using the default development configuration.
@@ -161,7 +221,7 @@ func NewDevelopmentLogger(name string) Logger {
 	if err != nil {
 		Global().Fatal(err)
 	}
-	return logger.Sugar().Named(name)
+	return &ZLogger{logger.Sugar().Named(name)}
 }
 
 // NewDebugLogger returns a new logger using the default debug configuration.
@@ -170,7 +230,7 @@ func NewDebugLogger(name string) Logger {
 	if err != nil {
 		Global().Fatal(err)
 	}
-	return logger.Sugar().Named(name)
+	return &ZLogger{logger.Sugar().Named(name)}
 }
 
 // NewTestLogger directs logs to the go test logger.
@@ -186,7 +246,7 @@ func NewObservedTestLogger(tb testing.TB) (Logger, *observer.ObservedLogs) {
 	logger = logger.WithOptions(zap.WrapCore(func(c zapcore.Core) zapcore.Core {
 		return zapcore.NewTee(c, observerCore)
 	}))
-	return logger.Sugar(), observedLogs
+	return &ZLogger{logger.Sugar()}, observedLogs
 }
 
 // rFC3339NanoTimeEncoder serializes a time.Time to an RFC3339Nano-formatted string with nanoseconds precision.

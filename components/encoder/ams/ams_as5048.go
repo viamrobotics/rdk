@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
@@ -123,7 +122,7 @@ func newAS5048Encoder(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
-	logger *zap.SugaredLogger,
+	logger logging.Logger,
 ) (encoder.Encoder, error) {
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	res := &Encoder{

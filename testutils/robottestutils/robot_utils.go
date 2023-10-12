@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"go.uber.org/zap"
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
 	"google.golang.org/grpc"
@@ -33,7 +32,7 @@ func CreateBaseOptionsAndListener(tb testing.TB) (weboptions.Options, net.Listen
 }
 
 // NewRobotClient creates a new robot client with a certain address.
-func NewRobotClient(tb testing.TB, logger *zap.SugaredLogger, addr string, dur time.Duration) *client.RobotClient {
+func NewRobotClient(tb testing.TB, logger logging.Logger, addr string, dur time.Duration) *client.RobotClient {
 	tb.Helper()
 	// start robot client
 	robotClient, err := client.New(

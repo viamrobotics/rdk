@@ -114,7 +114,7 @@ func NewLogger() (*Logger, error) {
 
 	return &Logger{
 		infoCh: make(chan info),
-		logger: logger.Sugar().Named("camera_debugger"),
+		logger: &logging.ZLogger{logger.Sugar().Named("camera_debugger")},
 	}, nil
 }
 

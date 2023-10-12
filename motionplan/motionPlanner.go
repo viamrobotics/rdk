@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
 	pb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/utils"
 
@@ -439,7 +438,7 @@ func CheckPlan(
 	currentPosition spatialmath.Pose,
 	currentInputs []frame.Input,
 	errorState spatialmath.Pose,
-	logger *zap.SugaredLogger,
+	logger logging.Logger,
 ) error {
 	// ensure that we can actually perform the check
 	if len(plan) < 1 {

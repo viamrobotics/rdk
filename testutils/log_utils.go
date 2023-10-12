@@ -19,5 +19,5 @@ func NewInfoObservedTestLogger(tb testing.TB) (logging.Logger, *observer.Observe
 	logger = logger.WithOptions(zap.WrapCore(func(c zapcore.Core) zapcore.Core {
 		return zapcore.NewTee(c, observerCore)
 	}))
-	return logger.Sugar(), observedLogs
+	return &logging.ZLogger{logger.Sugar()}, observedLogs
 }

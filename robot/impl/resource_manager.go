@@ -81,7 +81,7 @@ func newProcessManager(
 	if opts.untrustedEnv {
 		return pexec.NoopProcessManager
 	}
-	return pexec.NewProcessManager(logger)
+	return pexec.NewProcessManager(logger.AsZap())
 }
 
 func fromRemoteNameToRemoteNodeName(name string) resource.Name {

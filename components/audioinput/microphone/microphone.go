@@ -113,7 +113,7 @@ func tryMicrophoneOpen(
 	constraints mediadevices.MediaStreamConstraints,
 	logger logging.Logger,
 ) (audioinput.AudioSource, error) {
-	source, err := gostream.GetNamedAudioSource(filepath.Base(path), constraints, logger)
+	source, err := gostream.GetNamedAudioSource(filepath.Base(path), constraints, logger.AsZap())
 	if err != nil {
 		return nil, err
 	}

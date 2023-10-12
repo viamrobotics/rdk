@@ -602,5 +602,5 @@ func CreateNewGRPCClient(ctx context.Context, cloudCfg *Cloud, logger logging.Lo
 		dialOpts = append(dialOpts, rpc.WithInsecure())
 	}
 
-	return rpc.DialDirectGRPC(ctx, u.Host, logger, dialOpts...)
+	return rpc.DialDirectGRPC(ctx, u.Host, logger.AsZap(), dialOpts...)
 }

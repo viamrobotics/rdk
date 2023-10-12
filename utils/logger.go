@@ -3,11 +3,12 @@ package utils
 import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"go.viam.com/rdk/logging"
 )
 
 // NewFilePathDebugLogger is intended as a debug only tool & should not be used in prod
 // logs using debug configuration to log to both stderr, stdout & a filepath.
-func NewFilePathDebugLogger(filepath, name string) (*zap.SugaredLogger, error) {
+func NewFilePathDebugLogger(filepath, name string) (logging.Logger, error) {
 	logger, err := zap.Config{
 		Level:    zap.NewAtomicLevelAt(zap.DebugLevel),
 		Encoding: "console",
@@ -33,5 +34,5 @@ func NewFilePathDebugLogger(filepath, name string) (*zap.SugaredLogger, error) {
 		return nil, err
 	}
 
-	return logger.Sugar().Named(name), nil
+	return &logging.ZLogger{logger.Sugar().Named(name)}, nil
 }

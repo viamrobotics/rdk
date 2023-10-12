@@ -12,6 +12,7 @@ import (
 	"runtime/pprof"
 	"time"
 
+	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
@@ -50,12 +51,12 @@ type Arguments struct {
 type robotServer struct {
 	args      Arguments
 	logConfig zap.Config
-	logger    *zap.SugaredLogger
+	logger    logging.Logger
 }
 
 // RunServer is an entry point to starting the web server that can be called by main in a code
 // sample or otherwise be used to initialize the server.
-func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error) {
+func RunServer(ctx context.Context, args []string, _ golog.Logger) (err error) {
 	var argsParsed Arguments
 	if err := utils.ParseFlags(args, &argsParsed); err != nil {
 		return err
@@ -73,7 +74,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	} else {
 		logConfig = logging.NewDevelopmentLoggerConfig()
 	}
-	logger := zap.Must(logConfig.Build()).Sugar().Named("robot_server")
+	var logger logging.Logger = &logging.ZLogger{zap.Must(logConfig.Build()).Sugar().Named("robot_server")}
 	config.InitLoggingSettings(logger, argsParsed.Debug, logConfig.Level)
 	logging.ReplaceGloabl(logger)
 
@@ -211,7 +212,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 
 	hungShutdownDeadline := 90 * time.Second
 	slowWatcher, slowWatcherCancel := utils.SlowGoroutineWatcherAfterContext(
-		ctx, hungShutdownDeadline, "server is taking a while to shutdown", s.logger)
+		ctx, hungShutdownDeadline, "server is taking a while to shutdown", s.logger.AsZap())
 
 	doneServing := make(chan struct{})
 
