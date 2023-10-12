@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/golang/geo/r3"
-	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/control"
@@ -15,7 +14,7 @@ import (
 const useControlLoop = true
 
 func setupControlLoops(sb *sensorBase) error {
-	// TODO: RSDK-XXXX make control loop should be removed after testing
+	// TODO: RSDK-5355 make control loop should be removed after testing
 	if useControlLoop {
 		loop, err := control.NewLoop(sb.logger, controlLoopConfig, sb)
 		if err != nil {
@@ -36,24 +35,26 @@ func (sb *sensorBase) SetVelocity(
 		sb.sensorLoopDone()
 	}
 
-	sb.setPolling(true)
+	// set the spin loop to false, so we do not skip the call to SetState in the control loop
+	sb.setPolling(false)
+
 	// start a sensor context for the sensor loop based on the longstanding base
 	// creator context, and add a timeout for the context
 	timeOut := 10 * time.Second
 	var sensorCtx context.Context
 	sensorCtx, sb.sensorLoopDone = context.WithTimeout(context.Background(), timeOut)
 
-	// TODO: RSDK-XXXX remove control loop bool after testing
+	// TODO: RSDK-5355 remove control loop bool after testing
 	if useControlLoop && sb.loop != nil {
-		// if we have a loop, ;et's use the SetState function to call the SetVelocity command
+		// if we have a loop, let's use the SetState function to call the SetVelocity command
+		// through the control loop
+		sb.pollsensors(sensorCtx, extra)
 		if err := sb.loop.Start(); err != nil {
 			return err
 		}
-
-		sb.pollsensors(sensorCtx, extra)
-		return errors.New(
-			"setvelocity with sensor feedback not currently implemented, remove movement sensor reporting linear and angular velocity ")
+		return nil
 	}
+
 	// else do not use the control loop and pass through the SetVelocity command
 	return sb.controlledBase.SetVelocity(ctx, linear, angular, extra)
 }
@@ -104,7 +105,7 @@ func (sb *sensorBase) SetState(ctx context.Context, state []*control.Signal) err
 	defer sb.mu.Unlock()
 	if sb.isPolling() {
 		// TODO: CHECK
-		// if the spin loop is polling, don't call set velcity, immediately return
+		// if the spin loop is polling, don't call set velocity, immediately return
 		// this allows us to keep the control loop unning without stopping it until
 		// the resource Close has been called
 		return nil
