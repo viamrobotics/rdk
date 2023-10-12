@@ -179,7 +179,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        arch: [ubuntu-latest, buildjet-2vcpu-ubuntu-2204-arm, [arm64, pi4]]
+        arch: [[ubuntu-latest], [buildjet-2vcpu-ubuntu-2204-arm], [arm64, pi4]]
     needs: appimage
     runs-on: ${{ matrix.arch }}
     timeout-minutes: 15
