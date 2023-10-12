@@ -33,6 +33,7 @@ import (
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/services/slam"
+	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/session"
 	"go.viam.com/rdk/utils"
 )
@@ -586,7 +587,7 @@ func (r *localRobot) getWeakDependencies(resName resource.Name, api resource.API
 			components[n] = res
 		case n.API.SubtypeName == slam.API.SubtypeName:
 			slamServices[n] = res
-		case len(visionSubtypeName) > 0 && n.API.SubtypeName == visionSubtypeName:
+		case n.API.SubtypeName == vision.API.SubtypeName:
 			visionServices[n] = res
 		case n.API.Type.Namespace == resource.APINamespaceRDKInternal:
 			internalResources[n] = res
