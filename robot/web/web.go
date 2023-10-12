@@ -809,8 +809,8 @@ func parseAPIKeys(handler config.AuthHandlerConfig) map[string]string {
 }
 
 // makeMultiStepAPIKeyAuthHandler supports auth handlers for both legacy and non-legacy api keys for backwards compatibility.
-func makeMultiStepAPIKeyAuthHandler(legacyEntities, legacyExpectedPayloads []string, apiKeys map[string]string) rpc.AuthHandler {
-	legacyAuthHandler := rpc.MakeSimpleMultiAuthHandler(legacyEntities, legacyExpectedPayloads)
+func makeMultiStepAPIKeyAuthHandler(legacyEntities, legacyExpectedAPIKeys []string, apiKeys map[string]string) rpc.AuthHandler {
+	legacyAuthHandler := rpc.MakeSimpleMultiAuthHandler(legacyEntities, legacyExpectedAPIKeys)
 	currentAuthHandler := rpc.MakeSimpleMultiAuthPairHandler(apiKeys)
 	return rpc.AuthHandlerFunc(func(ctx context.Context, entity, payload string) (map[string]string, error) {
 		result, err := legacyAuthHandler.Authenticate(ctx, entity, payload)

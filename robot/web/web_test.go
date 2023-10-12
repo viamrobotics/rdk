@@ -24,6 +24,7 @@ import (
 	echopb "go.viam.com/api/component/testecho/v1"
 	robotpb "go.viam.com/api/robot/v1"
 	"go.viam.com/test"
+	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"go.viam.com/utils/testutils"
 	"google.golang.org/grpc"
@@ -200,10 +201,10 @@ func TestWebWithAuth(t *testing.T) {
 			options.FQDN = tc.EntityName
 			options.LocalFQDN = primitive.NewObjectID().Hex()
 			legacyAPIKey := "sosecret"
-			apiKeyID1 := "6a948-5094-4f36-aae1-8f41fc15907a"
-			apiKey1 := "fvauz937m2xhcq2vtov91wz1bretzg2k"
-			apiKeyID2 := "4a948-5094-4f36-aae1-8f41fc15907b"
-			apiKey2 := "gsquz817m2xhcq2vtov91wz1bretzg2k"
+			apiKeyID1 := uuid.New().String()
+			apiKey1 := utils.RandomAlphaString(32)
+			apiKeyID2 := uuid.New().String()
+			apiKey2 := utils.RandomAlphaString(32)
 			locationSecrets := []string{"locsosecret", "locsec2"}
 			options.Auth.Handlers = []config.AuthHandlerConfig{
 				{
@@ -656,10 +657,10 @@ func TestWebWithOnlyNewAPIKeyAuthHandlers(t *testing.T) {
 	svc := web.New(injectRobot, logger)
 
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
-	apiKeyID1 := "6a948-5094-4f36-aae1-8f41fc15907a"
-	apiKey1 := "fvauz937m2xhcq2vtov91wz1bretzg2k"
-	apiKeyID2 := "4a948-5094-4f36-aae1-8f41fc15907b"
-	apiKey2 := "gsquz817m2xhcq2vtov91wz1bretzg2k"
+	apiKeyID1 := uuid.New().String()
+	apiKey1 := utils.RandomAlphaString(32)
+	apiKeyID2 := uuid.New().String()
+	apiKey2 := utils.RandomAlphaString(32)
 	options.Auth.Handlers = []config.AuthHandlerConfig{
 		{
 			Type: rpc.CredentialsTypeAPIKey,
