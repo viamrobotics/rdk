@@ -149,7 +149,7 @@ jobs:
       run: pip install appimage-builder git+https://github.com/AppImageCrafters/appimage-builder.git@42d32f11496de43a9f6a9ada7882a11296e357ca
     - name: build
       env:
-        BUILD_CHANNEL: ${{ inputs.release_type }}
+        BUILD_CHANNEL: ${{ github.ref_name == 'main' && 'latest' || github.ref_name }}
         UNAME_M: armv7l
         DPKG_ARCH: armhf
         APPIMAGE_ARCH: armhf
