@@ -9,6 +9,9 @@ package gpsrtkserial
 	Example GPS RTK chip datasheet:
 	https://content.u-blox.com/sites/default/files/ZED-F9P-04B_DataSheet_UBX-21044850.pdf
 
+	Ntrip Documentation:
+	https://gssc.esa.int/wp-content/uploads/2018/07/NtripDocumentation.pdf
+
 	Example configuration:
 	{
       "type": "movement_sensor",
@@ -32,9 +35,15 @@ import (
 	"bufio"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"math"
+	"net"
+	"net/http"
+	"strconv"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/de-bkg/gognss/pkg/ntrip"
 	"github.com/edaniels/golog"
@@ -136,6 +145,7 @@ type rtkSerial struct {
 	correctionWriter   io.ReadWriteCloser
 	writePath          string
 	wbaud              int
+	gpsData            gpsnmea.GPSData
 }
 
 // Reconfigure reconfigures attributes.
@@ -287,6 +297,80 @@ func (g *rtkSerial) connect(casterAddr, user, pwd string, maxAttempts int) error
 	return g.err.Get()
 }
 
+func getMountPointInfo(url, user, password, mountpoint string) (string, error) {
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Ntrip-Version", "Ntrip/2.0")
+	req.Header.Set("User-Agent", "NTRIP VIAM RDK")
+	req.SetBasicAuth(user, password)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return "", fmt.Errorf("failed with status code: %d", resp.StatusCode)
+	}
+
+	reader := bufio.NewReader(resp.Body)
+	for {
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return "", err
+		}
+
+		if strings.Contains(line, fmt.Sprintf("STR;%s;", mountpoint)) {
+			return strings.TrimSpace(line), nil
+		}
+	}
+
+	return "", fmt.Errorf("mountpoint %s not found", mountpoint)
+}
+
+func sourceTableParser(sourceTable string) (int, error) {
+
+	fields := strings.Split(sourceTable, ";")
+
+	nmeaBit, err := strconv.Atoi(fields[12])
+
+	if err != nil {
+		return -1, err
+	}
+
+	return nmeaBit, nil
+}
+
+func sendGGAToPort(url, ggaMessage string) error {
+	// Extracting hostname and port from the URL.
+	host, port, err := net.SplitHostPort(url)
+	if err != nil {
+		return err
+	}
+
+	address := fmt.Sprintf("%s:%s", host, port)
+
+	conn, err := net.DialTimeout("tcp", address, 5*time.Second)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	_, err = conn.Write([]byte(ggaMessage + "\r\n"))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // getStream attempts to connect to ntrip streak until successful connection or timeout.
 func (g *rtkSerial) getStream(mountPoint string, maxAttempts int) error {
 	success := false
@@ -302,6 +386,22 @@ func (g *rtkSerial) getStream(mountPoint string, maxAttempts int) error {
 		case <-g.cancelCtx.Done():
 			return errors.New("Canceled")
 		default:
+		}
+
+		sourceTable, err := getMountPointInfo(g.ntripClient.URL, g.ntripClient.Username, g.ntripClient.Password, g.ntripClient.MountPoint)
+		if err != nil {
+			return err
+		}
+
+		nmeaBit, err := sourceTableParser(sourceTable)
+		if err != nil {
+			return err
+		}
+		if nmeaBit == 1 {
+			err = sendGGAToPort(g.ntripClient.URL, g.gpsData.GGAForMountPointInfo)
+			if err != nil {
+				return err
+			}
 		}
 
 		rc, err = func() (io.ReadCloser, error) {

@@ -19,18 +19,19 @@ const (
 
 // GPSData struct combines various attributes related to GPS.
 type GPSData struct {
-	Location            *geo.Point
-	Alt                 float64
-	Speed               float64 // ground speed in m per sec
-	VDOP                float64 // vertical accuracy
-	HDOP                float64 // horizontal accuracy
-	SatsInView          int     // quantity satellites in view
-	SatsInUse           int     // quantity satellites in view
-	valid               bool
-	FixQuality          int
-	CompassHeading      float64 // true compass heading in degree
-	isEast              bool    // direction for magnetic variation which outputs East or West.
-	validCompassHeading bool    // true if we get course of direction instead of empty strings.
+	Location             *geo.Point
+	Alt                  float64
+	Speed                float64 // ground speed in m per sec
+	VDOP                 float64 // vertical accuracy
+	HDOP                 float64 // horizontal accuracy
+	SatsInView           int     // quantity satellites in view
+	SatsInUse            int     // quantity satellites in view
+	valid                bool
+	FixQuality           int
+	CompassHeading       float64 // true compass heading in degree
+	isEast               bool    // direction for magnetic variation which outputs East or West.
+	validCompassHeading  bool    // true if we get course of direction instead of empty strings.
+	GGAForMountPointInfo string
 }
 
 func errInvalidFix(sentenceType, badFix, goodFix string) error {
@@ -62,6 +63,9 @@ func (g *GPSData) ParseAndUpdate(line string) error {
 		g.Location = geo.NewPoint(math.NaN(), math.NaN())
 		errs = multierr.Combine(errs, errors.New("no Location parsed for nmea gps, using default value of lat: NaN, long: NaN"))
 		return errs
+	}
+	if s.DataType() == nmea.TypeGGA {
+		g.GGAForMountPointInfo = line
 	}
 
 	return nil
@@ -238,8 +242,9 @@ func (g *GPSData) updateGNS(gns nmea.GNS) error {
 	return nil
 }
 
-//nolint:all
 // updateHDT updaates g.CompassHeading with the ground speed information from the provided
+//
+//nolint:all
 func (g *GPSData) updateHDT(hdt nmea.HDT) error {
 	// HDT provides compass heading
 	g.CompassHeading = hdt.Heading
