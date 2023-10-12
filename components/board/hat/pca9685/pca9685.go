@@ -33,7 +33,7 @@ var (
 type Config struct {
 	BoardName  string `json:"board_name,omitempty"`
 	I2CName    string `json:"i2c_name,omitempty"`
-	I2CBus     *int   `json:"i2c_bus,omitempty"`
+	I2CBus     string `json:"i2c_bus,omitempty"`
 	I2CAddress *int   `json:"i2c_address,omitempty"`
 }
 
@@ -41,7 +41,7 @@ type Config struct {
 func (conf *Config) Validate(path string) ([]string, error) {
 	var deps []string
 	// Either the i2c bus or both the board name and i2c name is required.
-	if conf.I2CBus == nil {
+	if conf.I2CBus == "" {
 		if conf.BoardName == "" && conf.I2CName == "" {
 			// If all 3 are missing, prefer the i2c_bus approach.
 			return nil, utils.NewConfigValidationFieldRequiredError(path, "i2c_bus")
@@ -139,10 +139,7 @@ func (pca *PCA9685) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		return err
 	}
 
-	busNum := 0
-	if newConf.I2CBus != nil {
-		busNum = *newConf.I2CBus
-	}
+	busNum := newConf.I2CBus
 
 	bus, err := genericlinux.GetI2CBus(deps, newConf.BoardName, newConf.I2CName, busNum)
 	if err != nil {
