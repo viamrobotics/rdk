@@ -49,6 +49,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/board/genericlinux"
 	"go.viam.com/rdk/components/movementsensor"
 	gpsnmea "go.viam.com/rdk/components/movementsensor/gpsnmea"
 	rtk "go.viam.com/rdk/components/movementsensor/rtkutils"
@@ -161,7 +162,7 @@ func (g *rtkI2C) Reconfigure(ctx context.Context, deps resource.Dependencies, co
 
 	g.addr = byte(newConf.I2CAddr)
 
-	i2cbus, err := genericlinux.NewI2cBus(fmt.Sprintf("%d", newConf.I2CBus)
+	i2cbus, err := genericlinux.NewI2cBus(fmt.Sprintf("%d", newConf.I2CBus))
 	if err != nil {
 		return fmt.Errorf("gps init: failed to find i2c bus %d: %w", newConf.I2CBus, err)
 	}
@@ -229,8 +230,7 @@ func newRTKI2C(
 	}
 
 	// Init NMEAMovementSensor
-	nmeaConf.I2CConfig = &gpsnmea.I2CConfig{ // TODO: update this one to match
-		Board:       newConf.Board,
+	nmeaConf.I2CConfig = &gpsnmea.I2CConfig{
 		I2CBus:      newConf.I2CBus,
 		I2CBaudRate: newConf.I2CBaudRate,
 		I2CAddr:     newConf.I2CAddr,

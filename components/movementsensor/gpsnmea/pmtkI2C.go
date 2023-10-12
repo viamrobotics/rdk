@@ -1,3 +1,4 @@
+//go:build linux
 package gpsnmea
 
 import (
@@ -12,6 +13,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/board/genericlinux"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -47,17 +49,10 @@ func NewPmtkI2CGPSNMEA(
 	conf *Config,
 	logger logging.Logger,
 ) (NmeaMovementSensor, error) {
-	b, err := board.FromDependencies(deps, conf.Board)
+	i2cbus, err := genericlinux.GetI2CBus(deps, "", "", conf.I2CConfig.I2CBus)
 	if err != nil {
-		return nil, fmt.Errorf("gps init: failed to find board: %w", err)
-	}
-	localB, ok := b.(board.LocalBoard)
-	if !ok {
-		return nil, fmt.Errorf("board %s is not local", conf.Board)
-	}
-	i2cbus, ok := localB.I2CByName(conf.I2CConfig.I2CBus)
-	if !ok {
-		return nil, fmt.Errorf("gps init: failed to find i2c bus %s", conf.I2CConfig.I2CBus)
+		return nil, fmt.Errorf("gps init: failed to find i2c bus %s: %w",
+		                       conf.I2CConfig.I2CBus, err)
 	}
 	addr := conf.I2CConfig.I2CAddr
 	if addr == -1 {

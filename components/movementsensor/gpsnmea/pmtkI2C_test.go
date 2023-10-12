@@ -1,3 +1,4 @@
+//go:build linux
 package gpsnmea
 
 import (
@@ -50,7 +51,7 @@ func setupDependencies(t *testing.T) resource.Dependencies {
 }
 
 func TestValidateI2C(t *testing.T) {
-	fakecfg := &I2CConfig{Board: testBoardName, I2CBus: "some-bus"}
+	fakecfg := &I2CConfig{I2CBus: 1}
 
 	path := "path"
 	err := fakecfg.validateI2C(path)

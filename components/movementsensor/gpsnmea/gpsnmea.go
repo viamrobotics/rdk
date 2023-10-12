@@ -66,10 +66,6 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 
 	switch strings.ToLower(cfg.ConnectionType) {
 	case i2cStr:
-		if cfg.Board == "" {
-			return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
-		}
-		deps = append(deps, cfg.Board)
 		return deps, cfg.I2CConfig.validateI2C(path)
 	case serialStr:
 		return nil, cfg.SerialConfig.validateSerial(path)
