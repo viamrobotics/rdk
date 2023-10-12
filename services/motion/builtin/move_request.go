@@ -95,7 +95,6 @@ func (mr *moveRequest) deviatedFromPlan(ctx context.Context, waypoints [][]refer
 }
 
 func (mr *moveRequest) obstaclesIntersectPlan(ctx context.Context, waypoints [][]referenceframe.Input, waypointIndex int) (bool, error) {
-	// convert waypoints to type of motionplan.Plan
 	var plan motionplan.Plan
 	// We only care to check against waypoints we have not reached yet.
 	for _, inputs := range waypoints[waypointIndex:] {
@@ -103,12 +102,12 @@ func (mr *moveRequest) obstaclesIntersectPlan(ctx context.Context, waypoints [][
 		input[mr.kinematicBase.Name().Name] = inputs
 		plan = append(plan, input)
 	}
-	for _, vcMap := range mr.cameraVisionPairs {
-		for camName, srvc := range vcMap {
+	for _, cvMap := range mr.cameraVisionPairs {
+		for camName, visSrvc := range cvMap {
 			// get detections from vision service
-			detections, err := srvc.GetObjectPointClouds(ctx, camName.Name, nil)
+			detections, err := visSrvc.GetObjectPointClouds(ctx, camName.Name, nil)
 			if err != nil && strings.Contains(err.Error(), "does not implement a 3D segmenter") {
-				mr.planRequest.Logger.Infof("cannot call GetObjectPointClouds on %q as it does not implement a 3D segmenter", srvc.Name())
+				mr.planRequest.Logger.Debugf("cannot call GetObjectPointClouds on %q as it does not implement a 3D segmenter", visSrvc.Name())
 				break
 			} else if err != nil {
 				return false, err
@@ -139,7 +138,7 @@ func (mr *moveRequest) obstaclesIntersectPlan(ctx context.Context, waypoints [][
 			}
 			// consider having geoms be from the frame of world
 			// to accomplish this we need to know the transform from the base to the camera
-			gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(camName.Name, geoms)}
+			gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)}
 			worldState, err := referenceframe.NewWorldState(gifs, nil)
 			if err != nil {
 				return false, err
