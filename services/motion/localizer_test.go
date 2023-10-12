@@ -42,11 +42,10 @@ func TestLocalizerOrientation(t *testing.T) {
 	pif, err := localizer.CurrentPosition(ctx)
 	test.That(t, err, test.ShouldBeNil)
 
-	// A compass heading of 0 means we are pointing north. This means the base's local Y axis should point north, thus the base's X axis
-	// should point east, which is a rotation of -90 from north/0.
+	// A compass heading of 0 means we are pointing north.
 	test.That(t, spatialmath.OrientationAlmostEqual(
 		pif.Pose().Orientation(),
-		&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: -90}),
+		&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 0}),
 		test.ShouldBeTrue,
 	)
 
@@ -58,10 +57,9 @@ func TestLocalizerOrientation(t *testing.T) {
 	pif, err = localizer.CurrentPosition(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	// A compass heading of 315 means we are pointing northwest.
-	// If the base's local Y axis is pointing northwest, the base's local X axis should be pointing northeast, a rotation of -45 from 0.
 	test.That(t, spatialmath.OrientationAlmostEqual(
 		pif.Pose().Orientation(),
-		&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: -45}),
+		&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 45}),
 		test.ShouldBeTrue,
 	)
 
@@ -73,10 +71,9 @@ func TestLocalizerOrientation(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// A compass heading of 90 means we are pointing east.
-	// If the base's local Y is pointing east, the local X should be pointing south, a rotation of +/- 180.
 	test.That(t, spatialmath.OrientationAlmostEqual(
 		pif.Pose().Orientation(),
-		&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 180}),
+		&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: -90}),
 		test.ShouldBeTrue,
 	)
 }

@@ -595,7 +595,7 @@ func TestMoveOnGlobe(t *testing.T) {
 	extra["timeout"] = 5.
 
 	dst := geo.NewPoint(gpsPoint.Lat(), gpsPoint.Lng()+1e-5)
-	expectedDst := r3.Vector{0, 380, 0} // Relative pose to the starting point of the base; facing east, Y = forwards
+	expectedDst := r3.Vector{380, 0, 0} // Relative pose to the starting point of the base; facing north, Y = forwards
 	epsilonMM := 15.
 
 	t.Run("ensure success to a nearby geo point", func(t *testing.T) {
@@ -613,10 +613,10 @@ func TestMoveOnGlobe(t *testing.T) {
 			extra,
 		)
 		test.That(t, err, test.ShouldBeNil)
-
+		
 		test.That(t, mr.planRequest.Goal.Pose().Point().X, test.ShouldAlmostEqual, expectedDst.X, epsilonMM)
 		test.That(t, mr.planRequest.Goal.Pose().Point().Y, test.ShouldAlmostEqual, expectedDst.Y, epsilonMM)
-
+		
 		waypoints, err := mr.plan(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(waypoints), test.ShouldBeGreaterThan, 2)
@@ -854,7 +854,7 @@ func TestCheckPlan(t *testing.T) {
 	})
 	t.Run("with a blocking obstacle - ensure failure", func(t *testing.T) {
 		obstacle, err := spatialmath.NewBox(
-			spatialmath.NewPoseFromPoint(r3.Vector{0, 380, 0}), // Y means forwards from the base's pose at the start of the motion
+			spatialmath.NewPoseFromPoint(r3.Vector{380, 0, 0}), // Y means forwards from the base's pose at the start of the motion
 			r3.Vector{10, 10, 10}, "obstacle",
 		)
 		test.That(t, err, test.ShouldBeNil)
@@ -908,7 +908,7 @@ func TestCheckPlan(t *testing.T) {
 	t.Run("ensure transforms of obstacles works - collision with camera", func(t *testing.T) {
 		// create obstacle
 		obstacle, err := spatialmath.NewBox(
-			spatialmath.NewPoseFromPoint(r3.Vector{0, 400, 0}),
+			spatialmath.NewPoseFromPoint(r3.Vector{400, 0, 0}),
 			r3.Vector{50, 50, 10}, "obstacle",
 		)
 		test.That(t, err, test.ShouldBeNil)
