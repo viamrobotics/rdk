@@ -213,6 +213,7 @@ func TestWebWithAuth(t *testing.T) {
 						"key":     legacyAPIKey,
 						apiKeyID1: apiKey1,
 						apiKeyID2: apiKey2,
+						"keys":    []string{apiKeyID1, apiKeyID2},
 					},
 				},
 				{
@@ -667,6 +668,7 @@ func TestWebWithOnlyNewAPIKeyAuthHandlers(t *testing.T) {
 			Config: rutils.AttributeMap{
 				apiKeyID1: apiKey1,
 				apiKeyID2: apiKey2,
+				"keys":    []string{apiKeyID1, apiKeyID2},
 			},
 		},
 	}

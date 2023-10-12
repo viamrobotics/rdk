@@ -735,10 +735,10 @@ func (svc *webService) initAuthHandlers(listenerTCPAddr *net.TCPAddr, options we
 		for _, handler := range options.Auth.Handlers {
 			switch handler.Type {
 			case rpc.CredentialsTypeAPIKey:
-				legacyAPIKeys := parseLegacyAPIKeys(handler)
 				apiKeys := parseAPIKeys(handler)
-				hasLegacyAPIKeys := len(legacyAPIKeys) != 0
+				legacyAPIKeys := parseLegacyAPIKeys(handler, apiKeys)
 				hasAPIKeys := len(apiKeys) != 0
+				hasLegacyAPIKeys := len(legacyAPIKeys) != 0
 
 				switch {
 				case !hasLegacyAPIKeys && !hasAPIKeys:
@@ -783,17 +783,26 @@ func (svc *webService) initAuthHandlers(listenerTCPAddr *net.TCPAddr, options we
 	return rpcOpts, nil
 }
 
-func parseLegacyAPIKeys(handler config.AuthHandlerConfig) []string {
+func parseLegacyAPIKeys(handler config.AuthHandlerConfig, nonLegacyAPIKeys map[string]string) []string {
 	apiKeys := handler.Config.StringSlice("keys")
-	if len(apiKeys) == 0 {
+	var filteredAPIKeys []string
+
+	// filter out new api keys from keys array to ensure we're left with only legacy keys
+	for _, apiKey := range apiKeys {
+		if _, ok := nonLegacyAPIKeys[apiKey]; !ok {
+			filteredAPIKeys = append(filteredAPIKeys, apiKey)
+		}
+	}
+
+	if len(filteredAPIKeys) == 0 {
 		apiKey := handler.Config.String("key")
 		if apiKey == "" {
 			return []string{}
 		}
-		apiKeys = []string{apiKey}
+		filteredAPIKeys = []string{apiKey}
 	}
 
-	return apiKeys
+	return filteredAPIKeys
 }
 
 func parseAPIKeys(handler config.AuthHandlerConfig) map[string]string {
