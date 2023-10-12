@@ -521,6 +521,155 @@ var app = &cli.App{
 			},
 		},
 		{
+			Name:      "train",
+			Usage:     "train on data",
+			UsageText: "viam train [other options]",
+			Subcommands: []*cli.Command{
+				{
+					Name:  "submit",
+					Usage: "submits training job on data in Viam cloud",
+					UsageText: fmt.Sprintf("viam train submit <%s> [other options]",
+						dataFlagOrgIDs),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     trainFlagModelOrgID,
+							Usage:    "org ID to train and save ML model in",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:     trainFlagModelName,
+							Usage:    "name of ML model",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name: trainFlagModelType,
+							Usage: "type of model to train. can be one of " +
+								"[single_label_classification, multi_label_classification, or object_detection]",
+							Required: true,
+						},
+						&cli.StringSliceFlag{
+							Name: trainFlagModelLabels,
+							Usage: "labels to train on. " +
+								"this will either be classification or object detection labels",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:  trainFlagModelVersion,
+							Usage: "version of ML model. defaults to current timestamp if unspecified.",
+						},
+						&cli.StringFlag{
+							Name:  datasetFlagDatasetID,
+							Usage: "dataset ID",
+						},
+						&cli.StringSliceFlag{
+							Name:  dataFlagOrgIDs,
+							Usage: "orgs filter",
+						},
+						&cli.StringSliceFlag{
+							Name:  dataFlagLocationIDs,
+							Usage: "locations filter",
+						},
+						&cli.StringFlag{
+							Name:  dataFlagRobotID,
+							Usage: "robot-id filter",
+						},
+						&cli.StringFlag{
+							Name:  dataFlagPartID,
+							Usage: "part id filter",
+						},
+						&cli.StringFlag{
+							Name:  dataFlagRobotName,
+							Usage: "robot name filter",
+						},
+						&cli.StringFlag{
+							Name:  dataFlagPartName,
+							Usage: "part name filter",
+						},
+						&cli.StringFlag{
+							Name:  dataFlagComponentType,
+							Usage: "component type filter",
+						},
+						&cli.StringFlag{
+							Name:  dataFlagComponentName,
+							Usage: "component name filter",
+						},
+						&cli.StringFlag{
+							Name:  dataFlagMethod,
+							Usage: "method filter",
+						},
+						&cli.StringSliceFlag{
+							Name:  dataFlagMimeTypes,
+							Usage: "mime types filter",
+						},
+						&cli.StringFlag{
+							Name:  dataFlagStart,
+							Usage: "ISO-8601 timestamp indicating the start of the interval filter",
+						},
+						&cli.StringFlag{
+							Name:  dataFlagEnd,
+							Usage: "ISO-8601 timestamp indicating the end of the interval filter",
+						},
+						&cli.StringSliceFlag{
+							Name: dataFlagTags,
+							Usage: "tags filter. " +
+								"accepts tagged for all tagged data, untagged for all untagged data, " +
+								"or a list of tags for all data matching any of the tags",
+						},
+						&cli.StringSliceFlag{
+							Name: dataFlagBboxLabels,
+							Usage: "bbox labels filter. " +
+								"accepts string labels corresponding to bounding boxes within images",
+						},
+					},
+					Action: DataSubmitTrainingJob,
+				},
+				{
+					Name:      "get",
+					Usage:     "gets training job from Viam cloud based on training job ID",
+					UsageText: fmt.Sprintf("viam train get <%s>", trainFlagJobID),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     trainFlagJobID,
+							Usage:    "training job ID",
+							Required: true,
+						},
+					},
+					Action: DataGetTrainingJob,
+				},
+				{
+					Name:      "cancel",
+					Usage:     "cancels training job in Viam cloud based on training job ID",
+					UsageText: fmt.Sprintf("viam train cancel <%s>", trainFlagJobID),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     trainFlagJobID,
+							Usage:    "training job ID",
+							Required: true,
+						},
+					},
+					Action: DataCancelTrainingJob,
+				},
+				{
+					Name:      "list",
+					Usage:     "list training jobs in Viam cloud based on organization ID",
+					UsageText: fmt.Sprintf("viam train list <%s> <%s>", dataFlagOrgID, trainFlagJobStatus),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     dataFlagOrgID,
+							Usage:    "org ID",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name: trainFlagJobStatus,
+							Usage: "training status to filter for. can be one of " +
+								"[unspecified, pending, in_progress, completed, failed, canceled, canceling]",
+						},
+					},
+					Action: DataListTrainingJobs,
+				},
+			},
+		},
+		{
 			Name:            "robots",
 			Aliases:         []string{"robot"},
 			Usage:           "work with robots",

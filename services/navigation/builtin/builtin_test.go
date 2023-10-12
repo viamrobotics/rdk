@@ -16,6 +16,8 @@ import (
 	"go.viam.com/rdk/components/base"
 	fakebase "go.viam.com/rdk/components/base/fake"
 	"go.viam.com/rdk/components/base/kinematicbase"
+	"go.viam.com/rdk/components/camera"
+	_ "go.viam.com/rdk/components/camera/fake"
 	"go.viam.com/rdk/components/movementsensor"
 	_ "go.viam.com/rdk/components/movementsensor/fake"
 	"go.viam.com/rdk/config"
@@ -223,7 +225,7 @@ func TestNew(t *testing.T) {
 
 		test.That(t, svcStruct.base.Name().Name, test.ShouldEqual, "test_base")
 		test.That(t, svcStruct.motionService.Name().Name, test.ShouldEqual, "builtin")
-		test.That(t, svcStruct.visionServices, test.ShouldBeNil)
+		test.That(t, svcStruct.obstacleDetectors, test.ShouldBeNil)
 
 		test.That(t, svcStruct.mapType, test.ShouldEqual, navigation.NoMap)
 		test.That(t, svcStruct.mode, test.ShouldEqual, navigation.ModeManual)
@@ -232,7 +234,7 @@ func TestNew(t *testing.T) {
 		test.That(t, svcStruct.storeType, test.ShouldEqual, string(navigation.StoreTypeMemory))
 		test.That(t, svcStruct.store, test.ShouldResemble, navigation.NewMemoryNavigationStore())
 
-		test.That(t, svcStruct.motionCfg.VisionServices, test.ShouldBeNil)
+		test.That(t, svcStruct.motionCfg.ObstacleDetectors, test.ShouldBeNil)
 		test.That(t, svcStruct.motionCfg.AngularDegsPerSec, test.ShouldEqual, defaultAngularVelocityDegsPerSec)
 		test.That(t, svcStruct.motionCfg.LinearMPerSec, test.ShouldEqual, defaultLinearVelocityMPerSec)
 		test.That(t, svcStruct.motionCfg.PositionPollingFreqHz, test.ShouldEqual, defaultPositionPollingFrequencyHz)
@@ -293,10 +295,16 @@ func TestNew(t *testing.T) {
 			PositionPollingFrequencyHz: 3,
 			ObstaclePollingFrequencyHz: 4,
 			PlanDeviationM:             5,
-			VisionServices:             []string{"vision"},
+			ObstacleDetectors: []*ObstacleDetectorNameConfig{
+				{
+					VisionServiceName: "vision",
+					CameraName:        "camera",
+				},
+			},
 		}
 		deps := resource.Dependencies{
 			resource.NewName(base.API, "base"):      &inject.Base{},
+			resource.NewName(camera.API, "camera"):  inject.NewCamera("camera"),
 			resource.NewName(motion.API, "builtin"): inject.NewMotionService("motion"),
 			resource.NewName(vision.API, "vision"):  inject.NewVisionService("vision"),
 		}
@@ -305,8 +313,10 @@ func TestNew(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		svcStruct := svc.(*builtIn)
 
-		test.That(t, len(svcStruct.motionCfg.VisionServices), test.ShouldEqual, 1)
-		test.That(t, svcStruct.motionCfg.VisionServices[0].Name, test.ShouldEqual, cfg.VisionServices[0])
+		test.That(t, len(svcStruct.obstacleDetectors), test.ShouldEqual, 1)
+		test.That(t, len(svcStruct.motionCfg.ObstacleDetectors), test.ShouldEqual, 1)
+		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].VisionServiceName.Name, test.ShouldEqual, "vision")
+		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].CameraName.Name, test.ShouldEqual, "camera")
 
 		test.That(t, svcStruct.motionCfg.AngularDegsPerSec, test.ShouldEqual, cfg.DegPerSec)
 		test.That(t, svcStruct.motionCfg.LinearMPerSec, test.ShouldEqual, cfg.MetersPerSec)
@@ -320,10 +330,16 @@ func TestNew(t *testing.T) {
 			BaseName:         "base",
 			MapType:          "None",
 			ReplanCostFactor: 1,
-			VisionServices:   []string{"vision"},
+			ObstacleDetectors: []*ObstacleDetectorNameConfig{
+				{
+					VisionServiceName: "vision",
+					CameraName:        "camera",
+				},
+			},
 		}
 		deps := resource.Dependencies{
 			resource.NewName(base.API, "base"):      &inject.Base{},
+			resource.NewName(camera.API, "camera"):  inject.NewCamera("camera"),
 			resource.NewName(motion.API, "builtin"): inject.NewMotionService("motion"),
 			resource.NewName(vision.API, "vision"):  inject.NewVisionService("vision"),
 		}
@@ -332,9 +348,118 @@ func TestNew(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		svcStruct := svc.(*builtIn)
 
-		test.That(t, len(svcStruct.visionServices), test.ShouldEqual, 1)
-		test.That(t, svcStruct.visionServices[0].Name().Name, test.ShouldEqual, cfg.VisionServices[0])
+		test.That(t, len(svcStruct.obstacleDetectors), test.ShouldEqual, 1)
+		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].VisionServiceName.Name, test.ShouldEqual, "vision")
+		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].CameraName.Name, test.ShouldEqual, "camera")
 		test.That(t, svcStruct.replanCostFactor, test.ShouldEqual, cfg.ReplanCostFactor)
+	})
+
+	t.Run("base missing from deps", func(t *testing.T) {
+		expectedErr := resource.DependencyNotFoundError(base.Named(""))
+		cfg := &Config{}
+		deps := resource.Dependencies{}
+
+		err := svc.Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
+		test.That(t, err, test.ShouldBeError, expectedErr)
+	})
+
+	t.Run("motion missing from deps", func(t *testing.T) {
+		expectedErr := resource.DependencyNotFoundError(motion.Named("builtin"))
+		cfg := &Config{
+			BaseName: "base",
+		}
+		deps := resource.Dependencies{
+			resource.NewName(base.API, "base"): &inject.Base{},
+		}
+
+		err := svc.Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
+		test.That(t, err, test.ShouldBeError, expectedErr)
+	})
+
+	t.Run("movement sensor missing from deps", func(t *testing.T) {
+		expectedErr := resource.DependencyNotFoundError(movementsensor.Named(""))
+		cfg := &Config{
+			BaseName: "base",
+		}
+		deps := resource.Dependencies{
+			resource.NewName(base.API, "base"):      &inject.Base{},
+			resource.NewName(motion.API, "builtin"): inject.NewMotionService("motion"),
+		}
+
+		err := svc.Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
+		test.That(t, err, test.ShouldBeError, expectedErr)
+	})
+
+	t.Run("vision missing from deps", func(t *testing.T) {
+		expectedErr := resource.DependencyNotFoundError(vision.Named(""))
+		cfg := &Config{
+			BaseName:           "base",
+			MovementSensorName: "movement_sensor",
+			ObstacleDetectors: []*ObstacleDetectorNameConfig{
+				{
+					CameraName: "camera",
+				},
+			},
+		}
+		deps := resource.Dependencies{
+			resource.NewName(base.API, "base"):                      &inject.Base{},
+			resource.NewName(motion.API, "builtin"):                 inject.NewMotionService("motion"),
+			resource.NewName(camera.API, "camera"):                  inject.NewCamera("camera"),
+			resource.NewName(movementsensor.API, "movement_sensor"): inject.NewMovementSensor("movement_sensor"),
+		}
+
+		err := svc.Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
+		test.That(t, err, test.ShouldBeError, expectedErr)
+	})
+
+	t.Run("camera missing from deps", func(t *testing.T) {
+		expectedErr := resource.DependencyNotFoundError(camera.Named(""))
+		cfg := &Config{
+			BaseName:           "base",
+			MovementSensorName: "movement_sensor",
+			ObstacleDetectors: []*ObstacleDetectorNameConfig{
+				{
+					VisionServiceName: "vision",
+				},
+			},
+		}
+		deps := resource.Dependencies{
+			resource.NewName(base.API, "base"):                      &inject.Base{},
+			resource.NewName(motion.API, "builtin"):                 inject.NewMotionService("motion"),
+			resource.NewName(vision.API, "vision"):                  inject.NewVisionService("vision"),
+			resource.NewName(movementsensor.API, "movement_sensor"): inject.NewMovementSensor("movement_sensor"),
+		}
+
+		err := svc.Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
+		test.That(t, err, test.ShouldBeError, expectedErr)
+	})
+
+	t.Run("necessary for MoveOnGlobe", func(t *testing.T) {
+		cfg := &Config{
+			BaseName:           "base",
+			MovementSensorName: "movement_sensor",
+			ObstacleDetectors: []*ObstacleDetectorNameConfig{
+				{
+					VisionServiceName: "vision",
+					CameraName:        "camera",
+				},
+			},
+		}
+		deps := resource.Dependencies{
+			resource.NewName(base.API, "base"):                      &inject.Base{},
+			resource.NewName(motion.API, "builtin"):                 inject.NewMotionService("motion"),
+			resource.NewName(vision.API, "vision"):                  inject.NewVisionService("vision"),
+			resource.NewName(camera.API, "camera"):                  inject.NewCamera("camera"),
+			resource.NewName(movementsensor.API, "movement_sensor"): inject.NewMovementSensor("movement_sensor"),
+		}
+
+		err := svc.Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
+		test.That(t, err, test.ShouldBeNil)
+		svcStruct := svc.(*builtIn)
+
+		test.That(t, len(svcStruct.obstacleDetectors), test.ShouldEqual, 1)
+		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].VisionServiceName.Name, test.ShouldEqual, "vision")
+		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].CameraName.Name, test.ShouldEqual, "camera")
 	})
 
 	closeNavSvc()
@@ -472,10 +597,7 @@ func TestNavSetup(t *testing.T) {
 	test.That(t, len(obs), test.ShouldEqual, 1)
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, len(ns.(*builtIn).motionCfg.VisionServices), test.ShouldEqual, 1)
-
-	_, err = ns.Paths(ctx, nil)
-	test.That(t, err, test.ShouldBeError, errors.New("unimplemented"))
+	test.That(t, len(ns.(*builtIn).motionCfg.ObstacleDetectors), test.ShouldEqual, 1)
 }
 
 func TestStartWaypoint(t *testing.T) {
@@ -854,6 +976,12 @@ func TestValidateGeometry(t *testing.T) {
 		BaseName:           "base",
 		MapType:            "GPS",
 		MovementSensorName: "localizer",
+		ObstacleDetectors: []*ObstacleDetectorNameConfig{
+			{
+				VisionServiceName: "vision",
+				CameraName:        "camera",
+			},
+		},
 	}
 
 	createBox := func(translation r3.Vector) Config {

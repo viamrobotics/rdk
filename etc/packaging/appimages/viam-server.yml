@@ -3,16 +3,14 @@ version: 1
 script:
  - rm -rf $TARGET_APPDIR | true
  - mkdir -p "$TARGET_APPDIR/usr/bin"
- - cp ../../../bin/Linux-x86_64/viam-server "$TARGET_APPDIR/usr/bin/"
+ - cp ../../../bin/Linux-${UNAME_M}/viam-server "$TARGET_APPDIR/usr/bin/"
  - mkdir -p "$TARGET_APPDIR/usr/share/icons/viam/256x256/apps/"
  - wget https://storage.googleapis.com/appimage-assets/viam-server.png -O "$TARGET_APPDIR/usr/share/icons/viam/256x256/apps/viam-server.png"
  - mkdir -p "$TARGET_APPDIR/aix.d/"
  - cp ./install ./postupdate "$TARGET_APPDIR/aix.d/"
  - chmod 755 "$TARGET_APPDIR/aix.d/install" "$TARGET_APPDIR/aix.d/postupdate"
  - cp ./viam-server.service "$TARGET_APPDIR/"
- - go install -ldflags "-s -w" -tags osusergo,netgo github.com/Otterverse/aix@latest
- - cp `go env GOPATH`/bin/aix "$TARGET_APPDIR/usr/bin/"
- - cp `which env` "$TARGET_APPDIR/usr/bin/"
+ - cp ../../../bin/Linux-${UNAME_M}/aix $TARGET_APPDIR/usr/bin
  - chmod 755 "$TARGET_APPDIR/usr/bin/"*
 
 AppDir:
@@ -26,7 +24,7 @@ AppDir:
     exec_args: $@
   apt:
     arch:
-    - amd64
+    - ${DPKG_ARCH}
     allow_unauthenticated: true
     sources:
     - sourceline: deb [trusted=yes] http://deb.debian.org/debian bookworm main
@@ -46,5 +44,5 @@ AppDir:
     env:
         AIX_TARGET: usr/bin/viam-server
 AppImage:
-  arch: x86_64
-  update-information: zsync|https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${BUILD_CHANNEL}-x86_64.AppImage.zsync
+  arch: ${APPIMAGE_ARCH}
+  update-information: zsync|https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${BUILD_CHANNEL}-${UNAME_M}.AppImage.zsync

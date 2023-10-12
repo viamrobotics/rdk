@@ -233,5 +233,5 @@ func NewRTSPCamera(ctx context.Context, name resource.Name, conf *Config, logger
 	if err != nil {
 		return nil, err
 	}
-	return camera.FromVideoSource(name, src), nil
+	return camera.FromVideoSource(name, src, logger), nil
 }

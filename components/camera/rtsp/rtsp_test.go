@@ -17,7 +17,7 @@ import (
 	"go.viam.com/test"
 	viamutils "go.viam.com/utils"
 
-	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage/transform"
 )
 
@@ -121,8 +121,9 @@ func TestRTSPCamera(t *testing.T) {
 	rtspConf := &Config{Address: outputURL}
 	timeoutCtx, timeoutCancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer timeoutCancel()
-	rtspCam, err := NewRTSPCamera(timeoutCtx, camera.Named("cam1"), rtspConf, logger)
+	rtspCam, err := NewRTSPCamera(timeoutCtx, resource.Name{Name: "foo"}, rtspConf, logger)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, rtspCam.Name().Name, test.ShouldEqual, "foo")
 	// close everything
 	err = rtspCam.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)

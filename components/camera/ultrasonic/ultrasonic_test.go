@@ -66,7 +66,8 @@ func TestUnderlyingSensor(t *testing.T) {
 	fakeUS.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 		return map[string]interface{}{"distance": 3.2}, nil
 	}
-	cam, err := cameraFromSensor(ctx, name, fakeUS)
+	logger := golog.NewTestLogger(t)
+	cam, err := cameraFromSensor(ctx, name, fakeUS, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	pc, err := cam.NextPointCloud(ctx)

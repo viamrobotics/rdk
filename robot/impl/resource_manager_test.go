@@ -141,7 +141,7 @@ func setupInjectRobot(logger golog.Logger) *inject.Robot {
 					fakeBoard, err := fakeboard.NewBoard(context.Background(), resource.Config{
 						Name: name.String(),
 						ConvertedAttributes: &fakeboard.Config{
-							Analogs: []board.AnalogConfig{
+							AnalogReaders: []board.AnalogReaderConfig{
 								{Name: "analog1"},
 								{Name: "analog2"},
 							},
@@ -158,7 +158,7 @@ func setupInjectRobot(logger golog.Logger) *inject.Robot {
 				case camera.API:
 					conf := resource.NewEmptyConfig(name, resource.DefaultModelFamily.WithModel("fake"))
 					conf.ConvertedAttributes = &fakecamera.Config{}
-					return fakecamera.NewCamera(context.Background(), conf)
+					return fakecamera.NewCamera(context.Background(), conf, logger)
 				case gripper.API:
 					return &fakegripper.Gripper{Named: name.AsNamed()}, nil
 				case input.API:
@@ -489,7 +489,7 @@ func TestManagerAdd(t *testing.T) {
 		return &inject.I2C{}, true
 	}
 	injectBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
-		return &fakeboard.Analog{}, true
+		return &fakeboard.AnalogReader{}, true
 	}
 	injectBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, bool) {
 		return &board.BasicDigitalInterrupt{}, true
