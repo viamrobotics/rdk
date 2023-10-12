@@ -37,6 +37,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"math"
 	"net"
 	"net/http"
@@ -299,10 +300,14 @@ func (g *rtkSerial) connect(casterAddr, user, pwd string, maxAttempts int) error
 
 func getMountPointInfo(url, user, password, mountpoint string) (string, error) {
 	client := &http.Client{}
-	req, err := http.NewRequest("GET", url, nil)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) // setting a 10 second timeout
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return "", err
 	}
+
 	req.Header.Set("Ntrip-Version", "Ntrip/2.0")
 	req.Header.Set("User-Agent", "NTRIP VIAM RDK")
 	req.SetBasicAuth(user, password)
@@ -311,9 +316,14 @@ func getMountPointInfo(url, user, password, mountpoint string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
 
-	if resp.StatusCode != 200 {
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			log.Printf("Failed to close the connection: %v", closeErr)
+		}
+	}()
+
+	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("failed with status code: %d", resp.StatusCode)
 	}
 
@@ -336,11 +346,9 @@ func getMountPointInfo(url, user, password, mountpoint string) (string, error) {
 }
 
 func sourceTableParser(sourceTable string) (int, error) {
-
 	fields := strings.Split(sourceTable, ";")
 
 	nmeaBit, err := strconv.Atoi(fields[12])
-
 	if err != nil {
 		return -1, err
 	}
@@ -361,7 +369,12 @@ func sendGGAToPort(url, ggaMessage string) error {
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
+
+	defer func() {
+		if closeErr := conn.Close(); closeErr != nil {
+			log.Printf("Failed to close the connection: %v", closeErr)
+		}
+	}()
 
 	_, err = conn.Write([]byte(ggaMessage + "\r\n"))
 	if err != nil {
@@ -379,6 +392,16 @@ func (g *rtkSerial) getStream(mountPoint string, maxAttempts int) error {
 	var rc io.ReadCloser
 	var err error
 
+	sourceTable, err := getMountPointInfo(g.ntripClient.URL, g.ntripClient.Username, g.ntripClient.Password, g.ntripClient.MountPoint)
+	if err != nil {
+		g.err.Set(err)
+	}
+
+	nmeaBit, err := sourceTableParser(sourceTable)
+	if err != nil {
+		g.err.Set(err)
+	}
+
 	g.logger.Debug("Getting NTRIP stream")
 
 	for !success && attempts < maxAttempts && !g.isClosed {
@@ -388,19 +411,10 @@ func (g *rtkSerial) getStream(mountPoint string, maxAttempts int) error {
 		default:
 		}
 
-		sourceTable, err := getMountPointInfo(g.ntripClient.URL, g.ntripClient.Username, g.ntripClient.Password, g.ntripClient.MountPoint)
-		if err != nil {
-			return err
-		}
-
-		nmeaBit, err := sourceTableParser(sourceTable)
-		if err != nil {
-			return err
-		}
 		if nmeaBit == 1 {
 			err = sendGGAToPort(g.ntripClient.URL, g.gpsData.GGAForMountPointInfo)
 			if err != nil {
-				return err
+				g.err.Set(err)
 			}
 		}
 
