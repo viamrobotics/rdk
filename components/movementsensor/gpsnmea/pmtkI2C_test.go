@@ -18,7 +18,7 @@ import (
 
 const (
 	testBoardName = "board1"
-	testBusName   = "i2c1"
+	testBusName   = 1
 )
 
 func setupDependencies(t *testing.T) resource.Dependencies {
@@ -87,7 +87,7 @@ func TestNewI2CMovementSensor(t *testing.T) {
 		ConvertedAttributes: &Config{
 			ConnectionType: "I2C",
 			DisableNMEA:    false,
-			I2CConfig:      &I2CConfig{I2CBus: testBusName, Board: testBoardName},
+			I2CConfig:      &I2CConfig{I2CBus: testBusName},
 		},
 	}
 	g, err = newNMEAGPS(ctx, deps, conf, logger)
