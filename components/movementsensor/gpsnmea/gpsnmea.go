@@ -51,10 +51,9 @@ type SerialConfig struct {
 
 // I2CConfig is used for converting Serial NMEA MovementSensor config attributes.
 type I2CConfig struct {
-	Board       string `json:"board"`
-	I2CBus      string `json:"i2c_bus"`
-	I2CAddr     int    `json:"i2c_addr"`
-	I2CBaudRate int    `json:"i2c_baud_rate,omitempty"`
+	I2CBus      int `json:"i2c_bus"`
+	I2CAddr     int `json:"i2c_addr"`
+	I2CBaudRate int `json:"i2c_baud_rate,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -81,16 +80,12 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 
 // ValidateI2C ensures all parts of the config are valid.
 func (cfg *I2CConfig) validateI2C(path string) error {
-	if cfg.I2CBus == "" {
+	if cfg.I2CBus == 0 {
 		return utils.NewConfigValidationFieldRequiredError(path, "i2c_bus")
 	}
 	if cfg.I2CAddr == 0 {
 		return utils.NewConfigValidationFieldRequiredError(path, "i2c_addr")
 	}
-	if cfg.Board == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "board")
-	}
-
 	return nil
 }
 
