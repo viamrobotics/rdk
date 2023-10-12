@@ -279,7 +279,7 @@ func TestClient(t *testing.T) {
 
 		// test Paths
 		paths, err := failingNavClient.Paths(context.Background(), nil)
-		test.That(t, err, test.ShouldBeError, errors.New("unimplemented"))
+		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, paths, test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})

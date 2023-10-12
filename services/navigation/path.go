@@ -95,7 +95,7 @@ func ProtoToPath(path *pb.Path) (*Path, error) {
 	if path == nil {
 		return nil, errNilPath
 	}
-	var geoPoints []*geo.Point
+	geoPoints := []*geo.Point{}
 	for _, pt := range path.GetGeopoints() {
 		geoPoints = append(geoPoints, geo.NewPoint(pt.GetLatitude(), pt.GetLongitude()))
 	}

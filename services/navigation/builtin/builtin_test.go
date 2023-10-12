@@ -593,9 +593,8 @@ func TestNavSetup(t *testing.T) {
 	err = ns.RemoveWaypoint(ctx, id, nil)
 	test.That(t, err, test.ShouldBeNil)
 
-	obs, err := ns.Obstacles(ctx, nil)
-	test.That(t, len(obs), test.ShouldEqual, 1)
-	test.That(t, err, test.ShouldBeNil)
+	_, err = ns.Obstacles(ctx, nil)
+	test.That(t, err, test.ShouldBeError, errors.New("unimplemented"))
 
 	test.That(t, len(ns.(*builtIn).motionCfg.ObstacleDetectors), test.ShouldEqual, 1)
 

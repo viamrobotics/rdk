@@ -39,7 +39,7 @@ var (
 	errNegativeObstaclePollingFrequencyHz = errors.New("obstacle_polling_frequency_hz must be non-negative if set")
 	errNegativePlanDeviationM             = errors.New("plan_deviation_m must be non-negative if set")
 	errNegativeReplanCostFactor           = errors.New("replan_cost_factor must be non-negative if set")
-	errUnimplemented                      = errors.New("umimplemented")
+	errUnimplemented                      = errors.New("unimplemented")
 )
 
 const (

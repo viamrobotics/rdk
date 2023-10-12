@@ -15,7 +15,7 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-var errUnimplemented = errors.New("umimplemented")
+var errUnimplemented = errors.New("unimplemented")
 
 // Model is the full model definition.
 var Model = resource.NewModel("acme", "demo", "mynavigation")
