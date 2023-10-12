@@ -115,7 +115,7 @@ func viewCamera(ctx context.Context, conf videosource.WebcamConfig, port int, de
 		return err
 	}
 
-	server, err := gostream.NewStandaloneStreamServer(port, logger, nil, remoteStream)
+	server, err := gostream.NewStandaloneStreamServer(port, logger.AsZap(), nil, remoteStream)
 	if err != nil {
 		return err
 	}

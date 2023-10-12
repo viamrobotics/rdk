@@ -32,7 +32,7 @@ func TestNotCloudManaged(t *testing.T) {
 func TestCloudManaged(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
-	server, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
+	server, err := rpc.NewServer(logger.AsZap(), rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, server.RegisterServiceServer(
@@ -146,7 +146,7 @@ func TestCloudManagedWithAuth(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
 	server, err := rpc.NewServer(
-		logger,
+		logger.AsZap(),
 		rpc.WithAuthHandler(
 			utils.CredentialsTypeRobotSecret,
 			rpc.MakeSimpleMultiAuthHandler([]string{"foo"}, []string{"bar"}),

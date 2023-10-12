@@ -44,7 +44,7 @@ func TestNumResources(t *testing.T) {
 		Args: []string{"-config", cfgFilename},
 		CWD:  utils.ResolveFile("./"),
 		Log:  true,
-	}, logger)
+	}, logger.AsZap())
 
 	err = server.Start(context.Background())
 	test.That(t, err, test.ShouldBeNil)

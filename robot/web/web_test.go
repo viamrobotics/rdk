@@ -997,7 +997,7 @@ func setupRobotCtx(t *testing.T) (context.Context, robot.Robot) {
 	injectRobot.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
 		return injectArm, nil
 	}
-	injectRobot.LoggerFunc = func() logging.Logger { return golog.NewTestLogger(t) }
+	injectRobot.LoggerFunc = func() logging.Logger { return &logging.ZLogger{golog.NewTestLogger(t)} }
 	injectRobot.FrameSystemConfigFunc = func(ctx context.Context) (*framesystem.Config, error) {
 		return &framesystem.Config{}, nil
 	}

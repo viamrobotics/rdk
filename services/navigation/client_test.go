@@ -34,7 +34,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	listener2, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
-	workingServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
+	workingServer, err := rpc.NewServer(logger.AsZap(), rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 	failingServer := grpc.NewServer()
 

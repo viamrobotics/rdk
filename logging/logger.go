@@ -58,18 +58,13 @@ type Logger interface {
 	DPanicw(msg string, keysAndValues ...interface{})
 }
 
-type VLogger struct {
-}
-
-func (logger *VLogger) AsZap() *zap.SugaredLogger {
-	return zap.Must(NewDevelopmentLoggerConfig().Build()).Sugar().Named("grpc")
-}
-
-// ZLogger type for logging to.
+// ZLogger type for logging to. Wraps a zap logger and adds the `AsZap` method to satisfy the
+// `Logger` interface.
 type ZLogger struct {
 	*zap.SugaredLogger
 }
 
+// AsZap converts the logger to a zap logger.
 func (logger ZLogger) AsZap() *zap.SugaredLogger {
 	return logger.SugaredLogger
 }

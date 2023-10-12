@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"go.uber.org/zap"
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
 
@@ -20,7 +19,7 @@ import (
 
 type setupResult struct {
 	ctx                                            context.Context
-	logger                                         *zap.SugaredLogger
+	logger                                         logging.Logger
 	b                                              *fakeboard.Board
 	dev                                            input.Controller
 	btn1Callbacks, btn2Callbacks                   int64

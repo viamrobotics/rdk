@@ -169,7 +169,7 @@ func timestampsFromFileNum(fileNum int) (*timestamppb.Timestamp, *timestamppb.Ti
 func createMockCloudDependencies(ctx context.Context, t *testing.T, logger logging.Logger, b bool) (resource.Dependencies, func() error) {
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
-	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
+	rpcServer, err := rpc.NewServer(logger.AsZap(), rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, rpcServer.RegisterServiceServer(

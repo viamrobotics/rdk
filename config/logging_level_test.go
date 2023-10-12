@@ -11,7 +11,7 @@ import (
 
 func TestConfigDebugFlag(t *testing.T) {
 	logConfig := logging.NewDevelopmentLoggerConfig()
-	logger := zap.Must(logConfig.Build()).Sugar()
+	logger := &logging.ZLogger{zap.Must(logConfig.Build()).Sugar()}
 
 	for _, cmdLineValue := range []bool{true, false} {
 		for _, fileDebugValue := range []bool{true, false} {

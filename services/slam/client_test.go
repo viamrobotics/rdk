@@ -39,7 +39,7 @@ func TestClientWorkingService(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
-	workingServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
+	workingServer, err := rpc.NewServer(logger.AsZap(), rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 	poseSucc := spatial.NewPose(r3.Vector{X: 1, Y: 2, Z: 3}, &spatial.OrientationVector{Theta: math.Pi / 2, OX: 0, OY: 0, OZ: -1})
 	componentRefSucc := "cam"
@@ -225,7 +225,7 @@ func TestFailingClient(t *testing.T) {
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 
-	failingServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
+	failingServer, err := rpc.NewServer(logger.AsZap(), rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
 	pcFail := &vision.Object{}

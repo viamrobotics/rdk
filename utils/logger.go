@@ -3,6 +3,7 @@ package utils
 import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+
 	"go.viam.com/rdk/logging"
 )
 

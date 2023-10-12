@@ -112,7 +112,8 @@ func TestJoinPointCloudNaive(t *testing.T) {
 		TargetFrame:   "base1",
 		MergeMethod:   "naive",
 	}
-	joinedCam, err := newJoinPointCloudCamera(context.Background(), deps, resource.Config{ConvertedAttributes: conf}, utils.Logger)
+	logger := &logging.ZLogger{utils.Logger}
+	joinedCam, err := newJoinPointCloudCamera(context.Background(), deps, resource.Config{ConvertedAttributes: conf}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	pc, err := joinedCam.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -143,7 +144,7 @@ func TestJoinPointCloudNaive(t *testing.T) {
 		TargetFrame:   "cam1",
 		MergeMethod:   "naive",
 	}
-	joinedCam2, err := newJoinPointCloudCamera(context.Background(), deps, resource.Config{ConvertedAttributes: conf2}, utils.Logger)
+	joinedCam2, err := newJoinPointCloudCamera(context.Background(), deps, resource.Config{ConvertedAttributes: conf2}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	pc, err = joinedCam2.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -356,7 +357,8 @@ func TestFixedPointCloudICP(t *testing.T) {
 		Closeness:     0.01,
 	}
 
-	joinedCam, err := newJoinPointCloudCamera(context.Background(), deps, resource.Config{ConvertedAttributes: conf}, utils.Logger)
+	joinedCam, err := newJoinPointCloudCamera(
+		context.Background(), deps, resource.Config{ConvertedAttributes: conf}, &logging.ZLogger{utils.Logger})
 	test.That(t, err, test.ShouldBeNil)
 	defer joinedCam.Close(context.Background())
 	pc, err := joinedCam.NextPointCloud(ctx)
@@ -375,7 +377,8 @@ func TestTwinPointCloudICP(t *testing.T) {
 		TargetFrame:   "cam3",
 		MergeMethod:   "icp",
 	}
-	joinedCam, err := newJoinPointCloudCamera(context.Background(), deps, resource.Config{ConvertedAttributes: conf}, utils.Logger)
+	joinedCam, err := newJoinPointCloudCamera(
+		context.Background(), deps, resource.Config{ConvertedAttributes: conf}, &logging.ZLogger{utils.Logger})
 	test.That(t, err, test.ShouldBeNil)
 	defer joinedCam.Close(context.Background())
 	pc, err := joinedCam.NextPointCloud(context.Background())
@@ -399,7 +402,8 @@ func TestMultiPointCloudICP(t *testing.T) {
 		TargetFrame:   "cam3",
 		MergeMethod:   "icp",
 	}
-	joinedCam, err := newJoinPointCloudCamera(context.Background(), deps, resource.Config{ConvertedAttributes: conf}, utils.Logger)
+	joinedCam, err := newJoinPointCloudCamera(
+		context.Background(), deps, resource.Config{ConvertedAttributes: conf}, &logging.ZLogger{utils.Logger})
 	test.That(t, err, test.ShouldBeNil)
 	defer joinedCam.Close(context.Background())
 	pc, err := joinedCam.NextPointCloud(context.Background())

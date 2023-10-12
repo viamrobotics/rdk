@@ -25,11 +25,11 @@ var (
 	home6 = frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
 )
 
-var logger, _ = zap.Config{
+var logger = logging.ZLogger{zap.Must(zap.Config{
 	Level:             zap.NewAtomicLevelAt(zap.FatalLevel),
 	Encoding:          "console",
 	DisableStacktrace: true,
-}.Build()
+}.Build()).Sugar()}
 
 type planConfig struct {
 	Start      []frame.Input
@@ -145,7 +145,7 @@ func TestPlanningWithGripper(t *testing.T) {
 
 	newPose := frame.NewPoseInFrame("gripper", spatialmath.NewPoseFromPoint(r3.Vector{100, 100, 0}))
 	solutionMap, err := PlanMotion(context.Background(), &PlanRequest{
-		Logger:             logger.Sugar(),
+		Logger:             logger,
 		Goal:               newPose,
 		Frame:              gripper,
 		StartConfiguration: zeroPos,
@@ -312,7 +312,7 @@ func testPlanner(t *testing.T, plannerFunc plannerConstructor, config planConfig
 	// plan
 	cfg, err := config()
 	test.That(t, err, test.ShouldBeNil)
-	mp, err := plannerFunc(cfg.RobotFrame, rand.New(rand.NewSource(int64(seed))), logger.Sugar(), cfg.Options)
+	mp, err := plannerFunc(cfg.RobotFrame, rand.New(rand.NewSource(int64(seed))), logger, cfg.Options)
 	test.That(t, err, test.ShouldBeNil)
 	pathNodes, err := mp.plan(context.Background(), cfg.Goal, cfg.Start)
 	test.That(t, err, test.ShouldBeNil)
@@ -378,7 +378,7 @@ func TestArmOOBSolve(t *testing.T) {
 	// Set a goal unreachable by the UR due to sheer distance
 	goal1 := spatialmath.NewPose(r3.Vector{X: 257, Y: 21000, Z: -300}, &spatialmath.OrientationVectorDegrees{OZ: -1})
 	_, err := PlanMotion(context.Background(), &PlanRequest{
-		Logger:             logger.Sugar(),
+		Logger:             logger,
 		Goal:               frame.NewPoseInFrame(frame.World, goal1),
 		Frame:              fs.Frame("urCamera"),
 		StartConfiguration: positions,
@@ -404,7 +404,7 @@ func TestArmObstacleSolve(t *testing.T) {
 	// Set a goal unreachable by the UR
 	goal1 := spatialmath.NewPose(r3.Vector{X: 257, Y: 210, Z: -300}, &spatialmath.OrientationVectorDegrees{OZ: -1})
 	_, err = PlanMotion(context.Background(), &PlanRequest{
-		Logger:             logger.Sugar(),
+		Logger:             logger,
 		Goal:               frame.NewPoseInFrame(frame.World, goal1),
 		Frame:              fs.Frame("urCamera"),
 		StartConfiguration: positions,
@@ -431,7 +431,7 @@ func TestArmAndGantrySolve(t *testing.T) {
 	// Set a goal such that the gantry and arm must both be used to solve
 	goal1 := spatialmath.NewPose(r3.Vector{X: 257, Y: 2100, Z: -300}, &spatialmath.OrientationVectorDegrees{OZ: -1})
 	plan, err := PlanMotion(context.Background(), &PlanRequest{
-		Logger:             logger.Sugar(),
+		Logger:             logger,
 		Goal:               frame.NewPoseInFrame(frame.World, goal1),
 		Frame:              fs.Frame("xArmVgripper"),
 		StartConfiguration: positions,
@@ -455,7 +455,7 @@ func TestMultiArmSolve(t *testing.T) {
 	// Solve such that the ur5 and xArm are pointing at each other, 40mm from gripper to camera
 	goal2 := spatialmath.NewPose(r3.Vector{Z: 40}, &spatialmath.OrientationVectorDegrees{OZ: -1})
 	plan, err := PlanMotion(context.Background(), &PlanRequest{
-		Logger:             logger.Sugar(),
+		Logger:             logger,
 		Goal:               frame.NewPoseInFrame("urCamera", goal2),
 		Frame:              fs.Frame("xArmVgripper"),
 		StartConfiguration: positions,
@@ -495,7 +495,7 @@ func TestReachOverArm(t *testing.T) {
 	// plan to a location, it should interpolate to get there
 	opts := map[string]interface{}{"timeout": 150.0}
 	plan, err := PlanMotion(context.Background(), &PlanRequest{
-		Logger:             logger.Sugar(),
+		Logger:             logger,
 		Goal:               goal,
 		Frame:              xarm,
 		StartConfiguration: frame.StartPositions(fs),
@@ -514,7 +514,7 @@ func TestReachOverArm(t *testing.T) {
 	// the plan should no longer be able to interpolate, but it should still be able to get there
 	opts = map[string]interface{}{"timeout": 150.0, "smooth_iter": 5}
 	plan, err = PlanMotion(context.Background(), &PlanRequest{
-		Logger:             logger.Sugar(),
+		Logger:             logger,
 		Goal:               goal,
 		Frame:              xarm,
 		StartConfiguration: frame.StartPositions(fs),
@@ -598,7 +598,7 @@ func TestSolverFrameGeometries(t *testing.T) {
 	sf, err := newSolverFrame(fs, "xArmVgripper", frame.World, frame.StartPositions(fs))
 	test.That(t, err, test.ShouldBeNil)
 
-	sfPlanner, err := newPlanManager(sf, fs, logger.Sugar(), 1)
+	sfPlanner, err := newPlanManager(sf, fs, logger, 1)
 	test.That(t, err, test.ShouldBeNil)
 	position, err := sfPlanner.PlanSingleWaypoint(
 		context.Background(),
@@ -635,7 +635,7 @@ func TestArmConstraintSpecificationSolve(t *testing.T) {
 	checkReachable := func(worldState *frame.WorldState, constraints *motionpb.Constraints) error {
 		goal := spatialmath.NewPose(r3.Vector{X: 600, Y: 100, Z: 300}, &spatialmath.OrientationVectorDegrees{OX: 1})
 		_, err := PlanMotion(context.Background(), &PlanRequest{
-			Logger:             logger.Sugar(),
+			Logger:             logger,
 			Goal:               frame.NewPoseInFrame(frame.World, goal),
 			Frame:              fs.Frame("xArmVgripper"),
 			FrameSystem:        fs,
@@ -718,7 +718,7 @@ func TestMovementWithGripper(t *testing.T) {
 	// linearly plan with the gripper
 	motionConfig := make(map[string]interface{})
 	motionConfig["motion_profile"] = LinearMotionProfile
-	sfPlanner, err := newPlanManager(sf, fs, logger.Sugar(), 1)
+	sfPlanner, err := newPlanManager(sf, fs, logger, 1)
 	test.That(t, err, test.ShouldBeNil)
 	solution, err := sfPlanner.PlanSingleWaypoint(context.Background(), zeroPosition, goal, nil, nil, motionConfig)
 	test.That(t, err, test.ShouldBeNil)
@@ -732,7 +732,7 @@ func TestMovementWithGripper(t *testing.T) {
 		nil,
 	)
 	test.That(t, err, test.ShouldBeNil)
-	sfPlanner, err = newPlanManager(sf, fs, logger.Sugar(), 1)
+	sfPlanner, err = newPlanManager(sf, fs, logger, 1)
 	test.That(t, err, test.ShouldBeNil)
 	solution, err = sfPlanner.PlanSingleWaypoint(context.Background(), zeroPosition, goal, worldState, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
@@ -743,13 +743,13 @@ func TestMovementWithGripper(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	goal = spatialmath.NewPose(r3.Vector{500, 0, -100}, &spatialmath.OrientationVector{OZ: -1})
 	zeroPosition = sf.sliceToMap(make([]frame.Input, len(sf.DoF())))
-	sfPlanner, err = newPlanManager(sf, fs, logger.Sugar(), 1)
+	sfPlanner, err = newPlanManager(sf, fs, logger, 1)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = sfPlanner.PlanSingleWaypoint(context.Background(), zeroPosition, goal, worldState, nil, motionConfig)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// remove linear constraint and try again
-	sfPlanner, err = newPlanManager(sf, fs, logger.Sugar(), 1)
+	sfPlanner, err = newPlanManager(sf, fs, logger, 1)
 	test.That(t, err, test.ShouldBeNil)
 	solution, err = sfPlanner.PlanSingleWaypoint(context.Background(), zeroPosition, goal, worldState, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
@@ -760,7 +760,7 @@ func TestMovementWithGripper(t *testing.T) {
 	sf, err = newSolverFrame(fs, "xArm6", frame.World, frame.StartPositions(fs))
 	test.That(t, err, test.ShouldBeNil)
 	zeroPosition = sf.sliceToMap(make([]frame.Input, len(sf.DoF())))
-	sfPlanner, err = newPlanManager(sf, fs, logger.Sugar(), 1)
+	sfPlanner, err = newPlanManager(sf, fs, logger, 1)
 	test.That(t, err, test.ShouldBeNil)
 	solution, err = sfPlanner.PlanSingleWaypoint(context.Background(), zeroPosition, goal, worldState, nil, motionConfig)
 	test.That(t, err, test.ShouldBeNil)
