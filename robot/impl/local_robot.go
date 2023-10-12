@@ -384,7 +384,7 @@ func newWithResources(
 	if cfg.Cloud != nil && cfg.Cloud.AppAddress != "" {
 		_, cloudConn, err := r.cloudConnSvc.AcquireConnection(ctx)
 		if err == nil {
-			r.packageManager, err = packages.NewCloudManager(pb.NewPackageServiceClient(cloudConn), cfg.PackagePath, logger)
+			r.packageManager, err = packages.NewCloudManager(cfg.Cloud, pb.NewPackageServiceClient(cloudConn), cfg.PackagePath, logger)
 			if err != nil {
 				return nil, err
 			}

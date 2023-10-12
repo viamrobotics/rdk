@@ -1,6 +1,6 @@
 name: Docker
 
-concurrency: 
+concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
@@ -19,18 +19,61 @@ jobs:
     strategy:
       matrix:
         include:
-          - arch: [ubuntu-latest]
-            image: ghcr.io/viamrobotics/canon:amd64
-            platform: linux/amd64
-            make_target: 'canon-cache-amd64-ci'
-          - arch: [buildjet-2vcpu-ubuntu-2204-arm]
-            image: ghcr.io/viamrobotics/canon:arm64
-            platform: linux/arm64
-            make_target: 'canon-cache-arm64-ci'
+        # canon
+        - arch: ubuntu-latest
+          tag: amd64
+          platform: linux/amd64
+          image: canon
+          file: etc/Dockerfile.cache
+        - arch: buildjet-2vcpu-ubuntu-2204-arm
+          tag: arm64
+          platform: linux/arm64
+          image: canon
+          file: etc/Dockerfile.cache
+        # rdk-devenv
+        - arch: ubuntu-latest
+          tag: amd64
+          platform: linux/amd64
+          image: rdk-devenv
+          file: etc/Dockerfile.cache
+        - arch: buildjet-2vcpu-ubuntu-2204-arm
+          tag: arm64
+          platform: linux/arm64
+          image: rdk-devenv
+          file: etc/Dockerfile.cache
+        - arch: buildjet-2vcpu-ubuntu-2204-arm
+          tag: armhf
+          platform: linux/arm/v7
+          image: rdk-devenv
+          file: etc/Dockerfile.cache
+        # antique
+        - arch: ubuntu-latest
+          platform: linux/amd64
+          image: antique
+          file: etc/Dockerfile.antique-cache
+          tag: amd64
+        - arch: buildjet-2vcpu-ubuntu-2204-arm
+          platform: linux/arm64
+          image: antique
+          file: etc/Dockerfile.antique-cache
+          tag: arm64
+        # antique2
+        - arch: ubuntu-latest
+          platform: linux/amd64
+          image: antique2
+          file: etc/Dockerfile.antique-cache
+          tag: amd64
+        - arch: buildjet-2vcpu-ubuntu-2204-arm
+          platform: linux/arm64
+          image: antique2
+          file: etc/Dockerfile.antique-cache
+          tag: arm64
+        - arch: buildjet-2vcpu-ubuntu-2204-arm
+          platform: linux/arm/v7
+          image: antique2
+          file: etc/Dockerfile.antique-cache
+          tag: armhf
     runs-on: ${{ matrix.arch }}
-    container:
-      image: ${{ matrix.image }}
-      options: --platform ${{ matrix.platform }}
     timeout-minutes: 30
     steps:
     - name: Login to GitHub Container Registry
@@ -39,45 +82,22 @@ jobs:
         registry: ghcr.io
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
+    - uses: docker/setup-buildx-action@v2
     - name: Check out code
       uses: actions/checkout@v3
-    - name: Build and Push
-      run: |
-        make ${{ matrix.make_target}}
+    - uses: docker/build-push-action@v5
+      with:
+        push: true
+        pull: true
+        tags: 'ghcr.io/viamrobotics/${{ matrix.image }}:${{ matrix.tag }}-cache'
+        platforms: ${{ matrix.platform }}
+        build-args: |
+          MAIN_TAG=ghcr.io/viamrobotics/${{ matrix.image }}
+          BASE_TAG=${{ matrix.tag }}
+        file: ${{ matrix.file }}
 
   test:
     needs: canon-cache
     uses: viamrobotics/rdk/.github/workflows/test.yml@main
     secrets:
       MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
-
-  antique-cache:
-    name: Build Antique Cache Docker Images
-    strategy:
-      matrix:
-        include:
-          - arch: [ubuntu-latest]
-            image: ghcr.io/viamrobotics/canon:amd64
-            platform: linux/amd64
-            make_target: 'antique-cache-amd64-ci'
-          - arch: [buildjet-2vcpu-ubuntu-2204-arm]
-            image: ghcr.io/viamrobotics/canon:arm64
-            platform: linux/arm64
-            make_target: 'antique-cache-arm64-ci'
-    runs-on: ${{ matrix.arch }}
-    container:
-      image: ${{ matrix.image }}
-      options: --platform ${{ matrix.platform }}
-    timeout-minutes: 30
-    steps:
-    - name: Login to GitHub Container Registry
-      uses: docker/login-action@v2
-      with:
-        registry: ghcr.io
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-    - name: Check out code
-      uses: actions/checkout@v3
-    - name: Build and Push
-      run: |
-        make ${{ matrix.make_target}}
