@@ -164,7 +164,10 @@ func (server *serviceServer) GetPaths(ctx context.Context, req *pb.GetPathsReque
 	if err != nil {
 		return nil, err
 	}
-	pbPaths := PathSliceToProto(paths)
+	pbPaths, err := PathSliceToProto(paths)
+	if err != nil {
+		return nil, err
+	}
 	return &pb.GetPathsResponse{Paths: pbPaths}, nil
 }
 

@@ -598,6 +598,9 @@ func TestNavSetup(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, len(ns.(*builtIn).motionCfg.ObstacleDetectors), test.ShouldEqual, 1)
+
+	_, err = ns.Paths(ctx, nil)
+	test.That(t, err, test.ShouldBeError, errors.New("unimplemented"))
 }
 
 func TestStartWaypoint(t *testing.T) {

@@ -192,7 +192,7 @@ func (c *client) Paths(ctx context.Context, extra map[string]interface{}) ([]*Pa
 	if err != nil {
 		return nil, err
 	}
-	return ProtoSliceToPaths(resp.GetPaths()), nil
+	return ProtoSliceToPaths(resp.GetPaths())
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
