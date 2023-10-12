@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	pb "go.viam.com/api/service/motion/v1"
@@ -440,10 +441,10 @@ func CheckPlan(
 	currentInputs []frame.Input,
 	errorState spatialmath.Pose,
 	logger *zap.SugaredLogger,
-) error {
+) (r3.Vector, bool, error) {
 	// ensure that we can actually perform the check
 	if len(plan) < 1 {
-		return errors.New("plan must have at least one element")
+		return r3.Vector{}, false, errors.New("plan must have at least one element")
 	}
 
 	// construct solverFrame
@@ -451,19 +452,19 @@ func CheckPlan(
 	// entry in the very first plan waypoint
 	sf, err := newSolverFrame(fs, checkFrame.Name(), frame.World, plan[0])
 	if err != nil {
-		return err
+		return r3.Vector{}, false, err
 	}
 
 	// construct planager
 	sfPlanner, err := newPlanManager(sf, fs, logger, defaultRandomSeed)
 	if err != nil {
-		return err
+		return r3.Vector{}, false, err
 	}
 
 	// convert plan into nodes
 	planNodes, err := sf.planToNodes(plan)
 	if err != nil {
-		return err
+		return r3.Vector{}, false, err
 	}
 
 	// This should be done for any plan whose configurations are specified in relative terms rather than absolute ones.
@@ -475,7 +476,7 @@ func CheckPlan(
 		// get pose of robot along the current trajectory it is executing
 		lastPose, err := sf.Transform(currentInputs)
 		if err != nil {
-			return err
+			return r3.Vector{}, false, err
 		}
 
 		// where ought the robot be on the plan
@@ -486,7 +487,7 @@ func CheckPlan(
 
 		// convert planNode's poses to be in absolute corrdinated
 		if planNodes, err = rectifyTPspacePath(planNodes, sf, formerRunningPose); err != nil {
-			return err
+			return r3.Vector{}, false, err
 		}
 	}
 	// adjust planNodes by the errorState
@@ -505,7 +506,7 @@ func CheckPlan(
 		nil, // no pb.Constraints
 		nil, // no plannOpts
 	); err != nil {
-		return err
+		return r3.Vector{}, false, err
 	}
 
 	// go through plan and check that we can move from plan[i] to plan[i+1]
@@ -531,15 +532,15 @@ func CheckPlan(
 		}
 		interpolatedConfigurations, err := interpolateSegment(segment, sfPlanner.planOpts.Resolution)
 		if err != nil {
-			return err
+			return r3.Vector{}, false, err
 		}
 		for _, interpConfig := range interpolatedConfigurations {
 			poseInPath, err := sf.Transform(interpConfig)
 			if err != nil {
-				return err
+				return r3.Vector{}, false, err
 			}
 			// If we are working with a PTG plan the returned value for poseInPath will only
-			// tell us how far along the arc we have travelled. Since this is only the relative position,
+			// tell us how far along the arc we have traveled. Since this is only the relative position,
 			// i.e. relative to where the robot started executing the arc,
 			// we must compose poseInPath with currentPose to get the absolute position.
 			// In both cases we ultimately compose with errorState.
@@ -552,9 +553,9 @@ func CheckPlan(
 
 			modifiedSegment := &ik.State{Frame: sf, Position: poseInPath}
 			if isValid, _ := sfPlanner.planOpts.CheckStateConstraints(modifiedSegment); !isValid {
-				return fmt.Errorf("found collsion between positions %v and %v", currentPose.Point(), nextPose.Point())
+				return currentPose.Point(), true, fmt.Errorf("found collision between positions %v and %v", currentPose.Point(), nextPose.Point())
 			}
 		}
 	}
-	return nil
+	return r3.Vector{}, false, nil
 }

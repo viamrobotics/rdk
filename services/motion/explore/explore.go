@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	servicepb "go.viam.com/api/service/motion/v1"
@@ -246,7 +247,7 @@ func (ms *explore) planMoveOnMap(
 	}
 	ms.logger.Debugf("base position: %v", inputs)
 
-	dst := referenceframe.NewPoseInFrame(referenceframe.World, destination)
+	dst := referenceframe.NewPoseInFrame(referenceframe.World, destination) // here
 
 	f := kb.Kinematics()
 
@@ -285,6 +286,7 @@ func (ms *explore) Move(
 	extra map[string]interface{},
 ) (bool, error) {
 
+	// Note: can set linear speed, angular speed and obstacle polling frequency from extras until MotionCfg can be passed through
 	operation.CancelOtherWithLabel(ctx, exploreOpLabel)
 	opt := kinematicbase.NewKinematicBaseOptions()
 	opt.NoSkidSteer = true
@@ -331,16 +333,19 @@ func (ms *explore) Move(
 		case <-ctx.Done():
 			return false, ctx.Err()
 
-		// once execution responds: return the result to the caller SHOULD NEVER HIT
+		// once execution responds: return the result to the caller
 		case resp := <-ms.responseChan:
 			ms.logger.Debugf("execution completed: %s", resp)
 			return resp.success, resp.err
 
-		// if the checkplan process hit an error return it, otherwise replan should hit
+		// if the checkplan process hit an error return it, otherwise replan
 		case resp := <-ms.obstacleChan:
 			ms.logger.Debugf("obstacle response: %s", resp)
 			if resp.err != nil {
-				return false, resp.err
+				return resp.success, resp.err
+			}
+			if resp.success {
+				return resp.success, nil /// successful edge case
 			}
 		}
 	}
@@ -365,10 +370,6 @@ func (ms *explore) checkPartialPlan(ctx context.Context, worldState *referencefr
 	if err != nil {
 		ms.obstacleChan <- checkResponse{err: err}
 	}
-	partialPlan, err := createPartialPlan(ms.plan)
-	if err != nil {
-		ms.obstacleChan <- checkResponse{err: err}
-	}
 
 	ticker := time.NewTicker(10 * time.Millisecond)
 	defer ticker.Stop()
@@ -379,18 +380,26 @@ func (ms *explore) checkPartialPlan(ctx context.Context, worldState *referencefr
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			err = motionplan.CheckPlan((*ms.kb).Kinematics(), partialPlan, worldState, fs, pInFrame.Pose(), currentInputs, nil, ms.logger)
+			collisionPose, collision, err := motionplan.CheckPlan((*ms.kb).Kinematics(), ms.plan, worldState, fs, pInFrame.Pose(), currentInputs, nil, ms.logger)
 			if err != nil {
-				ms.obstacleChan <- checkResponse{success: false}
-			} else {
-				ms.obstacleChan <- checkResponse{success: true}
+				ms.obstacleChan <- checkResponse{err: err}
+			}
+			// Check if problem is immediate
+			if collision {
+				if collisionPose.Distance(r3.Vector{X: 0, Y: 0, Z: 0}) < 100 {
+					ms.obstacleChan <- checkResponse{success: false, err: nil}
+				}
 			}
 		}
 	}
 }
 
 func createPartialPlan(plan motionplan.Plan) (motionplan.Plan, error) {
-	return plan, nil
+	var partialPlan motionplan.Plan
+
+	// limit plan scope to 10 cm
+
+	return partialPlan, nil
 }
 
 func (ms *explore) executePlan(ctx context.Context) {
