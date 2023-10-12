@@ -351,7 +351,7 @@ func TestServer(t *testing.T) {
 		test.That(t, resp, test.ShouldBeNil)
 	})
 
-	t.Run("working getPaths", func(t *testing.T) {
+	t.Run("working Paths", func(t *testing.T) {
 		path, err := navigation.NewPath("test", []*geo.Point{geo.NewPoint(0, 0)})
 		test.That(t, err, test.ShouldBeNil)
 		expectedOutput := []*navigation.Path{path}
@@ -365,7 +365,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, convertedPbPath, test.ShouldResemble, expectedOutput)
 	})
-	t.Run("failing getPaths", func(t *testing.T) {
+	t.Run("failing Paths", func(t *testing.T) {
 		expectedErr := errors.New("unimplemented")
 		injectSvc.PathsFunc = func(ctx context.Context, extra map[string]interface{}) ([]*navigation.Path, error) {
 			return nil, expectedErr

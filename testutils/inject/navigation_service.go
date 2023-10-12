@@ -27,9 +27,8 @@ type NavigationService struct {
 	ObstaclesFunc func(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoObstacle, error)
 	PathsFunc     func(ctx context.Context, extra map[string]interface{}) ([]*navigation.Path, error)
 
-	DoCommandFunc func(ctx context.Context,
-		cmd map[string]interface{}) (map[string]interface{}, error)
-	CloseFunc func(ctx context.Context) error
+	DoCommandFunc func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+	CloseFunc     func(ctx context.Context) error
 }
 
 // NewNavigationService returns a new injected navigation service.
@@ -90,7 +89,7 @@ func (ns *NavigationService) RemoveWaypoint(ctx context.Context, id primitive.Ob
 	return ns.RemoveWaypointFunc(ctx, id, extra)
 }
 
-// Obstacles calls the injected GetObstacles or the real version.
+// Obstacles calls the injected Obstacles or the real version.
 func (ns *NavigationService) Obstacles(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoObstacle, error) {
 	if ns.ObstaclesFunc == nil {
 		return ns.Service.Obstacles(ctx, extra)
