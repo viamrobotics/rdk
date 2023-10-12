@@ -139,9 +139,7 @@ func (pca *PCA9685) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		return err
 	}
 
-	busNum := newConf.I2CBus
-
-	bus, err := genericlinux.GetI2CBus(deps, newConf.BoardName, newConf.I2CName, busNum)
+	bus, err := genericlinux.GetI2CBus(deps, newConf.BoardName, newConf.I2CName, newConf.I2CBus)
 	if err != nil {
 		return err
 	}
