@@ -613,10 +613,10 @@ func TestMoveOnGlobe(t *testing.T) {
 			extra,
 		)
 		test.That(t, err, test.ShouldBeNil)
-		
+
 		test.That(t, mr.planRequest.Goal.Pose().Point().X, test.ShouldAlmostEqual, expectedDst.X, epsilonMM)
 		test.That(t, mr.planRequest.Goal.Pose().Point().Y, test.ShouldAlmostEqual, expectedDst.Y, epsilonMM)
-		
+
 		waypoints, err := mr.plan(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(waypoints), test.ShouldBeGreaterThan, 2)
