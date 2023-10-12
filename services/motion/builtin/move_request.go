@@ -125,6 +125,7 @@ func (mr *moveRequest) obstaclesIntersectPlan(ctx context.Context, waypoints [][
 				// here we make the assumption the movement sensor is coincident with the base
 				cameraToBase = kinBaseOrigin
 			}
+			// where the camera is in world coordinates
 			transformBy := spatialmath.Compose(currentPosition.Pose(), cameraToBase.Pose())
 
 			// Any obstacles specified by the worldstate of the moveRequest will also re-detected here.
@@ -136,8 +137,6 @@ func (mr *moveRequest) obstaclesIntersectPlan(ctx context.Context, waypoints [][
 				geometry.SetLabel("transient" + detection.Geometry.Label())
 				geoms = append(geoms, geometry)
 			}
-			// consider having geoms be from the frame of world
-			// to accomplish this we need to know the transform from the base to the camera
 			gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)}
 			worldState, err := referenceframe.NewWorldState(gifs, nil)
 			if err != nil {
