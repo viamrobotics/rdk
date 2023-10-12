@@ -156,7 +156,7 @@ jobs:
       run: make appimage-arch
     - uses: actions/upload-artifact@v3
       with:
-        name: appimage-32bit
+        name: appimage-armhf
         path: etc/packaging/appimages/deploy
 
   output_summary:
@@ -229,7 +229,8 @@ jobs:
 
   appimage_deploy:
     name: AppImage Deploy
-    needs: appimage_test
+    needs: appimage-32bit
+    # needs: [appimage_test, appimage-32bit]
     runs-on: ubuntu-latest
     env:
       channel: ${{ github.ref_name == 'main' && 'latest' || github.ref_name }}
