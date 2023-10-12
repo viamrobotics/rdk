@@ -186,15 +186,8 @@ jobs:
           label: aarch64
         - arch: [arm64, pi4]
           label: aarch64
-        - arch: buildjet-2vcpu-ubuntu-2204-arm
-          container:
-            image: debian
-            options: --platform linux/arm/v7
-          # note: `uname -m` will not detect armhf in our 32-on-64 setup, so we provide label in matrix
-          label: armhf
-    needs: [appimage, appimage-32bit]
+    needs: appimage
     runs-on: ${{ matrix.arch }}
-    container: ${{ matrix.container }}
     timeout-minutes: 15
     outputs:
       date: ${{ needs.appimage.outputs.date }}
@@ -219,7 +212,7 @@ jobs:
         export TEST_DIR=`mktemp -d -t test-viam-server-XXXXXX`
         cd $TEST_DIR
 
-        curl -o viam-server https://storage.googleapis.com/packages.viam.com/apps/viam-server/testing/appimage/${{ needs.appimage.outputs.date }}/${{ github.sha }}/viam-server-${channel}-${{ matrix.label }}.AppImage
+        curl -o viam-server https://storage.googleapis.com/packages.viam.com/apps/viam-server/testing/appimage/${{ needs.appimage.outputs.date }}/${{ github.sha }}/viam-server-${channel}-`uname -m`.AppImage
         chmod 755 viam-server
 
         export RAND_PORT=$((30000 + $RANDOM))
