@@ -168,8 +168,8 @@ jobs:
       run: |
         docker run \
           --platform linux/arm/v7 \
-          ghcr.io/viamrobotics/rdk-devenv:armhf-cache \
           -v `pwd`:/rdk \
+          ghcr.io/viamrobotics/rdk-devenv:armhf-cache \
           sudo -Hu testbot bash -lc 'cd /rdk && go test -v -tags=no_tflite ./...'
 
     # - name: Upload test.json
