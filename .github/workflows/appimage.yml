@@ -238,6 +238,8 @@ jobs:
     name: AppImage Deploy
     needs: appimage_test
     runs-on: ubuntu-latest
+    env:
+      channel: ${{ github.ref_name == 'main' && 'latest' || github.ref_name }}
 
     steps:
     - name: Authorize GCP
@@ -248,17 +250,28 @@ jobs:
     - name: Set up Cloud SDK
       uses: google-github-actions/setup-gcloud@v1
 
+    - uses: actions/download-artifact@v3
+      with:
+        name: appimage-armhf
+        path: etc/packaging/appimages/deploy
+
+    - name: deploy 32-bit
+      uses: google-github-actions/upload-cloud-storage@v0.10.4
+      with:
+        headers: "cache-control: no-cache"
+        path: etc/packaging/appimages/deploy/viam-server-$channel-armhf.AppImage
+        destination: 'packages.viam.com/apps/viam-server/'
+        parent: false
+
+    - name: short-circuit
+      run: exit 1
+
     - name: Publish AppImage
       run: |
         gsutil mv "gs://packages.viam.com/apps/viam-server/testing/appimage/${{ needs.appimage_test.outputs.date }}/${{ github.sha }}/*" "gs://packages.viam.com/apps/viam-server/"
 
     - name: Output Summary
       run: |
-        channel="${{ github.ref_name }}"
-        # we call our main branch releases "latest"
-        if [ "$channel" == "main" ]; then
-          channel="latest"
-        fi
         echo "### Built AppImages for ${channel}" >> $GITHUB_STEP_SUMMARY
         echo "- arm64: https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${channel}-aarch64.AppImage" >> $GITHUB_STEP_SUMMARY
         echo "- x86_64: https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${channel}-x86_64.AppImage" >> $GITHUB_STEP_SUMMARY
