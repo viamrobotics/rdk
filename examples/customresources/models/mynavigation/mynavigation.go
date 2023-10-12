@@ -15,6 +15,8 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
+var errUnimplemented = errors.New("umimplemented")
+
 // Model is the full model definition.
 var Model = resource.NewModel("acme", "demo", "mynavigation")
 
@@ -122,9 +124,9 @@ func (svc *navSvc) RemoveWaypoint(ctx context.Context, id primitive.ObjectID, ex
 }
 
 func (svc *navSvc) Obstacles(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoObstacle, error) {
-	return []*spatialmath.GeoObstacle{}, errors.New("umimplemented")
+	return []*spatialmath.GeoObstacle{}, errUnimplemented
 }
 
 func (svc *navSvc) Paths(ctx context.Context, extra map[string]interface{}) ([]*navigation.Path, error) {
-	return []*navigation.Path{}, errors.New("umimplemented")
+	return []*navigation.Path{}, errUnimplemented
 }
