@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	goutils "go.viam.com/utils"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/utils"
 )
@@ -21,6 +22,7 @@ type Config struct {
 	Model                     Model
 	Frame                     *referenceframe.LinkConfig
 	DependsOn                 []string
+	LogConfiguration          LogConfig
 	AssociatedResourceConfigs []AssociatedResourceConfig
 	Attributes                utils.AttributeMap
 
@@ -32,6 +34,11 @@ type Config struct {
 	cachedErr          error
 }
 
+// A LogConfig describes the LogConfig config object.
+type LogConfig struct {
+	Level logging.Level `json:"level"`
+}
+
 // NOTE: This data must be maintained with what is in Config.
 type typeSpecificConfigData struct {
 	Name                      string                     `json:"name"`
@@ -40,6 +47,7 @@ type typeSpecificConfigData struct {
 	Model                     Model                      `json:"model"`
 	Frame                     *referenceframe.LinkConfig `json:"frame,omitempty"`
 	DependsOn                 []string                   `json:"depends_on,omitempty"`
+	LogConfiguration          LogConfig                  `json:"log_configuration"`
 	AssociatedResourceConfigs []AssociatedResourceConfig `json:"service_configs,omitempty"`
 	Attributes                utils.AttributeMap         `json:"attributes,omitempty"`
 }
@@ -51,6 +59,7 @@ type configData struct {
 	Model                     Model                      `json:"model"`
 	Frame                     *referenceframe.LinkConfig `json:"frame,omitempty"`
 	DependsOn                 []string                   `json:"depends_on,omitempty"`
+	LogConfiguration          LogConfig                  `json:"log_configuration"`
 	AssociatedResourceConfigs []AssociatedResourceConfig `json:"service_configs,omitempty"`
 	Attributes                utils.AttributeMap         `json:"attributes,omitempty"`
 }
@@ -71,6 +80,7 @@ func (conf *Config) UnmarshalJSON(data []byte) error {
 		conf.Model = confData.Model
 		conf.Frame = confData.Frame
 		conf.DependsOn = confData.DependsOn
+		conf.LogConfiguration = confData.LogConfiguration
 		conf.AssociatedResourceConfigs = confData.AssociatedResourceConfigs
 		conf.Attributes = confData.Attributes
 		return nil
@@ -86,6 +96,7 @@ func (conf *Config) UnmarshalJSON(data []byte) error {
 	conf.Model = typeSpecificConf.Model
 	conf.Frame = typeSpecificConf.Frame
 	conf.DependsOn = typeSpecificConf.DependsOn
+	conf.LogConfiguration = typeSpecificConf.LogConfiguration
 	conf.AssociatedResourceConfigs = typeSpecificConf.AssociatedResourceConfigs
 	conf.Attributes = typeSpecificConf.Attributes
 	return nil
@@ -99,6 +110,7 @@ func (conf Config) MarshalJSON() ([]byte, error) {
 		Model:                     conf.Model,
 		Frame:                     conf.Frame,
 		DependsOn:                 conf.DependsOn,
+		LogConfiguration:          conf.LogConfiguration,
 		AssociatedResourceConfigs: conf.AssociatedResourceConfigs,
 		Attributes:                conf.Attributes,
 	})

@@ -8,9 +8,7 @@ jobs:
   motion_benchmarks:
     name:  Motion Benchmarks
     runs-on: [buildjet-8vcpu-ubuntu-2204]
-    container:
-      image: ghcr.io/viamrobotics/canon:amd64-cache
-      options: --platform linux/amd64
+    container: ghcr.io/viamrobotics/rdk-devenv:amd64-cache
     timeout-minutes: 30
     env:
       BASELINE: ${{ github.event.pull_request.base.label }}
