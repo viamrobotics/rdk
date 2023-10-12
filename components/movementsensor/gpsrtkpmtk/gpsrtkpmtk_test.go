@@ -1,3 +1,4 @@
+//go:build linux
 package gpsrtkpmtk
 
 import (
@@ -18,8 +19,7 @@ import (
 const (
 	testRoverName   = "testRover"
 	testStationName = "testStation"
-	testBoardName   = "board1"
-	testBusName     = "bus1"
+	testBusNumber   = 1
 	testi2cAddr     = 44
 )
 
@@ -31,8 +31,7 @@ func TestValidateRTK(t *testing.T) {
 		NtripPass:            "somepass",
 		NtripUser:            "someuser",
 		NtripMountpoint:      "NYC",
-		Board:                testBoardName,
-		I2CBus:               testBusName,
+		I2CBus:               testBusNumber,
 		I2CAddr:              testi2cAddr,
 	}
 	t.Run("valid config", func(t *testing.T) {
@@ -47,8 +46,7 @@ func TestValidateRTK(t *testing.T) {
 			NtripPass:            "somepass",
 			NtripUser:            "someuser",
 			NtripMountpoint:      "NYC",
-			Board:                testBoardName,
-			I2CBus:               testBusName,
+			I2CBus:               testBusNumber,
 			I2CAddr:              testi2cAddr,
 		}
 		_, err := cfg.Validate(path)
@@ -58,13 +56,12 @@ func TestValidateRTK(t *testing.T) {
 
 	t.Run("invalid i2c bus", func(t *testing.T) {
 		cfg := Config{
-			I2CBus:               "",
+			I2CBus:               0,
 			NtripURL:             "http//fakeurl",
 			NtripConnectAttempts: 10,
 			NtripPass:            "somepass",
 			NtripUser:            "someuser",
 			NtripMountpoint:      "NYC",
-			Board:                testBoardName,
 			I2CAddr:              testi2cAddr,
 		}
 		_, err := cfg.Validate(path)
@@ -80,8 +77,7 @@ func TestValidateRTK(t *testing.T) {
 			NtripPass:            "somepass",
 			NtripUser:            "someuser",
 			NtripMountpoint:      "NYC",
-			Board:                testBoardName,
-			I2CBus:               testBusName,
+			I2CBus:               testBusNumber,
 		}
 		_, err := cfg.Validate(path)
 		test.That(t, err, test.ShouldBeError,
@@ -199,8 +195,7 @@ func TestReconfigure(t *testing.T) {
 			NtripPass:            "somepass",
 			NtripUser:            "someuser",
 			NtripMountpoint:      "NYC",
-			Board:                testBoardName,
-			I2CBus:               testBusName,
+			I2CBus:               testBusNumber,
 			I2CAddr:              testi2cAddr,
 			I2CBaudRate:          115200,
 		},
