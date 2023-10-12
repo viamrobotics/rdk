@@ -16,6 +16,12 @@ const defaultDistanceMM = 100 * 1000
 func (svc *builtIn) startExploreMode(ctx context.Context) {
 	svc.logger.Debug("startExploreMode called")
 
+	var extra map[string]interface{}
+	extra["angular_degs_per_sec"] = svc.motionCfg.AngularDegsPerSec
+	extra["linear_m_per_sec"] = svc.motionCfg.LinearMPerSec
+	extra["obstacle_polling_frequency_hz"] = svc.motionCfg.ObstaclePollingFreqHz
+	extra["obstacle_detectors"] = svc.motionCfg.ObstacleDetectors
+
 	for {
 		randAngle := (rand.Float64() - 0.5) * math.Pi
 
@@ -26,7 +32,7 @@ func (svc *builtIn) startExploreMode(ctx context.Context) {
 				Z: 0,
 			}, spatialmath.NewOrientationVector()))
 
-		_, err := svc.motionService.Move(ctx, svc.base.Name(), newPose, nil, nil, nil) // worldState, constraints, extra)
+		_, err := svc.motionService.Move(ctx, svc.base.Name(), newPose, nil, nil, extra) // worldState, constraints, extra)
 		if err != nil {
 			svc.logger.Debug("error occurred when moving")
 		}

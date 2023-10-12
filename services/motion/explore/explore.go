@@ -4,6 +4,7 @@ package explore
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/base/kinematicbase"
+	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/internal"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/operation"
@@ -23,6 +25,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/services/motion"
+	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -121,6 +124,8 @@ type explore struct {
 	resource.TriviallyCloseable
 	fsService         framesystem.Service
 	components        map[resource.Name]resource.Resource
+	visionService     vision.Service
+	camera            camera.Camera
 	logger            golog.Logger
 	lock              sync.Mutex
 	obstacleChan      chan checkResponse
@@ -194,7 +199,7 @@ func (ms *explore) PlanHistory(
 }
 
 // PlanMoveOnMap returns the plan for MoveOnMap to execute.
-func (ms *explore) planMoveOnMap(
+func (ms *explore) planMove(
 	ctx context.Context,
 	componentName resource.Name,
 	destination spatialmath.Pose,
@@ -294,7 +299,7 @@ func (ms *explore) Move(
 	extra["motion_profile"] = motionplan.PositionOnlyMotionProfile
 
 	// Create plan to spin towards destination point
-	planInputs, kb, err := ms.planMoveOnMap(ctx, componentName, destination.Pose(), opt, extra)
+	planInputs, kb, err := ms.planMove(ctx, componentName, destination.Pose(), opt, extra)
 	if err != nil {
 		return false, fmt.Errorf("error making plan for MoveOnMap: %w", err)
 	}
@@ -313,13 +318,13 @@ func (ms *explore) Move(
 	// Start polling for obstacles
 	ms.backgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
-		ms.checkPartialPlan(cancelCtx, worldState) //, waypoints, ma.waypointIndex)
+		ms.checkPartialPlan(cancelCtx, worldState)
 	}, ms.backgroundWorkers.Done)
 
 	// Start executing plan
 	ms.backgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
-		ms.executePlan(cancelCtx) //, waypoints, ma.waypointIndex)
+		ms.executePlan(cancelCtx)
 	}, ms.backgroundWorkers.Done)
 
 	for {
@@ -338,7 +343,7 @@ func (ms *explore) Move(
 			ms.logger.Debugf("execution completed: %s", resp)
 			return resp.success, resp.err
 
-		// if the checkplan process hit an error return it, otherwise replan
+		// if the checkPartialPlan process hit an error return it, otherwise exit
 		case resp := <-ms.obstacleChan:
 			ms.logger.Debugf("obstacle response: %s", resp)
 			if resp.err != nil {
@@ -358,19 +363,6 @@ type checkResponse struct {
 
 func (ms *explore) checkPartialPlan(ctx context.Context, worldState *referenceframe.WorldState) {
 
-	fs, err := ms.fsService.FrameSystem(ctx, nil)
-	if err != nil {
-		ms.obstacleChan <- checkResponse{err: err}
-	}
-	pInFrame, err := (*ms.kb).CurrentPosition(ctx)
-	if err != nil {
-		ms.obstacleChan <- checkResponse{err: err}
-	}
-	currentInputs, err := (*ms.kb).CurrentInputs(ctx)
-	if err != nil {
-		ms.obstacleChan <- checkResponse{err: err}
-	}
-
 	ticker := time.NewTicker(10 * time.Millisecond)
 	defer ticker.Stop()
 
@@ -380,6 +372,24 @@ func (ms *explore) checkPartialPlan(ctx context.Context, worldState *referencefr
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
+			fs, err := ms.fsService.FrameSystem(ctx, nil)
+			if err != nil {
+				ms.obstacleChan <- checkResponse{err: err}
+			}
+			pInFrame, err := (*ms.kb).CurrentPosition(ctx)
+			if err != nil {
+				ms.obstacleChan <- checkResponse{err: err}
+			}
+			currentInputs, err := (*ms.kb).CurrentInputs(ctx)
+			if err != nil {
+				ms.obstacleChan <- checkResponse{err: err}
+			}
+
+			worldState, err := ms.updateWorldState(ctx)
+			if err != nil {
+				ms.obstacleChan <- checkResponse{err: err}
+			}
+
 			collisionPose, collision, err := motionplan.CheckPlan((*ms.kb).Kinematics(), ms.plan, worldState, fs, pInFrame.Pose(), currentInputs, nil, ms.logger)
 			if err != nil {
 				ms.obstacleChan <- checkResponse{err: err}
@@ -392,14 +402,6 @@ func (ms *explore) checkPartialPlan(ctx context.Context, worldState *referencefr
 			}
 		}
 	}
-}
-
-func createPartialPlan(plan motionplan.Plan) (motionplan.Plan, error) {
-	var partialPlan motionplan.Plan
-
-	// limit plan scope to 10 cm
-
-	return partialPlan, nil
 }
 
 func (ms *explore) executePlan(ctx context.Context) {
@@ -416,4 +418,42 @@ func (ms *explore) executePlan(ctx context.Context) {
 		}
 	}
 	ms.responseChan <- checkResponse{success: true}
+}
+
+func (ms *explore) updateWorldState(ctx context.Context) (*referenceframe.WorldState, error) {
+
+	detections, err := ms.visionService.GetObjectPointClouds(ctx, ms.camera.Name().Name, nil)
+	if err != nil && strings.Contains(err.Error(), "does not implement a 3D segmenter") {
+		ms.logger.Infof("cannot call GetObjectPointClouds on %q as it does not implement a 3D segmenter", ms.visionService.Name())
+	} else if err != nil {
+		return nil, err
+	}
+
+	currentPosition, err := (*ms.kb).CurrentPosition(ctx)
+	if err != nil {
+		return nil, err
+	}
+	// get transform of camera to kinematic base origin
+	kinBaseOrigin := referenceframe.NewPoseInFrame((*ms.kb).Name().ShortName(), spatialmath.NewZeroPose())
+	cameraToBase, err := ms.fsService.TransformPose(ctx, kinBaseOrigin, ms.camera.Name().ShortName(), nil)
+	if err != nil {
+		// here we make the assumption the movement sensor is coincident with the base
+		cameraToBase = kinBaseOrigin
+	}
+	transformBy := spatialmath.Compose(currentPosition.Pose(), cameraToBase.Pose())
+
+	geoms := []spatialmath.Geometry{}
+	for _, detection := range detections {
+		geometry := detection.Geometry.Transform(transformBy)
+		geometry.SetLabel("transient" + detection.Geometry.Label())
+		geoms = append(geoms, geometry)
+	}
+	// consider having geoms be from the frame of world
+	// to accomplish this we need to know the transform from the base to the camera
+	gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(ms.camera.Name().Name, geoms)}
+	worldState, err := referenceframe.NewWorldState(gifs, nil)
+	if err != nil {
+		return nil, err
+	}
+	return worldState, nil
 }
