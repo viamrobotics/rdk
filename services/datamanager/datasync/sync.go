@@ -60,7 +60,8 @@ type syncer struct {
 type ManagerConstructor func(identity string, client v1.DataSyncServiceClient, logger golog.Logger, corruptedFilesDir string) (Manager, error)
 
 // NewManager returns a new syncer.
-func NewManager(identity string, client v1.DataSyncServiceClient, logger golog.Logger, corruptedFilesDir string) (Manager, error) {
+func NewManager(
+	identity string, client v1.DataSyncServiceClient, logger golog.Logger, corruptedFilesDir string) (Manager, error) {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	ret := syncer{
 		partID:            identity,
@@ -122,7 +123,7 @@ func (s *syncer) SyncFile(path string) {
 			if datacapture.IsDataCaptureFile(f) {
 				captureFile, err := datacapture.ReadFile(f)
 				if err != nil {
-					newPath := filepath.Join(s.corruptedFilesDir + f.Name())
+					newPath := filepath.Join(s.corruptedFilesDir, f.Name())
 					s.syncErrs <- errors.Wrapf(err, "error reading data capture file. moving to %s", newPath)
 					err := f.Close()
 					if err != nil {
@@ -163,7 +164,7 @@ func (s *syncer) syncDataCaptureFile(f *datacapture.File) {
 
 		errStatus := status.Convert(uploadErr)
 		if errStatus.Code() == codes.InvalidArgument {
-			newPath := filepath.Join(s.corruptedFilesDir + f.GetPath())
+			newPath := filepath.Join(s.corruptedFilesDir, f.GetPath())
 			if err := os.MkdirAll(filepath.Dir(newPath), 0o700); err != nil {
 				s.syncErrs <- errors.Wrapf(err, "could not create target directory path %s", filepath.Dir(newPath))
 			}
@@ -190,7 +191,7 @@ func (s *syncer) syncArbitraryFile(f *os.File) {
 
 			errStatus := status.Convert(uploadErr)
 			if errStatus.Code() == codes.InvalidArgument {
-				newPath := filepath.Join(s.corruptedFilesDir + f.Name())
+				newPath := filepath.Join(s.corruptedFilesDir, f.Name())
 				if err := os.MkdirAll(filepath.Dir(newPath), 0o700); err != nil {
 					s.syncErrs <- errors.Wrapf(err, "could not create target directory path %s", filepath.Dir(newPath))
 				}

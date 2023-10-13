@@ -107,8 +107,10 @@ type builtIn struct {
 	corruptedFilesDir string
 }
 
-var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), ".viam", "capture")
-var viamCorruptedDotDir = filepath.Join(os.Getenv("HOME"), ".viam", "corrupted_capture")
+var (
+	viamCaptureDotDir   = filepath.Join(os.Getenv("HOME"), ".viam", "capture")
+	viamCorruptedDotDir = filepath.Join(os.Getenv("HOME"), ".viam", "corrupted_capture")
+)
 
 // NewBuiltIn returns a new data manager service for the given robot.
 func NewBuiltIn(
