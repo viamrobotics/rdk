@@ -17,6 +17,12 @@ import (
 	"go.viam.com/rdk/components/board"
 )
 
+func NewSpiBus(name string) board.SPI {
+	bus = spiBus{}
+	bus.reset(name)
+	return &bus
+}
+
 type spiBus struct {
 	mu         sync.Mutex
 	openHandle *spiHandle
