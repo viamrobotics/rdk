@@ -12,6 +12,7 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
@@ -608,6 +609,7 @@ func TestMoveOnGlobe(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 
+	// Near antarctica
 	gpsPoint := geo.NewPoint(-70, 40)
 
 	// create motion config
@@ -616,7 +618,7 @@ func TestMoveOnGlobe(t *testing.T) {
 	extra["timeout"] = 5.
 
 	dst := geo.NewPoint(gpsPoint.Lat(), gpsPoint.Lng()+1e-5)
-	expectedDst := r3.Vector{0, 380, 0} // Relative pose to the starting point of the base; facing east, Y = forwards
+	expectedDst := r3.Vector{380, 0, 0} // Relative pose to the starting point of the base; facing north, Y = forwards
 	epsilonMM := 15.
 
 	t.Run("ensure success to a nearby geo point", func(t *testing.T) {
@@ -624,7 +626,7 @@ func TestMoveOnGlobe(t *testing.T) {
 		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
 		motionCfg := &motion.MotionConfiguration{PositionPollingFreqHz: 4, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM}
 
-		moveRequest, err := ms.(*builtIn).newMoveOnGlobeRequest(
+		mr, err := ms.(*builtIn).newMoveOnGlobeRequest(
 			ctx,
 			fakeBase.Name(),
 			dst,
@@ -634,7 +636,11 @@ func TestMoveOnGlobe(t *testing.T) {
 			extra,
 		)
 		test.That(t, err, test.ShouldBeNil)
-		waypoints, err := moveRequest.plan(ctx)
+
+		test.That(t, mr.planRequest.Goal.Pose().Point().X, test.ShouldAlmostEqual, expectedDst.X, epsilonMM)
+		test.That(t, mr.planRequest.Goal.Pose().Point().Y, test.ShouldAlmostEqual, expectedDst.Y, epsilonMM)
+
+		waypoints, err := mr.plan(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(waypoints), test.ShouldBeGreaterThan, 2)
 
@@ -665,7 +671,7 @@ func TestMoveOnGlobe(t *testing.T) {
 		startPose, err := fakeBase.CurrentPosition(ctx)
 		test.That(t, err, test.ShouldBeNil)
 
-		moveRequest, err := ms.(*builtIn).newMoveOnGlobeRequest(
+		mr, err := ms.(*builtIn).newMoveOnGlobeRequest(
 			ctx,
 			fakeBase.Name(),
 			dst,
@@ -675,7 +681,7 @@ func TestMoveOnGlobe(t *testing.T) {
 			extra,
 		)
 		test.That(t, err, test.ShouldBeNil)
-		waypoints, err := moveRequest.plan(ctx)
+		waypoints, err := mr.plan(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(waypoints), test.ShouldBeGreaterThan, 2)
 
