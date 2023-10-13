@@ -1,3 +1,5 @@
+//go:build !no_media
+
 // Package obstaclesdistance uses an underlying camera to fulfill vision service methods, specifically
 // GetObjectPointClouds, which performs several queries of NextPointCloud and returns a median point.
 package obstaclesdistance

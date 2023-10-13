@@ -1,3 +1,5 @@
+//go:build !no_cgo && !no_media
+
 // Package main shows a simple server with a fake arm.
 package main
 

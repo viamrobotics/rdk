@@ -1,3 +1,5 @@
+//go:build !no_media
+
 // Package main streams a specific camera over WebRTC.
 package main
 
