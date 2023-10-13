@@ -1,3 +1,5 @@
+//go:build !no_media
+
 // Package audioinput defines an audio capturing device.
 package audioinput
 
