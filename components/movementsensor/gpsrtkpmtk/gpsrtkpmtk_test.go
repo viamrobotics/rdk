@@ -56,7 +56,7 @@ func TestValidateRTK(t *testing.T) {
 
 	t.Run("invalid i2c bus", func(t *testing.T) {
 		cfg := Config{
-			I2CBus:               0,
+			I2CBus:               "",
 			NtripURL:             "http//fakeurl",
 			NtripConnectAttempts: 10,
 			NtripPass:            "somepass",
