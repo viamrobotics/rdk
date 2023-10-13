@@ -45,7 +45,7 @@ func init() {
 				if err != nil {
 					return nil, err
 				}
-				return camera.FromVideoSource(conf.ResourceName(), src), nil
+				return camera.FromVideoSource(conf.ResourceName(), src, logger), nil
 			},
 		})
 	resource.RegisterComponent(camera.API, modelDual,
@@ -61,7 +61,7 @@ func init() {
 				if err != nil {
 					return nil, err
 				}
-				return camera.FromVideoSource(conf.ResourceName(), src), nil
+				return camera.FromVideoSource(conf.ResourceName(), src, logger), nil
 			},
 		})
 }
