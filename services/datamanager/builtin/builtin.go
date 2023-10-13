@@ -103,9 +103,12 @@ type builtIn struct {
 	cloudConnSvc        cloud.ConnectionService
 	cloudConn           rpc.ClientConn
 	syncTicker          *clk.Ticker
+
+	corruptedFilesDir string
 }
 
 var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), ".viam", "capture")
+var viamCorruptedDotDir = filepath.Join(os.Getenv("HOME"), ".viam", "corrupted_capture")
 
 // NewBuiltIn returns a new data manager service for the given robot.
 func NewBuiltIn(
@@ -124,6 +127,7 @@ func NewBuiltIn(
 		tags:                        []string{},
 		waitAfterLastModifiedMillis: 10000,
 		syncerConstructor:           datasync.NewManager,
+		corruptedFilesDir:           viamCorruptedDotDir,
 	}
 
 	if err := svc.Reconfigure(ctx, deps, conf); err != nil {
@@ -302,7 +306,7 @@ func (svc *builtIn) initSyncer(ctx context.Context) error {
 
 	client := v1.NewDataSyncServiceClient(conn)
 
-	syncer, err := svc.syncerConstructor(identity, client, svc.logger)
+	syncer, err := svc.syncerConstructor(identity, client, svc.logger, svc.corruptedFilesDir)
 	if err != nil {
 		return errors.Wrap(err, "failed to initialize new syncer")
 	}

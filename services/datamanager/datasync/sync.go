@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -51,13 +52,15 @@ type syncer struct {
 	syncErrs   chan error
 	closed     atomic.Bool
 	logRoutine sync.WaitGroup
+
+	corruptedFilesDir string
 }
 
 // ManagerConstructor is a function for building a Manager.
-type ManagerConstructor func(identity string, client v1.DataSyncServiceClient, logger golog.Logger) (Manager, error)
+type ManagerConstructor func(identity string, client v1.DataSyncServiceClient, logger golog.Logger, corruptedFilesDir string) (Manager, error)
 
 // NewManager returns a new syncer.
-func NewManager(identity string, client v1.DataSyncServiceClient, logger golog.Logger) (Manager, error) {
+func NewManager(identity string, client v1.DataSyncServiceClient, logger golog.Logger, corruptedFilesDir string) (Manager, error) {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	ret := syncer{
 		partID:            identity,
@@ -68,6 +71,7 @@ func NewManager(identity string, client v1.DataSyncServiceClient, logger golog.L
 		arbitraryFileTags: []string{},
 		inProgress:        make(map[string]bool),
 		syncErrs:          make(chan error, 10),
+		corruptedFilesDir: corruptedFilesDir,
 	}
 	ret.logRoutine.Add(1)
 	goutils.PanicCapturingGo(func() {
@@ -103,6 +107,7 @@ func (s *syncer) SyncFile(path string) {
 			if !s.markInProgress(path) {
 				return
 			}
+			defer s.unmarkInProgress(path)
 			//nolint:gosec
 			f, err := os.Open(path)
 			if err != nil {
@@ -117,10 +122,17 @@ func (s *syncer) SyncFile(path string) {
 			if datacapture.IsDataCaptureFile(f) {
 				captureFile, err := datacapture.ReadFile(f)
 				if err != nil {
-					s.syncErrs <- errors.Wrap(err, "error reading data capture file")
+					newPath := filepath.Join(s.corruptedFilesDir + f.Name())
+					s.syncErrs <- errors.Wrapf(err, "error reading data capture file. moving to %s", newPath)
 					err := f.Close()
 					if err != nil {
 						s.syncErrs <- errors.Wrap(err, "error closing data capture file")
+					}
+					if err := os.MkdirAll(filepath.Dir(newPath), 0o700); err != nil {
+						s.syncErrs <- errors.Wrapf(err, "could not create target directory path %s", filepath.Dir(newPath))
+					}
+					if err := os.Rename(f.Name(), newPath); err != nil {
+						s.syncErrs <- errors.Wrap(err, "error moving corrupted data capture file")
 					}
 					return
 				}
@@ -128,7 +140,6 @@ func (s *syncer) SyncFile(path string) {
 			} else {
 				s.syncArbitraryFile(f)
 			}
-			s.unmarkInProgress(path)
 		}
 	})
 }
@@ -149,6 +160,17 @@ func (s *syncer) syncDataCaptureFile(f *datacapture.File) {
 		if err != nil {
 			s.syncErrs <- errors.Wrap(err, "error closing data capture file")
 		}
+
+		errStatus := status.Convert(uploadErr)
+		if errStatus.Code() == codes.InvalidArgument {
+			newPath := filepath.Join(s.corruptedFilesDir + f.GetPath())
+			if err := os.MkdirAll(filepath.Dir(newPath), 0o700); err != nil {
+				s.syncErrs <- errors.Wrapf(err, "could not create target directory path %s", filepath.Dir(newPath))
+			}
+			if err := os.Rename(f.GetPath(), newPath); err != nil {
+				s.syncErrs <- errors.Wrap(err, "error moving corrupted data capture file")
+			}
+		}
 		return
 	}
 	if err := f.Delete(); err != nil {
@@ -161,11 +183,22 @@ func (s *syncer) syncArbitraryFile(f *os.File) {
 	uploadErr := exponentialRetry(
 		s.cancelCtx,
 		func(ctx context.Context) error {
-			err := uploadArbitraryFile(ctx, s.client, f, s.partID, s.arbitraryFileTags)
-			if err != nil {
-				s.syncErrs <- errors.Wrap(err, fmt.Sprintf("error uploading file %s", f.Name()))
+			uploadErr := uploadArbitraryFile(ctx, s.client, f, s.partID, s.arbitraryFileTags)
+			if uploadErr != nil {
+				s.syncErrs <- errors.Wrap(uploadErr, fmt.Sprintf("error uploading file %s", f.Name()))
 			}
-			return err
+
+			errStatus := status.Convert(uploadErr)
+			if errStatus.Code() == codes.InvalidArgument {
+				newPath := filepath.Join(s.corruptedFilesDir + f.Name())
+				if err := os.MkdirAll(filepath.Dir(newPath), 0o700); err != nil {
+					s.syncErrs <- errors.Wrapf(err, "could not create target directory path %s", filepath.Dir(newPath))
+				}
+				if err := os.Rename(f.Name(), newPath); err != nil {
+					s.syncErrs <- errors.Wrap(err, "error moving corrupted data capture file")
+				}
+			}
+			return uploadErr
 		})
 	if uploadErr != nil {
 		err := f.Close()
