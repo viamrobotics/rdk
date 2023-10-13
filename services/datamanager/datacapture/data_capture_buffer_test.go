@@ -119,7 +119,7 @@ func TestCaptureQueue(t *testing.T) {
 	}
 }
 
-//nolint
+// nolint
 func getCaptureFiles(dir string) (dcFiles, progFiles []string) {
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {

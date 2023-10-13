@@ -29,9 +29,7 @@ var (
 	maxRetryInterval       = time.Hour
 )
 
-const (
-	CorruptedDir = "corrupted"
-)
+const CorruptedDir = "corrupted"
 
 // Manager is responsible for enqueuing files in captureDir and uploading them to the cloud.
 type Manager interface {
@@ -79,9 +77,6 @@ func NewManager(
 		inProgress:        make(map[string]bool),
 		syncErrs:          make(chan error, 10),
 		captureDir:        captureDir,
-	}
-	if err := os.MkdirAll(filepath.Join(captureDir, CorruptedDir), 0o700); err != nil {
-		return nil, err
 	}
 	ret.logRoutine.Add(1)
 	goutils.PanicCapturingGo(func() {
@@ -290,10 +285,11 @@ func moveCorruptedData(path, captureDir string) error {
 	if err != nil {
 		return errors.Wrap(err, "error getting relative path of corrupted data")
 	}
-	newPath := filepath.Join(captureDir, CorruptedDir, relativePath)
-	if err := os.MkdirAll(newPath, 0o700); err != nil {
+	newDir := filepath.Join(captureDir, CorruptedDir, filepath.Dir(relativePath))
+	if err := os.MkdirAll(newDir, 0o700); err != nil {
 		errors.Wrap(err, "error making new directory for corrupted data")
 	}
+	newPath := filepath.Join(newDir, filepath.Base(path))
 	if err := os.Rename(path, newPath); err != nil {
 		return errors.Wrap(err, "error moving corrupted data capture to new directory")
 	}

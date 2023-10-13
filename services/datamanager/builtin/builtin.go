@@ -514,6 +514,9 @@ func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 		if err != nil {
 			return nil
 		}
+		if info.IsDir() && info.Name() == datasync.CorruptedDir {
+			return filepath.SkipDir
+		}
 		if info.IsDir() {
 			return nil
 		}
@@ -527,10 +530,6 @@ func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 		}
 		if timeSinceMod >= (time.Duration(lastModifiedMillis)*time.Millisecond) || filepath.Ext(path) == datacapture.FileExt {
 			filePaths = append(filePaths, path)
-		}
-		if info.IsDir() && info.Name() == datasync.CorruptedDir {
-			fmt.Printf("skipping a dir without errors: %+v \n", info.Name())
-			return filepath.SkipDir
 		}
 		return nil
 	})
