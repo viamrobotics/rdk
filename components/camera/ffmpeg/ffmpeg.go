@@ -1,3 +1,5 @@
+//go:build !no_media
+
 // Package ffmpeg provides an implementation for an ffmpeg based camera
 package ffmpeg
 

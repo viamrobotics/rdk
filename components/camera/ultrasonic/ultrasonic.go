@@ -1,3 +1,5 @@
+//go:build !no_media
+
 // Package ultrasonic provides an implementation for an ultrasonic sensor wrapped as a camera
 package ultrasonic
 

@@ -1,3 +1,5 @@
+//go:build !no_media
+
 package vision_test
 
 import (

@@ -1,4 +1,4 @@
-//go:build !no_cgo
+//go:build !no_cgo && !no_media
 
 package segmentation
 

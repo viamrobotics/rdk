@@ -1,3 +1,5 @@
+//go:build !no_media
+
 // Package mlvision uses an underlying model from the ML model service as a vision model,
 // and wraps the ML model with the vision service methods.
 package mlvision

@@ -1,3 +1,5 @@
+//go:build !no_media
+
 // Package transformpipeline defines image sources that apply transforms on images, and can be composed into
 // an image transformation pipeline. The image sources are not original generators of image, but require an image source
 // from a real camera or video in order to function.

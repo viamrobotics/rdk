@@ -1,3 +1,5 @@
+//go:build !no_media
+
 // Package rtsp implements an RTSP camera client for RDK
 package rtsp
 

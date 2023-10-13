@@ -1,3 +1,5 @@
+//go:build !no_media
+
 // Package replaypcd implements a replay camera that can return point cloud data.
 package replaypcd
 
