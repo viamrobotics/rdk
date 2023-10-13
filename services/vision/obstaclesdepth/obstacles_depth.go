@@ -1,4 +1,4 @@
-//go:build !no_cgo
+//go:build !no_cgo && !no_media
 
 // Package obstaclesdepth uses an underlying depth camera to fulfill GetObjectPointClouds,
 // projecting its depth map to a point cloud, an then applying a point cloud clustering algorithm
