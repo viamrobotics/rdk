@@ -18,7 +18,7 @@ package gpsrtkpmtk
 		"type": "movement_sensor",
 		"model": "gps-nmea-rtk-pmtk",
 		"attributes": {
-			"i2c_bus": 1,
+			"i2c_bus": "1",
 			"i2c_addr": 66,
 			"i2c_baud_rate": 115200,
 			"ntrip_connect_attempts": 12,
@@ -64,9 +64,9 @@ const i2cStr = "i2c"
 
 // Config is used for converting NMEA MovementSensor with RTK capabilities config attributes.
 type Config struct {
-	I2CBus      int `json:"i2c_bus"`
-	I2CAddr     int `json:"i2c_addr"`
-	I2CBaudRate int `json:"i2c_baud_rate,omitempty"`
+	I2CBus      string `json:"i2c_bus"`
+	I2CAddr     int    `json:"i2c_addr"`
+	I2CBaudRate int    `json:"i2c_baud_rate,omitempty"`
 
 	NtripURL             string `json:"ntrip_url"`
 	NtripConnectAttempts int    `json:"ntrip_connect_attempts,omitempty"`
@@ -92,7 +92,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 
 // validateI2C ensures all parts of the config are valid.
 func (cfg *Config) validateI2C(path string) error {
-	if cfg.I2CBus == 0 {
+	if cfg.I2CBus == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "i2c_bus")
 	}
 	if cfg.I2CAddr == 0 {
@@ -162,7 +162,7 @@ func (g *rtkI2C) Reconfigure(ctx context.Context, deps resource.Dependencies, co
 
 	g.addr = byte(newConf.I2CAddr)
 
-	i2cbus, err := genericlinux.NewI2cBus(fmt.Sprintf("%d", newConf.I2CBus))
+	i2cbus, err := genericlinux.NewI2cBus(newConf.I2CBus)
 	if err != nil {
 		return fmt.Errorf("gps init: failed to find i2c bus %d: %w", newConf.I2CBus, err)
 	}

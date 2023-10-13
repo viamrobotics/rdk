@@ -18,7 +18,7 @@ import (
 
 const (
 	testBoardName = "board1"
-	testBusName   = 1
+	testBusName   = "1"
 )
 
 func setupDependencies(t *testing.T) resource.Dependencies {
@@ -51,7 +51,7 @@ func setupDependencies(t *testing.T) resource.Dependencies {
 }
 
 func TestValidateI2C(t *testing.T) {
-	fakecfg := &I2CConfig{I2CBus: 1}
+	fakecfg := &I2CConfig{I2CBus: "1"}
 
 	path := "path"
 	err := fakecfg.validateI2C(path)
