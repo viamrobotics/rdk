@@ -25,7 +25,9 @@ $: if ($tab === 'Waypoints') {
   map.off('click', handleAddMarker);
 }
 
-$: if ($error) notify.danger($error.message);
+$: if ($error) {
+  notify.danger($error.message);
+}
 </script>
 
 {#each $waypoints as waypoint (waypoint.id)}

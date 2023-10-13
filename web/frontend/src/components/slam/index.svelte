@@ -630,11 +630,13 @@
                 {pointcloud}
                 {destination}
                 {motionPath}
-                basePose={pose ? {
-                  x: pose.x,
-                  y: pose.y,
-                  theta: pose.theta,
-                } : undefined}
+                basePose={pose
+                  ? {
+                    x: pose.x,
+                    y: pose.y,
+                    theta: pose.theta,
+                  }
+                  : undefined}
                 helpers={showAxes}
                 on:click={handle2dRenderClick}
               />

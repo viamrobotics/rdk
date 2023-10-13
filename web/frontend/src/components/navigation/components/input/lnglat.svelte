@@ -35,8 +35,6 @@ const handleLat = (event: CustomEvent<{ value: string }>) => {
     placeholder='0'
     incrementor={readonly ? undefined : 'slider'}
     value={lat}
-    step={1}
-    class='w-full'
     on:input={handleLat}
     {readonly}
   />
@@ -46,8 +44,6 @@ const handleLat = (event: CustomEvent<{ value: string }>) => {
     placeholder='0'
     incrementor={readonly ? undefined : 'slider'}
     value={lng}
-    step={1}
-    class='w-full'
     on:input={handleLng}
     {readonly}
   />

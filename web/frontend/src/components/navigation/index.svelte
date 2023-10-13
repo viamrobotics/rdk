@@ -3,8 +3,9 @@
 <script lang="ts">
 
 import 'maplibre-gl/dist/maplibre-gl.css';
-import type { ServiceError } from '@viamrobotics/sdk'
+import { type ServiceError, navigationApi } from '@viamrobotics/sdk';
 import { notify } from '@viamrobotics/prime';
+import { IconButton } from '@viamrobotics/prime-core';
 import { NavigationMap, type LngLat } from '@viamrobotics/prime-blocks';
 import { getObstacles } from '@/api/navigation';
 import { obstacles } from './stores';
@@ -20,7 +21,7 @@ import type { Map } from 'maplibre-gl';
 
 export let name: string;
 
-let map: Map
+let map: Map;
 
 const navClient = useNavClient(name);
 const { waypoints, addWaypoint, deleteWaypoint } = useWaypoints(name);
@@ -38,37 +39,36 @@ const handleEnter = async () => {
   try {
     $obstacles = await getObstacles(navClient);
   } catch (error) {
-    notify.danger((error as ServiceError).message)
+    notify.danger((error as ServiceError).message);
   }
 };
 
 const handleModeSelect = async (event: CustomEvent<{ value: 'Manual' | 'Waypoint' }>) => {
-  const mode = ({
-    Manual: 1,
-    Waypoint: 2,
-  } as const)[event.detail.value]
   try {
-    await setMode(mode)
+    await setMode(({
+      Manual: navigationApi.Mode.MODE_MANUAL,
+      Waypoint: navigationApi.Mode.MODE_WAYPOINT,
+    } as const)[event.detail.value]);
   } catch (error) {
-    notify.danger((error as ServiceError).message)
+    notify.danger((error as ServiceError).message);
   }
-}
+};
 
 const handleAddWaypoint = async (event: CustomEvent<LngLat>) => {
   try {
-    await addWaypoint(event.detail)
+    await addWaypoint(event.detail);
   } catch (error) {
-    notify.danger((error as ServiceError).message)
+    notify.danger((error as ServiceError).message);
   }
-}
+};
 
 const handleDeleteWaypoint = async (event: CustomEvent<string>) => {
   try {
-    await deleteWaypoint(event.detail)
+    await deleteWaypoint(event.detail);
   } catch (error) {
-    notify.danger((error as ServiceError).message)
+    notify.danger((error as ServiceError).message);
   }
-}
+};
 
 </script>
 
@@ -87,15 +87,17 @@ const handleDeleteWaypoint = async (event: CustomEvent<string>) => {
       <div class='flex gap-1'>
         <div class='w-80'>
           <LngLatInput readonly label='Base position' lng={$pose?.lng} lat={$pose?.lat}>
-            <v-button
-              variant='icon'
+            <IconButton
+              label='Focus on base'
               icon='image-filter-center-focus'
-              on:click={() => $pose && map?.flyTo({
-                zoom: 15,
-                duration: 800,
-                curve: 0.1,
-                center: [$pose.lng, $pose.lat],
-              })}
+              on:click={() => {
+                $pose && map?.flyTo({
+                  zoom: 15,
+                  duration: 800,
+                  curve: 0.1,
+                  center: [$pose.lng, $pose.lat],
+                });
+              }}
             />
           </LngLatInput>
         </div>
@@ -105,10 +107,10 @@ const handleDeleteWaypoint = async (event: CustomEvent<string>) => {
         label="Navigation mode"
         options="Manual, Waypoint"
         selected={{
-          0: "",
-          1: "Manual",
-          2: "Waypoint"
-        }[$mode ?? 0]}
+          [navigationApi.Mode.MODE_UNSPECIFIED]: '',
+          [navigationApi.Mode.MODE_MANUAL]: 'Manual',
+          [navigationApi.Mode.MODE_WAYPOINT]: 'Waypoint',
+        }[$mode ?? navigationApi.Mode.MODE_UNSPECIFIED]}
         on:input={handleModeSelect}
       />
     </div>
