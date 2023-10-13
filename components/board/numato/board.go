@@ -27,6 +27,7 @@ import (
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/resource"
 	rdkutils "go.viam.com/rdk/utils"
+	goutils "go.viam.com/utils"
 )
 
 var model = resource.DefaultModelFamily.WithModel("numato")
@@ -110,8 +111,10 @@ type numatoBoard struct {
 	lines chan string
 	mu    sync.Mutex
 
-	sent   map[string]bool
-	sentMu sync.Mutex
+	sent                    map[string]bool
+	sentMu                  sync.Mutex
+	activeBackgroundWorkers sync.WaitGroup
+	cancel                  func()
 }
 
 func (b *numatoBoard) addToSent(msg string) {
@@ -187,38 +190,42 @@ func (b *numatoBoard) doSendReceive(ctx context.Context, msg string) (string, er
 	}
 }
 
-func (b *numatoBoard) readThread() {
+func (b *numatoBoard) readThread(ctx context.Context) {
 	debug := true
 
 	in := bufio.NewReader(b.port)
-	for {
-		line, err := in.ReadString('\n')
-		if err != nil {
-			if atomic.LoadInt32(&b.closed) == 1 {
-				return
+	b.activeBackgroundWorkers.Add(1)
+	goutils.ManagedGo(func() {
+		for {
+			line, err := in.ReadString('\n')
+			if err != nil {
+				if atomic.LoadInt32(&b.closed) == 1 {
+					close(b.lines)
+					return
+				}
+				b.logger.Warnw("error reading", "err", err)
+				break // TODO: restart connection
 			}
-			b.logger.Warnw("error reading", "err", err)
-			break // TODO: restart connection
-		}
-		line = strings.TrimSpace(line)
+			line = strings.TrimSpace(line)
 
-		if debug {
-			b.logger.Debugf("got line %s", line)
-		}
+			if debug {
+				b.logger.Debugf("got line %s", line)
+			}
 
-		if len(line) == 0 || line[0] == '>' {
-			continue
-		}
+			if len(line) == 0 || line[0] == '>' {
+				continue
+			}
 
-		if b.wasSent(line) {
-			continue
-		}
+			if b.wasSent(line) {
+				continue
+			}
 
-		if debug {
-			b.logger.Debugf("    sending line %s", line)
+			if debug {
+				b.logger.Debugf("    sending line %s", line)
+			}
+			b.lines <- line
 		}
-		b.lines <- line
-	}
+	}, b.activeBackgroundWorkers.Done)
 }
 
 // SPIByName returns an SPI bus by name.
@@ -345,10 +352,19 @@ func (b *numatoBoard) WriteAnalog(ctx context.Context, pin string, value int32, 
 }
 
 func (b *numatoBoard) Close(ctx context.Context) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	atomic.AddInt32(&b.closed, 1)
+	fmt.Println("closing")
 	if err := b.port.Close(); err != nil {
+		fmt.Println("error closing")
 		return err
 	}
+	fmt.Println("port closed")
+
+	//_ = <-b.lines
+
+	b.activeBackgroundWorkers.Wait()
 	return nil
 }
 
@@ -397,11 +413,14 @@ func connect(ctx context.Context, name resource.Name, conf *Config, logger golog
 		return nil, err
 	}
 
+	cancelCtx, cancel := context.WithCancel(context.Background())
+
 	b := &numatoBoard{
 		Named:  name.AsNamed(),
 		pins:   pins,
 		port:   device,
 		logger: logger,
+		cancel: cancel,
 	}
 
 	b.analogs = map[string]board.AnalogReader{}
@@ -411,7 +430,7 @@ func connect(ctx context.Context, name resource.Name, conf *Config, logger golog
 	}
 
 	b.lines = make(chan string)
-	go b.readThread()
+	b.readThread(cancelCtx)
 
 	ver, err := b.doSendReceive(ctx, "ver")
 	if err != nil {
