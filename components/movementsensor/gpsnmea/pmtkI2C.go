@@ -54,7 +54,7 @@ func NewPmtkI2CGPSNMEA(
 	i2cbus, err := genericlinux.GetI2CBus(deps, "", "", conf.I2CConfig.I2CBus)
 	if err != nil {
 		return nil, fmt.Errorf("gps init: failed to find i2c bus %s: %w",
-		                       conf.I2CConfig.I2CBus, err)
+			conf.I2CConfig.I2CBus, err)
 	}
 	addr := conf.I2CConfig.I2CAddr
 	if addr == -1 {
