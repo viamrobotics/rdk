@@ -524,17 +524,7 @@ func (r *localRobot) getDependencies(
 		return nil, errors.Errorf("resource has unresolved dependencies: %v", deps)
 	}
 	allDeps := make(resource.Dependencies)
-	var needUpdate bool
 	for _, dep := range r.manager.resources.GetAllParentsOf(rName) {
-		if node, ok := r.manager.resources.Node(dep); ok {
-			// If any of the parents of the resource we're getting dependencies for
-			// has an updatedAt value that is "later" than the last value at which we
-			// ran updateWeakDependents, ensure that we run updateWeakDependents
-			// later in this method.
-			if r.lastWeakDependentsRound.Load() <= node.UpdatedAt() {
-				needUpdate = true
-			}
-		}
 		// Specifically call ResourceByName and not directly to the manager since this
 		// will only return fully configured and available resources (not marked for removal
 		// and no last error).
@@ -552,10 +542,8 @@ func (r *localRobot) getDependencies(
 		allDeps[weakDepName] = weakDepRes
 	}
 
-	if needUpdate {
-		r.updateWeakDependents(ctx)
-	}
-
+	// Try updating weak dependents after any resource gets its dependencies.
+	r.updateWeakDependents(ctx)
 	return allDeps, nil
 }
 
@@ -661,10 +649,12 @@ func (r *localRobot) newResource(
 }
 
 func (r *localRobot) updateWeakDependents(ctx context.Context) {
-	// Track the current value of the resource graph's logical clock. This will
-	// later be used to determine if updateWeakDependents should be called during
-	// getDependencies.
-	r.lastWeakDependentsRound.Store(r.manager.resources.LogicalClock())
+	// Only run updateWeakDependents when the resource graph's logical clock is
+	// now "later" than the value was when we last ran updateWeakDependents.
+	if r.lastWeakDependentsRound.Load() >= r.manager.resources.CurrLogicalClockValue() {
+		return
+	}
+	r.lastWeakDependentsRound.Store(r.manager.resources.CurrLogicalClockValue())
 
 	allResources := map[resource.Name]resource.Resource{}
 	internalResources := map[resource.Name]resource.Resource{}

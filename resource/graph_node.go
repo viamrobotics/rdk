@@ -24,7 +24,8 @@ type GraphNode struct {
 	// incremented every time any GraphNode calls SwapResource.
 	graphLogicalClock *atomic.Int64
 	// updatedAt is the value of the graphLogicalClock when it was last
-	// incremented by this GraphNode's SwapResource method.
+	// incremented by this GraphNode's SwapResource method. It is only referenced
+	// in tests.
 	updatedAt int64
 
 	current                   Resource
@@ -68,7 +69,8 @@ func NewConfiguredGraphNode(config Config, res Resource, resModel Model) *GraphN
 }
 
 // UpdatedAt returns the value of the logical clock when SwapResource was last
-// called on this GraphNode (the resource was last updated).
+// called on this GraphNode (the resource was last updated). It's only used
+// for tests.
 func (w *GraphNode) UpdatedAt() int64 {
 	w.mu.RLock()
 	defer w.mu.RUnlock()

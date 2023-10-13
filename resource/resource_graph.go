@@ -40,8 +40,8 @@ func NewGraph() *Graph {
 	}
 }
 
-// LogicalClock returns the logical clock value.
-func (g *Graph) LogicalClock() int64 {
+// CurrLogicalClockValue returns current the logical clock value.
+func (g *Graph) CurrLogicalClockValue() int64 {
 	return g.logicalClock.Load()
 }
 
