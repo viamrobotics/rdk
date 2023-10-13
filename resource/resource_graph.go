@@ -40,8 +40,7 @@ func NewGraph() *Graph {
 	}
 }
 
-// LogicalClock returns the last logical clock value at which a resource
-// updated.
+// LogicalClock returns the logical clock value.
 func (g *Graph) LogicalClock() int64 {
 	return g.logicalClock.Load()
 }
