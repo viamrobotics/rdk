@@ -243,7 +243,7 @@ func (c *viamClient) downloadBoardDefsFile(
 	}
 
 	// download the file from the gcs url into the current directory.
-	err = downloadFile(ctx, currentDir, response.Package.Url)
+	err = c.downloadFile(ctx, currentDir, response.Package.Url)
 	if err != nil {
 		return err
 	}
@@ -362,8 +362,17 @@ func createArchive(file *os.File) (*bytes.Buffer, error) {
 }
 
 // helper function to download a url to a local file.
-func downloadFile(ctx context.Context, filepath, url string) error {
+func (c *viamClient) downloadFile(ctx context.Context, filepath, url string) error {
 	getReq, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+
+	// HTTP Requests to app require auth headers, varies by auth mechanism.
+	if token, isToken := c.conf.Auth.(*token); isToken {
+		getReq.Header.Set("Authorization", "Bearer " + token.AccessToken)
+	} else if APIKey, isAPIKey := c.conf.Auth.(*apiKey); isAPIKey {
+		getReq.Header.Set("key_id", APIKey.KeyID)
+		getReq.Header.Set("key", APIKey.KeyCrypto)
+	}
+
 	if err != nil {
 		return err
 	}
@@ -373,6 +382,15 @@ func downloadFile(ctx context.Context, filepath, url string) error {
 	resp, err := httpClient.Do(getReq)
 	if err != nil {
 		return errors.Wrap(err, "error downloading the requested package")
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		bodyBytes, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
+		bodyString := string(bodyBytes)
+		return fmt.Errorf("invalid status code %q. Url: %q, Body: %q", resp.Status, url, bodyString)
 	}
 
 	defer utils.UncheckedErrorFunc(resp.Body.Close)

@@ -43,6 +43,11 @@ func (s *Server) InstanceNames() []string {
 	return []string{}
 }
 
+// EnsureAuth is unsupported.
+func (s *Server) EnsureAuthed(ctx context.Context) (context.Context, error) {
+	return nil, errors.New("EnsureAuthed is unsupported")
+}
+
 // Start is unsupported.
 func (s *Server) Start() error {
 	return errors.New("start unsupported on module grpc server")
