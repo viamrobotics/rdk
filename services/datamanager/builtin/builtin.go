@@ -533,7 +533,6 @@ func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 		if timeSinceMod < 0 {
 			timeSinceMod = 0
 		}
-
 		if timeSinceMod >= (time.Duration(lastModifiedMillis)*time.Millisecond) || filepath.Ext(path) == datacapture.FileExt {
 			filePaths = append(filePaths, path)
 		}
