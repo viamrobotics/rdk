@@ -35,27 +35,39 @@ $: if (map && $pose && !centered) {
 }
 
 const handleEnter = async () => {
-  $obstacles = await getObstacles(navClient);
+  try {
+    $obstacles = await getObstacles(navClient);
+  } catch (error) {
+    notify.danger((error as ServiceError).message)
+  }
 };
 
-const handleModeSelect = (event: CustomEvent<{ value: 'Manual' | 'Waypoint' }>) => {
+const handleModeSelect = async (event: CustomEvent<{ value: 'Manual' | 'Waypoint' }>) => {
   const mode = ({
     Manual: 1,
     Waypoint: 2,
   } as const)[event.detail.value]
-  setMode(mode)
+  try {
+    await setMode(mode)
+  } catch (error) {
+    notify.danger((error as ServiceError).message)
+  }
 }
 
 const handleAddWaypoint = async (event: CustomEvent<LngLat>) => {
   try {
     await addWaypoint(event.detail)
   } catch (error) {
-    notify.danger(error as ServiceError)
+    notify.danger((error as ServiceError).message)
   }
 }
 
 const handleDeleteWaypoint = async (event: CustomEvent<string>) => {
-  deleteWaypoint(event.detail)
+  try {
+    await deleteWaypoint(event.detail)
+  } catch (error) {
+    notify.danger((error as ServiceError).message)
+  }
 }
 
 </script>
@@ -103,11 +115,11 @@ const handleDeleteWaypoint = async (event: CustomEvent<string>) => {
 
     <div class='relative h-[500px] p-4'>
       <NavigationMap
-        bind:map={map}
+        bind:map
         environment='debug'
         baseGeoPose={$pose}
         waypoints={$waypoints}
-        obstacles={[]}
+        obstacles={$obstacles}
         on:add-waypoint={handleAddWaypoint}
         on:delete-waypoint={handleDeleteWaypoint}
       >

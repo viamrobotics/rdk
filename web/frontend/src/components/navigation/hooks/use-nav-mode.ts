@@ -12,15 +12,15 @@ export type NavigationMode = (
 export const useNavMode = (name: string) => {
   return useMemo(() => {
     const navClient = useNavClient(name);
-    const mode = writable<NavigationMode | null>(null);
-    const error = writable<ServiceError | null>(null);
+    const mode = writable<NavigationMode | undefined>(undefined);
+    const error = writable<ServiceError | undefined>(undefined);
 
     const fetchMode = async () => {
       try {
         mode.set(await navClient.getMode());
-        error.set(null);
+        error.set(undefined);
       } catch (error_) {
-        mode.set(null);
+        mode.set(undefined);
         error.set(error_ as ServiceError);
       }
     };

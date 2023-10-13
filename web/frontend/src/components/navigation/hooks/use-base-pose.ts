@@ -1,7 +1,7 @@
 import type { ServiceError } from '@viamrobotics/sdk';
+import type { GeoPose } from '@viamrobotics/prime-blocks';
 import { useNavClient } from './use-nav-client';
 import { writable, get } from 'svelte/store';
-import type { LngLat } from '@/api/navigation';
 import { setAsyncInterval } from '@/lib/schedule';
 import { useDisconnect } from '@/hooks/robot-client';
 import { useMemo } from '@/lib/use-memo';
@@ -9,8 +9,8 @@ import { useMemo } from '@/lib/use-memo';
 export const useBasePose = (name: string) => {
   return useMemo(() => {
     const navClient = useNavClient(name);
-    const pose = writable<LngLat & { rotation: number } | null>(null);
-    const error = writable<ServiceError | null>(null);
+    const pose = writable<GeoPose | undefined>(undefined);
+    const error = writable<ServiceError | undefined>(undefined);
 
     const updateLocation = async () => {
       try {
@@ -29,11 +29,11 @@ export const useBasePose = (name: string) => {
           return;
         }
 
-        error.set(null);
+        error.set(undefined);
         pose.set(position);
       } catch (error_) {
         error.set(error_ as ServiceError);
-        pose.set(null);
+        pose.set(undefined);
       }
     };
 

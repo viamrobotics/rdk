@@ -1,5 +1,6 @@
 import { type LngLat, formatWaypoints } from '@/api/navigation';
-import { type Waypoint, type ServiceError } from '@viamrobotics/sdk';
+import { type ServiceError } from '@viamrobotics/sdk';
+import { type Waypoint } from '@viamrobotics/prime-blocks';
 import { writable } from 'svelte/store';
 import { useDisconnect } from '@/hooks/robot-client';
 import { useMemo } from '@/lib/use-memo';
@@ -10,12 +11,12 @@ export const useWaypoints = (name: string) => {
   return useMemo(() => {
     const navClient = useNavClient(name);
     const waypoints = writable<Waypoint[]>([]);
-    const error = writable<ServiceError | null>(null);
+    const error = writable<ServiceError | undefined>(undefined);
 
     const updateWaypoints = async () => {
       try {
         const response = await navClient.getWayPoints();
-        error.set(null);
+        error.set(undefined);
         waypoints.set(formatWaypoints(response));
       } catch (error_) {
         error.set(error_ as ServiceError);
