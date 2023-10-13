@@ -1,3 +1,4 @@
+//go:build linux
 // Package imuvectornav implement vectornav imu
 package imuvectornav
 
@@ -24,7 +25,6 @@ var model = resource.DefaultModelFamily.WithModel("imu-vectornav")
 
 // Config is used for converting a vectornav IMU MovementSensor config attributes.
 type Config struct {
-	Board string `json:"board"`
 	SPI   string `json:"spi"`
 	Speed *int   `json:"spi_baud_rate"`
 	Pfreq *int   `json:"polling_freq_hz"`
@@ -34,10 +34,6 @@ type Config struct {
 // Validate ensures all parts of the config are valid.
 func (cfg *Config) Validate(path string) ([]string, error) {
 	var deps []string
-	if cfg.Board == "" {
-		return nil, goutils.NewConfigValidationFieldRequiredError(path, "board")
-	}
-
 	if cfg.SPI == "" {
 		return nil, goutils.NewConfigValidationFieldRequiredError(path, "spi")
 	}
@@ -53,7 +49,6 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 	if cfg.CSPin == "" {
 		return nil, goutils.NewConfigValidationFieldRequiredError(path, "cs_pin (chip select pin)")
 	}
-	deps = append(deps, cfg.Board)
 	return deps, nil
 }
 
