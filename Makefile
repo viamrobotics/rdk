@@ -11,7 +11,7 @@ GIT_REVISION = $(shell git rev-parse HEAD | tr -d '\n')
 TAG_VERSION?=$(shell git tag --points-at | sort -Vr | head -n1)
 LDFLAGS = -ldflags "-s -w -extld="$(shell pwd)/etc/ld_wrapper.sh" -X 'go.viam.com/rdk/config.Version=${TAG_VERSION}' -X 'go.viam.com/rdk/config.GitRevision=${GIT_REVISION}'"
 ifeq ($(shell command -v dpkg >/dev/null && dpkg --print-architecture),armhf)
-GOFLAGS += -tags=no_tflite
+GOFLAGS += -tags=no_tflite,no_media
 endif
 
 default: build lint server

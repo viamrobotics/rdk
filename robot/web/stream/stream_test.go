@@ -1,3 +1,5 @@
+//go:build !no_media
+
 package webstream_test
 
 import (
