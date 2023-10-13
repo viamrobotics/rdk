@@ -1,4 +1,4 @@
-//go:build no_tflite
+//go:build !no_tflite
 
 package main_test
 
