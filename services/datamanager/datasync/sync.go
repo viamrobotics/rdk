@@ -57,11 +57,13 @@ type syncer struct {
 }
 
 // ManagerConstructor is a function for building a Manager.
-type ManagerConstructor func(identity string, client v1.DataSyncServiceClient, logger golog.Logger, corruptedFilesDir string) (Manager, error)
+type ManagerConstructor func(
+	identity string, client v1.DataSyncServiceClient, logger golog.Logger, corruptedFilesDir string) (Manager, error)
 
 // NewManager returns a new syncer.
 func NewManager(
-	identity string, client v1.DataSyncServiceClient, logger golog.Logger, corruptedFilesDir string) (Manager, error) {
+	identity string, client v1.DataSyncServiceClient, logger golog.Logger, corruptedFilesDir string,
+) (Manager, error) {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	ret := syncer{
 		partID:            identity,
