@@ -1,7 +1,7 @@
 //go:build linux
-package gpsnmea
 
 // Package gpsnmea implements a GPS NMEA component
+package gpsnmea
 
 import (
 	"context"
