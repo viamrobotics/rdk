@@ -4,6 +4,7 @@
 package builtin
 
 import (
+	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
@@ -20,6 +21,8 @@ type ObstacleDetector struct {
 }
 
 type builtIn struct {
+	resource.Named
+	logger golog.Logger
 	builtInBase
 	obstacleDetectors []*ObstacleDetector
 }
@@ -44,6 +47,10 @@ type obstaclesTemp struct {
 
 func (svc *builtIn) setObstacles(obstacles obstaclesTemp) {
 	svc.obstacleDetectors = obstacles.obstacleDetectors
+}
+
+func (svc *builtIn) numObstacleDetectors() int {
+	return len(svc.obstacleDetectors)
 }
 
 func (svc *builtIn) reconfigureObstacleDetectors(deps resource.Dependencies, conf resource.Config, svcConfig *Config) (obstaclesTemp, error) {

@@ -4,6 +4,7 @@
 package builtin
 
 import (
+	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
@@ -12,12 +13,14 @@ import (
 )
 
 type builtIn struct {
+	resource.Named
+	logger golog.Logger
 	builtInBase
 }
 
 // helper for validate when vision / media libraries are present
 func (conf *Config) validateObstacleDetectors(path string, deps []string) error {
-	for _, obstacleDetectorPair := range conf.ObstacleDetectors {
+	for range conf.ObstacleDetectors {
 		return utils.NewConfigValidationError(path, errors.New("obstacle detectors not supported on no_media builds of RDK"))
 	}
 	return nil
@@ -27,10 +30,18 @@ type obstaclesTemp struct {
 	obstacleDetectorNamePairs []motion.ObstacleDetectorName
 }
 
+// stub version of this for when camera is not available
+func (svc *builtIn) setObstacles(obstacles obstaclesTemp) {}
+
+// stub version of this for when camera is not available
+func (svc *builtIn) numObstacleDetectors() int {
+	return 0
+}
+
 func (svc *builtIn) reconfigureObstacleDetectors(deps resource.Dependencies, conf resource.Config, svcConfig *Config) (obstaclesTemp, error) {
 	var res obstaclesTemp
-	for _, pbObstacleDetectorPair := range svcConfig.ObstacleDetectors {
-		return res, utils.NewConfigValidationError(path, errors.New("obstacle detectors not supported on no_media builds of RDK"))
+	for range svcConfig.ObstacleDetectors {
+		return res, errors.New("obstacle detectors not supported on no_media builds of RDK")
 	}
 	return res, nil
 }

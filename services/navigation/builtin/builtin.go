@@ -195,7 +195,6 @@ func NewBuiltIn(ctx context.Context, deps resource.Dependencies, conf resource.C
 }
 
 type builtInBase struct {
-	resource.Named
 	actionMu  sync.RWMutex
 	mu        sync.RWMutex
 	store     navigation.NavStore
@@ -211,7 +210,6 @@ type builtInBase struct {
 	motionCfg        *motion.MotionConfiguration
 	replanCostFactor float64
 
-	logger                    golog.Logger
 	wholeServiceCancelFunc    func()
 	currentWaypointCancelFunc func()
 	waypointInProgress        *navigation.Waypoint
@@ -383,7 +381,7 @@ func (svc *builtIn) SetMode(ctx context.Context, mode navigation.Mode, extra map
 	case navigation.ModeWaypoint:
 		svc.startWaypointMode(cancelCtx, extra)
 	case navigation.ModeExplore:
-		if len(svc.obstacleDetectors) == 0 {
+		if svc.numObstacleDetectors() == 0 {
 			return errors.New("explore mode requires at least one vision service")
 		}
 		svc.startExploreMode(cancelCtx)
