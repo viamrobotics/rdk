@@ -367,7 +367,7 @@ func TestArbitraryFileUpload(t *testing.T) {
 
 			// Set up dmsvc config.
 			dmsvc, r := newTestDataManager(t)
-			dmsvc.SetWaitAfterLastModifiedMillis(0)
+			dmsvc.SetFileLastModifiedMillis(1)
 			defer dmsvc.Close(context.Background())
 			f := atomic.Bool{}
 			f.Store(tc.serviceFail)
