@@ -1,3 +1,5 @@
+//go:build !no_media
+
 // Package obstaclespointcloud uses the 3D radius clustering algorithm as defined in the
 // RDK vision/segmentation package as vision model.
 package obstaclespointcloud

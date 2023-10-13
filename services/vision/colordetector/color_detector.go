@@ -1,3 +1,5 @@
+//go:build !no_media
+
 // Package colordetector uses a heuristic based on hue and connected components to create
 // bounding boxes around objects of a specified color.
 package colordetector

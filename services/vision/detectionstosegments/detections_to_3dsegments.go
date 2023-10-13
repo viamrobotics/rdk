@@ -1,3 +1,5 @@
+//go:build !no_media
+
 // Package detectionstosegments uses a 2D segmenter and a camera that can project its images
 // to 3D to project the bounding boxes to 3D in order to created a segmented point cloud.
 package detectionstosegments
