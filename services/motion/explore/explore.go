@@ -30,14 +30,16 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-var errUnimplemented = errors.New("unimplemented")
+var (
+	model            = resource.DefaultModelFamily.WithModel("explore")
+	errUnimplemented = errors.New("unimplemented")
+)
 
 func init() {
 	resource.RegisterDefaultService(
-		motion.API,
-		resource.DefaultServiceModel,
+		motion.API, model,
 		resource.Registration[motion.Service, *Config]{
-			Constructor: New,
+			Constructor: NewExplore,
 			WeakDependencies: []internal.ResourceMatcher{
 				internal.ComponentDependencyWildcardMatcher,
 			},
@@ -69,8 +71,8 @@ func (c *Config) Validate(path string) ([]string, error) {
 	return []string{framesystem.InternalServiceName.String()}, nil
 }
 
-// NewBuiltIn returns a new move and grab service for the given robot.
-func New(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (motion.Service, error) {
+// NewExplore returns a new move and grab service for the given robot.
+func NewExplore(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (motion.Service, error) {
 	ms := &explore{
 		Named:        conf.ResourceName().AsNamed(),
 		logger:       logger,
@@ -132,7 +134,6 @@ type explore struct {
 	responseChan      chan checkResponse
 	kb                *kinematicbase.KinematicBase
 	backgroundWorkers *sync.WaitGroup
-	plan              motionplan.Plan //pointer?????
 }
 
 // Move takes a goal location and will plan and execute a movement to move a component specified by its name to that destination.
@@ -203,31 +204,26 @@ func (ms *explore) planMove(
 	ctx context.Context,
 	componentName resource.Name,
 	destination spatialmath.Pose,
-	kinematicsOptions kinematicbase.Options,
+	worldState *referenceframe.WorldState,
 	extra map[string]interface{},
 ) ([][]referenceframe.Input, kinematicbase.KinematicBase, error) {
-
 	// create a KinematicBase from the componentName
 	component, ok := ms.components[componentName]
 	if !ok {
 		return nil, nil, resource.DependencyNotFoundError(componentName)
 	}
+
 	b, ok := component.(base.Base)
 	if !ok {
 		return nil, nil, fmt.Errorf("cannot move component of type %T because it is not a Base", component)
 	}
 
-	if extra != nil {
-		if profile, ok := extra["motion_profile"]; ok {
-			motionProfile, ok := profile.(string)
-			if !ok {
-				return nil, nil, errors.New("could not interpret motion_profile field as string")
-			}
-			kinematicsOptions.PositionOnlyMode = motionProfile == motionplan.PositionOnlyMotionProfile
-		}
+	kinematicsOptions, err := createKBOps(ctx, extra)
+	if err != nil {
+		return nil, nil, err
 	}
 
-	fs, err := ms.fsService.FrameSystem(ctx, nil)
+	fs, err := ms.fsService.FrameSystem(ctx, worldState.Transforms())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -256,7 +252,7 @@ func (ms *explore) planMove(
 
 	f := kb.Kinematics()
 
-	worldState, err := referenceframe.NewWorldState([]*referenceframe.GeometriesInFrame{}, nil)
+	worldStateNew, err := referenceframe.NewWorldState([]*referenceframe.GeometriesInFrame{}, nil)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -270,7 +266,7 @@ func (ms *explore) planMove(
 		Frame:              f,
 		StartConfiguration: seedMap,
 		FrameSystem:        fs,
-		WorldState:         worldState,
+		WorldState:         worldStateNew,
 		ConstraintSpecs:    nil,
 		Options:            extra,
 	})
@@ -293,13 +289,9 @@ func (ms *explore) Move(
 
 	// Note: can set linear speed, angular speed and obstacle polling frequency from extras until MotionCfg can be passed through
 	operation.CancelOtherWithLabel(ctx, exploreOpLabel)
-	opt := kinematicbase.NewKinematicBaseOptions()
-	opt.NoSkidSteer = true
-	//opt.UsePTGs = false
-	extra["motion_profile"] = motionplan.PositionOnlyMotionProfile
 
 	// Create plan to spin towards destination point
-	planInputs, kb, err := ms.planMove(ctx, componentName, destination.Pose(), opt, extra)
+	planInputs, kb, err := ms.planMove(ctx, componentName, destination.Pose(), worldState, extra)
 	if err != nil {
 		return false, fmt.Errorf("error making plan for MoveOnMap: %w", err)
 	}
@@ -318,13 +310,13 @@ func (ms *explore) Move(
 	// Start polling for obstacles
 	ms.backgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
-		ms.checkPartialPlan(cancelCtx, worldState)
+		ms.checkPartialPlan(cancelCtx, plan, worldState)
 	}, ms.backgroundWorkers.Done)
 
 	// Start executing plan
 	ms.backgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
-		ms.executePlan(cancelCtx)
+		ms.executePlan(cancelCtx, plan)
 	}, ms.backgroundWorkers.Done)
 
 	for {
@@ -361,7 +353,7 @@ type checkResponse struct {
 	success bool
 }
 
-func (ms *explore) checkPartialPlan(ctx context.Context, worldState *referenceframe.WorldState) {
+func (ms *explore) checkPartialPlan(ctx context.Context, plan motionplan.Plan, worldState *referenceframe.WorldState) {
 
 	ticker := time.NewTicker(10 * time.Millisecond)
 	defer ticker.Stop()
@@ -370,7 +362,7 @@ func (ms *explore) checkPartialPlan(ctx context.Context, worldState *referencefr
 	for ctx.Err() == nil {
 		select {
 		case <-ctx.Done():
-			return
+			ms.obstacleChan <- checkResponse{err: errors.New("context canceled")}
 		case <-ticker.C:
 			fs, err := ms.fsService.FrameSystem(ctx, nil)
 			if err != nil {
@@ -390,7 +382,7 @@ func (ms *explore) checkPartialPlan(ctx context.Context, worldState *referencefr
 				ms.obstacleChan <- checkResponse{err: err}
 			}
 
-			collisionPose, collision, err := motionplan.CheckPlan((*ms.kb).Kinematics(), ms.plan, worldState, fs, pInFrame.Pose(), currentInputs, nil, ms.logger)
+			collisionPose, collision, err := motionplan.CheckPlan((*ms.kb).Kinematics(), plan, worldState, fs, pInFrame.Pose(), currentInputs, nil, ms.logger)
 			if err != nil {
 				ms.obstacleChan <- checkResponse{err: err}
 			}
@@ -404,11 +396,11 @@ func (ms *explore) checkPartialPlan(ctx context.Context, worldState *referencefr
 	}
 }
 
-func (ms *explore) executePlan(ctx context.Context) {
+func (ms *explore) executePlan(ctx context.Context, plan motionplan.Plan) {
 	// background process carry out plan
-	for i := 1; i < len(ms.plan); i++ {
+	for i := 1; i < len(plan); i++ {
 		if inputEnabledKb, ok := (*ms.kb).(inputEnabledActuator); ok {
-			if err := inputEnabledKb.GoToInputs(ctx, ms.plan[i][(*ms.kb).Name().Name]); err != nil {
+			if err := inputEnabledKb.GoToInputs(ctx, plan[i][(*ms.kb).Name().Name]); err != nil {
 				// If there is an error on GoToInputs, stop the component if possible before returning the error
 				if stopErr := (*ms.kb).Stop(ctx, nil); stopErr != nil {
 					ms.responseChan <- checkResponse{err: err}
@@ -429,10 +421,13 @@ func (ms *explore) updateWorldState(ctx context.Context) (*referenceframe.WorldS
 		return nil, err
 	}
 
-	currentPosition, err := (*ms.kb).CurrentPosition(ctx)
-	if err != nil {
-		return nil, err
-	}
+	// Removing check of CurrentPosition due to nil Localizer
+	// currentPosition, err := (*ms.kb).CurrentPosition(ctx)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	currentPosition := spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 0})
+
 	// get transform of camera to kinematic base origin
 	kinBaseOrigin := referenceframe.NewPoseInFrame((*ms.kb).Name().ShortName(), spatialmath.NewZeroPose())
 	cameraToBase, err := ms.fsService.TransformPose(ctx, kinBaseOrigin, ms.camera.Name().ShortName(), nil)
@@ -440,7 +435,8 @@ func (ms *explore) updateWorldState(ctx context.Context) (*referenceframe.WorldS
 		// here we make the assumption the movement sensor is coincident with the base
 		cameraToBase = kinBaseOrigin
 	}
-	transformBy := spatialmath.Compose(currentPosition.Pose(), cameraToBase.Pose())
+
+	transformBy := spatialmath.Compose(currentPosition, cameraToBase.Pose())
 
 	geoms := []spatialmath.Geometry{}
 	for _, detection := range detections {
@@ -456,4 +452,37 @@ func (ms *explore) updateWorldState(ctx context.Context) (*referenceframe.WorldS
 		return nil, err
 	}
 	return worldState, nil
+}
+
+func createKBOps(ctx context.Context, extra map[string]interface{}) (kinematicbase.Options, error) {
+	opt := kinematicbase.NewKinematicBaseOptions()
+	opt.NoSkidSteer = true
+	//opt.UsePTGs = false
+	extra["motion_profile"] = motionplan.PositionOnlyMotionProfile
+
+	if degsPerSec, ok := extra["angular_degs_per_sec"]; ok {
+		angularDegsPerSec, ok := degsPerSec.(float64)
+		if !ok {
+			return kinematicbase.Options{}, errors.New("could not interpret motion_profile field as string")
+		}
+		opt.AngularVelocityDegsPerSec = angularDegsPerSec
+	}
+
+	if mPerSec, ok := extra["linear_m_per_sec"]; ok {
+		linearMPerSec, ok := mPerSec.(float64)
+		if !ok {
+			return kinematicbase.Options{}, errors.New("could not interpret motion_profile field as string")
+		}
+		opt.LinearVelocityMMPerSec = linearMPerSec
+	}
+
+	if profile, ok := extra["motion_profile"]; ok {
+		motionProfile, ok := profile.(string)
+		if !ok {
+			return kinematicbase.Options{}, errors.New("could not interpret motion_profile field as string")
+		}
+		opt.PositionOnlyMode = motionProfile == motionplan.PositionOnlyMotionProfile
+	}
+
+	return opt, nil
 }

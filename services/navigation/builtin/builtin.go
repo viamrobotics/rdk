@@ -20,6 +20,7 @@ import (
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
+	"go.viam.com/rdk/services/motion/explore"
 	ex "go.viam.com/rdk/services/motion/explore"
 	"go.viam.com/rdk/services/navigation"
 	"go.viam.com/rdk/services/vision"
@@ -355,8 +356,9 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		return err
 	}
 
-	exploreMotionConf := resource.Config{}
-	svc.exploreMotionService, err = ex.New(ctx, deps, exploreMotionConf, svc.logger)
+	// Create explore motion service
+	exploreMotionConf := resource.Config{ConvertedAttributes: &explore.Config{}}
+	svc.exploreMotionService, err = ex.NewExplore(ctx, deps, exploreMotionConf, svc.logger)
 	if err != nil {
 		return err
 	}
