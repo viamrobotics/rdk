@@ -1,3 +1,5 @@
+//go:build !no_media
+
 // Package server implements the entry point for running a robot web server.
 package server_test
 
