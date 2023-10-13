@@ -20,7 +20,6 @@ import (
 	"go.viam.com/utils/perf"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/components/camera/videosource/logging"
 	"go.viam.com/rdk/config"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/robot/web"
@@ -113,7 +112,7 @@ func RunServer(ctx context.Context, args []string, _ golog.Logger) (err error) {
 	}
 
 	if argsParsed.Logging {
-		utils.UncheckedError(logging.GLoggerCamComp.Start(ctx))
+		startVideoLogger(ctx)
 	}
 
 	// Read the config from disk and use it to initialize the remote logger.
