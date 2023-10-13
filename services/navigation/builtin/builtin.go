@@ -16,12 +16,10 @@ import (
 	"golang.org/x/exp/slices"
 
 	"go.viam.com/rdk/components/base"
-	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/navigation"
-	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -90,12 +88,6 @@ type ObstacleDetectorNameConfig struct {
 	CameraName        string `json:"camera"`
 }
 
-// ObstacleDetector pairs a vision service with a camera, informing the service about which camera it may use.
-type ObstacleDetector struct {
-	VisionService vision.Service
-	Camera        camera.Camera
-}
-
 // Config describes how to configure the service.
 type Config struct {
 	Store              navigation.StoreConfig        `json:"store"`
@@ -148,12 +140,8 @@ func (conf *Config) Validate(path string) ([]string, error) {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "movement_sensor")
 	}
 
-	for _, obstacleDetectorPair := range conf.ObstacleDetectors {
-		if obstacleDetectorPair.VisionServiceName == "" || obstacleDetectorPair.CameraName == "" {
-			return nil, utils.NewConfigValidationError(path, errors.New("an obstacle detector is missing either a camera or vision service"))
-		}
-		deps = append(deps, resource.NewName(vision.API, obstacleDetectorPair.VisionServiceName).String())
-		deps = append(deps, resource.NewName(camera.API, obstacleDetectorPair.CameraName).String())
+	if err := conf.validateObstacleDetectors(path, deps); err != nil {
+		return nil, err
 	}
 
 	// Ensure store is valid
@@ -206,7 +194,7 @@ func NewBuiltIn(ctx context.Context, deps resource.Dependencies, conf resource.C
 	return navSvc, nil
 }
 
-type builtIn struct {
+type builtInBase struct {
 	resource.Named
 	actionMu  sync.RWMutex
 	mu        sync.RWMutex
@@ -215,11 +203,10 @@ type builtIn struct {
 	mode      navigation.Mode
 	mapType   navigation.MapType
 
-	base              base.Base
-	movementSensor    movementsensor.MovementSensor
-	obstacleDetectors []*ObstacleDetector
-	motionService     motion.Service
-	obstacles         []*spatialmath.GeoObstacle
+	base           base.Base
+	movementSensor movementsensor.MovementSensor
+	motionService  motion.Service
+	obstacles      []*spatialmath.GeoObstacle
 
 	motionCfg        *motion.MotionConfiguration
 	replanCostFactor float64
@@ -309,23 +296,9 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		return err
 	}
 
-	var obstacleDetectorNamePairs []motion.ObstacleDetectorName
-	var obstacleDetectors []*ObstacleDetector
-	for _, pbObstacleDetectorPair := range svcConfig.ObstacleDetectors {
-		visionSvc, err := vision.FromDependencies(deps, pbObstacleDetectorPair.VisionServiceName)
-		if err != nil {
-			return err
-		}
-		camera, err := camera.FromDependencies(deps, pbObstacleDetectorPair.CameraName)
-		if err != nil {
-			return err
-		}
-		obstacleDetectorNamePairs = append(obstacleDetectorNamePairs, motion.ObstacleDetectorName{
-			VisionServiceName: visionSvc.Name(), CameraName: camera.Name(),
-		})
-		obstacleDetectors = append(obstacleDetectors, &ObstacleDetector{
-			VisionService: visionSvc, Camera: camera,
-		})
+	obstacles, err := svc.reconfigureObstacleDetectors(deps, conf, svcConfig)
+	if err != nil {
+		return err
 	}
 
 	// Parse movement sensor from the configuration if map type is GPS
@@ -359,9 +332,9 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	svc.motionService = motionSvc
 	svc.obstacles = newObstacles
 	svc.replanCostFactor = replanCostFactor
-	svc.obstacleDetectors = obstacleDetectors
+	svc.setObstacles(obstacles)
 	svc.motionCfg = &motion.MotionConfiguration{
-		ObstacleDetectors:     obstacleDetectorNamePairs,
+		ObstacleDetectors:     obstacles.obstacleDetectorNamePairs,
 		LinearMPerSec:         metersPerSec,
 		AngularDegsPerSec:     degPerSec,
 		PlanDeviationMM:       1e3 * planDeviationM,
