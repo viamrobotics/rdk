@@ -288,7 +288,7 @@ func (ms *builtIn) MoveOnGlobe(
 	}
 
 	// start a loop that plans every iteration and exits when something is read from the success channel
-	for {
+	for i := 0; i < mr.maxReplans; i++ {
 		ma := newMoveAttempt(ctx, mr)
 		if err := ma.start(); err != nil {
 			return false, err
@@ -320,6 +320,7 @@ func (ms *builtIn) MoveOnGlobe(
 			if resp.err != nil {
 				return false, resp.err
 			}
+			ms.logger.Info("position drift triggering a replan")
 
 		// if the obstacle poller hit an error return it, otherwise replan
 		case resp := <-ma.obstacle.responseChan:
@@ -328,8 +329,8 @@ func (ms *builtIn) MoveOnGlobe(
 			if resp.err != nil {
 				return false, resp.err
 			}
+			ms.logger.Info("obstacle detection triggering a replan")
 		}
-		fmt.Println("resp", resp)
 		if resp.replan {
 			lastPlan := mr.seedPlan
 			// TODO: RSDK-4509 obstacles should include any transient obstacles which may have triggered a replan, if any.
@@ -340,6 +341,7 @@ func (ms *builtIn) MoveOnGlobe(
 			mr.seedPlan = lastPlan
 		}
 	}
+	return false, fmt.Errorf("exceeded maximum number of replans: %d", mr.maxReplans)
 }
 
 func (ms *builtIn) MoveOnGlobeNew(ctx context.Context, req motion.MoveOnGlobeReq) (string, error) {

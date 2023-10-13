@@ -18,7 +18,10 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-const defaultReplanCostFactor = 1.0
+const (
+	defaultReplanCostFactor = 1.0
+	defaultMaxReplans       = 10
+)
 
 // moveRequest is a structure that contains all the information necessary for to make a move call.
 type moveRequest struct {
@@ -26,6 +29,7 @@ type moveRequest struct {
 	planRequest   *motionplan.PlanRequest
 	seedPlan      motionplan.Plan
 	kinematicBase kinematicbase.KinematicBase
+	maxReplans    int
 }
 
 // plan creates a plan using the currentInputs of the robot and the moveRequest's planRequest.
@@ -40,14 +44,12 @@ func (mr *moveRequest) plan(ctx context.Context) ([][]referenceframe.Input, erro
 	}
 	mr.planRequest.StartConfiguration = map[string][]referenceframe.Input{mr.kinematicBase.Kinematics().Name(): inputs}
 	if mr.seedPlan == nil {
-		fmt.Println("planning")
 		plan, err := motionplan.PlanMotion(ctx, mr.planRequest)
 		if err != nil {
 			return nil, err
 		}
 		mr.seedPlan = plan
 	} else {
-		fmt.Println("replanning")
 		plan, err := motionplan.Replan(ctx, mr.planRequest, mr.seedPlan, defaultReplanCostFactor)
 		if err != nil {
 			return nil, err
@@ -240,5 +242,6 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 			Options:            extra,
 		},
 		kinematicBase: kb,
+		maxReplans:    defaultMaxReplans,
 	}, nil
 }
