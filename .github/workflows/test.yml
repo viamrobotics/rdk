@@ -13,7 +13,6 @@ env:
 jobs:
   build_and_test:
     name: Build and Test
-    if: false # DONOTMERGE
     strategy:
       fail-fast: false
       matrix:
@@ -85,7 +84,6 @@ jobs:
       run: |
         sudo --preserve-env=MONGODB_TEST_OUTPUT_URI,GITHUB_SHA,GITHUB_RUN_ID,GITHUB_RUN_NUMBER,GITHUB_RUN_ATTEMPT,GITHUB_X_PR_BASE_SHA,GITHUB_X_PR_BASE_REF,GITHUB_X_HEAD_REF,GITHUB_X_HEAD_SHA,GITHUB_REPOSITORY -Hu testbot bash -lc '${{ matrix.test_cmd }}'
 
-
     - name: Upload test.json
       if: always()
       uses: actions/upload-artifact@v3
@@ -131,36 +129,6 @@ jobs:
         ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.ref }}
         fetch-depth: ${{ github.event_name == 'pull_request_target' && '0' || '1' }} # 0 aka full history, so we can analyze history for coverage
 
-    # - name: Set main env vars
-    #   if: github.event_name != 'pull_request_target'
-    #   run: |
-    #     echo "GITHUB_X_HEAD_SHA=${GITHUB_SHA}" >> $GITHUB_ENV
-    #     echo "GITHUB_X_HEAD_REF=${GITHUB_REF_NAME}" >> $GITHUB_ENV
-
-    # - name: Set PR env vars
-    #   if: github.event_name == 'pull_request_target'
-    #   env:
-    #     GITHUB_HEAD_REF_SAN: ${{ github.event.pull_request.head.label }}
-    #   run: |
-    #     echo "GITHUB_X_HEAD_SHA=${{ github.event.pull_request.head.sha }}" >> $GITHUB_ENV
-    #     echo "GITHUB_X_HEAD_REF=${GITHUB_HEAD_REF_SAN}" >> $GITHUB_ENV
-    #     echo "GITHUB_X_PR_BASE_SHA=${{ github.event.pull_request.base.sha }}" >> $GITHUB_ENV
-    #     echo "GITHUB_X_PR_BASE_REF=${{ github.event.pull_request.base.ref }}" >> $GITHUB_ENV
-
-    # - name: Verify no uncommitted changes from "make build lint"
-    #   run: |
-    #     git init
-    #     git add .
-    #     chown -R testbot:testbot .
-    #     sudo -Hu testbot bash -lc 'make build lint'
-    #     GEN_DIFF=$(git status -s)
-
-    #     if [ -n "$GEN_DIFF" ]; then
-    #         echo '"make build lint" resulted in changes not in git' 1>&2
-    #         git status
-    #         exit 1
-    #     fi
-
     - uses: docker/setup-qemu-action@v3
     - uses: docker/setup-buildx-action@v3
 
@@ -171,40 +139,6 @@ jobs:
           -v `pwd`:/rdk \
           ghcr.io/viamrobotics/rdk-devenv:armhf-cache \
           sudo -Hu testbot bash -lc 'cd /rdk && go test -v -tags=no_tflite,no_media ./...'
-
-    # - name: Upload test.json
-    #   if: always()
-    #   uses: actions/upload-artifact@v3
-    #   with:
-    #     name: test-linux-armv7.json
-    #     path: json.log
-    #     retention-days: 30
-
-    # Now that RDK is public, can't directly comment without token having full read/write access
-    # code-coverage-comment.yml will trigger seperately and post the actual comments
-
-    # - name: Prepare code comment
-    #   run: |
-    #     echo "PR_NUMBER=${{ github.event.pull_request.number }}" >> pr.env
-
-    # - name: Mark appimage label
-    #   if: contains(github.event.pull_request.labels.*.name, 'appimage') || contains(github.event.pull_request.labels.*.name, 'appimage-ignore-tests')
-    #   run: |
-    #     echo "APPIMAGE=true" >> pr.env
-
-    # - name: Mark static label
-    #   if: contains(github.event.pull_request.labels.*.name, 'static-build') || contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
-    #   run: |
-    #     echo "STATIC=true" >> pr.env
-
-    # - name: Upload code coverage
-    #   uses: actions/upload-artifact@v3
-    #   with:
-    #     name: pr-code-coverage
-    #     path: |
-    #       pr.env
-    #       code-coverage-results.md
-    #     retention-days: 1
 
   test_pi:
     name: Test Raspberry Pi Code
@@ -257,7 +191,7 @@ jobs:
 
   test_passing:
     name: All Tests Passing
-    needs: [test_pi, build_and_test, test_e2e]
+    needs: [test_pi, build_and_test, test_e2e, test32]
     runs-on: [ubuntu-latest]
     if: always()
     steps:
