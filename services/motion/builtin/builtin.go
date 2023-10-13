@@ -315,7 +315,7 @@ func (ms *builtIn) MoveOnGlobe(
 
 		// once execution responds: return the result to the caller
 		case resp := <-ma.responseChan:
-			ms.logger.Debugf("execution completed: %s", resp)
+			ms.logger.Debugf("execution response: %s", resp)
 			ma.cancel()
 			if errors.Is(resp.err, context.Canceled) {
 				continue

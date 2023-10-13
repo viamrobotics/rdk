@@ -113,6 +113,9 @@ func (mr *moveRequest) obstaclesIntersectPlan(ctx context.Context, waypoints [][
 				return false, err
 			}
 
+			// Note: detections are initially observed from the camera frame but must be transformed to be in
+			// world frame. We cannot use the inputs of the base to transform the detections since they are relative
+
 			// get the current position of the base which we will use to transform the detection into world coordinates
 			currentPosition, err := mr.kinematicBase.CurrentPosition(ctx)
 			if err != nil {
@@ -125,6 +128,7 @@ func (mr *moveRequest) obstaclesIntersectPlan(ctx context.Context, waypoints [][
 				// here we make the assumption the movement sensor is coincident with the base
 				cameraToBase = kinBaseOrigin
 			}
+
 			// where the camera is in world coordinates
 			transformBy := spatialmath.Compose(currentPosition.Pose(), cameraToBase.Pose())
 
@@ -301,18 +305,20 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 			return nil, resource.DependencyNotFoundError(visionServiceName)
 		}
 		cameraName := obstacleDetectorNamePair.CameraName
-		// make sure the pairs are correct
+		// make sure the specified pairs are valid
 		switch {
 		case visionServiceName.ContainsRemoteNames() && cameraName.ContainsRemoteNames():
 			// vision services which are remote only have access to remote cameras
 			pair[cameraName] = visionSvc
 		case visionServiceName.ContainsRemoteNames() && !cameraName.ContainsRemoteNames():
+			// log that a remote vision service cannot use a camera found on the main part of a robot
 			ms.logger.Debugf("%s is remote and %s is not, so they cannot be paired together", visionServiceName, cameraName)
 			continue
 		default:
 			// vision services which are main have access to both main and remote cameras
 			pair[cameraName] = visionSvc
 		}
+		// check that we actually have something to add
 		if len(pair) == 1 {
 			obstacleDetectors = append(obstacleDetectors, pair)
 		}
