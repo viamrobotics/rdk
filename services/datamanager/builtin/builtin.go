@@ -103,13 +103,10 @@ type builtIn struct {
 	cloudConnSvc        cloud.ConnectionService
 	cloudConn           rpc.ClientConn
 	syncTicker          *clk.Ticker
-
-	corruptedFilesDir string
 }
 
 var (
-	viamCaptureDotDir   = filepath.Join(os.Getenv("HOME"), ".viam", "capture")
-	viamCorruptedDotDir = filepath.Join(os.Getenv("HOME"), ".viam", "corrupted_capture")
+	viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), ".viam", "capture")
 )
 
 // NewBuiltIn returns a new data manager service for the given robot.
@@ -129,7 +126,6 @@ func NewBuiltIn(
 		tags:                        []string{},
 		waitAfterLastModifiedMillis: 10000,
 		syncerConstructor:           datasync.NewManager,
-		corruptedFilesDir:           viamCorruptedDotDir,
 	}
 
 	if err := svc.Reconfigure(ctx, deps, conf); err != nil {
@@ -308,7 +304,7 @@ func (svc *builtIn) initSyncer(ctx context.Context) error {
 
 	client := v1.NewDataSyncServiceClient(conn)
 
-	syncer, err := svc.syncerConstructor(identity, client, svc.logger, svc.corruptedFilesDir)
+	syncer, err := svc.syncerConstructor(identity, client, svc.logger, svc.captureDir)
 	if err != nil {
 		return errors.Wrap(err, "failed to initialize new syncer")
 	}
@@ -511,7 +507,7 @@ func (svc *builtIn) sync() {
 	}
 }
 
-//nolint
+// nolint
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
@@ -531,6 +527,10 @@ func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 		}
 		if timeSinceMod >= (time.Duration(lastModifiedMillis)*time.Millisecond) || filepath.Ext(path) == datacapture.FileExt {
 			filePaths = append(filePaths, path)
+		}
+		if info.IsDir() && info.Name() == datasync.CorruptedDir {
+			fmt.Printf("skipping a dir without errors: %+v \n", info.Name())
+			return filepath.SkipDir
 		}
 		return nil
 	})
