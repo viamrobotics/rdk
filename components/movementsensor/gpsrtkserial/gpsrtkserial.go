@@ -39,9 +39,8 @@ import (
 	"io"
 	"log"
 	"math"
-	"net"
 	"net/http"
-	"strconv"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -298,23 +297,91 @@ func (g *rtkSerial) connect(casterAddr, user, pwd string, maxAttempts int) error
 	return g.err.Get()
 }
 
-func getMountPointInfo(url, user, password, mountpoint string) (string, error) {
-	client := &http.Client{}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) // setting a 10 second timeout
-	defer cancel()
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+func fetchSourceTable(urlString string) (string, error) {
+	// Parse the URL to ensure it is valid
+	parsedURL, err := url.Parse(urlString)
 	if err != nil {
 		return "", err
 	}
 
-	req.Header.Set("Ntrip-Version", "Ntrip/2.0")
-	req.Header.Set("User-Agent", "NTRIP VIAM RDK")
-	req.SetBasicAuth(user, password)
+	// Check if the scheme is HTTP or HTTPS (add more checks if needed)
+	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
+		return "", fmt.Errorf("invalid URL scheme: %s", parsedURL.Scheme)
+	}
 
-	resp, err := client.Do(req)
+	// Create a context with a timeout (adjust timeout as needed)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Create an HTTP request with the context
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, parsedURL.String(), nil)
 	if err != nil {
 		return "", err
+	}
+
+	// Perform the HTTP request
+	response, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+
+	defer func() {
+		if closeErr := response.Body.Close(); closeErr != nil {
+			log.Printf("Failed to close the connection: %v", closeErr)
+		}
+	}()
+
+	if response.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("HTTP request failed with status: %d", response.StatusCode)
+	}
+
+	var sourceTable strings.Builder
+	scanner := bufio.NewScanner(response.Body)
+	for scanner.Scan() {
+		sourceTable.WriteString(scanner.Text() + "\n")
+	}
+
+	if scanner.Err() != nil {
+		return "", scanner.Err()
+	}
+
+	return sourceTable.String(), nil
+}
+
+func findLineWithMountPoint(sourceTable, mountPoint string) string {
+	scanner := bufio.NewScanner(strings.NewReader(sourceTable))
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasPrefix(line, mountPoint) {
+			return line
+		}
+	}
+	return ""
+}
+
+func parseLineForNMEABit(line string) (string, error) {
+	parts := strings.Split(line, ";")
+	if len(parts) >= 12 {
+		return parts[11], nil
+	}
+	return "", fmt.Errorf("line does not contain enough parts %v", parts)
+}
+
+func sendGGAToPort(url, ggaMessage string) error {
+	// Create a context with a timeout (adjust timeout as needed)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, strings.NewReader(ggaMessage))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
 	}
 
 	defer func() {
@@ -324,61 +391,7 @@ func getMountPointInfo(url, user, password, mountpoint string) (string, error) {
 	}()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("failed with status code: %d", resp.StatusCode)
-	}
-
-	reader := bufio.NewReader(resp.Body)
-	for {
-		line, err := reader.ReadString('\n')
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			return "", err
-		}
-
-		if strings.Contains(line, fmt.Sprintf("STR;%s;", mountpoint)) {
-			return strings.TrimSpace(line), nil
-		}
-	}
-
-	return "", fmt.Errorf("mountpoint %s not found", mountpoint)
-}
-
-func sourceTableParser(sourceTable string) (int, error) {
-	fields := strings.Split(sourceTable, ";")
-
-	nmeaBit, err := strconv.Atoi(fields[12])
-	if err != nil {
-		return -1, err
-	}
-
-	return nmeaBit, nil
-}
-
-func sendGGAToPort(url, ggaMessage string) error {
-	// Extracting hostname and port from the URL.
-	host, port, err := net.SplitHostPort(url)
-	if err != nil {
-		return err
-	}
-
-	address := fmt.Sprintf("%s:%s", host, port)
-
-	conn, err := net.DialTimeout("tcp", address, 5*time.Second)
-	if err != nil {
-		return err
-	}
-
-	defer func() {
-		if closeErr := conn.Close(); closeErr != nil {
-			log.Printf("Failed to close the connection: %v", closeErr)
-		}
-	}()
-
-	_, err = conn.Write([]byte(ggaMessage + "\r\n"))
-	if err != nil {
-		return err
+		return fmt.Errorf("HTTP request failed with status: %d", resp.StatusCode)
 	}
 
 	return nil
@@ -392,12 +405,14 @@ func (g *rtkSerial) getStream(mountPoint string, maxAttempts int) error {
 	var rc io.ReadCloser
 	var err error
 
-	sourceTable, err := getMountPointInfo(g.ntripClient.URL, g.ntripClient.Username, g.ntripClient.Password, g.ntripClient.MountPoint)
+	sourceTable, err := fetchSourceTable(g.ntripClient.URL)
 	if err != nil {
 		g.err.Set(err)
 	}
 
-	nmeaBit, err := sourceTableParser(sourceTable)
+	line := findLineWithMountPoint(sourceTable, g.ntripClient.MountPoint)
+
+	nmeaBit, err := parseLineForNMEABit(line)
 	if err != nil {
 		g.err.Set(err)
 	}
@@ -411,7 +426,7 @@ func (g *rtkSerial) getStream(mountPoint string, maxAttempts int) error {
 		default:
 		}
 
-		if nmeaBit == 1 {
+		if nmeaBit == "1" {
 			err = sendGGAToPort(g.ntripClient.URL, g.gpsData.GGAForMountPointInfo)
 			if err != nil {
 				g.err.Set(err)
