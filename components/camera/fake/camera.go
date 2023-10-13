@@ -1,3 +1,5 @@
+//go:build !no_media
+
 // Package fake implements a fake camera which always returns the same image with a user specified resolution.
 package fake
 

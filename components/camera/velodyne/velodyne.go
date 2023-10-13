@@ -1,3 +1,5 @@
+//go:build !no_media
+
 // Package velodyne implements a general velodyne LIDAR as a camera.
 package velodyne
 

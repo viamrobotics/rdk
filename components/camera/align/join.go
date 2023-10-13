@@ -1,3 +1,5 @@
+//go:build !no_media
+
 // Package align defines the camera models that are used to align a color camera's output with a depth camera's output,
 // in order to make point clouds.
 package align
