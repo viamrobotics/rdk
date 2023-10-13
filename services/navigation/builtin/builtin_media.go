@@ -27,7 +27,7 @@ type builtIn struct {
 	obstacleDetectors []*ObstacleDetector
 }
 
-// helper for validate when vision / media libraries are present
+// helper for validate when vision / media libraries are present.
 func (conf *Config) validateObstacleDetectors(path string, deps []string) error {
 	for _, obstacleDetectorPair := range conf.ObstacleDetectors {
 		if obstacleDetectorPair.VisionServiceName == "" || obstacleDetectorPair.CameraName == "" {
@@ -39,7 +39,7 @@ func (conf *Config) validateObstacleDetectors(path string, deps []string) error 
 	return nil
 }
 
-// struct that holds obstacle detector config on normal builds, degrades gracefully on no_media builds
+// struct that holds obstacle detector config on normal builds, degrades gracefully on no_media builds.
 type obstaclesTemp struct {
 	obstacleDetectorNamePairs []motion.ObstacleDetectorName
 	obstacleDetectors         []*ObstacleDetector
@@ -53,7 +53,9 @@ func (svc *builtIn) numObstacleDetectors() int {
 	return len(svc.obstacleDetectors)
 }
 
-func (svc *builtIn) reconfigureObstacleDetectors(deps resource.Dependencies, conf resource.Config, svcConfig *Config) (obstaclesTemp, error) {
+func (svc *builtIn) reconfigureObstacleDetectors(
+	deps resource.Dependencies, conf resource.Config, svcConfig *Config,
+) (obstaclesTemp, error) {
 	var res obstaclesTemp
 	for _, pbObstacleDetectorPair := range svcConfig.ObstacleDetectors {
 		visionSvc, err := vision.FromDependencies(deps, pbObstacleDetectorPair.VisionServiceName)
