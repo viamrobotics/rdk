@@ -164,7 +164,7 @@ func (g *rtkI2C) Reconfigure(ctx context.Context, deps resource.Dependencies, co
 
 	i2cbus, err := genericlinux.NewI2cBus(newConf.I2CBus)
 	if err != nil {
-		return fmt.Errorf("gps init: failed to find i2c bus %d: %w", newConf.I2CBus, err)
+		return fmt.Errorf("gps init: failed to find i2c bus %s: %w", newConf.I2CBus, err)
 	}
 	g.bus = i2cbus
 
