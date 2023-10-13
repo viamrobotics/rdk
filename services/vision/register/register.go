@@ -1,3 +1,5 @@
+//go:build !no_media
+
 // Package register registers all relevant vision models and also API specific functions
 package register
 

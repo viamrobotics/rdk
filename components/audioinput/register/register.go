@@ -1,4 +1,4 @@
-//go:build !no_cgo
+//go:build !no_cgo && !no_media
 
 // Package register registers all relevant audio inputs and also API specific functions
 package register
