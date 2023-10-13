@@ -20,7 +20,7 @@ const (
 	testRoverName   = "testRover"
 	testStationName = "testStation"
 	testI2cBus      = "1"
-	testi2cAddr     = 44
+	testI2cAddr     = 44
 )
 
 func TestValidateRTK(t *testing.T) {
@@ -32,7 +32,7 @@ func TestValidateRTK(t *testing.T) {
 		NtripUser:            "someuser",
 		NtripMountpoint:      "NYC",
 		I2CBus:               testI2cBus,
-		I2CAddr:              testi2cAddr,
+		I2CAddr:              testI2cAddr,
 	}
 	t.Run("valid config", func(t *testing.T) {
 		_, err := cfg.Validate(path)
@@ -47,7 +47,7 @@ func TestValidateRTK(t *testing.T) {
 			NtripUser:            "someuser",
 			NtripMountpoint:      "NYC",
 			I2CBus:               testI2cBus,
-			I2CAddr:              testi2cAddr,
+			I2CAddr:              testI2cAddr,
 		}
 		_, err := cfg.Validate(path)
 		test.That(t, err, test.ShouldBeError,
@@ -62,7 +62,7 @@ func TestValidateRTK(t *testing.T) {
 			NtripPass:            "somepass",
 			NtripUser:            "someuser",
 			NtripMountpoint:      "NYC",
-			I2CAddr:              testi2cAddr,
+			I2CAddr:              testI2cAddr,
 		}
 		_, err := cfg.Validate(path)
 		test.That(t, err, test.ShouldBeError,
@@ -196,7 +196,7 @@ func TestReconfigure(t *testing.T) {
 			NtripUser:            "someuser",
 			NtripMountpoint:      "NYC",
 			I2CBus:               testI2cBus,
-			I2CAddr:              testi2cAddr,
+			I2CAddr:              testI2cAddr,
 			I2CBaudRate:          115200,
 		},
 	}
