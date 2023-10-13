@@ -1,3 +1,5 @@
+//go:build !no_media
+
 package framesystem_test
 
 import (
