@@ -50,6 +50,7 @@ type cloudManager struct {
 	httpClient      http.Client
 	packagesDataDir string
 	packagesDir     string
+	cloudConfig     config.Cloud
 
 	managedPackages map[PackageName]*managedPackage
 	mu              sync.RWMutex
@@ -67,7 +68,12 @@ var API = resource.APINamespaceRDKInternal.WithServiceType(SubtypeName)
 var InternalServiceName = resource.NewName(API, "builtin")
 
 // NewCloudManager creates a new manager with the given package service client and directory to sync to.
-func NewCloudManager(client pb.PackageServiceClient, packagesDir string, logger golog.Logger) (ManagerSyncer, error) {
+func NewCloudManager(
+	cloudConfig *config.Cloud,
+	client pb.PackageServiceClient,
+	packagesDir string,
+	logger golog.Logger,
+) (ManagerSyncer, error) {
 	packagesDataDir := filepath.Join(packagesDir, ".data")
 
 	if err := os.MkdirAll(packagesDir, 0o700); err != nil {
@@ -82,6 +88,7 @@ func NewCloudManager(client pb.PackageServiceClient, packagesDir string, logger 
 		Named:           InternalServiceName.AsNamed(),
 		client:          client,
 		httpClient:      http.Client{Timeout: time.Minute * 30},
+		cloudConfig:     *cloudConfig,
 		packagesDir:     packagesDir,
 		packagesDataDir: packagesDataDir,
 		managedPackages: make(map[PackageName]*managedPackage),
@@ -349,7 +356,7 @@ func (m *cloudManager) downloadPackage(ctx context.Context, url string, p config
 	}
 
 	// Download from GCS
-	_, contentType, err := m.downloadFileFromGCSURL(ctx, url, p.LocalDownloadPath(m.packagesDir))
+	_, contentType, err := m.downloadFileFromGCSURL(ctx, url, p.LocalDownloadPath(m.packagesDir), m.cloudConfig.ID, m.cloudConfig.Secret)
 	if err != nil {
 		return err
 	}
@@ -398,8 +405,16 @@ func (m *cloudManager) cleanup(p config.PackageConfig) error {
 	)
 }
 
-func (m *cloudManager) downloadFileFromGCSURL(ctx context.Context, url, downloadPath string) (string, string, error) {
+func (m *cloudManager) downloadFileFromGCSURL(
+	ctx context.Context,
+	url string,
+	downloadPath string,
+	partID string,
+	partSecret string,
+) (string, string, error) {
 	getReq, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	getReq.Header.Add("part_id", partID)
+	getReq.Header.Add("secret", partSecret)
 	if err != nil {
 		return "", "", err
 	}

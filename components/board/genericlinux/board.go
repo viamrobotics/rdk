@@ -280,7 +280,7 @@ func (b *Board) reconfigureAnalogReaders(ctx context.Context, newConf *LinuxBoar
 			if curr.chipSelect != c.ChipSelect {
 				ar := &board.MCP3008AnalogReader{channel, bus, c.ChipSelect}
 				curr.reset(ctx, curr.chipSelect,
-					board.SmoothAnalogReader(ar, board.AnalogConfig{
+					board.SmoothAnalogReader(ar, board.AnalogReaderConfig{
 						AverageOverMillis: c.AverageOverMillis, SamplesPerSecond: c.SamplesPerSecond,
 					}, b.logger))
 			}
@@ -288,7 +288,7 @@ func (b *Board) reconfigureAnalogReaders(ctx context.Context, newConf *LinuxBoar
 		}
 		ar := &board.MCP3008AnalogReader{channel, bus, c.ChipSelect}
 		b.analogReaders[c.Name] = newWrappedAnalogReader(ctx, c.ChipSelect,
-			board.SmoothAnalogReader(ar, board.AnalogConfig{
+			board.SmoothAnalogReader(ar, board.AnalogReaderConfig{
 				AverageOverMillis: c.AverageOverMillis, SamplesPerSecond: c.SamplesPerSecond,
 			}, b.logger))
 	}
@@ -615,7 +615,7 @@ func (b *Board) SetPowerMode(
 
 // WriteAnalog writes the value to the given pin.
 func (b *Board) WriteAnalog(ctx context.Context, pin string, value int32, extra map[string]interface{}) error {
-	return grpc.UnimplementedError
+	return nil
 }
 
 // Close attempts to cleanly close each part of the board.

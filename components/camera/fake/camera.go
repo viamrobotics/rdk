@@ -36,7 +36,7 @@ func init() {
 				cfg resource.Config,
 				logger golog.Logger,
 			) (camera.Camera, error) {
-				return NewCamera(ctx, cfg)
+				return NewCamera(ctx, cfg, logger)
 			},
 		})
 }
@@ -45,6 +45,7 @@ func init() {
 func NewCamera(
 	ctx context.Context,
 	conf resource.Config,
+	logger golog.Logger,
 ) (camera.Camera, error) {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
@@ -60,12 +61,13 @@ func NewCamera(
 		Model:  resModel,
 		Width:  width,
 		Height: height,
+		logger: logger,
 	}
 	src, err := camera.NewVideoSourceFromReader(ctx, cam, resModel, camera.ColorStream)
 	if err != nil {
 		return nil, err
 	}
-	return camera.FromVideoSource(conf.ResourceName(), src), nil
+	return camera.FromVideoSource(conf.ResourceName(), src, logger), nil
 }
 
 // Config are the attributes of the fake camera config.
@@ -167,6 +169,7 @@ type Camera struct {
 	Height          int
 	cacheImage      *image.RGBA
 	cachePointCloud pointcloud.PointCloud
+	logger          golog.Logger
 }
 
 // Read always returns the same image of a yellow to blue gradient.

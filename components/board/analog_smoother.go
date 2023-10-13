@@ -29,7 +29,7 @@ type AnalogSmoother struct {
 }
 
 // SmoothAnalogReader wraps the given reader in a smoother.
-func SmoothAnalogReader(r AnalogReader, c AnalogConfig, logger golog.Logger) *AnalogSmoother {
+func SmoothAnalogReader(r AnalogReader, c AnalogReaderConfig, logger golog.Logger) *AnalogSmoother {
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	smoother := &AnalogSmoother{
 		Raw:               r,
