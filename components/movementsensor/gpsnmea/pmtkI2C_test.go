@@ -22,26 +22,31 @@ const (
 	testBusName   = "1"
 )
 
+func createMockI2c() board.I2C {
+	i2c := &inject.I2C{}
+	handle := &inject.I2CHandle{}
+	handle.WriteFunc = func(ctx context.Context, b []byte) error {
+		return nil
+	}
+	handle.ReadFunc = func(ctx context.Context, count int) ([]byte, error) {
+		return nil, nil
+	}
+	handle.CloseFunc = func() error {
+		return nil
+	}
+	i2c.OpenHandleFunc = func(addr byte) (board.I2CHandle, error) {
+		return handle, nil
+	}
+	return i2c
+}
+
 func setupDependencies(t *testing.T) resource.Dependencies {
 	t.Helper()
 
 	deps := make(resource.Dependencies)
 
 	actualBoard := inject.NewBoard(testBoardName)
-	i2c1 := &inject.I2C{}
-	handle1 := &inject.I2CHandle{}
-	handle1.WriteFunc = func(ctx context.Context, b []byte) error {
-		return nil
-	}
-	handle1.ReadFunc = func(ctx context.Context, count int) ([]byte, error) {
-		return nil, nil
-	}
-	handle1.CloseFunc = func() error {
-		return nil
-	}
-	i2c1.OpenHandleFunc = func(addr byte) (board.I2CHandle, error) {
-		return handle1, nil
-	}
+	i2c1 := createMockI2c()
 	actualBoard.I2CByNameFunc = func(name string) (board.I2C, bool) {
 		return i2c1, true
 	}
@@ -92,6 +97,7 @@ func TestNewI2CMovementSensor(t *testing.T) {
 		},
 	}
 	g, err = newNMEAGPS(ctx, deps, conf, logger)
+	g.bus = createMockI2c()
 	passErr := "board " + testBoardName + " is not local"
 	if err == nil || err.Error() != passErr {
 		test.That(t, err, test.ShouldBeNil)
