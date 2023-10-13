@@ -31,5 +31,8 @@ $: if ($error) {
 </script>
 
 {#each $waypoints as waypoint (waypoint.id)}
-  <MapLibreMarker scale={0.7} lngLat={waypoint} />
+  <MapLibreMarker
+    scale={0.7}
+    pose={{ lat: waypoint.lat, lng: waypoint.lng, rotation: 0 }}
+  />
 {/each}
