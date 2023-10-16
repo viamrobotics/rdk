@@ -29,8 +29,8 @@ var (
 	maxRetryInterval       = time.Hour
 )
 
-// CorruptedDir is a subdirectory of the capture directory that holds any files that could not be synced.
-const CorruptedDir = "corrupted"
+// FailedDir is a subdirectory of the capture directory that holds any files that could not be synced.
+const FailedDir = "failed"
 
 // Manager is responsible for enqueuing files in captureDir and uploading them to the cloud.
 type Manager interface {
@@ -131,7 +131,7 @@ func (s *syncer) SyncFile(path string) {
 					if err = f.Close(); err != nil {
 						s.syncErrs <- errors.Wrap(err, "error closing data capture file")
 					}
-					if err := moveCorruptedData(f.Name(), s.captureDir); err != nil {
+					if err := moveFailedData(f.Name(), s.captureDir); err != nil {
 						s.syncErrs <- errors.Wrap(err, fmt.Sprintf("error moving corrupted data %s", f.Name()))
 					}
 					return
@@ -162,7 +162,7 @@ func (s *syncer) syncDataCaptureFile(f *datacapture.File) {
 		}
 
 		if !isRetryableGRPCError(uploadErr) {
-			if err := moveCorruptedData(f.GetPath(), s.captureDir); err != nil {
+			if err := moveFailedData(f.GetPath(), s.captureDir); err != nil {
 				s.syncErrs <- errors.Wrap(err, fmt.Sprintf("error moving corrupted data %s", f.GetPath()))
 			}
 		}
@@ -184,7 +184,7 @@ func (s *syncer) syncArbitraryFile(f *os.File) {
 			}
 
 			if !isRetryableGRPCError(uploadErr) {
-				if err := moveCorruptedData(f.Name(), s.captureDir); err != nil {
+				if err := moveFailedData(f.Name(), s.captureDir); err != nil {
 					s.syncErrs <- errors.Wrap(err, fmt.Sprintf("error moving corrupted data %s", f.Name()))
 				}
 			}
@@ -283,23 +283,23 @@ func isRetryableGRPCError(err error) bool {
 	return errStatus.Code() != codes.InvalidArgument
 }
 
-// moveCorruptedData takes any corrupted data in the captureDir and moves it
-// to a new subdirectory "corrupted" that will not be synced.
-func moveCorruptedData(path, captureDir string) error {
+// moveFailedData takes any data that could not be synced in the captureDir and
+// moves it to a new subdirectory "failed" that will not be synced.
+func moveFailedData(path, captureDir string) error {
 	// Remove the captureDir part of the path to the corrupted data
 	relativePath, err := filepath.Rel(captureDir, path)
 	if err != nil {
-		return errors.Wrap(err, "error getting relative path of corrupted data")
+		return errors.Wrapf(err, fmt.Sprintf("error getting relative path of corrupted data: %s", path))
 	}
 	// Create a new directory captureDir/corrupted/pathToFile
-	newDir := filepath.Join(captureDir, CorruptedDir, filepath.Dir(relativePath))
+	newDir := filepath.Join(captureDir, FailedDir, filepath.Dir(relativePath))
 	if err := os.MkdirAll(newDir, 0o700); err != nil {
-		return errors.Wrap(err, "error making new directory for corrupted data")
+		return errors.Wrapf(err, fmt.Sprintf("error making new directory for corrupted data: %s", path))
 	}
 	// Move the file from captureDir/pathToFile/file.ext to captureDir/corrupted/pathToFile/file.ext
 	newPath := filepath.Join(newDir, filepath.Base(path))
 	if err := os.Rename(path, newPath); err != nil {
-		return errors.Wrap(err, "error moving corrupted data capture to new directory")
+		return errors.Wrapf(err, fmt.Sprintf("error moving corrupted data: %s", path))
 	}
 	return nil
 }

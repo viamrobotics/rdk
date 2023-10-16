@@ -505,7 +505,7 @@ func (svc *builtIn) sync() {
 	}
 }
 
-//nolint
+// nolint
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
@@ -513,7 +513,7 @@ func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 			return nil
 		}
 		// Do not sync the files in the corrupted data directory.
-		if info.IsDir() && info.Name() == datasync.CorruptedDir {
+		if info.IsDir() && info.Name() == datasync.FailedDir {
 			return filepath.SkipDir
 		}
 		if info.IsDir() {
