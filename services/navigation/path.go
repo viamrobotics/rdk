@@ -9,10 +9,7 @@ import (
 	pb "go.viam.com/api/service/navigation/v1"
 )
 
-var (
-	errNilSlice = errors.New("cannot convert empty slice")
-	errNilPath  = errors.New("cannot convert nil path")
-)
+var errNilPath = errors.New("cannot convert nil path")
 
 // Path describes a series of geo points the robot will travel through.
 type Path struct {
@@ -76,9 +73,6 @@ func PathToProto(path *Path) (*pb.Path, error) {
 
 // ProtoSliceToPaths converts a slice of Path Protobuf messages into an equivalent struct.
 func ProtoSliceToPaths(pbPaths []*pb.Path) ([]*Path, error) {
-	if len(pbPaths) == 0 {
-		return nil, errNilSlice
-	}
 	var paths []*Path
 	for _, pbPath := range pbPaths {
 		path, err := ProtoToPath(pbPath)
