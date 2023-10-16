@@ -10,7 +10,7 @@ export type NavigationMode = (
 )
 
 export const useNavMode = (name: string) => {
-  return useMemo(() => {
+  return useMemo('useNavMode', () => {
     const navClient = useNavClient(name);
     const mode = writable<NavigationMode | undefined>(undefined);
     const error = writable<ServiceError | undefined>(undefined);

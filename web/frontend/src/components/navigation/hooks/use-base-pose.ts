@@ -7,7 +7,7 @@ import { useDisconnect } from '@/hooks/robot-client';
 import { useMemo } from '@/lib/use-memo';
 
 export const useBasePose = (name: string) => {
-  return useMemo(() => {
+  return useMemo('useBasePose', () => {
     const navClient = useNavClient(name);
     const pose = writable<GeoPose | undefined>(undefined);
     const error = writable<ServiceError | undefined>(undefined);

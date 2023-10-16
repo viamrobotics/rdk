@@ -8,7 +8,7 @@ import { setAsyncInterval } from '@/lib/schedule';
 import { useNavClient } from './use-nav-client';
 
 export const useWaypoints = (name: string) => {
-  return useMemo(() => {
+  return useMemo('useWaypoint', () => {
     const navClient = useNavClient(name);
     const waypoints = writable<Waypoint[]>([]);
     const error = writable<ServiceError | undefined>(undefined);

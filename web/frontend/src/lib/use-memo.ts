@@ -1,15 +1,21 @@
 import { onDestroy } from 'svelte';
 
-const fns = new WeakMap();
+type Callback<T> = () => (T | (() => T))
+
+interface CallbackData {
+  refCount: number;
+  returnValue: unknown
+}
+
+const fns = new Map<string, CallbackData>();
 
 /**
  * A hook for calling a callback only once for many hook instances.
  * @param callback
  */
-export const useMemo = <T = void>(callback: () => (T | (() => T))): T => {
-  const data = fns.get(callback) ?? {
+export const useMemo = <T = void>(key: string, callback: Callback<T>): T => {
+  const data: CallbackData = fns.get(key) ?? {
     refCount: 0,
-    cleanup: 0,
     returnValue: undefined,
   };
 
@@ -18,16 +24,15 @@ export const useMemo = <T = void>(callback: () => (T | (() => T))): T => {
   }
 
   data.refCount += 1;
-  fns.set(callback, data);
+  fns.set(key, data);
 
   onDestroy(() => {
     data.refCount -= 1;
 
     if (data.refCount === 0) {
-      data.cleanup?.();
-      fns.delete(callback);
+      fns.delete(key);
     }
   });
 
-  return data.returnValue;
+  return data.returnValue as T;
 };
