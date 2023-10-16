@@ -318,6 +318,8 @@ func SensorDataFromFile(f *File) ([]*v1.SensorData, error) {
 	return ret, nil
 }
 
+// FilePathwithReplacedReservedChars returns the filepath with substitutions
+// for reserved characters if running on Windows or Darwin.
 func FilePathWithReplacedReservedChars(filepath string) string {
 	goOS := runtime.GOOS
 	if goOS == "windows" || goOS == "darwin" {
