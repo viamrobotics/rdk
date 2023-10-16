@@ -27,7 +27,6 @@ import (
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/resource"
 	rdkutils "go.viam.com/rdk/utils"
-	goutils "go.viam.com/utils"
 )
 
 var model = resource.DefaultModelFamily.WithModel("numato")
@@ -195,7 +194,7 @@ func (b *numatoBoard) readThread(ctx context.Context) {
 
 	in := bufio.NewReader(b.port)
 	b.activeBackgroundWorkers.Add(1)
-	goutils.ManagedGo(func() {
+	utils.ManagedGo(func() {
 		for {
 			if atomic.LoadInt32(&b.closed) == 1 {
 				close(b.lines)
