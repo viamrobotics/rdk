@@ -192,42 +192,39 @@ func (b *numatoBoard) readThread() {
 	debug := true
 
 	in := bufio.NewReader(b.port)
-	b.activeBackgroundWorkers.Add(1)
-	utils.ManagedGo(func() {
-		for {
+	for {
+		if atomic.LoadInt32(&b.closed) == 1 {
+			close(b.lines)
+			return
+		}
+		line, err := in.ReadString('\n')
+		if err != nil {
 			if atomic.LoadInt32(&b.closed) == 1 {
 				close(b.lines)
 				return
 			}
-			line, err := in.ReadString('\n')
-			if err != nil {
-				if atomic.LoadInt32(&b.closed) == 1 {
-					close(b.lines)
-					return
-				}
-				b.logger.Warnw("error reading", "err", err)
-				break // TODO: restart connection
-			}
-			line = strings.TrimSpace(line)
-
-			if debug {
-				b.logger.Debugf("got line %s", line)
-			}
-
-			if len(line) == 0 || line[0] == '>' {
-				continue
-			}
-
-			if b.wasSent(line) {
-				continue
-			}
-
-			if debug {
-				b.logger.Debugf("    sending line %s", line)
-			}
-			b.lines <- line
+			b.logger.Warnw("error reading", "err", err)
+			break // TODO: restart connection
 		}
-	}, b.activeBackgroundWorkers.Done)
+		line = strings.TrimSpace(line)
+
+		if debug {
+			b.logger.Debugf("got line %s", line)
+		}
+
+		if len(line) == 0 || line[0] == '>' {
+			continue
+		}
+
+		if b.wasSent(line) {
+			continue
+		}
+
+		if debug {
+			b.logger.Debugf("    sending line %s", line)
+		}
+		b.lines <- line
+	}
 }
 
 // SPIByName returns an SPI bus by name.
@@ -356,7 +353,11 @@ func (b *numatoBoard) WriteAnalog(ctx context.Context, pin string, value int32, 
 func (b *numatoBoard) Close(ctx context.Context) error {
 	atomic.AddInt32(&b.closed, 1)
 
-	// Send a serial command so the goroutine doesn't get stuck trying to read a string after the port is closed.
+	// Without this line, the coroutine gets stuck in the call to in.ReadString.
+	// Closing the device port will complete the call on some OSes, but on Mac attempting to close
+	// a serial device currently being read from will result in a deadlock.
+	// Send the board a command so we get a response back to read and complete the call so the coroutine can wake up
+	// and see it should exit.
 	_, err := b.doSendReceive(ctx, "ver")
 	if err != nil {
 		return err
@@ -368,7 +369,9 @@ func (b *numatoBoard) Close(ctx context.Context) error {
 	b.activeBackgroundWorkers.Wait()
 
 	for _, analog := range b.analogs {
-		analog.Close(ctx)
+		if err := analog.Close(ctx); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -432,7 +435,9 @@ func connect(ctx context.Context, name resource.Name, conf *Config, logger golog
 	}
 
 	b.lines = make(chan string)
-	b.readThread()
+
+	b.activeBackgroundWorkers.Add(1)
+	utils.ManagedGo(b.readThread, b.activeBackgroundWorkers.Done)
 
 	ver, err := b.doSendReceive(ctx, "ver")
 	if err != nil {
