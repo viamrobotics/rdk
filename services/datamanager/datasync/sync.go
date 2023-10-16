@@ -29,6 +29,7 @@ var (
 	maxRetryInterval       = time.Hour
 )
 
+// CorruptedDir is a subdirectory of the capture directory that holds any files that could not be synced.
 const CorruptedDir = "corrupted"
 
 // Manager is responsible for enqueuing files in captureDir and uploading them to the cloud.
@@ -276,7 +277,7 @@ func exponentialRetry(cancelCtx context.Context, fn func(cancelCtx context.Conte
 }
 
 // isRetryableGRPCError returns true if we should retry syncing and otherwise
-// returns false so that the data gets moved to the corrupted data directory
+// returns false so that the data gets moved to the corrupted data directory.
 func isRetryableGRPCError(err error) bool {
 	errStatus := status.Convert(err)
 	return errStatus.Code() != codes.InvalidArgument
@@ -291,7 +292,7 @@ func moveCorruptedData(path, captureDir string) error {
 	}
 	newDir := filepath.Join(captureDir, CorruptedDir, filepath.Dir(relativePath))
 	if err := os.MkdirAll(newDir, 0o700); err != nil {
-		errors.Wrap(err, "error making new directory for corrupted data")
+		return errors.Wrap(err, "error making new directory for corrupted data")
 	}
 	newPath := filepath.Join(newDir, filepath.Base(path))
 	if err := os.Rename(path, newPath); err != nil {

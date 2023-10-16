@@ -105,9 +105,7 @@ type builtIn struct {
 	syncTicker          *clk.Ticker
 }
 
-var (
-	viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), ".viam", "capture")
-)
+var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), ".viam", "capture")
 
 // NewBuiltIn returns a new data manager service for the given robot.
 func NewBuiltIn(
