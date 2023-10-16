@@ -286,14 +286,17 @@ func isRetryableGRPCError(err error) bool {
 // moveCorruptedData takes any corrupted data in the captureDir and moves it
 // to a new subdirectory "corrupted" that will not be synced.
 func moveCorruptedData(path, captureDir string) error {
+	// Remove the captureDir part of the path to the corrupted data
 	relativePath, err := filepath.Rel(captureDir, path)
 	if err != nil {
 		return errors.Wrap(err, "error getting relative path of corrupted data")
 	}
+	// Create a new directory captureDir/corrupted/pathToFile
 	newDir := filepath.Join(captureDir, CorruptedDir, filepath.Dir(relativePath))
 	if err := os.MkdirAll(newDir, 0o700); err != nil {
 		return errors.Wrap(err, "error making new directory for corrupted data")
 	}
+	// Move the file from captureDir/pathToFile/file.ext to captureDir/corrupted/pathToFile/file.ext
 	newPath := filepath.Join(newDir, filepath.Base(path))
 	if err := os.Rename(path, newPath); err != nil {
 		return errors.Wrap(err, "error moving corrupted data capture to new directory")
