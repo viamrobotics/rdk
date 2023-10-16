@@ -24,6 +24,7 @@ import (
 	echopb "go.viam.com/api/component/testecho/v1"
 	robotpb "go.viam.com/api/robot/v1"
 	"go.viam.com/test"
+	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"go.viam.com/utils/testutils"
 	"google.golang.org/grpc"
@@ -199,13 +200,20 @@ func TestWebWithAuth(t *testing.T) {
 			options.Managed = tc.Managed
 			options.FQDN = tc.EntityName
 			options.LocalFQDN = primitive.NewObjectID().Hex()
-			apiKey := "sosecret"
+			legacyAPIKey := "sosecret"
+			apiKeyID1 := uuid.New().String()
+			apiKey1 := utils.RandomAlphaString(32)
+			apiKeyID2 := uuid.New().String()
+			apiKey2 := utils.RandomAlphaString(32)
 			locationSecrets := []string{"locsosecret", "locsec2"}
 			options.Auth.Handlers = []config.AuthHandlerConfig{
 				{
 					Type: rpc.CredentialsTypeAPIKey,
 					Config: rutils.AttributeMap{
-						"key": apiKey,
+						"key":     legacyAPIKey,
+						apiKeyID1: apiKey1,
+						apiKeyID2: apiKey2,
+						"keys":    []string{apiKeyID1, apiKeyID2},
 					},
 				},
 				{
@@ -234,7 +242,7 @@ func TestWebWithAuth(t *testing.T) {
 				_, err = rgrpc.Dial(context.Background(), addr, logger, rpc.WithAllowInsecureWithCredentialsDowngrade(),
 					rpc.WithEntityCredentials("wrong", rpc.Credentials{
 						Type:    rpc.CredentialsTypeAPIKey,
-						Payload: apiKey,
+						Payload: legacyAPIKey,
 					}))
 				test.That(t, err, test.ShouldNotBeNil)
 				test.That(t, err.Error(), test.ShouldContainSubstring, "invalid credentials")
@@ -260,7 +268,7 @@ func TestWebWithAuth(t *testing.T) {
 					rpc.WithAllowInsecureWithCredentialsDowngrade(),
 					rpc.WithEntityCredentials(entityName, rpc.Credentials{
 						Type:    rpc.CredentialsTypeAPIKey,
-						Payload: apiKey,
+						Payload: legacyAPIKey,
 					}),
 					rpc.WithForceDirectGRPC(),
 				)
@@ -317,6 +325,60 @@ func TestWebWithAuth(t *testing.T) {
 				test.That(t, arm1.Close(context.Background()), test.ShouldBeNil)
 				test.That(t, conn.Close(), test.ShouldBeNil)
 
+				_, err = rgrpc.Dial(context.Background(), addr, logger, rpc.WithAllowInsecureWithCredentialsDowngrade(),
+					rpc.WithEntityCredentials(apiKeyID1, rpc.Credentials{
+						Type:    rpc.CredentialsTypeAPIKey,
+						Payload: apiKey2,
+					}))
+				test.That(t, err, test.ShouldNotBeNil)
+				test.That(t, err.Error(), test.ShouldContainSubstring, "invalid credentials")
+
+				_, err = rgrpc.Dial(context.Background(), addr, logger, rpc.WithAllowInsecureWithCredentialsDowngrade(),
+					rpc.WithEntityCredentials(entityName, rpc.Credentials{
+						Type:    rpc.CredentialsTypeAPIKey,
+						Payload: apiKey1,
+					}))
+				test.That(t, err, test.ShouldNotBeNil)
+				test.That(t, err.Error(), test.ShouldContainSubstring, "invalid credentials")
+
+				conn, err = rgrpc.Dial(context.Background(), addr, logger,
+					rpc.WithAllowInsecureWithCredentialsDowngrade(),
+					rpc.WithEntityCredentials(apiKeyID1, rpc.Credentials{
+						Type:    rpc.CredentialsTypeAPIKey,
+						Payload: apiKey1,
+					}),
+					rpc.WithForceDirectGRPC(),
+				)
+				test.That(t, err, test.ShouldBeNil)
+				arm1, err = arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
+				test.That(t, err, test.ShouldBeNil)
+
+				arm1Position, err = arm1.EndPosition(ctx, nil)
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, arm1Position, test.ShouldResemble, pos)
+
+				test.That(t, arm1.Close(context.Background()), test.ShouldBeNil)
+				test.That(t, conn.Close(), test.ShouldBeNil)
+
+				conn, err = rgrpc.Dial(context.Background(), addr, logger,
+					rpc.WithAllowInsecureWithCredentialsDowngrade(),
+					rpc.WithEntityCredentials(apiKeyID2, rpc.Credentials{
+						Type:    rpc.CredentialsTypeAPIKey,
+						Payload: apiKey2,
+					}),
+					rpc.WithForceDirectGRPC(),
+				)
+				test.That(t, err, test.ShouldBeNil)
+				arm1, err = arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
+				test.That(t, err, test.ShouldBeNil)
+
+				arm1Position, err = arm1.EndPosition(ctx, nil)
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, arm1Position, test.ShouldResemble, pos)
+
+				test.That(t, arm1.Close(context.Background()), test.ShouldBeNil)
+				test.That(t, conn.Close(), test.ShouldBeNil)
+
 				if tc.EntityName != "" {
 					t.Run("can connect with external auth", func(t *testing.T) {
 						accessToken, err := signJWKBasedExternalAccessToken(
@@ -345,7 +407,7 @@ func TestWebWithAuth(t *testing.T) {
 					rpc.WithAllowInsecureWithCredentialsDowngrade(),
 					rpc.WithCredentials(rpc.Credentials{
 						Type:    rpc.CredentialsTypeAPIKey,
-						Payload: apiKey,
+						Payload: legacyAPIKey,
 					}),
 					rpc.WithForceDirectGRPC(),
 				)
@@ -586,6 +648,88 @@ func TestWebWithBadAuthHandlers(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "non-empty")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "api-key")
+	test.That(t, svc.Close(context.Background()), test.ShouldBeNil)
+}
+
+func TestWebWithOnlyNewAPIKeyAuthHandlers(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	ctx, injectRobot := setupRobotCtx(t)
+
+	svc := web.New(injectRobot, logger)
+
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+	apiKeyID1 := uuid.New().String()
+	apiKey1 := utils.RandomAlphaString(32)
+	apiKeyID2 := uuid.New().String()
+	apiKey2 := utils.RandomAlphaString(32)
+	options.Auth.Handlers = []config.AuthHandlerConfig{
+		{
+			Type: rpc.CredentialsTypeAPIKey,
+			Config: rutils.AttributeMap{
+				apiKeyID1: apiKey1,
+				apiKeyID2: apiKey2,
+				"keys":    []string{apiKeyID1, apiKeyID2},
+			},
+		},
+	}
+
+	err := svc.Start(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = rgrpc.Dial(context.Background(), addr, logger, rpc.WithAllowInsecureWithCredentialsDowngrade(),
+		rpc.WithEntityCredentials(apiKeyID1, rpc.Credentials{
+			Type:    rpc.CredentialsTypeAPIKey,
+			Payload: apiKey2,
+		}))
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid credentials")
+
+	_, err = rgrpc.Dial(context.Background(), addr, logger, rpc.WithAllowInsecureWithCredentialsDowngrade(),
+		rpc.WithEntityCredentials("something-different", rpc.Credentials{
+			Type:    rpc.CredentialsTypeAPIKey,
+			Payload: apiKey1,
+		}))
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid credentials")
+
+	conn, err := rgrpc.Dial(context.Background(), addr, logger,
+		rpc.WithAllowInsecureWithCredentialsDowngrade(),
+		rpc.WithEntityCredentials(apiKeyID1, rpc.Credentials{
+			Type:    rpc.CredentialsTypeAPIKey,
+			Payload: apiKey1,
+		}),
+		rpc.WithForceDirectGRPC(),
+	)
+	test.That(t, err, test.ShouldBeNil)
+	arm1, err := arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	arm1Position, err := arm1.EndPosition(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, arm1Position, test.ShouldResemble, pos)
+
+	test.That(t, arm1.Close(context.Background()), test.ShouldBeNil)
+	test.That(t, conn.Close(), test.ShouldBeNil)
+
+	conn, err = rgrpc.Dial(context.Background(), addr, logger,
+		rpc.WithAllowInsecureWithCredentialsDowngrade(),
+		rpc.WithEntityCredentials(apiKeyID2, rpc.Credentials{
+			Type:    rpc.CredentialsTypeAPIKey,
+			Payload: apiKey2,
+		}),
+		rpc.WithForceDirectGRPC(),
+	)
+	test.That(t, err, test.ShouldBeNil)
+	arm1, err = arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	arm1Position, err = arm1.EndPosition(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, arm1Position, test.ShouldResemble, pos)
+
+	test.That(t, arm1.Close(context.Background()), test.ShouldBeNil)
+	test.That(t, conn.Close(), test.ShouldBeNil)
+
 	test.That(t, svc.Close(context.Background()), test.ShouldBeNil)
 }
 
