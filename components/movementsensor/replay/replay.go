@@ -51,7 +51,7 @@ var (
 	model = resource.DefaultModelFamily.WithModel("replay")
 
 	// initializePropertiesTimeout defines the amount of time we allot to the attempt to initialize Properties.
-	initializePropertiesTimeout = 10 * time.Second
+	initializePropertiesTimeout = 180 * time.Second
 
 	// ErrEndOfDataset represents that the replay sensor has reached the end of the dataset.
 	ErrEndOfDataset = errors.New("reached end of dataset")
