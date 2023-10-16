@@ -11,16 +11,20 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-const useControlLoop = true
+const useControlLoop = false
 
 func setupControlLoops(sb *sensorBase) error {
-	// TODO: RSDK-5355 make control loop should be removed after testing
+	// TODO: RSDK-5355 useControlLoop bool should be removed after testing
 	if useControlLoop {
 		loop, err := control.NewLoop(sb.logger, controlLoopConfig, sb)
 		if err != nil {
 			return err
 		}
 		sb.loop = loop
+
+		if sb.loop != nil {
+			sb.loop.Start()
+		}
 	}
 
 	return nil
@@ -49,9 +53,6 @@ func (sb *sensorBase) SetVelocity(
 		// if we have a loop, let's use the SetState function to call the SetVelocity command
 		// through the control loop
 		sb.pollsensors(sensorCtx, extra)
-		if err := sb.loop.Start(); err != nil {
-			return err
-		}
 		return nil
 	}
 
@@ -111,6 +112,7 @@ func (sb *sensorBase) SetState(ctx context.Context, state []*control.Signal) err
 		return nil
 	}
 
+	sb.logger.Debug("setting state")
 	linvel := state[0].GetSignalValueAt(0)
 	angvel := state[1].GetSignalValueAt(0)
 

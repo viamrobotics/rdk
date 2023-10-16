@@ -186,9 +186,6 @@ func (sb *sensorBase) MoveStraight(
 	ctx, done := sb.opMgr.New(ctx)
 	defer done()
 	sb.setPolling(false)
-	if sb.loop != nil {
-		sb.loop.Stop()
-	}
 
 	return sb.controlledBase.MoveStraight(ctx, distanceMm, mmPerSec, extra)
 }
@@ -198,9 +195,6 @@ func (sb *sensorBase) SetPower(
 ) error {
 	sb.opMgr.CancelRunning(ctx)
 	sb.setPolling(false)
-	if sb.loop != nil {
-		sb.loop.Stop()
-	}
 
 	return sb.controlledBase.SetPower(ctx, linear, angular, extra)
 }
@@ -208,9 +202,6 @@ func (sb *sensorBase) SetPower(
 func (sb *sensorBase) Stop(ctx context.Context, extra map[string]interface{}) error {
 	sb.opMgr.CancelRunning(ctx)
 	sb.setPolling(false)
-	if sb.loop != nil {
-		sb.loop.Stop()
-	}
 
 	return sb.controlledBase.Stop(ctx, extra)
 }
