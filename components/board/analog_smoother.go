@@ -2,7 +2,6 @@ package board
 
 import (
 	"context"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -115,10 +114,6 @@ func (as *AnalogSmoother) Start(ctx context.Context) {
 			as.lastError.Store(&errValue{err != nil, err})
 			if err != nil {
 				if errors.Is(err, errStopReading) {
-					break
-				}
-				// If the serial port was closed by the board, stop the analog smoother.
-				if strings.Contains(err.Error(), "file already closed") {
 					break
 				}
 				as.logger.Infow("error reading analog", "error", err)

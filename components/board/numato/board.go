@@ -366,6 +366,10 @@ func (b *numatoBoard) Close(ctx context.Context) error {
 	}
 
 	b.activeBackgroundWorkers.Wait()
+
+	for _, analog := range b.analogs {
+		analog.Close(ctx)
+	}
 	return nil
 }
 
