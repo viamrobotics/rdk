@@ -43,7 +43,7 @@ func (s *Server) InstanceNames() []string {
 	return []string{}
 }
 
-// EnsureAuth is unsupported.
+// EnsureAuthed is unsupported.
 func (s *Server) EnsureAuthed(ctx context.Context) (context.Context, error) {
 	return nil, errors.New("EnsureAuthed is unsupported")
 }
