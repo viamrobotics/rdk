@@ -922,7 +922,7 @@ func TestResourceGraphMarkForRemoval(t *testing.T) {
 func TestResourceGraphClock(t *testing.T) {
 	g := NewGraph()
 
-	test.That(t, g.LastUpdatedTime(), test.ShouldEqual, 0)
+	test.That(t, g.CurrLogicalClockValue(), test.ShouldEqual, 0)
 
 	name1 := NewName(apiA, "a")
 	name2 := NewName(apiA, "b")
@@ -940,17 +940,17 @@ func TestResourceGraphClock(t *testing.T) {
 
 	res1 := &someResource{Named: name1.AsNamed()}
 	node1.SwapResource(res1, DefaultModelFamily.WithModel("foo"))
-	test.That(t, g.LastUpdatedTime(), test.ShouldEqual, 1)
+	test.That(t, g.CurrLogicalClockValue(), test.ShouldEqual, 1)
 	test.That(t, node1.UpdatedAt(), test.ShouldEqual, 1)
 	test.That(t, node2.UpdatedAt(), test.ShouldEqual, 0)
 	node1.SwapResource(res1, DefaultModelFamily.WithModel("foo"))
-	test.That(t, g.LastUpdatedTime(), test.ShouldEqual, 2)
+	test.That(t, g.CurrLogicalClockValue(), test.ShouldEqual, 2)
 	test.That(t, node1.UpdatedAt(), test.ShouldEqual, 2)
 
 	node2 = &GraphNode{}
 	test.That(t, g.AddNode(name2, node2), test.ShouldBeNil)
 	node2.SwapResource(res1, DefaultModelFamily.WithModel("foo"))
-	test.That(t, g.LastUpdatedTime(), test.ShouldEqual, 3)
+	test.That(t, g.CurrLogicalClockValue(), test.ShouldEqual, 3)
 	test.That(t, node1.UpdatedAt(), test.ShouldEqual, 2)
 	test.That(t, node2.UpdatedAt(), test.ShouldEqual, 3)
 }

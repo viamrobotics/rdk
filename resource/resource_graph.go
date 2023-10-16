@@ -23,7 +23,10 @@ type Graph struct {
 	children                resourceDependencies
 	parents                 resourceDependencies
 	transitiveClosureMatrix transitiveClosureMatrix
-	logicalClock            *atomic.Int64
+	// logicalClock keeps track of updates to the graph. Each GraphNode has a
+	// pointer to this logicalClock. Whenever SwapResource is called on a node
+	// (the resource updates), the logicalClock is incremented.
+	logicalClock *atomic.Int64
 }
 
 // NewGraph creates a new resource graph.
@@ -37,8 +40,8 @@ func NewGraph() *Graph {
 	}
 }
 
-// LastUpdatedTime returns the last logical clock time a resource updated.
-func (g *Graph) LastUpdatedTime() int64 {
+// CurrLogicalClockValue returns current the logical clock value.
+func (g *Graph) CurrLogicalClockValue() int64 {
 	return g.logicalClock.Load()
 }
 
@@ -273,7 +276,7 @@ func (g *Graph) addNode(node Name, nodeVal *GraphNode) error {
 		}
 		return val.replace(nodeVal)
 	}
-	nodeVal.setClock(g.logicalClock)
+	nodeVal.setGraphLogicalClock(g.logicalClock)
 	g.nodes[node] = nodeVal
 
 	if _, ok := g.transitiveClosureMatrix[node]; !ok {
