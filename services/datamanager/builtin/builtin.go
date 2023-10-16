@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"sync"
 	"time"
 
@@ -61,6 +62,10 @@ const defaultCaptureQueueSize = 250
 
 // Default bufio.Writer buffer size in bytes.
 const defaultCaptureBufferSize = 4096
+
+// Non-exhaustive list of characters to strip from file paths, since not allowed
+// on at least Windows and Darwin.
+const filePathReservedChars = ":"
 
 var clock = clk.New()
 
@@ -252,6 +257,7 @@ func (svc *builtIn) initializeOrUpdateCollector(
 	// Create a collector for this resource and method.
 	targetDir := filepath.Join(svc.captureDir, captureMetadata.GetComponentType(), captureMetadata.GetComponentName(),
 		captureMetadata.GetMethodName())
+	targetDir = strings.ReplaceAll(targetDir, filePathReservedChars, "_")
 	if err := os.MkdirAll(targetDir, 0o700); err != nil {
 		return nil, err
 	}
