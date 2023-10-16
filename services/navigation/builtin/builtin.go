@@ -140,7 +140,8 @@ func (conf *Config) Validate(path string) ([]string, error) {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "movement_sensor")
 	}
 
-	if err := conf.validateObstacleDetectors(path, deps); err != nil {
+	deps, err = conf.validateObstacleDetectors(path, deps)
+	if err != nil {
 		return nil, err
 	}
 

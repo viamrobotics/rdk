@@ -19,11 +19,11 @@ type builtIn struct {
 }
 
 // helper for validate when vision / media libraries are present
-func (conf *Config) validateObstacleDetectors(path string, deps []string) error {
+func (conf *Config) validateObstacleDetectors(path string, deps []string) ([]string, error) {
 	for range conf.ObstacleDetectors {
 		return utils.NewConfigValidationError(path, errors.New("obstacle detectors not supported on no_media builds of RDK"))
 	}
-	return nil
+	return deps, nil
 }
 
 type obstaclesTemp struct {

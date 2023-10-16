@@ -28,15 +28,15 @@ type builtIn struct {
 }
 
 // helper for validate when vision / media libraries are present.
-func (conf *Config) validateObstacleDetectors(path string, deps []string) error {
+func (conf *Config) validateObstacleDetectors(path string, deps []string) ([]string, error) {
 	for _, obstacleDetectorPair := range conf.ObstacleDetectors {
 		if obstacleDetectorPair.VisionServiceName == "" || obstacleDetectorPair.CameraName == "" {
-			return utils.NewConfigValidationError(path, errors.New("an obstacle detector is missing either a camera or vision service"))
+			return nil, utils.NewConfigValidationError(path, errors.New("an obstacle detector is missing either a camera or vision service"))
 		}
 		deps = append(deps, resource.NewName(vision.API, obstacleDetectorPair.VisionServiceName).String())
 		deps = append(deps, resource.NewName(camera.API, obstacleDetectorPair.CameraName).String())
 	}
-	return nil
+	return deps, nil
 }
 
 // struct that holds obstacle detector config on normal builds, degrades gracefully on no_media builds.
