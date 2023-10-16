@@ -4,6 +4,7 @@ package explore
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -125,6 +126,7 @@ type explore struct {
 	resource.Named
 	resource.TriviallyCloseable
 	fsService         framesystem.Service
+	frameSystem       referenceframe.FrameSystem
 	components        map[resource.Name]resource.Resource
 	visionService     vision.Service
 	camera            camera.Camera
@@ -228,7 +230,8 @@ func (ms *explore) planMove(
 		return nil, nil, err
 	}
 
-	kb, err := kinematicbase.WrapWithKinematics(ctx, b, ms.logger, nil, nil, kinematicsOptions)
+	p := referenceframe.NewPoseInFrame(componentName.Name, spatialmath.NewZeroPose())
+	kb, err := kinematicbase.WrapWithKinematics(ctx, b, ms.logger, motion.NewPointLocalizer(p), nil, kinematicsOptions)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -237,6 +240,12 @@ func (ms *explore) planMove(
 	if err = fs.ReplaceFrame(kb.Kinematics()); err != nil {
 		return nil, nil, err
 	}
+
+	ms.frameSystem = fs
+
+	tbFrame := fs.Frame("test_base")
+	fmt.Println("tbFrame.Name(): ")
+	fmt.Println("tbFrame.DoF(): ", tbFrame.DoF())
 
 	// get current position
 	inputs, err := kb.CurrentInputs(ctx)
@@ -252,7 +261,7 @@ func (ms *explore) planMove(
 
 	f := kb.Kinematics()
 
-	worldStateNew, err := referenceframe.NewWorldState([]*referenceframe.GeometriesInFrame{}, nil)
+	worldStateNew, err := referenceframe.NewWorldState(nil, nil)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -353,47 +362,67 @@ type checkResponse struct {
 	success bool
 }
 
-func (ms *explore) checkPartialPlan(ctx context.Context, plan motionplan.Plan, worldState *referenceframe.WorldState) {
+func (ms *explore) checkPartialPlan(ctx context.Context, plan motionplan.Plan, worldState *referenceframe.WorldState) (bool, error) {
 
-	ticker := time.NewTicker(10 * time.Millisecond)
+	ticker := time.NewTicker(10000 * time.Millisecond)
 	defer ticker.Stop()
 
 	// this check ensures that if the context is cancelled we always return early at the top of the loop
 	for ctx.Err() == nil {
+		fmt.Println("HERE")
 		select {
 		case <-ctx.Done():
 			ms.obstacleChan <- checkResponse{err: errors.New("context canceled")}
+			return false, errors.New("context canceled")
 		case <-ticker.C:
-			fs, err := ms.fsService.FrameSystem(ctx, nil)
-			if err != nil {
-				ms.obstacleChan <- checkResponse{err: err}
-			}
+			// fmt.Println("HERE2")
+			// fs, err := ms.fsService.FrameSystem(ctx, nil)
+			// if err != nil {
+			// 	ms.obstacleChan <- checkResponse{err: err}
+			// 	return false, err
+			// }
+			fmt.Println("HERE3")
 			pInFrame, err := (*ms.kb).CurrentPosition(ctx)
+			fmt.Println(pInFrame)
 			if err != nil {
 				ms.obstacleChan <- checkResponse{err: err}
 			}
+			//currentPose := spatialmath.NewZeroPose()
+			fmt.Println("HERE4")
 			currentInputs, err := (*ms.kb).CurrentInputs(ctx)
 			if err != nil {
 				ms.obstacleChan <- checkResponse{err: err}
+				return false, err
 			}
-
+			fmt.Println(currentInputs)
+			fmt.Println("HERE5")
 			worldState, err := ms.updateWorldState(ctx)
 			if err != nil {
 				ms.obstacleChan <- checkResponse{err: err}
+				return false, err
 			}
-
-			collisionPose, collision, err := motionplan.CheckPlan((*ms.kb).Kinematics(), plan, worldState, fs, pInFrame.Pose(), currentInputs, nil, ms.logger)
+			fmt.Println("HERE6")
+			fmt.Println("(*ms.kb).Kinematics().name(): ", (*ms.kb).Kinematics().Name())
+			fmt.Println("worldState ", worldState)
+			x, _ := (*ms.kb).Geometries(ctx, nil)
+			fmt.Println("BASE GEOMS [0].ToProtobuf():", x[0].ToProtobuf())
+			collisionPose, collision, err := motionplan.CheckPlan((*ms.kb).Kinematics(), plan, worldState, ms.frameSystem, pInFrame.Pose(), currentInputs, spatialmath.NewZeroPose(), ms.logger)
+			fmt.Println("Collision: ", collision)
+			fmt.Println("collisionPose: ", collisionPose)
 			if err != nil {
 				ms.obstacleChan <- checkResponse{err: err}
+				return false, err
 			}
 			// Check if problem is immediate
 			if collision {
 				if collisionPose.Distance(r3.Vector{X: 0, Y: 0, Z: 0}) < 100 {
-					ms.obstacleChan <- checkResponse{success: false, err: nil}
+					ms.obstacleChan <- checkResponse{success: true, err: nil}
+					return true, err
 				}
 			}
 		}
 	}
+	return false, nil
 }
 
 func (ms *explore) executePlan(ctx context.Context, plan motionplan.Plan) {
@@ -422,11 +451,11 @@ func (ms *explore) updateWorldState(ctx context.Context) (*referenceframe.WorldS
 	}
 
 	// Removing check of CurrentPosition due to nil Localizer
-	// currentPosition, err := (*ms.kb).CurrentPosition(ctx)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	currentPosition := spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 0})
+	currentPosition, err := (*ms.kb).CurrentPosition(ctx)
+	if err != nil {
+		return nil, err
+	}
+	//currentPosition := spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 0})
 
 	// get transform of camera to kinematic base origin
 	kinBaseOrigin := referenceframe.NewPoseInFrame((*ms.kb).Name().ShortName(), spatialmath.NewZeroPose())
@@ -436,17 +465,21 @@ func (ms *explore) updateWorldState(ctx context.Context) (*referenceframe.WorldS
 		cameraToBase = kinBaseOrigin
 	}
 
-	transformBy := spatialmath.Compose(currentPosition, cameraToBase.Pose())
+	transformBy := spatialmath.Compose(currentPosition.Pose(), cameraToBase.Pose())
 
 	geoms := []spatialmath.Geometry{}
-	for _, detection := range detections {
+	for i, detection := range detections {
 		geometry := detection.Geometry.Transform(transformBy)
-		geometry.SetLabel("transient" + detection.Geometry.Label())
+		label := ms.camera.Name().Name + "_transientObstacle_" + strconv.Itoa(i)
+		if geometry.Label() != "" {
+			label += "_" + geometry.Label()
+		}
+		geometry.SetLabel(label)
 		geoms = append(geoms, geometry)
 	}
 	// consider having geoms be from the frame of world
 	// to accomplish this we need to know the transform from the base to the camera
-	gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(ms.camera.Name().Name, geoms)}
+	gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)}
 	worldState, err := referenceframe.NewWorldState(gifs, nil)
 	if err != nil {
 		return nil, err

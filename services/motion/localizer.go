@@ -83,3 +83,18 @@ func (m *movementSensorLocalizer) CurrentPosition(ctx context.Context) (*referen
 	correction := spatialmath.Compose(m.calibration, alignEast)
 	return referenceframe.NewPoseInFrame(m.Name().Name, spatialmath.Compose(pose, correction)), nil
 }
+
+type pointLocalizer struct {
+	position *referenceframe.PoseInFrame
+}
+
+func NewPointLocalizer(p *referenceframe.PoseInFrame) Localizer {
+	return &pointLocalizer{position: p}
+}
+
+func (m *pointLocalizer) CurrentPosition(ctx context.Context) (*referenceframe.PoseInFrame, error) {
+	if m.position == nil {
+		return nil, errors.New("undefined position for localizer")
+	}
+	return m.position, nil
+}

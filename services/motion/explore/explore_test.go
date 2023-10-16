@@ -12,6 +12,7 @@ import (
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/base/kinematicbase"
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/framesystem"
@@ -93,8 +94,13 @@ func TestUpdatingWorldState(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 
-	obstaclePosition := r3.Vector{X: 0, Y: 10, Z: 0}
-	mockCam := createMockCamera(ctx, true, obstaclePosition, 100, nil)
+	obstaclePoints := []obstacleMetadata{
+		{position: r3.Vector{X: 0, Y: 10, Z: 0}, data: 100},
+		{position: r3.Vector{X: .1, Y: 10, Z: 0}, data: 100},
+		{position: r3.Vector{X: 0, Y: 10.1, Z: 0}, data: 100},
+		{position: r3.Vector{X: 0.1, Y: 10.1, Z: 0}, data: 100},
+	}
+	mockCam := createMockCamera(ctx, obstaclePoints, nil)
 	fakeBase, err := createFakeBase(ctx, logger)
 	test.That(t, err, test.ShouldBeNil)
 	ms, err := createNewExploreMotionService(t, ctx, logger, fakeBase, mockCam)
@@ -102,7 +108,7 @@ func TestUpdatingWorldState(t *testing.T) {
 	test.That(t, ms, test.ShouldNotBeNil)
 
 	msStruct := ms.(*explore)
-	dest := spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 1000, Z: 0})
+	dest := spatialmath.NewPoseFromPoint(r3.Vector{X: 50, Y: 1000, Z: 0})
 
 	planInputs, kb, err := createMotionPlanToDest(ctx, msStruct, dest)
 	test.That(t, err, test.ShouldBeNil)
@@ -115,18 +121,45 @@ func TestUpdatingWorldState(t *testing.T) {
 
 	worldState, err := msStruct.updateWorldState(ctx)
 	test.That(t, err, test.ShouldBeNil)
-	fmt.Printf("WorldState: %v\n", worldState)
-	fmt.Println(worldState.Transforms())
+
 	fs, err := msStruct.fsService.FrameSystem(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
-	fmt.Printf("Frame System: %v\n", fs)
-	fmt.Printf("Frame System Names: %v\n", fs.FrameNames())
+
 	obstacles, err := worldState.ObstaclesInWorldFrame(fs, nil)
 	test.That(t, err, test.ShouldBeNil)
-	for _, geo := range obstacles.Geometries() {
-		fmt.Println(geo)
-		test.That(t, obstaclePosition, test.ShouldResemble, geo.Pose().Point())
-	}
-	fmt.Printf("Obstacles: %v\n", obstacles)
 
+	// Confirm obstacles encompass all points
+	for i, obsPoint := range obstaclePoints {
+		fmt.Printf("%v: %v\n", i, obsPoint.position)
+		collisionDetected, err := geometriesContainsPoint(obstacles.Geometries(), obsPoint.position)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, collisionDetected, test.ShouldBeTrue)
+	}
+
+	var plan motionplan.Plan
+	for _, inputs := range planInputs {
+		input := make(map[string][]referenceframe.Input)
+		input[kb.Name().Name] = inputs
+		plan = append(plan, input)
+	}
+	fmt.Println("HI")
+	plan = createFakeMotionPlan((*msStruct.kb).Name().Name)
+	collision, err := msStruct.checkPartialPlan(ctx, plan, worldState) // Note: shouldnt need to return values here unless its for testingw
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, collision, test.ShouldBeTrue)
+
+	// Check response
+	resp := <-msStruct.obstacleChan
+	fmt.Println(resp)
+	test.That(t, resp.err, test.ShouldBeNil)
+	test.That(t, resp.success, test.ShouldBeTrue)
+}
+
+func createFakeMotionPlan(name string) motionplan.Plan {
+	plan := []map[string][]referenceframe.Input{
+		{name: []referenceframe.Input{{Value: 0}, {Value: 0}, {Value: 0}}},
+		{name: []referenceframe.Input{{Value: 0}, {Value: 0}, {Value: 100}}},
+		{name: []referenceframe.Input{{Value: 0}, {Value: 0}, {Value: 0}}},
+	}
+	return plan
 }

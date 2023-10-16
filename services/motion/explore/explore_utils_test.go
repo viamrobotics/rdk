@@ -2,6 +2,7 @@ package explore
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -30,14 +31,15 @@ func createFakeBase(ctx context.Context, logger golog.Logger) (base.Base, error)
 	return baseFake.NewBase(ctx, nil, fakeBaseCfg, logger)
 }
 
-func createMockCamera(ctx context.Context, isObstacle bool, obstaclePose r3.Vector, obstacleProb int, expectedError error) camera.Camera {
+func createMockCamera(ctx context.Context, obstacles []obstacleMetadata, expectedError error) camera.Camera {
 	mockCamera := &inject.Camera{}
 
 	mockCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		pc := pointcloud.New()
-		err := pc.Set(obstaclePose, pointcloud.NewValueData(obstacleProb))
-		if err != nil {
-			return nil, expectedError
+		for _, obsData := range obstacles {
+			if err := pc.Set(obsData.position, pointcloud.NewValueData(obsData.data)); err != nil {
+				return nil, expectedError
+			}
 		}
 		return pc, expectedError
 	}
@@ -45,21 +47,38 @@ func createMockCamera(ctx context.Context, isObstacle bool, obstaclePose r3.Vect
 }
 
 func createMockVisionService(ctx context.Context, cam camera.Camera, expectedError error) vSvc.Service {
-	mockVisionService := &inject.VisionService{}
 
+	mockVisionService := &inject.VisionService{}
 	mockVisionService.GetObjectPointCloudsFunc = func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*vision.Object, error) {
-		pc, err := cam.NextPointCloud(ctx)
+		obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 10, Z: 0})
+		box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{X: 10, Y: 10, Z: 10}, "test-case-2")
 		if err != nil {
-			return nil, expectedError
+			return nil, err
 		}
-		vObj, err := vision.NewObject(pc)
+
+		detection, err := vision.NewObjectWithLabel(pointcloud.New(), "test-case-2-detection", box.ToProtobuf())
 		if err != nil {
-			return nil, expectedError
+			return nil, err
 		}
-		return []*vision.Object{vObj}, expectedError
+
+		return []*vision.Object{detection}, nil
 	}
 	return mockVisionService
 }
+
+// mockVisionService.GetObjectPointCloudsFunc = func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*vision.Object, error) {
+// 	pc, err := cam.NextPointCloud(ctx)
+// 	if err != nil {
+// 		return nil, expectedError
+// 	}
+// 	vObj, err := vision.NewObject(pc)
+// 	if err != nil {
+// 		return nil, expectedError
+// 	}
+// 	fmt.Println("Geodude: ", vObj.Geometry.Pose().Point())
+// 	return []*vision.Object{vObj}, expectedError
+// }
+// return mockVisionService
 
 func createFrameSystemService(
 	ctx context.Context,
@@ -106,4 +125,34 @@ func createCameraLink(t *testing.T, camName string) *referenceframe.LinkInFrame 
 		camSphere,
 	)
 	return baseLink
+}
+
+type obstacleMetadata struct {
+	position r3.Vector
+	data     int
+}
+
+func geometriesContainsPoint(geometries []spatialmath.Geometry, point r3.Vector) (bool, error) {
+	var collisionDetected bool
+	fmt.Printf("# of geos: %v\n", len(geometries))
+	for _, geo := range geometries {
+		fmt.Println(geo.Pose().Point())
+		fmt.Println(geo)
+		pointGeoCfg := spatialmath.GeometryConfig{
+			Type:              spatialmath.BoxType,
+			TranslationOffset: point,
+		}
+		pointGeo, err := pointGeoCfg.ParseConfig()
+		if err != nil {
+			return false, err
+		}
+		collides, err := geo.CollidesWith(pointGeo)
+		if err != nil {
+			return false, err
+		}
+		if collides {
+			collisionDetected = true
+		}
+	}
+	return collisionDetected, nil
 }
