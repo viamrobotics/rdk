@@ -308,7 +308,7 @@ func (svc *builtIn) initSyncer(ctx context.Context) error {
 
 	client := v1.NewDataSyncServiceClient(conn)
 
-	syncer, err := svc.syncerConstructor(identity, client, svc.logger)
+	syncer, err := svc.syncerConstructor(identity, client, svc.logger, svc.captureDir)
 	if err != nil {
 		return errors.Wrap(err, "failed to initialize new syncer")
 	}
@@ -517,6 +517,10 @@ func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil
+		}
+		// Do not sync the files in the corrupted data directory.
+		if info.IsDir() && info.Name() == datasync.FailedDir {
+			return filepath.SkipDir
 		}
 		if info.IsDir() {
 			return nil
