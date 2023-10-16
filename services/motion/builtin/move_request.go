@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"strconv"
 	"strings"
 	"sync/atomic"
 
@@ -136,9 +137,13 @@ func (mr *moveRequest) obstaclesIntersectPlan(ctx context.Context, waypoints [][
 			// There is no need to append the new detections to the existing worldstate.
 			// We can safely build from scratch without excluding any valuable information.
 			geoms := []spatialmath.Geometry{}
-			for _, detection := range detections {
+			for i, detection := range detections {
 				geometry := detection.Geometry.Transform(transformBy)
-				geometry.SetLabel("transient" + detection.Geometry.Label())
+				label := camName.Name + "_transientObstacle_" + strconv.Itoa(i)
+				if geometry.Label() != "" {
+					label += "_" + geometry.Label()
+				}
+				geometry.SetLabel(label)
 				geoms = append(geoms, geometry)
 			}
 			gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)}
