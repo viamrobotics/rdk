@@ -3,6 +3,7 @@ package mynavigation
 
 import (
 	"context"
+	"errors"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -13,6 +14,8 @@ import (
 	"go.viam.com/rdk/services/navigation"
 	"go.viam.com/rdk/spatialmath"
 )
+
+var errUnimplemented = errors.New("unimplemented")
 
 // Model is the full model definition.
 var Model = resource.NewModel("acme", "demo", "mynavigation")
@@ -120,6 +123,10 @@ func (svc *navSvc) RemoveWaypoint(ctx context.Context, id primitive.ObjectID, ex
 	return nil
 }
 
-func (svc *navSvc) GetObstacles(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoObstacle, error) {
-	return []*spatialmath.GeoObstacle{}, nil
+func (svc *navSvc) Obstacles(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoObstacle, error) {
+	return []*spatialmath.GeoObstacle{}, errUnimplemented
+}
+
+func (svc *navSvc) Paths(ctx context.Context, extra map[string]interface{}) ([]*navigation.Path, error) {
+	return []*navigation.Path{}, errUnimplemented
 }
