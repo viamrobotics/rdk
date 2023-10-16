@@ -78,7 +78,7 @@ type Config struct {
 	ScheduledSyncDisabled  bool                             `json:"sync_disabled"`
 	Tags                   []string                         `json:"tags"`
 	ResourceConfigs        []*datamanager.DataCaptureConfig `json:"resource_configs"`
-	FileLastModifiedMillis int                              `json:"file_last_modified_seconds"`
+	FileLastModifiedMillis int                              `json:"file_last_modified_millis"`
 }
 
 // Validate returns components which will be depended upon weakly due to the above matcher.
@@ -525,7 +525,7 @@ func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 		if info.IsDir() {
 			return nil
 		}
-		// If a file was modified within the past lastModifiedSeconds, do not sync it (data
+		// If a file was modified within the past lastModifiedMillis, do not sync it (data
 		// may still be being written).
 		timeSinceMod := clock.Since(info.ModTime())
 		// When using a mock clock in tests, this can be negative since the file system will still use the system clock.
