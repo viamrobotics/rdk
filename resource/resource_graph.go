@@ -46,16 +46,18 @@ func (g *Graph) CurrLogicalClockValue() int64 {
 }
 
 func (g *Graph) getAllChildrenOf(node Name) []Name {
-	out := make([]Name, 0)
-	for childName := range g.children[node] {
+	children := g.children[node]
+	out := make([]Name, 0, len(children))
+	for childName := range children {
 		out = append(out, childName)
 	}
 	return out
 }
 
 func (g *Graph) getAllParentOf(node Name) []Name {
-	out := make([]Name, 0)
-	for parentName := range g.parents[node] {
+	parents := g.parents[node]
+	out := make([]Name, 0, len(parents))
+	for parentName := range parents {
 		out = append(out, parentName)
 	}
 	return out
