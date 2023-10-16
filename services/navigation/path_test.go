@@ -43,16 +43,23 @@ func TestPaths(t *testing.T) {
 	_, err = navigation.ProtoSliceToPaths(nilSlice)
 	test.That(t, err, test.ShouldBeError, errors.New("cannot convert nil path"))
 
-	// test converting pb path with nil geoPoints
+	// test converting slice of pb path with nil geoPoints
 	malformedPath := []*pb.Path{
 		{
 			DestinationWaypointId: "malformed",
 			Geopoints:             nil,
 		},
 	}
-	malformedPathConverted, err := navigation.ProtoSliceToPaths(malformedPath)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(malformedPathConverted), test.ShouldEqual, 1)
-	test.That(t, len(malformedPathConverted[0].GeoPoints()), test.ShouldEqual, 0)
-	test.That(t, malformedPathConverted[0].DestinationWaypointID(), test.ShouldEqual, "malformed")
+	_, err = navigation.ProtoSliceToPaths(malformedPath)
+	test.That(t, err, test.ShouldBeError, errors.New("cannot instantiate path with no geoPoints"))
+
+	// test converting slice of pb path with nil geoPoints
+	malformedPath = []*pb.Path{
+		{
+			DestinationWaypointId: "",
+			Geopoints:             []*commonpb.GeoPoint{{Latitude: 0, Longitude: 0}},
+		},
+	}
+	_, err = navigation.ProtoSliceToPaths(malformedPath)
+	test.That(t, err, test.ShouldBeError, errors.New("cannot instantiate path with no destinationWaypointID"))
 }

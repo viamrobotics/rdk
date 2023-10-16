@@ -92,7 +92,8 @@ func TestClient(t *testing.T) {
 
 	var receviedPaths []*navigation.Path
 	workingNavigationService.PathsFunc = func(ctx context.Context, extra map[string]interface{}) ([]*navigation.Path, error) {
-		path, _ := navigation.NewPath("test", []*geo.Point{geo.NewPoint(0, 0)})
+		path, err := navigation.NewPath("test", []*geo.Point{geo.NewPoint(0, 0)})
+		test.That(t, err, test.ShouldBeNil)
 		receviedPaths = []*navigation.Path{path}
 		return receviedPaths, nil
 	}

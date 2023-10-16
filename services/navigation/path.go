@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	errNilSlice = errors.New("cannot convert nil slice")
+	errNilSlice = errors.New("cannot convert empty slice")
 	errNilPath  = errors.New("cannot convert nil path")
 )
 
@@ -22,8 +22,11 @@ type Path struct {
 
 // NewPath constructs a Path from a slice of geo.Points and ID.
 func NewPath(id string, geoPoints []*geo.Point) (*Path, error) {
-	if geoPoints == nil {
+	if len(geoPoints) == 0 {
 		return nil, errors.New("cannot instantiate path with no geoPoints")
+	}
+	if id == "" {
+		return nil, errors.New("cannot instantiate path with no destinationWaypointID")
 	}
 	return &Path{
 		destinationWaypointID: id,
@@ -43,9 +46,6 @@ func (p *Path) GeoPoints() []*geo.Point {
 
 // PathSliceToProto converts a slice of Path into an equivalent Protobuf message.
 func PathSliceToProto(paths []*Path) ([]*pb.Path, error) {
-	if paths == nil {
-		return nil, errNilSlice
-	}
 	var pbPaths []*pb.Path
 	for _, path := range paths {
 		pbPath, err := PathToProto(path)
@@ -76,7 +76,7 @@ func PathToProto(path *Path) (*pb.Path, error) {
 
 // ProtoSliceToPaths converts a slice of Path Protobuf messages into an equivalent struct.
 func ProtoSliceToPaths(pbPaths []*pb.Path) ([]*Path, error) {
-	if pbPaths == nil {
+	if len(pbPaths) == 0 {
 		return nil, errNilSlice
 	}
 	var paths []*Path
