@@ -120,7 +120,6 @@ func (as *AnalogSmoother) Start(ctx context.Context) {
 				// If the serial port was closed by the board, stop the analog smoother.
 				if strings.Contains(err.Error(), "file already closed") {
 					break
-
 				}
 				as.logger.Infow("error reading analog", "error", err)
 				continue

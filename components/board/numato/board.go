@@ -189,7 +189,7 @@ func (b *numatoBoard) doSendReceive(ctx context.Context, msg string) (string, er
 	}
 }
 
-func (b *numatoBoard) readThread(ctx context.Context) {
+func (b *numatoBoard) readThread() {
 	debug := true
 
 	in := bufio.NewReader(b.port)
