@@ -195,14 +195,12 @@ func (sb *sensorBase) SetPower(
 ) error {
 	sb.opMgr.CancelRunning(ctx)
 	sb.setPolling(false)
-
 	return sb.controlledBase.SetPower(ctx, linear, angular, extra)
 }
 
 func (sb *sensorBase) Stop(ctx context.Context, extra map[string]interface{}) error {
 	sb.opMgr.CancelRunning(ctx)
 	sb.setPolling(false)
-
 	return sb.controlledBase.Stop(ctx, extra)
 }
 
