@@ -367,7 +367,7 @@ func (c *viamClient) downloadFile(ctx context.Context, filepath, url string) err
 
 	// HTTP Requests to app require auth headers, varies by auth mechanism.
 	if token, isToken := c.conf.Auth.(*token); isToken {
-		getReq.Header.Set("Authorization", "Bearer " + token.AccessToken)
+		getReq.Header.Set("Authorization", "Bearer "+token.AccessToken)
 	} else if APIKey, isAPIKey := c.conf.Auth.(*apiKey); isAPIKey {
 		getReq.Header.Set("key_id", APIKey.KeyID)
 		getReq.Header.Set("key", APIKey.KeyCrypto)
