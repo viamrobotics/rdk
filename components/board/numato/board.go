@@ -113,7 +113,6 @@ type numatoBoard struct {
 	sent                    map[string]bool
 	sentMu                  sync.Mutex
 	activeBackgroundWorkers sync.WaitGroup
-	cancel                  func()
 }
 
 func (b *numatoBoard) addToSent(msg string) {
@@ -415,14 +414,11 @@ func connect(ctx context.Context, name resource.Name, conf *Config, logger golog
 		return nil, err
 	}
 
-	cancelCtx, cancel := context.WithCancel(context.Background())
-
 	b := &numatoBoard{
 		Named:  name.AsNamed(),
 		pins:   pins,
 		port:   device,
 		logger: logger,
-		cancel: cancel,
 	}
 
 	b.analogs = map[string]board.AnalogReader{}
@@ -432,7 +428,7 @@ func connect(ctx context.Context, name resource.Name, conf *Config, logger golog
 	}
 
 	b.lines = make(chan string)
-	b.readThread(cancelCtx)
+	b.readThread()
 
 	ver, err := b.doSendReceive(ctx, "ver")
 	if err != nil {
