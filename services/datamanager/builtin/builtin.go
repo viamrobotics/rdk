@@ -514,6 +514,7 @@ func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 		if err != nil {
 			return nil
 		}
+		// Do not sync the files in the corrupted data directory.
 		if info.IsDir() && info.Name() == datasync.CorruptedDir {
 			return filepath.SkipDir
 		}

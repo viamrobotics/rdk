@@ -275,11 +275,15 @@ func exponentialRetry(cancelCtx context.Context, fn func(cancelCtx context.Conte
 	}
 }
 
+// isRetryableGRPCError returns true if we should retry syncing and otherwise
+// returns false so that the data gets moved to the corrupted data directory
 func isRetryableGRPCError(err error) bool {
 	errStatus := status.Convert(err)
 	return errStatus.Code() != codes.InvalidArgument
 }
 
+// moveCorruptedData takes any corrupted data in the captureDir and moves it
+// to a new subdirectory "corrupted" that will not be synced.
 func moveCorruptedData(path, captureDir string) error {
 	relativePath, err := filepath.Rel(captureDir, path)
 	if err != nil {
