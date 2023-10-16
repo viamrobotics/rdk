@@ -197,6 +197,10 @@ func (b *numatoBoard) readThread(ctx context.Context) {
 	b.activeBackgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
 		for {
+			if atomic.LoadInt32(&b.closed) == 1 {
+				close(b.lines)
+				return
+			}
 			line, err := in.ReadString('\n')
 			if err != nil {
 				if atomic.LoadInt32(&b.closed) == 1 {
@@ -352,17 +356,16 @@ func (b *numatoBoard) WriteAnalog(ctx context.Context, pin string, value int32, 
 }
 
 func (b *numatoBoard) Close(ctx context.Context) error {
-	b.mu.Lock()
-	defer b.mu.Unlock()
 	atomic.AddInt32(&b.closed, 1)
-	fmt.Println("closing")
-	if err := b.port.Close(); err != nil {
-		fmt.Println("error closing")
+
+	// Send a serial command so the goroutine doesn't get stuck trying to read a string after the port is closed.
+	_, err := b.doSendReceive(ctx, "ver")
+	if err != nil {
 		return err
 	}
-	fmt.Println("port closed")
-
-	//_ = <-b.lines
+	if err := b.port.Close(); err != nil {
+		return err
+	}
 
 	b.activeBackgroundWorkers.Wait()
 	return nil
