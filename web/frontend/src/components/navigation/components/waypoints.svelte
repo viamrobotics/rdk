@@ -1,7 +1,7 @@
 <script lang='ts'>
 
 import { type MapMouseEvent } from 'maplibre-gl';
-import type { ServiceError } from '@viamrobotics/sdk'
+import type { ServiceError } from '@viamrobotics/sdk';
 import { notify } from '@viamrobotics/prime';
 import { useMapLibre, MapLibreMarker } from '@viamrobotics/prime-blocks';
 import { tab } from '../stores';
@@ -20,7 +20,7 @@ const handleAddMarker = async (event: MapMouseEvent) => {
   try {
     await addWaypoint(event.lngLat);
   } catch (error_) {
-    notify.danger((error_ as ServiceError).message)
+    notify.danger((error_ as ServiceError).message);
   }
 };
 
