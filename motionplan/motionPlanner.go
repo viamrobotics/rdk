@@ -454,23 +454,32 @@ func CheckPlan(
 	if err != nil {
 		return r3.Vector{}, false, err
 	}
-
-	// construct planager
+	fmt.Println("BYE")
+	// construct planaer
 	sfPlanner, err := newPlanManager(sf, fs, logger, defaultRandomSeed)
 	if err != nil {
 		return r3.Vector{}, false, err
 	}
 
 	// convert plan into nodes
+	fmt.Println("plan")
+	for _, p := range plan {
+		fmt.Printf("p: %v\n", p)
+	}
 	planNodes, err := sf.planToNodes(plan)
 	if err != nil {
 		return r3.Vector{}, false, err
+	}
+	fmt.Println("plan nodes")
+	for _, pn := range planNodes {
+		fmt.Printf("pn Q: %v\n", pn.Q())
+		fmt.Printf("pn Pose: %v\n", pn.Pose().Point())
 	}
 
 	// This should be done for any plan whose configurations are specified in relative terms rather than absolute ones.
 	// Currently this is only TP-space, so we check if the PTG length is >0.
 	// The solver frame will have had its PTGs filled in the newPlanManager() call, if applicable.
-	relative := len(sf.PTGSolvers()) > 0
+	relative := false //len(sf.PTGSolvers()) > 0
 
 	if relative {
 		// get pose of robot along the current trajectory it is executing
@@ -490,35 +499,48 @@ func CheckPlan(
 			return r3.Vector{}, false, err
 		}
 	}
+	fmt.Println("BYE1")
 	// adjust planNodes by the errorState
-	planNodes = transformNodes(planNodes, errorState)
-
+	if errorState != nil {
+		planNodes = transformNodes(planNodes, errorState)
+	}
+	fmt.Println("BYE121")
 	// pre-pend node with current position of robot to planNodes
 	// Note that currentPosition is assumed to have already accounted for the errorState
 	planNodes = append([]node{&basicNode{pose: currentPosition, q: currentInputs}}, planNodes...)
-
+	fmt.Println("BYE23232")
+	fmt.Println("		worldState2: ", worldState)
 	// create constraints
 	if sfPlanner.planOpts, err = sfPlanner.plannerSetupFromMoveRequest(
 		currentPosition,                    // starting pose
 		planNodes[len(planNodes)-1].Pose(), // goalPose
-		plan[0],                            // starting configuration
+		sf.sliceToMap(currentInputs),       // starting configuration
 		worldState,
 		nil, // no pb.Constraints
 		nil, // no plannOpts
 	); err != nil {
 		return r3.Vector{}, false, err
 	}
-
+	fmt.Println("BYE2")
 	// go through plan and check that we can move from plan[i] to plan[i+1]
 	for i := 0; i < len(planNodes)-1; i++ {
+		fmt.Println(i)
 		currentPose := planNodes[i].Pose()
 		nextPose := planNodes[i+1].Pose()
 		startConfiguration := planNodes[i].Q()
 		endConfiguration := planNodes[i+1].Q()
-
+		fmt.Println("plan nodes")
+		for _, pn := range planNodes {
+			fmt.Printf("pn Q: %v\n", pn.Q())
+			fmt.Printf("pn Pose: %v\n", pn.Pose().Point())
+		}
+		fmt.Printf("StartPosition: %v\n", startConfiguration)
+		fmt.Printf("EndPosition: %v\n", endConfiguration)
+		fmt.Println("BYE5")
 		// If we are working with a PTG plan we redefine the startConfiguration in terms of the endConfiguration.
 		// This allows us the properly interpolate along the same arc family and sub-arc within that family.
 		if relative {
+			fmt.Println("set start conf")
 			startConfiguration = []frame.Input{
 				{Value: endConfiguration[0].Value}, {Value: endConfiguration[1].Value}, {Value: 0},
 			}
@@ -530,10 +552,16 @@ func CheckPlan(
 			EndConfiguration:   endConfiguration,
 			Frame:              sf,
 		}
+		fmt.Printf("Segment: %v\n", segment)
+		fmt.Printf("StartPosition: %v\n", segment.StartPosition.Point())
+		fmt.Printf("EndPosition: %v\n", segment.EndPosition.Point())
+		fmt.Printf("sf: %v\n", segment.Frame)
+
 		interpolatedConfigurations, err := interpolateSegment(segment, sfPlanner.planOpts.Resolution)
 		if err != nil {
 			return r3.Vector{}, false, err
 		}
+		fmt.Println("BYE212")
 		for _, interpConfig := range interpolatedConfigurations {
 			poseInPath, err := sf.Transform(interpConfig)
 			if err != nil {
@@ -550,12 +578,16 @@ func CheckPlan(
 			} else {
 				poseInPath = spatialmath.Compose(poseInPath, errorState)
 			}
+			fmt.Println(" ")
+			fmt.Println("poseInPath: ", poseInPath.Point())
 
 			modifiedSegment := &ik.State{Frame: sf, Position: poseInPath}
 			if isValid, _ := sfPlanner.planOpts.CheckStateConstraints(modifiedSegment); !isValid {
+				fmt.Println("chicken dinner")
 				return currentPose.Point(), true, fmt.Errorf("found collision between positions %v and %v", currentPose.Point(), nextPose.Point())
 			}
 		}
 	}
+	fmt.Println("loser")
 	return r3.Vector{}, false, nil
 }

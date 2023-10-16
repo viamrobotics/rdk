@@ -2,6 +2,7 @@ package motionplan
 
 import (
 	"errors"
+	"fmt"
 
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/arm/v1"
@@ -264,7 +265,10 @@ func (sf *solverFrame) movingFrame(name string) bool {
 func (sf *solverFrame) mapToSlice(inputMap map[string][]frame.Input) ([]frame.Input, error) {
 	var inputs []frame.Input
 	for _, f := range sf.frames {
+		//fmt.Println("do we even enter this loop")
 		input, err := frame.GetFrameInputs(f, inputMap)
+		//fmt.Println("f.Name(): ", f.Name())
+		//fmt.Println("input to append: ", input)
 		if err != nil {
 			return nil, err
 		}
@@ -299,6 +303,7 @@ func (sf *solverFrame) AlmostEquals(otherFrame frame.Frame) bool {
 func (sf solverFrame) planToNodes(plan Plan) ([]node, error) {
 	planNodes := make([]node, 0, len(plan))
 	for _, step := range plan {
+		fmt.Println("step: ", step)
 		stepConfig, err := sf.mapToSlice(step)
 		if err != nil {
 			return nil, err

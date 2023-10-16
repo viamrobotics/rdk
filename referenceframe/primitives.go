@@ -68,6 +68,8 @@ type InputEnabled interface {
 // inputs. For example, setting by to 0.5 will return the inputs halfway between the from/to values, and 0.25 would
 // return one quarter of the way from "from" to "to".
 func InterpolateInputs(from, to []Input, by float64) []Input {
+	//fmt.Printf("from: %v\n", from)
+	//fmt.Printf("to: %v\n", to)
 	var newVals []Input
 	for i, j1 := range from {
 		newVals = append(newVals, Input{j1.Value + ((to[i].Value - j1.Value) * by)})
@@ -79,6 +81,7 @@ func InterpolateInputs(from, to []Input, by float64) []Input {
 func GetFrameInputs(frame Frame, inputMap map[string][]Input) ([]Input, error) {
 	var input []Input
 	// Get frame inputs if necessary
+	//fmt.Println("len(frame.DoF()): ", len(frame.DoF()))
 	if len(frame.DoF()) > 0 {
 		if _, ok := inputMap[frame.Name()]; !ok {
 			return nil, fmt.Errorf("no positions provided for frame with name %s", frame.Name())
