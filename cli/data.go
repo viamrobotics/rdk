@@ -19,9 +19,10 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 	datapb "go.viam.com/api/app/data/v1"
-	"go.viam.com/rdk/services/datamanager/datacapture"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/timestamppb"
+
+	"go.viam.com/rdk/services/datamanager/datacapture"
 )
 
 const (
@@ -393,9 +394,6 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 	}
 	return nil
 }
-
-// non-exhaustive list of characters to strip from filenames
-const filePathReservedChars = ":"
 
 // transform datum's filename to a destination path on this computer.
 func filenameForDownload(meta *datapb.BinaryMetadata) string {
