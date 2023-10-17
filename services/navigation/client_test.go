@@ -90,6 +90,14 @@ func TestClient(t *testing.T) {
 		return nil
 	}
 
+	var receviedPaths []*navigation.Path
+	workingNavigationService.PathsFunc = func(ctx context.Context, extra map[string]interface{}) ([]*navigation.Path, error) {
+		path, err := navigation.NewPath("test", []*geo.Point{geo.NewPoint(0, 0)})
+		test.That(t, err, test.ShouldBeNil)
+		receviedPaths = []*navigation.Path{path}
+		return receviedPaths, nil
+	}
+
 	failingNavigationService.ModeFunc = func(ctx context.Context, extra map[string]interface{}) (navigation.Mode, error) {
 		return navigation.ModeManual, errors.New("failure to retrieve mode")
 	}
@@ -113,6 +121,9 @@ func TestClient(t *testing.T) {
 	failingNavigationService.RemoveWaypointFunc = func(ctx context.Context, id primitive.ObjectID, extra map[string]interface{}) error {
 		receivedFailingID = id
 		return errors.New("failure to remove waypoint")
+	}
+	failingNavigationService.PathsFunc = func(ctx context.Context, extra map[string]interface{}) ([]*navigation.Path, error) {
+		return nil, errors.New("unimplemented")
 	}
 
 	workingSvc, err := resource.NewAPIResourceCollection(navigation.API, map[resource.Name]navigation.Service{
@@ -187,6 +198,12 @@ func TestClient(t *testing.T) {
 		test.That(t, receivedPoint, test.ShouldResemble, point)
 		test.That(t, extraOptions, test.ShouldResemble, extra)
 
+		// test Paths
+		ctx := context.Background()
+		paths, err := workingNavClient.Paths(ctx, nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, paths, test.ShouldResemble, receviedPaths)
+
 		// test do command
 		workingNavigationService.DoCommandFunc = testutils.EchoFunc
 		resp, err := workingNavClient.DoCommand(context.Background(), testutils.TestCommand)
@@ -260,6 +277,11 @@ func TestClient(t *testing.T) {
 		err = failingNavClient.AddWaypoint(context.Background(), point, map[string]interface{}{})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, receivedFailingPoint, test.ShouldResemble, point)
+
+		// test Paths
+		paths, err := failingNavClient.Paths(context.Background(), nil)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, paths, test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 
