@@ -340,8 +340,6 @@ func (r *localRobot) Status(ctx context.Context, resourceNames []resource.Name) 
 					return nil, errors.Wrapf(err, "failed to get status from %q", name)
 				}
 			}
-			r.mu.Lock()
-			r.manager.resources.Node(name)
 			resourceStatus = robot.Status{
 				Name:             name,
 				LastReconfigured: lastReconfiguredMap[name],

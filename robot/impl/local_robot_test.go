@@ -260,6 +260,11 @@ func TestConfigRemote(t *testing.T) {
 
 	for idx := 0; idx < expectedStatusLength; idx++ {
 		test.That(t, statuses[idx].Status, test.ShouldResemble, map[string]interface{}{})
+		// Assert that last reconfigured values are within last 5s (remote
+		// recently configured all three resources).
+		lr := statuses[idx].LastReconfigured
+		test.That(t, lr, test.ShouldHappenBetween,
+			time.Now().Add(-5*time.Second), time.Now())
 	}
 
 	statuses, err = r2.Status(
