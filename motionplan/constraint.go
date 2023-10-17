@@ -95,6 +95,7 @@ type ConstraintHandler struct {
 // -- if failing, a string naming the failed constraint.
 func (c *ConstraintHandler) CheckStateConstraints(state *ik.State) (bool, string) {
 	for name, cFunc := range c.stateConstraints {
+		fmt.Println("cFunc: ", cFunc)
 		pass := cFunc(state)
 		if !pass {
 			return false, name
@@ -330,12 +331,22 @@ func newCollisionConstraint(
 	reportDistances bool,
 ) (StateConstraint, error) {
 	// create the reference collisionGraph
+	fmt.Println("newCollisionConstraint")
 	zeroCG, err := newCollisionGraph(moving, static, nil, true)
 	if err != nil {
 		return nil, err
 	}
 	for _, specification := range collisionSpecifications {
 		zeroCG.addCollisionSpecification(specification)
+	}
+	fmt.Println("# of moving geometries ", len(moving))
+	for i, m := range moving {
+		fmt.Printf("%v - MOVING OBS: %v | %v\n", i, m, m.Pose().Point())
+	}
+	fmt.Println("# of static geometries ", len(static))
+
+	for j, s := range moving {
+		fmt.Printf("%v - STATIC OBS: %v | %v \n", j, s, s.Pose().Point())
 	}
 
 	// create constraint from reference collision graph
@@ -360,13 +371,16 @@ func newCollisionConstraint(
 				transformedGeo := geom.Transform(state.Position)
 				fmt.Println("the position of the base 'transformedGeo': ", transformedGeo.Pose().Point())
 				internalGeoms = append(internalGeoms, transformedGeo)
+				fmt.Println("internalGeoms")
 			}
 		default:
 			return false
 		}
 
-		fmt.Println("static[0].Label(): ", static[0].Label())
-		fmt.Println("static[0].Pose().Point(): ", static[0].Pose().Point())
+		for _, s := range static {
+			fmt.Println("static[i].Label(): ", s.Label())
+			fmt.Println("static[i].Pose().Point(): ", s.Pose().Point())
+		}
 
 		// cg, err := newCollisionGraph(internalGeoms, static, nil, reportDistances)
 		fmt.Printf("zeroCG: %v\n", zeroCG)

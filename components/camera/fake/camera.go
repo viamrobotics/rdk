@@ -3,6 +3,7 @@ package fake
 
 import (
 	"context"
+	"fmt"
 	"image"
 	"image/color"
 	"math"
@@ -47,10 +48,12 @@ func NewCamera(
 	conf resource.Config,
 	logger golog.Logger,
 ) (camera.Camera, error) {
+	fmt.Println("1")
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("2")
 	_, paramErr := newConf.Validate("")
 	if paramErr != nil {
 		return nil, paramErr
