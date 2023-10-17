@@ -79,7 +79,7 @@ const setPWMFrequency = async () => {
 
 const writeAnalog = async () => {
   try {
-    await boardClient.writeAnalog(analogPin, Number.parseInt(analogValue));
+    await boardClient.writeAnalog(analogPin, Number.parseInt(analogValue, 10));
   } catch (error) {
     displayError(error as ServiceError);
   }
@@ -102,11 +102,11 @@ const handlePwmFrequencyInput = (event: CustomEvent) => {
 };
 
 const handleAnalogPinInput = (event:CustomEvent) => {
-  analogPin = event.detail.value
+  analogPin = event.detail.value;
 };
 
 const handleAnalogValueInput = (event:CustomEvent) => {
-  analogValue = event.detail.value
+  analogValue = event.detail.value;
 };
 
 </script>
