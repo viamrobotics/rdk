@@ -15,11 +15,19 @@ import (
 // updated or eventually removed. During its life, errors may be set on the
 // node to indicate that the resource is no longer available to external users.
 type GraphNode struct {
-	// all fields are protected by this mutex right now, including
-	// the pointer to the atomic int.
-	mu                        sync.RWMutex
-	updatedAt                 int64
-	clock                     *atomic.Int64
+	timesReconfigured atomic.Uint64
+
+	// mu guards all fields below.
+	mu sync.RWMutex
+
+	// graphLogicalClock is a pointer to the Graph's logicalClock. It is
+	// incremented every time any GraphNode calls SwapResource.
+	graphLogicalClock *atomic.Int64
+	// updatedAt is the value of the graphLogicalClock when it was last
+	// incremented by this GraphNode's SwapResource method. It is only referenced
+	// in tests.
+	updatedAt int64
+
 	current                   Resource
 	currentModel              Model
 	config                    Config
@@ -28,7 +36,6 @@ type GraphNode struct {
 	markedForRemoval          bool
 	unresolvedDependencies    []string
 	needsDependencyResolution bool
-	timesReconfigured         atomic.Uint64
 }
 
 var (
@@ -61,13 +68,19 @@ func NewConfiguredGraphNode(config Config, res Resource, resModel Model) *GraphN
 	return node
 }
 
-// UpdatedAt returns the logical time this node was added at.
+// UpdatedAt returns the value of the logical clock when SwapResource was last
+// called on this GraphNode (the resource was last updated). It's only used
+// for tests.
 func (w *GraphNode) UpdatedAt() int64 {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
 	return w.updatedAt
 }
 
-func (w *GraphNode) setClock(clock *atomic.Int64) {
-	w.clock = clock
+func (w *GraphNode) setGraphLogicalClock(clock *atomic.Int64) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.graphLogicalClock = clock
 }
 
 // Resource returns the underlying resource if it is not pending removal,
@@ -133,7 +146,9 @@ func (w *GraphNode) UnsetResource() {
 // SwapResource emplaces the new resource. It may be the same as before
 // and expects the caller to close the old one. This is considered
 // to be a working resource and as such we unmark it for removal
-// and indicate it no longer needs reconfiguration.
+// and indicate it no longer needs reconfiguration. SwapResource also
+// increments the graphLogicalClock and sets updatedAt for this GraphNode
+// to the new value.
 func (w *GraphNode) SwapResource(newRes Resource, newModel Model) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
@@ -147,8 +162,8 @@ func (w *GraphNode) SwapResource(newRes Resource, newModel Model) {
 	// these should already be set
 	w.unresolvedDependencies = nil
 	w.needsDependencyResolution = false
-	if w.clock != nil {
-		w.updatedAt = w.clock.Add(1)
+	if w.graphLogicalClock != nil {
+		w.updatedAt = w.graphLogicalClock.Add(1)
 	}
 }
 
@@ -327,8 +342,8 @@ func (w *GraphNode) replace(other *GraphNode) error {
 
 	other.mu.Lock()
 	w.updatedAt = other.updatedAt
-	if other.clock != nil {
-		w.clock = other.clock
+	if other.graphLogicalClock != nil {
+		w.graphLogicalClock = other.graphLogicalClock
 	}
 	w.current = other.current
 	w.currentModel = other.currentModel
@@ -341,7 +356,7 @@ func (w *GraphNode) replace(other *GraphNode) error {
 
 	// other is now owned by the graph/node and is invalidated
 	other.updatedAt = 0
-	other.clock = nil
+	other.graphLogicalClock = nil
 	other.current = nil
 	other.currentModel = Model{}
 	other.config = Config{}

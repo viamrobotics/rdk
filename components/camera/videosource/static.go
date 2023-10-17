@@ -29,12 +29,12 @@ func init() {
 				if err != nil {
 					return nil, err
 				}
-				return newCamera(context.Background(), conf.ResourceName(), newConf)
+				return newCamera(context.Background(), conf.ResourceName(), newConf, logger)
 			},
 		})
 }
 
-func newCamera(ctx context.Context, name resource.Name, newConf *fileSourceConfig) (camera.Camera, error) {
+func newCamera(ctx context.Context, name resource.Name, newConf *fileSourceConfig, logger golog.Logger) (camera.Camera, error) {
 	videoSrc := &fileSource{newConf.Color, newConf.Depth, newConf.PointCloud, newConf.CameraParameters}
 	imgType := camera.ColorStream
 	if newConf.Color == "" {
@@ -50,7 +50,7 @@ func newCamera(ctx context.Context, name resource.Name, newConf *fileSourceConfi
 	if err != nil {
 		return nil, err
 	}
-	return camera.FromVideoSource(name, src), nil
+	return camera.FromVideoSource(name, src, logger), nil
 }
 
 // fileSource stores the paths to a color and depth image and a pointcloud.
