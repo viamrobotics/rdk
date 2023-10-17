@@ -18,7 +18,6 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/motionplan/ik"
-	"go.viam.com/rdk/motionplan/tpspace"
 	frame "go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -198,14 +197,8 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 	}
 
 	if replanCostFactor > 0 && currentPlan != nil {
-		distFunc := ik.L2InputMetric
-		// If we have PTGs, then we calculate distances using the PTG-specific distance function. Otherwise we just use squared norm on inputs.
-		if sfPlanner.useTPspace {
-			distFunc = tpspace.PTGSegmentMetric
-		}
-
-		initialPlanCost := currentPlan.Evaluate(distFunc)
-		finalPlanCost := newPlan.Evaluate(distFunc)
+		initialPlanCost := currentPlan.Evaluate(sfPlanner.opt().ScoreFunc)
+		finalPlanCost := newPlan.Evaluate(sfPlanner.opt().ScoreFunc)
 		request.Logger.Debugf("initialPlanCost %f with cost factor %f", initialPlanCost, initialPlanCost*replanCostFactor)
 		request.Logger.Debugf("finalPlanCost %f", finalPlanCost)
 

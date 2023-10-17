@@ -150,6 +150,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
+	pm.planOpts = opt
 	opt.SetGoal(goalPos)
 	opts = append(opts, opt)
 
@@ -418,7 +419,7 @@ func (pm *planManager) planParallelRRTMotion(
 			if err == nil {
 				// If the fallback successfully found a path, check if it is better than our smoothed previous path.
 				// The fallback should emerge pre-smoothed, so that should be a non-issue
-				altCost := pm.frame.inputsToPlan(alternate).Evaluate(pathPlanner.opt().DistanceFunc)
+				altCost := pm.frame.inputsToPlan(alternate).Evaluate(pm.opt().ScoreFunc)
 				if altCost < score {
 					pm.logger.Debugf("replacing path with score %f with better score %f", score, altCost)
 					finalSteps = &rrtPlanReturn{steps: stepsToNodes(alternate)}
@@ -451,7 +452,6 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 
 	// Start with normal options
 	opt := newBasicPlannerOptions(pm.frame)
-
 	opt.extra = planningOpts
 
 	// add collision constraints
@@ -521,6 +521,9 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		opt.PlannerConstructor = newTPSpaceMotionPlanner
 		// Distances are computed in cartesian space rather than configuration space
 		opt.DistanceFunc = ik.NewSquaredNormSegmentMetric(defaultTPspaceOrientationScale)
+		// If we have PTGs, then we calculate distances using the PTG-specific distance function.
+		// Otherwise we just use squared norm on inputs.
+		opt.ScoreFunc = tpspace.PTGSegmentMetric
 
 		planAlg = "tpspace"
 	}
@@ -597,7 +600,7 @@ func (pm *planManager) goodPlan(pr *rrtPlanReturn, opt *plannerOptions) (bool, f
 		if pr.maps.optNode.Cost() <= 0 {
 			return true, solutionCost
 		}
-		solutionCost = pm.frame.inputsToPlan(nodesToInputs(pr.steps)).Evaluate(opt.DistanceFunc)
+		solutionCost = pm.frame.inputsToPlan(nodesToInputs(pr.steps)).Evaluate(opt.ScoreFunc)
 		if solutionCost < pr.maps.optNode.Cost()*defaultOptimalityMultiple {
 			return true, solutionCost
 		}
