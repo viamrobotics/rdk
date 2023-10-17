@@ -13,7 +13,7 @@ export const useBasePose = (name: string) => {
 
   const updateLocation = async () => {
     try {
-      const { location, compassHeading } = await navClient.getLocation({ debugger: rcLogConditionally });
+      const { location, compassHeading } = await navClient.getLocation();
 
       if (!location) {
         return;

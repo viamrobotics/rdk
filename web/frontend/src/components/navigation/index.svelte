@@ -5,7 +5,7 @@
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { type ServiceError, navigationApi } from '@viamrobotics/sdk';
 import { notify } from '@viamrobotics/prime';
-import { IconButton } from '@viamrobotics/prime-core';
+import { IconButton, persisted } from '@viamrobotics/prime-core';
 import { NavigationMap, type LngLat } from '@viamrobotics/prime-blocks';
 import { getObstacles } from '@/api/navigation';
 import { obstacles } from './stores';
@@ -23,6 +23,7 @@ export let name: string;
 
 let map: Map;
 
+const mapPosition = persisted('viam-blocks-navigation-map-center')
 const navClient = useNavClient(name);
 const { waypoints, addWaypoint, deleteWaypoint } = useWaypoints(name);
 const { mode, setMode } = useNavMode(name);
@@ -30,7 +31,7 @@ const { pose } = useBasePose(name);
 
 let centered = false;
 
-$: if (map && $pose && !centered) {
+$: if (map && $pose && !centered && !mapPosition) {
   map.setCenter($pose);
   centered = true;
 }
@@ -69,6 +70,8 @@ const handleDeleteWaypoint = async (event: CustomEvent<string>) => {
     notify.danger((error as ServiceError).message);
   }
 };
+
+$: console.log($pose)
 
 </script>
 
