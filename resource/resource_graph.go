@@ -411,9 +411,10 @@ func (g *Graph) MergeAdd(toAdd *Graph) error {
 		if err := g.addNode(node, toAdd.nodes[node]); err != nil {
 			return err
 		}
-		parents := toAdd.getAllChildrenOf(node)
-		for _, parent := range parents {
-			if err := g.addChild(parent, node); err != nil {
+
+		childrenToAdd := toAdd.getAllChildrenOf(node)
+		for _, childName := range childrenToAdd {
+			if err := g.addChild(childName, node); err != nil {
 				return err
 			}
 		}
