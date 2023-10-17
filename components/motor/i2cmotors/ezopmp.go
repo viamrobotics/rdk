@@ -1,5 +1,7 @@
 //go:build linux
+
 // Package ezopmp is a motor driver for the hydrogarden pump
+//
 package ezopmp
 
 import (
