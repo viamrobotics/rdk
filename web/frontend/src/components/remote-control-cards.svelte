@@ -180,7 +180,7 @@ const getStatus = (statusMap: Record<string, unknown>, resource: commonApi.Resou
 
     <!-- ******* NAVIGATION *******  -->
     {#each filterSubtype($services, 'navigation') as { name } (name)}
-      <Navigation {name} write={false} />
+      <Navigation {name} />
     {/each}
 
     <!-- ******* SENSOR *******  -->
