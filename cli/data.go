@@ -76,21 +76,13 @@ func DataDeleteBinaryAction(c *cli.Context) error {
 		return err
 	}
 
-	switch c.String(dataFlagDataType) {
-	case dataTypeBinary:
-		filter, err := createDataFilter(c)
-		if err != nil {
-			return err
-		}
-		if err := client.deleteBinaryData(filter); err != nil {
-			return err
-		}
-	case dataTypeTabular:
-		return errors.New("use `delete-tabular` action instead of `delete`")
-	default:
-		return errors.Errorf("%s must be binary or tabular, got %q", dataFlagDataType, c.String(dataFlagDataType))
+	filter, err := createDataFilter(c)
+	if err != nil {
+		return err
 	}
-
+	if err := client.deleteBinaryData(filter); err != nil {
+		return err
+	}
 	return nil
 }
 

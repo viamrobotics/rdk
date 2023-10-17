@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -27,6 +28,9 @@ var (
 	RetryExponentialFactor = atomic.NewInt32(2)
 	maxRetryInterval       = time.Hour
 )
+
+// FailedDir is a subdirectory of the capture directory that holds any files that could not be synced.
+const FailedDir = "failed"
 
 // Manager is responsible for enqueuing files in captureDir and uploading them to the cloud.
 type Manager interface {
@@ -51,13 +55,18 @@ type syncer struct {
 	syncErrs   chan error
 	closed     atomic.Bool
 	logRoutine sync.WaitGroup
+
+	captureDir string
 }
 
 // ManagerConstructor is a function for building a Manager.
-type ManagerConstructor func(identity string, client v1.DataSyncServiceClient, logger golog.Logger) (Manager, error)
+type ManagerConstructor func(
+	identity string, client v1.DataSyncServiceClient, logger golog.Logger, captureDir string) (Manager, error)
 
 // NewManager returns a new syncer.
-func NewManager(identity string, client v1.DataSyncServiceClient, logger golog.Logger) (Manager, error) {
+func NewManager(
+	identity string, client v1.DataSyncServiceClient, logger golog.Logger, captureDir string,
+) (Manager, error) {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	ret := syncer{
 		partID:            identity,
@@ -68,6 +77,7 @@ func NewManager(identity string, client v1.DataSyncServiceClient, logger golog.L
 		arbitraryFileTags: []string{},
 		inProgress:        make(map[string]bool),
 		syncErrs:          make(chan error, 10),
+		captureDir:        captureDir,
 	}
 	ret.logRoutine.Add(1)
 	goutils.PanicCapturingGo(func() {
@@ -103,6 +113,7 @@ func (s *syncer) SyncFile(path string) {
 			if !s.markInProgress(path) {
 				return
 			}
+			defer s.unmarkInProgress(path)
 			//nolint:gosec
 			f, err := os.Open(path)
 			if err != nil {
@@ -117,10 +128,11 @@ func (s *syncer) SyncFile(path string) {
 			if datacapture.IsDataCaptureFile(f) {
 				captureFile, err := datacapture.ReadFile(f)
 				if err != nil {
-					s.syncErrs <- errors.Wrap(err, "error reading data capture file")
-					err := f.Close()
-					if err != nil {
+					if err = f.Close(); err != nil {
 						s.syncErrs <- errors.Wrap(err, "error closing data capture file")
+					}
+					if err := moveFailedData(f.Name(), s.captureDir); err != nil {
+						s.syncErrs <- errors.Wrap(err, fmt.Sprintf("error moving corrupted data %s", f.Name()))
 					}
 					return
 				}
@@ -128,7 +140,6 @@ func (s *syncer) SyncFile(path string) {
 			} else {
 				s.syncArbitraryFile(f)
 			}
-			s.unmarkInProgress(path)
 		}
 	})
 }
@@ -149,6 +160,12 @@ func (s *syncer) syncDataCaptureFile(f *datacapture.File) {
 		if err != nil {
 			s.syncErrs <- errors.Wrap(err, "error closing data capture file")
 		}
+
+		if !isRetryableGRPCError(uploadErr) {
+			if err := moveFailedData(f.GetPath(), s.captureDir); err != nil {
+				s.syncErrs <- errors.Wrap(err, fmt.Sprintf("error moving corrupted data %s", f.GetPath()))
+			}
+		}
 		return
 	}
 	if err := f.Delete(); err != nil {
@@ -161,11 +178,17 @@ func (s *syncer) syncArbitraryFile(f *os.File) {
 	uploadErr := exponentialRetry(
 		s.cancelCtx,
 		func(ctx context.Context) error {
-			err := uploadArbitraryFile(ctx, s.client, f, s.partID, s.arbitraryFileTags)
-			if err != nil {
-				s.syncErrs <- errors.Wrap(err, fmt.Sprintf("error uploading file %s", f.Name()))
+			uploadErr := uploadArbitraryFile(ctx, s.client, f, s.partID, s.arbitraryFileTags)
+			if uploadErr != nil {
+				s.syncErrs <- errors.Wrap(uploadErr, fmt.Sprintf("error uploading file %s", f.Name()))
 			}
-			return err
+
+			if !isRetryableGRPCError(uploadErr) {
+				if err := moveFailedData(f.Name(), s.captureDir); err != nil {
+					s.syncErrs <- errors.Wrap(err, fmt.Sprintf("error moving corrupted data %s", f.Name()))
+				}
+			}
+			return uploadErr
 		})
 	if uploadErr != nil {
 		err := f.Close()
@@ -251,6 +274,34 @@ func exponentialRetry(cancelCtx context.Context, fn func(cancelCtx context.Conte
 			return nil
 		}
 	}
+}
+
+// isRetryableGRPCError returns true if we should retry syncing and otherwise
+// returns false so that the data gets moved to the corrupted data directory.
+func isRetryableGRPCError(err error) bool {
+	errStatus := status.Convert(err)
+	return errStatus.Code() != codes.InvalidArgument
+}
+
+// moveFailedData takes any data that could not be synced in the captureDir and
+// moves it to a new subdirectory "failed" that will not be synced.
+func moveFailedData(path, captureDir string) error {
+	// Remove the captureDir part of the path to the corrupted data
+	relativePath, err := filepath.Rel(captureDir, path)
+	if err != nil {
+		return errors.Wrapf(err, fmt.Sprintf("error getting relative path of corrupted data: %s", path))
+	}
+	// Create a new directory captureDir/corrupted/pathToFile
+	newDir := filepath.Join(captureDir, FailedDir, filepath.Dir(relativePath))
+	if err := os.MkdirAll(newDir, 0o700); err != nil {
+		return errors.Wrapf(err, fmt.Sprintf("error making new directory for corrupted data: %s", path))
+	}
+	// Move the file from captureDir/pathToFile/file.ext to captureDir/corrupted/pathToFile/file.ext
+	newPath := filepath.Join(newDir, filepath.Base(path))
+	if err := os.Rename(path, newPath); err != nil {
+		return errors.Wrapf(err, fmt.Sprintf("error moving corrupted data: %s", path))
+	}
+	return nil
 }
 
 func getNextWait(lastWait time.Duration) time.Duration {

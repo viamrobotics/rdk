@@ -299,83 +299,85 @@ var app = &cli.App{
 					Action: DataExportAction,
 				},
 				{
-					Name:      "delete",
-					Usage:     "delete binary data from Viam cloud",
-					UsageText: fmt.Sprintf("viam data delete <%s> [other options]", dataFlagDataType),
-					Flags: []cli.Flag{
-						&cli.StringFlag{
-							Name:     dataFlagDataType,
-							Required: true,
-							Usage:    "data type to be deleted. should only be binary. if tabular, use delete-tabular instead.",
+					Name:            "delete",
+					Usage:           "delete data from Viam cloud",
+					HideHelpCommand: true,
+					Subcommands: []*cli.Command{
+						{
+							Name:      "binary",
+							Usage:     "delete binary data from Viam cloud",
+							UsageText: "viam data delete binary [other options]",
+							Flags: []cli.Flag{
+								&cli.StringSliceFlag{
+									Name:  dataFlagOrgIDs,
+									Usage: "orgs filter",
+								},
+								&cli.StringSliceFlag{
+									Name:  dataFlagLocationIDs,
+									Usage: "locations filter",
+								},
+								&cli.StringFlag{
+									Name:  dataFlagRobotID,
+									Usage: "robot id filter",
+								},
+								&cli.StringFlag{
+									Name:  dataFlagPartID,
+									Usage: "part id filter",
+								},
+								&cli.StringFlag{
+									Name:  dataFlagRobotName,
+									Usage: "robot name filter",
+								},
+								&cli.StringFlag{
+									Name:  dataFlagPartName,
+									Usage: "part name filter",
+								},
+								&cli.StringFlag{
+									Name:  dataFlagComponentType,
+									Usage: "component type filter",
+								},
+								&cli.StringFlag{
+									Name:  dataFlagComponentName,
+									Usage: "component name filter",
+								},
+								&cli.StringFlag{
+									Name:  dataFlagMethod,
+									Usage: "method filter",
+								},
+								&cli.StringSliceFlag{
+									Name:  dataFlagMimeTypes,
+									Usage: "mime types filter",
+								},
+								&cli.StringFlag{
+									Name:  dataFlagStart,
+									Usage: "ISO-8601 timestamp indicating the start of the interval filter",
+								},
+								&cli.StringFlag{
+									Name:  dataFlagEnd,
+									Usage: "ISO-8601 timestamp indicating the end of the interval filter",
+								},
+							},
+							Action: DataDeleteBinaryAction,
 						},
-						&cli.StringSliceFlag{
-							Name:  dataFlagOrgIDs,
-							Usage: "orgs filter",
-						},
-						&cli.StringSliceFlag{
-							Name:  dataFlagLocationIDs,
-							Usage: "locations filter",
-						},
-						&cli.StringFlag{
-							Name:  dataFlagRobotID,
-							Usage: "robot id filter",
-						},
-						&cli.StringFlag{
-							Name:  dataFlagPartID,
-							Usage: "part id filter",
-						},
-						&cli.StringFlag{
-							Name:  dataFlagRobotName,
-							Usage: "robot name filter",
-						},
-						&cli.StringFlag{
-							Name:  dataFlagPartName,
-							Usage: "part name filter",
-						},
-						&cli.StringFlag{
-							Name:  dataFlagComponentType,
-							Usage: "component type filter",
-						},
-						&cli.StringFlag{
-							Name:  dataFlagComponentName,
-							Usage: "component name filter",
-						},
-						&cli.StringFlag{
-							Name:  dataFlagMethod,
-							Usage: "method filter",
-						},
-						&cli.StringSliceFlag{
-							Name:  dataFlagMimeTypes,
-							Usage: "mime types filter",
-						},
-						&cli.StringFlag{
-							Name:  dataFlagStart,
-							Usage: "ISO-8601 timestamp indicating the start of the interval filter",
-						},
-						&cli.StringFlag{
-							Name:  dataFlagEnd,
-							Usage: "ISO-8601 timestamp indicating the end of the interval filter",
+						{
+							Name:      "tabular",
+							Usage:     "delete tabular data from Viam cloud",
+							UsageText: "viam data delete tabular [other options]",
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     dataFlagOrgID,
+									Usage:    "org",
+									Required: true,
+								},
+								&cli.IntFlag{
+									Name:     dataFlagDeleteTabularDataOlderThanDays,
+									Usage:    "delete any tabular data that is older than X calendar days before now. 0 deletes all data.",
+									Required: true,
+								},
+							},
+							Action: DataDeleteTabularAction,
 						},
 					},
-					Action: DataDeleteBinaryAction,
-				},
-				{
-					Name:      "delete-tabular",
-					Usage:     "delete tabular data from Viam cloud",
-					UsageText: "viam data delete-tabular [other options]",
-					Flags: []cli.Flag{
-						&cli.StringFlag{
-							Name:     dataFlagOrgID,
-							Usage:    "org",
-							Required: true,
-						},
-						&cli.IntFlag{
-							Name:     dataFlagDeleteTabularDataOlderThanDays,
-							Usage:    "delete any tabular data that is older than X calendar days before now. 0 deletes all data.",
-							Required: true,
-						},
-					},
-					Action: DataDeleteTabularAction,
 				},
 				{
 					Name:      "dataset",
