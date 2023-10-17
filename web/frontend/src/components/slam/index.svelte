@@ -34,7 +34,7 @@
 
   let refreshErrorMessage2d: string | undefined;
   let refreshErrorMessage3d: string | undefined;
-  let refresh2dRate = 'manual';
+  let refresh2dRate = '5';
   let refresh3dRate = 'manual';
   let pointcloud: Uint8Array | undefined;
   let pose: Pose | undefined;
@@ -543,7 +543,9 @@
               <option value="30"> Every 30 seconds </option>
               <option value="10"> Every 10 seconds </option>
               <option value="5"> Every 5 seconds </option>
-              <option value="1"> Every second </option>
+              {#if !overrides}
+                <option value="1"> Every second </option>
+              {/if}
             </select>
             <v-icon
               name="chevron-down"
