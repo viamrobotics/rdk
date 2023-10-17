@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -40,25 +41,29 @@ var (
 	errMessageExitStatus143     = "exit status 143"
 	logLevelArgumentTemplate    = "--log-level=%s"
 	errModularResourcesDisabled = errors.New("modular resources disabled in untrusted environment")
+	moduleDataFolderName        = "module-data"
 )
 
 // NewManager returns a Manager.
 func NewManager(parentAddr string, logger logging.Logger, options modmanageroptions.Options) modmaninterface.ModuleManager {
 	restartCtx, restartCtxCancel := context.WithCancel(context.Background())
 	return &Manager{
-		logger:                  logger,
-		modules:                 map[string]*module{},
-		parentAddr:              parentAddr,
-		rMap:                    map[resource.Name]*module{},
-		untrustedEnv:            options.UntrustedEnv,
-		removeOrphanedResources: options.RemoveOrphanedResources,
-		restartCtx:              restartCtx,
-		restartCtxCancel:        restartCtxCancel,
+		logger:                    logger,
+		modules:                   map[string]*module{},
+		parentAddr:                parentAddr,
+		rMap:                      map[resource.Name]*module{},
+		untrustedEnv:              options.UntrustedEnv,
+		viamHomeDir:               options.ViamHomeDir,
+		moduleDataParentDirectory: getModuleDataParentDirectory(options),
+		removeOrphanedResources:   options.RemoveOrphanedResources,
+		restartCtx:                restartCtx,
+		restartCtxCancel:          restartCtxCancel,
 	}
 }
 
 type module struct {
 	cfg       config.Module
+	dataDir   string
 	process   pexec.ManagedProcess
 	handles   modlib.HandlerMap
 	conn      *grpc.ClientConn
@@ -87,15 +92,17 @@ type addedResource struct {
 
 // Manager is the root structure for the module system.
 type Manager struct {
-	mu                      sync.RWMutex
-	logger                  logging.Logger
-	modules                 map[string]*module
-	parentAddr              string
-	rMap                    map[resource.Name]*module
-	untrustedEnv            bool
-	removeOrphanedResources func(ctx context.Context, rNames []resource.Name)
-	restartCtx              context.Context
-	restartCtxCancel        context.CancelFunc
+	mu                        sync.RWMutex
+	logger                    logging.Logger
+	modules                   map[string]*module
+	parentAddr                string
+	rMap                      map[resource.Name]*module
+	untrustedEnv              bool
+	viamHomeDir               string
+	moduleDataParentDirectory string
+	removeOrphanedResources   func(ctx context.Context, rNames []resource.Name)
+	restartCtx                context.Context
+	restartCtxCancel          context.CancelFunc
 }
 
 // Close terminates module connections and processes.
@@ -144,8 +151,19 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, conn *grpc.Clie
 		return nil
 	}
 
+	var moduleDataDir string
+	if mgr.moduleDataParentDirectory != "" {
+		moduleDataDir = filepath.Join(mgr.moduleDataParentDirectory, conf.Name)
+		// safety check to prevent exiting the moduleDataDirectory
+		if !strings.HasPrefix(filepath.Clean(moduleDataDir), filepath.Clean(mgr.moduleDataParentDirectory)) {
+			return errors.Errorf("module %q would have a data directory %q outside of the module data directory %q",
+				conf.Name, moduleDataDir, mgr.moduleDataParentDirectory)
+		}
+	}
+
 	mod := &module{
 		cfg:       conf,
+		dataDir:   moduleDataDir,
 		conn:      conn,
 		resources: map[resource.Name]*addedResource{},
 	}
@@ -164,8 +182,15 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, conn *grpc.Clie
 		}
 	}()
 
+	// create the module's data directory
+	if mod.dataDir != "" {
+		if err := os.MkdirAll(mod.dataDir, 0o750); err != nil {
+			return errors.WithMessage(err, "error while starting module "+mod.cfg.Name)
+		}
+	}
+
 	if err := mod.startProcess(mgr.restartCtx, mgr.parentAddr,
-		mgr.newOnUnexpectedExitHandler(mod), mgr.logger); err != nil {
+		mgr.newOnUnexpectedExitHandler(mod), mgr.logger, mgr.viamHomeDir); err != nil {
 		return errors.WithMessage(err, "error while starting module "+mod.cfg.Name)
 	}
 
@@ -510,6 +535,44 @@ func (mgr *Manager) getModule(conf resource.Config) (*module, bool) {
 	return nil, false
 }
 
+// CleanModuleDataDirectory removes unexpected folders and files from the robot's module data directory.
+func (mgr *Manager) CleanModuleDataDirectory(ctx context.Context) error {
+	if mgr.moduleDataParentDirectory == "" {
+		return errors.New("cannot clean a root level module data directory")
+	}
+	// Absolute path to all dirs that should exist
+	expectedDirs := make(map[string]bool, len(mgr.modules))
+	for _, m := range mgr.modules {
+		expectedDirs[m.dataDir] = true
+	}
+	// If there are no expected directories, we can shortcut and early-exit
+	if len(expectedDirs) == 0 {
+		if err := os.RemoveAll(mgr.moduleDataParentDirectory); err != nil {
+			return errors.Wrapf(err, "failed to clean parent module data directory %q", mgr.moduleDataParentDirectory)
+		}
+		return nil
+	}
+	// Scan dataFolder for all existing directories
+	existingDirs, err := filepath.Glob(filepath.Join(mgr.moduleDataParentDirectory, "*"))
+	if err != nil {
+		return err
+	}
+	// Delete directories in dataFolder that are not in expectedDirs
+	for _, dir := range existingDirs {
+		if _, expected := expectedDirs[dir]; !expected {
+			// This is already checked in module.add(), however there is no harm in double-checking before recursively deleting directories
+			if !strings.HasPrefix(filepath.Clean(dir), filepath.Clean(mgr.moduleDataParentDirectory)) {
+				return errors.Errorf("attempted to delete a module data dir %q which is not in the viam module data directory %q",
+					dir, mgr.moduleDataParentDirectory)
+			}
+			if err := os.RemoveAll(dir); err != nil {
+				return errors.Wrapf(err, "failed to clean module data directory %q", dir)
+			}
+		}
+	}
+	return nil
+}
+
 var (
 	// oueTimeout is the length of time for which an OnUnexpectedExit function
 	// can execute blocking calls.
@@ -609,7 +672,7 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 	// Attempt to restart module process 3 times.
 	for attempt := 1; attempt < 4; attempt++ {
 		if err := mod.startProcess(mgr.restartCtx, mgr.parentAddr,
-			mgr.newOnUnexpectedExitHandler(mod), mgr.logger); err != nil {
+			mgr.newOnUnexpectedExitHandler(mod), mgr.logger, mgr.viamHomeDir); err != nil {
 			mgr.logger.Errorf("attempt %d: error while restarting crashed module %s: %v",
 				attempt, mod.cfg.Name, err)
 			if attempt == 3 {
@@ -694,6 +757,7 @@ func (m *module) startProcess(
 	parentAddr string,
 	oue func(int) bool,
 	logger logging.Logger,
+	viamHomeDir string,
 ) error {
 	var err error
 	if m.addr, err = modlib.CreateSocketAddress(filepath.Dir(parentAddr), m.cfg.Name); err != nil {
@@ -704,7 +768,7 @@ func (m *module) startProcess(
 		ID:               m.cfg.Name,
 		Name:             m.cfg.ExePath,
 		Args:             []string{m.addr},
-		Environment:      m.cfg.Environment,
+		Environment:      m.getFullEnvironment(viamHomeDir),
 		Log:              true,
 		OnUnexpectedExit: oue,
 	}
@@ -841,6 +905,21 @@ func (m *module) cleanupAfterStartupFailure(mgr *Manager, afterCrash bool) {
 	}
 }
 
+func (m *module) getFullEnvironment(viamHomeDir string) map[string]string {
+	environment := map[string]string{
+		"VIAM_HOME":        viamHomeDir,
+		"VIAM_MODULE_DATA": m.dataDir,
+	}
+	if m.cfg.Type == config.ModuleTypeRegistry {
+		environment["VIAM_MODULE_ID"] = m.cfg.ModuleID
+	}
+	// Overwrite the base environment variables with the module's environment variables (if specified)
+	for key, value := range m.cfg.Environment {
+		environment[key] = value
+	}
+	return environment
+}
+
 // DepsToNames converts a dependency list to a simple string slice.
 func DepsToNames(deps resource.Dependencies) []string {
 	var depStrings []string
@@ -848,4 +927,17 @@ func DepsToNames(deps resource.Dependencies) []string {
 		depStrings = append(depStrings, dep.String())
 	}
 	return depStrings
+}
+
+func getModuleDataParentDirectory(options modmanageroptions.Options) string {
+	// if the home directory is empty, this is probably being run from an unrelated test
+	// and creating an file could lead to race conditions
+	if options.ViamHomeDir == "" {
+		return ""
+	}
+	robotID := options.RobotCloudID
+	if robotID == "" {
+		robotID = "local"
+	}
+	return filepath.Join(options.ViamHomeDir, moduleDataFolderName, robotID)
 }

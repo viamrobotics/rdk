@@ -3,6 +3,7 @@ package modmanager
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -42,18 +43,24 @@ func TestModManagerFunctions(t *testing.T) {
 	_, err = cfgCounter1.Validate("test", resource.APITypeComponentName)
 	test.That(t, err, test.ShouldBeNil)
 
-	// This cannot use t.TempDir() as the path it gives on MacOS exceeds module.MaxSocketAddressLength.
-	parentAddr, err := os.MkdirTemp("", "viam-test-*")
-	test.That(t, err, test.ShouldBeNil)
-	defer os.RemoveAll(parentAddr)
-	parentAddr += "/parent.sock"
+	parentAddr := filepath.Join(t.TempDir(), "parent.sock")
 
 	t.Log("test Helpers")
-	mgr := NewManager(parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
+	viamHomeTemp := t.TempDir()
+	mgr := NewManager(parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false, ViamHomeDir: viamHomeTemp})
 
-	mod := &module{cfg: config.Module{Name: "test", ExePath: modPath}}
+	mod := &module{
+		cfg: config.Module{
+			Name:        "test",
+			ExePath:     modPath,
+			Type:        config.ModuleTypeRegistry,
+			ModuleID:    "new:york",
+			Environment: map[string]string{"SMART": "MACHINES"},
+		},
+		dataDir: "module-data-dir",
+	}
 
-	err = mod.startProcess(ctx, parentAddr, nil, logger)
+	err = mod.startProcess(ctx, parentAddr, nil, logger, "")
 	test.That(t, err, test.ShouldBeNil)
 
 	err = mod.dial()
@@ -80,6 +87,18 @@ func TestModManagerFunctions(t *testing.T) {
 
 	test.That(t, mgr.Close(ctx), test.ShouldBeNil)
 	test.That(t, mod.process.Stop(), test.ShouldBeNil)
+
+	modEnv := mod.getFullEnvironment(viamHomeTemp)
+	test.That(t, modEnv["VIAM_HOME"], test.ShouldEqual, viamHomeTemp)
+	test.That(t, modEnv["VIAM_MODULE_DATA"], test.ShouldEqual, "module-data-dir")
+	test.That(t, modEnv["VIAM_MODULE_ID"], test.ShouldEqual, "new:york")
+	test.That(t, modEnv["SMART"], test.ShouldEqual, "MACHINES")
+
+	// Test that VIAM_MODULE_ID is unset for local modules
+	mod.cfg.Type = config.ModuleTypeLocal
+	modEnv = mod.getFullEnvironment(viamHomeTemp)
+	_, ok = modEnv["VIAM_MODULE_ID"]
+	test.That(t, ok, test.ShouldBeFalse)
 
 	t.Log("test AddModule")
 	mgr = NewManager(parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
@@ -215,6 +234,52 @@ func TestModManagerFunctions(t *testing.T) {
 	}
 	err = mgr.Add(ctx, modCfg)
 	test.That(t, err, test.ShouldEqual, errModularResourcesDisabled)
+
+	t.Log("test empty dir for CleanModuleDataDirectory")
+	mgr = NewManager(parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false, ViamHomeDir: ""})
+	err = mgr.CleanModuleDataDirectory(ctx)
+	test.That(t, err, test.ShouldNotBeNil)
+
+	t.Log("test CleanModuleDataDirectory")
+	viamHomeTemp = t.TempDir()
+	robotCloudID := "a-b-c-d"
+	expectedDataDir := filepath.Join(viamHomeTemp, moduleDataFolderName, robotCloudID)
+	mgr = NewManager(parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false, ViamHomeDir: viamHomeTemp, RobotCloudID: robotCloudID})
+	// check that premature clean is okay
+	err = mgr.CleanModuleDataDirectory(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	// create a module and add it to the modmanager
+	modCfg = config.Module{
+		Name:    "simple-module",
+		ExePath: modPath,
+	}
+	err = mgr.Add(ctx, modCfg)
+	test.That(t, err, test.ShouldBeNil)
+	// check that we created the expected directory
+	moduleDataDir := filepath.Join(expectedDataDir, modCfg.Name)
+	_, err = os.Stat(moduleDataDir)
+	test.That(t, err, test.ShouldBeNil)
+	// make unwanted / unexpected directory
+	litterDataDir := filepath.Join(expectedDataDir, "litter")
+	err = os.MkdirAll(litterDataDir, os.ModePerm)
+	test.That(t, err, test.ShouldBeNil)
+	// clean
+	err = mgr.CleanModuleDataDirectory(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	// check that the module directory still exists
+	_, err = os.Stat(moduleDataDir)
+	test.That(t, err, test.ShouldBeNil)
+	// check that the litter directory is removed
+	_, err = os.Stat(litterDataDir)
+	test.That(t, err, test.ShouldBeError)
+	// remove the module and verify that the entire directory is removed
+	_, err = mgr.Remove("simple-module")
+	test.That(t, err, test.ShouldBeNil)
+	// clean
+	err = mgr.CleanModuleDataDirectory(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	_, err = os.Stat(expectedDataDir)
+	test.That(t, err, test.ShouldBeError)
 }
 
 func TestModManagerValidation(t *testing.T) {
@@ -247,11 +312,7 @@ func TestModManagerValidation(t *testing.T) {
 	_, err = cfgMyBase2.Validate("test", resource.APITypeComponentName)
 	test.That(t, err, test.ShouldBeNil)
 
-	// This cannot use t.TempDir() as the path it gives on MacOS exceeds module.MaxSocketAddressLength.
-	parentAddr, err := os.MkdirTemp("", "viam-test-*")
-	test.That(t, err, test.ShouldBeNil)
-	defer os.RemoveAll(parentAddr)
-	parentAddr += "/parent.sock"
+	parentAddr := filepath.Join(t.TempDir(), "parent.sock")
 
 	t.Log("adding complex module")
 	mgr := NewManager(parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
@@ -304,11 +365,7 @@ func TestModuleReloading(t *testing.T) {
 	_, err := cfgMyHelper.Validate("test", resource.APITypeComponentName)
 	test.That(t, err, test.ShouldBeNil)
 
-	// This cannot use t.TempDir() as the path it gives on MacOS exceeds module.MaxSocketAddressLength.
-	parentAddr, err := os.MkdirTemp("", "viam-test-*")
-	test.That(t, err, test.ShouldBeNil)
-	defer os.RemoveAll(parentAddr)
-	parentAddr += "/parent.sock"
+	parentAddr := filepath.Join(t.TempDir(), "parent.sock")
 
 	modCfg := config.Module{Name: "test-module"}
 
@@ -515,11 +572,7 @@ func TestDebugModule(t *testing.T) {
 	modPath, err := rtestutils.BuildTempModule(t, "module/testmodule")
 	test.That(t, err, test.ShouldBeNil)
 
-	// This cannot use t.TempDir() as the path it gives on MacOS exceeds module.MaxSocketAddressLength.
-	parentAddr, err := os.MkdirTemp("", "viam-test-*")
-	test.That(t, err, test.ShouldBeNil)
-	defer os.RemoveAll(parentAddr)
-	parentAddr += "/parent.sock"
+	parentAddr := filepath.Join(t.TempDir(), "parent.sock")
 
 	testCases := []struct {
 		name                   string
@@ -620,11 +673,7 @@ func TestGracefulShutdownWithMalformedModule(t *testing.T) {
 		LogLevel: "info",
 	}
 
-	// This cannot use t.TempDir() as the path it gives on MacOS exceeds module.MaxSocketAddressLength.
-	parentAddr, err := os.MkdirTemp("", "viam-test-*")
-	test.That(t, err, test.ShouldBeNil)
-	defer os.RemoveAll(parentAddr)
-	parentAddr += "/parent.sock"
+	parentAddr := filepath.Join(t.TempDir(), "parent.sock")
 
 	mgr := NewManager(parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
 
