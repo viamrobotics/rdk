@@ -52,7 +52,7 @@ func NewManager(parentAddr string, logger golog.Logger, options modmanageroption
 		parentAddr:              parentAddr,
 		rMap:                    map[resource.Name]*module{},
 		untrustedEnv:            options.UntrustedEnv,
-		viamHomeDir:             options.ViamHomeDir,
+		viamHomeDir:             config.ViamDotDir,
 		removeOrphanedResources: options.RemoveOrphanedResources,
 		restartCtx:              restartCtx,
 		restartCtxCancel:        restartCtxCancel,
@@ -140,6 +140,7 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, conn *grpc.Clie
 	}
 
 	moduleDataDir := filepath.Join(mgr.viamHomeDir, moduleDataFolderName, conf.Name)
+	// This will still succeed if the directory already exists
 	if err := os.MkdirAll(moduleDataDir, 0o755); err != nil {
 		return err
 	}
@@ -458,31 +459,26 @@ func (mgr *Manager) getModule(conf resource.Config) (*module, bool) {
 
 func (mgr *Manager) CleanModuleDataDirectory(ctx context.Context) error {
 	// Absolute path to all dirs that should exist
-	expectedDirs := make(map[string]bool, len(mgr.modules))
-	for _, m := range mgr.modules {
-		expectedDirs[m.dataDir] = true
-	}
-	dataFolder := filepath.Join(mgr.viamHomeDir, moduleDataFolderName)
+	// expectedDirs := make(map[string]bool, len(mgr.modules))
+	// for _, m := range mgr.modules {
+	// 	expectedDirs[m.dataDir] = true
+	// }
+	// dataFolder := filepath.Join(mgr.viamHomeDir, moduleDataFolderName)
 
-	// Scan dataFolder for all existing directories
-	existingDirs, err := filepath.Glob(filepath.Join(dataFolder, "*"))
-	if err != nil {
-		return err
-	}
+	// // Scan dataFolder for all existing directories
+	// existingDirs, err := filepath.Glob(filepath.Join(dataFolder, "*"))
+	// if err != nil {
+	// 	return err
+	// }
 
-	// Delete directories in dataFolder that are not in expectedDirs
-	for _, dir := range existingDirs {
-		if !expectedDirs[dir] {
-			if err := os.RemoveAll(dir); err != nil {
-				return err
-			}
-		} else {
-			// Remove directory from expectedDirs to leave behind only those that don't exist yet
-			// This complex logic is used to detect (and delete) duplicate directories
-			delete(expectedDirs, dir)
-		}
-	}
-
+	// // Delete directories in dataFolder that are not in expectedDirs
+	// for _, dir := range existingDirs {
+        // if _,expected := expectedDirs[dir]; !expected {
+	// 		if err := os.RemoveAll(dir); err != nil {
+	// 			return err
+	// 		}
+	// 	}
+	// }
 	return nil
 }
 

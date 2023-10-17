@@ -1809,9 +1809,10 @@ func TestResourceStartsOnReconfigure(t *testing.T) {
 	test.That(t, yesSvc, test.ShouldNotBeNil)
 }
 
-func TestConfigProcess(t *testing.T) {
+func TestConfigProcessSimple(t *testing.T) {
 	logger, logs := golog.NewObservedTestLogger(t)
 
+	// Simple config to test process starting
 	r, err := robotimpl.New(context.Background(), &config.Config{
 		Processes: []pexec.ProcessConfig{
 			{
@@ -1826,6 +1827,24 @@ func TestConfigProcess(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	test.That(t, logs.FilterField(zap.String("output", "heythere\n")).Len(), test.ShouldEqual, 1)
+
+	// Test environment variables
+	logs.TakeAll()
+	r, err = robotimpl.New(context.Background(), &config.Config{
+		Processes: []pexec.ProcessConfig{
+			{
+				ID:      "1",
+				Name:    "bash",
+				Args:    []string{"-c", "printenv VIAM_HOME"},
+				Log:     true,
+				OneShot: true,
+			},
+		},
+	}, logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+	test.That(t, logs.FilterField(zap.String("output", config.ViamDotDir+"\n")).Len(), test.ShouldEqual, 1)
+
 }
 
 func TestConfigPackages(t *testing.T) {

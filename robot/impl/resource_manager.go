@@ -917,13 +917,20 @@ func (manager *resourceManager) updateResources(
 			allErrs = multierr.Combine(allErrs, errProcessesDisabled)
 			break
 		}
-
 		// this is done in config validation but partial start rules require us to check again
 		if err := p.Validate(""); err != nil {
 			manager.logger.Errorw("process config validation error; skipping", "process", p.Name, "error", err)
 			continue
 		}
-		_, err := manager.processManager.AddProcessFromConfig(ctx, p)
+
+        // var pCopy pexec.ProcessConfig = p
+        // var pCopy pexec.ProcessConfig = p
+        pCopy := p
+		if _, exists := pCopy.Environment["VIAM_HOME"]; !exists {
+            pCopy.Environment = make(map[string]string)
+			pCopy.Environment["VIAM_HOME"] = config.ViamDotDir
+		}
+		_, err := manager.processManager.AddProcessFromConfig(ctx, pCopy)
 		if err != nil {
 			manager.logger.Errorw("error while adding process; skipping", "process", p.ID, "error", err)
 			continue

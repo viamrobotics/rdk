@@ -453,6 +453,10 @@ func (m *dummyModMan) ValidateConfig(ctx context.Context, cfg resource.Config) (
 	return nil, nil
 }
 
+func (m *dummyModMan) CleanModuleDataDirectory(ctx context.Context) error {
+    return nil
+}
+
 func (m *dummyModMan) Close(ctx context.Context) error {
 	if len(m.state) != 0 {
 		return errors.New("attempt to close with active resources in place")
