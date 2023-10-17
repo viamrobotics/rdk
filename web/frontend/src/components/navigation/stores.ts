@@ -1,6 +1,6 @@
 import { currentWritable } from '@threlte/core';
+import { persisted } from '@viamrobotics/prime-core';
 import type { Obstacle } from '@/api/navigation';
-import { persisted } from '@/stores/persisted';
 
 export const obstacles = currentWritable<Obstacle[]>([]);
 

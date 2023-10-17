@@ -23,7 +23,7 @@ export let name: string;
 
 let map: Map;
 
-const mapPosition = persisted('viam-blocks-navigation-map-center')
+const mapPosition = persisted('viam-blocks-navigation-map-center');
 const navClient = useNavClient(name);
 const { waypoints, addWaypoint, deleteWaypoint } = useWaypoints(name);
 const { mode, setMode } = useNavMode(name);
@@ -70,8 +70,6 @@ const handleDeleteWaypoint = async (event: CustomEvent<string>) => {
     notify.danger((error as ServiceError).message);
   }
 };
-
-$: console.log($pose)
 
 </script>
 
