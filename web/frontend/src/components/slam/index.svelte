@@ -543,7 +543,7 @@
               <option value="30"> Every 30 seconds </option>
               <option value="10"> Every 10 seconds </option>
               <option value="5"> Every 5 seconds </option>
-              {#if !overrides}
+              {#if !overrides?.isCloudSlam}
                 <option value="1"> Every second </option>
               {/if}
             </select>
