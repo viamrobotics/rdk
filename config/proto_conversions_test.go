@@ -132,6 +132,7 @@ var testProcessConfig = pexec.ProcessConfig{
 	Name:        "Some-name",
 	Args:        []string{"arg1", "arg2"},
 	CWD:         "/home",
+	Environment: map[string]string{"SOME_VAR": "value"},
 	OneShot:     true,
 	Log:         true,
 	StopSignal:  syscall.SIGINT,
@@ -184,9 +185,12 @@ var testCloudConfig = Cloud{
 }
 
 var testModule = Module{
-	Name:     "testmod",
-	ExePath:  "/tmp/test.mod",
-	LogLevel: "debug",
+	Name:        "testmod",
+	ExePath:     "/tmp/test.mod",
+	LogLevel:    "debug",
+	Type:        ModuleTypeLocal,
+	ModuleID:    "a:b",
+	Environment: map[string]string{"SOME_VAR": "value"},
 }
 
 var testPackageConfig = PackageConfig{

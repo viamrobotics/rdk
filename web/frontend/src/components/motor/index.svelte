@@ -104,7 +104,7 @@ const setRevolutions = (event: CustomEvent) => {
     return;
   }
 
-  const num = Number.parseInt(target.value, 10);
+  const num = Number.parseFloat(target.value);
 
   if (Number.isNaN(num)) {
     return;

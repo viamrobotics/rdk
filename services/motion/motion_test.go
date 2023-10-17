@@ -16,6 +16,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/components/base"
+	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/movementsensor"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
@@ -877,17 +878,30 @@ func TestPlanStep(t *testing.T) {
 }
 
 func TestConfiguration(t *testing.T) {
+	visionCameraPairs := [][]resource.Name{
+		{vision.Named("vision service 1"), camera.Named("camera 1")},
+		{vision.Named("vision service 2"), camera.Named("camera 2")},
+	}
+	obstacleDetectorsPB := []*pb.ObstacleDetector{}
+	obstacleDetectors := []ObstacleDetectorName{}
+	for _, pair := range visionCameraPairs {
+		obstacleDetectors = append(obstacleDetectors, ObstacleDetectorName{
+			VisionServiceName: pair[0],
+			CameraName:        pair[1],
+		})
+		obstacleDetectorsPB = append(obstacleDetectorsPB, &pb.ObstacleDetector{
+			VisionService: rprotoutils.ResourceNameToProto(pair[0]),
+			Camera:        rprotoutils.ResourceNameToProto(pair[1]),
+		})
+	}
+
 	t.Run("configurationFromProto", func(t *testing.T) {
 		type testCase struct {
 			description string
 			input       *pb.MotionConfiguration
 			result      *MotionConfiguration
 		}
-		visionServices := []resource.Name{vision.Named("vision service 1"), vision.Named("vision service 2")}
-		visionServicesPB := []*commonpb.ResourceName{}
-		for _, vs := range visionServices {
-			visionServicesPB = append(visionServicesPB, rprotoutils.ResourceNameToProto(vs))
-		}
+
 		linearMPerSec := 1.
 		angularDegsPerSec := 2.
 		planDeviationMM := 3000.
@@ -899,17 +913,17 @@ func TestConfiguration(t *testing.T) {
 			{
 				description: "when passed a nil pointer returns mostly empty struct",
 				input:       nil,
-				result:      &MotionConfiguration{VisionServices: []resource.Name{}},
+				result:      &MotionConfiguration{ObstacleDetectors: []ObstacleDetectorName{}},
 			},
 			{
 				description: "when passed an empty struct returns mostly empty struct",
 				input:       &pb.MotionConfiguration{},
-				result:      &MotionConfiguration{VisionServices: []resource.Name{}},
+				result:      &MotionConfiguration{ObstacleDetectors: []ObstacleDetectorName{}},
 			},
 			{
 				description: "when passed a full struct returns a full struct",
 				input: &pb.MotionConfiguration{
-					VisionServices:             visionServicesPB,
+					ObstacleDetectors:          obstacleDetectorsPB,
 					LinearMPerSec:              &linearMPerSec,
 					AngularDegsPerSec:          &angularDegsPerSec,
 					PlanDeviationM:             &planDeviationM,
@@ -917,7 +931,7 @@ func TestConfiguration(t *testing.T) {
 					ObstaclePollingFrequencyHz: &obstaclePollingFreqHz,
 				},
 				result: &MotionConfiguration{
-					VisionServices:        visionServices,
+					ObstacleDetectors:     obstacleDetectors,
 					LinearMPerSec:         linearMPerSec,
 					AngularDegsPerSec:     angularDegsPerSec,
 					PlanDeviationMM:       planDeviationMM,
@@ -942,11 +956,6 @@ func TestConfiguration(t *testing.T) {
 			result      *pb.MotionConfiguration
 		}
 
-		visionServices := []resource.Name{vision.Named("vision service 1"), vision.Named("vision service 2")}
-		visionServicesPB := []*commonpb.ResourceName{}
-		for _, vs := range visionServices {
-			visionServicesPB = append(visionServicesPB, rprotoutils.ResourceNameToProto(vs))
-		}
 		linearMPerSec := 1.
 		angularDegsPerSec := 2.
 		planDeviationMM := 3000.
@@ -964,7 +973,7 @@ func TestConfiguration(t *testing.T) {
 			{
 				description: "when passed a full struct returns a full struct",
 				input: &MotionConfiguration{
-					VisionServices:        visionServices,
+					ObstacleDetectors:     obstacleDetectors,
 					LinearMPerSec:         linearMPerSec,
 					AngularDegsPerSec:     angularDegsPerSec,
 					PlanDeviationMM:       planDeviationMM,
@@ -972,7 +981,7 @@ func TestConfiguration(t *testing.T) {
 					ObstaclePollingFreqHz: obstaclePollingFreqHz,
 				},
 				result: &pb.MotionConfiguration{
-					VisionServices:             visionServicesPB,
+					ObstacleDetectors:          obstacleDetectorsPB,
 					LinearMPerSec:              &linearMPerSec,
 					AngularDegsPerSec:          &angularDegsPerSec,
 					PlanDeviationM:             &planDeviationM,
@@ -1079,6 +1088,23 @@ func TestMoveOnGlobeReq(t *testing.T) {
 		})
 	})
 
+	visionCameraPairs := [][]resource.Name{
+		{vision.Named("vision service 1"), camera.Named("camera 1")},
+		{vision.Named("vision service 2"), camera.Named("camera 2")},
+	}
+	obstacleDetectorsPB := []*pb.ObstacleDetector{}
+	obstacleDetectors := []ObstacleDetectorName{}
+	for _, pair := range visionCameraPairs {
+		obstacleDetectors = append(obstacleDetectors, ObstacleDetectorName{
+			VisionServiceName: pair[0],
+			CameraName:        pair[1],
+		})
+		obstacleDetectorsPB = append(obstacleDetectorsPB, &pb.ObstacleDetector{
+			VisionService: rprotoutils.ResourceNameToProto(pair[0]),
+			Camera:        rprotoutils.ResourceNameToProto(pair[1]),
+		})
+	}
+
 	//nolint:dupl
 	t.Run("moveOnGlobeNewRequestFromProto", func(t *testing.T) {
 		type testCase struct {
@@ -1089,11 +1115,6 @@ func TestMoveOnGlobeReq(t *testing.T) {
 		}
 
 		heading := 1.
-		visionServices := []resource.Name{vision.Named("vision service 1"), vision.Named("vision service 2")}
-		visionServicesPB := []*commonpb.ResourceName{}
-		for _, vs := range visionServices {
-			visionServicesPB = append(visionServicesPB, rprotoutils.ResourceNameToProto(vs))
-		}
 		linearMPerSec := 1.
 		angularDegsPerSec := 2.
 		planDeviationMM := 3000.
@@ -1148,7 +1169,7 @@ func TestMoveOnGlobeReq(t *testing.T) {
 					MovementSensorName: movementsensor.Named("my-movementsensor"),
 					Obstacles:          []*spatialmath.GeoObstacle{},
 					MotionCfg: &MotionConfiguration{
-						VisionServices: []resource.Name{},
+						ObstacleDetectors: []ObstacleDetectorName{},
 					},
 					Extra: map[string]interface{}{},
 				},
@@ -1162,7 +1183,7 @@ func TestMoveOnGlobeReq(t *testing.T) {
 					MovementSensorName: rprotoutils.ResourceNameToProto(movementsensor.Named("my-movementsensor")),
 					Obstacles:          []*commonpb.GeoObstacle{},
 					MotionConfiguration: &pb.MotionConfiguration{
-						VisionServices:             visionServicesPB,
+						ObstacleDetectors:          obstacleDetectorsPB,
 						LinearMPerSec:              &linearMPerSec,
 						AngularDegsPerSec:          &angularDegsPerSec,
 						PlanDeviationM:             &planDeviationM,
@@ -1177,7 +1198,7 @@ func TestMoveOnGlobeReq(t *testing.T) {
 					MovementSensorName: movementsensor.Named("my-movementsensor"),
 					Obstacles:          []*spatialmath.GeoObstacle{},
 					MotionCfg: &MotionConfiguration{
-						VisionServices:        visionServices,
+						ObstacleDetectors:     obstacleDetectors,
 						LinearMPerSec:         linearMPerSec,
 						AngularDegsPerSec:     angularDegsPerSec,
 						PlanDeviationMM:       planDeviationMM,
@@ -1224,11 +1245,6 @@ func TestMoveOnGlobeReq(t *testing.T) {
 		}
 
 		heading := 1.
-		visionServices := []resource.Name{vision.Named("vision service 1"), vision.Named("vision service 2")}
-		visionServicesPB := []*commonpb.ResourceName{}
-		for _, vs := range visionServices {
-			visionServicesPB = append(visionServicesPB, rprotoutils.ResourceNameToProto(vs))
-		}
 		linearMPerSec := 1.
 		angularDegsPerSec := 2.
 		planDeviationMM := 3000.
@@ -1283,7 +1299,7 @@ func TestMoveOnGlobeReq(t *testing.T) {
 					MovementSensorName: movementsensor.Named("my-movementsensor"),
 					Obstacles:          []*spatialmath.GeoObstacle{},
 					MotionCfg: &MotionConfiguration{
-						VisionServices: []resource.Name{},
+						ObstacleDetectors: []ObstacleDetectorName{},
 					},
 					Extra: map[string]interface{}{},
 				},
@@ -1297,7 +1313,7 @@ func TestMoveOnGlobeReq(t *testing.T) {
 					MovementSensorName: rprotoutils.ResourceNameToProto(movementsensor.Named("my-movementsensor")),
 					Obstacles:          []*commonpb.GeoObstacle{},
 					MotionConfiguration: &pb.MotionConfiguration{
-						VisionServices:             visionServicesPB,
+						ObstacleDetectors:          obstacleDetectorsPB,
 						LinearMPerSec:              &linearMPerSec,
 						AngularDegsPerSec:          &angularDegsPerSec,
 						PlanDeviationM:             &planDeviationM,
@@ -1312,7 +1328,7 @@ func TestMoveOnGlobeReq(t *testing.T) {
 					MovementSensorName: movementsensor.Named("my-movementsensor"),
 					Obstacles:          []*spatialmath.GeoObstacle{},
 					MotionCfg: &MotionConfiguration{
-						VisionServices:        visionServices,
+						ObstacleDetectors:     obstacleDetectors,
 						LinearMPerSec:         linearMPerSec,
 						AngularDegsPerSec:     angularDegsPerSec,
 						PlanDeviationMM:       planDeviationMM,
@@ -1470,7 +1486,17 @@ func TestPlanHistoryReq(t *testing.T) {
 
 func validMoveOnGlobeRequest() MoveOnGlobeReq {
 	dst := geo.NewPoint(1, 2)
-	visionServices := []resource.Name{vision.Named("vision service 1"), vision.Named("vision service 2")}
+	visionCameraPairs := [][]resource.Name{
+		{vision.Named("vision service 1"), camera.Named("camera 1")},
+		{vision.Named("vision service 2"), camera.Named("camera 2")},
+	}
+	obstacleDetectors := []ObstacleDetectorName{}
+	for _, pair := range visionCameraPairs {
+		obstacleDetectors = append(obstacleDetectors, ObstacleDetectorName{
+			VisionServiceName: pair[0],
+			CameraName:        pair[1],
+		})
+	}
 	return MoveOnGlobeReq{
 		ComponentName:      base.Named("my-base"),
 		Destination:        dst,
@@ -1478,7 +1504,7 @@ func validMoveOnGlobeRequest() MoveOnGlobeReq {
 		MovementSensorName: movementsensor.Named("my-movementsensor"),
 		Obstacles:          nil,
 		MotionCfg: &MotionConfiguration{
-			VisionServices:        visionServices,
+			ObstacleDetectors:     obstacleDetectors,
 			LinearMPerSec:         1,
 			AngularDegsPerSec:     2,
 			PlanDeviationMM:       3,

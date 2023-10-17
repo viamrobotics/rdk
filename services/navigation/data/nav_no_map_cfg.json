@@ -1,34 +1,37 @@
 {
     "components":
-    [
-        {
-            "model": "fake",
-            "name": "test_base",
-            "type": "base"
-        }
-    ],
+    [{
+        "model": "fake",
+        "name": "test_base",
+        "type": "base"
+    },
+    {
+        "model": "fake",
+        "name": "test_camera",
+        "type": "camera"
+    }],
     "services":
-    [
-        {
-            "name": "test_vision",
-            "type": "vision",
-            "model": "color_detector",
-            "attributes": {
-                "segment_size_px": 100,
-                "detect_color": "#1C4599",
-                "hue_tolerance_pct": 0.07,
-                "value_cutoff_pct": 0.15
-            }
-        },
-        {
+    [{
+        "name": "test_vision",
+        "type": "vision",
+        "model": "color_detector",
+        "attributes": {
+            "segment_size_px": 100,
+            "detect_color": "#1C4599",
+            "hue_tolerance_pct": 0.07,
+            "value_cutoff_pct": 0.15
+        }
+    },
+    {
         "name":"test_navigation",
         "type": "navigation",
         "attributes":{
             "base":"test_base",
             "map_type": "None",
-            "vision_services": [
-                "test_vision"
-            ]
+            "obstacle_detectors": [{
+                "vision_service": "test_vision",
+                "camera": "test_camera"
+            }]
         }
     }]
 }

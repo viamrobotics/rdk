@@ -144,7 +144,7 @@ func (server *serviceServer) GetObstacles(ctx context.Context, req *pb.GetObstac
 	if err != nil {
 		return nil, err
 	}
-	obstacles, err := svc.GetObstacles(ctx, req.Extra.AsMap())
+	obstacles, err := svc.Obstacles(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -153,6 +153,22 @@ func (server *serviceServer) GetObstacles(ctx context.Context, req *pb.GetObstac
 		protoObs = append(protoObs, spatialmath.GeoObstacleToProtobuf(obstacle))
 	}
 	return &pb.GetObstaclesResponse{Obstacles: protoObs}, nil
+}
+
+func (server *serviceServer) GetPaths(ctx context.Context, req *pb.GetPathsRequest) (*pb.GetPathsResponse, error) {
+	svc, err := server.coll.Resource(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	paths, err := svc.Paths(ctx, req.Extra.AsMap())
+	if err != nil {
+		return nil, err
+	}
+	pbPaths, err := PathSliceToProto(paths)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.GetPathsResponse{Paths: pbPaths}, nil
 }
 
 // DoCommand receives arbitrary commands.

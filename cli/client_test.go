@@ -88,7 +88,7 @@ func TestListOrganizationsAction(t *testing.T) {
 	listOrganizationsFunc := func(ctx context.Context, in *apppb.ListOrganizationsRequest,
 		opts ...grpc.CallOption,
 	) (*apppb.ListOrganizationsResponse, error) {
-		orgs := []*apppb.Organization{{Name: "jedi"}, {Name: "mandalorians"}}
+		orgs := []*apppb.Organization{{Name: "jedi", PublicNamespace: "anakin"}, {Name: "mandalorians"}}
 		return &apppb.ListOrganizationsResponse{Organizations: orgs}, nil
 	}
 	asc := &inject.AppServiceClient{
@@ -101,6 +101,7 @@ func TestListOrganizationsAction(t *testing.T) {
 	test.That(t, len(out.messages), test.ShouldEqual, 3)
 	test.That(t, out.messages[0], test.ShouldEqual, fmt.Sprintf("Organizations for %q:\n", testEmail))
 	test.That(t, out.messages[1], test.ShouldContainSubstring, "jedi")
+	test.That(t, out.messages[1], test.ShouldContainSubstring, "anakin")
 	test.That(t, out.messages[2], test.ShouldContainSubstring, "mandalorians")
 }
 

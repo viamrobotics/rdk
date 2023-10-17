@@ -159,7 +159,7 @@ func (c *viamClient) uploadBoardDefsFile(
 	}
 
 	// Create an archive tar.gz file (required for packages).
-	file, err := createArchive(jsonFile)
+	file, err := createBoardArchive(jsonFile)
 	if err != nil {
 		return nil, errors.Wrap(err, "error creating archive")
 	}
@@ -311,8 +311,8 @@ func sendPackageRequests(stream packagepb.PackageService_CreatePackageClient,
 	return nil
 }
 
-// createArchive creates a tar.gz from the file provided.
-func createArchive(file *os.File) (*bytes.Buffer, error) {
+// createBoardArchive creates a tar.gz from the file provided.
+func createBoardArchive(file *os.File) (*bytes.Buffer, error) {
 	// Create output buffer
 	out := new(bytes.Buffer)
 
@@ -388,6 +388,10 @@ func (c *viamClient) downloadFile(ctx context.Context, filepath, url string) err
 	}
 
 	defer utils.UncheckedErrorFunc(resp.Body.Close)
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("invalid status code %q when downloading package at %q", resp.Status, url)
+	}
 
 	err = untar(filepath, resp.Body)
 	if err != nil {

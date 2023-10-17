@@ -55,17 +55,19 @@ func init() {
 			if err != nil {
 				return nil, err
 			}
-			return camera.FromVideoSource(conf.ResourceName(), src), nil
+			return camera.FromVideoSource(conf.ResourceName(), src, logger), nil
 		},
 	})
 }
 
 type ffmpegCamera struct {
+	resource.Named
 	gostream.VideoReader
 	cancelFunc              context.CancelFunc
 	activeBackgroundWorkers sync.WaitGroup
 	inClose                 func() error
 	outClose                func() error
+	logger                  golog.Logger
 }
 
 // NewFFMPEGCamera instantiates a new camera which leverages ffmpeg to handle a variety of potential video types.
@@ -84,7 +86,7 @@ func NewFFMPEGCamera(ctx context.Context, conf *Config, logger golog.Logger) (ca
 
 	// instantiate camera with cancellable context that will be applied to all spawned processes
 	cancelableCtx, cancel := context.WithCancel(context.Background())
-	ffCam := &ffmpegCamera{cancelFunc: cancel}
+	ffCam := &ffmpegCamera{cancelFunc: cancel, logger: logger}
 
 	// launch thread to run ffmpeg and pull images from the url and put them into the pipe
 	in, out := io.Pipe()

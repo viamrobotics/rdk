@@ -48,10 +48,10 @@ func newCamera(ctx context.Context, deps resource.Dependencies, name resource.Na
 	if err != nil {
 		return nil, err
 	}
-	return cameraFromSensor(ctx, name, usSensor)
+	return cameraFromSensor(ctx, name, usSensor, logger)
 }
 
-func cameraFromSensor(ctx context.Context, name resource.Name, usSensor sensor.Sensor) (camera.Camera, error) {
+func cameraFromSensor(ctx context.Context, name resource.Name, usSensor sensor.Sensor, logger golog.Logger) (camera.Camera, error) {
 	usWrapper := ultrasonicWrapper{usSensor: usSensor}
 
 	usVideoSource, err := camera.NewVideoSourceFromReader(ctx, &usWrapper, nil, camera.UnspecifiedStream)
@@ -59,7 +59,7 @@ func cameraFromSensor(ctx context.Context, name resource.Name, usSensor sensor.S
 		return nil, err
 	}
 
-	return camera.FromVideoSource(name, usVideoSource), nil
+	return camera.FromVideoSource(name, usVideoSource, logger), nil
 }
 
 // NextPointCloud queries the ultrasonic sensor then returns the result as a pointcloud,

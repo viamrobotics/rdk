@@ -155,12 +155,14 @@ func (h *I2cHandle) Close() error {
 }
 
 // GetI2CBus retrieves an I2C interface. If the bus number is specified, it uses that on the local
-// machine, and otherwise it tries to get the named bus from the named board.
+// machine, and otherwise it tries to get the named bus from the named board. Although it would be
+// intuitive for the bus number to be an integer, we keep it as a string because it's possible for
+// a devicetree overlay on some unusual board to make it non-numerical.
 // TODO(RSDK-5254): remove this once all I2C devices are talking directly to the bus without going
 // through the board.
-func GetI2CBus(deps resource.Dependencies, boardName, busName string, busNum int) (board.I2C, error) {
-	if busNum != 0 {
-		return NewI2cBus(fmt.Sprintf("%d", busNum))
+func GetI2CBus(deps resource.Dependencies, boardName, busName, busNum string) (board.I2C, error) {
+	if busNum != "" {
+		return NewI2cBus(busNum)
 	}
 
 	// Otherwise, look things up through the board.
