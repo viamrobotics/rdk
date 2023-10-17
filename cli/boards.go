@@ -365,13 +365,7 @@ func createArchive(file *os.File) (*bytes.Buffer, error) {
 func (c *viamClient) downloadFile(ctx context.Context, filepath, url string) error {
 	getReq, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 
-	// HTTP Requests to app require auth headers, varies by auth mechanism.
-	if token, isToken := c.conf.Auth.(*token); isToken {
-		getReq.Header.Set("Authorization", "Bearer "+token.AccessToken)
-	} else if APIKey, isAPIKey := c.conf.Auth.(*apiKey); isAPIKey {
-		getReq.Header.Set("key_id", APIKey.KeyID)
-		getReq.Header.Set("key", APIKey.KeyCrypto)
-	}
+	c.appendAuthHeaders(getReq)
 
 	if err != nil {
 		return err
@@ -400,6 +394,16 @@ func (c *viamClient) downloadFile(ctx context.Context, filepath, url string) err
 		return errors.Wrap(err, "error extracting the tar file")
 	}
 	return nil
+}
+
+// This function adds auth headers to an HTTP Request, that varies by auth mechanism used in the CLI.
+func (c *viamClient) appendAuthHeaders(req *http.Request) {
+	if token, isToken := c.conf.Auth.(*token); isToken {
+		req.Header.Set("Authorization", "Bearer "+token.AccessToken)
+	} else if APIKey, isAPIKey := c.conf.Auth.(*apiKey); isAPIKey {
+		req.Header.Set("key_id", APIKey.KeyID)
+		req.Header.Set("key", APIKey.KeyCrypto)
+	}
 }
 
 // untar extracts the tar.gz file, keeping file directory structure.
