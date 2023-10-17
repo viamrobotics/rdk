@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -33,8 +32,8 @@ const (
 	nextPointCloud = "NextPointCloud"
 	pointCloudMap  = "PointCloudMap"
 	// Non-exhaustive list of characters to strip from file paths, since not allowed
-	// on at least Windows and Darwin.
-	windowsDarwinReservedChars = ":"
+	// on certain file systems.
+	filePathReservedChars = ":"
 )
 
 // File is the data structure containing data captured by collectors. It is backed by a file on disk containing
@@ -319,11 +318,7 @@ func SensorDataFromFile(f *File) ([]*v1.SensorData, error) {
 }
 
 // FilePathWithReplacedReservedChars returns the filepath with substitutions
-// for reserved characters if running on Windows or Darwin.
+// for reserved characters.
 func FilePathWithReplacedReservedChars(filepath string) string {
-	runtimeOS := runtime.GOOS
-	if runtimeOS == "windows" || runtimeOS == "darwin" {
-		return strings.ReplaceAll(filepath, windowsDarwinReservedChars, "_")
-	}
-	return filepath
+	return strings.ReplaceAll(filepath, filePathReservedChars, "_")
 }
