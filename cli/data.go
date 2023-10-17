@@ -10,7 +10,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -20,6 +19,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 	datapb "go.viam.com/api/app/data/v1"
+	"go.viam.com/rdk/services/datamanager/datacapture"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -335,7 +335,7 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 
 	datum := data[0]
 
-	fileName := filenameForDownload(datum.GetMetadata(), runtime.GOOS)
+	fileName := filenameForDownload(datum.GetMetadata())
 	// Modify the file name in the metadata to reflect what it will be saved as.
 	metadata := datum.GetMetadata()
 	metadata.FileName = fileName
@@ -394,11 +394,11 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 	return nil
 }
 
-// non-exhaustive list of characters to strip from filenames on windows and darwin (macOS).
-const windowsDarwinReservedChars = ":"
+// non-exhaustive list of characters to strip from filenames
+const filePathReservedChars = ":"
 
 // transform datum's filename to a destination path on this computer.
-func filenameForDownload(meta *datapb.BinaryMetadata, runtimeOS string) string {
+func filenameForDownload(meta *datapb.BinaryMetadata) string {
 	timeRequested := meta.GetTimeRequested().AsTime().Format(time.RFC3339Nano)
 	fileName := meta.GetFileName()
 
@@ -417,14 +417,9 @@ func filenameForDownload(meta *datapb.BinaryMetadata, runtimeOS string) string {
 		fileName = strings.TrimSuffix(fileName, gzFileExt)
 	}
 
-	if runtimeOS == "windows" || runtimeOS == "darwin" {
-		fileName = strings.Map(func(c rune) rune {
-			if strings.ContainsRune(windowsDarwinReservedChars, c) {
-				return '_'
-			}
-			return c
-		}, fileName)
-	}
+	// Replace reserved characters.
+	fileName = datacapture.FilePathWithReplacedReservedChars(fileName)
+
 	return fileName
 }
 

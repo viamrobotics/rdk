@@ -32,7 +32,7 @@ const (
 	nextPointCloud = "NextPointCloud"
 	pointCloudMap  = "PointCloudMap"
 	// Non-exhaustive list of characters to strip from file paths, since not allowed
-	// on at least Windows, Darwin, and Ubuntu 20.04.
+	// on certain file systems.
 	filePathReservedChars = ":"
 )
 
