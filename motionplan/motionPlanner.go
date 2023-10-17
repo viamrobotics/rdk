@@ -100,7 +100,8 @@ func (req *PlanRequest) validatePlanRequest() error {
 
 // PlanMotion plans a motion from a provided plan request.
 func PlanMotion(ctx context.Context, request *PlanRequest) (Plan, error) {
-	return planMotionInternal(ctx, request, nil, 0)
+	// Calls Replan but without a seed plan
+	return Replan(ctx, request, nil, 0)
 }
 
 // PlanFrameMotion plans a motion to destination for a given frame with no frame system. It will create a new FS just for the plan.
@@ -136,10 +137,6 @@ func PlanFrameMotion(ctx context.Context,
 // Replan plans a motion from a provided plan request, and then will return that plan only if its cost is better than the cost of the
 // passed-in plan multiplied by `replanCostFactor`.
 func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanCostFactor float64) (Plan, error) {
-	return planMotionInternal(ctx, request, currentPlan, replanCostFactor)
-}
-
-func planMotionInternal(ctx context.Context, request *PlanRequest, currentPlan Plan, replanCostFactor float64) (Plan, error) {
 	// make sure request is well formed and not missing vital information
 	if err := request.validatePlanRequest(); err != nil {
 		return nil, err
@@ -207,10 +204,10 @@ func planMotionInternal(ctx context.Context, request *PlanRequest, currentPlan P
 			distFunc = tpspace.PTGSegmentMetric
 		}
 
-		initialPlanCost := EvaluatePlan(currentPlan, distFunc)
-		finalPlanCost := EvaluatePlan(newPlan, distFunc)
-		request.Logger.Debugf("initialPlanCost", initialPlanCost, "with cost factor", initialPlanCost*replanCostFactor)
-		request.Logger.Debugf("finalPlanCost", finalPlanCost)
+		initialPlanCost := currentPlan.Evaluate(distFunc)
+		finalPlanCost := newPlan.Evaluate(distFunc)
+		request.Logger.Debugf("initialPlanCost %f with cost factor %f", initialPlanCost, initialPlanCost*replanCostFactor)
+		request.Logger.Debugf("finalPlanCost %f", finalPlanCost)
 
 		if finalPlanCost > initialPlanCost*replanCostFactor {
 			return nil, errors.New("unable to create a new plan within replanCostFactor from the original")

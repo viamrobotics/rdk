@@ -43,6 +43,22 @@ func (plan Plan) String() string {
 	return str
 }
 
+// Evaluate assigns a numeric score to a plan that corresponds to the cumulative distance between input waypoints in the plan.
+func (plan Plan) Evaluate(distFunc ik.SegmentMetric) (totalCost float64) {
+	if len(plan) < 2 {
+		return math.Inf(1)
+	}
+	for i := 0; i < len(plan)-1; i++ {
+		for component, inputs := range plan[i] {
+			if nextInputs, ok := plan[i+1][component]; ok && len(inputs) > 0 {
+				cost := distFunc(&ik.Segment{StartConfiguration: inputs, EndConfiguration: nextInputs})
+				totalCost += cost
+			}
+		}
+	}
+	return totalCost
+}
+
 // PathStepCount will determine the number of steps which should be used to get from the seed to the goal.
 // The returned value is guaranteed to be at least 1.
 // stepSize represents both the max mm movement per step, and max R4AA degrees per step.
@@ -57,22 +73,6 @@ func PathStepCount(seedPos, goalPos spatialmath.Pose, stepSize float64) int {
 
 	nSteps := math.Max(math.Abs(mmDist/stepSize), math.Abs(utils.RadToDeg(rDist.Theta)/stepSize))
 	return int(nSteps) + 1
-}
-
-// EvaluatePlan assigns a numeric score to a plan that corresponds to the cumulative distance between input waypoints in the plan.
-func EvaluatePlan(plan Plan, distFunc ik.SegmentMetric) (totalCost float64) {
-	if len(plan) < 2 {
-		return math.Inf(1)
-	}
-	for i := 0; i < len(plan)-2; i++ {
-		for component, inputs := range plan[i] {
-			if nextInputs, ok := plan[i+1][component]; ok && len(inputs) > 0 {
-				cost := distFunc(&ik.Segment{StartConfiguration: inputs, EndConfiguration: nextInputs})
-				totalCost += cost
-			}
-		}
-	}
-	return totalCost
 }
 
 // fixOvIncrement will detect whether the given goal position is a precise orientation increment of the current

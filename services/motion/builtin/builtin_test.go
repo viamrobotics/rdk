@@ -743,6 +743,11 @@ func TestReplanning(t *testing.T) {
 		expectedErr     string
 	}
 
+	extra := make(map[string]interface{})
+	extra["replan_cost_factor"] = 10.0 // Sensor drift means this will grow
+	replanCount := 4
+	extra["max_replans"] = replanCount
+
 	testCases := []testCase{
 		{
 			name:            "check we dont replan with a good sensor",
@@ -752,7 +757,7 @@ func TestReplanning(t *testing.T) {
 		{
 			name:            "check we replan with a noisy sensor",
 			noise:           r3.Vector{Y: epsilonMM + 0.1},
-			expectedErr:     fmt.Sprintf("exceeded maximum number of replans: %d", defaultMaxReplans),
+			expectedErr:     fmt.Sprintf("exceeded maximum number of replans: %d", replanCount),
 			expectedSuccess: false,
 		},
 	}
@@ -761,7 +766,7 @@ func TestReplanning(t *testing.T) {
 		t.Helper()
 		injectedMovementSensor, _, kb, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, spatialmath.NewPoseFromPoint(tc.noise))
 
-		success, err := ms.MoveOnGlobe(ctx, kb.Name(), dst, 0, injectedMovementSensor.Name(), nil, motionCfg, nil)
+		success, err := ms.MoveOnGlobe(ctx, kb.Name(), dst, 0, injectedMovementSensor.Name(), nil, motionCfg, extra)
 
 		if tc.expectedSuccess {
 			test.That(t, err, test.ShouldBeNil)

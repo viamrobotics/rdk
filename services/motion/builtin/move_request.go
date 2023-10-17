@@ -20,16 +20,17 @@ import (
 
 const (
 	defaultReplanCostFactor = 1.0
-	defaultMaxReplans       = 10
+	defaultMaxReplans       = -1
 )
 
 // moveRequest is a structure that contains all the information necessary for to make a move call.
 type moveRequest struct {
-	config        *motion.MotionConfiguration
-	planRequest   *motionplan.PlanRequest
-	seedPlan      motionplan.Plan
-	kinematicBase kinematicbase.KinematicBase
-	maxReplans    int
+	config           *motion.MotionConfiguration
+	planRequest      *motionplan.PlanRequest
+	seedPlan         motionplan.Plan
+	kinematicBase    kinematicbase.KinematicBase
+	maxReplans       int
+	replanCostFactor float64
 }
 
 // plan creates a plan using the currentInputs of the robot and the moveRequest's planRequest.
@@ -43,19 +44,11 @@ func (mr *moveRequest) plan(ctx context.Context) ([][]referenceframe.Input, erro
 		inputs = inputs[:2]
 	}
 	mr.planRequest.StartConfiguration = map[string][]referenceframe.Input{mr.kinematicBase.Kinematics().Name(): inputs}
-	if mr.seedPlan == nil {
-		plan, err := motionplan.PlanMotion(ctx, mr.planRequest)
-		if err != nil {
-			return nil, err
-		}
-		mr.seedPlan = plan
-	} else {
-		plan, err := motionplan.Replan(ctx, mr.planRequest, mr.seedPlan, defaultReplanCostFactor)
-		if err != nil {
-			return nil, err
-		}
-		mr.seedPlan = plan
+	plan, err := motionplan.Replan(ctx, mr.planRequest, mr.seedPlan, mr.replanCostFactor)
+	if err != nil {
+		return nil, err
 	}
+	mr.seedPlan = plan
 	return mr.seedPlan.GetFrameSteps(mr.kinematicBase.Kinematics().Name())
 }
 
@@ -220,6 +213,8 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 		return nil, err
 	}
 
+	replanCostFactor := defaultReplanCostFactor
+	maxReplans := defaultMaxReplans
 	if extra != nil {
 		if profile, ok := extra["motion_profile"]; ok {
 			motionProfile, ok := profile.(string)
@@ -227,6 +222,20 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 				return nil, errors.New("could not interpret motion_profile field as string")
 			}
 			kinematicsOptions.PositionOnlyMode = motionProfile == motionplan.PositionOnlyMotionProfile
+		}
+		if costFactorRaw, ok := extra["replan_cost_factor"]; ok {
+			costFactor, ok := costFactorRaw.(float64)
+			if !ok {
+				return nil, errors.New("could not interpret replan_cost_factor field as float")
+			}
+			replanCostFactor = costFactor
+		}
+		if replansRaw, ok := extra["max_replans"]; ok {
+			replans, ok := replansRaw.(int)
+			if !ok {
+				return nil, errors.New("could not interpret max_replans field as int")
+			}
+			maxReplans = replans
 		}
 	}
 
@@ -241,7 +250,8 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 			WorldState:         worldState,
 			Options:            extra,
 		},
-		kinematicBase: kb,
-		maxReplans:    defaultMaxReplans,
+		kinematicBase:    kb,
+		maxReplans:       maxReplans,
+		replanCostFactor: replanCostFactor,
 	}, nil
 }
