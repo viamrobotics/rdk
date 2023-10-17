@@ -710,12 +710,24 @@ func (c *viamClient) robot(orgStr, locStr, robotStr string) (*apppb.Robot, error
 		return nil, err
 	}
 
+	robots, err := c.listRobots(orgStr, locStr)
+	if err != nil {
+		return nil, err
+	}
+	for _, robot := range robots {
+		if robot.Id == robotStr || robot.Name == robotStr {
+			return robot, nil
+		}
+	}
+
+	// check if the robot is a cloud robot using the ID
 	resp, err := c.client.GetRobot(c.c.Context, &apppb.GetRobotRequest{
 		Id: robotStr,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errors.Errorf("no robot found for %q", robotStr)
 	}
+
 	return resp.GetRobot(), nil
 }
 
