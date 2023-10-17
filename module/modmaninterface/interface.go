@@ -19,6 +19,7 @@ type ModuleManager interface {
 	RemoveResource(ctx context.Context, name resource.Name) error
 	IsModularResource(name resource.Name) bool
 	ValidateConfig(ctx context.Context, cfg resource.Config) ([]string, error)
+    CleanModuleDataDirectory(ctx context.Context) error
 
 	Configs() []config.Module
 	Provides(cfg resource.Config) bool

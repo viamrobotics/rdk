@@ -53,7 +53,7 @@ func TestModManagerFunctions(t *testing.T) {
 
 	mod := &module{name: "test", exe: modPath}
 
-	err = mod.startProcess(ctx, parentAddr, nil, logger)
+	err = mod.startProcess(ctx, parentAddr, nil, logger, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	err = mod.dial()

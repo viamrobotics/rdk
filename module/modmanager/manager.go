@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -39,6 +40,7 @@ var (
 	errMessageExitStatus143     = "exit status 143"
 	logLevelArgumentTemplate    = "--log-level=%s"
 	errModularResourcesDisabled = errors.New("modular resources disabled in untrusted environment")
+	moduleDataFolderName        = "module-data"
 )
 
 // NewManager returns a Manager.
@@ -50,6 +52,7 @@ func NewManager(parentAddr string, logger golog.Logger, options modmanageroption
 		parentAddr:              parentAddr,
 		rMap:                    map[resource.Name]*module{},
 		untrustedEnv:            options.UntrustedEnv,
+		viamHomeDir:             options.ViamHomeDir,
 		removeOrphanedResources: options.RemoveOrphanedResources,
 		restartCtx:              restartCtx,
 		restartCtxCancel:        restartCtxCancel,
@@ -63,6 +66,7 @@ type module struct {
 	modType     config.ModuleType
 	moduleID    string
 	environment map[string]string
+	dataDir     string
 	process     pexec.ManagedProcess
 	handles     modlib.HandlerMap
 	conn        *grpc.ClientConn
@@ -97,6 +101,7 @@ type Manager struct {
 	parentAddr              string
 	rMap                    map[resource.Name]*module
 	untrustedEnv            bool
+	viamHomeDir             string
 	removeOrphanedResources func(ctx context.Context, rNames []resource.Name)
 	restartCtx              context.Context
 	restartCtxCancel        context.CancelFunc
@@ -134,6 +139,11 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, conn *grpc.Clie
 		return nil
 	}
 
+	moduleDataDir := filepath.Join(mgr.viamHomeDir, moduleDataFolderName, conf.Name)
+	if err := os.MkdirAll(moduleDataDir, 0o755); err != nil {
+		return err
+	}
+
 	mod := &module{
 		name:        conf.Name,
 		exe:         conf.ExePath,
@@ -141,6 +151,7 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, conn *grpc.Clie
 		modType:     conf.Type,
 		moduleID:    conf.ModuleID,
 		environment: conf.Environment,
+		dataDir:     moduleDataDir,
 		conn:        conn,
 		resources:   map[resource.Name]*addedResource{},
 	}
@@ -159,8 +170,7 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, conn *grpc.Clie
 		}
 	}()
 
-	if err := mod.startProcess(mgr.restartCtx, mgr.parentAddr,
-		mgr.newOnUnexpectedExitHandler(mod), mgr.logger); err != nil {
+	if err := mgr.startModuleProcess(mod); err != nil {
 		return errors.WithMessage(err, "error while starting module "+mod.name)
 	}
 
@@ -446,6 +456,36 @@ func (mgr *Manager) getModule(conf resource.Config) (*module, bool) {
 	return nil, false
 }
 
+func (mgr *Manager) CleanModuleDataDirectory(ctx context.Context) error {
+	// Absolute path to all dirs that should exist
+	expectedDirs := make(map[string]bool, len(mgr.modules))
+	for _, m := range mgr.modules {
+		expectedDirs[m.dataDir] = true
+	}
+	dataFolder := filepath.Join(mgr.viamHomeDir, moduleDataFolderName)
+
+	// Scan dataFolder for all existing directories
+	existingDirs, err := filepath.Glob(filepath.Join(dataFolder, "*"))
+	if err != nil {
+		return err
+	}
+
+	// Delete directories in dataFolder that are not in expectedDirs
+	for _, dir := range existingDirs {
+		if !expectedDirs[dir] {
+			if err := os.RemoveAll(dir); err != nil {
+				return err
+			}
+		} else {
+			// Remove directory from expectedDirs to leave behind only those that don't exist yet
+			// This complex logic is used to detect (and delete) duplicate directories
+			delete(expectedDirs, dir)
+		}
+	}
+
+	return nil
+}
+
 var (
 	// oueTimeout is the length of time for which an OnUnexpectedExit function
 	// can execute blocking calls.
@@ -544,8 +584,7 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 
 	// Attempt to restart module process 3 times.
 	for attempt := 1; attempt < 4; attempt++ {
-		if err := mod.startProcess(mgr.restartCtx, mgr.parentAddr,
-			mgr.newOnUnexpectedExitHandler(mod), mgr.logger); err != nil {
+		if err := mgr.startModuleProcess(mod); err != nil {
 			mgr.logger.Errorf("attempt %d: error while restarting crashed module %s: %v",
 				attempt, mod.name, err)
 			if attempt == 3 {
@@ -578,6 +617,25 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 
 	success = true
 	return nil
+}
+func (mgr *Manager) startModuleProcess(mod *module) error {
+	return mod.startProcess(
+		mgr.restartCtx,
+		mgr.parentAddr,
+		mgr.newOnUnexpectedExitHandler(mod),
+		mgr.logger,
+		mgr.getModuleBaseEnvironment(mod),
+	)
+}
+func (mgr *Manager) getModuleBaseEnvironment(mod *module) map[string]string {
+	environment := map[string]string{
+		"VIAM_HOME":        mgr.viamHomeDir,
+		"VIAM_MODULE_DATA": mod.dataDir,
+	}
+	if mod.modType == config.ModuleTypeRegistry {
+		environment["VIAM_MODULE_ID"] = mod.moduleID
+	}
+	return environment
 }
 
 // dial will use m.conn to make a new module service client or Dial m.addr if
@@ -630,17 +688,24 @@ func (m *module) startProcess(
 	parentAddr string,
 	oue func(int) bool,
 	logger golog.Logger,
+	baseEnvironment map[string]string,
 ) error {
 	var err error
 	if m.addr, err = modlib.CreateSocketAddress(filepath.Dir(parentAddr), m.name); err != nil {
 		return err
 	}
 
+	// Overwrite the passed in baseEnvironment with the module's environment variables (if specified)
+	environment := baseEnvironment
+	for key, value := range m.environment {
+		environment[key] = value
+	}
+
 	pconf := pexec.ProcessConfig{
 		ID:               m.name,
 		Name:             m.exe,
 		Args:             []string{m.addr},
-		Environment:      m.environment,
+		Environment:      environment,
 		Log:              true,
 		OnUnexpectedExit: oue,
 	}
