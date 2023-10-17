@@ -318,7 +318,7 @@ func SensorDataFromFile(f *File) ([]*v1.SensorData, error) {
 }
 
 // FilePathWithReplacedReservedChars returns the filepath with substitutions
-// for reserved characterw.
+// for reserved characters.
 func FilePathWithReplacedReservedChars(filepath string) string {
 	return strings.ReplaceAll(filepath, filePathReservedChars, "_")
 }
