@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/pkg/errors"
 )
@@ -32,6 +33,7 @@ type GraphNode struct {
 	currentModel              Model
 	config                    Config
 	needsReconfigure          bool
+	lastReconfigured          *time.Time
 	lastErr                   error
 	markedForRemoval          bool
 	unresolvedDependencies    []string
@@ -81,6 +83,15 @@ func (w *GraphNode) setGraphLogicalClock(clock *atomic.Int64) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.graphLogicalClock = clock
+}
+
+// LastReconfigured returns a pointer to the time at which the resource within
+// this GraphNode was constructed or last reconfigured. It returns nil if the
+// GraphNode is uninitialized or unconfigured.
+func (w *GraphNode) LastReconfigured() *time.Time {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	return w.lastReconfigured
 }
 
 // Resource returns the underlying resource if it is not pending removal,
@@ -162,9 +173,12 @@ func (w *GraphNode) SwapResource(newRes Resource, newModel Model) {
 	// these should already be set
 	w.unresolvedDependencies = nil
 	w.needsDependencyResolution = false
+
 	if w.graphLogicalClock != nil {
 		w.updatedAt = w.graphLogicalClock.Add(1)
 	}
+	now := time.Now()
+	w.lastReconfigured = &now
 }
 
 // MarkForRemoval marks this node for removal at a later time.
@@ -342,9 +356,8 @@ func (w *GraphNode) replace(other *GraphNode) error {
 
 	other.mu.Lock()
 	w.updatedAt = other.updatedAt
-	if other.graphLogicalClock != nil {
-		w.graphLogicalClock = other.graphLogicalClock
-	}
+	w.graphLogicalClock = other.graphLogicalClock
+	w.lastReconfigured = other.lastReconfigured
 	w.current = other.current
 	w.currentModel = other.currentModel
 	w.config = other.config
@@ -357,6 +370,7 @@ func (w *GraphNode) replace(other *GraphNode) error {
 	// other is now owned by the graph/node and is invalidated
 	other.updatedAt = 0
 	other.graphLogicalClock = nil
+	other.lastReconfigured = nil
 	other.current = nil
 	other.currentModel = Model{}
 	other.config = Config{}

@@ -236,6 +236,7 @@ func remoteNameByResource(resourceName resource.Name) (string, bool) {
 func (r *localRobot) Status(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
 	r.mu.Lock()
 	resources := make(map[resource.Name]resource.Resource, len(r.manager.resources.Names()))
+	lastReconfiguredMap := make(map[resource.Name]time.Time)
 	for _, name := range r.ResourceNames() {
 		res, err := r.ResourceByName(name)
 		if err != nil {
@@ -243,6 +244,20 @@ func (r *localRobot) Status(ctx context.Context, resourceNames []resource.Name) 
 			return nil, resource.NewNotFoundError(name)
 		}
 		resources[name] = res
+
+		// Use graph node to find lastReconfigured value.
+		if resNode, ok := r.manager.resources.Node(name); ok {
+			switch lr := resNode.LastReconfigured(); {
+			case lr == nil:
+				// Should never happen as ResourceNames only returns configured resources.
+				r.Logger().Errorw(
+					"no lastReconfigured value for resource as it has not been configured",
+					"resource", name,
+				)
+			default:
+				lastReconfiguredMap[name] = *lr
+			}
+		}
 	}
 	r.mu.Unlock()
 
@@ -325,7 +340,13 @@ func (r *localRobot) Status(ctx context.Context, resourceNames []resource.Name) 
 					return nil, errors.Wrapf(err, "failed to get status from %q", name)
 				}
 			}
-			resourceStatus = robot.Status{Name: name, Status: status}
+			r.mu.Lock()
+			r.manager.resources.Node(name)
+			resourceStatus = robot.Status{
+				Name:             name,
+				LastReconfigured: lastReconfiguredMap[name],
+				Status:           status,
+			}
 		}
 		statuses = append(statuses, resourceStatus)
 	}
