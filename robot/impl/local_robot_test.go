@@ -1093,7 +1093,7 @@ func TestStatus(t *testing.T) {
 		resource.DeregisterAPI(failAPI)
 	}()
 
-	statuses := []robot.Status{{Name: button1, Status: map[string]interface{}{}}}
+	expectedRobotStatus := robot.Status{Name: button1, Status: map[string]interface{}{}}
 	logger := golog.NewTestLogger(t)
 	resourceNames := []resource.Name{working1, button1, fail1}
 	resourceMap := map[resource.Name]resource.Resource{
@@ -1123,7 +1123,11 @@ func TestStatus(t *testing.T) {
 
 		resp, err := r.Status(context.Background(), []resource.Name{button1})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp, test.ShouldResemble, statuses)
+		test.That(t, len(resp), test.ShouldEqual, 1)
+		test.That(t, resp[0].Name, test.ShouldResemble, expectedRobotStatus.Name)
+		test.That(t, resp[0].Status, test.ShouldResemble, expectedRobotStatus.Status)
+		test.That(t, resp[0].LastReconfigured, test.ShouldHappenBetween,
+			time.Now().Add(-10*time.Second), time.Now())
 	})
 
 	t.Run("failing resource", func(t *testing.T) {

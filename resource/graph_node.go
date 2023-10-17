@@ -356,7 +356,9 @@ func (w *GraphNode) replace(other *GraphNode) error {
 
 	other.mu.Lock()
 	w.updatedAt = other.updatedAt
-	w.graphLogicalClock = other.graphLogicalClock
+	if other.graphLogicalClock != nil {
+		w.graphLogicalClock = other.graphLogicalClock
+	}
 	w.lastReconfigured = other.lastReconfigured
 	w.current = other.current
 	w.currentModel = other.currentModel
