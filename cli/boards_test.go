@@ -4,8 +4,9 @@ import (
 	"net/http"
 	"testing"
 
-	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/testutils/inject"
 )
 
 func TestAppendAuthHeadersTokenAuth(t *testing.T) {
@@ -16,7 +17,7 @@ func TestAppendAuthHeadersTokenAuth(t *testing.T) {
 
 	ac.appendAuthHeaders(testReq)
 	test.That(t, len(testReq.Header), test.ShouldEqual, 1)
-	test.That(t, testReq.Header.Get("Authorization"), test.ShouldEqual, "Bearer " + testToken)
+	test.That(t, testReq.Header.Get("Authorization"), test.ShouldEqual, "Bearer "+testToken)
 }
 
 func TestAppendAuthHeadersAPIKeyAuth(t *testing.T) {
@@ -27,6 +28,6 @@ func TestAppendAuthHeadersAPIKeyAuth(t *testing.T) {
 
 	ac.appendAuthHeaders(testReq)
 	test.That(t, len(testReq.Header), test.ShouldEqual, 2)
-	test.That(t, testReq.Header.Get("key_id"), test.ShouldEqual, testKeyId)
+	test.That(t, testReq.Header.Get("key_id"), test.ShouldEqual, testKeyID)
 	test.That(t, testReq.Header.Get("key"), test.ShouldEqual, testKeyCrypto)
 }

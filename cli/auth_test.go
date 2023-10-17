@@ -213,7 +213,7 @@ func TestLogoutAction(t *testing.T) {
 }
 
 func TestWhoAmIAction(t *testing.T) {
-	cCtx, ac, out, errOut := setup(nil, nil, nil,"token")
+	cCtx, ac, out, errOut := setup(nil, nil, nil, "token")
 
 	test.That(t, ac.whoAmIAction(cCtx), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)

@@ -20,9 +20,9 @@ import (
 )
 
 var (
-	testEmail = "grogu@viam.com"
-	testToken = "thisistheway"
-	testKeyId = "testkeyid"
+	testEmail     = "grogu@viam.com"
+	testToken     = "thisistheway"
+	testKeyID     = "testkeyid"
 	testKeyCrypto = "testkeycrypto"
 )
 
@@ -71,7 +71,7 @@ func setup(asc apppb.AppServiceClient, dataClient datapb.DataServiceClient,
 		}
 	} else if authMethod == "apiKey" {
 		conf.Auth = &apiKey{
-			KeyID: testKeyId,
+			KeyID:     testKeyID,
 			KeyCrypto: testKeyCrypto,
 		}
 	}
