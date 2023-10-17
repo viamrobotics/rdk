@@ -4,7 +4,6 @@ import { useNavClient } from './use-nav-client';
 import { writable, get } from 'svelte/store';
 import { setAsyncInterval } from '@/lib/schedule';
 import { useDisconnect } from '@/hooks/robot-client';
-import { rcLogConditionally } from '@/lib/log';
 
 export const useBasePose = (name: string) => {
   const navClient = useNavClient(name);
