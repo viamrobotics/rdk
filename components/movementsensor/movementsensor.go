@@ -9,7 +9,6 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	pb "go.viam.com/api/component/movementsensor/v1"
 
-	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/spatialmath"
@@ -75,7 +74,8 @@ func Named(name string) resource.Name {
 
 // A MovementSensor reports information about the robot's direction, position and speed.
 type MovementSensor interface {
-	sensor.Sensor
+	resource.Sensor
+	resource.Resource
 	Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error)                // (lat, long), altitude (m)
 	LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error)                    // m / sec
 	AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) // deg / sec
