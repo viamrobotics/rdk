@@ -1252,11 +1252,19 @@ func TestStatusRemote(t *testing.T) {
 		EndPosition:    &commonpb.Pose{},
 		JointPositions: &armpb.JointPositions{Values: []float64{1.0, 2.0, 3.0, 4.0, 5.0, 6.0}},
 	}
+
+	lastReconfigured, err := time.Parse("2006-01-02 15:04:05", "2011-11-11 00:00:00")
+	test.That(t, err, test.ShouldBeNil)
+
 	injectRobot1.StatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
 		statusCallCount++
 		statuses := make([]robot.Status, 0, len(resourceNames))
 		for _, n := range resourceNames {
-			statuses = append(statuses, robot.Status{Name: n, Status: armStatus})
+			statuses = append(statuses, robot.Status{
+				Name:             n,
+				LastReconfigured: lastReconfigured,
+				Status:           armStatus,
+			})
 		}
 		return statuses, nil
 	}
@@ -1269,7 +1277,11 @@ func TestStatusRemote(t *testing.T) {
 		statusCallCount++
 		statuses := make([]robot.Status, 0, len(resourceNames))
 		for _, n := range resourceNames {
-			statuses = append(statuses, robot.Status{Name: n, Status: armStatus})
+			statuses = append(statuses, robot.Status{
+				Name:             n,
+				LastReconfigured: lastReconfigured,
+				Status:           armStatus,
+			})
 		}
 		return statuses, nil
 	}
@@ -1329,6 +1341,10 @@ func TestStatusRemote(t *testing.T) {
 		err = decoder.Decode(status.Status)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, convMap, test.ShouldResemble, armStatus)
+
+		// Test that LastReconfigured values are from remotes, and not set based on
+		// when local resource graph nodes were added for the remote resources.
+		test.That(t, status.LastReconfigured, test.ShouldEqual, lastReconfigured)
 	}
 }
 
