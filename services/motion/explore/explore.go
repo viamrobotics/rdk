@@ -305,28 +305,26 @@ func (ms *explore) Move(
 	// Note: can set linear speed, angular speed and obstacle polling frequency from extras until MotionCfg can be passed through
 	operation.CancelOtherWithLabel(ctx, exploreOpLabel)
 
-	// Create plan to spin towards destination point
-	// planInputs, kb, err := ms.planMove(ctx, componentName, destination.Pose(), worldState, extra)
-	// if err != nil {
-	// 	return false, fmt.Errorf("error making plan for MoveOnMap: %w", err)
-	// }
-	kb, err := ms.createKB(ctx, componentName, extra)
+	// Create kinematic base
+	kb, err := ms.createKinematicBase(ctx, componentName, extra)
 	if err != nil {
 		return false, err
 	}
 	ms.kb = &kb
 
-	fmt.Println("(*ms.kb).Name()", (*ms.kb).Name())
-	fmt.Println("(*ms.kb).Name().Name", (*ms.kb).Name().Name)
-	plan := createPartialPlan((*ms.kb).Name())
+	// Create motion plan plan
+	planInputs, err := ms.createMotionPlan(ctx, destination.Pose(), worldState, extra)
+	if err != nil {
+		return false, err
+	}
+	var plan motionplan.Plan
+	for _, inputs := range planInputs {
+		input := make(map[string][]referenceframe.Input)
+		input[kb.Name().Name] = inputs
+		plan = append(plan, input)
+	}
 
-	// var plan motionplan.Plan
-	// for _, inputs := range planInputs {
-	// 	input := make(map[string][]referenceframe.Input)
-	// 	input[kb.Name().Name] = inputs
-	// 	plan = append(plan, input)
-	// }
-
+	// Start background processes
 	cancelCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -458,7 +456,6 @@ func (ms *explore) updateWorldState(ctx context.Context) (*referenceframe.WorldS
 	if err != nil {
 		return nil, err
 	}
-	//currentPosition := spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 0})
 
 	// get transform of camera to kinematic base origin
 	kinBaseOrigin := referenceframe.NewPoseInFrame((*ms.kb).Name().ShortName(), spatialmath.NewZeroPose())
@@ -583,4 +580,90 @@ func createPartialPlan(f resource.Name) motionplan.Plan {
 		{f.Name: []referenceframe.Input{{Value: 0}, {Value: 0}, {Value: 0}}},
 	}
 	return plan
+}
+
+// PlanMoveOnMap returns the plan for MoveOnMap to execute.
+func (ms *explore) createKinematicBase(
+	ctx context.Context,
+	componentName resource.Name,
+	extra map[string]interface{},
+) (kinematicbase.KinematicBase, error) {
+	// create a KinematicBase from the componentName
+	component, ok := ms.components[componentName]
+	if !ok {
+		return nil, resource.DependencyNotFoundError(componentName)
+	}
+
+	b, ok := component.(base.Base)
+	if !ok {
+		return nil, fmt.Errorf("cannot move component of type %T because it is not a Base", component)
+	}
+
+	kinematicsOptions, err := createKBOps(ctx, extra)
+	if err != nil {
+		return nil, err
+	}
+
+	p := referenceframe.NewPoseInFrame(componentName.Name, spatialmath.NewZeroPose())
+	kb, err := kinematicbase.WrapWithKinematics(ctx, b, ms.logger, motion.NewPointLocalizer(p), nil, kinematicsOptions)
+	if err != nil {
+		return nil, err
+	}
+
+	return kb, nil
+}
+func (ms *explore) createMotionPlan(
+	ctx context.Context,
+	destination spatialmath.Pose,
+	worldState *referenceframe.WorldState,
+	extra map[string]interface{},
+) ([][]referenceframe.Input, error) {
+	f1 := (*ms.kb).Kinematics()
+	fmt.Println(f1.Name())
+
+	fs, err := ms.fsService.FrameSystem(ctx, worldState.Transforms())
+	if err != nil {
+		return nil, err
+	}
+
+	// replace original base frame with one that knows how to move itself and allow planning for
+	if err := fs.ReplaceFrame((*ms.kb).Kinematics()); err != nil {
+		return nil, err
+	}
+
+	ms.frameSystem = fs
+
+	// get current position
+	inputs, err := (*ms.kb).CurrentInputs(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	dst := referenceframe.NewPoseInFrame(referenceframe.World, destination) // here
+
+	f := (*ms.kb).Kinematics()
+
+	worldStateNew, err := referenceframe.NewWorldState(nil, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	seedMap := map[string][]referenceframe.Input{f.Name(): inputs}
+
+	ms.logger.Debugf("goal position: %v", dst.Pose().Point())
+	plan, err := motionplan.PlanMotion(ctx, &motionplan.PlanRequest{
+		Logger:             ms.logger,
+		Goal:               dst,
+		Frame:              f,
+		StartConfiguration: seedMap,
+		FrameSystem:        fs,
+		WorldState:         worldStateNew,
+		ConstraintSpecs:    nil,
+		Options:            extra,
+	})
+	if err != nil {
+		return nil, err
+	}
+	steps, err := plan.GetFrameSteps(f.Name())
+	return steps, err
 }

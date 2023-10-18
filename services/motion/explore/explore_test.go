@@ -119,7 +119,7 @@ func TestUpdatingWorldState(t *testing.T) {
 	}{
 		{
 			description: "1",
-			destination: spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 1000, Z: 0}),
+			destination: spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 500, Z: 0}),
 			obstacle: obstacleMetadata{
 				position: r3.Vector{X: 0, Y: 50, Z: 0},
 				data:     100,
