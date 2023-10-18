@@ -48,11 +48,15 @@ func (plan Plan) Evaluate(distFunc ik.SegmentMetric) (totalCost float64) {
 	if len(plan) < 2 {
 		return math.Inf(1)
 	}
-	for i := 0; i < len(plan)-1; i++ {
+	last := map[string][]referenceframe.Input{}
+	for i := 0; i < len(plan); i++ {
 		for component, inputs := range plan[i] {
-			if nextInputs, ok := plan[i+1][component]; ok && len(inputs) > 0 {
-				cost := distFunc(&ik.Segment{StartConfiguration: inputs, EndConfiguration: nextInputs})
-				totalCost += cost
+			if len(inputs) > 0 {
+				if lastInputs, ok := last[component]; ok {
+					cost := distFunc(&ik.Segment{StartConfiguration: lastInputs, EndConfiguration: inputs})
+					totalCost += cost
+				}
+				last[component] = inputs
 			}
 		}
 	}

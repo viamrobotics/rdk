@@ -287,8 +287,18 @@ func (ms *builtIn) MoveOnGlobe(
 		return false, err
 	}
 
+	maxReplans := -1
+	i := 0
+	if extra != nil {
+		if replansRaw, ok := extra["max_replans"]; ok {
+			if replans, ok := replansRaw.(int); ok {
+				maxReplans = replans
+			}
+		}
+	}
+
 	// start a loop that plans every iteration and exits when something is read from the success channel
-	for i := 0; ; i++ {
+	for {
 		ma := newMoveAttempt(ctx, mr)
 		if err := ma.start(); err != nil {
 			return false, err
@@ -331,8 +341,11 @@ func (ms *builtIn) MoveOnGlobe(
 			ms.logger.Info("obstacle detection triggering a replan")
 		}
 
-		if mr.maxReplans >= 0 && i > mr.maxReplans {
-			return false, fmt.Errorf("exceeded maximum number of replans: %d", mr.maxReplans)
+		if maxReplans >= 0 {
+			i++
+			if i > maxReplans {
+				return false, fmt.Errorf("exceeded maximum number of replans: %d", maxReplans)
+			}
 		}
 		lastPlan := mr.seedPlan
 		// TODO: RSDK-4509 obstacles should include any transient obstacles which may have triggered a replan, if any.

@@ -411,7 +411,10 @@ func (pm *planManager) planParallelRRTMotion(
 
 		// Receive the newly smoothed path from our original solve, and score it
 		finalSteps.steps = <-smoothChan
-		_, score := pm.goodPlan(finalSteps, pathPlanner.opt())
+		score := math.Inf(1)
+		if finalSteps.steps != nil {
+			score = pm.frame.inputsToPlan(nodesToInputs(finalSteps.steps)).Evaluate(pm.opt().ScoreFunc)
+		}
 
 		// If we ran a fallback, retrieve the result and compare to the smoothed path
 		if alternateFuture != nil {

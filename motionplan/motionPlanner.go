@@ -190,11 +190,7 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 	if err != nil {
 		return nil, err
 	}
-	newPlan := Plan{}
-	for _, resultSlice := range resultSlices {
-		stepMap := sf.sliceToMap(resultSlice)
-		newPlan = append(newPlan, stepMap)
-	}
+	newPlan := sf.inputsToPlan(resultSlices)
 
 	if replanCostFactor > 0 && currentPlan != nil {
 		initialPlanCost := currentPlan.Evaluate(sfPlanner.opt().ScoreFunc)

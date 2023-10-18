@@ -29,7 +29,6 @@ type moveRequest struct {
 	planRequest      *motionplan.PlanRequest
 	seedPlan         motionplan.Plan
 	kinematicBase    kinematicbase.KinematicBase
-	maxReplans       int
 	replanCostFactor float64
 }
 
@@ -214,7 +213,6 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	}
 
 	replanCostFactor := defaultReplanCostFactor
-	maxReplans := defaultMaxReplans
 	if extra != nil {
 		if profile, ok := extra["motion_profile"]; ok {
 			motionProfile, ok := profile.(string)
@@ -230,13 +228,6 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 			}
 			replanCostFactor = costFactor
 		}
-		if replansRaw, ok := extra["max_replans"]; ok {
-			replans, ok := replansRaw.(int)
-			if !ok {
-				return nil, errors.New("could not interpret max_replans field as int")
-			}
-			maxReplans = replans
-		}
 	}
 
 	return &moveRequest{
@@ -251,7 +242,6 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 			Options:            extra,
 		},
 		kinematicBase:    kb,
-		maxReplans:       maxReplans,
 		replanCostFactor: replanCostFactor,
 	}, nil
 }
