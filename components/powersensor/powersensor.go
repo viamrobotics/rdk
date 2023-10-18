@@ -7,7 +7,6 @@ import (
 
 	pb "go.viam.com/api/component/powersensor/v1"
 
-	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 )
@@ -70,7 +69,8 @@ func Named(name string) resource.Name {
 
 // A PowerSensor reports information about voltage, current and power.
 type PowerSensor interface {
-	sensor.Sensor
+	resource.Sensor
+	resource.Resource
 	Voltage(ctx context.Context, extra map[string]interface{}) (float64, bool, error)
 	Current(ctx context.Context, extra map[string]interface{}) (float64, bool, error)
 	Power(ctx context.Context, extra map[string]interface{}) (float64, error)
