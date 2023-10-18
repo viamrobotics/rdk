@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/golang/geo/r3"
+	"github.com/google/uuid"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	// registers all components.
@@ -1858,19 +1859,42 @@ func TestMoveOnGlobeNew(t *testing.T) {
 		Destination:        dst,
 	}
 	executionID, err := ms.MoveOnGlobeNew(ctx, req)
-	test.That(t, err, test.ShouldBeError, errUnimplemented)
-	test.That(t, executionID, test.ShouldBeEmpty)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, executionID, test.ShouldNotBeEmpty)
+	// should be a valid uuid when parsed
+	_, err = uuid.Parse(executionID)
+	test.That(t, err, test.ShouldBeNil)
+
+	// returns the execution just created in the history
+	ph, err := ms.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: req.ComponentName})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(ph), test.ShouldEqual, 1)
+	test.That(t, ph[0].Plan.ExecutionID.String(), test.ShouldResemble, executionID)
+	test.That(t, len(ph[0].StatusHistory), test.ShouldEqual, 1)
+	test.That(t, ph[0].StatusHistory[0].State, test.ShouldEqual, motion.PlanStateInProgress)
+
+	err = ms.StopPlan(ctx, motion.StopPlanReq{ComponentName: fakeBase.Name()})
+	test.That(t, err, test.ShouldBeNil)
+
+	ph2, err := ms.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: req.ComponentName})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(ph2), test.ShouldEqual, 1)
+	test.That(t, ph2[0].Plan.ExecutionID.String(), test.ShouldResemble, executionID)
+	test.That(t, len(ph2[0].StatusHistory), test.ShouldEqual, 2)
+	test.That(t, ph2[0].StatusHistory[0].State, test.ShouldEqual, motion.PlanStateStopped)
+	test.That(t, ph2[0].StatusHistory[1].State, test.ShouldEqual, motion.PlanStateInProgress)
 }
 
 func TestStopPlan(t *testing.T) {
 	ctx := context.Background()
 	gpsPoint := geo.NewPoint(0, 0)
-	_, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+	//nolint:dogsled
+	_, _, _, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
 	defer ms.Close(ctx)
 
-	req := motion.StopPlanReq{ComponentName: fakeBase.Name()}
+	req := motion.StopPlanReq{}
 	err := ms.StopPlan(ctx, req)
-	test.That(t, err, test.ShouldEqual, errUnimplemented)
+	test.That(t, err, test.ShouldBeError, state.ErrUnknownResource)
 }
 
 func TestListPlanStatuses(t *testing.T) {
@@ -1881,19 +1905,20 @@ func TestListPlanStatuses(t *testing.T) {
 	defer ms.Close(ctx)
 
 	req := motion.ListPlanStatusesReq{}
+	// returns no results as no move on globe calls have been made
 	planStatusesWithIDs, err := ms.ListPlanStatuses(ctx, req)
-	test.That(t, err, test.ShouldEqual, errUnimplemented)
-	test.That(t, planStatusesWithIDs, test.ShouldBeNil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(planStatusesWithIDs), test.ShouldEqual, 0)
 }
 
 func TestPlanHistory(t *testing.T) {
 	ctx := context.Background()
 	gpsPoint := geo.NewPoint(0, 0)
-	_, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+	//nolint:dogsled
+	_, _, _, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
 	defer ms.Close(ctx)
-
-	req := motion.PlanHistoryReq{ComponentName: fakeBase.Name()}
+	req := motion.PlanHistoryReq{}
 	history, err := ms.PlanHistory(ctx, req)
-	test.That(t, err, test.ShouldEqual, errUnimplemented)
+	test.That(t, err, test.ShouldEqual, state.ErrUnknownResource)
 	test.That(t, history, test.ShouldBeNil)
 }
