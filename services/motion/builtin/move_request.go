@@ -111,7 +111,8 @@ func (mr *moveRequest) obstaclesIntersectPlan(ctx context.Context, waypoints [][
 				mr.planRequest.Logger.Debugf("cannot call GetObjectPointClouds on %q as it does not implement a 3D segmenter", visSrvc.Name())
 				break
 			} else if err != nil {
-				return false, err
+				// returning bool as true indicates we want to replan
+				return true, err
 			}
 
 			// Note: detections are initially observed from the camera frame but must be transformed to be in

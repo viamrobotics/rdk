@@ -326,7 +326,7 @@ func (ms *builtIn) MoveOnGlobe(
 		case resp := <-ma.position.responseChan:
 			ms.logger.Debugf("position response: %s", resp)
 			ma.cancel()
-			if errors.Is(resp.err, context.Canceled) {
+			if errors.Is(resp.err, context.Canceled) || resp.replan {
 				continue
 			} else if resp.err != nil {
 				return false, resp.err
@@ -336,7 +336,7 @@ func (ms *builtIn) MoveOnGlobe(
 		case resp := <-ma.obstacle.responseChan:
 			ms.logger.Debugf("obstacle response: %s", resp)
 			ma.cancel()
-			if errors.Is(resp.err, context.Canceled) {
+			if errors.Is(resp.err, context.Canceled) || resp.replan {
 				continue
 			} else if resp.err != nil {
 				return false, resp.err
