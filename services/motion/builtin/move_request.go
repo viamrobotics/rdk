@@ -20,7 +20,7 @@ import (
 
 const (
 	defaultReplanCostFactor = 1.0
-	defaultMaxReplans       = -1
+	defaultMaxReplans       = -1 // Values below zero will replan infinitely
 )
 
 // moveRequest is a structure that contains all the information necessary for to make a move call.
