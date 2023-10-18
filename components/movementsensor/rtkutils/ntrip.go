@@ -52,6 +52,7 @@ func NewNtripInfo(cfg *NtripConfig, logger logging.Logger) (*NtripInfo, error) {
 	}
 	n.MaxConnectAttempts = cfg.NtripConnectAttempts
 	if n.MaxConnectAttempts == 10 {
+		fmt.Printf("n is ->%v<-, cfg is ->%v<-, connect attempts is %v\n",n, cfg, cfg.NtripConnectAttempts)
 		logger.Info("ntrip_connect_attempts using default 10")
 	}
 
