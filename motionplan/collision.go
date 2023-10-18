@@ -198,8 +198,6 @@ type collisionGraph struct {
 // collisions that are reported in the reference CollisionSystem argument will be ignored and not stored as edges in the graph.
 // if the set y is nil, the graph will be instantiated with y = x.
 func newCollisionGraph(x, y []spatial.Geometry, reference *collisionGraph, reportDistances bool) (cg *collisionGraph, err error) {
-	fmt.Println("NEWCOLLISIONGRAPH")
-
 	if y == nil {
 		y = x
 	}
@@ -220,22 +218,17 @@ func newCollisionGraph(x, y []spatial.Geometry, reference *collisionGraph, repor
 	var distance float64
 	for xName, xGeometry := range cg.x {
 		for yName, yGeometry := range cg.y {
-			fmt.Printf("COLLISION X GEOMETRIES: %v | %v\n", xGeometry.Label(), xGeometry.Pose().Point())
-			fmt.Printf("COLLISION Y GEOMETRIES: %v | %v\n", yGeometry.Label(), yGeometry.Pose().Point())
 			if _, ok := cg.getDistance(xName, yName); ok || xGeometry == yGeometry {
 				// geometry pair already has distance information associated with it, or is comparing with itself - skip to next pair
 				continue
 			}
-			fmt.Println("reference ", reference)
 			if reference != nil && reference.collisionBetween(xName, yName) {
 				// represent previously seen collisions as NaNs
 				// per IEE standards, any comparison with NaN will return false, so these will never be considered collisions
 				distance = math.NaN()
 			} else if distance, err = cg.checkCollision(xGeometry, yGeometry); err != nil {
-				fmt.Println("DISTANCE1 ", distance)
 				return nil, err
 			}
-			fmt.Println("DISTANCE2 ", distance)
 			cg.setDistance(xName, yName, distance)
 			if !reportDistances && distance <= spatial.CollisionBuffer {
 				// collision found, can return early
@@ -258,7 +251,7 @@ func (cg *collisionGraph) checkCollision(x, y spatial.Geometry) (float64, error)
 		}
 		return dist, nil
 	}
-	fmt.Printf("CHECK COLLISION: %v | %v\n", x.Pose().Point(), y.Pose().Point())
+
 	col, err := x.CollidesWith(y)
 	if err != nil {
 		col, err = y.CollidesWith(x)
@@ -275,8 +268,6 @@ func (cg *collisionGraph) checkCollision(x, y spatial.Geometry) (float64, error)
 // collisionBetween returns a bool describing if the collisionGraph has a collision between the two entities that are specified by name.
 func (cg *collisionGraph) collisionBetween(name1, name2 string) bool {
 	distance, ok := cg.getDistance(name1, name2)
-	fmt.Println("collisionBetween ", distance)
-	fmt.Println("ok ", ok)
 	if ok {
 		return distance <= spatial.CollisionBuffer
 	}

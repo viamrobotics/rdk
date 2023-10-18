@@ -2,7 +2,6 @@ package explore
 
 import (
 	"context"
-	"fmt"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -11,7 +10,9 @@ import (
 
 	"go.viam.com/rdk/components/base"
 	baseFake "go.viam.com/rdk/components/base/fake"
+
 	"go.viam.com/rdk/components/camera"
+	cameraFake "go.viam.com/rdk/components/camera/fake"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -31,6 +32,19 @@ func createFakeBase(ctx context.Context, logger golog.Logger) (base.Base, error)
 	return baseFake.NewBase(ctx, nil, fakeBaseCfg, logger)
 }
 
+func createFakeCamera(ctx context.Context, logger golog.Logger) (camera.Camera, error) {
+	fakeCameraCfg := resource.Config{
+		Name:  testCameraName.Name,
+		API:   camera.API,
+		Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R: 5}},
+		ConvertedAttributes: &cameraFake.Config{
+			Width:  1000,
+			Height: 1000,
+		},
+	}
+	return cameraFake.NewCamera(ctx, fakeCameraCfg, logger)
+}
+
 func createMockCamera(ctx context.Context, obstacles []obstacleMetadata, expectedError error) camera.Camera {
 	mockCamera := &inject.Camera{}
 
@@ -46,17 +60,21 @@ func createMockCamera(ctx context.Context, obstacles []obstacleMetadata, expecte
 	return mockCamera
 }
 
-func createMockVisionService(ctx context.Context, cam camera.Camera, expectedError error) vSvc.Service {
-
+func createMockVisionService(ctx context.Context, obstacle obstacleMetadata, expectedError error) vSvc.Service {
+	var noObstacle obstacleMetadata
 	mockVisionService := &inject.VisionService{}
 	mockVisionService.GetObjectPointCloudsFunc = func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*vision.Object, error) {
-		obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 10, Z: 0})
-		box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{X: 10, Y: 10, Z: 10}, "test-case-2")
+		if obstacle == noObstacle {
+			return []*vision.Object{}, nil
+		}
+
+		obstaclePosition := spatialmath.NewPoseFromPoint(obstacle.position)
+		box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{X: 5, Y: 5, Z: 5}, "test-case-2")
 		if err != nil {
 			return nil, err
 		}
 
-		detection, err := vision.NewObjectWithLabel(pointcloud.New(), "test-case-2-detection", box.ToProtobuf())
+		detection, err := vision.NewObjectWithLabel(pointcloud.New(), obstacle.label, box.ToProtobuf())
 		if err != nil {
 			return nil, err
 		}
@@ -65,20 +83,6 @@ func createMockVisionService(ctx context.Context, cam camera.Camera, expectedErr
 	}
 	return mockVisionService
 }
-
-// mockVisionService.GetObjectPointCloudsFunc = func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*vision.Object, error) {
-// 	pc, err := cam.NextPointCloud(ctx)
-// 	if err != nil {
-// 		return nil, expectedError
-// 	}
-// 	vObj, err := vision.NewObject(pc)
-// 	if err != nil {
-// 		return nil, expectedError
-// 	}
-// 	fmt.Println("Geodude: ", vObj.Geometry.Pose().Point())
-// 	return []*vision.Object{vObj}, expectedError
-// }
-// return mockVisionService
 
 func createFrameSystemService(
 	ctx context.Context,
@@ -105,6 +109,7 @@ func createBaseLink(t *testing.T, baseName string) *referenceframe.LinkInFrame {
 	basePose := spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 0})
 	baseSphere, err := spatialmath.NewSphere(basePose, 10, "base-sphere")
 	test.That(t, err, test.ShouldBeNil)
+
 	baseLink := referenceframe.NewLinkInFrame(
 		referenceframe.World,
 		spatialmath.NewZeroPose(),
@@ -114,30 +119,29 @@ func createBaseLink(t *testing.T, baseName string) *referenceframe.LinkInFrame {
 	return baseLink
 }
 
-func createCameraLink(t *testing.T, camName string) *referenceframe.LinkInFrame {
+func createCameraLink(t *testing.T, camName, baseFrame string) *referenceframe.LinkInFrame {
 	camPose := spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 0})
-	camSphere, err := spatialmath.NewSphere(camPose, 10, "cam-sphere")
+	camSphere, err := spatialmath.NewSphere(camPose, 5, "cam-sphere")
 	test.That(t, err, test.ShouldBeNil)
-	baseLink := referenceframe.NewLinkInFrame(
-		referenceframe.World,
+
+	camLink := referenceframe.NewLinkInFrame(
+		baseFrame, // referenceframe.World,
 		spatialmath.NewZeroPose(),
 		camName,
 		camSphere,
 	)
-	return baseLink
+	return camLink
 }
 
 type obstacleMetadata struct {
 	position r3.Vector
 	data     int
+	label    string
 }
 
 func geometriesContainsPoint(geometries []spatialmath.Geometry, point r3.Vector) (bool, error) {
 	var collisionDetected bool
-	fmt.Printf("# of geos: %v\n", len(geometries))
 	for _, geo := range geometries {
-		fmt.Println(geo.Pose().Point())
-		fmt.Println(geo)
 		pointGeoCfg := spatialmath.GeometryConfig{
 			Type:              spatialmath.BoxType,
 			TranslationOffset: point,

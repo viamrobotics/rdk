@@ -8,6 +8,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
+	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/base/kinematicbase"
@@ -22,6 +23,7 @@ import (
 
 var (
 	testBaseName         = resource.NewName(base.API, "test_base")
+	testCameraName       = resource.NewName(camera.API, "test_camera")
 	testFrameServiceName = resource.NewName(framesystem.API, "test_fs")
 )
 
@@ -37,7 +39,8 @@ func createNewExploreMotionService(t *testing.T, ctx context.Context, logger gol
 
 	// create camera link
 	if cam != nil {
-		cameraLink := createBaseLink(t, cam.Name().Name)
+		fmt.Println("cam.Name().Name: ", cam.Name().Name)
+		cameraLink := createCameraLink(t, cam.Name().Name, fakeBase.Name().Name)
 		fsParts = append(fsParts, &referenceframe.FrameSystemPart{FrameConfig: cameraLink})
 		deps[cam.Name()] = cam
 	}
@@ -87,79 +90,92 @@ func TestExplorePlanMove(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, kb.Name().Name, test.ShouldEqual, testBaseName.Name)
 	test.That(t, len(planInputs), test.ShouldBeGreaterThan, 0)
-	// Have plan
 }
 
 func TestUpdatingWorldState(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 
-	obstaclePoints := []obstacleMetadata{
-		{position: r3.Vector{X: 0, Y: 10, Z: 0}, data: 100},
-		{position: r3.Vector{X: .1, Y: 10, Z: 0}, data: 100},
-		{position: r3.Vector{X: 0, Y: 10.1, Z: 0}, data: 100},
-		{position: r3.Vector{X: 0.1, Y: 10.1, Z: 0}, data: 100},
-	}
-	mockCam := createMockCamera(ctx, obstaclePoints, nil)
+	// Create fake camera
+	fakeCamera, err := createFakeCamera(ctx, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Create fake base
 	fakeBase, err := createFakeBase(ctx, logger)
 	test.That(t, err, test.ShouldBeNil)
-	ms, err := createNewExploreMotionService(t, ctx, logger, fakeBase, mockCam)
+
+	// Create explore motion service
+	ms, err := createNewExploreMotionService(t, ctx, logger, fakeBase, fakeCamera)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ms, test.ShouldNotBeNil)
 
 	msStruct := ms.(*explore)
-	dest := spatialmath.NewPoseFromPoint(r3.Vector{X: 50, Y: 1000, Z: 0})
 
-	planInputs, kb, err := createMotionPlanToDest(ctx, msStruct, dest)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, kb.Name().Name, test.ShouldEqual, testBaseName.Name)
-	test.That(t, len(planInputs), test.ShouldBeGreaterThan, 0)
-
-	msStruct.kb = &kb
-	msStruct.camera = mockCam
-	msStruct.visionService = createMockVisionService(ctx, msStruct.camera, nil)
-
-	worldState, err := msStruct.updateWorldState(ctx)
-	test.That(t, err, test.ShouldBeNil)
-
-	fs, err := msStruct.fsService.FrameSystem(ctx, nil)
-	test.That(t, err, test.ShouldBeNil)
-
-	obstacles, err := worldState.ObstaclesInWorldFrame(fs, nil)
-	test.That(t, err, test.ShouldBeNil)
-
-	// Confirm obstacles encompass all points
-	for i, obsPoint := range obstaclePoints {
-		fmt.Printf("%v: %v\n", i, obsPoint.position)
-		collisionDetected, err := geometriesContainsPoint(obstacles.Geometries(), obsPoint.position)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, collisionDetected, test.ShouldBeTrue)
+	cases := []struct {
+		description string
+		destination spatialmath.Pose
+		obstacle    obstacleMetadata
+		expectedErr error
+	}{
+		{
+			description: "1",
+			destination: spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 1000, Z: 0}),
+			obstacle: obstacleMetadata{
+				position: r3.Vector{X: 0, Y: 50, Z: 0},
+				data:     100,
+				label:    "updatedState_obs",
+			},
+		},
 	}
 
-	var plan motionplan.Plan
-	for _, inputs := range planInputs {
-		input := make(map[string][]referenceframe.Input)
-		input[kb.Name().Name] = inputs
-		plan = append(plan, input)
-	}
-	fmt.Println("HI")
-	plan = createFakeMotionPlan((*msStruct.kb).Name().Name)
-	collision, err := msStruct.checkPartialPlan(ctx, plan, worldState) // Note: shouldnt need to return values here unless its for testingw
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, collision, test.ShouldBeTrue)
+	for _, tt := range cases {
+		t.Run(tt.description, func(t *testing.T) {
+			// Create motionplan plan
+			planInputs, kb, err := createMotionPlanToDest(ctx, msStruct, tt.destination)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, kb.Name().Name, test.ShouldEqual, testBaseName.Name)
+			test.That(t, len(planInputs), test.ShouldBeGreaterThan, 0)
 
-	// Check response
-	resp := <-msStruct.obstacleChan
-	fmt.Println(resp)
-	test.That(t, resp.err, test.ShouldBeNil)
-	test.That(t, resp.success, test.ShouldBeTrue)
-}
+			msStruct.kb = &kb
+			msStruct.camera = fakeCamera
 
-func createFakeMotionPlan(name string) motionplan.Plan {
-	plan := []map[string][]referenceframe.Input{
-		{name: []referenceframe.Input{{Value: 0}, {Value: 0}, {Value: 0}}},
-		{name: []referenceframe.Input{{Value: 0}, {Value: 0}, {Value: 100}}},
-		{name: []referenceframe.Input{{Value: 0}, {Value: 0}, {Value: 0}}},
+			var plan motionplan.Plan
+			for _, inputs := range planInputs {
+				input := make(map[string][]referenceframe.Input)
+				input[kb.Name().Name] = inputs
+				plan = append(plan, input)
+			}
+
+			// Add vision service with obstacle and update the world state
+			msStruct.visionService = createMockVisionService(ctx, tt.obstacle, nil)
+
+			worldState, err := msStruct.updateWorldState(ctx)
+			test.That(t, err, test.ShouldBeNil)
+
+			//Confirm obstacles encompass point
+			var noObstacle obstacleMetadata
+			if tt.obstacle != noObstacle {
+				fs, err := msStruct.fsService.FrameSystem(ctx, nil)
+				test.That(t, err, test.ShouldBeNil)
+
+				obstacles, err := worldState.ObstaclesInWorldFrame(fs, nil)
+				test.That(t, err, test.ShouldBeNil)
+
+				collisionDetected, err := geometriesContainsPoint(obstacles.Geometries(), tt.obstacle.position)
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, collisionDetected, test.ShouldBeTrue)
+			}
+
+			// Run check of motionplan plan
+			msStruct.backgroundWorkers.Add(1)
+			goutils.ManagedGo(func() {
+				msStruct.checkPartialPlan(ctx, plan, worldState)
+			}, msStruct.backgroundWorkers.Done)
+
+			// Check for response from obstacle channel
+			resp := <-msStruct.obstacleChan
+			test.That(t, resp.err, test.ShouldBeNil)
+			test.That(t, resp.success, test.ShouldBeTrue)
+		})
 	}
-	return plan
 }

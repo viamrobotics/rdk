@@ -224,7 +224,7 @@ func (mp *tpSpaceRRTMotionPlanner) planRunner(
 	dist := math.Sqrt(mp.planOpts.DistanceFunc(&ik.Segment{StartPosition: startPose, EndPosition: goalPose}))
 	midptNode := &basicNode{pose: spatialmath.Interpolate(startPose, goalPose, 0.5), cost: dist}
 	var randPosNode node = midptNode
-
+	fmt.Println("mp.planOpts.PlanIter", mp.planOpts.PlanIter)
 	for iter := 0; iter < mp.planOpts.PlanIter; iter++ {
 		mp.logger.Debugf("TP Space RRT iteration %d", iter)
 		if ctx.Err() != nil {
