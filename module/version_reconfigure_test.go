@@ -152,7 +152,6 @@ func TestValidationFailureDuringReconfiguration(t *testing.T) {
 }
 
 func TestVersionBumpWithNewImplicitDeps(t *testing.T) {
-	t.Skip()
 	logger, logs := golog.NewObservedTestLogger(t)
 
 	// Use a valid config
@@ -190,15 +189,12 @@ func TestVersionBumpWithNewImplicitDeps(t *testing.T) {
 		"modular config validation error found in resource: generic1").Len(), test.ShouldEqual, 0)
 	test.That(t, logs.FilterMessageSnippet("error building component").Len(), test.ShouldEqual, 0)
 
-	// Read the config, swap to `run_version2.sh`, and overwrite the config, triggering a reconfigure where `generic1` will fail validation
+	// Read the config, swap to `run_version3.sh`, and overwrite the config. Version 3 requires
+	// `generic1` to have a `motor` in its attributes. This config change should result in
+	// `generic1` becoming unavailable.
 	cfg, err := config.Read(context.Background(), cfgFilename, logger)
 	test.That(t, err, test.ShouldBeNil)
 	cfg.Modules[0].ExePath = utils.ResolveFile("module/multiversionmodule/run_version3.sh")
-	for i, c := range cfg.Components {
-		if c.Name == "generic1" {
-			cfg.Components[i].Attributes = map[string]interface{}{"motor": "motor1"}
-		}
-	}
 	newCfgBytes, err := json.Marshal(cfg)
 	test.That(t, err, test.ShouldBeNil)
 	os.WriteFile(cfgFilename, newCfgBytes, 0o644)
@@ -219,8 +215,8 @@ func TestVersionBumpWithNewImplicitDeps(t *testing.T) {
 			test.That(t, reconfigureCtx.Err(), test.ShouldBeNil)
 		}
 	}
+	reconfigureCancel()
 
-	// Check that the motors are still present but that "base1" is not started
 	_, err = rc.ResourceByName(generic.Named("generic1"))
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldResemble, `resource "rdk:component:generic/generic1" not found`)
@@ -232,4 +228,33 @@ func TestVersionBumpWithNewImplicitDeps(t *testing.T) {
 	test.That(t, logs.FilterMessageSnippet(
 		"modular config validation error found in resource: generic1").Len(), test.ShouldEqual, 1)
 	test.That(t, logs.FilterMessageSnippet("error building component").Len(), test.ShouldEqual, 0)
+
+	// Update the generic1 configuration to have a `motor` attribute. The following reconfiguration
+	// round should make the `generic1` component available again.
+	for i, c := range cfg.Components {
+		if c.Name == "generic1" {
+			cfg.Components[i].Attributes = map[string]interface{}{"motor": "motor1"}
+		}
+	}
+
+	newCfgBytes, err = json.Marshal(cfg)
+	test.That(t, err, test.ShouldBeNil)
+	os.WriteFile(cfgFilename, newCfgBytes, 0o644)
+
+	// Wait for reconfiguration to finish with a 30 second timeout.
+	reconfigureCheckTicker = time.NewTicker(time.Second)
+	reconfigureFinished = false
+	reconfigureCtx, reconfigureCancel = context.WithTimeout(context.Background(), 30*time.Second)
+	defer reconfigureCancel()
+	for !reconfigureFinished {
+		select {
+		case <-reconfigureCheckTicker.C:
+			_, err = rc.ResourceByName(generic.Named("generic1"))
+			if err == nil {
+				reconfigureFinished = true
+			}
+		case <-reconfigureCtx.Done():
+			test.That(t, reconfigureCtx.Err(), test.ShouldBeNil)
+		}
+	}
 }
