@@ -59,6 +59,10 @@ func (c *Config) ReplacePlaceholders() error {
 	for i, module := range c.Modules {
 		c.Modules[i].ExePath, err = visitor.replacePlaceholders(module.ExePath)
 		allErrs = multierr.Append(allErrs, err)
+		for envName, envVal := range module.Environment {
+			c.Modules[i].Environment[envName], err = visitor.replacePlaceholders(envVal)
+			allErrs = multierr.Append(allErrs, err)
+		}
 	}
 
 	return multierr.Append(visitor.AllErrors, allErrs)
@@ -149,26 +153,22 @@ func (v *placeholderReplacementVisitor) replacePlaceholders(s string) (string, e
 		}
 		placeholderKey := matches[placeholderRegexp.SubexpIndex("placeholder_key")]
 
+		var err error
+		var replacementResult string
 		// Now, match against every way we know of doing placeholder replacement
-		if packagePlaceholderRegexp.Match(placeholderKey) {
-			replaced, err := v.replacePackagePlaceholder(string(placeholderKey))
-			if err != nil {
-				replacementErrors = multierr.Append(replacementErrors, err)
-				return placeholder
-			}
-			return []byte(replaced)
+		switch {
+		case packagePlaceholderRegexp.Match(placeholderKey):
+			replacementResult, err = v.replacePackagePlaceholder(string(placeholderKey))
+		case environmentPlaceholderRegexp.Match(placeholderKey):
+			replacementResult, err = v.replaceEnvironmentPlaceholder(string(placeholderKey))
+		default:
+			err = errors.Errorf("invalid placeholder %q", string(placeholder))
 		}
-		if environmentPlaceholderRegexp.Match(placeholderKey) {
-			replaced, err := v.replaceEnvironmentPlaceholder(string(placeholderKey))
-			if err != nil {
-				replacementErrors = multierr.Append(replacementErrors, err)
-				return placeholder
-			}
-			return []byte(replaced)
+		if err != nil {
+			replacementErrors = multierr.Append(replacementErrors, err)
+			return placeholder
 		}
-
-		replacementErrors = multierr.Append(replacementErrors, errors.Errorf("invalid placeholder %q", string(placeholder)))
-		return placeholder
+		return []byte(replacementResult)
 	})
 
 	return string(patchedStr), replacementErrors

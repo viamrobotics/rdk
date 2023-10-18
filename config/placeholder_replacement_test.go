@@ -178,12 +178,20 @@ func TestPlaceholderReplacement(t *testing.T) {
 					},
 				},
 			},
+			Modules: []config.Module{
+				{
+					Environment: map[string]string{
+						"PATH": "${environment.PATH}",
+					},
+				},
+			},
 		}
 		err := cfg.ReplacePlaceholders()
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, cfg.Components[0].Attributes["a"], test.ShouldEqual, os.Getenv("HOME"))
-		// test failure
+		test.That(t, cfg.Modules[0].Environment["PATH"], test.ShouldEqual, os.Getenv("PATH"))
 
+		// test failure
 		cfg = &config.Config{
 			Components: []resource.Config{
 				{
