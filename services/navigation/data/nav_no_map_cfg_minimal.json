@@ -1,15 +1,12 @@
 {
     "components":
-    [
-        {
-            "model": "fake",
-            "name": "test_base",
-            "type": "base"
-        }
-    ],
+    [{
+        "model": "fake",
+        "name": "test_base",
+        "type": "base"
+    }],
     "services":
-    [
-        {
+    [{
         "name":"test_navigation",
         "type": "navigation",
         "attributes":{
