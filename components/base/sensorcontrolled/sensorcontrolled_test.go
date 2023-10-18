@@ -385,7 +385,7 @@ func TestSensorBase(t *testing.T) {
 
 	test.That(t, sb.SetPower(ctx, r3.Vector{X: 0, Y: 10, Z: 0}, r3.Vector{X: 0, Y: 0, Z: 0}, nil), test.ShouldBeNil)
 
-	// this test does not include a velocities sensor and does not create a sensor ase with a control loop
+	// this test does not include a velocities sensor and does not create a sensor base with a control loop
 	test.That(t, sb.SetVelocity(ctx, r3.Vector{X: 0, Y: 100, Z: 0}, r3.Vector{X: 0, Y: 100, Z: 0}, nil), test.ShouldBeNil)
 	test.That(t, sb.MoveStraight(ctx, 10, 10, nil), test.ShouldBeNil)
 	test.That(t, sb.Spin(ctx, 2, 10, nil), test.ShouldBeNil)

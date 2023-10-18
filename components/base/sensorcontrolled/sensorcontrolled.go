@@ -145,7 +145,6 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 		}
 	}
 
-	// TODO: remove duplicate check to validation check.
 	if sb.orientation == nil && sb.velocities == nil {
 		return errNoGoodSensor
 	}

@@ -66,7 +66,7 @@ func (e *endpoint) reset() error {
 
 	_, baseOk := e.cfg.Attribute["base_name"]
 	if baseOk {
-		e.logger.Info("making a singal of length 2")
+		e.logger.Info("making a signal of length 2")
 		e.y = make([]*Signal, 2)
 		e.y[0] = makeSignal(e.cfg.Name)
 		e.y[1] = makeSignal(e.cfg.Name)

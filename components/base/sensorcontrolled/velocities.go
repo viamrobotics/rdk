@@ -146,7 +146,7 @@ var controlLoopConfig = control.Config{
 			Name: "sensor-base",
 			Type: "endpoint",
 			Attribute: rdkutils.AttributeMap{
-				"base_name": "base", // How to input this
+				"base_name": "base",
 			},
 			DependsOn: []string{"pid_block"},
 		},
@@ -154,7 +154,7 @@ var controlLoopConfig = control.Config{
 			Name: "pid_block",
 			Type: "PID",
 			Attribute: rdkutils.AttributeMap{
-				"kP": 1.0, // random for now
+				"kP": 1.0, // kP, kD and kI are random for now
 				"kD": 0.5,
 				"kI": 0.2,
 			},
