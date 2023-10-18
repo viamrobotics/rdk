@@ -348,14 +348,12 @@ func newCollisionConstraint(
 			}
 			movedGeoms := internal.Geometries()
 			for _, geom := range movedGeoms {
-				transformedGeo := geom.Transform(state.Position)
-				internalGeoms = append(internalGeoms, transformedGeo)
+				internalGeoms = append(internalGeoms, geom.Transform(state.Position))
 			}
 		default:
 			return false
 		}
 
-		// cg, err := newCollisionGraph(internalGeoms, static, nil, reportDistances)
 		cg, err := newCollisionGraph(internalGeoms, static, zeroCG, reportDistances)
 		if err != nil {
 			return false
