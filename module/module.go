@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/edaniels/golog"
 	"github.com/fullstorydev/grpcurl"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
@@ -179,11 +180,11 @@ func NewModuleFromArgs(ctx context.Context, logger logging.Logger) (*Module, err
 // "--log-level=debug" is the third argument in os.Args and at "InfoLevel"
 // otherwise. See config.Module.LogLevel documentation for more info on how
 // to start modules with a "log-level" commandline argument.
-func NewLoggerFromArgs(moduleName string) logging.Logger {
+func NewLoggerFromArgs(moduleName string) golog.Logger {
 	if len(os.Args) >= 3 && os.Args[2] == "--log-level=debug" {
-		return logging.NewDebugLogger(moduleName)
+		return golog.NewDebugLogger(moduleName)
 	}
-	return logging.NewDevelopmentLogger(moduleName)
+	return golog.NewDevelopmentLogger(moduleName)
 }
 
 // Start starts the module service and grpc server.

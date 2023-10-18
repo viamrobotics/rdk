@@ -11,16 +11,20 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 )
 
-// Logger interface for logging to.
 type Logger interface {
+	ZapCompatibleLogger
+
+	AsZap() *zap.SugaredLogger
+}
+
+// Logger interface for logging to.
+type ZapCompatibleLogger interface {
 	Desugar() *zap.Logger
 	Level() zapcore.Level
 	Named(name string) *zap.SugaredLogger
 	Sync() error
 	With(args ...interface{}) *zap.SugaredLogger
 	WithOptions(opts ...zap.Option) *zap.SugaredLogger
-
-	AsZap() *zap.SugaredLogger
 
 	Debug(args ...interface{})
 	Debugf(template string, args ...interface{})
