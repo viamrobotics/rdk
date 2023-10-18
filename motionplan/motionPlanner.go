@@ -199,8 +199,10 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 	if replanCostFactor > 0 && currentPlan != nil {
 		initialPlanCost := currentPlan.Evaluate(sfPlanner.opt().ScoreFunc)
 		finalPlanCost := newPlan.Evaluate(sfPlanner.opt().ScoreFunc)
-		request.Logger.Debugf("initialPlanCost %f with cost factor %f", initialPlanCost, initialPlanCost*replanCostFactor)
-		request.Logger.Debugf("finalPlanCost %f", finalPlanCost)
+		request.Logger.Debugf(
+			"initialPlanCost %f adjusted with cost factor to %f, replan cost %f",
+			initialPlanCost, initialPlanCost*replanCostFactor, finalPlanCost,
+		)
 
 		if finalPlanCost > initialPlanCost*replanCostFactor {
 			return nil, errors.New("unable to create a new plan within replanCostFactor from the original")
