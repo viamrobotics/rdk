@@ -106,14 +106,34 @@ func (mr *moveRequest) Plan() (state.PlanResp, error) {
 
 	switch mr.requestType {
 	case requestTypeMoveOnMap:
+		// TODO: In order for MoveOnMap plans to show up in GetPlan & ListPlanStatuses we will need to
+		// add PosesByComponent to this response
 		return state.PlanResp{
 			Waypoints:  waypoints,
 			Motionplan: plan,
 		}, nil
 	case requestTypeMoveOnGlobe:
+		poses, geoPoses, err := motionplan.PlanToPlanStepsAndGeoPoses(plan, mr.kinematicBase.Name(), mr.origin, *mr.planRequest)
+		if err != nil {
+			return state.PlanResp{}, err
+		}
+		mr.logger.Errorf("poses: %#v", poses)
+		mr.logger.Errorf("geoPoses: %#v", geoPoses)
+
+		// This copy is needed as the motionplan package can't return motion.PlanStep as that would cause a circular dependency
+		// and b/c we need to convert []map[resource.Name]spatialmath.Pose into a []motion.PlanStep.
+		// B/c the go compiler appears to not support type converting a slice of maps (despite the fact that the
+		// concrete types are the same) we need to do this copy.
+		planSteps := make([]motion.PlanStep, 0, len(poses))
+		for _, p := range poses {
+			planSteps = append(planSteps, p)
+		}
+
 		return state.PlanResp{
-			Waypoints:  waypoints,
-			Motionplan: plan,
+			Waypoints:        waypoints,
+			Motionplan:       plan,
+			GeoPoses:         geoPoses,
+			PosesByComponent: planSteps,
 		}, nil
 	case requestTypeUnspecified:
 		fallthrough

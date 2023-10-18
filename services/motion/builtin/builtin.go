@@ -27,8 +27,6 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-var errUnimplemented = errors.New("unimplemented")
-
 func init() {
 	resource.RegisterDefaultService(
 		motion.API,
@@ -390,7 +388,34 @@ func (ms *builtIn) MoveOnGlobe(
 func (ms *builtIn) MoveOnGlobeNew(ctx context.Context, req motion.MoveOnGlobeReq) (string, error) {
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
-	return "", errUnimplemented
+	// TODO: Deprecated: remove once no motion apis use the opid system
+	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
+	t := "MoveOnGlobeNew called for component: %s, destination: %+v, heading: %f, movementSensor: %s, obstacles: %v, motionCfg: %#v, extra: %s"
+	ms.logger.Debugf(t,
+		req.ComponentName,
+		req.Destination,
+		req.Heading,
+		req.MovementSensorName,
+		req.Obstacles,
+		req.MotionCfg,
+		req.Extra,
+	)
+
+	planExecutorConstructor := func(
+		ctx context.Context,
+		req motion.MoveOnGlobeReq,
+		seedPlan motionplan.Plan,
+		replanCount int,
+	) (state.PlannerExecutor, error) {
+		return ms.newMoveOnGlobeRequest(ctx, req, seedPlan, replanCount)
+	}
+
+	id, err := state.StartExecution(ms.state, req.ComponentName, req, planExecutorConstructor)
+	if err != nil {
+		return "", err
+	}
+
+	return id.String(), nil
 }
 
 func (ms *builtIn) GetPose(
@@ -422,7 +447,7 @@ func (ms *builtIn) StopPlan(
 ) error {
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
-	return errUnimplemented
+	return ms.state.StopExecutionByResource(req.ComponentName)
 }
 
 func (ms *builtIn) ListPlanStatuses(
@@ -431,7 +456,7 @@ func (ms *builtIn) ListPlanStatuses(
 ) ([]motion.PlanStatusWithID, error) {
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
-	return nil, errUnimplemented
+	return ms.state.ListPlanStatuses(req)
 }
 
 func (ms *builtIn) PlanHistory(
@@ -440,5 +465,5 @@ func (ms *builtIn) PlanHistory(
 ) ([]motion.PlanWithStatus, error) {
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
-	return nil, errUnimplemented
+	return ms.state.PlanHistory(req)
 }

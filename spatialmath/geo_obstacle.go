@@ -1,6 +1,8 @@
 package spatialmath
 
 import (
+	"math"
+
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	commonpb "go.viam.com/api/common/v1"
@@ -179,4 +181,17 @@ func (gpo *GeoPose) Location() *geo.Point {
 // Heading returns a number from [0-360) where 0 is north.
 func (gpo *GeoPose) Heading() float64 {
 	return gpo.heading
+}
+
+// PoseToGeoPoint converts a Pose to a GeoPose relative to an origin GeoPose.
+func PoseToGeoPoint(relativeTo GeoPose, p Pose) GeoPose {
+	bearingRad := math.Atan2(-p.Point().X, p.Point().Y)
+	bearing := bearingRad * 180 / math.Pi * -1
+	headingRight := p.Orientation().OrientationVectorDegrees().Theta
+	headingLeft := math.Mod(math.Abs(headingRight-360), 360)
+
+	// get the maginitude of the pose
+	magnitude := p.Point().Norm()
+	newLoc := relativeTo.Location().PointAtDistanceAndBearing(magnitude, math.Mod(bearing+relativeTo.Heading(), 360))
+	return *NewGeoPose(newLoc, math.Mod(headingLeft+relativeTo.Heading(), 360))
 }
