@@ -26,9 +26,12 @@ func newEndpoint(config BlockConfig, logger golog.Logger, ctr Controllable) (Blo
 }
 
 func (e *endpoint) Next(ctx context.Context, x []*Signal, dt time.Duration) ([]*Signal, bool) {
+	e.logger.Infof("z length %v", len(x))
+	e.logger.Infof("controllable is %v", e.ctr)
 	switch len(x) {
 	case 1, 2:
 		if e.ctr != nil {
+			e.logger.Infof("setting state %v", x)
 			err := e.ctr.SetState(ctx, x)
 			if err != nil {
 				return []*Signal{}, false
@@ -37,11 +40,13 @@ func (e *endpoint) Next(ctx context.Context, x []*Signal, dt time.Duration) ([]*
 		return []*Signal{}, false
 	case 0:
 		if e.ctr != nil {
+			e.logger.Info("case 0")
 			vals, err := e.ctr.State(ctx)
 			if err != nil {
 				return []*Signal{}, false
 			}
 			for idx, val := range vals {
+				e.logger.Infof("length val %v.  e.y %v", len(vals), e.y)
 				e.y[idx].SetSignalValueAt(0, val)
 			}
 		}
@@ -52,11 +57,25 @@ func (e *endpoint) Next(ctx context.Context, x []*Signal, dt time.Duration) ([]*
 }
 
 func (e *endpoint) reset() error {
-	if !e.cfg.Attribute.Has("motor_name") {
+	_, motorOk := e.cfg.Attribute["motor_name"]
+	if motorOk {
+		e.logger.Info("making a signal of lenght 1")
+		e.y = make([]*Signal, 1)
+		e.y[0] = makeSignal(e.cfg.Name)
+	}
+
+	_, baseOk := e.cfg.Attribute["base_name"]
+	if baseOk {
+		e.logger.Info("making a singal of length 2")
+		e.y = make([]*Signal, 2)
+		e.y[0] = makeSignal(e.cfg.Name)
+		e.y[1] = makeSignal(e.cfg.Name)
+	}
+
+	if !motorOk && !baseOk {
 		return errors.Errorf("endpoint %s should have a motor_name field", e.cfg.Name)
 	}
-	e.y = make([]*Signal, 1)
-	e.y[0] = makeSignal(e.cfg.Name)
+
 	return nil
 }
 
