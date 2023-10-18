@@ -59,3 +59,11 @@ func (i *PowerSensor) Power(ctx context.Context, cmd map[string]interface{}) (fl
 	}
 	return i.PowerFunc(ctx, cmd)
 }
+
+// Readings func or passthrough.
+func (i *PowerSensor) Readings(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	if i.ReadingsFunc == nil {
+		return i.PowerSensor.Readings(ctx, cmd)
+	}
+	return i.ReadingsFunc(ctx, cmd)
+}

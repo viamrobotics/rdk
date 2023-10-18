@@ -39,19 +39,19 @@ func TestServer(t *testing.T) {
 	gpsServer, injectMovementSensor, injectMovementSensor2, err := newServer()
 	test.That(t, err, test.ShouldBeNil)
 
+	rs := map[string]interface{}{"a": 1.1, "b": 2.2}
+
+	var extraCap map[string]interface{}
+	injectMovementSensor.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+		extraCap = extra
+		return rs, nil
+	}
+
+	injectMovementSensor2.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+		return nil, errReadingsFailed
+	}
+
 	t.Run("GetReadings", func(t *testing.T) {
-		rs := map[string]interface{}{"a": 1.1, "b": 2.2}
-
-		var extraCap map[string]interface{}
-		injectMovementSensor.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-			extraCap = extra
-			return rs, nil
-		}
-
-		injectMovementSensor2.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-			return nil, errReadingsFailed
-		}
-
 		expected := map[string]*structpb.Value{}
 		for k, v := range rs {
 			vv, err := structpb.NewValue(v)
@@ -61,16 +61,16 @@ func TestServer(t *testing.T) {
 		extra, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "bar"})
 		test.That(t, err, test.ShouldBeNil)
 
-		resp, err := gpsServer.GetReadings(context.Background(), &commonpb.GetReadingsRequest{Name: "testSensorName", Extra: extra})
+		resp, err := gpsServer.GetReadings(context.Background(), &commonpb.GetReadingsRequest{Name: testMovementSensorName, Extra: extra})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.Readings, test.ShouldResemble, expected)
 		test.That(t, extraCap, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
 
-		_, err = gpsServer.GetReadings(context.Background(), &commonpb.GetReadingsRequest{Name: "failSensorName"})
+		_, err = gpsServer.GetReadings(context.Background(), &commonpb.GetReadingsRequest{Name: failMovementSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errReadingsFailed.Error())
 
-		_, err = gpsServer.GetReadings(context.Background(), &commonpb.GetReadingsRequest{Name: "missingSensorName"})
+		_, err = gpsServer.GetReadings(context.Background(), &commonpb.GetReadingsRequest{Name: missingMovementSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 	})

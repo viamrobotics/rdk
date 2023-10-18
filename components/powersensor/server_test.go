@@ -170,16 +170,16 @@ func TestServerGetReadings(t *testing.T) {
 	extra, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "bar"})
 	test.That(t, err, test.ShouldBeNil)
 
-	resp, err := powerSensorServer.GetReadings(context.Background(), &commonpb.GetReadingsRequest{Name: "testSensorName", Extra: extra})
+	resp, err := powerSensorServer.GetReadings(context.Background(), &commonpb.GetReadingsRequest{Name: workingPowerSensorName, Extra: extra})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp.Readings, test.ShouldResemble, expected)
 	test.That(t, extraCap, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
 
-	_, err = powerSensorServer.GetReadings(context.Background(), &commonpb.GetReadingsRequest{Name: "failSensorName"})
+	_, err = powerSensorServer.GetReadings(context.Background(), &commonpb.GetReadingsRequest{Name: failingPowerSensorName})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, errReadingsFailed.Error())
 
-	_, err = powerSensorServer.GetReadings(context.Background(), &commonpb.GetReadingsRequest{Name: "missingSensorName"})
+	_, err = powerSensorServer.GetReadings(context.Background(), &commonpb.GetReadingsRequest{Name: missingPowerSensorName})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 }
