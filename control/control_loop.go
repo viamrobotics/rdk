@@ -195,7 +195,7 @@ func (l *Loop) Start() error {
 	if len(l.ts) == 0 {
 		return errors.New("cannot start the control loop if there are no blocks depending on an impulse")
 	}
-	// l.logger.Infof("Running loop on %1.4f %+v\r\n", l.cfg.Frequency, l.dt)
+	l.logger.Infof("Running loop on %1.4f %+v\r\n", l.cfg.Frequency, l.dt)
 	l.ct = controlTicker{
 		ticker: time.NewTicker(l.dt),
 		stop:   make(chan bool, 1),
