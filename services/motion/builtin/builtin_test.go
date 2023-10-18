@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/golang/geo/r3"
+	"github.com/google/uuid"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	// registers all components.
@@ -39,6 +40,7 @@ import (
 	"go.viam.com/rdk/robot/framesystem"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/motion"
+	"go.viam.com/rdk/services/motion/builtin/state"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
@@ -677,6 +679,7 @@ func TestMoveOnMapTimeout(t *testing.T) {
 	conf := resource.Config{ConvertedAttributes: &Config{}}
 	ms, err := NewBuiltIn(ctx, deps, conf, logger)
 	test.That(t, err, test.ShouldBeNil)
+	defer ms.Close(context.Background())
 
 	fsSvc, err := createFrameSystemService(ctx, deps, fsParts, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -709,9 +712,6 @@ func TestMoveOnGlobe(t *testing.T) {
 	extra["motion_profile"] = "position_only"
 	extra["timeout"] = 5.
 	extra["smooth_iter"] = 5.
-	valExtra, err := newValidatedExtra(extra)
-	test.That(t, err, test.ShouldBeNil)
-
 	extraSmooth := map[string]interface{}{"smooth_iter": 5}
 
 	dst := geo.NewPoint(gpsPoint.Lat(), gpsPoint.Lng()+1e-5)
@@ -1139,24 +1139,23 @@ func TestMoveOnGlobe(t *testing.T) {
 		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
 		defer ms.Close(ctx)
 		motionCfg := &motion.MotionConfiguration{PositionPollingFreqHz: 4, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM}
-		mr, err := ms.(*builtIn).newMoveOnGlobeRequest(
-			ctx,
-			fakeBase.Name(),
-			dst,
-			injectedMovementSensor.Name(),
-			[]*spatialmath.GeoObstacle{},
-			motionCfg,
-			nil,
-			valExtra,
-		)
+		req := motion.MoveOnGlobeReq{
+			ComponentName:      fakeBase.Name(),
+			Destination:        dst,
+			MovementSensorName: injectedMovementSensor.Name(),
+			Obstacles:          []*spatialmath.GeoObstacle{},
+			MotionCfg:          motionCfg,
+			Extra:              extra,
+		}
+		mr, err := ms.(*builtIn).newMoveOnGlobeRequest(ctx, req, nil, 0)
 		test.That(t, err, test.ShouldBeNil)
 
 		test.That(t, mr.planRequest.Goal.Pose().Point().X, test.ShouldAlmostEqual, expectedDst.X, epsilonMM)
 		test.That(t, mr.planRequest.Goal.Pose().Point().Y, test.ShouldAlmostEqual, expectedDst.Y, epsilonMM)
 
-		waypoints, err := mr.plan(ctx)
+		planResp, err := mr.Plan()
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(waypoints), test.ShouldBeGreaterThan, 2)
+		test.That(t, len(planResp.Waypoints), test.ShouldBeGreaterThan, 2)
 
 		success, err := ms.MoveOnGlobe(
 			ctx,
@@ -1185,20 +1184,19 @@ func TestMoveOnGlobe(t *testing.T) {
 		startPose, err := fakeBase.CurrentPosition(ctx)
 		test.That(t, err, test.ShouldBeNil)
 
-		mr, err := ms.(*builtIn).newMoveOnGlobeRequest(
-			ctx,
-			fakeBase.Name(),
-			dst,
-			injectedMovementSensor.Name(),
-			[]*spatialmath.GeoObstacle{geoObstacle},
-			motionCfg,
-			nil,
-			valExtra,
-		)
+		req := motion.MoveOnGlobeReq{
+			ComponentName:      fakeBase.Name(),
+			Destination:        dst,
+			MovementSensorName: injectedMovementSensor.Name(),
+			Obstacles:          []*spatialmath.GeoObstacle{geoObstacle},
+			MotionCfg:          motionCfg,
+			Extra:              extra,
+		}
+		mr, err := ms.(*builtIn).newMoveOnGlobeRequest(ctx, req, nil, 0)
 		test.That(t, err, test.ShouldBeNil)
-		waypoints, err := mr.plan(ctx)
+		planResp, err := mr.Plan()
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(waypoints), test.ShouldBeGreaterThan, 2)
+		test.That(t, len(planResp.Waypoints), test.ShouldBeGreaterThan, 2)
 
 		success, err := ms.MoveOnGlobe(
 			ctx,
@@ -1243,20 +1241,19 @@ func TestMoveOnGlobe(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		geoObstacle := spatialmath.NewGeoObstacle(gpsPoint, []spatialmath.Geometry{geometry1, geometry2, geometry3, geometry4})
 
-		moveRequest, err := ms.(*builtIn).newMoveOnGlobeRequest(
-			ctx,
-			fakeBase.Name(),
-			dst,
-			injectedMovementSensor.Name(),
-			[]*spatialmath.GeoObstacle{geoObstacle},
-			&motion.MotionConfiguration{},
-			nil,
-			valExtra,
-		)
+		req := motion.MoveOnGlobeReq{
+			ComponentName:      fakeBase.Name(),
+			Destination:        dst,
+			MovementSensorName: injectedMovementSensor.Name(),
+			Obstacles:          []*spatialmath.GeoObstacle{geoObstacle},
+			MotionCfg:          &motion.MotionConfiguration{},
+			Extra:              extra,
+		}
+		moveRequest, err := ms.(*builtIn).newMoveOnGlobeRequest(ctx, req, nil, 0)
 		test.That(t, err, test.ShouldBeNil)
-		plan, err := moveRequest.plan(ctx)
+		planResp, err := moveRequest.Plan()
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, len(plan), test.ShouldEqual, 0)
+		test.That(t, len(planResp.Motionplan), test.ShouldEqual, 0)
 	})
 
 	t.Run("check offset constructed correctly", func(t *testing.T) {
@@ -1449,20 +1446,17 @@ func TestCheckPlan(t *testing.T) {
 	extra := make(map[string]interface{})
 	// fail if we don't find a plan in 15 seconds
 	extra["timeout"] = 15.
-	validatedExtra, err := newValidatedExtra(extra)
-	test.That(t, err, test.ShouldBeNil)
 
 	// get plan and kinematic base
-	moveRequest, err := ms.(*builtIn).newMoveOnGlobeRequest(
-		context.Background(),
-		fakeBase.Name(),
-		destPoint,
-		injectedMovementSensor.Name(),
-		nil,
-		&motion.MotionConfiguration{PositionPollingFreqHz: 4, ObstaclePollingFreqHz: 1, PlanDeviationMM: 15.},
-		nil,
-		validatedExtra,
-	)
+	req := motion.MoveOnGlobeReq{
+		ComponentName:      fakeBase.Name(),
+		Destination:        destPoint,
+		MovementSensorName: injectedMovementSensor.Name(),
+		Obstacles:          nil,
+		MotionCfg:          &motion.MotionConfiguration{PositionPollingFreqHz: 4, ObstaclePollingFreqHz: 1, PlanDeviationMM: 15.},
+		Extra:              extra,
+	}
+	moveRequest, err := ms.(*builtIn).newMoveOnGlobeRequest(context.Background(), req, nil, 0)
 	test.That(t, err, test.ShouldBeNil)
 
 	plan, err := motionplan.PlanMotion(ctx, moveRequest.planRequest)
@@ -1728,6 +1722,7 @@ func TestStoppableMoveFunctions(t *testing.T) {
 		conf := resource.Config{ConvertedAttributes: &Config{}}
 		ms, err := NewBuiltIn(ctx, deps, conf, logger)
 		test.That(t, err, test.ShouldBeNil)
+		defer ms.Close(context.Background())
 
 		t.Run("stop during Move(...) call", func(t *testing.T) {
 			calledStopFunc = false
@@ -1802,6 +1797,7 @@ func TestStoppableMoveFunctions(t *testing.T) {
 			conf := resource.Config{ConvertedAttributes: &Config{}}
 			ms, err := NewBuiltIn(ctx, deps, conf, logger)
 			test.That(t, err, test.ShouldBeNil)
+			defer ms.Close(context.Background())
 
 			ms.(*builtIn).fsService = fsSvc
 
@@ -1842,6 +1838,7 @@ func TestStoppableMoveFunctions(t *testing.T) {
 				logger,
 			)
 			test.That(t, err, test.ShouldBeNil)
+			defer ms.Close(context.Background())
 
 			fsSvc, err := createFrameSystemService(ctx, deps, fsParts, logger)
 			test.That(t, err, test.ShouldBeNil)
@@ -1859,6 +1856,7 @@ func TestMoveOnGlobeNew(t *testing.T) {
 	gpsPoint := geo.NewPoint(0, 0)
 	injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
 	defer ms.Close(ctx)
+
 	dst := geo.NewPoint(gpsPoint.Lat(), gpsPoint.Lng()+1e-5)
 
 	req := motion.MoveOnGlobeReq{
@@ -1867,19 +1865,42 @@ func TestMoveOnGlobeNew(t *testing.T) {
 		Destination:        dst,
 	}
 	executionID, err := ms.MoveOnGlobeNew(ctx, req)
-	test.That(t, err, test.ShouldBeError, errUnimplemented)
-	test.That(t, executionID, test.ShouldBeEmpty)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, executionID, test.ShouldNotBeEmpty)
+	// should be a valid uuid when parsed
+	_, err = uuid.Parse(executionID)
+	test.That(t, err, test.ShouldBeNil)
+
+	// returns the execution just created in the history
+	ph, err := ms.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: req.ComponentName})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(ph), test.ShouldEqual, 1)
+	test.That(t, ph[0].Plan.ExecutionID.String(), test.ShouldResemble, executionID)
+	test.That(t, len(ph[0].StatusHistory), test.ShouldEqual, 1)
+	test.That(t, ph[0].StatusHistory[0].State, test.ShouldEqual, motion.PlanStateInProgress)
+
+	err = ms.StopPlan(ctx, motion.StopPlanReq{ComponentName: fakeBase.Name()})
+	test.That(t, err, test.ShouldBeNil)
+
+	ph2, err := ms.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: req.ComponentName})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(ph2), test.ShouldEqual, 1)
+	test.That(t, ph2[0].Plan.ExecutionID.String(), test.ShouldResemble, executionID)
+	test.That(t, len(ph2[0].StatusHistory), test.ShouldEqual, 2)
+	test.That(t, ph2[0].StatusHistory[0].State, test.ShouldEqual, motion.PlanStateStopped)
+	test.That(t, ph2[0].StatusHistory[1].State, test.ShouldEqual, motion.PlanStateInProgress)
 }
 
 func TestStopPlan(t *testing.T) {
 	ctx := context.Background()
 	gpsPoint := geo.NewPoint(0, 0)
-	_, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+	//nolint:dogsled
+	_, _, _, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
 	defer ms.Close(ctx)
 
-	req := motion.StopPlanReq{ComponentName: fakeBase.Name()}
+	req := motion.StopPlanReq{}
 	err := ms.StopPlan(ctx, req)
-	test.That(t, err, test.ShouldEqual, errUnimplemented)
+	test.That(t, err, test.ShouldBeError, state.ErrUnknownResource)
 }
 
 func TestListPlanStatuses(t *testing.T) {
@@ -1890,19 +1911,20 @@ func TestListPlanStatuses(t *testing.T) {
 	defer ms.Close(ctx)
 
 	req := motion.ListPlanStatusesReq{}
+	// returns no results as no move on globe calls have been made
 	planStatusesWithIDs, err := ms.ListPlanStatuses(ctx, req)
-	test.That(t, err, test.ShouldEqual, errUnimplemented)
-	test.That(t, planStatusesWithIDs, test.ShouldBeNil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(planStatusesWithIDs), test.ShouldEqual, 0)
 }
 
 func TestPlanHistory(t *testing.T) {
 	ctx := context.Background()
 	gpsPoint := geo.NewPoint(0, 0)
-	_, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+	//nolint:dogsled
+	_, _, _, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
 	defer ms.Close(ctx)
-
-	req := motion.PlanHistoryReq{ComponentName: fakeBase.Name()}
+	req := motion.PlanHistoryReq{}
 	history, err := ms.PlanHistory(ctx, req)
-	test.That(t, err, test.ShouldEqual, errUnimplemented)
+	test.That(t, err, test.ShouldEqual, state.ErrUnknownResource)
 	test.That(t, history, test.ShouldBeNil)
 }

@@ -3,11 +3,13 @@ package motionplan
 import (
 	"errors"
 
+	"github.com/golang/geo/r3"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/arm/v1"
 
 	"go.viam.com/rdk/motionplan/tpspace"
 	frame "go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/resource"
 	spatial "go.viam.com/rdk/spatialmath"
 )
 
@@ -362,4 +364,63 @@ func findPivotFrame(frameList1, frameList2 []frame.Frame) (frame.Frame, error) {
 		}
 	}
 	return nil, errors.New("no path from solve frame to goal frame")
+}
+
+// PlanToPlanStepsAndGeoPoses converts a plan to the relative poses the robot will move to (relative to the origin) & the geo poses.
+func PlanToPlanStepsAndGeoPoses(
+	plan Plan,
+	componentName resource.Name,
+	origin spatial.GeoPose,
+	planRequest PlanRequest,
+) ([]map[resource.Name]spatial.Pose, []spatial.GeoPose, error) {
+	sf, err := newSolverFrame(
+		planRequest.FrameSystem,
+		planRequest.Frame.Name(),
+		planRequest.Goal.Parent(),
+		planRequest.StartConfiguration)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	planNodes, err := sf.planToNodes(plan)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	seed, err := sf.mapToSlice(planRequest.StartConfiguration)
+	if err != nil {
+		return nil, nil, err
+	}
+	startPose, err := sf.Transform(seed)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	startPoseWOrientation := spatial.NewPose(planNodes[0].Pose().Point(), startPose.Orientation())
+	runningPoseWOrient := startPoseWOrientation
+	planSteps := make([]map[resource.Name]spatial.Pose, 0, len(planNodes))
+	geoPoses := []spatial.GeoPose{}
+	for _, wp := range planNodes {
+		wpPose, err := sf.Transform(wp.Q())
+		if err != nil {
+			return nil, nil, err
+		}
+		runningPoseWOrient = spatial.Compose(runningPoseWOrient, wpPose)
+
+		// we do this b/c plan nodes describe movement in mm
+		// but spatial.PoseToGeoPoint expects the pose to be in km
+		xkmO := runningPoseWOrient.Point().X / 1e6
+		ykmO := runningPoseWOrient.Point().Y / 1e6
+		zkmO := runningPoseWOrient.Point().Z / 1e6
+
+		kmPoseO := spatial.NewPose(r3.Vector{X: xkmO, Y: ykmO, Z: zkmO}, runningPoseWOrient.Orientation())
+
+		asGPWithOrientation := spatial.PoseToGeoPoint(origin, kmPoseO)
+
+		geoPoses = append(geoPoses, asGPWithOrientation)
+
+		planSteps = append(planSteps, map[resource.Name]spatial.Pose{componentName: runningPoseWOrient})
+	}
+
+	return planSteps, geoPoses, nil
 }

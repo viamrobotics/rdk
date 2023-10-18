@@ -27,8 +27,6 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-var errUnimplemented = errors.New("unimplemented")
-
 func init() {
 	resource.RegisterDefaultService(
 		motion.API,
@@ -258,30 +256,16 @@ func (ms *builtIn) MoveOnMap(
 		return false, fmt.Errorf("error making plan for MoveOnMap: %w", err)
 	}
 
-	ma := newMoveAttempt(ctx, mr)
-	if err := ma.start(); err != nil {
+	planResp, err := mr.Plan()
+	if err != nil {
+		return false, err
+	}
+	replan, err := mr.Execute(planResp.Waypoints)
+	if err != nil {
 		return false, err
 	}
 
-	// this ensures that if the context is cancelled we always return early
-	if err := ctx.Err(); err != nil {
-		ma.cancel()
-		return false, err
-	}
-
-	select {
-	// if context was cancelled by the calling function, error out
-	case <-ctx.Done():
-		ma.cancel()
-		return false, ctx.Err()
-
-	// once execution responds: return the result to the caller
-	case resp := <-ma.responseChan:
-		mr.planRequest.Logger.Info("got move on map response")
-		ms.logger.Debugf("execution completed: %s", resp)
-		ma.cancel()
-		return resp.success, resp.err
-	}
+	return !replan, nil
 }
 
 type validatedExtra struct {
@@ -350,12 +334,16 @@ func (ms *builtIn) MoveOnGlobe(
 		extra,
 	)
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
-	valExtra, err := newValidatedExtra(extra)
-	if err != nil {
-		return false, err
+	req := motion.MoveOnGlobeReq{
+		ComponentName:      componentName,
+		Destination:        destination,
+		MovementSensorName: movementSensorName,
+		Obstacles:          obstacles,
+		MotionCfg:          motionCfg,
+		Extra:              extra,
 	}
 
-	mr, err := ms.newMoveOnGlobeRequest(ctx, componentName, destination, movementSensorName, obstacles, motionCfg, nil, valExtra)
+	mr, err := ms.newMoveOnGlobeRequest(ctx, req, nil, 0)
 	if err != nil {
 		return false, err
 	}
@@ -363,61 +351,26 @@ func (ms *builtIn) MoveOnGlobe(
 	replanCount := 0
 	// start a loop that plans every iteration and exits when something is read from the success channel
 	for {
-		ma := newMoveAttempt(ctx, mr)
-		if err := ma.start(); err != nil {
+		planResp, err := mr.Plan()
+		if err != nil {
 			return false, err
 		}
 
-		// this ensures that if the context is cancelled we always return early at the top of the loop
-		if err := ctx.Err(); err != nil {
-			ma.cancel()
+		replan, err := mr.Execute(planResp.Waypoints)
+		// success
+		if !replan && err == nil {
+			return true, nil
+		}
+
+		// failure
+		if !replan {
 			return false, err
 		}
 
-		select {
-		// if context was cancelled by the calling function, error out
-		case <-ctx.Done():
-			ma.cancel()
-			return false, ctx.Err()
-
-		// once execution responds: return the result to the caller
-		case resp := <-ma.responseChan:
-			ms.logger.Debugf("execution response: %s", resp)
-			ma.cancel()
-
-			// If we have a false `success` and nil error, that means replan
-			if resp.success || resp.err != nil {
-				return resp.success, resp.err
-			}
-			ms.logger.Info("reached end of plan, but not at goal; triggering a replan")
-
-		// if the position poller hit an error return it, otherwise replan
-		case resp := <-ma.position.responseChan:
-			ms.logger.Debugf("position response: %s", resp)
-			ma.cancel()
-			if resp.err != nil {
-				return false, resp.err
-			}
-			ms.logger.Info("position drift triggering a replan")
-
-		// if the obstacle poller hit an error return it, otherwise replan
-		case resp := <-ma.obstacle.responseChan:
-			ms.logger.Debugf("obstacle response: %s", resp)
-			ma.cancel()
-			if resp.err != nil {
-				return false, resp.err
-			}
-			ms.logger.Info("obstacle detection triggering a replan")
-		}
-
-		if valExtra.maxReplans >= 0 {
-			replanCount++
-			if replanCount > valExtra.maxReplans {
-				return false, fmt.Errorf("exceeded maximum number of replans: %d", valExtra.maxReplans)
-			}
-		}
+		// replan
+		replanCount++
 		// TODO: RSDK-4509 obstacles should include any transient obstacles which may have triggered a replan, if any.
-		mr, err = ms.newMoveOnGlobeRequest(ctx, componentName, destination, movementSensorName, obstacles, motionCfg, mr.seedPlan, valExtra)
+		mr, err = ms.newMoveOnGlobeRequest(ctx, req, planResp.Motionplan, replanCount)
 		if err != nil {
 			return false, err
 		}
@@ -427,7 +380,34 @@ func (ms *builtIn) MoveOnGlobe(
 func (ms *builtIn) MoveOnGlobeNew(ctx context.Context, req motion.MoveOnGlobeReq) (string, error) {
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
-	return "", errUnimplemented
+	// TODO: Deprecated: remove once no motion apis use the opid system
+	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
+	t := "MoveOnGlobeNew called for component: %s, destination: %+v, heading: %f, movementSensor: %s, obstacles: %v, motionCfg: %#v, extra: %s"
+	ms.logger.Debugf(t,
+		req.ComponentName,
+		req.Destination,
+		req.Heading,
+		req.MovementSensorName,
+		req.Obstacles,
+		req.MotionCfg,
+		req.Extra,
+	)
+
+	planExecutorConstructor := func(
+		ctx context.Context,
+		req motion.MoveOnGlobeReq,
+		seedPlan motionplan.Plan,
+		replanCount int,
+	) (state.PlannerExecutor, error) {
+		return ms.newMoveOnGlobeRequest(ctx, req, seedPlan, replanCount)
+	}
+
+	id, err := state.StartExecution(ms.state, req.ComponentName, req, planExecutorConstructor)
+	if err != nil {
+		return "", err
+	}
+
+	return id.String(), nil
 }
 
 func (ms *builtIn) GetPose(
@@ -459,7 +439,7 @@ func (ms *builtIn) StopPlan(
 ) error {
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
-	return errUnimplemented
+	return ms.state.StopExecutionByResource(req.ComponentName)
 }
 
 func (ms *builtIn) ListPlanStatuses(
@@ -468,7 +448,7 @@ func (ms *builtIn) ListPlanStatuses(
 ) ([]motion.PlanStatusWithID, error) {
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
-	return nil, errUnimplemented
+	return ms.state.ListPlanStatuses(req)
 }
 
 func (ms *builtIn) PlanHistory(
@@ -477,5 +457,5 @@ func (ms *builtIn) PlanHistory(
 ) ([]motion.PlanWithStatus, error) {
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
-	return nil, errUnimplemented
+	return ms.state.PlanHistory(req)
 }
