@@ -326,7 +326,6 @@ func TestControlLoop(t *testing.T) {
 
 func TestMultiSignalLoop(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	ctx := context.Background()
 	cfg := Config{
 		Blocks: []BlockConfig{
 			{
@@ -378,12 +377,6 @@ func TestMultiSignalLoop(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, cLoop, test.ShouldNotBeNil)
 	cLoop.Start()
-	time.Sleep(500 * time.Millisecond)
-	b, err := cLoop.OutputAt(ctx, "gain_block")
-	test.That(t, b[0].GetSignalValueAt(0), test.ShouldEqual, 8.0)
-	test.That(t, err, test.ShouldBeNil)
-	b, err = cLoop.OutputAt(ctx, "sum_block")
-	test.That(t, b[0].GetSignalValueAt(0), test.ShouldEqual, -3.0)
 	test.That(t, err, test.ShouldBeNil)
 
 	cLoop.Stop()

@@ -11,7 +11,8 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-const useControlLoop = true
+// TODO: RSDK-5355 useControlLoop bool should be removed after testing.
+const useControlLoop = false
 
 func setupControlLoops(sb *sensorBase) error {
 	// TODO: RSDK-5355 useControlLoop bool should be removed after testing
@@ -23,7 +24,9 @@ func setupControlLoops(sb *sensorBase) error {
 		sb.loop = loop
 
 		if sb.loop != nil {
-			sb.loop.Start()
+			if err := sb.loop.Start(); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -107,7 +110,6 @@ func (sb *sensorBase) SetState(ctx context.Context, state []*control.Signal) err
 	sb.mu.Lock()
 	defer sb.mu.Unlock()
 	if sb.isPolling() {
-		// TODO: CHECK
 		// if the spin loop is polling, don't call set velocity, immediately return
 		// this allows us to keep the control loop unning without stopping it until
 		// the resource Close has been called
@@ -183,5 +185,5 @@ var controlLoopConfig = control.Config{
 			DependsOn: []string{},
 		},
 	},
-	Frequency: 50,
+	Frequency: 20,
 }
