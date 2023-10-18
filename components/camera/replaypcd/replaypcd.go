@@ -54,8 +54,8 @@ type Config struct {
 	OrganizationID string       `json:"organization_id,omitempty"`
 	Interval       TimeInterval `json:"time_interval,omitempty"`
 	BatchSize      *uint64      `json:"batch_size,omitempty"`
-	ApiKey         string       `json:"api_key,omitempty"`
-	ApiKeyID       string       `json:"api_key_id,omitempty"`
+	APIKey         string       `json:"api_key,omitempty"`
+	APIKeyID       string       `json:"api_key_id,omitempty"`
 }
 
 // TimeInterval holds the start and end time used to filter data.
@@ -91,10 +91,10 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 	if cfg.OrganizationID == "" {
 		return nil, goutils.NewConfigValidationFieldRequiredError(path, "organization_id")
 	}
-	if cfg.ApiKey == "" {
+	if cfg.APIKey == "" {
 		return nil, goutils.NewConfigValidationFieldRequiredError(path, "api_key")
 	}
-	if cfg.ApiKeyID == "" {
+	if cfg.APIKeyID == "" {
 		return nil, goutils.NewConfigValidationFieldRequiredError(path, "api_key_id")
 	}
 
@@ -131,8 +131,8 @@ type pcdCamera struct {
 	resource.Named
 	logger golog.Logger
 
-	ApiKey       string
-	ApiKeyID     string
+	APIKey       string
+	APIKeyID     string
 	cloudConnSvc cloud.ConnectionService
 	cloudConn    rpc.ClientConn
 	dataClient   datapb.DataServiceClient
@@ -426,7 +426,7 @@ func (replay *pcdCamera) initCloudConnection(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, grpcConnectionTimeout)
 	defer cancel()
 
-	_, conn, err := replay.cloudConnSvc.AcquireConnectionApiKey(ctx, replay.ApiKey, replay.ApiKeyID)
+	_, conn, err := replay.cloudConnSvc.AcquireConnectionApiKey(ctx, replay.APIKey, replay.APIKeyID)
 	if err != nil {
 		return err
 	}

@@ -25,6 +25,15 @@ func (cloudConnService *CloudConnectionService) AcquireConnection(ctx context.Co
 	return "hello", cloudConnService.Conn, nil
 }
 
+// AcquireConnection returns a connection to the rpc server stored in the cloud connection service object.
+func (cloudConnService *CloudConnectionService) AcquireConnectionApiKey(ctx context.Context,
+	apiKey, apiKeyID string) (string, rpc.ClientConn, error) {
+	if cloudConnService.AcquireConnectionErr != nil {
+		return "", nil, cloudConnService.AcquireConnectionErr
+	}
+	return "hello", cloudConnService.Conn, nil
+}
+
 // Close is used by the CloudConnectionService to complete the cloud.ConnectionService interface.
 func (cloudConnService *CloudConnectionService) Close(ctx context.Context) error {
 	return nil
