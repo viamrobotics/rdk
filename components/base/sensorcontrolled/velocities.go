@@ -11,7 +11,7 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-const useControlLoop = false
+const useControlLoop = true
 
 func setupControlLoops(sb *sensorBase) error {
 	// TODO: RSDK-5355 useControlLoop bool should be removed after testing
@@ -52,10 +52,12 @@ func (sb *sensorBase) SetVelocity(
 	if useControlLoop && sb.loop != nil {
 		// if we have a loop, let's use the SetState function to call the SetVelocity command
 		// through the control loop
+		sb.logger.Info("using loop")
 		sb.pollsensors(sensorCtx, extra)
 		return nil
 	}
 
+	sb.logger.Info("setting velocity without loop")
 	// else do not use the control loop and pass through the SetVelocity command
 	return sb.controlledBase.SetVelocity(ctx, linear, angular, extra)
 }
@@ -109,10 +111,11 @@ func (sb *sensorBase) SetState(ctx context.Context, state []*control.Signal) err
 		// if the spin loop is polling, don't call set velocity, immediately return
 		// this allows us to keep the control loop unning without stopping it until
 		// the resource Close has been called
+		sb.logger.Info("skipping set state call")
 		return nil
 	}
 
-	sb.logger.Debug("setting state")
+	sb.logger.Info("setting state")
 	linvel := state[0].GetSignalValueAt(0)
 	angvel := state[1].GetSignalValueAt(0)
 
@@ -120,6 +123,7 @@ func (sb *sensorBase) SetState(ctx context.Context, state []*control.Signal) err
 }
 
 func (sb *sensorBase) State(ctx context.Context) ([]float64, error) {
+	sb.logger.Info("getting state")
 	linvel, err := sb.velocities.LinearVelocity(ctx, nil)
 	if err != nil {
 		return []float64{}, err
@@ -140,7 +144,7 @@ var controlLoopConfig = control.Config{
 			Name: "sensor-base",
 			Type: "endpoint",
 			Attribute: rdkutils.AttributeMap{
-				"motor_name": "base", // How to input this
+				"base_name": "base", // How to input this
 			},
 			DependsOn: []string{"pid_block"},
 		},
@@ -160,13 +164,21 @@ var controlLoopConfig = control.Config{
 			Attribute: rdkutils.AttributeMap{
 				"sum_string": "-+", // should this be +- or does it follow dependency order?
 			},
-			DependsOn: []string{"sensor-base", "setpoint"},
+			DependsOn: []string{"sensor-base", "constant"},
 		},
 		{
-			Name: "setpoint",
+			Name: "gain_block",
+			Type: "gain",
+			Attribute: rdkutils.AttributeMap{
+				"gain": 1.0, // need to update dynamically? Or should I just use the trapezoidal velocity profile
+			},
+			DependsOn: []string{"sum_block"},
+		},
+		{
+			Name: "constant",
 			Type: "constant",
 			Attribute: rdkutils.AttributeMap{
-				"constant_val": 0.0, // need to update dynamically? Or should I just use the trapezoidal velocity profile
+				"constant_val": 1.0,
 			},
 			DependsOn: []string{},
 		},
