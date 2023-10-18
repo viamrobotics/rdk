@@ -603,6 +603,18 @@ func (g *rtkI2C) readFix(ctx context.Context) (int, error) {
 	return g.nmeamovementsensor.ReadFix(ctx)
 }
 
+func (g *rtkI2C) readSatsInView(ctx context.Context) (int, error) {
+	g.ntripMu.Lock()
+	lastError := g.err.Get()
+	if lastError != nil {
+		defer g.ntripMu.Unlock()
+		return 0, lastError
+	}
+	g.ntripMu.Unlock()
+
+	return g.nmeamovementsensor.ReadSatsInView(ctx)
+}
+
 // Properties passthrough.
 func (g *rtkI2C) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
 	lastError := g.err.Get()
@@ -635,7 +647,13 @@ func (g *rtkI2C) Readings(ctx context.Context, extra map[string]interface{}) (ma
 		return nil, err
 	}
 
+	satsInView, err := g.readSatsInView(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	readings["fix"] = fix
+	readings["satellites_in_view"] = satsInView
 
 	return readings, nil
 }
