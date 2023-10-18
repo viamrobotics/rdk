@@ -376,14 +376,15 @@ type checkResponse struct {
 
 func (ms *explore) checkPartialPlan(ctx context.Context, plan motionplan.Plan, worldState *referenceframe.WorldState) (bool, error) {
 
-	ticker := time.NewTicker(10000 * time.Millisecond)
+	ticker := time.NewTicker(500 * time.Millisecond)
 	defer ticker.Stop()
 
 	// this check ensures that if the context is cancelled we always return early at the top of the loop
-	for ctx.Err() == nil {
+	for { //ctx.Err() == nil {
+		fmt.Println("ctx ", ctx)
 		select {
 		case <-ctx.Done():
-			ms.obstacleChan <- checkResponse{err: errors.New("context canceled")}
+			//ms.obstacleChan <- checkResponse{err: errors.New("context canceled")}
 			return false, errors.New("context canceled")
 		case <-ticker.C:
 			pInFrame, err := (*ms.kb).CurrentPosition(ctx)
@@ -423,7 +424,6 @@ func (ms *explore) checkPartialPlan(ctx context.Context, plan motionplan.Plan, w
 			}
 		}
 	}
-	return false, nil
 }
 
 func (ms *explore) executePlan(ctx context.Context, plan motionplan.Plan) {

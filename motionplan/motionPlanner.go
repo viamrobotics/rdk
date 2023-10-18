@@ -558,7 +558,7 @@ func CheckPlan(
 
 			modifiedSegment := &ik.State{Frame: sf, Position: poseInPath}
 			if isValid, _ := sfPlanner.planOpts.CheckStateConstraints(modifiedSegment); !isValid {
-				return currentPose.Point(), true, fmt.Errorf("found collision between positions %v and %v", currentPose.Point(), nextPose.Point())
+				return poseInPath.Point(), true, fmt.Errorf("found collision between positions %v and %v", currentPose.Point(), nextPose.Point())
 			}
 		}
 	}

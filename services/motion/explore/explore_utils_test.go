@@ -27,7 +27,7 @@ func createFakeBase(ctx context.Context, logger golog.Logger) (base.Base, error)
 	fakeBaseCfg := resource.Config{
 		Name:  testBaseName.Name,
 		API:   base.API,
-		Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R: 20}},
+		Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{X: 300, Y: 200, Z: 100}},
 	}
 	return baseFake.NewBase(ctx, nil, fakeBaseCfg, logger)
 }
@@ -69,7 +69,7 @@ func createMockVisionService(ctx context.Context, obstacle obstacleMetadata, exp
 		}
 
 		obstaclePosition := spatialmath.NewPoseFromPoint(obstacle.position)
-		box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{X: 5, Y: 5, Z: 5}, "test-case-2")
+		box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{X: 100, Y: 100, Z: 100}, "test-case-2")
 		if err != nil {
 			return nil, err
 		}
@@ -107,7 +107,7 @@ func createFrameSystemService(
 
 func createBaseLink(t *testing.T, baseName string) *referenceframe.LinkInFrame {
 	basePose := spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 0})
-	baseSphere, err := spatialmath.NewSphere(basePose, 10, "base-sphere")
+	baseSphere, err := spatialmath.NewSphere(basePose, 10, "base-box")
 	test.That(t, err, test.ShouldBeNil)
 
 	baseLink := referenceframe.NewLinkInFrame(

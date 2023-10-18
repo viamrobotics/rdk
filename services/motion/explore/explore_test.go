@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
@@ -108,6 +109,7 @@ func TestUpdatingWorldState(t *testing.T) {
 	ms, err := createNewExploreMotionService(t, ctx, logger, fakeBase, fakeCamera)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ms, test.ShouldNotBeNil)
+	defer ms.Close(ctx)
 
 	msStruct := ms.(*explore)
 
@@ -115,16 +117,52 @@ func TestUpdatingWorldState(t *testing.T) {
 		description string
 		destination spatialmath.Pose
 		obstacle    obstacleMetadata
-		expectedErr error
+		detection   bool
 	}{
 		{
-			description: "1",
-			destination: spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 500, Z: 0}),
+			description: "no obstacles in view",
+			destination: spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 1000, Z: 0}),
+			detection:   false,
+		},
+		{
+			description: "obstacle in path nearby",
+			destination: spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 1000, Z: 0}),
 			obstacle: obstacleMetadata{
-				position: r3.Vector{X: 0, Y: 50, Z: 0},
+				position: r3.Vector{X: 0, Y: 300, Z: 0},
 				data:     100,
-				label:    "updatedState_obs",
+				label:    "close_obstacle_in_path",
 			},
+			detection: true,
+		},
+		{
+			description: "obstacle in path farther away",
+			destination: spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 1000, Z: 0}),
+			obstacle: obstacleMetadata{
+				position: r3.Vector{X: 0, Y: 900, Z: 0},
+				data:     100,
+				label:    "far_obstacle_in_path",
+			},
+			detection: true,
+		},
+		{
+			description: "obstacle in path too far",
+			destination: spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 1000, Z: 0}),
+			obstacle: obstacleMetadata{
+				position: r3.Vector{X: 0, Y: 1500, Z: 0},
+				data:     100,
+				label:    "far_obstacle_not_in_path",
+			},
+			detection: false,
+		},
+		{
+			description: "obstacle not in path",
+			destination: spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 1000, Z: 0}),
+			obstacle: obstacleMetadata{
+				position: r3.Vector{X: 500, Y: 500, Z: 0},
+				data:     100,
+				label:    "close_obstacle_not_in_path",
+			},
+			detection: false,
 		},
 	}
 
@@ -167,15 +205,16 @@ func TestUpdatingWorldState(t *testing.T) {
 			}
 
 			// Run check of motionplan plan
+			ctxTimeout, cancelFunc := context.WithTimeout(ctx, 1*time.Second)
+			defer cancelFunc()
+
 			msStruct.backgroundWorkers.Add(1)
 			goutils.ManagedGo(func() {
-				msStruct.checkPartialPlan(ctx, plan, worldState)
+				msStruct.checkPartialPlan(ctxTimeout, plan, worldState)
 			}, msStruct.backgroundWorkers.Done)
 
-			// Check for response from obstacle channel
-			resp := <-msStruct.obstacleChan
-			test.That(t, resp.err, test.ShouldBeNil)
-			test.That(t, resp.success, test.ShouldBeTrue)
+			obstacleDetected := goutils.SelectContextOrWaitChan[checkResponse](ctxTimeout, msStruct.obstacleChan)
+			test.That(t, obstacleDetected, test.ShouldEqual, tt.detection)
 		})
 	}
 }
