@@ -25,6 +25,15 @@ func TestLoginAction(t *testing.T) {
 		fmt.Sprintf("Already logged in as %q", testEmail))
 }
 
+func TestAPIKeyAuth(t *testing.T) {
+	_, ac, _, errOut := setup(nil, nil, nil, "apiKey")
+	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+	APIKey, isAPIKey := ac.conf.Auth.(*apiKey)
+	test.That(t, isAPIKey, test.ShouldBeTrue)
+	test.That(t, APIKey.KeyID, test.ShouldEqual, testKeyID)
+	test.That(t, APIKey.KeyCrypto, test.ShouldEqual, testKeyCrypto)
+}
+
 func TestPrintAccessTokenAction(t *testing.T) {
 	// AppServiceClient needed for any Action that calls ensureLoggedIn.
 	cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, nil, nil, "token")
