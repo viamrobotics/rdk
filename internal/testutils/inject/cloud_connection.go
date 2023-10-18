@@ -25,9 +25,10 @@ func (cloudConnService *CloudConnectionService) AcquireConnection(ctx context.Co
 	return "hello", cloudConnService.Conn, nil
 }
 
-// AcquireConnection returns a connection to the rpc server stored in the cloud connection service object.
-func (cloudConnService *CloudConnectionService) AcquireConnectionApiKey(ctx context.Context,
-	apiKey, apiKeyID string) (string, rpc.ClientConn, error) {
+// AcquireConnectionAPIKey returns a connection to the rpc server stored in the cloud connection service object.
+func (cloudConnService *CloudConnectionService) AcquireConnectionAPIKey(ctx context.Context,
+	apiKey, apiKeyID string,
+) (string, rpc.ClientConn, error) {
 	if cloudConnService.AcquireConnectionErr != nil {
 		return "", nil, cloudConnService.AcquireConnectionErr
 	}

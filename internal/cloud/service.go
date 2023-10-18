@@ -30,7 +30,7 @@ var InternalServiceName = resource.NewName(API, "builtin")
 type ConnectionService interface {
 	resource.Resource
 	AcquireConnection(ctx context.Context) (string, rpc.ClientConn, error)
-	AcquireConnectionApiKey(ctx context.Context, apiKey, apiKeyID string) (string, rpc.ClientConn, error)
+	AcquireConnectionAPIKey(ctx context.Context, apiKey, apiKeyID string) (string, rpc.ClientConn, error)
 }
 
 // NewCloudConnectionService makes a new cloud connection service to get gRPC connections
@@ -79,8 +79,9 @@ func (cm *cloudManagedService) AcquireConnection(ctx context.Context) (string, r
 	return cm.cloudCfg.ID, conn, err
 }
 
-func (cm *cloudManagedService) AcquireConnectionApiKey(ctx context.Context,
-	apiKey, apiKeyID string) (string, rpc.ClientConn, error) {
+func (cm *cloudManagedService) AcquireConnectionAPIKey(ctx context.Context,
+	apiKey, apiKeyID string,
+) (string, rpc.ClientConn, error) {
 	cm.dialerMu.RLock()
 	defer cm.dialerMu.RUnlock()
 	if !cm.managed {

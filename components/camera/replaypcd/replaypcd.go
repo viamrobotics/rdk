@@ -426,7 +426,7 @@ func (replay *pcdCamera) initCloudConnection(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, grpcConnectionTimeout)
 	defer cancel()
 
-	_, conn, err := replay.cloudConnSvc.AcquireConnectionApiKey(ctx, replay.APIKey, replay.APIKeyID)
+	_, conn, err := replay.cloudConnSvc.AcquireConnectionAPIKey(ctx, replay.APIKey, replay.APIKeyID)
 	if err != nil {
 		return err
 	}
