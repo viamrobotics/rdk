@@ -48,7 +48,7 @@ func init() {
 
 // Config is the attribute struct for microphones.
 type Config struct {
-	resource.TriviallyValidateExcept32Bit
+	resource.TriviallyValidateConfig
 	Path        string `json:"audio_path"`
 	PathPattern string `json:"audio_path_pattern"`
 	Debug       bool   `json:"debug"`
