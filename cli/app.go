@@ -943,6 +943,25 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 					Action: UpdateModuleAction,
 				},
 				{
+					Name:  "update-models",
+					Usage: "update a module's metadata file based on model's it provides",
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:        moduleFlagPath,
+							Usage:       "path to meta.json",
+							DefaultText: "./meta.json",
+							TakesFile:   true,
+						},
+						&cli.StringFlag{
+							Name:     "binary",
+							Usage:    "binary for the module to run",
+							Required: true,
+						},
+					},
+					Action: UpdateModelsAction,
+				},
+
+				{
 					Name:  "upload",
 					Usage: "upload a new version of your module",
 					Description: `Upload an archive containing your module's file(s) for a specified platform
