@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math"
 	"strconv"
-	"strings"
 	"sync/atomic"
 
 	geo "github.com/kellydunn/golang-geo"
@@ -107,12 +106,8 @@ func (mr *moveRequest) obstaclesIntersectPlan(ctx context.Context, waypoints [][
 		for camName, visSrvc := range cvMap {
 			// get detections from vision service
 			detections, err := visSrvc.GetObjectPointClouds(ctx, camName.Name, nil)
-			if err != nil && strings.Contains(err.Error(), "does not implement a 3D segmenter") {
-				mr.planRequest.Logger.Debugf("cannot call GetObjectPointClouds on %q as it does not implement a 3D segmenter", visSrvc.Name())
-				break
-			} else if err != nil {
-				// returning bool as true indicates we want to replan
-				return true, err
+			if err != nil {
+				return false, err
 			}
 
 			// Note: detections are initially observed from the camera frame but must be transformed to be in
@@ -311,23 +306,8 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 			return nil, resource.DependencyNotFoundError(visionServiceName)
 		}
 		cameraName := obstacleDetectorNamePair.CameraName
-		// make sure the specified pairs are valid
-		switch {
-		case visionServiceName.ContainsRemoteNames() && cameraName.ContainsRemoteNames():
-			// vision services which are remote only have access to remote cameras
-			pair[cameraName] = visionSvc
-		case visionServiceName.ContainsRemoteNames() && !cameraName.ContainsRemoteNames():
-			// log that a remote vision service cannot use a camera found on the main part of a robot
-			ms.logger.Debugf("%s is remote and %s is not, so they cannot be paired together", visionServiceName, cameraName)
-			continue
-		default:
-			// vision services which are main have access to both main and remote cameras
-			pair[cameraName] = visionSvc
-		}
-		// check that we actually have something to add
-		if len(pair) == 1 {
-			obstacleDetectors = append(obstacleDetectors, pair)
-		}
+		pair[cameraName] = visionSvc
+		obstacleDetectors = append(obstacleDetectors, pair)
 	}
 
 	return &moveRequest{
