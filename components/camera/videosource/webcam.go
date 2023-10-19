@@ -163,7 +163,7 @@ func getProperties(d driver.Driver) (_ []prop.Media, err error) {
 
 // WebcamConfig is the attribute struct for webcams.
 type WebcamConfig struct {
-	resource.TriviallyValidateConfig
+	resource.TriviallyValidateExcept32Bit
 	CameraParameters     *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters,omitempty"`
 	DistortionParameters *transform.BrownConrady            `json:"distortion_parameters,omitempty"`
 	Debug                bool                               `json:"debug,omitempty"`

@@ -20,6 +20,7 @@ import (
 	"context"
 	"reflect"
 	"regexp"
+	"runtime"
 	"strings"
 
 	"github.com/jhump/protoreflect/desc"
@@ -178,6 +179,16 @@ type TriviallyValidateConfig struct{}
 
 // Validate always succeeds and produces no dependencies.
 func (t TriviallyValidateConfig) Validate(path string) ([]string, error) {
+	return nil, nil
+}
+
+// This is a clone of TriviallyValidateConfig that fails on 32-bit ARM
+type TriviallyValidateExcept32Bit struct{}
+
+func (t TriviallyValidateExcept32Bit) Validate(path string) ([]string, error) {
+	if runtime.GOARCH == "arm" {
+		return nil, errors.Errorf("%s not available on 32-bit ARM", path)
+	}
 	return nil, nil
 }
 
