@@ -329,7 +329,7 @@ func (g *rtkI2C) getStream(mountPoint string, maxAttempts int) error {
 	if err != nil {
 		// if the error is related to ICY, we log it as warning.
 		if strings.Contains(err.Error(), "ICY") {
-			g.logger.Warnf("Can't connect to Ntrip Steam: %s", err)
+			g.logger.Warnf("Can't connect to NTRIP Steam: %s", err)
 		} else {
 			g.logger.Errorf("Can't connect to NTRIP stream: %s", err)
 			return err
@@ -494,7 +494,7 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 	}
 }
 
-//nolint
+// nolint
 // getNtripConnectionStatus returns true if connection to NTRIP stream is OK, false if not
 func (g *rtkI2C) getNtripConnectionStatus() (bool, error) {
 	g.ntripMu.Lock()
