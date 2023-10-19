@@ -297,8 +297,9 @@ func (s *Server) GetStatus(ctx context.Context, req *pb.GetStatusRequest) (*pb.G
 		statusesP = append(
 			statusesP,
 			&pb.Status{
-				Name:   protoutils.ResourceNameToProto(status.Name),
-				Status: statusP,
+				Name:             protoutils.ResourceNameToProto(status.Name),
+				LastReconfigured: timestamppb.New(status.LastReconfigured),
+				Status:           statusP,
 			},
 		)
 	}
