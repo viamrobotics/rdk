@@ -1,6 +1,6 @@
 {
   "name": "@viamrobotics/remote-control",
-  "version": "2.2.1",
+  "version": "2.2.2",
   "license": "Apache-2.0",
   "type": "module",
   "files": [
@@ -17,8 +17,6 @@
     "@floating-ui/dom": "^1.5.3",
     "@improbable-eng/grpc-web": ">=0.15",
     "@viamrobotics/prime": ">=0.5",
-    "@viamrobotics/prime-blocks": "^0.0.13",
-    "@viamrobotics/prime-core": "^0.0.51",
     "@viamrobotics/rpc": ">=0.1",
     "@viamrobotics/sdk": "0.5.0-rc.0",
     "google-protobuf": ">=3",
