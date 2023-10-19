@@ -4,7 +4,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
 
 on:
-  workflow_dispatch:
   push:
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+-rc[0-9]+'
@@ -14,37 +13,37 @@ on:
 # Don't forget to tag back to @main before merge.
 
 jobs:
-  # test:
-  #   uses: viamrobotics/rdk/.github/workflows/test.yml@main
-  #   secrets:
-  #     MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
+  test:
+    uses: viamrobotics/rdk/.github/workflows/test.yml@main
+    secrets:
+      MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
 
   appimage:
-    # needs: test
-    uses: ./.github/workflows/appimage.yml
+    needs: test
+    uses: viamrobotics/rdk/.github/workflows/appimage.yml@main
     with:
       release_type: 'rc'
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
-  # staticbuild:
-  #   needs: test
-  #   uses: viamrobotics/rdk/.github/workflows/staticbuild.yml@main
-  #   with:
-  #     release_type: 'rc'
-  #   secrets:
-  #     GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+  staticbuild:
+    needs: test
+    uses: viamrobotics/rdk/.github/workflows/staticbuild.yml@main
+    with:
+      release_type: 'rc'
+    secrets:
+      GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
-  # droid:
-  #   needs: test
-  #   uses: viamrobotics/rdk/.github/workflows/droid.yml@main
-  #   with:
-  #     release_type: 'rc'
-  #   secrets:
-  #     GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+  droid:
+    needs: test
+    uses: viamrobotics/rdk/.github/workflows/droid.yml@main
+    with:
+      release_type: 'rc'
+    secrets:
+      GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
-  # npm_publish:
-  #   uses: viamrobotics/rdk/.github/workflows/npm-publish.yml@main
-  #   needs: test
-  #   secrets:
-  #     NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+  npm_publish:
+    uses: viamrobotics/rdk/.github/workflows/npm-publish.yml@main
+    needs: test
+    secrets:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
