@@ -68,6 +68,19 @@ type ZLogger struct {
 	*zap.SugaredLogger
 }
 
+func FromZapCompatible(logger ZapCompatibleLogger) Logger {
+	switch l := logger.(type) {
+	case *zap.SugaredLogger:
+		// golog.Logger is a type alias for *zap.SugaredLogger and is captured by this.
+		return ZLogger{l}
+	case Logger:
+		return l
+	default:
+		logger.Warnf("Unknown logger type, creating a new Viam Logger. Unknown type: %T", logger)
+		return newDefaultLogger()
+	}
+}
+
 // AsZap converts the logger to a zap logger.
 func (logger ZLogger) AsZap() *zap.SugaredLogger {
 	return logger.SugaredLogger

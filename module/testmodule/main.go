@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
@@ -27,7 +28,7 @@ func main() {
 	utils.ContextualMain(mainWithArgs, module.NewLoggerFromArgs("TestModule"))
 }
 
-func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) error {
+func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error {
 	logger.Debug("debug mode enabled")
 
 	var err error

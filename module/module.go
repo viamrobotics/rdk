@@ -144,7 +144,12 @@ type Module struct {
 }
 
 // NewModule returns the basic module framework/structure.
-func NewModule(ctx context.Context, address string, logger logging.Logger) (*Module, error) {
+func NewModule(ctx context.Context, address string, zlogger logging.ZapCompatibleLogger) (*Module, error) {
+	// This method is part of the public API when using the RDK as a library. For backwards
+	// compatibility we continue to accept a golog.Logger/*zap.SugaredLogger. Upconvert to our
+	// logging type.
+	logger := logging.FromZapCompatible(zlogger)
+
 	// TODO(PRODUCT-343): session support likely means interceptors here
 	opMgr := operation.NewManager(logger)
 	unaries := []grpc.UnaryServerInterceptor{
@@ -169,7 +174,7 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 }
 
 // NewModuleFromArgs directly parses the command line argument to get its address.
-func NewModuleFromArgs(ctx context.Context, logger logging.Logger) (*Module, error) {
+func NewModuleFromArgs(ctx context.Context, logger logging.ZapCompatibleLogger) (*Module, error) {
 	if len(os.Args) < 2 {
 		return nil, errors.New("need socket path as command line argument")
 	}
