@@ -428,8 +428,9 @@ func TestPtgCheckPlan(t *testing.T) {
 	inputs := referenceframe.FloatsToInputs([]float64{0, 0, 0})
 
 	t.Run("base case - validate plan without obstacles", func(t *testing.T) {
-		_, _, err := CheckPlan(ackermanFrame, steps, nil, fs, startPose, inputs, errorState, logger)
+		collisionPose, err := CheckPlan(ackermanFrame, steps, nil, fs, startPose, inputs, errorState, logger)
 		test.That(t, err, test.ShouldBeNil)
+		test.That(t, collisionPose, test.ShouldBeNil)
 	})
 
 	t.Run("obstacles blocking path", func(t *testing.T) {
@@ -442,8 +443,9 @@ func TestPtgCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		_, _, err = CheckPlan(ackermanFrame, steps, worldState, fs, startPose, inputs, errorState, logger)
+		collisionPose, err := CheckPlan(ackermanFrame, steps, worldState, fs, startPose, inputs, errorState, logger)
 		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, collisionPose, test.ShouldBeNil)
 	})
 
 	// create camera_origin frame
@@ -479,8 +481,9 @@ func TestPtgCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		_, _, err = CheckPlan(ackermanFrame, steps, worldState, fs, startPose, inputs, errorState, logger)
+		collisionPose, err := CheckPlan(ackermanFrame, steps, worldState, fs, startPose, inputs, errorState, logger)
 		test.That(t, err, test.ShouldBeNil)
+		test.That(t, collisionPose, test.ShouldBeNil)
 	})
 	t.Run("obstacles NOT in world frame cause collision - integration test", func(t *testing.T) {
 		obstacle, err := spatialmath.NewBox(
@@ -494,8 +497,9 @@ func TestPtgCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		_, _, err = CheckPlan(ackermanFrame, steps, worldState, fs, startPose, inputs, errorState, logger)
+		collisionPose, err := CheckPlan(ackermanFrame, steps, worldState, fs, startPose, inputs, errorState, logger)
 		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, collisionPose, test.ShouldBeNil)
 	})
 	t.Run("checking from partial-plan, ensure success with obstacles - integration test", func(t *testing.T) {
 		// create obstacle behind where we are
@@ -517,8 +521,9 @@ func TestPtgCheckPlan(t *testing.T) {
 
 		startPose := spatialmath.NewPose(vector, ov)
 
-		_, _, err = CheckPlan(ackermanFrame, steps[2:len(steps)-1], worldState, fs, startPose, inputs, errorState, logger)
+		collisionPose, err := CheckPlan(ackermanFrame, steps[2:len(steps)-1], worldState, fs, startPose, inputs, errorState, logger)
 		test.That(t, err, test.ShouldBeNil)
+		test.That(t, collisionPose, test.ShouldBeNil)
 	})
 	t.Run("verify partial plan with non-nil errorState and obstacle", func(t *testing.T) {
 		// create obstacle which is behind where the robot already is, but is on the path it has already traveled
@@ -536,7 +541,8 @@ func TestPtgCheckPlan(t *testing.T) {
 		errorState := spatialmath.NewPoseFromPoint(r3.Vector{0, 1000, 0})
 		startPose = errorState
 
-		_, _, err = CheckPlan(ackermanFrame, steps[2:len(steps)-1], worldState, fs, startPose, inputs, errorState, logger)
+		collisionPose, err := CheckPlan(ackermanFrame, steps[2:len(steps)-1], worldState, fs, startPose, inputs, errorState, logger)
 		test.That(t, err, test.ShouldBeNil)
+		test.That(t, collisionPose, test.ShouldBeNil)
 	})
 }

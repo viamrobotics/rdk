@@ -2,6 +2,7 @@ package explore
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -17,11 +18,53 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/framesystem"
+	"go.viam.com/rdk/services/motion"
 	vSvc "go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/vision"
 )
+
+var (
+	testBaseName         = resource.NewName(base.API, "test_base")
+	testCameraName       = resource.NewName(camera.API, "test_camera")
+	testFrameServiceName = resource.NewName(framesystem.API, "test_fs")
+	defaultKBOptsExtra   = map[string]interface{}{
+		"angular_degs_per_sec":          .25,
+		"linear_m_per_sec":              .1,
+		"obstacle_polling_frequency_hz": 1,
+	}
+)
+
+func createNewExploreMotionService(t *testing.T, ctx context.Context, logger golog.Logger, fakeBase base.Base, cam camera.Camera) (motion.Service, error) {
+
+	var fsParts []*referenceframe.FrameSystemPart
+	deps := make(resource.Dependencies)
+
+	// create base link
+	baseLink := createBaseLink(t, testBaseName.Name)
+	fsParts = append(fsParts, &referenceframe.FrameSystemPart{FrameConfig: baseLink})
+	deps[testBaseName] = fakeBase
+
+	// create camera link
+	if cam != nil {
+		fmt.Println("cam.Name().Name: ", cam.Name().Name)
+		cameraLink := createCameraLink(t, cam.Name().Name, fakeBase.Name().Name)
+		fsParts = append(fsParts, &referenceframe.FrameSystemPart{FrameConfig: cameraLink})
+		deps[cam.Name()] = cam
+	}
+
+	// create frame service
+	fs, err := createFrameSystemService(ctx, deps, fsParts, logger)
+	if err != nil {
+		return nil, err
+	}
+	deps[testFrameServiceName] = fs
+
+	// create explore motion service
+	exploreMotionConf := resource.Config{ConvertedAttributes: &Config{}}
+	return NewExplore(ctx, deps, exploreMotionConf, logger)
+}
 
 func createFakeBase(ctx context.Context, logger golog.Logger) (base.Base, error) {
 	fakeBaseCfg := resource.Config{
@@ -43,21 +86,6 @@ func createFakeCamera(ctx context.Context, logger golog.Logger) (camera.Camera, 
 		},
 	}
 	return cameraFake.NewCamera(ctx, fakeCameraCfg, logger)
-}
-
-func createMockCamera(ctx context.Context, obstacles []obstacleMetadata, expectedError error) camera.Camera {
-	mockCamera := &inject.Camera{}
-
-	mockCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
-		pc := pointcloud.New()
-		for _, obsData := range obstacles {
-			if err := pc.Set(obsData.position, pointcloud.NewValueData(obsData.data)); err != nil {
-				return nil, expectedError
-			}
-		}
-		return pc, expectedError
-	}
-	return mockCamera
 }
 
 func createMockVisionService(ctx context.Context, obstacle obstacleMetadata, expectedError error) vSvc.Service {

@@ -241,12 +241,6 @@ func (ms *explore) planMove(
 	f1 := kb.Kinematics()
 	fmt.Println(f1.Name())
 
-	// partialPlan := []map[string][]referenceframe.Input{
-	// 	{f.Name(): []referenceframe.Input{{Value: 0}, {Value: 0}, {Value: 0}}},
-	// 	{name: []referenceframe.Input{{Value: 0}, {Value: 0}, {Value: 100}}},
-	// 	{name: []referenceframe.Input{{Value: 0}, {Value: 0}, {Value: 0}}},
-	// }
-
 	// replace original base frame with one that knows how to move itself and allow planning for
 	if err = fs.ReplaceFrame(kb.Kinematics()); err != nil {
 		return nil, nil, err
@@ -259,12 +253,8 @@ func (ms *explore) planMove(
 	if err != nil {
 		return nil, nil, err
 	}
-	//fmt.Println("kinematicsOptions ", kb.Properties())
-	fmt.Println("kinematicsOptions.PositionOnlyMode ", kinematicsOptions.PositionOnlyMode)
-	fmt.Println("len(kb.Kinematics().DoF()) ", len(kb.Kinematics().DoF()))
-	fmt.Println("len(inputs) ", len(inputs))
+
 	if kinematicsOptions.PositionOnlyMode && len(kb.Kinematics().DoF()) == 2 && len(inputs) == 3 {
-		fmt.Println("HI NICKEL CADIUM")
 		inputs = inputs[:2]
 	}
 	ms.logger.Debugf("base position: %v", inputs)
@@ -319,7 +309,7 @@ func (ms *explore) Move(
 	ms.kb = &kb
 
 	// Create motion plan plan
-	planInputs, err := ms.createMotionPlan(ctx, destination.Pose(), worldState, extra)
+	planInputs, err := ms.createMotionPlan(ctx, destination.Pose(), worldState, true, extra)
 	if err != nil {
 		return false, err
 	}
@@ -380,39 +370,35 @@ type checkResponse struct {
 	success bool
 }
 
-func (ms *explore) checkPartialPlan(ctx context.Context, plan motionplan.Plan, worldState *referenceframe.WorldState) (bool, error) {
+func (ms *explore) checkPartialPlan(ctx context.Context, plan motionplan.Plan, worldState *referenceframe.WorldState) {
 
 	ticker := time.NewTicker(500 * time.Millisecond)
 	defer ticker.Stop()
 
-	// this check ensures that if the context is cancelled we always return early at the top of the loop
-	for { //ctx.Err() == nil {
-		fmt.Println("ctx ", ctx)
+	for {
 		select {
 		case <-ctx.Done():
-			return false, errors.New("context canceled")
+			return
 		case <-ticker.C:
 			pInFrame, err := (*ms.kb).CurrentPosition(ctx)
 			if err != nil {
 				ms.obstacleChan <- checkResponse{err: err}
+				return
 			}
 
 			currentInputs, err := (*ms.kb).CurrentInputs(ctx)
 			if err != nil {
 				ms.obstacleChan <- checkResponse{err: err}
-				return false, err
+				return
 			}
 
 			worldState, err := ms.updateWorldState(ctx)
 			if err != nil {
 				ms.obstacleChan <- checkResponse{err: err}
-				return false, err
+				return
 			}
 
-			collisionPose, collision, err := motionplan.CheckPlan((*ms.kb).Kinematics(), plan, worldState, ms.frameSystem, pInFrame.Pose(), currentInputs[:2], spatialmath.NewZeroPose(), ms.logger)
-			fmt.Println("Collision: ", collision)
-			fmt.Println("Error: ", err)
-			fmt.Println("collisionPose: ", collisionPose)
+			_, err = motionplan.CheckPlan((*ms.kb).Kinematics(), plan, worldState, ms.frameSystem, pInFrame.Pose(), currentInputs[:2], spatialmath.NewZeroPose(), ms.logger)
 			if err != nil {
 				var resp checkResponse
 				if strings.Contains(err.Error(), "found collision") {
@@ -425,7 +411,6 @@ func (ms *explore) checkPartialPlan(ctx context.Context, plan motionplan.Plan, w
 					resp.err = err
 				}
 				ms.obstacleChan <- resp
-				return resp.success, resp.err
 			}
 		}
 	}
@@ -510,68 +495,6 @@ func createKBOps(ctx context.Context, extra map[string]interface{}) (kinematicba
 	return opt, nil
 }
 
-func (ms *explore) createKB(
-	ctx context.Context,
-	componentName resource.Name,
-	extra map[string]interface{},
-) (kinematicbase.KinematicBase, error) {
-	opt := kinematicbase.NewKinematicBaseOptions()
-	opt.NoSkidSteer = true
-
-	extra["motion_profile"] = motionplan.PositionOnlyMotionProfile
-
-	if degsPerSec, ok := extra["angular_degs_per_sec"]; ok {
-		angularDegsPerSec, ok := degsPerSec.(float64)
-		if !ok {
-			return nil, errors.New("could not interpret motion_profile field as string")
-		}
-		opt.AngularVelocityDegsPerSec = angularDegsPerSec
-	}
-
-	if mPerSec, ok := extra["linear_m_per_sec"]; ok {
-		linearMPerSec, ok := mPerSec.(float64)
-		if !ok {
-			return nil, errors.New("could not interpret motion_profile field as string")
-		}
-		opt.LinearVelocityMMPerSec = linearMPerSec
-	}
-
-	if profile, ok := extra["motion_profile"]; ok {
-		motionProfile, ok := profile.(string)
-		if !ok {
-			return nil, errors.New("could not interpret motion_profile field as string")
-		}
-		opt.PositionOnlyMode = motionProfile == motionplan.PositionOnlyMotionProfile
-	}
-
-	component, ok := ms.components[componentName]
-	if !ok {
-		return nil, resource.DependencyNotFoundError(componentName)
-	}
-
-	b, ok := component.(base.Base)
-	if !ok {
-		return nil, fmt.Errorf("cannot move component of type %T because it is not a Base", component)
-	}
-
-	p := referenceframe.NewPoseInFrame(componentName.Name, spatialmath.NewZeroPose())
-	kb, err := kinematicbase.WrapWithKinematics(ctx, b, ms.logger, motion.NewPointLocalizer(p), nil, opt)
-	if err != nil {
-		return nil, err
-	}
-
-	return kb, nil
-}
-
-func createPartialPlan(f resource.Name) motionplan.Plan {
-	plan := []map[string][]referenceframe.Input{
-		{f.Name: []referenceframe.Input{{Value: 0}, {Value: 0}, {Value: 0}}},
-		{f.Name: []referenceframe.Input{{Value: 0}, {Value: 0}, {Value: 100}}},
-		{f.Name: []referenceframe.Input{{Value: 0}, {Value: 0}, {Value: 0}}},
-	}
-	return plan
-}
-
 // PlanMoveOnMap returns the plan for MoveOnMap to execute.
 func (ms *explore) createKinematicBase(
 	ctx context.Context,
@@ -606,6 +529,7 @@ func (ms *explore) createMotionPlan(
 	ctx context.Context,
 	destination spatialmath.Pose,
 	worldState *referenceframe.WorldState,
+	positionOnlyMode bool,
 	extra map[string]interface{},
 ) ([][]referenceframe.Input, error) {
 	f1 := (*ms.kb).Kinematics()
@@ -627,6 +551,11 @@ func (ms *explore) createMotionPlan(
 	inputs, err := (*ms.kb).CurrentInputs(ctx)
 	if err != nil {
 		return nil, err
+	}
+
+	if positionOnlyMode && len((*ms.kb).Kinematics().DoF()) == 2 && len(inputs) == 3 {
+		fmt.Println("HI NICKEL CADIUM")
+		inputs = inputs[:2]
 	}
 
 	dst := referenceframe.NewPoseInFrame(referenceframe.World, destination) // here
