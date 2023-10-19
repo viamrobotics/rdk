@@ -235,6 +235,13 @@ func (g *SerialNMEAMovementSensor) ReadFix(ctx context.Context) (int, error) {
 	return g.data.FixQuality, nil
 }
 
+// ReadSatsInView returns the number of satellites in view.
+func (g *SerialNMEAMovementSensor) ReadSatsInView(ctx context.Context) (int, error) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.data.SatsInView, nil
+}
+
 // Readings will use return all of the MovementSensor Readings.
 func (g *SerialNMEAMovementSensor) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 	readings, err := movementsensor.Readings(ctx, g, extra)
@@ -246,8 +253,12 @@ func (g *SerialNMEAMovementSensor) Readings(ctx context.Context, extra map[strin
 	if err != nil {
 		return nil, err
 	}
-
+	satsInView, err := g.ReadSatsInView(ctx)
+	if err != nil {
+		return nil, err
+	}
 	readings["fix"] = fix
+	readings["satellites_in_view"] = satsInView
 
 	return readings, nil
 }

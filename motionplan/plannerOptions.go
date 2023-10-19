@@ -75,6 +75,7 @@ func newBasicPlannerOptions(frame referenceframe.Frame) *plannerOptions {
 	opt.goalMetricConstructor = ik.NewSquaredNormMetric
 	opt.goalArcScore = ik.JointMetric
 	opt.DistanceFunc = ik.L2InputMetric
+	opt.ScoreFunc = ik.L2InputMetric
 	opt.pathMetric = ik.NewZeroMetric() // By default, the distance to the valid manifold is zero, unless constraints say otherwise
 	// opt.goalMetric is intentionally unset as it is likely dependent on the goal itself.
 
@@ -154,6 +155,9 @@ type plannerOptions struct {
 
 	// DistanceFunc is the function that the planner will use to measure the degree of "closeness" between two states of the robot
 	DistanceFunc ik.SegmentMetric
+
+	// ScoreFunc is the function that the planner will use to evaluate a plan for final cost comparisons.
+	ScoreFunc ik.SegmentMetric
 
 	// profile is the string representing the motion profile
 	profile string

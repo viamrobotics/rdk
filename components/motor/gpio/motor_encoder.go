@@ -140,6 +140,7 @@ type EncodedMotor struct {
 	cfg                     Config
 	real                    motor.Motor
 	encoder                 encoder.Encoder
+	offsetInTicks           float64
 
 	stateMu sync.RWMutex
 	state   EncodedMotorState
@@ -398,6 +399,11 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float
 	default:
 	}
 
+	currentPos, err := m.position(ctx, nil)
+	if err != nil {
+		return err
+	}
+
 	m.stateMu.Lock()
 	defer m.stateMu.Unlock()
 
@@ -419,10 +425,6 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float
 		return nil
 	}
 
-	currentPos, err := m.position(ctx, nil)
-	if err != nil {
-		return err
-	}
 	goalPos := (math.Abs(revolutions) * m.ticksPerRotation * m.state.direction) + currentPos
 
 	m.state.goalRPM = math.Abs(rpm) * m.state.direction
@@ -458,7 +460,14 @@ func (m *EncodedMotor) GoTo(ctx context.Context, rpm, targetPosition float64, ex
 
 // ResetZeroPosition sets the current position (+/- offset) to be the new zero (home) position.
 func (m *EncodedMotor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
-	return m.encoder.ResetPosition(ctx, extra)
+	if err := m.Stop(ctx, extra); err != nil {
+		return err
+	}
+	if err := m.encoder.ResetPosition(ctx, extra); err != nil {
+		return err
+	}
+	m.offsetInTicks = -1 * offset * m.ticksPerRotation
+	return nil
 }
 
 // report position in ticks.
@@ -467,7 +476,10 @@ func (m *EncodedMotor) position(ctx context.Context, extra map[string]interface{
 	if err != nil {
 		return 0, err
 	}
-	return ticks, nil
+	m.stateMu.Lock()
+	defer m.stateMu.Unlock()
+	pos := ticks + m.offsetInTicks
+	return pos, nil
 }
 
 // Position reports the position of the motor based on its encoder. If it's not supported, the returned

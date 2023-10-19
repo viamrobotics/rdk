@@ -41,6 +41,7 @@ var (
 	errNegativeObstaclePollingFrequencyHz = errors.New("obstacle_polling_frequency_hz must be non-negative if set")
 	errNegativePlanDeviationM             = errors.New("plan_deviation_m must be non-negative if set")
 	errNegativeReplanCostFactor           = errors.New("replan_cost_factor must be non-negative if set")
+	errUnimplemented                      = errors.New("unimplemented")
 )
 
 const (
@@ -588,8 +589,14 @@ func (svc *builtIn) waypointIsDeleted() bool {
 	return svc.waypointInProgress == nil
 }
 
-func (svc *builtIn) GetObstacles(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoObstacle, error) {
+func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoObstacle, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 	return svc.obstacles, nil
+}
+
+func (svc *builtIn) Paths(ctx context.Context, extra map[string]interface{}) ([]*navigation.Path, error) {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return nil, errUnimplemented
 }

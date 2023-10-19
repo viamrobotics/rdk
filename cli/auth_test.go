@@ -16,7 +16,7 @@ import (
 )
 
 func TestLoginAction(t *testing.T) {
-	cCtx, ac, out, errOut := setup(nil, nil, nil)
+	cCtx, ac, out, errOut := setup(nil, nil, nil, "token")
 
 	test.That(t, ac.loginAction(cCtx), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
@@ -25,9 +25,18 @@ func TestLoginAction(t *testing.T) {
 		fmt.Sprintf("Already logged in as %q", testEmail))
 }
 
+func TestAPIKeyAuth(t *testing.T) {
+	_, ac, _, errOut := setup(nil, nil, nil, "apiKey")
+	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+	APIKey, isAPIKey := ac.conf.Auth.(*apiKey)
+	test.That(t, isAPIKey, test.ShouldBeTrue)
+	test.That(t, APIKey.KeyID, test.ShouldEqual, testKeyID)
+	test.That(t, APIKey.KeyCrypto, test.ShouldEqual, testKeyCrypto)
+}
+
 func TestPrintAccessTokenAction(t *testing.T) {
 	// AppServiceClient needed for any Action that calls ensureLoggedIn.
-	cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, nil, nil)
+	cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, nil, nil, "token")
 
 	test.That(t, ac.printAccessTokenAction(cCtx), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
@@ -44,7 +53,7 @@ func TestAPIKeyCreateAction(t *testing.T) {
 	asc := &inject.AppServiceClient{
 		CreateKeyFunc: createKeyFunc,
 	}
-	cCtx, ac, out, errOut := setup(asc, nil, nil)
+	cCtx, ac, out, errOut := setup(asc, nil, nil, "token")
 
 	test.That(t, ac.organizationsAPIKeyCreateAction(cCtx), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
@@ -71,7 +80,7 @@ func TestRobotAPIKeyCreateAction(t *testing.T) {
 	flags[apiKeyCreateFlagOrgID] = fakeOrgID
 	flags[apiKeyFlagRobotID] = fakeRobotID
 	flags[apiKeyCreateFlagName] = "my-name"
-	cCtx, ac, out, errOut := setup(asc, nil, &flags)
+	cCtx, ac, out, errOut := setup(asc, nil, &flags, "token")
 
 	test.That(t, ac.robotAPIKeyCreateAction(cCtx), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
@@ -126,7 +135,7 @@ func TestRobotAPIKeyCreateAction(t *testing.T) {
 	flags[apiKeyFlagRobotID] = fakeRobotID
 	flags[apiKeyCreateFlagOrgID] = ""
 	flags[apiKeyCreateFlagName] = "test-me"
-	cCtx, ac, out, _ = setup(asc, nil, &flags)
+	cCtx, ac, out, _ = setup(asc, nil, &flags, "token")
 	err = ac.robotAPIKeyCreateAction(cCtx)
 	test.That(t, err, test.ShouldNotBeNil)
 
@@ -153,7 +162,7 @@ func TestLocationAPIKeyCreateAction(t *testing.T) {
 	flags[apiKeyCreateFlagOrgID] = ""
 	flags[apiKeyCreateFlagName] = "" // testing no locationID
 
-	cCtx, ac, out, errOut := setup(asc, nil, &flags)
+	cCtx, ac, out, errOut := setup(asc, nil, &flags, "token")
 	err := ac.locationAPIKeyCreateAction(cCtx)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
@@ -194,7 +203,7 @@ func TestLocationAPIKeyCreateAction(t *testing.T) {
 	flags[apiKeyCreateFlagOrgID] = ""
 	flags[apiKeyCreateFlagName] = "test-name"
 
-	cCtx, ac, _, _ = setup(asc, nil, &flags)
+	cCtx, ac, _, _ = setup(asc, nil, &flags, "token")
 
 	err = ac.locationAPIKeyCreateAction(cCtx)
 	test.That(t, err, test.ShouldNotBeNil)
@@ -203,7 +212,7 @@ func TestLocationAPIKeyCreateAction(t *testing.T) {
 }
 
 func TestLogoutAction(t *testing.T) {
-	cCtx, ac, out, errOut := setup(nil, nil, nil)
+	cCtx, ac, out, errOut := setup(nil, nil, nil, "token")
 
 	test.That(t, ac.logoutAction(cCtx), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
@@ -213,7 +222,7 @@ func TestLogoutAction(t *testing.T) {
 }
 
 func TestWhoAmIAction(t *testing.T) {
-	cCtx, ac, out, errOut := setup(nil, nil, nil)
+	cCtx, ac, out, errOut := setup(nil, nil, nil, "token")
 
 	test.That(t, ac.whoAmIAction(cCtx), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)

@@ -199,6 +199,14 @@ func TestMotorEncoder1(t *testing.T) {
 		test.That(t, fakeMotor.Direction(), test.ShouldEqual, -1)
 	})
 
+	t.Run("test reset zero position", func(t *testing.T) {
+		test.That(t, motorDep.goForInternal(context.Background(), 10, 10), test.ShouldBeNil)
+		test.That(t, motorDep.ResetZeroPosition(context.Background(), 4, nil), test.ShouldBeNil)
+		pos, err := motorDep.Position(context.Background(), nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, pos, test.ShouldEqual, -4)
+	})
+
 	t.Run("encoded motor testing Go (non controlled)", func(t *testing.T) {
 		motorDep.ResetZeroPosition(context.Background(), 0, nil)
 		motorDep.SetPower(context.Background(), .25, nil)

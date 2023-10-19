@@ -27,7 +27,7 @@ type fakeDiffDriveKinematics struct {
 	lock                          sync.Mutex
 }
 
-// WrapWithFakeDiffDriveKinematics creates a DiffDRive KinematicBase from the fake Base so that it satisfies the ModelFramer and
+// WrapWithFakeDiffDriveKinematics creates a DiffDrive KinematicBase from the fake Base so that it satisfies the ModelFramer and
 // InputEnabled interfaces.
 func WrapWithFakeDiffDriveKinematics(
 	ctx context.Context,
