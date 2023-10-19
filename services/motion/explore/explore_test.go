@@ -23,7 +23,7 @@ func TestExplorePlanMove(t *testing.T) {
 	fakeBase, err := createFakeBase(ctx, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	ms, err := createNewExploreMotionService(t, ctx, logger, fakeBase, nil)
+	ms, err := createNewExploreMotionService(ctx, logger, fakeBase, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ms, test.ShouldNotBeNil)
 	defer ms.Close(ctx)
@@ -90,7 +90,7 @@ func TestUpdatingWorldState(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Create explore motion service
-	ms, err := createNewExploreMotionService(t, ctx, logger, fakeBase, fakeCamera)
+	ms, err := createNewExploreMotionService(ctx, logger, fakeBase, fakeCamera)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ms, test.ShouldNotBeNil)
 	defer ms.Close(ctx)
@@ -195,12 +195,11 @@ func TestUpdatingWorldState(t *testing.T) {
 			}
 
 			// Add vision service with obstacle and update the world state
-			msStruct.visionService = createMockVisionService(ctx, tt.obstacle, nil)
+			msStruct.visionService = createMockVisionService(tt.obstacle)
 
 			worldState, err := msStruct.updateWorldState(ctx)
 			test.That(t, err, test.ShouldBeNil)
 
-			//Confirm obstacles encompass point
 			var noObstacle obstacleMetadata
 			if tt.obstacle != noObstacle {
 				fs, err := msStruct.fsService.FrameSystem(ctx, nil)
@@ -220,7 +219,7 @@ func TestUpdatingWorldState(t *testing.T) {
 
 			msStruct.backgroundWorkers.Add(1)
 			goutils.ManagedGo(func() {
-				msStruct.checkForObstacles(ctxTimeout, plan, worldState)
+				msStruct.checkForObstacles(ctxTimeout, plan)
 			}, msStruct.backgroundWorkers.Done)
 
 			resp := <-msStruct.obstacleChan

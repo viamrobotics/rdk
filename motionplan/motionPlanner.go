@@ -530,7 +530,6 @@ func CheckPlan(
 
 	// go through plan and check that we can move from plan[i] to plan[i+1]
 	for i := 0; i < len(planNodes)-1; i++ {
-
 		currentPose := planNodes[i].Pose()
 		nextPose := planNodes[i+1].Pose()
 		startConfiguration := planNodes[i].Q()

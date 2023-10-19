@@ -22,7 +22,10 @@ func TestExploreMode(t *testing.T) {
 
 	var points []r3.Vector
 	mockExploreMotionService := &inject.MotionService{}
-	mockExploreMotionService.MoveFunc = func(ctx context.Context, componentName resource.Name, destination *frame.PoseInFrame, worldState *frame.WorldState, constraints *v1.Constraints, extra map[string]interface{}) (bool, error) {
+	mockExploreMotionService.MoveFunc = func(ctx context.Context, componentName resource.Name,
+		destination *frame.PoseInFrame, worldState *frame.WorldState, constraints *v1.Constraints,
+		extra map[string]interface{},
+	) (bool, error) {
 		points = append(points, destination.Pose().Point())
 		return false, errors.New("expected error")
 	}

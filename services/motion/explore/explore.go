@@ -1,4 +1,4 @@
-// Package builtin implements a motion service.
+// Package explore implements a motion service for exploration.
 package explore
 
 import (
@@ -221,7 +221,7 @@ func (ms *explore) Move(
 	}
 	ms.kb = &kb
 
-	// Create motion plan plan
+	// Create motionplan plan
 	planInputs, err := ms.createMotionPlan(ctx, destination.Pose(), worldState, true, extra)
 	if err != nil {
 		return false, err
@@ -240,7 +240,7 @@ func (ms *explore) Move(
 	// Start polling for obstacles
 	ms.backgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
-		ms.checkForObstacles(cancelCtx, plan, worldState)
+		ms.checkForObstacles(cancelCtx, plan)
 	}, ms.backgroundWorkers.Done)
 
 	// Start executing plan
@@ -283,8 +283,7 @@ type checkResponse struct {
 	success bool
 }
 
-func (ms *explore) checkForObstacles(ctx context.Context, plan motionplan.Plan, worldState *referenceframe.WorldState) {
-
+func (ms *explore) checkForObstacles(ctx context.Context, plan motionplan.Plan) {
 	ticker := time.NewTicker(500 * time.Millisecond)
 	defer ticker.Stop()
 
@@ -293,17 +292,7 @@ func (ms *explore) checkForObstacles(ctx context.Context, plan motionplan.Plan, 
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			pInFrame, err := (*ms.kb).CurrentPosition(ctx)
-			if err != nil {
-				ms.obstacleChan <- checkResponse{err: err}
-				return
-			}
-
-			currentInputs, err := (*ms.kb).CurrentInputs(ctx)
-			if err != nil {
-				ms.obstacleChan <- checkResponse{err: err}
-				return
-			}
+			currentPose := spatialmath.NewZeroPose()
 
 			worldState, err := ms.updateWorldState(ctx)
 			if err != nil {
@@ -311,16 +300,24 @@ func (ms *explore) checkForObstacles(ctx context.Context, plan motionplan.Plan, 
 				return
 			}
 
-			collisionPose, err := motionplan.CheckPlan((*ms.kb).Kinematics(), plan, worldState, ms.frameSystem, pInFrame.Pose(), currentInputs[:2], spatialmath.NewZeroPose(), ms.logger)
+			collisionPose, err := motionplan.CheckPlan(
+				(*ms.kb).Kinematics(),
+				plan,
+				worldState,
+				ms.frameSystem,
+				currentPose,
+				[]referenceframe.Input{{Value: 0}, {Value: 0}},
+				spatialmath.NewZeroPose(),
+				ms.logger,
+			)
 			if err != nil {
-				if collisionPose.Point().Distance(pInFrame.Pose().Point()) < validObstacleDistanceMM {
+				if collisionPose.Point().Distance(currentPose.Point()) < validObstacleDistanceMM {
 					ms.logger.Debug("collision found")
 					ms.obstacleChan <- checkResponse{success: true, err: err}
 					return
-				} else {
-					ms.logger.Debug("collision found but outside of range")
-					ms.obstacleChan <- checkResponse{success: false, err: err}
 				}
+				ms.logger.Debug("collision found but outside of range")
+				ms.obstacleChan <- checkResponse{success: false, err: err}
 			} else {
 				ms.obstacleChan <- checkResponse{success: false, err: err}
 			}
@@ -372,7 +369,7 @@ func (ms *explore) updateWorldState(ctx context.Context) (*referenceframe.WorldS
 	return worldState, nil
 }
 
-func createKBOps(ctx context.Context, extra map[string]interface{}) (kinematicbase.Options, error) {
+func createKBOps(extra map[string]interface{}) (kinematicbase.Options, error) {
 	opt := kinematicbase.NewKinematicBaseOptions()
 	opt.NoSkidSteer = true
 	opt.UsePTGs = false
@@ -423,19 +420,26 @@ func (ms *explore) createKinematicBase(
 		return nil, fmt.Errorf("cannot move component of type %T because it is not a Base", component)
 	}
 
-	kinematicsOptions, err := createKBOps(ctx, extra)
+	kinematicsOptions, err := createKBOps(extra)
 	if err != nil {
 		return nil, err
 	}
 
-	p := referenceframe.NewPoseInFrame(componentName.Name, spatialmath.NewZeroPose())
-	kb, err := kinematicbase.WrapWithKinematics(ctx, b, ms.logger, motion.NewPointLocalizer(p), []referenceframe.Limit{{Min: -moveLimit, Max: moveLimit}, {Min: -moveLimit, Max: moveLimit}}, kinematicsOptions)
+	kb, err := kinematicbase.WrapWithKinematics(
+		ctx,
+		b,
+		ms.logger,
+		nil,
+		[]referenceframe.Limit{{Min: -moveLimit, Max: moveLimit}, {Min: -moveLimit, Max: moveLimit}},
+		kinematicsOptions,
+	)
 	if err != nil {
 		return nil, err
 	}
 
 	return kb, nil
 }
+
 func (ms *explore) createMotionPlan(
 	ctx context.Context,
 	destination spatialmath.Pose,
@@ -443,7 +447,6 @@ func (ms *explore) createMotionPlan(
 	positionOnlyMode bool,
 	extra map[string]interface{},
 ) ([][]referenceframe.Input, error) {
-
 	fs, err := ms.fsService.FrameSystem(ctx, worldState.Transforms())
 	if err != nil {
 		return nil, err
@@ -456,11 +459,7 @@ func (ms *explore) createMotionPlan(
 
 	ms.frameSystem = fs
 
-	// get current position
-	inputs, err := (*ms.kb).CurrentInputs(ctx)
-	if err != nil {
-		return nil, err
-	}
+	inputs := []referenceframe.Input{{Value: 0}, {Value: 0}, {Value: 0}}
 
 	if positionOnlyMode && len((*ms.kb).Kinematics().DoF()) == 2 && len(inputs) == 3 {
 		inputs = inputs[:2]

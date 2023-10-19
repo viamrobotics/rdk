@@ -2,16 +2,12 @@ package explore
 
 import (
 	"context"
-	"fmt"
-	"testing"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
-	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/base"
 	baseFake "go.viam.com/rdk/components/base/fake"
-
 	"go.viam.com/rdk/components/camera"
 	cameraFake "go.viam.com/rdk/components/camera/fake"
 	"go.viam.com/rdk/pointcloud"
@@ -36,20 +32,25 @@ var (
 	}
 )
 
-func createNewExploreMotionService(t *testing.T, ctx context.Context, logger golog.Logger, fakeBase base.Base, cam camera.Camera) (motion.Service, error) {
-
+func createNewExploreMotionService(ctx context.Context, logger golog.Logger, fakeBase base.Base, cam camera.Camera,
+) (motion.Service, error) {
 	var fsParts []*referenceframe.FrameSystemPart
 	deps := make(resource.Dependencies)
 
 	// create base link
-	baseLink := createBaseLink(t, testBaseName.Name)
+	baseLink, err := createBaseLink(testBaseName.Name)
+	if err != nil {
+		return nil, err
+	}
 	fsParts = append(fsParts, &referenceframe.FrameSystemPart{FrameConfig: baseLink})
 	deps[testBaseName] = fakeBase
 
 	// create camera link
 	if cam != nil {
-		fmt.Println("cam.Name().Name: ", cam.Name().Name)
-		cameraLink := createCameraLink(t, cam.Name().Name, fakeBase.Name().Name)
+		cameraLink, err := createCameraLink(cam.Name().Name, fakeBase.Name().Name)
+		if err != nil {
+			return nil, err
+		}
 		fsParts = append(fsParts, &referenceframe.FrameSystemPart{FrameConfig: cameraLink})
 		deps[cam.Name()] = cam
 	}
@@ -88,10 +89,11 @@ func createFakeCamera(ctx context.Context, logger golog.Logger) (camera.Camera, 
 	return cameraFake.NewCamera(ctx, fakeCameraCfg, logger)
 }
 
-func createMockVisionService(ctx context.Context, obstacle obstacleMetadata, expectedError error) vSvc.Service {
+func createMockVisionService(obstacle obstacleMetadata) vSvc.Service {
 	var noObstacle obstacleMetadata
 	mockVisionService := &inject.VisionService{}
-	mockVisionService.GetObjectPointCloudsFunc = func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*vision.Object, error) {
+	mockVisionService.GetObjectPointCloudsFunc = func(ctx context.Context, cameraName string, extra map[string]interface{},
+	) ([]*vision.Object, error) {
 		if obstacle == noObstacle {
 			return []*vision.Object{}, nil
 		}
@@ -133,10 +135,12 @@ func createFrameSystemService(
 	return fsSvc, nil
 }
 
-func createBaseLink(t *testing.T, baseName string) *referenceframe.LinkInFrame {
+func createBaseLink(baseName string) (*referenceframe.LinkInFrame, error) {
 	basePose := spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 0})
 	baseSphere, err := spatialmath.NewSphere(basePose, 10, "base-box")
-	test.That(t, err, test.ShouldBeNil)
+	if err != nil {
+		return nil, err
+	}
 
 	baseLink := referenceframe.NewLinkInFrame(
 		referenceframe.World,
@@ -144,13 +148,15 @@ func createBaseLink(t *testing.T, baseName string) *referenceframe.LinkInFrame {
 		baseName,
 		baseSphere,
 	)
-	return baseLink
+	return baseLink, nil
 }
 
-func createCameraLink(t *testing.T, camName, baseFrame string) *referenceframe.LinkInFrame {
+func createCameraLink(camName, baseFrame string) (*referenceframe.LinkInFrame, error) {
 	camPose := spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 0})
 	camSphere, err := spatialmath.NewSphere(camPose, 5, "cam-sphere")
-	test.That(t, err, test.ShouldBeNil)
+	if err != nil {
+		return nil, err
+	}
 
 	camLink := referenceframe.NewLinkInFrame(
 		baseFrame, // referenceframe.World,
@@ -158,7 +164,7 @@ func createCameraLink(t *testing.T, camName, baseFrame string) *referenceframe.L
 		camName,
 		camSphere,
 	)
-	return camLink
+	return camLink, nil
 }
 
 type obstacleMetadata struct {
