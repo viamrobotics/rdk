@@ -18,11 +18,18 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
+const (
+	defaultReplanCostFactor = 1.0
+	defaultMaxReplans       = -1 // Values below zero will replan infinitely
+)
+
 // moveRequest is a structure that contains all the information necessary for to make a move call.
 type moveRequest struct {
-	config        *motion.MotionConfiguration
-	planRequest   *motionplan.PlanRequest
-	kinematicBase kinematicbase.KinematicBase
+	config           *motion.MotionConfiguration
+	planRequest      *motionplan.PlanRequest
+	seedPlan         motionplan.Plan
+	kinematicBase    kinematicbase.KinematicBase
+	replanCostFactor float64
 }
 
 // plan creates a plan using the currentInputs of the robot and the moveRequest's planRequest.
@@ -36,11 +43,12 @@ func (mr *moveRequest) plan(ctx context.Context) ([][]referenceframe.Input, erro
 		inputs = inputs[:2]
 	}
 	mr.planRequest.StartConfiguration = map[string][]referenceframe.Input{mr.kinematicBase.Kinematics().Name(): inputs}
-	plan, err := motionplan.PlanMotion(ctx, mr.planRequest)
+	plan, err := motionplan.Replan(ctx, mr.planRequest, mr.seedPlan, mr.replanCostFactor)
 	if err != nil {
 		return nil, err
 	}
-	return plan.GetFrameSteps(mr.kinematicBase.Kinematics().Name())
+	mr.seedPlan = plan
+	return mr.seedPlan.GetFrameSteps(mr.kinematicBase.Kinematics().Name())
 }
 
 // execute attempts to follow a given Plan starting from the index percribed by waypointIndex.
@@ -102,6 +110,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	movementSensorName resource.Name,
 	obstacles []*spatialmath.GeoObstacle,
 	motionCfg *motion.MotionConfiguration,
+	seedPlan motionplan.Plan,
 	extra map[string]interface{},
 ) (*moveRequest, error) {
 	// build kinematic options
@@ -204,6 +213,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 		return nil, err
 	}
 
+	replanCostFactor := defaultReplanCostFactor
 	if extra != nil {
 		if profile, ok := extra["motion_profile"]; ok {
 			motionProfile, ok := profile.(string)
@@ -211,6 +221,13 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 				return nil, errors.New("could not interpret motion_profile field as string")
 			}
 			kinematicsOptions.PositionOnlyMode = motionProfile == motionplan.PositionOnlyMotionProfile
+		}
+		if costFactorRaw, ok := extra["replan_cost_factor"]; ok {
+			costFactor, ok := costFactorRaw.(float64)
+			if !ok {
+				return nil, errors.New("could not interpret replan_cost_factor field as float")
+			}
+			replanCostFactor = costFactor
 		}
 	}
 
@@ -225,6 +242,8 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 			WorldState:         worldState,
 			Options:            extra,
 		},
-		kinematicBase: kb,
+		kinematicBase:    kb,
+		seedPlan:         seedPlan,
+		replanCostFactor: replanCostFactor,
 	}, nil
 }
