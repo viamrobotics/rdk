@@ -6,6 +6,8 @@ on:
     secrets:
       MONGODB_TEST_OUTPUT_URI:
         required: true
+      DOCKER_PUBLIC_READONLY_PAT:
+        required: true
 
 env:
   MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
