@@ -182,9 +182,10 @@ func (t TriviallyValidateConfig) Validate(path string) ([]string, error) {
 	return nil, nil
 }
 
-// This is a clone of TriviallyValidateConfig that fails on 32-bit ARM
+// This is a clone of TriviallyValidateConfig that fails on 32-bit ARM.
 type TriviallyValidateExcept32Bit struct{}
 
+// Fail validation on ARM 32-bit.
 func (t TriviallyValidateExcept32Bit) Validate(path string) ([]string, error) {
 	if runtime.GOARCH == "arm" {
 		return nil, errors.Errorf("%s not available on 32-bit ARM", path)
