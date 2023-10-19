@@ -7,6 +7,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
+	"github.com/pkg/errors"
 	"go.viam.com/test"
 	goutils "go.viam.com/utils"
 
@@ -108,10 +109,11 @@ func TestUpdatingWorldState(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	cases := []struct {
-		description string
-		destination spatialmath.Pose
-		obstacle    obstacleMetadata
-		detection   bool
+		description  string
+		destination  spatialmath.Pose
+		obstacle     obstacleMetadata
+		detection    bool
+		detectionErr error
 	}{
 		{
 			description: "no obstacles in view",
@@ -126,7 +128,8 @@ func TestUpdatingWorldState(t *testing.T) {
 				data:     100,
 				label:    "close_obstacle_in_path",
 			},
-			detection: true,
+			detection:    true,
+			detectionErr: errors.New("found collision between positions"),
 		},
 		{
 			description: "obstacle in path farther away",
@@ -136,17 +139,19 @@ func TestUpdatingWorldState(t *testing.T) {
 				data:     100,
 				label:    "far_obstacle_in_path",
 			},
-			detection: true,
+			detection:    true,
+			detectionErr: errors.New("found collision between positions"),
 		},
 		{
 			description: "obstacle in path too far",
-			destination: spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 1000, Z: 0}),
+			destination: spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 10000, Z: 0}),
 			obstacle: obstacleMetadata{
 				position: r3.Vector{X: 0, Y: 1500, Z: 0},
 				data:     100,
 				label:    "far_obstacle_not_in_path",
 			},
-			detection: false,
+			detection:    false,
+			detectionErr: errors.New("found collision between positions"),
 		},
 		{
 			description: "obstacle not in path",
@@ -166,7 +171,8 @@ func TestUpdatingWorldState(t *testing.T) {
 				data:     100,
 				label:    "obstacle on diagonal",
 			},
-			detection: true,
+			detection:    true,
+			detectionErr: errors.New("found collision between positions"),
 		},
 	}
 
@@ -208,17 +214,23 @@ func TestUpdatingWorldState(t *testing.T) {
 				test.That(t, collisionDetected, test.ShouldBeTrue)
 			}
 
-			// Run check of motionplan plan
+			// Run check obstacles in of plan path
 			ctxTimeout, cancelFunc := context.WithTimeout(ctx, 1*time.Second)
 			defer cancelFunc()
 
 			msStruct.backgroundWorkers.Add(1)
 			goutils.ManagedGo(func() {
-				msStruct.checkPartialPlan(ctxTimeout, plan, worldState)
+				msStruct.checkForObstacles(ctxTimeout, plan, worldState)
 			}, msStruct.backgroundWorkers.Done)
 
-			obstacleDetected := goutils.SelectContextOrWaitChan[checkResponse](ctxTimeout, msStruct.obstacleChan)
-			test.That(t, obstacleDetected, test.ShouldEqual, tt.detection)
+			resp := <-msStruct.obstacleChan
+			test.That(t, resp.success, test.ShouldEqual, tt.detection)
+			if tt.detectionErr == nil {
+				test.That(t, resp.err, test.ShouldBeNil)
+			} else {
+				test.That(t, resp.err, test.ShouldNotBeNil)
+				test.That(t, resp.err.Error(), test.ShouldContainSubstring, tt.detectionErr.Error())
+			}
 		})
 	}
 }

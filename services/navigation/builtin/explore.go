@@ -2,7 +2,6 @@ package builtin
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"math/rand"
 
@@ -42,7 +41,7 @@ func (svc *builtIn) startExploreMode(ctx context.Context) {
 					Y: defaultDistanceMM * math.Sin(randAngle),
 					Z: 0,
 				}, spatialmath.NewOrientationVector()))
-			fmt.Println(newPose.Pose().Point())
+
 			_, err := svc.exploreMotionService.Move(ctx, svc.base.Name(), newPose, nil, nil, extra) // worldState, constraints, extra)
 			if err != nil {
 				svc.logger.Debug("error occurred when moving")

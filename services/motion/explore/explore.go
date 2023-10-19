@@ -31,9 +31,10 @@ import (
 )
 
 var (
-	model            = resource.DefaultModelFamily.WithModel("explore")
-	errUnimplemented = errors.New("unimplemented")
-	expLimit         = 10000.
+	model                   = resource.DefaultModelFamily.WithModel("explore")
+	errUnimplemented        = errors.New("unimplemented")
+	moveLimit               = 10000.
+	validObstacleDistanceMM = 1000.
 )
 
 func init() {
@@ -141,7 +142,6 @@ type explore struct {
 }
 
 // Move takes a goal location and will plan and execute a movement to move a component specified by its name to that destination.
-
 func (ms *explore) MoveOnMap(
 	ctx context.Context,
 	componentName resource.Name,
@@ -203,91 +203,6 @@ func (ms *explore) PlanHistory(
 	return nil, errUnimplemented
 }
 
-// PlanMoveOnMap returns the plan for MoveOnMap to execute.
-func (ms *explore) planMove(
-	ctx context.Context,
-	componentName resource.Name,
-	destination spatialmath.Pose,
-	worldState *referenceframe.WorldState,
-	extra map[string]interface{},
-) ([][]referenceframe.Input, kinematicbase.KinematicBase, error) {
-	// create a KinematicBase from the componentName
-	component, ok := ms.components[componentName]
-	if !ok {
-		return nil, nil, resource.DependencyNotFoundError(componentName)
-	}
-
-	b, ok := component.(base.Base)
-	if !ok {
-		return nil, nil, fmt.Errorf("cannot move component of type %T because it is not a Base", component)
-	}
-
-	kinematicsOptions, err := createKBOps(ctx, extra)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	fs, err := ms.fsService.FrameSystem(ctx, worldState.Transforms())
-	if err != nil {
-		return nil, nil, err
-	}
-
-	p := referenceframe.NewPoseInFrame(componentName.Name, spatialmath.NewZeroPose())
-	kb, err := kinematicbase.WrapWithKinematics(ctx, b, ms.logger, motion.NewPointLocalizer(p), []referenceframe.Limit{{Min: -expLimit, Max: expLimit}, {Min: -expLimit, Max: expLimit}}, kinematicsOptions)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	f1 := kb.Kinematics()
-	fmt.Println(f1.Name())
-
-	// replace original base frame with one that knows how to move itself and allow planning for
-	if err = fs.ReplaceFrame(kb.Kinematics()); err != nil {
-		return nil, nil, err
-	}
-
-	ms.frameSystem = fs
-
-	// get current position
-	inputs, err := kb.CurrentInputs(ctx)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	if kinematicsOptions.PositionOnlyMode && len(kb.Kinematics().DoF()) == 2 && len(inputs) == 3 {
-		inputs = inputs[:2]
-	}
-	ms.logger.Debugf("base position: %v", inputs)
-
-	dst := referenceframe.NewPoseInFrame(referenceframe.World, destination) // here
-
-	f := kb.Kinematics()
-
-	worldStateNew, err := referenceframe.NewWorldState(nil, nil)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	seedMap := map[string][]referenceframe.Input{f.Name(): inputs}
-
-	ms.logger.Debugf("goal position: %v", dst.Pose().Point())
-	plan, err := motionplan.PlanMotion(ctx, &motionplan.PlanRequest{
-		Logger:             ms.logger,
-		Goal:               dst,
-		Frame:              f,
-		StartConfiguration: seedMap,
-		FrameSystem:        fs,
-		WorldState:         worldStateNew,
-		ConstraintSpecs:    nil,
-		Options:            extra,
-	})
-	if err != nil {
-		return nil, nil, err
-	}
-	steps, err := plan.GetFrameSteps(f.Name())
-	return steps, kb, err
-}
-
 // Move takes a goal location and will plan and execute a movement to move a component specified by its name to that destination.
 func (ms *explore) Move(
 	ctx context.Context,
@@ -297,8 +212,6 @@ func (ms *explore) Move(
 	constraints *servicepb.Constraints,
 	extra map[string]interface{},
 ) (bool, error) {
-
-	// Note: can set linear speed, angular speed and obstacle polling frequency from extras until MotionCfg can be passed through
 	operation.CancelOtherWithLabel(ctx, exploreOpLabel)
 
 	// Create kinematic base
@@ -327,7 +240,7 @@ func (ms *explore) Move(
 	// Start polling for obstacles
 	ms.backgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
-		ms.checkPartialPlan(cancelCtx, plan, worldState)
+		ms.checkForObstacles(cancelCtx, plan, worldState)
 	}, ms.backgroundWorkers.Done)
 
 	// Start executing plan
@@ -370,7 +283,7 @@ type checkResponse struct {
 	success bool
 }
 
-func (ms *explore) checkPartialPlan(ctx context.Context, plan motionplan.Plan, worldState *referenceframe.WorldState) {
+func (ms *explore) checkForObstacles(ctx context.Context, plan motionplan.Plan, worldState *referenceframe.WorldState) {
 
 	ticker := time.NewTicker(500 * time.Millisecond)
 	defer ticker.Stop()
@@ -398,19 +311,18 @@ func (ms *explore) checkPartialPlan(ctx context.Context, plan motionplan.Plan, w
 				return
 			}
 
-			_, err = motionplan.CheckPlan((*ms.kb).Kinematics(), plan, worldState, ms.frameSystem, pInFrame.Pose(), currentInputs[:2], spatialmath.NewZeroPose(), ms.logger)
+			collisionPose, err := motionplan.CheckPlan((*ms.kb).Kinematics(), plan, worldState, ms.frameSystem, pInFrame.Pose(), currentInputs[:2], spatialmath.NewZeroPose(), ms.logger)
 			if err != nil {
-				var resp checkResponse
-				if strings.Contains(err.Error(), "found collision") {
-					fmt.Println("collision found")
-					resp.success = true
-					resp.err = nil
+				if collisionPose.Point().Distance(pInFrame.Pose().Point()) < validObstacleDistanceMM {
+					ms.logger.Debug("collision found")
+					ms.obstacleChan <- checkResponse{success: true, err: err}
+					return
 				} else {
-					fmt.Println("collision not found")
-					resp.success = false
-					resp.err = err
+					ms.logger.Debug("collision found but outside of range")
+					ms.obstacleChan <- checkResponse{success: false, err: err}
 				}
-				ms.obstacleChan <- resp
+			} else {
+				ms.obstacleChan <- checkResponse{success: false, err: err}
 			}
 		}
 	}
@@ -433,7 +345,6 @@ func (ms *explore) executePlan(ctx context.Context, plan motionplan.Plan) {
 }
 
 func (ms *explore) updateWorldState(ctx context.Context) (*referenceframe.WorldState, error) {
-
 	detections, err := ms.visionService.GetObjectPointClouds(ctx, ms.camera.Name().Name, nil)
 	if err != nil && strings.Contains(err.Error(), "does not implement a 3D segmenter") {
 		ms.logger.Infof("cannot call GetObjectPointClouds on %q as it does not implement a 3D segmenter", ms.visionService.Name())
@@ -518,7 +429,7 @@ func (ms *explore) createKinematicBase(
 	}
 
 	p := referenceframe.NewPoseInFrame(componentName.Name, spatialmath.NewZeroPose())
-	kb, err := kinematicbase.WrapWithKinematics(ctx, b, ms.logger, motion.NewPointLocalizer(p), []referenceframe.Limit{{Min: -expLimit, Max: expLimit}, {Min: -expLimit, Max: expLimit}}, kinematicsOptions)
+	kb, err := kinematicbase.WrapWithKinematics(ctx, b, ms.logger, motion.NewPointLocalizer(p), []referenceframe.Limit{{Min: -moveLimit, Max: moveLimit}, {Min: -moveLimit, Max: moveLimit}}, kinematicsOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -532,8 +443,6 @@ func (ms *explore) createMotionPlan(
 	positionOnlyMode bool,
 	extra map[string]interface{},
 ) ([][]referenceframe.Input, error) {
-	f1 := (*ms.kb).Kinematics()
-	fmt.Println(f1.Name())
 
 	fs, err := ms.fsService.FrameSystem(ctx, worldState.Transforms())
 	if err != nil {
@@ -554,11 +463,10 @@ func (ms *explore) createMotionPlan(
 	}
 
 	if positionOnlyMode && len((*ms.kb).Kinematics().DoF()) == 2 && len(inputs) == 3 {
-		fmt.Println("HI NICKEL CADIUM")
 		inputs = inputs[:2]
 	}
 
-	dst := referenceframe.NewPoseInFrame(referenceframe.World, destination) // here
+	dst := referenceframe.NewPoseInFrame(referenceframe.World, destination)
 
 	f := (*ms.kb).Kinematics()
 
