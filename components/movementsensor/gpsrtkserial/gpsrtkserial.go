@@ -38,7 +38,9 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/de-bkg/gognss/pkg/ntrip"
 	"github.com/edaniels/golog"
@@ -292,17 +294,6 @@ func (g *rtkSerial) connect(casterAddr, user, pwd string, maxAttempts int) error
 	return g.err.Get()
 }
 
-func findLineWithMountPoint(sourceTable *ntrip.Sourcetable, mountPoint string) (bool, error) {
-
-	stream, isFound := sourceTable.HasStream(mountPoint)
-
-	if !isFound {
-		return false, fmt.Errorf("can not find mountpoint %s in sourcetable", mountPoint)
-	} else {
-		return stream.Nmea, nil
-	}
-}
-
 /*
 
 func sendGGAToPort(url, ggaMessage string) error {
@@ -474,6 +465,9 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 		case <-g.cancelCtx.Done():
 			return
 		default:
+		}
+		if nmea {
+			g.sendGGAMessage()
 		}
 
 		msg, err := scanner.NextMessage()
@@ -695,4 +689,70 @@ func (g *rtkSerial) Close(ctx context.Context) error {
 		return err
 	}
 	return nil
+}
+
+func findLineWithMountPoint(sourceTable *ntrip.Sourcetable, mountPoint string) (bool, error) {
+
+	stream, isFound := sourceTable.HasStream(mountPoint)
+
+	if !isFound {
+		return false, fmt.Errorf("can not find mountpoint %s in sourcetable", mountPoint)
+	} else {
+		return stream.Nmea, nil
+	}
+}
+
+func (g *rtkSerial) sendGGAMessage() {
+	// Open the serial port for reading
+	serialPort, err := slib.Open(slib.OpenOptions{
+		PortName:        g.writePath,
+		BaudRate:        uint(g.wbaud),
+		DataBits:        8,
+		StopBits:        1,
+		MinimumReadSize: 1,
+	})
+	if err != nil {
+		g.err.Set(err)
+		return
+	}
+	defer serialPort.Close()
+
+	// Create a buffer to collect NMEA messages
+	messageBuffer := make([]byte, 0, 1024)
+
+	for !g.ntripStatus && !g.isClosed {
+		select {
+		case <-g.cancelCtx.Done():
+			return
+		default:
+		}
+
+		// Read from the serial port
+		bytesRead, err := serialPort.Read(messageBuffer)
+		if err != nil {
+			g.err.Set(err)
+			return
+		}
+
+		// Convert the received bytes to a string
+		receivedData := string(messageBuffer[:bytesRead])
+
+		// Check for NMEA GGA messages
+		messages := strings.Split(receivedData, "\n")
+		for _, message := range messages {
+			if strings.Contains(message, "GGA") {
+				// Send the GGA message to the NTRIP caster
+				if _, err := g.correctionWriter.Write([]byte(message)); err != nil {
+					g.err.Set(err)
+					return
+				}
+			}
+		}
+
+		// Clear the message buffer
+		messageBuffer = messageBuffer[:0]
+
+		// Sleep for a while before reading again
+		time.Sleep(time.Second) // Adjust the sleep duration as needed
+	}
 }
