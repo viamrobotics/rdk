@@ -201,7 +201,7 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 		)
 
 		if finalPlanCost > initialPlanCost*replanCostFactor {
-			return nil, errors.New("unable to create a new plan within replanCostFactor from the original")
+			return nil, errHighReplanCost
 		}
 	}
 
