@@ -741,24 +741,30 @@ func TestReplanning(t *testing.T) {
 		noise           r3.Vector
 		expectedSuccess bool
 		expectedErr     string
+		extra           map[string]interface{}
 	}
-
-	extra := make(map[string]interface{})
-	extra["replan_cost_factor"] = 10.0 // Sensor drift means this will grow
-	replanCount := 4
-	extra["max_replans"] = replanCount
 
 	testCases := []testCase{
 		{
 			name:            "check we dont replan with a good sensor",
 			noise:           r3.Vector{Y: epsilonMM - 0.1},
 			expectedSuccess: true,
+			extra:           map[string]interface{}{},
+		},
+		{
+			// This also checks that `replan` is called under default conditions when "max_replans" is not set
+			name:            "check we fail to replan with a low cost factor",
+			noise:           r3.Vector{Y: epsilonMM + 0.1},
+			expectedErr:     "unable to create a new plan within replanCostFactor from the original",
+			expectedSuccess: false,
+			extra:           map[string]interface{}{"replan_cost_factor": 0.01},
 		},
 		{
 			name:            "check we replan with a noisy sensor",
 			noise:           r3.Vector{Y: epsilonMM + 0.1},
-			expectedErr:     fmt.Sprintf("exceeded maximum number of replans: %d", replanCount),
+			expectedErr:     fmt.Sprintf("exceeded maximum number of replans: %d", 4),
 			expectedSuccess: false,
+			extra:           map[string]interface{}{"replan_cost_factor": 10.0, "max_replans": 4},
 		},
 	}
 
@@ -766,7 +772,7 @@ func TestReplanning(t *testing.T) {
 		t.Helper()
 		injectedMovementSensor, _, kb, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, spatialmath.NewPoseFromPoint(tc.noise))
 
-		success, err := ms.MoveOnGlobe(ctx, kb.Name(), dst, 0, injectedMovementSensor.Name(), nil, motionCfg, extra)
+		success, err := ms.MoveOnGlobe(ctx, kb.Name(), dst, 0, injectedMovementSensor.Name(), nil, motionCfg, tc.extra)
 
 		if tc.expectedSuccess {
 			test.That(t, err, test.ShouldBeNil)
