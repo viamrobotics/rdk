@@ -138,7 +138,7 @@ func TestUpdatingWorldState(t *testing.T) {
 			description: "obstacle in path farther away",
 			destination: spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 1000, Z: 0}),
 			obstacle: obstacleMetadata{
-				position: r3.Vector{X: 0, Y: 900, Z: 0},
+				position: r3.Vector{X: 0, Y: 800, Z: 0},
 				data:     100,
 				label:    "far_obstacle_in_path",
 			},
@@ -163,6 +163,16 @@ func TestUpdatingWorldState(t *testing.T) {
 				label:    "close_obstacle_not_in_path",
 			},
 			detection: false,
+		},
+		{
+			description: "obstacle on diagonal",
+			destination: spatialmath.NewPoseFromPoint(r3.Vector{X: 1000, Y: 1000, Z: 0}),
+			obstacle: obstacleMetadata{
+				position: r3.Vector{X: 500, Y: 500, Z: 0},
+				data:     100,
+				label:    "obstacle on diagonal",
+			},
+			detection: true,
 		},
 	}
 

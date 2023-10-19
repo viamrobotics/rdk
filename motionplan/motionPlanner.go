@@ -470,7 +470,7 @@ func CheckPlan(
 	// This should be done for any plan whose configurations are specified in relative terms rather than absolute ones.
 	// Currently this is only TP-space, so we check if the PTG length is >0.
 	// The solver frame will have had its PTGs filled in the newPlanManager() call, if applicable.
-	relative := false //len(sf.PTGSolvers()) > 0
+	relative := len(sf.PTGSolvers()) > 0
 
 	if relative {
 		// get pose of robot along the current trajectory it is executing

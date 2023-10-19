@@ -33,6 +33,7 @@ import (
 var (
 	model            = resource.DefaultModelFamily.WithModel("explore")
 	errUnimplemented = errors.New("unimplemented")
+	expLimit         = 10000.
 )
 
 func init() {
@@ -232,7 +233,7 @@ func (ms *explore) planMove(
 	}
 
 	p := referenceframe.NewPoseInFrame(componentName.Name, spatialmath.NewZeroPose())
-	kb, err := kinematicbase.WrapWithKinematics(ctx, b, ms.logger, motion.NewPointLocalizer(p), nil, kinematicsOptions)
+	kb, err := kinematicbase.WrapWithKinematics(ctx, b, ms.logger, motion.NewPointLocalizer(p), []referenceframe.Limit{{Min: -expLimit, Max: expLimit}, {Min: -expLimit, Max: expLimit}}, kinematicsOptions)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -258,7 +259,12 @@ func (ms *explore) planMove(
 	if err != nil {
 		return nil, nil, err
 	}
+	//fmt.Println("kinematicsOptions ", kb.Properties())
+	fmt.Println("kinematicsOptions.PositionOnlyMode ", kinematicsOptions.PositionOnlyMode)
+	fmt.Println("len(kb.Kinematics().DoF()) ", len(kb.Kinematics().DoF()))
+	fmt.Println("len(inputs) ", len(inputs))
 	if kinematicsOptions.PositionOnlyMode && len(kb.Kinematics().DoF()) == 2 && len(inputs) == 3 {
+		fmt.Println("HI NICKEL CADIUM")
 		inputs = inputs[:2]
 	}
 	ms.logger.Debugf("base position: %v", inputs)
@@ -384,7 +390,6 @@ func (ms *explore) checkPartialPlan(ctx context.Context, plan motionplan.Plan, w
 		fmt.Println("ctx ", ctx)
 		select {
 		case <-ctx.Done():
-			//ms.obstacleChan <- checkResponse{err: errors.New("context canceled")}
 			return false, errors.New("context canceled")
 		case <-ticker.C:
 			pInFrame, err := (*ms.kb).CurrentPosition(ctx)
@@ -404,7 +409,7 @@ func (ms *explore) checkPartialPlan(ctx context.Context, plan motionplan.Plan, w
 				return false, err
 			}
 
-			collisionPose, collision, err := motionplan.CheckPlan((*ms.kb).Kinematics(), plan, worldState, ms.frameSystem, pInFrame.Pose(), currentInputs, spatialmath.NewZeroPose(), ms.logger)
+			collisionPose, collision, err := motionplan.CheckPlan((*ms.kb).Kinematics(), plan, worldState, ms.frameSystem, pInFrame.Pose(), currentInputs[:2], spatialmath.NewZeroPose(), ms.logger)
 			fmt.Println("Collision: ", collision)
 			fmt.Println("Error: ", err)
 			fmt.Println("collisionPose: ", collisionPose)
@@ -451,25 +456,9 @@ func (ms *explore) updateWorldState(ctx context.Context) (*referenceframe.WorldS
 		return nil, err
 	}
 
-	// Removing check of CurrentPosition due to nil Localizer
-	currentPosition, err := (*ms.kb).CurrentPosition(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	// get transform of camera to kinematic base origin
-	kinBaseOrigin := referenceframe.NewPoseInFrame((*ms.kb).Name().ShortName(), spatialmath.NewZeroPose())
-	cameraToBase, err := ms.fsService.TransformPose(ctx, kinBaseOrigin, ms.camera.Name().ShortName(), nil)
-	if err != nil {
-		// here we make the assumption the movement sensor is coincident with the base
-		cameraToBase = kinBaseOrigin
-	}
-
-	transformBy := spatialmath.Compose(currentPosition.Pose(), cameraToBase.Pose())
-
 	geoms := []spatialmath.Geometry{}
 	for i, detection := range detections {
-		geometry := detection.Geometry.Transform(transformBy)
+		geometry := detection.Geometry
 		label := ms.camera.Name().Name + "_transientObstacle_" + strconv.Itoa(i)
 		if geometry.Label() != "" {
 			label += "_" + geometry.Label()
@@ -490,6 +479,7 @@ func (ms *explore) updateWorldState(ctx context.Context) (*referenceframe.WorldS
 func createKBOps(ctx context.Context, extra map[string]interface{}) (kinematicbase.Options, error) {
 	opt := kinematicbase.NewKinematicBaseOptions()
 	opt.NoSkidSteer = true
+	opt.UsePTGs = false
 
 	extra["motion_profile"] = motionplan.PositionOnlyMotionProfile
 
@@ -605,7 +595,7 @@ func (ms *explore) createKinematicBase(
 	}
 
 	p := referenceframe.NewPoseInFrame(componentName.Name, spatialmath.NewZeroPose())
-	kb, err := kinematicbase.WrapWithKinematics(ctx, b, ms.logger, motion.NewPointLocalizer(p), nil, kinematicsOptions)
+	kb, err := kinematicbase.WrapWithKinematics(ctx, b, ms.logger, motion.NewPointLocalizer(p), []referenceframe.Limit{{Min: -expLimit, Max: expLimit}, {Min: -expLimit, Max: expLimit}}, kinematicsOptions)
 	if err != nil {
 		return nil, err
 	}
