@@ -367,6 +367,7 @@ func TestArbitraryFileUpload(t *testing.T) {
 
 			// Set up dmsvc config.
 			dmsvc, r := newTestDataManager(t)
+			dmsvc.SetWaitAfterLastModifiedMillis(0)
 			defer dmsvc.Close(context.Background())
 			f := atomic.Bool{}
 			f.Store(tc.serviceFail)
@@ -382,9 +383,6 @@ func TestArbitraryFileUpload(t *testing.T) {
 			cfg.SyncIntervalMins = syncIntervalMins
 			cfg.AdditionalSyncPaths = []string{additionalPathsDir}
 			cfg.CaptureDir = captureDir
-
-			// Ensure that we don't wait to sync files.
-			cfg.FileLastModifiedMillis = -1
 
 			// Start dmsvc.
 			resources := resourcesFromDeps(t, r, deps)
