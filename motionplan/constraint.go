@@ -154,6 +154,7 @@ func interpolateSegment(ci *ik.Segment, resolution float64) ([][]referenceframe.
 	}
 
 	steps := PathStepCount(ci.StartPosition, ci.EndPosition, resolution)
+
 	var interpolatedConfigurations [][]referenceframe.Input
 	for i := 0; i <= steps; i++ {
 		interp := float64(i) / float64(steps)
