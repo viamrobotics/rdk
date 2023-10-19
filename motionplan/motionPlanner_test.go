@@ -816,7 +816,7 @@ func TestReplan(t *testing.T) {
 	// But if we drop the replan factor to a very low number, it should now fail
 	newPlan2, err := Replan(ctx, planRequest, firstplan, 0.1)
 	test.That(t, newPlan2, test.ShouldBeNil)
-	test.That(t, err, test.ShouldBeErr, errHighReplanCost) // Replan factor too low!
+	test.That(t, err, test.ShouldBeError, errHighReplanCost) // Replan factor too low!
 }
 
 func TestValidatePlanRequest(t *testing.T) {

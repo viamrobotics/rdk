@@ -110,6 +110,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	movementSensorName resource.Name,
 	obstacles []*spatialmath.GeoObstacle,
 	motionCfg *motion.MotionConfiguration,
+	seedPlan motionplan.Plan,
 	extra map[string]interface{},
 ) (*moveRequest, error) {
 	// build kinematic options
@@ -242,6 +243,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 			Options:            extra,
 		},
 		kinematicBase:    kb,
+		seedPlan:         seedPlan,
 		replanCostFactor: replanCostFactor,
 	}, nil
 }

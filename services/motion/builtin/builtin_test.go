@@ -609,6 +609,7 @@ func TestMoveOnGlobe(t *testing.T) {
 			injectedMovementSensor.Name(),
 			[]*spatialmath.GeoObstacle{},
 			motionCfg,
+			nil,
 			extra,
 		)
 		test.That(t, err, test.ShouldBeNil)
@@ -650,6 +651,7 @@ func TestMoveOnGlobe(t *testing.T) {
 			injectedMovementSensor.Name(),
 			[]*spatialmath.GeoObstacle{geoObstacle},
 			motionCfg,
+			nil,
 			extra,
 		)
 		test.That(t, err, test.ShouldBeNil)
@@ -707,6 +709,7 @@ func TestMoveOnGlobe(t *testing.T) {
 			injectedMovementSensor.Name(),
 			[]*spatialmath.GeoObstacle{geoObstacle},
 			&motion.MotionConfiguration{},
+			nil,
 			extra,
 		)
 		test.That(t, err, test.ShouldBeNil)
@@ -817,6 +820,7 @@ func TestCheckPlan(t *testing.T) {
 		injectedMovementSensor.Name(),
 		nil,
 		&motion.MotionConfiguration{PositionPollingFreqHz: 4, ObstaclePollingFreqHz: 1, PlanDeviationMM: 15.},
+		nil,
 		motionCfg,
 	)
 	test.That(t, err, test.ShouldBeNil)

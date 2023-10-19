@@ -282,13 +282,13 @@ func (ms *builtIn) MoveOnGlobe(
 		return false, errors.New("destination cannot be nil")
 	}
 
-	mr, err := ms.newMoveOnGlobeRequest(ctx, componentName, destination, movementSensorName, obstacles, motionCfg, extra)
+	mr, err := ms.newMoveOnGlobeRequest(ctx, componentName, destination, movementSensorName, obstacles, motionCfg, nil, extra)
 	if err != nil {
 		return false, err
 	}
 
 	maxReplans := -1
-	i := 0
+	replanCount := 0
 	if extra != nil {
 		if replansRaw, ok := extra["max_replans"]; ok {
 			if replans, ok := replansRaw.(int); ok {
@@ -342,18 +342,16 @@ func (ms *builtIn) MoveOnGlobe(
 		}
 
 		if maxReplans >= 0 {
-			i++
-			if i > maxReplans {
+			replanCount++
+			if replanCount > maxReplans {
 				return false, fmt.Errorf("exceeded maximum number of replans: %d", maxReplans)
 			}
 		}
-		lastPlan := mr.seedPlan
 		// TODO: RSDK-4509 obstacles should include any transient obstacles which may have triggered a replan, if any.
-		mr, err = ms.newMoveOnGlobeRequest(ctx, componentName, destination, movementSensorName, obstacles, motionCfg, extra)
+		mr, err = ms.newMoveOnGlobeRequest(ctx, componentName, destination, movementSensorName, obstacles, motionCfg, mr.seedPlan, extra)
 		if err != nil {
 			return false, err
 		}
-		mr.seedPlan = lastPlan
 	}
 }
 
