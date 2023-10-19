@@ -200,7 +200,7 @@ func New(ctx context.Context, name resource.Name, logger golog.Logger, port, ttl
 	if err != nil {
 		return nil, err
 	}
-	return camera.FromVideoSource(name, src), nil
+	return camera.FromVideoSource(name, src, logger), nil
 }
 
 func (c *client) setLastError(err error) {

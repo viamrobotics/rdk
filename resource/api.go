@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
-	"strings"
 
 	"github.com/pkg/errors"
 )
@@ -126,18 +125,24 @@ func (a API) MarshalJSON() ([]byte, error) {
 	return json.Marshal(a.String())
 }
 
-// UnmarshalJSON parses namespace:type:subtype strings to the full API struct.
+// UnmarshalJSON parses either a string of the form namespace:type:subtype or a json object into an
+// API object.
 func (a *API) UnmarshalJSON(data []byte) error {
-	stStr := strings.Trim(string(data), "\"'")
-	if apiRegexValidator.MatchString(stStr) {
-		matches := apiRegexValidator.FindStringSubmatch(stStr)
+	var apiStr string
+	if err := json.Unmarshal(data, &apiStr); err == nil {
+		// If the value is a string, regex match for a colon partitioned triplet.
+		if !apiRegexValidator.MatchString(apiStr) {
+			return fmt.Errorf("not a valid API config string. Input: `%v`", string(data))
+		}
+
+		matches := apiRegexValidator.FindStringSubmatch(apiStr)
 		*a = APINamespace(matches[1]).WithType(matches[2]).WithSubtype(matches[3])
 		return nil
 	}
 
 	var tempSt map[string]string
 	if err := json.Unmarshal(data, &tempSt); err != nil {
-		return err
+		return fmt.Errorf("API config value is neither a string nor JSON object. Input: %v", string(data))
 	}
 
 	*a = APINamespace(tempSt["namespace"]).WithType(tempSt["type"]).WithSubtype(tempSt["subtype"])

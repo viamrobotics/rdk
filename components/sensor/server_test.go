@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/sensor/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
@@ -57,16 +58,16 @@ func TestServer(t *testing.T) {
 		extra, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "bar"})
 		test.That(t, err, test.ShouldBeNil)
 
-		resp, err := sensorServer.GetReadings(context.Background(), &pb.GetReadingsRequest{Name: testSensorName, Extra: extra})
+		resp, err := sensorServer.GetReadings(context.Background(), &commonpb.GetReadingsRequest{Name: testSensorName, Extra: extra})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.Readings, test.ShouldResemble, expected)
 		test.That(t, extraCap, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
 
-		_, err = sensorServer.GetReadings(context.Background(), &pb.GetReadingsRequest{Name: failSensorName})
+		_, err = sensorServer.GetReadings(context.Background(), &commonpb.GetReadingsRequest{Name: failSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errReadingsFailed.Error())
 
-		_, err = sensorServer.GetReadings(context.Background(), &pb.GetReadingsRequest{Name: missingSensorName})
+		_, err = sensorServer.GetReadings(context.Background(), &commonpb.GetReadingsRequest{Name: missingSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 	})

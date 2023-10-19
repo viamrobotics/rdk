@@ -57,15 +57,18 @@ func NewManager(parentAddr string, logger golog.Logger, options modmanageroption
 }
 
 type module struct {
-	name      string
-	exe       string
-	logLevel  string
-	process   pexec.ManagedProcess
-	handles   modlib.HandlerMap
-	conn      *grpc.ClientConn
-	client    pb.ModuleServiceClient
-	addr      string
-	resources map[resource.Name]*addedResource
+	name        string
+	exe         string
+	logLevel    string
+	modType     config.ModuleType
+	moduleID    string
+	environment map[string]string
+	process     pexec.ManagedProcess
+	handles     modlib.HandlerMap
+	conn        *grpc.ClientConn
+	client      pb.ModuleServiceClient
+	addr        string
+	resources   map[resource.Name]*addedResource
 
 	// pendingRemoval allows delaying module close until after resources within it are closed
 	pendingRemoval bool
@@ -132,11 +135,14 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, conn *grpc.Clie
 	}
 
 	mod := &module{
-		name:      conf.Name,
-		exe:       conf.ExePath,
-		logLevel:  conf.LogLevel,
-		conn:      conn,
-		resources: map[resource.Name]*addedResource{},
+		name:        conf.Name,
+		exe:         conf.ExePath,
+		logLevel:    conf.LogLevel,
+		modType:     conf.Type,
+		moduleID:    conf.ModuleID,
+		environment: conf.Environment,
+		conn:        conn,
+		resources:   map[resource.Name]*addedResource{},
 	}
 
 	// add calls startProcess, which can also be called by the OUE handler in the attemptRestart
@@ -339,7 +345,12 @@ func (mgr *Manager) Configs() []config.Module {
 	var configs []config.Module
 	for _, mod := range mgr.modules {
 		configs = append(configs, config.Module{
-			Name: mod.name, ExePath: mod.exe, LogLevel: mod.logLevel,
+			Name:        mod.name,
+			ExePath:     mod.exe,
+			LogLevel:    mod.logLevel,
+			Type:        mod.modType,
+			ModuleID:    mod.moduleID,
+			Environment: mod.environment,
 		})
 	}
 	return configs
@@ -634,6 +645,7 @@ func (m *module) startProcess(
 		ID:               m.name,
 		Name:             m.exe,
 		Args:             []string{m.addr},
+		Environment:      m.environment,
 		Log:              true,
 		OnUnexpectedExit: oue,
 	}

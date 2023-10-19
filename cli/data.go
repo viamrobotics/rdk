@@ -10,7 +10,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -22,6 +21,8 @@ import (
 	datapb "go.viam.com/api/app/data/v1"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/timestamppb"
+
+	"go.viam.com/rdk/services/datamanager/datacapture"
 )
 
 const (
@@ -76,21 +77,13 @@ func DataDeleteBinaryAction(c *cli.Context) error {
 		return err
 	}
 
-	switch c.String(dataFlagDataType) {
-	case dataTypeBinary:
-		filter, err := createDataFilter(c)
-		if err != nil {
-			return err
-		}
-		if err := client.deleteBinaryData(filter); err != nil {
-			return err
-		}
-	case dataTypeTabular:
-		return errors.New("use `delete-tabular` action instead of `delete`")
-	default:
-		return errors.Errorf("%s must be binary or tabular, got %q", dataFlagDataType, c.String(dataFlagDataType))
+	filter, err := createDataFilter(c)
+	if err != nil {
+		return err
 	}
-
+	if err := client.deleteBinaryData(filter); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -343,7 +336,7 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 
 	datum := data[0]
 
-	fileName := filenameForDownload(datum.GetMetadata(), runtime.GOOS)
+	fileName := filenameForDownload(datum.GetMetadata())
 	// Modify the file name in the metadata to reflect what it will be saved as.
 	metadata := datum.GetMetadata()
 	metadata.FileName = fileName
@@ -402,11 +395,8 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 	return nil
 }
 
-// non-exhaustive list of characters to strip from filenames on windows and darwin (macOS).
-const windowsDarwinReservedChars = ":"
-
 // transform datum's filename to a destination path on this computer.
-func filenameForDownload(meta *datapb.BinaryMetadata, runtimeOS string) string {
+func filenameForDownload(meta *datapb.BinaryMetadata) string {
 	timeRequested := meta.GetTimeRequested().AsTime().Format(time.RFC3339Nano)
 	fileName := meta.GetFileName()
 
@@ -425,14 +415,9 @@ func filenameForDownload(meta *datapb.BinaryMetadata, runtimeOS string) string {
 		fileName = strings.TrimSuffix(fileName, gzFileExt)
 	}
 
-	if runtimeOS == "windows" || runtimeOS == "darwin" {
-		fileName = strings.Map(func(c rune) rune {
-			if strings.ContainsRune(windowsDarwinReservedChars, c) {
-				return '_'
-			}
-			return c
-		}, fileName)
-	}
+	// Replace reserved characters.
+	fileName = datacapture.FilePathWithReplacedReservedChars(fileName)
+
 	return fileName
 }
 

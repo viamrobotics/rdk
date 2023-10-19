@@ -31,6 +31,9 @@ const (
 	GetImages      = "GetImages"
 	nextPointCloud = "NextPointCloud"
 	pointCloudMap  = "PointCloudMap"
+	// Non-exhaustive list of characters to strip from file paths, since not allowed
+	// on certain file systems.
+	filePathReservedChars = ":"
 )
 
 // File is the data structure containing data captured by collectors. It is backed by a file on disk containing
@@ -81,7 +84,8 @@ func ReadFile(f *os.File) (*File, error) {
 
 // NewFile creates a new File with the specified md in the specified directory.
 func NewFile(dir string, md *v1.DataCaptureMetadata) (*File, error) {
-	fileName := filepath.Join(dir, getFileTimestampName()) + InProgressFileExt
+	fileName := FilePathWithReplacedReservedChars(
+		filepath.Join(dir, getFileTimestampName()) + InProgressFileExt)
 	//nolint:gosec
 	f, err := os.OpenFile(fileName, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0o600)
 	if err != nil {
@@ -311,4 +315,10 @@ func SensorDataFromFile(f *File) ([]*v1.SensorData, error) {
 		ret = append(ret, next)
 	}
 	return ret, nil
+}
+
+// FilePathWithReplacedReservedChars returns the filepath with substitutions
+// for reserved characters.
+func FilePathWithReplacedReservedChars(filepath string) string {
+	return strings.ReplaceAll(filepath, filePathReservedChars, "_")
 }
