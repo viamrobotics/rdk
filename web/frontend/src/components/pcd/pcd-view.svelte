@@ -125,7 +125,7 @@ const update = (cloud: Uint8Array) => {
   mesh.name = 'points';
 
   for (let i = 0, j = 0; i < count; i += 1, j += 3) {
-    matrix.setPosition(positions[j + 0]!, positions[j + 1]!, positions[j + 2]!);
+    matrix.setPosition(positions[j + 0]!, positions[j + 1], positions[j + 2]);
     mesh.setMatrixAt(i, matrix);
 
     if (colors) {
@@ -163,7 +163,7 @@ const mousedown = new THREE.Vector2();
 const mouseup = new THREE.Vector2();
 
 const handleCanvasMouseDown = (event: MouseEvent) => {
-  if (controls.enabled === false) {
+  if (!controls.enabled) {
     return;
   }
 
@@ -171,7 +171,7 @@ const handleCanvasMouseDown = (event: MouseEvent) => {
 };
 
 const handleCanvasMouseUp = (event: MouseEvent) => {
-  if (controls.enabled === false) {
+  if (!controls.enabled) {
     return;
   }
 

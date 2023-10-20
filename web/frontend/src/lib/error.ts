@@ -14,7 +14,7 @@ export const displayError = (error: ServiceError | string | null) => {
     }
     console.error(error);
   } else if (isServiceError(error)) {
-    const serviceError = error as ServiceError;
+    const serviceError = error!;
     if (!nonUserErrors.has(serviceError.message)) {
       notify.danger(serviceError.message);
     }

@@ -46,7 +46,7 @@ $: posPieces = fieldSetters.map((setter) => {
   const [endPositionField] = setter;
   return {
     endPosition: setter,
-    endPositionValue: status?.end_position[endPositionField!] || 0,
+    endPositionValue: status?.end_position[endPositionField] || 0,
   };
 });
 
@@ -147,7 +147,7 @@ const armEndPositionInc = async (updateField: string | undefined, amount: number
     return;
   }
 
-  const adjustedAmount = updateField[0] === 'o' || updateField[0] === 'O' ? amount / 100 : amount;
+  const adjustedAmount = updateField.startsWith('o') || updateField.startsWith('O') ? amount / 100 : amount;
   const arm = status!;
   const old = arm.end_position;
 
@@ -210,15 +210,15 @@ const armModifyAll = () => {
 
   for (const posPiece of posPieces) {
     nextPos.push({
-      endPosition: [...posPiece!.endPosition],
-      endPositionValue: roundTo2Decimals(posPiece!.endPositionValue),
+      endPosition: [...posPiece.endPosition],
+      endPositionValue: roundTo2Decimals(posPiece.endPositionValue),
     });
   }
 
   for (const jointPiece of jointPieces) {
     nextJoint.push({
-      joint: jointPiece!.joint,
-      jointValue: roundTo2Decimals(jointPiece!.jointValue),
+      joint: jointPiece.joint,
+      jointValue: roundTo2Decimals(jointPiece.jointValue),
     });
   }
 
@@ -309,22 +309,22 @@ const armCopyJoints = () => {
                   </h4>
                   <v-button
                     label="--"
-                    on:click={() => armEndPositionInc(piece.endPosition[1], -10)}
+                    on:click={async () => armEndPositionInc(piece.endPosition[1], -10)}
                   />
                   <v-button
                     label="-"
-                    on:click={() => armEndPositionInc(piece.endPosition[1], -1)}
+                    on:click={async () => armEndPositionInc(piece.endPosition[1], -1)}
                   />
                   <p class='place-self-center min-w-[5rem] text-xs flex place-content-center'>
                     {piece.endPositionValue.toFixed(2)}
                   </p>
                   <v-button
                     label="+"
-                    on:click={() => armEndPositionInc(piece.endPosition[1], 1)}
+                    on:click={async () => armEndPositionInc(piece.endPosition[1], 1)}
                   />
                   <v-button
                     label="++"
-                    on:click={() => armEndPositionInc(piece.endPosition[1], 10)}
+                    on:click={async () => armEndPositionInc(piece.endPosition[1], 10)}
                   />
                 </div>
               {/each}
@@ -373,22 +373,22 @@ const armCopyJoints = () => {
                   </h4>
                   <v-button
                     label="--"
-                    on:click={() => armJointInc(piece.joint, -10)}
+                    on:click={async () => armJointInc(piece.joint, -10)}
                   />
                   <v-button
                     label="-"
-                    on:click={() => armJointInc(piece.joint, -1)}
+                    on:click={async () => armJointInc(piece.joint, -1)}
                   />
                   <p class='place-self-center min-w-[5rem] text-xs flex place-content-center'>
                     {piece.jointValue.toFixed(2)}
                   </p>
                   <v-button
                     label="+"
-                    on:click={() => armJointInc(piece.joint, 1)}
+                    on:click={async () => armJointInc(piece.joint, 1)}
                   />
                   <v-button
                     label="++"
-                    on:click={() => armJointInc(piece.joint, 10)}
+                    on:click={async () => armJointInc(piece.joint, 10)}
                   />
                 </div>
               {/each}

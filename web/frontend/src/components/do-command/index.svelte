@@ -95,7 +95,7 @@ const namesToPrettySelect = (resourcesToPretty: commonApi.ResourceName.AsObject[
           variant="inverse-primary"
           label={executing ? 'RUNNING...' : 'DO'}
           disabled={!selectedComponent || !input || executing ? 'true' : 'false'}
-          on:click={() => handleDoCommand(selectedComponent, input)}
+          on:click={async () => handleDoCommand(selectedComponent, input)}
         />
       </div>
       <div class="h-full w-full">

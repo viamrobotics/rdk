@@ -51,7 +51,7 @@ const increment = (axis: number, amount: number) => {
   const pos: number[] = [];
 
   for (const [i, part] of parts.entries()) {
-    pos[i] = part!.pos;
+    pos[i] = part.pos;
   }
 
   pos[axis] += amount;

@@ -12,9 +12,11 @@ describe('base', () => {
     cy.get('[aria-label="Refresh frequency for test_camera"]').click();
     // cy.get('[data-parent="base"').find('video');
 
-    // Confirm that camera component can open stream that is active already
-    // Open camera
-    // cy.contains('h2', 'test_camera').should('exist').click();
+    /*
+     * Confirm that camera component can open stream that is active already
+     * Open camera
+     * cy.contains('h2', 'test_camera').should('exist').click();
+     */
 
     // cy.contains('h2', 'test_base').should('exist').click();
     

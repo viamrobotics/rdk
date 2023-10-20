@@ -250,10 +250,10 @@ const queryMetadata = async () => {
 
   const resourcesList = await getResourceNames($robotClient);
 
-  const differences: Set<string> = new Set(
+  const differences = new Set<string>(
     $resources.map((name) => resourceNameToString(name))
   );
-  const resourceSet: Set<string> = new Set(
+  const resourceSet = new Set<string>(
     resourcesList.map((name) => resourceNameToString(name))
   );
 
@@ -285,14 +285,14 @@ const queryMetadata = async () => {
   $resources = resourcesList;
 
   resourcesOnce = true;
-  if (resourcesChanged === true) {
+  if (resourcesChanged) {
     const sensorsName = filterSubtype(resources.current, 'sensors', { remote: false })[0]?.name;
 
     $sensorNames = sensorsName === undefined ? [] : (await getSensors($robotClient, sensorsName));
 
   }
 
-  if (shouldRestartStatusStream === true) {
+  if (shouldRestartStatusStream) {
     restartStatusStream();
   }
 };
@@ -449,7 +449,7 @@ const init = async () => {
 
 const handleUnload = () => {
   stop();
-  $streamManager?.close();
+  $streamManager.close();
   $robotClient.disconnect();
 };
 
@@ -492,12 +492,12 @@ if (supportedAuthTypes.length === 0) {
           "
           type="password"
           autocomplete="off"
-          on:keyup={(event) => event.key === 'Enter' && login(authType)}
+          on:keyup={async (event) => event.key === 'Enter' && login(authType)}
         >
         <v-button
           disabled={$connectionStatus === 'connecting'}
           label="Login"
-          on:click={$connectionStatus === 'connecting' ? undefined : () => login(authType)}
+          on:click={$connectionStatus === 'connecting' ? undefined : async () => login(authType)}
         />
       </div>
     </div>

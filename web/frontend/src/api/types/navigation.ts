@@ -6,10 +6,10 @@ export type NavigationModes =
   | typeof navigationApi.Mode.MODE_UNSPECIFIED
   | typeof navigationApi.Mode.MODE_WAYPOINT
 
-export type LngLat = { lng: number, lat: number }
+export interface LngLat { lng: number, lat: number }
 export type Waypoint = LngLat & { id: string }
 
-type BaseGeometry = {
+interface BaseGeometry {
   pose: ViamObject3D
 }
 

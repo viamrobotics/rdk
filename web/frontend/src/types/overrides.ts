@@ -18,11 +18,11 @@ export interface MappingMetadata {
   config: string;
 }
 
-type MappingDetails = {
+interface MappingDetails {
   mode: 'localize' | 'create' | 'update';
   name?: string;
   version?: string;
-};
+}
 
 export interface SLAMOverrides {
   getMappingSessionPCD: (

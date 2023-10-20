@@ -93,7 +93,7 @@ const handleDeleteWaypoint = async (event: CustomEvent<string>) => {
               icon='image-filter-center-focus'
               on:click={() => {
                 if ($pose) {
-                  map?.flyTo({
+                  map.flyTo({
                     zoom: 15,
                     duration: 800,
                     curve: 0.1,

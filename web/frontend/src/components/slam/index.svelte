@@ -86,7 +86,7 @@
   const refresh2d = async () => {
     try {
       let nextPose;
-      if (overrides?.isCloudSlam && overrides?.getMappingSessionPCD) {
+      if (overrides?.isCloudSlam && overrides.getMappingSessionPCD) {
         const { map, pose: poseData } = await overrides.getMappingSessionPCD(
           sessionId
         );
@@ -137,7 +137,7 @@
 
   const refresh3d = async () => {
     try {
-      if (overrides?.isCloudSlam && overrides?.getMappingSessionPCD) {
+      if (overrides?.isCloudSlam && overrides.getMappingSessionPCD) {
         const { map } = await overrides.getMappingSessionPCD(sessionId);
         pointcloud = map;
       } else {
@@ -407,7 +407,7 @@
   >
     <div class="flex min-w-fit flex-col gap-4 p-4 pr-0">
       <div class="pb-4 flex flex-col gap-6">
-        {#if overrides?.isCloudSlam && overrides?.mappingDetails}
+        {#if overrides?.isCloudSlam && overrides.mappingDetails}
           <header class="flex flex-col text-xs justify-between gap-3">
             <div class="flex flex-col">
               <span class="font-bold text-gray-800">Mapping mode</span>

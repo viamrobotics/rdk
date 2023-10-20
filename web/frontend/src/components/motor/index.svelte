@@ -158,7 +158,7 @@ const goTo = async () => {
   }
 };
 
-const motorRun = () => {
+const motorRun = async () => {
   switch (type) {
     case 'go': {
       return setPower();
@@ -181,7 +181,7 @@ const motorStop = async () => {
 };
 
 const handleToggle = async (event: CustomEvent<{ open: boolean }>) => {
-  if (event.detail.open === false) {
+  if (!event.detail.open) {
     return;
   }
 

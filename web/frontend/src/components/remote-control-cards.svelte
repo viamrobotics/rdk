@@ -45,7 +45,7 @@ $: filteredWebGamepads = $components.filter((component) => {
   return (
     component.subtype === 'input_controller' &&
     Boolean(component.name) &&
-    remSplit[remSplit.length - 1] === 'WebGamepad'
+    remSplit.at(-1) === 'WebGamepad'
   );
 });
 
@@ -58,7 +58,7 @@ $: filteredInputControllerList = $components.filter((component) => {
   return (
     component.subtype === 'input_controller' &&
     Boolean(component.name) &&
-    remSplit[remSplit.length - 1] !== 'WebGamepad' && resourceStatusByName(component)
+    remSplit.at(-1) !== 'WebGamepad' && resourceStatusByName(component)
   );
 });
 
