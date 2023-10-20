@@ -35,7 +35,7 @@ const (
 // Config is used for converting config attributes.
 type Config struct {
 	Board   string `json:"board,omitempty"`
-	I2CBus  string `json:"i2c_bus"`
+	I2cBus  string `json:"i2c_bus"`
 	I2cAddr int    `json:"i2c_addr,omitempty"`
 }
 
@@ -45,7 +45,7 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	if len(conf.Board) != 0 {
 		deps = append(deps, conf.Board)
 	}
-	if len(conf.I2CBus) == 0 {
+	if len(conf.I2cBus) == 0 {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "i2c_bus")
 	}
 	return deps, nil
@@ -89,14 +89,14 @@ func newSensor(
 		if !ok {
 			return nil, fmt.Errorf("board %s is not local", conf.Board)
 		}
-		i2cbus, ok = localB.I2CByName(conf.I2CBus)
+		i2cbus, ok = localB.I2CByName(conf.I2cBus)
 		if !ok {
-			return nil, fmt.Errorf("sht3xd init: failed to find i2c bus %s", conf.I2CBus)
+			return nil, fmt.Errorf("sht3xd init: failed to find i2c bus %s", conf.I2cBus)
 		}
 	} else {
-		i2cbus, err = genericlinux.NewI2cBus(conf.I2CBus)
+		i2cbus, err = genericlinux.NewI2cBus(conf.I2cBus)
 		if err != nil {
-			return nil, fmt.Errorf("sht3xd init: failed to find i2c bus %s", conf.I2CBus)
+			return nil, fmt.Errorf("sht3xd init: failed to find i2c bus %s", conf.I2cBus)
 		}
 	}
 	addr := conf.I2cAddr
