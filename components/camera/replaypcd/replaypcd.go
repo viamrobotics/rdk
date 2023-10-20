@@ -357,21 +357,21 @@ func (replay *pcdCamera) Reconfigure(ctx context.Context, deps resource.Dependen
 		return err
 	}
 
-	cloudConnSvc, err := resource.FromDependencies[cloud.ConnectionService](deps, cloud.InternalServiceName)
-	if err != nil {
-		return err
-	}
+	// cloudConnSvc, err := resource.FromDependencies[cloud.ConnectionService](deps, cloud.InternalServiceName)
+	// if err != nil {
+	// 	return err
+	// }
 
-	// Update cloud connection if needed
-	if replay.cloudConnSvc != cloudConnSvc {
+	// // Update cloud connection if needed
+	// if replay.cloudConnSvc != cloudConnSvc {
+	// 	replay.closeCloudConnection(ctx)
+	// 	replay.cloudConnSvc = cloudConnSvc
+
+	if err := replay.initCloudConnection(ctx); err != nil {
 		replay.closeCloudConnection(ctx)
-		replay.cloudConnSvc = cloudConnSvc
-
-		if err := replay.initCloudConnection(ctx); err != nil {
-			replay.closeCloudConnection(ctx)
-			return errors.Wrap(err, "failure to connect to the cloud")
-		}
+		return errors.Wrap(err, "failure to connect to the cloud")
 	}
+	// }
 
 	if replayCamConfig.BatchSize == nil {
 		replay.limit = 1
