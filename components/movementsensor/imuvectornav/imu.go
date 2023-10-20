@@ -1,4 +1,6 @@
-// Package imuvectornav implement vectornav imu
+//go:build linux
+
+// Package imuvectornav implements a component for a vectornav IMU.
 package imuvectornav
 
 import (
@@ -13,6 +15,7 @@ import (
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/board/genericlinux"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -24,8 +27,7 @@ var model = resource.DefaultModelFamily.WithModel("imu-vectornav")
 
 // Config is used for converting a vectornav IMU MovementSensor config attributes.
 type Config struct {
-	Board string `json:"board"`
-	SPI   string `json:"spi"`
+	SPI   string `json:"spi_bus"`
 	Speed *int   `json:"spi_baud_rate"`
 	Pfreq *int   `json:"polling_freq_hz"`
 	CSPin string `json:"chip_select_pin"`
@@ -34,10 +36,6 @@ type Config struct {
 // Validate ensures all parts of the config are valid.
 func (cfg *Config) Validate(path string) ([]string, error) {
 	var deps []string
-	if cfg.Board == "" {
-		return nil, goutils.NewConfigValidationFieldRequiredError(path, "board")
-	}
-
 	if cfg.SPI == "" {
 		return nil, goutils.NewConfigValidationFieldRequiredError(path, "spi")
 	}
@@ -53,7 +51,6 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 	if cfg.CSPin == "" {
 		return nil, goutils.NewConfigValidationFieldRequiredError(path, "cs_pin (chip select pin)")
 	}
-	deps = append(deps, cfg.Board)
 	return deps, nil
 }
 
@@ -127,22 +124,6 @@ func newVectorNav(
 		return nil, err
 	}
 
-	boardName := newConf.Board
-	b, err := board.FromDependencies(deps, boardName)
-	if err != nil {
-		return nil, errors.Wrap(err, "vectornav init failed")
-	}
-	spiName := newConf.SPI
-	localB, ok := b.(board.LocalBoard)
-	if !ok {
-		return nil, errors.Errorf("vectornav: board %q is not local", boardName)
-	}
-	spiBus, ok := localB.SPIByName(spiName)
-	if !ok {
-		return nil, errors.Errorf("vectornav: couldn't get spi bus %q", spiName)
-	}
-	cs := newConf.CSPin
-
 	speed := *newConf.Speed
 	if speed == 0 {
 		speed = 8000000
@@ -151,9 +132,9 @@ func newVectorNav(
 	pfreq := *newConf.Pfreq
 	v := &vectornav{
 		Named:     conf.ResourceName().AsNamed(),
-		bus:       spiBus,
+		bus:       genericlinux.NewSpiBus(newConf.SPI),
 		logger:    logging.FromZapCompatible(logger),
-		cs:        cs,
+		cs:        newConf.CSPin,
 		speed:     speed,
 		busClosed: false,
 		polling:   pfreq,
