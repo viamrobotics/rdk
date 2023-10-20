@@ -228,10 +228,12 @@ func (ms *builtIn) MoveOnMap(
 		return false, fmt.Errorf("error making plan for MoveOnMap: %w", err)
 	}
 
+	fmt.Println("starting")
 	ma := newMoveAttempt(ctx, mr)
 	if err := ma.start(); err != nil {
 		return false, err
 	}
+	fmt.Println("started")
 
 	// this ensures that if the context is cancelled we always return early at the top of the loop
 	if err := ctx.Err(); err != nil {

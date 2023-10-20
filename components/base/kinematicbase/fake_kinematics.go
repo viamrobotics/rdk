@@ -133,14 +133,10 @@ func WrapWithFakePTGKinematics(
 	ctx context.Context,
 	b *fake.Base,
 	logger golog.Logger,
-	localizer motion.Localizer,
+	parent string,
 	options Options,
-	sensorNoise spatialmath.Pose,
+	currentPosition, sensorNoise spatialmath.Pose,
 ) (KinematicBase, error) {
-	position, err := localizer.CurrentPosition(ctx)
-	if err != nil {
-		return nil, err
-	}
 
 	properties, err := b.Properties(ctx, nil)
 	if err != nil {
@@ -183,8 +179,8 @@ func WrapWithFakePTGKinematics(
 	fk := &fakePTGKinematics{
 		Base:            b,
 		frame:           frame,
-		parentFrame:     position.Parent(),
-		currentPosition: position.Pose(),
+		parentFrame:     parent,
+		currentPosition: currentPosition,
 		sensorNoise:     sensorNoise,
 	}
 

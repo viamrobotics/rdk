@@ -82,7 +82,8 @@ func (mr *moveRequest) execute(ctx context.Context, waypoints [][]referenceframe
 		}
 	}
 
-	// the plan has been fully executed so check to see if the GeoPoint we are at is close enough to the goal.
+	fmt.Println("checking deviation")
+	// the plan has been fully executed so check to see if where we are at is close enough to the goal.
 	deviated, err := mr.deviatedFromPlan(ctx, waypoints, len(waypoints)-1)
 	if err != nil {
 		return moveResponse{err: err}
@@ -288,7 +289,7 @@ func (ms *builtIn) newMoveOnMapRequest(
 	}
 	fmt.Println("octree", octree)
 
-	return relativeMoveRequestFromAbsolute(
+	mr, err := relativeMoveRequestFromAbsolute(
 		ctx,
 		nil,
 		ms.logger,
@@ -298,6 +299,8 @@ func (ms *builtIn) newMoveOnMapRequest(
 		[]spatialmath.Geometry{octree},
 		extra,
 	)
+	fmt.Println("mr, err", mr, err)
+	return mr, err
 }
 
 func relativeMoveRequestFromAbsolute(
@@ -322,10 +325,12 @@ func relativeMoveRequestFromAbsolute(
 		return nil, err
 	}
 	
+	fmt.Println("getting pos")
 	startPoseInWorld, err := kb.CurrentPosition(ctx)
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("got pos")
 	startPoseToWorld := spatialmath.PoseInverse(startPoseInWorld.Pose())
 
 	goal := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.PoseBetween(startPoseInWorld.Pose(), goalPoseInWorld))
@@ -348,17 +353,20 @@ func relativeMoveRequestFromAbsolute(
 		motionCfg = &motion.MotionConfiguration{}
 	}
 
-	return &moveRequest{
+	fmt.Println("returning")
+	mr := &moveRequest{
 		config: motionCfg,
 		planRequest: &motionplan.PlanRequest{
 			Logger:             logger,
 			Goal:               goal,
-			Frame:              kb.Kinematics(),
+			Frame:              kinematicFrame,
 			FrameSystem:        baseOnlyFS,
 			StartConfiguration: referenceframe.StartPositions(baseOnlyFS),
 			WorldState:         worldState,
 			Options:            extra,
 		},
 		kinematicBase:    kb,
-	}, nil
+	}
+	fmt.Println("mr", mr)
+	return mr, nil
 }

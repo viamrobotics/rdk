@@ -150,10 +150,6 @@ func createMoveOnGlobeEnvironment(ctx context.Context, t *testing.T, origin *geo
 
 	// create base link
 	baseLink := createBaseLink(t, "test-base")
-
-	// create injected MovementSensor
-	staticMovementSensor := createInjectedMovementSensor("test-gps", origin)
-
 	// create MovementSensor link
 	movementSensorLink := referenceframe.NewLinkInFrame(
 		baseLink.Name(),
@@ -163,10 +159,9 @@ func createMoveOnGlobeEnvironment(ctx context.Context, t *testing.T, origin *geo
 	)
 
 	// create a fake kinematic base
-	localizer := motion.NewMovementSensorLocalizer(staticMovementSensor, origin, spatialmath.NewZeroPose())
 	kinematicsOptions := kinematicbase.NewKinematicBaseOptions()
 	kinematicsOptions.PlanDeviationThresholdMM = 1 // can afford to do this for tests
-	kb, err := kinematicbase.WrapWithFakePTGKinematics(ctx, fakeBase.(*baseFake.Base), logger, localizer, kinematicsOptions, noise)
+	kb, err := kinematicbase.WrapWithFakePTGKinematics(ctx, fakeBase.(*baseFake.Base), logger, referenceframe.World, kinematicsOptions, spatialmath.NewZeroPose(), noise)
 	test.That(t, err, test.ShouldBeNil)
 
 	// create injected MovementSensor
@@ -206,7 +201,7 @@ func createMoveOnGlobeEnvironment(ctx context.Context, t *testing.T, origin *geo
 	return dynamicMovementSensor, fsSvc, kb, ms
 }
 
-func createMoveOnMapEnvironment(ctx context.Context, t *testing.T, pcdPath string) motion.Service {
+func createMoveOnMapEnvironment(ctx context.Context, t *testing.T, pcdPath string) (kinematicbase.KinematicBase, motion.Service) {
 	injectSlam := createInjectedSlam("test_slam", pcdPath)
 
 	baseLink := createBaseLink(t, "test-base")
@@ -219,11 +214,13 @@ func createMoveOnMapEnvironment(ctx context.Context, t *testing.T, pcdPath strin
 	logger := golog.NewTestLogger(t)
 	fakeBase, err := baseFake.NewBase(ctx, nil, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
-
-	deps := resource.Dependencies{injectSlam.Name(): injectSlam, fakeBase.Name(): fakeBase}
-	conf := resource.Config{ConvertedAttributes: &Config{}}
-	ms, err := NewBuiltIn(ctx, deps, conf, logger)
+	kinematicsOptions := kinematicbase.NewKinematicBaseOptions()
+	kinematicsOptions.PlanDeviationThresholdMM = 1 // can afford to do this for tests
+	kb, err := kinematicbase.WrapWithFakePTGKinematics(ctx, fakeBase.(*baseFake.Base), logger, referenceframe.World, kinematicsOptions, spatialmath.NewZeroPose(), spatialmath.NewZeroPose())
 	test.That(t, err, test.ShouldBeNil)
+
+	deps := resource.Dependencies{injectSlam.Name(): injectSlam, fakeBase.Name(): kb}
+	conf := resource.Config{ConvertedAttributes: &Config{}}
 	
 	// create the frame system
 	fsParts := []*referenceframe.FrameSystemPart{
@@ -233,9 +230,9 @@ func createMoveOnMapEnvironment(ctx context.Context, t *testing.T, pcdPath strin
 	_, err = createFrameSystemService(ctx, deps, fsParts, logger)
 	test.That(t, err, test.ShouldBeNil)
 	
-	//~ ms.fsService = fsSvc
-	
-	return ms
+	ms, err := NewBuiltIn(ctx, deps, conf, logger)
+	test.That(t, err, test.ShouldBeNil)	
+	return kb, ms
 }
 
 func TestMoveResponseString(t *testing.T) {
@@ -442,7 +439,7 @@ func TestMoveOnMapLongDistance(t *testing.T) {
 
 	t.Run("test tp-space planning on office map", func(t *testing.T) {
 		t.Parallel()
-		ms := createMoveOnMapEnvironment(ctx, t, "slam/example_cartographer_outputs/viam-office-02-22-3/pointcloud/pointcloud_4.pcd")
+		kb, ms := createMoveOnMapEnvironment(ctx, t, "slam/example_cartographer_outputs/viam-office-02-22-3/pointcloud/pointcloud_4.pcd")
 		extra := make(map[string]interface{})
 		mr, err := ms.(*builtIn).newMoveOnMapRequest(
 			context.Background(),
@@ -454,10 +451,11 @@ func TestMoveOnMapLongDistance(t *testing.T) {
 		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, mr, test.ShouldNotBeNil)
+		fmt.Println(kb.CurrentPosition(ctx))
 	})
 }
 
-func TestMoveOnMap(t *testing.T) {
+func TestMoveOnMapPlans(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	// goal x-position of 1.32m is scaled to be in mm
@@ -465,7 +463,7 @@ func TestMoveOnMap(t *testing.T) {
 
 	t.Run("check that path is planned around obstacle", func(t *testing.T) {
 		t.Parallel()
-		ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd")
+		kb, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd")
 		extra := make(map[string]interface{})
 		extra["motion_profile"] = "orientation"
 		mr, err := ms.(*builtIn).newMoveOnMapRequest(
@@ -479,11 +477,12 @@ func TestMoveOnMap(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		// path of length 2 indicates a path that goes straight through central obstacle
 		test.That(t, mr, test.ShouldNotBeNil)
+		fmt.Println(kb.CurrentPosition(ctx))
 	})
 
 	t.Run("ensure success of movement around obstacle", func(t *testing.T) {
 		t.Parallel()
-		ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd")
+		kb, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd")
 		success, err := ms.MoveOnMap(
 			context.Background(),
 			base.Named("test-base"),
@@ -493,11 +492,12 @@ func TestMoveOnMap(t *testing.T) {
 		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, success, test.ShouldBeTrue)
+		fmt.Println(kb.CurrentPosition(ctx))
 	})
 
 	t.Run("check that straight line path executes", func(t *testing.T) {
 		t.Parallel()
-		ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd")
+		kb, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd")
 		easyGoal := spatialmath.NewPoseFromPoint(r3.Vector{X: 0.277 * 1000, Y: 0.593 * 1000})
 		success, err := ms.MoveOnMap(
 			context.Background(),
@@ -508,11 +508,14 @@ func TestMoveOnMap(t *testing.T) {
 		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, success, test.ShouldBeTrue)
+		endPos, err := kb.CurrentPosition(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		fmt.Println(spatialmath.PoseToProtobuf(endPos.Pose()))
 	})
 
 	t.Run("check that position-only mode returns 2D plan", func(t *testing.T) {
 		t.Parallel()
-		ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd")
+		kb, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd")
 		extra := make(map[string]interface{})
 		extra["motion_profile"] = "position_only"
 		mr, err := ms.(*builtIn).newMoveOnMapRequest(
@@ -525,11 +528,12 @@ func TestMoveOnMap(t *testing.T) {
 		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, mr, test.ShouldNotBeNil)
+		fmt.Println(kb.CurrentPosition(ctx))
 	})
 
 	t.Run("check that position-only mode executes", func(t *testing.T) {
 		t.Parallel()
-		ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd")
+		kb, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd")
 		extra := make(map[string]interface{})
 		extra["motion_profile"] = "position_only"
 		success, err := ms.MoveOnMap(
@@ -541,6 +545,7 @@ func TestMoveOnMap(t *testing.T) {
 		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, success, test.ShouldBeTrue)
+		fmt.Println(kb.CurrentPosition(ctx))
 	})
 }
 

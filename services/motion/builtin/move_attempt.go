@@ -106,8 +106,12 @@ func (ma *moveAttempt) start() error {
 // it cancels the processes spawned by it, drains all the channels that could have been written to and waits on processes to return.
 func (ma *moveAttempt) cancel() {
 	ma.cancelFn()
-	utils.FlushChan(ma.position.responseChan)
-	utils.FlushChan(ma.obstacle.responseChan)
+	if ma.position != nil {
+		utils.FlushChan(ma.position.responseChan)
+	}
+	if ma.obstacle != nil {
+		utils.FlushChan(ma.obstacle.responseChan)
+	}
 	utils.FlushChan(ma.responseChan)
 	ma.backgroundWorkers.Wait()
 }
