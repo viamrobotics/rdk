@@ -183,9 +183,15 @@ func (g *SerialNMEAMovementSensor) Accuracy(ctx context.Context, extra map[strin
 func (g *SerialNMEAMovementSensor) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
+
+	if math.IsNaN(g.data.CompassHeading) {
+		return r3.Vector{}, g.err.Get()
+	}
+
 	headingInRadians := g.data.CompassHeading * (math.Pi / 180)
 	xVelocity := g.data.Speed * math.Sin(headingInRadians)
 	yVelocity := g.data.Speed * math.Cos(headingInRadians)
+
 	return r3.Vector{X: xVelocity, Y: yVelocity, Z: 0}, g.err.Get()
 }
 

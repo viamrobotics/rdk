@@ -1,3 +1,5 @@
+//go:build !no_tflite
+
 package inference
 
 import (
