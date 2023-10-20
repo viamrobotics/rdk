@@ -2,11 +2,11 @@ package builtin
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
@@ -606,6 +606,7 @@ func TestMoveOnGlobe(t *testing.T) {
 			injectedMovementSensor.Name(),
 			[]*spatialmath.GeoObstacle{},
 			motionCfg,
+			nil,
 			extra,
 		)
 		test.That(t, err, test.ShouldBeNil)
@@ -651,6 +652,7 @@ func TestMoveOnGlobe(t *testing.T) {
 			injectedMovementSensor.Name(),
 			[]*spatialmath.GeoObstacle{geoObstacle},
 			motionCfg,
+			nil,
 			extra,
 		)
 		test.That(t, err, test.ShouldBeNil)
@@ -708,6 +710,7 @@ func TestMoveOnGlobe(t *testing.T) {
 			injectedMovementSensor.Name(),
 			[]*spatialmath.GeoObstacle{geoObstacle},
 			&motion.MotionConfiguration{},
+			nil,
 			extra,
 		)
 		test.That(t, err, test.ShouldBeNil)
@@ -738,59 +741,50 @@ func TestReplanning(t *testing.T) {
 	motionCfg := &motion.MotionConfiguration{PositionPollingFreqHz: 100, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM}
 
 	type testCase struct {
-		name           string
-		noise          r3.Vector
-		expectedReplan bool
+		name            string
+		noise           r3.Vector
+		expectedSuccess bool
+		expectedErr     string
+		extra           map[string]interface{}
 	}
 
 	testCases := []testCase{
 		{
-			name:           "check we dont replan with a good sensor",
-			noise:          r3.Vector{Y: epsilonMM - 0.1},
-			expectedReplan: false,
+			name:            "check we dont replan with a good sensor",
+			noise:           r3.Vector{Y: epsilonMM - 0.1},
+			expectedSuccess: true,
+			extra:           map[string]interface{}{},
 		},
 		{
-			name:           "check we replan with a noisy sensor",
-			noise:          r3.Vector{Y: epsilonMM + 0.1},
-			expectedReplan: true,
+			// This also checks that `replan` is called under default conditions when "max_replans" is not set
+			name:            "check we fail to replan with a low cost factor",
+			noise:           r3.Vector{Y: epsilonMM + 0.1},
+			expectedErr:     "unable to create a new plan within replanCostFactor from the original",
+			expectedSuccess: false,
+			extra:           map[string]interface{}{"replan_cost_factor": 0.01},
+		},
+		{
+			name:            "check we replan with a noisy sensor",
+			noise:           r3.Vector{Y: epsilonMM + 0.1},
+			expectedErr:     fmt.Sprintf("exceeded maximum number of replans: %d", 4),
+			expectedSuccess: false,
+			extra:           map[string]interface{}{"replan_cost_factor": 10.0, "max_replans": 4},
 		},
 	}
 
 	testFn := func(t *testing.T, tc testCase) {
 		t.Helper()
 		injectedMovementSensor, _, kb, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, spatialmath.NewPoseFromPoint(tc.noise))
-		moveRequest, err := ms.(*builtIn).newMoveOnGlobeRequest(ctx, kb.Name(), dst, injectedMovementSensor.Name(), nil, motionCfg, nil)
-		test.That(t, err, test.ShouldBeNil)
 
-		ctx, cancel := context.WithTimeout(ctx, 30.0*time.Second)
-		ma := newMoveAttempt(ctx, moveRequest)
-		err = ma.start()
-		test.That(t, err, test.ShouldBeNil)
+		success, err := ms.MoveOnGlobe(ctx, kb.Name(), dst, 0, injectedMovementSensor.Name(), nil, motionCfg, tc.extra)
 
-		defer ma.cancel()
-		defer cancel()
-		select {
-		case <-ma.ctx.Done():
-			t.Log("move attempt should not have timed out")
-			t.FailNow()
-		case resp := <-ma.responseChan:
-			if tc.expectedReplan {
-				t.Log("move attempt should not have returned a response")
-				t.FailNow()
-			} else {
-				test.That(t, resp.err, test.ShouldBeNil)
-				test.That(t, resp.success, test.ShouldBeTrue)
-			}
-		case resp := <-ma.position.responseChan:
-			if tc.expectedReplan {
-				test.That(t, resp.err, test.ShouldBeNil)
-				test.That(t, resp.replan, test.ShouldBeTrue)
-			} else {
-				t.Log("move attempt should not be replanned")
-				t.FailNow()
-			}
+		if tc.expectedSuccess {
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, success, test.ShouldBeTrue)
+		} else {
+			test.That(t, success, test.ShouldBeFalse)
+			test.That(t, err.Error(), test.ShouldEqual, tc.expectedErr)
 		}
-		test.That(t, ma.waypointIndex.Load(), test.ShouldBeGreaterThan, 0)
 	}
 
 	for _, tc := range testCases {
@@ -827,6 +821,7 @@ func TestCheckPlan(t *testing.T) {
 		injectedMovementSensor.Name(),
 		nil,
 		&motion.MotionConfiguration{PositionPollingFreqHz: 4, ObstaclePollingFreqHz: 1, PlanDeviationMM: 15.},
+		nil,
 		motionCfg,
 	)
 	test.That(t, err, test.ShouldBeNil)
