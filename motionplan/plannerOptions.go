@@ -60,6 +60,7 @@ const (
 
 var defaultNumThreads = runtime.NumCPU() / 2
 
+// TODO: Make this an enum
 // the set of supported motion profiles.
 const (
 	FreeMotionProfile         = "free"
