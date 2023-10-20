@@ -17,6 +17,9 @@ import (
 	"go.viam.com/rdk/components/board"
 )
 
+// NewSpiBus creates a new SPI bus. The name passed in should be the bus number, such as "0" or
+// "1". We don't open this bus until you call spiHandle.Xfer(), so there are no errors to return
+// immediately here.
 func NewSpiBus(name string) board.SPI {
 	bus := spiBus{}
 	bus.reset(name)

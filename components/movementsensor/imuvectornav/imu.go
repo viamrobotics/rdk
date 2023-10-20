@@ -1,4 +1,5 @@
 //go:build linux
+
 // Package imuvectornav implement vectornav imu
 package imuvectornav
 
@@ -122,7 +123,6 @@ func newVectorNav(
 	if err != nil {
 		return nil, err
 	}
-
 
 	speed := *newConf.Speed
 	if speed == 0 {
