@@ -172,13 +172,14 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 	if replay.closed {
 		return nil, errors.New("session closed")
 	}
+	replay.logger.Info("next pointcloud yo")
 
 	// Retrieve next cached data and remove from cache, if no data remains in the cache, download a
 	// new batch
 	if len(replay.cache) != 0 {
 		return replay.getDataFromCache(ctx)
 	}
-
+	replay.logger.Info("get filter yo")
 	// Retrieve data from the cloud. If the batch size is > 1, only metadata is returned here, otherwise
 	// IncludeBinary can be set to true and the data can be downloaded directly via BinaryDataByFilter
 	resp, err := replay.dataClient.BinaryDataByFilter(ctx, &datapb.BinaryDataByFilterRequest{
@@ -199,7 +200,7 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 		return nil, ErrEndOfDataset
 	}
 	replay.lastData = resp.GetLast()
-
+	replay.logger.Info("sending data yo")
 	// If using a batch size of 1, we already received the data itself, so decode and return the
 	// binary data directly
 	if replay.limit == 1 {
@@ -425,12 +426,12 @@ func (replay *pcdCamera) closeCloudConnection(ctx context.Context) {
 func (replay *pcdCamera) initCloudConnection(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, grpcConnectionTimeout)
 	defer cancel()
-
+	replay.logger.Info("yo setting up conn")
 	_, conn, err := replay.cloudConnSvc.AcquireConnectionAPIKey(ctx, replay.APIKey, replay.APIKeyID)
 	if err != nil {
 		return err
 	}
-
+	replay.logger.Info("yo got a client")
 	dataServiceClient := datapb.NewDataServiceClient(conn)
 
 	replay.cloudConn = conn
