@@ -28,7 +28,7 @@ func init() {
 	resource.RegisterComponent(camera.API, joinModel,
 		resource.Registration[camera.Camera, *joinConfig]{
 			Constructor: func(ctx context.Context, deps resource.Dependencies,
-				conf resource.Config, logger logging.Logger,
+				conf resource.Config, logger logging.ZapCompatibleLogger,
 			) (camera.Camera, error) {
 				newConf, err := resource.NativeConfig[*joinConfig](conf)
 				if err != nil {
@@ -45,11 +45,11 @@ func init() {
 				if err != nil {
 					return nil, fmt.Errorf("no depth camera (%s): %w", depthName, err)
 				}
-				src, err := newJoinColorDepth(ctx, color, depth, newConf, logger)
+				src, err := newJoinColorDepth(ctx, color, depth, newConf, logging.FromZapCompatible(logger))
 				if err != nil {
 					return nil, err
 				}
-				return camera.FromVideoSource(conf.ResourceName(), src, logger), nil
+				return camera.FromVideoSource(conf.ResourceName(), src, logging.FromZapCompatible(logger)), nil
 			},
 		})
 }

@@ -20,7 +20,7 @@ func NewSessionManager(robot Robot, heartbeatWindow time.Duration) *SessionManag
 	m := &SessionManager{
 		robot:             robot,
 		heartbeatWindow:   heartbeatWindow,
-		logger:            &logging.ZLogger{robot.Logger().Named("session_manager")},
+		logger:            logging.FromZapCompatible(robot.Logger().Named("session_manager")),
 		sessions:          map[uuid.UUID]*session.Session{},
 		resourceToSession: map[resource.Name]uuid.UUID{},
 		cancel:            cancel,

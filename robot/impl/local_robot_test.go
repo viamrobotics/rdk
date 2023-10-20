@@ -776,7 +776,7 @@ func TestStopAll(t *testing.T) {
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger logging.Logger,
+			logger logging.ZapCompatibleLogger,
 		) (arm.Arm, error) {
 			if conf.Name == "arm1" {
 				return &dummyArm1, nil
@@ -905,7 +905,7 @@ func TestNewTeardown(t *testing.T) {
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger logging.Logger,
+			logger logging.ZapCompatibleLogger,
 		) (board.Board, error) {
 			return &dummyBoard1, nil
 		}})
@@ -916,7 +916,7 @@ func TestNewTeardown(t *testing.T) {
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger logging.Logger,
+			logger logging.ZapCompatibleLogger,
 		) (gripper.Gripper, error) {
 			return nil, errors.New("whoops")
 		}})
@@ -2853,7 +2853,7 @@ func TestDependentAndOrphanedResources(t *testing.T) {
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger logging.Logger,
+			logger logging.ZapCompatibleLogger,
 		) (resource.Resource, error) {
 			newDoodad := &doodad{
 				Named: conf.ResourceName().AsNamed(),

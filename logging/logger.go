@@ -11,13 +11,16 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 )
 
+// Logger interface for logging to.
 type Logger interface {
 	ZapCompatibleLogger
 
 	AsZap() *zap.SugaredLogger
 }
 
-// Logger interface for logging to.
+// ZapCompatibleLogger is a backwards compatibility layer for existing usages of the RDK as a
+// library for Go application code or modules. Public (to the library) methods that take a logger as
+// input should accept this type and upconvert to a Logger via a call to `FromZapCompatible`.
 type ZapCompatibleLogger interface {
 	Desugar() *zap.Logger
 	Level() zapcore.Level
@@ -64,15 +67,18 @@ type ZapCompatibleLogger interface {
 
 // ZLogger type for logging to. Wraps a zap logger and adds the `AsZap` method to satisfy the
 // `Logger` interface.
-type ZLogger struct {
+type zLogger struct {
 	*zap.SugaredLogger
 }
 
+// FromZapCompatible upconverts a ZapCompatibleLogger to a logging.Logger. If the argument already
+// satisfies logging.Logger, no changes will be made. An unknown type will create a new logger
+// that's not associated with the input.
 func FromZapCompatible(logger ZapCompatibleLogger) Logger {
 	switch l := logger.(type) {
 	case *zap.SugaredLogger:
 		// golog.Logger is a type alias for *zap.SugaredLogger and is captured by this.
-		return ZLogger{l}
+		return zLogger{l}
 	case Logger:
 		return l
 	default:
@@ -82,7 +88,7 @@ func FromZapCompatible(logger ZapCompatibleLogger) Logger {
 }
 
 // AsZap converts the logger to a zap logger.
-func (logger ZLogger) AsZap() *zap.SugaredLogger {
+func (logger zLogger) AsZap() *zap.SugaredLogger {
 	return logger.SugaredLogger
 }
 
@@ -92,7 +98,7 @@ var (
 )
 
 func newDefaultLogger() Logger {
-	return ZLogger{zap.Must(NewDebugLoggerConfig().Build()).Sugar()}
+	return zLogger{zap.Must(NewDebugLoggerConfig().Build()).Sugar()}
 }
 
 // ReplaceGloabl replaces the global loggers and returns a function to reset
@@ -215,7 +221,7 @@ func NewLogger(name string) Logger {
 	if err != nil {
 		Global().Fatal(err)
 	}
-	return &ZLogger{logger.Sugar().Named(name)}
+	return &zLogger{logger.Sugar().Named(name)}
 }
 
 // NewLoggerForGCP returns a new logger using the default production configuration.
@@ -224,7 +230,7 @@ func NewLoggerForGCP(name string) Logger {
 	if err != nil {
 		Global().Fatal(err)
 	}
-	return &ZLogger{logger.Sugar().Named(name)}
+	return &zLogger{logger.Sugar().Named(name)}
 }
 
 // NewDevelopmentLogger returns a new logger using the default development configuration.
@@ -233,7 +239,7 @@ func NewDevelopmentLogger(name string) Logger {
 	if err != nil {
 		Global().Fatal(err)
 	}
-	return &ZLogger{logger.Sugar().Named(name)}
+	return &zLogger{logger.Sugar().Named(name)}
 }
 
 // NewDebugLogger returns a new logger using the default debug configuration.
@@ -242,7 +248,7 @@ func NewDebugLogger(name string) Logger {
 	if err != nil {
 		Global().Fatal(err)
 	}
-	return &ZLogger{logger.Sugar().Named(name)}
+	return &zLogger{logger.Sugar().Named(name)}
 }
 
 // NewTestLogger directs logs to the go test logger.
@@ -258,7 +264,7 @@ func NewObservedTestLogger(tb testing.TB) (Logger, *observer.ObservedLogs) {
 	logger = logger.WithOptions(zap.WrapCore(func(c zapcore.Core) zapcore.Core {
 		return zapcore.NewTee(c, observerCore)
 	}))
-	return &ZLogger{logger.Sugar()}, observedLogs
+	return &zLogger{logger.Sugar()}, observedLogs
 }
 
 // rFC3339NanoTimeEncoder serializes a time.Time to an RFC3339Nano-formatted string with nanoseconds precision.

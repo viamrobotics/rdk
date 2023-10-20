@@ -29,9 +29,9 @@ func init() {
 				ctx context.Context,
 				_ resource.Dependencies,
 				conf resource.Config,
-				logger logging.Logger,
+				logger logging.ZapCompatibleLogger,
 			) (slam.Service, error) {
-				return NewSLAM(conf.ResourceName(), logger), nil
+				return NewSLAM(conf.ResourceName(), logging.FromZapCompatible(logger)), nil
 			},
 		},
 	)

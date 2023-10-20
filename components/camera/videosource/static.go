@@ -23,18 +23,18 @@ func init() {
 	resource.RegisterComponent(camera.API, fileModel,
 		resource.Registration[camera.Camera, *fileSourceConfig]{
 			Constructor: func(ctx context.Context, _ resource.Dependencies,
-				conf resource.Config, logger logging.Logger,
+				conf resource.Config, logger logging.ZapCompatibleLogger,
 			) (camera.Camera, error) {
 				newConf, err := resource.NativeConfig[*fileSourceConfig](conf)
 				if err != nil {
 					return nil, err
 				}
-				return newCamera(context.Background(), conf.ResourceName(), newConf, logger)
+				return newCamera(context.Background(), conf.ResourceName(), newConf, logging.FromZapCompatible(logger))
 			},
 		})
 }
 
-func newCamera(ctx context.Context, name resource.Name, newConf *fileSourceConfig, logger golog.Logger) (camera.Camera, error) {
+func newCamera(ctx context.Context, name resource.Name, newConf *fileSourceConfig, logger logging.Logger) (camera.Camera, error) {
 	videoSrc := &fileSource{newConf.Color, newConf.Depth, newConf.PointCloud, newConf.CameraParameters}
 	imgType := camera.ColorStream
 	if newConf.Color == "" {

@@ -90,7 +90,7 @@ func newCounter(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
-	logger logging.Logger,
+	logger logging.ZapCompatibleLogger,
 ) (resource.Resource, error) {
 	return &counter{
 		name: conf.ResourceName(),

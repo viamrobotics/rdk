@@ -290,7 +290,7 @@ func addCloudLogger(logger logging.Logger, logLevel zap.AtomicLevel, cfg *config
 		return zapcore.NewTee(c, nl)
 	}))
 
-	return &logging.ZLogger{l.Sugar()}, nl.Close, nil
+	return logging.FromZapCompatible(l.Sugar()), nl.Close, nil
 }
 
 type remoteLogWriter interface {

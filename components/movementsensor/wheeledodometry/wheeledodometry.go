@@ -209,13 +209,13 @@ func newWheeledOdometry(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
-	logger logging.Logger,
+	logger logging.ZapCompatibleLogger,
 ) (movementsensor.MovementSensor, error) {
 	o := &odometry{
 		Named:        conf.ResourceName().AsNamed(),
 		lastLeftPos:  0.0,
 		lastRightPos: 0.0,
-		logger:       logger,
+		logger:       logging.FromZapCompatible(logger),
 	}
 
 	if err := o.Reconfigure(ctx, deps, conf); err != nil {

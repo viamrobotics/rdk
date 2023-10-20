@@ -28,11 +28,11 @@ func init() {
 }
 
 // NewMovementSensor makes a new fake movement sensor.
-func NewMovementSensor(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
+func NewMovementSensor(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.ZapCompatibleLogger,
 ) (movementsensor.MovementSensor, error) {
 	return &MovementSensor{
 		Named:  conf.ResourceName().AsNamed(),
-		logger: logger,
+		logger: logging.FromZapCompatible(logger),
 	}, nil
 }
 

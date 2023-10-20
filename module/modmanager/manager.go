@@ -713,7 +713,7 @@ func (m *module) registerResources(mgr modmaninterface.ModuleManager, logger log
 						ctx context.Context,
 						deps resource.Dependencies,
 						conf resource.Config,
-						logger logging.Logger,
+						logger logging.ZapCompatibleLogger,
 					) (resource.Resource, error) {
 						return mgr.AddResource(ctx, conf, DepsToNames(deps))
 					},
@@ -727,7 +727,7 @@ func (m *module) registerResources(mgr modmaninterface.ModuleManager, logger log
 						ctx context.Context,
 						deps resource.Dependencies,
 						conf resource.Config,
-						logger logging.Logger,
+						logger logging.ZapCompatibleLogger,
 					) (resource.Resource, error) {
 						return mgr.AddResource(ctx, conf, DepsToNames(deps))
 					},

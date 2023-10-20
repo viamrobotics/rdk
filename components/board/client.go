@@ -51,14 +51,14 @@ func NewClientFromConn(
 	conn rpc.ClientConn,
 	remoteName string,
 	name resource.Name,
-	logger logging.Logger,
+	logger logging.ZapCompatibleLogger,
 ) (Board, error) {
 	info := boardInfo{name: name.ShortName()}
 	bClient := pb.NewBoardServiceClient(conn)
 	c := &client{
 		Named:  name.PrependRemote(remoteName).AsNamed(),
 		client: bClient,
-		logger: logger,
+		logger: logging.FromZapCompatible(logger),
 		info:   info,
 	}
 	if err := c.refresh(ctx); err != nil {

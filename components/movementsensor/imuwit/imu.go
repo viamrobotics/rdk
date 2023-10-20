@@ -214,7 +214,7 @@ func newWit(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
-	logger logging.Logger,
+	logger logging.ZapCompatibleLogger,
 ) (movementsensor.MovementSensor, error) {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
@@ -239,7 +239,7 @@ func newWit(
 
 	i := wit{
 		Named:  conf.ResourceName().AsNamed(),
-		logger: logger,
+		logger: logging.FromZapCompatible(logger),
 		err:    movementsensor.NewLastError(1, 1),
 	}
 	logger.Debugf("initializing wit serial connection with parameters: %+v", options)
@@ -249,7 +249,7 @@ func newWit(
 	}
 
 	portReader := bufio.NewReader(i.port)
-	i.startUpdateLoop(context.Background(), portReader, logger)
+	i.startUpdateLoop(context.Background(), portReader, logging.FromZapCompatible(logger))
 
 	return &i, nil
 }

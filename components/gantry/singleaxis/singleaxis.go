@@ -109,10 +109,12 @@ type singleAxis struct {
 }
 
 // newSingleAxis creates a new single axis gantry.
-func newSingleAxis(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger) (gantry.Gantry, error) {
+func newSingleAxis(
+	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.ZapCompatibleLogger,
+) (gantry.Gantry, error) {
 	sAx := &singleAxis{
 		Named:  conf.ResourceName().AsNamed(),
-		logger: logger,
+		logger: logging.FromZapCompatible(logger),
 		opMgr:  operation.NewSingleOperationManager(),
 	}
 

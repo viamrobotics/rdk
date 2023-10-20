@@ -95,7 +95,7 @@ func init() {
 				ctx context.Context,
 				_ resource.Dependencies,
 				conf resource.Config,
-				logger logging.Logger,
+				logger logging.ZapCompatibleLogger,
 			) (camera.Camera, error) {
 				newConf, err := resource.NativeConfig[*Config](conf)
 				if err != nil {
@@ -112,7 +112,7 @@ func init() {
 					return nil, errors.New("need to specify a ttl")
 				}
 
-				return New(ctx, conf.ResourceName(), logger, port, ttl)
+				return New(ctx, conf.ResourceName(), logging.FromZapCompatible(logger), port, ttl)
 			},
 		})
 }

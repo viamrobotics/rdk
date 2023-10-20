@@ -57,10 +57,12 @@ type Arm struct {
 }
 
 // NewWrapperArm returns a wrapper component for another arm.
-func NewWrapperArm(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger) (arm.Arm, error) {
+func NewWrapperArm(
+	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.ZapCompatibleLogger,
+) (arm.Arm, error) {
 	a := &Arm{
 		Named:  conf.ResourceName().AsNamed(),
-		logger: logger,
+		logger: logging.FromZapCompatible(logger),
 		opMgr:  operation.NewSingleOperationManager(),
 	}
 	if err := a.Reconfigure(ctx, deps, conf); err != nil {

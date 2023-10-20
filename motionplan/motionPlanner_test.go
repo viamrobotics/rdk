@@ -25,11 +25,11 @@ var (
 	home6 = frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
 )
 
-var logger = logging.ZLogger{zap.Must(zap.Config{
+var logger = logging.FromZapCompatible(zap.Must(zap.Config{
 	Level:             zap.NewAtomicLevelAt(zap.FatalLevel),
 	Encoding:          "console",
 	DisableStacktrace: true,
-}.Build()).Sugar()}
+}.Build()).Sugar())
 
 type planConfig struct {
 	Start      []frame.Input

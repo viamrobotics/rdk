@@ -20,7 +20,9 @@ var model = resource.DefaultModelFamily.WithModel("color_detector")
 
 func init() {
 	resource.RegisterService(vision.API, model, resource.Registration[vision.Service, *objdet.ColorDetectorConfig]{
-		DeprecatedRobotConstructor: func(ctx context.Context, r any, c resource.Config, logger logging.Logger) (vision.Service, error) {
+		DeprecatedRobotConstructor: func(
+			ctx context.Context, r any, c resource.Config, logger logging.ZapCompatibleLogger,
+		) (vision.Service, error) {
 			attrs, err := resource.NativeConfig[*objdet.ColorDetectorConfig](c)
 			if err != nil {
 				return nil, err

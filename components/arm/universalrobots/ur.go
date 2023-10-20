@@ -58,8 +58,10 @@ var ur5modeljson []byte
 
 func init() {
 	resource.RegisterComponent(arm.API, Model, resource.Registration[arm.Arm, *Config]{
-		Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger logging.Logger) (arm.Arm, error) {
-			return URArmConnect(ctx, conf, logger)
+		Constructor: func(
+			ctx context.Context, _ resource.Dependencies, conf resource.Config, logger logging.ZapCompatibleLogger,
+		) (arm.Arm, error) {
+			return URArmConnect(ctx, conf, logging.FromZapCompatible(logger))
 		},
 	})
 }

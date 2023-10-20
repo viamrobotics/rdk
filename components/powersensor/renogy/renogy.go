@@ -71,7 +71,9 @@ func init() {
 		})
 }
 
-func newRenogy(_ context.Context, _ resource.Dependencies, conf resource.Config, logger logging.Logger) (powersensor.PowerSensor, error) {
+func newRenogy(
+	_ context.Context, _ resource.Dependencies, conf resource.Config, logger logging.ZapCompatibleLogger,
+) (powersensor.PowerSensor, error) {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return nil, err
@@ -89,7 +91,7 @@ func newRenogy(_ context.Context, _ resource.Dependencies, conf resource.Config,
 
 	r := &Renogy{
 		Named:    conf.ResourceName().AsNamed(),
-		logger:   logger,
+		logger:   logging.FromZapCompatible(logger),
 		path:     newConf.Path,
 		baud:     newConf.Baud,
 		modbusID: newConf.ModbusID,

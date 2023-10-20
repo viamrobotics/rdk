@@ -65,10 +65,10 @@ func init() {
 }
 
 // NewArm returns a new fake arm.
-func NewArm(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger) (arm.Arm, error) {
+func NewArm(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.ZapCompatibleLogger) (arm.Arm, error) {
 	a := &Arm{
 		Named:  conf.ResourceName().AsNamed(),
-		logger: logger,
+		logger: logging.FromZapCompatible(logger),
 	}
 	if err := a.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err

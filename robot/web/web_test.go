@@ -652,7 +652,7 @@ func TestWebWithBadAuthHandlers(t *testing.T) {
 }
 
 func TestWebWithOnlyNewAPIKeyAuthHandlers(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ctx, injectRobot := setupRobotCtx(t)
 
 	svc := web.New(injectRobot, logger)

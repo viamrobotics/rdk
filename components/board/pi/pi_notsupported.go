@@ -24,7 +24,7 @@ func init() {
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger logging.Logger,
+			logger logging.ZapCompatibleLogger,
 		) (board.Board, error) {
 			return nil, errors.New("not running on a pi")
 		}})
@@ -36,7 +36,7 @@ func init() {
 				ctx context.Context,
 				deps resource.Dependencies,
 				conf resource.Config,
-				logger logging.Logger,
+				logger logging.ZapCompatibleLogger,
 			) (servo.Servo, error) {
 				return nil, errors.New("not running on a pi")
 			},

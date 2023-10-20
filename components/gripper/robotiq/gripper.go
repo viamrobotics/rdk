@@ -38,12 +38,14 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 
 func init() {
 	resource.RegisterComponent(gripper.API, model, resource.Registration[gripper.Gripper, *Config]{
-		Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger logging.Logger) (gripper.Gripper, error) {
+		Constructor: func(
+			ctx context.Context, _ resource.Dependencies, conf resource.Config, logger logging.ZapCompatibleLogger,
+		) (gripper.Gripper, error) {
 			newConf, err := resource.NativeConfig[*Config](conf)
 			if err != nil {
 				return nil, err
 			}
-			return newGripper(ctx, conf, newConf.Host, logger)
+			return newGripper(ctx, conf, newConf.Host, logging.FromZapCompatible(logger))
 		},
 	})
 }

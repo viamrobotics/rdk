@@ -34,9 +34,9 @@ func init() {
 				ctx context.Context,
 				_ resource.Dependencies,
 				cfg resource.Config,
-				logger logging.Logger,
+				logger logging.ZapCompatibleLogger,
 			) (camera.Camera, error) {
-				return NewCamera(ctx, cfg, logger)
+				return NewCamera(ctx, cfg, logging.FromZapCompatible(logger))
 			},
 		})
 }
@@ -45,7 +45,7 @@ func init() {
 func NewCamera(
 	ctx context.Context,
 	conf resource.Config,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (camera.Camera, error) {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
@@ -169,7 +169,7 @@ type Camera struct {
 	Height          int
 	cacheImage      *image.RGBA
 	cachePointCloud pointcloud.PointCloud
-	logger          golog.Logger
+	logger          logging.Logger
 }
 
 // Read always returns the same image of a yellow to blue gradient.

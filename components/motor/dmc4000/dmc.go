@@ -89,12 +89,14 @@ func init() {
 	controllers = make(map[string]*controller)
 
 	resource.RegisterComponent(motor.API, model, resource.Registration[motor.Motor, *Config]{
-		Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger logging.Logger) (motor.Motor, error) {
+		Constructor: func(
+			ctx context.Context, _ resource.Dependencies, conf resource.Config, logger logging.ZapCompatibleLogger,
+		) (motor.Motor, error) {
 			newConf, err := resource.NativeConfig[*Config](conf)
 			if err != nil {
 				return nil, err
 			}
-			return NewMotor(ctx, newConf, conf.ResourceName(), logger)
+			return NewMotor(ctx, newConf, conf.ResourceName(), logging.FromZapCompatible(logger))
 		},
 	})
 }

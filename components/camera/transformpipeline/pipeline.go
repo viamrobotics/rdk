@@ -35,7 +35,7 @@ func init() {
 				ctx context.Context,
 				r any,
 				conf resource.Config,
-				logger logging.Logger,
+				logger logging.ZapCompatibleLogger,
 			) (camera.Camera, error) {
 				actualR, err := utils.AssertType[robot.Robot](r)
 				if err != nil {
@@ -50,11 +50,11 @@ func init() {
 				if err != nil {
 					return nil, fmt.Errorf("no source camera for transform pipeline (%s): %w", sourceName, err)
 				}
-				src, err := newTransformPipeline(ctx, source, newConf, actualR, logger)
+				src, err := newTransformPipeline(ctx, source, newConf, actualR, logging.FromZapCompatible(logger))
 				if err != nil {
 					return nil, err
 				}
-				return camera.FromVideoSource(conf.ResourceName(), src, logger), nil
+				return camera.FromVideoSource(conf.ResourceName(), src, logging.FromZapCompatible(logger)), nil
 			},
 		})
 }
@@ -84,7 +84,7 @@ func newTransformPipeline(
 	source gostream.VideoSource,
 	cfg *transformConfig,
 	r robot.Robot,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (camera.VideoSource, error) {
 	if source == nil {
 		return nil, errors.New("no source camera for transform pipeline")
@@ -134,7 +134,7 @@ type transformPipeline struct {
 	pipeline            []gostream.VideoSource
 	stream              gostream.VideoStream
 	intrinsicParameters *transform.PinholeCameraIntrinsics
-	logger              golog.Logger
+	logger              logging.Logger
 }
 
 func (tp transformPipeline) Read(ctx context.Context) (image.Image, func(), error) {

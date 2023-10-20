@@ -29,13 +29,13 @@ func init() {
 				_ context.Context,
 				_ resource.Dependencies,
 				conf resource.Config,
-				logger logging.Logger,
+				logger logging.ZapCompatibleLogger,
 			) (audioinput.AudioInput, error) {
 				newConf, err := resource.NativeConfig[*Config](conf)
 				if err != nil {
 					return nil, err
 				}
-				src, err := newMicrophoneSource(newConf, logger)
+				src, err := newMicrophoneSource(newConf, logging.FromZapCompatible(logger))
 				if err != nil {
 					return nil, err
 				}

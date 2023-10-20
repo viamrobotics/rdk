@@ -111,7 +111,9 @@ type servoGPIO struct {
 	currPct   float64
 }
 
-func newGPIOServo(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger) (servo.Servo, error) {
+func newGPIOServo(
+	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.ZapCompatibleLogger,
+) (servo.Servo, error) {
 	newConf, err := resource.NativeConfig[*servoConfig](conf)
 	if err != nil {
 		return nil, err
@@ -187,7 +189,7 @@ func newGPIOServo(ctx context.Context, deps resource.Dependencies, conf resource
 		maxDeg:    maxDeg,
 		frequency: frequency,
 		pin:       pin,
-		logger:    logger,
+		logger:    logging.FromZapCompatible(logger),
 		opMgr:     operation.NewSingleOperationManager(),
 		minUs:     minUs,
 		maxUs:     maxUs,

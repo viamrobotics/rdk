@@ -120,7 +120,7 @@ func newVectorNav(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
-	logger logging.Logger,
+	logger logging.ZapCompatibleLogger,
 ) (movementsensor.MovementSensor, error) {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
@@ -152,7 +152,7 @@ func newVectorNav(
 	v := &vectornav{
 		Named:     conf.ResourceName().AsNamed(),
 		bus:       spiBus,
-		logger:    logger,
+		logger:    logging.FromZapCompatible(logger),
 		cs:        cs,
 		speed:     speed,
 		busClosed: false,

@@ -100,7 +100,9 @@ func init() {
 	})
 }
 
-func new28byj(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger) (motor.Motor, error) {
+func new28byj(
+	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.ZapCompatibleLogger,
+) (motor.Motor, error) {
 	mc, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return nil, err
@@ -119,7 +121,7 @@ func new28byj(ctx context.Context, deps resource.Dependencies, conf resource.Con
 		Named:            conf.ResourceName().AsNamed(),
 		theBoard:         b,
 		ticksPerRotation: mc.TicksPerRotation,
-		logger:           logger,
+		logger:           logging.FromZapCompatible(logger),
 		motorName:        conf.Name,
 		opMgr:            operation.NewSingleOperationManager(),
 	}

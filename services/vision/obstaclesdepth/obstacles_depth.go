@@ -30,7 +30,9 @@ var model = resource.DefaultModelFamily.WithModel("obstacles_depth")
 
 func init() {
 	resource.RegisterService(svision.API, model, resource.Registration[svision.Service, *ObsDepthConfig]{
-		DeprecatedRobotConstructor: func(ctx context.Context, r any, c resource.Config, logger logging.Logger) (svision.Service, error) {
+		DeprecatedRobotConstructor: func(
+			ctx context.Context, r any, c resource.Config, logger logging.ZapCompatibleLogger,
+		) (svision.Service, error) {
 			attrs, err := resource.NativeConfig[*ObsDepthConfig](c)
 			if err != nil {
 				return nil, err
@@ -39,7 +41,7 @@ func init() {
 			if err != nil {
 				return nil, err
 			}
-			return registerObstaclesDepth(ctx, c.ResourceName(), attrs, actualR, logger)
+			return registerObstaclesDepth(ctx, c.ResourceName(), attrs, actualR, logging.FromZapCompatible(logger))
 		},
 	})
 }
@@ -96,7 +98,8 @@ func registerObstaclesDepth(
 }
 
 // BuildObsDepth will check for intrinsics and determine how to build based on that.
-func (o *obsDepth) buildObsDepth(logger logging.Logger) func(ctx context.Context, src camera.VideoSource) ([]*vision.Object, error) {
+func (o *obsDepth) buildObsDepth(logger logging.Logger) func(
+	ctx context.Context, src camera.VideoSource) ([]*vision.Object, error) {
 	return func(ctx context.Context, src camera.VideoSource) ([]*vision.Object, error) {
 		props, err := src.Properties(ctx)
 		if err != nil {

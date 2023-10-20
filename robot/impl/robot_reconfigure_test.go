@@ -86,7 +86,7 @@ func TestRobotReconfigure(t *testing.T) {
 				ctx context.Context,
 				deps resource.Dependencies,
 				conf resource.Config,
-				logger logging.Logger,
+				logger logging.ZapCompatibleLogger,
 			) (resource.Resource, error) {
 				// test if implicit depencies are properly propagated
 				for _, dep := range conf.ConvertedAttributes.(*mockFakeConfig).InferredDep {
@@ -111,7 +111,7 @@ func TestRobotReconfigure(t *testing.T) {
 				ctx context.Context,
 				deps resource.Dependencies,
 				conf resource.Config,
-				logger logging.Logger,
+				logger logging.ZapCompatibleLogger,
 			) (resource.Resource, error) {
 				if reconfigurableTrue && testReconfiguringMismatch {
 					reconfigurableTrue = false
@@ -2394,7 +2394,7 @@ func TestUpdateWeakDependents(t *testing.T) {
 				ctx context.Context,
 				deps resource.Dependencies,
 				conf resource.Config,
-				logger logging.Logger,
+				logger logging.ZapCompatibleLogger,
 			) (*someTypeWithWeakAndStrongDeps, error) {
 				return &someTypeWithWeakAndStrongDeps{
 					Named:     conf.ResourceName().AsNamed(),
@@ -2732,7 +2732,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 
 	ctx := context.Background()
 
-	remote1, err := New(ctx, cfg, &logging.ZLogger{logger.Named("remote1")})
+	remote1, err := New(ctx, cfg, logging.FromZapCompatible(logger.Named("remote1")))
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, remote1.Close(context.Background()), test.ShouldBeNil)
@@ -2742,7 +2742,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 	err = remote1.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	remote2, err := New(ctx, cfg, &logging.ZLogger{logger.Named("remote2")})
+	remote2, err := New(ctx, cfg, logging.FromZapCompatible(logger.Named("remote2")))
 	test.That(t, err, test.ShouldBeNil)
 
 	options, listener2, addr2 := robottestutils.CreateBaseOptionsAndListener(t)
@@ -2780,7 +2780,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 			},
 		},
 	}
-	r, err := New(ctx, localConfig, &logging.ZLogger{logger.Named("local")})
+	r, err := New(ctx, localConfig, logging.FromZapCompatible(logger.Named("local")))
 	defer func() {
 		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	}()
@@ -2867,7 +2867,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 		)
 	})
 
-	remote3, err := New(ctx, cfg, &logging.ZLogger{logger.Named("remote3")})
+	remote3, err := New(ctx, cfg, logging.FromZapCompatible(logger.Named("remote3")))
 	test.That(t, err, test.ShouldBeNil)
 
 	defer func() {
@@ -2910,7 +2910,7 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 
 	ctx := context.Background()
 
-	foo, err := New(ctx, fooCfg, &logging.ZLogger{logger.Named("foo")})
+	foo, err := New(ctx, fooCfg, logging.FromZapCompatible(logger.Named("foo")))
 	test.That(t, err, test.ShouldBeNil)
 
 	options, listener1, addr1 := robottestutils.CreateBaseOptionsAndListener(t)
@@ -2936,7 +2936,7 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 			},
 		},
 	}
-	r, err := New(ctx, localConfig, &logging.ZLogger{logger.Named("local")})
+	r, err := New(ctx, localConfig, logging.FromZapCompatible(logger.Named("local")))
 	defer func() {
 		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	}()
@@ -2993,7 +2993,7 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 		)
 	})
 
-	foo2, err := New(ctx, fooCfg, &logging.ZLogger{logger.Named("foo2")})
+	foo2, err := New(ctx, fooCfg, logging.FromZapCompatible(logger.Named("foo2")))
 	test.That(t, err, test.ShouldBeNil)
 
 	defer func() {
@@ -3036,7 +3036,7 @@ func TestInferRemoteRobotDependencyConnectAfterStartup(t *testing.T) {
 
 	ctx := context.Background()
 
-	foo, err := New(ctx, fooCfg, &logging.ZLogger{logger.Named("foo")})
+	foo, err := New(ctx, fooCfg, logging.FromZapCompatible(logger.Named("foo")))
 	test.That(t, err, test.ShouldBeNil)
 
 	options, _, addr1 := robottestutils.CreateBaseOptionsAndListener(t)
@@ -3060,7 +3060,7 @@ func TestInferRemoteRobotDependencyConnectAfterStartup(t *testing.T) {
 			},
 		},
 	}
-	r, err := New(ctx, localConfig, &logging.ZLogger{logger.Named("local")})
+	r, err := New(ctx, localConfig, logging.FromZapCompatible(logger.Named("local")))
 	defer func() {
 		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	}()
@@ -3132,13 +3132,13 @@ func TestInferRemoteRobotDependencyAmbiguous(t *testing.T) {
 
 	ctx := context.Background()
 
-	foo, err := New(ctx, remoteCfg, &logging.ZLogger{logger.Named("foo")})
+	foo, err := New(ctx, remoteCfg, logging.FromZapCompatible(logger.Named("foo")))
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, foo.Close(context.Background()), test.ShouldBeNil)
 	}()
 
-	bar, err := New(ctx, remoteCfg, &logging.ZLogger{logger.Named("bar")})
+	bar, err := New(ctx, remoteCfg, logging.FromZapCompatible(logger.Named("bar")))
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, bar.Close(context.Background()), test.ShouldBeNil)
@@ -3175,7 +3175,7 @@ func TestInferRemoteRobotDependencyAmbiguous(t *testing.T) {
 			},
 		},
 	}
-	r, err := New(ctx, localConfig, &logging.ZLogger{logger.Named("local")})
+	r, err := New(ctx, localConfig, logging.FromZapCompatible(logger.Named("local")))
 	defer func() {
 		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	}()
@@ -3267,7 +3267,7 @@ func TestReconfigureModelRebuild(t *testing.T) {
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger logging.Logger,
+			logger logging.ZapCompatibleLogger,
 		) (resource.Resource, error) {
 			return &mockFake{Named: conf.ResourceName().AsNamed(), shouldRebuild: true}, nil
 		},
@@ -3347,7 +3347,7 @@ func TestReconfigureModelSwitch(t *testing.T) {
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger logging.Logger,
+			logger logging.ZapCompatibleLogger,
 		) (resource.Resource, error) {
 			return &mockFake{Named: conf.ResourceName().AsNamed()}, nil
 		},
@@ -3357,7 +3357,7 @@ func TestReconfigureModelSwitch(t *testing.T) {
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger logging.Logger,
+			logger logging.ZapCompatibleLogger,
 		) (resource.Resource, error) {
 			return &mockFake2{Named: conf.ResourceName().AsNamed()}, nil
 		},
@@ -3436,7 +3436,7 @@ func TestReconfigureModelSwitchErr(t *testing.T) {
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger logging.Logger,
+			logger logging.ZapCompatibleLogger,
 		) (resource.Resource, error) {
 			newCount++
 			return &mockFake{Named: conf.ResourceName().AsNamed()}, nil
@@ -3521,7 +3521,7 @@ func TestReconfigureRename(t *testing.T) {
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger logging.Logger,
+			logger logging.ZapCompatibleLogger,
 		) (resource.Resource, error) {
 			return &mockFake{
 				Named:        conf.ResourceName().AsNamed(),
@@ -3719,7 +3719,7 @@ func TestResourceConstructCtxCancel(t *testing.T) {
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger logging.Logger,
+			logger logging.ZapCompatibleLogger,
 		) (resource.Resource, error) {
 			contructCount++
 			wg.Add(1)

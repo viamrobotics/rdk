@@ -132,7 +132,7 @@ func newNMEAGPS(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
-	logger logging.Logger,
+	logger logging.ZapCompatibleLogger,
 ) (movementsensor.MovementSensor, error) {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
@@ -141,9 +141,9 @@ func newNMEAGPS(
 
 	switch strings.ToLower(newConf.ConnectionType) {
 	case serialStr:
-		return NewSerialGPSNMEA(ctx, conf.ResourceName(), newConf, logger)
+		return NewSerialGPSNMEA(ctx, conf.ResourceName(), newConf, logging.FromZapCompatible(logger))
 	case i2cStr:
-		return NewPmtkI2CGPSNMEA(ctx, deps, conf.ResourceName(), newConf, logger)
+		return NewPmtkI2CGPSNMEA(ctx, deps, conf.ResourceName(), newConf, logging.FromZapCompatible(logger))
 	default:
 		return nil, connectionTypeError(
 			newConf.ConnectionType,

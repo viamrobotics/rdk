@@ -334,7 +334,7 @@ func RobotsPartRunAction(c *cli.Context) error {
 	}
 
 	// Create logger based on presence of debugFlag.
-	var logger logging.Logger = &logging.ZLogger{zap.NewNop().Sugar()}
+	logger := logging.FromZapCompatible(zap.NewNop().Sugar())
 	if c.Bool(debugFlag) {
 		logger = logging.NewDebugLogger("cli")
 	}
@@ -362,7 +362,7 @@ func RobotsPartShellAction(c *cli.Context) error {
 	}
 
 	// Create logger based on presence of debugFlag.
-	var logger logging.Logger = &logging.ZLogger{zap.NewNop().Sugar()}
+	logger := logging.FromZapCompatible(zap.NewNop().Sugar())
 	if c.Bool(debugFlag) {
 		logger = logging.NewDebugLogger("cli")
 	}

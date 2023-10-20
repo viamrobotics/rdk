@@ -64,10 +64,12 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 	return nil
 }
 
-func newHelper(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger) (resource.Resource, error) {
+func newHelper(
+	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.ZapCompatibleLogger,
+) (resource.Resource, error) {
 	return &helper{
 		Named:  conf.ResourceName().AsNamed(),
-		logger: logger,
+		logger: logging.FromZapCompatible(logger),
 	}, nil
 }
 
@@ -110,7 +112,9 @@ func (h *helper) DoCommand(ctx context.Context, req map[string]interface{}) (map
 	}
 }
 
-func newTestMotor(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger) (resource.Resource, error) {
+func newTestMotor(
+	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.ZapCompatibleLogger,
+) (resource.Resource, error) {
 	return &testMotor{
 		Named: conf.ResourceName().AsNamed(),
 	}, nil

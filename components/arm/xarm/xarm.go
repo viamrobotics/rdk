@@ -101,9 +101,9 @@ func init() {
 				ctx context.Context,
 				_ resource.Dependencies,
 				conf resource.Config,
-				logger logging.Logger,
+				logger logging.ZapCompatibleLogger,
 			) (arm.Arm, error) {
-				return NewxArm(ctx, conf, logger, localArmModelName)
+				return NewxArm(ctx, conf, logging.FromZapCompatible(logger), localArmModelName)
 			},
 		})
 	}

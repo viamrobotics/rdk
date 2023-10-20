@@ -88,13 +88,13 @@ func init() {
 					ctx context.Context,
 					deps resource.Dependencies,
 					conf resource.Config,
-					logger logging.Logger,
+					logger logging.ZapCompatibleLogger,
 				) (powersensor.PowerSensor, error) {
 					newConf, err := resource.NativeConfig[*Config](conf)
 					if err != nil {
 						return nil, err
 					}
-					return newINA(conf.ResourceName(), newConf, logger, localModelName)
+					return newINA(conf.ResourceName(), newConf, logging.FromZapCompatible(logger), localModelName)
 				},
 			})
 	}

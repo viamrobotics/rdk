@@ -59,13 +59,13 @@ func init() {
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger logging.Logger,
+			logger logging.ZapCompatibleLogger,
 		) (motor.Motor, error) {
 			newConf, err := resource.NativeConfig[*Config](conf)
 			if err != nil {
 				return nil, err
 			}
-			return NewMotor(ctx, deps, newConf, conf.ResourceName(), logger)
+			return NewMotor(ctx, deps, newConf, conf.ResourceName(), logging.FromZapCompatible(logger))
 		},
 	})
 }

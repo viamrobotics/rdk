@@ -170,7 +170,7 @@ func NewAdxl345(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
-	logger logging.Logger,
+	logger logging.ZapCompatibleLogger,
 ) (movementsensor.MovementSensor, error) {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
@@ -208,7 +208,7 @@ func NewAdxl345(
 		bus:                      bus,
 		i2cAddress:               address,
 		interruptsEnabled:        interruptConfigurations[IntEnableAddr],
-		logger:                   logger,
+		logger:                   logging.FromZapCompatible(logger),
 		cancelContext:            cancelContext,
 		cancelFunc:               cancelFunc,
 		configuredRegisterValues: configuredRegisterValues,

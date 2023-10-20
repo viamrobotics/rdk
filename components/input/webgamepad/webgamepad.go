@@ -21,7 +21,9 @@ func init() {
 }
 
 // NewController creates a new gamepad.
-func NewController(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger logging.Logger) (input.Controller, error) {
+func NewController(
+	ctx context.Context, _ resource.Dependencies, conf resource.Config, logger logging.ZapCompatibleLogger,
+) (input.Controller, error) {
 	return &webGamepad{
 		Named:      conf.ResourceName().AsNamed(),
 		callbacks:  map[input.Control]map[input.EventType]input.ControlFunction{},
@@ -33,7 +35,7 @@ func NewController(ctx context.Context, _ resource.Dependencies, conf resource.C
 			input.ButtonLT, input.ButtonRT, input.ButtonLThumb, input.ButtonRThumb,
 			input.ButtonSelect, input.ButtonStart, input.ButtonMenu,
 		},
-		logger: logger,
+		logger: logging.FromZapCompatible(logger),
 	}, nil
 }
 

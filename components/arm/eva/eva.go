@@ -45,8 +45,10 @@ var evamodeljson []byte
 
 func init() {
 	resource.RegisterComponent(arm.API, Model, resource.Registration[arm.Arm, *Config]{
-		Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger logging.Logger) (arm.Arm, error) {
-			return NewEva(ctx, conf, logger)
+		Constructor: func(
+			ctx context.Context, _ resource.Dependencies, conf resource.Config, logger logging.ZapCompatibleLogger,
+		) (arm.Arm, error) {
+			return NewEva(ctx, conf, logging.FromZapCompatible(logger))
 		},
 	})
 }

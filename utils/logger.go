@@ -35,5 +35,5 @@ func NewFilePathDebugLogger(filepath, name string) (logging.Logger, error) {
 		return nil, err
 	}
 
-	return &logging.ZLogger{logger.Sugar().Named(name)}, nil
+	return logging.FromZapCompatible(logger.Sugar().Named(name)), nil
 }

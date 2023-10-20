@@ -207,7 +207,7 @@ func createWheeledBase(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
-	logger logging.Logger,
+	logger logging.ZapCompatibleLogger,
 ) (base.Base, error) {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
@@ -220,7 +220,7 @@ func createWheeledBase(
 		wheelCircumferenceMm: newConf.WheelCircumferenceMM,
 		spinSlipFactor:       newConf.SpinSlipFactor,
 		opMgr:                operation.NewSingleOperationManager(),
-		logger:               logger,
+		logger:               logging.FromZapCompatible(logger),
 		name:                 conf.Name,
 	}
 

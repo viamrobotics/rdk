@@ -104,7 +104,9 @@ type Config struct {
 }
 
 // createLimoBase returns a AgileX limo base.
-func createLimoBase(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger logging.Logger) (base.Base, error) {
+func createLimoBase(
+	ctx context.Context, _ resource.Dependencies, conf resource.Config, logger logging.ZapCompatibleLogger,
+) (base.Base, error) {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return nil, err
@@ -125,7 +127,7 @@ func createLimoBase(ctx context.Context, _ resource.Dependencies, conf resource.
 		driveMode:          newConf.DriveMode,
 		opMgr:              operation.NewSingleOperationManager(),
 		testChan:           newConf.TestChan, // for testing only
-		logger:             logger,
+		logger:             logging.FromZapCompatible(logger),
 		width:              defaultBaseTreadMm,
 		wheelbase:          200,
 		maxLinearVelocity:  3000,

@@ -20,8 +20,10 @@ import (
 
 func init() {
 	resource.RegisterService(shell.API, resource.DefaultServiceModel, resource.Registration[shell.Service, resource.NoNativeConfig]{
-		Constructor: func(ctx context.Context, dep resource.Dependencies, c resource.Config, logger logging.Logger) (shell.Service, error) {
-			return NewBuiltIn(c.ResourceName(), logger)
+		Constructor: func(
+			ctx context.Context, dep resource.Dependencies, c resource.Config, logger logging.ZapCompatibleLogger,
+		) (shell.Service, error) {
+			return NewBuiltIn(c.ResourceName(), logging.FromZapCompatible(logger))
 		},
 	},
 	)

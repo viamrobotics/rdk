@@ -72,9 +72,9 @@ func init() {
 				ctx context.Context,
 				_ resource.Dependencies,
 				cfg resource.Config,
-				logger logging.Logger,
+				logger logging.ZapCompatibleLogger,
 			) (board.Board, error) {
-				return NewBoard(ctx, cfg, logger)
+				return NewBoard(ctx, cfg, logging.FromZapCompatible(logger))
 			},
 		})
 }

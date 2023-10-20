@@ -35,33 +35,33 @@ func init() {
 	resource.RegisterComponent(camera.API, modelSingle,
 		resource.Registration[camera.Camera, *ServerConfig]{
 			Constructor: func(ctx context.Context, _ resource.Dependencies,
-				conf resource.Config, logger logging.Logger,
+				conf resource.Config, logger logging.ZapCompatibleLogger,
 			) (camera.Camera, error) {
 				newConf, err := resource.NativeConfig[*ServerConfig](conf)
 				if err != nil {
 					return nil, err
 				}
-				src, err := NewServerSource(ctx, newConf, logger)
+				src, err := NewServerSource(ctx, newConf, logging.FromZapCompatible(logger))
 				if err != nil {
 					return nil, err
 				}
-				return camera.FromVideoSource(conf.ResourceName(), src, logger), nil
+				return camera.FromVideoSource(conf.ResourceName(), src, logging.FromZapCompatible(logger)), nil
 			},
 		})
 	resource.RegisterComponent(camera.API, modelDual,
 		resource.Registration[camera.Camera, *dualServerConfig]{
 			Constructor: func(ctx context.Context, _ resource.Dependencies,
-				conf resource.Config, logger logging.Logger,
+				conf resource.Config, logger logging.ZapCompatibleLogger,
 			) (camera.Camera, error) {
 				newConf, err := resource.NativeConfig[*dualServerConfig](conf)
 				if err != nil {
 					return nil, err
 				}
-				src, err := newDualServerSource(ctx, newConf, logger)
+				src, err := newDualServerSource(ctx, newConf, logging.FromZapCompatible(logger))
 				if err != nil {
 					return nil, err
 				}
-				return camera.FromVideoSource(conf.ResourceName(), src, logger), nil
+				return camera.FromVideoSource(conf.ResourceName(), src, logging.FromZapCompatible(logger)), nil
 			},
 		})
 }

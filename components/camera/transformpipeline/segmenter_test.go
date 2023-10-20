@@ -6,11 +6,11 @@ import (
 	"image/color"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"github.com/viamrobotics/gostream"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/logging"
 	pc "go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	vizservices "go.viam.com/rdk/services/vision"
@@ -24,7 +24,7 @@ func TestTransformSegmenterProps(t *testing.T) {
 	r := &inject.Robot{}
 	cam := &inject.Camera{}
 	vizServ := &inject.VisionService{}
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	cam.StreamFunc = func(ctx context.Context,
 		errHandlers ...gostream.ErrorHandler,
@@ -88,7 +88,7 @@ func TestTransformSegmenterFunctionality(t *testing.T) {
 	r := &inject.Robot{}
 	cam := &inject.Camera{}
 	vizServ := &inject.VisionService{}
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	cam.StreamFunc = func(ctx context.Context,
 		errHandlers ...gostream.ErrorHandler,

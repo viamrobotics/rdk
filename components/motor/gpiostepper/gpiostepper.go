@@ -89,14 +89,14 @@ func init() {
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger logging.Logger,
+			logger logging.ZapCompatibleLogger,
 		) (motor.Motor, error) {
 			actualBoard, motorConfig, err := getBoardFromRobotConfig(deps, conf)
 			if err != nil {
 				return nil, err
 			}
 
-			return newGPIOStepper(ctx, actualBoard, *motorConfig, conf.ResourceName(), logger)
+			return newGPIOStepper(ctx, actualBoard, *motorConfig, conf.ResourceName(), logging.FromZapCompatible(logger))
 		},
 	})
 }

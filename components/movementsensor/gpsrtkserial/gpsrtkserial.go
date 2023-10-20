@@ -196,7 +196,7 @@ func newRTKSerial(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
-	logger logging.Logger,
+	logger logging.ZapCompatibleLogger,
 ) (movementsensor.MovementSensor, error) {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
@@ -208,7 +208,7 @@ func newRTKSerial(
 		Named:              conf.ResourceName().AsNamed(),
 		cancelCtx:          cancelCtx,
 		cancelFunc:         cancelFunc,
-		logger:             logger,
+		logger:             logging.FromZapCompatible(logger),
 		err:                movementsensor.NewLastError(1, 1),
 		lastposition:       movementsensor.NewLastPosition(),
 		lastcompassheading: movementsensor.NewLastCompassHeading(),
@@ -229,7 +229,7 @@ func newRTKSerial(
 		SerialPath:     newConf.SerialPath,
 		SerialBaudRate: newConf.SerialBaudRate,
 	}
-	g.nmeamovementsensor, err = gpsnmea.NewSerialGPSNMEA(ctx, conf.ResourceName(), nmeaConf, logger)
+	g.nmeamovementsensor, err = gpsnmea.NewSerialGPSNMEA(ctx, conf.ResourceName(), nmeaConf, logging.FromZapCompatible(logger))
 	if err != nil {
 		return nil, err
 	}

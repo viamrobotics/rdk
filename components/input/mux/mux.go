@@ -32,7 +32,7 @@ func NewController(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
-	logger logging.Logger,
+	logger logging.ZapCompatibleLogger,
 ) (input.Controller, error) {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
@@ -46,7 +46,7 @@ func NewController(
 		cancelFunc:    cancel,
 		ctxWithCancel: ctxWithCancel,
 		eventsChan:    make(chan input.Event, 1024),
-		logger:        logger,
+		logger:        logging.FromZapCompatible(logger),
 	}
 
 	for _, s := range newConf.Sources {

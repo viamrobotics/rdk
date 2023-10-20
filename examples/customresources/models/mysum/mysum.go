@@ -41,7 +41,7 @@ type mySum struct {
 func newMySum(ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
-	logger logging.Logger,
+	logger logging.ZapCompatibleLogger,
 ) (summationapi.Summation, error) {
 	summer := &mySum{
 		Named: conf.ResourceName().AsNamed(),

@@ -60,7 +60,7 @@ func newMultiAxis(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
-	logger logging.Logger,
+	logger logging.ZapCompatibleLogger,
 ) (gantry.Gantry, error) {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
@@ -69,7 +69,7 @@ func newMultiAxis(
 
 	mAx := &multiAxis{
 		Named:  conf.ResourceName().AsNamed(),
-		logger: logger,
+		logger: logging.FromZapCompatible(logger),
 		opMgr:  operation.NewSingleOperationManager(),
 	}
 

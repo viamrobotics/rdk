@@ -63,11 +63,11 @@ func init() {
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger logging.Logger,
+			logger logging.ZapCompatibleLogger,
 		) (motor.Motor, error) {
 			m := &Motor{
 				Named:  conf.ResourceName().AsNamed(),
-				Logger: logger,
+				Logger: logging.FromZapCompatible(logger),
 				OpMgr:  operation.NewSingleOperationManager(),
 			}
 			if err := m.Reconfigure(ctx, deps, conf); err != nil {

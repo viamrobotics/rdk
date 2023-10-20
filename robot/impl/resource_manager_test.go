@@ -1612,7 +1612,7 @@ func TestReconfigure(t *testing.T) {
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger logging.Logger,
+			logger logging.ZapCompatibleLogger,
 		) (resource.Resource, error) {
 			return &mock{
 				Named: conf.ResourceName().AsNamed(),
@@ -1674,7 +1674,9 @@ func TestResourceCreationPanic(t *testing.T) {
 		model := resource.DefaultModelFamily.WithModel("test")
 
 		resource.RegisterComponent(api, model, resource.Registration[resource.Resource, resource.NoNativeConfig]{
-			Constructor: func(ctx context.Context, deps resource.Dependencies, c resource.Config, logger logging.Logger) (resource.Resource, error) {
+			Constructor: func(
+				ctx context.Context, deps resource.Dependencies, c resource.Config, logger logging.ZapCompatibleLogger,
+			) (resource.Resource, error) {
 				panic("hello")
 			},
 		})
@@ -1703,7 +1705,7 @@ func TestResourceCreationPanic(t *testing.T) {
 				ctx context.Context,
 				deps resource.Dependencies,
 				c resource.Config,
-				logger logging.Logger,
+				logger logging.ZapCompatibleLogger,
 			) (resource.Resource, error) {
 				panic("hello")
 			},
@@ -1857,7 +1859,7 @@ func (rr *dummyRobot) StopAll(ctx context.Context, extra map[resource.Name]map[s
 // managerForDummyRobot integrates all parts from a given robot
 // except for its remotes.
 func managerForDummyRobot(robot robot.Robot) *resourceManager {
-	manager := newResourceManager(resourceManagerOptions{}, &logging.ZLogger{robot.Logger().Named("manager")})
+	manager := newResourceManager(resourceManagerOptions{}, logging.FromZapCompatible(robot.Logger().Named("manager")))
 
 	// start a dummy module manager so calls to moduleManager.Provides() do not
 	// panic.

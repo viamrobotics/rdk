@@ -47,20 +47,24 @@ var (
 func init() {
 	resource.Register(workingQ.API, workingQ.Model, resource.Registration[resource.Resource, resource.NoNativeConfig]{
 		Constructor: func(
-			ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
+			ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.ZapCompatibleLogger,
 		) (resource.Resource, error) {
 			return nil, errors.New("no")
 		},
-		Discover: func(ctx context.Context, logger logging.Logger) (interface{}, error) { return workingDiscovery, nil },
+		Discover: func(ctx context.Context, logger logging.ZapCompatibleLogger) (interface{}, error) {
+			return workingDiscovery, nil
+		},
 	})
 
 	resource.Register(failQ.API, failQ.Model, resource.Registration[resource.Resource, resource.NoNativeConfig]{
 		Constructor: func(
-			ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
+			ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.ZapCompatibleLogger,
 		) (resource.Resource, error) {
 			return nil, errors.New("no")
 		},
-		Discover: func(ctx context.Context, logger logging.Logger) (interface{}, error) { return nil, errFailed },
+		Discover: func(ctx context.Context, logger logging.ZapCompatibleLogger) (interface{}, error) {
+			return nil, errFailed
+		},
 	})
 }
 

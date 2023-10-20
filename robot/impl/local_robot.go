@@ -648,7 +648,7 @@ func (r *localRobot) newResource(
 		}
 	}
 
-	resLogger := &logging.ZLogger{r.logger.Named(conf.ResourceName().String())}
+	resLogger := logging.FromZapCompatible(r.logger.Named(conf.ResourceName().String()))
 	if resInfo.Constructor != nil {
 		return resInfo.Constructor(ctx, deps, conf, resLogger)
 	}
@@ -978,7 +978,7 @@ func (r *localRobot) DiscoverComponents(ctx context.Context, qs []resource.Disco
 		}
 
 		if reg.Discover != nil {
-			discovered, err := reg.Discover(ctx, &logging.ZLogger{r.logger.Named("discovery")})
+			discovered, err := reg.Discover(ctx, logging.FromZapCompatible(r.logger.Named("discovery")))
 			if err != nil {
 				return nil, &resource.DiscoverError{Query: q}
 			}

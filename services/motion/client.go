@@ -31,14 +31,14 @@ func NewClientFromConn(
 	conn rpc.ClientConn,
 	remoteName string,
 	name resource.Name,
-	logger logging.Logger,
+	logger logging.ZapCompatibleLogger,
 ) (Service, error) {
 	grpcClient := pb.NewMotionServiceClient(conn)
 	c := &client{
 		Named:  name.PrependRemote(remoteName).AsNamed(),
 		name:   name.ShortName(),
 		client: grpcClient,
-		logger: logger,
+		logger: logging.FromZapCompatible(logger),
 	}
 	return c, nil
 }

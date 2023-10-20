@@ -141,9 +141,9 @@ func init() {
 				ctx context.Context,
 				deps resource.Dependencies,
 				conf resource.Config,
-				logger logging.Logger,
+				logger logging.ZapCompatibleLogger,
 			) (motor.Motor, error) {
-				return newRoboClaw(conf, logger)
+				return newRoboClaw(conf, logging.FromZapCompatible(logger))
 			},
 		},
 	)

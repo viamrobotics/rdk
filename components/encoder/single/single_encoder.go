@@ -112,12 +112,12 @@ func NewSingleEncoder(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
-	logger logging.Logger,
+	logger logging.ZapCompatibleLogger,
 ) (encoder.Encoder, error) {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	e := &Encoder{
 		Named:        conf.ResourceName().AsNamed(),
-		logger:       logger,
+		logger:       logging.FromZapCompatible(logger),
 		cancelCtx:    cancelCtx,
 		cancelFunc:   cancelFunc,
 		position:     0,

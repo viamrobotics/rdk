@@ -110,7 +110,7 @@ func NewMpu6050(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
-	logger logging.Logger,
+	logger logging.ZapCompatibleLogger,
 ) (movementsensor.MovementSensor, error) {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
@@ -143,7 +143,7 @@ func NewMpu6050(
 		Named:             conf.ResourceName().AsNamed(),
 		bus:               bus,
 		i2cAddress:        address,
-		logger:            logger,
+		logger:            logging.FromZapCompatible(logger),
 		backgroundContext: backgroundContext,
 		cancelFunc:        cancelFunc,
 		// On overloaded boards, the I2C bus can become flaky. Only report errors if at least 5 of

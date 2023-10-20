@@ -59,13 +59,13 @@ func init() {
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger logging.Logger,
+			logger logging.ZapCompatibleLogger,
 		) (gripper.Gripper, error) {
 			b, err := board.FromDependencies(deps, "local")
 			if err != nil {
 				return nil, err
 			}
-			return newGripper(b, conf, logger)
+			return newGripper(b, conf, logging.FromZapCompatible(logger))
 		},
 	})
 }

@@ -56,7 +56,7 @@ func init() {
 			conn rpc.ClientConn,
 			remoteName string,
 			name resource.Name,
-			logger logging.Logger,
+			logger logging.ZapCompatibleLogger,
 		) (resource.Resource, error) {
 			return NewClientFromConn(ctx, conn, remoteName, name, logger), nil
 		},
@@ -69,7 +69,7 @@ func init() {
 				ctx context.Context,
 				_ resource.Dependencies,
 				conf resource.Config,
-				logger logging.Logger,
+				logger logging.ZapCompatibleLogger,
 			) (resource.Resource, error) {
 				panic("never construct")
 			},
@@ -708,7 +708,7 @@ func NewClientFromConn(
 	conn rpc.ClientConn,
 	remoteName string,
 	name resource.Name,
-	logger logging.Logger,
+	logger logging.ZapCompatibleLogger,
 ) resource.Resource {
 	c := echopb.NewEchoResourceServiceClient(conn)
 	return &dummyClient{

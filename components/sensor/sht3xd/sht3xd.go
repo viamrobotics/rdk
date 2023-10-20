@@ -60,13 +60,13 @@ func init() {
 				ctx context.Context,
 				deps resource.Dependencies,
 				conf resource.Config,
-				logger logging.Logger,
+				logger logging.ZapCompatibleLogger,
 			) (sensor.Sensor, error) {
 				newConf, err := resource.NativeConfig[*Config](conf)
 				if err != nil {
 					return nil, err
 				}
-				return newSensor(ctx, deps, conf.ResourceName(), newConf, logger)
+				return newSensor(ctx, deps, conf.ResourceName(), newConf, logging.FromZapCompatible(logger))
 			},
 		})
 }

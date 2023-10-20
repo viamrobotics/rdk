@@ -84,13 +84,15 @@ func getBoardFromRobotConfig(deps resource.Dependencies, conf resource.Config) (
 	return b, motorConfig, nil
 }
 
-func createNewMotor(ctx context.Context, deps resource.Dependencies, cfg resource.Config, logger logging.Logger) (motor.Motor, error) {
+func createNewMotor(
+	ctx context.Context, deps resource.Dependencies, cfg resource.Config, logger logging.ZapCompatibleLogger,
+) (motor.Motor, error) {
 	actualBoard, motorConfig, err := getBoardFromRobotConfig(deps, cfg)
 	if err != nil {
 		return nil, err
 	}
 
-	m, err := NewMotor(actualBoard, *motorConfig, cfg.ResourceName(), logger)
+	m, err := NewMotor(actualBoard, *motorConfig, cfg.ResourceName(), logging.FromZapCompatible(logger))
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +102,7 @@ func createNewMotor(ctx context.Context, deps resource.Dependencies, cfg resourc
 			return nil, err
 		}
 
-		m, err = WrapMotorWithEncoder(ctx, e, cfg, *motorConfig, m, logger)
+		m, err = WrapMotorWithEncoder(ctx, e, cfg, *motorConfig, m, logging.FromZapCompatible(logger))
 		if err != nil {
 			return nil, err
 		}

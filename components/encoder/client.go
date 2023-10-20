@@ -29,7 +29,7 @@ func NewClientFromConn(
 	conn rpc.ClientConn,
 	remoteName string,
 	name resource.Name,
-	logger logging.Logger,
+	logger logging.ZapCompatibleLogger,
 ) (Encoder, error) {
 	c := pb.NewEncoderServiceClient(conn)
 	return &client{
@@ -37,7 +37,7 @@ func NewClientFromConn(
 		name:   name.ShortName(),
 		conn:   conn,
 		client: c,
-		logger: logger,
+		logger: logging.FromZapCompatible(logger),
 	}, nil
 }
 

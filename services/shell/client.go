@@ -32,7 +32,7 @@ func NewClientFromConn(
 	conn rpc.ClientConn,
 	remoteName string,
 	name resource.Name,
-	logger logging.Logger,
+	logger logging.ZapCompatibleLogger,
 ) (Service, error) {
 	grpcClient := pb.NewShellServiceClient(conn)
 	c := &client{
@@ -40,7 +40,7 @@ func NewClientFromConn(
 		name:   name.ShortName(),
 		conn:   conn,
 		client: grpcClient,
-		logger: logger,
+		logger: logging.FromZapCompatible(logger),
 	}
 	return c, nil
 }

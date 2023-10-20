@@ -22,8 +22,10 @@ func init() {
 		input.API,
 		model,
 		resource.Registration[input.Controller, *Config]{
-			Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger logging.Logger) (input.Controller, error) {
-				return NewInputController(ctx, conf, logger)
+			Constructor: func(
+				ctx context.Context, _ resource.Dependencies, conf resource.Config, logger logging.ZapCompatibleLogger,
+			) (input.Controller, error) {
+				return NewInputController(ctx, conf, logging.FromZapCompatible(logger))
 			},
 		},
 	)

@@ -66,11 +66,11 @@ func init() {
 		})
 }
 
-func newMergedModel(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger) (
+func newMergedModel(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.ZapCompatibleLogger) (
 	movementsensor.MovementSensor, error,
 ) {
 	m := merged{
-		logger: logger,
+		logger: logging.FromZapCompatible(logger),
 		Named:  conf.ResourceName().AsNamed(),
 	}
 

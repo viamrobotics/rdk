@@ -112,11 +112,11 @@ func NewBuiltIn(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
-	logger logging.Logger,
+	logger logging.ZapCompatibleLogger,
 ) (datamanager.Service, error) {
 	svc := &builtIn{
 		Named:                       conf.ResourceName().AsNamed(),
-		logger:                      logger,
+		logger:                      logging.FromZapCompatible(logger),
 		captureDir:                  viamCaptureDotDir,
 		collectors:                  make(map[resourceMethodMetadata]*collectorAndConfig),
 		syncIntervalMins:            0,

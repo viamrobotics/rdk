@@ -58,7 +58,7 @@ func TestModularResources(t *testing.T) {
 				ctx context.Context,
 				deps resource.Dependencies,
 				conf resource.Config,
-				logger logging.Logger,
+				logger logging.ZapCompatibleLogger,
 			) (resource.Resource, error) {
 				return mod.AddResource(ctx, conf, modmanager.DepsToNames(deps))
 			},
@@ -68,7 +68,7 @@ func TestModularResources(t *testing.T) {
 				ctx context.Context,
 				deps resource.Dependencies,
 				conf resource.Config,
-				logger logging.Logger,
+				logger logging.ZapCompatibleLogger,
 			) (resource.Resource, error) {
 				return mod.AddResource(ctx, conf, modmanager.DepsToNames(deps))
 			},
@@ -81,7 +81,7 @@ func TestModularResources(t *testing.T) {
 				ctx context.Context,
 				deps resource.Dependencies,
 				conf resource.Config,
-				logger logging.Logger,
+				logger logging.ZapCompatibleLogger,
 			) (resource.Resource, error) {
 				return mod.AddResource(ctx, conf, modmanager.DepsToNames(deps))
 			},

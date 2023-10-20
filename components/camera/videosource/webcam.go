@@ -46,8 +46,8 @@ func init() {
 		ModelWebcam,
 		resource.Registration[camera.Camera, *WebcamConfig]{
 			Constructor: NewWebcam,
-			Discover: func(ctx context.Context, logger logging.Logger) (interface{}, error) {
-				return Discover(ctx, getVideoDrivers, logger)
+			Discover: func(ctx context.Context, logger logging.ZapCompatibleLogger) (interface{}, error) {
+				return Discover(ctx, getVideoDrivers, logging.FromZapCompatible(logger))
 			},
 		})
 	if err := json.Unmarshal(intrinsics, &data); err != nil {
@@ -271,13 +271,13 @@ func NewWebcam(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
-	logger logging.Logger,
+	logger logging.ZapCompatibleLogger,
 ) (camera.Camera, error) {
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	cam := &monitoredWebcam{
 		Named:          conf.ResourceName().AsNamed(),
-		logger:         &logging.ZLogger{logger.With("camera_name", conf.ResourceName().ShortName())},
-		originalLogger: logger,
+		logger:         logging.FromZapCompatible(logger.With("camera_name", conf.ResourceName().ShortName())),
+		originalLogger: logging.FromZapCompatible(logger),
 		cancelCtx:      cancelCtx,
 		cancel:         cancel,
 	}
@@ -501,7 +501,7 @@ func (c *monitoredWebcam) reconnectCamera(conf *WebcamConfig) error {
 	if c.targetPath == "" {
 		c.targetPath = foundLabel
 	}
-	c.logger = &logging.ZLogger{c.originalLogger.With("camera_label", c.targetPath)}
+	c.logger = logging.FromZapCompatible(c.originalLogger.With("camera_label", c.targetPath))
 
 	return nil
 }

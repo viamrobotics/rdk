@@ -91,7 +91,7 @@ func NewGPIOController(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
-	logger logging.Logger,
+	logger logging.ZapCompatibleLogger,
 ) (input.Controller, error) {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
@@ -101,7 +101,7 @@ func NewGPIOController(
 	ctx, cancel := context.WithCancel(ctx)
 	c := Controller{
 		Named:      conf.ResourceName().AsNamed(),
-		logger:     logger,
+		logger:     logging.FromZapCompatible(logger),
 		cancelFunc: cancel,
 		callbacks:  map[input.Control]map[input.EventType]input.ControlFunction{},
 		lastEvents: map[input.Control]input.Event{},

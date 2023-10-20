@@ -253,7 +253,7 @@ func (rc *RobotClient) handleStreamDisconnect(
 // New constructs a new RobotClient that is served at the given address. The given
 // context can be used to cancel the operation.
 func New(ctx context.Context, address string, clientLogger *zap.SugaredLogger, opts ...RobotClientOption) (*RobotClient, error) {
-	logger := &logging.ZLogger{clientLogger}
+	logger := logging.FromZapCompatible(clientLogger)
 	var rOpts robotClientOpts
 
 	for _, opt := range opts {

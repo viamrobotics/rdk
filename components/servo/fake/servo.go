@@ -14,10 +14,12 @@ func init() {
 		servo.API,
 		resource.DefaultModelFamily.WithModel("fake"),
 		resource.Registration[servo.Servo, resource.NoNativeConfig]{
-			Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger logging.Logger) (servo.Servo, error) {
+			Constructor: func(
+				ctx context.Context, _ resource.Dependencies, conf resource.Config, logger logging.ZapCompatibleLogger,
+			) (servo.Servo, error) {
 				return &Servo{
 					Named:  conf.ResourceName().AsNamed(),
-					logger: logger,
+					logger: logging.FromZapCompatible(logger),
 				}, nil
 			},
 		})

@@ -73,7 +73,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	} else {
 		logConfig = logging.NewDevelopmentLoggerConfig()
 	}
-	var logger logging.Logger = &logging.ZLogger{zap.Must(logConfig.Build()).Sugar().Named("robot_server")}
+	logger := logging.FromZapCompatible(zap.Must(logConfig.Build()).Sugar().Named("robot_server"))
 	config.InitLoggingSettings(logger, argsParsed.Debug, logConfig.Level)
 	logging.ReplaceGloabl(logger)
 

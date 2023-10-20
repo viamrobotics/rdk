@@ -29,13 +29,13 @@ func init() {
 				ctx context.Context,
 				deps resource.Dependencies,
 				conf resource.Config,
-				logger logging.Logger,
+				logger logging.ZapCompatibleLogger,
 			) (camera.Camera, error) {
 				newConf, err := resource.NativeConfig[*ultrasense.Config](conf)
 				if err != nil {
 					return nil, err
 				}
-				return newCamera(ctx, deps, conf.ResourceName(), newConf, logger)
+				return newCamera(ctx, deps, conf.ResourceName(), newConf, logging.FromZapCompatible(logger))
 			},
 		})
 }
@@ -50,7 +50,7 @@ func newCamera(ctx context.Context, deps resource.Dependencies, name resource.Na
 	return cameraFromSensor(ctx, name, usSensor, logger)
 }
 
-func cameraFromSensor(ctx context.Context, name resource.Name, usSensor sensor.Sensor, logger golog.Logger) (camera.Camera, error) {
+func cameraFromSensor(ctx context.Context, name resource.Name, usSensor sensor.Sensor, logger logging.Logger) (camera.Camera, error) {
 	usWrapper := ultrasonicWrapper{usSensor: usSensor}
 
 	usVideoSource, err := camera.NewVideoSourceFromReader(ctx, &usWrapper, nil, camera.UnspecifiedStream)

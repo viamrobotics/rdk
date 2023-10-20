@@ -34,9 +34,9 @@ func RegisterBoard(modelName string, gpioMappings map[string]GPIOBoardMapping) {
 				ctx context.Context,
 				_ resource.Dependencies,
 				conf resource.Config,
-				logger logging.Logger,
+				logger logging.ZapCompatibleLogger,
 			) (board.Board, error) {
-				return NewBoard(ctx, conf, ConstPinDefs(gpioMappings), logger)
+				return NewBoard(ctx, conf, ConstPinDefs(gpioMappings), logging.FromZapCompatible(logger))
 			},
 		})
 }

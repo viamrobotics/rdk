@@ -90,12 +90,12 @@ func NewBuiltIn(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
-	logger logging.Logger,
+	logger logging.ZapCompatibleLogger,
 ) (baseremotecontrol.Service, error) {
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	remoteSvc := &builtIn{
 		Named:     conf.ResourceName().AsNamed(),
-		logger:    logger,
+		logger:    logging.FromZapCompatible(logger),
 		cancelCtx: cancelCtx,
 		cancel:    cancel,
 		events:    make(chan struct{}, 1),

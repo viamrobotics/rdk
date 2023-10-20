@@ -29,7 +29,7 @@ func init() {
 			_ context.Context,
 			_ resource.Dependencies,
 			conf resource.Config,
-			logger logging.Logger,
+			logger logging.ZapCompatibleLogger,
 		) (audioinput.AudioInput, error) {
 			cancelCtx, cancelFunc := context.WithCancel(context.Background())
 			var condMu sync.RWMutex

@@ -39,14 +39,14 @@ func NewClientFromConn(
 	conn rpc.ClientConn,
 	remoteName string,
 	name resource.Name,
-	logger logging.Logger,
+	logger logging.ZapCompatibleLogger,
 ) (Arm, error) {
 	pbClient := pb.NewArmServiceClient(conn)
 	c := &client{
 		Named:  name.PrependRemote(remoteName).AsNamed(),
 		name:   name.ShortName(),
 		client: pbClient,
-		logger: logger,
+		logger: logging.FromZapCompatible(logger),
 	}
 	clientFrame, err := c.updateKinematics(ctx, nil)
 	if err != nil {

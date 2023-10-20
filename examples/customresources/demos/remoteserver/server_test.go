@@ -35,7 +35,7 @@ func TestGizmo(t *testing.T) {
 
 	cfgServer, err := config.Read(ctx, utils.ResolveFile("./examples/customresources/demos/remoteserver/remote.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
-	r0, err := robotimpl.New(ctx, cfgServer, &logging.ZLogger{logger.Named("gizmo.server")})
+	r0, err := robotimpl.New(ctx, cfgServer, logging.FromZapCompatible(logger.Named("gizmo.server")))
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, r0.Close(context.Background()), test.ShouldBeNil)
@@ -76,7 +76,7 @@ func TestGizmo(t *testing.T) {
 			},
 		},
 	}
-	r2, err := robotimpl.New(ctx, remoteConfig, &logging.ZLogger{logger.Named("gizmo.client")})
+	r2, err := robotimpl.New(ctx, remoteConfig, logging.FromZapCompatible(logger.Named("gizmo.client")))
 	defer func() {
 		test.That(t, r2.Close(context.Background()), test.ShouldBeNil)
 	}()
