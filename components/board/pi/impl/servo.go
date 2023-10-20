@@ -34,7 +34,9 @@ func init() {
 		servo.API,
 		picommon.Model,
 		resource.Registration[servo.Servo, *picommon.ServoConfig]{
-			Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger logging.Logger) (servo.Servo, error) {
+			Constructor: func(
+				ctx context.Context, _ resource.Dependencies, conf resource.Config, logger logging.ZapCompatibleLogger,
+			) (servo.Servo, error) {
 				newConf, err := resource.NativeConfig[*picommon.ServoConfig](conf)
 				if err != nil {
 					return nil, err
@@ -51,7 +53,7 @@ func init() {
 
 				theServo := &piPigpioServo{
 					Named:  conf.ResourceName().AsNamed(),
-					logger: logger,
+					logger: logging.FromZapCompatible(logger),
 					pin:    C.uint(bcom),
 					opMgr:  operation.NewSingleOperationManager(),
 				}
