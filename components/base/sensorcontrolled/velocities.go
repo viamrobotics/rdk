@@ -14,6 +14,11 @@ import (
 // TODO: RSDK-5355 useControlLoop bool should be removed after testing.
 const useControlLoop = false
 
+// setupControlLoops uses the embedded config in this file to initalize a control
+// loop using the controls package and stor in on the sensor controlled base struct
+// the sensor base in the controllable interface that implements State and GetState 
+// called by the endpoing logic of the control thread and the controlLoopConfig
+// is included at the end of this file
 func setupControlLoops(sb *sensorBase) error {
 	// TODO: RSDK-5355 useControlLoop bool should be removed after testing
 	if useControlLoop {
@@ -65,6 +70,10 @@ func (sb *sensorBase) SetVelocity(
 	return sb.controlledBase.SetVelocity(ctx, linear, angular, extra)
 }
 
+// pollsensors is a busy loop in the background that passivelly polls the LinearVelocity and
+// AngularVelocity API calls of the movementsensor attached to the sensor base
+// and logs them for toruble shooting.
+// This function can eventually be removed.
 func (sb *sensorBase) pollsensors(ctx context.Context, extra map[string]interface{}) {
 	sb.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
@@ -106,6 +115,9 @@ func (sb *sensorBase) pollsensors(ctx context.Context, extra map[string]interfac
 	}, sb.activeBackgroundWorkers.Done)
 }
 
+// SetState is called in endpoint.go of the controls package by the control loop 
+// instantiated in this file. It is a helper function to call the sensor-controlled base's 
+// SetVelocity from within that package.
 func (sb *sensorBase) SetState(ctx context.Context, state []*control.Signal) error {
 	sb.mu.Lock()
 	defer sb.mu.Unlock()
@@ -124,6 +136,10 @@ func (sb *sensorBase) SetState(ctx context.Context, state []*control.Signal) err
 	return sb.SetVelocity(ctx, r3.Vector{Y: linvel}, r3.Vector{Z: angvel}, nil)
 }
 
+// State is called in endpoint.go of the controls package by the control loop 
+// instantiated in this file. It is a helper function to call the sensor-controlled base's 
+// movementsensor and insert its LinearVelocity and AngularVelocity values 
+// in the signal in the control loop's thread in the endpoint code.
 func (sb *sensorBase) State(ctx context.Context) ([]float64, error) {
 	sb.logger.Info("getting state")
 	linvel, err := sb.velocities.LinearVelocity(ctx, nil)
@@ -139,7 +155,11 @@ func (sb *sensorBase) State(ctx context.Context) ([]float64, error) {
 	return []float64{linvel.Y, angvel.Z}, nil
 }
 
-// Control Loop Configuration.
+// Control Loop Configuration is embedded in this file so a user does not have to 
+// configure the loop from within the attributes of the config file.
+// it sets up a loop that takes a constant -> sum -> gain -> PID -> Endpoint -> feedback to sum
+// structure. The gain is 1 to not magnify the input signal, the PID values are experimental
+// this structure can change as hardware experiments with the viam base require. 
 var controlLoopConfig = control.Config{
 	Blocks: []control.BlockConfig{
 		{
