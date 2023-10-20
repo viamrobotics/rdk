@@ -93,10 +93,6 @@ type ObstacleDetectorNameConfig struct {
 }
 
 // ObstacleDetector pairs a vision service with a camera, informing the service about which camera it may use.
-type ObstacleDetector struct {
-	VisionService vision.Service
-	Camera        camera.Camera
-}
 
 // Config describes how to configure the service.
 type Config struct {
@@ -219,7 +215,6 @@ type builtIn struct {
 
 	base                 base.Base
 	movementSensor       movementsensor.MovementSensor
-	obstacleDetectors    []*ObstacleDetector
 	motionService        motion.Service
 	exploreMotionService motion.Service
 	obstacles            []*spatialmath.GeoObstacle
@@ -313,7 +308,6 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	}
 
 	var obstacleDetectorNamePairs []motion.ObstacleDetectorName
-	var obstacleDetectors []*ObstacleDetector
 	for _, pbObstacleDetectorPair := range svcConfig.ObstacleDetectors {
 		visionSvc, err := vision.FromDependencies(deps, pbObstacleDetectorPair.VisionServiceName)
 		if err != nil {
@@ -325,9 +319,6 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		}
 		obstacleDetectorNamePairs = append(obstacleDetectorNamePairs, motion.ObstacleDetectorName{
 			VisionServiceName: visionSvc.Name(), CameraName: camera.Name(),
-		})
-		obstacleDetectors = append(obstacleDetectors, &ObstacleDetector{
-			VisionService: visionSvc, Camera: camera,
 		})
 	}
 
@@ -369,7 +360,6 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	svc.motionService = motionSvc
 	svc.obstacles = newObstacles
 	svc.replanCostFactor = replanCostFactor
-	svc.obstacleDetectors = obstacleDetectors
 	svc.motionCfg = &motion.MotionConfiguration{
 		ObstacleDetectors:     obstacleDetectorNamePairs,
 		LinearMPerSec:         metersPerSec,
@@ -420,7 +410,7 @@ func (svc *builtIn) SetMode(ctx context.Context, mode navigation.Mode, extra map
 	case navigation.ModeWaypoint:
 		svc.startWaypointMode(cancelCtx, extra)
 	case navigation.ModeExplore:
-		if len(svc.obstacleDetectors) == 0 {
+		if len(svc.motionCfg.ObstacleDetectors) == 0 {
 			return errors.New("explore mode requires at least one vision service")
 		}
 		svc.startExploreMode(cancelCtx)

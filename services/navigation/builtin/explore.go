@@ -26,7 +26,7 @@ func (svc *builtIn) startExploreMode(ctx context.Context) {
 		extra["angular_degs_per_sec"] = svc.motionCfg.AngularDegsPerSec
 		extra["linear_m_per_sec"] = svc.motionCfg.LinearMPerSec
 		extra["obstacle_polling_frequency_hz"] = svc.motionCfg.ObstaclePollingFreqHz
-		extra["obstacle_detectors"] = svc.motionCfg.ObstacleDetectors
+		extra["obstacle_detectors_names"] = svc.motionCfg.ObstacleDetectors
 
 		for {
 			if ctx.Err() != nil {

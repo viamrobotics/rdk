@@ -28,10 +28,12 @@ var (
 	defaultKBOptsExtra   = map[string]interface{}{
 		"angular_degs_per_sec":          .25,
 		"linear_m_per_sec":              .1,
-		"obstacle_polling_frequency_hz": 1,
+		"obstacle_polling_frequency_hz": 2,
 	}
 )
 
+// createNewExploreMotionService creates a new motion service complete with base, camera (optional) and frame system.
+// Note: The required vision service can/is added later as it will not affect the building of the frame system.
 func createNewExploreMotionService(ctx context.Context, logger golog.Logger, fakeBase base.Base, cam camera.Camera,
 ) (motion.Service, error) {
 	var fsParts []*referenceframe.FrameSystemPart
@@ -67,6 +69,7 @@ func createNewExploreMotionService(ctx context.Context, logger golog.Logger, fak
 	return NewExplore(ctx, deps, exploreMotionConf, logger)
 }
 
+// createFakeBase instantiates a fake base.
 func createFakeBase(ctx context.Context, logger golog.Logger) (base.Base, error) {
 	fakeBaseCfg := resource.Config{
 		Name:  testBaseName.Name,
@@ -76,6 +79,7 @@ func createFakeBase(ctx context.Context, logger golog.Logger) (base.Base, error)
 	return baseFake.NewBase(ctx, nil, fakeBaseCfg, logger)
 }
 
+// createFakeCamera instantiates a fake camera.
 func createFakeCamera(ctx context.Context, logger golog.Logger) (camera.Camera, error) {
 	fakeCameraCfg := resource.Config{
 		Name:  testCameraName.Name,
@@ -89,31 +93,33 @@ func createFakeCamera(ctx context.Context, logger golog.Logger) (camera.Camera, 
 	return cameraFake.NewCamera(ctx, fakeCameraCfg, logger)
 }
 
-func createMockVisionService(obstacle obstacleMetadata) vSvc.Service {
-	var noObstacle obstacleMetadata
+// createMockVisionService instantiates a mock vision service with a custom version of GetObjectPointCloud that creates
+// vision objects from a given set of points.
+func createMockVisionService(obstacles []obstacleMetadata) vSvc.Service {
 	mockVisionService := &inject.VisionService{}
+
 	mockVisionService.GetObjectPointCloudsFunc = func(ctx context.Context, cameraName string, extra map[string]interface{},
 	) ([]*vision.Object, error) {
-		if obstacle == noObstacle {
-			return []*vision.Object{}, nil
-		}
+		var vObjects []*vision.Object
+		for _, obs := range obstacles {
+			obstaclePosition := spatialmath.NewPoseFromPoint(obs.position)
+			box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{X: 100, Y: 100, Z: 100}, "test-case-2")
+			if err != nil {
+				return nil, err
+			}
 
-		obstaclePosition := spatialmath.NewPoseFromPoint(obstacle.position)
-		box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{X: 100, Y: 100, Z: 100}, "test-case-2")
-		if err != nil {
-			return nil, err
+			detection, err := vision.NewObjectWithLabel(pointcloud.New(), obs.label, box.ToProtobuf())
+			if err != nil {
+				return nil, err
+			}
+			vObjects = append(vObjects, detection)
 		}
-
-		detection, err := vision.NewObjectWithLabel(pointcloud.New(), obstacle.label, box.ToProtobuf())
-		if err != nil {
-			return nil, err
-		}
-
-		return []*vision.Object{detection}, nil
+		return vObjects, nil
 	}
 	return mockVisionService
 }
 
+// createFrameSystemService will create a basic frame service from the list of parts.
 func createFrameSystemService(
 	ctx context.Context,
 	deps resource.Dependencies,
@@ -130,11 +136,11 @@ func createFrameSystemService(
 	if err := fsSvc.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
-	deps[fsSvc.Name()] = fsSvc
 
 	return fsSvc, nil
 }
 
+// createBaseLink instantiates the base to world link for the frame system.
 func createBaseLink(baseName string) (*referenceframe.LinkInFrame, error) {
 	basePose := spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 0})
 	baseSphere, err := spatialmath.NewSphere(basePose, 10, "base-box")
@@ -151,6 +157,7 @@ func createBaseLink(baseName string) (*referenceframe.LinkInFrame, error) {
 	return baseLink, nil
 }
 
+// createCameraLink instantiates the camera to base link for the frame system.
 func createCameraLink(camName, baseFrame string) (*referenceframe.LinkInFrame, error) {
 	camPose := spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 0})
 	camSphere, err := spatialmath.NewSphere(camPose, 5, "cam-sphere")
@@ -159,7 +166,7 @@ func createCameraLink(camName, baseFrame string) (*referenceframe.LinkInFrame, e
 	}
 
 	camLink := referenceframe.NewLinkInFrame(
-		baseFrame, // referenceframe.World,
+		baseFrame,
 		spatialmath.NewZeroPose(),
 		camName,
 		camSphere,
@@ -167,12 +174,7 @@ func createCameraLink(camName, baseFrame string) (*referenceframe.LinkInFrame, e
 	return camLink, nil
 }
 
-type obstacleMetadata struct {
-	position r3.Vector
-	data     int
-	label    string
-}
-
+// geometriesContainsPoint is a helper function to test if a point is in a given geometry.
 func geometriesContainsPoint(geometries []spatialmath.Geometry, point r3.Vector) (bool, error) {
 	var collisionDetected bool
 	for _, geo := range geometries {
