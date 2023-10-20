@@ -122,21 +122,6 @@ func newVectorNav(
 		return nil, err
 	}
 
-	boardName := newConf.Board
-	b, err := board.FromDependencies(deps, boardName)
-	if err != nil {
-		return nil, errors.Wrap(err, "vectornav init failed")
-	}
-	spiName := newConf.SPI
-	localB, ok := b.(board.LocalBoard)
-	if !ok {
-		return nil, errors.Errorf("vectornav: board %q is not local", boardName)
-	}
-	spiBus, ok := localB.SPIByName(spiName)
-	if !ok {
-		return nil, errors.Errorf("vectornav: couldn't get spi bus %q", spiName)
-	}
-	cs := newConf.CSPin
 
 	speed := *newConf.Speed
 	if speed == 0 {
@@ -146,9 +131,9 @@ func newVectorNav(
 	pfreq := *newConf.Pfreq
 	v := &vectornav{
 		Named:     conf.ResourceName().AsNamed(),
-		bus:       spiBus,
+		bus:       genericlinux.NewSpiBus(newConf.SPI)
 		logger:    logger,
-		cs:        cs,
+		cs:        newConf.CSPin,
 		speed:     speed,
 		busClosed: false,
 		polling:   pfreq,
