@@ -3,12 +3,18 @@ package builtin
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/edaniels/golog"
 	goutils "go.viam.com/utils"
 
+	"go.viam.com/rdk/motionplan"
+	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
 
@@ -101,4 +107,141 @@ func (ma *moveAttempt) cancel() {
 	utils.FlushChan(ma.obstacle.responseChan)
 	utils.FlushChan(ma.responseChan)
 	ma.backgroundWorkers.Wait()
+}
+
+type exploreAttempt struct {
+	ctx               context.Context
+	cancelFn          context.CancelFunc
+	backgroundWorkers *sync.WaitGroup
+
+	request       *exploreRequest
+	responseChan  chan moveResponse
+	executionChan chan moveResponse
+
+	frameSystem referenceframe.FrameSystem
+
+	logger golog.Logger
+}
+
+// newMoveAttempt instantiates a moveAttempt which can later be started.
+// The caller of this function is expected to also call the cancel function to clean up after instantiation.
+func newExploreAttempt(ctx context.Context, request *exploreRequest) *exploreAttempt {
+	cancelCtx, cancelFn := context.WithCancel(ctx)
+	var backgroundWorkers sync.WaitGroup
+
+	return &exploreAttempt{
+		ctx:               cancelCtx,
+		cancelFn:          cancelFn,
+		backgroundWorkers: &backgroundWorkers,
+		request:           request,
+		responseChan:      make(chan moveResponse),
+		executionChan:     make(chan moveResponse),
+	}
+}
+
+func (ea *exploreAttempt) start() error {
+	ea.backgroundWorkers.Add(1)
+	goutils.ManagedGo(func() {
+		ea.checkForObstacles(ea.ctx)
+	}, ea.backgroundWorkers.Done)
+
+	// Start executing plan
+	ea.backgroundWorkers.Add(1)
+	goutils.ManagedGo(func() {
+		ea.executePlan(ea.ctx)
+	}, ea.backgroundWorkers.Done)
+	return nil
+}
+
+func (ea *exploreAttempt) cancel() {
+	ea.cancelFn()
+	utils.FlushChan(ea.responseChan)
+	utils.FlushChan(ea.executionChan)
+	ea.backgroundWorkers.Wait()
+}
+
+func (ms *exploreAttempt) checkForObstacles(ctx context.Context) {
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			currentPose := spatialmath.NewZeroPose()
+
+			worldState, err := ms.updateWorldState(ctx)
+			if err != nil {
+				ms.responseChan <- moveResponse{err: err}
+				return
+			}
+
+			collisionPose, err := motionplan.CheckPlan(
+				ms.request.kinematicBase.Kinematics(),
+				ms.request.plan,
+				worldState,
+				ms.frameSystem,
+				currentPose,
+				[]referenceframe.Input{{Value: 0}, {Value: 0}},
+				spatialmath.NewZeroPose(),
+				ms.logger,
+			)
+			if err != nil {
+				if collisionPose.Point().Distance(currentPose.Point()) < validObstacleDistanceMM {
+					ms.logger.Debug("collision found")
+					ms.responseChan <- moveResponse{success: true, err: err}
+					return
+				}
+				ms.logger.Debug("collision found but outside of range")
+				ms.responseChan <- moveResponse{success: false, err: err}
+			} else {
+				ms.responseChan <- moveResponse{success: false, err: err}
+			}
+		}
+	}
+}
+
+func (ms *exploreAttempt) executePlan(ctx context.Context) {
+	// background process carry out plan
+	for i := 1; i < len(ms.request.plan); i++ {
+		if inputEnabledKb, ok := ms.request.kinematicBase.(inputEnabledActuator); ok {
+			if err := inputEnabledKb.GoToInputs(ctx, ms.request.plan[i][ms.request.kinematicBase.Name().Name]); err != nil {
+				// If there is an error on GoToInputs, stop the component if possible before returning the error
+				if stopErr := ms.request.kinematicBase.Stop(ctx, nil); stopErr != nil {
+					ms.executionChan <- moveResponse{err: err}
+				}
+				ms.executionChan <- moveResponse{err: err}
+			}
+		}
+	}
+	ms.executionChan <- moveResponse{success: true}
+}
+
+func (ms *exploreAttempt) updateWorldState(ctx context.Context) (*referenceframe.WorldState, error) {
+	detections, err := ms.request.visionService.GetObjectPointClouds(ctx, ms.request.camera.Name().Name, nil)
+	if err != nil && strings.Contains(err.Error(), "does not implement a 3D segmenter") {
+		ms.logger.Infof("cannot call GetObjectPointClouds on %q as it does not implement a 3D segmenter", ms.request.visionService.Name())
+	} else if err != nil {
+		return nil, err
+	}
+
+	geoms := []spatialmath.Geometry{}
+	for i, detection := range detections {
+		geometry := detection.Geometry
+		label := ms.request.camera.Name().Name + "_transientObstacle_" + strconv.Itoa(i)
+		if geometry.Label() != "" {
+			label += "_" + geometry.Label()
+		}
+		geometry.SetLabel(label)
+		geoms = append(geoms, geometry)
+	}
+	// consider having geoms be from the frame of world
+	// to accomplish this we need to know the transform from the base to the camera
+	gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame((referenceframe.World), geoms)}
+	worldState, err := referenceframe.NewWorldState(gifs, nil)
+	if err != nil {
+		return nil, err
+	}
+	return worldState, nil
 }

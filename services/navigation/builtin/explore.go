@@ -43,7 +43,7 @@ func (svc *builtIn) startExploreMode(ctx context.Context) {
 					Z: 0,
 				}, spatialmath.NewOrientationVector()))
 
-			_, err := svc.exploreMotionService.Move(ctx, svc.base.Name(), newPose, nil, nil, extra) // worldState, constraints, extra)
+			_, err := svc.motionService.MoveExplore(ctx, svc.base.Name(), newPose, nil, nil, extra) // worldState, constraints, extra)
 			if err != nil {
 				svc.logger.Debug("error occurred when moving")
 			}

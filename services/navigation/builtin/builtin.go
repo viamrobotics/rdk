@@ -20,7 +20,6 @@ import (
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
-	"go.viam.com/rdk/services/motion/explore"
 	"go.viam.com/rdk/services/navigation"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
@@ -217,12 +216,11 @@ type builtIn struct {
 	mode      navigation.Mode
 	mapType   navigation.MapType
 
-	base                 base.Base
-	movementSensor       movementsensor.MovementSensor
-	obstacleDetectors    []*ObstacleDetector
-	motionService        motion.Service
-	exploreMotionService motion.Service
-	obstacles            []*spatialmath.GeoObstacle
+	base              base.Base
+	movementSensor    movementsensor.MovementSensor
+	obstacleDetectors []*ObstacleDetector
+	motionService     motion.Service
+	obstacles         []*spatialmath.GeoObstacle
 
 	motionCfg        *motion.MotionConfiguration
 	replanCostFactor float64
@@ -352,13 +350,6 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 
 	// Parse obstacles from the configuration
 	newObstacles, err := spatialmath.GeoObstaclesFromConfigs(svcConfig.Obstacles)
-	if err != nil {
-		return err
-	}
-
-	// Create explore motion service
-	exploreMotionConf := resource.Config{ConvertedAttributes: &explore.Config{}}
-	svc.exploreMotionService, err = explore.NewExplore(ctx, deps, exploreMotionConf, svc.logger)
 	if err != nil {
 		return err
 	}

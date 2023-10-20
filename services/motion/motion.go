@@ -179,6 +179,14 @@ type Service interface {
 		ctx context.Context,
 		req PlanHistoryReq,
 	) ([]PlanWithStatus, error)
+	MoveExplore(
+		ctx context.Context,
+		componentName resource.Name,
+		destination *referenceframe.PoseInFrame,
+		worldState *referenceframe.WorldState,
+		motionCfg *MotionConfiguration,
+		extra map[string]interface{},
+	) (bool, error)
 }
 
 // ObstacleDetectorName pairs a vision service name with a camera name.

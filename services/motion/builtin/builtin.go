@@ -16,6 +16,7 @@ import (
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/base/kinematicbase"
+	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/internal"
 	"go.viam.com/rdk/motionplan"
@@ -26,6 +27,7 @@ import (
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/slam"
+	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -132,6 +134,8 @@ type builtIn struct {
 	movementSensors map[resource.Name]movementsensor.MovementSensor
 	slamServices    map[resource.Name]slam.Service
 	components      map[resource.Name]resource.Resource
+	visionService   vision.Service
+	camera          camera.Camera
 	logger          golog.Logger
 	lock            sync.Mutex
 }
@@ -508,4 +512,57 @@ func (ms *builtIn) planMoveOnMap(
 	}
 	steps, err := plan.GetFrameSteps(f.Name())
 	return steps, kb, err
+}
+
+func (ms *builtIn) MoveExplore(
+	ctx context.Context,
+	componentName resource.Name,
+	destination *referenceframe.PoseInFrame,
+	worldState *referenceframe.WorldState,
+	motionCfg *motion.MotionConfiguration,
+	extra map[string]interface{},
+) (bool, error) {
+	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
+
+	req, err := ms.newMoveExploreRequest(ctx, componentName, destination, motionCfg, nil, extra)
+	if err != nil {
+		return false, nil
+	}
+
+	for {
+		ea := newExploreAttempt(ctx, req)
+		if err := ea.start(); err != nil {
+			return false, err
+		}
+
+		// this ensures that if the context is cancelled we always return early at the top of the loop
+		if err := ctx.Err(); err != nil {
+			ea.cancel()
+			return false, err
+		}
+
+		select {
+		// if context was cancelled by the calling function, error out
+		case <-ctx.Done():
+			ea.cancel()
+			return false, ctx.Err()
+
+		// once execution responds: return the result to the caller
+		case resp := <-ea.executionChan:
+			ms.logger.Debugf("execution completed: %s", resp)
+			ea.cancel()
+			return resp.success, resp.err
+
+		// if the checkPartialPlan process hit an error return it, otherwise exit
+		case resp := <-ea.responseChan:
+			ms.logger.Debugf("obstacle response: %s", resp)
+			ea.cancel()
+			if resp.err != nil {
+				return resp.success, resp.err
+			}
+			if resp.success {
+				return resp.success, nil /// successful edge case
+			}
+		}
+	}
 }

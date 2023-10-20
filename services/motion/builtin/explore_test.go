@@ -1,4 +1,4 @@
-package explore
+package builtin
 
 import (
 	"context"
@@ -23,19 +23,17 @@ func TestExplorePlanMove(t *testing.T) {
 	fakeBase, err := createFakeBase(ctx, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	ms, err := createNewExploreMotionService(ctx, logger, fakeBase, nil)
+	ms, err := createNewExploreEnvironment(ctx, logger, fakeBase, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ms, test.ShouldNotBeNil)
 	defer ms.Close(ctx)
 
-	msStruct := ms.(*explore)
+	msStruct := ms.(*builtIn)
 
 	// Create kinematic base
 	kb, err := msStruct.createKinematicBase(ctx, fakeBase.Name(), defaultKBOptsExtra)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, kb.Name().Name, test.ShouldEqual, testBaseName.Name)
-
-	msStruct.kb = &kb
 
 	// Create empty worldState
 	worldState, err := referenceframe.NewWorldState(nil, nil)
@@ -90,19 +88,17 @@ func TestUpdatingWorldState(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Create explore motion service
-	ms, err := createNewExploreMotionService(ctx, logger, fakeBase, fakeCamera)
+	ms, err := createNewExploreEnvironment(ctx, logger, fakeBase, fakeCamera)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ms, test.ShouldNotBeNil)
 	defer ms.Close(ctx)
 
-	msStruct := ms.(*explore)
+	msStruct := ms.(*builtIn)
 
 	// Create kinematic base
 	kb, err := msStruct.createKinematicBase(ctx, fakeBase.Name(), defaultKBOptsExtra)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, kb.Name().Name, test.ShouldEqual, testBaseName.Name)
-
-	msStruct.kb = &kb
 
 	// Create empty worldState
 	worldState, err := referenceframe.NewWorldState(nil, nil)
@@ -179,12 +175,11 @@ func TestUpdatingWorldState(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.description, func(t *testing.T) {
 			// Create motionplan plan
-			planInputs, err := msStruct.createMotionPlan(ctx, tt.destination, worldState, true, defaultKBOptsExtra)
+			planInputs, err := msStruct.createMotionPlan(ctx, kb, tt.destination, true, defaultKBOptsExtra)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, kb.Name().Name, test.ShouldEqual, testBaseName.Name)
 			test.That(t, len(planInputs), test.ShouldBeGreaterThan, 0)
 
-			msStruct.kb = &kb
 			msStruct.camera = fakeCamera
 
 			var plan motionplan.Plan

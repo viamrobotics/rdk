@@ -12,6 +12,7 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
@@ -100,40 +101,6 @@ func createInjectedSlam(name, pcdPath string) *inject.SLAMService {
 	return injectSlam
 }
 
-func createBaseLink(t *testing.T, baseName string) *referenceframe.LinkInFrame {
-	basePose := spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0})
-	baseSphere, err := spatialmath.NewSphere(basePose, 10, "base-sphere")
-	test.That(t, err, test.ShouldBeNil)
-	baseLink := referenceframe.NewLinkInFrame(
-		referenceframe.World,
-		spatialmath.NewZeroPose(),
-		baseName,
-		baseSphere,
-	)
-	return baseLink
-}
-
-func createFrameSystemService(
-	ctx context.Context,
-	deps resource.Dependencies,
-	fsParts []*referenceframe.FrameSystemPart,
-	logger golog.Logger,
-) (framesystem.Service, error) {
-	fsSvc, err := framesystem.New(ctx, deps, logger)
-	if err != nil {
-		return nil, err
-	}
-	conf := resource.Config{
-		ConvertedAttributes: &framesystem.Config{Parts: fsParts},
-	}
-	if err := fsSvc.Reconfigure(ctx, deps, conf); err != nil {
-		return nil, err
-	}
-	deps[fsSvc.Name()] = fsSvc
-
-	return fsSvc, nil
-}
-
 func createMoveOnGlobeEnvironment(ctx context.Context, t *testing.T, origin *geo.Point, noise spatialmath.Pose) (
 	*inject.MovementSensor, framesystem.Service, kinematicbase.KinematicBase, motion.Service,
 ) {
@@ -149,7 +116,8 @@ func createMoveOnGlobeEnvironment(ctx context.Context, t *testing.T, origin *geo
 	test.That(t, err, test.ShouldBeNil)
 
 	// create base link
-	baseLink := createBaseLink(t, "test-base")
+	baseLink, err := createBaseLink("test-base")
+	test.That(t, err, test.ShouldBeNil)
 
 	// create injected MovementSensor
 	staticMovementSensor := createInjectedMovementSensor("test-gps", origin)
@@ -555,8 +523,12 @@ func TestMoveOnMapTimeout(t *testing.T) {
 		injectSlam.Name(): injectSlam,
 		realBase.Name():   realBase,
 	}
+
+	baseLink, err := createBaseLink("test_base")
+	test.That(t, err, test.ShouldBeNil)
+
 	fsParts := []*referenceframe.FrameSystemPart{
-		{FrameConfig: createBaseLink(t, "test_base")},
+		{FrameConfig: baseLink},
 	}
 
 	conf := resource.Config{ConvertedAttributes: &Config{}}
@@ -1199,7 +1171,8 @@ func TestStoppableMoveFunctions(t *testing.T) {
 		}
 
 		// Create a base link
-		baseLink := createBaseLink(t, baseName)
+		baseLink, err := createBaseLink(baseName)
+		test.That(t, err, test.ShouldBeNil)
 
 		t.Run("stop during MoveOnGlobe(...) call", func(t *testing.T) {
 			calledStopFunc = false

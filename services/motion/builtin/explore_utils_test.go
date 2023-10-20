@@ -1,4 +1,4 @@
-package explore
+package builtin
 
 import (
 	"context"
@@ -32,7 +32,7 @@ var (
 	}
 )
 
-func createNewExploreMotionService(ctx context.Context, logger golog.Logger, fakeBase base.Base, cam camera.Camera,
+func createNewExploreEnvironment(ctx context.Context, logger golog.Logger, fakeBase base.Base, cam camera.Camera,
 ) (motion.Service, error) {
 	var fsParts []*referenceframe.FrameSystemPart
 	deps := make(resource.Dependencies)
@@ -64,7 +64,7 @@ func createNewExploreMotionService(ctx context.Context, logger golog.Logger, fak
 
 	// create explore motion service
 	exploreMotionConf := resource.Config{ConvertedAttributes: &Config{}}
-	return NewExplore(ctx, deps, exploreMotionConf, logger)
+	return NewBuiltIn(ctx, deps, exploreMotionConf, logger)
 }
 
 func createFakeBase(ctx context.Context, logger golog.Logger) (base.Base, error) {
@@ -114,6 +114,22 @@ func createMockVisionService(obstacle obstacleMetadata) vSvc.Service {
 	return mockVisionService
 }
 
+func createBaseLink(baseName string) (*referenceframe.LinkInFrame, error) {
+	basePose := spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 0})
+	baseSphere, err := spatialmath.NewSphere(basePose, 10, "base-box")
+	if err != nil {
+		return nil, err
+	}
+
+	baseLink := referenceframe.NewLinkInFrame(
+		referenceframe.World,
+		spatialmath.NewZeroPose(),
+		baseName,
+		baseSphere,
+	)
+	return baseLink, nil
+}
+
 func createFrameSystemService(
 	ctx context.Context,
 	deps resource.Dependencies,
@@ -133,22 +149,6 @@ func createFrameSystemService(
 	deps[fsSvc.Name()] = fsSvc
 
 	return fsSvc, nil
-}
-
-func createBaseLink(baseName string) (*referenceframe.LinkInFrame, error) {
-	basePose := spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 0})
-	baseSphere, err := spatialmath.NewSphere(basePose, 10, "base-box")
-	if err != nil {
-		return nil, err
-	}
-
-	baseLink := referenceframe.NewLinkInFrame(
-		referenceframe.World,
-		spatialmath.NewZeroPose(),
-		baseName,
-		baseSphere,
-	)
-	return baseLink, nil
 }
 
 func createCameraLink(camName, baseFrame string) (*referenceframe.LinkInFrame, error) {
