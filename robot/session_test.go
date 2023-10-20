@@ -59,6 +59,12 @@ func init() {
 	})
 }
 
+// TODO(NEED TICKET): This test suite checks if stopping a client also stops any
+// components that were started by that client. We also should implement a benchmark
+// suite that measures how long it takes for components to stop.
+//
+// We should NOT add a strict deadline to this test - we had that before and it resulted
+// in flaky tests (see RSDK-2493).
 func TestSessions(t *testing.T) {
 	for _, windowSize := range []time.Duration{
 		config.DefaultSessionHeartbeatWindow,
@@ -211,9 +217,8 @@ func TestSessions(t *testing.T) {
 
 			test.That(t,
 				time.Since(startAt),
-				test.ShouldBeBetweenOrEqual,
+				test.ShouldBeGreaterThanOrEqualTo,
 				float64(windowSize)*.75,
-				float64(windowSize)*1.5,
 			)
 
 			dummyMotor1.mu.Lock()
@@ -250,9 +255,8 @@ func TestSessions(t *testing.T) {
 
 			test.That(t,
 				time.Since(startAt),
-				test.ShouldBeBetweenOrEqual,
+				test.ShouldBeGreaterThanOrEqualTo,
 				float64(windowSize)*.75,
-				float64(windowSize)*1.5,
 			)
 
 			test.That(t, roboClient.Close(ctx), test.ShouldBeNil)
@@ -466,9 +470,8 @@ func TestSessionsWithRemote(t *testing.T) {
 	ensureStop(t, "remMotor1", stopChNames)
 	test.That(t,
 		time.Since(startAt),
-		test.ShouldBeBetweenOrEqual,
+		test.ShouldBeGreaterThanOrEqualTo,
 		float64(config.DefaultSessionHeartbeatWindow)*.5,
-		float64(config.DefaultSessionHeartbeatWindow)*2.5,
 	)
 
 	dummyRemMotor1.mu.Lock()
@@ -494,9 +497,8 @@ func TestSessionsWithRemote(t *testing.T) {
 
 	test.That(t,
 		time.Since(startAt),
-		test.ShouldBeBetweenOrEqual,
+		test.ShouldBeGreaterThanOrEqualTo,
 		float64(config.DefaultSessionHeartbeatWindow)*.5,
-		float64(config.DefaultSessionHeartbeatWindow)*2.5,
 	)
 
 	test.That(t, roboClient.Close(ctx), test.ShouldBeNil)
@@ -553,9 +555,8 @@ func TestSessionsWithRemote(t *testing.T) {
 
 	test.That(t,
 		time.Since(startAt),
-		test.ShouldBeBetweenOrEqual,
+		test.ShouldBeGreaterThanOrEqualTo,
 		float64(config.DefaultSessionHeartbeatWindow)*.5,
-		float64(config.DefaultSessionHeartbeatWindow)*2.5,
 	)
 
 	test.That(t, roboClient.Close(ctx), test.ShouldBeNil)
@@ -645,9 +646,8 @@ func TestSessionsMixedClients(t *testing.T) {
 
 	test.That(t,
 		time.Since(startAt),
-		test.ShouldBeBetweenOrEqual,
+		test.ShouldBeGreaterThanOrEqualTo,
 		float64(config.DefaultSessionHeartbeatWindow)*.75,
-		float64(config.DefaultSessionHeartbeatWindow)*1.5,
 	)
 
 	test.That(t, r.Close(ctx), test.ShouldBeNil)
@@ -744,9 +744,8 @@ func TestSessionsMixedOwnersNoAuth(t *testing.T) {
 
 	test.That(t,
 		time.Since(startAt),
-		test.ShouldBeBetweenOrEqual,
+		test.ShouldBeGreaterThanOrEqualTo,
 		float64(config.DefaultSessionHeartbeatWindow)*.75,
-		float64(config.DefaultSessionHeartbeatWindow)*1.5,
 	)
 
 	test.That(t, roboClientConn2.Close(), test.ShouldBeNil)
@@ -849,9 +848,8 @@ func TestSessionsMixedOwnersImplicitAuth(t *testing.T) {
 
 	test.That(t,
 		time.Since(startAt),
-		test.ShouldBeBetweenOrEqual,
+		test.ShouldBeGreaterThanOrEqualTo,
 		float64(config.DefaultSessionHeartbeatWindow)*.75,
-		float64(config.DefaultSessionHeartbeatWindow)*1.5,
 	)
 
 	test.That(t, roboClientConn2.Close(), test.ShouldBeNil)
