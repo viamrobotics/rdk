@@ -15,6 +15,7 @@ import (
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/ik"
+	"go.viam.com/rdk/motionplan/tpspace"
 	frame "go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -765,6 +766,57 @@ func TestMovementWithGripper(t *testing.T) {
 	solution, err = sfPlanner.PlanSingleWaypoint(context.Background(), zeroPosition, goal, worldState, nil, motionConfig)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, solution, test.ShouldNotBeNil)
+}
+
+func TestReplan(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	sphere, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 10, "base")
+	test.That(t, err, test.ShouldBeNil)
+
+	kinematicFrame, err := tpspace.NewPTGFrameFromKinematicOptions(
+		"itsabase",
+		logger,
+		200, 60, 0, 1000,
+		2,
+		[]spatialmath.Geometry{sphere},
+		false,
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	goal := spatialmath.NewPoseFromPoint(r3.Vector{1000, 8000, 0})
+
+	baseFS := frame.NewEmptyFrameSystem("baseFS")
+	err = baseFS.AddFrame(kinematicFrame, baseFS.World())
+	test.That(t, err, test.ShouldBeNil)
+
+	planRequest := &PlanRequest{
+		Logger:             logger,
+		Goal:               frame.NewPoseInFrame(frame.World, goal),
+		Frame:              kinematicFrame,
+		FrameSystem:        baseFS,
+		StartConfiguration: frame.StartPositions(baseFS),
+		WorldState:         nil,
+		Options:            nil,
+	}
+
+	firstplan, err := PlanMotion(ctx, planRequest)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Let's pretend we've moved towards the goal, so the goal is now closer
+	goal = spatialmath.NewPoseFromPoint(r3.Vector{1000, 5000, 0})
+	planRequest.Goal = frame.NewPoseInFrame(frame.World, goal)
+
+	// This should easily pass
+	newPlan1, err := Replan(ctx, planRequest, firstplan, 1.0)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(newPlan1), test.ShouldBeGreaterThan, 2)
+
+	// But if we drop the replan factor to a very low number, it should now fail
+	newPlan2, err := Replan(ctx, planRequest, firstplan, 0.1)
+	test.That(t, newPlan2, test.ShouldBeNil)
+	test.That(t, err, test.ShouldBeError, errHighReplanCost) // Replan factor too low!
 }
 
 func TestValidatePlanRequest(t *testing.T) {

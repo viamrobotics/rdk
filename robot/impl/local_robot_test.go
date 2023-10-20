@@ -260,6 +260,11 @@ func TestConfigRemote(t *testing.T) {
 
 	for idx := 0; idx < expectedStatusLength; idx++ {
 		test.That(t, statuses[idx].Status, test.ShouldResemble, map[string]interface{}{})
+		// Assert that last reconfigured values are within last 5s (remote
+		// recently configured all three resources).
+		lr := statuses[idx].LastReconfigured
+		test.That(t, lr, test.ShouldHappenBetween,
+			time.Now().Add(-5*time.Second), time.Now())
 	}
 
 	statuses, err = r2.Status(
@@ -1088,7 +1093,7 @@ func TestStatus(t *testing.T) {
 		resource.DeregisterAPI(failAPI)
 	}()
 
-	statuses := []robot.Status{{Name: button1, Status: map[string]interface{}{}}}
+	expectedRobotStatus := robot.Status{Name: button1, Status: map[string]interface{}{}}
 	logger := logging.NewTestLogger(t)
 	resourceNames := []resource.Name{working1, button1, fail1}
 	resourceMap := map[resource.Name]resource.Resource{
@@ -1118,7 +1123,11 @@ func TestStatus(t *testing.T) {
 
 		resp, err := r.Status(context.Background(), []resource.Name{button1})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp, test.ShouldResemble, statuses)
+		test.That(t, len(resp), test.ShouldEqual, 1)
+		test.That(t, resp[0].Name, test.ShouldResemble, expectedRobotStatus.Name)
+		test.That(t, resp[0].Status, test.ShouldResemble, expectedRobotStatus.Status)
+		test.That(t, resp[0].LastReconfigured, test.ShouldHappenBetween,
+			time.Now().Add(-10*time.Second), time.Now())
 	})
 
 	t.Run("failing resource", func(t *testing.T) {
@@ -1243,11 +1252,19 @@ func TestStatusRemote(t *testing.T) {
 		EndPosition:    &commonpb.Pose{},
 		JointPositions: &armpb.JointPositions{Values: []float64{1.0, 2.0, 3.0, 4.0, 5.0, 6.0}},
 	}
+
+	lastReconfigured, err := time.Parse("2006-01-02 15:04:05", "2011-11-11 00:00:00")
+	test.That(t, err, test.ShouldBeNil)
+
 	injectRobot1.StatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
 		statusCallCount++
 		statuses := make([]robot.Status, 0, len(resourceNames))
 		for _, n := range resourceNames {
-			statuses = append(statuses, robot.Status{Name: n, Status: armStatus})
+			statuses = append(statuses, robot.Status{
+				Name:             n,
+				LastReconfigured: lastReconfigured,
+				Status:           armStatus,
+			})
 		}
 		return statuses, nil
 	}
@@ -1260,7 +1277,11 @@ func TestStatusRemote(t *testing.T) {
 		statusCallCount++
 		statuses := make([]robot.Status, 0, len(resourceNames))
 		for _, n := range resourceNames {
-			statuses = append(statuses, robot.Status{Name: n, Status: armStatus})
+			statuses = append(statuses, robot.Status{
+				Name:             n,
+				LastReconfigured: lastReconfigured,
+				Status:           armStatus,
+			})
 		}
 		return statuses, nil
 	}
@@ -1320,6 +1341,10 @@ func TestStatusRemote(t *testing.T) {
 		err = decoder.Decode(status.Status)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, convMap, test.ShouldResemble, armStatus)
+
+		// Test that LastReconfigured values are from remotes, and not set based on
+		// when local resource graph nodes were added for the remote resources.
+		test.That(t, status.LastReconfigured, test.ShouldEqual, lastReconfigured)
 	}
 }
 

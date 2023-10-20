@@ -16,7 +16,7 @@ import (
 func TestPlaceholderReplacement(t *testing.T) {
 	homeDir, _ := os.UserHomeDir()
 	viamPackagesDir := filepath.Join(homeDir, ".viam", "packages")
-	t.Run("placeholder replacement", func(t *testing.T) {
+	t.Run("package placeholder replacement", func(t *testing.T) {
 		cfg := &config.Config{
 			Components: []resource.Config{
 				{
@@ -76,7 +76,7 @@ func TestPlaceholderReplacement(t *testing.T) {
 		exePath := cfg.Modules[0].ExePath
 		test.That(t, exePath, test.ShouldResemble, fmt.Sprintf("%s/bin", dirForModule))
 	})
-	t.Run("placeholder typos", func(t *testing.T) {
+	t.Run("package placeholder typos", func(t *testing.T) {
 		// Unknown type of placeholder
 		cfg := &config.Config{
 			Components: []resource.Config{
@@ -167,5 +167,41 @@ func TestPlaceholderReplacement(t *testing.T) {
 
 		test.That(t, cfg.Components[0].Attributes["a"], test.ShouldResemble,
 			fmt.Sprintf("%s/${invalidplaceholder}", cfg.Packages[0].LocalDataDirectory(viamPackagesDir)))
+	})
+	t.Run("environment variable placeholder replacement", func(t *testing.T) {
+		// test success
+		cfg := &config.Config{
+			Components: []resource.Config{
+				{
+					Attributes: utils.AttributeMap{
+						"a": "${environment.HOME}",
+					},
+				},
+			},
+			Modules: []config.Module{
+				{
+					Environment: map[string]string{
+						"PATH": "${environment.PATH}",
+					},
+				},
+			},
+		}
+		err := cfg.ReplacePlaceholders()
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, cfg.Components[0].Attributes["a"], test.ShouldEqual, os.Getenv("HOME"))
+		test.That(t, cfg.Modules[0].Environment["PATH"], test.ShouldEqual, os.Getenv("PATH"))
+
+		// test failure
+		cfg = &config.Config{
+			Components: []resource.Config{
+				{
+					Attributes: utils.AttributeMap{
+						"a": "${environment.VIAM_UNDEFINED_TEST_VAR}",
+					},
+				},
+			},
+		}
+		err = cfg.ReplacePlaceholders()
+		test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "VIAM_UNDEFINED_TEST_VAR")
 	})
 }

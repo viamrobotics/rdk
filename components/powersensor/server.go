@@ -20,6 +20,26 @@ func NewRPCServiceServer(coll resource.APIResourceCollection[PowerSensor]) inter
 	return &serviceServer{coll: coll}
 }
 
+// GetReadings returns the most recent readings from the given Sensor.
+func (s *serviceServer) GetReadings(
+	ctx context.Context,
+	req *commonpb.GetReadingsRequest,
+) (*commonpb.GetReadingsResponse, error) {
+	sensorDevice, err := s.coll.Resource(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	readings, err := sensorDevice.Readings(ctx, req.Extra.AsMap())
+	if err != nil {
+		return nil, err
+	}
+	m, err := protoutils.ReadingGoToProto(readings)
+	if err != nil {
+		return nil, err
+	}
+	return &commonpb.GetReadingsResponse{Readings: m}, nil
+}
+
 func (s *serviceServer) GetVoltage(
 	ctx context.Context,
 	req *pb.GetVoltageRequest,

@@ -3,6 +3,7 @@ package resource
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"go.viam.com/test"
 
@@ -954,6 +955,36 @@ func TestResourceGraphClock(t *testing.T) {
 	test.That(t, g.CurrLogicalClockValue(), test.ShouldEqual, 3)
 	test.That(t, node1.UpdatedAt(), test.ShouldEqual, 2)
 	test.That(t, node2.UpdatedAt(), test.ShouldEqual, 3)
+}
+
+func TestResourceGraphLastReconfigured(t *testing.T) {
+	g := NewGraph()
+
+	name1 := NewName(apiA, "a")
+	node1 := &GraphNode{}
+	test.That(t, g.AddNode(name1, node1), test.ShouldBeNil)
+	// Assert that uninitialized node has a nil lastReconfigured value.
+	test.That(t, node1.LastReconfigured(), test.ShouldBeNil)
+
+	res1 := &someResource{Named: name1.AsNamed()}
+	node1.SwapResource(res1, DefaultModelFamily.WithModel("foo"))
+	lr := node1.LastReconfigured()
+	test.That(t, lr, test.ShouldNotBeNil)
+	// Assert that after SwapResource, node's lastReconfigured time is between
+	// 50ms ago and now.
+	test.That(t, *lr, test.ShouldHappenBetween,
+		time.Now().Add(-50*time.Millisecond), time.Now())
+
+	// Mock a mutation with another SwapResource. Assert that lastReconfigured
+	// value changed.
+	node1.SwapResource(res1, DefaultModelFamily.WithModel("foo"))
+	newLR := node1.LastReconfigured()
+	test.That(t, newLR, test.ShouldNotBeNil)
+	// Assert that after another SwapResource, node's lastReconfigured time is
+	// after old lr value and between 50ms ago and now.
+	test.That(t, *newLR, test.ShouldHappenAfter, *lr)
+	test.That(t, *newLR, test.ShouldHappenBetween,
+		time.Now().Add(-50*time.Millisecond), time.Now())
 }
 
 func TestResourceGraphResolveDependencies(t *testing.T) {

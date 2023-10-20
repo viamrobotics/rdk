@@ -1366,8 +1366,20 @@ func TestClientStatus(t *testing.T) {
 		client, err := New(context.Background(), listener1.Addr().String(), logger.AsZap())
 		test.That(t, err, test.ShouldBeNil)
 
-		gStatus := robot.Status{Name: movementsensor.Named("gps"), Status: map[string]interface{}{"efg": []string{"hello"}}}
-		aStatus := robot.Status{Name: arm.Named("arm"), Status: struct{}{}}
+		gLastReconfigured, err := time.Parse("2006-01-02 15:04:05", "1998-04-30 19:08:00")
+		test.That(t, err, test.ShouldBeNil)
+		gStatus := robot.Status{
+			Name:             movementsensor.Named("gps"),
+			LastReconfigured: gLastReconfigured,
+			Status:           map[string]interface{}{"efg": []string{"hello"}},
+		}
+		aLastReconfigured, err := time.Parse("2006-01-02 15:04:05", "2011-11-11 00:00:00")
+		test.That(t, err, test.ShouldBeNil)
+		aStatus := robot.Status{
+			Name:             arm.Named("arm"),
+			LastReconfigured: aLastReconfigured,
+			Status:           struct{}{},
+		}
 		statusMap := map[resource.Name]robot.Status{
 			gStatus.Name: gStatus,
 			aStatus.Name: aStatus,
@@ -1383,10 +1395,15 @@ func TestClientStatus(t *testing.T) {
 			gStatus.Name: map[string]interface{}{"efg": []interface{}{"hello"}},
 			aStatus.Name: map[string]interface{}{},
 		}
+		expectedLRs := map[resource.Name]time.Time{
+			gStatus.Name: gLastReconfigured,
+			aStatus.Name: aLastReconfigured,
+		}
 		resp, err := client.Status(context.Background(), []resource.Name{aStatus.Name})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(resp), test.ShouldEqual, 1)
 		test.That(t, resp[0].Status, test.ShouldResemble, expected[resp[0].Name])
+		test.That(t, resp[0].LastReconfigured, test.ShouldResemble, expectedLRs[resp[0].Name])
 
 		result := struct{}{}
 		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &result})
@@ -1403,7 +1420,12 @@ func TestClientStatus(t *testing.T) {
 			resp[0].Name: resp[0].Status,
 			resp[1].Name: resp[1].Status,
 		}
+		observedLRs := map[resource.Name]time.Time{
+			resp[0].Name: resp[0].LastReconfigured,
+			resp[1].Name: resp[1].LastReconfigured,
+		}
 		test.That(t, observed, test.ShouldResemble, expected)
+		test.That(t, observedLRs, test.ShouldResemble, expectedLRs)
 
 		err = client.Close(context.Background())
 		test.That(t, err, test.ShouldBeNil)
