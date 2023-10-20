@@ -15,6 +15,7 @@ import (
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/board/genericlinux"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
@@ -131,7 +132,7 @@ func newVectorNav(
 	pfreq := *newConf.Pfreq
 	v := &vectornav{
 		Named:     conf.ResourceName().AsNamed(),
-		bus:       genericlinux.NewSpiBus(newConf.SPI)
+		bus:       genericlinux.NewSpiBus(newConf.SPI),
 		logger:    logger,
 		cs:        newConf.CSPin,
 		speed:     speed,

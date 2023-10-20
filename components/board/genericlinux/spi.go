@@ -18,7 +18,7 @@ import (
 )
 
 func NewSpiBus(name string) board.SPI {
-	bus = spiBus{}
+	bus := spiBus{}
 	bus.reset(name)
 	return &bus
 }
