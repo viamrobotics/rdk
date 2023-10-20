@@ -173,57 +173,57 @@ jobs:
         echo "- x86_64: https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${channel}-x86_64.AppImage" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
 
-  # appimage_test:
-  #   name: AppImage Test
-  #   if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
-  #   strategy:
-  #     fail-fast: false
-  #     matrix:
-  #       arch: [[ubuntu-latest], [buildjet-2vcpu-ubuntu-2204-arm], [arm64, pi4]]
-  #   needs: appimage
-  #   runs-on: ${{ matrix.arch }}
-  #   timeout-minutes: 15
-  #   outputs:
-  #     date: ${{ needs.appimage.outputs.date }}
+  appimage_test:
+    name: AppImage Test
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [[ubuntu-latest], [buildjet-2vcpu-ubuntu-2204-arm], [arm64, pi4]]
+    needs: appimage
+    runs-on: ${{ matrix.arch }}
+    timeout-minutes: 15
+    outputs:
+      date: ${{ needs.appimage.outputs.date }}
 
-  #   steps:
-  #   - name: Clean Workspace
-  #     run: |
-  #       shopt -s dotglob
-  #       sudo chown -R `whoami` ./
-  #       rm -rf ./*
+    steps:
+    - name: Clean Workspace
+      run: |
+        shopt -s dotglob
+        sudo chown -R `whoami` ./
+        rm -rf ./*
 
-  #   - name: Test AppImage
-  #     run: |
-  #       if echo "${{ matrix.arch[0] }}" | grep -q ubuntu; then
-  #         sudo apt-get install -y libfuse2
-  #       fi
-  #       channel="${{ github.ref_name }}"
-  #       # we call our main branch releases "latest"
-  #       if [ "$channel" = "main" ]; then
-  #         channel="latest"
-  #       fi
-  #       export TEST_DIR=`mktemp -d -t test-viam-server-XXXXXX`
-  #       cd $TEST_DIR
+    - name: Test AppImage
+      run: |
+        if echo "${{ matrix.arch[0] }}" | grep -q ubuntu; then
+          sudo apt-get install -y libfuse2
+        fi
+        channel="${{ github.ref_name }}"
+        # we call our main branch releases "latest"
+        if [ "$channel" = "main" ]; then
+          channel="latest"
+        fi
+        export TEST_DIR=`mktemp -d -t test-viam-server-XXXXXX`
+        cd $TEST_DIR
 
-  #       curl -o viam-server https://storage.googleapis.com/packages.viam.com/apps/viam-server/testing/appimage/${{ needs.appimage.outputs.date }}/${{ github.sha }}/viam-server-${channel}-`uname -m`.AppImage
-  #       chmod 755 viam-server
+        curl -o viam-server https://storage.googleapis.com/packages.viam.com/apps/viam-server/testing/appimage/${{ needs.appimage.outputs.date }}/${{ github.sha }}/viam-server-${channel}-`uname -m`.AppImage
+        chmod 755 viam-server
 
-  #       export RAND_PORT=$((30000 + $RANDOM))
-  #       echo "{\"network\": {\"bind_address\":\"localhost:${RAND_PORT}\"}}" > test.json
+        export RAND_PORT=$((30000 + $RANDOM))
+        echo "{\"network\": {\"bind_address\":\"localhost:${RAND_PORT}\"}}" > test.json
 
-  #       ./viam-server -config test.json &
-  #       curl --retry 5 --retry-delay 5 --retry-connrefused localhost:$RAND_PORT
-  #       export RET1=$?
-  #       kill %%
-  #       wait $!
-  #       export RET2=$?
-  #       cd - && rm -rf $TEST_DIR
-  #       [ $RET1 == 0 ] && [ $RET1 == 0 ]
+        ./viam-server -config test.json &
+        curl --retry 5 --retry-delay 5 --retry-connrefused localhost:$RAND_PORT
+        export RET1=$?
+        kill %%
+        wait $!
+        export RET2=$?
+        cd - && rm -rf $TEST_DIR
+        [ $RET1 == 0 ] && [ $RET1 == 0 ]
 
   appimage_deploy:
     name: AppImage Deploy
-    needs: appimage-32bit
+    needs: [appimage_test, appimage-32bit]
     runs-on: ubuntu-latest
     env:
       channel: ${{ github.ref_name == 'main' && 'latest' || github.ref_name }}
@@ -251,17 +251,14 @@ jobs:
         destination: 'packages.viam.com/apps/viam-server/'
         parent: false
 
-    - name: SHORT CIRCUIT
-      run: exit 1
+    - name: Publish AppImage
+      run: |
+        gsutil mv "gs://packages.viam.com/apps/viam-server/testing/appimage/${{ needs.appimage_test.outputs.date }}/${{ github.sha }}/*" "gs://packages.viam.com/apps/viam-server/"
 
-    # - name: Publish AppImage
-    #   run: |
-    #     gsutil mv "gs://packages.viam.com/apps/viam-server/testing/appimage/${{ needs.appimage_test.outputs.date }}/${{ github.sha }}/*" "gs://packages.viam.com/apps/viam-server/"
-
-    # - name: Output Summary
-    #   run: |
-    #     echo "### Built AppImages for ${channel}" >> $GITHUB_STEP_SUMMARY
-    #     echo "- arm64: https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${channel}-aarch64.AppImage" >> $GITHUB_STEP_SUMMARY
-    #     echo "- x86_64: https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${channel}-x86_64.AppImage" >> $GITHUB_STEP_SUMMARY
-    #     echo "- armhf: https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${channel}-armhf.AppImage" >> $GITHUB_STEP_SUMMARY
-    #     echo "" >> $GITHUB_STEP_SUMMARY
+    - name: Output Summary
+      run: |
+        echo "### Built AppImages for ${channel}" >> $GITHUB_STEP_SUMMARY
+        echo "- arm64: https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${channel}-aarch64.AppImage" >> $GITHUB_STEP_SUMMARY
+        echo "- x86_64: https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${channel}-x86_64.AppImage" >> $GITHUB_STEP_SUMMARY
+        echo "- armhf: https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${channel}-armhf.AppImage" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
