@@ -147,6 +147,8 @@ func (octree *BasicOctree) Pose() spatialmath.Pose {
 }
 
 // AlmostEqual compares the octree with another geometry and checks if they are equivalent.
+// Note that this checks that the *geometry* is equal; that is, both octrees have the same number of points and in the same locations.
+// This is agnostic to things like the label, the centerpoint (as the individual points have locations), the side lengths, etc.
 func (octree *BasicOctree) AlmostEqual(geom spatialmath.Geometry) bool {
 	otherOctree, ok := geom.(*BasicOctree)
 	if !ok {
