@@ -1,6 +1,7 @@
 package builtin
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"math"
@@ -8,13 +9,16 @@ import (
 
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
+	"github.com/edaniels/golog"
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/base/kinematicbase"
 	"go.viam.com/rdk/motionplan"
+	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
+	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -168,40 +172,65 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	} // Note: this is only for diff drive, not used for PTGs
 	ms.logger.Debugf("base limits: %v", limits)
 
+	if extra != nil {
+		if profile, ok := extra["motion_profile"]; ok {
+			motionProfile, ok := profile.(string)
+			if !ok {
+				return nil, errors.New("could not interpret motion_profile field as string")
+			}
+			kinematicsOptions.PositionOnlyMode = motionProfile == motionplan.PositionOnlyMotionProfile
+		}
+	}
+
 	kb, err := kinematicbase.WrapWithKinematics(ctx, b, ms.logger, localizer, limits, kinematicsOptions)
 	if err != nil {
 		return nil, err
 	}
 
-	// replace original base frame with one that knows how to move itself and allow planning for
-	kinematicFrame := kb.Kinematics()
-	if err = fs.ReplaceFrame(kinematicFrame); err != nil {
-		return nil, err
-	}
-	// We want to disregard anything in the FS whose eventual parent is not the base, because we don't know where it is.
-	baseOnlyFS, err := fs.FrameSystemSubset(kinematicFrame)
-	if err != nil {
-		return nil, err
-	}
-	startPose, err := kb.CurrentPosition(ctx)
-	if err != nil {
-		return nil, err
-	}
-	startPoseToWorld := spatialmath.PoseInverse(startPose.Pose())
-
-	goal := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.PoseBetween(startPose.Pose(), goalPoseRaw))
-
-	// convert GeoObstacles into GeometriesInFrame with respect to the base's starting point
 	geomsRaw := spatialmath.GeoObstaclesToGeometries(obstacles, origin)
-	geoms := make([]spatialmath.Geometry, 0, len(geomsRaw))
-	for _, geom := range geomsRaw {
-		geoms = append(geoms, geom.Transform(startPoseToWorld))
+	
+	return relativeMoveRequestFromAbsolute(
+		ctx,
+		motionCfg,
+		ms.logger,
+		kb,
+		goalPoseRaw,
+		fs,
+		geomsRaw,
+		extra,
+	)
+}
+
+// newMoveOnMapRequest instantiates a moveRequest intended to be used in the context of a MoveOnMap call.
+func (ms *builtIn) newMoveOnMapRequest(
+	ctx context.Context,
+	componentName resource.Name,
+	goalPoseRaw spatialmath.Pose,
+	slamName resource.Name,
+	kinematicsOptions kinematicbase.Options,
+	extra map[string]interface{},
+) (*moveRequest, error) {
+	// get the SLAM Service from the slamName
+	slamSvc, ok := ms.slamServices[slamName]
+	if !ok {
+		return nil, resource.DependencyNotFoundError(slamName)
 	}
 
-	gif := referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)
-	worldState, err := referenceframe.NewWorldState([]*referenceframe.GeometriesInFrame{gif}, nil)
+	// gets the extents of the SLAM map
+	limits, err := slam.Limits(ctx, slamSvc)
 	if err != nil {
 		return nil, err
+	}
+	limits = append(limits, referenceframe.Limit{Min: -2 * math.Pi, Max: 2 * math.Pi})
+
+	// create a KinematicBase from the componentName
+	component, ok := ms.components[componentName]
+	if !ok {
+		return nil, resource.DependencyNotFoundError(componentName)
+	}
+	b, ok := component.(base.Base)
+	if !ok {
+		return nil, fmt.Errorf("cannot move component of type %T because it is not a Base", component)
 	}
 
 	if extra != nil {
@@ -214,10 +243,88 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 		}
 	}
 
+	fs, err := ms.fsService.FrameSystem(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	kb, err := kinematicbase.WrapWithKinematics(ctx, b, ms.logger, motion.NewSLAMLocalizer(slamSvc), limits, kinematicsOptions)
+	if err != nil {
+		return nil, err
+	}
+
+	// get point cloud data in the form of bytes from pcd
+	pointCloudData, err := slam.PointCloudMapFull(ctx, slamSvc)
+	if err != nil {
+		return nil, err
+	}
+	// store slam point cloud data  in the form of a recursive octree for collision checking
+	octree, err := pointcloud.ReadPCDToBasicOctree(bytes.NewReader(pointCloudData))
+	if err != nil {
+		return nil, err
+	}
+	fmt.Println("octree", octree)
+
+	return relativeMoveRequestFromAbsolute(
+		ctx,
+		nil,
+		ms.logger,
+		kb,
+		goalPoseRaw,
+		fs,
+		[]spatialmath.Geometry{octree},
+		extra,
+	)
+}
+
+func relativeMoveRequestFromAbsolute(
+	ctx context.Context,
+	motionCfg *motion.MotionConfiguration,
+	logger golog.Logger,
+	kb kinematicbase.KinematicBase,
+	goalPoseInWorld spatialmath.Pose,
+	fs referenceframe.FrameSystem,
+	worldObstacles []spatialmath.Geometry,
+	extra map[string]interface{},
+) (*moveRequest, error) {
+
+	// replace original base frame with one that knows how to move itself and allow planning for
+	kinematicFrame := kb.Kinematics()
+	if err := fs.ReplaceFrame(kinematicFrame); err != nil {
+		return nil, err
+	}
+	// We want to disregard anything in the FS whose eventual parent is not the base, because we don't know where it is.
+	baseOnlyFS, err := fs.FrameSystemSubset(kinematicFrame)
+	if err != nil {
+		return nil, err
+	}
+	
+	startPoseInWorld, err := kb.CurrentPosition(ctx)
+	if err != nil {
+		return nil, err
+	}
+	startPoseToWorld := spatialmath.PoseInverse(startPoseInWorld.Pose())
+
+	goal := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.PoseBetween(startPoseInWorld.Pose(), goalPoseInWorld))
+
+	// convert GeoObstacles into GeometriesInFrame with respect to the base's starting point
+	
+	geoms := make([]spatialmath.Geometry, 0, len(worldObstacles))
+	for _, geom := range worldObstacles {
+		geoms = append(geoms, geom.Transform(startPoseToWorld))
+	}
+	
+
+	gif := referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)
+	worldState, err := referenceframe.NewWorldState([]*referenceframe.GeometriesInFrame{gif}, nil)
+	if err != nil {
+		return nil, err
+	}
+
 	return &moveRequest{
 		config: motionCfg,
 		planRequest: &motionplan.PlanRequest{
-			Logger:             ms.logger,
+			Logger:             logger,
 			Goal:               goal,
 			Frame:              kb.Kinematics(),
 			FrameSystem:        baseOnlyFS,

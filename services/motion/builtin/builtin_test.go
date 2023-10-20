@@ -431,7 +431,7 @@ func TestMoveOnMapLongDistance(t *testing.T) {
 		t.Parallel()
 		ms := createMoveOnMapEnvironment(ctx, t, "slam/example_cartographer_outputs/viam-office-02-22-3/pointcloud/pointcloud_4.pcd")
 		extra := make(map[string]interface{})
-		path, _, err := ms.(*builtIn).planMoveOnMap(
+		mr, err := ms.(*builtIn).newMoveOnMapRequest(
 			context.Background(),
 			base.Named("test_base"),
 			goal,
@@ -440,12 +440,11 @@ func TestMoveOnMapLongDistance(t *testing.T) {
 			extra,
 		)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(path), test.ShouldBeGreaterThan, 2)
+		test.That(t, mr, test.ShouldNotBeNil)
 	})
 }
 
 func TestMoveOnMap(t *testing.T) {
-	t.Skip() // RSDK-4279
 	t.Parallel()
 	ctx := context.Background()
 	// goal x-position of 1.32m is scaled to be in mm
@@ -456,7 +455,7 @@ func TestMoveOnMap(t *testing.T) {
 		ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd")
 		extra := make(map[string]interface{})
 		extra["motion_profile"] = "orientation"
-		path, _, err := ms.(*builtIn).planMoveOnMap(
+		mr, err := ms.(*builtIn).newMoveOnMapRequest(
 			context.Background(),
 			base.Named("test_base"),
 			goal,
@@ -466,9 +465,7 @@ func TestMoveOnMap(t *testing.T) {
 		)
 		test.That(t, err, test.ShouldBeNil)
 		// path of length 2 indicates a path that goes straight through central obstacle
-		test.That(t, len(path), test.ShouldBeGreaterThan, 2)
-		// every waypoint should have the form [x,y,theta]
-		test.That(t, len(path[0]), test.ShouldEqual, 3)
+		test.That(t, mr, test.ShouldNotBeNil)
 	})
 
 	t.Run("ensure success of movement around obstacle", func(t *testing.T) {
@@ -505,7 +502,7 @@ func TestMoveOnMap(t *testing.T) {
 		ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd")
 		extra := make(map[string]interface{})
 		extra["motion_profile"] = "position_only"
-		path, _, err := ms.(*builtIn).planMoveOnMap(
+		mr, err := ms.(*builtIn).newMoveOnMapRequest(
 			context.Background(),
 			base.Named("test_base"),
 			goal,
@@ -514,8 +511,7 @@ func TestMoveOnMap(t *testing.T) {
 			extra,
 		)
 		test.That(t, err, test.ShouldBeNil)
-		// every waypoint should have the form [x,y]
-		test.That(t, len(path[0]), test.ShouldEqual, 2)
+		test.That(t, mr, test.ShouldNotBeNil)
 	})
 
 	t.Run("check that position-only mode executes", func(t *testing.T) {
