@@ -1,5 +1,6 @@
 <script lang='ts'>
 
+/* eslint-disable id-length */
 import { onMount } from 'svelte';
 import { Timestamp } from 'google-protobuf/google/protobuf/timestamp_pb';
 import { ConnectionClosedError } from '@viamrobotics/rpc';

@@ -109,10 +109,10 @@ const peerConnectionType = (info?: robotApi.PeerConnectionInfo.AsObject) => {
                 {peerConnectionType(session.peerConnectionInfo)}
               </td>
               <td class="border border-medium p-2">
-                {session.peerConnectionInfo?.remoteAddress || 'N/A'}
+                {session.peerConnectionInfo?.remoteAddress ?? 'N/A'}
               </td>
               <td class="border border-medium p-2">
-                {session.peerConnectionInfo?.localAddress || 'N/A'}
+                {session.peerConnectionInfo?.localAddress ?? 'N/A'}
               </td>
             </tr>
           {/each}

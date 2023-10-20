@@ -71,7 +71,7 @@
   };
 
   const startDurationTimer = (start: number) => {
-    durationInterval = setInterval(() => {
+    durationInterval = window.setInterval(() => {
       sessionDuration = Date.now() - start;
     }, 400);
   };
@@ -111,6 +111,7 @@
           ]);
           nextPose = response.pose;
         }
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
         if (mapTimestamp) {
           lastTimestamp = mapTimestamp;
         }
@@ -130,8 +131,8 @@
     } catch (error) {
       refreshErrorMessage2d =
         error !== null && typeof error === 'object' && 'message' in error
-          ? `${refreshErrorMessage} ${error.message}`
-          : `${refreshErrorMessage} ${error}`;
+          ? `${refreshErrorMessage} ${(error as { message: string }).message}`
+          : `${refreshErrorMessage} ${error as string}`;
     }
   };
 
@@ -151,6 +152,7 @@
         if (!localizationMode(mapTimestamp)) {
           pointcloud = await slamClient.getPointCloudMap();
         }
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
         if (mapTimestamp) {
           lastTimestamp = mapTimestamp;
         }
@@ -159,8 +161,8 @@
     } catch (error) {
       refreshErrorMessage3d =
         error !== null && typeof error === 'object' && 'message' in error
-          ? `${refreshErrorMessage} ${error.message}`
-          : `${refreshErrorMessage} ${error}`;
+          ? `${refreshErrorMessage} ${(error as { message: string }).message}`
+          : `${refreshErrorMessage} ${error as string }`;
     }
   };
 
@@ -220,7 +222,7 @@
     updateSLAM3dRefreshFrequency();
   };
 
-  const handle2dRenderClick = (event: CustomEvent) => {
+  const handle2dRenderClick = (event: CustomEvent<THREE.Vector2 | undefined>) => {
     if (!overrides?.isCloudSlam) {
       destination = event.detail;
     }
@@ -311,7 +313,7 @@
         hasActiveSession = true;
         sessionId = activeSession.id;
         const startMilliseconds =
-          (activeSession.timeCloudRunJobStarted?.seconds || 0) * 1000;
+          (activeSession.timeCloudRunJobStarted?.seconds ?? 0) * 1000;
         startMappingIntervals(startMilliseconds);
       }
     }
@@ -325,7 +327,7 @@
       }
 
       // error may not be present if user has not yet typed in input
-      const mapName = overrides.mappingDetails.name || newMapName;
+      const mapName = overrides.mappingDetails.name ?? newMapName;
       if (!mapName) {
         mapNameError = 'Please enter a name for this map';
         return;
@@ -357,8 +359,9 @@
     overrides?.endMappingSession(sessionId);
   };
 
-  const formatDisplayTime = (time: number) =>
-    `${time < 10 ? `0${time}` : time}`;
+  const formatDisplayTime = (time: number): string => {
+    return time < 10 ? `0${time}` : `${time}`;
+  }
 
   const formatDuration = (milliseconds: number) => {
     let seconds = Math.floor(milliseconds / 1000);
@@ -381,9 +384,9 @@
     clearInterval(durationInterval);
   });
 
-  const handleMapNameChange = (event: CustomEvent) => {
+  const handleMapNameChange = (event: CustomEvent<{ value: string }>) => {
     newMapName = event.detail.value;
-    mapNameError = overrides?.validateMapName(newMapName) || '';
+    mapNameError = overrides?.validateMapName(newMapName) ?? '';
   };
 
   const handleDrop = (event: CustomEvent<string>) => {

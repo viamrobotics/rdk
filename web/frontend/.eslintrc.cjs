@@ -20,6 +20,12 @@ module.exports = {
   },
   rules: {
     'no-void': ['error', { allowAsStatement: true }],
+
+    // @TODO(mp) These were disabled when moving over to js-config. They should be gradually re-enabled.
+    '@typescript-eslint/no-floating-promises': 'off',
+    '@typescript-eslint/no-misused-promises': 'off',
+    '@typescript-eslint/no-unsafe-enum-comparison': 'off',
+    'svelte/valid-compile': 'off',
   },
   overrides: [
     {

@@ -48,7 +48,8 @@ const relevantSubtypesForStatus = [
   'input_controller',
 ] as const;
 
-const impliedURL = `${location.protocol}//${location.hostname}${location.port ? `:${location.port}` : ''}`;
+const urlPort = location.port ? `:${location.port}` : ''
+const impliedURL = `${location.protocol}//${location.hostname}${urlPort}`;
 
 $robotClient = new Client(impliedURL, {
   enabled: webrtcEnabled,
@@ -92,6 +93,8 @@ const handleError = (message: string, error: unknown, onceKey: string) => {
   }
 
   notify.danger(message);
+  
+  // eslint-disable-next-line no-console
   console.error(message, { error });
 };
 
@@ -225,22 +228,22 @@ const restartStatusStream = () => {
   streamReq.setEvery(new Duration().setNanos(500_000_000));
 
   $statusStream = $robotClient.robotService.streamStatus(streamReq);
-  if ($statusStream !== null) {
-    $statusStream.on('data', (response: { getStatusList(): robotApi.Status[] }) => {
-      updateStatus(response.getStatusList());
-      lastStatusTS = Date.now();
-    });
-    $statusStream.on('status', (newStatus?: { details: unknown }) => {
-      if (!ConnectionClosedError.isError(newStatus!.details)) {
-        console.error('error streaming robot status', newStatus);
-      }
-      $statusStream = null;
-    });
-    $statusStream.on('end', () => {
-      console.error('done streaming robot status');
-      $statusStream = null;
-    });
-  }
+  $statusStream.on('data', (response: { getStatusList(): robotApi.Status[] }) => {
+    updateStatus(response.getStatusList());
+    lastStatusTS = Date.now();
+  });
+  $statusStream.on('status', (newStatus?: { details: unknown }) => {
+    if (!ConnectionClosedError.isError(newStatus!.details)) {
+      // eslint-disable-next-line no-console
+      console.error('error streaming robot status', newStatus);
+    }
+    $statusStream = null;
+  });
+  $statusStream.on('end', () => {
+    // eslint-disable-next-line no-console
+    console.error('done streaming robot status');
+    $statusStream = null;
+  });
 };
 
 // query metadata service every 0.5s
@@ -316,6 +319,7 @@ const isConnected = () => {
   );
 };
 
+// eslint-disable-next-line sonarjs/cognitive-complexity
 const tick = async () => {
   const newErrors: unknown[] = [];
 
@@ -368,6 +372,7 @@ const tick = async () => {
   $connectionStatus = 'reconnecting';
 
   try {
+    // eslint-disable-next-line no-console
     console.debug('reconnecting');
 
     // reset status/stream state
@@ -384,12 +389,15 @@ const tick = async () => {
     $rtt = Math.max(Date.now() - now, 0);
 
     lastStatusTS = Date.now();
+    // eslint-disable-next-line no-console
     console.debug('reconnected');
     $streamManager.refreshStreams();
   } catch (error) {
     if (ConnectionClosedError.isError(error)) {
+      // eslint-disable-next-line no-console
       console.error('failed to reconnect; retrying');
     } else {
+      // eslint-disable-next-line no-console
       console.error('failed to reconnect; retrying:', error);
     }
   }

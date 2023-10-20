@@ -21,7 +21,7 @@ import type { Map } from 'maplibre-gl';
 
 export let name: string;
 
-let map: Map;
+let map: Map | undefined;
 
 const mapPosition = persisted('viam-blocks-navigation-map-center');
 const navClient = useNavClient(name);
@@ -31,7 +31,7 @@ const { pose } = useBasePose(name);
 
 let centered = false;
 
-$: if (map && $pose && !centered && !mapPosition) {
+$: if (map && $pose && !centered && !$mapPosition) {
   map.setCenter($pose);
   centered = true;
 }
@@ -93,7 +93,7 @@ const handleDeleteWaypoint = async (event: CustomEvent<string>) => {
               icon='image-filter-center-focus'
               on:click={() => {
                 if ($pose) {
-                  map.flyTo({
+                  map?.flyTo({
                     zoom: 15,
                     duration: 800,
                     curve: 0.1,

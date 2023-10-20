@@ -14,7 +14,7 @@ export let pointcloud: Uint8Array | undefined;
 let container: HTMLDivElement;
 let downloadHref: string;
 
-let cube: THREE.LineSegments;
+let cube: THREE.LineSegments | undefined;
 let displayGrid = true;
 let transformEnabled = false;
 
@@ -54,7 +54,7 @@ transformControls.addEventListener('dragging-changed', (event) => {
 });
 
 const color = new THREE.Color();
-let mesh: THREE.InstancedMesh;
+let mesh: THREE.InstancedMesh | undefined;
 
 const matrix = new THREE.Matrix4();
 const vec3 = new THREE.Vector3();
@@ -128,10 +128,8 @@ const update = (cloud: Uint8Array) => {
     matrix.setPosition(positions[j + 0]!, positions[j + 1], positions[j + 2]);
     mesh.setMatrixAt(i, matrix);
 
-    if (colors) {
-      color.setRGB(colors[j + 0]!, colors[j + 1]!, colors[j + 2]!);
-      mesh.setColorAt(i, color);
-    }
+    color.setRGB(colors[j + 0]!, colors[j + 1]!, colors[j + 2]!);
+    mesh.setColorAt(i, color);
   }
 
   if (mesh.instanceColor) {
@@ -225,13 +223,13 @@ const handleToggleTransformControls = () => {
   }
 };
 
-const handleTransformModeChange = (event: CustomEvent) => {
+const handleTransformModeChange = (event: CustomEvent<{ value: string }>) => {
   const { value } = event.detail;
 
-  transformControls.setMode(value.toLowerCase());
+  transformControls.setMode(value.toLowerCase() as 'translate' | 'rotate' | 'scale');
 };
 
-const handlePointsResize = (event: CustomEvent) => {
+const handlePointsResize = (event: CustomEvent<{ value: number }>) => {
   const points = scene.getObjectByName('points') as THREE.InstancedMesh;
   const scale = event.detail.value;
 
@@ -245,7 +243,9 @@ const handlePointsResize = (event: CustomEvent) => {
 
   sphere.scale.set(scale, scale, scale);
 
-  mesh.instanceMatrix.needsUpdate = true;
+  if (mesh) {
+    mesh.instanceMatrix.needsUpdate = true;
+  }
 };
 
 const init = (cloud: Uint8Array) => {

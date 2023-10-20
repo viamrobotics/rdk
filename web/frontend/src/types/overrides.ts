@@ -25,7 +25,7 @@ interface MappingDetails {
 }
 
 export interface SLAMOverrides {
-  getMappingSessionPCD: (
+  getMappingSessionPCD?: (
     sessionId: string
   ) => Promise<{ map: Uint8Array; pose: Pose }>;
   startMappingSession: (mapName: string) => Promise<string>;

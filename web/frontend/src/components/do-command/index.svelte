@@ -32,17 +32,17 @@ const handleDoCommand = async (name: string, command: string) => {
       notify.danger(`Invalid response when executing command on ${name}`);
     }
   } catch (error) {
-    notify.danger(`Error executing command on ${name}: ${error}`);
+    notify.danger(`Error executing command on ${name}: ${JSON.stringify(error)}`);
   }
 
   executing = false;
 };
 
-const handleSelectComponent = (event: CustomEvent) => {
+const handleSelectComponent = (event: CustomEvent<{ value: string }>) => {
   selectedComponent = event.detail.value;
 };
 
-const handleEditorInput = (event: CustomEvent) => {
+const handleEditorInput = (event: CustomEvent<{ value: string }>) => {
   input = event.detail.value;
 };
 

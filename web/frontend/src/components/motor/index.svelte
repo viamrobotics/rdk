@@ -35,7 +35,7 @@ let direction: -1 | 1 = 1;
 let type: MovementTypes = 'go';
 let properties: motorApi.GetPropertiesResponse.AsObject | undefined;
 
-const setMovementType = (event: CustomEvent) => {
+const setMovementType = (event: CustomEvent<{ value: string}>) => {
   movementType = event.detail.value;
   switch (movementType) {
     case 'Go': {
@@ -56,6 +56,7 @@ const setMovementType = (event: CustomEvent) => {
 const setPosition = (event: CustomEvent) => {
   const target = event.currentTarget as HTMLInputElement;
 
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   if (event.type === 'blur' && target.value === undefined) {
     position = 0;
   }
@@ -76,6 +77,7 @@ const setPosition = (event: CustomEvent) => {
 const setRpm = (event: CustomEvent) => {
   const target = event.currentTarget as HTMLInputElement;
 
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   if (event.type === 'blur' && target.value === undefined) {
     rpm = 0;
   }
@@ -96,6 +98,7 @@ const setRpm = (event: CustomEvent) => {
 const setRevolutions = (event: CustomEvent) => {
   const target = event.currentTarget as HTMLInputElement;
 
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   if (event.type === 'blur' && target.value === undefined) {
     revolutions = 0;
   }
@@ -113,11 +116,11 @@ const setRevolutions = (event: CustomEvent) => {
   revolutions = num;
 };
 
-const setPowerSlider = (event: CustomEvent) => {
+const setPowerSlider = (event: CustomEvent<{ value: number }>) => {
   power = event.detail.value;
 };
 
-const setDirection = (event: CustomEvent) => {
+const setDirection = (event: CustomEvent<{ value: string }>) => {
   switch (event.detail.value) {
     case 'Forwards': {
       direction = 1;

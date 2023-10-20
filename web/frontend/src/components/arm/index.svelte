@@ -25,7 +25,7 @@ export let name: string;
 export let status: {
   is_moving: boolean
   end_position: Record<string, number>
-  joint_positions: { values: number[]}
+  joint_positions: { values: (number | undefined)[] }
 } | undefined;
 
 const { robotClient } = useRobotClient();
@@ -46,7 +46,7 @@ $: posPieces = fieldSetters.map((setter) => {
   const [endPositionField] = setter;
   return {
     endPosition: setter,
-    endPositionValue: status?.end_position[endPositionField] || 0,
+    endPositionValue: status?.end_position[endPositionField] ?? 0,
   };
 });
 
@@ -72,8 +72,11 @@ const fieldMap = [
 ] as const;
 
 const updateFieldMap: Record<string, Field> = {
+  // eslint-disable-next-line id-length
   X: 'x',
+  // eslint-disable-next-line id-length
   Y: 'y',
+  // eslint-disable-next-line id-length
   Z: 'z',
   Theta: 'theta',
   OX: 'oX',
@@ -162,7 +165,7 @@ const armEndPositionInc = async (updateField: string | undefined, amount: number
   };
 
   for (const [endPositionField, poseField] of fieldMap) {
-    const endPositionValue = old[endPositionField] || 0;
+    const endPositionValue = old[endPositionField] ?? 0;
     const field: Field = poseField;
     newPose[field] = Number(endPositionValue);
   }
@@ -345,7 +348,7 @@ const armCopyJoints = () => {
 
           <div class="flex flex-col gap-1 pb-1">
             {#if modifyAll}
-              {#each modifyAllStatus.joint_pieces ?? [] as piece (piece.joint)}
+              {#each modifyAllStatus.joint_pieces as piece (piece.joint)}
                 <label class="flex gap-2 items-center">
                   <p class='min-w-[3rem] text-right'>Joint {piece.joint}</p>
                   <input

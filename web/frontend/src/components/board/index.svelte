@@ -85,27 +85,27 @@ const writeAnalog = async () => {
   }
 };
 
-const handleGetPinInput = (event: CustomEvent) => {
+const handleGetPinInput = (event: CustomEvent<{ value: string}>) => {
   getPin = event.detail.value;
 };
 
-const handleSetPinInput = (event: CustomEvent) => {
+const handleSetPinInput = (event: CustomEvent<{ value: string}>) => {
   setPin = event.detail.value;
 };
 
-const handlePwmInput = (event: CustomEvent) => {
+const handlePwmInput = (event: CustomEvent<{ value: string}>) => {
   pwm = event.detail.value;
 };
 
-const handlePwmFrequencyInput = (event: CustomEvent) => {
+const handlePwmFrequencyInput = (event: CustomEvent<{ value: string}>) => {
   pwmFrequency = event.detail.value;
 };
 
-const handleAnalogPinInput = (event:CustomEvent) => {
+const handleAnalogPinInput = (event:CustomEvent<{ value: string}>) => {
   analogPin = event.detail.value;
 };
 
-const handleAnalogValueInput = (event:CustomEvent) => {
+const handleAnalogValueInput = (event:CustomEvent<{ value: string}>) => {
   analogValue = event.detail.value;
 };
 
