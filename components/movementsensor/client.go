@@ -6,6 +6,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
+	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/movementsensor/v1"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -135,7 +136,19 @@ func (c *client) Orientation(ctx context.Context, extra map[string]interface{}) 
 }
 
 func (c *client) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-	return Readings(ctx, c, extra)
+	ext, err := structpb.NewStruct(extra)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.client.GetReadings(ctx, &commonpb.GetReadingsRequest{
+		Name:  c.name,
+		Extra: ext,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return protoutils.ReadingProtoToGo(resp.Readings)
 }
 
 func (c *client) Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32, error) {

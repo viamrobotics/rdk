@@ -345,7 +345,12 @@ func (mgr *Manager) Configs() []config.Module {
 	var configs []config.Module
 	for _, mod := range mgr.modules {
 		configs = append(configs, config.Module{
-			Name: mod.name, ExePath: mod.exe, LogLevel: mod.logLevel,
+			Name:        mod.name,
+			ExePath:     mod.exe,
+			LogLevel:    mod.logLevel,
+			Type:        mod.modType,
+			ModuleID:    mod.moduleID,
+			Environment: mod.environment,
 		})
 	}
 	return configs

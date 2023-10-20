@@ -127,6 +127,13 @@ func ContainsReservedCharacter(val string) error {
 	return nil
 }
 
+// A Sensor represents a general purpose sensor that can give arbitrary readings
+// of all readings that it is sensing.
+type Sensor interface {
+	// Readings return data specific to the type of sensor and can be of any type.
+	Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error)
+}
+
 // Actuator is any resource that can move.
 type Actuator interface {
 	// IsMoving returns whether the resource is moving or not

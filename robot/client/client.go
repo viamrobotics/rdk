@@ -887,8 +887,9 @@ func (rc *RobotClient) Status(ctx context.Context, resourceNames []resource.Name
 	for _, status := range resp.Status {
 		statuses = append(
 			statuses, robot.Status{
-				Name:   rprotoutils.ResourceNameFromProto(status.Name),
-				Status: status.Status.AsMap(),
+				Name:             rprotoutils.ResourceNameFromProto(status.Name),
+				LastReconfigured: status.LastReconfigured.AsTime(),
+				Status:           status.Status.AsMap(),
 			})
 	}
 	return statuses, nil
