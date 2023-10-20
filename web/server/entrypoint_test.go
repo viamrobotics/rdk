@@ -3,6 +3,7 @@ package server_test
 
 import (
 	"context"
+	"runtime"
 	"strconv"
 	"testing"
 
@@ -23,6 +24,9 @@ import (
 const numResources = 20
 
 func TestNumResources(t *testing.T) {
+	if runtime.GOARCH == "arm" {
+		t.Skip("skipping on 32-bit ARM, subprocess build warnings cause failure")
+	}
 	logger := logging.NewTestLogger(t)
 	cfgFilename := utils.ResolveFile("/etc/configs/fake.json")
 	cfg, err := config.Read(context.Background(), cfgFilename, logger)
