@@ -181,6 +181,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	} // Note: this is only for diff drive, not used for PTGs
 	ms.logger.Debugf("base limits: %v", limits)
 
+	replanCostFactor := defaultReplanCostFactor
 	if extra != nil {
 		if profile, ok := extra["motion_profile"]; ok {
 			motionProfile, ok := profile.(string)
@@ -188,6 +189,13 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 				return nil, errors.New("could not interpret motion_profile field as string")
 			}
 			kinematicsOptions.PositionOnlyMode = motionProfile == motionplan.PositionOnlyMotionProfile
+		}
+		if costFactorRaw, ok := extra["replan_cost_factor"]; ok {
+			costFactor, ok := costFactorRaw.(float64)
+			if !ok {
+				return nil, errors.New("could not interpret replan_cost_factor field as float")
+			}
+			replanCostFactor = costFactor
 		}
 	}
 
@@ -198,7 +206,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 
 	geomsRaw := spatialmath.GeoObstaclesToGeometries(obstacles, origin)
 	
-	return relativeMoveRequestFromAbsolute(
+	mr, err :=  relativeMoveRequestFromAbsolute(
 		ctx,
 		motionCfg,
 		ms.logger,
@@ -208,6 +216,12 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 		geomsRaw,
 		extra,
 	)
+	if err != nil {
+		return nil, err
+	}
+	mr.seedPlan = seedPlan
+	mr.replanCostFactor= replanCostFactor
+	return mr, nil
 }
 
 // newMoveOnMapRequest instantiates a moveRequest intended to be used in the context of a MoveOnMap call.
@@ -242,7 +256,6 @@ func (ms *builtIn) newMoveOnMapRequest(
 		return nil, fmt.Errorf("cannot move component of type %T because it is not a Base", component)
 	}
 
-	replanCostFactor := defaultReplanCostFactor
 	if extra != nil {
 		if profile, ok := extra["motion_profile"]; ok {
 			motionProfile, ok := profile.(string)
@@ -250,13 +263,6 @@ func (ms *builtIn) newMoveOnMapRequest(
 				return nil, errors.New("could not interpret motion_profile field as string")
 			}
 			kinematicsOptions.PositionOnlyMode = motionProfile == motionplan.PositionOnlyMotionProfile
-		}
-		if costFactorRaw, ok := extra["replan_cost_factor"]; ok {
-			costFactor, ok := costFactorRaw.(float64)
-			if !ok {
-				return nil, errors.New("could not interpret replan_cost_factor field as float")
-			}
-			replanCostFactor = costFactor
 		}
 	}
 
@@ -337,6 +343,10 @@ func relativeMoveRequestFromAbsolute(
 	if err != nil {
 		return nil, err
 	}
+	
+	if motionCfg == nil {
+		motionCfg = &motion.MotionConfiguration{}
+	}
 
 	return &moveRequest{
 		config: motionCfg,
@@ -350,7 +360,5 @@ func relativeMoveRequestFromAbsolute(
 			Options:            extra,
 		},
 		kinematicBase:    kb,
-		seedPlan:         seedPlan,
-		replanCostFactor: replanCostFactor,
 	}, nil
 }

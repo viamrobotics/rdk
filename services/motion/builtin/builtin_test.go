@@ -209,8 +209,10 @@ func createMoveOnGlobeEnvironment(ctx context.Context, t *testing.T, origin *geo
 func createMoveOnMapEnvironment(ctx context.Context, t *testing.T, pcdPath string) motion.Service {
 	injectSlam := createInjectedSlam("test_slam", pcdPath)
 
+	baseLink := createBaseLink(t, "test-base")
+
 	cfg := resource.Config{
-		Name:  "test_base",
+		Name:  "test-base",
 		API:   base.API,
 		Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R: 120}},
 	}
@@ -222,6 +224,17 @@ func createMoveOnMapEnvironment(ctx context.Context, t *testing.T, pcdPath strin
 	conf := resource.Config{ConvertedAttributes: &Config{}}
 	ms, err := NewBuiltIn(ctx, deps, conf, logger)
 	test.That(t, err, test.ShouldBeNil)
+	
+	// create the frame system
+	fsParts := []*referenceframe.FrameSystemPart{
+		{FrameConfig: baseLink},
+	}
+
+	_, err = createFrameSystemService(ctx, deps, fsParts, logger)
+	test.That(t, err, test.ShouldBeNil)
+	
+	//~ ms.fsService = fsSvc
+	
 	return ms
 }
 
@@ -433,7 +446,7 @@ func TestMoveOnMapLongDistance(t *testing.T) {
 		extra := make(map[string]interface{})
 		mr, err := ms.(*builtIn).newMoveOnMapRequest(
 			context.Background(),
-			base.Named("test_base"),
+			base.Named("test-base"),
 			goal,
 			slam.Named("test_slam"),
 			kinematicbase.NewKinematicBaseOptions(),
@@ -457,7 +470,7 @@ func TestMoveOnMap(t *testing.T) {
 		extra["motion_profile"] = "orientation"
 		mr, err := ms.(*builtIn).newMoveOnMapRequest(
 			context.Background(),
-			base.Named("test_base"),
+			base.Named("test-base"),
 			goal,
 			slam.Named("test_slam"),
 			kinematicbase.NewKinematicBaseOptions(),
@@ -473,7 +486,7 @@ func TestMoveOnMap(t *testing.T) {
 		ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd")
 		success, err := ms.MoveOnMap(
 			context.Background(),
-			base.Named("test_base"),
+			base.Named("test-base"),
 			goal,
 			slam.Named("test_slam"),
 			nil,
@@ -488,7 +501,7 @@ func TestMoveOnMap(t *testing.T) {
 		easyGoal := spatialmath.NewPoseFromPoint(r3.Vector{X: 0.277 * 1000, Y: 0.593 * 1000})
 		success, err := ms.MoveOnMap(
 			context.Background(),
-			base.Named("test_base"),
+			base.Named("test-base"),
 			easyGoal,
 			slam.Named("test_slam"),
 			nil,
@@ -504,7 +517,7 @@ func TestMoveOnMap(t *testing.T) {
 		extra["motion_profile"] = "position_only"
 		mr, err := ms.(*builtIn).newMoveOnMapRequest(
 			context.Background(),
-			base.Named("test_base"),
+			base.Named("test-base"),
 			goal,
 			slam.Named("test_slam"),
 			kinematicbase.NewKinematicBaseOptions(),
@@ -521,7 +534,7 @@ func TestMoveOnMap(t *testing.T) {
 		extra["motion_profile"] = "position_only"
 		success, err := ms.MoveOnMap(
 			context.Background(),
-			base.Named("test_base"),
+			base.Named("test-base"),
 			goal,
 			slam.Named("test_slam"),
 			extra,
@@ -544,7 +557,7 @@ func TestMoveOnMapTimeout(t *testing.T) {
 
 	injectSlam := createInjectedSlam("test_slam", "pointcloud/octagonspace.pcd")
 
-	realBase, err := base.FromRobot(myRobot, "test_base")
+	realBase, err := base.FromRobot(myRobot, "test-base")
 	test.That(t, err, test.ShouldBeNil)
 
 	deps := resource.Dependencies{
@@ -552,7 +565,7 @@ func TestMoveOnMapTimeout(t *testing.T) {
 		realBase.Name():   realBase,
 	}
 	fsParts := []*referenceframe.FrameSystemPart{
-		{FrameConfig: createBaseLink(t, "test_base")},
+		{FrameConfig: createBaseLink(t, "test-base")},
 	}
 
 	conf := resource.Config{ConvertedAttributes: &Config{}}
@@ -569,7 +582,7 @@ func TestMoveOnMapTimeout(t *testing.T) {
 	motionCfg["timeout"] = 0.01
 	success, err := ms.MoveOnMap(
 		context.Background(),
-		base.Named("test_base"),
+		base.Named("test-base"),
 		easyGoal,
 		slam.Named("test_slam"),
 		motionCfg,

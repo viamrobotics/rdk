@@ -49,7 +49,7 @@ func newMoveAttempt(ctx context.Context, request *moveRequest) *moveAttempt {
 	var waypointIndex atomic.Int32
 	waypointIndex.Store(1)
 
-	return &moveAttempt{
+	ma := &moveAttempt{
 		ctx:               cancelCtx,
 		cancelFn:          cancelFn,
 		backgroundWorkers: &backgroundWorkers,
@@ -57,11 +57,16 @@ func newMoveAttempt(ctx context.Context, request *moveRequest) *moveAttempt {
 		request:      request,
 		responseChan: make(chan moveResponse),
 
-		position: newReplanner(time.Duration(1000/request.config.PositionPollingFreqHz)*time.Millisecond, request.deviatedFromPlan),
-		obstacle: newReplanner(time.Duration(1000/request.config.ObstaclePollingFreqHz)*time.Millisecond, request.obstaclesIntersectPlan),
-
 		waypointIndex: &waypointIndex,
 	}
+	if request.config.PositionPollingFreqHz > 0 {
+		ma.position= newReplanner(time.Duration(1000/request.config.PositionPollingFreqHz)*time.Millisecond, request.deviatedFromPlan)
+	}
+	if request.config.ObstaclePollingFreqHz > 0 {
+		ma.obstacle= newReplanner(time.Duration(1000/request.config.ObstaclePollingFreqHz)*time.Millisecond, request.obstaclesIntersectPlan)
+	}
+	return ma
+
 }
 
 // start begins a new moveAttempt by using its moveRequest to create a plan, spawn relevant replanners, and finally execute the motion.
@@ -73,15 +78,19 @@ func (ma *moveAttempt) start() error {
 		return err
 	}
 
-	ma.backgroundWorkers.Add(1)
-	goutils.ManagedGo(func() {
-		ma.position.startPolling(ma.ctx, waypoints, ma.waypointIndex)
-	}, ma.backgroundWorkers.Done)
-
-	ma.backgroundWorkers.Add(1)
-	goutils.ManagedGo(func() {
-		ma.obstacle.startPolling(ma.ctx, waypoints, ma.waypointIndex)
-	}, ma.backgroundWorkers.Done)
+	if ma.position != nil {
+		ma.backgroundWorkers.Add(1)
+		goutils.ManagedGo(func() {
+			ma.position.startPolling(ma.ctx, waypoints, ma.waypointIndex)
+		}, ma.backgroundWorkers.Done)
+	}
+	
+	if ma.obstacle != nil {
+		ma.backgroundWorkers.Add(1)
+		goutils.ManagedGo(func() {
+			ma.obstacle.startPolling(ma.ctx, waypoints, ma.waypointIndex)
+		}, ma.backgroundWorkers.Done)
+	}
 
 	// spawn function to execute the plan on the robot
 	ma.backgroundWorkers.Add(1)
