@@ -192,7 +192,7 @@ func (g *PmtkI2CNMEAMovementSensor) GetBusAddr() (board.I2C, byte) {
 	return g.bus, g.addr
 }
 
-//nolint
+// nolint
 // Position returns the current geographic location of the MovementSensor.
 func (g *PmtkI2CNMEAMovementSensor) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
 	lastPosition := g.lastPosition.GetLastPosition()
@@ -235,6 +235,10 @@ func (g *PmtkI2CNMEAMovementSensor) Accuracy(ctx context.Context, extra map[stri
 func (g *PmtkI2CNMEAMovementSensor) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
+	if math.IsNaN(g.data.CompassHeading) {
+		return r3.Vector{}, g.err.Get()
+	}
+
 	headingInRadians := g.data.CompassHeading * (math.Pi / 180)
 	xVelocity := g.data.Speed * math.Sin(headingInRadians)
 	yVelocity := g.data.Speed * math.Cos(headingInRadians)
