@@ -19,6 +19,7 @@ const (
 	// even on a pi.
 	maxRecursionDepth = 1000
 	nodeRegionOverlap = 1e-6
+	floatEpsilon      = 1e-6
 	// TODO (RSDK-3767): pass these in a different way.
 	confidenceThreshold = 50    // value between 0-100, threshold sets the confidence level required for a point to be considered a collision
 	buffer              = 150.0 // max distance from base to point for it to be considered a collision in mm
@@ -101,7 +102,7 @@ func (octree *BasicOctree) At(x, y, z float64) (Data, bool) {
 		}
 
 	case leafNodeFilled:
-		if octree.node.point.P.ApproxEqual(r3.Vector{X: x, Y: y, Z: z}) {
+		if pointsAlmostEqualEpsilon(octree.node.point.P, r3.Vector{X: x, Y: y, Z: z}, floatEpsilon) {
 			return octree.node.point.D, true
 		}
 
@@ -146,6 +147,8 @@ func (octree *BasicOctree) Pose() spatialmath.Pose {
 }
 
 // AlmostEqual compares the octree with another geometry and checks if they are equivalent.
+// Note that this checks that the *geometry* is equal; that is, both octrees have the same number of points and in the same locations.
+// This is agnostic to things like the label, the centerpoint (as the individual points have locations), the side lengths, etc.
 func (octree *BasicOctree) AlmostEqual(geom spatialmath.Geometry) bool {
 	otherOctree, ok := geom.(*BasicOctree)
 	if !ok {

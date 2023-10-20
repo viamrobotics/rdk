@@ -700,7 +700,8 @@ func TestCachedMaxProbability(t *testing.T) {
 	})
 }
 
-func TestBasicOctreeTransform(t *testing.T) {
+// Test the various geometry-specific interface methods.
+func TestBasicOctreeGeometryFunctions(t *testing.T) {
 	center := r3.Vector{X: 0, Y: 0, Z: 0}
 	side := 2.0
 
@@ -714,25 +715,30 @@ func TestBasicOctreeTransform(t *testing.T) {
 	err = addPoints(octree, pointsAndData)
 	test.That(t, err, test.ShouldBeNil)
 
-	epsilon := 1e-6 // Account for floating point drift with orientation calculations
 	checkExpectedPoints := func(geom spatialmath.Geometry, pts []PointAndData) {
 		geomPts := geom.ToPoints(0)
 		octree, ok := geom.(*BasicOctree)
 		test.That(t, ok, test.ShouldBeTrue)
 
-		for _, v := range geomPts {
-			d, ok := octree.At(v.X, v.Y, v.Z)
+		for _, geomPt := range geomPts {
+			d, ok := octree.At(geomPt.X, geomPt.Y, geomPt.Z)
 			test.That(t, ok, test.ShouldBeTrue)
 			anyEqual := false
 			for _, pd := range pts {
-				ov := pd.P
-				if math.Abs(v.X-ov.X) < epsilon && math.Abs(v.Y-ov.Y) < epsilon && math.Abs(v.Z-ov.Z) < epsilon {
+				if pointsAlmostEqualEpsilon(geomPt, pd.P, floatEpsilon) {
 					anyEqual = true
 					test.That(t, d, test.ShouldResemble, pd.D)
 				}
 			}
 			test.That(t, anyEqual, test.ShouldBeTrue)
 		}
+
+		dupOctree, err := createNewOctree(pts[0].P, side)
+		test.That(t, err, test.ShouldBeNil)
+		err = addPoints(dupOctree, pts)
+		test.That(t, err, test.ShouldBeNil)
+		equal := dupOctree.AlmostEqual(geom)
+		test.That(t, equal, test.ShouldBeTrue)
 	}
 
 	t.Run("identity transform", func(t *testing.T) {
@@ -794,4 +800,38 @@ func TestBasicOctreeTransform(t *testing.T) {
 		))
 		checkExpectedPoints(movedOctree2, expected)
 	})
+}
+
+func TestBasicOctreeAlmostEqual(t *testing.T) {
+	center := r3.Vector{X: 0, Y: 0, Z: 0}
+	side := 2.0
+
+	octree, err := createNewOctree(center, side)
+	test.That(t, err, test.ShouldBeNil)
+	pointsAndData := []PointAndData{
+		{P: r3.Vector{X: 0, Y: 0, Z: 0}, D: NewValueData(2)},
+		{P: r3.Vector{X: 1, Y: 0, Z: 0}, D: NewValueData(3)},
+		{P: r3.Vector{X: 1, Y: 1, Z: 1}, D: NewValueData(5)},
+	}
+	err = addPoints(octree, pointsAndData)
+	test.That(t, err, test.ShouldBeNil)
+
+	equal := octree.AlmostEqual(octree)
+	test.That(t, equal, test.ShouldBeTrue)
+
+	movedOctree := octree.Transform(spatialmath.NewZeroPose())
+	// Confirm that an identity transform adjusts the side length but still yields equality
+	movedOctreeReal, ok := movedOctree.(*BasicOctree)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, movedOctreeReal.sideLength, test.ShouldNotEqual, octree.sideLength)
+	equal = octree.AlmostEqual(movedOctree)
+	test.That(t, equal, test.ShouldBeTrue)
+
+	octree.Set(r3.Vector{-1, -1, -1}, NewValueData(999))
+	equal = octree.AlmostEqual(movedOctree)
+	test.That(t, equal, test.ShouldBeFalse)
+
+	movedOctree = octree.Transform(spatialmath.NewPoseFromPoint(r3.Vector{-3, 5, 0}))
+	equal = octree.AlmostEqual(movedOctree)
+	test.That(t, equal, test.ShouldBeFalse)
 }
