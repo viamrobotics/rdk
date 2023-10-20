@@ -72,9 +72,13 @@ type zLogger struct {
 }
 
 // FromZapCompatible upconverts a ZapCompatibleLogger to a logging.Logger. If the argument already
-// satisfies logging.Logger, no changes will be made. An unknown type will create a new logger
-// that's not associated with the input.
+// satisfies logging.Logger, no changes will be made. A nil input returns a nil logger. An input of
+// unknown type will create a new logger that's not associated with the input.
 func FromZapCompatible(logger ZapCompatibleLogger) Logger {
+	if logger == nil {
+		return nil
+	}
+
 	switch l := logger.(type) {
 	case *zap.SugaredLogger:
 		// golog.Logger is a type alias for *zap.SugaredLogger and is captured by this.
