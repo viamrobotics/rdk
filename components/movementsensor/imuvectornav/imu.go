@@ -27,7 +27,7 @@ var model = resource.DefaultModelFamily.WithModel("imu-vectornav")
 
 // Config is used for converting a vectornav IMU MovementSensor config attributes.
 type Config struct {
-	SPI   string `json:"spi"`
+	SPI   string `json:"spi_bus"`
 	Speed *int   `json:"spi_baud_rate"`
 	Pfreq *int   `json:"polling_freq_hz"`
 	CSPin string `json:"chip_select_pin"`
