@@ -3,6 +3,7 @@ package module_test
 import (
 	"context"
 	"os"
+	"runtime"
 	"strconv"
 	"testing"
 
@@ -28,6 +29,9 @@ import (
 )
 
 func TestOpID(t *testing.T) {
+	if runtime.GOARCH == "arm" {
+		t.Skip("skipping on 32-bit ARM -- subprocess build warnings cause failure")
+	}
 	logger := golog.NewTestLogger(t)
 	cfgFilename, port, err := makeConfig(t, logger)
 	test.That(t, err, test.ShouldBeNil)
