@@ -70,7 +70,8 @@ jobs:
           libopus-dev \
           libvpx-dev \
           libx11-dev \
-          libxext-dev
+          libxext-dev \
+          libopusfile-dev
 
     - name: Verify no uncommitted changes from "make build lint"
       run: |
