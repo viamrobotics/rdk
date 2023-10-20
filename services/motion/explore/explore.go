@@ -1,4 +1,5 @@
-// Package explore implements a motion service for exploration.
+// Package explore implements a motion service for exploration. This motion service model is a temporary model
+// that will be incorporated into the builtIn service in the future.
 package explore
 
 import (
@@ -61,13 +62,6 @@ const (
 type inputEnabledActuator interface {
 	resource.Actuator
 	referenceframe.InputEnabled
-}
-
-// obstacleDetectorName is used for sending and receiving all obstacle detectors until the motionCfg can be
-// added to the move service.
-type obstacleDetectorName struct {
-	VisionService resource.Name
-	Camera        resource.Name
 }
 
 // obstacleDetectorPair provides a map for matching vision services to any and all cameras to be used with them.
@@ -533,7 +527,7 @@ func (ms *explore) createObstacleDetectors(extra map[string]interface{}) ([]obst
 		return []obstacleDetectorPair{}, errors.New("no obstacle detectors provided")
 	}
 
-	obstacleDetectorsNames, ok := obstacleDetectorsInterface.([]obstacleDetectorName)
+	obstacleDetectorsNames, ok := obstacleDetectorsInterface.([]motion.ObstacleDetectorName)
 	if !ok {
 		return []obstacleDetectorPair{},
 			errors.New("could not interpret obstacle_detectors_names field as an ObstacleDetectorName")
@@ -542,9 +536,9 @@ func (ms *explore) createObstacleDetectors(extra map[string]interface{}) ([]obst
 	// Iterate through obstacleDetectorsNames
 	for _, obstacleDetectorsName := range obstacleDetectorsNames {
 		// Select the vision service from the service list using the vision service name in obstacleDetectorsNames
-		visionServiceResource, ok := ms.components[obstacleDetectorsName.VisionService]
+		visionServiceResource, ok := ms.components[obstacleDetectorsName.VisionServiceName]
 		if !ok {
-			return nil, resource.DependencyNotFoundError(obstacleDetectorsName.VisionService)
+			return nil, resource.DependencyNotFoundError(obstacleDetectorsName.VisionServiceName)
 		}
 		visionService, ok := visionServiceResource.(vision.Service)
 		if !ok {
@@ -555,9 +549,9 @@ func (ms *explore) createObstacleDetectors(extra map[string]interface{}) ([]obst
 
 		// Select the camera from the component list using the camera name in obstacleDetectorsNames
 		// Note: May need to be converted to a forloop if we accept multiple cameras for each vision service
-		cameraResource, ok := ms.components[obstacleDetectorsName.Camera]
+		cameraResource, ok := ms.components[obstacleDetectorsName.CameraName]
 		if !ok {
-			return nil, resource.DependencyNotFoundError(obstacleDetectorsName.Camera)
+			return nil, resource.DependencyNotFoundError(obstacleDetectorsName.CameraName)
 		}
 		cam, ok := cameraResource.(camera.Camera)
 		if !ok {
