@@ -11,6 +11,8 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
+
+	"go.viam.com/rdk/spatialmath"
 )
 
 // Helper function for generating a new empty octree.
@@ -695,5 +697,101 @@ func TestCachedMaxProbability(t *testing.T) {
 
 		mp = octree.node.children[0].MaxVal()
 		test.That(t, mp, test.ShouldEqual, -2)
+	})
+}
+
+func TestBasicOctreeTransform(t *testing.T) {
+	center := r3.Vector{X: 0, Y: 0, Z: 0}
+	side := 2.0
+
+	octree, err := createNewOctree(center, side)
+	test.That(t, err, test.ShouldBeNil)
+	pointsAndData := []PointAndData{
+		{P: r3.Vector{X: 0, Y: 0, Z: 0}, D: NewValueData(2)},
+		{P: r3.Vector{X: 1, Y: 0, Z: 0}, D: NewValueData(3)},
+		{P: r3.Vector{X: 1, Y: 1, Z: 1}, D: NewValueData(5)},
+	}
+	err = addPoints(octree, pointsAndData)
+	test.That(t, err, test.ShouldBeNil)
+
+	epsilon := 1e-6 // Account for floating point drift with orientation calculations
+	checkExpectedPoints := func(geom spatialmath.Geometry, pts []PointAndData) {
+		geomPts := geom.ToPoints(0)
+		octree, ok := geom.(*BasicOctree)
+		test.That(t, ok, test.ShouldBeTrue)
+
+		for _, v := range geomPts {
+			d, ok := octree.At(v.X, v.Y, v.Z)
+			test.That(t, ok, test.ShouldBeTrue)
+			anyEqual := false
+			for _, pd := range pts {
+				ov := pd.P
+				if math.Abs(v.X-ov.X) < epsilon && math.Abs(v.Y-ov.Y) < epsilon && math.Abs(v.Z-ov.Z) < epsilon {
+					anyEqual = true
+					test.That(t, d, test.ShouldResemble, pd.D)
+				}
+			}
+			test.That(t, anyEqual, test.ShouldBeTrue)
+		}
+	}
+
+	t.Run("identity transform", func(t *testing.T) {
+		expected := []PointAndData{
+			{P: r3.Vector{X: 0, Y: 0, Z: 0}, D: NewValueData(2)},
+			{P: r3.Vector{X: 1, Y: 0, Z: 0}, D: NewValueData(3)},
+			{P: r3.Vector{X: 1, Y: 1, Z: 1}, D: NewValueData(5)},
+		}
+		movedOctree := octree.Transform(spatialmath.NewZeroPose())
+		checkExpectedPoints(movedOctree, expected)
+	})
+
+	t.Run("translate XY", func(t *testing.T) {
+		expected := []PointAndData{
+			{P: r3.Vector{X: -3, Y: 5, Z: 0}, D: NewValueData(2)},
+			{P: r3.Vector{X: -2, Y: 5, Z: 0}, D: NewValueData(3)},
+			{P: r3.Vector{X: -2, Y: 6, Z: 1}, D: NewValueData(5)},
+		}
+		movedOctree := octree.Transform(spatialmath.NewPoseFromPoint(r3.Vector{-3, 5, 0}))
+		checkExpectedPoints(movedOctree, expected)
+	})
+
+	t.Run("rotate", func(t *testing.T) {
+		expected := []PointAndData{
+			{P: r3.Vector{X: 0, Y: 0, Z: 0}, D: NewValueData(2)},
+			{P: r3.Vector{X: -1, Y: 0, Z: 0}, D: NewValueData(3)},
+			{P: r3.Vector{X: -1, Y: 1, Z: -1}, D: NewValueData(5)},
+		}
+		movedOctree := octree.Transform(spatialmath.NewPoseFromOrientation(&spatialmath.OrientationVector{OZ: -1}))
+		checkExpectedPoints(movedOctree, expected)
+	})
+
+	t.Run("rotate and translate", func(t *testing.T) {
+		expected := []PointAndData{
+			{P: r3.Vector{X: -10, Y: 5, Z: 10}, D: NewValueData(2)},
+			{P: r3.Vector{X: -11, Y: 5, Z: 10}, D: NewValueData(3)},
+			{P: r3.Vector{X: -11, Y: 6, Z: 9}, D: NewValueData(5)},
+		}
+		movedOctree := octree.Transform(spatialmath.NewPose(
+			r3.Vector{-10, 5, 10},
+			&spatialmath.OrientationVector{OZ: -1},
+		))
+		checkExpectedPoints(movedOctree, expected)
+	})
+
+	t.Run("rotate and translate twice", func(t *testing.T) {
+		expected := []PointAndData{
+			{P: r3.Vector{X: -35, Y: 60, Z: 110}, D: NewValueData(2)},
+			{P: r3.Vector{X: -35, Y: 60, Z: 111}, D: NewValueData(3)},
+			{P: r3.Vector{X: -36, Y: 59, Z: 111}, D: NewValueData(5)},
+		}
+		movedOctree1 := octree.Transform(spatialmath.NewPose(
+			r3.Vector{-10, 5, 10},
+			&spatialmath.OrientationVector{OZ: -1},
+		))
+		movedOctree2 := movedOctree1.Transform(spatialmath.NewPose(
+			r3.Vector{-30, 50, 100},
+			&spatialmath.OrientationVector{OY: 1},
+		))
+		checkExpectedPoints(movedOctree2, expected)
 	})
 }
