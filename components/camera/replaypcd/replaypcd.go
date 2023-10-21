@@ -356,6 +356,8 @@ func (replay *pcdCamera) Reconfigure(ctx context.Context, deps resource.Dependen
 	if err != nil {
 		return err
 	}
+	replay.APIKey = replayCamConfig.APIKey
+	replay.APIKeyID = replayCamConfig.APIKeyID
 
 	cloudConnSvc, err := resource.FromDependencies[cloud.ConnectionService](deps, cloud.InternalServiceName)
 	if err != nil {
