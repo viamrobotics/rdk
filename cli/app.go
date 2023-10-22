@@ -944,7 +944,7 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 				},
 				{
 					Name:  "update-models",
-					Usage: "update a module's metadata file based on model's it provides",
+					Usage: "update a module's metadata file based on models it provides",
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:        moduleFlagPath,
@@ -954,7 +954,7 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 						},
 						&cli.StringFlag{
 							Name:     "binary",
-							Usage:    "binary for the module to run",
+							Usage:    "binary for the module to run (has to work on this os/processor)",
 							Required: true,
 						},
 					},

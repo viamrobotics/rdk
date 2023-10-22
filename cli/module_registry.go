@@ -699,6 +699,8 @@ func readModels(path string, logger golog.Logger) ([]ModuleComponent, error) {
 	}
 
 	mgr := modmanager.NewManager(parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
+	defer vutils.UncheckedErrorFunc(func() error { return mgr.Close(context.Background()) })
+
 	err = mgr.Add(context.TODO(), cfg)
 	if err != nil {
 		return nil, err
