@@ -16,9 +16,9 @@ import (
 )
 
 func TestExploreMode(t *testing.T) {
+	cancelCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	ns, teardown := setupNavigationServiceFromConfig(t, "../data/nav_no_map_cfg.json")
-	defer teardown()
-	ctx := context.Background()
 
 	var points []r3.Vector
 	mockExploreMotionService := &inject.MotionService{}
@@ -33,9 +33,10 @@ func TestExploreMode(t *testing.T) {
 	nsStruct := ns.(*builtIn)
 	nsStruct.exploreMotionService = mockExploreMotionService
 
-	ctxTimeout, cancelFunc := context.WithTimeout(ctx, 20*time.Millisecond)
+	ctxTimeout, cancelFunc := context.WithTimeout(cancelCtx, 20*time.Millisecond)
 	defer cancelFunc()
 	nsStruct.startExploreMode(ctxTimeout)
 	<-ctxTimeout.Done()
+	teardown()
 	test.That(t, len(points), test.ShouldBeGreaterThan, 100)
 }

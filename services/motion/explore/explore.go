@@ -139,7 +139,7 @@ func (ms *explore) Reconfigure(
 
 type explore struct {
 	resource.Named
-	resource.TriviallyCloseable
+
 	frameSystem referenceframe.FrameSystem
 	fsService   framesystem.Service
 	components  map[resource.Name]resource.Resource

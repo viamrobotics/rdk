@@ -488,6 +488,9 @@ func (svc *builtIn) Close(ctx context.Context) error {
 	defer svc.actionMu.Unlock()
 
 	svc.stopActiveMode()
+	if err := svc.exploreMotionService.Close(ctx); err != nil {
+		return err
+	}
 	return svc.store.Close(ctx)
 }
 
