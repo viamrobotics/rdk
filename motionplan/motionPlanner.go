@@ -99,6 +99,43 @@ func (req *PlanRequest) validatePlanRequest() error {
 
 // PlanMotion plans a motion from a provided plan request.
 func PlanMotion(ctx context.Context, request *PlanRequest) (Plan, error) {
+	// Calls Replan but without a seed plan
+	return Replan(ctx, request, nil, 0)
+}
+
+// PlanFrameMotion plans a motion to destination for a given frame with no frame system. It will create a new FS just for the plan.
+// WorldState is not supported in the absence of a real frame system.
+func PlanFrameMotion(ctx context.Context,
+	logger golog.Logger,
+	dst spatialmath.Pose,
+	f frame.Frame,
+	seed []frame.Input,
+	constraintSpec *pb.Constraints,
+	planningOpts map[string]interface{},
+) ([][]frame.Input, error) {
+	// ephemerally create a framesystem containing just the frame for the solve
+	fs := frame.NewEmptyFrameSystem("")
+	if err := fs.AddFrame(f, fs.World()); err != nil {
+		return nil, err
+	}
+	plan, err := PlanMotion(ctx, &PlanRequest{
+		Logger:             logger,
+		Goal:               frame.NewPoseInFrame(frame.World, dst),
+		Frame:              f,
+		StartConfiguration: map[string][]frame.Input{f.Name(): seed},
+		FrameSystem:        fs,
+		ConstraintSpecs:    constraintSpec,
+		Options:            planningOpts,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return plan.GetFrameSteps(f.Name())
+}
+
+// Replan plans a motion from a provided plan request, and then will return that plan only if its cost is better than the cost of the
+// passed-in plan multiplied by `replanCostFactor`.
+func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanCostFactor float64) (Plan, error) {
 	// make sure request is well formed and not missing vital information
 	if err := request.validatePlanRequest(); err != nil {
 		return nil, err
@@ -145,6 +182,7 @@ func PlanMotion(ctx context.Context, request *PlanRequest) (Plan, error) {
 		return nil, err
 	}
 
+	// TODO: RSDK-3236 this should seed off of currentPlan
 	resultSlices, err := sfPlanner.PlanSingleWaypoint(
 		ctx,
 		request.StartConfiguration,
@@ -156,43 +194,22 @@ func PlanMotion(ctx context.Context, request *PlanRequest) (Plan, error) {
 	if err != nil {
 		return nil, err
 	}
-	plan := Plan{}
-	for _, resultSlice := range resultSlices {
-		stepMap := sf.sliceToMap(resultSlice)
-		plan = append(plan, stepMap)
-	}
-	request.Logger.Debugf("final plan steps: %s", plan.String())
-	return plan, nil
-}
+	newPlan := sf.inputsToPlan(resultSlices)
 
-// PlanFrameMotion plans a motion to destination for a given frame with no frame system. It will create a new FS just for the plan.
-// WorldState is not supported in the absence of a real frame system.
-func PlanFrameMotion(ctx context.Context,
-	logger golog.Logger,
-	dst spatialmath.Pose,
-	f frame.Frame,
-	seed []frame.Input,
-	constraintSpec *pb.Constraints,
-	planningOpts map[string]interface{},
-) ([][]frame.Input, error) {
-	// ephemerally create a framesystem containing just the frame for the solve
-	fs := frame.NewEmptyFrameSystem("")
-	if err := fs.AddFrame(f, fs.World()); err != nil {
-		return nil, err
+	if replanCostFactor > 0 && currentPlan != nil {
+		initialPlanCost := currentPlan.Evaluate(sfPlanner.opt().ScoreFunc)
+		finalPlanCost := newPlan.Evaluate(sfPlanner.opt().ScoreFunc)
+		request.Logger.Debugf(
+			"initialPlanCost %f adjusted with cost factor to %f, replan cost %f",
+			initialPlanCost, initialPlanCost*replanCostFactor, finalPlanCost,
+		)
+
+		if finalPlanCost > initialPlanCost*replanCostFactor {
+			return nil, errHighReplanCost
+		}
 	}
-	plan, err := PlanMotion(ctx, &PlanRequest{
-		Logger:             logger,
-		Goal:               frame.NewPoseInFrame(frame.World, dst),
-		Frame:              f,
-		StartConfiguration: map[string][]frame.Input{f.Name(): seed},
-		FrameSystem:        fs,
-		ConstraintSpecs:    constraintSpec,
-		Options:            planningOpts,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return plan.GetFrameSteps(f.Name())
+
+	return newPlan, nil
 }
 
 type planner struct {

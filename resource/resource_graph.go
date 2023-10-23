@@ -45,28 +45,20 @@ func (g *Graph) CurrLogicalClockValue() int64 {
 	return g.logicalClock.Load()
 }
 
-func (g *Graph) getAllChildrenOf(node Name) graphNodes {
-	if _, ok := g.nodes[node]; !ok {
-		return nil
-	}
-	out := graphNodes{}
-	for k, parents := range g.parents {
-		if _, ok := parents[node]; ok {
-			out[k] = &GraphNode{}
-		}
+func (g *Graph) getAllChildrenOf(node Name) []Name {
+	children := g.children[node]
+	out := make([]Name, 0, len(children))
+	for childName := range children {
+		out = append(out, childName)
 	}
 	return out
 }
 
-func (g *Graph) getAllParentOf(node Name) graphNodes {
-	if _, ok := g.nodes[node]; !ok {
-		return nil
-	}
-	out := graphNodes{}
-	for k, children := range g.children {
-		if _, ok := children[node]; ok {
-			out[k] = &GraphNode{}
-		}
+func (g *Graph) getAllParentOf(node Name) []Name {
+	parents := g.parents[node]
+	out := make([]Name, 0, len(parents))
+	for parentName := range parents {
+		out = append(out, parentName)
 	}
 	return out
 }
@@ -245,24 +237,14 @@ func (g *Graph) findNodesByShortName(name string) []Name {
 func (g *Graph) GetAllChildrenOf(node Name) []Name {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	names := []Name{}
-	children := g.getAllChildrenOf(node)
-	for child := range children {
-		names = append(names, child)
-	}
-	return names
+	return g.getAllChildrenOf(node)
 }
 
 // GetAllParentsOf returns all parents of a given node.
 func (g *Graph) GetAllParentsOf(node Name) []Name {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	names := []Name{}
-	children := g.getAllParentOf(node)
-	for child := range children {
-		names = append(names, child)
-	}
-	return names
+	return g.getAllParentOf(node)
 }
 
 func (g *Graph) addNode(node Name, nodeVal *GraphNode) error {
@@ -429,9 +411,10 @@ func (g *Graph) MergeAdd(toAdd *Graph) error {
 		if err := g.addNode(node, toAdd.nodes[node]); err != nil {
 			return err
 		}
-		parents := toAdd.getAllChildrenOf(node)
-		for parent := range parents {
-			if err := g.addChild(parent, node); err != nil {
+
+		childrenToAdd := toAdd.getAllChildrenOf(node)
+		for _, childName := range childrenToAdd {
+			if err := g.addChild(childName, node); err != nil {
 				return err
 			}
 		}
@@ -448,17 +431,21 @@ func (g *Graph) ReplaceNodesParents(node Name, other *Graph) error {
 	if _, ok := g.nodes[node]; !ok {
 		return errors.Errorf("cannot copy parents to non existing node %q", node.Name)
 	}
+
+	// Clear cached values
 	for k := range g.parents[node] {
 		g.removeTransitiveClosure(node, k)
 	}
-	for k, vertice := range g.parents {
+	for parentName, vertice := range g.parents {
 		if _, ok := vertice[node]; ok {
-			removeNodeFromNodeMap(g.parents, k, node)
+			removeNodeFromNodeMap(g.parents, parentName, node)
 		}
 	}
-	parents := other.getAllChildrenOf(node)
-	for parent := range parents {
-		if err := g.addChild(parent, node); err != nil {
+
+	// For each child of `parentName` in the `other` graph, add a corresponding child into this graph
+	otherChildren := other.getAllChildrenOf(node)
+	for _, childName := range otherChildren {
+		if err := g.addChild(childName, node); err != nil {
 			return err
 		}
 	}
@@ -476,13 +463,13 @@ func (g *Graph) CopyNodeAndChildren(node Name, origin *Graph) error {
 			return err
 		}
 		children := origin.getAllChildrenOf(node)
-		for child := range children {
-			if _, ok := g.nodes[child]; !ok {
-				if err := g.addNode(child, NewUninitializedNode()); err != nil {
+		for _, childName := range children {
+			if _, ok := g.nodes[childName]; !ok {
+				if err := g.addNode(childName, NewUninitializedNode()); err != nil {
 					return err
 				}
 			}
-			if err := g.addChild(child, node); err != nil {
+			if err := g.addChild(childName, node); err != nil {
 				return err
 			}
 		}

@@ -38,6 +38,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"strings"
 	"sync"
 
 	"github.com/de-bkg/gognss/pkg/ntrip"
@@ -326,8 +327,13 @@ func (g *rtkI2C) getStream(mountPoint string, maxAttempts int) error {
 	}
 
 	if err != nil {
-		g.logger.Errorf("Can't connect to NTRIP stream: %s", err)
-		return err
+		// if the error is related to ICY, we log it as warning.
+		if strings.Contains(err.Error(), "ICY") {
+			g.logger.Warnf("Detected old HTTP protocol: %s", err)
+		} else {
+			g.logger.Errorf("Can't connect to NTRIP stream: %s", err)
+			return err
+		}
 	}
 
 	g.logger.Debug("Connected to stream")
@@ -603,6 +609,18 @@ func (g *rtkI2C) readFix(ctx context.Context) (int, error) {
 	return g.nmeamovementsensor.ReadFix(ctx)
 }
 
+func (g *rtkI2C) readSatsInView(ctx context.Context) (int, error) {
+	g.ntripMu.Lock()
+	lastError := g.err.Get()
+	if lastError != nil {
+		defer g.ntripMu.Unlock()
+		return 0, lastError
+	}
+	g.ntripMu.Unlock()
+
+	return g.nmeamovementsensor.ReadSatsInView(ctx)
+}
+
 // Properties passthrough.
 func (g *rtkI2C) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
 	lastError := g.err.Get()
@@ -635,7 +653,13 @@ func (g *rtkI2C) Readings(ctx context.Context, extra map[string]interface{}) (ma
 		return nil, err
 	}
 
+	satsInView, err := g.readSatsInView(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	readings["fix"] = fix
+	readings["satellites_in_view"] = satsInView
 
 	return readings, nil
 }

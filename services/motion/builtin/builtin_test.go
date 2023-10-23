@@ -2,16 +2,17 @@ package builtin
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
@@ -632,6 +633,7 @@ func TestMoveOnGlobe(t *testing.T) {
 			injectedMovementSensor.Name(),
 			[]*spatialmath.GeoObstacle{},
 			motionCfg,
+			nil,
 			extra,
 		)
 		test.That(t, err, test.ShouldBeNil)
@@ -677,6 +679,7 @@ func TestMoveOnGlobe(t *testing.T) {
 			injectedMovementSensor.Name(),
 			[]*spatialmath.GeoObstacle{geoObstacle},
 			motionCfg,
+			nil,
 			extra,
 		)
 		test.That(t, err, test.ShouldBeNil)
@@ -734,6 +737,7 @@ func TestMoveOnGlobe(t *testing.T) {
 			injectedMovementSensor.Name(),
 			[]*spatialmath.GeoObstacle{geoObstacle},
 			&motion.MotionConfiguration{},
+			nil,
 			extra,
 		)
 		test.That(t, err, test.ShouldBeNil)
@@ -767,25 +771,38 @@ func TestReplanning(t *testing.T) {
 	}
 
 	type testCase struct {
-		name           string
-		noise          r3.Vector
-		expectedReplan bool
-		cfg            *motion.MotionConfiguration
-		getPCfunc      func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error)
+		name            string
+		noise           r3.Vector
+		expectedSuccess bool
+		expectedErr     string
+		extra           map[string]interface{}
+		cfg             *motion.MotionConfiguration
+		getPCfunc       func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error)
 	}
 
 	testCases := []testCase{
 		{
-			name:           "check we dont replan with a good sensor",
-			noise:          r3.Vector{Y: epsilonMM - 0.1},
-			expectedReplan: false,
-			cfg:            &motion.MotionConfiguration{PositionPollingFreqHz: 100, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM},
+			name:            "check we dont replan with a good sensor",
+			noise:           r3.Vector{Y: epsilonMM - 0.1},
+			expectedSuccess: true,
+			extra:           map[string]interface{}{},
+			cfg:             &motion.MotionConfiguration{PositionPollingFreqHz: 100, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM},
 		},
 		{
-			name:           "check we replan with a noisy sensor",
-			noise:          r3.Vector{Y: epsilonMM + 0.1},
-			expectedReplan: true,
-			cfg:            &motion.MotionConfiguration{PositionPollingFreqHz: 100, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM},
+			// This also checks that `replan` is called under default conditions when "max_replans" is not set
+			name:            "check we fail to replan with a low cost factor",
+			noise:           r3.Vector{Y: epsilonMM + 0.1},
+			expectedErr:     "unable to create a new plan within replanCostFactor from the original",
+			expectedSuccess: false,
+			extra:           map[string]interface{}{"replan_cost_factor": 0.01},
+		},
+		{
+			name:            "check we replan with a noisy sensor",
+			noise:           r3.Vector{Y: epsilonMM + 0.1},
+			expectedErr:     fmt.Sprintf("exceeded maximum number of replans: %d", 4),
+			expectedSuccess: false,
+			extra:           map[string]interface{}{"replan_cost_factor": 10.0, "max_replans": 4},
+			cfg:             &motion.MotionConfiguration{PositionPollingFreqHz: 100, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM},
 		},
 		{
 			name:           "ensure no replan from discovered obstacles",
@@ -827,53 +844,17 @@ func TestReplanning(t *testing.T) {
 
 	testFn := func(t *testing.T, tc testCase) {
 		t.Helper()
-		injectedMovementSensor, _, kb, ms := createMoveOnGlobeEnvironment(ctx, t, gpsOrigin, spatialmath.NewPoseFromPoint(tc.noise))
-		moveRequest, err := ms.(*builtIn).newMoveOnGlobeRequest(ctx, kb.Name(), dst, injectedMovementSensor.Name(), nil, tc.cfg, nil)
-		test.That(t, err, test.ShouldBeNil)
+		injectedMovementSensor, _, kb, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, spatialmath.NewPoseFromPoint(tc.noise))
 
-		if len(tc.cfg.ObstacleDetectors) > 0 {
-			srvc, ok := ms.(*builtIn).visionServices[tc.cfg.ObstacleDetectors[0].VisionServiceName].(*inject.VisionService)
-			test.That(t, ok, test.ShouldBeTrue)
-			srvc.GetObjectPointCloudsFunc = tc.getPCfunc
+		success, err := ms.MoveOnGlobe(ctx, kb.Name(), dst, 0, injectedMovementSensor.Name(), nil, motionCfg, tc.extra)
+
+		if tc.expectedSuccess {
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, success, test.ShouldBeTrue)
+		} else {
+			test.That(t, success, test.ShouldBeFalse)
+			test.That(t, err.Error(), test.ShouldEqual, tc.expectedErr)
 		}
-
-		ctx, cancel := context.WithTimeout(ctx, 30.0*time.Second)
-		ma := newMoveAttempt(ctx, moveRequest)
-		err = ma.start()
-		test.That(t, err, test.ShouldBeNil)
-
-		defer ma.cancel()
-		defer cancel()
-		select {
-		case <-ma.ctx.Done():
-			t.Log("move attempt should not have timed out")
-			t.FailNow()
-		case resp := <-ma.responseChan:
-			if tc.expectedReplan {
-				t.Log("move attempt should not have returned a response")
-				t.FailNow()
-			} else {
-				test.That(t, resp.err, test.ShouldBeNil)
-				test.That(t, resp.success, test.ShouldBeTrue)
-			}
-		case resp := <-ma.position.responseChan:
-			if tc.expectedReplan {
-				test.That(t, resp.err, test.ShouldBeNil)
-				test.That(t, resp.replan, test.ShouldBeTrue)
-			} else {
-				t.Log("move attempt should not be replanned")
-				t.FailNow()
-			}
-		case resp := <-ma.obstacle.responseChan:
-			if tc.expectedReplan {
-				test.That(t, resp.err, test.ShouldBeNil)
-				test.That(t, resp.replan, test.ShouldBeTrue)
-			} else {
-				t.Log("move attempt should not be replanned")
-				t.FailNow()
-			}
-		}
-		test.That(t, ma.waypointIndex.Load(), test.ShouldBeGreaterThan, 0)
 	}
 
 	for _, tc := range testCases {
@@ -910,6 +891,7 @@ func TestCheckPlan(t *testing.T) {
 		injectedMovementSensor.Name(),
 		nil,
 		&motion.MotionConfiguration{PositionPollingFreqHz: 4, ObstaclePollingFreqHz: 1, PlanDeviationMM: 15.},
+		nil,
 		motionCfg,
 	)
 	test.That(t, err, test.ShouldBeNil)

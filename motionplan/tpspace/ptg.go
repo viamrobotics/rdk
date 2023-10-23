@@ -125,3 +125,9 @@ func computePTGNode(simPTG PTG, alpha, dist, atT float64) (*TrajNode, error) {
 	}
 	return &TrajNode{pose, atT, dist, alpha, v, w}, nil
 }
+
+// PTGSegmentMetric is a metric which returns the TP-space distance traversed in a segment. Since PTG inputs are relative, the distance
+// travelled is the distance field of the ending configuration.
+func PTGSegmentMetric(segment *ik.Segment) float64 {
+	return segment.EndConfiguration[distanceAlongTrajectoryIndex].Value
+}

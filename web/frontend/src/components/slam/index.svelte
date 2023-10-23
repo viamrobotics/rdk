@@ -5,6 +5,7 @@
   import { onMount, onDestroy } from 'svelte';
 
   import { SlamClient, type Pose, type ServiceError } from '@viamrobotics/sdk';
+  import { SlamMap2D } from '@viamrobotics/prime-blocks';
   import { copyToClipboard } from '@/lib/copy-to-clipboard';
   import { filterSubtype } from '@/lib/resource';
   import { moveOnMap, stopMoveOnMap } from '@/api/motion';
@@ -13,7 +14,7 @@
   import { components } from '@/stores/resources';
   import Collapse from '@/lib/components/collapse.svelte';
   import PCD from '@/components/pcd/pcd-view.svelte';
-  import Slam2D from './2d/index.svelte';
+  import Dropzone from '@/lib/components/dropzone.svelte';
   import { useRobotClient, useDisconnect } from '@/hooks/robot-client';
   import type { SLAMOverrides } from '@/types/overrides';
   import { rcLogConditionally } from '@/lib/log';
@@ -34,7 +35,7 @@
 
   let refreshErrorMessage2d: string | undefined;
   let refreshErrorMessage3d: string | undefined;
-  let refresh2dRate = 'manual';
+  let refresh2dRate = '5';
   let refresh3dRate = 'manual';
   let pointcloud: Uint8Array | undefined;
   let pose: Pose | undefined;
@@ -51,6 +52,7 @@
   let durationInterval: number | undefined;
   let newMapName = '';
   let mapNameError = '';
+  let motionPath: string | undefined;
   let mappingSessionStarted = false;
 
   $: pointcloudLoaded = Boolean(pointcloud?.length) && pose !== undefined;
@@ -383,6 +385,10 @@
     newMapName = event.detail.value;
     mapNameError = overrides?.validateMapName(newMapName) || '';
   };
+
+  const handleDrop = (event: CustomEvent<string>) => {
+    motionPath = event.detail;
+  };
 </script>
 
 <Collapse title={name} on:toggle={toggleExpand}>
@@ -543,7 +549,9 @@
               <option value="30"> Every 30 seconds </option>
               <option value="10"> Every 10 seconds </option>
               <option value="5"> Every 5 seconds </option>
-              <option value="1"> Every second </option>
+              {#if !overrides?.isCloudSlam}
+                <option value="1"> Every second </option>
+              {/if}
             </select>
             <v-icon
               name="chevron-down"
@@ -635,13 +643,24 @@
               />
             </div>
 
-            <Slam2D
-              {pointcloud}
-              {pose}
-              {destination}
-              helpers={showAxes}
-              on:click={handle2dRenderClick}
-            />
+            <Dropzone on:drop={handleDrop}>
+              <div class="relative w-full h-[400px]">
+                <SlamMap2D
+                  {pointcloud}
+                  {destination}
+                  {motionPath}
+                  basePose={pose
+                    ? {
+                      x: pose.x,
+                      y: pose.y,
+                      theta: pose.theta,
+                    }
+                    : undefined}
+                  helpers={showAxes}
+                  on:click={handle2dRenderClick}
+                />
+              </div>
+            </Dropzone>
           </div>
         {:else if overrides?.isCloudSlam && sessionId}
           <div

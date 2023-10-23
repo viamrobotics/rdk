@@ -183,9 +183,15 @@ func (g *SerialNMEAMovementSensor) Accuracy(ctx context.Context, extra map[strin
 func (g *SerialNMEAMovementSensor) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
+
+	if math.IsNaN(g.data.CompassHeading) {
+		return r3.Vector{}, g.err.Get()
+	}
+
 	headingInRadians := g.data.CompassHeading * (math.Pi / 180)
 	xVelocity := g.data.Speed * math.Sin(headingInRadians)
 	yVelocity := g.data.Speed * math.Cos(headingInRadians)
+
 	return r3.Vector{X: xVelocity, Y: yVelocity, Z: 0}, g.err.Get()
 }
 
@@ -235,6 +241,13 @@ func (g *SerialNMEAMovementSensor) ReadFix(ctx context.Context) (int, error) {
 	return g.data.FixQuality, nil
 }
 
+// ReadSatsInView returns the number of satellites in view.
+func (g *SerialNMEAMovementSensor) ReadSatsInView(ctx context.Context) (int, error) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.data.SatsInView, nil
+}
+
 // Readings will use return all of the MovementSensor Readings.
 func (g *SerialNMEAMovementSensor) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 	readings, err := movementsensor.Readings(ctx, g, extra)
@@ -246,8 +259,12 @@ func (g *SerialNMEAMovementSensor) Readings(ctx context.Context, extra map[strin
 	if err != nil {
 		return nil, err
 	}
-
+	satsInView, err := g.ReadSatsInView(ctx)
+	if err != nil {
+		return nil, err
+	}
 	readings["fix"] = fix
+	readings["satellites_in_view"] = satsInView
 
 	return readings, nil
 }

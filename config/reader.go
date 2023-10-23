@@ -604,3 +604,29 @@ func CreateNewGRPCClient(ctx context.Context, cloudCfg *Cloud, logger golog.Logg
 
 	return rpc.DialDirectGRPC(ctx, u.Host, logger, dialOpts...)
 }
+
+// CreateNewGRPCClientWithAPIKey creates a new grpc cloud configured to communicate with the robot service
+// based on the cloud config and API key given.
+func CreateNewGRPCClientWithAPIKey(ctx context.Context, cloudCfg *Cloud,
+	apiKey, apiKeyID string, logger golog.Logger,
+) (rpc.ClientConn, error) {
+	u, err := url.Parse(cloudCfg.AppAddress)
+	if err != nil {
+		return nil, err
+	}
+
+	dialOpts := make([]rpc.DialOption, 0, 2)
+
+	dialOpts = append(dialOpts, rpc.WithEntityCredentials(apiKeyID,
+		rpc.Credentials{
+			Type:    rpc.CredentialsTypeAPIKey,
+			Payload: apiKey,
+		},
+	))
+
+	if u.Scheme == "http" {
+		dialOpts = append(dialOpts, rpc.WithInsecure())
+	}
+
+	return rpc.DialDirectGRPC(ctx, u.Host, logger, dialOpts...)
+}
