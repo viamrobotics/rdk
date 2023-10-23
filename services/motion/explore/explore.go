@@ -32,9 +32,8 @@ import (
 )
 
 var (
-	model                             = resource.DefaultModelFamily.WithModel("explore")
-	errUnimplemented                  = errors.New("unimplemented")
-	defaultObstaclePollingFrequencyHz = 2.
+	model            = resource.DefaultModelFamily.WithModel("explore")
+	errUnimplemented = errors.New("unimplemented")
 	// Places a limit on how far a potential move action can be performed.
 	moveLimit = 10000.
 	// The distance a detected obstacle can be from a base to trigger the Move command to stop.
@@ -65,7 +64,7 @@ type inputEnabledActuator interface {
 }
 
 // obstacleDetectorPair provides a map for matching vision services to any and all cameras to be used with them.
-type obstacleDetectorPair map[vision.Service][]camera.Camera
+type obstacleDetectorPair map[vision.Service]camera.Camera
 
 // ErrNotImplemented is thrown when an unreleased function is called.
 var ErrNotImplemented = errors.New("function coming soon but not yet implemented")
@@ -232,14 +231,20 @@ func (ms *explore) Move(
 ) (bool, error) {
 	operation.CancelOtherWithLabel(ctx, exploreOpLabel)
 
+	// Parse extras
+	motionCfg, err := parseMotionConfig(extra)
+	if err != nil {
+		return false, err
+	}
+
 	// obstacleDetectors
-	obstacleDetectors, err := ms.createObstacleDetectors(extra)
+	obstacleDetectors, err := ms.createObstacleDetectors(motionCfg)
 	if err != nil {
 		return false, err
 	}
 
 	// Create kinematic base
-	kb, err := ms.createKinematicBase(ctx, componentName, extra)
+	kb, err := ms.createKinematicBase(ctx, componentName, motionCfg)
 	if err != nil {
 		return false, err
 	}
@@ -263,7 +268,7 @@ func (ms *explore) Move(
 	// Start polling for obstacles
 	ms.backgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
-		ms.checkForObstacles(cancelCtx, obstacleDetectors, kb, plan, extra)
+		ms.checkForObstacles(cancelCtx, obstacleDetectors, kb, plan, motionCfg.ObstaclePollingFreqHz)
 	}, ms.backgroundWorkers.Done)
 
 	// Start executing plan
@@ -314,19 +319,8 @@ func (ms *explore) checkForObstacles(
 	obstacleDetectors []obstacleDetectorPair,
 	kb kinematicbase.KinematicBase,
 	plan motionplan.Plan,
-	extra map[string]interface{},
+	obstaclePollingFrequencyHz float64,
 ) {
-	// Get obstacle polling frequency from extra
-	var obstaclePollingFrequencyHz float64
-	if obstaclePollingFrequencyHzInterface, ok := extra["obstacle_polling_frequency_hz"]; ok {
-		obstaclePollingFrequencyHz, ok = obstaclePollingFrequencyHzInterface.(float64)
-		if !ok {
-			return
-		}
-	} else {
-		obstaclePollingFrequencyHz = defaultObstaclePollingFrequencyHz
-	}
-
 	// Constantly check for obstacles in path at desired obstacle polling frequency
 	ticker := time.NewTicker(time.Duration(int(1000/obstaclePollingFrequencyHz)) * time.Millisecond)
 	defer ticker.Stop()
@@ -400,32 +394,30 @@ func (ms *explore) generateTransientWorldState(
 
 	// Iterate through provided obstacle detectors and their associated vision service and cameras
 	for _, obstacleDetector := range obstacleDetectors {
-		for visionService, cameras := range obstacleDetector {
-			for _, camera := range cameras {
-				// Get detections as vision objects
-				detections, err := visionService.GetObjectPointClouds(ctx, camera.Name().Name, nil)
-				if err != nil && strings.Contains(err.Error(), "does not implement a 3D segmenter") {
-					ms.logger.Infof("cannot call GetObjectPointClouds on %q as it does not implement a 3D segmenter",
-						visionService.Name())
-				} else if err != nil {
-					return nil, err
-				}
-
-				// Extract geometries from vision objects
-				geometries := []spatialmath.Geometry{}
-				for i, detection := range detections {
-					geometry := detection.Geometry
-					label := camera.Name().Name + "_transientObstacle_" + strconv.Itoa(i)
-					if geometry.Label() != "" {
-						label += "_" + geometry.Label()
-					}
-					geometry.SetLabel(label)
-					geometries = append(geometries, geometry)
-				}
-				geometriesInFrame = append(geometriesInFrame,
-					referenceframe.NewGeometriesInFrame((referenceframe.World), geometries),
-				)
+		for visionService, camera := range obstacleDetector {
+			// Get detections as vision objects
+			detections, err := visionService.GetObjectPointClouds(ctx, camera.Name().Name, nil)
+			if err != nil && strings.Contains(err.Error(), "does not implement a 3D segmenter") {
+				ms.logger.Infof("cannot call GetObjectPointClouds on %q as it does not implement a 3D segmenter",
+					visionService.Name())
+			} else if err != nil {
+				return nil, err
 			}
+
+			// Extract geometries from vision objects
+			geometries := []spatialmath.Geometry{}
+			for i, detection := range detections {
+				geometry := detection.Geometry
+				label := camera.Name().Name + "_transientObstacle_" + strconv.Itoa(i)
+				if geometry.Label() != "" {
+					label += "_" + geometry.Label()
+				}
+				geometry.SetLabel(label)
+				geometries = append(geometries, geometry)
+			}
+			geometriesInFrame = append(geometriesInFrame,
+				referenceframe.NewGeometriesInFrame((referenceframe.World), geometries),
+			)
 		}
 	}
 
@@ -437,51 +429,12 @@ func (ms *explore) generateTransientWorldState(
 	return worldState, nil
 }
 
-// createKBOps will extra kinematic base options from extras.
-// Note: This will be updated/removed when API is updated to provide motionCfg.
-func createKBOps(extra map[string]interface{}) (kinematicbase.Options, error) {
-	opt := kinematicbase.NewKinematicBaseOptions()
-	opt.NoSkidSteer = true
-	opt.UsePTGs = false
-
-	extra["motion_profile"] = motionplan.PositionOnlyMotionProfile
-
-	// Get AngularVelocityDegsPerSec from extra
-	if degsPerSec, ok := extra["angular_degs_per_sec"]; ok {
-		angularDegsPerSec, ok := degsPerSec.(float64)
-		if !ok {
-			return kinematicbase.Options{}, errors.New("could not interpret angular_degs_per_sec field as float64")
-		}
-		opt.AngularVelocityDegsPerSec = angularDegsPerSec
-	}
-
-	// Get LinearVelocityMMPerSec from extra
-	if mPerSec, ok := extra["linear_m_per_sec"]; ok {
-		linearMPerSec, ok := mPerSec.(float64)
-		if !ok {
-			return kinematicbase.Options{}, errors.New("could not interpret linear_m_per_sec field as float64")
-		}
-		opt.LinearVelocityMMPerSec = linearMPerSec
-	}
-
-	// Get PositionOnlyMode from extra
-	if profile, ok := extra["motion_profile"]; ok {
-		motionProfile, ok := profile.(string)
-		if !ok {
-			return kinematicbase.Options{}, errors.New("could not interpret motion_profile field as string")
-		}
-		opt.PositionOnlyMode = motionProfile == motionplan.PositionOnlyMotionProfile
-	}
-
-	return opt, nil
-}
-
-// createKinematicBase will instantiate a kinematic base from the provided base name and extra fields with
+// createKinematicBase will instantiate a kinematic base from the provided base name and motionCfg with
 // associated kinematic base options. This will be a differential drive kinematic base.
 func (ms *explore) createKinematicBase(
 	ctx context.Context,
 	baseName resource.Name,
-	extra map[string]interface{},
+	motionCfg motion.MotionConfiguration,
 ) (kinematicbase.KinematicBase, error) {
 	// Select the base from the component list using the baseName
 	component, ok := ms.components[baseName]
@@ -494,11 +447,13 @@ func (ms *explore) createKinematicBase(
 		return nil, fmt.Errorf("cannot get component of type %T because it is not a Case", component)
 	}
 
-	// Generate kinematic base options from extra
-	kinematicsOptions, err := createKBOps(extra)
-	if err != nil {
-		return nil, err
-	}
+	// Generate kinematic base options from motionCfg
+	kinematicsOptions := kinematicbase.NewKinematicBaseOptions()
+	kinematicsOptions.NoSkidSteer = true
+	kinematicsOptions.UsePTGs = false
+	kinematicsOptions.PositionOnlyMode = true
+	kinematicsOptions.AngularVelocityDegsPerSec = motionCfg.AngularDegsPerSec
+	kinematicsOptions.LinearVelocityMMPerSec = motionCfg.AngularDegsPerSec
 
 	// Create new kinematic base (differential drive)
 	kb, err := kinematicbase.WrapWithKinematics(
@@ -517,24 +472,12 @@ func (ms *explore) createKinematicBase(
 }
 
 // createObstacleDetectors will generate the list of obstacle detectors from the camera and vision services
-// names provided in extra's obstacle_detectors_names.
-func (ms *explore) createObstacleDetectors(extra map[string]interface{}) ([]obstacleDetectorPair, error) {
+// names provided in them motionCfg.
+func (ms *explore) createObstacleDetectors(motionCfg motion.MotionConfiguration) ([]obstacleDetectorPair, error) {
 	var obstacleDetectors []obstacleDetectorPair
 
-	// Parse obstacle_detectors_names from extra
-	obstacleDetectorsInterface, ok := extra["obstacle_detectors_names"]
-	if !ok {
-		return []obstacleDetectorPair{}, errors.New("no obstacle detectors provided")
-	}
-
-	obstacleDetectorsNames, ok := obstacleDetectorsInterface.([]motion.ObstacleDetectorName)
-	if !ok {
-		return []obstacleDetectorPair{},
-			errors.New("could not interpret obstacle_detectors_names field as an ObstacleDetectorName")
-	}
-
 	// Iterate through obstacleDetectorsNames
-	for _, obstacleDetectorsName := range obstacleDetectorsNames {
+	for _, obstacleDetectorsName := range motionCfg.ObstacleDetectors {
 		// Select the vision service from the service list using the vision service name in obstacleDetectorsNames
 		visionServiceResource, ok := ms.components[obstacleDetectorsName.VisionServiceName]
 		if !ok {
@@ -557,7 +500,7 @@ func (ms *explore) createObstacleDetectors(extra map[string]interface{}) ([]obst
 		if !ok {
 			return nil, fmt.Errorf("cannot get component of type %T because it is not a camera", cameraResource)
 		}
-		obstacleDetectors = append(obstacleDetectors, obstacleDetectorPair{visionService: {cam}})
+		obstacleDetectors = append(obstacleDetectors, obstacleDetectorPair{visionService: cam})
 	}
 
 	return obstacleDetectors, nil
@@ -616,4 +559,17 @@ func (ms *explore) createMotionPlan(
 	}
 	steps, err := plan.GetFrameSteps(f.Name())
 	return steps, err
+}
+
+func parseMotionConfig(extra map[string]interface{}) (motion.MotionConfiguration, error) {
+	motionCfgInterface, ok := extra["motionCfg"]
+	if !ok {
+		return motion.MotionConfiguration{}, errors.New("no motionCfg provided")
+	}
+
+	motionCfg, ok := motionCfgInterface.(motion.MotionConfiguration)
+	if !ok {
+		return motion.MotionConfiguration{}, errors.New("could not interpret motionCfg field as an MotionConfiguration")
+	}
+	return motionCfg, nil
 }

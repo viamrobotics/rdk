@@ -18,12 +18,8 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/framesystem"
+	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/spatialmath"
-)
-
-const (
-	defaultLinearVelocityMMPerSec    = 200.
-	defaultAngularVelocityDegsPerSec = 60.
 )
 
 var (
@@ -31,10 +27,10 @@ var (
 	testCameraName1      = resource.NewName(camera.API, "test_camera1")
 	testCameraName2      = resource.NewName(camera.API, "test_camera2")
 	testFrameServiceName = resource.NewName(framesystem.API, "test_fs")
-	defaultKBOptsExtra   = map[string]interface{}{
-		"angular_degs_per_sec":          .25,
-		"linear_m_per_sec":              .1,
-		"obstacle_polling_frequency_hz": 2,
+	defaultMotionCfg     = motion.MotionConfiguration{
+		AngularDegsPerSec:     0.25,
+		LinearMPerSec:         0.1,
+		ObstaclePollingFreqHz: 2,
 	}
 )
 
@@ -42,80 +38,6 @@ type obstacleMetadata struct {
 	position r3.Vector
 	data     int
 	label    string
-}
-
-func TestExploreCreateKBOpts(t *testing.T) {
-	cases := []struct {
-		description string
-		extra       map[string]interface{}
-		expectedErr error
-	}{
-		{
-			description: "valid extra with angular_degs_per_sec and linear_m_per_sec",
-			extra: map[string]interface{}{
-				"angular_degs_per_sec": .1,
-				"linear_m_per_sec":     .3,
-			},
-			expectedErr: nil,
-		},
-		{
-			description: "invalid extra with only angular_degs_per_sec",
-			extra: map[string]interface{}{
-				"angular_degs_per_sec": .1,
-			},
-			expectedErr: nil,
-		},
-		{
-			description: "invalid extra with only linear_m_per_sec",
-			extra: map[string]interface{}{
-				"linear_m_per_sec": .3,
-			},
-			expectedErr: nil,
-		},
-		{
-			description: "invalid extra with invalid angular_degs_per_sec",
-			extra: map[string]interface{}{
-				"angular_degs_per_sec": "not_a_float",
-			},
-			expectedErr: errors.New("could not interpret angular_degs_per_sec field as float64"),
-		},
-		{
-			description: "invalid extra with invalid linear_m_per_sec",
-			extra: map[string]interface{}{
-				"linear_m_per_sec": "not_a_float",
-			},
-			expectedErr: errors.New("could not interpret linear_m_per_sec field as float64"),
-		},
-	}
-
-	for _, tt := range cases {
-		t.Run(tt.description, func(t *testing.T) {
-			kbOpts, err := createKBOps(tt.extra)
-
-			if tt.expectedErr != nil {
-				test.That(t, err, test.ShouldNotBeNil)
-				test.That(t, err.Error(), test.ShouldContainSubstring, tt.expectedErr.Error())
-				return
-			}
-
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, kbOpts.NoSkidSteer, test.ShouldBeTrue)
-			test.That(t, kbOpts.PositionOnlyMode, test.ShouldBeTrue)
-			test.That(t, kbOpts.UsePTGs, test.ShouldBeFalse)
-
-			if angularDegsPerSec, ok := tt.extra["angular_degs_per_sec"]; ok {
-				test.That(t, kbOpts.AngularVelocityDegsPerSec, test.ShouldEqual, angularDegsPerSec)
-			} else {
-				test.That(t, kbOpts.AngularVelocityDegsPerSec, test.ShouldEqual, defaultAngularVelocityDegsPerSec)
-			}
-
-			if linearMPerSec, ok := tt.extra["linear_m_per_sec"]; ok {
-				test.That(t, kbOpts.LinearVelocityMMPerSec, test.ShouldEqual, linearMPerSec)
-			} else {
-				test.That(t, kbOpts.LinearVelocityMMPerSec, test.ShouldEqual, defaultLinearVelocityMMPerSec)
-			}
-		})
-	}
 }
 
 func TestExplorePlanMove(t *testing.T) {
@@ -133,7 +55,7 @@ func TestExplorePlanMove(t *testing.T) {
 	msStruct := ms.(*explore)
 
 	// Create kinematic base
-	kb, err := msStruct.createKinematicBase(ctx, fakeBase.Name(), defaultKBOptsExtra)
+	kb, err := msStruct.createKinematicBase(ctx, fakeBase.Name(), defaultMotionCfg)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, kb.Name().Name, test.ShouldEqual, testBaseName.Name)
 
@@ -175,7 +97,7 @@ func TestExplorePlanMove(t *testing.T) {
 				kb,
 				tt.destination,
 				worldState,
-				defaultKBOptsExtra,
+				nil,
 			)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, len(planInputs), test.ShouldEqual, tt.expectedMotionPlanLength)
@@ -204,7 +126,7 @@ func TestExploreCheckForObstacles(t *testing.T) {
 	msStruct := ms.(*explore)
 
 	// Create kinematic base
-	kb, err := msStruct.createKinematicBase(ctx, fakeBase.Name(), defaultKBOptsExtra)
+	kb, err := msStruct.createKinematicBase(ctx, fakeBase.Name(), defaultMotionCfg)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, kb.Name().Name, test.ShouldEqual, testBaseName.Name)
 
@@ -298,7 +220,7 @@ func TestExploreCheckForObstacles(t *testing.T) {
 				kb,
 				tt.destination,
 				worldState,
-				defaultKBOptsExtra,
+				nil,
 			)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, kb.Name().Name, test.ShouldEqual, testBaseName.Name)
@@ -315,7 +237,7 @@ func TestExploreCheckForObstacles(t *testing.T) {
 			visionService := createMockVisionService("", tt.obstacle)
 
 			obstacleDetectors := []obstacleDetectorPair{
-				{visionService: {fakeCamera}},
+				{visionService: fakeCamera},
 			}
 
 			// Update and check worldState
@@ -342,7 +264,7 @@ func TestExploreCheckForObstacles(t *testing.T) {
 
 			msStruct.backgroundWorkers.Add(1)
 			goutils.ManagedGo(func() {
-				msStruct.checkForObstacles(ctxTimeout, obstacleDetectors, kb, plan, nil)
+				msStruct.checkForObstacles(ctxTimeout, obstacleDetectors, kb, plan, defaultMotionCfg.ObstaclePollingFreqHz)
 			}, msStruct.backgroundWorkers.Done)
 
 			resp := <-msStruct.obstacleResponseChan
@@ -381,7 +303,7 @@ func TestMultipleObstacleDetectors(t *testing.T) {
 	msStruct := ms.(*explore)
 
 	// Create kinematic base
-	kb, err := msStruct.createKinematicBase(ctx, fakeBase.Name(), defaultKBOptsExtra)
+	kb, err := msStruct.createKinematicBase(ctx, fakeBase.Name(), defaultMotionCfg)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, kb.Name().Name, test.ShouldEqual, testBaseName.Name)
 
@@ -394,7 +316,7 @@ func TestMultipleObstacleDetectors(t *testing.T) {
 		destination          spatialmath.Pose
 		obstacleCamera1      obstacleMetadata
 		obstacleCamera2      obstacleMetadata
-		visionServiceCamLink [][]camera.Camera
+		visionServiceCamLink []camera.Camera
 	}{
 		{
 			description: "two independent vision services both detecting obstacles",
@@ -409,10 +331,7 @@ func TestMultipleObstacleDetectors(t *testing.T) {
 				data:     100,
 				label:    "close_obstacle_in_path",
 			},
-			visionServiceCamLink: [][]camera.Camera{
-				{fakeCamera1},
-				{fakeCamera2},
-			},
+			visionServiceCamLink: []camera.Camera{fakeCamera1, fakeCamera2},
 		},
 		{
 			description: "two independent vision services only first detecting obstacle",
@@ -422,11 +341,8 @@ func TestMultipleObstacleDetectors(t *testing.T) {
 				data:     100,
 				label:    "close_obstacle_in_path",
 			},
-			obstacleCamera2: obstacleMetadata{},
-			visionServiceCamLink: [][]camera.Camera{
-				{fakeCamera1},
-				{fakeCamera2},
-			},
+			obstacleCamera2:      obstacleMetadata{},
+			visionServiceCamLink: []camera.Camera{fakeCamera1, fakeCamera2},
 		},
 		{
 			description:     "two independent vision services only second detecting obstacle",
@@ -437,10 +353,7 @@ func TestMultipleObstacleDetectors(t *testing.T) {
 				data:     100,
 				label:    "close_obstacle_in_path",
 			},
-			visionServiceCamLink: [][]camera.Camera{
-				{fakeCamera1},
-				{fakeCamera2},
-			},
+			visionServiceCamLink: []camera.Camera{fakeCamera1, fakeCamera2},
 		},
 		{
 			description: "two vision services depending on same camera",
@@ -450,41 +363,8 @@ func TestMultipleObstacleDetectors(t *testing.T) {
 				data:     100,
 				label:    "close_obstacle_in_path",
 			},
-			obstacleCamera2: obstacleMetadata{},
-			visionServiceCamLink: [][]camera.Camera{
-				{fakeCamera1},
-				{fakeCamera1},
-			},
-		},
-		{
-			description: "one vision services depending on two cameras both detecting obstacles",
-			destination: spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 1000, Z: 0}),
-			obstacleCamera1: obstacleMetadata{
-				position: r3.Vector{X: 0, Y: 300, Z: 0},
-				data:     100,
-				label:    "close_obstacle_in_path",
-			},
-			obstacleCamera2: obstacleMetadata{
-				position: r3.Vector{X: 0, Y: 500, Z: 0},
-				data:     100,
-				label:    "close_obstacle_in_path",
-			},
-			visionServiceCamLink: [][]camera.Camera{
-				{fakeCamera1, fakeCamera2},
-			},
-		},
-		{
-			description: "one vision services depending on two cameras only one detecting obstacles",
-			destination: spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 1000, Z: 0}),
-			obstacleCamera1: obstacleMetadata{
-				position: r3.Vector{X: 0, Y: 300, Z: 0},
-				data:     100,
-				label:    "close_obstacle_in_path",
-			},
-			obstacleCamera2: obstacleMetadata{},
-			visionServiceCamLink: [][]camera.Camera{
-				{fakeCamera1, fakeCamera2},
-			},
+			obstacleCamera2:      obstacleMetadata{},
+			visionServiceCamLink: []camera.Camera{fakeCamera1, fakeCamera2},
 		},
 	}
 
@@ -496,7 +376,7 @@ func TestMultipleObstacleDetectors(t *testing.T) {
 				kb,
 				tt.destination,
 				worldState,
-				defaultKBOptsExtra,
+				nil,
 			)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, kb.Name().Name, test.ShouldEqual, testBaseName.Name)
@@ -511,18 +391,16 @@ func TestMultipleObstacleDetectors(t *testing.T) {
 
 			// Create a vision service using provided obstacles and place it in an obstacle DetectorPair object
 			var obstacleDetectors []obstacleDetectorPair
-			for i, cameras := range tt.visionServiceCamLink {
+			for i, cam := range tt.visionServiceCamLink {
 				var obstacles []obstacleMetadata
-				for _, cam := range cameras {
-					if cam.Name().Name == testCameraName1.Name {
-						obstacles = append(obstacles, tt.obstacleCamera1)
-					}
-					if cam.Name().Name == testCameraName2.Name {
-						obstacles = append(obstacles, tt.obstacleCamera2)
-					}
+				if cam.Name().Name == testCameraName1.Name {
+					obstacles = append(obstacles, tt.obstacleCamera1)
+				}
+				if cam.Name().Name == testCameraName2.Name {
+					obstacles = append(obstacles, tt.obstacleCamera2)
 				}
 				visionService := createMockVisionService(fmt.Sprint(i), obstacles)
-				obstacleDetectors = append(obstacleDetectors, obstacleDetectorPair{visionService: cameras})
+				obstacleDetectors = append(obstacleDetectors, obstacleDetectorPair{visionService: cam})
 			}
 
 			// Run check obstacles in of plan path
@@ -531,7 +409,7 @@ func TestMultipleObstacleDetectors(t *testing.T) {
 
 			msStruct.backgroundWorkers.Add(1)
 			goutils.ManagedGo(func() {
-				msStruct.checkForObstacles(ctxTimeout, obstacleDetectors, kb, plan, nil)
+				msStruct.checkForObstacles(ctxTimeout, obstacleDetectors, kb, plan, defaultMotionCfg.ObstaclePollingFreqHz)
 			}, msStruct.backgroundWorkers.Done)
 
 			resp := <-msStruct.obstacleResponseChan

@@ -21,12 +21,9 @@ func (svc *builtIn) startExploreMode(ctx context.Context) {
 	utils.PanicCapturingGo(func() {
 		defer svc.activeBackgroundWorkers.Done()
 
-		// Send montion configure parameters through extra until motionCfg can be added to Move
-		extra := make(map[string]interface{})
-		extra["angular_degs_per_sec"] = svc.motionCfg.AngularDegsPerSec
-		extra["linear_m_per_sec"] = svc.motionCfg.LinearMPerSec
-		extra["obstacle_polling_frequency_hz"] = svc.motionCfg.ObstaclePollingFreqHz
-		extra["obstacle_detectors_names"] = svc.motionCfg.ObstacleDetectors
+		// Send motionCfg parameters through extra until motionCfg can be added to Move()
+
+		extra := map[string]interface{}{"motionCfg": svc.motionCfg}
 
 		for {
 			if ctx.Err() != nil {

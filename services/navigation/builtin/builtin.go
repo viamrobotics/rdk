@@ -92,8 +92,6 @@ type ObstacleDetectorNameConfig struct {
 	CameraName        string `json:"camera"`
 }
 
-// ObstacleDetector pairs a vision service with a camera, informing the service about which camera it may use.
-
 // Config describes how to configure the service.
 type Config struct {
 	Store              navigation.StoreConfig        `json:"store"`
