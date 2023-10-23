@@ -721,6 +721,7 @@ func (g *rtkSerial) sendGGAMessage() {
 }
 
 // findLineWithMountPoint parses the given source-table returns the nmea bool of the given mount point.
+// TODO: move this function to rdkutils.
 func findLineWithMountPoint(sourceTable *ntrip.Sourcetable, mountPoint string) (bool, error) {
 	stream, isFound := sourceTable.HasStream(mountPoint)
 
