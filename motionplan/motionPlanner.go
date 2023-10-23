@@ -508,9 +508,7 @@ func CheckPlan(
 	}
 
 	// adjust planNodes by the errorState
-	if errorState != nil {
-		planNodes = transformNodes(planNodes, errorState)
-	}
+	planNodes = transformNodes(planNodes, errorState)
 
 	// pre-pend node with current position of robot to planNodes
 	// Note that currentPosition is assumed to have already accounted for the errorState
