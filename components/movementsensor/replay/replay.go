@@ -12,6 +12,11 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	datapb "go.viam.com/api/app/data/v1"
+	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/internal/cloud"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils/contextutils"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"golang.org/x/exp/maps"
@@ -20,12 +25,6 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
-
-	"go.viam.com/rdk/components/movementsensor"
-	"go.viam.com/rdk/internal/cloud"
-	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/utils/contextutils"
 )
 
 const (
@@ -217,12 +216,10 @@ func (replay *replayMovementSensor) Position(ctx context.Context, extra map[stri
 				coordStruct.GetFields()["latitude"].GetNumberValue(),
 				coordStruct.GetFields()["longitude"].GetNumberValue()),
 			data.GetFields()["altitude_m"].GetNumberValue(), nil
-	} else {
-		return geo.NewPoint(
-			data.GetFields()["Latitude"].GetNumberValue(),
-			data.GetFields()["Longitude"].GetNumberValue()), data.GetFields()["Altitude"].GetNumberValue(), nil
 	}
-
+	return geo.NewPoint(
+		data.GetFields()["Latitude"].GetNumberValue(),
+		data.GetFields()["Longitude"].GetNumberValue()), data.GetFields()["Altitude"].GetNumberValue(), nil
 }
 
 // LinearVelocity returns the next linear velocity from the cache in the form of an r3.Vector.
@@ -244,13 +241,12 @@ func (replay *replayMovementSensor) LinearVelocity(ctx context.Context, extra ma
 
 	if isNewLinearVelocityFormat(data) {
 		return newFormatStructToVector(data.GetFields()["linear_velocity"].GetStructValue()), nil
-	} else {
-		return r3.Vector{
-			X: data.GetFields()["X"].GetNumberValue(),
-			Y: data.GetFields()["Y"].GetNumberValue(),
-			Z: data.GetFields()["Z"].GetNumberValue(),
-		}, nil
 	}
+	return r3.Vector{
+		X: data.GetFields()["X"].GetNumberValue(),
+		Y: data.GetFields()["Y"].GetNumberValue(),
+		Z: data.GetFields()["Z"].GetNumberValue(),
+	}, nil
 }
 
 // AngularVelocity returns the next angular velocity from the cache in the form of a spatialmath.AngularVelocity (r3.Vector).
@@ -279,13 +275,12 @@ func (replay *replayMovementSensor) AngularVelocity(ctx context.Context, extra m
 			Y: angularStruct.GetFields()["y"].GetNumberValue(),
 			Z: angularStruct.GetFields()["z"].GetNumberValue(),
 		}, nil
-	} else {
-		return spatialmath.AngularVelocity{
-			X: data.GetFields()["X"].GetNumberValue(),
-			Y: data.GetFields()["Y"].GetNumberValue(),
-			Z: data.GetFields()["Z"].GetNumberValue(),
-		}, nil
 	}
+	return spatialmath.AngularVelocity{
+		X: data.GetFields()["X"].GetNumberValue(),
+		Y: data.GetFields()["Y"].GetNumberValue(),
+		Z: data.GetFields()["Z"].GetNumberValue(),
+	}, nil
 }
 
 // LinearAcceleration returns the next linear acceleration from the cache in the form of an r3.Vector.
@@ -334,9 +329,8 @@ func (replay *replayMovementSensor) CompassHeading(ctx context.Context, extra ma
 
 	if isNewCompassHeadingFormat(data) {
 		return data.GetFields()["value"].GetNumberValue(), nil
-	} else {
-		return data.GetFields()["Compass"].GetNumberValue(), nil
 	}
+	return data.GetFields()["Compass"].GetNumberValue(), nil
 }
 
 // Orientation returns the next orientation from the cache as a spatialmath.Orientation created from a spatialmath.OrientationVector.
@@ -364,14 +358,13 @@ func (replay *replayMovementSensor) Orientation(ctx context.Context, extra map[s
 			OZ:    orientationStruct.GetFields()["oz"].GetNumberValue(),
 			Theta: orientationStruct.GetFields()["theta"].GetNumberValue(),
 		}, nil
-	} else {
-		return &spatialmath.OrientationVector{
-			OX:    data.GetFields()["OX"].GetNumberValue(),
-			OY:    data.GetFields()["OY"].GetNumberValue(),
-			OZ:    data.GetFields()["OZ"].GetNumberValue(),
-			Theta: data.GetFields()["Theta"].GetNumberValue(),
-		}, nil
 	}
+	return &spatialmath.OrientationVector{
+		OX:    data.GetFields()["OX"].GetNumberValue(),
+		OY:    data.GetFields()["OY"].GetNumberValue(),
+		OZ:    data.GetFields()["OZ"].GetNumberValue(),
+		Theta: data.GetFields()["Theta"].GetNumberValue(),
+	}, nil
 }
 
 // Properties returns the available properties for the given replay movement sensor.
