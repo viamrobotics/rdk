@@ -60,13 +60,12 @@ func newMoveAttempt(ctx context.Context, request *moveRequest) *moveAttempt {
 		waypointIndex: &waypointIndex,
 	}
 	if request.config.PositionPollingFreqHz > 0 {
-		ma.position= newReplanner(time.Duration(1000/request.config.PositionPollingFreqHz)*time.Millisecond, request.deviatedFromPlan)
+		ma.position = newReplanner(time.Duration(1000/request.config.PositionPollingFreqHz)*time.Millisecond, request.deviatedFromPlan)
 	}
 	if request.config.ObstaclePollingFreqHz > 0 {
-		ma.obstacle= newReplanner(time.Duration(1000/request.config.ObstaclePollingFreqHz)*time.Millisecond, request.obstaclesIntersectPlan)
+		ma.obstacle = newReplanner(time.Duration(1000/request.config.ObstaclePollingFreqHz)*time.Millisecond, request.obstaclesIntersectPlan)
 	}
 	return ma
-
 }
 
 // start begins a new moveAttempt by using its moveRequest to create a plan, spawn relevant replanners, and finally execute the motion.
@@ -84,7 +83,7 @@ func (ma *moveAttempt) start() error {
 			ma.position.startPolling(ma.ctx, waypoints, ma.waypointIndex)
 		}, ma.backgroundWorkers.Done)
 	}
-	
+
 	if ma.obstacle != nil {
 		ma.backgroundWorkers.Add(1)
 		goutils.ManagedGo(func() {

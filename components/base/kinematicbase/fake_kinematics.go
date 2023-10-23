@@ -137,7 +137,6 @@ func WrapWithFakePTGKinematics(
 	options Options,
 	currentPosition, sensorNoise spatialmath.Pose,
 ) (KinematicBase, error) {
-
 	properties, err := b.Properties(ctx, nil)
 	if err != nil {
 		return nil, err

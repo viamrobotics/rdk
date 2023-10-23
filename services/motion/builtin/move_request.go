@@ -7,9 +7,9 @@ import (
 	"math"
 	"sync/atomic"
 
+	"github.com/edaniels/golog"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
-	"github.com/edaniels/golog"
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/base/kinematicbase"
@@ -82,7 +82,6 @@ func (mr *moveRequest) execute(ctx context.Context, waypoints [][]referenceframe
 		}
 	}
 
-	fmt.Println("checking deviation")
 	// the plan has been fully executed so check to see if where we are at is close enough to the goal.
 	deviated, err := mr.deviatedFromPlan(ctx, waypoints, len(waypoints)-1)
 	if err != nil {
@@ -206,8 +205,8 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	}
 
 	geomsRaw := spatialmath.GeoObstaclesToGeometries(obstacles, origin)
-	
-	mr, err :=  relativeMoveRequestFromAbsolute(
+
+	mr, err := relativeMoveRequestFromAbsolute(
 		ctx,
 		motionCfg,
 		ms.logger,
@@ -221,7 +220,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 		return nil, err
 	}
 	mr.seedPlan = seedPlan
-	mr.replanCostFactor= replanCostFactor
+	mr.replanCostFactor = replanCostFactor
 	return mr, nil
 }
 
@@ -287,7 +286,6 @@ func (ms *builtIn) newMoveOnMapRequest(
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("octree", octree)
 
 	mr, err := relativeMoveRequestFromAbsolute(
 		ctx,
@@ -299,7 +297,6 @@ func (ms *builtIn) newMoveOnMapRequest(
 		[]spatialmath.Geometry{octree},
 		extra,
 	)
-	fmt.Println("mr, err", mr, err)
 	return mr, err
 }
 
@@ -313,7 +310,6 @@ func relativeMoveRequestFromAbsolute(
 	worldObstacles []spatialmath.Geometry,
 	extra map[string]interface{},
 ) (*moveRequest, error) {
-
 	// replace original base frame with one that knows how to move itself and allow planning for
 	kinematicFrame := kb.Kinematics()
 	if err := fs.ReplaceFrame(kinematicFrame); err != nil {
@@ -324,36 +320,32 @@ func relativeMoveRequestFromAbsolute(
 	if err != nil {
 		return nil, err
 	}
-	
-	fmt.Println("getting pos")
+
 	startPoseInWorld, err := kb.CurrentPosition(ctx)
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("got pos")
 	startPoseToWorld := spatialmath.PoseInverse(startPoseInWorld.Pose())
 
 	goal := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.PoseBetween(startPoseInWorld.Pose(), goalPoseInWorld))
 
 	// convert GeoObstacles into GeometriesInFrame with respect to the base's starting point
-	
+
 	geoms := make([]spatialmath.Geometry, 0, len(worldObstacles))
 	for _, geom := range worldObstacles {
 		geoms = append(geoms, geom.Transform(startPoseToWorld))
 	}
-	
 
 	gif := referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)
 	worldState, err := referenceframe.NewWorldState([]*referenceframe.GeometriesInFrame{gif}, nil)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if motionCfg == nil {
 		motionCfg = &motion.MotionConfiguration{}
 	}
 
-	fmt.Println("returning")
 	mr := &moveRequest{
 		config: motionCfg,
 		planRequest: &motionplan.PlanRequest{
@@ -365,8 +357,7 @@ func relativeMoveRequestFromAbsolute(
 			WorldState:         worldState,
 			Options:            extra,
 		},
-		kinematicBase:    kb,
+		kinematicBase: kb,
 	}
-	fmt.Println("mr", mr)
 	return mr, nil
 }
