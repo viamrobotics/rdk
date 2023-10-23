@@ -24,7 +24,11 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-var model = resource.DefaultModelFamily.WithModel("single-axis")
+var (
+	model = resource.DefaultModelFamily.WithModel("single-axis")
+	// homingTimout (micro seconds) is calculated using the gantry's rpm, mmPerRevolution, and lengthMm.
+	homingTimeout = 15e6
+)
 
 // limitErrorMargin is added or subtracted from the location of the limit switch to ensure the switch is not passed.
 const limitErrorMargin = 0.25
@@ -452,12 +456,13 @@ func (g *singleAxis) testLimit(ctx context.Context, pin int) (float64, error) {
 				wrongPin)
 		}
 
-		elapsed := start.Sub(start)
-		timeout := 15.0
+		elapsed := time.Since(start)
+		// if the parameters checked are non-zero, calculate a timeout with a safety factor of
+		// 1.1 to complete the gantry's homing sequence to find the limit switches
 		if g.mmPerRevolution != 0 && g.rpm != 0 && g.lengthMm != 0 {
-			timeout = 1 / (g.rpm / 60.0 * g.mmPerRevolution / g.lengthMm) * 1.1
+			homingTimeout = 1 / (g.rpm / 6e7 * g.mmPerRevolution / g.lengthMm) * 1.1
 		}
-		if elapsed > (time.Duration(timeout)) {
+		if elapsed > (time.Duration(homingTimeout)) {
 			return 0, errors.New("gantry timed out testing limit")
 		}
 
