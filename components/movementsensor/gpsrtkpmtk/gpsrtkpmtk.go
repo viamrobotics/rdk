@@ -38,6 +38,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"strings"
 	"sync"
 
 	"github.com/de-bkg/gognss/pkg/ntrip"
@@ -354,6 +355,15 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 		g.logger.Infof("caster %s seems to be down", g.ntripClient.URL)
 	}
 
+	srctable, err := g.ntripClient.Client.ParseSourcetable()
+	if err != nil {
+		g.logger.Errorf("failed to get source table: %v", err)
+	}
+	nmea, nmeaerr := findLineWithMountPoint(srctable, g.ntripClient.MountPoint)
+	if nmeaerr != nil {
+		g.logger.Errorf("can't find mountpoint in source table, found err %v\n", nmeaerr)
+	}
+
 	// establish I2C connection
 	handle, err := g.bus.OpenHandle(g.addr)
 	if err != nil {
@@ -430,6 +440,12 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 		default:
 		}
 
+		if nmea {
+			// only send GGA messages if nmea bit is 1 in source table.
+			// This is for getting stream from a virtual reference station.
+			g.sendGGAMessage()
+		}
+
 		// establish I2C connection
 		handle, err := g.bus.OpenHandle(g.addr)
 		if err != nil {
@@ -488,7 +504,7 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 	}
 }
 
-//nolint
+// nolint
 // getNtripConnectionStatus returns true if connection to NTRIP stream is OK, false if not
 func (g *rtkI2C) getNtripConnectionStatus() (bool, error) {
 	g.ntripMu.Lock()
@@ -681,4 +697,81 @@ func (g *rtkI2C) Close(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// sendGGAMessage sends GGA messages to the serial port. This is only used to get NTRIP stream
+// from a virtual reference point.
+func (g *rtkI2C) sendGGAMessage() {
+	// Open an I2C handle to read NMEA messages
+	handle, err := g.bus.OpenHandle(g.addr)
+	if err != nil {
+		g.logger.Errorf("can't open gps i2c handle: %s", err)
+		g.err.Set(err)
+		return
+	}
+	defer func() {
+		if closeErr := handle.Close(); closeErr != nil {
+			g.logger.Errorf("error while closing I2C handle after reading GGA message: %v", closeErr)
+			g.err.Set(closeErr)
+		}
+	}()
+
+	// Create a buffer to collect NMEA messages
+	messageBuffer := make([]byte, 0, 1024)
+
+	for !g.ntripStatus {
+		select {
+		case <-g.cancelCtx.Done():
+			return
+		default:
+		}
+
+		// Read from the I2C device
+		buffer, err := handle.Read(g.cancelCtx, 1024)
+		if err != nil {
+			g.err.Set(err)
+			return
+		}
+
+		// Process the received data
+		for _, b := range buffer {
+			// PMTK uses CRLF line endings to terminate sentences, but just LF to blank data.
+			// Since CR should never appear except at the end of our sentence, we use that to determine sentence end.
+			// LF is merely ignored.
+			if b == 0x0D {
+				if len(messageBuffer) > 0 {
+					// Convert the received bytes to a string
+					receivedData := string(messageBuffer)
+
+					// Check for NMEA GGA messages
+					messages := strings.Split(receivedData, "\n")
+					for _, message := range messages {
+						if strings.Contains(message, "GGA") {
+							// Send the GGA message to the NTRIP caster
+							if _, err := g.correctionWriter.Write([]byte(message)); err != nil {
+								g.logger.Errorf("error while sending GGA message to NTRIP caster: %v", err)
+								g.err.Set(err)
+								return
+							}
+						}
+					}
+				}
+				messageBuffer = messageBuffer[:0]
+			} else if b != 0x0A && b != 0xFF { // adds only valid bytes
+				messageBuffer = append(messageBuffer, b)
+			}
+		}
+	}
+}
+
+// findLineWithMountPoint parses the given source-table returns the nmea bool of the given mount point.
+// TODO: move this to rdkutils.
+func findLineWithMountPoint(sourceTable *ntrip.Sourcetable, mountPoint string) (bool, error) {
+	stream, isFound := sourceTable.HasStream(mountPoint)
+
+	if !isFound {
+		return false, fmt.Errorf("can not find mountpoint %s in sourcetable", mountPoint)
+	}
+
+	return stream.Nmea, nil
 }
