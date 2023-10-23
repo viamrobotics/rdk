@@ -363,7 +363,7 @@ func (replay *pcdCamera) Reconfigure(ctx context.Context, deps resource.Dependen
 		return err
 	}
 
-	// // Update cloud connection if needed
+	// Update cloud connection if needed
 	if replay.cloudConnSvc != cloudConnSvc {
 		replay.closeCloudConnection(ctx)
 		replay.cloudConnSvc = cloudConnSvc
