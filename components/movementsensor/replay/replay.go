@@ -354,9 +354,9 @@ func (replay *replayMovementSensor) Orientation(ctx context.Context, extra map[s
 	if isNewOrientationFormat(data) {
 		orientationStruct := data.GetFields()["orientation"].GetStructValue()
 		return &spatialmath.OrientationVector{
-			OX:    orientationStruct.GetFields()["ox"].GetNumberValue(),
-			OY:    orientationStruct.GetFields()["oy"].GetNumberValue(),
-			OZ:    orientationStruct.GetFields()["oz"].GetNumberValue(),
+			OX:    orientationStruct.GetFields()["o_x"].GetNumberValue(),
+			OY:    orientationStruct.GetFields()["o_y"].GetNumberValue(),
+			OZ:    orientationStruct.GetFields()["o_z"].GetNumberValue(),
 			Theta: orientationStruct.GetFields()["theta"].GetNumberValue(),
 		}, nil
 	}
