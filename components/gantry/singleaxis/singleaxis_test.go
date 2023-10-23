@@ -563,10 +563,6 @@ func TestTestLimitTimeout(t *testing.T) {
 	injectGPIOPin.GetFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {
 		return false, nil
 	}
-	injectGPIOPinGood := &inject.GPIOPin{}
-	injectGPIOPinGood.GetFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {
-		return false, nil
-	}
 
 	fakegantry.board = &inject.Board{
 		GPIOPinByNameFunc: func(pin string) (board.GPIOPin, error) {
