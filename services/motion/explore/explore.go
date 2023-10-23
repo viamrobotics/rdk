@@ -245,7 +245,7 @@ func (ms *explore) Move(
 	}
 
 	// Create motionplan plan
-	planInputs, err := ms.createMotionPlan(ctx, kb, destination.Pose(), worldState, true, extra)
+	planInputs, err := ms.createMotionPlan(ctx, kb, destination.Pose(), worldState, extra)
 	if err != nil {
 		return false, err
 	}
@@ -569,7 +569,6 @@ func (ms *explore) createMotionPlan(
 	kb kinematicbase.KinematicBase,
 	destination spatialmath.Pose,
 	worldState *referenceframe.WorldState,
-	positionOnlyMode bool,
 	extra map[string]interface{},
 ) ([][]referenceframe.Input, error) {
 	fs, err := ms.fsService.FrameSystem(ctx, worldState.Transforms())
@@ -586,7 +585,7 @@ func (ms *explore) createMotionPlan(
 
 	inputs := []referenceframe.Input{{Value: 0}, {Value: 0}, {Value: 0}}
 
-	if positionOnlyMode && len(kb.Kinematics().DoF()) == 2 && len(inputs) == 3 {
+	if len(kb.Kinematics().DoF()) == 2 && len(inputs) == 3 {
 		inputs = inputs[:2]
 	}
 

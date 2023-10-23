@@ -21,20 +21,9 @@ import (
 	"go.viam.com/rdk/vision"
 )
 
-var (
-	testBaseName         = resource.NewName(base.API, "test_base")
-	testCameraName       = resource.NewName(camera.API, "test_camera")
-	testFrameServiceName = resource.NewName(framesystem.API, "test_fs")
-	defaultKBOptsExtra   = map[string]interface{}{
-		"angular_degs_per_sec":          .25,
-		"linear_m_per_sec":              .1,
-		"obstacle_polling_frequency_hz": 2,
-	}
-)
-
 // createNewExploreMotionService creates a new motion service complete with base, camera (optional) and frame system.
 // Note: The required vision service can/is added later as it will not affect the building of the frame system.
-func createNewExploreMotionService(ctx context.Context, logger golog.Logger, fakeBase base.Base, cam camera.Camera,
+func createNewExploreMotionService(ctx context.Context, logger golog.Logger, fakeBase base.Base, cameras []camera.Camera,
 ) (motion.Service, error) {
 	var fsParts []*referenceframe.FrameSystemPart
 	deps := make(resource.Dependencies)
@@ -48,7 +37,7 @@ func createNewExploreMotionService(ctx context.Context, logger golog.Logger, fak
 	deps[testBaseName] = fakeBase
 
 	// create camera link
-	if cam != nil {
+	for _, cam := range cameras {
 		cameraLink, err := createCameraLink(cam.Name().Name, fakeBase.Name().Name)
 		if err != nil {
 			return nil, err
@@ -80,9 +69,9 @@ func createFakeBase(ctx context.Context, logger golog.Logger) (base.Base, error)
 }
 
 // createFakeCamera instantiates a fake camera.
-func createFakeCamera(ctx context.Context, logger golog.Logger) (camera.Camera, error) {
+func createFakeCamera(ctx context.Context, logger golog.Logger, name string) (camera.Camera, error) {
 	fakeCameraCfg := resource.Config{
-		Name:  testCameraName.Name,
+		Name:  name,
 		API:   camera.API,
 		Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R: 5}},
 		ConvertedAttributes: &cameraFake.Config{
@@ -95,7 +84,7 @@ func createFakeCamera(ctx context.Context, logger golog.Logger) (camera.Camera, 
 
 // createMockVisionService instantiates a mock vision service with a custom version of GetObjectPointCloud that creates
 // vision objects from a given set of points.
-func createMockVisionService(obstacles []obstacleMetadata) vSvc.Service {
+func createMockVisionService(visionSvcNum string, obstacles []obstacleMetadata) vSvc.Service {
 	mockVisionService := &inject.VisionService{}
 
 	mockVisionService.GetObjectPointCloudsFunc = func(ctx context.Context, cameraName string, extra map[string]interface{},
@@ -108,7 +97,7 @@ func createMockVisionService(obstacles []obstacleMetadata) vSvc.Service {
 				return nil, err
 			}
 
-			detection, err := vision.NewObjectWithLabel(pointcloud.New(), obs.label, box.ToProtobuf())
+			detection, err := vision.NewObjectWithLabel(pointcloud.New(), obs.label+visionSvcNum, box.ToProtobuf())
 			if err != nil {
 				return nil, err
 			}

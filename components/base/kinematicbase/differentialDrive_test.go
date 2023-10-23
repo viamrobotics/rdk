@@ -21,7 +21,8 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-const defaultLimit = 10000.
+// Limits when localizer isn't present.
+const defaultLocalizerLimit = 10000.
 
 func testConfig() resource.Config {
 	return resource.Config{
@@ -175,15 +176,14 @@ func buildTestDDK(
 		if err != nil {
 			return nil, err
 		}
-		limits = append(limits, referenceframe.Limit{Min: -2 * math.Pi, Max: 2 * math.Pi})
 		localizer = motion.NewSLAMLocalizer(fakeSLAM)
 	} else {
 		limits = []referenceframe.Limit{
-			{Min: defaultLimit, Max: defaultLimit},
-			{Min: defaultLimit, Max: defaultLimit},
-			{Min: defaultLimit, Max: defaultLimit},
+			{Min: defaultLocalizerLimit, Max: defaultLocalizerLimit},
+			{Min: defaultLocalizerLimit, Max: defaultLocalizerLimit},
 		}
 	}
+	limits = append(limits, referenceframe.Limit{Min: -2 * math.Pi, Max: 2 * math.Pi})
 
 	// construct differential drive kinematic base
 	options := NewKinematicBaseOptions()

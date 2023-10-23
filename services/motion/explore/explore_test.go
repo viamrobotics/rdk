@@ -2,6 +2,7 @@ package explore
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -11,14 +12,30 @@ import (
 	"go.viam.com/test"
 	goutils "go.viam.com/utils"
 
+	"go.viam.com/rdk/components/base"
+	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/spatialmath"
 )
 
 const (
 	defaultLinearVelocityMMPerSec    = 200.
 	defaultAngularVelocityDegsPerSec = 60.
+)
+
+var (
+	testBaseName         = resource.NewName(base.API, "test_base")
+	testCameraName1      = resource.NewName(camera.API, "test_camera1")
+	testCameraName2      = resource.NewName(camera.API, "test_camera2")
+	testFrameServiceName = resource.NewName(framesystem.API, "test_fs")
+	defaultKBOptsExtra   = map[string]interface{}{
+		"angular_degs_per_sec":          .25,
+		"linear_m_per_sec":              .1,
+		"obstacle_polling_frequency_hz": 2,
+	}
 )
 
 type obstacleMetadata struct {
@@ -158,7 +175,6 @@ func TestExplorePlanMove(t *testing.T) {
 				kb,
 				tt.destination,
 				worldState,
-				true,
 				defaultKBOptsExtra,
 			)
 			test.That(t, err, test.ShouldBeNil)
@@ -172,7 +188,7 @@ func TestExploreCheckForObstacles(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
 	// Create fake camera
-	fakeCamera, err := createFakeCamera(ctx, logger)
+	fakeCamera, err := createFakeCamera(ctx, logger, testCameraName1.Name)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Create fake base
@@ -180,7 +196,7 @@ func TestExploreCheckForObstacles(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Create explore motion service
-	ms, err := createNewExploreMotionService(ctx, logger, fakeBase, fakeCamera)
+	ms, err := createNewExploreMotionService(ctx, logger, fakeBase, []camera.Camera{fakeCamera})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ms, test.ShouldNotBeNil)
 	defer ms.Close(ctx)
@@ -282,7 +298,6 @@ func TestExploreCheckForObstacles(t *testing.T) {
 				kb,
 				tt.destination,
 				worldState,
-				true,
 				defaultKBOptsExtra,
 			)
 			test.That(t, err, test.ShouldBeNil)
@@ -297,7 +312,7 @@ func TestExploreCheckForObstacles(t *testing.T) {
 			}
 
 			// Create a vision service using provided obstacles and place it in an obstacle DetectorPair object
-			visionService := createMockVisionService(tt.obstacle)
+			visionService := createMockVisionService("", tt.obstacle)
 
 			obstacleDetectors := []obstacleDetectorPair{
 				{visionService: {fakeCamera}},
@@ -338,6 +353,191 @@ func TestExploreCheckForObstacles(t *testing.T) {
 				test.That(t, resp.err, test.ShouldNotBeNil)
 				test.That(t, resp.err.Error(), test.ShouldContainSubstring, tt.detectionErr.Error())
 			}
+		})
+	}
+}
+
+func TestMultipleObstacleDetectors(t *testing.T) {
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+
+	// Create fake cameras
+	fakeCamera1, err := createFakeCamera(ctx, logger, testCameraName1.Name)
+	test.That(t, err, test.ShouldBeNil)
+
+	fakeCamera2, err := createFakeCamera(ctx, logger, testCameraName2.Name)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Create fake base
+	fakeBase, err := createFakeBase(ctx, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Create explore motion service
+	ms, err := createNewExploreMotionService(ctx, logger, fakeBase, []camera.Camera{fakeCamera1, fakeCamera2})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, ms, test.ShouldNotBeNil)
+	defer ms.Close(ctx)
+
+	msStruct := ms.(*explore)
+
+	// Create kinematic base
+	kb, err := msStruct.createKinematicBase(ctx, fakeBase.Name(), defaultKBOptsExtra)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, kb.Name().Name, test.ShouldEqual, testBaseName.Name)
+
+	// Create empty worldState
+	worldState, err := referenceframe.NewWorldState(nil, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	cases := []struct {
+		description          string
+		destination          spatialmath.Pose
+		obstacleCamera1      obstacleMetadata
+		obstacleCamera2      obstacleMetadata
+		visionServiceCamLink [][]camera.Camera
+	}{
+		{
+			description: "two independent vision services both detecting obstacles",
+			destination: spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 1000, Z: 0}),
+			obstacleCamera1: obstacleMetadata{
+				position: r3.Vector{X: 0, Y: 300, Z: 0},
+				data:     100,
+				label:    "close_obstacle_in_path",
+			},
+			obstacleCamera2: obstacleMetadata{
+				position: r3.Vector{X: 0, Y: 500, Z: 0},
+				data:     100,
+				label:    "close_obstacle_in_path",
+			},
+			visionServiceCamLink: [][]camera.Camera{
+				{fakeCamera1},
+				{fakeCamera2},
+			},
+		},
+		{
+			description: "two independent vision services only first detecting obstacle",
+			destination: spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 1000, Z: 0}),
+			obstacleCamera1: obstacleMetadata{
+				position: r3.Vector{X: 0, Y: 300, Z: 0},
+				data:     100,
+				label:    "close_obstacle_in_path",
+			},
+			obstacleCamera2: obstacleMetadata{},
+			visionServiceCamLink: [][]camera.Camera{
+				{fakeCamera1},
+				{fakeCamera2},
+			},
+		},
+		{
+			description:     "two independent vision services only second detecting obstacle",
+			destination:     spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 1000, Z: 0}),
+			obstacleCamera1: obstacleMetadata{},
+			obstacleCamera2: obstacleMetadata{
+				position: r3.Vector{X: 0, Y: 300, Z: 0},
+				data:     100,
+				label:    "close_obstacle_in_path",
+			},
+			visionServiceCamLink: [][]camera.Camera{
+				{fakeCamera1},
+				{fakeCamera2},
+			},
+		},
+		{
+			description: "two vision services depending on same camera",
+			destination: spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 1000, Z: 0}),
+			obstacleCamera1: obstacleMetadata{
+				position: r3.Vector{X: 0, Y: 300, Z: 0},
+				data:     100,
+				label:    "close_obstacle_in_path",
+			},
+			obstacleCamera2: obstacleMetadata{},
+			visionServiceCamLink: [][]camera.Camera{
+				{fakeCamera1},
+				{fakeCamera1},
+			},
+		},
+		{
+			description: "one vision services depending on two cameras both detecting obstacles",
+			destination: spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 1000, Z: 0}),
+			obstacleCamera1: obstacleMetadata{
+				position: r3.Vector{X: 0, Y: 300, Z: 0},
+				data:     100,
+				label:    "close_obstacle_in_path",
+			},
+			obstacleCamera2: obstacleMetadata{
+				position: r3.Vector{X: 0, Y: 500, Z: 0},
+				data:     100,
+				label:    "close_obstacle_in_path",
+			},
+			visionServiceCamLink: [][]camera.Camera{
+				{fakeCamera1, fakeCamera2},
+			},
+		},
+		{
+			description: "one vision services depending on two cameras only one detecting obstacles",
+			destination: spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 1000, Z: 0}),
+			obstacleCamera1: obstacleMetadata{
+				position: r3.Vector{X: 0, Y: 300, Z: 0},
+				data:     100,
+				label:    "close_obstacle_in_path",
+			},
+			obstacleCamera2: obstacleMetadata{},
+			visionServiceCamLink: [][]camera.Camera{
+				{fakeCamera1, fakeCamera2},
+			},
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.description, func(t *testing.T) {
+			// Create motionplan plan
+			planInputs, err := msStruct.createMotionPlan(
+				ctx,
+				kb,
+				tt.destination,
+				worldState,
+				defaultKBOptsExtra,
+			)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, kb.Name().Name, test.ShouldEqual, testBaseName.Name)
+			test.That(t, len(planInputs), test.ShouldBeGreaterThan, 0)
+
+			var plan motionplan.Plan
+			for _, inputs := range planInputs {
+				input := make(map[string][]referenceframe.Input)
+				input[kb.Name().Name] = inputs
+				plan = append(plan, input)
+			}
+
+			// Create a vision service using provided obstacles and place it in an obstacle DetectorPair object
+			var obstacleDetectors []obstacleDetectorPair
+			for i, cameras := range tt.visionServiceCamLink {
+				var obstacles []obstacleMetadata
+				for _, cam := range cameras {
+					if cam.Name().Name == testCameraName1.Name {
+						obstacles = append(obstacles, tt.obstacleCamera1)
+					}
+					if cam.Name().Name == testCameraName2.Name {
+						obstacles = append(obstacles, tt.obstacleCamera2)
+					}
+				}
+				visionService := createMockVisionService(fmt.Sprint(i), obstacles)
+				obstacleDetectors = append(obstacleDetectors, obstacleDetectorPair{visionService: cameras})
+			}
+
+			// Run check obstacles in of plan path
+			ctxTimeout, cancelFunc := context.WithTimeout(ctx, 1*time.Second)
+			defer cancelFunc()
+
+			msStruct.backgroundWorkers.Add(1)
+			goutils.ManagedGo(func() {
+				msStruct.checkForObstacles(ctxTimeout, obstacleDetectors, kb, plan, nil)
+			}, msStruct.backgroundWorkers.Done)
+
+			resp := <-msStruct.obstacleResponseChan
+			test.That(t, resp.success, test.ShouldBeTrue)
+			test.That(t, resp.err, test.ShouldNotBeNil)
+			test.That(t, resp.err.Error(), test.ShouldContainSubstring, "found collision between positions")
 		})
 	}
 }
