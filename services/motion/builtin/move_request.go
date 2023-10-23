@@ -315,6 +315,25 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 		}
 	}
 
+	obstacleDetectors := make(map[vision.Service][]resource.Name)
+	for _, obstacleDetectorNamePair := range motionCfg.ObstacleDetectors {
+		// get vision service
+		visionServiceName := obstacleDetectorNamePair.VisionServiceName
+		visionSvc, ok := ms.visionServices[visionServiceName]
+		if !ok {
+			return nil, resource.DependencyNotFoundError(visionServiceName)
+		}
+
+		// add camera to vision service map
+		camList, ok := obstacleDetectors[visionSvc]
+		if !ok {
+			obstacleDetectors[visionSvc] = []resource.Name{obstacleDetectorNamePair.CameraName}
+		} else {
+			camList = append(camList, obstacleDetectorNamePair.CameraName)
+			obstacleDetectors[visionSvc] = camList
+		}
+	}
+
 	return &moveRequest{
 		config: motionCfg,
 		planRequest: &motionplan.PlanRequest{

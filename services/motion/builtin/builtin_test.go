@@ -7,12 +7,12 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
-
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
@@ -762,13 +762,10 @@ func TestReplanning(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 
-	gpsOrigin := geo.NewPoint(0, 0)
-	dst := geo.NewPoint(gpsOrigin.Lat(), gpsOrigin.Lng()+1e-5)
+	gpsPoint := geo.NewPoint(0, 0)
+	dst := geo.NewPoint(gpsPoint.Lat(), gpsPoint.Lng()+1e-5)
 	epsilonMM := 15.
-
-	obstacleDetectorSlice := []motion.ObstacleDetectorName{
-		{VisionServiceName: vision.Named("injectedVisionSvc"), CameraName: camera.Named("injectedCamera")},
-	}
+	motionCfg := &motion.MotionConfiguration{PositionPollingFreqHz: 100, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM}
 
 	type testCase struct {
 		name            string
@@ -776,8 +773,6 @@ func TestReplanning(t *testing.T) {
 		expectedSuccess bool
 		expectedErr     string
 		extra           map[string]interface{}
-		cfg             *motion.MotionConfiguration
-		getPCfunc       func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error)
 	}
 
 	testCases := []testCase{
@@ -786,7 +781,6 @@ func TestReplanning(t *testing.T) {
 			noise:           r3.Vector{Y: epsilonMM - 0.1},
 			expectedSuccess: true,
 			extra:           map[string]interface{}{},
-			cfg:             &motion.MotionConfiguration{PositionPollingFreqHz: 100, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM},
 		},
 		{
 			// This also checks that `replan` is called under default conditions when "max_replans" is not set
@@ -802,8 +796,54 @@ func TestReplanning(t *testing.T) {
 			expectedErr:     fmt.Sprintf("exceeded maximum number of replans: %d", 4),
 			expectedSuccess: false,
 			extra:           map[string]interface{}{"replan_cost_factor": 10.0, "max_replans": 4},
-			cfg:             &motion.MotionConfiguration{PositionPollingFreqHz: 100, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM},
 		},
+	}
+
+	testFn := func(t *testing.T, tc testCase) {
+		t.Helper()
+		injectedMovementSensor, _, kb, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, spatialmath.NewPoseFromPoint(tc.noise))
+
+		success, err := ms.MoveOnGlobe(ctx, kb.Name(), dst, 0, injectedMovementSensor.Name(), nil, motionCfg, tc.extra)
+
+		if tc.expectedSuccess {
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, success, test.ShouldBeTrue)
+		} else {
+			test.That(t, success, test.ShouldBeFalse)
+			test.That(t, err.Error(), test.ShouldEqual, tc.expectedErr)
+		}
+	}
+
+	for _, tc := range testCases {
+		c := tc // needed to workaround loop variable not being captured by func literals
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			testFn(t, c)
+		})
+	}
+}
+
+func TestObstacleDetection(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	gpsOrigin := geo.NewPoint(0, 0)
+	dst := geo.NewPoint(gpsOrigin.Lat(), gpsOrigin.Lng()+1e-5)
+	epsilonMM := 15.
+
+	obstacleDetectorSlice := []motion.ObstacleDetectorName{
+		{VisionServiceName: vision.Named("injectedVisionSvc"), CameraName: camera.Named("injectedCamera")},
+	}
+
+	type testCase struct {
+		name           string
+		noise          r3.Vector
+		expectedReplan bool
+		cfg            *motion.MotionConfiguration
+		getPCfunc      func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error)
+	}
+
+	testCases := []testCase{
 		{
 			name:           "ensure no replan from discovered obstacles",
 			noise:          r3.Vector{0, 0, 0},
@@ -844,17 +884,48 @@ func TestReplanning(t *testing.T) {
 
 	testFn := func(t *testing.T, tc testCase) {
 		t.Helper()
-		injectedMovementSensor, _, kb, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, spatialmath.NewPoseFromPoint(tc.noise))
+		injectedMovementSensor, _, kb, ms := createMoveOnGlobeEnvironment(ctx, t, gpsOrigin, spatialmath.NewPoseFromPoint(tc.noise))
+		moveRequest, err := ms.(*builtIn).newMoveOnGlobeRequest(ctx, kb.Name(), dst, injectedMovementSensor.Name(), nil, tc.cfg, nil, nil)
+		test.That(t, err, test.ShouldBeNil)
 
-		success, err := ms.MoveOnGlobe(ctx, kb.Name(), dst, 0, injectedMovementSensor.Name(), nil, motionCfg, tc.extra)
-
-		if tc.expectedSuccess {
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, success, test.ShouldBeTrue)
-		} else {
-			test.That(t, success, test.ShouldBeFalse)
-			test.That(t, err.Error(), test.ShouldEqual, tc.expectedErr)
+		if len(tc.cfg.ObstacleDetectors) > 0 {
+			srvc, ok := ms.(*builtIn).visionServices[tc.cfg.ObstacleDetectors[0].VisionServiceName].(*inject.VisionService)
+			test.That(t, ok, test.ShouldBeTrue)
+			srvc.GetObjectPointCloudsFunc = tc.getPCfunc
 		}
+
+		ctx, cancel := context.WithTimeout(ctx, 30.0*time.Second)
+		ma := newMoveAttempt(ctx, moveRequest)
+		err = ma.start()
+		test.That(t, err, test.ShouldBeNil)
+
+		defer ma.cancel()
+		defer cancel()
+		select {
+		case <-ma.ctx.Done():
+			t.Log("move attempt should not have timed out")
+			t.FailNow()
+		case resp := <-ma.responseChan:
+			if tc.expectedReplan {
+				t.Log("move attempt should not have returned a response")
+				t.FailNow()
+			} else {
+				test.That(t, resp.err, test.ShouldBeNil)
+				test.That(t, resp.success, test.ShouldBeTrue)
+			}
+		case <-ma.position.responseChan:
+			t.Log("posotion channel should not have has a response")
+			t.FailNow()
+		case resp := <-ma.obstacle.responseChan:
+			if tc.expectedReplan {
+				test.That(t, resp.err, test.ShouldBeNil)
+				test.That(t, resp.replan, test.ShouldBeTrue)
+			} else {
+				t.Log("move attempt should not be replanned")
+				t.FailNow()
+			}
+		}
+		test.That(t, ma.waypointIndex.Load(), test.ShouldBeGreaterThan, 0)
 	}
 
 	for _, tc := range testCases {
