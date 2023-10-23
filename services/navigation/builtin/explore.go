@@ -35,17 +35,16 @@ func (svc *builtIn) startExploreMode(ctx context.Context) {
 
 			//nolint:gosec
 			randAngle := (rand.Float64() - 0.5) * math.Pi
-
-			newPose := frame.NewPoseInFrame(svc.base.Name().Name, spatialmath.NewPose(
+			destination := frame.NewPoseInFrame(svc.base.Name().Name, spatialmath.NewPose(
 				r3.Vector{
 					X: defaultDistanceMM * math.Sin(randAngle),
 					Y: defaultDistanceMM * math.Sin(randAngle),
 					Z: 0,
 				}, spatialmath.NewOrientationVector()))
 
-			_, err := svc.exploreMotionService.Move(ctx, svc.base.Name(), newPose, nil, nil, extra) // worldState, constraints, extra)
+			_, err := svc.exploreMotionService.Move(ctx, svc.base.Name(), destination, nil, nil, extra)
 			if err != nil {
-				svc.logger.Debug("error occurred when moving")
+				svc.logger.Debug("error occurred when moving to point %v", destination)
 			}
 		}
 	})
