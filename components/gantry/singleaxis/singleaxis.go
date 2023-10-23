@@ -453,7 +453,11 @@ func (g *singleAxis) testLimit(ctx context.Context, pin int) (float64, error) {
 		}
 
 		elapsed := start.Sub(start)
-		if elapsed > (time.Second * 15) {
+		timeout := 15.0
+		if g.mmPerRevolution != 0 && g.rpm != 0 && g.lengthMm != 0 {
+			timeout = 1 / (g.rpm / 60.0 * g.mmPerRevolution / g.lengthMm) * 1.1
+		}
+		if elapsed > (time.Duration(timeout)) {
 			return 0, errors.New("gantry timed out testing limit")
 		}
 
