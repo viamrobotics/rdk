@@ -23,6 +23,8 @@ const (
 	validRobotID        = "robot_id"
 	validOrganizationID = "organization_id"
 	validLocationID     = "location_id"
+	validAPIKey         = "a key"
+	validAPIKeyID       = "a key id"
 )
 
 var (
@@ -52,6 +54,8 @@ func TestReplayPCDNew(t *testing.T) {
 				RobotID:        validRobotID,
 				LocationID:     validLocationID,
 				OrganizationID: validOrganizationID,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
 			},
 			validCloudConnection: true,
 		},
@@ -62,6 +66,8 @@ func TestReplayPCDNew(t *testing.T) {
 				RobotID:        validRobotID,
 				LocationID:     validLocationID,
 				OrganizationID: validOrganizationID,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
 			},
 			validCloudConnection: false,
 			expectedErr:          errors.New("failure to connect to the cloud: cloud connection error"),
@@ -73,6 +79,8 @@ func TestReplayPCDNew(t *testing.T) {
 				RobotID:        validRobotID,
 				LocationID:     validLocationID,
 				OrganizationID: validOrganizationID,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
 				Interval: TimeInterval{
 					Start: "bad timestamp",
 				},
@@ -87,6 +95,8 @@ func TestReplayPCDNew(t *testing.T) {
 				RobotID:        validRobotID,
 				LocationID:     validLocationID,
 				OrganizationID: validOrganizationID,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
 				Interval: TimeInterval{
 					End: "bad timestamp",
 				},
@@ -133,6 +143,8 @@ func TestReplayPCDNextPointCloud(t *testing.T) {
 				RobotID:        validRobotID,
 				LocationID:     validLocationID,
 				OrganizationID: validOrganizationID,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
 			},
 			startFileNum: 0,
 			endFileNum:   numPCDFiles,
@@ -144,6 +156,8 @@ func TestReplayPCDNextPointCloud(t *testing.T) {
 				RobotID:        validRobotID,
 				LocationID:     validLocationID,
 				OrganizationID: validOrganizationID,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
 			},
 			startFileNum: -1,
 			endFileNum:   -1,
@@ -155,6 +169,8 @@ func TestReplayPCDNextPointCloud(t *testing.T) {
 				RobotID:        "bad_robot_id",
 				LocationID:     validLocationID,
 				OrganizationID: validOrganizationID,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
 			},
 			startFileNum: -1,
 			endFileNum:   -1,
@@ -166,6 +182,8 @@ func TestReplayPCDNextPointCloud(t *testing.T) {
 				RobotID:        validRobotID,
 				LocationID:     "bad_location_id",
 				OrganizationID: validOrganizationID,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
 			},
 			startFileNum: -1,
 			endFileNum:   -1,
@@ -177,6 +195,8 @@ func TestReplayPCDNextPointCloud(t *testing.T) {
 				RobotID:        validRobotID,
 				LocationID:     validLocationID,
 				OrganizationID: "bad_organization_id",
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
 			},
 			startFileNum: -1,
 			endFileNum:   -1,
@@ -188,6 +208,8 @@ func TestReplayPCDNextPointCloud(t *testing.T) {
 				RobotID:        validRobotID,
 				LocationID:     validLocationID,
 				OrganizationID: validOrganizationID,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
 				BatchSize:      &batchSize1,
 				Interval: TimeInterval{
 					Start: "2000-01-01T12:00:30Z",
@@ -204,6 +226,8 @@ func TestReplayPCDNextPointCloud(t *testing.T) {
 				RobotID:        validRobotID,
 				LocationID:     validLocationID,
 				OrganizationID: validOrganizationID,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
 				BatchSize:      &batchSize1,
 				Interval: TimeInterval{
 					End: "2000-01-01T12:00:10Z",
@@ -219,6 +243,8 @@ func TestReplayPCDNextPointCloud(t *testing.T) {
 				RobotID:        validRobotID,
 				LocationID:     validLocationID,
 				OrganizationID: validOrganizationID,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
 				BatchSize:      &batchSize1,
 				Interval: TimeInterval{
 					Start: "2000-01-01T12:00:05Z",
@@ -234,6 +260,8 @@ func TestReplayPCDNextPointCloud(t *testing.T) {
 				RobotID:        validRobotID,
 				LocationID:     validLocationID,
 				OrganizationID: validOrganizationID,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
 				BatchSize:      &batchSize1,
 				Interval: TimeInterval{
 					Start: "2000-01-01T12:00:05Z",
@@ -250,6 +278,8 @@ func TestReplayPCDNextPointCloud(t *testing.T) {
 				RobotID:        validRobotID,
 				LocationID:     validLocationID,
 				OrganizationID: validOrganizationID,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
 				BatchSize:      &batchSize2,
 			},
 			startFileNum: 0,
@@ -263,6 +293,8 @@ func TestReplayPCDNextPointCloud(t *testing.T) {
 				LocationID:     validLocationID,
 				OrganizationID: validOrganizationID,
 				BatchSize:      &batchSize4,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
 			},
 			startFileNum: 0,
 			endFileNum:   numPCDFiles,
@@ -275,6 +307,8 @@ func TestReplayPCDNextPointCloud(t *testing.T) {
 				LocationID:     validLocationID,
 				OrganizationID: validOrganizationID,
 				BatchSize:      &batchSize3,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
 			},
 			startFileNum: 0,
 			endFileNum:   numPCDFiles,
@@ -286,6 +320,8 @@ func TestReplayPCDNextPointCloud(t *testing.T) {
 				RobotID:        validRobotID,
 				LocationID:     validLocationID,
 				OrganizationID: validOrganizationID,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
 				BatchSize:      &batchSize2,
 				Interval: TimeInterval{
 					Start: "2000-01-01T12:00:05Z",
@@ -303,6 +339,8 @@ func TestReplayPCDNextPointCloud(t *testing.T) {
 				LocationID:     validLocationID,
 				OrganizationID: validOrganizationID,
 				BatchSize:      &batchSizeLarge,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
 			},
 			startFileNum: 0,
 			endFileNum:   numPCDFiles,
@@ -360,6 +398,8 @@ func TestReplayPCDLiveNextPointCloud(t *testing.T) {
 		RobotID:        validRobotID,
 		LocationID:     validLocationID,
 		OrganizationID: validOrganizationID,
+		APIKey:         validAPIKey,
+		APIKeyID:       validAPIKeyID,
 	}
 
 	replayCamera, _, serverClose, err := createNewReplayPCDCamera(ctx, t, cfg, true)
@@ -415,6 +455,8 @@ func TestReplayPCDConfigValidation(t *testing.T) {
 				LocationID:     validLocationID,
 				OrganizationID: validOrganizationID,
 				Interval:       TimeInterval{},
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
 			},
 			expectedDeps: []string{cloud.InternalServiceName.String()},
 		},
@@ -425,6 +467,8 @@ func TestReplayPCDConfigValidation(t *testing.T) {
 				LocationID:     validLocationID,
 				OrganizationID: validOrganizationID,
 				Interval:       TimeInterval{},
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
 			},
 			expectedErr: utils.NewConfigValidationFieldRequiredError("", validSource),
 		},
@@ -435,6 +479,8 @@ func TestReplayPCDConfigValidation(t *testing.T) {
 				LocationID:     validLocationID,
 				OrganizationID: validOrganizationID,
 				Interval:       TimeInterval{},
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
 			},
 			expectedErr: utils.NewConfigValidationFieldRequiredError("", validRobotID),
 		},
@@ -445,6 +491,8 @@ func TestReplayPCDConfigValidation(t *testing.T) {
 				RobotID:        validRobotID,
 				OrganizationID: validOrganizationID,
 				Interval:       TimeInterval{},
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
 			},
 			expectedErr: utils.NewConfigValidationFieldRequiredError("", validLocationID),
 		},
@@ -455,6 +503,8 @@ func TestReplayPCDConfigValidation(t *testing.T) {
 				RobotID:    validRobotID,
 				LocationID: validLocationID,
 				Interval:   TimeInterval{},
+				APIKey:     validAPIKey,
+				APIKeyID:   validAPIKeyID,
 			},
 			expectedErr: utils.NewConfigValidationFieldRequiredError("", validOrganizationID),
 		},
@@ -465,6 +515,8 @@ func TestReplayPCDConfigValidation(t *testing.T) {
 				RobotID:        validRobotID,
 				LocationID:     validLocationID,
 				OrganizationID: validOrganizationID,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
 				Interval: TimeInterval{
 					Start: "2000-01-01T12:00:00Z",
 				},
@@ -478,6 +530,8 @@ func TestReplayPCDConfigValidation(t *testing.T) {
 				RobotID:        validRobotID,
 				LocationID:     validLocationID,
 				OrganizationID: validOrganizationID,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
 				Interval: TimeInterval{
 					End: "2000-01-01T12:00:00Z",
 				},
@@ -491,6 +545,8 @@ func TestReplayPCDConfigValidation(t *testing.T) {
 				RobotID:        validRobotID,
 				LocationID:     validLocationID,
 				OrganizationID: validOrganizationID,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
 				Interval: TimeInterval{
 					Start: "2000-01-01T12:00:00Z",
 					End:   "2000-01-01T12:00:01Z",
@@ -505,6 +561,8 @@ func TestReplayPCDConfigValidation(t *testing.T) {
 				RobotID:        validRobotID,
 				LocationID:     validLocationID,
 				OrganizationID: validOrganizationID,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
 				Interval: TimeInterval{
 					Start: "gibberish",
 				},
@@ -518,6 +576,8 @@ func TestReplayPCDConfigValidation(t *testing.T) {
 				RobotID:        validRobotID,
 				LocationID:     validLocationID,
 				OrganizationID: validOrganizationID,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
 				Interval: TimeInterval{
 					End: "gibberish",
 				},
@@ -531,6 +591,8 @@ func TestReplayPCDConfigValidation(t *testing.T) {
 				RobotID:        validRobotID,
 				LocationID:     validLocationID,
 				OrganizationID: validOrganizationID,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
 				Interval: TimeInterval{
 					Start: "2000-01-01T12:00:01Z",
 					End:   "2000-01-01T12:00:00Z",
@@ -545,6 +607,8 @@ func TestReplayPCDConfigValidation(t *testing.T) {
 				RobotID:        validRobotID,
 				LocationID:     validLocationID,
 				OrganizationID: validOrganizationID,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
 				Interval: TimeInterval{
 					Start: "2000-01-01T12:00:00Z",
 					End:   "2000-01-01T12:00:01Z",
@@ -560,6 +624,8 @@ func TestReplayPCDConfigValidation(t *testing.T) {
 				RobotID:        validRobotID,
 				LocationID:     validLocationID,
 				OrganizationID: validOrganizationID,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
 				Interval: TimeInterval{
 					Start: "2000-01-01T12:00:00Z",
 					End:   "2000-01-01T12:00:01Z",

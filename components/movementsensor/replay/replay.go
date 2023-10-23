@@ -95,6 +95,12 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 	if cfg.OrganizationID == "" {
 		return nil, goutils.NewConfigValidationFieldRequiredError(path, "organization_id")
 	}
+	if cfg.APIKey == "" {
+		return nil, goutils.NewConfigValidationFieldRequiredError(path, "api_key")
+	}
+	if cfg.APIKeyID == "" {
+		return nil, goutils.NewConfigValidationFieldRequiredError(path, "api_key_id")
+	}
 
 	var err error
 	var startTime time.Time
@@ -132,6 +138,8 @@ type Config struct {
 	OrganizationID string       `json:"organization_id,omitempty"`
 	Interval       TimeInterval `json:"time_interval,omitempty"`
 	BatchSize      *uint64      `json:"batch_size,omitempty"`
+	APIKey         string       `json:"api_key,omitempty"`
+	APIKeyID       string       `json:"api_key_id,omitempty"`
 }
 
 // TimeInterval holds the start and end time used to filter data.
@@ -153,6 +161,8 @@ type replayMovementSensor struct {
 	resource.Named
 	logger golog.Logger
 
+	APIKey       string
+	APIKeyID     string
 	cloudConnSvc cloud.ConnectionService
 	cloudConn    rpc.ClientConn
 	dataClient   datapb.DataServiceClient
@@ -365,6 +375,9 @@ func (replay *replayMovementSensor) Reconfigure(ctx context.Context, deps resour
 	if err != nil {
 		return err
 	}
+
+	replay.APIKey = replayMovementSensorConfig.APIKey
+	replay.APIKeyID = replayMovementSensorConfig.APIKeyID
 
 	cloudConnSvc, err := resource.FromDependencies[cloud.ConnectionService](deps, cloud.InternalServiceName)
 	if err != nil {
@@ -601,7 +614,7 @@ func (replay *replayMovementSensor) initCloudConnection(ctx context.Context) err
 	ctx, cancel := context.WithTimeout(ctx, grpcConnectionTimeout)
 	defer cancel()
 
-	_, conn, err := replay.cloudConnSvc.AcquireConnection(ctx)
+	_, conn, err := replay.cloudConnSvc.AcquireConnectionAPIKey(ctx, replay.APIKey, replay.APIKeyID)
 	if err != nil {
 		return err
 	}
