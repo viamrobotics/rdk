@@ -26,7 +26,7 @@ type moveRequest struct {
 	config             *motion.MotionConfiguration
 	planRequest        *motionplan.PlanRequest
 	kinematicBase      kinematicbase.KinematicBase
-	cameraVisionPairs  []map[resource.Name]vision.Service
+	obstacleDetectors  map[vision.Service][]resource.Name
 	frameSystemService framesystem.Service
 }
 
@@ -102,8 +102,9 @@ func (mr *moveRequest) obstaclesIntersectPlan(ctx context.Context, waypoints [][
 		input[mr.kinematicBase.Name().Name] = inputs
 		plan = append(plan, input)
 	}
-	for _, cvMap := range mr.cameraVisionPairs {
-		for camName, visSrvc := range cvMap {
+
+	for visSrvc, cameraNames := range mr.obstacleDetectors {
+		for _, camName := range cameraNames {
 			// get detections from vision service
 			detections, err := visSrvc.GetObjectPointClouds(ctx, camName.Name, nil)
 			if err != nil {
@@ -297,17 +298,23 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 		}
 	}
 
-	var obstacleDetectors []map[resource.Name]vision.Service
+	obstacleDetectors := make(map[vision.Service][]resource.Name)
 	for _, obstacleDetectorNamePair := range motionCfg.ObstacleDetectors {
-		pair := make(map[resource.Name]vision.Service)
+		// get vision service
 		visionServiceName := obstacleDetectorNamePair.VisionServiceName
 		visionSvc, ok := ms.visionServices[visionServiceName]
 		if !ok {
 			return nil, resource.DependencyNotFoundError(visionServiceName)
 		}
-		cameraName := obstacleDetectorNamePair.CameraName
-		pair[cameraName] = visionSvc
-		obstacleDetectors = append(obstacleDetectors, pair)
+
+		// add camera to vision service map
+		camList, ok := obstacleDetectors[visionSvc]
+		if !ok {
+			obstacleDetectors[visionSvc] = []resource.Name{obstacleDetectorNamePair.CameraName}
+		} else {
+			camList = append(camList, obstacleDetectorNamePair.CameraName)
+			obstacleDetectors[visionSvc] = camList
+		}
 	}
 
 	return &moveRequest{
@@ -322,7 +329,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 			Options:            extra,
 		},
 		kinematicBase:      kb,
-		cameraVisionPairs:  obstacleDetectors,
+		obstacleDetectors:  obstacleDetectors,
 		frameSystemService: ms.fsService,
 	}, nil
 }
