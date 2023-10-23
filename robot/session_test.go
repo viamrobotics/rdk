@@ -59,7 +59,7 @@ func init() {
 	})
 }
 
-// TODO(NEED TICKET): This test suite checks if stopping a client also stops any
+// TODO(RSDK-5435): This test suite checks if stopping a client also stops any
 // components that were started by that client. We also should implement a benchmark
 // suite that measures how long it takes for components to stop.
 //
