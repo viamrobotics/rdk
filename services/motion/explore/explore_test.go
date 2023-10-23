@@ -14,7 +14,6 @@ import (
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/framesystem"
@@ -87,10 +86,12 @@ func TestExplorePlanMove(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.description, func(t *testing.T) {
+			dest := referenceframe.NewPoseInFrame(testBaseName.Name, tt.destination)
+
 			planInputs, err := msStruct.createMotionPlan(
 				ctx,
 				kb,
-				tt.destination,
+				dest,
 				worldState,
 				nil,
 			)
@@ -210,23 +211,17 @@ func TestExploreCheckForObstacles(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.description, func(t *testing.T) {
 			// Create motionplan plan
-			planInputs, err := msStruct.createMotionPlan(
+			dest := referenceframe.NewPoseInFrame(testBaseName.Name, tt.destination)
+			plan, err := msStruct.createMotionPlan(
 				ctx,
 				kb,
-				tt.destination,
+				dest,
 				worldState,
 				nil,
 			)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, kb.Name().Name, test.ShouldEqual, testBaseName.Name)
-			test.That(t, len(planInputs), test.ShouldBeGreaterThan, 0)
-
-			var plan motionplan.Plan
-			for _, inputs := range planInputs {
-				input := make(map[string][]referenceframe.Input)
-				input[kb.Name().Name] = inputs
-				plan = append(plan, input)
-			}
+			test.That(t, len(plan), test.ShouldBeGreaterThan, 0)
 
 			// Create a vision service using provided obstacles and place it in an obstacle DetectorPair object
 			visionService := createMockVisionService("", tt.obstacle)
@@ -366,23 +361,17 @@ func TestMultipleObstacleDetectors(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.description, func(t *testing.T) {
 			// Create motionplan plan
-			planInputs, err := msStruct.createMotionPlan(
+			dest := referenceframe.NewPoseInFrame(testBaseName.Name, tt.destination)
+			plan, err := msStruct.createMotionPlan(
 				ctx,
 				kb,
-				tt.destination,
+				dest,
 				worldState,
 				nil,
 			)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, kb.Name().Name, test.ShouldEqual, testBaseName.Name)
-			test.That(t, len(planInputs), test.ShouldBeGreaterThan, 0)
-
-			var plan motionplan.Plan
-			for _, inputs := range planInputs {
-				input := make(map[string][]referenceframe.Input)
-				input[kb.Name().Name] = inputs
-				plan = append(plan, input)
-			}
+			test.That(t, len(plan), test.ShouldBeGreaterThan, 0)
 
 			// Create a vision service using provided obstacles and place it in an obstacle DetectorPair object
 			var obstacleDetectors []obstacleDetectorObject

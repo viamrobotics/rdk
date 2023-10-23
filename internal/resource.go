@@ -26,3 +26,12 @@ var SLAMDependencyWildcardMatcher = ResourceMatcher(slamDependencyWildcardMatche
 type slamDependencyWildcardMatcher string
 
 func (s slamDependencyWildcardMatcher) notActuallyImplementedYet() {}
+
+// VisionDependencyWildcardMatcher is used internally right now for lack of a better way to
+// "select" vision services that another resource has dependency on. Usage of this is an
+// anti-pattern and a better matcher system should exist.
+var VisionDependencyWildcardMatcher = ResourceMatcher(visionDependencyWildcardMatcher("rdk:service:vision/*:*"))
+
+type visionDependencyWildcardMatcher string
+
+func (v visionDependencyWildcardMatcher) notActuallyImplementedYet() {}

@@ -47,6 +47,7 @@ func init() {
 			Constructor: NewExplore,
 			WeakDependencies: []internal.ResourceMatcher{
 				internal.ComponentDependencyWildcardMatcher,
+				internal.VisionDependencyWildcardMatcher,
 			},
 		})
 }
@@ -54,6 +55,14 @@ func init() {
 const (
 	exploreOpLabel = "explore-motion-service"
 )
+
+// moveResponse is the message type returned by both channels: obstacle detection and plan execution.
+// It contains a bool stating if an obstacle was found or the execution was complete and/or any
+// associated error.
+type moveResponse struct {
+	err     error
+	success bool
+}
 
 // inputEnabledActuator is an actuator that interacts with the frame system.
 // This allows us to figure out where the actuator currently is and then
@@ -117,7 +126,7 @@ func (ms *explore) Reconfigure(
 		ms.logger = logger
 	}
 
-	// Iterate over dependence is and store components and services along with the frame service directly
+	// Iterate over dependencies and store components and services along with the frame service directly
 	components := make(map[resource.Name]resource.Resource)
 	services := make(map[resource.Name]resource.Resource)
 	for name, dep := range deps {
@@ -250,15 +259,9 @@ func (ms *explore) Move(
 	}
 
 	// Create motionplan plan
-	planInputs, err := ms.createMotionPlan(ctx, kb, destination.Pose(), worldState, extra)
+	plan, err := ms.createMotionPlan(ctx, kb, destination, worldState, extra)
 	if err != nil {
 		return false, err
-	}
-	var plan motionplan.Plan
-	for _, inputs := range planInputs {
-		input := make(map[string][]referenceframe.Input)
-		input[kb.Name().Name] = inputs
-		plan = append(plan, input)
 	}
 
 	// Start background processes
@@ -304,11 +307,6 @@ func (ms *explore) Move(
 			}
 		}
 	}
-}
-
-type moveResponse struct {
-	err     error
-	success bool
 }
 
 // checkForObstacles will continuously monitor the generated transient worldState for obstacles in the given
@@ -479,7 +477,7 @@ func (ms *explore) createObstacleDetectors(motionCfg motion.MotionConfiguration)
 	// Iterate through obstacleDetectorsNames
 	for _, obstacleDetectorsName := range motionCfg.ObstacleDetectors {
 		// Select the vision service from the service list using the vision service name in obstacleDetectorsNames
-		visionServiceResource, ok := ms.components[obstacleDetectorsName.VisionServiceName]
+		visionServiceResource, ok := ms.services[obstacleDetectorsName.VisionServiceName]
 		if !ok {
 			return nil, resource.DependencyNotFoundError(obstacleDetectorsName.VisionServiceName)
 		}
@@ -510,10 +508,10 @@ func (ms *explore) createObstacleDetectors(motionCfg motion.MotionConfiguration)
 func (ms *explore) createMotionPlan(
 	ctx context.Context,
 	kb kinematicbase.KinematicBase,
-	destination spatialmath.Pose,
+	destination *referenceframe.PoseInFrame,
 	worldState *referenceframe.WorldState,
 	extra map[string]interface{},
-) ([][]referenceframe.Input, error) {
+) (motionplan.Plan, error) {
 	fs, err := ms.fsService.FrameSystem(ctx, worldState.Transforms())
 	if err != nil {
 		return nil, err
@@ -532,8 +530,6 @@ func (ms *explore) createMotionPlan(
 		inputs = inputs[:2]
 	}
 
-	dst := referenceframe.NewPoseInFrame(referenceframe.World, destination)
-
 	f := kb.Kinematics()
 
 	worldStateNew, err := referenceframe.NewWorldState(nil, nil)
@@ -543,10 +539,15 @@ func (ms *explore) createMotionPlan(
 
 	seedMap := map[string][]referenceframe.Input{f.Name(): inputs}
 
-	ms.logger.Debugf("goal position: %v", dst.Pose().Point())
-	plan, err := motionplan.PlanMotion(ctx, &motionplan.PlanRequest{
+	goalPose, err := ms.fsService.TransformPose(ctx, destination, fs.World().Name(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	ms.logger.Debugf("goal position: %v", goalPose.Pose().Point())
+	return motionplan.PlanMotion(ctx, &motionplan.PlanRequest{
 		Logger:             ms.logger,
-		Goal:               dst,
+		Goal:               goalPose,
 		Frame:              f,
 		StartConfiguration: seedMap,
 		FrameSystem:        fs,
@@ -554,11 +555,6 @@ func (ms *explore) createMotionPlan(
 		ConstraintSpecs:    nil,
 		Options:            extra,
 	})
-	if err != nil {
-		return nil, err
-	}
-	steps, err := plan.GetFrameSteps(f.Name())
-	return steps, err
 }
 
 func parseMotionConfig(extra map[string]interface{}) (motion.MotionConfiguration, error) {
