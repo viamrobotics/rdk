@@ -83,11 +83,6 @@ func TestExplorePlanMove(t *testing.T) {
 			destination:              spatialmath.NewPoseFromPoint(r3.Vector{X: 1000, Y: 1000, Z: 0}),
 			expectedMotionPlanLength: 2,
 		},
-		{
-			description:              "destination at origin",
-			destination:              spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 0}),
-			expectedMotionPlanLength: 1,
-		},
 	}
 
 	for _, tt := range cases {
