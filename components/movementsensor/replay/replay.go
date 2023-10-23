@@ -270,7 +270,7 @@ func (replay *replayMovementSensor) AngularVelocity(ctx context.Context, extra m
 	}
 
 	if isNewAngularVelocityFormat(data) {
-		angularStruct := data.GetFields()["linear_velocity"].GetStructValue()
+		angularStruct := data.GetFields()["angular_velocity"].GetStructValue()
 		return spatialmath.AngularVelocity{
 			X: angularStruct.GetFields()["x"].GetNumberValue(),
 			Y: angularStruct.GetFields()["y"].GetNumberValue(),
