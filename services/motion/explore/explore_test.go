@@ -236,7 +236,7 @@ func TestExploreCheckForObstacles(t *testing.T) {
 			// Create a vision service using provided obstacles and place it in an obstacle DetectorPair object
 			visionService := createMockVisionService("", tt.obstacle)
 
-			obstacleDetectors := []obstacleDetectorPair{
+			obstacleDetectors := []obstacleDetectorObject{
 				{visionService: fakeCamera},
 			}
 
@@ -390,7 +390,7 @@ func TestMultipleObstacleDetectors(t *testing.T) {
 			}
 
 			// Create a vision service using provided obstacles and place it in an obstacle DetectorPair object
-			var obstacleDetectors []obstacleDetectorPair
+			var obstacleDetectors []obstacleDetectorObject
 			for i, cam := range tt.visionServiceCamLink {
 				var obstacles []obstacleMetadata
 				if cam.Name().Name == testCameraName1.Name {
@@ -400,7 +400,7 @@ func TestMultipleObstacleDetectors(t *testing.T) {
 					obstacles = append(obstacles, tt.obstacleCamera2)
 				}
 				visionService := createMockVisionService(fmt.Sprint(i), obstacles)
-				obstacleDetectors = append(obstacleDetectors, obstacleDetectorPair{visionService: cam})
+				obstacleDetectors = append(obstacleDetectors, obstacleDetectorObject{visionService: cam})
 			}
 
 			// Run check obstacles in of plan path

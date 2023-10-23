@@ -63,8 +63,8 @@ type inputEnabledActuator interface {
 	referenceframe.InputEnabled
 }
 
-// obstacleDetectorPair provides a map for matching vision services to any and all cameras to be used with them.
-type obstacleDetectorPair map[vision.Service]camera.Camera
+// obstacleDetectorObject provides a map for matching vision services to any and all cameras to be used with them.
+type obstacleDetectorObject map[vision.Service]camera.Camera
 
 // ErrNotImplemented is thrown when an unreleased function is called.
 var ErrNotImplemented = errors.New("function coming soon but not yet implemented")
@@ -316,7 +316,7 @@ type moveResponse struct {
 // completes or an obstacle is detected in the given range.
 func (ms *explore) checkForObstacles(
 	ctx context.Context,
-	obstacleDetectors []obstacleDetectorPair,
+	obstacleDetectors []obstacleDetectorObject,
 	kb kinematicbase.KinematicBase,
 	plan motionplan.Plan,
 	obstaclePollingFrequencyHz float64,
@@ -388,7 +388,7 @@ func (ms *explore) executePlan(ctx context.Context, kb kinematicbase.KinematicBa
 // obstacleDetectors.
 func (ms *explore) generateTransientWorldState(
 	ctx context.Context,
-	obstacleDetectors []obstacleDetectorPair,
+	obstacleDetectors []obstacleDetectorObject,
 ) (*referenceframe.WorldState, error) {
 	geometriesInFrame := []*referenceframe.GeometriesInFrame{}
 
@@ -473,8 +473,8 @@ func (ms *explore) createKinematicBase(
 
 // createObstacleDetectors will generate the list of obstacle detectors from the camera and vision services
 // names provided in them motionCfg.
-func (ms *explore) createObstacleDetectors(motionCfg motion.MotionConfiguration) ([]obstacleDetectorPair, error) {
-	var obstacleDetectors []obstacleDetectorPair
+func (ms *explore) createObstacleDetectors(motionCfg motion.MotionConfiguration) ([]obstacleDetectorObject, error) {
+	var obstacleDetectors []obstacleDetectorObject
 
 	// Iterate through obstacleDetectorsNames
 	for _, obstacleDetectorsName := range motionCfg.ObstacleDetectors {
@@ -500,7 +500,7 @@ func (ms *explore) createObstacleDetectors(motionCfg motion.MotionConfiguration)
 		if !ok {
 			return nil, fmt.Errorf("cannot get component of type %T because it is not a camera", cameraResource)
 		}
-		obstacleDetectors = append(obstacleDetectors, obstacleDetectorPair{visionService: cam})
+		obstacleDetectors = append(obstacleDetectors, obstacleDetectorObject{visionService: cam})
 	}
 
 	return obstacleDetectors, nil
