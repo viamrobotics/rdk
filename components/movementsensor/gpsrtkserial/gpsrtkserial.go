@@ -142,7 +142,6 @@ type rtkSerial struct {
 	correctionWriter   io.ReadWriteCloser
 	writePath          string
 	wbaud              int
-	gpsData            gpsnmea.GPSData
 }
 
 // Reconfigure reconfigures attributes.
@@ -294,40 +293,6 @@ func (g *rtkSerial) connect(casterAddr, user, pwd string, maxAttempts int) error
 	return g.err.Get()
 }
 
-/*
-
-func sendGGAToPort(url, ggaMessage string) error {
-	// Create a context with a timeout (adjust timeout as needed)
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, strings.NewReader(ggaMessage))
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-
-	defer func() {
-		if closeErr := resp.Body.Close(); closeErr != nil {
-			log.Printf("Failed to close the connection: %v", closeErr)
-		}
-	}()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("HTTP request failed with status: %d", resp.StatusCode)
-	}
-
-	return nil
-}
-
-*/
-
 // getStream attempts to connect to ntrip streak until successful connection or timeout.
 func (g *rtkSerial) getStream(mountPoint string, maxAttempts int) error {
 	success := false
@@ -428,13 +393,14 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 		g.logger.Infof("caster %s seems to be down", g.ntripClient.URL)
 	}
 
-	srctable, _ := g.ntripClient.Client.ParseSourcetable()
-	fmt.Printf("source Table is : %v\n", srctable.Streams)
-
+	srctable, err := g.ntripClient.Client.ParseSourcetable()
+	if err != nil {
+		g.logger.Errorf("failed to get source table: %v", err)
+	}
 	nmea, nmeaerr := findLineWithMountPoint(srctable, g.ntripClient.MountPoint)
-
-	fmt.Printf("nmea value is : %v\n", nmea)
-	fmt.Printf("error is: %v\n", nmeaerr)
+	if nmeaerr != nil {
+		g.logger.Errorf("can't find mountpoint in source table, found err %v\n", nmeaerr)
+	}
 
 	err = g.openPort()
 	if err != nil {
@@ -467,6 +433,7 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 		default:
 		}
 		if nmea {
+			// only send GGA messages if nmea bit is 1 in source table.
 			g.sendGGAMessage()
 		}
 
@@ -691,17 +658,8 @@ func (g *rtkSerial) Close(ctx context.Context) error {
 	return nil
 }
 
-func findLineWithMountPoint(sourceTable *ntrip.Sourcetable, mountPoint string) (bool, error) {
-
-	stream, isFound := sourceTable.HasStream(mountPoint)
-
-	if !isFound {
-		return false, fmt.Errorf("can not find mountpoint %s in sourcetable", mountPoint)
-	} else {
-		return stream.Nmea, nil
-	}
-}
-
+// sendGGAMessage sends GGA messages to the serial port. This is only used to get NTRIP stream
+// from a virtual reference point.
 func (g *rtkSerial) sendGGAMessage() {
 	// Open the serial port for reading
 	serialPort, err := slib.Open(slib.OpenOptions{
@@ -715,7 +673,12 @@ func (g *rtkSerial) sendGGAMessage() {
 		g.err.Set(err)
 		return
 	}
-	defer serialPort.Close()
+	defer func() {
+		if closeErr := serialPort.Close(); closeErr != nil {
+			g.logger.Errorf("error while close serial port after writing GGA message: %v", closeErr)
+			return
+		}
+	}()
 
 	// Create a buffer to collect NMEA messages
 	messageBuffer := make([]byte, 0, 1024)
@@ -755,4 +718,15 @@ func (g *rtkSerial) sendGGAMessage() {
 		// Sleep for a while before reading again
 		time.Sleep(time.Second) // Adjust the sleep duration as needed
 	}
+}
+
+// findLineWithMountPoint parses the given source-table returns the nmea bool of the given mount point.
+func findLineWithMountPoint(sourceTable *ntrip.Sourcetable, mountPoint string) (bool, error) {
+	stream, isFound := sourceTable.HasStream(mountPoint)
+
+	if !isFound {
+		return false, fmt.Errorf("can not find mountpoint %s in sourcetable", mountPoint)
+	}
+
+	return stream.Nmea, nil
 }
