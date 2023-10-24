@@ -17,13 +17,13 @@ jobs:
         go-version: '1.19.x'
     - name: brew
       run: |
-        brew tap "viamrobotics/brews"
-        brew install "pkg-config"
-        brew install "nlopt-static"
-        brew install "x264", args: ["build-from-source"]
-        brew install "jpeg-turbo"
-        brew install "ffmpeg"
-        brew install "tensorflowlite" # Needs to be last
+        brew tap viamrobotics/brews
+        brew install pkg-config
+        brew install nlopt-static
+        brew install x264
+        brew install jpeg-turbo
+        brew install ffmpeg
+        brew install tensorflowlite # Needs to be last
     - name: build
       run: go build ./web/cmd/server
     - uses: actions/upload-artifact@v3
