@@ -544,8 +544,9 @@ func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 			timeSinceMod >= time.Duration(lastModifiedMillis)*time.Millisecond
 		isCompletedCaptureFile := filepath.Ext(path) == datacapture.FileExt
 		if isCompletedCaptureFile || isStuckInProgressCaptureFile || isNonCaptureFileThatIsNotBeingWrittenTo {
-			return nil
+			filePaths = append(filePaths, path)
 		}
+		return nil
 	})
 	return filePaths
 }
