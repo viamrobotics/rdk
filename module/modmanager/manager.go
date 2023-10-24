@@ -117,6 +117,20 @@ func (mgr *Manager) Close(ctx context.Context) error {
 	return err
 }
 
+// Handles returns all the models for each module registered.
+func (mgr *Manager) Handles() map[string]modlib.HandlerMap {
+	mgr.mu.Lock()
+	defer mgr.mu.Unlock()
+
+	res := map[string]modlib.HandlerMap{}
+
+	for n, m := range mgr.modules {
+		res[n] = m.handles
+	}
+
+	return res
+}
+
 // Add adds and starts a new resource module.
 func (mgr *Manager) Add(ctx context.Context, conf config.Module) error {
 	mgr.mu.Lock()

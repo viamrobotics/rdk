@@ -323,3 +323,61 @@ func TestControlLoop(t *testing.T) {
 
 	cLoop.Stop()
 }
+
+func TestMultiSignalLoop(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	cfg := Config{
+		Blocks: []BlockConfig{
+			{
+				Name: "sensor-base",
+				Type: "endpoint",
+				Attribute: utils.AttributeMap{
+					"base_name": "base", // How to input this
+				},
+				DependsOn: []string{"pid_block"},
+			},
+			{
+				Name: "pid_block",
+				Type: "PID",
+				Attribute: utils.AttributeMap{
+					"kP": 10.0, // random for now
+					"kD": 0.5,
+					"kI": 0.2,
+				},
+				DependsOn: []string{"gain_block"},
+			},
+			{
+				Name: "gain_block",
+				Type: "gain",
+				Attribute: utils.AttributeMap{
+					"gain": 1.0, // need to update dynamically? Or should I just use the trapezoidal velocity profile
+				},
+				DependsOn: []string{"sum_block"},
+			},
+			{
+				Name: "sum_block",
+				Type: "sum",
+				Attribute: utils.AttributeMap{
+					"sum_string": "+-", // should this be +- or does it follow dependency order?
+				},
+				DependsOn: []string{"sensor-base", "constant"},
+			},
+			{
+				Name: "constant",
+				Type: "constant",
+				Attribute: utils.AttributeMap{
+					"constant_val": 10.0,
+				},
+				DependsOn: []string{},
+			},
+		},
+		Frequency: 20.0,
+	}
+	cLoop, err := createLoop(logger, cfg, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, cLoop, test.ShouldNotBeNil)
+	cLoop.Start()
+	test.That(t, err, test.ShouldBeNil)
+
+	cLoop.Stop()
+}
