@@ -23,21 +23,21 @@ const (
 	defaultMaxReplans       = -1 // Values below zero will replan infinitely
 )
 
-// ValidatedMotionConfiguration is a copy of the motion.MotionConfiguration type
+// validatedMotionConfiguration is a copy of the motion.MotionConfiguration type
 // which has been validated to conform to the expectations of the builtin
 // motion servicl.
-type ValidatedMotionConfiguration struct {
-	ObstacleDetectors     []motion.ObstacleDetectorName
-	PositionPollingFreqHz float64
-	ObstaclePollingFreqHz float64
-	PlanDeviationMM       float64
-	LinearMPerSec         float64
-	AngularDegsPerSec     float64
+type validatedMotionConfiguration struct {
+	obstacleDetectors     []motion.ObstacleDetectorName
+	positionPollingFreqHz float64
+	obstaclePollingFreqHz float64
+	planDeviationMM       float64
+	linearMPerSec         float64
+	angularDegsPerSec     float64
 }
 
 // moveRequest is a structure that contains all the information necessary for to make a move call.
 type moveRequest struct {
-	config           *ValidatedMotionConfiguration
+	config           *validatedMotionConfiguration
 	planRequest      *motionplan.PlanRequest
 	seedPlan         motionplan.Plan
 	kinematicBase    kinematicbase.KinematicBase
@@ -106,7 +106,7 @@ func (mr *moveRequest) deviatedFromPlan(ctx context.Context, waypoints [][]refer
 		return false, err
 	}
 	mr.planRequest.Logger.Debug("deviation from plan: %v", errorState.Point())
-	return errorState.Point().Norm() > mr.config.PlanDeviationMM, nil
+	return errorState.Point().Norm() > mr.config.planDeviationMM, nil
 }
 
 func (mr *moveRequest) obstaclesIntersectPlan(ctx context.Context, waypoints [][]referenceframe.Input, waypointIndex int) (bool, error) {
@@ -114,26 +114,26 @@ func (mr *moveRequest) obstaclesIntersectPlan(ctx context.Context, waypoints [][
 	return false, nil
 }
 
-func kbOptionsFromCfg(motionCfg ValidatedMotionConfiguration, validatedExtra validatedExtra) kinematicbase.Options {
+func kbOptionsFromCfg(motionCfg validatedMotionConfiguration, validatedExtra validatedExtra) kinematicbase.Options {
 	kinematicsOptions := kinematicbase.NewKinematicBaseOptions()
 
-	if motionCfg.LinearMPerSec > 0 {
-		kinematicsOptions.LinearVelocityMMPerSec = motionCfg.LinearMPerSec * 1000
+	if motionCfg.linearMPerSec > 0 {
+		kinematicsOptions.LinearVelocityMMPerSec = motionCfg.linearMPerSec * 1000
 	}
 
-	if motionCfg.AngularDegsPerSec > 0 {
-		kinematicsOptions.AngularVelocityDegsPerSec = motionCfg.AngularDegsPerSec
+	if motionCfg.angularDegsPerSec > 0 {
+		kinematicsOptions.AngularVelocityDegsPerSec = motionCfg.angularDegsPerSec
 	}
 
-	if motionCfg.PlanDeviationMM > 0 {
-		kinematicsOptions.PlanDeviationThresholdMM = motionCfg.PlanDeviationMM
+	if motionCfg.planDeviationMM > 0 {
+		kinematicsOptions.PlanDeviationThresholdMM = motionCfg.planDeviationMM
 	}
 
 	if validatedExtra.motionProfile != "" {
 		kinematicsOptions.PositionOnlyMode = validatedExtra.motionProfile == motionplan.PositionOnlyMotionProfile
 	}
 
-	kinematicsOptions.GoalRadiusMM = motionCfg.PlanDeviationMM
+	kinematicsOptions.GoalRadiusMM = motionCfg.planDeviationMM
 	kinematicsOptions.HeadingThresholdDegrees = 8
 	return kinematicsOptions
 }
@@ -159,8 +159,8 @@ func validateNotNegNorNaN(f float64, name string) error {
 	return validateNotNeg(f, name)
 }
 
-func newValidatedMotionCfg(motionCfg *motion.MotionConfiguration) (ValidatedMotionConfiguration, error) {
-	vmc := ValidatedMotionConfiguration{}
+func newValidatedMotionCfg(motionCfg *motion.MotionConfiguration) (validatedMotionConfiguration, error) {
+	vmc := validatedMotionConfiguration{}
 	if motionCfg == nil {
 		return vmc, nil
 	}
@@ -185,12 +185,12 @@ func newValidatedMotionCfg(motionCfg *motion.MotionConfiguration) (ValidatedMoti
 		return vmc, err
 	}
 
-	vmc.LinearMPerSec = motionCfg.LinearMPerSec
-	vmc.AngularDegsPerSec = motionCfg.AngularDegsPerSec
-	vmc.PlanDeviationMM = motionCfg.PlanDeviationMM
-	vmc.ObstaclePollingFreqHz = motionCfg.ObstaclePollingFreqHz
-	vmc.PositionPollingFreqHz = motionCfg.PositionPollingFreqHz
-	vmc.ObstacleDetectors = motionCfg.ObstacleDetectors
+	vmc.linearMPerSec = motionCfg.LinearMPerSec
+	vmc.angularDegsPerSec = motionCfg.AngularDegsPerSec
+	vmc.planDeviationMM = motionCfg.PlanDeviationMM
+	vmc.obstaclePollingFreqHz = motionCfg.ObstaclePollingFreqHz
+	vmc.positionPollingFreqHz = motionCfg.PositionPollingFreqHz
+	vmc.obstacleDetectors = motionCfg.ObstacleDetectors
 	return vmc, nil
 }
 

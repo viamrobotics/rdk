@@ -52,14 +52,14 @@ func newMoveAttempt(ctx context.Context, request *moveRequest) *moveAttempt {
 
 	// effectively don't poll if the PositionPollingFreqHz is not provided
 	positionPollingFreq := time.Duration(math.MaxInt64)
-	if request.config.PositionPollingFreqHz > 0 {
-		positionPollingFreq = time.Duration(1000/request.config.PositionPollingFreqHz) * time.Millisecond
+	if request.config.positionPollingFreqHz > 0 {
+		positionPollingFreq = time.Duration(1000/request.config.positionPollingFreqHz) * time.Millisecond
 	}
 
 	// effectively don't poll if the ObstaclePollingFreqHz is not provided
 	obstaclePollingFreq := time.Duration(math.MaxInt64)
-	if request.config.ObstaclePollingFreqHz > 0 {
-		obstaclePollingFreq = time.Duration(1000/request.config.ObstaclePollingFreqHz) * time.Millisecond
+	if request.config.obstaclePollingFreqHz > 0 {
+		obstaclePollingFreq = time.Duration(1000/request.config.obstaclePollingFreqHz) * time.Millisecond
 	}
 
 	return &moveAttempt{
