@@ -200,7 +200,7 @@ func NewBuiltIn(
 ) (navigation.Service, error) {
 	navSvc := &builtIn{
 		Named:  conf.ResourceName().AsNamed(),
-		logger: logging.FromZapCompatible(logger),
+		logger: logger,
 	}
 	if err := navSvc.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err

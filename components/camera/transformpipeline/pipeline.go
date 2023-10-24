@@ -50,11 +50,11 @@ func init() {
 				if err != nil {
 					return nil, fmt.Errorf("no source camera for transform pipeline (%s): %w", sourceName, err)
 				}
-				src, err := newTransformPipeline(ctx, source, newConf, actualR, logging.FromZapCompatible(logger))
+				src, err := newTransformPipeline(ctx, source, newConf, actualR, logger)
 				if err != nil {
 					return nil, err
 				}
-				return camera.FromVideoSource(conf.ResourceName(), src, logging.FromZapCompatible(logger)), nil
+				return camera.FromVideoSource(conf.ResourceName(), src, logger), nil
 			},
 		})
 }

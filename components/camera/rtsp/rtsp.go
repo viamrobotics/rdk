@@ -37,7 +37,7 @@ func init() {
 			if err != nil {
 				return nil, err
 			}
-			return NewRTSPCamera(ctx, conf.ResourceName(), newConf, logging.FromZapCompatible(logger))
+			return NewRTSPCamera(ctx, conf.ResourceName(), newConf, logger)
 		},
 	})
 }

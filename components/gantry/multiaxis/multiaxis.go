@@ -69,7 +69,7 @@ func newMultiAxis(
 
 	mAx := &multiAxis{
 		Named:  conf.ResourceName().AsNamed(),
-		logger: logging.FromZapCompatible(logger),
+		logger: logger,
 		opMgr:  operation.NewSingleOperationManager(),
 	}
 

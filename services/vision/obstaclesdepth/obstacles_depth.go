@@ -41,7 +41,7 @@ func init() {
 			if err != nil {
 				return nil, err
 			}
-			return registerObstaclesDepth(ctx, c.ResourceName(), attrs, actualR, logging.FromZapCompatible(logger))
+			return registerObstaclesDepth(ctx, c.ResourceName(), attrs, actualR, logger)
 		},
 	})
 }

@@ -92,7 +92,7 @@ func createNewMotor(
 		return nil, err
 	}
 
-	m, err := NewMotor(actualBoard, *motorConfig, cfg.ResourceName(), logging.FromZapCompatible(logger))
+	m, err := NewMotor(actualBoard, *motorConfig, cfg.ResourceName(), logger)
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +102,7 @@ func createNewMotor(
 			return nil, err
 		}
 
-		m, err = WrapMotorWithEncoder(ctx, e, cfg, *motorConfig, m, logging.FromZapCompatible(logger))
+		m, err = WrapMotorWithEncoder(ctx, e, cfg, *motorConfig, m, logger)
 		if err != nil {
 			return nil, err
 		}

@@ -39,7 +39,7 @@ func init() {
 				if err != nil {
 					return nil, err
 				}
-				return newSensor(conf.ResourceName(), newConf.UniqueID, logging.FromZapCompatible(logger)), nil
+				return newSensor(conf.ResourceName(), newConf.UniqueID, logger), nil
 			},
 		})
 }

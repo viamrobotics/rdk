@@ -47,7 +47,7 @@ func init() {
 		resource.Registration[camera.Camera, *WebcamConfig]{
 			Constructor: NewWebcam,
 			Discover: func(ctx context.Context, logger logging.Logger) (interface{}, error) {
-				return Discover(ctx, getVideoDrivers, logging.FromZapCompatible(logger))
+				return Discover(ctx, getVideoDrivers, logger)
 			},
 		})
 	if err := json.Unmarshal(intrinsics, &data); err != nil {
@@ -277,7 +277,7 @@ func NewWebcam(
 	cam := &monitoredWebcam{
 		Named:          conf.ResourceName().AsNamed(),
 		logger:         logging.FromZapCompatible(logger.With("camera_name", conf.ResourceName().ShortName())),
-		originalLogger: logging.FromZapCompatible(logger),
+		originalLogger: logger,
 		cancelCtx:      cancelCtx,
 		cancel:         cancel,
 	}

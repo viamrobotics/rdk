@@ -38,7 +38,7 @@ func init() {
 func newBase(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger) (base.Base, error) {
 	b := &myBase{
 		Named:  conf.ResourceName().AsNamed(),
-		logger: logging.FromZapCompatible(logger),
+		logger: logger,
 	}
 	if err := b.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err

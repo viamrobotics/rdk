@@ -121,7 +121,7 @@ func new28byj(
 		Named:            conf.ResourceName().AsNamed(),
 		theBoard:         b,
 		ticksPerRotation: mc.TicksPerRotation,
-		logger:           logging.FromZapCompatible(logger),
+		logger:           logger,
 		motorName:        conf.Name,
 		opMgr:            operation.NewSingleOperationManager(),
 	}

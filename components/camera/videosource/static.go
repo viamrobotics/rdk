@@ -29,7 +29,7 @@ func init() {
 				if err != nil {
 					return nil, err
 				}
-				return newCamera(context.Background(), conf.ResourceName(), newConf, logging.FromZapCompatible(logger))
+				return newCamera(context.Background(), conf.ResourceName(), newConf, logger)
 			},
 		})
 }

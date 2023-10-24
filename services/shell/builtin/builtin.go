@@ -23,7 +23,7 @@ func init() {
 		Constructor: func(
 			ctx context.Context, dep resource.Dependencies, c resource.Config, logger logging.Logger,
 		) (shell.Service, error) {
-			return NewBuiltIn(c.ResourceName(), logging.FromZapCompatible(logger))
+			return NewBuiltIn(c.ResourceName(), logger)
 		},
 	},
 	)

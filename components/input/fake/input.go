@@ -25,7 +25,7 @@ func init() {
 			Constructor: func(
 				ctx context.Context, _ resource.Dependencies, conf resource.Config, logger logging.Logger,
 			) (input.Controller, error) {
-				return NewInputController(ctx, conf, logging.FromZapCompatible(logger))
+				return NewInputController(ctx, conf, logger)
 			},
 		},
 	)

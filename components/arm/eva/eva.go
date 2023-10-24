@@ -49,7 +49,7 @@ func init() {
 		Constructor: func(
 			ctx context.Context, _ resource.Dependencies, conf resource.Config, logger logging.Logger,
 		) (arm.Arm, error) {
-			return NewEva(ctx, conf, logging.FromZapCompatible(logger))
+			return NewEva(ctx, conf, logger)
 		},
 	})
 }

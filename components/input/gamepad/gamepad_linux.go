@@ -83,7 +83,7 @@ func NewController(
 	return createController(
 		ctx,
 		conf.ResourceName(),
-		logging.FromZapCompatible(logger),
+		logger,
 		conf.ConvertedAttributes.(*Config).DevFile,
 		conf.ConvertedAttributes.(*Config).AutoReconnect,
 	), nil

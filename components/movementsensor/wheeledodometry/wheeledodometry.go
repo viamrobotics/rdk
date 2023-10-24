@@ -215,7 +215,7 @@ func newWheeledOdometry(
 		Named:        conf.ResourceName().AsNamed(),
 		lastLeftPos:  0.0,
 		lastRightPos: 0.0,
-		logger:       logging.FromZapCompatible(logger),
+		logger:       logger,
 	}
 
 	if err := o.Reconfigure(ctx, deps, conf); err != nil {

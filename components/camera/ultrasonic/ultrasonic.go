@@ -35,7 +35,7 @@ func init() {
 				if err != nil {
 					return nil, err
 				}
-				return newCamera(ctx, deps, conf.ResourceName(), newConf, logging.FromZapCompatible(logger))
+				return newCamera(ctx, deps, conf.ResourceName(), newConf, logger)
 			},
 		})
 }

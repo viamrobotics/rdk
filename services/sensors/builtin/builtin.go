@@ -33,7 +33,7 @@ func NewBuiltIn(
 	s := &builtIn{
 		Named:   conf.ResourceName().AsNamed(),
 		sensors: map[resource.Name]sensor.Sensor{},
-		logger:  logging.FromZapCompatible(logger),
+		logger:  logger,
 	}
 	if err := s.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err

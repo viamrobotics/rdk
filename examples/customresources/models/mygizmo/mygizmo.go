@@ -38,7 +38,7 @@ func init() {
 			conf resource.Config,
 			logger logging.Logger,
 		) (gizmoapi.Gizmo, error) {
-			return NewMyGizmo(deps, conf, logging.FromZapCompatible(logger))
+			return NewMyGizmo(deps, conf, logger)
 		},
 	})
 }

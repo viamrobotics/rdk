@@ -116,7 +116,7 @@ func NewBuiltIn(
 ) (datamanager.Service, error) {
 	svc := &builtIn{
 		Named:                       conf.ResourceName().AsNamed(),
-		logger:                      logging.FromZapCompatible(logger),
+		logger:                      logger,
 		captureDir:                  viamCaptureDotDir,
 		collectors:                  make(map[resourceMethodMetadata]*collectorAndConfig),
 		syncIntervalMins:            0,

@@ -36,7 +36,7 @@ func init() {
 				cfg resource.Config,
 				logger logging.Logger,
 			) (camera.Camera, error) {
-				return NewCamera(ctx, cfg, logging.FromZapCompatible(logger))
+				return NewCamera(ctx, cfg, logger)
 			},
 		})
 }

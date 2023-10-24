@@ -46,7 +46,7 @@ func NewController(
 		cancelFunc:    cancel,
 		ctxWithCancel: ctxWithCancel,
 		eventsChan:    make(chan input.Event, 1024),
-		logger:        logging.FromZapCompatible(logger),
+		logger:        logger,
 	}
 
 	for _, s := range newConf.Sources {

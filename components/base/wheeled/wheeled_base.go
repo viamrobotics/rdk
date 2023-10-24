@@ -220,7 +220,7 @@ func createWheeledBase(
 		wheelCircumferenceMm: newConf.WheelCircumferenceMM,
 		spinSlipFactor:       newConf.SpinSlipFactor,
 		opMgr:                operation.NewSingleOperationManager(),
-		logger:               logging.FromZapCompatible(logger),
+		logger:               logger,
 		name:                 conf.Name,
 	}
 

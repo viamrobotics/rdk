@@ -96,7 +96,7 @@ func init() {
 				return nil, err
 			}
 
-			return newGPIOStepper(ctx, actualBoard, *motorConfig, conf.ResourceName(), logging.FromZapCompatible(logger))
+			return newGPIOStepper(ctx, actualBoard, *motorConfig, conf.ResourceName(), logger)
 		},
 	})
 }

@@ -14,7 +14,7 @@ import (
 // This does not appear to be an extensible format so it's easier
 // to write a reader/writer by just porting over the CARMEN C code.
 
-//nolint
+// nolint
 const clfHeader = `# CARMEN Logfile
 # file format is one message per line
 # message_name [message contents] ipc_timestamp ipc_hostname logger_timestamp

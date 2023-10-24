@@ -56,7 +56,7 @@ func init() {
 					return nil, err
 				}
 
-				return connect(ctx, conf.ResourceName(), newConf, logging.FromZapCompatible(logger))
+				return connect(ctx, conf.ResourceName(), newConf, logger)
 			},
 		})
 }

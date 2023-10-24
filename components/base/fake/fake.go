@@ -43,7 +43,7 @@ func NewBase(_ context.Context, _ resource.Dependencies, conf resource.Config, l
 	b := &Base{
 		Named:    conf.ResourceName().AsNamed(),
 		Geometry: []spatialmath.Geometry{},
-		logger:   logging.FromZapCompatible(logger),
+		logger:   logger,
 	}
 	if conf.Frame != nil && conf.Frame.Geometry != nil {
 		geometry, err := conf.Frame.Geometry.ParseConfig()

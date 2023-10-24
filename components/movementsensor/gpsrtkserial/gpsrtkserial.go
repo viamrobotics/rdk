@@ -209,7 +209,7 @@ func newRTKSerial(
 		Named:              conf.ResourceName().AsNamed(),
 		cancelCtx:          cancelCtx,
 		cancelFunc:         cancelFunc,
-		logger:             logging.FromZapCompatible(logger),
+		logger:             logger,
 		err:                movementsensor.NewLastError(1, 1),
 		lastposition:       movementsensor.NewLastPosition(),
 		lastcompassheading: movementsensor.NewLastCompassHeading(),
@@ -230,7 +230,7 @@ func newRTKSerial(
 		SerialPath:     newConf.SerialPath,
 		SerialBaudRate: newConf.SerialBaudRate,
 	}
-	g.nmeamovementsensor, err = gpsnmea.NewSerialGPSNMEA(ctx, conf.ResourceName(), nmeaConf, logging.FromZapCompatible(logger))
+	g.nmeamovementsensor, err = gpsnmea.NewSerialGPSNMEA(ctx, conf.ResourceName(), nmeaConf, logger)
 	if err != nil {
 		return nil, err
 	}

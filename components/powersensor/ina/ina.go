@@ -94,7 +94,7 @@ func init() {
 					if err != nil {
 						return nil, err
 					}
-					return newINA(conf.ResourceName(), newConf, logging.FromZapCompatible(logger), localModelName)
+					return newINA(conf.ResourceName(), newConf, logger, localModelName)
 				},
 			})
 	}

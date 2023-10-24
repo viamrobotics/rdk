@@ -143,7 +143,7 @@ func NewMpu6050(
 		Named:             conf.ResourceName().AsNamed(),
 		bus:               bus,
 		i2cAddress:        address,
-		logger:            logging.FromZapCompatible(logger),
+		logger:            logger,
 		backgroundContext: backgroundContext,
 		cancelFunc:        cancelFunc,
 		// On overloaded boards, the I2C bus can become flaky. Only report errors if at least 5 of

@@ -149,7 +149,7 @@ func init() {
 					return nil, errors.New("need to specify a ttl")
 				}
 
-				return New(ctx, conf.ResourceName(), logging.FromZapCompatible(logger), port, ttl)
+				return New(ctx, conf.ResourceName(), logger, port, ttl)
 			},
 		})
 }

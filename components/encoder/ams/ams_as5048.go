@@ -129,7 +129,7 @@ func newAS5048Encoder(
 		Named:        conf.ResourceName().AsNamed(),
 		cancelCtx:    cancelCtx,
 		cancel:       cancel,
-		logger:       logging.FromZapCompatible(logger),
+		logger:       logger,
 		positionType: encoder.PositionTypeTicks,
 	}
 	if err := res.Reconfigure(ctx, deps, conf); err != nil {

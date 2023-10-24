@@ -208,7 +208,7 @@ func NewAdxl345(
 		bus:                      bus,
 		i2cAddress:               address,
 		interruptsEnabled:        interruptConfigurations[IntEnableAddr],
-		logger:                   logging.FromZapCompatible(logger),
+		logger:                   logger,
 		cancelContext:            cancelContext,
 		cancelFunc:               cancelFunc,
 		configuredRegisterValues: configuredRegisterValues,

@@ -63,7 +63,7 @@ func newNav(
 
 	navSvc := &navSvc{
 		Named:  conf.ResourceName().AsNamed(),
-		logger: logging.FromZapCompatible(logger),
+		logger: logger,
 		loc:    geo.NewPoint(lat, lng),
 	}
 	return navSvc, nil

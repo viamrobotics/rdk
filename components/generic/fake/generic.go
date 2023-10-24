@@ -19,7 +19,7 @@ func init() {
 			conf resource.Config,
 			logger logging.Logger,
 		) (resource.Resource, error) {
-			return newGeneric(conf.ResourceName(), logging.FromZapCompatible(logger)), nil
+			return newGeneric(conf.ResourceName(), logger), nil
 		}})
 }
 

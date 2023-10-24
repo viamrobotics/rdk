@@ -19,7 +19,7 @@ func init() {
 			) (servo.Servo, error) {
 				return &Servo{
 					Named:  conf.ResourceName().AsNamed(),
-					logger: logging.FromZapCompatible(logger),
+					logger: logger,
 				}, nil
 			},
 		})

@@ -39,7 +39,7 @@ func NewClientFromConn(
 		Named:  name.PrependRemote(remoteName).AsNamed(),
 		name:   name.ShortName(),
 		client: c,
-		logger: logging.FromZapCompatible(logger),
+		logger: logger,
 	}, nil
 }
 

@@ -49,7 +49,7 @@ func NewClientFromConn(
 		name:      name.ShortName(),
 		conn:      conn,
 		client:    c,
-		logger:    logging.FromZapCompatible(logger),
+		logger:    logger,
 		cancelCtx: cancelCtx,
 		cancel:    cancel,
 	}, nil

@@ -114,7 +114,7 @@ func init() {
 				if err != nil {
 					return nil, err
 				}
-				return newSensor(ctx, deps, conf.ResourceName(), newConf, logging.FromZapCompatible(logger))
+				return newSensor(ctx, deps, conf.ResourceName(), newConf, logger)
 			},
 		})
 }

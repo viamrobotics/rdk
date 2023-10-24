@@ -133,7 +133,7 @@ func newVectorNav(
 	v := &vectornav{
 		Named:     conf.ResourceName().AsNamed(),
 		bus:       genericlinux.NewSpiBus(newConf.SPI),
-		logger:    logging.FromZapCompatible(logger),
+		logger:    logger,
 		cs:        newConf.CSPin,
 		speed:     speed,
 		busClosed: false,

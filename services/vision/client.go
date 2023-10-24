@@ -46,7 +46,7 @@ func NewClientFromConn(
 		Named:  name.PrependRemote(remoteName).AsNamed(),
 		name:   name.ShortName(),
 		client: grpcClient,
-		logger: logging.FromZapCompatible(logger),
+		logger: logger,
 	}
 	return c, nil
 }

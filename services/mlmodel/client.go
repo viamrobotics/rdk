@@ -39,7 +39,7 @@ func NewClientFromConn(
 		name:   name.ShortName(),
 		conn:   conn,
 		client: grpcClient,
-		logger: logging.FromZapCompatible(logger),
+		logger: logger,
 	}
 	return c, nil
 }

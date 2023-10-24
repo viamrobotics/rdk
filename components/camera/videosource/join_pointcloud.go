@@ -105,13 +105,13 @@ func newJoinPointCloudCamera(
 ) (camera.Camera, error) {
 	joinCam := &joinPointCloudCamera{
 		Named:  conf.ResourceName().AsNamed(),
-		logger: logging.FromZapCompatible(logger),
+		logger: logger,
 	}
 
 	if err := joinCam.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
-	return camera.FromVideoSource(conf.ResourceName(), joinCam.src, logging.FromZapCompatible(logger)), nil
+	return camera.FromVideoSource(conf.ResourceName(), joinCam.src, logger), nil
 }
 
 func (jpcc *joinPointCloudCamera) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {

@@ -67,7 +67,7 @@ func init() {
 		) (motor.Motor, error) {
 			m := &Motor{
 				Named:  conf.ResourceName().AsNamed(),
-				Logger: logging.FromZapCompatible(logger),
+				Logger: logger,
 				OpMgr:  operation.NewSingleOperationManager(),
 			}
 			if err := m.Reconfigure(ctx, deps, conf); err != nil {

@@ -40,7 +40,7 @@ func createNewBoard(
 	conf resource.Config,
 	logger logging.Logger,
 ) (board.Board, error) {
-	return genericlinux.NewBoard(ctx, conf, pinDefsFromFile, logging.FromZapCompatible(logger))
+	return genericlinux.NewBoard(ctx, conf, pinDefsFromFile, logger)
 }
 
 // This is a ConfigConverter which loads pin definitions from a file, assuming that the config

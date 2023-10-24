@@ -95,7 +95,7 @@ func NewBuiltIn(
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	remoteSvc := &builtIn{
 		Named:     conf.ResourceName().AsNamed(),
-		logger:    logging.FromZapCompatible(logger),
+		logger:    logger,
 		cancelCtx: cancelCtx,
 		cancel:    cancel,
 		events:    make(chan struct{}, 1),

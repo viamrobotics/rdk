@@ -29,7 +29,7 @@ func newFakePowerSensorModel(_ context.Context, _ resource.Dependencies, conf re
 ) (powersensor.PowerSensor, error) {
 	return powersensor.PowerSensor(&PowerSensor{
 		Named:  conf.ResourceName().AsNamed(),
-		logger: logging.FromZapCompatible(logger),
+		logger: logger,
 	}), nil
 }
 

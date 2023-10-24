@@ -101,7 +101,7 @@ func NewGPIOController(
 	ctx, cancel := context.WithCancel(ctx)
 	c := Controller{
 		Named:      conf.ResourceName().AsNamed(),
-		logger:     logging.FromZapCompatible(logger),
+		logger:     logger,
 		cancelFunc: cancel,
 		callbacks:  map[input.Control]map[input.EventType]input.ControlFunction{},
 		lastEvents: map[input.Control]input.Event{},

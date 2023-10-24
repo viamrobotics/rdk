@@ -46,7 +46,7 @@ func NewClientFromConn(
 		Named:  name.PrependRemote(remoteName).AsNamed(),
 		name:   name.ShortName(),
 		client: pbClient,
-		logger: logging.FromZapCompatible(logger),
+		logger: logger,
 	}
 	clientFrame, err := c.updateKinematics(ctx, nil)
 	if err != nil {

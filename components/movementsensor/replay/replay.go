@@ -174,7 +174,7 @@ func newReplayMovementSensor(ctx context.Context, deps resource.Dependencies, co
 ) {
 	replay := &replayMovementSensor{
 		Named:  conf.ResourceName().AsNamed(),
-		logger: logging.FromZapCompatible(logger),
+		logger: logger,
 	}
 
 	if err := replay.Reconfigure(ctx, deps, conf); err != nil {

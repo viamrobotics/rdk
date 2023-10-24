@@ -62,7 +62,7 @@ func NewWrapperArm(
 ) (arm.Arm, error) {
 	a := &Arm{
 		Named:  conf.ResourceName().AsNamed(),
-		logger: logging.FromZapCompatible(logger),
+		logger: logger,
 		opMgr:  operation.NewSingleOperationManager(),
 	}
 	if err := a.Reconfigure(ctx, deps, conf); err != nil {

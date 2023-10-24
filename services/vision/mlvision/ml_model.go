@@ -50,7 +50,7 @@ func init() {
 			if err != nil {
 				return nil, err
 			}
-			return registerMLModelVisionService(ctx, c.ResourceName(), attrs, actualR, logging.FromZapCompatible(logger))
+			return registerMLModelVisionService(ctx, c.ResourceName(), attrs, actualR, logger)
 		},
 	})
 }

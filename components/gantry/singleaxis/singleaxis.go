@@ -114,7 +114,7 @@ func newSingleAxis(
 ) (gantry.Gantry, error) {
 	sAx := &singleAxis{
 		Named:  conf.ResourceName().AsNamed(),
-		logger: logging.FromZapCompatible(logger),
+		logger: logger,
 		opMgr:  operation.NewSingleOperationManager(),
 	}
 

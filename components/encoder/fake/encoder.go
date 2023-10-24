@@ -24,7 +24,7 @@ func init() {
 			conf resource.Config,
 			logger logging.Logger,
 		) (encoder.Encoder, error) {
-			return NewEncoder(ctx, conf, logging.FromZapCompatible(logger))
+			return NewEncoder(ctx, conf, logger)
 		},
 	})
 }

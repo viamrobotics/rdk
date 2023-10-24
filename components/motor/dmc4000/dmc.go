@@ -96,7 +96,7 @@ func init() {
 			if err != nil {
 				return nil, err
 			}
-			return NewMotor(ctx, newConf, conf.ResourceName(), logging.FromZapCompatible(logger))
+			return NewMotor(ctx, newConf, conf.ResourceName(), logger)
 		},
 	})
 }

@@ -189,7 +189,7 @@ func newGPIOServo(
 		maxDeg:    maxDeg,
 		frequency: frequency,
 		pin:       pin,
-		logger:    logging.FromZapCompatible(logger),
+		logger:    logger,
 		opMgr:     operation.NewSingleOperationManager(),
 		minUs:     minUs,
 		maxUs:     maxUs,

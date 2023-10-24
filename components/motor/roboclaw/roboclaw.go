@@ -143,7 +143,7 @@ func init() {
 				conf resource.Config,
 				logger logging.Logger,
 			) (motor.Motor, error) {
-				return newRoboClaw(conf, logging.FromZapCompatible(logger))
+				return newRoboClaw(conf, logger)
 			},
 		},
 	)

@@ -68,7 +68,7 @@ func newHelper(
 ) (resource.Resource, error) {
 	return &helper{
 		Named:  conf.ResourceName().AsNamed(),
-		logger: logging.FromZapCompatible(logger),
+		logger: logger,
 	}, nil
 }
 

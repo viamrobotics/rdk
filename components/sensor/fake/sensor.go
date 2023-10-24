@@ -20,7 +20,7 @@ func init() {
 			conf resource.Config,
 			logger logging.Logger,
 		) (sensor.Sensor, error) {
-			return newSensor(conf.ResourceName(), logging.FromZapCompatible(logger)), nil
+			return newSensor(conf.ResourceName(), logger), nil
 		}})
 }
 

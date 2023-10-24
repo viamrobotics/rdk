@@ -41,11 +41,11 @@ func init() {
 				if err != nil {
 					return nil, err
 				}
-				src, err := NewServerSource(ctx, newConf, logging.FromZapCompatible(logger))
+				src, err := NewServerSource(ctx, newConf, logger)
 				if err != nil {
 					return nil, err
 				}
-				return camera.FromVideoSource(conf.ResourceName(), src, logging.FromZapCompatible(logger)), nil
+				return camera.FromVideoSource(conf.ResourceName(), src, logger), nil
 			},
 		})
 	resource.RegisterComponent(camera.API, modelDual,
@@ -57,11 +57,11 @@ func init() {
 				if err != nil {
 					return nil, err
 				}
-				src, err := newDualServerSource(ctx, newConf, logging.FromZapCompatible(logger))
+				src, err := newDualServerSource(ctx, newConf, logger)
 				if err != nil {
 					return nil, err
 				}
-				return camera.FromVideoSource(conf.ResourceName(), src, logging.FromZapCompatible(logger)), nil
+				return camera.FromVideoSource(conf.ResourceName(), src, logger), nil
 			},
 		})
 }

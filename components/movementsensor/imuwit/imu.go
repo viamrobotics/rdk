@@ -239,7 +239,7 @@ func newWit(
 
 	i := wit{
 		Named:  conf.ResourceName().AsNamed(),
-		logger: logging.FromZapCompatible(logger),
+		logger: logger,
 		err:    movementsensor.NewLastError(1, 1),
 	}
 	logger.Debugf("initializing wit serial connection with parameters: %+v", options)
@@ -249,7 +249,7 @@ func newWit(
 	}
 
 	portReader := bufio.NewReader(i.port)
-	i.startUpdateLoop(context.Background(), portReader, logging.FromZapCompatible(logger))
+	i.startUpdateLoop(context.Background(), portReader, logger)
 
 	return &i, nil
 }

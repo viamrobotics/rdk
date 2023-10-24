@@ -77,7 +77,7 @@ func NewBuiltIn(
 ) (motion.Service, error) {
 	ms := &builtIn{
 		Named:  conf.ResourceName().AsNamed(),
-		logger: logging.FromZapCompatible(logger),
+		logger: logger,
 	}
 
 	if err := ms.Reconfigure(ctx, deps, conf); err != nil {

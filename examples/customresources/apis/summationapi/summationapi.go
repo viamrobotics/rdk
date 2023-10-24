@@ -37,7 +37,7 @@ func init() {
 			name resource.Name,
 			logger logging.Logger,
 		) (Summation, error) {
-			return newClientFromConn(conn, remoteName, name, logging.FromZapCompatible(logger)), nil
+			return newClientFromConn(conn, remoteName, name, logger), nil
 		},
 	})
 }

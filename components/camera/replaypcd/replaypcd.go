@@ -143,7 +143,7 @@ func newPCDCamera(
 ) (camera.Camera, error) {
 	cam := &pcdCamera{
 		Named:  conf.ResourceName().AsNamed(),
-		logger: logging.FromZapCompatible(logger),
+		logger: logger,
 	}
 
 	if err := cam.Reconfigure(ctx, deps, conf); err != nil {

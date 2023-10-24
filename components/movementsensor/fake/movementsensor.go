@@ -32,7 +32,7 @@ func NewMovementSensor(ctx context.Context, deps resource.Dependencies, conf res
 ) (movementsensor.MovementSensor, error) {
 	return &MovementSensor{
 		Named:  conf.ResourceName().AsNamed(),
-		logger: logging.FromZapCompatible(logger),
+		logger: logger,
 	}, nil
 }
 

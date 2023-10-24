@@ -31,7 +31,7 @@ func init() {
 				conf resource.Config,
 				logger logging.Logger,
 			) (slam.Service, error) {
-				return NewSLAM(conf.ResourceName(), logging.FromZapCompatible(logger)), nil
+				return NewSLAM(conf.ResourceName(), logger), nil
 			},
 		},
 	)

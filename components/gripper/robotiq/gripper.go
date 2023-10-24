@@ -45,7 +45,7 @@ func init() {
 			if err != nil {
 				return nil, err
 			}
-			return newGripper(ctx, conf, newConf.Host, logging.FromZapCompatible(logger))
+			return newGripper(ctx, conf, newConf.Host, logger)
 		},
 	})
 }

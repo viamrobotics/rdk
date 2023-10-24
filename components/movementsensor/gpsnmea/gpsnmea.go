@@ -142,9 +142,9 @@ func newNMEAGPS(
 
 	switch strings.ToLower(newConf.ConnectionType) {
 	case serialStr:
-		return NewSerialGPSNMEA(ctx, conf.ResourceName(), newConf, logging.FromZapCompatible(logger))
+		return NewSerialGPSNMEA(ctx, conf.ResourceName(), newConf, logger)
 	case i2cStr:
-		return NewPmtkI2CGPSNMEA(ctx, deps, conf.ResourceName(), newConf, logging.FromZapCompatible(logger))
+		return NewPmtkI2CGPSNMEA(ctx, deps, conf.ResourceName(), newConf, logger)
 	default:
 		return nil, connectionTypeError(
 			newConf.ConnectionType,

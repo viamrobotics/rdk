@@ -70,7 +70,7 @@ func newMergedModel(ctx context.Context, deps resource.Dependencies, conf resour
 	movementsensor.MovementSensor, error,
 ) {
 	m := merged{
-		logger: logging.FromZapCompatible(logger),
+		logger: logger,
 		Named:  conf.ResourceName().AsNamed(),
 	}
 

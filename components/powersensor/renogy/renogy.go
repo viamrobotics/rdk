@@ -91,7 +91,7 @@ func newRenogy(
 
 	r := &Renogy{
 		Named:    conf.ResourceName().AsNamed(),
-		logger:   logging.FromZapCompatible(logger),
+		logger:   logger,
 		path:     newConf.Path,
 		baud:     newConf.Baud,
 		modbusID: newConf.ModbusID,

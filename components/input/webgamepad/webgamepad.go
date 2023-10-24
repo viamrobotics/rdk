@@ -35,7 +35,7 @@ func NewController(
 			input.ButtonLT, input.ButtonRT, input.ButtonLThumb, input.ButtonRThumb,
 			input.ButtonSelect, input.ButtonStart, input.ButtonMenu,
 		},
-		logger: logging.FromZapCompatible(logger),
+		logger: logger,
 	}, nil
 }
 

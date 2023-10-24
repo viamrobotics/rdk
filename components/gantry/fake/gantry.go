@@ -25,7 +25,7 @@ func init() {
 				conf resource.Config,
 				logger logging.Logger,
 			) (gantry.Gantry, error) {
-				return NewGantry(conf.ResourceName(), logging.FromZapCompatible(logger)), nil
+				return NewGantry(conf.ResourceName(), logger), nil
 			},
 		})
 }

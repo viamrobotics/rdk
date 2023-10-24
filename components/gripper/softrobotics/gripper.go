@@ -65,7 +65,7 @@ func init() {
 			if err != nil {
 				return nil, err
 			}
-			return newGripper(b, conf, logging.FromZapCompatible(logger))
+			return newGripper(b, conf, logger)
 		},
 	})
 }

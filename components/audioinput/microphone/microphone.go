@@ -35,7 +35,7 @@ func init() {
 				if err != nil {
 					return nil, err
 				}
-				src, err := newMicrophoneSource(newConf, logging.FromZapCompatible(logger))
+				src, err := newMicrophoneSource(newConf, logger)
 				if err != nil {
 					return nil, err
 				}

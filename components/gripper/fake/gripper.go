@@ -39,7 +39,7 @@ func NewGripper(
 	g := &Gripper{
 		Named:      conf.ResourceName().AsNamed(),
 		geometries: []spatialmath.Geometry{},
-		logger:     logging.FromZapCompatible(logger),
+		logger:     logger,
 	}
 	if err := g.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err

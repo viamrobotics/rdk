@@ -58,7 +58,7 @@ func NewClientFromConn(
 	c := &client{
 		Named:  name.PrependRemote(remoteName).AsNamed(),
 		client: bClient,
-		logger: logging.FromZapCompatible(logger),
+		logger: logger,
 		info:   info,
 	}
 	if err := c.refresh(ctx); err != nil {

@@ -53,11 +53,11 @@ func init() {
 			if err != nil {
 				return nil, err
 			}
-			src, err := NewFFMPEGCamera(ctx, newConf, logging.FromZapCompatible(logger))
+			src, err := NewFFMPEGCamera(ctx, newConf, logger)
 			if err != nil {
 				return nil, err
 			}
-			return camera.FromVideoSource(conf.ResourceName(), src, logging.FromZapCompatible(logger)), nil
+			return camera.FromVideoSource(conf.ResourceName(), src, logger), nil
 		},
 	})
 }

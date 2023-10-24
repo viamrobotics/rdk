@@ -53,7 +53,7 @@ func init() {
 
 				theServo := &piPigpioServo{
 					Named:  conf.ResourceName().AsNamed(),
-					logger: logging.FromZapCompatible(logger),
+					logger: logger,
 					pin:    C.uint(bcom),
 					opMgr:  operation.NewSingleOperationManager(),
 				}

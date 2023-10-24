@@ -226,7 +226,7 @@ func newRTKI2C(
 		Named:        conf.ResourceName().AsNamed(),
 		cancelCtx:    cancelCtx,
 		cancelFunc:   cancelFunc,
-		logger:       logging.FromZapCompatible(logger),
+		logger:       logger,
 		err:          movementsensor.NewLastError(1, 1),
 		lastposition: movementsensor.NewLastPosition(),
 	}
@@ -252,7 +252,7 @@ func newRTKI2C(
 		nmeaConf.I2CConfig.I2CBaudRate = 115200
 	}
 
-	g.nmeamovementsensor, err = gpsnmea.NewPmtkI2CGPSNMEA(ctx, deps, conf.ResourceName(), nmeaConf, logging.FromZapCompatible(logger))
+	g.nmeamovementsensor, err = gpsnmea.NewPmtkI2CGPSNMEA(ctx, deps, conf.ResourceName(), nmeaConf, logger)
 	if err != nil {
 		return nil, err
 	}
