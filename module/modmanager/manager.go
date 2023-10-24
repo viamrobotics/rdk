@@ -418,8 +418,8 @@ func (mgr *Manager) ValidateConfig(ctx context.Context, conf resource.Config) ([
 	return resp.Dependencies, nil
 }
 
-// ResolveImplicitDependenciesInConfig modifies the config diff to add implicit dependencies to changed components
-// and updates modular components & services whose module has been changed with new implicit deps and adds them to conf.Modified.
+// ResolveImplicitDependenciesInConfig modifies the config diff to add implicit dependencies to changed resources
+// and updates modular resources whose module has been changed with new implicit deps and adds them to conf.Modified.
 func (mgr *Manager) ResolveImplicitDependenciesInConfig(ctx context.Context, conf *config.Diff) error {
 	mgr.mu.RLock()
 	defer mgr.mu.RUnlock()
