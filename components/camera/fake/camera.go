@@ -34,7 +34,7 @@ func init() {
 				ctx context.Context,
 				_ resource.Dependencies,
 				cfg resource.Config,
-				logger logging.ZapCompatibleLogger,
+				logger logging.Logger,
 			) (camera.Camera, error) {
 				return NewCamera(ctx, cfg, logging.FromZapCompatible(logger))
 			},

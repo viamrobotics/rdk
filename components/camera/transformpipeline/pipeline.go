@@ -35,7 +35,7 @@ func init() {
 				ctx context.Context,
 				r any,
 				conf resource.Config,
-				logger logging.ZapCompatibleLogger,
+				logger logging.Logger,
 			) (camera.Camera, error) {
 				actualR, err := utils.AssertType[robot.Robot](r)
 				if err != nil {

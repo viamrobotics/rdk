@@ -47,7 +47,7 @@ var model = resource.DefaultModelFamily.WithModel("ffmpeg")
 func init() {
 	resource.RegisterComponent(camera.API, model, resource.Registration[camera.Camera, *Config]{
 		Constructor: func(
-			ctx context.Context, _ resource.Dependencies, conf resource.Config, logger logging.ZapCompatibleLogger,
+			ctx context.Context, _ resource.Dependencies, conf resource.Config, logger logging.Logger,
 		) (camera.Camera, error) {
 			newConf, err := resource.NativeConfig[*Config](conf)
 			if err != nil {

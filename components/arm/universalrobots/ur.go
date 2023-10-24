@@ -4,6 +4,7 @@ package universalrobots
 import (
 	"bufio"
 	"context"
+
 	// for embedding model file.
 	_ "embed"
 	"encoding/binary"
@@ -59,7 +60,7 @@ var ur5modeljson []byte
 func init() {
 	resource.RegisterComponent(arm.API, Model, resource.Registration[arm.Arm, *Config]{
 		Constructor: func(
-			ctx context.Context, _ resource.Dependencies, conf resource.Config, logger logging.ZapCompatibleLogger,
+			ctx context.Context, _ resource.Dependencies, conf resource.Config, logger logging.Logger,
 		) (arm.Arm, error) {
 			return URArmConnect(ctx, conf, logging.FromZapCompatible(logger))
 		},

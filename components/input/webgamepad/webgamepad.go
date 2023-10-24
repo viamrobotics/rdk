@@ -22,7 +22,7 @@ func init() {
 
 // NewController creates a new gamepad.
 func NewController(
-	ctx context.Context, _ resource.Dependencies, conf resource.Config, logger logging.ZapCompatibleLogger,
+	ctx context.Context, _ resource.Dependencies, conf resource.Config, logger logging.Logger,
 ) (input.Controller, error) {
 	return &webGamepad{
 		Named:      conf.ResourceName().AsNamed(),

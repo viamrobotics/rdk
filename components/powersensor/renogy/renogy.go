@@ -72,7 +72,7 @@ func init() {
 }
 
 func newRenogy(
-	_ context.Context, _ resource.Dependencies, conf resource.Config, logger logging.ZapCompatibleLogger,
+	_ context.Context, _ resource.Dependencies, conf resource.Config, logger logging.Logger,
 ) (powersensor.PowerSensor, error) {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {

@@ -35,7 +35,7 @@ func init() {
 	resource.RegisterComponent(camera.API, modelSingle,
 		resource.Registration[camera.Camera, *ServerConfig]{
 			Constructor: func(ctx context.Context, _ resource.Dependencies,
-				conf resource.Config, logger logging.ZapCompatibleLogger,
+				conf resource.Config, logger logging.Logger,
 			) (camera.Camera, error) {
 				newConf, err := resource.NativeConfig[*ServerConfig](conf)
 				if err != nil {
@@ -51,7 +51,7 @@ func init() {
 	resource.RegisterComponent(camera.API, modelDual,
 		resource.Registration[camera.Camera, *dualServerConfig]{
 			Constructor: func(ctx context.Context, _ resource.Dependencies,
-				conf resource.Config, logger logging.ZapCompatibleLogger,
+				conf resource.Config, logger logging.Logger,
 			) (camera.Camera, error) {
 				newConf, err := resource.NativeConfig[*dualServerConfig](conf)
 				if err != nil {

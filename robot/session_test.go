@@ -52,7 +52,7 @@ func init() {
 			conn rpc.ClientConn,
 			remoteName string,
 			name resource.Name,
-			logger logging.ZapCompatibleLogger,
+			logger logging.Logger,
 		) (resource.Resource, error) {
 			return NewClientFromConn(ctx, conn, remoteName, name, logger), nil
 		},
@@ -101,7 +101,7 @@ func TestSessions(t *testing.T) {
 					ctx context.Context,
 					deps resource.Dependencies,
 					conf resource.Config,
-					logger logging.ZapCompatibleLogger,
+					logger logging.Logger,
 				) (motor.Motor, error) {
 					if conf.Name == "motor1" {
 						return &dummyMotor1, nil
@@ -116,7 +116,7 @@ func TestSessions(t *testing.T) {
 						ctx context.Context,
 						_ resource.Dependencies,
 						conf resource.Config,
-						logger logging.ZapCompatibleLogger,
+						logger logging.Logger,
 					) (resource.Resource, error) {
 						return &dummyEcho1, nil
 					},
@@ -130,7 +130,7 @@ func TestSessions(t *testing.T) {
 						ctx context.Context,
 						_ resource.Dependencies,
 						conf resource.Config,
-						logger logging.ZapCompatibleLogger,
+						logger logging.Logger,
 					) (base.Base, error) {
 						return &dummyBase1, nil
 					},
@@ -300,7 +300,7 @@ func TestSessionsWithRemote(t *testing.T) {
 				ctx context.Context,
 				deps resource.Dependencies,
 				conf resource.Config,
-				logger logging.ZapCompatibleLogger,
+				logger logging.Logger,
 			) (motor.Motor, error) {
 				if conf.Attributes.Bool("rem", false) {
 					if conf.Name == "motor1" {
@@ -319,7 +319,7 @@ func TestSessionsWithRemote(t *testing.T) {
 				ctx context.Context,
 				_ resource.Dependencies,
 				conf resource.Config,
-				logger logging.ZapCompatibleLogger,
+				logger logging.Logger,
 			) (resource.Resource, error) {
 				return &dummyRemEcho1, nil
 			},
@@ -333,7 +333,7 @@ func TestSessionsWithRemote(t *testing.T) {
 				ctx context.Context,
 				_ resource.Dependencies,
 				conf resource.Config,
-				logger logging.ZapCompatibleLogger,
+				logger logging.Logger,
 			) (base.Base, error) {
 				if conf.Attributes.Bool("rem", false) {
 					return &dummyRemBase1, nil
@@ -579,7 +579,7 @@ func TestSessionsMixedClients(t *testing.T) {
 				ctx context.Context,
 				deps resource.Dependencies,
 				conf resource.Config,
-				logger logging.ZapCompatibleLogger,
+				logger logging.Logger,
 			) (motor.Motor, error) {
 				return &dummyMotor1, nil
 			},
@@ -668,7 +668,7 @@ func TestSessionsMixedOwnersNoAuth(t *testing.T) {
 				ctx context.Context,
 				deps resource.Dependencies,
 				conf resource.Config,
-				logger logging.ZapCompatibleLogger,
+				logger logging.Logger,
 			) (motor.Motor, error) {
 				return &dummyMotor1, nil
 			},
@@ -769,7 +769,7 @@ func TestSessionsMixedOwnersImplicitAuth(t *testing.T) {
 				ctx context.Context,
 				deps resource.Dependencies,
 				conf resource.Config,
-				logger logging.ZapCompatibleLogger,
+				logger logging.Logger,
 			) (motor.Motor, error) {
 				return &dummyMotor1, nil
 			},
@@ -954,7 +954,7 @@ func NewClientFromConn(
 	conn rpc.ClientConn,
 	remoteName string,
 	name resource.Name,
-	logger logging.ZapCompatibleLogger,
+	logger logging.Logger,
 ) resource.Resource {
 	c := echopb.NewTestEchoServiceClient(conn)
 	return &dummyClient{

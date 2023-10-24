@@ -101,7 +101,7 @@ func newJoinPointCloudCamera(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
-	logger logging.ZapCompatibleLogger,
+	logger logging.Logger,
 ) (camera.Camera, error) {
 	joinCam := &joinPointCloudCamera{
 		Named:  conf.ResourceName().AsNamed(),

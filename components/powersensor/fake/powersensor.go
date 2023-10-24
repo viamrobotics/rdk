@@ -25,7 +25,7 @@ func init() {
 		})
 }
 
-func newFakePowerSensorModel(_ context.Context, _ resource.Dependencies, conf resource.Config, logger logging.ZapCompatibleLogger,
+func newFakePowerSensorModel(_ context.Context, _ resource.Dependencies, conf resource.Config, logger logging.Logger,
 ) (powersensor.PowerSensor, error) {
 	return powersensor.PowerSensor(&PowerSensor{
 		Named:  conf.ResourceName().AsNamed(),

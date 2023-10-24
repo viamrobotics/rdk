@@ -60,7 +60,7 @@ func newMultiAxis(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
-	logger logging.ZapCompatibleLogger,
+	logger logging.Logger,
 ) (gantry.Gantry, error) {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {

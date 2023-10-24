@@ -18,7 +18,7 @@ func init() {
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger logging.ZapCompatibleLogger,
+			logger logging.Logger,
 		) (sensor.Sensor, error) {
 			return newSensor(conf.ResourceName(), logging.FromZapCompatible(logger)), nil
 		}})

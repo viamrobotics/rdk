@@ -139,7 +139,7 @@ type pcdCamera struct {
 
 // newPCDCamera creates a new replay camera based on the inputted config and dependencies.
 func newPCDCamera(
-	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.ZapCompatibleLogger,
+	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
 ) (camera.Camera, error) {
 	cam := &pcdCamera{
 		Named:  conf.ResourceName().AsNamed(),

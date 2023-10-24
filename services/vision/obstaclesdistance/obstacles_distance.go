@@ -36,7 +36,7 @@ type DistanceDetectorConfig struct {
 func init() {
 	resource.RegisterService(svision.API, model, resource.Registration[svision.Service, *DistanceDetectorConfig]{
 		DeprecatedRobotConstructor: func(
-			ctx context.Context, r any, c resource.Config, logger logging.ZapCompatibleLogger,
+			ctx context.Context, r any, c resource.Config, logger logging.Logger,
 		) (svision.Service, error) {
 			attrs, err := resource.NativeConfig[*DistanceDetectorConfig](c)
 			if err != nil {

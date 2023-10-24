@@ -29,7 +29,7 @@ func init() {
 			ctx context.Context,
 			_ resource.Dependencies,
 			conf resource.Config,
-			logger logging.ZapCompatibleLogger,
+			logger logging.Logger,
 		) (mlmodel.Service, error) {
 			svcConf, err := resource.NativeConfig[*TFLiteConfig](conf)
 			if err != nil {

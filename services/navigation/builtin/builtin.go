@@ -196,7 +196,7 @@ func (conf *Config) Validate(path string) ([]string, error) {
 
 // NewBuiltIn returns a new navigation service for the given robot.
 func NewBuiltIn(
-	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.ZapCompatibleLogger,
+	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
 ) (navigation.Service, error) {
 	navSvc := &builtIn{
 		Named:  conf.ResourceName().AsNamed(),

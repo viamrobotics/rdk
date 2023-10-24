@@ -29,7 +29,7 @@ func init() {
 				ctx context.Context,
 				deps resource.Dependencies,
 				conf resource.Config,
-				logger logging.ZapCompatibleLogger,
+				logger logging.Logger,
 			) (camera.Camera, error) {
 				newConf, err := resource.NativeConfig[*ultrasense.Config](conf)
 				if err != nil {

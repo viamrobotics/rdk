@@ -1612,7 +1612,7 @@ func TestReconfigure(t *testing.T) {
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger logging.ZapCompatibleLogger,
+			logger logging.Logger,
 		) (resource.Resource, error) {
 			return &mock{
 				Named: conf.ResourceName().AsNamed(),
@@ -1675,7 +1675,7 @@ func TestResourceCreationPanic(t *testing.T) {
 
 		resource.RegisterComponent(api, model, resource.Registration[resource.Resource, resource.NoNativeConfig]{
 			Constructor: func(
-				ctx context.Context, deps resource.Dependencies, c resource.Config, logger logging.ZapCompatibleLogger,
+				ctx context.Context, deps resource.Dependencies, c resource.Config, logger logging.Logger,
 			) (resource.Resource, error) {
 				panic("hello")
 			},
@@ -1705,7 +1705,7 @@ func TestResourceCreationPanic(t *testing.T) {
 				ctx context.Context,
 				deps resource.Dependencies,
 				c resource.Config,
-				logger logging.ZapCompatibleLogger,
+				logger logging.Logger,
 			) (resource.Resource, error) {
 				panic("hello")
 			},

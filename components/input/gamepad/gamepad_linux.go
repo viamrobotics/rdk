@@ -78,7 +78,7 @@ func createController(_ context.Context, name resource.Name, logger logging.Logg
 
 // NewController creates a new gamepad.
 func NewController(
-	ctx context.Context, _ resource.Dependencies, conf resource.Config, logger logging.ZapCompatibleLogger,
+	ctx context.Context, _ resource.Dependencies, conf resource.Config, logger logging.Logger,
 ) (input.Controller, error) {
 	return createController(
 		ctx,

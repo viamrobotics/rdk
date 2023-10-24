@@ -85,7 +85,7 @@ func getBoardFromRobotConfig(deps resource.Dependencies, conf resource.Config) (
 }
 
 func createNewMotor(
-	ctx context.Context, deps resource.Dependencies, cfg resource.Config, logger logging.ZapCompatibleLogger,
+	ctx context.Context, deps resource.Dependencies, cfg resource.Config, logger logging.Logger,
 ) (motor.Motor, error) {
 	actualBoard, motorConfig, err := getBoardFromRobotConfig(deps, cfg)
 	if err != nil {

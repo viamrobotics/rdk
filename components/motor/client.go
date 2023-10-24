@@ -29,7 +29,7 @@ func NewClientFromConn(
 	conn rpc.ClientConn,
 	remoteName string,
 	name resource.Name,
-	logger logging.ZapCompatibleLogger,
+	logger logging.Logger,
 ) (Motor, error) {
 	c := pb.NewMotorServiceClient(conn)
 	return &client{

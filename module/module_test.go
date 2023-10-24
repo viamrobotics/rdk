@@ -409,7 +409,7 @@ func TestAttributeConversion(t *testing.T) {
 		// register the non-reconfigurable one
 		resource.RegisterService(shell.API, model, resource.Registration[shell.Service, *MockConfig]{
 			Constructor: func(
-				ctx context.Context, deps resource.Dependencies, cfg resource.Config, logger logging.ZapCompatibleLogger,
+				ctx context.Context, deps resource.Dependencies, cfg resource.Config, logger logging.Logger,
 			) (shell.Service, error) {
 				createConf1 = cfg
 				createDeps1 = deps
@@ -421,7 +421,7 @@ func TestAttributeConversion(t *testing.T) {
 		// register the reconfigurable version
 		resource.RegisterService(shell.API, modelWithReconfigure, resource.Registration[shell.Service, *MockConfig]{
 			Constructor: func(
-				ctx context.Context, deps resource.Dependencies, cfg resource.Config, logger logging.ZapCompatibleLogger,
+				ctx context.Context, deps resource.Dependencies, cfg resource.Config, logger logging.Logger,
 			) (shell.Service, error) {
 				injectable := &inject.ShellService{}
 				injectable.ReconfigureFunc = func(ctx context.Context, deps resource.Dependencies, cfg resource.Config) error {

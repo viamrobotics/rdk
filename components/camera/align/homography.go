@@ -26,7 +26,7 @@ func init() {
 	resource.RegisterComponent(camera.API, homographyModel,
 		resource.Registration[camera.Camera, *homographyConfig]{
 			Constructor: func(ctx context.Context, deps resource.Dependencies,
-				conf resource.Config, logger logging.ZapCompatibleLogger,
+				conf resource.Config, logger logging.Logger,
 			) (camera.Camera, error) {
 				newConf, err := resource.NativeConfig[*homographyConfig](conf)
 				if err != nil {

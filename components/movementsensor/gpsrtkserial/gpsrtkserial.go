@@ -197,7 +197,7 @@ func newRTKSerial(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
-	logger logging.ZapCompatibleLogger,
+	logger logging.Logger,
 ) (movementsensor.MovementSensor, error) {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {

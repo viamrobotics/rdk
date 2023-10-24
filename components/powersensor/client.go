@@ -29,7 +29,7 @@ func NewClientFromConn(
 	conn rpc.ClientConn,
 	remoteName string,
 	name resource.Name,
-	logger logging.ZapCompatibleLogger,
+	logger logging.Logger,
 ) (PowerSensor, error) {
 	c := pb.NewPowerSensorServiceClient(conn)
 	return &client{

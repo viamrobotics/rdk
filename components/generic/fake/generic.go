@@ -17,7 +17,7 @@ func init() {
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger logging.ZapCompatibleLogger,
+			logger logging.Logger,
 		) (resource.Resource, error) {
 			return newGeneric(conf.ResourceName(), logging.FromZapCompatible(logger)), nil
 		}})

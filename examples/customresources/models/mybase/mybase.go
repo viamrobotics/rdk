@@ -35,7 +35,7 @@ func init() {
 	})
 }
 
-func newBase(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.ZapCompatibleLogger) (base.Base, error) {
+func newBase(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger) (base.Base, error) {
 	b := &myBase{
 		Named:  conf.ResourceName().AsNamed(),
 		logger: logging.FromZapCompatible(logger),

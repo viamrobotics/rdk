@@ -112,7 +112,7 @@ func NewBuiltIn(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
-	logger logging.ZapCompatibleLogger,
+	logger logging.Logger,
 ) (datamanager.Service, error) {
 	svc := &builtIn{
 		Named:                       conf.ResourceName().AsNamed(),
@@ -506,7 +506,7 @@ func (svc *builtIn) sync() {
 	}
 }
 
-//nolint
+// nolint
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {

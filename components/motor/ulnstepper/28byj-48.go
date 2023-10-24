@@ -101,7 +101,7 @@ func init() {
 }
 
 func new28byj(
-	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.ZapCompatibleLogger,
+	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
 ) (motor.Motor, error) {
 	mc, err := resource.NativeConfig[*Config](conf)
 	if err != nil {

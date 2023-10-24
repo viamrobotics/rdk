@@ -38,7 +38,7 @@ type Config struct {
 }
 
 func newNav(
-	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.ZapCompatibleLogger,
+	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
 ) (navigation.Service, error) {
 	// This takes the generic resource.Config passed down from the parent and converts it to the
 	// model-specific (aka "native") Config structure defined above making it easier to directly access attributes.

@@ -878,7 +878,7 @@ func TestClientReconnect(t *testing.T) {
 				conn rpc.ClientConn,
 				remoteName string,
 				name resource.Name,
-				logger logging.ZapCompatibleLogger,
+				logger logging.Logger,
 			) (resource.Resource, error) {
 				atomic.AddInt64(&called, 1)
 				return &mockType{Named: name.AsNamed()}, nil
@@ -977,7 +977,7 @@ func TestClientRefreshNoReconfigure(t *testing.T) {
 				conn rpc.ClientConn,
 				remoteName string,
 				name resource.Name,
-				logger logging.ZapCompatibleLogger,
+				logger logging.Logger,
 			) (resource.Resource, error) {
 				atomic.AddInt64(&called, 1)
 				return &mockType{Named: name.AsNamed()}, nil

@@ -35,7 +35,7 @@ func init() {
 			conn rpc.ClientConn,
 			remoteName string,
 			name resource.Name,
-			logger logging.ZapCompatibleLogger,
+			logger logging.Logger,
 		) (Summation, error) {
 			return newClientFromConn(conn, remoteName, name, logging.FromZapCompatible(logger)), nil
 		},

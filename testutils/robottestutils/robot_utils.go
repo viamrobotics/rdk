@@ -38,7 +38,7 @@ func NewRobotClient(tb testing.TB, logger logging.Logger, addr string, dur time.
 	robotClient, err := client.New(
 		context.Background(),
 		addr,
-		logger.AsZap(),
+		logger,
 		client.WithRefreshEvery(dur),
 		client.WithCheckConnectedEvery(5*dur),
 		client.WithReconnectEvery(dur),

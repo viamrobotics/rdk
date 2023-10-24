@@ -31,7 +31,7 @@ func NewClientFromConn(
 	conn rpc.ClientConn,
 	remoteName string,
 	name resource.Name,
-	logger logging.ZapCompatibleLogger,
+	logger logging.Logger,
 ) (Service, error) {
 	grpcClient := pb.NewMLModelServiceClient(conn)
 	c := &client{

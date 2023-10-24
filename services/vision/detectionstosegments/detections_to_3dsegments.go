@@ -23,7 +23,7 @@ var model = resource.DefaultModelFamily.WithModel("detector_3d_segmenter")
 func init() {
 	resource.RegisterService(vision.API, model, resource.Registration[vision.Service, *segmentation.DetectionSegmenterConfig]{
 		DeprecatedRobotConstructor: func(
-			ctx context.Context, r any, c resource.Config, logger logging.ZapCompatibleLogger,
+			ctx context.Context, r any, c resource.Config, logger logging.Logger,
 		) (vision.Service, error) {
 			attrs, err := resource.NativeConfig[*segmentation.DetectionSegmenterConfig](c)
 			if err != nil {

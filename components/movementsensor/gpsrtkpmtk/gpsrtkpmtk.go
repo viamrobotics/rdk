@@ -214,7 +214,7 @@ func newRTKI2C(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
-	logger logging.ZapCompatibleLogger,
+	logger logging.Logger,
 ) (movementsensor.MovementSensor, error) {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
@@ -494,7 +494,7 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 	}
 }
 
-//nolint
+// nolint
 // getNtripConnectionStatus returns true if connection to NTRIP stream is OK, false if not
 func (g *rtkI2C) getNtripConnectionStatus() (bool, error) {
 	g.ntripMu.Lock()

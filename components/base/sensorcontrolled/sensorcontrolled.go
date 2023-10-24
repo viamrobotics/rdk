@@ -84,7 +84,7 @@ func createSensorBase(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
-	logger logging.ZapCompatibleLogger,
+	logger logging.Logger,
 ) (base.Base, error) {
 	sb := &sensorBase{
 		logger: logging.FromZapCompatible(logger),

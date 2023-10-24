@@ -27,7 +27,7 @@ func init() {
 	resource.RegisterComponent(camera.API, extrinsicsModel,
 		resource.Registration[camera.Camera, *extrinsicsConfig]{
 			Constructor: func(ctx context.Context, deps resource.Dependencies,
-				conf resource.Config, logger logging.ZapCompatibleLogger,
+				conf resource.Config, logger logging.Logger,
 			) (camera.Camera, error) {
 				newConf, err := resource.NativeConfig[*extrinsicsConfig](conf)
 				if err != nil {

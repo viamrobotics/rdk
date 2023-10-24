@@ -169,7 +169,7 @@ type replayMovementSensor struct {
 }
 
 // newReplayMovementSensor creates a new replay movement sensor based on the inputted config and dependencies.
-func newReplayMovementSensor(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.ZapCompatibleLogger) (
+func newReplayMovementSensor(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger) (
 	movementsensor.MovementSensor, error,
 ) {
 	replay := &replayMovementSensor{

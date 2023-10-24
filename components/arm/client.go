@@ -39,7 +39,7 @@ func NewClientFromConn(
 	conn rpc.ClientConn,
 	remoteName string,
 	name resource.Name,
-	logger logging.ZapCompatibleLogger,
+	logger logging.Logger,
 ) (Arm, error) {
 	pbClient := pb.NewArmServiceClient(conn)
 	c := &client{

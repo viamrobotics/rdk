@@ -124,7 +124,7 @@ func init() {
 
 	resource.RegisterComponent(motor.API, model, resource.Registration[motor.Motor, *Config]{
 		Constructor: func(
-			ctx context.Context, _ resource.Dependencies, conf resource.Config, logger logging.ZapCompatibleLogger,
+			ctx context.Context, _ resource.Dependencies, conf resource.Config, logger logging.Logger,
 		) (motor.Motor, error) {
 			newConf, err := resource.NativeConfig[*Config](conf)
 			if err != nil {

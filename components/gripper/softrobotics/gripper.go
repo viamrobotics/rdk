@@ -59,7 +59,7 @@ func init() {
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger logging.ZapCompatibleLogger,
+			logger logging.Logger,
 		) (gripper.Gripper, error) {
 			b, err := board.FromDependencies(deps, "local")
 			if err != nil {

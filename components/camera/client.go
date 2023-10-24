@@ -45,7 +45,7 @@ func NewClientFromConn(
 	conn rpc.ClientConn,
 	remoteName string,
 	name resource.Name,
-	logger logging.ZapCompatibleLogger,
+	logger logging.Logger,
 ) (Camera, error) {
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	c := pb.NewCameraServiceClient(conn)

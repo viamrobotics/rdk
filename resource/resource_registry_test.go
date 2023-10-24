@@ -28,7 +28,7 @@ var (
 
 func TestComponentRegistry(t *testing.T) {
 	logger := logging.NewTestLogger(t)
-	rf := func(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.ZapCompatibleLogger) (arm.Arm, error) {
+	rf := func(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger) (arm.Arm, error) {
 		return &fake.Arm{Named: conf.ResourceName().AsNamed()}, nil
 	}
 	model := resource.Model{Name: "x"}
@@ -84,7 +84,7 @@ func TestResourceAPIRegistry(t *testing.T) {
 		capColl = apiResColl
 		return 5
 	}
-	rcf := func(_ context.Context, _ rpc.ClientConn, _ string, name resource.Name, _ logging.ZapCompatibleLogger) (arm.Arm, error) {
+	rcf := func(_ context.Context, _ rpc.ClientConn, _ string, name resource.Name, _ logging.Logger) (arm.Arm, error) {
 		return capColl.Resource(name.ShortName())
 	}
 
@@ -224,14 +224,14 @@ func TestResourceAPIRegistryWithAssociation(t *testing.T) {
 }
 
 func TestDiscoveryFunctions(t *testing.T) {
-	df := func(ctx context.Context, logger logging.ZapCompatibleLogger) (interface{}, error) {
+	df := func(ctx context.Context, logger logging.Logger) (interface{}, error) {
 		return []resource.Discovery{}, nil
 	}
 	validAPIQuery := resource.NewDiscoveryQuery(acme.API, resource.Model{Name: "some model"})
 	_, ok := resource.LookupRegistration(validAPIQuery.API, validAPIQuery.Model)
 	test.That(t, ok, test.ShouldBeFalse)
 
-	rf := func(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.ZapCompatibleLogger) (arm.Arm, error) {
+	rf := func(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger) (arm.Arm, error) {
 		return &fake.Arm{Named: conf.ResourceName().AsNamed()}, nil
 	}
 

@@ -58,7 +58,7 @@ type Arm struct {
 
 // NewWrapperArm returns a wrapper component for another arm.
 func NewWrapperArm(
-	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.ZapCompatibleLogger,
+	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
 ) (arm.Arm, error) {
 	a := &Arm{
 		Named:  conf.ResourceName().AsNamed(),

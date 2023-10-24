@@ -39,7 +39,7 @@ func init() {
 			conn rpc.ClientConn,
 			remoteName string,
 			name resource.Name,
-			logger logging.ZapCompatibleLogger,
+			logger logging.Logger,
 		) (Gizmo, error) {
 			return NewClientFromConn(conn, remoteName, name, logger), nil
 		},
@@ -190,7 +190,7 @@ func (s *serviceServer) DoCommand(ctx context.Context, req *pb.DoCommandRequest)
 }
 
 // NewClientFromConn creates a new gizmo RPC client from an existing connection.
-func NewClientFromConn(conn rpc.ClientConn, remoteName string, name resource.Name, logger logging.ZapCompatibleLogger) Gizmo {
+func NewClientFromConn(conn rpc.ClientConn, remoteName string, name resource.Name, logger logging.Logger) Gizmo {
 	sc := newSvcClientFromConn(conn, remoteName, name, logging.FromZapCompatible(logger))
 	return clientFromSvcClient(sc, name.ShortName())
 }

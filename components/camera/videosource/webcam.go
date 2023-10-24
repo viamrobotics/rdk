@@ -46,7 +46,7 @@ func init() {
 		ModelWebcam,
 		resource.Registration[camera.Camera, *WebcamConfig]{
 			Constructor: NewWebcam,
-			Discover: func(ctx context.Context, logger logging.ZapCompatibleLogger) (interface{}, error) {
+			Discover: func(ctx context.Context, logger logging.Logger) (interface{}, error) {
 				return Discover(ctx, getVideoDrivers, logging.FromZapCompatible(logger))
 			},
 		})
@@ -271,7 +271,7 @@ func NewWebcam(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
-	logger logging.ZapCompatibleLogger,
+	logger logging.Logger,
 ) (camera.Camera, error) {
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	cam := &monitoredWebcam{

@@ -18,6 +18,7 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -781,7 +782,7 @@ func TestStopAll(t *testing.T) {
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger logging.ZapCompatibleLogger,
+			logger logging.Logger,
 		) (arm.Arm, error) {
 			if conf.Name == "arm1" {
 				return &dummyArm1, nil
@@ -910,7 +911,7 @@ func TestNewTeardown(t *testing.T) {
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger logging.ZapCompatibleLogger,
+			logger logging.Logger,
 		) (board.Board, error) {
 			return &dummyBoard1, nil
 		}})
@@ -921,7 +922,7 @@ func TestNewTeardown(t *testing.T) {
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger logging.ZapCompatibleLogger,
+			logger logging.Logger,
 		) (gripper.Gripper, error) {
 			return nil, errors.New("whoops")
 		}})
@@ -2878,7 +2879,7 @@ func TestDependentAndOrphanedResources(t *testing.T) {
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger logging.ZapCompatibleLogger,
+			logger logging.Logger,
 		) (resource.Resource, error) {
 			newDoodad := &doodad{
 				Named: conf.ResourceName().AsNamed(),

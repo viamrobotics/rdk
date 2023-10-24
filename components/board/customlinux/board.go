@@ -38,7 +38,7 @@ func createNewBoard(
 	ctx context.Context,
 	_ resource.Dependencies,
 	conf resource.Config,
-	logger logging.ZapCompatibleLogger,
+	logger logging.Logger,
 ) (board.Board, error) {
 	return genericlinux.NewBoard(ctx, conf, pinDefsFromFile, logging.FromZapCompatible(logger))
 }

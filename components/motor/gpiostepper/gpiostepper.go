@@ -89,7 +89,7 @@ func init() {
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger logging.ZapCompatibleLogger,
+			logger logging.Logger,
 		) (motor.Motor, error) {
 			actualBoard, motorConfig, err := getBoardFromRobotConfig(deps, conf)
 			if err != nil {

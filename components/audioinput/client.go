@@ -40,7 +40,7 @@ func NewClientFromConn(
 	conn rpc.ClientConn,
 	remoteName string,
 	name resource.Name,
-	logger logging.ZapCompatibleLogger,
+	logger logging.Logger,
 ) (AudioInput, error) {
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	c := pb.NewAudioInputServiceClient(conn)

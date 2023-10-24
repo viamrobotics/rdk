@@ -34,7 +34,7 @@ type Gripper struct {
 
 // NewGripper instantiates a new gripper of the fake model type.
 func NewGripper(
-	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.ZapCompatibleLogger,
+	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
 ) (gripper.Gripper, error) {
 	g := &Gripper{
 		Named:      conf.ResourceName().AsNamed(),

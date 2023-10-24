@@ -21,7 +21,7 @@ var model = resource.DefaultModelFamily.WithModel("obstacles_pointcloud")
 func init() {
 	resource.RegisterService(vision.API, model, resource.Registration[vision.Service, *segmentation.ErCCLConfig]{
 		DeprecatedRobotConstructor: func(
-			ctx context.Context, r any, c resource.Config, logger logging.ZapCompatibleLogger,
+			ctx context.Context, r any, c resource.Config, logger logging.Logger,
 		) (vision.Service, error) {
 			attrs, err := resource.NativeConfig[*segmentation.ErCCLConfig](c)
 			if err != nil {

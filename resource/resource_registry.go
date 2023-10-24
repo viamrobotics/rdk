@@ -31,7 +31,7 @@ type (
 		ctx context.Context,
 		deps Dependencies,
 		conf Config,
-		logger logging.ZapCompatibleLogger,
+		logger logging.Logger,
 	) (ResourceT, error)
 
 	// A DeprecatedCreateWithRobot creates a resource from a robot and a given config.
@@ -41,7 +41,7 @@ type (
 		// but it's deprecated :).
 		r any,
 		conf Config,
-		logger logging.ZapCompatibleLogger,
+		logger logging.Logger,
 	) (ResourceT, error)
 
 	// CreateStatus creates a status from a given resource. The return type is expected to be comprised of string keys
@@ -56,7 +56,7 @@ type (
 		conn rpc.ClientConn,
 		remoteName string,
 		name Name,
-		logger logging.ZapCompatibleLogger,
+		logger logging.Logger,
 	) (ResourceT, error)
 
 	// An AttributeMapConverter converts an attribute map into a native config type for a resource.
@@ -308,7 +308,7 @@ func makeGenericResourceRegistration[ResourceT Resource, ConfigT ConfigValidator
 			ctx context.Context,
 			deps Dependencies,
 			conf Config,
-			logger logging.ZapCompatibleLogger,
+			logger logging.Logger,
 		) (Resource, error) {
 			return typed.Constructor(ctx, deps, conf, logger)
 		}
@@ -318,7 +318,7 @@ func makeGenericResourceRegistration[ResourceT Resource, ConfigT ConfigValidator
 			ctx context.Context,
 			r any,
 			conf Config,
-			logger logging.ZapCompatibleLogger,
+			logger logging.Logger,
 		) (Resource, error) {
 			return typed.DeprecatedRobotConstructor(ctx, r, conf, logger)
 		}
@@ -524,7 +524,7 @@ func makeGenericAPIRegistration[ResourceT Resource](
 			conn rpc.ClientConn,
 			remoteName string,
 			name Name,
-			logger logging.ZapCompatibleLogger,
+			logger logging.Logger,
 		) (Resource, error) {
 			return typed.RPCClient(ctx, conn, remoteName, name, logger)
 		}

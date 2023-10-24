@@ -132,7 +132,7 @@ func init() {
 				ctx context.Context,
 				_ resource.Dependencies,
 				conf resource.Config,
-				logger logging.ZapCompatibleLogger,
+				logger logging.Logger,
 			) (camera.Camera, error) {
 				newConf, err := resource.NativeConfig[*Config](conf)
 				if err != nil {

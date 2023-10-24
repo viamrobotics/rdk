@@ -28,7 +28,7 @@ func init() {
 
 // NewBuiltIn returns a new default sensor service for the given robot.
 func NewBuiltIn(
-	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.ZapCompatibleLogger,
+	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
 ) (sensors.Service, error) {
 	s := &builtIn{
 		Named:   conf.ResourceName().AsNamed(),

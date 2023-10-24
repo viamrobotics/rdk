@@ -58,7 +58,7 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 func newCounter(ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
-	logger logging.ZapCompatibleLogger,
+	logger logging.Logger,
 ) (resource.Resource, error) {
 	return &counter{
 		Named: conf.ResourceName().AsNamed(),

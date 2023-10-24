@@ -112,7 +112,7 @@ type servoGPIO struct {
 }
 
 func newGPIOServo(
-	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.ZapCompatibleLogger,
+	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
 ) (servo.Servo, error) {
 	newConf, err := resource.NativeConfig[*servoConfig](conf)
 	if err != nil {

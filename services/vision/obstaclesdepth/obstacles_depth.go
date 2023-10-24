@@ -31,7 +31,7 @@ var model = resource.DefaultModelFamily.WithModel("obstacles_depth")
 func init() {
 	resource.RegisterService(svision.API, model, resource.Registration[svision.Service, *ObsDepthConfig]{
 		DeprecatedRobotConstructor: func(
-			ctx context.Context, r any, c resource.Config, logger logging.ZapCompatibleLogger,
+			ctx context.Context, r any, c resource.Config, logger logging.Logger,
 		) (svision.Service, error) {
 			attrs, err := resource.NativeConfig[*ObsDepthConfig](c)
 			if err != nil {

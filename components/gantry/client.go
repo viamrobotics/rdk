@@ -30,7 +30,7 @@ func NewClientFromConn(
 	conn rpc.ClientConn,
 	remoteName string,
 	name resource.Name,
-	logger logging.ZapCompatibleLogger,
+	logger logging.Logger,
 ) (Gantry, error) {
 	c := pb.NewGantryServiceClient(conn)
 	return &client{

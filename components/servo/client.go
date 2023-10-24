@@ -29,7 +29,7 @@ func NewClientFromConn(
 	conn rpc.ClientConn,
 	remoteName string,
 	name resource.Name,
-	logger logging.ZapCompatibleLogger,
+	logger logging.Logger,
 ) (Servo, error) {
 	c := pb.NewServoServiceClient(conn)
 	return &client{

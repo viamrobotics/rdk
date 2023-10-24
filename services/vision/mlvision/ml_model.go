@@ -40,7 +40,7 @@ const (
 func init() {
 	resource.RegisterService(vision.API, model, resource.Registration[vision.Service, *MLModelConfig]{
 		DeprecatedRobotConstructor: func(
-			ctx context.Context, r any, c resource.Config, logger logging.ZapCompatibleLogger,
+			ctx context.Context, r any, c resource.Config, logger logging.Logger,
 		) (vision.Service, error) {
 			attrs, err := resource.NativeConfig[*MLModelConfig](c)
 			if err != nil {

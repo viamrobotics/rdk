@@ -73,7 +73,7 @@ func (c *Config) Validate(path string) ([]string, error) {
 
 // NewBuiltIn returns a new move and grab service for the given robot.
 func NewBuiltIn(
-	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.ZapCompatibleLogger,
+	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
 ) (motion.Service, error) {
 	ms := &builtIn{
 		Named:  conf.ResourceName().AsNamed(),

@@ -22,7 +22,7 @@ func init() {
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger logging.ZapCompatibleLogger,
+			logger logging.Logger,
 		) (encoder.Encoder, error) {
 			return NewEncoder(ctx, conf, logging.FromZapCompatible(logger))
 		},

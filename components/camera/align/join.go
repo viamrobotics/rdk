@@ -28,7 +28,7 @@ func init() {
 	resource.RegisterComponent(camera.API, joinModel,
 		resource.Registration[camera.Camera, *joinConfig]{
 			Constructor: func(ctx context.Context, deps resource.Dependencies,
-				conf resource.Config, logger logging.ZapCompatibleLogger,
+				conf resource.Config, logger logging.Logger,
 			) (camera.Camera, error) {
 				newConf, err := resource.NativeConfig[*joinConfig](conf)
 				if err != nil {

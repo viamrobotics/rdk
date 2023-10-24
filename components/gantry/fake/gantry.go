@@ -23,7 +23,7 @@ func init() {
 				ctx context.Context,
 				_ resource.Dependencies,
 				conf resource.Config,
-				logger logging.ZapCompatibleLogger,
+				logger logging.Logger,
 			) (gantry.Gantry, error) {
 				return NewGantry(conf.ResourceName(), logging.FromZapCompatible(logger)), nil
 			},

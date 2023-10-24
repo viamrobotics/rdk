@@ -86,7 +86,7 @@ func TestRobotReconfigure(t *testing.T) {
 				ctx context.Context,
 				deps resource.Dependencies,
 				conf resource.Config,
-				logger logging.ZapCompatibleLogger,
+				logger logging.Logger,
 			) (resource.Resource, error) {
 				// test if implicit depencies are properly propagated
 				for _, dep := range conf.ConvertedAttributes.(*mockFakeConfig).InferredDep {
@@ -111,7 +111,7 @@ func TestRobotReconfigure(t *testing.T) {
 				ctx context.Context,
 				deps resource.Dependencies,
 				conf resource.Config,
-				logger logging.ZapCompatibleLogger,
+				logger logging.Logger,
 			) (resource.Resource, error) {
 				if reconfigurableTrue && testReconfiguringMismatch {
 					reconfigurableTrue = false
@@ -2394,7 +2394,7 @@ func TestUpdateWeakDependents(t *testing.T) {
 				ctx context.Context,
 				deps resource.Dependencies,
 				conf resource.Config,
-				logger logging.ZapCompatibleLogger,
+				logger logging.Logger,
 			) (*someTypeWithWeakAndStrongDeps, error) {
 				return &someTypeWithWeakAndStrongDeps{
 					Named:     conf.ResourceName().AsNamed(),
@@ -3267,7 +3267,7 @@ func TestReconfigureModelRebuild(t *testing.T) {
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger logging.ZapCompatibleLogger,
+			logger logging.Logger,
 		) (resource.Resource, error) {
 			return &mockFake{Named: conf.ResourceName().AsNamed(), shouldRebuild: true}, nil
 		},
@@ -3347,7 +3347,7 @@ func TestReconfigureModelSwitch(t *testing.T) {
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger logging.ZapCompatibleLogger,
+			logger logging.Logger,
 		) (resource.Resource, error) {
 			return &mockFake{Named: conf.ResourceName().AsNamed()}, nil
 		},
@@ -3357,7 +3357,7 @@ func TestReconfigureModelSwitch(t *testing.T) {
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger logging.ZapCompatibleLogger,
+			logger logging.Logger,
 		) (resource.Resource, error) {
 			return &mockFake2{Named: conf.ResourceName().AsNamed()}, nil
 		},
@@ -3436,7 +3436,7 @@ func TestReconfigureModelSwitchErr(t *testing.T) {
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger logging.ZapCompatibleLogger,
+			logger logging.Logger,
 		) (resource.Resource, error) {
 			newCount++
 			return &mockFake{Named: conf.ResourceName().AsNamed()}, nil
@@ -3521,7 +3521,7 @@ func TestReconfigureRename(t *testing.T) {
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger logging.ZapCompatibleLogger,
+			logger logging.Logger,
 		) (resource.Resource, error) {
 			return &mockFake{
 				Named:        conf.ResourceName().AsNamed(),
@@ -3719,7 +3719,7 @@ func TestResourceConstructCtxCancel(t *testing.T) {
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger logging.ZapCompatibleLogger,
+			logger logging.Logger,
 		) (resource.Resource, error) {
 			contructCount++
 			wg.Add(1)

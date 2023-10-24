@@ -23,7 +23,7 @@ func init() {
 	resource.RegisterComponent(camera.API, fileModel,
 		resource.Registration[camera.Camera, *fileSourceConfig]{
 			Constructor: func(ctx context.Context, _ resource.Dependencies,
-				conf resource.Config, logger logging.ZapCompatibleLogger,
+				conf resource.Config, logger logging.Logger,
 			) (camera.Camera, error) {
 				newConf, err := resource.NativeConfig[*fileSourceConfig](conf)
 				if err != nil {

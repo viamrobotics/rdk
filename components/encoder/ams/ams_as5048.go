@@ -122,7 +122,7 @@ func newAS5048Encoder(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
-	logger logging.ZapCompatibleLogger,
+	logger logging.Logger,
 ) (encoder.Encoder, error) {
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	res := &Encoder{
