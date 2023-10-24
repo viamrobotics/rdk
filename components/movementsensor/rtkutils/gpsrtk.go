@@ -232,7 +232,7 @@ func (g *RTKMovementSensor) Accuracy(ctx context.Context, extra map[string]inter
 
 // Readings will use the default MovementSensor Readings if not provided.
 func (g *RTKMovementSensor) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-	readings, err := movementsensor.Readings(ctx, g, extra)
+	readings, err := movementsensor.DefaultAPIReadings(ctx, g, extra)
 	if err != nil {
 		return nil, err
 	}

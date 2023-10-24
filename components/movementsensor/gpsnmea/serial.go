@@ -250,7 +250,7 @@ func (g *SerialNMEAMovementSensor) ReadSatsInView(ctx context.Context) (int, err
 
 // Readings will use return all of the MovementSensor Readings.
 func (g *SerialNMEAMovementSensor) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-	readings, err := movementsensor.Readings(ctx, g, extra)
+	readings, err := movementsensor.DefaultAPIReadings(ctx, g, extra)
 	if err != nil {
 		return nil, err
 	}

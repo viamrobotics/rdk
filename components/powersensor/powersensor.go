@@ -3,7 +3,6 @@ package powersensor
 
 import (
 	"context"
-	"strings"
 
 	pb "go.viam.com/api/component/powersensor/v1"
 
@@ -90,40 +89,4 @@ func FromRobot(r robot.Robot, name string) (PowerSensor, error) {
 // NamesFromRobot is a helper for getting all PowerSensor names from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesByAPI(r, API)
-}
-
-// Readings is a helper for getting all readings from a PowerSensor.
-func Readings(ctx context.Context, g PowerSensor, extra map[string]interface{}) (map[string]interface{}, error) {
-	readings := map[string]interface{}{}
-
-	vol, isAC, err := g.Voltage(ctx, extra)
-	if err != nil {
-		if !strings.Contains(err.Error(), ErrMethodUnimplementedVoltage.Error()) {
-			return nil, err
-		}
-	} else {
-		readings["voltage"] = vol
-		readings["is_ac"] = isAC
-	}
-
-	cur, isAC, err := g.Current(ctx, extra)
-	if err != nil {
-		if !strings.Contains(err.Error(), ErrMethodUnimplementedCurrent.Error()) {
-			return nil, err
-		}
-	} else {
-		readings["current"] = cur
-		readings["is_ac"] = isAC
-	}
-
-	pow, err := g.Power(ctx, extra)
-	if err != nil {
-		if !strings.Contains(err.Error(), ErrMethodUnimplementedPower.Error()) {
-			return nil, err
-		}
-	} else {
-		readings["power"] = pow
-	}
-
-	return readings, nil
 }

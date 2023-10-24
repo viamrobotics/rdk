@@ -268,7 +268,7 @@ func (o *odometry) Position(ctx context.Context, extra map[string]interface{}) (
 }
 
 func (o *odometry) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-	readings, err := movementsensor.Readings(ctx, o, extra)
+	readings, err := movementsensor.DefaultAPIReadings(ctx, o, extra)
 	if err != nil {
 		return nil, err
 	}

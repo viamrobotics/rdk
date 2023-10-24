@@ -3,6 +3,7 @@ package fake
 
 import (
 	"context"
+	"strings"
 
 	"github.com/edaniels/golog"
 
@@ -63,10 +64,46 @@ func (f *PowerSensor) Power(ctx context.Context, cmd map[string]interface{}) (fl
 
 // Readings gets the readings of a fake powersensor.
 func (f *PowerSensor) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-	return powersensor.Readings(ctx, f, extra)
+	return defaultAPIReadings(ctx, *f, extra)
 }
 
 // Close closes the fake powersensor.
 func (f *PowerSensor) Close(ctx context.Context) error {
 	return nil
+}
+
+// DefaultAPIReadings is a helper for getting all readings from a PowerSensor.
+func defaultAPIReadings(ctx context.Context, g PowerSensor, extra map[string]interface{}) (map[string]interface{}, error) {
+	readings := map[string]interface{}{}
+
+	vol, isAC, err := g.Voltage(ctx, extra)
+	if err != nil {
+		if !strings.Contains(err.Error(), powersensor.ErrMethodUnimplementedVoltage.Error()) {
+			return nil, err
+		}
+	} else {
+		readings["voltage"] = vol
+		readings["is_ac"] = isAC
+	}
+
+	cur, isAC, err := g.Current(ctx, extra)
+	if err != nil {
+		if !strings.Contains(err.Error(), powersensor.ErrMethodUnimplementedCurrent.Error()) {
+			return nil, err
+		}
+	} else {
+		readings["current"] = cur
+		readings["is_ac"] = isAC
+	}
+
+	pow, err := g.Power(ctx, extra)
+	if err != nil {
+		if !strings.Contains(err.Error(), powersensor.ErrMethodUnimplementedPower.Error()) {
+			return nil, err
+		}
+	} else {
+		readings["power"] = pow
+	}
+
+	return readings, nil
 }
