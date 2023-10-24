@@ -421,10 +421,13 @@ func (g *singleAxis) testLimit(ctx context.Context, pin int) (float64, error) {
 		wrongPin = 0
 	}
 
+	g.logger.Warnf("wrong pin = %v", wrongPin)
+
 	err := g.motor.GoFor(ctx, d*g.rpm, 0, nil)
 	if err != nil {
 		return 0, err
 	}
+	time.Sleep(250 * time.Millisecond)
 
 	start := time.Now()
 	for {
@@ -473,6 +476,7 @@ func (g *singleAxis) testLimit(ctx context.Context, pin int) (float64, error) {
 	// Short pause after stopping to increase the precision of the position of each limit switch
 	position, err := g.motor.Position(ctx, nil)
 	time.Sleep(250 * time.Millisecond)
+	g.logger.Warnf("RETURNING: %v, %v", position, err)
 	return position, err
 }
 
