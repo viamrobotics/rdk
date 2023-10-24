@@ -46,10 +46,10 @@ const handleMove = async (amount: number) => {
     <h3 class="mb-1 text-sm">Angle: {status?.position_deg ?? 0}</h3>
 
     <div class="flex gap-1.5">
-      <v-button label="-10" on:click={() => handleMove(-10)} />
-      <v-button label="-1" on:click={() => handleMove(-1)} />
-      <v-button label="1" on:click={() => handleMove(1)} />
-      <v-button label="10" on:click={() => handleMove(10)} />
+      <v-button label="-10" on:click={async () => handleMove(-10)} />
+      <v-button label="-1" on:click={async () => handleMove(-1)} />
+      <v-button label="1" on:click={async () => handleMove(1)} />
+      <v-button label="10" on:click={async () => handleMove(10)} />
     </div>
   </div>
 </Collapse>

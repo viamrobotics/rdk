@@ -23,7 +23,7 @@ export const useNavMode = (name: string) => {
     }
   };
 
-  const setMode = (value: NavigationMode) => {
+  const setMode = async (value: NavigationMode) => {
     return navClient.setMode(value);
   };
 
