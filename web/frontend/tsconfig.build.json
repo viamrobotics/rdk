@@ -3,7 +3,8 @@
   "compilerOptions": {
     "noEmit": false,
     "declaration": true,
-    "emitDeclarationOnly": true
+    "emitDeclarationOnly": true,
+    "rootDir": "src",
   },
-  "exclude": ["**/*.test.ts", "cypress/**/*.ts", "scripts/**/*", "*.config.ts"],
+  "exclude": ["**/*.test.ts", "cypress/**/*.ts", "scripts/**/*", "*.config.ts", "*.config.js"],
 }

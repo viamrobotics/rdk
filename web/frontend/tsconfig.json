@@ -17,7 +17,6 @@
   "include": [
     "src/**/*.ts",
     "src/**/*.js",
-    "src/**/*.d.ts",
     "src/**/*.svelte",
     "cypress/**/*.ts",
     "scripts/*.js",
