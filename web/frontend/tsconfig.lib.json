@@ -1,7 +1,0 @@
-{
-  "extends": "./tsconfig.json",
-  "exclude": [
-    "src/main.ts",
-    "src/tailwind.css"
-  ]
-}

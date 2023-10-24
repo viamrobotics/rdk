@@ -9,7 +9,8 @@
     "start": "vite --host",
     "build": "vite build && npm run copy-prime-assets",
     "build-prod": "vite build --no-sourcemap && npm run copy-prime-assets",
-    "build-npm": "vite build --config vite.lib.config.ts && tsc --project ./tsconfig.lib.json --emitDeclarationOnly",
+    "build-types": "tsc --project tsconfig.build.json",
+    "build-npm": "vite build --config vite.lib.config.ts && npm run build-types",
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "preview": "vite preview",
     "_prettier": "prettier --ignore-path=.eslintignore \"**/*.{ts,js,cjs,svelte,json,html,md}\"",
@@ -27,6 +28,7 @@
   "types": "./dist/main-lib.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/main-lib.d.ts",
       "import": "./dist/rc.js"
     }
   },
