@@ -13,5 +13,14 @@
 
     "noPropertyAccessFromIndexSignature": false,
     "exactOptionalPropertyTypes": false,
-  }
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.js",
+    "src/**/*.svelte",
+    "cypress/**/*.ts",
+    "scripts/*.js",
+    "*.ts",
+    "*.js"
+  ]
 }
