@@ -13,5 +13,6 @@
 
     "noPropertyAccessFromIndexSignature": false,
     "exactOptionalPropertyTypes": false,
-  }
+  },
+  "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.svelte"]
 }
