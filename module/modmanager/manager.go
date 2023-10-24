@@ -423,7 +423,7 @@ func (mgr *Manager) ValidateConfig(ctx context.Context, conf resource.Config) ([
 func (mgr *Manager) ResolveImplicitDependenciesInConfig(ctx context.Context, conf *config.Diff) error {
 	mgr.mu.RLock()
 	defer mgr.mu.RUnlock()
-	// Find all components/services that are unmodified the same but whose module has been updated and add them to the modified arrays
+	// Find all components/services that are unmodified but whose module has been updated and add them to the modified array.
 	for _, c := range conf.Right.Components {
 		// See if this component is being provided by a module
 		mod, ok := mgr.getModule(c)
