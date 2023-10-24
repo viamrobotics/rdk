@@ -3,7 +3,6 @@ name: MacOS
 on:
   workflow_dispatch:
   workflow_call:
-  push: # DONOTMERGE
 
 jobs:
   build:
