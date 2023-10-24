@@ -1,35 +1,31 @@
-// Package selectiveSync implements a datasync manager.
-package selectiveSync
+// Package selectivesync implements a datasync manager.
+package selectivesync
 
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/vision"
-	"go.viam.com/utils"
 )
 
-var (
-	// Model is the full model definition.
-	Model = resource.NewModel("selectivesync", "demo", "vision")
-)
+// Model is the full model definition.
+var Model = resource.NewModel("selectivesync", "demo", "vision")
 
 func init() {
 	registration := resource.Registration[resource.Resource, *Config]{
-		Constructor: func(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (resource.Resource, error) {
-			return newSelectiveSyncer(ctx, deps, conf, logger)
-		},
+		Constructor: newSelectiveSyncer,
 	}
 	resource.RegisterComponent(generic.API, Model, registration)
-
 }
 
 // Config contains the name to the underlying camera and the name of the vision service to be used.
@@ -62,10 +58,12 @@ type visionSyncer struct {
 
 	cancelCtx  context.Context
 	cancelFunc func()
+	wg         sync.WaitGroup
 	logger     golog.Logger
 }
 
-func newSelectiveSyncer(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (resource.Resource, error) {
+func newSelectiveSyncer(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger,
+) (resource.Resource, error) {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	v := &visionSyncer{
 		Named:      conf.ResourceName().AsNamed(),
@@ -76,7 +74,11 @@ func newSelectiveSyncer(ctx context.Context, deps resource.Dependencies, conf re
 	if err := v.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
-	v.startBackgroundProcess()
+	v.wg.Add(1)
+	utils.PanicCapturingGo(func() {
+		defer v.wg.Done()
+		v.startBackgroundProcess()
+	})
 	return v, nil
 }
 
@@ -125,19 +127,15 @@ func (s *visionSyncer) startBackgroundProcess() {
 		for {
 			select {
 			case <-ticker.C:
-				// Only return captured image if it contains a certain color set by the vision service.
-				if err != nil {
-					s.logger.Error("could not get next source image")
-					return
-				}
 				// Check for stuff, if true Sync
-				img, rel, err := stream.Next(s.cancelCtx)
-				defer rel()
+				img, release, err := stream.Next(s.cancelCtx)
 				if err != nil {
 					s.logger.Error("could not get next image")
+					release()
 					return
 				}
 				detections, err := s.visionService.Detections(s.cancelCtx, img, map[string]interface{}{})
+				release()
 				if err != nil {
 					s.logger.Error("could not get detections")
 					return
@@ -149,19 +147,17 @@ func (s *visionSyncer) startBackgroundProcess() {
 						return
 					}
 				}
-
 			case <-s.cancelCtx.Done():
 				s.logger.Info("canceled selective syncing")
 				return
 			}
-
 		}
-
 	})
 }
 
 // Close closes the underlying generic.
 func (s *visionSyncer) Close(ctx context.Context) error {
 	s.cancelFunc()
+	s.wg.Wait()
 	return nil
 }

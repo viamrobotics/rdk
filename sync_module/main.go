@@ -5,11 +5,10 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/module"
-	"go.viam.com/utils"
-
 	selectiveSync "go.viam.com/rdk/sync_module/selective_sync"
 )
 
