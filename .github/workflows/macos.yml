@@ -1,0 +1,24 @@
+name: MacOS
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event == 'pull_request_target' && github.event.pull_request.head.sha || github.ref }}
+    - uses: actions/setup-go@v4
+      with:
+        go-version: '1.19.x'
+    - name: homebrew
+      run: echo hello todo
+    - name: build
+      run: go build ./web/cmd/server
+    - uses: actions/upload-artifact@v3
+      with:
+        name: viam-server-macos
+        path: server
