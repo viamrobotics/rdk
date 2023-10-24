@@ -297,7 +297,7 @@ func connect(port string, logger logging.Logger) (robot.Robot, error) {
 	defer cancelConn()
 	for {
 		dialCtx, dialCancel := context.WithTimeout(context.Background(), time.Millisecond*500)
-		rc, err := client.New(dialCtx, "localhost:"+port, logger.AsZap(),
+		rc, err := client.New(dialCtx, "localhost:"+port, logger,
 			client.WithDialOptions(rpc.WithForceDirectGRPC()),
 			client.WithDisableSessions(), // TODO(PRODUCT-343): add session support to modules
 		)

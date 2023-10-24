@@ -17,7 +17,7 @@ import (
 )
 
 func main() {
-	logger := logging.NewDevelopmentLogger("client").AsZap()
+	logger := logging.NewDevelopmentLogger("client")
 	robot, err := client.New(
 		context.Background(),
 		"localhost:8080",

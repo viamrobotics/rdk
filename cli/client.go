@@ -956,7 +956,7 @@ func (c *viamClient) startRobotPartShell(
 	if debug {
 		printf(c.c.App.Writer, "Establishing connection...")
 	}
-	robotClient, err := client.New(dialCtx, fqdn, logger.AsZap(), client.WithDialOptions(rpcOpts...))
+	robotClient, err := client.New(dialCtx, fqdn, logger, client.WithDialOptions(rpcOpts...))
 	if err != nil {
 		return errors.Wrap(err, "could not connect to robot part")
 	}

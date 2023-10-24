@@ -82,7 +82,7 @@ func FromZapCompatible(logger ZapCompatibleLogger) Logger {
 	switch l := logger.(type) {
 	case *zap.SugaredLogger:
 		// golog.Logger is a type alias for *zap.SugaredLogger and is captured by this.
-		return zLogger{l}
+		return &zLogger{l}
 	case Logger:
 		return l
 	default:
@@ -92,9 +92,11 @@ func FromZapCompatible(logger ZapCompatibleLogger) Logger {
 }
 
 // AsZap converts the logger to a zap logger.
-func (logger zLogger) AsZap() *zap.SugaredLogger {
+func (logger *zLogger) AsZap() *zap.SugaredLogger {
 	return logger.SugaredLogger
 }
+
+var _ Logger = &zLogger{}
 
 var (
 	globalMu     sync.RWMutex
@@ -102,7 +104,7 @@ var (
 )
 
 func newDefaultLogger() Logger {
-	return zLogger{zap.Must(NewDebugLoggerConfig().Build()).Sugar()}
+	return &zLogger{zap.Must(NewDebugLoggerConfig().Build()).Sugar()}
 }
 
 // ReplaceGloabl replaces the global loggers and returns a function to reset

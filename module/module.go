@@ -263,7 +263,7 @@ func (m *Module) connectParent(ctx context.Context) error {
 			return err
 		}
 		// TODO(PRODUCT-343): add session support to modules
-		rc, err := client.New(ctx, "unix://"+m.parentAddr, m.logger.AsZap(), client.WithDisableSessions())
+		rc, err := client.New(ctx, "unix://"+m.parentAddr, m.logger, client.WithDisableSessions())
 		if err != nil {
 			return err
 		}

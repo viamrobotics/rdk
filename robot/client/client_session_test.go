@@ -129,7 +129,7 @@ func TestClientSessionOptions(t *testing.T) {
 								Disable: true,
 							})))
 						}
-						roboClient, err := client.New(ctx, addr, logger.AsZap(), opts...)
+						roboClient, err := client.New(ctx, addr, logger, opts...)
 						test.That(t, err, test.ShouldBeNil)
 
 						injectRobot.Mu.Lock()
@@ -306,7 +306,7 @@ func TestClientSessionExpiration(t *testing.T) {
 						Disable: true,
 					})))
 				}
-				roboClient, err := client.New(ctx, addr, logger.AsZap(), opts...)
+				roboClient, err := client.New(ctx, addr, logger, opts...)
 				test.That(t, err, test.ShouldBeNil)
 
 				injectRobot.Mu.Lock()
@@ -496,7 +496,7 @@ func TestClientSessionResume(t *testing.T) {
 						Disable: true,
 					})))
 				}
-				roboClient, err := client.New(ctx, addr, logger.AsZap(), opts...)
+				roboClient, err := client.New(ctx, addr, logger, opts...)
 				test.That(t, err, test.ShouldBeNil)
 
 				var capMu sync.Mutex
