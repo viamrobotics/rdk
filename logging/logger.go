@@ -18,7 +18,7 @@ type Logger interface {
 	AsZap() *zap.SugaredLogger
 }
 
-// Logger is a backwards compatibility layer for existing usages of the RDK as a
+// ZapCompatibleLogger is a backwards compatibility layer for existing usages of the RDK as a
 // library for Go application code or modules. Public (to the library) methods that take a logger as
 // input should accept this type and upconvert to a Logger via a call to `FromZapCompatible`.
 type ZapCompatibleLogger interface {
@@ -65,7 +65,7 @@ type ZapCompatibleLogger interface {
 	DPanicw(msg string, keysAndValues ...interface{})
 }
 
-// ZLogger type for logging to. Wraps a zap logger and adds the `AsZap` method to satisfy the
+// zLogger type for logging to. Wraps a zap logger and adds the `AsZap` method to satisfy the
 // `Logger` interface.
 type zLogger struct {
 	*zap.SugaredLogger

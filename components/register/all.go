@@ -10,7 +10,6 @@ import (
 	_ "go.viam.com/rdk/components/input/register"
 	_ "go.viam.com/rdk/components/motor/register"
 	_ "go.viam.com/rdk/components/movementsensor/register"
-
 	// register APIs without implementations directly.
 	_ "go.viam.com/rdk/components/posetracker"
 	_ "go.viam.com/rdk/components/powersensor/register"
