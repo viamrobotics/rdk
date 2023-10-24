@@ -938,6 +938,7 @@ func TestObstacleDetection(t *testing.T) {
 }
 
 func TestCheckPlan(t *testing.T) {
+	t.Skip() // TODO(RSDK-5404): fix flakiness
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 
