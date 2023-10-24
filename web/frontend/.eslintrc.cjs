@@ -22,9 +22,11 @@ module.exports = {
     'no-void': ['error', { allowAsStatement: true }],
 
     // @TODO(mp) These were disabled when moving over to js-config. They should be gradually re-enabled.
+    'id-length': 'warn',
     '@typescript-eslint/no-floating-promises': 'warn',
     '@typescript-eslint/no-misused-promises': 'warn',
     '@typescript-eslint/no-unsafe-enum-comparison': 'warn',
+    '@typescript-eslint/no-unnecessary-condition': 'warn',
     'svelte/valid-compile': 'warn',
   },
   overrides: [

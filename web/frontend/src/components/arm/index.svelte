@@ -72,11 +72,8 @@ const fieldMap = [
 ] as const;
 
 const updateFieldMap: Record<string, Field> = {
-  // eslint-disable-next-line id-length
   X: 'x',
-  // eslint-disable-next-line id-length
   Y: 'y',
-  // eslint-disable-next-line id-length
   Z: 'z',
   Theta: 'theta',
   OX: 'oX',

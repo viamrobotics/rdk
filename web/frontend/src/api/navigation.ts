@@ -53,7 +53,6 @@ export const getObstacles = async (navClient: NavigationClient): Promise<Obstacl
 
           return {
             type: 'sphere',
-            // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
             radius: (geometry.sphere.radiusMm ?? 0) / 1000,
             pose,
           } satisfies SphereGeometry;
@@ -63,9 +62,7 @@ export const getObstacles = async (navClient: NavigationClient): Promise<Obstacl
 
           return {
             type: 'capsule',
-            // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
             radius: (capsule.radiusMm ?? 0) / 1000,
-            // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
             length: (capsule.lengthMm ?? 0) / 1000,
             pose,
           } satisfies CapsuleGeometry;

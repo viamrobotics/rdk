@@ -56,7 +56,6 @@ const setMovementType = (event: CustomEvent<{ value: string}>) => {
 const setPosition = (event: CustomEvent) => {
   const target = event.currentTarget as HTMLInputElement;
 
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   if (event.type === 'blur' && target.value === undefined) {
     position = 0;
   }
@@ -77,7 +76,6 @@ const setPosition = (event: CustomEvent) => {
 const setRpm = (event: CustomEvent) => {
   const target = event.currentTarget as HTMLInputElement;
 
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   if (event.type === 'blur' && target.value === undefined) {
     rpm = 0;
   }
@@ -98,7 +96,6 @@ const setRpm = (event: CustomEvent) => {
 const setRevolutions = (event: CustomEvent) => {
   const target = event.currentTarget as HTMLInputElement;
 
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   if (event.type === 'blur' && target.value === undefined) {
     revolutions = 0;
   }

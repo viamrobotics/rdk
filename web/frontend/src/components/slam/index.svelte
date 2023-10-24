@@ -111,7 +111,7 @@
           ]);
           nextPose = response.pose;
         }
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+
         if (mapTimestamp) {
           lastTimestamp = mapTimestamp;
         }
@@ -152,7 +152,7 @@
         if (!localizationMode(mapTimestamp)) {
           pointcloud = await slamClient.getPointCloudMap();
         }
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+
         if (mapTimestamp) {
           lastTimestamp = mapTimestamp;
         }
