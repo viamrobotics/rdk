@@ -350,7 +350,8 @@ func (ms *builtIn) MoveOnGlobe(
 			if errors.Is(resp.err, context.Canceled) || resp.replan {
 				continue
 			} else if resp.err != nil {
-				return false, resp.err
+				ms.logger.Info(resp.err)
+				return false, errors.New("retry")
 			}
 			ms.logger.Info("obstacle detection triggering a replan")
 		}

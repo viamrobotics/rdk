@@ -15,7 +15,6 @@ import (
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
@@ -28,13 +27,12 @@ const (
 
 // moveRequest is a structure that contains all the information necessary for to make a move call.
 type moveRequest struct {
-	config             *motion.MotionConfiguration
-	planRequest        *motionplan.PlanRequest
-	seedPlan           motionplan.Plan
-	kinematicBase      kinematicbase.KinematicBase
-	obstacleDetectors  map[vision.Service][]resource.Name
-	frameSystemService framesystem.Service
-	replanCostFactor   float64
+	config            *motion.MotionConfiguration
+	planRequest       *motionplan.PlanRequest
+	seedPlan          motionplan.Plan
+	kinematicBase     kinematicbase.KinematicBase
+	obstacleDetectors map[vision.Service][]resource.Name
+	replanCostFactor  float64
 }
 
 // plan creates a plan using the currentInputs of the robot and the moveRequest's planRequest.
@@ -127,23 +125,13 @@ func (mr *moveRequest) obstaclesIntersectPlan(ctx context.Context, waypoints [][
 			if err != nil {
 				return false, err
 			}
-			// get transform of camera to kinematic base origin
-			kinBaseOrigin := referenceframe.NewPoseInFrame(mr.kinematicBase.Name().ShortName(), spatialmath.NewZeroPose())
-			cameraToBase, err := mr.frameSystemService.TransformPose(ctx, kinBaseOrigin, camName.ShortName(), nil)
-			if err != nil {
-				// here we make the assumption the movement sensor is coincident with the base
-				cameraToBase = kinBaseOrigin
-			}
-
-			// where the camera is in world coordinates
-			transformBy := spatialmath.Compose(currentPosition.Pose(), cameraToBase.Pose())
 
 			// Any obstacles specified by the worldstate of the moveRequest will also re-detected here.
 			// There is no need to append the new detections to the existing worldstate.
 			// We can safely build from scratch without excluding any valuable information.
 			geoms := []spatialmath.Geometry{}
 			for i, detection := range detections {
-				geometry := detection.Geometry.Transform(transformBy)
+				geometry := detection.Geometry.Transform(currentPosition.Pose())
 				label := camName.Name + "_transientObstacle_" + strconv.Itoa(i)
 				if geometry.Label() != "" {
 					label += "_" + geometry.Label()
@@ -151,7 +139,16 @@ func (mr *moveRequest) obstaclesIntersectPlan(ctx context.Context, waypoints [][
 				geometry.SetLabel(label)
 				geoms = append(geoms, geometry)
 			}
-			gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)}
+			gif := referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)
+			tf, err := mr.planRequest.FrameSystem.Transform(mr.planRequest.StartConfiguration, gif, mr.planRequest.FrameSystem.World().Name())
+			if err != nil {
+				return false, err
+			}
+			transformedGIF, ok := tf.((*referenceframe.GeometriesInFrame))
+			if !ok {
+				return false, errors.New("smth")
+			}
+			gifs := []*referenceframe.GeometriesInFrame{transformedGIF}
 			worldState, err := referenceframe.NewWorldState(gifs, nil)
 			if err != nil {
 				return false, err
@@ -334,6 +331,11 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 		}
 	}
 
+	currentInputs, _, err := ms.fsService.CurrentInputs(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	return &moveRequest{
 		config: motionCfg,
 		planRequest: &motionplan.PlanRequest{
@@ -341,14 +343,13 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 			Goal:               goal,
 			Frame:              kb.Kinematics(),
 			FrameSystem:        baseOnlyFS,
-			StartConfiguration: referenceframe.StartPositions(baseOnlyFS),
+			StartConfiguration: currentInputs,
 			WorldState:         worldState,
 			Options:            extra,
 		},
-		kinematicBase:      kb,
-		seedPlan:           seedPlan,
-		replanCostFactor:   replanCostFactor,
-		obstacleDetectors:  obstacleDetectors,
-		frameSystemService: ms.fsService,
+		kinematicBase:     kb,
+		seedPlan:          seedPlan,
+		replanCostFactor:  replanCostFactor,
+		obstacleDetectors: obstacleDetectors,
 	}, nil
 }
