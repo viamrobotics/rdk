@@ -94,7 +94,7 @@ func (s *visionSyncer) Reconfigure(ctx context.Context, deps resource.Dependenci
 	}
 	// If sync_disabled is false for the data manager, there are no guarantees that the selective sync
 	// behavior will function as intended. It is possible that data will be synced irregardless of the trigger.
-	s.logger.Warnw("Behavior is undetermined when scheduled sync is enabled and using selective sync", "data manager", dmConfig.DataManager)
+	s.logger.Warnw("Behavior is undetermined when scheduled sync is enabled and using selective sync", "data_manager", dmConfig.DataManager)
 	s.camera, err = camera.FromDependencies(deps, dmConfig.Camera)
 	if err != nil {
 		return errors.Wrapf(err, "unable to get camera %v for visionSyncer", dmConfig.VisionService)
