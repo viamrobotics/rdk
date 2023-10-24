@@ -40,6 +40,7 @@ var (
 	errNegativePlanDeviationM             = errors.New("plan_deviation_m must be non-negative if set")
 	errNegativeReplanCostFactor           = errors.New("replan_cost_factor must be non-negative if set")
 	errUnimplemented                      = errors.New("unimplemented")
+	errRetry                              = errors.New("retry")
 )
 
 const (
@@ -549,6 +550,10 @@ func (svc *builtIn) startWaypointMode(ctx context.Context, extra map[string]inte
 			if err := navOnce(cancelCtx, wp); err != nil {
 				if svc.waypointIsDeleted() {
 					svc.logger.Infof("skipping waypoint %+v since it was deleted", wp)
+					continue
+				}
+				if errors.Is(err, errRetry) {
+					svc.logger.Infof("retrying navigation to waypoint %+v", wp)
 					continue
 				}
 
