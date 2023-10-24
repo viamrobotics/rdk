@@ -71,7 +71,7 @@
   };
 
   const startDurationTimer = (start: number) => {
-    durationInterval = setInterval(() => {
+    durationInterval = window.setInterval(() => {
       sessionDuration = Date.now() - start;
     }, 400);
   };
@@ -86,7 +86,7 @@
   const refresh2d = async () => {
     try {
       let nextPose;
-      if (overrides?.isCloudSlam && overrides?.getMappingSessionPCD) {
+      if (overrides?.isCloudSlam && overrides.getMappingSessionPCD) {
         const { map, pose: poseData } = await overrides.getMappingSessionPCD(
           sessionId
         );
@@ -111,6 +111,7 @@
           ]);
           nextPose = response.pose;
         }
+
         if (mapTimestamp) {
           lastTimestamp = mapTimestamp;
         }
@@ -130,14 +131,14 @@
     } catch (error) {
       refreshErrorMessage2d =
         error !== null && typeof error === 'object' && 'message' in error
-          ? `${refreshErrorMessage} ${error.message}`
-          : `${refreshErrorMessage} ${error}`;
+          ? `${refreshErrorMessage} ${(error as { message: string }).message}`
+          : `${refreshErrorMessage} ${error as string}`;
     }
   };
 
   const refresh3d = async () => {
     try {
-      if (overrides?.isCloudSlam && overrides?.getMappingSessionPCD) {
+      if (overrides?.isCloudSlam && overrides.getMappingSessionPCD) {
         const { map } = await overrides.getMappingSessionPCD(sessionId);
         pointcloud = map;
       } else {
@@ -151,6 +152,7 @@
         if (!localizationMode(mapTimestamp)) {
           pointcloud = await slamClient.getPointCloudMap();
         }
+
         if (mapTimestamp) {
           lastTimestamp = mapTimestamp;
         }
@@ -159,8 +161,8 @@
     } catch (error) {
       refreshErrorMessage3d =
         error !== null && typeof error === 'object' && 'message' in error
-          ? `${refreshErrorMessage} ${error.message}`
-          : `${refreshErrorMessage} ${error}`;
+          ? `${refreshErrorMessage} ${(error as { message: string }).message}`
+          : `${refreshErrorMessage} ${error as string }`;
     }
   };
 
@@ -220,9 +222,9 @@
     updateSLAM3dRefreshFrequency();
   };
 
-  const handle2dRenderClick = (event: CustomEvent) => {
+  const handle2dRenderClick = (event: CustomEvent<THREE.Vector3>) => {
     if (!overrides?.isCloudSlam) {
-      destination = event.detail;
+      destination = new THREE.Vector2(event.detail.x, event.detail.y);
     }
   };
 
@@ -311,7 +313,7 @@
         hasActiveSession = true;
         sessionId = activeSession.id;
         const startMilliseconds =
-          (activeSession.timeCloudRunJobStarted?.seconds || 0) * 1000;
+          (activeSession.timeCloudRunJobStarted?.seconds ?? 0) * 1000;
         startMappingIntervals(startMilliseconds);
       }
     }
@@ -325,7 +327,7 @@
       }
 
       // error may not be present if user has not yet typed in input
-      const mapName = overrides.mappingDetails.name || newMapName;
+      const mapName = overrides.mappingDetails.name ?? newMapName;
       if (!mapName) {
         mapNameError = 'Please enter a name for this map';
         return;
@@ -357,8 +359,9 @@
     overrides?.endMappingSession(sessionId);
   };
 
-  const formatDisplayTime = (time: number) =>
-    `${time < 10 ? `0${time}` : time}`;
+  const formatDisplayTime = (time: number): string => {
+    return time < 10 ? `0${time}` : `${time}`;
+  }
 
   const formatDuration = (milliseconds: number) => {
     let seconds = Math.floor(milliseconds / 1000);
@@ -381,9 +384,9 @@
     clearInterval(durationInterval);
   });
 
-  const handleMapNameChange = (event: CustomEvent) => {
+  const handleMapNameChange = (event: CustomEvent<{ value: string }>) => {
     newMapName = event.detail.value;
-    mapNameError = overrides?.validateMapName(newMapName) || '';
+    mapNameError = overrides?.validateMapName(newMapName) ?? '';
   };
 
   const handleDrop = (event: CustomEvent<string>) => {
@@ -407,7 +410,7 @@
   >
     <div class="flex min-w-fit flex-col gap-4 p-4 pr-0">
       <div class="pb-4 flex flex-col gap-6">
-        {#if overrides?.isCloudSlam && overrides?.mappingDetails}
+        {#if overrides?.isCloudSlam && overrides.mappingDetails}
           <header class="flex flex-col text-xs justify-between gap-3">
             <div class="flex flex-col">
               <span class="font-bold text-gray-800">Mapping mode</span>
