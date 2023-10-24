@@ -24,7 +24,7 @@ type fakeDiffDriveKinematics struct {
 	inputs                        []referenceframe.Input
 	options                       Options
 	sensorNoise                   spatialmath.Pose
-	lock                          sync.Mutex
+	lock                          sync.RWMutex
 }
 
 // WrapWithFakeDiffDriveKinematics creates a DiffDrive KinematicBase from the fake Base so that it satisfies the ModelFramer and
@@ -79,8 +79,8 @@ func (fk *fakeDiffDriveKinematics) Kinematics() referenceframe.Frame {
 }
 
 func (fk *fakeDiffDriveKinematics) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	fk.lock.Lock()
-	defer fk.lock.Unlock()
+	fk.lock.RLock()
+	defer fk.lock.RUnlock()
 	return fk.inputs, nil
 }
 
@@ -107,9 +107,9 @@ func (fk *fakeDiffDriveKinematics) ErrorState(
 }
 
 func (fk *fakeDiffDriveKinematics) CurrentPosition(ctx context.Context) (*referenceframe.PoseInFrame, error) {
-	fk.lock.Lock()
+	fk.lock.RLock()
 	inputs := fk.inputs
-	fk.lock.Unlock()
+	fk.lock.RUnlock()
 	currentPose, err := fk.planningFrame.Transform(inputs)
 	if err != nil {
 		return nil, err
@@ -124,7 +124,8 @@ type fakePTGKinematics struct {
 	options         Options
 	sensorNoise     spatialmath.Pose
 	currentPosition spatialmath.Pose
-	lock            sync.Mutex
+	lock            sync.RWMutex
+	logger          golog.Logger
 }
 
 // WrapWithFakePTGKinematics creates a PTG KinematicBase from the fake Base so that it satisfies the ModelFramer and InputEnabled
@@ -181,6 +182,7 @@ func WrapWithFakePTGKinematics(
 		parentFrame:     parent,
 		currentPosition: currentPosition,
 		sensorNoise:     sensorNoise,
+		logger:          logger,
 	}
 
 	fk.options = options
@@ -201,9 +203,11 @@ func (fk *fakePTGKinematics) GoToInputs(ctx context.Context, inputs []referencef
 		return err
 	}
 
+	fk.logger.Infof("old current position %v", spatialmath.PoseToProtobuf(fk.currentPosition))
 	fk.lock.Lock()
 	fk.currentPosition = spatialmath.Compose(fk.currentPosition, newPose)
 	fk.lock.Unlock()
+	fk.logger.Infof("new current position %v", spatialmath.PoseToProtobuf(fk.currentPosition))
 
 	return nil
 }
@@ -217,8 +221,8 @@ func (fk *fakePTGKinematics) ErrorState(
 }
 
 func (fk *fakePTGKinematics) CurrentPosition(ctx context.Context) (*referenceframe.PoseInFrame, error) {
-	fk.lock.Lock()
+	fk.lock.RLock()
 	currentPosition := fk.currentPosition
-	fk.lock.Unlock()
+	fk.lock.RUnlock()
 	return referenceframe.NewPoseInFrame(fk.parentFrame, spatialmath.Compose(currentPosition, fk.sensorNoise)), nil
 }
