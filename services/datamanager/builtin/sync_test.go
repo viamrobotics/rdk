@@ -383,15 +383,14 @@ func TestArbitraryFileUpload(t *testing.T) {
 			cfg.AdditionalSyncPaths = []string{additionalPathsDir}
 			cfg.CaptureDir = captureDir
 
-			// Ensure that we don't wait to sync files.
-			cfg.FileLastModifiedMillis = -1
-
 			// Start dmsvc.
 			resources := resourcesFromDeps(t, r, deps)
 			err := dmsvc.Reconfigure(context.Background(), resources, resource.Config{
 				ConvertedAttributes: cfg,
 			})
 			test.That(t, err, test.ShouldBeNil)
+			// Ensure that we don't wait to sync files.
+			dmsvc.SetFileLastModifiedMillis(0)
 
 			// Write file to the path.
 			var fileContents []byte

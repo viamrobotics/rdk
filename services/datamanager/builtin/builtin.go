@@ -418,7 +418,7 @@ func (svc *builtIn) Reconfigure(
 	svc.additionalSyncPaths = svcConfig.AdditionalSyncPaths
 
 	fileLastModifiedMillis := svcConfig.FileLastModifiedMillis
-	if fileLastModifiedMillis == 0 {
+	if fileLastModifiedMillis <= 0 {
 		fileLastModifiedMillis = defaultFileLastModifiedMillis
 	}
 
@@ -516,7 +516,7 @@ func (svc *builtIn) sync() {
 	}
 }
 
-//nolint
+// nolint
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
