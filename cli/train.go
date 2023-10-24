@@ -31,6 +31,7 @@ func DataSubmitTrainingJob(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
+	// TODO (DATA-2006): Remove filter support from submit training job request
 	trainingJobID, err := client.dataSubmitTrainingJob(
 		filter, c.String(datasetFlagDatasetID), c.String(trainFlagModelOrgID), c.String(trainFlagModelName), c.String(trainFlagModelVersion), c.String(trainFlagModelType),
 		c.StringSlice(trainFlagModelLabels))
