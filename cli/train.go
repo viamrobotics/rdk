@@ -32,7 +32,7 @@ func DataSubmitTrainingJob(c *cli.Context) error {
 		return err
 	}
 	trainingJobID, err := client.dataSubmitTrainingJob(
-		filter, c.String(trainFlagModelOrgID), c.String(trainFlagModelName), c.String(trainFlagModelVersion), c.String(trainFlagModelType),
+		filter, c.String(datasetFlagDatasetID), c.String(trainFlagModelOrgID), c.String(trainFlagModelName), c.String(trainFlagModelVersion), c.String(trainFlagModelType),
 		c.StringSlice(trainFlagModelLabels))
 	if err != nil {
 		return err
@@ -42,7 +42,7 @@ func DataSubmitTrainingJob(c *cli.Context) error {
 }
 
 // dataSubmitTrainingJob trains on data with the specified filter.
-func (c *viamClient) dataSubmitTrainingJob(filter *datapb.Filter, orgID, modelName, modelVersion, modelType string,
+func (c *viamClient) dataSubmitTrainingJob(filter *datapb.Filter, datasetID, orgID, modelName, modelVersion, modelType string,
 	labels []string,
 ) (string, error) {
 	if err := c.ensureLoggedIn(); err != nil {
@@ -59,7 +59,8 @@ func (c *viamClient) dataSubmitTrainingJob(filter *datapb.Filter, orgID, modelNa
 
 	resp, err := c.mlTrainingClient.SubmitTrainingJob(context.Background(),
 		&mltrainingpb.SubmitTrainingJobRequest{
-			Filter: filter, OrganizationId: orgID, ModelName: modelName, ModelVersion: modelVersion,
+			DatasetId: datasetID,
+			Filter:    filter, OrganizationId: orgID, ModelName: modelName, ModelVersion: modelVersion,
 			ModelType: mltrainingpb.ModelType(modelTypeEnum), Tags: labels,
 		})
 	if err != nil {
