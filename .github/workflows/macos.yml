@@ -29,3 +29,4 @@ jobs:
       with:
         name: viam-server-macos
         path: server
+        retention-days: 5
