@@ -26,8 +26,8 @@ import (
 
 var (
 	model = resource.DefaultModelFamily.WithModel("single-axis")
-	// homingTimout (micro seconds) is calculated using the gantry's rpm, mmPerRevolution, and lengthMm.
-	homingTimeout = 15e6
+	// homingTimout (nanoseconds) is calculated using the gantry's rpm, mmPerRevolution, and lengthMm.
+	homingTimeout = time.Duration(15e9)
 )
 
 // limitErrorMargin is added or subtracted from the location of the limit switch to ensure the switch is not passed.
@@ -460,10 +460,10 @@ func (g *singleAxis) testLimit(ctx context.Context, pin int) (float64, error) {
 		// if the parameters checked are non-zero, calculate a timeout with a safety factor of
 		// 1.1 to complete the gantry's homing sequence to find the limit switches
 		if g.mmPerRevolution != 0 && g.rpm != 0 && g.lengthMm != 0 {
-			homingTimeout = 1 / (g.rpm / 6e7 * g.mmPerRevolution / g.lengthMm) * 1.1
+			homingTimeout = time.Duration((1 / (g.rpm / 60e9 * g.mmPerRevolution / g.lengthMm) * 1.1))
 		}
-		if elapsed > (time.Duration(homingTimeout)) {
-			return 0, errors.New("gantry timed out testing limit")
+		if elapsed > (homingTimeout) {
+			return 0, errors.Errorf("gantry timed out testing limit, timeout = %v", homingTimeout)
 		}
 
 		if !utils.SelectContextOrWait(ctx, time.Millisecond*10) {

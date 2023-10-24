@@ -571,7 +571,7 @@ func TestTestLimitTimeout(t *testing.T) {
 	}
 
 	pos, err := fakegantry.testLimit(ctx, 0)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "gantry timed out testing limit")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "timeout = 2.2s")
 	test.That(t, pos, test.ShouldEqual, 0.0)
 }
 
