@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/fullstorydev/grpcurl"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
@@ -144,12 +143,7 @@ type Module struct {
 }
 
 // NewModule returns the basic module framework/structure.
-func NewModule(ctx context.Context, address string, zlogger logging.ZapCompatibleLogger) (*Module, error) {
-	// This method is part of the public API when using the RDK as a library. For backwards
-	// compatibility we continue to accept a golog.Logger/*zap.SugaredLogger. Upconvert to our
-	// logging type.
-	logger := logging.FromZapCompatible(zlogger)
-
+func NewModule(ctx context.Context, address string, logger logging.Logger) (*Module, error) {
 	// TODO(PRODUCT-343): session support likely means interceptors here
 	opMgr := operation.NewManager(logger)
 	unaries := []grpc.UnaryServerInterceptor{
@@ -174,7 +168,7 @@ func NewModule(ctx context.Context, address string, zlogger logging.ZapCompatibl
 }
 
 // NewModuleFromArgs directly parses the command line argument to get its address.
-func NewModuleFromArgs(ctx context.Context, logger logging.ZapCompatibleLogger) (*Module, error) {
+func NewModuleFromArgs(ctx context.Context, logger logging.Logger) (*Module, error) {
 	if len(os.Args) < 2 {
 		return nil, errors.New("need socket path as command line argument")
 	}
@@ -185,11 +179,11 @@ func NewModuleFromArgs(ctx context.Context, logger logging.ZapCompatibleLogger) 
 // "--log-level=debug" is the third argument in os.Args and at "InfoLevel"
 // otherwise. See config.Module.LogLevel documentation for more info on how
 // to start modules with a "log-level" commandline argument.
-func NewLoggerFromArgs(moduleName string) golog.Logger {
+func NewLoggerFromArgs(moduleName string) logging.Logger {
 	if len(os.Args) >= 3 && os.Args[2] == "--log-level=debug" {
-		return golog.NewDebugLogger(moduleName)
+		return logging.NewDebugLogger(moduleName)
 	}
-	return golog.NewDevelopmentLogger(moduleName)
+	return logging.NewDevelopmentLogger(moduleName)
 }
 
 // Start starts the module service and grpc server.

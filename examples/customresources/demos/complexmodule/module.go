@@ -4,7 +4,6 @@ package main
 import (
 	"context"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/base"
@@ -14,6 +13,7 @@ import (
 	"go.viam.com/rdk/examples/customresources/models/mygizmo"
 	"go.viam.com/rdk/examples/customresources/models/mynavigation"
 	"go.viam.com/rdk/examples/customresources/models/mysum"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/module"
 	"go.viam.com/rdk/services/navigation"
 )
@@ -25,7 +25,7 @@ func main() {
 	utils.ContextualMain(mainWithArgs, module.NewLoggerFromArgs("complexmodule"))
 }
 
-func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err error) {
+func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) (err error) {
 	myMod, err := module.NewModuleFromArgs(ctx, logger)
 	if err != nil {
 		return err
