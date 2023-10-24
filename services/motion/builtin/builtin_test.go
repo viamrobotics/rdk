@@ -597,6 +597,7 @@ func TestMoveOnMapSubsequent(t *testing.T) {
 	test.That(t, success, test.ShouldNotBeNil)
 	endPos, err := kb.CurrentPosition(ctx)
 	test.That(t, err, test.ShouldBeNil)
+	logger.Debug(spatialmath.PoseToProtobuf(endPos.Pose()))
 	test.That(t, spatialmath.PoseAlmostEqualEps(endPos.Pose(), goal1, 1), test.ShouldBeTrue)
 
 	// Now, we try to go to the second goal. Since the `CurrentPosition` of our base is at `goal1`, the pose that motion solves for and
@@ -612,6 +613,7 @@ func TestMoveOnMapSubsequent(t *testing.T) {
 	test.That(t, success, test.ShouldNotBeNil)
 	endPos, err = kb.CurrentPosition(ctx)
 	test.That(t, err, test.ShouldBeNil)
+	logger.Debug(spatialmath.PoseToProtobuf(endPos.Pose()))
 	test.That(t, spatialmath.PoseAlmostEqualEps(endPos.Pose(), goal2, 1), test.ShouldBeTrue)
 
 	// We don't actually surface the internal motion planning goal; we report to the user in terms of what the user provided us.
