@@ -10,7 +10,6 @@ import (
 	"regexp"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
@@ -596,7 +595,6 @@ func TestMoveOnMapSubsequent(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, success, test.ShouldNotBeNil)
-	time.Sleep(1 * time.Second) // Fake base has a delay built in before it reaches its goal; wait for it to get there.
 	endPos, err := kb.CurrentPosition(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	logger.Debug(spatialmath.PoseToProtobuf(endPos.Pose()))
@@ -613,7 +611,6 @@ func TestMoveOnMapSubsequent(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, success, test.ShouldNotBeNil)
-	time.Sleep(1 * time.Second) // Fake base has a delay built in before it reaches its goal; wait for it to get there.
 	endPos, err = kb.CurrentPosition(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	logger.Debug(spatialmath.PoseToProtobuf(endPos.Pose()))

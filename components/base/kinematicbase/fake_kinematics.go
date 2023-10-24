@@ -205,8 +205,6 @@ func (fk *fakePTGKinematics) GoToInputs(ctx context.Context, inputs []referencef
 	fk.currentPosition = spatialmath.Compose(fk.currentPosition, newPose)
 	fk.lock.Unlock()
 
-	// Sleep for a short amount to time to simulate a base taking some amount of time to reach the inputs
-	time.Sleep(15 * time.Millisecond)
 	return nil
 }
 
