@@ -460,7 +460,6 @@ func TestPtgCheckPlan(t *testing.T) {
 	}
 
 	ov := spatialmath.NewOrientationVector().Degrees()
-	ov.OZ = 1.0000000000000004
 	ov.Theta = -101.42430306111874
 
 	testCases := []testCase{
