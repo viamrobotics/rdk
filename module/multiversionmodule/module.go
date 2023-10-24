@@ -88,12 +88,6 @@ func newComponent(_ context.Context,
 	if err != nil {
 		return nil, errors.Wrap(err, "create component failed due to config parsing")
 	}
-	if VERSION == "v3" {
-		// Version 3 should have a motor in the deps
-		if _, err := motor.FromDependencies(deps, "motor1"); err != nil {
-			return nil, errors.Wrapf(err, "failed to resolve motor %q for version 3", "motor1")
-		}
-	}
 	return &component{
 		Named:  conf.ResourceName().AsNamed(),
 		cfg:    newConf,
@@ -103,11 +97,17 @@ func newComponent(_ context.Context,
 
 // Reconfigure swaps the config to the new conf.
 func (c *component) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
-	cfg, err := resource.NativeConfig[*config](conf)
+	newConf, err := resource.NativeConfig[*config](conf)
 	if err != nil {
 		return err
 	}
-	c.cfg = cfg
+	if VERSION == "v3" {
+		// Version 3 should have a motor in the deps
+		if _, err := motor.FromDependencies(deps, "motor1"); err != nil {
+			return errors.Wrapf(err, "failed to resolve motor %q for version 3", "motor1")
+		}
+	}
+	c.cfg = newConf
 	return nil
 }
 

@@ -873,6 +873,7 @@ func (manager *resourceManager) updateResources(
 	defer manager.configLock.Unlock()
 	var allErrs error
 
+	// modules are not added into the resource tree as they belong to the module manager
 	for _, mod := range conf.Added.Modules {
 		// this is done in config validation but partial start rules require us to check again
 		if err := mod.Validate(""); err != nil {
@@ -903,7 +904,6 @@ func (manager *resourceManager) updateResources(
 		}
 	}
 
-	// modules are not added into the resource tree as they belong to the module manager
 	if manager.moduleManager != nil {
 		if err := manager.moduleManager.ResolveImplicitDependenciesInConfig(ctx, conf); err != nil {
 			manager.logger.Errorw("error adding implicit dependencies", "error", err)
