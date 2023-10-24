@@ -25,10 +25,10 @@
     "dist"
   ],
   "module": "./dist/rc.js",
-  "types": "./dist/src/main-lib.d.ts",
+  "types": "./dist/main-lib.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/src/main-lib.d.ts",
+      "types": "./dist/main-lib.d.ts",
       "import": "./dist/rc.js"
     }
   },
