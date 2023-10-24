@@ -1,9 +1,11 @@
+
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import Hashes from 'jshashes';
 import { defineConfig } from 'vite';
 import path from 'node:path';
 import url from 'node:url';
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
 const MD5 = new Hashes.MD5();
 
 export const plugins = [
@@ -28,11 +30,14 @@ export default defineConfig({
       output: {
         entryFileNames: '[name].js',
         chunkFileNames: (chunk) => {
+          // @ts-expect-error Fix this
+          const { modules } = (chunk as { modules: Record<string, { code: string }> })
           // eslint-disable-next-line unicorn/no-array-reduce
-          const code = Object.keys(chunk.modules).reduce(
-            (prev, key) => `${prev}${chunk.modules[key].code}`,
+          const code = Object.keys(modules).reduce(
+            (prev, key) => `${prev}${modules[key]!.code}`,
             ''
           );
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
           const hash = MD5.hex(code);
 
           return `assets/chunks.${hash}.js`;
