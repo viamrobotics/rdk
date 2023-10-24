@@ -52,7 +52,7 @@ func init() {
 				ctx context.Context,
 				_ resource.Dependencies,
 				conf resource.Config,
-				logger logging.ZapCompatibleLogger,
+				logger logging.Logger,
 			) (board.Board, error) {
 				return newPigpio(ctx, conf.ResourceName(), conf, logger)
 			},

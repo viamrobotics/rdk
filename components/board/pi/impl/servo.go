@@ -35,7 +35,7 @@ func init() {
 		picommon.Model,
 		resource.Registration[servo.Servo, *picommon.ServoConfig]{
 			Constructor: func(
-				ctx context.Context, _ resource.Dependencies, conf resource.Config, logger logging.ZapCompatibleLogger,
+				ctx context.Context, _ resource.Dependencies, conf resource.Config, logger logging.Logger,
 			) (servo.Servo, error) {
 				newConf, err := resource.NativeConfig[*picommon.ServoConfig](conf)
 				if err != nil {
