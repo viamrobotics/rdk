@@ -65,7 +65,8 @@ $: filteredInputControllerList = $components.filter((component) => {
 const getStatus = (statusMap: Record<string, unknown>, resource: commonApi.ResourceName.AsObject) => {
   const key = resourceNameToString(resource);
   // todo(mp) Find a way to fix this type error
-  return key ? statusMap[key] : undefined;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return
+  return key ? statusMap[key] as any : undefined;
 };
 
 </script>

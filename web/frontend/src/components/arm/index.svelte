@@ -25,7 +25,7 @@ export let name: string;
 export let status: {
   is_moving: boolean
   end_position: Record<string, number>
-  joint_positions: { values: (number | undefined)[] }
+  joint_positions: { values: number[] }
 } | undefined;
 
 const { robotClient } = useRobotClient();
@@ -57,7 +57,7 @@ $: posPieces = fieldSetters.map((setter) => {
 $: jointPieces = status?.joint_positions.values.map((value, index) => {
   return {
     joint: index,
-    jointValue: value ?? 0,
+    jointValue: value,
   };
 }) ?? [{ joint: 0, jointValue: 100 }];
 

@@ -222,9 +222,9 @@
     updateSLAM3dRefreshFrequency();
   };
 
-  const handle2dRenderClick = (event: CustomEvent<THREE.Vector2 | undefined>) => {
+  const handle2dRenderClick = (event: CustomEvent<THREE.Vector3>) => {
     if (!overrides?.isCloudSlam) {
-      destination = event.detail;
+      destination = new THREE.Vector2(event.detail.x, event.detail.y);
     }
   };
 
