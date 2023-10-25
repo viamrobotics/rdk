@@ -75,10 +75,8 @@ func newSelectiveSyncer(ctx context.Context, deps resource.Dependencies, conf re
 		return nil, err
 	}
 	v.wg.Add(1)
-	utils.PanicCapturingGo(func() {
-		defer v.wg.Done()
-		v.startBackgroundProcess()
-	})
+	defer v.wg.Done()
+	v.startBackgroundProcess()
 	return v, nil
 }
 
