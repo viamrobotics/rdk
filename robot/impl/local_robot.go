@@ -665,6 +665,8 @@ func (r *localRobot) newResource(
 	}
 
 	resLogger := r.logger.Sublogger(conf.ResourceName().String())
+	resLogger.SetLevel(conf.LogConfiguration.Level)
+	gNode.SetLogger(resLogger)
 	if resInfo.Constructor != nil {
 		return resInfo.Constructor(ctx, deps, conf, resLogger)
 	}

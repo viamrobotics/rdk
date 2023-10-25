@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"go.viam.com/rdk/logging"
 )
 
 // A GraphNode contains the current state of a resource.
@@ -38,6 +39,8 @@ type GraphNode struct {
 	markedForRemoval          bool
 	unresolvedDependencies    []string
 	needsDependencyResolution bool
+
+	logger logging.Logger
 }
 
 var (
@@ -109,6 +112,16 @@ func (w *GraphNode) Resource() (Resource, error) {
 		return nil, errNotInitalized
 	}
 	return w.current, nil
+}
+
+func (w *GraphNode) SetLogger(logger logging.Logger) {
+	w.logger = logger
+}
+
+func (w *GraphNode) SetLogLevel(level logging.Level) {
+	if w.logger != nil {
+		w.logger.SetLevel(level)
+	}
 }
 
 // UnsafeResource always returns the underlying resource, if
