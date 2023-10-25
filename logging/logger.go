@@ -1,13 +1,8 @@
 package logging
 
 import (
-	"sync"
-	"testing"
-
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"go.uber.org/zap/zaptest"
-	"go.uber.org/zap/zaptest/observer"
 )
 
 // Logger interface for logging to.
@@ -96,77 +91,3 @@ func (logger *zLogger) AsZap() *zap.SugaredLogger {
 }
 
 var _ Logger = &zLogger{}
-
-var (
-	globalMu     sync.RWMutex
-	globalLogger = NewDebugLogger("startup")
-)
-
-// ReplaceGloabl replaces the global loggers and returns a function to reset
-// the loggers to the previous state.
-func ReplaceGlobal(logger Logger) {
-	globalMu.Lock()
-	globalLogger = logger
-	globalMu.Unlock()
-}
-
-// Global returns the global logger.
-func Global() Logger {
-	return globalLogger
-}
-
-// NewDebugLoggerConfig returns a new default development logger config.
-func NewLoggerConfig() zap.Config {
-	// from https://github.com/uber-go/zap/blob/2314926ec34c23ee21f3dd4399438469668f8097/config.go#L135
-	// but disable stacktraces, use same keys as prod, and color levels.
-	return zap.Config{
-		Level:    zap.NewAtomicLevelAt(zap.InfoLevel),
-		Encoding: "console",
-		EncoderConfig: zapcore.EncoderConfig{
-			TimeKey:        "ts",
-			LevelKey:       "level",
-			NameKey:        "logger",
-			CallerKey:      "caller",
-			FunctionKey:    zapcore.OmitKey,
-			MessageKey:     "msg",
-			StacktraceKey:  "stacktrace",
-			LineEnding:     zapcore.DefaultLineEnding,
-			EncodeLevel:    zapcore.CapitalColorLevelEncoder,
-			EncodeTime:     zapcore.ISO8601TimeEncoder,
-			EncodeDuration: zapcore.StringDurationEncoder,
-			EncodeCaller:   zapcore.ShortCallerEncoder,
-		},
-		DisableStacktrace: true,
-		OutputPaths:       []string{"stdout"},
-		ErrorOutputPaths:  []string{"stderr"},
-	}
-}
-
-// NewLogger returns a new logger using the default production configuration.
-func NewLogger(name string) Logger {
-	config := NewLoggerConfig()
-	return &zLogger{zap.Must(config.Build()).Sugar().Named(name)}
-}
-
-// NewDebugLogger returns a new logger using the default debug configuration.
-func NewDebugLogger(name string) Logger {
-	config := NewLoggerConfig()
-	config.Level = zap.NewAtomicLevelAt(zap.DebugLevel)
-	return &zLogger{zap.Must(config.Build()).Sugar().Named(name)}
-}
-
-// NewTestLogger directs logs to the go test logger.
-func NewTestLogger(tb testing.TB) Logger {
-	logger, _ := NewObservedTestLogger(tb)
-	return logger
-}
-
-// NewObservedTestLogger is like NewTestLogger but also saves logs to an in memory observer.
-func NewObservedTestLogger(tb testing.TB) (Logger, *observer.ObservedLogs) {
-	logger := zaptest.NewLogger(tb, zaptest.WrapOptions(zap.AddCaller()))
-	observerCore, observedLogs := observer.New(zap.LevelEnablerFunc(zapcore.DebugLevel.Enabled))
-	logger = logger.WithOptions(zap.WrapCore(func(c zapcore.Core) zapcore.Core {
-		return zapcore.NewTee(c, observerCore)
-	}))
-	return &zLogger{logger.Sugar()}, observedLogs
-}

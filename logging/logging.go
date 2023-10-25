@@ -2,76 +2,85 @@
 package logging
 
 import (
-	"encoding/json"
-	"fmt"
-	"strings"
+	"sync"
+	"testing"
+
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest"
+	"go.uber.org/zap/zaptest/observer"
 )
 
-// Level is an enum of log levels. Its value can be `DEBUG`, `INFO`, `WARN` or `ERROR`.
-type Level int
-
-const (
-	// This numbering scheme serves two purposes:
-	//   - A statement is logged if its log level matches or exceeds the configured level. I.e:
-	//     Statement(WARN) >= LogConfig(INFO) would be logged because "1" > "0".
-	//   - INFO is the default level. So we start counting at DEBUG=-1 such that INFO is given Go's
-	//     zero-value.
-
-	// DEBUG log level.
-	DEBUG Level = iota - 1
-	// INFO log level.
-	INFO
-	// WARN log level.
-	WARN
-	// ERROR log level.
-	ERROR
+var (
+	globalMu     sync.RWMutex
+	globalLogger = NewDebugLogger("startup")
 )
 
-func (level Level) String() string {
-	switch level {
-	case DEBUG:
-		return "Debug"
-	case INFO:
-		return "Info"
-	case WARN:
-		return "Warn"
-	case ERROR:
-		return "Error"
-	}
-
-	panic(fmt.Sprintf("unreachable: %d", level))
+// ReplaceGloabl replaces the global loggers and returns a function to reset
+// the loggers to the previous state.
+func ReplaceGlobal(logger Logger) {
+	globalMu.Lock()
+	globalLogger = logger
+	globalMu.Unlock()
 }
 
-// LevelFromString parses an input string to a log level. The string must be one of `debug`, `info`,
-// `warn` or `error`. The parsing is case-insensitive. An error is returned if the input does not
-// match one of labeled cases.
-func LevelFromString(inp string) (Level, error) {
-	switch strings.ToLower(inp) {
-	case "debug":
-		return DEBUG, nil
-	case "info":
-		return INFO, nil
-	case "warn":
-		return WARN, nil
-	case "error":
-		return ERROR, nil
-	}
-
-	return DEBUG, fmt.Errorf("unknown log level: %q", inp)
+// Global returns the global logger.
+func Global() Logger {
+	return globalLogger
 }
 
-// MarshalJSON converts a log level to a json string.
-func (level Level) MarshalJSON() ([]byte, error) {
-	return json.Marshal(level.String())
+// NewDebugLoggerConfig returns a new default development logger config.
+func NewLoggerConfig() zap.Config {
+	// from https://github.com/uber-go/zap/blob/2314926ec34c23ee21f3dd4399438469668f8097/config.go#L135
+	// but disable stacktraces, use same keys as prod, and color levels.
+	return zap.Config{
+		Level:    zap.NewAtomicLevelAt(zap.InfoLevel),
+		Encoding: "console",
+		EncoderConfig: zapcore.EncoderConfig{
+			TimeKey:        "ts",
+			LevelKey:       "level",
+			NameKey:        "logger",
+			CallerKey:      "caller",
+			FunctionKey:    zapcore.OmitKey,
+			MessageKey:     "msg",
+			StacktraceKey:  "stacktrace",
+			LineEnding:     zapcore.DefaultLineEnding,
+			EncodeLevel:    zapcore.CapitalColorLevelEncoder,
+			EncodeTime:     zapcore.ISO8601TimeEncoder,
+			EncodeDuration: zapcore.StringDurationEncoder,
+			EncodeCaller:   zapcore.ShortCallerEncoder,
+		},
+		DisableStacktrace: true,
+		OutputPaths:       []string{"stdout"},
+		ErrorOutputPaths:  []string{"stderr"},
+	}
 }
 
-// UnmarshalJSON converts a json string to a log level.
-func (level *Level) UnmarshalJSON(data []byte) (err error) {
-	var levelStr string
-	if err := json.Unmarshal(data, &levelStr); err != nil {
-		return err
-	}
+// NewLogger returns a new logger using the default production configuration.
+func NewLogger(name string) Logger {
+	config := NewLoggerConfig()
+	return &zLogger{zap.Must(config.Build()).Sugar().Named(name)}
+}
 
-	*level, err = LevelFromString(levelStr)
-	return
+// NewDebugLogger returns a new logger using the default debug configuration.
+func NewDebugLogger(name string) Logger {
+	config := NewLoggerConfig()
+	config.Level = zap.NewAtomicLevelAt(zap.DebugLevel)
+	return &zLogger{zap.Must(config.Build()).Sugar().Named(name)}
+}
+
+// NewTestLogger directs logs to the go test logger.
+func NewTestLogger(tb testing.TB) Logger {
+	logger, _ := NewObservedTestLogger(tb)
+	return logger
+}
+
+// NewObservedTestLogger is like NewTestLogger but also saves logs to an in memory observer.
+func NewObservedTestLogger(tb testing.TB) (Logger, *observer.ObservedLogs) {
+	logger := zaptest.NewLogger(tb, zaptest.WrapOptions(zap.AddCaller()))
+	observerCore, observedLogs := observer.New(zap.LevelEnablerFunc(zapcore.DebugLevel.Enabled))
+	logger = logger.WithOptions(zap.WrapCore(func(c zapcore.Core) zapcore.Core {
+		return zapcore.NewTee(c, observerCore)
+	}))
+	return &zLogger{logger.Sugar()}, observedLogs
 }
