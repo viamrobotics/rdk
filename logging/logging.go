@@ -16,8 +16,7 @@ var (
 	globalLogger = NewDebugLogger("startup")
 )
 
-// ReplaceGloabl replaces the global loggers and returns a function to reset
-// the loggers to the previous state.
+// ReplaceGlobal replaces the global loggers.
 func ReplaceGlobal(logger Logger) {
 	globalMu.Lock()
 	globalLogger = logger
@@ -29,7 +28,7 @@ func Global() Logger {
 	return globalLogger
 }
 
-// NewDebugLoggerConfig returns a new default development logger config.
+// NewLoggerConfig returns a new default logger config.
 func NewLoggerConfig() zap.Config {
 	// from https://github.com/uber-go/zap/blob/2314926ec34c23ee21f3dd4399438469668f8097/config.go#L135
 	// but disable stacktraces, use same keys as prod, and color levels.
