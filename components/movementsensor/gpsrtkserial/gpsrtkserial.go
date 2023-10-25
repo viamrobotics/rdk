@@ -126,12 +126,12 @@ type rtkSerial struct {
 
 	activeBackgroundWorkers sync.WaitGroup
 
-	mu            sync.Mutex
-	ntripMu       sync.Mutex
-	ntripconfigMu sync.Mutex
-	ntripClient   *rtk.NtripInfo
-	ntripStatus   bool
-	isClosed      bool
+	mu               sync.Mutex
+	ntripMu          sync.Mutex
+	ntripconfigMu    sync.Mutex
+	ntripClient      *rtk.NtripInfo
+	connectedToNtrip bool
+	isClosed         bool
 
 	err                movementsensor.LastError
 	lastposition       movementsensor.LastPosition
@@ -421,12 +421,12 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 	scanner := rtcm3.NewScanner(r)
 
 	g.ntripMu.Lock()
-	g.ntripStatus = true
+	g.connectedToNtrip = true
 	g.ntripMu.Unlock()
 
-	// It's okay to skip the mutex on this next line: g.ntripStatus can only be mutated by this
+	// It's okay to skip the mutex on this next line: g.connectedToNtrip can only be mutated by this
 	// goroutine itself
-	for g.ntripStatus && !g.isClosed {
+	for g.connectedToNtrip && !g.isClosed {
 		select {
 		case <-g.cancelCtx.Done():
 			return
@@ -442,7 +442,7 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 		msg, err := scanner.NextMessage()
 		if err != nil {
 			g.ntripMu.Lock()
-			g.ntripStatus = false
+			g.connectedToNtrip = false
 			g.ntripMu.Unlock()
 
 			if msg == nil {
@@ -460,7 +460,7 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 				r = io.TeeReader(g.ntripClient.Stream, w)
 				scanner = rtcm3.NewScanner(r)
 				g.ntripMu.Lock()
-				g.ntripStatus = true
+				g.connectedToNtrip = true
 				g.ntripMu.Unlock()
 				continue
 			}
@@ -474,7 +474,7 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 func (g *rtkSerial) getNtripConnectionStatus() (bool, error) {
 	g.ntripMu.Lock()
 	defer g.ntripMu.Unlock()
-	return g.ntripStatus, g.err.Get()
+	return g.connectedToNtrip, g.err.Get()
 }
 
 // Position returns the current geographic location of the MOVEMENTSENSOR.
@@ -685,7 +685,7 @@ func (g *rtkSerial) sendGGAMessage() {
 	// Create a buffer to collect NMEA messages
 	messageBuffer := make([]byte, 0, 1024)
 
-	for !g.ntripStatus && !g.isClosed {
+	for !g.connectedToNtrip && !g.isClosed {
 		select {
 		case <-g.cancelCtx.Done():
 			return
