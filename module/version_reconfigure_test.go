@@ -3,7 +3,6 @@ package module_test
 import (
 	"testing"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/encoder"
@@ -11,13 +10,14 @@ import (
 	"go.viam.com/rdk/components/motor"
 	fakemotor "go.viam.com/rdk/components/motor/fake"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/utils"
 )
 
 func TestValidationFailureDuringReconfiguration(t *testing.T) {
-	logger, logs := golog.NewObservedTestLogger(t)
+	logger, logs := logging.NewObservedTestLogger(t)
 
 	cfg := &config.Config{
 		Modules: []config.Module{
@@ -83,7 +83,7 @@ func TestValidationFailureDuringReconfiguration(t *testing.T) {
 }
 
 func TestVersionBumpWithNewImplicitDeps(t *testing.T) {
-	logger, logs := golog.NewObservedTestLogger(t)
+	logger, logs := logging.NewObservedTestLogger(t)
 
 	cfg := &config.Config{
 		Modules: []config.Module{

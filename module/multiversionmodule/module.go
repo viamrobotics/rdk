@@ -5,13 +5,12 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/module"
 	"go.viam.com/rdk/resource"
 )
@@ -32,7 +31,7 @@ type config struct {
 type component struct {
 	resource.Named
 	resource.TriviallyCloseable
-	logger golog.Logger
+	logger logging.Logger
 	cfg    *config
 }
 
@@ -54,10 +53,10 @@ func (cfg *config) Validate(_ string) ([]string, error) {
 }
 
 func main() {
-	utils.ContextualMain(mainWithArgs, golog.NewDevelopmentLogger(fmt.Sprintf("MultiVersionModule-%s", VERSION)))
+	utils.ContextualMain(mainWithArgs, logging.NewDevelopmentLogger(fmt.Sprintf("MultiVersionModule-%s", VERSION)))
 }
 
-func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error {
+func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) error {
 	myMod, err := module.NewModuleFromArgs(ctx, logger)
 	if err != nil {
 		return err
@@ -82,7 +81,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 func newComponent(_ context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
-	logger *zap.SugaredLogger,
+	logger logging.Logger,
 ) (resource.Resource, error) {
 	newConf, err := resource.NativeConfig[*config](conf)
 	if err != nil {
