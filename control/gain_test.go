@@ -5,14 +5,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils"
 )
 
 func TestGainConfig(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	for _, c := range []struct {
 		conf BlockConfig
 		err  string
@@ -65,7 +65,7 @@ func TestGainConfig(t *testing.T) {
 
 func TestGainNext(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	c := BlockConfig{
 		Name: "Gain1",
 		Type: "gain",

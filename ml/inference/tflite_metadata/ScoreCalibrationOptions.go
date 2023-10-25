@@ -8,11 +8,13 @@ import (
 
 type ScoreCalibrationOptionsT struct {
 	ScoreTransformation ScoreTransformationType
-	DefaultScore float32
+	DefaultScore        float32
 }
 
 func (t *ScoreCalibrationOptionsT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
-	if t == nil { return 0 }
+	if t == nil {
+		return 0
+	}
 	ScoreCalibrationOptionsStart(builder)
 	ScoreCalibrationOptionsAddScoreTransformation(builder, t.ScoreTransformation)
 	ScoreCalibrationOptionsAddDefaultScore(builder, t.DefaultScore)
@@ -25,7 +27,9 @@ func (rcv *ScoreCalibrationOptions) UnPackTo(t *ScoreCalibrationOptionsT) {
 }
 
 func (rcv *ScoreCalibrationOptions) UnPack() *ScoreCalibrationOptionsT {
-	if rcv == nil { return nil }
+	if rcv == nil {
+		return nil
+	}
 	t := &ScoreCalibrationOptionsT{}
 	rcv.UnPackTo(t)
 	return t

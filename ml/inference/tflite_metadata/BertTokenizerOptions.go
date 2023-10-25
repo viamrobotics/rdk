@@ -11,7 +11,9 @@ type BertTokenizerOptionsT struct {
 }
 
 func (t *BertTokenizerOptionsT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
-	if t == nil { return 0 }
+	if t == nil {
+		return 0
+	}
 	vocabFileOffset := flatbuffers.UOffsetT(0)
 	if t.VocabFile != nil {
 		vocabFileLength := len(t.VocabFile)
@@ -41,7 +43,9 @@ func (rcv *BertTokenizerOptions) UnPackTo(t *BertTokenizerOptionsT) {
 }
 
 func (rcv *BertTokenizerOptions) UnPack() *BertTokenizerOptionsT {
-	if rcv == nil { return nil }
+	if rcv == nil {
+		return nil
+	}
 	t := &BertTokenizerOptionsT{}
 	rcv.UnPackTo(t)
 	return t

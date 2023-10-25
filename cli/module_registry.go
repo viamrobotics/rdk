@@ -14,7 +14,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/edaniels/golog"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
@@ -23,6 +22,7 @@ import (
 	vutils "go.viam.com/utils"
 
 	modconfig "go.viam.com/rdk/config"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/module/modmanager"
 	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
 	"go.viam.com/rdk/utils"
@@ -685,7 +685,7 @@ func createTarballForUpload(moduleUploadPath string, stdout io.Writer) (string, 
 	return tmpFile.Name(), nil
 }
 
-func readModels(path string, logger golog.Logger) ([]ModuleComponent, error) {
+func readModels(path string, logger logging.Logger) ([]ModuleComponent, error) {
 	parentAddr, err := os.MkdirTemp("", "viam-cli-test-*")
 	if err != nil {
 		return nil, err
@@ -743,7 +743,7 @@ func sameModels(a, b []ModuleComponent) bool {
 
 // UpdateModelsAction figures out the models that a module supports and updates it's metadata file.
 func UpdateModelsAction(c *cli.Context) error {
-	logger := golog.NewDevelopmentLogger("x")
+	logger := logging.NewDevelopmentLogger("x")
 	newModels, err := readModels(c.String("binary"), logger)
 	if err != nil {
 		return err

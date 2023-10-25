@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
@@ -15,6 +14,7 @@ import (
 	"go.viam.com/rdk/components/base/kinematicbase"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/internal"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
@@ -68,7 +68,9 @@ func (c *Config) Validate(path string) ([]string, error) {
 }
 
 // NewBuiltIn returns a new move and grab service for the given robot.
-func NewBuiltIn(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (motion.Service, error) {
+func NewBuiltIn(
+	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
+) (motion.Service, error) {
 	ms := &builtIn{
 		Named:  conf.ResourceName().AsNamed(),
 		logger: logger,
@@ -128,7 +130,7 @@ type builtIn struct {
 	movementSensors map[resource.Name]movementsensor.MovementSensor
 	slamServices    map[resource.Name]slam.Service
 	components      map[resource.Name]resource.Resource
-	logger          golog.Logger
+	logger          logging.Logger
 	lock            sync.Mutex
 }
 

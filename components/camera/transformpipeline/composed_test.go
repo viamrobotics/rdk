@@ -6,11 +6,11 @@ import (
 	"image/color"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"github.com/viamrobotics/gostream"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
@@ -29,7 +29,7 @@ func (*streamTest) Close(ctx context.Context) error { return nil }
 func TestComposed(t *testing.T) {
 	// create pointcloud source and fake robot
 	robot := &inject.Robot{}
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	cloudSource := &inject.Camera{}
 	cloudSource.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		p := pointcloud.New()

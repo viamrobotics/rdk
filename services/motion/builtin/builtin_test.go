@@ -11,7 +11,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
@@ -32,6 +31,7 @@ import (
 	"go.viam.com/rdk/components/movementsensor"
 	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -47,7 +47,7 @@ import (
 func setupMotionServiceFromConfig(t *testing.T, configFilename string) (motion.Service, func()) {
 	t.Helper()
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	cfg, err := config.Read(ctx, configFilename, logger)
 	test.That(t, err, test.ShouldBeNil)
 	myRobot, err := robotimpl.New(ctx, cfg, logger)
@@ -120,7 +120,7 @@ func createFrameSystemService(
 	ctx context.Context,
 	deps resource.Dependencies,
 	fsParts []*referenceframe.FrameSystemPart,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (framesystem.Service, error) {
 	fsSvc, err := framesystem.New(ctx, deps, logger)
 	if err != nil {
@@ -140,7 +140,7 @@ func createFrameSystemService(
 func createMoveOnGlobeEnvironment(ctx context.Context, t *testing.T, origin *geo.Point, noise spatialmath.Pose) (
 	*inject.MovementSensor, framesystem.Service, kinematicbase.KinematicBase, motion.Service,
 ) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	// create fake base
 	baseCfg := resource.Config{
@@ -222,7 +222,7 @@ func createMoveOnMapEnvironment(ctx context.Context, t *testing.T, pcdPath strin
 		API:   base.API,
 		Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R: 120}},
 	}
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	fakeBase, err := baseFake.NewBase(ctx, nil, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	kinematicsOptions := kinematicbase.NewKinematicBaseOptions()
@@ -638,7 +638,7 @@ func TestMoveOnMapSubsequent(t *testing.T) {
 
 func TestMoveOnMapTimeout(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	cfg, err := config.Read(ctx, "../data/real_wheeled_base.json", logger)
 	test.That(t, err, test.ShouldBeNil)
 	myRobot, err := robotimpl.New(ctx, cfg, logger)
@@ -904,7 +904,7 @@ func TestReplanning(t *testing.T) {
 func TestCheckPlan(t *testing.T) {
 	t.Skip() // TODO(RSDK-5404): fix flakiness
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	// orign as gps point
 	originPoint := geo.NewPoint(-70, 40)
@@ -1038,7 +1038,7 @@ func TestCheckPlan(t *testing.T) {
 }
 
 func TestArmGantryPlanCheck(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	fs := referenceframe.NewEmptyFrameSystem("test")
 
 	gantryOffset, err := referenceframe.NewStaticFrame("gantryOffset", spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0}))
@@ -1172,7 +1172,7 @@ func TestGetPose(t *testing.T) {
 
 func TestStoppableMoveFunctions(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	failToReachGoalError := errors.New("failed to reach goal")
 	calledStopFunc := false
 	testIfStoppable := func(t *testing.T, success bool, err error) {

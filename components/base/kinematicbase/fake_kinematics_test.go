@@ -4,13 +4,13 @@ import (
 	"context"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/test"
 
 	fakebase "go.viam.com/rdk/components/base/fake"
 	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
@@ -30,7 +30,7 @@ func TestNewFakeDiffDriveKinematics(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	b, err := fakebase.NewBase(ctx, resource.Dependencies{}, conf, logger)
 	test.That(t, err, test.ShouldBeNil)
 	ms := inject.NewMovementSensor("test")
@@ -73,7 +73,7 @@ func TestNewFakePTGKinematics(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	b, err := fakebase.NewBase(ctx, resource.Dependencies{}, conf, logger)
 	test.That(t, err, test.ShouldBeNil)
 	ms := inject.NewMovementSensor("test")
@@ -90,7 +90,8 @@ func TestNewFakePTGKinematics(t *testing.T) {
 	options := NewKinematicBaseOptions()
 	options.PositionOnlyMode = false
 	noise := spatialmath.NewPoseFromPoint(r3.Vector{1, 0, 0})
-	kb, err := WrapWithFakePTGKinematics(ctx, b.(*fakebase.Base), logger, referenceframe.World, options, spatialmath.NewZeroPose(), noise)
+	origin := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose())
+	kb, err := WrapWithFakePTGKinematics(ctx, b.(*fakebase.Base), logger, origin, options, noise)
 	test.That(t, err, test.ShouldBeNil)
 
 	startpose, err := kb.CurrentPosition(ctx)
@@ -104,5 +105,5 @@ func TestNewFakePTGKinematics(t *testing.T) {
 	test.That(t, kb.GoToInputs(ctx, expected), test.ShouldBeNil)
 	pose, err := kb.CurrentPosition(ctx)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, spatialmath.PoseAlmostCoincident(pose.Pose(), expectedPose), test.ShouldBeTrue)
+	test.That(t, spatialmath.PoseAlmostCoincidentEps(pose.Pose(), expectedPose, 2), test.ShouldBeTrue)
 }

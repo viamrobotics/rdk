@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
 
@@ -17,6 +16,7 @@ import (
 	"go.viam.com/rdk/components/encoder/single"
 	"go.viam.com/rdk/components/motor"
 	fakemotor "go.viam.com/rdk/components/motor/fake"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 )
@@ -79,7 +79,7 @@ func MakeIncrementalBoard(t *testing.T) *fakeboard.Board {
 }
 
 func TestMotorEncoder1(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	cfg := Config{TicksPerRotation: 100, MaxRPM: 100}
 	fakeMotor := &fakemotor.Motor{
@@ -101,7 +101,7 @@ func TestMotorEncoder1(t *testing.T) {
 	}
 
 	rawcfg := resource.Config{Name: "enc1", ConvertedAttributes: &ic}
-	e, err := single.NewSingleEncoder(ctx, deps, rawcfg, golog.NewTestLogger(t))
+	e, err := single.NewSingleEncoder(ctx, deps, rawcfg, logging.NewTestLogger(t))
 	test.That(t, err, test.ShouldBeNil)
 	enc := e.(*single.Encoder)
 	defer enc.Close(context.Background())
@@ -334,7 +334,7 @@ func TestMotorEncoder1(t *testing.T) {
 }
 
 func TestMotorEncoderIncremental(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	type testHarness struct {
 		Encoder   *incremental.Encoder
@@ -365,7 +365,7 @@ func TestMotorEncoderIncremental(t *testing.T) {
 		}
 
 		rawcfg := resource.Config{Name: "enc1", ConvertedAttributes: &ic}
-		e, err := incremental.NewIncrementalEncoder(ctx, deps, rawcfg, golog.NewTestLogger(t))
+		e, err := incremental.NewIncrementalEncoder(ctx, deps, rawcfg, logging.NewTestLogger(t))
 		test.That(t, err, test.ShouldBeNil)
 		enc := e.(*incremental.Encoder)
 
@@ -642,7 +642,7 @@ func TestMotorEncoderIncremental(t *testing.T) {
 }
 
 func TestWrapMotorWithEncoder(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	t.Run("wrap motor no encoder", func(t *testing.T) {
 		fakeMotor := &fakemotor.Motor{
@@ -679,7 +679,7 @@ func TestWrapMotorWithEncoder(t *testing.T) {
 		}
 
 		rawcfg := resource.Config{Name: "enc1", ConvertedAttributes: &ic}
-		e, err := single.NewSingleEncoder(ctx, deps, rawcfg, golog.NewTestLogger(t))
+		e, err := single.NewSingleEncoder(ctx, deps, rawcfg, logging.NewTestLogger(t))
 		test.That(t, err, test.ShouldBeNil)
 		enc := e.(*single.Encoder)
 		defer enc.Close(context.Background())
@@ -726,7 +726,7 @@ func TestWrapMotorWithEncoder(t *testing.T) {
 
 		rawcfg := resource.Config{Name: "enc1", ConvertedAttributes: &ic}
 
-		e, err := incremental.NewIncrementalEncoder(ctx, deps, rawcfg, golog.NewTestLogger(t))
+		e, err := incremental.NewIncrementalEncoder(ctx, deps, rawcfg, logging.NewTestLogger(t))
 		test.That(t, err, test.ShouldBeNil)
 
 		m, err := WrapMotorWithEncoder(
@@ -749,7 +749,7 @@ func TestWrapMotorWithEncoder(t *testing.T) {
 }
 
 func TestDirFlipMotor(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	cfg := Config{TicksPerRotation: 100, MaxRPM: 100, DirectionFlip: true}
 	dirflipFakeMotor := &fakemotor.Motor{
 		MaxRPM:           100,
@@ -771,7 +771,7 @@ func TestDirFlipMotor(t *testing.T) {
 	}
 
 	rawcfg := resource.Config{Name: "enc1", ConvertedAttributes: &ic}
-	e, err := single.NewSingleEncoder(ctx, deps, rawcfg, golog.NewTestLogger(t))
+	e, err := single.NewSingleEncoder(ctx, deps, rawcfg, logging.NewTestLogger(t))
 	test.That(t, err, test.ShouldBeNil)
 	enc := e.(*single.Encoder)
 	defer enc.Close(context.Background())

@@ -7,11 +7,11 @@ import (
 	"image/color"
 	"math"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
@@ -34,7 +34,7 @@ func init() {
 				ctx context.Context,
 				_ resource.Dependencies,
 				cfg resource.Config,
-				logger golog.Logger,
+				logger logging.Logger,
 			) (camera.Camera, error) {
 				return NewCamera(ctx, cfg, logger)
 			},
@@ -45,7 +45,7 @@ func init() {
 func NewCamera(
 	ctx context.Context,
 	conf resource.Config,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (camera.Camera, error) {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
@@ -169,7 +169,7 @@ type Camera struct {
 	Height          int
 	cacheImage      *image.RGBA
 	cachePointCloud pointcloud.PointCloud
-	logger          golog.Logger
+	logger          logging.Logger
 }
 
 // Read always returns the same image of a yellow to blue gradient.

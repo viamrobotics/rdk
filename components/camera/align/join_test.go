@@ -6,13 +6,13 @@ import (
 	"os"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/camera/videosource"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
@@ -22,7 +22,7 @@ import (
 )
 
 func TestJoinWithImages(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	cam := inject.NewCamera("cam")
 	params := &transform.PinholeCameraIntrinsics{ // D435 intrinsics for 424x240
 		Width:  424,
@@ -66,7 +66,7 @@ func TestJoinWithImages(t *testing.T) {
 }
 
 func TestJoin(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	conf, err := config.Read(context.Background(), utils.ResolveFile("components/camera/align/data/join_cam.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
 

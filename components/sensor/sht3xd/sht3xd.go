@@ -11,13 +11,13 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/edaniels/golog"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/board/genericlinux"
 	"go.viam.com/rdk/components/sensor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
@@ -56,7 +56,7 @@ func init() {
 				ctx context.Context,
 				deps resource.Dependencies,
 				conf resource.Config,
-				logger golog.Logger,
+				logger logging.Logger,
 			) (sensor.Sensor, error) {
 				newConf, err := resource.NativeConfig[*Config](conf)
 				if err != nil {
@@ -72,7 +72,7 @@ func newSensor(
 	_ resource.Dependencies,
 	name resource.Name,
 	conf *Config,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (sensor.Sensor, error) {
 	i2cbus, err := genericlinux.NewI2cBus(conf.I2cBus)
 	if err != nil {
@@ -105,7 +105,7 @@ type sht3xd struct {
 	resource.Named
 	resource.AlwaysRebuild
 	resource.TriviallyCloseable
-	logger golog.Logger
+	logger logging.Logger
 
 	bus  board.I2C
 	addr byte

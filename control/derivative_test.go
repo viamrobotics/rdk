@@ -6,14 +6,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils"
 )
 
 func TestDerivativeConfig(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	for _, c := range []struct {
 		conf BlockConfig
 		err  string
@@ -79,7 +79,7 @@ func TestDerivativeConfig(t *testing.T) {
 func TestDerivativeNext(t *testing.T) {
 	const iter int64 = 3000
 	const tenMs = 10 * int64(time.Millisecond)
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 	cfg := BlockConfig{
 		Name: "Derive1",

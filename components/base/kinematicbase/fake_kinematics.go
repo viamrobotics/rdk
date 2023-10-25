@@ -8,9 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
-
 	"go.viam.com/rdk/components/base/fake"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/motion"
@@ -119,13 +118,12 @@ func (fk *fakeDiffDriveKinematics) CurrentPosition(ctx context.Context) (*refere
 
 type fakePTGKinematics struct {
 	*fake.Base
-	parentFrame     string
 	frame           referenceframe.Frame
 	options         Options
 	sensorNoise     spatialmath.Pose
-	currentPosition spatialmath.Pose
+	origin          *referenceframe.PoseInFrame
 	lock            sync.RWMutex
-	logger          golog.Logger
+	logger          logging.Logger
 }
 
 // WrapWithFakePTGKinematics creates a PTG KinematicBase from the fake Base so that it satisfies the ModelFramer and InputEnabled
@@ -133,10 +131,10 @@ type fakePTGKinematics struct {
 func WrapWithFakePTGKinematics(
 	ctx context.Context,
 	b *fake.Base,
-	logger golog.Logger,
-	parent string,
+	logger logging.Logger,
+	origin *referenceframe.PoseInFrame,
 	options Options,
-	currentPosition, sensorNoise spatialmath.Pose,
+	sensorNoise spatialmath.Pose,
 ) (KinematicBase, error) {
 	properties, err := b.Properties(ctx, nil)
 	if err != nil {
@@ -179,8 +177,7 @@ func WrapWithFakePTGKinematics(
 	fk := &fakePTGKinematics{
 		Base:            b,
 		frame:           frame,
-		parentFrame:     parent,
-		currentPosition: currentPosition,
+		origin: origin,
 		sensorNoise:     sensorNoise,
 		logger:          logger,
 	}
@@ -204,9 +201,9 @@ func (fk *fakePTGKinematics) GoToInputs(ctx context.Context, inputs []referencef
 	}
 
 	fk.lock.Lock()
-	fk.currentPosition = spatialmath.Compose(fk.currentPosition, newPose)
+	fk.origin = fk.origin.Transform(referenceframe.NewPoseInFrame("", newPose)).(*referenceframe.PoseInFrame)
 	fk.lock.Unlock()
-
+	time.Sleep(50 * time.Millisecond)
 	return nil
 }
 
@@ -220,7 +217,7 @@ func (fk *fakePTGKinematics) ErrorState(
 
 func (fk *fakePTGKinematics) CurrentPosition(ctx context.Context) (*referenceframe.PoseInFrame, error) {
 	fk.lock.RLock()
-	currentPosition := fk.currentPosition
+	origin := fk.origin
 	fk.lock.RUnlock()
-	return referenceframe.NewPoseInFrame(fk.parentFrame, spatialmath.Compose(currentPosition, fk.sensorNoise)), nil
+	return origin.Transform(referenceframe.NewPoseInFrame("", fk.sensorNoise)).(*referenceframe.PoseInFrame), nil
 }

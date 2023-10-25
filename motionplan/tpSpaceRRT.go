@@ -10,11 +10,11 @@ import (
 	"math/rand"
 	"sync"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
@@ -115,7 +115,7 @@ type tpSpaceRRTMotionPlanner struct {
 func newTPSpaceMotionPlanner(
 	frame referenceframe.Frame,
 	seed *rand.Rand,
-	logger golog.Logger,
+	logger logging.Logger,
 	opt *plannerOptions,
 ) (motionPlanner, error) {
 	if opt == nil {

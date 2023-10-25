@@ -7,12 +7,14 @@ import (
 )
 
 type TensorGroupT struct {
-	Name string
+	Name        string
 	TensorNames []string
 }
 
 func (t *TensorGroupT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
-	if t == nil { return 0 }
+	if t == nil {
+		return 0
+	}
 	nameOffset := builder.CreateString(t.Name)
 	tensorNamesOffset := flatbuffers.UOffsetT(0)
 	if t.TensorNames != nil {
@@ -43,7 +45,9 @@ func (rcv *TensorGroup) UnPackTo(t *TensorGroupT) {
 }
 
 func (rcv *TensorGroup) UnPack() *TensorGroupT {
-	if rcv == nil { return nil }
+	if rcv == nil {
+		return nil
+	}
 	t := &TensorGroupT{}
 	rcv.UnPackTo(t)
 	return t

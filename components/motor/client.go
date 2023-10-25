@@ -4,11 +4,11 @@ package motor
 import (
 	"context"
 
-	"github.com/edaniels/golog"
 	pb "go.viam.com/api/component/motor/v1"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/logging"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 )
@@ -20,7 +20,7 @@ type client struct {
 	resource.TriviallyCloseable
 	name   string
 	client pb.MotorServiceClient
-	logger golog.Logger
+	logger logging.Logger
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
@@ -29,7 +29,7 @@ func NewClientFromConn(
 	conn rpc.ClientConn,
 	remoteName string,
 	name resource.Name,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (Motor, error) {
 	c := pb.NewMotorServiceClient(conn)
 	return &client{

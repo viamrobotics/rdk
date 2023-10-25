@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
@@ -23,6 +22,7 @@ import (
 
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/internal/cloud"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils/contextutils"
@@ -159,7 +159,7 @@ type cacheEntry struct {
 // replayMovementSensor is a movement sensor model that plays back pre-captured movement sensor data.
 type replayMovementSensor struct {
 	resource.Named
-	logger golog.Logger
+	logger logging.Logger
 
 	APIKey       string
 	APIKeyID     string
@@ -179,7 +179,7 @@ type replayMovementSensor struct {
 }
 
 // newReplayMovementSensor creates a new replay movement sensor based on the inputted config and dependencies.
-func newReplayMovementSensor(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (
+func newReplayMovementSensor(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger) (
 	movementsensor.MovementSensor, error,
 ) {
 	replay := &replayMovementSensor{

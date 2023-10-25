@@ -7,11 +7,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/input"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
@@ -22,7 +22,9 @@ func init() {
 		input.API,
 		model,
 		resource.Registration[input.Controller, *Config]{
-			Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (input.Controller, error) {
+			Constructor: func(
+				ctx context.Context, _ resource.Dependencies, conf resource.Config, logger logging.Logger,
+			) (input.Controller, error) {
 				return NewInputController(ctx, conf, logger)
 			},
 		},
@@ -49,7 +51,7 @@ type callback struct {
 }
 
 // NewInputController returns a fake input.Controller.
-func NewInputController(ctx context.Context, conf resource.Config, logger golog.Logger) (input.Controller, error) {
+func NewInputController(ctx context.Context, conf resource.Config, logger logging.Logger) (input.Controller, error) {
 	closeCtx, cancelFunc := context.WithCancel(context.Background())
 
 	c := &InputController{
@@ -86,7 +88,7 @@ type InputController struct {
 	eventValue    *float64
 	callbackDelay *time.Duration
 	callbacks     []callback
-	logger        golog.Logger
+	logger        logging.Logger
 }
 
 // Reconfigure updates the config of the controller.

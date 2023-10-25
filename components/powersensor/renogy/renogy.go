@@ -11,10 +11,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/goburrow/modbus"
 
 	"go.viam.com/rdk/components/powersensor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
@@ -71,7 +71,9 @@ func init() {
 		})
 }
 
-func newRenogy(_ context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (powersensor.PowerSensor, error) {
+func newRenogy(
+	_ context.Context, _ resource.Dependencies, conf resource.Config, logger logging.Logger,
+) (powersensor.PowerSensor, error) {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return nil, err
@@ -110,7 +112,7 @@ func newRenogy(_ context.Context, _ resource.Dependencies, conf resource.Config,
 type Renogy struct {
 	resource.Named
 	resource.AlwaysRebuild
-	logger   golog.Logger
+	logger   logging.Logger
 	mu       sync.Mutex
 	path     string
 	baud     int
