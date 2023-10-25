@@ -8,6 +8,7 @@ import (
 
 	"github.com/pkg/errors"
 	"go.viam.com/test"
+	goutils "go.viam.com/utils"
 	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/components/board"
@@ -41,6 +42,18 @@ func TestMotorABPWM(t *testing.T) {
 		}, mc.ResourceName(), logger)
 		test.That(t, m, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeError, errors.New("max_power_pct must be between 0.06 and 1.0"))
+
+		m, err = NewMotor(b, Config{
+			Pins: PinConfig{A: "1", PWM: "3"}, MaxPowerPct: 0.07, PWMFreq: 4000,
+		}, mc.ResourceName(), logger)
+		test.That(t, m, test.ShouldBeNil)
+		test.That(t, err, test.ShouldBeError, goutils.NewConfigValidationError("", getPinConfigErrorMessage(aNotB)))
+
+		m, err = NewMotor(b, Config{
+			Pins: PinConfig{B: "1", PWM: "3"}, MaxPowerPct: 0.07, PWMFreq: 4000,
+		}, mc.ResourceName(), logger)
+		test.That(t, m, test.ShouldBeNil)
+		test.That(t, err, test.ShouldBeError, goutils.NewConfigValidationError("", getPinConfigErrorMessage(bNotA)))
 	})
 
 	t.Run("motor (A/B/PWM) Off testing", func(t *testing.T) {
@@ -158,6 +171,11 @@ func TestMotorDirPWM(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, m.GoFor(ctx, 50, 10, nil), test.ShouldBeError, errors.New("not supported, define max_rpm attribute != 0"))
 
+		m, err = NewMotor(b, Config{Pins: PinConfig{Direction: "1", EnablePinLow: "2"}, PWMFreq: 4000},
+			mc.ResourceName(), logger)
+		test.That(t, m, test.ShouldBeNil)
+		test.That(t, err, test.ShouldBeError, goutils.NewConfigValidationError("", getPinConfigErrorMessage(dirNotPWM)))
+
 		_, err = NewMotor(
 			b,
 			Config{Pins: PinConfig{Direction: "1", EnablePinLow: "2", PWM: "3"}, MaxPowerPct: 100, PWMFreq: 4000},
@@ -233,6 +251,15 @@ func TestMotorAB(t *testing.T) {
 	mc := resource.Config{
 		Name: "fake_motor",
 	}
+
+	t.Run("motor (A/B) initialization errors", func(t *testing.T) {
+		m, err := NewMotor(b, Config{
+			Pins:   PinConfig{A: "1", EnablePinLow: "3"},
+			MaxRPM: maxRPM, PWMFreq: 4000,
+		}, mc.ResourceName(), logger)
+		test.That(t, m, test.ShouldBeNil)
+		test.That(t, err, test.ShouldBeError, goutils.NewConfigValidationError("", getPinConfigErrorMessage(aNotB)))
+	})
 
 	m, err := NewMotor(b, Config{
 		Pins:   PinConfig{A: "1", B: "2", EnablePinLow: "3"},
@@ -435,6 +462,28 @@ func TestGoForMath(t *testing.T) {
 	powerPct, waitDur = goForMath(200, -50, 0)
 	test.That(t, powerPct, test.ShouldEqual, -0.25)
 	test.That(t, waitDur, test.ShouldEqual, 0)
+}
+
+func TestOtherInitializationErrors(t *testing.T) {
+	b := &fakeboard.Board{GPIOPins: map[string]*fakeboard.GPIOPin{}}
+	logger := logging.NewTestLogger(t)
+
+	mc := resource.Config{
+		Name: "abc",
+	}
+	m, err := NewMotor(b, Config{
+		Pins:   PinConfig{EnablePinLow: "2", PWM: "3"},
+		MaxRPM: maxRPM, PWMFreq: 4000,
+	}, mc.ResourceName(), logger)
+	test.That(t, m, test.ShouldBeNil)
+	test.That(t, err, test.ShouldBeError, goutils.NewConfigValidationError("", getPinConfigErrorMessage(onlyPWM)))
+
+	m, err = NewMotor(b, Config{
+		Pins:   PinConfig{EnablePinLow: "2"},
+		MaxRPM: maxRPM, PWMFreq: 4000,
+	}, mc.ResourceName(), logger)
+	test.That(t, m, test.ShouldBeNil)
+	test.That(t, err, test.ShouldBeError, goutils.NewConfigValidationError("", getPinConfigErrorMessage(noPins)))
 }
 
 func mustGetGPIOPinByName(b board.Board, name string) mustGPIOPin {

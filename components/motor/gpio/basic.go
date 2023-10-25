@@ -26,6 +26,11 @@ func NewMotor(b board.Board, mc Config, name resource.Name, logger logging.Logge
 		return nil, errors.New("max_power_pct must be between 0.06 and 1.0")
 	}
 
+	motorType, err := mc.Pins.MotorType("")
+	if err != nil {
+		return nil, err
+	}
+
 	if mc.MinPowerPct < 0 {
 		mc.MinPowerPct = 0
 	} else if mc.MinPowerPct > 1.0 {
@@ -47,36 +52,38 @@ func NewMotor(b board.Board, mc Config, name resource.Name, logger logging.Logge
 		dirFlip:     mc.DirectionFlip,
 		logger:      logger,
 		opMgr:       operation.NewSingleOperationManager(),
+		motorType:   motorType,
 	}
 
-	if mc.Pins.A != "" {
+	switch motorType {
+	case ABPwm, AB:
 		a, err := b.GPIOPinByName(mc.Pins.A)
 		if err != nil {
 			return nil, err
 		}
 		m.A = a
-	}
-	if mc.Pins.B != "" {
+
 		b, err := b.GPIOPinByName(mc.Pins.B)
 		if err != nil {
 			return nil, err
 		}
 		m.B = b
-	}
-	if mc.Pins.Direction != "" {
+	case DirectionPwm:
 		direction, err := b.GPIOPinByName(mc.Pins.Direction)
 		if err != nil {
 			return nil, err
 		}
 		m.Direction = direction
 	}
-	if mc.Pins.PWM != "" {
+
+	if (motorType == ABPwm) || (motorType == DirectionPwm) {
 		pwm, err := b.GPIOPinByName(mc.Pins.PWM)
 		if err != nil {
 			return nil, err
 		}
 		m.PWM = pwm
 	}
+
 	if mc.Pins.EnablePinHigh != "" {
 		enablePinHigh, err := b.GPIOPinByName(mc.Pins.EnablePinHigh)
 		if err != nil {
@@ -115,8 +122,9 @@ type Motor struct {
 	maxRPM                   float64
 	dirFlip                  bool
 	// state
-	on       bool
-	powerPct float64
+	on        bool
+	powerPct  float64
+	motorType MotorType
 }
 
 // Position always returns 0.
@@ -131,36 +139,38 @@ func (m *Motor) Properties(ctx context.Context, extra map[string]interface{}) (m
 	}, nil
 }
 
+// turnOff turns down the motor entirely by setting all the pins accordingly.
+func (m *Motor) turnOff(ctx context.Context, extra map[string]interface{}) error {
+	var errs error
+	m.powerPct = 0.0
+	m.on = false
+	if m.EnablePinLow != nil {
+		errs = multierr.Combine(errs, m.EnablePinLow.Set(ctx, true, extra))
+	}
+	if m.EnablePinHigh != nil {
+		errs = multierr.Combine(errs, m.EnablePinHigh.Set(ctx, false, extra))
+	}
+
+	if m.A != nil && m.B != nil {
+		errs = multierr.Combine(
+			errs,
+			m.A.Set(ctx, false, extra),
+			m.B.Set(ctx, false, extra),
+		)
+	}
+
+	if m.PWM != nil {
+		errs = multierr.Combine(errs, m.PWM.Set(ctx, false, extra))
+	}
+	return errs
+}
+
 // setPWM sets the associated pins (as discovered) and sets PWM to the given power percentage.
 // Anything calling setPWM MUST lock the motor's mutex prior.
 func (m *Motor) setPWM(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
 	var errs error
 	powerPct = math.Min(powerPct, m.maxPowerPct)
 	powerPct = math.Max(powerPct, -1*m.maxPowerPct)
-
-	if math.Abs(powerPct) <= 0.001 {
-		m.powerPct = 0.0
-		m.on = false
-		if m.EnablePinLow != nil {
-			errs = multierr.Combine(errs, m.EnablePinLow.Set(ctx, true, extra))
-		}
-		if m.EnablePinHigh != nil {
-			errs = multierr.Combine(errs, m.EnablePinHigh.Set(ctx, false, extra))
-		}
-
-		if m.A != nil && m.B != nil {
-			errs = multierr.Combine(
-				errs,
-				m.A.Set(ctx, false, extra),
-				m.B.Set(ctx, false, extra),
-			)
-		}
-
-		if m.PWM != nil {
-			errs = multierr.Combine(errs, m.PWM.Set(ctx, false, extra))
-		}
-		return errs
-	}
 
 	m.on = true
 	if m.EnablePinLow != nil {
@@ -171,23 +181,30 @@ func (m *Motor) setPWM(ctx context.Context, powerPct float64, extra map[string]i
 	}
 
 	var pwmPin board.GPIOPin
-	switch {
-	case m.PWM != nil:
+
+	switch m.motorType {
+	case ABPwm, DirectionPwm:
+		if math.Abs(powerPct) <= 0.001 {
+			return m.turnOff(ctx, extra)
+		}
 		pwmPin = m.PWM
-	case powerPct >= 0.001:
-		pwmPin = m.B
-		if m.dirFlip {
-			pwmPin = m.A
-		}
-		powerPct = 1.0 - math.Abs(powerPct) // Other pin is always high, so only when PWM is LOW are we driving. Thus, we invert here.
-	case powerPct <= -0.001:
-		pwmPin = m.A
-		if m.dirFlip {
+	case AB:
+		switch {
+		case powerPct >= 0.001:
 			pwmPin = m.B
+			if m.dirFlip {
+				pwmPin = m.A
+			}
+			powerPct = 1.0 - math.Abs(powerPct) // Other pin is always high, so only when PWM is LOW are we driving. Thus, we invert here.
+		case powerPct <= -0.001:
+			pwmPin = m.A
+			if m.dirFlip {
+				pwmPin = m.B
+			}
+			powerPct = 1.0 - math.Abs(powerPct) // Other pin is always high, so only when PWM is LOW are we driving. Thus, we invert here.
+		default:
+			return m.turnOff(ctx, extra)
 		}
-		powerPct = 1.0 - math.Abs(powerPct) // Other pin is always high, so only when PWM is LOW are we driving. Thus, we invert here.
-	default:
-		return errors.New("can't set power when no direction is set")
 	}
 
 	powerPct = math.Max(math.Abs(powerPct), m.minPowerPct)
@@ -211,7 +228,8 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	if m.Direction != nil {
+	switch m.motorType {
+	case DirectionPwm:
 		x := !math.Signbit(powerPct)
 		if m.dirFlip {
 			x = !x
@@ -220,8 +238,7 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string
 			m.Direction.Set(ctx, x, extra),
 			m.setPWM(ctx, powerPct, extra),
 		)
-	}
-	if m.A != nil && m.B != nil {
+	case ABPwm, AB:
 		a := m.A
 		b := m.B
 		if m.dirFlip {
