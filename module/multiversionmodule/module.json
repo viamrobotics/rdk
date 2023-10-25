@@ -1,0 +1,38 @@
+{
+  "modules": [
+    {
+      "name": "AcmeModule",
+      "executable_path": "module/multiversionmodule/run_version1.sh",
+      "log_level": "debug"
+    }
+  ],
+  "components": [
+    {
+      "name": "generic1",
+      "api": "rdk:component:generic",
+      "model": "acme:demo:multiversionmodule",
+      "attributes": {}
+    },
+    {
+      "namespace": "rdk",
+      "type": "motor",
+      "name": "motor1",
+      "model": "rdk:builtin:fake",
+      "attributes": {
+        "max_rpm": 500,
+        "encoder": "encoder1",
+        "max_power_pct": 0.5,
+        "ticks_per_rotation": 10000
+      },
+      "depends_on": ["encoder1"]
+    },
+    {
+      "name": "encoder1",
+      "type": "encoder",
+      "model": "fake"
+    }
+  ],
+  "network": {
+    "bind_address": ":8080"
+  }
+}

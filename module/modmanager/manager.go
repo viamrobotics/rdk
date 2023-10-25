@@ -18,6 +18,7 @@ import (
 	pb "go.viam.com/api/module/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
+	"golang.org/x/exp/slices"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
@@ -440,6 +441,67 @@ func (mgr *Manager) ValidateConfig(ctx context.Context, conf resource.Config) ([
 		return nil, err
 	}
 	return resp.Dependencies, nil
+}
+
+// ResolveImplicitDependenciesInConfig modifies the config diff to add implicit dependencies to changed resources
+// and updates modular resources whose module has been changed with new implicit deps and adds them to conf.Modified.
+func (mgr *Manager) ResolveImplicitDependenciesInConfig(ctx context.Context, conf *config.Diff) error {
+	mgr.mu.RLock()
+	defer mgr.mu.RUnlock()
+	// Find all components/services that are unmodified but whose module has been updated and add them to the modified array.
+	for _, c := range conf.Right.Components {
+		// See if this component is being provided by a module
+		mod, ok := mgr.getModule(c)
+		if !ok {
+			continue
+		}
+		// If it is, check against the modified modules to determine if the config should also be updated but won't already be
+		if slices.ContainsFunc(conf.Modified.Modules, func(elem config.Module) bool { return elem.Name == mod.name }) &&
+			!slices.ContainsFunc(conf.Added.Components, func(elem resource.Config) bool { return elem.Name == c.Name }) &&
+			!slices.ContainsFunc(conf.Modified.Components, func(elem resource.Config) bool { return elem.Name == c.Name }) {
+			conf.Modified.Components = append(conf.Modified.Components, c)
+		}
+	}
+	for _, s := range conf.Right.Services {
+		// See if this component is being provided by a module
+		mod, ok := mgr.getModule(s)
+		if !ok {
+			continue
+		}
+		// If it is, check against the modified modules to determine if the config should also be updated but won't already be
+		if slices.ContainsFunc(conf.Modified.Modules, func(elem config.Module) bool { return elem.Name == mod.name }) &&
+			!slices.ContainsFunc(conf.Added.Services, func(elem resource.Config) bool { return elem.Name == s.Name }) &&
+			!slices.ContainsFunc(conf.Modified.Services, func(elem resource.Config) bool { return elem.Name == s.Name }) {
+			conf.Modified.Services = append(conf.Modified.Services, s)
+		}
+	}
+
+	// If something was added or modified, go through components and services in
+	// diff.Added and diff.Modified, call Validate on all those that are modularized,
+	// and store implicit dependencies.
+	validateModularResources := func(confs []resource.Config) {
+		for i, c := range confs {
+			if mgr.Provides(c) {
+				implicitDeps, err := mgr.ValidateConfig(ctx, c)
+				if err != nil {
+					mgr.logger.Errorw("modular config validation error found in resource: "+c.Name, "error", err)
+					continue
+				}
+
+				// Modify resource to add its implicit dependencies.
+				confs[i].ImplicitDependsOn = implicitDeps
+			}
+		}
+	}
+	if conf.Added != nil {
+		validateModularResources(conf.Added.Components)
+		validateModularResources(conf.Added.Services)
+	}
+	if conf.Modified != nil {
+		validateModularResources(conf.Modified.Components)
+		validateModularResources(conf.Modified.Services)
+	}
+	return nil
 }
 
 func (mgr *Manager) getModule(conf resource.Config) (*module, bool) {
