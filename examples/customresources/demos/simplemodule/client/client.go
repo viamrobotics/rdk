@@ -5,15 +5,14 @@ import (
 	"context"
 	"math/rand"
 
-	"github.com/edaniels/golog"
-
 	"go.viam.com/rdk/components/generic"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/client"
 )
 
 func main() {
-	logger := golog.NewDevelopmentLogger("client")
+	logger := logging.NewDevelopmentLogger("client")
 
 	// Connect to the default localhost port for viam-server.
 	robot, err := client.New(

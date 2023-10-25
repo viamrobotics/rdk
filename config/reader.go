@@ -12,13 +12,13 @@ import (
 	"runtime"
 
 	"github.com/a8m/envsubst"
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	rutils "go.viam.com/rdk/utils"
 )
@@ -112,7 +112,7 @@ func clearCache(id string) {
 func readCertificateDataFromCloudGRPC(ctx context.Context,
 	signalingInsecure bool,
 	cloudConfigFromDisk *Cloud,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (*Cloud, error) {
 	conn, err := CreateNewGRPCClient(ctx, cloudConfigFromDisk, logger)
 	if err != nil {
@@ -182,7 +182,7 @@ func readFromCloud(
 	prevCfg *Config,
 	shouldReadFromCache bool,
 	checkForNewCert bool,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (*Config, error) {
 	logger.Debug("reading configuration from the cloud")
 	cloudCfg := originalCfg.Cloud
@@ -295,7 +295,7 @@ func readFromCloud(
 func Read(
 	ctx context.Context,
 	filePath string,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (*Config, error) {
 	buf, err := envsubst.ReadFile(filePath)
 	if err != nil {
@@ -309,7 +309,7 @@ func Read(
 func ReadLocalConfig(
 	ctx context.Context,
 	filePath string,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (*Config, error) {
 	buf, err := envsubst.ReadFile(filePath)
 	if err != nil {
@@ -325,7 +325,7 @@ func FromReader(
 	ctx context.Context,
 	originalPath string,
 	r io.Reader,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (*Config, error) {
 	return fromReader(ctx, originalPath, r, logger, true)
 }
@@ -336,7 +336,7 @@ func fromReader(
 	ctx context.Context,
 	originalPath string,
 	r io.Reader,
-	logger golog.Logger,
+	logger logging.Logger,
 	shouldReadFromCloud bool,
 ) (*Config, error) {
 	// First read and processes config from disk
@@ -363,18 +363,18 @@ func fromReader(
 // processConfigFromCloud returns a copy of the current config with all attributes parsed
 // and config validated with the assumption the config came from the cloud.
 // Returns an error if the unprocessedConfig is non-valid.
-func processConfigFromCloud(unprocessedConfig *Config, logger golog.Logger) (*Config, error) {
+func processConfigFromCloud(unprocessedConfig *Config, logger logging.Logger) (*Config, error) {
 	return processConfig(unprocessedConfig, true, logger)
 }
 
 // processConfigLocalConfig returns a copy of the current config with all attributes parsed
 // and config validated with the assumption the config came from a local file.
 // Returns an error if the unprocessedConfig is non-valid.
-func processConfigLocalConfig(unprocessedConfig *Config, logger golog.Logger) (*Config, error) {
+func processConfigLocalConfig(unprocessedConfig *Config, logger logging.Logger) (*Config, error) {
 	return processConfig(unprocessedConfig, false, logger)
 }
 
-func processConfig(unprocessedConfig *Config, fromCloud bool, logger golog.Logger) (*Config, error) {
+func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Logger) (*Config, error) {
 	if err := unprocessedConfig.Ensure(fromCloud, logger); err != nil {
 		return nil, err
 	}
@@ -523,7 +523,7 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger golog.Logge
 
 // getFromCloudOrCache returns the config from the gRPC endpoint. If failures during cloud lookup fallback to the
 // local cache if the error indicates it should.
-func getFromCloudOrCache(ctx context.Context, cloudCfg *Cloud, shouldReadFromCache bool, logger golog.Logger) (*Config, bool, error) {
+func getFromCloudOrCache(ctx context.Context, cloudCfg *Cloud, shouldReadFromCache bool, logger logging.Logger) (*Config, bool, error) {
 	var cached bool
 	cfg, errorShouldCheckCache, err := getFromCloudGRPC(ctx, cloudCfg, logger)
 	if err != nil {
@@ -550,7 +550,7 @@ func getFromCloudOrCache(ctx context.Context, cloudCfg *Cloud, shouldReadFromCac
 }
 
 // getFromCloudGRPC actually does the fetching of the robot config from the gRPC endpoint.
-func getFromCloudGRPC(ctx context.Context, cloudCfg *Cloud, logger golog.Logger) (*Config, bool, error) {
+func getFromCloudGRPC(ctx context.Context, cloudCfg *Cloud, logger logging.Logger) (*Config, bool, error) {
 	shouldCheckCacheOnFailure := true
 
 	conn, err := CreateNewGRPCClient(ctx, cloudCfg, logger)
@@ -581,7 +581,7 @@ func getFromCloudGRPC(ctx context.Context, cloudCfg *Cloud, logger golog.Logger)
 }
 
 // CreateNewGRPCClient creates a new grpc cloud configured to communicate with the robot service based on the cloud config given.
-func CreateNewGRPCClient(ctx context.Context, cloudCfg *Cloud, logger golog.Logger) (rpc.ClientConn, error) {
+func CreateNewGRPCClient(ctx context.Context, cloudCfg *Cloud, logger logging.Logger) (rpc.ClientConn, error) {
 	u, err := url.Parse(cloudCfg.AppAddress)
 	if err != nil {
 		return nil, err
@@ -602,5 +602,31 @@ func CreateNewGRPCClient(ctx context.Context, cloudCfg *Cloud, logger golog.Logg
 		dialOpts = append(dialOpts, rpc.WithInsecure())
 	}
 
-	return rpc.DialDirectGRPC(ctx, u.Host, logger, dialOpts...)
+	return rpc.DialDirectGRPC(ctx, u.Host, logger.AsZap(), dialOpts...)
+}
+
+// CreateNewGRPCClientWithAPIKey creates a new grpc cloud configured to communicate with the robot service
+// based on the cloud config and API key given.
+func CreateNewGRPCClientWithAPIKey(ctx context.Context, cloudCfg *Cloud,
+	apiKey, apiKeyID string, logger logging.Logger,
+) (rpc.ClientConn, error) {
+	u, err := url.Parse(cloudCfg.AppAddress)
+	if err != nil {
+		return nil, err
+	}
+
+	dialOpts := make([]rpc.DialOption, 0, 2)
+
+	dialOpts = append(dialOpts, rpc.WithEntityCredentials(apiKeyID,
+		rpc.Credentials{
+			Type:    rpc.CredentialsTypeAPIKey,
+			Payload: apiKey,
+		},
+	))
+
+	if u.Scheme == "http" {
+		dialOpts = append(dialOpts, rpc.WithInsecure())
+	}
+
+	return rpc.DialDirectGRPC(ctx, u.Host, logger.AsZap(), dialOpts...)
 }

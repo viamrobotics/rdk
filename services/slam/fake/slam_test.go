@@ -9,12 +9,12 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
@@ -22,7 +22,7 @@ import (
 
 func TestFakeSLAMPosition(t *testing.T) {
 	expectedComponentReference := ""
-	slamSvc := NewSLAM(slam.Named("test"), golog.NewTestLogger(t))
+	slamSvc := NewSLAM(slam.Named("test"), logging.NewTestLogger(t))
 
 	p, componentReference, err := slamSvc.Position(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -43,7 +43,7 @@ func TestFakeSLAMPosition(t *testing.T) {
 }
 
 func TestFakeSLAMLatestMapInfo(t *testing.T) {
-	slamSvc := NewSLAM(slam.Named("test"), golog.NewTestLogger(t))
+	slamSvc := NewSLAM(slam.Named("test"), logging.NewTestLogger(t))
 
 	timestamp1, err := slamSvc.LatestMapInfo(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -61,7 +61,7 @@ func TestFakeSLAMStateful(t *testing.T) {
 		}()
 		// maxDataCount lowered under test to reduce test runtime
 		maxDataCount = 5
-		slamSvc := &SLAM{Named: slam.Named("test").AsNamed(), logger: golog.NewTestLogger(t)}
+		slamSvc := &SLAM{Named: slam.Named("test").AsNamed(), logger: logging.NewTestLogger(t)}
 		verifyPointCloudMapStateful(t, slamSvc)
 	})
 }
@@ -69,7 +69,7 @@ func TestFakeSLAMStateful(t *testing.T) {
 func TestFakeSLAMInternalState(t *testing.T) {
 	testName := "Returns a callback function which, returns the current fake internal state in chunks"
 	t.Run(testName, func(t *testing.T) {
-		slamSvc := NewSLAM(slam.Named("test"), golog.NewTestLogger(t))
+		slamSvc := NewSLAM(slam.Named("test"), logging.NewTestLogger(t))
 
 		path := filepath.Clean(artifact.MustPath(fmt.Sprintf(internalStateTemplate, datasetDirectory, slamSvc.getCount())))
 		expectedData, err := os.ReadFile(path)
@@ -89,7 +89,7 @@ func TestFakeSLAMInternalState(t *testing.T) {
 func TestFakeSLAMPointMap(t *testing.T) {
 	testName := "Returns a callback function which, returns the current fake pointcloud map state in chunks and advances the dataset"
 	t.Run(testName, func(t *testing.T) {
-		slamSvc := NewSLAM(slam.Named("test"), golog.NewTestLogger(t))
+		slamSvc := NewSLAM(slam.Named("test"), logging.NewTestLogger(t))
 
 		data := getDataFromStream(t, slamSvc.PointCloudMap)
 		test.That(t, len(data), test.ShouldBeGreaterThan, 0)

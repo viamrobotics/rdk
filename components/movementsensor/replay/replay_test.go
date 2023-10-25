@@ -26,6 +26,8 @@ var (
 	validRobotID        = "robot_id"
 	validOrganizationID = "organization_id"
 	validLocationID     = "location_id"
+	validAPIKey         = "a key"
+	validAPIKeyID       = "a key id"
 
 	batchSizeZero        = uint64(0)
 	batchSizeNonZero     = uint64(5)
@@ -133,6 +135,8 @@ func TestNewReplayMovementSensor(t *testing.T) {
 				RobotID:        validRobotID,
 				LocationID:     validLocationID,
 				OrganizationID: validOrganizationID,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
 			},
 			validCloudConnection: true,
 		},
@@ -143,6 +147,8 @@ func TestNewReplayMovementSensor(t *testing.T) {
 				RobotID:        validRobotID,
 				LocationID:     validLocationID,
 				OrganizationID: validOrganizationID,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
 			},
 			validCloudConnection: false,
 			expectedErr:          errors.Wrap(errTestCloudConnection, errCloudConnectionFailure.Error()),
@@ -154,6 +160,8 @@ func TestNewReplayMovementSensor(t *testing.T) {
 				RobotID:        validRobotID,
 				LocationID:     validLocationID,
 				OrganizationID: validOrganizationID,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
 				Interval: TimeInterval{
 					Start: "bad timestamp",
 				},
@@ -168,6 +176,8 @@ func TestNewReplayMovementSensor(t *testing.T) {
 				RobotID:        validRobotID,
 				LocationID:     validLocationID,
 				OrganizationID: validOrganizationID,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
 				Interval: TimeInterval{
 					End: "bad timestamp",
 				},
@@ -182,6 +192,8 @@ func TestNewReplayMovementSensor(t *testing.T) {
 				RobotID:        validRobotID,
 				LocationID:     validLocationID,
 				OrganizationID: validOrganizationID,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
 			},
 			validCloudConnection: true,
 			expectedErr:          errPropertiesFailedToInitializeTest,
@@ -193,6 +205,8 @@ func TestNewReplayMovementSensor(t *testing.T) {
 				RobotID:        "bad_robot_id",
 				LocationID:     validLocationID,
 				OrganizationID: validOrganizationID,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
 			},
 			validCloudConnection: true,
 			expectedErr:          errPropertiesFailedToInitializeTest,
@@ -204,6 +218,8 @@ func TestNewReplayMovementSensor(t *testing.T) {
 				RobotID:        validRobotID,
 				LocationID:     "bad_location_id",
 				OrganizationID: validOrganizationID,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
 			},
 			validCloudConnection: true,
 			expectedErr:          errPropertiesFailedToInitializeTest,
@@ -215,6 +231,8 @@ func TestNewReplayMovementSensor(t *testing.T) {
 				RobotID:        validRobotID,
 				LocationID:     validLocationID,
 				OrganizationID: "bad_organization_id",
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
 			},
 			validCloudConnection: true,
 			expectedErr:          errPropertiesFailedToInitializeTest,
@@ -226,6 +244,8 @@ func TestNewReplayMovementSensor(t *testing.T) {
 				RobotID:        validRobotID,
 				LocationID:     validLocationID,
 				OrganizationID: validOrganizationID,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
 				BatchSize:      &batchSizeNonZero,
 				Interval: TimeInterval{
 					Start: "2000-01-01T12:00:30Z",
@@ -279,6 +299,8 @@ func TestReplayMovementSensorFunctions(t *testing.T) {
 				RobotID:        validRobotID,
 				LocationID:     validLocationID,
 				OrganizationID: validOrganizationID,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
 			},
 			startFileNum:       allMethodsMinDataLength,
 			endFileNum:         allMethodsMaxDataLength,
@@ -291,6 +313,8 @@ func TestReplayMovementSensorFunctions(t *testing.T) {
 				RobotID:        validRobotID,
 				LocationID:     validLocationID,
 				OrganizationID: validOrganizationID,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
 				BatchSize:      &batchSizeNonZero,
 				Interval: TimeInterval{
 					End: "2000-01-01T12:00:03Z",
@@ -314,6 +338,8 @@ func TestReplayMovementSensorFunctions(t *testing.T) {
 				RobotID:        validRobotID,
 				LocationID:     validLocationID,
 				OrganizationID: validOrganizationID,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
 				BatchSize:      &batchSizeNonZero,
 				Interval: TimeInterval{
 					Start: "2000-01-01T12:00:02Z",
@@ -352,6 +378,8 @@ func TestReplayMovementSensorFunctions(t *testing.T) {
 				RobotID:        validRobotID,
 				LocationID:     validLocationID,
 				OrganizationID: validOrganizationID,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
 				BatchSize:      &batchSizeNonZero,
 				Interval: TimeInterval{
 					Start: "2000-01-01T12:00:06Z",
@@ -388,6 +416,8 @@ func TestReplayMovementSensorFunctions(t *testing.T) {
 				RobotID:        validRobotID,
 				LocationID:     validLocationID,
 				OrganizationID: validOrganizationID,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
 				BatchSize:      &batchSizeNonZero,
 				Interval: TimeInterval{
 					Start: "2000-01-01T12:00:08Z",
@@ -423,6 +453,8 @@ func TestReplayMovementSensorFunctions(t *testing.T) {
 				RobotID:        validRobotID,
 				LocationID:     validLocationID,
 				OrganizationID: validOrganizationID,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
 				BatchSize:      &batchSizeNonZero,
 				Interval: TimeInterval{
 					Start: "2000-01-01T12:00:10Z",
@@ -457,6 +489,8 @@ func TestReplayMovementSensorFunctions(t *testing.T) {
 				RobotID:        validRobotID,
 				LocationID:     validLocationID,
 				OrganizationID: validOrganizationID,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
 				BatchSize:      &batchSizeNonZero,
 				Interval: TimeInterval{
 					Start: "2000-01-01T12:00:01Z",
@@ -530,6 +564,8 @@ func TestReplayMovementSensorConfigValidation(t *testing.T) {
 				RobotID:        validRobotID,
 				LocationID:     validLocationID,
 				OrganizationID: validOrganizationID,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
 				Interval:       TimeInterval{},
 			},
 			expectedDeps: []string{cloud.InternalServiceName.String()},
@@ -541,6 +577,8 @@ func TestReplayMovementSensorConfigValidation(t *testing.T) {
 				RobotID:        validRobotID,
 				LocationID:     validLocationID,
 				OrganizationID: validOrganizationID,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
 				Interval: TimeInterval{
 					Start: "2000-01-01T12:00:00Z",
 				},
@@ -554,6 +592,8 @@ func TestReplayMovementSensorConfigValidation(t *testing.T) {
 				RobotID:        validRobotID,
 				LocationID:     validLocationID,
 				OrganizationID: validOrganizationID,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
 				Interval: TimeInterval{
 					End: "2000-01-01T12:00:00Z",
 				},
@@ -567,6 +607,8 @@ func TestReplayMovementSensorConfigValidation(t *testing.T) {
 				RobotID:        validRobotID,
 				LocationID:     validLocationID,
 				OrganizationID: validOrganizationID,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
 				Interval: TimeInterval{
 					Start: "2000-01-01T12:00:00Z",
 					End:   "2000-01-01T12:00:01Z",
@@ -587,6 +629,8 @@ func TestReplayMovementSensorConfigValidation(t *testing.T) {
 				Source:         validSource,
 				LocationID:     validLocationID,
 				OrganizationID: validOrganizationID,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
 				Interval:       TimeInterval{},
 			},
 			expectedErr: utils.NewConfigValidationFieldRequiredError("", validRobotID),
@@ -618,6 +662,8 @@ func TestReplayMovementSensorConfigValidation(t *testing.T) {
 				RobotID:        validRobotID,
 				LocationID:     validLocationID,
 				OrganizationID: validOrganizationID,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
 				Interval: TimeInterval{
 					Start: "gibberish",
 				},
@@ -631,6 +677,8 @@ func TestReplayMovementSensorConfigValidation(t *testing.T) {
 				RobotID:        validRobotID,
 				LocationID:     validLocationID,
 				OrganizationID: validOrganizationID,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
 				Interval: TimeInterval{
 					End: "gibberish",
 				},
@@ -644,6 +692,8 @@ func TestReplayMovementSensorConfigValidation(t *testing.T) {
 				RobotID:        validRobotID,
 				LocationID:     validLocationID,
 				OrganizationID: validOrganizationID,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
 				Interval: TimeInterval{
 					Start: "2000-01-01T12:00:01Z",
 					End:   "2000-01-01T12:00:00Z",
@@ -658,6 +708,8 @@ func TestReplayMovementSensorConfigValidation(t *testing.T) {
 				RobotID:        validRobotID,
 				LocationID:     validLocationID,
 				OrganizationID: validOrganizationID,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
 				Interval: TimeInterval{
 					Start: "2000-01-01T12:00:00Z",
 					End:   "2000-01-01T12:00:01Z",
@@ -673,6 +725,8 @@ func TestReplayMovementSensorConfigValidation(t *testing.T) {
 				RobotID:        validRobotID,
 				LocationID:     validLocationID,
 				OrganizationID: validOrganizationID,
+				APIKey:         validAPIKey,
+				APIKeyID:       validAPIKeyID,
 				Interval: TimeInterval{
 					Start: "2000-01-01T12:00:00Z",
 					End:   "2000-01-01T12:00:01Z",
@@ -704,6 +758,8 @@ func TestUnimplementedFunctionAccuracy(t *testing.T) {
 		RobotID:        validRobotID,
 		LocationID:     validLocationID,
 		OrganizationID: validOrganizationID,
+		APIKey:         validAPIKey,
+		APIKeyID:       validAPIKeyID,
 	}
 	replay, _, serverClose, err := createNewReplayMovementSensor(ctx, t, cfg, true)
 	test.That(t, err, test.ShouldBeNil)
@@ -726,6 +782,8 @@ func TestReplayMovementSensorReadings(t *testing.T) {
 		RobotID:        validRobotID,
 		LocationID:     validLocationID,
 		OrganizationID: validOrganizationID,
+		APIKey:         validAPIKey,
+		APIKeyID:       validAPIKeyID,
 	}
 	replay, _, serverClose, err := createNewReplayMovementSensor(ctx, t, cfg, true)
 	test.That(t, err, test.ShouldBeNil)
@@ -763,6 +821,8 @@ func TestReplayMovementSensorTimestampsMetadata(t *testing.T) {
 		RobotID:        validRobotID,
 		LocationID:     validLocationID,
 		OrganizationID: validOrganizationID,
+		APIKey:         validAPIKey,
+		APIKeyID:       validAPIKeyID,
 		BatchSize:      &batchSizeNonZero,
 	}
 	replay, _, serverClose, err := createNewReplayMovementSensor(ctx, t, cfg, true)
@@ -802,6 +862,8 @@ func TestReplayMovementSensorReconfigure(t *testing.T) {
 		RobotID:        validRobotID,
 		LocationID:     validLocationID,
 		OrganizationID: validOrganizationID,
+		APIKey:         validAPIKey,
+		APIKeyID:       validAPIKeyID,
 	}
 	ctx := context.Background()
 	replay, deps, serverClose, err := createNewReplayMovementSensor(ctx, t, cfg, true)

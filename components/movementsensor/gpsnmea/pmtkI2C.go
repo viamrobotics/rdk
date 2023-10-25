@@ -7,13 +7,13 @@ import (
 	"math"
 	"sync"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -25,7 +25,7 @@ type PmtkI2CNMEAMovementSensor struct {
 	mu                      sync.RWMutex
 	cancelCtx               context.Context
 	cancelFunc              func()
-	logger                  golog.Logger
+	logger                  logging.Logger
 	data                    GPSData
 	activeBackgroundWorkers sync.WaitGroup
 
@@ -45,7 +45,7 @@ func NewPmtkI2CGPSNMEA(
 	deps resource.Dependencies,
 	name resource.Name,
 	conf *Config,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (NmeaMovementSensor, error) {
 	b, err := board.FromDependencies(deps, conf.Board)
 	if err != nil {
@@ -235,6 +235,10 @@ func (g *PmtkI2CNMEAMovementSensor) Accuracy(ctx context.Context, extra map[stri
 func (g *PmtkI2CNMEAMovementSensor) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
+	if math.IsNaN(g.data.CompassHeading) {
+		return r3.Vector{}, g.err.Get()
+	}
+
 	headingInRadians := g.data.CompassHeading * (math.Pi / 180)
 	xVelocity := g.data.Speed * math.Sin(headingInRadians)
 	yVelocity := g.data.Speed * math.Cos(headingInRadians)

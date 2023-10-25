@@ -8,12 +8,12 @@ import (
 	"context"
 	"sort"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/depthadapter"
@@ -30,7 +30,9 @@ var model = resource.DefaultModelFamily.WithModel("obstacles_depth")
 
 func init() {
 	resource.RegisterService(svision.API, model, resource.Registration[svision.Service, *ObsDepthConfig]{
-		DeprecatedRobotConstructor: func(ctx context.Context, r any, c resource.Config, logger golog.Logger) (svision.Service, error) {
+		DeprecatedRobotConstructor: func(
+			ctx context.Context, r any, c resource.Config, logger logging.Logger,
+		) (svision.Service, error) {
 			attrs, err := resource.NativeConfig[*ObsDepthConfig](c)
 			if err != nil {
 				return nil, err
@@ -66,7 +68,7 @@ func registerObstaclesDepth(
 	name resource.Name,
 	conf *ObsDepthConfig,
 	r robot.Robot,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (svision.Service, error) {
 	_, span := trace.StartSpan(ctx, "service::vision::registerObstacleDepth")
 	defer span.End()
@@ -96,7 +98,8 @@ func registerObstaclesDepth(
 }
 
 // BuildObsDepth will check for intrinsics and determine how to build based on that.
-func (o *obsDepth) buildObsDepth(logger golog.Logger) func(ctx context.Context, src camera.VideoSource) ([]*vision.Object, error) {
+func (o *obsDepth) buildObsDepth(logger logging.Logger) func(
+	ctx context.Context, src camera.VideoSource) ([]*vision.Object, error) {
 	return func(ctx context.Context, src camera.VideoSource) ([]*vision.Object, error) {
 		props, err := src.Properties(ctx)
 		if err != nil {

@@ -29,7 +29,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	commonpb "go.viam.com/api/common/v1"
@@ -38,6 +37,7 @@ import (
 	"go.viam.com/rdk/components/board"
 	picommon "go.viam.com/rdk/components/board/pi/common"
 	"go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -52,7 +52,7 @@ func init() {
 				ctx context.Context,
 				_ resource.Dependencies,
 				conf resource.Config,
-				logger golog.Logger,
+				logger logging.Logger,
 			) (board.Board, error) {
 				return newPigpio(ctx, conf.ResourceName(), conf, logger)
 			},
@@ -113,7 +113,7 @@ type piPigpio struct {
 	// to these same values. The two should always have the same set of values.
 	interrupts   map[string]board.ReconfigurableDigitalInterrupt
 	interruptsHW map[uint]board.ReconfigurableDigitalInterrupt
-	logger       golog.Logger
+	logger       logging.Logger
 	isClosed     bool
 }
 
@@ -152,7 +152,7 @@ func initializePigpio() error {
 }
 
 // newPigpio makes a new pigpio based Board using the given config.
-func newPigpio(ctx context.Context, name resource.Name, cfg resource.Config, logger golog.Logger) (board.LocalBoard, error) {
+func newPigpio(ctx context.Context, name resource.Name, cfg resource.Config, logger logging.Logger) (board.LocalBoard, error) {
 	// this is so we can run it inside a daemon
 	internals := C.gpioCfgGetInternals()
 	internals |= C.PI_CFG_NOSIGHANDLER
@@ -885,7 +885,7 @@ func pigpioInterruptCallback(gpio, level int, rawTick uint32) {
 	for instance := range instances {
 		i := instance.interruptsHW[uint(gpio)]
 		if i == nil {
-			golog.Global().Infof("no DigitalInterrupt configured for gpio %d", gpio)
+			logging.Global().Infof("no DigitalInterrupt configured for gpio %d", gpio)
 			continue
 		}
 		high := true

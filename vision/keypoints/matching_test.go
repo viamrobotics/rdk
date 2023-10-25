@@ -6,10 +6,10 @@ import (
 	"math"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/rimage"
 )
 
@@ -40,7 +40,7 @@ func TestRangeInt(t *testing.T) {
 }
 
 func TestMatchDescriptors(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	tempDir := t.TempDir()
 
 	logger.Infof("writing sample points to %s", tempDir)
@@ -110,7 +110,7 @@ func TestMatchDescriptors(t *testing.T) {
 }
 
 func TestGetMatchingKeyPoints(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	cfg, err := LoadORBConfiguration("orbconfig.json")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, cfg, test.ShouldNotBeNil)
@@ -147,7 +147,7 @@ func TestGetMatchingKeyPoints(t *testing.T) {
 }
 
 func TestOrbMatching(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	orbConf := &ORBConfig{
 		Layers:          4,
 		DownscaleFactor: 2,

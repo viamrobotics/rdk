@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
 	"go.viam.com/test"
@@ -16,6 +15,7 @@ import (
 	"go.viam.com/rdk/components/base/fake"
 	"go.viam.com/rdk/components/input"
 	"go.viam.com/rdk/components/input/webgamepad"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/baseremotecontrol/builtin"
 	"go.viam.com/rdk/session"
@@ -24,7 +24,7 @@ import (
 
 func TestSafetyMonitoring(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	gamepadName := input.Named("barf")
 	gamepad, err := webgamepad.NewController(ctx, nil, resource.Config{}, logger)
@@ -100,7 +100,7 @@ func TestSafetyMonitoring(t *testing.T) {
 
 func TestConnectStopsBase(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	gamepadName := input.Named("barf")
 	gamepad, err := webgamepad.NewController(ctx, nil, resource.Config{}, logger)
@@ -178,7 +178,7 @@ func TestConnectStopsBase(t *testing.T) {
 
 func TestReconfigure(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	gamepadName := input.Named("barf")
 	gamepad, err := webgamepad.NewController(ctx, nil, resource.Config{}, logger)

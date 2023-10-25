@@ -13,7 +13,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/fullstorydev/grpcurl"
 	"github.com/google/uuid"
 	"github.com/jhump/protoreflect/grpcreflect"
@@ -33,6 +32,7 @@ import (
 
 	rconfig "go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/services/shell"
@@ -334,9 +334,9 @@ func RobotsPartRunAction(c *cli.Context) error {
 	}
 
 	// Create logger based on presence of debugFlag.
-	logger := zap.NewNop().Sugar()
+	logger := logging.FromZapCompatible(zap.NewNop().Sugar())
 	if c.Bool(debugFlag) {
-		logger = golog.NewDebugLogger("cli")
+		logger = logging.NewDebugLogger("cli")
 	}
 
 	return client.runRobotPartCommand(
@@ -362,9 +362,9 @@ func RobotsPartShellAction(c *cli.Context) error {
 	}
 
 	// Create logger based on presence of debugFlag.
-	logger := zap.NewNop().Sugar()
+	logger := logging.FromZapCompatible(zap.NewNop().Sugar())
 	if c.Bool(debugFlag) {
-		logger = golog.NewDebugLogger("cli")
+		logger = logging.NewDebugLogger("cli")
 	}
 
 	return client.startRobotPartShell(
@@ -719,13 +719,21 @@ func (c *viamClient) robot(orgStr, locStr, robotStr string) (*apppb.Robot, error
 	if err != nil {
 		return nil, err
 	}
-
 	for _, robot := range robots {
 		if robot.Id == robotStr || robot.Name == robotStr {
 			return robot, nil
 		}
 	}
-	return nil, errors.Errorf("no robot found for %q", robotStr)
+
+	// check if the robot is a cloud robot using the ID
+	resp, err := c.client.GetRobot(c.c.Context, &apppb.GetRobotRequest{
+		Id: robotStr,
+	})
+	if err != nil {
+		return nil, errors.Errorf("no robot found for %q", robotStr)
+	}
+
+	return resp.GetRobot(), nil
 }
 
 func (c *viamClient) robotPart(orgStr, locStr, robotStr, partStr string) (*apppb.RobotPart, error) {
@@ -843,7 +851,7 @@ func (c *viamClient) runRobotPartCommand(
 	svcMethod, data string,
 	streamDur time.Duration,
 	debug bool,
-	logger golog.Logger,
+	logger logging.Logger,
 ) error {
 	dialCtx, fqdn, rpcOpts, err := c.prepareDial(orgStr, locStr, robotStr, partStr, debug)
 	if err != nil {
@@ -938,7 +946,7 @@ func (c *viamClient) runRobotPartCommand(
 func (c *viamClient) startRobotPartShell(
 	orgStr, locStr, robotStr, partStr string,
 	debug bool,
-	logger golog.Logger,
+	logger logging.Logger,
 ) error {
 	dialCtx, fqdn, rpcOpts, err := c.prepareDial(orgStr, locStr, robotStr, partStr, debug)
 	if err != nil {

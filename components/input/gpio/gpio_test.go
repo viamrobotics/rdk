@@ -7,24 +7,23 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
-	"go.uber.org/zap"
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/components/board"
 	fakeboard "go.viam.com/rdk/components/board/fake"
 	"go.viam.com/rdk/components/input"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
 type setupResult struct {
-	ctx                                            context.Context
-	logger                                         *zap.SugaredLogger
-	b                                              *fakeboard.Board
-	dev                                            input.Controller
 	btn1Callbacks, btn2Callbacks                   int64
 	axis1Callbacks, axis2Callbacks, axis3Callbacks int64
+	ctx                                            context.Context
+	logger                                         logging.Logger
+	b                                              *fakeboard.Board
+	dev                                            input.Controller
 	axis1Time, axis2Time                           time.Time
 	axisMu                                         sync.RWMutex
 }
@@ -34,7 +33,7 @@ func setup(t *testing.T) *setupResult {
 	s := setupResult{}
 
 	s.ctx = context.Background()
-	s.logger = golog.NewTestLogger(t)
+	s.logger = logging.NewTestLogger(t)
 
 	s.b = &fakeboard.Board{
 		Digitals:      map[string]*fakeboard.DigitalInterruptWrapper{},

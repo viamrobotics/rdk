@@ -5,18 +5,18 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/components/encoder/fake"
 	"go.viam.com/rdk/components/motor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 )
 
 func TestMotorInit(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 
 	enc, err := fake.NewEncoder(context.Background(), resource.Config{
@@ -42,7 +42,7 @@ func TestMotorInit(t *testing.T) {
 }
 
 func TestGoFor(t *testing.T) {
-	logger, obs := golog.NewObservedTestLogger(t)
+	logger, obs := logging.NewObservedTestLogger(t)
 	ctx := context.Background()
 
 	enc, err := fake.NewEncoder(context.Background(), resource.Config{
@@ -79,7 +79,7 @@ func TestGoFor(t *testing.T) {
 }
 
 func TestGoTo(t *testing.T) {
-	logger, obs := golog.NewObservedTestLogger(t)
+	logger, obs := logging.NewObservedTestLogger(t)
 	ctx := context.Background()
 
 	enc, err := fake.NewEncoder(context.Background(), resource.Config{
@@ -116,7 +116,7 @@ func TestGoTo(t *testing.T) {
 }
 
 func TestResetZeroPosition(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 
 	enc, err := fake.NewEncoder(context.Background(), resource.Config{
@@ -141,7 +141,7 @@ func TestResetZeroPosition(t *testing.T) {
 }
 
 func TestPower(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 
 	enc, err := fake.NewEncoder(context.Background(), resource.Config{

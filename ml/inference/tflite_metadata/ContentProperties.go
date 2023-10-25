@@ -42,7 +42,7 @@ func (v ContentProperties) String() string {
 }
 
 type ContentPropertiesT struct {
-	Type ContentProperties
+	Type  ContentProperties
 	Value interface{}
 }
 
@@ -67,16 +67,16 @@ func (rcv ContentProperties) UnPack(table flatbuffers.Table) *ContentPropertiesT
 	switch rcv {
 	case ContentPropertiesFeatureProperties:
 		x := FeatureProperties{_tab: table}
-		return &ContentPropertiesT{ Type: ContentPropertiesFeatureProperties, Value: x.UnPack() }
+		return &ContentPropertiesT{Type: ContentPropertiesFeatureProperties, Value: x.UnPack()}
 	case ContentPropertiesImageProperties:
 		x := ImageProperties{_tab: table}
-		return &ContentPropertiesT{ Type: ContentPropertiesImageProperties, Value: x.UnPack() }
+		return &ContentPropertiesT{Type: ContentPropertiesImageProperties, Value: x.UnPack()}
 	case ContentPropertiesBoundingBoxProperties:
 		x := BoundingBoxProperties{_tab: table}
-		return &ContentPropertiesT{ Type: ContentPropertiesBoundingBoxProperties, Value: x.UnPack() }
+		return &ContentPropertiesT{Type: ContentPropertiesBoundingBoxProperties, Value: x.UnPack()}
 	case ContentPropertiesAudioProperties:
 		x := AudioProperties{_tab: table}
-		return &ContentPropertiesT{ Type: ContentPropertiesAudioProperties, Value: x.UnPack() }
+		return &ContentPropertiesT{Type: ContentPropertiesAudioProperties, Value: x.UnPack()}
 	}
 	return nil
 }

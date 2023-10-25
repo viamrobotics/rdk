@@ -5,11 +5,11 @@ import (
 	"image/color"
 	"math"
 
-	"github.com/edaniels/golog"
 	"github.com/lucasb-eyer/go-colorful"
 	"github.com/pkg/errors"
 	"gonum.org/v1/gonum/floats"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils"
 )
 
@@ -387,12 +387,12 @@ func (c Color) distanceDebug(b Color, debug bool) float64 {
 	res := math.Sqrt(sum)
 
 	if debug {
-		golog.Global().Debugf("%v -- %v", c, b)
-		golog.Global().Debugf("\twh: %5.1f ws: %5.1f wv: %5.1f", wh, ws, wv)
-		golog.Global().Debugf("\t    %5.3f     %5.3f     %5.3f", math.Abs(hd), math.Abs(s1-s2), math.Abs(v1-v2))
-		golog.Global().Debugf("\t    %5.3f     %5.3f     %5.3f", utils.Square(hd), utils.Square(s1-s2), utils.Square(v1-v2))
-		golog.Global().Debugf("\t    %5.3f     %5.3f     %5.3f", utils.Square(wh*hd), utils.Square(ws*(s1-s2)), utils.Square(wv*(v1-v2)))
-		golog.Global().Debugf("\t res: %f ac: %f dd: %f section: %d", res, ac, dd, section)
+		logging.Global().Debugf("%v -- %v", c, b)
+		logging.Global().Debugf("\twh: %5.1f ws: %5.1f wv: %5.1f", wh, ws, wv)
+		logging.Global().Debugf("\t    %5.3f     %5.3f     %5.3f", math.Abs(hd), math.Abs(s1-s2), math.Abs(v1-v2))
+		logging.Global().Debugf("\t    %5.3f     %5.3f     %5.3f", utils.Square(hd), utils.Square(s1-s2), utils.Square(v1-v2))
+		logging.Global().Debugf("\t    %5.3f     %5.3f     %5.3f", utils.Square(wh*hd), utils.Square(ws*(s1-s2)), utils.Square(wv*(v1-v2)))
+		logging.Global().Debugf("\t res: %f ac: %f dd: %f section: %d", res, ac, dd, section)
 	}
 	return res
 }

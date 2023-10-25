@@ -19,7 +19,12 @@ import (
 	"github.com/urfave/cli/v2"
 	"go.uber.org/multierr"
 	apppb "go.viam.com/api/app/v1"
+	vutils "go.viam.com/utils"
 
+	modconfig "go.viam.com/rdk/config"
+	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/module/modmanager"
+	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
 	"go.viam.com/rdk/utils"
 )
 
@@ -35,8 +40,8 @@ const (
 	moduleVisibilityPublic  moduleVisibility = "public"
 )
 
-// moduleComponent represents an api - model pair.
-type moduleComponent struct {
+// ModuleComponent represents an api - model pair.
+type ModuleComponent struct {
 	API   string `json:"api"`
 	Model string `json:"model"`
 }
@@ -55,7 +60,7 @@ type moduleManifest struct {
 	Visibility  moduleVisibility  `json:"visibility"`
 	URL         string            `json:"url"`
 	Description string            `json:"description"`
-	Models      []moduleComponent `json:"models"`
+	Models      []ModuleComponent `json:"models"`
 	Entrypoint  string            `json:"entrypoint"`
 }
 
@@ -102,7 +107,7 @@ func CreateModuleAction(c *cli.Context) error {
 		ModuleID:   returnedModuleID.String(),
 		Visibility: moduleVisibilityPrivate,
 		// This is done so that the json has an empty example
-		Models: []moduleComponent{
+		Models: []ModuleComponent{
 			{},
 		},
 	}
@@ -482,7 +487,7 @@ func visibilityToProto(visibility moduleVisibility) (apppb.Visibility, error) {
 	}
 }
 
-func moduleComponentToProto(moduleComponent moduleComponent) *apppb.Model {
+func moduleComponentToProto(moduleComponent ModuleComponent) *apppb.Model {
 	return &apppb.Model{
 		Api:   moduleComponent.API,
 		Model: moduleComponent.Model,
@@ -678,4 +683,81 @@ func createTarballForUpload(moduleUploadPath string, stdout io.Writer) (string, 
 		return "", errors.Wrap(err, "failed to flush buffer while creating temp archive")
 	}
 	return tmpFile.Name(), nil
+}
+
+func readModels(path string, logger logging.Logger) ([]ModuleComponent, error) {
+	parentAddr, err := os.MkdirTemp("", "viam-cli-test-*")
+	if err != nil {
+		return nil, err
+	}
+	defer vutils.UncheckedErrorFunc(func() error { return os.RemoveAll(parentAddr) })
+	parentAddr += "/parent.sock"
+
+	cfg := modconfig.Module{
+		Name:    "xxxx",
+		ExePath: path,
+	}
+
+	mgr := modmanager.NewManager(parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
+	defer vutils.UncheckedErrorFunc(func() error { return mgr.Close(context.Background()) })
+
+	err = mgr.Add(context.TODO(), cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	res := []ModuleComponent{}
+
+	h := mgr.Handles()
+	for k, v := range h[cfg.Name] {
+		for _, m := range v {
+			res = append(res, ModuleComponent{k.API.String(), m.String()})
+		}
+	}
+
+	return res, nil
+}
+
+func sameModels(a, b []ModuleComponent) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	for _, x := range a {
+		found := false
+
+		for _, y := range b {
+			if x.API == y.API && x.Model == y.Model {
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			return false
+		}
+	}
+
+	return true
+}
+
+// UpdateModelsAction figures out the models that a module supports and updates it's metadata file.
+func UpdateModelsAction(c *cli.Context) error {
+	logger := logging.NewDevelopmentLogger("x")
+	newModels, err := readModels(c.String("binary"), logger)
+	if err != nil {
+		return err
+	}
+
+	manifest, err := loadManifest(c.String(moduleFlagPath))
+	if err != nil {
+		return err
+	}
+
+	if sameModels(newModels, manifest.Models) {
+		return nil
+	}
+
+	manifest.Models = newModels
+	return writeManifest(c.String(moduleFlagPath), manifest)
 }

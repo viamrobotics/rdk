@@ -11,9 +11,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	goutils "go.viam.com/utils"
+
+	"go.viam.com/rdk/logging"
 )
 
 // There are times when we need to set the period to some value, any value. It must be a positive
@@ -27,14 +28,14 @@ type pwmDevice struct {
 
 	// We have no mutable state, but the mutex is used to write to multiple pseudofiles atomically.
 	mu     sync.Mutex
-	logger golog.Logger
+	logger logging.Logger
 }
 
-func newPwmDevice(chipPath string, line int, logger golog.Logger) *pwmDevice {
+func newPwmDevice(chipPath string, line int, logger logging.Logger) *pwmDevice {
 	return &pwmDevice{chipPath: chipPath, line: line, logger: logger}
 }
 
-func writeValue(filepath string, value uint64, logger golog.Logger) error {
+func writeValue(filepath string, value uint64, logger logging.Logger) error {
 	logger.Debugf("Writing %d to %s", value, filepath)
 	data := []byte(fmt.Sprintf("%d", value))
 	// The file permissions (the third argument) aren't important: if the file needs to be created,

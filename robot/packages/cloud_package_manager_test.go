@@ -7,19 +7,19 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/edaniels/golog"
 	pb "go.viam.com/api/app/packages/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"golang.org/x/exp/slices"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/logging"
 	putils "go.viam.com/rdk/robot/packages/testutils"
 )
 
 func newPackageManager(t *testing.T,
 	client pb.PackageServiceClient,
-	fakeServer *putils.FakePackagesClientAndGCSServer, logger golog.Logger,
+	fakeServer *putils.FakePackagesClientAndGCSServer, logger logging.Logger,
 ) (string, ManagerSyncer) {
 	fakeServer.Clear()
 
@@ -39,7 +39,7 @@ func newPackageManager(t *testing.T,
 
 func TestCloud(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	fakeServer, err := putils.NewFakePackageServer(ctx, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -327,7 +327,7 @@ func validatePackageDir(t *testing.T, dir string, input []config.PackageConfig) 
 
 func TestPackageRefs(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	fakeServer, err := putils.NewFakePackageServer(ctx, logger)
 	test.That(t, err, test.ShouldBeNil)

@@ -12,7 +12,9 @@ type StatsT struct {
 }
 
 func (t *StatsT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
-	if t == nil { return 0 }
+	if t == nil {
+		return 0
+	}
 	maxOffset := flatbuffers.UOffsetT(0)
 	if t.Max != nil {
 		maxLength := len(t.Max)
@@ -51,7 +53,9 @@ func (rcv *Stats) UnPackTo(t *StatsT) {
 }
 
 func (rcv *Stats) UnPack() *StatsT {
-	if rcv == nil { return nil }
+	if rcv == nil {
+		return nil
+	}
 	t := &StatsT{}
 	rcv.UnPackTo(t)
 	return t

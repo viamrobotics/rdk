@@ -12,7 +12,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	commonpb "go.viam.com/api/common/v1"
@@ -21,6 +20,7 @@ import (
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
@@ -34,7 +34,7 @@ func RegisterBoard(modelName string, gpioMappings map[string]GPIOBoardMapping) {
 				ctx context.Context,
 				_ resource.Dependencies,
 				conf resource.Config,
-				logger golog.Logger,
+				logger logging.Logger,
 			) (board.Board, error) {
 				return NewBoard(ctx, conf, ConstPinDefs(gpioMappings), logger)
 			},
@@ -46,7 +46,7 @@ func NewBoard(
 	ctx context.Context,
 	conf resource.Config,
 	convertConfig ConfigConverter,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (board.Board, error) {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
@@ -306,7 +306,7 @@ func (b *Board) reconfigureAnalogReaders(ctx context.Context, newConf *LinuxBoar
 // This helper function is used while reconfiguring digital interrupts. It finds the new config (if
 // any) for a pre-existing digital interrupt.
 func findNewDigIntConfig(
-	interrupt *digitalInterrupt, confs []board.DigitalInterruptConfig, logger golog.Logger,
+	interrupt *digitalInterrupt, confs []board.DigitalInterruptConfig, logger logging.Logger,
 ) *board.DigitalInterruptConfig {
 	for _, newConfig := range confs {
 		if newConfig.Pin == interrupt.config.Pin {
@@ -453,7 +453,7 @@ type Board struct {
 	spis          map[string]*spiBus
 	analogReaders map[string]*wrappedAnalogReader
 	i2cs          map[string]*I2cBus
-	logger        golog.Logger
+	logger        logging.Logger
 
 	gpios      map[string]*gpioPin
 	interrupts map[string]*digitalInterrupt

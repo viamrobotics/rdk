@@ -6,11 +6,11 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	pb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	frame "go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -28,7 +28,7 @@ func TestWriteViam(t *testing.T) {
 	fs := frame.NewEmptyFrameSystem("test")
 
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm7_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
@@ -168,7 +168,7 @@ func TestReconfigure(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	xArm := &xArm{
 		speed:  float32(utils.DegToRad(float64(conf.Speed))),
-		logger: golog.NewTestLogger(t),
+		logger: logging.NewTestLogger(t),
 	}
 	xArm.mu.Lock()
 	xArm.conn = conn1

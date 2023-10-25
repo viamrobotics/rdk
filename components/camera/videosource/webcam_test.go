@@ -4,12 +4,12 @@ import (
 	"context"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"github.com/pion/mediadevices/pkg/driver"
 	"github.com/pion/mediadevices/pkg/prop"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/camera/videosource"
+	"go.viam.com/rdk/logging"
 )
 
 // fakeDriver is a driver has a label and media properties.
@@ -39,7 +39,7 @@ func testGetDrivers() []driver.Driver {
 }
 
 func TestDiscoveryWebcam(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	resp, err := videosource.Discover(context.Background(), testGetDrivers, logger)
 
 	test.That(t, err, test.ShouldBeNil)
