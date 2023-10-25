@@ -18,12 +18,12 @@ import (
 )
 
 type setupResult struct {
+	btn1Callbacks, btn2Callbacks                   int64
+	axis1Callbacks, axis2Callbacks, axis3Callbacks int64
 	ctx                                            context.Context
 	logger                                         logging.Logger
 	b                                              *fakeboard.Board
 	dev                                            input.Controller
-	btn1Callbacks, btn2Callbacks                   int64
-	axis1Callbacks, axis2Callbacks, axis3Callbacks int64
 	axis1Time, axis2Time                           time.Time
 	axisMu                                         sync.RWMutex
 }
