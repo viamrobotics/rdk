@@ -235,7 +235,7 @@ func (ms *builtIn) MoveOnMap(
 		return false, err
 	}
 
-	// this ensures that if the context is cancelled we always return early at the top of the loop
+	// this ensures that if the context is cancelled we always return early
 	if err := ctx.Err(); err != nil {
 		ma.cancel()
 		return false, err
