@@ -3,6 +3,7 @@ package builtin
 import (
 	"context"
 	"fmt"
+	"math"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -49,7 +50,19 @@ func newMoveAttempt(ctx context.Context, request *moveRequest) *moveAttempt {
 	var waypointIndex atomic.Int32
 	waypointIndex.Store(1)
 
-	ma := &moveAttempt{
+	// effectively don't poll if the PositionPollingFreqHz is not provided
+	positionPollingFreq := time.Duration(math.MaxInt64)
+	if request.config.positionPollingFreqHz > 0 {
+		positionPollingFreq = time.Duration(1000/request.config.positionPollingFreqHz) * time.Millisecond
+	}
+
+	// effectively don't poll if the ObstaclePollingFreqHz is not provided
+	obstaclePollingFreq := time.Duration(math.MaxInt64)
+	if request.config.obstaclePollingFreqHz > 0 {
+		obstaclePollingFreq = time.Duration(1000/request.config.obstaclePollingFreqHz) * time.Millisecond
+	}
+
+	return &moveAttempt{
 		ctx:               cancelCtx,
 		cancelFn:          cancelFn,
 		backgroundWorkers: &backgroundWorkers,
@@ -57,15 +70,11 @@ func newMoveAttempt(ctx context.Context, request *moveRequest) *moveAttempt {
 		request:      request,
 		responseChan: make(chan moveResponse),
 
+		position: newReplanner(positionPollingFreq, request.deviatedFromPlan),
+		obstacle: newReplanner(obstaclePollingFreq, request.obstaclesIntersectPlan),
+
 		waypointIndex: &waypointIndex,
 	}
-	if request.config.PositionPollingFreqHz > 0 {
-		ma.position = newReplanner(time.Duration(1000/request.config.PositionPollingFreqHz)*time.Millisecond, request.deviatedFromPlan)
-	}
-	if request.config.ObstaclePollingFreqHz > 0 {
-		ma.obstacle = newReplanner(time.Duration(1000/request.config.ObstaclePollingFreqHz)*time.Millisecond, request.obstaclesIntersectPlan)
-	}
-	return ma
 }
 
 // start begins a new moveAttempt by using its moveRequest to create a plan, spawn relevant replanners, and finally execute the motion.

@@ -326,13 +326,13 @@ func moveOnGlobeRequestFromProto(req *pb.MoveOnGlobeRequest) (MoveOnGlobeReq, er
 
 	protoComponentName := req.GetComponentName()
 	if protoComponentName == nil {
-		return MoveOnGlobeReq{}, errors.New("received nil *commonpb.ResourceName")
+		return MoveOnGlobeReq{}, errors.New("received nil *commonpb.ResourceName for component name")
 	}
 	componentName := rprotoutils.ResourceNameFromProto(protoComponentName)
 	destination := geo.NewPoint(req.GetDestination().GetLatitude(), req.GetDestination().GetLongitude())
 	protoMovementSensorName := req.GetMovementSensorName()
 	if protoMovementSensorName == nil {
-		return MoveOnGlobeReq{}, errors.New("received nil *commonpb.ResourceName")
+		return MoveOnGlobeReq{}, errors.New("received nil *commonpb.ResourceName for movement sensor name")
 	}
 	movementSensorName := rprotoutils.ResourceNameFromProto(protoMovementSensorName)
 	motionCfg := configurationFromProto(req.MotionConfiguration)
