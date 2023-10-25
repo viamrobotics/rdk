@@ -47,6 +47,9 @@ const (
 	defaultAttemptSolveEvery = 15
 
 	defaultBidirectional = true
+
+	// When exhaustively trying to connect trees, only check every this many nodes, for perf reasons.
+	defaultCheckNodeConnectEvery = 5
 )
 
 var defaultGoalMetricConstructor = ik.NewSquaredNormMetric
@@ -283,7 +286,14 @@ func (mp *tpSpaceRRTMotionPlanner) planRunner(
 		if iter%mp.algOpts.attemptSolveEvery == 0 {
 			// Attempt a solve; we exhaustively iterate through our goal tree and attempt to find any connection to the seed tree
 			paths := [][]node{}
+			i := 0
 			for goalMapNode := range rrt.maps.goalMap {
+				if i%defaultCheckNodeConnectEvery != 0 {
+					i++
+					continue
+				}
+				i++
+
 				seedReached := mp.attemptExtension(ctx, goalMapNode, rrt.maps.startMap, false)
 				if seedReached.error != nil {
 					rrt.solutionChan <- &rrtPlanReturn{planerr: seedReached.error, maps: rrt.maps}
