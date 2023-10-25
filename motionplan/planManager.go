@@ -25,7 +25,7 @@ import (
 const (
 	defaultOptimalityMultiple      = 2.0
 	defaultFallbackTimeout         = 1.5
-	defaultTPspaceOrientationScale = 30.
+	defaultTPspaceOrientationScale = 60.
 )
 
 // planManager is intended to be the single entry point to motion planners, wrapping all others, dealing with fallbacks, etc.

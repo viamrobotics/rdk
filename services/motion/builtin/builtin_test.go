@@ -478,11 +478,12 @@ func TestMoveOnMapPlans(t *testing.T) {
 	ctx := context.Background()
 	// goal x-position of 1.32m is scaled to be in mm
 	goal := spatialmath.NewPoseFromPoint(r3.Vector{X: 1.32 * 1000, Y: 0})
+	extra := map[string]interface{}{"smooth_iter": 5}
+	extraPosOnly := map[string]interface{}{"smooth_iter": 5, "motion_profile": "position_only"}
 
 	t.Run("check that path is planned around obstacle", func(t *testing.T) {
 		t.Parallel()
 		kb, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd")
-		extra := make(map[string]interface{})
 		success, err := ms.(*builtIn).MoveOnMap(
 			context.Background(),
 			base.Named("test-base"),
@@ -505,7 +506,7 @@ func TestMoveOnMapPlans(t *testing.T) {
 			base.Named("test-base"),
 			goal,
 			slam.Named("test_slam"),
-			nil,
+			extra,
 		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, success, test.ShouldBeTrue)
@@ -523,7 +524,7 @@ func TestMoveOnMapPlans(t *testing.T) {
 			base.Named("test-base"),
 			easyGoal,
 			slam.Named("test_slam"),
-			nil,
+			extra,
 		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, success, test.ShouldBeTrue)
@@ -535,14 +536,12 @@ func TestMoveOnMapPlans(t *testing.T) {
 	t.Run("check that position-only mode returns 2D plan", func(t *testing.T) {
 		t.Parallel()
 		kb, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd")
-		extra := make(map[string]interface{})
-		extra["motion_profile"] = "position_only"
 		success, err := ms.(*builtIn).MoveOnMap(
 			context.Background(),
 			base.Named("test-base"),
 			goal,
 			slam.Named("test_slam"),
-			extra,
+			extraPosOnly,
 		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, success, test.ShouldBeTrue)
@@ -554,14 +553,12 @@ func TestMoveOnMapPlans(t *testing.T) {
 	t.Run("check that position-only mode executes", func(t *testing.T) {
 		t.Parallel()
 		kb, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd")
-		extra := make(map[string]interface{})
-		extra["motion_profile"] = "position_only"
 		success, err := ms.MoveOnMap(
 			context.Background(),
 			base.Named("test-base"),
 			goal,
 			slam.Named("test_slam"),
-			extra,
+			extraPosOnly,
 		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, success, test.ShouldBeTrue)
@@ -585,7 +582,7 @@ func TestMoveOnMapSubsequent(t *testing.T) {
 	logger, observer := golog.NewObservedTestLogger(t)
 	msBuiltin.logger = logger
 
-	extra := make(map[string]interface{})
+	extra := map[string]interface{}{"smooth_iter": 5}
 	success, err := msBuiltin.MoveOnMap(
 		context.Background(),
 		base.Named("test-base"),

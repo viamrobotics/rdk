@@ -278,7 +278,12 @@ func (mp *tpSpaceRRTMotionPlanner) planRunner(
 			if reachedDelta <= mp.algOpts.poseSolveDist {
 				// If we've reached the goal, extract the path from the RRT trees and return
 				path := extractPath(rrt.maps.startMap, rrt.maps.goalMap, &nodePair{a: seedReached.node, b: goalReached.node}, false)
-				rrt.solutionChan <- &rrtPlanReturn{steps: path, maps: rrt.maps}
+				correctedPath, err := rectifyTPspacePath(path, mp.frame, spatialmath.NewZeroPose())
+				if err != nil {
+					rrt.solutionChan <- &rrtPlanReturn{planerr: err, maps: rrt.maps}
+					return
+				}
+				rrt.solutionChan <- &rrtPlanReturn{steps: correctedPath, maps: rrt.maps}
 				return
 			}
 		}
@@ -743,11 +748,7 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 			maxCost = wp.Cost()
 		}
 	}
-	newFrame, err := tpspace.NewPTGFrameFromPTGFrame(mp.frame, maxCost*mp.algOpts.smoothScaleFactor, 0)
-	if err != nil {
-		return path
-	}
-	smoothPlannerMP, err := newTPSpaceMotionPlanner(newFrame, mp.randseed, mp.logger, mp.planOpts)
+	smoothPlannerMP, err := newTPSpaceMotionPlanner(mp.frame, mp.randseed, mp.logger, mp.planOpts)
 	if err != nil {
 		return path
 	}

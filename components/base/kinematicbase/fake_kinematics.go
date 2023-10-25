@@ -203,11 +203,9 @@ func (fk *fakePTGKinematics) GoToInputs(ctx context.Context, inputs []referencef
 		return err
 	}
 
-	fk.logger.Infof("old current position %v", spatialmath.PoseToProtobuf(fk.currentPosition))
 	fk.lock.Lock()
 	fk.currentPosition = spatialmath.Compose(fk.currentPosition, newPose)
 	fk.lock.Unlock()
-	fk.logger.Infof("new current position %v", spatialmath.PoseToProtobuf(fk.currentPosition))
 
 	return nil
 }
