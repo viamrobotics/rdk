@@ -9,9 +9,9 @@ import (
 // Controllable controllable type for a DC motor.
 type Controllable interface {
 	// SetState set the power and direction of the motor
-	SetState(ctx context.Context, state float64) error
+	SetState(ctx context.Context, state []*Signal) error
 	// Position returns the current encoder count value
-	State(ctx context.Context) (float64, error)
+	State(ctx context.Context) ([]float64, error)
 }
 
 // Config configuration of the control loop.

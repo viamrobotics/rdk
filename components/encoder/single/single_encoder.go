@@ -27,12 +27,12 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/encoder"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
@@ -66,7 +66,7 @@ type Encoder struct {
 	diPinName string
 
 	positionType encoder.PositionType
-	logger       golog.Logger
+	logger       logging.Logger
 
 	cancelCtx               context.Context
 	cancelFunc              func()
@@ -112,7 +112,7 @@ func NewSingleEncoder(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (encoder.Encoder, error) {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	e := &Encoder{

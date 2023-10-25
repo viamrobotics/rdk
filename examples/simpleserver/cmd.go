@@ -4,24 +4,24 @@ package main
 import (
 	"context"
 
-	"github.com/edaniels/golog"
 	"github.com/viamrobotics/gostream/codec/x264"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/arm/fake"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/robot/web"
 )
 
-var logger = golog.NewDebugLogger("simpleserver")
+var logger = logging.NewDebugLogger("simpleserver")
 
 func main() {
 	utils.ContextualMain(mainWithArgs, logger)
 }
 
-func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error {
+func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) error {
 	arm1Name := arm.Named("arm1")
 	cfg := resource.Config{
 		Name:  arm1Name.Name,

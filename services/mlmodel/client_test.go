@@ -5,12 +5,12 @@ import (
 	"net"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 	"gorgonia.org/tensor"
 
 	viamgrpc "go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/ml"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/mlmodel"
@@ -23,10 +23,10 @@ const (
 )
 
 func TestClient(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	listener1, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
-	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
+	rpcServer, err := rpc.NewServer(logger.AsZap(), rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
 	fakeModel := inject.NewMLModelService(testMLModelServiceName)

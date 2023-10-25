@@ -5,8 +5,8 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/dynamic"
 	"github.com/pkg/errors"
@@ -14,6 +14,7 @@ import (
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
@@ -58,7 +59,7 @@ type Robot interface {
 	PackageManager() packages.Manager
 
 	// Logger returns the logger the robot is using.
-	Logger() golog.Logger
+	Logger() logging.Logger
 
 	// FrameSystemConfig returns the individual parts that make up a robot's frame system
 	FrameSystemConfig(ctx context.Context) (*framesystem.Config, error)
@@ -118,12 +119,16 @@ type RemoteRobot interface {
 	Connected() bool
 }
 
-// Status holds a resource name and its corresponding status. Status is expected to be comprised of string keys
-// and values comprised of primitives, list of primitives, maps with string keys (or at least can be decomposed into one),
-// or lists of the forementioned type of maps. Results with other types of data are not guaranteed.
+// Status holds a resource name, the time that resource was last reconfigured
+// (or built), and its corresponding status. Status.Status is expected to be
+// comprised of string keys and values comprised of primitives, list of
+// primitives, maps with string keys (or at least can be decomposed into one),
+// or lists of the forementioned type of maps. Results with other types of data
+// are not guaranteed.
 type Status struct {
-	Name   resource.Name
-	Status interface{}
+	Name             resource.Name
+	LastReconfigured time.Time
+	Status           interface{}
 }
 
 // AllResourcesByName returns an array of all resources that have this short name.

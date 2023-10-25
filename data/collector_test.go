@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/benbjohnson/clock"
-	"github.com/edaniels/golog"
 	"go.uber.org/zap/zapcore"
 	v1 "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
@@ -19,6 +18,7 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/services/datamanager/datacapture"
 )
 
@@ -59,7 +59,7 @@ func TestNewCollector(t *testing.T) {
 	// If not missing parameters, should not return an error.
 	c2, err2 := NewCollector(nil, CollectorParams{
 		ComponentName: "name",
-		Logger:        golog.NewTestLogger(t),
+		Logger:        logging.NewTestLogger(t),
 		Target:        datacapture.NewBuffer("dir", nil),
 	})
 
@@ -69,7 +69,7 @@ func TestNewCollector(t *testing.T) {
 
 // Test that the Collector correctly writes the SensorData on an interval.
 func TestSuccessfulWrite(t *testing.T) {
-	l := golog.NewTestLogger(t)
+	l := logging.NewTestLogger(t)
 	tickerInterval := sleepCaptureCutoff + 1
 	sleepInterval := sleepCaptureCutoff - 1
 
@@ -197,7 +197,7 @@ func TestSuccessfulWrite(t *testing.T) {
 
 func TestClose(t *testing.T) {
 	// Set up a collector.
-	l := golog.NewTestLogger(t)
+	l := logging.NewTestLogger(t)
 	tmpDir := t.TempDir()
 	md := v1.DataCaptureMetadata{}
 	buf := datacapture.NewBuffer(tmpDir, &md)
@@ -248,7 +248,7 @@ func TestClose(t *testing.T) {
 // has been called. The collector context is cancelled as part of Close, so we expect to see context cancelled errors
 // for any running capture routines.
 func TestCtxCancelledNotLoggedAfterClose(t *testing.T) {
-	logger, logs := golog.NewObservedTestLogger(t)
+	logger, logs := logging.NewObservedTestLogger(t)
 	tmpDir := t.TempDir()
 	target := datacapture.NewBuffer(tmpDir, &v1.DataCaptureMetadata{})
 	captured := make(chan struct{})

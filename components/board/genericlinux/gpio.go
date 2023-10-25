@@ -9,10 +9,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/mkch/gpio"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
+
+	"go.viam.com/rdk/logging"
 )
 
 type gpioPin struct {
@@ -32,7 +33,7 @@ type gpioPin struct {
 
 	mu        sync.Mutex
 	cancelCtx context.Context
-	logger    golog.Logger
+	logger    logging.Logger
 }
 
 func (pin *gpioPin) wrapError(err error) error {

@@ -8,9 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
-
 	"go.viam.com/rdk/components/base/fake"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/motion"
@@ -27,7 +26,7 @@ type fakeDiffDriveKinematics struct {
 	lock                          sync.Mutex
 }
 
-// WrapWithFakeDiffDriveKinematics creates a DiffDRive KinematicBase from the fake Base so that it satisfies the ModelFramer and
+// WrapWithFakeDiffDriveKinematics creates a DiffDrive KinematicBase from the fake Base so that it satisfies the ModelFramer and
 // InputEnabled interfaces.
 func WrapWithFakeDiffDriveKinematics(
 	ctx context.Context,
@@ -132,7 +131,7 @@ type fakePTGKinematics struct {
 func WrapWithFakePTGKinematics(
 	ctx context.Context,
 	b *fake.Base,
-	logger golog.Logger,
+	logger logging.Logger,
 	localizer motion.Localizer,
 	options Options,
 	sensorNoise spatialmath.Pose,

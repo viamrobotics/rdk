@@ -9,7 +9,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/edaniels/golog"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
@@ -18,6 +17,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/module/modmanager"
 	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
 	modif "go.viam.com/rdk/module/modmaninterface"
@@ -31,7 +31,7 @@ import (
 
 func init() {
 	if err := cleanAppImageEnv(); err != nil {
-		golog.Global().Errorw("error cleaning up app image environement", "error", err)
+		logging.Global().Errorw("error cleaning up app image environement", "error", err)
 	}
 }
 
@@ -47,7 +47,7 @@ type resourceManager struct {
 	processConfigs map[string]pexec.ProcessConfig
 	moduleManager  modif.ModuleManager
 	opts           resourceManagerOptions
-	logger         golog.Logger
+	logger         logging.Logger
 	configLock     sync.Mutex
 }
 
@@ -63,7 +63,7 @@ type resourceManagerOptions struct {
 // moduleManager will not be initialized until startModuleManager is called.
 func newResourceManager(
 	opts resourceManagerOptions,
-	logger golog.Logger,
+	logger logging.Logger,
 ) *resourceManager {
 	return &resourceManager{
 		resources:      resource.NewGraph(),
@@ -76,12 +76,12 @@ func newResourceManager(
 
 func newProcessManager(
 	opts resourceManagerOptions,
-	logger golog.Logger,
+	logger logging.Logger,
 ) pexec.ProcessManager {
 	if opts.untrustedEnv {
 		return pexec.NoopProcessManager
 	}
-	return pexec.NewProcessManager(logger)
+	return pexec.NewProcessManager(logger.AsZap())
 }
 
 func fromRemoteNameToRemoteNodeName(name string) resource.Name {
@@ -92,7 +92,7 @@ func (manager *resourceManager) startModuleManager(
 	parentAddr string,
 	removeOrphanedResources func(context.Context, []resource.Name),
 	untrustedEnv bool,
-	logger golog.Logger,
+	logger logging.Logger,
 ) {
 	mmOpts := modmanageroptions.Options{
 		UntrustedEnv:            untrustedEnv,
@@ -873,6 +873,43 @@ func (manager *resourceManager) updateResources(
 	defer manager.configLock.Unlock()
 	var allErrs error
 
+	// modules are not added into the resource tree as they belong to the module manager
+	for _, mod := range conf.Added.Modules {
+		// this is done in config validation but partial start rules require us to check again
+		if err := mod.Validate(""); err != nil {
+			manager.logger.Errorw("module config validation error; skipping", "module", mod.Name, "error", err)
+			continue
+		}
+		if err := manager.moduleManager.Add(ctx, mod); err != nil {
+			manager.logger.Errorw("error adding module", "module", mod.Name, "error", err)
+			continue
+		}
+	}
+
+	for _, mod := range conf.Modified.Modules {
+		// this is done in config validation but partial start rules require us to check again
+		if err := mod.Validate(""); err != nil {
+			manager.logger.Errorw("module config validation error; skipping", "module", mod.Name, "error", err)
+			continue
+		}
+		orphanedResourceNames, err := manager.moduleManager.Reconfigure(ctx, mod)
+		if err != nil {
+			manager.logger.Errorw("error reconfiguring module", "module", mod.Name, "error", err)
+		}
+		for _, resToClose := range manager.markResourcesRemoved(orphanedResourceNames, nil) {
+			if err := resToClose.Close(ctx); err != nil {
+				manager.logger.Errorw("error closing now orphaned resource", "resource",
+					resToClose.Name().String(), "module", mod.Name, "error", err)
+			}
+		}
+	}
+
+	if manager.moduleManager != nil {
+		if err := manager.moduleManager.ResolveImplicitDependenciesInConfig(ctx, conf); err != nil {
+			manager.logger.Errorw("error adding implicit dependencies", "error", err)
+		}
+	}
+
 	for _, s := range conf.Added.Services {
 		rName := s.ResourceName()
 		if manager.opts.untrustedEnv && rName.API == shell.API {
@@ -960,24 +997,6 @@ func (manager *resourceManager) updateResources(
 		manager.processConfigs[p.ID] = p
 	}
 
-	// modules are not added into the resource tree as they belong to the module manager
-	for _, mod := range conf.Modified.Modules {
-		// this is done in config validation but partial start rules require us to check again
-		if err := mod.Validate(""); err != nil {
-			manager.logger.Errorw("module config validation error; skipping", "module", mod.Name, "error", err)
-			continue
-		}
-		orphanedResourceNames, err := manager.moduleManager.Reconfigure(ctx, mod)
-		if err != nil {
-			manager.logger.Errorw("error reconfiguring module", "module", mod.Name, "error", err)
-		}
-		for _, resToClose := range manager.markResourcesRemoved(orphanedResourceNames, nil) {
-			if err := resToClose.Close(ctx); err != nil {
-				manager.logger.Errorw("error closing now orphaned resource", "resource",
-					resToClose.Name().String(), "module", mod.Name, "error", err)
-			}
-		}
-	}
 	return allErrs
 }
 
@@ -1024,7 +1043,7 @@ type PartsMergeResult struct {
 func (manager *resourceManager) markRemoved(
 	ctx context.Context,
 	conf *config.Config,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (pexec.ProcessManager, []resource.Resource, map[resource.Name]struct{}) {
 	processesToClose := newProcessManager(manager.opts, logger)
 	for _, conf := range conf.Processes {

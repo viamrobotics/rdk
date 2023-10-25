@@ -7,22 +7,23 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/edaniels/golog"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 	"gotest.tools/gotestsum/testjson"
+
+	"go.viam.com/rdk/logging"
 )
 
-var logger = golog.NewDebugLogger("analyzetests")
+var logger = logging.NewDebugLogger("analyzetests")
 
 func main() {
 	utils.ContextualMain(mainWithArgs, logger)
 }
 
-func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error {
+func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) error {
 	exec, err := testjson.ScanTestOutput(testjson.ScanConfig{
 		Stdout: os.Stdin,
 	})

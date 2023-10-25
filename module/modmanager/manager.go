@@ -11,7 +11,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/edaniels/golog"
 	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
@@ -19,6 +18,7 @@ import (
 	pb "go.viam.com/api/module/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
+	"golang.org/x/exp/slices"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
@@ -26,6 +26,7 @@ import (
 
 	"go.viam.com/rdk/config"
 	rdkgrpc "go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/logging"
 	modlib "go.viam.com/rdk/module"
 	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
 	"go.viam.com/rdk/module/modmaninterface"
@@ -42,7 +43,7 @@ var (
 )
 
 // NewManager returns a Manager.
-func NewManager(parentAddr string, logger golog.Logger, options modmanageroptions.Options) modmaninterface.ModuleManager {
+func NewManager(parentAddr string, logger logging.Logger, options modmanageroptions.Options) modmaninterface.ModuleManager {
 	restartCtx, restartCtxCancel := context.WithCancel(context.Background())
 	return &Manager{
 		logger:                  logger,
@@ -92,7 +93,7 @@ type addedResource struct {
 // Manager is the root structure for the module system.
 type Manager struct {
 	mu                      sync.RWMutex
-	logger                  golog.Logger
+	logger                  logging.Logger
 	modules                 map[string]*module
 	parentAddr              string
 	rMap                    map[resource.Name]*module
@@ -115,6 +116,20 @@ func (mgr *Manager) Close(ctx context.Context) error {
 		err = multierr.Combine(err, mgr.remove(mod, false))
 	}
 	return err
+}
+
+// Handles returns all the models for each module registered.
+func (mgr *Manager) Handles() map[string]modlib.HandlerMap {
+	mgr.mu.Lock()
+	defer mgr.mu.Unlock()
+
+	res := map[string]modlib.HandlerMap{}
+
+	for n, m := range mgr.modules {
+		res[n] = m.handles
+	}
+
+	return res
 }
 
 // Add adds and starts a new resource module.
@@ -428,6 +443,67 @@ func (mgr *Manager) ValidateConfig(ctx context.Context, conf resource.Config) ([
 	return resp.Dependencies, nil
 }
 
+// ResolveImplicitDependenciesInConfig modifies the config diff to add implicit dependencies to changed resources
+// and updates modular resources whose module has been changed with new implicit deps and adds them to conf.Modified.
+func (mgr *Manager) ResolveImplicitDependenciesInConfig(ctx context.Context, conf *config.Diff) error {
+	mgr.mu.RLock()
+	defer mgr.mu.RUnlock()
+	// Find all components/services that are unmodified but whose module has been updated and add them to the modified array.
+	for _, c := range conf.Right.Components {
+		// See if this component is being provided by a module
+		mod, ok := mgr.getModule(c)
+		if !ok {
+			continue
+		}
+		// If it is, check against the modified modules to determine if the config should also be updated but won't already be
+		if slices.ContainsFunc(conf.Modified.Modules, func(elem config.Module) bool { return elem.Name == mod.name }) &&
+			!slices.ContainsFunc(conf.Added.Components, func(elem resource.Config) bool { return elem.Name == c.Name }) &&
+			!slices.ContainsFunc(conf.Modified.Components, func(elem resource.Config) bool { return elem.Name == c.Name }) {
+			conf.Modified.Components = append(conf.Modified.Components, c)
+		}
+	}
+	for _, s := range conf.Right.Services {
+		// See if this component is being provided by a module
+		mod, ok := mgr.getModule(s)
+		if !ok {
+			continue
+		}
+		// If it is, check against the modified modules to determine if the config should also be updated but won't already be
+		if slices.ContainsFunc(conf.Modified.Modules, func(elem config.Module) bool { return elem.Name == mod.name }) &&
+			!slices.ContainsFunc(conf.Added.Services, func(elem resource.Config) bool { return elem.Name == s.Name }) &&
+			!slices.ContainsFunc(conf.Modified.Services, func(elem resource.Config) bool { return elem.Name == s.Name }) {
+			conf.Modified.Services = append(conf.Modified.Services, s)
+		}
+	}
+
+	// If something was added or modified, go through components and services in
+	// diff.Added and diff.Modified, call Validate on all those that are modularized,
+	// and store implicit dependencies.
+	validateModularResources := func(confs []resource.Config) {
+		for i, c := range confs {
+			if mgr.Provides(c) {
+				implicitDeps, err := mgr.ValidateConfig(ctx, c)
+				if err != nil {
+					mgr.logger.Errorw("modular config validation error found in resource: "+c.Name, "error", err)
+					continue
+				}
+
+				// Modify resource to add its implicit dependencies.
+				confs[i].ImplicitDependsOn = implicitDeps
+			}
+		}
+	}
+	if conf.Added != nil {
+		validateModularResources(conf.Added.Components)
+		validateModularResources(conf.Added.Services)
+	}
+	if conf.Modified != nil {
+		validateModularResources(conf.Modified.Components)
+		validateModularResources(conf.Modified.Services)
+	}
+	return nil
+}
+
 func (mgr *Manager) getModule(conf resource.Config) (*module, bool) {
 	for _, mod := range mgr.modules {
 		var api resource.RPCAPI
@@ -611,7 +687,7 @@ func (m *module) dial() error {
 	return nil
 }
 
-func (m *module) checkReady(ctx context.Context, parentAddr string, logger golog.Logger) error {
+func (m *module) checkReady(ctx context.Context, parentAddr string, logger logging.Logger) error {
 	ctxTimeout, cancelFunc := context.WithTimeout(ctx, rutils.GetResourceConfigurationTimeout(logger))
 	defer cancelFunc()
 
@@ -634,7 +710,7 @@ func (m *module) startProcess(
 	ctx context.Context,
 	parentAddr string,
 	oue func(int) bool,
-	logger golog.Logger,
+	logger logging.Logger,
 ) error {
 	var err error
 	if m.addr, err = modlib.CreateSocketAddress(filepath.Dir(parentAddr), m.name); err != nil {
@@ -657,7 +733,7 @@ func (m *module) startProcess(
 		pconf.Args = append(pconf.Args, fmt.Sprintf(logLevelArgumentTemplate, "debug"))
 	}
 
-	m.process = pexec.NewManagedProcess(pconf, logger)
+	m.process = pexec.NewManagedProcess(pconf, logger.AsZap())
 
 	if err := m.process.Start(context.Background()); err != nil {
 		return errors.WithMessage(err, "module startup failed")
@@ -700,7 +776,7 @@ func (m *module) stopProcess() error {
 	return nil
 }
 
-func (m *module) registerResources(mgr modmaninterface.ModuleManager, logger golog.Logger) {
+func (m *module) registerResources(mgr modmaninterface.ModuleManager, logger logging.Logger) {
 	for api, models := range m.handles {
 		if _, ok := resource.LookupGenericAPIRegistration(api.API); !ok {
 			resource.RegisterAPI(
@@ -718,7 +794,7 @@ func (m *module) registerResources(mgr modmaninterface.ModuleManager, logger gol
 						ctx context.Context,
 						deps resource.Dependencies,
 						conf resource.Config,
-						logger golog.Logger,
+						logger logging.Logger,
 					) (resource.Resource, error) {
 						return mgr.AddResource(ctx, conf, DepsToNames(deps))
 					},
@@ -732,7 +808,7 @@ func (m *module) registerResources(mgr modmaninterface.ModuleManager, logger gol
 						ctx context.Context,
 						deps resource.Dependencies,
 						conf resource.Config,
-						logger golog.Logger,
+						logger logging.Logger,
 					) (resource.Resource, error) {
 						return mgr.AddResource(ctx, conf, DepsToNames(deps))
 					},

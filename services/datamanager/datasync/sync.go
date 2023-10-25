@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/atomic"
 	v1 "go.viam.com/api/app/datasync/v1"
@@ -18,6 +17,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/services/datamanager/datacapture"
 )
 
@@ -43,7 +43,7 @@ type Manager interface {
 type syncer struct {
 	partID            string
 	client            v1.DataSyncServiceClient
-	logger            golog.Logger
+	logger            logging.Logger
 	backgroundWorkers sync.WaitGroup
 	cancelCtx         context.Context
 	cancelFunc        func()
@@ -60,13 +60,10 @@ type syncer struct {
 }
 
 // ManagerConstructor is a function for building a Manager.
-type ManagerConstructor func(
-	identity string, client v1.DataSyncServiceClient, logger golog.Logger, captureDir string) (Manager, error)
+type ManagerConstructor func(identity string, client v1.DataSyncServiceClient, logger logging.Logger, captureDir string) (Manager, error)
 
 // NewManager returns a new syncer.
-func NewManager(
-	identity string, client v1.DataSyncServiceClient, logger golog.Logger, captureDir string,
-) (Manager, error) {
+func NewManager(identity string, client v1.DataSyncServiceClient, logger logging.Logger, captureDir string) (Manager, error) {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	ret := syncer{
 		partID:            identity,

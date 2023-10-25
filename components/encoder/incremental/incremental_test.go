@@ -5,13 +5,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/components/board"
 	fakeboard "go.viam.com/rdk/components/board/fake"
 	"go.viam.com/rdk/components/encoder"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
@@ -31,7 +31,7 @@ func TestConfig(t *testing.T) {
 
 		rawcfg := resource.Config{Name: "enc1", ConvertedAttributes: &ic}
 
-		_, err := NewIncrementalEncoder(ctx, deps, rawcfg, golog.NewTestLogger(t))
+		_, err := NewIncrementalEncoder(ctx, deps, rawcfg, logging.NewTestLogger(t))
 
 		test.That(t, err, test.ShouldBeNil)
 	})
@@ -43,7 +43,7 @@ func TestConfig(t *testing.T) {
 
 		rawcfg := resource.Config{Name: "enc1", ConvertedAttributes: &ic}
 
-		_, err := NewIncrementalEncoder(ctx, deps, rawcfg, golog.NewTestLogger(t))
+		_, err := NewIncrementalEncoder(ctx, deps, rawcfg, logging.NewTestLogger(t))
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 }
@@ -64,7 +64,7 @@ func TestEncoder(t *testing.T) {
 	rawcfg := resource.Config{Name: "enc1", ConvertedAttributes: &ic}
 
 	t.Run("run forward", func(t *testing.T) {
-		enc, err := NewIncrementalEncoder(ctx, deps, rawcfg, golog.NewTestLogger(t))
+		enc, err := NewIncrementalEncoder(ctx, deps, rawcfg, logging.NewTestLogger(t))
 		test.That(t, err, test.ShouldBeNil)
 		enc2 := enc.(*Encoder)
 		defer enc2.Close(context.Background())
@@ -83,7 +83,7 @@ func TestEncoder(t *testing.T) {
 	})
 
 	t.Run("run backward", func(t *testing.T) {
-		enc, err := NewIncrementalEncoder(ctx, deps, rawcfg, golog.NewTestLogger(t))
+		enc, err := NewIncrementalEncoder(ctx, deps, rawcfg, logging.NewTestLogger(t))
 		test.That(t, err, test.ShouldBeNil)
 		enc2 := enc.(*Encoder)
 		defer enc2.Close(context.Background())
@@ -102,7 +102,7 @@ func TestEncoder(t *testing.T) {
 	})
 
 	t.Run("reset position", func(t *testing.T) {
-		enc, err := NewIncrementalEncoder(ctx, deps, rawcfg, golog.NewTestLogger(t))
+		enc, err := NewIncrementalEncoder(ctx, deps, rawcfg, logging.NewTestLogger(t))
 		test.That(t, err, test.ShouldBeNil)
 		enc2 := enc.(*Encoder)
 		defer enc2.Close(context.Background())
@@ -116,7 +116,7 @@ func TestEncoder(t *testing.T) {
 	})
 
 	t.Run("specify correct position type", func(t *testing.T) {
-		enc, err := NewIncrementalEncoder(ctx, deps, rawcfg, golog.NewTestLogger(t))
+		enc, err := NewIncrementalEncoder(ctx, deps, rawcfg, logging.NewTestLogger(t))
 		test.That(t, err, test.ShouldBeNil)
 		enc2 := enc.(*Encoder)
 		defer enc2.Close(context.Background())
@@ -130,7 +130,7 @@ func TestEncoder(t *testing.T) {
 		})
 	})
 	t.Run("specify wrong position type", func(t *testing.T) {
-		enc, err := NewIncrementalEncoder(ctx, deps, rawcfg, golog.NewTestLogger(t))
+		enc, err := NewIncrementalEncoder(ctx, deps, rawcfg, logging.NewTestLogger(t))
 		test.That(t, err, test.ShouldBeNil)
 		enc2 := enc.(*Encoder)
 		defer enc2.Close(context.Background())
@@ -145,7 +145,7 @@ func TestEncoder(t *testing.T) {
 	})
 
 	t.Run("get properties", func(t *testing.T) {
-		enc, err := NewIncrementalEncoder(ctx, deps, rawcfg, golog.NewTestLogger(t))
+		enc, err := NewIncrementalEncoder(ctx, deps, rawcfg, logging.NewTestLogger(t))
 		test.That(t, err, test.ShouldBeNil)
 		enc2 := enc.(*Encoder)
 		defer enc2.Close(context.Background())

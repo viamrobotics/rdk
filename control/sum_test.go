@@ -5,14 +5,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils"
 )
 
 func TestSumConfig(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	for _, c := range []struct {
 		conf BlockConfig
 		err  string
@@ -76,7 +76,7 @@ func TestSumConfig(t *testing.T) {
 
 func TestSumNext(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	c := BlockConfig{
 		Name: "Sum1",
 		Type: "Sum",

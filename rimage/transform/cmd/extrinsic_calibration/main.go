@@ -12,10 +12,10 @@ import (
 	"io"
 	"os"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -23,12 +23,12 @@ import (
 func main() {
 	confPtr := flag.String("conf", "", "path of configuration for extrinsic parameter finding")
 	flag.Parse()
-	logger := golog.NewLogger("extrinsic_calibration")
+	logger := logging.NewLogger("extrinsic_calibration")
 	calibrate(*confPtr, logger)
 	os.Exit(0)
 }
 
-func calibrate(conf string, logger golog.Logger) {
+func calibrate(conf string, logger logging.Logger) {
 	cfg, err := readConfig(conf)
 	if err != nil {
 		logger.Fatal(err)

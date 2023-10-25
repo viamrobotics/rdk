@@ -4,12 +4,12 @@ import (
 	"context"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/arm/fake"
 	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
 )
@@ -662,7 +662,7 @@ func TestDependenciesLookup(t *testing.T) {
 	_, err = deps.Lookup(remoteArmName)
 	test.That(t, err, test.ShouldBeError, resource.DependencyNotFoundError(remoteArmName))
 
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	someArm, err := fake.NewArm(context.Background(), nil, resource.Config{ConvertedAttributes: &fake.Config{}}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	deps[armName] = someArm

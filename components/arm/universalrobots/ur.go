@@ -17,13 +17,13 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/arm/v1"
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
@@ -58,7 +58,9 @@ var ur5modeljson []byte
 
 func init() {
 	resource.RegisterComponent(arm.API, Model, resource.Registration[arm.Arm, *Config]{
-		Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (arm.Arm, error) {
+		Constructor: func(
+			ctx context.Context, _ resource.Dependencies, conf resource.Config, logger logging.Logger,
+		) (arm.Arm, error) {
 			return URArmConnect(ctx, conf, logger)
 		},
 	})
@@ -77,7 +79,7 @@ type URArm struct {
 	connControl             net.Conn
 	debug                   bool
 	haveData                bool
-	logger                  golog.Logger
+	logger                  logging.Logger
 	cancel                  func()
 	activeBackgroundWorkers sync.WaitGroup
 	model                   referenceframe.Model
@@ -157,7 +159,7 @@ func (ua *URArm) Close(ctx context.Context) error {
 }
 
 // URArmConnect TODO.
-func URArmConnect(ctx context.Context, conf resource.Config, logger golog.Logger) (arm.Arm, error) {
+func URArmConnect(ctx context.Context, conf resource.Config, logger logging.Logger) (arm.Arm, error) {
 	// this is to speed up component build failure if the UR arm is not reachable
 	ctx, cancel := context.WithDeadline(ctx, time.Now().Add(5*time.Second))
 	defer cancel()

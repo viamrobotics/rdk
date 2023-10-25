@@ -8,10 +8,10 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
@@ -24,7 +24,7 @@ const testTurnRad = 0.3
 
 func TestPtgRrtBidirectional(t *testing.T) {
 	t.Parallel()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	roverGeom, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{10, 10, 10}, "")
 	test.That(t, err, test.ShouldBeNil)
 	geometries := []spatialmath.Geometry{roverGeom}
@@ -104,7 +104,7 @@ func TestPtgRrtBidirectional(t *testing.T) {
 
 func TestPtgRrtUnidirectional(t *testing.T) {
 	t.Parallel()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	roverGeom, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{10, 10, 10}, "")
 	test.That(t, err, test.ShouldBeNil)
 	geometries := []spatialmath.Geometry{roverGeom}
@@ -185,7 +185,7 @@ func TestPtgRrtUnidirectional(t *testing.T) {
 
 func TestPtgWithObstacle(t *testing.T) {
 	t.Parallel()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	roverGeom, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{10, 10, 10}, "")
 	test.That(t, err, test.ShouldBeNil)
 	geometries := []spatialmath.Geometry{roverGeom}
@@ -305,9 +305,8 @@ func TestPtgWithObstacle(t *testing.T) {
 }
 
 func TestTPsmoothing(t *testing.T) {
-	// TODO: this doesn't smooth properly yet. This should be made to smooth better.
 	t.Parallel()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	roverGeom, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{10, 10, 10}, "")
 	test.That(t, err, test.ShouldBeNil)
 	geometries := []spatialmath.Geometry{roverGeom}
@@ -363,7 +362,8 @@ func TestTPsmoothing(t *testing.T) {
 	plan, err = rectifyTPspacePath(plan, tp.frame, spatialmath.NewZeroPose())
 	test.That(t, err, test.ShouldBeNil)
 
-	tp.planOpts.SmoothIter = 20
+	// TODO (RSDK-5104) this should be able to be a smaller value once 5104 is complete
+	tp.planOpts.SmoothIter = 80
 
 	newplan := tp.smoothPath(ctx, plan)
 	test.That(t, newplan, test.ShouldNotBeNil)
@@ -379,7 +379,7 @@ func TestTPsmoothing(t *testing.T) {
 }
 
 func TestPtgCheckPlan(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	roverGeom, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{10, 10, 10}, "")
 	test.That(t, err, test.ShouldBeNil)
 	geometries := []spatialmath.Geometry{roverGeom}

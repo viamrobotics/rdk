@@ -25,10 +25,10 @@ import (
 
 	"github.com/d2r2/go-i2c"
 	i2clog "github.com/d2r2/go-logger"
-	"github.com/edaniels/golog"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/powersensor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
@@ -88,7 +88,7 @@ func init() {
 					ctx context.Context,
 					deps resource.Dependencies,
 					conf resource.Config,
-					logger golog.Logger,
+					logger logging.Logger,
 				) (powersensor.PowerSensor, error) {
 					newConf, err := resource.NativeConfig[*Config](conf)
 					if err != nil {
@@ -103,7 +103,7 @@ func init() {
 func newINA(
 	name resource.Name,
 	conf *Config,
-	logger golog.Logger,
+	logger logging.Logger,
 	modelName string,
 ) (powersensor.PowerSensor, error) {
 	err := i2clog.ChangePackageLogLevel("i2c", i2clog.InfoLevel)
@@ -158,7 +158,7 @@ type ina struct {
 	resource.Named
 	resource.AlwaysRebuild
 	resource.TriviallyCloseable
-	logger     golog.Logger
+	logger     logging.Logger
 	model      string
 	bus        int
 	addr       byte

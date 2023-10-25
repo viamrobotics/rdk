@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"github.com/viamrobotics/gostream"
 	streampb "github.com/viamrobotics/gostream/proto/stream/v1"
@@ -18,6 +17,7 @@ import (
 
 	"go.viam.com/rdk/components/audioinput"
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	weboptions "go.viam.com/rdk/robot/web/options"
@@ -34,7 +34,7 @@ type StreamServer struct {
 }
 
 // New returns a new web service for the given robot.
-func New(r robot.Robot, logger golog.Logger, opts ...Option) Service {
+func New(r robot.Robot, logger logging.Logger, opts ...Option) Service {
 	var wOpts options
 	for _, opt := range opts {
 		opt.apply(&wOpts)
@@ -65,7 +65,7 @@ type webService struct {
 	opts         options
 	addr         string
 	modAddr      string
-	logger       golog.Logger
+	logger       logging.Logger
 	cancelCtx    context.Context
 	cancelFunc   func()
 	isRunning    bool

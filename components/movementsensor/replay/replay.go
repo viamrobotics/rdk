@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
@@ -23,6 +22,7 @@ import (
 
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/internal/cloud"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils/contextutils"
@@ -95,6 +95,12 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 	if cfg.OrganizationID == "" {
 		return nil, goutils.NewConfigValidationFieldRequiredError(path, "organization_id")
 	}
+	if cfg.APIKey == "" {
+		return nil, goutils.NewConfigValidationFieldRequiredError(path, "api_key")
+	}
+	if cfg.APIKeyID == "" {
+		return nil, goutils.NewConfigValidationFieldRequiredError(path, "api_key_id")
+	}
 
 	var err error
 	var startTime time.Time
@@ -132,6 +138,8 @@ type Config struct {
 	OrganizationID string       `json:"organization_id,omitempty"`
 	Interval       TimeInterval `json:"time_interval,omitempty"`
 	BatchSize      *uint64      `json:"batch_size,omitempty"`
+	APIKey         string       `json:"api_key,omitempty"`
+	APIKeyID       string       `json:"api_key_id,omitempty"`
 }
 
 // TimeInterval holds the start and end time used to filter data.
@@ -151,8 +159,10 @@ type cacheEntry struct {
 // replayMovementSensor is a movement sensor model that plays back pre-captured movement sensor data.
 type replayMovementSensor struct {
 	resource.Named
-	logger golog.Logger
+	logger logging.Logger
 
+	APIKey       string
+	APIKeyID     string
 	cloudConnSvc cloud.ConnectionService
 	cloudConn    rpc.ClientConn
 	dataClient   datapb.DataServiceClient
@@ -169,7 +179,7 @@ type replayMovementSensor struct {
 }
 
 // newReplayMovementSensor creates a new replay movement sensor based on the inputted config and dependencies.
-func newReplayMovementSensor(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (
+func newReplayMovementSensor(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger) (
 	movementsensor.MovementSensor, error,
 ) {
 	replay := &replayMovementSensor{
@@ -201,6 +211,13 @@ func (replay *replayMovementSensor) Position(ctx context.Context, extra map[stri
 		return nil, 0, err
 	}
 
+	if isNewPositionFormat(data) {
+		coordStruct := data.GetFields()["coordinate"].GetStructValue()
+		return geo.NewPoint(
+				coordStruct.GetFields()["latitude"].GetNumberValue(),
+				coordStruct.GetFields()["longitude"].GetNumberValue()),
+			data.GetFields()["altitude_m"].GetNumberValue(), nil
+	}
 	return geo.NewPoint(
 		data.GetFields()["Latitude"].GetNumberValue(),
 		data.GetFields()["Longitude"].GetNumberValue()), data.GetFields()["Altitude"].GetNumberValue(), nil
@@ -223,6 +240,9 @@ func (replay *replayMovementSensor) LinearVelocity(ctx context.Context, extra ma
 		return r3.Vector{}, err
 	}
 
+	if isNewLinearVelocityFormat(data) {
+		return newFormatStructToVector(data.GetFields()["linear_velocity"].GetStructValue()), nil
+	}
 	return r3.Vector{
 		X: data.GetFields()["X"].GetNumberValue(),
 		Y: data.GetFields()["Y"].GetNumberValue(),
@@ -249,6 +269,14 @@ func (replay *replayMovementSensor) AngularVelocity(ctx context.Context, extra m
 		return spatialmath.AngularVelocity{}, err
 	}
 
+	if isNewAngularVelocityFormat(data) {
+		angularStruct := data.GetFields()["angular_velocity"].GetStructValue()
+		return spatialmath.AngularVelocity{
+			X: angularStruct.GetFields()["x"].GetNumberValue(),
+			Y: angularStruct.GetFields()["y"].GetNumberValue(),
+			Z: angularStruct.GetFields()["z"].GetNumberValue(),
+		}, nil
+	}
 	return spatialmath.AngularVelocity{
 		X: data.GetFields()["X"].GetNumberValue(),
 		Y: data.GetFields()["Y"].GetNumberValue(),
@@ -273,6 +301,9 @@ func (replay *replayMovementSensor) LinearAcceleration(ctx context.Context, extr
 		return r3.Vector{}, err
 	}
 
+	if isNewLinearAccelerationFormat(data) {
+		return newFormatStructToVector(data.GetFields()["linear_acceleration"].GetStructValue()), nil
+	}
 	return r3.Vector{
 		X: data.GetFields()["X"].GetNumberValue(),
 		Y: data.GetFields()["Y"].GetNumberValue(),
@@ -297,6 +328,9 @@ func (replay *replayMovementSensor) CompassHeading(ctx context.Context, extra ma
 		return 0., err
 	}
 
+	if isNewCompassHeadingFormat(data) {
+		return data.GetFields()["value"].GetNumberValue(), nil
+	}
 	return data.GetFields()["Compass"].GetNumberValue(), nil
 }
 
@@ -317,6 +351,15 @@ func (replay *replayMovementSensor) Orientation(ctx context.Context, extra map[s
 		return nil, err
 	}
 
+	if isNewOrientationFormat(data) {
+		orientationStruct := data.GetFields()["orientation"].GetStructValue()
+		return &spatialmath.OrientationVector{
+			OX:    orientationStruct.GetFields()["o_x"].GetNumberValue(),
+			OY:    orientationStruct.GetFields()["o_y"].GetNumberValue(),
+			OZ:    orientationStruct.GetFields()["o_z"].GetNumberValue(),
+			Theta: orientationStruct.GetFields()["theta"].GetNumberValue(),
+		}, nil
+	}
 	return &spatialmath.OrientationVector{
 		OX:    data.GetFields()["OX"].GetNumberValue(),
 		OY:    data.GetFields()["OY"].GetNumberValue(),
@@ -365,6 +408,9 @@ func (replay *replayMovementSensor) Reconfigure(ctx context.Context, deps resour
 	if err != nil {
 		return err
 	}
+
+	replay.APIKey = replayMovementSensorConfig.APIKey
+	replay.APIKeyID = replayMovementSensorConfig.APIKeyID
 
 	cloudConnSvc, err := resource.FromDependencies[cloud.ConnectionService](deps, cloud.InternalServiceName)
 	if err != nil {
@@ -601,7 +647,7 @@ func (replay *replayMovementSensor) initCloudConnection(ctx context.Context) err
 	ctx, cancel := context.WithTimeout(ctx, grpcConnectionTimeout)
 	defer cancel()
 
-	_, conn, err := replay.cloudConnSvc.AcquireConnection(ctx)
+	_, conn, err := replay.cloudConnSvc.AcquireConnectionAPIKey(ctx, replay.APIKey, replay.APIKeyID)
 	if err != nil {
 		return err
 	}
@@ -610,4 +656,43 @@ func (replay *replayMovementSensor) initCloudConnection(ctx context.Context) err
 	replay.cloudConn = conn
 	replay.dataClient = dataServiceClient
 	return nil
+}
+
+func isNewPositionFormat(data *structpb.Struct) bool {
+	// if coordinate key exists in map, assume it is new format
+	_, ok := data.GetFields()["coordinate"]
+	return ok
+}
+
+func isNewLinearVelocityFormat(data *structpb.Struct) bool {
+	_, ok := data.GetFields()["linear_velocity"]
+	return ok
+}
+
+func isNewAngularVelocityFormat(data *structpb.Struct) bool {
+	_, ok := data.GetFields()["angular_velocity"]
+	return ok
+}
+
+func isNewLinearAccelerationFormat(data *structpb.Struct) bool {
+	_, ok := data.GetFields()["linear_acceleration"]
+	return ok
+}
+
+func isNewCompassHeadingFormat(data *structpb.Struct) bool {
+	_, ok := data.GetFields()["value"]
+	return ok
+}
+
+func isNewOrientationFormat(data *structpb.Struct) bool {
+	_, ok := data.GetFields()["orientation"]
+	return ok
+}
+
+func newFormatStructToVector(data *structpb.Struct) r3.Vector {
+	return r3.Vector{
+		X: data.GetFields()["x"].GetNumberValue(),
+		Y: data.GetFields()["y"].GetNumberValue(),
+		Z: data.GetFields()["z"].GetNumberValue(),
+	}
 }

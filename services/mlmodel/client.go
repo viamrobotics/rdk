@@ -4,12 +4,12 @@ import (
 	"context"
 	"unsafe"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/service/mlmodel/v1"
 	"go.viam.com/utils/rpc"
 	"gorgonia.org/tensor"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/ml"
 	"go.viam.com/rdk/resource"
 )
@@ -22,7 +22,7 @@ type client struct {
 	name   string
 	conn   rpc.ClientConn
 	client pb.MLModelServiceClient
-	logger golog.Logger
+	logger logging.Logger
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
@@ -31,7 +31,7 @@ func NewClientFromConn(
 	conn rpc.ClientConn,
 	remoteName string,
 	name resource.Name,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (Service, error) {
 	grpcClient := pb.NewMLModelServiceClient(conn)
 	c := &client{

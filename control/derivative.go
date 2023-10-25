@@ -6,8 +6,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+
+	"go.viam.com/rdk/logging"
 )
 
 type finiteDifferenceType string
@@ -62,10 +63,10 @@ type derivative struct {
 	stencil derivativeStencil
 	px      [][]float64
 	y       []*Signal
-	logger  golog.Logger
+	logger  logging.Logger
 }
 
-func newDerivative(config BlockConfig, logger golog.Logger) (Block, error) {
+func newDerivative(config BlockConfig, logger logging.Logger) (Block, error) {
 	d := &derivative{cfg: config, logger: logger}
 	if err := d.reset(); err != nil {
 		return nil, err

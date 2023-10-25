@@ -12,12 +12,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"go.uber.org/multierr"
 	utils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/base"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/motion"
@@ -36,7 +36,7 @@ const (
 type ptgBaseKinematics struct {
 	base.Base
 	motion.Localizer
-	logger       golog.Logger
+	logger       logging.Logger
 	frame        referenceframe.Frame
 	ptgs         []tpspace.PTGSolver
 	inputLock    sync.RWMutex
@@ -47,7 +47,7 @@ type ptgBaseKinematics struct {
 func wrapWithPTGKinematics(
 	ctx context.Context,
 	b base.Base,
-	logger golog.Logger,
+	logger logging.Logger,
 	localizer motion.Localizer,
 	options Options,
 ) (KinematicBase, error) {

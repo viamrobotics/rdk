@@ -5,9 +5,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
+
+	"go.viam.com/rdk/logging"
 )
 
 // controlBlockInternal Holds internal variables to control the flow of data between blocks.
@@ -30,7 +31,7 @@ type Loop struct {
 	cfg                     Config
 	blocks                  map[string]*controlBlockInternal
 	ct                      controlTicker
-	logger                  golog.Logger
+	logger                  logging.Logger
 	ts                      []chan time.Time
 	dt                      time.Duration
 	activeBackgroundWorkers sync.WaitGroup
@@ -40,11 +41,11 @@ type Loop struct {
 }
 
 // NewLoop construct a new control loop for a specific endpoint.
-func NewLoop(logger golog.Logger, cfg Config, m Controllable) (*Loop, error) {
+func NewLoop(logger logging.Logger, cfg Config, m Controllable) (*Loop, error) {
 	return createLoop(logger, cfg, m)
 }
 
-func createLoop(logger golog.Logger, cfg Config, m Controllable) (*Loop, error) {
+func createLoop(logger logging.Logger, cfg Config, m Controllable) (*Loop, error) {
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	l := Loop{
 		logger:    logger,
@@ -195,7 +196,7 @@ func (l *Loop) Start() error {
 	if len(l.ts) == 0 {
 		return errors.New("cannot start the control loop if there are no blocks depending on an impulse")
 	}
-	l.logger.Debugf("Running loop on %1.4f %+v\r\n", l.cfg.Frequency, l.dt)
+	l.logger.Infof("Running loop on %1.4f %+v\r\n", l.cfg.Frequency, l.dt)
 	l.ct = controlTicker{
 		ticker: time.NewTicker(l.dt),
 		stop:   make(chan bool, 1),
@@ -268,6 +269,7 @@ func (l *Loop) startBenchmark(loops int) error {
 // Stop stops then loop.
 func (l *Loop) Stop() {
 	if l.running {
+		l.logger.Debug("closing loop")
 		l.ct.ticker.Stop()
 		close(l.ct.stop)
 		l.activeBackgroundWorkers.Wait()

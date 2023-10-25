@@ -7,8 +7,7 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/edaniels/golog"
-
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
@@ -35,7 +34,7 @@ type ptgIK struct {
 
 // NewPTGIK creates a new ptgIK, which creates a frame using the provided PTG, and wraps it providing functions to fill the PTG
 // interface, allowing inverse kinematics queries to be run against it.
-func NewPTGIK(simPTG PTG, logger golog.Logger, refDist float64, randSeed, trajCount int) (PTGSolver, error) {
+func NewPTGIK(simPTG PTG, logger logging.Logger, refDist float64, randSeed, trajCount int) (PTGSolver, error) {
 	if refDist <= 0 {
 		return nil, errors.New("refDist must be greater than zero")
 	}

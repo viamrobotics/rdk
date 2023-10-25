@@ -9,8 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/edaniels/golog"
-
+	"go.viam.com/rdk/logging"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
@@ -43,7 +42,7 @@ func GetGPIOBoardMappingFromPinDefs(pinDefs []PinDefinition) (map[string]GPIOBoa
 	if err != nil {
 		// Try continuing on without hardware PWM support. Many boards do not have it enabled by
 		// default, and perhaps this robot doesn't even use it.
-		golog.Global().Debugw("unable to find PWM chips, continuing without them", "error", err)
+		logging.Global().Debugw("unable to find PWM chips, continuing without them", "error", err)
 		pwmChipsInfo = map[string]pwmChipData{}
 	}
 
@@ -114,7 +113,7 @@ func getPwmChipDefs(pinDefs []PinDefinition) (map[string]pwmChipData, error) {
 			// look at symlinks to find the correct chip
 			symlink, err := os.Readlink(filepath.Join(sysfsDir, file.Name()))
 			if err != nil {
-				golog.Global().Errorw(
+				logging.Global().Errorw(
 					"file is not symlink", "file", file.Name(), "err:", err)
 				continue
 			}
@@ -158,7 +157,7 @@ func getBoardMapping(pinDefs []PinDefinition, pwmChipsInfo map[string]pwmChipDat
 				// This pin isn't supposed to have hardware PWM support; all is well.
 				pwmChipInfo = dummyPwmInfo
 			} else {
-				golog.Global().Errorw(
+				logging.Global().Errorw(
 					"cannot find expected hardware PWM chip, continuing without it", "pin", pinDef.Name)
 				pwmChipInfo = dummyPwmInfo
 			}

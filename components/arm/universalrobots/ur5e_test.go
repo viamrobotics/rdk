@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/go-gl/mathgl/mgl64"
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
@@ -21,6 +20,7 @@ import (
 	"gonum.org/v1/gonum/mat"
 	"gonum.org/v1/gonum/num/quat"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -44,7 +44,7 @@ func testUR5eForwardKinematics(t *testing.T, jointRadians []float64, correct r3.
 func testUR5eInverseKinematics(t *testing.T, pos spatialmath.Pose) {
 	t.Helper()
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	m, err := referenceframe.UnmarshalModelJSON(ur5modeljson, "")
 	test.That(t, err, test.ShouldBeNil)
@@ -310,7 +310,7 @@ func TestArmReconnection(t *testing.T) {
 	statusBlob, err := os.ReadFile(artifact.MustPath("components/arm/universalrobots/armBlob"))
 	test.That(t, err, test.ShouldBeNil)
 
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	parentCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	ctx, childCancel := context.WithCancel(parentCtx)

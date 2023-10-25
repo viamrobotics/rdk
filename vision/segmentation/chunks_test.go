@@ -5,9 +5,9 @@ import (
 	"image"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
@@ -24,7 +24,7 @@ func (cid *chunkImageDebug) Process(
 	pCtx *rimage.ProcessorContext,
 	fn string,
 	imgraw, img2 image.Image,
-	logger golog.Logger,
+	logger logging.Logger,
 ) error {
 	t.Helper()
 	img := rimage.ConvertImage(imgraw)

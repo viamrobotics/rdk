@@ -15,7 +15,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/edaniels/golog"
 	goserial "github.com/jacobsa/go-serial/serial"
 	"go.uber.org/multierr"
 	commonpb "go.viam.com/api/common/v1"
@@ -25,6 +24,7 @@ import (
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -49,7 +49,7 @@ func init() {
 				ctx context.Context,
 				deps resource.Dependencies,
 				conf resource.Config,
-				logger golog.Logger,
+				logger logging.Logger,
 			) (board.Board, error) {
 				newConf, err := resource.NativeConfig[*Config](conf)
 				if err != nil {
@@ -105,7 +105,7 @@ type numatoBoard struct {
 
 	port   io.ReadWriteCloser
 	closed int32
-	logger golog.Logger
+	logger logging.Logger
 
 	lines chan string
 	mu    sync.Mutex
@@ -393,7 +393,7 @@ func (ar *analogReader) Close(ctx context.Context) error {
 	return nil
 }
 
-func connect(ctx context.Context, name resource.Name, conf *Config, logger golog.Logger) (board.LocalBoard, error) {
+func connect(ctx context.Context, name resource.Name, conf *Config, logger logging.Logger) (board.LocalBoard, error) {
 	pins := conf.Pins
 	if pins <= 0 {
 		return nil, errors.New("numato board needs pins set in attributes")

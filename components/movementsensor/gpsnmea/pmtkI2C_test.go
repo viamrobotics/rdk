@@ -4,12 +4,12 @@ import (
 	"context"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 	gutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
@@ -71,7 +71,7 @@ func TestNewI2CMovementSensor(t *testing.T) {
 		API:   movementsensor.API,
 	}
 
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 
 	g, err := newNMEAGPS(ctx, deps, conf, logger)
@@ -99,7 +99,7 @@ func TestNewI2CMovementSensor(t *testing.T) {
 }
 
 func TestReadingsI2C(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	g := &PmtkI2CNMEAMovementSensor{
@@ -141,7 +141,7 @@ func TestReadingsI2C(t *testing.T) {
 }
 
 func TestCloseI2C(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	g := &PmtkI2CNMEAMovementSensor{
