@@ -546,6 +546,35 @@ func TestTestLimit(t *testing.T) {
 	test.That(t, pos, test.ShouldEqual, float64(1))
 }
 
+func TestTestLimitTimeout(t *testing.T) {
+	ctx := context.Background()
+	fakegantry := &singleAxis{
+		limitSwitchPins: []string{"1", "2"},
+		motor:           createFakeMotor(),
+		board:           createLimitBoard(),
+		rpm:             float64(3000),
+		limitHigh:       true,
+		opMgr:           operation.NewSingleOperationManager(),
+		mmPerRevolution: 10,
+		lengthMm:        100,
+	}
+
+	injectGPIOPin := &inject.GPIOPin{}
+	injectGPIOPin.GetFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {
+		return false, nil
+	}
+
+	fakegantry.board = &inject.Board{
+		GPIOPinByNameFunc: func(pin string) (board.GPIOPin, error) {
+			return injectGPIOPin, nil
+		},
+	}
+
+	pos, err := fakegantry.testLimit(ctx, 0)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "timeout = 1s")
+	test.That(t, pos, test.ShouldEqual, 0.0)
+}
+
 func TestLimitHit(t *testing.T) {
 	ctx := context.Background()
 	fakegantry := &singleAxis{
