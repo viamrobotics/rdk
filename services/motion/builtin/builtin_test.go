@@ -1180,10 +1180,7 @@ func TestMoveOnGlobe(t *testing.T) {
 
 		endPose, err := fakeBase.CurrentPosition(ctx)
 		test.That(t, err, test.ShouldBeNil)
-		fmt.Println(startPose.Pose().Point())
-		fmt.Println(endPose.Pose().Point())
 		movedPose := spatialmath.PoseBetween(startPose.Pose(), endPose.Pose())
-		fmt.Println(movedPose.Point())
 		test.That(t, movedPose.Point().X, test.ShouldAlmostEqual, expectedDst.X, epsilonMM)
 		test.That(t, movedPose.Point().Y, test.ShouldAlmostEqual, expectedDst.Y, epsilonMM)
 	})

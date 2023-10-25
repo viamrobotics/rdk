@@ -299,7 +299,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 		return nil, err
 	}
 	mr.seedPlan = seedPlan
-	mr.replanCostFactor= valExtra.replanCostFactor
+	mr.replanCostFactor = valExtra.replanCostFactor
 	return mr, nil
 }
 
@@ -333,7 +333,7 @@ func (ms *builtIn) newMoveOnMapRequest(
 	if !ok {
 		return nil, fmt.Errorf("cannot move component of type %T because it is not a Base", component)
 	}
-	
+
 	motionCfg, err := newValidatedMotionCfg(nil)
 	if err != nil {
 		return nil, err
@@ -429,6 +429,6 @@ func relativeMoveRequestFromAbsolute(
 			WorldState:         worldState,
 			Options:            valExtra.extra,
 		},
-		kinematicBase:    kb,
+		kinematicBase: kb,
 	}, nil
 }

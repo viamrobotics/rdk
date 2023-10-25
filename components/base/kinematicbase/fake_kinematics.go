@@ -201,7 +201,7 @@ func (fk *fakePTGKinematics) GoToInputs(ctx context.Context, inputs []referencef
 	}
 
 	fk.lock.Lock()
-	fk.origin = fk.origin.Transform(referenceframe.NewPoseInFrame("", newPose)).(*referenceframe.PoseInFrame)
+	fk.origin = referenceframe.NewPoseInFrame(fk.origin.Parent(), spatialmath.Compose(fk.origin.Pose(), newPose))
 	fk.lock.Unlock()
 	time.Sleep(50 * time.Millisecond)
 	return nil
@@ -217,7 +217,7 @@ func (fk *fakePTGKinematics) ErrorState(
 
 func (fk *fakePTGKinematics) CurrentPosition(ctx context.Context) (*referenceframe.PoseInFrame, error) {
 	fk.lock.RLock()
+	defer fk.lock.RUnlock()
 	origin := fk.origin
-	fk.lock.RUnlock()
-	return origin.Transform(referenceframe.NewPoseInFrame("", fk.sensorNoise)).(*referenceframe.PoseInFrame), nil
+	return referenceframe.NewPoseInFrame(origin.Parent(), spatialmath.Compose(origin.Pose(), fk.sensorNoise)), nil
 }
