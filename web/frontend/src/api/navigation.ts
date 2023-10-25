@@ -62,8 +62,8 @@ export const getObstacles = async (navClient: NavigationClient): Promise<Obstacl
 
           return {
             type: 'capsule',
-            radius: (capsule?.radiusMm ?? 0) / 1000,
-            length: (capsule?.lengthMm ?? 0) / 1000,
+            radius: (capsule.radiusMm ?? 0) / 1000,
+            length: (capsule.lengthMm ?? 0) / 1000,
             pose,
           } satisfies CapsuleGeometry;
 

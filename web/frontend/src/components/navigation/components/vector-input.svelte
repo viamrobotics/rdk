@@ -12,7 +12,7 @@ export let step = 1;
 const dispatch = createEventDispatcher<{ input: number[] }>();
 
 const handleInput = (index: number) => {
-  return (event: CustomEvent) => {
+  return (event: CustomEvent<{ value: string }>) => {
     values[index] = Number.parseFloat(event.detail.value);
     dispatch('input', values);
   };

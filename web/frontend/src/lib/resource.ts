@@ -21,7 +21,7 @@ export const sortByName = (item1: Resource, item2: Resource) => {
   return item1.namespace > item2.namespace ? 1 : -1;
 };
 
-export const resourceNameToSubtypeString = (resource: Resource) => {
+export const resourceNameToSubtypeString = (resource: Resource | undefined) => {
   if (!resource) {
     return '';
   }
@@ -29,7 +29,7 @@ export const resourceNameToSubtypeString = (resource: Resource) => {
   return `${resource.namespace}:${resource.type}:${resource.subtype}`;
 };
 
-export const resourceNameToString = (resource: Resource) => {
+export const resourceNameToString = (resource: Resource | undefined) => {
   if (!resource) {
     return '';
   }
