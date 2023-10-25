@@ -56,7 +56,7 @@ func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
 
-// FromDependencies is a helper for getting the named motion service from a collection of dependencies.
+// FromDependencies is a helper for getting the named data manager service from a collection of dependencies.
 func FromDependencies(deps resource.Dependencies, name string) (Service, error) {
 	return resource.FromDependencies[Service](deps, Named(name))
 }
