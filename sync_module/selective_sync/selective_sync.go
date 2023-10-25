@@ -77,7 +77,7 @@ func newSelectiveSyncer(ctx context.Context, deps resource.Dependencies, conf re
 	v.wg.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer v.wg.Done()
-		v.startBackgroundProcess()
+		v.pollForSyncTrigger()
 	})
 	return v, nil
 }
@@ -112,7 +112,7 @@ func (s *visionSyncer) DoCommand(ctx context.Context, cmd map[string]interface{}
 	return cmd, nil
 }
 
-func (s *visionSyncer) startBackgroundProcess() {
+func (s *visionSyncer) pollForSyncTrigger() {
 	stream, err := s.camera.Stream(s.cancelCtx)
 	defer utils.UncheckedErrorFunc(func() error {
 		return stream.Close(s.cancelCtx)
