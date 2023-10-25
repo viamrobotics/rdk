@@ -49,7 +49,7 @@ func TestValidationFailureDuringReconfiguration(t *testing.T) {
 	}
 
 	robot, err := robotimpl.New(ctx, cfg, logger)
-	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeNil)
 	defer robot.Close(ctx)
 
 	// Assert that generic1 was added.
@@ -117,7 +117,7 @@ func TestVersionBumpWithNewImplicitDeps(t *testing.T) {
 	}
 
 	robot, err := robotimpl.New(ctx, cfg, logger)
-	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeNil)
 	defer robot.Close(ctx)
 
 	// Assert that generic1 was added.
