@@ -51,7 +51,7 @@ func TestValidationFailureDuringReconfiguration(t *testing.T) {
 	robot, err := robotimpl.New(ctx, cfg, logger)
 	defer robot.Close(ctx)
 
-	// Assert that motors and base were added.
+	// Assert that generic1 was added.
 	_, err = robot.ResourceByName(generic.Named("generic1"))
 	test.That(t, err, test.ShouldBeNil)
 
