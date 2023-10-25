@@ -65,7 +65,7 @@ func TestValidationFailureDuringReconfiguration(t *testing.T) {
 	cfg.Modules[0].ExePath = utils.ResolveFile("module/multiversionmodule/run_version2.sh")
 	robot.Reconfigure(ctx, cfg)
 
-	// Check that the motors are still present but that "base1" is not started
+	// Check that generic1 now has a config validation error.
 	_, err = robot.ResourceByName(generic.Named("generic1"))
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring,
