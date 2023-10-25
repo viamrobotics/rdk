@@ -329,18 +329,13 @@ func (ms *builtIn) MoveOnGlobe(
 		case resp := <-ma.responseChan:
 			ms.logger.Debugf("execution response: %s", resp)
 			ma.cancel()
-			if errors.Is(resp.err, context.Canceled) {
-				continue
-			}
 			return resp.success, resp.err
 
 		// if the position poller hit an error return it, otherwise replan
 		case resp := <-ma.position.responseChan:
 			ms.logger.Debugf("position response: %s", resp)
 			ma.cancel()
-			if errors.Is(resp.err, context.Canceled) || resp.replan {
-				continue
-			} else if resp.err != nil {
+			if resp.err != nil {
 				return false, resp.err
 			}
 			ms.logger.Info("position drift triggering a replan")
@@ -349,9 +344,7 @@ func (ms *builtIn) MoveOnGlobe(
 		case resp := <-ma.obstacle.responseChan:
 			ms.logger.Debugf("obstacle response: %s", resp)
 			ma.cancel()
-			if errors.Is(resp.err, context.Canceled) || resp.replan {
-				continue
-			} else if resp.err != nil {
+			if resp.err != nil {
 				ms.logger.Info(resp.err)
 				return false, errors.New("retry")
 			}

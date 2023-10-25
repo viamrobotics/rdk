@@ -962,7 +962,7 @@ func TestValidatePlanRequest(t *testing.T) {
 }
 
 func TestArmGantryCheckPlan(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	fs := frame.NewEmptyFrameSystem("test")
 
 	gantryOffset, err := frame.NewStaticFrame("gantryOffset", spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0}))
