@@ -89,7 +89,7 @@ func (c *Config) Validate(path string) ([]string, error) {
 // builtIn initializes and orchestrates data capture collectors for registered component/methods.
 type builtIn struct {
 	resource.Named
-	logger                 golog.Logger
+	logger                 logging.Logger
 	captureDir             string
 	captureDisabled        bool
 	collectors             map[resourceMethodMetadata]*collectorAndConfig
