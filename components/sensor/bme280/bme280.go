@@ -127,7 +127,7 @@ func newSensor(
 	i2cbus, err := genericlinux.NewI2cBus(conf.I2CBus)
 	if err != nil {
 		return nil, fmt.Errorf("bme280 init: failed to open i2c bus %s: %w",
-		                       conf.I2CBus, err)
+			conf.I2CBus, err)
 	}
 
 	addr := conf.I2cAddr
