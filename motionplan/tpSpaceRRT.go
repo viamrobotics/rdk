@@ -41,10 +41,6 @@ const (
 	// When extending the RRT tree towards some point, do not extend more than this many times in a single RRT invocation.
 	defaultMaxReseeds = 50
 
-	// For whatever `refDist` is used for the generation of the original path, scale that by this amount when smoothing.
-	// This can help to find paths.
-	defaultSmoothScaleFactor = 0.5
-
 	// Make an attempt to solve the tree every this many iterations
 	// For a unidirectional solve, this means attempting to reach the goal rather than a random point
 	// For a bidirectional solve, this means trying to connect the two trees directly.
@@ -68,9 +64,6 @@ type tpspaceOptions struct {
 
 	// If the squared norm between two poses is less than this, consider them equal
 	poseSolveDist float64
-
-	// When smoothing, adjust the trajectory path length to be this proportion of the length used for solving
-	smoothScaleFactor float64
 
 	// Make an attempt to solve the tree every this many iterations
 	// For a unidirectional solve, this means attempting to reach the goal rather than a random point
@@ -672,7 +665,6 @@ func (mp *tpSpaceRRTMotionPlanner) setupTPSpaceOptions() {
 		addIntermediate:   defaultAddInt,
 		addNodeEvery:      defaultAddNodeEvery,
 		attemptSolveEvery: defaultAttemptSolveEvery,
-		smoothScaleFactor: defaultSmoothScaleFactor,
 
 		poseSolveDist: defaultIdenticalNodeDistance,
 

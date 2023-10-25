@@ -305,7 +305,6 @@ func TestPtgWithObstacle(t *testing.T) {
 }
 
 func TestTPsmoothing(t *testing.T) {
-	// TODO: this doesn't smooth properly yet. This should be made to smooth better.
 	t.Parallel()
 	logger := logging.NewTestLogger(t)
 	roverGeom, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{10, 10, 10}, "")
@@ -363,7 +362,8 @@ func TestTPsmoothing(t *testing.T) {
 	plan, err = rectifyTPspacePath(plan, tp.frame, spatialmath.NewZeroPose())
 	test.That(t, err, test.ShouldBeNil)
 
-	tp.planOpts.SmoothIter = 20
+	// TODO (RSDK-5104) this should be able to be a smaller value once 5104 is complete
+	tp.planOpts.SmoothIter = 80
 
 	newplan := tp.smoothPath(ctx, plan)
 	test.That(t, newplan, test.ShouldNotBeNil)
