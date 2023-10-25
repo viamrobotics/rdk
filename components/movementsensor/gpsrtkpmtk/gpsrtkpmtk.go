@@ -359,7 +359,7 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 	if err != nil {
 		g.logger.Errorf("failed to get source table: %v", err)
 	}
-	nmea, nmeaerr := findLineWithMountPoint(srctable, g.ntripClient.MountPoint)
+	isVirtualBase, nmeaerr := findLineWithMountPoint(srctable, g.ntripClient.MountPoint)
 	if nmeaerr != nil {
 		g.logger.Errorf("can't find mountpoint in source table, found err %v\n", nmeaerr)
 	}
@@ -440,9 +440,9 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 		default:
 		}
 
-		if nmea {
-			// only send GGA messages if nmea bit is 1 in source table.
-			// This is for getting stream from a virtual reference station.
+		// if we are dealing with a Virtual Base, we need to send GGA messages to
+		// the caster in order to get NTRIP stream.
+		if isVirtualBase {
 			g.sendGGAMessage()
 		}
 
@@ -733,39 +733,34 @@ func (g *rtkI2C) sendGGAMessage() {
 			return
 		}
 
-		// Process the received data
-		for _, b := range buffer {
-			// PMTK uses CRLF line endings to terminate sentences, but just LF to blank data.
-			// Since CR should never appear except at the end of our sentence, we use that to determine sentence end.
-			// LF is merely ignored.
-			if b == 0x0D {
-				if len(messageBuffer) > 0 {
-					// Convert the received bytes to a string
-					receivedData := string(messageBuffer)
+		// Concatenate the received data with the existing message buffer
+		buffer = append(messageBuffer, buffer...)
 
-					// Check for NMEA GGA messages
-					messages := strings.Split(receivedData, "\n")
-					for _, message := range messages {
-						if strings.Contains(message, "GGA") {
-							// Send the GGA message to the NTRIP caster
-							if _, err := g.correctionWriter.Write([]byte(message)); err != nil {
-								g.logger.Errorf("error while sending GGA message to NTRIP caster: %v", err)
-								g.err.Set(err)
-								return
-							}
-						}
-					}
+		// Strip out newlines and 0xFF
+		bufferStr := strings.ReplaceAll(strings.ReplaceAll(string(buffer), "\n", ""), "\xFF", "")
+
+		// Split the buffer into complete messages
+		pieces := strings.Split(bufferStr, "\r")
+
+		// The last piece didn't end with a carriage return yet.
+		messageBuffer = []byte(pieces[len(pieces)-1])
+
+		// All other pieces are complete messages
+		for _, message := range pieces[:len(pieces)-1] {
+			if strings.Contains(message, "GGA") {
+				// Send the GGA message to the NTRIP caster
+				if _, err := g.correctionWriter.Write([]byte(message)); err != nil {
+					g.logger.Errorf("error while sending GGA message to NTRIP caster: %v", err)
+					g.err.Set(err)
+					return
 				}
-				messageBuffer = messageBuffer[:0]
-			} else if b != 0x0A && b != 0xFF { // adds only valid bytes
-				messageBuffer = append(messageBuffer, b)
 			}
 		}
 	}
 }
 
 // findLineWithMountPoint parses the given source-table returns the nmea bool of the given mount point.
-// TODO: move this to rdkutils.
+// TODO: RSDK-5462.
 func findLineWithMountPoint(sourceTable *ntrip.Sourcetable, mountPoint string) (bool, error) {
 	stream, isFound := sourceTable.HasStream(mountPoint)
 

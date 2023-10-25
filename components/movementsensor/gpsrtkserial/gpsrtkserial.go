@@ -397,7 +397,7 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 	if err != nil {
 		g.logger.Errorf("failed to get source table: %v", err)
 	}
-	nmea, nmeaerr := findLineWithMountPoint(srctable, g.ntripClient.MountPoint)
+	isVirtualBase, nmeaerr := findLineWithMountPoint(srctable, g.ntripClient.MountPoint)
 	if nmeaerr != nil {
 		g.logger.Errorf("can't find mountpoint in source table, found err %v\n", nmeaerr)
 	}
@@ -432,8 +432,10 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 			return
 		default:
 		}
-		if nmea {
-			// only send GGA messages if nmea bit is 1 in source table.
+
+		// if we are dealing with a Virtual Base, we need to send GGA messages to
+		// the caster in order to get NTRIP stream.
+		if isVirtualBase {
 			g.sendGGAMessage()
 		}
 
@@ -715,13 +717,13 @@ func (g *rtkSerial) sendGGAMessage() {
 		// Clear the message buffer
 		messageBuffer = messageBuffer[:0]
 
-		// Sleep for a while before reading again
-		time.Sleep(time.Second) // Adjust the sleep duration as needed
+		// Sleep for a while before reading again.
+		time.Sleep(time.Second)
 	}
 }
 
 // findLineWithMountPoint parses the given source-table returns the nmea bool of the given mount point.
-// TODO: move this function to rdkutils.
+// TODO: RSDK-5462.
 func findLineWithMountPoint(sourceTable *ntrip.Sourcetable, mountPoint string) (bool, error) {
 	stream, isFound := sourceTable.HasStream(mountPoint)
 
