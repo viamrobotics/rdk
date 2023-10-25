@@ -873,6 +873,43 @@ func (manager *resourceManager) updateResources(
 	defer manager.configLock.Unlock()
 	var allErrs error
 
+	// modules are not added into the resource tree as they belong to the module manager
+	for _, mod := range conf.Added.Modules {
+		// this is done in config validation but partial start rules require us to check again
+		if err := mod.Validate(""); err != nil {
+			manager.logger.Errorw("module config validation error; skipping", "module", mod.Name, "error", err)
+			continue
+		}
+		if err := manager.moduleManager.Add(ctx, mod); err != nil {
+			manager.logger.Errorw("error adding module", "module", mod.Name, "error", err)
+			continue
+		}
+	}
+
+	for _, mod := range conf.Modified.Modules {
+		// this is done in config validation but partial start rules require us to check again
+		if err := mod.Validate(""); err != nil {
+			manager.logger.Errorw("module config validation error; skipping", "module", mod.Name, "error", err)
+			continue
+		}
+		orphanedResourceNames, err := manager.moduleManager.Reconfigure(ctx, mod)
+		if err != nil {
+			manager.logger.Errorw("error reconfiguring module", "module", mod.Name, "error", err)
+		}
+		for _, resToClose := range manager.markResourcesRemoved(orphanedResourceNames, nil) {
+			if err := resToClose.Close(ctx); err != nil {
+				manager.logger.Errorw("error closing now orphaned resource", "resource",
+					resToClose.Name().String(), "module", mod.Name, "error", err)
+			}
+		}
+	}
+
+	if manager.moduleManager != nil {
+		if err := manager.moduleManager.ResolveImplicitDependenciesInConfig(ctx, conf); err != nil {
+			manager.logger.Errorw("error adding implicit dependencies", "error", err)
+		}
+	}
+
 	for _, s := range conf.Added.Services {
 		rName := s.ResourceName()
 		if manager.opts.untrustedEnv && rName.API == shell.API {
@@ -960,24 +997,6 @@ func (manager *resourceManager) updateResources(
 		manager.processConfigs[p.ID] = p
 	}
 
-	// modules are not added into the resource tree as they belong to the module manager
-	for _, mod := range conf.Modified.Modules {
-		// this is done in config validation but partial start rules require us to check again
-		if err := mod.Validate(""); err != nil {
-			manager.logger.Errorw("module config validation error; skipping", "module", mod.Name, "error", err)
-			continue
-		}
-		orphanedResourceNames, err := manager.moduleManager.Reconfigure(ctx, mod)
-		if err != nil {
-			manager.logger.Errorw("error reconfiguring module", "module", mod.Name, "error", err)
-		}
-		for _, resToClose := range manager.markResourcesRemoved(orphanedResourceNames, nil) {
-			if err := resToClose.Close(ctx); err != nil {
-				manager.logger.Errorw("error closing now orphaned resource", "resource",
-					resToClose.Name().String(), "module", mod.Name, "error", err)
-			}
-		}
-	}
 	return allErrs
 }
 
