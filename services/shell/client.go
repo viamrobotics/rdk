@@ -4,12 +4,12 @@ import (
 	"context"
 	"sync"
 
-	"github.com/edaniels/golog"
 	pb "go.viam.com/api/service/shell/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/logging"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 )
@@ -22,7 +22,7 @@ type client struct {
 	name                    string
 	conn                    rpc.ClientConn
 	client                  pb.ShellServiceClient
-	logger                  golog.Logger
+	logger                  logging.Logger
 	activeBackgroundWorkers sync.WaitGroup
 }
 
@@ -32,7 +32,7 @@ func NewClientFromConn(
 	conn rpc.ClientConn,
 	remoteName string,
 	name resource.Name,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (Service, error) {
 	grpcClient := pb.NewShellServiceClient(conn)
 	c := &client{

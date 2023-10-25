@@ -5,12 +5,12 @@ import (
 	"context"
 	"sync"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/gantry"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -30,7 +30,7 @@ type multiAxis struct {
 	resource.AlwaysRebuild
 	subAxes            []gantry.Gantry
 	lengthsMm          []float64
-	logger             golog.Logger
+	logger             logging.Logger
 	moveSimultaneously bool
 	model              referenceframe.Model
 	opMgr              *operation.SingleOperationManager
@@ -60,7 +60,7 @@ func newMultiAxis(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (gantry.Gantry, error) {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {

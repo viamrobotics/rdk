@@ -6,19 +6,19 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/motor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 )
 
 // NewMotor constructs a new GPIO based motor on the given board using the
 // given configuration.
-func NewMotor(b board.Board, mc Config, name resource.Name, logger golog.Logger) (motor.Motor, error) {
+func NewMotor(b board.Board, mc Config, name resource.Name, logger logging.Logger) (motor.Motor, error) {
 	if mc.MaxPowerPct == 0 {
 		mc.MaxPowerPct = 1.0
 	}
@@ -103,7 +103,7 @@ type Motor struct {
 
 	mu     sync.Mutex
 	opMgr  *operation.SingleOperationManager
-	logger golog.Logger
+	logger logging.Logger
 	// config
 	Board                    board.Board
 	A, B, Direction, PWM, En board.GPIOPin

@@ -9,9 +9,8 @@ import (
 	"errors"
 	"time"
 
-	"github.com/edaniels/golog"
-
 	"go.viam.com/rdk/components/base"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/spatialmath"
@@ -142,7 +141,7 @@ func NewKinematicBaseOptions() Options {
 func WrapWithKinematics(
 	ctx context.Context,
 	b base.Base,
-	logger golog.Logger,
+	logger logging.Logger,
 	localizer motion.Localizer,
 	limits []referenceframe.Limit,
 	options Options,

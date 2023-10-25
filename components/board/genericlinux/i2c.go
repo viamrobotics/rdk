@@ -8,18 +8,18 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/edaniels/golog"
 	"periph.io/x/conn/v3/i2c"
 	"periph.io/x/conn/v3/i2c/i2creg"
 	"periph.io/x/host/v3"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
 func init() {
 	if _, err := host.Init(); err != nil {
-		golog.Global().Debugw("error initializing host", "error", err)
+		logging.Global().Debugw("error initializing host", "error", err)
 	}
 }
 

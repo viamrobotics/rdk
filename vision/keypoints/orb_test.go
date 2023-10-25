@@ -5,10 +5,10 @@ import (
 	"image/draw"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/rimage"
 )
 
@@ -47,7 +47,7 @@ func TestLoadORBConfiguration(t *testing.T) {
 }
 
 func TestComputeORBKeypoints(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	cfg, err := LoadORBConfiguration("orbconfig.json")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, cfg, test.ShouldNotBeNil)
@@ -74,7 +74,7 @@ func TestComputeORBKeypoints(t *testing.T) {
 }
 
 func TestMatchingWithRotation(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	cfg, err := LoadORBConfiguration("orbconfig.json")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, cfg, test.ShouldNotBeNil)

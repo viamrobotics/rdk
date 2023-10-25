@@ -6,7 +6,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
@@ -14,6 +13,7 @@ import (
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/control"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
@@ -57,7 +57,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 
 type sensorBase struct {
 	resource.Named
-	logger golog.Logger
+	logger logging.Logger
 	mu     sync.Mutex
 
 	activeBackgroundWorkers sync.WaitGroup
@@ -87,7 +87,7 @@ func createSensorBase(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (base.Base, error) {
 	sb := &sensorBase{
 		logger: logger,

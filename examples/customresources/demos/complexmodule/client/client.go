@@ -5,19 +5,19 @@ import (
 	"context"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/examples/customresources/apis/gizmoapi"
 	"go.viam.com/rdk/examples/customresources/apis/summationapi"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/services/navigation"
 )
 
 func main() {
-	logger := golog.NewDevelopmentLogger("client")
+	logger := logging.NewDevelopmentLogger("client")
 	robot, err := client.New(
 		context.Background(),
 		"localhost:8080",

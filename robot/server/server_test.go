@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
 	"github.com/jhump/protoreflect/grpcreflect"
@@ -26,6 +25,7 @@ import (
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
@@ -176,11 +176,11 @@ func TestServer(t *testing.T) {
 	})
 
 	t.Run("GetOperations", func(t *testing.T) {
-		logger := golog.NewTestLogger(t)
+		logger := logging.NewTestLogger(t)
 		injectRobot := &inject.Robot{}
 		injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return nil }
 		injectRobot.ResourceNamesFunc = func() []resource.Name { return nil }
-		injectRobot.LoggerFunc = func() golog.Logger {
+		injectRobot.LoggerFunc = func() logging.Logger {
 			return logger
 		}
 		server := server.New(injectRobot)

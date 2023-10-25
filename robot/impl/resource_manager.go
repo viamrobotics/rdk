@@ -9,7 +9,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/edaniels/golog"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
@@ -18,6 +17,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/module/modmanager"
 	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
 	modif "go.viam.com/rdk/module/modmaninterface"
@@ -31,7 +31,7 @@ import (
 
 func init() {
 	if err := cleanAppImageEnv(); err != nil {
-		golog.Global().Errorw("error cleaning up app image environement", "error", err)
+		logging.Global().Errorw("error cleaning up app image environement", "error", err)
 	}
 }
 
@@ -47,7 +47,7 @@ type resourceManager struct {
 	processConfigs map[string]pexec.ProcessConfig
 	moduleManager  modif.ModuleManager
 	opts           resourceManagerOptions
-	logger         golog.Logger
+	logger         logging.Logger
 	configLock     sync.Mutex
 }
 
@@ -63,7 +63,7 @@ type resourceManagerOptions struct {
 // moduleManager will not be initialized until startModuleManager is called.
 func newResourceManager(
 	opts resourceManagerOptions,
-	logger golog.Logger,
+	logger logging.Logger,
 ) *resourceManager {
 	return &resourceManager{
 		resources:      resource.NewGraph(),
@@ -76,12 +76,12 @@ func newResourceManager(
 
 func newProcessManager(
 	opts resourceManagerOptions,
-	logger golog.Logger,
+	logger logging.Logger,
 ) pexec.ProcessManager {
 	if opts.untrustedEnv {
 		return pexec.NoopProcessManager
 	}
-	return pexec.NewProcessManager(logger)
+	return pexec.NewProcessManager(logger.AsZap())
 }
 
 func fromRemoteNameToRemoteNodeName(name string) resource.Name {
@@ -92,7 +92,7 @@ func (manager *resourceManager) startModuleManager(
 	parentAddr string,
 	removeOrphanedResources func(context.Context, []resource.Name),
 	untrustedEnv bool,
-	logger golog.Logger,
+	logger logging.Logger,
 ) {
 	mmOpts := modmanageroptions.Options{
 		UntrustedEnv:            untrustedEnv,
@@ -1024,7 +1024,7 @@ type PartsMergeResult struct {
 func (manager *resourceManager) markRemoved(
 	ctx context.Context,
 	conf *config.Config,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (pexec.ProcessManager, []resource.Resource, map[resource.Name]struct{}) {
 	processesToClose := newProcessManager(manager.opts, logger)
 	for _, conf := range conf.Processes {

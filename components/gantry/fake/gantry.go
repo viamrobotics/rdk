@@ -5,10 +5,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 
 	"go.viam.com/rdk/components/gantry"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils"
@@ -23,7 +23,7 @@ func init() {
 				ctx context.Context,
 				_ resource.Dependencies,
 				conf resource.Config,
-				logger golog.Logger,
+				logger logging.Logger,
 			) (gantry.Gantry, error) {
 				return NewGantry(conf.ResourceName(), logger), nil
 			},
@@ -31,7 +31,7 @@ func init() {
 }
 
 // NewGantry returns a new fake gantry.
-func NewGantry(name resource.Name, logger golog.Logger) gantry.Gantry {
+func NewGantry(name resource.Name, logger logging.Logger) gantry.Gantry {
 	return &Gantry{
 		testutils.NewUnimplementedResource(name),
 		resource.TriviallyReconfigurable{},
@@ -55,7 +55,7 @@ type Gantry struct {
 	lengths        []float64
 	lengthMeters   float64
 	frame          r3.Vector
-	logger         golog.Logger
+	logger         logging.Logger
 }
 
 // Position returns the position in meters.

@@ -6,10 +6,10 @@ import (
 	"context"
 	"sync"
 
-	"github.com/edaniels/golog"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 )
 
@@ -17,13 +17,13 @@ import (
 type CombinedIK struct {
 	solvers []InverseKinematics
 	model   referenceframe.Frame
-	logger  golog.Logger
+	logger  logging.Logger
 }
 
 // CreateCombinedIKSolver creates a combined parallel IK solver with a number of nlopt solvers equal to the nCPU
 // passed in. Each will be given a different random seed. When asked to solve, all solvers will be run in parallel
 // and the first valid found solution will be returned.
-func CreateCombinedIKSolver(model referenceframe.Frame, logger golog.Logger, nCPU int, goalThreshold float64) (*CombinedIK, error) {
+func CreateCombinedIKSolver(model referenceframe.Frame, logger logging.Logger, nCPU int, goalThreshold float64) (*CombinedIK, error) {
 	ik := &CombinedIK{}
 	ik.model = model
 	if nCPU == 0 {

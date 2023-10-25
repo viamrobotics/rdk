@@ -8,10 +8,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"github.com/lucasb-eyer/go-colorful"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
+
+	"go.viam.com/rdk/logging"
 )
 
 func _checkAllDifferent(t *testing.T, colors []Color) {
@@ -511,7 +512,7 @@ func TestColorSegment1(t *testing.T) {
 	}
 
 	outDir := t.TempDir()
-	golog.NewTestLogger(t).Debugf("out dir: %q", outDir)
+	logging.NewTestLogger(t).Debugf("out dir: %q", outDir)
 	err = diffs.WriteTo(outDir + "/foo.html")
 	test.That(t, err, test.ShouldBeNil)
 

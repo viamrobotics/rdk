@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -48,7 +48,7 @@ func setupDependencies(t *testing.T) resource.Dependencies {
 
 func TestValid(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	deps := setupDependencies(t)
 
 	mc := Config{
@@ -164,7 +164,7 @@ func TestValid(t *testing.T) {
 
 func TestFunctions(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
-	logger, obs := golog.NewObservedTestLogger(t)
+	logger, obs := logging.NewObservedTestLogger(t)
 	deps := setupDependencies(t)
 
 	mc := Config{
@@ -254,7 +254,7 @@ func TestFunctions(t *testing.T) {
 
 func TestState(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	deps := setupDependencies(t)
 
 	mc := Config{

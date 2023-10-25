@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/lestrrat-go/jwx/jwk"
 	packagespb "go.viam.com/api/app/packages/v1"
@@ -20,6 +19,7 @@ import (
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	spatial "go.viam.com/rdk/spatialmath"
@@ -722,7 +722,7 @@ func TestCloudConfigToProto(t *testing.T) {
 }
 
 func TestFromProto(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	cloudConfig, err := CloudConfigToProto(&testCloudConfig)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -788,7 +788,7 @@ func TestFromProto(t *testing.T) {
 }
 
 func TestPartialStart(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	cloudConfig, err := CloudConfigToProto(&testCloudConfig)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -875,7 +875,7 @@ func TestPartialStart(t *testing.T) {
 }
 
 func TestDisablePartialStart(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	cloudConfig, err := CloudConfigToProto(&testCloudConfig)
 	test.That(t, err, test.ShouldBeNil)
 

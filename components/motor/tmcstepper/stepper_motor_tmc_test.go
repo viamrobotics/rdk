@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/board"
 	fakeboard "go.viam.com/rdk/components/board/fake"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/motor/tmcstepper"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
@@ -46,7 +46,7 @@ const maxRpm = 500
 
 func TestRPMBounds(t *testing.T) {
 	ctx := context.Background()
-	logger, obs := golog.NewObservedTestLogger(t)
+	logger, obs := logging.NewObservedTestLogger(t)
 	c := make(chan []byte)
 	b := &fakeboard.Board{
 		Named: board.Named("foo").AsNamed(),
@@ -137,7 +137,7 @@ func TestRPMBounds(t *testing.T) {
 
 func TestTMCStepperMotor(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	c := make(chan []byte)
 	b := &fakeboard.Board{
 		Named: board.Named("foo").AsNamed(),

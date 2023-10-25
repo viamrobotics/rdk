@@ -5,10 +5,10 @@ import (
 	"image"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/logging"
 	pc "go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
@@ -24,7 +24,7 @@ var (
 // Test finding the planes in an image with depth.
 func TestPlaneSegmentImageAndDepthMap(t *testing.T) {
 	d := rimage.NewMultipleImageTestDebugger(t, "segmentation/planes/color", "*.png", "segmentation/planes/depth")
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	config, err := config.Read(context.Background(), intelJSONPath, logger)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -48,7 +48,7 @@ func (h *segmentTestHelper) Process(
 	pCtx *rimage.ProcessorContext,
 	fn string,
 	img, img2 image.Image,
-	logger golog.Logger,
+	logger logging.Logger,
 ) error {
 	t.Helper()
 	var err error
@@ -150,7 +150,7 @@ func (h *gripperPlaneTestHelper) Process(
 	pCtx *rimage.ProcessorContext,
 	fn string,
 	img, img2 image.Image,
-	logger golog.Logger,
+	logger logging.Logger,
 ) error {
 	t.Helper()
 	var err error

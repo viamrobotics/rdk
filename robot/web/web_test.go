@@ -12,7 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
@@ -38,6 +37,7 @@ import (
 	"go.viam.com/rdk/config"
 	gizmopb "go.viam.com/rdk/examples/customresources/apis/proto/api/component/gizmo/v1"
 	rgrpc "go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/framesystem"
@@ -56,7 +56,7 @@ var resources = []resource.Name{arm.Named(arm1String)}
 var pos = spatialmath.NewPoseFromPoint(r3.Vector{X: 1, Y: 2, Z: 3})
 
 func TestWebStart(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ctx, injectRobot := setupRobotCtx(t)
 
 	svc := web.New(injectRobot, logger)
@@ -85,7 +85,7 @@ func TestWebStart(t *testing.T) {
 }
 
 func TestModule(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ctx, injectRobot := setupRobotCtx(t)
 
 	svc := web.New(injectRobot, logger)
@@ -140,7 +140,7 @@ func TestModule(t *testing.T) {
 }
 
 func TestWebStartOptions(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ctx, injectRobot := setupRobotCtx(t)
 
 	svc := web.New(injectRobot, logger)
@@ -171,7 +171,7 @@ func TestWebStartOptions(t *testing.T) {
 }
 
 func TestWebWithAuth(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ctx, injectRobot := setupRobotCtx(t)
 
 	for _, tc := range []struct {
@@ -453,7 +453,7 @@ func TestWebWithAuth(t *testing.T) {
 }
 
 func TestWebWithTLSAuth(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ctx, injectRobot := setupRobotCtx(t)
 
 	svc := web.New(injectRobot, logger)
@@ -617,7 +617,7 @@ func TestWebWithTLSAuth(t *testing.T) {
 }
 
 func TestWebWithBadAuthHandlers(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ctx, injectRobot := setupRobotCtx(t)
 
 	svc := web.New(injectRobot, logger)
@@ -652,7 +652,7 @@ func TestWebWithBadAuthHandlers(t *testing.T) {
 }
 
 func TestWebWithOnlyNewAPIKeyAuthHandlers(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ctx, injectRobot := setupRobotCtx(t)
 
 	svc := web.New(injectRobot, logger)
@@ -734,7 +734,7 @@ func TestWebWithOnlyNewAPIKeyAuthHandlers(t *testing.T) {
 }
 
 func TestWebReconfigure(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ctx, robot := setupRobotCtx(t)
 
 	svc := web.New(robot, logger)
@@ -864,8 +864,8 @@ func TestWebWithStreams(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// Start service
-	logger := golog.NewTestLogger(t)
-	robot.LoggerFunc = func() golog.Logger { return logger }
+	logger := logging.NewTestLogger(t)
+	robot.LoggerFunc = func() logging.Logger { return logger }
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 	svc := web.New(robot, logger, web.WithStreamConfig(x264.DefaultStreamConfig))
 	err := svc.Start(ctx, options)
@@ -922,8 +922,8 @@ func TestWebAddFirstStream(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// Start service
-	logger := golog.NewTestLogger(t)
-	robot.LoggerFunc = func() golog.Logger { return logger }
+	logger := logging.NewTestLogger(t)
+	robot.LoggerFunc = func() logging.Logger { return logger }
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 	svc := web.New(robot, logger, web.WithStreamConfig(x264.DefaultStreamConfig))
 	err := svc.Start(ctx, options)
@@ -970,8 +970,8 @@ func TestWebStreamImmediateClose(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// Start service
-	logger := golog.NewTestLogger(t)
-	robot.LoggerFunc = func() golog.Logger { return logger }
+	logger := logging.NewTestLogger(t)
+	robot.LoggerFunc = func() logging.Logger { return logger }
 	options, _, _ := robottestutils.CreateBaseOptionsAndListener(t)
 	svc := web.New(robot, logger, web.WithStreamConfig(x264.DefaultStreamConfig))
 	err := svc.Start(ctx, options)
@@ -996,7 +996,7 @@ func setupRobotCtx(t *testing.T) (context.Context, robot.Robot) {
 	injectRobot.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
 		return injectArm, nil
 	}
-	injectRobot.LoggerFunc = func() golog.Logger { return golog.NewTestLogger(t) }
+	injectRobot.LoggerFunc = func() logging.Logger { return logging.NewTestLogger(t) }
 	injectRobot.FrameSystemConfigFunc = func(ctx context.Context) (*framesystem.Config, error) {
 		return &framesystem.Config{}, nil
 	}
@@ -1005,7 +1005,7 @@ func setupRobotCtx(t *testing.T) (context.Context, robot.Robot) {
 }
 
 func TestForeignResource(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ctx, robot := setupRobotCtx(t)
 
 	svc := web.New(robot, logger)
@@ -1056,7 +1056,7 @@ func TestForeignResource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	injectRobot := &inject.Robot{}
-	injectRobot.LoggerFunc = func() golog.Logger { return logger }
+	injectRobot.LoggerFunc = func() logging.Logger { return logger }
 	injectRobot.ConfigFunc = func() *config.Config { return &config.Config{} }
 	injectRobot.ResourceNamesFunc = func() []resource.Name {
 		return []resource.Name{
@@ -1130,7 +1130,7 @@ func TestRawClientOperation(t *testing.T) {
 		RPCServiceDesc:              &echopb.TestEchoService_ServiceDesc,
 	})
 
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ctx, iRobot := setupRobotCtx(t)
 
 	svc := web.New(iRobot, logger)
@@ -1193,7 +1193,7 @@ func TestRawClientOperation(t *testing.T) {
 }
 
 func TestInboundMethodTimeout(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ctx, iRobot := setupRobotCtx(t)
 
 	t.Run("web start", func(t *testing.T) {

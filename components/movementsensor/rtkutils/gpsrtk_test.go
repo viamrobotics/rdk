@@ -4,12 +4,12 @@ import (
 	"context"
 	"testing"
 
-	"github.com/edaniels/golog"
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/components/movementsensor/fake"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -80,7 +80,7 @@ const (
 		},
 	}
 
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 
 	serialNMEA, _ := gpsnmea.NewSerialGPSNMEA(ctx, conf.ResourceName(), serialnmeaConf, logger)
@@ -152,7 +152,7 @@ func TestModelTypeCreators(t *testing.T) {
 // }
 
 // func TestConnect(t *testing.T) {
-// 	logger := golog.NewTestLogger(t)
+// 	logger := logging.NewTestLogger(t)
 // 	ctx := context.Background()
 // 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 // 	g := RTKMovementSensor{
@@ -182,7 +182,7 @@ func TestModelTypeCreators(t *testing.T) {
 /* func TestNewRTKMovementSensor(t *testing.T) {
 	path := "somepath"
 	deps := setupDependencies(t)
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 
 	t.Run("serial protocol", func(t *testing.T) {
@@ -319,7 +319,7 @@ func TestModelTypeCreators(t *testing.T) {
 } */
 
 func TestReadingsRTK(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	g := RTKMovementSensor{
@@ -349,7 +349,7 @@ func TestReadingsRTK(t *testing.T) {
 }
 
 func TestCloseRTK(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	g := RTKMovementSensor{

@@ -5,8 +5,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+
+	"go.viam.com/rdk/logging"
 )
 
 type filterType string
@@ -28,10 +29,10 @@ type filterStruct struct {
 	cfg    BlockConfig
 	filter filter
 	y      []*Signal
-	logger golog.Logger
+	logger logging.Logger
 }
 
-func newFilter(config BlockConfig, logger golog.Logger) (Block, error) {
+func newFilter(config BlockConfig, logger logging.Logger) (Block, error) {
 	f := &filterStruct{cfg: config, logger: logger}
 	if err := f.initFilter(); err != nil {
 		return nil, err

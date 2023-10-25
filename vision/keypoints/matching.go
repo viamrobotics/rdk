@@ -3,13 +3,13 @@ package keypoints
 import (
 	"sort"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils"
 )
 
-var logger = golog.NewLogger("matching")
+var logger = logging.NewLogger("matching")
 
 // rangeInt generates a sliced of integers from l to u-1, with step size step.
 func rangeInt(u, l, step int) []int {
@@ -45,7 +45,7 @@ type DescriptorMatch struct {
 
 // MatchDescriptors takes 2 sets of descriptors and performs matching.
 // Order orders: desc1 are being matched to desc2.
-func MatchDescriptors(desc1, desc2 []Descriptor, cfg *MatchingConfig, logger golog.Logger) []DescriptorMatch {
+func MatchDescriptors(desc1, desc2 []Descriptor, cfg *MatchingConfig, logger logging.Logger) []DescriptorMatch {
 	distances, err := DescriptorsHammingDistance(desc1, desc2)
 	if err != nil {
 		return nil

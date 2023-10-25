@@ -6,11 +6,12 @@ import (
 	"os"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r2"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 	"gonum.org/v1/gonum/mat"
+
+	"go.viam.com/rdk/logging"
 )
 
 type poseGroundTruth struct {
@@ -43,7 +44,7 @@ func convert2DSliceToDense(data [][]float64) *mat.Dense {
 	return out
 }
 
-func readJSONGroundTruth(logger golog.Logger) *poseGroundTruth {
+func readJSONGroundTruth(logger logging.Logger) *poseGroundTruth {
 	// Open jsonFile
 	jsonFile, err := os.Open(artifact.MustPath("rimage/matched_kps.json"))
 	if err != nil {
@@ -63,7 +64,7 @@ func readJSONGroundTruth(logger golog.Logger) *poseGroundTruth {
 }
 
 func TestComputeFundamentalMatrix(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	gt := readJSONGroundTruth(logger)
 	pts1 := convert2DSliceToVectorSlice(gt.Pts1)
 	pts2 := convert2DSliceToVectorSlice(gt.Pts2)

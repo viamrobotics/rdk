@@ -11,9 +11,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/edaniels/golog"
-
 	"go.viam.com/rdk/components/sensor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
@@ -34,7 +33,7 @@ func init() {
 				ctx context.Context,
 				deps resource.Dependencies,
 				conf resource.Config,
-				logger golog.Logger,
+				logger logging.Logger,
 			) (sensor.Sensor, error) {
 				newConf, err := resource.NativeConfig[*Config](conf)
 				if err != nil {
@@ -45,7 +44,7 @@ func init() {
 		})
 }
 
-func newSensor(name resource.Name, id string, logger golog.Logger) sensor.Sensor {
+func newSensor(name resource.Name, id string, logger logging.Logger) sensor.Sensor {
 	// temp sensors are in family 28
 	return &Sensor{
 		Named:         name.AsNamed(),
@@ -62,7 +61,7 @@ type Sensor struct {
 	resource.TriviallyCloseable
 	OneWireID     string
 	OneWireFamily string
-	logger        golog.Logger
+	logger        logging.Logger
 }
 
 // ReadTemperatureCelsius returns current temperature in celsius.

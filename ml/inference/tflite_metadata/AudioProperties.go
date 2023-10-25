@@ -8,11 +8,13 @@ import (
 
 type AudioPropertiesT struct {
 	SampleRate uint32
-	Channels uint32
+	Channels   uint32
 }
 
 func (t *AudioPropertiesT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
-	if t == nil { return 0 }
+	if t == nil {
+		return 0
+	}
 	AudioPropertiesStart(builder)
 	AudioPropertiesAddSampleRate(builder, t.SampleRate)
 	AudioPropertiesAddChannels(builder, t.Channels)
@@ -25,7 +27,9 @@ func (rcv *AudioProperties) UnPackTo(t *AudioPropertiesT) {
 }
 
 func (rcv *AudioProperties) UnPack() *AudioPropertiesT {
-	if rcv == nil { return nil }
+	if rcv == nil {
+		return nil
+	}
 	t := &AudioPropertiesT{}
 	rcv.UnPackTo(t)
 	return t
