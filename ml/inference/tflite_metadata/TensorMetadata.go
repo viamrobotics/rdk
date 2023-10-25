@@ -7,17 +7,19 @@ import (
 )
 
 type TensorMetadataT struct {
-	Name string
-	Description string
-	DimensionNames []string
-	Content *ContentT
-	ProcessUnits []*ProcessUnitT
-	Stats *StatsT
+	Name            string
+	Description     string
+	DimensionNames  []string
+	Content         *ContentT
+	ProcessUnits    []*ProcessUnitT
+	Stats           *StatsT
 	AssociatedFiles []*AssociatedFileT
 }
 
 func (t *TensorMetadataT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
-	if t == nil { return 0 }
+	if t == nil {
+		return 0
+	}
 	nameOffset := builder.CreateString(t.Name)
 	descriptionOffset := builder.CreateString(t.Description)
 	dimensionNamesOffset := flatbuffers.UOffsetT(0)
@@ -99,7 +101,9 @@ func (rcv *TensorMetadata) UnPackTo(t *TensorMetadataT) {
 }
 
 func (rcv *TensorMetadata) UnPack() *TensorMetadataT {
-	if rcv == nil { return nil }
+	if rcv == nil {
+		return nil
+	}
 	t := &TensorMetadataT{}
 	rcv.UnPackTo(t)
 	return t

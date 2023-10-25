@@ -5,9 +5,10 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+
+	"go.viam.com/rdk/logging"
 )
 
 type graphNodes map[Name]*GraphNode
@@ -249,7 +250,7 @@ func (g *Graph) GetAllParentsOf(node Name) []Name {
 
 func (g *Graph) addNode(node Name, nodeVal *GraphNode) error {
 	if nodeVal == nil {
-		golog.Global().Errorw("addNode called with a nil value; setting to uninitialized", "name", node)
+		logging.Global().Errorw("addNode called with a nil value; setting to uninitialized", "name", node)
 		nodeVal = NewUninitializedNode()
 	}
 	if val, ok := g.nodes[node]; ok {
@@ -386,7 +387,7 @@ func (g *Graph) RemoveMarked() []Resource {
 		rNode, ok := g.nodes[name]
 		if !ok {
 			// will never happen
-			golog.Global().Errorw("invariant: expected to find node during removal", "name", name)
+			logging.Global().Errorw("invariant: expected to find node during removal", "name", name)
 			continue
 		}
 		if rNode.MarkedForRemoval() {
@@ -524,7 +525,7 @@ func (g *Graph) ReverseTopologicalSort() []Name {
 
 // ResolveDependencies attempts to link up unresolved dependencies after
 // new changes to the graph.
-func (g *Graph) ResolveDependencies(logger golog.Logger) error {
+func (g *Graph) ResolveDependencies(logger logging.Logger) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 

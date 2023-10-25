@@ -238,8 +238,9 @@ func (g *GPSData) updateGNS(gns nmea.GNS) error {
 	return nil
 }
 
-//nolint:all
 // updateHDT updaates g.CompassHeading with the ground speed information from the provided
+//
+//nolint:all
 func (g *GPSData) updateHDT(hdt nmea.HDT) error {
 	// HDT provides compass heading
 	g.CompassHeading = hdt.Heading

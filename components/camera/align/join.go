@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"image"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"github.com/viamrobotics/gostream"
 	"go.opencensus.io/trace"
@@ -15,6 +14,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
@@ -28,7 +28,7 @@ func init() {
 	resource.RegisterComponent(camera.API, joinModel,
 		resource.Registration[camera.Camera, *joinConfig]{
 			Constructor: func(ctx context.Context, deps resource.Dependencies,
-				conf resource.Config, logger golog.Logger,
+				conf resource.Config, logger logging.Logger,
 			) (camera.Camera, error) {
 				newConf, err := resource.NativeConfig[*joinConfig](conf)
 				if err != nil {
@@ -85,11 +85,11 @@ type joinColorDepth struct {
 	projector            transform.Projector
 	imageType            camera.ImageType
 	debug                bool
-	logger               golog.Logger
+	logger               logging.Logger
 }
 
 // newJoinColorDepth creates a gostream.VideoSource that aligned color and depth channels.
-func newJoinColorDepth(ctx context.Context, color, depth camera.VideoSource, conf *joinConfig, logger golog.Logger,
+func newJoinColorDepth(ctx context.Context, color, depth camera.VideoSource, conf *joinConfig, logger logging.Logger,
 ) (camera.VideoSource, error) {
 	imgType := camera.ImageType(conf.ImageType)
 	// get intrinsic parameters from config, or from the underlying camera

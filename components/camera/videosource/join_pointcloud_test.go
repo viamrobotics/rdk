@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 	"go.viam.com/utils"
@@ -16,6 +15,7 @@ import (
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -27,7 +27,7 @@ import (
 
 func makeFakeRobot(t *testing.T) resource.Dependencies {
 	t.Helper()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	cam1 := &inject.Camera{}
 	cam1.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		pc1 := pointcloud.NewWithPrealloc(1)
@@ -112,7 +112,8 @@ func TestJoinPointCloudNaive(t *testing.T) {
 		TargetFrame:   "base1",
 		MergeMethod:   "naive",
 	}
-	joinedCam, err := newJoinPointCloudCamera(context.Background(), deps, resource.Config{ConvertedAttributes: conf}, utils.Logger)
+	logger := logging.FromZapCompatible(utils.Logger)
+	joinedCam, err := newJoinPointCloudCamera(context.Background(), deps, resource.Config{ConvertedAttributes: conf}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	pc, err := joinedCam.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -143,7 +144,7 @@ func TestJoinPointCloudNaive(t *testing.T) {
 		TargetFrame:   "cam1",
 		MergeMethod:   "naive",
 	}
-	joinedCam2, err := newJoinPointCloudCamera(context.Background(), deps, resource.Config{ConvertedAttributes: conf2}, utils.Logger)
+	joinedCam2, err := newJoinPointCloudCamera(context.Background(), deps, resource.Config{ConvertedAttributes: conf2}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	pc, err = joinedCam2.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -211,7 +212,7 @@ func makeFakeRobotICP(t *testing.T) resource.Dependencies {
 	// Cam 1 and 2 Are programatically set to have a difference of 100 in the Z direction.
 	// Cam 3 and 4 Sensors are approximately 33 cm apart with an unknown slight rotation.
 	t.Helper()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	cam1 := &inject.Camera{}
 	startPC, err := makePointCloudFromArtifact(t, "pointcloud/test.pcd", 100)
 	if err != nil {
@@ -356,7 +357,8 @@ func TestFixedPointCloudICP(t *testing.T) {
 		Closeness:     0.01,
 	}
 
-	joinedCam, err := newJoinPointCloudCamera(context.Background(), deps, resource.Config{ConvertedAttributes: conf}, utils.Logger)
+	joinedCam, err := newJoinPointCloudCamera(
+		context.Background(), deps, resource.Config{ConvertedAttributes: conf}, logging.FromZapCompatible(utils.Logger))
 	test.That(t, err, test.ShouldBeNil)
 	defer joinedCam.Close(context.Background())
 	pc, err := joinedCam.NextPointCloud(ctx)
@@ -375,7 +377,8 @@ func TestTwinPointCloudICP(t *testing.T) {
 		TargetFrame:   "cam3",
 		MergeMethod:   "icp",
 	}
-	joinedCam, err := newJoinPointCloudCamera(context.Background(), deps, resource.Config{ConvertedAttributes: conf}, utils.Logger)
+	joinedCam, err := newJoinPointCloudCamera(
+		context.Background(), deps, resource.Config{ConvertedAttributes: conf}, logging.FromZapCompatible(utils.Logger))
 	test.That(t, err, test.ShouldBeNil)
 	defer joinedCam.Close(context.Background())
 	pc, err := joinedCam.NextPointCloud(context.Background())
@@ -399,7 +402,8 @@ func TestMultiPointCloudICP(t *testing.T) {
 		TargetFrame:   "cam3",
 		MergeMethod:   "icp",
 	}
-	joinedCam, err := newJoinPointCloudCamera(context.Background(), deps, resource.Config{ConvertedAttributes: conf}, utils.Logger)
+	joinedCam, err := newJoinPointCloudCamera(
+		context.Background(), deps, resource.Config{ConvertedAttributes: conf}, logging.FromZapCompatible(utils.Logger))
 	test.That(t, err, test.ShouldBeNil)
 	defer joinedCam.Close(context.Background())
 	pc, err := joinedCam.NextPointCloud(context.Background())

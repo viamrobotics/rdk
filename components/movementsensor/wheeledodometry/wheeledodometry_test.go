@@ -9,12 +9,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/motor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -96,7 +96,7 @@ func setPositions(left, right float64) {
 
 func TestNewWheeledOdometry(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	deps := make(resource.Dependencies)
 	deps[base.Named(baseName)] = createFakeBase(0.1, 0.1, 0.1)
@@ -120,7 +120,7 @@ func TestNewWheeledOdometry(t *testing.T) {
 
 func TestReconfigure(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	deps := make(resource.Dependencies)
 	deps[base.Named(baseName)] = createFakeBase(0.1, 0.1, 0)

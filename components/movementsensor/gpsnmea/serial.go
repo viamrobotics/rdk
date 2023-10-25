@@ -10,7 +10,6 @@ import (
 	"sync"
 
 	"github.com/adrianmo/go-nmea"
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/jacobsa/go-serial/serial"
 	geo "github.com/kellydunn/golang-geo"
@@ -18,6 +17,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -31,7 +31,7 @@ type SerialNMEAMovementSensor struct {
 	mu                      sync.RWMutex
 	cancelCtx               context.Context
 	cancelFunc              func()
-	logger                  golog.Logger
+	logger                  logging.Logger
 	data                    GPSData
 	activeBackgroundWorkers sync.WaitGroup
 
@@ -49,7 +49,7 @@ type SerialNMEAMovementSensor struct {
 }
 
 // NewSerialGPSNMEA gps that communicates over serial.
-func NewSerialGPSNMEA(ctx context.Context, name resource.Name, conf *Config, logger golog.Logger) (NmeaMovementSensor, error) {
+func NewSerialGPSNMEA(ctx context.Context, name resource.Name, conf *Config, logger logging.Logger) (NmeaMovementSensor, error) {
 	serialPath := conf.SerialConfig.SerialPath
 	if serialPath == "" {
 		return nil, fmt.Errorf("SerialNMEAMovementSensor expected non-empty string for %q", conf.SerialConfig.SerialPath)

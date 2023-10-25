@@ -5,12 +5,12 @@ import (
 	"math"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/base"
 	fakebase "go.viam.com/rdk/components/base/fake"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
@@ -40,7 +40,7 @@ func testConfig() resource.Config {
 
 func TestWrapWithDifferentialDriveKinematics(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	testCases := []struct {
 		geoType spatialmath.GeometryType
@@ -99,7 +99,7 @@ func TestWrapWithDifferentialDriveKinematics(t *testing.T) {
 
 func TestCurrentInputs(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ddk, err := buildTestDDK(ctx, testConfig(),
 		defaultLinearVelocityMMPerSec, defaultAngularVelocityDegsPerSec, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -119,7 +119,7 @@ func TestInputDiff(t *testing.T) {
 	}
 
 	// build base
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ddk, err := buildTestDDK(ctx, testConfig(),
 		defaultLinearVelocityMMPerSec, defaultAngularVelocityDegsPerSec, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -136,7 +136,7 @@ func buildTestDDK(
 	ctx context.Context,
 	cfg resource.Config,
 	linVel, angVel float64,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (*differentialDriveKinematics, error) {
 	// make fake base
 	b, err := fakebase.NewBase(ctx, resource.Dependencies{}, cfg, logger)
@@ -174,7 +174,7 @@ func buildTestDDK(
 
 func TestNewValidRegionCapsule(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ddk, err := buildTestDDK(ctx, testConfig(), defaultLinearVelocityMMPerSec, defaultAngularVelocityDegsPerSec, logger)
 	test.That(t, err, test.ShouldBeNil)
 

@@ -4,12 +4,12 @@ package generic
 import (
 	"context"
 
-	"github.com/edaniels/golog"
 	commonpb "go.viam.com/api/common/v1"
 	genericpb "go.viam.com/api/component/generic/v1"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
@@ -20,7 +20,7 @@ type client struct {
 	resource.TriviallyCloseable
 	name   string
 	client genericpb.GenericServiceClient
-	logger golog.Logger
+	logger logging.Logger
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
@@ -29,7 +29,7 @@ func NewClientFromConn(
 	conn rpc.ClientConn,
 	remoteName string,
 	name resource.Name,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (resource.Resource, error) {
 	c := genericpb.NewGenericServiceClient(conn)
 	return &client{

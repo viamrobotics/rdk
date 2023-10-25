@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	datapb "go.viam.com/api/app/data/v1"
@@ -22,6 +21,7 @@ import (
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/internal/cloud"
 	cloudinject "go.viam.com/rdk/internal/testutils/inject"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/spatialmath"
@@ -162,11 +162,11 @@ func checkDataEndCondition(i, endIntervalIndex, availableDataNum int) (int, erro
 
 // createMockCloudDependencies creates a mockDataServiceServer and rpc client connection to it which is then
 // stored in a mockCloudConnectionService.
-func createMockCloudDependencies(ctx context.Context, t *testing.T, logger golog.Logger, validCloudConnection bool,
+func createMockCloudDependencies(ctx context.Context, t *testing.T, logger logging.Logger, validCloudConnection bool,
 ) (resource.Dependencies, func() error) {
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
-	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
+	rpcServer, err := rpc.NewServer(logger.AsZap(), rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, rpcServer.RegisterServiceServer(
@@ -201,7 +201,7 @@ func createMockCloudDependencies(ctx context.Context, t *testing.T, logger golog
 // a valid or invalid data client.
 func createNewReplayMovementSensor(ctx context.Context, t *testing.T, replayMovementSensorCfg *Config, validCloudConnection bool,
 ) (movementsensor.MovementSensor, resource.Dependencies, func() error, error) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	resources, closeRPCFunc := createMockCloudDependencies(ctx, t, logger, validCloudConnection)
 

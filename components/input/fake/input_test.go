@@ -5,11 +5,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/input"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
@@ -36,7 +36,7 @@ func setupDefinedInput(t *testing.T) *InputController {
 
 func setupInputWithCfg(t *testing.T, conf Config) *InputController {
 	t.Helper()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	input, err := NewInputController(context.Background(), resource.Config{ConvertedAttributes: &conf}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	return input.(*InputController)

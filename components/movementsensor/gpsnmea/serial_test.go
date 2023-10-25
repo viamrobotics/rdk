@@ -5,12 +5,12 @@ import (
 	"testing"
 
 	"github.com/adrianmo/go-nmea"
-	"github.com/edaniels/golog"
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	rutils "go.viam.com/rdk/utils"
 )
@@ -52,7 +52,7 @@ func TestNewSerialMovementSensor(t *testing.T) {
 		},
 	}
 
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 
 	g, err := newNMEAGPS(ctx, deps, cfig, logger)
@@ -82,7 +82,7 @@ func TestNewSerialMovementSensor(t *testing.T) {
 }
 
 func TestReadingsSerial(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	g := &SerialNMEAMovementSensor{
@@ -124,7 +124,7 @@ func TestReadingsSerial(t *testing.T) {
 }
 
 func TestCloseSerial(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	g := &SerialNMEAMovementSensor{

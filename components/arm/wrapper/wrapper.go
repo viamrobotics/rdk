@@ -5,11 +5,11 @@ import (
 	"context"
 	"sync"
 
-	"github.com/edaniels/golog"
 	pb "go.viam.com/api/component/arm/v1"
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
@@ -48,7 +48,7 @@ func init() {
 type Arm struct {
 	resource.Named
 	resource.TriviallyCloseable
-	logger golog.Logger
+	logger logging.Logger
 	opMgr  *operation.SingleOperationManager
 
 	mu     sync.RWMutex
@@ -57,7 +57,9 @@ type Arm struct {
 }
 
 // NewWrapperArm returns a wrapper component for another arm.
-func NewWrapperArm(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (arm.Arm, error) {
+func NewWrapperArm(
+	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
+) (arm.Arm, error) {
 	a := &Arm{
 		Named:  conf.ResourceName().AsNamed(),
 		logger: logger,

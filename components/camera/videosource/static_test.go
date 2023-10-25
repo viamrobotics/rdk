@@ -9,11 +9,11 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 )
@@ -22,7 +22,7 @@ func TestPCD(t *testing.T) {
 	pcdPath := filepath.Clean(artifact.MustPath("pointcloud/octagonspace.pcd"))
 	cfg := &fileSourceConfig{PointCloud: pcdPath}
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	cam, err := newCamera(ctx, resource.Name{API: camera.API}, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -64,7 +64,7 @@ func TestColor(t *testing.T) {
 	colorImgPath := artifact.MustPath("vision/objectdetection/detection_test.jpg")
 	cfg := &fileSourceConfig{Color: colorImgPath}
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	cam, err := newCamera(ctx, resource.Name{API: camera.API}, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -104,7 +104,7 @@ func TestColorOddResolution(t *testing.T) {
 
 	cfg := &fileSourceConfig{Color: imgFilePath}
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	cam, err := newCamera(ctx, resource.Name{API: camera.API}, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 

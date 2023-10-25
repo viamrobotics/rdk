@@ -5,15 +5,16 @@ import (
 	"image"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/logging"
 )
 
 // Smoothing with Morphological filters.
 type smoothTestHelper struct{}
 
 func (h *smoothTestHelper) Process(
-	t *testing.T, pCtx *ProcessorContext, fn string, img, img2 image.Image, logger golog.Logger,
+	t *testing.T, pCtx *ProcessorContext, fn string, img, img2 image.Image, logger logging.Logger,
 ) error {
 	t.Helper()
 	var err error
@@ -55,7 +56,7 @@ func TestSmoothGripper(t *testing.T) {
 type cannyTestHelper struct{}
 
 func (h *cannyTestHelper) Process(
-	t *testing.T, pCtx *ProcessorContext, fn string, img, img2 image.Image, logger golog.Logger,
+	t *testing.T, pCtx *ProcessorContext, fn string, img, img2 image.Image, logger logging.Logger,
 ) error {
 	t.Helper()
 	var err error
@@ -145,7 +146,7 @@ func TestDepthPreprocessCanny(t *testing.T) {
 type preprocessTestHelper struct{}
 
 func (h *preprocessTestHelper) Process(
-	t *testing.T, pCtx *ProcessorContext, fn string, img, img2 image.Image, logger golog.Logger,
+	t *testing.T, pCtx *ProcessorContext, fn string, img, img2 image.Image, logger logging.Logger,
 ) error {
 	t.Helper()
 	var err error

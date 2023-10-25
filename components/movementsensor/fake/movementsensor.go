@@ -4,11 +4,11 @@ package fake
 import (
 	"context"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 
 	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -28,7 +28,7 @@ func init() {
 }
 
 // NewMovementSensor makes a new fake movement sensor.
-func NewMovementSensor(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger,
+func NewMovementSensor(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
 ) (movementsensor.MovementSensor, error) {
 	return &MovementSensor{
 		Named:  conf.ResourceName().AsNamed(),
@@ -40,7 +40,7 @@ func NewMovementSensor(ctx context.Context, deps resource.Dependencies, conf res
 type MovementSensor struct {
 	resource.Named
 	resource.AlwaysRebuild
-	logger golog.Logger
+	logger logging.Logger
 }
 
 // Position gets the position of a fake movementsensor.

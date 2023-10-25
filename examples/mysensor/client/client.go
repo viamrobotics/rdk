@@ -4,14 +4,13 @@ package main
 import (
 	"context"
 
-	"github.com/edaniels/golog"
-
 	"go.viam.com/rdk/components/sensor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/robot/client"
 )
 
 func main() {
-	logger := golog.NewDebugLogger("client")
+	logger := logging.NewDebugLogger("client")
 	robot, err := client.New(
 		context.Background(),
 		"localhost:8081",

@@ -18,13 +18,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/app/packages/v1"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
@@ -55,7 +55,7 @@ type cloudManager struct {
 	managedPackages map[PackageName]*managedPackage
 	mu              sync.RWMutex
 
-	logger golog.Logger
+	logger logging.Logger
 }
 
 // SubtypeName is a constant that identifies the internal package manager resource subtype string.
@@ -72,7 +72,7 @@ func NewCloudManager(
 	cloudConfig *config.Cloud,
 	client pb.PackageServiceClient,
 	packagesDir string,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (ManagerSyncer, error) {
 	packagesDataDir := filepath.Join(packagesDir, ".data")
 
@@ -92,7 +92,7 @@ func NewCloudManager(
 		packagesDir:     packagesDir,
 		packagesDataDir: packagesDataDir,
 		managedPackages: make(map[PackageName]*managedPackage),
-		logger:          logger.Named("package_manager"),
+		logger:          logging.FromZapCompatible(logger.Named("package_manager")),
 	}, nil
 }
 

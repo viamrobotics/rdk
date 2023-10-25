@@ -54,9 +54,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
+
+	"go.viam.com/rdk/logging"
 )
 
 // Resolution stores the Width and Height in pixels for a camera resolution.
@@ -79,11 +80,11 @@ type Config struct {
 	cancelCtx               context.Context
 	cancelFn                func()
 	activeBackgroundWorkers sync.WaitGroup
-	logger                  golog.Logger
+	logger                  logging.Logger
 }
 
 // Builder creates a new vcamera.Config builder object.
-func Builder(logger golog.Logger) *Config {
+func Builder(logger logging.Logger) *Config {
 	cancelCtx, cancelFn := context.WithCancel(context.Background())
 	return &Config{
 		deviceMap: make(map[int]bool),

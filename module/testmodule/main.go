@@ -7,12 +7,12 @@ import (
 	"os"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/module"
 	"go.viam.com/rdk/resource"
 )
@@ -27,7 +27,7 @@ func main() {
 	utils.ContextualMain(mainWithArgs, module.NewLoggerFromArgs("TestModule"))
 }
 
-func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error {
+func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) error {
 	logger.Debug("debug mode enabled")
 
 	var err error
@@ -63,7 +63,9 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 	return nil
 }
 
-func newHelper(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (resource.Resource, error) {
+func newHelper(
+	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
+) (resource.Resource, error) {
 	return &helper{
 		Named:  conf.ResourceName().AsNamed(),
 		logger: logger,
@@ -74,7 +76,7 @@ type helper struct {
 	resource.Named
 	resource.TriviallyReconfigurable
 	resource.TriviallyCloseable
-	logger golog.Logger
+	logger logging.Logger
 }
 
 // DoCommand is the only method of this component. It looks up the "real" command from the map it's passed.
@@ -109,7 +111,9 @@ func (h *helper) DoCommand(ctx context.Context, req map[string]interface{}) (map
 	}
 }
 
-func newTestMotor(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (resource.Resource, error) {
+func newTestMotor(
+	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
+) (resource.Resource, error) {
 	return &testMotor{
 		Named: conf.ResourceName().AsNamed(),
 	}, nil

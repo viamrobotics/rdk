@@ -9,13 +9,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/fullstorydev/grpcurl"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-	"go.uber.org/zap"
 	pb "go.viam.com/api/module/v1"
 	robotpb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils"
@@ -24,6 +22,7 @@ import (
 	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
@@ -130,7 +129,7 @@ func NewHandlerMapFromProto(ctx context.Context, pMap *pb.HandlerMap, conn *grpc
 type Module struct {
 	parent                  *client.RobotClient
 	server                  rpc.Server
-	logger                  *zap.SugaredLogger
+	logger                  logging.Logger
 	mu                      sync.Mutex
 	operations              *operation.Manager
 	ready                   bool
@@ -144,7 +143,7 @@ type Module struct {
 }
 
 // NewModule returns the basic module framework/structure.
-func NewModule(ctx context.Context, address string, logger *zap.SugaredLogger) (*Module, error) {
+func NewModule(ctx context.Context, address string, logger logging.Logger) (*Module, error) {
 	// TODO(PRODUCT-343): session support likely means interceptors here
 	opMgr := operation.NewManager(logger)
 	unaries := []grpc.UnaryServerInterceptor{
@@ -169,22 +168,22 @@ func NewModule(ctx context.Context, address string, logger *zap.SugaredLogger) (
 }
 
 // NewModuleFromArgs directly parses the command line argument to get its address.
-func NewModuleFromArgs(ctx context.Context, logger *zap.SugaredLogger) (*Module, error) {
+func NewModuleFromArgs(ctx context.Context, logger logging.Logger) (*Module, error) {
 	if len(os.Args) < 2 {
 		return nil, errors.New("need socket path as command line argument")
 	}
 	return NewModule(ctx, os.Args[1], logger)
 }
 
-// NewLoggerFromArgs can be used to create a golog.Logger at "DebugLevel" if
+// NewLoggerFromArgs can be used to create a logging.Logger at "DebugLevel" if
 // "--log-level=debug" is the third argument in os.Args and at "InfoLevel"
 // otherwise. See config.Module.LogLevel documentation for more info on how
 // to start modules with a "log-level" commandline argument.
-func NewLoggerFromArgs(moduleName string) golog.Logger {
+func NewLoggerFromArgs(moduleName string) logging.Logger {
 	if len(os.Args) >= 3 && os.Args[2] == "--log-level=debug" {
-		return golog.NewDebugLogger(moduleName)
+		return logging.NewDebugLogger(moduleName)
 	}
-	return golog.NewDevelopmentLogger(moduleName)
+	return logging.NewDevelopmentLogger(moduleName)
 }
 
 // Start starts the module service and grpc server.
@@ -427,7 +426,7 @@ func (m *Module) ValidateConfig(ctx context.Context,
 // RemoveResource receives the request for resource removal.
 func (m *Module) RemoveResource(ctx context.Context, req *pb.RemoveResourceRequest) (*pb.RemoveResourceResponse, error) {
 	slowWatcher, slowWatcherCancel := utils.SlowGoroutineWatcher(
-		30*time.Second, fmt.Sprintf("module resource %q is taking a while to remove", req.Name), m.logger)
+		30*time.Second, fmt.Sprintf("module resource %q is taking a while to remove", req.Name), m.logger.AsZap())
 	defer func() {
 		slowWatcherCancel()
 		<-slowWatcher

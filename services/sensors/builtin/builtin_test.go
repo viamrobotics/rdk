@@ -4,12 +4,12 @@ import (
 	"context"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/sensors/builtin"
 	"go.viam.com/rdk/testutils"
@@ -17,7 +17,7 @@ import (
 )
 
 func TestNew(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	t.Run("no error", func(t *testing.T) {
 		deps := make(resource.Dependencies)
 		svc, err := builtin.NewBuiltIn(context.Background(), deps, resource.Config{}, logger)
@@ -27,7 +27,7 @@ func TestNew(t *testing.T) {
 }
 
 func TestGetSensors(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	sensorNames := []resource.Name{movementsensor.Named("imu"), movementsensor.Named("gps")}
 	deps := make(resource.Dependencies)
 
@@ -83,7 +83,7 @@ func TestGetSensors(t *testing.T) {
 }
 
 func TestReadings(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	sensorNames := []resource.Name{movementsensor.Named("imu"), movementsensor.Named("gps"), movementsensor.Named("gps2")}
 	deps := make(resource.Dependencies)
 
@@ -188,7 +188,7 @@ func TestReadings(t *testing.T) {
 }
 
 func TestReconfigure(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	sensorNames := []resource.Name{movementsensor.Named("imu"), movementsensor.Named("gps")}
 	resourceMap := map[resource.Name]resource.Resource{
 		movementsensor.Named("imu"): &inject.Sensor{},

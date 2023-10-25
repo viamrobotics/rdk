@@ -5,13 +5,13 @@ import (
 	"math"
 	"testing"
 
-	"github.com/edaniels/golog"
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/movementsensor/fake"
 	rtk "go.viam.com/rdk/components/movementsensor/rtkutils"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
@@ -90,7 +90,7 @@ func TestValidateRTK(t *testing.T) {
 }
 
 func TestConnect(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	g := rtkI2C{
@@ -120,7 +120,7 @@ func TestReadings(t *testing.T) {
 		loc   = geo.NewPoint(40.7, -73.98)
 	)
 
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	g := rtkI2C{
@@ -212,7 +212,7 @@ func TestReconfigure(t *testing.T) {
 }
 
 func TestCloseRTK(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	g := rtkI2C{
