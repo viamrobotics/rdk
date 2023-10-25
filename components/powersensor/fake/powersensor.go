@@ -63,41 +63,29 @@ func (f *PowerSensor) Power(ctx context.Context, cmd map[string]interface{}) (fl
 
 // Readings gets the readings of a fake powersensor.
 func (f *PowerSensor) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-	return defaultAPIReadings(ctx, *f, extra)
+	volts, isAC, err := f.Voltage(ctx, nil)
+	if err != nil {
+		f.logger.Errorf("failed to get voltage reading: %s", err.Error())
+	}
+
+	amps, _, err := f.Current(ctx, nil)
+	if err != nil {
+		f.logger.Errorf("failed to get current reading: %s", err.Error())
+	}
+
+	watts, err := f.Power(ctx, nil)
+	if err != nil {
+		f.logger.Errorf("failed to get power reading: %s", err.Error())
+	}
+	return map[string]interface{}{
+		"volts": volts,
+		"amps":  amps,
+		"is_ac": isAC,
+		"watts": watts,
+	}, nil
 }
 
 // Close closes the fake powersensor.
 func (f *PowerSensor) Close(ctx context.Context) error {
 	return nil
-}
-
-// DefaultAPIReadings is a helper for getting all readings from a PowerSensor.
-func defaultAPIReadings(ctx context.Context, g PowerSensor, extra map[string]interface{}) (map[string]interface{}, error) {
-	readings := map[string]interface{}{}
-
-	vol, isAC, err := g.Voltage(ctx, extra)
-	if err != nil {
-		return nil, err
-	} else {
-		readings["voltage"] = vol
-		readings["is_ac"] = isAC
-	}
-
-	cur, isAC, err := g.Current(ctx, extra)
-	if err != nil {
-		return nil, err
-	} else {
-		readings["current"] = cur
-		readings["is_ac"] = isAC
-	}
-
-	pow, err := g.Power(ctx, extra)
-	if err != nil {
-		return nil, err
-
-	} else {
-		readings["power"] = pow
-	}
-
-	return readings, nil
 }
