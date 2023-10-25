@@ -47,16 +47,6 @@ type ZapCompatibleLogger interface {
 	Fatalf(template string, args ...interface{})
 	Fatalln(args ...interface{})
 	Fatalw(msg string, keysAndValues ...interface{})
-
-	Panic(args ...interface{})
-	Panicf(template string, args ...interface{})
-	Panicln(args ...interface{})
-	Panicw(msg string, keysAndValues ...interface{})
-
-	DPanic(args ...interface{})
-	DPanicf(template string, args ...interface{})
-	DPanicln(args ...interface{})
-	DPanicw(msg string, keysAndValues ...interface{})
 }
 
 // zLogger type for logging to. Wraps a zap logger and adds the `AsZap` method to satisfy the
