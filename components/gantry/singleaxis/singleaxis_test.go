@@ -552,7 +552,7 @@ func TestTestLimitTimeout(t *testing.T) {
 		limitSwitchPins: []string{"1", "2"},
 		motor:           createFakeMotor(),
 		board:           createLimitBoard(),
-		rpm:             float64(300),
+		rpm:             float64(3000),
 		limitHigh:       true,
 		opMgr:           operation.NewSingleOperationManager(),
 		mmPerRevolution: 10,
@@ -571,7 +571,7 @@ func TestTestLimitTimeout(t *testing.T) {
 	}
 
 	pos, err := fakegantry.testLimit(ctx, 0)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "timeout = 2.2s")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "timeout = 1s")
 	test.That(t, pos, test.ShouldEqual, 0.0)
 }
 
