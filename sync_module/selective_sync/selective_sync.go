@@ -75,8 +75,10 @@ func newSelectiveSyncer(ctx context.Context, deps resource.Dependencies, conf re
 		return nil, err
 	}
 	v.wg.Add(1)
-	defer v.wg.Done()
-	v.startBackgroundProcess()
+	utils.PanicCapturingGo(func() {
+		defer v.wg.Done()
+		v.startBackgroundProcess()
+	})
 	return v, nil
 }
 
@@ -111,46 +113,44 @@ func (s *visionSyncer) DoCommand(ctx context.Context, cmd map[string]interface{}
 }
 
 func (s *visionSyncer) startBackgroundProcess() {
-	utils.PanicCapturingGo(func() {
-		stream, err := s.camera.Stream(s.cancelCtx)
-		defer utils.UncheckedErrorFunc(func() error {
-			return stream.Close(s.cancelCtx)
-		})
-		if err != nil {
-			s.logger.Error("could not get camera stream")
-			return
-		}
-		ticker := time.NewTicker(time.Second)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ticker.C:
-				// Check for stuff, if true Sync
-				img, release, err := stream.Next(s.cancelCtx)
-				if err != nil {
-					s.logger.Error("could not get next image")
-					release()
-					return
-				}
-				detections, err := s.visionService.Detections(s.cancelCtx, img, map[string]interface{}{})
+	stream, err := s.camera.Stream(s.cancelCtx)
+	defer utils.UncheckedErrorFunc(func() error {
+		return stream.Close(s.cancelCtx)
+	})
+	if err != nil {
+		s.logger.Error("could not get camera stream")
+		return
+	}
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			// Check for stuff, if true Sync
+			img, release, err := stream.Next(s.cancelCtx)
+			if err != nil {
+				s.logger.Error("could not get next image")
 				release()
-				if err != nil {
-					s.logger.Error("could not get detections")
-					return
-				}
-				if len(detections) != 0 {
-					s.logger.Info("time to sync")
-					if err := s.actualDM.Sync(s.cancelCtx, nil); err != nil {
-						s.logger.Error("could not sync images")
-						return
-					}
-				}
-			case <-s.cancelCtx.Done():
-				s.logger.Info("canceled selective syncing")
 				return
 			}
+			detections, err := s.visionService.Detections(s.cancelCtx, img, map[string]interface{}{})
+			release()
+			if err != nil {
+				s.logger.Error("could not get detections")
+				return
+			}
+			if len(detections) != 0 {
+				s.logger.Info("time to sync")
+				if err := s.actualDM.Sync(s.cancelCtx, nil); err != nil {
+					s.logger.Error("could not sync images")
+					return
+				}
+			}
+		case <-s.cancelCtx.Done():
+			s.logger.Info("canceled selective syncing")
+			return
 		}
-	})
+	}
 }
 
 // Close closes the underlying generic.
