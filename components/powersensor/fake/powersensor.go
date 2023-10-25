@@ -3,7 +3,6 @@ package fake
 
 import (
 	"context"
-	"strings"
 
 	"github.com/edaniels/golog"
 
@@ -78,9 +77,7 @@ func defaultAPIReadings(ctx context.Context, g PowerSensor, extra map[string]int
 
 	vol, isAC, err := g.Voltage(ctx, extra)
 	if err != nil {
-		if !strings.Contains(err.Error(), powersensor.ErrMethodUnimplementedVoltage.Error()) {
-			return nil, err
-		}
+		return nil, err
 	} else {
 		readings["voltage"] = vol
 		readings["is_ac"] = isAC
@@ -88,9 +85,7 @@ func defaultAPIReadings(ctx context.Context, g PowerSensor, extra map[string]int
 
 	cur, isAC, err := g.Current(ctx, extra)
 	if err != nil {
-		if !strings.Contains(err.Error(), powersensor.ErrMethodUnimplementedCurrent.Error()) {
-			return nil, err
-		}
+		return nil, err
 	} else {
 		readings["current"] = cur
 		readings["is_ac"] = isAC
@@ -98,9 +93,8 @@ func defaultAPIReadings(ctx context.Context, g PowerSensor, extra map[string]int
 
 	pow, err := g.Power(ctx, extra)
 	if err != nil {
-		if !strings.Contains(err.Error(), powersensor.ErrMethodUnimplementedPower.Error()) {
-			return nil, err
-		}
+		return nil, err
+
 	} else {
 		readings["power"] = pow
 	}
