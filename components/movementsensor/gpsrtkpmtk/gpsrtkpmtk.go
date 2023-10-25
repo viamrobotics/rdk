@@ -504,8 +504,9 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 	}
 }
 
-// nolint
-// getNtripConnectionStatus returns true if connection to NTRIP stream is OK, false if not
+// getNtripConnectionStatus returns true if connection to NTRIP stream is OK, false if not.
+//
+//nolint:unused
 func (g *rtkI2C) getNtripConnectionStatus() (bool, error) {
 	g.ntripMu.Lock()
 	defer g.ntripMu.Unlock()
