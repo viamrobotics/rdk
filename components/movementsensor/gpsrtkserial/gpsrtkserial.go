@@ -393,11 +393,11 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 		g.logger.Infof("caster %s seems to be down", g.ntripClient.URL)
 	}
 
-	srctable, err := g.ntripClient.Client.ParseSourcetable()
+	srcTable, err := g.ntripClient.Client.ParseSourcetable()
 	if err != nil {
 		g.logger.Errorf("failed to get source table: %v", err)
 	}
-	isVirtualBase, nmeaerr := findLineWithMountPoint(srctable, g.ntripClient.MountPoint)
+	isVirtualBase, nmeaerr := findLineWithMountPoint(srcTable, g.ntripClient.MountPoint)
 	if nmeaerr != nil {
 		g.logger.Errorf("can't find mountpoint in source table, found err %v\n", nmeaerr)
 	}

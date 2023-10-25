@@ -355,11 +355,11 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 		g.logger.Infof("caster %s seems to be down", g.ntripClient.URL)
 	}
 
-	srctable, err := g.ntripClient.Client.ParseSourcetable()
+	srcTable, err := g.ntripClient.Client.ParseSourcetable()
 	if err != nil {
 		g.logger.Errorf("failed to get source table: %v", err)
 	}
-	isVirtualBase, nmeaerr := findLineWithMountPoint(srctable, g.ntripClient.MountPoint)
+	isVirtualBase, nmeaerr := findLineWithMountPoint(srcTable, g.ntripClient.MountPoint)
 	if nmeaerr != nil {
 		g.logger.Errorf("can't find mountpoint in source table, found err %v\n", nmeaerr)
 	}
@@ -504,7 +504,7 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 	}
 }
 
-//nolint
+// nolint
 // getNtripConnectionStatus returns true if connection to NTRIP stream is OK, false if not
 func (g *rtkI2C) getNtripConnectionStatus() (bool, error) {
 	g.ntripMu.Lock()
