@@ -29,10 +29,11 @@ import (
 )
 
 const (
-	timeFormat               = time.RFC3339
-	grpcConnectionTimeout    = 10 * time.Second
-	dataReceivedLoopWaitTime = time.Second
-	maxCacheSize             = 1000
+	timeFormat                 = time.RFC3339
+	grpcConnectionTimeout      = 10 * time.Second
+	dataReceivedLoopWaitTime   = time.Second
+	tabularDataByFilterTimeout = 15 * time.Second
+	maxCacheSize               = 1000
 )
 
 type method string
@@ -551,11 +552,15 @@ func (replay *replayMovementSensor) initializeProperties(ctx context.Context) er
 		if !goutils.SelectContextOrWait(ctx, dataReceivedLoopWaitTime) {
 			return ctx.Err()
 		}
+
+		cancelCtx, cancel := context.WithTimeout(context.Background(), tabularDataByFilterTimeout)
 		for _, method := range methodList {
-			if dataReceived[method], err = replay.attemptToGetData(ctx, method); err != nil {
+			if dataReceived[method], err = replay.attemptToGetData(cancelCtx, method); err != nil {
+				cancel()
 				return err
 			}
 		}
+		cancel()
 		// If at least one method successfully managed to return data, we know
 		// that we can finish initializing the properties.
 		if slices.Contains(maps.Values(dataReceived), true) {
