@@ -26,7 +26,7 @@ import (
 
 var (
 	model = resource.DefaultModelFamily.WithModel("single-axis")
-	// homingTimout (nanoseconds) is calculated using the gantry's rpm, mmPerRevolution, and lengthMm.
+	// homingTimeout (nanoseconds) is calculated using the gantry's rpm, mmPerRevolution, and lengthMm.
 	homingTimeout = time.Duration(15e9)
 )
 
@@ -421,13 +421,13 @@ func (g *singleAxis) testLimit(ctx context.Context, pin int) (float64, error) {
 		wrongPin = 0
 	}
 
-	g.logger.Warnf("wrong pin = %v", wrongPin)
-
 	err := g.motor.GoFor(ctx, d*g.rpm, 0, nil)
 	if err != nil {
 		return 0, err
 	}
-	time.Sleep(250 * time.Millisecond)
+
+	// short sleep to allow pin number to switch correctly
+	time.Sleep(100 * time.Millisecond)
 
 	start := time.Now()
 	for {
@@ -461,9 +461,9 @@ func (g *singleAxis) testLimit(ctx context.Context, pin int) (float64, error) {
 
 		elapsed := time.Since(start)
 		// if the parameters checked are non-zero, calculate a timeout with a safety factor of
-		// 1.1 to complete the gantry's homing sequence to find the limit switches
+		// 5 to complete the gantry's homing sequence to find the limit switches
 		if g.mmPerRevolution != 0 && g.rpm != 0 && g.lengthMm != 0 {
-			homingTimeout = time.Duration((1 / (g.rpm / 60e9 * g.mmPerRevolution / g.lengthMm) * 1.1))
+			homingTimeout = time.Duration((1 / (g.rpm / 60e9 * g.mmPerRevolution / g.lengthMm) * 5))
 		}
 		if elapsed > (homingTimeout) {
 			return 0, errors.Errorf("gantry timed out testing limit, timeout = %v", homingTimeout)
@@ -476,7 +476,6 @@ func (g *singleAxis) testLimit(ctx context.Context, pin int) (float64, error) {
 	// Short pause after stopping to increase the precision of the position of each limit switch
 	position, err := g.motor.Position(ctx, nil)
 	time.Sleep(250 * time.Millisecond)
-	g.logger.Warnf("RETURNING: %v, %v", position, err)
 	return position, err
 }
 
