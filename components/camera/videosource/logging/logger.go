@@ -97,7 +97,7 @@ func NewLogger() (*Logger, error) {
 		}
 	}
 
-	cfg := logging.NewDevelopmentLoggerConfig()
+	cfg := logging.NewLoggerConfig()
 	cfg.OutputPaths = []string{filePath}
 
 	// only keep message
