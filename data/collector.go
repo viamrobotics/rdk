@@ -202,7 +202,7 @@ func (c *collector) getAndPushNextReading() {
 	timeReceived := timestamppb.New(c.clock.Now().UTC())
 	if err != nil {
 		if errors.Is(err, ErrNoCaptureToStore) {
-			c.logger.Debugln("capture filtered out by modular resource")
+			c.logger.Debug("capture filtered out by modular resource")
 			return
 		}
 		c.captureErrors <- errors.Wrap(err, "error while capturing data")
