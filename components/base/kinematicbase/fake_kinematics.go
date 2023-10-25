@@ -118,12 +118,12 @@ func (fk *fakeDiffDriveKinematics) CurrentPosition(ctx context.Context) (*refere
 
 type fakePTGKinematics struct {
 	*fake.Base
-	frame           referenceframe.Frame
-	options         Options
-	sensorNoise     spatialmath.Pose
-	origin          *referenceframe.PoseInFrame
-	lock            sync.RWMutex
-	logger          logging.Logger
+	frame       referenceframe.Frame
+	options     Options
+	sensorNoise spatialmath.Pose
+	origin      *referenceframe.PoseInFrame
+	lock        sync.RWMutex
+	logger      logging.Logger
 }
 
 // WrapWithFakePTGKinematics creates a PTG KinematicBase from the fake Base so that it satisfies the ModelFramer and InputEnabled
@@ -175,11 +175,11 @@ func WrapWithFakePTGKinematics(
 		sensorNoise = spatialmath.NewZeroPose()
 	}
 	fk := &fakePTGKinematics{
-		Base:            b,
-		frame:           frame,
-		origin: origin,
-		sensorNoise:     sensorNoise,
-		logger:          logger,
+		Base:        b,
+		frame:       frame,
+		origin:      origin,
+		sensorNoise: sensorNoise,
+		logger:      logger,
 	}
 
 	fk.options = options

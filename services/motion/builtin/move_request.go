@@ -7,12 +7,12 @@ import (
 	"math"
 	"sync/atomic"
 
-	"github.com/edaniels/golog"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/base/kinematicbase"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
@@ -303,7 +303,7 @@ func (ms *builtIn) newMoveOnMapRequest(
 func relativeMoveRequestFromAbsolute(
 	ctx context.Context,
 	motionCfg *motion.MotionConfiguration,
-	logger golog.Logger,
+	logger logging.Logger,
 	kb kinematicbase.KinematicBase,
 	goalPoseInWorld spatialmath.Pose,
 	fs referenceframe.FrameSystem,
@@ -321,19 +321,19 @@ func relativeMoveRequestFromAbsolute(
 		return nil, err
 	}
 
-	startPoseInWorld, err := kb.CurrentPosition(ctx)
+	startPose, err := kb.CurrentPosition(ctx)
 	if err != nil {
 		return nil, err
 	}
-	startPoseToWorld := spatialmath.PoseInverse(startPoseInWorld.Pose())
+	startPoseInv := spatialmath.PoseInverse(startPose.Pose())
 
-	goal := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.PoseBetween(startPoseInWorld.Pose(), goalPoseInWorld))
+	goal := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.PoseBetween(startPose.Pose(), goalPoseInWorld))
 
 	// convert GeoObstacles into GeometriesInFrame with respect to the base's starting point
 
 	geoms := make([]spatialmath.Geometry, 0, len(worldObstacles))
 	for _, geom := range worldObstacles {
-		geoms = append(geoms, geom.Transform(startPoseToWorld))
+		geoms = append(geoms, geom.Transform(startPoseInv))
 	}
 
 	gif := referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)
