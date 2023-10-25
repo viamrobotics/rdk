@@ -10,9 +10,9 @@ func (svc *builtIn) SetSyncerConstructor(fn datasync.ManagerConstructor) {
 	svc.syncerConstructor = fn
 }
 
-// SetWaitAfterLastModifiedSecs sets the wait time for the syncer to use when initialized/changed in Service.Update.
-func (svc *builtIn) SetWaitAfterLastModifiedMillis(s int) {
-	svc.waitAfterLastModifiedMillis = s
+// SetFileLastModifiedMillis sets the wait time for the syncer to use when initialized/changed in Service.Update.
+func (svc *builtIn) SetFileLastModifiedMillis(s int) {
+	svc.fileLastModifiedMillis = s
 }
 
 // Make getDurationFromHz global for tests.
