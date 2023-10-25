@@ -122,7 +122,7 @@ func init() {
 
 func newSensor(
 	ctx context.Context,
-	deps resource.Dependencies,
+	_ resource.Dependencies,
 	name resource.Name,
 	conf *Config,
 	logger golog.Logger,
