@@ -84,6 +84,9 @@ const (
 
 // Config is used for converting config attributes.
 type Config struct {
+	// The I2C bus is almost certainly numeric (e.g., the "7" in /dev/i2c-7), but it is nonetheless
+	// possible for the OS to give its I2C buses a non-numeric identifier, so we store it as a
+	// string.
 	I2CBus  string `json:"i2c_bus"`
 	I2cAddr int    `json:"i2c_addr,omitempty"`
 }
