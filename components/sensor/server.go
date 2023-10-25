@@ -25,8 +25,8 @@ func NewRPCServiceServer(coll resource.APIResourceCollection[Sensor]) interface{
 // GetReadings returns the most recent readings from the given Sensor.
 func (s *serviceServer) GetReadings(
 	ctx context.Context,
-	req *pb.GetReadingsRequest,
-) (*pb.GetReadingsResponse, error) {
+	req *commonpb.GetReadingsRequest,
+) (*commonpb.GetReadingsResponse, error) {
 	sensorDevice, err := s.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
@@ -39,7 +39,7 @@ func (s *serviceServer) GetReadings(
 	if err != nil {
 		return nil, err
 	}
-	return &pb.GetReadingsResponse{Readings: m}, nil
+	return &commonpb.GetReadingsResponse{Readings: m}, nil
 }
 
 // DoCommand receives arbitrary commands.

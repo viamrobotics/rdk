@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
@@ -14,6 +13,7 @@ import (
 	"go.viam.com/rdk/components/board"
 	fakeboard "go.viam.com/rdk/components/board/fake"
 	"go.viam.com/rdk/components/motor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
@@ -23,7 +23,7 @@ const maxRPM = 100
 func TestMotorABPWM(t *testing.T) {
 	ctx := context.Background()
 	b := &fakeboard.Board{GPIOPins: map[string]*fakeboard.GPIOPin{}}
-	logger, obs := golog.NewObservedTestLogger(t)
+	logger, obs := logging.NewObservedTestLogger(t)
 
 	mc := resource.Config{
 		Name: "abc",
@@ -145,7 +145,7 @@ func TestMotorABPWM(t *testing.T) {
 func TestMotorDirPWM(t *testing.T) {
 	ctx := context.Background()
 	b := &fakeboard.Board{GPIOPins: map[string]*fakeboard.GPIOPin{}}
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	mc := resource.Config{
 		Name: "fake_motor",
@@ -229,7 +229,7 @@ func TestMotorDirPWM(t *testing.T) {
 func TestMotorAB(t *testing.T) {
 	ctx := context.Background()
 	b := &fakeboard.Board{GPIOPins: map[string]*fakeboard.GPIOPin{}}
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	mc := resource.Config{
 		Name: "fake_motor",
 	}
@@ -303,7 +303,7 @@ func TestMotorAB(t *testing.T) {
 func TestMotorABNoEncoder(t *testing.T) {
 	ctx := context.Background()
 	b := &fakeboard.Board{GPIOPins: map[string]*fakeboard.GPIOPin{}}
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	mc := resource.Config{
 		Name: "fake_motor",
 	}
@@ -330,7 +330,7 @@ func TestMotorABNoEncoder(t *testing.T) {
 
 func TestGoForInterruptionAB(t *testing.T) {
 	b := &fakeboard.Board{GPIOPins: map[string]*fakeboard.GPIOPin{}}
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	mc := resource.Config{
 		Name: "abc",
@@ -366,7 +366,7 @@ func TestGoForInterruptionAB(t *testing.T) {
 
 func TestGoForInterruptionDir(t *testing.T) {
 	b := &fakeboard.Board{GPIOPins: map[string]*fakeboard.GPIOPin{}}
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	mc := resource.Config{
 		Name: "abc",

@@ -18,6 +18,7 @@ import (
 	viamutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/data"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
@@ -124,10 +125,11 @@ type ImagesSource interface {
 // Note: this strips away Reconfiguration and DoCommand abilities.
 // If needed, implement the Camera another way. For example, a webcam
 // implements a Camera manually so that it can atomically reconfigure itself.
-func FromVideoSource(name resource.Name, src VideoSource) Camera {
+func FromVideoSource(name resource.Name, src VideoSource, logger logging.Logger) Camera {
 	return &sourceBasedCamera{
 		Named:       name.AsNamed(),
 		VideoSource: src,
+		Logger:      logger,
 	}
 }
 
@@ -135,6 +137,7 @@ type sourceBasedCamera struct {
 	resource.Named
 	resource.AlwaysRebuild
 	VideoSource
+	logging.Logger
 }
 
 // NewVideoSourceFromReader creates a VideoSource either with or without a projector. The stream type

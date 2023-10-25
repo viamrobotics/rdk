@@ -7,12 +7,14 @@ import (
 )
 
 type ImagePropertiesT struct {
-	ColorSpace ColorSpaceType
+	ColorSpace  ColorSpaceType
 	DefaultSize *ImageSizeT
 }
 
 func (t *ImagePropertiesT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
-	if t == nil { return 0 }
+	if t == nil {
+		return 0
+	}
 	defaultSizeOffset := t.DefaultSize.Pack(builder)
 	ImagePropertiesStart(builder)
 	ImagePropertiesAddColorSpace(builder, t.ColorSpace)
@@ -26,7 +28,9 @@ func (rcv *ImageProperties) UnPackTo(t *ImagePropertiesT) {
 }
 
 func (rcv *ImageProperties) UnPack() *ImagePropertiesT {
-	if rcv == nil { return nil }
+	if rcv == nil {
+		return nil
+	}
 	t := &ImagePropertiesT{}
 	rcv.UnPackTo(t)
 	return t

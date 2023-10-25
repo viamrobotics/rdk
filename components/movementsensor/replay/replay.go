@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
@@ -23,6 +22,7 @@ import (
 
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/internal/cloud"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils/contextutils"
@@ -51,7 +51,7 @@ var (
 	model = resource.DefaultModelFamily.WithModel("replay")
 
 	// initializePropertiesTimeout defines the amount of time we allot to the attempt to initialize Properties.
-	initializePropertiesTimeout = 10 * time.Second
+	initializePropertiesTimeout = 180 * time.Second
 
 	// ErrEndOfDataset represents that the replay sensor has reached the end of the dataset.
 	ErrEndOfDataset = errors.New("reached end of dataset")
@@ -95,6 +95,12 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 	if cfg.OrganizationID == "" {
 		return nil, goutils.NewConfigValidationFieldRequiredError(path, "organization_id")
 	}
+	if cfg.APIKey == "" {
+		return nil, goutils.NewConfigValidationFieldRequiredError(path, "api_key")
+	}
+	if cfg.APIKeyID == "" {
+		return nil, goutils.NewConfigValidationFieldRequiredError(path, "api_key_id")
+	}
 
 	var err error
 	var startTime time.Time
@@ -132,6 +138,8 @@ type Config struct {
 	OrganizationID string       `json:"organization_id,omitempty"`
 	Interval       TimeInterval `json:"time_interval,omitempty"`
 	BatchSize      *uint64      `json:"batch_size,omitempty"`
+	APIKey         string       `json:"api_key,omitempty"`
+	APIKeyID       string       `json:"api_key_id,omitempty"`
 }
 
 // TimeInterval holds the start and end time used to filter data.
@@ -151,8 +159,10 @@ type cacheEntry struct {
 // replayMovementSensor is a movement sensor model that plays back pre-captured movement sensor data.
 type replayMovementSensor struct {
 	resource.Named
-	logger golog.Logger
+	logger logging.Logger
 
+	APIKey       string
+	APIKeyID     string
 	cloudConnSvc cloud.ConnectionService
 	cloudConn    rpc.ClientConn
 	dataClient   datapb.DataServiceClient
@@ -169,7 +179,7 @@ type replayMovementSensor struct {
 }
 
 // newReplayMovementSensor creates a new replay movement sensor based on the inputted config and dependencies.
-func newReplayMovementSensor(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (
+func newReplayMovementSensor(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger) (
 	movementsensor.MovementSensor, error,
 ) {
 	replay := &replayMovementSensor{
@@ -365,6 +375,9 @@ func (replay *replayMovementSensor) Reconfigure(ctx context.Context, deps resour
 	if err != nil {
 		return err
 	}
+
+	replay.APIKey = replayMovementSensorConfig.APIKey
+	replay.APIKeyID = replayMovementSensorConfig.APIKeyID
 
 	cloudConnSvc, err := resource.FromDependencies[cloud.ConnectionService](deps, cloud.InternalServiceName)
 	if err != nil {
@@ -601,7 +614,7 @@ func (replay *replayMovementSensor) initCloudConnection(ctx context.Context) err
 	ctx, cancel := context.WithTimeout(ctx, grpcConnectionTimeout)
 	defer cancel()
 
-	_, conn, err := replay.cloudConnSvc.AcquireConnection(ctx)
+	_, conn, err := replay.cloudConnSvc.AcquireConnectionAPIKey(ctx, replay.APIKey, replay.APIKeyID)
 	if err != nil {
 		return err
 	}

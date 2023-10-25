@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/edaniels/golog"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/arm/v1"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
@@ -51,14 +51,14 @@ type ptgGroupFrame struct {
 	angVelocityRadps   float64
 	turnRadMillimeters float64
 	trajCount          int
-	logger             golog.Logger
+	logger             logging.Logger
 }
 
 // NewPTGFrameFromKinematicOptions will create a new Frame which is also a PTGProvider. It will precompute the default set of
 // trajectories out to a given distance, or a default distance if the given distance is <= 0.
 func NewPTGFrameFromKinematicOptions(
 	name string,
-	logger golog.Logger,
+	logger logging.Logger,
 	velocityMMps, angVelocityDegps, turnRadMeters, refDist float64,
 	trajCount int,
 	geoms []spatialmath.Geometry,
@@ -281,7 +281,7 @@ type solverAndError struct {
 	err    error
 }
 
-func initializeSolvers(logger golog.Logger, simDist float64, trajCount int, ptgs []PTG) ([]PTGSolver, error) {
+func initializeSolvers(logger logging.Logger, simDist float64, trajCount int, ptgs []PTG) ([]PTGSolver, error) {
 	solvers := make([]PTGSolver, len(ptgs))
 	solverChan := make(chan *solverAndError, len(ptgs))
 	for i := range ptgs {

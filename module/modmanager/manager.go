@@ -11,7 +11,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/edaniels/golog"
 	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
@@ -27,6 +26,7 @@ import (
 
 	"go.viam.com/rdk/config"
 	rdkgrpc "go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/logging"
 	modlib "go.viam.com/rdk/module"
 	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
 	"go.viam.com/rdk/module/modmaninterface"
@@ -43,7 +43,7 @@ var (
 )
 
 // NewManager returns a Manager.
-func NewManager(parentAddr string, logger golog.Logger, options modmanageroptions.Options) modmaninterface.ModuleManager {
+func NewManager(parentAddr string, logger logging.Logger, options modmanageroptions.Options) modmaninterface.ModuleManager {
 	restartCtx, restartCtxCancel := context.WithCancel(context.Background())
 	return &Manager{
 		logger:                  logger,
@@ -58,15 +58,18 @@ func NewManager(parentAddr string, logger golog.Logger, options modmanageroption
 }
 
 type module struct {
-	name      string
-	exe       string
-	logLevel  string
-	process   pexec.ManagedProcess
-	handles   modlib.HandlerMap
-	conn      *grpc.ClientConn
-	client    pb.ModuleServiceClient
-	addr      string
-	resources map[resource.Name]*addedResource
+	name        string
+	exe         string
+	logLevel    string
+	modType     config.ModuleType
+	moduleID    string
+	environment map[string]string
+	process     pexec.ManagedProcess
+	handles     modlib.HandlerMap
+	conn        *grpc.ClientConn
+	client      pb.ModuleServiceClient
+	addr        string
+	resources   map[resource.Name]*addedResource
 
 	// pendingRemoval allows delaying module close until after resources within it are closed
 	pendingRemoval bool
@@ -90,7 +93,7 @@ type addedResource struct {
 // Manager is the root structure for the module system.
 type Manager struct {
 	mu                      sync.RWMutex
-	logger                  golog.Logger
+	logger                  logging.Logger
 	modules                 map[string]*module
 	parentAddr              string
 	rMap                    map[resource.Name]*module
@@ -115,6 +118,20 @@ func (mgr *Manager) Close(ctx context.Context) error {
 	return err
 }
 
+// Handles returns all the models for each module registered.
+func (mgr *Manager) Handles() map[string]modlib.HandlerMap {
+	mgr.mu.Lock()
+	defer mgr.mu.Unlock()
+
+	res := map[string]modlib.HandlerMap{}
+
+	for n, m := range mgr.modules {
+		res[n] = m.handles
+	}
+
+	return res
+}
+
 // Add adds and starts a new resource module.
 func (mgr *Manager) Add(ctx context.Context, conf config.Module) error {
 	mgr.mu.Lock()
@@ -133,11 +150,14 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, conn *grpc.Clie
 	}
 
 	mod := &module{
-		name:      conf.Name,
-		exe:       conf.ExePath,
-		logLevel:  conf.LogLevel,
-		conn:      conn,
-		resources: map[resource.Name]*addedResource{},
+		name:        conf.Name,
+		exe:         conf.ExePath,
+		logLevel:    conf.LogLevel,
+		modType:     conf.Type,
+		moduleID:    conf.ModuleID,
+		environment: conf.Environment,
+		conn:        conn,
+		resources:   map[resource.Name]*addedResource{},
 	}
 
 	// add calls startProcess, which can also be called by the OUE handler in the attemptRestart
@@ -340,7 +360,12 @@ func (mgr *Manager) Configs() []config.Module {
 	var configs []config.Module
 	for _, mod := range mgr.modules {
 		configs = append(configs, config.Module{
-			Name: mod.name, ExePath: mod.exe, LogLevel: mod.logLevel,
+			Name:        mod.name,
+			ExePath:     mod.exe,
+			LogLevel:    mod.logLevel,
+			Type:        mod.modType,
+			ModuleID:    mod.moduleID,
+			Environment: mod.environment,
 		})
 	}
 	return configs
@@ -662,7 +687,7 @@ func (m *module) dial() error {
 	return nil
 }
 
-func (m *module) checkReady(ctx context.Context, parentAddr string, logger golog.Logger) error {
+func (m *module) checkReady(ctx context.Context, parentAddr string, logger logging.Logger) error {
 	ctxTimeout, cancelFunc := context.WithTimeout(ctx, rutils.GetResourceConfigurationTimeout(logger))
 	defer cancelFunc()
 
@@ -685,7 +710,7 @@ func (m *module) startProcess(
 	ctx context.Context,
 	parentAddr string,
 	oue func(int) bool,
-	logger golog.Logger,
+	logger logging.Logger,
 ) error {
 	var err error
 	if m.addr, err = modlib.CreateSocketAddress(filepath.Dir(parentAddr), m.name); err != nil {
@@ -696,6 +721,7 @@ func (m *module) startProcess(
 		ID:               m.name,
 		Name:             m.exe,
 		Args:             []string{m.addr},
+		Environment:      m.environment,
 		Log:              true,
 		OnUnexpectedExit: oue,
 	}
@@ -707,7 +733,7 @@ func (m *module) startProcess(
 		pconf.Args = append(pconf.Args, fmt.Sprintf(logLevelArgumentTemplate, "debug"))
 	}
 
-	m.process = pexec.NewManagedProcess(pconf, logger)
+	m.process = pexec.NewManagedProcess(pconf, logger.AsZap())
 
 	if err := m.process.Start(context.Background()); err != nil {
 		return errors.WithMessage(err, "module startup failed")
@@ -750,7 +776,7 @@ func (m *module) stopProcess() error {
 	return nil
 }
 
-func (m *module) registerResources(mgr modmaninterface.ModuleManager, logger golog.Logger) {
+func (m *module) registerResources(mgr modmaninterface.ModuleManager, logger logging.Logger) {
 	for api, models := range m.handles {
 		if _, ok := resource.LookupGenericAPIRegistration(api.API); !ok {
 			resource.RegisterAPI(
@@ -768,7 +794,7 @@ func (m *module) registerResources(mgr modmaninterface.ModuleManager, logger gol
 						ctx context.Context,
 						deps resource.Dependencies,
 						conf resource.Config,
-						logger golog.Logger,
+						logger logging.Logger,
 					) (resource.Resource, error) {
 						return mgr.AddResource(ctx, conf, DepsToNames(deps))
 					},
@@ -782,7 +808,7 @@ func (m *module) registerResources(mgr modmaninterface.ModuleManager, logger gol
 						ctx context.Context,
 						deps resource.Dependencies,
 						conf resource.Config,
-						logger golog.Logger,
+						logger logging.Logger,
 					) (resource.Resource, error) {
 						return mgr.AddResource(ctx, conf, DepsToNames(deps))
 					},

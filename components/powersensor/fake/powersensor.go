@@ -4,9 +4,8 @@ package fake
 import (
 	"context"
 
-	"github.com/edaniels/golog"
-
 	"go.viam.com/rdk/components/powersensor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
@@ -26,7 +25,7 @@ func init() {
 		})
 }
 
-func newFakePowerSensorModel(_ context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger,
+func newFakePowerSensorModel(_ context.Context, _ resource.Dependencies, conf resource.Config, logger logging.Logger,
 ) (powersensor.PowerSensor, error) {
 	return powersensor.PowerSensor(&PowerSensor{
 		Named:  conf.ResourceName().AsNamed(),
@@ -38,7 +37,7 @@ func newFakePowerSensorModel(_ context.Context, _ resource.Dependencies, conf re
 type PowerSensor struct {
 	resource.Named
 	resource.AlwaysRebuild
-	logger golog.Logger
+	logger logging.Logger
 }
 
 // DoCommand uses a map string to run custom functionality of a fake powersensor.

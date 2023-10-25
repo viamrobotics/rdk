@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"image"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"github.com/viamrobotics/gostream"
 	"go.opencensus.io/trace"
@@ -14,6 +13,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
@@ -27,7 +27,7 @@ func init() {
 	resource.RegisterComponent(camera.API, extrinsicsModel,
 		resource.Registration[camera.Camera, *extrinsicsConfig]{
 			Constructor: func(ctx context.Context, deps resource.Dependencies,
-				conf resource.Config, logger golog.Logger,
+				conf resource.Config, logger logging.Logger,
 			) (camera.Camera, error) {
 				newConf, err := resource.NativeConfig[*extrinsicsConfig](conf)
 				if err != nil {
@@ -48,7 +48,7 @@ func init() {
 				if err != nil {
 					return nil, err
 				}
-				return camera.FromVideoSource(conf.ResourceName(), src), nil
+				return camera.FromVideoSource(conf.ResourceName(), src, logger), nil
 			},
 			AttributeMapConverter: func(attributes rdkutils.AttributeMap) (*extrinsicsConfig, error) {
 				if !attributes.Has("camera_system") {
@@ -107,11 +107,11 @@ type colorDepthExtrinsics struct {
 	height               int // height of the aligned image
 	width                int // width of the aligned image
 	debug                bool
-	logger               golog.Logger
+	logger               logging.Logger
 }
 
 // newColorDepthExtrinsics creates a gostream.VideoSource that aligned color and depth channels.
-func newColorDepthExtrinsics(ctx context.Context, color, depth camera.VideoSource, conf *extrinsicsConfig, logger golog.Logger,
+func newColorDepthExtrinsics(ctx context.Context, color, depth camera.VideoSource, conf *extrinsicsConfig, logger logging.Logger,
 ) (camera.VideoSource, error) {
 	alignment, err := rdkutils.AssertType[*transform.DepthColorIntrinsicsExtrinsics](conf.IntrinsicExtrinsic)
 	if err != nil {

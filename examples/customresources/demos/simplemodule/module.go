@@ -7,12 +7,11 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/generic"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/module"
 	"go.viam.com/rdk/resource"
 )
@@ -20,10 +19,10 @@ import (
 var myModel = resource.NewModel("acme", "demo", "mycounter")
 
 func main() {
-	utils.ContextualMain(mainWithArgs, golog.NewDevelopmentLogger("SimpleModule"))
+	utils.ContextualMain(mainWithArgs, logging.NewDevelopmentLogger("SimpleModule"))
 }
 
-func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error {
+func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) error {
 	// Instantiate the module itself
 	myMod, err := module.NewModuleFromArgs(ctx, logger)
 	if err != nil {
@@ -59,7 +58,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 func newCounter(ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
-	logger *zap.SugaredLogger,
+	logger logging.Logger,
 ) (resource.Resource, error) {
 	return &counter{
 		Named: conf.ResourceName().AsNamed(),

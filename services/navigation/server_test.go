@@ -351,6 +351,31 @@ func TestServer(t *testing.T) {
 		test.That(t, resp, test.ShouldBeNil)
 	})
 
+	t.Run("working Paths", func(t *testing.T) {
+		path, err := navigation.NewPath("test", []*geo.Point{geo.NewPoint(0, 0)})
+		test.That(t, err, test.ShouldBeNil)
+		expectedOutput := []*navigation.Path{path}
+		injectSvc.PathsFunc = func(ctx context.Context, extra map[string]interface{}) ([]*navigation.Path, error) {
+			return expectedOutput, nil
+		}
+		req := &pb.GetPathsRequest{Name: testSvcName1.ShortName()}
+		resp, err := navServer.GetPaths(context.Background(), req)
+		test.That(t, err, test.ShouldBeNil)
+		convertedPbPath, err := navigation.ProtoSliceToPaths(resp.Paths)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, convertedPbPath, test.ShouldResemble, expectedOutput)
+	})
+	t.Run("failing Paths", func(t *testing.T) {
+		expectedErr := errors.New("unimplemented")
+		injectSvc.PathsFunc = func(ctx context.Context, extra map[string]interface{}) ([]*navigation.Path, error) {
+			return nil, expectedErr
+		}
+		req := &pb.GetPathsRequest{Name: testSvcName1.ShortName()}
+		resp, err := navServer.GetPaths(context.Background(), req)
+		test.That(t, err, test.ShouldResemble, expectedErr)
+		test.That(t, resp, test.ShouldBeNil)
+	})
+
 	injectAPISvc, _ = resource.NewAPIResourceCollection(navigation.API, map[resource.Name]navigation.Service{})
 	navServer = navigation.NewRPCServiceServer(injectAPISvc).(pb.NavigationServiceServer)
 	t.Run("failing on nonexistent server", func(t *testing.T) {

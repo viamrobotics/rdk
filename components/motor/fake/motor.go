@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
@@ -15,6 +14,7 @@ import (
 	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/components/encoder/fake"
 	"go.viam.com/rdk/components/motor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 )
@@ -63,7 +63,7 @@ func init() {
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger golog.Logger,
+			logger logging.Logger,
 		) (motor.Motor, error) {
 			m := &Motor{
 				Named:  conf.ResourceName().AsNamed(),
@@ -95,7 +95,7 @@ type Motor struct {
 	TicksPerRotation  int
 
 	OpMgr  *operation.SingleOperationManager
-	Logger golog.Logger
+	Logger logging.Logger
 }
 
 // Reconfigure atomically reconfigures this motor in place based on the new config.

@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/lestrrat-go/jwx/jwk"
 	packagespb "go.viam.com/api/app/packages/v1"
@@ -20,6 +19,7 @@ import (
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	spatial "go.viam.com/rdk/spatialmath"
@@ -132,6 +132,7 @@ var testProcessConfig = pexec.ProcessConfig{
 	Name:        "Some-name",
 	Args:        []string{"arg1", "arg2"},
 	CWD:         "/home",
+	Environment: map[string]string{"SOME_VAR": "value"},
 	OneShot:     true,
 	Log:         true,
 	StopSignal:  syscall.SIGINT,
@@ -184,9 +185,12 @@ var testCloudConfig = Cloud{
 }
 
 var testModule = Module{
-	Name:     "testmod",
-	ExePath:  "/tmp/test.mod",
-	LogLevel: "debug",
+	Name:        "testmod",
+	ExePath:     "/tmp/test.mod",
+	LogLevel:    "debug",
+	Type:        ModuleTypeLocal,
+	ModuleID:    "a:b",
+	Environment: map[string]string{"SOME_VAR": "value"},
 }
 
 var testPackageConfig = PackageConfig{
@@ -718,7 +722,7 @@ func TestCloudConfigToProto(t *testing.T) {
 }
 
 func TestFromProto(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	cloudConfig, err := CloudConfigToProto(&testCloudConfig)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -784,7 +788,7 @@ func TestFromProto(t *testing.T) {
 }
 
 func TestPartialStart(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	cloudConfig, err := CloudConfigToProto(&testCloudConfig)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -871,7 +875,7 @@ func TestPartialStart(t *testing.T) {
 }
 
 func TestDisablePartialStart(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	cloudConfig, err := CloudConfigToProto(&testCloudConfig)
 	test.That(t, err, test.ShouldBeNil)
 

@@ -12,10 +12,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	pb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
@@ -43,7 +43,7 @@ type planManager struct {
 func newPlanManager(
 	frame *solverFrame,
 	fs referenceframe.FrameSystem,
-	logger golog.Logger,
+	logger logging.Logger,
 	seed int,
 ) (*planManager, error) {
 	anyPTG := false     // Whether PTG frames have been observed
@@ -150,6 +150,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
+	pm.planOpts = opt
 	opt.SetGoal(goalPos)
 	opts = append(opts, opt)
 
@@ -372,7 +373,7 @@ func (pm *planManager) planParallelRRTMotion(
 		// If there *was* an error, then either the fallback will not error and will replace it, or the error will be returned
 		if finalSteps.err() == nil {
 			if fallbackPlanner != nil {
-				if ok, score := goodPlan(finalSteps, pm.opt()); ok {
+				if ok, score := pm.goodPlan(finalSteps, pm.opt()); ok {
 					pm.logger.Debugf("got path with score %f, close enough to optimal %f", score, maps.optNode.Cost())
 					fallbackPlanner = nil
 				} else {
@@ -410,7 +411,10 @@ func (pm *planManager) planParallelRRTMotion(
 
 		// Receive the newly smoothed path from our original solve, and score it
 		finalSteps.steps = <-smoothChan
-		_, score := goodPlan(finalSteps, pathPlanner.opt())
+		score := math.Inf(1)
+		if finalSteps.steps != nil {
+			score = pm.frame.inputsToPlan(nodesToInputs(finalSteps.steps)).Evaluate(pm.opt().ScoreFunc)
+		}
 
 		// If we ran a fallback, retrieve the result and compare to the smoothed path
 		if alternateFuture != nil {
@@ -418,7 +422,7 @@ func (pm *planManager) planParallelRRTMotion(
 			if err == nil {
 				// If the fallback successfully found a path, check if it is better than our smoothed previous path.
 				// The fallback should emerge pre-smoothed, so that should be a non-issue
-				altCost := EvaluatePlan(alternate, pathPlanner.opt().DistanceFunc)
+				altCost := pm.frame.inputsToPlan(alternate).Evaluate(pm.opt().ScoreFunc)
 				if altCost < score {
 					pm.logger.Debugf("replacing path with score %f with better score %f", score, altCost)
 					finalSteps = &rrtPlanReturn{steps: stepsToNodes(alternate)}
@@ -451,7 +455,6 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 
 	// Start with normal options
 	opt := newBasicPlannerOptions(pm.frame)
-
 	opt.extra = planningOpts
 
 	// add collision constraints
@@ -521,6 +524,9 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		opt.PlannerConstructor = newTPSpaceMotionPlanner
 		// Distances are computed in cartesian space rather than configuration space
 		opt.DistanceFunc = ik.NewSquaredNormSegmentMetric(defaultTPspaceOrientationScale)
+		// If we have PTGs, then we calculate distances using the PTG-specific distance function.
+		// Otherwise we just use squared norm on inputs.
+		opt.ScoreFunc = tpspace.PTGSegmentMetric
 
 		planAlg = "tpspace"
 	}
@@ -591,13 +597,13 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 }
 
 // check whether the solution is within some amount of the optimal.
-func goodPlan(pr *rrtPlanReturn, opt *plannerOptions) (bool, float64) {
+func (pm *planManager) goodPlan(pr *rrtPlanReturn, opt *plannerOptions) (bool, float64) {
 	solutionCost := math.Inf(1)
 	if pr.steps != nil {
 		if pr.maps.optNode.Cost() <= 0 {
 			return true, solutionCost
 		}
-		solutionCost = EvaluatePlan(nodesToInputs(pr.steps), opt.DistanceFunc)
+		solutionCost = pm.frame.inputsToPlan(nodesToInputs(pr.steps)).Evaluate(opt.ScoreFunc)
 		if solutionCost < pr.maps.optNode.Cost()*defaultOptimalityMultiple {
 			return true, solutionCost
 		}

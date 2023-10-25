@@ -14,7 +14,6 @@ import (
 	"github.com/aler9/gortsplib/v2/pkg/base"
 	"github.com/aler9/gortsplib/v2/pkg/liberrors"
 	"github.com/aler9/gortsplib/v2/pkg/url"
-	"github.com/edaniels/golog"
 	"github.com/pion/rtp"
 	"github.com/pkg/errors"
 	"github.com/viamrobotics/gostream"
@@ -22,6 +21,7 @@ import (
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage/transform"
 )
@@ -30,7 +30,9 @@ var model = resource.DefaultModelFamily.WithModel("rtsp")
 
 func init() {
 	resource.RegisterComponent(camera.API, model, resource.Registration[camera.Camera, *Config]{
-		Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (camera.Camera, error) {
+		Constructor: func(
+			ctx context.Context, _ resource.Dependencies, conf resource.Config, logger logging.Logger,
+		) (camera.Camera, error) {
 			newConf, err := resource.NativeConfig[*Config](conf)
 			if err != nil {
 				return nil, err
@@ -77,7 +79,7 @@ type rtspCamera struct {
 	gotFirstFrameOnce       bool
 	gotFirstFrame           chan struct{}
 	latestFrame             atomic.Pointer[image.Image]
-	logger                  golog.Logger
+	logger                  logging.Logger
 }
 
 // Close closes the camera. It always returns nil, but because of Close() interface, it needs to return an error.
@@ -187,7 +189,7 @@ func (rc *rtspCamera) reconnectClient() (err error) {
 
 // NewRTSPCamera creates a camera client using RTSP given the server URL.
 // Right now, only supports servers that have MJPEG video tracks.
-func NewRTSPCamera(ctx context.Context, name resource.Name, conf *Config, logger golog.Logger) (camera.Camera, error) {
+func NewRTSPCamera(ctx context.Context, name resource.Name, conf *Config, logger logging.Logger) (camera.Camera, error) {
 	u, err := url.Parse(conf.Address)
 	if err != nil {
 		return nil, err
@@ -233,5 +235,5 @@ func NewRTSPCamera(ctx context.Context, name resource.Name, conf *Config, logger
 	if err != nil {
 		return nil, err
 	}
-	return camera.FromVideoSource(name, src), nil
+	return camera.FromVideoSource(name, src, logger), nil
 }

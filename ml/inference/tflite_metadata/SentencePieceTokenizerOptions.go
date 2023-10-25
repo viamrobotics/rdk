@@ -8,11 +8,13 @@ import (
 
 type SentencePieceTokenizerOptionsT struct {
 	SentencePieceModel []*AssociatedFileT
-	VocabFile []*AssociatedFileT
+	VocabFile          []*AssociatedFileT
 }
 
 func (t *SentencePieceTokenizerOptionsT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
-	if t == nil { return 0 }
+	if t == nil {
+		return 0
+	}
 	sentencePieceModelOffset := flatbuffers.UOffsetT(0)
 	if t.SentencePieceModel != nil {
 		sentencePieceModelLength := len(t.SentencePieceModel)
@@ -63,7 +65,9 @@ func (rcv *SentencePieceTokenizerOptions) UnPackTo(t *SentencePieceTokenizerOpti
 }
 
 func (rcv *SentencePieceTokenizerOptions) UnPack() *SentencePieceTokenizerOptionsT {
-	if rcv == nil { return nil }
+	if rcv == nil {
+		return nil
+	}
 	t := &SentencePieceTokenizerOptionsT{}
 	rcv.UnPackTo(t)
 	return t

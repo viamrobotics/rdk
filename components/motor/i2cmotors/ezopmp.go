@@ -1,28 +1,29 @@
+//go:build linux
+
 // Package ezopmp is a motor driver for the hydrogarden pump
 package ezopmp
 
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"math"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/board/genericlinux"
 	"go.viam.com/rdk/components/motor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 )
 
 // Config is user config inputs for ezopmp.
 type Config struct {
-	BoardName   string `json:"board"`
 	BusName     string `json:"i2c_bus"`
 	I2CAddress  *byte  `json:"i2c_addr"`
 	MaxReadBits *int   `json:"max_read_bits"`
@@ -31,9 +32,6 @@ type Config struct {
 // Validate ensures all parts of the config are valid.
 func (conf *Config) Validate(path string) ([]string, error) {
 	var deps []string
-	if conf.BoardName == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
-	}
 
 	if conf.BusName == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "bus_name")
@@ -47,7 +45,6 @@ func (conf *Config) Validate(path string) ([]string, error) {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "max_read_bits")
 	}
 
-	deps = append(deps, conf.BoardName)
 	return deps, nil
 }
 
@@ -59,7 +56,7 @@ func init() {
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger golog.Logger,
+			logger logging.Logger,
 		) (motor.Motor, error) {
 			newConf, err := resource.NativeConfig[*Config](conf)
 			if err != nil {
@@ -75,11 +72,10 @@ type Ezopmp struct {
 	resource.Named
 	resource.AlwaysRebuild
 	resource.TriviallyCloseable
-	board       board.Board
 	bus         board.I2C
 	I2CAddress  byte
 	maxReadBits int
-	logger      golog.Logger
+	logger      logging.Logger
 	maxPowerPct float64
 	powerPct    float64
 	maxFlowRate float64
@@ -97,25 +93,15 @@ const (
 
 // NewMotor returns a motor(Ezopmp) with I2C protocol.
 func NewMotor(ctx context.Context, deps resource.Dependencies, c *Config, name resource.Name,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (motor.Motor, error) {
-	b, err := board.FromDependencies(deps, c.BoardName)
+	bus, err := genericlinux.NewI2cBus(c.BusName)
 	if err != nil {
 		return nil, err
 	}
 
-	localB, ok := b.(board.LocalBoard)
-	if !ok {
-		return nil, fmt.Errorf("board %s is not local", c.BoardName)
-	}
-	bus, ok := localB.I2CByName(c.BusName)
-	if !ok {
-		return nil, errors.Errorf("can't find I2C bus (%s) requested by Motor", c.BusName)
-	}
-
 	m := &Ezopmp{
 		Named:       name.AsNamed(),
-		board:       b,
 		bus:         bus,
 		I2CAddress:  *c.I2CAddress,
 		maxReadBits: *c.MaxReadBits,
@@ -156,10 +142,6 @@ func (m *Ezopmp) findMaxFlowRate(ctx context.Context) (float64, error) {
 
 // Validate if this config is valid.
 func (m *Ezopmp) Validate() error {
-	if m.board == nil {
-		return errors.New("need a board for ezopmp")
-	}
-
 	if m.bus == nil {
 		return errors.New("need a bus for ezopmp")
 	}

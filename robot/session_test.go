@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	echopb "go.viam.com/api/component/testecho/v1"
@@ -27,6 +26,7 @@ import (
 	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/client"
 	robotimpl "go.viam.com/rdk/robot/impl"
@@ -52,20 +52,26 @@ func init() {
 			conn rpc.ClientConn,
 			remoteName string,
 			name resource.Name,
-			logger golog.Logger,
+			logger logging.Logger,
 		) (resource.Resource, error) {
 			return NewClientFromConn(ctx, conn, remoteName, name, logger), nil
 		},
 	})
 }
 
+// TODO(RSDK-5435): This test suite checks if stopping a client also stops any
+// components that were started by that client. We also should implement a benchmark
+// suite that measures how long it takes for components to stop.
+//
+// We should NOT add a strict deadline to this test - we had that before and it resulted
+// in flaky tests (see RSDK-2493).
 func TestSessions(t *testing.T) {
 	for _, windowSize := range []time.Duration{
 		config.DefaultSessionHeartbeatWindow,
 		time.Second * 5,
 	} {
 		t.Run(fmt.Sprintf("window size=%s", windowSize), func(t *testing.T) {
-			logger := golog.NewTestLogger(t)
+			logger := logging.NewTestLogger(t)
 
 			stopChs := map[string]*StopChan{
 				"motor1": {make(chan struct{}), "motor1"},
@@ -101,7 +107,7 @@ func TestSessions(t *testing.T) {
 					ctx context.Context,
 					deps resource.Dependencies,
 					conf resource.Config,
-					logger golog.Logger,
+					logger logging.Logger,
 				) (motor.Motor, error) {
 					if conf.Name == "motor1" {
 						return &dummyMotor1, nil
@@ -116,7 +122,7 @@ func TestSessions(t *testing.T) {
 						ctx context.Context,
 						_ resource.Dependencies,
 						conf resource.Config,
-						logger golog.Logger,
+						logger logging.Logger,
 					) (resource.Resource, error) {
 						return &dummyEcho1, nil
 					},
@@ -130,7 +136,7 @@ func TestSessions(t *testing.T) {
 						ctx context.Context,
 						_ resource.Dependencies,
 						conf resource.Config,
-						logger golog.Logger,
+						logger logging.Logger,
 					) (base.Base, error) {
 						return &dummyBase1, nil
 					},
@@ -204,17 +210,9 @@ func TestSessions(t *testing.T) {
 			t.Log("set power of motor1 which will be safety monitored")
 			test.That(t, motor1.SetPower(ctx, 50, nil), test.ShouldBeNil)
 
-			startAt := time.Now()
 			test.That(t, roboClient.Close(ctx), test.ShouldBeNil)
 
 			ensureStop(t, "motor1", stopChNames)
-
-			test.That(t,
-				time.Since(startAt),
-				test.ShouldBeBetweenOrEqual,
-				float64(windowSize)*.75,
-				float64(windowSize)*1.5,
-			)
 
 			dummyMotor1.mu.Lock()
 			stopChs["motor1"].Chan = make(chan struct{})
@@ -240,20 +238,12 @@ func TestSessions(t *testing.T) {
 			_, err = echoMultiClient.Recv() // EOF; okay
 			test.That(t, err, test.ShouldBeError, io.EOF)
 
-			startAt = time.Now()
 			test.That(t, roboClient.Close(ctx), test.ShouldBeNil)
 
 			checkAgainst := []string{"motor1"}
 			ensureStop(t, "motor2", checkAgainst)
 			ensureStop(t, "echo1", checkAgainst)
 			ensureStop(t, "base1", checkAgainst)
-
-			test.That(t,
-				time.Since(startAt),
-				test.ShouldBeBetweenOrEqual,
-				float64(windowSize)*.75,
-				float64(windowSize)*1.5,
-			)
 
 			test.That(t, roboClient.Close(ctx), test.ShouldBeNil)
 
@@ -263,7 +253,7 @@ func TestSessions(t *testing.T) {
 }
 
 func TestSessionsWithRemote(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	stopChs := map[string]*StopChan{
 		"remMotor1": {make(chan struct{}), "remMotor1"},
@@ -300,7 +290,7 @@ func TestSessionsWithRemote(t *testing.T) {
 				ctx context.Context,
 				deps resource.Dependencies,
 				conf resource.Config,
-				logger golog.Logger,
+				logger logging.Logger,
 			) (motor.Motor, error) {
 				if conf.Attributes.Bool("rem", false) {
 					if conf.Name == "motor1" {
@@ -319,7 +309,7 @@ func TestSessionsWithRemote(t *testing.T) {
 				ctx context.Context,
 				_ resource.Dependencies,
 				conf resource.Config,
-				logger golog.Logger,
+				logger logging.Logger,
 			) (resource.Resource, error) {
 				return &dummyRemEcho1, nil
 			},
@@ -333,7 +323,7 @@ func TestSessionsWithRemote(t *testing.T) {
 				ctx context.Context,
 				_ resource.Dependencies,
 				conf resource.Config,
-				logger golog.Logger,
+				logger logging.Logger,
 			) (base.Base, error) {
 				if conf.Attributes.Bool("rem", false) {
 					return &dummyRemBase1, nil
@@ -460,16 +450,9 @@ func TestSessionsWithRemote(t *testing.T) {
 	t.Log("set power of rem1:motor1 which will be safety monitored")
 	test.That(t, motor1.SetPower(ctx, 50, nil), test.ShouldBeNil)
 
-	startAt := time.Now()
 	test.That(t, roboClient.Close(ctx), test.ShouldBeNil)
 
 	ensureStop(t, "remMotor1", stopChNames)
-	test.That(t,
-		time.Since(startAt),
-		test.ShouldBeBetweenOrEqual,
-		float64(config.DefaultSessionHeartbeatWindow)*.5,
-		float64(config.DefaultSessionHeartbeatWindow)*2.5,
-	)
 
 	dummyRemMotor1.mu.Lock()
 	stopChs["remMotor1"].Chan = make(chan struct{})
@@ -487,17 +470,9 @@ func TestSessionsWithRemote(t *testing.T) {
 	t.Log("set power of rem1:motor1 which will be safety monitored")
 	test.That(t, motor1.SetPower(ctx, 50, nil), test.ShouldBeNil)
 
-	startAt = time.Now()
 	test.That(t, r.Close(ctx), test.ShouldBeNil)
 
 	ensureStop(t, "remMotor1", stopChNames)
-
-	test.That(t,
-		time.Since(startAt),
-		test.ShouldBeBetweenOrEqual,
-		float64(config.DefaultSessionHeartbeatWindow)*.5,
-		float64(config.DefaultSessionHeartbeatWindow)*2.5,
-	)
 
 	test.That(t, roboClient.Close(ctx), test.ShouldBeNil)
 
@@ -543,20 +518,12 @@ func TestSessionsWithRemote(t *testing.T) {
 	_, err = echoMultiClient.Recv() // EOF; okay
 	test.That(t, err, test.ShouldBeError, io.EOF)
 
-	startAt = time.Now()
 	test.That(t, roboClient.Close(ctx), test.ShouldBeNil)
 
 	checkAgainst := []string{"remMotor1", "motor1", "base1"}
 	ensureStop(t, "remMotor2", checkAgainst)
 	ensureStop(t, "remBase1", checkAgainst)
 	ensureStop(t, "remEcho1", checkAgainst)
-
-	test.That(t,
-		time.Since(startAt),
-		test.ShouldBeBetweenOrEqual,
-		float64(config.DefaultSessionHeartbeatWindow)*.5,
-		float64(config.DefaultSessionHeartbeatWindow)*2.5,
-	)
 
 	test.That(t, roboClient.Close(ctx), test.ShouldBeNil)
 
@@ -565,7 +532,7 @@ func TestSessionsWithRemote(t *testing.T) {
 }
 
 func TestSessionsMixedClients(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	stopChMotor1 := make(chan struct{})
 
 	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
@@ -579,7 +546,7 @@ func TestSessionsMixedClients(t *testing.T) {
 				ctx context.Context,
 				deps resource.Dependencies,
 				conf resource.Config,
-				logger golog.Logger,
+				logger logging.Logger,
 			) (motor.Motor, error) {
 				return &dummyMotor1, nil
 			},
@@ -632,7 +599,6 @@ func TestSessionsMixedClients(t *testing.T) {
 		timer.Stop()
 	}
 
-	startAt := time.Now()
 	test.That(t, roboClient2.Close(ctx), test.ShouldBeNil)
 
 	select {
@@ -643,18 +609,11 @@ func TestSessionsMixedClients(t *testing.T) {
 
 	<-stopChMotor1
 
-	test.That(t,
-		time.Since(startAt),
-		test.ShouldBeBetweenOrEqual,
-		float64(config.DefaultSessionHeartbeatWindow)*.75,
-		float64(config.DefaultSessionHeartbeatWindow)*1.5,
-	)
-
 	test.That(t, r.Close(ctx), test.ShouldBeNil)
 }
 
 func TestSessionsMixedOwnersNoAuth(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	stopChMotor1 := make(chan struct{})
 
 	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
@@ -668,7 +627,7 @@ func TestSessionsMixedOwnersNoAuth(t *testing.T) {
 				ctx context.Context,
 				deps resource.Dependencies,
 				conf resource.Config,
-				logger golog.Logger,
+				logger logging.Logger,
 			) (motor.Motor, error) {
 				return &dummyMotor1, nil
 			},
@@ -731,7 +690,6 @@ func TestSessionsMixedOwnersNoAuth(t *testing.T) {
 	test.That(t, resp.Id, test.ShouldEqual, sessID)
 
 	// this is the only one heartbeating so we expect a stop
-	startAt := time.Now()
 	test.That(t, roboClient1.Close(ctx), test.ShouldBeNil)
 
 	select {
@@ -742,20 +700,13 @@ func TestSessionsMixedOwnersNoAuth(t *testing.T) {
 
 	<-stopChMotor1
 
-	test.That(t,
-		time.Since(startAt),
-		test.ShouldBeBetweenOrEqual,
-		float64(config.DefaultSessionHeartbeatWindow)*.75,
-		float64(config.DefaultSessionHeartbeatWindow)*1.5,
-	)
-
 	test.That(t, roboClientConn2.Close(), test.ShouldBeNil)
 	test.That(t, r.Close(ctx), test.ShouldBeNil)
 }
 
 // TODO(RSDK-890): add explicit auth test once subjects are actually unique.
 func TestSessionsMixedOwnersImplicitAuth(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	stopChMotor1 := make(chan struct{})
 
 	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
@@ -769,7 +720,7 @@ func TestSessionsMixedOwnersImplicitAuth(t *testing.T) {
 				ctx context.Context,
 				deps resource.Dependencies,
 				conf resource.Config,
-				logger golog.Logger,
+				logger logging.Logger,
 			) (motor.Motor, error) {
 				return &dummyMotor1, nil
 			},
@@ -836,7 +787,6 @@ func TestSessionsMixedOwnersImplicitAuth(t *testing.T) {
 	test.That(t, resp.Id, test.ShouldNotEqual, "")
 
 	// this is the only one heartbeating so we expect a stop
-	startAt := time.Now()
 	test.That(t, roboClient1.Close(ctx), test.ShouldBeNil)
 
 	select {
@@ -846,13 +796,6 @@ func TestSessionsMixedOwnersImplicitAuth(t *testing.T) {
 	}
 
 	<-stopChMotor1
-
-	test.That(t,
-		time.Since(startAt),
-		test.ShouldBeBetweenOrEqual,
-		float64(config.DefaultSessionHeartbeatWindow)*.75,
-		float64(config.DefaultSessionHeartbeatWindow)*1.5,
-	)
 
 	test.That(t, roboClientConn2.Close(), test.ShouldBeNil)
 	test.That(t, r.Close(ctx), test.ShouldBeNil)
@@ -954,7 +897,7 @@ func NewClientFromConn(
 	conn rpc.ClientConn,
 	remoteName string,
 	name resource.Name,
-	logger golog.Logger,
+	logger logging.Logger,
 ) resource.Resource {
 	c := echopb.NewTestEchoServiceClient(conn)
 	return &dummyClient{

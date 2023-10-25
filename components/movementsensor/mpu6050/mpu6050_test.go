@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils"
@@ -12,6 +11,7 @@ import (
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -52,7 +52,7 @@ func TestValidateConfig(t *testing.T) {
 }
 
 func TestInitializationFailureOnChipCommunication(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	testBoardName := "board"
 	i2cName := "i2c"
 
@@ -130,7 +130,7 @@ func TestInitializationFailureOnChipCommunication(t *testing.T) {
 }
 
 func TestSuccessfulInitializationAndClose(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	testBoardName := "board"
 	i2cName := "i2c"
 
@@ -236,7 +236,7 @@ func TestLinearAcceleration(t *testing.T) {
 	linearAccelMockData[5] = 0
 	expectedAccelZ := 2.4525
 
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	cfg, deps := setupDependencies(linearAccelMockData)
 	sensor, err := NewMpu6050(context.Background(), deps, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -272,7 +272,7 @@ func TestAngularVelocity(t *testing.T) {
 	angVelMockData[13] = 0
 	expectedAngVelZ := 31.25
 
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	cfg, deps := setupDependencies(angVelMockData)
 	sensor, err := NewMpu6050(context.Background(), deps, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -298,7 +298,7 @@ func TestTemperature(t *testing.T) {
 	temperatureMockData[7] = 202
 	expectedTemp := 18.3
 
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	cfg, deps := setupDependencies(temperatureMockData)
 	sensor, err := NewMpu6050(context.Background(), deps, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)

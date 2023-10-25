@@ -1,6 +1,6 @@
 name: Pull Request Update
 
-concurrency: 
+concurrency:
   group: pullrequest-${{ github.head_ref }}
   cancel-in-progress: true
 
@@ -19,6 +19,7 @@ jobs:
     uses: viamrobotics/rdk/.github/workflows/test.yml@main
     secrets:
       MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
+      DOCKER_PUBLIC_READONLY_PAT: ${{ secrets.DOCKER_PUBLIC_READONLY_PAT }}
 
   # This lets people add an "appimage" tag to have appimages built for the PR
   appimage:

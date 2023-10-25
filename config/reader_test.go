@@ -6,13 +6,14 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"github.com/google/uuid"
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/logging"
 )
 
 func TestStoreToCache(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 	cfg, err := FromReader(ctx, "", strings.NewReader(`{}`), logger)
 
@@ -111,7 +112,7 @@ func TestShouldCheckForCert(t *testing.T) {
 }
 
 func TestProcessConfig(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	unprocessedConfig := Config{
 		ConfigFilePath: "path",
 	}

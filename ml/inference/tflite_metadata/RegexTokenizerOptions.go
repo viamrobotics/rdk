@@ -8,11 +8,13 @@ import (
 
 type RegexTokenizerOptionsT struct {
 	DelimRegexPattern string
-	VocabFile []*AssociatedFileT
+	VocabFile         []*AssociatedFileT
 }
 
 func (t *RegexTokenizerOptionsT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
-	if t == nil { return 0 }
+	if t == nil {
+		return 0
+	}
 	delimRegexPatternOffset := builder.CreateString(t.DelimRegexPattern)
 	vocabFileOffset := flatbuffers.UOffsetT(0)
 	if t.VocabFile != nil {
@@ -45,7 +47,9 @@ func (rcv *RegexTokenizerOptions) UnPackTo(t *RegexTokenizerOptionsT) {
 }
 
 func (rcv *RegexTokenizerOptions) UnPack() *RegexTokenizerOptionsT {
-	if rcv == nil { return nil }
+	if rcv == nil {
+		return nil
+	}
 	t := &RegexTokenizerOptionsT{}
 	rcv.UnPackTo(t)
 	return t

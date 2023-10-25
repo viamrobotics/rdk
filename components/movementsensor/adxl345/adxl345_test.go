@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils"
@@ -13,6 +12,7 @@ import (
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -105,7 +105,7 @@ func TestValidateConfig(t *testing.T) {
 }
 
 func TestInitializationFailureOnChipCommunication(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	testBoardName := "board"
 	i2cName := "i2c"
 
@@ -170,7 +170,7 @@ func TestInterrupts(t *testing.T) {
 
 	mockBoard.I2CByNameFunc = func(name string) (board.I2C, bool) { return i2c, true }
 
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	deps := resource.Dependencies{
 		resource.NewName(board.API, "board"): mockBoard,
@@ -365,7 +365,7 @@ func TestLinearAcceleration(t *testing.T) {
 	linearAccelMockData[5] = 0
 	expectedAccelZ := 3.0656250000000003
 
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	cfg, deps := setupDependencies(linearAccelMockData)
 	sensor, err := NewAdxl345(context.Background(), deps, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)

@@ -3,12 +3,12 @@ package motion
 import (
 	"context"
 
-	"github.com/edaniels/golog"
 	geo "github.com/kellydunn/golang-geo"
 	pb "go.viam.com/api/service/motion/v1"
 	vprotoutils "go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -22,7 +22,7 @@ type client struct {
 	resource.TriviallyCloseable
 	name   string
 	client pb.MotionServiceClient
-	logger golog.Logger
+	logger logging.Logger
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
@@ -31,7 +31,7 @@ func NewClientFromConn(
 	conn rpc.ClientConn,
 	remoteName string,
 	name resource.Name,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (Service, error) {
 	grpcClient := pb.NewMotionServiceClient(conn)
 	c := &client{

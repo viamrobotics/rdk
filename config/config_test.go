@@ -13,7 +13,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/lestrrat-go/jwx/jwk"
 	"github.com/pkg/errors"
@@ -30,6 +29,7 @@ import (
 	"go.viam.com/rdk/components/encoder/incremental"
 	fakemotor "go.viam.com/rdk/components/motor/fake"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/shell"
@@ -38,7 +38,7 @@ import (
 )
 
 func TestConfigRobot(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	cfg, err := config.Read(context.Background(), "data/robot.json", logger)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -70,7 +70,7 @@ func TestConfigRobot(t *testing.T) {
 }
 
 func TestConfig3(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	test.That(t, os.Setenv("TEST_THING_FOO", "5"), test.ShouldBeNil)
 	cfg, err := config.Read(context.Background(), "data/config3.json", logger)
@@ -90,7 +90,7 @@ func TestConfig3(t *testing.T) {
 	test.That(t, cfg.Components[0].Attributes.Float64("bar5-no", 1.1), test.ShouldEqual, 1.1)
 
 	test.That(t, cfg.Components[1].ConvertedAttributes, test.ShouldResemble, &fakeboard.Config{
-		Analogs: []board.AnalogConfig{
+		AnalogReaders: []board.AnalogReaderConfig{
 			{Name: "analog1", Pin: "0"},
 		},
 		DigitalInterrupts: []board.DigitalInterruptConfig{
@@ -147,8 +147,53 @@ func TestConfig3(t *testing.T) {
 	})
 }
 
+func TestConfigWithLogDeclarations(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	cfg, err := config.Read(context.Background(), "data/config_with_log.json", logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, len(cfg.Components), test.ShouldEqual, 4)
+	// The board log level is explicitly configured as `Info`.
+	test.That(t, cfg.Components[0].Name, test.ShouldEqual, "board1")
+	test.That(t, cfg.Components[0].LogConfiguration.Level, test.ShouldEqual, logging.INFO)
+
+	// The left motor is explicitly configured as `debug`. Note the lower case.
+	test.That(t, cfg.Components[1].Name, test.ShouldEqual, "left_motor")
+	test.That(t, cfg.Components[1].LogConfiguration.Level, test.ShouldEqual, logging.DEBUG)
+
+	// The right motor is left unconfigured. The default log level is `Info`. However, the global
+	// log configure for builtin fake motors would apply for a log level of `warn`. This "overlayed"
+	// log level is not applied at config parsing time.
+	test.That(t, cfg.Components[2].Name, test.ShouldEqual, "right_motor")
+	test.That(t, cfg.Components[2].LogConfiguration.Level, test.ShouldEqual, logging.INFO)
+
+	// The wheeled base is also left unconfigured. The global log configuration for things
+	// implementing the `base` API is `error`. This "overlayed" log level is not applied at config
+	// parsing time.
+	test.That(t, cfg.Components[3].Name, test.ShouldEqual, "wheeley")
+	test.That(t, cfg.Components[3].LogConfiguration.Level, test.ShouldEqual, logging.INFO)
+
+	test.That(t, len(cfg.Services), test.ShouldEqual, 2)
+	// The slam service has a log level of `WARN`. Note the upper case.
+	test.That(t, cfg.Services[0].Name, test.ShouldEqual, "slam1")
+	test.That(t, cfg.Services[0].LogConfiguration.Level, test.ShouldEqual, logging.WARN)
+
+	// The data manager service is left unconfigured.
+	test.That(t, cfg.Services[1].Name, test.ShouldEqual, "dm")
+	test.That(t, cfg.Services[1].LogConfiguration.Level, test.ShouldEqual, logging.INFO)
+
+	test.That(t, len(cfg.GlobalLogConfig), test.ShouldEqual, 2)
+	// The first global configuration is to default `base`s to `error`.
+	test.That(t, cfg.GlobalLogConfig[0].API.String(), test.ShouldEqual, "rdk:component:base")
+	test.That(t, cfg.GlobalLogConfig[0].Level, test.ShouldEqual, logging.ERROR)
+
+	// The second global configuration is to default `motor`s of the builtin fake variety to `warn`.
+	test.That(t, cfg.GlobalLogConfig[1].API.String(), test.ShouldEqual, "rdk:component:motor")
+	test.That(t, cfg.GlobalLogConfig[1].Level, test.ShouldEqual, logging.WARN)
+}
+
 func TestConfigEnsure(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	var emptyConfig config.Config
 	test.That(t, emptyConfig.Ensure(false, logger), test.ShouldBeNil)
 
@@ -405,7 +450,7 @@ func TestConfigEnsure(t *testing.T) {
 }
 
 func TestConfigEnsurePartialStart(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	var emptyConfig config.Config
 	test.That(t, emptyConfig.Ensure(false, logger), test.ShouldBeNil)
 
@@ -825,7 +870,7 @@ ph2C/7IgjA==
 
 func TestAuthConfigEnsure(t *testing.T) {
 	t.Run("unknown handler", func(t *testing.T) {
-		logger := golog.NewTestLogger(t)
+		logger := logging.NewTestLogger(t)
 		config := config.Config{
 			Auth: config.AuthConfig{
 				Handlers: []config.AuthHandlerConfig{
@@ -842,7 +887,7 @@ func TestAuthConfigEnsure(t *testing.T) {
 	})
 
 	t.Run("api-key handler", func(t *testing.T) {
-		logger := golog.NewTestLogger(t)
+		logger := logging.NewTestLogger(t)
 		config := config.Config{
 			Auth: config.AuthConfig{
 				Handlers: []config.AuthHandlerConfig{
@@ -859,7 +904,7 @@ func TestAuthConfigEnsure(t *testing.T) {
 	})
 
 	t.Run("external auth with invalid keyset", func(t *testing.T) {
-		logger := golog.NewTestLogger(t)
+		logger := logging.NewTestLogger(t)
 		config := config.Config{
 			Auth: config.AuthConfig{
 				ExternalAuthConfig: &config.ExternalAuthConfig{},
@@ -871,7 +916,7 @@ func TestAuthConfigEnsure(t *testing.T) {
 	})
 
 	t.Run("external auth valid config", func(t *testing.T) {
-		logger := golog.NewTestLogger(t)
+		logger := logging.NewTestLogger(t)
 		algTypes := map[string]bool{
 			"RS256": true,
 			"RS384": true,
@@ -906,7 +951,7 @@ func TestAuthConfigEnsure(t *testing.T) {
 	})
 
 	t.Run("web-oauth invalid alg type", func(t *testing.T) {
-		logger := golog.NewTestLogger(t)
+		logger := logging.NewTestLogger(t)
 		badTypes := []string{"invalid", "", "nil"} // nil is a special case and is not set.
 		for _, badType := range badTypes {
 			t.Run(fmt.Sprintf(" with %s", badType), func(t *testing.T) {
@@ -938,7 +983,7 @@ func TestAuthConfigEnsure(t *testing.T) {
 	})
 
 	t.Run("external auth no keys", func(t *testing.T) {
-		logger := golog.NewTestLogger(t)
+		logger := logging.NewTestLogger(t)
 		config := config.Config{
 			Auth: config.AuthConfig{
 				ExternalAuthConfig: &config.ExternalAuthConfig{
@@ -954,7 +999,7 @@ func TestAuthConfigEnsure(t *testing.T) {
 }
 
 func TestValidateUniqueNames(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	component := resource.Config{
 		Name:  "custom",
 		Model: fakeModel,
@@ -1014,7 +1059,7 @@ func TestValidateUniqueNames(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "duplicate resource")
 
-		observedLogger, logs := golog.NewObservedTestLogger(t)
+		observedLogger, logs := logging.NewObservedTestLogger(t)
 		// now test it with logging enabled
 		config.DisablePartialStart = false
 		err = config.Ensure(false, observedLogger)

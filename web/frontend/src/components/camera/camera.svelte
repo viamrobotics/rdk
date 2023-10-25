@@ -82,7 +82,7 @@ $: {
     cameraManager.removeStream();
   }
 
-  if (isLive === false && refreshRate === 'Live') {
+  if (!isLive && refreshRate === 'Live') {
     isLive = true;
     cameraManager.addStream();
   }

@@ -9,12 +9,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/lucasb-eyer/go-colorful"
 	"go.opencensus.io/trace"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -22,7 +22,7 @@ import (
 type CloudAndOffsetFunc func(context context.Context) (PointCloud, spatialmath.Pose, error)
 
 // ApplyOffset takes a point cloud and an offset pose and applies the offset to each of the points in the source point cloud.
-func ApplyOffset(ctx context.Context, srcpc PointCloud, pose spatialmath.Pose, logger golog.Logger) (PointCloud, error) {
+func ApplyOffset(ctx context.Context, srcpc PointCloud, pose spatialmath.Pose, logger logging.Logger) (PointCloud, error) {
 	// create the function that return the pointcloud and the transform to the destination frame
 	cloudFunc := func(context context.Context) (PointCloud, spatialmath.Pose, error) {
 		return srcpc, pose, nil
@@ -32,7 +32,7 @@ func ApplyOffset(ctx context.Context, srcpc PointCloud, pose spatialmath.Pose, l
 }
 
 // MergePointClouds takes a slice of points clouds with optional offsets and adds all their points to one point cloud.
-func MergePointClouds(ctx context.Context, cloudFuncs []CloudAndOffsetFunc, logger golog.Logger) (PointCloud, error) {
+func MergePointClouds(ctx context.Context, cloudFuncs []CloudAndOffsetFunc, logger logging.Logger) (PointCloud, error) {
 	if len(cloudFuncs) == 0 {
 		return nil, errors.New("no point clouds to merge")
 	}

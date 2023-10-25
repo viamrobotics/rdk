@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"image"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"github.com/viamrobotics/gostream"
 	"go.opencensus.io/trace"
@@ -16,6 +15,7 @@ import (
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
@@ -35,7 +35,7 @@ func init() {
 				ctx context.Context,
 				r any,
 				conf resource.Config,
-				logger golog.Logger,
+				logger logging.Logger,
 			) (camera.Camera, error) {
 				actualR, err := utils.AssertType[robot.Robot](r)
 				if err != nil {
@@ -50,11 +50,11 @@ func init() {
 				if err != nil {
 					return nil, fmt.Errorf("no source camera for transform pipeline (%s): %w", sourceName, err)
 				}
-				src, err := newTransformPipeline(ctx, source, newConf, actualR)
+				src, err := newTransformPipeline(ctx, source, newConf, actualR, logger)
 				if err != nil {
 					return nil, err
 				}
-				return camera.FromVideoSource(conf.ResourceName(), src), nil
+				return camera.FromVideoSource(conf.ResourceName(), src, logger), nil
 			},
 		})
 }
@@ -84,6 +84,7 @@ func newTransformPipeline(
 	source gostream.VideoSource,
 	cfg *transformConfig,
 	r robot.Robot,
+	logger logging.Logger,
 ) (camera.VideoSource, error) {
 	if source == nil {
 		return nil, errors.New("no source camera for transform pipeline")
@@ -123,7 +124,7 @@ func newTransformPipeline(
 	cameraModel := camera.NewPinholeModelWithBrownConradyDistortion(cfg.CameraParameters, cfg.DistortionParameters)
 	return camera.NewVideoSourceFromReader(
 		ctx,
-		transformPipeline{pipeline, lastSourceStream, cfg.CameraParameters},
+		transformPipeline{pipeline, lastSourceStream, cfg.CameraParameters, logger},
 		&cameraModel,
 		streamType,
 	)
@@ -133,6 +134,7 @@ type transformPipeline struct {
 	pipeline            []gostream.VideoSource
 	stream              gostream.VideoStream
 	intrinsicParameters *transform.PinholeCameraIntrinsics
+	logger              logging.Logger
 }
 
 func (tp transformPipeline) Read(ctx context.Context) (image.Image, func(), error) {

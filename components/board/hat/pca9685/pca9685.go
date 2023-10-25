@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/board/v1"
@@ -19,6 +18,7 @@ import (
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/board/genericlinux"
 	"go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
@@ -33,7 +33,7 @@ var (
 type Config struct {
 	BoardName  string `json:"board_name,omitempty"`
 	I2CName    string `json:"i2c_name,omitempty"`
-	I2CBus     *int   `json:"i2c_bus,omitempty"`
+	I2CBus     string `json:"i2c_bus,omitempty"`
 	I2CAddress *int   `json:"i2c_address,omitempty"`
 }
 
@@ -41,7 +41,7 @@ type Config struct {
 func (conf *Config) Validate(path string) ([]string, error) {
 	var deps []string
 	// Either the i2c bus or both the board name and i2c name is required.
-	if conf.I2CBus == nil {
+	if conf.I2CBus == "" {
 		if conf.BoardName == "" && conf.I2CName == "" {
 			// If all 3 are missing, prefer the i2c_bus approach.
 			return nil, utils.NewConfigValidationFieldRequiredError(path, "i2c_bus")
@@ -76,7 +76,7 @@ func init() {
 				ctx context.Context,
 				deps resource.Dependencies,
 				conf resource.Config,
-				logger golog.Logger,
+				logger logging.Logger,
 			) (board.Board, error) {
 				return New(ctx, deps, conf, logger)
 			},
@@ -96,7 +96,7 @@ type PCA9685 struct {
 	gpioPins            [16]gpioPin
 	boardName           string
 	i2cName             string
-	logger              golog.Logger
+	logger              logging.Logger
 }
 
 const (
@@ -110,7 +110,7 @@ const (
 var defaultAddr = 0x40
 
 // New returns a new PCA9685 residing on the given bus and address.
-func New(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (*PCA9685, error) {
+func New(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger) (*PCA9685, error) {
 	pca := PCA9685{
 		Named:               conf.ResourceName().AsNamed(),
 		referenceClockSpeed: defaultReferenceClockSpeed,
@@ -139,12 +139,7 @@ func (pca *PCA9685) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		return err
 	}
 
-	busNum := 0
-	if newConf.I2CBus != nil {
-		busNum = *newConf.I2CBus
-	}
-
-	bus, err := genericlinux.GetI2CBus(deps, newConf.BoardName, newConf.I2CName, busNum)
+	bus, err := genericlinux.GetI2CBus(deps, newConf.BoardName, newConf.I2CName, newConf.I2CBus)
 	if err != nil {
 		return err
 	}

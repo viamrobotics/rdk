@@ -10,12 +10,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/jacobsa/go-serial/serial"
 	"github.com/pkg/errors"
 	utils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/motor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 	rutils "go.viam.com/rdk/utils"
@@ -36,7 +36,7 @@ type controller struct {
 	mu           sync.Mutex
 	port         io.ReadWriteCloser
 	serialDevice string
-	logger       golog.Logger
+	logger       logging.Logger
 	activeAxes   map[int]bool
 	testChan     chan []byte
 	address      int // 128-135
@@ -47,7 +47,7 @@ type Motor struct {
 	resource.Named
 	resource.AlwaysRebuild
 
-	logger golog.Logger
+	logger logging.Logger
 	// A reference to the actual controller that needs to be commanded for the motor to run
 	c *controller
 	// which channel the motor is connected to on the controller
@@ -123,7 +123,9 @@ func init() {
 	controllers = make(map[string]*controller)
 
 	resource.RegisterComponent(motor.API, model, resource.Registration[motor.Motor, *Config]{
-		Constructor: func(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (motor.Motor, error) {
+		Constructor: func(
+			ctx context.Context, _ resource.Dependencies, conf resource.Config, logger logging.Logger,
+		) (motor.Motor, error) {
 			newConf, err := resource.NativeConfig[*Config](conf)
 			if err != nil {
 				return nil, err
@@ -133,7 +135,7 @@ func init() {
 	})
 }
 
-func newController(c *Config, logger golog.Logger) (*controller, error) {
+func newController(c *Config, logger logging.Logger) (*controller, error) {
 	ctrl := new(controller)
 	ctrl.activeAxes = make(map[int]bool)
 	ctrl.serialDevice = c.SerialPath
@@ -202,7 +204,7 @@ func (cfg *Config) validateValues() error {
 }
 
 // NewMotor returns a Sabertooth driven motor.
-func NewMotor(ctx context.Context, c *Config, name resource.Name, logger golog.Logger) (motor.Motor, error) {
+func NewMotor(ctx context.Context, c *Config, name resource.Name, logger logging.Logger) (motor.Motor, error) {
 	globalMu.Lock()
 	defer globalMu.Unlock()
 

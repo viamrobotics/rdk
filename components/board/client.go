@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/board/v1"
@@ -15,6 +14,7 @@ import (
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/durationpb"
 
+	"go.viam.com/rdk/logging"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 )
@@ -29,7 +29,7 @@ type client struct {
 	resource.TriviallyReconfigurable
 	resource.TriviallyCloseable
 	client pb.BoardServiceClient
-	logger golog.Logger
+	logger logging.Logger
 
 	info           boardInfo
 	cachedStatus   *commonpb.BoardStatus
@@ -51,7 +51,7 @@ func NewClientFromConn(
 	conn rpc.ClientConn,
 	remoteName string,
 	name resource.Name,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (Board, error) {
 	info := boardInfo{name: name.ShortName()}
 	bClient := pb.NewBoardServiceClient(conn)

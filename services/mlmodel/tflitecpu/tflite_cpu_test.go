@@ -1,3 +1,5 @@
+//go:build !no_tflite
+
 package tflitecpu
 
 import (
@@ -5,7 +7,6 @@ import (
 	"net"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"github.com/nfnt/resize"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
@@ -13,6 +14,7 @@ import (
 	"gorgonia.org/tensor"
 
 	viamgrpc "go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/ml"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
@@ -191,10 +193,10 @@ func TestTFLiteCPUTextModel(t *testing.T) {
 }
 
 func TestTFLiteCPUClient(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	listener1, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
-	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
+	rpcServer, err := rpc.NewServer(logger.AsZap(), rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
 	modelParams := TFLiteConfig{ // classifier config

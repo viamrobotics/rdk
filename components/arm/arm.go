@@ -9,12 +9,12 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/edaniels/golog"
 	v1 "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
 	motionpb "go.viam.com/api/service/motion/v1"
 
 	"go.viam.com/rdk/data"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -124,7 +124,7 @@ func CreateStatus(ctx context.Context, a Arm) (*pb.Status, error) {
 }
 
 // Move is a helper function to abstract away movement for general arms.
-func Move(ctx context.Context, logger golog.Logger, a Arm, dst spatialmath.Pose) error {
+func Move(ctx context.Context, logger logging.Logger, a Arm, dst spatialmath.Pose) error {
 	joints, err := a.JointPositions(ctx, nil)
 	if err != nil {
 		return err
@@ -147,7 +147,7 @@ func Move(ctx context.Context, logger golog.Logger, a Arm, dst spatialmath.Pose)
 
 // Plan is a helper function to be called by arm implementations to abstract away the default procedure for using the
 // motion planning library with arms.
-func Plan(ctx context.Context, logger golog.Logger, a Arm, dst spatialmath.Pose) ([][]referenceframe.Input, error) {
+func Plan(ctx context.Context, logger logging.Logger, a Arm, dst spatialmath.Pose) ([][]referenceframe.Input, error) {
 	model := a.ModelFrame()
 	jp, err := a.JointPositions(ctx, nil)
 	if err != nil {

@@ -4,7 +4,6 @@ import (
 	"reflect"
 	"syscall"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	packagespb "go.viam.com/api/app/packages/v1"
@@ -14,6 +13,7 @@ import (
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/durationpb"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	spatial "go.viam.com/rdk/spatialmath"
@@ -21,7 +21,7 @@ import (
 )
 
 // FromProto converts the RobotConfig to the internal rdk equivalent.
-func FromProto(proto *pb.RobotConfig, logger golog.Logger) (*Config, error) {
+func FromProto(proto *pb.RobotConfig, logger logging.Logger) (*Config, error) {
 	cfg := Config{}
 
 	var err error
@@ -240,6 +240,9 @@ func ModuleConfigToProto(module *Module) (*pb.ModuleConfig, error) {
 		Name:     module.Name,
 		Path:     module.ExePath,
 		LogLevel: module.LogLevel,
+		Type:     string(module.Type),
+		ModuleId: module.ModuleID,
+		Env:      module.Environment,
 	}
 
 	return &proto, nil
@@ -248,9 +251,12 @@ func ModuleConfigToProto(module *Module) (*pb.ModuleConfig, error) {
 // ModuleConfigFromProto creates Module from the proto equivalent.
 func ModuleConfigFromProto(proto *pb.ModuleConfig) (*Module, error) {
 	module := Module{
-		Name:     proto.GetName(),
-		ExePath:  proto.GetPath(),
-		LogLevel: proto.GetLogLevel(),
+		Name:        proto.GetName(),
+		ExePath:     proto.GetPath(),
+		LogLevel:    proto.GetLogLevel(),
+		Type:        ModuleType(proto.GetType()),
+		ModuleID:    proto.GetModuleId(),
+		Environment: proto.GetEnv(),
 	}
 	return &module, nil
 }
@@ -263,6 +269,7 @@ func ProcessConfigToProto(process *pexec.ProcessConfig) (*pb.ProcessConfig, erro
 		Args:        process.Args,
 		Cwd:         process.CWD,
 		OneShot:     process.OneShot,
+		Env:         process.Environment,
 		Log:         process.Log,
 		StopSignal:  int32(process.StopSignal),
 		StopTimeout: durationpb.New(process.StopTimeout),
@@ -276,6 +283,7 @@ func ProcessConfigFromProto(proto *pb.ProcessConfig) (*pexec.ProcessConfig, erro
 		Name:        proto.Name,
 		Args:        proto.Args,
 		CWD:         proto.Cwd,
+		Environment: proto.Env,
 		OneShot:     proto.OneShot,
 		Log:         proto.Log,
 		StopSignal:  syscall.Signal(proto.StopSignal),
@@ -805,7 +813,7 @@ func toRDKSlice[PT, RT any](
 	protoList []*PT,
 	toRDK func(*PT) (*RT, error),
 	disablePartialStart bool,
-	logger golog.Logger,
+	logger logging.Logger,
 ) ([]RT, error) {
 	out := make([]RT, 0, len(protoList))
 	for _, proto := range protoList {

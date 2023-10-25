@@ -38,11 +38,11 @@ import (
 
 	"github.com/Masterminds/sprig"
 	"github.com/NYTimes/gziphandler"
-	"github.com/edaniels/golog"
 	"go.viam.com/utils"
 	"goji.io"
 	"goji.io/pat"
 
+	"go.viam.com/rdk/logging"
 	robotweb "go.viam.com/rdk/robot/web"
 	"go.viam.com/rdk/web"
 )
@@ -53,13 +53,13 @@ type Arguments struct {
 	Port   utils.NetPortFlag `flag:"port,default=8080"`
 }
 
-var logger = golog.NewDebugLogger("robot_server")
+var logger = logging.NewDebugLogger("robot_server")
 
 func main() {
 	utils.ContextualMain(mainWithArgs, logger)
 }
 
-func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error {
+func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) error {
 	var argsParsed Arguments
 	if err := utils.ParseFlags(args, &argsParsed); err != nil {
 		return err

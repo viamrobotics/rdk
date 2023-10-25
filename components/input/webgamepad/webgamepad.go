@@ -5,9 +5,8 @@ import (
 	"context"
 	"sync"
 
-	"github.com/edaniels/golog"
-
 	"go.viam.com/rdk/components/input"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
@@ -22,7 +21,9 @@ func init() {
 }
 
 // NewController creates a new gamepad.
-func NewController(ctx context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (input.Controller, error) {
+func NewController(
+	ctx context.Context, _ resource.Dependencies, conf resource.Config, logger logging.Logger,
+) (input.Controller, error) {
 	return &webGamepad{
 		Named:      conf.ResourceName().AsNamed(),
 		callbacks:  map[input.Control]map[input.EventType]input.ControlFunction{},
@@ -47,7 +48,7 @@ type webGamepad struct {
 	lastEvents map[input.Control]input.Event
 	mu         sync.RWMutex
 	callbacks  map[input.Control]map[input.EventType]input.ControlFunction
-	logger     golog.Logger
+	logger     logging.Logger
 }
 
 func (w *webGamepad) makeCallbacks(ctx context.Context, eventOut input.Event) {

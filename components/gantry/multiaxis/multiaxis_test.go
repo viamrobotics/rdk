@@ -4,12 +4,12 @@ import (
 	"context"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/gantry"
 	"go.viam.com/rdk/components/motor"
 	fm "go.viam.com/rdk/components/motor/fake"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -91,7 +91,7 @@ func TestValidate(t *testing.T) {
 
 func TestNewMultiAxis(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	deps := createFakeDeps()
 
@@ -374,7 +374,7 @@ func createComplexDeps() resource.Dependencies {
 
 func TestComplexMultiAxis(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	cfg := resource.Config{
 		Name: "complexGantry",
 		ConvertedAttributes: &Config{

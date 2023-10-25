@@ -15,7 +15,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
 	"github.com/jhump/protoreflect/grpcreflect"
@@ -56,6 +55,7 @@ import (
 	"go.viam.com/rdk/components/servo"
 	"go.viam.com/rdk/config"
 	rgrpc "go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -98,7 +98,7 @@ var finalResources = []resource.Name{
 var pose1 = spatialmath.NewZeroPose()
 
 func TestStatusClient(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	listener1, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	listener2, err := net.Listen("tcp", "localhost:0")
@@ -464,7 +464,7 @@ func TestStatusClient(t *testing.T) {
 }
 
 func TestClientRefresh(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	listener := gotestutils.ReserveRandomListener(t)
 	gServer := grpc.NewServer()
@@ -655,7 +655,7 @@ func TestClientRefresh(t *testing.T) {
 }
 
 func TestClientDisconnect(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	gServer := grpc.NewServer()
@@ -706,7 +706,7 @@ func TestClientDisconnect(t *testing.T) {
 }
 
 func TestClientUnaryDisconnectHandler(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 
@@ -781,7 +781,7 @@ func TestClientUnaryDisconnectHandler(t *testing.T) {
 }
 
 func TestClientStreamDisconnectHandler(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 
@@ -878,7 +878,7 @@ func TestClientReconnect(t *testing.T) {
 				conn rpc.ClientConn,
 				remoteName string,
 				name resource.Name,
-				logger golog.Logger,
+				logger logging.Logger,
 			) (resource.Resource, error) {
 				atomic.AddInt64(&called, 1)
 				return &mockType{Named: name.AsNamed()}, nil
@@ -886,7 +886,7 @@ func TestClientReconnect(t *testing.T) {
 		},
 	)
 
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	var listener net.Listener = gotestutils.ReserveRandomListener(t)
 	gServer := grpc.NewServer()
@@ -977,7 +977,7 @@ func TestClientRefreshNoReconfigure(t *testing.T) {
 				conn rpc.ClientConn,
 				remoteName string,
 				name resource.Name,
-				logger golog.Logger,
+				logger logging.Logger,
 			) (resource.Resource, error) {
 				atomic.AddInt64(&called, 1)
 				return &mockType{Named: name.AsNamed()}, nil
@@ -985,7 +985,7 @@ func TestClientRefreshNoReconfigure(t *testing.T) {
 		},
 	)
 
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	var listener net.Listener = gotestutils.ReserveRandomListener(t)
 	gServer := grpc.NewServer()
@@ -1037,7 +1037,7 @@ func TestClientRefreshNoReconfigure(t *testing.T) {
 }
 
 func TestClientDialerOption(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	gServer := grpc.NewServer()
@@ -1088,7 +1088,7 @@ func TestClientResources(t *testing.T) {
 	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	go gServer.Serve(listener)
 
@@ -1151,7 +1151,7 @@ func TestClientDiscovery(t *testing.T) {
 	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	go gServer.Serve(listener)
 	defer gServer.Stop()
@@ -1199,7 +1199,7 @@ func ensurePartsAreEqual(part, otherPart *referenceframe.FrameSystemPart) error 
 }
 
 func TestClientConfig(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	listener1, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	listener2, err := net.Listen("tcp", "localhost:0")
@@ -1329,7 +1329,7 @@ func TestClientConfig(t *testing.T) {
 }
 
 func TestClientStatus(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	listener1, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	listener2, err := net.Listen("tcp", "localhost:0")
@@ -1366,8 +1366,20 @@ func TestClientStatus(t *testing.T) {
 		client, err := New(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		gStatus := robot.Status{Name: movementsensor.Named("gps"), Status: map[string]interface{}{"efg": []string{"hello"}}}
-		aStatus := robot.Status{Name: arm.Named("arm"), Status: struct{}{}}
+		gLastReconfigured, err := time.Parse("2006-01-02 15:04:05", "1998-04-30 19:08:00")
+		test.That(t, err, test.ShouldBeNil)
+		gStatus := robot.Status{
+			Name:             movementsensor.Named("gps"),
+			LastReconfigured: gLastReconfigured,
+			Status:           map[string]interface{}{"efg": []string{"hello"}},
+		}
+		aLastReconfigured, err := time.Parse("2006-01-02 15:04:05", "2011-11-11 00:00:00")
+		test.That(t, err, test.ShouldBeNil)
+		aStatus := robot.Status{
+			Name:             arm.Named("arm"),
+			LastReconfigured: aLastReconfigured,
+			Status:           struct{}{},
+		}
 		statusMap := map[resource.Name]robot.Status{
 			gStatus.Name: gStatus,
 			aStatus.Name: aStatus,
@@ -1383,10 +1395,15 @@ func TestClientStatus(t *testing.T) {
 			gStatus.Name: map[string]interface{}{"efg": []interface{}{"hello"}},
 			aStatus.Name: map[string]interface{}{},
 		}
+		expectedLRs := map[resource.Name]time.Time{
+			gStatus.Name: gLastReconfigured,
+			aStatus.Name: aLastReconfigured,
+		}
 		resp, err := client.Status(context.Background(), []resource.Name{aStatus.Name})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(resp), test.ShouldEqual, 1)
 		test.That(t, resp[0].Status, test.ShouldResemble, expected[resp[0].Name])
+		test.That(t, resp[0].LastReconfigured, test.ShouldResemble, expectedLRs[resp[0].Name])
 
 		result := struct{}{}
 		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &result})
@@ -1403,7 +1420,12 @@ func TestClientStatus(t *testing.T) {
 			resp[0].Name: resp[0].Status,
 			resp[1].Name: resp[1].Status,
 		}
+		observedLRs := map[resource.Name]time.Time{
+			resp[0].Name: resp[0].LastReconfigured,
+			resp[1].Name: resp[1].LastReconfigured,
+		}
 		test.That(t, observed, test.ShouldResemble, expected)
+		test.That(t, observedLRs, test.ShouldResemble, expectedLRs)
 
 		err = client.Close(context.Background())
 		test.That(t, err, test.ShouldBeNil)
@@ -1464,7 +1486,7 @@ func TestForeignResource(t *testing.T) {
 	reflection.Register(gServer)
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	go gServer.Serve(listener)
 	defer gServer.Stop()
@@ -1491,7 +1513,7 @@ func TestForeignResource(t *testing.T) {
 }
 
 func TestNewRobotClientRefresh(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	gServer := grpc.NewServer()
@@ -1547,7 +1569,7 @@ func TestNewRobotClientRefresh(t *testing.T) {
 }
 
 func TestClientStopAll(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	listener1, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	gServer1 := grpc.NewServer()
@@ -1578,7 +1600,7 @@ func TestClientStopAll(t *testing.T) {
 }
 
 func TestRemoteClientMatch(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	listener1, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	gServer1 := grpc.NewServer()
@@ -1628,7 +1650,7 @@ func TestRemoteClientMatch(t *testing.T) {
 }
 
 func TestRemoteClientDuplicate(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	listener1, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	gServer1 := grpc.NewServer()
@@ -1672,7 +1694,7 @@ func TestRemoteClientDuplicate(t *testing.T) {
 }
 
 func TestClientOperationIntercept(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	listener1, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 
@@ -1716,7 +1738,7 @@ func TestClientOperationIntercept(t *testing.T) {
 }
 
 func TestGetUnknownResource(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	listener1, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 

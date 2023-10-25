@@ -45,7 +45,7 @@ $: filteredWebGamepads = $components.filter((component) => {
   return (
     component.subtype === 'input_controller' &&
     Boolean(component.name) &&
-    remSplit[remSplit.length - 1] === 'WebGamepad'
+    remSplit.at(-1) === 'WebGamepad'
   );
 });
 
@@ -58,14 +58,14 @@ $: filteredInputControllerList = $components.filter((component) => {
   return (
     component.subtype === 'input_controller' &&
     Boolean(component.name) &&
-    remSplit[remSplit.length - 1] !== 'WebGamepad' && resourceStatusByName(component)
+    remSplit.at(-1) !== 'WebGamepad' && resourceStatusByName(component)
   );
 });
 
 const getStatus = (statusMap: Record<string, unknown>, resource: commonApi.ResourceName.AsObject) => {
   const key = resourceNameToString(resource);
   // todo(mp) Find a way to fix this type error
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return
   return key ? statusMap[key] as any : undefined;
 };
 
@@ -180,7 +180,7 @@ const getStatus = (statusMap: Record<string, unknown>, resource: commonApi.Resou
 
     <!-- ******* NAVIGATION *******  -->
     {#each filterSubtype($services, 'navigation') as { name } (name)}
-      <Navigation {name} write={false} />
+      <Navigation {name} />
     {/each}
 
     <!-- ******* SENSOR *******  -->

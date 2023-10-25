@@ -11,7 +11,6 @@ import (
 	"time"
 
 	clk "github.com/benbjohnson/clock"
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
 	goutils "go.viam.com/utils"
@@ -20,6 +19,7 @@ import (
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/internal"
 	"go.viam.com/rdk/internal/cloud"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/datamanager"
@@ -85,7 +85,7 @@ func (c *Config) Validate(path string) ([]string, error) {
 // builtIn initializes and orchestrates data capture collectors for registered component/methods.
 type builtIn struct {
 	resource.Named
-	logger                      golog.Logger
+	logger                      logging.Logger
 	captureDir                  string
 	captureDisabled             bool
 	collectors                  map[resourceMethodMetadata]*collectorAndConfig
@@ -112,7 +112,7 @@ func NewBuiltIn(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (datamanager.Service, error) {
 	svc := &builtIn{
 		Named:                       conf.ResourceName().AsNamed(),
@@ -250,8 +250,9 @@ func (svc *builtIn) initializeOrUpdateCollector(
 	}
 
 	// Create a collector for this resource and method.
-	targetDir := filepath.Join(svc.captureDir, captureMetadata.GetComponentType(), captureMetadata.GetComponentName(),
-		captureMetadata.GetMethodName())
+	targetDir := datacapture.FilePathWithReplacedReservedChars(
+		filepath.Join(svc.captureDir, captureMetadata.GetComponentType(),
+			captureMetadata.GetComponentName(), captureMetadata.GetMethodName()))
 	if err := os.MkdirAll(targetDir, 0o700); err != nil {
 		return nil, err
 	}
@@ -302,7 +303,7 @@ func (svc *builtIn) initSyncer(ctx context.Context) error {
 
 	client := v1.NewDataSyncServiceClient(conn)
 
-	syncer, err := svc.syncerConstructor(identity, client, svc.logger)
+	syncer, err := svc.syncerConstructor(identity, client, svc.logger, svc.captureDir)
 	if err != nil {
 		return errors.Wrap(err, "failed to initialize new syncer")
 	}
@@ -511,6 +512,10 @@ func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil
+		}
+		// Do not sync the files in the corrupted data directory.
+		if info.IsDir() && info.Name() == datasync.FailedDir {
+			return filepath.SkipDir
 		}
 		if info.IsDir() {
 			return nil

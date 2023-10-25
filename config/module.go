@@ -14,6 +14,10 @@ var moduleNameRegEx = regexp.MustCompile(`^[\w-]+$`)
 const reservedModuleName = "parent"
 
 // Module represents an external resource module, with a path to the binary module file.
+//
+// Note to fellow programmers:
+// If you add any new fields, make sure to bring them to the modmanager.module struct and the modmanager.Configs() function
+// Otherwise there will be config diffs on every reconfigure.
 type Module struct {
 	// Name is an arbitrary name used to identify the module, and is used to name it's socket as well.
 	Name string `json:"name"`
@@ -27,10 +31,27 @@ type Module struct {
 	// value besides "" or "debug" is used for LogLevel ("log_level" in JSON). In other words, setting a LogLevel
 	// of something like "info" will ignore the debug setting on the server.
 	LogLevel string `json:"log_level"`
+	// Type indicates whether this is a local or registry module.
+	Type ModuleType `json:"type"`
+	// ModuleID is the id of the module in the registry. It is empty on non-registry modules.
+	ModuleID string `json:"module_id,omitempty"`
+	// Environment contains additional variables that are passed to the module process when it is started.
+	// They overwrite existing environment variables.
+	Environment map[string]string `json:"env,omitempty"`
 
 	alreadyValidated bool
 	cachedErr        error
 }
+
+// ModuleType indicates where a module comes from.
+type ModuleType string
+
+const (
+	// ModuleTypeLocal is a module that resides on the host system.
+	ModuleTypeLocal ModuleType = "local"
+	// ModuleTypeRegistry is a module from our registry that is distributed in a package and is downloaded at runtime.
+	ModuleTypeRegistry ModuleType = "registry"
+)
 
 // Validate checks if the config is valid.
 func (m *Module) Validate(path string) error {

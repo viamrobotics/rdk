@@ -35,7 +35,7 @@ let direction: -1 | 1 = 1;
 let type: MovementTypes = 'go';
 let properties: motorApi.GetPropertiesResponse.AsObject | undefined;
 
-const setMovementType = (event: CustomEvent) => {
+const setMovementType = (event: CustomEvent<{ value: string}>) => {
   movementType = event.detail.value;
   switch (movementType) {
     case 'Go': {
@@ -104,7 +104,7 @@ const setRevolutions = (event: CustomEvent) => {
     return;
   }
 
-  const num = Number.parseInt(target.value, 10);
+  const num = Number.parseFloat(target.value);
 
   if (Number.isNaN(num)) {
     return;
@@ -113,11 +113,11 @@ const setRevolutions = (event: CustomEvent) => {
   revolutions = num;
 };
 
-const setPowerSlider = (event: CustomEvent) => {
+const setPowerSlider = (event: CustomEvent<{ value: number }>) => {
   power = event.detail.value;
 };
 
-const setDirection = (event: CustomEvent) => {
+const setDirection = (event: CustomEvent<{ value: string }>) => {
   switch (event.detail.value) {
     case 'Forwards': {
       direction = 1;
@@ -158,7 +158,7 @@ const goTo = async () => {
   }
 };
 
-const motorRun = () => {
+const motorRun = async () => {
   switch (type) {
     case 'go': {
       return setPower();
@@ -181,7 +181,7 @@ const motorStop = async () => {
 };
 
 const handleToggle = async (event: CustomEvent<{ open: boolean }>) => {
-  if (event.detail.open === false) {
+  if (!event.detail.open) {
     return;
   }
 

@@ -5,6 +5,7 @@ import (
 	"context"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/module"
 	"go.viam.com/rdk/resource"
 )
 
@@ -23,6 +24,7 @@ type ModuleManager interface {
 
 	Configs() []config.Module
 	Provides(cfg resource.Config) bool
+	Handles() map[string]module.HandlerMap
 
 	Close(ctx context.Context) error
 }

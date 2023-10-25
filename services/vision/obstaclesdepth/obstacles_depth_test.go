@@ -5,12 +5,12 @@ import (
 	"image"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
@@ -68,7 +68,7 @@ func TestObstacleDepth(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	testLogger := golog.NewLogger("test")
+	testLogger := logging.NewLogger("test")
 	r := &inject.Robot{ResourceNamesFunc: func() []resource.Name {
 		return []resource.Name{camera.Named("testCam"), camera.Named("noIntrinsicsCam")}
 	}}
@@ -78,13 +78,13 @@ func TestObstacleDepth(t *testing.T) {
 	myCamSrcIntrinsics, err := camera.NewVideoSourceFromReader(ctx, fr, &syst, camera.DepthStream)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, myCamSrcIntrinsics, test.ShouldNotBeNil)
-	myIntrinsicsCam := camera.FromVideoSource(resource.Name{Name: "testCam"}, myCamSrcIntrinsics)
+	myIntrinsicsCam := camera.FromVideoSource(resource.Name{Name: "testCam"}, myCamSrcIntrinsics, testLogger)
 	// camera without intrinsics
 	tr := testReader{}
 	myCamSrcNoIntrinsics, err := camera.NewVideoSourceFromReader(ctx, tr, nil, camera.DepthStream)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, myCamSrcNoIntrinsics, test.ShouldNotBeNil)
-	noIntrinsicsCam := camera.FromVideoSource(resource.Name{Name: "noIntrinsicsCam"}, myCamSrcNoIntrinsics)
+	noIntrinsicsCam := camera.FromVideoSource(resource.Name{Name: "noIntrinsicsCam"}, myCamSrcNoIntrinsics, testLogger)
 	// set up the fake robot
 	r.ResourceByNameFunc = func(n resource.Name) (resource.Resource, error) {
 		switch n.Name {
@@ -156,14 +156,14 @@ func BenchmarkObstacleDepthIntrinsics(b *testing.B) {
 	}
 
 	ctx := context.Background()
-	testLogger := golog.NewLogger("test")
+	testLogger := logging.NewLogger("test")
 	r := &inject.Robot{ResourceNamesFunc: func() []resource.Name {
 		return []resource.Name{camera.Named("testCam")}
 	}}
 	tr := fullReader{}
 	syst := transform.PinholeCameraModel{&someIntrinsics, nil}
 	myCamSrc, _ := camera.NewVideoSourceFromReader(ctx, tr, &syst, camera.DepthStream)
-	myCam := camera.FromVideoSource(resource.Name{Name: "testCam"}, myCamSrc)
+	myCam := camera.FromVideoSource(resource.Name{Name: "testCam"}, myCamSrc, testLogger)
 	r.ResourceByNameFunc = func(n resource.Name) (resource.Resource, error) {
 		switch n.Name {
 		case "testCam":
@@ -185,13 +185,13 @@ func BenchmarkObstacleDepthNoIntrinsics(b *testing.B) {
 	noIntrinsicsCfg := ObsDepthConfig{}
 
 	ctx := context.Background()
-	testLogger := golog.NewLogger("test")
+	testLogger := logging.NewLogger("test")
 	r := &inject.Robot{ResourceNamesFunc: func() []resource.Name {
 		return []resource.Name{camera.Named("testCam")}
 	}}
 	tr := fullReader{}
 	myCamSrc, _ := camera.NewVideoSourceFromReader(ctx, tr, nil, camera.DepthStream)
-	myCam := camera.FromVideoSource(resource.Name{Name: "testCam"}, myCamSrc)
+	myCam := camera.FromVideoSource(resource.Name{Name: "testCam"}, myCamSrc, testLogger)
 	r.ResourceByNameFunc = func(n resource.Name) (resource.Resource, error) {
 		switch n.Name {
 		case "testCam":

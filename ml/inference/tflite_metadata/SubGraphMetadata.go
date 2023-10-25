@@ -7,19 +7,21 @@ import (
 )
 
 type SubGraphMetadataT struct {
-	Name string
-	Description string
-	InputTensorMetadata []*TensorMetadataT
+	Name                 string
+	Description          string
+	InputTensorMetadata  []*TensorMetadataT
 	OutputTensorMetadata []*TensorMetadataT
-	AssociatedFiles []*AssociatedFileT
-	InputProcessUnits []*ProcessUnitT
-	OutputProcessUnits []*ProcessUnitT
-	InputTensorGroups []*TensorGroupT
-	OutputTensorGroups []*TensorGroupT
+	AssociatedFiles      []*AssociatedFileT
+	InputProcessUnits    []*ProcessUnitT
+	OutputProcessUnits   []*ProcessUnitT
+	InputTensorGroups    []*TensorGroupT
+	OutputTensorGroups   []*TensorGroupT
 }
 
 func (t *SubGraphMetadataT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
-	if t == nil { return 0 }
+	if t == nil {
+		return 0
+	}
 	nameOffset := builder.CreateString(t.Name)
 	descriptionOffset := builder.CreateString(t.Description)
 	inputTensorMetadataOffset := flatbuffers.UOffsetT(0)
@@ -181,7 +183,9 @@ func (rcv *SubGraphMetadata) UnPackTo(t *SubGraphMetadataT) {
 }
 
 func (rcv *SubGraphMetadata) UnPack() *SubGraphMetadataT {
-	if rcv == nil { return nil }
+	if rcv == nil {
+		return nil
+	}
 	t := &SubGraphMetadataT{}
 	rcv.UnPackTo(t)
 	return t

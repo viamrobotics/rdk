@@ -5,7 +5,8 @@ import (
 	"io"
 
 	"github.com/de-bkg/gognss/pkg/ntrip"
-	"github.com/edaniels/golog"
+
+	"go.viam.com/rdk/logging"
 )
 
 // NtripInfo contains the information necessary to connect to a mountpoint.
@@ -29,7 +30,7 @@ type NtripConfig struct {
 }
 
 // NewNtripInfo function validates and sets NtripConfig arributes and returns NtripInfo.
-func NewNtripInfo(cfg *NtripConfig, logger golog.Logger) (*NtripInfo, error) {
+func NewNtripInfo(cfg *NtripConfig, logger logging.Logger) (*NtripInfo, error) {
 	n := &NtripInfo{}
 
 	// Init NtripInfo from attributes
