@@ -458,13 +458,14 @@ func TestMoveOnMapLongDistance(t *testing.T) {
 		t.Parallel()
 		_, ms := createMoveOnMapEnvironment(ctx, t, "slam/example_cartographer_outputs/viam-office-02-22-3/pointcloud/pointcloud_4.pcd")
 		extra := make(map[string]interface{})
+		valExtra, err := newValidatedExtra(extra)
+		test.That(t, err, test.ShouldBeNil)
 		mr, err := ms.(*builtIn).newMoveOnMapRequest(
 			context.Background(),
 			base.Named("test-base"),
 			goal,
 			slam.Named("test_slam"),
-			kinematicbase.NewKinematicBaseOptions(),
-			extra,
+			valExtra,
 		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, mr, test.ShouldNotBeNil)
@@ -692,7 +693,7 @@ func TestMoveOnGlobe(t *testing.T) {
 	extra := make(map[string]interface{})
 	extra["motion_profile"] = "position_only"
 	extra["timeout"] = 5.
-	validatedExtra, err := newValidatedExtra(extra)
+	valExtra, err := newValidatedExtra(extra)
 	test.That(t, err, test.ShouldBeNil)
 
 	dst := geo.NewPoint(gpsPoint.Lat(), gpsPoint.Lng()+1e-5)
@@ -1111,7 +1112,7 @@ func TestMoveOnGlobe(t *testing.T) {
 			[]*spatialmath.GeoObstacle{},
 			motionCfg,
 			nil,
-			validatedExtra,
+			valExtra,
 		)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -1157,7 +1158,7 @@ func TestMoveOnGlobe(t *testing.T) {
 			[]*spatialmath.GeoObstacle{geoObstacle},
 			motionCfg,
 			nil,
-			validatedExtra,
+			valExtra,
 		)
 		test.That(t, err, test.ShouldBeNil)
 		waypoints, err := mr.plan(ctx)
@@ -1179,7 +1180,10 @@ func TestMoveOnGlobe(t *testing.T) {
 
 		endPose, err := fakeBase.CurrentPosition(ctx)
 		test.That(t, err, test.ShouldBeNil)
+		fmt.Println(startPose.Pose().Point())
+		fmt.Println(endPose.Pose().Point())
 		movedPose := spatialmath.PoseBetween(startPose.Pose(), endPose.Pose())
+		fmt.Println(movedPose.Point())
 		test.That(t, movedPose.Point().X, test.ShouldAlmostEqual, expectedDst.X, epsilonMM)
 		test.That(t, movedPose.Point().Y, test.ShouldAlmostEqual, expectedDst.Y, epsilonMM)
 	})
@@ -1215,7 +1219,7 @@ func TestMoveOnGlobe(t *testing.T) {
 			[]*spatialmath.GeoObstacle{geoObstacle},
 			&motion.MotionConfiguration{},
 			nil,
-			validatedExtra,
+			valExtra,
 		)
 		test.That(t, err, test.ShouldBeNil)
 		plan, err := moveRequest.plan(ctx)
