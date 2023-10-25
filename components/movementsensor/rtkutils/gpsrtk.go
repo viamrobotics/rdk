@@ -10,13 +10,13 @@ import (
 	"math"
 	"sync"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/movementsensor"
 	gpsnmea "go.viam.com/rdk/components/movementsensor/gpsnmea"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -25,7 +25,7 @@ import (
 type RTKMovementSensor struct {
 	resource.Named
 	resource.AlwaysRebuild
-	logger     golog.Logger
+	logger     logging.Logger
 	cancelCtx  context.Context
 	cancelFunc func()
 

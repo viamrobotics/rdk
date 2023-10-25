@@ -4,12 +4,12 @@ package sensors
 import (
 	"context"
 
-	"github.com/edaniels/golog"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/sensors/v1"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/logging"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 )
@@ -21,7 +21,7 @@ type client struct {
 	resource.TriviallyCloseable
 	name   string
 	client pb.SensorsServiceClient
-	logger golog.Logger
+	logger logging.Logger
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
@@ -30,7 +30,7 @@ func NewClientFromConn(
 	conn rpc.ClientConn,
 	remoteName string,
 	name resource.Name,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (Service, error) {
 	grpcClient := pb.NewSensorsServiceClient(conn)
 	c := &client{

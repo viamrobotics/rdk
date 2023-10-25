@@ -48,7 +48,7 @@ func (v ProcessUnitOptions) String() string {
 }
 
 type ProcessUnitOptionsT struct {
-	Type ProcessUnitOptions
+	Type  ProcessUnitOptions
 	Value interface{}
 }
 
@@ -77,22 +77,22 @@ func (rcv ProcessUnitOptions) UnPack(table flatbuffers.Table) *ProcessUnitOption
 	switch rcv {
 	case ProcessUnitOptionsNormalizationOptions:
 		x := NormalizationOptions{_tab: table}
-		return &ProcessUnitOptionsT{ Type: ProcessUnitOptionsNormalizationOptions, Value: x.UnPack() }
+		return &ProcessUnitOptionsT{Type: ProcessUnitOptionsNormalizationOptions, Value: x.UnPack()}
 	case ProcessUnitOptionsScoreCalibrationOptions:
 		x := ScoreCalibrationOptions{_tab: table}
-		return &ProcessUnitOptionsT{ Type: ProcessUnitOptionsScoreCalibrationOptions, Value: x.UnPack() }
+		return &ProcessUnitOptionsT{Type: ProcessUnitOptionsScoreCalibrationOptions, Value: x.UnPack()}
 	case ProcessUnitOptionsScoreThresholdingOptions:
 		x := ScoreThresholdingOptions{_tab: table}
-		return &ProcessUnitOptionsT{ Type: ProcessUnitOptionsScoreThresholdingOptions, Value: x.UnPack() }
+		return &ProcessUnitOptionsT{Type: ProcessUnitOptionsScoreThresholdingOptions, Value: x.UnPack()}
 	case ProcessUnitOptionsBertTokenizerOptions:
 		x := BertTokenizerOptions{_tab: table}
-		return &ProcessUnitOptionsT{ Type: ProcessUnitOptionsBertTokenizerOptions, Value: x.UnPack() }
+		return &ProcessUnitOptionsT{Type: ProcessUnitOptionsBertTokenizerOptions, Value: x.UnPack()}
 	case ProcessUnitOptionsSentencePieceTokenizerOptions:
 		x := SentencePieceTokenizerOptions{_tab: table}
-		return &ProcessUnitOptionsT{ Type: ProcessUnitOptionsSentencePieceTokenizerOptions, Value: x.UnPack() }
+		return &ProcessUnitOptionsT{Type: ProcessUnitOptionsSentencePieceTokenizerOptions, Value: x.UnPack()}
 	case ProcessUnitOptionsRegexTokenizerOptions:
 		x := RegexTokenizerOptions{_tab: table}
-		return &ProcessUnitOptionsT{ Type: ProcessUnitOptionsRegexTokenizerOptions, Value: x.UnPack() }
+		return &ProcessUnitOptionsT{Type: ProcessUnitOptionsRegexTokenizerOptions, Value: x.UnPack()}
 	}
 	return nil
 }

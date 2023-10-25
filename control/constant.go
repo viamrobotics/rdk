@@ -5,8 +5,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+
+	"go.viam.com/rdk/logging"
 )
 
 type constant struct {
@@ -14,10 +15,10 @@ type constant struct {
 	cfg      BlockConfig
 	y        []*Signal
 	constant float64
-	logger   golog.Logger
+	logger   logging.Logger
 }
 
-func newConstant(config BlockConfig, logger golog.Logger) (Block, error) {
+func newConstant(config BlockConfig, logger logging.Logger) (Block, error) {
 	c := &constant{cfg: config, logger: logger}
 	if err := c.reset(); err != nil {
 		return nil, err

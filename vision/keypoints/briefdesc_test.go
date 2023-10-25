@@ -3,13 +3,14 @@ package keypoints
 import (
 	"testing"
 
-	"github.com/edaniels/golog"
 	"github.com/fogleman/gg"
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/logging"
 )
 
 func TestGenerateSamplePairs(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	patchSize := 250
 	descSize := 128
 	offset := (patchSize / 2) - 1

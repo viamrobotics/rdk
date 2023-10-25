@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/test"
@@ -21,6 +20,7 @@ import (
 	"go.viam.com/rdk/components/movementsensor"
 	_ "go.viam.com/rdk/components/movementsensor/fake"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	robotimpl "go.viam.com/rdk/robot/impl"
@@ -38,7 +38,7 @@ import (
 func setupNavigationServiceFromConfig(t *testing.T, configFilename string) (navigation.Service, func()) {
 	t.Helper()
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	cfg, err := config.Read(ctx, configFilename, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
@@ -607,7 +607,7 @@ func TestStartWaypoint(t *testing.T) {
 	// TODO(RSDK-5193): unskip this test
 	t.Skip()
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	injectMS := inject.NewMotionService("test_motion")
 	cfg := resource.Config{

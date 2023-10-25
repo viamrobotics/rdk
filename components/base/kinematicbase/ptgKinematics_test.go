@@ -6,11 +6,11 @@ import (
 	"context"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/base/fake"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -18,7 +18,7 @@ import (
 )
 
 func TestPTGKinematics(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	name, err := resource.NewFromString("is:a:fakebase")
 	test.That(t, err, test.ShouldBeNil)
@@ -59,7 +59,7 @@ func TestPTGKinematics(t *testing.T) {
 }
 
 func TestPTGKinematicsWithGeom(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	name, err := resource.NewFromString("is:a:fakebase")
 	test.That(t, err, test.ShouldBeNil)

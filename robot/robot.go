@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/dynamic"
 	"github.com/pkg/errors"
@@ -15,6 +14,7 @@ import (
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
@@ -59,7 +59,7 @@ type Robot interface {
 	PackageManager() packages.Manager
 
 	// Logger returns the logger the robot is using.
-	Logger() golog.Logger
+	Logger() logging.Logger
 
 	// FrameSystemConfig returns the individual parts that make up a robot's frame system
 	FrameSystemConfig(ctx context.Context) (*framesystem.Config, error)

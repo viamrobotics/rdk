@@ -7,12 +7,12 @@ import (
 	"math"
 	"sort"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -35,7 +35,9 @@ type DistanceDetectorConfig struct {
 
 func init() {
 	resource.RegisterService(svision.API, model, resource.Registration[svision.Service, *DistanceDetectorConfig]{
-		DeprecatedRobotConstructor: func(ctx context.Context, r any, c resource.Config, logger golog.Logger) (svision.Service, error) {
+		DeprecatedRobotConstructor: func(
+			ctx context.Context, r any, c resource.Config, logger logging.Logger,
+		) (svision.Service, error) {
 			attrs, err := resource.NativeConfig[*DistanceDetectorConfig](c)
 			if err != nil {
 				return nil, err

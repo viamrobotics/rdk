@@ -6,7 +6,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/mitchellh/mapstructure"
 	pb "go.viam.com/api/component/arm/v1"
@@ -16,6 +15,7 @@ import (
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/arm/fake"
 	ur "go.viam.com/rdk/components/arm/universalrobots"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -214,7 +214,7 @@ func TestCreateStatus(t *testing.T) {
 }
 
 func TestOOBArm(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	cfg := resource.Config{
 		Name:  arm.API.String(),
 		Model: resource.DefaultModelFamily.WithModel("ur5e"),
@@ -318,7 +318,7 @@ func TestOOBArm(t *testing.T) {
 
 func TestXArm6Locations(t *testing.T) {
 	// check the exact values/locations of arm geometries at a couple different poses
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	cfg := resource.Config{
 		Name:  arm.API.String(),
 		Model: resource.DefaultModelFamily.WithModel("fake"),
@@ -441,7 +441,7 @@ func TestXArm6Locations(t *testing.T) {
 
 func TestUR5ELocations(t *testing.T) {
 	// check the exact values/locations of arm geometries at a couple different poses
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	cfg := resource.Config{
 		Name:  arm.API.String(),
 		Model: resource.DefaultModelFamily.WithModel("fake"),

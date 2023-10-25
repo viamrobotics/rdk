@@ -10,10 +10,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/ml"
 	inf "go.viam.com/rdk/ml/inference"
 	"go.viam.com/rdk/ml/inference/tflite_metadata"
@@ -29,7 +29,7 @@ func init() {
 			ctx context.Context,
 			_ resource.Dependencies,
 			conf resource.Config,
-			logger golog.Logger,
+			logger logging.Logger,
 		) (mlmodel.Service, error) {
 			svcConf, err := resource.NativeConfig[*TFLiteConfig](conf)
 			if err != nil {
@@ -59,7 +59,7 @@ type Model struct {
 	conf     TFLiteConfig
 	model    *inf.TFLiteStruct
 	metadata *mlmodel.MLMetadata
-	logger   golog.Logger
+	logger   logging.Logger
 }
 
 // NewTFLiteCPUModel is a constructor that builds a tflite cpu implementation of the MLMS.
@@ -69,7 +69,7 @@ func NewTFLiteCPUModel(ctx context.Context, params *TFLiteConfig, name resource.
 	var model *inf.TFLiteStruct
 	var loader *inf.TFLiteModelLoader
 	var err error
-	logger := golog.NewLogger("tflite_cpu")
+	logger := logging.NewLogger("tflite_cpu")
 
 	addModel := func() (*inf.TFLiteStruct, error) {
 		if params == nil {

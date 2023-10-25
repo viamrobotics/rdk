@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
@@ -14,6 +13,7 @@ import (
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/base/kinematicbase"
 	"go.viam.com/rdk/components/motor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -35,7 +35,7 @@ func init() {
 	})
 }
 
-func newBase(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (base.Base, error) {
+func newBase(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger) (base.Base, error) {
 	b := &myBase{
 		Named:  conf.ResourceName().AsNamed(),
 		logger: logger,
@@ -109,7 +109,7 @@ type myBase struct {
 	resource.Named
 	left       motor.Motor
 	right      motor.Motor
-	logger     golog.Logger
+	logger     logging.Logger
 	geometries []spatialmath.Geometry
 }
 

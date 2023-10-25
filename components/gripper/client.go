@@ -4,12 +4,12 @@ package gripper
 import (
 	"context"
 
-	"github.com/edaniels/golog"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/gripper/v1"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/logging"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -23,7 +23,7 @@ type client struct {
 	resource.TriviallyCloseable
 	name   string
 	client pb.GripperServiceClient
-	logger golog.Logger
+	logger logging.Logger
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
@@ -32,7 +32,7 @@ func NewClientFromConn(
 	conn rpc.ClientConn,
 	remoteName string,
 	name resource.Name,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (Gripper, error) {
 	c := pb.NewGripperServiceClient(conn)
 	return &client{

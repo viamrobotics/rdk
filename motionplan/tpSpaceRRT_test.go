@@ -8,7 +8,6 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
@@ -25,7 +24,7 @@ const testTurnRad = 0.3
 
 func TestPtgRrtBidirectional(t *testing.T) {
 	t.Parallel()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	roverGeom, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{10, 10, 10}, "")
 	test.That(t, err, test.ShouldBeNil)
 	geometries := []spatialmath.Geometry{roverGeom}
@@ -105,7 +104,7 @@ func TestPtgRrtBidirectional(t *testing.T) {
 
 func TestPtgRrtUnidirectional(t *testing.T) {
 	t.Parallel()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	roverGeom, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{10, 10, 10}, "")
 	test.That(t, err, test.ShouldBeNil)
 	geometries := []spatialmath.Geometry{roverGeom}
@@ -186,7 +185,7 @@ func TestPtgRrtUnidirectional(t *testing.T) {
 
 func TestPtgWithObstacle(t *testing.T) {
 	t.Parallel()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	roverGeom, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{10, 10, 10}, "")
 	test.That(t, err, test.ShouldBeNil)
 	geometries := []spatialmath.Geometry{roverGeom}
@@ -308,7 +307,7 @@ func TestPtgWithObstacle(t *testing.T) {
 func TestTPsmoothing(t *testing.T) {
 	// TODO: this doesn't smooth properly yet. This should be made to smooth better.
 	t.Parallel()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	roverGeom, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{10, 10, 10}, "")
 	test.That(t, err, test.ShouldBeNil)
 	geometries := []spatialmath.Geometry{roverGeom}

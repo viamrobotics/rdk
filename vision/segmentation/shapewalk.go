@@ -4,9 +4,9 @@ import (
 	"image"
 	"math"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/utils"
 )
@@ -46,7 +46,7 @@ type walkState struct {
 	depthMin, depthMax rimage.Depth
 	depthRange         float64
 
-	logger golog.Logger
+	logger logging.Logger
 }
 
 func (ws *walkState) initIfNot() {
@@ -395,7 +395,7 @@ func (ws *walkState) lookForWeirdShapes(clusterNumber int) int {
 }
 
 // ShapeWalk TODO.
-func ShapeWalk(img *rimage.Image, dm *rimage.DepthMap, start image.Point, options ShapeWalkOptions, logger golog.Logger,
+func ShapeWalk(img *rimage.Image, dm *rimage.DepthMap, start image.Point, options ShapeWalkOptions, logger logging.Logger,
 ) (*SegmentedImage, error) {
 	return ShapeWalkMultiple(img, dm, []image.Point{start}, options, logger)
 }
@@ -405,7 +405,7 @@ func ShapeWalkMultiple(
 	img *rimage.Image, dm *rimage.DepthMap,
 	starts []image.Point,
 	options ShapeWalkOptions,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (*SegmentedImage, error) {
 	ws := walkState{
 		img:       img,
@@ -436,7 +436,7 @@ func (e MyWalkError) Error() string {
 }
 
 // ShapeWalkEntireDebug TODO.
-func ShapeWalkEntireDebug(img *rimage.Image, dm *rimage.DepthMap, options ShapeWalkOptions, logger golog.Logger,
+func ShapeWalkEntireDebug(img *rimage.Image, dm *rimage.DepthMap, options ShapeWalkOptions, logger logging.Logger,
 ) (*SegmentedImage, error) {
 	var si *SegmentedImage
 	var err error
@@ -464,7 +464,7 @@ func shapeWalkEntireDebugOnePass(
 	img *rimage.Image, dm *rimage.DepthMap,
 	options ShapeWalkOptions,
 	extraThreshold float64,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (*SegmentedImage, error) {
 	ws := walkState{
 		img:       img,

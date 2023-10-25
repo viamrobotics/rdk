@@ -5,12 +5,12 @@ import (
 	"image"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
@@ -68,7 +68,7 @@ func TestObstacleDepth(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	testLogger := golog.NewLogger("test")
+	testLogger := logging.NewLogger("test")
 	r := &inject.Robot{ResourceNamesFunc: func() []resource.Name {
 		return []resource.Name{camera.Named("testCam"), camera.Named("noIntrinsicsCam")}
 	}}
@@ -156,7 +156,7 @@ func BenchmarkObstacleDepthIntrinsics(b *testing.B) {
 	}
 
 	ctx := context.Background()
-	testLogger := golog.NewLogger("test")
+	testLogger := logging.NewLogger("test")
 	r := &inject.Robot{ResourceNamesFunc: func() []resource.Name {
 		return []resource.Name{camera.Named("testCam")}
 	}}
@@ -185,7 +185,7 @@ func BenchmarkObstacleDepthNoIntrinsics(b *testing.B) {
 	noIntrinsicsCfg := ObsDepthConfig{}
 
 	ctx := context.Background()
-	testLogger := golog.NewLogger("test")
+	testLogger := logging.NewLogger("test")
 	r := &inject.Robot{ResourceNamesFunc: func() []resource.Name {
 		return []resource.Name{camera.Named("testCam")}
 	}}

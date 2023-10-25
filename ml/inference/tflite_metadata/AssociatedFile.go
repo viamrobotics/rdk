@@ -7,14 +7,16 @@ import (
 )
 
 type AssociatedFileT struct {
-	Name string
+	Name        string
 	Description string
-	Type AssociatedFileType
-	Locale string
+	Type        AssociatedFileType
+	Locale      string
 }
 
 func (t *AssociatedFileT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
-	if t == nil { return 0 }
+	if t == nil {
+		return 0
+	}
 	nameOffset := builder.CreateString(t.Name)
 	descriptionOffset := builder.CreateString(t.Description)
 	localeOffset := builder.CreateString(t.Locale)
@@ -34,7 +36,9 @@ func (rcv *AssociatedFile) UnPackTo(t *AssociatedFileT) {
 }
 
 func (rcv *AssociatedFile) UnPack() *AssociatedFileT {
-	if rcv == nil { return nil }
+	if rcv == nil {
+		return nil
+	}
 	t := &AssociatedFileT{}
 	rcv.UnPackTo(t)
 	return t

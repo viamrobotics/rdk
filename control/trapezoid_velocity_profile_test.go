@@ -6,14 +6,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils"
 )
 
 func TestTrapezoidVelocityProfileConfig(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	for _, c := range []struct {
 		conf BlockConfig
@@ -66,7 +66,7 @@ func TestTrapezoidVelocityProfileConfig(t *testing.T) {
 
 func TestTrapezoidVelocityProfileGenerator(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	targetPos := 100.0
 	posWindow := 10.0
 	cfg := BlockConfig{

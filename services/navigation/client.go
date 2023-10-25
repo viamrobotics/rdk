@@ -3,7 +3,6 @@ package navigation
 import (
 	"context"
 
-	"github.com/edaniels/golog"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -12,6 +11,7 @@ import (
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/logging"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
@@ -24,7 +24,7 @@ type client struct {
 	resource.TriviallyCloseable
 	name   string
 	client pb.NavigationServiceClient
-	logger golog.Logger
+	logger logging.Logger
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
@@ -33,7 +33,7 @@ func NewClientFromConn(
 	conn rpc.ClientConn,
 	remoteName string,
 	name resource.Name,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (Service, error) {
 	grpcClient := pb.NewNavigationServiceClient(conn)
 	c := &client{

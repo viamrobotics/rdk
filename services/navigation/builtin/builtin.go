@@ -7,7 +7,6 @@ import (
 	"math"
 	"sync"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
@@ -18,6 +17,7 @@ import (
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/navigation"
@@ -196,7 +196,9 @@ func (conf *Config) Validate(path string) ([]string, error) {
 }
 
 // NewBuiltIn returns a new navigation service for the given robot.
-func NewBuiltIn(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (navigation.Service, error) {
+func NewBuiltIn(
+	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
+) (navigation.Service, error) {
 	navSvc := &builtIn{
 		Named:  conf.ResourceName().AsNamed(),
 		logger: logger,
@@ -226,7 +228,7 @@ type builtIn struct {
 	motionCfg        *motion.MotionConfiguration
 	replanCostFactor float64
 
-	logger                    golog.Logger
+	logger                    logging.Logger
 	wholeServiceCancelFunc    func()
 	currentWaypointCancelFunc func()
 	waypointInProgress        *navigation.Waypoint

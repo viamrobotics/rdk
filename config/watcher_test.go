@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	pb "go.viam.com/api/app/v1"
 	"go.viam.com/test"
@@ -18,12 +17,13 @@ import (
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/config/testutils"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	rutils "go.viam.com/rdk/utils"
 )
 
 func TestNewWatcherNoop(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	watcher, err := config.NewWatcher(context.Background(), &config.Config{}, logger)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -39,7 +39,7 @@ func TestNewWatcherNoop(t *testing.T) {
 }
 
 func TestNewWatcherFile(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	temp, err := os.CreateTemp(t.TempDir(), "*.json")
 	test.That(t, err, test.ShouldBeNil)
@@ -178,7 +178,7 @@ func TestNewWatcherFile(t *testing.T) {
 }
 
 func TestNewWatcherCloud(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	certsToReturn := config.Cloud{
 		TLSCertificate: "hello",

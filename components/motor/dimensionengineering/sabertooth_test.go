@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/motor/dimensionengineering"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
@@ -29,7 +29,7 @@ func checkTx(t *testing.T, resChan chan string, c chan []byte, expects []byte) {
 //nolint:dupl
 func TestSabertoothMotor(t *testing.T) {
 	ctx := context.Background()
-	logger, obs := golog.NewObservedTestLogger(t)
+	logger, obs := logging.NewObservedTestLogger(t)
 	c := make(chan []byte, 1024)
 	resChan := make(chan string, 1024)
 	deps := make(resource.Dependencies)
@@ -154,7 +154,7 @@ func TestSabertoothMotor(t *testing.T) {
 //nolint:dupl
 func TestSabertoothMotorDirectionFlip(t *testing.T) {
 	ctx := context.Background()
-	logger, obs := golog.NewObservedTestLogger(t)
+	logger, obs := logging.NewObservedTestLogger(t)
 	c := make(chan []byte, 1024)
 	resChan := make(chan string, 1024)
 	deps := make(resource.Dependencies)
@@ -271,7 +271,7 @@ func TestSabertoothMotorDirectionFlip(t *testing.T) {
 
 func TestSabertoothRampConfig(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	c := make(chan []byte, 1024)
 	resChan := make(chan string, 1024)
 	deps := make(resource.Dependencies)
@@ -303,7 +303,7 @@ func TestSabertoothRampConfig(t *testing.T) {
 
 func TestSabertoothAddressMapping(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	c := make(chan []byte, 1024)
 	resChan := make(chan string, 1024)
 	deps := make(resource.Dependencies)
@@ -329,7 +329,7 @@ func TestSabertoothAddressMapping(t *testing.T) {
 }
 
 func TestInvalidMotorChannel(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	c := make(chan []byte, 1024)
 	deps := make(resource.Dependencies)
 
@@ -351,7 +351,7 @@ func TestInvalidMotorChannel(t *testing.T) {
 }
 
 func TestInvalidBaudRate(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	c := make(chan []byte, 1024)
 	deps := make(resource.Dependencies)
 
@@ -374,7 +374,7 @@ func TestInvalidBaudRate(t *testing.T) {
 }
 
 func TestInvalidSerialAddress(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	c := make(chan []byte, 1024)
 	deps := make(resource.Dependencies)
 
@@ -396,7 +396,7 @@ func TestInvalidSerialAddress(t *testing.T) {
 }
 
 func TestInvalidMinPowerPct(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	c := make(chan []byte, 1024)
 	deps := make(resource.Dependencies)
 
@@ -420,7 +420,7 @@ func TestInvalidMinPowerPct(t *testing.T) {
 }
 
 func TestInvalidMaxPowerPct(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	c := make(chan []byte, 1024)
 	deps := make(resource.Dependencies)
 
@@ -444,7 +444,7 @@ func TestInvalidMaxPowerPct(t *testing.T) {
 }
 
 func TestMultipleInvalidParameters(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	c := make(chan []byte, 1024)
 	deps := make(resource.Dependencies)
 

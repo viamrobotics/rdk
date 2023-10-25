@@ -3,7 +3,6 @@ package movementsensor
 import (
 	"context"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	commonpb "go.viam.com/api/common/v1"
@@ -11,6 +10,7 @@ import (
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
@@ -23,7 +23,7 @@ type client struct {
 	resource.TriviallyCloseable
 	name   string
 	client pb.MovementSensorServiceClient
-	logger golog.Logger
+	logger logging.Logger
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
@@ -32,7 +32,7 @@ func NewClientFromConn(
 	conn rpc.ClientConn,
 	remoteName string,
 	name resource.Name,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (MovementSensor, error) {
 	c := pb.NewMovementSensorServiceClient(conn)
 	return &client{

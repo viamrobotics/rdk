@@ -12,7 +12,9 @@ type ValueRangeT struct {
 }
 
 func (t *ValueRangeT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
-	if t == nil { return 0 }
+	if t == nil {
+		return 0
+	}
 	ValueRangeStart(builder)
 	ValueRangeAddMin(builder, t.Min)
 	ValueRangeAddMax(builder, t.Max)
@@ -25,7 +27,9 @@ func (rcv *ValueRange) UnPackTo(t *ValueRangeT) {
 }
 
 func (rcv *ValueRange) UnPack() *ValueRangeT {
-	if rcv == nil { return nil }
+	if rcv == nil {
+		return nil
+	}
 	t := &ValueRangeT{}
 	rcv.UnPackTo(t)
 	return t

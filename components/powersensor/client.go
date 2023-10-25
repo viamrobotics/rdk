@@ -3,12 +3,12 @@ package powersensor
 import (
 	"context"
 
-	"github.com/edaniels/golog"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/powersensor/v1"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 )
@@ -20,7 +20,7 @@ type client struct {
 	resource.TriviallyCloseable
 	name   string
 	client pb.PowerSensorServiceClient
-	logger golog.Logger
+	logger logging.Logger
 }
 
 // NewClientFromConn constructs a new client from connection passed in.
@@ -29,7 +29,7 @@ func NewClientFromConn(
 	conn rpc.ClientConn,
 	remoteName string,
 	name resource.Name,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (PowerSensor, error) {
 	c := pb.NewPowerSensorServiceClient(conn)
 	return &client{

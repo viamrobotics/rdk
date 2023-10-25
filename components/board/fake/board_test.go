@@ -4,15 +4,15 @@ import (
 	"context"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
 func TestFakeBoard(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	boardConfig := Config{
 		I2Cs: []board.I2CConfig{
 			{Name: "main", Bus: "0"},

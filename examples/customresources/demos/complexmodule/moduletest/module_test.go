@@ -12,7 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/test"
@@ -25,6 +24,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/examples/customresources/apis/gizmoapi"
 	"go.viam.com/rdk/examples/customresources/apis/summationapi"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/services/navigation"
@@ -37,7 +37,7 @@ import (
 // needs to be added to the web service before it normally would be avalilable after completing
 // a config cycle.
 func TestComplexModule(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	// Modify the example config to run directly, without compiling the module first.
 	cfgFilename, port, err := modifyCfg(t, utils.ResolveFile("examples/customresources/demos/complexmodule/module.json"), logger)
@@ -51,7 +51,7 @@ func TestComplexModule(t *testing.T) {
 		Args: []string{"-config", cfgFilename},
 		CWD:  utils.ResolveFile("./"),
 		Log:  true,
-	}, logger)
+	}, logger.AsZap())
 
 	err = server.Start(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -292,7 +292,7 @@ func TestComplexModule(t *testing.T) {
 	})
 }
 
-func connect(port string, logger golog.Logger) (robot.Robot, error) {
+func connect(port string, logger logging.Logger) (robot.Robot, error) {
 	connectCtx, cancelConn := context.WithTimeout(context.Background(), time.Second*30)
 	defer cancelConn()
 	for {
@@ -313,7 +313,7 @@ func connect(port string, logger golog.Logger) (robot.Robot, error) {
 	}
 }
 
-func modifyCfg(t *testing.T, cfgIn string, logger golog.Logger) (string, string, error) {
+func modifyCfg(t *testing.T, cfgIn string, logger logging.Logger) (string, string, error) {
 	modPath, err := testutils.BuildTempModule(t, "examples/customresources/demos/complexmodule")
 	if err != nil {
 		return "", "", err
@@ -359,7 +359,7 @@ func touchFile(path string) error {
 }
 
 func TestValidationFailure(t *testing.T) {
-	logger, logs := golog.NewObservedTestLogger(t)
+	logger, logs := logging.NewObservedTestLogger(t)
 
 	// bad_modular_validation.json contains a "mybase" modular component that will
 	// fail modular Validation due to a missing "motorL" attribute.
@@ -375,7 +375,7 @@ func TestValidationFailure(t *testing.T) {
 		Args: []string{"-config", cfgFilename},
 		CWD:  utils.ResolveFile("./"),
 		Log:  true,
-	}, logger)
+	}, logger.AsZap())
 
 	err = server.Start(context.Background())
 	test.That(t, err, test.ShouldBeNil)

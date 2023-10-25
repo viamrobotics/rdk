@@ -9,13 +9,14 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
+
+	"go.viam.com/rdk/logging"
 )
 
 func BenchmarkNewFromFile(b *testing.B) {
-	logger := golog.NewTestLogger(b)
+	logger := logging.NewTestLogger(b)
 	for i := 0; i < b.N; i++ {
 		_, err := NewFromFile(artifact.MustPath("pointcloud/test.las"), logger)
 		test.That(b, err, test.ShouldBeNil)
@@ -23,7 +24,7 @@ func BenchmarkNewFromFile(b *testing.B) {
 }
 
 func TestNewFromFile(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	cloud, err := NewFromFile(artifact.MustPath("pointcloud/test.las"), logger)
 	test.That(t, err, test.ShouldBeNil)
 	numPoints := cloud.Size()
@@ -284,7 +285,7 @@ func testLargeBinaryNoError(t *testing.T) {
 }
 
 func TestRoundTripFileWithColorFloat(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	cloud := New()
 	test.That(t, cloud.Set(NewVector(-1, -2, 5), NewColoredData(color.NRGBA{255, 1, 2, 255}).SetValue(5)), test.ShouldBeNil)
 	test.That(t, cloud.Set(NewVector(582, 12, 0), NewColoredData(color.NRGBA{255, 1, 2, 255}).SetValue(-1)), test.ShouldBeNil)

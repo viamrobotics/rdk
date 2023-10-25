@@ -4,7 +4,6 @@ package base
 import (
 	"context"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/base/v1"
@@ -12,6 +11,7 @@ import (
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"go.viam.com/rdk/logging"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
@@ -24,7 +24,7 @@ type client struct {
 	resource.TriviallyCloseable
 	name   string
 	client pb.BaseServiceClient
-	logger golog.Logger
+	logger logging.Logger
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
@@ -33,7 +33,7 @@ func NewClientFromConn(
 	conn rpc.ClientConn,
 	remoteName string,
 	name resource.Name,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (Base, error) {
 	c := pb.NewBaseServiceClient(conn)
 	return &client{

@@ -7,9 +7,9 @@ import (
 	"image"
 	"math"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/rimage"
 )
 
@@ -38,7 +38,7 @@ type AlignConfig struct {
 }
 
 // ComputeWarpFromCommon TODO.
-func (config AlignConfig) ComputeWarpFromCommon(logger golog.Logger) (*AlignConfig, error) {
+func (config AlignConfig) ComputeWarpFromCommon(logger logging.Logger) (*AlignConfig, error) {
 	colorPoints, depthPoints, err := ImageAlign(
 		config.ColorInputSize,
 		config.ColorWarpPoints,
@@ -93,7 +93,7 @@ func ImageAlign(
 	img1Points []image.Point,
 	img2Size image.Point,
 	img2Points []image.Point,
-	logger golog.Logger,
+	logger logging.Logger,
 ) ([]image.Point, []image.Point, error) {
 	if len(img1Points) != 2 || len(img2Points) != 2 {
 		return nil, nil, errors.New("need exactly 2 matching points")

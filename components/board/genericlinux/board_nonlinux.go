@@ -7,8 +7,8 @@ package genericlinux
 import (
 	"context"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	"go.viam.com/rdk/logging"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/resource"
@@ -25,7 +25,7 @@ func RegisterBoard(modelName string, gpioMappings map[string]GPIOBoardMapping) {
 				ctx context.Context,
 				_ resource.Dependencies,
 				conf resource.Config,
-				logger golog.Logger,
+				logger logging.Logger,
 			) (board.Board, error) {
 				return nil, errors.New("linux boards are not supported on non-linux OSes")
 			},

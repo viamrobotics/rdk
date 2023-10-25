@@ -5,12 +5,12 @@ import (
 	"context"
 	"io"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 
 	pb "go.viam.com/rdk/examples/customresources/apis/proto/api/component/gizmo/v1"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 )
@@ -39,7 +39,7 @@ func init() {
 			conn rpc.ClientConn,
 			remoteName string,
 			name resource.Name,
-			logger golog.Logger,
+			logger logging.Logger,
 		) (Gizmo, error) {
 			return NewClientFromConn(conn, remoteName, name, logger), nil
 		},
@@ -190,12 +190,12 @@ func (s *serviceServer) DoCommand(ctx context.Context, req *pb.DoCommandRequest)
 }
 
 // NewClientFromConn creates a new gizmo RPC client from an existing connection.
-func NewClientFromConn(conn rpc.ClientConn, remoteName string, name resource.Name, logger golog.Logger) Gizmo {
+func NewClientFromConn(conn rpc.ClientConn, remoteName string, name resource.Name, logger logging.Logger) Gizmo {
 	sc := newSvcClientFromConn(conn, remoteName, name, logger)
 	return clientFromSvcClient(sc, name.ShortName())
 }
 
-func newSvcClientFromConn(conn rpc.ClientConn, remoteName string, name resource.Name, logger golog.Logger) *serviceClient {
+func newSvcClientFromConn(conn rpc.ClientConn, remoteName string, name resource.Name, logger logging.Logger) *serviceClient {
 	client := pb.NewGizmoServiceClient(conn)
 	sc := &serviceClient{
 		Named:  name.PrependRemote(remoteName).AsNamed(),
@@ -210,7 +210,7 @@ type serviceClient struct {
 	resource.AlwaysRebuild
 	resource.TriviallyCloseable
 	client pb.GizmoServiceClient
-	logger golog.Logger
+	logger logging.Logger
 }
 
 // client is an gripper client.

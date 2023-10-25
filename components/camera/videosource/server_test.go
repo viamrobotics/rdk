@@ -10,12 +10,12 @@ import (
 	"os"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"github.com/viamrobotics/gostream"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
@@ -57,7 +57,7 @@ func createTestRouter(t *testing.T) (*http.ServeMux, image.Image, []byte, image.
 }
 
 func TestServerSource(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	// intrinsics for the image
 	intrinsics := &transform.PinholeCameraIntrinsics{
 		Width:  128,
@@ -159,7 +159,7 @@ func TestServerSource(t *testing.T) {
 }
 
 func TestDualServerSource(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	router, _, expectedColorBytes, expectedDepth := createTestRouter(t)
 	svr := httptest.NewServer(router)
 	defer svr.Close()
@@ -216,7 +216,7 @@ func TestDualServerSource(t *testing.T) {
 }
 
 func TestServerError(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	//nolint:dogsled
 	router, _, _, _ := createTestRouter(t)
 	svr := httptest.NewServer(router)

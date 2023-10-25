@@ -13,7 +13,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 	"go.viam.com/utils/jwks"
@@ -21,6 +20,7 @@ import (
 	"go.viam.com/utils/rpc"
 	"golang.org/x/exp/slices"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	rutils "go.viam.com/rdk/utils"
@@ -81,7 +81,7 @@ type configData struct {
 	GlobalLogConfig     []GlobalLogConfig     `json:"global_log_configuration"`
 }
 
-func (c *Config) validateUniqueResource(logger golog.Logger, seenResources map[string]bool, name string) error {
+func (c *Config) validateUniqueResource(logger logging.Logger, seenResources map[string]bool, name string) error {
 	if _, exists := seenResources[name]; exists {
 		errString := errors.Errorf("duplicate resource %s in robot config", name)
 		if c.DisablePartialStart {
@@ -94,7 +94,7 @@ func (c *Config) validateUniqueResource(logger golog.Logger, seenResources map[s
 }
 
 // Ensure ensures all parts of the config are valid.
-func (c *Config) Ensure(fromCloud bool, logger golog.Logger) error {
+func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 	seenResources := make(map[string]bool)
 
 	if c.Cloud != nil {
