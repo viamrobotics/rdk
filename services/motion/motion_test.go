@@ -1273,7 +1273,7 @@ func TestMoveOnGlobeReq(t *testing.T) {
 					Destination: &commonpb.GeoPoint{Latitude: 1, Longitude: 2},
 				},
 				result: MoveOnGlobeReq{},
-				err:    errors.New("received nil *commonpb.ResourceName"),
+				err:    errors.New("received nil *commonpb.ResourceName for component name"),
 			},
 			{
 				description: "an empty movement sensor name returns an error",
@@ -1282,7 +1282,7 @@ func TestMoveOnGlobeReq(t *testing.T) {
 					ComponentName: rprotoutils.ResourceNameToProto(mybase),
 				},
 				result: MoveOnGlobeReq{},
-				err:    errors.New("received nil *commonpb.ResourceName"),
+				err:    errors.New("received nil *commonpb.ResourceName for movement sensor name"),
 			},
 			{
 				description: "an empty *pb.MoveOnGlobeNewRequest returns an empty MoveOnGlobeReq",

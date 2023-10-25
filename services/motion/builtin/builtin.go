@@ -249,6 +249,47 @@ func (ms *builtIn) MoveOnMap(
 	return true, nil
 }
 
+type validatedExtra struct {
+	maxReplans       int
+	replanCostFactor float64
+	motionProfile    string
+	extra            map[string]interface{}
+}
+
+func newValidatedExtra(extra map[string]interface{}) (validatedExtra, error) {
+	maxReplans := -1
+	replanCostFactor := defaultReplanCostFactor
+	motionProfile := ""
+	v := validatedExtra{}
+	if extra == nil {
+		return v, nil
+	}
+	if replansRaw, ok := extra["max_replans"]; ok {
+		if replans, ok := replansRaw.(int); ok {
+			maxReplans = replans
+		}
+	}
+	if profile, ok := extra["motion_profile"]; ok {
+		motionProfile, ok = profile.(string)
+		if !ok {
+			return v, errors.New("could not interpret motion_profile field as string")
+		}
+	}
+	if costFactorRaw, ok := extra["replan_cost_factor"]; ok {
+		costFactor, ok := costFactorRaw.(float64)
+		if !ok {
+			return validatedExtra{}, errors.New("could not interpret replan_cost_factor field as float")
+		}
+		replanCostFactor = costFactor
+	}
+	return validatedExtra{
+		maxReplans:       maxReplans,
+		motionProfile:    motionProfile,
+		replanCostFactor: replanCostFactor,
+		extra:            extra,
+	}, nil
+}
+
 // MoveOnGlobe will move the given component to the given destination on the globe.
 // Bases are the only component that supports this.
 func (ms *builtIn) MoveOnGlobe(
@@ -272,33 +313,17 @@ func (ms *builtIn) MoveOnGlobe(
 		extra,
 	)
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
-
-	// ensure arguments are well behaved
-	if motionCfg == nil {
-		motionCfg = &motion.MotionConfiguration{}
-	}
-	if obstacles == nil {
-		obstacles = []*spatialmath.GeoObstacle{}
-	}
-	if destination == nil {
-		return false, errors.New("destination cannot be nil")
-	}
-
-	mr, err := ms.newMoveOnGlobeRequest(ctx, componentName, destination, movementSensorName, obstacles, motionCfg, nil, extra)
+	validatedExtra, err := newValidatedExtra(extra)
 	if err != nil {
 		return false, err
 	}
 
-	maxReplans := -1
-	replanCount := 0
-	if extra != nil {
-		if replansRaw, ok := extra["max_replans"]; ok {
-			if replans, ok := replansRaw.(int); ok {
-				maxReplans = replans
-			}
-		}
+	mr, err := ms.newMoveOnGlobeRequest(ctx, componentName, destination, movementSensorName, obstacles, motionCfg, nil, validatedExtra)
+	if err != nil {
+		return false, err
 	}
 
+	replanCount := 0
 	// start a loop that plans every iteration and exits when something is read from the success channel
 	for {
 		ma := newMoveAttempt(ctx, mr)
@@ -343,14 +368,14 @@ func (ms *builtIn) MoveOnGlobe(
 			ms.logger.Info("obstacle detection triggering a replan")
 		}
 
-		if maxReplans >= 0 {
+		if validatedExtra.maxReplans >= 0 {
 			replanCount++
-			if replanCount > maxReplans {
-				return false, fmt.Errorf("exceeded maximum number of replans: %d", maxReplans)
+			if replanCount > validatedExtra.maxReplans {
+				return false, fmt.Errorf("exceeded maximum number of replans: %d", validatedExtra.maxReplans)
 			}
 		}
 		// TODO: RSDK-4509 obstacles should include any transient obstacles which may have triggered a replan, if any.
-		mr, err = ms.newMoveOnGlobeRequest(ctx, componentName, destination, movementSensorName, obstacles, motionCfg, mr.seedPlan, extra)
+		mr, err = ms.newMoveOnGlobeRequest(ctx, componentName, destination, movementSensorName, obstacles, motionCfg, mr.seedPlan, validatedExtra)
 		if err != nil {
 			return false, err
 		}
