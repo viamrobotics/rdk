@@ -3,7 +3,6 @@ package fake
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"sync"
 	"time"
@@ -104,7 +103,6 @@ func (m *Motor) Reconfigure(ctx context.Context, deps resource.Dependencies, con
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	newConf, err := resource.NativeConfig[*Config](conf)
-	fmt.Println("DBG. Err:", err)
 	if err != nil {
 		return err
 	}
