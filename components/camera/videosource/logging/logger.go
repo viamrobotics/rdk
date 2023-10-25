@@ -312,7 +312,7 @@ func (l *Logger) write(title string, m InfoMap) {
 
 	t.AppendFooter(table.Row{time.Now().UTC().Format(time.RFC3339)})
 	l.logger.Info(t.Render())
-	l.logger.Info("")
+	l.logger.Info()
 }
 
 func (l *Logger) logError(err error, msg string) {
