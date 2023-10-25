@@ -578,7 +578,7 @@ func CheckPlan(
 			modifiedSegment := &ik.State{Frame: sf, Position: poseInPath}
 			// check the state of the robot for collision
 			if isValid, _ := sfPlanner.planOpts.CheckStateConstraints(modifiedSegment); !isValid {
-				return fmt.Errorf("found collsion between positions %v and %v", currentPose.Point(), poseInPath.Point())
+				return fmt.Errorf("found collsion between positions %v and %v", currentPose.Point(), nextPose.Point())
 			}
 		}
 	}
