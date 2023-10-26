@@ -692,6 +692,7 @@ func (pm *planManager) planToRRTGoalMap(plan Plan, goal spatialmath.Pose) (*rrtM
 
 	return maps, nil
 }
+
 // Copy any atomic values.
 func deepAtomicCopyMap(opt map[string]interface{}) map[string]interface{} {
 	optCopy := map[string]interface{}{}
