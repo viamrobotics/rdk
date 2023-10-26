@@ -78,6 +78,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 	goalPos spatialmath.Pose,
 	worldState *referenceframe.WorldState,
 	constraintSpec *pb.Constraints,
+	seedPlan Plan,
 	motionConfig map[string]interface{},
 ) ([][]referenceframe.Input, error) {
 	seed, err := pm.frame.mapToSlice(seedMap)
@@ -120,6 +121,11 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 
 	if len(constraintSpec.GetLinearConstraint()) > 0 {
 		subWaypoints = true
+	}
+
+	// If we are seeding off of a pre-existing plan, we don't need the speedup of subwaypoints
+	if seedPlan != nil {
+		subWaypoints = false
 	}
 
 	if subWaypoints {
@@ -180,7 +186,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 		}
 	}
 
-	resultSlices, err := pm.planAtomicWaypoints(ctx, goals, seed, planners)
+	resultSlices, err := pm.planAtomicWaypoints(ctx, goals, seed, planners, seedPlan)
 	pm.activeBackgroundWorkers.Wait()
 	if err != nil {
 		if len(goals) > 1 {
@@ -199,7 +205,9 @@ func (pm *planManager) planAtomicWaypoints(
 	goals []spatialmath.Pose,
 	seed []referenceframe.Input,
 	planners []motionPlanner,
+	seedPlan Plan,
 ) ([][]referenceframe.Input, error) {
+	var err error
 	// A resultPromise can be queried in the future and will eventually yield either a set of planner waypoints, or an error.
 	// Each atomic waypoint produces one result promise, all of which are resolved at the end, allowing multiple to be solved in parallel.
 	resultPromises := []*resultPromise{}
@@ -214,8 +222,16 @@ func (pm *planManager) planAtomicWaypoints(
 		}
 
 		pathPlanner := planners[i]
+		
+		var maps *rrtMaps
+		if seedPlan != nil {
+			maps, err = pm.planToRRTGoalMap(seedPlan)
+			if err != nil {
+				return nil, err
+			}
+		}
 		// Plan the single waypoint, and accumulate objects which will be used to constrauct the plan after all planning has finished
-		newseed, future, err := pm.planSingleAtomicWaypoint(ctx, goal, seed, pathPlanner, nil)
+		newseed, future, err := pm.planSingleAtomicWaypoint(ctx, goal, seed, pathPlanner, maps)
 		if err != nil {
 			return nil, err
 		}
@@ -611,6 +627,53 @@ func (pm *planManager) goodPlan(pr *rrtPlanReturn, opt *plannerOptions) (bool, f
 
 	return false, solutionCost
 }
+
+func (pm *planManager) planToRRTGoalMap(plan Plan) (*rrtMaps, error) {
+	var err error
+	
+	planNodes := make([]node, 0, len(plan))
+	// Build a list of nodes from the plan
+	for _, planStep := range plan {
+		conf, err := pm.frame.mapToSlice(planStep)
+		if err != nil {
+			return nil, err
+		}
+		planNodes = append(planNodes, newConfigurationNode(conf))
+	}
+	
+	if pm.useTPspace {
+		// Fill in costs and positions
+		planNodes, err = rectifyTPspacePath(planNodes, pm.frame, spatialmath.NewZeroPose())
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		// Fill in costs
+		for i := 1; i < len(planNodes); i++ {
+			cost := pm.opt().DistanceFunc(&ik.Segment{
+				StartConfiguration: planNodes[i-1].Q(),
+				EndConfiguration: planNodes[i].Q(),
+				Frame: pm.frame,
+			})
+			planNodes[i].SetCost(cost)
+		}
+	}
+	
+	var lastNode node
+	goalMap := map[node]node{}
+	for i := len(planNodes) - 1 ; i >= 0; i-- {
+		goalMap[planNodes[i]] = lastNode
+		lastNode = planNodes[i]
+	}
+	
+	maps := &rrtMaps{
+		startMap: map[node]node{},
+		goalMap:  goalMap,
+	}
+	
+	return maps, nil
+}
+
 
 // Copy any atomic values.
 func deepAtomicCopyMap(opt map[string]interface{}) map[string]interface{} {
