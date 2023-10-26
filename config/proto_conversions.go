@@ -49,6 +49,7 @@ func FromProto(proto *pb.RobotConfig, logger logging.Logger) (*Config, error) {
 	if proto.DisablePartialStart != nil {
 		disablePartialStart = *proto.DisablePartialStart
 	}
+
 	cfg.Modules, err = toRDKSlice(proto.Modules, ModuleConfigFromProto, disablePartialStart, logger)
 	if err != nil {
 		return nil, errors.Wrap(err, "error converting modules config from proto")
@@ -250,6 +251,12 @@ func ModuleConfigToProto(module *Module) (*pb.ModuleConfig, error) {
 
 // ModuleConfigFromProto creates Module from the proto equivalent.
 func ModuleConfigFromProto(proto *pb.ModuleConfig) (*Module, error) {
+
+	statusProto := proto.GetStatus()
+	status := AppValidationStatus{
+		Error: statusProto.GetError(),
+	}
+
 	module := Module{
 		Name:        proto.GetName(),
 		ExePath:     proto.GetPath(),
@@ -257,6 +264,7 @@ func ModuleConfigFromProto(proto *pb.ModuleConfig) (*Module, error) {
 		Type:        ModuleType(proto.GetType()),
 		ModuleID:    proto.GetModuleId(),
 		Environment: proto.GetEnv(),
+		Status:      status,
 	}
 	return &module, nil
 }
@@ -842,11 +850,18 @@ func PackageConfigToProto(cfg *PackageConfig) (*pb.PackageConfig, error) {
 
 // PackageConfigFromProto converts a proto package config to the rdk version.
 func PackageConfigFromProto(proto *pb.PackageConfig) (*PackageConfig, error) {
+
+	statusProto := proto.GetStatus()
+	status := AppValidationStatus{
+		Error: statusProto.GetError(),
+	}
+
 	return &PackageConfig{
 		Name:    proto.Name,
 		Package: proto.Package,
 		Version: proto.Version,
 		Type:    PackageType(proto.Type),
+		Status:  status,
 	}, nil
 }
 

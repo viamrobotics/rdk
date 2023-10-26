@@ -81,6 +81,10 @@ type configData struct {
 	GlobalLogConfig     []GlobalLogConfig     `json:"global_log_configuration"`
 }
 
+type AppValidationStatus struct {
+	Error string `bson:"error"`
+}
+
 func (c *Config) validateUniqueResource(logger logging.Logger, seenResources map[string]bool, name string) error {
 	if _, exists := seenResources[name]; exists {
 		errString := errors.Errorf("duplicate resource %s in robot config", name)
@@ -936,12 +940,19 @@ type PackageConfig struct {
 	// Types of the Package. If not specified it is assumed to be ml_model.
 	Type PackageType `json:"type,omitempty"`
 
+	Status AppValidationStatus `json:"status,omitempty"`
+
 	alreadyValidated bool
 	cachedErr        error
 }
 
 // Validate package config is valid.
 func (p *PackageConfig) Validate(path string) error {
+
+	if p.Status.Error != "" {
+		return errors.New(p.Status.Error)
+	}
+
 	if p.alreadyValidated {
 		return p.cachedErr
 	}
