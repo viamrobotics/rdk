@@ -392,7 +392,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	}
 
 	obstacleDetectors := make(map[vision.Service][]resource.Name)
-	for _, obstacleDetectorNamePair := range motionCfg.ObstacleDetectors {
+	for _, obstacleDetectorNamePair := range motionCfg.obstacleDetectors {
 		// get vision service
 		visionServiceName := obstacleDetectorNamePair.VisionServiceName
 		visionSvc, ok := ms.visionServices[visionServiceName]
