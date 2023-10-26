@@ -187,7 +187,6 @@ func (conf Config) Equals(other Config) bool {
 	other.cachedImplicitDeps = nil
 	other.cachedErr = nil
 
-	// RSDK-4657: Only compare `Config.Attributes` for equality.
 	conf.ConvertedAttributes = nil
 	other.ConvertedAttributes = nil
 
