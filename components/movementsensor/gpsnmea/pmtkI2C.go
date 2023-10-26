@@ -67,7 +67,7 @@ func makePmtkI2cGpsNmea(
 	i2cbus board.I2C,
 ) (NmeaMovementSensor, error) {
 	if i2cbus == nil {
-		err error
+		var err error
 		i2cbus, err = genericlinux.GetI2CBus(deps, "", "", conf.I2CConfig.I2CBus)
 		if err != nil {
 			return nil, fmt.Errorf("gps init: failed to find i2c bus %s: %w",
