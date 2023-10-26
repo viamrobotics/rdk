@@ -187,9 +187,6 @@ func (conf Config) Equals(other Config) bool {
 	other.cachedImplicitDeps = nil
 	other.cachedErr = nil
 
-	conf.ConvertedAttributes = nil
-	other.ConvertedAttributes = nil
-
 	//nolint:govet
 	return reflect.DeepEqual(conf, other)
 }
