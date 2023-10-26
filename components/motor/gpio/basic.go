@@ -145,22 +145,23 @@ func (m *Motor) turnOff(ctx context.Context, extra map[string]interface{}) error
 	m.powerPct = 0.0
 	m.on = false
 	if m.EnablePinLow != nil {
-		errs = multierr.Combine(errs, m.EnablePinLow.Set(ctx, true, extra))
+		enLowErr := errors.Wrap(m.EnablePinLow.Set(ctx, true, extra), "unable to disable low signal")
+		errs = multierr.Combine(errs, enLowErr)
 	}
 	if m.EnablePinHigh != nil {
-		errs = multierr.Combine(errs, m.EnablePinHigh.Set(ctx, false, extra))
+		enHighErr := errors.Wrap(m.EnablePinLow.Set(ctx, true, extra), "unable to disable high signal")
+		errs = multierr.Combine(errs, enHighErr)
 	}
 
 	if m.A != nil && m.B != nil {
-		errs = multierr.Combine(
-			errs,
-			m.A.Set(ctx, false, extra),
-			m.B.Set(ctx, false, extra),
-		)
+		aErr := errors.Wrap(m.A.Set(ctx, false, extra), "could not set A pin to low")
+		bErr := errors.Wrap(m.B.Set(ctx, false, extra), "could not set B pin to low")
+		errs = multierr.Combine(errs, aErr, bErr)
 	}
 
 	if m.PWM != nil {
-		errs = multierr.Combine(errs, m.PWM.Set(ctx, false, extra))
+		pwmErr := errors.Wrap(m.PWM.Set(ctx, false, extra), "could not set PWM pin to low")
+		errs = multierr.Combine(errs, pwmErr)
 	}
 	return errs
 }
