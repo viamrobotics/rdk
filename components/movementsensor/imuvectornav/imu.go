@@ -299,7 +299,7 @@ func (vn *vectornav) Properties(ctx context.Context, extra map[string]interface{
 }
 
 func (vn *vectornav) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-	return movementsensor.Readings(ctx, vn, extra)
+	return movementsensor.DefaultAPIReadings(ctx, vn, extra)
 }
 
 func (vn *vectornav) getReadings(ctx context.Context) error {

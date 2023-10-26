@@ -102,8 +102,8 @@ func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesByAPI(r, API)
 }
 
-// Readings is a helper for getting all readings from a MovementSensor.
-func Readings(ctx context.Context, g MovementSensor, extra map[string]interface{}) (map[string]interface{}, error) {
+// DefaultAPIReadings is a helper for getting all readings from a MovementSensor.
+func DefaultAPIReadings(ctx context.Context, g MovementSensor, extra map[string]interface{}) (map[string]interface{}, error) {
 	readings := map[string]interface{}{}
 
 	pos, altitude, err := g.Position(ctx, extra)
