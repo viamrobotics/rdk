@@ -183,7 +183,7 @@ func NewLoggerFromArgs(moduleName string) logging.Logger {
 	if len(os.Args) >= 3 && os.Args[2] == "--log-level=debug" {
 		return logging.NewDebugLogger(moduleName)
 	}
-	return logging.NewDevelopmentLogger(moduleName)
+	return logging.NewLogger(moduleName)
 }
 
 // Start starts the module service and grpc server.

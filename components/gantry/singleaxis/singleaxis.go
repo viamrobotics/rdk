@@ -24,7 +24,11 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-var model = resource.DefaultModelFamily.WithModel("single-axis")
+var (
+	model = resource.DefaultModelFamily.WithModel("single-axis")
+	// homingTimeout (nanoseconds) is calculated using the gantry's rpm, mmPerRevolution, and lengthMm.
+	homingTimeout = time.Duration(15e9)
+)
 
 // limitErrorMargin is added or subtracted from the location of the limit switch to ensure the switch is not passed.
 const limitErrorMargin = 0.25
@@ -424,6 +428,9 @@ func (g *singleAxis) testLimit(ctx context.Context, pin int) (float64, error) {
 		return 0, err
 	}
 
+	// short sleep to allow pin number to switch correctly
+	time.Sleep(100 * time.Millisecond)
+
 	start := time.Now()
 	for {
 		hit, err := g.limitHit(ctx, pin)
@@ -454,9 +461,14 @@ func (g *singleAxis) testLimit(ctx context.Context, pin int) (float64, error) {
 				wrongPin)
 		}
 
-		elapsed := start.Sub(start)
-		if elapsed > (time.Second * 15) {
-			return 0, errors.New("gantry timed out testing limit")
+		elapsed := time.Since(start)
+		// if the parameters checked are non-zero, calculate a timeout with a safety factor of
+		// 5 to complete the gantry's homing sequence to find the limit switches
+		if g.mmPerRevolution != 0 && g.rpm != 0 && g.lengthMm != 0 {
+			homingTimeout = time.Duration((1 / (g.rpm / 60e9 * g.mmPerRevolution / g.lengthMm) * 5))
+		}
+		if elapsed > (homingTimeout) {
+			return 0, errors.Errorf("gantry timed out testing limit, timeout = %v", homingTimeout)
 		}
 
 		if !utils.SelectContextOrWait(ctx, time.Millisecond*10) {

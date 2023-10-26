@@ -25,9 +25,21 @@ const (
 	defaultMaxReplans       = -1 // Values below zero will replan infinitely
 )
 
+// validatedMotionConfiguration is a copy of the motion.MotionConfiguration type
+// which has been validated to conform to the expectations of the builtin
+// motion servicl.
+type validatedMotionConfiguration struct {
+	obstacleDetectors     []motion.ObstacleDetectorName
+	positionPollingFreqHz float64
+	obstaclePollingFreqHz float64
+	planDeviationMM       float64
+	linearMPerSec         float64
+	angularDegsPerSec     float64
+}
+
 // moveRequest is a structure that contains all the information necessary for to make a move call.
 type moveRequest struct {
-	config            *motion.MotionConfiguration
+	config            *validatedMotionConfiguration
 	planRequest       *motionplan.PlanRequest
 	seedPlan          motionplan.Plan
 	kinematicBase     kinematicbase.KinematicBase
@@ -96,8 +108,8 @@ func (mr *moveRequest) deviatedFromPlan(ctx context.Context, waypoints [][]refer
 	if err != nil {
 		return false, err
 	}
-	mr.planRequest.Logger.Debugf("deviation from plan: %v", errorState.Point())
-	return errorState.Point().Norm() > mr.config.PlanDeviationMM, nil
+	mr.planRequest.Logger.Debug("deviation from plan: %v", errorState.Point())
+	return errorState.Point().Norm() > mr.config.planDeviationMM, nil
 }
 
 func (mr *moveRequest) obstaclesIntersectPlan(ctx context.Context, waypoints [][]referenceframe.Input, waypointIndex int) (bool, error) {
@@ -183,6 +195,86 @@ func (mr *moveRequest) obstaclesIntersectPlan(ctx context.Context, waypoints [][
 	return false, nil
 }
 
+func kbOptionsFromCfg(motionCfg validatedMotionConfiguration, validatedExtra validatedExtra) kinematicbase.Options {
+	kinematicsOptions := kinematicbase.NewKinematicBaseOptions()
+
+	if motionCfg.linearMPerSec > 0 {
+		kinematicsOptions.LinearVelocityMMPerSec = motionCfg.linearMPerSec * 1000
+	}
+
+	if motionCfg.angularDegsPerSec > 0 {
+		kinematicsOptions.AngularVelocityDegsPerSec = motionCfg.angularDegsPerSec
+	}
+
+	if motionCfg.planDeviationMM > 0 {
+		kinematicsOptions.PlanDeviationThresholdMM = motionCfg.planDeviationMM
+	}
+
+	if validatedExtra.motionProfile != "" {
+		kinematicsOptions.PositionOnlyMode = validatedExtra.motionProfile == motionplan.PositionOnlyMotionProfile
+	}
+
+	kinematicsOptions.GoalRadiusMM = motionCfg.planDeviationMM
+	kinematicsOptions.HeadingThresholdDegrees = 8
+	return kinematicsOptions
+}
+
+func validateNotNan(f float64, name string) error {
+	if math.IsNaN(f) {
+		return errors.Errorf("%s may not be NaN", name)
+	}
+	return nil
+}
+
+func validateNotNeg(f float64, name string) error {
+	if f < 0 {
+		return errors.Errorf("%s may not be negative", name)
+	}
+	return nil
+}
+
+func validateNotNegNorNaN(f float64, name string) error {
+	if err := validateNotNan(f, name); err != nil {
+		return err
+	}
+	return validateNotNeg(f, name)
+}
+
+func newValidatedMotionCfg(motionCfg *motion.MotionConfiguration) (validatedMotionConfiguration, error) {
+	vmc := validatedMotionConfiguration{}
+	if motionCfg == nil {
+		return vmc, nil
+	}
+
+	if err := validateNotNegNorNaN(motionCfg.LinearMPerSec, "LinearMPerSec"); err != nil {
+		return vmc, err
+	}
+
+	if err := validateNotNegNorNaN(motionCfg.AngularDegsPerSec, "AngularDegsPerSec"); err != nil {
+		return vmc, err
+	}
+
+	if err := validateNotNegNorNaN(motionCfg.PlanDeviationMM, "PlanDeviationMM"); err != nil {
+		return vmc, err
+	}
+
+	if err := validateNotNegNorNaN(motionCfg.ObstaclePollingFreqHz, "ObstaclePollingFreqHz"); err != nil {
+		return vmc, err
+	}
+
+	if err := validateNotNegNorNaN(motionCfg.PositionPollingFreqHz, "PositionPollingFreqHz"); err != nil {
+		return vmc, err
+	}
+
+	vmc.linearMPerSec = motionCfg.LinearMPerSec
+	vmc.angularDegsPerSec = motionCfg.AngularDegsPerSec
+	vmc.planDeviationMM = motionCfg.PlanDeviationMM
+	vmc.obstaclePollingFreqHz = motionCfg.ObstaclePollingFreqHz
+	vmc.positionPollingFreqHz = motionCfg.PositionPollingFreqHz
+	vmc.obstacleDetectors = motionCfg.ObstacleDetectors
+	return vmc, nil
+}
+
 // newMoveOnGlobeRequest instantiates a moveRequest intended to be used in the context of a MoveOnGlobe call.
 func (ms *builtIn) newMoveOnGlobeRequest(
 	ctx context.Context,
@@ -190,23 +282,28 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	destination *geo.Point,
 	movementSensorName resource.Name,
 	obstacles []*spatialmath.GeoObstacle,
-	motionCfg *motion.MotionConfiguration,
+	rawMotionCfg *motion.MotionConfiguration,
 	seedPlan motionplan.Plan,
-	extra map[string]interface{},
+	validatedExtra validatedExtra,
 ) (*moveRequest, error) {
+	motionCfg, err := newValidatedMotionCfg(rawMotionCfg)
+	if err != nil {
+		return nil, err
+	}
+	// ensure arguments are well behaved
+	if obstacles == nil {
+		obstacles = []*spatialmath.GeoObstacle{}
+	}
+	if destination == nil {
+		return nil, errors.New("destination cannot be nil")
+	}
+
+	if math.IsNaN(destination.Lat()) || math.IsNaN(destination.Lng()) {
+		return nil, errors.New("destination may not contain NaN")
+	}
+
 	// build kinematic options
-	kinematicsOptions := kinematicbase.NewKinematicBaseOptions()
-	if motionCfg.LinearMPerSec != 0 {
-		kinematicsOptions.LinearVelocityMMPerSec = motionCfg.LinearMPerSec * 1000
-	}
-	if motionCfg.AngularDegsPerSec != 0 {
-		kinematicsOptions.AngularVelocityDegsPerSec = motionCfg.AngularDegsPerSec
-	}
-	if motionCfg.PlanDeviationMM != 0 {
-		kinematicsOptions.PlanDeviationThresholdMM = motionCfg.PlanDeviationMM
-	}
-	kinematicsOptions.GoalRadiusMM = motionCfg.PlanDeviationMM
-	kinematicsOptions.HeadingThresholdDegrees = 8
+	kinematicsOptions := kbOptionsFromCfg(motionCfg, validatedExtra)
 
 	// build the localizer from the movement sensor
 	movementSensor, ok := ms.movementSensors[movementSensorName]
@@ -294,24 +391,6 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 		return nil, err
 	}
 
-	replanCostFactor := defaultReplanCostFactor
-	if extra != nil {
-		if profile, ok := extra["motion_profile"]; ok {
-			motionProfile, ok := profile.(string)
-			if !ok {
-				return nil, errors.New("could not interpret motion_profile field as string")
-			}
-			kinematicsOptions.PositionOnlyMode = motionProfile == motionplan.PositionOnlyMotionProfile
-		}
-		if costFactorRaw, ok := extra["replan_cost_factor"]; ok {
-			costFactor, ok := costFactorRaw.(float64)
-			if !ok {
-				return nil, errors.New("could not interpret replan_cost_factor field as float")
-			}
-			replanCostFactor = costFactor
-		}
-	}
-
 	obstacleDetectors := make(map[vision.Service][]resource.Name)
 	for _, obstacleDetectorNamePair := range motionCfg.ObstacleDetectors {
 		// get vision service
@@ -337,7 +416,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	}
 
 	return &moveRequest{
-		config: motionCfg,
+		config: &motionCfg,
 		planRequest: &motionplan.PlanRequest{
 			Logger:             ms.logger,
 			Goal:               goal,
@@ -345,11 +424,11 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 			FrameSystem:        baseOnlyFS,
 			StartConfiguration: currentInputs,
 			WorldState:         worldState,
-			Options:            extra,
+			Options:            validatedExtra.extra,
 		},
 		kinematicBase:     kb,
 		seedPlan:          seedPlan,
-		replanCostFactor:  replanCostFactor,
+		replanCostFactor:  validatedExtra.replanCostFactor,
 		obstacleDetectors: obstacleDetectors,
 	}, nil
 }

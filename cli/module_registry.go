@@ -743,7 +743,7 @@ func sameModels(a, b []ModuleComponent) bool {
 
 // UpdateModelsAction figures out the models that a module supports and updates it's metadata file.
 func UpdateModelsAction(c *cli.Context) error {
-	logger := logging.NewDevelopmentLogger("x")
+	logger := logging.NewLogger("x")
 	newModels, err := readModels(c.String("binary"), logger)
 	if err != nil {
 		return err

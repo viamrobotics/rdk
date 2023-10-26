@@ -62,19 +62,23 @@ const defaultCaptureQueueSize = 250
 // Default bufio.Writer buffer size in bytes.
 const defaultCaptureBufferSize = 4096
 
+// Default time to wait in milliseconds to check if a file has been modified.
+const defaultFileLastModifiedMillis = 10000.0
+
 var clock = clk.New()
 
 var errCaptureDirectoryConfigurationDisabled = errors.New("changing the capture directory is prohibited in this environment")
 
 // Config describes how to configure the service.
 type Config struct {
-	CaptureDir            string                           `json:"capture_dir"`
-	AdditionalSyncPaths   []string                         `json:"additional_sync_paths"`
-	SyncIntervalMins      float64                          `json:"sync_interval_mins"`
-	CaptureDisabled       bool                             `json:"capture_disabled"`
-	ScheduledSyncDisabled bool                             `json:"sync_disabled"`
-	Tags                  []string                         `json:"tags"`
-	ResourceConfigs       []*datamanager.DataCaptureConfig `json:"resource_configs"`
+	CaptureDir             string                           `json:"capture_dir"`
+	AdditionalSyncPaths    []string                         `json:"additional_sync_paths"`
+	SyncIntervalMins       float64                          `json:"sync_interval_mins"`
+	CaptureDisabled        bool                             `json:"capture_disabled"`
+	ScheduledSyncDisabled  bool                             `json:"sync_disabled"`
+	Tags                   []string                         `json:"tags"`
+	ResourceConfigs        []*datamanager.DataCaptureConfig `json:"resource_configs"`
+	FileLastModifiedMillis int                              `json:"file_last_modified_millis"`
 }
 
 // Validate returns components which will be depended upon weakly due to the above matcher.
@@ -85,13 +89,13 @@ func (c *Config) Validate(path string) ([]string, error) {
 // builtIn initializes and orchestrates data capture collectors for registered component/methods.
 type builtIn struct {
 	resource.Named
-	logger                      logging.Logger
-	captureDir                  string
-	captureDisabled             bool
-	collectors                  map[resourceMethodMetadata]*collectorAndConfig
-	lock                        sync.Mutex
-	backgroundWorkers           sync.WaitGroup
-	waitAfterLastModifiedMillis int
+	logger                 logging.Logger
+	captureDir             string
+	captureDisabled        bool
+	collectors             map[resourceMethodMetadata]*collectorAndConfig
+	lock                   sync.Mutex
+	backgroundWorkers      sync.WaitGroup
+	fileLastModifiedMillis int
 
 	additionalSyncPaths []string
 	tags                []string
@@ -115,15 +119,15 @@ func NewBuiltIn(
 	logger logging.Logger,
 ) (datamanager.Service, error) {
 	svc := &builtIn{
-		Named:                       conf.ResourceName().AsNamed(),
-		logger:                      logger,
-		captureDir:                  viamCaptureDotDir,
-		collectors:                  make(map[resourceMethodMetadata]*collectorAndConfig),
-		syncIntervalMins:            0,
-		additionalSyncPaths:         []string{},
-		tags:                        []string{},
-		waitAfterLastModifiedMillis: 10000,
-		syncerConstructor:           datasync.NewManager,
+		Named:                  conf.ResourceName().AsNamed(),
+		logger:                 logger,
+		captureDir:             viamCaptureDotDir,
+		collectors:             make(map[resourceMethodMetadata]*collectorAndConfig),
+		syncIntervalMins:       0,
+		additionalSyncPaths:    []string{},
+		tags:                   []string{},
+		fileLastModifiedMillis: defaultFileLastModifiedMillis,
+		syncerConstructor:      datasync.NewManager,
 	}
 
 	if err := svc.Reconfigure(ctx, deps, conf); err != nil {
@@ -413,11 +417,17 @@ func (svc *builtIn) Reconfigure(
 	svc.collectors = newCollectors
 	svc.additionalSyncPaths = svcConfig.AdditionalSyncPaths
 
+	fileLastModifiedMillis := svcConfig.FileLastModifiedMillis
+	if fileLastModifiedMillis <= 0 {
+		fileLastModifiedMillis = defaultFileLastModifiedMillis
+	}
+
 	if svc.syncDisabled != svcConfig.ScheduledSyncDisabled || svc.syncIntervalMins != svcConfig.SyncIntervalMins ||
-		!reflect.DeepEqual(svc.tags, svcConfig.Tags) {
+		!reflect.DeepEqual(svc.tags, svcConfig.Tags) || svc.fileLastModifiedMillis != fileLastModifiedMillis {
 		svc.syncDisabled = svcConfig.ScheduledSyncDisabled
 		svc.syncIntervalMins = svcConfig.SyncIntervalMins
 		svc.tags = svcConfig.Tags
+		svc.fileLastModifiedMillis = fileLastModifiedMillis
 
 		svc.cancelSyncScheduler()
 		if !svc.syncDisabled && svc.syncIntervalMins != 0.0 {
@@ -497,9 +507,9 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 
 func (svc *builtIn) sync() {
 	svc.flushCollectors()
-	toSync := getAllFilesToSync(svc.captureDir, svc.waitAfterLastModifiedMillis)
+	toSync := getAllFilesToSync(svc.captureDir, svc.fileLastModifiedMillis)
 	for _, ap := range svc.additionalSyncPaths {
-		toSync = append(toSync, getAllFilesToSync(ap, svc.waitAfterLastModifiedMillis)...)
+		toSync = append(toSync, getAllFilesToSync(ap, svc.fileLastModifiedMillis)...)
 	}
 	for _, p := range toSync {
 		svc.syncer.SyncFile(p)
@@ -520,7 +530,7 @@ func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 		if info.IsDir() {
 			return nil
 		}
-		// If a file was modified within the past lastModifiedMillis seconds, do not sync it (data
+		// If a file was modified within the past lastModifiedMillis, do not sync it (data
 		// may still be being written).
 		timeSinceMod := clock.Since(info.ModTime())
 		// When using a mock clock in tests, this can be negative since the file system will still use the system clock.
@@ -528,7 +538,12 @@ func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 		if timeSinceMod < 0 {
 			timeSinceMod = 0
 		}
-		if timeSinceMod >= (time.Duration(lastModifiedMillis)*time.Millisecond) || filepath.Ext(path) == datacapture.FileExt {
+		isStuckInProgressCaptureFile := filepath.Ext(path) == datacapture.InProgressFileExt &&
+			timeSinceMod >= defaultFileLastModifiedMillis*time.Millisecond
+		isNonCaptureFileThatIsNotBeingWrittenTo := filepath.Ext(path) != datacapture.InProgressFileExt &&
+			timeSinceMod >= time.Duration(lastModifiedMillis)*time.Millisecond
+		isCompletedCaptureFile := filepath.Ext(path) == datacapture.FileExt
+		if isCompletedCaptureFile || isStuckInProgressCaptureFile || isNonCaptureFileThatIsNotBeingWrittenTo {
 			filePaths = append(filePaths, path)
 		}
 		return nil

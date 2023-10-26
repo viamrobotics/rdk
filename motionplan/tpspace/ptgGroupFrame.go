@@ -154,6 +154,7 @@ func NewPTGFrameFromKinematicOptions(
 
 // NewPTGFrameFromPTGFrame will create a new Frame from a preexisting ptgGroupFrame, allowing the adjustment of `refDist` while keeping
 // other params the same. This may be expanded to allow altering turning radius, geometries, etc.
+// TODO (RSDK-5104) this may be able to be removed.
 func NewPTGFrameFromPTGFrame(frame referenceframe.Frame, refDist float64, trajCount int) (referenceframe.Frame, error) {
 	ptgFrame, ok := frame.(*ptgGroupFrame)
 	if !ok {

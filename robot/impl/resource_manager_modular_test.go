@@ -453,6 +453,12 @@ func (m *dummyModMan) ValidateConfig(ctx context.Context, cfg resource.Config) (
 	return nil, nil
 }
 
+func (m *dummyModMan) ResolveImplicitDependenciesInConfig(ctx context.Context, conf *config.Diff) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return nil
+}
+
 func (m *dummyModMan) Close(ctx context.Context) error {
 	if len(m.state) != 0 {
 		return errors.New("attempt to close with active resources in place")
