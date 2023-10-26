@@ -51,10 +51,28 @@ func NewPmtkI2CGPSNMEA(
 	conf *Config,
 	logger logging.Logger,
 ) (NmeaMovementSensor, error) {
-	i2cbus, err := genericlinux.GetI2CBus(deps, "", "", conf.I2CConfig.I2CBus)
-	if err != nil {
-		return nil, fmt.Errorf("gps init: failed to find i2c bus %s: %w",
-			conf.I2CConfig.I2CBus, err)
+	// The nil on this next line means "use a real I2C bus, because we're not going to pass in a
+	// mock one."
+	return makePmtkI2cGpsNmea(ctx, deps, name, conf, logger, nil)
+}
+
+// makePmtkI2cGpsNmea is only split out for ease of testing: you can pass in your own mock I2C bus,
+// or pass in nil to have it create a real one.
+func makePmtkI2cGpsNmea(
+    ctx context.Context,
+    deps resource.Dependencies,
+    name resource.Name,
+    conf *Config,
+    logger golog.Logger,
+	i2cbus board.I2C,
+) (NmeaMovementSensor, error) {
+	if i2cbus == nil {
+		err error
+		i2cbus, err = genericlinux.GetI2CBus(deps, "", "", conf.I2CConfig.I2CBus)
+		if err != nil {
+			return nil, fmt.Errorf("gps init: failed to find i2c bus %s: %w",
+				conf.I2CConfig.I2CBus, err)
+		}
 	}
 	addr := conf.I2CConfig.I2CAddr
 	if addr == -1 {
