@@ -83,7 +83,7 @@ func TestNewI2CMovementSensor(t *testing.T) {
 
 	mockI2cBus := createMockI2c()
 
-	g1, err := makePmtkI2cGpsNmea(ctx, deps, conf.ResourceName(), conf, logger, mockI2cBus)
+	g1, err := makePmtkI2cGpsNmea(ctx, deps, conf, logger, mockI2cBus)
 	test.That(t, g1, test.ShouldBeNil)
 	test.That(t, err, test.ShouldBeError,
 		utils.NewUnexpectedTypeError[*Config](conf.ConvertedAttributes))
