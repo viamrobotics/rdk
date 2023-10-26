@@ -455,7 +455,8 @@ func newWithResources(
 	r.manager.startModuleManager(r.webSvc.ModuleAddress(), r.removeOrphanedResources, cfg.UntrustedEnv, logger)
 
 	r.activeBackgroundWorkers.Add(1)
-	r.configTicker = time.NewTicker(5 * time.Second)
+	// TODO: remove after repro-ing deadlock
+	r.configTicker = time.NewTicker(5 * time.Millisecond)
 	// This goroutine tries to complete the config and update weak dependencies
 	// if any resources are not configured. It executes every 5 seconds or when
 	// manually triggered. Manual triggers are sent when changes in remotes are
@@ -472,6 +473,9 @@ func newWithResources(
 			case <-r.configTicker.C:
 			case <-r.triggerConfig:
 			}
+
+			r.logger.Info("still not deadlocked")
+
 			anyChanges := r.manager.updateRemotesResourceNames(closeCtx)
 			if r.manager.anyResourcesNotConfigured() {
 				anyChanges = true

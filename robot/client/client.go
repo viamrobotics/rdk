@@ -322,6 +322,9 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 		reconnectTime = *rOpts.reconnectEvery
 	}
 
+	// TODO: remove after repro-ing deadlock
+	checkConnectedTime = 1 * time.Millisecond
+
 	if checkConnectedTime > 0 && reconnectTime > 0 {
 		refresh := checkConnectedTime == refreshTime
 		rc.activeBackgroundWorkers.Add(1)
@@ -442,6 +445,8 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnec
 		if !utils.SelectContextOrWait(ctx, waitTime) {
 			return
 		}
+		// TODO: remove after repro-ing deadlock
+		rc.connected.Store(false)
 		if !rc.connected.Load() {
 			rc.Logger().Infow("trying to reconnect to remote at address", "address", rc.address)
 			if err := rc.connect(ctx); err != nil {

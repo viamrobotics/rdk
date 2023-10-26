@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/jhump/protoreflect/desc"
 	"github.com/pkg/errors"
@@ -525,6 +526,8 @@ func (manager *resourceManager) completeConfig(
 			}
 			manager.addRemote(ctx, rr, gNode, *remConf)
 			rr.SetParentNotifier(func() {
+				// TODO: remove after repro-ing deadlock
+				time.Sleep(5 * time.Second)
 				if robot.closeContext.Err() != nil {
 					return
 				}
