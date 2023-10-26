@@ -17,7 +17,7 @@ import (
 )
 
 var (
-	logger     = logging.NewDevelopmentLogger("SimpleModule")
+	logger     = logging.NewLogger("SimpleModule")
 	ctx        = context.Background()
 	myModel    = resource.NewModel("acme", "demo", "mycounter")
 	socketPath = "/tmp/viam-module-example.socket"

@@ -97,7 +97,7 @@ func NewLogger() (*Logger, error) {
 		}
 	}
 
-	cfg := logging.NewDevelopmentLoggerConfig()
+	cfg := logging.NewLoggerConfig()
 	cfg.OutputPaths = []string{filePath}
 
 	// only keep message
@@ -311,8 +311,8 @@ func (l *Logger) write(title string, m InfoMap) {
 	}
 
 	t.AppendFooter(table.Row{time.Now().UTC().Format(time.RFC3339)})
-	l.logger.Infoln(t.Render())
-	l.logger.Infoln(fmt.Sprintln())
+	l.logger.Info(t.Render())
+	l.logger.Info()
 }
 
 func (l *Logger) logError(err error, msg string) {
