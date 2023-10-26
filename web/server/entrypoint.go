@@ -67,15 +67,13 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	}
 
 	// Replace logger with logger based on flags.
-	var logConfig zap.Config
+	logConfig := logging.NewLoggerConfig()
 	if argsParsed.Debug {
-		logConfig = logging.NewDebugLoggerConfig()
-	} else {
-		logConfig = logging.NewDevelopmentLoggerConfig()
+		logConfig.Level = zap.NewAtomicLevelAt(zap.DebugLevel)
 	}
 	logger := logging.FromZapCompatible(zap.Must(logConfig.Build()).Sugar().Named("robot_server"))
 	config.InitLoggingSettings(logger, argsParsed.Debug, logConfig.Level)
-	logging.ReplaceGloabl(logger)
+	logging.ReplaceGlobal(logger)
 
 	// Always log the version, return early if the '-version' flag was provided
 	// fmt.Println would be better but fails linting. Good enough.
@@ -143,7 +141,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		}
 		defer closer()
 
-		logging.ReplaceGloabl(logger)
+		logging.ReplaceGlobal(logger)
 	}
 
 	server := robotServer{
@@ -309,9 +307,8 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 				if errors.Is(err, context.Canceled) {
 					return
 				}
-				s.logger.Panicw("error creating restart checker", "error", err)
-				cancel()
-				return
+				s.logger.Errorw("error creating restart checker", "error", err)
+				panic(fmt.Sprintf("error creating restart checker: %v", err))
 			}
 			defer restartCheck.close()
 			restartInterval := defaultNeedsRestartCheckInterval

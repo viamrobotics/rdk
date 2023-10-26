@@ -12,7 +12,7 @@ import (
 )
 
 func main() {
-	logger := logging.NewDevelopmentLogger("client")
+	logger := logging.NewLogger("client")
 
 	// Connect to the default localhost port for viam-server.
 	robot, err := client.New(
