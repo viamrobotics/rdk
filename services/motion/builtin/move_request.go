@@ -285,7 +285,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 
 	geomsRaw := spatialmath.GeoObstaclesToGeometries(obstacles, origin)
 
-	mr, err := relativeMoveRequestFromAbsolute(
+	mr, err := ms.relativeMoveRequestFromAbsolute(
 		ctx,
 		motionCfg,
 		ms.logger,
@@ -363,7 +363,7 @@ func (ms *builtIn) newMoveOnMapRequest(
 		return nil, err
 	}
 
-	mr, err := relativeMoveRequestFromAbsolute(
+	mr, err := ms.relativeMoveRequestFromAbsolute(
 		ctx,
 		motionCfg,
 		ms.logger,
@@ -376,7 +376,7 @@ func (ms *builtIn) newMoveOnMapRequest(
 	return mr, err
 }
 
-func relativeMoveRequestFromAbsolute(
+func (ms *builtIn) relativeMoveRequestFromAbsolute(
 	ctx context.Context,
 	motionCfg *validatedMotionConfiguration,
 	logger logging.Logger,
@@ -401,9 +401,12 @@ func relativeMoveRequestFromAbsolute(
 	if err != nil {
 		return nil, err
 	}
+	ms.logger.Infof("startPose: %v", spatialmath.PoseToProtobuf(startPose.Pose()))
+	ms.logger.Infof("requested world goal: %v", spatialmath.PoseToProtobuf(goalPoseInWorld))
 	startPoseInv := spatialmath.PoseInverse(startPose.Pose())
 
 	goal := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.PoseBetween(startPose.Pose(), goalPoseInWorld))
+	ms.logger.Infof("relative goal: %v", spatialmath.PoseToProtobuf(goal.Pose()))
 
 	// convert GeoObstacles into GeometriesInFrame with respect to the base's starting point
 
