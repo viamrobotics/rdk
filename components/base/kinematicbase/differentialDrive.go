@@ -54,13 +54,21 @@ func wrapWithDifferentialDriveKinematics(
 	if len(geometries) > 0 {
 		geometry = geometries[0]
 	}
-	ddk.executionFrame, err = referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits, geometry)
+	sphere, err := spatialmath.BoundingSphere(geometry)
+	if err != nil {
+		// default to using a point to represent the base for the purposes of collision handling rather than erroring
+		logger.Warnf("base %s not configured with a geometry, defaulting to considering it a point mass." +
+			"Use caution as collision handling will likely return many false negatives")
+		sphere = spatialmath.NewPoint(r3.Vector{}, b.Name().Name)
+	}
+
+	ddk.executionFrame, err = referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits, sphere)
 	if err != nil {
 		return nil, err
 	}
 
 	if options.PositionOnlyMode {
-		ddk.planningFrame, err = referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits[:2], geometry)
+		ddk.planningFrame, err = referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits[:2], sphere)
 		if err != nil {
 			return nil, err
 		}
@@ -236,43 +244,6 @@ func (ddk *differentialDriveKinematics) inputDiff(current, desired []referencefr
 	headingErr := math.Mod(delta.Orientation().OrientationVectorDegrees().Theta, 360)
 	positionErr := delta.Point().Norm()
 	return positionErr, headingErr, nil
-}
-
-// CollisionGeometry returns a spherical geometry that will encompass the base if it were to rotate the geometry specified in the config
-// 360 degrees about the Z axis of the reference frame specified in the config.
-func CollisionGeometry(cfg *referenceframe.LinkConfig) ([]spatialmath.Geometry, error) {
-	// TODO(RSDK-1014): the orientation of this model will matter for collision checking,
-	// and should match the convention of +Y being forward for bases
-	if cfg == nil || cfg.Geometry == nil {
-		return nil, errors.New("not configured with a geometry use caution if using motion service - collisions will not be accounted for")
-	}
-	geoCfg := cfg.Geometry
-	r := geoCfg.TranslationOffset.Norm()
-	switch geoCfg.Type {
-	case spatialmath.BoxType:
-		r += r3.Vector{X: geoCfg.X, Y: geoCfg.Y, Z: geoCfg.Z}.Norm() / 2
-	case spatialmath.SphereType:
-		r += geoCfg.R
-	case spatialmath.CapsuleType:
-		r += geoCfg.L / 2
-	case spatialmath.UnknownType:
-		// no type specified, iterate through supported types and try to infer intent
-		if norm := (r3.Vector{X: geoCfg.X, Y: geoCfg.Y, Z: geoCfg.Z}).Norm(); norm > 0 {
-			r += norm / 2
-		} else if geoCfg.L != 0 {
-			r += geoCfg.L / 2
-		} else {
-			r += geoCfg.R
-		}
-	case spatialmath.PointType:
-	default:
-		return nil, spatialmath.ErrGeometryTypeUnsupported
-	}
-	sphere, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), r, geoCfg.Label)
-	if err != nil {
-		return nil, err
-	}
-	return []spatialmath.Geometry{sphere}, nil
 }
 
 // newValidRegionCapsule returns a capsule which defines the valid regions for a base to be when moving to a waypoint.
