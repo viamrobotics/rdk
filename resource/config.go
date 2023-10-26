@@ -187,6 +187,14 @@ func (conf Config) Equals(other Config) bool {
 	other.cachedImplicitDeps = nil
 	other.cachedErr = nil
 
+	// TODO(RSDK-5523): Once builtin datamanagers' AssociatedConfigLinkers no
+	// longer rely on appensions to the service's ConvertedAttributes field,
+	// continue ignoring ConvertedAttributes for equality for all resources.
+	if conf.API != APINamespaceRDK.WithServiceType("data_manager") {
+		conf.ConvertedAttributes = nil
+		other.ConvertedAttributes = nil
+	}
+
 	//nolint:govet
 	return reflect.DeepEqual(conf, other)
 }
