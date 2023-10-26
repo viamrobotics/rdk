@@ -332,8 +332,8 @@ func (pm *planManager) planParallelRRTMotion(
 		}
 	} else {
 		if maps == nil {
-			startNode := &basicNode{q: make([]referenceframe.Input, len(pm.frame.DoF())), cost: 0, pose: spatialmath.NewZeroPose()}
-			goalNode := &basicNode{q: make([]referenceframe.Input, len(pm.frame.DoF())), cost: 0, pose: goal, corner: false}
+			startNode := &basicNode{q: make([]referenceframe.Input, len(pm.frame.DoF())), pose: spatialmath.NewZeroPose()}
+			goalNode := &basicNode{q: make([]referenceframe.Input, len(pm.frame.DoF())), pose: goal}
 			maps = &rrtMaps{
 				startMap: map[node]node{startNode: nil},
 				goalMap:  map[node]node{goalNode: nil},
@@ -684,7 +684,7 @@ func (pm *planManager) planToRRTGoalMap(plan Plan, goal spatialmath.Pose) (*rrtM
 		lastNode = planNodes[i]
 	}
 
-	startNode := &basicNode{q: make([]referenceframe.Input, len(pm.frame.DoF())), cost: 0, pose: spatialmath.NewZeroPose()}
+	startNode := &basicNode{q: make([]referenceframe.Input, len(pm.frame.DoF())), pose: spatialmath.NewZeroPose()}
 	maps := &rrtMaps{
 		startMap: map[node]node{startNode: nil},
 		goalMap:  goalMap,
