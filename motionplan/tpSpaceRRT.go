@@ -747,6 +747,7 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 	smoothPlanner := smoothPlannerMP.(*tpSpaceRRTMotionPlanner)
 	smoothPlanner.algOpts.bidirectional = true
 	for i := 0; i < toIter; i++ {
+		mp.logger.Debugf("TP Space smoothing iteration %d of %d", i, toIter)
 		select {
 		case <-ctx.Done():
 			return path

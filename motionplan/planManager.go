@@ -222,10 +222,10 @@ func (pm *planManager) planAtomicWaypoints(
 		}
 
 		pathPlanner := planners[i]
-		
+
 		var maps *rrtMaps
 		if seedPlan != nil {
-			maps, err = pm.planToRRTGoalMap(seedPlan)
+			maps, err = pm.planToRRTGoalMap(seedPlan, goal)
 			if err != nil {
 				return nil, err
 			}
@@ -321,18 +321,29 @@ func (pm *planManager) planParallelRRTMotion(
 ) {
 	var err error
 	// If we don't pass in pre-made maps, initialize and seed with IK solutions here
-	if maps == nil {
-		planSeed := initRRTSolutions(ctx, pathPlanner, seed)
-		if planSeed.planerr != nil || planSeed.steps != nil {
-			solutionChan <- planSeed
-			return
+	if !pm.useTPspace {
+		if maps == nil {
+			planSeed := initRRTSolutions(ctx, pathPlanner, seed)
+			if planSeed.planerr != nil || planSeed.steps != nil {
+				solutionChan <- planSeed
+				return
+			}
+			maps = planSeed.maps
 		}
-		maps = planSeed.maps
+	} else {
+		if maps == nil {
+			startNode := &basicNode{q: make([]referenceframe.Input, len(pm.frame.DoF())), cost: 0, pose: spatialmath.NewZeroPose()}
+			goalNode := &basicNode{q: make([]referenceframe.Input, len(pm.frame.DoF())), cost: 0, pose: goal, corner: false}
+			maps = &rrtMaps{
+				startMap: map[node]node{startNode: nil},
+				goalMap:  map[node]node{goalNode: nil},
+			}
+		}
 	}
 
 	// publish endpoint of plan if it is known
 	var nextSeed node
-	if len(maps.goalMap) == 1 {
+	if maps != nil && len(maps.goalMap) == 1 {
 		pm.logger.Debug("only one IK solution, returning endpoint preview")
 		for key := range maps.goalMap {
 			nextSeed = key
@@ -628,9 +639,7 @@ func (pm *planManager) goodPlan(pr *rrtPlanReturn, opt *plannerOptions) (bool, f
 	return false, solutionCost
 }
 
-func (pm *planManager) planToRRTGoalMap(plan Plan) (*rrtMaps, error) {
-	var err error
-	
+func (pm *planManager) planToRRTGoalMap(plan Plan, goal spatialmath.Pose) (*rrtMaps, error) {
 	planNodes := make([]node, 0, len(plan))
 	// Build a list of nodes from the plan
 	for _, planStep := range plan {
@@ -640,41 +649,49 @@ func (pm *planManager) planToRRTGoalMap(plan Plan) (*rrtMaps, error) {
 		}
 		planNodes = append(planNodes, newConfigurationNode(conf))
 	}
-	
+
 	if pm.useTPspace {
-		// Fill in costs and positions
-		planNodes, err = rectifyTPspacePath(planNodes, pm.frame, spatialmath.NewZeroPose())
+		// Fill in positions from the old origin to where the goal was during the last run
+		planNodesOld, err := rectifyTPspacePath(planNodes, pm.frame, spatialmath.NewZeroPose())
 		if err != nil {
 			return nil, err
 		}
-	} else {
-		// Fill in costs
-		for i := 1; i < len(planNodes); i++ {
-			cost := pm.opt().DistanceFunc(&ik.Segment{
-				StartConfiguration: planNodes[i-1].Q(),
-				EndConfiguration: planNodes[i].Q(),
-				Frame: pm.frame,
-			})
-			planNodes[i].SetCost(cost)
+
+		// Figure out where our new starting point is relative to our last one, and re-rectify using the new adjusted location
+		oldGoal := planNodesOld[len(planNodesOld)-1].Pose()
+		pathDiff := spatialmath.PoseBetween(oldGoal, goal)
+		planNodes, err = rectifyTPspacePath(planNodes, pm.frame, pathDiff)
+		if err != nil {
+			return nil, err
 		}
 	}
-	
+	// Fill in costs
+	for i := 1; i < len(planNodes); i++ {
+		cost := pm.opt().DistanceFunc(&ik.Segment{
+			StartConfiguration: planNodes[i-1].Q(),
+			StartPosition:      planNodes[i-1].Pose(),
+			EndConfiguration:   planNodes[i].Q(),
+			EndPosition:        planNodes[i].Pose(),
+			Frame:              pm.frame,
+		})
+		planNodes[i].SetCost(cost)
+	}
+
 	var lastNode node
 	goalMap := map[node]node{}
-	for i := len(planNodes) - 1 ; i >= 0; i-- {
+	for i := len(planNodes) - 1; i >= 0; i-- {
 		goalMap[planNodes[i]] = lastNode
 		lastNode = planNodes[i]
 	}
-	
+
+	startNode := &basicNode{q: make([]referenceframe.Input, len(pm.frame.DoF())), cost: 0, pose: spatialmath.NewZeroPose()}
 	maps := &rrtMaps{
-		startMap: map[node]node{},
+		startMap: map[node]node{startNode: nil},
 		goalMap:  goalMap,
 	}
-	
+
 	return maps, nil
 }
-
-
 // Copy any atomic values.
 func deepAtomicCopyMap(opt map[string]interface{}) map[string]interface{} {
 	optCopy := map[string]interface{}{}
