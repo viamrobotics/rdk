@@ -262,7 +262,8 @@ func TestNewReplayMovementSensor(t *testing.T) {
 			if tt.expectedErr != nil {
 				test.That(t, err, test.ShouldNotBeNil)
 				if strings.Contains(err.Error(), "rpc error: code = DeadlineExceeded") {
-					errMessage := "Properties failed to initialize: could not update the cache: rpc error: code = DeadlineExceeded desc = context deadline exceeded"
+					errMessage := "Properties failed to initialize: could not update the cache: " +
+						"rpc error: code = DeadlineExceeded desc = context deadline exceeded"
 					test.That(t, err, test.ShouldBeError, errors.New(errMessage))
 				} else {
 					test.That(t, err, test.ShouldBeError, tt.expectedErr)
