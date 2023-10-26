@@ -363,7 +363,7 @@ func (m *merged) Properties(ctx context.Context, extra map[string]interface{}) (
 func (m *merged) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 	// we're already in lock in this driver
 	// don't lock the mutex again for the Readings call
-	return movementsensor.Readings(ctx, m, extra)
+	return movementsensor.DefaultAPIReadings(ctx, m, extra)
 }
 
 func (m *merged) Close(context.Context) error {

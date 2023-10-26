@@ -393,7 +393,7 @@ func (replay *replayMovementSensor) Close(ctx context.Context) error {
 
 // Readings returns all available data from the next entry stored in the cache.
 func (replay *replayMovementSensor) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-	return movementsensor.Readings(ctx, replay, extra)
+	return movementsensor.DefaultAPIReadings(ctx, replay, extra)
 }
 
 // Reconfigure finishes the bring up of the replay movement sensor by evaluating given arguments and setting up the required cloud
