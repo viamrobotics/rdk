@@ -39,7 +39,7 @@ func (s *slamLocalizer) CurrentPosition(ctx context.Context) (*referenceframe.Po
 	// We must rotate 90 degrees to match the base convention of y = forwards
 	calibration := spatialmath.NewPoseFromOrientation(&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: -90})
 
-	return referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.Compose(calibration, pose)), err
+	return referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.Compose(pose, calibration)), err
 }
 
 // movementSensorLocalizer is a struct which only wraps an existing movementsensor.
