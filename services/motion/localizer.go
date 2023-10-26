@@ -34,11 +34,11 @@ func (s *slamLocalizer) CurrentPosition(ctx context.Context) (*referenceframe.Po
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Slam poses are returned such that theta=0 points along the +X axis
 	// We must rotate 90 degrees to match the base convention of y = forwards
 	calibration := spatialmath.NewPoseFromOrientation(&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: -90})
-	
+
 	return referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.Compose(calibration, pose)), err
 }
 

@@ -86,19 +86,15 @@ func (ma *moveAttempt) start() error {
 		return err
 	}
 
-	if ma.position != nil {
-		ma.backgroundWorkers.Add(1)
-		goutils.ManagedGo(func() {
-			ma.position.startPolling(ma.ctx, waypoints, ma.waypointIndex)
-		}, ma.backgroundWorkers.Done)
-	}
+	ma.backgroundWorkers.Add(1)
+	goutils.ManagedGo(func() {
+		ma.position.startPolling(ma.ctx, waypoints, ma.waypointIndex)
+	}, ma.backgroundWorkers.Done)
 
-	if ma.obstacle != nil {
-		ma.backgroundWorkers.Add(1)
-		goutils.ManagedGo(func() {
-			ma.obstacle.startPolling(ma.ctx, waypoints, ma.waypointIndex)
-		}, ma.backgroundWorkers.Done)
-	}
+	ma.backgroundWorkers.Add(1)
+	goutils.ManagedGo(func() {
+		ma.obstacle.startPolling(ma.ctx, waypoints, ma.waypointIndex)
+	}, ma.backgroundWorkers.Done)
 
 	// spawn function to execute the plan on the robot
 	ma.backgroundWorkers.Add(1)

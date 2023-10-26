@@ -401,15 +401,11 @@ func (ms *builtIn) relativeMoveRequestFromAbsolute(
 	if err != nil {
 		return nil, err
 	}
-	ms.logger.Infof("startPose: %v", spatialmath.PoseToProtobuf(startPose.Pose()))
-	ms.logger.Infof("requested world goal: %v", spatialmath.PoseToProtobuf(goalPoseInWorld))
 	startPoseInv := spatialmath.PoseInverse(startPose.Pose())
 
 	goal := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.PoseBetween(startPose.Pose(), goalPoseInWorld))
-	ms.logger.Infof("relative goal: %v", spatialmath.PoseToProtobuf(goal.Pose()))
 
 	// convert GeoObstacles into GeometriesInFrame with respect to the base's starting point
-
 	geoms := make([]spatialmath.Geometry, 0, len(worldObstacles))
 	for _, geom := range worldObstacles {
 		geoms = append(geoms, geom.Transform(startPoseInv))
