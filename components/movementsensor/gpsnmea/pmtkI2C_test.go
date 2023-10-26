@@ -81,13 +81,10 @@ func TestNewI2CMovementSensor(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 
-	nativeConf, err := resource.NativeConfig[*Config](conf)
-	test.That(t, err, test.ShouldBeNil)
+	mockI2cBus := createMockI2c()
 
-	mockI2cBus = createMockI2c()
-
-	g, err := makePmtkI2CGPSNMEA(ctx, deps, nativeConf, logger, mockI2cBus)
-	test.That(t, g, test.ShouldBeNil)
+	g1, err := makePmtkI2cGpsNmea(ctx, deps, conf.ResourceName(), conf, logger, mockI2cBus)
+	test.That(t, g1, test.ShouldBeNil)
 	test.That(t, err, test.ShouldBeError,
 		utils.NewUnexpectedTypeError[*Config](conf.ConvertedAttributes))
 
@@ -101,10 +98,10 @@ func TestNewI2CMovementSensor(t *testing.T) {
 			I2CConfig:      &I2CConfig{I2CBus: testBusName},
 		},
 	}
-	g, err = newNMEAGPS(ctx, deps, conf, logger)
+	g2, err := newNMEAGPS(ctx, deps, conf, logger)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, g.Close(context.Background()), test.ShouldBeNil)
-	test.That(t, g, test.ShouldNotBeNil)
+	test.That(t, g2.Close(context.Background()), test.ShouldBeNil)
+	test.That(t, g2, test.ShouldNotBeNil)
 }
 
 func TestReadingsI2C(t *testing.T) {
