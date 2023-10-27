@@ -154,7 +154,7 @@ func (mp *tpSpaceRRTMotionPlanner) plan(ctx context.Context,
 	planRunners.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer planRunners.Done()
-		mp.rrtBackgroundRunner(ctx, seed, &rrtParallelPlannerShared{
+		mp.planRunner(ctx, seed, &rrtParallelPlannerShared{
 			&rrtMaps{
 				startMap: map[node]node{startNode: nil},
 				goalMap:  map[node]node{goalNode: nil},
@@ -177,7 +177,7 @@ func (mp *tpSpaceRRTMotionPlanner) plan(ctx context.Context,
 
 // planRunner will execute the plan. Plan() will call planRunner in a separate thread and wait for results.
 // Separating this allows other things to call planRunner in parallel allowing the thread-agnostic Plan to be accessible.
-func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
+func (mp *tpSpaceRRTMotionPlanner) planRunner(
 	ctx context.Context,
 	_ []referenceframe.Input, // TODO: this may be needed for smoothing
 	rrt *rrtParallelPlannerShared,
