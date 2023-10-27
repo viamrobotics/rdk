@@ -5,8 +5,10 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"sync"
 	"time"
 
@@ -516,7 +518,7 @@ func (svc *builtIn) sync() {
 	}
 }
 
-//nolint
+// nolint
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
@@ -530,21 +532,41 @@ func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 		if info.IsDir() {
 			return nil
 		}
-		// If a file was modified within the past lastModifiedMillis, do not sync it (data
-		// may still be being written).
-		timeSinceMod := clock.Since(info.ModTime())
-		// When using a mock clock in tests, this can be negative since the file system will still use the system clock.
-		// Take max(timeSinceMod, 0) to account for this.
-		if timeSinceMod < 0 {
-			timeSinceMod = 0
-		}
-		isStuckInProgressCaptureFile := filepath.Ext(path) == datacapture.InProgressFileExt &&
-			timeSinceMod >= defaultFileLastModifiedMillis*time.Millisecond
-		isNonCaptureFileThatIsNotBeingWrittenTo := filepath.Ext(path) != datacapture.InProgressFileExt &&
-			timeSinceMod >= time.Duration(lastModifiedMillis)*time.Millisecond
-		isCompletedCaptureFile := filepath.Ext(path) == datacapture.FileExt
-		if isCompletedCaptureFile || isStuckInProgressCaptureFile || isNonCaptureFileThatIsNotBeingWrittenTo {
-			filePaths = append(filePaths, path)
+
+		// Use the lsof command to get all the open files in the directory, and
+		// only retrieve the 9th column which is the "NAME" of the file
+		outBytes, err := exec.Command("lsof", "+d", filepath.Dir(info.Name()), "|", "awk", "'{print $9}'").Output()
+		if err == nil {
+			// If executing the command was successful, parse the list of open files and check against the current.
+			fileOpen := false
+			output := strings.Fields(string(outBytes[:]))
+			for _, name := range output {
+				if name == info.Name() {
+					fileOpen = true
+					break
+				}
+			}
+			if !fileOpen {
+				filePaths = append(filePaths, path)
+			}
+		} else {
+			// If a file was modified within the past lastModifiedMillis, do not sync it
+			// Even the file has not been modified in the lastModifiedMillis, it may still be open,
+			// but we use a heuristic to try and still ensure syncing occurs.
+			timeSinceMod := clock.Since(info.ModTime())
+			// When using a mock clock in tests, this can be negative since the file system will still use the system clock.
+			// Take max(timeSinceMod, 0) to account for this.
+			if timeSinceMod < 0 {
+				timeSinceMod = 0
+			}
+			isStuckInProgressCaptureFile := filepath.Ext(path) == datacapture.InProgressFileExt &&
+				timeSinceMod >= defaultFileLastModifiedMillis*time.Millisecond
+			isNonCaptureFileThatIsNotBeingWrittenTo := filepath.Ext(path) != datacapture.InProgressFileExt &&
+				timeSinceMod >= time.Duration(lastModifiedMillis)*time.Millisecond
+			isCompletedCaptureFile := filepath.Ext(path) == datacapture.FileExt
+			if isCompletedCaptureFile || isStuckInProgressCaptureFile || isNonCaptureFileThatIsNotBeingWrittenTo {
+				filePaths = append(filePaths, path)
+			}
 		}
 		return nil
 	})
