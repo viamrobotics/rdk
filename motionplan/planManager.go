@@ -243,7 +243,7 @@ func (pm *planManager) planAtomicWaypoints(
 
 	// All goals have been submitted for solving. Reconstruct in order
 	for _, future := range resultPromises {
-		steps, err := future.result(ctx)
+		steps, err := future.result()
 		if err != nil {
 			return nil, err
 		}
@@ -445,7 +445,7 @@ func (pm *planManager) planParallelRRTMotion(
 
 		// If we ran a fallback, retrieve the result and compare to the smoothed path
 		if alternateFuture != nil {
-			alternate, err := alternateFuture.result(ctx)
+			alternate, err := alternateFuture.result()
 			if err == nil {
 				// If the fallback successfully found a path, check if it is better than our smoothed previous path.
 				// The fallback should emerge pre-smoothed, so that should be a non-issue
