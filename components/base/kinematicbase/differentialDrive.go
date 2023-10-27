@@ -56,9 +56,7 @@ func wrapWithDifferentialDriveKinematics(
 	}
 	sphere, err := spatialmath.BoundingSphere(geometry)
 	if err != nil {
-		// default to using a point to represent the base for the purposes of collision handling rather than erroring
-		logger.Warnf("base %s not configured with a geometry, defaulting to considering it a point mass." +
-			"Use caution as collision handling will likely return many false negatives")
+		logger.Warnf("base %s not configured with a geometry, will be considered a point mass for collision detection purposes.")
 		sphere = spatialmath.NewPoint(r3.Vector{}, b.Name().Name)
 	}
 
