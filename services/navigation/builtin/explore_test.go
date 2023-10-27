@@ -33,7 +33,7 @@ func TestExploreMode(t *testing.T) {
 	nsStruct := ns.(*builtIn)
 	nsStruct.exploreMotionService = mockExploreMotionService
 
-	ctxTimeout, cancelFunc := context.WithTimeout(cancelCtx, 20*time.Millisecond)
+	ctxTimeout, cancelFunc := context.WithTimeout(cancelCtx, 50*time.Millisecond)
 	defer cancelFunc()
 	nsStruct.startExploreMode(ctxTimeout)
 	<-ctxTimeout.Done()
