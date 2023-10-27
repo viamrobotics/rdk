@@ -30,6 +30,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/board/genericlinux"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -47,7 +48,6 @@ const (
 
 // Config is used to configure the attributes of the chip.
 type Config struct {
-	BoardName              string `json:"board"`
 	I2cBus                 string `json:"i2c_bus"`
 	UseAlternateI2CAddress bool   `json:"use_alt_i2c_address,omitempty"`
 }
@@ -55,15 +55,11 @@ type Config struct {
 // Validate ensures all parts of the config are valid, and then returns the list of things we
 // depend on.
 func (conf *Config) Validate(path string) ([]string, error) {
-	if conf.BoardName == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
-	}
 	if conf.I2cBus == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "i2c_bus")
 	}
 
 	var deps []string
-	deps = append(deps, conf.BoardName)
 	return deps, nil
 }
 
@@ -94,9 +90,8 @@ type mpu6050 struct {
 	logger                  logging.Logger
 }
 
-func addressReadError(err error, address byte, bus, board string) error {
-	msg := fmt.Sprintf("can't read from I2C address %d on bus %s of board %s",
-		address, bus, board)
+func addressReadError(err error, address byte, bus string) error {
+	msg := fmt.Sprintf("can't read from I2C address %d on bus %s", address, bus)
 	return errors.Wrap(err, msg)
 }
 
@@ -117,17 +112,9 @@ func NewMpu6050(
 		return nil, err
 	}
 
-	b, err := board.FromDependencies(deps, newConf.BoardName)
+	bus, err := genericlinux.NewI2cBus(newConf.I2cBus)
 	if err != nil {
 		return nil, err
-	}
-	localB, ok := b.(board.LocalBoard)
-	if !ok {
-		return nil, errors.Errorf("board %s is not local", newConf.BoardName)
-	}
-	bus, ok := localB.I2CByName(newConf.I2cBus)
-	if !ok {
-		return nil, errors.Errorf("can't find I2C bus '%s' for MPU6050 sensor", newConf.I2cBus)
 	}
 
 	var address byte
@@ -155,7 +142,7 @@ func NewMpu6050(
 	// back the device's non-alternative address (0x68)
 	defaultAddress, err := sensor.readByte(ctx, defaultAddressRegister)
 	if err != nil {
-		return nil, addressReadError(err, address, newConf.I2cBus, newConf.BoardName)
+		return nil, addressReadError(err, address, newConf.I2cBus)
 	}
 	if defaultAddress != expectedDefaultAddress {
 		return nil, unexpectedDeviceError(address, defaultAddress)
