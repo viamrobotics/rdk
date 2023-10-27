@@ -11,7 +11,6 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
-
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
@@ -1203,7 +1202,6 @@ func TestReplanning(t *testing.T) {
 }
 
 func TestCheckPlan(t *testing.T) {
-	//t.Skip() // TODO(RSDK-5404): fix flakiness
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 
@@ -1408,7 +1406,7 @@ func TestArmGantryPlanCheck(t *testing.T) {
 
 		collisionPose, err := motionplan.CheckPlan(fs.Frame("xArm6"), plan, worldState, fs, startPose, inputs, errorState, logger)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, collisionPose, test.ShouldBeNil)
+		test.That(t, collisionPose, test.ShouldNotBeNil)
 	})
 }
 

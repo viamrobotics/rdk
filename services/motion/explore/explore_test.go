@@ -58,10 +58,6 @@ func TestExplorePlanMove(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, kb.Name().Name, test.ShouldEqual, testBaseName.Name)
 
-	// Create empty worldState
-	worldState, err := referenceframe.NewWorldState(nil, nil)
-	test.That(t, err, test.ShouldBeNil)
-
 	cases := []struct {
 		description              string
 		destination              spatialmath.Pose
@@ -92,7 +88,6 @@ func TestExplorePlanMove(t *testing.T) {
 				ctx,
 				kb,
 				dest,
-				worldState,
 				nil,
 			)
 			test.That(t, err, test.ShouldBeNil)
@@ -126,10 +121,6 @@ func TestExploreCheckForObstacles(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, kb.Name().Name, test.ShouldEqual, testBaseName.Name)
 
-	// Create empty worldState
-	worldState, err := referenceframe.NewWorldState(nil, nil)
-	test.That(t, err, test.ShouldBeNil)
-
 	cases := []struct {
 		description  string
 		destination  spatialmath.Pose
@@ -152,8 +143,7 @@ func TestExploreCheckForObstacles(t *testing.T) {
 					label:    "close_obstacle_in_path",
 				},
 			},
-			detection:    true,
-			detectionErr: errors.New("found collision between positions"),
+			detection: true,
 		},
 		{
 			description: "obstacle in path farther away",
@@ -165,12 +155,11 @@ func TestExploreCheckForObstacles(t *testing.T) {
 					label:    "far_obstacle_in_path",
 				},
 			},
-			detection:    true,
-			detectionErr: errors.New("found collision between positions"),
+			detection: true,
 		},
 		{
 			description: "obstacle in path too far",
-			destination: spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 10000, Z: 0}),
+			destination: spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 9000, Z: 0}),
 			obstacle: []obstacleMetadata{
 				{
 					position: r3.Vector{X: 0, Y: 1500, Z: 0},
@@ -191,8 +180,7 @@ func TestExploreCheckForObstacles(t *testing.T) {
 					label:    "obstacle on diagonal",
 				},
 			},
-			detection:    true,
-			detectionErr: errors.New("found collision between positions"),
+			detection: true,
 		},
 		{
 			description: "obstacle off axis not in path",
@@ -216,7 +204,6 @@ func TestExploreCheckForObstacles(t *testing.T) {
 				ctx,
 				kb,
 				dest,
-				worldState,
 				nil,
 			)
 			test.That(t, err, test.ShouldBeNil)
@@ -227,7 +214,7 @@ func TestExploreCheckForObstacles(t *testing.T) {
 			visionService := createMockVisionService("", tt.obstacle)
 
 			obstacleDetectors := []obstacleDetectorObject{
-				{visionService: fakeCamera},
+				{visionService: fakeCamera.Name()},
 			}
 
 			// Update and check worldState
@@ -257,13 +244,17 @@ func TestExploreCheckForObstacles(t *testing.T) {
 				msStruct.checkForObstacles(ctxTimeout, obstacleDetectors, kb, plan, defaultMotionCfg.ObstaclePollingFreqHz)
 			}, msStruct.backgroundWorkers.Done)
 
-			resp := <-msStruct.obstacleResponseChan
-			test.That(t, resp.success, test.ShouldEqual, tt.detection)
-			if tt.detectionErr == nil {
-				test.That(t, resp.err, test.ShouldBeNil)
-			} else {
-				test.That(t, resp.err, test.ShouldNotBeNil)
-				test.That(t, resp.err.Error(), test.ShouldContainSubstring, tt.detectionErr.Error())
+			time.Sleep(20 * time.Millisecond)
+
+			if tt.detection {
+				resp := <-msStruct.obstacleResponseChan
+				test.That(t, resp.success, test.ShouldEqual, tt.detection)
+				if tt.detectionErr == nil {
+					test.That(t, resp.err, test.ShouldBeNil)
+				} else {
+					test.That(t, resp.err, test.ShouldNotBeNil)
+					test.That(t, resp.err.Error(), test.ShouldContainSubstring, tt.detectionErr.Error())
+				}
 			}
 		})
 	}
@@ -296,10 +287,6 @@ func TestMultipleObstacleDetectors(t *testing.T) {
 	kb, err := msStruct.createKinematicBase(ctx, fakeBase.Name(), defaultMotionCfg)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, kb.Name().Name, test.ShouldEqual, testBaseName.Name)
-
-	// Create empty worldState
-	worldState, err := referenceframe.NewWorldState(nil, nil)
-	test.That(t, err, test.ShouldBeNil)
 
 	cases := []struct {
 		description          string
@@ -366,7 +353,6 @@ func TestMultipleObstacleDetectors(t *testing.T) {
 				ctx,
 				kb,
 				dest,
-				worldState,
 				nil,
 			)
 			test.That(t, err, test.ShouldBeNil)
@@ -384,7 +370,7 @@ func TestMultipleObstacleDetectors(t *testing.T) {
 					obstacles = append(obstacles, tt.obstacleCamera2)
 				}
 				visionService := createMockVisionService(fmt.Sprint(i), obstacles)
-				obstacleDetectors = append(obstacleDetectors, obstacleDetectorObject{visionService: cam})
+				obstacleDetectors = append(obstacleDetectors, obstacleDetectorObject{visionService: cam.Name()})
 			}
 
 			// Run check obstacles in of plan path

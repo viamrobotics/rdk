@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	servicepb "go.viam.com/api/service/motion/v1"
 	goutils "go.viam.com/utils"
@@ -72,8 +73,8 @@ type inputEnabledActuator interface {
 	referenceframe.InputEnabled
 }
 
-// obstacleDetectorObject provides a map for matching vision services to any and all cameras to be used with them.
-type obstacleDetectorObject map[vision.Service]resource.Name //camera.Camera
+// obstacleDetectorObject provides a map for matching vision services to any and all cameras names they use.
+type obstacleDetectorObject map[vision.Service]resource.Name
 
 // ErrNotImplemented is thrown when an unreleased function is called.
 var ErrNotImplemented = errors.New("function coming soon but not yet implemented")
@@ -132,7 +133,6 @@ func (ms *explore) Reconfigure(
 
 type explore struct {
 	resource.Named
-	servicepb.UnimplementedMotionServiceServer
 
 	frameSystem referenceframe.FrameSystem
 	fsService   framesystem.Service
@@ -144,6 +144,67 @@ type explore struct {
 	obstacleResponseChan  chan moveResponse
 	executionResponseChan chan moveResponse
 	backgroundWorkers     *sync.WaitGroup
+}
+
+func (ms *explore) MoveOnMap(
+	ctx context.Context,
+	componentName resource.Name,
+	destination spatialmath.Pose,
+	slamName resource.Name,
+	extra map[string]interface{},
+) (bool, error) {
+	return false, errUnimplemented
+}
+
+func (ms *explore) MoveOnGlobe(
+	ctx context.Context,
+	componentName resource.Name,
+	destination *geo.Point,
+	heading float64,
+	movementSensorName resource.Name,
+	obstacles []*spatialmath.GeoObstacle,
+	motionCfg *motion.MotionConfiguration,
+	extra map[string]interface{},
+) (bool, error) {
+	return false, errUnimplemented
+}
+
+func (ms *explore) MoveOnGlobeNew(
+	ctx context.Context,
+	req motion.MoveOnGlobeReq,
+) (string, error) {
+	return "", errUnimplemented
+}
+
+func (ms *explore) GetPose(
+	ctx context.Context,
+	componentName resource.Name,
+	destinationFrame string,
+	supplementalTransforms []*referenceframe.LinkInFrame,
+	extra map[string]interface{},
+) (*referenceframe.PoseInFrame, error) {
+	return nil, errUnimplemented
+}
+
+func (ms *explore) StopPlan(
+	ctx context.Context,
+	req motion.StopPlanReq,
+) error {
+	return errUnimplemented
+}
+
+func (ms *explore) ListPlanStatuses(
+	ctx context.Context,
+	req motion.ListPlanStatusesReq,
+) ([]motion.PlanStatusWithID, error) {
+	return nil, errUnimplemented
+}
+
+func (ms *explore) PlanHistory(
+	ctx context.Context,
+	req motion.PlanHistoryReq,
+) ([]motion.PlanWithStatus, error) {
+	return nil, errUnimplemented
 }
 
 func (ms *explore) Close(ctx context.Context) error {
@@ -442,7 +503,6 @@ func (ms *explore) createMotionPlan(
 	destination *referenceframe.PoseInFrame,
 	extra map[string]interface{},
 ) (motionplan.Plan, error) {
-
 	if math.Abs(destination.Pose().Point().X) >= moveLimit || math.Abs(destination.Pose().Point().Y) >= moveLimit {
 		return nil, errors.Errorf("destination %v is above the defined limit of %v", destination.Pose().Point().String(), moveLimit)
 	}
