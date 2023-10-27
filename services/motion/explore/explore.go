@@ -333,8 +333,7 @@ func (ms *explore) checkForObstacles(
 			// Look for new transient obstacles and add to worldState
 			worldState, err := ms.generateTransientWorldState(ctx, obstacleDetectors)
 			if err != nil {
-				ms.obstacleResponseChan <- moveResponse{err: err}
-				return
+				ms.logger.Debugf("issue occurred generating transient worldState: %v", err)
 			}
 
 			// Check motionplan plan for transient obstacles
@@ -357,7 +356,6 @@ func (ms *explore) checkForObstacles(
 					return
 				}
 				ms.logger.Debug("collision found but outside of range")
-				ms.obstacleResponseChan <- moveResponse{err: err}
 			}
 		}
 	}
