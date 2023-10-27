@@ -40,7 +40,6 @@ var (
 	errNegativePlanDeviationM             = errors.New("plan_deviation_m must be non-negative if set")
 	errNegativeReplanCostFactor           = errors.New("replan_cost_factor must be non-negative if set")
 	errUnimplemented                      = errors.New("unimplemented")
-	errRetry                              = errors.New("retry")
 )
 
 const (
