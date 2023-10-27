@@ -355,7 +355,7 @@ func (ms *builtIn) MoveOnGlobe(
 		case resp := <-ma.responseChan:
 			ms.logger.Debugf("execution completed: %s", resp)
 			ma.cancel()
-			
+
 			// If we have a false `success and nil error, that means replan
 			if resp.success || resp.err != nil {
 				return resp.success, resp.err

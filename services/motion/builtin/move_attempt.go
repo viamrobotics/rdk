@@ -107,15 +107,9 @@ func (ma *moveAttempt) start() error {
 // cancel cleans up a moveAttempt
 // it cancels the processes spawned by it, drains all the channels that could have been written to and waits on processes to return.
 func (ma *moveAttempt) cancel() {
-	ma.request.planRequest.Logger.Info("cancelling")
 	ma.cancelFn()
-	ma.request.planRequest.Logger.Info("flush pos")
 	utils.FlushChan(ma.position.responseChan)
-	ma.request.planRequest.Logger.Info("flush obs")
 	utils.FlushChan(ma.obstacle.responseChan)
-	ma.request.planRequest.Logger.Info("flush resp")
 	utils.FlushChan(ma.responseChan)
-	ma.request.planRequest.Logger.Info("waiting")
 	ma.backgroundWorkers.Wait()
-	ma.request.planRequest.Logger.Info("done wait")
 }
