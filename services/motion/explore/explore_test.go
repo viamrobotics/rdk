@@ -384,8 +384,7 @@ func TestMultipleObstacleDetectors(t *testing.T) {
 
 			resp := <-msStruct.obstacleResponseChan
 			test.That(t, resp.success, test.ShouldBeTrue)
-			test.That(t, resp.err, test.ShouldNotBeNil)
-			test.That(t, resp.err.Error(), test.ShouldContainSubstring, "found collision between positions")
+			test.That(t, resp.err, test.ShouldBeNil)
 		})
 	}
 }

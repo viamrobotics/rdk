@@ -111,7 +111,6 @@ func (ms *explore) Reconfigure(
 ) (err error) {
 	ms.mutex.Lock()
 	defer ms.mutex.Unlock()
-
 	// Iterate over dependencies and store components and services along with the frame service directly
 	components := make(map[resource.Name]resource.Resource)
 	services := make(map[resource.Name]resource.Resource)
@@ -134,18 +133,18 @@ func (ms *explore) Reconfigure(
 type explore struct {
 	resource.Named
 
-	frameSystem referenceframe.FrameSystem
-	fsService   framesystem.Service
-	components  map[resource.Name]resource.Resource
-	services    map[resource.Name]resource.Resource
-	logger      logging.Logger
-	mutex       sync.Mutex
+	fsService  framesystem.Service
+	components map[resource.Name]resource.Resource
+	services   map[resource.Name]resource.Resource
+	logger     logging.Logger
 
+	processCancelFunc     context.CancelFunc
 	obstacleResponseChan  chan moveResponse
 	executionResponseChan chan moveResponse
 	backgroundWorkers     *sync.WaitGroup
 
-	processCancelFunc context.CancelFunc
+	mutex       sync.Mutex
+	frameSystem referenceframe.FrameSystem
 }
 
 func (ms *explore) MoveOnMap(
@@ -210,7 +209,9 @@ func (ms *explore) PlanHistory(
 }
 
 func (ms *explore) Close(ctx context.Context) error {
-	ms.processCancelFunc()
+	if ms.processCancelFunc != nil {
+		ms.processCancelFunc()
+	}
 	utils.FlushChan(ms.obstacleResponseChan)
 	utils.FlushChan(ms.executionResponseChan)
 	ms.backgroundWorkers.Wait()
@@ -365,13 +366,24 @@ func (ms *explore) checkForObstacles(
 func (ms *explore) executePlan(ctx context.Context, kb kinematicbase.KinematicBase, plan motionplan.Plan) {
 	// Iterate through motionplan plan
 	for i := 1; i < len(plan); i++ {
-		if inputEnabledKb, ok := kb.(inputEnabledActuator); ok {
-			if err := inputEnabledKb.GoToInputs(ctx, plan[i][kb.Name().Name]); err != nil {
-				// If there is an error on GoToInputs, stop the component if possible before returning the error
-				if stopErr := kb.Stop(ctx, nil); stopErr != nil {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			if inputEnabledKb, ok := kb.(inputEnabledActuator); ok {
+				if err := inputEnabledKb.GoToInputs(ctx, plan[i][kb.Name().Name]); err != nil {
+					// If there is an error on GoToInputs, stop the component if possible before returning the error
+					if stopErr := kb.Stop(ctx, nil); stopErr != nil {
+						ms.executionResponseChan <- moveResponse{err: err}
+						return
+					}
+					// If the error was simply a cancellation of context return without erroring out
+					if errors.Is(err, context.Canceled) {
+						return
+					}
 					ms.executionResponseChan <- moveResponse{err: err}
+					return
 				}
-				ms.executionResponseChan <- moveResponse{err: err}
 			}
 		}
 	}
@@ -469,7 +481,6 @@ func (ms *explore) createKinematicBase(
 // names provided in them motionCfg.
 func (ms *explore) createObstacleDetectors(motionCfg motion.MotionConfiguration) ([]obstacleDetectorObject, error) {
 	var obstacleDetectors []obstacleDetectorObject
-
 	// Iterate through obstacleDetectorsNames
 	for _, obstacleDetectorsName := range motionCfg.ObstacleDetectors {
 		// Select the vision service from the service list using the vision service name in obstacleDetectorsNames
