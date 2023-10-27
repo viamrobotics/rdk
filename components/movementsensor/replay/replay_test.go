@@ -3,7 +3,6 @@ package replay
 import (
 	"context"
 	"fmt"
-	"strings"
 	"testing"
 	"time"
 
@@ -262,13 +261,7 @@ func TestNewReplayMovementSensor(t *testing.T) {
 			replay, _, serverClose, err := createNewReplayMovementSensor(ctx, t, tt.cfg, tt.validCloudConnection)
 			if tt.expectedErr != nil {
 				test.That(t, err, test.ShouldNotBeNil)
-				if strings.Contains(err.Error(), "rpc error: code = DeadlineExceeded") {
-					errMessage := "Properties failed to initialize: could not update the cache: " +
-						"rpc error: code = DeadlineExceeded desc = context deadline exceeded"
-					test.That(t, err, test.ShouldBeError, errors.New(errMessage))
-				} else {
-					test.That(t, err, test.ShouldBeError, tt.expectedErr)
-				}
+				test.That(t, err, test.ShouldBeError, tt.expectedErr)
 				test.That(t, replay, test.ShouldBeNil)
 			} else {
 				test.That(t, err, test.ShouldBeNil)
