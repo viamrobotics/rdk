@@ -9,8 +9,6 @@ import (
 	"math"
 	"time"
 
-	"go.viam.com/rdk/logging"
-
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/gostream"
