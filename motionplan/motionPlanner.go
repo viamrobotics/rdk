@@ -190,8 +190,6 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 		return nil, err
 	}
 	newPlan := sf.inputsToPlan(resultSlices)
-	request.Logger.Debugf("seedplan %v", currentPlan)
-	request.Logger.Debugf("plan %v", newPlan)
 
 	if replanCostFactor > 0 && currentPlan != nil {
 		initialPlanCost := currentPlan.Evaluate(sfPlanner.opt().ScoreFunc)
