@@ -11,12 +11,12 @@ import (
 	"time"
 
 	"github.com/golang/geo/r3"
-	"github.com/viamrobotics/gostream"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/internal/cloud"
 	cloudinject "go.viam.com/rdk/internal/testutils/inject"
 	"go.viam.com/rdk/logging"

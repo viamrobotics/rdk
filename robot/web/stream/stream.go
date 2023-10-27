@@ -9,9 +9,9 @@ import (
 	"math"
 	"time"
 
-	"github.com/viamrobotics/gostream"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
 )
 

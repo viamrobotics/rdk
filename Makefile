@@ -21,8 +21,12 @@ setup:
 
 build: build-web build-go
 
+# Ignore mmal.
+# Omit test-only packages: that is, packages that have no source files.
+# 	This is done by default if `go build` uses a wildcard, for example, `go build ./...`. Here, we replicate that
+# 	behavior. See https://github.com/golang/go/blob/fa4f951026f697bc042422d95a0806dcbab7ddd0/src/cmd/go/internal/work/build.go#L734
 build-go:
-	go build ./...
+	go list -f '{{if or .CgoFiles .GoFiles}} {{.Dir}} {{end}}' ./... | grep -v mmal | xargs go build
 
 GOOS ?= $(shell go env GOOS)
 GOARCH ?= $(shell go env GOARCH)
@@ -61,8 +65,8 @@ lint: lint-go lint-web
 
 lint-go: tool-install
 	go mod tidy
-	export pkgs="`go list -f '{{.Dir}}' ./... | grep -v /proto/`" && echo "$$pkgs" | xargs go vet -vettool=$(TOOL_BIN)/combined
-	GOGC=50 $(TOOL_BIN)/golangci-lint run -v --fix --config=./etc/.golangci.yaml
+	export pkgs="`go list -f '{{.Dir}}' ./... | grep -v -e /proto/ -e mmal`" && echo "$$pkgs" | xargs go vet -vettool=$(TOOL_BIN)/combined
+	export GOC=50 pkgs=`go list -f '{{.Dir}}' ./... | grep -v mmal` && echo "$$pkgs" | xargs $(TOOL_BIN)/golangci-lint run -v --fix --config=./etc/.golangci.yaml
 
 lint-web: check-web
 	npm run lint --prefix web/frontend

@@ -5,12 +5,12 @@ import (
 	"testing"
 
 	"github.com/pion/mediadevices/pkg/prop"
-	"github.com/viamrobotics/gostream"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/camera/videosource"
+	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
