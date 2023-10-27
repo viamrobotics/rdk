@@ -554,20 +554,7 @@ func (svc *builtIn) startWaypointMode(ctx context.Context, extra map[string]inte
 					svc.logger.Infof("skipping waypoint %+v since it was deleted", wp)
 					continue
 				}
-				if errors.Is(err, errRetry) {
-					svc.logger.Infof("retrying navigation to waypoint %+v", wp)
-					continue
-				}
-
-				svc.logger.Infof("skipping waypoint %+v due to error while navigating towards it: %s", wp, err)
-				if err := svc.waypointReached(ctx); err != nil {
-					if svc.waypointIsDeleted() {
-						svc.logger.Infof("skipping waypoint %+v since it was deleted", wp)
-						continue
-					}
-					svc.logger.Infof("can't mark waypoint %+v as reached, exiting navigation due to error: %s", wp, err)
-					return
-				}
+				svc.logger.Infof("retrying navigation to waypoint %+v since it errored out: %s", wp, err)
 			}
 		}
 	})
