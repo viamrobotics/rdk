@@ -419,7 +419,7 @@ const start = () => {
 const connect = async (creds?: Credentials) => {
   $connectionStatus = 'connecting';
 
-  await $robotClient.connect(bakedAuth.authEntity, creds ?? bakedAuth.creds);
+  await $robotClient.connect({ authEntity: bakedAuth.authEntity, creds: creds ?? bakedAuth.creds });
 
   $connectionStatus = 'connected';
   start();
