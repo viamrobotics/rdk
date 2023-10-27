@@ -284,7 +284,6 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 			// Attempt a solve; we exhaustively iterate through our goal tree and attempt to find any connection to the seed tree
 			paths := [][]node{}
 			for goalMapNode := range rrt.maps.goalMap {
-
 				seedReached := mp.attemptExtension(ctx, goalMapNode, rrt.maps.startMap, false)
 				if seedReached.error != nil {
 					rrt.solutionChan <- &rrtPlanReturn{planerr: seedReached.error, maps: rrt.maps}
