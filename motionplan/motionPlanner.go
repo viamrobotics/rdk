@@ -471,7 +471,7 @@ func CheckPlan(
 		return nil, err
 	}
 
-	// construct planaer
+	// construct planager
 	sfPlanner, err := newPlanManager(sf, fs, logger, defaultRandomSeed)
 	if err != nil {
 		return nil, err
@@ -570,6 +570,9 @@ func CheckPlan(
 			}
 
 			modifiedSegment := &ik.State{Frame: sf, Position: poseInPath}
+
+			// Checks for collision along the modified interpolated segment and returns a the first interpolated pose where a
+			// collision is detected.
 			if isValid, _ := sfPlanner.planOpts.CheckStateConstraints(modifiedSegment); !isValid {
 				return poseInPath, fmt.Errorf("found collision between positions %v and %v", currentPose.Point(), nextPose.Point())
 			}

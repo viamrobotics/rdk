@@ -346,6 +346,7 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	}
 
 	// Create explore motion service
+	// Note: this service will disappear after the explore motion model is integrated into builtIn
 	exploreMotionConf := resource.Config{ConvertedAttributes: &explore.Config{}}
 	svc.exploreMotionService, err = explore.NewExplore(ctx, deps, exploreMotionConf, svc.logger)
 	if err != nil {
