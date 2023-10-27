@@ -690,7 +690,7 @@ func (g *rtkSerial) sendGGAMessage() {
 	messageBuffer := make([]byte, 0, 1024)
 	g.logger.Debug("made buffer")
 
-	for !g.connectedToNtrip && !g.isClosed {
+	for !g.isClosed {
 		select {
 		case <-g.cancelCtx.Done():
 			return
