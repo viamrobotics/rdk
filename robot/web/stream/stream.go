@@ -6,13 +6,15 @@ package webstream
 import (
 	"context"
 	"errors"
-	"go.viam.com/rdk/logging"
 	"math"
 	"time"
+
+	"go.viam.com/rdk/logging"
 
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/gostream"
+	"go.viam.com/rdk/logging"
 )
 
 // StreamVideoSource starts a stream from a video source with a throttled error handler.

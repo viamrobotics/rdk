@@ -20,6 +20,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	echopb "go.viam.com/api/component/testecho/v1"
 	robotpb "go.viam.com/api/robot/v1"
+	streampb "go.viam.com/api/stream/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -29,7 +30,6 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
-	streampb "go.viam.com/api/stream/v1"
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/audioinput"
 	"go.viam.com/rdk/components/camera"

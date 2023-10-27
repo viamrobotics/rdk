@@ -13,12 +13,11 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pion/webrtc/v3"
 	"go.uber.org/multierr"
+	streampb "go.viam.com/api/stream/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"goji.io"
 	"goji.io/pat"
-
-	streampb "go.viam.com/api/stream/v1"
 )
 
 // A StandaloneStreamServer is a convenience helper for solely streaming a series
