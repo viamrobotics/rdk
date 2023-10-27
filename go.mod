@@ -88,7 +88,7 @@ require (
 	go.viam.com/utils v0.1.52
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.12.0
-	golang.org/x/time v0.0.0-20200416051211-89c76fbcd5d1
+	golang.org/x/time v0.3.0
 	golang.org/x/tools v0.10.0
 	gonum.org/v1/gonum v0.12.0
 	gonum.org/v1/plot v0.12.0
