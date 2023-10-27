@@ -144,6 +144,8 @@ type explore struct {
 	obstacleResponseChan  chan moveResponse
 	executionResponseChan chan moveResponse
 	backgroundWorkers     *sync.WaitGroup
+
+	processCancelFunc context.CancelFunc
 }
 
 func (ms *explore) MoveOnMap(
@@ -208,6 +210,7 @@ func (ms *explore) PlanHistory(
 }
 
 func (ms *explore) Close(ctx context.Context) error {
+	ms.processCancelFunc()
 	utils.FlushChan(ms.obstacleResponseChan)
 	utils.FlushChan(ms.executionResponseChan)
 	ms.backgroundWorkers.Wait()
@@ -255,7 +258,8 @@ func (ms *explore) Move(
 
 	// Start background processes
 	cancelCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
+	ms.processCancelFunc = cancel
+	defer ms.processCancelFunc()
 
 	// Start polling for obstacles
 	ms.backgroundWorkers.Add(1)
@@ -481,7 +485,7 @@ func (ms *explore) createObstacleDetectors(motionCfg motion.MotionConfiguration)
 		}
 
 		// Select the camera from the component list using the camera name in obstacleDetectorsNames
-		// Note: May need to be converted to a forloop if we accept multiple cameras for each vision service
+		// Note: May need to be converted to a for loop if we accept multiple cameras for each vision service
 		cameraResource, ok := ms.components[obstacleDetectorsName.CameraName]
 		if !ok {
 			return nil, resource.DependencyNotFoundError(obstacleDetectorsName.CameraName)
@@ -496,7 +500,8 @@ func (ms *explore) createObstacleDetectors(motionCfg motion.MotionConfiguration)
 	return obstacleDetectors, nil
 }
 
-// createMotionPlan will construct a motion plan using the given destination TBD.
+// createMotionPlan will construct a motion plan towards a specified destination using the given kinematic base.
+// No position knowledge is assumed so every plan uses the base, and therefore world, origin as the starting location.
 func (ms *explore) createMotionPlan(
 	ctx context.Context,
 	kb kinematicbase.KinematicBase,
@@ -546,6 +551,7 @@ func (ms *explore) createMotionPlan(
 	})
 }
 
+// parseMotionConfig extracts the MotionConfiguration from extra's.
 func parseMotionConfig(extra map[string]interface{}) (motion.MotionConfiguration, error) {
 	motionCfgInterface, ok := extra["motionCfg"]
 	if !ok {

@@ -213,9 +213,10 @@ type builtIn struct {
 	mode      navigation.Mode
 	mapType   navigation.MapType
 
-	base                 base.Base
-	movementSensor       movementsensor.MovementSensor
-	motionService        motion.Service
+	base           base.Base
+	movementSensor movementsensor.MovementSensor
+	motionService  motion.Service
+	// exploreMotionService will be removed once the motion explore model is integrated into motion builtin
 	exploreMotionService motion.Service
 	obstacles            []*spatialmath.GeoObstacle
 

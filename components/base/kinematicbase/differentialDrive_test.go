@@ -22,7 +22,7 @@ import (
 )
 
 // Limits when localizer isn't present.
-const defaultLocalizerLimit = 10000.
+const testNilLocalizerMoveLimit = 10000.
 
 func testConfig() resource.Config {
 	return resource.Config{
@@ -179,8 +179,8 @@ func buildTestDDK(
 		localizer = motion.NewSLAMLocalizer(fakeSLAM)
 	} else {
 		limits = []referenceframe.Limit{
-			{Min: defaultLocalizerLimit, Max: defaultLocalizerLimit},
-			{Min: defaultLocalizerLimit, Max: defaultLocalizerLimit},
+			{Min: testNilLocalizerMoveLimit, Max: testNilLocalizerMoveLimit},
+			{Min: testNilLocalizerMoveLimit, Max: testNilLocalizerMoveLimit},
 		}
 	}
 	limits = append(limits, referenceframe.Limit{Min: -2 * math.Pi, Max: 2 * math.Pi})

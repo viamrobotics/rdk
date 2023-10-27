@@ -584,6 +584,7 @@ func (r *localRobot) getWeakDependencies(resName resource.Name, api resource.API
 	internalResources := map[resource.Name]resource.Resource{}
 	components := map[resource.Name]resource.Resource{}
 	slamServices := map[resource.Name]resource.Resource{}
+	visionServices := map[resource.Name]resource.Resource{}
 	for _, n := range r.manager.resources.Names() {
 		if !(n.API.IsComponent() || n.API.IsService()) {
 			continue
@@ -601,6 +602,8 @@ func (r *localRobot) getWeakDependencies(resName resource.Name, api resource.API
 			components[n] = res
 		case n.API.SubtypeName == slam.API.SubtypeName:
 			slamServices[n] = res
+		case len(visionSubtypeName) > 0 && n.API.SubtypeName == visionSubtypeName:
+			visionServices[n] = res
 		case n.API.Type.Namespace == resource.APINamespaceRDKInternal:
 			internalResources[n] = res
 		}
@@ -619,6 +622,8 @@ func (r *localRobot) getWeakDependencies(resName resource.Name, api resource.API
 		switch matcher {
 		case internal.ComponentDependencyWildcardMatcher:
 			match(components)
+		case internal.VisionDependencyWildcardMatcher:
+			match(visionServices)
 		case internal.SLAMDependencyWildcardMatcher:
 			match(slamServices)
 		default:
