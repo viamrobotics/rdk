@@ -994,10 +994,9 @@ func TestArmGantryCheckPlan(t *testing.T) {
 	plan, err := PlanMotion(context.Background(), &planReq)
 	test.That(t, err, test.ShouldBeNil)
 
-	startPose := spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0})
-	errorState := spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0})
-	floatList := []float64{0, 0, 0, 0, 0, 0, 0}
-	inputs := frame.FloatsToInputs(floatList)
+	startPose := spatialmath.NewZeroPose()
+	errorState := spatialmath.NewZeroPose()
+	inputs := frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0, 0})
 
 	t.Run("check plan with no obstacles", func(t *testing.T) {
 		err := CheckPlan(fs.Frame("xArm6"), plan, nil, fs, startPose, inputs, errorState, logger)
