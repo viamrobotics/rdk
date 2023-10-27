@@ -29,11 +29,10 @@ import (
 )
 
 const (
-	timeFormat                 = time.RFC3339
-	grpcConnectionTimeout      = 10 * time.Second
-	dataReceivedLoopWaitTime   = time.Second
-	tabularDataByFilterTimeout = 15 * time.Second
-	maxCacheSize               = 1000
+	timeFormat               = time.RFC3339
+	grpcConnectionTimeout    = 10 * time.Second
+	dataReceivedLoopWaitTime = time.Second
+	maxCacheSize             = 1000
 )
 
 type method string
