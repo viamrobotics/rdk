@@ -101,17 +101,17 @@ func newEncodedMotor(
 	}
 	em.encoder = realEncoder
 
-	if len(motorConfig.ControlLoop.Blocks) != 0 {
-		cLoop, err := control.NewLoop(logger, motorConfig.ControlLoop, em)
-		if err != nil {
-			return nil, err
-		}
-		err = cLoop.Start()
-		if err != nil {
-			return nil, err
-		}
-		em.loop = cLoop
-	}
+	// if len(motorConfig.ControlLoop.Blocks) != 0 {
+	// 	cLoop, err := control.NewLoop(logger, motorConfig.ControlLoop, em)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// 	err = cLoop.Start()
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// 	em.loop = cLoop
+	// }
 
 	if em.rampRate < 0 || em.rampRate > 1 {
 		return nil, fmt.Errorf("ramp rate needs to be (0, 1] but is %v", em.rampRate)
@@ -175,6 +175,19 @@ type EncodedMotorState struct {
 
 // RPMMonitorStart starts the RPM monitor.
 func (m *EncodedMotor) rpmMonitorStart() {
+	if m.loop != nil {
+		m.loop.Stop()
+	}
+	if len(m.cfg.ControlLoop.Blocks) != 0 {
+		cLoop, _ := control.NewLoop(m.logger, m.cfg.ControlLoop, m)
+		err := cLoop.Start()
+		if err != nil {
+			m.logger.Error(err)
+			return
+		}
+		m.loop = cLoop
+		return
+	}
 	m.startedRPMMonitorMu.Lock()
 	startedRPMMonitor := m.startedRPMMonitor
 	m.startedRPMMonitorMu.Unlock()
@@ -418,9 +431,36 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float
 		if math.Abs(oldRpm) > 0.001 && m.state.direction == m.directionMovingInLock() {
 			return nil
 		}
-		// if moving from stop, start at 10% power
-		if err := m.setPower(ctx, m.state.direction*0.1, true); err != nil {
-			return err
+
+		if m.loop != nil {
+			vel_val := math.Abs(rpm * m.ticksPerRotation / 60)
+			velConf := control.BlockConfig{
+				Name: "trapz",
+				Type: control.BlockTrapezoidalVelocityProfile,
+				Attribute: rdkutils.AttributeMap{
+					"max_vel":    vel_val,
+					"max_acc":    30000.0,
+					"pos_window": 0.0,
+					"kpp_gain":   0.45,
+				},
+				DependsOn: []string{"set_point", "endpoint"},
+			}
+			m.loop.SetConfigAt(ctx, "trapz", velConf)
+
+			posConf := control.BlockConfig{
+				Name: "set_point",
+				Type: control.BlockConstant,
+				Attribute: rdkutils.AttributeMap{
+					"constant_val": math.Inf(int(rpm)),
+				},
+				DependsOn: []string{},
+			}
+			m.loop.SetConfigAt(ctx, "set_point", posConf)
+		} else {
+			// if moving from stop, start at 10% power
+			if err := m.setPower(ctx, m.state.direction*0.1, true); err != nil {
+				return err
+			}
 		}
 		return nil
 	}
@@ -430,10 +470,37 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float
 	m.state.goalRPM = math.Abs(rpm) * m.state.direction
 	m.state.goalPos = goalPos
 
-	startingPwr := 0.1 * m.state.direction
-	err = m.setPower(ctx, startingPwr, true)
-	if err != nil {
-		return err
+	if m.loop != nil {
+		vel_val := math.Abs(rpm * m.ticksPerRotation / 60)
+		velConf := control.BlockConfig{
+			Name: "trapz",
+			Type: control.BlockTrapezoidalVelocityProfile,
+			Attribute: rdkutils.AttributeMap{
+				"max_vel":    vel_val,
+				"max_acc":    30000.0,
+				"pos_window": 0.0,
+				"kpp_gain":   0.45,
+			},
+			DependsOn: []string{"set_point", "endpoint"},
+		}
+		m.loop.SetConfigAt(ctx, "trapz", velConf)
+
+		posConf := control.BlockConfig{
+			Name: "set_point",
+			Type: control.BlockConstant,
+			Attribute: rdkutils.AttributeMap{
+				"constant_val": goalPos,
+			},
+			DependsOn: []string{},
+		}
+		m.loop.SetConfigAt(ctx, "set_point", posConf)
+
+	} else {
+		startingPwr := 0.1 * m.state.direction
+		err = m.setPower(ctx, startingPwr, true)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -531,6 +598,9 @@ func (m *EncodedMotor) Stop(ctx context.Context, extra map[string]interface{}) e
 	m.stateMu.Lock()
 	m.state.goalRPM = 0
 	m.state.regulated = false
+	// if m.loop != nil {
+	// 	m.loop.Stop()
+	// }
 	m.stateMu.Unlock()
 	return m.real.Stop(ctx, nil)
 }

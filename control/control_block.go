@@ -15,12 +15,12 @@ type controlBlockType string
 const (
 	blockEndpoint                   controlBlockType = "endpoint"
 	blockFilter                     controlBlockType = "filter"
-	blockTrapezoidalVelocityProfile controlBlockType = "trapezoidalVelocityProfile"
+	BlockTrapezoidalVelocityProfile controlBlockType = "trapezoidalVelocityProfile"
 	blockPID                        controlBlockType = "PID"
 	blockGain                       controlBlockType = "gain"
 	blockDerivative                 controlBlockType = "derivative"
-	blockSum                        controlBlockType = "sum"
-	blockConstant                   controlBlockType = "constant"
+	BlockSum                        controlBlockType = "sum"
+	BlockConstant                   controlBlockType = "constant"
 	blockEncoderToRPM               controlBlockType = "encoderToRpm"
 )
 
@@ -59,7 +59,7 @@ func createBlock(cfg BlockConfig, logger golog.Logger) (Block, error) {
 			return nil, err
 		}
 		return b, nil
-	case blockSum:
+	case BlockSum:
 		b, err := newSum(cfg, logger)
 		if err != nil {
 			return nil, err
@@ -71,7 +71,7 @@ func createBlock(cfg BlockConfig, logger golog.Logger) (Block, error) {
 			return nil, err
 		}
 		return b, nil
-	case blockTrapezoidalVelocityProfile:
+	case BlockTrapezoidalVelocityProfile:
 		b, err := newTrapezoidVelocityProfile(cfg, logger)
 		if err != nil {
 			return nil, err
@@ -95,7 +95,7 @@ func createBlock(cfg BlockConfig, logger golog.Logger) (Block, error) {
 			return nil, err
 		}
 		return b, nil
-	case blockConstant:
+	case BlockConstant:
 		b, err := newConstant(cfg, logger)
 		if err != nil {
 			return nil, err
