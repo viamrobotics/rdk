@@ -28,11 +28,11 @@ gostream is a library to simplify the streaming of images as video and audio chu
 
 ## Examples
 
-* Stream current desktop: `make stream-desktop`
-* Stream camera: `make stream-camera`
-* Stream microphone: `make stream-microphone`
-* Stream microphone and camera: `make stream-av`
-* Playback microphone from browser: `make playback-microphone`
+* Stream current desktop: `go run gostream/cmd/stream_video/main.go`
+* Stream camera: `go run gostream/cmd/stream_video/main.go -camera`
+* Stream microphone: `go run gostream/cmd/stream_audio/main.go -playback`
+* Stream microphone and camera: `go run gostream/cmd/stream_av/main.go -camera`
+* Playback microphone from browser: `go run gostream/cmd/stream_audio/main.go -playback`
 
 ## Notes
 
