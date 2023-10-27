@@ -445,7 +445,7 @@ func TestPtgCheckPlan(t *testing.T) {
 
 		collisionPose, err := CheckPlan(ackermanFrame, steps, worldState, fs, startPose, inputs, errorState, logger)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, collisionPose, test.ShouldBeNil)
+		test.That(t, collisionPose, test.ShouldNotBeNil)
 	})
 
 	// create camera_origin frame
@@ -499,7 +499,7 @@ func TestPtgCheckPlan(t *testing.T) {
 
 		collisionPose, err := CheckPlan(ackermanFrame, steps, worldState, fs, startPose, inputs, errorState, logger)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, collisionPose, test.ShouldBeNil)
+		test.That(t, collisionPose, test.ShouldNotBeNil)
 	})
 	t.Run("checking from partial-plan, ensure success with obstacles - integration test", func(t *testing.T) {
 		// create obstacle behind where we are
