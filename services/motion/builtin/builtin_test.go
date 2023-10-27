@@ -12,6 +12,7 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
@@ -1238,20 +1239,21 @@ func TestObstacleDetection(t *testing.T) {
 
 	type testCase struct {
 		name           string
-		noise          r3.Vector
 		expectedReplan bool
-		cfg            *motion.MotionConfiguration
 		getPCfunc      func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error)
 	}
+
+	cfg := &motion.MotionConfiguration{
+		PositionPollingFreqHz: 1, ObstaclePollingFreqHz: 100, PlanDeviationMM: epsilonMM, ObstacleDetectors: obstacleDetectorSlice,
+	}
+
+	extra, err := newValidatedExtra(map[string]interface{}{"replan_cost_factor": 10.0, "max_replans": 4})
+	test.That(t, err, test.ShouldBeNil)
 
 	testCases := []testCase{
 		{
 			name:           "ensure no replan from discovered obstacles",
-			noise:          r3.Vector{0, 0, 0},
 			expectedReplan: false,
-			cfg: &motion.MotionConfiguration{
-				PositionPollingFreqHz: 1, ObstaclePollingFreqHz: 100, PlanDeviationMM: epsilonMM, ObstacleDetectors: obstacleDetectorSlice,
-			},
 			getPCfunc: func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
 				obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{-1000, -1000, 0})
 				box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{10, 10, 10}, "test-case-2")
@@ -1265,11 +1267,7 @@ func TestObstacleDetection(t *testing.T) {
 		},
 		{
 			name:           "ensure replan due to obstacle collision",
-			noise:          r3.Vector{0, 0, 0},
 			expectedReplan: true,
-			cfg: &motion.MotionConfiguration{
-				PositionPollingFreqHz: 1, ObstaclePollingFreqHz: 100, PlanDeviationMM: epsilonMM, ObstacleDetectors: obstacleDetectorSlice,
-			},
 			getPCfunc: func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
 				obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{50, 0, 0})
 				box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{100, 100, 10}, "test-case-1")
@@ -1285,15 +1283,13 @@ func TestObstacleDetection(t *testing.T) {
 
 	testFn := func(t *testing.T, tc testCase) {
 		t.Helper()
-		injectedMovementSensor, _, kb, ms := createMoveOnGlobeEnvironment(ctx, t, gpsOrigin, spatialmath.NewPoseFromPoint(tc.noise))
-		moveRequest, err := ms.(*builtIn).newMoveOnGlobeRequest(ctx, kb.Name(), dst, injectedMovementSensor.Name(), nil, tc.cfg, nil, nil)
+		injectedMovementSensor, _, kb, ms := createMoveOnGlobeEnvironment(ctx, t, gpsOrigin, spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0}))
+		moveRequest, err := ms.(*builtIn).newMoveOnGlobeRequest(ctx, kb.Name(), dst, injectedMovementSensor.Name(), nil, cfg, nil, extra)
 		test.That(t, err, test.ShouldBeNil)
 
-		if len(tc.cfg.ObstacleDetectors) > 0 {
-			srvc, ok := ms.(*builtIn).visionServices[tc.cfg.ObstacleDetectors[0].VisionServiceName].(*inject.VisionService)
-			test.That(t, ok, test.ShouldBeTrue)
-			srvc.GetObjectPointCloudsFunc = tc.getPCfunc
-		}
+		srvc, ok := ms.(*builtIn).visionServices[cfg.ObstacleDetectors[0].VisionServiceName].(*inject.VisionService)
+		test.That(t, ok, test.ShouldBeTrue)
+		srvc.GetObjectPointCloudsFunc = tc.getPCfunc
 
 		ctx, cancel := context.WithTimeout(ctx, 30.0*time.Second)
 		ma := newMoveAttempt(ctx, moveRequest)
