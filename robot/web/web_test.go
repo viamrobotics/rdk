@@ -29,7 +29,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
-	streampb "go.viam.com/api/proto/viam/stream/v1"
+	streampb "go.viam.com/api/stream/v1"
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/audioinput"
 	"go.viam.com/rdk/components/camera"
