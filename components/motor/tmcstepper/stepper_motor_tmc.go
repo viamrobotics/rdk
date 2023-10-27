@@ -6,13 +6,13 @@ import (
 	"math"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/motor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 )
@@ -70,7 +70,7 @@ func init() {
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger golog.Logger,
+			logger logging.Logger,
 		) (motor.Motor, error) {
 			newConf, err := resource.NativeConfig[*TMC5072Config](conf)
 			if err != nil {
@@ -96,7 +96,7 @@ type Motor struct {
 	maxRPM      float64
 	maxAcc      float64
 	fClk        float64
-	logger      golog.Logger
+	logger      logging.Logger
 	opMgr       *operation.SingleOperationManager
 	powerPct    float64
 	motorName   string
@@ -145,7 +145,7 @@ const (
 
 // NewMotor returns a TMC5072 driven motor.
 func NewMotor(ctx context.Context, deps resource.Dependencies, c TMC5072Config, name resource.Name,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (motor.Motor, error) {
 	b, err := board.FromDependencies(deps, c.BoardName)
 	if err != nil {

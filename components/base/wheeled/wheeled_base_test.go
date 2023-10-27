@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 	"go.viam.com/utils"
@@ -15,6 +14,7 @@ import (
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/motor/fake"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
@@ -50,7 +50,7 @@ func createMockDeps(t *testing.T) resource.Dependencies {
 
 func fakeMotorDependencies(t *testing.T, deps []string) resource.Dependencies {
 	t.Helper()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	result := make(resource.Dependencies)
 	for _, dep := range deps {
@@ -66,7 +66,7 @@ func fakeMotorDependencies(t *testing.T, deps []string) resource.Dependencies {
 
 func TestWheelBaseMath(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	testCfg := newTestCfg()
 	deps, err := testCfg.Validate("path", resource.APITypeComponentName)
 	test.That(t, err, test.ShouldBeNil)
@@ -322,7 +322,7 @@ func TestWheelBaseMath(t *testing.T) {
 
 func TestStopError(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	deps := createMockDeps(t)
 
 	fakecfg := resource.Config{
@@ -343,7 +343,7 @@ func TestStopError(t *testing.T) {
 
 func TestWheeledBaseConstructor(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	// empty config
 	cfg := &Config{}
@@ -377,7 +377,7 @@ func TestWheeledBaseConstructor(t *testing.T) {
 
 func TestWheeledBaseReconfigure(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	// valid config
 	testCfg := newTestCfg()

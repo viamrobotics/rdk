@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"image"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"github.com/viamrobotics/gostream"
 	"go.opencensus.io/trace"
@@ -13,6 +12,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
@@ -26,7 +26,7 @@ func init() {
 	resource.RegisterComponent(camera.API, homographyModel,
 		resource.Registration[camera.Camera, *homographyConfig]{
 			Constructor: func(ctx context.Context, deps resource.Dependencies,
-				conf resource.Config, logger golog.Logger,
+				conf resource.Config, logger logging.Logger,
 			) (camera.Camera, error) {
 				newConf, err := resource.NativeConfig[*homographyConfig](conf)
 				if err != nil {
@@ -86,11 +86,11 @@ type colorDepthHomography struct {
 	height               int // height of the aligned image
 	width                int // width of the aligned image
 	debug                bool
-	logger               golog.Logger
+	logger               logging.Logger
 }
 
 // newColorDepthHomography creates a gostream.VideoSource that aligned color and depth channels.
-func newColorDepthHomography(ctx context.Context, color, depth camera.VideoSource, conf *homographyConfig, logger golog.Logger,
+func newColorDepthHomography(ctx context.Context, color, depth camera.VideoSource, conf *homographyConfig, logger logging.Logger,
 ) (camera.VideoSource, error) {
 	if conf.Homography == nil {
 		return nil, errors.New("homography field in attributes cannot be empty")

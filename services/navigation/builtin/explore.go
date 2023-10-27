@@ -22,7 +22,6 @@ func (svc *builtIn) startExploreMode(ctx context.Context) {
 		defer svc.activeBackgroundWorkers.Done()
 
 		// Send motionCfg parameters through extra until motionCfg can be added to Move()
-
 		extra := map[string]interface{}{"motionCfg": svc.motionCfg}
 
 		for {
@@ -41,7 +40,7 @@ func (svc *builtIn) startExploreMode(ctx context.Context) {
 
 			_, err := svc.exploreMotionService.Move(ctx, svc.base.Name(), destination, nil, nil, extra)
 			if err != nil {
-				svc.logger.Debug("error occurred when moving to point %v", destination)
+				svc.logger.Debugf("error occurred when moving to point %v: %v", destination, err)
 			}
 		}
 	})

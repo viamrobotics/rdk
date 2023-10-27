@@ -4,10 +4,10 @@ package fake
 import (
 	"context"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 
 	"go.viam.com/rdk/components/base"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -35,11 +35,11 @@ type Base struct {
 	TurningRadius            float64
 	WheelCircumferenceMeters float64
 	Geometry                 []spatialmath.Geometry
-	logger                   golog.Logger
+	logger                   logging.Logger
 }
 
 // NewBase instantiates a new base of the fake model type.
-func NewBase(_ context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger) (base.Base, error) {
+func NewBase(_ context.Context, _ resource.Dependencies, conf resource.Config, logger logging.Logger) (base.Base, error) {
 	b := &Base{
 		Named:    conf.ResourceName().AsNamed(),
 		Geometry: []spatialmath.Geometry{},

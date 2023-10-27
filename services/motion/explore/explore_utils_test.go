@@ -3,13 +3,13 @@ package explore
 import (
 	"context"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 
 	"go.viam.com/rdk/components/base"
 	baseFake "go.viam.com/rdk/components/base/fake"
 	"go.viam.com/rdk/components/camera"
 	cameraFake "go.viam.com/rdk/components/camera/fake"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -23,7 +23,7 @@ import (
 
 // createNewExploreMotionService creates a new motion service complete with base, camera (optional) and frame system.
 // Note: The required vision service can/is added later as it will not affect the building of the frame system.
-func createNewExploreMotionService(ctx context.Context, logger golog.Logger, fakeBase base.Base, cameras []camera.Camera,
+func createNewExploreMotionService(ctx context.Context, logger logging.Logger, fakeBase base.Base, cameras []camera.Camera,
 ) (motion.Service, error) {
 	var fsParts []*referenceframe.FrameSystemPart
 	deps := make(resource.Dependencies)
@@ -59,7 +59,7 @@ func createNewExploreMotionService(ctx context.Context, logger golog.Logger, fak
 }
 
 // createFakeBase instantiates a fake base.
-func createFakeBase(ctx context.Context, logger golog.Logger) (base.Base, error) {
+func createFakeBase(ctx context.Context, logger logging.Logger) (base.Base, error) {
 	fakeBaseCfg := resource.Config{
 		Name:  testBaseName.Name,
 		API:   base.API,
@@ -69,7 +69,7 @@ func createFakeBase(ctx context.Context, logger golog.Logger) (base.Base, error)
 }
 
 // createFakeCamera instantiates a fake camera.
-func createFakeCamera(ctx context.Context, logger golog.Logger, name string) (camera.Camera, error) {
+func createFakeCamera(ctx context.Context, logger logging.Logger, name string) (camera.Camera, error) {
 	fakeCameraCfg := resource.Config{
 		Name:  name,
 		API:   camera.API,
@@ -113,7 +113,7 @@ func createFrameSystemService(
 	ctx context.Context,
 	deps resource.Dependencies,
 	fsParts []*referenceframe.FrameSystemPart,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (framesystem.Service, error) {
 	fsSvc, err := framesystem.New(ctx, deps, logger)
 	if err != nil {

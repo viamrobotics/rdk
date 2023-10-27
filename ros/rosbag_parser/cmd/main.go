@@ -11,10 +11,10 @@ import (
 	"io"
 	"os"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	goutils "go.viam.com/utils"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
@@ -23,7 +23,7 @@ import (
 	"go.viam.com/rdk/vision/segmentation"
 )
 
-var logger = golog.NewDebugLogger("rosbag_parser")
+var logger = logging.NewDebugLogger("rosbag_parser")
 
 // Arguments for the rosbag parser.
 type Arguments struct {
@@ -91,7 +91,7 @@ func extractPlanes(ctx context.Context, img *rimage.Image, dm *rimage.DepthMap) 
 	return segImage, nil
 }
 
-func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error {
+func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) error {
 	var argsParsed Arguments
 
 	if err := goutils.ParseFlags(args, &argsParsed); err != nil {

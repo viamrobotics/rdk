@@ -11,13 +11,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/rpc"
 
 	viamgrpc "go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/slam"
@@ -36,10 +36,10 @@ const (
 )
 
 func TestClientWorkingService(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
-	workingServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
+	workingServer, err := rpc.NewServer(logger.AsZap(), rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 	poseSucc := spatial.NewPose(r3.Vector{X: 1, Y: 2, Z: 3}, &spatial.OrientationVector{Theta: math.Pi / 2, OX: 0, OY: 0, OZ: -1})
 	componentRefSucc := "cam"
@@ -221,11 +221,11 @@ func TestClientWorkingService(t *testing.T) {
 }
 
 func TestFailingClient(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 
-	failingServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
+	failingServer, err := rpc.NewServer(logger.AsZap(), rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
 	pcFail := &vision.Object{}

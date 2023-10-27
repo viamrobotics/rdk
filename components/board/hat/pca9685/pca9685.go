@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/board/v1"
@@ -19,6 +18,7 @@ import (
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/board/genericlinux"
 	"go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
@@ -76,7 +76,7 @@ func init() {
 				ctx context.Context,
 				deps resource.Dependencies,
 				conf resource.Config,
-				logger golog.Logger,
+				logger logging.Logger,
 			) (board.Board, error) {
 				return New(ctx, deps, conf, logger)
 			},
@@ -96,7 +96,7 @@ type PCA9685 struct {
 	gpioPins            [16]gpioPin
 	boardName           string
 	i2cName             string
-	logger              golog.Logger
+	logger              logging.Logger
 }
 
 const (
@@ -110,7 +110,7 @@ const (
 var defaultAddr = 0x40
 
 // New returns a new PCA9685 residing on the given bus and address.
-func New(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (*PCA9685, error) {
+func New(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger) (*PCA9685, error) {
 	pca := PCA9685{
 		Named:               conf.ResourceName().AsNamed(),
 		referenceClockSpeed: defaultReferenceClockSpeed,

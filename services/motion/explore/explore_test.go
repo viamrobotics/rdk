@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
@@ -14,6 +13,7 @@ import (
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/framesystem"
@@ -41,7 +41,7 @@ type obstacleMetadata struct {
 
 func TestExplorePlanMove(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	fakeBase, err := createFakeBase(ctx, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -103,7 +103,7 @@ func TestExplorePlanMove(t *testing.T) {
 
 func TestExploreCheckForObstacles(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	// Create fake camera
 	fakeCamera, err := createFakeCamera(ctx, logger, testCameraName1.Name)
@@ -271,7 +271,7 @@ func TestExploreCheckForObstacles(t *testing.T) {
 
 func TestMultipleObstacleDetectors(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	// Create fake cameras
 	fakeCamera1, err := createFakeCamera(ctx, logger, testCameraName1.Name)

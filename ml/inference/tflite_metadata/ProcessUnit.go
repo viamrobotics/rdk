@@ -11,9 +11,11 @@ type ProcessUnitT struct {
 }
 
 func (t *ProcessUnitT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
-	if t == nil { return 0 }
+	if t == nil {
+		return 0
+	}
 	optionsOffset := t.Options.Pack(builder)
-	
+
 	ProcessUnitStart(builder)
 	if t.Options != nil {
 		ProcessUnitAddOptionsType(builder, t.Options.Type)
@@ -30,7 +32,9 @@ func (rcv *ProcessUnit) UnPackTo(t *ProcessUnitT) {
 }
 
 func (rcv *ProcessUnit) UnPack() *ProcessUnitT {
-	if rcv == nil { return nil }
+	if rcv == nil {
+		return nil
+	}
 	t := &ProcessUnitT{}
 	rcv.UnPackTo(t)
 	return t

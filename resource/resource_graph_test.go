@@ -5,8 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/logging"
 )
 
 type fakeComponent struct {
@@ -987,7 +988,7 @@ func TestResourceGraphLastReconfigured(t *testing.T) {
 }
 
 func TestResourceGraphResolveDependencies(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	g := NewGraph()
 	test.That(t, g.ResolveDependencies(logger), test.ShouldBeNil)
 

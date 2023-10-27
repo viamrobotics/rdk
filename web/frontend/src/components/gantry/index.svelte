@@ -40,18 +40,15 @@ $: parts = status.lengths_mm.map((_, index) => ({
 }));
 
 $: if (status.lengths_mm.length !== status.positions_mm.length) {
+  // eslint-disable-next-line no-console
   console.error('gantry lists different lengths');
 }
 
 const increment = (axis: number, amount: number) => {
-  if (!status) {
-    return;
-  }
-
   const pos: number[] = [];
 
   for (const [i, part] of parts.entries()) {
-    pos[i] = part!.pos;
+    pos[i] = part.pos;
   }
 
   pos[axis] += amount;
@@ -152,7 +149,7 @@ const stop = () => {
             {#each modifyAllStatus.pieces as piece, i (piece.axis)}
               <tr>
                 <th class="border border-medium p-2">
-                  {parts[i]?.axis || 0}
+                  {parts[i]?.axis ?? 0}
                 </th>
                 <td class="border border-medium p-2">
                   <input
@@ -165,10 +162,10 @@ const stop = () => {
                   />
                 </td>
                 <td class="border border-medium p-2">
-                  { parts[i]?.pos.toFixed(2) || 0}
+                  { parts[i]?.pos.toFixed(2) ?? 0}
                 </td>
                 <td class="border border-medium p-2">
-                  { parts[i]?.length || 0 }
+                  { parts[i]?.length ?? 0 }
                 </td>
               </tr>
             {/each}
@@ -181,19 +178,19 @@ const stop = () => {
                 <td class="flex gap-2 p-2">
                   <v-button
                     label="--"
-                    on:click={increment(part.axis, -10)}
+                    on:click={() => increment(part.axis, -10)}
                   />
                   <v-button
                     label="-"
-                    on:click={increment(part.axis, -1)}
+                    on:click={() => increment(part.axis, -1)}
                   />
                   <v-button
                     label="+"
-                    on:click={increment(part.axis, 1)}
+                    on:click={() => increment(part.axis, 1)}
                   />
                   <v-button
                     label="++"
-                    on:click={increment(part.axis, 10)}
+                    on:click={() => increment(part.axis, 10)}
                   />
                 </td>
                 <td class="border border-medium p-2">

@@ -6,13 +6,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/control"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
@@ -56,7 +57,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 
 type sensorBase struct {
 	resource.Named
-	logger golog.Logger
+	logger logging.Logger
 	mu     sync.Mutex
 
 	activeBackgroundWorkers sync.WaitGroup
@@ -71,6 +72,8 @@ type sensorBase struct {
 	allSensors  []movementsensor.MovementSensor
 	orientation movementsensor.MovementSensor
 	velocities  movementsensor.MovementSensor
+
+	loop *control.Loop
 }
 
 func init() {
@@ -84,7 +87,7 @@ func createSensorBase(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (base.Base, error) {
 	sb := &sensorBase{
 		logger: logger,
@@ -151,6 +154,12 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 		return errors.Wrapf(err, "no base named (%s)", newConf.Base)
 	}
 
+	if sb.velocities != nil {
+		if err := setupControlLoops(sb); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -176,74 +185,8 @@ func (sb *sensorBase) MoveStraight(
 	ctx, done := sb.opMgr.New(ctx)
 	defer done()
 	sb.setPolling(false)
+
 	return sb.controlledBase.MoveStraight(ctx, distanceMm, mmPerSec, extra)
-}
-
-func (sb *sensorBase) SetVelocity(
-	ctx context.Context, linear, angular r3.Vector, extra map[string]interface{},
-) error {
-	sb.opMgr.CancelRunning(ctx)
-	// check if a sensor context has been started
-	if sb.sensorLoopDone != nil {
-		sb.sensorLoopDone()
-	}
-
-	sb.setPolling(true)
-	// start a sensor context for the sensor loop based on the longstanding base
-	// creator context, and add a timeout for the context
-	timeOut := 10 * time.Second
-	var sensorCtx context.Context
-	sensorCtx, sb.sensorLoopDone = context.WithTimeout(context.Background(), timeOut)
-
-	if sb.velocities != nil {
-		sb.logger.Warn("not using sensor for SetVelocityfeedback, this feature will be implemented soon")
-		// TODO RSDK-3695 implement control loop here instead of placeholder sensor pllling function
-		sb.pollsensors(sensorCtx, extra)
-		return errors.New(
-			"setvelocity with sensor feedback not currently implemented, remove movement sensor reporting linear and angular velocity ")
-	}
-	return sb.controlledBase.SetVelocity(ctx, linear, angular, extra)
-}
-
-func (sb *sensorBase) pollsensors(ctx context.Context, extra map[string]interface{}) {
-	sb.activeBackgroundWorkers.Add(1)
-	utils.ManagedGo(func() {
-		ticker := time.NewTicker(velocitiesPollTime)
-		defer ticker.Stop()
-
-		for {
-			// check if we want to poll the sensor at all
-			// other API calls set this to false so that this for loop stops
-			if !sb.isPolling() {
-				ticker.Stop()
-			}
-
-			if err := ctx.Err(); err != nil {
-				return
-			}
-
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				linvel, err := sb.velocities.LinearVelocity(ctx, extra)
-				if err != nil {
-					sb.logger.Error(err)
-					return
-				}
-
-				angvel, err := sb.velocities.AngularVelocity(ctx, extra)
-				if err != nil {
-					sb.logger.Error(err)
-					return
-				}
-
-				if sensorDebug {
-					sb.logger.Infof("sensor readings: linear: %#v, angular %#v", linvel, angvel)
-				}
-			}
-		}
-	}, sb.activeBackgroundWorkers.Done)
 }
 
 func (sb *sensorBase) SetPower(
@@ -279,6 +222,10 @@ func (sb *sensorBase) Close(ctx context.Context) error {
 	// check if a sensor context is still alive
 	if sb.sensorLoopDone != nil {
 		sb.sensorLoopDone()
+	}
+
+	if sb.loop != nil {
+		sb.loop.Stop()
 	}
 
 	sb.activeBackgroundWorkers.Wait()

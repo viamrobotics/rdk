@@ -19,14 +19,14 @@ To connect to a robot as a client, you should instantiate a client.
 	import (
 		"context"
 
-		"github.com/edaniels/golog"
+		"go.viam.com/rdk/logging"
 		"go.viam.com/rdk/robot/client"
 		"go.viam.com/rdk/utils"
 		"go.viam.com/utils/rpc"
 	)
 
 	func main() {
-		logger := golog.NewDebugLogger("client")
+		logger := logging.NewDebugLogger("client")
 		// this instantiates a robot client that is connected to the robot at <address>
 		robot, err := client.New(
 			context.Background(),

@@ -10,13 +10,13 @@ import (
 	"math"
 	"sync"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/movementsensor"
 	gpsnmea "go.viam.com/rdk/components/movementsensor/gpsnmea"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -25,7 +25,7 @@ import (
 type RTKMovementSensor struct {
 	resource.Named
 	resource.AlwaysRebuild
-	logger     golog.Logger
+	logger     logging.Logger
 	cancelCtx  context.Context
 	cancelFunc func()
 
@@ -232,7 +232,7 @@ func (g *RTKMovementSensor) Accuracy(ctx context.Context, extra map[string]inter
 
 // Readings will use the default MovementSensor Readings if not provided.
 func (g *RTKMovementSensor) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-	readings, err := movementsensor.Readings(ctx, g, extra)
+	readings, err := movementsensor.DefaultAPIReadings(ctx, g, extra)
 	if err != nil {
 		return nil, err
 	}

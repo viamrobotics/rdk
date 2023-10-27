@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
@@ -20,6 +19,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/client"
@@ -56,7 +56,7 @@ func init() {
 			conn rpc.ClientConn,
 			remoteName string,
 			name resource.Name,
-			logger golog.Logger,
+			logger logging.Logger,
 		) (resource.Resource, error) {
 			return NewClientFromConn(ctx, conn, remoteName, name, logger), nil
 		},
@@ -69,7 +69,7 @@ func init() {
 				ctx context.Context,
 				_ resource.Dependencies,
 				conf resource.Config,
-				logger golog.Logger,
+				logger logging.Logger,
 			) (resource.Resource, error) {
 				panic("never construct")
 			},
@@ -97,7 +97,7 @@ func TestClientSessionOptions(t *testing.T) {
 					func(t *testing.T) {
 						t.Parallel()
 
-						logger := golog.NewTestLogger(t)
+						logger := logging.NewTestLogger(t)
 
 						sessMgr := &sessionManager{}
 						arbName := resource.NewName(echoAPI, "woo")
@@ -107,7 +107,7 @@ func TestClientSessionOptions(t *testing.T) {
 								return &dummyEcho{Named: arbName.AsNamed()}, nil
 							},
 							ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
-							LoggerFunc:          func() golog.Logger { return logger },
+							LoggerFunc:          func() logging.Logger { return logger },
 							SessMgr:             sessMgr,
 						}
 
@@ -278,7 +278,7 @@ func TestClientSessionExpiration(t *testing.T) {
 			func(t *testing.T) {
 				t.Parallel()
 
-				logger := golog.NewTestLogger(t)
+				logger := logging.NewTestLogger(t)
 
 				sessMgr := &sessionManager{}
 				arbName := resource.NewName(echoAPI, "woo")
@@ -290,7 +290,7 @@ func TestClientSessionExpiration(t *testing.T) {
 						return &dummyEcho1, nil
 					},
 					ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
-					LoggerFunc:          func() golog.Logger { return logger },
+					LoggerFunc:          func() logging.Logger { return logger },
 					SessMgr:             sessMgr,
 				}
 
@@ -474,13 +474,13 @@ func TestClientSessionResume(t *testing.T) {
 			func(t *testing.T) {
 				t.Parallel()
 
-				logger := golog.NewTestLogger(t)
+				logger := logging.NewTestLogger(t)
 
 				sessMgr := &sessionManager{}
 				injectRobot := &inject.Robot{
 					ResourceNamesFunc:   func() []resource.Name { return []resource.Name{} },
 					ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
-					LoggerFunc:          func() golog.Logger { return logger },
+					LoggerFunc:          func() logging.Logger { return logger },
 					SessMgr:             sessMgr,
 				}
 
@@ -708,7 +708,7 @@ func NewClientFromConn(
 	conn rpc.ClientConn,
 	remoteName string,
 	name resource.Name,
-	logger golog.Logger,
+	logger logging.Logger,
 ) resource.Resource {
 	c := echopb.NewEchoResourceServiceClient(conn)
 	return &dummyClient{

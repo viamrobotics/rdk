@@ -5,11 +5,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/session"
 )
@@ -20,7 +20,7 @@ func NewSessionManager(robot Robot, heartbeatWindow time.Duration) *SessionManag
 	m := &SessionManager{
 		robot:             robot,
 		heartbeatWindow:   heartbeatWindow,
-		logger:            robot.Logger().Named("session_manager"),
+		logger:            logging.FromZapCompatible(robot.Logger().Named("session_manager")),
 		sessions:          map[uuid.UUID]*session.Session{},
 		resourceToSession: map[resource.Name]uuid.UUID{},
 		cancel:            cancel,
@@ -35,7 +35,7 @@ func NewSessionManager(robot Robot, heartbeatWindow time.Duration) *SessionManag
 type SessionManager struct {
 	robot           Robot
 	heartbeatWindow time.Duration
-	logger          golog.Logger
+	logger          logging.Logger
 
 	sessionResourceMu sync.RWMutex
 	sessions          map[uuid.UUID]*session.Session

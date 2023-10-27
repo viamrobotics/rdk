@@ -23,7 +23,6 @@ require (
 	github.com/docker/go-units v0.5.0
 	github.com/edaniels/gobag v1.0.7-0.20220607183102-4242cd9e2848
 	github.com/edaniels/golinters v0.0.5-0.20220906153528-641155550742
-	github.com/edaniels/golog v0.0.0-20230215213219-28954395e8d0
 	github.com/edaniels/lidario v0.0.0-20220607182921-5879aa7b96dd
 	github.com/erh/scheme v0.0.0-20210304170849-99d295c6ce9a
 	github.com/fatih/color v1.15.0
@@ -69,7 +68,6 @@ require (
 	github.com/rhysd/actionlint v1.6.24
 	github.com/rs/cors v1.9.0
 	github.com/sergi/go-diff v1.3.1
-	github.com/sjwhitworth/golearn v0.0.0-20211014193759-a8b69c276cd8
 	github.com/u2takey/ffmpeg-go v0.4.1
 	github.com/urfave/cli/v2 v2.10.3
 	github.com/viam-labs/go-libjpeg v0.3.1
@@ -162,6 +160,7 @@ require (
 	github.com/denis-tingaikin/go-header v0.4.3 // indirect
 	github.com/desertbit/timer v0.0.0-20180107155436-c41aec40b27f // indirect
 	github.com/dnephin/pflag v1.0.7 // indirect
+	github.com/edaniels/golog v0.0.0-20230215213219-28954395e8d0 // indirect
 	github.com/edaniels/zeroconf v1.0.10 // indirect
 	github.com/envoyproxy/go-control-plane v0.10.3 // indirect
 	github.com/envoyproxy/protoc-gen-validate v0.9.1 // indirect
@@ -206,9 +205,6 @@ require (
 	github.com/golangci/misspell v0.4.0 // indirect
 	github.com/golangci/revgrep v0.0.0-20220804021717-745bb2f7c2e6 // indirect
 	github.com/golangci/unconvert v0.0.0-20180507085042-28b1c447d1f4 // indirect
-	github.com/gonum/blas v0.0.0-20181208220705-f22b278b28ac // indirect
-	github.com/gonum/lapack v0.0.0-20181123203213-e4cdc5a0bff9 // indirect
-	github.com/gonum/matrix v0.0.0-20181209220409-c518dec07be9 // indirect
 	github.com/gonuts/binary v0.2.0 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.2.3 // indirect
@@ -219,7 +215,6 @@ require (
 	github.com/gostaticanalysis/comment v1.4.2 // indirect
 	github.com/gostaticanalysis/forcetypeassert v0.1.0 // indirect
 	github.com/gostaticanalysis/nilerr v0.1.1 // indirect
-	github.com/guptarohit/asciigraph v0.5.1 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/go-version v1.6.0 // indirect
@@ -307,7 +302,6 @@ require (
 	github.com/quasilyte/stdinfo v0.0.0-20220114132959-f7386bf02567 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
 	github.com/robfig/cron v1.2.0 // indirect
-	github.com/rocketlaunchr/dataframe-go v0.0.0-20201007021539-67b046771f0b // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/ryancurrah/gomodguard v1.3.0 // indirect
 	github.com/ryanrolds/sqlclosecheck v0.4.0 // indirect

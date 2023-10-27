@@ -11,11 +11,11 @@ import (
 	"math"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	utils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/base"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/motion"
@@ -30,7 +30,7 @@ var ErrMovementTimeout = errors.New("movement has timed out")
 func wrapWithDifferentialDriveKinematics(
 	ctx context.Context,
 	b base.Base,
-	logger golog.Logger,
+	logger logging.Logger,
 	localizer motion.Localizer,
 	limits []referenceframe.Limit,
 	options Options,
@@ -73,7 +73,7 @@ func wrapWithDifferentialDriveKinematics(
 type differentialDriveKinematics struct {
 	base.Base
 	motion.Localizer
-	logger                        golog.Logger
+	logger                        logging.Logger
 	planningFrame, executionFrame referenceframe.Model
 	options                       Options
 }

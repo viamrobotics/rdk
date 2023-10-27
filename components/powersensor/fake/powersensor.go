@@ -4,9 +4,8 @@ package fake
 import (
 	"context"
 
-	"github.com/edaniels/golog"
-
 	"go.viam.com/rdk/components/powersensor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
@@ -26,7 +25,7 @@ func init() {
 		})
 }
 
-func newFakePowerSensorModel(_ context.Context, _ resource.Dependencies, conf resource.Config, logger golog.Logger,
+func newFakePowerSensorModel(_ context.Context, _ resource.Dependencies, conf resource.Config, logger logging.Logger,
 ) (powersensor.PowerSensor, error) {
 	return powersensor.PowerSensor(&PowerSensor{
 		Named:  conf.ResourceName().AsNamed(),
@@ -38,7 +37,7 @@ func newFakePowerSensorModel(_ context.Context, _ resource.Dependencies, conf re
 type PowerSensor struct {
 	resource.Named
 	resource.AlwaysRebuild
-	logger golog.Logger
+	logger logging.Logger
 }
 
 // DoCommand uses a map string to run custom functionality of a fake powersensor.
@@ -63,7 +62,26 @@ func (f *PowerSensor) Power(ctx context.Context, cmd map[string]interface{}) (fl
 
 // Readings gets the readings of a fake powersensor.
 func (f *PowerSensor) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-	return powersensor.Readings(ctx, f, extra)
+	volts, isAC, err := f.Voltage(ctx, nil)
+	if err != nil {
+		f.logger.Errorf("failed to get voltage reading: %s", err.Error())
+	}
+
+	amps, _, err := f.Current(ctx, nil)
+	if err != nil {
+		f.logger.Errorf("failed to get current reading: %s", err.Error())
+	}
+
+	watts, err := f.Power(ctx, nil)
+	if err != nil {
+		f.logger.Errorf("failed to get power reading: %s", err.Error())
+	}
+	return map[string]interface{}{
+		"volts": volts,
+		"amps":  amps,
+		"is_ac": isAC,
+		"watts": watts,
+	}, nil
 }
 
 // Close closes the fake powersensor.

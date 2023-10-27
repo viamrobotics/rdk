@@ -11,11 +11,11 @@ import (
 	"math"
 	"time"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/sensor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
@@ -108,7 +108,7 @@ func init() {
 				ctx context.Context,
 				deps resource.Dependencies,
 				conf resource.Config,
-				logger golog.Logger,
+				logger logging.Logger,
 			) (sensor.Sensor, error) {
 				newConf, err := resource.NativeConfig[*Config](conf)
 				if err != nil {
@@ -124,7 +124,7 @@ func newSensor(
 	deps resource.Dependencies,
 	name resource.Name,
 	conf *Config,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (sensor.Sensor, error) {
 	b, err := board.FromDependencies(deps, conf.Board)
 	if err != nil {
@@ -203,7 +203,7 @@ type bme280 struct {
 	resource.Named
 	resource.AlwaysRebuild
 	resource.TriviallyCloseable
-	logger golog.Logger
+	logger logging.Logger
 
 	bus         board.I2C
 	addr        byte

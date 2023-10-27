@@ -1,17 +1,16 @@
 // Package explore implements a motion service for exploration. This motion service model is a temporary model
-// that will be incorporated into the builtIn service in the future.
+// that will be incorporated into the rdk:builtin:motion service in the future.
 package explore
 
 import (
 	"context"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
-	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	servicepb "go.viam.com/api/service/motion/v1"
 	goutils "go.viam.com/utils"
@@ -20,6 +19,7 @@ import (
 	"go.viam.com/rdk/components/base/kinematicbase"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/internal"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
@@ -73,16 +73,13 @@ type inputEnabledActuator interface {
 }
 
 // obstacleDetectorObject provides a map for matching vision services to any and all cameras to be used with them.
-type obstacleDetectorObject map[vision.Service]camera.Camera
+type obstacleDetectorObject map[vision.Service]resource.Name //camera.Camera
 
 // ErrNotImplemented is thrown when an unreleased function is called.
 var ErrNotImplemented = errors.New("function coming soon but not yet implemented")
 
-// Config describes how to configure the service; currently only used for specifying dependency on frame
-// system service.
-type Config struct {
-	LogFilePath string `json:"log_file_path"`
-}
+// Config describes how to configure the service. As the explore motion service is not being surfaced to users, this is blank.
+type Config struct{}
 
 // Validate here adds a dependency on the internal framesystem service.
 func (c *Config) Validate(path string) ([]string, error) {
@@ -90,7 +87,7 @@ func (c *Config) Validate(path string) ([]string, error) {
 }
 
 // NewExplore returns a new explore motion service for the given robot.
-func NewExplore(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (motion.Service, error) {
+func NewExplore(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger) (motion.Service, error) {
 	ms := &explore{
 		Named:                 conf.ResourceName().AsNamed(),
 		logger:                logger,
@@ -111,20 +108,8 @@ func (ms *explore) Reconfigure(
 	deps resource.Dependencies,
 	conf resource.Config,
 ) (err error) {
-	ms.lock.Lock()
-	defer ms.lock.Unlock()
-
-	config, err := resource.NativeConfig[*Config](conf)
-	if err != nil {
-		return err
-	}
-	if config.LogFilePath != "" {
-		logger, err := utils.NewFilePathDebugLogger(config.LogFilePath, "motion")
-		if err != nil {
-			return err
-		}
-		ms.logger = logger
-	}
+	ms.mutex.Lock()
+	defer ms.mutex.Unlock()
 
 	// Iterate over dependencies and store components and services along with the frame service directly
 	components := make(map[resource.Name]resource.Resource)
@@ -147,78 +132,18 @@ func (ms *explore) Reconfigure(
 
 type explore struct {
 	resource.Named
+	servicepb.UnimplementedMotionServiceServer
 
 	frameSystem referenceframe.FrameSystem
 	fsService   framesystem.Service
 	components  map[resource.Name]resource.Resource
 	services    map[resource.Name]resource.Resource
-	logger      golog.Logger
-	lock        sync.Mutex
+	logger      logging.Logger
+	mutex       sync.Mutex
 
 	obstacleResponseChan  chan moveResponse
 	executionResponseChan chan moveResponse
 	backgroundWorkers     *sync.WaitGroup
-}
-
-func (ms *explore) MoveOnMap(
-	ctx context.Context,
-	componentName resource.Name,
-	destination spatialmath.Pose,
-	slamName resource.Name,
-	extra map[string]interface{},
-) (bool, error) {
-	return false, errUnimplemented
-}
-
-func (ms *explore) MoveOnGlobe(
-	ctx context.Context,
-	componentName resource.Name,
-	destination *geo.Point,
-	heading float64,
-	movementSensorName resource.Name,
-	obstacles []*spatialmath.GeoObstacle,
-	motionCfg *motion.MotionConfiguration,
-	extra map[string]interface{},
-) (bool, error) {
-	return false, errUnimplemented
-}
-
-func (ms *explore) MoveOnGlobeNew(
-	ctx context.Context,
-	req motion.MoveOnGlobeReq,
-) (string, error) {
-	return "", errUnimplemented
-}
-
-func (ms *explore) GetPose(
-	ctx context.Context,
-	componentName resource.Name,
-	destinationFrame string,
-	supplementalTransforms []*referenceframe.LinkInFrame,
-	extra map[string]interface{},
-) (*referenceframe.PoseInFrame, error) {
-	return nil, errUnimplemented
-}
-
-func (ms *explore) StopPlan(
-	ctx context.Context,
-	req motion.StopPlanReq,
-) error {
-	return errUnimplemented
-}
-
-func (ms *explore) ListPlanStatuses(
-	ctx context.Context,
-	req motion.ListPlanStatusesReq,
-) ([]motion.PlanStatusWithID, error) {
-	return nil, errUnimplemented
-}
-
-func (ms *explore) PlanHistory(
-	ctx context.Context,
-	req motion.PlanHistoryReq,
-) ([]motion.PlanWithStatus, error) {
-	return nil, errUnimplemented
 }
 
 func (ms *explore) Close(ctx context.Context) error {
@@ -238,6 +163,9 @@ func (ms *explore) Move(
 	constraints *servicepb.Constraints,
 	extra map[string]interface{},
 ) (bool, error) {
+	ms.mutex.Lock()
+	defer ms.mutex.Unlock()
+
 	operation.CancelOtherWithLabel(ctx, exploreOpLabel)
 
 	// Parse extras
@@ -259,7 +187,7 @@ func (ms *explore) Move(
 	}
 
 	// Create motionplan plan
-	plan, err := ms.createMotionPlan(ctx, kb, destination, worldState, extra)
+	plan, err := ms.createMotionPlan(ctx, kb, destination, extra)
 	if err != nil {
 		return false, err
 	}
@@ -294,7 +222,12 @@ func (ms *explore) Move(
 		// once execution responds: return the result to the caller
 		case resp := <-ms.executionResponseChan:
 			ms.logger.Debugf("execution completed: %s", resp)
-			return resp.success, resp.err
+			if resp.err != nil {
+				return resp.success, resp.err
+			}
+			if resp.success {
+				return true, nil
+			}
 
 		// if the checkPartialPlan process hit an error return it, otherwise exit
 		case resp := <-ms.obstacleResponseChan:
@@ -303,7 +236,7 @@ func (ms *explore) Move(
 				return resp.success, resp.err
 			}
 			if resp.success {
-				return resp.success, nil
+				return true, nil
 			}
 		}
 	}
@@ -344,7 +277,7 @@ func (ms *explore) checkForObstacles(
 				worldState,
 				ms.frameSystem,
 				currentPose,
-				[]referenceframe.Input{{Value: 0}, {Value: 0}},
+				make([]referenceframe.Input, len(kb.Kinematics().DoF())),
 				spatialmath.NewZeroPose(),
 				ms.logger,
 			)
@@ -353,13 +286,11 @@ func (ms *explore) checkForObstacles(
 				// end to the checkForObstacle loop
 				if collisionPose.Point().Distance(currentPose.Point()) < validObstacleDistanceMM {
 					ms.logger.Debug("collision found")
-					ms.obstacleResponseChan <- moveResponse{success: true, err: err}
+					ms.obstacleResponseChan <- moveResponse{success: true}
 					return
 				}
 				ms.logger.Debug("collision found but outside of range")
-				ms.obstacleResponseChan <- moveResponse{success: false, err: err}
-			} else {
-				ms.obstacleResponseChan <- moveResponse{success: false, err: err}
+				ms.obstacleResponseChan <- moveResponse{err: err}
 			}
 		}
 	}
@@ -373,9 +304,9 @@ func (ms *explore) executePlan(ctx context.Context, kb kinematicbase.KinematicBa
 			if err := inputEnabledKb.GoToInputs(ctx, plan[i][kb.Name().Name]); err != nil {
 				// If there is an error on GoToInputs, stop the component if possible before returning the error
 				if stopErr := kb.Stop(ctx, nil); stopErr != nil {
-					ms.obstacleResponseChan <- moveResponse{err: err}
+					ms.executionResponseChan <- moveResponse{err: err}
 				}
-				ms.obstacleResponseChan <- moveResponse{err: err}
+				ms.executionResponseChan <- moveResponse{err: err}
 			}
 		}
 	}
@@ -392,9 +323,9 @@ func (ms *explore) generateTransientWorldState(
 
 	// Iterate through provided obstacle detectors and their associated vision service and cameras
 	for _, obstacleDetector := range obstacleDetectors {
-		for visionService, camera := range obstacleDetector {
+		for visionService, cameraName := range obstacleDetector {
 			// Get detections as vision objects
-			detections, err := visionService.GetObjectPointClouds(ctx, camera.Name().Name, nil)
+			detections, err := visionService.GetObjectPointClouds(ctx, cameraName.Name, nil)
 			if err != nil && strings.Contains(err.Error(), "does not implement a 3D segmenter") {
 				ms.logger.Infof("cannot call GetObjectPointClouds on %q as it does not implement a 3D segmenter",
 					visionService.Name())
@@ -406,7 +337,7 @@ func (ms *explore) generateTransientWorldState(
 			geometries := []spatialmath.Geometry{}
 			for i, detection := range detections {
 				geometry := detection.Geometry
-				label := camera.Name().Name + "_transientObstacle_" + strconv.Itoa(i)
+				label := cameraName.Name + "_transientObstacle_" + strconv.Itoa(i)
 				if geometry.Label() != "" {
 					label += "_" + geometry.Label()
 				}
@@ -414,7 +345,7 @@ func (ms *explore) generateTransientWorldState(
 				geometries = append(geometries, geometry)
 			}
 			geometriesInFrame = append(geometriesInFrame,
-				referenceframe.NewGeometriesInFrame((referenceframe.World), geometries),
+				referenceframe.NewGeometriesInFrame(cameraName.Name, geometries),
 			)
 		}
 	}
@@ -498,7 +429,7 @@ func (ms *explore) createObstacleDetectors(motionCfg motion.MotionConfiguration)
 		if !ok {
 			return nil, fmt.Errorf("cannot get component of type %T because it is not a camera", cameraResource)
 		}
-		obstacleDetectors = append(obstacleDetectors, obstacleDetectorObject{visionService: cam})
+		obstacleDetectors = append(obstacleDetectors, obstacleDetectorObject{visionService: cam.Name()})
 	}
 
 	return obstacleDetectors, nil
@@ -509,37 +440,35 @@ func (ms *explore) createMotionPlan(
 	ctx context.Context,
 	kb kinematicbase.KinematicBase,
 	destination *referenceframe.PoseInFrame,
-	worldState *referenceframe.WorldState,
 	extra map[string]interface{},
 ) (motionplan.Plan, error) {
-	fs, err := ms.fsService.FrameSystem(ctx, worldState.Transforms())
+
+	if math.Abs(destination.Pose().Point().X) >= moveLimit || math.Abs(destination.Pose().Point().Y) >= moveLimit {
+		return nil, errors.Errorf("destination %v is above the defined limit of %v", destination.Pose().Point().String(), moveLimit)
+	}
+
+	worldState, err := referenceframe.NewWorldState(nil, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	ms.frameSystem, err = ms.fsService.FrameSystem(ctx, worldState.Transforms())
 	if err != nil {
 		return nil, err
 	}
 
 	// replace original base frame with one that knows how to move itself and allow planning for
-	if err := fs.ReplaceFrame(kb.Kinematics()); err != nil {
+	if err := ms.frameSystem.ReplaceFrame(kb.Kinematics()); err != nil {
 		return nil, err
 	}
 
-	ms.frameSystem = fs
-
-	inputs := []referenceframe.Input{{Value: 0}, {Value: 0}, {Value: 0}}
-
-	if len(kb.Kinematics().DoF()) == 2 && len(inputs) == 3 {
-		inputs = inputs[:2]
-	}
+	inputs := make([]referenceframe.Input, len(kb.Kinematics().DoF()))
 
 	f := kb.Kinematics()
 
-	worldStateNew, err := referenceframe.NewWorldState(nil, nil)
-	if err != nil {
-		return nil, err
-	}
-
 	seedMap := map[string][]referenceframe.Input{f.Name(): inputs}
 
-	goalPose, err := ms.fsService.TransformPose(ctx, destination, fs.World().Name(), nil)
+	goalPose, err := ms.fsService.TransformPose(ctx, destination, ms.frameSystem.World().Name(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -550,8 +479,8 @@ func (ms *explore) createMotionPlan(
 		Goal:               goalPose,
 		Frame:              f,
 		StartConfiguration: seedMap,
-		FrameSystem:        fs,
-		WorldState:         worldStateNew,
+		FrameSystem:        ms.frameSystem,
+		WorldState:         worldState,
 		ConstraintSpecs:    nil,
 		Options:            extra,
 	})

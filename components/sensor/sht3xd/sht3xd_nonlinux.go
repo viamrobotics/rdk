@@ -1,2 +1,2 @@
-// Package sht3xd This is blank for non linux
+// Package sht3xd is only supported on Linux machines.
 package sht3xd

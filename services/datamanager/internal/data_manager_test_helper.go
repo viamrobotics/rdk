@@ -21,5 +21,5 @@ type DMService interface {
 	) error
 	Close(ctx context.Context) error
 	SetSyncerConstructor(fn datasync.ManagerConstructor)
-	SetWaitAfterLastModifiedMillis(s int)
+	SetFileLastModifiedMillis(s int)
 }

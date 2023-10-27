@@ -11,12 +11,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
 	pb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/ik"
 	frame "go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
@@ -40,11 +39,11 @@ type motionPlanner interface {
 	sample(node, int) (node, error)
 }
 
-type plannerConstructor func(frame.Frame, *rand.Rand, golog.Logger, *plannerOptions) (motionPlanner, error)
+type plannerConstructor func(frame.Frame, *rand.Rand, logging.Logger, *plannerOptions) (motionPlanner, error)
 
 // PlanRequest is a struct to store all the data necessary to make a call to PlanMotion.
 type PlanRequest struct {
-	Logger             golog.Logger
+	Logger             logging.Logger
 	Goal               *frame.PoseInFrame
 	Frame              frame.Frame
 	FrameSystem        frame.FrameSystem
@@ -106,7 +105,7 @@ func PlanMotion(ctx context.Context, request *PlanRequest) (Plan, error) {
 // PlanFrameMotion plans a motion to destination for a given frame with no frame system. It will create a new FS just for the plan.
 // WorldState is not supported in the absence of a real frame system.
 func PlanFrameMotion(ctx context.Context,
-	logger golog.Logger,
+	logger logging.Logger,
 	dst spatialmath.Pose,
 	f frame.Frame,
 	seed []frame.Input,
@@ -211,13 +210,13 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 type planner struct {
 	solver   ik.InverseKinematics
 	frame    frame.Frame
-	logger   golog.Logger
+	logger   logging.Logger
 	randseed *rand.Rand
 	start    time.Time
 	planOpts *plannerOptions
 }
 
-func newPlanner(frame frame.Frame, seed *rand.Rand, logger golog.Logger, opt *plannerOptions) (*planner, error) {
+func newPlanner(frame frame.Frame, seed *rand.Rand, logger logging.Logger, opt *plannerOptions) (*planner, error) {
 	solver, err := ik.CreateCombinedIKSolver(frame, logger, opt.NumThreads, opt.GoalThreshold)
 	if err != nil {
 		return nil, err
@@ -447,7 +446,9 @@ IK:
 	return orderedSolutions, nil
 }
 
-// CheckPlan checks if obstacles intersect the trajectory of the frame following the plan.
+// CheckPlan checks if obstacles intersect the trajectory of the frame following the plan. If one is
+// detected, the interpolated position of the rover when a collision is detected is returned along
+// with an error with additional collision details.
 func CheckPlan(
 	checkFrame frame.Frame,
 	plan Plan,
@@ -456,7 +457,7 @@ func CheckPlan(
 	currentPosition spatialmath.Pose,
 	currentInputs []frame.Input,
 	errorState spatialmath.Pose,
-	logger *zap.SugaredLogger,
+	logger logging.Logger,
 ) (spatialmath.Pose, error) {
 	// ensure that we can actually perform the check
 	if len(plan) < 1 {
@@ -569,11 +570,11 @@ func CheckPlan(
 				poseInPath = spatialmath.Compose(poseInPath, errorState)
 			}
 
-			modifiedSegment := &ik.State{Frame: sf, Position: poseInPath}
+			modifiedState := &ik.State{Frame: sf, Position: poseInPath}
 
-			// Checks for collision along the modified interpolated segment and returns a the first interpolated pose where a
+			// Checks for collision along the interpolated route and returns a the first interpolated pose where a
 			// collision is detected.
-			if isValid, _ := sfPlanner.planOpts.CheckStateConstraints(modifiedSegment); !isValid {
+			if isValid, _ := sfPlanner.planOpts.CheckStateConstraints(modifiedState); !isValid {
 				return poseInPath, fmt.Errorf("found collision between positions %v and %v", currentPose.Point(), nextPose.Point())
 			}
 		}

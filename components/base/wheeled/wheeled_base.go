@@ -37,7 +37,6 @@ import (
 	"math"
 	"sync"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
@@ -46,6 +45,7 @@ import (
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/base/kinematicbase"
 	"go.viam.com/rdk/components/motor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
@@ -111,7 +111,7 @@ type wheeledBase struct {
 	allMotors []motor.Motor
 
 	opMgr  *operation.SingleOperationManager
-	logger golog.Logger
+	logger logging.Logger
 
 	mu   sync.Mutex
 	name string
@@ -207,7 +207,7 @@ func createWheeledBase(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (base.Base, error) {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {

@@ -6,9 +6,8 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/edaniels/golog"
-
 	"go.viam.com/rdk/examples/customresources/apis/gizmoapi"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
@@ -37,7 +36,7 @@ func init() {
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger golog.Logger,
+			logger logging.Logger,
 		) (gizmoapi.Gizmo, error) {
 			return NewMyGizmo(deps, conf, logger)
 		},
@@ -56,7 +55,7 @@ type myActualGizmo struct {
 func NewMyGizmo(
 	deps resource.Dependencies,
 	conf resource.Config,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (gizmoapi.Gizmo, error) {
 	g := &myActualGizmo{
 		Named: conf.ResourceName().AsNamed(),
