@@ -287,7 +287,8 @@ func (pm *planManager) planSingleAtomicWaypoint(
 			return steps[len(steps)-1], &resultPromise{steps: steps}, nil
 		}
 	} else {
-		// This ctx is used exclusively for the running of the new planner and timing it out.
+		// This ctx is used exclusively for the running of the new planner and timing it out. It may be different from the main `ctx`
+		// timeout due to planner fallbacks.
 		plannerctx, cancel := context.WithTimeout(ctx, time.Duration(pathPlanner.opt().Timeout*float64(time.Second)))
 		defer cancel()
 		steps, err := pathPlanner.plan(plannerctx, goal, seed)
@@ -314,6 +315,7 @@ func (pm *planManager) planParallelRRTMotion(
 	solutionChan chan *rrtPlanReturn,
 	maps *rrtMaps,
 ) {
+	var rrtBackground sync.WaitGroup
 	var err error
 	// If we don't pass in pre-made maps, initialize and seed with IK solutions here
 	if !pm.useTPspace {
@@ -349,16 +351,17 @@ func (pm *planManager) planParallelRRTMotion(
 		}
 	}
 
-	// This ctx is used exclusively for the running of the new planner and timing it out.
+	// This ctx is used exclusively for the running of the new planner and timing it out. It may be different from the main `ctx` timeout
+	// due to planner fallbacks.
 	plannerctx, cancel := context.WithTimeout(ctx, time.Duration(pathPlanner.opt().Timeout*float64(time.Second)))
 	defer cancel()
 
 	plannerChan := make(chan *rrtPlanReturn, 1)
 
 	// start the planner
-	pm.activeBackgroundWorkers.Add(1)
+	rrtBackground.Add(1)
 	utils.PanicCapturingGo(func() {
-		defer pm.activeBackgroundWorkers.Done()
+		defer rrtBackground.Done()
 		pathPlanner.rrtBackgroundRunner(plannerctx, seed, &rrtParallelPlannerShared{maps, endpointPreview, plannerChan})
 	})
 
@@ -366,6 +369,8 @@ func (pm *planManager) planParallelRRTMotion(
 	select {
 	case <-ctx.Done():
 		// Error will be caught by monitoring loop
+		rrtBackground.Wait()
+		solutionChan <- &rrtPlanReturn{planerr: ctx.Err()}
 		return
 	default:
 	}
@@ -410,9 +415,9 @@ func (pm *planManager) planParallelRRTMotion(
 
 		// Start smoothing before initializing the fallback plan. This allows both to run simultaneously.
 		smoothChan := make(chan []node, 1)
-		pm.activeBackgroundWorkers.Add(1)
+		rrtBackground.Add(1)
 		utils.PanicCapturingGo(func() {
-			defer pm.activeBackgroundWorkers.Done()
+			defer rrtBackground.Done()
 			smoothChan <- pathPlanner.smoothPath(ctx, finalSteps.steps)
 		})
 		var alternateFuture *resultPromise
@@ -458,6 +463,8 @@ func (pm *planManager) planParallelRRTMotion(
 		return
 
 	case <-ctx.Done():
+		rrtBackground.Wait()
+		solutionChan <- &rrtPlanReturn{planerr: ctx.Err()}
 		return
 	}
 }
