@@ -178,16 +178,6 @@ func (m *EncodedMotor) rpmMonitorStart() {
 	if m.loop != nil {
 		return
 	}
-	if len(m.cfg.ControlLoop.Blocks) != 0 {
-		cLoop, _ := control.NewLoop(m.logger, m.cfg.ControlLoop, m)
-		err := cLoop.Start()
-		if err != nil {
-			m.logger.Error(err)
-			return
-		}
-		m.loop = cLoop
-		return
-	}
 	m.startedRPMMonitorMu.Lock()
 	startedRPMMonitor := m.startedRPMMonitor
 	m.startedRPMMonitorMu.Unlock()
