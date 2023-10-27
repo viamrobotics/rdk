@@ -1,3 +1,5 @@
+//go:build mmal
+
 // Package mmal contains the mmal video codec.
 package mmal
 

@@ -1,3 +1,5 @@
+//go:build mmal
+
 package mmal
 
 import (
