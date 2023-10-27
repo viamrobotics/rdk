@@ -93,9 +93,10 @@ func (mr *moveRequest) execute(ctx context.Context, waypoints [][]referenceframe
 			}
 		}
 	}
-
+	mr.planRequest.Logger.Info("completed plan, checking deviation")
 	// the plan has been fully executed so check to see if where we are at is close enough to the goal.
 	deviated, err := mr.deviatedFromPlan(ctx, waypoints, len(waypoints)-1)
+	mr.planRequest.Logger.Info("checked deviation, returning")
 	if err != nil {
 		return moveResponse{err: err}
 	}
@@ -106,6 +107,7 @@ func (mr *moveRequest) execute(ctx context.Context, waypoints [][]referenceframe
 // following the plan as described by the PlanDeviation specified for the moveRequest.
 func (mr *moveRequest) deviatedFromPlan(ctx context.Context, waypoints [][]referenceframe.Input, waypointIndex int) (bool, error) {
 	errorState, err := mr.kinematicBase.ErrorState(ctx, waypoints, waypointIndex)
+	mr.planRequest.Logger.Info("got error state")
 	if err != nil {
 		return false, err
 	}

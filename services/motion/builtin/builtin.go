@@ -250,6 +250,7 @@ func (ms *builtIn) MoveOnMap(
 
 	// once execution responds: return the result to the caller
 	case resp := <-ma.responseChan:
+		mr.planRequest.Logger.Info("got move on map response")
 		ms.logger.Debugf("execution completed: %s", resp)
 		ma.cancel()
 		return resp.success, resp.err
