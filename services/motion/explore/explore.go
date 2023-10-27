@@ -42,7 +42,7 @@ var (
 )
 
 func init() {
-	resource.RegisterDefaultService(
+	resource.RegisterService(
 		motion.API, model,
 		resource.Registration[motion.Service, *Config]{
 			Constructor: NewExplore,

@@ -82,7 +82,7 @@ func createFakeCamera(ctx context.Context, logger logging.Logger, name string) (
 	return cameraFake.NewCamera(ctx, fakeCameraCfg, logger)
 }
 
-// createMockVisionService instantiates a mock vision service with a custom version of GetObjectPointCloud that creates
+// createMockVisionService instantiates a mock vision service with a custom version of GetObjectPointCloud that returns
 // vision objects from a given set of points.
 func createMockVisionService(visionSvcNum string, obstacles []obstacleMetadata) vSvc.Service {
 	mockVisionService := &inject.VisionService{}
