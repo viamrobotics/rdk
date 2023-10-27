@@ -340,7 +340,7 @@ func (pm *planManager) planParallelRRTMotion(
 
 	// publish endpoint of plan if it is known
 	var nextSeed node
-	if maps != nil && len(maps.goalMap) == 1 {
+	if len(maps.goalMap) == 1 {
 		pm.logger.Debug("only one IK solution, returning endpoint preview")
 		for key := range maps.goalMap {
 			nextSeed = key
@@ -667,21 +667,21 @@ func (pm *planManager) planToRRTGoalMap(plan Plan, goal spatialmath.Pose) (*rrtM
 			return nil, err
 		}
 	}
-	// Fill in costs
-	for i := 1; i < len(planNodes); i++ {
-		cost := pm.opt().DistanceFunc(&ik.Segment{
-			StartConfiguration: planNodes[i-1].Q(),
-			StartPosition:      planNodes[i-1].Pose(),
-			EndConfiguration:   planNodes[i].Q(),
-			EndPosition:        planNodes[i].Pose(),
-			Frame:              pm.frame,
-		})
-		planNodes[i].SetCost(cost)
-	}
 
 	var lastNode node
 	goalMap := map[node]node{}
 	for i := len(planNodes) - 1; i >= 0; i-- {
+		if i != 0 {
+			// Fill in costs
+			cost := pm.opt().DistanceFunc(&ik.Segment{
+				StartConfiguration: planNodes[i-1].Q(),
+				StartPosition:      planNodes[i-1].Pose(),
+				EndConfiguration:   planNodes[i].Q(),
+				EndPosition:        planNodes[i].Pose(),
+				Frame:              pm.frame,
+			})
+			planNodes[i].SetCost(cost)
+		}
 		goalMap[planNodes[i]] = lastNode
 		lastNode = planNodes[i]
 	}
