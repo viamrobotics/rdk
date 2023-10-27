@@ -273,12 +273,9 @@ func (pm *planManager) planSingleAtomicWaypoint(
 			defer pm.activeBackgroundWorkers.Done()
 			pm.planParallelRRTMotion(ctx, goal, seed, parPlan, endpointPreview, solutionChan, maps)
 		})
-		select {
-		case <-ctx.Done():
-			return nil, nil, ctx.Err()
-		default:
-		}
-
+		// We don't want to check context here; context cancellation will be handled by planParallelRRTMotion.
+		// Instead, if a timeout occurs while we are smoothing, we want to return the best plan we have so far, rather than nothing at all.
+		// This matches the behavior of a non-rrtParallelPlanner
 		select {
 		case nextSeed := <-endpointPreview:
 			return nextSeed.Q(), &resultPromise{future: solutionChan}, nil
@@ -288,8 +285,6 @@ func (pm *planManager) planSingleAtomicWaypoint(
 			}
 			steps := nodesToInputs(planReturn.steps)
 			return steps[len(steps)-1], &resultPromise{steps: steps}, nil
-		case <-ctx.Done():
-			return nil, nil, ctx.Err()
 		}
 	} else {
 		// This ctx is used exclusively for the running of the new planner and timing it out.
