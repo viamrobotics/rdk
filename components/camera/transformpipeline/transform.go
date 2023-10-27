@@ -5,9 +5,9 @@ import (
 
 	"github.com/invopop/jsonschema"
 	"github.com/pkg/errors"
-	"github.com/viamrobotics/gostream"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/utils"
 )

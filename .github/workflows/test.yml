@@ -139,7 +139,7 @@ jobs:
           --platform linux/arm/v7 \
           -v `pwd`:/rdk \
           ghcr.io/viamrobotics/rdk-devenv:armhf-cache \
-          sudo -Hu testbot bash -lc 'cd /rdk && go test -v -tags=no_tflite ./...'
+          sudo -Hu testbot bash -lc 'cd /rdk && go list -tags=no_tflite ./... | grep -v mmal | xargs go test -v -tags=no_tflite'
 
   test_pi:
     name: Test Raspberry Pi Code

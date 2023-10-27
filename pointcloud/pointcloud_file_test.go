@@ -41,7 +41,7 @@ func TestNewFromFile(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, nextCloud, test.ShouldResemble, cloud)
 
-	cloud, err = NewFromFile(artifact.MustNewPath("pointcloud/test.pcd"), logger)
+	cloud, err = NewFromFile(artifact.MustPath("pointcloud/test.pcd"), logger)
 	test.That(t, err, test.ShouldBeNil)
 	numPoints = cloud.Size()
 	test.That(t, numPoints, test.ShouldEqual, 293363)
