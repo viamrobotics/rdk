@@ -565,7 +565,7 @@ func (replay *replayMovementSensor) setProperty(method method, supported bool) e
 
 // attemptToGetData will try to update the cache for the provided method. Returns a bool that
 // indicates whether or not the endpoint has data.
-func (replay *replayMovementSensor) attemptToGetData(ctx context.Context, method method) (bool, error) {
+func (replay *replayMovementSensor) attemptToGetData(method method) (bool, error) {
 	if replay.closed {
 		return false, errSessionClosed
 	}
@@ -590,7 +590,7 @@ func (replay *replayMovementSensor) initializeProperties(ctx context.Context) er
 			return ctx.Err()
 		}
 		for _, method := range methodList {
-			if dataReceived[method], err = replay.attemptToGetData(ctx, method); err != nil {
+			if dataReceived[method], err = replay.attemptToGetData(method); err != nil {
 				return err
 			}
 		}
@@ -602,7 +602,7 @@ func (replay *replayMovementSensor) initializeProperties(ctx context.Context) er
 	}
 	// Loop once more through all methods to ensure we didn't miss out on catching that they're supported
 	for _, method := range methodList {
-		if dataReceived[method], err = replay.attemptToGetData(ctx, method); err != nil {
+		if dataReceived[method], err = replay.attemptToGetData(method); err != nil {
 			return err
 		}
 	}
