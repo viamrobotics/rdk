@@ -393,15 +393,17 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 		g.logger.Infof("caster %s seems to be down", g.ntripClient.URL)
 	}
 
+	g.logger.Debug("gettting source table")
 	srcTable, err := g.ntripClient.Client.ParseSourcetable()
 	if err != nil {
 		g.logger.Errorf("failed to get source table: %v", err)
 	}
+	g.logger.Debug("got sourcetable, parsing it...")
 	isVirtualBase, nmeaerr := findLineWithMountPoint(srcTable, g.ntripClient.MountPoint)
 	if nmeaerr != nil {
 		g.logger.Errorf("can't find mountpoint in source table, found err %v\n", nmeaerr)
 	}
-
+	g.logger.Debug("found if it is a virtual base or not")
 	err = g.openPort()
 	if err != nil {
 		g.err.Set(err)
@@ -436,6 +438,7 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 		// if we are dealing with a Virtual Base, we need to send GGA messages to
 		// the caster in order to get NTRIP stream.
 		if isVirtualBase {
+			g.logger.Debug("connecting to a virtual base")
 			g.sendGGAMessage()
 		}
 
@@ -672,6 +675,7 @@ func (g *rtkSerial) sendGGAMessage() {
 		MinimumReadSize: 1,
 	})
 	if err != nil {
+		g.logger.Debug("errored while opening serial port")
 		g.err.Set(err)
 		return
 	}
@@ -684,6 +688,7 @@ func (g *rtkSerial) sendGGAMessage() {
 
 	// Create a buffer to collect NMEA messages
 	messageBuffer := make([]byte, 0, 1024)
+	g.logger.Debug("made buffer")
 
 	for !g.connectedToNtrip && !g.isClosed {
 		select {
@@ -695,12 +700,15 @@ func (g *rtkSerial) sendGGAMessage() {
 		// Read from the serial port
 		bytesRead, err := serialPort.Read(messageBuffer)
 		if err != nil {
+			g.logger.Debug("can not read from serial port")
 			g.err.Set(err)
 			return
 		}
+		g.logger.Debug("finished reading from serial port")
 
 		// Convert the received bytes to a string
 		receivedData := string(messageBuffer[:bytesRead])
+		g.logger.Debug("finished converting bytes to string")
 
 		// Check for NMEA GGA messages
 		messages := strings.Split(receivedData, "\n")
@@ -708,15 +716,17 @@ func (g *rtkSerial) sendGGAMessage() {
 			if strings.Contains(message, "GGA") {
 				// Send the GGA message to the NTRIP caster
 				if _, err := g.correctionWriter.Write([]byte(message)); err != nil {
+					g.logger.Debug("can't write to g.correctionWriter")
 					g.err.Set(err)
 					return
 				}
+				g.logger.Debug("writing GGA messages")
 			}
 		}
 
 		// Clear the message buffer
 		messageBuffer = messageBuffer[:0]
-
+		g.logger.Debug("cleared buffer")
 		// Sleep for a while before reading again.
 		time.Sleep(time.Second)
 	}
