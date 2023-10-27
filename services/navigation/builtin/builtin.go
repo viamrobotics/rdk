@@ -523,8 +523,7 @@ func (svc *builtIn) startWaypointMode(ctx context.Context, extra map[string]inte
 				extra,
 			)
 			if err != nil {
-				err = errors.Wrapf(err, "hit motion error when navigating to waypoint %+v", wp)
-				return err
+				return errors.Wrapf(err, "hit motion error when navigating to waypoint %+v", wp)
 			}
 
 			svc.logger.Debug("MoveOnGlobe succeeded")
