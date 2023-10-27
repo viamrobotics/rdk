@@ -101,17 +101,17 @@ func newEncodedMotor(
 	}
 	em.encoder = realEncoder
 
-	// if len(motorConfig.ControlLoop.Blocks) != 0 {
-	// 	cLoop, err := control.NewLoop(logger, motorConfig.ControlLoop, em)
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// 	err = cLoop.Start()
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// 	em.loop = cLoop
-	// }
+	if len(motorConfig.ControlLoop.Blocks) != 0 {
+		cLoop, err := control.NewLoop(logger, motorConfig.ControlLoop, em)
+		if err != nil {
+			return nil, err
+		}
+		err = cLoop.Start()
+		if err != nil {
+			return nil, err
+		}
+		em.loop = cLoop
+	}
 
 	if em.rampRate < 0 || em.rampRate > 1 {
 		return nil, fmt.Errorf("ramp rate needs to be (0, 1] but is %v", em.rampRate)
