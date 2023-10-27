@@ -82,10 +82,6 @@ func (mr *moveRequest) execute(ctx context.Context, waypoints [][]referenceframe
 				if stopErr := mr.kinematicBase.Stop(ctx, nil); stopErr != nil {
 					return moveResponse{err: errors.Wrap(err, stopErr.Error())}
 				}
-				// If the error was simply a cancellation of context return without erroring out
-				if errors.Is(err, context.Canceled) {
-					return moveResponse{}
-				}
 				return moveResponse{err: err}
 			}
 			if i < len(waypoints)-1 {

@@ -99,11 +99,7 @@ func (ma *moveAttempt) start() error {
 	// spawn function to execute the plan on the robot
 	ma.backgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
-		if resp := ma.request.execute(ma.ctx, waypoints, ma.waypointIndex); resp.success || resp.err != nil {
-			ma.request.planRequest.Logger.Info("exec resp done")
-			ma.responseChan <- resp
-		}
-		ma.request.planRequest.Logger.Info("exec resp issue")
+		ma.responseChan <- ma.request.execute(ma.ctx, waypoints, ma.waypointIndex)
 	}, ma.backgroundWorkers.Done)
 	return nil
 }
