@@ -120,6 +120,7 @@ func TestNewReplayMovementSensor(t *testing.T) {
 	ctx := context.Background()
 
 	initializePropertiesTimeout = 2 * time.Second
+	tabularDataByFilterTimeout = 1 * time.Second
 
 	cases := []struct {
 		description          string
@@ -288,6 +289,7 @@ func TestReplayMovementSensorFunctions(t *testing.T) {
 	ctx := context.Background()
 
 	initializePropertiesTimeout = 2 * time.Second
+	tabularDataByFilterTimeout = 1 * time.Second
 
 	cases := []struct {
 		description        string
