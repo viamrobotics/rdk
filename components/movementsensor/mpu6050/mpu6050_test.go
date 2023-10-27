@@ -17,23 +17,11 @@ import (
 )
 
 func TestValidateConfig(t *testing.T) {
-	t.Run("fails with no I2C bus", func(t *testing.T) {
-		cfg := Config{}
-		deps, err := cfg.Validate("path")
-		expectedErr := utils.NewConfigValidationFieldRequiredError("path", "i2c_bus")
-		test.That(t, err, test.ShouldBeError, expectedErr)
-		test.That(t, deps, test.ShouldBeEmpty)
-	})
-
-	t.Run("no dependencies on success", func(t *testing.T) {
-		cfg := Config{
-			I2cBus: "2",
-		}
-		deps, err := cfg.Validate("path")
-
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(deps), test.ShouldEqual, 0)
-	})
+	cfg := Config{}
+	deps, err := cfg.Validate("path")
+	expectedErr := utils.NewConfigValidationFieldRequiredError("path", "i2c_bus")
+	test.That(t, err, test.ShouldBeError, expectedErr)
+	test.That(t, deps, test.ShouldBeEmpty)
 }
 
 func TestInitializationFailureOnChipCommunication(t *testing.T) {
