@@ -17,37 +17,22 @@ import (
 )
 
 func TestValidateConfig(t *testing.T) {
-	boardName := "local"
-	t.Run("fails with no board supplied", func(t *testing.T) {
-		cfg := Config{
-			I2cBus: "thing",
-		}
-		deps, err := cfg.Validate("path")
-		expectedErr := utils.NewConfigValidationFieldRequiredError("path", "board")
-		test.That(t, err, test.ShouldBeError, expectedErr)
-		test.That(t, deps, test.ShouldBeEmpty)
-	})
-
 	t.Run("fails with no I2C bus", func(t *testing.T) {
-		cfg := Config{
-			BoardName: boardName,
-		}
+		cfg := Config{}
 		deps, err := cfg.Validate("path")
 		expectedErr := utils.NewConfigValidationFieldRequiredError("path", "i2c_bus")
 		test.That(t, err, test.ShouldBeError, expectedErr)
 		test.That(t, deps, test.ShouldBeEmpty)
 	})
 
-	t.Run("adds board name to dependencies on success", func(t *testing.T) {
+	t.Run("no dependencies on success", func(t *testing.T) {
 		cfg := Config{
-			BoardName: boardName,
 			I2cBus:    "thing2",
 		}
 		deps, err := cfg.Validate("path")
 
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(deps), test.ShouldEqual, 1)
-		test.That(t, deps[0], test.ShouldResemble, boardName)
+		test.That(t, len(deps), test.ShouldEqual, 0)
 	})
 }
 
@@ -62,7 +47,6 @@ func TestInitializationFailureOnChipCommunication(t *testing.T) {
 			Model: model,
 			API:   movementsensor.API,
 			ConvertedAttributes: &Config{
-				BoardName: testBoardName,
 				I2cBus:    i2cName,
 			},
 		}
@@ -88,7 +72,7 @@ func TestInitializationFailureOnChipCommunication(t *testing.T) {
 		}
 		sensor, err := NewMpu6050(context.Background(), deps, cfg, logger)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err, test.ShouldBeError, addressReadError(readErr, expectedDefaultAddress, i2cName, testBoardName))
+		test.That(t, err, test.ShouldBeError, addressReadError(readErr, expectedDefaultAddress, i2cName))
 		test.That(t, sensor, test.ShouldBeNil)
 	})
 
@@ -98,7 +82,6 @@ func TestInitializationFailureOnChipCommunication(t *testing.T) {
 			Model: model,
 			API:   movementsensor.API,
 			ConvertedAttributes: &Config{
-				BoardName:              testBoardName,
 				I2cBus:                 i2cName,
 				UseAlternateI2CAddress: true,
 			},
@@ -139,7 +122,6 @@ func TestSuccessfulInitializationAndClose(t *testing.T) {
 		Model: model,
 		API:   movementsensor.API,
 		ConvertedAttributes: &Config{
-			BoardName:              testBoardName,
 			I2cBus:                 i2cName,
 			UseAlternateI2CAddress: true,
 		},
@@ -187,7 +169,6 @@ func setupDependencies(mockData []byte) (resource.Config, resource.Dependencies)
 		Model: model,
 		API:   movementsensor.API,
 		ConvertedAttributes: &Config{
-			BoardName:              testBoardName,
 			I2cBus:                 i2cName,
 			UseAlternateI2CAddress: true,
 		},
