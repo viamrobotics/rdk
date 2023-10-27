@@ -720,7 +720,6 @@ func TestMoveOnGlobe(t *testing.T) {
 	})
 
 	t.Run("is able to reach a nearby geo point with empty values", func(t *testing.T) {
-		t.Parallel()
 		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
 		defer ms.Close(ctx)
 		success, err := ms.MoveOnGlobe(
@@ -738,7 +737,6 @@ func TestMoveOnGlobe(t *testing.T) {
 	})
 
 	t.Run("is able to reach a nearby geo point with a requested NaN heading", func(t *testing.T) {
-		t.Parallel()
 		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
 		defer ms.Close(ctx)
 		success, err := ms.MoveOnGlobe(
@@ -756,7 +754,6 @@ func TestMoveOnGlobe(t *testing.T) {
 	})
 
 	t.Run("is able to reach a nearby geo point with a requested positive heading", func(t *testing.T) {
-		t.Parallel()
 		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
 		defer ms.Close(ctx)
 		success, err := ms.MoveOnGlobe(
@@ -774,7 +771,6 @@ func TestMoveOnGlobe(t *testing.T) {
 	})
 
 	t.Run("is able to reach a nearby geo point with a requested negative heading", func(t *testing.T) {
-		t.Parallel()
 		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
 		defer ms.Close(ctx)
 		success, err := ms.MoveOnGlobe(
@@ -828,7 +824,6 @@ func TestMoveOnGlobe(t *testing.T) {
 	})
 
 	t.Run("is able to reach a nearby geo point when the motion configuration is empty", func(t *testing.T) {
-		t.Parallel()
 		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
 		defer ms.Close(ctx)
 		success, err := ms.MoveOnGlobe(
@@ -1026,7 +1021,6 @@ func TestMoveOnGlobe(t *testing.T) {
 	})
 
 	t.Run("ensure success to a nearby geo point", func(t *testing.T) {
-		t.Parallel()
 		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
 		motionCfg := &motion.MotionConfiguration{PositionPollingFreqHz: 4, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM}
 		mr, err := ms.(*builtIn).newMoveOnGlobeRequest(
@@ -1063,7 +1057,6 @@ func TestMoveOnGlobe(t *testing.T) {
 	})
 
 	t.Run("go around an obstacle", func(t *testing.T) {
-		t.Parallel()
 		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
 		motionCfg := &motion.MotionConfiguration{PositionPollingFreqHz: 4, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM}
 
@@ -1111,7 +1104,6 @@ func TestMoveOnGlobe(t *testing.T) {
 	})
 
 	t.Run("fail because of obstacle", func(t *testing.T) {
-		t.Parallel()
 		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
 
 		// Construct a set of obstacles that entirely enclose the goal point
