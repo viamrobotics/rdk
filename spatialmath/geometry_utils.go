@@ -94,7 +94,7 @@ func BoundingSphere(geometry Geometry) (Geometry, error) {
 		r += g.length / 2
 	case *point:
 	default:
-		return nil, ErrGeometryTypeUnsupported
+		return nil, errGeometryTypeUnsupported
 	}
 	return NewSphere(NewZeroPose(), r, geometry.Label())
 }
