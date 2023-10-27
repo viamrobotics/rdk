@@ -122,9 +122,9 @@ func NewMpu6050(
 // This function is separated from NewMpu6050 solely so you can inject a mock I2C bus in tests.
 func makeMpu6050(
 	ctx context.Context,
-    deps resource.Dependencies,
-    conf resource.Config,
-    logger logging.Logger,
+	_ resource.Dependencies,
+	conf resource.Config,
+	logger logging.Logger,
 	bus board.I2C,
 ) (movementsensor.MovementSensor, error) {
 	newConf, err := resource.NativeConfig[*Config](conf)

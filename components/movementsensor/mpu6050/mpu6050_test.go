@@ -27,7 +27,7 @@ func TestValidateConfig(t *testing.T) {
 
 	t.Run("no dependencies on success", func(t *testing.T) {
 		cfg := Config{
-			I2cBus:    "2",
+			I2cBus: "2",
 		}
 		deps, err := cfg.Validate("path")
 
@@ -46,7 +46,7 @@ func TestInitializationFailureOnChipCommunication(t *testing.T) {
 			Model: model,
 			API:   movementsensor.API,
 			ConvertedAttributes: &Config{
-				I2cBus:    i2cName,
+				I2cBus: i2cName,
 			},
 		}
 		i2cHandle := &inject.I2CHandle{}
