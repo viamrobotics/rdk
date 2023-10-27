@@ -370,6 +370,17 @@ func (rc *RobotClient) Changed() <-chan bool {
 }
 
 func (rc *RobotClient) connect(ctx context.Context) error {
+	if err := rc.connectWithLock(ctx); err != nil {
+		return err
+	}
+
+	if rc.notifyParent != nil {
+		rc.notifyParent()
+	}
+	return nil
+}
+
+func (rc *RobotClient) connectWithLock(ctx context.Context) error {
 	rc.mu.Lock()
 	defer rc.mu.Unlock()
 
@@ -397,9 +408,6 @@ func (rc *RobotClient) connect(ctx context.Context) error {
 
 	if rc.changeChan != nil {
 		rc.changeChan <- true
-	}
-	if rc.notifyParent != nil {
-		rc.notifyParent()
 	}
 	return nil
 }

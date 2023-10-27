@@ -6,13 +6,13 @@ import (
 	"image"
 
 	"github.com/pkg/errors"
-	"github.com/viamrobotics/gostream"
 	"go.opencensus.io/trace"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/camera/v1"
 	"google.golang.org/genproto/googleapis/api/httpbody"
 
 	"go.viam.com/rdk/data"
+	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/protoutils"

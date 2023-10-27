@@ -23,12 +23,14 @@ require (
 	github.com/docker/go-units v0.5.0
 	github.com/edaniels/gobag v1.0.7-0.20220607183102-4242cd9e2848
 	github.com/edaniels/golinters v0.0.5-0.20220906153528-641155550742
+	github.com/edaniels/golog v0.0.0-20230215213219-28954395e8d0
 	github.com/edaniels/lidario v0.0.0-20220607182921-5879aa7b96dd
 	github.com/erh/scheme v0.0.0-20210304170849-99d295c6ce9a
 	github.com/fatih/color v1.15.0
 	github.com/fogleman/gg v1.3.0
 	github.com/fsnotify/fsnotify v1.6.0
 	github.com/fullstorydev/grpcurl v1.8.6
+	github.com/gen2brain/malgo v0.11.10
 	github.com/go-audio/audio v1.0.0
 	github.com/go-audio/transforms v0.0.0-20180121090939-51830ccc35a5
 	github.com/go-audio/wav v1.1.0
@@ -43,6 +45,7 @@ require (
 	github.com/google/flatbuffers v2.0.6+incompatible
 	github.com/google/go-cmp v0.5.9
 	github.com/google/uuid v1.3.1
+	github.com/gotesttools/gotestfmt/v2 v2.4.1
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.15.2
 	github.com/invopop/jsonschema v0.6.0
@@ -72,7 +75,6 @@ require (
 	github.com/urfave/cli/v2 v2.10.3
 	github.com/viam-labs/go-libjpeg v0.3.1
 	github.com/viamrobotics/evdev v0.1.3
-	github.com/viamrobotics/gostream v0.0.0-20231018165748-3173b15942b5
 	github.com/xfmoulet/qoi v0.2.0
 	go-hep.org/x/hep v0.32.1
 	go.einride.tech/vlp16 v0.7.0
@@ -86,6 +88,7 @@ require (
 	go.viam.com/utils v0.1.52
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.12.0
+	golang.org/x/time v0.0.0-20200416051211-89c76fbcd5d1
 	golang.org/x/tools v0.10.0
 	gonum.org/v1/gonum v0.12.0
 	gonum.org/v1/plot v0.12.0
@@ -93,6 +96,7 @@ require (
 	google.golang.org/grpc v1.58.3
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.2.0
 	google.golang.org/protobuf v1.31.0
+	gopkg.in/hraban/opus.v2 v2.0.0-20230925203106-0188a62cb302
 	gopkg.in/src-d/go-billy.v4 v4.3.2
 	gorgonia.org/tensor v0.9.24
 	gotest.tools/gotestsum v1.10.0
@@ -160,7 +164,6 @@ require (
 	github.com/denis-tingaikin/go-header v0.4.3 // indirect
 	github.com/desertbit/timer v0.0.0-20180107155436-c41aec40b27f // indirect
 	github.com/dnephin/pflag v1.0.7 // indirect
-	github.com/edaniels/golog v0.0.0-20230215213219-28954395e8d0 // indirect
 	github.com/edaniels/zeroconf v1.0.10 // indirect
 	github.com/envoyproxy/go-control-plane v0.11.1 // indirect
 	github.com/envoyproxy/protoc-gen-validate v1.0.2 // indirect
@@ -170,7 +173,7 @@ require (
 	github.com/fatih/structtag v1.2.0 // indirect
 	github.com/firefart/nonamedreturns v1.0.4 // indirect
 	github.com/fzipp/gocyclo v0.6.0 // indirect
-	github.com/gen2brain/malgo v0.11.10 // indirect
+	github.com/gen2brain/shm v0.0.0-20230802011745-f2460f5984f7 // indirect
 	github.com/gin-gonic/gin v1.8.1 // indirect
 	github.com/go-audio/riff v1.0.0 // indirect
 	github.com/go-chi/chi/v5 v5.0.7 // indirect
@@ -227,6 +230,7 @@ require (
 	github.com/improbable-eng/grpc-web v0.15.0 // indirect
 	github.com/inconshreveable/mousetrap v1.0.1 // indirect
 	github.com/jdxcode/netrc v0.0.0-20210204082910-926c7f70242a // indirect
+	github.com/jezek/xgb v1.1.0 // indirect
 	github.com/jgautheron/goconst v1.5.1 // indirect
 	github.com/jhump/protocompile v0.0.0-20220216033700-d705409f108f // indirect
 	github.com/jingyugao/rowserrcheck v1.1.1 // indirect
@@ -234,6 +238,7 @@ require (
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/julz/importas v0.1.0 // indirect
 	github.com/junk1tm/musttag v0.4.5 // indirect
+	github.com/kbinani/screenshot v0.0.0-20230812210009-b87d31814237 // indirect
 	github.com/kisielk/errcheck v1.6.3 // indirect
 	github.com/kisielk/gotool v1.0.0 // indirect
 	github.com/kkHAIKE/contextcheck v1.1.3 // indirect
@@ -252,6 +257,7 @@ require (
 	github.com/lestrrat-go/option v1.0.1 // indirect
 	github.com/lib/pq v1.10.7 // indirect
 	github.com/lufeee/execinquery v1.2.1 // indirect
+	github.com/lxn/win v0.0.0-20210218163916-a377121e959e // indirect
 	github.com/magiconair/properties v1.8.6 // indirect
 	github.com/maratori/testableexamples v1.0.0 // indirect
 	github.com/maratori/testpackage v1.1.0 // indirect

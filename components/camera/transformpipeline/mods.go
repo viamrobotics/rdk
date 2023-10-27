@@ -7,11 +7,11 @@ import (
 
 	"github.com/disintegration/imaging"
 	"github.com/pkg/errors"
-	"github.com/viamrobotics/gostream"
 	"go.opencensus.io/trace"
 	"golang.org/x/image/draw"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"

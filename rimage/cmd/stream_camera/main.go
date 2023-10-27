@@ -4,13 +4,13 @@ package main
 import (
 	"context"
 
-	"github.com/viamrobotics/gostream"
-	"github.com/viamrobotics/gostream/codec/x264"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/camera/videosource"
+	"go.viam.com/rdk/gostream"
+	"go.viam.com/rdk/gostream/codec/x264"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	rutils "go.viam.com/rdk/utils"

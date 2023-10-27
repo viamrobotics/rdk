@@ -2,7 +2,7 @@
 
 package web
 
-import "github.com/viamrobotics/gostream"
+import "go.viam.com/rdk/gostream"
 
 // options configures a web service.
 type options struct {

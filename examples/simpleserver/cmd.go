@@ -4,11 +4,11 @@ package main
 import (
 	"context"
 
-	"github.com/viamrobotics/gostream/codec/x264"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/arm/fake"
+	"go.viam.com/rdk/gostream/codec/x264"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	robotimpl "go.viam.com/rdk/robot/impl"

@@ -1,0 +1,56 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.dSYM
+*.o
+*.d
+*.mtb
+*.a
+*.dpp
+
+# Test binary, built with `go test -c`
+*.test
+
+# Perf output
+*.pprog
+
+# output for pprof
+*.prof
+*.pprof
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+
+# Dependency directories (remove the comment below to include it)
+vendor/
+
+# gRPC/Protocol Buffers
+bin
+dist/*
+frontend/dist
+
+# Test data
+coverage.txt
+
+*~
+*#
+*.#*
+*.DS_Store
+*.swp
+
+# act
+.secrets
+
+/data/
+out/
+.idea/*
+bin/
+
+# artifact
+.artifact/cache
+.artifact/data
+
+etc/test_keys

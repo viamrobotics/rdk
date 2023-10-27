@@ -593,14 +593,18 @@ func TestMoveOnGlobe(t *testing.T) {
 	extra := make(map[string]interface{})
 	extra["motion_profile"] = "position_only"
 	extra["timeout"] = 5.
-	validatedExtra, err := newValidatedExtra(extra)
+	extra["smooth_iter"] = 5.
+	valExtra, err := newValidatedExtra(extra)
 	test.That(t, err, test.ShouldBeNil)
+
+	extraSmooth := map[string]interface{}{"smooth_iter": 5}
 
 	dst := geo.NewPoint(gpsPoint.Lat(), gpsPoint.Lng()+1e-5)
 	expectedDst := r3.Vector{380, 0, 0} // Relative pose to the starting point of the base; facing north, Y = forwards
 	epsilonMM := 15.
 
 	t.Run("returns error when called with an unknown component", func(t *testing.T) {
+		t.Parallel()
 		injectedMovementSensor, _, _, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
 		defer ms.Close(ctx)
 		success, err := ms.MoveOnGlobe(
@@ -618,6 +622,7 @@ func TestMoveOnGlobe(t *testing.T) {
 	})
 
 	t.Run("returns error when called with an unknown movement sensor", func(t *testing.T) {
+		t.Parallel()
 		_, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
 		defer ms.Close(ctx)
 		success, err := ms.MoveOnGlobe(
@@ -636,6 +641,7 @@ func TestMoveOnGlobe(t *testing.T) {
 	})
 
 	t.Run("returns error when request would require moving more than 5 km", func(t *testing.T) {
+		t.Parallel()
 		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
 		defer ms.Close(ctx)
 		success, err := ms.MoveOnGlobe(
@@ -652,6 +658,7 @@ func TestMoveOnGlobe(t *testing.T) {
 		test.That(t, success, test.ShouldBeFalse)
 	})
 	t.Run("returns error when destination is nil", func(t *testing.T) {
+		t.Parallel()
 		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
 		defer ms.Close(ctx)
 		success, err := ms.MoveOnGlobe(
@@ -669,6 +676,7 @@ func TestMoveOnGlobe(t *testing.T) {
 	})
 
 	t.Run("returns error when destination contains NaN", func(t *testing.T) {
+		t.Parallel()
 		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
 		defer ms.Close(ctx)
 		success, err := ms.MoveOnGlobe(
@@ -722,7 +730,7 @@ func TestMoveOnGlobe(t *testing.T) {
 			injectedMovementSensor.Name(),
 			nil,
 			nil,
-			nil,
+			extraSmooth,
 		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, success, test.ShouldBeTrue)
@@ -739,7 +747,7 @@ func TestMoveOnGlobe(t *testing.T) {
 			injectedMovementSensor.Name(),
 			nil,
 			nil,
-			nil,
+			extraSmooth,
 		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, success, test.ShouldBeTrue)
@@ -756,7 +764,7 @@ func TestMoveOnGlobe(t *testing.T) {
 			injectedMovementSensor.Name(),
 			nil,
 			nil,
-			nil,
+			extraSmooth,
 		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, success, test.ShouldBeTrue)
@@ -773,13 +781,14 @@ func TestMoveOnGlobe(t *testing.T) {
 			injectedMovementSensor.Name(),
 			nil,
 			nil,
-			nil,
+			extraSmooth,
 		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, success, test.ShouldBeTrue)
 	})
 
 	t.Run("returns an error if the base provided is not a base", func(t *testing.T) {
+		t.Parallel()
 		injectedMovementSensor, _, _, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
 		defer ms.Close(ctx)
 		success, err := ms.MoveOnGlobe(
@@ -797,6 +806,7 @@ func TestMoveOnGlobe(t *testing.T) {
 	})
 
 	t.Run("returns an error if the movement_sensor provided is not a movement_sensor", func(t *testing.T) {
+		t.Parallel()
 		_, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
 		defer ms.Close(ctx)
 		success, err := ms.MoveOnGlobe(
@@ -824,13 +834,14 @@ func TestMoveOnGlobe(t *testing.T) {
 			injectedMovementSensor.Name(),
 			nil,
 			&motion.MotionConfiguration{},
-			nil,
+			extraSmooth,
 		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, success, test.ShouldBeTrue)
 	})
 
 	t.Run("errors when motion configuration has a negative PlanDeviationMM", func(t *testing.T) {
+		t.Parallel()
 		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
 		defer ms.Close(ctx)
 		success, err := ms.MoveOnGlobe(
@@ -848,6 +859,7 @@ func TestMoveOnGlobe(t *testing.T) {
 	})
 
 	t.Run("errors when motion configuration has a NaN PlanDeviationMM", func(t *testing.T) {
+		t.Parallel()
 		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
 		defer ms.Close(ctx)
 		success, err := ms.MoveOnGlobe(
@@ -865,6 +877,7 @@ func TestMoveOnGlobe(t *testing.T) {
 	})
 
 	t.Run("returns an error when the motion configuration has a negative ObstaclePollingFreqHz", func(t *testing.T) {
+		t.Parallel()
 		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
 		defer ms.Close(ctx)
 		success, err := ms.MoveOnGlobe(
@@ -882,6 +895,7 @@ func TestMoveOnGlobe(t *testing.T) {
 	})
 
 	t.Run("returns an error when the motion configuration has a NaN ObstaclePollingFreqHz", func(t *testing.T) {
+		t.Parallel()
 		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
 		defer ms.Close(ctx)
 		success, err := ms.MoveOnGlobe(
@@ -899,6 +913,7 @@ func TestMoveOnGlobe(t *testing.T) {
 	})
 
 	t.Run("returns an error when the motion configuration has a negative PositionPollingFreqHz", func(t *testing.T) {
+		t.Parallel()
 		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
 		defer ms.Close(ctx)
 		success, err := ms.MoveOnGlobe(
@@ -916,6 +931,7 @@ func TestMoveOnGlobe(t *testing.T) {
 	})
 
 	t.Run("returns an error when the motion configuration has a NaN PositionPollingFreqHz", func(t *testing.T) {
+		t.Parallel()
 		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
 		defer ms.Close(ctx)
 		success, err := ms.MoveOnGlobe(
@@ -933,6 +949,7 @@ func TestMoveOnGlobe(t *testing.T) {
 	})
 
 	t.Run("returns an error when motion configuration has a negative AngularDegsPerSec", func(t *testing.T) {
+		t.Parallel()
 		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
 		defer ms.Close(ctx)
 		success, err := ms.MoveOnGlobe(
@@ -950,6 +967,7 @@ func TestMoveOnGlobe(t *testing.T) {
 	})
 
 	t.Run("returns an error when motion configuration has a NaN AngularDegsPerSec", func(t *testing.T) {
+		t.Parallel()
 		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
 		defer ms.Close(ctx)
 		success, err := ms.MoveOnGlobe(
@@ -967,6 +985,7 @@ func TestMoveOnGlobe(t *testing.T) {
 	})
 
 	t.Run("returns an error when motion configuration has a negative LinearMPerSec", func(t *testing.T) {
+		t.Parallel()
 		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
 		defer ms.Close(ctx)
 		success, err := ms.MoveOnGlobe(
@@ -984,6 +1003,7 @@ func TestMoveOnGlobe(t *testing.T) {
 	})
 
 	t.Run("returns an error when motion configuration has a NaN LinearMPerSec", func(t *testing.T) {
+		t.Parallel()
 		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
 		defer ms.Close(ctx)
 		success, err := ms.MoveOnGlobe(
@@ -1001,7 +1021,6 @@ func TestMoveOnGlobe(t *testing.T) {
 	})
 
 	t.Run("ensure success to a nearby geo point", func(t *testing.T) {
-		t.Parallel()
 		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
 		motionCfg := &motion.MotionConfiguration{PositionPollingFreqHz: 4, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM}
 		mr, err := ms.(*builtIn).newMoveOnGlobeRequest(
@@ -1012,7 +1031,7 @@ func TestMoveOnGlobe(t *testing.T) {
 			[]*spatialmath.GeoObstacle{},
 			motionCfg,
 			nil,
-			validatedExtra,
+			valExtra,
 		)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -1038,7 +1057,6 @@ func TestMoveOnGlobe(t *testing.T) {
 	})
 
 	t.Run("go around an obstacle", func(t *testing.T) {
-		t.Parallel()
 		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
 		motionCfg := &motion.MotionConfiguration{PositionPollingFreqHz: 4, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM}
 
@@ -1058,7 +1076,7 @@ func TestMoveOnGlobe(t *testing.T) {
 			[]*spatialmath.GeoObstacle{geoObstacle},
 			motionCfg,
 			nil,
-			validatedExtra,
+			valExtra,
 		)
 		test.That(t, err, test.ShouldBeNil)
 		waypoints, err := mr.plan(ctx)
@@ -1086,7 +1104,6 @@ func TestMoveOnGlobe(t *testing.T) {
 	})
 
 	t.Run("fail because of obstacle", func(t *testing.T) {
-		t.Parallel()
 		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
 
 		// Construct a set of obstacles that entirely enclose the goal point
@@ -1116,7 +1133,7 @@ func TestMoveOnGlobe(t *testing.T) {
 			[]*spatialmath.GeoObstacle{geoObstacle},
 			&motion.MotionConfiguration{},
 			nil,
-			validatedExtra,
+			valExtra,
 		)
 		test.That(t, err, test.ShouldBeNil)
 		plan, err := moveRequest.plan(ctx)
@@ -1158,7 +1175,7 @@ func TestReplanning(t *testing.T) {
 			name:            "check we dont replan with a good sensor",
 			noise:           r3.Vector{Y: epsilonMM - 0.1},
 			expectedSuccess: true,
-			extra:           map[string]interface{}{},
+			extra:           map[string]interface{}{"smooth_iter": 5},
 		},
 		{
 			// This also checks that `replan` is called under default conditions when "max_replans" is not set
@@ -1166,14 +1183,14 @@ func TestReplanning(t *testing.T) {
 			noise:           r3.Vector{Y: epsilonMM + 0.1},
 			expectedErr:     "unable to create a new plan within replanCostFactor from the original",
 			expectedSuccess: false,
-			extra:           map[string]interface{}{"replan_cost_factor": 0.01},
+			extra:           map[string]interface{}{"replan_cost_factor": 0.01, "smooth_iter": 5},
 		},
 		{
 			name:            "check we replan with a noisy sensor",
 			noise:           r3.Vector{Y: epsilonMM + 0.1},
 			expectedErr:     fmt.Sprintf("exceeded maximum number of replans: %d", 4),
 			expectedSuccess: false,
-			extra:           map[string]interface{}{"replan_cost_factor": 10.0, "max_replans": 4},
+			extra:           map[string]interface{}{"replan_cost_factor": 10.0, "max_replans": 4, "smooth_iter": 5},
 		},
 	}
 
