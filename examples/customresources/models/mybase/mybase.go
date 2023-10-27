@@ -11,7 +11,6 @@ import (
 	"go.uber.org/multierr"
 
 	"go.viam.com/rdk/components/base"
-	"go.viam.com/rdk/components/base/kinematicbase"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -68,11 +67,13 @@ func (b *myBase) Reconfigure(ctx context.Context, deps resource.Dependencies, co
 		return errors.Wrapf(err, "unable to get motor %v for mybase", baseConfig.RightMotor)
 	}
 
-	geometries, err := kinematicbase.CollisionGeometry(conf.Frame)
-	if err != nil {
-		b.logger.Warnf("base %v %s", b.Name(), err.Error())
+	if conf.Frame != nil && conf.Frame.Geometry != nil {
+		geometry, err := conf.Frame.Geometry.ParseConfig()
+		if err != nil {
+			return err
+		}
+		b.geometries = []spatialmath.Geometry{geometry}
 	}
-	b.geometries = geometries
 
 	// Good practice to stop motors, but also this effectively tests https://viam.atlassian.net/browse/RSDK-2496
 	return multierr.Combine(b.left.Stop(context.Background(), nil), b.right.Stop(context.Background(), nil))
