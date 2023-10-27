@@ -176,7 +176,7 @@ type EncodedMotorState struct {
 // RPMMonitorStart starts the RPM monitor.
 func (m *EncodedMotor) rpmMonitorStart() {
 	if m.loop != nil {
-		m.loop.Stop()
+		return
 	}
 	if len(m.cfg.ControlLoop.Blocks) != 0 {
 		cLoop, _ := control.NewLoop(m.logger, m.cfg.ControlLoop, m)
