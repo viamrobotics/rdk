@@ -569,7 +569,9 @@ func (replay *replayMovementSensor) attemptToGetData(ctx context.Context, method
 	if replay.closed {
 		return false, errSessionClosed
 	}
-	if err := replay.updateCache(ctx, method); err != nil && !strings.Contains(err.Error(), ErrEndOfDataset.Error()) {
+	cancelCtx, cancel := context.WithTimeout(context.Background(), tabularDataByFilterTimeout)
+	defer cancel()
+	if err := replay.updateCache(cancelCtx, method); err != nil && !strings.Contains(err.Error(), ErrEndOfDataset.Error()) {
 		return false, errors.Wrap(err, "could not update the cache")
 	}
 	return len(replay.cache[method]) != 0, nil
@@ -588,12 +590,9 @@ func (replay *replayMovementSensor) initializeProperties(ctx context.Context) er
 			return ctx.Err()
 		}
 		for _, method := range methodList {
-			cancelCtx, cancel := context.WithTimeout(context.Background(), tabularDataByFilterTimeout)
-			if dataReceived[method], err = replay.attemptToGetData(cancelCtx, method); err != nil {
-				cancel()
+			if dataReceived[method], err = replay.attemptToGetData(ctx, method); err != nil {
 				return err
 			}
-			cancel()
 		}
 		// If at least one method successfully managed to return data, we know
 		// that we can finish initializing the properties.
@@ -603,12 +602,9 @@ func (replay *replayMovementSensor) initializeProperties(ctx context.Context) er
 	}
 	// Loop once more through all methods to ensure we didn't miss out on catching that they're supported
 	for _, method := range methodList {
-		cancelCtx, cancel := context.WithTimeout(context.Background(), tabularDataByFilterTimeout)
-		if dataReceived[method], err = replay.attemptToGetData(cancelCtx, method); err != nil {
-			cancel()
+		if dataReceived[method], err = replay.attemptToGetData(ctx, method); err != nil {
 			return err
 		}
-		cancel()
 	}
 
 	for method, supported := range dataReceived {
