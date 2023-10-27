@@ -1,3 +1,5 @@
+//go:build linux
+
 // Package mpu6050 implements the movementsensor interface for an MPU-6050 6-axis accelerometer. A
 // datasheet for this chip is at
 // https://components101.com/sites/default/files/component_datasheet/MPU6050-DataSheet.pdf and a
