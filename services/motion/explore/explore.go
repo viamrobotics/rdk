@@ -132,18 +132,19 @@ func (ms *explore) Reconfigure(
 
 type explore struct {
 	resource.Named
-
-	fsService  framesystem.Service
-	components map[resource.Name]resource.Resource
-	services   map[resource.Name]resource.Resource
-	logger     logging.Logger
+	logger logging.Logger
 
 	processCancelFunc     context.CancelFunc
 	obstacleResponseChan  chan moveResponse
 	executionResponseChan chan moveResponse
 	backgroundWorkers     *sync.WaitGroup
 
+	// Mutex protects the connect to other resources, the frame service/system and prevent multiple
+	// Move and/or reconfigure actions from being performed simultaneously.
 	mutex       sync.Mutex
+	components  map[resource.Name]resource.Resource
+	services    map[resource.Name]resource.Resource
+	fsService   framesystem.Service
 	frameSystem referenceframe.FrameSystem
 }
 
