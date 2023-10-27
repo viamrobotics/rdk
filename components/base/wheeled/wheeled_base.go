@@ -43,7 +43,6 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/base"
-	"go.viam.com/rdk/components/base/kinematicbase"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
@@ -122,11 +121,14 @@ func (wb *wheeledBase) Reconfigure(ctx context.Context, deps resource.Dependenci
 	wb.mu.Lock()
 	defer wb.mu.Unlock()
 
-	geometries, err := kinematicbase.CollisionGeometry(conf.Frame)
-	if err != nil {
-		wb.logger.Warnf("base %v %s", wb.Name(), err.Error())
+	wb.geometries = []spatialmath.Geometry{}
+	if conf.Frame != nil {
+		frame, err := conf.Frame.ParseConfig()
+		if err != nil {
+			return err
+		}
+		wb.geometries = append(wb.geometries, frame.Geometry())
 	}
-	wb.geometries = geometries
 
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
