@@ -6,6 +6,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/encoder"
+	fakeencoder "go.viam.com/rdk/components/encoder/fake"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
 	fakemotor "go.viam.com/rdk/components/motor/fake"
@@ -29,21 +30,25 @@ func TestValidationFailureDuringReconfiguration(t *testing.T) {
 		},
 		Components: []resource.Config{
 			{
-				Name:       "generic1",
-				Model:      resource.NewModel("acme", "demo", "multiversionmodule"),
-				API:        generic.API,
-				Attributes: utils.AttributeMap{},
+				Name:                "generic1",
+				Model:               resource.NewModel("acme", "demo", "multiversionmodule"),
+				API:                 generic.API,
+				Attributes:          utils.AttributeMap{},
+				ConvertedAttributes: &fakemotor.Config{},
 			},
 			{
-				Name:       "motor1",
-				Model:      resource.DefaultModelFamily.WithModel("fake"),
-				API:        motor.API,
-				Attributes: utils.AttributeMap{},
+				Name:                "motor1",
+				Model:               resource.DefaultModelFamily.WithModel("fake"),
+				API:                 motor.API,
+				Attributes:          utils.AttributeMap{},
+				ConvertedAttributes: &fakemotor.Config{},
 			},
 			{
-				Name:  "encoder1",
-				Model: resource.DefaultModelFamily.WithModel("fake"),
-				API:   encoder.API,
+				Name:                "encoder1",
+				Model:               resource.DefaultModelFamily.WithModel("fake"),
+				API:                 encoder.API,
+				Attributes:          utils.AttributeMap{},
+				ConvertedAttributes: &fakeencoder.Config{},
 			},
 		},
 	}
@@ -96,10 +101,11 @@ func TestVersionBumpWithNewImplicitDeps(t *testing.T) {
 		},
 		Components: []resource.Config{
 			{
-				Name:       "generic1",
-				Model:      resource.NewModel("acme", "demo", "multiversionmodule"),
-				API:        generic.API,
-				Attributes: utils.AttributeMap{},
+				Name:                "generic1",
+				Model:               resource.NewModel("acme", "demo", "multiversionmodule"),
+				API:                 generic.API,
+				Attributes:          utils.AttributeMap{},
+				ConvertedAttributes: &fakemotor.Config{},
 			},
 			{
 				Name:                "motor1",
@@ -109,9 +115,11 @@ func TestVersionBumpWithNewImplicitDeps(t *testing.T) {
 				ConvertedAttributes: &fakemotor.Config{},
 			},
 			{
-				Name:  "encoder1",
-				Model: resource.DefaultModelFamily.WithModel("fake"),
-				API:   encoder.API,
+				Name:                "encoder1",
+				Model:               resource.DefaultModelFamily.WithModel("fake"),
+				API:                 encoder.API,
+				Attributes:          utils.AttributeMap{},
+				ConvertedAttributes: &fakeencoder.Config{},
 			},
 		},
 	}

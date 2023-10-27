@@ -183,7 +183,7 @@ func (imu *wit) Accuracy(ctx context.Context, extra map[string]interface{}) (map
 }
 
 func (imu *wit) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-	readings, err := movementsensor.Readings(ctx, imu, extra)
+	readings, err := movementsensor.DefaultAPIReadings(ctx, imu, extra)
 	if err != nil {
 		return nil, err
 	}

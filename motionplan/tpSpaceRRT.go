@@ -157,7 +157,7 @@ func (mp *tpSpaceRRTMotionPlanner) plan(ctx context.Context,
 	planRunners.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer planRunners.Done()
-		mp.planRunner(ctx, seed, &rrtParallelPlannerShared{
+		mp.rrtBackgroundRunner(ctx, seed, &rrtParallelPlannerShared{
 			&rrtMaps{
 				startMap: map[node]node{startNode: nil},
 				goalMap:  map[node]node{goalNode: nil},
@@ -180,7 +180,7 @@ func (mp *tpSpaceRRTMotionPlanner) plan(ctx context.Context,
 
 // planRunner will execute the plan. Plan() will call planRunner in a separate thread and wait for results.
 // Separating this allows other things to call planRunner in parallel allowing the thread-agnostic Plan to be accessible.
-func (mp *tpSpaceRRTMotionPlanner) planRunner(
+func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 	ctx context.Context,
 	_ []referenceframe.Input, // TODO: this may be needed for smoothing
 	rrt *rrtParallelPlannerShared,
@@ -757,6 +757,7 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 	smoothPlanner := smoothPlannerMP.(*tpSpaceRRTMotionPlanner)
 	smoothPlanner.algOpts.bidirectional = true
 	for i := 0; i < toIter; i++ {
+		mp.logger.Debugf("TP Space smoothing iteration %d of %d", i, toIter)
 		select {
 		case <-ctx.Done():
 			return path

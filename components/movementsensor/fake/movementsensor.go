@@ -86,7 +86,7 @@ func (f *MovementSensor) Accuracy(ctx context.Context, extra map[string]interfac
 
 // Readings gets the readings of a fake movementsensor.
 func (f *MovementSensor) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-	return movementsensor.Readings(ctx, f, extra)
+	return movementsensor.DefaultAPIReadings(ctx, f, extra)
 }
 
 // Properties returns the properties of a fake movementsensor.

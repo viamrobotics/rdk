@@ -29,10 +29,11 @@ import (
 )
 
 const (
-	timeFormat               = time.RFC3339
-	grpcConnectionTimeout    = 10 * time.Second
-	dataReceivedLoopWaitTime = time.Second
-	maxCacheSize             = 1000
+	timeFormat                 = time.RFC3339
+	grpcConnectionTimeout      = 10 * time.Second
+	dataReceivedLoopWaitTime   = time.Second
+	tabularDataByFilterTimeout = 15 * time.Second
+	maxCacheSize               = 1000
 )
 
 type method string
@@ -392,7 +393,7 @@ func (replay *replayMovementSensor) Close(ctx context.Context) error {
 
 // Readings returns all available data from the next entry stored in the cache.
 func (replay *replayMovementSensor) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-	return movementsensor.Readings(ctx, replay, extra)
+	return movementsensor.DefaultAPIReadings(ctx, replay, extra)
 }
 
 // Reconfigure finishes the bring up of the replay movement sensor by evaluating given arguments and setting up the required cloud
@@ -584,11 +585,15 @@ func (replay *replayMovementSensor) initializeProperties(ctx context.Context) er
 		if !goutils.SelectContextOrWait(ctx, dataReceivedLoopWaitTime) {
 			return ctx.Err()
 		}
+
+		cancelCtx, cancel := context.WithTimeout(context.Background(), tabularDataByFilterTimeout)
 		for _, method := range methodList {
-			if dataReceived[method], err = replay.attemptToGetData(ctx, method); err != nil {
+			if dataReceived[method], err = replay.attemptToGetData(cancelCtx, method); err != nil {
+				cancel()
 				return err
 			}
 		}
+		cancel()
 		// If at least one method successfully managed to return data, we know
 		// that we can finish initializing the properties.
 		if slices.Contains(maps.Values(dataReceived), true) {

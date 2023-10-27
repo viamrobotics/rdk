@@ -29,6 +29,9 @@ do_bullseye(){
 	# Install most things
 	apt-get update && apt-get install -y build-essential nodejs libnlopt-dev libx264-dev libtensorflowlite-dev ffmpeg libjpeg62-turbo-dev
 
+	# Install Gostream dependencies
+	sudo apt-get install -y --no-install-recommends libopus-dev libvpx-dev libx11-dev libxext-dev libopusfile-dev
+
 	# Install backports
 	apt-get install -y -t $(grep VERSION_CODENAME /etc/os-release | cut -d= -f2)-backports golang-go
 
@@ -158,6 +161,9 @@ do_brew(){
 	brew "jpeg-turbo"
 	brew "ffmpeg"
 	brew "licensefinder"
+	brew "opus"
+	brew "opusfile"
+	brew "libvpx"
 	brew "tensorflowlite" # Needs to be last
 	EOS
 

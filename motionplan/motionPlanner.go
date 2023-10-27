@@ -177,13 +177,13 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 		return nil, err
 	}
 
-	// TODO: RSDK-3236 this should seed off of currentPlan
 	resultSlices, err := sfPlanner.PlanSingleWaypoint(
 		ctx,
 		request.StartConfiguration,
 		request.Goal.Pose(),
 		request.WorldState,
 		request.ConstraintSpecs,
+		currentPlan,
 		request.Options,
 	)
 	if err != nil {
