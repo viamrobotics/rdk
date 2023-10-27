@@ -476,7 +476,8 @@ func TestMoveOnMapPlans(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	// goal x-position of 1.32m is scaled to be in mm
-	goal := spatialmath.NewPoseFromPoint(r3.Vector{X: 1.32 * 1000, Y: 0})
+	goalInBaseFrame := spatialmath.NewPoseFromPoint(r3.Vector{X: 1.32 * 1000, Y: 0})
+	goalInSLAMFrame := spatialmath.PoseBetweenInverse(motion.SLAMOrientationAdjustment, goalInBaseFrame)
 	extra := map[string]interface{}{"smooth_iter": 5}
 	extraPosOnly := map[string]interface{}{"smooth_iter": 5, "motion_profile": "position_only"}
 
@@ -486,7 +487,7 @@ func TestMoveOnMapPlans(t *testing.T) {
 		success, err := ms.MoveOnMap(
 			context.Background(),
 			base.Named("test-base"),
-			goal,
+			goalInSLAMFrame,
 			slam.Named("test_slam"),
 			extra,
 		)
@@ -494,17 +495,19 @@ func TestMoveOnMapPlans(t *testing.T) {
 		test.That(t, success, test.ShouldBeTrue)
 		endPos, err := kb.CurrentPosition(ctx)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, spatialmath.PoseAlmostEqualEps(endPos.Pose(), goal, 10), test.ShouldBeTrue)
+
+		test.That(t, spatialmath.PoseAlmostEqualEps(endPos.Pose(), goalInBaseFrame, 10), test.ShouldBeTrue)
 	})
 
 	t.Run("check that straight line path executes", func(t *testing.T) {
 		t.Parallel()
 		kb, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd")
-		easyGoal := spatialmath.NewPoseFromPoint(r3.Vector{X: 0.277 * 1000, Y: 0.593 * 1000})
+		easyGoalInBaseFrame := spatialmath.NewPoseFromPoint(r3.Vector{X: 0.277 * 1000, Y: 0.593 * 1000})
+		easyGoalInSLAMFrame := spatialmath.PoseBetweenInverse(motion.SLAMOrientationAdjustment, easyGoalInBaseFrame)
 		success, err := ms.MoveOnMap(
 			context.Background(),
 			base.Named("test-base"),
-			easyGoal,
+			easyGoalInSLAMFrame,
 			slam.Named("test_slam"),
 			extra,
 		)
@@ -512,7 +515,7 @@ func TestMoveOnMapPlans(t *testing.T) {
 		test.That(t, success, test.ShouldBeTrue)
 		endPos, err := kb.CurrentPosition(ctx)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, spatialmath.PoseAlmostEqualEps(endPos.Pose(), easyGoal, 10), test.ShouldBeTrue)
+		test.That(t, spatialmath.PoseAlmostEqualEps(endPos.Pose(), easyGoalInBaseFrame, 10), test.ShouldBeTrue)
 	})
 
 	t.Run("check that position-only mode executes", func(t *testing.T) {
@@ -521,7 +524,7 @@ func TestMoveOnMapPlans(t *testing.T) {
 		success, err := ms.MoveOnMap(
 			context.Background(),
 			base.Named("test-base"),
-			goal,
+			goalInSLAMFrame,
 			slam.Named("test_slam"),
 			extraPosOnly,
 		)
@@ -529,15 +532,17 @@ func TestMoveOnMapPlans(t *testing.T) {
 		test.That(t, success, test.ShouldBeTrue)
 		endPos, err := kb.CurrentPosition(ctx)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, spatialmath.PoseAlmostCoincidentEps(endPos.Pose(), goal, 10), test.ShouldBeTrue)
+		test.That(t, spatialmath.PoseAlmostCoincidentEps(endPos.Pose(), goalInBaseFrame, 10), test.ShouldBeTrue)
 	})
 }
 
 func TestMoveOnMapSubsequent(t *testing.T) {
 	ctx := context.Background()
 	// goal x-position of 1.32m is scaled to be in mm
-	goal1 := spatialmath.NewPose(r3.Vector{X: 1.32 * 1000, Y: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 45})
-	goal2 := spatialmath.NewPose(r3.Vector{X: 277, Y: 593}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 150})
+	goal1SLAMFrame := spatialmath.NewPose(r3.Vector{X: 1.32 * 1000, Y: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 45})
+	goal1BaseFrame := spatialmath.Compose(goal1SLAMFrame, motion.SLAMOrientationAdjustment)
+	goal2SLAMFrame := spatialmath.NewPose(r3.Vector{X: 277, Y: 593}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 150})
+	goal2BaseFrame := spatialmath.Compose(goal2SLAMFrame, motion.SLAMOrientationAdjustment)
 
 	kb, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd")
 	msBuiltin, ok := ms.(*builtIn)
@@ -551,7 +556,7 @@ func TestMoveOnMapSubsequent(t *testing.T) {
 	success, err := msBuiltin.MoveOnMap(
 		context.Background(),
 		base.Named("test-base"),
-		goal1,
+		goal1SLAMFrame,
 		slam.Named("test_slam"),
 		extra,
 	)
@@ -560,14 +565,14 @@ func TestMoveOnMapSubsequent(t *testing.T) {
 	endPos, err := kb.CurrentPosition(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	logger.Debug(spatialmath.PoseToProtobuf(endPos.Pose()))
-	test.That(t, spatialmath.PoseAlmostEqualEps(endPos.Pose(), goal1, 10), test.ShouldBeTrue)
+	test.That(t, spatialmath.PoseAlmostEqualEps(endPos.Pose(), goal1BaseFrame, 10), test.ShouldBeTrue)
 
 	// Now, we try to go to the second goal. Since the `CurrentPosition` of our base is at `goal1`, the pose that motion solves for and
 	// logs should be {x:-1043  y:593}
 	success, err = msBuiltin.MoveOnMap(
 		context.Background(),
 		base.Named("test-base"),
-		goal2,
+		goal2SLAMFrame,
 		slam.Named("test_slam"),
 		extra,
 	)
@@ -576,7 +581,7 @@ func TestMoveOnMapSubsequent(t *testing.T) {
 	endPos, err = kb.CurrentPosition(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	logger.Debug(spatialmath.PoseToProtobuf(endPos.Pose()))
-	test.That(t, spatialmath.PoseAlmostEqualEps(endPos.Pose(), goal2, 1), test.ShouldBeTrue)
+	test.That(t, spatialmath.PoseAlmostEqualEps(endPos.Pose(), goal2BaseFrame, 1), test.ShouldBeTrue)
 
 	// We don't actually surface the internal motion planning goal; we report to the user in terms of what the user provided us.
 	// Thus, we must do string surgery on the internal `motionplan` logs to extract the requested relative pose and check it is correct.
@@ -595,10 +600,10 @@ func TestMoveOnMapSubsequent(t *testing.T) {
 		return spatialmath.NewPoseFromProtobuf(posepb)
 	}
 	goalPose1 := logLineToGoalPose(goalLogsObserver[0].Entry.Message)
-	test.That(t, spatialmath.PoseAlmostEqualEps(goalPose1, goal1, 10), test.ShouldBeTrue)
+	test.That(t, spatialmath.PoseAlmostEqualEps(goalPose1, goal1BaseFrame, 10), test.ShouldBeTrue)
 	goalPose2 := logLineToGoalPose(goalLogsObserver[1].Entry.Message)
 	// This is the important test.
-	test.That(t, spatialmath.PoseAlmostEqualEps(goalPose2, spatialmath.PoseBetween(goal1, goal2), 1), test.ShouldBeTrue)
+	test.That(t, spatialmath.PoseAlmostEqualEps(goalPose2, spatialmath.PoseBetween(goal1BaseFrame, goal2BaseFrame), 1), test.ShouldBeTrue)
 }
 
 func TestMoveOnMapTimeout(t *testing.T) {

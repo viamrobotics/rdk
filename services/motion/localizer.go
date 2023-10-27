@@ -13,6 +13,11 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
+// SLAMOrientationAdjustment is needed because a SLAM map pose has orientation of OZ=1, Theta=0 when the rover is intended to be pointing
+// at the +X axis of the SLAM map.
+// However, for a rover's relative planning frame, driving forwards increments +Y. Thus we must adjust where the rover thinks it is.
+var SLAMOrientationAdjustment = spatialmath.NewPoseFromOrientation(&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: -90})
+
 // Localizer is an interface which both slam and movementsensor can satisfy when wrapped respectively.
 type Localizer interface {
 	CurrentPosition(context.Context) (*referenceframe.PoseInFrame, error)
@@ -21,11 +26,12 @@ type Localizer interface {
 // slamLocalizer is a struct which only wraps an existing slam service.
 type slamLocalizer struct {
 	slam.Service
+	relative bool
 }
 
 // NewSLAMLocalizer creates a new Localizer that relies on a slam service to report Pose.
-func NewSLAMLocalizer(slam slam.Service) Localizer {
-	return &slamLocalizer{Service: slam}
+func NewSLAMLocalizer(slam slam.Service, relative bool) Localizer {
+	return &slamLocalizer{Service: slam, relative: relative}
 }
 
 // CurrentPosition returns slam's current position.
@@ -34,12 +40,13 @@ func (s *slamLocalizer) CurrentPosition(ctx context.Context) (*referenceframe.Po
 	if err != nil {
 		return nil, err
 	}
+	if s.relative {
+		pose = spatialmath.Compose(pose, SLAMOrientationAdjustment)
+	}
 
 	// Slam poses are returned such that theta=0 points along the +X axis
 	// We must rotate 90 degrees to match the base convention of y = forwards
-	calibration := spatialmath.NewPoseFromOrientation(&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: -90})
-
-	return referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.Compose(pose, calibration)), err
+	return referenceframe.NewPoseInFrame(referenceframe.World, pose), err
 }
 
 // movementSensorLocalizer is a struct which only wraps an existing movementsensor.

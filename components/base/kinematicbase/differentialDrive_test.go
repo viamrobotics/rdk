@@ -123,7 +123,7 @@ func TestInputDiff(t *testing.T) {
 	ddk, err := buildTestDDK(ctx, testConfig(),
 		defaultLinearVelocityMMPerSec, defaultAngularVelocityDegsPerSec, logger)
 	test.That(t, err, test.ShouldBeNil)
-	ddk.Localizer = motion.NewSLAMLocalizer(slam)
+	ddk.Localizer = motion.NewSLAMLocalizer(slam, false)
 
 	desiredInput := []referenceframe.Input{{3}, {4}, {utils.DegToRad(30)}}
 	distErr, headingErr, err := ddk.inputDiff(make([]referenceframe.Input, 3), desiredInput)
@@ -161,7 +161,7 @@ func buildTestDDK(
 	options := NewKinematicBaseOptions()
 	options.LinearVelocityMMPerSec = linVel
 	options.AngularVelocityDegsPerSec = angVel
-	kb, err := wrapWithDifferentialDriveKinematics(ctx, b, logger, motion.NewSLAMLocalizer(fakeSLAM), limits, options)
+	kb, err := wrapWithDifferentialDriveKinematics(ctx, b, logger, motion.NewSLAMLocalizer(fakeSLAM, false), limits, options)
 	if err != nil {
 		return nil, err
 	}

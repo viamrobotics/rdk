@@ -347,10 +347,11 @@ func (ms *builtIn) newMoveOnMapRequest(
 		return nil, err
 	}
 
-	kb, err := kinematicbase.WrapWithKinematics(ctx, b, ms.logger, motion.NewSLAMLocalizer(slamSvc), limits, kinematicsOptions)
+	kb, err := kinematicbase.WrapWithKinematics(ctx, b, ms.logger, motion.NewSLAMLocalizer(slamSvc, true), limits, kinematicsOptions)
 	if err != nil {
 		return nil, err
 	}
+	goalPoseAdj := spatialmath.Compose(goalPoseRaw, motion.SLAMOrientationAdjustment)
 
 	// get point cloud data in the form of bytes from pcd
 	pointCloudData, err := slam.PointCloudMapFull(ctx, slamSvc)
@@ -368,7 +369,7 @@ func (ms *builtIn) newMoveOnMapRequest(
 		motionCfg,
 		ms.logger,
 		kb,
-		goalPoseRaw,
+		goalPoseAdj,
 		fs,
 		[]spatialmath.Geometry{octree},
 		valExtra,
