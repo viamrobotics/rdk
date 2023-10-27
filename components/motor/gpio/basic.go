@@ -29,6 +29,11 @@ func NewMotor(b board.Board, mc Config, name resource.Name, logger logging.Logge
 	motorType, err := mc.Pins.MotorType("")
 	if err != nil {
 		return nil, err
+	} else if motorType == AB {
+		logger.Warnf(
+			"motor %s has been configured with A and B pins, but no PWM. Make sure this is intentional",
+			name.Name,
+		)
 	}
 
 	if mc.MinPowerPct < 0 {
