@@ -27,7 +27,7 @@ func TestValidateConfig(t *testing.T) {
 
 	t.Run("no dependencies on success", func(t *testing.T) {
 		cfg := Config{
-			I2cBus:    "thing2",
+			I2cBus:    "2",
 		}
 		deps, err := cfg.Validate("path")
 
