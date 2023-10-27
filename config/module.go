@@ -35,8 +35,8 @@ type Module struct {
 	// They overwrite existing environment variables.
 	Environment map[string]string `json:"env,omitempty"`
 
-	Status AppValidationStatus `json:"status,omitempty"`
-
+	// Status refers to the validations done in the APP to make sure a module is configured correctly
+	Status           *AppValidationStatus `json:"status"`
 	alreadyValidated bool
 	cachedErr        error
 }
@@ -53,6 +53,9 @@ const (
 
 // Validate checks if the config is valid.
 func (m *Module) Validate(path string) error {
+	if m.Status != nil {
+		return errors.New(m.Status.Error)
+	}
 	if m.alreadyValidated {
 		return m.cachedErr
 	}
@@ -65,10 +68,6 @@ func (m *Module) validate(path string) error {
 	// Only check if the path exists during validation for local modules because the packagemanager may not have downloaded
 	// the package yet.
 	// As of 2023-08, modules can't know if they were originally registry modules, so this roundabout check is required
-	if m.Status.Error != "" {
-		return errors.New(m.Status.Error)
-	}
-
 	if !(ContainsPlaceholder(m.ExePath) || strings.HasPrefix(m.ExePath, viamPackagesDir)) {
 		_, err := os.Stat(m.ExePath)
 		if err != nil {
@@ -92,8 +91,10 @@ func (m *Module) validate(path string) error {
 func (m Module) Equals(other Module) bool {
 	m.alreadyValidated = false
 	m.cachedErr = nil
+	m.Status = nil
 	other.alreadyValidated = false
 	other.cachedErr = nil
+	other.Status = nil
 	//nolint:govet
 	return reflect.DeepEqual(m, other)
 }

@@ -236,7 +236,7 @@ func ServiceConfigFromProto(protoConf *pb.ServiceConfig) (*resource.Config, erro
 }
 
 // ModuleConfigToProto converts Module to the proto equivalent.
-func ModuleConfigToProto(module *Module) (*pb.ModuleConfig, error) {
+func ModuleConfigToProto(module *Module) *pb.ModuleConfig {
 	proto := pb.ModuleConfig{
 		Name:     module.Name,
 		Path:     module.ExePath,
@@ -246,17 +246,11 @@ func ModuleConfigToProto(module *Module) (*pb.ModuleConfig, error) {
 		Env:      module.Environment,
 	}
 
-	return &proto, nil
+	return &proto
 }
 
 // ModuleConfigFromProto creates Module from the proto equivalent.
 func ModuleConfigFromProto(proto *pb.ModuleConfig) (*Module, error) {
-
-	statusProto := proto.GetStatus()
-	status := AppValidationStatus{
-		Error: statusProto.GetError(),
-	}
-
 	module := Module{
 		Name:        proto.GetName(),
 		ExePath:     proto.GetPath(),
@@ -264,7 +258,11 @@ func ModuleConfigFromProto(proto *pb.ModuleConfig) (*Module, error) {
 		Type:        ModuleType(proto.GetType()),
 		ModuleID:    proto.GetModuleId(),
 		Environment: proto.GetEnv(),
-		Status:      status,
+	}
+	if proto.Status != nil {
+		module.Status = &AppValidationStatus{
+			Error: proto.Status.GetError(),
+		}
 	}
 	return &module, nil
 }
@@ -851,9 +849,9 @@ func PackageConfigToProto(cfg *PackageConfig) (*pb.PackageConfig, error) {
 // PackageConfigFromProto converts a proto package config to the rdk version.
 func PackageConfigFromProto(proto *pb.PackageConfig) (*PackageConfig, error) {
 
-	statusProto := proto.GetStatus()
-	status := AppValidationStatus{
-		Error: statusProto.GetError(),
+	var status *AppValidationStatus
+	if proto.GetStatus() != nil {
+		status = &AppValidationStatus{Error: proto.GetStatus().GetError()}
 	}
 
 	return &PackageConfig{

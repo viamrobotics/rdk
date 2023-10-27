@@ -187,6 +187,7 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 	}
 
 	for idx := 0; idx < len(c.Packages); idx++ {
+		logger.Infof("checking this module for errors %v", c.Packages[idx].Status)
 		if err := c.Packages[idx].Validate(fmt.Sprintf("%s.%d", "packages", idx)); err != nil {
 			fullErr := errors.Errorf("error validating package config %s", err)
 			if c.DisablePartialStart {
@@ -940,7 +941,7 @@ type PackageConfig struct {
 	// Types of the Package. If not specified it is assumed to be ml_model.
 	Type PackageType `json:"type,omitempty"`
 
-	Status AppValidationStatus `json:"status,omitempty"`
+	Status *AppValidationStatus `json:"status,omitempty"`
 
 	alreadyValidated bool
 	cachedErr        error
@@ -949,7 +950,7 @@ type PackageConfig struct {
 // Validate package config is valid.
 func (p *PackageConfig) Validate(path string) error {
 
-	if p.Status.Error != "" {
+	if p.Status != nil {
 		return errors.New(p.Status.Error)
 	}
 
@@ -991,8 +992,10 @@ func (p *PackageConfig) validate(path string) error {
 func (p PackageConfig) Equals(other PackageConfig) bool {
 	p.alreadyValidated = false
 	p.cachedErr = nil
+	p.Status = nil
 	other.alreadyValidated = false
 	other.cachedErr = nil
+	other.Status = nil
 	//nolint:govet
 	return reflect.DeepEqual(p, other)
 }
