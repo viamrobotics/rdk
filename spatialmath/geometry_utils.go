@@ -81,6 +81,24 @@ func PlaneNormal(p0, p1, p2 r3.Vector) r3.Vector {
 	return p1.Sub(p0).Cross(p2.Sub(p0)).Normalize()
 }
 
+// BoundingSphere returns a spherical geometry centered on the point (0, 0, 0) that will encompass the given geometry
+// if it were to be rotated 360 degrees about the Z axis.  The label of the new geometry is inherited from the given one.
+func BoundingSphere(geometry Geometry) (Geometry, error) {
+	r := geometry.Pose().Point().Norm()
+	switch g := geometry.(type) {
+	case *box:
+		r += r3.Vector{X: g.halfSize[0], Y: g.halfSize[1], Z: g.halfSize[2]}.Norm()
+	case *sphere:
+		r += g.radius
+	case *capsule:
+		r += g.length / 2
+	case *point:
+	default:
+		return nil, errGeometryTypeUnsupported
+	}
+	return NewSphere(NewZeroPose(), r, geometry.Label())
+}
+
 // closestSegmentTrianglePoints takes a line segment and a triangle, and returns the point on each closest to the other.
 func closestPointsSegmentTriangle(ap1, ap2 r3.Vector, t *triangle) (bestSegPt, bestTriPt r3.Vector) {
 	// The closest triangle point is either on the edge or within the triangle.

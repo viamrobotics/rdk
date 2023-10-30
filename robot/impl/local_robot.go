@@ -45,7 +45,7 @@ type localRobot struct {
 	// statusLock guards calls to the Status method.
 	statusLock    sync.Mutex
 	manager       *resourceManager
-	mostRecentCfg config.Config
+	mostRecentCfg atomic.Value // config.Config
 
 	operations                 *operation.Manager
 	sessionManager             session.Manager
@@ -182,7 +182,7 @@ func (r *localRobot) StopAll(ctx context.Context, extra map[resource.Name]map[st
 
 // Config returns a config representing the current state of the robot.
 func (r *localRobot) Config() *config.Config {
-	cfg := r.mostRecentCfg
+	cfg := r.mostRecentCfg.Load().(config.Config)
 
 	// Use resource manager to generate Modules, Remotes, Components, Processes
 	// and Services.
@@ -377,6 +377,7 @@ func newWithResources(
 		revealSensitiveConfigDiffs: rOpts.revealSensitiveConfigDiffs,
 		cloudConnSvc:               cloud.NewCloudConnectionService(cfg.Cloud, logger),
 	}
+	r.mostRecentCfg.Store(config.Config{})
 	var heartbeatWindow time.Duration
 	if cfg.Network.Sessions.HeartbeatWindow == 0 {
 		heartbeatWindow = config.DefaultSessionHeartbeatWindow
@@ -482,7 +483,6 @@ func newWithResources(
 		}
 	}, r.activeBackgroundWorkers.Done)
 
-	r.mostRecentCfg = config.Config{}
 	r.Reconfigure(ctx, cfg)
 
 	for name, res := range resources {
@@ -1109,7 +1109,7 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	}
 
 	// Set mostRecentConfig if resources were not equal.
-	r.mostRecentCfg = *newConfig
+	r.mostRecentCfg.Store(*newConfig)
 
 	// First we mark diff.Removed resources and their children for removal.
 	processesToClose, resourcesToCloseBeforeComplete, _ := r.manager.markRemoved(ctx, diff.Removed, r.logger)
