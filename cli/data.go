@@ -209,7 +209,7 @@ func (c *viamClient) binaryData(dst string, filter *datapb.Filter, parallelDownl
 		}
 	}()
 
-	// In parallel, read from ids and download the binary for each id in batches of defaultParallelDownloads.
+	// In parallel, read from ids and download the binary for each id in batches of parallelDownloads.
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
