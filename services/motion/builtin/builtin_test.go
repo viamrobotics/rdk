@@ -1263,7 +1263,9 @@ func TestObstacleDetection(t *testing.T) {
 		PositionPollingFreqHz: 1, ObstaclePollingFreqHz: 100, PlanDeviationMM: epsilonMM, ObstacleDetectors: obstacleDetectorSlice,
 	}
 
-	extra, err := newValidatedExtra(map[string]interface{}{"replan_cost_factor": 10.0, "max_replans": 4})
+	extra, err := newValidatedExtra(map[string]interface{}{
+		"replan_cost_factor": 10.0, "max_replans": 4, "max_ik_solutions": 10, "smooth_iter": 1,
+	})
 	test.That(t, err, test.ShouldBeNil)
 
 	testCases := []testCase{
