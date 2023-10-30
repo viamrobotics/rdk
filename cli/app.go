@@ -926,10 +926,10 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 					Usage: "update a module's metadata on app.viam.com",
 					Flags: []cli.Flag{
 						&cli.StringFlag{
-							Name:        moduleFlagPath,
-							Usage:       "path to meta.json",
-							DefaultText: "./meta.json",
-							TakesFile:   true,
+							Name:      moduleFlagPath,
+							Usage:     "path to meta.json",
+							Value:     "./meta.json",
+							TakesFile: true,
 						},
 						&cli.StringFlag{
 							Name:  moduleFlagPublicNamespace,
@@ -947,10 +947,10 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 					Usage: "update a module's metadata file based on models it provides",
 					Flags: []cli.Flag{
 						&cli.StringFlag{
-							Name:        moduleFlagPath,
-							Usage:       "path to meta.json",
-							DefaultText: "./meta.json",
-							TakesFile:   true,
+							Name:      moduleFlagPath,
+							Usage:     "path to meta.json",
+							Value:     "./meta.json",
+							TakesFile: true,
 						},
 						&cli.StringFlag{
 							Name:     "binary",
@@ -980,10 +980,10 @@ viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.ta
 					UsageText: "viam module upload <version> <platform> [other options] <packaged-module.tar.gz>",
 					Flags: []cli.Flag{
 						&cli.StringFlag{
-							Name:        moduleFlagPath,
-							Usage:       "path to meta.json",
-							DefaultText: "./meta.json",
-							TakesFile:   true,
+							Name:      moduleFlagPath,
+							Usage:     "path to meta.json",
+							Value:     "./meta.json",
+							TakesFile: true,
 						},
 						&cli.StringFlag{
 							Name:  moduleFlagPublicNamespace,
