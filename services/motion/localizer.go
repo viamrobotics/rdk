@@ -26,12 +26,11 @@ type Localizer interface {
 // slamLocalizer is a struct which only wraps an existing slam service.
 type slamLocalizer struct {
 	slam.Service
-	relative bool
 }
 
 // NewSLAMLocalizer creates a new Localizer that relies on a slam service to report Pose.
-func NewSLAMLocalizer(slam slam.Service, relative bool) Localizer {
-	return &slamLocalizer{Service: slam, relative: relative}
+func NewSLAMLocalizer(slam slam.Service) Localizer {
+	return &slamLocalizer{Service: slam}
 }
 
 // CurrentPosition returns slam's current position.
@@ -40,9 +39,7 @@ func (s *slamLocalizer) CurrentPosition(ctx context.Context) (*referenceframe.Po
 	if err != nil {
 		return nil, err
 	}
-	if s.relative {
-		pose = spatialmath.Compose(pose, SLAMOrientationAdjustment)
-	}
+	pose = spatialmath.Compose(pose, SLAMOrientationAdjustment)
 
 	// Slam poses are returned such that theta=0 points along the +X axis
 	// We must rotate 90 degrees to match the base convention of y = forwards

@@ -345,7 +345,7 @@ func (ms *builtIn) newMoveOnMapRequest(
 		return nil, err
 	}
 
-	kb, err := kinematicbase.WrapWithKinematics(ctx, b, ms.logger, motion.NewSLAMLocalizer(slamSvc, true), limits, kinematicsOptions)
+	kb, err := kinematicbase.WrapWithKinematics(ctx, b, ms.logger, motion.NewSLAMLocalizer(slamSvc), limits, kinematicsOptions)
 	if err != nil {
 		return nil, err
 	}
