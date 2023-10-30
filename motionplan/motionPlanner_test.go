@@ -961,3 +961,62 @@ func TestValidatePlanRequest(t *testing.T) {
 	_, err = PlanMotion(context.Background(), nil)
 	test.That(t, err.Error(), test.ShouldEqual, "PlanRequest cannot be nil")
 }
+
+func TestArmGantryCheckPlan(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	fs := frame.NewEmptyFrameSystem("test")
+
+	gantryOffset, err := frame.NewStaticFrame("gantryOffset", spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0}))
+	test.That(t, err, test.ShouldBeNil)
+	err = fs.AddFrame(gantryOffset, fs.World())
+	test.That(t, err, test.ShouldBeNil)
+
+	lim := frame.Limit{Min: math.Inf(-1), Max: math.Inf(1)}
+	gantryX, err := frame.NewTranslationalFrame("gantryX", r3.Vector{1, 0, 0}, lim)
+	test.That(t, err, test.ShouldBeNil)
+	err = fs.AddFrame(gantryX, gantryOffset)
+	test.That(t, err, test.ShouldBeNil)
+
+	modelXarm, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+	err = fs.AddFrame(modelXarm, gantryX)
+	test.That(t, err, test.ShouldBeNil)
+
+	goal := spatialmath.NewPoseFromPoint(r3.Vector{X: 407, Y: 0, Z: 112})
+
+	planReq := PlanRequest{
+		Logger:             logger,
+		Goal:               frame.NewPoseInFrame(frame.World, goal),
+		Frame:              fs.Frame("xArm6"),
+		FrameSystem:        fs,
+		StartConfiguration: frame.StartPositions(fs),
+	}
+
+	plan, err := PlanMotion(context.Background(), &planReq)
+	test.That(t, err, test.ShouldBeNil)
+
+	startPose := spatialmath.NewZeroPose()
+	errorState := spatialmath.NewZeroPose()
+	inputs := frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0, 0})
+
+	t.Run("check plan with no obstacles", func(t *testing.T) {
+		err := CheckPlan(fs.Frame("xArm6"), plan, nil, fs, startPose, inputs, errorState, logger)
+		test.That(t, err, test.ShouldBeNil)
+	})
+	t.Run("check plan with obstacle", func(t *testing.T) {
+		obstacle, err := spatialmath.NewBox(
+			spatialmath.NewPoseFromPoint(r3.Vector{400, 0, 112}),
+			r3.Vector{10, 10, 1}, "obstacle",
+		)
+		test.That(t, err, test.ShouldBeNil)
+
+		geoms := []spatialmath.Geometry{obstacle}
+		gifs := []*frame.GeometriesInFrame{frame.NewGeometriesInFrame(frame.World, geoms)}
+
+		worldState, err := frame.NewWorldState(gifs, nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		err = CheckPlan(fs.Frame("xArm6"), plan, worldState, fs, startPose, inputs, errorState, logger)
+		test.That(t, err, test.ShouldNotBeNil)
+	})
+}
