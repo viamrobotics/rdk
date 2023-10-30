@@ -7,6 +7,7 @@ import (
 	"math"
 	"strconv"
 	"sync/atomic"
+	"time"
 
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
@@ -25,7 +26,7 @@ import (
 )
 
 const (
-	defaultReplanCostFactor = 1.0
+	defaultReplanCostFactor = 2.0
 	defaultMaxReplans       = -1 // Values below zero will replan infinitely
 )
 
@@ -214,6 +215,8 @@ func kbOptionsFromCfg(motionCfg *validatedMotionConfiguration, validatedExtra va
 	}
 
 	kinematicsOptions.GoalRadiusMM = motionCfg.planDeviationMM
+	// NOTE: Are we sure that being tolerant of being off the goal by 8 degress isn't
+	// causing a problem?
 	kinematicsOptions.HeadingThresholdDegrees = 8
 	return kinematicsOptions
 }
@@ -309,16 +312,41 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	if !ok {
 		return nil, resource.DependencyNotFoundError(movementSensorName)
 	}
+	before := time.Now()
+	// NOTE: This is the location of the robot, as repoorted by the GPS
+	// at the beginning of the MoveOnGlobe call.
 	origin, _, err := movementSensor.Position(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
+	ms.logger.Debugf("move on globe origin: %v", origin)
+	after := time.Now()
+	if err := motion.LogGP(*origin, before, after); err != nil {
+		return nil, err
+	}
+
+	if err := motion.ValidateGeopoint(origin); err != nil {
+		return nil, err
+	}
+
+	heading, err := movementSensor.CompassHeading(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	valExtra.extra["origin"] = *spatialmath.NewGeoPose(origin, heading)
 
 	// add an offset between the movement sensor and the base if it is applicable
+	// NOTE: Why do we create the baseOrigin as a pose in frame with a zero pose?
 	baseOrigin := referenceframe.NewPoseInFrame(componentName.ShortName(), spatialmath.NewZeroPose())
+	// NOTE: I don't understand what a TransformPose is. I see that we pass in the base origin, the movement sensor's name & nothing else
+	// NOTE: I don't know what it measn to transform a pose in that context.
+	// NOTE: I don't understand under what conditions this would fail & why we should still execute MoveOnGlobe if it fails
+	// NOTE: It appears that we use the output of TransformPose as a diff between the baseOrigin & the movementSensor but its not
+	// clear to me how that is the case, given that I don't understand what it means to Transform something.
 	movementSensorToBase, err := ms.fsService.TransformPose(ctx, baseOrigin, movementSensor.Name().ShortName(), nil)
 	if err != nil {
 		// here we make the assumption the movement sensor is coincident with the base
+		ms.logger.Debugf("using baseOrigin as movementSensorToBase due to ms.fsService.TransformPose getting an error error: %s", err.Error())
 		movementSensorToBase = baseOrigin
 	}
 	localizer := motion.NewMovementSensorLocalizer(movementSensor, origin, movementSensorToBase.Pose())
@@ -338,6 +366,8 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 		return nil, err
 	}
 
+	// TODO: I don't fully understand this. What does it mean that heading is not taken into account? What does transformed mean?
+	// How do you transform something based on something else?
 	// Important: GeoPointToPose will create a pose such that incrementing latitude towards north increments +Y, and incrementing
 	// longitude towards east increments +X. Heading is not taken into account. This pose must therefore be transformed based on the
 	// orientation of the base such that it is a pose relative to the base's current location.
@@ -347,6 +377,9 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	if straightlineDistance > maxTravelDistanceMM {
 		return nil, fmt.Errorf("cannot move more than %d kilometers", int(maxTravelDistanceMM*1e-6))
 	}
+	// NOTE: I don't understand what a referenceframe.Limit & that the mins & maxes describe.
+	// NOTE: Why why are we setting these limits to the distance we plan on traveling in mm * +-3 in the first 2 limits
+	// NOTE: Why are we setting the last one to +-2PI
 	limits := []referenceframe.Limit{
 		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
 		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
@@ -473,14 +506,32 @@ func (ms *builtIn) relativeMoveRequestFromAbsolute(
 	if err != nil {
 		return nil, err
 	}
-
+	before := time.Now()
 	startPose, err := kb.CurrentPosition(ctx)
+	after := time.Now()
 	if err != nil {
 		return nil, err
 	}
 	startPoseInv := spatialmath.PoseInverse(startPose.Pose())
 
-	goal := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.PoseBetween(startPose.Pose(), goalPoseInWorld))
+	if err := motion.LogP(startPose.Pose(), before, after); err != nil {
+		return nil, err
+	}
+
+	if err := motion.ValidatePose(startPose.Pose()); err != nil {
+		return nil, err
+	}
+
+	startPoseToWorld := spatialmath.PoseInverse(startPose.Pose())
+	if err := motion.ValidatePose(startPoseToWorld); err != nil {
+		return nil, err
+	}
+	poseBetween := spatialmath.PoseBetween(startPose.Pose(), spatialmath.PoseBetween(startPose.Pose(), goalPoseInWorld))
+	if err := motion.ValidatePose(poseBetween); err != nil {
+		return nil, err
+	}
+
+	goal := referenceframe.NewPoseInFrame(referenceframe.World, poseBetween)
 
 	// convert GeoObstacles into GeometriesInFrame with respect to the base's starting point
 	geoms := make([]spatialmath.Geometry, 0, len(worldObstacles))

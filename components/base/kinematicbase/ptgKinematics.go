@@ -36,9 +36,11 @@ const (
 type ptgBaseKinematics struct {
 	base.Base
 	motion.Localizer
-	logger       logging.Logger
-	frame        referenceframe.Frame
-	ptgs         []tpspace.PTGSolver
+	logger logging.Logger
+	frame  referenceframe.Frame
+	// NOTE: What is the implementation we use for this PTGSolve when it comes to MoveOnGlobe requests?
+	ptgs []tpspace.PTGSolver
+	// NOTE: What is this mutext protecting?
 	inputLock    sync.RWMutex
 	currentInput []referenceframe.Input
 }
@@ -133,9 +135,12 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 
 	ptgk.logger.Debugf("GoToInputs going to %v", inputs)
 
+	// NOTE: Where is the implementation of the speicfic PTG which is used in MoveOnGlobe calls?
 	selectedPTG := ptgk.ptgs[int(math.Round(inputs[ptgIndex].Value))]
 	selectedTraj, err := selectedPTG.Trajectory(inputs[trajectoryIndexWithinPTG].Value, inputs[distanceAlongTrajectoryIndex].Value)
 	if err != nil {
+		// NOTE: Why do we have to call Base.Stop() here? Its not obveous to me that we have told the base to move
+		// prior to this point in the function.
 		return multierr.Combine(err, ptgk.Base.Stop(ctx, nil))
 	}
 
@@ -145,6 +150,10 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 	lastAngVel := r3.Vector{}
 	for i, trajNode := range selectedTraj {
 		ptgk.inputLock.Lock() // In the case where there's actual contention here, this could cause timing issues; how to solve?
+		// NOTE: I don't understand this. Why do we set the currentInput to the PTG index, alpha value &  distance of 0 the first iteration?
+		// NOTE: Why is this not `ptgk.currentInput = []referenceframe.Input{inputs[0], inputs[1], {trajNode.Dist}}` every time?
+		// NOTE: Doesn't this mean that CurrentInputs is constantly returning the wrong value in the 3rd elemetn of the input slice as it
+		// doesn't reflect how long the current input will execute for, but rather the duration of the current input -1?
 		ptgk.currentInput = []referenceframe.Input{inputs[0], inputs[1], {lastDist}}
 		ptgk.inputLock.Unlock()
 		lastDist = trajNode.Dist
@@ -153,6 +162,7 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 		timestep := time.Duration((trajNode.Time-lastTime)*1000*1000) * time.Microsecond
 		lastTime = trajNode.Time
 		linVel := r3.Vector{0, trajNode.LinVelMMPS, 0}
+		// NOTE: Good to know that conversion functions exist to go from radians to degrees & vice versa
 		angVel := r3.Vector{0, 0, rdkutils.RadToDeg(trajNode.AngVelRPS)}
 
 		// This should call SetVelocity if:
@@ -223,6 +233,10 @@ func (ptgk *ptgBaseKinematics) ErrorState(ctx context.Context, plan [][]referenc
 		return nil, err
 	}
 	nominalPose = spatialmath.Compose(runningPose, currPose)
+	ptgk.logger.Debugf("curr position %v", spatialmath.PoseToProtobuf(actualPIF.Pose()))
+	ptgk.logger.Debugf("nominal position %v", spatialmath.PoseToProtobuf(nominalPose))
+	ptgk.logger.Debugf("error state %v", spatialmath.PoseToProtobuf(spatialmath.PoseBetween(nominalPose, actualPIF.Pose())))
+	ptgk.logger.Debugf("curr inputs %v", currentInputs)
 
 	return spatialmath.PoseBetween(nominalPose, actualPIF.Pose()), nil
 }

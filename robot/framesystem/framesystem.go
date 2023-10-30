@@ -36,6 +36,7 @@ type Service interface {
 	TransformPose(
 		ctx context.Context,
 		pose *referenceframe.PoseInFrame,
+		// NOTE: Why doesn't this take a resource.Name?
 		dst string,
 		additionalTransforms []*referenceframe.LinkInFrame,
 	) (*referenceframe.PoseInFrame, error)
@@ -154,6 +155,19 @@ func (svc *frameSystemService) Reconfigure(ctx context.Context, deps resource.De
 }
 
 // TransformPose will transform the pose of the requested poseInFrame to the desired frame in the robot's frame system.
+// NOTE: I don't understand the frame system service, how it works, how it is configured, what it has by default, etc.
+// NOTE: I don't understand what additional transforms mean
+// NOTE: I don't understand what a LinkInFrame nor why one would need it & why it not being nil would change the behavior of
+// TransformPose
+// NOTE: What are the frame system service parts?
+// NOTE: I don't understand what framesystem.StartPositions does, how it works, etc.
+// NOTE: Why do we call the result of callinng StartPositions input?
+// NOTE: What does the start posiion of the frame system of the robot have to do with inputs?
+// NOTE: How does the fame system learn about components? I.e. what causes svc.componentss[name] to be populated?
+// NOTE: I'm under the impression that the only components which implement referenceframe.InputEnabled are arms
+// and kiematic bases. I don't understand how a base gets turned into a kinematic base such that looking up the component
+// name in the frame system service can result in the value being castable to referenceframe.InputEnabled
+// NOTE:.
 func (svc *frameSystemService) TransformPose(
 	ctx context.Context,
 	pose *referenceframe.PoseInFrame,
@@ -163,10 +177,12 @@ func (svc *frameSystemService) TransformPose(
 	ctx, span := trace.StartSpan(ctx, "services::framesystem::TransformPose")
 	defer span.End()
 
+	// NOTE: What are these additionalTransforms for? Why do we need them?
 	fs, err := svc.FrameSystem(ctx, additionalTransforms)
 	if err != nil {
 		return nil, err
 	}
+	// NOTE: What exactly does this StartPositions mean?
 	input := referenceframe.StartPositions(fs)
 
 	svc.partsMu.RLock()
@@ -190,6 +206,9 @@ func (svc *frameSystemService) TransformPose(
 		}
 
 		// add input to map
+		// NOTE: Won't this always be empty during MoveOnGlobe calls?
+		// why do we need to get the current inputs?
+		// NOTE: Why is this called pos when it is returning a slice of inputs?
 		pos, err := inputEnabled.CurrentInputs(ctx)
 		if err != nil {
 			return nil, err
@@ -201,6 +220,8 @@ func (svc *frameSystemService) TransformPose(
 	if err != nil {
 		return nil, err
 	}
+	// NOTE: How do we know that we can cast this to a pose in frame?
+	// Why don't we check if the cast succeeded? Isn't that unsafe?
 	pose, _ = tf.(*referenceframe.PoseInFrame)
 	return pose, nil
 }

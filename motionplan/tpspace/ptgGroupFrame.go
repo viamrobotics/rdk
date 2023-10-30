@@ -54,6 +54,7 @@ type ptgGroupFrame struct {
 	logger             logging.Logger
 }
 
+// NOTE: I don't know what it means for a frame to also be a PTGProvider.
 // NewPTGFrameFromKinematicOptions will create a new Frame which is also a PTGProvider. It will precompute the default set of
 // trajectories out to a given distance, or a default distance if the given distance is <= 0.
 func NewPTGFrameFromKinematicOptions(
@@ -78,11 +79,13 @@ func NewPTGFrameFromKinematicOptions(
 	}
 
 	if trajCount <= 0 {
+		// NOTE: What is trajCount for?
 		trajCount = defaultTrajCount
 	}
 
 	turnRadMillimeters := turnRadMeters * 1000
 
+	// NOTE: Can you really just pass degrees/sec through the DegToRad & get a correct radians per second?
 	angVelocityRadps := rdkutils.DegToRad(angVelocityDegps)
 	if angVelocityRadps == 0 {
 		if turnRadMeters == 0 {
@@ -143,6 +146,7 @@ func NewPTGFrameFromKinematicOptions(
 	pf.turnRadMillimeters = turnRadMillimeters
 	pf.trajCount = trajCount
 
+	// NOTE: Why are we creating these limits & why are they these values?
 	pf.limits = []referenceframe.Limit{
 		{Min: 0, Max: float64(len(pf.solvers) - 1)},
 		{Min: -math.Pi, Max: math.Pi},

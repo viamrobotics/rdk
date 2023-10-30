@@ -244,10 +244,13 @@ func (sfs *simpleFrameSystem) AddFrame(frame, parent Frame) error {
 	return nil
 }
 
+// NOTE: What is a transforable object?
 // Transform takes in a Transformable object and destination frame, and returns the pose from the first to the second. Positions
 // is a map of inputs for any frames with non-zero DOF, with slices of inputs keyed to the frame name.
+// NOTE: Why is dst not a resource.Name?
 func (sfs *simpleFrameSystem) Transform(positions map[string][]Input, object Transformable, dst string) (Transformable, error) {
 	src := object.Parent()
+	// NOTE: Why is the src the parent? Wouldn't object be the source?
 	if src == dst {
 		return object, nil
 	}

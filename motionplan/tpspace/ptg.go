@@ -12,6 +12,7 @@ import (
 const floatEpsilon = 0.0001 // If floats are closer than this consider them equal
 
 // PTGSolver wraps a PTG with the ability to perform Inverse Kinematics.
+// NOTE: Where are the implementations of PTGSolvers? Which implementation is used in MoveOnGlobe?
 type PTGSolver interface {
 	// Solve will return the (alpha, dist) TP-space coordinates whose corresponding relative pose minimizes the given function
 	ik.InverseKinematics
@@ -26,6 +27,7 @@ type PTGSolver interface {
 
 // PTGProvider is something able to provide a set of PTGs associsated with it. For example, a frame which precomputes
 // a number of PTGs.
+// NOTE: Where are the implementations of PTGProviders? Which implementation is used in MoveOnGlobe?
 type PTGProvider interface {
 	// PTGs returns the list of PTGs associated with this provider
 	PTGSolvers() []PTGSolver
@@ -34,6 +36,7 @@ type PTGProvider interface {
 // PTG is a Parameterized Trajectory Generator, which defines how to map back and forth from cartesian space to TP-space
 // PTG coordinates are specified in polar coordinates (alpha, d)
 // One of these is needed for each sort of motion that can be done.
+// NOTE: Where are the implementations of PTGs?W hich implementation is used in MoveOnGlobe?
 type PTG interface {
 	// Velocities returns the linear and angular velocity at a specific point along a trajectory
 	Velocities(alpha, dist float64) (float64, float64, error)
@@ -44,12 +47,16 @@ type PTG interface {
 // the elapsed time along the trajectory, and the linear and angular velocity at that point.
 type TrajNode struct {
 	// TODO: cache pose point and orientation so that we don't recompute every time we need it
-	Pose       spatialmath.Pose // for 2d, we only use x, y, and OV theta
-	Time       float64          // elapsed time on trajectory
-	Dist       float64          // distance travelled down trajectory
-	Alpha      float64          // alpha k-value at this node
-	LinVelMMPS float64          // linvel in millimeters per second at this node
-	AngVelRPS  float64          // angvel in radians per second at this node
+	// NOTE: What pose does this describe exactly?
+	Pose spatialmath.Pose // for 2d, we only use x, y, and OV theta
+	// NOTE: What is the units of this time? Also what is this time relative to?
+	Time float64 // elapsed time on trajectory
+	// NOTE: What are the units of this distance?
+	Dist float64 // distance travelled down trajectory
+	// NOTE: What are the valid ranges of this Alpha value?
+	Alpha      float64 // alpha k-value at this node
+	LinVelMMPS float64 // linvel in millimeters per second at this node
+	AngVelRPS  float64 // angvel in radians per second at this node
 }
 
 // discretized path to alpha.

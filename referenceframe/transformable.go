@@ -8,6 +8,7 @@ import (
 )
 
 // Transformable is an interface to describe elements that can be transformed by the frame system.
+// NOTE: What does it mean to transform an object?
 type Transformable interface {
 	Transform(*PoseInFrame) Transformable
 	Parent() string
