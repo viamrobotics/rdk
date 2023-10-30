@@ -21,6 +21,7 @@ import (
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/slam"
+	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -36,6 +37,7 @@ func init() {
 			WeakDependencies: []internal.ResourceMatcher{
 				internal.SLAMDependencyWildcardMatcher,
 				internal.ComponentDependencyWildcardMatcher,
+				internal.VisionDependencyWildcardMatcher,
 			},
 		})
 }
@@ -103,6 +105,7 @@ func (ms *builtIn) Reconfigure(
 	}
 	movementSensors := make(map[resource.Name]movementsensor.MovementSensor)
 	slamServices := make(map[resource.Name]slam.Service)
+	visionServices := make(map[resource.Name]vision.Service)
 	components := make(map[resource.Name]resource.Resource)
 	for name, dep := range deps {
 		switch dep := dep.(type) {
@@ -112,12 +115,15 @@ func (ms *builtIn) Reconfigure(
 			movementSensors[name] = dep
 		case slam.Service:
 			slamServices[name] = dep
+		case vision.Service:
+			visionServices[name] = dep
 		default:
 			components[name] = dep
 		}
 	}
 	ms.movementSensors = movementSensors
 	ms.slamServices = slamServices
+	ms.visionServices = visionServices
 	ms.components = components
 	return nil
 }
@@ -128,6 +134,7 @@ type builtIn struct {
 	fsService       framesystem.Service
 	movementSensors map[resource.Name]movementsensor.MovementSensor
 	slamServices    map[resource.Name]slam.Service
+	visionServices  map[resource.Name]vision.Service
 	components      map[resource.Name]resource.Resource
 	logger          logging.Logger
 	lock            sync.Mutex
@@ -353,7 +360,7 @@ func (ms *builtIn) MoveOnGlobe(
 
 		// once execution responds: return the result to the caller
 		case resp := <-ma.responseChan:
-			ms.logger.Debugf("execution completed: %s", resp)
+			ms.logger.Debugf("execution response: %s", resp)
 			ma.cancel()
 
 			// If we have a false `success` and nil error, that means replan
