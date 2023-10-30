@@ -7,6 +7,7 @@ import (
 	"math"
 	"strconv"
 	"sync/atomic"
+	"time"
 
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
@@ -25,7 +26,7 @@ import (
 )
 
 const (
-	defaultReplanCostFactor = 1.0
+	defaultReplanCostFactor = 2.0
 	defaultMaxReplans       = -1 // Values below zero will replan infinitely
 )
 
@@ -71,7 +72,6 @@ func (mr *moveRequest) plan(ctx context.Context) ([][]referenceframe.Input, erro
 }
 
 // execute attempts to follow a given Plan starting from the index percribed by waypointIndex.
-// Note that waypointIndex is an atomic int that is incremented in this function after each waypoint has been successfully reached.
 func (mr *moveRequest) execute(ctx context.Context, waypoints [][]referenceframe.Input, waypointIndex *atomic.Int32) moveResponse {
 	// Iterate through the list of waypoints and issue a command to move to each
 	for i := int(waypointIndex.Load()); i < len(waypoints); i++ {
@@ -310,16 +310,33 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	if !ok {
 		return nil, resource.DependencyNotFoundError(movementSensorName)
 	}
+	before := time.Now()
 	origin, _, err := movementSensor.Position(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
+	ms.logger.Debugf("move on globe origin: %v", origin)
+	after := time.Now()
+	if err := motion.LogGP(*origin, before, after); err != nil {
+		return nil, err
+	}
+
+	if err := motion.ValidateGeopoint(origin); err != nil {
+		return nil, err
+	}
+
+	heading, err := movementSensor.CompassHeading(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	valExtra.extra["origin"] = *spatialmath.NewGeoPose(origin, heading)
 
 	// add an offset between the movement sensor and the base if it is applicable
 	baseOrigin := referenceframe.NewPoseInFrame(componentName.ShortName(), spatialmath.NewZeroPose())
 	movementSensorToBase, err := ms.fsService.TransformPose(ctx, baseOrigin, movementSensor.Name().ShortName(), nil)
 	if err != nil {
 		// here we make the assumption the movement sensor is coincident with the base
+		ms.logger.Debugf("using baseOrigin as movementSensorToBase due to ms.fsService.TransformPose getting an error error: %s", err.Error())
 		movementSensorToBase = baseOrigin
 	}
 	localizer := motion.NewMovementSensorLocalizer(movementSensor, origin, movementSensorToBase.Pose())
@@ -474,14 +491,28 @@ func (ms *builtIn) relativeMoveRequestFromAbsolute(
 	if err != nil {
 		return nil, err
 	}
-
+	before := time.Now()
 	startPose, err := kb.CurrentPosition(ctx)
+	after := time.Now()
 	if err != nil {
 		return nil, err
 	}
 	startPoseInv := spatialmath.PoseInverse(startPose.Pose())
 
-	goal := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.PoseBetween(startPose.Pose(), goalPoseInWorld))
+	if err := motion.LogP(startPose.Pose(), before, after); err != nil {
+		return nil, err
+	}
+
+	if err := motion.ValidatePose(startPose.Pose()); err != nil {
+		return nil, err
+	}
+
+	poseBetween := spatialmath.PoseBetween(startPose.Pose(), spatialmath.PoseBetween(startPose.Pose(), goalPoseInWorld))
+	if err := motion.ValidatePose(poseBetween); err != nil {
+		return nil, err
+	}
+
+	goal := referenceframe.NewPoseInFrame(referenceframe.World, poseBetween)
 
 	// convert GeoObstacles into GeometriesInFrame with respect to the base's starting point
 	geoms := make([]spatialmath.Geometry, 0, len(worldObstacles))
