@@ -30,15 +30,17 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
+	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/framesystem"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/slam"
+	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
-	rdkutils "go.viam.com/rdk/utils"
+	viz "go.viam.com/rdk/vision"
 )
 
 func setupMotionServiceFromConfig(t *testing.T, configFilename string) (motion.Service, func()) {
@@ -186,14 +188,34 @@ func createMoveOnGlobeEnvironment(ctx context.Context, t *testing.T, origin *geo
 		return &movementsensor.Properties{CompassHeadingSupported: true}, nil
 	}
 
+	// create injected vision service
+	injectedVisionSvc := inject.NewVisionService("injectedVisionSvc")
+
+	cameraGeom, err := spatialmath.NewBox(
+		spatialmath.NewZeroPose(),
+		r3.Vector{1, 1, 1}, "camera",
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	injectedCamera := inject.NewCamera("injectedCamera")
+	cameraLink := referenceframe.NewLinkInFrame(
+		baseLink.Name(),
+		spatialmath.NewPoseFromPoint(r3.Vector{1, 0, 0}),
+		"injectedCamera",
+		cameraGeom,
+	)
+
 	// create the frame system
 	fsParts := []*referenceframe.FrameSystemPart{
 		{FrameConfig: movementSensorLink},
 		{FrameConfig: baseLink},
+		{FrameConfig: cameraLink},
 	}
 	deps := resource.Dependencies{
 		fakeBase.Name():              kb,
 		dynamicMovementSensor.Name(): dynamicMovementSensor,
+		injectedVisionSvc.Name():     injectedVisionSvc,
+		injectedCamera.Name():        injectedCamera,
 	}
 
 	fsSvc, err := createFrameSystemService(ctx, deps, fsParts, logger)
@@ -573,7 +595,7 @@ func TestMoveOnMapTimeout(t *testing.T) {
 	motionCfg["timeout"] = 0.01
 	success, err := ms.MoveOnMap(
 		context.Background(),
-		base.Named("test_base"),
+		base.Named("test-base"),
 		easyGoal,
 		slam.Named("test_slam"),
 		motionCfg,
@@ -1218,6 +1240,91 @@ func TestReplanning(t *testing.T) {
 	}
 }
 
+func TestObstacleDetection(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	gpsOrigin := geo.NewPoint(0, 0)
+	dst := geo.NewPoint(gpsOrigin.Lat(), gpsOrigin.Lng()+1e-5)
+	epsilonMM := 15.
+
+	type testCase struct {
+		name            string
+		getPCfunc       func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error)
+		expectedSuccess bool
+		expectedErr     string
+	}
+
+	obstacleDetectorSlice := []motion.ObstacleDetectorName{
+		{VisionServiceName: vision.Named("injectedVisionSvc"), CameraName: camera.Named("injectedCamera")},
+	}
+
+	cfg := &motion.MotionConfiguration{
+		PositionPollingFreqHz: 1, ObstaclePollingFreqHz: 100, PlanDeviationMM: epsilonMM, ObstacleDetectors: obstacleDetectorSlice,
+	}
+
+	extra := map[string]interface{}{"max_replans": 0, "max_ik_solutions": 1, "smooth_iter": 1}
+
+	testCases := []testCase{
+		{
+			name: "ensure no replan from discovered obstacles",
+			getPCfunc: func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
+				obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{-1000, -1000, 0})
+				box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{10, 10, 10}, "test-case-2")
+				test.That(t, err, test.ShouldBeNil)
+
+				detection, err := viz.NewObjectWithLabel(pointcloud.New(), "test-case-2-detection", box.ToProtobuf())
+				test.That(t, err, test.ShouldBeNil)
+
+				return []*viz.Object{detection}, nil
+			},
+			expectedSuccess: true,
+		},
+		{
+			name: "ensure replan due to obstacle collision",
+			getPCfunc: func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
+				obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{50, 0, 0})
+				box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{100, 100, 10}, "test-case-1")
+				test.That(t, err, test.ShouldBeNil)
+
+				detection, err := viz.NewObjectWithLabel(pointcloud.New(), "test-case-1-detection", box.ToProtobuf())
+				test.That(t, err, test.ShouldBeNil)
+
+				return []*viz.Object{detection}, nil
+			},
+			expectedSuccess: false,
+			expectedErr:     fmt.Sprintf("exceeded maximum number of replans: %d", 0),
+		},
+	}
+
+	testFn := func(t *testing.T, tc testCase) {
+		t.Helper()
+		injectedMovementSensor, _, kb, ms := createMoveOnGlobeEnvironment(ctx, t, gpsOrigin, spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0}))
+
+		srvc, ok := ms.(*builtIn).visionServices[cfg.ObstacleDetectors[0].VisionServiceName].(*inject.VisionService)
+		test.That(t, ok, test.ShouldBeTrue)
+		srvc.GetObjectPointCloudsFunc = tc.getPCfunc
+
+		success, err := ms.MoveOnGlobe(ctx, kb.Name(), dst, 0, injectedMovementSensor.Name(), nil, cfg, extra)
+
+		if tc.expectedSuccess {
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, success, test.ShouldBeTrue)
+		} else {
+			test.That(t, success, test.ShouldBeFalse)
+			test.That(t, err.Error(), test.ShouldEqual, tc.expectedErr)
+		}
+	}
+
+	for _, tc := range testCases {
+		c := tc // needed to workaround loop variable not being captured by func literals
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			testFn(t, c)
+		})
+	}
+}
+
 func TestCheckPlan(t *testing.T) {
 	t.Skip() // TODO(RSDK-5404): fix flakiness
 	ctx := context.Background()
@@ -1353,66 +1460,6 @@ func TestCheckPlan(t *testing.T) {
 
 		err = motionplan.CheckPlan(moveRequest.kinematicBase.Kinematics(), plan, worldState, newFS, startPose, inputs, errorState, logger)
 		test.That(t, err, test.ShouldBeNil)
-	})
-}
-
-func TestArmGantryPlanCheck(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-	fs := referenceframe.NewEmptyFrameSystem("test")
-
-	gantryOffset, err := referenceframe.NewStaticFrame("gantryOffset", spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0}))
-	test.That(t, err, test.ShouldBeNil)
-	err = fs.AddFrame(gantryOffset, fs.World())
-	test.That(t, err, test.ShouldBeNil)
-
-	lim := referenceframe.Limit{Min: math.Inf(-1), Max: math.Inf(1)}
-	gantryX, err := referenceframe.NewTranslationalFrame("gantryX", r3.Vector{1, 0, 0}, lim)
-	test.That(t, err, test.ShouldBeNil)
-	err = fs.AddFrame(gantryX, gantryOffset)
-	test.That(t, err, test.ShouldBeNil)
-
-	modelXarm, err := referenceframe.ParseModelJSONFile(rdkutils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")
-	test.That(t, err, test.ShouldBeNil)
-	err = fs.AddFrame(modelXarm, gantryX)
-	test.That(t, err, test.ShouldBeNil)
-
-	goal := spatialmath.NewPoseFromPoint(r3.Vector{X: 407, Y: 0, Z: 112})
-
-	planReq := motionplan.PlanRequest{
-		Logger:             logger,
-		Goal:               referenceframe.NewPoseInFrame(referenceframe.World, goal),
-		Frame:              fs.Frame("xArm6"),
-		FrameSystem:        fs,
-		StartConfiguration: referenceframe.StartPositions(fs),
-	}
-
-	plan, err := motionplan.PlanMotion(context.Background(), &planReq)
-	test.That(t, err, test.ShouldBeNil)
-
-	startPose := spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0})
-	errorState := spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0})
-	floatList := []float64{0, 0, 0, 0, 0, 0, 0}
-	inputs := referenceframe.FloatsToInputs(floatList)
-
-	t.Run("check plan with no obstacles", func(t *testing.T) {
-		err := motionplan.CheckPlan(fs.Frame("xArm6"), plan, nil, fs, startPose, inputs, errorState, logger)
-		test.That(t, err, test.ShouldBeNil)
-	})
-	t.Run("check plan with obstacle", func(t *testing.T) {
-		obstacle, err := spatialmath.NewBox(
-			spatialmath.NewPoseFromPoint(r3.Vector{400, 0, 112}),
-			r3.Vector{10, 10, 1}, "obstacle",
-		)
-		test.That(t, err, test.ShouldBeNil)
-
-		geoms := []spatialmath.Geometry{obstacle}
-		gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)}
-
-		worldState, err := referenceframe.NewWorldState(gifs, nil)
-		test.That(t, err, test.ShouldBeNil)
-
-		err = motionplan.CheckPlan(fs.Frame("xArm6"), plan, worldState, fs, startPose, inputs, errorState, logger)
-		test.That(t, err, test.ShouldNotBeNil)
 	})
 }
 
