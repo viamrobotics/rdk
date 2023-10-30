@@ -24,7 +24,13 @@ export const useNavMode = (name: string) => {
   };
 
   const setMode = async (value: NavigationMode) => {
-    return navClient.setMode(value);
+    try {
+      await navClient.setMode(value);
+      mode.set(value);
+      error.set(undefined);
+    } catch (error_) {
+      error.set(error_ as ServiceError);
+    }
   };
 
   fetchMode();
