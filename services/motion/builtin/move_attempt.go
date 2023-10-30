@@ -112,7 +112,7 @@ func (ma *moveAttempt) cancel() {
 	// Avoid race conditions by ensuring that the request is no longer executing before reading the channel.
 	// Position and obstacle threads are constantly waiting on a `ctx` so should not need this, but the request execution does not.
 	// As `FlushChan` will empty a channel with values or no-op an empty channel, if `ma.responseChan` is not yet written to then we will
-	// never return from `execute` and then `ma.backgroundWorkers.Wait()` wo;; hang.
+	// never return from `execute` and then `ma.backgroundWorkers.Wait()` will hang.
 	for ma.request.executing.Load() {
 		time.Sleep(10 * time.Millisecond)
 	}
