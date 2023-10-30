@@ -6,9 +6,9 @@ import (
 	"errors"
 
 	"github.com/pion/mediadevices/pkg/prop"
-	"github.com/viamrobotics/gostream"
 	pb "go.viam.com/api/component/audioinput/v1"
 
+	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 )

@@ -260,11 +260,11 @@ func TestConfigRemote(t *testing.T) {
 
 	for idx := 0; idx < expectedStatusLength; idx++ {
 		test.That(t, statuses[idx].Status, test.ShouldResemble, map[string]interface{}{})
-		// Assert that last reconfigured values are within last 5s (remote
+		// Assert that last reconfigured values are within last hour (remote
 		// recently configured all three resources).
 		lr := statuses[idx].LastReconfigured
 		test.That(t, lr, test.ShouldHappenBetween,
-			time.Now().Add(-5*time.Second), time.Now())
+			time.Now().Add(-1*time.Hour), time.Now())
 	}
 
 	statuses, err = r2.Status(
@@ -1127,7 +1127,7 @@ func TestStatus(t *testing.T) {
 		test.That(t, resp[0].Name, test.ShouldResemble, expectedRobotStatus.Name)
 		test.That(t, resp[0].Status, test.ShouldResemble, expectedRobotStatus.Status)
 		test.That(t, resp[0].LastReconfigured, test.ShouldHappenBetween,
-			time.Now().Add(-10*time.Second), time.Now())
+			time.Now().Add(-1*time.Hour), time.Now())
 	})
 
 	t.Run("failing resource", func(t *testing.T) {

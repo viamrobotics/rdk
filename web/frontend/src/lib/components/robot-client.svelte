@@ -382,7 +382,7 @@ const tick = async () => {
     }
     resourcesOnce = false;
 
-    await $robotClient.connect();
+    await $robotClient.connect({ priority: 1 });
 
     const now = Date.now();
 
@@ -419,7 +419,11 @@ const start = () => {
 const connect = async (creds?: Credentials) => {
   $connectionStatus = 'connecting';
 
-  await $robotClient.connect(bakedAuth.authEntity, creds ?? bakedAuth.creds);
+  await $robotClient.connect({ 
+    authEntity: bakedAuth.authEntity, 
+    creds: creds ?? bakedAuth.creds,
+    priority: 1 
+  });
 
   $connectionStatus = 'connected';
   start();

@@ -1,9 +1,11 @@
 package builtin
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"math"
+	"strconv"
 	"sync/atomic"
 
 	geo "github.com/kellydunn/golang-geo"
@@ -11,10 +13,14 @@ import (
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/base/kinematicbase"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
+	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
+	"go.viam.com/rdk/services/slam"
+	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -37,11 +43,12 @@ type validatedMotionConfiguration struct {
 
 // moveRequest is a structure that contains all the information necessary for to make a move call.
 type moveRequest struct {
-	config           *validatedMotionConfiguration
-	planRequest      *motionplan.PlanRequest
-	seedPlan         motionplan.Plan
-	kinematicBase    kinematicbase.KinematicBase
-	replanCostFactor float64
+	config            *validatedMotionConfiguration
+	planRequest       *motionplan.PlanRequest
+	seedPlan          motionplan.Plan
+	kinematicBase     kinematicbase.KinematicBase
+	obstacleDetectors map[vision.Service][]resource.Name
+	replanCostFactor  float64
 }
 
 // plan creates a plan using the currentInputs of the robot and the moveRequest's planRequest.
@@ -78,10 +85,6 @@ func (mr *moveRequest) execute(ctx context.Context, waypoints [][]referenceframe
 				if stopErr := mr.kinematicBase.Stop(ctx, nil); stopErr != nil {
 					return moveResponse{err: errors.Wrap(err, stopErr.Error())}
 				}
-				// If the error was simply a cancellation of context return without erroring out
-				if errors.Is(err, context.Canceled) {
-					return moveResponse{}
-				}
 				return moveResponse{err: err}
 			}
 			if i < len(waypoints)-1 {
@@ -89,8 +92,7 @@ func (mr *moveRequest) execute(ctx context.Context, waypoints [][]referenceframe
 			}
 		}
 	}
-
-	// the plan has been fully executed so check to see if the GeoPoint we are at is close enough to the goal.
+	// the plan has been fully executed so check to see if where we are at is close enough to the goal.
 	deviated, err := mr.deviatedFromPlan(ctx, waypoints, len(waypoints)-1)
 	if err != nil {
 		return moveResponse{err: err}
@@ -110,11 +112,89 @@ func (mr *moveRequest) deviatedFromPlan(ctx context.Context, waypoints [][]refer
 }
 
 func (mr *moveRequest) obstaclesIntersectPlan(ctx context.Context, waypoints [][]referenceframe.Input, waypointIndex int) (bool, error) {
-	// TODO(RSDK-4507): implement this function
+	var plan motionplan.Plan
+	// We only care to check against waypoints we have not reached yet.
+	for _, inputs := range waypoints[waypointIndex:] {
+		input := make(map[string][]referenceframe.Input)
+		input[mr.kinematicBase.Name().Name] = inputs
+		plan = append(plan, input)
+	}
+
+	for visSrvc, cameraNames := range mr.obstacleDetectors {
+		for _, camName := range cameraNames {
+			// get detections from vision service
+			detections, err := visSrvc.GetObjectPointClouds(ctx, camName.Name, nil)
+			if err != nil {
+				return false, err
+			}
+
+			// Note: detections are initially observed from the camera frame but must be transformed to be in
+			// world frame. We cannot use the inputs of the base to transform the detections since they are relative
+
+			// get the current position of the base which we will use to transform the detection into world coordinates
+			currentPosition, err := mr.kinematicBase.CurrentPosition(ctx)
+			if err != nil {
+				return false, err
+			}
+
+			// Any obstacles specified by the worldstate of the moveRequest will also re-detected here.
+			// There is no need to append the new detections to the existing worldstate.
+			// We can safely build from scratch without excluding any valuable information.
+			geoms := []spatialmath.Geometry{}
+			for i, detection := range detections {
+				geometry := detection.Geometry.Transform(currentPosition.Pose())
+				label := camName.Name + "_transientObstacle_" + strconv.Itoa(i)
+				if geometry.Label() != "" {
+					label += "_" + geometry.Label()
+				}
+				geometry.SetLabel(label)
+				geoms = append(geoms, geometry)
+			}
+			gif := referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)
+			tf, err := mr.planRequest.FrameSystem.Transform(mr.planRequest.StartConfiguration, gif, mr.planRequest.FrameSystem.World().Name())
+			if err != nil {
+				return false, err
+			}
+			transformedGIF, ok := tf.((*referenceframe.GeometriesInFrame))
+			if !ok {
+				return false, errors.New("smth")
+			}
+			gifs := []*referenceframe.GeometriesInFrame{transformedGIF}
+			worldState, err := referenceframe.NewWorldState(gifs, nil)
+			if err != nil {
+				return false, err
+			}
+
+			currentInputs, err := mr.kinematicBase.CurrentInputs(ctx)
+			if err != nil {
+				return false, err
+			}
+
+			// get the pose difference between where the robot is versus where it ought to be.
+			errorState, err := mr.kinematicBase.ErrorState(ctx, waypoints, waypointIndex)
+			if err != nil {
+				return false, err
+			}
+
+			if err := motionplan.CheckPlan(
+				mr.kinematicBase.Kinematics(), // frame we wish to check for collisions
+				plan,                          // remainder of plan we wish to check against
+				worldState,                    // detected obstacles by this instance of camera + service
+				mr.planRequest.FrameSystem,
+				currentPosition.Pose(), // currentPosition of robot accounts for errorState
+				currentInputs,
+				errorState, // deviation of robot from plan
+				mr.planRequest.Logger,
+			); err != nil {
+				mr.planRequest.Logger.Info(err.Error())
+				return true, nil
+			}
+		}
+	}
 	return false, nil
 }
 
-func kbOptionsFromCfg(motionCfg validatedMotionConfiguration, validatedExtra validatedExtra) kinematicbase.Options {
+func kbOptionsFromCfg(motionCfg *validatedMotionConfiguration, validatedExtra validatedExtra) kinematicbase.Options {
 	kinematicsOptions := kinematicbase.NewKinematicBaseOptions()
 
 	if motionCfg.linearMPerSec > 0 {
@@ -159,8 +239,8 @@ func validateNotNegNorNaN(f float64, name string) error {
 	return validateNotNeg(f, name)
 }
 
-func newValidatedMotionCfg(motionCfg *motion.MotionConfiguration) (validatedMotionConfiguration, error) {
-	vmc := validatedMotionConfiguration{}
+func newValidatedMotionCfg(motionCfg *motion.MotionConfiguration) (*validatedMotionConfiguration, error) {
+	vmc := &validatedMotionConfiguration{}
 	if motionCfg == nil {
 		return vmc, nil
 	}
@@ -203,7 +283,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	obstacles []*spatialmath.GeoObstacle,
 	rawMotionCfg *motion.MotionConfiguration,
 	seedPlan motionplan.Plan,
-	validatedExtra validatedExtra,
+	valExtra validatedExtra,
 ) (*moveRequest, error) {
 	motionCfg, err := newValidatedMotionCfg(rawMotionCfg)
 	if err != nil {
@@ -222,7 +302,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	}
 
 	// build kinematic options
-	kinematicsOptions := kbOptionsFromCfg(motionCfg, validatedExtra)
+	kinematicsOptions := kbOptionsFromCfg(motionCfg, valExtra)
 
 	// build the localizer from the movement sensor
 	movementSensor, ok := ms.movementSensors[movementSensorName]
@@ -279,9 +359,113 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 		return nil, err
 	}
 
+	geomsRaw := spatialmath.GeoObstaclesToGeometries(obstacles, origin)
+
+	mr, err := ms.relativeMoveRequestFromAbsolute(
+		ctx,
+		motionCfg,
+		ms.logger,
+		kb,
+		goalPoseRaw,
+		fs,
+		geomsRaw,
+		valExtra,
+	)
+	if err != nil {
+		return nil, err
+	}
+	mr.seedPlan = seedPlan
+	mr.replanCostFactor = valExtra.replanCostFactor
+	return mr, nil
+}
+
+// newMoveOnMapRequest instantiates a moveRequest intended to be used in the context of a MoveOnMap call.
+func (ms *builtIn) newMoveOnMapRequest(
+	ctx context.Context,
+	componentName resource.Name,
+	goalPoseRaw spatialmath.Pose,
+	slamName resource.Name,
+	valExtra validatedExtra,
+) (*moveRequest, error) {
+	// get the SLAM Service from the slamName
+	slamSvc, ok := ms.slamServices[slamName]
+	if !ok {
+		return nil, resource.DependencyNotFoundError(slamName)
+	}
+
+	// gets the extents of the SLAM map
+	limits, err := slam.Limits(ctx, slamSvc)
+	if err != nil {
+		return nil, err
+	}
+	limits = append(limits, referenceframe.Limit{Min: -2 * math.Pi, Max: 2 * math.Pi})
+
+	// create a KinematicBase from the componentName
+	component, ok := ms.components[componentName]
+	if !ok {
+		return nil, resource.DependencyNotFoundError(componentName)
+	}
+	b, ok := component.(base.Base)
+	if !ok {
+		return nil, fmt.Errorf("cannot move component of type %T because it is not a Base", component)
+	}
+
+	motionCfg, err := newValidatedMotionCfg(nil)
+	if err != nil {
+		return nil, err
+	}
+
+	// build kinematic options
+	kinematicsOptions := kbOptionsFromCfg(motionCfg, valExtra)
+
+	fs, err := ms.fsService.FrameSystem(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	kb, err := kinematicbase.WrapWithKinematics(ctx, b, ms.logger, motion.NewSLAMLocalizer(slamSvc), limits, kinematicsOptions)
+	if err != nil {
+		return nil, err
+	}
+	goalPoseAdj := spatialmath.Compose(goalPoseRaw, motion.SLAMOrientationAdjustment)
+
+	// get point cloud data in the form of bytes from pcd
+	pointCloudData, err := slam.PointCloudMapFull(ctx, slamSvc)
+	if err != nil {
+		return nil, err
+	}
+	// store slam point cloud data  in the form of a recursive octree for collision checking
+	octree, err := pointcloud.ReadPCDToBasicOctree(bytes.NewReader(pointCloudData))
+	if err != nil {
+		return nil, err
+	}
+
+	mr, err := ms.relativeMoveRequestFromAbsolute(
+		ctx,
+		motionCfg,
+		ms.logger,
+		kb,
+		goalPoseAdj,
+		fs,
+		[]spatialmath.Geometry{octree},
+		valExtra,
+	)
+	return mr, err
+}
+
+func (ms *builtIn) relativeMoveRequestFromAbsolute(
+	ctx context.Context,
+	motionCfg *validatedMotionConfiguration,
+	logger logging.Logger,
+	kb kinematicbase.KinematicBase,
+	goalPoseInWorld spatialmath.Pose,
+	fs referenceframe.FrameSystem,
+	worldObstacles []spatialmath.Geometry,
+	valExtra validatedExtra,
+) (*moveRequest, error) {
 	// replace original base frame with one that knows how to move itself and allow planning for
 	kinematicFrame := kb.Kinematics()
-	if err = fs.ReplaceFrame(kinematicFrame); err != nil {
+	if err := fs.ReplaceFrame(kinematicFrame); err != nil {
 		return nil, err
 	}
 	// We want to disregard anything in the FS whose eventual parent is not the base, because we don't know where it is.
@@ -289,40 +473,66 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	if err != nil {
 		return nil, err
 	}
+
 	startPose, err := kb.CurrentPosition(ctx)
 	if err != nil {
 		return nil, err
 	}
-	startPoseToWorld := spatialmath.PoseInverse(startPose.Pose())
+	startPoseInv := spatialmath.PoseInverse(startPose.Pose())
 
-	goal := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.PoseBetween(startPose.Pose(), goalPoseRaw))
+	goal := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.PoseBetween(startPose.Pose(), goalPoseInWorld))
 
 	// convert GeoObstacles into GeometriesInFrame with respect to the base's starting point
-	geomsRaw := spatialmath.GeoObstaclesToGeometries(obstacles, origin)
-	geoms := make([]spatialmath.Geometry, 0, len(geomsRaw))
-	for _, geom := range geomsRaw {
-		geoms = append(geoms, geom.Transform(startPoseToWorld))
+	geoms := make([]spatialmath.Geometry, 0, len(worldObstacles))
+	for _, geom := range worldObstacles {
+		geoms = append(geoms, geom.Transform(startPoseInv))
 	}
 
 	gif := referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)
 	worldState, err := referenceframe.NewWorldState([]*referenceframe.GeometriesInFrame{gif}, nil)
+	ms.logger.Infof("startPose: %v", spatialmath.PoseToProtobuf(startPose.Pose()))
+	ms.logger.Infof("requested world goal: %v", spatialmath.PoseToProtobuf(goalPoseInWorld))
+	if err != nil {
+		return nil, err
+	}
+
+	obstacleDetectors := make(map[vision.Service][]resource.Name)
+	for _, obstacleDetectorNamePair := range motionCfg.obstacleDetectors {
+		// get vision service
+		visionServiceName := obstacleDetectorNamePair.VisionServiceName
+		visionSvc, ok := ms.visionServices[visionServiceName]
+		if !ok {
+			return nil, resource.DependencyNotFoundError(visionServiceName)
+		}
+
+		// add camera to vision service map
+		camList, ok := obstacleDetectors[visionSvc]
+		if !ok {
+			obstacleDetectors[visionSvc] = []resource.Name{obstacleDetectorNamePair.CameraName}
+		} else {
+			camList = append(camList, obstacleDetectorNamePair.CameraName)
+			obstacleDetectors[visionSvc] = camList
+		}
+	}
+
+	currentInputs, _, err := ms.fsService.CurrentInputs(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	return &moveRequest{
-		config: &motionCfg,
+		config: motionCfg,
 		planRequest: &motionplan.PlanRequest{
-			Logger:             ms.logger,
+			Logger:             logger,
 			Goal:               goal,
-			Frame:              kb.Kinematics(),
+			Frame:              kinematicFrame,
 			FrameSystem:        baseOnlyFS,
-			StartConfiguration: referenceframe.StartPositions(baseOnlyFS),
+			StartConfiguration: currentInputs,
 			WorldState:         worldState,
-			Options:            validatedExtra.extra,
+			Options:            valExtra.extra,
 		},
-		kinematicBase:    kb,
-		seedPlan:         seedPlan,
-		replanCostFactor: validatedExtra.replanCostFactor,
+		kinematicBase:     kb,
+		replanCostFactor:  valExtra.replanCostFactor,
+		obstacleDetectors: obstacleDetectors,
 	}, nil
 }

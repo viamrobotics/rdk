@@ -124,13 +124,9 @@ func CreateModuleAction(c *cli.Context) error {
 func UpdateModuleAction(c *cli.Context) error {
 	publicNamespaceArg := c.String(moduleFlagPublicNamespace)
 	orgIDArg := c.String(moduleFlagOrgID)
-	manifestPathArg := c.String(moduleFlagPath)
 	var moduleID moduleID
 
-	manifestPath := defaultManifestFilename
-	if manifestPathArg != "" {
-		manifestPath = manifestPathArg
-	}
+	manifestPath := c.String(moduleFlagPath)
 
 	client, err := newViamClient(c)
 	if err != nil {
@@ -159,7 +155,7 @@ func UpdateModuleAction(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	printf(c.App.Writer, "Module successfully updated! You can view your changes online here: %s\n", response.GetUrl())
+	printf(c.App.Writer, "Module successfully updated! You can view your changes online here: %s", response.GetUrl())
 
 	// if we have gotten this far it means that moduleID will have a prefix in it
 	// because the validate command resolves the orgId or namespace to the moduleID with the namespace as the priority
@@ -178,7 +174,7 @@ func UpdateModuleAction(c *cli.Context) error {
 
 // UploadModuleAction is the corresponding action for 'module upload'.
 func UploadModuleAction(c *cli.Context) error {
-	manifestPathArg := c.String(moduleFlagPath)
+	manifestPath := c.String(moduleFlagPath)
 	publicNamespaceArg := c.String(moduleFlagPublicNamespace)
 	orgIDArg := c.String(moduleFlagOrgID)
 	nameArg := c.String(moduleFlagName)
@@ -202,10 +198,6 @@ func UploadModuleAction(c *cli.Context) error {
 		return err
 	}
 
-	manifestPath := defaultManifestFilename
-	if manifestPathArg != "" {
-		manifestPath = manifestPathArg
-	}
 	var moduleID moduleID
 	// if the manifest cant be found
 	if _, err := os.Stat(manifestPath); err != nil {

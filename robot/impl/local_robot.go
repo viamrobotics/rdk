@@ -626,6 +626,8 @@ func (r *localRobot) getWeakDependencies(resName resource.Name, api resource.API
 			match(visionServices)
 		case internal.SLAMDependencyWildcardMatcher:
 			match(slamServices)
+		case internal.VisionDependencyWildcardMatcher:
+			match(visionServices)
 		default:
 			// no other matchers supported right now. you could imagine a LiteralMatcher in the future
 		}

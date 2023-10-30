@@ -161,11 +161,6 @@ func buildTestDDK(
 	if err != nil {
 		return nil, err
 	}
-	geometries, err := CollisionGeometry(cfg.Frame)
-	if err != nil {
-		return nil, err
-	}
-	b.(*fakebase.Base).Geometry = geometries
 
 	// make a SLAM service and get its limits
 	var localizer motion.Localizer

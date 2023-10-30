@@ -12,7 +12,7 @@ jobs:
     if: github.repository_owner == 'viamrobotics'
     runs-on: [ubuntu-latest]
     container:
-      image: ghcr.io/viamrobotics/canon:amd64-cache
+      image: ghcr.io/viamrobotics/rdk-devenv:amd64-cache
 
     steps:
       - name: Checkout

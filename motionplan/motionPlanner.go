@@ -156,6 +156,10 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 	if err != nil {
 		return nil, err
 	}
+	// make sure there is no transformation between the PTG frame and World frame in the Solver frame
+	if len(sf.PTGSolvers()) > 0 && !spatialmath.PoseAlmostEqual(startPose, spatialmath.NewZeroPose()) {
+		return nil, errors.New("cannot have non-zero transformation between the PTG frame and World frame in the Solver frame")
+	}
 
 	request.Logger.Infof(
 		"planning motion for frame %s\nGoal: %v\nStarting seed map %v\n, startPose %v\n, worldstate: %v\n",
@@ -177,13 +181,13 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 		return nil, err
 	}
 
-	// TODO: RSDK-3236 this should seed off of currentPlan
 	resultSlices, err := sfPlanner.PlanSingleWaypoint(
 		ctx,
 		request.StartConfiguration,
 		request.Goal.Pose(),
 		request.WorldState,
 		request.ConstraintSpecs,
+		currentPlan,
 		request.Options,
 	)
 	if err != nil {
@@ -502,17 +506,19 @@ func CheckPlan(
 		// absolute pose of the previous node we've passed
 		formerRunningPose := spatialmath.PoseBetweenInverse(lastPose, pathPosition)
 
-		// convert planNode's poses to be in absolute corrdinated
+		// convert planNode's poses to be in absolute coordinates
 		if planNodes, err = rectifyTPspacePath(planNodes, sf, formerRunningPose); err != nil {
 			return nil, err
 		}
 	}
 
 	// adjust planNodes by the errorState
+	// this only changes a node's pose and not its inputs
 	planNodes = transformNodes(planNodes, errorState)
 
 	// pre-pend node with current position of robot to planNodes
-	// Note that currentPosition is assumed to have already accounted for the errorState
+	// Note that currentPosition is assumed to have accounted for the errorState
+	// Note that currentInputs is assumed to have NOT accounted for the errorState
 	planNodes = append([]node{&basicNode{pose: currentPosition, q: currentInputs}}, planNodes...)
 
 	// create constraints
