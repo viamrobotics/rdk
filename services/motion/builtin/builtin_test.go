@@ -1571,6 +1571,7 @@ func TestStoppableMoveFunctions(t *testing.T) {
 		test.That(t, success, test.ShouldBeFalse)
 		test.That(t, calledStopFunc, test.ShouldBeTrue)
 	}
+	extra := map[string]interface{}{"smooth_iter": 5}
 
 	t.Run("successfully stop arms", func(t *testing.T) {
 		armName := "test-arm"
@@ -1642,7 +1643,7 @@ func TestStoppableMoveFunctions(t *testing.T) {
 
 		t.Run("stop during Move(...) call", func(t *testing.T) {
 			calledStopFunc = false
-			success, err := ms.Move(ctx, injectArmName, goal, nil, nil, nil)
+			success, err := ms.Move(ctx, injectArmName, goal, nil, nil, extra)
 			testIfStoppable(t, success, err)
 		})
 	})
@@ -1725,7 +1726,7 @@ func TestStoppableMoveFunctions(t *testing.T) {
 			}
 			success, err := ms.MoveOnGlobe(
 				ctx, injectBase.Name(), goal, 0, injectMovementSensor.Name(),
-				nil, &motionCfg, nil,
+				nil, &motionCfg, extra,
 			)
 			testIfStoppable(t, success, err)
 		})
@@ -1759,7 +1760,7 @@ func TestStoppableMoveFunctions(t *testing.T) {
 			ms.(*builtIn).fsService = fsSvc
 
 			goal := spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 500})
-			success, err := ms.MoveOnMap(ctx, injectBase.Name(), goal, injectSlam.Name(), nil)
+			success, err := ms.MoveOnMap(ctx, injectBase.Name(), goal, injectSlam.Name(), extra)
 			testIfStoppable(t, success, err)
 		})
 	})
