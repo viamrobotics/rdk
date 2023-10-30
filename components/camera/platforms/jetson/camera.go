@@ -1,66 +1,18 @@
 package jetsoncamera
 
-// #include <sys/utsname.h>
-// #include <string.h>
-import "C"
-
 import (
-	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
-	"unsafe"
 
 	"go.uber.org/multierr"
+
+	"go.viam.com/rdk/utils"
 )
 
-// DetectOSInformation pulls relevant OS attributes as an OSInformation struct
-// Kernel and Device will be "unknown" if unable to retrieve info from the filesystem
-// returns an error if kernel version or device name is unavailable
-func DetectOSInformation() (OSInformation, error) {
-	kernelVersion, err := getKernelVersion()
-	if err != nil {
-		return OSInformation{}, fmt.Errorf("failed to get kernel version: %w", err)
-	}
-	deviceName, err := getDeviceName()
-	if err != nil {
-		return OSInformation{}, fmt.Errorf("failed to get device name: %w", err)
-	}
-	osInfo := OSInformation{
-		Name:   runtime.GOOS,
-		Arch:   runtime.GOARCH,
-		Kernel: kernelVersion,
-		Device: deviceName,
-	}
-	return osInfo, nil
-}
-
-// getKernelVersion returns the Linux kernel version
-// $ uname -r
-func getKernelVersion() (string, error) {
-	var utsName C.struct_utsname
-	if C.uname(&utsName) == -1 {
-		return Unknown, fmt.Errorf("uname information unavailable (%v)", utsName)
-	}
-	release := C.GoString((*C.char)(unsafe.Pointer(&utsName.release[0])))
-	return release, nil
-}
-
-// getDeviceName returns the model name of the device
-// $ cat /sys/firmware/devicetree/base/model
-func getDeviceName() (string, error) {
-	const devicePath = "/sys/firmware/devicetree/base/model"
-	device, err := os.ReadFile(devicePath)
-	if err != nil {
-		return Unknown, err
-	}
-	return string(bytes.TrimRight(device, "\x00")), nil
-}
-
-// ValidateSetup wraps an error from NewWebcamSource with a more helpful message
+// ValidateSetup wraps an error from NewWebcamSource with a more helpful message.
 func ValidateSetup(deviceName, daughterboardName, driverName string, err error) error {
-	osInfo, osErr := DetectOSInformation()
+	osInfo, osErr := utils.DetectOSInformation()
 	if osErr != nil {
 		return err
 	}
@@ -75,8 +27,8 @@ func ValidateSetup(deviceName, daughterboardName, driverName string, err error) 
 }
 
 // DetectError checks daughterboard and camera setup to determine
-// our best guess of what is wrong with an unsuccessful camera open
-func DetectError(osInfo OSInformation, daughterboardName, driverName string) error {
+// our best guess of what is wrong with an unsuccessful camera open.
+func DetectError(osInfo utils.OSInformation, daughterboardName, driverName string) error {
 	board, ok := cameraInfoMappings[osInfo.Device]
 	if !ok {
 		return fmt.Errorf("the %s device is not supported on this platform", osInfo.Device)
@@ -105,7 +57,7 @@ func DetectError(osInfo OSInformation, daughterboardName, driverName string) err
 }
 
 // checkDaughterBoardConnected checks if the daughterboard is connected
-// by looking for the I2C bus interfaces associated with the board
+// by looking for the I2C bus interfaces associated with the board.
 func checkDaughterBoardConnected(daughterboard []string) error {
 	for _, i2c := range daughterboard {
 		err := checkI2CInterface(i2c)
@@ -116,7 +68,7 @@ func checkDaughterBoardConnected(daughterboard []string) error {
 	return nil
 }
 
-// checkI2CInterface checks if the I2C bus is available
+// checkI2CInterface checks if the I2C bus is available.
 func checkI2CInterface(bus string) error {
 	i2cPath := filepath.Join("/dev", bus)
 	if err := checkFileExists(i2cPath); err != nil {
@@ -126,7 +78,7 @@ func checkI2CInterface(bus string) error {
 }
 
 // checkDriverInstalled checks if the driver is installed for the
-// given kernel version and object file target
+// given kernel version and object file target.
 func checkDriverInstalled(kernel, driver string) error {
 	driverPath := filepath.Join("/lib/modules", kernel, "extra", driver)
 	if err := checkFileExists(driverPath); err != nil {
@@ -135,7 +87,7 @@ func checkDriverInstalled(kernel, driver string) error {
 	return nil
 }
 
-// checkFileExists is a helper function that wraps os.Stat
+// checkFileExists is a helper function that wraps os.Stat.
 func checkFileExists(path string) error {
 	_, err := os.Stat(path)
 	if err != nil {
