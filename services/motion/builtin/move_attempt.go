@@ -9,8 +9,6 @@ import (
 	"time"
 
 	goutils "go.viam.com/utils"
-
-	"go.viam.com/rdk/utils"
 )
 
 // moveResponse is a struct that is used to communicate the outcome of a moveAttempt.
@@ -68,7 +66,7 @@ func newMoveAttempt(ctx context.Context, request *moveRequest) *moveAttempt {
 		backgroundWorkers: &backgroundWorkers,
 
 		request:      request,
-		responseChan: make(chan moveResponse),
+		responseChan: make(chan moveResponse, 1),
 
 		position: newReplanner(positionPollingFreq, request.deviatedFromPlan),
 		obstacle: newReplanner(obstaclePollingFreq, request.obstaclesIntersectPlan),
@@ -108,17 +106,5 @@ func (ma *moveAttempt) start() error {
 // it cancels the processes spawned by it, drains all the channels that could have been written to and waits on processes to return.
 func (ma *moveAttempt) cancel() {
 	ma.cancelFn()
-
-	// Avoid race conditions by ensuring that the request is no longer executing before reading the channel.
-	// Position and obstacle threads are constantly waiting on a `ctx` so should not need this, but the request execution does not.
-	// As `FlushChan` will empty a channel with values or no-op an empty channel, if `ma.responseChan` is not yet written to then we will
-	// never return from `execute` and then `ma.backgroundWorkers.Wait()` will hang.
-	for ma.request.executing.Load() {
-		time.Sleep(10 * time.Millisecond)
-	}
-	utils.FlushChan(ma.responseChan)
-
-	utils.FlushChan(ma.position.responseChan)
-	utils.FlushChan(ma.obstacle.responseChan)
 	ma.backgroundWorkers.Wait()
 }
