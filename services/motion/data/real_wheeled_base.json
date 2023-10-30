@@ -1,7 +1,7 @@
 {
   "components": [
     {
-      "name": "test_base",
+      "name": "test-base",
       "type": "base",
       "model": "wheeled",
       "attributes": {
