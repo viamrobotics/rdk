@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
@@ -1249,29 +1248,26 @@ func TestObstacleDetection(t *testing.T) {
 	dst := geo.NewPoint(gpsOrigin.Lat(), gpsOrigin.Lng()+1e-5)
 	epsilonMM := 15.
 
-	obstacleDetectorSlice := []motion.ObstacleDetectorName{
-		{VisionServiceName: vision.Named("injectedVisionSvc"), CameraName: camera.Named("injectedCamera")},
+	type testCase struct {
+		name            string
+		getPCfunc       func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error)
+		expectedSuccess bool
+		expectedErr     string
 	}
 
-	type testCase struct {
-		name           string
-		expectedReplan bool
-		getPCfunc      func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error)
+	obstacleDetectorSlice := []motion.ObstacleDetectorName{
+		{VisionServiceName: vision.Named("injectedVisionSvc"), CameraName: camera.Named("injectedCamera")},
 	}
 
 	cfg := &motion.MotionConfiguration{
 		PositionPollingFreqHz: 1, ObstaclePollingFreqHz: 100, PlanDeviationMM: epsilonMM, ObstacleDetectors: obstacleDetectorSlice,
 	}
 
-	extra, err := newValidatedExtra(map[string]interface{}{
-		"replan_cost_factor": 10.0, "max_replans": 4, "max_ik_solutions": 10, "smooth_iter": 1,
-	})
-	test.That(t, err, test.ShouldBeNil)
+	extra := map[string]interface{}{"max_replans": 0, "max_ik_solutions": 1, "smooth_iter": 1}
 
 	testCases := []testCase{
 		{
-			name:           "ensure no replan from discovered obstacles",
-			expectedReplan: false,
+			name: "ensure no replan from discovered obstacles",
 			getPCfunc: func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
 				obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{-1000, -1000, 0})
 				box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{10, 10, 10}, "test-case-2")
@@ -1282,10 +1278,10 @@ func TestObstacleDetection(t *testing.T) {
 
 				return []*viz.Object{detection}, nil
 			},
+			expectedSuccess: true,
 		},
 		{
-			name:           "ensure replan due to obstacle collision",
-			expectedReplan: true,
+			name: "ensure replan due to obstacle collision",
 			getPCfunc: func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
 				obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{50, 0, 0})
 				box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{100, 100, 10}, "test-case-1")
@@ -1296,51 +1292,28 @@ func TestObstacleDetection(t *testing.T) {
 
 				return []*viz.Object{detection}, nil
 			},
+			expectedSuccess: false,
+			expectedErr:     fmt.Sprintf("exceeded maximum number of replans: %d", 0),
 		},
 	}
 
 	testFn := func(t *testing.T, tc testCase) {
 		t.Helper()
 		injectedMovementSensor, _, kb, ms := createMoveOnGlobeEnvironment(ctx, t, gpsOrigin, spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0}))
-		moveRequest, err := ms.(*builtIn).newMoveOnGlobeRequest(ctx, kb.Name(), dst, injectedMovementSensor.Name(), nil, cfg, nil, extra)
-		test.That(t, err, test.ShouldBeNil)
 
 		srvc, ok := ms.(*builtIn).visionServices[cfg.ObstacleDetectors[0].VisionServiceName].(*inject.VisionService)
 		test.That(t, ok, test.ShouldBeTrue)
 		srvc.GetObjectPointCloudsFunc = tc.getPCfunc
 
-		ctx, cancel := context.WithTimeout(ctx, 30.0*time.Second)
-		ma := newMoveAttempt(ctx, moveRequest)
-		err = ma.start()
-		test.That(t, err, test.ShouldBeNil)
+		success, err := ms.MoveOnGlobe(ctx, kb.Name(), dst, 0, injectedMovementSensor.Name(), nil, cfg, extra)
 
-		defer ma.cancel()
-		defer cancel()
-		select {
-		case <-ma.ctx.Done():
-			t.Log("move attempt should not have timed out")
-			t.FailNow()
-		case resp := <-ma.responseChan:
-			if tc.expectedReplan {
-				t.Log("move attempt should not have returned a response")
-				t.FailNow()
-			} else {
-				test.That(t, resp.err, test.ShouldBeNil)
-				test.That(t, resp.success, test.ShouldBeTrue)
-			}
-		case <-ma.position.responseChan:
-			t.Log("posotion channel should not have has a response")
-			t.FailNow()
-		case resp := <-ma.obstacle.responseChan:
-			if tc.expectedReplan {
-				test.That(t, resp.err, test.ShouldBeNil)
-				test.That(t, resp.replan, test.ShouldBeTrue)
-			} else {
-				t.Log("move attempt should not be replanned")
-				t.FailNow()
-			}
+		if tc.expectedSuccess {
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, success, test.ShouldBeTrue)
+		} else {
+			test.That(t, success, test.ShouldBeFalse)
+			test.That(t, err.Error(), test.ShouldEqual, tc.expectedErr)
 		}
-		test.That(t, ma.waypointIndex.Load(), test.ShouldBeGreaterThan, 0)
 	}
 
 	for _, tc := range testCases {
