@@ -5,7 +5,7 @@
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { type ServiceError, navigationApi } from '@viamrobotics/sdk';
 import { notify } from '@viamrobotics/prime';
-import { IconButton, persisted } from '@viamrobotics/prime-core';
+import { IconButton, Button, persisted } from '@viamrobotics/prime-core';
 import { NavigationMap, type LngLat } from '@viamrobotics/prime-blocks';
 import { getObstacles } from '@/api/navigation';
 import { obstacles } from './stores';
@@ -55,6 +55,16 @@ const handleModeSelect = async (event: CustomEvent<{ value: 'Manual' | 'Waypoint
   }
 };
 
+const stopNavigation = async (event: MouseEvent) => {
+  event.stopPropagation();
+
+  try {
+    await setMode(navigationApi.Mode.MODE_MANUAL);
+  } catch (error) {
+    notify.danger((error as ServiceError).message);
+  }
+}
+
 const handleAddWaypoint = async (event: CustomEvent<LngLat>) => {
   try {
     await addWaypoint(event.detail);
@@ -78,6 +88,15 @@ const handleDeleteWaypoint = async (event: CustomEvent<string>) => {
     slot="title"
     crumbs="navigation"
   />
+
+  <Button
+    slot="header"
+    variant="danger"
+    icon="stop-circle-outline"
+    on:click={stopNavigation}
+  >
+    Stop
+  </Button>
 
   <div
     use:inview
