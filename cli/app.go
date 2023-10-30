@@ -273,9 +273,9 @@ var app = &cli.App{
 							Usage: "mime types filter",
 						},
 						&cli.UintFlag{
-							Name:        dataFlagParallelDownloads,
-							Usage:       "number of download requests to make in parallel",
-							DefaultText: "10",
+							Name:  dataFlagParallelDownloads,
+							Usage: "number of download requests to make in parallel",
+							Value: 100,
 						},
 						&cli.StringFlag{
 							Name:  dataFlagStart,

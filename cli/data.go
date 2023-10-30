@@ -26,12 +26,11 @@ import (
 )
 
 const (
-	dataDir                  = "data"
-	metadataDir              = "metadata"
-	defaultParallelDownloads = 100
-	maxRetryCount            = 5
-	logEveryN                = 100
-	maxLimit                 = 100
+	dataDir       = "data"
+	metadataDir   = "metadata"
+	maxRetryCount = 5
+	logEveryN     = 100
+	maxLimit      = 100
 
 	dataTypeBinary  = "binary"
 	dataTypeTabular = "tabular"
@@ -183,10 +182,6 @@ func createDataFilter(c *cli.Context) (*datapb.Filter, error) {
 func (c *viamClient) binaryData(dst string, filter *datapb.Filter, parallelDownloads uint) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
-	}
-
-	if parallelDownloads == 0 {
-		parallelDownloads = defaultParallelDownloads
 	}
 
 	ids := make(chan *datapb.BinaryID, parallelDownloads)
