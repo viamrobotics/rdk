@@ -126,12 +126,13 @@ type rtkSerial struct {
 
 	activeBackgroundWorkers sync.WaitGroup
 
-	mu               sync.Mutex
-	ntripMu          sync.Mutex
-	ntripconfigMu    sync.Mutex
-	ntripClient      *rtk.NtripInfo
-	connectedToNtrip bool
-	isClosed         bool
+	mu                    sync.Mutex
+	ntripMu               sync.Mutex
+	ntripconfigMu         sync.Mutex
+	correctionWriterMutex sync.Mutex
+	ntripClient           *rtk.NtripInfo
+	connectedToNtrip      bool
+	isClosed              bool
 
 	err                movementsensor.LastError
 	lastposition       movementsensor.LastPosition
@@ -439,7 +440,10 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 		// the caster in order to get NTRIP stream.
 		if isVirtualBase {
 			g.logger.Debug("connecting to a virtual base")
-			g.sendGGAMessage()
+			for i := 0; i < 5; i++ {
+				g.sendGGAMessage()
+				time.Sleep(1 * time.Second)
+			}
 		}
 
 		msg, err := scanner.NextMessage()
@@ -665,7 +669,7 @@ func (g *rtkSerial) Close(ctx context.Context) error {
 
 // sendGGAMessage sends GGA messages to the serial port. This is only used to get NTRIP stream
 // from a virtual reference point.
-func (g *rtkSerial) sendGGAMessage() {
+func (g *rtkSerial) sendGGAMessage() error {
 	// Open the serial port for reading
 	serialPort, err := slib.Open(slib.OpenOptions{
 		PortName:        g.writePath,
@@ -677,7 +681,7 @@ func (g *rtkSerial) sendGGAMessage() {
 	if err != nil {
 		g.logger.Debug("errored while opening serial port")
 		g.err.Set(err)
-		return
+		return g.err.Get()
 	}
 	defer func() {
 		if closeErr := serialPort.Close(); closeErr != nil {
@@ -690,46 +694,48 @@ func (g *rtkSerial) sendGGAMessage() {
 	messageBuffer := make([]byte, 0, 1024)
 	g.logger.Debug("made buffer")
 
-	for !g.isClosed {
-		select {
-		case <-g.cancelCtx.Done():
-			return
-		default:
-		}
+	select {
+	case <-g.cancelCtx.Done():
+		return g.err.Get() // better error message
+	default:
+	}
 
-		// Read from the serial port
-		bytesRead, err := serialPort.Read(messageBuffer)
-		if err != nil {
-			g.logger.Debug("can not read from serial port")
-			g.err.Set(err)
-			return
-		}
-		g.logger.Debug("finished reading from serial port")
+	// Read from the serial port
+	bytesRead, err := serialPort.Read(messageBuffer)
+	if err != nil {
+		g.logger.Debug("can not read from serial port")
+		g.err.Set(err)
+		return g.err.Get()
+	}
+	g.logger.Debug("finished reading from serial port")
 
-		// Convert the received bytes to a string
-		receivedData := string(messageBuffer[:bytesRead])
-		g.logger.Debug("finished converting bytes to string")
+	// Convert the received bytes to a string
+	receivedData := string(messageBuffer[:bytesRead])
+	g.logger.Debug("finished converting bytes to string")
 
-		// Check for NMEA GGA messages
-		messages := strings.Split(receivedData, "\n")
-		for _, message := range messages {
-			if strings.Contains(message, "GGA") {
-				// Send the GGA message to the NTRIP caster
-				if _, err := g.correctionWriter.Write([]byte(message)); err != nil {
-					g.logger.Debug("can't write to g.correctionWriter")
-					g.err.Set(err)
-					return
-				}
-				g.logger.Debug("writing GGA messages")
+	// Check for NMEA GGA messages
+	messages := strings.Split(receivedData, "\n")
+	for _, message := range messages {
+		if strings.Contains(message, "GGA") {
+			g.logger.Debug("found GGA message, writing to correctionwriter")
+			// Send the GGA message to the NTRIP caster
+			g.correctionWriterMutex.Lock()
+			_, err := g.correctionWriter.Write([]byte(message))
+			g.correctionWriterMutex.Unlock()
+
+			if err != nil {
+				g.logger.Errorf("Error writing to correctionWriter: %v", err)
+				return err
+			} else {
+				g.logger.Debug("Successfully wrote to correctionWriter")
 			}
 		}
-
-		// Clear the message buffer
-		messageBuffer = messageBuffer[:0]
-		g.logger.Debug("cleared buffer")
-		// Sleep for a while before reading again.
-		time.Sleep(time.Second)
 	}
+
+	// Clear the message buffer
+	messageBuffer = messageBuffer[:0]
+	g.logger.Debug("cleared buffer")
+	return nil
 }
 
 // findLineWithMountPoint parses the given source-table returns the nmea bool of the given mount point.
