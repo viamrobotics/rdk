@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"go.uber.org/zap/zapcore"
 	"go.viam.com/rdk/logging"
 )
 
@@ -10,7 +11,7 @@ func NewFilePathDebugLogger(filepath, name string) (logging.Logger, error) {
 	logConfig := logging.NewZapLoggerConfig()
 	logConfig.OutputPaths = append(logConfig.OutputPaths, filepath)
 	logConfig.ErrorOutputPaths = append(logConfig.ErrorOutputPaths, filepath)
-
+	logConfig.Level.SetLevel(zapcore.DebugLevel)
 	logger, err := logConfig.Build()
 	if err != nil {
 		return nil, err

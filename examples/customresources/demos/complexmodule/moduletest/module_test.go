@@ -271,8 +271,8 @@ func TestComplexModule(t *testing.T) {
 		nav := res.(navigation.Service)
 		geoPose, err := nav.Location(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, geoPose.Location().Lat(), test.ShouldAlmostEqual, 63.0691739667009)
-		test.That(t, geoPose.Location().Lng(), test.ShouldAlmostEqual, -151.00698515692034)
+		test.That(t, geoPose.GetLocation().Lat(), test.ShouldAlmostEqual, 63.0691739667009)
+		test.That(t, geoPose.GetLocation().Lng(), test.ShouldAlmostEqual, -151.00698515692034)
 
 		err = nav.AddWaypoint(context.Background(), geo.NewPoint(55.1, 22.2), nil)
 		test.That(t, err, test.ShouldBeNil)
