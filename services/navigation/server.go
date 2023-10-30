@@ -86,8 +86,8 @@ func (server *serviceServer) GetLocation(ctx context.Context, req *pb.GetLocatio
 	}
 
 	return &pb.GetLocationResponse{
-		Location:       &commonpb.GeoPoint{Latitude: geoPose.Location().Lat(), Longitude: geoPose.Location().Lng()},
-		CompassHeading: geoPose.Heading(),
+		Location:       &commonpb.GeoPoint{Latitude: geoPose.GetLocation().Lat(), Longitude: geoPose.GetLocation().Lng()},
+		CompassHeading: geoPose.GetHeading(),
 	}, nil
 }
 

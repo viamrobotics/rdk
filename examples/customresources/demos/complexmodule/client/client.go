@@ -104,7 +104,7 @@ func main() {
 		logger.Fatal(err)
 	}
 
-	logger.Infof("denali service reports its location as %0.8f, %0.8f", geoPose.Location().Lat(), geoPose.Location().Lng())
+	logger.Infof("denali service reports its location as %0.8f, %0.8f", geoPose.GetLocation().Lat(), geoPose.GetLocation().Lng())
 
 	err = nav.AddWaypoint(context.Background(), geo.NewPoint(55.1, 22.2), nil)
 	if err != nil {

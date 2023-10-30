@@ -136,6 +136,7 @@ func PlanFrameMotion(ctx context.Context,
 // passed-in plan multiplied by `replanCostFactor`.
 func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanCostFactor float64) (Plan, error) {
 	// make sure request is well formed and not missing vital information
+	before := time.Now()
 	if err := request.validatePlanRequest(); err != nil {
 		return nil, err
 	}
@@ -194,6 +195,25 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 		return nil, err
 	}
 	newPlan := sf.inputsToPlan(resultSlices)
+
+	planNodes, err := sf.planToNodes(newPlan)
+	if err != nil {
+		return nil, err
+	}
+	if something, err := rectifyTPspacePath(planNodes, sf.solveFrame, spatialmath.NewZeroPose()); err == nil {
+		request.Logger.Debug("something[len(something)-1].Pose().Point(): ", something[len(something)-1].Pose().Point())
+	}
+	after := time.Now()
+
+	origin, ok := request.Options["origin"].(spatialmath.GeoPose)
+	if ok {
+		specialPose := spatialmath.NewPose(planNodes[0].Pose().Point(), startPose.Orientation())
+
+		err = logRectifyTPspacePath(planNodes, sf, specialPose, planNodes[0].Pose(), before, after, origin)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	if replanCostFactor > 0 && currentPlan != nil {
 		initialPlanCost := currentPlan.Evaluate(sfPlanner.opt().ScoreFunc)
