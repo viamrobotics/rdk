@@ -46,6 +46,7 @@ type moveRequest struct {
 	seedPlan         motionplan.Plan
 	kinematicBase    kinematicbase.KinematicBase
 	replanCostFactor float64
+	executing        *atomic.Bool
 }
 
 // plan creates a plan using the currentInputs of the robot and the moveRequest's planRequest.
@@ -70,6 +71,8 @@ func (mr *moveRequest) plan(ctx context.Context) ([][]referenceframe.Input, erro
 // execute attempts to follow a given Plan starting from the index percribed by waypointIndex.
 // Note that waypointIndex is an atomic int that is incremented in this function after each waypoint has been successfully reached.
 func (mr *moveRequest) execute(ctx context.Context, waypoints [][]referenceframe.Input, waypointIndex *atomic.Int32) moveResponse {
+	mr.executing.Store(true)
+	defer mr.executing.Store(false)
 	// Iterate through the list of waypoints and issue a command to move to each
 	for i := int(waypointIndex.Load()); i < len(waypoints); i++ {
 		select {
@@ -414,6 +417,8 @@ func (ms *builtIn) relativeMoveRequestFromAbsolute(
 	if err != nil {
 		return nil, err
 	}
+	var executing atomic.Bool
+	executing.Store(false)
 
 	return &moveRequest{
 		config: motionCfg,
@@ -427,5 +432,6 @@ func (ms *builtIn) relativeMoveRequestFromAbsolute(
 			Options:            valExtra.extra,
 		},
 		kinematicBase: kb,
+		executing:     &executing,
 	}, nil
 }
