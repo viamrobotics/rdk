@@ -20,7 +20,7 @@ jobs:
       matrix:
         include:
         # rdk-devenv
-        - arch: ubuntu-latest
+        - arch: buildjet-2vcpu-ubuntu-2204
           tag: amd64
           platform: linux/amd64
           image: rdk-devenv
@@ -36,7 +36,7 @@ jobs:
           image: rdk-devenv
           file: etc/Dockerfile.cache
         # antique2
-        - arch: ubuntu-latest
+        - arch: buildjet-2vcpu-ubuntu-2204
           platform: linux/amd64
           image: antique2
           file: etc/Dockerfile.antique-cache
