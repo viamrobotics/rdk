@@ -749,7 +749,13 @@ func UpdateModelsAction(c *cli.Context) error {
 		return err
 	}
 
-	manifest, err := loadManifest(c.String(moduleFlagPath))
+	manifestPathArg := c.String(moduleFlagPath)
+	manifestPath := defaultManifestFilename
+	if manifestPathArg != "" {
+		manifestPath = manifestPathArg
+	}
+
+	manifest, err := loadManifest(manifestPath)
 	if err != nil {
 		return err
 	}
@@ -759,5 +765,5 @@ func UpdateModelsAction(c *cli.Context) error {
 	}
 
 	manifest.Models = newModels
-	return writeManifest(c.String(moduleFlagPath), manifest)
+	return writeManifest(manifestPath, manifest)
 }
