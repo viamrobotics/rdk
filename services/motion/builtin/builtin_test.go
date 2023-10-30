@@ -1326,7 +1326,6 @@ func TestObstacleDetection(t *testing.T) {
 }
 
 func TestCheckPlan(t *testing.T) {
-	t.Skip() // TODO(RSDK-5404): fix flakiness
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 
@@ -1339,9 +1338,7 @@ func TestCheckPlan(t *testing.T) {
 	injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, originPoint, nil)
 
 	// create motion config
-	extra := make(map[string]interface{})
-	// fail if we don't find a plan in 15 seconds
-	extra["timeout"] = 15.
+	extra := map[string]interface{}{"max_ik_solutions": 1, "smooth_iter": 1}
 	validatedExtra, err := newValidatedExtra(extra)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -1358,6 +1355,11 @@ func TestCheckPlan(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
+	inputs, err := fakeBase.CurrentInputs(ctx)
+	test.That(t, err, test.ShouldBeNil)
+
+	moveRequest.planRequest.StartConfiguration = map[string][]referenceframe.Input{fakeBase.Kinematics().Name(): inputs}
+
 	plan, err := motionplan.PlanMotion(ctx, moveRequest.planRequest)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -1368,8 +1370,6 @@ func TestCheckPlan(t *testing.T) {
 
 	startPose := spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0})
 	errorState := startPose
-	floatList := []float64{0, 0, 0}
-	inputs := referenceframe.FloatsToInputs(floatList)
 
 	t.Run("without obstacles - ensure success", func(t *testing.T) {
 		err := motionplan.CheckPlan(moveRequest.kinematicBase.Kinematics(), plan, nil, newFS, startPose, inputs, errorState, logger)
