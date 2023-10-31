@@ -2,7 +2,6 @@ package builtin
 
 import (
 	"context"
-	"math"
 	"math/rand"
 
 	"github.com/golang/geo/r3"
@@ -30,12 +29,11 @@ func (svc *builtIn) startExploreMode(ctx context.Context) {
 			}
 
 			//nolint:gosec
-			randAngle := (rand.Float64() - 0.5) * math.Pi
 			destination := frame.NewPoseInFrame(svc.base.Name().Name, spatialmath.NewPose(
 				r3.Vector{
-					X: defaultDistanceMM * math.Sin(randAngle),
-					Y: defaultDistanceMM * math.Sin(randAngle),
-					Z: 0,
+					X: defaultDistanceMM * (2*rand.Float64() - 1.0),
+					Y: defaultDistanceMM * (2*rand.Float64() - 1.0),
+					Z: 0.,
 				}, spatialmath.NewOrientationVector()))
 
 			_, err := svc.exploreMotionService.Move(ctx, svc.base.Name(), destination, nil, nil, extra)

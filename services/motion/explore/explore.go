@@ -5,7 +5,6 @@ package explore
 import (
 	"context"
 	"fmt"
-	"math"
 	"strconv"
 	"strings"
 	"sync"
@@ -75,9 +74,6 @@ type inputEnabledActuator interface {
 
 // obstacleDetectorObject provides a map for matching vision services to any and all cameras names they use.
 type obstacleDetectorObject map[vision.Service]resource.Name
-
-// ErrNotImplemented is thrown when an unreleased function is called.
-var ErrNotImplemented = errors.New("function coming soon but not yet implemented")
 
 // Config describes how to configure the service. As the explore motion service is not being surfaced to users, this is blank.
 type Config struct{}
@@ -275,38 +271,37 @@ func (ms *explore) Move(
 		ms.executePlan(cancelCtx, kb, plan)
 	}, ms.backgroundWorkers.Done)
 
-	for {
-		// this ensures that if the context is cancelled we always return early at the top of the loop
-		if err := ctx.Err(); err != nil {
-			return false, err
+	// this ensures that if the context is cancelled we always return early at the top of the loop
+	if err := ctx.Err(); err != nil {
+		return false, err
+	}
+
+	select {
+	// if context was cancelled by the calling function, error out
+	case <-ctx.Done():
+		return false, ctx.Err()
+
+	// once execution responds: return the result to the caller
+	case resp := <-ms.executionResponseChan:
+		ms.logger.Debugf("execution completed: %s", resp)
+		if resp.err != nil {
+			return resp.success, resp.err
+		}
+		if resp.success {
+			return true, nil
 		}
 
-		select {
-		// if context was cancelled by the calling function, error out
-		case <-ctx.Done():
-			return false, ctx.Err()
-
-		// once execution responds: return the result to the caller
-		case resp := <-ms.executionResponseChan:
-			ms.logger.Debugf("execution completed: %s", resp)
-			if resp.err != nil {
-				return resp.success, resp.err
-			}
-			if resp.success {
-				return true, nil
-			}
-
-		// if the checkPartialPlan process hit an error return it, otherwise exit
-		case resp := <-ms.obstacleResponseChan:
-			ms.logger.Debugf("obstacle response: %s", resp)
-			if resp.err != nil {
-				return resp.success, resp.err
-			}
-			if resp.success {
-				return true, nil
-			}
+	// if the checkPartialPlan process hit an error return it, otherwise exit
+	case resp := <-ms.obstacleResponseChan:
+		ms.logger.Debugf("obstacle response: %s", resp)
+		if resp.err != nil {
+			return resp.success, resp.err
+		}
+		if resp.success {
+			return false, nil
 		}
 	}
+	return false, errors.New("no obstacle was seen during movement to goal and goal was not reached")
 }
 
 // checkForObstacles will continuously monitor the generated transient worldState for obstacles in the given
@@ -364,7 +359,7 @@ func (ms *explore) checkForObstacles(
 // executePlan will carry out the desired motionplan plan.
 func (ms *explore) executePlan(ctx context.Context, kb kinematicbase.KinematicBase, plan motionplan.Plan) {
 	// Iterate through motionplan plan
-	for i := 1; i < len(plan); i++ {
+	for i := 0; i < len(plan); i++ {
 		select {
 		case <-ctx.Done():
 			return
@@ -518,7 +513,7 @@ func (ms *explore) createMotionPlan(
 	destination *referenceframe.PoseInFrame,
 	extra map[string]interface{},
 ) (motionplan.Plan, error) {
-	if math.Abs(destination.Pose().Point().X) >= moveLimit || math.Abs(destination.Pose().Point().Y) >= moveLimit {
+	if destination.Pose().Point().Norm() >= moveLimit {
 		return nil, errors.Errorf("destination %v is above the defined limit of %v", destination.Pose().Point().String(), moveLimit)
 	}
 
