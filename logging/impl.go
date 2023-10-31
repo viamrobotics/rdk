@@ -74,6 +74,9 @@ func (logEntry *LogEntry) ToConsoleString() string {
 		return strings.Join(toPrint, "\t")
 	}
 
+	// Use zap's json encoder which will encode our slice of fields in-order. As opposed to the
+	// random iteration order of a map. Call it with an empty Entry object such that only the fields
+	// become "map-ified".
 	jsonEncoder := zapcore.NewJSONEncoder(zapcore.EncoderConfig{SkipLineEnding: true})
 	buf, err := jsonEncoder.EncodeEntry(zapcore.Entry{}, logEntry.fields)
 	if err != nil {
@@ -155,7 +158,8 @@ func (impl *impl) formatw(logLevel Level, msg string, keysAndValues ...interface
 		if keyIdx+1 < len(keysAndValues) {
 			logEntry.fields = append(logEntry.fields, zap.Any(keyStr, keysAndValues[keyIdx+1]))
 		} else {
-			// API mis-use
+			// API mis-use. Rather than logging a logging mis-use, slip in an error message such
+			// that we don't silenlty discard it.
 			logEntry.fields = append(logEntry.fields, zap.Any(keyStr, errors.New("unpaired log key")))
 		}
 	}

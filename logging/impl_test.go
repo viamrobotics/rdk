@@ -2,7 +2,6 @@ package logging
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -93,17 +92,7 @@ func assertLogMatches(t *testing.T, actual *bytes.Buffer, expected string) {
 		return
 	}
 
-	// JSON encoding of maps can be unpredictable because map iteration order can change between
-	// runs. Parse the output into maps and assert on map equality.
-	expectedMap := make(map[string]any)
-	err = json.Unmarshal([]byte(expectedParts[4]), &expectedMap)
-	test.That(t, err, EqualsWithLogLine, nil, "Expected structured log not JSON", expected)
-
-	actualMap := make(map[string]any)
-	err = json.Unmarshal([]byte(actualParts[4]), &actualMap)
-	test.That(t, err, EqualsWithLogLine, nil, "Actual structured log not JSON", actualTrimmed)
-
-	test.That(t, actualMap, EqualsWithLogLine, expectedMap, "Structured log mismatch", actualTrimmed)
+	test.That(t, actualParts[4], EqualsWithLogLine, expectedParts[4], "Structured log mismatch", actualTrimmed)
 }
 
 // This test asserts our logger matches the output produced by the following zap config:
@@ -159,15 +148,15 @@ func TestConsoleOutputFormat(t *testing.T) {
 	impl.Infow("impl logw", "key", "val", "StructWithAnonymousStruct", StructWithAnonymousStruct{1, struct{ Y1 string }{"y1"}, "foo"})
 
 	assertLogMatches(t, notStdout,
-		`2023-10-30T13:20:47.129Z	INFO	logging/impl_test.go:121	impl logw	{"StructWithAnonymousStruct":{"Y":{"Y1":"y1"},"Z":"foo"},"key":"val"}`)
+		`2023-10-31T14:25:10.239Z	INFO	logging/impl_test.go:148	impl logw	{"key":"val","StructWithAnonymousStruct":{"Y":{"Y1":"y1"},"Z":"foo"}}`)
 
 	impl.Infow("StructWithStruct", "key", "val", "StructWithStruct", StructWithStruct{1, User{"alice"}, "foo"})
 	assertLogMatches(t, notStdout,
-		`2023-10-30T13:20:47.129Z	INFO	logging/impl_test.go:123	StructWithStruct	{"StructWithStruct":{"Y":{"Name":"alice"}},"key":"val"}`)
+		`2023-10-31T14:25:21.095Z	INFO	logging/impl_test.go:153	StructWithStruct	{"key":"val","StructWithStruct":{"Y":{"Name":"alice"}}}`)
 
 	impl.Infow("BasicStruct", "implOneKey", "1val", "BasicStruct", BasicStruct{1, "alice", "foo"})
 	assertLogMatches(t, notStdout,
-		`2023-10-30T13:20:47.129Z	INFO	logging/impl_test.go:125	BasicStruct	{"BasicStruct":{"X":1},"implOneKey":"1val"}`)
+		`2023-10-31T14:25:29.927Z	INFO	logging/impl_test.go:157	BasicStruct	{"implOneKey":"1val","BasicStruct":{"X":1}}`)
 
 	// Define a completely anonymous struct.
 	anonymousTypedValue := struct {
@@ -182,10 +171,10 @@ func TestConsoleOutputFormat(t *testing.T) {
 	// excluded. This is tested just as a description of the current behavior.
 	impl.Infow("impl logw", "key", "val", "anonymous struct", anonymousTypedValue)
 	assertLogMatches(t, notStdout,
-		`2023-10-30T13:20:47.129Z	INFO	logging/impl_test.go:119	impl logw	{"anonymous struct":{"Z":"z"},"key":"val"}`)
+		`2023-10-31T14:25:39.320Z	INFO	logging/impl_test.go:172	impl logw	{"key":"val","anonymous struct":{"Z":"z"}}`)
 
 	// Represent a struct as a string using `fmt.Sprintf`.
 	impl.Infow("impl logw", "key", "val", "fmt.Sprintf", fmt.Sprintf("%+v", anonymousTypedValue))
 	assertLogMatches(t, notStdout,
-		`2023-10-30T13:20:47.129Z	INFO	logging/impl_test.go:127	impl logw	{"fmt.Sprintf":"{x:1 y:{Y1:y1} Z:z}","key":"val"}`)
+		`2023-10-31T14:25:49.124Z	INFO	logging/impl_test.go:177	impl logw	{"key":"val","fmt.Sprintf":"{x:1 y:{Y1:y1} Z:z}"}`)
 }
