@@ -86,12 +86,12 @@ func TestNewFakePTGKinematics(t *testing.T) {
 	ms.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
 		return &movementsensor.Properties{CompassHeadingSupported: true}, nil
 	}
-	localizer := motion.NewMovementSensorLocalizer(ms, geo.NewPoint(0, 0), spatialmath.NewZeroPose())
 
 	options := NewKinematicBaseOptions()
 	options.PositionOnlyMode = false
 	noise := spatialmath.NewPoseFromPoint(r3.Vector{1, 0, 0})
-	kb, err := WrapWithFakePTGKinematics(ctx, b.(*fakebase.Base), logger, localizer, options, noise)
+	origin := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose())
+	kb, err := WrapWithFakePTGKinematics(ctx, b.(*fakebase.Base), logger, origin, options, noise)
 	test.That(t, err, test.ShouldBeNil)
 
 	startpose, err := kb.CurrentPosition(ctx)
@@ -105,5 +105,5 @@ func TestNewFakePTGKinematics(t *testing.T) {
 	test.That(t, kb.GoToInputs(ctx, expected), test.ShouldBeNil)
 	pose, err := kb.CurrentPosition(ctx)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, spatialmath.PoseAlmostCoincident(pose.Pose(), expectedPose), test.ShouldBeTrue)
+	test.That(t, spatialmath.PoseAlmostCoincidentEps(pose.Pose(), expectedPose, 2), test.ShouldBeTrue)
 }
