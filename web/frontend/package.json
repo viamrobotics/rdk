@@ -35,8 +35,6 @@
   "peerDependencies": {
     "@floating-ui/dom": "^1.5.3",
     "@improbable-eng/grpc-web": ">=0.15",
-    "@threlte/core": ">=6.0",
-    "@threlte/extras": ">=7.4",
     "@viamrobotics/prime": ">=0.5",
     "@viamrobotics/rpc": ">=0.1",
     "@viamrobotics/sdk": "0.6.0-rc.0",
