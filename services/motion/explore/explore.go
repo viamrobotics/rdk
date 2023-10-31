@@ -38,6 +38,8 @@ var (
 	moveLimit = 10000.
 	// The distance a detected obstacle can be from a base to trigger the Move command to stop.
 	lookAheadDistanceMM = 1000.
+	// ErrClosed denotes that the slam service method was called on a closed slam resource.
+	ErrClosed = errors.Errorf("resource (%s) is closed", model.String())
 )
 
 func init() {
@@ -105,8 +107,8 @@ func (ms *explore) Reconfigure(
 	deps resource.Dependencies,
 	conf resource.Config,
 ) (err error) {
-	ms.mutex.Lock()
-	defer ms.mutex.Unlock()
+	ms.resourceMutex.Lock()
+	defer ms.resourceMutex.Unlock()
 	// Iterate over dependencies and store components and services along with the frame service directly
 	components := make(map[resource.Name]resource.Resource)
 	services := make(map[resource.Name]resource.Resource)
@@ -129,19 +131,20 @@ func (ms *explore) Reconfigure(
 type explore struct {
 	resource.Named
 	logger logging.Logger
+	closed bool
 
 	processCancelFunc     context.CancelFunc
 	obstacleResponseChan  chan moveResponse
 	executionResponseChan chan moveResponse
 	backgroundWorkers     *sync.WaitGroup
 
-	// mutex protects the connect to other resources, the frame service/system and prevent multiple
-	// Move and/or reconfigure actions from being performed simultaneously.
-	mutex       sync.Mutex
-	components  map[resource.Name]resource.Resource
-	services    map[resource.Name]resource.Resource
-	fsService   framesystem.Service
-	frameSystem referenceframe.FrameSystem
+	// resourceMutex protects the connect to other resources, the frame service/system and prevent multiple
+	// Move and/or Reconfigure actions from being performed simultaneously.
+	resourceMutex sync.Mutex
+	components    map[resource.Name]resource.Resource
+	services      map[resource.Name]resource.Resource
+	fsService     framesystem.Service
+	frameSystem   referenceframe.FrameSystem
 
 	// planMutex protects the current planStep to allow the obstacle detection process to know what portion of the current plan to check
 	planMutex sync.Mutex
@@ -210,6 +213,12 @@ func (ms *explore) PlanHistory(
 }
 
 func (ms *explore) Close(ctx context.Context) error {
+	ms.resourceMutex.Lock()
+	defer ms.resourceMutex.Unlock()
+	if ms.closed {
+		return nil
+	}
+
 	if ms.processCancelFunc != nil {
 		ms.processCancelFunc()
 	}
@@ -229,8 +238,12 @@ func (ms *explore) Move(
 	constraints *servicepb.Constraints,
 	extra map[string]interface{},
 ) (bool, error) {
-	ms.mutex.Lock()
-	defer ms.mutex.Unlock()
+	ms.resourceMutex.Lock()
+	defer ms.resourceMutex.Unlock()
+	if ms.closed {
+		ms.logger.Warn("Move called after closed")
+		return false, ErrClosed
+	}
 
 	operation.CancelOtherWithLabel(ctx, exploreOpLabel)
 
