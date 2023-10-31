@@ -472,7 +472,7 @@ func (c *monitoredWebcam) reconnectCamera(conf *WebcamConfig) error {
 	if c.underlyingSource != nil {
 		c.logger.Debug("closing current camera")
 		if err := c.underlyingSource.Close(c.cancelCtx); err != nil {
-			c.logger.Errorw("failed to close currents camera", "error", err)
+			c.logger.Errorw("failed to close current camera", "error", err)
 		}
 		c.underlyingSource = nil
 	}
