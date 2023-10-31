@@ -358,13 +358,13 @@ func (ms *explore) checkForObstacles(
 // executePlan will carry out the desired motionplan plan.
 func (ms *explore) executePlan(ctx context.Context, kb kinematicbase.KinematicBase, plan motionplan.Plan) {
 	// Iterate through motionplan plan
-	for i := 0; i < len(plan); i++ {
+	for ms.planStep = 0; ms.planStep < len(plan); ms.planStep++ {
 		select {
 		case <-ctx.Done():
 			return
 		default:
 			if inputEnabledKb, ok := kb.(inputEnabledActuator); ok {
-				if err := inputEnabledKb.GoToInputs(ctx, plan[i][kb.Name().Name]); err != nil {
+				if err := inputEnabledKb.GoToInputs(ctx, plan[ms.planStep][kb.Name().Name]); err != nil {
 					// If there is an error on GoToInputs, stop the component if possible before returning the error
 					if stopErr := kb.Stop(ctx, nil); stopErr != nil {
 						ms.executionResponseChan <- moveResponse{err: err}
@@ -382,7 +382,6 @@ func (ms *explore) executePlan(ctx context.Context, kb kinematicbase.KinematicBa
 				return
 			}
 		}
-		ms.planStep += 1
 	}
 	ms.executionResponseChan <- moveResponse{success: true}
 }
