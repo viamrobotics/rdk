@@ -379,6 +379,8 @@ func (ms *explore) executePlan(ctx context.Context, kb kinematicbase.KinematicBa
 					return
 				}
 			}
+			ms.executionResponseChan <- moveResponse{err: errors.New("unable to case kinematic base to inputEnabledActuator")}
+			return
 		}
 	}
 	ms.executionResponseChan <- moveResponse{success: true}
