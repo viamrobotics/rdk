@@ -36,11 +36,9 @@ const (
 type ptgBaseKinematics struct {
 	base.Base
 	motion.Localizer
-	logger logging.Logger
-	frame  referenceframe.Frame
-	// NOTE: What is the implementation we use for this PTGSolve when it comes to MoveOnGlobe requests?
-	ptgs []tpspace.PTGSolver
-	// NOTE: What is this mutext protecting?
+	logger       logging.Logger
+	frame        referenceframe.Frame
+	ptgs         []tpspace.PTGSolver
 	inputLock    sync.RWMutex
 	currentInput []referenceframe.Input
 }
@@ -135,12 +133,9 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenc
 
 	ptgk.logger.Debugf("GoToInputs going to %v", inputs)
 
-	// NOTE: Where is the implementation of the speicfic PTG which is used in MoveOnGlobe calls?
 	selectedPTG := ptgk.ptgs[int(math.Round(inputs[ptgIndex].Value))]
 	selectedTraj, err := selectedPTG.Trajectory(inputs[trajectoryIndexWithinPTG].Value, inputs[distanceAlongTrajectoryIndex].Value)
 	if err != nil {
-		// NOTE: Why do we have to call Base.Stop() here? Its not obveous to me that we have told the base to move
-		// prior to this point in the function.
 		return multierr.Combine(err, ptgk.Base.Stop(ctx, nil))
 	}
 
@@ -233,10 +228,10 @@ func (ptgk *ptgBaseKinematics) ErrorState(ctx context.Context, plan [][]referenc
 		return nil, err
 	}
 	nominalPose = spatialmath.Compose(runningPose, currPose)
-	ptgk.logger.Debugf("curr position %v", spatialmath.PoseToProtobuf(actualPIF.Pose()))
-	ptgk.logger.Debugf("nominal position %v", spatialmath.PoseToProtobuf(nominalPose))
-	ptgk.logger.Debugf("error state %v", spatialmath.PoseToProtobuf(spatialmath.PoseBetween(nominalPose, actualPIF.Pose())))
-	ptgk.logger.Debugf("curr inputs %v", currentInputs)
+	ptgk.logger.Debugf("curr position %#v", spatialmath.PoseToProtobuf(actualPIF.Pose()))
+	ptgk.logger.Debugf("nominal position %#v", spatialmath.PoseToProtobuf(nominalPose))
+	ptgk.logger.Debugf("error state %#v", spatialmath.PoseToProtobuf(spatialmath.PoseBetween(nominalPose, actualPIF.Pose())))
+	ptgk.logger.Debugf("curr inputs %#v", currentInputs)
 
 	return spatialmath.PoseBetween(nominalPose, actualPIF.Pose()), nil
 }
