@@ -622,8 +622,6 @@ func (r *localRobot) getWeakDependencies(resName resource.Name, api resource.API
 		switch matcher {
 		case internal.ComponentDependencyWildcardMatcher:
 			match(components)
-		case internal.VisionDependencyWildcardMatcher:
-			match(visionServices)
 		case internal.SLAMDependencyWildcardMatcher:
 			match(slamServices)
 		case internal.VisionDependencyWildcardMatcher:

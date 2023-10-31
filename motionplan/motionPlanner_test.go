@@ -1020,6 +1020,5 @@ func TestArmGantryCheckPlan(t *testing.T) {
 		collisionPose, err := CheckPlan(fs.Frame("xArm6"), plan, worldState, fs, startPose, inputs, errorState, logger)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, collisionPose, test.ShouldNotBeNil)
-
 	})
 }
