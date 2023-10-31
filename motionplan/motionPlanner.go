@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/utils"
@@ -461,11 +462,12 @@ func CheckPlan(
 	currentPosition spatialmath.Pose,
 	currentInputs []frame.Input,
 	errorState spatialmath.Pose,
+	lookAheadDistanceMM float64,
 	logger logging.Logger,
-) (spatialmath.Pose, error) {
+) error {
 	// ensure that we can actually perform the check
 	if len(plan) < 1 {
-		return nil, errors.New("plan must have at least one element")
+		return errors.New("plan must have at least one element")
 	}
 
 	// construct solverFrame
@@ -473,19 +475,19 @@ func CheckPlan(
 	// entry in the very first plan waypoint
 	sf, err := newSolverFrame(fs, checkFrame.Name(), frame.World, plan[0])
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// construct planager
 	sfPlanner, err := newPlanManager(sf, fs, logger, defaultRandomSeed)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// convert plan into nodes
 	planNodes, err := sf.planToNodes(plan)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// This should be done for any plan whose configurations are specified in relative terms rather than absolute ones.
@@ -497,7 +499,7 @@ func CheckPlan(
 		// get pose of robot along the current trajectory it is executing
 		lastPose, err := sf.Transform(currentInputs)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		// where ought the robot be on the plan
@@ -508,7 +510,7 @@ func CheckPlan(
 
 		// convert planNode's poses to be in absolute coordinates
 		if planNodes, err = rectifyTPspacePath(planNodes, sf, formerRunningPose); err != nil {
-			return nil, err
+			return err
 		}
 	}
 
@@ -530,10 +532,11 @@ func CheckPlan(
 		nil, // no pb.Constraints
 		nil, // no plannOpts
 	); err != nil {
-		return nil, err
+		return err
 	}
 
 	// go through plan and check that we can move from plan[i] to plan[i+1]
+	var totalTravelDistanceMM float64
 	for i := 0; i < len(planNodes)-1; i++ {
 		currentPose := planNodes[i].Pose()
 		nextPose := planNodes[i+1].Pose()
@@ -557,12 +560,18 @@ func CheckPlan(
 
 		interpolatedConfigurations, err := interpolateSegment(segment, sfPlanner.planOpts.Resolution)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		for _, interpConfig := range interpolatedConfigurations {
 			poseInPath, err := sf.Transform(interpConfig)
 			if err != nil {
-				return nil, err
+				return err
+			}
+
+			// Check if look ahead distance has been reached
+			currentTravelDistanceMM := totalTravelDistanceMM + poseInPath.Point().Distance(r3.Vector{})
+			if currentTravelDistanceMM > lookAheadDistanceMM {
+				return nil
 			}
 			// If we are working with a PTG plan the returned value for poseInPath will only
 			// tell us how far along the arc we have traveled. Since this is only the relative position,
@@ -581,10 +590,13 @@ func CheckPlan(
 			// Checks for collision along the interpolated route and returns a the first interpolated pose where a
 			// collision is detected.
 			if isValid, _ := sfPlanner.planOpts.CheckStateConstraints(modifiedState); !isValid {
-				return poseInPath, fmt.Errorf("found collision between positions %v and %v", currentPose.Point(), nextPose.Point())
+				return fmt.Errorf("found collision between positions %v and %v", currentPose.Point(), nextPose.Point())
 			}
 		}
+
+		// Update total traveled distance after segment has been checked
+		totalTravelDistanceMM += segment.EndPosition.Point().Distance(segment.StartPosition.Point())
 	}
 
-	return nil, nil
+	return nil
 }

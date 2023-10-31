@@ -37,7 +37,7 @@ var (
 	// Places a limit on how far a potential move action can be performed.
 	moveLimit = 10000.
 	// The distance a detected obstacle can be from a base to trigger the Move command to stop.
-	validObstacleDistanceMM = 1000.
+	lookAheadDistanceMM = 1000.
 )
 
 func init() {
@@ -332,7 +332,7 @@ func (ms *explore) checkForObstacles(
 			}
 
 			// Check motionplan plan for transient obstacles
-			collisionPose, err := motionplan.CheckPlan(
+			err = motionplan.CheckPlan(
 				kb.Kinematics(),
 				plan,
 				worldState,
@@ -340,17 +340,15 @@ func (ms *explore) checkForObstacles(
 				currentPose,
 				make([]referenceframe.Input, len(kb.Kinematics().DoF())),
 				spatialmath.NewZeroPose(),
+				lookAheadDistanceMM,
 				ms.logger,
 			)
 			if err != nil {
-				// If an obstacle is detected, check if its within the valid obstacle distance to trigger an
-				// end to the checkForObstacle loop
-				if collisionPose.Point().Distance(currentPose.Point()) < validObstacleDistanceMM {
-					ms.logger.Debug("collision found")
+				if strings.Contains(err.Error(), "found collision between positions") {
+					ms.logger.Debug("collision found in given range")
 					ms.obstacleResponseChan <- moveResponse{success: true}
 					return
 				}
-				ms.logger.Debug("collision found but outside of range")
 			}
 		}
 	}
