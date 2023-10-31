@@ -490,7 +490,7 @@ func TestSetMode(t *testing.T) {
 			cfg:         "../data/nav_no_map_cfg.json",
 			mapType:     navigation.NoMap,
 			mode:        navigation.ModeExplore,
-			expectedErr: errors.New("navigation mode 'explore' is not currently available"),
+			expectedErr: nil,
 		},
 		{
 			description: "setting mode to explore when map_type is None and no vision service is configured",
@@ -518,7 +518,7 @@ func TestSetMode(t *testing.T) {
 			cfg:         "../data/nav_cfg.json",
 			mapType:     navigation.GPSMap,
 			mode:        navigation.ModeExplore,
-			expectedErr: errors.New("navigation mode 'explore' is not currently available"),
+			expectedErr: nil,
 		},
 	}
 

@@ -416,7 +416,6 @@ func (svc *builtIn) SetMode(ctx context.Context, mode navigation.Mode, extra map
 			return errors.New("explore mode requires at least one vision service")
 		}
 		svc.startExploreMode(cancelCtx)
-		return errors.New("navigation mode 'explore' is not currently available")
 	}
 
 	return nil
