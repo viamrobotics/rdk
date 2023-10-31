@@ -11,7 +11,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/utils"
@@ -569,7 +568,7 @@ func CheckPlan(
 			}
 
 			// Check if look ahead distance has been reached
-			currentTravelDistanceMM := totalTravelDistanceMM + poseInPath.Point().Distance(r3.Vector{})
+			currentTravelDistanceMM := totalTravelDistanceMM + poseInPath.Point().Distance(segment.StartPosition.Point())
 			if currentTravelDistanceMM > lookAheadDistanceMM {
 				return nil
 			}

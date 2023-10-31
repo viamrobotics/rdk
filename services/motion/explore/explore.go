@@ -138,6 +138,7 @@ type explore struct {
 	// Mutex protects the connect to other resources, the frame service/system and prevent multiple
 	// Move and/or reconfigure actions from being performed simultaneously.
 	mutex       sync.Mutex
+	planStep    int
 	components  map[resource.Name]resource.Resource
 	services    map[resource.Name]resource.Resource
 	fsService   framesystem.Service
@@ -334,7 +335,7 @@ func (ms *explore) checkForObstacles(
 			// Check motionplan plan for transient obstacles
 			err = motionplan.CheckPlan(
 				kb.Kinematics(),
-				plan,
+				plan[ms.planStep:],
 				worldState,
 				ms.frameSystem,
 				currentPose,
@@ -381,6 +382,7 @@ func (ms *explore) executePlan(ctx context.Context, kb kinematicbase.KinematicBa
 				return
 			}
 		}
+		ms.planStep += 1
 	}
 	ms.executionResponseChan <- moveResponse{success: true}
 }
