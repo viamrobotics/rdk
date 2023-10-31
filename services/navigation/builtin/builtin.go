@@ -370,6 +370,7 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		PlanDeviationMM:       1e3 * planDeviationM,
 		PositionPollingFreqHz: positionPollingFrequencyHz,
 		ObstaclePollingFreqHz: obstaclePollingFrequencyHz,
+		ObstacleCache:         motion.TransientDetections{},
 	}
 
 	return nil
@@ -574,6 +575,7 @@ func (svc *builtIn) waypointIsDeleted() bool {
 func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoObstacle, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
+	svc.motionService.Name()
 	return svc.obstacles, nil
 }
 

@@ -197,6 +197,13 @@ type MotionConfiguration struct {
 	PlanDeviationMM       float64
 	LinearMPerSec         float64
 	AngularDegsPerSec     float64
+	ObstacleCache         TransientDetections
+}
+
+// TransientDetections specifies a detection returned by a vision service
+type TransientDetections struct {
+	Obstcles  chan ([]spatialmath.Geometry)
+	CacheTime time.Time
 }
 
 // SubtypeName is the name of the type of service.
