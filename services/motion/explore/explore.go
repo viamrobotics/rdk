@@ -135,14 +135,17 @@ type explore struct {
 	executionResponseChan chan moveResponse
 	backgroundWorkers     *sync.WaitGroup
 
-	// Mutex protects the connect to other resources, the frame service/system and prevent multiple
+	// mutex protects the connect to other resources, the frame service/system and prevent multiple
 	// Move and/or reconfigure actions from being performed simultaneously.
 	mutex       sync.Mutex
-	planStep    int
 	components  map[resource.Name]resource.Resource
 	services    map[resource.Name]resource.Resource
 	fsService   framesystem.Service
 	frameSystem referenceframe.FrameSystem
+
+	// planMutex protects the current planStep to allow the obstacle detection process to know what portion of the current plan to check
+	planMutex sync.Mutex
+	planStep  int
 }
 
 func (ms *explore) MoveOnMap(
@@ -332,10 +335,15 @@ func (ms *explore) checkForObstacles(
 				ms.logger.Debugf("issue occurred generating transient worldState: %v", err)
 			}
 
-			// Check motionplan plan for transient obstacles
+			// Select remainder of plan to check
+			ms.planMutex.Lock()
+			remainingPlan := plan[ms.planStep:]
+			ms.planMutex.Unlock()
+
+			// Check remainder of plan for transient obstacles
 			err = motionplan.CheckPlan(
 				kb.Kinematics(),
-				plan[ms.planStep:],
+				remainingPlan,
 				worldState,
 				ms.frameSystem,
 				currentPose,
@@ -358,7 +366,12 @@ func (ms *explore) checkForObstacles(
 // executePlan will carry out the desired motionplan plan.
 func (ms *explore) executePlan(ctx context.Context, kb kinematicbase.KinematicBase, plan motionplan.Plan) {
 	// Iterate through motionplan plan
-	for ms.planStep = 0; ms.planStep < len(plan); ms.planStep++ {
+
+	ms.planMutex.Lock()
+	ms.planStep = 0
+	ms.planMutex.Unlock()
+
+	for ms.planStep < len(plan) {
 		select {
 		case <-ctx.Done():
 			return
@@ -382,6 +395,9 @@ func (ms *explore) executePlan(ctx context.Context, kb kinematicbase.KinematicBa
 				return
 			}
 		}
+		ms.planMutex.Lock()
+		ms.planStep++
+		ms.planMutex.Unlock()
 	}
 	ms.executionResponseChan <- moveResponse{success: true}
 }
