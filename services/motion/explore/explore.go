@@ -131,7 +131,6 @@ func (ms *explore) Reconfigure(
 type explore struct {
 	resource.Named
 	logger logging.Logger
-	closed bool
 
 	processCancelFunc     context.CancelFunc
 	obstacleResponseChan  chan moveResponse
@@ -215,9 +214,6 @@ func (ms *explore) PlanHistory(
 func (ms *explore) Close(ctx context.Context) error {
 	ms.resourceMutex.Lock()
 	defer ms.resourceMutex.Unlock()
-	if ms.closed {
-		return nil
-	}
 
 	if ms.processCancelFunc != nil {
 		ms.processCancelFunc()
@@ -240,10 +236,6 @@ func (ms *explore) Move(
 ) (bool, error) {
 	ms.resourceMutex.Lock()
 	defer ms.resourceMutex.Unlock()
-	if ms.closed {
-		ms.logger.Warn("Move called after closed")
-		return false, ErrClosed
-	}
 
 	operation.CancelOtherWithLabel(ctx, exploreOpLabel)
 
