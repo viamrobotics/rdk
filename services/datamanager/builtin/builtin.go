@@ -16,6 +16,7 @@ import (
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/internal"
 	"go.viam.com/rdk/internal/cloud"
@@ -79,11 +80,17 @@ type Config struct {
 	Tags                   []string                         `json:"tags"`
 	ResourceConfigs        []*datamanager.DataCaptureConfig `json:"resource_configs"`
 	FileLastModifiedMillis int                              `json:"file_last_modified_millis"`
+	SelectiveSync          bool                             `json:"selective_sync"`
 }
 
 // Validate returns components which will be depended upon weakly due to the above matcher.
 func (c *Config) Validate(path string) ([]string, error) {
 	return []string{cloud.InternalServiceName.String()}, nil
+}
+
+type selectiveSyncer interface {
+	sensor.Sensor
+	// ToSync() bool
 }
 
 // builtIn initializes and orchestrates data capture collectors for registered component/methods.
@@ -107,6 +114,9 @@ type builtIn struct {
 	cloudConnSvc        cloud.ConnectionService
 	cloudConn           rpc.ClientConn
 	syncTicker          *clk.Ticker
+
+	selectiveSync bool
+	syncSensor    selectiveSyncer
 }
 
 var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), ".viam", "capture")
@@ -128,6 +138,7 @@ func NewBuiltIn(
 		tags:                   []string{},
 		fileLastModifiedMillis: defaultFileLastModifiedMillis,
 		syncerConstructor:      datasync.NewManager,
+		selectiveSync:          false,
 	}
 
 	if err := svc.Reconfigure(ctx, deps, conf); err != nil {
@@ -422,6 +433,22 @@ func (svc *builtIn) Reconfigure(
 		fileLastModifiedMillis = defaultFileLastModifiedMillis
 	}
 
+	svc.selectiveSync = svcConfig.SelectiveSync
+	syncSensor, err := sensor.FromDependencies(deps, "selective-syncer")
+	if err != nil || syncSensor == nil {
+		svc.logger.Warnw("trying to make syncer", "error", err.Error())
+	}
+	if err == nil {
+		svc.logger.Info(syncSensor.Readings(ctx, nil))
+		syncSensor, err := utils.AssertType[*sensor.Sensor](syncSensor)
+		if err != nil {
+			svc.logger.Warnw("something bad happened", "error", err.Error())
+		} else {
+			svc.logger.Info("made syncer")
+			svc.syncSensor = *syncSensor
+		}
+	}
+
 	if svc.syncDisabled != svcConfig.ScheduledSyncDisabled || svc.syncIntervalMins != svcConfig.SyncIntervalMins ||
 		!reflect.DeepEqual(svc.tags, svcConfig.Tags) || svc.fileLastModifiedMillis != fileLastModifiedMillis {
 		svc.syncDisabled = svcConfig.ScheduledSyncDisabled
@@ -507,16 +534,22 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 
 func (svc *builtIn) sync() {
 	svc.flushCollectors()
-	toSync := getAllFilesToSync(svc.captureDir, svc.fileLastModifiedMillis)
-	for _, ap := range svc.additionalSyncPaths {
-		toSync = append(toSync, getAllFilesToSync(ap, svc.fileLastModifiedMillis)...)
-	}
-	for _, p := range toSync {
-		svc.syncer.SyncFile(p)
-	}
+	// var readyToSync bool
+	// if svc.selectiveSync && !reflect.ValueOf(svc.selectiveSync).IsZero() {
+	// 	readyToSync = svc.syncSensor.ToSync()
+	// }
+	// if readyToSync || !svc.selectiveSync {
+	// 	toSync := getAllFilesToSync(svc.captureDir, svc.fileLastModifiedMillis)
+	// 	for _, ap := range svc.additionalSyncPaths {
+	// 		toSync = append(toSync, getAllFilesToSync(ap, svc.fileLastModifiedMillis)...)
+	// 	}
+	// 	for _, p := range toSync {
+	// 		svc.syncer.SyncFile(p)
+	// 	}
+	// }
 }
 
-//nolint
+// nolint
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
