@@ -508,7 +508,7 @@ func (ms *builtIn) relativeMoveRequestFromAbsolute(
 		return nil, err
 	}
 
-	poseBetween := spatialmath.PoseBetween(startPose.Pose(), spatialmath.PoseBetween(startPose.Pose(), goalPoseInWorld))
+	poseBetween := spatialmath.PoseBetween(startPose.Pose(), goalPoseInWorld)
 	if err := motion.ValidatePose(poseBetween); err != nil {
 		return nil, err
 	}
