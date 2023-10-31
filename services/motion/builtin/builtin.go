@@ -43,8 +43,9 @@ func init() {
 }
 
 const (
-	builtinOpLabel      = "motion-service"
-	maxTravelDistanceMM = 5e6 // this is equivalent to 5km
+	builtinOpLabel              = "motion-service"
+	maxTravelDistanceMM         = 5e6 // this is equivalent to 5km
+	lookAheadDistanceMM float64 = 5e6
 )
 
 // inputEnabledActuator is an actuator that interacts with the frame system.

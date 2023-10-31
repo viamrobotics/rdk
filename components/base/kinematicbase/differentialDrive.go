@@ -89,6 +89,10 @@ func (ddk *differentialDriveKinematics) Kinematics() referenceframe.Frame {
 }
 
 func (ddk *differentialDriveKinematics) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
+	if ddk.Localizer == nil {
+		return []referenceframe.Input{{Value: 0}, {Value: 0}, {Value: 0}}, nil
+	}
+
 	// TODO(rb): make a transformation from the component reference to the base frame
 	pif, err := ddk.CurrentPosition(ctx)
 	if err != nil {
@@ -135,7 +139,7 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 
 			// get to the x, y location first - note that from the base's perspective +y is forward
 			desiredHeading := math.Atan2(desired[1].Value-current[1].Value, desired[0].Value-current[0].Value)
-			commanded, err := ddk.issueCommand(cancelContext, current, []referenceframe.Input{desired[0], desired[1], {desiredHeading}})
+			commanded, err := ddk.issueCommand(cancelContext, current, []referenceframe.Input{desired[0], desired[1], {Value: desiredHeading}})
 			if err != nil {
 				movementErr <- err
 				return
@@ -158,6 +162,11 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 					return
 				}
 			}
+			// If no localizer is present assume desired location was reached and exit
+			if ddk.Localizer == nil {
+				movementErr <- nil
+				return
+			}
 
 			current, err = ddk.CurrentInputs(cancelContext)
 			if err != nil {
@@ -179,6 +188,10 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 		case err := <-movementErr:
 			return err
 		default:
+		}
+		// Skip position checks and just wait for response from movementErr channel
+		if ddk.Localizer == nil {
+			continue
 		}
 		currentInputs, err := ddk.CurrentInputs(ctx)
 		if err != nil {
@@ -250,7 +263,7 @@ func (ddk *differentialDriveKinematics) inputDiff(current, desired []referencefr
 // too far from its path.
 func (ddk *differentialDriveKinematics) newValidRegionCapsule(starting, desired []referenceframe.Input) (spatialmath.Geometry, error) {
 	pt := r3.Vector{X: (desired[0].Value + starting[0].Value) / 2, Y: (desired[1].Value + starting[1].Value) / 2}
-	positionErr, _, err := ddk.inputDiff(starting, []referenceframe.Input{desired[0], desired[1], {0}})
+	positionErr, _, err := ddk.inputDiff(starting, []referenceframe.Input{desired[0], desired[1], {Value: 0}})
 	if err != nil {
 		return nil, err
 	}

@@ -184,6 +184,7 @@ func (mr *moveRequest) obstaclesIntersectPlan(ctx context.Context, waypoints [][
 				currentPosition.Pose(), // currentPosition of robot accounts for errorState
 				currentInputs,
 				errorState, // deviation of robot from plan
+				lookAheadDistanceMM,
 				mr.planRequest.Logger,
 			); err != nil {
 				mr.planRequest.Logger.Info(err.Error())
