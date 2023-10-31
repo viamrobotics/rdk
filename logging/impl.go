@@ -55,7 +55,7 @@ func (impl *impl) log(msg string) {
 func (impl *impl) getPrefix(logLevel Level) string {
 	const prefixLength = 6
 	toPrint := make([]any, prefixLength)
-	toPrint[0] = time.Now().Format("2006-01-02T15:04:05.000Z0700")
+	toPrint[0] = time.Now().Format("2006-01-02T15:04:05.000Z")
 	toPrint[1] = "\t"
 	toPrint[2] = strings.ToUpper(logLevel.String())
 	toPrint[3] = "\t"
