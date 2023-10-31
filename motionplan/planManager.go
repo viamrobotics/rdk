@@ -230,6 +230,9 @@ func (pm *planManager) planAtomicWaypoints(
 				return nil, err
 			}
 		}
+		if pm.useTPspace && pm.opt().PositionSeeds > 0 {
+			maps = pm.fillPosOnlyGoal(maps, goal)
+		}
 		// Plan the single waypoint, and accumulate objects which will be used to constrauct the plan after all planning has finished
 		newseed, future, err := pm.planSingleAtomicWaypoint(ctx, goal, seed, pathPlanner, maps)
 		if err != nil {
@@ -319,7 +322,7 @@ func (pm *planManager) planParallelRRTMotion(
 	var err error
 	// If we don't pass in pre-made maps, initialize and seed with IK solutions here
 	if !pm.useTPspace {
-		if maps == nil {
+		if maps == nil || maps.startMap == nil {
 			planSeed := initRRTSolutions(ctx, pathPlanner, seed)
 			if planSeed.planerr != nil || planSeed.steps != nil {
 				solutionChan <- planSeed
@@ -335,6 +338,9 @@ func (pm *planManager) planParallelRRTMotion(
 				startMap: map[node]node{startNode: nil},
 				goalMap:  map[node]node{goalNode: nil},
 			}
+		} else if maps.startMap == nil {
+			startNode := &basicNode{q: make([]referenceframe.Input, len(pm.frame.DoF())), pose: spatialmath.NewZeroPose()}
+			maps.startMap = map[node]node{startNode: nil}
 		}
 	}
 
@@ -599,7 +605,9 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		opt.pathMetric = pathMetric
 	case PositionOnlyMotionProfile:
 		opt.profile = PositionOnlyMotionProfile
-		opt.goalMetricConstructor = ik.NewPositionOnlyMetric
+		if !pm.useTPspace || opt.PositionSeeds <= 0 {
+			opt.goalMetricConstructor = ik.NewPositionOnlyMetric
+		}
 	case FreeMotionProfile:
 		// No restrictions on motion
 		fallthrough
@@ -693,6 +701,25 @@ func (pm *planManager) planToRRTGoalMap(plan Plan, goal spatialmath.Pose) (*rrtM
 	}
 
 	return maps, nil
+}
+
+func (pm *planManager) fillPosOnlyGoal(maps *rrtMaps, goal spatialmath.Pose) *rrtMaps {
+	thetaStep := 360. / float64(pm.opt().PositionSeeds)
+	if maps == nil {
+		maps = &rrtMaps{}
+	}
+	if maps.goalMap == nil {
+		maps.goalMap = map[node]node{}
+	}
+	for i := 0; i < pm.opt().PositionSeeds; i++ {
+		goalNode := &basicNode{
+			q: make([]referenceframe.Input, len(pm.frame.DoF())),
+			pose: spatialmath.NewPose(goal.Point(), &spatialmath.OrientationVectorDegrees{OZ:1, Theta: float64(i) * thetaStep}),
+		}
+		fmt.Println("adding", spatialmath.PoseToProtobuf(goalNode.pose))
+		maps.goalMap[goalNode] = nil
+	}
+	return maps
 }
 
 // Copy any atomic values.

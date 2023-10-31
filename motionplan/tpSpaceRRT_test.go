@@ -102,7 +102,7 @@ func TestPtgRrtBidirectional(t *testing.T) {
 	}
 }
 
-func TestPtgRrtUnidirectional(t *testing.T) {
+func TestPtgPosOnlyUnidirectional(t *testing.T) {
 	t.Parallel()
 	logger := logging.NewTestLogger(t)
 	roverGeom, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{10, 10, 10}, "")
@@ -127,11 +127,15 @@ func TestPtgRrtUnidirectional(t *testing.T) {
 	goalPos := spatialmath.NewPose(r3.Vector{X: 200, Y: 7000, Z: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 90})
 
 	opt := newBasicPlannerOptions(ackermanFrame)
+	opt.profile = PositionOnlyMotionProfile
 	opt.DistanceFunc = ik.SquaredNormNoOrientSegmentMetric
 	opt.goalMetricConstructor = ik.NewPositionOnlyMetric
 	mp, err := newTPSpaceMotionPlanner(ackermanFrame, rand.New(rand.NewSource(42)), logger, opt)
 	test.That(t, err, test.ShouldBeNil)
 	tp, ok := mp.(*tpSpaceRRTMotionPlanner)
+
+	test.That(t, tp.algOpts.bidirectional, test.ShouldBeFalse)
+
 	tp.algOpts.pathdebug = printPath
 	if tp.algOpts.pathdebug {
 		tp.logger.Debug("$type,X,Y")
@@ -539,4 +543,8 @@ func TestPtgCheckPlan(t *testing.T) {
 		err = CheckPlan(ackermanFrame, steps[2:len(steps)-1], worldState, fs, startPose, inputs, errorState, logger)
 		test.That(t, err, test.ShouldBeNil)
 	})
+}
+
+func TestPtgPositionOnlyGoalGeneration(t *testing.T) {
+	
 }

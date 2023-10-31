@@ -151,6 +151,9 @@ type plannerOptions struct {
 	// Number of iterations to mrun before beginning to accept randomly seeded locations.
 	IterBeforeRand int `json:"iter_before_rand"`
 
+	// Number of seeds to pre-generate for bidirectional position-only solving.
+	PositionSeeds int `json:"position_seeds"`
+
 	// This is how far cbirrt will try to extend the map towards a goal per-step. Determined from FrameStep
 	qstep []float64
 

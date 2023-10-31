@@ -3,6 +3,7 @@ package motionplan
 import (
 	"context"
 	"math"
+	"fmt"
 	"math/rand"
 	"testing"
 
@@ -817,6 +818,46 @@ func TestReplan(t *testing.T) {
 	newPlan2, err := Replan(ctx, planRequest, firstplan, 0.1)
 	test.That(t, newPlan2, test.ShouldBeNil)
 	test.That(t, err, test.ShouldBeError, errHighReplanCost) // Replan factor too low!
+}
+
+func TestPtgPosOnlyBidirectional(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	sphere, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 10, "base")
+	test.That(t, err, test.ShouldBeNil)
+
+	kinematicFrame, err := tpspace.NewPTGFrameFromKinematicOptions(
+		"itsabase",
+		logger,
+		200, 60, 0, 1000,
+		2,
+		[]spatialmath.Geometry{sphere},
+		false,
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	goal := spatialmath.NewPoseFromPoint(r3.Vector{1000, 8000, 0})
+
+	extra := map[string]interface{}{"motion_profile": "position_only", "position_seeds": 16}
+
+	baseFS := frame.NewEmptyFrameSystem("baseFS")
+	err = baseFS.AddFrame(kinematicFrame, baseFS.World())
+	test.That(t, err, test.ShouldBeNil)
+
+	planRequest := &PlanRequest{
+		Logger:             logger,
+		Goal:               frame.NewPoseInFrame(frame.World, goal),
+		Frame:              kinematicFrame,
+		FrameSystem:        baseFS,
+		StartConfiguration: frame.StartPositions(baseFS),
+		WorldState:         nil,
+		Options:            extra,
+	}
+
+	firstplan, err := PlanMotion(ctx, planRequest)
+	test.That(t, err, test.ShouldBeNil)
+	fmt.Println("firstplan", firstplan)
 }
 
 func TestValidatePlanRequest(t *testing.T) {
