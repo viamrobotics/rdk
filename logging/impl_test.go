@@ -157,7 +157,7 @@ func TestConsoleOutputFormat(t *testing.T) {
 
 	// A few examples of structs.
 	impl.Infow("impl logw", "key", "val", "StructWithAnonymousStruct", StructWithAnonymousStruct{1, struct{ Y1 string }{"y1"}, "foo"})
-	//nolint:lll
+
 	assertLogMatches(t, notStdout,
 		`2023-10-30T13:20:47.129Z	INFO	logging/impl_test.go:121	impl logw	{"StructWithAnonymousStruct":{"Y":{"Y1":"y1"},"Z":"foo"},"key":"val"}`)
 

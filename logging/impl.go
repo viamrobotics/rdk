@@ -13,18 +13,20 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-type impl struct {
-	name  string
-	level Level
+type (
+	impl struct {
+		name  string
+		level Level
 
-	out io.Writer
-}
+		out io.Writer
+	}
 
-type Field = zapcore.Field
-type LogEntry struct {
-	zapcore.Entry
-	fields []Field
-}
+	// LogEntry embeds a zapcore Entry and slice of Fields.
+	LogEntry struct {
+		zapcore.Entry
+		fields []zapcore.Field
+	}
+)
 
 func (impl impl) NewLogEntry() *LogEntry {
 	ret := &LogEntry{}
@@ -58,6 +60,7 @@ func callerToString(caller *zapcore.EntryCaller) string {
 	return fmt.Sprintf("%s:%d", caller.File[idx+1:], caller.Line)
 }
 
+// ToConsoleString turns a LogEntry into a string suitable for printing to stdout or writing to a file.
 func (logEntry *LogEntry) ToConsoleString() string {
 	const maxLength = 10
 	toPrint := make([]string, 0, maxLength)
@@ -139,7 +142,7 @@ func (impl *impl) formatw(logLevel Level, msg string, keysAndValues ...interface
 	logEntry.Level = logLevel.AsZap()
 	logEntry.Message = msg
 
-	logEntry.fields = make([]Field, 0, len(keysAndValues)/2)
+	logEntry.fields = make([]zapcore.Field, 0, len(keysAndValues)/2)
 	for keyIdx := 0; keyIdx < len(keysAndValues); keyIdx += 2 {
 		keyObj := keysAndValues[keyIdx]
 		var keyStr string
@@ -153,7 +156,7 @@ func (impl *impl) formatw(logLevel Level, msg string, keysAndValues ...interface
 			logEntry.fields = append(logEntry.fields, zap.Any(keyStr, keysAndValues[keyIdx+1]))
 		} else {
 			// API mis-use
-			logEntry.fields = append(logEntry.fields, zap.Any(keyStr, errors.New("Unpaired log key")))
+			logEntry.fields = append(logEntry.fields, zap.Any(keyStr, errors.New("unpaired log key")))
 		}
 	}
 

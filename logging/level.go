@@ -43,6 +43,7 @@ func (level Level) String() string {
 	panic(fmt.Sprintf("unreachable: %d", level))
 }
 
+// AsZap converts the Level to a `zapcore.Level`.
 func (level Level) AsZap() zapcore.Level {
 	switch level {
 	case DEBUG:
