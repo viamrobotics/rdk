@@ -176,7 +176,7 @@ func (mr *moveRequest) obstaclesIntersectPlan(ctx context.Context, waypoints [][
 				return false, err
 			}
 
-			if err := motionplan.CheckPlan(
+			if _, err := motionplan.CheckPlan(
 				mr.kinematicBase.Kinematics(), // frame we wish to check for collisions
 				plan,                          // remainder of plan we wish to check against
 				worldState,                    // detected obstacles by this instance of camera + service
