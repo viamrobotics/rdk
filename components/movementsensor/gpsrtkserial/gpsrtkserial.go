@@ -38,9 +38,9 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"net"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/de-bkg/gognss/pkg/ntrip"
 	"github.com/edaniels/golog"
@@ -404,6 +404,7 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 	if nmeaerr != nil {
 		g.logger.Errorf("can't find mountpoint in source table, found err %v\n", nmeaerr)
 	}
+
 	g.logger.Debug("found if it is a virtual base or not")
 	err = g.openPort()
 	if err != nil {
@@ -420,6 +421,10 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 		return
 	}
 
+	if isVirtualBase {
+		g.sendGGAMessage(g.ntripClient.URL)
+	}
+
 	r := io.TeeReader(g.ntripClient.Stream, w)
 	scanner := rtcm3.NewScanner(r)
 
@@ -434,16 +439,6 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 		case <-g.cancelCtx.Done():
 			return
 		default:
-		}
-
-		// if we are dealing with a Virtual Base, we need to send GGA messages to
-		// the caster in order to get NTRIP stream.
-		if isVirtualBase {
-			g.logger.Debug("connecting to a virtual base")
-			for i := 0; i < 5; i++ {
-				g.sendGGAMessage()
-				time.Sleep(1 * time.Second)
-			}
 		}
 
 		msg, err := scanner.NextMessage()
@@ -669,73 +664,95 @@ func (g *rtkSerial) Close(ctx context.Context) error {
 
 // sendGGAMessage sends GGA messages to the serial port. This is only used to get NTRIP stream
 // from a virtual reference point.
-func (g *rtkSerial) sendGGAMessage() error {
-	// Open the serial port for reading
-	serialPort, err := slib.Open(slib.OpenOptions{
-		PortName:        g.writePath,
-		BaudRate:        uint(g.wbaud),
-		DataBits:        8,
-		StopBits:        1,
-		MinimumReadSize: 1,
-	})
+// func (g *rtkSerial) sendGGAMessage() {
+// 	// Ensure the Ntrip client and serial port are properly initialized
+// 	if g.ntripClient == nil || g.correctionWriter == nil {
+// 		g.err.Set(errors.New("ntrip client or serial port not properly initialized"))
+// 		return
+// 	}
+
+// 	// Continuously read Ntrip correction data from the Ntrip stream
+// 	buffer := make([]byte, 1024)
+// 	g.logger.Debug("made buffer")
+// 	for {
+// 		select {
+// 		case <-g.cancelCtx.Done():
+// 			return
+// 		default:
+// 		}
+
+// 		n, err := g.correctionWriter.Read(buffer)
+// 		g.logger.Debugf("finished reading stream: %v\n", buffer[:n])
+// 		if err != nil {
+// 			g.logger.Errorf("Error reading from Ntrip stream: %v", err)
+// 			return
+// 		}
+
+// 		// Check if the received data contains "GGA"
+// 		if containsGGAMessage(buffer[:n]) {
+// 			g.logger.Debugf("found GGA messge: %v\n", string(buffer[:n]))
+// 			// Write the Ntrip correction data to the serial port
+// 			_, err := //g.correctionWriter.Write(buffer[:n])
+// 			if err != nil {
+// 				g.logger.Errorf("Error writing to serial port: %v", err)
+// 				return
+// 			}
+// 			g.logger.Debug("finished writing to correction writer")
+// 			return // Exit the loop when "GGA" is found and written
+// 		}
+// 	}
+// }
+
+func (g *rtkSerial) sendGGAMessage(url string) {
+	// Create a TCP connection to the VRS server
+	serverAddr := url
+	conn, err := net.Dial("tcp", serverAddr[len("http://"):])
 	if err != nil {
-		g.logger.Debug("errored while opening serial port")
-		g.err.Set(err)
-		return g.err.Get()
+		fmt.Println("Failed to connect to VRS server:", err)
+		return
 	}
-	defer func() {
-		if closeErr := serialPort.Close(); closeErr != nil {
-			g.logger.Errorf("error while close serial port after writing GGA message: %v", closeErr)
+	defer conn.Close()
+
+	buffer := make([]byte, 1024)
+	g.logger.Debug("made buffer")
+	for {
+		select {
+		case <-g.cancelCtx.Done():
+			return
+		default:
+		}
+
+		n, err := g.correctionWriter.Read(buffer)
+		g.logger.Debugf("finished reading stream: %v\n", buffer[:n])
+		if err != nil {
+			g.logger.Errorf("Error reading from Ntrip stream: %v", err)
 			return
 		}
-	}()
 
-	// Create a buffer to collect NMEA messages
-	messageBuffer := make([]byte, 0, 1024)
-	g.logger.Debug("made buffer")
-
-	select {
-	case <-g.cancelCtx.Done():
-		return g.err.Get() // better error message
-	default:
-	}
-
-	// Read from the serial port
-	bytesRead, err := serialPort.Read(messageBuffer)
-	if err != nil {
-		g.logger.Debug("can not read from serial port")
-		g.err.Set(err)
-		return g.err.Get()
-	}
-	g.logger.Debug("finished reading from serial port")
-
-	// Convert the received bytes to a string
-	receivedData := string(messageBuffer[:bytesRead])
-	g.logger.Debug("finished converting bytes to string")
-
-	// Check for NMEA GGA messages
-	messages := strings.Split(receivedData, "\n")
-	for _, message := range messages {
-		if strings.Contains(message, "GGA") {
-			g.logger.Debug("found GGA message, writing to correctionwriter")
-			// Send the GGA message to the NTRIP caster
-			g.correctionWriterMutex.Lock()
-			_, err := g.correctionWriter.Write([]byte(message))
-			g.correctionWriterMutex.Unlock()
-
+		// Check if the received data contains "GGA"
+		if containsGGAMessage(buffer[:n]) {
+			g.logger.Debugf("found GGA messge: %v\n", string(buffer[:n]))
+			// replacedSentence := strings.Replace(string(buffer[:n]), "GN", "GP", 1)
+			// g.logger.Debugf("new sentence: %v\n", replacedSentence)
+			// Write the Ntrip correction data to the serial port
+			_, err = fmt.Fprintf(conn, string(buffer[:n]))
 			if err != nil {
-				g.logger.Errorf("Error writing to correctionWriter: %v", err)
-				return err
-			} else {
-				g.logger.Debug("Successfully wrote to correctionWriter")
+				fmt.Println("Failed to send GGA message:", err)
+				return
 			}
+
+			fmt.Println("GGA message sent successfully.")
+			return
 		}
+
 	}
 
-	// Clear the message buffer
-	messageBuffer = messageBuffer[:0]
-	g.logger.Debug("cleared buffer")
-	return nil
+}
+
+func containsGGAMessage(data []byte) bool {
+	// Convert the data to a string and check if it contains "GGA"
+	dataStr := string(data)
+	return strings.Contains(dataStr, "GGA")
 }
 
 // findLineWithMountPoint parses the given source-table returns the nmea bool of the given mount point.
