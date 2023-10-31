@@ -1,7 +1,7 @@
 package logging
 
 import (
-	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -18,6 +18,67 @@ type impl struct {
 	level Level
 
 	out io.Writer
+}
+
+type Field = zapcore.Field
+type LogEntry struct {
+	zapcore.Entry
+	fields []Field
+}
+
+func (impl impl) NewLogEntry() *LogEntry {
+	ret := &LogEntry{}
+	ret.Time = time.Now()
+	ret.LoggerName = impl.name
+	ret.Caller = getCaller()
+
+	return ret
+}
+
+// The input `caller` must satisfy `caller.Defined == true`.
+func callerToString(caller *zapcore.EntryCaller) string {
+	// The file returned by `runtime.Caller` is a full path and always contains '/' to separate
+	// directories. Including on windows. We only want to keep the `<package>/<file>` part of the
+	// path. We use a stateful lambda to count back two '/' runes.
+	cnt := 0
+	idx := strings.LastIndexFunc(caller.File, func(rn rune) bool {
+		if rn == '/' {
+			cnt++
+		}
+
+		if cnt == 2 {
+			return true
+		}
+
+		return false
+	})
+
+	// If idx >= 0, then we add 1 to trim the leading '/'.
+	// If idx == -1 (not found), we add 1 to return the entire file.
+	return fmt.Sprintf("%s:%d", caller.File[idx+1:], caller.Line)
+}
+
+func (logEntry *LogEntry) ToConsoleString() string {
+	const maxLength = 10
+	toPrint := make([]string, 0, maxLength)
+	toPrint = append(toPrint, logEntry.Time.Format("2006-01-02T15:04:05.000Z"))
+	toPrint = append(toPrint, strings.ToUpper(logEntry.Level.String()))
+	if logEntry.Caller.Defined {
+		toPrint = append(toPrint, callerToString(&logEntry.Caller))
+	}
+	toPrint = append(toPrint, logEntry.Message)
+	if len(logEntry.fields) == 0 {
+		return strings.Join(toPrint, "\t")
+	}
+
+	jsonEncoder := zapcore.NewJSONEncoder(zapcore.EncoderConfig{SkipLineEnding: true})
+	buf, err := jsonEncoder.EncodeEntry(zapcore.Entry{}, logEntry.fields)
+	if err != nil {
+		panic(err)
+	}
+	toPrint = append(toPrint, string(buf.Bytes()))
+
+	return strings.Join(toPrint, "\t")
 }
 
 func (impl *impl) Desugar() *zap.Logger {
@@ -48,74 +109,55 @@ func (impl *impl) shouldLog(logLevel Level) bool {
 	return logLevel >= impl.level
 }
 
-func (impl *impl) log(msg string) {
-	fmt.Fprintln(impl.out, msg)
+func (impl *impl) log(entry *LogEntry) {
+	fmt.Fprintln(impl.out, entry.ToConsoleString())
 }
 
-func (impl *impl) getPrefix(logLevel Level) string {
-	const prefixLength = 6
-	toPrint := make([]any, prefixLength)
-	toPrint[0] = time.Now().Format("2006-01-02T15:04:05.000Z")
-	toPrint[1] = "\t"
-	toPrint[2] = strings.ToUpper(logLevel.String())
-	toPrint[3] = "\t"
-	toPrint[4] = getCaller()
-	toPrint[5] = "\t"
+// Constructs the log message by forwarding to `fmt.Sprint`.
+func (impl *impl) format(logLevel Level, args ...interface{}) *LogEntry {
+	logEntry := impl.NewLogEntry()
+	logEntry.Level = logLevel.AsZap()
+	logEntry.Message = fmt.Sprint(args...)
 
-	return fmt.Sprint(toPrint...)
+	return logEntry
 }
 
-// Forwards straight to `fmt.Sprint` without any formatting.
-func (impl *impl) format(logLevel Level, args ...interface{}) string {
-	// 2023-10-25T15:57:11.979-0400	INFO	zap	logging/impl_test.go:36	Info log
-	toPrint := make([]any, len(args)+1)
-	toPrint[0] = impl.getPrefix(logLevel)
-	for idx := 0; idx < len(args); idx++ {
-		toPrint[idx+1] = args[idx]
-	}
+// Constructs the log message by forwarding to `fmt.Sprintf`.
+func (impl *impl) formatf(logLevel Level, template string, args ...interface{}) *LogEntry {
+	logEntry := impl.NewLogEntry()
+	logEntry.Level = logLevel.AsZap()
+	logEntry.Message = fmt.Sprintf(template, args...)
 
-	return fmt.Sprint(toPrint...)
-}
-
-// Forwards to `fmt.Sprintf` which does standard Go formatting.
-func (impl *impl) formatf(logLevel Level, template string, args ...interface{}) string {
-	toPrint := impl.getPrefix(logLevel)
-	logValue := fmt.Sprintf(template, args...)
-
-	return fmt.Sprintf("%s%s", toPrint, logValue)
+	return logEntry
 }
 
 // Turns `keysAndValues` into a map where the odd elements are the keys and their following even
 // counterpart is the value. The keys are expected to be strings. The values are json
 // serialized. Only public fields are included in the serialization.
-func (impl *impl) formatw(logLevel Level, msg string, keysAndValues ...interface{}) string {
-	prefix := impl.getPrefix(logLevel)
-	mp := make(map[string]any)
+func (impl *impl) formatw(logLevel Level, msg string, keysAndValues ...interface{}) *LogEntry {
+	logEntry := impl.NewLogEntry()
+	logEntry.Level = logLevel.AsZap()
+	logEntry.Message = msg
+
+	logEntry.fields = make([]Field, 0, len(keysAndValues)/2)
 	for keyIdx := 0; keyIdx < len(keysAndValues); keyIdx += 2 {
-		key := keysAndValues[keyIdx]
-		var val any
-		if keyIdx+1 < len(keysAndValues) {
-			val = keysAndValues[keyIdx+1]
-		}
-
-		if stringer, ok := key.(fmt.Stringer); ok {
-			mp[stringer.String()] = val
+		keyObj := keysAndValues[keyIdx]
+		var keyStr string
+		if stringer, ok := keyObj.(fmt.Stringer); ok {
+			keyStr = stringer.String()
 		} else {
-			mp[fmt.Sprintf("%v", key)] = val
+			keyStr = fmt.Sprintf("%v", keyObj)
+		}
+
+		if keyIdx+1 < len(keysAndValues) {
+			logEntry.fields = append(logEntry.fields, zap.Any(keyStr, keysAndValues[keyIdx+1]))
+		} else {
+			// API mis-use
+			logEntry.fields = append(logEntry.fields, zap.Any(keyStr, errors.New("Unpaired log key")))
 		}
 	}
 
-	// Zap structured logging omits private fields. Thus JSON marshalling should be sufficient.
-	var encMapStr string
-	encMapBytes, err := json.Marshal(mp)
-	if err == nil {
-		encMapStr = string(encMapBytes)
-	} else {
-		encMapStr = fmt.Sprintf("%v", mp)
-	}
-
-	// The prefix has a trailing tab character. Directly concatenate the `prefix` with the `msg`.
-	return fmt.Sprintf("%s%s\t%s", prefix, msg, encMapStr)
+	return logEntry
 }
 
 func (impl *impl) Debug(args ...interface{}) {
@@ -206,30 +248,25 @@ func (impl *impl) Fatalw(msg string, keysAndValues ...interface{}) {
 	os.Exit(1)
 }
 
-// Return example: "logging/impl_test.go:36".
-func getCaller() string {
-	_, file, line, ok := runtime.Caller(4)
+// Return example: "logging/impl_test.go:36". `entryCaller` is an outParameter.
+func getCaller() zapcore.EntryCaller {
+	var ok bool
+	var entryCaller zapcore.EntryCaller
+	const skipToLogCaller = 4
+	entryCaller.PC, entryCaller.File, entryCaller.Line, ok = runtime.Caller(skipToLogCaller)
 	if !ok {
-		return "unknown_file.go:0"
+		return entryCaller
+	}
+	entryCaller.Defined = true
+
+	// Getting an individual program counter and the file/line/function at that address can be
+	// nuanced due to inlining. The alternative is getting all program counters on the stack and
+	// iterating through the associated frames with `runtime.CallersFrames`. A note to future
+	// readers that this choice is due to less coding/convenience.
+	runtimeFunc := runtime.FuncForPC(entryCaller.PC)
+	if runtimeFunc != nil {
+		entryCaller.Function = runtimeFunc.Name()
 	}
 
-	// The file returned by `runtime.Caller` is a full path and always contains '/' to separate
-	// directories. Including on windows. We only want to keep the `<package>/<file>` part of the
-	// path. We use a stateful lambda to count back two '/' runes.
-	cnt := 0
-	idx := strings.LastIndexFunc(file, func(rn rune) bool {
-		if rn == '/' {
-			cnt++
-		}
-
-		if cnt == 2 {
-			return true
-		}
-
-		return false
-	})
-
-	// If idx >= 0, then we add 1 to trim the leading '/'.
-	// If idx == -1 (not found), we add 1 to return the entire file.
-	return fmt.Sprintf("%s:%d", file[idx+1:], line)
+	return entryCaller
 }
