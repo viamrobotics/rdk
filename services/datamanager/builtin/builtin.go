@@ -93,6 +93,8 @@ type selectiveSyncer interface {
 	sensor.Sensor
 }
 
+// readyToSync is a method for getting the bool reading from the selective sync sensor
+// for determining whether the key is present and what its value is.
 func readyToSync(ctx context.Context, s selectiveSyncer, logger logging.Logger) bool {
 	readyToSync := false
 	readings, err := s.Readings(ctx, nil)
@@ -551,6 +553,8 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 func (svc *builtIn) sync(ctx context.Context) {
 	svc.flushCollectors()
 	readyToSyncBool := false
+	// If selective sync is enabled and the sensor has been properly initialized,
+	// try to get the reading from the selective sensor that indicates whether to sync
 	if svc.selectiveSync && svc.syncSensor != nil {
 		readyToSyncBool = readyToSync(ctx, svc.syncSensor, svc.logger)
 	}
