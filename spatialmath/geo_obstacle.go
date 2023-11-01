@@ -1,13 +1,9 @@
 package spatialmath
 
 import (
-	"math"
-
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	commonpb "go.viam.com/api/common/v1"
-
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 // GeoObstacle is a struct to store the location and geometric structure of an obstacle in a geospatial environment.
@@ -145,18 +141,6 @@ func GeoPointToPose(point, origin *geo.Point) Pose {
 	}
 }
 
-func PoseToGeoPoint(relativeTo GeoPose, p Pose) GeoPose {
-	bearingRad := math.Atan2(-p.Point().X, p.Point().Y)
-	bearing := bearingRad * 180 / math.Pi * -1
-	headingRight := p.Orientation().OrientationVectorDegrees().Theta
-	headingLeft := rdkutils.SwapCompasHeadingHandedness(headingRight)
-
-	// get the maginitude of the pose
-	magnitude := p.Point().Norm()
-	newLoc := relativeTo.GetLocation().PointAtDistanceAndBearing(magnitude, math.Mod(bearing+relativeTo.GetHeading(), 360))
-	return *NewGeoPose(newLoc, math.Mod(headingLeft+relativeTo.GetHeading(), 360))
-}
-
 // GeoObstaclesToGeometries converts a list of GeoObstacles into a list of Geometries.
 func GeoObstaclesToGeometries(obstacles []*GeoObstacle, origin *geo.Point) []Geometry {
 	// we note that there are two transformations to be accounted for
@@ -175,24 +159,24 @@ func GeoObstaclesToGeometries(obstacles []*GeoObstacle, origin *geo.Point) []Geo
 
 // GeoPose is a struct to store to location and heading in a geospatial environment.
 type GeoPose struct {
-	Location *geo.Point
-	Heading  float64
+	location *geo.Point
+	heading  float64
 }
 
 // NewGeoPose constructs a GeoPose from a geo.Point and float64.
 func NewGeoPose(loc *geo.Point, heading float64) *GeoPose {
 	return &GeoPose{
-		Location: loc,
-		Heading:  heading,
+		location: loc,
+		heading:  heading,
 	}
 }
 
-// GetLocation returns the locating coordinates of the GeoPose.
-func (gpo *GeoPose) GetLocation() *geo.Point {
-	return gpo.Location
+// Location returns the locating coordinates of the GeoPose.
+func (gpo *GeoPose) Location() *geo.Point {
+	return gpo.location
 }
 
-// GetHeading returns a number from [0-360) where 0 is north.
-func (gpo *GeoPose) GetHeading() float64 {
-	return gpo.Heading
+// Heading returns a number from [0-360) where 0 is north.
+func (gpo *GeoPose) Heading() float64 {
+	return gpo.heading
 }

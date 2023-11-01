@@ -4,19 +4,14 @@ package motionplan
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
 	"math/rand"
-	"os"
-	"path"
 	"sync"
-	"time"
 
 	"github.com/golang/geo/r3"
 	"go.uber.org/multierr"
-	v1 "go.viam.com/api/common/v1"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/logging"
@@ -896,18 +891,6 @@ func rectifyTPspacePath(path []node, frame referenceframe.Frame, startPose spati
 	return correctedPath, nil
 }
 
-type RecityfiedPose struct {
-	MungedRawPoses  []*v1.Pose            `json:"MungedRawPoses"`
-	RegRawPoses     []*v1.Pose            `json:"RegRawPoses"`
-	Origin          spatialmath.GeoPose   `json:"Origin"`
-	MungedGeoPoints []spatialmath.GeoPose `json:"MungedGeoPoints"`
-	RegGeoPoints    []spatialmath.GeoPose `json:"RegGeoPoints"`
-	SpecialPose     spatialmath.Pose      `json:"SpecialPose"`
-	Type            string                `json:"Type"`
-	StartedAt       time.Time             `json:"StartedAt"`
-	CompletedAt     time.Time             `json:"CompletedAt"`
-}
-
 // ValidatePose validates that a pose can be used for
 // motion planning.
 func ValidatePose(p spatialmath.Pose) error {
@@ -938,99 +921,4 @@ func ValidatePose(p spatialmath.Pose) error {
 	}
 
 	return nil
-}
-
-func logRecitfy(rawMungedPoses, rawRegPoses []spatialmath.Pose, origin spatialmath.GeoPose, before, after time.Time, mungedGP, regGP []spatialmath.GeoPose, specialPose spatialmath.Pose) error {
-	mungedPoses := make([]*v1.Pose, 0, len(rawMungedPoses))
-	for _, p := range rawMungedPoses {
-		mungedPoses = append(mungedPoses, spatialmath.PoseToProtobuf(p))
-	}
-
-	regPoses := make([]*v1.Pose, 0, len(rawMungedPoses))
-	for _, p := range rawRegPoses {
-		regPoses = append(regPoses, spatialmath.PoseToProtobuf(p))
-	}
-
-	b, err := json.Marshal(RecityfiedPose{
-		MungedRawPoses:  mungedPoses,
-		RegRawPoses:     regPoses,
-		Origin:          origin,
-		MungedGeoPoints: mungedGP,
-		RegGeoPoints:    regGP,
-		SpecialPose:     specialPose,
-		Type:            "rectified",
-		StartedAt:       before,
-		CompletedAt:     after,
-	})
-	if err != nil {
-		return err
-	}
-	return writeToJson(b)
-}
-
-func writeToJson(b []byte) error {
-	homedir, err := os.UserHomeDir()
-	if err != nil {
-		return err
-	}
-
-	f, err := os.OpenFile(path.Join(homedir, "rectified.jsonl"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	if _, err := f.Write(append(b, '\n')); err != nil {
-		return err
-	}
-	return nil
-}
-
-func logRectifyTPspacePath(path []node, frame referenceframe.Frame, startPoseWOrientation, regStartPose spatialmath.Pose, before, after time.Time, origin spatialmath.GeoPose) error {
-	runningPoseWOrient := startPoseWOrientation
-	runningPoseREG := regStartPose
-
-	mungedPoses := []spatialmath.Pose{}
-	regPoses := []spatialmath.Pose{}
-
-	mungedGP := []spatialmath.GeoPose{}
-	regGP := []spatialmath.GeoPose{}
-
-	for _, wp := range path {
-		wpPose, err := frame.Transform(wp.Q())
-		if err != nil {
-			return err
-		}
-		runningPoseWOrient = spatialmath.Compose(runningPoseWOrient, wpPose)
-
-		if err := ValidatePose(runningPoseWOrient); err != nil {
-			return err
-		}
-		xkmO := runningPoseWOrient.Point().X / 1e6
-		ykmO := runningPoseWOrient.Point().Y / 1e6
-		zkmO := runningPoseWOrient.Point().Z / 1e6
-
-		kmPoseO := spatialmath.NewPose(r3.Vector{X: xkmO, Y: ykmO, Z: zkmO}, runningPoseWOrient.Orientation())
-
-		asGP_with_orientation := spatialmath.PoseToGeoPoint(origin, kmPoseO)
-
-		mungedGP = append(mungedGP, asGP_with_orientation)
-
-		mungedPoses = append(mungedPoses, runningPoseWOrient)
-
-		// reg
-		runningPoseREG = spatialmath.Compose(runningPoseREG, wpPose)
-		xkm := runningPoseREG.Point().X / 1e6
-		ykm := runningPoseREG.Point().Y / 1e6
-		zkm := runningPoseREG.Point().Z / 1e6
-
-		kmPose := spatialmath.NewPose(r3.Vector{X: xkm, Y: ykm, Z: zkm}, runningPoseREG.Orientation())
-
-		asGP_reg := spatialmath.PoseToGeoPoint(origin, kmPose)
-
-		regGP = append(regGP, asGP_reg)
-
-		regPoses = append(regPoses, runningPoseREG)
-	}
-
-	return logRecitfy(mungedPoses, regPoses, origin, before, after, mungedGP, regGP, startPoseWOrientation)
 }
