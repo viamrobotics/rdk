@@ -99,7 +99,47 @@ func TestNewMovementSensorLocalizer(t *testing.T) {
 	}
 }
 
-func TestCurrentPosition(t *testing.T) {
+func TestSLAMLocalizerCurrentPosition(t *testing.T) {
+	ctx := context.Background()
+	t.Run("returns position if slam position is valid & has no errors", func(t *testing.T) {
+		slam := inject.NewSLAMService("the slammer")
+		slam.PositionFunc = func(ctx context.Context) (spatialmath.Pose, string, error) {
+			return spatialmath.NewZeroPose(), "", nil
+		}
+		localizer := motion.NewSLAMLocalizer(slam)
+		pif, err := localizer.CurrentPosition(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, spatialmath.OrientationAlmostEqual(
+			pif.Pose().Orientation(),
+			&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: -90}),
+			test.ShouldBeTrue,
+		)
+	})
+
+	t.Run("returns error if slam position returns an error", func(t *testing.T) {
+		slam := inject.NewSLAMService("the slammer")
+		errExpected := errors.New("no position for you")
+		slam.PositionFunc = func(ctx context.Context) (spatialmath.Pose, string, error) {
+			return spatialmath.NewZeroPose(), "", errExpected
+		}
+		localizer := motion.NewSLAMLocalizer(slam)
+		_, err := localizer.CurrentPosition(ctx)
+		test.That(t, err, test.ShouldBeError, errExpected)
+	})
+
+	t.Run("returns an error if the position was invalid", func(t *testing.T) {
+		slam := inject.NewSLAMService("the slammer")
+		errExpected := errors.New("X can't be NaN")
+		slam.PositionFunc = func(ctx context.Context) (spatialmath.Pose, string, error) {
+			return spatialmath.NewPose(r3.Vector{X: math.NaN()}, nil), "", nil
+		}
+		localizer := motion.NewSLAMLocalizer(slam)
+		_, err := localizer.CurrentPosition(ctx)
+		test.That(t, err, test.ShouldBeError, errExpected)
+	})
+}
+
+func TestMovementSensorLocalizerCurrentPosition(t *testing.T) {
 	ctx := context.Background()
 	origin := geo.NewPoint(-70, 40)
 
