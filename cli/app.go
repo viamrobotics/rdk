@@ -387,7 +387,7 @@ var app = &cli.App{
 					Subcommands: []*cli.Command{
 						{
 							Name:      "configure",
-							Usage:     "configures a database user for Viam's MongoDB Atlas Data Federation instance",
+							Usage:     "configures a database user for the Viam org's MongoDB Atlas Data Federation instance",
 							UsageText: fmt.Sprintf("viam data database configure <%s> <%s>", dataFlagOrgID, dataFlagDatabasePassword),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
