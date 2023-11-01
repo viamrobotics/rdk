@@ -44,7 +44,11 @@ func (s *slamLocalizer) CurrentPosition(ctx context.Context) (*referenceframe.Po
 
 	// Slam poses are returned such that theta=0 points along the +X axis
 	// We must rotate 90 degrees to match the base convention of y = forwards
-	return referenceframe.NewPoseInFrame(referenceframe.World, pose), err
+	pif := referenceframe.NewPoseInFrame(referenceframe.World, pose)
+	if err := ValidatePose(pif.Pose()); err != nil {
+		return nil, err
+	}
+	return pif, nil
 }
 
 // movementSensorLocalizer is a struct which only wraps an existing movementsensor.
