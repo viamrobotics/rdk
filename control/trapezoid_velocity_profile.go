@@ -57,7 +57,7 @@ func (s *trapezoidVelocityGenerator) Next(ctx context.Context, x []*Signal, dt t
 				return s.y, false
 			}
 		}
-		if setPoint != s.lastsetPoint && s.currentPhase == rest && pos != setPoint {
+		if setPoint != s.lastsetPoint && s.currentPhase == rest && pos != setPoint || setPoint == 0 {
 			s.lastsetPoint = setPoint
 			if setPoint < pos {
 				s.dir = -1
