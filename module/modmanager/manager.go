@@ -144,8 +144,13 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, conn *grpc.Clie
 		return nil
 	}
 
+	copiedConf, err := conf.CopyOnlyPublicFields()
+	if err != nil {
+		return err
+	}
+
 	mod := &module{
-		cfg:       conf,
+		cfg:       *copiedConf,
 		conn:      conn,
 		resources: map[resource.Name]*addedResource{},
 	}
