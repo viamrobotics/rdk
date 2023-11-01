@@ -100,21 +100,19 @@ func readyToSync(ctx context.Context, s selectiveSyncer, logger logging.Logger) 
 	if err != nil {
 		logger.Errorw("error getting readings from selective syncer", "error", err.Error())
 		return
-	} else {
-		readyToSyncVal, ok := readings[datamanager.ShouldSyncKey]
-		if !ok {
-			logger.Errorf("value for to sync key %s not present in readings", datamanager.ShouldSyncKey)
-			return
-		} else {
-			readyToSyncBool, err := utils.AssertType[bool](readyToSyncVal)
-			if err != nil {
-				logger.Errorw("error converting to sync key to bool", "key", datamanager.ShouldSyncKey, "error", err.Error())
-				return
-			}
-			readyToSync = readyToSyncBool
-			return
-		}
 	}
+	readyToSyncVal, ok := readings[datamanager.ShouldSyncKey]
+	if !ok {
+		logger.Errorf("value for to sync key %s not present in readings", datamanager.ShouldSyncKey)
+		return
+	}
+	readyToSyncBool, err := utils.AssertType[bool](readyToSyncVal)
+	if err != nil {
+		logger.Errorw("error converting to sync key to bool", "key", datamanager.ShouldSyncKey, "error", err.Error())
+		return
+	}
+	readyToSync = readyToSyncBool
+	return
 }
 
 // builtIn initializes and orchestrates data capture collectors for registered component/methods.
