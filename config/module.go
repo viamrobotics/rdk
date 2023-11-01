@@ -1,7 +1,6 @@
 package config
 
 import (
-	"encoding/json"
 	"os"
 	"reflect"
 	"regexp"
@@ -91,21 +90,4 @@ func (m Module) Equals(other Module) bool {
 	other.cachedErr = nil
 	//nolint:govet
 	return reflect.DeepEqual(m, other)
-}
-
-// CopyOnlyPublicFields copies only exported fields on the module config.
-func (m *Module) CopyOnlyPublicFields() (*Module, error) {
-	// We're using JSON as an intermediary to ensure only the json exported fields are
-	// copied.
-	tmpJSON, err := json.Marshal(m)
-	if err != nil {
-		return nil, errors.Wrap(err, "error marshaling config")
-	}
-	var cfg Module
-	err = json.Unmarshal(tmpJSON, &cfg)
-	if err != nil {
-		return nil, errors.Wrap(err, "error unmarshaling config")
-	}
-
-	return &cfg, nil
 }
