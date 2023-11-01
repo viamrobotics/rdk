@@ -1005,10 +1005,17 @@ viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.ta
 						&cli.StringFlag{
 							Name: moduleFlagPlatform,
 							Usage: `platform of the binary you are uploading. Must be one of:
+                      any           (most Python modules)
+                      any/amd64     (most Docker-based modules)
+                      any/arm64
+                      linux/any     (Python modules that also require OS support)
+                      darwin/any
                       linux/amd64
                       linux/arm64
-                      darwin/amd64 (Intel macs)
-                      darwin/arm64 (Apple silicon macs)`,
+                      linux/arm32v7
+                      linux/arm32v6
+                      darwin/amd64  (Intel macs)
+                      darwin/arm64  (Apple silicon macs)`,
 							Required: true,
 						},
 						&cli.BoolFlag{
