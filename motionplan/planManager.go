@@ -713,10 +713,9 @@ func (pm *planManager) fillPosOnlyGoal(maps *rrtMaps, goal spatialmath.Pose) *rr
 	}
 	for i := 0; i < pm.opt().PositionSeeds; i++ {
 		goalNode := &basicNode{
-			q: make([]referenceframe.Input, len(pm.frame.DoF())),
-			pose: spatialmath.NewPose(goal.Point(), &spatialmath.OrientationVectorDegrees{OZ:1, Theta: float64(i) * thetaStep}),
+			q:    make([]referenceframe.Input, len(pm.frame.DoF())),
+			pose: spatialmath.NewPose(goal.Point(), &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: float64(i) * thetaStep}),
 		}
-		fmt.Println("adding", spatialmath.PoseToProtobuf(goalNode.pose))
 		maps.goalMap[goalNode] = nil
 	}
 	return maps

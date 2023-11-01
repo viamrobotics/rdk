@@ -3,7 +3,6 @@ package motionplan
 import (
 	"context"
 	"math"
-	"fmt"
 	"math/rand"
 	"testing"
 
@@ -857,7 +856,6 @@ func TestPtgPosOnlyBidirectional(t *testing.T) {
 
 	firstplan, err := PlanMotion(ctx, planRequest)
 	test.That(t, err, test.ShouldBeNil)
-	fmt.Println("firstplan", firstplan)
 }
 
 func TestValidatePlanRequest(t *testing.T) {

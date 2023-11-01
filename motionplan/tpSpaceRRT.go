@@ -218,7 +218,13 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 	defer close(m2chan)
 
 	dist := math.Sqrt(mp.planOpts.DistanceFunc(&ik.Segment{StartPosition: startPose, EndPosition: goalPose}))
-	midptNode := &basicNode{pose: spatialmath.Interpolate(startPose, goalPose, 0.5), cost: dist}
+	
+	// The midpoint should not be the 50% interpolation of start/goal poses, but should be the 50% interpolated point with the orientation
+	// pointing at the goal from the start
+	midPt := startPose.Point().Add(goalPose.Point()).Mul(0.5)
+	midOrient := &spatialmath.OrientationVector{OZ: 1, Theta: math.Atan2(-midPt.X, midPt.Y)}
+	
+	midptNode := &basicNode{pose: spatialmath.NewPose(midPt, midOrient), cost: dist}
 	var randPosNode node = midptNode
 
 	for iter := 0; iter < mp.planOpts.PlanIter; iter++ {
