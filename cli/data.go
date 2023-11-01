@@ -630,3 +630,57 @@ func (c *viamClient) dataRemoveFromDataset(datasetID, orgID, locationID string, 
 	printf(c.c.App.Writer, "Removed data from dataset ID %s", datasetID)
 	return nil
 }
+
+// DataConfigureDatabaseUser is the corresponding action for 'data database configure'.
+func DataConfigureDatabaseUser(c *cli.Context) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+	if err := client.dataConfigureDatabaseUser(c.String(dataFlagOrgID), c.String(dataFlagDatabasePassword)); err != nil {
+		return err
+	}
+	return nil
+}
+
+// dataConfigureDatabaseUser accepts a Viam organization ID and a password for the database user
+// being configured. Viam uses gRPC over TLS, so the entire request will be encrypted while in
+// flight, including the password.
+func (c *viamClient) dataConfigureDatabaseUser(orgID, password string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+	_, err := c.dataClient.ConfigureDatabaseUser(context.Background(),
+		&datapb.ConfigureDatabaseUserRequest{OrganizationId: orgID, Password: password})
+	if err != nil {
+		return errors.Wrapf(err, "received error from server")
+	}
+	printf(c.c.App.Writer, "Configured database user for org %s", orgID)
+	return nil
+}
+
+// DataGetDatabaseConnection is the corresponding action for 'data database hostname'.
+func DataGetDatabaseConnection(c *cli.Context) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+	if err := client.dataGetDatabaseConnection(c.String(dataFlagOrgID)); err != nil {
+		return err
+	}
+	return nil
+}
+
+// dataGetDatabaseConnection gets the hostname of the MongoDB Atlas Data Federation instance
+// for the given organization ID.
+func (c *viamClient) dataGetDatabaseConnection(orgID string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+	res, err := c.dataClient.GetDatabaseConnection(context.Background(), &datapb.GetDatabaseConnectionRequest{OrganizationId: orgID})
+	if err != nil {
+		return errors.Wrapf(err, "received error from server")
+	}
+	printf(c.c.App.Writer, "MongoDB Atlas Data Federation instance hostname: %s", res.GetHostname())
+	return nil
+}
