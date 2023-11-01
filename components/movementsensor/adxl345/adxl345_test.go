@@ -23,14 +23,13 @@ func nowNanosTest() uint64 {
 
 func setupDependencies(mockData []byte) (resource.Config, resource.Dependencies, board.I2C) {
 	testBoardName := "board"
-	i2cName := "i2c"
+	i2cName := "2"
 
 	cfg := resource.Config{
 		Name:  "movementsensor",
 		Model: model,
 		API:   movementsensor.API,
 		ConvertedAttributes: &Config{
-			BoardName:              testBoardName,
 			I2cBus:                 i2cName,
 			UseAlternateI2CAddress: true,
 		},
@@ -73,9 +72,14 @@ func sendInterrupt(ctx context.Context, adxl movementsensor.MovementSensor, t *t
 
 func TestValidateConfig(t *testing.T) {
 	boardName := "local"
-	t.Run("fails with no board supplied", func(t *testing.T) {
+	t.Run("fails with no board supplied if you use interrupts", func(t *testing.T) {
+		tapCfg := TapConfig{
+			AccelerometerPin: 1,
+			InterruptPin: "on_missing_board",
+		}
 		cfg := Config{
-			I2cBus: "thing",
+			I2cBus: "3",
+			SingleTap: &tapCfg,
 		}
 		deps, err := cfg.Validate("path")
 		expectedErr := utils.NewConfigValidationFieldRequiredError("path", "board")
@@ -85,7 +89,6 @@ func TestValidateConfig(t *testing.T) {
 
 	t.Run("fails with no I2C bus", func(t *testing.T) {
 		cfg := Config{
-			BoardName: boardName,
 		}
 		deps, err := cfg.Validate("path")
 		expectedErr := utils.NewConfigValidationFieldRequiredError("path", "i2c_bus")
@@ -93,10 +96,24 @@ func TestValidateConfig(t *testing.T) {
 		test.That(t, deps, test.ShouldBeEmpty)
 	})
 
-	t.Run("adds board name to dependencies on success", func(t *testing.T) {
+	t.Run("passes with no board supplied, no dependencies", func(t *testing.T) {
+		cfg := Config{
+			I2cBus: "3",
+		}
+		deps, err := cfg.Validate("path")
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(deps), test.ShouldEqual, 0)
+	})
+
+	t.Run("adds board name to dependencies on success with interrupts", func(t *testing.T) {
+		tapCfg := TapConfig{
+			AccelerometerPin: 1,
+			InterruptPin: "on_missing_board",
+		}
 		cfg := Config{
 			BoardName: boardName,
-			I2cBus:    "thing2",
+			I2cBus:    "2",
+			SingleTap: &tapCfg,
 		}
 		deps, err := cfg.Validate("path")
 
@@ -137,7 +154,7 @@ func TestInitializationFailureOnChipCommunication(t *testing.T) {
 			return i2cHandle, nil
 		}
 
-		sensor, err := makeAdxl345(context.Background(), deps, cfg, logger, i2c)
+		sensor, err := makeAdxl345(context.Background(), resource.Dependencies{}, cfg, logger, i2c)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, sensor, test.ShouldBeNil)
 	})
