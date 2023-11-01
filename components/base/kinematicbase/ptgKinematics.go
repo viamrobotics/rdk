@@ -223,10 +223,5 @@ func (ptgk *ptgBaseKinematics) ErrorState(ctx context.Context, plan [][]referenc
 		return nil, err
 	}
 	nominalPose = spatialmath.Compose(runningPose, currPose)
-	ptgk.logger.Debugf("curr position %#v", spatialmath.PoseToProtobuf(actualPIF.Pose()))
-	ptgk.logger.Debugf("nominal position %#v", spatialmath.PoseToProtobuf(nominalPose))
-	ptgk.logger.Debugf("error state %#v", spatialmath.PoseToProtobuf(spatialmath.PoseBetween(nominalPose, actualPIF.Pose())))
-	ptgk.logger.Debugf("curr inputs %#v", currentInputs)
-
 	return spatialmath.PoseBetween(nominalPose, actualPIF.Pose()), nil
 }
