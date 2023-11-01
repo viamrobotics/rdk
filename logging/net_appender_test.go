@@ -101,6 +101,36 @@ func makeServerForRobotLogger(t *testing.T) serverForRobotLogger {
 	return serverForRobotLogger{robotService, config, rpcServer.Stop}
 }
 
+func TestNetLoggerBatchWrites(t *testing.T) {
+	server := makeServerForRobotLogger(t)
+	defer server.stop()
+
+	netAppender, err := NewNetAppender(server.cloudConfig)
+	test.That(t, err, test.ShouldBeNil)
+
+	logger := NewViamLogger("test logger")
+	// The stdout appender is not necessary for test correctness. But it does provide information in
+	// the output w.r.t the injected grpc errors.
+	logger.AddAppender(NewStdoutAppender())
+	logger.AddAppender(netAppender)
+
+	for i := 0; i < writeBatchSize+1; i++ {
+		logger.Info("Some-info")
+	}
+
+	netAppender.Sync()
+	netAppender.Close()
+
+	server.service.logsMu.Lock()
+	defer server.service.logsMu.Unlock()
+	test.That(t, server.service.logBatches, test.ShouldHaveLength, 2)
+	test.That(t, server.service.logBatches[0], test.ShouldHaveLength, 100)
+	test.That(t, server.service.logBatches[1], test.ShouldHaveLength, 1)
+	for i := 0; i < writeBatchSize+1; i++ {
+		test.That(t, server.service.logs[i].Message, test.ShouldEqual, "Some-info")
+	}
+}
+
 func TestNetLoggerBatchFailureAndRetry(t *testing.T) {
 	server := makeServerForRobotLogger(t)
 	defer server.stop()

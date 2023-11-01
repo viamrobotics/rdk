@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"go.uber.org/multierr"
-
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
