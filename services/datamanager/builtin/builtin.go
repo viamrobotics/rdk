@@ -80,7 +80,6 @@ type Config struct {
 	Tags                   []string                         `json:"tags"`
 	ResourceConfigs        []*datamanager.DataCaptureConfig `json:"resource_configs"`
 	FileLastModifiedMillis int                              `json:"file_last_modified_millis"`
-	SelectiveSync          bool                             `json:"selective_sync"`
 	SelectiveSyncer        string                           `json:"selective_syncer"`
 }
 
@@ -95,24 +94,27 @@ type selectiveSyncer interface {
 
 // readyToSync is a method for getting the bool reading from the selective sync sensor
 // for determining whether the key is present and what its value is.
-func readyToSync(ctx context.Context, s selectiveSyncer, logger logging.Logger) bool {
-	readyToSync := false
+func readyToSync(ctx context.Context, s selectiveSyncer, logger logging.Logger) (readyToSync bool) {
+	readyToSync = false
 	readings, err := s.Readings(ctx, nil)
 	if err != nil {
 		logger.Errorw("error getting readings from selective syncer", "error", err.Error())
+		return
 	} else {
-		readyToSyncVal, ok := readings[datamanager.ToSyncKey]
+		readyToSyncVal, ok := readings[datamanager.ShouldSyncKey]
 		if !ok {
-			logger.Errorf("value for to sync key %s not present in readings", datamanager.ToSyncKey)
+			logger.Errorf("value for to sync key %s not present in readings", datamanager.ShouldSyncKey)
+			return
 		} else {
 			readyToSyncBool, err := utils.AssertType[bool](readyToSyncVal)
 			if err != nil {
-				logger.Errorw("error converting to sync key to bool", "key", datamanager.ToSyncKey, "error", err.Error())
+				logger.Errorw("error converting to sync key to bool", "key", datamanager.ShouldSyncKey, "error", err.Error())
+				return
 			}
 			readyToSync = readyToSyncBool
+			return
 		}
 	}
-	return readyToSync
 }
 
 // builtIn initializes and orchestrates data capture collectors for registered component/methods.
@@ -455,8 +457,7 @@ func (svc *builtIn) Reconfigure(
 		fileLastModifiedMillis = defaultFileLastModifiedMillis
 	}
 
-	svc.selectiveSync = svcConfig.SelectiveSync
-	if svc.selectiveSync && svcConfig.SelectiveSyncer != "" {
+	if svcConfig.SelectiveSyncer != "" {
 		syncSensor, err := sensor.FromDependencies(deps, svcConfig.SelectiveSyncer)
 		if err != nil {
 			svc.logger.Errorw("unable to initialize selective syncer", "error", err.Error())
@@ -550,13 +551,13 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 
 func (svc *builtIn) sync(ctx context.Context) {
 	svc.flushCollectors()
-	readyToSyncBool := false
+	shouldSync := true
 	// If selective sync is enabled and the sensor has been properly initialized,
 	// try to get the reading from the selective sensor that indicates whether to sync
-	if svc.selectiveSync && svc.syncSensor != nil {
-		readyToSyncBool = readyToSync(ctx, svc.syncSensor, svc.logger)
+	if svc.syncSensor != nil {
+		shouldSync = readyToSync(ctx, svc.syncSensor, svc.logger)
 	}
-	if readyToSyncBool || !svc.selectiveSync {
+	if shouldSync {
 		toSync := getAllFilesToSync(svc.captureDir, svc.fileLastModifiedMillis)
 		for _, ap := range svc.additionalSyncPaths {
 			toSync = append(toSync, getAllFilesToSync(ap, svc.fileLastModifiedMillis)...)
