@@ -21,6 +21,7 @@ package adxl345
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -30,6 +31,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/board/genericlinux"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -47,9 +49,9 @@ const (
 
 // Config is a description of how to find an ADXL345 accelerometer on the robot.
 type Config struct {
-	BoardName              string          `json:"board"`
 	I2cBus                 string          `json:"i2c_bus"`
 	UseAlternateI2CAddress bool            `json:"use_alternate_i2c_address,omitempty"`
+	BoardName              string          `json:"board,omitempty"`
 	SingleTap              *TapConfig      `json:"tap,omitempty"`
 	FreeFall               *FreeFallConfig `json:"free_fall,omitempty"`
 }
@@ -112,8 +114,17 @@ func (freefallCfg *FreeFallConfig) ValidateFreeFallConfigs(path string) error {
 // Validate ensures all parts of the config are valid, and then returns the list of things we
 // depend on.
 func (cfg *Config) Validate(path string) ([]string, error) {
+	var deps []string
 	if cfg.BoardName == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
+		// The board name is only required for interrupt-related functionality.
+		if cfg.SingleTap != nil || cfg.FreeFall != nil {
+			return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
+		}
+	} else {
+		if cfg.SingleTap != nil || cfg.FreeFall != nil {
+			// The board is actually used! Add it to the dependencies.
+			deps = append(deps, cfg.BoardName)
+		}
 	}
 	if cfg.I2cBus == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "i2c_bus")
@@ -128,8 +139,6 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 			return nil, err
 		}
 	}
-	var deps []string
-	deps = append(deps, cfg.BoardName)
 	return deps, nil
 }
 
@@ -178,17 +187,11 @@ func NewAdxl345(
 	if err != nil {
 		return nil, err
 	}
-	b, err := board.FromDependencies(deps, newConf.BoardName)
+
+	bus, err := genericlinux.NewI2cBus(newConf.I2cBus)
 	if err != nil {
-		return nil, err
-	}
-	localB, ok := b.(board.LocalBoard)
-	if !ok {
-		return nil, errors.Errorf("board %q is not local", newConf.BoardName)
-	}
-	bus, ok := localB.I2CByName(newConf.I2cBus)
-	if !ok {
-		return nil, errors.Errorf("can't find I2C bus '%q' for ADXL345 sensor", newConf.I2cBus)
+		msg := fmt.Sprintf("can't find I2C bus '%q' for ADXL345 sensor", newConf.I2cBus)
+		return nil, errors.Wrap(err, msg)
 	}
 
 	var address byte
@@ -291,6 +294,11 @@ func NewAdxl345(
 
 	interruptMap := map[string]board.DigitalInterrupt{}
 	if (newConf.SingleTap != nil) && (newConf.SingleTap.InterruptPin != "") {
+		b, err := board.FromDependencies(deps, newConf.BoardName)
+		if err != nil {
+			return nil, err
+		}
+
 		interruptMap, err = addInterruptPin(b, newConf.SingleTap.InterruptPin, interruptMap)
 		if err != nil {
 			// shut down goroutine reading sensor in the background
@@ -300,6 +308,11 @@ func NewAdxl345(
 	}
 
 	if (newConf.FreeFall != nil) && (newConf.FreeFall.InterruptPin != "") {
+		b, err := board.FromDependencies(deps, newConf.BoardName)
+		if err != nil {
+			return nil, err
+		}
+
 		interruptMap, err = addInterruptPin(b, newConf.FreeFall.InterruptPin, interruptMap)
 		if err != nil {
 			// shut down goroutine reading sensor in the background
