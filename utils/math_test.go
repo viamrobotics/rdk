@@ -43,10 +43,10 @@ func TestSwapCompasHeadingHandedness(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(fmt.Sprintf("expected SwapCompasHeadingHandedness(a) ~= b, where a=%f, b=%f", tc.a, tc.b), func(t *testing.T) {
-			test.That(t, SwapCompasHeadingHandedness(tc.a), test.ShouldAlmostEqual, tc.b)
+			test.That(t, SwapCompassHeadingHandedness(tc.a), test.ShouldAlmostEqual, tc.b)
 		})
 		t.Run(fmt.Sprintf("expected SwapCompasHeadingHandedness(b) ~= a, where b=%f, a=%f", tc.b, tc.a), func(t *testing.T) {
-			test.That(t, SwapCompasHeadingHandedness(tc.b), test.ShouldAlmostEqual, tc.a)
+			test.That(t, SwapCompassHeadingHandedness(tc.b), test.ShouldAlmostEqual, tc.a)
 		})
 	}
 }

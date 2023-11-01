@@ -146,7 +146,7 @@ func (m *movementSensorLocalizer) CurrentPosition(ctx context.Context) (*referen
 			return nil, errors.New("heading can't be NaN")
 		}
 		// CompassHeading is a left-handed value. Convert to be right-handed. Use math.Mod to ensure that 0 reports 0 rather than 360.
-		theta := rdkutils.SwapCompasHeadingHandedness(headingLeft)
+		theta := rdkutils.SwapCompassHeadingHandedness(headingLeft)
 		o = &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: theta}
 	case properties.OrientationSupported:
 		o, err = m.Orientation(ctx, nil)
