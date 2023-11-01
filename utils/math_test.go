@@ -48,7 +48,6 @@ func TestSwapCompasHeadingHandedness(t *testing.T) {
 		t.Run(fmt.Sprintf("expected SwapCompasHeadingHandedness(b) ~= a, where b=%f, a=%f", tc.b, tc.a), func(t *testing.T) {
 			test.That(t, SwapCompasHeadingHandedness(tc.b), test.ShouldAlmostEqual, tc.a)
 		})
-
 	}
 }
 
