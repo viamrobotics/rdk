@@ -195,16 +195,6 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 	}
 	newPlan := sf.inputsToPlan(resultSlices)
 
-	planNodes, err := sf.planToNodes(newPlan)
-	if err != nil {
-		return nil, err
-	}
-	something, err := rectifyTPspacePath(planNodes, sf.solveFrame, spatialmath.NewZeroPose())
-	if err != nil {
-		return nil, err
-	}
-	request.Logger.Debug("something[len(something)-1].Pose().Point(): ", something[len(something)-1].Pose().Point())
-
 	if replanCostFactor > 0 && currentPlan != nil {
 		initialPlanCost := currentPlan.Evaluate(sfPlanner.opt().ScoreFunc)
 		finalPlanCost := newPlan.Evaluate(sfPlanner.opt().ScoreFunc)

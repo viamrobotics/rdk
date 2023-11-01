@@ -319,12 +319,6 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 		return nil, err
 	}
 
-	heading, err := movementSensor.CompassHeading(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-	valExtra.extra["origin"] = *spatialmath.NewGeoPose(origin, heading)
-
 	// add an offset between the movement sensor and the base if it is applicable
 	baseOrigin := referenceframe.NewPoseInFrame(componentName.ShortName(), spatialmath.NewZeroPose())
 	movementSensorToBase, err := ms.fsService.TransformPose(ctx, baseOrigin, movementSensor.Name().ShortName(), nil)
