@@ -194,6 +194,23 @@ func NewAdxl345(
 		return nil, errors.Wrap(err, msg)
 	}
 
+	// The rest of the constructor is separated out so that you can pass in a mock I2C bus during
+	// tests.
+	return makeAdxl345(ctx, deps, conf, logger, bus)
+}
+
+func makeAdxl345(
+    ctx context.Context,
+    deps resource.Dependencies,
+    conf resource.Config,
+    logger logging.Logger,
+	bus board.I2C,
+) (movementsensor.MovementSensor, error) {
+	newConf, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return nil, err
+	}
+
 	var address byte
 	if newConf.UseAlternateI2CAddress {
 		address = 0x1D
