@@ -156,11 +156,6 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		// Lookup the packages http url
 		includeURL := true
 
-		var platform *string
-		if p.Type == config.PackageTypeModule {
-			platformVal := fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH)
-			platform = &platformVal
-		}
 
 		packageType, err := config.PackageTypeToProto(p.Type)
 		if err != nil {
@@ -170,7 +165,6 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 			Id:         p.Package,
 			Version:    p.Version,
 			Type:       packageType,
-			Platform:   platform,
 			IncludeUrl: &includeURL,
 		})
 		if err != nil {
