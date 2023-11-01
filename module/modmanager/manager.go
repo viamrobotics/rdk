@@ -58,18 +58,13 @@ func NewManager(parentAddr string, logger logging.Logger, options modmanageropti
 }
 
 type module struct {
-	name        string
-	exe         string
-	logLevel    string
-	modType     config.ModuleType
-	moduleID    string
-	environment map[string]string
-	process     pexec.ManagedProcess
-	handles     modlib.HandlerMap
-	conn        *grpc.ClientConn
-	client      pb.ModuleServiceClient
-	addr        string
-	resources   map[resource.Name]*addedResource
+	cfg       config.Module
+	process   pexec.ManagedProcess
+	handles   modlib.HandlerMap
+	conn      *grpc.ClientConn
+	client    pb.ModuleServiceClient
+	addr      string
+	resources map[resource.Name]*addedResource
 
 	// pendingRemoval allows delaying module close until after resources within it are closed
 	pendingRemoval bool
@@ -150,14 +145,9 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, conn *grpc.Clie
 	}
 
 	mod := &module{
-		name:        conf.Name,
-		exe:         conf.ExePath,
-		logLevel:    conf.LogLevel,
-		modType:     conf.Type,
-		moduleID:    conf.ModuleID,
-		environment: conf.Environment,
-		conn:        conn,
-		resources:   map[resource.Name]*addedResource{},
+		cfg:       conf,
+		conn:      conn,
+		resources: map[resource.Name]*addedResource{},
 	}
 
 	// add calls startProcess, which can also be called by the OUE handler in the attemptRestart
@@ -176,16 +166,16 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, conn *grpc.Clie
 
 	if err := mod.startProcess(mgr.restartCtx, mgr.parentAddr,
 		mgr.newOnUnexpectedExitHandler(mod), mgr.logger); err != nil {
-		return errors.WithMessage(err, "error while starting module "+mod.name)
+		return errors.WithMessage(err, "error while starting module "+mod.cfg.Name)
 	}
 
 	// dial will re-use mod.conn if it's non-nil (module being added in a Reconfigure).
 	if err := mod.dial(); err != nil {
-		return errors.WithMessage(err, "error while dialing module "+mod.name)
+		return errors.WithMessage(err, "error while dialing module "+mod.cfg.Name)
 	}
 
 	if err := mod.checkReady(ctx, mgr.parentAddr, mgr.logger); err != nil {
-		return errors.WithMessage(err, "error while waiting for module to be ready "+mod.name)
+		return errors.WithMessage(err, "error while waiting for module to be ready "+mod.cfg.Name)
 	}
 
 	mod.registerResources(mgr, mgr.logger)
@@ -262,26 +252,26 @@ func (mgr *Manager) Remove(modName string) ([]resource.Name, error) {
 func (mgr *Manager) remove(mod *module, reconfigure bool) error {
 	// resource manager should've removed these cleanly if this isn't a reconfigure
 	if !reconfigure && len(mod.resources) != 0 {
-		mgr.logger.Warnw("forcing removal of module with active resources", "module", mod.name)
+		mgr.logger.Warnw("forcing removal of module with active resources", "module", mod.cfg.Name)
 	}
 
 	// need to actually close the resources within the module itself before stopping
 	for res := range mod.resources {
 		_, err := mod.client.RemoveResource(context.Background(), &pb.RemoveResourceRequest{Name: res.String()})
 		if err != nil {
-			mgr.logger.Errorw("error removing resource", "module", mod.name, "resource", res.Name, "error", err)
+			mgr.logger.Errorw("error removing resource", "module", mod.cfg.Name, "resource", res.Name, "error", err)
 		}
 	}
 
 	if err := mod.stopProcess(); err != nil {
-		return errors.WithMessage(err, "error while stopping module "+mod.name)
+		return errors.WithMessage(err, "error while stopping module "+mod.cfg.Name)
 	}
 
 	// Do not close connection if module is being reconfigured.
 	if !reconfigure {
 		if mod.conn != nil {
 			if err := mod.conn.Close(); err != nil {
-				return errors.WithMessage(err, "error while closing connection from module "+mod.name)
+				return errors.WithMessage(err, "error while closing connection from module "+mod.cfg.Name)
 			}
 		}
 	}
@@ -293,7 +283,7 @@ func (mgr *Manager) remove(mod *module, reconfigure bool) error {
 			delete(mgr.rMap, r)
 		}
 	}
-	delete(mgr.modules, mod.name)
+	delete(mgr.modules, mod.cfg.Name)
 	return nil
 }
 
@@ -359,14 +349,7 @@ func (mgr *Manager) Configs() []config.Module {
 	defer mgr.mu.RUnlock()
 	var configs []config.Module
 	for _, mod := range mgr.modules {
-		configs = append(configs, config.Module{
-			Name:        mod.name,
-			ExePath:     mod.exe,
-			LogLevel:    mod.logLevel,
-			Type:        mod.modType,
-			ModuleID:    mod.moduleID,
-			Environment: mod.environment,
-		})
+		configs = append(configs, mod.cfg)
 	}
 	return configs
 }
@@ -456,7 +439,7 @@ func (mgr *Manager) ResolveImplicitDependenciesInConfig(ctx context.Context, con
 			continue
 		}
 		// If it is, check against the modified modules to determine if the config should also be updated but won't already be
-		if slices.ContainsFunc(conf.Modified.Modules, func(elem config.Module) bool { return elem.Name == mod.name }) &&
+		if slices.ContainsFunc(conf.Modified.Modules, func(elem config.Module) bool { return elem.Name == mod.cfg.Name }) &&
 			!slices.ContainsFunc(conf.Added.Components, func(elem resource.Config) bool { return elem.Name == c.Name }) &&
 			!slices.ContainsFunc(conf.Modified.Components, func(elem resource.Config) bool { return elem.Name == c.Name }) {
 			conf.Modified.Components = append(conf.Modified.Components, c)
@@ -469,7 +452,7 @@ func (mgr *Manager) ResolveImplicitDependenciesInConfig(ctx context.Context, con
 			continue
 		}
 		// If it is, check against the modified modules to determine if the config should also be updated but won't already be
-		if slices.ContainsFunc(conf.Modified.Modules, func(elem config.Module) bool { return elem.Name == mod.name }) &&
+		if slices.ContainsFunc(conf.Modified.Modules, func(elem config.Module) bool { return elem.Name == mod.cfg.Name }) &&
 			!slices.ContainsFunc(conf.Added.Services, func(elem resource.Config) bool { return elem.Name == s.Name }) &&
 			!slices.ContainsFunc(conf.Modified.Services, func(elem resource.Config) bool { return elem.Name == s.Name }) {
 			conf.Modified.Services = append(conf.Modified.Services, s)
@@ -557,7 +540,7 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) b
 		// Log error immediately, as this is unexpected behavior.
 		mgr.logger.Errorw(
 			"module has unexpectedly exited, attempting to restart it",
-			"module", mod.name,
+			"module", mod.cfg.Name,
 			"exit_code", exitCode,
 		)
 
@@ -579,7 +562,7 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) b
 		for name, res := range mod.resources {
 			if _, err := mgr.addResource(ctx, res.conf, res.deps); err != nil {
 				mgr.logger.Warnw("error while re-adding resource to module",
-					"resource", name, "module", mod.name, "error", err)
+					"resource", name, "module", mod.cfg.Name, "error", err)
 				delete(mgr.rMap, name)
 				delete(mod.resources, name)
 				orphanedResourceNames = append(orphanedResourceNames, name)
@@ -589,7 +572,7 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) b
 			mgr.removeOrphanedResources(ctx, orphanedResourceNames)
 		}
 
-		mgr.logger.Infow("module successfully restarted", "module", mod.name)
+		mgr.logger.Infow("module successfully restarted", "module", mod.cfg.Name)
 		return false
 	}
 }
@@ -628,7 +611,7 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 		if err := mod.startProcess(mgr.restartCtx, mgr.parentAddr,
 			mgr.newOnUnexpectedExitHandler(mod), mgr.logger); err != nil {
 			mgr.logger.Errorf("attempt %d: error while restarting crashed module %s: %v",
-				attempt, mod.name, err)
+				attempt, mod.cfg.Name, err)
 			if attempt == 3 {
 				// return early upon last attempt failure.
 				return orphanedResourceNames
@@ -645,13 +628,13 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 	// crashes.
 	if err := mod.dial(); err != nil {
 		mgr.logger.Errorw("error while dialing restarted module",
-			"module", mod.name, "error", err)
+			"module", mod.cfg.Name, "error", err)
 		return orphanedResourceNames
 	}
 
 	if err := mod.checkReady(ctx, mgr.parentAddr, mgr.logger); err != nil {
 		mgr.logger.Errorw("error while waiting for restarted module to be ready",
-			"module", mod.name, "error", err)
+			"module", mod.cfg.Name, "error", err)
 		return orphanedResourceNames
 	}
 
@@ -713,22 +696,22 @@ func (m *module) startProcess(
 	logger logging.Logger,
 ) error {
 	var err error
-	if m.addr, err = modlib.CreateSocketAddress(filepath.Dir(parentAddr), m.name); err != nil {
+	if m.addr, err = modlib.CreateSocketAddress(filepath.Dir(parentAddr), m.cfg.Name); err != nil {
 		return err
 	}
 
 	pconf := pexec.ProcessConfig{
-		ID:               m.name,
-		Name:             m.exe,
+		ID:               m.cfg.Name,
+		Name:             m.cfg.ExePath,
 		Args:             []string{m.addr},
-		Environment:      m.environment,
+		Environment:      m.cfg.Environment,
 		Log:              true,
 		OnUnexpectedExit: oue,
 	}
 	// Start module process with supplied log level or "debug" if none is
 	// supplied and module manager has a DebugLevel logger.
-	if m.logLevel != "" {
-		pconf.Args = append(pconf.Args, fmt.Sprintf(logLevelArgumentTemplate, m.logLevel))
+	if m.cfg.LogLevel != "" {
+		pconf.Args = append(pconf.Args, fmt.Sprintf(logLevelArgumentTemplate, m.cfg.LogLevel))
 	} else if logger.Level().Enabled(zapcore.DebugLevel) {
 		pconf.Args = append(pconf.Args, fmt.Sprintf(logLevelArgumentTemplate, "debug"))
 	}
@@ -744,7 +727,7 @@ func (m *module) startProcess(
 	for {
 		select {
 		case <-ctxTimeout.Done():
-			return errors.Errorf("timed out waiting for module %s to start listening", m.name)
+			return errors.Errorf("timed out waiting for module %s to start listening", m.cfg.Name)
 		default:
 		}
 		err = modlib.CheckSocketOwner(m.addr)
@@ -788,7 +771,7 @@ func (m *module) registerResources(mgr modmaninterface.ModuleManager, logger log
 		switch {
 		case api.API.IsComponent():
 			for _, model := range models {
-				logger.Debugw("registering component from module", "module", m.name, "API", api.API, "model", model)
+				logger.Debugw("registering component from module", "module", m.cfg.Name, "API", api.API, "model", model)
 				resource.RegisterComponent(api.API, model, resource.Registration[resource.Resource, resource.NoNativeConfig]{
 					Constructor: func(
 						ctx context.Context,
@@ -802,7 +785,7 @@ func (m *module) registerResources(mgr modmaninterface.ModuleManager, logger log
 			}
 		case api.API.IsService():
 			for _, model := range models {
-				logger.Debugw("registering service from module", "module", m.name, "API", api.API, "model", model)
+				logger.Debugw("registering service from module", "module", m.cfg.Name, "API", api.API, "model", model)
 				resource.RegisterService(api.API, model, resource.Registration[resource.Resource, resource.NoNativeConfig]{
 					Constructor: func(
 						ctx context.Context,
@@ -835,7 +818,7 @@ func (m *module) cleanupAfterStartupFailure(mgr *Manager, afterCrash bool) {
 		if afterCrash {
 			msg = "error while stopping process of crashed module"
 		}
-		mgr.logger.Errorw(msg, "module", m.name, "error", err)
+		mgr.logger.Errorw(msg, "module", m.cfg.Name, "error", err)
 	}
 	if m.conn != nil {
 		if err := m.conn.Close(); err != nil {
@@ -843,7 +826,7 @@ func (m *module) cleanupAfterStartupFailure(mgr *Manager, afterCrash bool) {
 			if afterCrash {
 				msg = "error while closing connection to crashed module"
 			}
-			mgr.logger.Errorw(msg, "module", m.name, "error", err)
+			mgr.logger.Errorw(msg, "module", m.cfg.Name, "error", err)
 		}
 	}
 
@@ -854,7 +837,7 @@ func (m *module) cleanupAfterStartupFailure(mgr *Manager, afterCrash bool) {
 				delete(mgr.rMap, r)
 			}
 		}
-		delete(mgr.modules, m.name)
+		delete(mgr.modules, m.cfg.Name)
 	}
 }
 
