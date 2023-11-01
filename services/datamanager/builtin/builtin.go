@@ -80,7 +80,7 @@ type Config struct {
 	Tags                   []string                         `json:"tags"`
 	ResourceConfigs        []*datamanager.DataCaptureConfig `json:"resource_configs"`
 	FileLastModifiedMillis int                              `json:"file_last_modified_millis"`
-	SelectiveSyncer        string                           `json:"selective_syncer"`
+	SelectiveSyncerName    string                           `json:"selective_syncer_name"`
 }
 
 // Validate returns components which will be depended upon weakly due to the above matcher.
@@ -103,12 +103,12 @@ func readyToSync(ctx context.Context, s selectiveSyncer, logger logging.Logger) 
 	}
 	readyToSyncVal, ok := readings[datamanager.ShouldSyncKey]
 	if !ok {
-		logger.Errorf("value for to sync key %s not present in readings", datamanager.ShouldSyncKey)
+		logger.Errorf("value for should sync key %s not present in readings", datamanager.ShouldSyncKey)
 		return
 	}
 	readyToSyncBool, err := utils.AssertType[bool](readyToSyncVal)
 	if err != nil {
-		logger.Errorw("error converting to sync key to bool", "key", datamanager.ShouldSyncKey, "error", err.Error())
+		logger.Errorw("error converting should sync key to bool", "key", datamanager.ShouldSyncKey, "error", err.Error())
 		return
 	}
 	readyToSync = readyToSyncBool
@@ -137,8 +137,7 @@ type builtIn struct {
 	cloudConn           rpc.ClientConn
 	syncTicker          *clk.Ticker
 
-	selectiveSync bool
-	syncSensor    selectiveSyncer
+	syncSensor selectiveSyncer
 }
 
 var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), ".viam", "capture")
@@ -160,7 +159,6 @@ func NewBuiltIn(
 		tags:                   []string{},
 		fileLastModifiedMillis: defaultFileLastModifiedMillis,
 		syncerConstructor:      datasync.NewManager,
-		selectiveSync:          false,
 	}
 
 	if err := svc.Reconfigure(ctx, deps, conf); err != nil {
@@ -455,8 +453,8 @@ func (svc *builtIn) Reconfigure(
 		fileLastModifiedMillis = defaultFileLastModifiedMillis
 	}
 
-	if svcConfig.SelectiveSyncer != "" {
-		syncSensor, err := sensor.FromDependencies(deps, svcConfig.SelectiveSyncer)
+	if svcConfig.SelectiveSyncerName != "" {
+		syncSensor, err := sensor.FromDependencies(deps, svcConfig.SelectiveSyncerName)
 		if err != nil {
 			svc.logger.Errorw("unable to initialize selective syncer", "error", err.Error())
 		} else if syncSensor != nil {
@@ -566,7 +564,7 @@ func (svc *builtIn) sync(ctx context.Context) {
 	}
 }
 
-//nolint
+// nolint
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
