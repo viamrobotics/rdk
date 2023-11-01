@@ -17,10 +17,6 @@ type dualQuaternion struct {
 	dualquat.Number
 }
 
-func NewPoseFromDualQuaternion(dq dualquat.Number) Pose {
-	return &dualQuaternion{dq}
-}
-
 // newDualQuaternion returns a pointer to a new dualQuaternion object whose Quaternion is an identity Quaternion.
 // Since the real part of a qual quaternion should be a unit quaternion, not all zeroes, this should be used
 // instead of &dualQuaternion{}.

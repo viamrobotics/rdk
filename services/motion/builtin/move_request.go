@@ -7,7 +7,6 @@ import (
 	"math"
 	"strconv"
 	"sync/atomic"
-	"time"
 
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
@@ -310,17 +309,11 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	if !ok {
 		return nil, resource.DependencyNotFoundError(movementSensorName)
 	}
-	before := time.Now()
 	origin, _, err := movementSensor.Position(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 	ms.logger.Debugf("move on globe origin: %v", origin)
-	after := time.Now()
-	if err := motion.LogGP(*origin, before, after); err != nil {
-		return nil, err
-	}
-
 	if err := motion.ValidateGeopoint(origin); err != nil {
 		return nil, err
 	}
@@ -491,17 +484,11 @@ func (ms *builtIn) relativeMoveRequestFromAbsolute(
 	if err != nil {
 		return nil, err
 	}
-	before := time.Now()
 	startPose, err := kb.CurrentPosition(ctx)
-	after := time.Now()
 	if err != nil {
 		return nil, err
 	}
 	startPoseInv := spatialmath.PoseInverse(startPose.Pose())
-
-	if err := motion.LogP(startPose.Pose(), before, after); err != nil {
-		return nil, err
-	}
 
 	if err := motion.ValidatePose(startPose.Pose()); err != nil {
 		return nil, err
