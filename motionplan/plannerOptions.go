@@ -43,6 +43,9 @@ const (
 	// default number of times to try to smooth the path.
 	defaultSmoothIter = 200
 
+	// default number of position only seeds to use for tp-space planning.
+	defaultTPspacePositionOnlySeeds = 16
+
 	// descriptions of constraints.
 	defaultLinearConstraintDesc         = "Constraint to follow linear path"
 	defaultPseudolinearConstraintDesc   = "Constraint to follow pseudolinear path, with tolerance scaled to path length"
@@ -85,6 +88,7 @@ func newBasicPlannerOptions(frame referenceframe.Frame) *plannerOptions {
 	opt.MinScore = defaultMinIkScore
 	opt.Resolution = defaultResolution
 	opt.Timeout = defaultTimeout
+	opt.PositionSeeds = defaultTPspacePositionOnlySeeds
 
 	opt.PlanIter = defaultPlanIter
 	opt.FrameStep = defaultFrameStep

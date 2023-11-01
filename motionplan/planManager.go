@@ -230,7 +230,7 @@ func (pm *planManager) planAtomicWaypoints(
 				return nil, err
 			}
 		}
-		if pm.useTPspace && pm.opt().PositionSeeds > 0 {
+		if pm.useTPspace && pm.opt().PositionSeeds > 0 && pm.opt().profile == PositionOnlyMotionProfile {
 			maps = pm.fillPosOnlyGoal(maps, goal)
 		}
 		// Plan the single waypoint, and accumulate objects which will be used to constrauct the plan after all planning has finished
@@ -332,13 +332,12 @@ func (pm *planManager) planParallelRRTMotion(
 		}
 	} else {
 		if maps == nil {
-			startNode := &basicNode{q: make([]referenceframe.Input, len(pm.frame.DoF())), pose: spatialmath.NewZeroPose()}
 			goalNode := &basicNode{q: make([]referenceframe.Input, len(pm.frame.DoF())), pose: goal}
 			maps = &rrtMaps{
-				startMap: map[node]node{startNode: nil},
-				goalMap:  map[node]node{goalNode: nil},
+				goalMap: map[node]node{goalNode: nil},
 			}
-		} else if maps.startMap == nil {
+		}
+		if maps.startMap == nil {
 			startNode := &basicNode{q: make([]referenceframe.Input, len(pm.frame.DoF())), pose: spatialmath.NewZeroPose()}
 			maps.startMap = map[node]node{startNode: nil}
 		}
