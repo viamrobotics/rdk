@@ -37,6 +37,7 @@ type Loop struct {
 	cancelCtx               context.Context
 	cancel                  context.CancelFunc
 	running                 bool
+	Tuning                  bool
 }
 
 // NewLoop construct a new control loop for a specific endpoint.

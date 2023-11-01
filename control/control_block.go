@@ -13,15 +13,16 @@ import (
 type controlBlockType string
 
 const (
-	blockEndpoint                   controlBlockType = "endpoint"
-	blockFilter                     controlBlockType = "filter"
+	// expose BlockConstand and BlockTrapezoidalVelocityProfile so programatically control velocity and position
+	BlockConstant                   controlBlockType = "constant"
 	BlockTrapezoidalVelocityProfile controlBlockType = "trapezoidalVelocityProfile"
 	blockPID                        controlBlockType = "PID"
 	blockGain                       controlBlockType = "gain"
 	blockDerivative                 controlBlockType = "derivative"
-	BlockSum                        controlBlockType = "sum"
-	BlockConstant                   controlBlockType = "constant"
+	blockSum                        controlBlockType = "sum"
 	blockEncoderToRPM               controlBlockType = "encoderToRpm"
+	blockEndpoint                   controlBlockType = "endpoint"
+	blockFilter                     controlBlockType = "filter"
 )
 
 // BlockConfig configuration of a given block.
@@ -59,7 +60,7 @@ func createBlock(cfg BlockConfig, logger golog.Logger) (Block, error) {
 			return nil, err
 		}
 		return b, nil
-	case BlockSum:
+	case blockSum:
 		b, err := newSum(cfg, logger)
 		if err != nil {
 			return nil, err
