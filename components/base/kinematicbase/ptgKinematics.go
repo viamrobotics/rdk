@@ -223,5 +223,6 @@ func (ptgk *ptgBaseKinematics) ErrorState(ctx context.Context, plan [][]referenc
 		return nil, err
 	}
 	nominalPose = spatialmath.Compose(runningPose, currPose)
+
 	return spatialmath.PoseBetween(nominalPose, actualPIF.Pose()), nil
 }
