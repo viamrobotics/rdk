@@ -99,7 +99,7 @@ func TestValidateConfig(t *testing.T) {
 	t.Run("adds board name to dependencies on success with interrupts", func(t *testing.T) {
 		tapCfg := TapConfig{
 			AccelerometerPin: 1,
-			InterruptPin: "on_missing_board",
+			InterruptPin: "on_present_board",
 		}
 		cfg := Config{
 			BoardName: boardName,
@@ -171,8 +171,6 @@ func TestInterrupts(t *testing.T) {
 	i2c := &inject.I2C{}
 	i2c.OpenHandleFunc = func(addr byte) (board.I2CHandle, error) { return i2cHandle, nil }
 
-	mockBoard.I2CByNameFunc = func(name string) (board.I2C, bool) { return i2c, true }
-
 	logger := logging.NewTestLogger(t)
 
 	deps := resource.Dependencies{
@@ -195,7 +193,7 @@ func TestInterrupts(t *testing.T) {
 		API:   movementsensor.API,
 		ConvertedAttributes: &Config{
 			BoardName: "board",
-			I2cBus:    "bus",
+			I2cBus:    "3",
 			SingleTap: tap,
 			FreeFall:  ff,
 		},
@@ -230,7 +228,7 @@ func TestInterrupts(t *testing.T) {
 			API:   movementsensor.API,
 			ConvertedAttributes: &Config{
 				BoardName: "board",
-				I2cBus:    "bus",
+				I2cBus:    "3",
 				SingleTap: tap,
 			},
 		}
@@ -253,7 +251,7 @@ func TestInterrupts(t *testing.T) {
 			API:   movementsensor.API,
 			ConvertedAttributes: &Config{
 				BoardName: "board",
-				I2cBus:    "bus",
+				I2cBus:    "3",
 				FreeFall:  ff,
 			},
 		}
