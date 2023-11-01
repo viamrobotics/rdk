@@ -10,7 +10,7 @@ if [ "`sudo whoami`x" != "rootx" ]; then
 	exit 1
 fi
 
-do_bullseye(){
+do_piOS(){
 	sudo bash <<-EOS
 	# Basic tools
 	apt-get update && apt-get install -y curl gpg git
@@ -182,13 +182,13 @@ do_brew(){
 # Main install routine
 
 if [ "$(uname)" == "Linux" ]; then
-	if [ "$(grep VERSION_CODENAME /etc/os-release | cut -d= -f2)" == "bullseye" ]; then
+	if [ "$(grep VERSION_CODENAME /etc/os-release | cut -d= -f2)" == "bullseye" ] || [ "$(grep VERSION_CODENAME /etc/os-release | cut -d= -f2)" == "bookworm" ]; then
 		NO_PROFILE=1
-		do_bullseye || exit 1
+		do_piOS || exit 1
 	elif [ "$(uname -m)" == "x86_64" ]; then
 		do_linux || exit 1
 	else
-		echo -e "\033[41m""Native dev environment is only supported on Debian/Bullseye (x86_64 and aarch64), but brew-based support is available for generic Linux/x86_64 and Darwin (MacOS).""\033[0m"
+		echo -e "\033[41m""Native dev environment is only supported on Debian/Bullseye or Bookworm (x86_64 and aarch64), but brew-based support is available for generic Linux/x86_64 and Darwin (MacOS).""\033[0m"
 		exit 1
 	fi
 elif [ "$(uname)" == "Darwin" ]; then
