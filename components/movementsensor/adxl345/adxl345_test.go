@@ -21,7 +21,7 @@ func nowNanosTest() uint64 {
 	return uint64(time.Now().UnixNano())
 }
 
-func setupDependencies(mockData []byte) (resource.Config, resource.Dependencies) {
+func setupDependencies(mockData []byte) (resource.Config, resource.Dependencies, board.I2C) {
 	testBoardName := "board"
 	i2cName := "i2c"
 
@@ -47,17 +47,19 @@ func setupDependencies(mockData []byte) (resource.Config, resource.Dependencies)
 		return nil
 	}
 	i2cHandle.CloseFunc = func() error { return nil }
+
+	i2c := &inject.I2C{}
+	i2c.OpenHandleFunc = func(addr byte) (board.I2CHandle, error) {
+		return i2cHandle, nil
+	}
+
 	mockBoard := &inject.Board{}
 	mockBoard.I2CByNameFunc = func(name string) (board.I2C, bool) {
-		i2c := &inject.I2C{}
-		i2c.OpenHandleFunc = func(addr byte) (board.I2CHandle, error) {
-			return i2cHandle, nil
-		}
 		return i2c, true
 	}
 	return cfg, resource.Dependencies{
 		resource.NewName(board.API, testBoardName): mockBoard,
-	}
+	}, i2c
 }
 
 func sendInterrupt(ctx context.Context, adxl movementsensor.MovementSensor, t *testing.T, interrupt board.DigitalInterrupt, key string) {
@@ -119,6 +121,7 @@ func TestInitializationFailureOnChipCommunication(t *testing.T) {
 				I2cBus:    i2cName,
 			},
 		}
+
 		i2cHandle := &inject.I2CHandle{}
 		readErr := errors.New("read error")
 		i2cHandle.ReadBlockDataFunc = func(ctx context.Context, register byte, numBytes uint8) ([]byte, error) {
@@ -128,18 +131,13 @@ func TestInitializationFailureOnChipCommunication(t *testing.T) {
 			return []byte{}, nil
 		}
 		i2cHandle.CloseFunc = func() error { return nil }
-		mockBoard := &inject.Board{}
-		mockBoard.I2CByNameFunc = func(name string) (board.I2C, bool) {
-			i2c := &inject.I2C{}
-			i2c.OpenHandleFunc = func(addr byte) (board.I2CHandle, error) {
-				return i2cHandle, nil
-			}
-			return i2c, true
+
+		i2c := &inject.I2C{}
+		i2c.OpenHandleFunc = func(addr byte) (board.I2CHandle, error) {
+			return i2cHandle, nil
 		}
-		deps := resource.Dependencies{
-			resource.NewName(board.API, testBoardName): mockBoard,
-		}
-		sensor, err := NewAdxl345(context.Background(), deps, cfg, logger)
+
+		sensor, err := makeAdxl345(context.Background(), deps, cfg, logger, i2c)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, sensor, test.ShouldBeNil)
 	})
@@ -199,7 +197,7 @@ func TestInterrupts(t *testing.T) {
 	}
 
 	t.Run("new adxl has interrupt counts set to 0", func(t *testing.T) {
-		adxl, err := NewAdxl345(ctx, deps, cfg, logger)
+		adxl, err := makeAdxl345(ctx, deps, cfg, logger, i2c)
 		test.That(t, err, test.ShouldBeNil)
 
 		readings, err := adxl.Readings(ctx, map[string]interface{}{})
@@ -209,7 +207,7 @@ func TestInterrupts(t *testing.T) {
 	})
 
 	t.Run("interrupts have been found correctly when both are configured to the same pin", func(t *testing.T) {
-		adxl, err := NewAdxl345(ctx, deps, cfg, logger)
+		adxl, err := makeAdxl345(ctx, deps, cfg, logger, i2c)
 		test.That(t, err, test.ShouldBeNil)
 
 		sendInterrupt(ctx, adxl, t, interrupt, "freefall_count")
@@ -232,7 +230,7 @@ func TestInterrupts(t *testing.T) {
 			},
 		}
 
-		adxl, err := NewAdxl345(ctx, deps, cfg, logger)
+		adxl, err := makeAdxl345(ctx, deps, cfg, logger, i2c)
 		test.That(t, err, test.ShouldBeNil)
 
 		sendInterrupt(ctx, adxl, t, interrupt, "single_tap_count")
@@ -255,7 +253,7 @@ func TestInterrupts(t *testing.T) {
 			},
 		}
 
-		adxl, err := NewAdxl345(ctx, deps, cfg, logger)
+		adxl, err := makeAdxl345(ctx, deps, cfg, logger, i2c)
 		test.That(t, err, test.ShouldBeNil)
 
 		sendInterrupt(ctx, adxl, t, interrupt, "freefall_count")
@@ -366,8 +364,8 @@ func TestLinearAcceleration(t *testing.T) {
 	expectedAccelZ := 3.0656250000000003
 
 	logger := logging.NewTestLogger(t)
-	cfg, deps := setupDependencies(linearAccelMockData)
-	sensor, err := NewAdxl345(context.Background(), deps, cfg, logger)
+	cfg, deps, i2c := setupDependencies(linearAccelMockData)
+	sensor, err := makeAdxl345(context.Background(), deps, cfg, logger, i2c)
 	test.That(t, err, test.ShouldBeNil)
 	defer sensor.Close(context.Background())
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
