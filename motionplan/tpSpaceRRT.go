@@ -51,6 +51,9 @@ const (
 
 var defaultGoalMetricConstructor = ik.NewSquaredNormMetric
 
+// This should only be used when bidirectional mode is `false`.
+var defaultPosOnlyGoalMetricConstructor = ik.NewPositionOnlyMetric
+
 type tpspaceOptions struct {
 	goalCheck int // Check if goal is reachable every this many iters
 
@@ -131,6 +134,7 @@ func newTPSpaceMotionPlanner(
 	tpPlanner.setupTPSpaceOptions()
 	if opt.profile == PositionOnlyMotionProfile {
 		tpPlanner.algOpts.bidirectional = false
+		tpPlanner.algOpts.goalMetricConstructor = defaultPosOnlyGoalMetricConstructor
 	}
 
 	return tpPlanner, nil
