@@ -81,6 +81,7 @@ type Config struct {
 	ResourceConfigs        []*datamanager.DataCaptureConfig `json:"resource_configs"`
 	FileLastModifiedMillis int                              `json:"file_last_modified_millis"`
 	SelectiveSync          bool                             `json:"selective_sync"`
+	SelectiveSyncer        string                           `json:"selective_syncer"`
 }
 
 // Validate returns components which will be depended upon weakly due to the above matcher.
@@ -90,7 +91,26 @@ func (c *Config) Validate(path string) ([]string, error) {
 
 type selectiveSyncer interface {
 	sensor.Sensor
-	// ToSync() bool
+}
+
+func readyToSync(ctx context.Context, s selectiveSyncer, logger logging.Logger) bool {
+	readyToSync := false
+	readings, err := s.Readings(ctx, nil)
+	if err != nil {
+		logger.Errorw("error getting readings from selective syncer", "error", err.Error())
+	} else {
+		readyToSyncVal, ok := readings[datamanager.ToSyncKey]
+		if !ok {
+			logger.Errorf("value for to sync key %s not present in readings", datamanager.ToSyncKey)
+		} else {
+			readyToSyncBool, err := utils.AssertType[bool](readyToSyncVal)
+			if err != nil {
+				logger.Errorw("error converting to sync key to bool", "key", datamanager.ToSyncKey, "error", err.Error())
+			}
+			readyToSync = readyToSyncBool
+		}
+	}
+	return readyToSync
 }
 
 // builtIn initializes and orchestrates data capture collectors for registered component/methods.
@@ -341,7 +361,7 @@ func (svc *builtIn) Sync(ctx context.Context, _ map[string]interface{}) error {
 		}
 	}
 
-	svc.sync()
+	svc.sync(ctx)
 	return nil
 }
 
@@ -434,18 +454,14 @@ func (svc *builtIn) Reconfigure(
 	}
 
 	svc.selectiveSync = svcConfig.SelectiveSync
-	syncSensor, err := sensor.FromDependencies(deps, "selective-syncer")
-	if err != nil || syncSensor == nil {
-		svc.logger.Warnw("trying to make syncer", "error", err.Error())
-	}
-	if err == nil {
-		svc.logger.Info(syncSensor.Readings(ctx, nil))
-		syncSensor, err := utils.AssertType[*sensor.Sensor](syncSensor)
+	if svc.selectiveSync && svcConfig.SelectiveSyncer != "" {
+		syncSensor, err := sensor.FromDependencies(deps, svcConfig.SelectiveSyncer)
 		if err != nil {
-			svc.logger.Warnw("something bad happened", "error", err.Error())
+			svc.logger.Errorw("unable to initialize selective syncer", "error", err.Error())
 		} else {
-			svc.logger.Info("made syncer")
-			svc.syncSensor = *syncSensor
+			if syncSensor != nil {
+				svc.syncSensor = syncSensor
+			}
 		}
 	}
 
@@ -524,7 +540,7 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 			case <-svc.syncTicker.C:
 				svc.lock.Lock()
 				if svc.syncer != nil {
-					svc.sync()
+					svc.sync(cancelCtx)
 				}
 				svc.lock.Unlock()
 			}
@@ -532,21 +548,21 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 	})
 }
 
-func (svc *builtIn) sync() {
+func (svc *builtIn) sync(ctx context.Context) {
 	svc.flushCollectors()
-	// var readyToSync bool
-	// if svc.selectiveSync && !reflect.ValueOf(svc.selectiveSync).IsZero() {
-	// 	readyToSync = svc.syncSensor.ToSync()
-	// }
-	// if readyToSync || !svc.selectiveSync {
-	// 	toSync := getAllFilesToSync(svc.captureDir, svc.fileLastModifiedMillis)
-	// 	for _, ap := range svc.additionalSyncPaths {
-	// 		toSync = append(toSync, getAllFilesToSync(ap, svc.fileLastModifiedMillis)...)
-	// 	}
-	// 	for _, p := range toSync {
-	// 		svc.syncer.SyncFile(p)
-	// 	}
-	// }
+	readyToSyncBool := false
+	if svc.selectiveSync && svc.syncSensor != nil {
+		readyToSyncBool = readyToSync(ctx, svc.syncSensor, svc.logger)
+	}
+	if readyToSyncBool || !svc.selectiveSync {
+		toSync := getAllFilesToSync(svc.captureDir, svc.fileLastModifiedMillis)
+		for _, ap := range svc.additionalSyncPaths {
+			toSync = append(toSync, getAllFilesToSync(ap, svc.fileLastModifiedMillis)...)
+		}
+		for _, p := range toSync {
+			svc.syncer.SyncFile(p)
+		}
+	}
 }
 
 // nolint
