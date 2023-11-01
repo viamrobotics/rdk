@@ -2,8 +2,11 @@ package motion_test
 
 import (
 	"context"
+	"errors"
+	"math"
 	"testing"
 
+	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/test"
 
@@ -26,6 +29,68 @@ func createInjectedMovementSensor(name string, gpsPoint *geo.Point) *inject.Move
 	}
 
 	return injectedMovementSensor
+}
+
+func TestNewMovementSensorLocalizer(t *testing.T) {
+	nanLat := geo.NewPoint(math.NaN(), 0)
+	nanLng := geo.NewPoint(0, math.NaN())
+	nanLatLng := geo.NewPoint(math.NaN(), math.NaN())
+	nanXR3 := r3.Vector{X: math.NaN(), Y: 0, Z: 0}
+	nanOX := spatialmath.OrientationVector{OX: math.NaN()}
+	validGP := geo.NewPoint(-70, 40)
+	movementSensor := createInjectedMovementSensor("", validGP)
+	validP := spatialmath.NewZeroPose()
+	// validO := spatialmath.NewOrientationVector()
+	type testCase struct {
+		description string
+		geoPoint    *geo.Point
+		pose        spatialmath.Pose
+		err         error
+	}
+	tcs := []testCase{
+		{
+			description: "NaN lat",
+			geoPoint:    nanLat,
+			pose:        validP,
+			err:         errors.New("lat can't be NaN"),
+		},
+		{
+			description: "NaN lng",
+			geoPoint:    nanLng,
+			pose:        validP,
+			err:         errors.New("lng can't be NaN"),
+		},
+		{
+			description: "NaN lat lng",
+			geoPoint:    nanLatLng,
+			pose:        validP,
+			err:         errors.New("lat can't be NaN"),
+		},
+		{
+			description: "NaN point",
+			geoPoint:    validGP,
+			pose:        spatialmath.NewPose(nanXR3, nil),
+			err:         errors.New("X can't be NaN"),
+		},
+		{
+			description: "NaN orientation",
+			geoPoint:    validGP,
+			pose:        spatialmath.NewPose(r3.Vector{}, &nanOX),
+			err:         errors.New("X can't be NaN"),
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.description, func(t *testing.T) {
+			localizer, err := motion.NewMovementSensorLocalizer(movementSensor, tc.geoPoint, tc.pose)
+			if tc.err != nil {
+				test.That(t, err, test.ShouldBeError, tc.err)
+				test.That(t, localizer, test.ShouldBeNil)
+			} else {
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, localizer, test.ShouldNotBeNil)
+			}
+		})
+	}
 }
 
 func TestLocalizerOrientation(t *testing.T) {
