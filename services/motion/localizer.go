@@ -45,7 +45,7 @@ func (s *slamLocalizer) CurrentPosition(ctx context.Context) (*referenceframe.Po
 	// Slam poses are returned such that theta=0 points along the +X axis
 	// We must rotate 90 degrees to match the base convention of y = forwards
 	pif := referenceframe.NewPoseInFrame(referenceframe.World, pose)
-	if err := ValidatePose(pif.Pose()); err != nil {
+	if err := validatePose(pif.Pose()); err != nil {
 		return nil, err
 	}
 	return pif, nil
@@ -62,20 +62,20 @@ type movementSensorLocalizer struct {
 // An origin point must be specified and the localizer will return Poses relative to this point.
 // A calibration pose can also be specified, which will adjust the location after it is calculated relative to the origin.
 func NewMovementSensorLocalizer(ms movementsensor.MovementSensor, origin *geo.Point, calibration spatialmath.Pose) (Localizer, error) {
-	if err := ValidateGeopoint(origin); err != nil {
+	if err := validateGeopoint(origin); err != nil {
 		return nil, err
 	}
 
-	if err := ValidatePose(calibration); err != nil {
+	if err := validatePose(calibration); err != nil {
 		return nil, err
 	}
 
 	return &movementSensorLocalizer{MovementSensor: ms, origin: origin, calibration: calibration}, nil
 }
 
-// ValidateGeopoint validates that a geopoint can be used for
+// validateGeopoint validates that a geopoint can be used for
 // motion planning.
-func ValidateGeopoint(gp *geo.Point) error {
+func validateGeopoint(gp *geo.Point) error {
 	if math.IsNaN(gp.Lat()) {
 		return errors.New("lat can't be NaN")
 	}
@@ -87,9 +87,9 @@ func ValidateGeopoint(gp *geo.Point) error {
 	return nil
 }
 
-// ValidatePose validates that a pose can be used for
+// validatePose validates that a pose can be used for
 // motion planning.
-func ValidatePose(p spatialmath.Pose) error {
+func validatePose(p spatialmath.Pose) error {
 	if math.IsNaN(p.Point().X) {
 		return errors.New("X can't be NaN")
 	}
@@ -126,7 +126,7 @@ func (m *movementSensorLocalizer) CurrentPosition(ctx context.Context) (*referen
 		return nil, err
 	}
 
-	if err := ValidateGeopoint(gp); err != nil {
+	if err := validateGeopoint(gp); err != nil {
 		return nil, err
 	}
 	var o spatialmath.Orientation
@@ -159,7 +159,7 @@ func (m *movementSensorLocalizer) CurrentPosition(ctx context.Context) (*referen
 
 	pose := spatialmath.NewPose(spatialmath.GeoPointToPose(gp, m.origin).Point(), o)
 	pif := referenceframe.NewPoseInFrame(m.Name().Name, spatialmath.Compose(pose, m.calibration))
-	if err := ValidatePose(pif.Pose()); err != nil {
+	if err := validatePose(pif.Pose()); err != nil {
 		return nil, err
 	}
 
