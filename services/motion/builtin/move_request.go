@@ -72,6 +72,7 @@ func (mr *moveRequest) plan(ctx context.Context) ([][]referenceframe.Input, erro
 }
 
 // execute attempts to follow a given Plan starting from the index percribed by waypointIndex.
+// Note that waypointIndex is an atomic int that is incremented in this function after each waypoint has been successfully reached.
 func (mr *moveRequest) execute(ctx context.Context, waypoints [][]referenceframe.Input, waypointIndex *atomic.Int32) moveResponse {
 	// Iterate through the list of waypoints and issue a command to move to each
 	for i := int(waypointIndex.Load()); i < len(waypoints); i++ {
@@ -315,9 +316,6 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 		return nil, err
 	}
 	ms.logger.Debugf("move on globe origin: %v", origin)
-	if err := motion.ValidateGeopoint(origin); err != nil {
-		return nil, err
-	}
 
 	// add an offset between the movement sensor and the base if it is applicable
 	baseOrigin := referenceframe.NewPoseInFrame(componentName.ShortName(), spatialmath.NewZeroPose())
@@ -327,7 +325,11 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 		ms.logger.Debugf("using baseOrigin as movementSensorToBase due to ms.fsService.TransformPose getting an error error: %s", err.Error())
 		movementSensorToBase = baseOrigin
 	}
-	localizer := motion.NewMovementSensorLocalizer(movementSensor, origin, movementSensorToBase.Pose())
+
+	localizer, err := motion.NewMovementSensorLocalizer(movementSensor, origin, movementSensorToBase.Pose())
+	if err != nil {
+		return nil, err
+	}
 
 	// create a KinematicBase from the componentName
 	baseComponent, ok := ms.components[componentName]

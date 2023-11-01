@@ -890,35 +890,3 @@ func rectifyTPspacePath(path []node, frame referenceframe.Frame, startPose spati
 	}
 	return correctedPath, nil
 }
-
-// ValidatePose validates that a pose can be used for
-// motion planning.
-func ValidatePose(p spatialmath.Pose) error {
-	if math.IsNaN(p.Point().X) {
-		return errors.New("x can't be NaN")
-	}
-
-	if math.IsNaN(p.Point().Y) {
-		return errors.New("y can't be NaN")
-	}
-
-	if math.IsNaN(p.Point().Z) {
-		return errors.New("x can't be NaN")
-	}
-	if math.IsNaN(p.Orientation().Quaternion().Imag) {
-		return errors.New("iMag can't be NaN")
-	}
-	if math.IsNaN(p.Orientation().Quaternion().Jmag) {
-		return errors.New("jMag can't be NaN")
-	}
-
-	if math.IsNaN(p.Orientation().Quaternion().Kmag) {
-		return errors.New("kMag can't be NaN")
-	}
-
-	if math.IsNaN(p.Orientation().Quaternion().Real) {
-		return errors.New("real can't be NaN")
-	}
-
-	return nil
-}
