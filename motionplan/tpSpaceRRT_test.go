@@ -8,10 +8,10 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
@@ -24,7 +24,7 @@ const testTurnRad = 0.3
 
 func TestPtgRrtBidirectional(t *testing.T) {
 	t.Parallel()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	roverGeom, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{10, 10, 10}, "")
 	test.That(t, err, test.ShouldBeNil)
 	geometries := []spatialmath.Geometry{roverGeom}
@@ -104,7 +104,7 @@ func TestPtgRrtBidirectional(t *testing.T) {
 
 func TestPtgRrtUnidirectional(t *testing.T) {
 	t.Parallel()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	roverGeom, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{10, 10, 10}, "")
 	test.That(t, err, test.ShouldBeNil)
 	geometries := []spatialmath.Geometry{roverGeom}
@@ -185,7 +185,7 @@ func TestPtgRrtUnidirectional(t *testing.T) {
 
 func TestPtgWithObstacle(t *testing.T) {
 	t.Parallel()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	roverGeom, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{10, 10, 10}, "")
 	test.That(t, err, test.ShouldBeNil)
 	geometries := []spatialmath.Geometry{roverGeom}
@@ -305,9 +305,8 @@ func TestPtgWithObstacle(t *testing.T) {
 }
 
 func TestTPsmoothing(t *testing.T) {
-	// TODO: this doesn't smooth properly yet. This should be made to smooth better.
 	t.Parallel()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	roverGeom, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{10, 10, 10}, "")
 	test.That(t, err, test.ShouldBeNil)
 	geometries := []spatialmath.Geometry{roverGeom}
@@ -363,7 +362,8 @@ func TestTPsmoothing(t *testing.T) {
 	plan, err = rectifyTPspacePath(plan, tp.frame, spatialmath.NewZeroPose())
 	test.That(t, err, test.ShouldBeNil)
 
-	tp.planOpts.SmoothIter = 20
+	// TODO (RSDK-5104) this should be able to be a smaller value once 5104 is complete
+	tp.planOpts.SmoothIter = 80
 
 	newplan := tp.smoothPath(ctx, plan)
 	test.That(t, newplan, test.ShouldNotBeNil)
@@ -379,7 +379,7 @@ func TestTPsmoothing(t *testing.T) {
 }
 
 func TestPtgCheckPlan(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	roverGeom, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{10, 10, 10}, "")
 	test.That(t, err, test.ShouldBeNil)
 	geometries := []spatialmath.Geometry{roverGeom}
@@ -428,7 +428,7 @@ func TestPtgCheckPlan(t *testing.T) {
 	inputs := referenceframe.FloatsToInputs([]float64{0, 0, 0})
 
 	t.Run("base case - validate plan without obstacles", func(t *testing.T) {
-		err := CheckPlan(ackermanFrame, steps, nil, fs, startPose, inputs, errorState, logger)
+		err := CheckPlan(ackermanFrame, steps, nil, fs, startPose, inputs, errorState, testLookAheadDistanceMM, logger)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -442,7 +442,7 @@ func TestPtgCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = CheckPlan(ackermanFrame, steps, worldState, fs, startPose, inputs, errorState, logger)
+		err = CheckPlan(ackermanFrame, steps, worldState, fs, startPose, inputs, errorState, testLookAheadDistanceMM, logger)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
@@ -479,7 +479,7 @@ func TestPtgCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = CheckPlan(ackermanFrame, steps, worldState, fs, startPose, inputs, errorState, logger)
+		err = CheckPlan(ackermanFrame, steps, worldState, fs, startPose, inputs, errorState, testLookAheadDistanceMM, logger)
 		test.That(t, err, test.ShouldBeNil)
 	})
 	t.Run("obstacles NOT in world frame cause collision - integration test", func(t *testing.T) {
@@ -494,7 +494,7 @@ func TestPtgCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = CheckPlan(ackermanFrame, steps, worldState, fs, startPose, inputs, errorState, logger)
+		err = CheckPlan(ackermanFrame, steps, worldState, fs, startPose, inputs, errorState, testLookAheadDistanceMM, logger)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 	t.Run("checking from partial-plan, ensure success with obstacles - integration test", func(t *testing.T) {
@@ -517,7 +517,7 @@ func TestPtgCheckPlan(t *testing.T) {
 
 		startPose := spatialmath.NewPose(vector, ov)
 
-		err = CheckPlan(ackermanFrame, steps[2:len(steps)-1], worldState, fs, startPose, inputs, errorState, logger)
+		err = CheckPlan(ackermanFrame, steps[2:len(steps)-1], worldState, fs, startPose, inputs, errorState, testLookAheadDistanceMM, logger)
 		test.That(t, err, test.ShouldBeNil)
 	})
 	t.Run("verify partial plan with non-nil errorState and obstacle", func(t *testing.T) {
@@ -536,7 +536,7 @@ func TestPtgCheckPlan(t *testing.T) {
 		errorState := spatialmath.NewPoseFromPoint(r3.Vector{0, 1000, 0})
 		startPose = errorState
 
-		err = CheckPlan(ackermanFrame, steps[2:len(steps)-1], worldState, fs, startPose, inputs, errorState, logger)
+		err = CheckPlan(ackermanFrame, steps[2:len(steps)-1], worldState, fs, startPose, inputs, errorState, testLookAheadDistanceMM, logger)
 		test.That(t, err, test.ShouldBeNil)
 	})
 }

@@ -3,14 +3,15 @@ package config
 import (
 	"sync"
 
-	"github.com/edaniels/golog"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+
+	"go.viam.com/rdk/logging"
 )
 
 var globalLogger struct {
 	// These variables are initialized once at startup. No need for special synchronization.
-	logger           golog.Logger
+	logger           logging.Logger
 	cmdLineDebugFlag bool
 	logLevel         zap.AtomicLevel
 
@@ -23,7 +24,7 @@ var globalLogger struct {
 }
 
 // InitLoggingSettings initializes the global logging settings.
-func InitLoggingSettings(logger golog.Logger, cmdLineDebugFlag bool, logLevel zap.AtomicLevel) {
+func InitLoggingSettings(logger logging.Logger, cmdLineDebugFlag bool, logLevel zap.AtomicLevel) {
 	globalLogger.logger = logger
 	globalLogger.cmdLineDebugFlag = cmdLineDebugFlag
 	globalLogger.logLevel = logLevel

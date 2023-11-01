@@ -11,13 +11,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/board/genericlinux"
 	"go.viam.com/rdk/components/motor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 )
@@ -56,7 +56,7 @@ func init() {
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger golog.Logger,
+			logger logging.Logger,
 		) (motor.Motor, error) {
 			newConf, err := resource.NativeConfig[*Config](conf)
 			if err != nil {
@@ -75,7 +75,7 @@ type Ezopmp struct {
 	bus         board.I2C
 	I2CAddress  byte
 	maxReadBits int
-	logger      golog.Logger
+	logger      logging.Logger
 	maxPowerPct float64
 	powerPct    float64
 	maxFlowRate float64
@@ -93,7 +93,7 @@ const (
 
 // NewMotor returns a motor(Ezopmp) with I2C protocol.
 func NewMotor(ctx context.Context, deps resource.Dependencies, c *Config, name resource.Name,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (motor.Motor, error) {
 	bus, err := genericlinux.NewI2cBus(c.BusName)
 	if err != nil {

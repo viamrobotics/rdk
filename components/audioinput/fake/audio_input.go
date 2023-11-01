@@ -11,13 +11,13 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pion/mediadevices/pkg/wave"
-	"github.com/viamrobotics/gostream"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/audioinput"
+	"go.viam.com/rdk/gostream"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
@@ -29,7 +29,7 @@ func init() {
 			_ context.Context,
 			_ resource.Dependencies,
 			conf resource.Config,
-			logger golog.Logger,
+			logger logging.Logger,
 		) (audioinput.AudioInput, error) {
 			cancelCtx, cancelFunc := context.WithCancel(context.Background())
 			var condMu sync.RWMutex

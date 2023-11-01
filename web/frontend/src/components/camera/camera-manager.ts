@@ -10,7 +10,7 @@ export class CameraManager {
     client: Client,
     private cameraName: string,
     private streamClient: StreamClient,
-    public streamCount: number = 0,
+    public streamCount = 0,
     public videoStream: MediaStream = new MediaStream()
   ) {
     this.cameraClient = new CameraClient(client, cameraName);

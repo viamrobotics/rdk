@@ -5,11 +5,11 @@ import (
 	"context"
 	"sync"
 
-	"github.com/edaniels/golog"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/input"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
@@ -32,7 +32,7 @@ func NewController(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (input.Controller, error) {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
@@ -85,7 +85,7 @@ type mux struct {
 	cancelFunc              func()
 	callbacks               map[input.Control]map[input.EventType]input.ControlFunction
 	eventsChan              chan input.Event
-	logger                  golog.Logger
+	logger                  logging.Logger
 }
 
 func (m *mux) makeCallbacks(eventOut input.Event) {

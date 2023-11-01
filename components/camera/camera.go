@@ -9,16 +9,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pkg/errors"
-	"github.com/viamrobotics/gostream"
 	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/camera/v1"
 	viamutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/data"
+	"go.viam.com/rdk/gostream"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
@@ -125,7 +125,7 @@ type ImagesSource interface {
 // Note: this strips away Reconfiguration and DoCommand abilities.
 // If needed, implement the Camera another way. For example, a webcam
 // implements a Camera manually so that it can atomically reconfigure itself.
-func FromVideoSource(name resource.Name, src VideoSource, logger golog.Logger) Camera {
+func FromVideoSource(name resource.Name, src VideoSource, logger logging.Logger) Camera {
 	return &sourceBasedCamera{
 		Named:       name.AsNamed(),
 		VideoSource: src,
@@ -137,7 +137,7 @@ type sourceBasedCamera struct {
 	resource.Named
 	resource.AlwaysRebuild
 	VideoSource
-	golog.Logger
+	logging.Logger
 }
 
 // NewVideoSourceFromReader creates a VideoSource either with or without a projector. The stream type

@@ -14,24 +14,13 @@ on:
 # Don't forget to tag back to @main before merge.
 
 jobs:
-  canon-cache:
-    name: Build Canon Cache Docker Images
+  docker-cache:
+    name: Build Cache Docker Images
     strategy:
       matrix:
         include:
-        # canon
-        - arch: ubuntu-latest
-          tag: amd64
-          platform: linux/amd64
-          image: canon
-          file: etc/Dockerfile.cache
-        - arch: buildjet-2vcpu-ubuntu-2204-arm
-          tag: arm64
-          platform: linux/arm64
-          image: canon
-          file: etc/Dockerfile.cache
         # rdk-devenv
-        - arch: ubuntu-latest
+        - arch: buildjet-2vcpu-ubuntu-2204
           tag: amd64
           platform: linux/amd64
           image: rdk-devenv
@@ -46,19 +35,8 @@ jobs:
           platform: linux/arm/v7
           image: rdk-devenv
           file: etc/Dockerfile.cache
-        # antique
-        - arch: ubuntu-latest
-          platform: linux/amd64
-          image: antique
-          file: etc/Dockerfile.antique-cache
-          tag: amd64
-        - arch: buildjet-2vcpu-ubuntu-2204-arm
-          platform: linux/arm64
-          image: antique
-          file: etc/Dockerfile.antique-cache
-          tag: arm64
         # antique2
-        - arch: ubuntu-latest
+        - arch: buildjet-2vcpu-ubuntu-2204
           platform: linux/amd64
           image: antique2
           file: etc/Dockerfile.antique-cache
@@ -97,7 +75,7 @@ jobs:
         file: ${{ matrix.file }}
 
   test:
-    needs: canon-cache
+    needs: docker-cache
     uses: viamrobotics/rdk/.github/workflows/test.yml@main
     secrets:
       MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}

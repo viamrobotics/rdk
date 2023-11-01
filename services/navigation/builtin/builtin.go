@@ -7,7 +7,6 @@ import (
 	"math"
 	"sync"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
@@ -18,8 +17,10 @@ import (
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
+	"go.viam.com/rdk/services/motion/explore"
 	"go.viam.com/rdk/services/navigation"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
@@ -89,12 +90,6 @@ func init() {
 type ObstacleDetectorNameConfig struct {
 	VisionServiceName string `json:"vision_service"`
 	CameraName        string `json:"camera"`
-}
-
-// ObstacleDetector pairs a vision service with a camera, informing the service about which camera it may use.
-type ObstacleDetector struct {
-	VisionService vision.Service
-	Camera        camera.Camera
 }
 
 // Config describes how to configure the service.
@@ -195,7 +190,9 @@ func (conf *Config) Validate(path string) ([]string, error) {
 }
 
 // NewBuiltIn returns a new navigation service for the given robot.
-func NewBuiltIn(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (navigation.Service, error) {
+func NewBuiltIn(
+	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
+) (navigation.Service, error) {
 	navSvc := &builtIn{
 		Named:  conf.ResourceName().AsNamed(),
 		logger: logger,
@@ -216,16 +213,17 @@ type builtIn struct {
 	mode      navigation.Mode
 	mapType   navigation.MapType
 
-	base              base.Base
-	movementSensor    movementsensor.MovementSensor
-	obstacleDetectors []*ObstacleDetector
-	motionService     motion.Service
-	obstacles         []*spatialmath.GeoObstacle
+	base           base.Base
+	movementSensor movementsensor.MovementSensor
+	motionService  motion.Service
+	// exploreMotionService will be removed once the motion explore model is integrated into motion builtin
+	exploreMotionService motion.Service
+	obstacles            []*spatialmath.GeoObstacle
 
 	motionCfg        *motion.MotionConfiguration
 	replanCostFactor float64
 
-	logger                    golog.Logger
+	logger                    logging.Logger
 	wholeServiceCancelFunc    func()
 	currentWaypointCancelFunc func()
 	waypointInProgress        *navigation.Waypoint
@@ -311,7 +309,6 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	}
 
 	var obstacleDetectorNamePairs []motion.ObstacleDetectorName
-	var obstacleDetectors []*ObstacleDetector
 	for _, pbObstacleDetectorPair := range svcConfig.ObstacleDetectors {
 		visionSvc, err := vision.FromDependencies(deps, pbObstacleDetectorPair.VisionServiceName)
 		if err != nil {
@@ -323,9 +320,6 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		}
 		obstacleDetectorNamePairs = append(obstacleDetectorNamePairs, motion.ObstacleDetectorName{
 			VisionServiceName: visionSvc.Name(), CameraName: camera.Name(),
-		})
-		obstacleDetectors = append(obstacleDetectors, &ObstacleDetector{
-			VisionService: visionSvc, Camera: camera,
 		})
 	}
 
@@ -354,13 +348,20 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		return err
 	}
 
+	// Create explore motion service
+	// Note: this service will disappear after the explore motion model is integrated into builtIn
+	exploreMotionConf := resource.Config{ConvertedAttributes: &explore.Config{}}
+	svc.exploreMotionService, err = explore.NewExplore(ctx, deps, exploreMotionConf, svc.logger)
+	if err != nil {
+		return err
+	}
+
 	svc.mode = navigation.ModeManual
 	svc.base = baseComponent
 	svc.mapType = mapType
 	svc.motionService = motionSvc
 	svc.obstacles = newObstacles
 	svc.replanCostFactor = replanCostFactor
-	svc.obstacleDetectors = obstacleDetectors
 	svc.motionCfg = &motion.MotionConfiguration{
 		ObstacleDetectors:     obstacleDetectorNamePairs,
 		LinearMPerSec:         metersPerSec,
@@ -411,11 +412,10 @@ func (svc *builtIn) SetMode(ctx context.Context, mode navigation.Mode, extra map
 	case navigation.ModeWaypoint:
 		svc.startWaypointMode(cancelCtx, extra)
 	case navigation.ModeExplore:
-		if len(svc.obstacleDetectors) == 0 {
+		if len(svc.motionCfg.ObstacleDetectors) == 0 {
 			return errors.New("explore mode requires at least one vision service")
 		}
 		svc.startExploreMode(cancelCtx)
-		return errors.New("navigation mode 'explore' is not currently available")
 	}
 
 	return nil
@@ -489,6 +489,9 @@ func (svc *builtIn) Close(ctx context.Context) error {
 	defer svc.actionMu.Unlock()
 
 	svc.stopActiveMode()
+	if err := svc.exploreMotionService.Close(ctx); err != nil {
+		return err
+	}
 	return svc.store.Close(ctx)
 }
 
@@ -521,8 +524,7 @@ func (svc *builtIn) startWaypointMode(ctx context.Context, extra map[string]inte
 				extra,
 			)
 			if err != nil {
-				err = errors.Wrapf(err, "hit motion error when navigating to waypoint %+v", wp)
-				return err
+				return errors.Wrapf(err, "hit motion error when navigating to waypoint %+v", wp)
 			}
 
 			svc.logger.Debug("MoveOnGlobe succeeded")
@@ -551,16 +553,7 @@ func (svc *builtIn) startWaypointMode(ctx context.Context, extra map[string]inte
 					svc.logger.Infof("skipping waypoint %+v since it was deleted", wp)
 					continue
 				}
-
-				svc.logger.Infof("skipping waypoint %+v due to error while navigating towards it: %s", wp, err)
-				if err := svc.waypointReached(ctx); err != nil {
-					if svc.waypointIsDeleted() {
-						svc.logger.Infof("skipping waypoint %+v since it was deleted", wp)
-						continue
-					}
-					svc.logger.Infof("can't mark waypoint %+v as reached, exiting navigation due to error: %s", wp, err)
-					return
-				}
+				svc.logger.Infof("retrying navigation to waypoint %+v since it errored out: %s", wp, err)
 			}
 		}
 	})

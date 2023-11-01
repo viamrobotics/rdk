@@ -43,7 +43,7 @@ const handleToggle = async (event: CustomEvent<{ open: boolean }>) => {
   if (event.detail.open) {
     try {
       properties = await getProperties($robotClient, name);
-      refresh();
+      await refresh();
       cancelInterval = setAsyncInterval(refresh, 500);
     } catch (error) {
       displayError(error as ServiceError);
@@ -55,6 +55,9 @@ const handleToggle = async (event: CustomEvent<{ open: boolean }>) => {
 
 useDisconnect(() => cancelInterval?.());
 
+$: showPositionTicks = properties?.ticksCountSupported ?? (!properties?.ticksCountSupported && !properties?.angleDegreesSupported)
+$: showPositionDegrees = properties?.angleDegreesSupported ?? (!properties?.ticksCountSupported && !properties?.angleDegreesSupported)
+
 </script>
 
 <Collapse title={name} on:toggle={handleToggle}>
@@ -64,7 +67,7 @@ useDisconnect(() => cancelInterval?.());
   />
   <div class="overflow-auto border border-t-0 border-medium p-4 text-left text-sm">
     <table class="bborder-medium table-auto border">
-      {#if properties?.ticksCountSupported || (!properties?.ticksCountSupported && !properties?.angleDegreesSupported)}
+      {#if showPositionTicks}
         <tr>
           <th class="border border-medium p-2">
             Count
@@ -75,10 +78,7 @@ useDisconnect(() => cancelInterval?.());
         </tr>
       {/if}
 
-      {#if (
-        properties?.angleDegreesSupported ||
-        (!properties?.ticksCountSupported && !properties?.angleDegreesSupported)
-      )}
+      {#if showPositionDegrees}
         <tr>
           <th class="border border-medium p-2">
             Angle (degrees)

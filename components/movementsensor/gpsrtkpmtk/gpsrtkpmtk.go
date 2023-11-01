@@ -42,7 +42,6 @@ import (
 	"sync"
 
 	"github.com/de-bkg/gognss/pkg/ntrip"
-	"github.com/edaniels/golog"
 	"github.com/go-gnss/rtcm/rtcm3"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
@@ -52,6 +51,7 @@ import (
 	"go.viam.com/rdk/components/movementsensor"
 	gpsnmea "go.viam.com/rdk/components/movementsensor/gpsnmea"
 	rtk "go.viam.com/rdk/components/movementsensor/rtkutils"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -124,7 +124,7 @@ func init() {
 type rtkI2C struct {
 	resource.Named
 	resource.AlwaysRebuild
-	logger     golog.Logger
+	logger     logging.Logger
 	cancelCtx  context.Context
 	cancelFunc func()
 
@@ -214,7 +214,7 @@ func newRTKI2C(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (movementsensor.MovementSensor, error) {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
@@ -643,7 +643,7 @@ func (g *rtkI2C) Accuracy(ctx context.Context, extra map[string]interface{}) (ma
 
 // Readings will use the default MovementSensor Readings if not provided.
 func (g *rtkI2C) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-	readings, err := movementsensor.Readings(ctx, g, extra)
+	readings, err := movementsensor.DefaultAPIReadings(ctx, g, extra)
 	if err != nil {
 		return nil, err
 	}

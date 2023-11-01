@@ -9,7 +9,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
@@ -17,6 +16,7 @@ import (
 	"go.viam.com/rdk/components/encoder/single"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/control"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 	rdkutils "go.viam.com/rdk/utils"
@@ -31,7 +31,7 @@ func WrapMotorWithEncoder(
 	c resource.Config,
 	mc Config,
 	m motor.Motor,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (motor.Motor, error) {
 	if e == nil {
 		return m, nil
@@ -65,7 +65,7 @@ func newEncodedMotor(
 	motorConfig Config,
 	realMotor motor.Motor,
 	realEncoder encoder.Encoder,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (*EncodedMotor, error) {
 	localReal, err := resource.AsType[motor.Motor](realMotor)
 	if err != nil {
@@ -155,7 +155,7 @@ type EncodedMotor struct {
 	maxPowerPct      float64
 	ticksPerRotation float64
 
-	logger    golog.Logger
+	logger    logging.Logger
 	cancelCtx context.Context
 	cancel    func()
 	loop      *control.Loop

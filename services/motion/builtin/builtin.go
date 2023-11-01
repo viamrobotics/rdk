@@ -2,30 +2,26 @@
 package builtin
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"math"
 	"sync"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	servicepb "go.viam.com/api/service/motion/v1"
 
-	"go.viam.com/rdk/components/base"
-	"go.viam.com/rdk/components/base/kinematicbase"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/internal"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/operation"
-	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/slam"
+	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -41,13 +37,15 @@ func init() {
 			WeakDependencies: []internal.ResourceMatcher{
 				internal.SLAMDependencyWildcardMatcher,
 				internal.ComponentDependencyWildcardMatcher,
+				internal.VisionDependencyWildcardMatcher,
 			},
 		})
 }
 
 const (
-	builtinOpLabel      = "motion-service"
-	maxTravelDistanceMM = 5e6 // this is equivalent to 5km
+	builtinOpLabel              = "motion-service"
+	maxTravelDistanceMM         = 5e6 // this is equivalent to 5km
+	lookAheadDistanceMM float64 = 5e6
 )
 
 // inputEnabledActuator is an actuator that interacts with the frame system.
@@ -72,7 +70,9 @@ func (c *Config) Validate(path string) ([]string, error) {
 }
 
 // NewBuiltIn returns a new move and grab service for the given robot.
-func NewBuiltIn(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (motion.Service, error) {
+func NewBuiltIn(
+	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
+) (motion.Service, error) {
 	ms := &builtIn{
 		Named:  conf.ResourceName().AsNamed(),
 		logger: logger,
@@ -106,6 +106,7 @@ func (ms *builtIn) Reconfigure(
 	}
 	movementSensors := make(map[resource.Name]movementsensor.MovementSensor)
 	slamServices := make(map[resource.Name]slam.Service)
+	visionServices := make(map[resource.Name]vision.Service)
 	components := make(map[resource.Name]resource.Resource)
 	for name, dep := range deps {
 		switch dep := dep.(type) {
@@ -115,12 +116,15 @@ func (ms *builtIn) Reconfigure(
 			movementSensors[name] = dep
 		case slam.Service:
 			slamServices[name] = dep
+		case vision.Service:
+			visionServices[name] = dep
 		default:
 			components[name] = dep
 		}
 	}
 	ms.movementSensors = movementSensors
 	ms.slamServices = slamServices
+	ms.visionServices = visionServices
 	ms.components = components
 	return nil
 }
@@ -131,8 +135,9 @@ type builtIn struct {
 	fsService       framesystem.Service
 	movementSensors map[resource.Name]movementsensor.MovementSensor
 	slamServices    map[resource.Name]slam.Service
+	visionServices  map[resource.Name]vision.Service
 	components      map[resource.Name]resource.Resource
-	logger          golog.Logger
+	logger          logging.Logger
 	lock            sync.Mutex
 }
 
@@ -224,27 +229,81 @@ func (ms *builtIn) MoveOnMap(
 	extra map[string]interface{},
 ) (bool, error) {
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
-	kinematicsOptions := kinematicbase.NewKinematicBaseOptions()
-
+	valExtra, err := newValidatedExtra(extra)
+	if err != nil {
+		return false, err
+	}
 	// make call to motionplan
-	plan, kb, err := ms.planMoveOnMap(ctx, componentName, destination, slamName, kinematicsOptions, extra)
+	mr, err := ms.newMoveOnMapRequest(ctx, componentName, destination, slamName, valExtra)
 	if err != nil {
 		return false, fmt.Errorf("error making plan for MoveOnMap: %w", err)
 	}
 
-	// execute the plan
-	for i := 1; i < len(plan); i++ {
-		if inputEnabledKb, ok := kb.(inputEnabledActuator); ok {
-			if err := inputEnabledKb.GoToInputs(ctx, plan[i]); err != nil {
-				// If there is an error on GoToInputs, stop the component if possible before returning the error
-				if stopErr := kb.Stop(ctx, nil); stopErr != nil {
-					return false, errors.Wrap(err, stopErr.Error())
-				}
-				return false, err
-			}
+	ma := newMoveAttempt(ctx, mr)
+	if err := ma.start(); err != nil {
+		return false, err
+	}
+
+	// this ensures that if the context is cancelled we always return early
+	if err := ctx.Err(); err != nil {
+		ma.cancel()
+		return false, err
+	}
+
+	select {
+	// if context was cancelled by the calling function, error out
+	case <-ctx.Done():
+		ma.cancel()
+		return false, ctx.Err()
+
+	// once execution responds: return the result to the caller
+	case resp := <-ma.responseChan:
+		mr.planRequest.Logger.Info("got move on map response")
+		ms.logger.Debugf("execution completed: %s", resp)
+		ma.cancel()
+		return resp.success, resp.err
+	}
+}
+
+type validatedExtra struct {
+	maxReplans       int
+	replanCostFactor float64
+	motionProfile    string
+	extra            map[string]interface{}
+}
+
+func newValidatedExtra(extra map[string]interface{}) (validatedExtra, error) {
+	maxReplans := -1
+	replanCostFactor := defaultReplanCostFactor
+	motionProfile := ""
+	v := validatedExtra{}
+	if extra == nil {
+		return v, nil
+	}
+	if replansRaw, ok := extra["max_replans"]; ok {
+		if replans, ok := replansRaw.(int); ok {
+			maxReplans = replans
 		}
 	}
-	return true, nil
+	if profile, ok := extra["motion_profile"]; ok {
+		motionProfile, ok = profile.(string)
+		if !ok {
+			return v, errors.New("could not interpret motion_profile field as string")
+		}
+	}
+	if costFactorRaw, ok := extra["replan_cost_factor"]; ok {
+		costFactor, ok := costFactorRaw.(float64)
+		if !ok {
+			return validatedExtra{}, errors.New("could not interpret replan_cost_factor field as float")
+		}
+		replanCostFactor = costFactor
+	}
+	return validatedExtra{
+		maxReplans:       maxReplans,
+		motionProfile:    motionProfile,
+		replanCostFactor: replanCostFactor,
+		extra:            extra,
+	}, nil
 }
 
 // MoveOnGlobe will move the given component to the given destination on the globe.
@@ -270,33 +329,17 @@ func (ms *builtIn) MoveOnGlobe(
 		extra,
 	)
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
-
-	// ensure arguments are well behaved
-	if motionCfg == nil {
-		motionCfg = &motion.MotionConfiguration{}
-	}
-	if obstacles == nil {
-		obstacles = []*spatialmath.GeoObstacle{}
-	}
-	if destination == nil {
-		return false, errors.New("destination cannot be nil")
-	}
-
-	mr, err := ms.newMoveOnGlobeRequest(ctx, componentName, destination, movementSensorName, obstacles, motionCfg, nil, extra)
+	valExtra, err := newValidatedExtra(extra)
 	if err != nil {
 		return false, err
 	}
 
-	maxReplans := -1
-	replanCount := 0
-	if extra != nil {
-		if replansRaw, ok := extra["max_replans"]; ok {
-			if replans, ok := replansRaw.(int); ok {
-				maxReplans = replans
-			}
-		}
+	mr, err := ms.newMoveOnGlobeRequest(ctx, componentName, destination, movementSensorName, obstacles, motionCfg, nil, valExtra)
+	if err != nil {
+		return false, err
 	}
 
+	replanCount := 0
 	// start a loop that plans every iteration and exits when something is read from the success channel
 	for {
 		ma := newMoveAttempt(ctx, mr)
@@ -318,9 +361,14 @@ func (ms *builtIn) MoveOnGlobe(
 
 		// once execution responds: return the result to the caller
 		case resp := <-ma.responseChan:
-			ms.logger.Debugf("execution completed: %s", resp)
+			ms.logger.Debugf("execution response: %s", resp)
 			ma.cancel()
-			return resp.success, resp.err
+
+			// If we have a false `success` and nil error, that means replan
+			if resp.success || resp.err != nil {
+				return resp.success, resp.err
+			}
+			ms.logger.Info("reached end of plan, but not at goal; triggering a replan")
 
 		// if the position poller hit an error return it, otherwise replan
 		case resp := <-ma.position.responseChan:
@@ -341,14 +389,14 @@ func (ms *builtIn) MoveOnGlobe(
 			ms.logger.Info("obstacle detection triggering a replan")
 		}
 
-		if maxReplans >= 0 {
+		if valExtra.maxReplans >= 0 {
 			replanCount++
-			if replanCount > maxReplans {
-				return false, fmt.Errorf("exceeded maximum number of replans: %d", maxReplans)
+			if replanCount > valExtra.maxReplans {
+				return false, fmt.Errorf("exceeded maximum number of replans: %d", valExtra.maxReplans)
 			}
 		}
 		// TODO: RSDK-4509 obstacles should include any transient obstacles which may have triggered a replan, if any.
-		mr, err = ms.newMoveOnGlobeRequest(ctx, componentName, destination, movementSensorName, obstacles, motionCfg, mr.seedPlan, extra)
+		mr, err = ms.newMoveOnGlobeRequest(ctx, componentName, destination, movementSensorName, obstacles, motionCfg, mr.seedPlan, valExtra)
 		if err != nil {
 			return false, err
 		}
@@ -399,113 +447,4 @@ func (ms *builtIn) PlanHistory(
 	req motion.PlanHistoryReq,
 ) ([]motion.PlanWithStatus, error) {
 	return nil, errUnimplemented
-}
-
-// PlanMoveOnMap returns the plan for MoveOnMap to execute.
-func (ms *builtIn) planMoveOnMap(
-	ctx context.Context,
-	componentName resource.Name,
-	destination spatialmath.Pose,
-	slamName resource.Name,
-	kinematicsOptions kinematicbase.Options,
-	extra map[string]interface{},
-) ([][]referenceframe.Input, kinematicbase.KinematicBase, error) {
-	// get the SLAM Service from the slamName
-	slamSvc, ok := ms.slamServices[slamName]
-	if !ok {
-		return nil, nil, resource.DependencyNotFoundError(slamName)
-	}
-
-	// gets the extents of the SLAM map
-	limits, err := slam.Limits(ctx, slamSvc)
-	if err != nil {
-		return nil, nil, err
-	}
-	limits = append(limits, referenceframe.Limit{Min: -2 * math.Pi, Max: 2 * math.Pi})
-
-	// create a KinematicBase from the componentName
-	component, ok := ms.components[componentName]
-	if !ok {
-		return nil, nil, resource.DependencyNotFoundError(componentName)
-	}
-	b, ok := component.(base.Base)
-	if !ok {
-		return nil, nil, fmt.Errorf("cannot move component of type %T because it is not a Base", component)
-	}
-
-	if extra != nil {
-		if profile, ok := extra["motion_profile"]; ok {
-			motionProfile, ok := profile.(string)
-			if !ok {
-				return nil, nil, errors.New("could not interpret motion_profile field as string")
-			}
-			kinematicsOptions.PositionOnlyMode = motionProfile == motionplan.PositionOnlyMotionProfile
-		}
-	}
-
-	fs, err := ms.fsService.FrameSystem(ctx, nil)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	kb, err := kinematicbase.WrapWithKinematics(ctx, b, ms.logger, motion.NewSLAMLocalizer(slamSvc), limits, kinematicsOptions)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// replace original base frame with one that knows how to move itself and allow planning for
-	if err = fs.ReplaceFrame(kb.Kinematics()); err != nil {
-		return nil, nil, err
-	}
-
-	// get point cloud data in the form of bytes from pcd
-	pointCloudData, err := slam.PointCloudMapFull(ctx, slamSvc)
-	if err != nil {
-		return nil, nil, err
-	}
-	// store slam point cloud data  in the form of a recursive octree for collision checking
-	octree, err := pointcloud.ReadPCDToBasicOctree(bytes.NewReader(pointCloudData))
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// get current position
-	inputs, err := kb.CurrentInputs(ctx)
-	if err != nil {
-		return nil, nil, err
-	}
-	if kinematicsOptions.PositionOnlyMode && len(kb.Kinematics().DoF()) == 2 && len(inputs) == 3 {
-		inputs = inputs[:2]
-	}
-	ms.logger.Debugf("base position: %v", inputs)
-
-	dst := referenceframe.NewPoseInFrame(referenceframe.World, destination)
-
-	f := kb.Kinematics()
-
-	worldState, err := referenceframe.NewWorldState([]*referenceframe.GeometriesInFrame{
-		referenceframe.NewGeometriesInFrame(referenceframe.World, []spatialmath.Geometry{octree}),
-	}, nil)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	seedMap := map[string][]referenceframe.Input{f.Name(): inputs}
-
-	ms.logger.Debugf("goal position: %v", dst.Pose().Point())
-	plan, err := motionplan.PlanMotion(ctx, &motionplan.PlanRequest{
-		Logger:             ms.logger,
-		Goal:               dst,
-		Frame:              f,
-		StartConfiguration: seedMap,
-		FrameSystem:        fs,
-		WorldState:         worldState,
-		ConstraintSpecs:    nil,
-		Options:            extra,
-	})
-	if err != nil {
-		return nil, nil, err
-	}
-	steps, err := plan.GetFrameSteps(f.Name())
-	return steps, kb, err
 }

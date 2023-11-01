@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils/protoutils"
 
+	"go.viam.com/rdk/logging"
 	spatial "go.viam.com/rdk/spatialmath"
 )
 
@@ -483,7 +483,7 @@ func StartPositions(fs FrameSystem) map[string][]Input {
 
 // FrameSystemToPCD takes in a framesystem and returns a map where all elements are
 // the point representation of their geometry type with respect to the world.
-func FrameSystemToPCD(system FrameSystem, inputs map[string][]Input, logger golog.Logger) (map[string][]r3.Vector, error) {
+func FrameSystemToPCD(system FrameSystem, inputs map[string][]Input, logger logging.Logger) (map[string][]r3.Vector, error) {
 	vectorMap := make(map[string][]r3.Vector)
 	geometriesInWorldFrame, err := FrameSystemGeometries(system, inputs)
 	if err != nil {

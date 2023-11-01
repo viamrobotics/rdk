@@ -7,13 +7,13 @@ import (
 	"math"
 	"sync"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -25,7 +25,7 @@ type PmtkI2CNMEAMovementSensor struct {
 	mu                      sync.RWMutex
 	cancelCtx               context.Context
 	cancelFunc              func()
-	logger                  golog.Logger
+	logger                  logging.Logger
 	data                    GPSData
 	activeBackgroundWorkers sync.WaitGroup
 
@@ -45,7 +45,7 @@ func NewPmtkI2CGPSNMEA(
 	deps resource.Dependencies,
 	name resource.Name,
 	conf *Config,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (NmeaMovementSensor, error) {
 	b, err := board.FromDependencies(deps, conf.Board)
 	if err != nil {
@@ -314,7 +314,7 @@ func (g *PmtkI2CNMEAMovementSensor) ReadSatsInView(ctx context.Context) (int, er
 
 // Readings will use return all of the MovementSensor Readings.
 func (g *PmtkI2CNMEAMovementSensor) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-	readings, err := movementsensor.Readings(ctx, g, extra)
+	readings, err := movementsensor.DefaultAPIReadings(ctx, g, extra)
 	if err != nil {
 		return nil, err
 	}

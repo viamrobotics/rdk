@@ -5,7 +5,6 @@ import (
 	"context"
 	"sync"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/component/arm/v1"
 
@@ -13,6 +12,7 @@ import (
 	"go.viam.com/rdk/components/arm/eva"
 	ur "go.viam.com/rdk/components/arm/universalrobots"
 	"go.viam.com/rdk/components/arm/xarm"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -65,7 +65,7 @@ func init() {
 }
 
 // NewArm returns a new fake arm.
-func NewArm(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (arm.Arm, error) {
+func NewArm(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger) (arm.Arm, error) {
 	a := &Arm{
 		Named:  conf.ResourceName().AsNamed(),
 		logger: logger,
@@ -103,7 +103,7 @@ func buildModel(cfg resource.Config, newConf *Config) (referenceframe.Model, err
 type Arm struct {
 	resource.Named
 	CloseCount int
-	logger     golog.Logger
+	logger     logging.Logger
 
 	mu     sync.RWMutex
 	joints *pb.JointPositions

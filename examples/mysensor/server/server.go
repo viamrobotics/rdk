@@ -4,17 +4,17 @@ package main
 import (
 	"context"
 
-	"github.com/edaniels/golog"
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/sensor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
 )
 
-var logger = golog.NewDebugLogger("mysensor")
+var logger = logging.NewDebugLogger("mysensor")
 
 // registering the component model on init is how we make sure the new model is picked up and usable.
 func init() {
@@ -25,7 +25,7 @@ func init() {
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger golog.Logger,
+			logger logging.Logger,
 		) (sensor.Sensor, error) {
 			return newSensor(conf.ResourceName()), nil
 		}})
@@ -53,7 +53,7 @@ func main() {
 	goutils.ContextualMain(mainWithArgs, logger)
 }
 
-func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err error) {
+func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) (err error) {
 	name := sensor.Named("sensor1")
 	s := newSensor(name)
 

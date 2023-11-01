@@ -8,9 +8,10 @@ import (
 	"os"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
+
+	"go.viam.com/rdk/logging"
 )
 
 func writePicture(img image.Image, p string) error {
@@ -50,7 +51,7 @@ func TestVectorFieldToDenseAndBack(t *testing.T) {
 
 func TestSobelFilter(t *testing.T) {
 	outDir := t.TempDir()
-	golog.NewTestLogger(t).Debugf("out dir: %q", outDir)
+	logging.NewTestLogger(t).Debugf("out dir: %q", outDir)
 	// circle.png is 300x200 canvas, circle is 150 pixels in diameter, centered at (150,100)
 	dm, err := NewDepthMapFromFile(context.Background(), artifact.MustPath("rimage/circle.png"))
 	test.That(t, err, test.ShouldBeNil)

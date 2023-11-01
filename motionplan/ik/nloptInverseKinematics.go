@@ -9,12 +9,12 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/edaniels/golog"
 	"github.com/go-nlopt/nlopt"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 )
 
@@ -37,7 +37,7 @@ type NloptIK struct {
 	upperBound    []float64
 	maxIterations int
 	epsilon       float64
-	logger        golog.Logger
+	logger        logging.Logger
 	jump          float64
 
 	// Nlopt will try to minimize a configuration for whatever is passed in. If exact is false, then the solver will emit partial
@@ -54,7 +54,7 @@ type optimizeReturn struct {
 // CreateNloptIKSolver creates an nloptIK object that can perform gradient descent on metrics for Frames. The parameters are the Frame on
 // which Transform() will be called, a logger, and the number of iterations to run. If the iteration count is less than 1, it will be set
 // to the default of 5000.
-func CreateNloptIKSolver(mdl referenceframe.Frame, logger golog.Logger, iter int, exact bool) (*NloptIK, error) {
+func CreateNloptIKSolver(mdl referenceframe.Frame, logger logging.Logger, iter int, exact bool) (*NloptIK, error) {
 	ik := &NloptIK{logger: logger}
 
 	ik.model = mdl

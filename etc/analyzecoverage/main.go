@@ -22,7 +22,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/edaniels/golog"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -30,15 +29,17 @@ import (
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 	"golang.org/x/tools/cover"
+
+	"go.viam.com/rdk/logging"
 )
 
-var logger = golog.NewDebugLogger("analyzetests")
+var logger = logging.NewDebugLogger("analyzetests")
 
 func main() {
 	utils.ContextualMain(mainWithArgs, logger)
 }
 
-func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error {
+func mainWithArgs(ctx context.Context, _ []string, logger logging.Logger) error {
 	profileDataAll, err := io.ReadAll(os.Stdin)
 	if err != nil {
 		return err

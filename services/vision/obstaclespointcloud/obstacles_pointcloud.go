@@ -5,10 +5,10 @@ package obstaclespointcloud
 import (
 	"context"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/vision"
@@ -20,7 +20,9 @@ var model = resource.DefaultModelFamily.WithModel("obstacles_pointcloud")
 
 func init() {
 	resource.RegisterService(vision.API, model, resource.Registration[vision.Service, *segmentation.ErCCLConfig]{
-		DeprecatedRobotConstructor: func(ctx context.Context, r any, c resource.Config, logger golog.Logger) (vision.Service, error) {
+		DeprecatedRobotConstructor: func(
+			ctx context.Context, r any, c resource.Config, logger logging.Logger,
+		) (vision.Service, error) {
 			attrs, err := resource.NativeConfig[*segmentation.ErCCLConfig](c)
 			if err != nil {
 				return nil, err

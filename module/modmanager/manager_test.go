@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
 	"go.uber.org/zap/zaptest/observer"
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
@@ -16,6 +15,7 @@ import (
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/logging"
 	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
 	"go.viam.com/rdk/resource"
 	rtestutils "go.viam.com/rdk/testutils"
@@ -24,7 +24,7 @@ import (
 
 func TestModManagerFunctions(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	// Precompile module copies to avoid timeout issues when building takes too long.
 	modPath, err := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
@@ -51,7 +51,7 @@ func TestModManagerFunctions(t *testing.T) {
 	t.Log("test Helpers")
 	mgr := NewManager(parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
 
-	mod := &module{name: "test", exe: modPath}
+	mod := &module{cfg: config.Module{Name: "test", ExePath: modPath}}
 
 	err = mod.startProcess(ctx, parentAddr, nil, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -219,7 +219,7 @@ func TestModManagerFunctions(t *testing.T) {
 
 func TestModManagerValidation(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	// Precompile module to avoid timeout issues when building takes too long.
 	modPath, err := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexmodule")
@@ -313,7 +313,7 @@ func TestModuleReloading(t *testing.T) {
 	modCfg := config.Module{Name: "test-module"}
 
 	t.Run("successful restart", func(t *testing.T) {
-		logger, logs := golog.NewObservedTestLogger(t)
+		logger, logs := logging.NewObservedTestLogger(t)
 
 		// Precompile module to avoid timeout issues when building takes too long.
 		modPath, err := rtestutils.BuildTempModule(t, "module/testmodule")
@@ -381,7 +381,7 @@ func TestModuleReloading(t *testing.T) {
 		test.That(t, dummyRemoveOrphanedResourcesCallCount.Load(), test.ShouldEqual, 1)
 	})
 	t.Run("unsuccessful restart", func(t *testing.T) {
-		logger, logs := golog.NewObservedTestLogger(t)
+		logger, logs := logging.NewObservedTestLogger(t)
 
 		// Precompile module to avoid timeout issues when building takes too long.
 		modPath, err := rtestutils.BuildTempModule(t, "module/testmodule")
@@ -461,7 +461,7 @@ func TestModuleReloading(t *testing.T) {
 		test.That(t, dummyRemoveOrphanedResourcesCallCount.Load(), test.ShouldEqual, 1)
 	})
 	t.Run("timed out module process is stopped", func(t *testing.T) {
-		logger, logs := golog.NewObservedTestLogger(t)
+		logger, logs := logging.NewObservedTestLogger(t)
 
 		modCfg.ExePath = rutils.ResolveFile("module/testmodule/fakemodule.sh")
 
@@ -567,10 +567,10 @@ func TestDebugModule(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			var logger golog.Logger
+			var logger logging.Logger
 			var logs *observer.ObservedLogs
 			if tc.managerDebugEnabled {
-				logger, logs = golog.NewObservedTestLogger(t)
+				logger, logs = logging.NewObservedTestLogger(t)
 			} else {
 				logger, logs = rtestutils.NewInfoObservedTestLogger(t)
 			}
@@ -609,7 +609,7 @@ func TestGracefulShutdownWithMalformedModule(t *testing.T) {
 	// check. With our current design, `local_robot.Reconfigure` blocks the main thread,
 	// so the manager will not be `Closed` while a module is being `Add`ed. Future work
 	// (RSDK-4854) may change that though.
-	logger, logs := golog.NewObservedTestLogger(t)
+	logger, logs := logging.NewObservedTestLogger(t)
 	// Precompile module to avoid timeout issues when building takes too long.
 	modPath, err := rtestutils.BuildTempModule(t, "module/testmodule")
 	test.That(t, err, test.ShouldBeNil)

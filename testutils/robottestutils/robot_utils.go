@@ -9,14 +9,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
-	"go.uber.org/zap"
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/robot/client"
 	weboptions "go.viam.com/rdk/robot/web/options"
 )
@@ -33,7 +32,7 @@ func CreateBaseOptionsAndListener(tb testing.TB) (weboptions.Options, net.Listen
 }
 
 // NewRobotClient creates a new robot client with a certain address.
-func NewRobotClient(tb testing.TB, logger *zap.SugaredLogger, addr string, dur time.Duration) *client.RobotClient {
+func NewRobotClient(tb testing.TB, logger logging.Logger, addr string, dur time.Duration) *client.RobotClient {
 	tb.Helper()
 	// start robot client
 	robotClient, err := client.New(
@@ -67,7 +66,7 @@ func Connect(port string) (*grpc.ClientConn, error) {
 }
 
 // MakeTempConfig writes a config.Config object to a temporary file for testing.
-func MakeTempConfig(t *testing.T, cfg *config.Config, logger golog.Logger) (string, error) {
+func MakeTempConfig(t *testing.T, cfg *config.Config, logger logging.Logger) (string, error) {
 	if err := cfg.Ensure(false, logger); err != nil {
 		return "", err
 	}

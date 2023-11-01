@@ -265,7 +265,7 @@ $: {
     <v-breadcrumbs crumbs="input_controller" />
 
     {#if currentGamepad?.connected}
-      ({currentGamepad?.id})
+      ({currentGamepad.id})
     {/if}
   </svelte:fragment>
 

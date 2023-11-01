@@ -8,9 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
-
 	"go.viam.com/rdk/components/base/fake"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/motion"
@@ -24,7 +23,7 @@ type fakeDiffDriveKinematics struct {
 	inputs                        []referenceframe.Input
 	options                       Options
 	sensorNoise                   spatialmath.Pose
-	lock                          sync.Mutex
+	lock                          sync.RWMutex
 }
 
 // WrapWithFakeDiffDriveKinematics creates a DiffDrive KinematicBase from the fake Base so that it satisfies the ModelFramer and
@@ -79,8 +78,8 @@ func (fk *fakeDiffDriveKinematics) Kinematics() referenceframe.Frame {
 }
 
 func (fk *fakeDiffDriveKinematics) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	fk.lock.Lock()
-	defer fk.lock.Unlock()
+	fk.lock.RLock()
+	defer fk.lock.RUnlock()
 	return fk.inputs, nil
 }
 
@@ -107,9 +106,9 @@ func (fk *fakeDiffDriveKinematics) ErrorState(
 }
 
 func (fk *fakeDiffDriveKinematics) CurrentPosition(ctx context.Context) (*referenceframe.PoseInFrame, error) {
-	fk.lock.Lock()
+	fk.lock.RLock()
 	inputs := fk.inputs
-	fk.lock.Unlock()
+	fk.lock.RUnlock()
 	currentPose, err := fk.planningFrame.Transform(inputs)
 	if err != nil {
 		return nil, err
@@ -119,12 +118,12 @@ func (fk *fakeDiffDriveKinematics) CurrentPosition(ctx context.Context) (*refere
 
 type fakePTGKinematics struct {
 	*fake.Base
-	parentFrame     string
-	frame           referenceframe.Frame
-	options         Options
-	sensorNoise     spatialmath.Pose
-	currentPosition spatialmath.Pose
-	lock            sync.Mutex
+	frame       referenceframe.Frame
+	options     Options
+	sensorNoise spatialmath.Pose
+	origin      *referenceframe.PoseInFrame
+	lock        sync.RWMutex
+	logger      logging.Logger
 }
 
 // WrapWithFakePTGKinematics creates a PTG KinematicBase from the fake Base so that it satisfies the ModelFramer and InputEnabled
@@ -132,16 +131,11 @@ type fakePTGKinematics struct {
 func WrapWithFakePTGKinematics(
 	ctx context.Context,
 	b *fake.Base,
-	logger golog.Logger,
-	localizer motion.Localizer,
+	logger logging.Logger,
+	origin *referenceframe.PoseInFrame,
 	options Options,
 	sensorNoise spatialmath.Pose,
 ) (KinematicBase, error) {
-	position, err := localizer.CurrentPosition(ctx)
-	if err != nil {
-		return nil, err
-	}
-
 	properties, err := b.Properties(ctx, nil)
 	if err != nil {
 		return nil, err
@@ -181,11 +175,11 @@ func WrapWithFakePTGKinematics(
 		sensorNoise = spatialmath.NewZeroPose()
 	}
 	fk := &fakePTGKinematics{
-		Base:            b,
-		frame:           frame,
-		parentFrame:     position.Parent(),
-		currentPosition: position.Pose(),
-		sensorNoise:     sensorNoise,
+		Base:        b,
+		frame:       frame,
+		origin:      origin,
+		sensorNoise: sensorNoise,
+		logger:      logger,
 	}
 
 	fk.options = options
@@ -207,10 +201,8 @@ func (fk *fakePTGKinematics) GoToInputs(ctx context.Context, inputs []referencef
 	}
 
 	fk.lock.Lock()
-	fk.currentPosition = spatialmath.Compose(fk.currentPosition, newPose)
+	fk.origin = referenceframe.NewPoseInFrame(fk.origin.Parent(), spatialmath.Compose(fk.origin.Pose(), newPose))
 	fk.lock.Unlock()
-
-	// Sleep for a short amount to time to simulate a base taking some amount of time to reach the inputs
 	time.Sleep(50 * time.Millisecond)
 	return nil
 }
@@ -224,8 +216,8 @@ func (fk *fakePTGKinematics) ErrorState(
 }
 
 func (fk *fakePTGKinematics) CurrentPosition(ctx context.Context) (*referenceframe.PoseInFrame, error) {
-	fk.lock.Lock()
-	currentPosition := fk.currentPosition
-	fk.lock.Unlock()
-	return referenceframe.NewPoseInFrame(fk.parentFrame, spatialmath.Compose(currentPosition, fk.sensorNoise)), nil
+	fk.lock.RLock()
+	defer fk.lock.RUnlock()
+	origin := fk.origin
+	return referenceframe.NewPoseInFrame(origin.Parent(), spatialmath.Compose(origin.Pose(), fk.sensorNoise)), nil
 }

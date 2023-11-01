@@ -21,7 +21,6 @@ import (
 
 	"github.com/Masterminds/sprig"
 	"github.com/NYTimes/gziphandler"
-	"github.com/edaniels/golog"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/jhump/protoreflect/dynamic"
 	"github.com/pkg/errors"
@@ -38,6 +37,7 @@ import (
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/module"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -65,7 +65,7 @@ var defaultMethodTimeout = 10 * time.Minute
 type robotWebApp struct {
 	template *template.Template
 	theRobot robot.Robot
-	logger   golog.Logger
+	logger   logging.Logger
 	options  weboptions.Options
 }
 
@@ -233,7 +233,7 @@ func (svc *webService) Start(ctx context.Context, o weboptions.Options) error {
 }
 
 // RunWeb starts the web server on the robot with web options and blocks until we cancel the context.
-func RunWeb(ctx context.Context, r robot.LocalRobot, o weboptions.Options, logger golog.Logger) (err error) {
+func RunWeb(ctx context.Context, r robot.LocalRobot, o weboptions.Options, logger logging.Logger) (err error) {
 	defer func() {
 		if err != nil {
 			err = utils.FilterOutError(err, context.Canceled)
@@ -251,7 +251,7 @@ func RunWeb(ctx context.Context, r robot.LocalRobot, o weboptions.Options, logge
 }
 
 // RunWebWithConfig starts the web server on the robot with a robot config and blocks until we cancel the context.
-func RunWebWithConfig(ctx context.Context, r robot.LocalRobot, cfg *config.Config, logger golog.Logger) error {
+func RunWebWithConfig(ctx context.Context, r robot.LocalRobot, cfg *config.Config, logger logging.Logger) error {
 	o, err := weboptions.FromConfig(cfg)
 	if err != nil {
 		return err
@@ -506,7 +506,7 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 		return err
 	}
 
-	svc.rpcServer, err = rpc.NewServer(svc.logger, rpcOpts...)
+	svc.rpcServer, err = rpc.NewServer(svc.logger.AsZap(), rpcOpts...)
 	if err != nil {
 		return err
 	}

@@ -5,11 +5,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/session"
 	"go.viam.com/rdk/testutils/inject"
@@ -17,10 +17,10 @@ import (
 
 func TestSessionManager(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	r := &inject.Robot{}
 
-	r.LoggerFunc = func() golog.Logger {
+	r.LoggerFunc = func() logging.Logger {
 		return logger
 	}
 
@@ -58,10 +58,10 @@ func TestSessionManager(t *testing.T) {
 
 func TestSessionManagerExpiredSessions(t *testing.T) {
 	ctx := context.Background()
-	logger, logs := golog.NewObservedTestLogger(t)
+	logger, logs := logging.NewObservedTestLogger(t)
 	r := &inject.Robot{}
 
-	r.LoggerFunc = func() golog.Logger {
+	r.LoggerFunc = func() logging.Logger {
 		return logger
 	}
 

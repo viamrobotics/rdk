@@ -31,7 +31,7 @@ Init functions are run on import, so we have to make sure we are importing it so
                 ctx context.Context,
                 deps resource.Dependencies,
                 conf resource.Config,
-                logger golog.Logger,
+                logger logging.Logger,
             ) (sensor.Sensor, error) {
                 return newSensor(config.Name), nil
             }})

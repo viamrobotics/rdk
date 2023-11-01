@@ -6,9 +6,8 @@ import (
 	"errors"
 	"sync"
 
-	"go.uber.org/zap"
-
 	"go.viam.com/rdk/examples/customresources/apis/summationapi"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
@@ -42,7 +41,7 @@ type mySum struct {
 func newMySum(ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
-	logger *zap.SugaredLogger,
+	logger logging.Logger,
 ) (summationapi.Summation, error) {
 	summer := &mySum{
 		Named: conf.ResourceName().AsNamed(),

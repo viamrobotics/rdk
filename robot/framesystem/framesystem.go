@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/edaniels/golog"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -50,7 +50,7 @@ func FromDependencies(deps resource.Dependencies) (Service, error) {
 }
 
 // New returns a new frame system service for the given robot.
-func New(ctx context.Context, deps resource.Dependencies, logger golog.Logger) (Service, error) {
+func New(ctx context.Context, deps resource.Dependencies, logger logging.Logger) (Service, error) {
 	fs := &frameSystemService{
 		Named:      InternalServiceName.AsNamed(),
 		components: make(map[string]resource.Resource),
@@ -114,7 +114,7 @@ type frameSystemService struct {
 	resource.Named
 	resource.TriviallyCloseable
 	components map[string]resource.Resource
-	logger     golog.Logger
+	logger     logging.Logger
 
 	parts   []*referenceframe.FrameSystemPart
 	partsMu sync.RWMutex

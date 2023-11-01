@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils"
 )
 
@@ -224,7 +224,7 @@ func benchNBlocks(b *testing.B, n int, freq float64) {
 		}
 		cfg.Blocks = append(cfg.Blocks, out[i].c)
 	}
-	logger := golog.NewTestLogger(b)
+	logger := logging.NewTestLogger(b)
 	cloop, err := createLoop(logger, cfg, nil)
 	if err == nil {
 		b.ResetTimer()
@@ -246,7 +246,7 @@ func BenchmarkLoop100(b *testing.B) {
 }
 
 func TestControlLoop(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 	cfg := Config{
 		Blocks: []BlockConfig{
@@ -325,7 +325,7 @@ func TestControlLoop(t *testing.T) {
 }
 
 func TestMultiSignalLoop(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	cfg := Config{
 		Blocks: []BlockConfig{
 			{
