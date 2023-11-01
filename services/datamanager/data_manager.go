@@ -85,7 +85,6 @@ type DataCaptureConfig struct {
 	Disabled           bool              `json:"disabled"`
 	Tags               []string          `json:"tags,omitempty"`
 	CaptureDirectory   string            `json:"capture_directory"`
-	SelectiveSyncer    bool              `json:"is_selective_syncer"`
 }
 
 // Equals checks if one capture config is equal to another.
@@ -99,8 +98,7 @@ func (c *DataCaptureConfig) Equals(other *DataCaptureConfig) bool {
 		c.Disabled == other.Disabled &&
 		slices.Compare(c.Tags, other.Tags) == 0 &&
 		reflect.DeepEqual(c.AdditionalParams, other.AdditionalParams) &&
-		c.CaptureDirectory == other.CaptureDirectory &&
-		c.SelectiveSyncer == other.SelectiveSyncer
+		c.CaptureDirectory == other.CaptureDirectory
 }
 
 // ShouldSyncKey is a special key we use within a modular sensor to pass a boolean
