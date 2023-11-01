@@ -100,3 +100,15 @@ func (c *DataCaptureConfig) Equals(other *DataCaptureConfig) bool {
 		reflect.DeepEqual(c.AdditionalParams, other.AdditionalParams) &&
 		c.CaptureDirectory == other.CaptureDirectory
 }
+
+// ShouldSyncKey is a special key we use within a modular sensor to pass a boolean
+// that indicates to the datamanager whether or not we want to sync.
+var ShouldSyncKey = "should_sync"
+
+// CreateShouldSyncReading is a helper for creating the expected reading for a modular sensor
+// that passes a bool to the datamanager to indicate whether or not we want to sync.
+func CreateShouldSyncReading(toSync bool) map[string]interface{} {
+	readings := map[string]interface{}{}
+	readings[ShouldSyncKey] = toSync
+	return readings
+}
