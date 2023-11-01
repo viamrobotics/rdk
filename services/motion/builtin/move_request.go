@@ -486,16 +486,7 @@ func (ms *builtIn) relativeMoveRequestFromAbsolute(
 		return nil, err
 	}
 	startPoseInv := spatialmath.PoseInverse(startPose.Pose())
-
-	if err := motion.ValidatePose(startPose.Pose()); err != nil {
-		return nil, err
-	}
-
 	poseBetween := spatialmath.PoseBetween(startPose.Pose(), goalPoseInWorld)
-	if err := motion.ValidatePose(poseBetween); err != nil {
-		return nil, err
-	}
-
 	goal := referenceframe.NewPoseInFrame(referenceframe.World, poseBetween)
 
 	// convert GeoObstacles into GeometriesInFrame with respect to the base's starting point
