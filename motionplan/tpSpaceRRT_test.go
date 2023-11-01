@@ -546,5 +546,4 @@ func TestPtgCheckPlan(t *testing.T) {
 }
 
 func TestPtgPositionOnlyGoalGeneration(t *testing.T) {
-
 }

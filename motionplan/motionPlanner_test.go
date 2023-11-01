@@ -836,9 +836,9 @@ func TestPtgPosOnlyBidirectional(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	goal := spatialmath.NewPoseFromPoint(r3.Vector{1000, 8000, 0})
+	goal := spatialmath.NewPoseFromPoint(r3.Vector{1000, -8000, 0})
 
-	extra := map[string]interface{}{"motion_profile": "position_only", "position_seeds": 16}
+	extra := map[string]interface{}{"motion_profile": "position_only", "position_seeds": 2, "smooth_iter": 5}
 
 	baseFS := frame.NewEmptyFrameSystem("baseFS")
 	err = baseFS.AddFrame(kinematicFrame, baseFS.World())
@@ -854,8 +854,25 @@ func TestPtgPosOnlyBidirectional(t *testing.T) {
 		Options:            extra,
 	}
 
-	firstplan, err := PlanMotion(ctx, planRequest)
+	bidirectionalPlanRaw, err := PlanMotion(ctx, planRequest)
 	test.That(t, err, test.ShouldBeNil)
+
+	// If bidirectional planning worked properly, this plan should wind up at the goal with an orientation of Theta = 180 degrees
+	bidirectionalPlan := []node{}
+	for _, inp := range bidirectionalPlanRaw {
+		thisNode := &basicNode{
+			q:    inp[kinematicFrame.Name()],
+			cost: inp[kinematicFrame.Name()][2].Value,
+		}
+		bidirectionalPlan = append(bidirectionalPlan, thisNode)
+	}
+	bidirectionalPlan, err = rectifyTPspacePath(bidirectionalPlan, kinematicFrame, spatialmath.NewZeroPose())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, spatialmath.PoseAlmostCoincidentEps(goal, bidirectionalPlan[len(bidirectionalPlan)-1].Pose(), 1), test.ShouldBeTrue)
+	test.That(t, spatialmath.OrientationAlmostEqual(
+		&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 180},
+		bidirectionalPlan[len(bidirectionalPlan)-1].Pose().Orientation(),
+	), test.ShouldBeTrue)
 }
 
 func TestValidatePlanRequest(t *testing.T) {
