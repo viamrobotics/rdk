@@ -83,3 +83,8 @@ func NewObservedTestLogger(tb testing.TB) (Logger, *observer.ObservedLogs) {
 	}))
 	return &zLogger{logger.Sugar()}, observedLogs
 }
+
+// NewViamLogger creates an instance of the viam logger in debug mode without any outputs.
+func NewViamLogger(name string) Logger {
+	return &impl{name, DEBUG, []Appender{}}
+}
