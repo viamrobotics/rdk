@@ -732,7 +732,7 @@ func (m *module) startProcess(
 	for {
 		select {
 		case <-ctxTimeout.Done():
-			return errors.Errorf("timed out waiting for module %s to start listening", m.cfg.LogLevel)
+			return errors.Errorf("timed out waiting for module %s to start listening", m.cfg.Name)
 		default:
 		}
 		err = modlib.CheckSocketOwner(m.addr)
