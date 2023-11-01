@@ -16,6 +16,7 @@ import (
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/internal"
 	"go.viam.com/rdk/internal/cloud"
@@ -79,11 +80,39 @@ type Config struct {
 	Tags                   []string                         `json:"tags"`
 	ResourceConfigs        []*datamanager.DataCaptureConfig `json:"resource_configs"`
 	FileLastModifiedMillis int                              `json:"file_last_modified_millis"`
+	SelectiveSyncerName    string                           `json:"selective_syncer_name"`
 }
 
 // Validate returns components which will be depended upon weakly due to the above matcher.
 func (c *Config) Validate(path string) ([]string, error) {
 	return []string{cloud.InternalServiceName.String()}, nil
+}
+
+type selectiveSyncer interface {
+	sensor.Sensor
+}
+
+// readyToSync is a method for getting the bool reading from the selective sync sensor
+// for determining whether the key is present and what its value is.
+func readyToSync(ctx context.Context, s selectiveSyncer, logger logging.Logger) (readyToSync bool) {
+	readyToSync = false
+	readings, err := s.Readings(ctx, nil)
+	if err != nil {
+		logger.Errorw("error getting readings from selective syncer", "error", err.Error())
+		return
+	}
+	readyToSyncVal, ok := readings[datamanager.ShouldSyncKey]
+	if !ok {
+		logger.Errorf("value for should sync key %s not present in readings", datamanager.ShouldSyncKey)
+		return
+	}
+	readyToSyncBool, err := utils.AssertType[bool](readyToSyncVal)
+	if err != nil {
+		logger.Errorw("error converting should sync key to bool", "key", datamanager.ShouldSyncKey, "error", err.Error())
+		return
+	}
+	readyToSync = readyToSyncBool
+	return
 }
 
 // builtIn initializes and orchestrates data capture collectors for registered component/methods.
@@ -107,6 +136,8 @@ type builtIn struct {
 	cloudConnSvc        cloud.ConnectionService
 	cloudConn           rpc.ClientConn
 	syncTicker          *clk.Ticker
+
+	syncSensor selectiveSyncer
 }
 
 var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), ".viam", "capture")
@@ -330,7 +361,7 @@ func (svc *builtIn) Sync(ctx context.Context, _ map[string]interface{}) error {
 		}
 	}
 
-	svc.sync()
+	svc.sync(ctx)
 	return nil
 }
 
@@ -422,6 +453,17 @@ func (svc *builtIn) Reconfigure(
 		fileLastModifiedMillis = defaultFileLastModifiedMillis
 	}
 
+	var syncSensor sensor.Sensor
+	if svcConfig.SelectiveSyncerName != "" {
+		syncSensor, err = sensor.FromDependencies(deps, svcConfig.SelectiveSyncerName)
+		if err != nil {
+			svc.logger.Errorw("unable to initialize selective syncer", "error", err.Error())
+		}
+	}
+	if svc.syncSensor != syncSensor {
+		svc.syncSensor = syncSensor
+	}
+
 	if svc.syncDisabled != svcConfig.ScheduledSyncDisabled || svc.syncIntervalMins != svcConfig.SyncIntervalMins ||
 		!reflect.DeepEqual(svc.tags, svcConfig.Tags) || svc.fileLastModifiedMillis != fileLastModifiedMillis {
 		svc.syncDisabled = svcConfig.ScheduledSyncDisabled
@@ -497,7 +539,7 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 			case <-svc.syncTicker.C:
 				svc.lock.Lock()
 				if svc.syncer != nil {
-					svc.sync()
+					svc.sync(cancelCtx)
 				}
 				svc.lock.Unlock()
 			}
@@ -505,14 +547,22 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 	})
 }
 
-func (svc *builtIn) sync() {
+func (svc *builtIn) sync(ctx context.Context) {
 	svc.flushCollectors()
-	toSync := getAllFilesToSync(svc.captureDir, svc.fileLastModifiedMillis)
-	for _, ap := range svc.additionalSyncPaths {
-		toSync = append(toSync, getAllFilesToSync(ap, svc.fileLastModifiedMillis)...)
+	shouldSync := true
+	// If selective sync is enabled and the sensor has been properly initialized,
+	// try to get the reading from the selective sensor that indicates whether to sync
+	if svc.syncSensor != nil {
+		shouldSync = readyToSync(ctx, svc.syncSensor, svc.logger)
 	}
-	for _, p := range toSync {
-		svc.syncer.SyncFile(p)
+	if shouldSync {
+		toSync := getAllFilesToSync(svc.captureDir, svc.fileLastModifiedMillis)
+		for _, ap := range svc.additionalSyncPaths {
+			toSync = append(toSync, getAllFilesToSync(ap, svc.fileLastModifiedMillis)...)
+		}
+		for _, p := range toSync {
+			svc.syncer.SyncFile(p)
+		}
 	}
 }
 
