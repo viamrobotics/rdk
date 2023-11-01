@@ -101,8 +101,12 @@ func newEncodedMotor(
 	}
 	em.encoder = realEncoder
 
+	if err = em.validateControlConfig(cancelCtx); err != nil {
+		return nil, err
+	}
+
 	if len(motorConfig.ControlLoop.Blocks) != 0 {
-		if err = em.FindControlBlock(); err != nil {
+		if err = em.setupControlLoop(); err != nil {
 			return nil, err
 		}
 		pidBlock, err := em.loop.ConfigAt(cancelCtx, "PID")
@@ -110,7 +114,7 @@ func newEncodedMotor(
 			return nil, err
 		}
 		if pidBlock.Attribute["kP"] == 0 && pidBlock.Attribute["kI"] == 0 && pidBlock.Attribute["kD"] == 0 {
-			em.loop.Tuning = true
+			em.loop.SetTuning(cancelCtx, true)
 		}
 	}
 
@@ -174,12 +178,12 @@ type EncodedMotorState struct {
 	direction    float64
 }
 
-// RPMMonitorStart starts the RPM monitor.
+// rpmMonitorStart starts the RPM monitor.
 func (m *EncodedMotor) rpmMonitorStart() {
 	if m.loop != nil {
 		return
 	} else if len(m.cfg.ControlLoop.Blocks) != 0 {
-		if err := m.FindControlBlock(); err != nil {
+		if err := m.setupControlLoop(); err != nil {
 			m.logger.Error(err)
 			return
 		}
@@ -432,7 +436,9 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float
 			velVal := math.Abs(rpm * m.ticksPerRotation / 60)
 			// when rev = 0, only velocity is controlled
 			// setPoint is +/- infinity, maxVel is calculated velVal
-			m.UpdateControlBlock(ctx, math.Inf(int(rpm)), velVal)
+			if err := m.updateControlBlock(ctx, math.Inf(int(rpm)), velVal); err != nil {
+				return err
+			}
 		} else {
 			// if moving from stop, start at 10% power
 			if err := m.setPower(ctx, m.state.direction*0.1, true); err != nil {
@@ -451,7 +457,9 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float
 		velVal := math.Abs(rpm * m.ticksPerRotation / 60)
 		// when rev is not 0, velocity and position are controlled
 		// setPoint is goalPos, maxVel is calculated velVal
-		m.UpdateControlBlock(ctx, goalPos, velVal)
+		if err := m.updateControlBlock(ctx, goalPos, velVal); err != nil {
+			return err
+		}
 	} else {
 		startingPwr := 0.1 * m.state.direction
 		err = m.setPower(ctx, startingPwr, true)
@@ -557,7 +565,9 @@ func (m *EncodedMotor) Stop(ctx context.Context, extra map[string]interface{}) e
 	m.state.goalRPM = 0
 	m.state.regulated = false
 
-	if m.loop != nil && !m.loop.Tuning {
+	// after the motor is created, Stop is called, but if the PID controller
+	// is auto-tuning, the loop needs to keep running
+	if m.loop != nil && !m.loop.GetTuning(ctx) {
 		m.loop.Stop()
 	}
 

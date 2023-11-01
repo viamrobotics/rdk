@@ -12,8 +12,8 @@ import (
 
 type controlBlockType string
 
+// expose BlockConstant and BlockTrapezoidalVelocityProfile to programmatically control velocity and position.
 const (
-	// expose BlockConstand and BlockTrapezoidalVelocityProfile so programatically control velocity and position
 	BlockConstant                   controlBlockType = "constant"
 	BlockTrapezoidalVelocityProfile controlBlockType = "trapezoidalVelocityProfile"
 	blockPID                        controlBlockType = "PID"
