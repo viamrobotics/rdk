@@ -33,7 +33,8 @@ func TestLocalizerOrientation(t *testing.T) {
 
 	origin := geo.NewPoint(-70, 40)
 	movementSensor := createInjectedMovementSensor("", origin)
-	localizer := motion.NewMovementSensorLocalizer(movementSensor, origin, spatialmath.NewZeroPose())
+	localizer, err := motion.NewMovementSensorLocalizer(movementSensor, origin, spatialmath.NewZeroPose())
+	test.That(t, err, test.ShouldBeNil)
 
 	heading, err := movementSensor.CompassHeading(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)

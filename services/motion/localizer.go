@@ -57,8 +57,16 @@ type movementSensorLocalizer struct {
 // NewMovementSensorLocalizer creates a Localizer from a MovementSensor.
 // An origin point must be specified and the localizer will return Poses relative to this point.
 // A calibration pose can also be specified, which will adjust the location after it is calculated relative to the origin.
-func NewMovementSensorLocalizer(ms movementsensor.MovementSensor, origin *geo.Point, calibration spatialmath.Pose) Localizer {
-	return &movementSensorLocalizer{MovementSensor: ms, origin: origin, calibration: calibration}
+func NewMovementSensorLocalizer(ms movementsensor.MovementSensor, origin *geo.Point, calibration spatialmath.Pose) (Localizer, error) {
+	if err := ValidateGeopoint(origin); err != nil {
+		return nil, err
+	}
+
+	if err := ValidatePose(calibration); err != nil {
+		return nil, err
+	}
+
+	return &movementSensorLocalizer{MovementSensor: ms, origin: origin, calibration: calibration}, nil
 }
 
 // ValidateGeopoint validates that a geopoint can be used for
@@ -146,5 +154,10 @@ func (m *movementSensorLocalizer) CurrentPosition(ctx context.Context) (*referen
 	}
 
 	pose := spatialmath.NewPose(spatialmath.GeoPointToPose(gp, m.origin).Point(), o)
-	return referenceframe.NewPoseInFrame(m.Name().Name, spatialmath.Compose(pose, m.calibration)), nil
+	pif := referenceframe.NewPoseInFrame(m.Name().Name, spatialmath.Compose(pose, m.calibration))
+	if err := ValidatePose(pif.Pose()); err != nil {
+		return nil, err
+	}
+
+	return pif, nil
 }

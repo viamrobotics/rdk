@@ -43,7 +43,8 @@ func TestNewFakeDiffDriveKinematics(t *testing.T) {
 	ms.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
 		return &movementsensor.Properties{CompassHeadingSupported: true}, nil
 	}
-	localizer := motion.NewMovementSensorLocalizer(ms, geo.NewPoint(0, 0), spatialmath.NewZeroPose())
+	localizer, err := motion.NewMovementSensorLocalizer(ms, geo.NewPoint(0, 0), spatialmath.NewZeroPose())
+	test.That(t, err, test.ShouldBeNil)
 	limits := []referenceframe.Limit{{Min: -100, Max: 100}, {Min: -100, Max: 100}}
 
 	options := NewKinematicBaseOptions()
