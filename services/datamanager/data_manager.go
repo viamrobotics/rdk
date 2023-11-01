@@ -105,7 +105,7 @@ func (c *DataCaptureConfig) Equals(other *DataCaptureConfig) bool {
 // that indicates to the datamanager whether or not we want to sync.
 var ToSyncKey = "to_sync"
 
-// CreateToSyncReadings is a helper for creating the expected reading for a modular sensor
+// CreateToSyncReading is a helper for creating the expected reading for a modular sensor
 // that passes a bool to the datamanager to indicate whether or not we want to sync.
 func CreateToSyncReading(toSync bool) map[string]interface{} {
 	readings := map[string]interface{}{}
