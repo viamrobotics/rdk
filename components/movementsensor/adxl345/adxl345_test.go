@@ -22,15 +22,12 @@ func nowNanosTest() uint64 {
 }
 
 func setupDependencies(mockData []byte) (resource.Config, resource.Dependencies, board.I2C) {
-	testBoardName := "board"
-	i2cName := "2"
-
 	cfg := resource.Config{
 		Name:  "movementsensor",
 		Model: model,
 		API:   movementsensor.API,
 		ConvertedAttributes: &Config{
-			I2cBus:                 i2cName,
+			I2cBus:                 "2",
 			UseAlternateI2CAddress: true,
 		},
 	}
@@ -52,13 +49,7 @@ func setupDependencies(mockData []byte) (resource.Config, resource.Dependencies,
 		return i2cHandle, nil
 	}
 
-	mockBoard := &inject.Board{}
-	mockBoard.I2CByNameFunc = func(name string) (board.I2C, bool) {
-		return i2c, true
-	}
-	return cfg, resource.Dependencies{
-		resource.NewName(board.API, testBoardName): mockBoard,
-	}, i2c
+	return cfg, resource.Dependencies{}, i2c
 }
 
 func sendInterrupt(ctx context.Context, adxl movementsensor.MovementSensor, t *testing.T, interrupt board.DigitalInterrupt, key string) {
@@ -125,8 +116,6 @@ func TestValidateConfig(t *testing.T) {
 
 func TestInitializationFailureOnChipCommunication(t *testing.T) {
 	logger := logging.NewTestLogger(t)
-	testBoardName := "board"
-	i2cName := "i2c"
 
 	t.Run("fails on read error", func(t *testing.T) {
 		cfg := resource.Config{
@@ -134,8 +123,7 @@ func TestInitializationFailureOnChipCommunication(t *testing.T) {
 			Model: model,
 			API:   movementsensor.API,
 			ConvertedAttributes: &Config{
-				BoardName: testBoardName,
-				I2cBus:    i2cName,
+				I2cBus: "2",
 			},
 		}
 
