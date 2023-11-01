@@ -22,8 +22,6 @@ func (m *EncodedMotor) State(ctx context.Context) ([]float64, error) {
 
 // UpdateControlBlockPosVel updates the trap profile and the constant set point for position and velocity control
 func (m *EncodedMotor) UpdateControlBlock(ctx context.Context, setPoint float64, maxVel float64) {
-	m.logger.Error("IN UPDATE BLOCK")
-	m.logger.Errorf("setPoint = %v, maxVel = %v", setPoint, maxVel)
 	// Update the Trapezoidal Velocity Profile block with the given maxVel for velocity control
 	velConf := control.BlockConfig{
 		Name: "trapz",
@@ -48,8 +46,6 @@ func (m *EncodedMotor) UpdateControlBlock(ctx context.Context, setPoint float64,
 		DependsOn: []string{},
 	}
 	m.loop.SetConfigAt(ctx, "set_point", posConf)
-	m.logger.Error("returning")
-	return
 }
 
 // FindControlBlock starts the control loop and assigns it to m.loop
