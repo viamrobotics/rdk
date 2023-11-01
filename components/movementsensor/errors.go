@@ -7,9 +7,8 @@ import (
 )
 
 // AddressReadError returns a standard error for when we cannot read from an I2C bus.
-func AddressReadError(err error, address byte, bus, board string) error {
-	msg := fmt.Sprintf("can't read from I2C address %d on bus %s of board %s",
-		address, bus, board)
+func AddressReadError(err error, address byte, bus string) error {
+	msg := fmt.Sprintf("can't read from I2C address %d on bus %s", address, bus)
 	return errors.Wrap(err, msg)
 }
 

@@ -226,7 +226,7 @@ func NewAdxl345(
 	// back the device ID (0xE5).
 	deviceID, err := sensor.readByte(ctx, deviceIDRegister)
 	if err != nil {
-		return nil, movementsensor.AddressReadError(err, address, newConf.I2cBus, newConf.BoardName)
+		return nil, movementsensor.AddressReadError(err, address, newConf.I2cBus)
 	}
 	if deviceID != expectedDeviceID {
 		return nil, movementsensor.UnexpectedDeviceError(address, deviceID, sensor.Name().Name)
