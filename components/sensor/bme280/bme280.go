@@ -1,3 +1,5 @@
+//go:build linux
+
 // Package bme280 implements a bme280 sensor for temperature, humidity, and pressure.
 // Code based on https://github.com/sparkfun/SparkFun_bme280_Arduino_Library (MIT license)
 // and also https://github.com/rm-hull/bme280 (MIT License)
@@ -14,6 +16,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/board/genericlinux"
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -81,7 +84,9 @@ const (
 
 // Config is used for converting config attributes.
 type Config struct {
-	Board   string `json:"board"`
+	// The I2C bus is almost certainly numeric (e.g., the "7" in /dev/i2c-7), but it is nonetheless
+	// possible for the OS to give its I2C buses a non-numeric identifier, so we store it as a
+	// string.
 	I2CBus  string `json:"i2c_bus"`
 	I2cAddr int    `json:"i2c_addr,omitempty"`
 }
@@ -89,10 +94,6 @@ type Config struct {
 // Validate ensures all parts of the config are valid.
 func (conf *Config) Validate(path string) ([]string, error) {
 	var deps []string
-	if len(conf.Board) == 0 {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
-	}
-	deps = append(deps, conf.Board)
 	if len(conf.I2CBus) == 0 {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "i2c bus")
 	}
@@ -121,23 +122,17 @@ func init() {
 
 func newSensor(
 	ctx context.Context,
-	deps resource.Dependencies,
+	_ resource.Dependencies,
 	name resource.Name,
 	conf *Config,
 	logger logging.Logger,
 ) (sensor.Sensor, error) {
-	b, err := board.FromDependencies(deps, conf.Board)
+	i2cbus, err := genericlinux.NewI2cBus(conf.I2CBus)
 	if err != nil {
-		return nil, fmt.Errorf("bme280 init: failed to find board: %w", err)
+		return nil, fmt.Errorf("bme280 init: failed to open i2c bus %s: %w",
+			conf.I2CBus, err)
 	}
-	localB, ok := b.(board.LocalBoard)
-	if !ok {
-		return nil, fmt.Errorf("board %s is not local", conf.Board)
-	}
-	i2cbus, ok := localB.I2CByName(conf.I2CBus)
-	if !ok {
-		return nil, fmt.Errorf("bme280 init: failed to find i2c bus %s", conf.I2CBus)
-	}
+
 	addr := conf.I2cAddr
 	if addr == 0 {
 		addr = defaultI2Caddr

@@ -225,7 +225,6 @@ func TestNew(t *testing.T) {
 
 		test.That(t, svcStruct.base.Name().Name, test.ShouldEqual, "test_base")
 		test.That(t, svcStruct.motionService.Name().Name, test.ShouldEqual, "builtin")
-		test.That(t, svcStruct.obstacleDetectors, test.ShouldBeNil)
 
 		test.That(t, svcStruct.mapType, test.ShouldEqual, navigation.NoMap)
 		test.That(t, svcStruct.mode, test.ShouldEqual, navigation.ModeManual)
@@ -313,7 +312,6 @@ func TestNew(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		svcStruct := svc.(*builtIn)
 
-		test.That(t, len(svcStruct.obstacleDetectors), test.ShouldEqual, 1)
 		test.That(t, len(svcStruct.motionCfg.ObstacleDetectors), test.ShouldEqual, 1)
 		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].VisionServiceName.Name, test.ShouldEqual, "vision")
 		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].CameraName.Name, test.ShouldEqual, "camera")
@@ -348,7 +346,6 @@ func TestNew(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		svcStruct := svc.(*builtIn)
 
-		test.That(t, len(svcStruct.obstacleDetectors), test.ShouldEqual, 1)
 		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].VisionServiceName.Name, test.ShouldEqual, "vision")
 		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].CameraName.Name, test.ShouldEqual, "camera")
 		test.That(t, svcStruct.replanCostFactor, test.ShouldEqual, cfg.ReplanCostFactor)
@@ -457,7 +454,6 @@ func TestNew(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		svcStruct := svc.(*builtIn)
 
-		test.That(t, len(svcStruct.obstacleDetectors), test.ShouldEqual, 1)
 		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].VisionServiceName.Name, test.ShouldEqual, "vision")
 		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].CameraName.Name, test.ShouldEqual, "camera")
 	})
@@ -494,7 +490,7 @@ func TestSetMode(t *testing.T) {
 			cfg:         "../data/nav_no_map_cfg.json",
 			mapType:     navigation.NoMap,
 			mode:        navigation.ModeExplore,
-			expectedErr: errors.New("navigation mode 'explore' is not currently available"),
+			expectedErr: nil,
 		},
 		{
 			description: "setting mode to explore when map_type is None and no vision service is configured",
@@ -522,7 +518,7 @@ func TestSetMode(t *testing.T) {
 			cfg:         "../data/nav_cfg.json",
 			mapType:     navigation.GPSMap,
 			mode:        navigation.ModeExplore,
-			expectedErr: errors.New("navigation mode 'explore' is not currently available"),
+			expectedErr: nil,
 		},
 	}
 

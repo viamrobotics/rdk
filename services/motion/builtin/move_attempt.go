@@ -9,8 +9,6 @@ import (
 	"time"
 
 	goutils "go.viam.com/utils"
-
-	"go.viam.com/rdk/utils"
 )
 
 // moveResponse is a struct that is used to communicate the outcome of a moveAttempt.
@@ -68,7 +66,7 @@ func newMoveAttempt(ctx context.Context, request *moveRequest) *moveAttempt {
 		backgroundWorkers: &backgroundWorkers,
 
 		request:      request,
-		responseChan: make(chan moveResponse),
+		responseChan: make(chan moveResponse, 1),
 
 		position: newReplanner(positionPollingFreq, request.deviatedFromPlan),
 		obstacle: newReplanner(obstaclePollingFreq, request.obstaclesIntersectPlan),
@@ -99,9 +97,7 @@ func (ma *moveAttempt) start() error {
 	// spawn function to execute the plan on the robot
 	ma.backgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
-		if resp := ma.request.execute(ma.ctx, waypoints, ma.waypointIndex); resp.success || resp.err != nil {
-			ma.responseChan <- resp
-		}
+		ma.responseChan <- ma.request.execute(ma.ctx, waypoints, ma.waypointIndex)
 	}, ma.backgroundWorkers.Done)
 	return nil
 }
@@ -110,8 +106,5 @@ func (ma *moveAttempt) start() error {
 // it cancels the processes spawned by it, drains all the channels that could have been written to and waits on processes to return.
 func (ma *moveAttempt) cancel() {
 	ma.cancelFn()
-	utils.FlushChan(ma.position.responseChan)
-	utils.FlushChan(ma.obstacle.responseChan)
-	utils.FlushChan(ma.responseChan)
 	ma.backgroundWorkers.Wait()
 }

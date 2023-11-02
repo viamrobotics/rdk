@@ -59,6 +59,7 @@ const (
 	dataFlagBboxLabels                     = "bbox-labels"
 	dataFlagOrgID                          = "org-id"
 	dataFlagDeleteTabularDataOlderThanDays = "delete-older-than-days"
+	dataFlagDatabasePassword               = "password"
 
 	boardFlagName    = "name"
 	boardFlagPath    = "path"
@@ -273,9 +274,9 @@ var app = &cli.App{
 							Usage: "mime types filter",
 						},
 						&cli.UintFlag{
-							Name:        dataFlagParallelDownloads,
-							Usage:       "number of download requests to make in parallel",
-							DefaultText: "10",
+							Name:  dataFlagParallelDownloads,
+							Usage: "number of download requests to make in parallel",
+							Value: 100,
 						},
 						&cli.StringFlag{
 							Name:  dataFlagStart,
@@ -376,6 +377,44 @@ var app = &cli.App{
 								},
 							},
 							Action: DataDeleteTabularAction,
+						},
+					},
+				},
+				{
+					Name:      "database",
+					Usage:     "interact with a MongoDB Atlas Data Federation instance",
+					UsageText: "viam data database [other options]",
+					Subcommands: []*cli.Command{
+						{
+							Name:      "configure",
+							Usage:     "configures a database user for the Viam org's MongoDB Atlas Data Federation instance",
+							UsageText: fmt.Sprintf("viam data database configure <%s> <%s>", dataFlagOrgID, dataFlagDatabasePassword),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     dataFlagOrgID,
+									Usage:    "org ID for the database user being configured",
+									Required: true,
+								},
+								&cli.StringFlag{
+									Name:     dataFlagDatabasePassword,
+									Usage:    "password for the database user being configured",
+									Required: true,
+								},
+							},
+							Action: DataConfigureDatabaseUser,
+						},
+						{
+							Name:      "hostname",
+							Usage:     "gets the hostname to access a MongoDB Atlas Data Federation Instance",
+							UsageText: fmt.Sprintf("viam data database hostname <%s>", dataFlagOrgID),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     dataFlagOrgID,
+									Usage:    "org ID for the database user",
+									Required: true,
+								},
+							},
+							Action: DataGetDatabaseConnection,
 						},
 					},
 				},
@@ -926,10 +965,10 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 					Usage: "update a module's metadata on app.viam.com",
 					Flags: []cli.Flag{
 						&cli.StringFlag{
-							Name:        moduleFlagPath,
-							Usage:       "path to meta.json",
-							DefaultText: "./meta.json",
-							TakesFile:   true,
+							Name:      moduleFlagPath,
+							Usage:     "path to meta.json",
+							Value:     "./meta.json",
+							TakesFile: true,
 						},
 						&cli.StringFlag{
 							Name:  moduleFlagPublicNamespace,
@@ -947,10 +986,10 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 					Usage: "update a module's metadata file based on models it provides",
 					Flags: []cli.Flag{
 						&cli.StringFlag{
-							Name:        moduleFlagPath,
-							Usage:       "path to meta.json",
-							DefaultText: "./meta.json",
-							TakesFile:   true,
+							Name:      moduleFlagPath,
+							Usage:     "path to meta.json",
+							Value:     "./meta.json",
+							TakesFile: true,
 						},
 						&cli.StringFlag{
 							Name:     "binary",
@@ -980,10 +1019,10 @@ viam module upload --version "0.1.0" --platform "linux/amd64" packaged-module.ta
 					UsageText: "viam module upload <version> <platform> [other options] <packaged-module.tar.gz>",
 					Flags: []cli.Flag{
 						&cli.StringFlag{
-							Name:        moduleFlagPath,
-							Usage:       "path to meta.json",
-							DefaultText: "./meta.json",
-							TakesFile:   true,
+							Name:      moduleFlagPath,
+							Usage:     "path to meta.json",
+							Value:     "./meta.json",
+							TakesFile: true,
 						},
 						&cli.StringFlag{
 							Name:  moduleFlagPublicNamespace,
