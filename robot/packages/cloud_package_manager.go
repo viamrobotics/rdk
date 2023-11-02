@@ -13,7 +13,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -155,7 +154,6 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 
 		// Lookup the packages http url
 		includeURL := true
-
 
 		packageType, err := config.PackageTypeToProto(p.Type)
 		if err != nil {
