@@ -32,14 +32,14 @@ const (
 	defaultAddInt = true
 	// Add a subnode every this many mm along a valid trajectory. Large values run faster, small gives better paths
 	// Meaningless if the above is false.
-	defaultAddNodeEvery = 100.
+	defaultAddNodeEvery = 400.
 
 	// Don't add new RRT tree nodes if there is an existing node within this distance.
 	// Consider nodes on trees to be connected if they are within this distance.
 	defaultIdenticalNodeDistance = 5.
 
 	// When extending the RRT tree towards some point, do not extend more than this many times in a single RRT invocation.
-	defaultMaxReseeds = 10
+	defaultMaxReseeds = 30
 
 	// Make an attempt to solve the tree every this many iterations
 	// For a unidirectional solve, this means attempting to reach the goal rather than a random point
@@ -49,6 +49,15 @@ const (
 	defaultMaxConnectAttempts = 30
 
 	defaultBidirectional = true
+
+	// If we are checking a long trajectory for collisions, then collisions become very likely, especially on a SLAM map.
+	// Rather than excluding any trajectory with a collision, we could return the last valid node, but that would yield a node pressed up
+	// against an obstacle; instead we will walk back the trajectory this far in TPspace-distance and return that node to preserve
+	// better freedom of movement.
+	defaultCollisionBuffer = 400.
+
+	// Print very fine-grained debug info. Useful for observing the inner RRT tree structure directly.
+	pathdebug = false
 )
 
 var defaultGoalMetricConstructor = ik.NewSquaredNormMetric
@@ -74,9 +83,6 @@ type tpspaceOptions struct {
 	// For a unidirectional solve, this means attempting to reach the goal rather than a random point
 	// For a bidirectional solve, this means trying to connect the two trees directly
 	attemptSolveEvery int
-
-	// Print very fine-grained debug info. Useful for observing the inner RRT tree structure directly
-	pathdebug bool
 
 	// Whether to attempt to solve with both trees simultaneously or just one
 	bidirectional bool
@@ -138,7 +144,6 @@ func newTPSpaceMotionPlanner(
 		tpPlanner.algOpts.bidirectional = false
 		tpPlanner.algOpts.goalMetricConstructor = defaultPosOnlyGoalMetricConstructor
 	}
-	tpPlanner.algOpts.pathdebug = true
 
 	return tpPlanner, nil
 }
@@ -227,13 +232,17 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 			return
 		}
 		rrt.solutionChan <- &rrtPlanReturn{steps: correctedPath, maps: rrt.maps}
-		
+
 		// Print debug info if requested
-		if mp.algOpts.pathdebug {
+		if pathdebug {
 			allPtgs := mp.tpFrame.PTGSolvers()
 			lastPose := spatialmath.NewZeroPose()
 			for _, mynode := range correctedPath {
-				trajPts, _ := allPtgs[int(mynode.Q()[0].Value)].Trajectory(mynode.Q()[1].Value, mynode.Q()[2].Value)
+				trajPts, err := allPtgs[int(mynode.Q()[0].Value)].Trajectory(mynode.Q()[1].Value, mynode.Q()[2].Value)
+				if err != nil {
+					// Unimportant; this is just for debug visualization
+					break
+				}
 				for i, pt := range trajPts {
 					intPose := spatialmath.Compose(lastPose, pt.Pose)
 					if i == 0 {
@@ -247,8 +256,6 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 				}
 			}
 		}
-		
-		return
 	}
 
 	m1chan := make(chan *nodeAndError, 1)
@@ -285,19 +292,17 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 		}
 		seedReached := <-m1chan
 
-		seedMapNode := seedReached.node
-		goalMapNode := goalReached.node
 		err := multierr.Combine(seedReached.error, goalReached.error)
 		if err != nil {
 			rrt.solutionChan <- &rrtPlanReturn{planerr: err, maps: rrt.maps}
 			return
 		}
 
-		if seedMapNode != nil && goalMapNode != nil {
+		if seedReached.node != nil && goalReached.node != nil {
 			reachedDelta := mp.planOpts.DistanceFunc(&ik.Segment{StartPosition: seedReached.node.Pose(), EndPosition: goalReached.node.Pose()})
 			if reachedDelta > mp.algOpts.poseSolveDist {
 				// If both maps extended, but did not reach the same point, then attempt to extend them towards each other
-				seedReached = mp.attemptExtension(ctx, goalMapNode, rrt.maps.startMap, false)
+				seedReached = mp.attemptExtension(ctx, goalReached.node, rrt.maps.startMap, false)
 				if seedReached.error != nil {
 					rrt.solutionChan <- &rrtPlanReturn{planerr: seedReached.error, maps: rrt.maps}
 					return
@@ -305,13 +310,19 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 				if seedReached.node == nil {
 					continue
 				}
-				goalReached = mp.attemptExtension(ctx, seedReached.node, rrt.maps.goalMap, true)
-				if goalReached.error != nil {
-					rrt.solutionChan <- &rrtPlanReturn{planerr: goalReached.error, maps: rrt.maps}
-					return
-				}
-				if goalReached.node == nil {
-					continue
+				reachedDelta = mp.planOpts.DistanceFunc(&ik.Segment{
+					StartPosition: seedReached.node.Pose(),
+					EndPosition: goalReached.node.Pose(),
+				})
+				if reachedDelta > mp.algOpts.poseSolveDist {
+					goalReached = mp.attemptExtension(ctx, seedReached.node, rrt.maps.goalMap, true)
+					if goalReached.error != nil {
+						rrt.solutionChan <- &rrtPlanReturn{planerr: goalReached.error, maps: rrt.maps}
+						return
+					}
+					if goalReached.node == nil {
+						continue
+					}
 				}
 				reachedDelta = mp.planOpts.DistanceFunc(&ik.Segment{StartPosition: seedReached.node.Pose(), EndPosition: goalReached.node.Pose()})
 			}
@@ -332,14 +343,14 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 					break
 				}
 				if len(rrt.maps.goalMap) > defaultMaxConnectAttempts {
-					pctToCheck := float64(defaultMaxConnectAttempts)/float64(len(rrt.maps.goalMap))
+					pctToCheck := float64(defaultMaxConnectAttempts) / float64(len(rrt.maps.goalMap))
 					doCheck := mp.randseed.Float64()
 					if doCheck > pctToCheck {
 						continue
 					}
 				}
 				attempts++
-				
+
 				seedReached := mp.attemptExtension(ctx, goalMapNode, rrt.maps.startMap, false)
 				if seedReached.error != nil {
 					rrt.solutionChan <- &rrtPlanReturn{planerr: seedReached.error, maps: rrt.maps}
@@ -470,21 +481,19 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 		if err != nil {
 			return nil, err
 		}
-		finalTrajNode := trajK[len(trajK)-1]
-		nodePose := mp.checkTraj(trajK, invert, arcStartPose)
-		if nodePose == nil {
+		goodNode := mp.checkTraj(trajK, invert, arcStartPose)
+		if goodNode == nil {
 			break
 		}
 
 		// add the last node in trajectory
 		successNode = &basicNode{
-			q:      append([]referenceframe.Input{{float64(ptgNum)}}, subNode.Q()...),
-			cost:   finalTrajNode.Dist,
-			pose:   nodePose,
-			corner: false,
+			q:      []referenceframe.Input{{float64(ptgNum)}, subNode.Q()[0], {goodNode.Cost()}},
+			cost:   goodNode.Cost(),
+			pose:   goodNode.Pose(),
 		}
 		successNodes = append(successNodes, successNode)
-		arcStartPose = nodePose
+		arcStartPose = goodNode.Pose()
 	}
 
 	if len(successNodes) == 0 {
@@ -508,12 +517,12 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 	return cand, nil
 }
 
-func (mp *tpSpaceRRTMotionPlanner) checkTraj(trajK []*tpspace.TrajNode, invert bool, arcStartPose spatialmath.Pose) spatialmath.Pose {
+func (mp *tpSpaceRRTMotionPlanner) checkTraj(trajK []*tpspace.TrajNode, invert bool, arcStartPose spatialmath.Pose) node {
 	sinceLastCollideCheck := 0.
 	lastDist := 0.
 	var nodePose spatialmath.Pose
+	passed := []node{}
 	// Check each point along the trajectory to confirm constraints are met
-	// TODO: RSDK-5104 this could return the last good point along the given trajectory instead of erroring
 	// TODO: RSDK-5007 will allow this to use a Segment and be better integrated into our existing frameworks.
 	for i := 0; i < len(trajK); i++ {
 		trajPt := trajK[i]
@@ -529,14 +538,31 @@ func (mp *tpSpaceRRTMotionPlanner) checkTraj(trajK []*tpspace.TrajNode, invert b
 		if sinceLastCollideCheck > mp.planOpts.Resolution {
 			ok, _ := mp.planOpts.CheckStateConstraints(trajState)
 			if !ok {
+				okDist := trajPt.Dist - defaultCollisionBuffer
+				if okDist > 0 {
+					for i := len(passed) - 1; i > 0; i-- {
+						// Return the most recent node whose dist is less than okDist
+						if passed[i].Cost() < okDist {
+							return passed[i]
+						}
+					}
+				}
 				return nil
 			}
 			sinceLastCollideCheck = 0.
 		}
-
+		
+		okNode := &basicNode{
+			cost:   trajPt.Dist,
+			pose:   trajState.Position,
+		}
+		passed = append(passed, okNode)
 		lastDist = trajPt.Dist
 	}
-	return nodePose
+	return &basicNode{
+		cost:   trajK[(len(trajK)-1)].Dist,
+		pose:   nodePose,
+	}
 }
 
 // attemptExtension will attempt to extend the rrt map towards the goal node, and will return the candidate added to the map that is
@@ -674,7 +700,7 @@ func (mp *tpSpaceRRTMotionPlanner) extendMap(
 					return nil, ctx.Err()
 				}
 				trajState = &ik.State{Position: spatialmath.Compose(arcStartPose, trajPt.Pose)}
-				if mp.algOpts.pathdebug {
+				if pathdebug {
 					if !invert {
 						mp.logger.Debugf("$FWDTREE,%f,%f\n", trajState.Position.Point().X, trajState.Position.Point().Y)
 					} else {
@@ -698,7 +724,7 @@ func (mp *tpSpaceRRTMotionPlanner) extendMap(
 				}
 				lastDist = trajPt.Dist
 			}
-			if mp.algOpts.pathdebug {
+			if pathdebug {
 				mp.logger.Debugf("$WPI,%f,%f\n", trajState.Position.Point().X, trajState.Position.Point().Y)
 			}
 		}
@@ -830,12 +856,16 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 		path = goalInputSteps
 		currCost = sumCosts(path)
 	}
-	
-	if mp.algOpts.pathdebug {
+
+	if pathdebug {
 		allPtgs := mp.tpFrame.PTGSolvers()
 		lastPose := spatialmath.NewZeroPose()
 		for _, mynode := range path {
-			trajPts, _ := allPtgs[int(mynode.Q()[0].Value)].Trajectory(mynode.Q()[1].Value, mynode.Q()[2].Value)
+			trajPts, err := allPtgs[int(mynode.Q()[0].Value)].Trajectory(mynode.Q()[1].Value, mynode.Q()[2].Value)
+			if err != nil {
+				// Unimportant; this is just for debug visualization
+				break
+			}
 			for i, pt := range trajPts {
 				intPose := spatialmath.Compose(lastPose, pt.Pose)
 				if i == 0 {
@@ -849,7 +879,7 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 			}
 		}
 	}
-	
+
 	return path
 }
 

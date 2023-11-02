@@ -25,7 +25,7 @@ type ptgIK struct {
 	refDist         float64
 	ptgFrame        referenceframe.Frame
 	fastGradDescent *ik.NloptIK
-	restricted bool
+	restricted      bool
 
 	gridSim PTGSolver
 
@@ -51,7 +51,7 @@ func NewPTGIK(simPTG PTG, logger logging.Logger, refDist float64, randSeed, traj
 	inputs := []referenceframe.Input{}
 	for i := 0; i < trajCount; i++ {
 		inputs = append(inputs,
-			referenceframe.Input{float64(i) * (math.Pi/ float64(trajCount)) * 0.9 + 0.01},
+			referenceframe.Input{float64(i)*(math.Pi/float64(trajCount))*0.9 + 0.01},
 			referenceframe.Input{float64(i+1) * refDist / 10},
 		)
 	}
@@ -63,9 +63,9 @@ func NewPTGIK(simPTG PTG, logger logging.Logger, refDist float64, randSeed, traj
 		fastGradDescent: nlopt,
 		trajCache:       map[float64][]*TrajNode{},
 		defaultSeed:     inputs,
-		restricted: restricted,
+		restricted:      restricted,
 	}
-	
+
 	if restricted {
 		// create an ends-only grid sim for quick end-of-trajectory calculations
 		gridSim, err := NewPTGGridSim(simPTG, 0, refDist, true)
@@ -122,7 +122,7 @@ func (ptg *ptgIK) Solve(
 			// Check if the grid has a better solution
 			if gridSolved != nil {
 				if gridSolved.Score < solved.Score {
-					//~ fmt.Println("grid2!")
+					// ~ fmt.Println("grid2!")
 					solved = gridSolved
 				}
 			}

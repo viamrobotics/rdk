@@ -18,8 +18,6 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-var printPath = true
-
 const testTurnRad = 0.3
 
 func TestPtgRrtBidirectional(t *testing.T) {
@@ -51,8 +49,7 @@ func TestPtgRrtBidirectional(t *testing.T) {
 	mp, err := newTPSpaceMotionPlanner(ackermanFrame, rand.New(rand.NewSource(42)), logger, opt)
 	test.That(t, err, test.ShouldBeNil)
 	tp, ok := mp.(*tpSpaceRRTMotionPlanner)
-	tp.algOpts.pathdebug = printPath
-	if tp.algOpts.pathdebug {
+	if pathdebug {
 		tp.logger.Debug("$type,X,Y")
 		tp.logger.Debugf("$SG,%f,%f\n", 0., 0.)
 		tp.logger.Debugf("$SG,%f,%f\n", goalPos.Point().X, goalPos.Point().Y)
@@ -100,9 +97,7 @@ func TestPtgPosOnlyUnidirectional(t *testing.T) {
 	tp, ok := mp.(*tpSpaceRRTMotionPlanner)
 
 	test.That(t, tp.algOpts.bidirectional, test.ShouldBeFalse)
-
-	tp.algOpts.pathdebug = printPath
-	if tp.algOpts.pathdebug {
+	if pathdebug {
 		tp.logger.Debug("$type,X,Y")
 		tp.logger.Debugf("$SG,%f,%f\n", 0., 0.)
 		tp.logger.Debugf("$SG,%f,%f\n", goalPos.Point().X, goalPos.Point().Y)
@@ -119,7 +114,6 @@ func TestPtgPosOnlyUnidirectional(t *testing.T) {
 		goalPos.Orientation(),
 		plan[len(plan)-1].Pose().Orientation(),
 	), test.ShouldBeFalse)
-
 
 	tp.planOpts.SmoothIter = 20
 	plan = tp.smoothPath(ctx, plan)
@@ -188,8 +182,7 @@ func TestPtgWithObstacle(t *testing.T) {
 	mp, err := newTPSpaceMotionPlanner(ackermanFrame, rand.New(rand.NewSource(44)), logger, opt)
 	test.That(t, err, test.ShouldBeNil)
 	tp, _ := mp.(*tpSpaceRRTMotionPlanner)
-	tp.algOpts.pathdebug = printPath
-	if tp.algOpts.pathdebug {
+	if pathdebug {
 		tp.logger.Debug("$type,X,Y")
 		for _, geom := range geoms {
 			pts := geom.ToPoints(1.)

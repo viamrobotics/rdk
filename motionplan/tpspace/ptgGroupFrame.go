@@ -25,9 +25,9 @@ const (
 
 // If refDist is not explicitly set, default to pi radians times this adjustment value.
 const (
-	defaultRefDistFar = 100000 // 100 meters
+	defaultRefDistFar         = 100000 // 100 meters
 	defaultRefDistHalfCircles = 0.9
-	defaultTrajCount   = 2
+	defaultTrajCount          = 2
 )
 
 type ptgFactory func(float64, float64) PTG
@@ -122,7 +122,7 @@ func NewPTGFrameFromKinematicOptions(
 	if userRefDist == 0 {
 		// Default to a distance of just over one half of a circle turning at max radius
 		refDistFar = defaultRefDistFar
-		refDistRestricted = velocityMMps/angVelocityRadps * math.Pi * defaultRefDistHalfCircles
+		refDistRestricted = velocityMMps / angVelocityRadps * math.Pi * defaultRefDistHalfCircles
 	}
 
 	farPtgsToUse := []ptgFactory{}
@@ -155,6 +155,7 @@ func NewPTGFrameFromKinematicOptions(
 	pf.angVelocityRadps = angVelocityRadps
 	pf.turnRadMillimeters = turnRadMillimeters
 	pf.trajCount = trajCount
+	pf.logger = logger
 
 	pf.limits = []referenceframe.Limit{
 		{Min: 0, Max: float64(len(pf.solvers) - 1)},

@@ -6,7 +6,6 @@ package motionplan
 import (
 	"context"
 	"fmt"
-	"math"
 	"math/rand"
 	"sort"
 	"sync"
@@ -180,18 +179,6 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 	sfPlanner, err := newPlanManager(sf, request.FrameSystem, request.Logger, rseed)
 	if err != nil {
 		return nil, err
-	}
-	request.Logger.Debug("$type,X,Y")
-	request.Logger.Debugf("$SG,%f,%f\n", 0., 0.)
-	request.Logger.Debugf("$SG,%f,%f\n", request.Goal.Pose().Point().X, request.Goal.Pose().Point().Y)
-	gifs, _ := request.WorldState.ObstaclesInWorldFrame(request.FrameSystem, request.StartConfiguration)
-	for _, geom := range gifs.Geometries() {
-		pts := geom.ToPoints(1.)
-		for _, pt := range pts {
-			if math.Abs(pt.Z) < 0.1 {
-				request.Logger.Debugf("$OBS,%f,%f\n", pt.X, pt.Y)
-			}
-		}
 	}
 
 	resultSlices, err := sfPlanner.PlanSingleWaypoint(
