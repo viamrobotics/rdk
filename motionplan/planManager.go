@@ -223,7 +223,7 @@ func (pm *planManager) planAtomicWaypoints(
 
 		pathPlanner := planners[i]
 
-		maps := &rrtMaps{}
+		var maps *rrtMaps
 		if seedPlan != nil {
 			maps, err = pm.planToRRTGoalMap(seedPlan, goal)
 			if err != nil {
@@ -231,6 +231,9 @@ func (pm *planManager) planAtomicWaypoints(
 			}
 		}
 		if pm.useTPspace && pm.opt().PositionSeeds > 0 && pm.opt().profile == PositionOnlyMotionProfile {
+			if maps == nil {
+				maps = &rrtMaps{}
+			}
 			err = maps.fillPosOnlyGoal(goal, pm.opt().PositionSeeds, len(pm.frame.DoF()))
 			if err != nil {
 				return nil, err
