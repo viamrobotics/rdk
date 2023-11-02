@@ -223,7 +223,7 @@ func (pm *planManager) planAtomicWaypoints(
 
 		pathPlanner := planners[i]
 
-		var maps *rrtMaps
+		maps := &rrtMaps{}
 		if seedPlan != nil {
 			maps, err = pm.planToRRTGoalMap(seedPlan, goal)
 			if err != nil {
@@ -231,7 +231,10 @@ func (pm *planManager) planAtomicWaypoints(
 			}
 		}
 		if pm.useTPspace && pm.opt().PositionSeeds > 0 && pm.opt().profile == PositionOnlyMotionProfile {
-			maps = pm.fillPosOnlyGoal(maps, goal)
+			err = maps.fillPosOnlyGoal(goal, pm.opt().PositionSeeds, len(pm.frame.DoF()))
+			if err != nil {
+				return nil, err
+			}
 		}
 		// Plan the single waypoint, and accumulate objects which will be used to constrauct the plan after all planning has finished
 		newseed, future, err := pm.planSingleAtomicWaypoint(ctx, goal, seed, pathPlanner, maps)
@@ -322,7 +325,7 @@ func (pm *planManager) planParallelRRTMotion(
 	var err error
 	// If we don't pass in pre-made maps, initialize and seed with IK solutions here
 	if !pm.useTPspace {
-		if maps == nil || maps.startMap == nil {
+		if maps == nil {
 			planSeed := initRRTSolutions(ctx, pathPlanner, seed)
 			if planSeed.planerr != nil || planSeed.steps != nil {
 				solutionChan <- planSeed
@@ -700,24 +703,6 @@ func (pm *planManager) planToRRTGoalMap(plan Plan, goal spatialmath.Pose) (*rrtM
 	}
 
 	return maps, nil
-}
-
-func (pm *planManager) fillPosOnlyGoal(maps *rrtMaps, goal spatialmath.Pose) *rrtMaps {
-	thetaStep := 360. / float64(pm.opt().PositionSeeds)
-	if maps == nil {
-		maps = &rrtMaps{}
-	}
-	if maps.goalMap == nil {
-		maps.goalMap = map[node]node{}
-	}
-	for i := 0; i < pm.opt().PositionSeeds; i++ {
-		goalNode := &basicNode{
-			q:    make([]referenceframe.Input, len(pm.frame.DoF())),
-			pose: spatialmath.NewPose(goal.Point(), &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: float64(i) * thetaStep}),
-		}
-		maps.goalMap[goalNode] = nil
-	}
-	return maps
 }
 
 // Copy any atomic values.
