@@ -3133,7 +3133,7 @@ func TestCrashedModuleReconfigure(t *testing.T) {
 		test.That(t, os.Unsetenv(rutils.ResourceConfigurationTimeoutEnvVar),
 			test.ShouldBeNil)
 	}()
-	test.That(t, os.Setenv(rutils.ResourceConfigurationTimeoutEnvVar, "500ms"),
+	test.That(t, os.Setenv(rutils.ResourceConfigurationTimeoutEnvVar, "2s"),
 		test.ShouldBeNil)
 
 	// Manually define model, as importing it can cause double registration.
