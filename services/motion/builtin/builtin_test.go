@@ -555,6 +555,11 @@ func TestMoveOnMapPlans(t *testing.T) {
 		endPos, err := kb.CurrentPosition(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, spatialmath.PoseAlmostCoincidentEps(endPos.Pose(), goalInBaseFrame, 10), test.ShouldBeTrue)
+		// Position only mode should not yield the goal orientation.
+		test.That(t, spatialmath.OrientationAlmostEqualEps(
+			endPos.Pose().Orientation(),
+			goalInBaseFrame.Orientation(),
+			1), test.ShouldBeFalse)
 	})
 }
 
