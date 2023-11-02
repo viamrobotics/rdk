@@ -66,10 +66,10 @@ func TestValidateConfig(t *testing.T) {
 	t.Run("fails with no board supplied if you use interrupts", func(t *testing.T) {
 		tapCfg := TapConfig{
 			AccelerometerPin: 1,
-			InterruptPin: "on_missing_board",
+			InterruptPin:     "on_missing_board",
 		}
 		cfg := Config{
-			I2cBus: "3",
+			I2cBus:    "3",
 			SingleTap: &tapCfg,
 		}
 		deps, err := cfg.Validate("path")
@@ -79,8 +79,7 @@ func TestValidateConfig(t *testing.T) {
 	})
 
 	t.Run("fails with no I2C bus", func(t *testing.T) {
-		cfg := Config{
-		}
+		cfg := Config{}
 		deps, err := cfg.Validate("path")
 		expectedErr := utils.NewConfigValidationFieldRequiredError("path", "i2c_bus")
 		test.That(t, err, test.ShouldBeError, expectedErr)
@@ -99,7 +98,7 @@ func TestValidateConfig(t *testing.T) {
 	t.Run("adds board name to dependencies on success with interrupts", func(t *testing.T) {
 		tapCfg := TapConfig{
 			AccelerometerPin: 1,
-			InterruptPin: "on_present_board",
+			InterruptPin:     "on_present_board",
 		}
 		cfg := Config{
 			BoardName: boardName,

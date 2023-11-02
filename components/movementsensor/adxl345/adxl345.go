@@ -200,10 +200,10 @@ func NewAdxl345(
 }
 
 func makeAdxl345(
-    ctx context.Context,
-    deps resource.Dependencies,
-    conf resource.Config,
-    logger logging.Logger,
+	ctx context.Context,
+	deps resource.Dependencies,
+	conf resource.Config,
+	logger logging.Logger,
 	bus board.I2C,
 ) (movementsensor.MovementSensor, error) {
 	newConf, err := resource.NativeConfig[*Config](conf)
