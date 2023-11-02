@@ -9,6 +9,14 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+// Appender is an output for log entries. This is a subset of the `zapcore.Core` interface.
+type Appender interface {
+	// Write submits a structured log entry to the appender for logging.
+	Write(zapcore.Entry, []zapcore.Field) error
+	// Sync is for signaling that any buffered logs to `Write` should be flushed. E.g: at shutdown.
+	Sync() error
+}
+
 // ConsoleAppender will create human readable lines from log events and write them to the desired
 // output sync. E.g: stdout or a file.
 type ConsoleAppender struct {

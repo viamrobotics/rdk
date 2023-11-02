@@ -13,14 +13,6 @@ import (
 )
 
 type (
-	// Appender is an output for log entries. This is a subset of the `zapcore.Core` interface.
-	Appender interface {
-		// Write submits a structured log entry to the appender for logging.
-		Write(zapcore.Entry, []zapcore.Field) error
-		// Sync is for signaling that any buffered logs to `Write` should be flushed. E.g: at shutdown.
-		Sync() error
-	}
-
 	impl struct {
 		name  string
 		level Level
