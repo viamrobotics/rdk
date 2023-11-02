@@ -101,12 +101,11 @@ func newEncodedMotor(
 	}
 	em.encoder = realEncoder
 
-	if err = em.validateControlConfig(cancelCtx); err != nil {
-		return nil, err
-	}
-
 	if len(motorConfig.ControlLoop.Blocks) != 0 {
 		if err = em.setupControlLoop(); err != nil {
+			return nil, err
+		}
+		if err = em.validateControlConfig(cancelCtx); err != nil {
 			return nil, err
 		}
 		pidBlock, err := em.loop.ConfigAt(cancelCtx, "PID")
@@ -181,8 +180,9 @@ type EncodedMotorState struct {
 // rpmMonitorStart starts the RPM monitor.
 func (m *EncodedMotor) rpmMonitorStart() {
 	if m.loop != nil {
-		return
-	} else if len(m.cfg.ControlLoop.Blocks) != 0 {
+		m.loop.Stop()
+	}
+	if len(m.cfg.ControlLoop.Blocks) != 0 {
 		if err := m.setupControlLoop(); err != nil {
 			m.logger.Error(err)
 			return

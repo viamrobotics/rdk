@@ -12,10 +12,9 @@ import (
 
 type controlBlockType string
 
-// expose BlockConstant and BlockTrapezoidalVelocityProfile to programmatically control velocity and position.
 const (
-	BlockConstant                   controlBlockType = "constant"
-	BlockTrapezoidalVelocityProfile controlBlockType = "trapezoidalVelocityProfile"
+	blockConstant                   controlBlockType = "constant"
+	blockTrapezoidalVelocityProfile controlBlockType = "trapezoidalVelocityProfile"
 	blockPID                        controlBlockType = "PID"
 	blockGain                       controlBlockType = "gain"
 	blockDerivative                 controlBlockType = "derivative"
@@ -72,7 +71,7 @@ func createBlock(cfg BlockConfig, logger golog.Logger) (Block, error) {
 			return nil, err
 		}
 		return b, nil
-	case BlockTrapezoidalVelocityProfile:
+	case blockTrapezoidalVelocityProfile:
 		b, err := newTrapezoidVelocityProfile(cfg, logger)
 		if err != nil {
 			return nil, err
@@ -96,7 +95,7 @@ func createBlock(cfg BlockConfig, logger golog.Logger) (Block, error) {
 			return nil, err
 		}
 		return b, nil
-	case BlockConstant:
+	case blockConstant:
 		b, err := newConstant(cfg, logger)
 		if err != nil {
 			return nil, err

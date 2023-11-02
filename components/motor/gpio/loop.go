@@ -35,7 +35,7 @@ func (m *EncodedMotor) updateControlBlock(ctx context.Context, setPoint, maxVel 
 	// Update the Trapezoidal Velocity Profile block with the given maxVel for velocity control
 	velConf := control.BlockConfig{
 		Name: "trapz",
-		Type: control.BlockTrapezoidalVelocityProfile,
+		Type: "trapezoidalVelocityProfile",
 		Attribute: rdkutils.AttributeMap{
 			"max_vel":    maxVel,
 			"max_acc":    30000.0,
@@ -51,7 +51,7 @@ func (m *EncodedMotor) updateControlBlock(ctx context.Context, setPoint, maxVel 
 	// Update the Constant block with the given setPoint for position control
 	posConf := control.BlockConfig{
 		Name: "set_point",
-		Type: control.BlockConstant,
+		Type: "constant",
 		Attribute: rdkutils.AttributeMap{
 			"constant_val": setPoint,
 		},
@@ -79,21 +79,25 @@ func (m *EncodedMotor) setupControlLoop() error {
 
 // validateControlConfig ensures the programmatically edited blocks are named correctly.
 func (m *EncodedMotor) validateControlConfig(ctx context.Context) error {
-	_, err := m.loop.ConfigAt(ctx, "set_point")
+	constBlock, err := m.loop.ConfigAt(ctx, "set_point")
 	if err != nil {
 		return errConstantBlock
 	}
-	_, err = m.loop.ConfigAt(ctx, "endpoint")
+	m.logger.Debugf("constant block: %v", constBlock)
+	endBlock, err := m.loop.ConfigAt(ctx, "endpoint")
 	if err != nil {
 		return errEndpointBlock
 	}
-	_, err = m.loop.ConfigAt(ctx, "trapz")
+	m.logger.Debugf("endpoint block: %v", endBlock)
+	trapzBlock, err := m.loop.ConfigAt(ctx, "trapz")
 	if err != nil {
 		return errTrapzBlock
 	}
-	_, err = m.loop.ConfigAt(ctx, "PID")
+	m.logger.Debugf("trapz block: %v", trapzBlock)
+	pidBlock, err := m.loop.ConfigAt(ctx, "PID")
 	if err != nil {
 		return errPIDBlock
 	}
+	m.logger.Debugf("PID block: %v", pidBlock)
 	return nil
 }
