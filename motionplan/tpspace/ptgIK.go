@@ -5,6 +5,7 @@ package tpspace
 import (
 	"context"
 	"errors"
+	"math"
 	"sync"
 
 	"go.viam.com/rdk/logging"
@@ -24,6 +25,7 @@ type ptgIK struct {
 	refDist         float64
 	ptgFrame        referenceframe.Frame
 	fastGradDescent *ik.NloptIK
+	restricted bool
 
 	gridSim PTGSolver
 
@@ -34,7 +36,7 @@ type ptgIK struct {
 
 // NewPTGIK creates a new ptgIK, which creates a frame using the provided PTG, and wraps it providing functions to fill the PTG
 // interface, allowing inverse kinematics queries to be run against it.
-func NewPTGIK(simPTG PTG, logger logging.Logger, refDist float64, randSeed, trajCount int) (PTGSolver, error) {
+func NewPTGIK(simPTG PTG, logger logging.Logger, refDist float64, randSeed, trajCount int, restricted bool) (PTGSolver, error) {
 	if refDist <= 0 {
 		return nil, errors.New("refDist must be greater than zero")
 	}
@@ -46,17 +48,11 @@ func NewPTGIK(simPTG PTG, logger logging.Logger, refDist float64, randSeed, traj
 		return nil, err
 	}
 
-	// create an ends-only grid sim for quick end-of-trajectory calculations
-	gridSim, err := NewPTGGridSim(simPTG, 0, refDist, true)
-	if err != nil {
-		return nil, err
-	}
-
 	inputs := []referenceframe.Input{}
 	for i := 0; i < trajCount; i++ {
 		inputs = append(inputs,
-			referenceframe.Input{0},
-			referenceframe.Input{refDist / 10},
+			referenceframe.Input{float64(i) * (math.Pi/ float64(trajCount)) * 0.9 + 0.01},
+			referenceframe.Input{float64(i+1) * refDist / 10},
 		)
 	}
 
@@ -65,9 +61,18 @@ func NewPTGIK(simPTG PTG, logger logging.Logger, refDist float64, randSeed, traj
 		refDist:         refDist,
 		ptgFrame:        ptgFrame,
 		fastGradDescent: nlopt,
-		gridSim:         gridSim,
 		trajCache:       map[float64][]*TrajNode{},
 		defaultSeed:     inputs,
+		restricted: restricted,
+	}
+	
+	if restricted {
+		// create an ends-only grid sim for quick end-of-trajectory calculations
+		gridSim, err := NewPTGGridSim(simPTG, 0, refDist, true)
+		if err != nil {
+			return nil, err
+		}
+		ptg.gridSim = gridSim
 	}
 
 	return ptg, nil
@@ -97,11 +102,15 @@ func (ptg *ptgIK) Solve(
 	default:
 	}
 	if err != nil || solved == nil || solved.Configuration[1].Value < defaultZeroDist {
+		if !ptg.restricted {
+			solutionChan <- nil
+			return nil
+		}
 		// nlopt did not return a valid solution or otherwise errored. Fall back fully to the grid check.
 		return ptg.gridSim.Solve(ctx, solutionChan, seed, solveMetric, nloptSeed)
 	}
 
-	if !solved.Exact {
+	if !solved.Exact && ptg.restricted {
 		// nlopt returned something but was unable to complete the solve. See if the grid check produces something better.
 		err = ptg.gridSim.Solve(ctx, internalSolutionGen, seed, solveMetric, nloptSeed)
 		if err == nil {
@@ -113,6 +122,7 @@ func (ptg *ptgIK) Solve(
 			// Check if the grid has a better solution
 			if gridSolved != nil {
 				if gridSolved.Score < solved.Score {
+					//~ fmt.Println("grid2!")
 					solved = gridSolved
 				}
 			}

@@ -25,15 +25,19 @@ const (
 
 // If refDist is not explicitly set, default to pi radians times this adjustment value.
 const (
-	refDistHalfCircles = 0.9
-	defaultTrajCount   = 3
+	defaultRefDistFar = 100000 // 100 meters
+	defaultRefDistHalfCircles = 0.9
+	defaultTrajCount   = 2
 )
 
 type ptgFactory func(float64, float64) PTG
 
-var defaultPTGs = []ptgFactory{
+var defaultRestrictedPtgs = []ptgFactory{
 	NewCirclePTG,
 	NewCCPTG,
+}
+
+var defaultPTGs = []ptgFactory{
 	NewCCSPTG,
 	NewCSPTG,
 	NewSideSPTG,
@@ -59,7 +63,7 @@ type ptgGroupFrame struct {
 func NewPTGFrameFromKinematicOptions(
 	name string,
 	logger logging.Logger,
-	velocityMMps, angVelocityDegps, turnRadMeters, refDist float64,
+	velocityMMps, angVelocityDegps, turnRadMeters, userRefDist float64,
 	trajCount int,
 	geoms []spatialmath.Geometry,
 	diffDriveOnly bool,
@@ -70,8 +74,8 @@ func NewPTGFrameFromKinematicOptions(
 	if turnRadMeters < 0 {
 		return nil, fmt.Errorf("cannot create ptg frame, turning radius %f must be >0", turnRadMeters)
 	}
-	if refDist < 0 {
-		return nil, fmt.Errorf("cannot create ptg frame, refDist %f must be >=0", refDist)
+	if userRefDist < 0 {
+		return nil, fmt.Errorf("cannot create ptg frame, refDist %f must be >=0", userRefDist)
 	}
 	if diffDriveOnly && turnRadMeters != 0 {
 		return nil, errors.New("if diffDriveOnly is used, turning radius must be zero")
@@ -112,30 +116,39 @@ func NewPTGFrameFromKinematicOptions(
 			)
 		}
 	}
+	refDistFar := userRefDist
+	refDistRestricted := userRefDist
 
-	if refDist == 0 {
+	if userRefDist == 0 {
 		// Default to a distance of just over one half of a circle turning at max radius
-		refDist = turnRadMillimeters * math.Pi * refDistHalfCircles
-		logger.Debugf("refDist was zero, calculating default %f", refDist)
+		refDistFar = defaultRefDistFar
+		refDistRestricted = velocityMMps/angVelocityRadps * math.Pi * defaultRefDistHalfCircles
 	}
 
-	ptgsToUse := []ptgFactory{}
+	farPtgsToUse := []ptgFactory{}
+	restrictedPtgsToUse := []ptgFactory{}
 	if turnRadMeters == 0 {
-		ptgsToUse = append(ptgsToUse, defaultDiffPTG)
+		farPtgsToUse = append(farPtgsToUse, defaultDiffPTG)
 	}
 	if !diffDriveOnly {
-		ptgsToUse = append(ptgsToUse, defaultPTGs...)
+		farPtgsToUse = append(farPtgsToUse, defaultPTGs...)
+		restrictedPtgsToUse = append(restrictedPtgsToUse, defaultRestrictedPtgs...)
 	}
 
 	pf := &ptgGroupFrame{name: name}
 
-	ptgs := initializePTGs(velocityMMps, angVelocityRadps, ptgsToUse)
-	solvers, err := initializeSolvers(logger, refDist, trajCount, ptgs)
+	farPtgs := initializePTGs(velocityMMps, angVelocityRadps, farPtgsToUse)
+	farSolvers, err := initializeSolvers(logger, refDistFar, trajCount, farPtgs, false)
+	if err != nil {
+		return nil, err
+	}
+	restPtgs := initializePTGs(velocityMMps, angVelocityRadps, restrictedPtgsToUse)
+	restSolvers, err := initializeSolvers(logger, refDistRestricted, trajCount, restPtgs, true)
 	if err != nil {
 		return nil, err
 	}
 
-	pf.solvers = solvers
+	pf.solvers = append(farSolvers, restSolvers...)
 
 	pf.geometries = geoms
 	pf.velocityMMps = velocityMMps
@@ -146,56 +159,7 @@ func NewPTGFrameFromKinematicOptions(
 	pf.limits = []referenceframe.Limit{
 		{Min: 0, Max: float64(len(pf.solvers) - 1)},
 		{Min: -math.Pi, Max: math.Pi},
-		{Min: 0, Max: refDist},
-	}
-
-	return pf, nil
-}
-
-// NewPTGFrameFromPTGFrame will create a new Frame from a preexisting ptgGroupFrame, allowing the adjustment of `refDist` while keeping
-// other params the same. This may be expanded to allow altering turning radius, geometries, etc.
-// TODO (RSDK-5104) this may be able to be removed.
-func NewPTGFrameFromPTGFrame(frame referenceframe.Frame, refDist float64, trajCount int) (referenceframe.Frame, error) {
-	ptgFrame, ok := frame.(*ptgGroupFrame)
-	if !ok {
-		return nil, errors.New("cannot create ptg framem given frame is not a ptgGroupFrame")
-	}
-	if refDist < 0 {
-		return nil, fmt.Errorf("cannot create ptg frame, refDist %f must be >=0", refDist)
-	}
-
-	if refDist <= 0 {
-		refDist = ptgFrame.turnRadMillimeters * math.Pi * refDistHalfCircles
-		ptgFrame.logger.Debugf("refDist was zero, calculating default %f", refDist)
-	}
-
-	if trajCount <= 0 {
-		trajCount = ptgFrame.trajCount
-	}
-
-	// Get max angular velocity in radians per second
-	pf := &ptgGroupFrame{name: ptgFrame.name}
-	ptgs := []PTG{}
-	// Go doesn't let us do this all at once
-	for _, solver := range ptgFrame.solvers {
-		ptgs = append(ptgs, solver)
-	}
-	solvers, err := initializeSolvers(ptgFrame.logger, refDist, trajCount, ptgs)
-	if err != nil {
-		return nil, err
-	}
-
-	pf.solvers = solvers
-	pf.geometries = ptgFrame.geometries
-	pf.angVelocityRadps = ptgFrame.angVelocityRadps
-	pf.turnRadMillimeters = ptgFrame.turnRadMillimeters
-	pf.velocityMMps = ptgFrame.velocityMMps
-	pf.trajCount = trajCount
-
-	pf.limits = []referenceframe.Limit{
-		{Min: 0, Max: float64(len(pf.solvers) - 1)},
-		{Min: -math.Pi, Max: math.Pi},
-		{Min: 0, Max: refDist},
+		{Min: 0, Max: refDistFar},
 	}
 
 	return pf, nil
@@ -282,13 +246,13 @@ type solverAndError struct {
 	err    error
 }
 
-func initializeSolvers(logger logging.Logger, simDist float64, trajCount int, ptgs []PTG) ([]PTGSolver, error) {
+func initializeSolvers(logger logging.Logger, simDist float64, trajCount int, ptgs []PTG, restricted bool) ([]PTGSolver, error) {
 	solvers := make([]PTGSolver, len(ptgs))
 	solverChan := make(chan *solverAndError, len(ptgs))
 	for i := range ptgs {
 		j := i
 		utils.PanicCapturingGo(func() {
-			solver, err := NewPTGIK(ptgs[j], logger, simDist, j, trajCount)
+			solver, err := NewPTGIK(ptgs[j], logger, simDist, j, trajCount, restricted)
 			solverChan <- &solverAndError{j, solver, err}
 		})
 	}
