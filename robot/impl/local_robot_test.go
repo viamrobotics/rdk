@@ -18,6 +18,7 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -3154,39 +3155,24 @@ func TestCrashedModuleReconfigure(t *testing.T) {
 	_, err = r.ResourceByName(generic.Named("h"))
 	test.That(t, err, test.ShouldBeNil)
 
-	// Lower resource configuration timeout to avoid waiting for 60 seconds
-	// for manager.Add to time out waiting for module to start listening.
-	var envUnset bool
-	defer func() {
-		// If test failed before unsetting ResoureConfiguratioonTimeoutEnvVar,
-		// make sure we unset it here.
-		if !envUnset {
-			test.That(t, os.Unsetenv(rutils.ResourceConfigurationTimeoutEnvVar),
-				test.ShouldBeNil)
-		}
-	}()
-	test.That(t, os.Setenv(rutils.ResourceConfigurationTimeoutEnvVar, "500ms"),
-		test.ShouldBeNil)
+	t.Run("reconfiguration timeout", func(t *testing.T) {
+		// Lower resource configuration timeout to avoid waiting for 60 seconds
+		// for manager. Add to time out waiting for module to start listening.
+		t.Setenv(rutils.ResourceConfigurationTimeoutEnvVar, "500ms")
 
-	// Reconfigure module to a malformed module (does not start listening).
-	// Assert that "h" is removed after reconfiguration error.
-	cfg.Modules[0].ExePath = rutils.ResolveFile("module/testmodule/fakemodule.sh")
-	r.Reconfigure(ctx, cfg)
+		// Reconfigure module to a malformed module (does not start listening).
+		// Assert that "h" is removed after reconfiguration error.
+		cfg.Modules[0].ExePath = rutils.ResolveFile("module/testmodule/fakemodule.sh")
+		r.Reconfigure(ctx, cfg)
 
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		test.That(t, logs.FilterMessage("error reconfiguring module").Len(), test.ShouldEqual, 1)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			test.That(t, logs.FilterMessage("error reconfiguring module").Len(), test.ShouldEqual, 1)
+		})
+
+		_, err = r.ResourceByName(generic.Named("h"))
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(generic.Named("h")))
 	})
-
-	_, err = r.ResourceByName(generic.Named("h"))
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err, test.ShouldBeError,
-		resource.NewNotFoundError(generic.Named("h")))
-
-	// Unset ResourceConfigurationTimeoutEnvVar to allow the reconfiguration back
-	// to testmodule to succeed without timing out.
-	test.That(t, os.Unsetenv(rutils.ResourceConfigurationTimeoutEnvVar),
-		test.ShouldBeNil)
-	envUnset = true
 
 	// Reconfigure module back to testmodule. Assert that 'h' is eventually
 	// added back to the resource manager (the module recovers).
