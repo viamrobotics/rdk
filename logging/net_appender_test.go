@@ -146,7 +146,7 @@ func TestNetLoggerBatchFailureAndRetry(t *testing.T) {
 	// This test will first log 10 "Some-info" logs. Followed by a single "New info" log.
 	numLogs := 11
 
-	// Injet a failure into the server handling `Log` requests.
+	// Inject a failure into the server handling `Log` requests.
 	server.service.logsMu.Lock()
 	server.service.logFailForSizeCount = numLogs
 	server.service.logsMu.Unlock()
