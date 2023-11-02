@@ -230,6 +230,15 @@ func (pm *planManager) planAtomicWaypoints(
 				return nil, err
 			}
 		}
+		if pm.useTPspace && pm.opt().PositionSeeds > 0 && pm.opt().profile == PositionOnlyMotionProfile {
+			if maps == nil {
+				maps = &rrtMaps{}
+			}
+			err = maps.fillPosOnlyGoal(goal, pm.opt().PositionSeeds, len(pm.frame.DoF()))
+			if err != nil {
+				return nil, err
+			}
+		}
 		// Plan the single waypoint, and accumulate objects which will be used to constrauct the plan after all planning has finished
 		newseed, future, err := pm.planSingleAtomicWaypoint(ctx, goal, seed, pathPlanner, maps)
 		if err != nil {
@@ -329,12 +338,14 @@ func (pm *planManager) planParallelRRTMotion(
 		}
 	} else {
 		if maps == nil {
-			startNode := &basicNode{q: make([]referenceframe.Input, len(pm.frame.DoF())), pose: spatialmath.NewZeroPose()}
 			goalNode := &basicNode{q: make([]referenceframe.Input, len(pm.frame.DoF())), pose: goal}
 			maps = &rrtMaps{
-				startMap: map[node]node{startNode: nil},
-				goalMap:  map[node]node{goalNode: nil},
+				goalMap: map[node]node{goalNode: nil},
 			}
+		}
+		if maps.startMap == nil {
+			startNode := &basicNode{q: make([]referenceframe.Input, len(pm.frame.DoF())), pose: spatialmath.NewZeroPose()}
+			maps.startMap = map[node]node{startNode: nil}
 		}
 	}
 
@@ -599,7 +610,9 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		opt.pathMetric = pathMetric
 	case PositionOnlyMotionProfile:
 		opt.profile = PositionOnlyMotionProfile
-		opt.goalMetricConstructor = ik.NewPositionOnlyMetric
+		if !pm.useTPspace || opt.PositionSeeds <= 0 {
+			opt.goalMetricConstructor = ik.NewPositionOnlyMetric
+		}
 	case FreeMotionProfile:
 		// No restrictions on motion
 		fallthrough
