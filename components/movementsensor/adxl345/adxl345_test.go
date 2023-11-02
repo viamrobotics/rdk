@@ -63,7 +63,7 @@ func sendInterrupt(ctx context.Context, adxl movementsensor.MovementSensor, t *t
 
 func TestValidateConfig(t *testing.T) {
 	boardName := "local"
-	t.Run("fails with no board supplied if you use interrupts", func(t *testing.T) {
+	t.Run("fails when interrupts are used without a supplied board", func(t *testing.T) {
 		tapCfg := TapConfig{
 			AccelerometerPin: 1,
 			InterruptPin:     "on_missing_board",
