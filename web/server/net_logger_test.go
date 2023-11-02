@@ -129,8 +129,11 @@ func TestNetLoggerBatchWrites(t *testing.T) {
 	server.service.logsMu.Lock()
 	defer server.service.logsMu.Unlock()
 	test.That(t, server.service.logBatches, test.ShouldHaveLength, 2)
-	test.That(t, server.service.logBatches[0], test.ShouldHaveLength, 100)
-	test.That(t, server.service.logBatches[1], test.ShouldHaveLength, 1)
+	// Very occasionally, the first batch of 100 logs gets processed after the
+	// second batch of 1 log, and the first observed batch has a length of 1
+	// while the second observed batch has a length of 100. See RSDK-5400.
+	test.That(t, len(server.service.logBatches[0]), test.ShouldBeIn, 1, 100)
+	test.That(t, len(server.service.logBatches[1]), test.ShouldBeIn, 1, 100)
 	for i := 0; i < writeBatchSize+1; i++ {
 		test.That(t, server.service.logs[i].Message, test.ShouldEqual, "Some-info")
 	}
