@@ -49,7 +49,7 @@ func (imp *impl) AddAppender(appender Appender) {
 }
 
 func (imp *impl) Desugar() *zap.Logger {
-	return NewLogger(imp.name).AsZap().Desugar()
+	return imp.AsZap().Desugar()
 }
 
 func (imp *impl) Level() zapcore.Level {
@@ -104,7 +104,7 @@ func (imp *impl) AsZap() *zap.SugaredLogger {
 		}
 	}
 
-	ret := NewLogger(imp.name).AsZap()
+	ret := zap.Must(NewLoggerConfig().Build()).Sugar().Named(imp.name)
 	for _, core := range copiedCores {
 		ret = ret.WithOptions(zap.WrapCore(func(c zapcore.Core) zapcore.Core {
 			return zapcore.NewTee(c, core)
