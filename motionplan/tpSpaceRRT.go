@@ -132,7 +132,7 @@ func newTPSpaceMotionPlanner(
 		tpFrame: tpFrame,
 	}
 	tpPlanner.setupTPSpaceOptions()
-	if opt.profile == PositionOnlyMotionProfile {
+	if opt.profile == PositionOnlyMotionProfile && opt.PositionSeeds <= 0 {
 		tpPlanner.algOpts.bidirectional = false
 		tpPlanner.algOpts.goalMetricConstructor = defaultPosOnlyGoalMetricConstructor
 	}
@@ -203,6 +203,8 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 	}
 	for k, v := range rrt.maps.goalMap {
 		if v == nil {
+			// There may be more than one node in the tree which satisfies the goal, i.e. its parent is nil.
+			// However for the purposes of this we can just take the first one we see.
 			if k.Pose() != nil {
 				goalPose = k.Pose()
 			} else {
@@ -212,6 +214,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 			break
 		}
 	}
+	mp.logger.Debugf("Starting TPspace solving with startMap len %d and goalMap len %d", len(rrt.maps.startMap), len(rrt.maps.goalMap))
 
 	m1chan := make(chan *nodeAndError, 1)
 	m2chan := make(chan *nodeAndError, 1)
@@ -219,7 +222,13 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 	defer close(m2chan)
 
 	dist := math.Sqrt(mp.planOpts.DistanceFunc(&ik.Segment{StartPosition: startPose, EndPosition: goalPose}))
-	midptNode := &basicNode{pose: spatialmath.Interpolate(startPose, goalPose, 0.5), cost: dist}
+
+	// The midpoint should not be the 50% interpolation of start/goal poses, but should be the 50% interpolated point with the orientation
+	// pointing at the goal from the start
+	midPt := startPose.Point().Add(goalPose.Point()).Mul(0.5)
+	midOrient := &spatialmath.OrientationVector{OZ: 1, Theta: math.Atan2(-midPt.X, midPt.Y)}
+
+	midptNode := &basicNode{pose: spatialmath.NewPose(midPt, midOrient), cost: dist}
 	var randPosNode node = midptNode
 
 	for iter := 0; iter < mp.planOpts.PlanIter; iter++ {

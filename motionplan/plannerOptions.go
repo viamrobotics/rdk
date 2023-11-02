@@ -43,6 +43,9 @@ const (
 	// default number of times to try to smooth the path.
 	defaultSmoothIter = 200
 
+	// default number of position only seeds to use for tp-space planning.
+	defaultTPspacePositionOnlySeeds = 16
+
 	// descriptions of constraints.
 	defaultLinearConstraintDesc         = "Constraint to follow linear path"
 	defaultPseudolinearConstraintDesc   = "Constraint to follow pseudolinear path, with tolerance scaled to path length"
@@ -85,6 +88,7 @@ func newBasicPlannerOptions(frame referenceframe.Frame) *plannerOptions {
 	opt.MinScore = defaultMinIkScore
 	opt.Resolution = defaultResolution
 	opt.Timeout = defaultTimeout
+	opt.PositionSeeds = defaultTPspacePositionOnlySeeds
 
 	opt.PlanIter = defaultPlanIter
 	opt.FrameStep = defaultFrameStep
@@ -150,6 +154,9 @@ type plannerOptions struct {
 
 	// Number of iterations to mrun before beginning to accept randomly seeded locations.
 	IterBeforeRand int `json:"iter_before_rand"`
+
+	// Number of seeds to pre-generate for bidirectional position-only solving.
+	PositionSeeds int `json:"position_seeds"`
 
 	// This is how far cbirrt will try to extend the map towards a goal per-step. Determined from FrameStep
 	qstep []float64

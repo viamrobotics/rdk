@@ -821,6 +821,54 @@ func TestReplan(t *testing.T) {
 	test.That(t, err, test.ShouldBeError, errHighReplanCost) // Replan factor too low!
 }
 
+func TestPtgPosOnlyBidirectional(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	sphere, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 10, "base")
+	test.That(t, err, test.ShouldBeNil)
+
+	kinematicFrame, err := tpspace.NewPTGFrameFromKinematicOptions(
+		"itsabase",
+		logger,
+		200, 60, 0, 1000,
+		2,
+		[]spatialmath.Geometry{sphere},
+		false,
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	goal := spatialmath.NewPoseFromPoint(r3.Vector{1000, -8000, 0})
+
+	extra := map[string]interface{}{"motion_profile": "position_only", "position_seeds": 2, "smooth_iter": 5}
+
+	baseFS := frame.NewEmptyFrameSystem("baseFS")
+	err = baseFS.AddFrame(kinematicFrame, baseFS.World())
+	test.That(t, err, test.ShouldBeNil)
+
+	planRequest := &PlanRequest{
+		Logger:             logger,
+		Goal:               frame.NewPoseInFrame(frame.World, goal),
+		Frame:              kinematicFrame,
+		FrameSystem:        baseFS,
+		StartConfiguration: frame.StartPositions(baseFS),
+		WorldState:         nil,
+		Options:            extra,
+	}
+
+	bidirectionalPlanRaw, err := PlanMotion(ctx, planRequest)
+	test.That(t, err, test.ShouldBeNil)
+
+	// If bidirectional planning worked properly, this plan should wind up at the goal with an orientation of Theta = 180 degrees
+	bidirectionalPlan, err := planToTpspaceRec(bidirectionalPlanRaw, kinematicFrame)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, spatialmath.PoseAlmostCoincidentEps(goal, bidirectionalPlan[len(bidirectionalPlan)-1].Pose(), 5), test.ShouldBeTrue)
+	test.That(t, spatialmath.OrientationAlmostEqual(
+		&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 180},
+		bidirectionalPlan[len(bidirectionalPlan)-1].Pose().Orientation(),
+	), test.ShouldBeTrue)
+}
+
 func TestValidatePlanRequest(t *testing.T) {
 	t.Parallel()
 	type testCase struct {
