@@ -21,6 +21,8 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+const testLookAheadDistanceMM = 1000 * 1000.
+
 var (
 	home7 = frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0, 0})
 	home6 = frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
@@ -1048,7 +1050,7 @@ func TestArmGantryCheckPlan(t *testing.T) {
 	inputs := frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0, 0})
 
 	t.Run("check plan with no obstacles", func(t *testing.T) {
-		err := CheckPlan(fs.Frame("xArm6"), plan, nil, fs, startPose, inputs, errorState, logger)
+		err := CheckPlan(fs.Frame("xArm6"), plan, nil, fs, startPose, inputs, errorState, testLookAheadDistanceMM, logger)
 		test.That(t, err, test.ShouldBeNil)
 	})
 	t.Run("check plan with obstacle", func(t *testing.T) {
@@ -1064,7 +1066,7 @@ func TestArmGantryCheckPlan(t *testing.T) {
 		worldState, err := frame.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = CheckPlan(fs.Frame("xArm6"), plan, worldState, fs, startPose, inputs, errorState, logger)
+		err = CheckPlan(fs.Frame("xArm6"), plan, worldState, fs, startPose, inputs, errorState, testLookAheadDistanceMM, logger)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 }

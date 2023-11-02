@@ -441,7 +441,7 @@ func TestPtgCheckPlan(t *testing.T) {
 	inputs := referenceframe.FloatsToInputs([]float64{0, 0, 0})
 
 	t.Run("base case - validate plan without obstacles", func(t *testing.T) {
-		err := CheckPlan(ackermanFrame, steps, nil, fs, startPose, inputs, errorState, logger)
+		err := CheckPlan(ackermanFrame, steps, nil, fs, startPose, inputs, errorState, testLookAheadDistanceMM, logger)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -455,7 +455,7 @@ func TestPtgCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = CheckPlan(ackermanFrame, steps, worldState, fs, startPose, inputs, errorState, logger)
+		err = CheckPlan(ackermanFrame, steps, worldState, fs, startPose, inputs, errorState, testLookAheadDistanceMM, logger)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
@@ -492,7 +492,7 @@ func TestPtgCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = CheckPlan(ackermanFrame, steps, worldState, fs, startPose, inputs, errorState, logger)
+		err = CheckPlan(ackermanFrame, steps, worldState, fs, startPose, inputs, errorState, testLookAheadDistanceMM, logger)
 		test.That(t, err, test.ShouldBeNil)
 	})
 	t.Run("obstacles NOT in world frame cause collision - integration test", func(t *testing.T) {
@@ -507,7 +507,7 @@ func TestPtgCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = CheckPlan(ackermanFrame, steps, worldState, fs, startPose, inputs, errorState, logger)
+		err = CheckPlan(ackermanFrame, steps, worldState, fs, startPose, inputs, errorState, testLookAheadDistanceMM, logger)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 	t.Run("checking from partial-plan, ensure success with obstacles - integration test", func(t *testing.T) {
@@ -530,7 +530,7 @@ func TestPtgCheckPlan(t *testing.T) {
 
 		startPose := spatialmath.NewPose(vector, ov)
 
-		err = CheckPlan(ackermanFrame, steps[2:len(steps)-1], worldState, fs, startPose, inputs, errorState, logger)
+		err = CheckPlan(ackermanFrame, steps[2:len(steps)-1], worldState, fs, startPose, inputs, errorState, testLookAheadDistanceMM, logger)
 		test.That(t, err, test.ShouldBeNil)
 	})
 	t.Run("verify partial plan with non-nil errorState and obstacle", func(t *testing.T) {
@@ -549,7 +549,7 @@ func TestPtgCheckPlan(t *testing.T) {
 		errorState := spatialmath.NewPoseFromPoint(r3.Vector{0, 1000, 0})
 		startPose = errorState
 
-		err = CheckPlan(ackermanFrame, steps[2:len(steps)-1], worldState, fs, startPose, inputs, errorState, logger)
+		err = CheckPlan(ackermanFrame, steps[2:len(steps)-1], worldState, fs, startPose, inputs, errorState, testLookAheadDistanceMM, logger)
 		test.That(t, err, test.ShouldBeNil)
 	})
 }

@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"go.uber.org/zap/zapcore"
 )
 
 // Level is an enum of log levels. Its value can be `DEBUG`, `INFO`, `WARN` or `ERROR`.
@@ -36,6 +38,22 @@ func (level Level) String() string {
 		return "Warn"
 	case ERROR:
 		return "Error"
+	}
+
+	panic(fmt.Sprintf("unreachable: %d", level))
+}
+
+// AsZap converts the Level to a `zapcore.Level`.
+func (level Level) AsZap() zapcore.Level {
+	switch level {
+	case DEBUG:
+		return zapcore.DebugLevel
+	case INFO:
+		return zapcore.InfoLevel
+	case WARN:
+		return zapcore.WarnLevel
+	case ERROR:
+		return zapcore.ErrorLevel
 	}
 
 	panic(fmt.Sprintf("unreachable: %d", level))

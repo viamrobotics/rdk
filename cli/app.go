@@ -59,6 +59,7 @@ const (
 	dataFlagBboxLabels                     = "bbox-labels"
 	dataFlagOrgID                          = "org-id"
 	dataFlagDeleteTabularDataOlderThanDays = "delete-older-than-days"
+	dataFlagDatabasePassword               = "password"
 
 	boardFlagName    = "name"
 	boardFlagPath    = "path"
@@ -376,6 +377,44 @@ var app = &cli.App{
 								},
 							},
 							Action: DataDeleteTabularAction,
+						},
+					},
+				},
+				{
+					Name:      "database",
+					Usage:     "interact with a MongoDB Atlas Data Federation instance",
+					UsageText: "viam data database [other options]",
+					Subcommands: []*cli.Command{
+						{
+							Name:      "configure",
+							Usage:     "configures a database user for the Viam org's MongoDB Atlas Data Federation instance",
+							UsageText: fmt.Sprintf("viam data database configure <%s> <%s>", dataFlagOrgID, dataFlagDatabasePassword),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     dataFlagOrgID,
+									Usage:    "org ID for the database user being configured",
+									Required: true,
+								},
+								&cli.StringFlag{
+									Name:     dataFlagDatabasePassword,
+									Usage:    "password for the database user being configured",
+									Required: true,
+								},
+							},
+							Action: DataConfigureDatabaseUser,
+						},
+						{
+							Name:      "hostname",
+							Usage:     "gets the hostname to access a MongoDB Atlas Data Federation Instance",
+							UsageText: fmt.Sprintf("viam data database hostname <%s>", dataFlagOrgID),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     dataFlagOrgID,
+									Usage:    "org ID for the database user",
+									Required: true,
+								},
+							},
+							Action: DataGetDatabaseConnection,
 						},
 					},
 				},

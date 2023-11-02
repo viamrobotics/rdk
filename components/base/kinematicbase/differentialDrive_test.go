@@ -21,6 +21,9 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+// Limits when localizer isn't present.
+const testNilLocalizerMoveLimit = 10000.
+
 func testConfig() resource.Config {
 	return resource.Config{
 		Name: "test",
@@ -60,7 +63,7 @@ func TestWrapWithDifferentialDriveKinematics(t *testing.T) {
 		t.Run(string(tc.geoType), func(t *testing.T) {
 			testCfg := testConfig()
 			testCfg.Frame.Geometry.Type = tc.geoType
-			ddk, err := buildTestDDK(ctx, testCfg, defaultLinearVelocityMMPerSec, defaultAngularVelocityDegsPerSec, logger)
+			ddk, err := buildTestDDK(ctx, testCfg, true, defaultLinearVelocityMMPerSec, defaultAngularVelocityDegsPerSec, logger)
 			test.That(t, err == nil, test.ShouldEqual, tc.success)
 			if err != nil {
 				return
@@ -89,7 +92,7 @@ func TestWrapWithDifferentialDriveKinematics(t *testing.T) {
 			{3, -4},
 		}
 		for _, vels := range velocities {
-			ddk, err := buildTestDDK(ctx, testConfig(), vels.linear, vels.angular, logger)
+			ddk, err := buildTestDDK(ctx, testConfig(), true, vels.linear, vels.angular, logger)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, ddk.options.LinearVelocityMMPerSec, test.ShouldAlmostEqual, vels.linear)
 			test.That(t, ddk.options.AngularVelocityDegsPerSec, test.ShouldAlmostEqual, vels.angular)
@@ -100,13 +103,27 @@ func TestWrapWithDifferentialDriveKinematics(t *testing.T) {
 func TestCurrentInputs(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
-	ddk, err := buildTestDDK(ctx, testConfig(),
-		defaultLinearVelocityMMPerSec, defaultAngularVelocityDegsPerSec, logger)
-	test.That(t, err, test.ShouldBeNil)
-	for i := 0; i < 10; i++ {
-		_, err := ddk.CurrentInputs(ctx)
+
+	t.Run("with Localizer", func(t *testing.T) {
+		ddk, err := buildTestDDK(ctx, testConfig(), true,
+			defaultLinearVelocityMMPerSec, defaultAngularVelocityDegsPerSec, logger)
 		test.That(t, err, test.ShouldBeNil)
-	}
+		for i := 0; i < 10; i++ {
+			_, err := ddk.CurrentInputs(ctx)
+			test.That(t, err, test.ShouldBeNil)
+		}
+	})
+
+	t.Run("without Localizer", func(t *testing.T) {
+		ddk, err := buildTestDDK(ctx, testConfig(), false,
+			defaultLinearVelocityMMPerSec, defaultAngularVelocityDegsPerSec, logger)
+		test.That(t, err, test.ShouldBeNil)
+		for i := 0; i < 10; i++ {
+			input, err := ddk.CurrentInputs(ctx)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, input, test.ShouldResemble, []referenceframe.Input{{Value: 0}, {Value: 0}, {Value: 0}})
+		}
+	})
 }
 
 func TestInputDiff(t *testing.T) {
@@ -120,21 +137,22 @@ func TestInputDiff(t *testing.T) {
 
 	// build base
 	logger := logging.NewTestLogger(t)
-	ddk, err := buildTestDDK(ctx, testConfig(),
+	ddk, err := buildTestDDK(ctx, testConfig(), true,
 		defaultLinearVelocityMMPerSec, defaultAngularVelocityDegsPerSec, logger)
 	test.That(t, err, test.ShouldBeNil)
 	ddk.Localizer = motion.NewSLAMLocalizer(slam)
 
-	desiredInput := []referenceframe.Input{{3}, {4}, {utils.DegToRad(30)}}
+	desiredInput := []referenceframe.Input{{Value: 3}, {Value: 4}, {Value: utils.DegToRad(30)}}
 	distErr, headingErr, err := ddk.inputDiff(make([]referenceframe.Input, 3), desiredInput)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, distErr, test.ShouldEqual, r3.Vector{desiredInput[0].Value, desiredInput[1].Value, 0}.Norm())
+	test.That(t, distErr, test.ShouldEqual, r3.Vector{X: desiredInput[0].Value, Y: desiredInput[1].Value, Z: 0}.Norm())
 	test.That(t, headingErr, test.ShouldAlmostEqual, 30)
 }
 
 func buildTestDDK(
 	ctx context.Context,
 	cfg resource.Config,
+	hasLocalizer bool,
 	linVel, angVel float64,
 	logger logging.Logger,
 ) (*differentialDriveKinematics, error) {
@@ -145,18 +163,28 @@ func buildTestDDK(
 	}
 
 	// make a SLAM service and get its limits
-	fakeSLAM := fake.NewSLAM(slam.Named("test"), logger)
-	limits, err := fakeSLAM.Limits(ctx)
-	if err != nil {
-		return nil, err
+	var localizer motion.Localizer
+	var limits []referenceframe.Limit
+	if hasLocalizer {
+		fakeSLAM := fake.NewSLAM(slam.Named("test"), logger)
+		limits, err = fakeSLAM.Limits(ctx)
+		if err != nil {
+			return nil, err
+		}
+		localizer = motion.NewSLAMLocalizer(fakeSLAM)
+	} else {
+		limits = []referenceframe.Limit{
+			{Min: testNilLocalizerMoveLimit, Max: testNilLocalizerMoveLimit},
+			{Min: testNilLocalizerMoveLimit, Max: testNilLocalizerMoveLimit},
+		}
 	}
-	limits = append(limits, referenceframe.Limit{-2 * math.Pi, 2 * math.Pi})
+	limits = append(limits, referenceframe.Limit{Min: -2 * math.Pi, Max: 2 * math.Pi})
 
 	// construct differential drive kinematic base
 	options := NewKinematicBaseOptions()
 	options.LinearVelocityMMPerSec = linVel
 	options.AngularVelocityDegsPerSec = angVel
-	kb, err := wrapWithDifferentialDriveKinematics(ctx, b, logger, motion.NewSLAMLocalizer(fakeSLAM), limits, options)
+	kb, err := wrapWithDifferentialDriveKinematics(ctx, b, logger, localizer, limits, options)
 	if err != nil {
 		return nil, err
 	}
@@ -170,7 +198,7 @@ func buildTestDDK(
 func TestNewValidRegionCapsule(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
-	ddk, err := buildTestDDK(ctx, testConfig(), defaultLinearVelocityMMPerSec, defaultAngularVelocityDegsPerSec, logger)
+	ddk, err := buildTestDDK(ctx, testConfig(), true, defaultLinearVelocityMMPerSec, defaultAngularVelocityDegsPerSec, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	starting := referenceframe.FloatsToInputs([]float64{400, 0, 0})
@@ -178,11 +206,14 @@ func TestNewValidRegionCapsule(t *testing.T) {
 	c, err := ddk.newValidRegionCapsule(starting, desired)
 	test.That(t, err, test.ShouldBeNil)
 
-	col, err := c.CollidesWith(spatialmath.NewPoint(r3.Vector{-176, 576, 0}, ""))
+	col, err := c.CollidesWith(spatialmath.NewPoint(r3.Vector{X: -176, Y: 576, Z: 0}, ""))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, col, test.ShouldBeTrue)
 
-	col, err = c.CollidesWith(spatialmath.NewPoint(r3.Vector{-defaultPlanDeviationThresholdMM, -defaultPlanDeviationThresholdMM, 0}, ""))
+	col, err = c.CollidesWith(spatialmath.NewPoint(
+		r3.Vector{X: -defaultPlanDeviationThresholdMM, Y: -defaultPlanDeviationThresholdMM, Z: 0},
+		"",
+	))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, col, test.ShouldBeFalse)
 }

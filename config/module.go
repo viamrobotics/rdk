@@ -14,10 +14,6 @@ var moduleNameRegEx = regexp.MustCompile(`^[\w-]+$`)
 const reservedModuleName = "parent"
 
 // Module represents an external resource module, with a path to the binary module file.
-//
-// Note to fellow programmers:
-// If you add any new fields, make sure to bring them to the modmanager.module struct and the modmanager.Configs() function
-// Otherwise there will be config diffs on every reconfigure.
 type Module struct {
 	// Name is an arbitrary name used to identify the module, and is used to name it's socket as well.
 	Name string `json:"name"`

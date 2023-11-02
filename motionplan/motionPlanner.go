@@ -450,9 +450,9 @@ IK:
 	return orderedSolutions, nil
 }
 
-// CheckPlan checks if obstacles intersect the trajectory of the frame following the plan.
-// We assume the errorState to remain constant for the duration of the plan.
-// Currently, this function does not support checking a plan for an arm.
+// CheckPlan checks if obstacles intersect the trajectory of the frame following the plan. If one is
+// detected, the interpolated position of the rover when a collision is detected is returned along
+// with an error with additional collision details.
 func CheckPlan(
 	checkFrame frame.Frame,
 	plan Plan,
@@ -461,6 +461,7 @@ func CheckPlan(
 	currentPosition spatialmath.Pose,
 	currentInputs []frame.Input,
 	errorState spatialmath.Pose,
+	lookAheadDistanceMM float64,
 	logger logging.Logger,
 ) error {
 	// ensure that we can actually perform the check
@@ -534,6 +535,7 @@ func CheckPlan(
 	}
 
 	// go through plan and check that we can move from plan[i] to plan[i+1]
+	var totalTravelDistanceMM float64
 	for i := 0; i < len(planNodes)-1; i++ {
 		currentPose := planNodes[i].Pose()
 		nextPose := planNodes[i+1].Pose()
@@ -554,6 +556,7 @@ func CheckPlan(
 			EndConfiguration:   endConfiguration,
 			Frame:              sf,
 		}
+
 		interpolatedConfigurations, err := interpolateSegment(segment, sfPlanner.planOpts.Resolution)
 		if err != nil {
 			return err
@@ -563,8 +566,14 @@ func CheckPlan(
 			if err != nil {
 				return err
 			}
+
+			// Check if look ahead distance has been reached
+			currentTravelDistanceMM := totalTravelDistanceMM + poseInPath.Point().Distance(segment.StartPosition.Point())
+			if currentTravelDistanceMM > lookAheadDistanceMM {
+				return nil
+			}
 			// If we are working with a PTG plan the returned value for poseInPath will only
-			// tell us how far along the arc we have travelled. Since this is only the relative position,
+			// tell us how far along the arc we have traveled. Since this is only the relative position,
 			// i.e. relative to where the robot started executing the arc,
 			// we must compose poseInPath with currentPose to get the absolute position.
 			// In both cases we ultimately compose with errorState.
@@ -574,12 +583,19 @@ func CheckPlan(
 			} else {
 				poseInPath = spatialmath.Compose(poseInPath, errorState)
 			}
-			modifiedSegment := &ik.State{Frame: sf, Position: poseInPath}
-			// check the state of the robot for collision
-			if isValid, _ := sfPlanner.planOpts.CheckStateConstraints(modifiedSegment); !isValid {
-				return fmt.Errorf("found collsion between positions %v and %v", currentPose.Point(), nextPose.Point())
+
+			modifiedState := &ik.State{Frame: sf, Position: poseInPath}
+
+			// Checks for collision along the interpolated route and returns a the first interpolated pose where a
+			// collision is detected.
+			if isValid, _ := sfPlanner.planOpts.CheckStateConstraints(modifiedState); !isValid {
+				return fmt.Errorf("found collision between positions %v and %v", currentPose.Point(), nextPose.Point())
 			}
 		}
+
+		// Update total traveled distance after segment has been checked
+		totalTravelDistanceMM += segment.EndPosition.Point().Distance(segment.StartPosition.Point())
 	}
+
 	return nil
 }

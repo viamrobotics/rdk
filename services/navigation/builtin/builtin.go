@@ -20,6 +20,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
+	"go.viam.com/rdk/services/motion/explore"
 	"go.viam.com/rdk/services/navigation"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
@@ -89,12 +90,6 @@ func init() {
 type ObstacleDetectorNameConfig struct {
 	VisionServiceName string `json:"vision_service"`
 	CameraName        string `json:"camera"`
-}
-
-// ObstacleDetector pairs a vision service with a camera, informing the service about which camera it may use.
-type ObstacleDetector struct {
-	VisionService vision.Service
-	Camera        camera.Camera
 }
 
 // Config describes how to configure the service.
@@ -218,11 +213,12 @@ type builtIn struct {
 	mode      navigation.Mode
 	mapType   navigation.MapType
 
-	base              base.Base
-	movementSensor    movementsensor.MovementSensor
-	obstacleDetectors []*ObstacleDetector
-	motionService     motion.Service
-	obstacles         []*spatialmath.GeoObstacle
+	base           base.Base
+	movementSensor movementsensor.MovementSensor
+	motionService  motion.Service
+	// exploreMotionService will be removed once the motion explore model is integrated into motion builtin
+	exploreMotionService motion.Service
+	obstacles            []*spatialmath.GeoObstacle
 
 	motionCfg        *motion.MotionConfiguration
 	replanCostFactor float64
@@ -313,7 +309,6 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	}
 
 	var obstacleDetectorNamePairs []motion.ObstacleDetectorName
-	var obstacleDetectors []*ObstacleDetector
 	for _, pbObstacleDetectorPair := range svcConfig.ObstacleDetectors {
 		visionSvc, err := vision.FromDependencies(deps, pbObstacleDetectorPair.VisionServiceName)
 		if err != nil {
@@ -325,9 +320,6 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		}
 		obstacleDetectorNamePairs = append(obstacleDetectorNamePairs, motion.ObstacleDetectorName{
 			VisionServiceName: visionSvc.Name(), CameraName: camera.Name(),
-		})
-		obstacleDetectors = append(obstacleDetectors, &ObstacleDetector{
-			VisionService: visionSvc, Camera: camera,
 		})
 	}
 
@@ -356,13 +348,20 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		return err
 	}
 
+	// Create explore motion service
+	// Note: this service will disappear after the explore motion model is integrated into builtIn
+	exploreMotionConf := resource.Config{ConvertedAttributes: &explore.Config{}}
+	svc.exploreMotionService, err = explore.NewExplore(ctx, deps, exploreMotionConf, svc.logger)
+	if err != nil {
+		return err
+	}
+
 	svc.mode = navigation.ModeManual
 	svc.base = baseComponent
 	svc.mapType = mapType
 	svc.motionService = motionSvc
 	svc.obstacles = newObstacles
 	svc.replanCostFactor = replanCostFactor
-	svc.obstacleDetectors = obstacleDetectors
 	svc.motionCfg = &motion.MotionConfiguration{
 		ObstacleDetectors:     obstacleDetectorNamePairs,
 		LinearMPerSec:         metersPerSec,
@@ -413,11 +412,10 @@ func (svc *builtIn) SetMode(ctx context.Context, mode navigation.Mode, extra map
 	case navigation.ModeWaypoint:
 		svc.startWaypointMode(cancelCtx, extra)
 	case navigation.ModeExplore:
-		if len(svc.obstacleDetectors) == 0 {
+		if len(svc.motionCfg.ObstacleDetectors) == 0 {
 			return errors.New("explore mode requires at least one vision service")
 		}
 		svc.startExploreMode(cancelCtx)
-		return errors.New("navigation mode 'explore' is not currently available")
 	}
 
 	return nil
@@ -491,6 +489,9 @@ func (svc *builtIn) Close(ctx context.Context) error {
 	defer svc.actionMu.Unlock()
 
 	svc.stopActiveMode()
+	if err := svc.exploreMotionService.Close(ctx); err != nil {
+		return err
+	}
 	return svc.store.Close(ctx)
 }
 
