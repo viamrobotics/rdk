@@ -3,22 +3,29 @@ package logging
 import (
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"runtime"
-	"strings"
 	"time"
 
+	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
 type (
+	// Appender is an output for log entries. This is a subset of the `zapcore.Core` interface.
+	Appender interface {
+		// Write submits a structured log entry to the appender for logging.
+		Write(zapcore.Entry, []zapcore.Field) error
+		// Sync is for signaling that any buffered logs to `Write` should be flushed. E.g: at shutdown.
+		Sync() error
+	}
+
 	impl struct {
 		name  string
 		level Level
 
-		out io.Writer
+		appenders []Appender
 	}
 
 	// LogEntry embeds a zapcore Entry and slice of Fields.
@@ -28,7 +35,7 @@ type (
 	}
 )
 
-func (impl impl) NewLogEntry() *LogEntry {
+func (impl *impl) NewLogEntry() *LogEntry {
 	ret := &LogEntry{}
 	ret.Time = time.Now()
 	ret.LoggerName = impl.name
@@ -37,54 +44,8 @@ func (impl impl) NewLogEntry() *LogEntry {
 	return ret
 }
 
-// The input `caller` must satisfy `caller.Defined == true`.
-func callerToString(caller *zapcore.EntryCaller) string {
-	// The file returned by `runtime.Caller` is a full path and always contains '/' to separate
-	// directories. Including on windows. We only want to keep the `<package>/<file>` part of the
-	// path. We use a stateful lambda to count back two '/' runes.
-	cnt := 0
-	idx := strings.LastIndexFunc(caller.File, func(rn rune) bool {
-		if rn == '/' {
-			cnt++
-		}
-
-		if cnt == 2 {
-			return true
-		}
-
-		return false
-	})
-
-	// If idx >= 0, then we add 1 to trim the leading '/'.
-	// If idx == -1 (not found), we add 1 to return the entire file.
-	return fmt.Sprintf("%s:%d", caller.File[idx+1:], caller.Line)
-}
-
-// ToConsoleString turns a LogEntry into a string suitable for printing to stdout or writing to a file.
-func (logEntry *LogEntry) ToConsoleString() string {
-	const maxLength = 10
-	toPrint := make([]string, 0, maxLength)
-	toPrint = append(toPrint, logEntry.Time.Format("2006-01-02T15:04:05.000Z"))
-	toPrint = append(toPrint, strings.ToUpper(logEntry.Level.String()))
-	if logEntry.Caller.Defined {
-		toPrint = append(toPrint, callerToString(&logEntry.Caller))
-	}
-	toPrint = append(toPrint, logEntry.Message)
-	if len(logEntry.fields) == 0 {
-		return strings.Join(toPrint, "\t")
-	}
-
-	// Use zap's json encoder which will encode our slice of fields in-order. As opposed to the
-	// random iteration order of a map. Call it with an empty Entry object such that only the fields
-	// become "map-ified".
-	jsonEncoder := zapcore.NewJSONEncoder(zapcore.EncoderConfig{SkipLineEnding: true})
-	buf, err := jsonEncoder.EncodeEntry(zapcore.Entry{}, logEntry.fields)
-	if err != nil {
-		panic(err)
-	}
-	toPrint = append(toPrint, string(buf.Bytes()))
-
-	return strings.Join(toPrint, "\t")
+func (impl *impl) AddAppender(appender Appender) {
+	impl.appenders = append(impl.appenders, appender)
 }
 
 func (impl *impl) Desugar() *zap.Logger {
@@ -100,7 +61,14 @@ func (impl *impl) Named(name string) *zap.SugaredLogger {
 }
 
 func (impl *impl) Sync() error {
-	return nil
+	var errs []error
+	for _, appender := range impl.appenders {
+		if err := appender.Sync(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+
+	return multierr.Combine(errs...)
 }
 
 func (impl *impl) With(args ...interface{}) *zap.SugaredLogger {
@@ -111,12 +79,21 @@ func (impl *impl) WithOptions(opts ...zap.Option) *zap.SugaredLogger {
 	return nil
 }
 
+func (impl *impl) AsZap() *zap.SugaredLogger {
+	return NewLogger("").AsZap()
+}
+
 func (impl *impl) shouldLog(logLevel Level) bool {
 	return logLevel >= impl.level
 }
 
 func (impl *impl) log(entry *LogEntry) {
-	fmt.Fprintln(impl.out, entry.ToConsoleString())
+	for _, appender := range impl.appenders {
+		err := appender.Write(entry.Entry, entry.fields)
+		if err != nil {
+			fmt.Fprint(os.Stderr, err)
+		}
+	}
 }
 
 // Constructs the log message by forwarding to `fmt.Sprint`.
