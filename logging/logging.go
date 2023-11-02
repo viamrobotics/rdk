@@ -7,7 +7,6 @@ import (
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"go.uber.org/zap/zaptest"
 	"go.uber.org/zap/zaptest/observer"
 )
 
@@ -76,12 +75,12 @@ func NewTestLogger(tb testing.TB) Logger {
 
 // NewObservedTestLogger is like NewTestLogger but also saves logs to an in memory observer.
 func NewObservedTestLogger(tb testing.TB) (Logger, *observer.ObservedLogs) {
-	logger := zaptest.NewLogger(tb, zaptest.WrapOptions(zap.AddCaller()))
+	logger := NewViamLogger("")
+	logger.AddAppender(NewStdoutAppender())
 	observerCore, observedLogs := observer.New(zap.LevelEnablerFunc(zapcore.DebugLevel.Enabled))
-	logger = logger.WithOptions(zap.WrapCore(func(c zapcore.Core) zapcore.Core {
-		return zapcore.NewTee(c, observerCore)
-	}))
-	return &zLogger{logger.Sugar()}, observedLogs
+	logger.AddAppender(observerCore)
+
+	return logger, observedLogs
 }
 
 // NewViamLogger creates an instance of the viam logger in debug mode without any outputs.
