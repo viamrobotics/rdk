@@ -8,19 +8,19 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/board"
 	picommon "go.viam.com/rdk/components/board/pi/common"
 	"go.viam.com/rdk/components/servo"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 )
 
 func TestPiPigpio(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	cfg := Config{
 		DigitalInterrupts: []board.DigitalInterruptConfig{

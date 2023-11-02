@@ -8,9 +8,9 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
@@ -60,7 +60,7 @@ type rrtStarConnectMotionPlanner struct {
 func newRRTStarConnectMotionPlanner(
 	frame referenceframe.Frame,
 	seed *rand.Rand,
-	logger golog.Logger,
+	logger logging.Logger,
 	opt *plannerOptions,
 ) (motionPlanner, error) {
 	if opt == nil {

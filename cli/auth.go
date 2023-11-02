@@ -14,7 +14,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
@@ -25,6 +24,8 @@ import (
 	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
+
+	"go.viam.com/rdk/logging"
 )
 
 type authFlow struct {
@@ -38,7 +39,7 @@ type authFlow struct {
 	disableBrowserOpen bool
 
 	httpClient *http.Client
-	logger     golog.Logger
+	logger     logging.Logger
 	console    io.Writer
 }
 
@@ -605,7 +606,7 @@ func newCLIAuthFlowWithAuthDomain(authDomain, audience, clientID string, console
 
 		disableBrowserOpen: disableBrowserOpen,
 		httpClient:         &http.Client{Timeout: time.Second * 30},
-		logger:             golog.Global(),
+		logger:             logging.Global(),
 		console:            console,
 	}
 }

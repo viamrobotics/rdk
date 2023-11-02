@@ -7,15 +7,15 @@ import (
 	"image"
 	"sync"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-	"github.com/viamrobotics/gostream"
 	"go.opencensus.io/trace"
 	pb "go.viam.com/api/component/camera/v1"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/data"
+	"go.viam.com/rdk/gostream"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
@@ -33,7 +33,7 @@ type client struct {
 	name                    string
 	conn                    rpc.ClientConn
 	client                  pb.CameraServiceClient
-	logger                  golog.Logger
+	logger                  logging.Logger
 	activeBackgroundWorkers sync.WaitGroup
 	cancelCtx               context.Context
 	cancel                  func()
@@ -45,7 +45,7 @@ func NewClientFromConn(
 	conn rpc.ClientConn,
 	remoteName string,
 	name resource.Name,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (Camera, error) {
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	c := pb.NewCameraServiceClient(conn)

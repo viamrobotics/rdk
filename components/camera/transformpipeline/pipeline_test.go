@@ -4,14 +4,14 @@ import (
 	"context"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"github.com/pion/mediadevices/pkg/prop"
-	"github.com/viamrobotics/gostream"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/camera/videosource"
+	"go.viam.com/rdk/gostream"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/testutils/inject"
@@ -27,7 +27,7 @@ func TestTransformPipelineColor(t *testing.T) {
 		},
 	}
 	r := &inject.Robot{}
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board1_small.png"))
 	test.That(t, err, test.ShouldBeNil)
@@ -74,7 +74,7 @@ func TestTransformPipelineDepth(t *testing.T) {
 		},
 	}
 	r := &inject.Robot{}
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	dm, err := rimage.NewDepthMapFromFile(context.Background(), artifact.MustPath("rimage/board1_gray_small.png"))
 	test.That(t, err, test.ShouldBeNil)
@@ -125,7 +125,7 @@ func TestTransformPipelineDepth2(t *testing.T) {
 		},
 	}
 	r := &inject.Robot{}
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	dm, err := rimage.NewDepthMapFromFile(
 		context.Background(), artifact.MustPath("rimage/board1_gray_small.png"))
@@ -156,7 +156,7 @@ func TestNullPipeline(t *testing.T) {
 		Pipeline: []Transformation{},
 	}
 	r := &inject.Robot{}
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board1_small.png"))
 	test.That(t, err, test.ShouldBeNil)
@@ -181,7 +181,7 @@ func TestNullPipeline(t *testing.T) {
 
 func TestPipeIntoPipe(t *testing.T) {
 	r := &inject.Robot{}
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board1_small.png"))
 	test.That(t, err, test.ShouldBeNil)

@@ -5,8 +5,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+
+	"go.viam.com/rdk/logging"
 )
 
 type encoderToRPM struct {
@@ -15,10 +16,10 @@ type encoderToRPM struct {
 	y                  []*Signal
 	ticksPerRevolution int
 	prevEncCount       int
-	logger             golog.Logger
+	logger             logging.Logger
 }
 
-func newEncoderSpeed(config BlockConfig, logger golog.Logger) (Block, error) {
+func newEncoderSpeed(config BlockConfig, logger logging.Logger) (Block, error) {
 	e := &encoderToRPM{cfg: config, logger: logger}
 	if err := e.reset(); err != nil {
 		return nil, err

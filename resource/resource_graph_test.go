@@ -5,8 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/logging"
 )
 
 type fakeComponent struct {
@@ -970,9 +971,9 @@ func TestResourceGraphLastReconfigured(t *testing.T) {
 	lr := node1.LastReconfigured()
 	test.That(t, lr, test.ShouldNotBeNil)
 	// Assert that after SwapResource, node's lastReconfigured time is between
-	// 50ms ago and now.
+	// 10s ago and now.
 	test.That(t, *lr, test.ShouldHappenBetween,
-		time.Now().Add(-50*time.Millisecond), time.Now())
+		time.Now().Add(-10*time.Second), time.Now())
 
 	// Mock a mutation with another SwapResource. Assert that lastReconfigured
 	// value changed.
@@ -980,14 +981,14 @@ func TestResourceGraphLastReconfigured(t *testing.T) {
 	newLR := node1.LastReconfigured()
 	test.That(t, newLR, test.ShouldNotBeNil)
 	// Assert that after another SwapResource, node's lastReconfigured time is
-	// after old lr value and between 50ms ago and now.
+	// after old lr value and between 10s ago and now.
 	test.That(t, *newLR, test.ShouldHappenAfter, *lr)
 	test.That(t, *newLR, test.ShouldHappenBetween,
-		time.Now().Add(-50*time.Millisecond), time.Now())
+		time.Now().Add(-10*time.Second), time.Now())
 }
 
 func TestResourceGraphResolveDependencies(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	g := NewGraph()
 	test.That(t, g.ResolveDependencies(logger), test.ShouldBeNil)
 

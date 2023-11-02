@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils"
 )
 
@@ -50,7 +50,7 @@ type Block interface {
 	Config(ctx context.Context) BlockConfig
 }
 
-func createBlock(cfg BlockConfig, logger golog.Logger) (Block, error) {
+func createBlock(cfg BlockConfig, logger logging.Logger) (Block, error) {
 	t := cfg.Type
 	switch t {
 	case blockEndpoint:

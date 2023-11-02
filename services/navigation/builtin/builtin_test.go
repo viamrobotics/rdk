@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/test"
@@ -21,6 +20,7 @@ import (
 	"go.viam.com/rdk/components/movementsensor"
 	_ "go.viam.com/rdk/components/movementsensor/fake"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	robotimpl "go.viam.com/rdk/robot/impl"
@@ -38,7 +38,7 @@ import (
 func setupNavigationServiceFromConfig(t *testing.T, configFilename string) (navigation.Service, func()) {
 	t.Helper()
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	cfg, err := config.Read(ctx, configFilename, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
@@ -225,7 +225,6 @@ func TestNew(t *testing.T) {
 
 		test.That(t, svcStruct.base.Name().Name, test.ShouldEqual, "test_base")
 		test.That(t, svcStruct.motionService.Name().Name, test.ShouldEqual, "builtin")
-		test.That(t, svcStruct.obstacleDetectors, test.ShouldBeNil)
 
 		test.That(t, svcStruct.mapType, test.ShouldEqual, navigation.NoMap)
 		test.That(t, svcStruct.mode, test.ShouldEqual, navigation.ModeManual)
@@ -313,7 +312,6 @@ func TestNew(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		svcStruct := svc.(*builtIn)
 
-		test.That(t, len(svcStruct.obstacleDetectors), test.ShouldEqual, 1)
 		test.That(t, len(svcStruct.motionCfg.ObstacleDetectors), test.ShouldEqual, 1)
 		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].VisionServiceName.Name, test.ShouldEqual, "vision")
 		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].CameraName.Name, test.ShouldEqual, "camera")
@@ -348,7 +346,6 @@ func TestNew(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		svcStruct := svc.(*builtIn)
 
-		test.That(t, len(svcStruct.obstacleDetectors), test.ShouldEqual, 1)
 		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].VisionServiceName.Name, test.ShouldEqual, "vision")
 		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].CameraName.Name, test.ShouldEqual, "camera")
 		test.That(t, svcStruct.replanCostFactor, test.ShouldEqual, cfg.ReplanCostFactor)
@@ -457,7 +454,6 @@ func TestNew(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		svcStruct := svc.(*builtIn)
 
-		test.That(t, len(svcStruct.obstacleDetectors), test.ShouldEqual, 1)
 		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].VisionServiceName.Name, test.ShouldEqual, "vision")
 		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].CameraName.Name, test.ShouldEqual, "camera")
 	})
@@ -494,7 +490,7 @@ func TestSetMode(t *testing.T) {
 			cfg:         "../data/nav_no_map_cfg.json",
 			mapType:     navigation.NoMap,
 			mode:        navigation.ModeExplore,
-			expectedErr: errors.New("navigation mode 'explore' is not currently available"),
+			expectedErr: nil,
 		},
 		{
 			description: "setting mode to explore when map_type is None and no vision service is configured",
@@ -522,7 +518,7 @@ func TestSetMode(t *testing.T) {
 			cfg:         "../data/nav_cfg.json",
 			mapType:     navigation.GPSMap,
 			mode:        navigation.ModeExplore,
-			expectedErr: errors.New("navigation mode 'explore' is not currently available"),
+			expectedErr: nil,
 		},
 	}
 
@@ -607,7 +603,7 @@ func TestStartWaypoint(t *testing.T) {
 	// TODO(RSDK-5193): unskip this test
 	t.Skip()
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	injectMS := inject.NewMotionService("test_motion")
 	cfg := resource.Config{

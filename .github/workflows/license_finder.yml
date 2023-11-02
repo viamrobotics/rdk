@@ -9,7 +9,7 @@ jobs:
     name: Audit 3rd-Party Licenses
     runs-on: [ubuntu-latest]
     container:
-      image: ghcr.io/viamrobotics/canon:amd64-cache
+      image: ghcr.io/viamrobotics/rdk-devenv:amd64-cache
       options: --platform linux/amd64
     timeout-minutes: 30
 

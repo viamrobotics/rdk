@@ -10,11 +10,11 @@ import (
 	"math/rand"
 	"sync"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
@@ -41,10 +41,6 @@ const (
 	// When extending the RRT tree towards some point, do not extend more than this many times in a single RRT invocation.
 	defaultMaxReseeds = 50
 
-	// For whatever `refDist` is used for the generation of the original path, scale that by this amount when smoothing.
-	// This can help to find paths.
-	defaultSmoothScaleFactor = 0.5
-
 	// Make an attempt to solve the tree every this many iterations
 	// For a unidirectional solve, this means attempting to reach the goal rather than a random point
 	// For a bidirectional solve, this means trying to connect the two trees directly.
@@ -54,6 +50,9 @@ const (
 )
 
 var defaultGoalMetricConstructor = ik.NewSquaredNormMetric
+
+// This should only be used when bidirectional mode is `false`.
+var defaultPosOnlyGoalMetricConstructor = ik.NewPositionOnlyMetric
 
 type tpspaceOptions struct {
 	goalCheck int // Check if goal is reachable every this many iters
@@ -68,9 +67,6 @@ type tpspaceOptions struct {
 
 	// If the squared norm between two poses is less than this, consider them equal
 	poseSolveDist float64
-
-	// When smoothing, adjust the trajectory path length to be this proportion of the length used for solving
-	smoothScaleFactor float64
 
 	// Make an attempt to solve the tree every this many iterations
 	// For a unidirectional solve, this means attempting to reach the goal rather than a random point
@@ -115,7 +111,7 @@ type tpSpaceRRTMotionPlanner struct {
 func newTPSpaceMotionPlanner(
 	frame referenceframe.Frame,
 	seed *rand.Rand,
-	logger golog.Logger,
+	logger logging.Logger,
 	opt *plannerOptions,
 ) (motionPlanner, error) {
 	if opt == nil {
@@ -136,8 +132,9 @@ func newTPSpaceMotionPlanner(
 		tpFrame: tpFrame,
 	}
 	tpPlanner.setupTPSpaceOptions()
-	if opt.profile == PositionOnlyMotionProfile {
+	if opt.profile == PositionOnlyMotionProfile && opt.PositionSeeds <= 0 {
 		tpPlanner.algOpts.bidirectional = false
+		tpPlanner.algOpts.goalMetricConstructor = defaultPosOnlyGoalMetricConstructor
 	}
 
 	return tpPlanner, nil
@@ -161,7 +158,7 @@ func (mp *tpSpaceRRTMotionPlanner) plan(ctx context.Context,
 	planRunners.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer planRunners.Done()
-		mp.planRunner(ctx, seed, &rrtParallelPlannerShared{
+		mp.rrtBackgroundRunner(ctx, seed, &rrtParallelPlannerShared{
 			&rrtMaps{
 				startMap: map[node]node{startNode: nil},
 				goalMap:  map[node]node{goalNode: nil},
@@ -184,7 +181,7 @@ func (mp *tpSpaceRRTMotionPlanner) plan(ctx context.Context,
 
 // planRunner will execute the plan. Plan() will call planRunner in a separate thread and wait for results.
 // Separating this allows other things to call planRunner in parallel allowing the thread-agnostic Plan to be accessible.
-func (mp *tpSpaceRRTMotionPlanner) planRunner(
+func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 	ctx context.Context,
 	_ []referenceframe.Input, // TODO: this may be needed for smoothing
 	rrt *rrtParallelPlannerShared,
@@ -206,6 +203,8 @@ func (mp *tpSpaceRRTMotionPlanner) planRunner(
 	}
 	for k, v := range rrt.maps.goalMap {
 		if v == nil {
+			// There may be more than one node in the tree which satisfies the goal, i.e. its parent is nil.
+			// However for the purposes of this we can just take the first one we see.
 			if k.Pose() != nil {
 				goalPose = k.Pose()
 			} else {
@@ -215,6 +214,7 @@ func (mp *tpSpaceRRTMotionPlanner) planRunner(
 			break
 		}
 	}
+	mp.logger.Debugf("Starting TPspace solving with startMap len %d and goalMap len %d", len(rrt.maps.startMap), len(rrt.maps.goalMap))
 
 	m1chan := make(chan *nodeAndError, 1)
 	m2chan := make(chan *nodeAndError, 1)
@@ -222,7 +222,13 @@ func (mp *tpSpaceRRTMotionPlanner) planRunner(
 	defer close(m2chan)
 
 	dist := math.Sqrt(mp.planOpts.DistanceFunc(&ik.Segment{StartPosition: startPose, EndPosition: goalPose}))
-	midptNode := &basicNode{pose: spatialmath.Interpolate(startPose, goalPose, 0.5), cost: dist}
+
+	// The midpoint should not be the 50% interpolation of start/goal poses, but should be the 50% interpolated point with the orientation
+	// pointing at the goal from the start
+	midPt := startPose.Point().Add(goalPose.Point()).Mul(0.5)
+	midOrient := &spatialmath.OrientationVector{OZ: 1, Theta: math.Atan2(-midPt.X, midPt.Y)}
+
+	midptNode := &basicNode{pose: spatialmath.NewPose(midPt, midOrient), cost: dist}
 	var randPosNode node = midptNode
 
 	for iter := 0; iter < mp.planOpts.PlanIter; iter++ {
@@ -278,7 +284,12 @@ func (mp *tpSpaceRRTMotionPlanner) planRunner(
 			if reachedDelta <= mp.algOpts.poseSolveDist {
 				// If we've reached the goal, extract the path from the RRT trees and return
 				path := extractPath(rrt.maps.startMap, rrt.maps.goalMap, &nodePair{a: seedReached.node, b: goalReached.node}, false)
-				rrt.solutionChan <- &rrtPlanReturn{steps: path, maps: rrt.maps}
+				correctedPath, err := rectifyTPspacePath(path, mp.frame, spatialmath.NewZeroPose())
+				if err != nil {
+					rrt.solutionChan <- &rrtPlanReturn{planerr: err, maps: rrt.maps}
+					return
+				}
+				rrt.solutionChan <- &rrtPlanReturn{steps: correctedPath, maps: rrt.maps}
 				return
 			}
 		}
@@ -667,7 +678,6 @@ func (mp *tpSpaceRRTMotionPlanner) setupTPSpaceOptions() {
 		addIntermediate:   defaultAddInt,
 		addNodeEvery:      defaultAddNodeEvery,
 		attemptSolveEvery: defaultAttemptSolveEvery,
-		smoothScaleFactor: defaultSmoothScaleFactor,
 
 		poseSolveDist: defaultIdenticalNodeDistance,
 
@@ -743,17 +753,14 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 			maxCost = wp.Cost()
 		}
 	}
-	newFrame, err := tpspace.NewPTGFrameFromPTGFrame(mp.frame, maxCost*mp.algOpts.smoothScaleFactor, 0)
-	if err != nil {
-		return path
-	}
-	smoothPlannerMP, err := newTPSpaceMotionPlanner(newFrame, mp.randseed, mp.logger, mp.planOpts)
+	smoothPlannerMP, err := newTPSpaceMotionPlanner(mp.frame, mp.randseed, mp.logger, mp.planOpts)
 	if err != nil {
 		return path
 	}
 	smoothPlanner := smoothPlannerMP.(*tpSpaceRRTMotionPlanner)
 	smoothPlanner.algOpts.bidirectional = true
 	for i := 0; i < toIter; i++ {
+		mp.logger.Debugf("TP Space smoothing iteration %d of %d", i, toIter)
 		select {
 		case <-ctx.Done():
 			return path

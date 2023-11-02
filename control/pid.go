@@ -6,11 +6,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+
+	"go.viam.com/rdk/logging"
 )
 
-func newPID(config BlockConfig, logger golog.Logger) (Block, error) {
+func newPID(config BlockConfig, logger logging.Logger) (Block, error) {
 	p := &basicPID{cfg: config, logger: logger}
 	if err := p.reset(); err != nil {
 		return nil, err
@@ -35,7 +36,7 @@ type basicPID struct {
 	limLo    float64
 	tuner    pidTuner
 	tuning   bool
-	logger   golog.Logger
+	logger   logging.Logger
 }
 
 // Output returns the discrete step of the PID controller, dt is the delta time between two subsequent call,
@@ -301,7 +302,7 @@ func pidTunerFindTCat(speeds []float64, times []time.Time, speed float64) time.D
 	return time.Duration(0)
 }
 
-func (p *pidTuner) pidTunerStep(pv float64, logger golog.Logger) (float64, bool) {
+func (p *pidTuner) pidTunerStep(pv float64, logger logging.Logger) (float64, bool) {
 	l1 := 0.2
 	l2 := 0.1
 	l3 := 0.1

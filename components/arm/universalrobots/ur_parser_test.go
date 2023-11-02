@@ -5,13 +5,14 @@ import (
 	"os"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
+
+	"go.viam.com/rdk/logging"
 )
 
 func Test1(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	data, err := os.ReadFile(artifact.MustPath("robots/universalrobots/test1.raw"))
 	test.That(t, err, test.ShouldBeNil)
 

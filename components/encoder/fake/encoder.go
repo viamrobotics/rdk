@@ -7,10 +7,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/encoder"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
@@ -22,7 +22,7 @@ func init() {
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
-			logger golog.Logger,
+			logger logging.Logger,
 		) (encoder.Encoder, error) {
 			return NewEncoder(ctx, conf, logger)
 		},
@@ -33,7 +33,7 @@ func init() {
 func NewEncoder(
 	ctx context.Context,
 	cfg resource.Config,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (encoder.Encoder, error) {
 	e := &fakeEncoder{
 		Named:        cfg.ResourceName().AsNamed(),
@@ -84,7 +84,7 @@ type fakeEncoder struct {
 
 	positionType            encoder.PositionType
 	activeBackgroundWorkers sync.WaitGroup
-	logger                  golog.Logger
+	logger                  logging.Logger
 
 	mu         sync.RWMutex
 	position   int64

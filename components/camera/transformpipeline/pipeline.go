@@ -8,14 +8,14 @@ import (
 	"fmt"
 	"image"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-	"github.com/viamrobotics/gostream"
 	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/gostream"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
@@ -35,7 +35,7 @@ func init() {
 				ctx context.Context,
 				r any,
 				conf resource.Config,
-				logger golog.Logger,
+				logger logging.Logger,
 			) (camera.Camera, error) {
 				actualR, err := utils.AssertType[robot.Robot](r)
 				if err != nil {
@@ -84,7 +84,7 @@ func newTransformPipeline(
 	source gostream.VideoSource,
 	cfg *transformConfig,
 	r robot.Robot,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (camera.VideoSource, error) {
 	if source == nil {
 		return nil, errors.New("no source camera for transform pipeline")
@@ -134,7 +134,7 @@ type transformPipeline struct {
 	pipeline            []gostream.VideoSource
 	stream              gostream.VideoStream
 	intrinsicParameters *transform.PinholeCameraIntrinsics
-	logger              golog.Logger
+	logger              logging.Logger
 }
 
 func (tp transformPipeline) Read(ctx context.Context) (image.Image, func(), error) {

@@ -7,12 +7,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/testutils"
 
 	fakeboard "go.viam.com/rdk/components/board/fake"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
@@ -20,7 +20,7 @@ func TestConfigs(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	c := resource.Config{
 		Name: "fake_gpiostepper",
 	}
@@ -174,7 +174,7 @@ func TestRunning(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	logger, obs := golog.NewObservedTestLogger(t)
+	logger, obs := logging.NewObservedTestLogger(t)
 	c := resource.Config{
 		Name: "fake_gpiostepper",
 	}

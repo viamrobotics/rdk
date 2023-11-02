@@ -75,5 +75,8 @@ jobs:
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
+  macos:
+    uses: viamrobotics/rdk/.github/workflows/macos.yml@main
+
   license_finder:
     uses: viamrobotics/rdk/.github/workflows/license_finder.yml@main

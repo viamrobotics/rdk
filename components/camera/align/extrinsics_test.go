@@ -4,20 +4,20 @@ import (
 	"context"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/camera/videosource"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
 )
 
 func TestAlignExtrinsics(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	conf, err := config.Read(context.Background(), utils.ResolveFile("components/camera/align/data/extrinsics_cam.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
 

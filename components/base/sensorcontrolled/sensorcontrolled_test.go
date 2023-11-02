@@ -9,12 +9,12 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils"
@@ -264,7 +264,7 @@ func TestSpinWithMovementSensor(t *testing.T) {
 		return nil
 	}
 
-	logger := golog.NewDebugLogger("loggie")
+	logger := logging.NewDebugLogger("loggie")
 
 	ctx := context.Background()
 	sensorCtx, sensorCancel := context.WithCancel(ctx)
@@ -358,7 +358,7 @@ func addBaseDependency(deps resource.Dependencies) resource.Dependencies {
 
 func TestSensorBase(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	testCfg := sConfig()
 	conf, ok := testCfg.ConvertedAttributes.(*Config)
 	test.That(t, ok, test.ShouldBeTrue)
@@ -455,7 +455,7 @@ func msDependencies(t *testing.T, msNames []string,
 
 func TestReconfig(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	deps, cfg := msDependencies(t, []string{"orientation"})
 
@@ -509,7 +509,7 @@ func TestSensorBaseWithVelocitiesSensor(t *testing.T) {
 		t.Skip()
 	}
 	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	deps, cfg := msDependencies(t, []string{"setvel1"})
 
 	b, err := createSensorBase(ctx, deps, cfg, logger)

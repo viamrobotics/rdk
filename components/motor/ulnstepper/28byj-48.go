@@ -23,13 +23,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/motor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 )
@@ -100,7 +100,9 @@ func init() {
 	})
 }
 
-func new28byj(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (motor.Motor, error) {
+func new28byj(
+	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
+) (motor.Motor, error) {
 	mc, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return nil, err
@@ -159,7 +161,7 @@ type uln28byj struct {
 	theBoard           board.Board
 	ticksPerRotation   int
 	in1, in2, in3, in4 board.GPIOPin
-	logger             golog.Logger
+	logger             logging.Logger
 	motorName          string
 
 	// state

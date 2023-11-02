@@ -9,9 +9,10 @@ import (
 	"math"
 	"time"
 
-	"github.com/edaniels/golog"
-	"github.com/viamrobotics/gostream"
 	"go.viam.com/utils"
+
+	"go.viam.com/rdk/gostream"
+	"go.viam.com/rdk/logging"
 )
 
 // StreamVideoSource starts a stream from a video source with a throttled error handler.
@@ -20,7 +21,7 @@ func StreamVideoSource(
 	source gostream.VideoSource,
 	stream gostream.Stream,
 	backoffOpts *BackoffTuningOptions,
-	logger golog.Logger,
+	logger logging.Logger,
 ) error {
 	return gostream.StreamVideoSourceWithErrorHandler(ctx, source, stream, backoffOpts.getErrorThrottledHandler(logger))
 }
@@ -31,7 +32,7 @@ func StreamAudioSource(
 	source gostream.AudioSource,
 	stream gostream.Stream,
 	backoffOpts *BackoffTuningOptions,
-	logger golog.Logger,
+	logger logging.Logger,
 ) error {
 	return gostream.StreamAudioSourceWithErrorHandler(ctx, source, stream, backoffOpts.getErrorThrottledHandler(logger))
 }
@@ -65,7 +66,7 @@ func (opts *BackoffTuningOptions) GetSleepTimeFromErrorCount(errorCount int) tim
 	return time.Duration(sleep)
 }
 
-func (opts *BackoffTuningOptions) getErrorThrottledHandler(logger golog.Logger) func(context.Context, error) {
+func (opts *BackoffTuningOptions) getErrorThrottledHandler(logger logging.Logger) func(context.Context, error) {
 	var prevErr error
 	var errorCount int
 	lastErrTime := time.Now()

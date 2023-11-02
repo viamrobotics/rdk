@@ -7,10 +7,10 @@ import (
 	"image/color"
 	"math"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
 )
@@ -138,7 +138,7 @@ func (dct *DepthColorWarpTransforms) PointCloudToRGBD(
 }
 
 // NewDepthColorWarpTransforms TODO.
-func NewDepthColorWarpTransforms(config *AlignConfig, logger golog.Logger) (*DepthColorWarpTransforms, error) {
+func NewDepthColorWarpTransforms(config *AlignConfig, logger logging.Logger) (*DepthColorWarpTransforms, error) {
 	var err error
 	dst := rimage.ArrayToPoints([]image.Point{{0, 0}, {config.OutputSize.X, config.OutputSize.Y}})
 

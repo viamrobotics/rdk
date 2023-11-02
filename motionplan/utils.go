@@ -3,7 +3,6 @@
 package motionplan
 
 import (
-	"context"
 	"fmt"
 	"math"
 
@@ -149,24 +148,14 @@ type resultPromise struct {
 	future chan *rrtPlanReturn
 }
 
-func (r *resultPromise) result(ctx context.Context) ([][]referenceframe.Input, error) {
+func (r *resultPromise) result() ([][]referenceframe.Input, error) {
 	if r.steps != nil && len(r.steps) > 0 {
 		return r.steps, nil
 	}
 	// wait for a context cancel or a valid channel result
-	for {
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		default:
-		}
-		select {
-		case planReturn := <-r.future:
-			if planReturn.err() != nil {
-				return nil, planReturn.err()
-			}
-			return nodesToInputs(planReturn.steps), nil
-		default:
-		}
+	planReturn := <-r.future
+	if planReturn.err() != nil {
+		return nil, planReturn.err()
 	}
+	return nodesToInputs(planReturn.steps), nil
 }

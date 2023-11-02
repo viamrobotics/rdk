@@ -10,17 +10,17 @@ import (
 	"context"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/logging"
 )
 
 func TestGenericLinux(t *testing.T) {
 	ctx := context.Background()
 
 	b := &Board{
-		logger: golog.NewTestLogger(t),
+		logger: logging.NewTestLogger(t),
 	}
 
 	t.Run("test empty sysfs board", func(t *testing.T) {
@@ -50,7 +50,7 @@ func TestGenericLinux(t *testing.T) {
 		gpioMappings:  nil,
 		spis:          boardSPIs,
 		analogReaders: map[string]*wrappedAnalogReader{"an": {}},
-		logger:        golog.NewTestLogger(t),
+		logger:        logging.NewTestLogger(t),
 		cancelCtx:     ctx,
 		cancelFunc: func() {
 		},

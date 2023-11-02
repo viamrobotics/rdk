@@ -12,10 +12,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	pb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
@@ -25,7 +25,7 @@ import (
 const (
 	defaultOptimalityMultiple      = 2.0
 	defaultFallbackTimeout         = 1.5
-	defaultTPspaceOrientationScale = 30.
+	defaultTPspaceOrientationScale = 60.
 )
 
 // planManager is intended to be the single entry point to motion planners, wrapping all others, dealing with fallbacks, etc.
@@ -43,7 +43,7 @@ type planManager struct {
 func newPlanManager(
 	frame *solverFrame,
 	fs referenceframe.FrameSystem,
-	logger golog.Logger,
+	logger logging.Logger,
 	seed int,
 ) (*planManager, error) {
 	anyPTG := false     // Whether PTG frames have been observed
@@ -78,6 +78,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 	goalPos spatialmath.Pose,
 	worldState *referenceframe.WorldState,
 	constraintSpec *pb.Constraints,
+	seedPlan Plan,
 	motionConfig map[string]interface{},
 ) ([][]referenceframe.Input, error) {
 	seed, err := pm.frame.mapToSlice(seedMap)
@@ -120,6 +121,11 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 
 	if len(constraintSpec.GetLinearConstraint()) > 0 {
 		subWaypoints = true
+	}
+
+	// If we are seeding off of a pre-existing plan, we don't need the speedup of subwaypoints
+	if seedPlan != nil {
+		subWaypoints = false
 	}
 
 	if subWaypoints {
@@ -180,7 +186,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 		}
 	}
 
-	resultSlices, err := pm.planAtomicWaypoints(ctx, goals, seed, planners)
+	resultSlices, err := pm.planAtomicWaypoints(ctx, goals, seed, planners, seedPlan)
 	pm.activeBackgroundWorkers.Wait()
 	if err != nil {
 		if len(goals) > 1 {
@@ -199,7 +205,9 @@ func (pm *planManager) planAtomicWaypoints(
 	goals []spatialmath.Pose,
 	seed []referenceframe.Input,
 	planners []motionPlanner,
+	seedPlan Plan,
 ) ([][]referenceframe.Input, error) {
+	var err error
 	// A resultPromise can be queried in the future and will eventually yield either a set of planner waypoints, or an error.
 	// Each atomic waypoint produces one result promise, all of which are resolved at the end, allowing multiple to be solved in parallel.
 	resultPromises := []*resultPromise{}
@@ -214,8 +222,25 @@ func (pm *planManager) planAtomicWaypoints(
 		}
 
 		pathPlanner := planners[i]
+
+		var maps *rrtMaps
+		if seedPlan != nil {
+			maps, err = pm.planToRRTGoalMap(seedPlan, goal)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if pm.useTPspace && pm.opt().PositionSeeds > 0 && pm.opt().profile == PositionOnlyMotionProfile {
+			if maps == nil {
+				maps = &rrtMaps{}
+			}
+			err = maps.fillPosOnlyGoal(goal, pm.opt().PositionSeeds, len(pm.frame.DoF()))
+			if err != nil {
+				return nil, err
+			}
+		}
 		// Plan the single waypoint, and accumulate objects which will be used to constrauct the plan after all planning has finished
-		newseed, future, err := pm.planSingleAtomicWaypoint(ctx, goal, seed, pathPlanner, nil)
+		newseed, future, err := pm.planSingleAtomicWaypoint(ctx, goal, seed, pathPlanner, maps)
 		if err != nil {
 			return nil, err
 		}
@@ -227,7 +252,7 @@ func (pm *planManager) planAtomicWaypoints(
 
 	// All goals have been submitted for solving. Reconstruct in order
 	for _, future := range resultPromises {
-		steps, err := future.result(ctx)
+		steps, err := future.result()
 		if err != nil {
 			return nil, err
 		}
@@ -257,12 +282,9 @@ func (pm *planManager) planSingleAtomicWaypoint(
 			defer pm.activeBackgroundWorkers.Done()
 			pm.planParallelRRTMotion(ctx, goal, seed, parPlan, endpointPreview, solutionChan, maps)
 		})
-		select {
-		case <-ctx.Done():
-			return nil, nil, ctx.Err()
-		default:
-		}
-
+		// We don't want to check context here; context cancellation will be handled by planParallelRRTMotion.
+		// Instead, if a timeout occurs while we are smoothing, we want to return the best plan we have so far, rather than nothing at all.
+		// This matches the behavior of a non-rrtParallelPlanner
 		select {
 		case nextSeed := <-endpointPreview:
 			return nextSeed.Q(), &resultPromise{future: solutionChan}, nil
@@ -272,11 +294,10 @@ func (pm *planManager) planSingleAtomicWaypoint(
 			}
 			steps := nodesToInputs(planReturn.steps)
 			return steps[len(steps)-1], &resultPromise{steps: steps}, nil
-		case <-ctx.Done():
-			return nil, nil, ctx.Err()
 		}
 	} else {
-		// This ctx is used exclusively for the running of the new planner and timing it out.
+		// This ctx is used exclusively for the running of the new planner and timing it out. It may be different from the main `ctx`
+		// timeout due to planner fallbacks.
 		plannerctx, cancel := context.WithTimeout(ctx, time.Duration(pathPlanner.opt().Timeout*float64(time.Second)))
 		defer cancel()
 		steps, err := pathPlanner.plan(plannerctx, goal, seed)
@@ -303,15 +324,29 @@ func (pm *planManager) planParallelRRTMotion(
 	solutionChan chan *rrtPlanReturn,
 	maps *rrtMaps,
 ) {
+	var rrtBackground sync.WaitGroup
 	var err error
 	// If we don't pass in pre-made maps, initialize and seed with IK solutions here
-	if maps == nil {
-		planSeed := initRRTSolutions(ctx, pathPlanner, seed)
-		if planSeed.planerr != nil || planSeed.steps != nil {
-			solutionChan <- planSeed
-			return
+	if !pm.useTPspace {
+		if maps == nil {
+			planSeed := initRRTSolutions(ctx, pathPlanner, seed)
+			if planSeed.planerr != nil || planSeed.steps != nil {
+				solutionChan <- planSeed
+				return
+			}
+			maps = planSeed.maps
 		}
-		maps = planSeed.maps
+	} else {
+		if maps == nil {
+			goalNode := &basicNode{q: make([]referenceframe.Input, len(pm.frame.DoF())), pose: goal}
+			maps = &rrtMaps{
+				goalMap: map[node]node{goalNode: nil},
+			}
+		}
+		if maps.startMap == nil {
+			startNode := &basicNode{q: make([]referenceframe.Input, len(pm.frame.DoF())), pose: spatialmath.NewZeroPose()}
+			maps.startMap = map[node]node{startNode: nil}
+		}
 	}
 
 	// publish endpoint of plan if it is known
@@ -327,16 +362,17 @@ func (pm *planManager) planParallelRRTMotion(
 		}
 	}
 
-	// This ctx is used exclusively for the running of the new planner and timing it out.
+	// This ctx is used exclusively for the running of the new planner and timing it out. It may be different from the main `ctx` timeout
+	// due to planner fallbacks.
 	plannerctx, cancel := context.WithTimeout(ctx, time.Duration(pathPlanner.opt().Timeout*float64(time.Second)))
 	defer cancel()
 
 	plannerChan := make(chan *rrtPlanReturn, 1)
 
 	// start the planner
-	pm.activeBackgroundWorkers.Add(1)
+	rrtBackground.Add(1)
 	utils.PanicCapturingGo(func() {
-		defer pm.activeBackgroundWorkers.Done()
+		defer rrtBackground.Done()
 		pathPlanner.rrtBackgroundRunner(plannerctx, seed, &rrtParallelPlannerShared{maps, endpointPreview, plannerChan})
 	})
 
@@ -344,6 +380,8 @@ func (pm *planManager) planParallelRRTMotion(
 	select {
 	case <-ctx.Done():
 		// Error will be caught by monitoring loop
+		rrtBackground.Wait()
+		solutionChan <- &rrtPlanReturn{planerr: ctx.Err()}
 		return
 	default:
 	}
@@ -388,9 +426,9 @@ func (pm *planManager) planParallelRRTMotion(
 
 		// Start smoothing before initializing the fallback plan. This allows both to run simultaneously.
 		smoothChan := make(chan []node, 1)
-		pm.activeBackgroundWorkers.Add(1)
+		rrtBackground.Add(1)
 		utils.PanicCapturingGo(func() {
-			defer pm.activeBackgroundWorkers.Done()
+			defer rrtBackground.Done()
 			smoothChan <- pathPlanner.smoothPath(ctx, finalSteps.steps)
 		})
 		var alternateFuture *resultPromise
@@ -418,7 +456,7 @@ func (pm *planManager) planParallelRRTMotion(
 
 		// If we ran a fallback, retrieve the result and compare to the smoothed path
 		if alternateFuture != nil {
-			alternate, err := alternateFuture.result(ctx)
+			alternate, err := alternateFuture.result()
 			if err == nil {
 				// If the fallback successfully found a path, check if it is better than our smoothed previous path.
 				// The fallback should emerge pre-smoothed, so that should be a non-issue
@@ -436,6 +474,8 @@ func (pm *planManager) planParallelRRTMotion(
 		return
 
 	case <-ctx.Done():
+		rrtBackground.Wait()
+		solutionChan <- &rrtPlanReturn{planerr: ctx.Err()}
 		return
 	}
 }
@@ -570,7 +610,9 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		opt.pathMetric = pathMetric
 	case PositionOnlyMotionProfile:
 		opt.profile = PositionOnlyMotionProfile
-		opt.goalMetricConstructor = ik.NewPositionOnlyMetric
+		if !pm.useTPspace || opt.PositionSeeds <= 0 {
+			opt.goalMetricConstructor = ik.NewPositionOnlyMetric
+		}
 	case FreeMotionProfile:
 		// No restrictions on motion
 		fallthrough
@@ -610,6 +652,60 @@ func (pm *planManager) goodPlan(pr *rrtPlanReturn, opt *plannerOptions) (bool, f
 	}
 
 	return false, solutionCost
+}
+
+func (pm *planManager) planToRRTGoalMap(plan Plan, goal spatialmath.Pose) (*rrtMaps, error) {
+	planNodes := make([]node, 0, len(plan))
+	// Build a list of nodes from the plan
+	for _, planStep := range plan {
+		conf, err := pm.frame.mapToSlice(planStep)
+		if err != nil {
+			return nil, err
+		}
+		planNodes = append(planNodes, newConfigurationNode(conf))
+	}
+
+	if pm.useTPspace {
+		// Fill in positions from the old origin to where the goal was during the last run
+		planNodesOld, err := rectifyTPspacePath(planNodes, pm.frame, spatialmath.NewZeroPose())
+		if err != nil {
+			return nil, err
+		}
+
+		// Figure out where our new starting point is relative to our last one, and re-rectify using the new adjusted location
+		oldGoal := planNodesOld[len(planNodesOld)-1].Pose()
+		pathDiff := spatialmath.PoseBetween(oldGoal, goal)
+		planNodes, err = rectifyTPspacePath(planNodes, pm.frame, pathDiff)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	var lastNode node
+	goalMap := map[node]node{}
+	for i := len(planNodes) - 1; i >= 0; i-- {
+		if i != 0 {
+			// Fill in costs
+			cost := pm.opt().DistanceFunc(&ik.Segment{
+				StartConfiguration: planNodes[i-1].Q(),
+				StartPosition:      planNodes[i-1].Pose(),
+				EndConfiguration:   planNodes[i].Q(),
+				EndPosition:        planNodes[i].Pose(),
+				Frame:              pm.frame,
+			})
+			planNodes[i].SetCost(cost)
+		}
+		goalMap[planNodes[i]] = lastNode
+		lastNode = planNodes[i]
+	}
+
+	startNode := &basicNode{q: make([]referenceframe.Input, len(pm.frame.DoF())), pose: spatialmath.NewZeroPose()}
+	maps := &rrtMaps{
+		startMap: map[node]node{startNode: nil},
+		goalMap:  goalMap,
+	}
+
+	return maps, nil
 }
 
 // Copy any atomic values.

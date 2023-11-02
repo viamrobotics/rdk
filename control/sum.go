@@ -5,8 +5,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+
+	"go.viam.com/rdk/logging"
 )
 
 type sumOperand rune
@@ -21,10 +22,10 @@ type sum struct {
 	cfg       BlockConfig
 	y         []*Signal
 	operation map[string]sumOperand
-	logger    golog.Logger
+	logger    logging.Logger
 }
 
-func newSum(config BlockConfig, logger golog.Logger) (Block, error) {
+func newSum(config BlockConfig, logger logging.Logger) (Block, error) {
 	s := &sum{cfg: config, logger: logger}
 	if err := s.reset(); err != nil {
 		return nil, err

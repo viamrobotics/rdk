@@ -7,9 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-	"github.com/viamrobotics/gostream"
 	datapb "go.viam.com/api/app/data/v1"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -18,7 +16,9 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/internal/cloud"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage/transform"
@@ -129,7 +129,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 // pcdCamera is a camera model that plays back pre-captured point cloud data.
 type pcdCamera struct {
 	resource.Named
-	logger golog.Logger
+	logger logging.Logger
 
 	APIKey       string
 	APIKeyID     string
@@ -148,7 +148,9 @@ type pcdCamera struct {
 }
 
 // newPCDCamera creates a new replay camera based on the inputted config and dependencies.
-func newPCDCamera(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger golog.Logger) (camera.Camera, error) {
+func newPCDCamera(
+	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
+) (camera.Camera, error) {
 	cam := &pcdCamera{
 		Named:  conf.ResourceName().AsNamed(),
 		logger: logger,

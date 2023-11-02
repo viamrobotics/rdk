@@ -17,12 +17,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/logging"
 )
 
 var (
@@ -47,7 +47,7 @@ type InfoMap = map[string]string
 // Logger is a thread-safe logger that manages a single log file in config.ViamDotDir.
 type Logger struct {
 	infoCh    chan info
-	logger    golog.Logger
+	logger    logging.Logger
 	isRunning atomic.Bool
 	seenPath  map[string]bool
 	seenMap   map[string]InfoMap
@@ -97,7 +97,7 @@ func NewLogger() (*Logger, error) {
 		}
 	}
 
-	cfg := golog.NewDevelopmentLoggerConfig()
+	cfg := logging.NewLoggerConfig()
 	cfg.OutputPaths = []string{filePath}
 
 	// only keep message
@@ -114,7 +114,7 @@ func NewLogger() (*Logger, error) {
 
 	return &Logger{
 		infoCh: make(chan info),
-		logger: logger.Sugar().Named("camera_debugger"),
+		logger: logging.FromZapCompatible(logger.Sugar().Named("camera_debugger")),
 	}, nil
 }
 
@@ -311,8 +311,8 @@ func (l *Logger) write(title string, m InfoMap) {
 	}
 
 	t.AppendFooter(table.Row{time.Now().UTC().Format(time.RFC3339)})
-	l.logger.Infoln(t.Render())
-	l.logger.Infoln(fmt.Sprintln())
+	l.logger.Info(t.Render())
+	l.logger.Info()
 }
 
 func (l *Logger) logError(err error, msg string) {

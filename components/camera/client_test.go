@@ -11,15 +11,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
-	"github.com/viamrobotics/gostream"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/gostream"
 	viamgrpc "go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
@@ -31,10 +31,10 @@ import (
 )
 
 func TestClient(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	listener1, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
-	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
+	rpcServer, err := rpc.NewServer(logger.AsZap(), rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
 	injectCamera := &inject.Camera{}
@@ -264,11 +264,11 @@ func TestClient(t *testing.T) {
 }
 
 func TestClientProperties(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 
-	server, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
+	server, err := rpc.NewServer(logger.AsZap(), rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
 	injectCamera := &inject.Camera{}
@@ -355,10 +355,10 @@ func TestClientProperties(t *testing.T) {
 }
 
 func TestClientLazyImage(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	listener1, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
-	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
+	rpcServer, err := rpc.NewServer(logger.AsZap(), rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
 	injectCamera := &inject.Camera{}
@@ -424,10 +424,10 @@ func TestClientLazyImage(t *testing.T) {
 
 func TestClientWithInterceptor(t *testing.T) {
 	// Set up gRPC server
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	listener1, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
-	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
+	rpcServer, err := rpc.NewServer(logger.AsZap(), rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
 	// Set up camera that adds timestamps into the gRPC response header.

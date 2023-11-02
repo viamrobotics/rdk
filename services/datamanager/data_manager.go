@@ -56,6 +56,11 @@ func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
 
+// FromDependencies is a helper for getting the named data manager service from a collection of dependencies.
+func FromDependencies(deps resource.Dependencies, name string) (Service, error) {
+	return resource.FromDependencies[Service](deps, Named(name))
+}
+
 // DataCaptureConfigs specify a list of methods to capture on resources.
 type DataCaptureConfigs struct {
 	CaptureMethods []DataCaptureConfig `json:"capture_methods"`
@@ -94,4 +99,16 @@ func (c *DataCaptureConfig) Equals(other *DataCaptureConfig) bool {
 		slices.Compare(c.Tags, other.Tags) == 0 &&
 		reflect.DeepEqual(c.AdditionalParams, other.AdditionalParams) &&
 		c.CaptureDirectory == other.CaptureDirectory
+}
+
+// ShouldSyncKey is a special key we use within a modular sensor to pass a boolean
+// that indicates to the datamanager whether or not we want to sync.
+var ShouldSyncKey = "should_sync"
+
+// CreateShouldSyncReading is a helper for creating the expected reading for a modular sensor
+// that passes a bool to the datamanager to indicate whether or not we want to sync.
+func CreateShouldSyncReading(toSync bool) map[string]interface{} {
+	readings := map[string]interface{}{}
+	readings[ShouldSyncKey] = toSync
+	return readings
 }

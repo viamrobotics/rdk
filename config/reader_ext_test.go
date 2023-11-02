@@ -5,16 +5,16 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
 func TestFromReaderValidate(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	_, err := config.FromReader(context.Background(), "somepath", strings.NewReader(""), logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "json: EOF")

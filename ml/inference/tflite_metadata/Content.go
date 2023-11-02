@@ -8,13 +8,15 @@ import (
 
 type ContentT struct {
 	ContentProperties *ContentPropertiesT
-	Range *ValueRangeT
+	Range             *ValueRangeT
 }
 
 func (t *ContentT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
-	if t == nil { return 0 }
+	if t == nil {
+		return 0
+	}
 	contentPropertiesOffset := t.ContentProperties.Pack(builder)
-	
+
 	rangeOffset := t.Range.Pack(builder)
 	ContentStart(builder)
 	if t.ContentProperties != nil {
@@ -34,7 +36,9 @@ func (rcv *Content) UnPackTo(t *ContentT) {
 }
 
 func (rcv *Content) UnPack() *ContentT {
-	if rcv == nil { return nil }
+	if rcv == nil {
+		return nil
+	}
 	t := &ContentT{}
 	rcv.UnPackTo(t)
 	return t

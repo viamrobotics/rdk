@@ -11,7 +11,9 @@ type ScoreThresholdingOptionsT struct {
 }
 
 func (t *ScoreThresholdingOptionsT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
-	if t == nil { return 0 }
+	if t == nil {
+		return 0
+	}
 	ScoreThresholdingOptionsStart(builder)
 	ScoreThresholdingOptionsAddGlobalScoreThreshold(builder, t.GlobalScoreThreshold)
 	return ScoreThresholdingOptionsEnd(builder)
@@ -22,7 +24,9 @@ func (rcv *ScoreThresholdingOptions) UnPackTo(t *ScoreThresholdingOptionsT) {
 }
 
 func (rcv *ScoreThresholdingOptions) UnPack() *ScoreThresholdingOptionsT {
-	if rcv == nil { return nil }
+	if rcv == nil {
+		return nil
+	}
 	t := &ScoreThresholdingOptionsT{}
 	rcv.UnPackTo(t)
 	return t

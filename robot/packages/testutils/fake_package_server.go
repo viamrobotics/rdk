@@ -17,7 +17,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
 	pb "go.viam.com/api/app/packages/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
@@ -26,6 +25,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/logging"
 )
 
 var errPackageMissng = errors.New("package missing")
@@ -54,11 +54,11 @@ type FakePackagesClientAndGCSServer struct {
 	downloadRequestCount int
 
 	mu     sync.Mutex
-	logger golog.Logger
+	logger logging.Logger
 }
 
 // NewFakePackageServer creates a new fake package server.
-func NewFakePackageServer(ctx context.Context, logger golog.Logger) (*FakePackagesClientAndGCSServer, error) {
+func NewFakePackageServer(ctx context.Context, logger logging.Logger) (*FakePackagesClientAndGCSServer, error) {
 	httplistener, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
 		return nil, err
@@ -104,7 +104,7 @@ func NewFakePackageServer(ctx context.Context, logger golog.Logger) (*FakePackag
 		}
 	})
 
-	server.rpcServer, err = rpc.NewServer(logger,
+	server.rpcServer, err = rpc.NewServer(logger.AsZap(),
 		rpc.WithDisableMulticastDNS(),
 		rpc.WithUnauthenticated(),
 		rpc.WithWebRTCServerOptions(rpc.WebRTCServerOptions{Enable: false}))
@@ -142,7 +142,7 @@ func (c *FakePackagesClientAndGCSServer) Addr() net.Addr {
 
 // Client returns a connect client to the server and connection.
 func (c *FakePackagesClientAndGCSServer) Client(ctx context.Context) (pb.PackageServiceClient, rpc.ClientConn, error) {
-	conn, err := rpc.DialDirectGRPC(ctx, c.listener.Addr().String(), c.logger, rpc.WithInsecure())
+	conn, err := rpc.DialDirectGRPC(ctx, c.listener.Addr().String(), c.logger.AsZap(), rpc.WithInsecure())
 	if err != nil {
 		return nil, nil, err
 	}

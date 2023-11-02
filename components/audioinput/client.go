@@ -6,15 +6,15 @@ import (
 	"math"
 	"sync"
 
-	"github.com/edaniels/golog"
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pion/mediadevices/pkg/wave"
 	"github.com/pkg/errors"
-	"github.com/viamrobotics/gostream"
 	pb "go.viam.com/api/component/audioinput/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/gostream"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 )
@@ -26,7 +26,7 @@ type client struct {
 	resource.TriviallyCloseable
 	conn                    rpc.ClientConn
 	client                  pb.AudioInputServiceClient
-	logger                  golog.Logger
+	logger                  logging.Logger
 	mu                      sync.Mutex
 	name                    string
 	activeBackgroundWorkers sync.WaitGroup
@@ -40,7 +40,7 @@ func NewClientFromConn(
 	conn rpc.ClientConn,
 	remoteName string,
 	name resource.Name,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (AudioInput, error) {
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	c := pb.NewAudioInputServiceClient(conn)

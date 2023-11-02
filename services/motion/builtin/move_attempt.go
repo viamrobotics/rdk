@@ -3,13 +3,12 @@ package builtin
 import (
 	"context"
 	"fmt"
+	"math"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	goutils "go.viam.com/utils"
-
-	"go.viam.com/rdk/utils"
 )
 
 // moveResponse is a struct that is used to communicate the outcome of a moveAttempt.
@@ -49,16 +48,28 @@ func newMoveAttempt(ctx context.Context, request *moveRequest) *moveAttempt {
 	var waypointIndex atomic.Int32
 	waypointIndex.Store(1)
 
+	// effectively don't poll if the PositionPollingFreqHz is not provided
+	positionPollingFreq := time.Duration(math.MaxInt64)
+	if request.config.positionPollingFreqHz > 0 {
+		positionPollingFreq = time.Duration(1000/request.config.positionPollingFreqHz) * time.Millisecond
+	}
+
+	// effectively don't poll if the ObstaclePollingFreqHz is not provided
+	obstaclePollingFreq := time.Duration(math.MaxInt64)
+	if request.config.obstaclePollingFreqHz > 0 {
+		obstaclePollingFreq = time.Duration(1000/request.config.obstaclePollingFreqHz) * time.Millisecond
+	}
+
 	return &moveAttempt{
 		ctx:               cancelCtx,
 		cancelFn:          cancelFn,
 		backgroundWorkers: &backgroundWorkers,
 
 		request:      request,
-		responseChan: make(chan moveResponse),
+		responseChan: make(chan moveResponse, 1),
 
-		position: newReplanner(time.Duration(1000/request.config.PositionPollingFreqHz)*time.Millisecond, request.deviatedFromPlan),
-		obstacle: newReplanner(time.Duration(1000/request.config.ObstaclePollingFreqHz)*time.Millisecond, request.obstaclesIntersectPlan),
+		position: newReplanner(positionPollingFreq, request.deviatedFromPlan),
+		obstacle: newReplanner(obstaclePollingFreq, request.obstaclesIntersectPlan),
 
 		waypointIndex: &waypointIndex,
 	}
@@ -86,9 +97,7 @@ func (ma *moveAttempt) start() error {
 	// spawn function to execute the plan on the robot
 	ma.backgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
-		if resp := ma.request.execute(ma.ctx, waypoints, ma.waypointIndex); resp.success || resp.err != nil {
-			ma.responseChan <- resp
-		}
+		ma.responseChan <- ma.request.execute(ma.ctx, waypoints, ma.waypointIndex)
 	}, ma.backgroundWorkers.Done)
 	return nil
 }
@@ -97,8 +106,5 @@ func (ma *moveAttempt) start() error {
 // it cancels the processes spawned by it, drains all the channels that could have been written to and waits on processes to return.
 func (ma *moveAttempt) cancel() {
 	ma.cancelFn()
-	utils.FlushChan(ma.position.responseChan)
-	utils.FlushChan(ma.obstacle.responseChan)
-	utils.FlushChan(ma.responseChan)
 	ma.backgroundWorkers.Wait()
 }

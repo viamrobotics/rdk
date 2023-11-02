@@ -8,11 +8,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
@@ -35,7 +35,7 @@ type ConnectionService interface {
 
 // NewCloudConnectionService makes a new cloud connection service to get gRPC connections
 // to a cloud service managing robots.
-func NewCloudConnectionService(cfg *config.Cloud, logger golog.Logger) ConnectionService {
+func NewCloudConnectionService(cfg *config.Cloud, logger logging.Logger) ConnectionService {
 	if cfg == nil || cfg.AppAddress == "" {
 		return &cloudManagedService{
 			Named: InternalServiceName.AsNamed(),
@@ -46,6 +46,7 @@ func NewCloudConnectionService(cfg *config.Cloud, logger golog.Logger) Connectio
 		managed:  true,
 		dialer:   rpc.NewCachedDialer(),
 		cloudCfg: *cfg,
+		logger:   logger,
 	}
 }
 
@@ -56,7 +57,7 @@ type cloudManagedService struct {
 
 	managed  bool
 	cloudCfg config.Cloud
-	logger   golog.Logger
+	logger   logging.Logger
 
 	dialerMu sync.RWMutex
 	dialer   rpc.Dialer

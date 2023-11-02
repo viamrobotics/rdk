@@ -4,7 +4,6 @@ import (
 	"reflect"
 	"syscall"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	packagespb "go.viam.com/api/app/packages/v1"
@@ -14,6 +13,7 @@ import (
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/durationpb"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	spatial "go.viam.com/rdk/spatialmath"
@@ -21,7 +21,7 @@ import (
 )
 
 // FromProto converts the RobotConfig to the internal rdk equivalent.
-func FromProto(proto *pb.RobotConfig, logger golog.Logger) (*Config, error) {
+func FromProto(proto *pb.RobotConfig, logger logging.Logger) (*Config, error) {
 	cfg := Config{}
 
 	var err error
@@ -813,7 +813,7 @@ func toRDKSlice[PT, RT any](
 	protoList []*PT,
 	toRDK func(*PT) (*RT, error),
 	disablePartialStart bool,
-	logger golog.Logger,
+	logger logging.Logger,
 ) ([]RT, error) {
 	out := make([]RT, 0, len(protoList))
 	for _, proto := range protoList {

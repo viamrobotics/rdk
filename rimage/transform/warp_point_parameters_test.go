@@ -5,15 +5,15 @@ import (
 	"image"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/rimage"
 )
 
 func TestRGBDToPointCloud(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	img, err := rimage.NewImageFromFile(artifact.MustPath("transform/align-test-1615761793_color.png"))
 	test.That(t, err, test.ShouldBeNil)
 	dm, err := rimage.NewDepthMapFromFile(context.Background(), artifact.MustPath("transform/align-test-1615761793.png"))
@@ -56,7 +56,7 @@ func TestRGBDToPointCloud(t *testing.T) {
 }
 
 func TestWarpPointsTo3D(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	img, err := rimage.NewImageFromFile(artifact.MustPath("transform/align-test-1615761793_color.png"))
 	test.That(t, err, test.ShouldBeNil)
 	dm, err := rimage.NewDepthMapFromFile(context.Background(), artifact.MustPath("transform/align-test-1615761793.png"))

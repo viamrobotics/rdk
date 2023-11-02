@@ -6,8 +6,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+
+	"go.viam.com/rdk/logging"
 )
 
 const (
@@ -30,12 +31,12 @@ type trapezoidVelocityGenerator struct {
 	currentPhase int
 	lastsetPoint float64
 	dir          int
-	logger       golog.Logger
+	logger       logging.Logger
 	posWindow    float64
 	kppGain      float64
 }
 
-func newTrapezoidVelocityProfile(config BlockConfig, logger golog.Logger) (Block, error) {
+func newTrapezoidVelocityProfile(config BlockConfig, logger logging.Logger) (Block, error) {
 	t := &trapezoidVelocityGenerator{cfg: config, logger: logger}
 	if err := t.reset(); err != nil {
 		return nil, err
