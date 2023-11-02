@@ -3127,15 +3127,6 @@ func TestCrashedModuleReconfigure(t *testing.T) {
 	testPath, err := rtestutils.BuildTempModule(t, "module/testmodule")
 	test.That(t, err, test.ShouldBeNil)
 
-	// Lower resource configuration timeout to avoid waiting for 60 seconds
-	// for manager.Add to time out waiting for module to start listening.
-	defer func() {
-		test.That(t, os.Unsetenv(rutils.ResourceConfigurationTimeoutEnvVar),
-			test.ShouldBeNil)
-	}()
-	test.That(t, os.Setenv(rutils.ResourceConfigurationTimeoutEnvVar, "2s"),
-		test.ShouldBeNil)
-
 	// Manually define model, as importing it can cause double registration.
 	helperModel := resource.NewModel("rdk", "test", "helper")
 
@@ -3163,6 +3154,20 @@ func TestCrashedModuleReconfigure(t *testing.T) {
 	_, err = r.ResourceByName(generic.Named("h"))
 	test.That(t, err, test.ShouldBeNil)
 
+	// Lower resource configuration timeout to avoid waiting for 60 seconds
+	// for manager.Add to time out waiting for module to start listening.
+	var envUnset bool
+	defer func() {
+		// If test failed before unsetting ResoureConfiguratioonTimeoutEnvVar,
+		// make sure we unset it here.
+		if !envUnset {
+			test.That(t, os.Unsetenv(rutils.ResourceConfigurationTimeoutEnvVar),
+				test.ShouldBeNil)
+		}
+	}()
+	test.That(t, os.Setenv(rutils.ResourceConfigurationTimeoutEnvVar, "500ms"),
+		test.ShouldBeNil)
+
 	// Reconfigure module to a malformed module (does not start listening).
 	// Assert that "h" is removed after reconfiguration error.
 	cfg.Modules[0].ExePath = rutils.ResolveFile("module/testmodule/fakemodule.sh")
@@ -3176,6 +3181,12 @@ func TestCrashedModuleReconfigure(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldBeError,
 		resource.NewNotFoundError(generic.Named("h")))
+
+	// Unset ResourceConfigurationTimeoutEnvVar to allow the reconfiguration back
+	// to testmodule to succeed without timing out.
+	test.That(t, os.Unsetenv(rutils.ResourceConfigurationTimeoutEnvVar),
+		test.ShouldBeNil)
+	envUnset = true
 
 	// Reconfigure module back to testmodule. Assert that 'h' is eventually
 	// added back to the resource manager (the module recovers).
