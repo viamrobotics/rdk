@@ -199,6 +199,10 @@ func NewAdxl345(
 	return makeAdxl345(ctx, deps, conf, logger, bus)
 }
 
+// makeAdxl345 is split out solely to be used during unit tests: it constructs a new object
+// representing an AXDL345 accelerometer, but with the I2C bus already created and passed in as an
+// argument. This lets you inject a mock I2C bus during the tests. It should not be used directly
+// in production code (instead, use NewAdxl345, above).
 func makeAdxl345(
 	ctx context.Context,
 	deps resource.Dependencies,
