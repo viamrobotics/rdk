@@ -1,3 +1,5 @@
+//go:build linux
+
 // Package tmcstepper implements a TMC stepper motor.
 package tmcstepper
 

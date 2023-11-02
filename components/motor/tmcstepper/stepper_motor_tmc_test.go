@@ -1,3 +1,6 @@
+//go:build linux
+
+// Package tmcstepper_test contains unit tests for the TMC stepper motor driver.
 package tmcstepper_test
 
 import (
