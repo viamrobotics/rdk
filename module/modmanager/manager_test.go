@@ -477,7 +477,7 @@ func TestModuleReloading(t *testing.T) {
 			test.That(t, os.Unsetenv(rutils.ResourceConfigurationTimeoutEnvVar),
 				test.ShouldBeNil)
 		}()
-		test.That(t, os.Setenv(rutils.ResourceConfigurationTimeoutEnvVar, "1ns"),
+		test.That(t, os.Setenv(rutils.ResourceConfigurationTimeoutEnvVar, "10ms"),
 			test.ShouldBeNil)
 
 		// This test neither uses a resource manager nor asserts anything about
