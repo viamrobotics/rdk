@@ -74,7 +74,7 @@ func (usvs *ultrasonicWrapper) NextPointCloud(ctx context.Context) (pointcloud.P
 		return nil, errors.New("unable to convert distance to float64")
 	}
 	basicData := pointcloud.NewBasicData()
-	distVector := pointcloud.NewVector(0, 0, distFloat)
+	distVector := pointcloud.NewVector(0, 0, distFloat*1000)
 	err = pcToReturn.Set(distVector, basicData)
 	if err != nil {
 		return nil, err

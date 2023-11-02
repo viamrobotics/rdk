@@ -66,7 +66,7 @@ func TestPtgRrtBidirectional(t *testing.T) {
 	test.That(t, plan, test.ShouldNotBeNil)
 }
 
-func TestPtgRrtUnidirectional(t *testing.T) {
+func TestPtgPosOnlyUnidirectional(t *testing.T) {
 	t.Parallel()
 	logger := logging.NewTestLogger(t)
 	roverGeom, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{10, 10, 10}, "")
@@ -88,14 +88,19 @@ func TestPtgRrtUnidirectional(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	goalPos := spatialmath.NewPose(r3.Vector{X: 200, Y: 7000, Z: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 90})
+	goalPos := spatialmath.NewPose(r3.Vector{X: 200, Y: 7000, Z: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 190})
 
 	opt := newBasicPlannerOptions(ackermanFrame)
+	opt.profile = PositionOnlyMotionProfile
 	opt.DistanceFunc = ik.SquaredNormNoOrientSegmentMetric
 	opt.goalMetricConstructor = ik.NewPositionOnlyMetric
+	opt.PositionSeeds = 0
 	mp, err := newTPSpaceMotionPlanner(ackermanFrame, rand.New(rand.NewSource(42)), logger, opt)
 	test.That(t, err, test.ShouldBeNil)
 	tp, ok := mp.(*tpSpaceRRTMotionPlanner)
+
+	test.That(t, tp.algOpts.bidirectional, test.ShouldBeFalse)
+
 	tp.algOpts.pathdebug = printPath
 	if tp.algOpts.pathdebug {
 		tp.logger.Debug("$type,X,Y")
@@ -106,6 +111,14 @@ func TestPtgRrtUnidirectional(t *testing.T) {
 	plan, err := tp.plan(ctx, goalPos, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(plan), test.ShouldBeGreaterThanOrEqualTo, 2)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, spatialmath.PoseAlmostCoincidentEps(goalPos, plan[len(plan)-1].Pose(), 5), test.ShouldBeTrue)
+
+	// Unidirectional Position-only plan should NOT match the above goalPos orientation
+	test.That(t, spatialmath.OrientationAlmostEqual(
+		goalPos.Orientation(),
+		plan[len(plan)-1].Pose().Orientation(),
+	), test.ShouldBeFalse)
 
 
 	tp.planOpts.SmoothIter = 20
@@ -433,4 +446,16 @@ func TestPtgCheckPlan(t *testing.T) {
 		err = CheckPlan(ackermanFrame, steps[2:len(steps)-1], worldState, fs, startPose, inputs, errorState, testLookAheadDistanceMM, logger)
 		test.That(t, err, test.ShouldBeNil)
 	})
+}
+
+func planToTpspaceRec(plan Plan, f referenceframe.Frame) ([]node, error) {
+	nodes := []node{}
+	for _, inp := range plan {
+		thisNode := &basicNode{
+			q:    inp[f.Name()],
+			cost: inp[f.Name()][2].Value,
+		}
+		nodes = append(nodes, thisNode)
+	}
+	return rectifyTPspacePath(nodes, f, spatialmath.NewZeroPose())
 }
