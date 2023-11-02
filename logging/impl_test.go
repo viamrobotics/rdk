@@ -125,8 +125,7 @@ func assertLogMatches(t *testing.T, actual *bytes.Buffer, expected string) {
 func TestConsoleOutputFormat(t *testing.T) {
 	// A logger object that will write to the `notStdout` buffer.
 	notStdout := &bytes.Buffer{}
-	_ = notStdout
-	impl := &impl{"impl", DEBUG, notStdout}
+	impl := &impl{"impl", DEBUG, []Appender{ConsoleAppender{notStdout}}}
 
 	impl.Info("impl Info log")
 	// Note the use of tabs between the date, level, file location and log line. The
