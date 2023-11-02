@@ -3127,15 +3127,6 @@ func TestCrashedModuleReconfigure(t *testing.T) {
 	testPath, err := rtestutils.BuildTempModule(t, "module/testmodule")
 	test.That(t, err, test.ShouldBeNil)
 
-	// Lower resource configuration timeout to avoid waiting for 60 seconds
-	// for manager.Add to time out waiting for module to start listening.
-	defer func() {
-		test.That(t, os.Unsetenv(rutils.ResourceConfigurationTimeoutEnvVar),
-			test.ShouldBeNil)
-	}()
-	test.That(t, os.Setenv(rutils.ResourceConfigurationTimeoutEnvVar, "500ms"),
-		test.ShouldBeNil)
-
 	// Manually define model, as importing it can cause double registration.
 	helperModel := resource.NewModel("rdk", "test", "helper")
 
@@ -3163,19 +3154,24 @@ func TestCrashedModuleReconfigure(t *testing.T) {
 	_, err = r.ResourceByName(generic.Named("h"))
 	test.That(t, err, test.ShouldBeNil)
 
-	// Reconfigure module to a malformed module (does not start listening).
-	// Assert that "h" is removed after reconfiguration error.
-	cfg.Modules[0].ExePath = rutils.ResolveFile("module/testmodule/fakemodule.sh")
-	r.Reconfigure(ctx, cfg)
+	t.Run("reconfiguration timeout", func(t *testing.T) {
+		// Lower resource configuration timeout to avoid waiting for 60 seconds
+		// for manager. Add to time out waiting for module to start listening.
+		t.Setenv(rutils.ResourceConfigurationTimeoutEnvVar, "500ms")
 
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		test.That(t, logs.FilterMessage("error reconfiguring module").Len(), test.ShouldEqual, 1)
+		// Reconfigure module to a malformed module (does not start listening).
+		// Assert that "h" is removed after reconfiguration error.
+		cfg.Modules[0].ExePath = rutils.ResolveFile("module/testmodule/fakemodule.sh")
+		r.Reconfigure(ctx, cfg)
+
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			test.That(t, logs.FilterMessage("error reconfiguring module").Len(), test.ShouldEqual, 1)
+		})
+
+		_, err = r.ResourceByName(generic.Named("h"))
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(generic.Named("h")))
 	})
-
-	_, err = r.ResourceByName(generic.Named("h"))
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err, test.ShouldBeError,
-		resource.NewNotFoundError(generic.Named("h")))
 
 	// Reconfigure module back to testmodule. Assert that 'h' is eventually
 	// added back to the resource manager (the module recovers).
