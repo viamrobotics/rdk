@@ -42,10 +42,7 @@ func (conf *Config) Validate(path string) ([]string, error) {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "i2c_bus")
 	}
 
-	if conf.I2CAddress == nil {
-		conf.I2CAddress = &defaultAddr
-	}
-	if *conf.I2CAddress < 0 || *conf.I2CAddress > 255 {
+	if conf.I2CAddress != nill && (*conf.I2CAddress < 0 || *conf.I2CAddress > 255) {
 		return nil, utils.NewConfigValidationError(path, errors.New("i2c_address must be an unsigned byte"))
 	}
 	return deps, nil
@@ -125,7 +122,11 @@ func (pca *PCA9685) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	if err != nil {
 		return err
 	}
-	address := byte(*newConf.I2CAddress)
+
+	address := defaultAddr
+	if conf.I2CAddress != nil {
+		address = byte(*newConf.I2CAddress)
+	}
 
 	pca.mu.Lock()
 	defer pca.mu.Unlock()
