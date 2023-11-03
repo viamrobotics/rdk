@@ -144,6 +144,7 @@ func (v *placeholderReplacementVisitor) Visit(data interface{}) (interface{}, er
 // so that it is easy to add additional placeholder types in the future (like environment variables).
 func (v *placeholderReplacementVisitor) replacePlaceholders(s string) (string, error) {
 	var replacementErrors error
+	fmt.Printf("\n placeholder: %s \n", s)
 	// First, match all possible placeholders (ex: ${hello})
 	patchedStr := placeholderRegexp.ReplaceAllFunc([]byte(s), func(placeholder []byte) []byte {
 		matches := placeholderRegexp.FindSubmatch(placeholder)
@@ -181,7 +182,7 @@ func (v *placeholderReplacementVisitor) replacePackagePlaceholder(toReplace stri
 	}
 	packageType := matches[packagePlaceholderRegexp.SubexpIndex("type")]
 	packageName := matches[packagePlaceholderRegexp.SubexpIndex("name")]
-
+	fmt.Printf("\n package type %s, and name %s + config \n", packageType, packageName)
 	if packageType == "" {
 		// for backwards compatibility
 		packageType = string(PackageTypeMlModel)

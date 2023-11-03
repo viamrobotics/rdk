@@ -297,7 +297,6 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	if err != nil {
 		return err
 	}
-	s.logger.Infof("\n \n processed config %v \n \n", processedConfig)
 	if processedConfig.Cloud != nil {
 		cloudRestartCheckerActive = make(chan struct{})
 		utils.PanicCapturingGo(func() {

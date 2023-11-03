@@ -187,7 +187,6 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 	}
 
 	for idx := 0; idx < len(c.Packages); idx++ {
-		logger.Infof("checking this module for errors %v", c.Packages[idx].Status)
 		if err := c.Packages[idx].Validate(fmt.Sprintf("%s.%d", "packages", idx)); err != nil {
 			fullErr := errors.Errorf("error validating package config %s", err)
 			if c.DisablePartialStart {
