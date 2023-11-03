@@ -38,7 +38,6 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"strings"
 	"sync"
 
 	"github.com/de-bkg/gognss/pkg/ntrip"
@@ -355,15 +354,6 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 		g.logger.Infof("caster %s seems to be down", g.ntripClient.URL)
 	}
 
-	srcTable, err := g.ntripClient.Client.ParseSourcetable()
-	if err != nil {
-		g.logger.Errorf("failed to get source table: %v", err)
-	}
-	isVirtualBase, nmeaerr := findLineWithMountPoint(srcTable, g.ntripClient.MountPoint)
-	if nmeaerr != nil {
-		g.logger.Errorf("can't find mountpoint in source table, found err %v\n", nmeaerr)
-	}
-
 	// establish I2C connection
 	handle, err := g.bus.OpenHandle(g.addr)
 	if err != nil {
@@ -438,12 +428,6 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 			g.err.Set(err)
 			return
 		default:
-		}
-
-		// if we are dealing with a Virtual Base, we need to send GGA messages to
-		// the caster in order to get NTRIP stream.
-		if isVirtualBase {
-			g.sendGGAMessage()
 		}
 
 		// establish I2C connection
@@ -698,76 +682,4 @@ func (g *rtkI2C) Close(ctx context.Context) error {
 	}
 
 	return nil
-}
-
-// sendGGAMessage sends GGA messages to the serial port. This is only used to get NTRIP stream
-// from a virtual reference point.
-func (g *rtkI2C) sendGGAMessage() {
-	// Open an I2C handle to read NMEA messages
-	handle, err := g.bus.OpenHandle(g.addr)
-	if err != nil {
-		g.logger.Errorf("can't open gps i2c handle: %s", err)
-		g.err.Set(err)
-		return
-	}
-	defer func() {
-		if closeErr := handle.Close(); closeErr != nil {
-			g.logger.Errorf("error while closing I2C handle after reading GGA message: %v", closeErr)
-			g.err.Set(closeErr)
-		}
-	}()
-
-	// Create a buffer to collect NMEA messages
-	messageBuffer := make([]byte, 0, 1024)
-
-	for !g.connectedToNtrip {
-		select {
-		case <-g.cancelCtx.Done():
-			return
-		default:
-		}
-
-		// Read from the I2C device
-		buffer, err := handle.Read(g.cancelCtx, 1024)
-		if err != nil {
-			g.err.Set(err)
-			return
-		}
-
-		// Concatenate the received data with the existing message buffer
-		buffer = append(messageBuffer, buffer...)
-
-		// Strip out newlines and 0xFF
-		bufferStr := strings.ReplaceAll(strings.ReplaceAll(string(buffer), "\n", ""), "\xFF", "")
-
-		// Split the buffer into complete messages
-		pieces := strings.Split(bufferStr, "\r")
-
-		// The last piece didn't end with a carriage return yet.
-		messageBuffer = []byte(pieces[len(pieces)-1])
-
-		// All other pieces are complete messages
-		for _, message := range pieces[:len(pieces)-1] {
-			if strings.Contains(message, "GGA") {
-				// Send the GGA message to the NTRIP caster
-				if _, err := g.correctionWriter.Write([]byte(message)); err != nil {
-					g.logger.Errorf("error while sending GGA message to NTRIP caster: %v", err)
-					g.err.Set(err)
-					return
-				}
-			}
-		}
-	}
-}
-
-// findLineWithMountPoint parses the given source-table returns the nmea bool of the given mount point.
-// TODO: RSDK-5462.
-func findLineWithMountPoint(sourceTable *ntrip.Sourcetable, mountPoint string) (bool, error) {
-	stream, isFound := sourceTable.HasStream(mountPoint)
-
-	if !isFound {
-		return false, fmt.Errorf("can not find mountpoint %s in sourcetable", mountPoint)
-	}
-
-	return stream.Nmea, nil
 }
