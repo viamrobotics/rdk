@@ -81,3 +81,6 @@ google-credentials.json
 web/runtime-shared/static
 
 etc/android-ndk-*
+
+# qemu core dumps
+web/cmd/server/*.core
