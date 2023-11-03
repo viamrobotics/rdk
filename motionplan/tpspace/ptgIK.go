@@ -41,6 +41,8 @@ func NewPTGIK(simPTG PTG, logger logging.Logger, refDist float64, randSeed, traj
 		return nil, errors.New("refDist must be greater than zero")
 	}
 
+	restricted = true
+
 	ptgFrame := newPTGIKFrame(simPTG, trajCount, refDist)
 
 	nlopt, err := ik.CreateNloptIKSolver(ptgFrame, logger, 1, false)
@@ -68,7 +70,7 @@ func NewPTGIK(simPTG PTG, logger logging.Logger, refDist float64, randSeed, traj
 
 	if restricted {
 		// create an ends-only grid sim for quick end-of-trajectory calculations
-		gridSim, err := NewPTGGridSim(simPTG, 0, refDist, true)
+		gridSim, err := NewPTGGridSim(simPTG, 0, 500, true)
 		if err != nil {
 			return nil, err
 		}

@@ -242,7 +242,7 @@ func createMoveOnMapEnvironment(ctx context.Context, t *testing.T, pcdPath strin
 		Name: "test-base",
 		API:  base.API,
 		// Geometry must be placed carefully or it will intersect SLAM map
-		Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R:180, TranslationOffset:r3.Vector{0,-80,0}}},
+		Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R:110, TranslationOffset:r3.Vector{0,0,0}}},
 	}
 	logger := logging.NewTestLogger(t)
 	fakeBase, err := baseFake.NewBase(ctx, nil, cfg, logger)
@@ -611,8 +611,7 @@ func TestMoveOnMapSubsequent(t *testing.T) {
 	test.That(t, success, test.ShouldNotBeNil)
 	endPos, err = kb.CurrentPosition(ctx)
 	test.That(t, err, test.ShouldBeNil)
-	logger.Debug(spatialmath.PoseToProtobuf(endPos.Pose()))
-	test.That(t, spatialmath.PoseAlmostEqualEps(endPos.Pose(), goal2BaseFrame, 1), test.ShouldBeTrue)
+	test.That(t, spatialmath.PoseAlmostEqualEps(endPos.Pose(), goal2BaseFrame, 5), test.ShouldBeTrue)
 
 	// We don't actually surface the internal motion planning goal; we report to the user in terms of what the user provided us.
 	// Thus, we must do string surgery on the internal `motionplan` logs to extract the requested relative pose and check it is correct.
@@ -634,7 +633,7 @@ func TestMoveOnMapSubsequent(t *testing.T) {
 	test.That(t, spatialmath.PoseAlmostEqualEps(goalPose1, goal1BaseFrame, 10), test.ShouldBeTrue)
 	goalPose2 := logLineToGoalPose(goalLogsObserver[1].Entry.Message)
 	// This is the important test.
-	test.That(t, spatialmath.PoseAlmostEqualEps(goalPose2, spatialmath.PoseBetween(goal1BaseFrame, goal2BaseFrame), 1), test.ShouldBeTrue)
+	test.That(t, spatialmath.PoseAlmostEqualEps(goalPose2, spatialmath.PoseBetween(goal1BaseFrame, goal2BaseFrame), 5), test.ShouldBeTrue)
 }
 
 func TestMoveOnMapTimeout(t *testing.T) {

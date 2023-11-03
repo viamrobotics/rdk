@@ -95,7 +95,11 @@ func ComputePTG(simPTG PTG, alpha, dist, diffT float64) ([]*TrajNode, error) {
 		alphaTraj[len(alphaTraj)-1].AngVelRPS = w
 
 		alphaTraj = append(alphaTraj, nextNode)
-		distTravelled += math.Copysign(math.Max(diffT, math.Abs(v)*diffT), dist)
+		if v > 0 {
+			distTravelled += math.Copysign(math.Max(diffT, math.Abs(v)*diffT), dist)
+		} else {
+			distTravelled += math.Copysign(math.Max(diffT, math.Abs(w)*diffT), dist)
+		}
 	}
 
 	// Add final node
