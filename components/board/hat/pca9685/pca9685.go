@@ -78,7 +78,6 @@ type PCA9685 struct {
 	referenceClockSpeed int
 	bus                 board.I2C
 	gpioPins            [16]gpioPin
-	i2cName             string
 	logger              logging.Logger
 }
 
@@ -133,7 +132,6 @@ func (pca *PCA9685) Reconfigure(ctx context.Context, deps resource.Dependencies,
 
 	pca.bus = bus
 	pca.address = address
-	pca.i2cName = newConf.I2CName
 	if err := pca.reset(ctx); err != nil {
 		return err
 	}
