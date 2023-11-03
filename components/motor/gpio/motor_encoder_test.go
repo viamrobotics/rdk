@@ -150,7 +150,7 @@ func MakeControlConfig(t *testing.T) control.Config {
 }
 
 func TestCreateMotorWithControls(t *testing.T) {
-	logger := golog.NewTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	controlCfg := MakeControlConfig(t)
 	cfg := Config{TicksPerRotation: 100, MaxRPM: 100, ControlLoop: controlCfg}
 	fakeMotor := &fakemotor.Motor{
@@ -171,7 +171,7 @@ func TestCreateMotorWithControls(t *testing.T) {
 	}
 
 	rawcfg := resource.Config{Name: "enc1", ConvertedAttributes: &ic}
-	e, err := single.NewSingleEncoder(ctx, deps, rawcfg, golog.NewTestLogger(t))
+	e, err := single.NewSingleEncoder(ctx, deps, rawcfg, logging.NewTestLogger(t))
 	test.That(t, err, test.ShouldBeNil)
 	enc := e.(*single.Encoder)
 	defer enc.Close(context.Background())
