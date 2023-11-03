@@ -41,6 +41,7 @@ import (
 	"net"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/de-bkg/gognss/pkg/ntrip"
 	"github.com/edaniels/golog"
@@ -126,13 +127,13 @@ type rtkSerial struct {
 
 	activeBackgroundWorkers sync.WaitGroup
 
-	mu                    sync.Mutex
-	ntripMu               sync.Mutex
-	ntripconfigMu         sync.Mutex
-	correctionWriterMutex sync.Mutex
-	ntripClient           *rtk.NtripInfo
-	connectedToNtrip      bool
-	isClosed              bool
+	mu               sync.Mutex
+	ntripMu          sync.Mutex
+	ntripconfigMu    sync.Mutex
+	urlMutex         sync.Mutex
+	ntripClient      *rtk.NtripInfo
+	connectedToNtrip bool
+	isClosed         bool
 
 	err                movementsensor.LastError
 	lastposition       movementsensor.LastPosition
@@ -302,6 +303,7 @@ func (g *rtkSerial) getStream(mountPoint string, maxAttempts int) error {
 	var rc io.ReadCloser
 	var err error
 
+	time.Sleep(1 * time.Second)
 	g.logger.Debug("Getting NTRIP stream")
 
 	for !success && attempts < maxAttempts && !g.isClosed {
@@ -384,6 +386,7 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 	if err := g.cancelCtx.Err(); err != nil {
 		return
 	}
+	g.urlMutex.Lock()
 	err := g.connect(g.ntripClient.URL, g.ntripClient.Username, g.ntripClient.Password, g.ntripClient.MaxConnectAttempts)
 	if err != nil {
 		g.err.Set(err)
@@ -404,7 +407,7 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 	if nmeaerr != nil {
 		g.logger.Errorf("can't find mountpoint in source table, found err %v\n", nmeaerr)
 	}
-
+	g.urlMutex.Unlock()
 	g.logger.Debug("found if it is a virtual base or not")
 	err = g.openPort()
 	if err != nil {
@@ -414,15 +417,16 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 
 	defer g.closePort()
 
+	if isVirtualBase {
+		g.sendGGAMessage()
+		time.Sleep(1 * time.Second)
+	}
+
 	w := bufio.NewWriter(g.correctionWriter)
 	err = g.getStream(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
 	if err != nil {
 		g.err.Set(err)
 		return
-	}
-
-	if isVirtualBase {
-		g.sendGGAMessage(g.ntripClient.URL)
 	}
 
 	r := io.TeeReader(g.ntripClient.Stream, w)
@@ -662,95 +666,119 @@ func (g *rtkSerial) Close(ctx context.Context) error {
 	return nil
 }
 
-// sendGGAMessage sends GGA messages to the serial port. This is only used to get NTRIP stream
-// from a virtual reference point.
-// func (g *rtkSerial) sendGGAMessage() {
-// 	// Ensure the Ntrip client and serial port are properly initialized
-// 	if g.ntripClient == nil || g.correctionWriter == nil {
-// 		g.err.Set(errors.New("ntrip client or serial port not properly initialized"))
-// 		return
-// 	}
+// sendGGAMessage sends GGA messages to the NTRIP Caster over a TCP connection
+// to get the NTRIP steam when the mount point is a Virtual Reference Station.
+func (g *rtkSerial) sendGGAMessage() {
+	g.urlMutex.Lock()
+	defer g.urlMutex.Unlock()
 
-// 	// Continuously read Ntrip correction data from the Ntrip stream
-// 	buffer := make([]byte, 1024)
-// 	g.logger.Debug("made buffer")
-// 	for {
-// 		select {
-// 		case <-g.cancelCtx.Done():
-// 			return
-// 		default:
-// 		}
+	mp := "/" + g.ntripClient.MountPoint
 
-// 		n, err := g.correctionWriter.Read(buffer)
-// 		g.logger.Debugf("finished reading stream: %v\n", buffer[:n])
-// 		if err != nil {
-// 			g.logger.Errorf("Error reading from Ntrip stream: %v", err)
-// 			return
-// 		}
+	// process the server url
+	serverAddr := g.ntripClient.URL
+	serverAddr = strings.TrimPrefix(serverAddr, "http://")
+	serverAddr = strings.TrimPrefix(serverAddr, "https://")
 
-// 		// Check if the received data contains "GGA"
-// 		if containsGGAMessage(buffer[:n]) {
-// 			g.logger.Debugf("found GGA messge: %v\n", string(buffer[:n]))
-// 			// Write the Ntrip correction data to the serial port
-// 			_, err := //g.correctionWriter.Write(buffer[:n])
-// 			if err != nil {
-// 				g.logger.Errorf("Error writing to serial port: %v", err)
-// 				return
-// 			}
-// 			g.logger.Debug("finished writing to correction writer")
-// 			return // Exit the loop when "GGA" is found and written
-// 		}
-// 	}
-// }
-
-func (g *rtkSerial) sendGGAMessage(url string) {
-	// Create a TCP connection to the VRS server
-	serverAddr := url
-	conn, err := net.Dial("tcp", serverAddr[len("http://"):])
+	conn, err := net.Dial("tcp", serverAddr)
 	if err != nil {
 		fmt.Println("Failed to connect to VRS server:", err)
 		return
 	}
 	defer conn.Close()
 
-	buffer := make([]byte, 1024)
-	g.logger.Debug("made buffer")
-	for {
-		select {
-		case <-g.cancelCtx.Done():
-			return
-		default:
-		}
+	rw := bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))
 
-		n, err := g.correctionWriter.Read(buffer)
-		g.logger.Debugf("finished reading stream: %v\n", buffer[:n])
-		if err != nil {
-			g.logger.Errorf("Error reading from Ntrip stream: %v", err)
-			return
-		}
+	// Construct HTTP headers with CRLF line endings
+	httpHeaders := "GET " + mp + " HTTP/1.1\r\n" +
+		"Host: " + serverAddr + "\r\n" +
+		"Authorization: Basic dmlhbTAyOmFpbWJvdDIwMjM=\r\n" +
+		"Accept: */*\r\n" +
+		"Ntrip-Version: Ntrip/2.0\r\n" +
+		"User-Agent: NTRIP viam\r\n\r\n"
 
-		// Check if the received data contains "GGA"
-		if containsGGAMessage(buffer[:n]) {
-			g.logger.Debugf("found GGA messge: %v\n", string(buffer[:n]))
-			// replacedSentence := strings.Replace(string(buffer[:n]), "GN", "GP", 1)
-			// g.logger.Debugf("new sentence: %v\n", replacedSentence)
-			// Write the Ntrip correction data to the serial port
-			_, err = fmt.Fprintf(conn, string(buffer[:n]))
-			if err != nil {
-				fmt.Println("Failed to send GGA message:", err)
-				return
-			}
-
-			fmt.Println("GGA message sent successfully.")
-			return
-		}
-
+	// Send HTTP headers over the TCP connection
+	_, err = rw.Write([]byte(httpHeaders))
+	rw.Flush()
+	if err != nil {
+		fmt.Println("Failed to send HTTP headers:", err)
+		return
 	}
 
+	g.logger.Debug("HTTP headers sent successfully.")
+
+	for {
+		line, _, err := rw.ReadLine()
+		if err != nil {
+			fmt.Println("Failed to read server response:", err)
+			return
+		}
+		if strings.HasPrefix(string(line), "HTTP/1.1 ") {
+			if strings.Contains(string(line), "200 OK") {
+				break
+			} else {
+				g.logger.Debug("Bad http response")
+				return
+			}
+		}
+	}
+
+	ggaMessage, err := g.getGGAMessage()
+	if err != nil {
+		g.logger.Error("failed to get GGA message")
+		return
+	}
+
+	g.logger.Debugf("writing gga message: %v\n", string(ggaMessage))
+
+	_, err = rw.WriteString(string(ggaMessage))
+	rw.Flush()
+	if err != nil {
+		fmt.Println("Failed to send NMEA data:", err)
+		return
+	}
+
+	g.logger.Debug("GGA message sent successfully.")
+
+	for !g.isClosed {
+		_, err := io.Copy(w, rw)
+		if err != nil {
+			g.logger.Error("failed to copy ntrip stream")
+			return
+		}
+	}
+
+	return
 }
 
+// getGGAMessage checks if a GGA message exists in the buffer and returns it.
+func (g *rtkSerial) getGGAMessage() ([]byte, error) {
+	buffer := make([]byte, 1024)
+	var totalBytesRead int
+
+	for {
+		n, err := g.correctionWriter.Read(buffer[totalBytesRead:])
+		if err != nil {
+			g.logger.Errorf("Error reading from Ntrip stream: %v", err)
+			return nil, err
+		}
+
+		totalBytesRead += n
+
+		// Check if the received data contains "GGA"
+		if containsGGAMessage(buffer[:totalBytesRead]) {
+			return buffer[:totalBytesRead], nil
+		}
+
+		// If we haven't found the "GGA" message, and we've reached the end of
+		// the buffer, return error.
+		if totalBytesRead >= len(buffer) {
+			return nil, errors.New("GGA message not found in the received data")
+		}
+	}
+}
+
+// containsGGAMessage returns true if data contains GGA message.
 func containsGGAMessage(data []byte) bool {
-	// Convert the data to a string and check if it contains "GGA"
 	dataStr := string(data)
 	return strings.Contains(dataStr, "GGA")
 }
