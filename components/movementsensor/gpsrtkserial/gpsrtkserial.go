@@ -687,7 +687,6 @@ func (g *rtkSerial) Close(ctx context.Context) error {
 // to get the NTRIP steam when the mount point is a Virtual Reference Station.
 func (g *rtkSerial) sendGGAMessage() (*bufio.ReadWriter, error) {
 	g.urlMutex.Lock()
-	defer g.urlMutex.Unlock()
 
 	mp := "/" + g.ntripClient.MountPoint
 	credentials := g.ntripClient.Username + ":" + g.ntripClient.Password
@@ -703,7 +702,6 @@ func (g *rtkSerial) sendGGAMessage() (*bufio.ReadWriter, error) {
 		g.logger.Errorf("Failed to connect to VRS server:", err)
 		return nil, err
 	}
-	defer conn.Close()
 
 	rw := bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))
 
@@ -717,11 +715,18 @@ func (g *rtkSerial) sendGGAMessage() (*bufio.ReadWriter, error) {
 
 	// Send HTTP headers over the TCP connection
 	_, err = rw.Write([]byte(httpHeaders))
-	rw.Flush()
 	if err != nil {
 		g.logger.Error("Failed to send HTTP headers:", err)
 		return nil, err
 	}
+	err = rw.Flush()
+	if err != nil {
+		g.logger.Error("failed to write to buffer")
+		return nil, err
+	}
+
+	g.urlMutex.Unlock()
+
 	g.logger.Debugf("request header: %v\n", httpHeaders)
 	g.logger.Debug("HTTP headers sent successfully.")
 
@@ -750,9 +755,13 @@ func (g *rtkSerial) sendGGAMessage() (*bufio.ReadWriter, error) {
 	g.logger.Debugf("Writing GGA message: %v\n", string(ggaMessage))
 
 	_, err = rw.WriteString(string(ggaMessage))
-	rw.Flush()
 	if err != nil {
 		g.logger.Error("Failed to send NMEA data:", err)
+		return nil, err
+	}
+	err = rw.Flush()
+	if err != nil {
+		g.logger.Error("failed to write to buffer")
 		return nil, err
 	}
 
