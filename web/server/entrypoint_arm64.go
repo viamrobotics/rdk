@@ -1,4 +1,4 @@
-//go:build arm64 && cgo
+//go:build cgo && !android
 
 package server
 
