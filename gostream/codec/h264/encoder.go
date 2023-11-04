@@ -21,7 +21,8 @@ const (
 	// pixelFormat This format is one of the output formats support by the bcm2835-codec at /dev/video11
 	// It is also known as YU12. See https://www.kernel.org/doc/html/v4.10/media/uapi/v4l/pixfmt-yuv420.html
 	pixelFormat = avcodec.AvPixFmtYuv420p
-	V4l2m2m     = "h264_v4l2m2m"
+	// V4l2m2m Is a V4L2 memory-to-memory H.264 hardware encoder.
+	V4l2m2m = "h264_v4l2m2m"
 )
 
 type encoder struct {
