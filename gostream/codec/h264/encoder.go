@@ -20,8 +20,8 @@ import (
 const (
 	// pixelFormat This format is one of the output formats support by the bcm2835-codec at /dev/video11
 	// It is also known as YU12. See https://www.kernel.org/doc/html/v4.10/media/uapi/v4l/pixfmt-yuv420.html
-	pixelFormat  = avcodec.AvPixFmtYuv420p
-	H264_V4L2M2M = "h264_v4l2m2m"
+	pixelFormat = avcodec.AvPixFmtYuv420p
+	V4l2m2m     = "h264_v4l2m2m"
 )
 
 type encoder struct {
@@ -45,8 +45,8 @@ func (h *encoder) Read() (img image.Image, release func(), err error) {
 func NewEncoder(width, height, keyFrameInterval int, logger golog.Logger) (codec.VideoEncoder, error) {
 	h := &encoder{width: width, height: height, logger: logger}
 
-	if h.codec = avcodec.FindEncoderByName(H264_V4L2M2M); h.codec == nil {
-		return nil, errors.Errorf("cannot find encoder '%s'", H264_V4L2M2M)
+	if h.codec = avcodec.FindEncoderByName(V4l2m2m); h.codec == nil {
+		return nil, errors.Errorf("cannot find encoder '%s'", V4l2m2m)
 	}
 
 	if h.context = h.codec.AllocContext3(); h.context == nil {
