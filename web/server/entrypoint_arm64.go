@@ -12,11 +12,11 @@ import (
 
 func makeStreamConfig() gostream.StreamConfig {
 	var streamConfig gostream.StreamConfig
-	if avcodec.findencoderbyname(h264.V4l2m2m) != nil {
-		streamconfig.videoencoderfactory = h264.newencoderfactory()
+	if avcodec.FindEncoderByName(h264.V4l2m2m) != nil {
+		streamConfig.VideoEncoderFactory = h264.NewEncoderFactory()
 	} else {
-		streamconfig.videoencoderfactory = x264.newencoderfactory()
+		streamConfig.VideoEncoderFactory = x264.NewEncoderFactory()
 	}
-	streamconfig.audioencoderfactory = opus.newencoderfactory()
-	return streamconfig
+	streamConfig.AudioEncoderFactory = opus.NewEncoderFactory()
+	return streamConfig
 }
