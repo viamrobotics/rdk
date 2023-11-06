@@ -1,7 +1,7 @@
-prefix=/usr/local/libs/rdk/gostream/codec/h264/ffmpeg/ffmpeg
+prefix=/host/gostream/codec/h264/ffmpeg/ffmpeg
 exec_prefix=${prefix}
-libdir=/usr/local/libs/rdk/gostream/codec/h264/ffmpeg/ffmpeg/lib
-includedir=/usr/local/libs/rdk/gostream/codec/h264/ffmpeg/ffmpeg/include
+libdir=/host/gostream/codec/h264/ffmpeg/ffmpeg/lib
+includedir=/host/gostream/codec/h264/ffmpeg/ffmpeg/include
 
 Name: libswresample
 Description: FFmpeg audio resampling library
