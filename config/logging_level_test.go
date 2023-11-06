@@ -10,7 +10,7 @@ import (
 )
 
 func TestConfigDebugFlag(t *testing.T) {
-	logConfig := logging.NewLoggerConfig()
+	logConfig := logging.NewZapLoggerConfig()
 	logger := logging.FromZapCompatible(zap.Must(logConfig.Build()).Sugar())
 
 	for _, cmdLineValue := range []bool{true, false} {
