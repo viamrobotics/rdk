@@ -1,3 +1,5 @@
+//go:build cgo && arm64 && !android
+
 // Package avcodec is a thin wrapper around FFmpeg/release4.4.
 // See: https://github.com/FFmpeg/FFmpeg/tree/release/4.4
 package avcodec

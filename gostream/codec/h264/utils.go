@@ -1,3 +1,5 @@
+//go:build cgo && arm64 && !android
+
 package h264
 
 import (

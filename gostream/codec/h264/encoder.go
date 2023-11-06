@@ -1,3 +1,5 @@
+//go:build cgo && arm64 && !android
+
 // Package h264 uses a V4L2-compatible h.264 hardware encoder (h264_v4l2m2m) to encode images.
 package h264
 
