@@ -2,8 +2,8 @@
 // See: https://github.com/FFmpeg/FFmpeg/tree/release/4.4
 package avutil
 
-//#cgo CFLAGS: -Wno-deprecated-declarations -I${SRCDIR}/../ffmpeg/include
-//#cgo LDFLAGS: -L${SRCDIR}/../ffmpeg/lib -lavformat -lavcodec -lavutil -lavdevice -lavfilter -lswresample -lswscale -lm -lX11
+//#cgo linux,arm64 CFLAGS: -Wno-deprecated-declarations -I${SRCDIR}/../Linux-aarch64/include
+//#cgo linux,arm64 LDFLAGS: -L${SRCDIR}/../Linux-aarch64/lib -lavformat -lavcodec -lavutil -lavdevice -lavfilter -lswresample -lswscale -lm -lX11
 //#include <libswresample/swresample.h>
 //#include <libavutil/error.h>
 //#include <stdlib.h>

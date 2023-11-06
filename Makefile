@@ -138,21 +138,10 @@ $(FFMPEG_ROOT):
 	cd etc && git clone https://github.com/FFmpeg/FFmpeg.git
 	git -C $(FFMPEG_ROOT) checkout release/4.4
 
-FFMPEG_H264_PREFIX ?= $(shell realpath .)/gostream/codec/h264/ffmpeg/ffmpeg
+FFMPEG_H264_PREFIX ?= $(shell realpath .)/gostream/codec/h264/ffmpeg/$(shell uname -s)-$(shell uname -m)
 ffmpeg-h264-static: $(FFMPEG_ROOT)
 	cd $(FFMPEG_ROOT) && ./configure --disable-programs --disable-doc --disable-everything --enable-encoder=h264_v4l2m2m --prefix=$(FFMPEG_H264_PREFIX) --enable-pic
 	cd $(FFMPEG_ROOT) && make -j$(shell nproc)
 	cd $(FFMPEG_ROOT) && make -j$(shell nproc) install
-
-	cd $(FFMPEG_H264_PREFIX)/lib && mv libavcodec.a libavcodec-$(shell uname -s)-$(shell uname -m).a
-	cd $(FFMPEG_H264_PREFIX)/lib && mv libavdevice.a libavdevice-$(shell uname -s)-$(shell uname -m).a
-	cd $(FFMPEG_H264_PREFIX)/lib && mv libavfilter.a libavfilter-$(shell uname -s)-$(shell uname -m).a
-	cd $(FFMPEG_H264_PREFIX)/lib && mv libavformat.a libavformat-$(shell uname -s)-$(shell uname -m).a
-	cd $(FFMPEG_H264_PREFIX)/lib && mv libavutil.a libavutil-$(shell uname -s)-$(shell uname -m).a
-	cd $(FFMPEG_H264_PREFIX)/lib && mv libswresample.a libswresample-$(shell uname -s)-$(shell uname -m).a
-	cd $(FFMPEG_H264_PREFIX)/lib && mv libswscale.a libswscale-$(shell uname -s)-$(shell uname -m).a
-
-
-
 
 include *.make
