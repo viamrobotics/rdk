@@ -29,11 +29,10 @@ import (
 )
 
 const (
-	timeFormat                 = time.RFC3339
-	grpcConnectionTimeout      = 10 * time.Second
-	dataReceivedLoopWaitTime   = time.Second
-	tabularDataByFilterTimeout = 15 * time.Second
-	maxCacheSize               = 1000
+	timeFormat               = time.RFC3339
+	grpcConnectionTimeout    = 10 * time.Second
+	dataReceivedLoopWaitTime = time.Second
+	maxCacheSize             = 1000
 )
 
 type method string
@@ -53,6 +52,9 @@ var (
 
 	// initializePropertiesTimeout defines the amount of time we allot to the attempt to initialize Properties.
 	initializePropertiesTimeout = 180 * time.Second
+
+	// tabularDataByFilterTimeout defines the amount of time we allot to the call to TabularDataByFilter.
+	tabularDataByFilterTimeout = 20 * time.Second
 
 	// ErrEndOfDataset represents that the replay sensor has reached the end of the dataset.
 	ErrEndOfDataset = errors.New("reached end of dataset")
@@ -563,11 +565,13 @@ func (replay *replayMovementSensor) setProperty(method method, supported bool) e
 
 // attemptToGetData will try to update the cache for the provided method. Returns a bool that
 // indicates whether or not the endpoint has data.
-func (replay *replayMovementSensor) attemptToGetData(ctx context.Context, method method) (bool, error) {
+func (replay *replayMovementSensor) attemptToGetData(method method) (bool, error) {
 	if replay.closed {
 		return false, errSessionClosed
 	}
-	if err := replay.updateCache(ctx, method); err != nil && !strings.Contains(err.Error(), ErrEndOfDataset.Error()) {
+	cancelCtx, cancel := context.WithTimeout(context.Background(), tabularDataByFilterTimeout)
+	defer cancel()
+	if err := replay.updateCache(cancelCtx, method); err != nil && !strings.Contains(err.Error(), ErrEndOfDataset.Error()) {
 		return false, errors.Wrap(err, "could not update the cache")
 	}
 	return len(replay.cache[method]) != 0, nil
@@ -585,15 +589,11 @@ func (replay *replayMovementSensor) initializeProperties(ctx context.Context) er
 		if !goutils.SelectContextOrWait(ctx, dataReceivedLoopWaitTime) {
 			return ctx.Err()
 		}
-
-		cancelCtx, cancel := context.WithTimeout(context.Background(), tabularDataByFilterTimeout)
 		for _, method := range methodList {
-			if dataReceived[method], err = replay.attemptToGetData(cancelCtx, method); err != nil {
-				cancel()
+			if dataReceived[method], err = replay.attemptToGetData(method); err != nil {
 				return err
 			}
 		}
-		cancel()
 		// If at least one method successfully managed to return data, we know
 		// that we can finish initializing the properties.
 		if slices.Contains(maps.Values(dataReceived), true) {
@@ -602,7 +602,7 @@ func (replay *replayMovementSensor) initializeProperties(ctx context.Context) er
 	}
 	// Loop once more through all methods to ensure we didn't miss out on catching that they're supported
 	for _, method := range methodList {
-		if dataReceived[method], err = replay.attemptToGetData(ctx, method); err != nil {
+		if dataReceived[method], err = replay.attemptToGetData(method); err != nil {
 			return err
 		}
 	}
