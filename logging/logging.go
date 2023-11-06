@@ -54,20 +54,26 @@ func NewLoggerConfig() zap.Config {
 	}
 }
 
-// NewLogger returns a new logger using the default production configuration.
+// NewLogger returns a new logger that outputs Info+ logs to stdout in UTC.
 func NewLogger(name string) Logger {
-	config := NewLoggerConfig()
-	return &zLogger{zap.Must(config.Build()).Sugar().Named(name)}
+	const inUTC = true
+	return &impl{name, NewAtomicLevelAt(INFO), inUTC, []Appender{NewStdoutAppender()}}
 }
 
-// NewDebugLogger returns a new logger using the default debug configuration.
+// NewDebugLogger returns a new logger that outputs Debug+ logs to stdout in UTC.
 func NewDebugLogger(name string) Logger {
-	config := NewLoggerConfig()
-	config.Level = zap.NewAtomicLevelAt(zap.DebugLevel)
-	return &zLogger{zap.Must(config.Build()).Sugar().Named(name)}
+	const inUTC = true
+	return &impl{name, NewAtomicLevelAt(DEBUG), inUTC, []Appender{NewStdoutAppender()}}
 }
 
-// NewTestLogger directs logs to the go test logger.
+// NewBlankLogger returns a new logger that outputs Debug+ logs in UTC, but without any
+// pre-existing appenders/outputs.
+func NewBlankLogger(name string) Logger {
+	const inUTC = true
+	return &impl{name, NewAtomicLevelAt(DEBUG), inUTC, []Appender{}}
+}
+
+// NewTestLogger returns a new logger that outputs Debug+ logs to stdout in local time.
 func NewTestLogger(tb testing.TB) Logger {
 	logger, _ := NewObservedTestLogger(tb)
 	return logger
@@ -75,15 +81,12 @@ func NewTestLogger(tb testing.TB) Logger {
 
 // NewObservedTestLogger is like NewTestLogger but also saves logs to an in memory observer.
 func NewObservedTestLogger(tb testing.TB) (Logger, *observer.ObservedLogs) {
-	logger := NewViamLogger("")
-	logger.AddAppender(NewStdoutAppender())
+	const inUTC = false
+	logger := &impl{"", NewAtomicLevelAt(DEBUG), inUTC, []Appender{}}
+	logger.AddAppender(NewStdoutTestAppender())
+
 	observerCore, observedLogs := observer.New(zap.LevelEnablerFunc(zapcore.DebugLevel.Enabled))
 	logger.AddAppender(observerCore)
 
 	return logger, observedLogs
-}
-
-// NewViamLogger creates an instance of the viam logger in debug mode without any outputs.
-func NewViamLogger(name string) Logger {
-	return &impl{name, DEBUG, []Appender{}}
 }
