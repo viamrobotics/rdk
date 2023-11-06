@@ -462,6 +462,8 @@ func (svc *builtIn) Reconfigure(
 		if err != nil {
 			svc.logger.Errorw("unable to initialize selective syncer", "error", err.Error())
 		}
+	} else {
+		svc.selectiveSync = false
 	}
 	if svc.syncSensor != syncSensor {
 		svc.syncSensor = syncSensor
