@@ -16,7 +16,7 @@ func TestConfigDebugFlag(t *testing.T) {
 	for _, cmdLineValue := range []bool{true, false} {
 		for _, fileDebugValue := range []bool{true, false} {
 			for _, cloudDebugValue := range []bool{true, false} {
-				InitLoggingSettings(logger, cmdLineValue, logConfig.Level)
+				InitLoggingSettings(logger, cmdLineValue)
 				UpdateFileConfigDebug(fileDebugValue)
 				UpdateCloudConfigDebug(cloudDebugValue)
 
