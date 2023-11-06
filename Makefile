@@ -21,9 +21,6 @@ setup:
 
 build: build-web build-go
 
-# Omit test-only packages: that is, packages that have no source files.
-# 	This is done by default if `go build` uses a wildcard, for example, `go build ./...`. Here, we replicate that
-# 	behavior. See https://github.com/golang/go/blob/fa4f951026f697bc042422d95a0806dcbab7ddd0/src/cmd/go/internal/work/build.go#L734
 build-go:
 	go build ./...
 
