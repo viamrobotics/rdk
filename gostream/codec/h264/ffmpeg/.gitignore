@@ -1,2 +1,9 @@
 # Include static libraries 
 !*.a
+
+# Include source files
+!*.c
+!*.h
+
+# Ignore pkg-config files
+*.pc
