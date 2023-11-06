@@ -363,7 +363,7 @@ func (svc *builtIn) Sync(ctx context.Context, _ map[string]interface{}) error {
 		}
 	}
 
-	svc.sync(ctx)
+	svc.sync()
 	return nil
 }
 
@@ -553,7 +553,7 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 						shouldSync = readyToSync(cancelCtx, svc.syncSensor, svc.logger)
 					}
 					if shouldSync {
-						svc.sync(cancelCtx)
+						svc.sync()
 					}
 				}
 				svc.lock.Unlock()
@@ -562,7 +562,7 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 	})
 }
 
-func (svc *builtIn) sync(ctx context.Context) {
+func (svc *builtIn) sync() {
 	svc.flushCollectors()
 
 	toSync := getAllFilesToSync(svc.captureDir, svc.fileLastModifiedMillis)
