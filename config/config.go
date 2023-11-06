@@ -81,7 +81,7 @@ type configData struct {
 	GlobalLogConfig     []GlobalLogConfig     `json:"global_log_configuration"`
 }
 
-type AppValidationStatus struct {
+type appValidationStatus struct {
 	Error string `bson:"error"`
 }
 
@@ -940,7 +940,7 @@ type PackageConfig struct {
 	// Types of the Package. If not specified it is assumed to be ml_model.
 	Type PackageType `json:"type,omitempty"`
 
-	Status *AppValidationStatus `json:"status,omitempty"`
+	Status *appValidationStatus `json:"status,omitempty"`
 
 	alreadyValidated bool
 	cachedErr        error
@@ -948,7 +948,6 @@ type PackageConfig struct {
 
 // Validate package config is valid.
 func (p *PackageConfig) Validate(path string) error {
-
 	if p.Status != nil {
 		return errors.New(p.Status.Error)
 	}

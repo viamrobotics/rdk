@@ -566,7 +566,6 @@ func getFromCloudGRPC(ctx context.Context, cloudCfg *Cloud, logger logging.Logge
 
 	service := apppb.NewRobotServiceClient(conn)
 	res, err := service.Config(ctx, &apppb.ConfigRequest{Id: cloudCfg.ID, AgentInfo: agentInfo})
-
 	if err != nil {
 		// Check cache?
 		return nil, shouldCheckCacheOnFailure, err

@@ -36,7 +36,7 @@ type Module struct {
 	Environment map[string]string `json:"env,omitempty"`
 
 	// Status refers to the validations done in the APP to make sure a module is configured correctly
-	Status           *AppValidationStatus `json:"status"`
+	Status           *appValidationStatus `json:"status"`
 	alreadyValidated bool
 	cachedErr        error
 }
