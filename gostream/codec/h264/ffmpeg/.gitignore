@@ -7,3 +7,6 @@
 
 # Ignore pkg-config files
 **/*.pc
+
+# Ignore example files
+**/share/ffmpeg/examples/**/*
