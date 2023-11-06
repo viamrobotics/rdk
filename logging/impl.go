@@ -118,7 +118,11 @@ func (imp *impl) AsZap() *zap.SugaredLogger {
 }
 
 func (imp *impl) shouldLog(logLevel Level) bool {
-	return logLevel >= imp.level
+	if GlobalLogLevel.Level() == zapcore.DebugLevel {
+		return true
+	}
+
+	return logLevel >= imp.level.Get()
 }
 
 func (imp *impl) log(entry *LogEntry) {
