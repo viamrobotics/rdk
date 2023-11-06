@@ -21,19 +21,31 @@ type Appender interface {
 // output sync. E.g: stdout or a file.
 type ConsoleAppender struct {
 	io.Writer
+	timeFormatStr string
 }
 
 // NewStdoutAppender creates a new appender that prints to stdout.
 func NewStdoutAppender() ConsoleAppender {
-	return ConsoleAppender{os.Stdout}
+	return ConsoleAppender{os.Stdout, "2006-01-02T15:04:05.000Z0700"}
+}
+
+// NewStdoutTestAppender creates a new appender that prints to stdout with a whitespace prefix.
+func NewStdoutTestAppender() ConsoleAppender {
+	return ConsoleAppender{os.Stdout, "    2006-01-02T15:04:05.000Z0700"}
+}
+
+// NewWriterAppender creates a new appender that prints to the input writer.
+func NewWriterAppender(writer io.Writer) ConsoleAppender {
+	return ConsoleAppender{writer, "2006-01-02T15:04:05.000Z0700"}
 }
 
 // Write outputs the log entry to the underlying stream.
 func (appender ConsoleAppender) Write(entry zapcore.Entry, fields []zapcore.Field) error {
 	const maxLength = 10
 	toPrint := make([]string, 0, maxLength)
-	toPrint = append(toPrint, entry.Time.UTC().Format("2006-01-02T15:04:05.000Z0700"))
+	toPrint = append(toPrint, entry.Time.Format(appender.timeFormatStr))
 	toPrint = append(toPrint, strings.ToUpper(entry.Level.String()))
+	toPrint = append(toPrint, entry.LoggerName)
 	if entry.Caller.Defined {
 		toPrint = append(toPrint, callerToString(&entry.Caller))
 	}
