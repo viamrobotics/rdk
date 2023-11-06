@@ -137,7 +137,8 @@ type builtIn struct {
 	cloudConn           rpc.ClientConn
 	syncTicker          *clk.Ticker
 
-	syncSensor selectiveSyncer
+	syncSensor    selectiveSyncer
+	selectiveSync bool
 }
 
 var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), ".viam", "capture")
@@ -159,6 +160,7 @@ func NewBuiltIn(
 		tags:                   []string{},
 		fileLastModifiedMillis: defaultFileLastModifiedMillis,
 		syncerConstructor:      datasync.NewManager,
+		selectiveSync:          false,
 	}
 
 	if err := svc.Reconfigure(ctx, deps, conf); err != nil {
@@ -455,6 +457,7 @@ func (svc *builtIn) Reconfigure(
 
 	var syncSensor sensor.Sensor
 	if svcConfig.SelectiveSyncerName != "" {
+		svc.selectiveSync = true
 		syncSensor, err = sensor.FromDependencies(deps, svcConfig.SelectiveSyncerName)
 		if err != nil {
 			svc.logger.Errorw("unable to initialize selective syncer", "error", err.Error())
@@ -539,7 +542,17 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 			case <-svc.syncTicker.C:
 				svc.lock.Lock()
 				if svc.syncer != nil {
-					svc.sync(cancelCtx)
+					// If selective sync is enabled (false), we default to not sync until the trigger
+					// condition has been checked. Otherwise, the default behavior is to sync.
+					shouldSync := !svc.selectiveSync
+					// If selective sync is enabled and the sensor has been properly initialized,
+					// try to get the reading from the selective sensor that indicates whether to sync
+					if svc.syncSensor != nil && svc.selectiveSync {
+						shouldSync = readyToSync(cancelCtx, svc.syncSensor, svc.logger)
+					}
+					if shouldSync {
+						svc.sync(cancelCtx)
+					}
 				}
 				svc.lock.Unlock()
 			}
@@ -549,24 +562,17 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 
 func (svc *builtIn) sync(ctx context.Context) {
 	svc.flushCollectors()
-	shouldSync := true
-	// If selective sync is enabled and the sensor has been properly initialized,
-	// try to get the reading from the selective sensor that indicates whether to sync
-	if svc.syncSensor != nil {
-		shouldSync = readyToSync(ctx, svc.syncSensor, svc.logger)
+
+	toSync := getAllFilesToSync(svc.captureDir, svc.fileLastModifiedMillis)
+	for _, ap := range svc.additionalSyncPaths {
+		toSync = append(toSync, getAllFilesToSync(ap, svc.fileLastModifiedMillis)...)
 	}
-	if shouldSync {
-		toSync := getAllFilesToSync(svc.captureDir, svc.fileLastModifiedMillis)
-		for _, ap := range svc.additionalSyncPaths {
-			toSync = append(toSync, getAllFilesToSync(ap, svc.fileLastModifiedMillis)...)
-		}
-		for _, p := range toSync {
-			svc.syncer.SyncFile(p)
-		}
+	for _, p := range toSync {
+		svc.syncer.SyncFile(p)
 	}
 }
 
-//nolint
+// nolint
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
