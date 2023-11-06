@@ -116,11 +116,10 @@ var (
 )
 
 func TestNewReplayMovementSensor(t *testing.T) {
-	// Remove skip once fix is complete: https://viam.atlassian.net/browse/RSDK-5315
-	t.Skip("remove skip once RSDK-5315 bug fix is complete")
 	ctx := context.Background()
 
 	initializePropertiesTimeout = 2 * time.Second
+	tabularDataByFilterTimeout = 1 * time.Second
 
 	cases := []struct {
 		description          string
@@ -283,6 +282,7 @@ func TestReplayMovementSensorFunctions(t *testing.T) {
 	ctx := context.Background()
 
 	initializePropertiesTimeout = 2 * time.Second
+	tabularDataByFilterTimeout = 1 * time.Second
 
 	cases := []struct {
 		description        string
