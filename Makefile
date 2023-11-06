@@ -143,5 +143,6 @@ ffmpeg-h264-static: $(FFMPEG_ROOT)
 	cd $(FFMPEG_ROOT) && ./configure --disable-programs --disable-doc --disable-everything --enable-encoder=h264_v4l2m2m --prefix=$(FFMPEG_H264_PREFIX) --enable-pic
 	cd $(FFMPEG_ROOT) && make -j$(shell nproc)
 	cd $(FFMPEG_ROOT) && make -j$(shell nproc) install
+	git clean -xdf $(FFMPEG_H264_PREFIX)
 
 include *.make
