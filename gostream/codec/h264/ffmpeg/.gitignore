@@ -6,4 +6,4 @@
 !*.h
 
 # Ignore pkg-config files
-?.pc
+**/*.pc
