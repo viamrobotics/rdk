@@ -58,7 +58,7 @@ func (s *trapezoidVelocityGenerator) Next(ctx context.Context, x []*Signal, dt t
 				return s.y, false
 			}
 		}
-		if setPoint != s.lastsetPoint && s.currentPhase == rest && pos != setPoint || setPoint == 0 {
+		if setPoint != s.lastsetPoint && s.currentPhase == rest && pos != setPoint {
 			s.lastsetPoint = setPoint
 			if setPoint < pos {
 				s.dir = -1
@@ -121,6 +121,8 @@ func (s *trapezoidVelocityGenerator) reset() error {
 	if s.kppGain == 0 {
 		s.kppGain = 0.45
 	}
+
+	s.lastsetPoint = math.NaN()
 
 	s.currentPhase = rest
 	s.y = make([]*Signal, 1)
