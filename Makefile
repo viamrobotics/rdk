@@ -133,4 +133,26 @@ clean-all:
 license-check:
 	license_finder --npm-options='--prefix web/frontend'
 
+FFMPEG_ROOT ?= etc/FFmpeg
+$(FFMPEG_ROOT):
+	cd etc && git clone https://github.com/FFmpeg/FFmpeg.git
+	git -C $(FFMPEG_ROOT) checkout release/4.4
+
+FFMPEG_H264_PREFIX ?= gostream/codec/h264/ffmpeg/ffmpeg
+ffmpeg-h264-static: $(FFMPEG_ROOT)
+	cd $(FFMPEG_ROOT) && ./configure --disable-programs --disable-doc --disable-everything --enable-encoder=h264_v4l2m2m --prefix=$(FFMPEG_H264_PREFIX) --enable-pic
+	cd $(FFMPEG_ROOT) && make -j$(nproc)
+	cd $(FFMPEG_ROOT) && make -j$(nproc) install
+
+	cd $(FFMPEG_H264_PREFIX)/lib && mv libavcodec.a libavcodec-$(GOOS)-$(GOARCH).a
+	cd $(FFMPEG_H264_PREFIX)/lib && mv libavdevice.a libavdevice-$(GOOS)-$(GOARCH).a
+	cd $(FFMPEG_H264_PREFIX)/lib && mv libavfilter.a libavfilter-$(GOOS)-$(GOARCH).a
+	cd $(FFMPEG_H264_PREFIX)/lib && mv libavformat.a libavformat-$(GOOS)-$(GOARCH).a
+	cd $(FFMPEG_H264_PREFIX)/lib && mv libavutil.a libavutil-$(GOOS)-$(GOARCH).a
+	cd $(FFMPEG_H264_PREFIX)/lib && mv libswresample.a libswresample-$(GOOS)-$(GOARCH).a
+	cd $(FFMPEG_H264_PREFIX)/lib && mv libswscale.a libswscale-$(GOOS)-$(GOARCH).a
+
+
+
+
 include *.make
