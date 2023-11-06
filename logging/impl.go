@@ -85,10 +85,8 @@ func (imp *impl) WithOptions(opts ...zap.Option) *zap.SugaredLogger {
 }
 
 func (imp *impl) AsZap() *zap.SugaredLogger {
-	// A hack to primarily copy zap's observer core objects from the viam logger back down to the
-	// newly allocated zap logger. This is necessary for tests that pass logger objects to code in
-	// dependencies and depend on log messages other Go libraries output. One example is the module
-	// package.
+	// When downconverting to a SugaredLogger, copy those that implement the `zapcore.Core`
+	// interface. This includes the net logger for viam servers and the observed logs for tests.
 	var copiedCores []zapcore.Core
 	for _, appender := range imp.appenders {
 		if core, ok := appender.(zapcore.Core); ok {
@@ -96,7 +94,11 @@ func (imp *impl) AsZap() *zap.SugaredLogger {
 		}
 	}
 
-	ret := zap.Must(NewLoggerConfig().Build()).Sugar().Named(imp.name)
+	config := NewZapLoggerConfig()
+	// Use the global zap `AtomicLevel` such that the constructed zap logger can observe changes to
+	// the debug flag.
+	config.Level = GlobalLogLevel
+	ret := zap.Must(config.Build()).Sugar().Named(imp.name)
 	for _, core := range copiedCores {
 		ret = ret.WithOptions(zap.WrapCore(func(c zapcore.Core) zapcore.Core {
 			return zapcore.NewTee(c, core)
