@@ -15,7 +15,8 @@ import (
 type (
 	impl struct {
 		name  string
-		level Level
+		level AtomicLevel
+		inUTC bool
 
 		appenders []Appender
 	}
@@ -44,8 +45,16 @@ func (imp *impl) Desugar() *zap.Logger {
 	return imp.AsZap().Desugar()
 }
 
+func (imp *impl) SetLevel(level Level) {
+	imp.level.Set(level)
+}
+
+func (imp *impl) GetLevel() Level {
+	return imp.level.Get()
+}
+
 func (imp *impl) Level() zapcore.Level {
-	return imp.level.AsZap()
+	return imp.GetLevel().AsZap()
 }
 
 func (imp *impl) Sublogger(subname string) Logger {
@@ -113,6 +122,10 @@ func (imp *impl) shouldLog(logLevel Level) bool {
 }
 
 func (imp *impl) log(entry *LogEntry) {
+	if imp.inUTC {
+		entry.Time = entry.Time.UTC()
+	}
+
 	for _, appender := range imp.appenders {
 		err := appender.Write(entry.Entry, entry.fields)
 		if err != nil {

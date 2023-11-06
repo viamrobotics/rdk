@@ -9,6 +9,7 @@ import (
 type Logger interface {
 	ZapCompatibleLogger
 
+	SetLevel(level Level)
 	Sublogger(subname string) Logger
 	AddAppender(appender Appender)
 	AsZap() *zap.SugaredLogger
@@ -70,6 +71,10 @@ func FromZapCompatible(logger ZapCompatibleLogger) Logger {
 		logger.Warnf("Unknown logger type, creating a new Viam Logger. Unknown type: %T", logger)
 		return NewLogger("")
 	}
+}
+
+func (logger *zLogger) SetLevel(level Level) {
+	// Not supported
 }
 
 func (logger *zLogger) Sublogger(subname string) Logger {
