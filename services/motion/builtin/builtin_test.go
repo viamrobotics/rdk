@@ -1253,8 +1253,6 @@ func TestMoveOnGlobe(t *testing.T) {
 }
 
 func TestReplanning(t *testing.T) {
-	// TODO(RSDK-5634): this should be unskipped when this bug is fixed
-	t.Skip()
 	t.Parallel()
 	ctx := context.Background()
 
@@ -1278,14 +1276,15 @@ func TestReplanning(t *testing.T) {
 			expectedSuccess: true,
 			extra:           map[string]interface{}{"smooth_iter": 5},
 		},
-		{
-			// This also checks that `replan` is called under default conditions when "max_replans" is not set
-			name:            "check we fail to replan with a low cost factor",
-			noise:           r3.Vector{Y: epsilonMM + 0.1},
-			expectedErr:     "unable to create a new plan within replanCostFactor from the original",
-			expectedSuccess: false,
-			extra:           map[string]interface{}{"replan_cost_factor": 0.01, "smooth_iter": 5},
-		},
+		// TODO(RSDK-5634): this should be uncommented when this bug is fixed
+		// {
+		// 	// This also checks that `replan` is called under default conditions when "max_replans" is not set
+		// 	name:            "check we fail to replan with a low cost factor",
+		// 	noise:           r3.Vector{Y: epsilonMM + 0.1},
+		// 	expectedErr:     "unable to create a new plan within replanCostFactor from the original",
+		// 	expectedSuccess: false,
+		// 	extra:           map[string]interface{}{"replan_cost_factor": 0.01, "smooth_iter": 5},
+		// },
 		{
 			name:            "check we replan with a noisy sensor",
 			noise:           r3.Vector{Y: epsilonMM + 0.1},
