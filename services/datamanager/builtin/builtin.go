@@ -137,7 +137,7 @@ type builtIn struct {
 	cloudConn           rpc.ClientConn
 	syncTicker          *clk.Ticker
 
-	syncSensor    selectiveSyncer
+	syncSensor           selectiveSyncer
 	selectiveSyncEnabled bool
 }
 
@@ -160,7 +160,7 @@ func NewBuiltIn(
 		tags:                   []string{},
 		fileLastModifiedMillis: defaultFileLastModifiedMillis,
 		syncerConstructor:      datasync.NewManager,
-		selectiveSyncEnabled:          false,
+		selectiveSyncEnabled:   false,
 	}
 
 	if err := svc.Reconfigure(ctx, deps, conf); err != nil {
