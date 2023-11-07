@@ -138,7 +138,7 @@ type builtIn struct {
 	syncTicker          *clk.Ticker
 
 	syncSensor    selectiveSyncer
-	selectiveSync bool
+	selectiveSyncEnabled bool
 }
 
 var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), ".viam", "capture")
@@ -160,7 +160,7 @@ func NewBuiltIn(
 		tags:                   []string{},
 		fileLastModifiedMillis: defaultFileLastModifiedMillis,
 		syncerConstructor:      datasync.NewManager,
-		selectiveSync:          false,
+		selectiveSyncEnabled:          false,
 	}
 
 	if err := svc.Reconfigure(ctx, deps, conf); err != nil {
@@ -457,13 +457,13 @@ func (svc *builtIn) Reconfigure(
 
 	var syncSensor sensor.Sensor
 	if svcConfig.SelectiveSyncerName != "" {
-		svc.selectiveSync = true
+		svc.selectiveSyncEnabled = true
 		syncSensor, err = sensor.FromDependencies(deps, svcConfig.SelectiveSyncerName)
 		if err != nil {
 			svc.logger.Errorw("unable to initialize selective syncer", "error", err.Error())
 		}
 	} else {
-		svc.selectiveSync = false
+		svc.selectiveSyncEnabled = false
 	}
 	if svc.syncSensor != syncSensor {
 		svc.syncSensor = syncSensor
@@ -544,12 +544,12 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 			case <-svc.syncTicker.C:
 				svc.lock.Lock()
 				if svc.syncer != nil {
-					// If selective sync is enabled (false), we default to not sync until the trigger
+					// If selective sync is not enabled (false), we default to not sync until the trigger
 					// condition has been checked. Otherwise, the default behavior is to sync.
-					shouldSync := !svc.selectiveSync
+					shouldSync := !svc.selectiveSyncEnabled
 					// If selective sync is enabled and the sensor has been properly initialized,
 					// try to get the reading from the selective sensor that indicates whether to sync
-					if svc.syncSensor != nil && svc.selectiveSync {
+					if svc.syncSensor != nil && svc.selectiveSyncEnabled {
 						shouldSync = readyToSync(cancelCtx, svc.syncSensor, svc.logger)
 					}
 					if shouldSync {
