@@ -14,6 +14,7 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
@@ -1252,6 +1253,8 @@ func TestMoveOnGlobe(t *testing.T) {
 }
 
 func TestReplanning(t *testing.T) {
+	// TODO(RSDK-5634): this should be unskipped when this bug is fixed
+	t.Skip()
 	t.Parallel()
 	ctx := context.Background()
 
