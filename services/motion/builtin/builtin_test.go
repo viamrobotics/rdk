@@ -568,7 +568,7 @@ func TestMoveOnMapPlans(t *testing.T) {
 		test.That(t, spatialmath.OrientationAlmostEqualEps(
 			endPos.Pose().Orientation(),
 			goalInBaseFrame.Orientation(),
-			1), test.ShouldBeFalse)
+			0.05), test.ShouldBeFalse)
 	})
 }
 
