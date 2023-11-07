@@ -13,6 +13,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/board/genericlinux"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
@@ -47,12 +48,11 @@ var model = resource.DefaultModelFamily.WithModel("TMC5072")
 // Validate ensures all parts of the config are valid.
 func (config *TMC5072Config) Validate(path string) ([]string, error) {
 	var deps []string
-	if config.Pins.EnablePinLow != 0 {
+	if config.Pins.EnablePinLow != "" {
 		if config.BoardName == "" {
 			return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
-		} else {
-			deps = append(deps, config.BoardName)
 		}
+		deps = append(deps, config.BoardName)
 	}
 	if config.SPIBus == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "spi_bus")
@@ -235,7 +235,7 @@ func NewMotor(ctx context.Context, deps resource.Dependencies, c TMC5072Config, 
 
 	iCfg := c.HoldDelay<<16 | c.RunCurrent<<8 | c.HoldCurrent
 
-	err = multierr.Combine(
+	err := multierr.Combine(
 		m.writeReg(ctx, chopConf, 0x000100C3), // TOFF=3, HSTRT=4, HEND=1, TBL=2, CHM=0 (spreadCycle)
 		m.writeReg(ctx, iHoldIRun, iCfg),
 		m.writeReg(ctx, coolConf, coolConfig), // Sets just the SGThreshold (for now)
