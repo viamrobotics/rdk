@@ -1,4 +1,4 @@
-//go:build (linux || darwin) && !no_cgo && (!arm64 || android)
+//go:build (linux || darwin) && !no_cgo && (!(arm64 && linux) || android)
 
 package server
 
