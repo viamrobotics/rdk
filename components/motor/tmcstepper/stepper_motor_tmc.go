@@ -27,7 +27,7 @@ type PinConfig struct {
 // TMC5072Config describes the configuration of a motor.
 type TMC5072Config struct {
 	Pins             PinConfig `json:"pins"`
-	BoardName        string    `json:"board"` // used to get encoders
+	BoardName        string    `json:"board"` // used solely for the PinConfig
 	MaxRPM           float64   `json:"max_rpm,omitempty"`
 	MaxAcceleration  float64   `json:"max_acceleration_rpm_per_sec,omitempty"`
 	TicksPerRotation int       `json:"ticks_per_rotation"`
@@ -47,8 +47,12 @@ var model = resource.DefaultModelFamily.WithModel("TMC5072")
 // Validate ensures all parts of the config are valid.
 func (config *TMC5072Config) Validate(path string) ([]string, error) {
 	var deps []string
-	if config.BoardName == "" {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
+	if config.Pins.EnablePinLow != 0 {
+		if config.BoardName == "" {
+			return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
+		} else {
+			deps = append(deps, config.BoardName)
+		}
 	}
 	if config.SPIBus == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "spi_bus")
@@ -62,7 +66,6 @@ func (config *TMC5072Config) Validate(path string) ([]string, error) {
 	if config.TicksPerRotation <= 0 {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "ticks_per_rotation")
 	}
-	deps = append(deps, config.BoardName)
 	return deps, nil
 }
 
@@ -88,7 +91,6 @@ type Motor struct {
 	resource.Named
 	resource.AlwaysRebuild
 	resource.TriviallyCloseable
-	board       board.Board
 	bus         board.SPI
 	csPin       string
 	index       int
@@ -149,19 +151,6 @@ const (
 func NewMotor(ctx context.Context, deps resource.Dependencies, c TMC5072Config, name resource.Name,
 	logger logging.Logger,
 ) (motor.Motor, error) {
-	b, err := board.FromDependencies(deps, c.BoardName)
-	if err != nil {
-		return nil, errors.Errorf("%q is not a board", c.BoardName)
-	}
-	localB, ok := b.(board.LocalBoard)
-	if !ok {
-		return nil, errors.Errorf("board %s is not local", c.BoardName)
-	}
-	bus, ok := localB.SPIByName(c.SPIBus)
-	if !ok {
-		return nil, errors.Errorf("can't find SPI bus (%s) requested by Motor", c.SPIBus)
-	}
-
 	if c.CalFactor == 0 {
 		c.CalFactor = 1.0
 	}
@@ -178,8 +167,7 @@ func NewMotor(ctx context.Context, deps resource.Dependencies, c TMC5072Config, 
 
 	m := &Motor{
 		Named:       name.AsNamed(),
-		board:       b,
-		bus:         bus,
+		bus:         genericlinux.NewSpiBus(c.SPIBus),
 		csPin:       c.ChipSelect,
 		index:       c.Index,
 		stepsPerRev: c.TicksPerRotation * uSteps,
@@ -272,6 +260,11 @@ func NewMotor(ctx context.Context, deps resource.Dependencies, c TMC5072Config, 
 	}
 
 	if c.Pins.EnablePinLow != "" {
+		b, err := board.FromDependencies(deps, c.BoardName)
+		if err != nil {
+			return nil, errors.Errorf("%q is not a board", c.BoardName)
+		}
+
 		m.enLowPin, err = b.GPIOPinByName(c.Pins.EnablePinLow)
 		if err != nil {
 			return nil, err
