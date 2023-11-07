@@ -4,6 +4,8 @@ package mygizmo
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sync"
 
 	"go.viam.com/rdk/examples/customresources/apis/gizmoapi"
@@ -117,6 +119,17 @@ func (g *myActualGizmo) DoOneBiDiStream(ctx context.Context, arg1 []string) ([]b
 
 func (g *myActualGizmo) DoTwo(ctx context.Context, arg1 bool) (string, error) {
 	return fmt.Sprintf("arg1=%t", arg1), nil
+}
+
+func (g *myActualGizmo) DoWriteDataFile(ctx context.Context, filename, contents string) (string, error) {
+	g.myArgMu.Lock()
+	defer g.myArgMu.Unlock()
+	dataFilePath := filepath.Join(os.Getenv("VIAM_MODULE_DATA"), filename)
+	err := os.WriteFile(dataFilePath, []byte(contents), 0o600)
+	if err != nil {
+		return "", err
+	}
+	return dataFilePath, nil
 }
 
 func (g *myActualGizmo) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {

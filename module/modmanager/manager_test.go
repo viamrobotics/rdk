@@ -2,6 +2,7 @@ package modmanager
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sync/atomic"
@@ -17,6 +18,7 @@ import (
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
+	modlib "go.viam.com/rdk/module"
 	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
 	"go.viam.com/rdk/resource"
 	rtestutils "go.viam.com/rdk/testutils"
@@ -43,7 +45,8 @@ func TestModManagerFunctions(t *testing.T) {
 	_, err = cfgCounter1.Validate("test", resource.APITypeComponentName)
 	test.That(t, err, test.ShouldBeNil)
 
-	parentAddr := filepath.Join(t.TempDir(), "parent.sock")
+	parentAddr, err := modlib.CreateSocketAddress(t.TempDir(), "parent")
+	test.That(t, err, test.ShouldBeNil)
 
 	t.Log("test Helpers")
 	viamHomeTemp := t.TempDir()
@@ -237,8 +240,8 @@ func TestModManagerFunctions(t *testing.T) {
 
 	t.Log("test empty dir for CleanModuleDataDirectory")
 	mgr = NewManager(parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false, ViamHomeDir: ""})
-	err = mgr.CleanModuleDataDirectory(ctx)
-	test.That(t, err, test.ShouldNotBeNil)
+	err = mgr.CleanModuleDataDirectory()
+	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "cannot clean a root level module data directory")
 
 	t.Log("test CleanModuleDataDirectory")
 	viamHomeTemp = t.TempDir()
@@ -246,7 +249,7 @@ func TestModManagerFunctions(t *testing.T) {
 	expectedDataDir := filepath.Join(viamHomeTemp, moduleDataFolderName, robotCloudID)
 	mgr = NewManager(parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false, ViamHomeDir: viamHomeTemp, RobotCloudID: robotCloudID})
 	// check that premature clean is okay
-	err = mgr.CleanModuleDataDirectory(ctx)
+	err = mgr.CleanModuleDataDirectory()
 	test.That(t, err, test.ShouldBeNil)
 	// create a module and add it to the modmanager
 	modCfg = config.Module{
@@ -264,7 +267,7 @@ func TestModManagerFunctions(t *testing.T) {
 	err = os.MkdirAll(litterDataDir, os.ModePerm)
 	test.That(t, err, test.ShouldBeNil)
 	// clean
-	err = mgr.CleanModuleDataDirectory(ctx)
+	err = mgr.CleanModuleDataDirectory()
 	test.That(t, err, test.ShouldBeNil)
 	// check that the module directory still exists
 	_, err = os.Stat(moduleDataDir)
@@ -276,7 +279,7 @@ func TestModManagerFunctions(t *testing.T) {
 	_, err = mgr.Remove("simple-module")
 	test.That(t, err, test.ShouldBeNil)
 	// clean
-	err = mgr.CleanModuleDataDirectory(ctx)
+	err = mgr.CleanModuleDataDirectory()
 	test.That(t, err, test.ShouldBeNil)
 	_, err = os.Stat(expectedDataDir)
 	test.That(t, err, test.ShouldBeError)
@@ -312,7 +315,8 @@ func TestModManagerValidation(t *testing.T) {
 	_, err = cfgMyBase2.Validate("test", resource.APITypeComponentName)
 	test.That(t, err, test.ShouldBeNil)
 
-	parentAddr := filepath.Join(t.TempDir(), "parent.sock")
+	parentAddr, err := modlib.CreateSocketAddress(t.TempDir(), "parent")
+	test.That(t, err, test.ShouldBeNil)
 
 	t.Log("adding complex module")
 	mgr := NewManager(parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
@@ -365,7 +369,8 @@ func TestModuleReloading(t *testing.T) {
 	_, err := cfgMyHelper.Validate("test", resource.APITypeComponentName)
 	test.That(t, err, test.ShouldBeNil)
 
-	parentAddr := filepath.Join(t.TempDir(), "parent.sock")
+	parentAddr, err := modlib.CreateSocketAddress(t.TempDir(), "parent")
+	test.That(t, err, test.ShouldBeNil)
 
 	modCfg := config.Module{Name: "test-module"}
 
@@ -572,7 +577,8 @@ func TestDebugModule(t *testing.T) {
 	modPath, err := rtestutils.BuildTempModule(t, "module/testmodule")
 	test.That(t, err, test.ShouldBeNil)
 
-	parentAddr := filepath.Join(t.TempDir(), "parent.sock")
+	parentAddr, err := modlib.CreateSocketAddress(t.TempDir(), "parent")
+	test.That(t, err, test.ShouldBeNil)
 
 	testCases := []struct {
 		name                   string
@@ -673,7 +679,8 @@ func TestGracefulShutdownWithMalformedModule(t *testing.T) {
 		LogLevel: "info",
 	}
 
-	parentAddr := filepath.Join(t.TempDir(), "parent.sock")
+	parentAddr, err := modlib.CreateSocketAddress(t.TempDir(), "parent")
+	test.That(t, err, test.ShouldBeNil)
 
 	mgr := NewManager(parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
 

@@ -54,6 +54,7 @@ type Gizmo interface {
 	DoOneServerStream(ctx context.Context, arg1 string) ([]bool, error)
 	DoOneBiDiStream(ctx context.Context, arg1 []string) ([]bool, error)
 	DoTwo(ctx context.Context, arg1 bool) (string, error)
+	DoWriteDataFile(ctx context.Context, filename, contents string) (string, error)
 }
 
 // serviceServer implements the Gizmo RPC service from gripper.proto.
@@ -171,6 +172,18 @@ func (s *serviceServer) DoTwo(ctx context.Context, req *pb.DoTwoRequest) (*pb.Do
 		return nil, err
 	}
 	return &pb.DoTwoResponse{Ret1: resp}, nil
+}
+
+func (s *serviceServer) DoWriteDataFile(ctx context.Context, req *pb.DoWriteDataFileRequest) (*pb.DoWriteDataFileResponse, error) {
+	g, err := s.coll.Resource(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := g.DoWriteDataFile(ctx, req.GetFilename(), req.GetContents())
+	if err != nil {
+		return nil, err
+	}
+	return &pb.DoWriteDataFileResponse{FullPath: resp}, nil
 }
 
 func (s *serviceServer) DoCommand(ctx context.Context, req *pb.DoCommandRequest) (*pb.DoCommandResponse, error) {
@@ -316,6 +329,18 @@ func (c *client) DoTwo(ctx context.Context, arg1 bool) (string, error) {
 		return "", err
 	}
 	return resp.Ret1, nil
+}
+
+func (c *client) DoWriteDataFile(ctx context.Context, filename, contents string) (string, error) {
+	resp, err := c.client.DoWriteDataFile(ctx, &pb.DoWriteDataFileRequest{
+		Name:     c.name,
+		Filename: filename,
+		Contents: contents,
+	})
+	if err != nil {
+		return "", err
+	}
+	return resp.FullPath, nil
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {

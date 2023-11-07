@@ -1145,7 +1145,7 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	// processes are shutdown before any files are deleted they are using.
 	allErrs = multierr.Combine(allErrs, r.packageManager.Cleanup(ctx))
 	// Cleanup extra dirs from previous modules or rogue scripts.
-	allErrs = multierr.Combine(allErrs, r.manager.moduleManager.CleanModuleDataDirectory(ctx))
+	allErrs = multierr.Combine(allErrs, r.manager.moduleManager.CleanModuleDataDirectory())
 
 	if allErrs != nil {
 		r.logger.Errorw("the following errors were gathered during reconfiguration", "errors", allErrs)

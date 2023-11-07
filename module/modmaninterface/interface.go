@@ -21,7 +21,7 @@ type ModuleManager interface {
 	IsModularResource(name resource.Name) bool
 	ValidateConfig(ctx context.Context, cfg resource.Config) ([]string, error)
 	ResolveImplicitDependenciesInConfig(ctx context.Context, conf *config.Diff) error
-	CleanModuleDataDirectory(ctx context.Context) error
+	CleanModuleDataDirectory() error
 
 	Configs() []config.Module
 	Provides(cfg resource.Config) bool

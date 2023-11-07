@@ -8,7 +8,6 @@ package v1
 
 import (
 	context "context"
-
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -28,6 +27,7 @@ type GizmoServiceClient interface {
 	DoOneServerStream(ctx context.Context, in *DoOneServerStreamRequest, opts ...grpc.CallOption) (GizmoService_DoOneServerStreamClient, error)
 	DoOneBiDiStream(ctx context.Context, opts ...grpc.CallOption) (GizmoService_DoOneBiDiStreamClient, error)
 	DoTwo(ctx context.Context, in *DoTwoRequest, opts ...grpc.CallOption) (*DoTwoResponse, error)
+	DoWriteDataFile(ctx context.Context, in *DoWriteDataFileRequest, opts ...grpc.CallOption) (*DoWriteDataFileResponse, error)
 	DoCommand(ctx context.Context, in *DoCommandRequest, opts ...grpc.CallOption) (*DoCommandResponse, error)
 }
 
@@ -154,6 +154,15 @@ func (c *gizmoServiceClient) DoTwo(ctx context.Context, in *DoTwoRequest, opts .
 	return out, nil
 }
 
+func (c *gizmoServiceClient) DoWriteDataFile(ctx context.Context, in *DoWriteDataFileRequest, opts ...grpc.CallOption) (*DoWriteDataFileResponse, error) {
+	out := new(DoWriteDataFileResponse)
+	err := c.cc.Invoke(ctx, "/acme.component.gizmo.v1.GizmoService/DoWriteDataFile", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *gizmoServiceClient) DoCommand(ctx context.Context, in *DoCommandRequest, opts ...grpc.CallOption) (*DoCommandResponse, error) {
 	out := new(DoCommandResponse)
 	err := c.cc.Invoke(ctx, "/acme.component.gizmo.v1.GizmoService/DoCommand", in, out, opts...)
@@ -172,6 +181,7 @@ type GizmoServiceServer interface {
 	DoOneServerStream(*DoOneServerStreamRequest, GizmoService_DoOneServerStreamServer) error
 	DoOneBiDiStream(GizmoService_DoOneBiDiStreamServer) error
 	DoTwo(context.Context, *DoTwoRequest) (*DoTwoResponse, error)
+	DoWriteDataFile(context.Context, *DoWriteDataFileRequest) (*DoWriteDataFileResponse, error)
 	DoCommand(context.Context, *DoCommandRequest) (*DoCommandResponse, error)
 	mustEmbedUnimplementedGizmoServiceServer()
 }
@@ -194,6 +204,9 @@ func (UnimplementedGizmoServiceServer) DoOneBiDiStream(GizmoService_DoOneBiDiStr
 }
 func (UnimplementedGizmoServiceServer) DoTwo(context.Context, *DoTwoRequest) (*DoTwoResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DoTwo not implemented")
+}
+func (UnimplementedGizmoServiceServer) DoWriteDataFile(context.Context, *DoWriteDataFileRequest) (*DoWriteDataFileResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DoWriteDataFile not implemented")
 }
 func (UnimplementedGizmoServiceServer) DoCommand(context.Context, *DoCommandRequest) (*DoCommandResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DoCommand not implemented")
@@ -320,6 +333,24 @@ func _GizmoService_DoTwo_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
+func _GizmoService_DoWriteDataFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DoWriteDataFileRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GizmoServiceServer).DoWriteDataFile(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/acme.component.gizmo.v1.GizmoService/DoWriteDataFile",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GizmoServiceServer).DoWriteDataFile(ctx, req.(*DoWriteDataFileRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _GizmoService_DoCommand_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(DoCommandRequest)
 	if err := dec(in); err != nil {
@@ -352,6 +383,10 @@ var GizmoService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DoTwo",
 			Handler:    _GizmoService_DoTwo_Handler,
+		},
+		{
+			MethodName: "DoWriteDataFile",
+			Handler:    _GizmoService_DoWriteDataFile_Handler,
 		},
 		{
 			MethodName: "DoCommand",

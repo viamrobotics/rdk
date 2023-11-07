@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"path/filepath"
 	"strconv"
 	"testing"
 	"time"
@@ -46,11 +47,13 @@ func TestComplexModule(t *testing.T) {
 	serverPath, err := testutils.BuildTempModule(t, "web/cmd/server/")
 	test.That(t, err, test.ShouldBeNil)
 
+	testTempHome := t.TempDir()
 	server := pexec.NewManagedProcess(pexec.ProcessConfig{
-		Name: serverPath,
-		Args: []string{"-config", cfgFilename},
-		CWD:  utils.ResolveFile("./"),
-		Log:  true,
+		Name:        serverPath,
+		Args:        []string{"-config", cfgFilename},
+		CWD:         utils.ResolveFile("./"),
+		Environment: map[string]string{"HOME": testTempHome},
+		Log:         true,
 	}, logger.AsZap())
 
 	err = server.Start(context.Background())
@@ -94,6 +97,13 @@ func TestComplexModule(t *testing.T) {
 		ret3, err = giz.DoOneBiDiStream(context.Background(), []string{"arg1", "arg1", "arg1"})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ret3, test.ShouldResemble, []bool{true, true})
+
+		dataFullPath, err := giz.DoWriteDataFile(context.Background(), "data.txt", "hello, world!")
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, dataFullPath, test.ShouldEqual, filepath.Join(testTempHome, ".viam", "module-data", "local", "AcmeModule", "data.txt"))
+		dataFileContents, err := os.ReadFile(dataFullPath)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, string(dataFileContents), test.ShouldEqual, "hello, world!")
 	})
 
 	// Summation is a custom service model and API.
@@ -370,11 +380,13 @@ func TestValidationFailure(t *testing.T) {
 	serverPath, err := testutils.BuildTempModule(t, "web/cmd/server/")
 	test.That(t, err, test.ShouldBeNil)
 
+	testTempHome := t.TempDir()
 	server := pexec.NewManagedProcess(pexec.ProcessConfig{
-		Name: serverPath,
-		Args: []string{"-config", cfgFilename},
-		CWD:  utils.ResolveFile("./"),
-		Log:  true,
+		Name:        serverPath,
+		Args:        []string{"-config", cfgFilename},
+		CWD:         utils.ResolveFile("./"),
+		Environment: map[string]string{"HOME": testTempHome},
+		Log:         true,
 	}, logger.AsZap())
 
 	err = server.Start(context.Background())

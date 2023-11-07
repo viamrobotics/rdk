@@ -48,16 +48,16 @@ var (
 func NewManager(parentAddr string, logger logging.Logger, options modmanageroptions.Options) modmaninterface.ModuleManager {
 	restartCtx, restartCtxCancel := context.WithCancel(context.Background())
 	return &Manager{
-		logger:                    logger,
-		modules:                   map[string]*module{},
-		parentAddr:                parentAddr,
-		rMap:                      map[resource.Name]*module{},
-		untrustedEnv:              options.UntrustedEnv,
-		viamHomeDir:               options.ViamHomeDir,
-		moduleDataParentDirectory: getModuleDataParentDirectory(options),
-		removeOrphanedResources:   options.RemoveOrphanedResources,
-		restartCtx:                restartCtx,
-		restartCtxCancel:          restartCtxCancel,
+		logger:                  logger,
+		modules:                 map[string]*module{},
+		parentAddr:              parentAddr,
+		rMap:                    map[resource.Name]*module{},
+		untrustedEnv:            options.UntrustedEnv,
+		viamHomeDir:             options.ViamHomeDir,
+		moduleDataParentDir:     getModuleDataParentDirectory(options),
+		removeOrphanedResources: options.RemoveOrphanedResources,
+		restartCtx:              restartCtx,
+		restartCtxCancel:        restartCtxCancel,
 	}
 }
 
@@ -92,17 +92,17 @@ type addedResource struct {
 
 // Manager is the root structure for the module system.
 type Manager struct {
-	mu                        sync.RWMutex
-	logger                    logging.Logger
-	modules                   map[string]*module
-	parentAddr                string
-	rMap                      map[resource.Name]*module
-	untrustedEnv              bool
-	viamHomeDir               string
-	moduleDataParentDirectory string
-	removeOrphanedResources   func(ctx context.Context, rNames []resource.Name)
-	restartCtx                context.Context
-	restartCtxCancel          context.CancelFunc
+	mu                      sync.RWMutex
+	logger                  logging.Logger
+	modules                 map[string]*module
+	parentAddr              string
+	rMap                    map[resource.Name]*module
+	untrustedEnv            bool
+	viamHomeDir             string
+	moduleDataParentDir     string
+	removeOrphanedResources func(ctx context.Context, rNames []resource.Name)
+	restartCtx              context.Context
+	restartCtxCancel        context.CancelFunc
 }
 
 // Close terminates module connections and processes.
@@ -152,12 +152,12 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, conn *grpc.Clie
 	}
 
 	var moduleDataDir string
-	if mgr.moduleDataParentDirectory != "" {
-		moduleDataDir = filepath.Join(mgr.moduleDataParentDirectory, conf.Name)
-		// safety check to prevent exiting the moduleDataDirectory
-		if !strings.HasPrefix(filepath.Clean(moduleDataDir), filepath.Clean(mgr.moduleDataParentDirectory)) {
+	if mgr.moduleDataParentDir != "" {
+		moduleDataDir = filepath.Join(mgr.moduleDataParentDir, conf.Name)
+		// safety check to prevent exiting the moduleDataDirectory in case conf.Name ends up including characters like ".."
+		if !strings.HasPrefix(filepath.Clean(moduleDataDir), filepath.Clean(mgr.moduleDataParentDir)) {
 			return errors.Errorf("module %q would have a data directory %q outside of the module data directory %q",
-				conf.Name, moduleDataDir, mgr.moduleDataParentDirectory)
+				conf.Name, moduleDataDir, mgr.moduleDataParentDir)
 		}
 	}
 
@@ -184,8 +184,9 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, conn *grpc.Clie
 
 	// create the module's data directory
 	if mod.dataDir != "" {
+		mgr.logger.Infof("Creating data directory %q for module %q", mod.dataDir, mod.cfg.Name)
 		if err := os.MkdirAll(mod.dataDir, 0o750); err != nil {
-			return errors.WithMessage(err, "error while starting module "+mod.cfg.Name)
+			return errors.WithMessage(err, "error while creating data directory for module "+mod.cfg.Name)
 		}
 	}
 
@@ -536,8 +537,8 @@ func (mgr *Manager) getModule(conf resource.Config) (*module, bool) {
 }
 
 // CleanModuleDataDirectory removes unexpected folders and files from the robot's module data directory.
-func (mgr *Manager) CleanModuleDataDirectory(ctx context.Context) error {
-	if mgr.moduleDataParentDirectory == "" {
+func (mgr *Manager) CleanModuleDataDirectory() error {
+	if mgr.moduleDataParentDir == "" {
 		return errors.New("cannot clean a root level module data directory")
 	}
 	// Absolute path to all dirs that should exist
@@ -547,13 +548,14 @@ func (mgr *Manager) CleanModuleDataDirectory(ctx context.Context) error {
 	}
 	// If there are no expected directories, we can shortcut and early-exit
 	if len(expectedDirs) == 0 {
-		if err := os.RemoveAll(mgr.moduleDataParentDirectory); err != nil {
-			return errors.Wrapf(err, "failed to clean parent module data directory %q", mgr.moduleDataParentDirectory)
+		mgr.logger.Infof("Removing module data parent directory %q", mgr.moduleDataParentDir)
+		if err := os.RemoveAll(mgr.moduleDataParentDir); err != nil {
+			return errors.Wrapf(err, "failed to clean parent module data directory %q", mgr.moduleDataParentDir)
 		}
 		return nil
 	}
 	// Scan dataFolder for all existing directories
-	existingDirs, err := filepath.Glob(filepath.Join(mgr.moduleDataParentDirectory, "*"))
+	existingDirs, err := filepath.Glob(filepath.Join(mgr.moduleDataParentDir, "*"))
 	if err != nil {
 		return err
 	}
@@ -561,10 +563,11 @@ func (mgr *Manager) CleanModuleDataDirectory(ctx context.Context) error {
 	for _, dir := range existingDirs {
 		if _, expected := expectedDirs[dir]; !expected {
 			// This is already checked in module.add(), however there is no harm in double-checking before recursively deleting directories
-			if !strings.HasPrefix(filepath.Clean(dir), filepath.Clean(mgr.moduleDataParentDirectory)) {
+			if !strings.HasPrefix(filepath.Clean(dir), filepath.Clean(mgr.moduleDataParentDir)) {
 				return errors.Errorf("attempted to delete a module data dir %q which is not in the viam module data directory %q",
-					dir, mgr.moduleDataParentDirectory)
+					dir, mgr.moduleDataParentDir)
 			}
+			mgr.logger.Infof("Removing module data directory %q", dir)
 			if err := os.RemoveAll(dir); err != nil {
 				return errors.Wrapf(err, "failed to clean module data directory %q", dir)
 			}
@@ -931,7 +934,7 @@ func DepsToNames(deps resource.Dependencies) []string {
 
 func getModuleDataParentDirectory(options modmanageroptions.Options) string {
 	// if the home directory is empty, this is probably being run from an unrelated test
-	// and creating an file could lead to race conditions
+	// and creating a file could lead to race conditions
 	if options.ViamHomeDir == "" {
 		return ""
 	}

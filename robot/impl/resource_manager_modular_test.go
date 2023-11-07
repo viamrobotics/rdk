@@ -459,7 +459,7 @@ func (m *dummyModMan) ResolveImplicitDependenciesInConfig(ctx context.Context, c
 	return nil
 }
 
-func (m *dummyModMan) CleanModuleDataDirectory(ctx context.Context) error {
+func (m *dummyModMan) CleanModuleDataDirectory() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return nil
