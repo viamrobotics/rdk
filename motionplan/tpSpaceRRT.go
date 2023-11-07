@@ -289,26 +289,27 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 	var randPosNode node = midptNode
 
 	//~ for iter := 0; iter < mp.planOpts.PlanIter; iter++ {
-	for iter := 0; iter < 1; iter++ {
+	for iter := 0; iter < 16; iter++ {
 		mp.logger.Debugf("TP Space RRT iteration %d", iter)
 		if ctx.Err() != nil {
 			mp.logger.Debugf("TP Space RRT timed out after %d iterations", iter)
 			rrt.solutionChan <- &rrtPlanReturn{planerr: fmt.Errorf("TP Space RRT timeout %w", ctx.Err()), maps: rrt.maps}
 			return
 		}
-		randPosNode = &basicNode{pose: spatialmath.NewPoseFromPoint(r3.Vector{400, 600,0})}
-		fmt.Println(spatialmath.PoseToProtobuf(randPosNode.Pose()))
+		//~ randPosNode = &basicNode{pose: spatialmath.NewPoseFromPoint(r3.Vector{300, 600,0})}
+		fmt.Println("rand pos", spatialmath.PoseToProtobuf(randPosNode.Pose()))
 
 		goalReached := &nodeAndError{}
 		utils.PanicCapturingGo(func() {
 			m1chan <- mp.attemptExtension(ctx, randPosNode, rrt.maps.startMap, false)
 		})
-		//~ if mp.algOpts.bidirectional {
-			//~ utils.PanicCapturingGo(func() {
-				//~ m2chan <- mp.attemptExtension(ctx, randPosNode, rrt.maps.goalMap, true)
-			//~ })
-			//~ goalReached = <-m2chan
-		//~ }
+		if mp.algOpts.bidirectional {
+			utils.PanicCapturingGo(func() {
+				fmt.Println("INVERT EXTEND")
+				m2chan <- mp.attemptExtension(ctx, randPosNode, rrt.maps.goalMap, true)
+			})
+			goalReached = <-m2chan
+		}
 		seedReached := <-m1chan
 
 		err := multierr.Combine(seedReached.error, goalReached.error)
@@ -317,7 +318,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 			return
 		}
 
-		if seedReached.node != nil && goalReached.node != nil && false{
+		if seedReached.node != nil && goalReached.node != nil {
 			reachedDelta := mp.planOpts.DistanceFunc(&ik.Segment{StartPosition: seedReached.node.Pose(), EndPosition: goalReached.node.Pose()})
 			if reachedDelta > mp.algOpts.poseSolveDist {
 				// If both maps extended, but did not reach the same point, then attempt to extend them towards each other
@@ -352,7 +353,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 				return
 			}
 		}
-		if iter%mp.algOpts.attemptSolveEvery == 0  && false{
+		if iter%mp.algOpts.attemptSolveEvery == 0  {
 			// Attempt a solve; we iterate through our goal tree and attempt to find any connection to the seed tree
 			paths := [][]node{}
 			attempts := 0
@@ -488,6 +489,7 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 		if err != nil {
 			return nil, err
 		}
+		//~ fmt.Println("nodeQ", subNode.Q())
 		if invert {
 			arcStartPose = spatialmath.PoseBetweenInverse(subNodePose, arcStartPose)
 			arcPose = spatialmath.Compose(subNodePose, arcPose)
@@ -520,7 +522,6 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 	}
 
 	bestDist := targetFunc(&ik.State{Position: arcPose})
-	fmt.Println(bestDist, spatialmath.PoseToProtobuf(arcPose))
 
 	cand := &candidate{dist: bestDist, treeNode: nearest, newNodes: successNodes}
 	// check if this  successNode is too close to nodes already in the tree, and if so, do not add.
@@ -560,7 +561,7 @@ func (mp *tpSpaceRRTMotionPlanner) checkTraj(trajK []*tpspace.TrajNode, invert b
 			ok, _ := mp.planOpts.CheckStateConstraints(trajState)
 			if !ok {
 				okDist := trajPt.Dist * defaultCollisionWalkbackPct
-				fmt.Println("failed at dist", trajPt.Dist, "adding dist", okDist)
+				//~ fmt.Println("failed at alpha  dist", trajPt.Alpha, trajPt.Dist, "adding dist", okDist)
 				if okDist > defaultCollisionBuffer {
 					for i := len(passed) - 1; i > 0; i-- {
 						// Return the most recent node whose dist is less than okDist
@@ -605,8 +606,6 @@ func (mp *tpSpaceRRTMotionPlanner) attemptExtension(
 	defer activeSolvers.Wait()
 
 	for i := 0; i <= maxReseeds; i++ {
-		fmt.Println("i", i)
-		fmt.Println("maxReseeds", maxReseeds)
 		select {
 		case <-ctx.Done():
 			return &nodeAndError{nil, ctx.Err()}
@@ -621,13 +620,6 @@ func (mp *tpSpaceRRTMotionPlanner) attemptExtension(
 			utils.PanicCapturingGo(func() {
 				defer activeSolvers.Done()
 				cand, err := mp.getExtensionCandidate(ctx, goalNode, ptgNumPar, curPtgPar, rrt, seedNode, invert)
-				fmt.Println("cand", cand, "err", err)
-				if cand != nil {
-					fmt.Println("dist", cand.dist)
-					for _, candNode := range cand.newNodes {
-						fmt.Println("cand q", candNode.Q())
-					}
-				}
 				if err != nil && !errors.Is(err, errNoNeighbors) && !errors.Is(err, errInvalidCandidate) {
 					candChan <- nil
 					return
@@ -658,13 +650,11 @@ func (mp *tpSpaceRRTMotionPlanner) attemptExtension(
 			return &nodeAndError{nil, err}
 		}
 		if reseedCandidate == nil {
-			fmt.Println("nil rc")
 			return &nodeAndError{nil, nil}
 		}
 		endNode := reseedCandidate.newNodes[len(reseedCandidate.newNodes)-1]
 		dist := mp.planOpts.DistanceFunc(&ik.Segment{StartPosition: endNode.Pose(), EndPosition: goalNode.Pose()})
 		if dist < mp.algOpts.poseSolveDist || lastIteration {
-			fmt.Println("ret")
 			// Reached the goal position, or otherwise failed to fully extend to the end of a trajectory
 			return &nodeAndError{endNode, nil}
 		}
@@ -691,7 +681,6 @@ func (mp *tpSpaceRRTMotionPlanner) extendMap(
 	invert bool,
 ) (*candidate, error) {
 	if len(candidates) == 0 {
-		fmt.Println("no cand")
 		return nil, errNoCandidates
 	}
 	var addedNode node
@@ -714,7 +703,6 @@ func (mp *tpSpaceRRTMotionPlanner) extendMap(
 
 		trajK, err := mp.tpFrame.PTGSolvers()[ptgNum].Trajectory(randAlpha, randDist)
 		if err != nil {
-			fmt.Println("traj err")
 			return nil, err
 		}
 		arcStartPose := treeNode.Pose()

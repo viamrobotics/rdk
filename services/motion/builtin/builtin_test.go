@@ -242,7 +242,8 @@ func createMoveOnMapEnvironment(ctx context.Context, t *testing.T, pcdPath strin
 		Name: "test-base",
 		API:  base.API,
 		// Geometry must be placed carefully or it will intersect SLAM map
-		Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R:110, TranslationOffset:r3.Vector{0,0,0}}},
+		//~ Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R:110, TranslationOffset:r3.Vector{0,0,0}}},
+		Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R:40, TranslationOffset:r3.Vector{0,0,0}}},
 	}
 	logger := logging.NewTestLogger(t)
 	fakeBase, err := baseFake.NewBase(ctx, nil, cfg, logger)
