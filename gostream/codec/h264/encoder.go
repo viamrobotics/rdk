@@ -124,6 +124,7 @@ func (h *encoder) encodeBytes(ctx context.Context) ([]byte, error) {
 	var bytes []byte
 	var ret int
 loop:
+	// See "send/receive encoding and decoding API overview" from https://ffmpeg.org/doxygen/3.4/group__lavc__encdec.html.
 	for {
 		select {
 		case <-ctx.Done():
