@@ -41,7 +41,9 @@ var (
 	errMessageExitStatus143     = "exit status 143"
 	logLevelArgumentTemplate    = "--log-level=%s"
 	errModularResourcesDisabled = errors.New("modular resources disabled in untrusted environment")
-	moduleDataFolderName        = "module-data"
+	// name of the folder under the viamHomeDir that holds all the folders for the module data
+	// ex: /home/walle/.viam/module-data/<cloud-robot-id>/<module-name>
+	parentModuleDataFolderName = "module-data"
 )
 
 // NewManager returns a Manager.
@@ -92,13 +94,18 @@ type addedResource struct {
 
 // Manager is the root structure for the module system.
 type Manager struct {
-	mu                      sync.RWMutex
-	logger                  logging.Logger
-	modules                 map[string]*module
-	parentAddr              string
-	rMap                    map[resource.Name]*module
-	untrustedEnv            bool
-	viamHomeDir             string
+	mu           sync.RWMutex
+	logger       logging.Logger
+	modules      map[string]*module
+	parentAddr   string
+	rMap         map[resource.Name]*module
+	untrustedEnv bool
+	// viamHomeDir is the absolute path to the viam home directory. Ex: /home/walle/.viam
+	// it is empty if the modmanageroptions.Options.viamHomeDir was empty
+	viamHomeDir string
+	// moduleDataParentDir is the  absolute path to the current robots module data directory.
+	// Ex: /home/walle/.viam/module-data/<cloud-robot-id>
+	// it is empty if the modmanageroptions.Options.viamHomeDir was empty
 	moduleDataParentDir     string
 	removeOrphanedResources func(ctx context.Context, rNames []resource.Name)
 	restartCtx              context.Context
@@ -932,6 +939,12 @@ func DepsToNames(deps resource.Dependencies) []string {
 	return depStrings
 }
 
+// getModuleDataParentDirectory generates the Manager's moduleDataParentDirectory.
+// it should be empty if the ViamHomeDir is empty (indicating that no directories)
+// For cloud robots, it will generate a directory in the form:
+// options.ViamHomeDir/module-data/<cloud-robot-id>
+// For local robots, it should be in the form
+// options.ViamHomeDir/module-data/local
 func getModuleDataParentDirectory(options modmanageroptions.Options) string {
 	// if the home directory is empty, this is probably being run from an unrelated test
 	// and creating a file could lead to race conditions
@@ -942,5 +955,5 @@ func getModuleDataParentDirectory(options modmanageroptions.Options) string {
 	if robotID == "" {
 		robotID = "local"
 	}
-	return filepath.Join(options.ViamHomeDir, moduleDataFolderName, robotID)
+	return filepath.Join(options.ViamHomeDir, parentModuleDataFolderName, robotID)
 }
