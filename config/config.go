@@ -53,7 +53,7 @@ type Config struct {
 	UntrustedEnv bool
 
 	// FromCommand indicates if this config was parsed via the web server command.
-	// If false, it's for creating a robot via the RDK library. This is helpful for
+	// If faErrorlse, it's for creating a robot via the RDK library. This is helpful for
 	// error messages that can indicate flags/config fields to use.
 	FromCommand bool
 
@@ -81,8 +81,9 @@ type configData struct {
 	GlobalLogConfig     []GlobalLogConfig     `json:"global_log_configuration"`
 }
 
-type appValidationStatus struct {
-	Error string `bson:"error"`
+// AppValidationStatus refers to the
+type AppValidationStatus struct {
+	Error string `json:"error"`
 }
 
 func (c *Config) validateUniqueResource(logger logging.Logger, seenResources map[string]bool, name string) error {
@@ -940,7 +941,7 @@ type PackageConfig struct {
 	// Types of the Package. If not specified it is assumed to be ml_model.
 	Type PackageType `json:"type,omitempty"`
 
-	Status *appValidationStatus `json:"status,omitempty"`
+	Status *AppValidationStatus `json:"status,omitempty"`
 
 	alreadyValidated bool
 	cachedErr        error
@@ -949,7 +950,7 @@ type PackageConfig struct {
 // Validate package config is valid.
 func (p *PackageConfig) Validate(path string) error {
 	if p.Status != nil {
-		return errors.New(p.Status.Error)
+		return utils.NewConfigValidationError(path, errors.New(p.Status.Error))
 	}
 
 	if p.alreadyValidated {

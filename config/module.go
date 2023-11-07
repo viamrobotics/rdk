@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+	"go.viam.com/utils"
 )
 
 var moduleNameRegEx = regexp.MustCompile(`^[\w-]+$`)
@@ -36,7 +37,7 @@ type Module struct {
 	Environment map[string]string `json:"env,omitempty"`
 
 	// Status refers to the validations done in the APP to make sure a module is configured correctly
-	Status           *appValidationStatus `json:"status"`
+	Status           *AppValidationStatus `json:"status"`
 	alreadyValidated bool
 	cachedErr        error
 }
@@ -54,7 +55,7 @@ const (
 // Validate checks if the config is valid.
 func (m *Module) Validate(path string) error {
 	if m.Status != nil {
-		return errors.New(m.Status.Error)
+		utils.NewConfigValidationError(path, errors.New(m.Status.Error))
 	}
 	if m.alreadyValidated {
 		return m.cachedErr
