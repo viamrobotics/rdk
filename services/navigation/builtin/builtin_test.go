@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 	"time"
+	"fmt"
 
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
@@ -618,6 +619,7 @@ func TestStartWaypoint(t *testing.T) {
 	fakeSlam := fakeslam.NewSLAM(slam.Named("foo"), logger)
 	limits, err := fakeSlam.Limits(ctx)
 	test.That(t, err, test.ShouldBeNil)
+	fmt.Println("limits", limits)
 
 	localizer := motion.NewSLAMLocalizer(fakeSlam)
 	test.That(t, err, test.ShouldBeNil)
