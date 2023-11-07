@@ -2,8 +2,10 @@ package spatialmath
 
 import (
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
 	"math"
+	"os"
 	"testing"
 
 	"github.com/golang/geo/r3"
@@ -61,6 +63,22 @@ func TestGeometrySerialization(t *testing.T) {
 			test.That(t, config.Label, test.ShouldEqual, testCase.name)
 		})
 	}
+}
+
+func TestMarshalXML(t *testing.T) {
+	box, err := NewBox(NewPoseFromPoint(r3.Vector{10, 2, 3}), r3.Vector{4, 5, 6}, "fuck")
+	test.That(t, err, test.ShouldBeNil)
+	bc, err := NewURDFCollisionXML(box)
+	test.That(t, err, test.ShouldBeNil)
+	bytes, err := xml.MarshalIndent(bc, "", "  ")
+	test.That(t, err, test.ShouldBeNil)
+	os.WriteFile("geometries.urdf", bytes, 0666)
+	// var gc GeometryConfig
+	// xml.Unmarshal(bytes, &gc)
+	// g, err := gc.ParseConfig()
+	// test.That(t, err, test.ShouldBeNil)
+	// t.Log(g.Pose().Point())
+	// t.Log(g)
 }
 
 func TestGeometryToFromProtobuf(t *testing.T) {

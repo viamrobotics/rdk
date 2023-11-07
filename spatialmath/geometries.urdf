@@ -1,0 +1,7 @@
+<collision name="fuck">
+  <origin rpy="" xyz=""></origin>
+  <geometry>
+    <box size="4.000000 5.000000 6.000000"></box>
+    <sphere radius="0"></sphere>
+  </geometry>
+</collision>

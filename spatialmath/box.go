@@ -89,6 +89,14 @@ func (b *box) MarshalJSON() ([]byte, error) {
 	return json.Marshal(config)
 }
 
+// func (b *box) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
+// 	config, err := NewGeometryConfig(b)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	return xml.Marshal(config)
+// }
+
 // SetLabel sets the label of this box.
 func (b *box) SetLabel(label string) {
 	b.label = label

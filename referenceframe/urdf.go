@@ -10,6 +10,7 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 
+	"go.viam.com/rdk/spatialmath"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
@@ -24,28 +25,9 @@ type URDFConfig struct {
 
 // URDFLink is a struct which details the XML used in a URDF link element.
 type URDFLink struct {
-	XMLName   xml.Name `xml:"link"`
-	Name      string   `xml:"name,attr"`
-	Collision []struct {
-		XMLName xml.Name `xml:"collision"`
-		Name    string   `xml:"name,attr"`
-		Origin  struct {
-			XMLName xml.Name `xml:"origin"`
-			RPY     string   `xml:"rpy,attr"` // Fixed frame angle "r p y" format, in radians
-			XYZ     string   `xml:"xyz,attr"` // "x y z" format, in meters
-		} `xml:"origin"`
-		Geometry struct {
-			XMLName xml.Name `xml:"geometry"`
-			Box     struct {
-				XMLName xml.Name `xml:"box"`
-				Size    string   `xml:"size,attr"` // "x y z" format, in meters
-			} `xml:"box"`
-			Sphere struct {
-				XMLName xml.Name `xml:"sphere"`
-				Radius  float64  `xml:"radius,attr"` // in meters
-			} `xml:"sphere"`
-		} `xml:"geometry"`
-	} `xml:"collision"`
+	XMLName   xml.Name                       `xml:"link"`
+	Name      string                         `xml:"name,attr"`
+	Collision []spatialmath.URDFCollisionXML `xml:"collision"`
 }
 
 // URDFJoint is a struct which details the XML used in a URDF joint element.
@@ -151,7 +133,7 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (*ModelConfig, error)
 				thisJoint.Type = RevoluteJoint // Currently, we treate a continuous joint as a special case of a revolute joint
 				thisJoint.Min, thisJoint.Max = math.Inf(-1), math.Inf(1)
 			case PrismaticJoint:
-				thisJoint.Min, thisJoint.Max = metersToMM(jointElem.Limit.Lower), metersToMM(jointElem.Limit.Upper)
+				thisJoint.Min, thisJoint.Max = utils.MetersToMM(jointElem.Limit.Lower), utils.MetersToMM(jointElem.Limit.Upper)
 			case RevoluteJoint:
 				thisJoint.Min, thisJoint.Max = utils.RadToDeg(jointElem.Limit.Lower), utils.RadToDeg(jointElem.Limit.Upper)
 			default:
@@ -167,11 +149,7 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (*ModelConfig, error)
 			childOrient, err := spatial.NewOrientationConfig(childEA.AxisAngles())
 
 			// Note the conversion from meters to mm
-			childLink.Translation = r3.Vector{
-				metersToMM(childXYZ[0]),
-				metersToMM(childXYZ[1]),
-				metersToMM(childXYZ[2]),
-			}
+			childLink.Translation = r3.Vector{utils.MetersToMM(childXYZ[0]), utils.MetersToMM(childXYZ[1]), utils.MetersToMM(childXYZ[2])}
 			childLink.Orientation = childOrient
 
 			if err != nil {
@@ -187,11 +165,7 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (*ModelConfig, error)
 			linkOrient, err := spatial.NewOrientationConfig(linkEA.AxisAngles())
 
 			// Note the conversion from meters to mm
-			thisLink.Translation = r3.Vector{
-				metersToMM(linkXYZ[0]),
-				metersToMM(linkXYZ[1]),
-				metersToMM(linkXYZ[2]),
-			}
+			thisLink.Translation = r3.Vector{utils.MetersToMM(linkXYZ[0]), utils.MetersToMM(linkXYZ[1]), utils.MetersToMM(linkXYZ[2])}
 			thisLink.Orientation = linkOrient
 
 			if err != nil {
@@ -217,11 +191,11 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (*ModelConfig, error)
 		hasCollision := len(linkElem.Collision) > 0
 		for idx, prefabLink := range mc.Links {
 			if prefabLink.ID == linkElem.Name && hasCollision {
-				geoCfg, err := createConfigFromCollision(linkElem)
+				geoCfg, err := linkElem.Collision[0].ToConfig()
 				if err != nil {
 					return nil, err
 				}
-				mc.Links[idx].Geometry = &geoCfg
+				mc.Links[idx].Geometry = geoCfg
 				break
 			}
 		}
@@ -234,86 +208,15 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (*ModelConfig, error)
 			thisLink.Orientation = &spatial.OrientationConfig{} // Orientation is guaranteed to be zero for this
 
 			if hasCollision {
-				geoCfg, err := createConfigFromCollision(linkElem)
+				geoCfg, err := linkElem.Collision[0].ToConfig()
 				if err != nil {
 					return nil, err
 				}
-				thisLink.Geometry = &geoCfg
+				thisLink.Geometry = geoCfg
 			}
 
 			mc.Links = append(mc.Links, thisLink)
 		}
 	}
 	return mc, nil
-}
-
-// Convenience method to split up space-delimited fields in URDFs, such as xyz or rpy attributes.
-func convStringAttrToFloats(attr string) []float64 {
-	var converted []float64
-	attrSlice := strings.Fields(attr)
-
-	for _, value := range attrSlice {
-		value, err := strconv.ParseFloat(value, 64)
-		if err != nil {
-			value = math.NaN()
-		}
-
-		converted = append(converted, value)
-	}
-
-	return converted
-}
-
-// Convenience method to simplify creating geometry configs from URDF XML that has a collision element specified.
-func createConfigFromCollision(link URDFLink) (spatial.GeometryConfig, error) {
-	var geoCfg spatial.GeometryConfig
-	boxGeometry := link.Collision[0].Geometry.Box
-	sphereGeometry := link.Collision[0].Geometry.Sphere
-
-	// Offset for the geometry origin from the reference link origin
-	geomXYZ := convStringAttrToFloats(link.Collision[0].Origin.XYZ)
-	geomTx := r3.Vector{geomXYZ[0], geomXYZ[1], geomXYZ[2]}
-	geomRPY := convStringAttrToFloats(link.Collision[0].Origin.RPY)
-	geomEA := spatial.EulerAngles{
-		Roll:  utils.RadToDeg(geomRPY[0]),
-		Pitch: utils.RadToDeg(geomRPY[1]),
-		Yaw:   utils.RadToDeg(geomRPY[2]),
-	}
-	geomOx, err := spatial.NewOrientationConfig(geomEA.AxisAngles())
-	if err != nil {
-		return spatial.GeometryConfig{}, err
-	}
-
-	// Logic specific to the geometry type
-	switch {
-	case len(boxGeometry.Size) > 0:
-		boxDims := convStringAttrToFloats(boxGeometry.Size)
-		geoCfg = spatial.GeometryConfig{
-			Type:              "box",
-			X:                 metersToMM(boxDims[0]),
-			Y:                 metersToMM(boxDims[1]),
-			Z:                 metersToMM(boxDims[2]),
-			TranslationOffset: geomTx,
-			OrientationOffset: *geomOx,
-			Label:             "box",
-		}
-	case sphereGeometry.Radius > 0:
-		sphereRadius := metersToMM(sphereGeometry.Radius)
-		geoCfg = spatial.GeometryConfig{
-			Type:              "sphere",
-			R:                 sphereRadius,
-			TranslationOffset: geomTx,
-			OrientationOffset: *geomOx,
-			Label:             "sphere",
-		}
-	default:
-		return spatial.GeometryConfig{}, errors.Errorf("Unsupported collision geometry type detected for [ %v ] link", link.Collision[0].Name)
-	}
-
-	return geoCfg, nil
-}
-
-// Convenience function to change engineering unit scale for the given input.
-func metersToMM(valMeters float64) float64 {
-	return valMeters * 1000
 }
