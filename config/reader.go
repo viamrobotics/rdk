@@ -570,7 +570,6 @@ func getFromCloudGRPC(ctx context.Context, cloudCfg *Cloud, logger logging.Logge
 		// Check cache?
 		return nil, shouldCheckCacheOnFailure, err
 	}
-
 	cfg, err := FromProto(res.Config, logger)
 	if err != nil {
 		// Check cache?

@@ -1,3 +1,5 @@
+//go:build linux
+
 package adxl345
 
 import (

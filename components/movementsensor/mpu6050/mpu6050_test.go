@@ -1,3 +1,5 @@
+//go:build linux
+
 package mpu6050
 
 import (
