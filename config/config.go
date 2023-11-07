@@ -53,7 +53,7 @@ type Config struct {
 	UntrustedEnv bool
 
 	// FromCommand indicates if this config was parsed via the web server command.
-	// If faErrorlse, it's for creating a robot via the RDK library. This is helpful for
+	// If false, it's for creating a robot via the RDK library. This is helpful for
 	// error messages that can indicate flags/config fields to use.
 	FromCommand bool
 
@@ -949,13 +949,15 @@ type PackageConfig struct {
 
 // Validate package config is valid.
 func (p *PackageConfig) Validate(path string) error {
-	if p.Status != nil {
-		return utils.NewConfigValidationError(path, errors.New(p.Status.Error))
-	}
 
 	if p.alreadyValidated {
 		return p.cachedErr
 	}
+
+	if p.Status != nil {
+		return utils.NewConfigValidationError(path, errors.New(p.Status.Error))
+	}
+
 	p.cachedErr = p.validate(path)
 	p.alreadyValidated = true
 	return p.cachedErr

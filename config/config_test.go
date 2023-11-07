@@ -523,7 +523,7 @@ func TestConfigEnsurePartialStart(t *testing.T) {
 	invalidModules := config.Config{
 		Modules: []config.Module{{
 			Name:        "testmodErr",
-			ExePath:     "/tmp/test.mod",
+			ExePath:     ".",
 			LogLevel:    "debug",
 			Type:        config.ModuleTypeRegistry,
 			ModuleID:    "mod:testmodErr",
@@ -533,10 +533,14 @@ func TestConfigEnsurePartialStart(t *testing.T) {
 			},
 		}},
 	}
-
+	invalidModules.DisablePartialStart = true
 	err = invalidModules.Ensure(false, logger)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldEqual, cloudErr)
+	test.That(t, err.Error(), test.ShouldContainSubstring, cloudErr)
+
+	invalidModules.DisablePartialStart = false
+	err = invalidModules.Ensure(false, logger)
+	test.That(t, err, test.ShouldBeNil)
 
 	invalidPackges := config.Config{
 		Packages: []config.PackageConfig{{
@@ -549,9 +553,14 @@ func TestConfigEnsurePartialStart(t *testing.T) {
 		}},
 	}
 
+	invalidModules.DisablePartialStart = true
+	err = invalidModules.Ensure(false, logger)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, cloudErr)
+
+	invalidModules.DisablePartialStart = false
 	err = invalidPackges.Ensure(false, logger)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, err.Error(), test.ShouldEqual, cloudErr)
 
 	invalidNetwork := config.Config{
 		Network: config.NetworkConfig{

@@ -54,10 +54,12 @@ const (
 
 // Validate checks if the config is valid.
 func (m *Module) Validate(path string) error {
-	if m.Status != nil {
-		utils.NewConfigValidationError(path, errors.New(m.Status.Error))
-	}
 	if m.alreadyValidated {
+		return m.cachedErr
+	}
+	if m.Status != nil {
+		m.alreadyValidated = true
+		m.cachedErr = utils.NewConfigValidationError(path, errors.New(m.Status.Error))
 		return m.cachedErr
 	}
 	m.cachedErr = m.validate(path)
