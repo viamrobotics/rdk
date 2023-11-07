@@ -139,7 +139,7 @@ func newFSWatcher(ctx context.Context, configPath string, logger logging.Logger)
 			case event := <-fsWatcher.Events:
 				if event.Op&fsnotify.Write == fsnotify.Write {
 					debounced(func() {
-						logger.Info("On-disk config file changed. Reconfiguring.")
+						logger.Info("On-disk config file changed. Reloading the config file.")
 						//nolint:gosec
 						rd, err := os.ReadFile(configPath)
 						if err != nil {
