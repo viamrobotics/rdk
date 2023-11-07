@@ -27,14 +27,24 @@ func DataSubmitTrainingJob(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	filter, err := createDataFilter(c)
-	if err != nil {
-		return err
+	// SubmitTrainingJob will fail if both dataset ID and filter are provided,
+	// so we only build the filter if the dataset ID is not supplied.
+	// If the dataset ID is supplied, we only use the data associated with the dataset ID
+	// and nothing else in the specified by the filter flag fields.
+	filter := &datapb.Filter{}
+	if c.String(datasetFlagDatasetID) == "" {
+		filter, err = createDataFilter(c)
+		if err != nil {
+			return err
+		}
+	} else {
+		filter = nil
 	}
 	// TODO (DATA-2006): Remove filter support from submit training job request
 	trainingJobID, err := client.dataSubmitTrainingJob(
-		filter, c.String(datasetFlagDatasetID), c.String(trainFlagModelOrgID), c.String(trainFlagModelName), c.String(trainFlagModelVersion), c.String(trainFlagModelType),
-		c.StringSlice(trainFlagModelLabels))
+		filter, c.String(datasetFlagDatasetID), c.String(trainFlagModelOrgID),
+		c.String(trainFlagModelName), c.String(trainFlagModelVersion),
+		c.String(trainFlagModelType), c.StringSlice(trainFlagModelLabels))
 	if err != nil {
 		return err
 	}
