@@ -447,7 +447,6 @@ func TestConfigEnsure(t *testing.T) {
 	}
 
 	test.That(t, invalidAuthConfig.Ensure(false, logger), test.ShouldBeNil)
-
 }
 
 func TestConfigEnsurePartialStart(t *testing.T) {

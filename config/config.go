@@ -81,7 +81,7 @@ type configData struct {
 	GlobalLogConfig     []GlobalLogConfig     `json:"global_log_configuration"`
 }
 
-// AppValidationStatus refers to the
+// AppValidationStatus refers to the.
 type AppValidationStatus struct {
 	Error string `json:"error"`
 }
@@ -949,13 +949,14 @@ type PackageConfig struct {
 
 // Validate package config is valid.
 func (p *PackageConfig) Validate(path string) error {
-
 	if p.alreadyValidated {
 		return p.cachedErr
 	}
 
 	if p.Status != nil {
-		return utils.NewConfigValidationError(path, errors.New(p.Status.Error))
+		p.alreadyValidated = true
+		p.cachedErr = utils.NewConfigValidationError(path, errors.New(p.Status.Error))
+		return p.cachedErr
 	}
 
 	p.cachedErr = p.validate(path)

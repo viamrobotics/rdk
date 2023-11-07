@@ -243,7 +243,6 @@ func validateModule(t *testing.T, actual, expected Module) {
 }
 
 func TestPackageConfigConversions(t *testing.T) {
-
 	proto, err := PackageConfigToProto(&testPackageConfig)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -270,7 +269,6 @@ func TestPackageConfigConversions(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, pckWithErr, test.ShouldResemble, out)
-
 }
 
 func TestModuleConfigToProto(t *testing.T) {
@@ -293,7 +291,6 @@ func TestModuleConfigToProto(t *testing.T) {
 	test.That(t, out, test.ShouldNotBeNil)
 
 	validateModule(t, *out, testModule)
-
 }
 
 //nolint:thelper

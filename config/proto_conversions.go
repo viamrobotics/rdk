@@ -237,7 +237,6 @@ func ServiceConfigFromProto(protoConf *pb.ServiceConfig) (*resource.Config, erro
 
 // ModuleConfigToProto converts Module to the proto equivalent.
 func ModuleConfigToProto(module *Module) (*pb.ModuleConfig, error) {
-
 	var status *pb.AppValidationStatus
 	if module.Status != nil {
 		status = &pb.AppValidationStatus{Error: module.Status.Error}
@@ -258,7 +257,6 @@ func ModuleConfigToProto(module *Module) (*pb.ModuleConfig, error) {
 
 // ModuleConfigFromProto creates Module from the proto equivalent.
 func ModuleConfigFromProto(proto *pb.ModuleConfig) (*Module, error) {
-
 	var status *AppValidationStatus
 	if proto.GetStatus() != nil {
 		status = &AppValidationStatus{Error: proto.GetStatus().GetError()}
@@ -847,7 +845,6 @@ func toRDKSlice[PT, RT any](
 
 // PackageConfigToProto converts a rdk package config to the proto version.
 func PackageConfigToProto(cfg *PackageConfig) (*pb.PackageConfig, error) {
-
 	var status *pb.AppValidationStatus
 	if cfg.Status != nil {
 		status = &pb.AppValidationStatus{Error: cfg.Status.Error}
