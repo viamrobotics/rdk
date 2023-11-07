@@ -253,7 +253,6 @@ func UploadModuleAction(c *cli.Context) error {
 	}
 
 	if !forceUploadArg {
-
 		getModuleResp, err := client.getModule(moduleID)
 		if err != nil {
 			return err
@@ -474,7 +473,7 @@ func validateDynamicExecutableLinkedLibaries(client *viamClient, tarballPath, en
 		}
 		return errors.Wrapf(err, "failed to run ldd on the module entrypoint")
 	}
-	legalLines := []string{
+	expectedSubstrings := []string{
 		"ld-linux",
 		"glibc",
 		"linux-vdso",
@@ -487,8 +486,8 @@ func validateDynamicExecutableLinkedLibaries(client *viamClient, tarballPath, en
 			continue
 		}
 		foundLegalSubstr := false
-		for _, legalSubstr := range legalLines {
-			if strings.Contains(line, legalSubstr) {
+		for _, expectedSubstr := range expectedSubstrings {
+			if strings.Contains(line, expectedSubstr) {
 				foundLegalSubstr = true
 				break
 			}
@@ -496,7 +495,6 @@ func validateDynamicExecutableLinkedLibaries(client *viamClient, tarballPath, en
 		if !foundLegalSubstr {
 			warningf(client.c.App.ErrWriter, "The module's entrypoint is a dynamic executable which depends on a library not present in the package itself. This could cause issues on other systems. %q", line)
 		}
-
 	}
 	return nil
 }
