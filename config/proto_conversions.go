@@ -49,6 +49,7 @@ func FromProto(proto *pb.RobotConfig, logger logging.Logger) (*Config, error) {
 	if proto.DisablePartialStart != nil {
 		disablePartialStart = *proto.DisablePartialStart
 	}
+
 	cfg.Modules, err = toRDKSlice(proto.Modules, ModuleConfigFromProto, disablePartialStart, logger)
 	if err != nil {
 		return nil, errors.Wrap(err, "error converting modules config from proto")
@@ -236,6 +237,11 @@ func ServiceConfigFromProto(protoConf *pb.ServiceConfig) (*resource.Config, erro
 
 // ModuleConfigToProto converts Module to the proto equivalent.
 func ModuleConfigToProto(module *Module) (*pb.ModuleConfig, error) {
+	var status *pb.AppValidationStatus
+	if module.Status != nil {
+		status = &pb.AppValidationStatus{Error: module.Status.Error}
+	}
+
 	proto := pb.ModuleConfig{
 		Name:     module.Name,
 		Path:     module.ExePath,
@@ -243,6 +249,7 @@ func ModuleConfigToProto(module *Module) (*pb.ModuleConfig, error) {
 		Type:     string(module.Type),
 		ModuleId: module.ModuleID,
 		Env:      module.Environment,
+		Status:   status,
 	}
 
 	return &proto, nil
@@ -250,6 +257,11 @@ func ModuleConfigToProto(module *Module) (*pb.ModuleConfig, error) {
 
 // ModuleConfigFromProto creates Module from the proto equivalent.
 func ModuleConfigFromProto(proto *pb.ModuleConfig) (*Module, error) {
+	var status *AppValidationStatus
+	if proto.GetStatus() != nil {
+		status = &AppValidationStatus{Error: proto.GetStatus().GetError()}
+	}
+
 	module := Module{
 		Name:        proto.GetName(),
 		ExePath:     proto.GetPath(),
@@ -257,6 +269,7 @@ func ModuleConfigFromProto(proto *pb.ModuleConfig) (*Module, error) {
 		Type:        ModuleType(proto.GetType()),
 		ModuleID:    proto.GetModuleId(),
 		Environment: proto.GetEnv(),
+		Status:      status,
 	}
 	return &module, nil
 }
@@ -832,21 +845,33 @@ func toRDKSlice[PT, RT any](
 
 // PackageConfigToProto converts a rdk package config to the proto version.
 func PackageConfigToProto(cfg *PackageConfig) (*pb.PackageConfig, error) {
+	var status *pb.AppValidationStatus
+	if cfg.Status != nil {
+		status = &pb.AppValidationStatus{Error: cfg.Status.Error}
+	}
+
 	return &pb.PackageConfig{
 		Name:    cfg.Name,
 		Package: cfg.Package,
 		Version: cfg.Version,
 		Type:    string(cfg.Type),
+		Status:  status,
 	}, nil
 }
 
 // PackageConfigFromProto converts a proto package config to the rdk version.
 func PackageConfigFromProto(proto *pb.PackageConfig) (*PackageConfig, error) {
+	var status *AppValidationStatus
+	if proto.GetStatus() != nil {
+		status = &AppValidationStatus{Error: proto.GetStatus().GetError()}
+	}
+
 	return &PackageConfig{
 		Name:    proto.Name,
 		Package: proto.Package,
 		Version: proto.Version,
 		Type:    PackageType(proto.Type),
+		Status:  status,
 	}, nil
 }
 
