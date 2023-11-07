@@ -62,7 +62,7 @@ func (mr *moveRequest) plan(ctx context.Context) ([][]referenceframe.Input, erro
 		inputs = inputs[:2]
 	}
 	mr.planRequest.StartConfiguration = map[string][]referenceframe.Input{mr.kinematicBase.Kinematics().Name(): inputs}
-	plan, err := motionplan.Replan(ctx, mr.planRequest, mr.seedPlan, mr.replanCostFactor)
+	plan, err := motionplan.Replan(ctx, mr.planRequest, nil, 0)
 	if err != nil {
 		return nil, err
 	}

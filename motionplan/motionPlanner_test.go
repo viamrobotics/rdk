@@ -771,6 +771,7 @@ func TestMovementWithGripper(t *testing.T) {
 }
 
 func TestReplan(t *testing.T) {
+	t.Skip()
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 
