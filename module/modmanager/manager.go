@@ -771,7 +771,7 @@ func (m *module) registerResources(mgr modmaninterface.ModuleManager, logger log
 		switch {
 		case api.API.IsComponent():
 			for _, model := range models {
-				logger.Debugw("registering component from module", "module", m.cfg.Name, "API", api.API, "model", model)
+				logger.Infow("registering component from module", "module", m.cfg.Name, "API", api.API, "model", model)
 				resource.RegisterComponent(api.API, model, resource.Registration[resource.Resource, resource.NoNativeConfig]{
 					Constructor: func(
 						ctx context.Context,
@@ -785,7 +785,7 @@ func (m *module) registerResources(mgr modmaninterface.ModuleManager, logger log
 			}
 		case api.API.IsService():
 			for _, model := range models {
-				logger.Debugw("registering service from module", "module", m.cfg.Name, "API", api.API, "model", model)
+				logger.Infow("registering service from module", "module", m.cfg.Name, "API", api.API, "model", model)
 				resource.RegisterService(api.API, model, resource.Registration[resource.Resource, resource.NoNativeConfig]{
 					Constructor: func(
 						ctx context.Context,

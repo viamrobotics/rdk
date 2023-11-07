@@ -518,6 +518,49 @@ func TestConfigEnsurePartialStart(t *testing.T) {
 	invalidProcesses.Processes[0].Name = "foo"
 	test.That(t, invalidProcesses.Ensure(false, logger), test.ShouldBeNil)
 
+	cloudErr := "bad cloud err doing validation"
+	invalidModules := config.Config{
+		Modules: []config.Module{{
+			Name:        "testmodErr",
+			ExePath:     ".",
+			LogLevel:    "debug",
+			Type:        config.ModuleTypeRegistry,
+			ModuleID:    "mod:testmodErr",
+			Environment: map[string]string{},
+			Status: &config.AppValidationStatus{
+				Error: cloudErr,
+			},
+		}},
+	}
+	invalidModules.DisablePartialStart = true
+	err = invalidModules.Ensure(false, logger)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, cloudErr)
+
+	invalidModules.DisablePartialStart = false
+	err = invalidModules.Ensure(false, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	invalidPackges := config.Config{
+		Packages: []config.PackageConfig{{
+			Name:    "testPackage",
+			Type:    config.PackageTypeMlModel,
+			Package: "hi/package/test",
+			Status: &config.AppValidationStatus{
+				Error: cloudErr,
+			},
+		}},
+	}
+
+	invalidModules.DisablePartialStart = true
+	err = invalidModules.Ensure(false, logger)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, cloudErr)
+
+	invalidModules.DisablePartialStart = false
+	err = invalidPackges.Ensure(false, logger)
+	test.That(t, err, test.ShouldBeNil)
+
 	invalidNetwork := config.Config{
 		Network: config.NetworkConfig{
 			NetworkConfigData: config.NetworkConfigData{
