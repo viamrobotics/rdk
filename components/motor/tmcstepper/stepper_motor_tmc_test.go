@@ -10,10 +10,8 @@ import (
 
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/components/board"
 	fakeboard "go.viam.com/rdk/components/board/fake"
 	"go.viam.com/rdk/components/motor"
-	"go.viam.com/rdk/components/motor/tmcstepper"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
@@ -51,18 +49,12 @@ func TestRPMBounds(t *testing.T) {
 	ctx := context.Background()
 	logger, obs := logging.NewObservedTestLogger(t)
 	c := make(chan []byte)
-	b := &fakeboard.Board{
-		Named: board.Named("foo").AsNamed(),
-	}
-	b.GPIOPins = map[string]*fakeboard.GPIOPin{}
-	b.SPIs = map[string]*fakeboard.SPI{}
-	b.SPIs["main"] = &fakeboard.SPI{FIFO: c}
+	fakeSpi := fakeboard.SPI{FIFO: c}
 
-	deps := resource.Dependencies(map[resource.Name]resource.Resource{b.Name(): b})
+	var deps resource.Dependencies
 
-	mc := tmcstepper.TMC5072Config{
-		BoardName:        b.Name().ShortName(),
-		SPIBus:           "main",
+	mc := TMC5072Config{
+		SPIBus:           "3",
 		ChipSelect:       "40",
 		Index:            0,
 		SGThresh:         0,
@@ -71,10 +63,6 @@ func TestRPMBounds(t *testing.T) {
 		MaxRPM:           maxRpm,
 		TicksPerRotation: 200,
 	}
-
-	motorReg, ok := resource.LookupRegistration(motor.API, resource.DefaultModelFamily.WithModel("TMC5072"))
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, motorReg, test.ShouldNotBeNil)
 
 	// These are the setup register writes
 	go checkTx(t, c, [][]byte{
@@ -94,16 +82,13 @@ func TestRPMBounds(t *testing.T) {
 		{161, 0, 0, 0, 0},
 	})
 
-	m, err := motorReg.Constructor(context.Background(), deps, resource.Config{
-		Name:                "motor1",
-		ConvertedAttributes: &mc,
-	}, logger)
+	name := resource.NewName(motor.API, "motor1")
+	m, err := makeMotor(ctx, deps, mc, name, logger, &fakeSpi)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, m.Close(context.Background()), test.ShouldBeNil)
 	}()
 	motorDep, ok := m.(motor.Motor)
-	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, ok, test.ShouldBeTrue)
 
 	test.That(t, motorDep.GoFor(ctx, 0.05, 6.6, nil), test.ShouldNotBeNil)
@@ -142,17 +127,11 @@ func TestTMCStepperMotor(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 	c := make(chan []byte)
-	b := &fakeboard.Board{
-		Named: board.Named("foo").AsNamed(),
-	}
-	b.GPIOPins = map[string]*fakeboard.GPIOPin{}
-	b.SPIs = map[string]*fakeboard.SPI{}
-	b.SPIs["main"] = &fakeboard.SPI{FIFO: c}
+	fakeSpi := fakeboard.SPI{FIFO: c}
 
-	deps := resource.Dependencies(map[resource.Name]resource.Resource{b.Name(): b})
+	var deps resource.Dependencies
 
-	mc := tmcstepper.TMC5072Config{
-		BoardName:        b.Name().ShortName(),
+	mc := TMC5072Config{
 		SPIBus:           "main",
 		ChipSelect:       "40",
 		Index:            0,
@@ -162,10 +141,6 @@ func TestTMCStepperMotor(t *testing.T) {
 		MaxRPM:           maxRpm,
 		TicksPerRotation: 200,
 	}
-
-	motorReg, ok := resource.LookupRegistration(motor.API, resource.DefaultModelFamily.WithModel("TMC5072"))
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, motorReg, test.ShouldNotBeNil)
 
 	// These are the setup register writes
 	go checkTx(t, c, [][]byte{
@@ -185,10 +160,8 @@ func TestTMCStepperMotor(t *testing.T) {
 		{161, 0, 0, 0, 0},
 	})
 
-	m, err := motorReg.Constructor(context.Background(), deps, resource.Config{
-		Name:                "motor1",
-		ConvertedAttributes: &mc,
-	}, logger)
+	name := resource.NewName(motor.API, "motor1")
+	m, err := makeMotor(ctx, deps, mc, name, logger, &fakeSpi)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, m.Close(context.Background()), test.ShouldBeNil)
@@ -643,7 +616,7 @@ func TestTMCStepperMotor(t *testing.T) {
 			{161, 0, 0, 0, 0},
 		})
 
-		m, err := motorReg.Constructor(context.Background(), deps, resource.Config{Name: "motor1", ConvertedAttributes: &mc}, logger)
+		m, err := makeMotor(ctx, deps, mc, name, logger, &fakeSpi)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, m.Close(context.Background()), test.ShouldBeNil)
 	})
@@ -671,7 +644,7 @@ func TestTMCStepperMotor(t *testing.T) {
 			{161, 0, 0, 0, 0},
 		})
 
-		m, err := motorReg.Constructor(context.Background(), deps, resource.Config{Name: "motor1", ConvertedAttributes: &mc}, logger)
+		m, err := makeMotor(ctx, deps, mc, name, logger, &fakeSpi)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, m.Close(context.Background()), test.ShouldBeNil)
 	})
@@ -701,7 +674,7 @@ func TestTMCStepperMotor(t *testing.T) {
 			{161, 0, 0, 0, 0},
 		})
 
-		m, err := motorReg.Constructor(context.Background(), deps, resource.Config{Name: "motor1", ConvertedAttributes: &mc}, logger)
+		m, err := makeMotor(ctx, deps, mc, name, logger, &fakeSpi)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, m.Close(context.Background()), test.ShouldBeNil)
 	})
