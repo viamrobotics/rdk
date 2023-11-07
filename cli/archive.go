@@ -162,6 +162,7 @@ func unpackArchive(fromFile, toDir string) error {
 			continue
 		}
 
+		//nolint:gosec
 		path = filepath.Join(toDir, path)
 
 		info := header.FileInfo()
@@ -185,20 +186,18 @@ func unpackArchive(fromFile, toDir string) error {
 			if err != nil {
 				return errors.Wrapf(err, "failed to create file %s", path)
 			}
+			//nolint:gosec
 			if _, err := io.Copy(outFile, tarReader); err != nil && !errors.Is(err, io.EOF) {
 				return errors.Wrapf(err, "failed to copy file %s", path)
 			}
 			utils.UncheckedError(outFile.Close())
 		case tar.TypeLink:
-			name := header.Linkname
-
-			name = filepath.Join(toDir, name)
+			//nolint:gosec
+			name := filepath.Join(toDir, header.Linkname)
 			links = append(links, link{Path: path, Name: name})
 		case tar.TypeSymlink:
+			//nolint:gosec
 			linkTarget := filepath.Join(toDir, header.Linkname)
-			if err != nil {
-				return err
-			}
 			symlinks = append(symlinks, link{Path: path, Name: linkTarget})
 		}
 	}

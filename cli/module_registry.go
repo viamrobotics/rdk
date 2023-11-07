@@ -261,7 +261,7 @@ func UploadModuleAction(c *cli.Context) error {
 		if err != nil {
 			return err
 		}
-		if err := validateModuleFile(client, moduleID, tarballPath, entrypoint); err != nil {
+		if err := validateModuleFile(client, tarballPath, entrypoint); err != nil {
 			return fmt.Errorf(
 				"error validating module: %w. For more details, please visit: https://docs.viam.com/manage/cli/#command-options-3 ",
 				err)
@@ -393,7 +393,7 @@ func (c *viamClient) uploadModuleFile(
 	return resp, errs
 }
 
-func validateModuleFile(client *viamClient, moduleID moduleID, tarballPath, entrypoint string) error {
+func validateModuleFile(client *viamClient, tarballPath, entrypoint string) error {
 	//nolint:gosec
 	file, err := os.Open(tarballPath)
 	if err != nil {
@@ -420,8 +420,11 @@ func validateModuleFile(client *viamClient, moduleID moduleID, tarballPath, entr
 		if header.Typeflag == tar.TypeLink || header.Typeflag == tar.TypeSymlink {
 			base := filepath.Base(tarballPath)
 			if filepath.IsAbs(header.Linkname) ||
+				//nolint:gosec
 				!strings.HasPrefix(filepath.Join(base, header.Linkname), base) {
-				warningf(client.c.App.ErrWriter, "Module contains a symlink to a file outside the package. This might cause issues on other computers. %s -> %s", header.Name, header.Linkname)
+				warningf(client.c.App.ErrWriter, "Module contains a symlink to a file outside the package."+
+					" This might cause issues on other computers. %s -> %s",
+					header.Name, header.Linkname)
 			}
 		}
 		path := header.Name
@@ -460,9 +463,11 @@ func validateDynamicExecutableLinkedLibaries(client *viamClient, tarballPath, en
 	if err != nil {
 		return errors.Wrapf(err, "failed to unpack archive for validation")
 	}
+	//nolint:gosec
 	cmd := exec.Command("ldd", filepath.Join(tempDir, entrypoint))
 	out, err := cmd.Output()
 	if err != nil {
+		//nolint:errorlint
 		exitErr, ok := err.(*exec.ExitError)
 		if !ok {
 			return errors.Wrapf(err, "err from exec.Command was not an ExitError")
@@ -493,7 +498,9 @@ func validateDynamicExecutableLinkedLibaries(client *viamClient, tarballPath, en
 			}
 		}
 		if !foundLegalSubstr {
-			warningf(client.c.App.ErrWriter, "The module's entrypoint is a dynamic executable which depends on a library not present in the package itself. This could cause issues on other systems. %q", line)
+			warningf(client.c.App.ErrWriter, "The module's entrypoint is a dynamic executable which depends on a library "+
+				"not present in the package itself. This could cause issues on other systems. %q",
+				line)
 		}
 	}
 	return nil
