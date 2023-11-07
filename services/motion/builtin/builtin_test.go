@@ -512,6 +512,7 @@ func TestMoveOnMapPlans(t *testing.T) {
 	goalInSLAMFrame := spatialmath.PoseBetweenInverse(motion.SLAMOrientationAdjustment, goalInBaseFrame)
 	extra := map[string]interface{}{"smooth_iter": 5}
 	extraPosOnly := map[string]interface{}{"smooth_iter": 5, "motion_profile": "position_only"}
+	logger := logging.NewTestLogger(t)
 
 	t.Run("ensure success of movement around obstacle", func(t *testing.T) {
 		t.Parallel()
@@ -527,7 +528,7 @@ func TestMoveOnMapPlans(t *testing.T) {
 		test.That(t, success, test.ShouldBeTrue)
 		endPos, err := kb.CurrentPosition(ctx)
 		test.That(t, err, test.ShouldBeNil)
-
+		logger.Debug(spatialmath.PoseToProtobuf(endPos.Pose()))
 		test.That(t, spatialmath.PoseAlmostEqualEps(endPos.Pose(), goalInBaseFrame, 10), test.ShouldBeTrue)
 	})
 
@@ -547,6 +548,7 @@ func TestMoveOnMapPlans(t *testing.T) {
 		test.That(t, success, test.ShouldBeTrue)
 		endPos, err := kb.CurrentPosition(ctx)
 		test.That(t, err, test.ShouldBeNil)
+		logger.Debug(spatialmath.PoseToProtobuf(endPos.Pose()))
 		test.That(t, spatialmath.PoseAlmostEqualEps(endPos.Pose(), easyGoalInBaseFrame, 10), test.ShouldBeTrue)
 	})
 
@@ -564,6 +566,7 @@ func TestMoveOnMapPlans(t *testing.T) {
 		test.That(t, success, test.ShouldBeTrue)
 		endPos, err := kb.CurrentPosition(ctx)
 		test.That(t, err, test.ShouldBeNil)
+		logger.Debug(spatialmath.PoseToProtobuf(endPos.Pose()))
 		test.That(t, spatialmath.PoseAlmostCoincidentEps(endPos.Pose(), goalInBaseFrame, 10), test.ShouldBeTrue)
 		// Position only mode should not yield the goal orientation.
 		test.That(t, spatialmath.OrientationAlmostEqualEps(
