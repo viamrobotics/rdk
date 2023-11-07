@@ -687,6 +687,7 @@ func TestGracefulShutdownWithMalformedModule(t *testing.T) {
 	modCfg := config.Module{
 		Name:     "test-module",
 		ExePath:  modPath,
+		Type:     config.ModuleTypeLocal,
 		LogLevel: "info",
 	}
 
@@ -716,4 +717,75 @@ func TestGracefulShutdownWithMalformedModule(t *testing.T) {
 	// (we closed the mgr before `Add` hits its normal timeout). At any rate, the OUE handler
 	// will always exit quickly without doing anything so long as `Add` is mid-call.
 	test.That(t, logs.FilterMessageSnippet("module has unexpectedly exited").Len(), test.ShouldEqual, 0)
+}
+
+func TestModuleDataDirectoryFullstack(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+	// This cannot use t.TempDir() as the path it gives on MacOS exceeds module.MaxSocketAddressLength.
+	parentAddr, err := os.MkdirTemp("", "viam-test-*")
+	test.That(t, err, test.ShouldBeNil)
+	defer os.RemoveAll(parentAddr)
+	parentAddr += "/parent.sock"
+
+	// Build the testmodule
+	modPath, err := rtestutils.BuildTempModule(t, "module/testmodule")
+	test.That(t, err, test.ShouldBeNil)
+	modCfg := config.Module{
+		Name:    "test-module",
+		ExePath: modPath,
+		Type:    config.ModuleTypeLocal,
+	}
+
+	testViamHomeDir := t.TempDir()
+	mgr := NewManager(parentAddr, logger, modmanageroptions.Options{
+		UntrustedEnv: false,
+		ViamHomeDir:  testViamHomeDir,
+	})
+	err = mgr.Add(ctx, modCfg)
+	test.That(t, err, test.ShouldBeNil)
+
+	// add a component that uses the module
+	myHelperModel := resource.NewModel("rdk", "test", "helper")
+	rNameMyHelper := generic.Named("myhelper")
+	cfgMyHelper := resource.Config{
+		Name:  "myhelper",
+		API:   generic.API,
+		Model: myHelperModel,
+	}
+	_, err = cfgMyHelper.Validate("test", resource.APITypeComponentName)
+	test.That(t, err, test.ShouldBeNil)
+
+	h, err := mgr.AddResource(ctx, cfgMyHelper, nil)
+	test.That(t, err, test.ShouldBeNil)
+	ok := mgr.IsModularResource(rNameMyHelper)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	// Create a file in the modules data directory and then verify that it was written
+	resp, err := h.DoCommand(ctx, map[string]interface{}{
+		"command":  "write_data_file",
+		"filename": "data.txt",
+		"contents": "hello, world!",
+	})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldNotBeNil)
+	dataFullPath, ok := resp["fullpath"].(string)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, dataFullPath, test.ShouldEqual, filepath.Join(testViamHomeDir, "module-data", "local", "test-module", "data.txt"))
+	dataFileContents, err := os.ReadFile(dataFullPath)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, string(dataFileContents), test.ShouldEqual, "hello, world!")
+
+	err = mgr.RemoveResource(ctx, rNameMyHelper)
+	test.That(t, err, test.ShouldBeNil)
+	_, err = mgr.Remove("test-module")
+	test.That(t, err, test.ShouldBeNil)
+	// test that the data directory is cleaned up
+	err = mgr.CleanModuleDataDirectory()
+	test.That(t, err, test.ShouldBeNil)
+	_, err = os.Stat(filepath.Join(testViamHomeDir, "module-data", "local"))
+	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "no such file or directory")
+
+	err = mgr.Close(ctx)
+	test.That(t, err, test.ShouldBeNil)
 }

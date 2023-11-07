@@ -2,7 +2,6 @@ package module
 
 import (
 	"context"
-	"crypto/sha256"
 	"fmt"
 	"net"
 	"os"

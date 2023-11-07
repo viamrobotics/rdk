@@ -26,12 +26,6 @@ service GizmoService {
     };
   }
 
-  rpc DoWriteDataFile(DoWriteDataFileRequest) returns (DoWriteDataFileResponse) {
-    option (google.api.http) = {
-      post: "/acme/api/v1/component/gizmo/{name}/do_write_data_file"
-    };
-  }
-
   rpc DoCommand(DoCommandRequest) returns (DoCommandResponse) {
     option (google.api.http) = {
       post: "/acme/api/v1/component/gizmo/{name}/do_command"
@@ -82,16 +76,6 @@ message DoTwoRequest {
 
 message DoTwoResponse {
   string ret1 = 1;
-}
-
-message DoWriteDataFileRequest {
-  string name = 1;
-  string filename = 2;
-  string contents = 3;
-}
-
-message DoWriteDataFileResponse {
-  string full_path = 1;
 }
 
 message DoCommandRequest {

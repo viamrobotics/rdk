@@ -944,7 +944,7 @@ func DepsToNames(deps resource.Dependencies) []string {
 // For cloud robots, it will generate a directory in the form:
 // options.ViamHomeDir/module-data/<cloud-robot-id>
 // For local robots, it should be in the form
-// options.ViamHomeDir/module-data/local
+// options.ViamHomeDir/module-data/local.
 func getModuleDataParentDirectory(options modmanageroptions.Options) string {
 	// if the home directory is empty, this is probably being run from an unrelated test
 	// and creating a file could lead to race conditions
