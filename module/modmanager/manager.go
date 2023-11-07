@@ -940,11 +940,13 @@ func DepsToNames(deps resource.Dependencies) []string {
 }
 
 // getModuleDataParentDirectory generates the Manager's moduleDataParentDirectory.
-// it should be empty if the ViamHomeDir is empty (indicating that no directories)
+// This directory will should contain exactly one directory for each module present on the modmanager
 // For cloud robots, it will generate a directory in the form:
 // options.ViamHomeDir/module-data/<cloud-robot-id>
 // For local robots, it should be in the form
 // options.ViamHomeDir/module-data/local.
+//
+// If no ViamHomeDir is provided, this will return an empty moduleDataParentDirectory (and no module data directories will be created).
 func getModuleDataParentDirectory(options modmanageroptions.Options) string {
 	// if the home directory is empty, this is probably being run from an unrelated test
 	// and creating a file could lead to race conditions
