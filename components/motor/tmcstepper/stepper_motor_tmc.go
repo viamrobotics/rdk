@@ -155,7 +155,6 @@ func NewMotor(ctx context.Context, deps resource.Dependencies, c TMC5072Config, 
 	return makeMotor(ctx, deps, c, name, logger, bus)
 }
 
-
 // makeMotor returns a TMC5072 driven motor. It is separate from NewMotor, above, so you can inject
 // a mock SPI bus in here during testing.
 func makeMotor(ctx context.Context, deps resource.Dependencies, c TMC5072Config, name resource.Name,

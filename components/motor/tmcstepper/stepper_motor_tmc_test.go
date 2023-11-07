@@ -83,13 +83,11 @@ func TestRPMBounds(t *testing.T) {
 	})
 
 	name := resource.NewName(motor.API, "motor1")
-	m, err := makeMotor(ctx, deps, mc, name, logger, &fakeSpi)
+	motorDep, err := makeMotor(ctx, deps, mc, name, logger, &fakeSpi)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
-		test.That(t, m.Close(context.Background()), test.ShouldBeNil)
+		test.That(t, motorDep.Close(context.Background()), test.ShouldBeNil)
 	}()
-	motorDep, ok := m.(motor.Motor)
-	test.That(t, ok, test.ShouldBeTrue)
 
 	test.That(t, motorDep.GoFor(ctx, 0.05, 6.6, nil), test.ShouldNotBeNil)
 	allObs := obs.All()
@@ -161,14 +159,11 @@ func TestTMCStepperMotor(t *testing.T) {
 	})
 
 	name := resource.NewName(motor.API, "motor1")
-	m, err := makeMotor(ctx, deps, mc, name, logger, &fakeSpi)
+	motorDep, err := makeMotor(ctx, deps, mc, name, logger, &fakeSpi)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
-		test.That(t, m.Close(context.Background()), test.ShouldBeNil)
+		test.That(t, motorDep.Close(context.Background()), test.ShouldBeNil)
 	}()
-	motorDep, ok := m.(motor.Motor)
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, ok, test.ShouldBeTrue)
 
 	t.Run("motor supports position reporting", func(t *testing.T) {
 		properties, err := motorDep.Properties(ctx, nil)
