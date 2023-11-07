@@ -137,7 +137,7 @@ loop:
 			payload := C.GoBytes(unsafe.Pointer(pkt.Data()), C.int(pkt.Size()))
 			bytes = append(bytes, payload...)
 			pkt.Unref()
-		case avutil.ErrorEAGAIN:
+		case avutil.EAGAIN, avutil.EOF:
 			break loop
 		default:
 			return nil, avutil.ErrorFromCode(ret)

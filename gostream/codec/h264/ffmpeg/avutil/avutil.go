@@ -88,8 +88,10 @@ func (f *Frame) SetFramePTS(pts int64) {
 }
 
 const (
-	// ErrorEAGAIN Resource temporarily unavailable
-	ErrorEAGAIN = -11
+	// EAGAIN Resource temporarily unavailable
+	EAGAIN = -11
+	// EOF End of file
+	EOF = int(C.AVERROR_EOF)
 	// Success no errors
 	Success = 0
 )
