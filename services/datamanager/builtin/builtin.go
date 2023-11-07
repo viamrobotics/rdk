@@ -353,6 +353,8 @@ func (svc *builtIn) initSyncer(ctx context.Context) error {
 //       If so, how could a user cancel it?
 
 // Sync performs a non-scheduled sync of the data in the capture directory.
+// If automated sync is also enabled, calling Sync will upload the files,
+// regardless of whether or not is the scheduled time.
 func (svc *builtIn) Sync(ctx context.Context, _ map[string]interface{}) error {
 	svc.lock.Lock()
 	defer svc.lock.Unlock()
@@ -544,8 +546,7 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 			case <-svc.syncTicker.C:
 				svc.lock.Lock()
 				if svc.syncer != nil {
-					// If selective sync is not enabled (false), we default to not sync until the trigger
-					// condition has been checked. Otherwise, the default behavior is to sync.
+					// If selective sync is disabled, sync. If it is enabled, check the condition below.
 					shouldSync := !svc.selectiveSyncEnabled
 					// If selective sync is enabled and the sensor has been properly initialized,
 					// try to get the reading from the selective sensor that indicates whether to sync
