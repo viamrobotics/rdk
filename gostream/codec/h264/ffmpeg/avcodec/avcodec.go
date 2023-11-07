@@ -4,8 +4,8 @@
 // See: https://github.com/FFmpeg/FFmpeg/tree/release/4.4
 package avcodec
 
-//#cgo linux,arm64 CFLAGS: -Wno-deprecated-declarations -I${SRCDIR}/../Linux-aarch64/include
-//#cgo linux,arm64 LDFLAGS: -L${SRCDIR}/../Linux-aarch64/lib -lavformat -lavcodec -lavutil
+//#cgo CFLAGS: -Wno-deprecated-declarations -I${SRCDIR}/../Linux-aarch64/include
+//#cgo LDFLAGS: -L${SRCDIR}/../Linux-aarch64/lib -lavformat -lavcodec -lavutil
 //#include <libavformat/avformat.h>
 //#include <libavcodec/avcodec.h>
 //#include <libavcodec/packet.h>
