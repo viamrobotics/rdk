@@ -22,12 +22,11 @@ import (
 )
 
 const (
-	defaultGoalCheck = 5   // Check if the goal is reachable every this many iterations
-	defaultAutoBB    = 0.5 // Automatic bounding box on driveable area as a multiple of start-goal distance
+	defaultAutoBB = 0.8 // Automatic bounding box on driveable area as a multiple of start-goal distance
 	// Note: while fully holonomic planners can use the limits of the frame as implicit boundaries, with non-holonomic motion
 	// this is not the case, and the total workspace available to the planned frame is not directly related to the motion available
 	// from a single set of inputs.
-	autoBBscale = 3.
+	autoBBscale = 5.
 
 	// whether to add intermediate waypoints.
 	defaultAddInt = true
@@ -37,7 +36,7 @@ const (
 
 	// Don't add new RRT tree nodes if there is an existing node within this distance.
 	// Consider nodes on trees to be connected if they are within this distance.
-	defaultIdenticalNodeDistance = 15.
+	defaultIdenticalNodeDistance = 30.
 
 	// When extending the RRT tree towards some point, do not extend more than this many times in a single RRT invocation.
 	defaultMaxReseeds = 50
@@ -52,8 +51,8 @@ const (
 	defaultBidirectional = true
 
 	// default motion planning collision resolution is every 2mm.
-	// For bases we increase this to 30mm, a bit more than 1 inch
-	defaultPTGCollisionResolution = 60
+	// For bases we increase this to 30mm, a bit more than 1 inch.
+	defaultPTGCollisionResolution = 30
 
 	// If we are checking a long trajectory for collisions, then collisions become very likely, especially on a SLAM map.
 	// Rather than excluding any trajectory with a collision, we could return the last valid node, but that would yield a node pressed up
@@ -63,7 +62,7 @@ const (
 	defaultCollisionWalkbackPct = 0.75
 
 	// Print very fine-grained debug info. Useful for observing the inner RRT tree structure directly.
-	pathdebug = true
+	pathdebug = false
 )
 
 var defaultGoalMetricConstructor = ik.NewSquaredNormMetric
@@ -72,8 +71,6 @@ var defaultGoalMetricConstructor = ik.NewSquaredNormMetric
 var defaultPosOnlyGoalMetricConstructor = ik.NewPositionOnlyMetric
 
 type tpspaceOptions struct {
-	goalCheck int // Check if goal is reachable every this many iters
-
 	// TODO: base this on frame limits?
 	autoBB float64 // Automatic bounding box on driveable area as a multiple of start-goal distance
 
@@ -349,12 +346,11 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 			paths := [][]node{}
 			attempts := 0
 			for goalMapNode := range rrt.maps.goalMap {
-				
 				if ctx.Err() != nil {
 					rrt.solutionChan <- &rrtPlanReturn{planerr: fmt.Errorf("TP Space RRT timeout %w", ctx.Err()), maps: rrt.maps}
 					return
 				}
-				
+
 				// Exhaustively iterating the goal map gets *very* expensive, so we only iterate a given number of times
 				if attempts > defaultMaxConnectAttempts {
 					break
@@ -383,7 +379,6 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 					reachedDelta = mp.planOpts.goalMetric(&ik.State{Position: seedReached.node.Pose()})
 				}
 				if reachedDelta <= mp.algOpts.poseSolveDist {
-					fmt.Println("Connected!!!!")
 					// If we've reached the goal, extract the path from the RRT trees and return
 					path := extractPath(rrt.maps.startMap, rrt.maps.goalMap, &nodePair{a: seedReached.node, b: goalMapNode}, false)
 					paths = append(paths, path)
@@ -749,7 +744,7 @@ func (mp *tpSpaceRRTMotionPlanner) extendMap(
 							addedNode = &basicNode{
 								q:      referenceframe.FloatsToInputs([]float64{float64(ptgNum), trajPt.Alpha, trajPt.Dist}),
 								cost:   trajPt.Dist,
-								pose:   trajState.Position,
+								pose:   goodNode.Pose(),
 								corner: false,
 							}
 						}
@@ -773,8 +768,7 @@ func (mp *tpSpaceRRTMotionPlanner) extendMap(
 
 func (mp *tpSpaceRRTMotionPlanner) setupTPSpaceOptions() {
 	tpOpt := &tpspaceOptions{
-		goalCheck: defaultGoalCheck,
-		autoBB:    defaultAutoBB,
+		autoBB: defaultAutoBB,
 
 		addIntermediate:   defaultAddInt,
 		addNodeEvery:      defaultAddNodeEvery,

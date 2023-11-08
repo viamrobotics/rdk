@@ -27,20 +27,20 @@ const (
 const (
 	defaultRefDistFar         = 100000 // 100 meters
 	defaultRefDistHalfCircles = 0.9
-	defaultTrajCount          = 2
+	defaultTrajCount          = 3
 )
 
 type ptgFactory func(float64, float64) PTG
 
 var defaultRestrictedPtgs = []ptgFactory{
-	//~ NewCirclePTG,
-	//~ NewCCPTG,
+	NewCirclePTG,
+	NewCCPTG,
 }
 
 var defaultPTGs = []ptgFactory{
 	NewCCSPTG,
 	NewCSPTG,
-	//~ NewSideSPTG,
+	NewSideSPTG,
 	NewSideSOverturnPTG,
 }
 
