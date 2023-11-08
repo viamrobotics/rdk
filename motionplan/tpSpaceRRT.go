@@ -816,7 +816,7 @@ func (mp *tpSpaceRRTMotionPlanner) make2DTPSpaceDistanceOptions(ptg tpspace.PTGS
 }
 
 func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) []node {
-	toIter := int(math.Min(float64(len(path)*len(path))/2, float64(mp.planOpts.SmoothIter)))
+	toIter := int(math.Min(float64(len(path)*len(path))/5, float64(mp.planOpts.SmoothIter)))
 	currCost := sumCosts(path)
 
 	maxCost := math.Inf(-1)
