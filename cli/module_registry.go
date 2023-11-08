@@ -393,7 +393,29 @@ func (c *viamClient) uploadModuleFile(
 	return resp, errs
 }
 
-func validateModuleFile(client *viamClient, tarballPath, entrypoint string) error {
+func validateModule(client *viamClient, tarballPath, entrypoint, platform string) error {
+	tempDir := os.TempDir()
+	//nolint:errcheck
+	defer os.Remove(tempDir)
+	err := unpackArchive(tarballPath, tempDir)
+	if err != nil {
+		return errors.Wrapf(err, "failed to unpack archive for validation")
+	}
+	if err := validateModuleEntrypoint(client, tempDir, entrypoint); err != nil {
+		return err
+	}
+	return nil
+
+}
+
+// validateModuleEntrypoint should only be called from validateModule
+func validateModuleEntrypoint(client *viamClient, moduleRoot, entrypoint string) error {
+	entrypointPath := filepath.Join(moduleRoot, entrypoint)
+	entrypointStat, err := os.Stat(entrypointPath)
+	if err != nil {
+		return err
+	}
+
 	//nolint:gosec
 	file, err := os.Open(tarballPath)
 	if err != nil {
@@ -452,19 +474,27 @@ func validateModuleFile(client *viamClient, tarballPath, entrypoint string) erro
 		entrypoint, extraErrInfo)
 }
 
-func validateDynamicExecutableLinkedLibaries(client *viamClient, tarballPath, entrypoint, platform string) error {
+func getSymlinksThatPointOfModuleRoot(moduleRoot string) (map[string]string, error) {
+	filepath.WalkDir(moduleRoot, func(path string, info fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		// ignore all files that aren't symlinks
+		if info.Type()&fs.ModeType&fs.ModeSymlink == 0 {
+			return nil
+		}
+
+	})
+	return nil, nil
+
+}
+
+func validateDynamicExecutableLinkedLibaries(client *viamClient, moduleRoot, entrypoint, platform string) error {
 	if runtime.GOOS != "linux" || !strings.HasPrefix(platform, "linux") {
 		return nil
 	}
-	tempDir := os.TempDir()
-	//nolint:errcheck
-	defer os.Remove(tempDir)
-	err := unpackArchive(tarballPath, tempDir)
-	if err != nil {
-		return errors.Wrapf(err, "failed to unpack archive for validation")
-	}
 	//nolint:gosec
-	cmd := exec.Command("ldd", filepath.Join(tempDir, entrypoint))
+	cmd := exec.Command("ldd", filepath.Join(moduleRoot, entrypoint))
 	out, err := cmd.Output()
 	if err != nil {
 		//nolint:errorlint
@@ -482,7 +512,7 @@ func validateDynamicExecutableLinkedLibaries(client *viamClient, tarballPath, en
 		"ld-linux",
 		"glibc",
 		"linux-vdso",
-		tempDir,
+		moduleRoot,
 	}
 	lines := strings.Split(string(out), "\n")
 	for _, line := range lines {

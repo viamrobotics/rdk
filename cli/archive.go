@@ -181,7 +181,7 @@ func unpackArchive(fromFile, toDir string) error {
 			if err := os.MkdirAll(parent, info.Mode()); err != nil {
 				return errors.Wrapf(err, "failed to create directory %q", parent)
 			}
-			//nolint:gosec // path sanitized with safeJoin
+			//nolint:gosec
 			outFile, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600|info.Mode().Perm())
 			if err != nil {
 				return errors.Wrapf(err, "failed to create file %s", path)
