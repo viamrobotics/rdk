@@ -42,7 +42,7 @@ const (
 )
 
 // CreateSocketAddress returns a socket address of the form parentDir/desiredName.sock
-// if it is shorter than the sockeMaxAddressLength. If this path would be too long, this function
+// if it is shorter than the socketMaxAddressLength. If this path would be too long, this function
 // truncates desiredName and returns parentDir/truncatedName-hashOfDesiredName.sock.
 //
 // Importantly, this function will return the same socket address as long as the desiredName doesn't change.
