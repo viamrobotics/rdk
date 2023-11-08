@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
-	"regexp"
+	"strings"
 	"testing"
 
 	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
@@ -678,10 +678,11 @@ func TestModuleSocketAddrTruncation(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, path, test.ShouldEqual, "/tmp/my-cool-module.sock")
 
-	// test exactly 104
+	// test exactly 103
 	path, err = module.CreateSocketAddress(
 		"/tmp",
-		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		// 103 - len("/tmp/") - len(".sock")
+		strings.Repeat("a", 93),
 	)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, path, test.ShouldHaveLength, 103)
@@ -689,21 +690,22 @@ func TestModuleSocketAddrTruncation(t *testing.T) {
 		"/tmp/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.sock",
 	)
 
-	// test 105 chars
+	// test 104 chars
 	path, err = module.CreateSocketAddress(
 		"/tmp",
-		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		// 103 - len("/tmp/") - len(".sock") + 1 more character to trigger truncation
+		strings.Repeat("a", 94),
 	)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, path, test.ShouldHaveLength, 103)
-	matches, err := regexp.MatchString(`\/tmp\/a+-.{5}\.sock`, path)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, matches, test.ShouldBeTrue)
+	// test that creating a new socket address with the same name produces the same truncated address
+	test.That(t, path, test.ShouldEndWith, "-QUEUU.sock")
 
 	// test with an extra-long base path
 	_, err = module.CreateSocketAddress(
-		"/var/folders/pc/yyrlrx8n0yq_xr550xh62pq80000gn/T/viam-module-29232730790000000000000000000000000000000000",
+		// 103 - len("/a.sock") + 1 more character to trigger truncation
+		strings.Repeat("a", 98),
 		"a",
 	)
-	test.That(t, err, test.ShouldBeError)
+	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "module socket base path")
 }
