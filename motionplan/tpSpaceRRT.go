@@ -21,21 +21,6 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-/*
- * 
-
-Notes:
-Seeing DiffDrive PTG report translation way beyond what it should be
-* dist of 316 somehow giving over 400 y
-i 0
-maxReseeds 1
-failed at dist 316.627846555206 adding dist 237.47088491640451
-49605.50470916047 x:290.7308957746084  y:406.02280535197616  o_z:1.0000000000000002  theta:-35.60439560439559
-cand &{49605.50470916047 0xc001ed83c0 [0xc002094b40] <nil>} err <nil>
-
-
-*/
-
 const (
 	defaultGoalCheck = 5   // Check if the goal is reachable every this many iterations
 	defaultAutoBB    = 0.8 // Automatic bounding box on driveable area as a multiple of start-goal distance
