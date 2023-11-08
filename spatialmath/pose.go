@@ -180,7 +180,7 @@ func PoseAlmostEqual(a, b Pose) bool {
 
 // PoseAlmostEqualEps will return a bool describing whether 2 poses are approximately the same.
 func PoseAlmostEqualEps(a, b Pose, epsilon float64) bool {
-	return PoseAlmostCoincidentEps(a, b, epsilon) && OrientationAlmostEqual(a.Orientation(), b.Orientation())
+	return PoseAlmostCoincidentEps(a, b, epsilon) && OrientationAlmostEqualEps(a.Orientation(), b.Orientation(), epsilon)
 }
 
 // PoseAlmostCoincident will return a bool describing whether 2 poses approximately are at the same 3D coordinate location.
