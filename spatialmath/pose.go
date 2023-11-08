@@ -239,7 +239,7 @@ func NewURDFPoseXML(p Pose) *URDFPoseXML {
 	}
 }
 
-func (urdf *URDFPoseXML) ToPose() Pose {
+func (urdf *URDFPoseXML) parse() Pose {
 	// Offset for the geometry origin from the reference link origin
 	xyz := spaceDelimitedStringToSlice(urdf.XYZ)
 	rpy := spaceDelimitedStringToSlice(urdf.RPY)

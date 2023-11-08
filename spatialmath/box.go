@@ -2,6 +2,7 @@ package spatialmath
 
 import (
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
 	"math"
 	"sync"
@@ -490,4 +491,13 @@ func transformPointsToPose(facePoints []r3.Vector, pose Pose) []r3.Vector {
 		transformedVectors = append(transformedVectors, transformedVec)
 	}
 	return transformedVectors
+}
+
+type urdfBoxXML struct {
+	XMLName xml.Name `xml:"box"`
+	Size    string   `xml:"size,attr"` // "x y z" format, in meters
+}
+
+func newURDFBoxXML(b *box) *urdfBoxXML {
+	return &urdfBoxXML{Size: fmt.Sprintf("%f %f %f", 2*b.halfSize[0], 2*b.halfSize[1], 2*b.halfSize[2])}
 }

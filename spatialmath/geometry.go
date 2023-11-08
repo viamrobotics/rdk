@@ -191,31 +191,26 @@ func (config *GeometryConfig) ToProtobuf() (*commonpb.Geometry, error) {
 
 // URDFCollisionXML is a struct which details the XML used in a URDF collision geometry
 type URDFCollisionXML struct {
-	XMLName  xml.Name    `xml:"collision"`
-	Name     string      `xml:"name,attr"`
-	Origin   URDFPoseXML `xml:"origin"`
+	XMLName  xml.Name     `xml:"collision"`
+	Name     string       `xml:"name,attr"`
+	Origin   *URDFPoseXML `xml:"origin"`
 	Geometry struct {
-		XMLName xml.Name `xml:"geometry"`
-		Box     struct {
-			XMLName xml.Name `xml:"box"`
-			Size    string   `xml:"size,attr"` // "x y z" format, in meters
-		} `xml:"box,omitempty"`
-		Sphere struct {
-			XMLName xml.Name `xml:"sphere"`
-			Radius  float64  `xml:"radius,attr"` // in meters
-		} `xml:"sphere,omitempty"`
+		XMLName xml.Name       `xml:"geometry"`
+		Box     *urdfBoxXML    `xml:"box,omitempty"`
+		Sphere  *urdfSphereXML `xml:"sphere,omitempty"`
 	} `xml:"geometry"`
 }
 
 func NewURDFCollisionXML(g Geometry) (*URDFCollisionXML, error) {
 	urdf := &URDFCollisionXML{
-		Name: g.Label(),
+		Name:   g.Label(),
+		Origin: NewURDFPoseXML(g.Pose()),
 	}
 	switch gType := g.(type) {
 	case *box:
-		urdf.Geometry.Box.Size = fmt.Sprintf("%f %f %f", 2*gType.halfSize[0], 2*gType.halfSize[1], 2*gType.halfSize[2])
+		urdf.Geometry.Box = newURDFBoxXML(gType)
 	case *sphere:
-		urdf.Geometry.Sphere.Radius = gType.radius
+		urdf.Geometry.Sphere = newURDFSphereXML(gType)
 	default:
 		return nil, fmt.Errorf("%w %s", errGeometryTypeUnsupported, fmt.Sprintf("%T", gType))
 	}
