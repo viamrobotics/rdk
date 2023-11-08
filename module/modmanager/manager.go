@@ -159,6 +159,7 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, conn *grpc.Clie
 	}
 
 	var moduleDataDir string
+	// only set the module data directory if the parent dir is present (which it might not be during tests)
 	if mgr.moduleDataParentDir != "" {
 		moduleDataDir = filepath.Join(mgr.moduleDataParentDir, conf.Name)
 		// safety check to prevent exiting the moduleDataDirectory in case conf.Name ends up including characters like ".."
