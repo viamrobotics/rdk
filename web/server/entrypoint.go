@@ -106,7 +106,9 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	}
 
 	if argsParsed.Logging {
-		utils.UncheckedError(vlogging.GLoggerCamComp.Start(ctx))
+		if err := vlogging.GLoggerCamComp.Start(ctx); err != nil && argsParsed.Debug {
+			logger.Warn(err)
+		}
 	}
 
 	// Read the config from disk and use it to initialize the remote logger.

@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"io/fs"
-	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -36,8 +35,8 @@ func init() {
 	filePath = filepath.Join(config.ViamDotDir, "debug", "components", "camera", fmt.Sprintf("%s.txt", t))
 
 	var err error
-	if GLoggerCamComp, err = NewLogger(); err != nil && !errors.Is(err, UnsupportedError{}) {
-		log.Println("cannot create new logger: ", err)
+	if GLoggerCamComp, err = NewLogger(); err != nil {
+		logging.NewDebugLogger("camera").Info(err)
 	}
 }
 
@@ -64,18 +63,11 @@ const (
 	linux    = "linux"
 )
 
-// UnsupportedError indicates this feature is not supported on the current platform.
-type UnsupportedError struct{}
-
-func (e UnsupportedError) Error() string {
-	return "unsupported OS: cannot emit logs to file for camera component"
-}
-
 // NewLogger creates a new logger. Call Logger.Start to start logging.
 func NewLogger() (*Logger, error) {
 	// TODO: support non-Linux platforms
 	if runtime.GOOS != linux {
-		return nil, UnsupportedError{}
+		return nil, errors.Errorf("camera logger not supported on OS %s", runtime.GOOS)
 	}
 
 	dir := filepath.Dir(filePath)
@@ -120,11 +112,6 @@ func NewLogger() (*Logger, error) {
 
 // Start creates and initializes the logging file and periodically emits logs to it. This method is thread-safe.
 func (l *Logger) Start(ctx context.Context) error {
-	// TODO: support non-Linux platforms
-	if runtime.GOOS != linux {
-		return UnsupportedError{}
-	}
-
 	if l == nil {
 		return nil
 	}
@@ -165,11 +152,6 @@ func (l *Logger) Start(ctx context.Context) error {
 
 // Log emits the data stored in the given InfoMap with the given title to the log file. This method is thread-safe.
 func (l *Logger) Log(title string, m InfoMap) error {
-	// TODO: support non-Linux platforms
-	if runtime.GOOS != linux {
-		return UnsupportedError{}
-	}
-
 	if l == nil {
 		return nil
 	}
