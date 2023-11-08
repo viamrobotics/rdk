@@ -101,9 +101,9 @@ type Manager struct {
 	rMap         map[resource.Name]*module
 	untrustedEnv bool
 	// viamHomeDir is the absolute path to the viam home directory. Ex: /home/walle/.viam
-	// it is empty if the modmanageroptions.Options.viamHomeDir was empty
+	// `viamHomeDir` may only be the empty string in testing
 	viamHomeDir string
-	// moduleDataParentDir is the  absolute path to the current robots module data directory.
+	// moduleDataParentDir is the absolute path to the current robots module data directory.
 	// Ex: /home/walle/.viam/module-data/<cloud-robot-id>
 	// it is empty if the modmanageroptions.Options.viamHomeDir was empty
 	moduleDataParentDir     string
@@ -544,6 +544,7 @@ func (mgr *Manager) getModule(conf resource.Config) (*module, bool) {
 }
 
 // CleanModuleDataDirectory removes unexpected folders and files from the robot's module data directory.
+// Modules removed from the robot config (even temporarily) will get pruned here.
 func (mgr *Manager) CleanModuleDataDirectory() error {
 	if mgr.moduleDataParentDir == "" {
 		return errors.New("cannot clean a root level module data directory")
@@ -940,7 +941,7 @@ func DepsToNames(deps resource.Dependencies) []string {
 }
 
 // getModuleDataParentDirectory generates the Manager's moduleDataParentDirectory.
-// This directory will should contain exactly one directory for each module present on the modmanager
+// This directory should contain exactly one directory for each module present on the modmanager
 // For cloud robots, it will generate a directory in the form:
 // options.ViamHomeDir/module-data/<cloud-robot-id>
 // For local robots, it should be in the form
