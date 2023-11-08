@@ -92,11 +92,15 @@ func (manager *resourceManager) startModuleManager(
 	parentAddr string,
 	removeOrphanedResources func(context.Context, []resource.Name),
 	untrustedEnv bool,
+	viamHomeDir string,
+	robotCloudID string,
 	logger logging.Logger,
 ) {
 	mmOpts := modmanageroptions.Options{
 		UntrustedEnv:            untrustedEnv,
 		RemoveOrphanedResources: removeOrphanedResources,
+		ViamHomeDir:             viamHomeDir,
+		RobotCloudID:            robotCloudID,
 	}
 	manager.moduleManager = modmanager.NewManager(parentAddr, logger, mmOpts)
 }
@@ -960,6 +964,7 @@ func (manager *resourceManager) updateResources(
 			manager.logger.Errorw("process config validation error; skipping", "process", p.Name, "error", err)
 			continue
 		}
+
 		_, err := manager.processManager.AddProcessFromConfig(ctx, p)
 		if err != nil {
 			manager.logger.Errorw("error while adding process; skipping", "process", p.ID, "error", err)
@@ -989,6 +994,7 @@ func (manager *resourceManager) updateResources(
 			manager.logger.Errorw("process config validation error; skipping", "process", p.Name, "error", err)
 			continue
 		}
+
 		_, err := manager.processManager.AddProcessFromConfig(ctx, p)
 		if err != nil {
 			manager.logger.Errorw("error while changing process; skipping", "process", p.ID, "error", err)
