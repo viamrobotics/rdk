@@ -94,15 +94,15 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context,
 
 	if pathdebug {
 		pm.logger.Debug("$type,X,Y")
-		pm.logger.Debugf("$SG,%f,%f\n", 0., 0.)
-		pm.logger.Debugf("$SG,%f,%f\n", goalPos.Point().X, goalPos.Point().Y)
+		pm.logger.Debugf("$SG,%f,%f", 0., 0.)
+		pm.logger.Debugf("$SG,%f,%f", goalPos.Point().X, goalPos.Point().Y)
 		gifs, err := worldState.ObstaclesInWorldFrame(pm.fs, seedMap)
 		if err == nil {
 			for _, geom := range gifs.Geometries() {
 				pts := geom.ToPoints(1.)
 				for _, pt := range pts {
 					if math.Abs(pt.Z) < 0.1 {
-						pm.logger.Debugf("$OBS,%f,%f\n", pt.X, pt.Y)
+						pm.logger.Debugf("$OBS,%f,%f", pt.X, pt.Y)
 					}
 				}
 			}

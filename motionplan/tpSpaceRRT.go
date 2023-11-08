@@ -247,9 +247,9 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 				for i, pt := range trajPts {
 					intPose := spatialmath.Compose(lastPose, pt.Pose)
 					if i == 0 {
-						mp.logger.Debugf("$WP,%f,%f\n", intPose.Point().X, intPose.Point().Y)
+						mp.logger.Debugf("$WP,%f,%f", intPose.Point().X, intPose.Point().Y)
 					}
-					mp.logger.Debugf("$FINALPATH,%f,%f\n", intPose.Point().X, intPose.Point().Y)
+					mp.logger.Debugf("$FINALPATH,%f,%f", intPose.Point().X, intPose.Point().Y)
 					if i == len(trajPts)-1 {
 						lastPose = intPose
 						break
@@ -710,9 +710,9 @@ func (mp *tpSpaceRRTMotionPlanner) extendMap(
 				trajState = &ik.State{Position: spatialmath.Compose(arcStartPose, trajPt.Pose)}
 				if pathdebug {
 					if !invert {
-						mp.logger.Debugf("$FWDTREE,%f,%f\n", trajState.Position.Point().X, trajState.Position.Point().Y)
+						mp.logger.Debugf("$FWDTREE,%f,%f", trajState.Position.Point().X, trajState.Position.Point().Y)
 					} else {
-						mp.logger.Debugf("$REVTREE,%f,%f\n", trajState.Position.Point().X, trajState.Position.Point().Y)
+						mp.logger.Debugf("$REVTREE,%f,%f", trajState.Position.Point().X, trajState.Position.Point().Y)
 					}
 				}
 				sinceLastNode += (trajPt.Dist - lastDist)
@@ -733,7 +733,7 @@ func (mp *tpSpaceRRTMotionPlanner) extendMap(
 				lastDist = trajPt.Dist
 			}
 			if pathdebug {
-				mp.logger.Debugf("$WPI,%f,%f\n", trajState.Position.Point().X, trajState.Position.Point().Y)
+				mp.logger.Debugf("$WPI,%f,%f", trajState.Position.Point().X, trajState.Position.Point().Y)
 			}
 		}
 		rrt[newNode] = treeNode
@@ -877,9 +877,9 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 			for i, pt := range trajPts {
 				intPose := spatialmath.Compose(lastPose, pt.Pose)
 				if i == 0 {
-					mp.logger.Debugf("$SMOOTHWP,%f,%f\n", intPose.Point().X, intPose.Point().Y)
+					mp.logger.Debugf("$SMOOTHWP,%f,%f", intPose.Point().X, intPose.Point().Y)
 				}
-				mp.logger.Debugf("$SMOOTHPATH,%f,%f\n", intPose.Point().X, intPose.Point().Y)
+				mp.logger.Debugf("$SMOOTHPATH,%f,%f", intPose.Point().X, intPose.Point().Y)
 				if pt.Dist >= mynode.Q()[2].Value {
 					lastPose = intPose
 					break
@@ -950,7 +950,7 @@ func (mp *tpSpaceRRTMotionPlanner) sample(rSeed node, iter int) (node, error) {
 	if dist == 0 {
 		dist = 1.0
 	}
-	rDist := dist * (mp.algOpts.autoBB + float64(iter)/10.)
+	rDist := dist * (mp.algOpts.autoBB + float64(iter)/2.)
 	randPosX := float64(mp.randseed.Intn(int(rDist)))
 	randPosY := float64(mp.randseed.Intn(int(rDist)))
 	randPosTheta := math.Pi * (mp.randseed.Float64() - 0.5)

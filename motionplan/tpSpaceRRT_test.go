@@ -49,11 +49,6 @@ func TestPtgRrtBidirectional(t *testing.T) {
 	mp, err := newTPSpaceMotionPlanner(ackermanFrame, rand.New(rand.NewSource(42)), logger, opt)
 	test.That(t, err, test.ShouldBeNil)
 	tp, ok := mp.(*tpSpaceRRTMotionPlanner)
-	if pathdebug {
-		tp.logger.Debug("$type,X,Y")
-		tp.logger.Debugf("$SG,%f,%f\n", 0., 0.)
-		tp.logger.Debugf("$SG,%f,%f\n", goalPos.Point().X, goalPos.Point().Y)
-	}
 	test.That(t, ok, test.ShouldBeTrue)
 	plan, err := tp.plan(ctx, goalPos, nil)
 	test.That(t, err, test.ShouldBeNil)
@@ -97,11 +92,6 @@ func TestPtgPosOnlyUnidirectional(t *testing.T) {
 	tp, ok := mp.(*tpSpaceRRTMotionPlanner)
 
 	test.That(t, tp.algOpts.bidirectional, test.ShouldBeFalse)
-	if pathdebug {
-		tp.logger.Debug("$type,X,Y")
-		tp.logger.Debugf("$SG,%f,%f\n", 0., 0.)
-		tp.logger.Debugf("$SG,%f,%f\n", goalPos.Point().X, goalPos.Point().Y)
-	}
 	test.That(t, ok, test.ShouldBeTrue)
 	plan, err := tp.plan(ctx, goalPos, nil)
 	test.That(t, err, test.ShouldBeNil)
@@ -182,19 +172,6 @@ func TestPtgWithObstacle(t *testing.T) {
 	mp, err := newTPSpaceMotionPlanner(ackermanFrame, rand.New(rand.NewSource(44)), logger, opt)
 	test.That(t, err, test.ShouldBeNil)
 	tp, _ := mp.(*tpSpaceRRTMotionPlanner)
-	if pathdebug {
-		tp.logger.Debug("$type,X,Y")
-		for _, geom := range geoms {
-			pts := geom.ToPoints(1.)
-			for _, pt := range pts {
-				if math.Abs(pt.Z) < 0.1 {
-					tp.logger.Debugf("$OBS,%f,%f\n", pt.X, pt.Y)
-				}
-			}
-		}
-		tp.logger.Debugf("$SG,%f,%f\n", 0., 0.)
-		tp.logger.Debugf("$SG,%f,%f\n", goalPos.Point().X, goalPos.Point().Y)
-	}
 	plan, err := tp.plan(ctx, goalPos, nil)
 
 	test.That(t, err, test.ShouldBeNil)
