@@ -665,11 +665,9 @@ func TestDebugModule(t *testing.T) {
 func TestModuleDataDirectoryFullstack(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
-	// This cannot use t.TempDir() as the path it gives on MacOS exceeds module.MaxSocketAddressLength.
-	parentAddr, err := os.MkdirTemp("", "viam-test-*")
+
+	parentAddr, err := modlib.CreateSocketAddress(t.TempDir(), "parent")
 	test.That(t, err, test.ShouldBeNil)
-	defer os.RemoveAll(parentAddr)
-	parentAddr += "/parent.sock"
 
 	// Build the testmodule
 	modPath, err := rtestutils.BuildTempModule(t, "module/testmodule")
