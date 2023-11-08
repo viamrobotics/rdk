@@ -92,7 +92,7 @@ func NewCloudManager(
 		packagesDir:     packagesDir,
 		packagesDataDir: packagesDataDir,
 		managedPackages: make(map[PackageName]*managedPackage),
-		logger:          logging.FromZapCompatible(logger.Named("package_manager")),
+		logger:          logger.Sublogger("package_manager"),
 	}, nil
 }
 

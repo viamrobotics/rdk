@@ -137,7 +137,8 @@ type builtIn struct {
 	cloudConn           rpc.ClientConn
 	syncTicker          *clk.Ticker
 
-	syncSensor selectiveSyncer
+	syncSensor           selectiveSyncer
+	selectiveSyncEnabled bool
 }
 
 var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), ".viam", "capture")
@@ -159,6 +160,7 @@ func NewBuiltIn(
 		tags:                   []string{},
 		fileLastModifiedMillis: defaultFileLastModifiedMillis,
 		syncerConstructor:      datasync.NewManager,
+		selectiveSyncEnabled:   false,
 	}
 
 	if err := svc.Reconfigure(ctx, deps, conf); err != nil {
@@ -351,6 +353,8 @@ func (svc *builtIn) initSyncer(ctx context.Context) error {
 //       If so, how could a user cancel it?
 
 // Sync performs a non-scheduled sync of the data in the capture directory.
+// If automated sync is also enabled, calling Sync will upload the files,
+// regardless of whether or not is the scheduled time.
 func (svc *builtIn) Sync(ctx context.Context, _ map[string]interface{}) error {
 	svc.lock.Lock()
 	defer svc.lock.Unlock()
@@ -361,7 +365,7 @@ func (svc *builtIn) Sync(ctx context.Context, _ map[string]interface{}) error {
 		}
 	}
 
-	svc.sync(ctx)
+	svc.sync()
 	return nil
 }
 
@@ -455,10 +459,13 @@ func (svc *builtIn) Reconfigure(
 
 	var syncSensor sensor.Sensor
 	if svcConfig.SelectiveSyncerName != "" {
+		svc.selectiveSyncEnabled = true
 		syncSensor, err = sensor.FromDependencies(deps, svcConfig.SelectiveSyncerName)
 		if err != nil {
-			svc.logger.Errorw("unable to initialize selective syncer", "error", err.Error())
+			svc.logger.Errorw("unable to initialize selective syncer; will not sync at all until fixed or removed from config", "error", err.Error())
 		}
+	} else {
+		svc.selectiveSyncEnabled = false
 	}
 	if svc.syncSensor != syncSensor {
 		svc.syncSensor = syncSensor
@@ -539,7 +546,16 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 			case <-svc.syncTicker.C:
 				svc.lock.Lock()
 				if svc.syncer != nil {
-					svc.sync(cancelCtx)
+					// If selective sync is disabled, sync. If it is enabled, check the condition below.
+					shouldSync := !svc.selectiveSyncEnabled
+					// If selective sync is enabled and the sensor has been properly initialized,
+					// try to get the reading from the selective sensor that indicates whether to sync
+					if svc.syncSensor != nil && svc.selectiveSyncEnabled {
+						shouldSync = readyToSync(cancelCtx, svc.syncSensor, svc.logger)
+					}
+					if shouldSync {
+						svc.sync()
+					}
 				}
 				svc.lock.Unlock()
 			}
@@ -547,22 +563,15 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 	})
 }
 
-func (svc *builtIn) sync(ctx context.Context) {
+func (svc *builtIn) sync() {
 	svc.flushCollectors()
-	shouldSync := true
-	// If selective sync is enabled and the sensor has been properly initialized,
-	// try to get the reading from the selective sensor that indicates whether to sync
-	if svc.syncSensor != nil {
-		shouldSync = readyToSync(ctx, svc.syncSensor, svc.logger)
+
+	toSync := getAllFilesToSync(svc.captureDir, svc.fileLastModifiedMillis)
+	for _, ap := range svc.additionalSyncPaths {
+		toSync = append(toSync, getAllFilesToSync(ap, svc.fileLastModifiedMillis)...)
 	}
-	if shouldSync {
-		toSync := getAllFilesToSync(svc.captureDir, svc.fileLastModifiedMillis)
-		for _, ap := range svc.additionalSyncPaths {
-			toSync = append(toSync, getAllFilesToSync(ap, svc.fileLastModifiedMillis)...)
-		}
-		for _, p := range toSync {
-			svc.syncer.SyncFile(p)
-		}
+	for _, p := range toSync {
+		svc.syncer.SyncFile(p)
 	}
 }
 
