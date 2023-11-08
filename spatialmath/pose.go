@@ -239,10 +239,10 @@ func NewURDFPoseXML(p Pose) *URDFPoseXML {
 	}
 }
 
-func (urdf *URDFPoseXML) parse() Pose {
+func (urdf *URDFPoseXML) Parse() Pose {
 	// Offset for the geometry origin from the reference link origin
-	xyz := spaceDelimitedStringToSlice(urdf.XYZ)
-	rpy := spaceDelimitedStringToSlice(urdf.RPY)
+	xyz := utils.SpaceDelimitedStringToFloatSlice(urdf.XYZ)
+	rpy := utils.SpaceDelimitedStringToFloatSlice(urdf.RPY)
 	return NewPose(
 		r3.Vector{X: xyz[0], Y: xyz[1], Z: xyz[2]},
 		&EulerAngles{Roll: utils.RadToDeg(rpy[0]), Pitch: utils.RadToDeg(rpy[1]), Yaw: utils.RadToDeg(rpy[2])},

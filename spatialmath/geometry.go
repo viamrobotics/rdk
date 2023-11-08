@@ -7,6 +7,7 @@ import (
 
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
+	"go.viam.com/rdk/utils"
 )
 
 // Geometry is an entry point with which to access all types of collision geometries.
@@ -215,4 +216,20 @@ func NewURDFCollisionXML(g Geometry) (*URDFCollisionXML, error) {
 		return nil, fmt.Errorf("%w %s", errGeometryTypeUnsupported, fmt.Sprintf("%T", gType))
 	}
 	return urdf, nil
+}
+
+func (urdf *URDFCollisionXML) Parse() (Geometry, error) {
+	switch {
+	case urdf.Geometry.Box != nil:
+		dims := utils.SpaceDelimitedStringToFloatSlice(urdf.Geometry.Box.Size)
+		return NewBox(
+			urdf.Origin.Parse(),
+			r3.Vector{X: utils.MetersToMM(dims[0]), Y: utils.MetersToMM(dims[1]), Z: utils.MetersToMM(dims[2])},
+			urdf.Name,
+		)
+	case urdf.Geometry.Sphere != nil:
+		return NewSphere(urdf.Origin.Parse(), urdf.Geometry.Sphere.Radius, urdf.Name)
+	default:
+		return nil, fmt.Errorf("couldn't parse xml: no geometry defined")
+	}
 }

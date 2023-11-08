@@ -224,5 +224,5 @@ type urdfSphereXML struct {
 }
 
 func newURDFSphereXML(s *sphere) *urdfSphereXML {
-	return &urdfSphereXML{Radius: s.radius}
+	return &urdfSphereXML{Radius: utils.MMToMeters(s.radius)}
 }

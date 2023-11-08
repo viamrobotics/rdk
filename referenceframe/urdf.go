@@ -4,14 +4,11 @@ import (
 	"encoding/xml"
 	"math"
 	"os"
-	"strconv"
-	"strings"
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/spatialmath"
-	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
 
@@ -32,15 +29,11 @@ type URDFLink struct {
 
 // URDFJoint is a struct which details the XML used in a URDF joint element.
 type URDFJoint struct {
-	XMLName xml.Name `xml:"joint"`
-	Name    string   `xml:"name,attr"`
-	Type    string   `xml:"type,attr"`
-	Origin  struct {
-		XMLName xml.Name `xml:"origin"`
-		RPY     string   `xml:"rpy,attr"` // Fixed frame angle "r p y" format, in radians
-		XYZ     string   `xml:"xyz,attr"` // "x y z" format, in meters
-	} `xml:"origin"`
-	Parent struct {
+	XMLName xml.Name                 `xml:"joint"`
+	Name    string                   `xml:"name,attr"`
+	Type    string                   `xml:"type,attr"`
+	Origin  *spatialmath.URDFPoseXML `xml:"origin"`
+	Parent  struct {
 		XMLName xml.Name `xml:"parent"`
 		Link    string   `xml:"link,attr"`
 	} `xml:"parent"`
@@ -119,12 +112,12 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (*ModelConfig, error)
 		switch jointElem.Type {
 		case ContinuousJoint, RevoluteJoint, PrismaticJoint:
 			// Parse important details about each joint, including axes and limits
-			jointAxes := convStringAttrToFloats(jointElem.Axis.XYZ)
+			jointAxes := utils.SpaceDelimitedStringToFloatSlice(jointElem.Axis.XYZ)
 			thisJoint := JointConfig{
 				ID:     jointElem.Name,
 				Type:   jointElem.Type,
 				Parent: jointElem.Parent.Link,
-				Axis:   spatial.AxisConfig{jointAxes[0], jointAxes[1], jointAxes[2]},
+				Axis:   spatialmath.AxisConfig{jointAxes[0], jointAxes[1], jointAxes[2]},
 			}
 
 			// Slightly different limits handling for continuous, revolute, and prismatic joints
@@ -143,10 +136,10 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (*ModelConfig, error)
 			mc.Joints = append(mc.Joints, thisJoint)
 
 			// Generate child link translation and orientation data, which is held by this joint per the URDF design
-			childXYZ := convStringAttrToFloats(jointElem.Origin.XYZ)
-			childRPY := convStringAttrToFloats(jointElem.Origin.RPY)
-			childEA := spatial.EulerAngles{Roll: childRPY[0], Pitch: childRPY[1], Yaw: childRPY[2]}
-			childOrient, err := spatial.NewOrientationConfig(childEA.AxisAngles())
+			childXYZ := utils.SpaceDelimitedStringToFloatSlice(jointElem.Origin.XYZ)
+			childRPY := utils.SpaceDelimitedStringToFloatSlice(jointElem.Origin.RPY)
+			childEA := spatialmath.EulerAngles{Roll: childRPY[0], Pitch: childRPY[1], Yaw: childRPY[2]}
+			childOrient, err := spatialmath.NewOrientationConfig(childEA.AxisAngles())
 
 			// Note the conversion from meters to mm
 			childLink.Translation = r3.Vector{utils.MetersToMM(childXYZ[0]), utils.MetersToMM(childXYZ[1]), utils.MetersToMM(childXYZ[2])}
@@ -159,10 +152,10 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (*ModelConfig, error)
 			// Handle fixed joint -> static link conversion instead of adding to Joints[]
 			thisLink := LinkConfig{ID: jointElem.Name, Parent: jointElem.Parent.Link}
 
-			linkXYZ := convStringAttrToFloats(jointElem.Origin.XYZ)
-			linkRPY := convStringAttrToFloats(jointElem.Origin.RPY)
-			linkEA := spatial.EulerAngles{Roll: linkRPY[0], Pitch: linkRPY[1], Yaw: linkRPY[2]}
-			linkOrient, err := spatial.NewOrientationConfig(linkEA.AxisAngles())
+			linkXYZ := utils.SpaceDelimitedStringToFloatSlice(jointElem.Origin.XYZ)
+			linkRPY := utils.SpaceDelimitedStringToFloatSlice(jointElem.Origin.RPY)
+			linkEA := spatialmath.EulerAngles{Roll: linkRPY[0], Pitch: linkRPY[1], Yaw: linkRPY[2]}
+			linkOrient, err := spatialmath.NewOrientationConfig(linkEA.AxisAngles())
 
 			// Note the conversion from meters to mm
 			thisLink.Translation = r3.Vector{utils.MetersToMM(linkXYZ[0]), utils.MetersToMM(linkXYZ[1]), utils.MetersToMM(linkXYZ[2])}
@@ -191,7 +184,11 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (*ModelConfig, error)
 		hasCollision := len(linkElem.Collision) > 0
 		for idx, prefabLink := range mc.Links {
 			if prefabLink.ID == linkElem.Name && hasCollision {
-				geoCfg, err := linkElem.Collision[0].ToConfig()
+				geometry, err := linkElem.Collision[0].Parse()
+				if err != nil {
+					return nil, err
+				}
+				geoCfg, err := spatialmath.NewGeometryConfig(geometry)
 				if err != nil {
 					return nil, err
 				}
@@ -204,11 +201,12 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (*ModelConfig, error)
 		// Most likely, this is a link normally whose parent is the World
 		if _, ok := parentMap[linkElem.Name]; !ok {
 			thisLink := LinkConfig{ID: linkElem.Name, Parent: World}
-			thisLink.Translation = r3.Vector{0.0, 0.0, 0.0}
-			thisLink.Orientation = &spatial.OrientationConfig{} // Orientation is guaranteed to be zero for this
-
 			if hasCollision {
-				geoCfg, err := linkElem.Collision[0].ToConfig()
+				geometry, err := linkElem.Collision[0].Parse()
+				if err != nil {
+					return nil, err
+				}
+				geoCfg, err := spatialmath.NewGeometryConfig(geometry)
 				if err != nil {
 					return nil, err
 				}

@@ -499,5 +499,9 @@ type urdfBoxXML struct {
 }
 
 func newURDFBoxXML(b *box) *urdfBoxXML {
-	return &urdfBoxXML{Size: fmt.Sprintf("%f %f %f", 2*b.halfSize[0], 2*b.halfSize[1], 2*b.halfSize[2])}
+	return &urdfBoxXML{Size: fmt.Sprintf("%f %f %f",
+		utils.MMToMeters(2*b.halfSize[0]),
+		utils.MMToMeters(2*b.halfSize[1]),
+		utils.MMToMeters(2*b.halfSize[2]),
+	)}
 }
