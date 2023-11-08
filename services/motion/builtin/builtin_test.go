@@ -151,7 +151,7 @@ func createMoveOnGlobeEnvironment(ctx context.Context, t *testing.T, origin *geo
 	baseCfg := resource.Config{
 		Name:  "test-base",
 		API:   base.API,
-		Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R: 20}},
+		Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R: 40}},
 	}
 	fakeBase, err := baseFake.NewBase(ctx, nil, baseCfg, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -489,7 +489,7 @@ func TestMoveOnMapLongDistance(t *testing.T) {
 	extra := map[string]interface{}{"smooth_iter": 5, "motion_profile": "position_only"}
 	// goal position is scaled to be in mm
 	goalInBaseFrame := spatialmath.NewPoseFromPoint(r3.Vector{X: -32.508 * 1000, Y: -2.092 * 1000})
-	// ~ goalInBaseFrame := spatialmath.NewPoseFromPoint(r3.Vector{X: -52.555 * 1000, Y: -27.215 * 1000})
+	//~ goalInBaseFrame := spatialmath.NewPoseFromPoint(r3.Vector{X: -52.555 * 1000, Y: -27.215 * 1000})
 	goalInSLAMFrame := spatialmath.PoseBetweenInverse(motion.SLAMOrientationAdjustment, goalInBaseFrame)
 
 	t.Run("test tp-space planning on office map", func(t *testing.T) {
@@ -1227,19 +1227,19 @@ func TestMoveOnGlobe(t *testing.T) {
 
 		// Construct a set of obstacles that entirely enclose the goal point
 		boxPose := spatialmath.NewPoseFromPoint(r3.Vector{50, 0, 0})
-		boxDims := r3.Vector{2, 6660, 10}
+		boxDims := r3.Vector{20, 6660, 10}
 		geometry1, err := spatialmath.NewBox(boxPose, boxDims, "wall1")
 		test.That(t, err, test.ShouldBeNil)
 		boxPose = spatialmath.NewPoseFromPoint(r3.Vector{5000, 0, 0})
-		boxDims = r3.Vector{2, 6660, 10}
+		boxDims = r3.Vector{20, 6660, 10}
 		geometry2, err := spatialmath.NewBox(boxPose, boxDims, "wall2")
 		test.That(t, err, test.ShouldBeNil)
 		boxPose = spatialmath.NewPoseFromPoint(r3.Vector{2500, 2500, 0})
-		boxDims = r3.Vector{6660, 2, 10}
+		boxDims = r3.Vector{6660, 20, 10}
 		geometry3, err := spatialmath.NewBox(boxPose, boxDims, "wall3")
 		test.That(t, err, test.ShouldBeNil)
 		boxPose = spatialmath.NewPoseFromPoint(r3.Vector{2500, -2500, 0})
-		boxDims = r3.Vector{6660, 2, 10}
+		boxDims = r3.Vector{6660, 20, 10}
 		geometry4, err := spatialmath.NewBox(boxPose, boxDims, "wall4")
 		test.That(t, err, test.ShouldBeNil)
 		geoObstacle := spatialmath.NewGeoObstacle(gpsPoint, []spatialmath.Geometry{geometry1, geometry2, geometry3, geometry4})
