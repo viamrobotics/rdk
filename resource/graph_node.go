@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+
 	"go.viam.com/rdk/logging"
 )
 
@@ -114,10 +115,15 @@ func (w *GraphNode) Resource() (Resource, error) {
 	return w.current, nil
 }
 
+// SetLogger associates a logger object with this resource node. This is expected to be the logger
+// passed into the `Constructor` when registering component resources.
 func (w *GraphNode) SetLogger(logger logging.Logger) {
 	w.logger = logger
 }
 
+// SetLogLevel changes the log level of the logger (if available). Processing configs is the main
+// entry point for changing log levels. Which will affect whether models making log calls are
+// suppressed or not.
 func (w *GraphNode) SetLogLevel(level logging.Level) {
 	if w.logger != nil {
 		w.logger.SetLevel(level)
