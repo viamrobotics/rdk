@@ -139,7 +139,7 @@ func createFrameSystemService(
 	return fsSvc, nil
 }
 
-func createMoveOnGlobeEnvironment(ctx context.Context, t *testing.T, origin *geo.Point, noise spatialmath.Pose) (
+func createMoveOnGlobeEnvironment(ctx context.Context, t *testing.T, origin *geo.Point, noise spatialmath.Pose, sleepTime int) (
 	*inject.MovementSensor, framesystem.Service, kinematicbase.KinematicBase, motion.Service,
 ) {
 	logger := logging.NewTestLogger(t)
@@ -173,6 +173,7 @@ func createMoveOnGlobeEnvironment(ctx context.Context, t *testing.T, origin *geo
 		referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose()),
 		kinematicsOptions,
 		noise,
+		sleepTime,
 	)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -260,6 +261,7 @@ func createMoveOnMapEnvironment(
 		referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose()),
 		kinematicsOptions,
 		spatialmath.NewZeroPose(),
+		50,
 	)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -712,7 +714,7 @@ func TestMoveOnGlobe(t *testing.T) {
 
 	t.Run("returns error when called with an unknown component", func(t *testing.T) {
 		t.Parallel()
-		injectedMovementSensor, _, _, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
+		injectedMovementSensor, _, _, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
 		defer ms.Close(ctx)
 		success, err := ms.MoveOnGlobe(
 			ctx,
@@ -730,7 +732,7 @@ func TestMoveOnGlobe(t *testing.T) {
 
 	t.Run("returns error when called with an unknown movement sensor", func(t *testing.T) {
 		t.Parallel()
-		_, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
+		_, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
 		defer ms.Close(ctx)
 		success, err := ms.MoveOnGlobe(
 			ctx,
@@ -749,7 +751,7 @@ func TestMoveOnGlobe(t *testing.T) {
 
 	t.Run("returns error when request would require moving more than 5 km", func(t *testing.T) {
 		t.Parallel()
-		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
+		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
 		defer ms.Close(ctx)
 		success, err := ms.MoveOnGlobe(
 			ctx,
@@ -766,7 +768,7 @@ func TestMoveOnGlobe(t *testing.T) {
 	})
 	t.Run("returns error when destination is nil", func(t *testing.T) {
 		t.Parallel()
-		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
+		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
 		defer ms.Close(ctx)
 		success, err := ms.MoveOnGlobe(
 			ctx,
@@ -784,7 +786,7 @@ func TestMoveOnGlobe(t *testing.T) {
 
 	t.Run("returns error when destination contains NaN", func(t *testing.T) {
 		t.Parallel()
-		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
+		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
 		defer ms.Close(ctx)
 		success, err := ms.MoveOnGlobe(
 			ctx,
@@ -827,7 +829,7 @@ func TestMoveOnGlobe(t *testing.T) {
 	})
 
 	t.Run("is able to reach a nearby geo point with empty values", func(t *testing.T) {
-		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
+		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
 		defer ms.Close(ctx)
 		success, err := ms.MoveOnGlobe(
 			ctx,
@@ -844,7 +846,7 @@ func TestMoveOnGlobe(t *testing.T) {
 	})
 
 	t.Run("is able to reach a nearby geo point with a requested NaN heading", func(t *testing.T) {
-		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
+		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
 		defer ms.Close(ctx)
 		success, err := ms.MoveOnGlobe(
 			ctx,
@@ -861,7 +863,7 @@ func TestMoveOnGlobe(t *testing.T) {
 	})
 
 	t.Run("is able to reach a nearby geo point with a requested positive heading", func(t *testing.T) {
-		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
+		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
 		defer ms.Close(ctx)
 		success, err := ms.MoveOnGlobe(
 			ctx,
@@ -878,7 +880,7 @@ func TestMoveOnGlobe(t *testing.T) {
 	})
 
 	t.Run("is able to reach a nearby geo point with a requested negative heading", func(t *testing.T) {
-		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
+		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
 		defer ms.Close(ctx)
 		success, err := ms.MoveOnGlobe(
 			ctx,
@@ -896,7 +898,7 @@ func TestMoveOnGlobe(t *testing.T) {
 
 	t.Run("returns an error if the base provided is not a base", func(t *testing.T) {
 		t.Parallel()
-		injectedMovementSensor, _, _, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
+		injectedMovementSensor, _, _, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
 		defer ms.Close(ctx)
 		success, err := ms.MoveOnGlobe(
 			ctx,
@@ -914,7 +916,7 @@ func TestMoveOnGlobe(t *testing.T) {
 
 	t.Run("returns an error if the movement_sensor provided is not a movement_sensor", func(t *testing.T) {
 		t.Parallel()
-		_, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
+		_, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
 		defer ms.Close(ctx)
 		success, err := ms.MoveOnGlobe(
 			ctx,
@@ -931,7 +933,7 @@ func TestMoveOnGlobe(t *testing.T) {
 	})
 
 	t.Run("is able to reach a nearby geo point when the motion configuration is empty", func(t *testing.T) {
-		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
+		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
 		defer ms.Close(ctx)
 		success, err := ms.MoveOnGlobe(
 			ctx,
@@ -949,7 +951,7 @@ func TestMoveOnGlobe(t *testing.T) {
 
 	t.Run("errors when motion configuration has a negative PlanDeviationMM", func(t *testing.T) {
 		t.Parallel()
-		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
+		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
 		defer ms.Close(ctx)
 		success, err := ms.MoveOnGlobe(
 			ctx,
@@ -967,7 +969,7 @@ func TestMoveOnGlobe(t *testing.T) {
 
 	t.Run("errors when motion configuration has a NaN PlanDeviationMM", func(t *testing.T) {
 		t.Parallel()
-		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
+		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
 		defer ms.Close(ctx)
 		success, err := ms.MoveOnGlobe(
 			ctx,
@@ -985,7 +987,7 @@ func TestMoveOnGlobe(t *testing.T) {
 
 	t.Run("returns an error when the motion configuration has a negative ObstaclePollingFreqHz", func(t *testing.T) {
 		t.Parallel()
-		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
+		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
 		defer ms.Close(ctx)
 		success, err := ms.MoveOnGlobe(
 			ctx,
@@ -1003,7 +1005,7 @@ func TestMoveOnGlobe(t *testing.T) {
 
 	t.Run("returns an error when the motion configuration has a NaN ObstaclePollingFreqHz", func(t *testing.T) {
 		t.Parallel()
-		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
+		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
 		defer ms.Close(ctx)
 		success, err := ms.MoveOnGlobe(
 			ctx,
@@ -1021,7 +1023,7 @@ func TestMoveOnGlobe(t *testing.T) {
 
 	t.Run("returns an error when the motion configuration has a negative PositionPollingFreqHz", func(t *testing.T) {
 		t.Parallel()
-		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
+		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
 		defer ms.Close(ctx)
 		success, err := ms.MoveOnGlobe(
 			ctx,
@@ -1039,7 +1041,7 @@ func TestMoveOnGlobe(t *testing.T) {
 
 	t.Run("returns an error when the motion configuration has a NaN PositionPollingFreqHz", func(t *testing.T) {
 		t.Parallel()
-		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
+		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
 		defer ms.Close(ctx)
 		success, err := ms.MoveOnGlobe(
 			ctx,
@@ -1057,7 +1059,7 @@ func TestMoveOnGlobe(t *testing.T) {
 
 	t.Run("returns an error when motion configuration has a negative AngularDegsPerSec", func(t *testing.T) {
 		t.Parallel()
-		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
+		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
 		defer ms.Close(ctx)
 		success, err := ms.MoveOnGlobe(
 			ctx,
@@ -1075,7 +1077,7 @@ func TestMoveOnGlobe(t *testing.T) {
 
 	t.Run("returns an error when motion configuration has a NaN AngularDegsPerSec", func(t *testing.T) {
 		t.Parallel()
-		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
+		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
 		defer ms.Close(ctx)
 		success, err := ms.MoveOnGlobe(
 			ctx,
@@ -1093,7 +1095,7 @@ func TestMoveOnGlobe(t *testing.T) {
 
 	t.Run("returns an error when motion configuration has a negative LinearMPerSec", func(t *testing.T) {
 		t.Parallel()
-		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
+		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
 		defer ms.Close(ctx)
 		success, err := ms.MoveOnGlobe(
 			ctx,
@@ -1111,7 +1113,7 @@ func TestMoveOnGlobe(t *testing.T) {
 
 	t.Run("returns an error when motion configuration has a NaN LinearMPerSec", func(t *testing.T) {
 		t.Parallel()
-		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
+		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
 		defer ms.Close(ctx)
 		success, err := ms.MoveOnGlobe(
 			ctx,
@@ -1128,7 +1130,7 @@ func TestMoveOnGlobe(t *testing.T) {
 	})
 
 	t.Run("ensure success to a nearby geo point", func(t *testing.T) {
-		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
+		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
 		motionCfg := &motion.MotionConfiguration{PositionPollingFreqHz: 4, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM}
 		mr, err := ms.(*builtIn).newMoveOnGlobeRequest(
 			ctx,
@@ -1164,7 +1166,7 @@ func TestMoveOnGlobe(t *testing.T) {
 	})
 
 	t.Run("go around an obstacle", func(t *testing.T) {
-		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
+		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
 		motionCfg := &motion.MotionConfiguration{PositionPollingFreqHz: 4, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM}
 
 		boxPose := spatialmath.NewPoseFromPoint(r3.Vector{50, 0, 0})
@@ -1211,7 +1213,7 @@ func TestMoveOnGlobe(t *testing.T) {
 	})
 
 	t.Run("fail because of obstacle", func(t *testing.T) {
-		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
+		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
 
 		// Construct a set of obstacles that entirely enclose the goal point
 		boxPose := spatialmath.NewPoseFromPoint(r3.Vector{50, 0, 0})
@@ -1250,7 +1252,7 @@ func TestMoveOnGlobe(t *testing.T) {
 
 	t.Run("check offset constructed correctly", func(t *testing.T) {
 		t.Parallel()
-		_, fsSvc, _, _ := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
+		_, fsSvc, _, _ := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
 		baseOrigin := referenceframe.NewPoseInFrame("test-base", spatialmath.NewZeroPose())
 		movementSensorToBase, err := fsSvc.TransformPose(ctx, baseOrigin, "test-gps", nil)
 		if err != nil {
@@ -1284,15 +1286,14 @@ func TestReplanning(t *testing.T) {
 			expectedSuccess: true,
 			extra:           map[string]interface{}{"smooth_iter": 5},
 		},
-		// TODO(RSDK-5634): this should be uncommented when this bug is fixed
-		// {
-		// 	// This also checks that `replan` is called under default conditions when "max_replans" is not set
-		// 	name:            "check we fail to replan with a low cost factor",
-		// 	noise:           r3.Vector{Y: epsilonMM + 0.1},
-		// 	expectedErr:     "unable to create a new plan within replanCostFactor from the original",
-		// 	expectedSuccess: false,
-		// 	extra:           map[string]interface{}{"replan_cost_factor": 0.01, "smooth_iter": 5},
-		// },
+		{
+			// This also checks that `replan` is called under default conditions when "max_replans" is not set
+			name:            "check we fail to replan with a low cost factor",
+			noise:           r3.Vector{Y: epsilonMM + 0.1},
+			expectedErr:     "unable to create a new plan within replanCostFactor from the original",
+			expectedSuccess: false,
+			extra:           map[string]interface{}{"replan_cost_factor": 0.01, "smooth_iter": 5},
+		},
 		{
 			name:            "check we replan with a noisy sensor",
 			noise:           r3.Vector{Y: epsilonMM + 0.1},
@@ -1304,7 +1305,7 @@ func TestReplanning(t *testing.T) {
 
 	testFn := func(t *testing.T, tc testCase) {
 		t.Helper()
-		injectedMovementSensor, _, kb, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, spatialmath.NewPoseFromPoint(tc.noise))
+		injectedMovementSensor, _, kb, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, spatialmath.NewPoseFromPoint(tc.noise), 5)
 
 		success, err := ms.MoveOnGlobe(ctx, kb.Name(), dst, 0, injectedMovementSensor.Name(), nil, motionCfg, tc.extra)
 
@@ -1385,7 +1386,13 @@ func TestObstacleDetection(t *testing.T) {
 
 	testFn := func(t *testing.T, tc testCase) {
 		t.Helper()
-		injectedMovementSensor, _, kb, ms := createMoveOnGlobeEnvironment(ctx, t, gpsOrigin, spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0}))
+		injectedMovementSensor, _, kb, ms := createMoveOnGlobeEnvironment(
+			ctx,
+			t,
+			gpsOrigin,
+			spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0}),
+			5000,
+		)
 
 		srvc, ok := ms.(*builtIn).visionServices[cfg.ObstacleDetectors[0].VisionServiceName].(*inject.VisionService)
 		test.That(t, ok, test.ShouldBeTrue)
@@ -1422,7 +1429,7 @@ func TestCheckPlan(t *testing.T) {
 	destPoint := geo.NewPoint(originPoint.Lat(), originPoint.Lng()+1e-5)
 
 	// create env
-	injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, originPoint, nil)
+	injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, originPoint, nil, 5)
 
 	// create motion config
 	extra := make(map[string]interface{})
@@ -1836,7 +1843,7 @@ func TestStoppableMoveFunctions(t *testing.T) {
 func TestMoveOnGlobeNew(t *testing.T) {
 	ctx := context.Background()
 	gpsPoint := geo.NewPoint(0, 0)
-	injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
+	injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
 	defer ms.Close(ctx)
 	dst := geo.NewPoint(gpsPoint.Lat(), gpsPoint.Lng()+1e-5)
 
@@ -1853,7 +1860,7 @@ func TestMoveOnGlobeNew(t *testing.T) {
 func TestStopPlan(t *testing.T) {
 	ctx := context.Background()
 	gpsPoint := geo.NewPoint(0, 0)
-	_, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
+	_, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
 	defer ms.Close(ctx)
 
 	req := motion.StopPlanReq{ComponentName: fakeBase.Name()}
@@ -1865,7 +1872,7 @@ func TestListPlanStatuses(t *testing.T) {
 	ctx := context.Background()
 	gpsPoint := geo.NewPoint(0, 0)
 	//nolint:dogsled
-	_, _, _, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
+	_, _, _, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
 	defer ms.Close(ctx)
 
 	req := motion.ListPlanStatusesReq{}
@@ -1877,7 +1884,7 @@ func TestListPlanStatuses(t *testing.T) {
 func TestPlanHistory(t *testing.T) {
 	ctx := context.Background()
 	gpsPoint := geo.NewPoint(0, 0)
-	_, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil)
+	_, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
 	defer ms.Close(ctx)
 
 	req := motion.PlanHistoryReq{ComponentName: fakeBase.Name()}
