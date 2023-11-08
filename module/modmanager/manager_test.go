@@ -16,6 +16,7 @@ import (
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
+	modlib "go.viam.com/rdk/module"
 	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
 	"go.viam.com/rdk/resource"
 	rtestutils "go.viam.com/rdk/testutils"
@@ -42,11 +43,8 @@ func TestModManagerFunctions(t *testing.T) {
 	_, err = cfgCounter1.Validate("test", resource.APITypeComponentName)
 	test.That(t, err, test.ShouldBeNil)
 
-	// This cannot use t.TempDir() as the path it gives on MacOS exceeds module.MaxSocketAddressLength.
-	parentAddr, err := os.MkdirTemp("", "viam-test-*")
+	parentAddr, err := modlib.CreateSocketAddress(t.TempDir(), "parent")
 	test.That(t, err, test.ShouldBeNil)
-	defer os.RemoveAll(parentAddr)
-	parentAddr += "/parent.sock"
 
 	t.Log("test Helpers")
 	mgr := NewManager(parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
@@ -247,11 +245,8 @@ func TestModManagerValidation(t *testing.T) {
 	_, err = cfgMyBase2.Validate("test", resource.APITypeComponentName)
 	test.That(t, err, test.ShouldBeNil)
 
-	// This cannot use t.TempDir() as the path it gives on MacOS exceeds module.MaxSocketAddressLength.
-	parentAddr, err := os.MkdirTemp("", "viam-test-*")
+	parentAddr, err := modlib.CreateSocketAddress(t.TempDir(), "parent")
 	test.That(t, err, test.ShouldBeNil)
-	defer os.RemoveAll(parentAddr)
-	parentAddr += "/parent.sock"
 
 	t.Log("adding complex module")
 	mgr := NewManager(parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
@@ -304,11 +299,8 @@ func TestModuleReloading(t *testing.T) {
 	_, err := cfgMyHelper.Validate("test", resource.APITypeComponentName)
 	test.That(t, err, test.ShouldBeNil)
 
-	// This cannot use t.TempDir() as the path it gives on MacOS exceeds module.MaxSocketAddressLength.
-	parentAddr, err := os.MkdirTemp("", "viam-test-*")
+	parentAddr, err := modlib.CreateSocketAddress(t.TempDir(), "parent")
 	test.That(t, err, test.ShouldBeNil)
-	defer os.RemoveAll(parentAddr)
-	parentAddr += "/parent.sock"
 
 	modCfg := config.Module{Name: "test-module"}
 
@@ -515,11 +507,8 @@ func TestDebugModule(t *testing.T) {
 	modPath, err := rtestutils.BuildTempModule(t, "module/testmodule")
 	test.That(t, err, test.ShouldBeNil)
 
-	// This cannot use t.TempDir() as the path it gives on MacOS exceeds module.MaxSocketAddressLength.
-	parentAddr, err := os.MkdirTemp("", "viam-test-*")
+	parentAddr, err := modlib.CreateSocketAddress(t.TempDir(), "parent")
 	test.That(t, err, test.ShouldBeNil)
-	defer os.RemoveAll(parentAddr)
-	parentAddr += "/parent.sock"
 
 	testCases := []struct {
 		name                   string
