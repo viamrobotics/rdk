@@ -4,12 +4,37 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync/atomic"
 
 	"go.uber.org/zap/zapcore"
 )
 
 // Level is an enum of log levels. Its value can be `DEBUG`, `INFO`, `WARN` or `ERROR`.
 type Level int
+
+// AtomicLevel is a level that can be concurrently accessed.
+type AtomicLevel struct {
+	val *atomic.Int32
+}
+
+// NewAtomicLevelAt creates a new AtomicLevel at the input `initLevel`.
+func NewAtomicLevelAt(initLevel Level) AtomicLevel {
+	ret := AtomicLevel{
+		new(atomic.Int32),
+	}
+	ret.Set(initLevel)
+	return ret
+}
+
+// Set changes the level.
+func (level AtomicLevel) Set(newLevel Level) {
+	level.val.Store(int32(newLevel))
+}
+
+// Get returns the level.
+func (level AtomicLevel) Get() Level {
+	return Level(level.val.Load())
+}
 
 const (
 	// This numbering scheme serves two purposes:

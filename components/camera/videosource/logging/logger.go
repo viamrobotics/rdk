@@ -97,7 +97,7 @@ func NewLogger() (*Logger, error) {
 		}
 	}
 
-	cfg := logging.NewLoggerConfig()
+	cfg := logging.NewZapLoggerConfig()
 	cfg.OutputPaths = []string{filePath}
 
 	// only keep message
@@ -134,8 +134,9 @@ func (l *Logger) Start(ctx context.Context) error {
 	}
 
 	utils.PanicCapturingGo(func() {
-		log.Println("started global logger")
-		defer log.Println("terminated global logger")
+		vsourceMetaLogger := logging.Global().Sublogger("videosource")
+		vsourceMetaLogger.Info("Starting videosource logger")
+		defer vsourceMetaLogger.Info("Terminating videosource logger")
 
 		l.init()
 		ticker := time.NewTicker(1 * time.Second)

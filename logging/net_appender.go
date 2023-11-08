@@ -30,7 +30,8 @@ type CloudConfig struct {
 	Secret     string
 }
 
-// NewNetAppender creates a NetAppender to send log events to the app backend.
+// NewNetAppender creates a NetAppender to send log events to the app backend. NetAppenders ought to
+// be `Close`d prior to shutdown to flush remaining logs.
 func NewNetAppender(config *CloudConfig) (*NetAppender, error) {
 	hostname, err := os.Hostname()
 	if err != nil {
@@ -298,7 +299,8 @@ func (w *remoteLogWriterGRPC) close() {
 	}
 }
 
-// CreateNewGRPCClient creates a new grpc cloud configured to communicate with the robot service based on the cloud config given.
+// CreateNewGRPCClient creates a new grpc cloud configured to communicate with the robot service
+// based on the cloud config given.
 func CreateNewGRPCClient(ctx context.Context, cloudCfg *CloudConfig) (rpc.ClientConn, error) {
 	grpcURL, err := url.Parse(cloudCfg.AppAddress)
 	if err != nil {
@@ -321,4 +323,55 @@ func CreateNewGRPCClient(ctx context.Context, cloudCfg *CloudConfig) (rpc.Client
 	}
 
 	return rpc.DialDirectGRPC(ctx, grpcURL.Host, NewLogger("netlogger").AsZap(), dialOpts...)
+}
+
+// A NetAppender must implement a zapcore such that it gets copied when downconverting on
+// `Logger.AsZap`. The methods below are only invoked when passed as a zap.SugaredLogger to external
+// libraries.
+var _ zapcore.Core = &NetAppender{}
+
+// Check checks if the entry should be logged. If so, add it to the CheckedEntry list of cores.
+func (nl *NetAppender) Check(entry zapcore.Entry, checkedEntry *zapcore.CheckedEntry) *zapcore.CheckedEntry {
+	if GlobalLogLevel.Enabled(entry.Level) {
+		return checkedEntry.AddCore(entry, nl)
+	}
+	return checkedEntry
+}
+
+// Enabled returns if the NetAppender serving as a `zapcore.Core` should log.
+func (nl *NetAppender) Enabled(level zapcore.Level) bool {
+	return GlobalLogLevel.Enabled(level)
+}
+
+// With creates a zapcore.Core that will log like a `NetAppender` but with extra fields attached.
+func (nl *NetAppender) With(f []zapcore.Field) zapcore.Core {
+	return &wrappedLogger{nl, f}
+}
+
+type wrappedLogger struct {
+	base  zapcore.Core
+	extra []zapcore.Field
+}
+
+func (l *wrappedLogger) Enabled(level zapcore.Level) bool {
+	return l.base.Enabled(level)
+}
+
+func (l *wrappedLogger) With(f []zapcore.Field) zapcore.Core {
+	return &wrappedLogger{l, f}
+}
+
+func (l *wrappedLogger) Check(e zapcore.Entry, ce *zapcore.CheckedEntry) *zapcore.CheckedEntry {
+	return l.base.Check(e, ce)
+}
+
+func (l *wrappedLogger) Write(e zapcore.Entry, f []zapcore.Field) error {
+	field := []zapcore.Field{}
+	field = append(field, l.extra...)
+	field = append(field, f...)
+	return l.base.Write(e, field)
+}
+
+func (l *wrappedLogger) Sync() error {
+	return l.base.Sync()
 }

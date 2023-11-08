@@ -5,7 +5,6 @@ package genericlinux
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"periph.io/x/conn/v3/i2c"
@@ -14,7 +13,6 @@ import (
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/resource"
 )
 
 func init() {
@@ -152,32 +150,4 @@ func (h *I2cHandle) Close() error {
 	h.device = nil
 	// Don't close the bus itself: it should remain open for other handles to use
 	return nil
-}
-
-// GetI2CBus retrieves an I2C interface. If the bus number is specified, it uses that on the local
-// machine, and otherwise it tries to get the named bus from the named board. Although it would be
-// intuitive for the bus number to be an integer, we keep it as a string because it's possible for
-// a devicetree overlay on some unusual board to make it non-numerical.
-// TODO(RSDK-5254): remove this once all I2C devices are talking directly to the bus without going
-// through the board.
-func GetI2CBus(deps resource.Dependencies, boardName, busName, busNum string) (board.I2C, error) {
-	if busNum != "" {
-		return NewI2cBus(busNum)
-	}
-
-	// Otherwise, look things up through the board.
-	b, err := board.FromDependencies(deps, boardName)
-	if err != nil {
-		return nil, err
-	}
-	localBoard, ok := b.(board.LocalBoard)
-	if !ok {
-		return nil, fmt.Errorf("cannot get I2C bus '%s' from nonlocal board '%s'",
-			busName, boardName)
-	}
-	bus, success := localBoard.I2CByName(busName)
-	if !success {
-		return nil, fmt.Errorf("unknown I2C bus %s on board %s", busName, boardName)
-	}
-	return bus, nil
 }

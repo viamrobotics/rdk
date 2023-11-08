@@ -21,9 +21,6 @@ setup:
 
 build: build-web build-go
 
-# Omit test-only packages: that is, packages that have no source files.
-# 	This is done by default if `go build` uses a wildcard, for example, `go build ./...`. Here, we replicate that
-# 	behavior. See https://github.com/golang/go/blob/fa4f951026f697bc042422d95a0806dcbab7ddd0/src/cmd/go/internal/work/build.go#L734
 build-go:
 	go build ./...
 
@@ -132,5 +129,22 @@ clean-all:
 
 license-check:
 	license_finder --npm-options='--prefix web/frontend'
+
+FFMPEG_ROOT ?= etc/FFmpeg
+$(FFMPEG_ROOT):
+	cd etc && git clone https://github.com/FFmpeg/FFmpeg.git
+	git -C $(FFMPEG_ROOT) checkout release/4.4
+
+FFMPEG_H264_PREFIX ?= $(shell realpath .)/gostream/codec/h264/ffmpeg/$(shell uname -s)-$(shell uname -m)
+ffmpeg-h264-static: $(FFMPEG_ROOT)
+	cd $(FFMPEG_ROOT) && ./configure \
+		--disable-programs \
+		--disable-doc \
+		--disable-everything \
+		--enable-encoder=h264_v4l2m2m \
+		--prefix=$(FFMPEG_H264_PREFIX) --enable-pic
+	cd $(FFMPEG_ROOT) && make -j$(shell nproc)
+	cd $(FFMPEG_ROOT) && make -j$(shell nproc) install
+	git clean -xdf $(FFMPEG_H264_PREFIX)
 
 include *.make

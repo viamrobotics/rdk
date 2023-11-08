@@ -1859,7 +1859,7 @@ func (rr *dummyRobot) StopAll(ctx context.Context, extra map[resource.Name]map[s
 // managerForDummyRobot integrates all parts from a given robot
 // except for its remotes.
 func managerForDummyRobot(robot robot.Robot) *resourceManager {
-	manager := newResourceManager(resourceManagerOptions{}, logging.FromZapCompatible(robot.Logger().Named("manager")))
+	manager := newResourceManager(resourceManagerOptions{}, robot.Logger().Sublogger("manager"))
 
 	// start a dummy module manager so calls to moduleManager.Provides() do not
 	// panic.

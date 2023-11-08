@@ -37,7 +37,7 @@ func TestGizmo(t *testing.T) {
 
 	cfgServer, err := config.Read(ctx, utils.ResolveFile("./examples/customresources/demos/remoteserver/remote.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
-	r0, err := robotimpl.New(ctx, cfgServer, logging.FromZapCompatible(logger.Named("gizmo.server")))
+	r0, err := robotimpl.New(ctx, cfgServer, logger.Sublogger("gizmo.server"))
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, r0.Close(context.Background()), test.ShouldBeNil)
@@ -53,7 +53,7 @@ func TestGizmo(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	err = tmpConf.Sync()
 	test.That(t, err, test.ShouldBeNil)
-	pmgr := pexec.NewProcessManager(logger.Named("process.inter"))
+	pmgr := pexec.NewProcessManager(logger.Sublogger("process.inter").AsZap())
 	pCfg := pexec.ProcessConfig{
 		ID:      "Intermediate",
 		Name:    "go",
@@ -78,7 +78,7 @@ func TestGizmo(t *testing.T) {
 			},
 		},
 	}
-	r2, err := robotimpl.New(ctx, remoteConfig, logging.FromZapCompatible(logger.Named("gizmo.client")))
+	r2, err := robotimpl.New(ctx, remoteConfig, logger.Sublogger("gizmo.client"))
 	defer func() {
 		test.That(t, r2.Close(context.Background()), test.ShouldBeNil)
 	}()
