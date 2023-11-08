@@ -33,14 +33,14 @@ const (
 type ptgFactory func(float64, float64) PTG
 
 var defaultRestrictedPtgs = []ptgFactory{
-	NewCirclePTG,
-	NewCCPTG,
+	//~ NewCirclePTG,
+	//~ NewCCPTG,
 }
 
 var defaultPTGs = []ptgFactory{
 	NewCCSPTG,
 	NewCSPTG,
-	NewSideSPTG,
+	//~ NewSideSPTG,
 	NewSideSOverturnPTG,
 }
 

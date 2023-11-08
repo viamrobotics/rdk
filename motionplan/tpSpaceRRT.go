@@ -23,16 +23,17 @@ import (
 
 const (
 	defaultGoalCheck = 5   // Check if the goal is reachable every this many iterations
-	defaultAutoBB    = 0.8 // Automatic bounding box on driveable area as a multiple of start-goal distance
+	defaultAutoBB    = 0.5 // Automatic bounding box on driveable area as a multiple of start-goal distance
 	// Note: while fully holonomic planners can use the limits of the frame as implicit boundaries, with non-holonomic motion
 	// this is not the case, and the total workspace available to the planned frame is not directly related to the motion available
 	// from a single set of inputs.
+	autoBBscale = 3.
 
 	// whether to add intermediate waypoints.
 	defaultAddInt = true
 	// Add a subnode every this many mm along a valid trajectory. Large values run faster, small gives better paths
 	// Meaningless if the above is false.
-	defaultAddNodeEvery = 400.
+	defaultAddNodeEvery = 200.
 
 	// Don't add new RRT tree nodes if there is an existing node within this distance.
 	// Consider nodes on trees to be connected if they are within this distance.
@@ -50,15 +51,19 @@ const (
 
 	defaultBidirectional = true
 
+	// default motion planning collision resolution is every 2mm.
+	// For bases we increase this to 30mm, a bit more than 1 inch
+	defaultPTGCollisionResolution = 60
+
 	// If we are checking a long trajectory for collisions, then collisions become very likely, especially on a SLAM map.
 	// Rather than excluding any trajectory with a collision, we could return the last valid node, but that would yield a node pressed up
 	// against an obstacle; instead we will walk back the trajectory this far in TPspace-distance and return that node to preserve
 	// better freedom of movement.
-	defaultCollisionBuffer      = 93.
+	defaultCollisionBuffer      = 100.
 	defaultCollisionWalkbackPct = 0.75
 
 	// Print very fine-grained debug info. Useful for observing the inner RRT tree structure directly.
-	pathdebug = false
+	pathdebug = true
 )
 
 var defaultGoalMetricConstructor = ik.NewSquaredNormMetric
@@ -126,6 +131,11 @@ func newTPSpaceMotionPlanner(
 	if opt == nil {
 		return nil, errNoPlannerOptions
 	}
+
+	if opt.Resolution == defaultResolution {
+		opt.Resolution = defaultPTGCollisionResolution
+	}
+
 	mp, err := newPlanner(frame, seed, logger, opt)
 	if err != nil {
 		return nil, err
@@ -339,6 +349,12 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 			paths := [][]node{}
 			attempts := 0
 			for goalMapNode := range rrt.maps.goalMap {
+				
+				if ctx.Err() != nil {
+					rrt.solutionChan <- &rrtPlanReturn{planerr: fmt.Errorf("TP Space RRT timeout %w", ctx.Err()), maps: rrt.maps}
+					return
+				}
+				
 				// Exhaustively iterating the goal map gets *very* expensive, so we only iterate a given number of times
 				if attempts > defaultMaxConnectAttempts {
 					break
@@ -367,6 +383,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 					reachedDelta = mp.planOpts.goalMetric(&ik.State{Position: seedReached.node.Pose()})
 				}
 				if reachedDelta <= mp.algOpts.poseSolveDist {
+					fmt.Println("Connected!!!!")
 					// If we've reached the goal, extract the path from the RRT trees and return
 					path := extractPath(rrt.maps.startMap, rrt.maps.goalMap, &nodePair{a: seedReached.node, b: goalMapNode}, false)
 					paths = append(paths, path)
@@ -540,7 +557,7 @@ func (mp *tpSpaceRRTMotionPlanner) checkTraj(trajK []*tpspace.TrajNode, invert b
 			ok, _ := mp.planOpts.CheckStateConstraints(trajState)
 			if !ok {
 				okDist := trajPt.Dist * defaultCollisionWalkbackPct
-				if okDist > defaultCollisionBuffer {
+				if okDist > defaultCollisionBuffer && !invert {
 					for i := len(passed) - 1; i > 0; i-- {
 						// Return the most recent node whose dist is less than okDist
 						if passed[i].Cost() < okDist {
@@ -697,6 +714,9 @@ func (mp *tpSpaceRRTMotionPlanner) extendMap(
 				if invert {
 					trajPt = trajK[(len(trajK)-1)-i]
 				}
+				if i == 0 {
+					lastDist = trajPt.Dist
+				}
 				if ctx.Err() != nil {
 					return nil, ctx.Err()
 				}
@@ -708,20 +728,36 @@ func (mp *tpSpaceRRTMotionPlanner) extendMap(
 						mp.logger.Debugf("$REVTREE,%f,%f", trajState.Position.Point().X, trajState.Position.Point().Y)
 					}
 				}
-				sinceLastNode += (trajPt.Dist - lastDist)
+				sinceLastNode += math.Abs(trajPt.Dist - lastDist)
 
 				// Optionally add sub-nodes along the way. Will make the final path a bit better
 				// Intermediate nodes currently disabled on the goal map because they do not invert nicely
-				if sinceLastNode > mp.algOpts.addNodeEvery && !invert {
-					// add the last node in trajectory
-					addedNode = &basicNode{
-						q:      referenceframe.FloatsToInputs([]float64{float64(ptgNum), randAlpha, trajPt.Dist}),
-						cost:   trajPt.Dist,
-						pose:   trajState.Position,
-						corner: false,
+				if sinceLastNode > mp.algOpts.addNodeEvery {
+					if !invert {
+						// add the last node in trajectory
+						addedNode = &basicNode{
+							q:      referenceframe.FloatsToInputs([]float64{float64(ptgNum), randAlpha, trajPt.Dist}),
+							cost:   trajPt.Dist,
+							pose:   trajState.Position,
+							corner: false,
+						}
+					} else {
+						// Check collisions along this traj and get the longest distance viable
+						subTrajK := trajK[:i]
+						goodNode := mp.checkTraj(subTrajK, invert, arcStartPose)
+						if goodNode != nil {
+							addedNode = &basicNode{
+								q:      referenceframe.FloatsToInputs([]float64{float64(ptgNum), trajPt.Alpha, trajPt.Dist}),
+								cost:   trajPt.Dist,
+								pose:   trajState.Position,
+								corner: false,
+							}
+						}
 					}
-					rrt[addedNode] = treeNode
-					sinceLastNode = 0.
+					if addedNode != nil {
+						rrt[addedNode] = treeNode
+						sinceLastNode = 0.
+					}
 				}
 				lastDist = trajPt.Dist
 			}
@@ -943,7 +979,7 @@ func (mp *tpSpaceRRTMotionPlanner) sample(rSeed node, iter int) (node, error) {
 	if dist == 0 {
 		dist = 1.0
 	}
-	rDist := dist * (mp.algOpts.autoBB + float64(iter)/2.)
+	rDist := dist * (mp.algOpts.autoBB + float64(iter)/autoBBscale)
 	randPosX := float64(mp.randseed.Intn(int(rDist)))
 	randPosY := float64(mp.randseed.Intn(int(rDist)))
 	randPosTheta := math.Pi * (mp.randseed.Float64() - 0.5)
