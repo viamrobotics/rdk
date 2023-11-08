@@ -14,7 +14,6 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-	"go.uber.org/zap"
 	"go.viam.com/utils"
 	"go.viam.com/utils/perf"
 	"go.viam.com/utils/rpc"
@@ -48,9 +47,8 @@ type Arguments struct {
 }
 
 type robotServer struct {
-	args      Arguments
-	logConfig zap.Config
-	logger    logging.Logger
+	args   Arguments
+	logger logging.Logger
 }
 
 // RunServer is an entry point to starting the web server that can be called by main in a code
@@ -67,13 +65,10 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	}
 
 	// Replace logger with logger based on flags.
-	logConfig := logging.NewLoggerConfig()
-	if argsParsed.Debug {
-		logConfig.Level = zap.NewAtomicLevelAt(zap.DebugLevel)
-	}
-	logger := logging.FromZapCompatible(zap.Must(logConfig.Build()).Sugar().Named("robot_server"))
-	config.InitLoggingSettings(logger, argsParsed.Debug, logConfig.Level)
+	logger := logging.NewLogger("")
 	logging.ReplaceGlobal(logger)
+	logger = logger.Sublogger("robot_server")
+	config.InitLoggingSettings(logger, argsParsed.Debug)
 
 	// Always log the version, return early if the '-version' flag was provided
 	// fmt.Println would be better but fails linting. Good enough.
@@ -134,20 +129,24 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	// Start remote logging with config from disk.
 	// This is to ensure we make our best effort to write logs for failures loading the remote config.
 	if cfgFromDisk.Cloud != nil && (cfgFromDisk.Cloud.LogPath != "" || cfgFromDisk.Cloud.AppAddress != "") {
-		var closer func()
-		logger, closer, err = addCloudLogger(logger, logConfig.Level, cfgFromDisk.Cloud)
+		netAppender, err := logging.NewNetAppender(
+			&logging.CloudConfig{
+				AppAddress: cfgFromDisk.Cloud.AppAddress,
+				ID:         cfgFromDisk.Cloud.ID,
+				Secret:     cfgFromDisk.Cloud.Secret,
+			},
+		)
 		if err != nil {
 			return err
 		}
-		defer closer()
+		defer netAppender.Close()
 
-		logging.ReplaceGlobal(logger)
+		logger.AddAppender(netAppender)
 	}
 
 	server := robotServer{
-		logConfig: logConfig,
-		logger:    logger,
-		args:      argsParsed,
+		logger: logger,
+		args:   argsParsed,
 	}
 
 	// Run the server with remote logging enabled.
@@ -169,6 +168,7 @@ func (s *robotServer) runServer(ctx context.Context) error {
 		return err
 	}
 	cancel()
+	config.UpdateFileConfigDebug(cfg.Debug)
 
 	err = s.serveWeb(ctx, cfg)
 	if err != nil {
