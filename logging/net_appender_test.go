@@ -108,10 +108,9 @@ func TestNetLoggerBatchWrites(t *testing.T) {
 	netAppender, err := NewNetAppender(server.cloudConfig)
 	test.That(t, err, test.ShouldBeNil)
 
-	logger := NewViamLogger("test logger")
+	logger := NewDebugLogger("test logger")
 	// The stdout appender is not necessary for test correctness. But it does provide information in
 	// the output w.r.t the injected grpc errors.
-	logger.AddAppender(NewStdoutAppender())
 	logger.AddAppender(netAppender)
 
 	for i := 0; i < writeBatchSize+1; i++ {
@@ -137,10 +136,9 @@ func TestNetLoggerBatchFailureAndRetry(t *testing.T) {
 
 	netAppender, err := NewNetAppender(server.cloudConfig)
 	test.That(t, err, test.ShouldBeNil)
-	logger := NewViamLogger("test logger")
+	logger := NewDebugLogger("test logger")
 	// The stdout appender is not necessary for test correctness. But it does provide information in
 	// the output w.r.t the injected grpc errors.
-	logger.AddAppender(NewStdoutAppender())
 	logger.AddAppender(netAppender)
 
 	// This test will first log 10 "Some-info" logs. Followed by a single "New info" log.
