@@ -58,7 +58,7 @@ const (
 	defaultCollisionWalkbackPct = 0.75
 
 	// Print very fine-grained debug info. Useful for observing the inner RRT tree structure directly.
-	pathdebug = true
+	pathdebug = false
 )
 
 var defaultGoalMetricConstructor = ik.NewSquaredNormMetric
