@@ -46,11 +46,15 @@ func TestComplexModule(t *testing.T) {
 	serverPath, err := testutils.BuildTempModule(t, "web/cmd/server/")
 	test.That(t, err, test.ShouldBeNil)
 
+	// start the viam server with a temporary home directory so that it doesn't collide with
+	// the user's real viam home directory
+	testTempHome := t.TempDir()
 	server := pexec.NewManagedProcess(pexec.ProcessConfig{
-		Name: serverPath,
-		Args: []string{"-config", cfgFilename},
-		CWD:  utils.ResolveFile("./"),
-		Log:  true,
+		Name:        serverPath,
+		Args:        []string{"-config", cfgFilename},
+		CWD:         utils.ResolveFile("./"),
+		Environment: map[string]string{"HOME": testTempHome},
+		Log:         true,
 	}, logger.AsZap())
 
 	err = server.Start(context.Background())
@@ -370,11 +374,15 @@ func TestValidationFailure(t *testing.T) {
 	serverPath, err := testutils.BuildTempModule(t, "web/cmd/server/")
 	test.That(t, err, test.ShouldBeNil)
 
+	// start the viam server with a temporary home directory so that it doesn't collide with
+	// the user's real viam home directory
+	testTempHome := t.TempDir()
 	server := pexec.NewManagedProcess(pexec.ProcessConfig{
-		Name: serverPath,
-		Args: []string{"-config", cfgFilename},
-		CWD:  utils.ResolveFile("./"),
-		Log:  true,
+		Name:        serverPath,
+		Args:        []string{"-config", cfgFilename},
+		CWD:         utils.ResolveFile("./"),
+		Environment: map[string]string{"HOME": testTempHome},
+		Log:         true,
 	}, logger.AsZap())
 
 	err = server.Start(context.Background())
