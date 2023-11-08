@@ -234,7 +234,7 @@ func NewURDFPoseXML(p Pose) *URDFPoseXML {
 	pt := p.Point()
 	o := p.Orientation().EulerAngles()
 	return &URDFPoseXML{
-		XYZ: fmt.Sprintf("%f %f %f", pt.X, pt.Y, pt.Z),
+		XYZ: fmt.Sprintf("%f %f %f", utils.MMToMeters(pt.X), utils.MMToMeters(pt.Y), utils.MMToMeters(pt.Z)),
 		RPY: fmt.Sprintf("%f %f %f", o.Roll, o.Pitch, o.Yaw),
 	}
 }
@@ -244,7 +244,7 @@ func (urdf *URDFPoseXML) Parse() Pose {
 	xyz := utils.SpaceDelimitedStringToFloatSlice(urdf.XYZ)
 	rpy := utils.SpaceDelimitedStringToFloatSlice(urdf.RPY)
 	return NewPose(
-		r3.Vector{X: xyz[0], Y: xyz[1], Z: xyz[2]},
-		&EulerAngles{Roll: utils.RadToDeg(rpy[0]), Pitch: utils.RadToDeg(rpy[1]), Yaw: utils.RadToDeg(rpy[2])},
+		r3.Vector{X: utils.MetersToMM(xyz[0]), Y: utils.MetersToMM(xyz[1]), Z: utils.MetersToMM(xyz[2])},
+		&EulerAngles{Roll: rpy[0], Pitch: rpy[1], Yaw: rpy[2]},
 	)
 }

@@ -18,7 +18,7 @@ func MetersToMM(m float64) float64 {
 
 // MMToMeters converts a value in mm to a value in meters
 func MMToMeters(m float64) float64 {
-	return m * 1000
+	return 0.001 * m
 }
 
 // DegToRad converts degrees to radians.

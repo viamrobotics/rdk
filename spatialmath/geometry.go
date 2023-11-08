@@ -228,7 +228,7 @@ func (urdf *URDFCollisionXML) Parse() (Geometry, error) {
 			urdf.Name,
 		)
 	case urdf.Geometry.Sphere != nil:
-		return NewSphere(urdf.Origin.Parse(), urdf.Geometry.Sphere.Radius, urdf.Name)
+		return NewSphere(urdf.Origin.Parse(), utils.MetersToMM(urdf.Geometry.Sphere.Radius), urdf.Name)
 	default:
 		return nil, fmt.Errorf("couldn't parse xml: no geometry defined")
 	}
