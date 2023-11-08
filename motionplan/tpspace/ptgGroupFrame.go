@@ -38,10 +38,10 @@ var defaultRestrictedPtgs = []ptgFactory{
 }
 
 var defaultPTGs = []ptgFactory{
-	//~ NewCCSPTG,
+	NewCCSPTG,
 	NewCSPTG,
-	//~ NewSideSPTG,
-	//~ NewSideSOverturnPTG,
+	NewSideSPTG,
+	NewSideSOverturnPTG,
 }
 
 var defaultDiffPTG ptgFactory = NewDiffDrivePTG
@@ -138,18 +138,18 @@ func NewPTGFrameFromKinematicOptions(
 	pf := &ptgGroupFrame{name: name}
 
 	farPtgs := initializePTGs(velocityMMps, angVelocityRadps, farPtgsToUse)
-	farSolvers, err := initializeSolvers(logger, refDistFar, trajCount, farPtgs, false)
+	farSolvers, err := initializeSolvers(logger, refDistFar, trajCount, farPtgs)
 	if err != nil {
 		return nil, err
 	}
 	restPtgs := initializePTGs(velocityMMps, angVelocityRadps, restrictedPtgsToUse)
-	restSolvers, err := initializeSolvers(logger, refDistRestricted, trajCount, restPtgs, true)
+	restSolvers, err := initializeSolvers(logger, refDistRestricted, trajCount, restPtgs)
 	if err != nil {
 		return nil, err
 	}
 
-	pf.solvers = append(farSolvers, restSolvers...)
-
+	farSolvers = append(farSolvers, restSolvers...)
+	pf.solvers = farSolvers
 	pf.geometries = geoms
 	pf.velocityMMps = velocityMMps
 	pf.angVelocityRadps = angVelocityRadps
@@ -247,13 +247,13 @@ type solverAndError struct {
 	err    error
 }
 
-func initializeSolvers(logger logging.Logger, simDist float64, trajCount int, ptgs []PTG, restricted bool) ([]PTGSolver, error) {
+func initializeSolvers(logger logging.Logger, simDist float64, trajCount int, ptgs []PTG) ([]PTGSolver, error) {
 	solvers := make([]PTGSolver, len(ptgs))
 	solverChan := make(chan *solverAndError, len(ptgs))
 	for i := range ptgs {
 		j := i
 		utils.PanicCapturingGo(func() {
-			solver, err := NewPTGIK(ptgs[j], logger, simDist, j, trajCount, restricted)
+			solver, err := NewPTGIK(ptgs[j], logger, simDist, j, trajCount)
 			solverChan <- &solverAndError{j, solver, err}
 		})
 	}

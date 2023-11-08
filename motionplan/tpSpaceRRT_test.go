@@ -4,7 +4,6 @@ package motionplan
 
 import (
 	"context"
-	"math"
 	"math/rand"
 	"testing"
 

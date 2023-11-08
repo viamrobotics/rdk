@@ -4,7 +4,6 @@ package motionplan
 
 import (
 	"errors"
-	"fmt"
 	"math"
 
 	"github.com/golang/geo/r3"
@@ -330,7 +329,6 @@ func newCollisionConstraint(
 	for _, specification := range collisionSpecifications {
 		zeroCG.addCollisionSpecification(specification)
 	}
-	fmt.Println("collisions!", zeroCG.collisions())
 
 	// create constraint from reference collision graph
 	constraint := func(state *ik.State) bool {

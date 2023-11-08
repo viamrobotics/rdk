@@ -25,7 +25,6 @@ type ptgIK struct {
 	refDist         float64
 	ptgFrame        referenceframe.Frame
 	fastGradDescent *ik.NloptIK
-	restricted      bool
 
 	gridSim PTGSolver
 
@@ -36,13 +35,10 @@ type ptgIK struct {
 
 // NewPTGIK creates a new ptgIK, which creates a frame using the provided PTG, and wraps it providing functions to fill the PTG
 // interface, allowing inverse kinematics queries to be run against it.
-func NewPTGIK(simPTG PTG, logger logging.Logger, refDist float64, randSeed, trajCount int, restricted bool) (PTGSolver, error) {
+func NewPTGIK(simPTG PTG, logger logging.Logger, refDist float64, randSeed, trajCount int) (PTGSolver, error) {
 	if refDist <= 0 {
 		return nil, errors.New("refDist must be greater than zero")
 	}
-
-	restricted = true
-
 	ptgFrame := newPTGIKFrame(simPTG, trajCount, refDist)
 
 	nlopt, err := ik.CreateNloptIKSolver(ptgFrame, logger, 1, false)
@@ -65,17 +61,14 @@ func NewPTGIK(simPTG PTG, logger logging.Logger, refDist float64, randSeed, traj
 		fastGradDescent: nlopt,
 		trajCache:       map[float64][]*TrajNode{},
 		defaultSeed:     inputs,
-		restricted:      restricted,
 	}
 
-	if restricted {
-		// create an ends-only grid sim for quick end-of-trajectory calculations
-		gridSim, err := NewPTGGridSim(simPTG, 0, 500, true)
-		if err != nil {
-			return nil, err
-		}
-		ptg.gridSim = gridSim
+	// create an ends-only grid sim for quick end-of-trajectory calculations
+	gridSim, err := NewPTGGridSim(simPTG, 0, 500, true)
+	if err != nil {
+		return nil, err
 	}
+	ptg.gridSim = gridSim
 
 	return ptg, nil
 }
@@ -104,15 +97,11 @@ func (ptg *ptgIK) Solve(
 	default:
 	}
 	if err != nil || solved == nil || solved.Configuration[1].Value < defaultZeroDist {
-		if !ptg.restricted {
-			solutionChan <- nil
-			return nil
-		}
 		// nlopt did not return a valid solution or otherwise errored. Fall back fully to the grid check.
 		return ptg.gridSim.Solve(ctx, solutionChan, seed, solveMetric, nloptSeed)
 	}
 
-	if !solved.Exact && ptg.restricted {
+	if !solved.Exact {
 		// nlopt returned something but was unable to complete the solve. See if the grid check produces something better.
 		err = ptg.gridSim.Solve(ctx, internalSolutionGen, seed, solveMetric, nloptSeed)
 		if err == nil {
