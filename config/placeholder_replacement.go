@@ -181,10 +181,6 @@ func (v *placeholderReplacementVisitor) replacePackagePlaceholder(toReplace stri
 	}
 	packageType := matches[packagePlaceholderRegexp.SubexpIndex("type")]
 	packageName := matches[packagePlaceholderRegexp.SubexpIndex("name")]
-	if packageType == "" {
-		// for backwards compatibility
-		packageType = string(PackageTypeMlModel)
-	}
 	packageConfig, isPresent := v.packages[packageName]
 	if !isPresent {
 		return toReplace, errors.Errorf("failed to find a package named %q for placeholder %q",
