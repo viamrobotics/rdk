@@ -489,7 +489,7 @@ func TestMoveOnMapLongDistance(t *testing.T) {
 	extra := map[string]interface{}{"smooth_iter": 5, "motion_profile": "position_only"}
 	// goal position is scaled to be in mm
 	goalInBaseFrame := spatialmath.NewPoseFromPoint(r3.Vector{X: -32.508 * 1000, Y: -2.092 * 1000})
-	//~ goalInBaseFrame := spatialmath.NewPoseFromPoint(r3.Vector{X: -52.555 * 1000, Y: -27.215 * 1000})
+	// ~ goalInBaseFrame := spatialmath.NewPoseFromPoint(r3.Vector{X: -52.555 * 1000, Y: -27.215 * 1000})
 	goalInSLAMFrame := spatialmath.PoseBetweenInverse(motion.SLAMOrientationAdjustment, goalInBaseFrame)
 
 	t.Run("test tp-space planning on office map", func(t *testing.T) {
