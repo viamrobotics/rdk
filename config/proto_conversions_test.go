@@ -976,7 +976,7 @@ func TestDisablePartialStart(t *testing.T) {
 
 func TestPackageTypeConversion(t *testing.T) {
 	emptyType := PackageType("")
-	converted, err := PackageTypeToProto(emptyType)
+	_, err := PackageTypeToProto(emptyType)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	moduleType := PackageType("module")
