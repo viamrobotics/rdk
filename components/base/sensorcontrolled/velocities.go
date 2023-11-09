@@ -12,7 +12,7 @@ import (
 )
 
 // TODO: RSDK-5355 useControlLoop bool should be removed after testing.
-const useControlLoop = false
+const useControlLoop = true
 
 // setupControlLoops uses the embedded config in this file to initialize a control
 // loop using the controls package and stor in on the sensor controlled base struct
@@ -129,7 +129,7 @@ func (sb *sensorBase) SetState(ctx context.Context, state []*control.Signal) err
 		return nil
 	}
 
-	sb.logger.Info("setting state")
+	// sb.logger.Info("setting state")
 	linvel := state[0].GetSignalValueAt(0)
 	angvel := state[1].GetSignalValueAt(0)
 
@@ -141,7 +141,7 @@ func (sb *sensorBase) SetState(ctx context.Context, state []*control.Signal) err
 // movementsensor and insert its LinearVelocity and AngularVelocity values
 // in the signal in the control loop's thread in the endpoint code.
 func (sb *sensorBase) State(ctx context.Context) ([]float64, error) {
-	sb.logger.Info("getting state")
+	// sb.logger.Info("getting state")
 	linvel, err := sb.velocities.LinearVelocity(ctx, nil)
 	if err != nil {
 		return []float64{}, err

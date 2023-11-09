@@ -33,7 +33,7 @@ var (
 	errNoGoodSensor = errors.New("no appropriate sensor for orientation or velocity feedback")
 )
 
-// Config configures a sencor controlled base.
+// Config configures a sensor controlled base.
 type Config struct {
 	MovementSensor []string `json:"movement_sensor"`
 	Base           string   `json:"base"`
