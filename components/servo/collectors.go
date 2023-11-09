@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	pb "go.viam.com/api/component/servo/v1"
 	"google.golang.org/protobuf/types/known/anypb"
 
 	"go.viam.com/rdk/data"
@@ -22,19 +23,16 @@ func (m method) String() string {
 	return "Unknown"
 }
 
-// Position wraps the returned set angle (degrees) value.
-type Position struct {
-	Position uint32
-}
-
-func newPositionCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+// NewPositionCollector returns a collector to register a position method. If one is already registered
+// with the same MethodMetadata it will panic.
+func NewPositionCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	servo, err := assertServo(resource)
 	if err != nil {
 		return nil, err
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
-		v, err := servo.Position(ctx, data.FromDMExtraMap)
+		pos, err := servo.Position(ctx, data.FromDMExtraMap)
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
@@ -43,7 +41,9 @@ func newPositionCollector(resource interface{}, params data.CollectorParams) (da
 			}
 			return nil, data.FailedToReadErr(params.ComponentName, position.String(), err)
 		}
-		return Position{Position: v}, nil
+		return pb.GetPositionResponse{
+			PositionDeg: pos,
+		}, nil
 	})
 	return data.NewCollector(cFunc, params)
 }
