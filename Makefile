@@ -147,6 +147,6 @@ ffmpeg-h264-static: $(FFMPEG_ROOT)
 		--enable-pic
 	cd $(FFMPEG_ROOT) && make -j$(shell nproc)
 	cd $(FFMPEG_ROOT) && make -j$(shell nproc) install
-	git clean -xdf $(FFMPEG_H264_PREFIX)
+	# git clean -xdf $(FFMPEG_H264_PREFIX)
 
 include *.make

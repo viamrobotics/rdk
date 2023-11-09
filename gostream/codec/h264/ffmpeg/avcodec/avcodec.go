@@ -177,11 +177,6 @@ func (ctxt *Context) Close() int {
 	return int(C.avcodec_close((*C.struct_AVCodecContext)(ctxt)))
 }
 
-// Free frees the AVPacket
-func (p *Packet) Free() {
-	C.av_free_packet((*C.struct_AVPacket)(p))
-}
-
 // Unref Wipe the packet.
 //
 // Unreference the buffer referenced by the packet and reset the
@@ -265,10 +260,4 @@ func (p *Packet) Data() *uint8 {
 // Size returns the packet size
 func (p *Packet) Size() int {
 	return int(p.size)
-}
-
-// RegisterAll Register all codecs, parsers and bitstream filters.
-func RegisterAll() {
-	C.av_register_all()
-	C.avcodec_register_all()
 }
