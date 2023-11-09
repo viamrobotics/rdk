@@ -59,19 +59,19 @@ func NewPmtkI2CGPSNMEA(
 // makePmtkI2cGpsNmea is only split out for ease of testing: you can pass in your own mock I2C bus,
 // or pass in nil to have it create a real one.
 func makePmtkI2cGpsNmea(
-    ctx context.Context,
-    deps resource.Dependencies,
-    config resource.Config,
-    logger golog.Logger,
-	i2cbus board.I2C,
+	ctx context.Context,
+	deps resource.Dependencies,
+	config resource.Config,
+	logger golog.Logger,
+	i2cBus board.I2C,
 ) (NmeaMovementSensor, error) {
 	name := config.ResourceName()
 	conf, err := resource.NativeConfig[*Config](config)
-    if err != nil {
-        return nil, err
-    }
+	if err != nil {
+		return nil, err
+	}
 
-	if i2cbus == nil {
+	if i2cBus == nil {
 		var err error
 		i2cbus, err = genericlinux.GetI2CBus(deps, "", "", conf.I2CConfig.I2CBus)
 		if err != nil {
