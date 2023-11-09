@@ -133,7 +133,7 @@ license-check:
 FFMPEG_ROOT ?= etc/FFmpeg
 $(FFMPEG_ROOT):
 	cd etc && git clone https://github.com/FFmpeg/FFmpeg.git
-	git -C $(FFMPEG_ROOT) checkout release/4.4
+	git -C $(FFMPEG_ROOT) checkout release/6.1
 
 # For ARM64 builds, use the image ghcr.io/viamrobotics/antique:arm64 for backward compatibility
 FFMPEG_H264_PREFIX ?= $(shell realpath .)/gostream/codec/h264/ffmpeg/$(shell uname -s)-$(shell uname -m)
