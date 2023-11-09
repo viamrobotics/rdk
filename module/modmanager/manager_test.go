@@ -663,7 +663,7 @@ func TestDebugModule(t *testing.T) {
 }
 
 func TestModuleDataDirectoryFullstack(t *testing.T) {
-	logger := logging.NewTestLogger(t)
+	logger, logs := logging.NewObservedTestLogger(t)
 	ctx := context.Background()
 
 	parentAddr, err := modlib.CreateSocketAddress(t.TempDir(), "parent")
@@ -683,10 +683,16 @@ func TestModuleDataDirectoryFullstack(t *testing.T) {
 		UntrustedEnv: false,
 		ViamHomeDir:  testViamHomeDir,
 	})
+	// Test that cleaning the data directory before it has been created does not produce log messages
+	err = mgr.CleanModuleDataDirectory()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, logs.FilterMessageSnippet("Removing module data").Len(), test.ShouldEqual, 0)
+
+	// Add the module
 	err = mgr.Add(ctx, modCfg)
 	test.That(t, err, test.ShouldBeNil)
 
-	// add a component that uses the module
+	// Add a component that uses the module
 	myHelperModel := resource.NewModel("rdk", "test", "helper")
 	rNameMyHelper := generic.Named("myhelper")
 	cfgMyHelper := resource.Config{
@@ -724,6 +730,7 @@ func TestModuleDataDirectoryFullstack(t *testing.T) {
 	// test that the data directory is cleaned up
 	err = mgr.CleanModuleDataDirectory()
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, logs.FilterMessageSnippet("Removing module data").Len(), test.ShouldEqual, 1)
 	_, err = os.Stat(filepath.Join(testViamHomeDir, "module-data", "local"))
 	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "no such file or directory")
 

@@ -550,6 +550,10 @@ func (mgr *Manager) CleanModuleDataDirectory() error {
 	if mgr.moduleDataParentDir == "" {
 		return errors.New("cannot clean a root level module data directory")
 	}
+	// Early exit if the moduleDataParentDir has not been created because there is nothing to clean
+	if _, err := os.Stat(mgr.moduleDataParentDir); errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
 	// Absolute path to all dirs that should exist
 	expectedDirs := make(map[string]bool, len(mgr.modules))
 	for _, m := range mgr.modules {
