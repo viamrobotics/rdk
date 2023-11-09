@@ -226,7 +226,7 @@ func (c *collector) getAndPushNextReading() {
 		// If it's not bytes, it's a struct.
 		var pbReading *structpb.Struct
 		var err error
-		if getReadingsResponse, ok := reading.(pb.GetReadingsResponse); ok {
+		if getReadingsResponse, ok := reading.(*pb.GetReadingsResponse); ok {
 			// We special-case the GetReadingsResponse because it already contains
 			// structpb.Values in it, and the StructToStructPb logic does not handle
 			// that cleanly.
