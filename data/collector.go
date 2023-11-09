@@ -12,7 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	v1 "go.viam.com/api/app/datasync/v1"
-	pb "go.viam.com/api/component/sensor/v1"
+	pb "go.viam.com/api/common/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/protoutils"
 	"google.golang.org/grpc/codes"

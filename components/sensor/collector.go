@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	pb "go.viam.com/api/component/sensor/v1"
+	pb "go.viam.com/api/common/v1"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
 
