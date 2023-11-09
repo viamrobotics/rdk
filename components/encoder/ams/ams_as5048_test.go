@@ -39,7 +39,6 @@ func TestConvertBytesToAngle(t *testing.T) {
 }
 
 func setupDependencies(mockData []byte) (resource.Config, resource.Dependencies, board.I2C) {
-
 	i2cConf := &I2CConfig{
 		I2CBus:  "1",
 		I2CAddr: 64,
@@ -115,7 +114,6 @@ func TestAMSEncoder(t *testing.T) {
 }
 
 func setupDependenciesWithWrite(mockData []byte, writeData map[byte]byte) (resource.Config, resource.Dependencies, board.I2C) {
-
 	i2cConf := &I2CConfig{
 		I2CBus:  "1",
 		I2CAddr: 64,

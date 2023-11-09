@@ -137,11 +137,11 @@ func newAS5048Encoder(
 	return makeAS5048Encoder(ctx, deps, conf, logger, bus)
 }
 
-// This function is seperated to inject a mock i2c bus during tests.
+// This function is separated to inject a mock i2c bus during tests.
 func makeAS5048Encoder(ctx context.Context,
 	deps resource.Dependencies,
-	conf resource.Config, logger logging.Logger, bus board.I2C) (encoder.Encoder, error) {
-
+	conf resource.Config, logger logging.Logger, bus board.I2C,
+) (encoder.Encoder, error) {
 	cfg, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return nil, err
