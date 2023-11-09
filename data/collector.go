@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	v1 "go.viam.com/api/app/datasync/v1"
+	pb "go.viam.com/api/common/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/protoutils"
 	"google.golang.org/grpc/codes"
@@ -223,10 +224,23 @@ func (c *collector) getAndPushNextReading() {
 		}
 	default:
 		// If it's not bytes, it's a struct.
-		pbReading, err := protoutils.StructToStructPb(reading)
-		if err != nil {
-			c.captureErrors <- errors.Wrap(err, "error while converting reading to structpb.Struct")
-			return
+		var pbReading *structpb.Struct
+		var err error
+		if getReadingsResponse, ok := reading.(*pb.GetReadingsResponse); ok {
+			// We special-case the GetReadingsResponse because it already contains
+			// structpb.Values in it, and the StructToStructPb logic does not handle
+			// that cleanly.
+			topLevelMap := make(map[string]*structpb.Value)
+			topLevelMap["readings"] = structpb.NewStructValue(
+				&structpb.Struct{Fields: getReadingsResponse.Readings},
+			)
+			pbReading = &structpb.Struct{Fields: topLevelMap}
+		} else {
+			pbReading, err = protoutils.StructToStructPbIgnoreOmitEmpty(reading)
+			if err != nil {
+				c.captureErrors <- errors.Wrap(err, "error while converting reading to structpb.Struct")
+				return
+			}
 		}
 
 		msg = v1.SensorData{

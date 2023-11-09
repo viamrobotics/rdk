@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	pb "go.viam.com/api/component/motor/v1"
 	"google.golang.org/protobuf/types/known/anypb"
 
 	"go.viam.com/rdk/data"
@@ -26,12 +27,9 @@ func (m method) String() string {
 	return "Unknown"
 }
 
-// Position wraps the returned position value.
-type Position struct {
-	Position float64
-}
-
-func newPositionCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+// NewPositionCollector returns a collector to register a position method. If one is already registered
+// with the same MethodMetadata it will panic.
+func NewPositionCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	motor, err := assertMotor(resource)
 	if err != nil {
 		return nil, err
@@ -47,18 +45,16 @@ func newPositionCollector(resource interface{}, params data.CollectorParams) (da
 			}
 			return nil, data.FailedToReadErr(params.ComponentName, position.String(), err)
 		}
-		return Position{Position: v}, nil
+		return pb.GetPositionResponse{
+			Position: v,
+		}, nil
 	})
 	return data.NewCollector(cFunc, params)
 }
 
-// Powered wraps the returned IsPowered value.
-type Powered struct {
-	IsPowered bool
-	PowerPct  float64
-}
-
-func newIsPoweredCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+// NewIsPoweredCollector returns a collector to register an is powered method. If one is already registered
+// with the same MethodMetadata it will panic.
+func NewIsPoweredCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	motor, err := assertMotor(resource)
 	if err != nil {
 		return nil, err
@@ -74,7 +70,10 @@ func newIsPoweredCollector(resource interface{}, params data.CollectorParams) (d
 			}
 			return nil, data.FailedToReadErr(params.ComponentName, isPowered.String(), err)
 		}
-		return Powered{IsPowered: v, PowerPct: powerPct}, nil
+		return pb.IsPoweredResponse{
+			IsOn:     v,
+			PowerPct: powerPct,
+		}, nil
 	})
 	return data.NewCollector(cFunc, params)
 }

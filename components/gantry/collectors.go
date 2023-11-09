@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	pb "go.viam.com/api/component/gantry/v1"
 	"google.golang.org/protobuf/types/known/anypb"
 
 	"go.viam.com/rdk/data"
@@ -26,12 +27,9 @@ func (m method) String() string {
 	return "Unknown"
 }
 
-// Position wraps the returned position values.
-type Position struct {
-	Position []float64
-}
-
-func newPositionCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+// NewPositionCollector returns a collector to register a position method. If one is already registered
+// with the same MethodMetadata it will panic.
+func NewPositionCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	gantry, err := assertGantry(resource)
 	if err != nil {
 		return nil, err
@@ -47,17 +45,16 @@ func newPositionCollector(resource interface{}, params data.CollectorParams) (da
 			}
 			return nil, data.FailedToReadErr(params.ComponentName, position.String(), err)
 		}
-		return Position{Position: v}, nil
+		return pb.GetPositionResponse{
+			PositionsMm: scaleMetersToMm(v),
+		}, nil
 	})
 	return data.NewCollector(cFunc, params)
 }
 
-// Lengths wraps the returns lengths values.
-type Lengths struct {
-	Lengths []float64
-}
-
-func newLengthsCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+// NewLengthsCollector returns a collector to register a lengths method. If one is already registered
+// with the same MethodMetadata it will panic.
+func NewLengthsCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	gantry, err := assertGantry(resource)
 	if err != nil {
 		return nil, err
@@ -73,9 +70,19 @@ func newLengthsCollector(resource interface{}, params data.CollectorParams) (dat
 			}
 			return nil, data.FailedToReadErr(params.ComponentName, lengths.String(), err)
 		}
-		return Lengths{Lengths: v}, nil
+		return pb.GetLengthsResponse{
+			LengthsMm: scaleMetersToMm(v),
+		}, nil
 	})
 	return data.NewCollector(cFunc, params)
+}
+
+func scaleMetersToMm(meters []float64) []float64 {
+	ret := make([]float64, len(meters))
+	for i := range ret {
+		ret[i] = meters[i] * 1000
+	}
+	return ret
 }
 
 func assertGantry(resource interface{}) (Gantry, error) {
