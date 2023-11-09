@@ -931,6 +931,17 @@ var app = &cli.App{
 			HideHelpCommand: true,
 			Subcommands: []*cli.Command{
 				{
+					Name:  "build",
+					Usage: "manage cloud builds of your module",
+					Subcommands: []*cli.Command{
+						{
+							Name:        "start",
+							Description: "heyo",
+							Action:      ModuleBuildStartAction,
+						},
+					},
+				},
+				{
 					Name:  "create",
 					Usage: "create & register a module on app.viam.com",
 					Description: `Creates a module in app.viam.com to simplify code deployment.
