@@ -5,6 +5,7 @@ package data
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"sync"
 	"time"
 
@@ -226,13 +227,14 @@ func (c *collector) getAndPushNextReading() {
 		// If it's not bytes, it's a struct.
 		var pbReading *structpb.Struct
 		var err error
-		if getReadingsResponse, ok := reading.(*pb.GetReadingsResponse); ok {
+
+		if reflect.TypeOf(reading) == reflect.TypeOf(pb.GetReadingsResponse{}) {
 			// We special-case the GetReadingsResponse because it already contains
 			// structpb.Values in it, and the StructToStructPb logic does not handle
 			// that cleanly.
 			topLevelMap := make(map[string]*structpb.Value)
 			topLevelMap["readings"] = structpb.NewStructValue(
-				&structpb.Struct{Fields: getReadingsResponse.Readings},
+				&structpb.Struct{Fields: reading.(pb.GetReadingsResponse).Readings},
 			)
 			pbReading = &structpb.Struct{Fields: topLevelMap}
 		} else {

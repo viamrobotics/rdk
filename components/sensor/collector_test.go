@@ -6,7 +6,6 @@ import (
 	"time"
 
 	clk "github.com/benbjohnson/clock"
-	pb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 	"google.golang.org/protobuf/types/known/structpb"
 
@@ -41,7 +40,7 @@ func TestSensorCollector(t *testing.T) {
 	mockClock.Add(captureInterval)
 
 	test.That(t, buf.Length(), test.ShouldEqual, 1)
-	test.That(t, buf.Writes[0].GetStruct().AsMap(), test.ShouldResemble, tu.ToProtoMapIgnoreOmitEmpty(getExpectedMap(readingMap)))
+	test.That(t, buf.Writes[0].GetStruct().AsMap(), test.ShouldResemble, getExpectedMap(readingMap).AsMap())
 }
 
 func newSensor() sensor.Sensor {
@@ -52,13 +51,16 @@ func newSensor() sensor.Sensor {
 	return s
 }
 
-func getExpectedMap(data map[string]any) pb.GetReadingsResponse {
+func getExpectedMap(data map[string]any) *structpb.Struct {
 	readings := make(map[string]*structpb.Value)
 	for name, value := range data {
 		val, _ := structpb.NewValue(value)
 		readings[name] = val
 	}
-	return pb.GetReadingsResponse{
-		Readings: readings,
-	}
+
+	topLevelMap := make(map[string]*structpb.Value)
+	topLevelMap["readings"] = structpb.NewStructValue(
+		&structpb.Struct{Fields: readings},
+	)
+	return &structpb.Struct{Fields: topLevelMap}
 }
