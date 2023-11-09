@@ -6,7 +6,7 @@ import (
 	"time"
 
 	clk "github.com/benbjohnson/clock"
-	pb "go.viam.com/api/component/sensor/v1"
+	pb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 	"google.golang.org/protobuf/types/known/structpb"
 
