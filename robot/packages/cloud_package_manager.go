@@ -128,6 +128,11 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 
 	newManagedPackages := make(map[PackageName]*managedPackage, len(packages))
 
+	areManaged := m.packagesAreManaged(packages)
+	if !areManaged {
+		m.logger.Info("Package changes have been detected, starting sync")
+	}
+
 	for idx, p := range packages {
 		if err := ctx.Err(); err != nil {
 			return multierr.Append(outErr, err)
@@ -144,7 +149,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		// Package exists in known cache.
 		existing, ok := m.managedPackages[PackageName(p.Name)]
 		if ok {
-			if existing.thePackage.Package == p.Package && existing.thePackage.Version == p.Version {
+			if m.packageIsManaged(p) {
 				m.logger.Debug("Package already managed, skipping")
 				newManagedPackages[PackageName(p.Name)] = existing
 				continue
@@ -189,13 +194,38 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		// add to managed packages
 		newManagedPackages[PackageName(p.Name)] = &managedPackage{thePackage: p, modtime: time.Now()}
 
-		m.logger.Debugf("Sync complete after %v", time.Since(start))
+		if !areManaged {
+			m.logger.Infof("Package sync complete after %v", time.Since(start))
+		}
 	}
 
 	// swap for new managed packags.
 	m.managedPackages = newManagedPackages
 
 	return outErr
+}
+
+func (m *cloudManager) packagesAreManaged(packages []config.PackageConfig) bool {
+	for _, p := range packages {
+		// don't consider invalid config as synced or unsynced
+		if err := p.Validate(""); err != nil {
+			continue
+		}
+		if existing := m.packageIsManaged(p); !existing {
+			return false
+		}
+	}
+	return true
+}
+
+func (m *cloudManager) packageIsManaged(p config.PackageConfig) bool {
+	existing, ok := m.managedPackages[PackageName(p.Name)]
+	if ok {
+		if existing.thePackage.Package == p.Package && existing.thePackage.Version == p.Version {
+			return true
+		}
+	}
+	return false
 }
 
 // Cleanup removes all unknown packages from the working directory.
