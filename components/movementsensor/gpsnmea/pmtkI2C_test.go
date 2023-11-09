@@ -40,22 +40,6 @@ func createMockI2c() board.I2C {
 	return i2c
 }
 
-func setupDependencies(t *testing.T) resource.Dependencies {
-	t.Helper()
-
-	deps := make(resource.Dependencies)
-
-	actualBoard := inject.NewBoard(testBoardName)
-	i2c1 := createMockI2c()
-	actualBoard.I2CByNameFunc = func(name string) (board.I2C, bool) {
-		return i2c1, true
-	}
-
-	deps[board.Named(testBoardName)] = actualBoard
-
-	return deps
-}
-
 func TestValidateI2C(t *testing.T) {
 	fakecfg := &I2CConfig{I2CBus: "1"}
 
@@ -70,20 +54,19 @@ func TestValidateI2C(t *testing.T) {
 }
 
 func TestNewI2CMovementSensor(t *testing.T) {
-	deps := setupDependencies(t)
-
 	conf := resource.Config{
 		Name:  "movementsensor1",
 		Model: resource.DefaultModelFamily.WithModel("gps-nmea"),
 		API:   movementsensor.API,
 	}
 
+	var deps resource.Dependencies
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 
-	mockI2cBus := createMockI2c()
-
-	g1, err := makePmtkI2cGpsNmea(ctx, deps, conf, logger, mockI2cBus)
+	// We try constructing a "real" component here, expecting that we never get past the config
+	// validation step.
+	g1, err := newNMEAGPS(ctx, deps, conf, logger)
 	test.That(t, g1, test.ShouldBeNil)
 	test.That(t, err, test.ShouldBeError,
 		utils.NewUnexpectedTypeError[*Config](conf.ConvertedAttributes))
@@ -98,7 +81,12 @@ func TestNewI2CMovementSensor(t *testing.T) {
 			I2CConfig:      &I2CConfig{I2CBus: testBusName},
 		},
 	}
-	g2, err := newNMEAGPS(ctx, deps, conf, logger)
+	config, err := resource.NativeConfig[*Config](conf)
+	test.That(t, err, test.ShouldBeNil)
+	mockI2c := createMockI2c()
+
+	// This time, we *do* expect to construct a real object, so we need to pass in a mock I2C bus.
+	g2, err := makePmtkI2cGpsNmea(ctx, deps, conf.ResourceName(), config, logger, mockI2c)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, g2.Close(context.Background()), test.ShouldBeNil)
 	test.That(t, g2, test.ShouldNotBeNil)

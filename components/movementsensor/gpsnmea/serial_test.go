@@ -39,7 +39,7 @@ func TestValidateSerial(t *testing.T) {
 }
 
 func TestNewSerialMovementSensor(t *testing.T) {
-	deps := setupDependencies(t)
+	var deps resource.Dependencies
 	path := "somepath"
 
 	cfig := resource.Config{
