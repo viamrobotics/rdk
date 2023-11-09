@@ -224,22 +224,22 @@ func ResetPoseDQTranslation(p Pose, v r3.Vector) {
 	q.SetTranslation(v)
 }
 
-type URDFPoseXML struct {
+type URDFPose struct {
 	XMLName xml.Name `xml:"origin"`
 	RPY     string   `xml:"rpy,attr"` // Fixed frame angle "r p y" format, in radians
 	XYZ     string   `xml:"xyz,attr"` // "x y z" format, in meters
 }
 
-func NewURDFPoseXML(p Pose) *URDFPoseXML {
+func NewURDFPose(p Pose) *URDFPose {
 	pt := p.Point()
 	o := p.Orientation().EulerAngles()
-	return &URDFPoseXML{
+	return &URDFPose{
 		XYZ: fmt.Sprintf("%f %f %f", utils.MMToMeters(pt.X), utils.MMToMeters(pt.Y), utils.MMToMeters(pt.Z)),
 		RPY: fmt.Sprintf("%f %f %f", o.Roll, o.Pitch, o.Yaw),
 	}
 }
 
-func (urdf *URDFPoseXML) Parse() Pose {
+func (urdf *URDFPose) Parse() Pose {
 	// Offset for the geometry origin from the reference link origin
 	xyz := utils.SpaceDelimitedStringToFloatSlice(urdf.XYZ)
 	rpy := utils.SpaceDelimitedStringToFloatSlice(urdf.RPY)

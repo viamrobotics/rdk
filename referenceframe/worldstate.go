@@ -161,3 +161,33 @@ func (ws *WorldState) ObstaclesInWorldFrame(fs FrameSystem, inputs map[string][]
 	}
 	return NewGeometriesInFrame(World, allGeometries), nil
 }
+
+func (ws *WorldState) ToURDF(name string) (*URDFConfig, error) {
+	links := make([]URDFLink, 0)
+	joints := make([]URDFJoint, 0)
+	for _, gf := range ws.obstacles {
+		// this first link represents the frame the geometries are with respect to
+		links = append(links, URDFLink{Name: gf.frame})
+		for _, g := range gf.geometries {
+			collision, err := spatialmath.NewURDFCollision(g)
+			if err != nil {
+				return nil, err
+			}
+			links = append(links, URDFLink{
+				Name:      g.Label(),
+				Collision: []spatialmath.URDFCollision{*collision},
+			})
+			joints = append(joints, URDFJoint{
+				Name:   g.Label() + "_joint",
+				Type:   "fixed",
+				Parent: URDFFrame{gf.frame},
+				Child:  URDFFrame{g.Label()},
+			})
+		}
+	}
+	return &URDFConfig{
+		Name:   name,
+		Links:  links,
+		Joints: joints,
+	}, nil
+}

@@ -90,14 +90,6 @@ func (b *box) MarshalJSON() ([]byte, error) {
 	return json.Marshal(config)
 }
 
-// func (b *box) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
-// 	config, err := NewGeometryConfig(b)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	return xml.Marshal(config)
-// }
-
 // SetLabel sets the label of this box.
 func (b *box) SetLabel(label string) {
 	b.label = label
@@ -493,13 +485,13 @@ func transformPointsToPose(facePoints []r3.Vector, pose Pose) []r3.Vector {
 	return transformedVectors
 }
 
-type urdfBoxXML struct {
+type urdfBox struct {
 	XMLName xml.Name `xml:"box"`
 	Size    string   `xml:"size,attr"` // "x y z" format, in meters
 }
 
-func newURDFBoxXML(b *box) *urdfBoxXML {
-	return &urdfBoxXML{Size: fmt.Sprintf("%f %f %f",
+func newURDFBox(b *box) *urdfBox {
+	return &urdfBox{Size: fmt.Sprintf("%f %f %f",
 		utils.MMToMeters(2*b.halfSize[0]),
 		utils.MMToMeters(2*b.halfSize[1]),
 		utils.MMToMeters(2*b.halfSize[2]),

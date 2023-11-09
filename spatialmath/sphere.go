@@ -218,11 +218,11 @@ func (s *sphere) ToPoints(resolution float64) []r3.Vector {
 	return transformPointsToPose(vecList, s.Pose())
 }
 
-type urdfSphereXML struct {
+type urdfSphere struct {
 	XMLName xml.Name `xml:"sphere"`
 	Radius  float64  `xml:"radius,attr"` // in meters
 }
 
-func newURDFSphereXML(s *sphere) *urdfSphereXML {
-	return &urdfSphereXML{Radius: utils.MMToMeters(s.radius)}
+func newURDFSphere(s *sphere) *urdfSphere {
+	return &urdfSphere{Radius: utils.MMToMeters(s.radius)}
 }

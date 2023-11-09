@@ -22,34 +22,31 @@ type URDFConfig struct {
 
 // URDFLink is a struct which details the XML used in a URDF link element.
 type URDFLink struct {
-	XMLName   xml.Name                       `xml:"link"`
-	Name      string                         `xml:"name,attr"`
-	Collision []spatialmath.URDFCollisionXML `xml:"collision"`
+	XMLName   xml.Name                    `xml:"link"`
+	Name      string                      `xml:"name,attr"`
+	Collision []spatialmath.URDFCollision `xml:"collision"`
+}
+
+type URDFLimit struct {
+	XMLName xml.Name `xml:"limit"`
+	Lower   float64  `xml:"lower,attr"` // translation limits are in meters, revolute limits are in radians
+	Upper   float64  `xml:"upper,attr"` // translation limits are in meters, revolute limits are in radians
+}
+
+type URDFFrame struct {
+	Link string `xml:"link,attr"`
 }
 
 // URDFJoint is a struct which details the XML used in a URDF joint element.
 type URDFJoint struct {
-	XMLName xml.Name                 `xml:"joint"`
-	Name    string                   `xml:"name,attr"`
-	Type    string                   `xml:"type,attr"`
-	Origin  *spatialmath.URDFPoseXML `xml:"origin"`
-	Parent  struct {
-		XMLName xml.Name `xml:"parent"`
-		Link    string   `xml:"link,attr"`
-	} `xml:"parent"`
-	Child struct {
-		XMLName xml.Name `xml:"child"`
-		Link    string   `xml:"link,attr"`
-	} `xml:"child"`
-	Axis struct {
-		XMLName xml.Name `xml:"axis"`
-		XYZ     string   `xml:"xyz,attr"` // "x y z" format, in meters
-	} `xml:"axis"`
-	Limit struct {
-		XMLName xml.Name `xml:"limit"`
-		Lower   float64  `xml:"lower,attr"` // translation limits are in meters, revolute limits are in radians
-		Upper   float64  `xml:"upper,attr"` // translation limits are in meters, revolute limits are in radians
-	} `xml:"limit"`
+	XMLName xml.Name              `xml:"joint"`
+	Name    string                `xml:"name,attr"`
+	Type    string                `xml:"type,attr"`
+	Parent  URDFFrame             `xml:"parent"`
+	Child   URDFFrame             `xml:"child"`
+	Origin  *spatialmath.URDFPose `xml:"origin,omitempty"`
+	Axis    *spatialmath.URDFAxis `xml:"axis,omitempty"`
+	Limit   *URDFLimit            `xml:"limit,omitempty"`
 }
 
 // ParseURDFFile will read a given file and parse the contained URDF XML data into an equivalent ModelConfig struct.
@@ -112,12 +109,13 @@ func ConvertURDFToConfig(xmlData []byte, modelName string) (*ModelConfig, error)
 		switch jointElem.Type {
 		case ContinuousJoint, RevoluteJoint, PrismaticJoint:
 			// Parse important details about each joint, including axes and limits
-			jointAxes := utils.SpaceDelimitedStringToFloatSlice(jointElem.Axis.XYZ)
 			thisJoint := JointConfig{
 				ID:     jointElem.Name,
 				Type:   jointElem.Type,
 				Parent: jointElem.Parent.Link,
-				Axis:   spatialmath.AxisConfig{jointAxes[0], jointAxes[1], jointAxes[2]},
+			}
+			if jointElem.Axis != nil {
+				thisJoint.Axis = jointElem.Axis.Parse()
 			}
 
 			// Slightly different limits handling for continuous, revolute, and prismatic joints

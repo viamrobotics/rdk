@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/golang/geo/r3"
+	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/rdk/utils"
 )
@@ -190,46 +191,44 @@ func (config *GeometryConfig) ToProtobuf() (*commonpb.Geometry, error) {
 	return creator.ToProtobuf(), nil
 }
 
-// URDFCollisionXML is a struct which details the XML used in a URDF collision geometry
-type URDFCollisionXML struct {
-	XMLName  xml.Name     `xml:"collision"`
-	Name     string       `xml:"name,attr"`
-	Origin   *URDFPoseXML `xml:"origin"`
+// URDFCollision is a struct which details the XML used in a URDF collision geometry
+type URDFCollision struct {
+	XMLName  xml.Name  `xml:"collision"`
+	Origin   *URDFPose `xml:"origin"`
 	Geometry struct {
-		XMLName xml.Name       `xml:"geometry"`
-		Box     *urdfBoxXML    `xml:"box,omitempty"`
-		Sphere  *urdfSphereXML `xml:"sphere,omitempty"`
+		XMLName xml.Name    `xml:"geometry"`
+		Box     *urdfBox    `xml:"box,omitempty"`
+		Sphere  *urdfSphere `xml:"sphere,omitempty"`
 	} `xml:"geometry"`
 }
 
-func NewURDFCollisionXML(g Geometry) (*URDFCollisionXML, error) {
-	urdf := &URDFCollisionXML{
-		Name:   g.Label(),
-		Origin: NewURDFPoseXML(g.Pose()),
+func NewURDFCollision(g Geometry) (*URDFCollision, error) {
+	urdf := &URDFCollision{
+		Origin: NewURDFPose(g.Pose()),
 	}
 	switch gType := g.(type) {
 	case *box:
-		urdf.Geometry.Box = newURDFBoxXML(gType)
+		urdf.Geometry.Box = newURDFBox(gType)
 	case *sphere:
-		urdf.Geometry.Sphere = newURDFSphereXML(gType)
+		urdf.Geometry.Sphere = newURDFSphere(gType)
 	default:
 		return nil, fmt.Errorf("%w %s", errGeometryTypeUnsupported, fmt.Sprintf("%T", gType))
 	}
 	return urdf, nil
 }
 
-func (urdf *URDFCollisionXML) Parse() (Geometry, error) {
+func (urdf *URDFCollision) Parse() (Geometry, error) {
 	switch {
 	case urdf.Geometry.Box != nil:
 		dims := utils.SpaceDelimitedStringToFloatSlice(urdf.Geometry.Box.Size)
 		return NewBox(
 			urdf.Origin.Parse(),
 			r3.Vector{X: utils.MetersToMM(dims[0]), Y: utils.MetersToMM(dims[1]), Z: utils.MetersToMM(dims[2])},
-			urdf.Name,
+			"",
 		)
 	case urdf.Geometry.Sphere != nil:
-		return NewSphere(urdf.Origin.Parse(), utils.MetersToMM(urdf.Geometry.Sphere.Radius), urdf.Name)
+		return NewSphere(urdf.Origin.Parse(), utils.MetersToMM(urdf.Geometry.Sphere.Radius), "")
 	default:
-		return nil, fmt.Errorf("couldn't parse xml: no geometry defined")
+		return nil, errors.Errorf("couldn't parse xml: no geometry defined")
 	}
 }

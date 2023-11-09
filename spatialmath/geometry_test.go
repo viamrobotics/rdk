@@ -5,6 +5,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"math"
+	"os"
 	"testing"
 
 	"github.com/golang/geo/r3"
@@ -64,43 +65,6 @@ func TestGeometrySerializationJSON(t *testing.T) {
 	}
 }
 
-func TestGeometrySerializationXML(t *testing.T) {
-	box, err := NewBox(NewPose(r3.Vector{10, 2, 3}, &OrientationVectorDegrees{OZ: 1, Theta: 30}), r3.Vector{4, 5, 6}, "foo")
-	test.That(t, err, test.ShouldBeNil)
-	sphere, err := NewSphere(NewZeroPose(), 3.3, "bar")
-	test.That(t, err, test.ShouldBeNil)
-	capsule, err := NewCapsule(NewZeroPose(), 1, 10, "matt")
-	test.That(t, err, test.ShouldBeNil)
-
-	testCases := []struct {
-		name    string
-		g       Geometry
-		success bool
-	}{
-		{"box", box, true},
-		{"sphere", sphere, true},
-		{"capsule", capsule, false},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			urdf, err := NewURDFCollisionXML(tc.g)
-			if !tc.success {
-				test.That(t, err.Error(), test.ShouldContainSubstring, errGeometryTypeUnsupported.Error())
-				return
-			}
-			test.That(t, err, test.ShouldBeNil)
-			bytes, err := xml.MarshalIndent(urdf, "", "  ")
-			test.That(t, err, test.ShouldBeNil)
-			var urdf2 URDFCollisionXML
-			xml.Unmarshal(bytes, &urdf2)
-			g2, err := urdf2.Parse()
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, tc.g.AlmostEqual(g2), test.ShouldBeTrue)
-		})
-	}
-}
-
 func TestGeometryToFromProtobuf(t *testing.T) {
 	deg45 := math.Pi / 4
 	testCases := []struct {
@@ -123,6 +87,44 @@ func TestGeometryToFromProtobuf(t *testing.T) {
 	// test that bad message does not generate error
 	_, err := NewGeometryFromProto(&commonpb.Geometry{Center: PoseToProtobuf(NewZeroPose())})
 	test.That(t, err.Error(), test.ShouldContainSubstring, errGeometryTypeUnsupported.Error())
+}
+
+func TestGeometrySerializationXML(t *testing.T) {
+	box, err := NewBox(NewPose(r3.Vector{10, 2, 3}, &OrientationVectorDegrees{OZ: 1, Theta: 30}), r3.Vector{4, 5, 6}, "")
+	test.That(t, err, test.ShouldBeNil)
+	sphere, err := NewSphere(NewZeroPose(), 3.3, "")
+	test.That(t, err, test.ShouldBeNil)
+	capsule, err := NewCapsule(NewZeroPose(), 1, 10, "")
+	test.That(t, err, test.ShouldBeNil)
+
+	testCases := []struct {
+		name    string
+		g       Geometry
+		success bool
+	}{
+		{"box", box, true},
+		{"sphere", sphere, true},
+		{"capsule", capsule, false},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			urdf, err := NewURDFCollision(tc.g)
+			if !tc.success {
+				test.That(t, err.Error(), test.ShouldContainSubstring, errGeometryTypeUnsupported.Error())
+				return
+			}
+			test.That(t, err, test.ShouldBeNil)
+			bytes, err := xml.MarshalIndent(urdf, "", "  ")
+			test.That(t, err, test.ShouldBeNil)
+			os.WriteFile(tc.name+".urdf", bytes, 0666)
+			var urdf2 URDFCollision
+			xml.Unmarshal(bytes, &urdf2)
+			g2, err := urdf2.Parse()
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, tc.g.AlmostEqual(g2), test.ShouldBeTrue)
+		})
+	}
 }
 
 type geometryComparisonTestCase struct {

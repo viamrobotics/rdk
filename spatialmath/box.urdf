@@ -1,0 +1,6 @@
+<collision>
+  <origin rpy="0.000000 0.000000 0.523599" xyz="0.010000 0.002000 0.003000"></origin>
+  <geometry>
+    <box size="0.004000 0.005000 0.006000"></box>
+  </geometry>
+</collision>
