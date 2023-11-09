@@ -16,6 +16,7 @@ import (
 	goutils "go.viam.com/utils"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/services/datamanager/datacapture"
@@ -277,7 +278,7 @@ func exponentialRetry(cancelCtx context.Context, fn func(cancelCtx context.Conte
 // returns false so that the data gets moved to the corrupted data directory.
 func isRetryableGRPCError(err error) bool {
 	errStatus := status.Convert(err)
-	return errStatus.Code() != codes.InvalidArgument
+	return errStatus.Code() != codes.InvalidArgument && !errors.Is(err, proto.Error)
 }
 
 // moveFailedData takes any data that could not be synced in the captureDir and
